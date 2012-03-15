@@ -166,40 +166,6 @@ OPTselcrackImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 				}
 			}
 
-			if (varGetProp(mb, getArg(p,1), canBeJoinselectProp) != NULL){
-				InstrPtr newJoinselect, oldSemijoin;
-			
-				oldSemijoin = old[varGetProp(mb, getArg(p,1), canBeJoinselectProp)->value.val.ival];
-			
-				/* create the new operator call */	
-				newJoinselect = newInstruction(mb,ASSIGNsymbol);
-				getArg(newJoinselect,0) = getArg(p,0);
-				setModuleId(newJoinselect, putName("crackers", 8));
-				if (match2(p, algebraRef, selectRef))
-					setFunctionId(newJoinselect, putName("joinselect", 10));
-				else 
-				if (match2(p, algebraRef, uselectRef)) 
-					setFunctionId(newJoinselect, putName("joinuselect", 11));
-				else 
-				if (match2(p, algebraRef, thetauselectRef)) 
-					setFunctionId(newJoinselect, putName("jointhetauselect", 16));
-				newJoinselect= pushArgument(mb, newJoinselect, getArg(oldSemijoin, 1));
-				for(j=2; j< p->argc; j++)
-					newJoinselect= pushArgument(mb, newJoinselect, getArg(p, j));
-				newJoinselect= pushArgument(mb, newJoinselect, getArg(oldSemijoin, 2));
-				newJoinselect= pushBit(mb,newJoinselect,FALSE);
-				newJoinselect= pushBit(mb,newJoinselect,FALSE);
-				/* printInstruction(cntxt->fdout,mb, 0, newJoinselect,0); */
-
-				/* replace the current with the new one and remove the prev semijoin*/
-				freeInstruction(p);
-				old[i]=newJoinselect;
-				removeInstruction(mb, oldSemijoin);
-				i--;
-
-				actions++;
-				continue;
-			}
 		}
 	}
 
