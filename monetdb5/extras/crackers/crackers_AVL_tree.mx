@@ -335,6 +335,10 @@ printAVLTree(struct Node * current, BAT *b, BUN base){
 	cur = base + current->position;
 	if (current->deleted == FALSE) {
 		printf("\n Pos: "OIDFMT", PosBat: "OIDFMT", Val: %d,  Hols: "OIDFMT", Slice: %d ", current->position, *(oid*)Hloc(b, cur), *(int*)Tloc(b, cur), current->hols, current->slice );
+		if (current->inclusive ==TRUE)
+			printf(" inclusive=TRUE");
+		else
+			printf(" inclusive=FALSE");
 	} else
 		printf("\n DELETED "OIDFMT", %d  Hols:"OIDFMT , *(oid*)Hloc(b, cur), *(int*)Tloc(b, cur), current->hols );
 	
@@ -382,12 +386,29 @@ GetLow_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, oid *p1
 			return GetLow_@1(x, inclusive, current->right, b, base, p1, p2, getPreviousPosition(current, b, base, previous), next);
 	}
 
-	if ( @2_EQ(&x,curValue,@3@1) && (inclusive == FALSE || (inclusive == TRUE && current->inclusive == TRUE)) ){
+	if ( @2_EQ(&x,curValue,@3@1) && ((inclusive == FALSE && current->inclusive == FALSE)|| (inclusive == TRUE && current->inclusive == TRUE)) ){
 		*p1 = *(oid*)Hloc(b, cur);	
 		return 1;
 	}	
 
-       	if ( @2_LT(&x,curValue,@3@1) || @2_EQ(&x,curValue,@3@1) ){
+	else if ( @2_EQ(&x,curValue,@3@1) && ((inclusive == FALSE && current->inclusive == TRUE)|| (inclusive == TRUE && current->inclusive == FALSE)) ){
+
+
+		if(inclusive == TRUE && current->inclusive == FALSE)
+		{
+			*p1 = previous;
+			*p2 = *(oid*)Hloc(b, cur);
+			return 0;
+		}
+		if(inclusive == FALSE && current->inclusive == TRUE)
+		{
+			*p1=*(oid*)Hloc(b, cur);
+			*p2=next;
+			return 0;
+		}
+	}	
+
+       	else if ( @2_LT(&x,curValue,@3@1)  ){
 
 		if (current->left == NULL){
 			/* crack from the begining of the bat */
@@ -444,12 +465,29 @@ GetHgh_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, oid *p1
 
 	}
 
-	if ( @2_EQ(&x,curValue,@3@1) && (inclusive == FALSE || (inclusive == TRUE && current->inclusive == FALSE))){
+	if ( @2_EQ(&x,curValue,@3@1) && ((inclusive == FALSE &&  current->inclusive == TRUE)|| (inclusive == TRUE && current->inclusive == FALSE))){
 		*p2 = *(oid*)Hloc(b, cur);	
 		return 1;
 	}	
 
-	if ( @2_GT(&x,curValue,@3@1) || @2_EQ(&x,curValue,@3@1) ){
+	else if ( @2_EQ(&x,curValue,@3@1) && ((inclusive == FALSE &&  current->inclusive == FALSE)|| (inclusive == TRUE && current->inclusive == TRUE)) ){
+	
+		if(inclusive == FALSE &&  current->inclusive == FALSE)
+		{
+			*p1=previous;
+			*p2 = *(oid*)Hloc(b, cur);
+			return 0;
+		}
+		if(inclusive == TRUE && current->inclusive == TRUE)
+		{
+			*p1 = *(oid*)Hloc(b, cur);
+                	*p2 = next;
+			return 0;
+		}
+	}
+
+	else if ( @2_GT(&x,curValue,@3@1) ){
+
 
 		if (current->right == NULL){
 			/* crack until the end of the BAT if this was the last index entry but the needed value is still bigger */
@@ -605,8 +643,9 @@ InsertTree_@1(int m, oid indexPosition, @1 value, bit inclusive, oid crackPositi
 
 	if (current == NULL){
         	current = (struct Node *)GDKmalloc(sizeof(struct Node));
-		if (current == NULL)
+		if (current == NULL){
 			return NULL;
+		}
                 current->position = indexPosition;
                 current->inclusive = inclusive;
 		current->height = 0;
@@ -670,8 +709,9 @@ InsertTree_@1(int m, oid indexPosition, @1 value, bit inclusive, oid crackPositi
 		}
 	}
 
-        if ( @2_LT(&value,curValue,@3@1) || (@2_EQ(&value,curValue,@3@1) && inclusive == TRUE && current->inclusive == FALSE) ){
+        if ( @2_LT(&value,curValue,@3@1) ){
 
+		/*If the value is less than the value in the current node and its left child is NULL, return NULL*/
 		if ( (temp = InsertTree_@1(m, indexPosition, value, inclusive, crackPosition, current->left, b, base, newNode)) == NULL)
                 	return NULL;
 
@@ -683,15 +723,15 @@ InsertTree_@1(int m, oid indexPosition, @1 value, bit inclusive, oid crackPositi
 		        Lchild = base + current->left->position;
         		LchildValue = (@1*)Tloc(b, Lchild);
 
-                    	if ( @2_LT(&value,LchildValue,@3@1) || (@2_EQ(&value,LchildValue,@3@1) && 
-			     inclusive == TRUE && current->left->inclusive == FALSE) )
+                    	if ( @2_LT(&value,LchildValue,@3@1) )
                         	current = SingleRotateLeft(&(CrackerIndex[m].Tree), current);
                     	else
                         	current = DoubleRotateLeft(&(CrackerIndex[m].Tree), current);
 		}
         } else
-        if ( @2_GT(&value,curValue,@3@1) || (@2_EQ(&value,curValue,@3@1) && inclusive == FALSE && current->inclusive == TRUE) ){
+        if ( @2_GT(&value,curValue,@3@1) ){
 
+		/*If the value is greater than the value in the current node and its right child is NULL, return NULL*/
 		if ( (temp = InsertTree_@1(m, indexPosition, value, inclusive, crackPosition, current->right, b, base, newNode)) == NULL )
 			return NULL;
 
@@ -704,13 +744,14 @@ InsertTree_@1(int m, oid indexPosition, @1 value, bit inclusive, oid crackPositi
 			Rchild = base + current->right->position;
                         RchildValue = (@1*)Tloc(b, Rchild);
 
-                        if ( @2_GT(&value,RchildValue,@3@1) || (@2_EQ(&value,RchildValue,@3@1) && 
-			     inclusive == FALSE && current->right->inclusive == TRUE) )
+                        if ( @2_GT(&value,RchildValue,@3@1) )
                         	current = SingleRotateRight(&(CrackerIndex[m].Tree), current);
                     	else
                         	current = DoubleRotateRight(&(CrackerIndex[m].Tree), current);
 		}
-        }
+        }else 
+	if (@2_EQ(&value,curValue,@3@1) ){ fprintf(stderr,"\nNODE ALREADY EXISTS\n"); return current;}
+
 
 	end:;
 	lh = Height(current->left);

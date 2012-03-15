@@ -491,8 +491,11 @@ addCrackerIndex_@1(int m, @1 *value, bit inclusive, oid index, BAT * b){
 	ph = (oid*)Hloc(b, BUNlast(b));
 	pt = (@1 *)Tloc(b, BUNlast(b));
 
-	count = BATcount(b);
+
+
+	count = BATcount(b);	/*The function BATcount returns the number of activated bat elements*/
         if (count == (oid)0){
+		/*The function InsertIndexElement makes *(oid*)Hloc(b, BUNfirst(b))==index and *(@1*)Tloc(b, BUNfirst(b))==*value */
                 @:insertIndexElement(@1, (oid*)Hloc(b, BUNfirst(b)), (@1*)Tloc(b, BUNfirst(b)), index, *value)@
 		CrackerIndex[m].Tree = (struct Node *)GDKmalloc(sizeof(struct Node));
                 CrackerIndex[m].Tree->position = (oid)0;
@@ -517,7 +520,6 @@ addCrackerIndex_@1(int m, @1 *value, bit inclusive, oid index, BAT * b){
 	res = InsertTree_@1(m, count, *value, inclusive, index, CrackerIndex[m].Tree, b, base, &newNode);
 
 	if (newNode==NULL){
-		mnstr_printf(GDKout,"\n Inserting into the Tree failed: possibly node existed already or a malloc failed \n");
 		return NULL;
 	}
 	CrackerIndex[m].pieces++;
