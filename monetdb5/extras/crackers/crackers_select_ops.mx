@@ -266,11 +266,7 @@ createView:
 		the other indices as it is shown */
 	oid _vl;
 	bit HBound, foundLow=0, foundHgh=0;
-	int gapL = 1;
-	int gapH = 1;
-	bit rippledDeletions = FALSE;
-	struct Node *lowNode=NULL, *hghNode=NULL, *lowNodeNext=NULL, *temp;
-	BUN idxFirst;
+	int *t;
 	bit copy=TRUE;
 	
 	if (@2_GT(low,hgh,@3@1))
@@ -313,6 +309,8 @@ createView:
 
 			/*printf(" "LLFMT" \n ",posh-posl);*/
 			@:crkThreeTree@5(@1,posl,posh,@5)@
+
+			fprintf(stderr,"\ncl1= "OIDFMT" ch1= "OIDFMT" cl2= "OIDFMT" ch2= "OIDFMT" vl= "OIDFMT" vh= "OIDFMT" ", cl1,ch1,cl2,ch2,vl,vh );	
 			
 			BBPincref(b->batCacheid,TRUE);
 			BBPunfix(bo->batCacheid);
@@ -409,6 +407,14 @@ createView:
 
 	/* find out where in the index the high falls */
 	foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
+	
+	printAVLTree(CrackerIndex[m].Tree, c, BUNfirst(c));
+	/*BATprint(BATdescriptor(CrackerIndex[m].cbid));*/ /*Print the cracker column BAT*/
+	BATprint(BATdescriptor(CrackerIndex[m].cid));  /*print the cracker index for BAT*/
+	t=(int *)Tloc(c,BUNfirst(c));
+
+	fprintf(stderr,"FoundLow=%d  FoundHgh=%d\n",foundLow,foundHgh);
+	fprintf(stderr,"cl1= "OIDFMT" ch1= "OIDFMT" cl2= "OIDFMT" ch2= "OIDFMT" vl= "OIDFMT" vh= "OIDFMT" \n", cl1,ch1,cl2,ch2,vl,vh );
 
 	/*need to increase one position for the low bound only since we always store the previous position in the index*/
 	if (cl1 != 0) cl1++;
@@ -423,12 +429,7 @@ createView:
 	index then we have to crack */
 	if (foundLow == 0 || foundHgh == 0){
 		if (foundLow == 0 && foundHgh == 0){
-			/* If ch2 is right after cl1 in the index then we split this piece in three pieces*/
-			if (cl1 == cl2){
-				/*CRACK in three pieces cl1-ch2 */
-				@:crkThreeTree@5(@1,cl1,ch2,@5)@
-			} else {
-				/* Else we have to do two cracks separatelly */
+				/* We have to do two cracks separatelly */
 	
 				/* For the cl bound and the next one in the index*/
 				@:crkTwoLTree@5(@1,@5)@
@@ -454,20 +455,28 @@ createView:
 				addCrackerIndex_@1(m,low,*inclusiveLow,_vl,c);
 			}
 			vh = ch2;
-		} else
+
+			fprintf(stderr,"cl1= "OIDFMT" ch1= "OIDFMT" cl2= "OIDFMT" ch2= "OIDFMT" vl= "OIDFMT" vh= "OIDFMT" \n", cl1,ch1,cl2,ch2,vl,vh );	
+			fprintf(stderr,"value(vl)=%d  value(vh)=%d\n",t[vl],t[vh]);
+
+	} else
 		if (foundHgh == 0){
 			@:crkTwoRTree@5(@1,@5)@
 
 			if (IndexSize <IndexStop)
 				 addCrackerIndex_@1(m,hgh,HBound,vh,c);
 			vl = cl1;
+			fprintf(stderr,"cl1= "OIDFMT" ch1= "OIDFMT" cl2= "OIDFMT" ch2= "OIDFMT" vl= "OIDFMT" vh= "OIDFMT" \n", cl1,ch1,cl2,ch2,vl,vh );	
+			fprintf(stderr,"value(vl)=%d  value(vh)=%d\n",t[vl],t[vh]);
+
 		} 	
 	} else {
 		vl = cl1;
 		vh = ch2;
 	}
 
-	@:CreateResult()@
+	fprintf(stderr,"Low=%d High=%d\n",(int)*low,(int)*hgh);
+		@:CreateResult()@
 	return MAL_SUCCEED;
 @
 @= crackOperations
