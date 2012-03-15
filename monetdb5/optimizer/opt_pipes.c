@@ -266,26 +266,6 @@ struct PIPELINES {
 	 "optimizer.multiplex();"
 	 "optimizer.garbageCollector();",
 	 "experimental", "OPTselcrack", 0},
-	{"sidcrack_pipe",
-	 "optimizer.inline();"
-	 "optimizer.remap();"
-	 "optimizer.evaluate();"
-	 "optimizer.costModel();"
-	 "optimizer.coercions();"
-	 "optimizer.emptySet();"
-	 "optimizer.aliases();"
-	 "optimizer.sidcrack();"
-	 "optimizer.deadcode();"
-	 "optimizer.commonTerms();"
-	 "optimizer.joinPath();"
-	 "optimizer.reorder();"
-	 "optimizer.deadcode();"
-	 "optimizer.reduce();"
-	 "optimizer.dataflow();"
-	 "optimizer.history();"
-	 "optimizer.multiplex();"
-	 "optimizer.garbageCollector();",
-	 "experimental", "OPTsidcrack", 0},
 /*
  * The Octopus pipeline for distributed processing (Merovingian enabled platforms only)
  */
@@ -434,9 +414,9 @@ struct PIPELINES {
 };
 
 #ifdef WIN32
-static int builtinoptimizers = 8;
+static int builtinoptimizers = 7;
 #else
-static int builtinoptimizers = 11;
+static int builtinoptimizers = 10;
 #endif
 /*
  * @-

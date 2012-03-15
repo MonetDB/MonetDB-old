@@ -69,7 +69,6 @@ struct Node * findPreviousPieceWalkingBack(struct Node * node);
 struct Node * findNextPiece(struct Node * node);
 void FreeAVLTree(struct Node * current);
 void printAVLTree(struct Node * current, BAT *b, BUN base);
-void printAVLTreeIncrementalSideways(struct Node * current, BAT *b, BUN base);
 struct Node * getFirstNode(struct Node * node);
 struct Node * getLastNode(struct Node * node);
 struct Node * getPreviousNonLocalNode(struct Node * current);
@@ -81,11 +80,8 @@ bit GetHgh_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, oid
 bit GetLowNodes_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, struct Node **p1, struct Node **p2, struct Node *previous, struct Node *next);
 bit GetHghNodes_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, struct Node **p1, struct Node **p2, struct Node *previous, struct Node *next);
 struct Node * InsertTree_@1(int m, oid indexPosition, @1 value, bit inclusive, oid crackPosition, struct Node * current, BAT * b, BUN base, struct Node **newNode);
-struct Node *
-InsertTreeIncrementalSideways_@1(int m, oid indexPosition, @1 value, bit inclusive, oid crackPosition, oid crackPositionLocal, struct Node * current, BAT * b, BUN base, struct Node **newNode, bit localBound, bit first, int pieceBAT);
 struct Node * findNodeH_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, struct Node * next);
 struct Node * findNodeL_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, struct Node * prev);
-void PartiallyLazyFreeAVLTree_@1(struct Node * current, @1 value, BAT *b, BUN base);
 struct NodeSimple * InsertTreeSimple_@1(struct NodeSimple ** head, oid position, @1 value, struct NodeSimple * current, BAT * b);
 @
 @c
@@ -329,33 +325,6 @@ getLastNode(struct Node * node){
 
 @
 @= AVLtreeSharedFunctions_impl_2
-void
-printAVLTreeIncrementalSideways(struct Node * current, BAT *b, BUN base){
-	BUN cur;
-
-	if (current == NULL) {
-		printf("\n Empty index \n");
-		return;
-	}
-	cur = base + current->position;
-	if (current->deleted == FALSE) {
-		printf("\n index: "OIDFMT", indexLocal: "OIDFMT", Val: %d, pieceID: %d  ", *(oid*)Hloc(b, cur), current->indexLocal, *(int*)Tloc(b, cur), current->pieceBAT);
-	} else
-		printf("\n DELETED "OIDFMT", %d  Hols:"OIDFMT , *(oid*)Hloc(b, cur), *(int*)Tloc(b, cur), current->hols );
-	if (current->localBound == TRUE) printf(" local: TRUE ");	
-	else printf(" local: FALSE ");
-	if (current->first == TRUE) printf(" first: TRUE ");	
-	else printf(" first: FALSE ");
-	
-	if (current->left != NULL)
-                printAVLTreeIncrementalSideways(current->left, b, base);
-
-        if (current->right != NULL)
-                printAVLTreeIncrementalSideways(current->right, b, base);
-
-        return;
-}
-
 void
 printAVLTree(struct Node * current, BAT *b, BUN base){
 	BUN cur;
@@ -624,170 +593,6 @@ GetHghNodes_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, st
 		return GetHghNodes_@1(x, inclusive, current->left, b, base, p1, p2, previous, current);	
 }
 
-struct Node *
-InsertTreeIncrementalSideways_@1(int m, oid indexPosition, @1 value, bit inclusive, oid crackPosition, oid crackPositionLocal, struct Node * current, BAT * b, BUN base, struct Node **newNode, bit localBound, bit first, int pieceBAT){
-	BUN cur, Lchild, Rchild;
-	@1 *curValue, *LchildValue, *RchildValue;
-	oid *curPosition;
-
-	int lh, rh;
-	bit use;
-	struct Node *temp;
-
-	if (current == NULL){
-        	current = (struct Node *)GDKmalloc(sizeof(struct Node));
-                current->position = indexPosition;
-                current->inclusive = inclusive;
-		current->height = 0;
-                current->left = NULL;
-		current->right = NULL;
-		current->head = FALSE;
-		current->deleted = FALSE;
-		current->previous = NULL;
-		current->isPreviousSmaller = FALSE;
-		current->hols = 0;
-		current->slice = -1;
-		current->localBound = localBound;
-                current->first = first;
-                current->pieceBAT = pieceBAT;
-                current->tape = -1;
-		current->indexLocal = crackPositionLocal;
-                current->references = NULL;
-		current->nextPiece = NULL;
-		/* storage management info are initialized only for the first node of a piece when registering the piece in StorageInfo */
-		*newNode = current;
-		goto end;
-        }
-
-	cur = base + current->position;
-        curValue = (@1*)Tloc(b, cur);
-
-	if (*curValue == value && current->inclusive == inclusive){
-		if (current->deleted == FALSE){
-			if (!(current->localBound == FALSE && current->first == TRUE)){
-				current->localBound = localBound;
-				current->first = first;
-				current->pieceBAT = pieceBAT;
-				current->indexLocal = crackPositionLocal;
-			}
-			*newNode = current;
-			return NULL;
-		}else{
-			current->deleted = FALSE; 
-			current->localBound = localBound;
-			current->first = first;
-			current->pieceBAT = pieceBAT;
-			current->indexLocal = crackPositionLocal;
-			*newNode = current;
-			return NULL;
-		}
-	}
-
-	/* reuse if possible nodes that have been deleted with lazy deletion */
-	use = FALSE;
-	if (current->deleted == TRUE){
-		if (current->left != NULL && current->right != NULL){
-			Lchild = base + (getPreviousNodeAny(current))->position;
-                        LchildValue = (@1*)Tloc(b, Lchild);
-			Rchild = base + (getNextNodeAny(current))->position;
-                        RchildValue = (@1*)Tloc(b, Rchild);
-			
-			if ( ( @2_LT(&value,RchildValue,@3@1) || (@2_EQ(&value,RchildValue,@3@1) && 
-			       inclusive == TRUE && current->right->inclusive == FALSE) )  &&
-			     ( @2_GT(&value,LchildValue,@3@1) || (@2_EQ(&value,LchildValue,@3@1) && 
- 			       inclusive == FALSE && current->left->inclusive == TRUE) ) )
-				use = TRUE;			
-		} else
-		if (current->left != NULL && current->right == NULL){
-			Lchild = base + (getPreviousNodeAny(current))->position;
-                        LchildValue = (@1*)Tloc(b, Lchild);
-
-			if ( @2_GT(&value,LchildValue,@3@1) || (@2_EQ(&value,LchildValue,@3@1) && 
-			     inclusive == FALSE && current->left->inclusive == TRUE) )
-				use = TRUE;
-		} else
-		if (current->left == NULL && current->right != NULL){
-			Rchild = base + (getNextNodeAny(current))->position;
-                        RchildValue = (@1*)Tloc(b, Rchild);
-			
-			if ( @2_LT(&value,RchildValue,@3@1) || (@2_EQ(&value,RchildValue,@3@1) && 
-			     inclusive == TRUE && current->right->inclusive == FALSE) )
-				use = TRUE;
-		} else
-		if (current->left == NULL && current->right == NULL)
-				use = TRUE;
-
-		if (use == TRUE){
-                        current->deleted = FALSE;
-
-        		curPosition = (oid*)Hloc(b, cur);
-			*curPosition = crackPosition;
-                        *curValue = value;
-			current->inclusive = inclusive;
-
-			current->localBound = localBound;
-                        current->first = first;
-                        current->pieceBAT = pieceBAT;
-                        current->indexLocal = crackPositionLocal;
-			
-			current->hols = 0;
-		        current->slice = -1;
-
-			*newNode = current;
-
-                        return NULL;
-		}
-	}
-
-        if ( @2_LT(&value,curValue,@3@1) || (@2_EQ(&value,curValue,@3@1) && inclusive == TRUE && current->inclusive == FALSE) ){
-
-		if ( (temp = InsertTreeIncrementalSideways_@1(m, indexPosition, value, inclusive, crackPosition, crackPositionLocal, current->left, b, base, newNode, localBound, first, pieceBAT)) == NULL)
-                	return NULL;
-
-		current->left = temp;
-		temp->previous = current;
-		temp->isPreviousSmaller = FALSE;
-
-                if ( Height(current->left) - Height(current->right) == 2 ){
-		        Lchild = base + current->left->position;
-        		LchildValue = (@1*)Tloc(b, Lchild);
-
-                    	if ( @2_LT(&value,LchildValue,@3@1) || (@2_EQ(&value,LchildValue,@3@1) && 
-			     inclusive == TRUE && current->left->inclusive == FALSE) )
-                        	current = SingleRotateLeft(&(CrackerIndex[m].Tree), current);
-                    	else
-                        	current = DoubleRotateLeft(&(CrackerIndex[m].Tree), current);
-		}
-        } else
-        if ( @2_GT(&value,curValue,@3@1) || (@2_EQ(&value,curValue,@3@1) && inclusive == FALSE && current->inclusive == TRUE) ){
-
-		if ( (temp = InsertTreeIncrementalSideways_@1(m, indexPosition, value, inclusive, crackPosition, crackPositionLocal, current->right, b, base, newNode, localBound, first, pieceBAT)) == NULL)
-			return NULL;
-
-                current->right = temp;
-		temp->previous = current;
-		temp->isPreviousSmaller = TRUE;
-
-
-                if ( Height(current->right) - Height(current->left) == 2 ){
-			Rchild = base + current->right->position;
-                        RchildValue = (@1*)Tloc(b, Rchild);
-
-                        if ( @2_GT(&value,RchildValue,@3@1) || (@2_EQ(&value,RchildValue,@3@1) && 
-			     inclusive == FALSE && current->right->inclusive == TRUE) )
-                        	current = SingleRotateRight(&(CrackerIndex[m].Tree), current);
-                    	else
-                        	current = DoubleRotateRight(&(CrackerIndex[m].Tree), current);
-		}
-        }
-
-	end:;
-	lh = Height(current->left);
-	rh = Height(current->right);
-		
-        current->height = (lh > rh? lh : rh) + 1;
-        return current;
-}
 
 struct Node *
 InsertTree_@1(int m, oid indexPosition, @1 value, bit inclusive, oid crackPosition, struct Node * current, BAT * b, BUN base, struct Node **newNode){
@@ -965,24 +770,6 @@ findNodeL_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, stru
 		return findNodeL_@1(x, inclusive, current->right, b, base, (current->deleted == TRUE) ? getPreviousNode(current, prev) : current);
 }
 
-void
-PartiallyLazyFreeAVLTree_@1(struct Node * current, @1 value, BAT *b, BUN base){
-	BUN cur;
-	@1 *curValue;
-
-        cur = base + current->position;
-        curValue = (@1*)Tloc(b, cur);
-
-	if (current->left != NULL)
-		PartiallyLazyFreeAVLTree_@1(current->left, value, b, base);
-
-	if (current->right != NULL)
-		PartiallyLazyFreeAVLTree_@1(current->right, value, b, base);
-
-	if( @2_LT(&value,curValue,@3@1) || (@2_EQ(&value,curValue,@3@1) && current->inclusive == FALSE) )
-		current->deleted = TRUE;
-	return;
-}
 
 
 struct NodeSimple *

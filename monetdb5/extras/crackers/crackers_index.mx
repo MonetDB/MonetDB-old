@@ -255,7 +255,6 @@ void reCreateMap_@1(int position);
 
 /* InsertIndexElements */
 struct Node * addCrackerIndex_@1(int m, @1 *value, bit inclusive, oid index, BAT * b);
-struct Node * addCrackerIndexIncrementalSideways_@1(int m, @1 value, bit inclusive, oid indexLocal, oid index, BAT * b, bit localBound, bit first, int pieceBAT);
 @
 @c
 /*
@@ -516,6 +515,7 @@ addCrackerIndex_@1(int m, @1 *value, bit inclusive, oid index, BAT * b){
 
 	base = BUNfirst(b);
 	res = InsertTree_@1(m, count, *value, inclusive, index, CrackerIndex[m].Tree, b, base, &newNode);
+
 	if (newNode==NULL){
 		mnstr_printf(GDKout,"\n Inserting into the Tree failed: possibly node existed already or a malloc failed \n");
 		return NULL;
@@ -561,63 +561,6 @@ addCrackerIndex_@1(int m, @1 *value, bit inclusive, oid index, BAT * b){
 	return newNode;
 }
 
-struct Node *
-addCrackerIndexIncrementalSideways_@1(int m, @1 value, bit inclusive, oid indexLocal, oid index, BAT * b, bit localBound, bit first, int pieceBAT){
-	BUN base;
-	oid *ph;
-	@1  *pt;
-	struct Node *newNode=NULL, *prev=NULL;
-	oid count;
-
-	ph = (oid*)Hloc(b, BUNlast(b));
-	pt = (@1 *)Tloc(b, BUNlast(b));
-
-	count = BATcount(b);
-        if (count == 0){
-                @:insertIndexElement(@1, (oid*)Hloc(b, BUNfirst(b)), (@1*)Tloc(b, BUNfirst(b)), index, value)@
-		CrackerIndex[m].Tree = (struct Node *)GDKmalloc(sizeof(struct Node));
-                CrackerIndex[m].Tree->position = 0;
-                CrackerIndex[m].Tree->inclusive = inclusive;
-                CrackerIndex[m].Tree->height = 0;
-                CrackerIndex[m].Tree->left = NULL;
-                CrackerIndex[m].Tree->right = NULL;		
-                CrackerIndex[m].Tree->head = TRUE;	
-                CrackerIndex[m].Tree->deleted = FALSE;	
-                CrackerIndex[m].Tree->previous = NULL;	
-                CrackerIndex[m].Tree->hols = 0;	
-                CrackerIndex[m].Tree->slice = -1;	
-                CrackerIndex[m].Tree->localBound = localBound;	
-                CrackerIndex[m].Tree->first = first;	
-                CrackerIndex[m].Tree->pieceBAT = pieceBAT;	
-                CrackerIndex[m].Tree->tape = -1;	
-                CrackerIndex[m].Tree->indexLocal = indexLocal;	
-                CrackerIndex[m].Tree->references = NULL;	
-                CrackerIndex[m].Tree->nextPiece = NULL;	
-                CrackerIndex[m].Tree->nextValue = NULL;	
-		CrackerIndex[m].Tree->indexPosition = index; 
-
-                return CrackerIndex[m].Tree;
-        }
-
-	base = BUNfirst(b);
-	InsertTreeIncrementalSideways_@1(m, count, value, inclusive, index, indexLocal, CrackerIndex[m].Tree, b, base, &newNode,localBound, first, pieceBAT);
-        if ( newNode != NULL ) {
-		/* use a new BUN only if we cannot reuse a previously deleted one */
-		@:insertIndexElement(@1, ph, pt, index, value)@
-		/* remove hash table since cracking has destroyed tuple posititioning */
-		prev = findPreviousPieceWalkingBack(newNode);
-		if (prev!= NULL) prev->nextValue = newNode;
-		newNode->nextValue = findNextPiece(newNode);
-		newNode->indexPosition = index;
-		if (prev != NULL){
-			if (prev->slice != -1){
-				BBPdecref(prev->slice,TRUE);
-				prev->slice = -1; 
-			}
-		}
-	}
-	return newNode;
-}
 @
  * @- Local support functions and macros
 @= insertIndexElement
