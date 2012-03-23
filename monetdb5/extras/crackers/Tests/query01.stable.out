@@ -1,0 +1,44 @@
+stdout of test 'query01` in directory 'extras/crackers` itself:
+
+
+# 14:59:27 >  
+# 14:59:27 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "gdk_dbfarm=/export/scratch2/petraki/MonetDB/holindex/program/var/MonetDB" "--set" "mapi_open=true" "--set" "mapi_port=36930" "--set" "monet_prompt=" "--trace" "--forcemito" "--set" "mal_listing=2" "--dbname=mTests_extras_crackers" "--set" "mal_listing=0"
+# 14:59:27 >  
+
+# MonetDB 5 server v11.10.0
+# This is an unreleased version
+# Serving database 'mTests_extras_crackers', using 8 threads
+# Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
+# Found 15.630 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2012 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://budapest.ins.cwi.nl:36930/
+# MonetDB/GIS module loaded
+# MonetDB/SQL module loaded
+
+Ready.
+
+# 14:59:27 >  
+# 14:59:27 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=budapest" "--port=36930"
+# 14:59:27 >  
+
+#select a from T1 where a>30 and a<40 order by a;
+% sys.t1 # table_name
+% a # name
+% int # type
+% 2 # length
+[ 31	]
+[ 32	]
+[ 33	]
+[ 34	]
+[ 35	]
+[ 36	]
+[ 37	]
+[ 38	]
+[ 39	]
+
+# 14:59:27 >  
+# 14:59:27 >  "Done."
+# 14:59:27 >  
+

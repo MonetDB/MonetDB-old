@@ -1,0 +1,171 @@
+stdout of test 'createdata` in directory 'extras/crackers` itself:
+
+
+# 14:47:15 >  
+# 14:47:15 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "gdk_dbfarm=/export/scratch2/petraki/MonetDB/holindex/program/var/MonetDB" "--set" "mapi_open=true" "--set" "mapi_port=36478" "--set" "monet_prompt=" "--trace" "--forcemito" "--set" "mal_listing=2" "--dbname=mTests_extras_crackers" "--set" "mal_listing=0"
+# 14:47:15 >  
+
+# MonetDB 5 server v11.10.0
+# This is an unreleased version
+# Serving database 'mTests_extras_crackers', using 8 threads
+# Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
+# Found 15.630 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2012 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://budapest.ins.cwi.nl:36478/
+# MonetDB/GIS module loaded
+# MonetDB/SQL module loaded
+
+Ready.
+# SQL catalog created, loading sql scripts once
+# loading sql script: 09_like.sql
+# loading sql script: 10_math.sql
+# loading sql script: 11_times.sql
+# loading sql script: 12_url.sql
+# loading sql script: 13_date.sql
+# loading sql script: 14_inet.sql
+# loading sql script: 15_history.sql
+# loading sql script: 16_tracelog.sql
+# loading sql script: 17_compress.sql
+# loading sql script: 18_dictionary.sql
+# loading sql script: 19_cluster.sql
+# loading sql script: 20_vacuum.sql
+# loading sql script: 21_dependency_functions.sql
+# loading sql script: 22_clients.sql
+# loading sql script: 23_skyserver.sql
+# loading sql script: 24_zorder.sql
+# loading sql script: 25_debug.sql
+# loading sql script: 39_analytics.sql
+# loading sql script: 40_geom.sql
+# loading sql script: 80_udf.sql
+# loading sql script: 99_system.sql
+
+# 14:47:16 >  
+# 14:47:16 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=budapest" "--port=36478"
+# 14:47:16 >  
+
+#create table T1 (a int not null);
+#copy 1000 records into T1 from stdin USING DELIMITERS '|','\n';
+#610
+#634
+#337
+#780
+#908
+#556
+#868
+#305
+#252
+#388
+#703
+#692
+#799
+#767
+#783
+#28
+#521
+#221
+#470
+#639
+#58
+#198
+#715
+#940
+#657
+#464
+#176
+#53
+#288
+#278
+#17
+#947
+#454
+#637
+#890
+#953
+#409
+#315
+#329
+#417
+#967
+#376
+#512
+#160
+#884
+#918
+#103
+#749
+#602
+#430
+#406
+#835
+#759
+#126
+#14
+#623
+#342
+#432
+#973
+#729
+#695
+#938
+#274
+#961
+#517
+#385
+#690
+#941
+#328
+#31
+#723
+#522
+#70
+#97
+#618
+#838
+#308
+#946
+#4
+#201
+#915
+#855
+#975
+#151
+#204
+#491
+#768
+#785
+#731
+#185
+#821
+#710
+#663
+#71
+#714
+#131
+#472
+#983
+#143
+#26
+#944
+#47
+#937
+#685
+#287
+#716
+#272
+#678
+#513
+#397
+#411
+#34
+#807
+#779
+#507
+#202
+[ 1000	]
+
+# 14:47:16 >  
+# 14:47:16 >  "Done."
+# 14:47:16 >  
+
