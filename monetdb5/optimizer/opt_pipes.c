@@ -266,6 +266,29 @@ struct PIPELINES {
 	 "optimizer.multiplex();"
 	 "optimizer.garbageCollector();",
 	 "experimental", "OPTselcrack", 0},
+/*The STOCHASTIC cracking pipeline*/
+	{"crackerst_pipe",
+         "optimizer.inline();"
+         "optimizer.remap();"
+         "optimizer.evaluate();"
+         "optimizer.costModel();"
+         "optimizer.coercions();"
+         "optimizer.emptySet();"
+         "optimizer.aliases();"
+         "optimizer.selcrackst();"
+         "optimizer.deadcode();"
+         "optimizer.commonTerms();"
+         "optimizer.joinPath();"
+         "optimizer.reorder();"
+         "optimizer.deadcode();"
+         "optimizer.reduce();"
+         "optimizer.dataflow();"
+         "optimizer.history();"
+         "optimizer.multiplex();"
+         "optimizer.garbageCollector();",
+         "experimental", "OPTselcrackst", 0},
+
+
 /*
  * The Octopus pipeline for distributed processing (Merovingian enabled platforms only)
  */

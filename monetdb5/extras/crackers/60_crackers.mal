@@ -18,5 +18,6 @@
 # This loads the MonetDB/Crackers module
 library crackers;
 include opt_selcrack;
+include opt_selcrackst;
 include crackers;
 

@@ -602,6 +602,7 @@ struct OPTcatalog {
 {"reorder",		0,	0,	0,	DEBUG_OPT_REORDER},
 {"replication",	0,	0,	0,	DEBUG_OPT_REPLICATION},
 {"selcrack",	0,	0,	0,	DEBUG_OPT_SELCRACK},
+{"selcrackst",  0,      0,      0,      DEBUG_OPT_SELCRACKST},
 {"sidcrack",	0,	0,	0,	DEBUG_OPT_SIDCRACK},
 {"singleton",	0,	0,	0,	DEBUG_OPT_SINGLETON},
 {"strengthreduction",	0,	0,	0,	DEBUG_OPT_STRENGTHREDUCTION},

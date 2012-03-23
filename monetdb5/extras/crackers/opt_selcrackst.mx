@@ -17,7 +17,7 @@ Copyright August 2008-2012 MonetDB B.V.
 All Rights Reserved.
 @
 
-@f opt_selcrack
+@f opt_selcrackst
 
 @c
 /*
@@ -25,26 +25,26 @@ All Rights Reserved.
  * This cracker optimizer changes a query plan in order to use the selection cracking operators
  */
 @mal
-pattern optimizer.selcrack():str
-address OPTselcrack;
-pattern optimizer.selcrack(mod:str, fcn:str):str
-address OPTselcrack
+pattern optimizer.selcrackst():str
+address OPTselcrackst;
+pattern optimizer.selcrackst(mod:str, fcn:str):str
+address OPTselcrackst
 comment "Selection cracking";
 
 @h
-#ifndef _OPT_SELCRACK_
-#define _OPT_SELCRACK_
+#ifndef _OPT_SELCRACKST_
+#define _OPT_SELCRACKST_
 #include "opt_support.h"
 
 #define maxTables 10
 
-@:exportOptimizer(selcrack)@
-#define OPTDEBUGselcrack  if ( optDebug & ((lng)1 <<DEBUG_OPT_SELCRACK) )
+@:exportOptimizer(selcrackst)@
+#define OPTDEBUGselcrackst  if ( optDebug & ((lng)1 <<DEBUG_OPT_SELCRACKST) )
 
 #endif
 @c
 #include "monetdb_config.h"
-#include "opt_selcrack.h"
+#include "opt_selcrackst.h"
 #include "mal_interpreter.h"	/* for showErrors() */
 #include "opt_prelude.h"
 #include "mtime.h"
@@ -55,7 +55,7 @@ comment "Selection cracking";
 /* find all algebra select structions in a mal block mb and change them to the corresponding crackers command
     */
 static int
-OPTselcrackImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+OPTselcrackstImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	InstrPtr p, *old;
 	int update= 0, i, limit, actions=0, j;
@@ -66,8 +66,8 @@ OPTselcrackImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 
 	for(j=0;j<maxTables;j++)
 		 tables[j] = NULL;	
-	OPTDEBUGselcrack
-		printf("Crack optimizer started\n");
+	OPTDEBUGselcrackst
+		printf("Stochastic crack optimizer started\n");
 
 	(void) cntxt;/* Tell compilers that we know that we do not */
         (void) stk; /* use these function parameters, here.       */ 
@@ -188,12 +188,12 @@ OPTselcrackImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 					crackedTables++;
 					if (match2(p, algebraRef, uselectRef))
 					{
-						setFunctionId(p, putName("select", 6));
+						setFunctionId(p, putName("selectst", 8));
 	
 					}
 					else if (match2(p, algebraRef, thetauselectRef))
 					{
-						setFunctionId(p, putName("thetaselect", 11));
+						setFunctionId(p, putName("thetaselectst", 13));
 	
 					}
 					
@@ -247,4 +247,4 @@ OPTselcrackImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 @include ../../optimizer/optimizerWrapper.mx
 @c
 #include "opt_statistics.h"
-@:wrapOptimizer(selcrack,OPT_CHECK_ALL)@
+@:wrapOptimizer(selcrackst,OPT_CHECK_ALL)@
