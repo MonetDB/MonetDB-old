@@ -75,7 +75,7 @@ struct Node * getPreviousNonLocalNode(struct Node * current);
 struct Node * getNextNonLocalNode(struct Node * current);
 @
 @= AVLtreeSharedFunctions_decl_1
-bit GetLow_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, oid *p1, oid *p2, oid previous, oid next);
+bit GetLow_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, oid *p1, oid *p2, oid previous, oid next,bit *LB);
 bit GetHgh_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, oid *p1, oid *p2, oid previous, oid next);
 bit GetLowNodes_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, struct Node **p1, struct Node **p2, struct Node *previous, struct Node *next);
 bit GetHghNodes_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, struct Node **p1, struct Node **p2, struct Node *previous, struct Node *next);
@@ -353,7 +353,7 @@ printAVLTree(struct Node * current, BAT *b, BUN base){
 @
 @= AVLtreeSharedFunctions_impl_1
 bit
-GetLow_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, oid *p1, oid *p2, oid previous, oid next){
+GetLow_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, oid *p1, oid *p2, oid previous, oid next,bit *LB){
 	BUN cur;
 	@1 *curValue;
 
@@ -376,18 +376,19 @@ GetLow_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, oid *p1
                        	 	return 0;
                 	} else
                         	/* check for the left one */
-                        	return GetLow_@1(x, inclusive, current->left, b, base, p1, p2, previous, getNextPosition(current, b, base, next));
+                        	return GetLow_@1(x, inclusive, current->left, b, base, p1, p2, previous, getNextPosition(current, b, base, next),LB);
 		}
 		if (current->right == NULL){
                	 	*p1 = getPreviousPosition(current, b, base, previous);
 			*p2 = next;
 			return 0;
 		} else 	
-			return GetLow_@1(x, inclusive, current->right, b, base, p1, p2, getPreviousPosition(current, b, base, previous), next);
+			return GetLow_@1(x, inclusive, current->right, b, base, p1, p2, getPreviousPosition(current, b, base, previous), next,LB);
 	}
 
 	if ( @2_EQ(&x,curValue,@3@1) && ((inclusive == FALSE && current->inclusive == FALSE)|| (inclusive == TRUE && current->inclusive == TRUE)) ){
-		*p1 = *(oid*)Hloc(b, cur);	
+		*p1 = *(oid*)Hloc(b, cur);
+		if((*p1==(oid)0) && (inclusive == FALSE && current->inclusive == FALSE) ) { *LB=TRUE; *p1=*p1+(oid)1;}	
 		return 1;
 	}	
 
@@ -398,7 +399,8 @@ GetLow_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, oid *p1
 		{
 			*p1 = previous;
 			*p2 = *(oid*)Hloc(b, cur);
-			return 0;
+			if(*p2==(oid)0) return 1;
+			else return 0;
 		}
 		if(inclusive == FALSE && current->inclusive == TRUE)
 		{
@@ -417,7 +419,7 @@ GetLow_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, oid *p1
 			return 0;
 		} else
 			/* check for the left one */
-      			return GetLow_@1(x, inclusive, current->left, b, base, p1, p2, previous, *(oid*)Hloc(b, cur));
+      			return GetLow_@1(x, inclusive, current->left, b, base, p1, p2, previous, *(oid*)Hloc(b, cur),LB);
 			
 	}
 
@@ -428,7 +430,7 @@ GetLow_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, oid *p1
 		return 0;
 	} else 	
 		/* check for the right one */
-		return GetLow_@1(x, inclusive, current->right, b, base, p1, p2, *(oid*)Hloc(b, cur), next);
+		return GetLow_@1(x, inclusive, current->right, b, base, p1, p2, *(oid*)Hloc(b, cur), next,LB);
 }
 
 bit

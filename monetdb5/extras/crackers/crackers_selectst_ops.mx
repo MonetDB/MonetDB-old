@@ -298,6 +298,8 @@ createView:
 		the other indices as it is shown */
 	oid _vl=0,temp_vl=0,temp_vh=0;
 	bit HBound, foundLow=0, foundHgh=0;
+	bit LBound=FALSE;
+
 	/*int gapL = 1;*/
 	/*int gapH = 1;*/
 	/*bit rippledDeletions = FALSE;*/
@@ -436,7 +438,7 @@ createView:
 		
 	/* find out where in the index the low falls */
 	
-	foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1);
+	foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
 
 	/* find out where in the index the high falls */
 	foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
@@ -444,7 +446,7 @@ createView:
         printAVLTree(CrackerIndex[m].Tree, c, BUNfirst(c));
 
 	/*need to increase one position for the low bound only since we always store the previous position in the index*/
-	if (cl1 != 0) cl1++;
+	if (cl1 != 0 && LBound==FALSE) cl1++;
 	if (cl2 != 0) cl2++;
 
 	printf("cl1 "OIDFMT" cl2 "OIDFMT" ", cl1,cl2  );
@@ -473,13 +475,12 @@ createView:
 				addCrackerIndex_@1(m,hgh,HBound,vh,c);
 				
 			}
-
 			
-		        foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1);
+		        foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
 			if(foundLow==0)
 			{
-				if (cl1 != 0) cl1++;
 
+				if (cl1 != 0 && LBound==FALSE) cl1++;
 				 @:crkTwoLTree@5(@1,@5)@
 
                         	if (IndexSize <IndexStop){
@@ -511,8 +512,8 @@ createView:
 			
 
 
-			foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1);
-			if (cl1 != 0) cl1++;
+			foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
+			if (cl1 != 0 && LBound==FALSE) cl1++;
 			@:crkTwoLTree@5(@1,@5)@
 
                        	if (IndexSize <IndexStop){
@@ -668,7 +669,8 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 	oid cl1=0, ch1=0;
 	bit foundLow=0;
 	/*int gapL = 1;*/
-	
+	bit LBound=FALSE;
+
 	m = existsCrackerIndex(*bid);
 
 	/* if this is the first time we selectst something from this bat,
@@ -737,7 +739,7 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 
 
 	/* find out where in the index the low falls */
-	foundLow = GetLow_@1(*low,*inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1);
+	foundLow = GetLow_@1(*low,*inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
 
 	/*need to increase one position for the low bound only since we always store the previous position in the index*/
 	if (cl1 != 0) cl1++;
