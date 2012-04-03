@@ -17,22 +17,29 @@
  * All Rights Reserved.
  */
 
-#include "monetdb_config.h"
+#ifndef JAQL_H
+#define JAQL_H 1
+
+#include "mal_client.h"
+#include "jaqltree.h"
 
 #ifdef WIN32
-#ifndef LIBSQL_CACHE
-#define dummy_export extern __declspec(dllimport)
+#ifndef LIBJAQL
+#define jaql_export extern __declspec(dllimport)
 #else
-#define dummy_export extern __declspec(dllexport)
+#define jaql_export extern __declspec(dllexport)
 #endif
 #else
-#define dummy_export extern
+#define jaql_export extern
 #endif
 
-/* declare and export a dummy function so that on Windows the .lib
- * file is also produced */
-dummy_export void dummy(void);
-void
-dummy(void)
-{
-}
+str getJAQLContext(Client cntxt, jc **c);
+
+
+jaql_export str JAQLexecute(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+jaql_export str JAQLgetVar(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+jaql_export str JAQLsetVar(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+jaql_export str JAQLcast(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+
+#endif
+

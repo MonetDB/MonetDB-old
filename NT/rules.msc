@@ -171,7 +171,8 @@ RUBY_DIR = lib\ruby\gems\1.9.1
 
 # install python, flex and bison on your systems 
 PYTHON = python
-YACC = bison -b y -y
+YACC = bison
+LEX = flex
 
 ARCHIVER = lib
 GENDLL =
@@ -384,6 +385,11 @@ create_winconfig_conds_new_py:
 	$(ECHO) HAVE_SQL_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ELSE
 	$(ECHO) HAVE_SQL_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
+!ENDIF
+!IFDEF HAVE_JAQL
+	$(ECHO) HAVE_JAQL_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
+!ELSE
+	$(ECHO) HAVE_JAQL_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ENDIF
 !IFDEF HAVE_TESTING
 	$(ECHO) HAVE_TESTING_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
