@@ -1,0 +1,252 @@
+@/
+The contents of this file are subject to the MonetDB Public License
+Version 1.1 (the "License"); you may not use this file except in
+compliance with the License. You may obtain a copy of the License at
+http://www.monetdb.org/Legal/MonetDBLicense
+
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+License for the specific language governing rights and limitations
+under the License.
+
+The Original Code is the MonetDB Database System.
+
+The Initial Developer of the Original Code is CWI.
+Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+Copyright August 2008-2012 MonetDB B.V.
+All Rights Reserved.
+@
+
+@f opt_selcrackhol
+
+@c
+/*
+ * @a S.Idreos
+ * This cracker optimizer changes a query plan in order to use the selection cracking operators
+ */
+@mal
+pattern optimizer.selcrackhol():str
+address OPTselcrackhol;
+pattern optimizer.selcrackhol(mod:str, fcn:str):str
+address OPTselcrackhol
+comment "Holistic Selection Cracking";
+
+@h
+#ifndef _OPT_SELCRACKHOL_
+#define _OPT_SELCRACKHOL_
+#include "opt_support.h"
+
+#define maxTables 10
+
+@:exportOptimizer(selcrackhol)@
+#define OPTDEBUGselcrackhol  if ( optDebug & ((lng)1 <<DEBUG_OPT_SELCRACKHOL) )
+
+#endif
+@c
+#include "monetdb_config.h"
+#include "opt_selcrackhol.h"
+#include "mal_interpreter.h"	/* for showErrors() */
+#include "opt_prelude.h"
+#include "mtime.h"
+
+#define match2(X,M,F) ( (X) && getFunctionId(X) && getFunctionId(X)==F && \
+	getModuleId(X) && getModuleId(X)==M)
+
+/* find all algebra select structions in a mal block mb and change them to the corresponding crackers command
+    */
+static int
+OPTselcrackholImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	InstrPtr p, *old;
+	int update= 0, i, limit, actions=0, j;
+	int no_of_leftjoins=0;	
+	
+	str tables[maxTables];
+	int crackedTables=0;
+	
+	fprintf(stderr,"This is from the HOLISTIC optimizer\n");
+
+	for(j=0;j<maxTables;j++)
+		 tables[j] = NULL;	
+	OPTDEBUGselcrackhol
+		printf("Holistic crack optimizer started\n");
+
+	(void) cntxt;/* Tell compilers that we know that we do not */
+        (void) stk; /* use these function parameters, here.       */ 
+	(void) pci;
+	
+ 	 /* In general, a MAL optimizer transforms a given MAL program into a
+         * modified one by sequentially walking through the given program
+         * and concurrently creating a new one from scratch by
+         * (1) copying statements as is, modified, or in a different order,
+         * or (2) omitting statements or (3) introducing new statements.
+         */
+
+        /* check for logical error: mb must never be NULL */
+        assert (mb != NULL);
+
+        /* safe the old stage of the MAL block */
+	limit = mb->stop;
+	old = mb->stmt;
+	
+	for (i = 0; i < limit; i++) {
+		p = old[i];
+		if( getModuleId(p)== sqlRef )
+            update |= getFunctionId(p)== appendRef || 
+					  getFunctionId(p)== replaceRef ||
+					  getFunctionId(p)== deleteRef;
+	}
+	if (update)
+		return 0;
+	/*If there are more than one leftjoins in the plan, we do not want to replace or delete none of them*/
+	for (i = 0; i < limit; i++) {
+		p = old[i];
+		if (match2(old[j], algebraRef, leftjoinRef))
+			no_of_leftjoins++;
+	}
+
+
+	/* iterate over the instructions of the input MAL program */
+	for (i = 0; i < limit; i++) {
+		p = old[i];
+
+		/* add a property "can be cracked" to every base relation that is a candidate for selection cracking */
+		/* also, for every candidate bat, maintain the table name */
+		if ( match2(p, sqlRef, bindRef) ){  
+			ValRecord v, *vp;
+
+		  	/* crack only supported data types */
+			switch( update = getTailType(mb->var[getArg(p,0)]->type) ){
+			case TYPE_int: case TYPE_lng: case TYPE_sht:
+			case TYPE_flt: case TYPE_dbl: case TYPE_oid:
+				break;
+			case TYPE_wrd: /* to be moved up */
+			default:
+					if ( update == TYPE_date)
+						break;
+					continue;
+			}
+
+			/* avoid cracking delta bats used for updates */
+			if (mb->var[getArg(p,5)]->value.val.ival != 0 ) 
+				continue;		
+				
+			varSetProp(mb, getArg(p, 0), canBeCrackedProp, 0, NULL); /* add a property "can be cracked" to every base relation that is a candidate for selection cracking */
+
+
+			vp = VALset(&v, TYPE_str, GDKstrdup(getVar(mb,getArg(p,2))->value.val.sval));  /* also, for every candidate bat, maintain the table name */
+			varSetProp(mb, getArg(p,0), tableProp, op_eq, vp);
+
+			continue;
+		}
+
+		/* propagate the canBeCracked property */
+		if ( match2(p, batRef, setWriteModeRef) || 
+			  match2(p, batcalcRef, dblRef) || 
+			  match2(p, batcalcRef, intRef) ){ 
+
+			if (varGetProp(mb, getArg(p, 1), canBeCrackedProp) != NULL){
+				varSetProp(mb, getArg(p, 0), canBeCrackedProp, 0, NULL);
+				if (varGetProp(mb, getArg(p, 1), tableProp) != NULL){
+					ValRecord v, *vp;
+					vp = VALset(&v, TYPE_str, GDKstrdup(varGetProp(mb, getArg(p,1), tableProp)->value.val.sval));
+					varSetProp(mb, getArg(p, 0), tableProp, op_eq, vp);
+				}
+			}
+		
+			continue;
+		}
+
+		if (match2(p, algebraRef, semijoinRef)){
+			if (varGetProp(mb, getArg(p, 1), canBeCrackedProp) != NULL){
+				ValRecord v, *vp;
+				vp = VALset(&v, TYPE_int,&i);
+				varSetProp(mb, getArg(p, 0), canBeJoinselectProp, op_eq, vp);
+			}
+			continue;
+		}
+
+		/* make the actual command changes */
+		if (match2(p, algebraRef, selectRef) ||
+		    match2(p, algebraRef, uselectRef) || 
+		    match2(p, algebraRef, thetauselectRef)){ 
+				
+			
+			int j=0,k=0,m=0;
+			bit found = FALSE;
+			bit found2 = FALSE;
+
+			if (varGetProp(mb, getArg(p,1), canBeCrackedProp) != NULL){
+				bit alreadyCracked = FALSE;
+
+				/* see if we have already used a crackers select for this table */
+				for(j=0;j<crackedTables;j++)
+					if (strcmp(tables[j],varGetProp(mb, getArg(p,1), tableProp)->value.val.sval) == 0)
+						alreadyCracked = TRUE;
+	
+				/* if not then go ahead and use one*/
+				if (!alreadyCracked){
+					tables[crackedTables]=GDKstrdup(varGetProp(mb, getArg(p,1), tableProp)->value.val.sval);
+					crackedTables++;
+					if (match2(p, algebraRef, uselectRef))
+					{
+						setFunctionId(p, putName("selecthol", 9));
+	
+					}
+					else if (match2(p, algebraRef, thetauselectRef))
+					{
+						setFunctionId(p, putName("thetaselecthol", 14));
+	
+					}
+					
+					setModuleId(p, putName("crackers", 8));
+					
+					setVarType(mb, getArg(p,0), getArgType(mb,p,1)); /*We force the return type to be equal to the type of the first argument*/
+					setVarUDFtype(mb, getArg(p,0));
+
+                       			for (j = i+1; !found  && j < limit; j++){
+						if(match2(old[j], algebraRef, semijoinRef) || no_of_leftjoins>1)
+						{ break; }
+						if (match2(old[j], algebraRef, leftjoinRef)){
+							for (k = old[j]->retc; !found && k < old[j]->argc; k++)
+								found = (getArg(old[j], k) == getArg(p, 1));
+							if(found)
+							{
+								for (m = j+1; m < limit; m++)
+								{
+									for (k = old[m]->retc; k < old[m]->argc; k++){
+										found2 = (getArg(old[m], k) == getArg(old[j], 0));
+										if (found2) 
+											break;
+									
+									}
+									getArg(old[m], k) = getArg(p, 0);
+									
+									
+									continue;
+									
+								}
+							
+							}
+						}
+						
+						continue;
+					}
+					
+	
+					actions++;
+					continue;
+				}
+				
+			}
+
+		}
+	}
+
+	return actions;
+}
+
+@include ../../optimizer/optimizerWrapper.mx
+@c
+#include "opt_statistics.h"
+@:wrapOptimizer(selcrackhol,OPT_CHECK_ALL)@
