@@ -93,6 +93,7 @@
 #define DEBUG_OPT_HEURISTIC			49
 #define DEBUG_OPT_CENTIPEDE			50
 #define DEBUG_OPT_SELCRACKST                    51
+#define DEBUG_OPT_SELCRACKHOL                   52
 
 #define DEBUG_OPT(X) ((lng) 1 << (X))
 opt_export lng optDebug;

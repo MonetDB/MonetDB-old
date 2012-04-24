@@ -239,6 +239,55 @@ address CRKthetaselectst_@2
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
 
+
+command selecthol(b:bat[:oid,:@2],l:@2,h:@2):bat[:oid,:@2]
+address CRKselecthol_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command selecthol(b:bat[:oid,:@2],l:@2):bat[:oid,:@2]
+address CRKselectholValue_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command selecthol(b:bat[:oid,:@2],l:@2,h:@2,li:bit,hi:bit):bat[:oid,:@2]
+address CRKselectholBounds_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command uselecthol(b:bat[:any_1,:@2],l:@2,h:@2):bat[:any_1,:void]
+address CRKuselecthol_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command uselecthol(b:bat[:any_1,:@2],l:@2):bat[:any_1,:void]
+address CRKuselectholValue_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command uselecthol(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit):bat[:any_1,:void]
+address CRKuselectholBounds_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command thetauselecthol(b:bat[:any_1,:@2],v:@2,op:str):bat[:any_1,:void]
+address CRKthetauselecthol_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command thetaselecthol(b:bat[:any_1,:@2],v:@2,op:str):bat[:any_1,:@2]
+address CRKthetaselecthol_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command initFrequencyStruct(b:bat[:any_1,:@2]):void
+address CRKinitFrequencyStruct_@2
+comment "Initialize the struct(lifo) with zero values.";
+
+command selectNode(l:int,h:int):void
+address CRKselectNode
+comment "Select node/BAT to crack (randomly).";
+
 @
 @= Index
 command printCrackerIndexBATpart(b:bat[:any_1,:@2]):void
@@ -296,12 +345,15 @@ comment "Break a BAT into three pieces with
 #include "crackers_index.h"
 #include "crackers_select_ops.h"
 #include "crackers_selectst_ops.h"
+#include "crackers_selecthol_ops.h"
+#include "crackers_holistic.h"
 #include "crackers_core_unordered.h"
 #include "crackers_AVL_tree.h"
 
 #ifdef LIBCRACKERS 
 extern int maxCrackMap;
 extern CrackerIndexNode *CrackerIndex;
+extern FrequencyNode *FrequencyStruct;
 extern int IndexEntries;
 extern int IndexSize;
 extern int IndexStop;
@@ -323,6 +375,7 @@ extern struct storageManagement *StorageInfo;
 int maxCrackMap = 0;
 
 CrackerIndexNode *CrackerIndex;
+FrequencyNode *FrequencyStruct;
 
 struct storageManagement *StorageInfo = NULL;
 

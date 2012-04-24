@@ -35,9 +35,13 @@ lib_crackers = {
 			  crackers_index.mx \
 			  crackers_core_unordered.mx \
 			  crackers_select_ops.mx \
+			  crackers_holistic.c \
+			  crackers_holistic.h \
 			  crackers_selectst_ops.mx \
+			  crackers_selecthol_ops.mx \
 			  opt_selcrack.mx \
-			  opt_selcrackst.mx 
+			  opt_selcrackst.mx \
+			  opt_selcrackhol.mx 
 	LIBS = ../../tools/libmonetdb5 \
 		   ../../../gdk/libbat \
 		   ../../../common/stream/libstream \
@@ -49,7 +53,8 @@ headers_mal = {
 	DIR = libdir/monetdb5
 	SOURCES = crackers.mx \
 			  opt_selcrack.mx \
-			  opt_selcrackst.mx
+			  opt_selcrackst.mx \
+			  opt_selcrackhol.mx
 }
 
 headers_crackersautoload = {

@@ -19,5 +19,6 @@
 library crackers;
 include opt_selcrack;
 include opt_selcrackst;
+include opt_selcrackhol;
 include crackers;
 

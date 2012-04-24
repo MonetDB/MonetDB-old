@@ -296,6 +296,28 @@ struct PIPELINES {
          "optimizer.multiplex();"
          "optimizer.garbageCollector();",
          "experimental", "OPTselcrackst", 0},
+/*The HOLISTIC indexing pipeline*/
+        {"crackerhol_pipe",
+         "optimizer.inline();"
+         "optimizer.remap();"
+         "optimizer.evaluate();"
+         "optimizer.costModel();"
+         "optimizer.coercions();"
+         "optimizer.emptySet();"
+         "optimizer.aliases();"
+         "optimizer.selcrackhol();"
+         "optimizer.deadcode();"
+         "optimizer.commonTerms();"
+         "optimizer.groups();"
+         "optimizer.joinPath();"
+         "optimizer.reorder();"
+         "optimizer.deadcode();"
+         "optimizer.reduce();"
+         "optimizer.dataflow();"
+         "optimizer.history();"
+         "optimizer.multiplex();"
+         "optimizer.garbageCollector();",
+         "experimental", "OPTselcrackhol", 0},
 
 
 	{"sidcrack_pipe",
