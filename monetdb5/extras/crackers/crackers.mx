@@ -280,15 +280,11 @@ address CRKthetaselecthol_@2
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
 
-command initFrequencyStruct(b:bat[:any_1,:@2]):void
-address CRKinitFrequencyStruct_@2
+@
+command initFrequencyStruct(b:bat[:any,:any]):void
+address CRKinitFrequencyStruct
 comment "Initialize the struct(lifo) with zero values.";
 
-command selectNode(l:int,h:int):void
-address CRKselectNode
-comment "Select node/BAT to crack (randomly).";
-
-@
 @= Index
 command printCrackerIndexBATpart(b:bat[:any_1,:@2]):void
 address CRKprintCrackerIndexBATpart

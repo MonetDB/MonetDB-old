@@ -12,7 +12,7 @@ existsFrequencyStruct(FrequencyNode* head)
 		return 1;
 }
 FrequencyNode* 
-createFrequencyStruct()
+createFrequencyStruct(void)
 {
 	FrequencyNode *x;
 	x=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode)); 
@@ -70,6 +70,26 @@ searchBAT(FrequencyNode* head,int bat_id)
 	}
 	return temp;
 }
+int
+findMax(FrequencyNode* head)
+{
+	FrequencyNode* temp;
+	double tmpW;
+	int bat;
+	temp=head->next;
+	tmpW=temp->weight;
+	bat=temp->bid;
+	while(temp!=NULL)
+	{
+		if(temp->weight > tmpW)
+		{
+			tmpW=temp->weight;
+			bat=temp->bid;
+		}
+		temp=temp->next;
+	}
+	return bat;
+}
 double
 changeWeight(FrequencyNode* node,int N,int L1)
 {
@@ -79,8 +99,9 @@ changeWeight(FrequencyNode* node,int N,int L1)
 	p = 2 * (node->c);
 	Sp =((double)N)/p;	
 	d = ABS(Sp - L1);
+	fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);
 	node->weight = ((node->f2)/(node->f1)) * d;
-
+	fprintf(stderr,"W=%lf\n",node->weight);
 	return node->weight;
 
 }

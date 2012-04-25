@@ -63,8 +63,9 @@ crackers_export str CRKselecthol_@1(int *vid, int *bid, @1 *low, @1 *hgh);
 crackers_export str CRKuselecthol_@1(int *vid, int *bid, @1 *low, @1 *hgh);
 crackers_export str CRKthetaselecthol_@1(int *vid, int *bid, @1 *val, str *op);
 crackers_export str CRKthetauselecthol_@1(int *vid, int *bid, @1 *val, str *op);
-crackers_export str CRKinitFrequencyStruct_@1(int *vid,int *bid);
 @
+crackers_export str CRKinitFrequencyStruct(int *vid,int *bid);
+
 @c
 /*
  * @+ Implementation
@@ -214,9 +215,15 @@ CRKthetauselecthol_@1(int *vid, int *bid, @1 *val, str *OP){
 
 	return CRKuselectholBounds_@1(vid, bid, low, high, &lin, &rin);
 }
+
+
+@
+
 str 
 CRKinitFrequencyStruct_@1(int *vid,int *bid)
 {
+	FrequencyNode* new_node;
+
 	fprintf(stderr,"BAT_ID=%d\n",*bid);
 	if (FrequencyStruct == NULL)
 	{
@@ -225,15 +232,12 @@ CRKinitFrequencyStruct_@1(int *vid,int *bid)
 		
 	}
 	
-	FrequencyNode* new_node;
 	new_node=push(*bid,FrequencyStruct);
         fprintf(stderr,"Bid=%d c=%d f1=%d f2=%d weight=%lf \n",new_node->bid,new_node->c,new_node->f1,new_node->f2,new_node->weight);
 
 	return MAL_SUCCEED;
 }
 
-
-@
  * @- Local support functions and macros
 
 @= crkThreeTree
@@ -323,20 +327,18 @@ createView:
 	
 	int countBatElements;
 	int L1=3072; /*KiloBytes*/
-	
+	int maxWB=0;
+
+	/*k and randomoid are used for DD1R*/
+	@1 k,temp_h;
 
 	FrequencyNode* FN;
 	FN=searchBAT(FrequencyStruct,*bid);
 	FN->c = FN->c + 1;
 	fprintf(stderr,"FN->bid=%d\n",FN->bid);
 
-	
-
-	/*k and randomoid are used for DD1R*/
-	@1 k,temp_h;
-
 	fprintf(stderr,"This is from selcrack_HOL operators\n");	
-	fprintf(stderr,"BBPsize=%d\n",BBPsize);	
+	fprintf(stderr,"BBPsize=%d maxWB=%d",BBPsize,maxWB);	
 
 	if (@2_GT(low,hgh,@3@1))
 		throw(MAL, "crackers.crack", "illegal range");
@@ -580,10 +582,10 @@ createView:
 		FN->f2 = FN->f2 +1;
 	}
 	countBatElements=BATcount(b);
-	fprintf(stderr,"BATcount(b)=%d",countBatElements);
+	fprintf(stderr,"BATcount(b)=%d\n",countBatElements);
 	FN->weight = changeWeight(FN,countBatElements,L1);
 	printFrequencyStruct(FrequencyStruct);
-	
+	maxWB=findMax(FrequencyStruct);
 	@:CreateResult()@
 	return MAL_SUCCEED;
 @
