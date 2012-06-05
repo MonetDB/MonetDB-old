@@ -64,7 +64,7 @@ OPTselcrackholImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 	str tables[maxTables];
 	int crackedTables=0;
 	
-	fprintf(stderr,"This is from the HOLISTIC optimizer\n");
+	/*fprintf(stderr,"This is from the HOLISTIC optimizer\n");*/
 
 	for(j=0;j<maxTables;j++)
 		 tables[j] = NULL;	

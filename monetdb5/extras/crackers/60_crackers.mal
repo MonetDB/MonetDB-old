@@ -21,4 +21,5 @@ include opt_selcrack;
 include opt_selcrackst;
 include opt_selcrackhol;
 include crackers;
+include crackers_holistic;
 

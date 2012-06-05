@@ -74,9 +74,7 @@ crackers_export str CRKthetauselect_@1(int *vid, int *bid, @1 *val, str *op);
 #include "monetdb_config.h"
 #include "crackers.h"
 
-/*
-#define CRACK_DEBUG 1
-*/
+/*#define CRACK_DEBUG 1*/
 
 /* Local support functions and macros */
 @:TypeSwitch(crackOperations)@
@@ -430,9 +428,9 @@ createView:
 	/* find out where in the index the high falls */
 	foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
 	
-	printAVLTree(CrackerIndex[m].Tree, c, BUNfirst(c));
+	/*printAVLTree(CrackerIndex[m].Tree, c, BUNfirst(c));*/
 	/*BATprint(BATdescriptor(CrackerIndex[m].cbid));*/ /*Print the cracker column BAT*/
-	BATprint(BATdescriptor(CrackerIndex[m].cid));  /*print the cracker index for BAT*/
+	/*BATprint(BATdescriptor(CrackerIndex[m].cid));  print the cracker index for BAT*/
 	t=(int *)Tloc(b,BUNfirst(b));
 
 #ifdef CRACK_DEBUG

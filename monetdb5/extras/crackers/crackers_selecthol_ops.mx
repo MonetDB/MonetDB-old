@@ -64,7 +64,6 @@ crackers_export str CRKuselecthol_@1(int *vid, int *bid, @1 *low, @1 *hgh);
 crackers_export str CRKthetaselecthol_@1(int *vid, int *bid, @1 *val, str *op);
 crackers_export str CRKthetauselecthol_@1(int *vid, int *bid, @1 *val, str *op);
 @
-crackers_export str CRKinitFrequencyStruct(int *vid,int *bid);
 
 @c
 /*
@@ -219,25 +218,6 @@ CRKthetauselecthol_@1(int *vid, int *bid, @1 *val, str *OP){
 
 @
 
-str 
-CRKinitFrequencyStruct_@1(int *vid,int *bid)
-{
-	FrequencyNode* new_node;
-
-	fprintf(stderr,"BAT_ID=%d\n",*bid);
-	if (FrequencyStruct == NULL)
-	{
-		FrequencyStruct=createFrequencyStruct();
-		fprintf(stderr,"CREATE STRUCT\n");
-		
-	}
-	
-	new_node=push(*bid,FrequencyStruct);
-        fprintf(stderr,"Bid=%d c=%d f1=%d f2=%d weight=%lf \n",new_node->bid,new_node->c,new_node->f1,new_node->f2,new_node->weight);
-
-	return MAL_SUCCEED;
-}
-
  * @- Local support functions and macros
 
 @= crkThreeTree
@@ -326,20 +306,21 @@ createView:
 	bit copy=TRUE;
 	
 	int countBatElements;
-	int L1=3072; /*KiloBytes*/
+	int L1=8192; /*KiloBytes*/
 	int maxWB=0;
 
 	/*k and randomoid are used for DD1R*/
 	@1 k,temp_h;
 
 	FrequencyNode* FN;
+	FrequencyNode *FrequencyStruct = getFrequencyStruct();
 	FN=searchBAT(FrequencyStruct,*bid);
 	FN->c = FN->c + 1;
-	fprintf(stderr,"FN->bid=%d\n",FN->bid);
+	/*fprintf(stderr,"FN->bid=%d\n",FN->bid);*/
 
-	fprintf(stderr,"This is from selcrack_HOL operators\n");	
-	fprintf(stderr,"BBPsize=%d maxWB=%d",BBPsize,maxWB);	
-
+	/*fprintf(stderr,"This is from selcrack_HOL operators\n");*/	
+	/*fprintf(stderr,"BBPsize=%d maxWB=%d",BBPsize,maxWB);*/	
+	fprintf(stderr,"maxWB=%d",maxWB);
 	if (@2_GT(low,hgh,@3@1))
 		throw(MAL, "crackers.crack", "illegal range");
 	
@@ -347,7 +328,7 @@ createView:
 	else	HBound = TRUE; 				
 
 	m = existsCrackerIndex(*bid);
-	fprintf(stderr,"*BID=%d\n",*bid);
+	/*fprintf(stderr,"*BID=%d\n",*bid);*/
 	/* if this is the first time we selecthol something from this bat,
 		we have to create the crack index for it and
 	   if necessary materialize the head of the bat */
@@ -467,27 +448,24 @@ createView:
 	if ((b = BATdescriptor(CrackerIndex[m].cbid)) == NULL)
 		throw(MAL, "crackers.crackRange", "Cannot access crack index");
 
-	/*idxFirst = BUNfirst(c);*/
-
 		
 	/* find out where in the index the low falls */
-	
 	foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
 
 	/* find out where in the index the high falls */
 	foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
 
-        printAVLTree(CrackerIndex[m].Tree, c, BUNfirst(c));
 
 	/*need to increase one position for the low bound only since we always store the previous position in the index*/
 	if (cl1 != 0 && LBound==FALSE) cl1++;
 	if (cl2 != 0) cl2++;
 
-	printf("cl1 "OIDFMT" cl2 "OIDFMT" ", cl1,cl2  );
+	/*printf("cl1 "OIDFMT" cl2 "OIDFMT" ", cl1,cl2  );*/
 	
 	
        
 	if(foundLow==0 || foundHgh==0) FN->f1 = FN->f1 + 1;
+	else	FN->f2 = FN->f2 +1; 
 	/* If one or both of the result view bounds were not found using the
 	index then we have to crack */
 
@@ -579,13 +557,13 @@ createView:
 	{
 		vl = cl1;
 		vh = ch2;
-		FN->f2 = FN->f2 +1;
 	}
 	countBatElements=BATcount(b);
-	fprintf(stderr,"BATcount(b)=%d\n",countBatElements);
+	/*fprintf(stderr,"BATcount(b)=%d\n",countBatElements);*/
 	FN->weight = changeWeight(FN,countBatElements,L1);
-	printFrequencyStruct(FrequencyStruct);
+	/*printFrequencyStruct(FrequencyStruct);*/
 	maxWB=findMax(FrequencyStruct);
+	/*fprintf(stderr,"MAXWB=%d\n",maxWB);*/
 	@:CreateResult()@
 	return MAL_SUCCEED;
 @

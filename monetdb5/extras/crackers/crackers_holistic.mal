@@ -1,0 +1,15 @@
+module crackers;
+
+command holisticprelude():void
+address CRKinitHolistic
+comment "Initialize holistic module";
+
+command initFrequencyStruct(b:bat[:oid,:any]):void
+address CRKinitFrequencyStruct
+comment "Initialize the struct(lifo) with zero values.";
+
+command randomCrack():void
+address CRKrandomCrack
+comment "Do random crack on BATs ordered by descending weight";
+
+crackers.holisticprelude();

@@ -1,16 +1,17 @@
 #ifndef _CRACKERS_HOLISTIC_H_
 #define _CRACKERS_HOLISTIC_H_
 
+#include <mal.h>
 
 
 #ifdef WIN32
 #ifndef LIBCRACKERS
-#define holistic_export extern __declspec(dllimport)
+#define crackers_export extern __declspec(dllimport)
 #else
-#define holistic_export extern __declspec(dllexport)
+#define crackers_export extern __declspec(dllexport)
 #endif
 #else
-#define holistic_export extern
+#define crackers_export extern
 #endif
 
 
@@ -25,13 +26,16 @@ typedef struct frequency{
 
 }FrequencyNode;
 
-holistic_export int existsFrequencyStruct(FrequencyNode* head);
-holistic_export FrequencyNode* createFrequencyStruct(void);
-holistic_export FrequencyNode* push(int bat_id,FrequencyNode* head);
-holistic_export FrequencyNode* pop(FrequencyNode* head);
-holistic_export void printFrequencyStruct(FrequencyNode* head);
-holistic_export FrequencyNode* searchBAT(FrequencyNode* head,int bat_id);
-holistic_export double changeWeight(FrequencyNode* node,int N,int L1);
-holistic_export int findMax(FrequencyNode* head);
+crackers_export FrequencyNode *getFrequencyStruct(void);
+crackers_export FrequencyNode* push(int bat_id,FrequencyNode* head);
+crackers_export FrequencyNode* pop(FrequencyNode* head);
+crackers_export void printFrequencyStruct(FrequencyNode* head);
+crackers_export FrequencyNode* searchBAT(FrequencyNode* head,int bat_id);
+crackers_export double changeWeight(FrequencyNode* node,int N,int L1);
+crackers_export int findMax(FrequencyNode* head);
+
+crackers_export str CRKinitHolistic(int *ret);
+crackers_export str CRKinitFrequencyStruct(int *vid,int *bid);
+crackers_export str CRKrandomCrack(int *ret);
 
 #endif /*crackers_holistic*/ 

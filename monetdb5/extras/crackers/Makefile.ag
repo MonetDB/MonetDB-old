@@ -21,6 +21,7 @@ INCLUDES = ../../modules/atoms \
 		   ../../optimizer \
 		   ../../../common/options \
 		   ../../../common/stream \
+		   ../../../common/utils \
 		   ../../../gdk
 
 MTSAFE
@@ -45,6 +46,7 @@ lib_crackers = {
 	LIBS = ../../tools/libmonetdb5 \
 		   ../../../gdk/libbat \
 		   ../../../common/stream/libstream \
+		   ../../../common/utils/libmutils \
 		   $(MALLOC_LIBS)
 }
 
@@ -54,7 +56,8 @@ headers_mal = {
 	SOURCES = crackers.mx \
 			  opt_selcrack.mx \
 			  opt_selcrackst.mx \
-			  opt_selcrackhol.mx
+			  opt_selcrackhol.mx \
+			  crackers_holistic.mal
 }
 
 headers_crackersautoload = {

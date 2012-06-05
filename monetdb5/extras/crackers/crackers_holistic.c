@@ -1,29 +1,39 @@
 #include "monetdb_config.h"
 #include "crackers_holistic.h"
+#include "crackers.h"
 #include "gdk.h"
+#include "mal_exception.h"
+#include "mutils.h"
 
+static FrequencyNode *_InternalFrequencyStruct = NULL;
+static MT_Lock frequencylock;
 
-int 
-existsFrequencyStruct(FrequencyNode* head)
+str
+CRKinitHolistic(int *ret)
 {
-	if(head == NULL)
-		return 0;
-	else
-		return 1;
+	MT_lock_init(&frequencylock, "FrequencyStruct");
+	*ret = 0;
+	return MAL_SUCCEED;
 }
-FrequencyNode* 
-createFrequencyStruct(void)
+
+FrequencyNode *
+getFrequencyStruct(void)
 {
-	FrequencyNode *x;
-	x=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode)); 
-	x->bid=0;	
-	x->c=0;
-	x->f1=0;
-	x->f2=0;
-	x->weight=0.0;
-	x->next=NULL;
-	return x;
+	mal_set_lock(frequencylock, "getFrequencyStruct");
+	if (_InternalFrequencyStruct == NULL) {
+		_InternalFrequencyStruct = GDKmalloc(sizeof(FrequencyNode)); 
+		_InternalFrequencyStruct->bid=0;
+		_InternalFrequencyStruct->c=0;
+		_InternalFrequencyStruct->f1=0;
+		_InternalFrequencyStruct->f2=0;
+		_InternalFrequencyStruct->weight=0.0;
+		_InternalFrequencyStruct->next=NULL;
+	}
+	mal_unset_lock(frequencylock, "getFrequencyStruct");
+	
+	return _InternalFrequencyStruct;
 }
+
 FrequencyNode* 
 push(int bat_id,FrequencyNode* head)
 {
@@ -99,9 +109,60 @@ changeWeight(FrequencyNode* node,int N,int L1)
 	p = 2 * (node->c);
 	Sp =((double)N)/p;	
 	d = ABS(Sp - L1);
-	fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);
-	node->weight = ((node->f2)/(node->f1)) * d;
-	fprintf(stderr,"W=%lf\n",node->weight);
+	/*fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);*/
+	if (node->f2!=0)
+		node->weight = ((double)(node->f1)/(double)(node->f2)) * d;
+	/*fprintf(stderr,"W=%lf\n",node->weight);*/
 	return node->weight;
 
 }
+
+str 
+CRKinitFrequencyStruct(int *vid,int *bid)
+{
+	FrequencyNode* new_node;
+	FrequencyNode *fs = getFrequencyStruct();
+
+	/*fprintf(stderr,"BAT_ID=%d\n",*bid);*/
+	
+	new_node=push(*bid,fs);
+        fprintf(stderr,"Bid=%d c=%d f1=%d f2=%d weight=%lf \n",new_node->bid,new_node->c,new_node->f1,new_node->f2,new_node->weight);
+
+	*vid = 0;
+	return MAL_SUCCEED;
+}
+
+str
+CRKrandomCrack(int *ret)
+{
+	int bid=0;
+	BAT *b;
+	int low=0, hgh=0;
+	int *t;
+	int temp=0;
+	oid posl,posh,p;
+	bit inclusive=TRUE;
+	FrequencyNode *fs = getFrequencyStruct();
+
+	bid=findMax(fs);
+	b=BATdescriptor(bid);
+	t=(int*)Tloc(b,BUNfirst(b));
+	posl=BUNfirst(b);
+	posh=BUNlast(b) - 1;
+	p=(rand()%(posh-posl+1))+posl;
+	low=t[p];
+	p=(rand()%(posh-posl+1))+posl;
+	hgh=t[p];
+	if(hgh < low)
+	{
+		temp=low;
+		low=hgh;
+		hgh=temp;
+	}
+	/*fprintf(stderr,"posl = "OIDFMT" posh = "OIDFMT" low = %d hgh = %d inclusive = %d", posl,posh,low,hgh,inclusive );*/
+
+	CRKselectholBounds_int(ret, &bid, &low, &hgh, &inclusive, &inclusive);
+	*ret = 0;
+	return MAL_SUCCEED;
+}
+

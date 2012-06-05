@@ -152,11 +152,8 @@ module crackers;
 @:TypeSwitch_1(Select)@
 @:TypeSwitch_1(Index)@
 @:TypeSwitch_1(CoreUnordered)@
-
-
-
-
 #
+
 @= Select
 command select(b:bat[:oid,:@2],l:@2,h:@2):bat[:oid,:@2]
 address CRKselect_@2
@@ -281,9 +278,6 @@ comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
 
 @
-command initFrequencyStruct(b:bat[:any,:any]):void
-address CRKinitFrequencyStruct
-comment "Initialize the struct(lifo) with zero values.";
 
 @= Index
 command printCrackerIndexBATpart(b:bat[:any_1,:@2]):void
@@ -349,7 +343,6 @@ comment "Break a BAT into three pieces with
 #ifdef LIBCRACKERS 
 extern int maxCrackMap;
 extern CrackerIndexNode *CrackerIndex;
-extern FrequencyNode *FrequencyStruct;
 extern int IndexEntries;
 extern int IndexSize;
 extern int IndexStop;
@@ -371,7 +364,6 @@ extern struct storageManagement *StorageInfo;
 int maxCrackMap = 0;
 
 CrackerIndexNode *CrackerIndex;
-FrequencyNode *FrequencyStruct;
 
 struct storageManagement *StorageInfo = NULL;
 

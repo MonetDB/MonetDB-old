@@ -752,7 +752,10 @@ InsertTree_@1(int m, oid indexPosition, @1 value, bit inclusive, oid crackPositi
                         	current = DoubleRotateRight(&(CrackerIndex[m].Tree), current);
 		}
         }else 
-	if (@2_EQ(&value,curValue,@3@1) ){ fprintf(stderr,"\nNODE ALREADY EXISTS\n"); return current;}
+	if (@2_EQ(&value,curValue,@3@1) ){ 
+		/*fprintf(stderr,"\nNODE ALREADY EXISTS\n");*/
+		 return current;
+	}
 
 
 	end:;
