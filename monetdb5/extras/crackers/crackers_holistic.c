@@ -43,7 +43,7 @@ getFrequencyStruct(char which)
 	return *theNode;
 }
 
-FrequencyNode* 
+void 
 push(int bat_id,FrequencyNode* head)
 {
 	FrequencyNode* new_node;
@@ -54,9 +54,9 @@ push(int bat_id,FrequencyNode* head)
 	new_node->f2=0;
 	new_node->weight=0.0;
 	new_node->next=head->next;
-	head->next=new_node;
-	return new_node; 
+	head->next=new_node; 
 }
+
 FrequencyNode*
 pop(FrequencyNode* head)
 {
@@ -129,14 +129,9 @@ changeWeight(FrequencyNode* node,int N,int L1)
 str 
 CRKinitFrequencyStruct(int *vid,int *bid)
 {
-	FrequencyNode* new_node;
 	FrequencyNode *fs = getFrequencyStruct('A');
-
 	/*fprintf(stderr,"BAT_ID=%d\n",*bid);*/
-	
-	new_node=push(*bid,fs);
-        fprintf(stderr,"Bid=%d c=%d f1=%d f2=%d weight=%lf \n",new_node->bid,new_node->c,new_node->f1,new_node->f2,new_node->weight);
-
+	push(*bid,fs);
 	*vid = 0;
 	return MAL_SUCCEED;
 }
