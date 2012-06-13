@@ -21,7 +21,7 @@ All Rights Reserved.
 
 @c
 /*
- * @a Martin Kersten, Stratos Idreos, Stefan Manegold
+ * @a Martin Kersten, Stratos Idreos, Stefan Manegold, Eleni Petraki
  * @d March 2006 - July 2007
  * @* Select Operators
  *
@@ -307,7 +307,7 @@ createView:
 	
 	int countBatElements;
 	int L1=8192; /*KiloBytes*/
-	int maxWB=0;
+	/*int maxWB=0;*/
 
 	/*k and randomoid are used for DD1R*/
 	@1 k,temp_h;
@@ -320,7 +320,7 @@ createView:
 
 	/*fprintf(stderr,"This is from selcrack_HOL operators\n");*/	
 	/*fprintf(stderr,"BBPsize=%d maxWB=%d",BBPsize,maxWB);*/	
-	fprintf(stderr,"maxWB=%d",maxWB);
+	/*fprintf(stderr,"maxWB=%d",maxWB);*/
 	if (@2_GT(low,hgh,@3@1))
 		throw(MAL, "crackers.crack", "illegal range");
 	
@@ -561,8 +561,10 @@ createView:
 	countBatElements=BATcount(b);
 	/*fprintf(stderr,"BATcount(b)=%d\n",countBatElements);*/
 	FN->weight = changeWeight(FN,countBatElements,L1);
+	if(FN->weight <0)
+		deleteNode(FrequencyStructA,FN->bid);
 	/*printFrequencyStruct(FrequencyStruct);*/
-	maxWB=findMax(FrequencyStructA);
+	/*maxWB=findMax(FrequencyStructA);*/
 	/*fprintf(stderr,"MAXWB=%d\n",maxWB);*/
 	@:CreateResult()@
 	return MAL_SUCCEED;

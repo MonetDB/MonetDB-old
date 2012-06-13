@@ -130,6 +130,23 @@ changeWeight(FrequencyNode* node,int N,int L1)
 
 }
 
+void
+deleteNode(FrequencyNode* head,int bat_id)
+{
+	FrequencyNode* temp;
+	temp=head;
+	while((temp->next != NULL))
+	{
+		if(temp->next->bid == bat_id)
+		{
+			temp->next=temp->next->next;	
+			break;
+		}
+		temp=temp->next;
+	}
+
+}
+
 str 
 CRKinitFrequencyStruct(int *vid,int *bid)
 {
