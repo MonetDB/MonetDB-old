@@ -66,6 +66,7 @@ pop(FrequencyNode* head)
 	GDKfree(dummy);
 	return head;
 }
+
 void 
 printFrequencyStruct(FrequencyNode* head)
 {
@@ -78,6 +79,7 @@ printFrequencyStruct(FrequencyNode* head)
 		temp=temp->next;
 	}
 }
+
 FrequencyNode* 
 searchBAT(FrequencyNode* head,int bat_id)
 {
@@ -89,6 +91,7 @@ searchBAT(FrequencyNode* head,int bat_id)
 	}
 	return temp;
 }
+
 int
 findMax(FrequencyNode* head)
 {
@@ -109,6 +112,7 @@ findMax(FrequencyNode* head)
 	}
 	return bat;
 }
+
 double
 changeWeight(FrequencyNode* node,int N,int L1)
 {
