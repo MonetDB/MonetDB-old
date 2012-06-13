@@ -5,7 +5,8 @@
 #include "mal_exception.h"
 #include "mutils.h"
 
-static FrequencyNode *_InternalFrequencyStruct = NULL;
+static FrequencyNode *_InternalFrequencyStructA = NULL;
+static FrequencyNode *_InternalFrequencyStructB = NULL;
 static MT_Lock frequencylock;
 
 str
@@ -16,22 +17,30 @@ CRKinitHolistic(int *ret)
 	return MAL_SUCCEED;
 }
 
+/*singleton pattern*/
 FrequencyNode *
-getFrequencyStruct(void)
+getFrequencyStruct(char which)
 {
+	FrequencyNode **theNode = NULL;
+
 	mal_set_lock(frequencylock, "getFrequencyStruct");
-	if (_InternalFrequencyStruct == NULL) {
-		_InternalFrequencyStruct = GDKmalloc(sizeof(FrequencyNode)); 
-		_InternalFrequencyStruct->bid=0;
-		_InternalFrequencyStruct->c=0;
-		_InternalFrequencyStruct->f1=0;
-		_InternalFrequencyStruct->f2=0;
-		_InternalFrequencyStruct->weight=0.0;
-		_InternalFrequencyStruct->next=NULL;
-	}
+	switch (which) {
+                case 'A':
+                        theNode = &_InternalFrequencyStructA;
+                        break;
+                case 'B':
+                        theNode = &_InternalFrequencyStructB;
+                        break;
+                default:
+                        assert(0);
+         }
+
+        /* GDKzalloc = calloc = malloc + memset(0) */
+        if (*theNode == NULL)
+                *theNode = GDKzalloc(sizeof(FrequencyNode));
 	mal_unset_lock(frequencylock, "getFrequencyStruct");
 	
-	return _InternalFrequencyStruct;
+	return *theNode;
 }
 
 FrequencyNode* 
@@ -121,7 +130,7 @@ str
 CRKinitFrequencyStruct(int *vid,int *bid)
 {
 	FrequencyNode* new_node;
-	FrequencyNode *fs = getFrequencyStruct();
+	FrequencyNode *fs = getFrequencyStruct('A');
 
 	/*fprintf(stderr,"BAT_ID=%d\n",*bid);*/
 	
@@ -142,7 +151,7 @@ CRKrandomCrack(int *ret)
 	int temp=0;
 	oid posl,posh,p;
 	bit inclusive=TRUE;
-	FrequencyNode *fs = getFrequencyStruct();
+	FrequencyNode *fs = getFrequencyStruct('A');
 
 	bid=findMax(fs);
 	b=BATdescriptor(bid);

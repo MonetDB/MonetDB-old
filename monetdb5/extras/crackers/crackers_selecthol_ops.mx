@@ -313,8 +313,8 @@ createView:
 	@1 k,temp_h;
 
 	FrequencyNode* FN;
-	FrequencyNode *FrequencyStruct = getFrequencyStruct();
-	FN=searchBAT(FrequencyStruct,*bid);
+	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
+	FN=searchBAT(FrequencyStructA,*bid);
 	FN->c = FN->c + 1;
 	/*fprintf(stderr,"FN->bid=%d\n",FN->bid);*/
 
@@ -562,7 +562,7 @@ createView:
 	/*fprintf(stderr,"BATcount(b)=%d\n",countBatElements);*/
 	FN->weight = changeWeight(FN,countBatElements,L1);
 	/*printFrequencyStruct(FrequencyStruct);*/
-	maxWB=findMax(FrequencyStruct);
+	maxWB=findMax(FrequencyStructA);
 	/*fprintf(stderr,"MAXWB=%d\n",maxWB);*/
 	@:CreateResult()@
 	return MAL_SUCCEED;
