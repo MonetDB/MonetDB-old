@@ -302,7 +302,9 @@ createView:
 			if ( bo->htype == TYPE_void)
 				b = BATmaterializeh(b);
 			b->hsorted = FALSE;
+			b->hrevsorted = FALSE;
 			b->tsorted = FALSE;
+			b->trevsorted = FALSE;
 			b->hdense = FALSE;
 			b->tdense = FALSE;
 			/*BATkey(b,TRUE);*/
@@ -340,7 +342,9 @@ createView:
 
 			b=BATnew(TYPE_oid, bo->ttype,BATcount(bo));
 			b->hsorted = FALSE;
+			b->hrevsorted = FALSE;
 			b->tsorted = FALSE;
+			b->trevsorted = FALSE;
 			b->hdense = FALSE;
 			b->tdense = FALSE;
 			BATkey(BATmirror(b),FALSE);
@@ -540,7 +544,9 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 		if ( bo->htype == TYPE_void)
 			b = BATmaterializeh(b);
 		b->hsorted = FALSE;
+		b->hrevsorted = FALSE;
 		b->tsorted = FALSE;
+		b->trevsorted = FALSE;
 		b->hdense = FALSE;
 		b->tdense = FALSE;
 		b->batRestricted= BAT_READ;
@@ -634,7 +640,9 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 		if ( bo->htype == TYPE_void)
 			b = BATmaterializeh(b);
 		b->hsorted = FALSE;
+		b->hrevsorted = FALSE;
 		b->tsorted = FALSE;
+		b->trevsorted = FALSE;
 		b->hdense = FALSE;
 		b->tdense = FALSE;
 		b->batRestricted= BAT_READ;

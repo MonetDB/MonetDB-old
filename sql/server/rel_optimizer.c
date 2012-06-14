@@ -198,30 +198,6 @@ list_find_exp( list *exps, sql_exp *e)
 	return NULL;
 }
 
-/* find in the list of expression an expression which uses e */ 
-static sql_exp *
-exp_uses_exp( list *exps, sql_exp *e)
-{
-	node *n;
-	char *rname = exp_find_rel_name(e);
-	char *name = exp_name(e);
-
-	if (!exps)
-		return NULL;
-
-	for ( n = exps->h; n; n = n->next) {
-		sql_exp *u = n->data;
-
-		if (u->l && rname && strcmp(u->l, rname) == 0 &&
-		    u->r && name && strcmp(u->r, name) == 0) 
-			return u;
-		if (!u->l && !rname &&
-		    u->r && name && strcmp(u->r, name) == 0) 
-			return u;
-	}
-	return NULL;
-}
-
 static int
 kc_column_cmp(sql_kc *kc, sql_column *c)
 {
@@ -793,7 +769,7 @@ order_joins(mvc *sql, list *rels, list *exps)
 	while(list_length(exps) && fnd) {
 		fnd = 0;
 		/* find the first expression which could be added */
-		for(djn = sdje->h; djn && !fnd; djn = (!fnd)?djn->next:NULL) {
+		for(djn = sdje->h; djn && !fnd && rels->h; djn = (!fnd)?djn->next:NULL) {
 			node *ln, *rn, *en;
 			
 			cje = djn->data;
@@ -1381,40 +1357,26 @@ rel_push_func_down(int *changes, mvc *sql, sql_rel *rel)
 				sql_exp *e = n->data, *ne = NULL;
 				int must = 0, mustl = 0, mustr = 0;
 
-				assert(e->type == e_cmp);
+				if (e->type == e_column)
+					continue;
 				if ((is_join(rel->op) && ((can_push_func(e, l, &mustl) && mustl) || (can_push_func(e, r, &mustr) && mustr))) ||
 				    (is_select(rel->op) && can_push_func(e, NULL, &must) && must)) {
 					must = 0; mustl = 0; mustr = 0;
-					ne = e->l;
-					if ((is_join(rel->op) && ((can_push_func(ne, l, &mustl) && mustl) || (can_push_func(ne, r, &mustr) && mustr))) ||
-					    (is_select(rel->op) && can_push_func(ne, NULL, &must) && must)) {
-						exp_label(sql->sa, ne, ++sql->label);
-						if (mustr)
-							append(r->exps, ne);
-						else
-							append(l->exps, ne);
-						ne = exp_column(sql->sa, exp_relname(ne), exp_name(ne), exp_subtype(ne), ne->card, has_nil(ne), is_intern(ne));
-					}
-					e->l = ne;
-
-					must = 0; mustl = 0; mustr = 0;
-					ne = e->r;
-					if ((is_join(rel->op) && ((can_push_func(ne, l, &mustl) && mustl) || (can_push_func(ne, r, &mustr) && mustr))) ||
-					    (is_select(rel->op) && can_push_func(ne, NULL, &must) && must)) {
-						exp_label(sql->sa, ne, ++sql->label);
-						if (mustr)
-							append(r->exps, ne);
-						else
-							append(l->exps, ne);
-						ne = exp_column(sql->sa, exp_relname(ne), exp_name(ne), exp_subtype(ne), ne->card, has_nil(ne), is_intern(ne));
-					}
-					e->r = ne;
-
-					if (e->f) {
-						must = 0; mustl = 0; mustr = 0;
-						ne = e->f;
+					if (e->type != e_cmp) { /* predicate */
+						if ((is_join(rel->op) && ((can_push_func(e, l, &mustl) && mustl) || (can_push_func(e, r, &mustr) && mustr))) ||
+					    	    (is_select(rel->op) && can_push_func(e, NULL, &must) && must)) {
+							exp_label(sql->sa, e, ++sql->label);
+							if (mustr)
+								append(r->exps, e);
+							else
+								append(l->exps, e);
+							e = exp_column(sql->sa, exp_relname(e), exp_name(e), exp_subtype(e), e->card, has_nil(e), is_intern(e));
+							n->data = e;
+						}
+					} else {
+						ne = e->l;
 						if ((is_join(rel->op) && ((can_push_func(ne, l, &mustl) && mustl) || (can_push_func(ne, r, &mustr) && mustr))) ||
-					            (is_select(rel->op) && can_push_func(ne, NULL, &must) && must)) {
+					    	    (is_select(rel->op) && can_push_func(ne, NULL, &must) && must)) {
 							exp_label(sql->sa, ne, ++sql->label);
 							if (mustr)
 								append(r->exps, ne);
@@ -1422,11 +1384,39 @@ rel_push_func_down(int *changes, mvc *sql, sql_rel *rel)
 								append(l->exps, ne);
 							ne = exp_column(sql->sa, exp_relname(ne), exp_name(ne), exp_subtype(ne), ne->card, has_nil(ne), is_intern(ne));
 						}
-						e->f = ne;
+						e->l = ne;
+
+						must = 0; mustl = 0; mustr = 0;
+						ne = e->r;
+						if ((is_join(rel->op) && ((can_push_func(ne, l, &mustl) && mustl) || (can_push_func(ne, r, &mustr) && mustr))) ||
+					    	    (is_select(rel->op) && can_push_func(ne, NULL, &must) && must)) {
+							exp_label(sql->sa, ne, ++sql->label);
+							if (mustr)
+								append(r->exps, ne);
+							else
+								append(l->exps, ne);
+							ne = exp_column(sql->sa, exp_relname(ne), exp_name(ne), exp_subtype(ne), ne->card, has_nil(ne), is_intern(ne));
+						}
+						e->r = ne;
+
+						if (e->f) {
+							must = 0; mustl = 0; mustr = 0;
+							ne = e->f;
+							if ((is_join(rel->op) && ((can_push_func(ne, l, &mustl) && mustl) || (can_push_func(ne, r, &mustr) && mustr))) ||
+					            	    (is_select(rel->op) && can_push_func(ne, NULL, &must) && must)) {
+								exp_label(sql->sa, ne, ++sql->label);
+								if (mustr)
+									append(r->exps, ne);
+								else
+									append(l->exps, ne);
+								ne = exp_column(sql->sa, exp_relname(ne), exp_name(ne), exp_subtype(ne), ne->card, has_nil(ne), is_intern(ne));
+							}
+							e->f = ne;
+						}
 					}
+					(*changes)++;
 				}
 			}
-			(*changes)++;
 		}
 	}
 	if (rel->op == op_project && rel->l && rel->exps) {
@@ -1752,7 +1742,8 @@ rel_push_topn_down(int *changes, mvc *sql, sql_rel *rel)
 /* push an expression through a projection. 
  * The result should again used in a projection.
  */
-static sql_exp * exp_push_down_prj(mvc *sql, sql_exp *e, sql_rel *f, sql_rel *t);
+static sql_exp *
+exp_push_down_prj(mvc *sql, sql_exp *e, sql_rel *f, sql_rel *t);
 
 static list *
 exps_push_down_prj(mvc *sql, list *exps, sql_rel *f, sql_rel *t)
@@ -2891,19 +2882,44 @@ rel_remove_empty_select(int *changes, mvc *sql, sql_rel *rel)
  * ->
  * {semi}join( A, groupby( semijoin(B,A) [gbe == A.x] ) [gbe][aggrs] ) [ gbe == A.x ]
  */
+
+/* find in the list of expression an expression which uses e */ 
+static sql_exp *
+exp_uses_exp( list *exps, sql_exp *e)
+{
+	node *n;
+	char *rname = exp_find_rel_name(e);
+	char *name = exp_name(e);
+
+	if (!exps)
+		return NULL;
+
+	for ( n = exps->h; n; n = n->next) {
+		sql_exp *u = n->data;
+
+		if (u->l && rname && strcmp(u->l, rname) == 0 &&
+		    u->r && name && strcmp(u->r, name) == 0) 
+			return u;
+		if (!u->l && !rname &&
+		    u->r && name && strcmp(u->r, name) == 0) 
+			return u;
+	}
+	return NULL;
+}
+
 static sql_rel *
 rel_push_join_down(int *changes, mvc *sql, sql_rel *rel) 
 {
 	list *exps = NULL;
 
 	(void)*changes;
-	if (((is_join(rel->op) && rel->exps) || is_semi(rel->op)) && rel->l) {
+	if (!rel_is_ref(rel) && (((is_join(rel->op) && rel->exps) || is_semi(rel->op)) && rel->l)) {
 		sql_rel *gb = rel->r, *ogb = gb, *l = NULL, *rell = rel->l;
 
 		if (gb->op == op_project)
 			gb = gb->l;
 
-		if (is_basetable(rell->op))
+		if (is_basetable(rell->op) || rel_is_ref(rell))
 			return rel;
 
 		exps = rel->exps;
@@ -4290,12 +4306,15 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 			rel_mark_used(sql, rel->l, 0);
 			rel_mark_used(sql, rel->r, 0);
 		} else if (proj && !need_distinct(rel)) {
-			positional_exps_mark_used(rel, rel->l);
-			positional_exps_mark_used(rel, rel->r);
+			sql_rel *l = rel->l;
+
+			positional_exps_mark_used(rel, l);
 			rel_mark_used(sql, rel->l, 1);
+			/* based on child check set expression list */
+			if (is_project(l->op) && need_distinct(l))
+				positional_exps_mark_used(l, rel);
+			positional_exps_mark_used(rel, rel->r);
 			rel_mark_used(sql, rel->r, 1);
-			/* based on child check union expression list */
-			positional_exps_mark_used(rel->l, rel);
 		}
 		break;
 
@@ -4667,11 +4686,14 @@ rel_use_index(int *changes, mvc *sql, sql_rel *rel)
 	if (is_select(rel->op) || is_join(rel->op)) {
 		list *exps = NULL;
 		sql_idx *i = find_index(sql->sa, rel, rel, &exps);
+		int left = 1;
 
 		if (!i && is_join(rel->op))
 			i = find_index(sql->sa, rel, rel->l, &exps);
-		if (!i && is_join(rel->op))
+		if (!i && is_join(rel->op)) {
+			left = 0;
 			i = find_index(sql->sa, rel, rel->r, &exps);
+		}
 			
 		if (i) {
 			prop *p;
@@ -4681,6 +4703,11 @@ rel_use_index(int *changes, mvc *sql, sql_rel *rel)
 			for( n = exps->h; n; n = n->next) { 
 				sql_exp *e = n->data;
 
+				/* swapped ? */
+				if (is_join(rel->op) && 
+					 ((left && !rel_find_exp(rel->l, e->l)) ||
+					 (!left && !rel_find_exp(rel->r, e->l)))) 
+					n->data = e = exp_compare(sql->sa, e->r, e->l, cmp_equal);
 				p = find_prop(e->p, PROP_HASHCOL);
 				if (!p)
 					e->p = p = prop_create(sql->sa, PROP_HASHCOL, e->p);

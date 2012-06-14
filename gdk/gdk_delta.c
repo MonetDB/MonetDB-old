@@ -51,20 +51,20 @@ BAT *
 BATcommit(BAT *b)
 {
 	BATcheck(b, "BATcommit");
-	DELTAprintf("#BATcommit1 %s free " SZFMT "," SZFMT " ins " BUNFMT " del " BUNFMT " first " BUNFMT " base " PTRFMT "," PTRFMT "\n",
-		    BATgetId(b),
-		    b->H->heap.free,
-		    b->T->heap.free,
-		    b->batInserted,
-		    b->batDeleted,
-		    b->batFirst,
-		    PTRFMTCAST b->H->heap.base,
-		    PTRFMTCAST b->T->heap.base);
+	DELTADEBUG printf("#BATcommit1 %s free " SZFMT "," SZFMT " ins " BUNFMT " del " BUNFMT " first " BUNFMT " base " PTRFMT "," PTRFMT "\n",
+			  BATgetId(b),
+			  b->H->heap.free,
+			  b->T->heap.free,
+			  b->batInserted,
+			  b->batDeleted,
+			  b->batFirst,
+			  PTRFMTCAST b->H->heap.base,
+			  PTRFMTCAST b->T->heap.base);
 	ALIGNcommit(b);
 	if (b->batDeleted < b->batFirst && BBP_cache(b->batCacheid)) {
 		BATiter bi = bat_iterator(b);
-		int (*hunfix) (ptr) = BATatoms[b->htype].atomUnfix;
-		int (*tunfix) (ptr) = BATatoms[b->ttype].atomUnfix;
+		int (*hunfix) (const void *) = BATatoms[b->htype].atomUnfix;
+		int (*tunfix) (const void *) = BATatoms[b->ttype].atomUnfix;
 		void (*hatmdel) (Heap *, var_t *) = BATatoms[b->htype].atomDel;
 		void (*tatmdel) (Heap *, var_t *) = BATatoms[b->ttype].atomDel;
 		BUN p, q;
@@ -97,15 +97,15 @@ BATcommit(BAT *b)
 	}
 	b->batDeleted = b->batFirst;
 	b->batInserted = BUNlast(b);
-	DELTAprintf("#BATcommit2 %s free " SZFMT "," SZFMT " ins " BUNFMT " del " BUNFMT " first " BUNFMT " base " PTRFMT "," PTRFMT "\n",
-		    BATgetId(b),
-		    b->H->heap.free,
-		    b->T->heap.free,
-		    b->batInserted,
-		    b->batDeleted,
-		    b->batFirst,
-		    PTRFMTCAST b->H->heap.base,
-		    PTRFMTCAST b->T->heap.base);
+	DELTADEBUG printf("#BATcommit2 %s free " SZFMT "," SZFMT " ins " BUNFMT " del " BUNFMT " first " BUNFMT " base " PTRFMT "," PTRFMT "\n",
+			  BATgetId(b),
+			  b->H->heap.free,
+			  b->T->heap.free,
+			  b->batInserted,
+			  b->batDeleted,
+			  b->batFirst,
+			  PTRFMTCAST b->H->heap.base,
+			  PTRFMTCAST b->T->heap.base);
 	return b;
 }
 
@@ -144,7 +144,7 @@ BATundo(BAT *b)
 	BUN p, bunlast, bunfirst;
 
 	BATcheck(b, "BATundo");
-	DELTAprintf("#BATundo %s \n", BATgetId(b));
+	DELTADEBUG printf("#BATundo %s \n", BATgetId(b));
 	ALIGNundo(b);
 	if (b->batDirtyflushed) {
 		b->batDirtydesc = b->H->heap.dirty = b->T->heap.dirty = 1;
@@ -160,8 +160,8 @@ BATundo(BAT *b)
 	bunlast = BUNlast(b) - 1;
 	if (bunlast >= b->batInserted) {
 		BUN i = bunfirst;
-		int (*hunfix) (ptr) = BATatoms[b->htype].atomUnfix;
-		int (*tunfix) (ptr) = BATatoms[b->ttype].atomUnfix;
+		int (*hunfix) (const void *) = BATatoms[b->htype].atomUnfix;
+		int (*tunfix) (const void *) = BATatoms[b->ttype].atomUnfix;
 		void (*hatmdel) (Heap *, var_t *) = BATatoms[b->htype].atomDel;
 		void (*tatmdel) (Heap *, var_t *) = BATatoms[b->ttype].atomDel;
 
@@ -201,10 +201,10 @@ BATundo(BAT *b)
 		BAT *bm = BBP_cache(-b->batCacheid);
 
 		/* elements are 'inserted' => zap properties */
-		if (b->hsorted & 1 || b->hsorted == (bit) GDK_SORTED_REV)
-			b->hsorted = FALSE;
-		if (b->tsorted & 1 || b->tsorted == (bit) GDK_SORTED_REV)
-			b->tsorted = FALSE;
+		b->hsorted = 0;
+		b->hrevsorted = 0;
+		b->tsorted = 0;
+		b->trevsorted = 0;
 		if (b->hkey)
 			BATkey(b, FALSE);
 		if (b->tkey)

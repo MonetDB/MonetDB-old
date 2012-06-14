@@ -19,16 +19,6 @@
 
 /* This file should not be included in any file outside of this directory */
 
-typedef struct MT_mmap_hdl_t {
-	void *hdl;
-	int mode;
-	void *fixed;
-#ifdef NATIVE_WIN32
-	int hasLock;
-	void *map;
-#endif
-} MT_mmap_hdl;
-
 int ALIGNcommit(BAT *b);
 int ALIGNundo(BAT *b);
 int ATOMheap(int id, Heap *hp, size_t cap);
@@ -37,7 +27,7 @@ int ATOMunknown_add(str nme);
 int ATOMunknown_del(int a);
 int ATOMunknown_find(str nme);
 str ATOMunknown_name(int a);
-BAT *BAT_select_(BAT *b, ptr tl, ptr th, bit li, bit hi, bit tail, bit anti, bit preserve_order);
+BAT *BAT_select_(BAT *b, const void *tl, const void *th, bit li, bit hi, bit tail, bit anti, bit preserve_order);
 BUN BATbuncount(BAT *b);
 int BATcheckmodes(BAT *b, int persistent);
 BAT *BATclone(BAT *b, BUN capacity);
@@ -65,9 +55,8 @@ void BBPdump(void);		/* never called: for debugging only */
 void BBPexit(void);
 void BBPinit(void);
 int BBPrecover(void);
-BATstore *BBPrecycle(int ht, int tt, size_t cap);
 void BBPreleaselref(bat i);
-void BBPtrim(size_t memdelta, size_t vmdelta);
+void BBPtrim(size_t delta);
 void BBPunshare(bat b);
 void GDKclrerr(void);
 FILE *GDKfilelocate(const char *nme, const char *mode, const char *ext);
@@ -76,7 +65,6 @@ void GDKlockHome(void);
 void GDKlog(_In_z_ _Printf_format_string_ const char *format, ...)
 	__attribute__((__format__(__printf__, 1, 2)));
 void *GDKmallocmax(size_t size, size_t *maxsize, int emergency);
-size_t GDKmem_heapinuse(void);
 int GDKmove(const char *dir1, const char *nme1, const char *ext1, const char *dir2, const char *nme2, const char *ext2);
 int GDKmunmap(void *addr, size_t len);
 void *GDKreallocmax(void *pold, size_t size, size_t *maxsize, int emergency);
@@ -85,11 +73,7 @@ int GDKsave(const char *nme, const char *ext, void *buf, size_t size, int mode);
 int GDKssort_rev(void *h, void *t, void *base, size_t n, int hs, int ts, int tpe);
 int GDKssort(void *h, void *t, void *base, size_t n, int hs, int ts, int tpe);
 int GDKunlink(const char *dir, const char *nme, const char *extension);
-void *GDKvmalloc(size_t size, size_t * maxsize, int emergency);
-void GDKvmfree(void *blk, size_t size, size_t maxsize);
-void GDKvminc(size_t len);
-void *GDKvmrealloc(void *pold, size_t oldsize, size_t newsize, size_t oldmax, size_t *maxsize, int emergency);
-int HASHgonebad(BAT *b, ptr v);
+int HASHgonebad(BAT *b, const void *v);
 BUN HASHmask(BUN cnt);
 Hash *HASHnew(Heap *hp, int tpe, BUN size, BUN mask);
 int HEAPalloc(Heap *h, size_t nitems, size_t itemsize);
@@ -101,17 +85,11 @@ int HEAPload(Heap *h, const char *nme, const char *ext, int trunc);
 int HEAP_mmappable(Heap *heap);
 int HEAPsave(Heap *h, const char *nme, const char *ext);
 int HEAPwarm(Heap *h);
-int intCmp(int *r, int *l);
-int lngCmp(lng *r, lng *l);
+int intCmp(const int *r, const int *l);
+int lngCmp(const lng *r, const lng *l);
 void MT_global_exit(int status)
 	__attribute__((__noreturn__));
 void MT_init_posix(void);
-int MT_madvise(void *p, size_t len, int advice);
-void MT_mmap_close(MT_mmap_hdl *hdl);
-void MT_mmap_inform(void *p, size_t len, int preload, int pattern, int writable);
-void *MT_mmap_open(MT_mmap_hdl *hdl, char *path, int mode, off_t off, size_t len, size_t nremaps);
-void *MT_mmap_remap(MT_mmap_hdl *hdl, off_t off, size_t len);
-int MT_mmap_trim(size_t lim, void *err);
 int MT_msync(void *p, size_t off, size_t len, int mode);
 void *MT_vmalloc(size_t size, size_t *maxsize);
 void MT_vmfree(void *p, size_t size);
@@ -123,9 +101,31 @@ oid OIDread(str buf);
 oid OIDseed(oid seed);
 int oidWrite(oid *a, stream *s, size_t cnt);
 int OIDwrite(stream *fp);
-BUN SORTfnd(BAT *b, ptr v);
-BUN SORTfndfirst(BAT *b, ptr v);
-BUN SORTfndlast(BAT *b, ptr v);
+/* type specific binary search implementations */
+BUN SORTfnd_bte(BAT *b, const void *v);
+BUN SORTfnd_dbl(BAT *b, const void *v);
+BUN SORTfnd_flt(BAT *b, const void *v);
+BUN SORTfnd_int(BAT *b, const void *v);
+BUN SORTfnd_lng(BAT *b, const void *v);
+BUN SORTfnd_loc(BAT *b, const void *v);
+BUN SORTfnd_sht(BAT *b, const void *v);
+BUN SORTfnd_var(BAT *b, const void *v);
+BUN SORTfndfirst_bte(BAT *b, const void *v);
+BUN SORTfndfirst_dbl(BAT *b, const void *v);
+BUN SORTfndfirst_flt(BAT *b, const void *v);
+BUN SORTfndfirst_int(BAT *b, const void *v);
+BUN SORTfndfirst_lng(BAT *b, const void *v);
+BUN SORTfndfirst_loc(BAT *b, const void *v);
+BUN SORTfndfirst_sht(BAT *b, const void *v);
+BUN SORTfndfirst_var(BAT *b, const void *v);
+BUN SORTfndlast_bte(BAT *b, const void *v);
+BUN SORTfndlast_dbl(BAT *b, const void *v);
+BUN SORTfndlast_flt(BAT *b, const void *v);
+BUN SORTfndlast_int(BAT *b, const void *v);
+BUN SORTfndlast_lng(BAT *b, const void *v);
+BUN SORTfndlast_loc(BAT *b, const void *v);
+BUN SORTfndlast_sht(BAT *b, const void *v);
+BUN SORTfndlast_var(BAT *b, const void *v);
 void strCleanHash(Heap *hp, int rebuild);
 int strCmpNoNil(const unsigned char *l, const unsigned char *r);
 int strElimDoubles(Heap *h);
@@ -154,8 +154,7 @@ typedef struct {
 extern int BBP_dirty;	/* BBP table dirty? */
 extern batlock_t GDKbatLock[BBP_BATMASK + 1];
 extern bbplock_t GDKbbpLock[BBP_THREADMASK + 1];
-extern ptr GDK_mem_start;		/* sbrk(0) at start of the program */
-extern size_t GDK_mmap_minsize;	/* size after which we use tempfile VM rather than malloc/anonymous VM */
+extern size_t GDK_mmap_minsize;	/* size after which we use memory mapped files */
 extern MT_Lock GDKnameLock;
 extern int GDKrecovery;
 extern int GDKsilent;	/* should GDK shut up? */
@@ -172,3 +171,57 @@ extern MT_Lock MT_system_lock;
 #define GDKtrimLock(y)  GDKbbpLock[(y)&BBP_THREADMASK].trim
 #define GDKcacheLock(y) GDKbbpLock[(y)&BBP_THREADMASK].alloc
 #define BBP_free(y)	GDKbbpLock[(y)&BBP_THREADMASK].free
+
+#define SORTloop_TYPE(b, p, q, tl, th, TYPE)				\
+	if (!BATtordered(b))						\
+		GDKerror("SORTloop_" #TYPE ": BAT not sorted.\n");	\
+	else for (p = simple_EQ(tl, &TYPE##_nil, TYPE) ? BUNfirst(b) : SORTfndfirst_##TYPE(b, tl), \
+		  q = simple_EQ(th, &TYPE##_nil, TYPE) ? BUNfirst(b) : SORTfndlast_##TYPE(b, th); \
+		  p < q;						\
+		  p++)
+
+#define SORTloop_bte(b, p, q, tl, th)	SORTloop_TYPE(b, p, q, tl, th, bte)
+#define SORTloop_sht(b, p, q, tl, th)	SORTloop_TYPE(b, p, q, tl, th, sht)
+#define SORTloop_int(b, p, q, tl, th)	SORTloop_TYPE(b, p, q, tl, th, int)
+#define SORTloop_lng(b, p, q, tl, th)	SORTloop_TYPE(b, p, q, tl, th, lng)
+#define SORTloop_flt(b, p, q, tl, th)	SORTloop_TYPE(b, p, q, tl, th, flt)
+#define SORTloop_dbl(b, p, q, tl, th)	SORTloop_TYPE(b, p, q, tl, th, dbl)
+#define SORTloop_oid(b, p, q, tl, th)	SORTloop_TYPE(b, p, q, tl, th, oid)
+#define SORTloop_wrd(b, p, q, tl, th)	SORTloop_TYPE(b, p, q, tl, th, wrd)
+
+#define SORTloop_loc(b,p,q,tl,th)					\
+	if (!BATtordered(b))						\
+		GDKerror("SORTloop_loc: BAT not sorted.\n");		\
+	else for (p = atom_EQ(tl, ATOMnilptr((b)->ttype), (b)->ttype) ? BUNfirst(b) : SORTfndfirst_loc(b, tl), \
+			  q = atom_EQ(th, ATOMnilptr((b)->ttype), (b)->ttype) ? BUNfirst(b) : SORTfndlast_loc(b, th); \
+		  p < q;						\
+		  p++)
+
+#define SORTloop_var(b,p,q,tl,th)					\
+	if (!BATtordered(b))						\
+		GDKerror("SORTloop_var: BAT not sorted.\n");		\
+	else for (p = atom_EQ(tl, ATOMnilptr((b)->ttype), (b)->ttype) ? BUNfirst(b) : SORTfndfirst_var(b, tl), \
+			  q = atom_EQ(th, ATOMnilptr((b)->ttype), (b)->ttype) ? BUNfirst(b) : SORTfndlast_var(b, th); \
+		  p < q;						\
+		  p++)
+
+/* OIDDEPEND */
+#if SIZEOF_OID == SIZEOF_INT
+#define SORTfnd_oid(b,v)	SORTfnd_int(b,v)
+#define SORTfndfirst_oid(b,v)	SORTfndfirst_int(b,v)
+#define SORTfndlast_oid(b,v)	SORTfndlast_int(b,v)
+#else
+#define SORTfnd_oid(b,v)	SORTfnd_lng(b,v)
+#define SORTfndfirst_oid(b,v)	SORTfndfirst_lng(b,v)
+#define SORTfndlast_oid(b,v)	SORTfndlast_lng(b,v)
+#endif
+#if SIZEOF_WRD == SIZEOF_INT
+#define SORTfnd_wrd(b,v)	SORTfnd_int(b,v)
+#define SORTfndfirst_wrd(b,v)	SORTfndfirst_int(b,v)
+#define SORTfndlast_wrd(b,v)	SORTfndlast_int(b,v)
+#else
+#define SORTfnd_wrd(b,v)	SORTfnd_lng(b,v)
+#define SORTfndfirst_wrd(b,v)	SORTfndfirst_lng(b,v)
+#define SORTfndlast_wrd(b,v)	SORTfndlast_lng(b,v)
+#endif
+#define SORTloop_bit(b,p,q,tl,th) SORTloop_bte(b,p,q,tl,th)

@@ -661,7 +661,9 @@ CMDbbpdecompress(int *ret, int *bid, str *fnme)
 		bn = BATnew(b->htype,b->ttype,0);
 		/* copy the properties of the source */
 		bn->hsorted = b->hsorted;
+		bn->hrevsorted = b->hrevsorted;
 		bn->tsorted = b->tsorted;
+		bn->trevsorted = b->trevsorted;
 		bn->hkey = b->hkey;
 		bn->tkey = b->tkey;
 		bn->H->nonil = b->H->nonil;
@@ -1169,7 +1171,7 @@ CMDbbpLocation(int *ret)
 }
 
 
-#define monet_modulesilent (GDKdebug&4096)
+#define monet_modulesilent (GDKdebug&PERFMASK)
 
 
 str

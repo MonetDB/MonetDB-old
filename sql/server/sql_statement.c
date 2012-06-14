@@ -607,14 +607,11 @@ stmt_tbat(sql_allocator *sa, sql_table *t, int access)
 }
 
 stmt *
-stmt_delta_table_bat(sql_allocator *sa, sql_column *c, stmt *basetable, int access )
+stmt_delta_table_bat(sql_allocator *sa, sql_column *c, stmt *basetable, int access, int readonly )
 {
 	stmt *s = stmt_bat(sa, c, basetable, access );
 
-	if (c->t->readonly)
-		return s;
-
-	if (isTable(c->t) &&
+	if (isTable(c->t) && !readonly &&
 	   (c->base.flag != TR_NEW || c->t->base.flag != TR_NEW /* alter */) &&
 	    access == RDONLY && c->t->persistence == SQL_PERSIST && !c->t->commit_action) {
 		stmt *i = stmt_bat(sa, c, basetable, RD_INS );
@@ -624,7 +621,7 @@ stmt_delta_table_bat(sql_allocator *sa, sql_column *c, stmt *basetable, int acce
 		s = stmt_union(sa, s, u);
 		s = stmt_union(sa, s, i);
 	} 
-	/* even temp tables have deletes because we like to keep void heads */
+	/* even temp and readonly tables have deletes because we like to keep void heads */
 	if (access == RDONLY && isTable(c->t)) {
 		stmt *d = stmt_tbat(sa, c->t, RD_INS);
 		s = stmt_diff(sa, s, stmt_reverse(sa, d));
@@ -645,14 +642,11 @@ stmt_idxbat(sql_allocator *sa, sql_idx * i, stmt *basetable, int access)
 }
 
 stmt *
-stmt_delta_table_idxbat(sql_allocator *sa, sql_idx * idx, stmt *basetable, int access)
+stmt_delta_table_idxbat(sql_allocator *sa, sql_idx * idx, stmt *basetable, int access, int readonly)
 {
 	stmt *s = stmt_idxbat(sa, idx, basetable, access);
 
-	if (idx->t->readonly)
-		return s;
-
-	if (isTable(idx->t) &&
+	if (isTable(idx->t) && !readonly &&
 	   (idx->base.flag != TR_NEW || idx->t->base.flag != TR_NEW /* alter */) && 
 	    access == RDONLY && idx->t->persistence == SQL_PERSIST && !idx->t->commit_action) {
 		stmt *i = stmt_idxbat(sa, idx, basetable, RD_INS);
@@ -662,7 +656,7 @@ stmt_delta_table_idxbat(sql_allocator *sa, sql_idx * idx, stmt *basetable, int a
 		s = stmt_union(sa, s, u);
 		s = stmt_union(sa, s, i);
 	} 
-	/* even temp tables have deletes because we like to keep void heads */
+	/* even temp and readonly tables have deletes because we like to keep void heads */
 	if (access == RDONLY && isTable(idx->t)) {
 		stmt *d = stmt_tbat(sa, idx->t, RD_INS);
 		s = stmt_diff(sa, s, stmt_reverse(sa, d));
@@ -734,6 +728,10 @@ stmt_const_(sql_allocator *sa, stmt *s, stmt *val)
 	return ns;
 }
 
+/* some functions have side_effects, for example next_value_for. When these are
+ * used in update statements we need to make sure we call these functions once
+ * for every to be inserted value. 
+ */
 static stmt *
 push_project(sql_allocator *sa, stmt *rows, stmt *val) 
 {
@@ -1942,12 +1940,12 @@ _table_name(sql_allocator *sa, stmt *st)
 	case st_joinN:
 	case st_outerjoin:
 	case st_derive:
+	case st_append:
 		return table_name(sa, st->op2);
 	case st_mirror:
 	case st_group:
 	case st_group_ext:
 	case st_union:
-	case st_append:
 	case st_mark:
 	case st_gen_group:
 	case st_select:
@@ -1981,6 +1979,8 @@ _table_name(sql_allocator *sa, stmt *st)
 	case st_atom:
 		if (st->op4.aval->data.vtype == TYPE_str && st->op4.aval->data.val.sval && _strlen(st->op4.aval->data.val.sval))
 			return st->op4.aval->data.val.sval;
+		return NULL;
+
 	case st_list:
 		if (list_length(st->op4.lval) && st->op4.lval->h)
 			return table_name(sa, st->op4.lval->h->data);
@@ -2176,12 +2176,12 @@ stack_push_children( sql_stack *stk, stmt *s)
 		stack_push_list( stk, s->op4.lval);
 		break;
 	default:
-		if (s->op1)
-			stack_push_stmt(stk, s->op1, 1);
-		if (s->op2)
-			stack_push_stmt(stk, s->op2, 1);
 		if (s->op3)
 			stack_push_stmt(stk, s->op3, 1);
+		if (s->op2)
+			stack_push_stmt(stk, s->op2, 1);
+		if (s->op1)
+			stack_push_stmt(stk, s->op1, 1);
 	}
 }
 

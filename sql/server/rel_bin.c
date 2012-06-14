@@ -322,12 +322,14 @@ exp_list( mvc *sql, list *exps, stmt *l, stmt *r, group *grp, stmt *sel)
 	node *n;
 	list *nl = sa_list(sql->sa);
 
-	/* create bat append values */
 	for( n = exps->h; n; n = n->next) {
 		sql_exp *e = n->data;
 		stmt *i = exp_bin(sql, e, l, r, grp, sel);
 		
-		append(nl, i);
+		if (n->next && i && i->type == st_table) /* relational statement */
+			l = i->op1;
+		else
+			append(nl, i);
 	}
 	return stmt_list(sql->sa, nl);
 }
@@ -630,7 +632,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, group *grp, stmt *sel)
 		if (e->flag == cmp_or && right)  /* join */
 			assert(0);
 		/* here we handle join indices */
-		if ((p=find_prop(e->p, PROP_JOINIDX)) != NULL) {
+		if (right && (p=find_prop(e->p, PROP_JOINIDX)) != NULL) {
 			sql_idx *i = p->value;
 			sql_exp *el = e->l;
 			sql_exp *er = e->r;
@@ -1434,9 +1436,10 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 				sql_idx *i = p->value;
 			
 				join = s = rel2bin_hash_lookup(sql, rel, left, right, i, en);
-				assert(s);
-				list_append(jns, s);
-				use_hash = 1;
+				if (s) {
+					list_append(jns, s);
+					use_hash = 1;
+				}
 			}
 
 			s = exp_bin(sql, e, left, right, NULL, NULL);
@@ -1881,6 +1884,9 @@ rel2bin_except( mvc *sql, sql_rel *rel, list *refs)
 	rs = stmt_aggr(sql->sa, rgrp->grp, rgrp, a, 1); 
 
 	/* now find the matching groups */
+	/* There is a bug (#3040) in the scheme, ie the join removes the nil's
+         * as during joining nil != nil. But for except's nil aren't distinct.
+         */
 	s = stmt_releqjoin_init(sql->sa);
 	for (n = left->op4.lval->h, m = right->op4.lval->h; n && m; n = n->next, m = m->next) {
 		stmt *l = column(sql->sa, n->data);

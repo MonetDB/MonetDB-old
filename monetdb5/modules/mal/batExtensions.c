@@ -151,7 +151,7 @@ CMDBATreduce(int *ret, int *bid)
 			printf("found thash %s " SZFMT "\n",BBP_logical(b->batCacheid), (size_t) BATcount(b) * sizeof(BUN));
 #endif
 		/* disable DeadBeef production */
-		GDKdebug &= ~33554432;
+		GDKdebug &= ~DEADBEEFMASK;
 		HASHdestroy(b);
 	}
 	BBPkeepref(*ret=b->batCacheid);
@@ -197,7 +197,9 @@ CMDBATclone(Client cntxt, MalBlkPtr m, MalStkPtr s, InstrPtr p)
 	bn->hkey= b->hkey;
 	bn->tkey= b->tkey;
 	bn->hsorted= b->hsorted;
+	bn->hrevsorted= b->hrevsorted;
 	bn->tsorted= b->tsorted;
+	bn->trevsorted= b->trevsorted;
 	BBPkeepref(*res = bn->batCacheid);
 	return MAL_SUCCEED;
 }

@@ -656,7 +656,7 @@ dupFileStream(stream *s)
 static ssize_t
 stream_gzread(stream *s, void *buf, size_t elmsize, size_t cnt)
 {
-	gzFile *fp = (gzFile *) s->stream_data.p;
+	gzFile fp = (gzFile) s->stream_data.p;
 	int size = (int) (elmsize * cnt);
 
 	if (!gzeof(fp)) {
@@ -673,7 +673,7 @@ stream_gzwrite(stream *s, const void *buf, size_t elmsize, size_t cnt)
 	int size = (int) (elmsize * cnt);
 
 	if (size) {
-		size = gzwrite((gzFile *) s->stream_data.p, buf, size);
+		size = gzwrite((gzFile) s->stream_data.p, buf, size);
 		return (ssize_t) (size / elmsize);
 	}
 	return (ssize_t) cnt;
@@ -683,7 +683,7 @@ static void
 stream_gzclose(stream *s)
 {
 	if (s->stream_data.p)
-		gzclose((gzFile *) s->stream_data.p);
+		gzclose((gzFile) s->stream_data.p);
 	s->stream_data.p = NULL;
 }
 
@@ -691,7 +691,7 @@ static int
 stream_gzflush(stream *s)
 {
 	if (s->access == ST_WRITE)
-		gzflush((gzFile *) s->stream_data.p, Z_SYNC_FLUSH);
+		gzflush((gzFile) s->stream_data.p, Z_SYNC_FLUSH);
 	return 0;
 }
 
@@ -699,7 +699,7 @@ static stream *
 open_gzstream(const char *filename, const char *flags)
 {
 	stream *s;
-	gzFile *fp;
+	gzFile fp;
 
 	if ((s = create_stream(filename)) == NULL)
 		return NULL;
@@ -722,7 +722,7 @@ open_gzrstream(const char *filename)
 		return NULL;
 	s->type = ST_BIN;
 	if (s->errnr == MNSTR_NO__ERROR &&
-	    gzread((gzFile *) s->stream_data.p, (void *) &s->byteorder, sizeof(s->byteorder)) < (int) sizeof(s->byteorder)) {
+	    gzread((gzFile) s->stream_data.p, (void *) &s->byteorder, sizeof(s->byteorder)) < (int) sizeof(s->byteorder)) {
 		stream_gzclose(s);
 		s->errnr = MNSTR_OPEN_ERROR;
 	}
@@ -739,7 +739,7 @@ open_gzwstream_(const char *filename, const char *mode)
 	s->access = ST_WRITE;
 	s->type = ST_BIN;
 	if (s->errnr == MNSTR_NO__ERROR)
-		gzwrite((gzFile *) s->stream_data.p, (void *) &s->byteorder, sizeof(s->byteorder));
+		gzwrite((gzFile) s->stream_data.p, (void *) &s->byteorder, sizeof(s->byteorder));
 	return s;
 }
 
@@ -1146,6 +1146,8 @@ struct curl_data {
 static struct curl_data *curl_handles;
 #endif
 
+#define BLOCK_CURL	8192
+
 /* this function is called by libcurl when there is data for us */
 static size_t
 write_callback(char *buffer, size_t size, size_t nitems, void *userp)
@@ -1156,8 +1158,8 @@ write_callback(char *buffer, size_t size, size_t nitems, void *userp)
 	size *= nitems;
 	/* allocate a buffer if we don't have one yet */
 	if (c->buffer == NULL && size != 0) {
-		/* BLOCK had better be a power of 2! */
-		c->maxsize = (size + BLOCK - 1) & ~(BLOCK - 1);
+		/* BLOCK_CURL had better be a power of 2! */
+		c->maxsize = (size + BLOCK_CURL - 1) & ~(BLOCK_CURL - 1);
 		if ((c->buffer = malloc(c->maxsize)) == NULL)
 			return 0;
 		c->usesize = 0;
@@ -1173,7 +1175,7 @@ write_callback(char *buffer, size_t size, size_t nitems, void *userp)
 #endif
 	/* allocate more buffer space if we still don't have enough space */
 	if (c->maxsize - c->usesize < size) {
-		c->maxsize = (c->usesize + size + BLOCK - 1) & ~(BLOCK - 1);
+		c->maxsize = (c->usesize + size + BLOCK_CURL - 1) & ~(BLOCK_CURL - 1);
 		c->buffer = realloc(c->buffer, c->usesize + size);
 	}
 	/* finally, store the data we received */
@@ -1334,7 +1336,8 @@ open_urlstream(const char *url)
 
 #else
 stream *open_urlstream(const char *url) {
-	(void) url;
+	if (url != NULL && strncmp(url, "file://", sizeof("file://") - 1) == 0)
+		return open_rastream(url + sizeof("file://") - 1);
 	return NULL;
 }
 #endif /* HAVE_CURL */

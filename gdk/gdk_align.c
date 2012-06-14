@@ -135,9 +135,10 @@ ALIGNsetH(BAT *b1, BAT *b2)
 	}
 	BATkey(b1, BAThkey(b2));
 	b1->hsorted = BAThordered(b2);
+	b1->hrevsorted = BAThrevordered(b2);
 	b1->halign = b2->halign;
 	b1->batDirtydesc = TRUE;
-	b1->H->nosorted_rev = (BUN) (b2->H->nosorted_rev + diff);
+	b1->H->norevsorted = (BUN) (b2->H->norevsorted + diff);
 	b1->H->nokey[0] = (BUN) (b2->H->nokey[0] + diff);
 	b1->H->nokey[1] = (BUN) (b2->H->nokey[1] + diff);
 	b1->H->nosorted = (BUN) (b2->H->nosorted + diff);
@@ -200,14 +201,12 @@ ALIGNsynced(BAT *b1, BAT *b2)
 static BAT *
 VIEWhcreate(BAT *h)
 {
-	BATstore *bs, *recycled = NULL;
+	BATstore *bs;
 	BAT *bn;
 	bat hp;
 
 	BATcheck(h, "VIEWhcreate");
-	recycled = bs = BBPrecycle(TYPE_void, TYPE_void, 1);
-	if (bs == NULL)
-		bs = BATcreatedesc(h->htype, TYPE_void, FALSE);
+	bs = BATcreatedesc(h->htype, TYPE_void, FALSE);
 	if (bs == NULL)
 		return NULL;
 	bn = &bs->B;
@@ -244,8 +243,7 @@ VIEWhcreate(BAT *h)
 	bn->batDirty = BATdirty(h);
 	bn->batRestricted = BAT_READ;
 
-	if (recycled == NULL)
-		BBPcacheit(bs, 1);		     /* enter in BBP */
+	BBPcacheit(bs, 1);		     /* enter in BBP */
 	return bn;
 }
 
@@ -253,15 +251,14 @@ VIEWhcreate(BAT *h)
 BAT *
 VIEWcreate_(BAT *h, BAT *t, int slice_view)
 {
-	BATstore *bs, *recycled = NULL;
+	BATstore *bs;
 	BAT *bn;
 	bat hp = 0, tp = 0, vc = 0;
 
 	BATcheck(h, "VIEWcreate_");
 	BATcheck(t, "VIEWcreate_");
-	recycled = bs = BBPrecycle(TYPE_void, TYPE_void, 1);
-	if (bs == NULL)
-		bs = BATcreatedesc(h->htype, t->ttype, FALSE);
+
+	bs = BATcreatedesc(h->htype, t->ttype, FALSE);
 	if (bs == NULL)
 		return NULL;
 	bn = &bs->B;
@@ -345,8 +342,7 @@ VIEWcreate_(BAT *h, BAT *t, int slice_view)
 		bn->T->hash = NULL;
 	else
 		bn->T->hash = t->T->hash;
-	if (recycled == NULL)
-		BBPcacheit(bs, 1);	/* enter in BBP */
+	BBPcacheit(bs, 1);	/* enter in BBP */
 	/* View of VIEW combine, ie we need to fix the head of the mirror */
 	if (vc) {
 		BAT *bm = BATmirror(bn);

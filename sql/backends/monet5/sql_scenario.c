@@ -57,6 +57,7 @@
 #include "optimizer.h"
 #include "opt_statistics.h"
 #include "opt_prelude.h"
+#include "opt_pipes.h"
 #include <unistd.h>
 
 static int SQLinitialized = 0;
@@ -413,20 +414,67 @@ sql_update_apr2012(Client c)
 	char *buf = GDKmalloc(2048), *err = NULL;
 	size_t bufsize = 2048, pos = 0;
 
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate median(val TINYINT) returns TINYINT external name \"aggr\".\"median\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate median(val SMALLINT) returns SMALLINT external name \"aggr\".\"median\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate median(val INTEGER) returns INTEGER external name \"aggr\".\"median\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate median(val BIGINT) returns BIGINT external name \"aggr\".\"median\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate median(val REAL) returns REAL external name \"aggr\".\"median\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate median(val DOUBLE) returns DOUBLE external name \"aggr\".\"median\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate corr(e1 TINYINT, e2 TINYINT) returns TINYINT external name \"aggr\".\"corr\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate corr(e1 SMALLINT, e2 SMALLINT) returns SMALLINT external name \"aggr\".\"corr\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate corr(e1 INTEGER, e2 INTEGER) returns INTEGER external name \"aggr\".\"corr\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate corr(e1 BIGINT, e2 BIGINT) returns BIGINT external name \"aggr\".\"corr\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate corr(e1 REAL, e2 REAL) returns REAL external name \"aggr\".\"corr\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate corr(e1 DOUBLE, e2 DOUBLE) returns DOUBLE external name \"aggr\".\"corr\";\n");
+	/* sys.median and sys.corr functions */
+	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.median(val TINYINT) returns TINYINT external name \"aggr\".\"median\";\n");
+	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.median(val SMALLINT) returns SMALLINT external name \"aggr\".\"median\";\n");
+	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.median(val INTEGER) returns INTEGER external name \"aggr\".\"median\";\n");
+	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.median(val BIGINT) returns BIGINT external name \"aggr\".\"median\";\n");
+	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.median(val REAL) returns REAL external name \"aggr\".\"median\";\n");
+	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.median(val DOUBLE) returns DOUBLE external name \"aggr\".\"median\";\n");
+	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.corr(e1 TINYINT, e2 TINYINT) returns TINYINT external name \"aggr\".\"corr\";\n");
+	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.corr(e1 SMALLINT, e2 SMALLINT) returns SMALLINT external name \"aggr\".\"corr\";\n");
+	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.corr(e1 INTEGER, e2 INTEGER) returns INTEGER external name \"aggr\".\"corr\";\n");
+	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.corr(e1 BIGINT, e2 BIGINT) returns BIGINT external name \"aggr\".\"corr\";\n");
+	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.corr(e1 REAL, e2 REAL) returns REAL external name \"aggr\".\"corr\";\n");
+	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.corr(e1 DOUBLE, e2 DOUBLE) returns DOUBLE external name \"aggr\".\"corr\";\n");
 
 	pos += snprintf(buf + pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('median', 'corr') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_AGGR);
+
+	assert(pos < 2048);
+
+	printf("Running database upgrade commands:\n%s\n", buf);
+	err = SQLstatementIntern(c, &buf, "update", 1, 0);
+	GDKfree(buf);
+	return err;		/* usually MAL_SUCCEED */
+}
+
+static str
+sql_update_apr2012_sp1(Client c)
+{
+	char *buf = GDKmalloc(2048), *err = NULL;
+	size_t bufsize = 2048, pos = 0;
+
+	/* changes in createdb/25_debug.sql */
+	pos += snprintf(buf+pos, bufsize-pos, "update sys.functions set type = %d, side_effect = false where type = %d and id not in (select func_id from sys.args where number = 0 and name = 'result');\n", F_PROC, F_FUNC);
+	pos += snprintf(buf+pos, bufsize-pos, "drop function sys.storage;\n");
+	pos += snprintf(buf+pos, bufsize-pos, "create function sys.storage() returns table (\"schema\" string, \"table\" string, \"column\" string, location string, \"count\" bigint, capacity bigint, width int, size bigint, hashsize bigint, sorted boolean) external name sql.storage;\n");
+	pos += snprintf(buf+pos, bufsize-pos, "create function sys.optimizers() returns table (name string, def string, status string) external name sql.optimizers;\n");
+	pos += snprintf(buf+pos, bufsize-pos, "drop procedure sys.ra;\n");
+	pos += snprintf(buf+pos, bufsize-pos, "create procedure sys.evalAlgebra( ra_stmt string, opt bool) external name sql.\"evalAlgebra\";\n");
+
+	pos += snprintf(buf + pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('storage', 'optimizers') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_FUNC);
+	pos += snprintf(buf + pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('evalalgebra') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_PROC);
+
+	assert(pos < 2048);
+
+	printf("Running database upgrade commands:\n%s\n", buf);
+	err = SQLstatementIntern(c, &buf, "update", 1, 0);
+	GDKfree(buf);
+	return err;		/* usually MAL_SUCCEED */
+}
+
+static str
+sql_update_jul2012(Client c)
+{
+	char *buf = GDKmalloc(2048), *err = NULL;
+	size_t bufsize = 2048, pos = 0;
+
+	/* new function sys.alpha */
+	pos += snprintf(buf+pos, bufsize-pos, "create function sys.alpha(pdec double, pradius double) returns double external name sql.alpha;\n");
+
+	pos += snprintf(buf + pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name = 'alpha' and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_FUNC);
+
+	assert(pos < 2048);
 
 	printf("Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0);
@@ -464,15 +512,15 @@ SQLinitClient(Client c)
 		bstream_next(fdin);
 		MCpushClientInput(c, fdin, 0, "");
 	}
-	if (c->state[MAL_SCENARIO_PARSER] == 0) {
+	if (c->sqlcontext == 0) {
 		m = mvc_create(c->idx, 0, SQLdebug, c->fdin, c->fdout);
 		global_variables(m, "monetdb", "sys");
 		if (isAdministrator(c) || strcmp(c->scenario, "msql") == 0)  /* console should return everything */
 			m->reply_size = -1;
 		be = (void *) backend_create(m, c);
 	} else {
-		m = c->state[MAL_SCENARIO_OPTIMIZE];
-		be = c->state[MAL_SCENARIO_PARSER];
+		be = c->sqlcontext;
+		m = be->mvc;
 		mvc_reset(m, c->fdin, c->fdout, SQLdebug, NR_GLOBAL_VARS);
 		backend_reset(be);
 	}
@@ -490,8 +538,9 @@ SQLinitClient(Client c)
 	be->language = 'S';
 	/* Set state, this indicates an initialized client scenario */
 	c->state[MAL_SCENARIO_READER] = c;
-	c->state[MAL_SCENARIO_PARSER] = be;
-	c->state[MAL_SCENARIO_OPTIMIZE] = m;
+	c->state[MAL_SCENARIO_PARSER] = c;
+	c->state[MAL_SCENARIO_OPTIMIZE] = c;
+	c->sqlcontext = be;
 
 	initSQLreferences();
 	/* initialize the database with predefined SQL functions */
@@ -565,6 +614,19 @@ SQLinitClient(Client c)
 			if ((err = sql_update_apr2012(c)) != NULL)
 				fprintf(stderr, "!%s\n", err);
 		}
+		/* if function sys.optimizers() does not exist, we
+		 * need to update */
+		if (!sql_bind_func(m->sa, mvc_bind_schema(m,"sys"), "optimizers", NULL, NULL, F_FUNC )) {
+			if ((err = sql_update_apr2012_sp1(c)) != NULL)
+				fprintf(stderr, "!%s\n", err);
+		}
+		/* if aggregate function sys.median(int) does not
+		 * exist, we need to update */
+        	sql_find_subtype(&tp, "double", 0, 0);
+		if (!sql_bind_func(m->sa, mvc_bind_schema(m,"sys"), "alpha", &tp, &tp, F_FUNC )) {
+			if ((err = sql_update_jul2012(c)) != NULL)
+				fprintf(stderr, "!%s\n", err);
+		}
 	}
 	fflush(stdout);
 	fflush(stderr);
@@ -586,10 +648,13 @@ SQLexitClient(Client c)
 #endif
 	if (SQLinitialized == FALSE)
 		throw(SQL, "SQLexitClient", "Catalogue not available");
-	if (c->state[MAL_SCENARIO_PARSER] && c->state[MAL_SCENARIO_OPTIMIZE]) {
-		mvc *m = (mvc *) c->state[MAL_SCENARIO_OPTIMIZE];
-		if ( m == NULL)
+	if (c->sqlcontext) {
+		backend *be = NULL;
+		mvc *m = NULL;
+		if (c->sqlcontext == NULL)
 			throw(SQL, "SQLexitClient", "MVC catalogue not available");
+		be = (backend *)c->sqlcontext;
+		m = be->mvc;
 
 		assert(m->session);
 		if (m->session->auto_commit && m->session->active) {
@@ -602,14 +667,11 @@ SQLexitClient(Client c)
 		res_tables_destroy(m->results);
 		m->results= NULL;
 
-		{
-			backend *be = c->state[MAL_SCENARIO_PARSER];
-
-			mvc_destroy(m);
-			backend_destroy(be);
-			c->state[MAL_SCENARIO_OPTIMIZE] = NULL;
-			c->state[MAL_SCENARIO_PARSER] = NULL;
-		}
+		mvc_destroy(m);
+		backend_destroy(be);
+		c->state[MAL_SCENARIO_OPTIMIZE] = NULL;
+		c->state[MAL_SCENARIO_PARSER] = NULL;
+		c->sqlcontext = NULL;
 	}
 	c->state[MAL_SCENARIO_READER] = NULL;
 	return MAL_SUCCEED;
@@ -664,7 +726,7 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 	char *n;
 	stream *buf;
 	str msg = MAL_SUCCEED;
-	backend *be, *sql = ((backend *) c->state[MAL_SCENARIO_PARSER]);
+	backend *be, *sql = (backend *) c->sqlcontext;
 	size_t len = strlen(*expr);
 
 #ifdef _SQL_COMPILE
@@ -672,7 +734,7 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 #endif
 	if (!sql) {
 		msg = SQLinitEnvironment(c);
-		sql = ((backend *) c->state[MAL_SCENARIO_PARSER]);
+		sql = (backend *) c->sqlcontext;
 	}
 	if (msg)
 		throw(SQL, "SQLstatement", "Catalogue not available");
@@ -720,7 +782,7 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 	 * System has been prepared to parse it and generate code.
 	 * Scan the complete string for SQL statements, stop at the first error.
 	 */
-	c->state[MAL_SCENARIO_PARSER] = sql;
+	c->sqlcontext = sql;
 	while( m->scanner.rs->pos < m->scanner.rs->len ){
 		sql_rel *r;
 		stmt *s;
@@ -810,7 +872,7 @@ endofcompile:
 	if (execute)
 		MSresetInstructions(c->curprg->def, 1);
 
-	c->state[MAL_SCENARIO_PARSER] = be;
+	c->sqlcontext = be;
 	backend_destroy(sql);
 	GDKfree(n);
 	GDKfree(b);
@@ -872,29 +934,29 @@ SQLcompile(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 SQLinclude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-    	stream *fd;
+	stream *fd;
 	bstream *bfd;
-	str *name = (str *) getArgReference(stk,pci,1);
+	str *name = (str *) getArgReference(stk, pci, 1);
 	str msg = MAL_SUCCEED, fullname;
 	str *expr;
 	mvc *m;
 
-    	fullname= MSP_locate_sqlscript(*name, 0);
-	if ( fullname == NULL)
-		fullname= *name;
+	fullname = MSP_locate_sqlscript(*name, 0);
+	if (fullname == NULL)
+		fullname = *name;
 	fd = open_rastream(fullname);
-    	if (mnstr_errnr(fd) == MNSTR_OPEN_ERROR) {
-        	mnstr_destroy(fd);
-        	throw(MAL, "sql.include", "could not open file: %s\n", *name);
-    	}
-    	bfd = bstream_create(fd, 128 * BLOCK);
-    	if( bstream_next(bfd) < 0)
-        	throw(MAL,"sql.include","could not read %s\n", *name);
+	if (mnstr_errnr(fd) == MNSTR_OPEN_ERROR) {
+		mnstr_destroy(fd);
+		throw(MAL, "sql.include", "could not open file: %s\n", *name);
+	}
+	bfd = bstream_create(fd, 128 * BLOCK);
+	if (bstream_next(bfd) < 0)
+		throw(MAL, "sql.include", "could not read %s\n", *name);
 
 	expr = &bfd->buf;
 	msg = SQLstatementIntern(cntxt, expr, "sql.include", TRUE, FALSE);
 	bstream_destroy(bfd);
-	m = cntxt->state[MAL_SCENARIO_OPTIMIZE];
+	m = ((backend *)cntxt->sqlcontext)->mvc;
 	if (m->sa)
 		sa_destroy(m->sa);
 	m->sa = NULL;
@@ -934,29 +996,29 @@ SQLreader(Client c)
 {
 	int go = TRUE;
 	int more = TRUE;
-	backend *be = ((backend *) c->state[MAL_SCENARIO_PARSER]);
+	backend *be = (backend *) c->sqlcontext;
 	bstream *in = c->fdin;
 	int language = -1;
 	mvc *m = NULL;
 	int blocked = isa_block_stream(in->s);
 
-	if( SQLinitialized == FALSE){
+	if (SQLinitialized == FALSE) {
 		c->mode = FINISHING;
 		return NULL;
 	}
 	if (!be || c->mode <= FINISHING) {
 #ifdef _SQL_READER_DEBUG
-	mnstr_printf(GDKout, "#SQL client finished\n");
+		mnstr_printf(GDKout, "#SQL client finished\n");
 #endif
 		c->mode = FINISHING;
 		return NULL;
 	}
 #ifdef _SQL_READER_DEBUG
 	mnstr_printf(GDKout, "#SQLparser: start reading SQL %s %s\n",
-		(be->console?" from console":""),
-		(blocked? "Blocked read":""));
+			(be->console ? " from console" : ""),
+			(blocked ? "Blocked read" : ""));
 #endif
-	language = be->language;	/* 'S' for SQL, 'D' from debugger */
+	language = be->language;    /* 'S' for SQL, 'D' from debugger */
 	m = be->mvc;
 	m->errstr[0] = 0;
 	/*
@@ -966,88 +1028,88 @@ SQLreader(Client c)
 
 #ifdef _SQL_READER_DEBUG
 	mnstr_printf(GDKout, "#pos %d len %d eof %d \n",
-		in->pos, in->len, in->eof);
+			in->pos, in->len, in->eof);
 #endif
 	/*
 	 * @-
 	 * Distinguish between console reading and mclient connections.
 	 * The former comes with readline functionality.
 	 */
-	while(more) {
+	while (more) {
 		more = FALSE;
 
 		/* Different kinds of supported statements sequences
-			A;	-- single line			s
-			A \n B;	-- multi line			S
-			A; B;   -- compound single block	s
-			A;	-- many multi line
-			B \n C; -- statements in one block	S
-		*/
+		    A;	-- single line			s
+		    A \n B;	-- multi line			S
+		    A; B;   -- compound single block	s
+		    A;	-- many multi line
+		    B \n C; -- statements in one block	S
+		 */
 		/* auto_commit on end of statement */
 		if (m->scanner.mode == LINE_N)
-			go = SQLautocommit(c,m);
+			go = SQLautocommit(c, m);
 
 		if (go && in->pos >= in->len) {
-		ssize_t rd;
+			ssize_t rd;
 
-		if (c->bak) {
+			if (c->bak) {
 #ifdef _SQL_READER_DEBUG
-			mnstr_printf(GDKout, "#Switch to backup stream\n");
+				mnstr_printf(GDKout, "#Switch to backup stream\n");
 #endif
-			in = c->fdin;
-			blocked = isa_block_stream(in->s);
-			m->scanner.rs = c->fdin;
-			c->fdin->pos += c->yycur;
-			c->yycur = 0;
-		}
-		if (in->eof || !blocked) {
-			language = (be->console) ? 'S' : 0;
+				in = c->fdin;
+				blocked = isa_block_stream(in->s);
+				m->scanner.rs = c->fdin;
+				c->fdin->pos += c->yycur;
+				c->yycur = 0;
+			}
+			if (in->eof || !blocked) {
+				language = (be->console) ? 'S' : 0;
 
-			/* The rules of auto_commit require us to finish
-			   and start a transaction on the start of a new statement (s A;B; case) */
-			if (!(m->emod & mod_debug))
-				go = SQLautocommit(c,m);
+				/* The rules of auto_commit require us to finish
+				   and start a transaction on the start of a new statement (s A;B; case) */
+				if (!(m->emod & mod_debug))
+					go = SQLautocommit(c, m);
 
-			if (go && ((!blocked && mnstr_write(c->fdout, c->prompt, c->promptlength, 1) != 1) || mnstr_flush(c->fdout))) {
+				if (go && ((!blocked && mnstr_write(c->fdout, c->prompt, c->promptlength, 1) != 1) || mnstr_flush(c->fdout))) {
+					go = FALSE;
+					break;
+				}
+				in->eof = 0;
+			}
+			if (in->buf == NULL) {
+				more = FALSE;
+				go = FALSE;
+			} else if (go && (rd = bstream_next(in)) <= 0) {
+#ifdef _SQL_READER_DEBUG
+				mnstr_printf(GDKout, "#rd %d  language %d eof %d\n", rd, language, in->eof);
+#endif
+				if (be->language == 'D' && in->eof == 0)
+					return 0;
+
+				if (rd == 0 && language != 0 && in->eof && !be->console) {
+					/* we hadn't seen the EOF before, so just try again
+					   (this time with prompt) */
+					more = TRUE;
+					continue;
+				}
 				go = FALSE;
 				break;
+			} else if (go && !be->console && language == 0) {
+				be->language = in->buf[in->pos++];
+				if (be->language == 's') {
+					be->language = 'S';
+					m->scanner.mode = LINE_1;
+				} else if (be->language == 'S') {
+					m->scanner.mode = LINE_N;
+				}
 			}
-			in->eof = 0;
-		}
-		if (in->buf == NULL) {
-			more = FALSE;
-			go = FALSE;
-		} else if (go && (rd = bstream_next(in)) <= 0) {
 #ifdef _SQL_READER_DEBUG
-			mnstr_printf(GDKout, "#rd %d  language %d eof %d\n", rd, language, in->eof);
-#endif
-			if (be->language == 'D' && in->eof == 0)
-				return 0;
-
-			if (rd == 0 && language != 0 && in->eof && !be->console) {
-				/* we hadn't seen the EOF before, so just try again
-				   (this time with prompt) */
-				more = TRUE;
-				continue;
-			}
-			go = FALSE;
-			break;
-		} else if (go && !be->console && language == 0) {
-			be->language = in->buf[in->pos++];
-			if (be->language == 's') {
-				be->language = 'S';
-				m->scanner.mode = LINE_1;
-			} else if (be->language == 'S') {
-				m->scanner.mode = LINE_N;
-			}
-		}
-#ifdef _SQL_READER_DEBUG
-		mnstr_printf(GDKout, "#SQL blk:%s\n", in->buf + in->pos);
+			mnstr_printf(GDKout, "#SQL blk:%s\n", in->buf + in->pos);
 #endif
 		}
 	}
 	if (!go || (strncmp(CURRENT(c), "\\q", 2) == 0)) {
-		in->pos = in->len;	/* skip rest of the input */
+		in->pos = in->len;  /* skip rest of the input */
 		c->mode = FINISHING;
 		return NULL;
 	}
@@ -1251,7 +1313,7 @@ SQLparser(Client c)
 	int pstatus = 0;
 	int err = 0;
 
-	be = ((backend *) c->state[MAL_SCENARIO_PARSER]);
+	be = (backend *) c->sqlcontext;
 	if (be == 0) {
 		/* tell the client */
 		mnstr_printf(out, "!SQL state descriptor missing, aborting\n");
@@ -1450,20 +1512,16 @@ SQLparser(Client c)
 		if (m->emod & mod_debug)
 			SQLsetDebugger(c, m, TRUE);
 		if (!cachable(m, s)) {
-			InstrPtr p;
-			MalBlkPtr curBlk;
+			MalBlkPtr mb;
 
 			scanner_query_processed(&(m->scanner));
 			backend_callinline(be, c, s);
-
-			curBlk = c->curprg->def;
-
-			p = newFcnCall(curBlk, "optimizer", "remap");
-			typeChecker(c->fdout, c->nspace, curBlk, p, FALSE);
-			p = newFcnCall(curBlk, "optimizer", "multiplex");
-			typeChecker(c->fdout, c->nspace, curBlk, p, FALSE);
-			optimizeMALBlock(c, curBlk);
-			c->curprg->def = curBlk;
+			trimMalBlk(c->curprg->def);
+			mb = c->curprg->def;
+        		chkProgram(c->fdout, c->nspace, mb);
+        		addOptimizerPipe(c, mb, "minimal_pipe");
+			optimizeMALBlock(c, mb);
+			c->curprg->def = mb;
 		} else {
 			/* generate a factory instantiation */
 			be->q = qc_insert(m->qc,
@@ -1817,7 +1875,7 @@ SQLrecompile(Client c, backend *be)
 str
 SQLengine(Client c)
 {
-	backend *be = ((backend *) c->state[MAL_SCENARIO_PARSER]);
+	backend *be = (backend *) c->sqlcontext;
 	return SQLengineIntern(c, be);
 }
 

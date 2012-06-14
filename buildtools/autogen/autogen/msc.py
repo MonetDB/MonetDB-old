@@ -349,14 +349,12 @@ def msc_dep(fd, tar, deplist, msc):
         of = b + '.' + de
         of = msc_translate_file(of, msc)
         fd.write('\t$(YACC) $(YFLAGS) $(AM_YFLAGS) "%s"\n' % of)
-        fd.write("\t$(DEL) %s.tab.c\n" % b)
     if ext == "tab.c":
         fd.write(getsrc)
         x, de = split_filename(deplist[0])
         of = b + '.' + de
         of = msc_translate_file(of, msc)
         fd.write('\t$(YACC) $(YFLAGS) $(AM_YFLAGS) "%s"\n' % of)
-        fd.write("\t$(DEL) %s.tab.h\n" % b)
     if ext == "yy.c":
         fd.write(getsrc)
         fd.write('\t$(LEX) $(LFLAGS) $(AM_LFLAGS) "%s.l"\n' % b)
@@ -987,6 +985,7 @@ def msc_gem(fd, var, gem, msc):
     if gem.has_key('DIR'):
         rd = gem['DIR'][0]
     rd = msc_translate_dir(rd, msc)
+    rd = '$(prefix)\\' + rd
     fd.write('!IF defined(HAVE_RUBYGEM)\n')
     for f in gem['FILES']:
         msc['SCRIPTS'].append(f[:-4])

@@ -72,7 +72,6 @@ include batxml;
 # The hardwired multiplex extensions
 include batmmath;
 include batcalc;
-include batcast;
 include batifthen;
 include batmtime;
 include batstr;
@@ -128,7 +127,6 @@ include opt_inline;
 include opt_groups;
 include opt_joinpath;
 include opt_macro;
-include opt_accessmode;
 include opt_multiplex;
 include opt_mergetable;
 include opt_mitosis;

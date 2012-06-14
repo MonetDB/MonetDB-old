@@ -78,7 +78,7 @@ GDKcreatedir(const char *dir)
 
 	strcpy(path, dir);
 	r = strrchr(path, DIR_SEP);
-	IODEBUG THRprintf(GDKout, "#GDKcreatedir(%s)\n", path);
+	IODEBUG THRprintf(GDKstdout, "#GDKcreatedir(%s)\n", path);
 
 	if (r) {
 		DIR *dirp;
@@ -90,7 +90,7 @@ GDKcreatedir(const char *dir)
 		} else {
 			GDKcreatedir(path);
 			ret = mkdir(path, 0755);
-			IODEBUG THRprintf(GDKout, "#mkdir %s = %d\n", path, ret);
+			IODEBUG THRprintf(GDKstdout, "#mkdir %s = %d\n", path, ret);
 			if (ret < 0 && (dirp = opendir(path)) != NULL) {
 				/* resolve race */
 				ret = 0;
@@ -110,7 +110,7 @@ GDKremovedir(const char *dirname)
 	struct dirent *dent;
 	int ret;
 
-	IODEBUG THRprintf(GDKout, "#GDKremovedir(%s)\n", dirname);
+	IODEBUG THRprintf(GDKstdout, "#GDKremovedir(%s)\n", dirname);
 
 	if (dirp == NULL)
 		return 0;
@@ -120,14 +120,14 @@ GDKremovedir(const char *dirname)
 		}
 		GDKfilepath(path, dirname, dent->d_name, NULL);
 		ret = unlink(path);
-		IODEBUG THRprintf(GDKout, "#unlink %s = %d\n", path, ret);
+		IODEBUG THRprintf(GDKstdout, "#unlink %s = %d\n", path, ret);
 	}
 	closedir(dirp);
 	ret = rmdir(dirname);
 	if (ret < 0) {
 		GDKsyserror("GDKremovedir: rmdir(%s) failed.\n", dirname);
 	}
-	IODEBUG THRprintf(GDKout, "#rmdir %s = %d\n", dirname, ret);
+	IODEBUG THRprintf(GDKstdout, "#rmdir %s = %d\n", dirname, ret);
 
 	return ret;
 }
@@ -202,7 +202,7 @@ GDKunlink(const char *dir, const char *nme, const char *ext)
 		/* if file already doesn't exist, we don't care */
 		if (unlink(path) == -1 && errno != ENOENT) {
 			GDKsyserror("GDKunlink(%s)\n", path);
-			IODEBUG THRprintf(GDKout, "#unlink %s = -1\n", path);
+			IODEBUG THRprintf(GDKstdout, "#unlink %s = -1\n", path);
 			return -1;
 		}
 		return 0;
@@ -229,7 +229,7 @@ GDKmove(const char *dir1, const char *nme1, const char *ext1, const char *dir2, 
 	GDKfilepath(path2, dir2, nme2, ext2);
 	ret = rename(path1, path2);
 
-	IODEBUG THRprintf(GDKout, "#move %s %s = %d (%dms)\n", path1, path2, ret, GDKms() - t0);
+	IODEBUG THRprintf(GDKstdout, "#move %s %s = %d (%dms)\n", path1, path2, ret, GDKms() - t0);
 
 	return ret;
 }
@@ -249,7 +249,7 @@ GDKsave(const char *nme, const char *ext, void *buf, size_t size, int mode)
 {
 	int fd = -1, err = 0;
 
-	IODEBUG THRprintf(GDKout, "#GDKsave: name=%s, ext=%s, mode %d\n", nme, ext ? ext : "", mode);
+	IODEBUG THRprintf(GDKstdout, "#GDKsave: name=%s, ext=%s, mode %d\n", nme, ext ? ext : "", mode);
 
 	if (mode == STORE_MMAP) {
 		/*
@@ -269,7 +269,7 @@ GDKsave(const char *nme, const char *ext, void *buf, size_t size, int mode)
 			err = MT_msync(buf, 0, size, MMAP_SYNC);
 		if (err)
 			GDKsyserror("GDKsave: error on: name=%s, ext=%s, mode=%d\n", nme, ext ? ext : "", mode);
-		IODEBUG THRprintf(GDKout, "#MT_msync(buf " PTRFMT ", size " SZFMT ", MMAP_SYNC) = %d\n", PTRFMTCAST buf, size, err);
+		IODEBUG THRprintf(GDKstdout, "#MT_msync(buf " PTRFMT ", size " SZFMT ", MMAP_SYNC) = %d\n", PTRFMTCAST buf, size, err);
 	} else {
 		if ((fd = GDKfdlocate(nme, "wb", ext)) >= 0) {
 			/* write() on 64-bits Redhat for IA64 returns
@@ -286,7 +286,7 @@ GDKsave(const char *nme, const char *ext, void *buf, size_t size, int mode)
 				}
 				size -= ret;
 				buf = (void *) ((char *) buf + ret);
-				IODEBUG THRprintf(GDKout, "#write(fd %d, buf " PTRFMT ", size %u) = " SSZFMT "\n", fd, PTRFMTCAST buf, (unsigned) MIN(1 << 30, size), ret);
+				IODEBUG THRprintf(GDKstdout, "#write(fd %d, buf " PTRFMT ", size %u) = " SSZFMT "\n", fd, PTRFMTCAST buf, (unsigned) MIN(1 << 30, size), ret);
 			}
 		} else {
 			err = -1;
@@ -316,7 +316,7 @@ GDKload(const char *nme, const char *ext, size_t size, size_t maxsize, int mode)
 	char *ret = NULL;
 
 	IODEBUG {
-		THRprintf(GDKout, "#GDKload: name=%s, ext=%s, mode %d\n", nme, ext ? ext : "", mode);
+		THRprintf(GDKstdout, "#GDKload: name=%s, ext=%s, mode %d\n", nme, ext ? ext : "", mode);
 	}
 	if (mode == STORE_MEM) {
 		int fd = GDKfdlocate(nme, "rb", ext);
@@ -331,7 +331,7 @@ GDKload(const char *nme, const char *ext, size_t size, size_t maxsize, int mode)
 				 * only accepts int */
 				for (n_expected = (ssize_t) size; n_expected > 0; n_expected -= n) {
 					n = read(fd, dst, (unsigned) MIN(1 << 30, n_expected));
-					IODEBUG THRprintf(GDKout, "#read(dst " PTRFMT ", n_expected " SSZFMT ", fd %d) = " SSZFMT "\n", PTRFMTCAST(void *)dst, n_expected, fd, n);
+					IODEBUG THRprintf(GDKstdout, "#read(dst " PTRFMT ", n_expected " SSZFMT ", fd %d) = " SSZFMT "\n", PTRFMTCAST(void *)dst, n_expected, fd, n);
 
 					if (n <= 0)
 						break;
@@ -383,7 +383,7 @@ GDKload(const char *nme, const char *ext, size_t size, size_t maxsize, int mode)
 			if (ret == (char *) -1L) {
 				ret = NULL;
 			}
-			IODEBUG THRprintf(GDKout, "#mmap(NULL, 0, maxsize " SZFMT ", mod %d, path %s, 0) = " PTRFMT "\n", maxsize, mod, path, PTRFMTCAST(void *)ret);
+			IODEBUG THRprintf(GDKstdout, "#mmap(NULL, 0, maxsize " SZFMT ", mod %d, path %s, 0) = " PTRFMT "\n", maxsize, mod, path, PTRFMTCAST(void *)ret);
 		}
 	}
 	return ret;
@@ -415,7 +415,7 @@ DESCload(int i)
 	int ht, tt;
 
 	IODEBUG {
-		THRprintf(GDKout, "#DESCload %s\n", nme);
+		THRprintf(GDKstdout, "#DESCload %s\n", nme);
 	}
 	bs = BBP_desc(i);
 
@@ -627,11 +627,11 @@ BATload_intern(bat i, int lock)
 			BUN cap = b->batCapacity;
 			if (cap < (b->T->heap.size >> b->T->shift)) {
 				cap = (BUN) (b->T->heap.size >> b->T->shift);
-				EXTENDDEBUG fprintf(stderr, "#HEAPextend in BATload_inter %s " SZFMT " " SZFMT "\n", b->H->heap.filename, b->H->heap.size, headsize(b, cap));
+				HEAPDEBUG fprintf(stderr, "#HEAPextend in BATload_inter %s " SZFMT " " SZFMT "\n", b->H->heap.filename, b->H->heap.size, headsize(b, cap));
 				HEAPextend(&b->H->heap, headsize(b, cap));
 				b->batCapacity = cap;
 			} else {
-				EXTENDDEBUG fprintf(stderr, "#HEAPextend in BATload_intern %s " SZFMT " " SZFMT "\n", b->T->heap.filename, b->T->heap.size, tailsize(b, cap));
+				HEAPDEBUG fprintf(stderr, "#HEAPextend in BATload_intern %s " SZFMT " " SZFMT "\n", b->T->heap.filename, b->T->heap.size, tailsize(b, cap));
 				HEAPextend(&b->T->heap, tailsize(b, cap));
 			}
 		}
@@ -681,205 +681,13 @@ BATload_intern(bat i, int lock)
 	}
 	b->batDirtydesc |= batmapdirty;	/* if some heap mode changed, make desc dirty */
 
-	if ((b->batRestricted == BAT_WRITE && (GDKdebug & 2)) || (GDKdebug & 8)) {
+	if ((b->batRestricted == BAT_WRITE && (GDKdebug & CHECKMASK)) ||
+	    (GDKdebug & PROPMASK)) {
 		++b->batSharecnt;
-		BATpropcheck(b, BATPROPS_CHECK);
 		--b->batSharecnt;
 	}
 	return (i < 0) ? BATmirror(b) : b;
 }
-
-/*
- * @- BAT preload
- * To avoid random disk access to large (memory-mapped) BATs it may
- * help to issue a preload request.  Of course, it does not make sense
- * to touch more than we can physically accomodate (budget).
- */
-/* quick and probabilistic test for a sequentially correlated heap */
-static int
-heap_sequential(BAT *b)
-{
-	BUN n = BATcount(b), skip = n / 100, i = BUNfirst(b);
-	BATiter bi = bat_iterator(b);
-	str p, q = BUNhead(bi, i);
-
-	/* check if the pointers are ordered */
-	if (skip == 0)
-		return 1;
-	n = BUNlast(b);
-	for (i += skip; i < n; q = p, i += skip) {
-		p = BUNhead(bi, i);
-		if (p < q)
-			return 0;
-	}
-	return 1;
-}
-
-/* modern linux tends to use 128K readaround  = 64K readahead
- * changes have been going on in 2009, towards true readahead
- * http://tomoyo.sourceforge.jp/cgi-bin/lxr/source/mm/readahead.c
- *
- * Peter Feb2010: I tried to do prefetches further apart, to trigger
- * multiple readahead units in parallel, but it does improve
- * performance visibly
- */
-static size_t
-access_heap(str id, str hp, Heap *h, char *base, size_t sz, size_t touch, int preload, int adv)
-{
-	size_t v0 = 0, v1 = 0, v2 = 0, v3 = 0, v4 = 0, v5 = 0, v6 = 0, v7 = 0, page = MT_pagesize();
-	str advice = (adv == MMAP_WILLNEED) ? "WILLNEED" : (adv == MMAP_SEQUENTIAL) ? "SEQUENTIAL" : (adv == MMAP_RANDOM) ? "RANDOM" : (adv == MMAP_NORMAL) ? "NORMAL" : (adv == MMAP_DONTNEED)? "DONTNEED":NULL;
-	int t = GDKms();
-	assert(advice);
-	/* ignore claims of pages beyond 1/4 the physical memory */
-	if ( sz > page * MT_npages() / 4 ) {
-		 IODEBUG THRprintf(GDKerr,"#Ignore access_heap " SZFMT ">" SZFMT"\n",h->size,page * MT_npages() / 4 );
-		return 0;
-	}
-	if (h->storage != STORE_MEM) {
-		MT_mmap_inform(h->base, h->size, preload, adv, 0);
-		if (preload > 0) {
-			size_t alignskip = (page - (((size_t) base) & (page - 1))) & (page - 1);
-			size_t alignedsz = (size_t) (((sz < alignskip) ? 0 : ((size_t) (sz - alignskip))) & ~(page - 1));
-			int ret;
-			
-			if (alignedsz > 0) {
-				if ((ret = posix_madvise(base + alignskip, alignedsz, adv)) != 0)
-					THRprintf(GDKerr,
-						  "#MT_mmap_inform: posix_madvise(file=%s, base=" PTRFMT ", len=" SZFMT "MB, advice=%s) = %d, errno = %d (%s)\n",
-						  h->filename,
-						  PTRFMTCAST(base + alignskip),
-						  alignedsz >> 20, advice, ret,
-						  errno, strerror(errno));
-			}
-		}
-	}
-	if (touch && preload > 0 && adv != MMAP_DONTNEED) {
-		/* we need to ensure alignment, here, as b might be a
-		 * view and heap.base of views are not necessarily
-		 * aligned */
-		size_t *lo = (size_t *) (((size_t) base + sizeof(size_t) - 1) & (~(sizeof(size_t) - 1)));
-		size_t *hi = (size_t *) (base + touch), *hi8 = NULL, *hi1 = NULL;
-		/* page size: [bytes] -> [sizeof(size_t)]
-		 * to make sure we touch each page,
-		 * not only 1 in sizeof(size_t) pages */
-		page /= sizeof(size_t);
-		hi8 = hi - 8 * page;
-		hi1 = hi - page;
-		/* detect address underrun */
-		if (hi8 < hi)
-			for (; lo <= hi8; lo += 8 * page) {
-				/* try to trigger loading of multiple
-				 * pages without blocking */
-				v0 += lo[0 * page];
-				v1 += lo[1 * page];
-				v2 += lo[2 * page];
-				v3 += lo[3 * page];
-				v4 += lo[4 * page];
-				v5 += lo[5 * page];
-				v6 += lo[6 * page];
-				v7 += lo[7 * page];
-			}
-		/* detect address underrun */
-		if (hi1 < hi)
-			for (; lo <= hi1; lo += page)
-				v0 += *lo;
-	}
-	IODEBUG THRprintf(GDKout,
-			  "#BATpreload(%s->%s,preload=%d,sz=%dMB,touch=%dMB,%s) = %dms \n",
-			  id, hp, preload, (int) (sz >> 20),
-			  (int) (touch >> 20), advice, GDKms() - t);
-	return v0 + v1 + v2 + v3 + v4 + v5 + v6 + v7;
-}
-
-size_t
-BATaccess(BAT *b, int what, int advice, int preload)
-{
-	size_t v = 0, sz, budget = (size_t) (0.8 * MT_npages()), seqbudget = budget / 8;
-	str id = BATgetId(b);
-	BATiter bi = bat_iterator(b);
-
-	assert(advice == MMAP_NORMAL || advice == MMAP_RANDOM || advice == MMAP_SEQUENTIAL || advice == MMAP_WILLNEED || advice == MMAP_DONTNEED);
-
-	if (BATcount(b) == 0)
-		return 0;
-
-	/* HASH indices (inherent random access). handle first as they
-	 * *will* be access randomly (one can always hope for locality
-	 * on the other heaps) */
-	if (what & USE_HHASH || what & USE_THASH) {
-		gdk_set_lock(GDKhashLock(ABS(b->batCacheid) & BBP_BATMASK), "BATaccess");
-		if (what & USE_HHASH &&
-		    b->H->hash && b->H->hash->heap && b->H->hash->heap->base) {
-			budget -= sz = (b->H->hash->heap->size > budget) ? budget : b->H->hash->heap->size;
-			v += access_heap(id, "hhash", b->H->hash->heap, b->H->hash->heap->base, sz, 1, preload, MMAP_WILLNEED);
-		}
-		if (what & USE_THASH &&
-		    b->T->hash && b->T->hash->heap && b->T->hash->heap->base) {
-			budget -= sz = (b->T->hash->heap->size > budget) ? budget : b->T->hash->heap->size;
-			v += access_heap(id, "thash", b->T->hash->heap, b->T->hash->heap->base, sz, 1, preload, MMAP_WILLNEED);
-		}
-		gdk_unset_lock(GDKhashLock(ABS(b->batCacheid) & BBP_BATMASK), "BATaccess");
-	}
-
-	/* vheaps next, as shared vheaps are not seq-correlated
-	 * needing WILLNEED (use prefetch budget for this first) */
-	if (what & USE_HEAD) {
-		if (b->H->vheap && b->H->vheap->base && b->H->heap.base) {
-			char *lo = BUNhead(bi, BUNfirst(b)), *hi = BUNhead(bi, BUNlast(b) - 1);
-			int heap_advice = advice;
-			if (hi < lo || (preload > 0 && !heap_sequential(b))) {	/* not sequentially correlated! */
-				lo = b->H->vheap->base;
-				hi = lo + b->H->vheap->free;
-				heap_advice = MMAP_WILLNEED;
-			}
-			sz = (heap_advice == MMAP_SEQUENTIAL && budget > seqbudget) ? seqbudget : budget;
-			budget -= sz = (((size_t) (hi - lo)) > sz) ? sz : ((size_t) (hi - lo));
-			if (heap_advice == MMAP_SEQUENTIAL)
-				seqbudget -= sz;
-			v += access_heap(id, "hheap", b->H->vheap, lo, (size_t) (hi - lo), sz, preload, heap_advice);
-		}
-	}
-	if (what & USE_TAIL) {
-		if (b->T->vheap && b->T->vheap->base && b->T->heap.base) {
-			char *lo = BUNtail(bi, BUNfirst(b)), *hi = BUNtail(bi, BUNlast(b) - 1);
-			int heap_advice = advice;
-			if (hi < lo || (preload > 0 && !heap_sequential(BATmirror(b)))) {	/* not sequentially correlated! */
-				lo = b->T->vheap->base;
-				hi = lo + b->T->vheap->free;
-				heap_advice = MMAP_WILLNEED;
-			}
-			sz = (heap_advice == MMAP_SEQUENTIAL && budget > seqbudget) ? seqbudget : budget;
-			budget -= sz = (((size_t) (hi - lo)) > sz) ? sz : ((size_t) (hi - lo));
-			if (heap_advice == MMAP_SEQUENTIAL)
-				seqbudget -= sz;
-			v += access_heap(id, "theap", b->T->vheap, lo, (size_t) (hi - lo), sz, preload, heap_advice);
-		}
-	}
-
-	/* BUN heaps are last in line for prefetch budget */
-	if (what & USE_HEAD) {
-		if (b->H->heap.base) {
-			char *lo = BUNhloc(bi, BUNfirst(b)), *hi = BUNhloc(bi, BUNlast(b) - 1);
-			sz = (advice == MMAP_SEQUENTIAL && budget > seqbudget) ? seqbudget : budget;
-			budget -= sz = (((size_t) (hi - lo)) > sz) ? sz : ((size_t) (hi - lo));
-			if (advice == MMAP_SEQUENTIAL)
-				seqbudget -= sz;
-			v += access_heap(id, "hbuns", &b->H->heap, lo, (size_t) (hi - lo), sz, preload, advice);
-		}
-	}
-	if (what & USE_TAIL) {
-		if (b->T->heap.base) {
-			char *lo = BUNtloc(bi, BUNfirst(b)), *hi = BUNtloc(bi, BUNlast(b) - 1);
-			sz = (advice == MMAP_SEQUENTIAL && budget > seqbudget) ? seqbudget : budget;
-			budget -= sz = (((size_t) (hi - lo)) > sz) ? sz : ((size_t) (hi - lo));
-			if (advice == MMAP_SEQUENTIAL)
-				seqbudget -= sz;
-			v += access_heap(id, "tbuns", &b->T->heap, lo, (size_t) (hi - lo), sz, preload, advice);
-		}
-	}
-	return v;
-}
-
 
 /*
  * @- BATdelete
@@ -912,7 +720,7 @@ BATdelete(BAT *b)
 		if (b->htype != TYPE_void &&
 		    HEAPdelete(&b->H->heap, o, "head") &&
 		    b->batCopiedtodisk)
-			IODEBUG THRprintf(GDKout, "#BATdelete(%s): bun heap\n", BATgetId(b));
+			IODEBUG THRprintf(GDKstdout, "#BATdelete(%s): bun heap\n", BATgetId(b));
 	} else if (b->H->heap.base) {
 		HEAPfree(&b->H->heap);
 	}
@@ -920,7 +728,7 @@ BATdelete(BAT *b)
 		if (b->ttype != TYPE_void &&
 		    HEAPdelete(&b->T->heap, o, "tail") &&
 		    b->batCopiedtodisk)
-			IODEBUG THRprintf(GDKout, "#BATdelete(%s): bun heap\n", BATgetId(b));
+			IODEBUG THRprintf(GDKstdout, "#BATdelete(%s): bun heap\n", BATgetId(b));
 	} else if (b->T->heap.base) {
 		HEAPfree(&b->T->heap);
 	}
@@ -928,7 +736,7 @@ BATdelete(BAT *b)
 		assert(b->H->vheap->parentid == bid);
 		if (b->batCopiedtodisk || (b->H->vheap->storage != STORE_MEM)) {
 			if (HEAPdelete(b->H->vheap, o, "hheap") && b->batCopiedtodisk)
-				IODEBUG THRprintf(GDKout, "#BATdelete(%s): head heap\n", BATgetId(b));
+				IODEBUG THRprintf(GDKstdout, "#BATdelete(%s): head heap\n", BATgetId(b));
 		} else {
 			HEAPfree(b->H->vheap);
 		}
@@ -937,7 +745,7 @@ BATdelete(BAT *b)
 		assert(b->T->vheap->parentid == bid);
 		if (b->batCopiedtodisk || (b->T->vheap->storage != STORE_MEM)) {
 			if (HEAPdelete(b->T->vheap, o, "theap") && b->batCopiedtodisk)
-				IODEBUG THRprintf(GDKout, "#BATdelete(%s): tail heap\n", BATgetId(b));
+				IODEBUG THRprintf(GDKstdout, "#BATdelete(%s): tail heap\n", BATgetId(b));
 		} else {
 			HEAPfree(b->T->vheap);
 		}
@@ -1016,7 +824,7 @@ BATdelete(BAT *b)
 						break;			\
 			} while (0)
 
-typedef int (*strFcn) (str *s, int *len, ptr val);
+typedef int (*strFcn) (str *s, int *len, const void *val);
 
 typedef struct {
 	int tabs;		/* tab width of output */
@@ -1029,7 +837,7 @@ typedef struct {
 } col_format_t;
 
 static int
-print_nil(char **dst, int *len, ptr dummy)
+print_nil(char **dst, int *len, const void *dummy)
 {
 	(void) dummy;
 	if (*len < 3) {
@@ -1118,7 +926,7 @@ print_line(stream *s, col_format_t **l)
 }
 
 static void
-print_format(col_format_t *c, ptr v)
+print_format(col_format_t *c, const void *v)
 {
 	if (c->format)
 		c->len = (*c->format) (&c->buf, &c->size, v);
@@ -1196,7 +1004,7 @@ BATmultiprintf(stream *s,	/* output stream */
 	       int printorder	/* boolean: print the orderby column? */
     )
 {
-	col_format_t *c = (col_format_t *) GDKmalloc((unsigned) (argc * sizeof(col_format_t)));
+	col_format_t *c = (col_format_t *) GDKzalloc((unsigned) (argc * sizeof(col_format_t)));
 	col_format_t **cp = (col_format_t **) GDKmalloc((unsigned) ((argc + 1) * sizeof(void *)));
 	ColFcn *value_fcn = (ColFcn *) GDKmalloc((unsigned) (argc * sizeof(ColFcn)));
 	int ret = 0, j, total = 0;
@@ -1218,7 +1026,8 @@ BATmultiprintf(stream *s,	/* output stream */
 	 */
 	cp[argc] = NULL;	/* terminator */
 	cp[0] = c;
-	memset(c, 0, (argc--) * sizeof(col_format_t));
+	argc--;
+
 	/*
 	 * Init the column descriptors of the tail columns.
 	 */
@@ -1264,7 +1073,7 @@ BATmultiprintf(stream *s,	/* output stream */
 				goto cleanup;
 		}
 		MULTIJOIN_LEAD(ret) = 1;
-		MULTIJOIN_SORTED(ret) = (BAThordered(b) & 1);
+		MULTIJOIN_SORTED(ret) = BAThordered(b);
 		MULTIJOIN_KEY(ret) = BAThkey(b);
 		MULTIJOIN_SYNCED(ret) = 1;
 	} else {

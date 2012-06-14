@@ -561,7 +561,6 @@ struct OPTcatalog {
 	int actions;
 	int debug;
 } optcatalog[]= {
-{"accessmode",	0,	0,	0,	DEBUG_OPT_ACCESSMODE},
 {"accumulators",0,	0,	0,	DEBUG_OPT_ACCUMULATORS},
 {"groups",		0,	0,	0,	DEBUG_OPT_GROUPS},
 {"aliases",		0,	0,	0,	DEBUG_OPT_ALIASES},
@@ -770,7 +769,7 @@ int hasSameSignature(MalBlkPtr mb, InstrPtr p, InstrPtr q, int stop){
 
 int hasSameArguments(MalBlkPtr mb, InstrPtr p, InstrPtr q)
 {   int k;
-	int (*cmp)(ptr,ptr);
+	int (*cmp)(const void *, const void *);
 	VarPtr w,u;
 
 	(void) mb;

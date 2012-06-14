@@ -20,6 +20,7 @@
 #include "monetdb_config.h"
 #include "gdk.h"
 #include "gdk_private.h"
+#include <math.h>
 
 /* Define symbol FULL_IMPLEMENTATION to get implementations for all
  * sensible output types for +, -, *, /.  Without the symbol, all
@@ -179,7 +180,9 @@ BATcalcnot(BAT *b, int accum)
 	BATsetcount(bn, b->U->count);
 	bn = BATseqbase(bn, b->H->seq);
 
-	bn->T->sorted = nils == 0 ? REVERT_SORTED(BATtordered(b)) : 0;
+	/* NOT reverses the order, but NILs mess it up */
+	bn->T->sorted = nils == 0 ? b->T->revsorted : 0;
+	bn->T->revsorted = nils == 0 ? b->T->sorted : 0;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
 	bn->T->key = b->T->key & 1;
@@ -306,7 +309,9 @@ BATcalcnegate(BAT *b, int accum)
 	BATsetcount(bn, b->U->count);
 	bn = BATseqbase(bn, b->H->seq);
 
-	bn->T->sorted = nils == 0 ? REVERT_SORTED(BATtordered(b)) : 0;
+	/* unary - reverses the order, but NILs mess it up */
+	bn->T->sorted = nils == 0 ? b->T->revsorted : 0;
+	bn->T->revsorted = nils == 0 ? b->T->sorted : 0;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
 	bn->T->key = b->T->key & 1;
@@ -443,7 +448,11 @@ BATcalcabsolute(BAT *b, int accum)
 	BATsetcount(bn, b->U->count);
 	bn = BATseqbase(bn, b->H->seq);
 
+	/* ABSOLUTE messes up order (unless all values were negative
+	 * or all values were positive, but we don't know anything
+	 * about that) */
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -566,6 +575,7 @@ BATcalciszero(BAT *b)
 	bn = BATseqbase(bn, b->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -687,7 +697,11 @@ BATcalcsign(BAT *b)
 	BATsetcount(bn, b->U->count);
 	bn = BATseqbase(bn, b->H->seq);
 
-	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	/* SIGN is ordered if the input is ordered (negative comes
+	 * first, positive comes after) and NILs stay in the same
+	 * position */
+	bn->T->sorted = b->T->sorted || bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->T->revsorted || bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -820,7 +834,7 @@ BATcalcisnil(BAT *b)
 		BUN j;
 		ptr v;
 		ptr nil = ATOMnilptr(b->T->type);
-		int (*atomcmp)(ptr, ptr) = BATatoms[b->T->type].atomCmp;
+		int (*atomcmp)(const void *, const void *) = BATatoms[b->T->type].atomCmp;
 
 		BATloop(b, i, j) {
 			v = BUNtail(bi, i);
@@ -838,7 +852,8 @@ BATcalcisnil(BAT *b)
 	/* If b sorted, all nils are at the start, i.e. bn starts with
 	 * 1's and ends with 0's, hence bn is revsorted.  Similarly
 	 * for revsorted. */
-	bn->T->sorted = REVERT_SORTED(BATtordered(b));
+	bn->T->sorted = b->T->revsorted;
+	bn->T->revsorted = b->T->sorted;
 	bn->T->nil = 0;
 	bn->T->nonil = 1;
 	bn->T->key = bn->U->count <= 1;
@@ -1861,7 +1876,13 @@ BATcalcadd(BAT *b1, BAT *b2, int tp, int accum, int abort_on_error)
 	BATsetcount(bn, b1->U->count);
 	bn = BATseqbase(bn, b1->H->seq);
 
-	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	/* if both inputs are sorted the same way, and no overflow
+	 * occurred (we only know for sure if abort_on_error is set),
+	 * the result is also sorted */
+	bn->T->sorted = (abort_on_error && b1->T->sorted & b2->T->sorted) ||
+		bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = (abort_on_error && b1->T->revsorted & b2->T->revsorted) ||
+		bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -1919,7 +1940,13 @@ BATcalcaddcst(BAT *b, const ValRecord *v, int tp, int accum, int abort_on_error)
 	BATsetcount(bn, b->U->count);
 	bn = BATseqbase(bn, b->H->seq);
 
-	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	/* if the input is sorted, and no overflow occurred (we only
+	 * know for sure if abort_on_error is set), the result is also
+	 * sorted */
+	bn->T->sorted = (abort_on_error && b->T->sorted) ||
+		bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = (abort_on_error && b->T->revsorted) ||
+		bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -1977,7 +2004,13 @@ BATcalccstadd(const ValRecord *v, BAT *b, int tp, int accum, int abort_on_error)
 	BATsetcount(bn, b->U->count);
 	bn = BATseqbase(bn, b->H->seq);
 
-	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	/* if the input is sorted, and no overflow occurred (we only
+	 * know for sure if abort_on_error is set), the result is also
+	 * sorted */
+	bn->T->sorted = (abort_on_error && b->T->sorted) ||
+		bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = (abort_on_error && b->T->revsorted) ||
+		bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -2045,7 +2078,13 @@ BATcalcincr(BAT *b, int accum, int abort_on_error)
 	BATsetcount(bn, b->U->count);
 	bn = BATseqbase(bn, b->H->seq);
 
-	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	/* if the input is sorted, and no overflow occurred (we only
+	 * know for sure if abort_on_error is set), the result is also
+	 * sorted */
+	bn->T->sorted = (abort_on_error && b->T->sorted) ||
+		bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = (abort_on_error && b->T->revsorted) ||
+		bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -3023,6 +3062,7 @@ BATcalcsub(BAT *b1, BAT *b2, int tp, int accum, int abort_on_error)
 	bn = BATseqbase(bn, b1->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -3080,7 +3120,13 @@ BATcalcsubcst(BAT *b, const ValRecord *v, int tp, int accum, int abort_on_error)
 	BATsetcount(bn, b->U->count);
 	bn = BATseqbase(bn, b->H->seq);
 
-	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	/* if the input is sorted, and no overflow occurred (we only
+	 * know for sure if abort_on_error is set), the result is also
+	 * sorted */
+	bn->T->sorted = (abort_on_error && b->T->sorted) ||
+		bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = (abort_on_error && b->T->revsorted) ||
+		bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -3099,6 +3145,7 @@ BATcalccstsub(const ValRecord *v, BAT *b, int tp, int accum, int abort_on_error)
 {
 	BAT *bn;
 	BUN nils;
+	int savesorted;
 
 	BATcheck(b, "BATcalccstsub");
 
@@ -3138,7 +3185,18 @@ BATcalccstsub(const ValRecord *v, BAT *b, int tp, int accum, int abort_on_error)
 	BATsetcount(bn, b->U->count);
 	bn = BATseqbase(bn, b->H->seq);
 
-	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	/* if the input is sorted, and no overflow occurred (we only
+	 * know for sure if abort_on_error is set), the result is
+	 * sorted in the opposite direction (except that NILs mess
+	 * things up */
+	/* note that if b == bn (accum is set), the first assignment
+	 * changes a value that we need on the right-hand side of the
+	 * second assignment, so we need to save the value */
+	savesorted = b->T->sorted;
+	bn->T->sorted = (abort_on_error && nils == 0 && b->T->revsorted) ||
+		bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = (abort_on_error && nils == 0 && savesorted) ||
+		bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -3206,7 +3264,13 @@ BATcalcdecr(BAT *b, int accum, int abort_on_error)
 	BATsetcount(bn, b->U->count);
 	bn = BATseqbase(bn, b->H->seq);
 
-	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	/* if the input is sorted, and no overflow occurred (we only
+	 * know for sure if abort_on_error is set), the result is also
+	 * sorted */
+	bn->T->sorted = (abort_on_error && b->T->sorted) ||
+		bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = (abort_on_error && b->T->revsorted) ||
+		bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -4265,6 +4329,7 @@ BATcalcmul(BAT *b1, BAT *b2, int tp, int accum, int abort_on_error)
 	bn = BATseqbase(bn, b1->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -4322,7 +4387,25 @@ BATcalcmulcst(BAT *b, const ValRecord *v, int tp, int accum, int abort_on_error)
 	BATsetcount(bn, b->U->count);
 	bn = BATseqbase(bn, b->H->seq);
 
-	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	/* if the input is sorted, and no overflow occurred (we only
+	 * know for sure if abort_on_error is set), the result is also
+	 * sorted, or reverse sorted if the constant is negative */
+	if (abort_on_error) {
+		ValRecord sign;
+		int savesorted;
+
+		savesorted = b->T->sorted; /* in case b == bn (accum set) */
+		VARcalcsign(&sign, v);
+		bn->T->sorted = (sign.val.btval >= 0 && b->T->sorted) ||
+			(sign.val.btval <= 0 && b->T->revsorted && nils == 0) ||
+			bn->U->count <= 1 || nils == bn->U->count;
+		bn->T->revsorted = (sign.val.btval >= 0 && b->T->revsorted) ||
+			(sign.val.btval <= 0 && savesorted && nils == 0) ||
+			bn->U->count <= 1 || nils == bn->U->count;
+	} else {
+		bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+		bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
+	}
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -4380,7 +4463,25 @@ BATcalccstmul(const ValRecord *v, BAT *b, int tp, int accum, int abort_on_error)
 	BATsetcount(bn, b->U->count);
 	bn = BATseqbase(bn, b->H->seq);
 
-	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	/* if the input is sorted, and no overflow occurred (we only
+	 * know for sure if abort_on_error is set), the result is also
+	 * sorted, or reverse sorted if the constant is negative */
+	if (abort_on_error) {
+		ValRecord sign;
+		int savesorted;
+
+		savesorted = b->T->sorted; /* in case b == bn (accum set) */
+		VARcalcsign(&sign, v);
+		bn->T->sorted = (sign.val.btval >= 0 && b->T->sorted) ||
+			(sign.val.btval <= 0 && b->T->revsorted && nils == 0) ||
+			bn->U->count <= 1 || nils == bn->U->count;
+		bn->T->revsorted = (sign.val.btval >= 0 && b->T->revsorted) ||
+			(sign.val.btval <= 0 && savesorted && nils == 0) ||
+			bn->U->count <= 1 || nils == bn->U->count;
+	} else {
+		bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+		bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
+	}
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -5446,6 +5547,7 @@ BATcalcdiv(BAT *b1, BAT *b2, int tp, int accum, int abort_on_error)
 	bn = BATseqbase(bn, b1->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -5503,7 +5605,28 @@ BATcalcdivcst(BAT *b, const ValRecord *v, int tp, int accum, int abort_on_error)
 	BATsetcount(bn, b->U->count);
 	bn = BATseqbase(bn, b->H->seq);
 
+	/* if the input is sorted, and no zero division occurred (we
+	 * only know for sure if abort_on_error is set), the result is
+	 * also sorted, or reverse sorted if the constant is
+	 * negative */
+	if (abort_on_error) {
+		ValRecord sign;
+		int savesorted;
+
+		savesorted = b->T->sorted; /* in case b == bn (accum set) */
+		VARcalcsign(&sign, v);
+		bn->T->sorted = (sign.val.btval > 0 && b->T->sorted) ||
+			(sign.val.btval < 0 && b->T->revsorted && nils == 0) ||
+			bn->U->count <= 1 || nils == bn->U->count;
+		bn->T->revsorted = (sign.val.btval > 0 && b->T->revsorted) ||
+			(sign.val.btval < 0 && savesorted && nils == 0) ||
+			bn->U->count <= 1 || nils == bn->U->count;
+	} else {
+		bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+		bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
+	}
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -5562,6 +5685,7 @@ BATcalccstdiv(const ValRecord *v, BAT *b, int tp, int accum, int abort_on_error)
 	bn = BATseqbase(bn, b->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -5588,7 +5712,10 @@ VARcalcdiv(ValPtr ret, const ValRecord *lft, const ValRecord *rgt, int abort_on_
 
 #define MOD_3TYPE(TYPE1, TYPE2, TYPE3)					\
 	static BUN							\
-	mod_##TYPE1##_##TYPE2##_##TYPE3(const TYPE1 *lft, int incr1, const TYPE2 *rgt, int incr2, TYPE3 *dst, BUN cnt, int abort_on_error) \
+	mod_##TYPE1##_##TYPE2##_##TYPE3(const TYPE1 *lft, int incr1,	\
+					const TYPE2 *rgt, int incr2,	\
+					TYPE3 *dst, BUN cnt,		\
+					int abort_on_error)		\
 	{								\
 		BUN i, j, k;						\
 		BUN nils = 0;						\
@@ -5604,6 +5731,33 @@ VARcalcdiv(ValPtr ret, const ValRecord *lft, const ValRecord *rgt, int abort_on_
 				nils++;					\
 			} else {					\
 				dst[k] = (TYPE3) lft[i] % rgt[j];	\
+			}						\
+		}							\
+		return nils;						\
+	}
+
+#define FMOD_3TYPE(TYPE1, TYPE2, TYPE3, FUNC)				\
+	static BUN							\
+	mod_##TYPE1##_##TYPE2##_##TYPE3(const TYPE1 *lft, int incr1,	\
+					const TYPE2 *rgt, int incr2,	\
+					TYPE3 *dst, BUN cnt,		\
+					int abort_on_error)		\
+	{								\
+		BUN i, j, k;						\
+		BUN nils = 0;						\
+									\
+		for (i = j = k = 0; k < cnt; i += incr1, j += incr2, k++) { \
+			if (lft[i] == TYPE1##_nil || rgt[j] == TYPE2##_nil) { \
+				dst[k] = TYPE3##_nil;			\
+				nils++;					\
+			} else if (rgt[j] == 0) {			\
+				if (abort_on_error)			\
+					return BUN_NONE;		\
+				dst[k] = TYPE3##_nil;			\
+				nils++;					\
+			} else {					\
+				dst[k] = (TYPE3) FUNC((TYPE3) lft[i],	\
+						      (TYPE3) rgt[j]);	\
 			}						\
 		}							\
 		return nils;						\
@@ -5689,6 +5843,27 @@ MOD_3TYPE(lng, int, int)
 MOD_3TYPE(lng, int, lng)
 #endif
 MOD_3TYPE(lng, lng, lng)
+
+FMOD_3TYPE(bte, flt, flt, fmodf)
+FMOD_3TYPE(sht, flt, flt, fmodf)
+FMOD_3TYPE(int, flt, flt, fmodf)
+FMOD_3TYPE(lng, flt, flt, fmodf)
+FMOD_3TYPE(flt, bte, flt, fmodf)
+FMOD_3TYPE(flt, sht, flt, fmodf)
+FMOD_3TYPE(flt, int, flt, fmodf)
+FMOD_3TYPE(flt, lng, flt, fmodf)
+FMOD_3TYPE(flt, flt, flt, fmodf)
+FMOD_3TYPE(bte, dbl, dbl, fmod)
+FMOD_3TYPE(sht, dbl, dbl, fmod)
+FMOD_3TYPE(int, dbl, dbl, fmod)
+FMOD_3TYPE(lng, dbl, dbl, fmod)
+FMOD_3TYPE(flt, dbl, dbl, fmod)
+FMOD_3TYPE(dbl, bte, dbl, fmod)
+FMOD_3TYPE(dbl, sht, dbl, fmod)
+FMOD_3TYPE(dbl, int, dbl, fmod)
+FMOD_3TYPE(dbl, lng, dbl, fmod)
+FMOD_3TYPE(dbl, flt, dbl, fmod)
+FMOD_3TYPE(dbl, dbl, dbl, fmod)
 
 static BUN
 mod_typeswitchloop(const void *lft, int tp1, int incr1,
@@ -5813,6 +5988,28 @@ mod_typeswitchloop(const void *lft, int tp1, int incr1,
 				goto unsupported;
 			}
 			break;
+		case TYPE_flt:
+			switch (ATOMstorage(tp)) {
+			case TYPE_flt:
+				nils = mod_bte_flt_flt(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
+		case TYPE_dbl:
+			switch (ATOMstorage(tp)) {
+			case TYPE_dbl:
+				nils = mod_bte_dbl_dbl(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
 		default:
 			goto unsupported;
 		}
@@ -5916,6 +6113,28 @@ mod_typeswitchloop(const void *lft, int tp1, int incr1,
 				goto unsupported;
 			}
 			break;
+		case TYPE_flt:
+			switch (ATOMstorage(tp)) {
+			case TYPE_flt:
+				nils = mod_sht_flt_flt(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
+		case TYPE_dbl:
+			switch (ATOMstorage(tp)) {
+			case TYPE_dbl:
+				nils = mod_sht_dbl_dbl(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
 		default:
 			goto unsupported;
 		}
@@ -6009,6 +6228,28 @@ mod_typeswitchloop(const void *lft, int tp1, int incr1,
 				goto unsupported;
 			}
 			break;
+		case TYPE_flt:
+			switch (ATOMstorage(tp)) {
+			case TYPE_flt:
+				nils = mod_int_flt_flt(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
+		case TYPE_dbl:
+			switch (ATOMstorage(tp)) {
+			case TYPE_dbl:
+				nils = mod_int_dbl_dbl(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
 		default:
 			goto unsupported;
 		}
@@ -6095,6 +6336,172 @@ mod_typeswitchloop(const void *lft, int tp1, int incr1,
 				goto unsupported;
 			}
 			break;
+		case TYPE_flt:
+			switch (ATOMstorage(tp)) {
+			case TYPE_flt:
+				nils = mod_lng_flt_flt(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
+		case TYPE_dbl:
+			switch (ATOMstorage(tp)) {
+			case TYPE_dbl:
+				nils = mod_lng_dbl_dbl(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
+		default:
+			goto unsupported;
+		}
+		break;
+	case TYPE_flt:
+		switch (ATOMstorage(tp2)) {
+		case TYPE_bte:
+			switch (ATOMstorage(tp)) {
+			case TYPE_flt:
+				nils = mod_flt_bte_flt(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
+		case TYPE_sht:
+			switch (ATOMstorage(tp)) {
+			case TYPE_flt:
+				nils = mod_flt_sht_flt(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
+		case TYPE_int:
+			switch (ATOMstorage(tp)) {
+			case TYPE_flt:
+				nils = mod_flt_int_flt(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
+		case TYPE_lng:
+			switch (ATOMstorage(tp)) {
+			case TYPE_flt:
+				nils = mod_flt_lng_flt(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
+		case TYPE_flt:
+			switch (ATOMstorage(tp)) {
+			case TYPE_flt:
+				nils = mod_flt_flt_flt(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
+		case TYPE_dbl:
+			switch (ATOMstorage(tp)) {
+			case TYPE_dbl:
+				nils = mod_flt_dbl_dbl(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
+		default:
+			goto unsupported;
+		}
+		break;
+	case TYPE_dbl:
+		switch (ATOMstorage(tp2)) {
+		case TYPE_bte:
+			switch (ATOMstorage(tp)) {
+			case TYPE_dbl:
+				nils = mod_dbl_bte_dbl(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
+		case TYPE_sht:
+			switch (ATOMstorage(tp)) {
+			case TYPE_dbl:
+				nils = mod_dbl_sht_dbl(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
+		case TYPE_int:
+			switch (ATOMstorage(tp)) {
+			case TYPE_dbl:
+				nils = mod_dbl_int_dbl(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
+		case TYPE_lng:
+			switch (ATOMstorage(tp)) {
+			case TYPE_dbl:
+				nils = mod_dbl_lng_dbl(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
+		case TYPE_flt:
+			switch (ATOMstorage(tp)) {
+			case TYPE_dbl:
+				nils = mod_dbl_flt_dbl(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
+		case TYPE_dbl:
+			switch (ATOMstorage(tp)) {
+			case TYPE_dbl:
+				nils = mod_dbl_dbl_dbl(lft, incr1, rgt, incr2,
+						       dst, cnt,
+						       abort_on_error);
+				break;
+			default:
+				goto unsupported;
+			}
+			break;
 		default:
 			goto unsupported;
 		}
@@ -6172,6 +6579,7 @@ BATcalcmod(BAT *b1, BAT *b2, int tp, int accum, int abort_on_error)
 	bn = BATseqbase(bn, b1->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -6230,6 +6638,7 @@ BATcalcmodcst(BAT *b, const ValRecord *v, int tp, int accum, int abort_on_error)
 	bn = BATseqbase(bn, b->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -6288,6 +6697,7 @@ BATcalccstmod(const ValRecord *v, BAT *b, int tp, int accum, int abort_on_error)
 	bn = BATseqbase(bn, b->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -6428,6 +6838,7 @@ BATcalcxor(BAT *b1, BAT *b2, int accum)
 	bn = BATseqbase(bn, b1->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -6493,6 +6904,7 @@ BATcalcxorcst(BAT *b, const ValRecord *v, int accum)
 	bn = BATseqbase(bn, b->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -6558,6 +6970,7 @@ BATcalccstxor(const ValRecord *v, BAT *b, int accum)
 	bn = BATseqbase(bn, b->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -6717,6 +7130,7 @@ BATcalcor(BAT *b1, BAT *b2, int accum)
 	bn = BATseqbase(bn, b1->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -6782,6 +7196,7 @@ BATcalcorcst(BAT *b, const ValRecord *v, int accum)
 	bn = BATseqbase(bn, b->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -6847,6 +7262,7 @@ BATcalccstor(const ValRecord *v, BAT *b, int accum)
 	bn = BATseqbase(bn, b->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -7002,6 +7418,7 @@ BATcalcand(BAT *b1, BAT *b2, int accum)
 	bn = BATseqbase(bn, b1->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -7067,6 +7484,7 @@ BATcalcandcst(BAT *b, const ValRecord *v, int accum)
 	bn = BATseqbase(bn, b->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -7132,6 +7550,7 @@ BATcalccstand(const ValRecord *v, BAT *b, int accum)
 	bn = BATseqbase(bn, b->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -7311,6 +7730,7 @@ BATcalclsh(BAT *b1, BAT *b2, int accum, int abort_on_error)
 	bn = BATseqbase(bn, b1->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -7369,6 +7789,7 @@ BATcalclshcst(BAT *b, const ValRecord *v, int accum, int abort_on_error)
 	bn = BATseqbase(bn, b->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -7416,6 +7837,7 @@ BATcalccstlsh(const ValRecord *v, BAT *b, int abort_on_error)
 	bn = BATseqbase(bn, b->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -7589,6 +8011,7 @@ BATcalcrsh(BAT *b1, BAT *b2, int accum, int abort_on_error)
 	bn = BATseqbase(bn, b1->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -7647,6 +8070,7 @@ BATcalcrshcst(BAT *b, const ValRecord *v, int accum, int abort_on_error)
 	bn = BATseqbase(bn, b->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -7694,6 +8118,7 @@ BATcalccstrsh(const ValRecord *v, BAT *b, int abort_on_error)
 	bn = BATseqbase(bn, b->H->seq);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -8163,6 +8588,7 @@ BATcalclt_intern(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 	bn = BATseqbase(bn, seqbase);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -8736,6 +9162,7 @@ BATcalcgt_intern(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 	bn = BATseqbase(bn, seqbase);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -9309,6 +9736,7 @@ BATcalcle_intern(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 	bn = BATseqbase(bn, seqbase);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -9882,6 +10310,7 @@ BATcalcge_intern(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 	bn = BATseqbase(bn, seqbase);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -10455,6 +10884,7 @@ BATcalceq_intern(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 	bn = BATseqbase(bn, seqbase);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -11026,6 +11456,7 @@ BATcalcne_intern(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 	bn = BATseqbase(bn, seqbase);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -11600,6 +12031,7 @@ BATcalccmp_intern(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 	bn = BATseqbase(bn, seqbase);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -11792,6 +12224,7 @@ BATcalcbetween_intern(const void *src, int incr1,
 	bn = BATseqbase(bn, seqbase);
 
 	bn->T->sorted = bn->U->count <= 1 || nils == bn->U->count;
+	bn->T->revsorted = bn->U->count <= 1 || nils == bn->U->count;
 	bn->T->key = bn->U->count <= 1;
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
@@ -12000,81 +12433,180 @@ VARcalcbetween(ValPtr ret, const ValRecord *v, const ValRecord *lo, const ValRec
 	return GDK_SUCCEED;
 }
 
-#define convertimpl_enlarge(TYPE1, TYPE2)			\
+#define convertimpl_copy(TYPE)					\
 static BUN							\
-convert_##TYPE1##_##TYPE2(TYPE1 *src, TYPE2 *dst, BUN cnt)	\
+convert_##TYPE##_##TYPE(const TYPE *src, TYPE *dst, BUN cnt)	\
 {								\
 	BUN nils = 0;						\
 								\
 	while (cnt-- > 0) {					\
-		if (*src == TYPE1##_nil) {			\
-			*dst = TYPE2##_nil;			\
-			nils++;					\
-		} else						\
-			*dst = (TYPE2) *src;			\
-		src++;						\
-		dst++;						\
+		nils += *src == TYPE##_nil;			\
+		*dst++ = *src++;				\
 	}							\
 	return nils;						\
 }
 
-#define convertimpl_reduce(TYPE1, TYPE2)			\
+#define convertimpl_enlarge(TYPE1, TYPE2)				\
+static BUN								\
+convert_##TYPE1##_##TYPE2(const TYPE1 *src, TYPE2 *dst, BUN cnt)	\
+{									\
+	BUN nils = 0;							\
+									\
+	while (cnt-- > 0) {						\
+		if (*src == TYPE1##_nil) {				\
+			*dst = TYPE2##_nil;				\
+			nils++;						\
+		} else							\
+			*dst = (TYPE2) *src;				\
+		src++;							\
+		dst++;							\
+	}								\
+	return nils;							\
+}
+
+#define convertimpl_oid_enlarge(TYPE1)				\
 static BUN							\
-convert_##TYPE1##_##TYPE2(TYPE1 *src, TYPE2 *dst, BUN cnt,	\
-			  int abort_on_error)		\
+convert_##TYPE1##_oid(const TYPE1 *src, oid *dst, BUN cnt,	\
+			  int abort_on_error)			\
 {								\
 	BUN nils = 0;						\
 								\
 	while (cnt-- > 0) {					\
 		if (*src == TYPE1##_nil) {			\
-			*dst = TYPE2##_nil;			\
+			*dst = oid_nil;				\
 			nils++;					\
-		} else if (*src <= (TYPE1) GDK_##TYPE2##_min ||	\
-			   *src > (TYPE1) GDK_##TYPE2##_max) {	\
+		} else if (*src < 0) {				\
 			if (abort_on_error)			\
 				return BUN_NONE;		\
-			*dst = TYPE2##_nil;			\
+			*dst = oid_nil;				\
 			nils++;					\
-		} else						\
-			*dst = (TYPE2) *src;			\
+		} else if ((*dst = (oid) *src) == oid_nil &&	\
+			   abort_on_error)			\
+			return BUN_NONE;			\
 		src++;						\
 		dst++;						\
 	}							\
 	return nils;						\
 }
 
-#define convert2bit_impl(TYPE)				\
-static BUN						\
-convert_##TYPE##_bit(TYPE *src, bit *dst, BUN cnt)	\
-{							\
-	BUN nils = 0;					\
-							\
-	while (cnt-- > 0) {				\
-		if (*src == TYPE##_nil) {		\
-			*dst = bit_nil;			\
-			nils++;				\
-		} else					\
-			*dst = (bit) (*src != 0);	\
-		src++;					\
-		dst++;					\
-	}						\
-	return nils;					\
+#define convertimpl_oid_reduce(TYPE1)				\
+static BUN							\
+convert_##TYPE1##_oid(const TYPE1 *src, oid *dst, BUN cnt,	\
+			  int abort_on_error)			\
+{								\
+	BUN nils = 0;						\
+								\
+	while (cnt-- > 0) {					\
+		if (*src == TYPE1##_nil) {			\
+			*dst = oid_nil;				\
+			nils++;					\
+		} else if (*src < 0 ||				\
+			   *src > (TYPE1) GDK_oid_max) {	\
+			if (abort_on_error)			\
+				return BUN_NONE;		\
+			*dst = oid_nil;				\
+			nils++;					\
+		} else if ((*dst = (oid) *src) == oid_nil &&	\
+			   abort_on_error)			\
+			return BUN_NONE;			\
+		src++;						\
+		dst++;						\
+	}							\
+	return nils;						\
 }
 
+#define convertimpl_reduce(TYPE1, TYPE2)				\
+static BUN								\
+convert_##TYPE1##_##TYPE2(const TYPE1 *src, TYPE2 *dst, BUN cnt,	\
+			  int abort_on_error)				\
+{									\
+	BUN nils = 0;							\
+									\
+	while (cnt-- > 0) {						\
+		if (*src == TYPE1##_nil) {				\
+			*dst = TYPE2##_nil;				\
+			nils++;						\
+		} else if (*src <= (TYPE1) GDK_##TYPE2##_min ||		\
+			   *src > (TYPE1) GDK_##TYPE2##_max) {		\
+			if (abort_on_error)				\
+				return BUN_NONE;			\
+			*dst = TYPE2##_nil;				\
+			nils++;						\
+		} else							\
+			*dst = (TYPE2) *src;				\
+		src++;							\
+		dst++;							\
+	}								\
+	return nils;							\
+}
+
+/* Special version of the above for converting from floating point.
+ * The final assignment rounds the value which can still come out to
+ * the NIL representation, so we need to check for that. */
+#define convertimpl_reduce_float(TYPE1, TYPE2)				\
+static BUN								\
+convert_##TYPE1##_##TYPE2(const TYPE1 *src, TYPE2 *dst, BUN cnt,	\
+			  int abort_on_error)				\
+{									\
+	BUN nils = 0;							\
+									\
+	while (cnt-- > 0) {						\
+		if (*src == TYPE1##_nil) {				\
+			*dst = TYPE2##_nil;				\
+			nils++;						\
+		} else if (*src <= (TYPE1) GDK_##TYPE2##_min ||		\
+			   *src > (TYPE1) GDK_##TYPE2##_max) {		\
+			if (abort_on_error)				\
+				return BUN_NONE;			\
+			*dst = TYPE2##_nil;				\
+			nils++;						\
+		} else if ((*dst = (TYPE2) *src) == TYPE2##_nil &&	\
+			   abort_on_error)				\
+			return BUN_NONE;				\
+		src++;							\
+		dst++;							\
+	}								\
+	return nils;							\
+}
+
+#define convert2bit_impl(TYPE)					\
+static BUN							\
+convert_##TYPE##_bit(const TYPE *src, bit *dst, BUN cnt)	\
+{								\
+	BUN nils = 0;						\
+								\
+	while (cnt-- > 0) {					\
+		if (*src == TYPE##_nil) {			\
+			*dst = bit_nil;				\
+			nils++;					\
+		} else						\
+			*dst = (bit) (*src != 0);		\
+		src++;						\
+		dst++;						\
+	}							\
+	return nils;						\
+}
+
+convertimpl_copy(bte)
 convertimpl_enlarge(bte, sht)
 convertimpl_enlarge(bte, int)
+convertimpl_oid_enlarge(bte)
 convertimpl_enlarge(bte, lng)
 convertimpl_enlarge(bte, flt)
 convertimpl_enlarge(bte, dbl)
 
 convertimpl_reduce(sht, bte)
+convertimpl_copy(sht)
 convertimpl_enlarge(sht, int)
+convertimpl_oid_enlarge(sht)
 convertimpl_enlarge(sht, lng)
 convertimpl_enlarge(sht, flt)
 convertimpl_enlarge(sht, dbl)
 
 convertimpl_reduce(int, bte)
 convertimpl_reduce(int, sht)
+convertimpl_copy(int)
+convertimpl_oid_enlarge(int)
 convertimpl_enlarge(int, lng)
 convertimpl_enlarge(int, flt)
 convertimpl_enlarge(int, dbl)
@@ -12082,20 +12614,30 @@ convertimpl_enlarge(int, dbl)
 convertimpl_reduce(lng, bte)
 convertimpl_reduce(lng, sht)
 convertimpl_reduce(lng, int)
+#if SIZEOF_OID == SIZEOF_LNG
+convertimpl_oid_enlarge(lng)
+#else
+convertimpl_oid_reduce(lng)
+#endif
+convertimpl_copy(lng)
 convertimpl_enlarge(lng, flt)
 convertimpl_enlarge(lng, dbl)
 
-convertimpl_reduce(flt, bte)
-convertimpl_reduce(flt, sht)
-convertimpl_reduce(flt, int)
-convertimpl_reduce(flt, lng)
+convertimpl_reduce_float(flt, bte)
+convertimpl_reduce_float(flt, sht)
+convertimpl_reduce_float(flt, int)
+convertimpl_oid_reduce(flt)
+convertimpl_reduce_float(flt, lng)
+convertimpl_copy(flt)
 convertimpl_enlarge(flt, dbl)
 
-convertimpl_reduce(dbl, bte)
-convertimpl_reduce(dbl, sht)
-convertimpl_reduce(dbl, int)
-convertimpl_reduce(dbl, lng)
-convertimpl_reduce(dbl, flt)
+convertimpl_reduce_float(dbl, bte)
+convertimpl_reduce_float(dbl, sht)
+convertimpl_reduce_float(dbl, int)
+convertimpl_oid_reduce(dbl)
+convertimpl_reduce_float(dbl, lng)
+convertimpl_reduce_float(dbl, flt)
+convertimpl_copy(dbl)
 
 convert2bit_impl(bte)
 convert2bit_impl(sht)
@@ -12105,20 +12647,22 @@ convert2bit_impl(flt)
 convert2bit_impl(dbl)
 
 static BUN
-convert_any_str(int tp, void *src, BAT *bn, BUN cnt)
+convert_any_str(int tp, const void *src, BAT *bn, BUN cnt)
 {
 	str dst = 0;
 	int len = 0;
 	BUN nils = 0;
 	BUN i;
 	void *nil = ATOMnilptr(tp);
-	int (*atomtostr)(str *, int *, ptr) = BATatoms[tp].atomToStr;
+	int (*atomtostr)(str *, int *, const void *) = BATatoms[tp].atomToStr;
+	int size = ATOMsize(tp);
 
 	for (i = 0; i < cnt; i++) {
 		(*atomtostr)(&dst, &len, src);
 		if (ATOMcmp(tp, src, nil) == 0)
 			nils++;
 		tfastins_nocheck(bn, i, dst, bn->T->width);
+		src = (const void *) ((const char *) src + size);
 	}
 	BATsetcount(bn, cnt);
 	if (dst)
@@ -12139,30 +12683,336 @@ convert_str_any(BAT *b, int tp, void *dst, int abort_on_error)
 	char *s;
 	ptr d;
 	int len = ATOMsize(tp);
-	int (*atomfromstr)(str, int *, ptr *) = BATatoms[tp].atomFromStr;
+	int (*atomfromstr)(const char *, int *, ptr *) = BATatoms[tp].atomFromStr;
 	BATiter bi = bat_iterator(b);
 
 	BATloop(b, i, j) {
 		s = BUNtail(bi, i);
-		d = dst;
-		if ((*atomfromstr)(s, &len, &d) <= 0) {
-			if (abort_on_error)
-				return BUN_NONE;
+		if (s[0] == str_nil[0] && s[1] == str_nil[1]) {
 			memcpy(dst, nil, len);
-		}
-		assert(len == ATOMsize(tp));
-		if (ATOMcmp(tp, dst, nil) == 0)
 			nils++;
+		} else {
+			d = dst;
+			if ((*atomfromstr)(s, &len, &d) <= 0) {
+				if (abort_on_error)
+					return BUN_NONE;
+				memcpy(dst, nil, len);
+			}
+			assert(len == ATOMsize(tp));
+			if (ATOMcmp(tp, dst, nil) == 0)
+				nils++;
+		}
 		dst = (void *) ((char *) dst + len);
 	}
 	return nils;
+}
+
+static BUN
+convert_void_any(oid seq, BUN cnt, BAT *bn, int abort_on_error)
+{
+	BUN cnt1 = 0;
+	BUN i = 0;
+	int tp = bn->T->type;
+	void *dst = Tloc(bn, bn->U->first);
+	int (*atomtostr)(str *, int *, const void *) = BATatoms[TYPE_oid].atomToStr;
+	str s = 0;
+	int len = 0;
+
+	if (seq != oid_nil) {
+		if (ATOMsize(tp) < ATOMsize(TYPE_oid) &&
+		    seq + cnt >= (oid) 1 << (8 * ATOMsize(tp) - 1)) {
+			/* overflow */
+			if (abort_on_error)
+				return BUN_NONE;
+			cnt1 = ((oid) 1 << (8 * ATOMsize(tp) - 1)) - seq;
+		} else {
+			cnt1 = cnt;
+		}
+		switch (ATOMstorage(tp)) {
+		case TYPE_bte:
+			if (tp == TYPE_bit) {
+				for (i = 0; i < cnt1; i++)
+					((bte *) dst)[i] = 1;
+				/* only the first one could be 0 */
+				if (cnt1 > 0 && seq == 0)
+					((bte *) dst)[0] = 0;
+			} else {
+				for (i = 0; i < cnt1; i++)
+					((bte *) dst)[i] = (bte) seq++;
+				for (; i < cnt; i++)
+					((bte *) dst)[i] = bte_nil;
+			}
+			break;
+		case TYPE_sht:
+			for (i = 0; i < cnt1; i++)
+				((sht *) dst)[i] = (sht) seq++;
+			break;
+		case TYPE_int:
+			for (i = 0; i < cnt1; i++)
+				((int *) dst)[i] = (int) seq++;
+			break;
+		case TYPE_lng:
+			for (i = 0; i < cnt1; i++)
+				((lng *) dst)[i] = (lng) seq++;
+			break;
+		case TYPE_flt:
+			for (i = 0; i < cnt1; i++)
+				((flt *) dst)[i] = (flt) seq++;
+			break;
+		case TYPE_dbl:
+			for (i = 0; i < cnt1; i++)
+				((dbl *) dst)[i] = (dbl) seq++;
+			break;
+		case TYPE_str:
+			for (i = 0; i < cnt1; i++) {
+				(*atomtostr)(&s, &len, &seq);
+				tfastins_nocheck(bn, i, dst, bn->T->width);
+				seq++;
+			}
+			break;
+		default:
+			/* dealt with below */
+			break;
+		}
+	}
+	switch (ATOMstorage(tp)) {
+	case TYPE_bte:
+		for (; i < cnt; i++)
+			((bte *) dst)[i] = bte_nil;
+		break;
+	case TYPE_sht:
+		for (; i < cnt; i++)
+			((sht *) dst)[i] = sht_nil;
+		break;
+	case TYPE_int:
+		for (; i < cnt; i++)
+			((int *) dst)[i] = int_nil;
+		break;
+	case TYPE_lng:
+		for (; i < cnt; i++)
+			((lng *) dst)[i] = lng_nil;
+		break;
+	case TYPE_flt:
+		for (; i < cnt; i++)
+			((flt *) dst)[i] = flt_nil;
+		break;
+	case TYPE_dbl:
+		for (; i < cnt; i++)
+			((dbl *) dst)[i] = dbl_nil;
+		break;
+	case TYPE_str:
+		seq = oid_nil;
+		for (; i < cnt; i++) {
+			(*atomtostr)(&s, &len, &seq);
+			tfastins_nocheck(bn, i, dst, bn->T->width);
+			seq++;
+		}
+		if (s)
+			GDKfree(s);
+		break;
+	default:
+		return BUN_NONE + 1;
+	}
+	return cnt - cnt1;
+
+  bunins_failed:
+	if (s)
+		GDKfree(s);
+	return BUN_NONE;
+}
+
+static BUN
+convert_typeswitchloop(const void *src, int stp, void *dst, int dtp,
+		       BUN cnt, int abort_on_error)
+{
+	switch (ATOMstorage(stp)) {
+	case TYPE_bte:
+		switch (ATOMstorage(dtp)) {
+		case TYPE_bte:
+			if (dtp == TYPE_bit)
+				return convert_bte_bit(src, dst, cnt);
+			return convert_bte_bte(src, dst, cnt);
+		case TYPE_sht:
+			return convert_bte_sht(src, dst, cnt);
+		case TYPE_int:
+#if SIZEOF_OID == SIZEOF_INT
+			if (dtp == TYPE_oid)
+				return convert_bte_oid(src, dst, cnt,
+						      abort_on_error);
+#endif
+			return convert_bte_int(src, dst, cnt);
+		case TYPE_lng:
+#if SIZEOF_OID == SIZEOF_LNG
+			if (dtp == TYPE_oid)
+				return convert_bte_oid(src, dst, cnt,
+						      abort_on_error);
+#endif
+			return convert_bte_lng(src, dst, cnt);
+		case TYPE_flt:
+			return convert_bte_flt(src, dst, cnt);
+		case TYPE_dbl:
+			return convert_bte_dbl(src, dst, cnt);
+		default:
+			return BUN_NONE + 1;
+		}
+	case TYPE_sht:
+		switch (ATOMstorage(dtp)) {
+		case TYPE_bte:
+			if (dtp == TYPE_bit)
+				return convert_sht_bit(src, dst, cnt);
+			return convert_sht_bte(src, dst, cnt, abort_on_error);
+		case TYPE_sht:
+			return convert_sht_sht(src, dst, cnt);
+		case TYPE_int:
+#if SIZEOF_OID == SIZEOF_INT
+			if (dtp == TYPE_oid)
+				return convert_sht_oid(src, dst, cnt,
+						      abort_on_error);
+#endif
+			return convert_sht_int(src, dst, cnt);
+		case TYPE_lng:
+#if SIZEOF_OID == SIZEOF_LNG
+			if (dtp == TYPE_oid)
+				return convert_sht_oid(src, dst, cnt,
+						      abort_on_error);
+#endif
+			return convert_sht_lng(src, dst, cnt);
+		case TYPE_flt:
+			return convert_sht_flt(src, dst, cnt);
+		case TYPE_dbl:
+			return convert_sht_dbl(src, dst, cnt);
+		default:
+			return BUN_NONE + 1;
+		}
+	case TYPE_int:
+		switch (ATOMstorage(dtp)) {
+		case TYPE_bte:
+			if (dtp == TYPE_bit) {
+				return convert_int_bit(src, dst, cnt);
+			}
+			return convert_int_bte(src, dst, cnt, abort_on_error);
+		case TYPE_sht:
+			return convert_int_sht(src, dst, cnt, abort_on_error);
+		case TYPE_int:
+#if SIZEOF_OID == SIZEOF_INT
+			if (dtp == TYPE_oid)
+				return convert_int_oid(src, dst, cnt,
+						      abort_on_error);
+#endif
+			return convert_int_int(src, dst, cnt);
+		case TYPE_lng:
+#if SIZEOF_OID == SIZEOF_LNG
+			if (dtp == TYPE_oid)
+				return convert_int_oid(src, dst, cnt,
+						      abort_on_error);
+#endif
+			return convert_int_lng(src, dst, cnt);
+		case TYPE_flt:
+			return convert_int_flt(src, dst, cnt);
+		case TYPE_dbl:
+			return convert_int_dbl(src, dst, cnt);
+		default:
+			return BUN_NONE + 1;
+		}
+	case TYPE_lng:
+		switch (ATOMstorage(dtp)) {
+		case TYPE_bte:
+			if (dtp == TYPE_bit) {
+				return convert_lng_bit(src, dst, cnt);
+			}
+			return convert_lng_bte(src, dst, cnt, abort_on_error);
+		case TYPE_sht:
+			return convert_lng_sht(src, dst, cnt, abort_on_error);
+		case TYPE_int:
+#if SIZEOF_OID == SIZEOF_INT
+			if (dtp == TYPE_oid)
+				return convert_lng_oid(src, dst, cnt,
+						      abort_on_error);
+#endif
+			return convert_lng_int(src, dst, cnt, abort_on_error);
+		case TYPE_lng:
+#if SIZEOF_OID == SIZEOF_LNG
+			if (dtp == TYPE_oid)
+				return convert_lng_oid(src, dst, cnt,
+						      abort_on_error);
+#endif
+			return convert_lng_lng(src, dst, cnt);
+		case TYPE_flt:
+			return convert_lng_flt(src, dst, cnt);
+		case TYPE_dbl:
+			return convert_lng_dbl(src, dst, cnt);
+		default:
+			return BUN_NONE + 1;
+		}
+	case TYPE_flt:
+		switch (ATOMstorage(dtp)) {
+		case TYPE_bte:
+			if (dtp == TYPE_bit) {
+				return convert_flt_bit(src, dst, cnt);
+			}
+			return convert_flt_bte(src, dst, cnt, abort_on_error);
+		case TYPE_sht:
+			return convert_flt_sht(src, dst, cnt, abort_on_error);
+		case TYPE_int:
+#if SIZEOF_OID == SIZEOF_INT
+			if (dtp == TYPE_oid)
+				return convert_flt_oid(src, dst, cnt,
+						      abort_on_error);
+#endif
+			return convert_flt_int(src, dst, cnt, abort_on_error);
+		case TYPE_lng:
+#if SIZEOF_OID == SIZEOF_LNG
+			if (dtp == TYPE_oid)
+				return convert_flt_oid(src, dst, cnt,
+						      abort_on_error);
+#endif
+			return convert_flt_lng(src, dst, cnt, abort_on_error);
+		case TYPE_flt:
+			return convert_flt_flt(src, dst, cnt);
+		case TYPE_dbl:
+			return convert_flt_dbl(src, dst, cnt);
+		default:
+			return BUN_NONE + 1;
+		}
+	case TYPE_dbl:
+		switch (ATOMstorage(dtp)) {
+		case TYPE_bte:
+			if (dtp == TYPE_bit) {
+				return convert_dbl_bit(src, dst, cnt);
+			}
+			return convert_dbl_bte(src, dst, cnt, abort_on_error);
+		case TYPE_sht:
+			return convert_dbl_sht(src, dst, cnt, abort_on_error);
+		case TYPE_int:
+#if SIZEOF_OID == SIZEOF_INT
+			if (dtp == TYPE_oid)
+				return convert_dbl_oid(src, dst, cnt,
+						      abort_on_error);
+#endif
+			return convert_dbl_int(src, dst, cnt, abort_on_error);
+		case TYPE_lng:
+#if SIZEOF_OID == SIZEOF_LNG
+			if (dtp == TYPE_oid)
+				return convert_dbl_oid(src, dst, cnt,
+						      abort_on_error);
+#endif
+			return convert_dbl_lng(src, dst, cnt, abort_on_error);
+		case TYPE_flt:
+			return convert_dbl_flt(src, dst, cnt, abort_on_error);
+		case TYPE_dbl:
+			return convert_dbl_dbl(src, dst, cnt);
+		default:
+			return BUN_NONE + 1;
+		}
+	default:
+		return BUN_NONE + 1;
+	}
 }
 
 BAT *
 BATconvert(BAT *b, int tp, int abort_on_error)
 {
 	BAT *bn;
-	void *src, *dst;
 	BUN nils = 0;	/* in case no conversion defined */
 
 	assert(ATOMstorage(TYPE_wrd) == ATOMstorage(TYPE_int) ||
@@ -12181,205 +13031,33 @@ BATconvert(BAT *b, int tp, int abort_on_error)
 	if (bn == NULL)
 		return NULL;
 
-	src = (void *) Tloc(b, b->U->first);
-	dst = (void *) Tloc(bn, bn->U->first);
+	if (b->T->type == TYPE_void)
+		nils = convert_void_any(b->T->seq, b->U->count, bn,
+					abort_on_error);
+	else if (tp == TYPE_str)
+		nils = convert_any_str(b->T->type, Tloc(b, b->U->first),
+				       bn, b->U->count);
+	else if (b->T->type == TYPE_str)
+		nils = convert_str_any(b, tp, Tloc(bn, bn->U->first),
+				       abort_on_error);
+	else
+		nils = convert_typeswitchloop(Tloc(b, b->U->first), b->T->type,
+					      Tloc(bn, bn->U->first), tp,
+					      b->U->count, abort_on_error);
 
-	switch (ATOMstorage(b->T->type)) {
-	case TYPE_bte:
-		switch (ATOMstorage(tp)) {
-		case TYPE_sht:
-			nils = convert_bte_sht(src, dst, b->U->count);
-			break;
-		case TYPE_int:
-			nils = convert_bte_int(src, dst, b->U->count);
-			break;
-		case TYPE_lng:
-			nils = convert_bte_lng(src, dst, b->U->count);
-			break;
-		case TYPE_flt:
-			nils = convert_bte_flt(src, dst, b->U->count);
-			break;
-		case TYPE_dbl:
-			nils = convert_bte_dbl(src, dst, b->U->count);
-			break;
-		case TYPE_str:
-			nils = convert_any_str(b->T->type, src, bn, b->U->count);
-			break;
-		case TYPE_bte:
-			assert(tp == TYPE_bit);
-			nils = convert_bte_bit(src, dst, b->U->count);
-			break;
-		default:
-			goto unsupported;
-		}
-		break;
-	case TYPE_sht:
-		switch (ATOMstorage(tp)) {
-		case TYPE_bte:
-			if (tp == TYPE_bit) {
-				nils = convert_sht_bit(src, dst, b->U->count);
-				break;
-			}
-			nils = convert_sht_bte(src, dst, b->U->count,
-					       abort_on_error);
-			break;
-		case TYPE_int:
-			nils = convert_sht_int(src, dst, b->U->count);
-			break;
-		case TYPE_lng:
-			nils = convert_sht_lng(src, dst, b->U->count);
-			break;
-		case TYPE_flt:
-			nils = convert_sht_flt(src, dst, b->U->count);
-			break;
-		case TYPE_dbl:
-			nils = convert_sht_dbl(src, dst, b->U->count);
-			break;
-		case TYPE_str:
-			nils = convert_any_str(b->T->type, src, bn, b->U->count);
-			break;
-		default:
-			goto unsupported;
-		}
-		break;
-	case TYPE_int:
-		switch (ATOMstorage(tp)) {
-		case TYPE_bte:
-			if (tp == TYPE_bit) {
-				nils = convert_int_bit(src, dst, b->U->count);
-				break;
-			}
-			nils = convert_int_bte(src, dst, b->U->count,
-					       abort_on_error);
-			break;
-		case TYPE_sht:
-			nils = convert_int_sht(src, dst, b->U->count,
-					       abort_on_error);
-			break;
-		case TYPE_lng:
-			nils = convert_int_lng(src, dst, b->U->count);
-			break;
-		case TYPE_flt:
-			nils = convert_int_flt(src, dst, b->U->count);
-			break;
-		case TYPE_dbl:
-			nils = convert_int_dbl(src, dst, b->U->count);
-			break;
-		case TYPE_str:
-			nils = convert_any_str(b->T->type, src, bn, b->U->count);
-			break;
-		default:
-			goto unsupported;
-		}
-		break;
-	case TYPE_lng:
-		switch (ATOMstorage(tp)) {
-		case TYPE_bte:
-			if (tp == TYPE_bit) {
-				nils = convert_lng_bit(src, dst, b->U->count);
-				break;
-			}
-			nils = convert_lng_bte(src, dst, b->U->count,
-					       abort_on_error);
-			break;
-		case TYPE_sht:
-			nils = convert_lng_sht(src, dst, b->U->count,
-					       abort_on_error);
-			break;
-		case TYPE_int:
-			nils = convert_lng_int(src, dst, b->U->count,
-					       abort_on_error);
-			break;
-		case TYPE_flt:
-			nils = convert_lng_flt(src, dst, b->U->count);
-			break;
-		case TYPE_dbl:
-			nils = convert_lng_dbl(src, dst, b->U->count);
-			break;
-		case TYPE_str:
-			nils = convert_any_str(b->T->type, src, bn, b->U->count);
-			break;
-		default:
-			goto unsupported;
-		}
-		break;
-	case TYPE_flt:
-		switch (ATOMstorage(tp)) {
-		case TYPE_bte:
-			if (tp == TYPE_bit) {
-				nils = convert_flt_bit(src, dst, b->U->count);
-				break;
-			}
-			nils = convert_flt_bte(src, dst, b->U->count,
-					       abort_on_error);
-			break;
-		case TYPE_sht:
-			nils = convert_flt_sht(src, dst, b->U->count,
-					       abort_on_error);
-			break;
-		case TYPE_int:
-			nils = convert_flt_int(src, dst, b->U->count,
-					       abort_on_error);
-			break;
-		case TYPE_lng:
-			nils = convert_flt_lng(src, dst, b->U->count,
-					       abort_on_error);
-			break;
-		case TYPE_dbl:
-			nils = convert_flt_dbl(src, dst, b->U->count);
-			break;
-		case TYPE_str:
-			nils = convert_any_str(b->T->type, src, bn, b->U->count);
-			break;
-		default:
-			goto unsupported;
-		}
-		break;
-	case TYPE_dbl:
-		switch (ATOMstorage(tp)) {
-		case TYPE_bte:
-			if (tp == TYPE_bit) {
-				nils = convert_dbl_bit(src, dst, b->U->count);
-				break;
-			}
-			nils = convert_dbl_bte(src, dst, b->U->count,
-					       abort_on_error);
-			break;
-		case TYPE_sht:
-			nils = convert_dbl_sht(src, dst, b->U->count,
-					       abort_on_error);
-			break;
-		case TYPE_int:
-			nils = convert_dbl_int(src, dst, b->U->count,
-					       abort_on_error);
-			break;
-		case TYPE_lng:
-			nils = convert_dbl_lng(src, dst, b->U->count,
-					       abort_on_error);
-			break;
-		case TYPE_flt:
-			nils = convert_dbl_flt(src, dst, b->U->count,
-					       abort_on_error);
-			break;
-		case TYPE_str:
-			nils = convert_any_str(b->T->type, src, bn, b->U->count);
-			break;
-		default:
-			goto unsupported;
-		}
-		break;
-	case TYPE_str:
-		nils = convert_str_any(b, b->T->type, dst, abort_on_error);
-		break;
-	default:
-		goto unsupported;
+	if (nils == BUN_NONE + 1) {
+		BBPunfix(bn->batCacheid);
+		GDKerror("BATconvert: type combination (convert(%s)->%s) "
+			 "not supported.\n",
+			 ATOMname(b->T->type), ATOMname(tp));
+		return NULL;
 	}
 
 	if (nils == BUN_NONE) {
 		BBPunfix(bn->batCacheid);
-		if (b->T->type)
-			GDKerror("22018!conversion from string to type %s failed.\n",
-				 ATOMname(tp));
+		if (b->T->type == TYPE_str)
+			GDKerror("22018!conversion from string to type %s "
+				 "failed.\n", ATOMname(tp));
 		else
 			GDKerror("22003!overflow in conversion.\n");
 		return NULL;
@@ -12390,7 +13068,8 @@ BATconvert(BAT *b, int tp, int abort_on_error)
 
 	bn->T->nil = nils != 0;
 	bn->T->nonil = nils == 0;
-	bn->T->sorted = nils == 0 ? b->T->sorted : 0;
+	bn->T->sorted = nils == 0 && b->T->sorted;
+	bn->T->revsorted = nils == 0 && b->T->revsorted;
 	bn->T->key = (b->T->key & 1) && nils <= 1;
 
 	if (b->H->type != bn->H->type) {
@@ -12400,537 +13079,72 @@ BATconvert(BAT *b, int tp, int abort_on_error)
 	}
 
 	return bn;
-
-  unsupported:
-	BBPunfix(bn->batCacheid);
-	GDKerror("BATconvert: type combination (convert(%s)->%s) not supported.\n", ATOMname(b->T->type), ATOMname(tp));
-	return NULL;
 }
 
 int
 VARconvert(ValPtr ret, const ValRecord *v, int abort_on_error)
 {
 	ptr p;
+	BUN nils = 0;
 
-	switch (ATOMstorage(ret->vtype)) {
-	case TYPE_bte:
-		ret->len = (int) sizeof(ret->val.btval);
-		switch (ATOMstorage(v->vtype)) {
-		case TYPE_void:
-			ret->val.btval = bte_nil;
-			break;
-		case TYPE_bte:
-			if (v->val.btval == bte_nil) {
-				ret->val.btval = bte_nil;
-			} else if (ret->vtype == TYPE_bit) {
-				ret->val.btval = (bte) (v->val.btval != 0);
-			} else {
-				ret->val.btval = (bte) v->val.btval;
-			}
-			break;
-		case TYPE_sht:
-			if (v->val.shval == sht_nil) {
-				ret->val.btval = bte_nil;
-			} else if (ret->vtype == TYPE_bit) {
-				ret->val.btval = (bte) (v->val.shval != 0);
-			} else if (v->val.shval <= (sht) GDK_bte_min ||
-				   v->val.shval > (sht) GDK_bte_max) {
-				if (abort_on_error)
-					goto overflow;
-				ret->val.btval = bte_nil;
-			} else {
-				ret->val.btval = (bte) v->val.shval;
-			}
-			break;
-		case TYPE_int:
-			if (v->val.ival == int_nil) {
-				ret->val.btval = bte_nil;
-			} else if (ret->vtype == TYPE_bit) {
-				ret->val.btval = (bte) (v->val.ival != 0);
-			} else if (v->val.ival <= (int) GDK_bte_min ||
-				   v->val.ival > (int) GDK_bte_max) {
-				if (abort_on_error)
-					goto overflow;
-				ret->val.btval = bte_nil;
-			} else {
-				ret->val.btval = (bte) v->val.ival;
-			}
-			break;
-		case TYPE_lng:
-			if (v->val.lval == lng_nil) {
-				ret->val.btval = bte_nil;
-			} else if (ret->vtype == TYPE_bit) {
-				ret->val.btval = (bte) (v->val.lval != 0);
-			} else if (v->val.lval <= (lng) GDK_bte_min ||
-				   v->val.lval > (lng) GDK_bte_max) {
-				if (abort_on_error)
-					goto overflow;
-				ret->val.btval = bte_nil;
-			} else {
-				ret->val.btval = (bte) v->val.lval;
-			}
-			break;
-		case TYPE_flt:
-			if (v->val.fval == flt_nil) {
-				ret->val.btval = bte_nil;
-			} else if (ret->vtype == TYPE_bit) {
-				ret->val.btval = (bte) (v->val.fval != 0);
-			} else if (v->val.fval <= (flt) GDK_bte_min ||
-				   v->val.fval > (flt) GDK_bte_max) {
-				if (abort_on_error)
-					goto overflow;
-				ret->val.btval = bte_nil;
-			} else {
-				ret->val.btval = (bte) v->val.fval;
-			}
-			break;
-		case TYPE_dbl:
-			if (v->val.dval == dbl_nil) {
-				ret->val.btval = bte_nil;
-			} else if (ret->vtype == TYPE_bit) {
-				ret->val.btval = (bte) (v->val.dval != 0);
-			} else if (v->val.dval <= (dbl) GDK_bte_min ||
-				   v->val.dval > (dbl) GDK_bte_max) {
-				if (abort_on_error)
-					goto overflow;
-				ret->val.btval = bte_nil;
-			} else {
-				ret->val.btval = (bte) v->val.dval;
-			}
-			break;
-		case TYPE_str:
-			if (v->val.sval == NULL ||
-			    strcmp(v->val.sval, str_nil) == 0) {
-				ret->val.btval = bte_nil;
-			} else {
-				p = &ret->val.btval;
-				if ((*BATatoms[ret->vtype].atomFromStr)(v->val.sval, &ret->len, &p) <= 0) {
-					if (abort_on_error)
-						goto strconvert;
-					ret->val.btval = bte_nil;
-				}
-				assert(p == &ret->val.btval);
-			}
-			break;
-		default:
-			goto unsupported;
-		}
-		break;
-	case TYPE_sht:
-		ret->len = (int) sizeof(ret->val.shval);
-		switch (ATOMstorage(v->vtype)) {
-		case TYPE_void:
-			ret->val.shval = sht_nil;
-			break;
-		case TYPE_bte:
-			if (v->val.btval == bte_nil) {
-				ret->val.shval = sht_nil;
-			} else if (ret->vtype == TYPE_bit) {
-				ret->val.shval = (sht) v->val.btval != 0;
-			} else {
-				ret->val.shval = (sht) v->val.btval;
-			}
-			break;
-		case TYPE_sht:
-			ret->val.shval = v->val.shval;
-			break;
-		case TYPE_int:
-			if (v->val.ival == int_nil) {
-				ret->val.shval = sht_nil;
-			} else if (v->val.ival <= (int) GDK_sht_min ||
-				   v->val.ival > (int) GDK_sht_max) {
-				if (abort_on_error)
-					goto overflow;
-				ret->val.shval = sht_nil;
-			} else {
-				ret->val.shval = (sht) v->val.ival;
-			}
-			break;
-		case TYPE_lng:
-			if (v->val.lval == lng_nil) {
-				ret->val.shval = sht_nil;
-			} else if (v->val.lval <= (lng) GDK_sht_min ||
-				   v->val.lval > (lng) GDK_sht_max) {
-				if (abort_on_error)
-					goto overflow;
-				ret->val.shval = sht_nil;
-			} else {
-				ret->val.shval = (sht) v->val.lval;
-			}
-			break;
-		case TYPE_flt:
-			if (v->val.fval == flt_nil) {
-				ret->val.shval = sht_nil;
-			} else if (v->val.fval <= (flt) GDK_sht_min ||
-				   v->val.fval > (flt) GDK_sht_max) {
-				if (abort_on_error)
-					goto overflow;
-				ret->val.shval = sht_nil;
-			} else {
-				ret->val.shval = (sht) v->val.fval;
-			}
-			break;
-		case TYPE_dbl:
-			if (v->val.dval == dbl_nil) {
-				ret->val.shval = sht_nil;
-			} else if (v->val.dval <= (dbl) GDK_sht_min ||
-				   v->val.dval > (dbl) GDK_sht_max) {
-				if (abort_on_error)
-					goto overflow;
-				ret->val.shval = sht_nil;
-			} else {
-				ret->val.shval = (sht) v->val.dval;
-			}
-			break;
-		case TYPE_str:
-			if (v->val.sval == NULL ||
-			    strcmp(v->val.sval, str_nil) == 0) {
-				ret->val.shval = sht_nil;
-			} else {
-				p = &ret->val.shval;
-				if ((*BATatoms[ret->vtype].atomFromStr)(v->val.sval, &ret->len, &p) <= 0) {
-					if (abort_on_error)
-						goto strconvert;
-					ret->val.shval = sht_nil;
-				}
-				assert(p == &ret->val.shval);
-			}
-			break;
-		default:
-			goto unsupported;
-		}
-		break;
-	case TYPE_int:
-		ret->len = (int) sizeof(ret->val.ival);
-		switch (ATOMstorage(v->vtype)) {
-		case TYPE_void:
-			ret->val.ival = int_nil;
-			break;
-		case TYPE_bte:
-			if (v->val.btval == bte_nil) {
-				ret->val.ival = int_nil;
-			} else if (ret->vtype == TYPE_bit) {
-				ret->val.ival = (int) v->val.btval != 0;
-			} else {
-				ret->val.ival = (int) v->val.btval;
-			}
-			break;
-		case TYPE_sht:
-			if (v->val.shval == sht_nil) {
-				ret->val.ival = int_nil;
-			} else {
-				ret->val.ival = (int) v->val.shval;
-			}
-			break;
-		case TYPE_int:
-			ret->val.ival = v->val.ival;
-			break;
-		case TYPE_lng:
-			if (v->val.lval == lng_nil) {
-				ret->val.ival = int_nil;
-			} else if (v->val.lval <= (lng) GDK_int_min ||
-				   v->val.lval > (lng) GDK_int_max) {
-				if (abort_on_error)
-					goto overflow;
-				ret->val.ival = int_nil;
-			} else {
-				ret->val.ival = (int) v->val.lval;
-			}
-			break;
-		case TYPE_flt:
-			if (v->val.fval == flt_nil) {
-				ret->val.ival = int_nil;
-			} else if (v->val.fval <= (flt) GDK_int_min ||
-				   v->val.fval > (flt) GDK_int_max) {
-				if (abort_on_error)
-					goto overflow;
-				ret->val.ival = int_nil;
-			} else {
-				ret->val.ival = (int) v->val.fval;
-			}
-			break;
-		case TYPE_dbl:
-			if (v->val.dval == dbl_nil) {
-				ret->val.ival = int_nil;
-			} else if (v->val.dval <= (dbl) GDK_int_min ||
-				   v->val.dval > (dbl) GDK_int_max) {
-				if (abort_on_error)
-					goto overflow;
-				ret->val.ival = int_nil;
-			} else {
-				ret->val.ival = (int) v->val.dval;
-			}
-			break;
-		case TYPE_str:
-			if (v->val.sval == NULL ||
-			    strcmp(v->val.sval, str_nil) == 0) {
-				ret->val.ival = int_nil;
-			} else {
-				p = &ret->val.ival;
-				if ((*BATatoms[ret->vtype].atomFromStr)(v->val.sval, &ret->len, &p) <= 0) {
-					if (abort_on_error)
-						goto strconvert;
-					ret->val.ival = int_nil;
-				}
-				assert(p == &ret->val.ival);
-			}
-			break;
-		default:
-			goto unsupported;
-		}
-#if SIZEOF_OID == SIZEOF_INT
-		if (ret->vtype == TYPE_oid &&
-		    ret->val.ival != int_nil &&
-		    ret->val.ival < 0) {
-			if (abort_on_error)
-				goto overflow;
-			ret->val.oval = oid_nil;
-		}
-#endif
-		break;
-	case TYPE_lng:
-		ret->len = (int) sizeof(ret->val.lval);
-		switch (ATOMstorage(v->vtype)) {
-		case TYPE_void:
-			ret->val.lval = lng_nil;
-			break;
-		case TYPE_bte:
-			if (v->val.btval == bte_nil) {
-				ret->val.lval = lng_nil;
-			} else if (ret->vtype == TYPE_bit) {
-				ret->val.lval = (lng) v->val.btval != 0;
-			} else {
-				ret->val.lval = (lng) v->val.btval;
-			}
-			break;
-		case TYPE_sht:
-			if (v->val.shval == sht_nil) {
-				ret->val.lval = lng_nil;
-			} else {
-				ret->val.lval = (lng) v->val.shval;
-			}
-			break;
-		case TYPE_int:
-			if (v->val.ival == int_nil) {
-				ret->val.lval = lng_nil;
-			} else {
-				ret->val.lval = (lng) v->val.ival;
-			}
-			break;
-		case TYPE_lng:
-			ret->val.lval = v->val.lval;
-			break;
-		case TYPE_flt:
-			if (v->val.fval == flt_nil) {
-				ret->val.lval = lng_nil;
-			} else if (v->val.fval <= (flt) GDK_lng_min ||
-				   v->val.fval > (flt) GDK_lng_max) {
-				if (abort_on_error)
-					goto overflow;
-				ret->val.lval = lng_nil;
-			} else {
-				ret->val.lval = (lng) v->val.fval;
-			}
-			break;
-		case TYPE_dbl:
-			if (v->val.dval == dbl_nil) {
-				ret->val.lval = lng_nil;
-			} else if (v->val.dval <= (dbl) GDK_lng_min ||
-				   v->val.dval > (dbl) GDK_lng_max) {
-				if (abort_on_error)
-					goto overflow;
-				ret->val.lval = lng_nil;
-			} else {
-				ret->val.lval = (lng) v->val.dval;
-			}
-			break;
-		case TYPE_str:
-			if (v->val.sval == NULL ||
-			    strcmp(v->val.sval, str_nil) == 0) {
-				ret->val.lval = lng_nil;
-			} else {
-				p = &ret->val.lval;
-				if ((*BATatoms[ret->vtype].atomFromStr)(v->val.sval, &ret->len, &p) <= 0) {
-					if (abort_on_error)
-						goto strconvert;
-					ret->val.lval = lng_nil;
-				}
-				assert(p == &ret->val.lval);
-			}
-			break;
-		default:
-			goto unsupported;
-		}
-#if SIZEOF_OID == SIZEOF_LNG
-		if (ret->vtype == TYPE_oid &&
-		    ret->val.lval != lng_nil &&
-		    ret->val.lval < 0) {
-			if (abort_on_error)
-				goto overflow;
-			ret->val.oval = oid_nil;
-		}
-#endif
-		break;
-	case TYPE_flt:
-		ret->len = (int) sizeof(ret->val.fval);
-		switch (ATOMstorage(v->vtype)) {
-		case TYPE_void:
-			ret->val.fval = flt_nil;
-			break;
-		case TYPE_bte:
-			if (v->val.btval == bte_nil) {
-				ret->val.fval = flt_nil;
-			} else if (ret->vtype == TYPE_bit) {
-				ret->val.fval = (flt) (v->val.btval != 0);
-			} else {
-				ret->val.fval = (flt) v->val.btval;
-			}
-			break;
-		case TYPE_sht:
-			if (v->val.shval == sht_nil) {
-				ret->val.fval = flt_nil;
-			} else {
-				ret->val.fval = (flt) v->val.shval;
-			}
-			break;
-		case TYPE_int:
-			if (v->val.ival == int_nil) {
-				ret->val.fval = flt_nil;
-			} else {
-				ret->val.fval = (flt) v->val.ival;
-			}
-			break;
-		case TYPE_lng:
-			if (v->val.lval == lng_nil) {
-				ret->val.fval = flt_nil;
-			} else {
-				ret->val.fval = (flt) v->val.lval;
-			}
-			break;
-		case TYPE_flt:
-			ret->val.fval = v->val.fval;
-			break;
-		case TYPE_dbl:
-			if (v->val.dval == dbl_nil) {
-				ret->val.fval = flt_nil;
-			} else if (v->val.dval <= (dbl) GDK_flt_min ||
-				   v->val.dval > (dbl) GDK_flt_max) {
-				if (abort_on_error)
-					goto overflow;
-				ret->val.fval = flt_nil;
-			} else {
-				ret->val.fval = (flt) v->val.dval;
-			}
-			break;
-		case TYPE_str:
-			if (v->val.sval == NULL ||
-			    strcmp(v->val.sval, str_nil) == 0) {
-				ret->val.fval = flt_nil;
-			} else {
-				p = &ret->val.fval;
-				if ((*BATatoms[ret->vtype].atomFromStr)(v->val.sval, &ret->len, &p) <= 0) {
-					if (abort_on_error)
-						goto strconvert;
-					ret->val.fval = flt_nil;
-				}
-				assert(p == &ret->val.fval);
-			}
-			break;
-		default:
-			goto unsupported;
-		}
-		break;
-	case TYPE_dbl:
-		ret->len = (int) sizeof(ret->val.dval);
-		switch (ATOMstorage(v->vtype)) {
-		case TYPE_void:
-			ret->val.dval = dbl_nil;
-			break;
-		case TYPE_bte:
-			if (v->val.btval == bte_nil) {
-				ret->val.dval = dbl_nil;
-			} else if (ret->vtype == TYPE_bit) {
-				ret->val.dval = (dbl) v->val.btval != 0;
-			} else {
-				ret->val.dval = (dbl) v->val.btval;
-			}
-			break;
-		case TYPE_sht:
-			if (v->val.shval == sht_nil) {
-				ret->val.dval = dbl_nil;
-			} else {
-				ret->val.dval = (dbl) v->val.shval;
-			}
-			break;
-		case TYPE_int:
-			if (v->val.ival == int_nil) {
-				ret->val.dval = dbl_nil;
-			} else {
-				ret->val.dval = (dbl) v->val.ival;
-			}
-			break;
-		case TYPE_lng:
-			if (v->val.lval == lng_nil) {
-				ret->val.dval = dbl_nil;
-			} else {
-				ret->val.dval = (dbl) v->val.lval;
-			}
-			break;
-		case TYPE_flt:
-			if (v->val.fval == flt_nil) {
-				ret->val.dval = dbl_nil;
-			} else {
-				ret->val.dval = (dbl) v->val.fval;
-			}
-			break;
-		case TYPE_dbl:
-			ret->val.dval = v->val.dval;
-			break;
-		case TYPE_str:
-			if (v->val.sval == NULL ||
-			    strcmp(v->val.sval, str_nil) == 0) {
-				ret->val.dval = dbl_nil;
-			} else {
-				p = &ret->val.dval;
-				if ((*BATatoms[ret->vtype].atomFromStr)(v->val.sval, &ret->len, &p) <= 0) {
-					if (abort_on_error)
-						goto strconvert;
-					ret->val.dval = dbl_nil;
-				}
-				assert(p == &ret->val.dval);
-			}
-			break;
-		default:
-			goto unsupported;
-		}
-		break;
-	case TYPE_str:
-		if ((*BATatoms[v->vtype].atomCmp)(VALptr((ValPtr) v),
+	if (ret->vtype == TYPE_str) {
+		if (v->vtype == TYPE_void ||
+		    (*BATatoms[v->vtype].atomCmp)(VALptr((ValPtr) v),
 						  ATOMnilptr(v->vtype)) == 0) {
 			ret->val.sval = GDKstrdup(str_nil);
 		} else if (v->vtype == TYPE_str) {
 			ret->val.sval = GDKstrdup(v->val.sval);
 		} else {
 			ret->val.sval = NULL;
-			(*BATatoms[v->vtype].atomToStr)(&ret->val.sval, &ret->len, VALptr((ValPtr) v));
+			(*BATatoms[v->vtype].atomToStr)(&ret->val.sval,
+							&ret->len,
+							VALptr((ValPtr) v));
 		}
-		break;
-	default:
-		goto unsupported;
+	} else if (ret->vtype == TYPE_void) {
+		if (abort_on_error &&
+		    ATOMcmp(v->vtype, VALptr((ValPtr) v), ATOMnilptr(v->vtype)) != 0)
+			nils = BUN_NONE;
+		ret->val.oval = oid_nil;
+	} else if (v->vtype == TYPE_void) {
+		nils = convert_typeswitchloop(&oid_nil, TYPE_oid,
+					      VALptr(ret), ret->vtype,
+					      1, abort_on_error);
+	} else if (v->vtype == TYPE_str) {
+		if (v->val.sval == NULL || strcmp(v->val.sval, str_nil) == 0) {
+			nils = convert_typeswitchloop(&bte_nil, TYPE_bte,
+						      VALptr(ret), ret->vtype,
+						      1, abort_on_error);
+		} else {
+			p = VALptr(ret);
+			ret->len = BATatoms[ret->vtype].size;
+			if ((*BATatoms[ret->vtype].atomFromStr)(v->val.sval,
+								&ret->len,
+								&p) <= 0) {
+				nils = BUN_NONE;
+			}
+			assert(p == VALptr(ret));
+		}
+	} else {
+		nils = convert_typeswitchloop(VALptr((ValPtr) v), v->vtype,
+					      VALptr(ret), ret->vtype,
+					      1, abort_on_error);
+	}
+	if (nils == BUN_NONE + 1) {
+		GDKerror("VARconvert: conversion from type %s to type %s "
+			 "unsupported.\n",
+			 ATOMname(v->vtype), ATOMname(ret->vtype));
+		return GDK_FAIL;
+	}
+	if (nils == BUN_NONE && abort_on_error) {
+		if (v->vtype == TYPE_str)
+			GDKerror("22018!conversion of string "
+				 "'%s' to type %s failed.\n",
+				 v->val.sval, ATOMname(ret->vtype));
+		else
+			GDKerror("22003!overflow in calculation.\n");
+		return GDK_FAIL;
 	}
 	return GDK_SUCCEED;
-
-  overflow:
-	GDKerror("22003!overflow in calculation.\n");
-	return GDK_FAIL;
-  strconvert:
-	GDKerror("22018!conversion of string '%s' to type %s failed.\n",
-		 v->val.sval, ATOMname(ret->vtype));
-	return GDK_FAIL;
-  unsupported:
-	GDKerror("VARconvert: conversion from type %s to type %s unsupported.\n",
-		 ATOMname(v->vtype), ATOMname(ret->vtype));
-	return GDK_FAIL;
 }
 
 /* signed version of BUN */
@@ -12949,8 +13163,8 @@ VARconvert(ValPtr ret, const ValRecord *v, int abort_on_error)
 				continue;				\
 			n++;						\
 			/* calculate z1 = (x - a) / n, rounded down	\
-			 * (towards \ negative infinity), and		\
-			 * calculate z2 = remainder of \ the division	\
+			 * (towards negative infinity), and		\
+			 * calculate z2 = remainder of the division	\
 			 * (i.e. 0 <= z2 < n); do this without		\
 			 * causing overflow */				\
 			an = (TYPE) (a / (SBUN) n);			\
@@ -12962,18 +13176,21 @@ VARconvert(ValPtr ret, const ValRecord *v, int abort_on_error)
 			/* z2 will be remainder of above division */	\
 			if (xn >= an) {					\
 				z2 = (BUN) (xn - an);			\
-				/* loop invariant: (x - a) - z1 * n == z2 */ \
+				/* loop invariant:			\
+				 * (x - a) - z1 * n == z2 */		\
 				while (z2 >= n) {			\
 					z2 -= n;			\
 					z1++;				\
 				}					\
 			} else {					\
 				z2 = (BUN) (an - xn);			\
-				/* loop invariant (until we break): (x - a) - z1 * n == -z2 */ \
+				/* loop invariant (until we break):	\
+				 * (x - a) - z1 * n == -z2 */		\
 				for (;;) {				\
 					z1--;				\
 					if (z2 < n) {			\
-						z2 = n - z2; /* proper remainder */ \
+						/* proper remainder */	\
+						z2 = n - z2;		\
 						break;			\
 					}				\
 					z2 -= n;			\

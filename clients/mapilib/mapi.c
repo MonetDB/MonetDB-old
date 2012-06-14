@@ -1036,6 +1036,7 @@ static int mapi_slice_row(struct MapiResultSet *result, int cr);
 static void mapi_store_bind(struct MapiResultSet *result, int cr);
 static void parse_uri_query(Mapi mid, char *uri);
 static void set_uri(Mapi mid);
+static MapiMsg connect_to_server(Mapi mid);
 
 static int mapi_initialized = 0;
 
@@ -1773,13 +1774,9 @@ mapi_new(void)
 	Mapi mid;
 	static int index = 0;
 
-	mid = malloc(sizeof(*mid));
+	mid = calloc(1, sizeof(*mid));
 	if (mid == NULL)
 		return NULL;
-	assert(mid);
-
-	/* initialize everything to 0 */
-	memset(mid, 0, sizeof(*mid));
 
 	/* then fill in some details */
 	mid->index = index++;	/* for distinctions in log records */
@@ -2051,10 +2048,11 @@ mapi_mapi(const char *host, int port, const char *username,
 						tmid = mapi_mapi("/tmp", socks[i], "mero", "mero",
 								lang, dbname);
 						tmid->redirmax = 0;
-						if (mapi_reconnect(tmid) == MOK ||
-								*tmid->redirects != NULL ||
-								(tmid->errorstr != NULL &&
-								 strstr(tmid->errorstr, "under maintenance") != NULL))
+						if (connect_to_server(tmid) == MOK &&
+								(mapi_start_talking(tmid) == MOK ||
+								 *tmid->redirects != NULL ||
+								 (tmid->errorstr != NULL &&
+								  strstr(tmid->errorstr, "under maintenance") != NULL)))
 						{
 							host = buf;
 							port = socks[i];
@@ -2074,10 +2072,11 @@ mapi_mapi(const char *host, int port, const char *username,
 						tmid = mapi_mapi("/tmp", socks[i], "mero", "mero",
 								lang, dbname);
 						tmid->redirmax = 0;
-						if (mapi_reconnect(tmid) == MOK ||
-								*tmid->redirects != NULL ||
-								(tmid->errorstr != NULL &&
-								 strstr(tmid->errorstr, "under maintenance") != NULL))
+						if (connect_to_server(tmid) == MOK &&
+								(mapi_start_talking(tmid) == MOK ||
+								 *tmid->redirects != NULL ||
+								 (tmid->errorstr != NULL &&
+								  strstr(tmid->errorstr, "under maintenance") != NULL)))
 						{
 							host = buf;
 							port = socks[i];

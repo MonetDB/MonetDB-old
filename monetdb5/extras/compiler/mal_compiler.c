@@ -133,7 +133,6 @@ static char *mccPrelude[] = {
 	"#include \"kernel/array.h\"\n",
 	"#include \"kernel/bat5.h\"\n",
 	"#include \"kernel/batcalc.h\"\n",
-	"#include \"kernel/batcast.h\"\n",
 	"#include \"kernel/batifthen.h\"\n",
 	"#include \"kernel/batmmath.h\"\n",
 	"#include \"kernel/batmtime.h\"\n",
@@ -206,7 +205,7 @@ mccArg(stream *f, MalBlkPtr mb, int i)
 static void
 mccValue(stream *f, MalBlkPtr mb, int i)
 {
-	int (*tostr) (str *, int *, ptr);
+	int (*tostr) (str *, int *, const void *);
 	str buf = 0, c;
 	int sz = 0;
 	ValPtr val;

@@ -209,13 +209,18 @@ CMDbatSIGN(bat *ret, bat *bid)
 static int
 calctype(int tp1, int tp2)
 {
-	tp1 = ATOMstorage(tp1);
-	tp2 = ATOMstorage(tp2);
-	if (tp1 < TYPE_flt && tp2 < TYPE_flt)
+	int tp1s = ATOMstorage(tp1);
+	int tp2s = ATOMstorage(tp2);
+	if (tp1s < TYPE_flt && tp2s < TYPE_flt) {
+		if (tp1s > tp2s)
+			return tp1;
+		if (tp1s < tp2s)
+			return tp2;
 		return MAX(tp1, tp2);
-	if (tp1 == TYPE_dbl || tp2 == TYPE_dbl)
+	}
+	if (tp1s == TYPE_dbl || tp2s == TYPE_dbl)
 		return TYPE_dbl;
-	if (tp1 == TYPE_flt || tp2 == TYPE_flt)
+	if (tp1s == TYPE_flt || tp2s == TYPE_flt)
 		return TYPE_flt;
 	return TYPE_lng;
 }
@@ -230,6 +235,9 @@ calctypeenlarge(int tp1, int tp2)
 	case TYPE_sht:
 		return TYPE_int;
 	case TYPE_int:
+#if SIZEOF_WRD == SIZEOF_INT
+	case TYPE_wrd:
+#endif
 		return TYPE_lng;
 	case TYPE_flt:
 		return TYPE_dbl;
@@ -277,8 +285,12 @@ calcmodtype(int tp1, int tp2)
 {
 	tp1 = ATOMstorage(tp1);
 	tp2 = ATOMstorage(tp2);
-	assert(tp1 > 0 && tp1 < TYPE_str && tp1 != TYPE_flt && tp1 != TYPE_dbl && tp1 != TYPE_bat && tp1 != TYPE_ptr);
-	assert(tp2 > 0 && tp2 < TYPE_str && tp2 != TYPE_flt && tp2 != TYPE_dbl && tp2 != TYPE_bat && tp2 != TYPE_ptr);
+	assert(tp1 > 0 && tp1 < TYPE_str && tp1 != TYPE_bat && tp1 != TYPE_ptr);
+	assert(tp2 > 0 && tp2 < TYPE_str && tp2 != TYPE_bat && tp2 != TYPE_ptr);
+	if (tp1 == TYPE_dbl || tp2 == TYPE_dbl)
+		return TYPE_dbl;
+	if (tp1 == TYPE_flt || tp2 == TYPE_flt)
+		return TYPE_flt;
 	return MIN(tp1, tp2);
 }
 
@@ -1326,3 +1338,65 @@ CMDcalcavg(dbl *avg, bat *bid)
 {
 	return CMDcalcavg2(avg, NULL, bid);
 }
+
+static str
+CMDconvertbat(bat *ret, bat *bid, int tp, int abort_on_error)
+{
+	BAT *b, *bn;
+
+	if ((b = BATdescriptor(*bid)) == NULL)
+		throw(MAL, "batcalc.convert", RUNTIME_OBJECT_MISSING);
+	bn = BATconvert(b, tp, abort_on_error);
+	BBPreleaseref(b->batCacheid);
+	if (bn == NULL) {
+		char buf[20];
+		snprintf(buf, sizeof(buf), "batcalc.%s", ATOMname(tp));
+		return mythrow(MAL, buf, OPERATION_FAILED);
+	}
+	BBPkeepref(*ret = bn->batCacheid);
+	return MAL_SUCCEED;
+}
+
+#define BATCONVERT_TYPE(TYPE)						\
+str													\
+CMDconvert_##TYPE(bat *ret, bat *bid)				\
+{													\
+	return CMDconvertbat(ret, bid, TYPE_##TYPE, 0);	\
+}													\
+str													\
+CMDconvertsignal_##TYPE(bat *ret, bat *bid)			\
+{													\
+	return CMDconvertbat(ret, bid, TYPE_##TYPE, 1);	\
+}
+
+/* exports outside of define for clients exports test */
+batcalc_export str CMDconvert_bit(bat *ret, bat *bid);
+batcalc_export str CMDconvertsignal_bit(bat *ret, bat *bid);
+BATCONVERT_TYPE(bit)
+batcalc_export str CMDconvert_bte(bat *ret, bat *bid);
+batcalc_export str CMDconvertsignal_bte(bat *ret, bat *bid);
+BATCONVERT_TYPE(bte)
+batcalc_export str CMDconvert_sht(bat *ret, bat *bid);
+batcalc_export str CMDconvertsignal_sht(bat *ret, bat *bid);
+BATCONVERT_TYPE(sht)
+batcalc_export str CMDconvert_int(bat *ret, bat *bid);
+batcalc_export str CMDconvertsignal_int(bat *ret, bat *bid);
+BATCONVERT_TYPE(int)
+batcalc_export str CMDconvert_wrd(bat *ret, bat *bid);
+batcalc_export str CMDconvertsignal_wrd(bat *ret, bat *bid);
+BATCONVERT_TYPE(wrd)
+batcalc_export str CMDconvert_lng(bat *ret, bat *bid);
+batcalc_export str CMDconvertsignal_lng(bat *ret, bat *bid);
+BATCONVERT_TYPE(lng)
+batcalc_export str CMDconvert_flt(bat *ret, bat *bid);
+batcalc_export str CMDconvertsignal_flt(bat *ret, bat *bid);
+BATCONVERT_TYPE(flt)
+batcalc_export str CMDconvert_dbl(bat *ret, bat *bid);
+batcalc_export str CMDconvertsignal_dbl(bat *ret, bat *bid);
+BATCONVERT_TYPE(dbl)
+batcalc_export str CMDconvert_oid(bat *ret, bat *bid);
+batcalc_export str CMDconvertsignal_oid(bat *ret, bat *bid);
+BATCONVERT_TYPE(oid)
+batcalc_export str CMDconvert_str(bat *ret, bat *bid);
+batcalc_export str CMDconvertsignal_str(bat *ret, bat *bid);
+BATCONVERT_TYPE(str)

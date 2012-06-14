@@ -70,7 +70,10 @@ module batmmath;
 	# @-
 	# 	round is not binary...
 	# 	scienceFcnBinary(round,int)
-	@:scienceFcnBinary(fmod)@
+	command fmod(x:bat[:oid,:dbl],y:dbl):bat[:oid,:dbl] 
+	address CMDbatMODsignal;
+	command fmod(x:bat[:oid,:flt],y:flt):bat[:oid,:flt] 
+	address CMDbatMODsignal;
 	@:scienceFcnBinary(atan2)@
 	@:scienceFcnBinary(pow)@
 	# @- Implementation
@@ -132,6 +135,7 @@ str CMDscience_bat_@2_@1(int *ret, int *bid)
 	BATaccessEnd(b, USE_TAIL, MMAP_SEQUENTIAL);
 	BATsetcount(bn, BATcount(b));
 	bn->tsorted = 0;
+	bn->trevsorted = 0;
 	BATkey(BATmirror(bn),0);           
 	
 	if (!(bn->batDirty&2)) bn = BATsetaccess(bn, BAT_READ); 
@@ -172,6 +176,7 @@ str CMDscience_bat_cst_@1_@2(int *ret, int *bid, @2 *d)
 
 	BATsetcount(bn, BATcount(b));
 	bn->tsorted = 0;
+	bn->trevsorted = 0;
 	BATkey(BATmirror(bn),0);           
 
 	if (!(bn->batDirty&2)) bn = BATsetaccess(bn, BAT_READ); 
@@ -214,8 +219,6 @@ str CMDscience_bat_cst_@1_@2(int *ret, int *bid, @2 *d)
  * 	round is not binary...
  * 	scienceBinaryImpl(round,int)
  */
-@:scienceBinaryImpl(fmod,dbl,)@
-@:scienceBinaryImpl(fmod,flt,f)@
 @:scienceBinaryImpl(atan2,dbl,)@
 @:scienceBinaryImpl(atan2,flt,f)@
 @:scienceBinaryImpl(pow,dbl,)@
