@@ -307,7 +307,6 @@ createView:
 	
 	int countBatElements;
 	int L1=8192; /*KiloBytes*/
-	/*int maxWB=0;*/
 
 	/*k and randomoid are used for DD1R*/
 	@1 k,temp_h;
@@ -316,11 +315,10 @@ createView:
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 	FN=searchBAT(FrequencyStructA,*bid);
 	FN->c = FN->c + 1;
-	/*fprintf(stderr,"FN->bid=%d\n",FN->bid);*/
+	
+	fprintf(stderr,"This is from selcrack_HOL operators\n");	
+	fprintf(stderr,"FN->bid=%d\n",FN->bid);
 
-	/*fprintf(stderr,"This is from selcrack_HOL operators\n");*/	
-	/*fprintf(stderr,"BBPsize=%d maxWB=%d",BBPsize,maxWB);*/	
-	/*fprintf(stderr,"maxWB=%d",maxWB);*/
 	if (@2_GT(low,hgh,@3@1))
 		throw(MAL, "crackers.crack", "illegal range");
 	
@@ -564,9 +562,8 @@ createView:
 	/*if(FN->weight <0)
 		deleteNode(FrequencyStructA,FN->bid);
 	*/
-	/*printFrequencyStruct(FrequencyStruct);*/
-	/*maxWB=findMax(FrequencyStructA);*/
-	/*fprintf(stderr,"MAXWB=%d\n",maxWB);*/
+	printFrequencyStruct(FrequencyStructA);
+
 	@:CreateResult()@
 	return MAL_SUCCEED;
 @
