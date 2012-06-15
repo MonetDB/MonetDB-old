@@ -561,8 +561,9 @@ createView:
 	countBatElements=BATcount(b);
 	/*fprintf(stderr,"BATcount(b)=%d\n",countBatElements);*/
 	FN->weight = changeWeight(FN,countBatElements,L1);
-	if(FN->weight <0)
+	/*if(FN->weight <0)
 		deleteNode(FrequencyStructA,FN->bid);
+	*/
 	/*printFrequencyStruct(FrequencyStruct);*/
 	/*maxWB=findMax(FrequencyStructA);*/
 	/*fprintf(stderr,"MAXWB=%d\n",maxWB);*/
