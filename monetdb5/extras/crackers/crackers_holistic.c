@@ -103,7 +103,7 @@ findMax(FrequencyNode* head)
 	bat=temp->bid;
 	while(temp!=NULL)
 	{
-		if(temp->weight > tmpW)
+		if(temp->weight >= tmpW)
 		{
 			tmpW=temp->weight;
 			bat=temp->bid;
@@ -170,6 +170,8 @@ CRKrandomCrack(int *ret)
 	FrequencyNode *fs = getFrequencyStruct('A');
 
 	bid=findMax(fs);
+	if(bid==0)
+		throw(MAL, "crackers_holistic.randomCrack", "All bats reached the optimal index");
 	b=BATdescriptor(bid);
 	t=(int*)Tloc(b,BUNfirst(b));
 	posl=BUNfirst(b);
