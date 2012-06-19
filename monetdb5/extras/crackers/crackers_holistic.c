@@ -133,6 +133,22 @@ changeWeight(FrequencyNode* node,int N,int L1)
 
 }
 
+double
+changeWeight_1(FrequencyNode* node,int N,int L1)
+{
+	int p; /*number of pieces in the index*/
+	double Sp; /*average size of each piece*/
+	double d; /*distance from optimal piece(L1)*/
+	p = node->c;
+	Sp =((double)N)/p;	
+	d = Sp - L1;
+	/*fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);*/
+	node->weight = d;
+	/*fprintf(stderr,"W=%lf\n",node->weight);*/
+	return node->weight;
+}
+
+
 void
 deleteNode(FrequencyNode* head,int bat_id)
 {
