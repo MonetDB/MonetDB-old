@@ -125,6 +125,9 @@ changeWeight(FrequencyNode* node,int N,int L1)
 	/*fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);*/
 	if (node->f2!=0)
 		node->weight = ((double)(node->f1)/(double)(node->f2)) * d;
+	else
+		node->weight = (double)(node->f1) * d;
+
 	/*fprintf(stderr,"W=%lf\n",node->weight);*/
 	return node->weight;
 
