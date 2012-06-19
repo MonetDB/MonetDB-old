@@ -314,7 +314,6 @@ createView:
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 	FN=searchBAT(FrequencyStructA,*bid);
-	FN->c = FN->c + 1;
 	
 	fprintf(stderr,"This is from selcrack_HOL operators\n");	
 	fprintf(stderr,"FN->bid=%d\n",FN->bid);
@@ -483,6 +482,7 @@ createView:
 			{
 					
 				addCrackerIndex_@1(m,hgh,HBound,vh,c);
+				FN->c = FN->c + 1;
 				
 			}
 			
@@ -496,6 +496,7 @@ createView:
                         	if (IndexSize <IndexStop){
                                         if (vl>0) _vl=vl-1; else _vl=vl;
                                         addCrackerIndex_@1(m,low,*inclusiveLow,_vl,c);
+					FN->c = FN->c + 1;
                                         temp_vl=vl;
                         	}
 				
@@ -528,6 +529,7 @@ createView:
                        	if (IndexSize <IndexStop){
                                  if (vl>0) _vl=vl-1; else _vl=vl;
                                  addCrackerIndex_@1(m,low,*inclusiveLow,_vl,c);
+				FN->c = FN->c + 1;
 			}
 			foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
 			if(foundHgh==0)
@@ -540,10 +542,11 @@ createView:
                         	{
 
                                 	addCrackerIndex_@1(m,hgh,HBound,vh,c);
+					FN->c = FN->c + 1;
                                 
                         	}
                         	temp_vh=vh;
-							}else temp_vh=ch2;
+			}else temp_vh=ch2;
 				
 		} else{
 			 temp_vh = ch2;

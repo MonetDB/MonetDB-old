@@ -119,7 +119,7 @@ changeWeight(FrequencyNode* node,int N,int L1)
 	int p; /*number of pieces in the index*/
 	double Sp; /*average size of each piece*/
 	double d; /*distance from optimal piece(L1)*/
-	p = 2 * (node->c);
+	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
 	/*fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);*/

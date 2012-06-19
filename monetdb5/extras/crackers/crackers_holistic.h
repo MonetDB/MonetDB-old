@@ -18,7 +18,7 @@
 typedef struct frequency{
 
 	int 		bid;   		/* The base BAT */
-	int 		c;		/*number of times the column was cracked*/
+	int 		c;		/*number of pieces in the index*/
 	int 		f1;		/*number of queries that triggered cracking*/
 	int 		f2;		/*number of queries that did not trigger cracking(because the value already existed in the index)*/
 	double 		weight;
