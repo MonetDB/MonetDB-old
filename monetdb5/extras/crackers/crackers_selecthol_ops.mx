@@ -363,6 +363,8 @@ createView:
 
 			/*printf(" "LLFMT" \n ",posh-posl);*/
 			@:crkThreeTree@5(@1,posl,posh,@5)@
+
+			FN->c = FN->c + 3;
 			
 			BBPincref(b->batCacheid,TRUE);
 			BBPunfix(bo->batCacheid);
