@@ -28,6 +28,7 @@ typedef struct frequency{
 
 crackers_export FrequencyNode *getFrequencyStruct(char which);
 crackers_export void push(int bat_id,FrequencyNode* head);
+crackers_export void push_2(int bat_id,FrequencyNode* head,int N,int L1);
 crackers_export FrequencyNode* pop(FrequencyNode* head);
 crackers_export void printFrequencyStruct(FrequencyNode* head);
 crackers_export FrequencyNode* searchBAT(FrequencyNode* head,int bat_id);
@@ -38,6 +39,7 @@ crackers_export void deleteNode(FrequencyNode* head,int bat_id);
 
 crackers_export str CRKinitHolistic(int *ret);
 crackers_export str CRKinitFrequencyStruct(int *vid,int *bid);
+crackers_export str CRKinitFrequencyStruct_2(int *vid,int *bid,int* N,int* L1);
 crackers_export str CRKrandomCrack(int *ret);
 
 #endif /*crackers_holistic*/ 

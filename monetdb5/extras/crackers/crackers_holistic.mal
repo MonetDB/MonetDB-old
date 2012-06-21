@@ -8,6 +8,10 @@ command initFrequencyStruct(b:bat[:oid,:any]):void
 address CRKinitFrequencyStruct
 comment "Initialize the struct(lifo) with zero values.";
 
+command initFrequencyStruct_2(b:bat[:oid,:any],N:int,L1:int):void
+address CRKinitFrequencyStruct_2
+comment "Initialize the node with the distance from the optimal index.";
+
 command randomCrack():void
 address CRKrandomCrack
 comment "Do random crack on BATs ordered by descending weight";

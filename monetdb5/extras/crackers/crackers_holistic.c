@@ -57,6 +57,21 @@ push(int bat_id,FrequencyNode* head)
 	head->next=new_node; 
 }
 
+void 
+push_2(int bat_id,FrequencyNode* head,int N,int L1)
+{
+	FrequencyNode* new_node;
+	new_node=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode));
+	new_node->bid=bat_id;
+	new_node->c=1;
+	new_node->f1=0;
+	new_node->f2=0;
+	new_node->weight=N-L1;
+	new_node->next=head->next;
+	head->next=new_node; 
+}
+
+
 FrequencyNode*
 pop(FrequencyNode* head)
 {
@@ -175,6 +190,17 @@ CRKinitFrequencyStruct(int *vid,int *bid)
 	*vid = 0;
 	return MAL_SUCCEED;
 }
+
+str 
+CRKinitFrequencyStruct_2(int *vid,int *bid,int* N,int* L1)
+{
+	FrequencyNode *fs = getFrequencyStruct('A');
+	/*fprintf(stderr,"BAT_ID=%d\n",*bid);*/
+	push_2(*bid,fs,*N,*L1);
+	*vid = 0;
+	return MAL_SUCCEED;
+}
+
 
 str
 CRKrandomCrack(int *ret)
