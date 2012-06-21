@@ -351,7 +351,7 @@ createView:
 			countBatElements=BATcount(b);
 			/*fprintf(stderr,"BATcount(b)=%d",countBatElements);*/
 			FN->f1 = FN->f1 + 1;
-			FN->weight = changeWeight(FN,countBatElements,L1);	
+			FN->weight = changeWeight_1(FN,countBatElements,L1);	
 
 			if ((c = BATdescriptor(CrackerIndex[m].cid)) == NULL)
 				throw(MAL, "crackers.crackRange", "Cannot access crack index");
@@ -564,7 +564,7 @@ createView:
 	countBatElements=BATcount(b);
 	/*fprintf(stderr,"BATcount(b)=%d\n",countBatElements);*/
 	if(FN->weight >= 0)
-		FN->weight = changeWeight(FN,countBatElements,L1);
+		FN->weight = changeWeight_1(FN,countBatElements,L1);
 	/*if(FN->weight <0)
 		deleteNode(FrequencyStructA,FN->bid);
 	*/
