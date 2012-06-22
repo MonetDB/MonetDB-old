@@ -306,7 +306,7 @@ createView:
 	bit copy=TRUE;
 	
 	int countBatElements;
-	int L1=8192; /*KiloBytes*/
+	int L1=2048000; /*Number of integers that can fit into L1 cache (size: 8192KB)*/
 
 	/*k and randomoid are used for DD1R*/
 	@1 k,temp_h;
