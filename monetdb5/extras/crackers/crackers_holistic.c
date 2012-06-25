@@ -218,27 +218,26 @@ CRKrandomCrack(int *ret)
 	FrequencyNode *fs = getFrequencyStruct('A');
 
 	max_node=findMax(fs);
-	bid=max_node->bid;
-	if(bid==0)
-		throw(MAL, "crackers_holistic.randomCrack", "All bats reached the optimal index");
-	b=BATdescriptor(bid);
-	t=(int*)Tloc(b,BUNfirst(b));
-	posl=BUNfirst(b);
-	posh=BUNlast(b) - 1;
-	p=(rand()%(posh-posl+1))+posl;
-	low=t[p];
-	p=(rand()%(posh-posl+1))+posl;
-	hgh=t[p];
-	if(hgh < low)
+	if(max_node->weight > 0)
 	{
-		temp=low;
-		low=hgh;
-		hgh=temp;
-	}
+		bid=max_node->bid;
+		b=BATdescriptor(bid);
+		t=(int*)Tloc(b,BUNfirst(b));
+		posl=BUNfirst(b);
+		posh=BUNlast(b) - 1;
+		p=(rand()%(posh-posl+1))+posl;
+		low=t[p];
+		p=(rand()%(posh-posl+1))+posl;
+		hgh=t[p];
+		if(hgh < low)
+		{
+			temp=low;
+			low=hgh;
+			hgh=temp;
+		}
 	/*fprintf(stderr,"posl = "OIDFMT" posh = "OIDFMT" low = %d hgh = %d inclusive = %d", posl,posh,low,hgh,inclusive );*/
-
-	CRKselectholBounds_int(ret, &bid, &low, &hgh, &inclusive, &inclusive);
-
+		CRKselectholBounds_int(ret, &bid, &low, &hgh, &inclusive, &inclusive);
+	}
 	*ret = 0;
 	return MAL_SUCCEED;
 }
