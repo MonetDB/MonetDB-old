@@ -315,8 +315,8 @@ createView:
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 	FN=searchBAT(FrequencyStructA,*bid);
 	
-	fprintf(stderr,"This is from selcrack_HOL operators\n");	
-	fprintf(stderr,"FN->bid=%d\n",FN->bid);
+	/*fprintf(stderr,"This is from selcrack_HOL operators\n");*/	
+	/*fprintf(stderr,"FN->bid=%d\n",FN->bid);*/
 
 	if (@2_GT(low,hgh,@3@1))
 		throw(MAL, "crackers.crack", "illegal range");
@@ -568,7 +568,7 @@ createView:
 	/*if(FN->weight <0)
 		deleteNode(FrequencyStructA,FN->bid);
 	*/
-	printFrequencyStruct(FrequencyStructA);
+	/*printFrequencyStruct(FrequencyStructA);*/
 
 	@:CreateResult()@
 	return MAL_SUCCEED;
