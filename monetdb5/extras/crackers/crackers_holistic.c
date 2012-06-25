@@ -107,25 +107,27 @@ searchBAT(FrequencyNode* head,int bat_id)
 	return temp;
 }
 
-int
+FrequencyNode*
 findMax(FrequencyNode* head)
 {
 	FrequencyNode* temp;
+	FrequencyNode* ret_node=NULL;
 	double tmpW;
-	int bat;
+	//int bat;
 	temp=head->next;
 	tmpW=temp->weight;
-	bat=temp->bid;
+	//bat=temp->bid;
 	while(temp!=NULL)
 	{
 		if(temp->weight >= tmpW)
 		{
 			tmpW=temp->weight;
-			bat=temp->bid;
+			//bat=temp->bid;
+			ret_node=temp;
 		}
 		temp=temp->next;
 	}
-	return bat;
+	return ret_node;
 }
 
 double
@@ -206,6 +208,7 @@ str
 CRKrandomCrack(int *ret)
 {
 	int bid=0;
+	FrequencyNode* max_node;
 	BAT *b;
 	int low=0, hgh=0;
 	int *t;
@@ -214,7 +217,8 @@ CRKrandomCrack(int *ret)
 	bit inclusive=TRUE;
 	FrequencyNode *fs = getFrequencyStruct('A');
 
-	bid=findMax(fs);
+	max_node=findMax(fs);
+	bid=max_node->bid;
 	if(bid==0)
 		throw(MAL, "crackers_holistic.randomCrack", "All bats reached the optimal index");
 	b=BATdescriptor(bid);
@@ -234,6 +238,7 @@ CRKrandomCrack(int *ret)
 	/*fprintf(stderr,"posl = "OIDFMT" posh = "OIDFMT" low = %d hgh = %d inclusive = %d", posl,posh,low,hgh,inclusive );*/
 
 	CRKselectholBounds_int(ret, &bid, &low, &hgh, &inclusive, &inclusive);
+
 	*ret = 0;
 	return MAL_SUCCEED;
 }
