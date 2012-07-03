@@ -34,6 +34,7 @@ crackers_export void printFrequencyStruct(FrequencyNode* head);
 crackers_export FrequencyNode* searchBAT(FrequencyNode* head,int bat_id);
 crackers_export double changeWeight(FrequencyNode* node,int N,int L1);
 crackers_export double changeWeight_1(FrequencyNode* node,int N,int L1);
+crackers_export double changeWeight_2(FrequencyNode* node,int N,int L1);
 crackers_export FrequencyNode* findMax(FrequencyNode* head);
 crackers_export void deleteNode(FrequencyNode* head,int bat_id);
 
