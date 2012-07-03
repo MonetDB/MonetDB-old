@@ -49,7 +49,7 @@ push(int bat_id,FrequencyNode* head)
 	FrequencyNode* new_node;
 	new_node=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode));
 	new_node->bid=bat_id;
-	new_node->c=0;
+	new_node->c=1;
 	new_node->f1=0;
 	new_node->f2=0;
 	new_node->weight=0.0;
