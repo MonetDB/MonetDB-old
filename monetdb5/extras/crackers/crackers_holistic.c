@@ -43,6 +43,7 @@ getFrequencyStruct(char which)
 	return *theNode;
 }
 
+/*this function pushes nodes in the list in the second experiment (2nd cost model)*/
 void 
 push(int bat_id,FrequencyNode* head)
 {
@@ -52,7 +53,7 @@ push(int bat_id,FrequencyNode* head)
 	new_node->c=1;
 	new_node->f1=0;
 	new_node->f2=0;
-	new_node->weight=0.0;
+	new_node->weight=0.0; /*weight=f1*((N/c)-L1)*/
 	new_node->next=head->next;
 	head->next=new_node; 
 }
@@ -185,6 +186,7 @@ deleteNode(FrequencyNode* head,int bat_id)
 
 }
 
+/*this function initializes the list in the second experiment (2nd cost model)*/
 str 
 CRKinitFrequencyStruct(int *vid,int *bid)
 {
