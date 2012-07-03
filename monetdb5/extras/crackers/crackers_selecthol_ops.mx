@@ -315,6 +315,8 @@ createView:
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 	FN=searchBAT(FrequencyStructA,*bid);
 	
+	FN->f1 = FN->f1 + 1; /*increase the frequency (for the 2nd cost model)*/	
+
 	/*fprintf(stderr,"This is from selcrack_HOL operators\n");*/	
 	/*fprintf(stderr,"FN->bid=%d\n",FN->bid);*/
 
@@ -350,7 +352,7 @@ createView:
 		
 			countBatElements=BATcount(b);
 			/*fprintf(stderr,"BATcount(b)=%d",countBatElements);*/
-			FN->f1 = FN->f1 + 1;
+			/*FN->f1 = FN->f1 + 1;*/
 			FN->weight = changeWeight_1(FN,countBatElements,L1);	
 
 			if ((c = BATdescriptor(CrackerIndex[m].cid)) == NULL)
@@ -463,8 +465,8 @@ createView:
 	
 	
        
-	if(foundLow==0 || foundHgh==0) FN->f1 = FN->f1 + 1;
-	else	FN->f2 = FN->f2 +1; 
+	/*if(foundLow==0 || foundHgh==0) FN->f1 = FN->f1 + 1;
+	else	FN->f2 = FN->f2 +1; */
 	/* If one or both of the result view bounds were not found using the
 	index then we have to crack */
 
