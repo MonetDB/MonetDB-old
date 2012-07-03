@@ -57,6 +57,7 @@ push(int bat_id,FrequencyNode* head)
 	head->next=new_node; 
 }
 
+/*this function pushes nodes in the list in the first experiment (1st cost model)*/
 void 
 push_2(int bat_id,FrequencyNode* head,int N,int L1)
 {
@@ -150,6 +151,7 @@ changeWeight(FrequencyNode* node,int N,int L1)
 
 }
 
+/*this function updates the weights in the list in the first experiment (1st cost model)*/
 double
 changeWeight_1(FrequencyNode* node,int N,int L1)
 {
@@ -193,6 +195,8 @@ CRKinitFrequencyStruct(int *vid,int *bid)
 	return MAL_SUCCEED;
 }
 
+
+/*this function initializes the list in the first experiment (1st cost model)*/
 str 
 CRKinitFrequencyStruct_2(int *vid,int *bid,int* N,int* L1)
 {
