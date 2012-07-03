@@ -43,7 +43,6 @@ getFrequencyStruct(char which)
 	return *theNode;
 }
 
-/*this function pushes nodes in the list in the second experiment (2nd cost model)*/
 void 
 push(int bat_id,FrequencyNode* head)
 {
@@ -58,7 +57,7 @@ push(int bat_id,FrequencyNode* head)
 	head->next=new_node; 
 }
 
-/*this function pushes nodes in the list in the first experiment (1st cost model)*/
+/*this function pushes nodes in the list in the first and the second experiment (1st & 2nd cost model)*/
 void 
 push_2(int bat_id,FrequencyNode* head,int N,int L1)
 {
@@ -66,9 +65,9 @@ push_2(int bat_id,FrequencyNode* head,int N,int L1)
 	new_node=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode));
 	new_node->bid=bat_id;
 	new_node->c=1;
-	new_node->f1=0;
+	new_node->f1=1;
 	new_node->f2=0;
-	new_node->weight=N-L1;
+	new_node->weight=new_node->f1*(N-L1);
 	new_node->next=head->next;
 	head->next=new_node; 
 }
@@ -201,7 +200,6 @@ deleteNode(FrequencyNode* head,int bat_id)
 
 }
 
-/*this function initializes the list in the second experiment (2nd cost model)*/
 str 
 CRKinitFrequencyStruct(int *vid,int *bid)
 {
@@ -213,7 +211,7 @@ CRKinitFrequencyStruct(int *vid,int *bid)
 }
 
 
-/*this function initializes the list in the first experiment (1st cost model)*/
+/*this function initializes the list in the first & second experiment(1st & 2nd cost model)*/
 str 
 CRKinitFrequencyStruct_2(int *vid,int *bid,int* N,int* L1)
 {
