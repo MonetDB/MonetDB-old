@@ -256,6 +256,7 @@ CRKrandomCrack(int *ret)
 		}
 	/*fprintf(stderr,"posl = "OIDFMT" posh = "OIDFMT" low = %d hgh = %d inclusive = %d", posl,posh,low,hgh,inclusive );*/
 		CRKselectholBounds_int(ret, &bid, &low, &hgh, &inclusive, &inclusive);
+		max_node->f1=max_node->f1-1; /*increase frequency only when the column is refined during workload executuion and not during idle time*/
 	}
 	*ret = 0;
 	return MAL_SUCCEED;
