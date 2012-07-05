@@ -366,7 +366,7 @@ createView:
 			/*printf(" "LLFMT" \n ",posh-posl);*/
 			@:crkThreeTree@5(@1,posl,posh,@5)@
 
-			FN->c = FN->c + 3;
+			FN->c = FN->c + 2;
 			
 			BBPincref(b->batCacheid,TRUE);
 			BBPunfix(bo->batCacheid);
@@ -565,12 +565,12 @@ createView:
 	}
 	countBatElements=BATcount(b);
 	/*fprintf(stderr,"BATcount(b)=%d\n",countBatElements);*/
-	if(FN->weight >= 0)
+	if(FN->weight > 0)
 		FN->weight = changeWeight_2(FN,countBatElements,L1);
 	/*if(FN->weight <0)
 		deleteNode(FrequencyStructA,FN->bid);
 	*/
-	/*printFrequencyStruct(FrequencyStructA);*/
+	printFrequencyStruct(FrequencyStructA);
 
 	@:CreateResult()@
 	return MAL_SUCCEED;
