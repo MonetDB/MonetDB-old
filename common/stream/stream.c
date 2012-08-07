@@ -305,7 +305,6 @@ mnstr_fgetpos(stream *s, lng *p)
 #ifdef STREAM_DEBUG
 	printf("fgetpos %s\n", s->name ? s->name : "<unnamed>");
 #endif
-	assert(s->access == ST_WRITE);
 	if (s->errnr)
 		return s->errnr;
 	if (s->fgetpos)
@@ -1335,9 +1334,18 @@ open_urlstream(const char *url)
 }
 
 #else
-stream *open_urlstream(const char *url) {
-	if (url != NULL && strncmp(url, "file://", sizeof("file://") - 1) == 0)
-		return open_rastream(url + sizeof("file://") - 1);
+stream *
+open_urlstream(const char *url)
+{
+	if (url != NULL && strncmp(url, "file://", sizeof("file://") - 1) == 0) {
+		url += sizeof("file://") - 1;
+#ifdef _MSC_VER
+		/* file:///C:/... -- remove third / as well */
+		if (url[0] == '/' && url[2] == ':')
+			url++;
+#endif
+		return open_rastream(url);
+	}
 	return NULL;
 }
 #endif /* HAVE_CURL */

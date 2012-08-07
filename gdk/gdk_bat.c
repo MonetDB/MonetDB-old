@@ -89,6 +89,11 @@ BATcreatedesc(int ht, int tt, int heapnames)
 
 	if (bs == NULL)
 		return NULL;
+	HEADLESSDEBUG {
+		if ( ht != TYPE_void && ht != TYPE_oid)
+			fprintf(stderr, "#headless violation in BATcreatedesc %d\n", ht);
+
+	}
 	/*
 	 * assert needed in the kernel to get symbol eprintf resolved.
 	 * Else modules using assert fail to load.
@@ -294,6 +299,8 @@ BATnew(int ht, int tt, BUN cap)
 	BATstore *bs;
 
 	assert(cap <= BUN_MAX);
+	assert(ht != TYPE_bat);
+	assert(tt != TYPE_bat);
 	ERRORcheck((ht < 0) || (ht > GDKatomcnt), "BATnew:ht error\n");
 	ERRORcheck((tt < 0) || (tt > GDKatomcnt), "BATnew:tt error\n");
 
@@ -492,7 +499,7 @@ BATextend(BAT *b, BUN newcap)
  * the heaps by copying a standard small empty image over them.
  */
 BAT *
-BATclear(BAT *b)
+BATclear(BAT *b, int force)
 {
 	BUN p, q;
 	int voidbat;
@@ -511,7 +518,7 @@ BATclear(BAT *b)
 	}
 
 	/* small BAT: delete all elements by hand */
-	if (!voidbat && b->batCount < 20) {
+	if (!force && !voidbat && b->batCount < 20) {
 		BATloopDEL(b, p, q) {
 			p = BUNdelete(b, p, FALSE);
 		}
@@ -585,7 +592,10 @@ BATclear(BAT *b)
 		}
 	}
 
-	b->batFirst = b->batInserted;
+	if (force)
+                b->batFirst = b->batDeleted = b->batInserted = 0;
+	else
+		b->batFirst = b->batInserted;
 	BATsetcount(b,0);
 	b->batDirty = TRUE;
 	BATsettrivprop(b);
@@ -755,6 +765,8 @@ BATcopy(BAT *b, int ht, int tt, int writable)
 	BAT *bn = NULL;
 
 	BATcheck(b, "BATcopy");
+	assert(ht != TYPE_bat);
+	assert(tt != TYPE_bat);
 	cnt = b->batCount;
 
 	/* maybe a bit ugly to change the requested bat types?? */
@@ -790,7 +802,8 @@ BATcopy(BAT *b, int ht, int tt, int writable)
 			bn->tseqbase = b->tseqbase;
 		}
 	} else {
-		/* check whether we need case (4); BUN-by-BUN copy (by setting bunstocopy != BUN_NONE) */
+		/* check whether we need case (4); BUN-by-BUN copy (by
+		 * setting bunstocopy != BUN_NONE) */
 		if (ATOMsize(ht) != ATOMsize(b->htype) ||
 		    ATOMsize(tt) != ATOMsize(b->ttype)) {
 			/* oops, void materialization */
@@ -803,7 +816,8 @@ BATcopy(BAT *b, int ht, int tt, int writable)
 			bat hp = VIEWhparent(b), tp = VIEWtparent(b);
 
 			if (isVIEWCOMBINE(b) ||	/* oops, mirror view! */
-			    /* reduced slice view: do not copy too much garbage */
+			    /* reduced slice view: do not copy too
+			     * much garbage */
 			    (hp != 0 && BATcapacity(BBP_cache(hp)) > cnt + cnt) ||
 			    (tp != 0 && BATcapacity(BBP_cache(tp)) > cnt + cnt))
 				bunstocopy = cnt;
@@ -827,7 +841,8 @@ BATcopy(BAT *b, int ht, int tt, int writable)
 		}
 
 		if (ht == TYPE_void && tt == TYPE_void) {
-			/* case (2): a void,void result => nothing to copy! */
+			/* case (2): a void,void result => nothing to
+			 * copy! */
 			bn->H->heap.free = 0;
 			bn->T->heap.free = 0;
 		} else if (bunstocopy == BUN_NONE) {
@@ -1343,7 +1358,7 @@ BUNappend(BAT *b, const void *t, bit force)
  * instead of doing
  * 	BATloop(b,p,q) BUNdelete(b,p,FALSE)
  * one now must do:
- * 	BATloopDEL(b,p) p = BUNdelete(b,p,FALSE)
+ *	BATloopDEL(b,p) p = BUNdelete(b,p,FALSE)
  */
 static inline BUN
 BUNdelete_(BAT *b, BUN p, bit force)
@@ -1582,6 +1597,14 @@ BUNinplace(BAT *b, BUN p, const void *h, const void *t, bit force)
 		BUN prv, nxt;
 
 		ALIGNinp(b, "BUNreplace", force);	/* zap alignment info */
+		if (b->T->nil &&
+		    atom_CMP(BUNtail(bi, p), ATOMnilptr(b->ttype), b->ttype) == 0 &&
+		    atom_CMP(t, ATOMnilptr(b->ttype), b->ttype) != 0) {
+			/* if old value is nil and new value isn't,
+			 * we're not sure anymore about the nil
+			 * property, so we must clear it */
+			b->T->nil = 0;
+		}
 		tacc_update(del,tail,p,pit);
 		Treplacevalue(b, BUNtloc(bi, p), t);
 		tacc_update(ins,tail,p,pit);
@@ -1740,8 +1763,8 @@ BUNfnd(BAT *b, const void *v)
 		return r;
 	}
 	if (!b->H->hash) {
-		if (BAThordered(b))
-			return (BUN) SORTfnd(b, v);
+		if (BAThordered(b) || BAThrevordered(b))
+			return SORTfnd(b, v);
 	}
 	switch (ATOMstorage(b->htype)) {
 	case TYPE_bte:
@@ -1838,11 +1861,11 @@ BUNlocate(BAT *b, const void *x, const void *y)
 	}
 
 	/* next, try to restrict the range using sorted columns */
-	if (BATtordered(b)) {
+	if (BATtordered(b) || BATtrevordered(b)) {
 		p = SORTfndfirst(b, y);
 		q = SORTfndlast(b, y);
 	}
-	if (BAThordered(b)) {
+	if (BAThordered(b) || BAThrevordered(b)) {
 		BUN mp = SORTfndfirst(BATmirror(b), x);
 		BUN mq = SORTfndlast(BATmirror(b), x);
 
@@ -2154,6 +2177,7 @@ BAT *
 BATseqbase(BAT *b, oid o)
 {
 	BATcheck(b, "BATseqbase");
+	assert(o <= oid_nil);
 	if (ATOMtype(b->htype) == TYPE_oid) {
 		if (b->hseqbase != o) {
 			b->batDirtydesc = TRUE;
@@ -2370,7 +2394,7 @@ BATmadvise(BAT *b, int hb, int tb, int hhp, int thp)
  *
  * access:
  *     whether the BAT is BAT_READ or BAT_WRITE. Note that BAT_APPEND
- *     is ususally the same as BAT_READ (as our concern are only data pages
+ *     is usually the same as BAT_READ (as our concern are only data pages
  *     that already existed at the last commit).
  *
  * storage:
@@ -2500,7 +2524,7 @@ backup_new(Heap *hp, int lockbat)
 #define ACCESSMODE(wr,rd) ((wr)?BAT_WRITE:(rd)?BAT_READ:-1)
 
 /* transition heap from readonly to writable */
-static int
+static storage_t
 HEAPchangeaccess(Heap *hp, int dstmode, int existing)
 {
 	if (hp->base == NULL || hp->newstorage == STORE_MEM || !existing || dstmode == -1)
@@ -2513,19 +2537,19 @@ HEAPchangeaccess(Heap *hp, int dstmode, int existing)
 	}
 	if (hp->storage == STORE_MMAP) {	/* 6=>4 */
 		hp->dirty = 1;
-		return backup_new(hp, BBP_THREADMASK) ? -1 : STORE_MMAP;	/* only called for existing bats */
+		return backup_new(hp, BBP_THREADMASK) ? STORE_INVALID : STORE_MMAP;	/* only called for existing bats */
 	}
 	return hp->storage;	/* 7=>5 */
 }
 
 /* heap changes persistence mode (at commit point) */
-static int
+static storage_t
 HEAPcommitpersistence(Heap *hp, int writable, int existing)
 {
 	if (existing) {		/* existing, ie will become transient */
 		if (hp->storage == STORE_MMAP && hp->newstorage == STORE_PRIV && writable) {	/* 6=>2 */
 			hp->dirty = 1;
-			return backup_new(hp, -1) ? -1 : STORE_MMAP;	/* only called for existing bats */
+			return backup_new(hp, -1) ? STORE_INVALID : STORE_MMAP;	/* only called for existing bats */
 		}
 		return hp->newstorage;	/* 4=>0,5=>1,7=>3,c=>a no change */
 	}
@@ -2546,7 +2570,7 @@ int
 BATcheckmodes(BAT *b, int existing)
 {
 	int wr = (b->batRestricted == BAT_WRITE);
-	int m0 = 0, m1 = 0, m2 = 0, m3 = 0;
+	storage_t m0 = STORE_MEM, m1 = STORE_MEM, m2 = STORE_MEM, m3 = STORE_MEM;
 	int dirty = 0;
 
 	BATcheck(b, "BATcheckmodes");
@@ -2571,7 +2595,8 @@ BATcheckmodes(BAT *b, int existing)
 		m3 = HEAPcommitpersistence(b->T->vheap, wr || ta, existing);
 		dirty |= (b->T->vheap->newstorage != m3);
 	}
-	if (m0 < 0 || m1 < 0 || m2 < 0 || m3 < 0)
+	if (m0 == STORE_INVALID || m1 == STORE_INVALID ||
+	    m2 == STORE_INVALID || m3 == STORE_INVALID)
 		return -1;
 
 	if (dirty) {
@@ -2624,8 +2649,8 @@ BATsetaccess(BAT *b, int newmode)
 		int existing = BBP_status(b->batCacheid) & BBPEXISTING;
 		int wr = (newmode == BAT_WRITE);
 		int rd = (bakmode == BAT_WRITE);
-		int m0, m1, m2 = 0, m3 = 0;
-		int b0, b1, b2 = 0, b3 = 0;
+		storage_t m0, m1, m2 = STORE_MEM, m3 = STORE_MEM;
+		storage_t b0, b1, b2 = STORE_MEM, b3 = STORE_MEM;
 
 		if (b->batSharecnt && newmode != BAT_READ) {
 
@@ -2650,7 +2675,8 @@ BATsetaccess(BAT *b, int newmode)
 			b3 = b->T->vheap->newstorage;
 			m3 = HEAPchangeaccess(b->T->vheap, ACCESSMODE(wr && ta, rd && ta), existing);
 		}
-		if (m0 < 0 || m1 < 0 || m2 < 0 || m3 < 0)
+		if (m0 == STORE_INVALID || m1 == STORE_INVALID ||
+		    m2 == STORE_INVALID || m3 == STORE_INVALID)
 			return NULL;
 
 		/* set new access mode and mmap modes */
@@ -2711,7 +2737,6 @@ BATgetaccess(BAT *b)
 #define check_type(tp)							\
 	do {								\
 		if (ATOMisdescendant((tp), TYPE_ptr) ||			\
-		    ATOMisdescendant((tp), TYPE_bat) ||			\
 		    BATatoms[tp].atomUnfix ||				\
 		    BATatoms[tp].atomFix) {				\
 			GDKerror("BATmode: %s type implies that %s[%s,%s] " \
@@ -2798,6 +2823,7 @@ BATassertHeadProps(BAT *b)
 	assert(b != NULL);
 	assert(b->htype >= TYPE_void);
 	assert(b->htype < GDKatomcnt);
+	assert(b->htype != TYPE_bat);
 
 	cmpf = BATatoms[b->htype].atomCmp;
 	nilp = ATOMnilptr(b->htype);
@@ -2825,6 +2851,7 @@ BATassertHeadProps(BAT *b)
 		assert(b->htype == TYPE_oid || b->htype == TYPE_void);
 	/* a column cannot both have and not have NILs */
 	assert(!b->H->nil || !b->H->nonil);
+	assert(b->hseqbase <= oid_nil);
 	if (b->htype == TYPE_void) {
 		assert(b->H->shift == 0);
 		assert(b->H->width == 0);
@@ -2982,15 +3009,15 @@ BATassertHeadProps(BAT *b)
  * The properties currently maintained are:
  *
  * dense	Only valid for TYPE_oid columns: each value in the
- * 		column is exactly one more than the previous value.
- * 		This implies sorted, key, nonil.
+ *		column is exactly one more than the previous value.
+ *		This implies sorted, key, nonil.
  * nil		There is at least one NIL value in the column.
  * nonil	There are no NIL values in the column.
  * key		All values in the column are distinct.
  * sorted	The column is sorted (ascending).  If also revsorted,
- * 		then all values are equal.
+ *		then all values are equal.
  * revsorted	The column is reversely sorted (descending).  If
- * 		also sorted, then all values are equal.
+ *		also sorted, then all values are equal.
  * set		The combinations of head and tail values are distinct.
  *
  * The "key" property consists of two bits.  The lower bit, when set,
@@ -3039,8 +3066,12 @@ BATassertProps(BAT *b)
 }
 
 /* derive properties that can be derived with a simple scan: sorted,
- * revsorted, nil, nonil, dense; if expensive is set, we also check
- * the key property */
+ * revsorted, dense; if expensive is set, we also check the key
+ * property
+ * note that we don't check nil/nonil: we usually know pretty quickly
+ * that a column is not sorted, but we usually need a full scan for
+ * nonil.
+ */
 void
 BATderiveHeadProps(BAT *b, int expensive)
 {
@@ -3049,7 +3080,7 @@ BATderiveHeadProps(BAT *b, int expensive)
 	int (*cmpf)(const void *, const void *);
 	int cmp;
 	const void *prev = NULL, *valp, *nilp;
-	int sorted, revsorted, key, dense, nonil;
+	int sorted, revsorted, key, dense;
 	const char *nme = NULL;
 	char *ext = NULL;
 	size_t nmelen;
@@ -3065,6 +3096,7 @@ BATderiveHeadProps(BAT *b, int expensive)
 	COLsettrivprop(b, b->H);
 	cmpf = BATatoms[b->htype].atomCmp;
 	nilp = ATOMnilptr(b->htype);
+	b->batDirtydesc = 1;	/* we will be changing things */
 	if (b->htype == TYPE_void || b->batCount <= 1) {
 		/* COLsettrivprop has already taken care of all
 		 * properties except for (no)nil if count == 1 */
@@ -3081,10 +3113,59 @@ BATderiveHeadProps(BAT *b, int expensive)
 		return;
 	}
 	/* tentatively set until proven otherwise */
-	key = nonil = 1;
+	key = 1;
 	sorted = revsorted = (BATatoms[b->htype].linear != 0);
 	dense = (b->htype == TYPE_oid);
 	BATaccessBegin(b, USE_HEAD, MMAP_SEQUENTIAL);
+	/* if no* props already set correctly, we can maybe speed
+	 * things up, if not set correctly, reset them now and set
+	 * them later */
+	if (!b->hkey &&
+	    b->H->nokey[0] >= b->batFirst &&
+	    b->H->nokey[0] < b->batFirst + b->batCount &&
+	    b->H->nokey[1] >= b->batFirst &&
+	    b->H->nokey[1] < b->batFirst + b->batCount &&
+	    b->H->nokey[0] != b->H->nokey[1] &&
+	    cmpf(BUNhead(bi, b->H->nokey[0]),
+		 BUNhead(bi, b->H->nokey[1])) == 0) {
+		/* we found proof that the column doesn't deserve the
+		 * key property, no need to check the hard way */
+		expensive = 0;
+		key = 0;
+	} else {
+		b->H->nokey[0] = 0;
+		b->H->nokey[1] = 0;
+	}
+	if (!b->hsorted &&
+	    b->H->nosorted > b->batFirst &&
+	    b->H->nosorted < b->batFirst + b->batCount &&
+	    cmpf(BUNhead(bi, b->H->nosorted - 1),
+		 BUNhead(bi, b->H->nosorted)) > 0) {
+		sorted = 0;
+		dense = 0;
+	} else {
+		b->H->nosorted = 0;
+	}
+	if (!b->hrevsorted &&
+	    b->H->norevsorted > b->batFirst &&
+	    b->H->norevsorted < b->batFirst + b->batCount &&
+	    cmpf(BUNhead(bi, b->H->norevsorted - 1),
+		 BUNhead(bi, b->H->norevsorted)) < 0) {
+		revsorted = 0;
+	} else {
+		b->H->norevsorted = 0;
+	}
+	if (dense &&
+	    !b->hdense &&
+	    b->H->nodense >= b->batFirst &&
+	    b->H->nodense < b->batFirst + b->batCount &&
+	    (b->H->nodense == b->batFirst ?
+	     * (oid *) BUNhead(bi, b->H->nodense) == oid_nil :
+	     * (oid *) BUNhead(bi, b->H->nodense - 1) + 1 != * (oid *) BUNhead(bi, b->H->nodense))) {
+		dense = 0;
+	} else {
+		b->H->nodense = 0;
+	}
 	if (expensive) {
 		nme = BBP_physical(b->batCacheid);
 		nmelen = strlen(nme);
@@ -3109,36 +3190,60 @@ BATderiveHeadProps(BAT *b, int expensive)
 				  "hash table: not doing full check\n");
 		}
 	}
-	BATloop(b, p, q) {
+	for (q = BUNlast(b), p = BUNfirst(b);
+	     p < q && (sorted || revsorted || (key && hs));
+	     p++) {
 		valp = BUNhead(bi, p);
 		if (prev) {
 			cmp = cmpf(prev, valp);
-			if (cmp < 0)
+			if (cmp < 0) {
 				revsorted = 0;
-			else if (cmp > 0)
-				sorted = 0;
-			else
-				key = 0;
-			if (dense && * (oid *) prev + 1 != * (oid *) valp)
-				dense = 0;
+				if (b->H->norevsorted == 0)
+					b->H->norevsorted = p;
+				if (dense &&
+				    * (oid *) prev + 1 != * (oid *) valp) {
+					dense = 0;
+					if (b->H->nodense == 0)
+						b->H->nodense = p;
+				}
+			} else {
+				if (cmp > 0) {
+					sorted = 0;
+					if (b->H->nosorted == 0)
+						b->H->nosorted = p;
+				} else {
+					key = 0;
+					if (b->H->nokey[0] == 0 &&
+					    b->H->nokey[1] == 0) {
+						b->H->nokey[0] = p - 1;
+						b->H->nokey[1] = p;
+					}
+				}
+				if (dense) {
+					dense = 0;
+					if (b->H->nodense == 0)
+						b->H->nodense = p;
+				}
+			}
 		} else if (dense && (sqbs = * (oid *) valp) == oid_nil) {
 			dense = 0;
+			b->H->nodense = p;
 		}
 		prev = valp;
-		if (nonil && cmpf(valp, nilp) == 0)
-			nonil = 0;
 		if (key && hs) {
 			prb = HASHprobe(hs, valp);
 			for (hb = hs->hash[prb];
 			     hb != BUN_NONE;
-			     hb = hs->link[hb])
-				if (cmpf(valp, BUNhead(bi, hb)) == 0)
+			     hb = hs->link[hb]) {
+				if (cmpf(valp, BUNhead(bi, hb)) == 0) {
 					key = 0;
+					b->H->nokey[0] = hb;
+					b->H->nokey[1] = p;
+				}
+			}
 			hs->link[p] = hs->hash[prb];
 			hs->hash[prb] = p;
 		}
-		if (!sorted && !revsorted && !nonil && !(key && hs))
-			break;
 	}
 	BATaccessEnd(b, USE_HEAD, MMAP_SEQUENTIAL);
 	if (hs) {
@@ -3162,8 +3267,18 @@ BATderiveHeadProps(BAT *b, int expensive)
 		 * column is sorted */
 		b->hkey = key & (sorted | revsorted);
 	}
-	b->H->nonil = nonil;
-	b->H->nil = !nonil;
+	if (sorted || revsorted) {
+		/* if sorted, we only need to check the extremes to
+		 * know whether there are any nils */
+		if (cmpf(BUNhead(bi, BUNfirst(b)), nilp) != 0 &&
+		    cmpf(BUNhead(bi, BUNlast(b) - 1), nilp) != 0) {
+			b->H->nonil = 1;
+			b->H->nil = 0;
+		} else {
+			b->H->nonil = 0;
+			b->H->nil = 1;
+		}
+	}
 #ifndef NDEBUG
 	BATassertHeadProps(b);
 #endif

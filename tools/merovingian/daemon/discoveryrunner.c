@@ -89,11 +89,16 @@ removeRemoteDB(const char *dbname, const char *conn)
 			free(rdb->conn);
 			free(rdb->fullname);
 			free(rdb);
+			rdb = prv;
 			hadmatch = 1;
 			/* in the future, there may be more, so keep looking */
 		}
 		prv = rdb;
-		rdb = rdb->next;
+		if (rdb == NULL) {
+			rdb = _mero_remotedbs;
+		} else {
+			rdb = rdb->next;
+		}
 	}
 
 	pthread_mutex_unlock(&_mero_remotedb_lock);

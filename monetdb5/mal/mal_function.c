@@ -124,8 +124,7 @@ Symbol  getFunctionSymbol(Module scope, InstrPtr p){
  * variable referenced in 'pp' exists. In addition, we should ensure
  * proper weaveing of the begin-end pairs. This can simply be checked by
  * counting the begin/end pairs. It should balance for every block.
- * Currently, the barrier control variables should be of type bit,
- * sht, int, or lng. A number zero is interpreted as end of the barrier
+ * A number NIL is interpreted as end of the barrier
  * block.
  *
  * To speed-up interpretation of the control statements, we could also
@@ -193,21 +192,6 @@ void chkFlow(stream *out, MalBlkPtr mb)
 			    return;
 			}
 
-			if( getVarType(mb,v) != TYPE_bit &&
-			    getVarType(mb,v) != TYPE_int &&
-			    getVarType(mb,v) != TYPE_str &&
-			    getVarType(mb,v) != TYPE_lng &&
-			    getVarType(mb,v) != TYPE_oid &&
-			    getVarType(mb,v) != TYPE_sht &&
-			    !isaBatType(getVarType(mb,v)) &&
-			    getVarType(mb,v) != TYPE_bte &&
-			    getVarType(mb,v) != TYPE_wrd
-				){
-			    showScriptException(out, mb,i,TYPE,
-					"barrier '%s' should be of type bit, str or number",
-					getVarName(mb, v));
-					mb->errors++;
-			}
 			btop++;
 			if( p->typechk != TYPE_RESOLVED) fixed =0;
 			break;
@@ -1055,18 +1039,9 @@ showInFlow(MalBlkPtr mb, int pc, int varid, stream *f)
 static void
 showFlowDetails(MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int pc, stream *f)
 {
-	str s, msg;
-
+	(void) mb;     /* fool the compiler */
 	(void) stk;     /* fool the compiler */
-	msg = instruction2str(mb, stk, p, LIST_MAL_DEBUG);
-	mnstr_printf(f, "n%d [fontsize=8, shape=box, label=\"", pc);
-	for (s = msg; *s; s++)
-		if (*s == '"')
-			mnstr_printf(f, "\\\"");
-		else
-			mnstr_printf(f, "%c", *s);
-	GDKfree(msg);
-	mnstr_printf(f, "\"];\n");
+	mnstr_printf(f, "n%d [fontsize=8, shape=box, label=\"%s\"]\n", pc, getFunctionId(p));
 }
 
 /* the stethoscope needs dot files for its graphical interface.

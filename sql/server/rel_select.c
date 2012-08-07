@@ -1612,7 +1612,7 @@ table_ref(mvc *sql, sql_rel *rel, symbol *tableref)
 				tpe->comp_type) {
 				temp_table = stack_find_rel_var(sql, tname);
 				t = tpe->comp_type;
-			} else {
+			} else if (sql->use_views){
 				temp_table = stack_find_rel_view(sql, tname);
 			}
 			if (temp_table)
@@ -1771,7 +1771,7 @@ rel_column_ref(mvc *sql, sql_rel **rel, symbol *column_r, int f)
 
 		/* some views are just in the stack,
 		   like before and after updates views */
-		if (!exp) {
+		if (!exp && sql->use_views) {
 			sql_rel *v = stack_find_rel_view(sql, tname);
 
 			if (v) {
@@ -3451,7 +3451,7 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 		} else if (f->func->fix_scale == SCALE_MUL) {
 			l = exp_sum_scales(sql, f, l, r);
 		} else if (f->func->fix_scale == DIGITS_ADD) {
-			f->res.digits = t1->digits + t2->digits;
+			f->res.digits = (t1->digits && t2->digits)?t1->digits + t2->digits:0;
 		}
 		return exp_binop(sql->sa, l, r, f);
 	} else {
@@ -3504,7 +3504,7 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 				} else if (f->func->fix_scale == SCALE_MUL) {
 					l = exp_sum_scales(sql, f, l, r);
 				} else if (f->func->fix_scale == DIGITS_ADD) {
-					f->res.digits = t1->digits + t2->digits;
+					f->res.digits = (t1->digits && t2->digits)?t1->digits + t2->digits:0;
 				}
 				return exp_binop(sql->sa, l, r, f);
 			}
@@ -4744,7 +4744,7 @@ rel_select_exp(mvc *sql, sql_rel *rel, sql_rel *outer, SelectNode *sn, exp_kind 
 	list *pre_prj = NULL;
 	list *outer_gbexps = NULL;
 	sql_rel *inner = NULL;
-	int decorrelated = 0;
+	int decorrelated = 0, projection = 0;
 
 	assert(sn->s.token == SQL_SELECT);
 	if (!sn->selection)
@@ -4973,6 +4973,7 @@ rel_select_exp(mvc *sql, sql_rel *rel, sql_rel *outer, SelectNode *sn, exp_kind 
 			sql_exp *e = rel_lastexp(sql, rel->r);
 			list *exps = list_dup(pre_prj, (fdup)NULL);
 
+			projection = 1;
 			exps = list_merge(exps, rel_projections(sql, outer, NULL, 1, 1), (fdup)NULL);
 			rel = rel_project(sql->sa, rel, exps);
 			rel_project_add_exp(sql, rel, e);
@@ -4990,6 +4991,7 @@ rel_select_exp(mvc *sql, sql_rel *rel, sql_rel *outer, SelectNode *sn, exp_kind 
 	if (outer && pre_prj) {
 		sql_rel *l;
 		node *n;
+		list *exps;
 
 		if (outer_gbexps) {
 			assert(is_groupby(rel->op));
@@ -5003,7 +5005,20 @@ rel_select_exp(mvc *sql, sql_rel *rel, sql_rel *outer, SelectNode *sn, exp_kind 
 			rel->exps = outer_gbexps;
 			exps_fix_card(outer_gbexps, rel->card);
 		}
-		l = rel = rel_project(sql->sa, rel, pre_prj);
+		if (projection) {
+			exps = new_exp_list(sql->sa);
+			for (n = pre_prj->h; n; n = n->next) {
+				sql_exp *pe = n->data;
+
+				if (!exp_name(pe))
+					exp_label(sql->sa, pe, ++sql->label);
+				pe = exp_column(sql->sa, exp_relname(pe), exp_name(pe), exp_subtype(pe), exp_card(pe), has_nil(pe), is_intern(pe));
+				append(exps, pe);
+			}
+		} else {
+			exps = pre_prj;
+		}
+		l = rel = rel_project(sql->sa, rel, exps);
 		while(l && l->op != op_join)
 			l = l->l;
 		if (l && l->op == op_join && l->l == outer && ek.card != card_set)
@@ -5067,6 +5082,7 @@ rel_query(mvc *sql, sql_rel *rel, symbol *sq, int toplevel, exp_kind ek)
 	sql_rel *res = NULL;
 	SelectNode *sn = NULL;
 	int used = 0;
+	int old = sql->use_views;
 
 	if (sq->token != SQL_SELECT)
 		return table_ref(sql, rel, sq);
@@ -5080,6 +5096,7 @@ rel_query(mvc *sql, sql_rel *rel, symbol *sq, int toplevel, exp_kind ek)
 		return sql_error(sql, 01, "SELECT: ORDER BY only allowed on outermost SELECT");
 
 
+	sql->use_views = 1;
 	if (sn->from) {		/* keep variable list with tables and names */
 		dlist *fl = sn->from->data.lval;
 		dnode *n = NULL;
@@ -5111,8 +5128,10 @@ rel_query(mvc *sql, sql_rel *rel, symbol *sq, int toplevel, exp_kind ek)
 			res = rel_crossproduct(sql->sa, rel, res, op_join);
 		}
 	} else if (toplevel || !res) {	/* only on top level query */
+		sql->use_views = old;
 		return rel_simple_select(sql, rel, sn->where, sn->selection, sn->distinct);
 	}
+	sql->use_views = old;
 	if (res)
 		rel = rel_select_exp(sql, res, rel, sn, ek);
 	return rel;

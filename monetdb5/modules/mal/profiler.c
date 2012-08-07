@@ -18,9 +18,8 @@
  */
 
 /*
- * @f profiler
- * @a Martin Kersten
- * @+ Performance profiler
+ * Martin Kersten
+ * Performance profiler
  * A key issue in developing fast programs using the Monet database
  * back-end requires a keen eye on where performance is lost.
  * Although performance tracking and measurements are highly
@@ -347,7 +346,7 @@ CMDgetTrace(int *res, str *ev)
 	checkProfiler("getTrace");
 	bn = getTrace(*ev);
 	if (bn) {
-		BBPincref(*res = bn->batCacheid, TRUE);
+		BBPkeepref(*res = bn->batCacheid);
 		return MAL_SUCCEED;
 	}
 	throw(MAL, "getTrace", RUNTIME_OBJECT_MISSING  "%s",*ev);
