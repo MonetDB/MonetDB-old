@@ -41,7 +41,7 @@ comment "Replace select with join select";
         getModuleId(X) && getModuleId(X)==M)
 #define match3(X,M) (getModuleId(X) && getModuleId(X)==M) 
 
-@:exportOptimizer(joinselect)@
+opt_export int OPTjoinselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 
 #define OPTDEBUGjoinselect  if ( optDebug & (1 <<DEBUG_OPT_JOINSELECT) )
 
@@ -51,8 +51,9 @@ comment "Replace select with join select";
 #include "opt_joinselect.h"
 #include "mal_interpreter.h"	/* for showErrors() */
 #include "mal_exception.h"
+#include "opt_statistics.h"
 
-static int
+int
 OPTjoinselectImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	InstrPtr p, *old, qs, qi, qu, qd, r, d, k;
@@ -313,7 +314,3 @@ end:
 	GDKfree(pd);
 	return 1;
 }
-@include optimizerWrapper.mx
-@c
-#include "opt_statistics.h"
-@:wrapOptimizer(joinselect,OPT_CHECK_ALL)@

@@ -57,6 +57,7 @@ All Rights Reserved.
 #include "opt_history.h"
 #include "opt_inline.h"
 #include "opt_joinpath.h"
+#include "opt_joinselect.h"
 #include "opt_mapreduce.h"
 #include "opt_mergetable.h"
 #include "opt_mitosis.h"
@@ -97,6 +98,7 @@ struct{
 	{"history", &OPThistoryImplementation},
 	{"inline", &OPTinlineImplementation},
 	{"joinPath", &OPTjoinPathImplementation},
+	{"joinselect", &OPTjoinselectImplementation},
 	{"mapreduce", &OPTmapreduceImplementation},
 	{"mergetable", &OPTmergetableImplementation},
 	{"mitosis", &OPTmitosisImplementation},
