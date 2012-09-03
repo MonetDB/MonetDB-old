@@ -18,7 +18,7 @@
  */
 
 /*
- * @a M. Kersten, F.Groffen, E. Liarou, R. Goncalves
+ * Author M. Kersten, F.Groffen, E. Liarou, R. Goncalves
    The Sensor Simulation program
 
    The sensor tool can be used to simulate a simple sensor, such as an on/off sensor or
@@ -62,6 +62,17 @@
 #include <signal.h>
 #include <unistd.h>
 #include <sys/types.h>
+
+#ifdef TIME_WITH_SYS_TIME
+# include <sys/time.h>
+# include <time.h>
+#else
+# ifdef HAVE_SYS_TIME_H
+#  include <sys/time.h>
+# else
+#  include <time.h>
+# endif
+#endif
 
 #ifndef HAVE_GETOPT_LONG
 #  include "monet_getopt.h"
@@ -111,11 +122,13 @@ static int events = -1;
 static int columns = 1;
 static int autoincrement = 1;   /* if id != 0 then we increment and send it along */
 static int timestamp = 1; /*if (timestamp!=0) sensor sends also the tsmp */
+static int timecolumn = -1;		/* use first column for derivation of delay */
 static char *host = "localhost";
 static int port = 50500;
 static int trace = 0;
+static int replay = 0;
 static char *sensor = "X";
-static char *datafile;
+static char *datafile= 0;
 static int server = 0;
 
 
@@ -134,7 +147,9 @@ usage(void)
 	mnstr_printf(SEout, "--timestamp, default=on\n");
 	mnstr_printf(SEout, "--columns=<number>, default=1\n");
 	mnstr_printf(SEout, "--events=<events length>, (-1=forever,>0), default=1\n");
-	mnstr_printf(SEout, "--file=<data file>\n");
+	mnstr_printf(SEout, "--file=<data file> \n");
+	mnstr_printf(SEout, "--replay use file or standard input\n");
+	mnstr_printf(SEout, "--time=<column> where to find the exact time\n");
 	mnstr_printf(SEout, "--batch=<batchsize> , default=1\n");
 	mnstr_printf(SEout, "--delay=<ticks> interbatch delay in ms, default=1\n");
 	mnstr_printf(SEout, "--trace=<trace> interaction\n");
@@ -185,16 +200,18 @@ int main(int argc, char **argv)
 	char hostname[1024];
 	Sensor se = NULL;
 	static SOCKET sockfd;
-	static struct option long_options[16] = {
+	static struct option long_options[18] = {
 		{ "increment", 0, 0, 'i' },
 		{ "batch", 1, 0, 'b' },
 		{ "columns", 1, 0, 'c' },
 		{ "client", 0, 0, 'c' },
 		{ "port", 1, 0, 'p' },
 		{ "timestamp", 0, 0, 't' },
+		{ "time", 1, 0, 't' },
 		{ "events", 1, 0, 'e' },
 		{ "sensor", 1, 0, 's' },
 		{ "server", 0, 0, 's' },
+		{ "replay", 0, 0, 'r' },
 		{ "delay", 1, 0, 'd' },
 		{ "file", 1, 0, 'f' },
 		{ "host", 1, 0, 'h' },
@@ -253,6 +270,10 @@ int main(int argc, char **argv)
 				timestamp = 1;
 				break;
 			}
+			if (strcmp(long_options[option_index].name, "time") == 0) {
+				timecolumn = optarg ? atol(optarg) : 0;
+				break;
+			}
 			if (strcmp(long_options[option_index].name, "trace") == 0) {
 				trace = optarg ? atol(optarg) : 1;
 			} else {
@@ -261,7 +282,7 @@ int main(int argc, char **argv)
 			}
 			break;
 		case 'f':
-			datafile = optarg;
+			datafile = optarg && *optarg? optarg:0;
 			break;
 		case 'e':
 			if (strcmp(long_options[option_index].name, "events") == 0) {
@@ -278,6 +299,9 @@ int main(int argc, char **argv)
 				usage();
 				exit(0);
 			}
+			break;
+		case 'r':
+			replay= 1;
 			break;
 		case 's':
 			if (strcmp(long_options[option_index].name, "sensor") == 0) {
@@ -351,8 +375,10 @@ int main(int argc, char **argv)
 		mnstr_printf(SEout, "--columns=%d\n", columns);
 		mnstr_printf(SEout, "--autoincrement=%d\n", autoincrement);
 		mnstr_printf(SEout, "--timestamp=%d\n", timestamp);
+		mnstr_printf(SEout, "--time=%d\n", timecolumn);
 		mnstr_printf(SEout, "--events=%d\n", events);
 		mnstr_printf(SEout, "--batch=%d\n", batchsize);
+		mnstr_printf(SEout, "--replay=%d\n", replay);
 		mnstr_printf(SEout, "--delay=%d\n", delay);
 		mnstr_printf(SEout, "--protocol %s\n", protocolname[protocol]);
 		mnstr_printf(SEout, "--trace=%d\n", trace);
@@ -368,7 +394,6 @@ int main(int argc, char **argv)
 	host = hostname;
 
 	/*
-	 * @-
 	 * We limit the protocols for the time being to what can be
 	 * considered a safe method.
 	 */
@@ -589,37 +614,66 @@ produceStream(Sensor se)
 static void
 produceDataStream(Sensor se)
 {
-	char buf[MYBUFSIZ + 1], *tuple;
+	char buf[MYBUFSIZ + 1], *tuple, *c, *d;
 	FILE *fd;
-	int snr;
+	int i, snr;
+	int multiply=1000, usec = 0; 
+	time_t lasttime = 0, tm = 0;
+	struct tm stm;
 
-	/* read a events of messages from a file.
+	/* read a events of messages from a file or standard input.
 	   It is processed multiple times.
 	   The header is the delay imposed */
 
 	snr = 0;
 	do {
-		fd = fopen(datafile, "r");
-		if (fd == NULL) {
-			mnstr_printf(SEout, "Could not open file '%s'\n", datafile);
-			close_stream(se->toServer);
-			se->toServer = NULL;
-			return;
+		if ( datafile == 0){
+			fd = stdin;
+		} else {
+			fd = fopen(datafile, "r");
+			if (fd == NULL) {
+				mnstr_printf(SEout, "Could not open file '%s'\n", datafile);
+				close_stream(se->toServer);
+				se->toServer = NULL;
+				return;
+			}
 		}
 
 		/* read the event requests and sent when the becomes */
 		while (fgets(buf, MYBUFSIZ, fd) != 0) {
-			int newdelay = 0;
-			newdelay = (int) atol(buf);
+			int newdelay = delay;
 			tuple = buf;
 
-			if (newdelay > 0) {
-				/* wait */
-				tuple = strchr(buf, '[');
-				if (tuple == 0)
-					tuple = buf;
+			if ( timecolumn >= 0 ) {
+				/* calculate the difference with previous event */
+				/* use a simplistic csv file format */
+				c= buf;
+				for ( i = timecolumn; i> 0; i--){
+					if ( (d=strchr(c,(int)','))){
+						c= d+1;
+					}
+				}
+				/* convert time to epoch in seconds*/
+				memset(&stm, 0, sizeof(struct tm));
+				if ( c ){
+					c = strptime(c,"%Y-%m-%d %H:%M:%S", &stm);
+					tm = mktime(&stm);
+					if ( *c == '.') {
+						/* microseconds */
+						usec = atoi(c+1);
+						if ( usec)
+							multiply = 1;
+					}
+				} 
+				/* calculate time differential in seconds */
+				if ( lasttime )
+					newdelay = (int) difftime(tm,lasttime) * multiply + usec;
+				lasttime = tm;
+				if (trace && newdelay)
+					mnstr_printf(SEout, "delayed %d\n", newdelay);
 				MT_sleep_ms(newdelay);
-			} else if (delay > 0) {
+			} else
+			if (delay > 0) {
 				/* wait */
 				MT_sleep_ms(delay);
 			}
@@ -643,7 +697,7 @@ produceDataStream(Sensor se)
 static void
 produceServerStream(Sensor se)
 {
-	if (datafile)
+	if (replay)
 		produceDataStream(se);
 	else
 		produceStream(se);
