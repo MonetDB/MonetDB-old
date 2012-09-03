@@ -38,7 +38,7 @@ comment "Selection cracking";
 
 #define maxTables 10
 
-@:exportOptimizer(selcrack)@
+opt_export int OPTselcrackImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 #define OPTDEBUGselcrack  if ( optDebug & ((lng)1 <<DEBUG_OPT_SELCRACK) )
 
 #endif
@@ -54,7 +54,7 @@ comment "Selection cracking";
 
 /* find all algebra select structions in a mal block mb and change them to the corresponding crackers command
     */
-static int
+int
 OPTselcrackImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	InstrPtr p, *old;
@@ -243,8 +243,3 @@ OPTselcrackImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 
 	return actions;
 }
-
-@include ../../optimizer/optimizerWrapper.mx
-@c
-#include "opt_statistics.h"
-@:wrapOptimizer(selcrack,OPT_CHECK_ALL)@

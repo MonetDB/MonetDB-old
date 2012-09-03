@@ -38,7 +38,7 @@ comment "Holistic Selection Cracking";
 
 #define maxTables 10
 
-@:exportOptimizer(selcrackhol)@
+opt_export int OPTselcrackholImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 #define OPTDEBUGselcrackhol  if ( optDebug & ((lng)1 <<DEBUG_OPT_SELCRACKHOL) )
 
 #endif
@@ -54,7 +54,7 @@ comment "Holistic Selection Cracking";
 
 /* find all algebra select structions in a mal block mb and change them to the corresponding crackers command
     */
-static int
+int
 OPTselcrackholImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	InstrPtr p, *old;
@@ -245,8 +245,3 @@ OPTselcrackholImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 
 	return actions;
 }
-
-@include ../../optimizer/optimizerWrapper.mx
-@c
-#include "opt_statistics.h"
-@:wrapOptimizer(selcrackhol,OPT_CHECK_ALL)@
