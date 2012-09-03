@@ -42,7 +42,7 @@ getFrequencyStruct(char which)
 {
 	FrequencyNode **theNode = NULL;
 
-	mal_set_lock(frequencylock, "getFrequencyStruct");
+	MT_lock_set(&frequencylock, "getFrequencyStruct");
 	switch (which) {
                 case 'A':
                         theNode = &_InternalFrequencyStructA;
@@ -57,7 +57,7 @@ getFrequencyStruct(char which)
         /* GDKzalloc = calloc = malloc + memset(0) */
         if (*theNode == NULL)
                 *theNode = GDKzalloc(sizeof(FrequencyNode));
-	mal_unset_lock(frequencylock, "getFrequencyStruct");
+	MT_lock_unset(&frequencylock, "getFrequencyStruct");
 	
 	return *theNode;
 }
