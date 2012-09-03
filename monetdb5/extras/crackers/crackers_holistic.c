@@ -105,14 +105,24 @@ pop(FrequencyNode* head)
 void 
 printFrequencyStruct(FrequencyNode* head)
 {
-	int i=0;
 	FrequencyNode* temp;
+	FILE *ofp;
+	char outputFilename[] = "/export/scratch2/petraki/experiments_1st_paper/same#tuples/hit_range/4th_CostModel/ITafter1/randomAttributes/out.txt";
+	ofp = fopen(outputFilename,"a");
+	if (ofp == NULL) {
+  		fprintf(stderr, "Can't open output file out.txt!\n");
+  		exit(1);
+	}
 	temp=head;
 	while(temp != NULL)
 	{
-		fprintf(stderr,"Item No. %d:Bid=%d c=%d f1=%d f2=%d W=%lf  \n",i++,temp->bid,temp->c,temp->f1,temp->f2,temp->weight);
+		/*fprintf(stderr,"Bid=%d c=%d f1=%d f2=%d W=%lf  \n",temp->bid,temp->c,temp->f1,temp->f2,temp->weight);*/
+		fprintf(ofp,"%d\t%d\t",temp->bid,temp->c);
 		temp=temp->next;
 	}
+	fprintf(ofp,"\n");
+	fclose(ofp);
+
 }
 
 FrequencyNode* 
@@ -150,25 +160,6 @@ findMax(FrequencyNode* head)
 	return ret_node;
 }
 
-double
-changeWeight(FrequencyNode* node,int N,int L1)
-{
-	int p; /*number of pieces in the index*/
-	double Sp; /*average size of each piece*/
-	double d; /*distance from optimal piece(L1)*/
-	p = node->c;
-	Sp =((double)N)/p;	
-	d = Sp - L1;
-	/*fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);*/
-	if (node->f2!=0)
-		node->weight = ((double)(node->f1)/(double)(node->f2)) * d;
-	else
-		node->weight = (double)(node->f1) * d;
-
-	/*fprintf(stderr,"W=%lf\n",node->weight);*/
-	return node->weight;
-
-}
 
 /*this function updates the weights in the list in the first experiment (1st cost model)*/
 double
@@ -201,6 +192,53 @@ changeWeight_2(FrequencyNode* node,int N,int L1)
 	/*fprintf(stderr,"W=%lf\n",node->weight);*/
 	return node->weight;
 }
+
+/*this function updates the weights in the list in the third experiment (3rd cost model)*/
+double
+changeWeight_3(FrequencyNode* node,int N,int L1)
+{
+        int p; /*number of pieces in the index*/
+        double Sp; /*average size of each piece*/
+        double d; /*distance from optimal piece(L1)*/
+        p = node->c;
+        Sp =((double)N)/p;
+        d = Sp - L1;
+        /*fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);*/
+	if(d>0)
+        	node->weight = (double)(node->f1) + d;
+        else
+		node->weight = d;
+	/*fprintf(stderr,"W=%lf\n",node->weight);*/
+        return node->weight;
+}
+
+double
+changeWeight_4(FrequencyNode* node,int N,int L1)
+{
+	int p; /*number of pieces in the index*/
+	double Sp; /*average size of each piece*/
+	double d; /*distance from optimal piece(L1)*/
+	p = node->c;
+	Sp =((double)N)/p;	
+	d = Sp - L1;
+	/*fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);*/
+
+	if (node->f1==0)
+	{
+		node->weight = d;
+	}
+	else
+	{
+		if (node->f2!=0)
+			node->weight = ((double)(node->f1)/(double)(node->f2)) * d;
+		else
+			node->weight = (double)(node->f1) * d;
+	}
+	/*fprintf(stderr,"W=%lf\n",node->weight);*/
+	return node->weight;
+
+}
+
 
 void
 deleteNode(FrequencyNode* head,int bat_id)
@@ -275,8 +313,16 @@ CRKrandomCrack(int *ret)
 		}
 	/*fprintf(stderr,"posl = "OIDFMT" posh = "OIDFMT" low = %d hgh = %d inclusive = %d", posl,posh,low,hgh,inclusive );*/
 		CRKselectholBounds_int(ret, &bid, &low, &hgh, &inclusive, &inclusive);
-		max_node->f1=max_node->f1-1; /*increase frequency only when the column is refined during workload executuion and not during idle time*/
+		
+		if(max_node->f1 > 0)	
+			max_node->f1=max_node->f1-1; /*increase frequency only when the column is refined during workload executuion and not during idle time*/
+		if(max_node->f2 > 0 && max_node->f1 == 0)
+			max_node->f2=max_node->f2-1;
 	}
+	
+	
+	/*printFrequencyStruct(fs);*/
+	
 	*ret = 0;
 	return MAL_SUCCEED;
 }

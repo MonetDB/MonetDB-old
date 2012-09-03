@@ -315,13 +315,12 @@ createView:
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 	FN=searchBAT(FrequencyStructA,*bid);
 	
-	FN->f1 = FN->f1 + 1; /*increase the frequency (for the 2nd cost model)*/	
 
 	/*fprintf(stderr,"This is from selcrack_HOL operators\n");*/	
 	/*fprintf(stderr,"FN->bid=%d\n",FN->bid);*/
 
-	if (@2_GT(low,hgh,@3@1))
-		throw(MAL, "crackers.crack", "illegal range");
+	/*if (@2_GT(low,hgh,@3@1))
+		throw(MAL, "crackers.crack", "illegal range");*/
 	
 	if (*inclusiveHgh == TRUE) HBound = FALSE;
 	else	HBound = TRUE; 				
@@ -352,8 +351,8 @@ createView:
 		
 			countBatElements=BATcount(b);
 			/*fprintf(stderr,"BATcount(b)=%d",countBatElements);*/
-			/*FN->f1 = FN->f1 + 1;*/
-			FN->weight = changeWeight_2(FN,countBatElements,L1);	
+			FN->f1 = FN->f1 + 1;
+				
 
 			if ((c = BATdescriptor(CrackerIndex[m].cid)) == NULL)
 				throw(MAL, "crackers.crackRange", "Cannot access crack index");
@@ -367,7 +366,8 @@ createView:
 			@:crkThreeTree@5(@1,posl,posh,@5)@
 
 			FN->c = FN->c + 2;
-			
+			FN->weight = changeWeight_4(FN,countBatElements,L1);
+			/*printFrequencyStruct(FrequencyStructA);*/
 			BBPincref(b->batCacheid,TRUE);
 			BBPunfix(bo->batCacheid);
 			goto createView;
@@ -465,8 +465,8 @@ createView:
 	
 	
        
-	/*if(foundLow==0 || foundHgh==0) FN->f1 = FN->f1 + 1;
-	else	FN->f2 = FN->f2 +1; */
+	if(foundLow==0 || foundHgh==0) FN->f1 = FN->f1 + 1;
+	else	FN->f2 = FN->f2 +1;
 	/* If one or both of the result view bounds were not found using the
 	index then we have to crack */
 
@@ -566,11 +566,11 @@ createView:
 	countBatElements=BATcount(b);
 	/*fprintf(stderr,"BATcount(b)=%d\n",countBatElements);*/
 	if(FN->weight > 0)
-		FN->weight = changeWeight_2(FN,countBatElements,L1);
+		FN->weight = changeWeight_4(FN,countBatElements,L1);
 	/*if(FN->weight <0)
 		deleteNode(FrequencyStructA,FN->bid);
 	*/
-	printFrequencyStruct(FrequencyStructA);
+	/*printFrequencyStruct(FrequencyStructA);*/
 
 	@:CreateResult()@
 	return MAL_SUCCEED;
