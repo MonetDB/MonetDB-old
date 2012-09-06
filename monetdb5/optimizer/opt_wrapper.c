@@ -113,6 +113,9 @@ struct{
 	{"remap", &OPTremapImplementation},
 	{"remoteQueries", &OPTremoteQueriesImplementation},
 	{"reorder", &OPTreorderImplementation},
+	{"selcrackhol", &OPTselcrackholImplementation},
+	{"selcrack", &OPTselcrackImplementation},
+	{"selcrackst", &OPTselcrackstImplementation},
 	{"strengthReduction", &OPTstrengthReductionImplementation},
 	{0,0}
 };
