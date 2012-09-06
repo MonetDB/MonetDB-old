@@ -22,6 +22,7 @@
 #include "crackers.h"
 #include "gdk.h"
 #include "mal_exception.h"
+#include "opt_pipes.h"
 #include "mutils.h"
 
 static FrequencyNode *_InternalFrequencyStructA = NULL;
@@ -32,6 +33,7 @@ str
 CRKinitHolistic(int *ret)
 {
 	MT_lock_init(&frequencylock, "FrequencyStruct");
+
 	*ret = 0;
 	return MAL_SUCCEED;
 }

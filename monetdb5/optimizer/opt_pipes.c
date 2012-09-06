@@ -206,92 +206,6 @@ struct PIPELINES {
 	 "optimizer.multiplex();"
 	 "optimizer.garbageCollector();",
 	 "experimental", NULL, NULL, 1},
-	{"cracker_pipe",
-	 "optimizer.inline();"
-	 "optimizer.remap();"
-	 "optimizer.evaluate();"
-	 "optimizer.costModel();"
-	 "optimizer.coercions();"
-	 "optimizer.emptySet();"
-	 "optimizer.aliases();"
-	 "optimizer.selcrack();"
-	 "optimizer.deadcode();"
-	 "optimizer.commonTerms();"
-	 "optimizer.groups();"
-	 "optimizer.joinPath();"
-	 "optimizer.reorder();"
-	 "optimizer.deadcode();"
-	 "optimizer.reduce();"
-	 "optimizer.dataflow();"
-	 "optimizer.history();"
-	 "optimizer.multiplex();"
-	 "optimizer.garbageCollector();",
-	 "experimental", "OPTselcrack", NULL, 1},
-/*The STOCHASTIC cracking pipeline*/
-	{"crackerst_pipe",
-         "optimizer.inline();"
-         "optimizer.remap();"
-         "optimizer.evaluate();"
-         "optimizer.costModel();"
-         "optimizer.coercions();"
-         "optimizer.emptySet();"
-         "optimizer.aliases();"
-         "optimizer.selcrackst();"
-         "optimizer.deadcode();"
-         "optimizer.commonTerms();"
-		 "optimizer.groups();"
-         "optimizer.joinPath();"
-         "optimizer.reorder();"
-         "optimizer.deadcode();"
-         "optimizer.reduce();"
-         "optimizer.dataflow();"
-         "optimizer.history();"
-         "optimizer.multiplex();"
-         "optimizer.garbageCollector();",
-         "experimental", "OPTselcrackst", NULL, 1},
-/*The HOLISTIC indexing pipeline*/
-        {"crackerhol_pipe",
-         "optimizer.inline();"
-         "optimizer.remap();"
-         "optimizer.evaluate();"
-         "optimizer.costModel();"
-         "optimizer.coercions();"
-         "optimizer.emptySet();"
-         "optimizer.aliases();"
-         "optimizer.selcrackhol();"
-         "optimizer.deadcode();"
-         "optimizer.commonTerms();"
-         "optimizer.groups();"
-         "optimizer.joinPath();"
-         "optimizer.reorder();"
-         "optimizer.deadcode();"
-         "optimizer.reduce();"
-         "optimizer.dataflow();"
-         "optimizer.history();"
-         "optimizer.multiplex();"
-         "optimizer.garbageCollector();",
-         "experimental", "OPTselcrackhol", NULL, 1},
-	{"sidcrack_pipe",
-	 "optimizer.inline();"
-	 "optimizer.remap();"
-	 "optimizer.evaluate();"
-	 "optimizer.costModel();"
-	 "optimizer.coercions();"
-	 "optimizer.emptySet();"
-	 "optimizer.aliases();"
-	 "optimizer.sidcrack();"
-	 "optimizer.deadcode();"
-	 "optimizer.commonTerms();"
-	 "optimizer.groups();"
-	 "optimizer.joinPath();"
-	 "optimizer.reorder();"
-	 "optimizer.deadcode();"
-	 "optimizer.reduce();"
-	 "optimizer.dataflow();"
-	 "optimizer.history();"
-	 "optimizer.multiplex();"
-	 "optimizer.garbageCollector();",
-	 "experimental", "OPTsidcrack", NULL, 1},
 /*
  * The Octopus pipeline for distributed processing (Merovingian enabled platforms only)
  */
@@ -606,6 +520,7 @@ compileOptimizer(Client cntxt, str name)
 			c->nspace = newModule(NULL, putName("user", 4));
 			c->father = cntxt;	/* to avoid conflicts on GDKin */
 			c->fdout = cntxt->fdout;
+			assert(c->fdout != NULL);
 			if (setScenario(c, "mal"))
 				throw(MAL, "optimizer.addOptimizerPipe", "failed to set scenario");
 			(void) MCinitClientThread(c);

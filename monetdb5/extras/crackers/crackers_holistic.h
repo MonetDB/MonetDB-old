@@ -20,7 +20,8 @@
 #ifndef _CRACKERS_HOLISTIC_H_
 #define _CRACKERS_HOLISTIC_H_
 
-#include <mal.h>
+#include "mal.h"
+#include "mal_client.h"
 
 
 #ifdef WIN32

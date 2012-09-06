@@ -31,6 +31,10 @@ pattern optimizer.selcrackhol(mod:str, fcn:str):str
 address OPTselcrackhol
 comment "Holistic Selection Cracking";
 
+module crackers;
+pattern crackers.selcrackholprelude():void
+address SCHprelude;
+crackers.selcrackholprelude();
 @h
 #ifndef _OPT_SELCRACKHOL_
 #define _OPT_SELCRACKHOL_
@@ -38,8 +42,9 @@ comment "Holistic Selection Cracking";
 
 #define maxTables 10
 
-opt_export int OPTselcrackholImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 #define OPTDEBUGselcrackhol  if ( optDebug & ((lng)1 <<DEBUG_OPT_SELCRACKHOL) )
+opt_export str SCHprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+opt_export str OPTselcrackhol(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 
 #endif
 @c
@@ -47,14 +52,47 @@ opt_export int OPTselcrackholImplementation(Client cntxt, MalBlkPtr mb, MalStkPt
 #include "opt_selcrackhol.h"
 #include "mal_interpreter.h"	/* for showErrors() */
 #include "opt_prelude.h"
+#include "opt_pipes.h"
+#include "opt_statistics.h"
 #include "mtime.h"
 
 #define match2(X,M,F) ( (X) && getFunctionId(X) && getFunctionId(X)==F && \
 	getModuleId(X) && getModuleId(X)==M)
 
+str
+SCHprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) mb;
+	(void) stk;
+	(void) pci;
+
+	addPipeDefinition(cntxt, "crackerhol_pipe",
+         "optimizer.inline();"
+         "optimizer.remap();"
+         "optimizer.evaluate();"
+         "optimizer.costModel();"
+         "optimizer.coercions();"
+         "optimizer.emptySet();"
+         "optimizer.aliases();"
+         "optimizer.selcrackhol();"
+         "optimizer.deadcode();"
+         "optimizer.commonTerms();"
+         "optimizer.groups();"
+         "optimizer.joinPath();"
+         "optimizer.reorder();"
+         "optimizer.deadcode();"
+         "optimizer.reduce();"
+         "optimizer.dataflow();"
+         "optimizer.history();"
+         "optimizer.multiplex();"
+         "optimizer.garbageCollector();");
+
+	return MAL_SUCCEED;
+}
+
 /* find all algebra select structions in a mal block mb and change them to the corresponding crackers command
     */
-int
+static int
 OPTselcrackholImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	InstrPtr p, *old;
@@ -245,3 +283,67 @@ OPTselcrackholImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 
 	return actions;
 }
+
+str OPTselcrackhol(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
+{
+	str modnme;
+	str fcnnme;
+	str msg = MAL_SUCCEED;
+	Symbol s = NULL;
+	lng t, clk = GDKusec();
+	int actions = 0;
+	char optimizer[256];
+	InstrPtr q = copyInstruction(p);
+
+	optimizerInit();
+	snprintf(optimizer, 256, "%s", getFunctionId(p));
+	OPTDEBUGselcrackhol mnstr_printf(cntxt->fdout, "=APPLY OPTIMIZER %s\n", getModuleId(p));
+	if (p && p->argc > 1) {
+		if (getArgType(mb, p, 1) != TYPE_str ||
+			getArgType(mb, p, 2) != TYPE_str ||
+			!isVarConstant(mb, getArg(p, 1)) ||
+			!isVarConstant(mb, getArg(p, 2))
+			)
+			throw(MAL, optimizer, ILLARG_CONSTANTS);
+
+		if (stk != 0) {
+			modnme = *(str *) getArgReference(stk, p, 1);
+			fcnnme = *(str *) getArgReference(stk, p, 2);
+		} else {
+			modnme = getArgDefault(mb, p, 1);
+			fcnnme = getArgDefault(mb, p, 2);
+		}
+		removeInstruction(mb, p);
+		s = findSymbol(cntxt->nspace, putName(modnme, strlen(modnme)), putName(fcnnme, strlen(fcnnme)));
+
+		if (s == NULL) {
+			char buf[1024];
+			snprintf(buf, 1024, "%s.%s", modnme, fcnnme);
+			throw(MAL, optimizer, RUNTIME_OBJECT_UNDEFINED ":%s", buf);
+		}
+		mb = s->def;
+		stk = 0;
+	} else if (p)
+		removeInstruction(mb, p);
+	if (mb->errors) {
+		/* when we have errors, we still want to see them */
+		addtoMalBlkHistory(mb, getModuleId(q));
+		freeInstruction(q);
+		return MAL_SUCCEED;
+	}
+
+	actions = OPTselcrackholImplementation(cntxt, mb, stk, p);
+
+	msg = optimizerCheck(cntxt, mb, optimizer, actions, t = (GDKusec() - clk), OPT_CHECK_ALL);
+	OPTDEBUGselcrackhol {
+		mnstr_printf(cntxt->fdout, "=FINISHED %s  %d\n", optimizer, actions);
+		printFunction(cntxt->fdout, mb, 0, LIST_MAL_STMT | LIST_MAPI);
+	}
+	DEBUGoptimizers
+	mnstr_printf(cntxt->fdout, "#opt_reduce: " LLFMT " ms\n", t);
+	QOTupdateStatistics(getModuleId(q), actions, t);
+	addtoMalBlkHistory(mb, getModuleId(q));
+	freeInstruction(q);
+	return msg;
+}
+
