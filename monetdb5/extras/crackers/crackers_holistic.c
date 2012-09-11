@@ -108,22 +108,22 @@ void
 printFrequencyStruct(FrequencyNode* head)
 {
 	FrequencyNode* temp;
-	FILE *ofp;
+	/*FILE *ofp;
 	char outputFilename[] = "/export/scratch2/petraki/experiments_1st_paper/same#tuples/hit_range/4th_CostModel/ITafter1/randomAttributes/out.txt";
 	ofp = fopen(outputFilename,"a");
 	if (ofp == NULL) {
   		fprintf(stderr, "Can't open output file out.txt!\n");
   		exit(1);
-	}
+	}*/
 	temp=head;
 	while(temp != NULL)
 	{
-		/*fprintf(stderr,"Bid=%d c=%d f1=%d f2=%d W=%lf  \n",temp->bid,temp->c,temp->f1,temp->f2,temp->weight);*/
-		fprintf(ofp,"%d\t%d\t",temp->bid,temp->c);
+		fprintf(stderr,"Bid=%d c=%d f1=%d f2=%d W=%lf  \n",temp->bid,temp->c,temp->f1,temp->f2,temp->weight);
+		/*fprintf(ofp,"%d\t%d\t",temp->bid,temp->c);*/
 		temp=temp->next;
 	}
-	fprintf(ofp,"\n");
-	fclose(ofp);
+	/*fprintf(ofp,"\n");
+	fclose(ofp);*/
 
 }
 
