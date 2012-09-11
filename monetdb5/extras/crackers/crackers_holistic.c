@@ -28,6 +28,7 @@
 static FrequencyNode *_InternalFrequencyStructA = NULL;
 static FrequencyNode *_InternalFrequencyStructB = NULL;
 static MT_Lock frequencylock;
+//static int isIdleQuery = 0;
 
 str
 CRKinitHolistic(int *ret)
@@ -293,7 +294,8 @@ CRKrandomCrack(int *ret)
 	int temp=0;
 	oid posl,posh,p;
 	bit inclusive=TRUE;
-	FrequencyNode *fs = getFrequencyStruct('A');
+	FrequencyNode *fs = getFrequencyStruct('A');	
+	isIdleQuery=1;
 
 	max_node=findMax(fs);
 	if(max_node->weight > 0)
@@ -316,15 +318,12 @@ CRKrandomCrack(int *ret)
 	/*fprintf(stderr,"posl = "OIDFMT" posh = "OIDFMT" low = %d hgh = %d inclusive = %d", posl,posh,low,hgh,inclusive );*/
 		CRKselectholBounds_int(ret, &bid, &low, &hgh, &inclusive, &inclusive);
 		
-		if(max_node->f1 > 0)	
-			max_node->f1=max_node->f1-1; /*increase frequency only when the column is refined during workload executuion and not during idle time*/
-		if(max_node->f2 > 0 && max_node->f1 == 0)
-			max_node->f2=max_node->f2-1;
 	}
 	
 	
 	/*printFrequencyStruct(fs);*/
-	
+	isIdleQuery=0;
+
 	*ret = 0;
 	return MAL_SUCCEED;
 }
