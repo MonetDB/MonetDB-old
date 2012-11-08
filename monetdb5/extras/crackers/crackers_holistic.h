@@ -59,12 +59,13 @@ crackers_export double changeWeight_2(FrequencyNode* node,int N,int L1);
 crackers_export double changeWeight_3(FrequencyNode* node,int N,int L1);
 crackers_export double changeWeight_4(FrequencyNode* node,int N,int L1);
 crackers_export FrequencyNode* findMax(FrequencyNode* head);
+crackers_export FrequencyNode* findMax_2(FrequencyNode* head);
 crackers_export void deleteNode(FrequencyNode* head,int bat_id);
 
 crackers_export str CRKinitHolistic(int *ret);
 crackers_export str CRKinitFrequencyStruct(int *vid,int *bid);
 crackers_export str CRKinitFrequencyStruct_2(int *vid,int *bid,int* N,int* L1);
 crackers_export str CRKrandomCrack(int *ret);
-
+crackers_export str CRKzeroFrequency(int *vid);
 
 #endif /*crackers_holistic*/ 

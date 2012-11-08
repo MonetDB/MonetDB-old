@@ -16,4 +16,8 @@ command randomCrack():void
 address CRKrandomCrack
 comment "Do random crack on BATs ordered by descending weight";
 
+command zeroFrequency():void
+address CRKzeroFrequency
+comment "Turn the frequency into 0 value.";
+
 crackers.holisticprelude();
