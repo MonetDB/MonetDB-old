@@ -280,17 +280,8 @@ DFLOWworker(void *t)
 			fe->state = DFLOWwrapup;
 			if (error) {
 				MT_lock_set(&flow->flowlock, "runMALdataflow");
-				if (flow->error) {
-					/* collect all errors encountered */
-					str z = (char *) GDKrealloc(flow->error, strlen(flow->error) + strlen(error) + 2);
-					if (z) {
-						if (z[strlen(z) - 1] != '\n')
-							strcat(z, "\n");
-						strcat(z, error);
-					}
-					flow->error = z;
-					GDKfree(error);
-				} else
+				/* only collect one error (from one thread, needed for stable testing) */
+				if (!flow->error) 
 					flow->error = error;
 				MT_lock_unset(&flow->flowlock, "runMALdataflow");
 				/* after an error we skip the rest of the block */
@@ -331,8 +322,8 @@ DFLOWworker(void *t)
 			}
 		MT_lock_unset(&flow->flowlock, "MALworker");
 
-		q_enqueue(flow->done, fe);
 		MALresourceFairness(flow->cntxt, flow->mb, usec);
+		q_enqueue(flow->done, fe);
 	}
 	GDKfree(GDKerrbuf);
 	GDKsetbuf(0);
@@ -549,7 +540,6 @@ DFLOWscheduler(DataFlow flow)
 		MT_lock_unset(&flow->flowlock, "MALworker");
 	}
 	/* wrap up errors */
-	assert(todo->last == 0);
 	assert(flow->done->last == 0);
 	if (flow->error ) {
 		PARDEBUG mnstr_printf(GDKstdout, "#errors encountered %s ", flow->error ? flow->error : "unknown");

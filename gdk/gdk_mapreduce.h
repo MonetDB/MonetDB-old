@@ -17,13 +17,16 @@
  * All Rights Reserved.
  */
 
+#ifndef _GDK_MAPREDUCE_H_
+#define _GDK_MAPREDUCE_H_
 
-#ifndef _BIN_OPTIMIZER_H
-#define _BIN_OPTIMIZER_H
+#include <monet_options.h>
 
-#include "sql_statement.h"
+typedef struct {
+	MT_Sema *sema;			/* micro scheduler handle */
+	void (*cmd) (void *);		/* the function to be executed */
+} MRtask;
 
-extern stmt *bin_optimizer(mvc *c, stmt *s);
+gdk_export void MRschedule(int taskcnt, void **arg, void (*cmd) (void *p));
 
-#endif /* _BIN_OPTIMIZER_H */
-
+#endif /* _GDK_MAPREDUCE_H_ */
