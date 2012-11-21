@@ -17,14 +17,5 @@
  * All Rights Reserved.
  */
 
-#ifndef _GDK_MAPREDUCE_H_
-#define _GDK_MAPREDUCE_H_
-
-typedef struct {
-	MT_Sema *sema;			/* micro scheduler handle */
-	void (*cmd) (void *);		/* the function to be executed */
-} MRtask;
-
-gdk_export void MRschedule(int taskcnt, void **arg, void (*cmd) (void *p));
-
-#endif /* _GDK_MAPREDUCE_H_ */
+extern void parse_dotmonetdb(char **user, char **passwd, char **language,
+			     int *save_history, char **output, int *pagewidth);

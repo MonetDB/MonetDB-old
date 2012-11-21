@@ -34,6 +34,7 @@
 #ifdef HAVE_LIMITS_H
 #include <limits.h>
 #endif
+#include "dotmonetdb.h"
 
 #ifndef HAVE_GETOPT_LONG
 # include "monet_getopt.h"
@@ -56,7 +57,6 @@
 
 #define COUNTERSDEFAULT "ISTestmrw"
 
-#define TOMOGRAPHPATTERN "tomograph start 2012"
 /* #define _DEBUG_TOMOGRAPH_*/
 
 static struct {
@@ -111,28 +111,30 @@ typedef struct _wthread {
 #endif
 	int tid;
 	char *uri;
+	char *host;
+	char *dbname;
+	int port;
 	char *user;
 	char *pass;
 	stream *s;
 	size_t argc;
 	char **argv;
 	struct _wthread *next;
+	Mapi dbh;
+	MapiHdl hdl;
 } wthread;
 
 static wthread *thds = NULL;
 static char hostname[128];
 static char *filename="tomograph";
-static char *inputfile=0;
+static char *tracefile=0;
 static long startrange=0, endrange= 0;
 static char *title =0;
-static int listing = 0;
 static int debug = 0;
 static int colormap = 0;
 static int beat= 50;
-static Mapi dbh = NULL;
-static MapiHdl hdl = NULL;
+static char *sqlstatement = NULL;
 static int batch = 1; /* number of queries to combine in one run */
-static int startup= 0; /* count openStream calls first */
 static long maxio=0;
 static int cpus = 0;
 
@@ -148,13 +150,15 @@ usage(void)
 	fprintf(stderr, "  -p | --port=<portnr>\n");
 	fprintf(stderr, "  -h | --host=<hostname>\n");
 	fprintf(stderr, "  -T | --title=<plot title>\n");
-	fprintf(stderr, "  -i | --input=<filename>\n");
+	fprintf(stderr, "  -s | --sql=<single sql expression>\n");
+	fprintf(stderr, "  -t | --trace=<tomograph trace filename>\n");
 	fprintf(stderr, "  -r | --range=<starttime>-<endtime>[ms,s] \n");
 	fprintf(stderr, "  -o | --output=<file prefix > (default 'tomograph'\n");
-	fprintf(stderr, "  -m | --colormap produces colormap \n");
 	fprintf(stderr, "  -b | --beat=<delay> in milliseconds (default 50)\n");
 	fprintf(stderr, "  -B | --batch=<number> of combined queries\n");
+	fprintf(stderr, "  -m | --colormap produces colormap \n");
 	fprintf(stderr, "  -D | --debug\n");
+	fprintf(stderr, "  -? | --help\n");
 }
 
 
@@ -163,17 +167,32 @@ usage(void)
 					   fprintf(stderr, "!! %scommand failed\n", id)); \
 					   goto stop_disconnect;}
 #define doQ(X) \
-	if ((hdl = mapi_query(dbh, X)) == NULL || mapi_error(dbh) != MOK) \
-			 die(dbh, hdl);
+	if ((wthr->hdl = mapi_query(wthr->dbh, X)) == NULL || mapi_error(wthr->dbh) != MOK) \
+			 die(wthr->dbh, wthr->hdl);
+#define doQsql(X) \
+	if ((hdlsql = mapi_query(dbhsql, X)) == NULL || mapi_error(dbhsql) != MOK) \
+			 die(dbhsql, hdlsql);
+
 
 /* Any signal should be captured and turned into a graceful
  * termination of the profiling session. */
 static void createTomogram(void);
 
+static int activated = 0;
 static void deactivateBeat(void){
+	wthread *wthr;
 	char *id ="deactivateBeat";
-	if ( batch == 1)
+	if ( activated == 0)
+		return;
+	activated = 0;
+	if ( debug)
+		fprintf(stderr,"Deactivate beat\n");
+	/* deactivate all connections  */
+	for (wthr = thds; wthr != NULL; wthr = wthr->next) 
+	if (wthr->dbh ){
 		doQ("profiler.deactivate(\"ping\");\n");
+		doQ("profiler.stop();");
+	}
 	return;
 stop_disconnect:
 	;
@@ -182,19 +201,19 @@ stop_disconnect:
 static void
 stopListening(int i)
 {
-	char *id ="deactivateBeat";
 	wthread *walk;
 	(void)i;
-	printf("Interrupt received\n");
+	if ( debug) 
+		fprintf(stderr,"Interrupt received\n");
 	batch = 0;
-	createTomogram();
-	/* kill all connections */
-	doQ("profiler.deactivate(\"ping\");\n");
+	deactivateBeat();
+	/* kill all connections  */
 	for (walk = thds; walk != NULL; walk = walk->next) {
-		if (walk->s != NULL)
+		if (walk->s != NULL){
 			mnstr_close(walk->s);
+		}
 	}
-stop_disconnect: ;
+	createTomogram();
 }
 
 static int
@@ -215,15 +234,26 @@ setCounter(char *nme)
 static void activateBeat(void){
 	char buf[BUFSIZ];
 	char *id ="activateBeat";
+	wthread *wthr;
+
+	if ( debug)
+		fprintf(stderr,"Activate beat\n");
+	if ( activated == 1)
+		return;
+	activated = 1;
 	snprintf(buf, BUFSIZ, "profiler.activate(\"ping%d\");\n",beat);
-	doQ(buf);
-	snprintf(buf, BUFSIZ, "io.print(\"%s\");\n",TOMOGRAPHPATTERN);
-	doQ(buf);
+	/* activate all connections  */
+	for (wthr = thds; wthr != NULL; wthr = wthr->next) 
+	if (wthr->dbh ){
+		doQ(buf);
+	}
 	return;
 stop_disconnect:
-	mapi_disconnect(dbh);
-	mapi_destroy(dbh);
-	dbh = 0;
+	if ( wthr ){
+		mapi_disconnect(wthr->dbh);
+		mapi_destroy(wthr->dbh);
+		wthr->dbh = 0;
+	}
 }
 
 #define MAXTHREADS 2048
@@ -450,6 +480,7 @@ struct COLOR{
 	{0,0,"aggr","*","green"},
 
 	{0,0,"algebra","leftjoin","yellow"},
+	{0,0,"algebra","leftfetchjoin","yellow"},
 	{0,0,"algebra","join","navy"},
 	{0,0,"algebra","semijoin","lightblue"},
 	{0,0,"algebra","kdifference","cyan"},
@@ -504,9 +535,9 @@ struct COLOR{
 	//{0,0,"sql","bind","thistle"},
 	//{0,0,"sql","bind_dbat","thistle"},
 	//{0,0,"sql","mvc","thistle"},
-	{0,0,"sql","delta ","thistle"},
-	{0,0,"sql","projectdelta ","thistle"},
-	{0,0,"sql","subdelta ","thistle"},
+	{0,0,"sql","projectdelta ","mediumpurple"},
+	{0,0,"sql","subdelta ","purple"},
+	{0,0,"sql","tid ","purple"},
 	{0,0,"sql","*","thistle"},
 
 	{0,0,"*","*","lavender"},
@@ -526,7 +557,7 @@ static void initcolors(void)
 		if ( c )
 			colors[i].col = c;
 		else
-			printf("color '%s' not found\n",colors[i].col);
+			fprintf(stderr,"color '%s' not found\n",colors[i].col);
 	}
 }
 
@@ -537,7 +568,7 @@ static void dumpboxes(void)
 	char buf[BUFSIZ];
 	int i;
 	
-	if ( inputfile ){
+	if ( tracefile ){
 		snprintf(buf,BUFSIZ,"scratch.dat");
 		f = fopen(buf,"w");
 		snprintf(buf,BUFSIZ,"scratch_cpu.dat");
@@ -611,9 +642,9 @@ static void showmemory(void)
 	mn = (long) (min/1024.0);
 	mx = (long) (max/1024.0);
 	mx += (mn == mx);
-	fprintf(gnudata,"set yrange [%ld:%ld]\n", mn,mx);
+	fprintf(gnudata,"set yrange [%ld:%ld]\n", mn, (long)(1.1 * mx));
 	fprintf(gnudata,"set ytics (\"%.1f\" %ld, \"%.1f\" %ld)\n", min /1024.0, mn, max/1024.0, mx);
-	fprintf(gnudata,"plot \"%s.dat\" using 1:2 notitle with dots linecolor rgb \"blue\"\n",(inputfile?"scratch":filename));
+	fprintf(gnudata,"plot \"%s.dat\" using 1:2 notitle with dots linecolor rgb \"blue\"\n",(tracefile?"scratch":filename));
 	fprintf(gnudata,"unset yrange\n");
 }
 
@@ -633,12 +664,12 @@ static void showcpu(void)
 	fprintf(gnudata,"unset border\n");
 
 	fprintf(gnudata,"set xrange [%f:%f]\n", (double)startrange, ((double)lastclktick-starttime));
-	fprintf(gnudata,"set yrange [0:%d.1]\n",cpus);
+	fprintf(gnudata,"set yrange [0:%d.%d]\n",cpus,cpus);
 	if ( cpus)
 		fprintf(gnudata,"plot ");
 	for(i=0; i< cpus; i++)
 		fprintf(gnudata,"\"%s_cpu.dat\" using 1:($%d+%d.%d) notitle with lines linecolor rgb \"%s\"%s",
-			(inputfile?"scratch":filename), i+2, i,i, (i%2 == 0? "black":"red"), (i<cpus-1?",\\\n":"\n"));
+			(tracefile?"scratch":filename), i+2, i,i, (i%2 == 0? "black":"red"), (i<cpus-1?",\\\n":"\n"));
 	fprintf(gnudata,"unset yrange\n");
 }
 
@@ -669,8 +700,8 @@ static void showio(void)
 	fprintf(gnudata,"unset ylabel\n");
 	fprintf(gnudata,"set y2tics in (\"%d\" %ld)\n", (int)(max/beat), max/beat);
 	fprintf(gnudata,"set y2label \"IO per ms\"\n");
-	fprintf(gnudata,"plot \"%s.dat\" using 1:(($3+$4)/%d.0) title \"reads\" with boxes fs solid linecolor rgb \"gray\" ,\\\n",(inputfile?"scratch":filename),beat);
-	fprintf(gnudata,"\"%s.dat\" using 1:($4/%d.0) title \"writes\" with boxes fs solid linecolor rgb \"red\"  \n",(inputfile?"scratch":filename),beat);
+	fprintf(gnudata,"plot \"%s.dat\" using 1:(($3+$4)/%d.0) title \"reads\" with boxes fs solid linecolor rgb \"gray\" ,\\\n",(tracefile?"scratch":filename),beat);
+	fprintf(gnudata,"\"%s.dat\" using 1:($4/%d.0) title \"writes\" with boxes fs solid linecolor rgb \"red\"  \n",(tracefile?"scratch":filename),beat);
 	fprintf(gnudata,"unset y2label\n");
 	fprintf(gnudata,"unset y2tics\n");
 	fprintf(gnudata,"unset y2range\n");
@@ -784,18 +815,17 @@ static void keepdata(char *filename)
 	FILE *f;
 	char buf[BUFSIZ];
 
-	if ( inputfile)
+	if ( tracefile)
 		return;
 	snprintf(buf,BUFSIZ,"%s.trace",filename);
 	f = fopen(buf,"w");
 	assert(f);
 
-	if ( listing)
-	for ( i = 0; i < topbox; i++)
-	if ( box[i].clkend)
-		printf("%3d\t%8ld\t%5ld\t%s\n", box[i].thread, box[i].clkstart, box[i].clkend-box[i].clkstart, box[i].fcn);
 	for ( i = 0; i < topbox; i++)
 	if ( box[i].clkend && box[i].fcn){
+		//if ( debug)
+			//fprintf(stderr,"%3d\t%8ld\t%5ld\t%s\n", box[i].thread, box[i].clkstart, box[i].clkend-box[i].clkstart, box[i].fcn);
+
 		fprintf(f,"%d\t%ld\t%ld\n", box[i].thread, box[i].clkstart, box[i].clkend);
 		fprintf(f,"%ld\t%ld\t%ld\n", box[i].ticks, box[i].memstart, box[i].memend);
 		fprintf(f,"%d\t%ld\t%ld\n", box[i].state, box[i].reads, box[i].writes);
@@ -817,7 +847,7 @@ static void scandata(char *filename)
 		snprintf(buf,BUFSIZ,"%s.trace",filename);
 		f = fopen(buf,"r");
 		if ( f == NULL){
-			printf("Could not open file '%s'\n",buf);
+			fprintf(stderr,"Could not open file '%s'\n",buf);
 			exit(-1);
 		}
 	}
@@ -891,8 +921,6 @@ static void createTomogram(void)
 	long totalticks;
 	static int figures=0;
 
-	if ( batch-- > 1 )
-		return;
 	snprintf(buf,BUFSIZ,"%s.gpl", filename);
 	gnudata= fopen(buf,"w");
 	if ( gnudata == 0){
@@ -989,11 +1017,11 @@ static void createTomogram(void)
 	(void)fclose(gnudata);
 
 	if ( figures++ == 0){
-		printf("Created tomogram '%s' \n",buf);
-		printf("Run: 'gnuplot %s.gpl' to create the '%s.pdf' file\n",buf,filename);
-		if ( inputfile == 0){
-			printf("The memory map is stored in '%s.dat'\n",filename);
-			printf("The trace is saved in '%s.trace' for use with --input option\n",filename);
+		fprintf(stderr,"Created tomogram '%s' \n",buf);
+		fprintf(stderr,"Run: 'gnuplot %s.gpl' to create the '%s.pdf' file\n",buf,filename);
+		if ( tracefile == 0){
+			fprintf(stderr,"The memory map is stored in '%s.dat'\n",filename);
+			fprintf(stderr,"The trace is saved in '%s.trace' for use with --trace option\n",filename);
 		}
 	}
 	exit(0);
@@ -1012,16 +1040,19 @@ static void update(int state, int thread, long clkticks, long ticks, long memory
 	/* ignore the flow of control statements 'function' and 'end' */
 	if ( fcn  &&  strncmp(fcn,"end ",4)== 0 )
 		return;
-	if ( starttime == 0 && (state == 0 || state == 4)) {
+	if ( starttime == 0 ){
 		/* ignore all instructions up to the first function call */
-		if ( fcn && strncmp(fcn,"function",8) != 0)
+		if (state == 4 || fcn== 0 || strncmp(fcn,"function",8) != 0)
 			return;
 		starttime = clkticks;
-		activateBeat();
 		return;
 	}
 
-	if (state == 1 && fcn && (strncmp(fcn,"function",8) == 0 || strncmp(fcn,"profiler.tomograph",18) == 0)  && startup > 1 ){
+	if (state == 1 && fcn && (strncmp(fcn,"function",8) == 0 || strncmp(fcn,"profiler.tomograph",18) == 0)  ){
+		if ( debug )
+			fprintf(stderr,"Batch %d\n",batch);
+		if ( strncmp(fcn,"function",8) == 0 && batch-- > 1 )
+			return;
 		deactivateBeat();
 		createTomogram();
 		totalclkticks= 0; /* number of clock ticks reported */
@@ -1092,7 +1123,8 @@ static void update(int state, int thread, long clkticks, long ticks, long memory
 		totalexecticks += box[idx].ticks - box[idx].ticks;
 	}
 	if ( topbox == MAXBOX){
-		printf("Out of space for trace");
+		fprintf(stderr,"Out of space for trace");
+		deactivateBeat();
 		createTomogram();
 		exit(0);
 	}
@@ -1109,9 +1141,6 @@ static void parser(char *row){
 	char *fcn = 0, *stmt= 0;
 	int state= 0;
 	long reads, writes;
-
-	if ( debug)
-		printf("%s\n",row);
 
 	if (row[0] != '[')
 		return;
@@ -1150,28 +1179,39 @@ static void parser(char *row){
 			clkticks += usec;
 		}
 		c = strchr(c+1, (int)'"');
-	}
+	} else return;
+
 	c = strchr(c+1, (int)',');
+	if ( c == 0)
+		return;
 	thread = atoi(c+1);
 	c = strchr(c+1, (int)',');
+	if ( c == 0)
+		return;
 	ticks = atol(c+1);
 	c = strchr(c+1, (int)',');
+	if ( c == 0)
+		return;
 	memory = atol(c+1);
 	c = strchr(c+1, (int)',');
+	if ( c == 0)
+		return;
 	reads = atol(c+1);
 	c = strchr(c+1, (int)',');
+	if ( c == 0)
+		return;
 	writes = atol(c+1);
 
 	c = strchr(c+1, (int)',');
+	if ( c == 0)
+		return;
 	c++;
 	fcn = c;
-	if (fcn && strstr(fcn, TOMOGRAPHPATTERN) ){
-		startup++;	// start counting 
-		if (debug)
-			printf("Found start marker\n");
-		if ( startup == 2 ) batch++;
-	}
 	stmt = strdup(fcn);
+
+	if ( debug)
+		fprintf(stderr,"%s\n",row);
+
 	c = strstr(c+1, ":=");
 	if ( c ){
 		fcn = c+2;
@@ -1196,6 +1236,69 @@ static void parser(char *row){
 #endif
 }
 
+static void
+format_result(Mapi mid, MapiHdl hdl)
+{
+	char *reply;
+	char *line;
+	(void) mid;
+
+	do {
+		/* handle errors first */
+		if ((reply = mapi_result_error(hdl)) != NULL) {
+			mapi_explain_result(hdl, stderr);
+			/* don't need to print something like '0
+			 * tuples' if we got an error */
+			break;
+		}
+		if ( debug)
+			fprintf(stderr,"Receive:%s\n",reply);
+
+		switch (mapi_get_querytype(hdl)) {
+		case Q_BLOCK:
+		case Q_PARSE:
+			/* should never see these */
+			continue;
+		case Q_UPDATE:
+			fprintf(stderr, "[ " LLFMT "\t]\n", mapi_rows_affected(hdl));
+			continue;
+		case Q_SCHEMA:
+		case Q_TRANS:
+		case Q_PREPARE:
+		case Q_TABLE:
+			break;
+		default:
+			while ((line = mapi_fetch_line(hdl)) != 0) {
+				if (*line == '=')
+					line++;
+				fprintf(stderr, "%s\n", line);
+			}
+		}
+	} while (mapi_next_result(hdl) == 1);
+	if ( debug)
+		fprintf(stderr,"Done\n");
+}
+
+static int
+doRequest(Mapi mid, const char *buf)
+{
+	MapiHdl hdl;
+
+	if ( debug)
+		fprintf(stderr,"Sent:%s\n",buf);
+	if ((hdl = mapi_query(mid, buf)) == NULL) {
+		mapi_explain(mid, stderr);
+		return 1;
+	}
+
+	format_result(mid, hdl);
+
+	//if (mapi_get_active(mid) == NULL)
+		//mapi_close_handle(hdl);
+	fprintf(stderr, "  -t | --trace=<filename>\n");
+	return 0;
+}
+
 #if !defined(HAVE_PTHREAD_H) && defined(_MSC_VER)
 static DWORD WINAPI
 #else
@@ -1211,31 +1314,54 @@ doProfile(void *d)
 	char buf[BUFSIZ + 1];
 	char *e;
 	char *mod, *fcn;
-	char *host;
+	char *host = NULL;
 	int portnr;
 	char id[10];
+	Mapi dbhsql = NULL;
+	MapiHdl hdlsql = NULL;
+
+	/* set up the SQL session */
+	if ( sqlstatement) {
+		id[0] = '\0';
+		if (wthr->uri)
+			dbhsql = mapi_mapiuri(wthr->uri, wthr->user, wthr->pass, "sql");
+		else
+			dbhsql = mapi_mapi(wthr->host, wthr->port, wthr->user, wthr->pass, "sql", wthr->dbname);
+		if (dbhsql == NULL || mapi_error(dbhsql))
+			die(dbhsql, hdlsql);
+		mapi_reconnect(dbhsql);
+		if (mapi_error(dbhsql))
+			die(dbhsql, hdlsql);
+	}
 
 	/* set up the profiler */
 	id[0] = '\0';
-	dbh = mapi_mapiuri(wthr->uri, wthr->user, wthr->pass, "mal");
-	if (dbh == NULL || mapi_error(dbh))
-		die(dbh, hdl);
-	mapi_reconnect(dbh);
-	if (mapi_error(dbh))
-		die(dbh, hdl);
+	if (wthr->uri)
+		wthr->dbh = mapi_mapiuri(wthr->uri, wthr->user, wthr->pass, "mal");
+	else
+		wthr->dbh = mapi_mapi(wthr->host, wthr->port, wthr->user, wthr->pass, "mal", wthr->dbname);
+	if (wthr->dbh == NULL || mapi_error(wthr->dbh))
+		die(wthr->dbh, wthr->hdl);
+	mapi_reconnect(wthr->dbh);
+	if (mapi_error(wthr->dbh))
+		die(wthr->dbh, wthr->hdl);
+	host = strdup(mapi_get_host(wthr->dbh));
+	if (*host == '/') {
+		fprintf(stderr, "!! UNIX domain socket not supported\n");
+		goto stop_disconnect;
+	}
 	if (wthr->tid > 0) {
 		snprintf(id, 10, "[%d] ", wthr->tid);
 #ifdef _DEBUG_TOMOGRAPH_
-		printf("-- connection with server %s is %s\n", wthr->uri, id);
+		printf("-- connection with server %s is %s\n", wthr->uri ? wthr->uri : host, id);
 #endif
 	} else {
 #ifdef _DEBUG_TOMOGRAPH_
-		printf("-- connection with server %s\n", wthr->uri);
+		printf("-- connection with server %s\n", wthr->uri ? wthr->uri : host);
 #endif
 	}
 
 	/* set counters */
-	deactivateBeat();
 	x = NULL;
 	for (i = 0; profileCounter[i].tag; i++) {
 		/* skip duplicates */
@@ -1256,7 +1382,6 @@ doProfile(void *d)
 		x = profileCounter[i].ptag;
 	}
 
-	host = mapi_get_host(dbh);
 	for (portnr = 50010; portnr < 62010; portnr++) {
 		if ((wthr->s = udp_rastream(host, portnr, "profileStream")) != NULL)
 			break;
@@ -1310,11 +1435,17 @@ doProfile(void *d)
 #ifdef _DEBUG_TOMOGRAPH_
 	printf("-- %sprofiler.start();\n", id);
 #endif
+	activateBeat();
 	doQ("profiler.start();");
 	fflush(NULL);
 
 	for ( i = 0; i < MAXTHREADS; i++)
 		threads[i] = topbox++;
+
+	/* sent single query */
+	if ( sqlstatement) {
+		doRequest(dbhsql, sqlstatement);
+	}
 	i = 0;
 	while ((n = mnstr_read(wthr->s, buf, 1, BUFSIZ)) > 0) {
 		buf[n] = 0;
@@ -1340,10 +1471,14 @@ stop_cleanup:
 	doQ("profiler.stop();");
 	doQ("profiler.closeStream();");
 stop_disconnect:
-	mapi_disconnect(dbh);
-	mapi_destroy(dbh);
+	if (wthr->dbh) {
+		mapi_disconnect(wthr->dbh);
+		mapi_destroy(wthr->dbh);
+	}
 
-	printf("-- %sconnection with server %s closed\n", id, wthr->uri);
+	printf("-- %sconnection with server %s closed\n", id, wthr->uri ? wthr->uri : host);
+
+	free(host);
 
 	return(0);
 }
@@ -1353,20 +1488,18 @@ main(int argc, char **argv)
 {
 	int a = 1;
 	int i, k=0;
-	char *host = "localhost";
-	int portnr = 50000;
+	char *host = NULL;
+	int portnr = 0;
 	char *dbname = NULL;
 	char *user = NULL;
 	char *password = NULL;
 
 	/* some .monetdb properties are used by mclient, perhaps we need them as well later */
-	struct stat statb;
 
 	char **alts, **oalts;
 	wthread *walk;
-	stream * config = NULL;
 
-	static struct option long_options[17] = {
+	static struct option long_options[18] = {
 		{ "dbname", 1, 0, 'd' },
 		{ "user", 1, 0, 'u' },
 		{ "password", 1, 0, 'P' },
@@ -1374,72 +1507,25 @@ main(int argc, char **argv)
 		{ "host", 1, 0, 'h' },
 		{ "help", 0, 0, '?' },
 		{ "title", 1, 0, 'T' },
-		{ "input", 1, 0, 'i' },
+		{ "trace", 1, 0, 't' },
 		{ "range", 1, 0, 'r' },
 		{ "output", 1, 0, 'o' },
 		{ "debug", 0, 0, 'D' },
-		{ "list", 0, 0, 'l' },
 		{ "beat", 1, 0, 'b' },
 		{ "batch", 1, 0, 'B' },
+		{ "sql", 1, 0, 's' },
 		{ "colormap", 0, 0, 'm' },
 		{ 0, 0, 0, 0 }
 	};
 
 	/* parse config file first, command line options override */
-	if (getenv("DOTMONETDBFILE") == NULL) {
-		if (stat(".monetdb", &statb) == 0) {
-			config = open_rastream(".monetdb");
-		} else if (getenv("HOME") != NULL) {
-			char buf[1024];
-			snprintf(buf, sizeof(buf), "%s/.monetdb", getenv("HOME"));
-			if (stat(buf, &statb) == 0) {
-				config = open_rastream(buf);
-			}
-		}
-	} else {
-		char *cfile = getenv("DOTMONETDBFILE");
-		if (strcmp(cfile, "") != 0) {
-			if (stat(cfile, &statb) == 0) {
-				config = open_rastream(cfile);
-			} else {
-				fprintf(stderr,
-					      "failed to open file '%s': %s\n",
-					      cfile, strerror(errno));
-			}
-		}
-	}
+	parse_dotmonetdb(&user, &password, NULL, NULL, NULL, NULL);
 
 	initcolors();
-	if (config != NULL) {
-		char buf[1024];
-		char *q;
-		ssize_t len;
-		int line = 0;
-		while ((len = mnstr_readline(config, buf, sizeof(buf) - 1)) > 0) {
-			line++;
-			buf[len - 1] = '\0';	/* drop newline */
-			if (buf[0] == '#' || buf[0] == '\0')
-				continue;
-			if ((q = strchr(buf, '=')) == NULL) {
-				fprintf(stderr, "%s:%d: syntax error: %s\n", mnstr_name(config), line, buf);
-				continue;
-			}
-			*q++ = '\0';
-			/* this basically sucks big time, as I can't easily set
-			 * a default, hence I only do things I think are useful
-			 * for now, needs a better solution */
-			if (strcmp(buf, "user") == 0) {
-				user = strdup(q);	/* leak */
-			} else if (strcmp(buf, "password") == 0 || strcmp(buf, "passwd") == 0) {
-				password = strdup(q);	/* leak */
-			}
-		}
-		mnstr_destroy(config);
-	}
 
 	while (1) {
 		int option_index = 0;
-		int c = getopt_long(argc, argv, "d:u:P:p:?:h:g:D:t:c:m:l:i:r:b:B",
+		int c = getopt_long(argc, argv, "d:u:P:p:h:?:T:t:r:o:D:b:B:s:m",
 			long_options, &option_index);
 		if (c == -1)
 			break;
@@ -1456,16 +1542,17 @@ main(int argc, char **argv)
 		case 'd':
 			dbname = optarg;
 			break;
-		case 'l':
-			listing = 1;
-			break;
 		case 'u':
+			if (user)
+				free(user);
 			user = optarg;
 			break;
 		case 'm':
 			colormap=1;
 			break;
 		case 'P':
+			if (password)
+				free(password);
 			password = optarg;
 			break;
 		case 'p':
@@ -1478,11 +1565,11 @@ main(int argc, char **argv)
 		case 'T':
 			title = optarg;
 			break;
-		case 'i':
+		case 't':
 			if ( optarg == 0)
-				inputfile = strdup(filename);
+				tracefile = strdup(filename);
 			else
-				inputfile= optarg;
+				tracefile= optarg;
 			break;
 		case 'o':
 			filename = optarg;
@@ -1507,15 +1594,24 @@ main(int argc, char **argv)
 			}
 			break;
 		}
+		case 's':
+			sqlstatement = optarg;
+			break;
+		case '?':
+			usage();
+			/* a bit of a hack: look at the option that the
+			   current `c' is based on and see if we recognize
+			   it: if -? or --help, exit with 0, else with -1 */
+			exit(strcmp(argv[optind - 1], "-?") == 0 || strcmp(argv[optind - 1], "--help") == 0 ? 0 : -1);
 		default:
 			usage();
-			exit(0);
+			exit(-1);
 		}
 	}
 
-	if ( inputfile){
+	if ( tracefile){
 		/* reload existing tomogram */
-		scandata(inputfile);
+		scandata(tracefile);
 		createTomogram();
 		exit(0);
 	}
@@ -1570,11 +1666,12 @@ main(int argc, char **argv)
 		alts = NULL;
 
 	if (alts == NULL || *alts == NULL) {
-		/* nothing to redirect, so a single host to try */
-		char uri[512];
-		snprintf(uri, 512, "mapi:monetdb://%s:%d/%s", host, portnr, dbname);
+		/* nothing to redirect, so a single db to try */
 		walk = thds = malloc(sizeof(wthread));
-		walk->uri = uri;
+		walk->uri = NULL;
+		walk->host = host;
+		walk->port = portnr;
+		walk->dbname = dbname;
 		walk->user = user;
 		walk->pass = password;
 		walk->argc = argc - a;
@@ -1602,6 +1699,9 @@ main(int argc, char **argv)
 		while (1) {
 			walk->tid = i++;
 			walk->uri = *alts;
+			walk->host = NULL;
+			walk->port = 0;
+			walk->dbname = NULL;
 			walk->user = user;
 			walk->pass = password;
 			walk->argc = argc - a;
@@ -1630,5 +1730,7 @@ main(int argc, char **argv)
 			free(walk);
 		}
 	}
+	free(user);
+	free(password);
 	return 0;
 }

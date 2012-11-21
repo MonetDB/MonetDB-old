@@ -1250,16 +1250,18 @@ static struct{
 } corestat[256];
 
 static char cpuload[BUFSIZ];
-static FILE *proc;
 
-static void gatherCPULoad(void){
+static int gatherCPULoad(void){
     int cpu, len;
 	long user, nice, system, idle, iowait;
     char buf[BUFSIZ],*s;
+	FILE *proc;
 
-    if ( proc == 0)
-        return;
-	rewind(proc);
+	proc = fopen("/proc/stat","r");
+	if ( proc == NULL) {
+		/* unexpected */
+		return -1;
+	}
 	while (fgets(buf, BUFSIZ,proc) != NULL)
 	if ( strncmp(buf,"cpu",3)== 0){
 		s= buf+3;
@@ -1290,6 +1292,8 @@ static void gatherCPULoad(void){
 		len -= (int)strlen(s);
 		s += (int) strlen(s);
 	}
+	fclose(proc);
+	return 0;
 }
 
 static void profilerHeartbeat(void *dummy){
@@ -1298,7 +1302,6 @@ static void profilerHeartbeat(void *dummy){
 	static struct rusage prevUsage;
 	struct rusage infoUsage;
 #endif
-	static int eventcounter;
 	struct timeval tv;
 	time_t clock, prevclock=0;
 #ifdef HAVE_TIMES
@@ -1310,14 +1313,12 @@ static void profilerHeartbeat(void *dummy){
 		getrusage(RUSAGE_SELF, &prevUsage);
 #endif
 	(void) dummy;
-    proc = fopen("/proc/stat","r");
-	gatherCPULoad();
+	(void) gatherCPULoad();
 	gettimeofday(&tv,NULL);
 	prevclock = (time_t) tv.tv_sec;
 
-	while (hbdelay && eventstream){
+	while (eventstream ){
 		MT_sleep_ms(hbdelay);
-
 		if (delayswitch > 0) {
 			/* first call to profiled */
 			offlineProfilerHeader();
@@ -1335,7 +1336,8 @@ static void profilerHeartbeat(void *dummy){
 
 		/* get CPU load on second boundaries only */
 		if ( clock - prevclock >= 0 ) {
-			gatherCPULoad();
+			if ( gatherCPULoad() )
+				continue;
 			prevclock = clock;
 		}
 		MT_lock_set(&mal_profileLock, "profileLock");
@@ -1425,8 +1427,7 @@ static void profilerHeartbeat(void *dummy){
 		flushLog();
 		MT_lock_unset(&mal_profileLock, "profileLock");
 	}
-	if ( proc)
-		(void) fclose(proc);
+	hbdelay = 0;
 	THRdel(thr);
 }
 
@@ -1435,6 +1436,11 @@ void startHeartbeat(int delay){
 
 	if ( delay < 0 )
 		return;
+	if ( hbdelay ) {
+		/* thread already running */	
+		hbdelay = delay;
+		return;
+	}
 	hbdelay = delay;
 	MT_create_thread(&p, profilerHeartbeat, (void *) 0, MT_THR_JOINABLE);
 }

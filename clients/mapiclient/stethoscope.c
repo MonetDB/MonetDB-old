@@ -31,6 +31,7 @@
 #ifdef HAVE_PTHREAD_H
 #include <pthread.h>
 #endif
+#include "dotmonetdb.h"
 
 #ifndef HAVE_GETOPT_LONG
 # include "monet_getopt.h"
@@ -95,6 +96,9 @@ typedef struct _wthread {
 #endif
 	int tid;
 	char *uri;
+	char *host;
+	char *dbname;
+	int port;
 	char *user;
 	char *pass;
 	stream *s;
@@ -190,7 +194,7 @@ doProfile(void *d)
 	char buf[BUFSIZ + 1];
 	char *e;
 	char *mod, *fcn;
-	char *host;
+	char *host = NULL;
 	int portnr;
 	char id[10];
 	Mapi dbh;
@@ -198,20 +202,28 @@ doProfile(void *d)
 
 	/* set up the profiler */
 	id[0] = '\0';
-	dbh = mapi_mapiuri(wthr->uri, wthr->user, wthr->pass, "mal");
+	if (wthr->uri)
+		dbh = mapi_mapiuri(wthr->uri, wthr->user, wthr->pass, "mal");
+	else
+		dbh = mapi_mapi(wthr->host, wthr->port, wthr->user, wthr->pass, "mal", wthr->dbname);
 	if (dbh == NULL || mapi_error(dbh))
 		die(dbh, hdl);
 	mapi_reconnect(dbh);
 	if (mapi_error(dbh))
 		die(dbh, hdl);
+	host = strdup(mapi_get_host(dbh));
+	if (*host == '/') {
+		fprintf(stderr, "!! UNIX domain socket not supported\n");
+		goto stop_disconnect;
+	}
 	if (wthr->tid > 0) {
 		snprintf(id, 10, "[%d] ", wthr->tid);
 #ifdef _DEBUG_STETHOSCOPE_
-		printf("-- connection with server %s is %s\n", wthr->uri, id);
+		printf("-- connection with server %s is %s\n", wthr->uri ? wthr->uri : host, id);
 #endif
 	} else {
 #ifdef _DEBUG_STETHOSCOPE_
-		printf("-- connection with server %s\n", wthr->uri);
+		printf("-- connection with server %s\n", wthr->uri ? wthr->uri : host);
 #endif
 	}
 
@@ -236,7 +248,6 @@ doProfile(void *d)
 		x = profileCounter[i].ptag;
 	}
 
-	host = mapi_get_host(dbh);
 	for (portnr = 50010; portnr < 62010; portnr++) {
 		if ((wthr->s = udp_rastream(host, portnr, "profileStream")) != NULL)
 			break;
@@ -317,10 +328,14 @@ stop_cleanup:
 	doQ("profiler.stop();");
 	doQ("profiler.closeStream();");
 stop_disconnect:
-	mapi_disconnect(dbh);
-	mapi_destroy(dbh);
+	if (dbh) {
+		mapi_disconnect(dbh);
+		mapi_destroy(dbh);
+	}
 
-	printf("-- %sconnection with server %s closed\n", id, wthr->uri);
+	printf("-- %sconnection with server %s closed\n", id, wthr->uri ? wthr->uri : host);
+
+	free(host);
 
 	return(0);
 }
@@ -331,17 +346,15 @@ main(int argc, char **argv)
 	int a = 1;
 	int i, k;
 	char *host = NULL;
-	int portnr = 50000;
+	int portnr = 0;
 	char *dbname = NULL;
 	char *user = NULL;
 	char *password = NULL;
 
 	/* some .monetdb properties are used by mclient, perhaps we need them as well later */
-	struct stat statb;
 
 	char **alts, **oalts;
 	wthread *walk;
-	stream * config = NULL;
 
 	static struct option long_options[8] = {
 		{ "dbname", 1, 0, 'd' },
@@ -354,59 +367,11 @@ main(int argc, char **argv)
 	};
 
 	/* parse config file first, command line options override */
-	if (getenv("DOTMONETDBFILE") == NULL) {
-		if (stat(".monetdb", &statb) == 0) {
-			config = open_rastream(".monetdb");
-		} else if (getenv("HOME") != NULL) {
-			char buf[1024];
-			snprintf(buf, sizeof(buf), "%s/.monetdb", getenv("HOME"));
-			if (stat(buf, &statb) == 0) {
-				config = open_rastream(buf);
-			}
-		}
-	} else {
-		char *cfile = getenv("DOTMONETDBFILE");
-		if (strcmp(cfile, "") != 0) {
-			if (stat(cfile, &statb) == 0) {
-				config = open_rastream(cfile);
-			} else {
-				fprintf(stderr,
-					      "failed to open file '%s': %s\n",
-					      cfile, strerror(errno));
-			}
-		}
-	}
-
-	if (config != NULL) {
-		char buf[1024];
-		char *q;
-		ssize_t len;
-		int line = 0;
-		while ((len = mnstr_readline(config, buf, sizeof(buf) - 1)) > 0) {
-			line++;
-			buf[len - 1] = '\0';	/* drop newline */
-			if (buf[0] == '#' || buf[0] == '\0')
-				continue;
-			if ((q = strchr(buf, '=')) == NULL) {
-				fprintf(stderr, "%s:%d: syntax error: %s\n", mnstr_name(config), line, buf);
-				continue;
-			}
-			*q++ = '\0';
-			/* this basically sucks big time, as I can't easily set
-			 * a default, hence I only do things I think are useful
-			 * for now, needs a better solution */
-			if (strcmp(buf, "user") == 0) {
-				user = strdup(q);	/* leak */
-			} else if (strcmp(buf, "password") == 0 || strcmp(buf, "passwd") == 0) {
-				password = strdup(q);	/* leak */
-			}
-		}
-		mnstr_destroy(config);
-	}
+	parse_dotmonetdb(&user, &password, NULL, NULL, NULL, NULL);
 
 	while (1) {
 		int option_index = 0;
-		int c = getopt_long(argc, argv, "d:u:P:p:?:h:g",
+		int c = getopt_long(argc, argv, "d:u:P:p:h:?",
 			long_options, &option_index);
 		if (c == -1)
 			break;
@@ -415,10 +380,14 @@ main(int argc, char **argv)
 			dbname = optarg;
 			break;
 		case 'u':
-			user = optarg;
+			if (user)
+				free(user);
+			user = strdup(optarg);
 			break;
 		case 'P':
-			password = optarg;
+			if (password)
+				free(password);
+			password = strdup(optarg);
 			break;
 		case 'p':
 			portnr = atol(optarg);
@@ -479,10 +448,11 @@ main(int argc, char **argv)
 
 	if (alts == NULL || *alts == NULL) {
 		/* nothing to redirect, so a single host to try */
-		char uri[512];
-		snprintf(uri, 512, "mapi:monetdb://%s:%d/%s", host, portnr, dbname);
 		walk = thds = malloc(sizeof(wthread));
-		walk->uri = uri;
+		walk->uri = NULL;
+		walk->host = host;
+		walk->port = portnr;
+		walk->dbname = dbname;
 		walk->user = user;
 		walk->pass = password;
 		walk->argc = argc - a;
@@ -510,6 +480,9 @@ main(int argc, char **argv)
 		while (1) {
 			walk->tid = i++;
 			walk->uri = *alts;
+			walk->host = NULL;
+			walk->port = 0;
+			walk->dbname = NULL;
 			walk->user = user;
 			walk->pass = password;
 			walk->argc = argc - a;
@@ -538,5 +511,7 @@ main(int argc, char **argv)
 			free(walk);
 		}
 	}
+	free(user);
+	free(password);
 	return 0;
 }

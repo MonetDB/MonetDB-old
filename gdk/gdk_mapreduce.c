@@ -45,6 +45,7 @@ static MT_Sema mrqsema;		/* threads wait on empty queues */
 
 static void MRworker(void *);
 
+/* There is just a single queue for the workers */
 static void
 MRqueueCreate(int sz)
 {
@@ -54,14 +55,22 @@ MRqueueCreate(int sz)
 	MT_lock_init(&mrqlock, "q_create");
 	MT_lock_set(&mrqlock, "q_create");
 	MT_sema_init(&mrqsema, 0, "q_create");
-	sz = ((sz << 1) >> 1);		/* we want a multiple of 2 */
+	if ( mrqueue ) {
+		GDKerror("One map-reduce queue allowed");
+		return;
+	}
+	sz *= 2;
 	mrqueue = (MRqueue *) GDKzalloc(sizeof(MRqueue) * sz);
-	assert(mrqueue);
+	if ( mrqueue == 0) {
+		MT_lock_unset(&mrqlock, "q_create");
+		GDKerror("Could not create the map-reduce queue");
+		return;
+	}
 	mrqsize = sz;
 	mrqlast = 0;
 	/* create a worker thread for each core as specified as system parameter */
 	for (i = 0; i < GDKnr_threads; i++)
-		MT_create_thread(&tid, MRworker, (void *) 0, MT_THR_JOINABLE);
+		MT_create_thread(&tid, MRworker, (void *) 0, MT_THR_DETACHED);
 	MT_lock_unset(&mrqlock, "q_create");
 }
 
@@ -73,6 +82,11 @@ MRenqueue(int taskcnt, MRtask ** tasks)
 	if (mrqlast == mrqsize) {
 		mrqsize <<= 1;
 		mrqueue = (MRqueue *) GDKrealloc(mrqueue, sizeof(MRqueue) * mrqsize);
+		if ( mrqueue == 0) {
+			MT_lock_unset(&mrqlock, "mrqlock");
+			GDKerror("Could not enlarge the map-reduce queue");
+			return;
+		}
 	}
 	mrqueue[mrqlast].index = 0;
 	mrqueue[mrqlast].tasks = tasks;
