@@ -152,6 +152,8 @@ module crackers;
 @:TypeSwitch_1(Select)@
 @:TypeSwitch_1(Index)@
 @:TypeSwitch_1(CoreUnordered)@
+@:TypeSwitch_1(Updates)@
+
 #
 
 @= Select
@@ -278,7 +280,71 @@ comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
 
 @
+@= Updates
+command insertionsPartiallyForget(b:bat[:any_1,:@2], c:bat[:any_1,:@2]):void
+address CRKmergeInsertions_PartiallyForget_@2
+comment "Append c to the cracked BAT of b and partially forget 
+         the cracker index, i.e., forget only what is affected";
 
+command insertionsBForce(b:bat[:any_1,:@2], c:bat[:any_1,:@2]):void
+address CRKmergeInsertionsB_Force_@2
+comment "Merge the insertions BAT with the cracker bat and update the cracker index";
+
+
+command printCrackerInsertions(b:bat[:any_1,:@2]):void
+address CRKprintCrackerInsertions
+comment "Print the pending insertions of the cracker BAT of b";
+
+command printCrackerDeletions(b:bat[:any_1,:@2]):void
+address CRKprintCrackerDeletions
+comment "Print the pending deletions of the cracker BAT of b";
+
+command sizeCrackerInsertions(b:bat[:any_1,:@2]):void
+address CRKsizeCrackerInsertions
+comment "Get the size of the pending insertions of the cracker BAT of b";
+
+command sizeCrackerDeletions(b:bat[:any_1,:@2]):void
+address CRKsizeCrackerDeletions
+comment "Get the size of the pending deletions of the cracker BAT of b";
+
+command insertionsForget(b:bat[:any_1,:@2], c:bat[:any_1,:@2]):void
+address CRKmergeInsertions_Forget
+comment "Append c to the cracked BAT of b and completelly forget the cracker index";
+
+command insertionsBOnNeed(b:bat[:any_1,:@2], c:bat[:any_1,:@2]):void
+address CRKmergeInsertionsB_OnNeed
+comment "Keep the insertions BAT separatelly and do a complete merge 
+         only if a relevant query arrives in the future";
+
+command insertionsBOnNeedGradually(b:bat[:any_1,:@2], c:bat[:any_1,:@2]):void
+address CRKmergeInsertionsB_OnNeedGradually
+comment "Keep the insertions BAT separatelly and merge only what is 
+         needed if a relevant query arrives in the future";
+
+command insertionsBOnNeedGraduallyRipple(b:bat[:any_1,:@2], c:bat[:any_1,:@2]):void
+address CRKmergeInsertionsB_OnNeedGraduallyRipple
+comment "Keep the insertions BAT separatelly and merge only what is needed 
+         using the ripple strategy if a relevant query arrives in the future";
+
+command deletionsOnNeed(b:bat[:any_1,:@2], c:bat[:any_1,:@2]):void
+address CRKmergeDeletions_OnNeed
+comment "Keep the deletions BAT separatelly and do a complete merge only 
+         if a relevant query arrives in the future";
+
+command deletionsOnNeedGradually(b:bat[:any_1,:@2], c:bat[:any_1,:@2]):void
+address CRKmergeDeletions_OnNeedGradually
+comment "Keep the deletions BAT separatelly and merge only what is 
+         needed if a relevant query arrives in the future";
+
+command deletionsOnNeedGraduallyRipple(b:bat[:any_1,:@2], c:bat[:any_1,:@2]):void
+address CRKmergeDeletions_OnNeedGraduallyRipple
+comment "Keep the deletions BAT separatelly and merge only what is 
+         needed using ripple if a relevant query arrives in the future";
+
+command extendCrackerBAT(b:bat[:any_1,:@2], P:lng):void
+address CRKextendCrackerBAT
+comment "Extend the cracker column by P positions";
+@
 @= Index
 command printCrackerIndexBATpart(b:bat[:any_1,:@2]):void
 address CRKprintCrackerIndexBATpart
@@ -339,6 +405,7 @@ comment "Break a BAT into three pieces with
 #include "crackers_holistic.h"
 #include "crackers_core_unordered.h"
 #include "crackers_AVL_tree.h"
+#include "crackers_updates.h"
 
 #ifdef LIBCRACKERS 
 extern int maxCrackMap;

@@ -40,9 +40,10 @@ lib_crackers = {
 			  crackers_holistic.h \
 			  crackers_selectst_ops.mx \
 			  crackers_selecthol_ops.mx \
+			  crackers_updates.mx \
 			  opt_selcrack.mx \
 			  opt_selcrackst.mx \
-			  opt_selcrackhol.mx 
+			  opt_selcrackhol.mx
 	LIBS = ../../tools/libmonetdb5 \
 		   ../../../gdk/libbat \
 		   ../../../common/stream/libstream \

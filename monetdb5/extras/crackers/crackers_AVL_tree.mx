@@ -82,6 +82,7 @@ bit GetHghNodes_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base
 struct Node * InsertTree_@1(int m, oid indexPosition, @1 value, bit inclusive, oid crackPosition, struct Node * current, BAT * b, BUN base, struct Node **newNode);
 struct Node * findNodeH_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, struct Node * next);
 struct Node * findNodeL_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, struct Node * prev);
+void PartiallyLazyFreeAVLTree_@1(struct Node * current, @1 value, BAT *b, BUN base);
 struct NodeSimple * InsertTreeSimple_@1(struct NodeSimple ** head, oid position, @1 value, struct NodeSimple * current, BAT * b);
 @
 @c
@@ -816,6 +817,24 @@ findNodeL_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, stru
 		return findNodeL_@1(x, inclusive, current->right, b, base, (current->deleted == TRUE) ? getPreviousNode(current, prev) : current);
 }
 
+void
+PartiallyLazyFreeAVLTree_@1(struct Node * current, @1 value, BAT *b, BUN base){
+	BUN cur;
+	@1 *curValue;
+
+        cur = base + current->position;
+        curValue = (@1*)Tloc(b, cur);
+
+	if (current->left != NULL)
+		PartiallyLazyFreeAVLTree_@1(current->left, value, b, base);
+
+	if (current->right != NULL)
+		PartiallyLazyFreeAVLTree_@1(current->right, value, b, base);
+
+	if( @2_LT(&value,curValue,@3@1) || (@2_EQ(&value,curValue,@3@1) && current->inclusive == FALSE) )
+		current->deleted = TRUE;
+	return;
+}
 
 
 struct NodeSimple *

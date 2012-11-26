@@ -29,12 +29,13 @@ pattern optimizer.selcrackst():str
 address OPTselcrackst;
 pattern optimizer.selcrackst(mod:str, fcn:str):str
 address OPTselcrackst
-comment "Selection cracking";
+comment "Stochastic Selection cracking";
 
 module crackers;
 pattern crackers.selcrackstprelude():void
 address SCSprelude;
 crackers.selcrackstprelude();
+
 @h
 #ifndef _OPT_SELCRACKST_
 #define _OPT_SELCRACKST_
@@ -44,7 +45,8 @@ crackers.selcrackstprelude();
 
 #define OPTDEBUGselcrackst  if ( optDebug & ((lng)1 <<DEBUG_OPT_SELCRACKST) )
 opt_export str SCSprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-opt_export str OPTselcrackst(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+opt_export str OPTselcrackst(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
+
 
 #endif
 @c
@@ -58,7 +60,6 @@ opt_export str OPTselcrackst(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 
 #define match2(X,M,F) ( (X) && getFunctionId(X) && getFunctionId(X)==F && \
 	getModuleId(X) && getModuleId(X)==M)
-
 str
 SCSprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -67,25 +68,25 @@ SCSprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) pci;
 
 	addPipeDefinition(cntxt, "crackerst_pipe",
-			"optimizer.inline();"
-			"optimizer.remap();"
-			"optimizer.evaluate();"
-			"optimizer.costModel();"
-			"optimizer.coercions();"
-			"optimizer.emptySet();"
-			"optimizer.aliases();"
-			"optimizer.selcrackst();"
-			"optimizer.deadcode();"
-			"optimizer.commonTerms();"
-			"optimizer.groups();"
-			"optimizer.joinPath();"
-			"optimizer.reorder();"
-			"optimizer.deadcode();"
-			"optimizer.reduce();"
-			"optimizer.dataflow();"
-			"optimizer.history();"
-			"optimizer.multiplex();"
-			"optimizer.garbageCollector();");
+         "optimizer.inline();"
+         "optimizer.remap();"
+         "optimizer.evaluate();"
+         "optimizer.costModel();"
+         "optimizer.coercions();"
+         "optimizer.emptySet();"
+         "optimizer.aliases();"
+         "optimizer.selcrackst();"
+         "optimizer.deadcode();"
+         "optimizer.commonTerms();"
+         "optimizer.groups();"
+         "optimizer.joinPath();"
+         "optimizer.reorder();"
+         "optimizer.deadcode();"
+         "optimizer.reduce();"
+         "optimizer.dataflow();"
+         "optimizer.history();"
+         "optimizer.multiplex();"
+         "optimizer.garbageCollector();");
 
 	return MAL_SUCCEED;
 }
@@ -97,31 +98,20 @@ OPTselcrackstImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 {
 	InstrPtr p, *old;
 	int update= 0, i, limit, actions=0, j;
-	int no_of_leftjoins=0;	
+
 	
 	str tables[maxTables];
 	int crackedTables=0;
 
 	for(j=0;j<maxTables;j++)
 		 tables[j] = NULL;	
-	OPTDEBUGselcrackst
-		printf("Stochastic crack optimizer started\n");
 
-	(void) cntxt;/* Tell compilers that we know that we do not */
-        (void) stk; /* use these function parameters, here.       */ 
+	OPTDEBUGselcrackst
+		printf("Stochastic Crack optimizer started\n");
+	(void) cntxt;
+	(void) stk; 
 	(void) pci;
 	
- 	 /* In general, a MAL optimizer transforms a given MAL program into a
-         * modified one by sequentially walking through the given program
-         * and concurrently creating a new one from scratch by
-         * (1) copying statements as is, modified, or in a different order,
-         * or (2) omitting statements or (3) introducing new statements.
-         */
-
-        /* check for logical error: mb must never be NULL */
-        assert (mb != NULL);
-
-        /* safe the old stage of the MAL block */
 	limit = mb->stop;
 	old = mb->stmt;
 	
@@ -134,15 +124,7 @@ OPTselcrackstImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 	}
 	if (update)
 		return 0;
-	/*If there are more than one leftjoins in the plan, we do not want to replace or delete none of them*/
-	for (i = 0; i < limit; i++) {
-		p = old[i];
-		if (match2(old[j], algebraRef, leftjoinRef))
-			no_of_leftjoins++;
-	}
 
-
-	/* iterate over the instructions of the input MAL program */
 	for (i = 0; i < limit; i++) {
 		p = old[i];
 
@@ -167,12 +149,10 @@ OPTselcrackstImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 			if (mb->var[getArg(p,5)]->value.val.ival != 0 ) 
 				continue;		
 				
-			varSetProp(mb, getArg(p, 0), canBeCrackedProp, 0, NULL); /* add a property "can be cracked" to every base relation that is a candidate for selection cracking */
+			varSetProp(mb, getArg(p, 0), canBeCrackedProp, 0, NULL);
 
-
-			vp = VALset(&v, TYPE_str, GDKstrdup(getVar(mb,getArg(p,2))->value.val.sval));  /* also, for every candidate bat, maintain the table name */
+			vp = VALset(&v, TYPE_str, GDKstrdup(getVar(mb,getArg(p,2))->value.val.sval));
 			varSetProp(mb, getArg(p,0), tableProp, op_eq, vp);
-
 			continue;
 		}
 
@@ -206,11 +186,6 @@ OPTselcrackstImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		if (match2(p, algebraRef, selectRef) ||
 		    match2(p, algebraRef, uselectRef) || 
 		    match2(p, algebraRef, thetauselectRef)){ 
-				
-			
-			int j=0,k=0,m=0;
-			bit found = FALSE;
-			bit found2 = FALSE;
 
 			if (varGetProp(mb, getArg(p,1), canBeCrackedProp) != NULL){
 				bit alreadyCracked = FALSE;
@@ -226,7 +201,7 @@ OPTselcrackstImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 					crackedTables++;
 					if (match2(p, algebraRef, uselectRef))
 					{
-						setFunctionId(p, putName("selectst", 8));
+						setFunctionId(p, putName("uselectst", 9));
 	
 					}
 					else if (match2(p, algebraRef, thetauselectRef))
@@ -234,56 +209,59 @@ OPTselcrackstImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 						setFunctionId(p, putName("thetaselectst", 13));
 	
 					}
-					
-					setModuleId(p, putName("crackers", 8));
-					
-					setVarType(mb, getArg(p,0), getArgType(mb,p,1)); /*We force the return type to be equal to the type of the first argument*/
-					setVarUDFtype(mb, getArg(p,0));
-
-                       			for (j = i+1; !found  && j < limit; j++){
-						if(match2(old[j], algebraRef, semijoinRef) || no_of_leftjoins>1)
-						{ break; }
-						if (match2(old[j], algebraRef, leftjoinRef)){
-							for (k = old[j]->retc; !found && k < old[j]->argc; k++)
-								found = (getArg(old[j], k) == getArg(p, 1));
-							if(found)
-							{
-								for (m = j+1; m < limit; m++)
-								{
-									for (k = old[m]->retc; k < old[m]->argc; k++){
-										found2 = (getArg(old[m], k) == getArg(old[j], 0));
-										if (found2) 
-											break;
-									
-									}
-									getArg(old[m], k) = getArg(p, 0);
-									
-									
-									continue;
-									
-								}
-							
-							}
-						}
-						
-						continue;
-					}
-					
+					else if (match2(p, algebraRef, selectRef))
+					{
+						setFunctionId(p, putName("selectst", 8));
 	
+					}
+
+					setModuleId(p,putName("crackers",8));
 					actions++;
 					continue;
 				}
-				
 			}
 
+			if (varGetProp(mb, getArg(p,1), canBeJoinselectProp) != NULL){
+				InstrPtr newJoinselect, oldSemijoin;
+			
+				oldSemijoin = old[varGetProp(mb, getArg(p,1), canBeJoinselectProp)->value.val.ival];
+			
+				/* create the new operator call */	
+				newJoinselect = newInstruction(mb,ASSIGNsymbol);
+				getArg(newJoinselect,0) = getArg(p,0);
+				setModuleId(newJoinselect, putName("crackers", 8));
+				if (match2(p, algebraRef, selectRef))
+					setFunctionId(newJoinselect, putName("joinselect", 10));
+				else 
+				if (match2(p, algebraRef, uselectRef)) 
+					setFunctionId(newJoinselect, putName("joinuselect", 11));
+				else 
+				if (match2(p, algebraRef, thetauselectRef)) 
+					setFunctionId(newJoinselect, putName("jointhetauselect", 16));
+				newJoinselect= pushArgument(mb, newJoinselect, getArg(oldSemijoin, 1));
+				for(j=2; j< p->argc; j++)
+					newJoinselect= pushArgument(mb, newJoinselect, getArg(p, j));
+				newJoinselect= pushArgument(mb, newJoinselect, getArg(oldSemijoin, 2));
+				newJoinselect= pushBit(mb,newJoinselect,FALSE);
+				newJoinselect= pushBit(mb,newJoinselect,FALSE);
+				/* printInstruction(cntxt->fdout,mb, 0, newJoinselect,0); */
+
+				/* replace the current with the new one and remove the prev semijoin*/
+				freeInstruction(p);
+				old[i]=newJoinselect;
+				removeInstruction(mb, oldSemijoin);
+				i--;
+
+				actions++;
+				continue;
+			}
 		}
 	}
 
 	return actions;
 }
 
-str
-OPTselcrackst(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
+str OPTselcrackst(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
 	str modnme;
 	str fcnnme;
@@ -345,4 +323,5 @@ OPTselcrackst(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	freeInstruction(q);
 	return msg;
 }
+
 
