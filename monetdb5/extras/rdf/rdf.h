@@ -47,8 +47,16 @@ RDFParser(BAT **graph, str *location, str *graphname, str *schemam);
 
 rdf_export str 
 RDFleftfetchjoin_sortedestimate(int *result, int *lid, int *rid, lng *estimate);
+
 rdf_export str 
 RDFleftfetchjoin_sorted(int *result, int* lid, int *rid);
+
+rdf_export str
+RDFSchemaExplore(int *ret, str *tbname, str *clname);
+
+
+rdf_export str
+RDFextractCS(int *ret, bat *sbatid, bat *pbatid); 
 
 
 #define TRIPLE_STORE 1

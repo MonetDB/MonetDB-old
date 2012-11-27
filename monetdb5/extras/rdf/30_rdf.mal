@@ -16,5 +16,10 @@
 # All Rights Reserved.
 
 # This loads the MonetDB/RDF module
+library rdf;
+
 include tokenizer;
 include rdfalgebra;
+
+# For rdf schema exploration and summarization
+include rdfschema;

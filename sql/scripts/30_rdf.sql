@@ -30,3 +30,6 @@ create table rdf.graph (gname string, gid int);
 -- the backend
 create procedure rdf_shred(location string, gname string, sch string)
 	external name sql.rdfshred;
+
+create procedure rdf_schema_explore(tbname string, clname string)
+	external name rdf.rdfschemaexplore;
