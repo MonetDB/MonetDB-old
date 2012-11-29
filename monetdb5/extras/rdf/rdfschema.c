@@ -40,6 +40,32 @@ static void copyIntSet(int* dest, int* orig, int len){
 	}
 }
 
+static void putCStoHash(map_t csmap, int* buff, int num, oid *csoid){
+	oid 	*getCSoid; 
+	oid	*putCSoid; 
+	int 	err; 
+	int* cs; 
+
+	cs = (int*) malloc(sizeof(int) * num);
+	copyIntSet(cs, buff, num); 
+	if (hashmap_get(csmap, cs, num,(void**)(&getCSoid)) != MAP_OK){
+		putCSoid = malloc(sizeof(oid)); 
+		*putCSoid = *csoid; 
+
+		err = hashmap_put(csmap, cs, num, putCSoid); 	
+		assert(err == MAP_OK); 
+				
+		printf("Put CS %d into hashmap \n", (int) *putCSoid);
+
+		(*csoid)++; 
+	}
+	else{
+		printf("The key %d exists in the hashmap \n", (int) *getCSoid);
+		free(cs); 
+
+	}
+}
+
 str
 RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 	BUN 	p, q; 
@@ -48,13 +74,10 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 	oid 	*bt, *pbt; 
 	oid 	curS; 		/* current Subject oid */
 	oid 	CSoid = 0; 	/* Characteristic set oid */
-	oid	*putCSoid; 
-	oid 	*getCSoid; 
 	int 	numP; 		/* Number of properties for current S */
 	map_t 	csMap; 
 	int*	buff; 	 
 	int 	INIT_PROPERTY_NUM = 256; 
-	int 	err; 
 
 	buff = (int *) malloc (sizeof(int) * INIT_PROPERTY_NUM);
 	
@@ -76,23 +99,7 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 		bt = (oid *) BUNtloc(si, p);		
 		if (*bt != curS){
 			if (p != 0){	/* Not the first S */
-				int* cs; 
-				cs = (int*) malloc(sizeof(int) * numP);
-				copyIntSet(cs, buff, numP); 
-				if (hashmap_get(csMap, cs, numP,(void**)(&getCSoid)) != MAP_OK){
-					putCSoid = malloc(sizeof(oid)); 
-					*putCSoid = CSoid; 
-
-					err = hashmap_put(csMap, cs, numP, putCSoid); 	
-					assert(err == MAP_OK); 
-					
-					CSoid++; 
-				}
-				else{
-					printf("This key exists in the hashmap");
-					free(cs); 
-
-				}
+				putCStoHash(csMap, buff, numP, &CSoid); 
 			}
 			curS = *bt; 
 			numP = 0;
@@ -103,7 +110,9 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 		numP++; 
 		printf("Travel sbat at %d  value: %d , for pbat: %d \n", (int) p, (int) *bt, (int) *pbt);
 	}
-		
+	
+	/*put the last CS */
+	putCStoHash(csMap, buff, numP, &CSoid); 
 
 	BBPreclaim(sbat); 
 	BBPreclaim(pbat); 
