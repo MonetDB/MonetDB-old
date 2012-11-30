@@ -44,11 +44,12 @@ static void putCStoHash(map_t csmap, int* buff, int num, oid *csoid){
 	oid 	*getCSoid; 
 	oid	*putCSoid; 
 	int 	err; 
-	int* cs; 
+	int* 	cs; 
+	int 	freq; 
 
 	cs = (int*) malloc(sizeof(int) * num);
 	copyIntSet(cs, buff, num); 
-	if (hashmap_get(csmap, cs, num,(void**)(&getCSoid)) != MAP_OK){
+	if (hashmap_get(csmap, cs, num,(void**)(&getCSoid),1, &freq) != MAP_OK){
 		putCSoid = malloc(sizeof(oid)); 
 		*putCSoid = *csoid; 
 
@@ -60,11 +61,17 @@ static void putCStoHash(map_t csmap, int* buff, int num, oid *csoid){
 		(*csoid)++; 
 	}
 	else{
-		printf("The key %d exists in the hashmap \n", (int) *getCSoid);
+		printf("The key %d exists in the hashmap with freq %d \n", (int) *getCSoid, freq);
 		free(cs); 
 
 	}
 }
+
+/*
+static void getTopFreqCSs(map_t csmap){
+	
+}
+*/
 
 str
 RDFextractCS(int *ret, bat *sbatid, bat *pbatid){

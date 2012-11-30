@@ -13,7 +13,8 @@
 /* We need to keep keys and values */
 typedef struct _hashmap_element{
 	int* key;
-	int num; 	
+	int num; 
+	int freq; 	
 	int in_use;
 	any_t data;
 } hashmap_element;
@@ -171,6 +172,7 @@ int hashmap_put(map_t in, int* key, int num,  any_t value){
 	m->data[index].key = key;
 	m->data[index].num = num; 
 	m->data[index].in_use = 1;
+	m->data[index].freq = 1; 
 	m->size++; 
 
 	return MAP_OK;
@@ -179,7 +181,7 @@ int hashmap_put(map_t in, int* key, int num,  any_t value){
 /*
  * Get your pointer out of the hashmap with a key
  */
-int hashmap_get(map_t in, int* key, int num,  any_t *arg){
+int hashmap_get(map_t in, int* key, int num,  any_t *arg, char isUpdateFrequency, int *retfreq){
 	int curr;
 	int i;
 	hashmap_map* m;
@@ -193,14 +195,17 @@ int hashmap_get(map_t in, int* key, int num,  any_t *arg){
 	/* Linear probing, if necessary */
 	for(i = 0; i<MAX_CHAIN_LENGTH; i++){
 
-        int in_use = m->data[curr].in_use;
-        if (in_use == 1){
-            if ((m->data[curr].num == num) && (intsetcmp(m->data[curr].key,key,num)==0)){
-                *arg = (m->data[curr].data);
-                return MAP_OK;
-            }
+		int in_use = m->data[curr].in_use;
+		if (in_use == 1){
+			if ((m->data[curr].num == num) && (intsetcmp(m->data[curr].key,key,num)==0)){
+				*arg = (m->data[curr].data);
+				if (isUpdateFrequency == 1){
+					m->data[curr].freq++;
+					*retfreq = m->data[curr].freq; 
+				}
+				return MAP_OK;
+            		}
 		}
-
 		curr = (curr + 1) % m->table_size;
 	}
 
@@ -209,6 +214,8 @@ int hashmap_get(map_t in, int* key, int num,  any_t *arg){
 	/* Not found */
 	return MAP_MISSING;
 }
+
+
 
 /*
  * Iterate the function parameter over each element in the hashmap.  The
@@ -239,6 +246,37 @@ int hashmap_iterate(map_t in, PFany f, any_t item) {
 }
 
 /*
+ * This function is used for filtering the CSs only:
+ *
+ * Iterate over the hashmap and show the values from 
+ * all the hash element that has the frequent value > freqthreshold
+ *
+ * */
+
+int hashmap_iterate_threshold(map_t in, int freqthreshold){
+
+	int i;
+
+	/* Cast the hashmap */
+	hashmap_map* m = (hashmap_map*) in;
+
+	/* On empty hashmap, return immediately */
+	if (hashmap_length(m) <= 0)
+		return MAP_MISSING;	
+
+	/* Linear probing */
+	for(i = 0; i< m->table_size; i++)
+		if(m->data[i].in_use != 0) {
+			if (m->data[i].freq > freqthreshold){
+				//any_t data = (any_t) (m->data[i].data);
+				
+			}
+		}
+
+    return MAP_OK;
+}
+
+/*
  * Remove an element with that key from the map
  */
 int hashmap_remove(map_t in, int* key, int num){
@@ -261,6 +299,7 @@ int hashmap_remove(map_t in, int* key, int num){
                 /* Blank out the fields */
                 m->data[curr].in_use = 0;
 		m->data[curr].num = 0; 
+		m->data[curr].freq = 1; 
                 m->data[curr].data = NULL;
                 m->data[curr].key = NULL;
 

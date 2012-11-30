@@ -108,20 +108,20 @@ raptor_parser_parse_abort (@1->rparser);
 
 @= rdf_parser_handler
 static void
-@1Handler (void *user_data, raptor_locator* locator,
-		const char *message)
+@1Handler (void *user_data, raptor_log_message* message)
 {
-	parserData *pdata = (parserData *) user_data;
-	pdata->@1Msg = GDKstrdup(message);
+	parserData *pdata = ((parserData *) user_data);
+	pdata->@1Msg = GDKstrdup(message->text);
 	mnstr_printf(GDKout, "rdflib: @1:%s\n", pdata->@1Msg);
 	pdata->@1++;
 
 	/* check for a valid locator object and only then use it */
-	if (locator != NULL) {
-		pdata->line = locator->line;
-		pdata->column = locator->column;
-	} else {
-	}
+	if (message->locator != NULL) {
+		pdata->line = message->locator->line;
+		pdata->column = message->locator->column;
+		mnstr_printf(GDKout, "rdflib: @1: at line %d column %d\n", pdata->line, pdata->column);
+	} 
+	
 }
 
 @
@@ -563,6 +563,7 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema)
 	@:set_handlers(world, rparser, pdata)@
 
 	//raptor_parser_set_option(rparser, 0);	//MDPHAM: CHECK FOR THIS SETTING
+	raptor_parser_set_option(rparser, RAPTOR_OPTION_SCANNING);
 
 	/* Parse URI or local file. */
 	ret = URLisaURL(&isURI, location);

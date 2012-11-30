@@ -51,6 +51,15 @@ extern map_t hashmap_new(void);
 extern int hashmap_iterate(map_t in, PFany f, any_t item);
 
 /*
+ * This function is used for filtering the CSs only:
+ *
+ * Iterate over the hashmap and show the values from 
+ * all the hash element that has the frequent value > freqthreshold
+ *
+ * */
+extern int hashmap_iterate_threshold(map_t in, int freqthreshold);
+
+/*
  * Add an element to the hashmap. Return MAP_OK or MAP_OMEM.
  */
 extern int hashmap_put(map_t in, int* key, int num,  any_t value);
@@ -58,7 +67,7 @@ extern int hashmap_put(map_t in, int* key, int num,  any_t value);
 /*
  * Get an element from the hashmap. Return MAP_OK or MAP_MISSING.
  */
-extern int hashmap_get(map_t in, int* key, int num, any_t *arg);
+extern int hashmap_get(map_t in, int* key, int num, any_t *arg, char isUpdateFreq, int *retfreq);
 
 /*
  * Remove an element from the hashmap. Return MAP_OK or MAP_MISSING.
