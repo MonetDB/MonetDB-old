@@ -6,7 +6,9 @@
  * Modified by Pete Warden to fix a serious performance problem, support strings as keys
  * and removed thread synchronization - http://petewarden.typepad.com
  *
- * Modified by Minh-Duc Pham to support hashfunction with set of integer values
+ * Modified by Minh-Duc Pham to support key as a set of integer values
+ * Added functions for collecting data statistic
+ *
  */
 
 #ifndef __HASHMAP_H__
