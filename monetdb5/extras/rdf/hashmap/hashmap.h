@@ -36,6 +36,23 @@ typedef int (*PFany)(any_t, any_t);
  */
 typedef any_t map_t;
 
+/* We need to keep keys and values */
+typedef struct _hashmap_element{
+	int* key;
+	int num; 
+	int freq; 	
+	int in_use;
+	any_t data;
+} hashmap_element;
+
+/* A hashmap has some maximum size and current size,
+ * as well as the data to hold. */
+typedef struct _hashmap_map{
+	int table_size;
+	int size;
+	hashmap_element *data;
+} hashmap_map;
+
 /*
  * Return an empty hashmap. Returns NULL if empty.
 */

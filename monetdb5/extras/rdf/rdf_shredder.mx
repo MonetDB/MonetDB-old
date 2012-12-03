@@ -563,7 +563,7 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema)
 	@:set_handlers(world, rparser, pdata)@
 
 	//raptor_parser_set_option(rparser, 0);	//MDPHAM: CHECK FOR THIS SETTING
-	raptor_parser_set_option(rparser, RAPTOR_OPTION_SCANNING);
+	//raptor_parser_set_option(rparser, RAPTOR_OPTION_SCANNING);
 
 	/* Parse URI or local file. */
 	ret = URLisaURL(&isURI, location);

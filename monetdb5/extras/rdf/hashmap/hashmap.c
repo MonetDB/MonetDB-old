@@ -10,22 +10,7 @@
 #define INITIAL_SIZE (256)
 #define MAX_CHAIN_LENGTH (8)
 
-/* We need to keep keys and values */
-typedef struct _hashmap_element{
-	int* key;
-	int num; 
-	int freq; 	
-	int in_use;
-	any_t data;
-} hashmap_element;
 
-/* A hashmap has some maximum size and current size,
- * as well as the data to hold. */
-typedef struct _hashmap_map{
-	int table_size;
-	int size;
-	hashmap_element *data;
-} hashmap_map;
 
 /*
  * Return an empty hashmap, or NULL on failure.
@@ -256,10 +241,11 @@ int hashmap_iterate(map_t in, PFany f, any_t item) {
 int hashmap_iterate_threshold(map_t in, int freqthreshold){
 
 	int i;
+	int count = 0; 
 
 	/* Cast the hashmap */
 	hashmap_map* m = (hashmap_map*) in;
-
+	
 	/* On empty hashmap, return immediately */
 	if (hashmap_length(m) <= 0)
 		return MAP_MISSING;	
@@ -269,11 +255,11 @@ int hashmap_iterate_threshold(map_t in, int freqthreshold){
 		if(m->data[i].in_use != 0) {
 			if (m->data[i].freq > freqthreshold){
 				//any_t data = (any_t) (m->data[i].data);
-				
+				count++; 
 			}
 		}
 
-    return MAP_OK;
+    return count;
 }
 
 /*

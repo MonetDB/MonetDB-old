@@ -48,6 +48,11 @@ static void putCStoHash(map_t csmap, int* buff, int num, oid *csoid){
 	int 	freq; 
 
 	cs = (int*) malloc(sizeof(int) * num);
+	if (cs==NULL){
+		printf("Malloc failed. at %d", num);
+		exit(-1); 
+	}
+
 	copyIntSet(cs, buff, num); 
 	if (hashmap_get(csmap, cs, num,(void**)(&getCSoid),1, &freq) != MAP_OK){
 		putCSoid = malloc(sizeof(oid)); 
@@ -56,22 +61,30 @@ static void putCStoHash(map_t csmap, int* buff, int num, oid *csoid){
 		err = hashmap_put(csmap, cs, num, putCSoid); 	
 		assert(err == MAP_OK); 
 				
-		printf("Put CS %d into hashmap \n", (int) *putCSoid);
+		//printf("Put CS %d into hashmap \n", (int) *putCSoid);
 
 		(*csoid)++; 
 	}
 	else{
-		printf("The key %d exists in the hashmap with freq %d \n", (int) *getCSoid, freq);
+		//printf("The key %d exists in the hashmap with freq %d \n", (int) *getCSoid, freq);
 		free(cs); 
 
 	}
 }
 
-/*
-static void getTopFreqCSs(map_t csmap){
-	
+
+static void getTopFreqCSs(map_t csmap, int threshold){
+	int count;
+	hashmap_map* m; 
+	count = hashmap_iterate_threshold(csmap, threshold); 
+	m = (hashmap_map *) csmap;
+	printf("Threshold: %d \n ", threshold);
+	printf("Number of frequent CSs %d / Number of CSs %d (Table size: %d) \n" , count, m->size, m->table_size);
+
+	return;
+
 }
-*/
+
 
 str
 RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
@@ -80,11 +93,12 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 	BATiter si, pi; 	/*iterator for BAT of s,p columns in spo table */
 	oid 	*bt, *pbt; 
 	oid 	curS; 		/* current Subject oid */
+	oid 	curP; 		/* current Property oid */
 	oid 	CSoid = 0; 	/* Characteristic set oid */
 	int 	numP; 		/* Number of properties for current S */
 	map_t 	csMap; 
 	int*	buff; 	 
-	int 	INIT_PROPERTY_NUM = 256; 
+	int 	INIT_PROPERTY_NUM = 50000; 
 
 	buff = (int *) malloc (sizeof(int) * INIT_PROPERTY_NUM);
 	
@@ -100,26 +114,49 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 
 	/* Init a hashmap */
 	csMap = hashmap_new(); 
-	numP = 0; 
+	numP = 0;
+	curP = 0; 
 
 	BATloop(sbat, p, q){
 		bt = (oid *) BUNtloc(si, p);		
 		if (*bt != curS){
 			if (p != 0){	/* Not the first S */
 				putCStoHash(csMap, buff, numP, &CSoid); 
+
 			}
 			curS = *bt; 
+			curP = 0;
 			numP = 0;
 		}
 				
 		pbt = (oid *) BUNtloc(pi, p); 
-		buff[numP] = *pbt; 
-		numP++; 
-		printf("Travel sbat at %d  value: %d , for pbat: %d \n", (int) p, (int) *bt, (int) *pbt);
+
+		if (numP > INIT_PROPERTY_NUM){
+			printf("# of properties %d is greater than INIT_PROPERTY_NUM at CS %d property %d \n", numP, (int)CSoid, (int)*pbt);
+			exit(-1);
+		}
+		
+		if (curP != *pbt){
+			buff[numP] = *pbt; 
+			numP++; 
+			curP = *pbt; 
+		}
+		//printf("Travel sbat at %d  value: %d , for pbat: %d \n", (int) p, (int) *bt, (int) *pbt);
 	}
 	
 	/*put the last CS */
 	putCStoHash(csMap, buff, numP, &CSoid); 
+
+	/*get the statistic */
+
+	getTopFreqCSs(csMap,20);
+
+	getTopFreqCSs(csMap,10);
+
+	getTopFreqCSs(csMap,5);
+
+	getTopFreqCSs(csMap,2);
+
 
 	BBPreclaim(sbat); 
 	BBPreclaim(pbat); 
