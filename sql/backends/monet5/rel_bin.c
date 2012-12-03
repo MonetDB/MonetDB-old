@@ -596,7 +596,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 		sql_exp *re = e->r, *re2 = e->f;
 		prop *p;
 
-		if (e->flag == cmp_filter) {
+		if (get_cmp(e) == cmp_filter) {
 			list *r = e->r;
 
 			re2 = NULL;
@@ -671,6 +671,8 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			} else {
 				r = bin_find_column(sql->sa, right, er->l, TID);
 			}
+			if (!l || !r)
+				return NULL;
 			/* small performance improvement, ie use idx directly */
 			if (l->type == st_alias && 
 			    l->op1->type == st_idxbat &&
@@ -713,7 +715,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 		}
 
 		/* general predicate, select and join */
-		if (e->flag == cmp_filter) {
+		if (get_cmp(e) == cmp_filter) {
 			list *ops;
 
 			if (l->nrcols == 0)
@@ -732,7 +734,10 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			append(ops, r);
 			append(ops, r2);
 			r = stmt_list(sql->sa, ops);
-			return stmt_genselect(sql->sa, l, r, e->f, sel);
+			s = stmt_genselect(sql->sa, l, r, e->f, sel);
+                        if (s && is_anti(e))
+                        	s->flag |= ANTI;
+                        return s;
 		}
 		if (left && right && !is_select &&
 		   ((l->nrcols && (r->nrcols || (r2 && r2->nrcols))) || 
@@ -1258,14 +1263,31 @@ rel2bin_table( mvc *sql, sql_rel *rel, list *refs)
 		int i;
 		sql_subfunc *f = op->f;
 		sql_table *t = f->res.comp_type;
+		stmt *psub = NULL;
 			
 		if (!t)
 			t = f->func->res.comp_type;
-		sub = exp_bin(sql, op, sub, NULL, NULL, NULL, NULL, NULL); /* table function */
-		if (!t || !sub) { 
+
+		if (rel->l) { /* first construct the sub relation */
+			sql_rel *l = rel->l;
+			if (l->op == op_ddl) {
+				sql_table *t = rel_ddl_table_get(l);
+
+				if (t)
+					sub = rel2bin_sql_table(sql, t);
+			} else {
+				sub = subrel_bin(sql, rel->l, refs);
+			}
+			if (!sub) 
+				return NULL;
+		}
+
+		psub = exp_bin(sql, op, sub, psub, NULL, NULL, NULL, NULL); /* table function */
+		if (!t || !psub) { 
 			assert(0);
 			return NULL;	
 		}
+		sub = psub;
 		l = sa_list(sql->sa);
 		for(i = 0, n = t->columns.set->h; n; n = n->next, i++ ) {
 			sql_column *c = n->data;
@@ -1405,10 +1427,79 @@ rel2bin_hash_lookup( mvc *sql, sql_rel *rel, stmt *left, stmt *right, sql_idx *i
 		} else {
 			return stmt_join(sql->sa, h, idx, cmp_equal);
 		}
-	} else
+	} else {
+		assert(0);
 		return stmt_uselect(sql->sa, idx, h, cmp_equal, NULL);
+	}
 }
 
+static stmt *
+join_hash_key( mvc *sql, list *l ) 
+{
+	node *m;
+	sql_subtype *it, *wrd;
+	stmt *h = NULL;
+	stmt *bits = stmt_atom_int(sql->sa, 1 + ((sizeof(wrd)*8)-1)/(list_length(l)+1));
+
+	it = sql_bind_localtype("int");
+	wrd = sql_bind_localtype("wrd");
+	for (m = l->h; m; m = m->next) {
+		stmt *s = m->data;
+
+		if (h) {
+			sql_subfunc *xor = sql_bind_func_result3(sql->sa, sql->session->schema, "rotate_xor_hash", wrd, it, tail_type(s), wrd);
+
+			h = stmt_Nop(sql->sa, stmt_list(sql->sa,  list_append( list_append( list_append(sa_list(sql->sa), h), bits), s )), xor);
+		} else {
+			sql_subfunc *hf = sql_bind_func_result(sql->sa, sql->session->schema, "hash", tail_type(s), NULL, wrd);
+			h = stmt_unop(sql->sa, s, hf);
+		}
+	}
+	return h;
+}
+
+static stmt *
+releqjoin( mvc *sql, list *l1, list *l2, int used_hash )
+{
+	node *n1 = l1->h, *n2 = l2->h;
+	stmt *l, *r, *res;
+
+	if (list_length(l1) <= 1) {
+		l = l1->h->data;
+		r = l2->h->data;
+		return stmt_join(sql->sa, l, r, cmp_equal);
+	}
+	if (used_hash) {
+		l = n1->data;
+		r = n2->data;
+		n1 = n1->next;
+		n2 = n2->next;
+		res = stmt_join(sql->sa, l, r, cmp_equal);
+	} else { /* need hash */
+		l = join_hash_key(sql, l1);
+		r = join_hash_key(sql, l2);
+		res = stmt_join(sql->sa, l, r, cmp_equal);
+	}
+	l = stmt_result(sql->sa, res, 0);
+	r = stmt_result(sql->sa, res, 1);
+	for (; n1 && n2; n1 = n1->next, n2 = n2->next) {
+		stmt *ld = n1->data;
+		stmt *rd = n2->data;
+		stmt *le = stmt_project(sql->sa, l, ld );
+		stmt *re = stmt_project(sql->sa, r, rd );
+		/* intentional both tail_type's of le (as re sometimes is a find for bulk loading */
+		sql_subfunc *f=sql_bind_func(sql->sa, sql->session->schema, "=", tail_type(le), tail_type(le), F_FUNC);
+		stmt * cmp;
+
+		assert(f);
+		cmp = stmt_binop(sql->sa, le, re, f);
+		cmp = stmt_uselect(sql->sa, cmp, stmt_bool(sql->sa, 1), cmp_equal, NULL);
+		l = stmt_project(sql->sa, cmp, l );
+		r = stmt_project(sql->sa, cmp, r );
+	}
+	res = stmt_join(sql->sa, l, r, cmp_joined);
+	return res;
+}
 
 static stmt *
 rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
@@ -1432,10 +1523,11 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
  	 * 	second selects/filters 
          */
 	if (rel->exps) {
-		int use_hash = 0;
+		int used_hash = 0;
 		int idx = 0;
 		list *jexps = sa_list(sql->sa);
-		list *jns = sa_list(sql->sa);
+		list *lje = sa_list(sql->sa);
+		list *rje = sa_list(sql->sa);
 
 		/* get equi-joins first */
 		if (list_length(rel->exps) > 1) {
@@ -1460,7 +1552,7 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 			prop *p;
 
 			/* only handle simple joins here */		
-			if (list_length(jns) && (idx || e->type != e_cmp || e->flag != cmp_equal))
+			if (list_length(lje) && (idx || e->type != e_cmp || e->flag != cmp_equal))
 				break;
 
 			/* handle possible index lookups */
@@ -1471,8 +1563,9 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 			
 				join = s = rel2bin_hash_lookup(sql, rel, left, right, i, en);
 				if (s) {
-					list_append(jns, s);
-					use_hash = 1;
+					list_append(lje, s->op1);
+					list_append(rje, s->op2);
+					used_hash = 1;
 				}
 			}
 
@@ -1488,7 +1581,7 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 			    s->type != st_join2 && 
 			    s->type != st_joinN) {
 				/* predicate */
-				if (!list_length(jns) && s->nrcols == 0) { 
+				if (!list_length(lje) && s->nrcols == 0) { 
 					stmt *l = bin_first_column(sql->sa, left);
 					stmt *r = bin_first_column(sql->sa, right);
 
@@ -1506,14 +1599,13 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 
 			if (!join) 
 				join = s;
-			list_append(jns, s);
+			list_append(lje, s->op1);
+			list_append(rje, s->op2);
 		}
-		if (list_length(jns) > 1) {
-			join = stmt_releqjoin(sql->sa, jns);
-			if (use_hash)
-				join->flag = NO_HASH;
+		if (list_length(lje) > 1) {
+			join = releqjoin(sql, lje, rje, used_hash);
 		} else if (!join) {
-			join = jns->h->data; 
+			join = stmt_join(sql->sa, lje->h->data, rje->h->data, cmp_equal);
 		}
 	} else {
 		stmt *l = bin_first_column(sql->sa, left);
@@ -1570,13 +1662,13 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 
 	if (rel->op == op_left || rel->op == op_full) {
 		/* we need to add the missing oid's */
-		ld = stmt_diff(sql->sa, bin_first_column(sql->sa, left), stmt_reverse(sql->sa, jl));
-		ld = stmt_mark(sql->sa, stmt_reverse(sql->sa, ld), 0);
+		ld = stmt_mirror(sql->sa, bin_first_column(sql->sa, left));
+		ld = stmt_tdiff(sql->sa, ld, jl);
 	}
 	if (rel->op == op_right || rel->op == op_full) {
 		/* we need to add the missing oid's */
-		rd = stmt_diff(sql->sa, bin_first_column(sql->sa, right), stmt_reverse(sql->sa, jr));
-		rd = stmt_mark(sql->sa, stmt_reverse(sql->sa, rd), 0);
+		rd = stmt_mirror(sql->sa, bin_first_column(sql->sa, right));
+		rd = stmt_tdiff(sql->sa, rd, jr);
 	}
 
 	for( n = left->op4.lval->h; n; n = n->next ) {
@@ -1621,7 +1713,7 @@ rel2bin_semijoin( mvc *sql, sql_rel *rel, list *refs)
 {
 	list *l; 
 	node *en = NULL, *n;
-	stmt *left = NULL, *right = NULL, *join = NULL, *jl, *jr;
+	stmt *left = NULL, *right = NULL, *join = NULL, *jl, *jr, *c;
 
 	if (rel->l) /* first construct the left sub relation */
 		left = subrel_bin(sql, rel->l, refs);
@@ -1638,7 +1730,8 @@ rel2bin_semijoin( mvc *sql, sql_rel *rel, list *refs)
          */
 	if (rel->exps) {
 		int idx = 0;
-		list *jns = sa_list(sql->sa);
+		list *lje = sa_list(sql->sa);
+		list *rje = sa_list(sql->sa);
 
 		for( en = rel->exps->h; en; en = en->next ) {
 			int join_idx = sql->opt_stats[0];
@@ -1646,35 +1739,33 @@ rel2bin_semijoin( mvc *sql, sql_rel *rel, list *refs)
 			stmt *s = NULL;
 
 			/* only handle simple joins here */		
-			if (list_length(jns) && (idx || e->type != e_cmp || e->flag != cmp_equal))
+			if (list_length(lje) && (idx || e->type != e_cmp || e->flag != cmp_equal))
 				break;
 
 			s = exp_bin(sql, en->data, left, right, NULL, NULL, NULL, NULL);
-			if (!s) {
+			if (!s) 
+				return NULL;
+			if (join_idx != sql->opt_stats[0])
+				idx = 1;
+			/* stop on first non equality join */
+			if (!join) {
+				join = s;
+			} else if (s->type != st_join && s->type != st_join2 && s->type != st_joinN) {
+				/* handle select expressions */
 				assert(0);
 				return NULL;
 			}
-			if (join_idx != sql->opt_stats[0])
-				idx = 1;
-			if (!join) {
-				join = s;
-			/* stop on first non equality join */
-			} else if (s->type != st_join && 
-				   s->type != st_join2 && 
-				   s->type != st_joinN) {
-				/* handle select expressions */
-				join = stmt_inter(sql->sa, join,s);
-				continue;
+			if (s->type == st_join || s->type == st_join2 || s->type == st_joinN) { 
+				list_append(lje, s->op1);
+				list_append(rje, s->op2);
 			}
-			list_append(jns, s);
 		}
-		if (list_length(jns) > 1) {
-			join = stmt_releqjoin(sql->sa, jns);
-		} else {
-			join = jns->h->data; 
+		if (list_length(lje) > 1) {
+			join = releqjoin(sql, lje, rje, 0 /* no hash used */);
+		} else if (!join) {
+			join = stmt_join(sql->sa, lje->h->data, rje->h->data, cmp_equal);
 		}
 	} else {
-		/* TODO: this case could use some optimization */
 		stmt *l = bin_first_column(sql->sa, left);
 		stmt *r = bin_first_column(sql->sa, right);
 		join = stmt_join(sql->sa, l, r, cmp_all); 
@@ -1729,15 +1820,12 @@ rel2bin_semijoin( mvc *sql, sql_rel *rel, list *refs)
 
 	/* We did a full join, thats too much. 
 	   Reduce this using difference and intersect */
+	c = stmt_mirror(sql->sa, left->op4.lval->h->data);
 	if (rel->op == op_anti) {
-		stmt *c = left->op4.lval->h->data;
-		join = stmt_diff(sql->sa, c, stmt_reverse(sql->sa, jl));
+		join = stmt_tdiff(sql->sa, c, jl);
 	} else {
-		stmt *c = left->op4.lval->h->data;
-		join = stmt_inter(sql->sa, c, stmt_reverse(sql->sa, jl));
+		join = stmt_tinter(sql->sa, c, jl);
 	}
-	join = stmt_reverse(sql->sa, stmt_mark_tail(sql->sa, join, 0));
-
 
 	/* project all the left columns */
 	for( n = left->op4.lval->h; n; n = n->next ) {
@@ -1856,6 +1944,8 @@ rel2bin_union( mvc *sql, sql_rel *rel, list *refs)
 	return sub;
 }
 
+/* Both EXCEPT and INTERSECT need work, current versions aren't mergetable save 
+ * (bails out on the gen_group) */
 static stmt *
 rel2bin_except( mvc *sql, sql_rel *rel, list *refs)
 {
@@ -1869,7 +1959,8 @@ rel2bin_except( mvc *sql, sql_rel *rel, list *refs)
 	stmt *lext = NULL, *rext = NULL;
 	stmt *lcnt = NULL, *rcnt = NULL;
 	stmt *s, *lm, *rm, *ecnt = NULL;
-	//sql_subaggr *a;
+	list *lje = sa_list(sql->sa);
+	list *rje = sa_list(sql->sa);
 
 	if (rel->l) /* first construct the left sub relation */
 		left = subrel_bin(sql, rel->l, refs);
@@ -1914,15 +2005,18 @@ rel2bin_except( mvc *sql, sql_rel *rel, list *refs)
          * as during joining nil != nil. But for except's nil aren't distinct.
          * We would need a bat.join operator which has both semantics.
          */
-	s = stmt_releqjoin_init(sql->sa);
+	/* TODO change to leftjoin semantics to keep those in A not in B */
+	/* would need outerjoin eqjoin and outer project code, cleans up following mess */
 	for (n = left->op4.lval->h, m = right->op4.lval->h; n && m; n = n->next, m = m->next) {
 		stmt *l = column(sql->sa, n->data);
 		stmt *r = column(sql->sa, m->data);
 
 		l = stmt_project(sql->sa, lext, l);
 		r = stmt_project(sql->sa, rext, r);
-		stmt_releqjoin_fill(s, l, r);
+		list_append(lje, l);
+		list_append(rje, r);
 	}
+	s = releqjoin(sql, lje, rje, 0 /* no hash used */);
 	lm = stmt_result(sql->sa, s, 0);
 	rm = stmt_result(sql->sa, s, 1);
 
@@ -1935,12 +2029,12 @@ rel2bin_except( mvc *sql, sql_rel *rel, list *refs)
 		stmt *glcnt, *grcnt, *o;
 		sql_subfunc *sub;
 
+		/* nil + count -> ? */
 		glcnt = stmt_project(sql->sa, lm, lcnt);
 		grcnt = stmt_project(sql->sa, rm, rcnt);
 
  		sub = sql_bind_func(sql->sa, sql->session->schema, "sql_sub", wrd, wrd, F_FUNC);
-		s = stmt_binop(sql->sa, glcnt, grcnt, sub);
-		//s = stmt_select(sql->sa, s, stmt_atom_wrd(sql->sa, 0), cmp_gt, NULL);
+		s = stmt_binop(sql->sa, glcnt, grcnt, sub); /* use count */
 
 		/* now we need to add the groups which weren't in B */
 		lcnt = stmt_project(sql->sa, stmt_reverse(sql->sa, lm), s);
@@ -2005,7 +2099,8 @@ rel2bin_inter( mvc *sql, sql_rel *rel, list *refs)
 	stmt *lext = NULL, *rext = NULL;
 	stmt *lcnt = NULL, *rcnt = NULL;
 	stmt *s, *lm, *rm;
-	//sql_subaggr *a;
+	list *lje = sa_list(sql->sa);
+	list *rje = sa_list(sql->sa);
 
 	if (rel->l) /* first construct the left sub relation */
 		left = subrel_bin(sql, rel->l, refs);
@@ -2046,15 +2141,16 @@ rel2bin_inter( mvc *sql, sql_rel *rel, list *refs)
 	stmt_group_done(rg);
 
 	/* now find the matching groups */
-	s = stmt_releqjoin_init(sql->sa);
 	for (n = left->op4.lval->h, m = right->op4.lval->h; n && m; n = n->next, m = m->next) {
 		stmt *l = column(sql->sa, n->data);
 		stmt *r = column(sql->sa, m->data);
 
 		l = stmt_project(sql->sa, lext, l);
 		r = stmt_project(sql->sa, rext, r);
-		stmt_releqjoin_fill(s, l, r);
+		list_append(lje, l);
+		list_append(rje, r);
 	}
+	s = releqjoin(sql, lje, rje, 0 /* no hash used */);
 	lm = stmt_result(sql->sa, s, 0);
 	rm = stmt_result(sql->sa, s, 1);
 		
@@ -2168,8 +2264,7 @@ rel2bin_project( mvc *sql, sql_rel *rel, list *refs, sql_rel *topn)
 		sql_exp *le = topn_limit(topn);
 		sql_exp *oe = topn_offset(topn);
 
-		if (!le) { /* for now only handle topn 
-				including limit, ie not just offset */
+		if (!le) { /* Don't push only offset */
 			topn = NULL;
 		} else {
 			l = exp_bin(sql, le, NULL, NULL, NULL, NULL, NULL, NULL);
@@ -2196,11 +2291,7 @@ rel2bin_project( mvc *sql, sql_rel *rel, list *refs, sql_rel *topn)
 			sub = subrel_bin(sql, rel->l, refs);
 		}
 		if (!sub) 
-			return NULL;	
-		if (sub->type == st_ordered) {
-			stmt *n = sql_reorder(sql, sub->op1, sub->op2);
-			sub = n;
-		}
+			return NULL;
 	}
 
 	pl = sa_list(sql->sa);
@@ -2223,18 +2314,18 @@ rel2bin_project( mvc *sql, sql_rel *rel, list *refs, sql_rel *topn)
 	stmt_set_nrcols(psub);
 
 	/* In case of a topn 
-		if both order by and distinct: then get first order by col early
-			do topn on it. Project all again! Then rest
+		if both order by and distinct: then get first order by col 
+		do topn on it. Project all again! Then rest
          */
 	if (topn && rel->r) {
 		list *oexps = rel->r, *npl = sa_list(sql->sa);
-		/* including bounds, topn returns atleast N */
-		int including = need_including(topn) || need_distinct(rel);
+		/* distinct, topn returns atleast N (unique) */
+		int distinct = need_distinct(rel);
 		stmt *limit = NULL; 
 
 		for (n=oexps->h; n; n = n->next) {
 			sql_exp *orderbycole = n->data; 
- 			int inc = including || n->next;
+ 			int inc = distinct || n->next;
 
 			stmt *orderbycolstmt = exp_bin(sql, orderbycole, sub, psub, NULL, NULL, NULL, NULL); 
 
@@ -2251,7 +2342,10 @@ rel2bin_project( mvc *sql, sql_rel *rel, list *refs, sql_rel *topn)
 				return NULL;
 		}
 
-		limit = stmt_reverse(sql->sa, stmt_mark_tail(sql->sa, limit, 0));
+		if (distinct) 
+			limit = stmt_reverse(sql->sa, stmt_mark_tail(sql->sa, limit, 0));
+		else	/* add limit to mark end of pqueue topns */
+			limit = stmt_limit(sql->sa, limit, stmt_atom_wrd(sql->sa, 0), l, LIMIT_DIRECTION(0, 0, 0));
 		for ( n=pl->h ; n; n = n->next) 
 			list_append(npl, stmt_project(sql->sa, limit, column(sql->sa, n->data)));
 		psub = stmt_list(sql->sa, npl);
@@ -2501,9 +2595,8 @@ rel2bin_groupby( mvc *sql, sql_rel *rel, list *refs)
 static stmt *
 rel2bin_topn( mvc *sql, sql_rel *rel, list *refs)
 {
-	list *newl;
 	sql_exp *oe = NULL, *le = NULL;
-	stmt *sub = NULL, *order = NULL, *l = NULL, *o = NULL;
+	stmt *sub = NULL, *l = NULL, *o = NULL;
 	node *n;
 
 	if (rel->l) { /* first construct the sub relation */
@@ -2521,21 +2614,12 @@ rel2bin_topn( mvc *sql, sql_rel *rel, list *refs)
 	le = topn_limit(rel);
 	oe = topn_offset(rel);
 
-	if (sub->type == st_ordered) {
-		stmt *s = sub->op2;
-		order = column(sql->sa, sub->op1);
-		sub = s;
-	}
 	n = sub->op4.lval->h;
-	newl = sa_list(sql->sa);
-
 	if (n) {
-		stmt *limit = NULL;
-		/*
-		sql_rel *rl = rel->l;
-		int including = (rl && need_distinct(rl)) || need_including(rel);
-		*/
-		int including = need_including(rel);
+		stmt *limit = NULL, *sc = n->data;
+		char *cname = column_name(sql->sa, sc);
+		char *tname = table_name(sql->sa, sc);
+		list *newl = sa_list(sql->sa);
 
 		if (le)
 			l = exp_bin(sql, le, NULL, NULL, NULL, NULL, NULL, NULL);
@@ -2547,18 +2631,9 @@ rel2bin_topn( mvc *sql, sql_rel *rel, list *refs)
 		if (!o)
 			o = stmt_atom_wrd(sql->sa, 0);
 
-		if (order) {
-		 	limit = stmt_limit(sql->sa, order, o, l, LIMIT_DIRECTION(0,0,including));
-		} else {
-			stmt *sc = n->data;
-			char *cname = column_name(sql->sa, sc);
-			char *tname = table_name(sql->sa, sc);
+		sc = column(sql->sa, sc);
+		limit = stmt_limit(sql->sa, stmt_alias(sql->sa, sc, tname, cname), o, l, LIMIT_DIRECTION(0,0,0));
 
-			sc = column(sql->sa, sc);
-			limit = stmt_limit(sql->sa, stmt_alias(sql->sa, sc, tname, cname), o, l, LIMIT_DIRECTION(0,0,including));
-		}
-
-		limit = stmt_reverse(sql->sa, stmt_mark_tail(sql->sa, limit, 0));
 		for ( ; n; n = n->next) {
 			stmt *sc = n->data;
 			char *cname = column_name(sql->sa, sc);
@@ -2568,13 +2643,7 @@ rel2bin_topn( mvc *sql, sql_rel *rel, list *refs)
 			sc = stmt_project(sql->sa, limit, sc);
 			list_append(newl, stmt_alias(sql->sa, sc, tname, cname));
 		}
-		if (order) 
-			order = stmt_project(sql->sa, limit, order);
-	}
-	sub = stmt_list(sql->sa, newl);
-	if (order) {
-		assert(0);
-		return stmt_ordered(sql->sa, order, sub);
+		sub = stmt_list(sql->sa, newl);
 	}
 	return sub;
 }
@@ -2784,22 +2853,20 @@ insert_check_ukey(mvc *sql, list *inserts, sql_key *k, stmt *idx_inserts)
 				}
 			}
 		} else {
-			s = stmt_releqjoin_init(sql->sa);
-			s->flag = NO_HASH;
-			if (k->idx && hash_index(k->idx->type)) 
-				stmt_releqjoin_fill(s, stmt_idx(sql, k->idx, dels), idx_inserts);
+			list *lje = sa_list(sql->sa);
+			list *rje = sa_list(sql->sa);
+			if (k->idx && hash_index(k->idx->type)) {
+				list_append(lje, stmt_idx(sql, k->idx, dels));
+				list_append(rje, idx_inserts);
+			}
 			for (m = k->columns->h; m; m = m->next) {
 				sql_kc *c = m->data;
 
 				col = stmt_col(sql, c->c, dels);
-/*
-				if ((k->type == ukey) && stmt_has_null(col)) {
-					stmt *nn = stmt_selectnonil(sql, col, s);
-					col = stmt_project(sql->sa, nn, col);
-				}
-*/
-				stmt_releqjoin_fill(s, col, nth(inserts, c->c->colnr)->op1);
+				list_append(lje, col);
+				list_append(rje, nth(inserts, c->c->colnr)->op1);
 			}
+			s = releqjoin(sql, lje, rje, 1 /* hash used */);
 			s = stmt_result(sql->sa, s, 0);
 		}
 		s = stmt_binop(sql->sa, stmt_aggr(sql->sa, s, NULL, NULL, cnt, 1, 0), stmt_atom_wrd(sql->sa, 0), ne);
@@ -2873,8 +2940,7 @@ insert_check_ukey(mvc *sql, list *inserts, sql_key *k, stmt *idx_inserts)
 		
 			g = stmt_group(sql->sa, ins, NULL, NULL, NULL);
 			stmt_group_done(g);
-			//ss = stmt_aggr(sql->sa, grp, ext, cnt, 1, 0);
-			ss = stmt_result(sql->sa, g, 2);
+			ss = stmt_result(sql->sa, g, 2); /* use count */
 			/* (count(ss) <> sum(ss)) */
 			sum = sql_bind_aggr(sql->sa, sql->session->schema, "sum", wrd);
 			ssum = stmt_aggr(sql->sa, ss, NULL, NULL, sum, 1, 0);
@@ -3048,11 +3114,6 @@ rel2bin_insert( mvc *sql, sql_rel *rel, list *refs)
 	if (!inserts)  
 		return NULL;	
 
-	if (inserts->type == st_ordered) {
-		stmt *n = sql_reorder(sql, inserts->op1, inserts->op1);
-		inserts = n;
-	}
-
 	if (idx_ins)
 		pin = refs_find_rel(refs, prel);
 
@@ -3182,15 +3243,18 @@ update_check_ukey(mvc *sql, stmt **updates, sql_key *k, stmt *tids, stmt *idx_up
 			This is done using a relation join and a count (which 
 			should be zero)
 	 	*/
-		/* TODO split null removal and join/group (to make mkey save) */
 		if (!isNew(k)) {
-			s = stmt_releqjoin_init(sql->sa);
-			s->flag = NO_HASH;
-			if (k->idx && hash_index(k->idx->type))
-				stmt_releqjoin_fill(s, stmt_project(sql->sa, tids, stmt_idx(sql, k->idx, dels)), idx_updates);
+			stmt *nu_tids = stmt_tdiff(sql->sa, dels, tids); /* not updated ids */
+			list *lje = sa_list(sql->sa);
+			list *rje = sa_list(sql->sa);
+
+			if (k->idx && hash_index(k->idx->type)) {
+				list_append(lje, stmt_idx(sql, k->idx, nu_tids));
+				list_append(rje, idx_updates);
+			}
 			for (m = k->columns->h; m; m = m->next) {
 				sql_kc *c = m->data;
-				stmt *upd, *l;
+				stmt *upd;
 
 				assert(updates);
 				if (updates[c->c->colnr]) {
@@ -3198,16 +3262,10 @@ update_check_ukey(mvc *sql, stmt **updates, sql_key *k, stmt *tids, stmt *idx_up
 				} else {
 					upd = stmt_project(sql->sa, tids, stmt_col(sql, c->c, dels));
 				}
-/*
-				if ((k->type == ukey) && stmt_has_null(upd)) {
-					stmt *nn = stmt_selectnonil(sql, upd, NULL);
-					upd = stmt_select2(sql->sa, upd, n, n, 0, NULL);
-				}
-*/
-
-				l = stmt_diff(sql->sa, stmt_col(sql, c->c, dels), stmt_reverse(sql->sa, tids));
-				stmt_releqjoin_fill(s, l, upd);
+				list_append(lje, stmt_col(sql, c->c, nu_tids));
+				list_append(rje, upd);
 			}
+			s = releqjoin(sql, lje, rje, 1 /* hash used */);
 			s = stmt_result(sql->sa, s, 0);
 			s = stmt_binop(sql->sa, stmt_aggr(sql->sa, s, NULL, NULL, cnt, 1, 0), stmt_atom_wrd(sql->sa, 0), ne);
 		}
@@ -3252,8 +3310,7 @@ update_check_ukey(mvc *sql, stmt **updates, sql_key *k, stmt *tids, stmt *idx_up
 				Cnt = stmt_result(sql->sa, g, 2);
 			}
 			stmt_group_done(g);
-			//ss = stmt_aggr(sql->sa, grp, ext, cnt, 1, 0);
-			ss = Cnt;
+			ss = Cnt; /* use count */
 			/* (count(ss) <> sum(ss)) */
 			sum = sql_bind_aggr(sql->sa, sql->session->schema, "sum", wrd);
 			ssum = stmt_aggr(sql->sa, ss, NULL, NULL, sum, 1, 0);
@@ -3280,10 +3337,12 @@ update_check_ukey(mvc *sql, stmt **updates, sql_key *k, stmt *tids, stmt *idx_up
 
 		/* s should be empty */
 		if (!isNew(k)) {
+			//stmt *nu_tids = stmt_tdiff(sql->sa, dels, tids); /* not updated ids */
 			assert (updates);
 
 			h = updates[c->c->colnr]->op2;
 			o = stmt_diff(sql->sa, stmt_col(sql, c->c, dels), stmt_reverse(sql->sa, tids));
+			//o = stmt_col(sql, c->c, nu_tids);
 			s = stmt_join(sql->sa, o, h, cmp_equal);
 			s = stmt_result(sql->sa, s, 0);
 			s = stmt_binop(sql->sa, stmt_aggr(sql->sa, s, NULL, NULL, cnt, 1, 0), stmt_atom_wrd(sql->sa, 0), ne);
@@ -3312,8 +3371,7 @@ update_check_ukey(mvc *sql, stmt **updates, sql_key *k, stmt *tids, stmt *idx_up
 
 			g = stmt_group(sql->sa, upd, NULL, NULL, NULL);
 			stmt_group_done(g);
-			ss = stmt_result(sql->sa, g, 2);
-			//ss = stmt_aggr(sql->sa, grp, ext, cnt, 1, 0);
+			ss = stmt_result(sql->sa, g, 2); /* use count */
 
 			/* (count(ss) <> sum(ss)) */
 			sum = sql_bind_aggr(sql->sa, sql->session->schema, "sum", wrd);
@@ -3382,9 +3440,8 @@ join_updated_pkey(mvc *sql, sql_key * k, stmt *tids, stmt **updates, int updcol)
 	sql_subtype *bt = sql_bind_localtype("bit");
 	sql_subaggr *cnt = sql_bind_aggr(sql->sa, sql->session->schema, "count", NULL);
 	sql_subfunc *ne = sql_bind_func_result(sql->sa, sql->session->schema, "<>", wrd, wrd, bt);
-
-	s = stmt_releqjoin_init(sql->sa);
-	s->flag = NO_HASH;
+	list *lje = sa_list(sql->sa);
+	list *rje = sa_list(sql->sa);
 
 	fdels = stmt_dels(sql, k->idx->t);
 	rows = stmt_idx(sql, k->idx, fdels);
@@ -3399,7 +3456,7 @@ join_updated_pkey(mvc *sql, sql_key * k, stmt *tids, stmt **updates, int updcol)
 	for (m = k->idx->columns->h, o = rk->columns->h; m && o; m = m->next, o = o->next) {
 		sql_kc *fc = m->data;
 		sql_kc *c = o->data;
-		stmt *upd;
+		stmt *upd, *col;
 
 		if (updates[c->c->colnr]) {
 			upd = updates[c->c->colnr]->op2;
@@ -3412,17 +3469,20 @@ join_updated_pkey(mvc *sql, sql_key * k, stmt *tids, stmt **updates, int updcol)
 
 			nn = stmt_uselect(sql->sa, nn, stmt_atom(sql->sa, atom_general(sql->sa, &c->c->type, NULL)), cmp_equal, NULL);
 			if (null)
-				null = stmt_inter(sql->sa, null, nn);
+				null = stmt_tunion(sql->sa, null, nn);
 			else
 				null = nn;
 			nulls = 1;
 		}
-		stmt_releqjoin_fill(s, upd, stmt_inter(sql->sa, stmt_col(sql, fc->c, fdels), rows ));
+		col = stmt_project(sql->sa, rows, stmt_col(sql, fc->c, fdels));
+		list_append(lje, upd);
+		list_append(rje, col);
 	}
+	s = releqjoin(sql, lje, rje, 1 /* hash used */);
 	s = stmt_result(sql->sa, s, 0);
 	/* add missing nulls */
 	if (nulls)
-		s = stmt_union(sql->sa, s, stmt_const(sql->sa, null, stmt_atom(sql->sa, atom_general(sql->sa, sql_bind_localtype("oid"), NULL))));
+		s = stmt_union(sql->sa, s, stmt_const(sql->sa, stmt_reverse(sql->sa, null), stmt_atom(sql->sa, atom_general(sql->sa, sql_bind_localtype("oid"), NULL))));
 
 	/* releqjoin.count <> updates[updcol].count */
 	s = stmt_binop(sql->sa, stmt_aggr(sql->sa, s, NULL, NULL, cnt, 1, 0), stmt_aggr(sql->sa, rows, NULL, NULL, cnt, 1, 0), ne);
@@ -3677,6 +3737,8 @@ join_idx_update(mvc *sql, sql_idx * i, stmt **updates, int updcol)
 	stmt *null = NULL;
 	stmt **new_updates = table_update_stmts(sql, i->t, &len);
 	sql_column *updcolumn = NULL; 
+	list *lje = sa_list(sql->sa);
+	list *rje = sa_list(sql->sa);
 
 	dels = stmt_dels(sql, i->t);
 	for (m = i->columns->h, o = rk->columns->h; m && o; m = m->next, o = o->next) {
@@ -3701,29 +3763,29 @@ join_idx_update(mvc *sql, sql_idx * i, stmt **updates, int updcol)
 
 			nn = stmt_uselect(sql->sa, nn, stmt_atom(sql->sa, atom_general(sql->sa, &c->c->type, NULL)), cmp_equal, NULL);
 			if (null)
-				null = stmt_union(sql->sa, null, stmt_reverse(sql->sa, nn));
+				null = stmt_tunion(sql->sa, null, nn);
 			else
-				null = stmt_reverse(sql->sa, nn);
+				null = nn;
 			nulls = 1;
 		}
-
 	}
 
-	s = stmt_releqjoin_init(sql->sa);
 	for (m = i->columns->h, o = rk->columns->h; m && o; m = m->next, o = o->next) {
 		sql_kc *c = m->data;
 		sql_kc *rc = o->data;
 		stmt *upd = new_updates[c->c->colnr];
 
 		/* the join will remove any nulls */
-		stmt_releqjoin_fill(s, check_types(sql, &rc->c->type, upd, type_equal), stmt_col(sql, rc->c, rdels));
+		list_append(lje, check_types(sql, &rc->c->type, upd, type_equal));
+		list_append(rje, stmt_col(sql, rc->c, rdels));
 	}
+	s = releqjoin(sql, lje, rje, 0 /* no hash used */);
 	l = stmt_result(sql->sa, s, 0);
 	r = stmt_result(sql->sa, s, 1);
 	s = stmt_project(sql->sa, stmt_reverse(sql->sa, l), r);
 	/* add missing nulls */
 	if (nulls)
-		s = stmt_union(sql->sa, s, stmt_const(sql->sa, null, stmt_atom(sql->sa, atom_general(sql->sa, sql_bind_localtype("oid"), NULL))));
+		s = stmt_union(sql->sa, s, stmt_const(sql->sa, stmt_reverse(sql->sa, null), stmt_atom(sql->sa, atom_general(sql->sa, sql_bind_localtype("oid"), NULL))));
 	/* correct the order */
 	if (updates)
 		return stmt_reorder_project(sql->sa, stmt_mirror(sql->sa, updates[updcol]->op1), s);

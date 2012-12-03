@@ -236,6 +236,10 @@ command slice(b:bat[:any_1,:any_2], x:wrd, y:wrd) :bat[:any_1,:any_2]
 address ALGslice_wrd
 comment "Return the slice with the BUNs at position x till y.";
 
+command subslice(b:bat[:oid,:any_1], x:wrd, y:wrd) :bat[:oid,:oid] 
+address ALGsubslice_wrd
+comment "Return the oids of the slice with the BUNs at position x till y.";
+
 command topN( b:bat[:any_1,:any_2], top:lng ) :bat[:any_1,:any_2]
 address ALGtopN
 comment "Trim all but the top N tuples.";
@@ -475,6 +479,8 @@ comment "Returns the intersection taken over only the *head* columns of two BATs
 command tintersect( left:bat[:any_1,:any_2], right:bat[:any_1,:any] ) 
 		:bat[:any_1,:any_2] 
 address ALGtintersect;
+command tinter( left:bat[:oid,:oid], right:bat[:oid,:oid] ) :bat[:oid,:oid] 
+address ALGtinter;
 
 # @- Bun-differing elements
 command difference( left:bat[:any_1,:any_2], right:bat[:any_1,:any_2] ) 
@@ -501,6 +507,8 @@ comment "Returns the difference taken over only the *head* columns of two BATs.
 	or: 'kdifference(left,right).kunique'.";
 command tdifference ( left:bat[:any_1,:any_2], right:bat[:any_1,:any] ) 
 		:bat[:any_1,:any_2] 
+address ALGtdifference;
+command tdiff( left:bat[:oid,:oid], right:bat[:oid,:oid] ) :bat[:oid,:oid] 
 address ALGtdiff;
 # @- Unions on bun
 command union ( left:bat[:any_1,:any_2], right:bat[:any_1,:any_2]) 
@@ -846,8 +854,17 @@ comment "Gives the avg of all tail values";
 # from the mean (average) value, divided by the population of the set.
 @= stdev_definition
 command stdev (b:bat[:any_1,:@1] ) :dbl
-address ALGstdev_@1
+address ALGstdev
 comment "Gives the standard deviation of all tail values";
+command stdevp (b:bat[:any_1,:@1] ) :dbl
+address ALGstdevp
+comment "Gives the standard deviation of all tail values";
+command variance (b:bat[:any_1,:@1] ) :dbl
+address ALGvariance
+comment "Gives the variance of all tail values";
+command variancep (b:bat[:any_1,:@1] ) :dbl
+address ALGvariancep
+comment "Gives the variance of all tail values";
 @
 @mal
 @:stdev_definition(bte)@
@@ -963,17 +980,10 @@ algebra_export ptr BATmin(BAT *b, ptr aggr);
 
 algebra_export str ALGavg(dbl *res, int *bid);
 
-@= stdev_export
-algebra_export str ALGstdev_@1(dbl *res, int *bid);
-@
-@h
-@:stdev_export(bte)@
-@:stdev_export(sht)@
-@:stdev_export(int)@
-@:stdev_export(wrd)@
-@:stdev_export(lng)@
-@:stdev_export(flt)@
-@:stdev_export(dbl)@
+algebra_export str ALGstdev(dbl *res, int *bid);
+algebra_export str ALGstdevp(dbl *res, int *bid);
+algebra_export str ALGvariance(dbl *res, int *bid);
+algebra_export str ALGvariancep(dbl *res, int *bid);
 
 @= ALGaggregate_export
 algebra_export str ALGmin_@1(@1* res, int *bid) ;
@@ -1060,8 +1070,10 @@ algebra_export str ALG@1(int *result, int* lid, int *rid);
 @:ALGbinaryExport(tunion)@
 @:ALGbinaryExport(sintersect)@
 @:ALGbinaryExport(tintersect)@
+@:ALGbinaryExport(tinter)@
 @:ALGbinaryExport(sdiff)@
 @:ALGbinaryExport(kdiff)@
+@:ALGbinaryExport(tdifference)@
 @:ALGbinaryExport(tdiff)@
 @:ALGbinaryintExport(sample)@
 
@@ -1101,6 +1113,7 @@ algebra_export str ALGslice(int *ret, bat *bid, lng *start, lng *end);
 algebra_export str ALGslice_int(int *ret, bat *bid, int *start, int *end);
 algebra_export str ALGslice_wrd(int *ret, bat *bid, wrd *start, wrd *end);
 algebra_export str ALGslice_oid(int *ret, bat *bid, oid *start, oid *end);
+algebra_export str ALGsubslice_wrd(int *ret, bat *bid, wrd *start, wrd *end);
 algebra_export str ALGposition(wrd *retval, int *bid, ptr val);
 algebra_export str ALGpositionBUN(wrd *retval, int *bid, ptr val, ptr tval);
 algebra_export str ALGfetch(ptr ret, int *bid, lng *pos);
@@ -2803,7 +2816,7 @@ ALGtunion(int *result, int *bid, int *bid2)
 }
 
 str
-ALGtdiff(int *result, int *bid, int *bid2)
+ALGtdifference(int *result, int *bid, int *bid2)
 {
 	BAT *b, *b2, *bn;
 
@@ -2830,30 +2843,84 @@ ALGtdiff(int *result, int *bid, int *bid2)
 }
 
 str
+ALGtdiff(int *result, int *bid, int *bid2)
+{
+	BAT *b, *b2, *bn;
+
+	if ((b = BATdescriptor(*bid)) == NULL)
+		throw(MAL, "algebra.tdiff", RUNTIME_OBJECT_MISSING);
+	if ((b2 = BATdescriptor(*bid2)) == NULL){
+		BBPreleaseref(*bid2);
+		throw(MAL, "algebra.tdiff", RUNTIME_OBJECT_MISSING);
+	}
+	
+	bn = BATkdiff(BATmirror(b),BATmirror(b2));
+	BBPreleaseref(b->batCacheid);
+	BBPreleaseref(b2->batCacheid);
+	if (bn) {
+		BAT *r = BATmirror(BATmark(bn,0));
+		
+		BBPreleaseref(bn->batCacheid);
+		bn = r;
+		if (!(bn->batDirty&2)) bn = BATsetaccess(bn, BAT_READ);
+		*result = bn->batCacheid;
+		BBPkeepref(*result);
+		return MAL_SUCCEED;
+	}
+	throw(MAL, "algebra.tdiff", GDK_EXCEPTION);
+}
+
+str
 ALGtintersect(int *result, int *bid, int *bid2)
 {
 	BAT *b, *b2, *bn;
 
 	if ((b = BATdescriptor(*bid)) == NULL)
-		throw(MAL, "algebra.tdifference", RUNTIME_OBJECT_MISSING);
+		throw(MAL, "algebra.tintersect", RUNTIME_OBJECT_MISSING);
 	if ((b2 = BATdescriptor(*bid2)) == NULL){
 		BBPreleaseref(*bid2);
-		throw(MAL, "algebra.tdifference", RUNTIME_OBJECT_MISSING);
+		throw(MAL, "algebra.tintersect", RUNTIME_OBJECT_MISSING);
 	}
 	
 	bn = BATsemijoin(BATmirror(b),BATmirror(b2));
+	BBPreleaseref(b->batCacheid);
+	BBPreleaseref(b2->batCacheid);
 	if (bn) {
 		bn = BATmirror(bn);
 		if (!(bn->batDirty&2)) bn = BATsetaccess(bn, BAT_READ);
 		*result = bn->batCacheid;
 		BBPkeepref(*result);
-		BBPreleaseref(b->batCacheid);
-		BBPreleaseref(b2->batCacheid);
 		return MAL_SUCCEED;
 	}
+	throw(MAL, "algebra.tintersect", GDK_EXCEPTION);
+}
+
+str
+ALGtinter(int *result, int *bid, int *bid2)
+{
+	BAT *b, *b2, *bn;
+
+	if ((b = BATdescriptor(*bid)) == NULL)
+		throw(MAL, "algebra.tinter", RUNTIME_OBJECT_MISSING);
+	if ((b2 = BATdescriptor(*bid2)) == NULL){
+		BBPreleaseref(*bid2);
+		throw(MAL, "algebra.tinter", RUNTIME_OBJECT_MISSING);
+	}
+	
+	bn = BATsemijoin(BATmirror(b),BATmirror(b2));
 	BBPreleaseref(b->batCacheid);
 	BBPreleaseref(b2->batCacheid);
-	throw(MAL, "algebra.tdifference", GDK_EXCEPTION);
+	if (bn) {
+		BAT *r = BATmirror(BATmark(bn,0));
+
+		BBPreleaseref(bn->batCacheid);
+		bn = r;
+		if (!(bn->batDirty&2)) bn = BATsetaccess(bn, BAT_READ);
+		*result = bn->batCacheid;
+		BBPkeepref(*result);
+		return MAL_SUCCEED;
+	}
+	throw(MAL, "algebra.tinter", GDK_EXCEPTION);
 }
 
 str
@@ -3421,6 +3488,24 @@ ALGslice_oid(int *ret, bat *bid, oid *start, oid *end)
 	return MAL_SUCCEED;
 }
 
+str
+ALGsubslice_wrd(int *ret, bat *bid, wrd *start, wrd *end)
+{
+	lng s = *start;
+	lng e = (*end == wrd_nil ? lng_nil : *end);
+	bat slc;
+	str msg;
+
+	if ((msg = ALGslice(&slc, bid, &s, &e)) == MAL_SUCCEED) {
+		if ((msg = ALGtmark_default(ret, &slc)) == MAL_SUCCEED) {
+			BBPdecref(slc, TRUE); 
+			*ret = -*ret; /* ugly reverse */ 
+			return MAL_SUCCEED;
+		}
+	}
+	return msg;
+}
+
 /*
  * @- BUN Get/Fetch
  */
@@ -3844,11 +3929,11 @@ ALGavg(dbl *res, int *bid)
 	BUN cnt;
 
 	if ((b = BATdescriptor(*bid)) == NULL)
-		throw(MAL, "algebra.avg", RUNTIME_OBJECT_MISSING);
+		throw(MAL, "aggr.avg", RUNTIME_OBJECT_MISSING);
 	ret = BATcalcavg(b, NULL, res, &cnt);
 	BBPreleaseref(b->batCacheid);
 	if (ret == GDK_FAIL)
-		throw(MAL, "algebra.avg", SEMANTIC_TYPE_MISMATCH);
+		throw(MAL, "aggr.avg", SEMANTIC_TYPE_MISMATCH);
 	/* backward compatibility: return nil if there are nils in the input */
 	if (cnt < BATcount(b))
 		*res = dbl_nil;
@@ -3858,56 +3943,69 @@ ALGavg(dbl *res, int *bid)
 /*
  * @+ BAT standard deviation
  */
-@= stdev_impl
-str ALGstdev_@1(dbl *res, int *bid) {
+str
+ALGstdev(dbl *res, int *bid)
+{
 	BAT *b;
-	BUN cnt = 0;
+	dbl stdev;
 
-	if ((b=BATdescriptor(*bid)) == NULL) {
-		throw(MAL, "algebra.stdev", RUNTIME_OBJECT_MISSING);
-	}
-	cnt = BATcount(b);
-
-	if (cnt) {
-		dbl stdev = 0;
-		/* first, we need the average of the tail values */
-		dbl avg = 0;
-		if (BATcalcavg(b, NULL, &avg, &cnt) == GDK_SUCCEED && avg != dbl_nil && cnt == BATcount(b)) {
-			BATiter bi = bat_iterator(b);
-			BUN p,q;
-
-			/* next, we need the sum of the squares of the difference
-			 * of each value in the tail with the avg */
-
-			/* no need to check for nil values on the tail, the
-			 * BATcalcavg has already done that and reported back */
-			BATloop(b, p, q) {
-				dbl value = (dbl) *(@1*) BUNtloc(bi, p);
-				value -= avg;    /* diff from avg  */
-				value *= value;  /* square         */
-				stdev += value;  /* sum of squares */
-			}
-
-			/* finaly, divide by the cnt and compute the square root */
-			*res = sqrt(stdev/cnt);
-		} else {
-			*res = dbl_nil;
-		}
-	} else {
-		*res = dbl_nil;
-	}
-
+	if ((b = BATdescriptor(*bid)) == NULL)
+		throw(MAL, "aggr.stdev", RUNTIME_OBJECT_MISSING);
+	stdev = BATcalcstdev_sample(NULL, b);
 	BBPreleaseref(b->batCacheid);
+	if (stdev == dbl_nil)
+		throw(MAL, "aggr.stdev", SEMANTIC_TYPE_MISMATCH);
+	*res = stdev;
 	return MAL_SUCCEED;
 }
 
-@
-@c
-@:stdev_impl(bte)@
-@:stdev_impl(sht)@
-@:stdev_impl(int)@
-@:stdev_impl(wrd)@
-@:stdev_impl(lng)@
-@:stdev_impl(flt)@
-@:stdev_impl(dbl)@
+str
+ALGstdevp(dbl *res, int *bid)
+{
+	BAT *b;
+	dbl stdev;
 
+	if ((b = BATdescriptor(*bid)) == NULL)
+		throw(MAL, "aggr.stdevp", RUNTIME_OBJECT_MISSING);
+	stdev = BATcalcstdev_population(NULL, b);
+	BBPreleaseref(b->batCacheid);
+	if (stdev == dbl_nil)
+		throw(MAL, "aggr.stdevp", SEMANTIC_TYPE_MISMATCH);
+	*res = stdev;
+	return MAL_SUCCEED;
+}
+
+/*
+ * @+ BAT variance
+ */
+str
+ALGvariance(dbl *res, int *bid)
+{
+	BAT *b;
+	dbl variance;
+
+	if ((b = BATdescriptor(*bid)) == NULL)
+		throw(MAL, "aggr.variance", RUNTIME_OBJECT_MISSING);
+	variance = BATcalcvariance_sample(NULL, b);
+	BBPreleaseref(b->batCacheid);
+	if (variance == dbl_nil)
+		throw(MAL, "aggr.variance", SEMANTIC_TYPE_MISMATCH);
+	*res = variance;
+	return MAL_SUCCEED;
+}
+
+str
+ALGvariancep(dbl *res, int *bid)
+{
+	BAT *b;
+	dbl variance;
+
+	if ((b = BATdescriptor(*bid)) == NULL)
+		throw(MAL, "aggr.variancep", RUNTIME_OBJECT_MISSING);
+	variance = BATcalcvariance_population(NULL, b);
+	BBPreleaseref(b->batCacheid);
+	if (variance == dbl_nil)
+		throw(MAL, "aggr.variancep", SEMANTIC_TYPE_MISMATCH);
+	*res = variance;
+	return MAL_SUCCEED;
+}

@@ -66,7 +66,6 @@ typedef enum stmt_type {
 	st_order,
 	st_reorder,
 
-	st_ordered,
 	st_output,
 	st_affected_rows,
 
@@ -75,12 +74,11 @@ typedef enum stmt_type {
 	st_uselect2,
 	st_tunion,
 	st_tdiff,
+	st_tinter,
 
-	st_releqjoin,
 	st_join,
 	st_join2,
 	st_joinN,
-	st_inter,
 	st_diff,
 	st_union,
 
@@ -118,34 +116,10 @@ typedef enum stmt_type {
 	st_assign
 } st_type;
 
-typedef enum comp_type {
-	cmp_gt = 0,
-	cmp_gte = 1,
-	cmp_lte = 2,
-	cmp_lt = 3,
-	cmp_equal = 4,
-	cmp_notequal = 5,
-
-	cmp_filter = 6,
-	cmp_or = 7,
-	cmp_in = 8,
-	cmp_notin = 9,
-
-	/* cmp_all and cmp_project are only used within stmt (not sql_exp) */
-	cmp_all = 10,		/* special case for crossproducts */
-	cmp_project = 11,	/* special case for projection joins */
-	cmp_reorder_project = 12	/* special case for (reordering) projection joins */
-} comp_type;
-
-#define is_theta_exp(e) ((e) == cmp_gt || (e) == cmp_gte || (e) == cmp_lte ||\
-		         (e) == cmp_lt || (e) == cmp_equal || (e) == cmp_notequal)
-
-#define is_complex_exp(e) ((e) == cmp_or || (e) == cmp_in || (e) == cmp_notin || (e) == cmp_filter)
-
 /* flag to indicate anti join/select */
-#define ANTI 16
+#define SWAPPED 16
+#define ANTI ANTISEL
 #define GRP_DONE 32
-#define SWAPPED 64
 
 typedef struct stmt {
 	st_type type;
@@ -231,12 +205,7 @@ extern stmt *stmt_genselect(sql_allocator *sa, stmt *l, stmt *rops, sql_subfunc 
 
 extern stmt *stmt_tunion(sql_allocator *sa, stmt *op1, stmt *op2);
 extern stmt *stmt_tdiff(sql_allocator *sa, stmt *op1, stmt *op2);
-
-#define NEED_HASH 0
-#define NO_HASH 1
-extern stmt *stmt_releqjoin_init(sql_allocator *sa);
-extern void stmt_releqjoin_fill(stmt *releqjoin, stmt *lc, stmt *rc);
-extern stmt *stmt_releqjoin(sql_allocator *sa, list *joins);
+extern stmt *stmt_tinter(sql_allocator *sa, stmt *op1, stmt *op2);
 
 extern stmt *stmt_join(sql_allocator *sa, stmt *op1, stmt *op2, comp_type cmptype);
 extern stmt *stmt_join2(sql_allocator *sa, stmt *l, stmt *ra, stmt *rb, int cmp, int swapped);
@@ -247,7 +216,6 @@ extern stmt *stmt_project(sql_allocator *sa, stmt *op1, stmt *op2);
 extern stmt *stmt_project_delta(sql_allocator *sa, stmt *col, stmt *upd, stmt *ins);
 extern stmt *stmt_reorder_project(sql_allocator *sa, stmt *op1, stmt *op2);
 
-extern stmt *stmt_inter(sql_allocator *sa, stmt *op1, stmt *op2);
 extern stmt *stmt_diff(sql_allocator *sa, stmt *op1, stmt *op2);
 extern stmt *stmt_union(sql_allocator *sa, stmt *op1, stmt *op2);
 extern stmt *stmt_list(sql_allocator *sa, list *l);
@@ -286,7 +254,6 @@ extern stmt *stmt_unique(sql_allocator *sa, stmt *s, stmt *grp, stmt *ext, stmt 
 
 extern stmt *stmt_alias(sql_allocator *sa, stmt *op1, char *tname, char *name);
 
-extern stmt *stmt_ordered(sql_allocator *sa, stmt *order, stmt *res);
 extern stmt *stmt_output(sql_allocator *sa, stmt *l);
 extern stmt *stmt_affected_rows(sql_allocator *sa, stmt *l);
 

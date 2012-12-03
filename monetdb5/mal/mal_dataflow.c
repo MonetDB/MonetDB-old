@@ -124,6 +124,12 @@ q_create(int sz)
 	return q;
 }
 
+static void
+q_destroy(queue *q)
+{
+	GDKfree(q->data);
+	GDKfree(q);
+}
 
 /* keep a simple LIFO queue. It won't be a large one, so shuffles of requeue is possible */
 /* we might actually sort it for better scheduling behavior */
@@ -152,6 +158,7 @@ q_enqueue(queue *q, FlowEvent d)
  * that want to use a big recent result
  */
 
+#ifdef USE_MAL_ADMISSION
 static void
 q_requeue_(queue *q, FlowEvent d)
 {
@@ -177,6 +184,7 @@ q_requeue(queue *q, FlowEvent d)
 	MT_lock_unset(&q->l, "q_requeue");
 	MT_sema_up(&q->s, "q_requeue");
 }
+#endif
 
 static void *
 q_dequeue(queue *q)
@@ -235,7 +243,6 @@ DFLOWworker(void *t)
 	Thread thr;
 	str error = 0;
 
-	InstrPtr p;
 	int i;
 	long usec = 0;
 
@@ -298,10 +305,12 @@ DFLOWworker(void *t)
 		 * All eligible instructions are queued
 		 */
 #ifdef USE_MAL_ADMISSION
+		{
+		InstrPtr p = getInstrPtr(flow->mb, fe->pc);
 		fe->hotclaim = 0;
-		p = getInstrPtr(flow->mb, fe->pc);
 		for (i = 0; i < p->retc; i++)
 			fe->hotclaim += getMemoryClaim(flow->mb, flow->stk, fe->pc, i, FALSE);
+		}
 #endif
 		MT_lock_set(&flow->flowlock, "MALworker");
 	
@@ -597,7 +606,7 @@ runMALdataflow(Client cntxt, MalBlkPtr mb, int startpc, int stoppc, MalStkPtr st
 	GDKfree(flow->status);
 	GDKfree(flow->edges);
 	GDKfree(flow->nodes);
-	GDKfree(flow->done);
+	q_destroy(flow->done);
 	GDKfree(flow);
 	return ret;
 }

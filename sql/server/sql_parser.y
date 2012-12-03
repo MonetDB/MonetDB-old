@@ -462,7 +462,7 @@ int yydebug=1;
 %token <sval>
 	IDENT aTYPE ALIAS AGGR AGGR2 RANK sqlINT HEXADECIMAL INTNUM APPROXNUM 
 	USING 
-	ALL ANY SOME GLOBAL CAST CONVERT
+	GLOBAL CAST CONVERT
 	CHARACTER VARYING LARGE OBJECT VARCHAR CLOB sqlTEXT BINARY sqlBLOB
 	sqlDECIMAL sqlFLOAT
 	TINYINT SMALLINT BIGINT sqlINTEGER
@@ -480,8 +480,7 @@ int yydebug=1;
 %token  UNCOMMITTED COMMITTED sqlREPEATABLE SERIALIZABLE DIAGNOSTICS sqlSIZE
 
 %token <sval> ASYMMETRIC SYMMETRIC ORDER BY
-%token <sval> LIKE ILIKE BETWEEN
-%token <operation> sqlIN EXISTS ESCAPE HAVING sqlGROUP sqlNULL
+%token <operation> EXISTS ESCAPE HAVING sqlGROUP sqlNULL
 %token <operation> FROM FOR MATCH
 
 %token <operation> EXTRACT
@@ -508,20 +507,20 @@ int yydebug=1;
 /* operators */
 %left UNION EXCEPT INTERSECT CORRESPONDING UNIONJOIN
 %left JOIN CROSS LEFT FULL RIGHT INNER NATURAL
-%left LIKE BETWEEN sqlIN WITH DATA
-%left <operation> OR
+%left WITH DATA
+%left <operation> '(' ')'
+%left <sval> FILTER_FUNC 
+
+%left <operation> '='
+%left <operation> ALL ANY BETWEEN sqlIN LIKE ILIKE OR SOME
 %left <operation> AND
 %left <operation> NOT
-%left <operation> '(' ')'
 %left <sval> COMPARISON /* <> < > <= >= */
-%left <sval> FILTER_FUNC 
-%left <operation> '='
-%left <operation> '&' '|' '^' LEFT_SHIFT RIGHT_SHIFT
-%left <operation> '+' '-'
-%left <operation> '*'
-%left <operation> '/' '%' 
-%left <operation> SUBSTRING CONCATSTRING POSITION
+%left <operation> '+' '-' '&' '|' '^' LEFT_SHIFT RIGHT_SHIFT CONCATSTRING SUBSTRING POSITION
 %right UMINUS
+%left <operation> '*' 
+%left <operation> '/' '%'
+%left <operation> '~'
 
 	/* literal keyword tokens */
 /*
@@ -3198,24 +3197,28 @@ like_predicate:
 		  append_symbol(l, $1);
 		  append_symbol(l, $4);
 		  append_int(l, FALSE);  /* case sensitive */
-		  $$ = _symbol_create_symbol(SQL_NOT, _symbol_create_list( SQL_LIKE, l )); }
+		  append_int(l, TRUE);  /* anti */
+		  $$ = _symbol_create_list( SQL_LIKE, l ); }
  |  pred_exp NOT ILIKE like_exp
 		{ dlist *l = L();
 		  append_symbol(l, $1);
 		  append_symbol(l, $4);
 		  append_int(l, TRUE);  /* case insensitive */
-		  $$ = _symbol_create_symbol(SQL_NOT, _symbol_create_list( SQL_LIKE, l )); }
+		  append_int(l, TRUE);  /* anti */
+		  $$ = _symbol_create_list( SQL_LIKE, l ); }
  |  pred_exp LIKE like_exp
 		{ dlist *l = L();
 		  append_symbol(l, $1);
 		  append_symbol(l, $3);
 		  append_int(l, FALSE);  /* case sensitive */
+		  append_int(l, FALSE);  /* anti */
 		  $$ = _symbol_create_list( SQL_LIKE, l ); }
  |  pred_exp ILIKE like_exp
 		{ dlist *l = L();
 		  append_symbol(l, $1);
 		  append_symbol(l, $3);
 		  append_int(l, TRUE);  /* case insensitive */
+		  append_int(l, FALSE);  /* anti */
 		  $$ = _symbol_create_list( SQL_LIKE, l ); }
  ;
 
@@ -3346,7 +3349,7 @@ simple_scalar_exp:
  |  scalar_exp '^' scalar_exp
 			{ dlist *l = L();
 			  append_list(l, 
-			  	append_string(L(), sa_strdup(SA, "power")));
+			  	append_string(L(), sa_strdup(SA, "bit_xor")));
 	  		  append_symbol(l, $1);
 	  		  append_symbol(l, $3);
 	  		  $$ = _symbol_create_list( SQL_BINOP, l ); }
@@ -3363,6 +3366,12 @@ simple_scalar_exp:
 			  	append_string(L(), sa_strdup(SA, "bit_or")));
 	  		  append_symbol(l, $1);
 	  		  append_symbol(l, $3);
+	  		  $$ = _symbol_create_list( SQL_BINOP, l ); }
+ |  '~' scalar_exp
+			{ dlist *l = L();
+			  append_list(l, 
+			  	append_string(L(), sa_strdup(SA, "bit_not")));
+	  		  append_symbol(l, $2);
 	  		  $$ = _symbol_create_list( SQL_BINOP, l ); }
  |  scalar_exp LEFT_SHIFT scalar_exp
 			{ dlist *l = L();

@@ -424,7 +424,7 @@ struct {
 	{"rosybrown","#BC8F8F",188,143,143},
 	{"royalblue","#4169E1",65,105,225},
 	{"saddlebrown","#8B4513",139,69,19},
-	{"salmon ‡","#FA8072",250,128,114},
+	{"salmon","#FA8072",250,128,114},
 	{"sandybrown","#F4A460",244,164, 96},
 	{"seagreen","#2E8B57",46,139, 87},
 	{"seashell","#FFF5EE",255,245,238},
@@ -494,13 +494,13 @@ struct COLOR{
 	{0,0,"algebra","subselect","green"},
 	{0,0,"algebra","*","lightgreen"},
 
-	{0,0,"bat","mirror","orange"},
-	{0,0,"bat","reverse","orange"},
+	//{0,0,"bat","mirror","orange"},
+	//{0,0,"bat","reverse","orange"},
 	{0,0,"bat","*","orange"},
 
-	{0,0,"batcalc","-","moccasin"},
-	{0,0,"batcalc","*","moccasin"},
-	{0,0,"batcalc","+","moccasin"},
+	//{0,0,"batcalc","-","moccasin"},
+	//{0,0,"batcalc","*","moccasin"},
+	//{0,0,"batcalc","+","moccasin"},
 	{0,0,"batcalc","dbl","papayawhip"},
 	{0,0,"batcalc","str","papayawhip"},
 	{0,0,"batcalc","*","lightyellow"},
@@ -522,6 +522,7 @@ struct COLOR{
 
 
 	{0,0,"pcre","likesubselect","burlywood"},
+	{0,0,"batstr","likeselect","burlywood"},
 	{0,0,"pcre","*","burlywood"},
 
 	//{0,0,"pqueue","topn_max","lightcoral"},
@@ -535,9 +536,10 @@ struct COLOR{
 	//{0,0,"sql","bind","thistle"},
 	//{0,0,"sql","bind_dbat","thistle"},
 	//{0,0,"sql","mvc","thistle"},
-	{0,0,"sql","projectdelta ","mediumpurple"},
-	{0,0,"sql","subdelta ","purple"},
-	{0,0,"sql","tid ","purple"},
+	{0,0,"sql","projectdelta ","hotpink"},
+	{0,0,"sql","subdelta ","violet"},
+	{0,0,"sql","delta ","salmon"},
+	{0,0,"sql","tid ","plum"},
 	{0,0,"sql","*","thistle"},
 
 	{0,0,"*","*","lavender"},
@@ -641,8 +643,8 @@ static void showmemory(void)
 	fprintf(gnudata,"unset xtics\n");
 	mn = (long) (min/1024.0);
 	mx = (long) (max/1024.0);
-	mx += (mn == mx);
-	fprintf(gnudata,"set yrange [%ld:%ld]\n", mn, (long)(1.1 * mx));
+	mx += (mn == mx)+1;
+	fprintf(gnudata,"set yrange [%ld:%ld]\n", mn, (long)mx);
 	fprintf(gnudata,"set ytics (\"%.1f\" %ld, \"%.1f\" %ld)\n", min /1024.0, mn, max/1024.0, mx);
 	fprintf(gnudata,"plot \"%s.dat\" using 1:2 notitle with dots linecolor rgb \"blue\"\n",(tracefile?"scratch":filename));
 	fprintf(gnudata,"unset yrange\n");
@@ -794,15 +796,13 @@ static void updmap(int idx)
 	} else fcn = "*";
 	for ( i =0; colors[i].col; i++)
 	if ( mod && strcmp(mod,colors[i].mod)== 0) {
-		if (strcmp(fcn,colors[i].fcn) == 0 || colors[i].fcn[0] == '*'){
+		if (strcmp(fcn,colors[i].fcn) == 0 ){
 			fnd = i;
 			break;
 		}
-	} else
-	if ( colors[i].mod[0] == '*'){
-		fnd = i;
-		break;
-	}
+	} 
+	if ( colors[i].col == 0 )
+		fnd = i-1;
 	colors[fnd].freq++;
 	colors[fnd].timeused += box[idx].clkend - box[idx].clkstart;
 	box[idx].color = fnd;
@@ -1130,7 +1130,7 @@ static void update(int state, int thread, long clkticks, long ticks, long memory
 	}
 }
 
-static void parser(char *row){
+static int parser(char *row){
 #ifdef HAVE_STRPTIME
 	char *c;
     struct tm stm;
@@ -1143,10 +1143,10 @@ static void parser(char *row){
 	long reads, writes;
 
 	if (row[0] != '[')
-		return;
+		return -1;
 	c= strchr(row,(int)'"');
 	if ( c == 0)
-		return;
+		return -2;
 	if (strncmp(c+1,"start",5) == 0) {
 		state = 0;
 		c += 6;
@@ -1170,7 +1170,7 @@ static void parser(char *row){
 		c = strptime(c+1,"%H:%M:%S", &stm);
 		clkticks = (((long)(stm.tm_hour * 60) + stm.tm_min) * 60 + stm.tm_sec) * 1000000;
 		if ( c == 0)
-			return;
+			return -11;
 		if (  *c == '.') {
 			long usec;
 			/* microseconds */
@@ -1179,38 +1179,37 @@ static void parser(char *row){
 			clkticks += usec;
 		}
 		c = strchr(c+1, (int)'"');
-	} else return;
+	} else return -3;
 
 	c = strchr(c+1, (int)',');
 	if ( c == 0)
-		return;
+		return -4 ;
 	thread = atoi(c+1);
 	c = strchr(c+1, (int)',');
 	if ( c == 0)
-		return;
+		return -5;
 	ticks = atol(c+1);
 	c = strchr(c+1, (int)',');
 	if ( c == 0)
-		return;
+		return -6;
 	memory = atol(c+1);
 	c = strchr(c+1, (int)',');
+	if ( debug && state != 4)
+		fprintf(stderr,"%s\n",row);
 	if ( c == 0)
-		return;
+		return state== 4? 0:-7;
 	reads = atol(c+1);
 	c = strchr(c+1, (int)',');
 	if ( c == 0)
-		return;
+		return -8;
 	writes = atol(c+1);
 
 	c = strchr(c+1, (int)',');
 	if ( c == 0)
-		return;
+		return -9;
 	c++;
 	fcn = c;
 	stmt = strdup(fcn);
-
-	if ( debug)
-		fprintf(stderr,"%s\n",row);
 
 	c = strstr(c+1, ":=");
 	if ( c ){
@@ -1218,7 +1217,7 @@ static void parser(char *row){
 		/* find genuine function calls */
 		while ( isspace((int) *fcn) && *fcn) fcn++;
 		if ( strchr(fcn, (int) '.') == 0)
-			return;
+			return -10;
 	} else {
 		fcn =strchr(fcn,(int)'"');
 		if ( fcn ){
@@ -1234,6 +1233,7 @@ static void parser(char *row){
 #else
 	(void) row;
 #endif
+	return 0;
 }
 
 static void
@@ -1293,9 +1293,6 @@ doRequest(Mapi mid, const char *buf)
 
 	format_result(mid, hdl);
 
-	//if (mapi_get_active(mid) == NULL)
-		//mapi_close_handle(hdl);
-	fprintf(stderr, "  -t | --trace=<filename>\n");
 	return 0;
 }
 
@@ -1307,7 +1304,7 @@ static void *
 doProfile(void *d)
 {
 	wthread *wthr = (wthread*)d;
-	int i;
+	int i,len;
 	size_t a;
 	ssize_t n;
 	char *response, *x;
@@ -1446,23 +1443,25 @@ doProfile(void *d)
 	if ( sqlstatement) {
 		doRequest(dbhsql, sqlstatement);
 	}
-	i = 0;
-	while ((n = mnstr_read(wthr->s, buf, 1, BUFSIZ)) > 0) {
+	len = 0;
+	while ((n = mnstr_read(wthr->s, buf, 1, BUFSIZ-len)) > 0) {
 		buf[n] = 0;
 		response = buf;
 		while ((e = strchr(response, '\n')) != NULL) {
 			*e = 0;
 			/* TOMOGRAPH EXTENSIONS */
-			parser(response);
+			i = parser(response);
+			if ( debug && i )
+				fprintf(stderr,"ERROR %d:%s\n",i,response);
 			response = e + 1;
 		}
 		/* handle last line in buffer */
-		if ( *response)
-			printf("%s",response);
-		if (++i % 200) {
-			i = 0;
-			fflush(NULL);
-		}
+		if ( *response) {
+			if ( debug) 
+				printf("LASTLINE:%s",response);
+			len = strlen(response);
+			strncpy(buf,response, len+1);
+		} else len = 0;
 	}
 	fflush(NULL);
 
@@ -1525,7 +1524,7 @@ main(int argc, char **argv)
 
 	while (1) {
 		int option_index = 0;
-		int c = getopt_long(argc, argv, "d:u:P:p:h:?:T:t:r:o:D:b:B:s:m",
+		int c = getopt_long(argc, argv, "d:u:P:p:h:?T:t:r:o:Db:B:s:m",
 			long_options, &option_index);
 		if (c == -1)
 			break;

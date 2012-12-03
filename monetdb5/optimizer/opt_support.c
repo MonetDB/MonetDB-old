@@ -164,6 +164,7 @@ struct OPTcatalog {
 {"joinPath",	0,	0,	0,	DEBUG_OPT_JOINPATH},
 {"macro",		0,	0,	0,	DEBUG_OPT_MACRO},
 {"mapreduce",	0,	0,	0,	DEBUG_OPT_MAPREDUCE},
+{"matpack",		0,	0,	0,	DEBUG_OPT_MATPACK},
 {"mergetable",	0,	0,	0,	DEBUG_OPT_MERGETABLE},
 {"mitosis",		0,	0,	0,	DEBUG_OPT_MITOSIS},
 {"multiplex",	0,	0,	0,	DEBUG_OPT_MULTIPLEX},
@@ -821,11 +822,19 @@ int isAllScalar(MalBlkPtr mb, InstrPtr p)
  * and should be conservative.
  */
 int isMapOp(InstrPtr p){
-	return	(getModuleId(p) == multiplexRef) ||
+	return	(getModuleId(p) == malRef && getFunctionId(p) == multiplexRef) ||
 		(getModuleId(p)== batcalcRef && getFunctionId(p) != mark_grpRef && getFunctionId(p) != rank_grpRef) ||
 		(getModuleId(p)== batmtimeRef) ||
 		(getModuleId(p)== batstrRef) ||
 		(getModuleId(p)== mkeyRef);
+}
+
+int isLikeOp(InstrPtr p){
+	return	(getModuleId(p) == batstrRef &&
+		(getFunctionId(p) == likeRef || 
+		 getFunctionId(p) == not_likeRef || 
+		 getFunctionId(p) == ilikeRef ||
+		 getFunctionId(p) == not_ilikeRef));
 }
 
 int isTopn(InstrPtr p){
@@ -838,7 +847,7 @@ int isTopn(InstrPtr p){
 
 int isSlice(InstrPtr p){
 	return (getModuleId(p) == algebraRef &&
-		getFunctionId(p) == sliceRef);
+		getFunctionId(p) == subsliceRef);
 }
 
 int isOrderby(InstrPtr p){
@@ -856,17 +865,10 @@ int isDiffOp(InstrPtr p){
  	     	 getFunctionId(p) == kdifferenceRef));
 }
 
-int isProjection(InstrPtr p){
-	return (getModuleId(p) == algebraRef &&
-                 getFunctionId(p) == leftjoinRef
-		);
-}
-
 int isMatJoinOp(InstrPtr p){
 	return (getModuleId(p) == algebraRef &&
                 (getFunctionId(p) == joinRef ||
-/*               getFunctionId(p) == antijoinRef || is not mat save */
-                 getFunctionId(p) == leftjoinRef ||
+                 getFunctionId(p) == antijoinRef || /* is not mat save */
                  getFunctionId(p) == thetajoinRef ||
                  getFunctionId(p) == bandjoinRef)
 		);
@@ -894,6 +896,15 @@ int isFragmentGroup2(InstrPtr p){
 		);
 }
 
+int isSubSelect(InstrPtr p)
+{
+	return (getModuleId(p)== algebraRef && (
+			getFunctionId(p)== subselectRef ||
+			getFunctionId(p)== thetasubselectRef ||
+			getFunctionId(p)== likesubselectRef ||
+			getFunctionId(p)== ilikesubselectRef));
+}
+
 int isFragmentGroup(InstrPtr p){
 	return
 			(getModuleId(p)== pcreRef && (
@@ -908,10 +919,11 @@ int isFragmentGroup(InstrPtr p){
 				getFunctionId(p)== selectNotNilRef ||
 				getFunctionId(p)== uselectRef ||
 				getFunctionId(p)== antiuselectRef ||
-				getFunctionId(p)== thetauselectRef ||
-				getFunctionId(p)== subselectRef ||
-				getFunctionId(p)== thetasubselectRef ||
-				getFunctionId(p)== likesubselectRef 
+				getFunctionId(p)== thetauselectRef 
+			))  ||
+			isSubSelect(p) ||
+			(getModuleId(p)== batRef && (
+				getFunctionId(p)== mirrorRef 
 			)
 		);
 }

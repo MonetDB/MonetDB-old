@@ -1,5 +1,5 @@
 %define name MonetDB
-%define version 11.14.0
+%define version 11.16.0
 %{!?buildno: %define buildno %(date +%Y%m%d)}
 
 # groups of related archs
@@ -140,7 +140,6 @@ MonetDB, you will very likely need this package.
 %files client
 %defattr(-,root,root)
 %{_bindir}/mclient
-%{_bindir}/mnc
 %{_bindir}/msqldump
 %{_bindir}/stethoscope
 %{_libdir}/libmapi.so.*

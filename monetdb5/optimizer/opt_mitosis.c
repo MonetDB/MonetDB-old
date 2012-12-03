@@ -20,6 +20,7 @@
 #include "opt_mitosis.h"
 #include "opt_octopus.h"
 #include "mal_interpreter.h"
+#include <gdk_utils.h>
 
 static int
 eligible(MalBlkPtr mb)
@@ -41,10 +42,8 @@ eligible(MalBlkPtr mb)
 int
 OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
-	int i, j, limit, estimate = 0, pieces = 1;
+	int i, j, limit, estimate = 0, pieces = 1, mito_parts = 0, mito_size = 0, row_size = 0;
 	str schema = 0, table = 0;
-	VarRecord low, hgh;
-	BUN slice;
 	wrd r = 0, rowcnt = 0;    /* table should be sizeable to consider parallel execution*/
 	InstrPtr q, *old, target = 0;
 	size_t argsize = 6 * sizeof(lng);
@@ -56,25 +55,43 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	if (!eligible(mb))
 		return 0;
 
-	/* locate the largest non-partitioned table */
+	old = mb->stmt;
 	for (i = 1; i < mb->stop; i++) {
-		q = getInstrPtr(mb, i);
-		if (getModuleId(q) != sqlRef || getFunctionId(q) != bindRef)
+		InstrPtr p = old[i];
+
+		/* mitosis/mergetable bailout conditions */
+		
+		/* Mergetable cannot handle order related batcalc ops */
+		if ((getModuleId(p) == batcalcRef || getModuleId(p) == sqlRef) && 
+		   (getFunctionId(p) == rankRef || getFunctionId(p) == rank_grpRef ||
+		    getFunctionId(p) == mark_grpRef || getFunctionId(p) == dense_rank_grpRef)) 
+			return 0;
+
+		if (getModuleId(p) == aggrRef && getFunctionId(p) == submedianRef) 
+			return 0;
+		/* Mergetable cannot handle intersect/except's for now */
+		if (getModuleId(p) == algebraRef && getFunctionId(p) == groupbyRef) 
+			return 0;
+
+		/* locate the largest non-partitioned table */
+		if (getModuleId(p) != sqlRef || getFunctionId(p) != bindRef)
 			continue;
 		/* don't split insert BATs */
-		if (getVarConstant(mb, getArg(q, 5)).val.ival == 1)
+		if (getVarConstant(mb, getArg(p, 5)).val.ival == 1)
 			continue;
-		if (q->argc > 6)
+		if (p->argc > 6)
 			continue;  /* already partitioned */
 		/*
 		 * The SQL optimizer already collects the counts of the base
 		 * table and passes them on as a row property.  All pieces for a
 		 * single subplan should ideally fit together.
 		 */
-		r = getVarRows(mb, getArg(q, 0));
+		r = getVarRows(mb, getArg(p, 0));
 		if (r >= rowcnt) {
+			/* the rowsize depends on the column types, assume void-headed */
+			row_size = ATOMsize(getTailType(getArgType(mb,p,0)));
 			rowcnt = r;
-			target = q;
+			target = p;
 			estimate++;
 			r = 0;
 		}
@@ -123,14 +140,26 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	}
 	if (pieces <= 1)
 		return 0;
+	/* to enable experimentation we introduce the option to set
+	 * the number of parts required and/or the size of each chunk (in K)
+	 */
+	mito_parts = GDKgetenv_int("mito_parts", 0);
+	if (mito_parts > 0) 
+		pieces = mito_parts;
+	mito_size = GDKgetenv_int("mito_size", 0);
+	if (mito_size > 0) 
+		pieces = (rowcnt * row_size)/ (mito_size * 1024);
+
 	OPTDEBUGmitosis
 	mnstr_printf(cntxt->fdout, "#opt_mitosis: target is %s.%s "
-							   " with " SSZFMT " rows into " SSZFMT " rows/piece %d threads %d pieces\n",
+							   " with " SSZFMT " rows of size %d into " SSZFMT 
+								" rows/piece %d threads %d pieces"
+								" fixed parts %d fixed size %d\n",
 				 getVarConstant(mb, getArg(target, 2)).val.sval,
 				 getVarConstant(mb, getArg(target, 3)).val.sval,
-				 rowcnt, r, threads, pieces);
+				 rowcnt, row_size, r, threads, pieces, mito_parts, mito_size);
 
-	old = mb->stmt;
+
 	limit = mb->stop;
 	if (newMalBlkStmt(mb, mb->ssize + 2 * estimate) < 0)
 		return 0;
@@ -172,9 +201,6 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		 * easy undo when the mergtable can not do something */
 		pushInstruction(mb, p);
 
-		slice = (BUN) (rowcnt / pieces);
-		hgh.value.vtype = low.value.vtype = TYPE_oid;
-		low.value.val.oval = 0;
 		qtpe = getVarType(mb, getArg(p, 0));
 
 		matq = newInstruction(NULL, ASSIGNsymbol);
@@ -194,14 +220,6 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			q = copyInstruction(p);
 			q = pushInt(mb, q, j);
 			q = pushInt(mb, q, pieces);
-			/*q= pushOid(mb,q,low.value.val.oval);*/
-			if (j + 1 < pieces) {
-				hgh.value.val.oval = low.value.val.oval + slice;
-			} else {
-				assert(rowcnt <= (wrd) BUN_MAX);
-				hgh.value.val.oval = (BUN) rowcnt;
-			}
-			/*q = pushOid(mb,q,hgh.value.val.oval);*/
 
 			qv = getArg(q, 0) = newTmpVariable(mb, qtpe);
 			setVarUDFtype(mb, qv);
@@ -211,32 +229,6 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 				setVarUDFtype(mb, rv);
 				setVarUsed(mb, rv);
 			}
-			/*
-			 * The target variable should inherit file location and row count
-			 */
-			(void) hgh;
-			/*
-			loc = varGetProp(mb, getArg(p, 0), fileProp);
-			if (loc) {
-				memset((char *) &vr, 0, sizeof(vr));
-				varSetProp(mb, qv, fileProp, op_eq, VALset(&vr, TYPE_str, GDKstrdup(loc->value.val.sval)));
-			}
-			rows = varGetProp(mb, getArg(p, 0), rowsProp);
-			if (rows) {
-				wrd prows = rows->value.val.wval / pieces + 1;
-				memset((char *) &vr, 0, sizeof(vr));
-				varSetProp(mb, qv, rowsProp, op_eq, VALset(&vr, TYPE_wrd, &prows));
-			}
-
-			if (getFunctionId(p) == tidRef) {
-				varSetProp(mb, qv, PropertyIndex("tlb"), op_gte, (ptr) & low.value);
-				varSetProp(mb, qv, PropertyIndex("tub"), op_lt, (ptr) & hgh.value);
-			} else {
-				varSetProp(mb, qv, PropertyIndex("hlb"), op_gte, (ptr) & low.value);
-				varSetProp(mb, qv, PropertyIndex("hub"), op_lt, (ptr) & hgh.value);
-			}
-			low.value.val.oval += slice;
-			 */
 			pushInstruction(mb, q);
 			matq = pushArgument(mb, matq, qv);
 			if (upd)

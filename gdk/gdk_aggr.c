@@ -151,50 +151,162 @@ BATgroupaggrinit(const BAT *b, const BAT *g, const BAT *e, const BAT *s,
 	return NULL;
 }
 
+/* ---------------------------------------------------------------------- */
+/* sum */
+
 #define AGGR_SUM(TYPE1, TYPE2)						\
 	do {								\
+		TYPE1 x;						\
 		const TYPE1 *vals = (const TYPE1 *) values;		\
-		for (i = start; i < end; i++, vals++) {			\
-			if (cand) {					\
+		if (ngrp == 1 && cand == NULL) {			\
+			TYPE2 sum;					\
+			ALGODEBUG fprintf(stderr,			\
+					  "#%s: no candidates, no groups; " \
+					  "start " BUNFMT ", end " BUNFMT \
+					  ", nonil = %d\n",		\
+					  func, start, end, nonil);	\
+			sum = 0;					\
+			if (nonil) {					\
+				*seen = start < end;			\
+				for (i = start; i < end && nils == 0; i++, vals++) { \
+					x = *vals;			\
+					ADD_WITH_CHECK(TYPE1, x,	\
+						       TYPE2, sum,	\
+						       TYPE2, sum,	\
+						       goto overflow);	\
+				}					\
+			} else {					\
+				int seenval = 0;			\
+				for (i = start; i < end && nils == 0; i++, vals++) { \
+					x = *vals;			\
+					if (x == TYPE1##_nil) {		\
+						if (!skip_nils) {	\
+							sum = TYPE2##_nil; \
+							nils = 1;	\
+						}			\
+					} else {			\
+						ADD_WITH_CHECK(TYPE1, x, \
+							       TYPE2, sum, \
+							       TYPE2, sum, \
+							       goto overflow); \
+						seenval = 1;		\
+					}				\
+				}					\
+				*seen = seenval;			\
+			}						\
+			if (*seen)					\
+				*sums = sum;				\
+		} else if (ngrp == 1) {					\
+			TYPE2 sum;					\
+			int seenval = 0;				\
+			ALGODEBUG fprintf(stderr,			\
+					  "#%s: with candidates, no groups; " \
+					  "start " BUNFMT ", end " BUNFMT \
+					  "\n",				\
+					  func, start, end);		\
+			sum = 0;					\
+			for (i = start; i < end && nils == 0; i++, vals++) { \
 				if (i < *cand - seqb) {			\
-					if (gids)			\
-						gids += gidincr;	\
 					continue;			\
 				}					\
 				assert(i == *cand - seqb);		\
 				if (++cand == candend)			\
 					end = i + 1;			\
-			}						\
-			if (gids == NULL || gidincr == 0 ||		\
-			    (*gids >= min && *gids <= max)) {		\
-				gid = gids ? *gids - min : (oid) i;	\
-				if (nil_if_empty &&			\
-				    !(seen[gid >> 5] & (1 << (gid & 0x1F)))) { \
-					seen[gid >> 5] |= 1 << (gid & 0x1F); \
-					sums[gid] = 0;			\
-				}					\
-				if (*vals == TYPE1##_nil) {		\
+				x = *vals;				\
+				if (x == TYPE1##_nil) {			\
 					if (!skip_nils) {		\
-						sums[gid] = TYPE2##_nil; \
-						nils++;			\
+						sum = TYPE2##_nil;	\
+						nils = 1;		\
 					}				\
-				} else if (sums[gid] != TYPE2##_nil) {	\
-					ADD_WITH_CHECK(TYPE1, *vals,	\
-						       TYPE2, sums[gid], \
-						       TYPE2, sums[gid], \
+				} else {				\
+					ADD_WITH_CHECK(TYPE1, x,	\
+						       TYPE2, sum,	\
+						       TYPE2, sum,	\
 						       goto overflow);	\
+					seenval = 1;			\
 				}					\
 			}						\
-			if (gids)					\
-				gids += gidincr;			\
+			if (seenval)					\
+				*sums = sum;				\
+		} else if (cand == NULL) {				\
+			ALGODEBUG fprintf(stderr,			\
+					  "#%s: no candidates, with groups; " \
+					  "start " BUNFMT ", end " BUNFMT \
+					  "\n",				\
+					  func, start, end);		\
+			for (i = start; i < end; i++, vals++) {		\
+				if (gids == NULL ||			\
+				    (*gids >= min && *gids <= max)) {	\
+					gid = gids ? *gids - min : (oid) i; \
+					if (nil_if_empty &&		\
+					    !(seen[gid >> 5] & (1 << (gid & 0x1F)))) { \
+						seen[gid >> 5] |= 1 << (gid & 0x1F); \
+						sums[gid] = 0;		\
+					}				\
+					x = *vals;			\
+					if (x == TYPE1##_nil) {		\
+						if (!skip_nils) {	\
+							sums[gid] = TYPE2##_nil; \
+							nils++;		\
+						}			\
+					} else if (sums[gid] != TYPE2##_nil) { \
+						ADD_WITH_CHECK(TYPE1, x, \
+							       TYPE2, sums[gid], \
+							       TYPE2, sums[gid], \
+							       goto overflow); \
+					}				\
+				}					\
+				if (gids)				\
+					gids++;				\
+			}						\
+		} else {						\
+			ALGODEBUG fprintf(stderr,			\
+					  "#%s: with candidates, with groups; " \
+					  "start " BUNFMT ", end " BUNFMT \
+					  "\n",				\
+					  func, start, end);		\
+			for (i = start; i < end; i++, vals++) {		\
+				if (i < *cand - seqb) {			\
+					if (gids)			\
+						gids++;			\
+					continue;			\
+				}					\
+				assert(i == *cand - seqb);		\
+				if (++cand == candend)			\
+					end = i + 1;			\
+				if (gids == NULL ||			\
+				    (*gids >= min && *gids <= max)) {	\
+					gid = gids ? *gids - min : (oid) i; \
+					if (nil_if_empty &&		\
+					    !(seen[gid >> 5] & (1 << (gid & 0x1F)))) { \
+						seen[gid >> 5] |= 1 << (gid & 0x1F); \
+						sums[gid] = 0;		\
+					}				\
+					x = *vals;			\
+					if (x == TYPE1##_nil) {		\
+						if (!skip_nils) {	\
+							sums[gid] = TYPE2##_nil; \
+							nils++;		\
+						}			\
+					} else if (sums[gid] != TYPE2##_nil) { \
+						ADD_WITH_CHECK(TYPE1, x, \
+							       TYPE2, sums[gid], \
+							       TYPE2, sums[gid], \
+							       goto overflow); \
+					}				\
+				}					\
+				if (gids)				\
+					gids++;				\
+			}						\
 		}							\
 	} while (0)
 
 static BUN
-dosum(const void *values, oid seqb, BUN start, BUN end, void *results,
-      BUN ngrp, int tp1, int tp2, const oid *cand, const oid *candend,
-      const oid *gids, int gidincr, oid min, oid max,
-      int skip_nils, int abort_on_error, int nil_if_empty, const char *func)
+dosum(const void *values, int nonil, oid seqb, BUN start, BUN end,
+      void *results, BUN ngrp, int tp1, int tp2,
+      const oid *cand, const oid *candend, const oid *gids,
+      oid min, oid max, int skip_nils, int abort_on_error,
+      int nil_if_empty, const char *func)
 {
 	BUN nils = 0;
 	BUN i;
@@ -376,9 +488,9 @@ BATgroupsum(BAT *b, BAT *g, BAT *e, BAT *s, int tp, int skip_nils, int abort_on_
 	else
 		gids = (const oid *) Tloc(g, BUNfirst(g) + start);
 
-	nils = dosum(Tloc(b, BUNfirst(b)), b->hseqbase, start, end,
+	nils = dosum(Tloc(b, BUNfirst(b)), b->T->nonil, b->hseqbase, start, end,
 		     Tloc(bn, BUNfirst(bn)), ngrp, b->ttype, tp,
-		     cand, candend, gids, 1, min, max,
+		     cand, candend, gids, min, max,
 		     skip_nils, abort_on_error, 1, "BATgroupsum");
 
 	if (nils < BUN_NONE) {
@@ -498,11 +610,14 @@ BATsum(void *res, int tp, BAT *b, BAT *s, int skip_nils, int abort_on_error, int
 	}
 	if (BATcount(b) == 0)
 		return GDK_SUCCEED;
-	nils = dosum(Tloc(b, BUNfirst(b)), b->hseqbase, start, end, res, 1,
-		     b->ttype, tp, cand, candend, &min, 0, min, max,
+	nils = dosum(Tloc(b, BUNfirst(b)), b->T->nonil, b->hseqbase, start, end,
+		     res, 1, b->ttype, tp, cand, candend, &min, min, max,
 		     skip_nils, abort_on_error, nil_if_empty, "BATsum");
 	return nils < BUN_NONE ? GDK_SUCCEED : GDK_FAIL;
 }
+
+/* ---------------------------------------------------------------------- */
+/* product */
 
 #define AGGR_PROD(TYPE1, TYPE2, TYPE3)					\
 	do {								\
@@ -906,6 +1021,69 @@ BATprod(void *res, int tp, BAT *b, BAT *s, int skip_nils, int abort_on_error, in
 	return nils < BUN_NONE ? GDK_SUCCEED : GDK_FAIL;
 }
 
+/* ---------------------------------------------------------------------- */
+/* average */
+
+#define AVERAGE_ITER(TYPE, x, a, r, n)					\
+	do {								\
+		TYPE an, xn, z1;					\
+		BUN z2;							\
+		(n)++;							\
+		/* calculate z1 = (x - a) / n, rounded down (towards */	\
+		/* negative infinity), and calculate z2 = remainder */	\
+		/* of the division (i.e. 0 <= z2 < n); do this */	\
+		/* without causing overflow */				\
+		an = (TYPE) ((a) / (SBUN) (n));				\
+		xn = (TYPE) ((x) / (SBUN) (n));				\
+		/* z1 will be (x - a) / n rounded towards -INF */	\
+		z1 = xn - an;						\
+		xn = (x) - (TYPE) (xn * (SBUN) (n));			\
+		an = (a) - (TYPE) (an * (SBUN) (n));			\
+		/* z2 will be remainder of above division */		\
+		if (xn >= an) {						\
+			z2 = (BUN) (xn - an);				\
+			/* loop invariant: */				\
+			/* (x - a) - z1 * n == z2 */			\
+			while (z2 >= (n)) {				\
+				z2 -= (n);				\
+				z1++;					\
+			}						\
+		} else {						\
+			z2 = (BUN) (an - xn);				\
+			/* loop invariant (until we break): */		\
+			/* (x - a) - z1 * n == -z2 */			\
+			for (;;) {					\
+				z1--;					\
+				if (z2 < (n)) {				\
+					/* proper remainder */		\
+					z2 = (n) - z2;			\
+					break;				\
+				}					\
+				z2 -= (n);				\
+			}						\
+		}							\
+		(a) += z1;						\
+		(r) += z2;						\
+		if ((r) >= (n)) {					\
+			(r) -= (n);					\
+			(a)++;						\
+		}							\
+	} while (0)
+
+#define AVERAGE_ITER_FLOAT(TYPE, x, a, n)				\
+	do {								\
+		(n)++;							\
+		if (((a) > 0) == ((x) > 0)) {				\
+			/* same sign */					\
+			(a) += ((x) - (a)) / (SBUN) (n);		\
+		} else {						\
+			/* no overflow at the cost of an */		\
+			/* extra division and slight loss of */		\
+			/* precision */					\
+			(a) = (a) - (a) / (SBUN) (n) + (x) / (SBUN) (n); \
+		}							\
+	} while (0)
+
 #define AGGR_AVG(TYPE)							\
 	do {								\
 		const TYPE *vals = (const TYPE *) Tloc(b, BUNfirst(b)); \
@@ -1108,6 +1286,145 @@ BATgroupavg(BAT *b, BAT *g, BAT *e, BAT *s, int tp, int skip_nils, int abort_on_
 	GDKerror("BATgroupavg: cannot allocate enough memory.\n");
 	return NULL;
 }
+
+#define AVERAGE_TYPE(TYPE)						\
+	do {								\
+		TYPE x, a;						\
+									\
+		/* first try to calculate the sum of all values into a */ \
+		/* lng */						\
+		for (i = start; i < end; i++) {				\
+			if (cand) {					\
+				if (i < *cand - b->H->seq) {		\
+					continue;			\
+				}					\
+				assert(i == *cand - b->H->seq);		\
+				if (++cand == candend)			\
+					end = i + 1;			\
+			}						\
+			x = ((const TYPE *) src)[i];			\
+			if (x == TYPE##_nil)				\
+				continue;				\
+			ADD_WITH_CHECK(TYPE, x,				\
+				       lng, sum,			\
+				       lng, sum,			\
+				       goto overflow##TYPE);		\
+			/* don't count value until after overflow check */ \
+			n++;						\
+		}							\
+		/* the sum fit, so now we can calculate the average */	\
+		*avg = (dbl) sum / n;					\
+		if (0) {						\
+		  overflow##TYPE:					\
+			/* we get here if sum(x[0],...,x[i]) doesn't */	\
+			/* fit in a lng but sum(x[0],...,x[i-1]) did */ \
+			/* the variable sum contains that sum */	\
+			/* the rest of the calculation is done */	\
+			/* according to the loop invariant described */	\
+			/* in the below loop */				\
+			if (sum >= 0) {					\
+				a = (TYPE) (sum / (lng) n); /* this fits */ \
+				r = (BUN) (sum % (SBUN) n);		\
+			} else {					\
+				sum = -sum;				\
+				a = - (TYPE) (sum / (lng) n); /* this fits */ \
+				r = (BUN) (sum % (SBUN) n);		\
+				if (r) {				\
+					a--;				\
+					r = n - r;			\
+				}					\
+			}						\
+			if (cand)					\
+				--cand;					\
+									\
+			for (; i < end; i++) {				\
+				/* loop invariant: */			\
+				/* a + r/n == average(x[0],...,x[n]); */ \
+				/* 0 <= r < n (if n > 0) */		\
+				/* or if n == 0: a == 0; r == 0 */	\
+				if (cand) {				\
+					if (i < *cand - b->H->seq)	\
+						continue;		\
+					assert(i == *cand - b->H->seq);	\
+					if (++cand == candend)		\
+						end = i + 1;		\
+				}					\
+				x = ((const TYPE *) src)[i];		\
+				if (x == TYPE##_nil)			\
+					continue;			\
+				AVERAGE_ITER(TYPE, x, a, r, n);		\
+			}						\
+			*avg = n > 0 ? a + (dbl) r / n : dbl_nil;	\
+		}							\
+	} while (0)
+
+#define AVERAGE_FLOATTYPE(TYPE)					\
+	do {							\
+		double a = 0;					\
+		TYPE x;						\
+		for (i = start; i < end; i++) {			\
+			if (cand) {				\
+				if (i < *cand - b->H->seq)	\
+					continue;		\
+				assert(i == *cand - b->H->seq);	\
+				if (++cand == candend)		\
+					end = i + 1;		\
+			}					\
+			x = ((const TYPE *) src)[i];		\
+			if (x == TYPE##_nil)			\
+				continue;			\
+			AVERAGE_ITER_FLOAT(TYPE, x, a, n);	\
+		}						\
+		*avg = n > 0 ? a : dbl_nil;			\
+	} while (0)
+
+int
+BATcalcavg(BAT *b, BAT *s, dbl *avg, BUN *vals)
+{
+	BUN n = 0, r = 0, i = 0;
+	lng sum = 0;
+	BUN start, end, cnt;
+	const oid *cand = NULL, *candend = NULL;
+	const void *src;
+	/* these two needed for ADD_WITH_CHECK macro */
+	int abort_on_error = 1;
+	BUN nils = 0;
+
+	CANDINIT(b, s);
+
+	src = Tloc(b, b->U->first);
+
+	switch (b->T->type) {
+	case TYPE_bte:
+		AVERAGE_TYPE(bte);
+		break;
+	case TYPE_sht:
+		AVERAGE_TYPE(sht);
+		break;
+	case TYPE_int:
+		AVERAGE_TYPE(int);
+		break;
+	case TYPE_lng:
+		AVERAGE_TYPE(lng);
+		break;
+	case TYPE_flt:
+		AVERAGE_FLOATTYPE(flt);
+		break;
+	case TYPE_dbl:
+		AVERAGE_FLOATTYPE(dbl);
+		break;
+	default:
+		GDKerror("BATcalcavg: average of type %s unsupported.\n",
+			 ATOMname(b->T->type));
+		return GDK_FAIL;
+	}
+	if (vals)
+		*vals = n;
+	return GDK_SUCCEED;
+}
+
+/* ---------------------------------------------------------------------- */
+/* count */
 
 #define AGGR_COUNT(TYPE)						\
 	do {								\
@@ -1332,6 +1649,9 @@ BATgroupsize(BAT *b, BAT *g, BAT *e, BAT *s, int tp, int skip_nils, int abort_on
 	bn->T->nonil = 1;
 	return bn;
 }
+
+/* ---------------------------------------------------------------------- */
+/* min and max */
 
 #define AGGR_CMP(TYPE, OP)						\
 	do {								\
@@ -1643,6 +1963,9 @@ BATgroupmax(BAT *b, BAT *g, BAT *e, BAT *s, int tp, int skip_nils, int abort_on_
 	return bn;
 }
 
+/* ---------------------------------------------------------------------- */
+/* median */
+
 BAT *
 BATgroupmedian(BAT *b, BAT *g, BAT *e, BAT *s, int tp, int skip_nils, int abort_on_error)
 {
@@ -1790,4 +2113,332 @@ BATgroupmedian(BAT *b, BAT *g, BAT *e, BAT *s, int tp, int skip_nils, int abort_
 		BBPunfix(g->batCacheid);
 	BBPunfix(bn->batCacheid);
 	return NULL;
+}
+
+/* ---------------------------------------------------------------------- */
+/* standard deviation (both biases and non-biased) */
+
+#define AGGR_STDEV_SINGLE(TYPE)						\
+	do {								\
+		TYPE x;							\
+		for (i = 0; i < cnt; i++) {				\
+			x = ((const TYPE *) values)[i];			\
+			if (x == TYPE##_nil)				\
+				continue;				\
+			n++;						\
+			delta = (dbl) x - mean;				\
+			mean += delta / n;				\
+			m2 += delta * ((dbl) x - mean);			\
+		}							\
+	} while (0)
+
+static dbl
+calcvariance(dbl *avgp, const void *values, BUN cnt, int tp, int issample)
+{
+	BUN n = 0, i;
+	dbl mean = 0;
+	dbl m2 = 0;
+	dbl delta;
+
+	assert(issample == 0 || issample == 1);
+
+	switch (ATOMstorage(tp)) {
+	case TYPE_bte:
+		AGGR_STDEV_SINGLE(bte);
+		break;
+	case TYPE_sht:
+		AGGR_STDEV_SINGLE(sht);
+		break;
+	case TYPE_int:
+		AGGR_STDEV_SINGLE(int);
+		break;
+	case TYPE_lng:
+		AGGR_STDEV_SINGLE(lng);
+		break;
+	case TYPE_flt:
+		AGGR_STDEV_SINGLE(flt);
+		break;
+	case TYPE_dbl:
+		AGGR_STDEV_SINGLE(dbl);
+		break;
+	default:
+		return dbl_nil;
+	}
+	if (n <= (BUN) issample) {
+		if (avgp)
+			*avgp = dbl_nil;
+		return dbl_nil;
+	}
+	if (avgp)
+		*avgp = mean;
+	return m2 / (n - issample);
+}
+
+dbl
+BATcalcstdev_population(dbl *avgp, BAT *b)
+{
+	dbl v = calcvariance(avgp, (const void *) Tloc(b, BUNfirst(b)),
+			     BATcount(b), b->ttype, 0);
+	return v == dbl_nil ? dbl_nil : sqrt(v);
+}
+
+dbl
+BATcalcstdev_sample(dbl *avgp, BAT *b)
+{
+	dbl v = calcvariance(avgp, (const void *) Tloc(b, BUNfirst(b)),
+			     BATcount(b), b->ttype, 1);
+	return v == dbl_nil ? dbl_nil : sqrt(v);
+}
+
+dbl
+BATcalcvariance_population(dbl *avgp, BAT *b)
+{
+	return calcvariance(avgp, (const void *) Tloc(b, BUNfirst(b)),
+			    BATcount(b), b->ttype, 0);
+}
+
+dbl
+BATcalcvariance_sample(dbl *avgp, BAT *b)
+{
+	return calcvariance(avgp, (const void *) Tloc(b, BUNfirst(b)),
+			    BATcount(b), b->ttype, 1);
+}
+
+#define AGGR_STDEV(TYPE)						\
+	do {								\
+		const TYPE *vals = (const TYPE *) Tloc(b, BUNfirst(b)); \
+		for (i = start; i < end; i++, vals++) {			\
+			if (cand) {					\
+				if (i < *cand - b->hseqbase) {		\
+					if (gids)			\
+						gids++;			\
+					continue;			\
+				}					\
+				assert(i == *cand - b->hseqbase);	\
+				if (++cand == candend)			\
+					end = i + 1;			\
+			}						\
+			if (gids == NULL ||				\
+			    (*gids >= min && *gids <= max)) {		\
+				gid = gids ? *gids - min : (oid) i;	\
+				if (*vals == TYPE##_nil) {		\
+					if (!skip_nils)			\
+						cnts[gid] = BUN_NONE;	\
+				} else if (cnts[gid] != BUN_NONE) {	\
+					cnts[gid]++;			\
+					delta[gid] = (dbl) *vals - mean[gid]; \
+					mean[gid] += delta[gid] / cnts[gid]; \
+					m2[gid] += delta[gid] * ((dbl) *vals - mean[gid]); \
+				}					\
+			}						\
+			if (gids)					\
+				gids++;					\
+		}							\
+		for (i = 0; i < ngrp; i++) {				\
+			if (cnts[i] == 0 || cnts[i] == BUN_NONE) {	\
+				dbls[i] = dbl_nil;			\
+				mean[i] = dbl_nil;			\
+				nils++;					\
+			} else if (cnts[i] == 1) {			\
+				dbls[i] = issample ? dbl_nil : 0;	\
+				nils2++;				\
+			} else if (variance) {				\
+				dbls[i] = m2[i] / (cnts[i] - issample);	\
+			} else {					\
+				dbls[i] = sqrt(m2[i] / (cnts[i] - issample)); \
+			}						\
+		}							\
+	} while (0)
+
+/* Calculate group standard deviation (population (i.e. biased) or
+ * sample (i.e. non-biased)) with optional candidates list.
+ *
+ * Note that this helper function is prepared to return two BATs: one
+ * (as return value) with the standard deviation per group, and one
+ * (as return argument) with the average per group.  This isn't
+ * currently used since it doesn't fit into the mold of grouped
+ * aggregates. */
+static BAT *
+dogroupstdev(BAT **avgb, BAT *b, BAT *g, BAT *e, BAT *s, int tp,
+	     int skip_nils, int issample, int variance, const char *func)
+{
+	const oid *gids;
+	oid gid;
+	oid min, max;
+	BUN i, ngrp;
+	BUN nils = 0, nils2 = 0;
+	BUN *cnts = NULL;
+	dbl *dbls, *mean, *delta, *m2;
+	BAT *bn = NULL;
+	BUN start, end, cnt;
+	const oid *cand = NULL, *candend = NULL;
+	const char *err;
+
+	assert(tp == TYPE_dbl);
+	(void) tp;		/* compatibility (with other BATgroup*
+				 * functions) argument */
+
+	if ((err = BATgroupaggrinit(b, g, e, s, &min, &max, &ngrp, &start, &end,
+				    &cnt, &cand, &candend)) != NULL) {
+		GDKerror("%s: %s\n", func, err);
+		return NULL;
+	}
+	if (g == NULL) {
+		GDKerror("%s: b and g must be aligned\n", func);
+		return NULL;
+	}
+
+	if (BATcount(b) == 0 || ngrp == 0) {
+		/* trivial: no products, so return bat aligned with g
+		 * with nil in the tail */
+		bn = BATconstant(TYPE_dbl, &dbl_nil, ngrp);
+		BATseqbase(bn, ngrp == 0 ? 0 : min);
+		return bn;
+	}
+
+	if ((e == NULL ||
+	     (BATcount(e) == BATcount(b) && e->hseqbase == b->hseqbase)) &&
+	    (BATtdense(g) || (g->tkey && g->T->nonil))) {
+		/* trivial: singleton groups, so all results are equal
+		 * to zero (population) or nil (sample) */
+		dbl v = issample ? dbl_nil : 0;
+		bn = BATconstant(TYPE_dbl, &v, ngrp);
+		BATseqbase(bn, ngrp == 0 ? 0 : min);
+		return bn;
+	}
+
+	delta = GDKmalloc(ngrp * sizeof(dbl));
+	m2 = GDKmalloc(ngrp * sizeof(dbl));
+	cnts = GDKzalloc(ngrp * sizeof(BUN));
+	if (avgb) {
+		if ((*avgb = BATnew(TYPE_void, TYPE_dbl, ngrp)) == NULL) {
+			mean = NULL;
+			goto alloc_fail;
+		}
+		mean = (dbl *) Tloc(*avgb, BUNfirst(*avgb));
+	} else {
+		mean = GDKmalloc(ngrp * sizeof(dbl));
+	}
+	if (mean == NULL || delta == NULL || m2 == NULL || cnts == NULL)
+		goto alloc_fail;
+
+	bn = BATnew(TYPE_void, TYPE_dbl, ngrp);
+	if (bn == NULL)
+		goto alloc_fail;
+	dbls = (dbl *) Tloc(bn, BUNfirst(bn));
+
+	for (i = 0; i < ngrp; i++) {
+		mean[i] = 0;
+		delta[i] = 0;
+		m2[i] = 0;
+	}
+
+	if (BATtdense(g))
+		gids = NULL;
+	else
+		gids = (const oid *) Tloc(g, BUNfirst(g) + start);
+
+	switch (ATOMstorage(b->ttype)) {
+	case TYPE_bte:
+		AGGR_STDEV(bte);
+		break;
+	case TYPE_sht:
+		AGGR_STDEV(sht);
+		break;
+	case TYPE_int:
+		AGGR_STDEV(int);
+		break;
+	case TYPE_lng:
+		AGGR_STDEV(lng);
+		break;
+	case TYPE_flt:
+		AGGR_STDEV(flt);
+		break;
+	case TYPE_dbl:
+		AGGR_STDEV(dbl);
+		break;
+	default:
+		if (avgb)
+			BBPreclaim(*avgb);
+		else
+			GDKfree(mean);
+		GDKfree(delta);
+		GDKfree(m2);
+		GDKfree(cnts);
+		BBPunfix(bn->batCacheid);
+		GDKerror("%s: type (%s) not supported.\n",
+			 func, ATOMname(b->ttype));
+		return NULL;
+	}
+	if (avgb) {
+		BATsetcount(*avgb, ngrp);
+		BATseqbase(*avgb, 0);
+		(*avgb)->tkey = ngrp <= 1;
+		(*avgb)->tsorted = ngrp <= 1;
+		(*avgb)->trevsorted = ngrp <= 1;
+		(*avgb)->T->nil = nils != 0;
+		(*avgb)->T->nonil = nils == 0;
+	} else {
+		GDKfree(mean);
+	}
+	nils += nils2;
+	GDKfree(delta);
+	GDKfree(m2);
+	GDKfree(cnts);
+	BATsetcount(bn, ngrp);
+	BATseqbase(bn, min);
+	bn->tkey = ngrp <= 1;
+	bn->tsorted = ngrp <= 1;
+	bn->trevsorted = ngrp <= 1;
+	bn->T->nil = nils != 0;
+	bn->T->nonil = nils == 0;
+	return bn;
+
+  alloc_fail:
+	if (avgb && *avgb)
+		BBPreclaim(*avgb);
+	if (bn)
+		BBPreclaim(bn);
+	GDKfree(mean);
+	GDKfree(delta);
+	GDKfree(m2);
+	GDKfree(cnts);
+	GDKerror("%s: cannot allocate enough memory.\n", func);
+	return NULL;
+}
+
+BAT *
+BATgroupstdev_sample(BAT *b, BAT *g, BAT *e, BAT *s, int tp,
+		     int skip_nils, int abort_on_error)
+{
+	(void) abort_on_error;
+	return dogroupstdev(NULL, b, g, e, s, tp, skip_nils, 1, 0,
+			    "BATgroupstdev_sample");
+}
+
+BAT *
+BATgroupstdev_population(BAT *b, BAT *g, BAT *e, BAT *s, int tp,
+			 int skip_nils, int abort_on_error)
+{
+	(void) abort_on_error;
+	return dogroupstdev(NULL, b, g, e, s, tp, skip_nils, 0, 0,
+			    "BATgroupstdev_population");
+}
+
+BAT *
+BATgroupvariance_sample(BAT *b, BAT *g, BAT *e, BAT *s, int tp,
+		     int skip_nils, int abort_on_error)
+{
+	(void) abort_on_error;
+	return dogroupstdev(NULL, b, g, e, s, tp, skip_nils, 1, 1,
+			    "BATgroupvariance_sample");
+}
+
+BAT *
+BATgroupvariance_population(BAT *b, BAT *g, BAT *e, BAT *s, int tp,
+			 int skip_nils, int abort_on_error)
+{
+	(void) abort_on_error;
+	return dogroupstdev(NULL, b, g, e, s, tp, skip_nils, 0, 1,
+			    "BATgroupvariance_population");
 }

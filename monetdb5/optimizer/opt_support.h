@@ -62,6 +62,7 @@
 #define DEBUG_OPT_INLINE			20
 #define DEBUG_OPT_JOINPATH			21
 #define DEBUG_OPT_MACRO				23
+#define DEBUG_OPT_MATPACK			53
 #define DEBUG_OPT_MERGETABLE		24
 #define DEBUG_OPT_OCTOPUS			25
 #define DEBUG_OPT_ORIGIN			52
@@ -117,13 +118,14 @@ opt_export int isAllScalar(MalBlkPtr mb, InstrPtr p);
 opt_export int isFragmentGroup(InstrPtr q);
 opt_export int isFragmentGroup2(InstrPtr q);
 opt_export int isDelta(InstrPtr q);
-opt_export int isProjection(InstrPtr p);
 opt_export int isMatJoinOp(InstrPtr q);
 opt_export int isMapOp(InstrPtr q);
+opt_export int isLikeOp(InstrPtr q);
 opt_export int isTopn(InstrPtr q);
 opt_export int isSlice(InstrPtr q);
 opt_export int isOrderby(InstrPtr q);
 opt_export int isDiffOp(InstrPtr q);
+opt_export int isSubSelect(InstrPtr q);
 opt_export int allTargetsVisible(MalBlkPtr mb, Lifespan span, int pc,int qc);
 opt_export int isOptimizerEnabled(MalBlkPtr mb, str opt);
 opt_export str OPTsetDebugStr(int *ret, str *nme);
