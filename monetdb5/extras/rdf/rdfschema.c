@@ -85,6 +85,23 @@ static void getTopFreqCSs(map_t csmap, int threshold){
 
 }
 
+static void getStatisticCSsBySize(map_t csmap, int maximumNumP){
+
+	int* statCS; 
+	int i; 
+
+	statCS = (int *) malloc(sizeof(int) * (maximumNumP + 1)); 
+	
+	hashmap_statistic_groupcs_by_size(csmap, statCS); 
+
+	/* Print the result */
+	
+	printf(" --- Number of CS per size (Max = %d)--- \n", maximumNumP);
+	for (i = 1; i <= maximumNumP; i++){
+		printf("%d  :  %d \n", i, statCS[i]); 
+	} 
+}
+
 
 str
 RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
@@ -99,6 +116,7 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 	map_t 	csMap; 
 	int*	buff; 	 
 	int 	INIT_PROPERTY_NUM = 50000; 
+	int 	maxNumProp = 0; 
 
 	buff = (int *) malloc (sizeof(int) * INIT_PROPERTY_NUM);
 	
@@ -122,6 +140,10 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 		if (*bt != curS){
 			if (p != 0){	/* Not the first S */
 				putCStoHash(csMap, buff, numP, &CSoid); 
+				
+				if (numP > maxNumProp) 
+					maxNumProp = numP; 
+					
 
 			}
 			curS = *bt; 
@@ -147,15 +169,13 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 	/*put the last CS */
 	putCStoHash(csMap, buff, numP, &CSoid); 
 
+	if (numP > maxNumProp) 
+		maxNumProp = numP; 
+					
 	/*get the statistic */
-
 	getTopFreqCSs(csMap,20);
 
-	getTopFreqCSs(csMap,10);
-
-	getTopFreqCSs(csMap,5);
-
-	getTopFreqCSs(csMap,2);
+	getStatisticCSsBySize(csMap,maxNumProp); 
 
 
 	BBPreclaim(sbat); 

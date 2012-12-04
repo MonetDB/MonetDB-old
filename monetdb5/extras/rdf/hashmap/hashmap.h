@@ -78,6 +78,17 @@ extern int hashmap_iterate(map_t in, PFany f, any_t item);
  * */
 extern int hashmap_iterate_threshold(map_t in, int freqthreshold);
 
+
+/*
+ * This function is retrieve list of <num of CSs with the same size> 
+ * e.g., <3,4,5> ==> 3 CSs has size 1,  
+ * 
+ * Note: size of ret >= maximum number of items (properties) in one CS
+ * 
+ * */
+
+extern int hashmap_statistic_groupcs_by_size(map_t in, int* ret);
+
 /*
  * Add an element to the hashmap. Return MAP_OK or MAP_OMEM.
  */
