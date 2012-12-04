@@ -80,6 +80,23 @@ extern int hashmap_iterate_threshold(map_t in, int freqthreshold);
 
 
 /*
+ * Collect the number of CSs for each support value ranging 
+ * from 1 to maxfreqthreshold
+ *
+ * */
+
+int hashmap_statistic_CSbysupport_cummulative(map_t in, int* ret, int maxfreqthreshold);
+
+
+/*
+ * Collect the number of CSs for each support value ranging 
+ * from 1 to maxfreqthreshold
+ *
+ * */
+
+int hashmap_statistic_CSbysupport(map_t in, int* ret, int maxfreqthreshold);
+
+/*
  * This function is retrieve list of <num of CSs with the same size> 
  * e.g., <3,4,5> ==> 3 CSs has size 1,  
  * 

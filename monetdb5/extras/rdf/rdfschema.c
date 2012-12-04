@@ -92,6 +92,8 @@ static void getStatisticCSsBySize(map_t csmap, int maximumNumP){
 
 	statCS = (int *) malloc(sizeof(int) * (maximumNumP + 1)); 
 	
+	for (i = 0; i <= maximumNumP; i++) statCS[i] = 0;
+
 	hashmap_statistic_groupcs_by_size(csmap, statCS); 
 
 	/* Print the result */
@@ -100,8 +102,51 @@ static void getStatisticCSsBySize(map_t csmap, int maximumNumP){
 	for (i = 1; i <= maximumNumP; i++){
 		printf("%d  :  %d \n", i, statCS[i]); 
 	} 
+
+	free(statCS); 
 }
 
+
+static void getStatisticCSsBySupports(map_t csmap, int maxSupport, char isWriteToFile, char isCummulative){
+
+	int* statCS; 
+	int i; 
+	FILE *fout; 
+
+	statCS = (int *) malloc(sizeof(int) * (maxSupport + 1)); 
+	
+	for (i = 0; i <= maxSupport; i++) statCS[i] = 0; 
+	
+	if (isCummulative == 1)
+		hashmap_statistic_CSbysupport_cummulative(csmap, statCS, maxSupport); 
+	else 
+		hashmap_statistic_CSbysupport(csmap, statCS, maxSupport); 
+
+	/* Output the result */
+	
+	if (isWriteToFile  == 0){
+		printf(" --- Number of CS per support (Max = %d)--- \n", maxSupport);
+		for (i = 1; i <= maxSupport; i++){
+			printf("%d  :  %d \n", i, statCS[i]); 
+		} 
+	}
+	else {
+		if (isCummulative == 1)
+			fout = fopen("cummulativeNumCSbySupport.txt","wt"); 
+		else 
+			fout = fopen("numCSbySupport.txt","wt"); 
+
+		fprintf(fout, " --- Number of CS per support (Max = %d)--- \n", maxSupport); 
+		
+		for (i = 1; i <= maxSupport; i++){
+			fprintf(fout, "%d\t:\t%d \n", i, statCS[i]); 
+		} 
+		fclose(fout); 
+		
+	}
+
+	free(statCS); 
+}
 
 str
 RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
@@ -177,6 +222,7 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 
 	getStatisticCSsBySize(csMap,maxNumProp); 
 
+	getStatisticCSsBySupports(csMap, 5000, 1, 0);
 
 	BBPreclaim(sbat); 
 	BBPreclaim(pbat); 

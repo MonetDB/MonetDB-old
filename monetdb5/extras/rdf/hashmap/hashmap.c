@@ -254,13 +254,71 @@ int hashmap_iterate_threshold(map_t in, int freqthreshold){
 	for(i = 0; i< m->table_size; i++)
 		if(m->data[i].in_use != 0) {
 			if (m->data[i].freq > freqthreshold){
-				//any_t data = (any_t) (m->data[i].data);
 				count++; 
 			}
 		}
     return count;
 }
 
+
+/*
+ * Collect the number of CSs for each support value ranging 
+ * from 1 to maxfreqthreshold
+ *
+ * */
+
+int hashmap_statistic_CSbysupport(map_t in, int* ret, int maxfreqthreshold){
+
+	int i ;
+
+	/* Cast the hashmap */
+	hashmap_map* m = (hashmap_map*) in;
+	
+	/* On empty hashmap, return immediately */
+	if (hashmap_length(m) <= 0)
+		return MAP_MISSING;	
+
+	/* Linear probing */
+	for(i = 0; i< m->table_size; i++)
+		if(m->data[i].in_use != 0) {
+			if (maxfreqthreshold > m->data[i].freq)
+				ret[m->data[i].freq]++; 
+		}
+    return MAP_OK;
+}
+
+
+/*
+ * Collect the number of CSs cummulatively for support values ranging 
+ * from 1 to maxfreqthreshold
+ *
+ * */
+
+int hashmap_statistic_CSbysupport_cummulative(map_t in, int* ret, int maxfreqthreshold){
+
+	int i,j ;
+
+	/* Cast the hashmap */
+	hashmap_map* m = (hashmap_map*) in;
+	
+	/* On empty hashmap, return immediately */
+	if (hashmap_length(m) <= 0)
+		return MAP_MISSING;	
+
+	/* Linear probing */
+	for(i = 0; i< m->table_size; i++)
+		if(m->data[i].in_use != 0) {
+			if (maxfreqthreshold > m->data[i].freq)
+				for (j = 1; j <= m->data[i].freq; j++){
+					ret[j]++; 
+				}
+			else
+				for (j = 1; j <= maxfreqthreshold ; j++){
+					ret[j]++; 
+				}
+		}
+    return MAP_OK;
+}
 
 /*
  * This function is retrieve list of <num of CSs with the same size> 
