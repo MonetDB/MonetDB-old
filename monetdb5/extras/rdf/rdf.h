@@ -58,7 +58,10 @@ RDFSchemaExplore(int *ret, str *tbname, str *clname);
 rdf_export str
 RDFextractCS(int *ret, bat *sbatid, bat *pbatid); 
 
+rdf_export str
+RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid); 
 
+#define IS_DUPLICATE_FREE 0	/* 0: Duplications have not been removed, otherwise 1 */
 #define TRIPLE_STORE 1
 #define MLA_STORE    2
 

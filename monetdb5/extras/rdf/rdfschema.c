@@ -73,6 +73,31 @@ static void putCStoHash(map_t csmap, int* buff, int num, oid *csoid){
 }
 
 
+static void putPtoHash(map_t pmap, int value, oid *poid){
+	oid 	*getPoid; 
+	oid	*putPoid; 
+	int 	err; 
+	int* 	pkey; 
+	int 	freq; 
+
+	pkey = (int*) malloc(sizeof(int));
+
+	*pkey = value; 
+
+	if (hashmap_get(pmap, pkey, 1,(void**)(&getPoid),1, &freq) != MAP_OK){
+		putPoid = malloc(sizeof(oid)); 
+		*putPoid = *poid; 
+
+		err = hashmap_put(pmap, pkey, 1, putPoid); 	
+		assert(err == MAP_OK); 
+				
+		(*poid)++; 
+	}
+	else{
+		free(pkey); 
+	}
+}
+
 static void getTopFreqCSs(map_t csmap, int threshold){
 	int count;
 	hashmap_map* m; 
@@ -148,6 +173,7 @@ static void getStatisticCSsBySupports(map_t csmap, int maxSupport, char isWriteT
 	free(statCS); 
 }
 
+/* Extract CS from SPO triples table */
 str
 RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 	BUN 	p, q; 
@@ -158,7 +184,7 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 	oid 	curP; 		/* current Property oid */
 	oid 	CSoid = 0; 	/* Characteristic set oid */
 	int 	numP; 		/* Number of properties for current S */
-	map_t 	csMap; 
+	map_t 	csMap; 		
 	int*	buff; 	 
 	int 	INIT_PROPERTY_NUM = 50000; 
 	int 	maxNumProp = 0; 
@@ -229,6 +255,66 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 
 	free (buff); 
 	hashmap_free(csMap);
+
+	*ret = 1; 
+	return MAL_SUCCEED; 
+}
+
+
+/* Extract Properties and their supports from PSO table */
+str
+RDFextractPfromPSO(int *ret, bat *sbatid, bat *pbatid){
+	BUN 	p, q; 
+	BAT 	*sbat = NULL, *pbat = NULL; 
+	BATiter si, pi; 	/*iterator for BAT of s,p columns in spo table */
+	oid 	*bt, *sbt; 
+	oid 	curS; 		/* current Subject oid */
+	oid 	curP; 		/* current Property oid */
+	map_t 	pMap; 		
+	int 	supportP; 	/* Support value for P */
+	oid 	Poid = 0; 	/* Characteristic set oid */
+
+	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
+		throw(MAL, "rdf.RDFextractCS", RUNTIME_OBJECT_MISSING);
+	}
+	if ((pbat = BATdescriptor(*pbatid)) == NULL) {
+		throw(MAL, "rdf.RDFextractCS", RUNTIME_OBJECT_MISSING);
+	}
+	
+	si = bat_iterator(sbat); 
+	pi = bat_iterator(pbat); 
+
+	/* Init a hashmap */
+	pMap = hashmap_new(); 
+	curP = 0; 
+	supportP = 0; 
+
+	BATloop(pbat, p, q){
+		bt = (oid *) BUNtloc(pi, p);		
+		if (*bt != curP){
+			if (p != 0){	/* Not the first S */
+				putPtoHash(pMap, *bt, &Poid); 
+			}
+			curP = *bt; 
+			curS = 0;
+		}
+
+		sbt = (oid *) BUNtloc(si, p); 
+
+		if (curS != *sbt){
+			supportP++; 
+			curS = *sbt; 
+		}
+	}
+	
+	/*put the last P */
+	putPtoHash(pMap, *bt, &Poid); 
+
+
+	BBPreclaim(sbat); 
+	BBPreclaim(pbat); 
+
+	hashmap_free(pMap);
 
 	*ret = 1; 
 	return MAL_SUCCEED; 

@@ -24,5 +24,8 @@ comment "Explore the schema information from input table e.g., SPO in RDF";
 
 command rdfextractCS( sbat:bat[:any_1,:oid], pbat:bat[:any_2,:oid] ) :void
 address RDFextractCS
-comment "Extract Characteristic sets from SPO tables";
+comment "Extract Characteristic sets from SPO table";
 
+command rdfextractPfromPSO(pbat:bat[:any_1,:oid], sbat:bat[:any_2,:oid]):void
+address RDFextractPfromPSO
+comment "Extract Properties and their supports from PSO table";
