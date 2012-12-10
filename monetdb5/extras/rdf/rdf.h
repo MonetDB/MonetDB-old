@@ -19,7 +19,7 @@
 
 /*
  * @f rdf
- * @a L.Sidirourgos
+ * @a L.Sidirourgos, Minh-Duc Pham
  *
  * @* The RDF module For MonetDB5 (aka. MonetDB/RDF)
  *
@@ -51,15 +51,7 @@ RDFleftfetchjoin_sortedestimate(int *result, int *lid, int *rid, lng *estimate);
 rdf_export str 
 RDFleftfetchjoin_sorted(int *result, int* lid, int *rid);
 
-rdf_export str
-RDFSchemaExplore(int *ret, str *tbname, str *clname);
 
-
-rdf_export str
-RDFextractCS(int *ret, bat *sbatid, bat *pbatid); 
-
-rdf_export str
-RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid); 
 
 #define IS_DUPLICATE_FREE 0	/* 0: Duplications have not been removed, otherwise 1 */
 #define TRIPLE_STORE 1

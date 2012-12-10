@@ -21,6 +21,7 @@
 
 #include "monetdb_config.h"
 #include "rdf.h"
+#include "rdfschema.h"
 #include "algebra.h"
 #include <gdk.h>
 #include <hashmap/hashmap.h>
@@ -40,7 +41,7 @@ static void copyIntSet(int* dest, int* orig, int len){
 	}
 }
 
-static void putCStoHash(map_t csmap, int* buff, int num, oid *csoid){
+static void putaCStoHash(map_t csmap, int* buff, int num, oid *csoid){
 	oid 	*getCSoid; 
 	oid	*putCSoid; 
 	int 	err; 
@@ -60,16 +61,12 @@ static void putCStoHash(map_t csmap, int* buff, int num, oid *csoid){
 
 		err = hashmap_put(csmap, cs, num, putCSoid); 	
 		assert(err == MAP_OK); 
-				
-		//printf("Put CS %d into hashmap \n", (int) *putCSoid);
 
 		(*csoid)++; 
 	}
-	else{
-		//printf("The key %d exists in the hashmap with freq %d \n", (int) *getCSoid, freq);
+	else
 		free(cs); 
 
-	}
 }
 
 
@@ -172,8 +169,6 @@ static void getStatisticCSsBySupports(map_t csmap, int maxSupport, char isWriteT
 	free(statCS); 
 }
 
-
-
 /* Extract CS from SPO triples table */
 str
 RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
@@ -211,7 +206,7 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 		bt = (oid *) BUNtloc(si, p);		
 		if (*bt != curS){
 			if (p != 0){	/* Not the first S */
-				putCStoHash(csMap, buff, numP, &CSoid); 
+				putaCStoHash(csMap, buff, numP, &CSoid); 
 				
 				if (numP > maxNumProp) 
 					maxNumProp = numP; 
@@ -224,7 +219,7 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 		pbt = (oid *) BUNtloc(pi, p); 
 
 		if (numP > INIT_PROPERTY_NUM){
-			printf("# of properties %d is greater than INIT_PROPERTY_NUM at CS %d property %d \n", numP, (int)CSoid, (int)*pbt);
+			throw(MAL, "rdf.RDFextractCS", "# of properties is greater than INIT_PROPERTY_NUM");
 			exit(-1);
 		}
 		
@@ -237,7 +232,7 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 	}
 	
 	/*put the last CS */
-	putCStoHash(csMap, buff, numP, &CSoid); 
+	putaCStoHash(csMap, buff, numP, &CSoid); 
 
 	if (numP > maxNumProp) 
 		maxNumProp = numP; 
