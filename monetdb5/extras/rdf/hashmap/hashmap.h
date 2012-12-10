@@ -1,13 +1,9 @@
-/*
- * Generic hashmap manipulation functions
- *
- * Originally by Elliot C Back - http://elliottback.com/wp/hashmap-implementation-in-c/
- *
- * Modified by Pete Warden to fix a serious performance problem, support strings as keys
- * and removed thread synchronization - http://petewarden.typepad.com
- *
- * Modified by Minh-Duc Pham to support key as a set of integer values
- * Added functions for collecting data statistic
+/* HashMap for the characteristic sets (CSs') in RDF */
+
+/* Originally by Elliot C Back - http://elliottback.com/wp/hashmap-implementation-in-c/
+ * Modified by Minh-Duc Pham to support key as a set of integer values 
+ * + various functions for collecting data statistic
+ * and for specific data analysis of RDF triples 
  *
  */
 
@@ -43,7 +39,7 @@ typedef struct _hashmap_element{
 	int* key;
 	int num; 
 	int freq; 	
-	int in_use;
+	char in_use;
 	any_t data;
 } hashmap_element;
 
@@ -112,9 +108,25 @@ extern int hashmap_statistic_groupcs_by_size(map_t in, int* ret);
 extern int hashmap_put(map_t in, int* key, int num,  any_t value);
 
 /*
+ * Add a pointer to the hashmap with some key
+ * This function is ONLY used for the case of 
+ * the predicate in RDF triple
+ */
+extern int hashmap_put_forP(map_t in, int* key, int num, any_t value, int support);
+
+/*
  * Get an element from the hashmap. Return MAP_OK or MAP_MISSING.
  */
 extern int hashmap_get(map_t in, int* key, int num, any_t *arg, char isUpdateFreq, int *retfreq);
+
+
+/*
+ * Get your pointer out of the hashmap with a key
+ * This function is ONLY used for the case of 
+ * the predicate in RDF triple
+ */
+
+extern int hashmap_get_forP(map_t in, int* key, any_t *arg);
 
 /*
  * Remove an element from the hashmap. Return MAP_OK or MAP_MISSING.

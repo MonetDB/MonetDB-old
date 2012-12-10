@@ -1,6 +1,5 @@
-/*
- * Generic map implementation.
- */
+/* HashMap for the characteristic sets (CSs') in RDF */
+
 #include <hashmap.h>
 
 #include <stdlib.h>
@@ -61,6 +60,37 @@ static char intsetcmp(int* key1, int* key2, int num){
 	}
 	return 0; 
 }
+
+/* Return 1 if sorted arr2[] is a subset of sorted arr1[] 
+ * arr1 has m members, arr2 has n members
+ * */
+
+static int isSubset(int* arr1, int* arr2, int m, int n)
+{
+	int i = 0, j = 0;
+	 
+	if(m < n)
+		return 0;
+		 
+	while( i < n && j < m )
+	{
+		if( arr1[j] < arr2[i] )
+			j++;
+		else if( arr1[j] == arr2[i] )
+		{
+			j++;
+			i++;
+		}
+		else if( arr1[j] > arr2[i] )
+			return 0;
+	}
+		
+	if( i < n )
+		return 0;
+	else
+		return 1;
+} 
+
 
 /*
  * Return the integer of the location in data
@@ -163,6 +193,39 @@ int hashmap_put(map_t in, int* key, int num,  any_t value){
 	return MAP_OK;
 }
 
+
+/*
+ * Add a pointer to the hashmap with some key
+ * This function is ONLY used for the case of 
+ * the predicate in RDF triple
+ */
+int hashmap_put_forP(map_t in, int* key, int num, any_t value, int support){
+	int index;
+	hashmap_map* m;
+
+	/* Cast the hashmap */
+	m = (hashmap_map *) in;
+
+	/* Find a place to put our value */
+	index = hashmap_hash(in, key, num);
+	while(index == MAP_FULL){
+		if (hashmap_rehash(in) == MAP_OMEM) {
+			return MAP_OMEM;
+		}
+		index = hashmap_hash(in, key, num);
+	}
+
+	/* Set the data */
+	m->data[index].data = value;
+	m->data[index].key = key;
+	m->data[index].num = num; 
+	m->data[index].in_use = 1;
+	m->data[index].freq = support; 
+	m->size++; 
+
+	return MAP_OK;
+}
+
 /*
  * Get your pointer out of the hashmap with a key
  */
@@ -180,7 +243,7 @@ int hashmap_get(map_t in, int* key, int num,  any_t *arg, char isUpdateFrequency
 	/* Linear probing, if necessary */
 	for(i = 0; i<MAX_CHAIN_LENGTH; i++){
 
-		int in_use = m->data[curr].in_use;
+		char in_use = m->data[curr].in_use;
 		if (in_use == 1){
 			if ((m->data[curr].num == num) && (intsetcmp(m->data[curr].key,key,num)==0)){
 				*arg = (m->data[curr].data);
@@ -188,6 +251,42 @@ int hashmap_get(map_t in, int* key, int num,  any_t *arg, char isUpdateFrequency
 					m->data[curr].freq++;
 					*retfreq = m->data[curr].freq; 
 				}
+				return MAP_OK;
+            		}
+		}
+		curr = (curr + 1) % m->table_size;
+	}
+
+	*arg = NULL;
+
+	/* Not found */
+	return MAP_MISSING;
+}
+
+
+/*
+ * Get your pointer out of the hashmap with a key
+ * This function is ONLY used for the case of 
+ * the predicate in RDF triple
+ */
+int hashmap_get_forP(map_t in, int* key, any_t *arg){
+	int curr;
+	int i;
+	hashmap_map* m;
+
+	/* Cast the hashmap */
+	m = (hashmap_map *) in;
+
+	/* Find data location */
+	curr = hashmap_hash_int(m, key, 1);
+
+	/* Linear probing, if necessary */
+	for(i = 0; i<MAX_CHAIN_LENGTH; i++){
+
+		int in_use = m->data[curr].in_use;
+		if (in_use == 1){
+			if (*m->data[curr].key == *key){
+				*arg = (m->data[curr].data);
 				return MAP_OK;
             		}
 		}
@@ -367,7 +466,7 @@ int hashmap_remove(map_t in, int* key, int num){
 	/* Linear probing, if necessary */
 	for(i = 0; i<MAX_CHAIN_LENGTH; i++){
 
-        int in_use = m->data[curr].in_use;
+        char in_use = m->data[curr].in_use;
         if (in_use == 1){
 	    if ((m->data[curr].num == num) && (intsetcmp(m->data[curr].key,key,num)==0)){
                 /* Blank out the fields */

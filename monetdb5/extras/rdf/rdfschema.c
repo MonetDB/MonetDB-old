@@ -73,22 +73,21 @@ static void putCStoHash(map_t csmap, int* buff, int num, oid *csoid){
 }
 
 
-static void putPtoHash(map_t pmap, int value, oid *poid){
+static void putPtoHash(map_t pmap, int value, oid *poid, int support){
 	oid 	*getPoid; 
 	oid	*putPoid; 
 	int 	err; 
 	int* 	pkey; 
-	int 	freq; 
 
 	pkey = (int*) malloc(sizeof(int));
 
 	*pkey = value; 
 
-	if (hashmap_get(pmap, pkey, 1,(void**)(&getPoid),1, &freq) != MAP_OK){
+	if (hashmap_get_forP(pmap, pkey,(void**)(&getPoid)) != MAP_OK){
 		putPoid = malloc(sizeof(oid)); 
 		*putPoid = *poid; 
 
-		err = hashmap_put(pmap, pkey, 1, putPoid); 	
+		err = hashmap_put_forP(pmap, pkey, 1, putPoid, support); 	
 		assert(err == MAP_OK); 
 				
 		(*poid)++; 
@@ -125,7 +124,7 @@ static void getStatisticCSsBySize(map_t csmap, int maximumNumP){
 	
 	printf(" --- Number of CS per size (Max = %d)--- \n", maximumNumP);
 	for (i = 1; i <= maximumNumP; i++){
-		printf("%d  :  %d \n", i, statCS[i]); 
+		printf("%d : %d \n", i, statCS[i]); 
 	} 
 
 	free(statCS); 
@@ -149,10 +148,10 @@ static void getStatisticCSsBySupports(map_t csmap, int maxSupport, char isWriteT
 
 	/* Output the result */
 	
-	if (isWriteToFile  == 0){
+	if (isWriteToFile == 0){
 		printf(" --- Number of CS per support (Max = %d)--- \n", maxSupport);
 		for (i = 1; i <= maxSupport; i++){
-			printf("%d  :  %d \n", i, statCS[i]); 
+			printf("%d : %d \n", i, statCS[i]); 
 		} 
 	}
 	else {
@@ -172,6 +171,8 @@ static void getStatisticCSsBySupports(map_t csmap, int maxSupport, char isWriteT
 
 	free(statCS); 
 }
+
+
 
 /* Extract CS from SPO triples table */
 str
@@ -214,8 +215,6 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 				
 				if (numP > maxNumProp) 
 					maxNumProp = numP; 
-					
-
 			}
 			curS = *bt; 
 			curP = 0;
@@ -229,12 +228,12 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 			exit(-1);
 		}
 		
-		if (curP != *pbt){
+		if (curP != *pbt){	/* Multi values property */		
 			buff[numP] = *pbt; 
 			numP++; 
 			curP = *pbt; 
 		}
-		//printf("Travel sbat at %d  value: %d , for pbat: %d \n", (int) p, (int) *bt, (int) *pbt);
+		//printf("Travel sbat at %d value: %d , for pbat: %d \n", (int) p, (int) *bt, (int) *pbt);
 	}
 	
 	/*put the last CS */
@@ -293,7 +292,8 @@ RDFextractPfromPSO(int *ret, bat *sbatid, bat *pbatid){
 		bt = (oid *) BUNtloc(pi, p);		
 		if (*bt != curP){
 			if (p != 0){	/* Not the first S */
-				putPtoHash(pMap, *bt, &Poid); 
+				putPtoHash(pMap, *bt, &Poid, supportP); 
+				supportP = 0;
 			}
 			curP = *bt; 
 			curS = 0;
@@ -308,8 +308,7 @@ RDFextractPfromPSO(int *ret, bat *sbatid, bat *pbatid){
 	}
 	
 	/*put the last P */
-	putPtoHash(pMap, *bt, &Poid); 
-
+	putPtoHash(pMap, *bt, &Poid, supportP); 
 
 	BBPreclaim(sbat); 
 	BBPreclaim(pbat); 
