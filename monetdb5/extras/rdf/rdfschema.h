@@ -24,19 +24,27 @@ rdf_export str
 RDFSchemaExplore(int *ret, str *tbname, str *clname);
 
 rdf_export str
-RDFextractCS(int *ret, bat *sbatid, bat *pbatid); 
+RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int freqThreshold); 
 
 rdf_export str
 RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid); 
 
-typedef struct SubProps
+typedef struct CS
 {
 	int 	subIdx;		//Id of subject
 	int*	lstProp;	//List of properties' Ids
 	int	numProp;
 	int	numAllocation;
-} SubProps;
+} CS;
 
-SubProps* subPropSet;
+#define INIT_NUM_CS 100
+
+typedef struct CSset{
+	CS* items;
+	int numCSadded;
+	int numAllocation;
+} CSset; 
+
+CSset *freqCSs; 
 
 #endif /* _RDFSCHEMA_H_ */

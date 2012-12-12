@@ -41,12 +41,85 @@ static void copyIntSet(int* dest, int* orig, int len){
 	}
 }
 
-static void putaCStoHash(map_t csmap, int* buff, int num, oid *csoid){
+
+static 
+void addCStoSet(CSset *csSet, CS item)
+{
+	void *_tmp; 
+	if(csSet->numCSadded == csSet->numAllocation) 
+	{ 
+		csSet->numAllocation += INIT_NUM_CS; 
+		
+		_tmp = realloc(csSet->items, (csSet->numAllocation * sizeof(CS)));
+	
+		if (!_tmp){
+			fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+		}
+		csSet->items = (CS*)_tmp;
+	}
+	csSet->items[csSet->numCSadded] = item;
+	csSet->numCSadded++;
+}
+
+static 
+void freeCSset(CSset *csSet){
+	int i;
+	for(i = 0; i < csSet->numCSadded; i ++){
+		free(csSet->items[i].lstProp);
+	}
+	free(csSet->items);
+	free(csSet);
+}
+
+static 
+CSset* initCSset(void){
+	CSset *csSet = malloc(sizeof(CSset)); 
+	csSet->items = malloc(sizeof(CS) * INIT_NUM_CS); 
+	csSet->numAllocation = INIT_NUM_CS;
+	csSet->numCSadded = 0;
+
+	return csSet;
+}
+
+/*
+static 
+void freeCS(CS *cs){
+	free(cs->lstProp);
+	free(cs);
+}
+*/
+
+static 
+CS* creatCS(int subId, int numP, int* buff){
+	CS *cs = malloc(sizeof(CS)); 
+	cs->lstProp =  (int*) malloc(sizeof(int) * numP);
+	
+	if (cs->lstProp == NULL){
+		printf("Malloc failed. at %d", numP);
+		exit(-1); 
+	}
+
+	copyIntSet(cs->lstProp, buff, numP); 
+	cs->subIdx = subId;
+	cs->numProp = numP; 
+	cs->numAllocation = numP; 
+	return cs; 
+}
+
+/*
+ * Put a CS to the hashmap. 
+ * While putting CS to the hashmap, update the support (frequency) value 
+ * for an existing CS, and check whether it becomes a frequent CS or not. 
+ * If yes, add that frequent CS to the freqCSset. 
+ *
+ * */
+static void putaCStoHash(map_t csmap, int* buff, int num, oid *csoid, char isStoreFreqCS, int freqThreshold, CSset *freqCSset){
 	oid 	*getCSoid; 
 	oid	*putCSoid; 
 	int 	err; 
 	int* 	cs; 
 	int 	freq; 
+	CS	*freqCS; 
 
 	cs = (int*) malloc(sizeof(int) * num);
 	if (cs==NULL){
@@ -64,10 +137,18 @@ static void putaCStoHash(map_t csmap, int* buff, int num, oid *csoid){
 
 		(*csoid)++; 
 	}
-	else
+	else{
+		if (isStoreFreqCS == 1){	/* Store the frequent CS to the CSset*/
+			if (freq == freqThreshold){
+				freqCS = creatCS(*getCSoid, num, buff);		
+				addCStoSet(freqCSset, *freqCS);
+			}
+		}
 		free(cs); 
+	}
 
 }
+
 
 
 static void putPtoHash(map_t pmap, int value, oid *poid, int support){
@@ -171,7 +252,7 @@ static void getStatisticCSsBySupports(map_t csmap, int maxSupport, char isWriteT
 
 /* Extract CS from SPO triples table */
 str
-RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
+RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int freqThreshold){
 	BUN 	p, q; 
 	BAT 	*sbat = NULL, *pbat = NULL; 
 	BATiter si, pi; 	/*iterator for BAT of s,p columns in spo table */
@@ -184,6 +265,7 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 	int*	buff; 	 
 	int 	INIT_PROPERTY_NUM = 50000; 
 	int 	maxNumProp = 0; 
+	CSset	*freqCSset; 	/* Set of frequent CSs */
 
 	buff = (int *) malloc (sizeof(int) * INIT_PROPERTY_NUM);
 	
@@ -199,6 +281,8 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 
 	/* Init a hashmap */
 	csMap = hashmap_new(); 
+	freqCSset = initCSset();
+
 	numP = 0;
 	curP = 0; 
 
@@ -206,7 +290,7 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 		bt = (oid *) BUNtloc(si, p);		
 		if (*bt != curS){
 			if (p != 0){	/* Not the first S */
-				putaCStoHash(csMap, buff, numP, &CSoid); 
+				putaCStoHash(csMap, buff, numP, &CSoid, 1, freqThreshold, freqCSset); 
 				
 				if (numP > maxNumProp) 
 					maxNumProp = numP; 
@@ -232,11 +316,14 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 	}
 	
 	/*put the last CS */
-	putaCStoHash(csMap, buff, numP, &CSoid); 
+	putaCStoHash(csMap, buff, numP, &CSoid, 1, freqThreshold, freqCSset ); 
 
 	if (numP > maxNumProp) 
 		maxNumProp = numP; 
-					
+		
+	
+	printf("Number of frequent CSs is: %d \n", freqCSset->numCSadded);
+
 	/*get the statistic */
 	getTopFreqCSs(csMap,20);
 
@@ -248,6 +335,9 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid){
 	BBPreclaim(pbat); 
 
 	free (buff); 
+
+	freeCSset(freqCSset); 
+
 	hashmap_free(csMap);
 
 	*ret = 1; 

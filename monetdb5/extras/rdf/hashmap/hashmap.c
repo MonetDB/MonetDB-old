@@ -65,6 +65,7 @@ static char intsetcmp(int* key1, int* key2, int num){
  * arr1 has m members, arr2 has n members
  * */
 
+/*
 static int isSubset(int* arr1, int* arr2, int m, int n)
 {
 	int i = 0, j = 0;
@@ -90,7 +91,7 @@ static int isSubset(int* arr1, int* arr2, int m, int n)
 	else
 		return 1;
 } 
-
+*/
 
 /*
  * Return the integer of the location in data
