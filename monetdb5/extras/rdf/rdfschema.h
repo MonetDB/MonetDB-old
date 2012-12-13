@@ -24,7 +24,7 @@ rdf_export str
 RDFSchemaExplore(int *ret, str *tbname, str *clname);
 
 rdf_export str
-RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int freqThreshold); 
+RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int *freqThreshold); 
 
 rdf_export str
 RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid); 
@@ -35,6 +35,7 @@ typedef struct CS
 	int*	lstProp;	//List of properties' Ids
 	int	numProp;
 	int	numAllocation;
+	char 	isSubset; 
 } CS;
 
 #define INIT_NUM_CS 100

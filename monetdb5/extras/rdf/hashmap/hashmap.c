@@ -61,37 +61,7 @@ static char intsetcmp(int* key1, int* key2, int num){
 	return 0; 
 }
 
-/* Return 1 if sorted arr2[] is a subset of sorted arr1[] 
- * arr1 has m members, arr2 has n members
- * */
 
-/*
-static int isSubset(int* arr1, int* arr2, int m, int n)
-{
-	int i = 0, j = 0;
-	 
-	if(m < n)
-		return 0;
-		 
-	while( i < n && j < m )
-	{
-		if( arr1[j] < arr2[i] )
-			j++;
-		else if( arr1[j] == arr2[i] )
-		{
-			j++;
-			i++;
-		}
-		else if( arr1[j] > arr2[i] )
-			return 0;
-	}
-		
-	if( i < n )
-		return 0;
-	else
-		return 1;
-} 
-*/
 
 /*
  * Return the integer of the location in data

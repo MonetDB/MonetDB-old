@@ -103,6 +103,7 @@ CS* creatCS(int subId, int numP, int* buff){
 	cs->subIdx = subId;
 	cs->numProp = numP; 
 	cs->numAllocation = numP; 
+	cs->isSubset = 0; /*By default, this CS is not known to be a subset of any other CS*/
 	return cs; 
 }
 
@@ -139,6 +140,7 @@ static void putaCStoHash(map_t csmap, int* buff, int num, oid *csoid, char isSto
 	}
 	else{
 		if (isStoreFreqCS == 1){	/* Store the frequent CS to the CSset*/
+			printf("FreqCS: Support = %d, Threshold %d  \n ", freq, freqThreshold);
 			if (freq == freqThreshold){
 				freqCS = creatCS(*getCSoid, num, buff);		
 				addCStoSet(freqCSset, *freqCS);
@@ -148,6 +150,80 @@ static void putaCStoHash(map_t csmap, int* buff, int num, oid *csoid, char isSto
 	}
 
 }
+
+/* Return 1 if sorted arr2[] is a subset of sorted arr1[] 
+ * arr1 has m members, arr2 has n members
+ * */
+
+static int isSubset(int* arr1, int* arr2, int m, int n)
+{
+	int i = 0, j = 0;
+	 
+	if(m < n)
+		return 0;
+		 
+	while( i < n && j < m )
+	{
+		if( arr1[j] < arr2[i] )
+			j++;
+		else if( arr1[j] == arr2[i] )
+		{
+			j++;
+			i++;
+		}
+		else if( arr1[j] > arr2[i] )
+			return 0;
+	}
+		
+	if( i < n )
+		return 0;
+	else
+		return 1;
+}
+
+static 
+void printCS(CS cs){
+	int i; 
+	printf("CS %d: ", cs.subIdx);
+	for (i = 0; i < cs.numProp; i++){
+		printf(" %d  ", cs.lstProp[i]);
+	}
+	printf("\n");
+}
+
+/*
+ * Get the maximum frequent CSs from a CSset
+ * Here maximum frequent CS is a CS that there exist no other CS which contains that CS
+ * */
+static 
+void getMaximumFreqCSs(CSset *freqCSset){
+
+	int numCS = freqCSset->numCSadded; 
+	int i, j; 
+
+	printf("Maximum frequent CSs: \n");
+
+	for (i = 0; i < numCS; i++){
+		if (freqCSset->items[i].isSubset == 1) continue;
+		for (j = (i+1); j < numCS; j++){
+			if (isSubset(freqCSset->items[i].lstProp, freqCSset->items[j].lstProp,  
+					freqCSset->items[i].numProp,freqCSset->items[j].numProp) == 1) { 
+				/* CSj is a subset of CSi */
+				freqCSset->items[j].isSubset = 1; 
+			}
+			else if (isSubset(freqCSset->items[j].lstProp, freqCSset->items[i].lstProp,  
+					freqCSset->items[j].numProp,freqCSset->items[i].numProp) == 1) { 
+				/* CSj is a subset of CSi */
+				freqCSset->items[i].isSubset = 1; 
+				break; 
+			}
+			
+		} 
+		/* By the end, if this CS is not a subset of any other CS */
+		if (freqCSset->items[i].isSubset == 0) printCS( freqCSset->items[i]); 
+	}
+}
+
 
 
 
@@ -252,7 +328,7 @@ static void getStatisticCSsBySupports(map_t csmap, int maxSupport, char isWriteT
 
 /* Extract CS from SPO triples table */
 str
-RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int freqThreshold){
+RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int *freqThreshold){
 	BUN 	p, q; 
 	BAT 	*sbat = NULL, *pbat = NULL; 
 	BATiter si, pi; 	/*iterator for BAT of s,p columns in spo table */
@@ -286,11 +362,12 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int freqThreshold){
 	numP = 0;
 	curP = 0; 
 
+	printf("freqThreshold = %d \n", *freqThreshold);	
 	BATloop(sbat, p, q){
 		bt = (oid *) BUNtloc(si, p);		
 		if (*bt != curS){
 			if (p != 0){	/* Not the first S */
-				putaCStoHash(csMap, buff, numP, &CSoid, 1, freqThreshold, freqCSset); 
+				putaCStoHash(csMap, buff, numP, &CSoid, 1, *freqThreshold, freqCSset); 
 				
 				if (numP > maxNumProp) 
 					maxNumProp = numP; 
@@ -316,7 +393,7 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int freqThreshold){
 	}
 	
 	/*put the last CS */
-	putaCStoHash(csMap, buff, numP, &CSoid, 1, freqThreshold, freqCSset ); 
+	putaCStoHash(csMap, buff, numP, &CSoid, 1, *freqThreshold, freqCSset ); 
 
 	if (numP > maxNumProp) 
 		maxNumProp = numP; 
@@ -325,6 +402,9 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int freqThreshold){
 	printf("Number of frequent CSs is: %d \n", freqCSset->numCSadded);
 
 	/*get the statistic */
+
+	getMaximumFreqCSs(freqCSset); 
+
 	getTopFreqCSs(csMap,20);
 
 	getStatisticCSsBySize(csMap,maxNumProp); 
