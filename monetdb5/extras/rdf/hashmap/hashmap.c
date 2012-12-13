@@ -124,7 +124,7 @@ static int hashmap_rehash(map_t in){
 		if (curr[i].in_use == 0)
 			continue;
             
-		status = hashmap_put(m, curr[i].key, curr[i].num, curr[i].data);
+		status = hashmap_put(m, curr[i].key, curr[i].num, curr[i].freq, curr[i].data);
 		if (status != MAP_OK)
 			return status;
 	}
@@ -137,7 +137,7 @@ static int hashmap_rehash(map_t in){
 /*
  * Add a pointer to the hashmap with some key
  */
-int hashmap_put(map_t in, int* key, int num,  any_t value){
+int hashmap_put(map_t in, int* key, int num, int freq, any_t value){
 	int index;
 	hashmap_map* m;
 
@@ -158,7 +158,7 @@ int hashmap_put(map_t in, int* key, int num,  any_t value){
 	m->data[index].key = key;
 	m->data[index].num = num; 
 	m->data[index].in_use = 1;
-	m->data[index].freq = 1; 
+	m->data[index].freq = freq; 
 	m->size++; 
 
 	return MAP_OK;
@@ -323,7 +323,7 @@ int hashmap_iterate_threshold(map_t in, int freqthreshold){
 	/* Linear probing */
 	for(i = 0; i< m->table_size; i++)
 		if(m->data[i].in_use != 0) {
-			if (m->data[i].freq > freqthreshold){
+			if (m->data[i].freq >= freqthreshold){
 				count++; 
 			}
 		}

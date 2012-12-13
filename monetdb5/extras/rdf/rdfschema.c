@@ -114,12 +114,12 @@ CS* creatCS(int subId, int numP, int* buff){
  * If yes, add that frequent CS to the freqCSset. 
  *
  * */
-static void putaCStoHash(map_t csmap, int* buff, int num, oid *csoid, char isStoreFreqCS, int freqThreshold, CSset *freqCSset){
+static void putaCStoHash(map_t csmap, int* buff, int num, oid *csoid, char isStoreFreqCS, int freqThreshold, CSset **freqCSset){
 	oid 	*getCSoid; 
 	oid	*putCSoid; 
 	int 	err; 
 	int* 	cs; 
-	int 	freq; 
+	int 	freq = 0; 
 	CS	*freqCS; 
 
 	cs = (int*) malloc(sizeof(int) * num);
@@ -133,17 +133,17 @@ static void putaCStoHash(map_t csmap, int* buff, int num, oid *csoid, char isSto
 		putCSoid = malloc(sizeof(oid)); 
 		*putCSoid = *csoid; 
 
-		err = hashmap_put(csmap, cs, num, putCSoid); 	
+		err = hashmap_put(csmap, cs, num, 1,  putCSoid); 	
 		assert(err == MAP_OK); 
 
 		(*csoid)++; 
 	}
 	else{
 		if (isStoreFreqCS == 1){	/* Store the frequent CS to the CSset*/
-			printf("FreqCS: Support = %d, Threshold %d  \n ", freq, freqThreshold);
+			//printf("FreqCS: Support = %d, Threshold %d  \n ", freq, freqThreshold);
 			if (freq == freqThreshold){
 				freqCS = creatCS(*getCSoid, num, buff);		
-				addCStoSet(freqCSset, *freqCS);
+				addCStoSet(*freqCSset, *freqCS);
 			}
 		}
 		free(cs); 
@@ -181,6 +181,7 @@ static int isSubset(int* arr1, int* arr2, int m, int n)
 		return 1;
 }
 
+/*
 static 
 void printCS(CS cs){
 	int i; 
@@ -190,6 +191,7 @@ void printCS(CS cs){
 	}
 	printf("\n");
 }
+*/
 
 /*
  * Get the maximum frequent CSs from a CSset
@@ -200,8 +202,9 @@ void getMaximumFreqCSs(CSset *freqCSset){
 
 	int numCS = freqCSset->numCSadded; 
 	int i, j; 
+	int numMaxCSs = 0;
 
-	printf("Maximum frequent CSs: \n");
+	printf("Retrieving maximum frequent CSs: \n");
 
 	for (i = 0; i < numCS; i++){
 		if (freqCSset->items[i].isSubset == 1) continue;
@@ -220,8 +223,12 @@ void getMaximumFreqCSs(CSset *freqCSset){
 			
 		} 
 		/* By the end, if this CS is not a subset of any other CS */
-		if (freqCSset->items[i].isSubset == 0) printCS( freqCSset->items[i]); 
+		if (freqCSset->items[i].isSubset == 0){
+			numMaxCSs++;
+			//printCS( freqCSset->items[i]); 
+		}
 	}
+	printf("Number of maximum CSs: %d \n", numMaxCSs);
 }
 
 
@@ -263,6 +270,7 @@ static void getTopFreqCSs(map_t csmap, int threshold){
 
 }
 
+/*
 static void getStatisticCSsBySize(map_t csmap, int maximumNumP){
 
 	int* statCS; 
@@ -274,7 +282,7 @@ static void getStatisticCSsBySize(map_t csmap, int maximumNumP){
 
 	hashmap_statistic_groupcs_by_size(csmap, statCS); 
 
-	/* Print the result */
+	// Print the result
 	
 	printf(" --- Number of CS per size (Max = %d)--- \n", maximumNumP);
 	for (i = 1; i <= maximumNumP; i++){
@@ -283,7 +291,7 @@ static void getStatisticCSsBySize(map_t csmap, int maximumNumP){
 
 	free(statCS); 
 }
-
+*/
 
 static void getStatisticCSsBySupports(map_t csmap, int maxSupport, char isWriteToFile, char isCummulative){
 
@@ -339,7 +347,7 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int *freqThreshold){
 	int 	numP; 		/* Number of properties for current S */
 	map_t 	csMap; 		
 	int*	buff; 	 
-	int 	INIT_PROPERTY_NUM = 50000; 
+	int 	INIT_PROPERTY_NUM = 5000; 
 	int 	maxNumProp = 0; 
 	CSset	*freqCSset; 	/* Set of frequent CSs */
 
@@ -367,7 +375,7 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int *freqThreshold){
 		bt = (oid *) BUNtloc(si, p);		
 		if (*bt != curS){
 			if (p != 0){	/* Not the first S */
-				putaCStoHash(csMap, buff, numP, &CSoid, 1, *freqThreshold, freqCSset); 
+				putaCStoHash(csMap, buff, numP, &CSoid, 1, *freqThreshold, &freqCSset); 
 				
 				if (numP > maxNumProp) 
 					maxNumProp = numP; 
@@ -393,21 +401,21 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int *freqThreshold){
 	}
 	
 	/*put the last CS */
-	putaCStoHash(csMap, buff, numP, &CSoid, 1, *freqThreshold, freqCSset ); 
+	putaCStoHash(csMap, buff, numP, &CSoid, 1, *freqThreshold, &freqCSset ); 
 
 	if (numP > maxNumProp) 
 		maxNumProp = numP; 
 		
-	
+	printf("Last CS oid is: %d \n", (int)CSoid); 
 	printf("Number of frequent CSs is: %d \n", freqCSset->numCSadded);
 
 	/*get the statistic */
 
+	getTopFreqCSs(csMap,*freqThreshold);
+
 	getMaximumFreqCSs(freqCSset); 
 
-	getTopFreqCSs(csMap,20);
-
-	getStatisticCSsBySize(csMap,maxNumProp); 
+	//getStatisticCSsBySize(csMap,maxNumProp); 
 
 	getStatisticCSsBySupports(csMap, 5000, 1, 0);
 

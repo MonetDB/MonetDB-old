@@ -46,6 +46,4 @@ typedef struct CSset{
 	int numAllocation;
 } CSset; 
 
-CSset *freqCSs; 
-
 #endif /* _RDFSCHEMA_H_ */

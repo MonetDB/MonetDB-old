@@ -105,7 +105,7 @@ extern int hashmap_statistic_groupcs_by_size(map_t in, int* ret);
 /*
  * Add an element to the hashmap. Return MAP_OK or MAP_OMEM.
  */
-extern int hashmap_put(map_t in, int* key, int num,  any_t value);
+extern int hashmap_put(map_t in, int* key, int num, int freq,  any_t value);
 
 /*
  * Add a pointer to the hashmap with some key
