@@ -140,16 +140,13 @@ MATpackInternal(MalStkPtr stk, InstrPtr p)
 str
 MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
-	int bid, *ret = (int*) getArgReference(stk,p,0);
+	int *ret = (int*) getArgReference(stk,p,0);
 	BAT *b, *bb, *bn;
 
 	(void) cntxt;
-	b = BATdescriptor( bid = stk->stk[getArg(p,1)].val.ival);
+	b = BATdescriptor( stk->stk[getArg(p,1)].val.ival);
 	if ( b == NULL)
 		throw(MAL, "mat.pack", RUNTIME_OBJECT_MISSING);
-	if ( bid < 0 )
-		b = BATmirror(b);
-	assert(BAThdense(b));
 
 	if ( getArgType(mb,p,2) == TYPE_int){
 		/* first step */
@@ -160,10 +157,10 @@ MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		BATseqbase(bn, b->H->seq);
 		BATseqbase(BATmirror(bn), b->T->seq);
 		BATappend(bn,b,FALSE);
-		BBPreleaseref(b->batCacheid);
 		assert(!bn->H->nil || !bn->H->nonil);
 		assert(!bn->T->nil || !bn->T->nonil);
 		BBPkeepref(*ret = bn->batCacheid);
+		BBPreleaseref(b->batCacheid);
 	} else {
 		/* remaining steps */
 		bb = BATdescriptor(stk->stk[getArg(p,2)].val.ival);

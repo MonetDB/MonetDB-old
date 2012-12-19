@@ -331,8 +331,9 @@ DFLOWworker(void *t)
 			}
 		MT_lock_unset(&flow->flowlock, "MALworker");
 
-		MALresourceFairness(flow->cntxt, flow->mb, usec);
 		q_enqueue(flow->done, fe);
+		if ( fnxt == 0)
+			MALresourceFairness(flow->cntxt, flow->mb, usec);
 	}
 	GDKfree(GDKerrbuf);
 	GDKsetbuf(0);
@@ -597,6 +598,7 @@ runMALdataflow(Client cntxt, MalBlkPtr mb, int startpc, int stoppc, MalStkPtr st
 
 	flow->status = (FlowEvent)GDKzalloc((stoppc - startpc + 1) * sizeof(FlowEventRec));
 	size = DFLOWgraphSize(mb, startpc, stoppc);
+	size += stoppc - startpc;
 	flow->nodes = (int*)GDKzalloc(sizeof(int) * size);
 	flow->edges = (int*)GDKzalloc(sizeof(int) * size);
 	DFLOWinitBlk(flow, mb, size);

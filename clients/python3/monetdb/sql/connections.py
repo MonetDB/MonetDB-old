@@ -23,6 +23,7 @@ from monetdb.exceptions import *
 from monetdb import mapi
 
 logger = logging.getLogger("monetdb")
+logger.addHandler(logging.NullHandler())
 
 class Connection(object):
     """This represents a MonetDB SQL database connection"""
@@ -44,7 +45,7 @@ class Connection(object):
             username = user
         if host is not None:
             hostname = host
-        self.mapi = mapi.Server()
+        self.mapi = mapi.Connection()
         self.mapi.connect(hostname=hostname, port=int(port), username=username,
             password=password, database=database, language="sql")
         self.set_autocommit(autocommit)

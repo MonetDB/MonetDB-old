@@ -1552,6 +1552,14 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 			prop *p;
 
 			/* only handle simple joins here */		
+			if (exp_has_func(e)) {
+				if (!join && !list_length(lje)) {
+					stmt *l = bin_first_column(sql->sa, left);
+					stmt *r = bin_first_column(sql->sa, right);
+					join = stmt_join(sql->sa, l, r, cmp_all); 
+				}
+				break;
+			}
 			if (list_length(lje) && (idx || e->type != e_cmp || e->flag != cmp_equal))
 				break;
 
@@ -2677,7 +2685,6 @@ rel2bin_sample( mvc *sql, sql_rel *rel, list *refs)
 		sc = column(sql->sa, sc);
 		sample = stmt_sample(sql->sa, stmt_alias(sql->sa, sc, tname, cname),s);
 
-		sample = stmt_reverse(sql->sa, stmt_mark_tail(sql->sa, sample, 0));
 		for ( ; n; n = n->next) {
 			stmt *sc = n->data;
 			char *cname = column_name(sql->sa, sc);

@@ -22,7 +22,7 @@
 #include "opt_support.h"
 
 /* cf., gdk/gdk.mx */
-#define DEBUGoptimizers		if (GDKdebug & GRPoptimizers && actions)
+#define DEBUGoptimizers		if (GDKdebug & GRPoptimizers)
 
 opt_export  str abortRef;
 opt_export  str affectedRowsRef;
@@ -166,6 +166,7 @@ opt_export  str openRef;
 opt_export  str optimizerRef;
 opt_export  str packRef;
 opt_export  str pack2Ref;
+opt_export  str passRef;
 opt_export  str partitionRef;
 opt_export  str pcreRef;
 opt_export  str pinRef;
@@ -205,6 +206,7 @@ opt_export  str semijoinRef;
 opt_export  str semijoinPathRef;
 opt_export  str setAccessRef;
 opt_export  str setWriteModeRef;
+opt_export  str sinkRef;
 opt_export  str sliceRef;
 opt_export  str subsliceRef;
 opt_export  str singleRef;

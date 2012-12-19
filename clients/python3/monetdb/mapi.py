@@ -29,6 +29,7 @@ import time
 from monetdb.exceptions import OperationalError, DatabaseError, ProgrammingError, NotSupportedError
 
 logger = logging.getLogger("monetdb")
+logger.addHandler(logging.NullHandler())
 
 MAX_PACKAGE_LENGTH = (1024*8)-2
 
@@ -52,7 +53,7 @@ STATE_INIT = 0
 STATE_READY = 1
 
 
-class Server(object):
+class Connection(object):
     """
     MAPI (low level MonetDB API) connection
     """
@@ -163,9 +164,9 @@ class Server(object):
         self.__putblock(operation)
         response = self.__getblock()
         if not len(response):
-            return True
+            return ""
         elif response.startswith(MSG_OK):
-            return response[3:].strip() or True
+            return response[3:].strip() or ""
         if response == MSG_MORE:
             # tell server it isn't going to get more
             return self.cmd("")
@@ -191,7 +192,7 @@ class Server(object):
                 password = h.hexdigest()
             except ValueError as e:
                 raise NotSupportedError(e.message)
-		else:
+        else:
             raise NotSupportedError("We only speak protocol v9")
 
         h = hashes.split(",")
@@ -221,10 +222,10 @@ class Server(object):
             unpacked = struct.unpack('<H', flag)[0] # unpack little endian short
             length = unpacked >> 1
             last = unpacked & 1
-            logger.debug("II: reading %i bytes, last: %s" % (length, bool(last)))
+            #logger.debug("II: reading %i bytes, last: %s" % (length, bool(last)))
             result.write(self.__getbytes(length))
         result_str = result.getvalue()
-        logger.debug("RX: length: %i payload: %s" % (len(result_str), result_str))
+        #logger.debug("RX: length: %i payload: %s" % (len(result_str), result_str))
         return result_str.decode()
 
 
@@ -237,7 +238,7 @@ class Server(object):
             recv = self.socket.recv(count)
             if len(recv) == 0:
                 time.sleep(1)
-            logger.debug("II: package size: %i payload: %s" % (len(recv), recv))
+            #logger.debug("II: package size: %i payload: %s" % (len(recv), recv))
             count -= len(recv)
             result.write(recv)
         return result.getvalue()
@@ -253,8 +254,8 @@ class Server(object):
             if length < MAX_PACKAGE_LENGTH:
                 last = 1
             flag = struct.pack( '<H', ( length << 1 ) + last )
-            logger.debug("II: sending %i bytes, last: %s" % (length, bool(last)))
-            logger.debug("TX: %s" % data)
+            #logger.debug("II: sending %i bytes, last: %s" % (length, bool(last)))
+            #logger.debug("TX: %s" % data)
             self.socket.send(flag)
             self.socket.send(data)
             pos += length
@@ -263,3 +264,8 @@ class Server(object):
     def __del__(self):
         if self.socket:
             self.socket.close()
+
+
+#backwards compatiblity
+Server = Connection
+

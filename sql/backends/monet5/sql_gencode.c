@@ -983,7 +983,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 		case st_sample:{
 			int l = _dumpstmt(sql, mb, s->op1);
 			int r = _dumpstmt(sql, mb, s->op2);
-			q = newStmt(mb, "sample", "uniform");
+			q = newStmt(mb, "sample", "subuniform");
 			q = pushArgument(mb, q, l);
 			q = pushArgument(mb, q, r);
 			s->nr = getDestVar(q);
@@ -1843,9 +1843,9 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 				q = pushArgument(mb, q, g);
 				q = pushArgument(mb, q, e);
 				g = getDestVar(q);
-				q = pushInt(mb, q, no_nil);
+				q = pushBit(mb, q, no_nil);
 				if (sum_or_prod)
-					q = pushInt(mb, q, TRUE);
+					q = pushBit(mb, q, TRUE);
 			}
 			s->nr = getDestVar(q);
 		}
