@@ -406,7 +406,6 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int *freqThreshold){
 	if (numP > maxNumProp) 
 		maxNumProp = numP; 
 		
-	printf("Last CS oid is: %d \n", (int)CSoid); 
 	printf("Number of frequent CSs is: %d \n", freqCSset->numCSadded);
 
 	/*get the statistic */
