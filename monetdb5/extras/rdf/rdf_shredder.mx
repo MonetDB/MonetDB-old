@@ -153,20 +153,20 @@ if (bun == BUN_NONE) {
 	//bun = (BUN) ((@1)->hseqbase + (@1)->batCount);
 	bun = (BUN) (RDF_MIN_LITERAL + (@1)->batCount);
 	
-	/* Add the type here */
+	/* Add the type here by changing 2 bits at position 62, 63 of oid */
 	if (@3 == DATETIME){ 
 		printf("Datetime appears here \n Before: " BUNFMT "\n", bun);
-		bun |= (BUN)1 << (sizeof(BUN)*8 - 2);
+		bun |= (BUN)1 << (sizeof(BUN)*8 - 3);
 		printf("After: " BUNFMT "\n", bun);
 	}
 	else if (@3 == NUMERIC){
 		printf("Numeric value appears here \n Before: " BUNFMT "\n", bun);
-		bun |= (BUN)2 << (sizeof(BUN)*8 - 2);
+		bun |= (BUN)2 << (sizeof(BUN)*8 - 3);
 		printf("After: " BUNFMT "\n", bun);
 	}
 	else { /* @3 == STRING */
 		printf("String value appears here \n Before: " BUNFMT "\n", bun);
-		bun |= (BUN)3 << (sizeof(BUN)*8 - 2);
+		bun |= (BUN)3 << (sizeof(BUN)*8 - 3);
 		printf("After: " BUNFMT "\n", bun);
 	}
 
