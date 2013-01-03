@@ -22,7 +22,7 @@
 #include "mal_client.h"
 #include "mal_interpreter.h"
 
-#define RDF_MIN_LITERAL (((oid) 1) << ((sizeof(oid)==8)?62:30))
+#define RDF_MIN_LITERAL (((oid) 1) << ((sizeof(oid)==8)?60:28))
 
 #ifdef WIN32
 #if !defined(LIBMAL) && !defined(LIBATOMS) && !defined(LIBKERNEL) && !defined(LIBMAL) && !defined(LIBOPTIMIZER) && !defined(LIBSCHEDULER) && !defined(LIBMONETDB5)

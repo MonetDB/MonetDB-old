@@ -150,8 +150,29 @@ if (bun == BUN_NONE) {
 		HASHdestroy(@1);
 		BAThash(BATmirror(@1), 2*BATcount(@1));
 	}
-	bun = (BUN) ((@1)->hseqbase + (@1)->batCount);
-	@1 = BUNappend(@1, (ptr)@2, TRUE);
+	//bun = (BUN) ((@1)->hseqbase + (@1)->batCount);
+	bun = (BUN) (RDF_MIN_LITERAL + (@1)->batCount);
+	
+	/* Add the type here */
+	if (@3 == DATETIME){ 
+		printf("Datetime appears here \n Before: " BUNFMT "\n", bun);
+		bun |= (BUN)1 << (sizeof(BUN)*8 - 2);
+		printf("After: " BUNFMT "\n", bun);
+	}
+	else if (@3 == NUMERIC){
+		printf("Numeric value appears here \n Before: " BUNFMT "\n", bun);
+		bun |= (BUN)2 << (sizeof(BUN)*8 - 2);
+		printf("After: " BUNFMT "\n", bun);
+	}
+	else { /* @3 == STRING */
+		printf("String value appears here \n Before: " BUNFMT "\n", bun);
+		bun |= (BUN)3 << (sizeof(BUN)*8 - 2);
+		printf("After: " BUNFMT "\n", bun);
+	}
+
+	//@1 = BUNappend(@1, (ptr)@2, TRUE);
+	@1 = BUNins(@1, (ptr) &bun, (ptr)@2, TRUE); 
+
 	if (@1 == NULL) {
 		@:raptor_exception(pdata, "could not append in@1")@
 	}
@@ -187,6 +208,39 @@ if (@1 == NULL) {
 
 @
 @c
+
+
+/*
+* Get the specific type of the object value in an RDF triple
+* The URI object can be recoginized by raptor parser. 
+* If the object value is not an URI ==> it is a literal, and 
+* specifically, a numeric, a dateTime or a string. 
+* This function will find the specific type of Object value
+*/
+
+static ObjectType 
+getObjectType(unsigned char* objStr){
+	ObjectType obType; 
+	if (strstr((const char*) objStr, "XMLSchema#date") != NULL){
+		obType = DATETIME;
+		printf("%s: DateTime \n", objStr); 
+	}
+	else if (strstr((const char*) objStr, "XMLSchema#float") != NULL
+		|| strstr((const char*) objStr, "XMLSchema#integer") != NULL
+		)
+	{
+		obType = NUMERIC;
+		printf("%s: Numeric \n", objStr); 
+	}
+	else {
+		obType = STRING;
+		printf("%s: String \n", objStr); 
+	}
+
+	return obType; 
+}
+
+
 static void 
 tripleHandler(void* user_data, const raptor_statement* triple)
 {
@@ -227,8 +281,10 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 		free(objStr);
 	} else if (triple->object->type == RAPTOR_TERM_TYPE_LITERAL) {
 		unsigned char* objStr;
+		ObjectType objType;
 		objStr = raptor_term_to_string(triple->object);
-		@:rdf_BUNappend_unq_1(graph[MAP_LEX], (str)objStr)@
+		objType = getObjectType(objStr);
+		@:rdf_BUNappend_unq_1(graph[MAP_LEX], (str)objStr, objType)@
 		@:rdf_BUNappend(graph[O_sort], &bun)@
 		bun = BUN_NONE;
 		free(objStr);
@@ -323,8 +379,13 @@ parserData_create (str location, BAT** graph)
 	pdata->graph[MAP_LEX]->T->nokey[0] = 0;
 	pdata->graph[MAP_LEX]->T->nokey[1] = 0;
 
+	/* Reset the dense property of graph[MAP_LEX] */
+	pdata->graph[MAP_LEX]->hdense = FALSE;
+
 	return pdata;
 }
+
+
 
 /*
  * @-
@@ -392,11 +453,15 @@ post_processing (parserData *pdata)
 	BAT *ctref= NULL;
 #endif
 #ifdef _TKNZR_H
-	BATiter bi, mi;
-	BUN p, d, r;
-	oid *bt;
+
+	//BATiter bi, mi;
+	//BUN p, d, r;
+	//oid *bt;
 
 	/* order MAP_LEX */
+
+	/* Do not order the MAP_LEX BAT */
+	#ifdef ORDER_MAPLEX
 	BATorder(BATmirror(graph[MAP_LEX]));
 	map_oid = BATmark(graph[MAP_LEX], RDF_MIN_LITERAL);   /* BATmark will create a copy */
 	BATorder(map_oid);
@@ -417,6 +482,8 @@ post_processing (parserData *pdata)
 		}
 	}
 	BBPreclaim(map_oid);
+
+	#endif
 
 	S = graph[S_sort];
 	P = graph[P_sort];
@@ -583,7 +650,7 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema)
 		char *buf = (char*) GDKmalloc(RDF_CHUNK_SIZE);
 		if (buf == NULL) {
 			throw(RDF, "rdf.rdfShred",
-				"could not allocate a %dMB file buffer\n", (int) (RDF_CHUNK_SIZE>>20));
+			"could not allocate a %dMB file buffer\n", (int) (RDF_CHUNK_SIZE>>20));
 		}
 		uri = raptor_new_uri(raptor_uri_filename_to_uri_string(pdata->location));
 		iret = raptor_start_parse(rparser, uri);

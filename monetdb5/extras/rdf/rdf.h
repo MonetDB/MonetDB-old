@@ -51,7 +51,12 @@ RDFleftfetchjoin_sortedestimate(int *result, int *lid, int *rid, lng *estimate);
 rdf_export str 
 RDFleftfetchjoin_sorted(int *result, int* lid, int *rid);
 
-
+typedef enum {
+	DATETIME, 
+	NUMERIC, 
+	URI, 
+	STRING
+} ObjectType; 
 
 #define IS_DUPLICATE_FREE 0	/* 0: Duplications have not been removed, otherwise 1 */
 #define TRIPLE_STORE 1

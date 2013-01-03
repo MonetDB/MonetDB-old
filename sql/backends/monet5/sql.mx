@@ -7298,13 +7298,13 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 				store_funcs.append_col(m->session->tr,
 						       mvc_bind_column(m, spo_tbl, "subject"),
-						       sbt, TYPE_int);
+						       sbt, TYPE_oid);
 				store_funcs.append_col(m->session->tr,
 						       mvc_bind_column(m, spo_tbl, "property"),
-						       pbt, TYPE_int);
+						       pbt, TYPE_oid);
 				store_funcs.append_col(m->session->tr,
 						       mvc_bind_column(m, spo_tbl, "object"),
-						       obt, TYPE_int);
+						       obt, TYPE_oid);
 				/* Update current value */		       
 				curS = *sbt; 
 				curP = *pbt; 
