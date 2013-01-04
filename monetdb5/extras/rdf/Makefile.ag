@@ -31,7 +31,7 @@ lib__rdf = {
 	#MODULE
 	NOINST
 	#DIR = libdir/monetdb5
-	SOURCES = rdf.h rdfschema.h rdf_shredder.mx rdfalgebra.c rdfschema.c 
+	SOURCES = rdf.h rdfschema.h rdf_shredder.c rdfalgebra.c rdfschema.c 
 	#SEP = _
 	# LIBS =  ./hashmap/librdfhash 	
 	#	../../tools/libmonetdb5 \
