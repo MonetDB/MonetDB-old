@@ -13,7 +13,7 @@
  * 
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
 */
 
@@ -244,7 +244,7 @@ DFLOWworker(void *t)
 	str error = 0;
 
 	int i;
-	long usec = 0;
+	lng usec = 0;
 
 	thr = THRnew("DFLOWworker");
 
@@ -332,8 +332,13 @@ DFLOWworker(void *t)
 		MT_lock_unset(&flow->flowlock, "MALworker");
 
 		q_enqueue(flow->done, fe);
-		if ( fnxt == 0)
-			MALresourceFairness(flow->cntxt, flow->mb, usec);
+		if ( fnxt == 0) {
+			if (todo->last == 0)
+				profilerHeartbeatEvent("wait");
+			else
+				MALresourceFairness(flow->cntxt, flow->mb, usec);
+			
+		}
 	}
 	GDKfree(GDKerrbuf);
 	GDKsetbuf(0);

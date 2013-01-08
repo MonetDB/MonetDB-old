@@ -13,7 +13,7 @@
  * 
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
 */
 
@@ -175,16 +175,20 @@ static int running; /* should be protected, but no need for accurateness here. s
 void
 MALresourceFairness(Client cntxt, MalBlkPtr mb, lng usec)
 {
-	long rss = MT_getrss();
+	size_t rss;
 	lng delay, clk;
 	int threads;
 	double factor;
 	int delayed= 0;
 
+	if ( usec > 0 && ( (usec = GDKusec()-usec)) <= TIMESLICE )
+		return;
 	threads= GDKnr_threads > 0? GDKnr_threads: 1;
 	if ( running == 0) // reset workers pool count
 		running = threads;
 
+	/* use GDKmem_cursize as MT_getrss(); is to expensive */
+	rss = GDKmem_cursize();
 	/* ample of memory available*/
 	if ( rss < MEMORY_THRESHOLD * monet_memory)
 		return;
@@ -201,23 +205,23 @@ MALresourceFairness(Client cntxt, MalBlkPtr mb, lng usec)
 			clk = DELAYUNIT;
 		}
 
-	if ( clk >= DELAYUNIT ) {
+	if ( clk > DELAYUNIT ) {
 		PARDEBUG mnstr_printf(GDKstdout, "#delay %d initial "LLFMT"n", cntxt->idx, clk);
 		while (clk > 0) {
 			/* always keep one running to avoid all waiting  */
 			if (running < 2)
 				break;
 			/* speed up wake up when we have memory */
-			rss = MT_getrss();
+			rss = GDKmem_cursize();
 			if (rss < MEMORY_THRESHOLD * monet_memory)
 				break;
 			factor = ((double) rss) / (MEMORY_THRESHOLD * monet_memory);
-			delay = (long) (DELAYUNIT * (factor > 1.0 ? 1.0 : factor));
-			delay = (long) ( ((double)delay) * running / threads);
+			delay = (lng) (DELAYUNIT * (factor > 1.0 ? 1.0 : factor));
+			delay = (lng) ( ((double)delay) * running / threads);
 			running--;
 			if (delay) {
 				if ( delayed++ == 0){
-						mnstr_printf(GDKstdout, "#delay %d initial "LLFMT"["LLFMT"] memory  %ld[%f]\n", cntxt->idx, delay, clk, rss, MEMORY_THRESHOLD * monet_memory);
+						mnstr_printf(GDKstdout, "#delay %d initial "LLFMT"["LLFMT"] memory  "SZFMT"[%f]\n", cntxt->idx, delay, clk, rss, MEMORY_THRESHOLD * monet_memory);
 						mnstr_flush(GDKstdout);
 				}
 				MT_sleep_ms(delay);

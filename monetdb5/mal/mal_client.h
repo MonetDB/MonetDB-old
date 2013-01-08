@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -178,9 +178,6 @@ typedef struct CLIENT {
 	int		actions;
 	lng		totaltime;	/* sum of elapsed processing times */
 	struct RECSTAT *rcc;	/* recycling stat */
-#ifdef HAVE_TIMES
-	struct tms	workload;
-#endif
 	jmp_buf	exception_buf;
 	int exception_buf_initialized;
 
@@ -202,6 +199,7 @@ mal_export int MCdefault;
 
 mal_export Client  MCgetClient(int id);
 mal_export Client  MCinitClient(oid user, bstream *fin, stream *fout);
+mal_export Client  MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout);
 mal_export int     MCinitClientThread(Client c);
 mal_export void    MCcloseClient(Client c);
 mal_export Client  MCforkClient(Client c);

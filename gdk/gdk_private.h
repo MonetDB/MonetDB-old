@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -59,6 +59,7 @@ void BBPreleaselref(bat i);
 void BBPtrim(size_t delta);
 void BBPunshare(bat b);
 void GDKclrerr(void);
+int GDKfdlocate(const char *nme, const char *mode, const char *ext);
 FILE *GDKfilelocate(const char *nme, const char *mode, const char *ext);
 char *GDKload(const char *nme, const char *ext, size_t size, size_t chunk, storage_t mode);
 void GDKlockHome(void);
@@ -93,9 +94,6 @@ void MT_global_exit(int status)
 	__attribute__((__noreturn__));
 void MT_init_posix(void);
 int MT_msync(void *p, size_t off, size_t len, int mode);
-void *MT_vmalloc(size_t size, size_t *maxsize);
-void MT_vmfree(void *p, size_t size);
-void *MT_vmrealloc(void *voidptr, size_t oldsize, size_t newsize, size_t oldmaxsize, size_t *newmaxsize);
 int OIDdirty(void);
 int OIDinit(void);
 oid *oidRead(oid *a, stream *s, size_t cnt);

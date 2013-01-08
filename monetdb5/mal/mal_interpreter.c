@@ -13,7 +13,7 @@
  * 
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
 */
 
@@ -479,7 +479,13 @@ callMAL(Client cntxt, MalBlkPtr mb, MalStkPtr *env, ValPtr argv[], char debug)
 	ValPtr lhs;
 	InstrPtr pci = getInstrPtr(mb, 0);
 	RuntimeProfileRecord runtimeProfile;
-
+ 
+/*
+ * Control the level of parallelism. The maximum number of concurrent MAL plans
+ * is determined by an environment variable. It is initially set equal to the
+ * number of cores, which may be too coarse.
+ */
+	MT_sema_down(&mal_parallelism,"mal_parallelism");
 	runtimeProfileInit(mb, &runtimeProfile, cntxt->flags & memoryFlag);
 #ifdef DEBUG_CALLMAL
 	mnstr_printf(cntxt->fdout, "callMAL\n");
@@ -518,8 +524,10 @@ callMAL(Client cntxt, MalBlkPtr mb, MalStkPtr *env, ValPtr argv[], char debug)
 	case PATcall:
 	case CMDcall:
 	default:
+		MT_sema_up(&mal_parallelism,"mal_parallelism");
 		throw(MAL, "mal.interpreter", RUNTIME_UNKNOWN_INSTRUCTION);
 	}
+	MT_sema_up(&mal_parallelism,"mal_parallelism");
 	if (cntxt->qtimeout && time(NULL) - stk->clock.tv_usec > cntxt->qtimeout)
 		throw(MAL, "mal.interpreter", RUNTIME_QRY_TIMEOUT);
 	return ret;
@@ -804,19 +812,22 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 					for (i = 0; i < pci->retc; i++) {
 						if (garbage[i] == -1 && stk->stk[getArg(pci, i)].vtype == TYPE_bat &&
 							stk->stk[getArg(pci, i)].val.bval) {
-							b = BATdescriptor(stk->stk[getArg(pci, i)].val.bval);
+							b = BBPquickdesc(ABS(stk->stk[getArg(pci, i)].val.bval), FALSE);
 							if (b == NULL) {
 								ret = createException(MAL, "mal.propertyCheck", RUNTIME_OBJECT_MISSING);
 								continue;
 							}
 							if (b->batStamp <= stamp) {
 								if (GDKdebug & PROPMASK) {
+									b = BATdescriptor(stk->stk[getArg(pci, i)].val.bval);
 									BATassertProps(b);
+									BBPunfix(b->batCacheid);
 								}
 							} else if (GDKdebug & CHECKMASK) {
+								b = BATdescriptor(stk->stk[getArg(pci, i)].val.bval);
 								BATassertProps(b);
+								BBPunfix(b->batCacheid);
 							}
-							BBPunfix(b->batCacheid);
 						}
 					}
 				}

@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -2718,7 +2718,6 @@ sql_parse(mvc *m, sql_allocator *sa, char *query, char mode)
 	*o = *m;
 
 	m->qc = NULL;
-	m->last = NULL;
 
 	m->caching = 0;
 	m->emode = mode;
@@ -2794,7 +2793,6 @@ sql_parse(mvc *m, sql_allocator *sa, char *query, char mode)
 		}
 	}
 	_DELETE(o);
-	m->last = NULL;
 	return sq;
 }
 

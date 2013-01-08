@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -133,7 +133,7 @@ GDKremovedir(const char *dirname)
 #define _FWRTHR         0x080000
 #define _FRDSEQ         0x100000
 
-static int
+int
 GDKfdlocate(const char *nme, const char *mode, const char *extension)
 {
 	char buf[PATHLENGTH], *path = buf;
