@@ -29,6 +29,9 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int *freqThreshold);
 rdf_export str
 RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid); 
 
+rdf_export str 
+RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freqThreshold);
+
 typedef struct CS
 {
 	int 	subIdx;		//Id of subject

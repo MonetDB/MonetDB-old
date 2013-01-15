@@ -358,6 +358,34 @@ int hashmap_statistic_CSbysupport(map_t in, int* ret, int maxfreqthreshold){
 }
 
 
+/* Simply print all the elements in the hashmap */
+int hashmap_print(map_t in){
+
+	int i,j ;
+	
+
+	/* Cast the hashmap */
+	hashmap_map* m = (hashmap_map*) in;
+	
+	/* On empty hashmap, return immediately */
+	if (hashmap_length(m) <= 0)
+		return MAP_MISSING;	
+
+	/* Linear probing */
+	for(i = 0; i< m->table_size; i++)
+		if(m->data[i].in_use != 0) {
+			/* Print each item */
+			printf("Key: ");
+			for (j = 0; j <  m->data[i].num; j++){
+				printf(" %d ", m->data[i].key[j]);
+			}
+			printf("\n");
+			printf("Freq: %d \n",  m->data[i].freq);
+			/* m->data[i].data */
+		}
+    return MAP_OK;
+}
+
 /*
  * Collect the number of CSs cummulatively for support values ranging 
  * from 1 to maxfreqthreshold

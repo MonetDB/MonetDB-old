@@ -52,9 +52,9 @@ rdf_export str
 RDFleftfetchjoin_sorted(int *result, int* lid, int *rid);
 
 typedef enum {
+	URI,
 	DATETIME, 
 	NUMERIC, 
-	URI, 
 	STRING
 } ObjectType; 
 

@@ -114,26 +114,26 @@ CS* creatCS(int subId, int numP, int* buff){
  * If yes, add that frequent CS to the freqCSset. 
  *
  * */
-static void putaCStoHash(map_t csmap, int* buff, int num, oid *csoid, char isStoreFreqCS, int freqThreshold, CSset **freqCSset){
+static void putaCStoHash(map_t csmap, int* key, int num, oid *csoid, char isStoreFreqCS, int freqThreshold, CSset **freqCSset){
 	oid 	*getCSoid; 
 	oid	*putCSoid; 
 	int 	err; 
-	int* 	cs; 
+	int* 	csKey; 
 	int 	freq = 0; 
 	CS	*freqCS; 
 
-	cs = (int*) malloc(sizeof(int) * num);
-	if (cs==NULL){
+	csKey = (int*) malloc(sizeof(int) * num);
+	if (csKey==NULL){
 		printf("Malloc failed. at %d", num);
 		exit(-1); 
 	}
 
-	copyIntSet(cs, buff, num); 
-	if (hashmap_get(csmap, cs, num,(void**)(&getCSoid),1, &freq) != MAP_OK){
+	copyIntSet(csKey, key, num); 
+	if (hashmap_get(csmap, csKey, num,(void**)(&getCSoid),1, &freq) != MAP_OK){
 		putCSoid = malloc(sizeof(oid)); 
 		*putCSoid = *csoid; 
 
-		err = hashmap_put(csmap, cs, num, 1,  putCSoid); 	
+		err = hashmap_put(csmap, csKey, num, 1,  putCSoid); 	
 		assert(err == MAP_OK); 
 
 		(*csoid)++; 
@@ -142,11 +142,11 @@ static void putaCStoHash(map_t csmap, int* buff, int num, oid *csoid, char isSto
 		if (isStoreFreqCS == 1){	/* Store the frequent CS to the CSset*/
 			//printf("FreqCS: Support = %d, Threshold %d  \n ", freq, freqThreshold);
 			if (freq == freqThreshold){
-				freqCS = creatCS(*getCSoid, num, buff);		
+				freqCS = creatCS(*getCSoid, num, key);		
 				addCStoSet(*freqCSset, *freqCS);
 			}
 		}
-		free(cs); 
+		free(csKey); 
 	}
 
 }
@@ -234,7 +234,7 @@ void getMaximumFreqCSs(CSset *freqCSset){
 
 
 
-static void putPtoHash(map_t pmap, int value, oid *poid, int support){
+static void putPtoHash(map_t pmap, int key, oid *poid, int support){
 	oid 	*getPoid; 
 	oid	*putPoid; 
 	int 	err; 
@@ -242,7 +242,7 @@ static void putPtoHash(map_t pmap, int value, oid *poid, int support){
 
 	pkey = (int*) malloc(sizeof(int));
 
-	*pkey = value; 
+	*pkey = key; 
 
 	if (hashmap_get_forP(pmap, pkey,(void**)(&getPoid)) != MAP_OK){
 		putPoid = malloc(sizeof(oid)); 
@@ -351,6 +351,7 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int *freqThreshold){
 	int 	maxNumProp = 0; 
 	CSset	*freqCSset; 	/* Set of frequent CSs */
 
+
 	buff = (int *) malloc (sizeof(int) * INIT_PROPERTY_NUM);
 	
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
@@ -431,10 +432,179 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int *freqThreshold){
 	return MAL_SUCCEED; 
 }
 
+/*
+ * Get the refer CS 
+ * Input: oid of a URI object 
+ * Return the id of the CS
+ * */
+static 
+str getReferCS(BAT *sbat, BAT *pbat, oid *obt){
+
+	/* For detecting foreign key relationships */
+	BAT	*tmpbat;	/* Get the result of searching objectURI from sbat */
+	BATiter	ti; 
+	oid	*tbt;
+	BUN	pt, qt; 
+	oid	*s_t, *p_t; 	
+	//int	*tmpbuff;
+
+	//tmpbuff = (int *) malloc (sizeof(int) * INIT_PROPERTY_NUM);
+
+	/* BATsubselect(inputbat, <dont know yet>, lowValue, Highvalue, isIncludeLowValue, isIncludeHigh, <anti> */
+	printf("Checking for object " BUNFMT "\n", *obt);
+	tmpbat = BATsubselect(sbat, NULL, obt, obt, 1, 1, 0); 
+	/* tmpbat tail contain head oid of sbat for matching elements */
+	if (tmpbat != NULL){
+		printf("Matching: " BUNFMT "\n", BATcount(tmpbat));
+		BATprint(tmpbat); 
+						
+		if (BATcount(tmpbat) > 0){
+			ti = bat_iterator(tmpbat);
+		        BATloop(tmpbat, pt, qt){
+		                tbt = (oid *) BUNtail(ti, pt);
+				s_t = (oid *) Tloc(sbat, *tbt);
+				p_t = (oid *) Tloc(pbat, *tbt); 
+				printf("s_t: " BUNFMT "\n", (*s_t));
+				printf("p_t: " BUNFMT "\n", (*p_t));
+						/* Check which CS is referred */
+
+			}
+		}
+	}
+	else
+		throw(MAL, "rdf.RDFextractCSwithTypes", "Null Bat returned for BATsubselect");			
+
+			
+			
+	/* temporarily use */
+	if (tmpbat)
+		BBPunfix(tmpbat->batCacheid);
+
+	return MAL_SUCCEED;
+}
+
+/* Extract CS from SPO triples table */
+str
+RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freqThreshold){
+	BUN 	p, q; 
+	BAT 	*sbat = NULL, *pbat = NULL, *obat = NULL; 
+	BATiter si, pi, oi; 	/*iterator for BAT of s,p,o columns in spo table */
+	oid 	*sbt, *pbt, *obt; 
+	oid 	curS; 		/* current Subject oid */
+	oid 	curP; 		/* current Property oid */
+	oid 	CSoid = 0; 	/* Characteristic set oid */
+	int 	numP; 		/* Number of properties for current S */
+	map_t 	csMap; 		
+	int*	buff; 	 
+	int 	INIT_PROPERTY_NUM = 5000; 
+	int 	maxNumProp = 0; 
+	CSset	*freqCSset; 	/* Set of frequent CSs */
+	oid 	objType;
+	
+
+	
+	buff = (int *) malloc (sizeof(int) * INIT_PROPERTY_NUM);
+
+	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
+		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
+	}
+	if (!(sbat->tsorted)){
+		 throw(MAL, "rdf.RDFextractCSwithTypes", "sbat is not sorted");
+	}
+
+	if ((pbat = BATdescriptor(*pbatid)) == NULL) {
+		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
+	}
+	if ((obat = BATdescriptor(*obatid)) == NULL) {
+		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
+	}
+	
+	si = bat_iterator(sbat); 
+	pi = bat_iterator(pbat); 
+	oi = bat_iterator(obat);
+
+	/* Init a hashmap */
+	csMap = hashmap_new(); 
+	freqCSset = initCSset();
+
+	numP = 0;
+	curP = 0; 
+
+	printf("freqThreshold = %d \n", *freqThreshold);	
+	BATloop(sbat, p, q){
+		sbt = (oid *) BUNtloc(si, p);		
+		if (*sbt != curS){
+			if (p != 0){	/* Not the first S */
+				putaCStoHash(csMap, buff, numP, &CSoid, 1, *freqThreshold, &freqCSset); 
+				
+				if (numP > maxNumProp) 
+					maxNumProp = numP; 
+			}
+			curS = *sbt; 
+			curP = 0;
+			numP = 0;
+		}
+				
+		pbt = (oid *) BUNtloc(pi, p); 
+
+		if (numP > INIT_PROPERTY_NUM){
+			throw(MAL, "rdf.RDFextractCS", "# of properties is greater than INIT_PROPERTY_NUM");
+			exit(-1);
+		}
+		
+		if (curP != *pbt){	/* Multi values property */		
+			buff[numP] = *pbt; 
+			numP++; 
+			curP = *pbt; 
+		}
+		
+		obt = (oid *) BUNtloc(oi, p); 
+		/* Check type of object */
+		objType = ((*obt) >> (sizeof(BUN)*8 - 3))  &  3 ;	/* Get two bits 63th, 62nd from object oid */
+		
+		//printf("object type: " BUNFMT "\n", objType); 
+
+		/* Look at sbat*/
+		if (objType == URI){
+
+			getReferCS(sbat, pbat, obt);		
+		}
+	}
+	
+	/*put the last CS */
+	putaCStoHash(csMap, buff, numP, &CSoid, 1, *freqThreshold, &freqCSset ); 
+
+	if (numP > maxNumProp) 
+		maxNumProp = numP; 
+		
+	printf("Number of frequent CSs is: %d \n", freqCSset->numCSadded);
+
+	/*get the statistic */
+
+	getTopFreqCSs(csMap,*freqThreshold);
+
+	getMaximumFreqCSs(freqCSset); 
+
+	//getStatisticCSsBySize(csMap,maxNumProp); 
+
+	getStatisticCSsBySupports(csMap, 5000, 1, 0);
+
+	BBPreclaim(sbat); 
+	BBPreclaim(pbat); 
+
+	free (buff); 
+
+	freeCSset(freqCSset); 
+
+	hashmap_free(csMap);
+
+	*ret = 1; 
+	return MAL_SUCCEED; 
+}
 
 /* Extract Properties and their supports from PSO table */
 str
-RDFextractPfromPSO(int *ret, bat *sbatid, bat *pbatid){
+RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid){
 	BUN 	p, q; 
 	BAT 	*sbat = NULL, *pbat = NULL; 
 	BATiter si, pi; 	/*iterator for BAT of s,p columns in spo table */
@@ -461,14 +631,16 @@ RDFextractPfromPSO(int *ret, bat *sbatid, bat *pbatid){
 	supportP = 0; 
 
 	BATloop(pbat, p, q){
-		bt = (oid *) BUNtloc(pi, p);		
+		bt = (oid *) BUNtloc(pi, p);
+		//printf("bt: " BUNFMT "\n", *bt);
+		//printf("p: " BUNFMT "\n", p);
+		//printf("After: " BUNFMT "\n", *bun);
 		if (*bt != curP){
 			if (p != 0){	/* Not the first S */
-				putPtoHash(pMap, *bt, &Poid, supportP); 
+				putPtoHash(pMap, curP, &Poid, supportP); 
 				supportP = 0;
 			}
 			curP = *bt; 
-			curS = 0;
 		}
 
 		sbt = (oid *) BUNtloc(si, p); 
@@ -481,6 +653,9 @@ RDFextractPfromPSO(int *ret, bat *sbatid, bat *pbatid){
 	
 	/*put the last P */
 	putPtoHash(pMap, *bt, &Poid, supportP); 
+	
+	//printf("Print all properties \n");
+	//hashmap_print(pMap);
 
 	BBPreclaim(sbat); 
 	BBPreclaim(pbat); 

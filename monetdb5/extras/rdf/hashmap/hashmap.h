@@ -37,7 +37,7 @@ typedef any_t map_t;
 /* We need to keep keys and values */
 typedef struct _hashmap_element{
 	int* key;
-	int num; 
+	int num; 		/* Number of integers for the key */
 	int freq; 	
 	char in_use;
 	any_t data;
@@ -138,6 +138,13 @@ extern int hashmap_remove(map_t in, int* key, int num);
  * remove - should the element be removed from the hashmap
  */
 extern int hashmap_get_one(map_t in, any_t *arg, int remove);
+
+/* 
+ * Simply print all the elements in the hashmap 
+ *
+ * */
+extern int hashmap_print(map_t in);
+
 
 /*
  * Free the hashmap
