@@ -152,6 +152,7 @@ module crackers;
 @:TypeSwitch_1(Select)@
 @:TypeSwitch_1(Index)@
 @:TypeSwitch_1(CoreUnordered)@
+@:TypeSwitch_1(Validate)@
 @:TypeSwitch_1(Updates)@
 
 #
@@ -375,6 +376,39 @@ comment "Break a BAT into three pieces with
 	 tail<=low, low<tail<=hgh, tail>hgh,
 	 respectively.";
 @
+@= Validate
+@:crack_validate(@2,Ordered,; maintaining the head-oid order within each piece)@
+@:crack_validate(@2,Unordered,)@
+
+command verifyCrackerIndex(b:bat[:any_1,:@2]):void
+address CRKverifyCrackerIndex_@2
+comment "Check the cracker index and column, whether each value is in the correct chunk";
+@
+@= crack_validate
+command zcrack@2_validate (b:bat[:oid,:@1], mid:@1) :bit
+address CRKcrack@2Zero_validate_@1
+comment "Validate whether a BAT is correctly broken into two pieces with
+	 tail<=mid, tail>mid,
+	 respectively@3.";
+
+command crack@2_validate (b:bat[:oid,:@1], mid:@1) :bit
+address CRKcrack@2One_validate_@1
+comment "Validate whether a BAT is correctly broken into three pieces with
+	 tail<mid, tail==mid, tail>mid,
+	 respectively@3.";
+
+command crack@2_validate (b:bat[:oid,:@1], low:@1, hgh:@1) :bit
+address CRKcrack@2Two_validate_@1
+comment "Validate whether a BAT is correctly broken into five pieces with
+	 tail<low, tail==low, low<tail<hgh, tail==hgh, tail>hgh,
+	 respectively@3.";
+
+command zcrack@2_validate (b:bat[:oid,:@1], low:@1, hgh:@1) :bit
+address CRKcrack@2Three_validate_@1
+comment "Validate whether a BAT is correctly broken into three pieces with
+	 tail<=low, low<tail<=hgh, tail>hgh,
+	 respectively@3.";
+@
 
  
 @h
@@ -399,6 +433,7 @@ comment "Break a BAT into three pieces with
 
 #include "mtime.h"
 #include "crackers_index.h"
+#include "crackers_validation.h"
 #include "crackers_select_ops.h"
 #include "crackers_selectst_ops.h"
 #include "crackers_selecthol_ops.h"
