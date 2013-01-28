@@ -478,6 +478,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 	//BAT	*hsValueBat;
 	BAT	*pOffsetBat; 	/* BAT storing the offset for set of properties, refer to fullPBat */
 	BAT	*fullPBat;  	/* Stores all set of properties */
+	int	*subjCSMap; 	/* Store the correspoinding CS Id for each subject */
 	
 	buff = (int *) malloc (sizeof(int) * INIT_PROPERTY_NUM);
 
