@@ -64,6 +64,9 @@ typedef enum {
 
 #define STORE TRIPLE_STORE /* this should become a compile time option */
 
+#define batsz 10000000
+#define smallbatsz 100000
+
 #if STORE == TRIPLE_STORE
  typedef enum {
 	S_sort, P_sort, O_sort, /* sorted */

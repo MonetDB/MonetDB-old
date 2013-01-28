@@ -37,7 +37,7 @@ typedef struct graphBATdef {
 	int tailType;            /* type of right column */
 } graphBATdef;
 
-static BUN batsz = 10000000;
+//static BUN batsz = 10000000;
 
 /* this list should be kept alligned with the graphBATType enum */
 #if STORE == TRIPLE_STORE
