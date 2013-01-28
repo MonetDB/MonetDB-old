@@ -37,7 +37,7 @@
 #define CATALOG_VERSION 52001
 int catalog_version = 0;
 
-static MT_Lock bs_lock;
+static MT_Lock bs_lock MT_LOCK_INITIALIZER("bs_lock");
 static int store_oid = 0;
 static int prev_oid = 0;
 static int nr_sessions = 0;
@@ -1260,6 +1260,11 @@ store_init(int debug, store_type store, char *logdir, backend_stack stk)
 
 	bs_debug = debug;
 
+#ifdef NEED_MT_LOCK_INIT
+	MT_lock_init(&bs_lock, "SQL_bs_lock");
+#endif
+	MT_lock_set(&bs_lock, "store_init");
+
 	/* initialize empty bats */
 	if (store == store_bat ||
 	    store == store_su ||
@@ -1285,11 +1290,13 @@ store_init(int debug, store_type store, char *logdir, backend_stack stk)
 	}
 	active_store_type = store;
 	if (!logger_funcs.create ||
-	    logger_funcs.create(logdir, CATALOG_VERSION*v) == LOG_ERR)
+	    logger_funcs.create(logdir, CATALOG_VERSION*v) == LOG_ERR) {
+		MT_lock_unset(&bs_lock, "store_init");
 		return -1;
+	}
 
-	MT_lock_init(&bs_lock, "SQL_bs_lock");
 	sa = sa_create();
+	MT_lock_unset(&bs_lock, "store_init");
 	types_init(sa, debug);
 
 #define FUNC_OIDS 2000
@@ -2768,13 +2775,16 @@ rollforward_trans(sql_trans *tr, int mode)
 		ok = rollforward_changeset_updates(tr, &tr->schemas, &tr->parent->schemas, (sql_base *) tr->parent, (rfufunc) &rollforward_update_schema, (rfcfunc) &rollforward_create_schema, (rfdfunc) &rollforward_drop_schema, (dupfunc) &schema_dup, mode);
 	if (mode == R_APPLY) {
 		if (tr->parent == gtrans) {
-			gtrans->stime = tr->stime;
-			gtrans->wstime = tr->wstime;
+			if (gtrans->stime < tr->stime)
+				gtrans->stime = tr->stime;
+			if (gtrans->wstime < tr->wstime)
+				gtrans->wstime = tr->wstime;
 			
 			if (tr->schema_updates) 
 				schema_number++;
 		}
 		tr->wtime = tr->rtime = 0;
+		assert(gtrans->wstime == gtrans->wtime);
 	}
 	return ok;
 }

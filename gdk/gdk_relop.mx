@@ -487,6 +487,8 @@ BAThashjoin(BAT *l, BAT *r, BUN estimate)
 	@:joincheck(BAThashjoin,l->ttype,r->htype)@
 	@:joinbat(JOIN_EQ,BAThashjoin(l,r,BUN_NONE),estimate)@
 
+	ALGODEBUG fprintf(stderr, "#BATjoin: BAThashjoin(l %d  "BUNFMT",r %d  "BUNFMT"," BUNFMT " ldense %d rdense %d lkey %d rkey %d lordered %d rordered %d);\n", 
+			l->ttype, BATcount(l), r->htype,BATcount(r),  estimate,  BATtdense(l), BAThdense(r),BATtkey(l), BAThkey(r), BATtordered(l), BAThordered(r));
 	if (BATprepareHash(r)) {
 		return NULL;
 	}
@@ -1451,11 +1453,11 @@ batjoin(BAT *l, BAT *r, BUN estimate, bit swap)
 	 */
 	/* Simple rule, always build hash on the smallest */
 	if (swap && rsize > lsize) {
-		ALGODEBUG fprintf(stderr, "#BATjoin: BATmirror(BAThashjoin(BATmirror(r), BATmirror(l)," BUNFMT "));\n", estimate);
+		ALGODEBUG fprintf(stderr, "#BATjoin: swap = %d, rsize = "SZFMT", lsize = "SZFMT" => BATmirror(BAThashjoin(BATmirror(r), BATmirror(l)," BUNFMT "));\n", (int)swap, rsize, lsize, estimate);
 
 		return BATmirror(BAThashjoin(BATmirror(r), BATmirror(l), estimate));
 	}
-	ALGODEBUG fprintf(stderr, "#BATjoin: BAThashjoin(l,r," BUNFMT ");\n", estimate);
+	ALGODEBUG fprintf(stderr, "#BATjoin: swap = %d, rsize = "SZFMT", lsize = "SZFMT" => BAThashjoin(l,r," BUNFMT ");\n", (int)swap, rsize, lsize, estimate);
 
 	return BAThashjoin(l, r, estimate);
 }

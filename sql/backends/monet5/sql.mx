@@ -1257,7 +1257,7 @@ sql.prelude();
 #include <mal_function.h>
 #include <mal_stack.h>
 #include <mal_interpreter.h>
-#include <mal_session.h>
+
 #include <tablet.h>
 #include <streams.h>
 #include <mtime.h>
@@ -3611,11 +3611,7 @@ DELTAproject(bat *result, bat *sub, bat *col, bat *uid, bat *uval, bat *ins)
 	if (i) BBPunfix(i->batCacheid);
 
 	tres = BATleftfetchjoin(s, res, BATcount(res));
-	if (!tres) {
-		BATprint(s);
-		BATprint(res);
-		assert(0);
-	}
+	assert(tres);
 	BBPunfix(res->batCacheid);
 	res = tres;
 

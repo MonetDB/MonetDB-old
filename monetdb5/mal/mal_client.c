@@ -234,8 +234,6 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	c->debugOptimizer = c->debugScheduler = 0;
 	c->flags = MCdefault;
 	c->timer = 0;
-	c->bigfoot = 0;
-	c->vmfoot = 0;
 	c->memory = 0;
 	c->errbuf = 0;
 
@@ -248,7 +246,7 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	c->rcc = (RecPtr) GDKzalloc(sizeof(RecStat));
 	c->rcc->curQ = -1;
 	c->exception_buf_initialized = 0;
-	MT_sema_init(&c->s, 0, "MCinitClient");
+	MT_sema_init(&c->s, 0, "Client->s");
 	return c;
 }
 
@@ -383,6 +381,7 @@ freeClient(Client c)
 	c->glb = NULL;
 	if (t)
 		THRdel(t);  /* you may perform suicide */
+	MT_sema_destroy(&c->s);
 }
 
 /*

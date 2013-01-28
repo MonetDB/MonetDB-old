@@ -79,7 +79,7 @@ typedef struct heap_cache {
 } heap_cache;
 
 static heap_cache *hc = NULL;
-static MT_Lock HEAPcacheLock;
+static MT_Lock HEAPcacheLock MT_LOCK_INITIALIZER("HEAPcacheLock");
 
 void
 HEAPcacheInit(void)
@@ -87,15 +87,17 @@ HEAPcacheInit(void)
 	if (!hc) {
 		int i;
 
+#ifdef NEED_MT_LOCK_INIT
 		MT_lock_init(&HEAPcacheLock, "HEAPcache_init");
+#endif
 		MT_lock_set(&HEAPcacheLock, "HEAPcache_init");
-		hc = (heap_cache*)GDKmalloc(sizeof(heap_cache));
+		hc = (heap_cache *) GDKmalloc(sizeof(heap_cache));
 		hc->used = 0;
 		hc->sz = HEAP_CACHE_SIZE;
-		hc->hc = (heap_cache_e*)GDKmalloc(sizeof(heap_cache_e)*hc->sz);
+		hc->hc = (heap_cache_e *) GDKmalloc(sizeof(heap_cache_e) * hc->sz);
 		GDKcreatedir(HCDIR DIR_SEP_STR);
 		/* clean old leftovers */
-		for(i=0;i<HEAP_CACHE_SIZE;i++){
+		for (i = 0; i < HEAP_CACHE_SIZE; i++) {
 			char fn[PATHLENGTH];
 
 			snprintf(fn, PATHLENGTH, "%d", i);
@@ -111,21 +113,29 @@ HEAPcacheAdd(void *base, size_t maxsz, char *fn, storage_t storage, int free_fil
 	int added = 0;
 
 
+	MT_lock_set(&HEAPcacheLock, "HEAPcache_init");
 	if (hc && free_file && fn && storage == STORE_MMAP && hc->used < hc->sz) {
-		MT_lock_set(&HEAPcacheLock, "HEAPcache_init");
-		if (hc->used < hc->sz) {
-			heap_cache_e *e = hc->hc+hc->used;
+		heap_cache_e *e = hc->hc + hc->used;
 
-			e->base = base;
-			e->maxsz = maxsz;
-			snprintf(e->fn, PATHLENGTH, "%d", hc->used);
-			GDKunlink(HCDIR, e->fn, NULL);
-			GDKmove(BATDIR, fn, NULL, HCDIR, e->fn, NULL);
-			hc->used++;
-			added = 1;
+		e->base = base;
+		e->maxsz = maxsz;
+		snprintf(e->fn, PATHLENGTH, "%d", hc->used);
+		GDKunlink(HCDIR, e->fn, NULL);
+		added = 1;
+		if (GDKmove(BATDIR, fn, NULL, HCDIR, e->fn, NULL) < 0) {
+			/* try to create the directory, if that was
+			 * the problem */
+			char path[PATHLENGTH];
+
+			GDKfilepath(path, HCDIR, e->fn, NULL);
+			GDKcreatedir(path);
+			if (GDKmove(BATDIR, fn, NULL, HCDIR, e->fn, NULL) < 0)
+				added = 0;
 		}
-		MT_lock_unset(&HEAPcacheLock, "HEAPcache_init");
+		if (added)
+			hc->used++;
 	}
+	MT_lock_unset(&HEAPcacheLock, "HEAPcache_init");
 	if (!added)
 		return GDKmunmap(base, maxsz);
 	HEAPDEBUG fprintf(stderr, "#HEAPcacheAdd (%s) " SZFMT " " PTRFMT " %d %d %d\n", fn, maxsz, PTRFMTCAST base, (int) storage, free_file, hc->used);
@@ -138,25 +148,29 @@ HEAPcacheFind(size_t *maxsz, char *fn, storage_t mode)
 	void *base = NULL;
 
 	*maxsz = (1 + (*maxsz >> 16)) << 16;	/* round up to 64K */
+	MT_lock_set(&HEAPcacheLock, "HEAPcache_init");
 	if (hc && mode == STORE_MMAP && hc->used < hc->sz) {
 		HEAPDEBUG fprintf(stderr, "#HEAPcacheFind (%s)" SZFMT " %d %d\n", fn, *maxsz, (int) mode, hc->used);
-		MT_lock_set(&HEAPcacheLock, "HEAPcache_init");
 
 		if (hc->used) {
 			int i;
 			heap_cache_e *e = NULL;
+			size_t cursz = 0;
 
-			/* find best match */
-			for(i=0;i<hc->used;i++) {
-				if (hc->hc[i].maxsz >= *maxsz) {
-					if (!e || hc->hc[i].maxsz < e->maxsz)
-						e = hc->hc+i;
+			/* find best match: prefer smallest larger
+			 * than or equal to requested, otherwise
+			 * largest smaller than requested */
+			for (i = 0; i < hc->used; i++) {
+				if ((hc->hc[i].maxsz >= *maxsz &&
+				     (e == NULL || hc->hc[i].maxsz < cursz)) ||
+				    (hc->hc[i].maxsz < *maxsz &&
+				     cursz < *maxsz &&
+				     hc->hc[i].maxsz > cursz)) {
+					e = hc->hc + i;
+					cursz = e->maxsz;
 				}
 			}
-			if (!e)
-				e = hc->hc;
-			i = (int) (e - hc->hc);
-			if (e->maxsz < *maxsz) {
+			if (e != NULL && e->maxsz < *maxsz) {
 				/* resize file ? */
 				FILE *fp;
 				long_str fn;
@@ -165,12 +179,12 @@ HEAPcacheFind(size_t *maxsz, char *fn, storage_t mode)
 
 				if ((fp = fopen(fn, "rb+")) != NULL &&
 #ifdef _WIN64
-				    _fseeki64(fp, (ssize_t) *maxsz-1, SEEK_SET) >= 0 &&
+				    _fseeki64(fp, (ssize_t) *maxsz - 1, SEEK_SET) >= 0 &&
 #else
 #ifdef HAVE_FSEEKO
-				    fseeko(fp, (off_t) *maxsz-1, SEEK_SET) >= 0 &&
+				    fseeko(fp, (off_t) *maxsz - 1, SEEK_SET) >= 0 &&
 #else
-				    fseek(fp, (long) *maxsz-1, SEEK_SET) >= 0 &&
+				    fseek(fp, (long) *maxsz - 1, SEEK_SET) >= 0 &&
 #endif
 #endif
 				    fputc('\n', fp) >= 0 &&
@@ -180,6 +194,11 @@ HEAPcacheFind(size_t *maxsz, char *fn, storage_t mode)
 						GDKmunmap(e->base, e->maxsz);
 						e->base = base;
 						e->maxsz = *maxsz;
+					} else {
+						/* extending may have
+						 * failed since fclose
+						 * failed */
+						e = NULL;
 					}
 					/* after fclose, successful or
 					 * not, we can't call fclose
@@ -187,30 +206,39 @@ HEAPcacheFind(size_t *maxsz, char *fn, storage_t mode)
 					fp = NULL;
 				}
 				if (fp) {
-					/* if set, extending the file failed */
+					/* if set, extending the file
+					 * failed */
 					fclose(fp);
+					e = NULL;
 				}
 			}
-			base = e->base;
-			*maxsz = e->maxsz;
-			if (GDKmove(HCDIR, e->fn, NULL, BATDIR, fn, NULL)<0) {
-				/* try to create the directory, if
-				 * that was the problem */
-				char path[PATHLENGTH];
+			if (e != NULL) {
+				/* move cached heap to its new location */
+				base = e->base;
+				*maxsz = e->maxsz;
+				if (GDKmove(HCDIR, e->fn, NULL, BATDIR, fn, NULL) < 0) {
+					/* try to create the directory, if
+					 * that was the problem */
+					char path[PATHLENGTH];
 
-				GDKfilepath(path, BATDIR, fn, NULL);
-				GDKcreatedir(path);
-				GDKmove(HCDIR, e->fn, NULL, BATDIR, fn, NULL);
+					GDKfilepath(path, BATDIR, fn, NULL);
+					GDKcreatedir(path);
+					if (GDKmove(HCDIR, e->fn, NULL, BATDIR, fn, NULL) < 0)
+						e = NULL;
+				}
 			}
-			hc->used--;
-			if (i < hc->used) {
-				e->base = hc->hc[hc->used].base;
-				e->maxsz = hc->hc[hc->used].maxsz;
-				GDKmove(HCDIR, hc->hc[hc->used].fn, NULL, HCDIR, e->fn, NULL);
+			if (e != NULL) {
+				hc->used--;
+				i = (int) (e - hc->hc);
+				if (i < hc->used) {
+					e->base = hc->hc[hc->used].base;
+					e->maxsz = hc->hc[hc->used].maxsz;
+					GDKmove(HCDIR, hc->hc[hc->used].fn, NULL, HCDIR, e->fn, NULL);
+				}
 			}
 		}
-		MT_lock_unset(&HEAPcacheLock, "HEAPcache_init");
 	}
+	MT_lock_unset(&HEAPcacheLock, "HEAPcache_init");
 	if (!base) {
 		int fd = GDKfdlocate(fn, "wb", NULL);
 
@@ -1325,4 +1353,3 @@ HEAP_mmappable(Heap *heap)
 	}
 	return FALSE;
 }
-
