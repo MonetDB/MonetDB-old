@@ -39,8 +39,8 @@ typedef struct {
 
 typedef struct CS
 {
-	int 	subIdx;		//Id of subject
-	int*	lstProp;	//List of properties' Ids
+	oid 	subIdx;		//Id of subject
+	oid*	lstProp;	//List of properties' Ids
 	int	numProp;
 	int	numAllocation;
 	char 	isSubset; 
