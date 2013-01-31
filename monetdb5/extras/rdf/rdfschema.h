@@ -33,9 +33,12 @@ rdf_export str
 RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freqThreshold);
 
 typedef struct {
-	BAT*	keyBat; 
-	BAT* 	valueBat; 
-} hsBats; 
+	BAT*	hsKeyBat; 
+	BAT* 	hsValueBat; 
+	BAT* 	freqBat;    /* Store the frequency of each Characteristic set */	
+	BAT* 	pOffsetBat; /* BAT storing the offset for set of properties, refer to fullPBat */
+	BAT* 	fullPBat;   /* Stores all set of properties */	
+} CSBats; 	// BATs for storing all information about CSs
 
 typedef struct CS
 {
