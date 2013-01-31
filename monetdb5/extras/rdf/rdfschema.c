@@ -42,6 +42,22 @@ static void copyOidSet(oid* dest, oid* orig, int len){
 	}
 }
 
+static void printArray(oid* inputArr, int num){
+	int i; 
+	printf("Print array \n");
+	for (i = 0; i < num; i++){
+		printf("%d:  " BUNFMT "\n",i, inputArr[i]);
+	}
+	printf("End of array \n ");
+}
+
+
+static void initArray(oid* inputArr, int num, oid defaultValue){
+	int i; 
+	for (i = 0; i < num; i++){
+		inputArr[i] = defaultValue;
+	}
+}
 
 static 
 void addCStoSet(CSset *csSet, CS item)
@@ -69,7 +85,7 @@ void freeCSset(CSset *csSet){
 		free(csSet->items[i].lstProp);
 	}
 	free(csSet->items);
-	//free(csSet);		// DUC: NEED TO RECHECK
+	free(csSet);	
 }
 
 static 
@@ -152,13 +168,15 @@ void checkCSduplication(BAT* pOffsetBat, BAT* fullPBat, BUN pos, oid* key, int n
 	offset = (oid *) Tloc(pOffsetBat, pos); 
 	if ((pos + 1) < pOffsetBat->batCount){
 		offset2 = (oid *)Tloc(pOffsetBat, pos + 1);
+		numP = *offset2 - *offset;
 	}
 	else{
 		offset2 = malloc(sizeof(oid)); 
 		*offset2 = BUNlast(fullPBat); 
+		numP = *offset2 - *offset;
+		free(offset2); 
 	}
 
-	numP = *offset2 - *offset; 
 
 	// Check each value
 	if (numK != numP) {
@@ -187,7 +205,7 @@ void checkCSduplication(BAT* pOffsetBat, BAT* fullPBat, BUN pos, oid* key, int n
  *
  * */
 static 
-int putaCStoHash(BAT* hsKeyBat, BAT* pOffsetBat, BAT* fullPBat, oid subjId, oid* key, int num, 
+oid putaCStoHash(BAT* hsKeyBat, BAT* pOffsetBat, BAT* fullPBat, oid subjId, oid* key, int num, 
 		oid *csoid, char isStoreFreqCS, int freqThreshold, CSset **freqCSset){
 	BUN 	csKey; 
 	int 	freq = 0; 
@@ -219,8 +237,6 @@ int putaCStoHash(BAT* hsKeyBat, BAT* pOffsetBat, BAT* fullPBat, oid subjId, oid*
 		printf("This CS exists \n");	
 		csId = bun; 
 		/* Check whether it is really an duplication (same hashvalue but different list of */
-		BATprint(pOffsetBat);
-		BATprint(fullPBat);
 		checkCSduplication(pOffsetBat, fullPBat, bun, key, num );
 
 		if (isStoreFreqCS == 1){	/* Store the frequent CS to the CSset*/
@@ -511,14 +527,16 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
 
-	maxSoid = (BUN *) Tloc(sbat, BUNlast(sbat));
-	subjCSMap = (oid *) malloc (sizeof(oid) * (*maxSoid)); 
+	maxSoid = (BUN *) Tloc(sbat, BUNlast(sbat) - 1);
+
+	subjCSMap = (oid *) malloc (sizeof(oid) * ((*maxSoid) + 1)); 
+	initArray(subjCSMap, (*maxSoid), GDK_oid_max);
 	
 	si = bat_iterator(sbat); 
 	pi = bat_iterator(pbat); 
 	oi = bat_iterator(obat);
 
-	hsKeyBat = BATnew(TYPE_void, TYPE_int, smallbatsz);
+	hsKeyBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
 	//hsValueBat = BATnew(TYPE_void, TYPE_int, smallbatsz);
 	pOffsetBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
 	fullPBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
@@ -528,11 +546,11 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 	}
 	BATseqbase(hsKeyBat, 0);
 
-	/* Init a hashmap */
 	freqCSset = initCSset();
 
 	numP = 0;
 	curP = 0; 
+	curS = 0; 
 
 	printf("freqThreshold = %d \n", *freqThreshold);	
 	BATloop(sbat, p, q){
@@ -541,7 +559,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 			if (p != 0){	/* Not the first S */
 				returnCSid = putaCStoHash(hsKeyBat, pOffsetBat, fullPBat, curS, buff, numP, &CSoid, 1, *freqThreshold, &freqCSset); 
 
-				subjCSMap[*sbt] = returnCSid; 				
+				subjCSMap[curS] = returnCSid; 				
 
 				if (numP > maxNumProp) 
 					maxNumProp = numP; 
@@ -578,8 +596,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 	
 	/*put the last CS */
 	returnCSid = putaCStoHash(hsKeyBat, pOffsetBat, fullPBat, curS, buff, numP, &CSoid, 1, *freqThreshold, &freqCSset ); 
-
-	subjCSMap[*sbt] = returnCSid; 				
+	
+	subjCSMap[curS] = returnCSid; 				
 
 
 	if (numP > maxNumProp) 
@@ -603,10 +621,17 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 	printf("fullBat ------- ");
 	BATprint(fullPBat);
 
+	printArray(subjCSMap,(int) *maxSoid); 
+
 	BBPreclaim(sbat); 
 	BBPreclaim(pbat); 
 
+	BBPreclaim(hsKeyBat); 
+	BBPreclaim(pOffsetBat); 
+	BBPreclaim(fullPBat); 
+	
 	free (buff); 
+	free (subjCSMap); 
 
 	freeCSset(freqCSset); 
 
