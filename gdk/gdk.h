@@ -642,12 +642,12 @@ typedef struct {
 } Hash;
 
 typedef struct {
-	bte bits;       /* how many bits in imprints */
-	bat histogram;  /* id for histogram bat */
-	Heap *imps;     /* heap of imprints */
-	BUN impcnt;     /* counter for imprints*/
-	Heap *dict;     /* cache dictionary for compressing imprints */
-	BUN dictcnt;    /* counter for cache dictionary */
+	bte bits;        /* how many bits in imprints */
+	Heap *bins;      /* ranges of bins */
+	Heap *imps;      /* heap of imprints */
+	BUN impcnt;      /* counter for imprints*/
+	Heap *dict;      /* cache dictionary for compressing imprints */
+	BUN dictcnt;     /* counter for cache dictionary */
 } Imprints;
 
 
@@ -3164,6 +3164,8 @@ gdk_export BAT *BATantijoin(BAT *l, BAT *r);
 gdk_export BAT *BATleftjoin(BAT *l, BAT *r, BUN estimate);
 gdk_export BAT *BATouterjoin(BAT *l, BAT *r, BUN estimate);
 gdk_export BAT *BATcross(BAT *l, BAT *r);
+
+gdk_export gdk_return BATsubmergejoin(BAT **r1, BAT **r2, BAT *l, BAT *r, BAT *sl, BAT *sr);
 
 gdk_export BAT *BATslice(BAT *b, BUN low, BUN high);
 gdk_export BAT *BATfetch(BAT *b, BAT *s);
