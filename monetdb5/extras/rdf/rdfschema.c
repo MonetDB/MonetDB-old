@@ -620,10 +620,10 @@ void freeCSBats(CSBats *csBats){
 
 
 static 
-str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, CSset *freqCSset, int *freqThreshold, CSBats* csBats, oid *subjCSMap){
+str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset, int *freqThreshold, CSBats* csBats, oid *subjCSMap){
 
 	BUN 	p, q; 
-	oid 	*sbt, *pbt, *obt; 
+	oid 	*sbt, *pbt; 
 	oid 	curS; 		/* current Subject oid */
 	oid 	curP; 		/* current Property oid */
 	oid 	CSoid = 0; 	/* Characteristic set oid */
@@ -631,7 +631,6 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, CSset
 	oid*	buff; 	 
 	int 	INIT_PROPERTY_NUM = 5000; 
 	int 	maxNumProp = 0; 
-	oid 	objType;
 	oid 	returnCSid; 
 	
 	buff = (oid *) malloc (sizeof(oid) * INIT_PROPERTY_NUM);
@@ -670,13 +669,83 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, CSset
 			curP = *pbt; 
 		}
 		
+	}
+	
+	/*put the last CS */
+	returnCSid = putaCStoHash(csBats, curS, buff, numP, &CSoid, 1, *freqThreshold, freqCSset ); 
+	
+	subjCSMap[curS] = returnCSid; 				
+
+	if (numP > maxNumProp) 
+		maxNumProp = numP; 
+		
+	free (buff); 
+
+	*ret = 1; 
+
+	return MAL_SUCCEED; 
+}
+
+static 
+str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, CSset *freqCSset, 
+		int *freqThreshold, CSBats* csBats, oid *subjCSMap, BUN maxSoid){
+
+	BUN 	p, q; 
+	oid 	*sbt, *pbt, *obt; 
+	oid 	curS; 		/* current Subject oid */
+	oid 	curP; 		/* current Property oid */
+	oid 	CSoid = 0; 	/* Characteristic set oid */
+	int 	numP; 		/* Number of properties for current S */
+	oid*	buff; 	 
+	int 	INIT_PROPERTY_NUM = 5000; 
+	int 	maxNumProp = 0; 
+	oid 	objType;
+	oid 	returnCSid; 
+	
+	buff = (oid *) malloc (sizeof(oid) * INIT_PROPERTY_NUM);
+
+	numP = 0;
+	curP = 0; 
+	curS = 0; 
+
+	BATloop(sbat, p, q){
+		sbt = (oid *) BUNtloc(si, p);		
+		if (*sbt != curS){
+			if (p != 0){	/* Not the first S */
+				returnCSid = putaCStoHash(csBats, curS, buff, numP, &CSoid, 1, *freqThreshold, freqCSset); 
+
+				subjCSMap[curS] = returnCSid; 				
+
+				if (numP > maxNumProp) 
+					maxNumProp = numP; 
+			}
+			curS = *sbt; 
+			curP = 0;
+			numP = 0;
+		}
+				
+		pbt = (oid *) BUNtloc(pi, p); 
+
+		if (numP > INIT_PROPERTY_NUM){
+			throw(MAL, "rdf.RDFextractCS", "# of properties is greater than INIT_PROPERTY_NUM");
+			exit(-1);
+		}
+		
+		if (curP != *pbt){	/* Multi values property */		
+			buff[numP] = *pbt; 
+			numP++; 
+			curP = *pbt; 
+		}
+		
 		obt = (oid *) BUNtloc(oi, p); 
 		/* Check type of object */
 		objType = ((*obt) >> (sizeof(BUN)*8 - 3))  &  3 ;	/* Get two bits 63th, 62nd from object oid */
 		
 		/* Look at sbat*/
 		if (objType == URI){
-			//getReferCS(sbat, pbat, obt);		
+			if (*obt <= maxSoid && subjCSMap[*obt] != BUN_NONE){
+				printf(" CS " BUNFMT " refer to CS " BUNFMT " \n",*sbt, subjCSMap[*obt]);
+			}
 		}
 	}
 	
@@ -736,7 +805,10 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 	initArray(subjCSMap, (*maxSoid), BUN_NONE);
 
 	//Phase 1: Assign an ID for each CS
-	RDFassignCSId(ret, sbat, si, pi, oi, freqCSset, freqThreshold, csBats, subjCSMap);
+	RDFassignCSId(ret, sbat, si, pi, freqCSset, freqThreshold, csBats, subjCSMap);
+
+	//Phase 2: Check the relationship	
+	RDFrelationships(ret, sbat, si, pi, oi, freqCSset, freqThreshold, csBats, subjCSMap, *maxSoid);
 
 
 	printf("Number of frequent CSs is: %d \n", freqCSset->numCSadded);
