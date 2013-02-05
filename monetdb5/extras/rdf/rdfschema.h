@@ -57,4 +57,13 @@ typedef struct CSset{
 	int numAllocation;
 } CSset; 
 
+#define INIT_NUM_CSREL 4
+typedef struct CSrel{	
+	oid  origCSoid;	
+	oid* lstRefCSoid; 		
+	int* lstCnt; 	// Count per reference
+	int  numRef; 
+	int  numAllocation; 
+} CSrel;
+
 #endif /* _RDFSCHEMA_H_ */
