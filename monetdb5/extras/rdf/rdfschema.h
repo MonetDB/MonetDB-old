@@ -42,12 +42,30 @@ typedef struct {
 
 typedef struct CS
 {
-	oid 	subIdx;		//Id of subject
+	oid 	csId;		//Id of the CS
 	oid*	lstProp;	//List of properties' Ids
 	int	numProp;
 	int	numAllocation;
 	char 	isSubset; 
 } CS;
+
+typedef struct SubCS {
+	//oid 	csId; 
+	oid	subCSId;
+	oid 	sign;		// Signature generated from subTypes for quick comparison
+	char*	subTypes;
+	int	numSubTypes; 
+} SubCS; 
+
+#define INIT_NUM_SUBCS 4
+
+typedef struct SubCSSet{
+	oid	csId; 
+	SubCS	*subCSs; 
+	int	*freq; 
+	int	numSubCS; 
+	int 	numAllocation; 
+} SubCSSet;
 
 #define INIT_NUM_CS 100
 
