@@ -226,19 +226,13 @@ rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType obj
 	
 		/* Add the type here by changing 2 bits at position 62, 63 of oid */
 		if ( objType == DATETIME){ 
-			printf("Datetime appears here \n Before: " BUNFMT "\n", *bun);
 			*bun |= (BUN)1 << (sizeof(BUN)*8 - 3);
-			printf("After: " BUNFMT "\n", *bun);
 		}
 		else if ( objType == NUMERIC){
-			printf("Numeric value appears here \n Before: " BUNFMT "\n", *bun);
 			*bun |= (BUN)2 << (sizeof(BUN)*8 - 3);
-			printf("After: " BUNFMT "\n", *bun);
 		}
 		else { /*  objType == STRING */
-			printf("String value appears here \n Before: " BUNFMT "\n", *bun);
 			*bun |= (BUN)3 << (sizeof(BUN)*8 - 3);
-			printf("After: " BUNFMT "\n", *bun);
 		}
 
 		//b = BUNappend(b, (ptr) (str)objStr, TRUE);
