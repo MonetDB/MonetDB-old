@@ -137,6 +137,18 @@ CSrel* initCSrelset(oid numCSrel){
 }
 
 static 
+void freeCSrelSet(CSrel *csrelSet, int numCSrel){
+	int i; 
+
+	for (i = 0; i < numCSrel; i++){
+		free(csrelSet[i].lstRefCSoid);
+		free(csrelSet[i].lstCnt); 
+	}
+	free(csrelSet);
+}
+
+
+static 
 void printCSrelSet(CSrel *csrelSet, char *csFreqMap, BAT* freqBat, int num){
 
 	int i; 
@@ -208,6 +220,22 @@ SubCSSet* initCS_SubCSMap(oid numSubCSSet){
 	return subcssets; 
 
 }
+
+static 
+void freeCS_SubCSMapSet(SubCSSet *subcssets, int numSubCSSet){
+	int i; 
+	int j; 
+
+	for (i = 0; i < numSubCSSet; i++){
+		for (j = 0; j < subcssets[i].numSubCS; j++){
+			free(subcssets[i].subCSs[j].subTypes);
+		}
+		free(subcssets[i].subCSs);
+		free(subcssets[i].freq); 
+	}
+	free(subcssets);
+}
+
 static 
 char checkExistsubCS(oid subCSsign, char* types, int numTypes,  SubCSSet *subcsset, oid *existCSId){
 	char isFound = 0; 
@@ -875,6 +903,9 @@ CSBats* initCSBats(void){
 
 	return csBats; 
 }
+
+
+
 static 
 void freeCSBats(CSBats *csBats){
 	BBPreclaim(csBats->hsKeyBat); 
@@ -884,8 +915,8 @@ void freeCSBats(CSBats *csBats){
 	BBPreclaim(csBats->fullPBat); 
 
 	free(csBats);
-}
 
+}
 
 static 
 str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset, int *freqThreshold, CSBats* csBats, oid *subjCSMap, oid *maxCSoid, int *maxNumProp, int *maxNumPwithDup){
@@ -1122,6 +1153,13 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 	BBPreclaim(obat);
 
 	free (subjCSMap); 
+	free (subjSubCSMap);
+	free (csFreqMap);
+
+	freeCS_SubCSMapSet(csSubCSMap, maxCSoid + 1); 
+
+	freeCSrelSet(csrelSet, maxCSoid + 1); 
+
 	freeCSBats(csBats);
 
 	freeCSset(freqCSset); 
