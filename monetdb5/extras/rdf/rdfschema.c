@@ -84,6 +84,15 @@ static void initArray(oid* inputArr, int num, oid defaultValue){
 	}
 }
 
+
+
+static void generateFreqCSMap(CSset *freqCSset, char *csFreqMap){
+	int i; 
+	for (i = 0; i < freqCSset->numCSadded; i++){
+		csFreqMap[freqCSset->items[i].csId] = 1;
+	}
+}
+
 static 
 void addCStoSet(CSset *csSet, CS item)
 {
@@ -128,16 +137,34 @@ CSrel* initCSrelset(oid numCSrel){
 }
 
 static 
-void printCSrelSet(CSrel *csrelSet, int num){
+void printCSrelSet(CSrel *csrelSet, char *csFreqMap, BAT* freqBat, int num){
+
+	int i; 
+	int j; 
+	int *freq; 
+	for (i = 0; i < num; i++){
+		if (csrelSet[i].numRef != 0){	//Only print CS with FK
+			printf("Relationship %d: ", i);
+			freq  = (int *) Tloc(freqBat, i);
+			printf("CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelSet[i].origCSoid, *freq, csFreqMap[i]);
+			for (j = 0; j < csrelSet[i].numRef; j++){
+				printf(BUNFMT " (%d) ", csrelSet[i].lstRefCSoid[j],csrelSet[i].lstCnt[j]);	
+			}	
+			printf("\n");
+		}
+	}
+}
+
+static 
+void printSubCSInformation(SubCSSet *subcsset, int num){
 
 	int i; 
 	int j; 
 	for (i = 0; i < num; i++){
-		if (csrelSet[i].numRef != 0){	//Only print CS with FK
-			printf("Relationship %d: ", i);
-			printf("CS " BUNFMT " --> ", csrelSet[i].origCSoid);
-			for (j = 0; j < csrelSet[i].numRef; j++){
-				printf(BUNFMT " (%d) ", csrelSet[i].lstRefCSoid[j],csrelSet[i].lstCnt[j]);	
+		if (subcsset[i].numSubCS != 0){	//Only print CS with FK
+			printf("CS " BUNFMT ": ", subcsset[i].csId);
+			for (j = 0; j < subcsset[i].numSubCS; j++){
+				printf(BUNFMT " (%d) ", subcsset[i].subCSs[j].subCSId, subcsset[i].freq[j]);	
 			}	
 			printf("\n");
 		}
@@ -532,8 +559,8 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num,
 	csKey = RDF_hash_oidlist(key, num);
 	bun = BUNfnd(BATmirror(csBats->hsKeyBat),(ptr) &csKey);
 	if (bun == BUN_NONE) {
-		addNewCS(csBats, &csKey, key, csoid, num);
 		csId = *csoid; 
+		addNewCS(csBats, &csKey, key, csoid, num);
 		//assert(csId != BUN_NONE);
 	}
 	else{
@@ -544,8 +571,8 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num,
 		if (isDuplicate == 0) {
 			printf(" No duplication (new CS) \n");	
 			// New CS
-			addNewCS(csBats, &csKey, key, csoid, num);
 			csId = *csoid;
+			addNewCS(csBats, &csKey, key, csoid, num);
 
 		}
 		else{
@@ -887,7 +914,8 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 			if (p != 0){	/* Not the first S */
 				returnCSid = putaCStoHash(csBats, buff, numP, &CSoid, 1, *freqThreshold, freqCSset); 
 
-				subjCSMap[curS] = returnCSid; 				
+				subjCSMap[curS] = returnCSid; 			
+				//printf("subjCSMap[" BUNFMT "]=" BUNFMT " (CSoid = " BUNFMT ") \n", curS, returnCSid, CSoid);
 
 				if (numP > *maxNumProp) 
 					*maxNumProp = numP; 
@@ -923,7 +951,8 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 	/*put the last CS */
 	returnCSid = putaCStoHash(csBats, buff, numP, &CSoid, 1, *freqThreshold, freqCSset ); 
 	
-	subjCSMap[curS] = returnCSid; 				
+	subjCSMap[curS] = returnCSid; 			
+	//printf("subjCSMap[" BUNFMT "]=" BUNFMT " (CSoid = " BUNFMT ") \n", curS, returnCSid, CSoid);
 
 	if (numP > *maxNumProp) 
 		*maxNumProp = numP; 
@@ -943,23 +972,17 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 
 static 
 str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter oi,  
-		oid *subjCSMap, oid *subjSubCSMap, BUN maxSoid, BUN maxCSoid, int maxNumPwithDup){
+		oid *subjCSMap, oid *subjSubCSMap, SubCSSet *csSubCSMap, CSrel *csrelSet, BUN maxSoid, int maxNumPwithDup){
 
-	BUN 	p, q; 
-	oid 	*sbt, *obt; 
-	oid 	curS; 		/* current Subject oid */
-	//oid 	CSoid = 0; 	/* Characteristic set oid */
-	int 	numPwithDup;	/* Number of properties for current S */
-	char 	objType;
-	oid 	returnSubCSid; 
-	CSrel   *csrelSet;
-	SubCSSet *csSubCSMap; 
-	char* 	buffTypes; 
+	BUN	 	p, q; 
+	oid 		*sbt, *obt; 
+	oid 		curS; 		/* current Subject oid */
+	//oid 		CSoid = 0; 	/* Characteristic set oid */
+	int 		numPwithDup;	/* Number of properties for current S */
+	char 		objType;
+	oid 		returnSubCSid; 
+	char* 		buffTypes; 
 
-	csrelSet = initCSrelset(maxCSoid + 1);
-
-	csSubCSMap = initCS_SubCSMap(maxCSoid +1); 
-	
 	buffTypes = (char *) malloc(sizeof(char) * (maxNumPwithDup + 1)); 
 
 	numPwithDup = 0;
@@ -1000,7 +1023,7 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter oi,
 
 	free (buffTypes); 
 
-	printCSrelSet(csrelSet,maxCSoid + 1);  
+
 
 	*ret = 1; 
 
@@ -1011,17 +1034,20 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter oi,
 str
 RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freqThreshold){
 
-	BAT 	*sbat = NULL, *pbat = NULL, *obat = NULL; 
-	BATiter si, pi, oi; 	/*iterator for BAT of s,p,o columns in spo table */
-	CSset	*freqCSset; 	/* Set of frequent CSs */
+	BAT 		*sbat = NULL, *pbat = NULL, *obat = NULL; 
+	BATiter 	si, pi, oi; 	/*iterator for BAT of s,p,o columns in spo table */
+	CSset		*freqCSset; 	/* Set of frequent CSs */
 
-	CSBats	*csBats; 
-	oid	*subjCSMap; 	/* Store the corresponding CS Id for each subject */
-	oid	*subjSubCSMap;  /* Store the corresponding CS sub Id for each subject */
-	BUN	*maxSoid; 	
-	oid 	maxCSoid = 0; 
-	int	maxNumProp = 0;
-	int	maxNumPwithDup = 0; 
+	CSBats		*csBats; 
+	oid		*subjCSMap; 	/* Store the corresponding CS Id for each subject */
+	oid		*subjSubCSMap;  /* Store the corresponding CS sub Id for each subject */
+	BUN		*maxSoid; 	
+	oid 		maxCSoid = 0; 
+	int		maxNumProp = 0;
+	int		maxNumPwithDup = 0; 
+	char		*csFreqMap; 
+	CSrel   	*csrelSet;
+	SubCSSet 	*csSubCSMap; 
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
@@ -1052,14 +1078,32 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 
 	initArray(subjCSMap, (*maxSoid) + 1, BUN_NONE);
 
+
 	//Phase 1: Assign an ID for each CS
 	RDFassignCSId(ret, sbat, si, pi, freqCSset, freqThreshold, csBats, subjCSMap, &maxCSoid, &maxNumProp, &maxNumPwithDup);
 
-	printf("Max CS oid: " BUNFMT "\n", maxCSoid);
+
 
 	//Phase 2: Check the relationship	
-	RDFrelationships(ret, sbat, si, oi, subjCSMap, subjSubCSMap, *maxSoid, maxCSoid, maxNumPwithDup);
 
+	printf("Max CS oid: " BUNFMT "\n", maxCSoid);
+
+	csFreqMap = malloc(sizeof(char) * (maxCSoid +1)); 
+
+
+	generateFreqCSMap(freqCSset,csFreqMap); 
+
+
+	csrelSet = initCSrelset(maxCSoid + 1);
+
+	csSubCSMap = initCS_SubCSMap(maxCSoid +1); 
+
+	RDFrelationships(ret, sbat, si, oi, subjCSMap, subjSubCSMap, csSubCSMap, csrelSet, *maxSoid, maxNumPwithDup);
+
+
+	printCSrelSet(csrelSet,csFreqMap, csBats->freqBat, maxCSoid + 1);  
+
+	printSubCSInformation(csSubCSMap, maxCSoid + 1); 
 
 	printf("Number of frequent CSs is: %d \n", freqCSset->numCSadded);
 
