@@ -264,18 +264,18 @@ getObjectType(unsigned char* objStr){
 	ObjectType obType; 
 	if (strstr((const char*) objStr, "XMLSchema#date") != NULL){
 		obType = DATETIME;
-		printf("%s: DateTime \n", objStr); 
+		//printf("%s: DateTime \n", objStr); 
 	}
 	else if (strstr((const char*) objStr, "XMLSchema#float") != NULL
 		|| strstr((const char*) objStr, "XMLSchema#integer") != NULL
 		)
 	{
 		obType = NUMERIC;
-		printf("%s: Numeric \n", objStr); 
+		//printf("%s: Numeric \n", objStr); 
 	}
 	else {
 		obType = STRING;
-		printf("%s: String \n", objStr); 
+		//printf("%s: String \n", objStr); 
 	}
 
 	return obType; 

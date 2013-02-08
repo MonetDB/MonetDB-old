@@ -676,26 +676,30 @@ void printCS(CS cs){
  * Here maximum frequent CS is a CS that there exist no other CS which contains that CS
  * */
 static 
-void getMaximumFreqCSs(CSset *freqCSset){
+void getMaximumFreqCSs(CSset *freqCSset, oid* csSuperCSMap, int numCS){
 
-	int numCS = freqCSset->numCSadded; 
-	int i, j; 
-	int numMaxCSs = 0;
+	int 	numFreqCS = freqCSset->numCSadded; 
+	int 	i, j; 
+	int 	numMaxCSs = 0;
+
+	oid 	tmpCSId; 
 
 	printf("Retrieving maximum frequent CSs: \n");
 
-	for (i = 0; i < numCS; i++){
+	for (i = 0; i < numFreqCS; i++){
 		if (freqCSset->items[i].isSubset == 1) continue;
-		for (j = (i+1); j < numCS; j++){
+		for (j = (i+1); j < numFreqCS; j++){
 			if (isSubset(freqCSset->items[i].lstProp, freqCSset->items[j].lstProp,  
 					freqCSset->items[i].numProp,freqCSset->items[j].numProp) == 1) { 
 				/* CSj is a subset of CSi */
 				freqCSset->items[j].isSubset = 1; 
+				csSuperCSMap[freqCSset->items[j].csId] = freqCSset->items[i].csId;
 			}
 			else if (isSubset(freqCSset->items[j].lstProp, freqCSset->items[i].lstProp,  
 					freqCSset->items[j].numProp,freqCSset->items[i].numProp) == 1) { 
 				/* CSj is a subset of CSi */
 				freqCSset->items[i].isSubset = 1; 
+				csSuperCSMap[freqCSset->items[i].csId] = freqCSset->items[j].csId;
 				break; 
 			}
 			
@@ -703,10 +707,40 @@ void getMaximumFreqCSs(CSset *freqCSset){
 		/* By the end, if this CS is not a subset of any other CS */
 		if (freqCSset->items[i].isSubset == 0){
 			numMaxCSs++;
+			csSuperCSMap[freqCSset->items[i].csId] = freqCSset->items[i].csId;
 			//printCS( freqCSset->items[i]); 
 		}
 	}
-	printf("Number of maximum CSs: %d \n", numMaxCSs);
+	printf("Number of maximum CSs: %d / %d CSs \n", numMaxCSs, numCS);
+
+	/*
+	printf("CS - SuperCS before tunning ");
+	for (i = 0; i < numCS; i++){
+		if (csSuperCSMap[i] != BUN_NONE)
+			printf("SuperCS[%d]=" BUNFMT " \n", i, csSuperCSMap[i]);
+	}
+	*/
+
+	//Tunning
+	for (i = 0; i < numFreqCS; i++){
+		if (freqCSset->items[i].isSubset == 1){
+			tmpCSId = freqCSset->items[i].csId; 
+			while (csSuperCSMap[tmpCSId] != tmpCSId){
+				tmpCSId = csSuperCSMap[tmpCSId];	// tracing to the maximum CS
+			}
+
+			//End. Update maximum CS for csSuperCSMap
+			csSuperCSMap[freqCSset->items[i].csId] = tmpCSId; 
+		}
+	}
+
+	/*
+	printf("CS - SuperCS after tunning ");
+	for (i = 0; i < numCS; i++){
+		if (csSuperCSMap[i] != BUN_NONE)
+			printf("SuperCS[%d]=" BUNFMT " \n", i, csSuperCSMap[i]);
+	}
+	*/
 }
 
 
@@ -1079,6 +1113,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 	char		*csFreqMap; 
 	CSrel   	*csrelSet;
 	SubCSSet 	*csSubCSMap; 
+	oid		*csSuperCSMap;  
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
@@ -1106,7 +1141,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 
 	subjCSMap = (oid *) malloc (sizeof(oid) * ((*maxSoid) + 1)); 
 	subjSubCSMap = (oid *) malloc (sizeof(oid) * ((*maxSoid) + 1)); 
-
+	
 	initArray(subjCSMap, (*maxSoid) + 1, BUN_NONE);
 
 
@@ -1120,6 +1155,9 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 	printf("Max CS oid: " BUNFMT "\n", maxCSoid);
 
 	csFreqMap = malloc(sizeof(char) * (maxCSoid +1)); 
+
+	csSuperCSMap = malloc(sizeof(oid) * (maxCSoid + 1));
+	initArray(csSuperCSMap, maxCSoid + 1, BUN_NONE);
 
 
 	generateFreqCSMap(freqCSset,csFreqMap); 
@@ -1142,7 +1180,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 
 	//getTopFreqCSs(csMap,*freqThreshold);
 
-	getMaximumFreqCSs(freqCSset); 
+	getMaximumFreqCSs(freqCSset, csSuperCSMap, maxCSoid + 1); 
 
 	//getStatisticCSsBySize(csMap,maxNumProp); 
 
@@ -1155,6 +1193,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 	free (subjCSMap); 
 	free (subjSubCSMap);
 	free (csFreqMap);
+	free (csSuperCSMap);
 
 	freeCS_SubCSMapSet(csSubCSMap, maxCSoid + 1); 
 
