@@ -36,10 +36,7 @@ RDFSchemaExplore(int *ret, str *tbname, str *clname)
 }
 
 static void copyOidSet(oid* dest, oid* orig, int len){
-	int i; 
-	for (i = 0; i < len; i++){
-		dest[i] = orig[i];
-	}
+	memcpy(dest, orig, len * sizeof(oid));
 }
 
 
@@ -85,6 +82,12 @@ static void initArray(oid* inputArr, int num, oid defaultValue){
 }
 
 
+static void initCharArray(char* inputArr, int num, char defaultValue){
+	int i; 
+	for (i = 0; i < num; i++){
+		inputArr[i] = defaultValue;
+	}
+}
 
 static void generateFreqCSMap(CSset *freqCSset, char *csFreqMap){
 	int i; 
@@ -465,10 +468,7 @@ char checkCSduplication(BAT* hsKeyBat, BAT* pOffsetBat, BAT* fullPBat, BUN cskey
 			numP = *offset2 - *offset;
 		}
 		else{
-			offset2 = malloc(sizeof(oid)); 
-			*offset2 = BUNlast(fullPBat); 
-			numP = *offset2 - *offset;
-			free(offset2); 
+			numP = BUNlast(fullPBat) - *offset;
 		}
 
 
@@ -807,48 +807,49 @@ static void getStatisticCSsBySize(map_t csmap, int maximumNumP){
 }
 */
 
-/*
-static void getStatisticCSsBySupports(map_t csmap, int maxSupport, char isWriteToFile, char isCummulative){
 
-	int* statCS; 
-	int i; 
-	FILE *fout; 
+static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *fullPBat, char isWriteToFile){
 
-	statCS = (int *) malloc(sizeof(int) * (maxSupport + 1)); 
-	
-	for (i = 0; i <= maxSupport; i++) statCS[i] = 0; 
-	
-	if (isCummulative == 1)
-		hashmap_statistic_CSbysupport_cummulative(csmap, statCS, maxSupport); 
-	else 
-		hashmap_statistic_CSbysupport(csmap, statCS, maxSupport); 
+	//int 	*csPropNum; 
+	//int	*csFreq; 
+	FILE 	*fout; 
+	oid 	*offset, *offset2; 
+	int	numP; 
+	BUN 	p, q; 
+	BATiter	pi, freqi; 
+	int	*freq; 
 
-	// Output the result 
-	
-	if (isWriteToFile == 0){
-		printf(" --- Number of CS per support (Max = %d)--- \n", maxSupport);
-		for (i = 1; i <= maxSupport; i++){
-			printf("%d : %d \n", i, statCS[i]); 
-		} 
-	}
-	else {
-		if (isCummulative == 1)
-			fout = fopen("cummulativeNumCSbySupport.txt","wt"); 
+
+	fout = fopen("csStatistic.txt","wt"); 
+	fprintf(fout, " csId  #Prop   #frequency \n"); 
+
+	pi = bat_iterator(pOffsetBat);
+	freqi = bat_iterator(freqBat);
+
+	BATloop(pOffsetBat, p, q){
+		offset = (oid *) BUNtloc(pi, p);		
+
+		if ((p+1) != BUNlast(pOffsetBat)){
+			offset2 = (oid *)BUNtloc(pi, p + 1);
+			numP = *offset2 - *offset;
+		}
+		else	//Last element
+			numP = BUNlast(fullPBat) - *offset;
+
+		freq = (int *) BUNtloc(freqi, p); 
+
+
+		// Output the result 
+		if (isWriteToFile == 0)
+			printf(BUNFMT "  %d  %d \n", p, numP, *freq); 
 		else 
-			fout = fopen("numCSbySupport.txt","wt"); 
-
-		fprintf(fout, " --- Number of CS per support (Max = %d)--- \n", maxSupport); 
-		
-		for (i = 1; i <= maxSupport; i++){
-			fprintf(fout, "%d\t:\t%d \n", i, statCS[i]); 
-		} 
-		fclose(fout); 
-		
+			fprintf(fout, BUNFMT " %d  %d \n", p, numP, *freq); 
 	}
 
-	free(statCS); 
+	fclose(fout); 
+	//free(csPropNum); 
 }
-*/
+
 
 /*
  * Get the refer CS 
@@ -1155,6 +1156,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 	printf("Max CS oid: " BUNFMT "\n", maxCSoid);
 
 	csFreqMap = malloc(sizeof(char) * (maxCSoid +1)); 
+	initCharArray(csFreqMap, maxCSoid +1, 0); 
 
 	csSuperCSMap = malloc(sizeof(oid) * (maxCSoid + 1));
 	initArray(csSuperCSMap, maxCSoid + 1, BUN_NONE);
@@ -1184,7 +1186,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 
 	//getStatisticCSsBySize(csMap,maxNumProp); 
 
-	//getStatisticCSsBySupports(csMap, 5000, 1, 0);
+	getStatisticCSsBySupports(csBats->pOffsetBat, csBats->freqBat, csBats->fullPBat,  1);
 
 	BBPreclaim(sbat); 
 	BBPreclaim(pbat); 
