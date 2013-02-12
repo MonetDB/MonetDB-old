@@ -754,12 +754,11 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema)
 	raptor_parser_set_statement_handler   ( rparser,  pdata,  (raptor_statement_handler) tripleHandler);
 	/* set message handlers */
 	raptor_world_set_log_handler          (world,  pdata, (raptor_log_handler) fatalHandler);
-	raptor_world_set_log_handler          (world,  pdata, (raptor_log_handler) errorHandler);
 	raptor_world_set_log_handler          (world,  pdata, (raptor_log_handler) warningHandler);
-
+	raptor_world_set_log_handler          (world,  pdata, (raptor_log_handler) errorHandler);
 
 	//raptor_parser_set_option(rparser, 0);	//MDPHAM: CHECK FOR THIS SETTING
-	//raptor_parser_set_option(rparser, RAPTOR_OPTION_SCANNING);
+	//raptor_parser_set_option(rparser, RAPTOR_OPTION_SCANNING,"RAPTOR_OPTION_SCANNING",1);
 
 	/* Parse URI or local file. */
 	ret = URLisaURL(&isURI, location);
