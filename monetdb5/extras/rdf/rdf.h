@@ -65,6 +65,7 @@ typedef enum {
 #define IS_DUPLICATE_FREE 0	/* 0: Duplications have not been removed, otherwise 1 */
 #define TRIPLE_STORE 1
 #define MLA_STORE    2
+#define NOT_IGNORE_ERROR_TRIPLE 0
 
 #define STORE TRIPLE_STORE /* this should become a compile time option */
 

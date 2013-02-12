@@ -82,6 +82,7 @@ typedef struct parserData {
 	int exception;                /* raise an exception     */
 	int warning;                  /* number of warning msgs */
 	int error;                    /* number of error   msgs */
+	int lasterror;		      /* # errors before next triple */
 	int fatal;                    /* number of fatal   msgs */
 	const char *exceptionMsg;     /* exception msgs         */
 	const char *warningMsg;       /* warning msgs           */
@@ -295,60 +296,66 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 	BUN bun = BUN_NONE;
 	BAT **graph = pdata->graph;
 
-	if (triple->subject->type == RAPTOR_TERM_TYPE_URI
-			|| triple->subject->type == RAPTOR_TERM_TYPE_BLANK) {
-		unsigned char* subjectStr; 
-		subjectStr = raptor_term_to_string(triple->subject);
-		//rdf_insert(pdata, graph[MAP_LEX], (str) subjectStr, &bun);
-		rdf_tknzr_insert((str) subjectStr, &bun);
-		rdf_BUNappend(pdata, graph[S_sort], &bun); 
-			
-		bun = BUN_NONE;
-		free(subjectStr);
-	} else {
-		raptor_exception(pdata, "could not determine type of subject");
+	if (pdata->error > pdata->lasterror){
+		printf("Incorrect or wrong syntax triple %s \n ", pdata->errorMsg);
+		pdata->lasterror = pdata->error; 
 	}
+	else{
+		if (triple->subject->type == RAPTOR_TERM_TYPE_URI
+				|| triple->subject->type == RAPTOR_TERM_TYPE_BLANK) {
+			unsigned char* subjectStr; 
+			subjectStr = raptor_term_to_string(triple->subject);
+			//rdf_insert(pdata, graph[MAP_LEX], (str) subjectStr, &bun);
+			rdf_tknzr_insert((str) subjectStr, &bun);
+			rdf_BUNappend(pdata, graph[S_sort], &bun); 
+				
+			bun = BUN_NONE;
+			free(subjectStr);
+		} else {
+			raptor_exception(pdata, "could not determine type of subject");
+		}
 
-	if (triple->predicate->type == RAPTOR_TERM_TYPE_URI) {
-		unsigned char* predicateStr;
-		predicateStr = raptor_term_to_string(triple->predicate);
-		//rdf_insert(pdata, graph[MAP_LEX], (str) predicateStr, &bun);
-		rdf_tknzr_insert((str) predicateStr, &bun);
-		rdf_BUNappend(pdata, graph[P_sort], &bun); 
+		if (triple->predicate->type == RAPTOR_TERM_TYPE_URI) {
+			unsigned char* predicateStr;
+			predicateStr = raptor_term_to_string(triple->predicate);
+			//rdf_insert(pdata, graph[MAP_LEX], (str) predicateStr, &bun);
+			rdf_tknzr_insert((str) predicateStr, &bun);
+			rdf_BUNappend(pdata, graph[P_sort], &bun); 
 
-		bun = BUN_NONE;
-		free(predicateStr);
-	} else {
-		raptor_exception(pdata, "could not determine type of property");
+			bun = BUN_NONE;
+			free(predicateStr);
+		} else {
+			raptor_exception(pdata, "could not determine type of property");
+		}
+
+		if (triple->object->type == RAPTOR_TERM_TYPE_URI
+				|| triple->object->type == RAPTOR_TERM_TYPE_BLANK) {
+			unsigned char* objStr;
+			objStr = raptor_term_to_string(triple->object);
+			//rdf_insert(pdata, graph[MAP_LEX], (str) objStr, &bun);
+			rdf_tknzr_insert((str) objStr, &bun);
+			rdf_BUNappend(pdata, graph[O_sort], &bun); 
+
+			bun = BUN_NONE;
+			free(objStr);
+		} else if (triple->object->type == RAPTOR_TERM_TYPE_LITERAL) {
+			unsigned char* objStr;
+			ObjectType objType;
+			objStr = raptor_term_to_string(triple->object);
+			objType = getObjectType(objStr);
+
+			rdf_BUNappend_unq_ForObj(pdata, graph[MAP_LEX], (str)objStr, objType, &bun);	
+			rdf_BUNappend(pdata, graph[O_sort], &bun); 
+
+			bun = BUN_NONE;
+			free(objStr);
+		} else {
+			raptor_exception(pdata, "could not determine type of object");
+
+		}
+
+		pdata->tcount++;
 	}
-
-	if (triple->object->type == RAPTOR_TERM_TYPE_URI
-			|| triple->object->type == RAPTOR_TERM_TYPE_BLANK) {
-		unsigned char* objStr;
-		objStr = raptor_term_to_string(triple->object);
-		//rdf_insert(pdata, graph[MAP_LEX], (str) objStr, &bun);
-		rdf_tknzr_insert((str) objStr, &bun);
-		rdf_BUNappend(pdata, graph[O_sort], &bun); 
-
-		bun = BUN_NONE;
-		free(objStr);
-	} else if (triple->object->type == RAPTOR_TERM_TYPE_LITERAL) {
-		unsigned char* objStr;
-		ObjectType objType;
-		objStr = raptor_term_to_string(triple->object);
-		objType = getObjectType(objStr);
-
-		rdf_BUNappend_unq_ForObj(pdata, graph[MAP_LEX], (str)objStr, objType, &bun);	
-		rdf_BUNappend(pdata, graph[O_sort], &bun); 
-
-		bun = BUN_NONE;
-		free(objStr);
-	} else {
-		raptor_exception(pdata, "could not determine type of object");
-
-	}
-
-	pdata->tcount++;
 
 	return;
 }
@@ -390,6 +397,7 @@ parserData_create (str location, BAT** graph)
 	pdata->exception = 0;
 	pdata->fatal = 0;
 	pdata->error = 0;
+	pdata->lasterror = 0;
 	pdata->warning = 0;
 	pdata->location = location;
 	pdata->graph = graph;
@@ -793,11 +801,14 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema)
 			pdata->tcount == BATcount(graph[O_sort]));
 
 	/* error check */
+	
 	if (iret) {
 		
 		clean(pdata);
 		throw(RDF, "rdf.rdfShred", "parsing failed\n");
 	}
+	
+#if	NOT_IGNORE_ERROR_TRIPLE	
 	if (pdata->exception) {
 		throw(RDF, "rdf.rdfShred", "%s\n", pdata->exceptionMsg);
 	} else if (pdata->fatal) {
@@ -811,6 +822,8 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema)
 				pdata->warningMsg);
 	}
 
+
+#endif
 	/* post processing step */
 	ret = post_processing(pdata);
 	if (ret != MAL_SUCCEED) {
