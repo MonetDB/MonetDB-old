@@ -561,6 +561,7 @@ post_processing (parserData *pdata)
 	/* free map_oid */
 	BBPreclaim(map_oid);
 
+	#if IS_COMPACT_TRIPLESTORE == 0
 
 	if ( !(CTrefine(&map_oid, graph[S_sort], O)         /* refine P given graph[S_sort]= sorted  */
 		&& CTrefine(&ctref, map_oid, P)))/* refine OP given P          */
@@ -584,7 +585,7 @@ post_processing (parserData *pdata)
 	BATsetaccess(graph[S_sort], BAT_READ); /* force BATmark not to copy bat */
 	graph[S_sort] = BATmirror(BATmark(BATmirror(graph[S_sort]), 0));
 
-	
+
 	/* order PSO/POS */
 	graph[P_sort] = BATmirror(BATsort(BATmirror(P))); /* sort on P */
 	
@@ -676,10 +677,14 @@ post_processing (parserData *pdata)
 	BATsetaccess(graph[O_sort], BAT_READ); /* force BATmark not to copy bat */
 	graph[O_sort] = BATmirror(BATmark(BATmirror(graph[O_sort]), 0));
 
+	#endif /* IS_COMPACT_TRIPLESTORE == 0 */
+
 	/* free memory */
 	BBPunfix(S->batCacheid);
+	#if IS_COMPACT_TRIPLESTORE == 0
 	BBPunfix(P->batCacheid);
 	BBPunfix(O->batCacheid);
+	#endif
 
 	return MAL_SUCCEED;
 

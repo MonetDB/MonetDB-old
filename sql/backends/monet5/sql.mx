@@ -7158,7 +7158,11 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_table *g_tbl;
 	sql_column *gname, *gid;
 #if STORE == TRIPLE_STORE
+	#if IS_COMPACT_TRIPLESTORE == 0				       
 	sql_table *spo_tbl, *sop_tbl, *pso_tbl, *pos_tbl, *osp_tbl, *ops_tbl;
+	#else
+	sql_table *spo_tbl;
+	#endif
 #elif STORE == MLA_STORE
 	sql_table *spo_tbl;
 #endif /* STORE */
@@ -7214,6 +7218,8 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	mvc_create_column(m, spo_tbl, "property", &tpe);
 	mvc_create_column(m, spo_tbl, "object", &tpe);
 
+	#if IS_COMPACT_TRIPLESTORE == 0 
+
 	sprintf(buff, "sop%d", id);
 	sop_tbl = mvc_create_table(m, sch, buff, tt_table, 0,
 				   SQL_PERSIST, 0, 3);
@@ -7248,6 +7254,8 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	mvc_create_column(m, ops_tbl, "object", &tpe);
 	mvc_create_column(m, ops_tbl, "property", &tpe);
 	mvc_create_column(m, ops_tbl, "subject", &tpe);
+
+	#endif /* IS_COMPACT_TRIPLESTORE == 0 */
 
 #elif STORE == MLA_STORE
 	sprintf(buff, "spo%d", id);
@@ -7306,6 +7314,9 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				curO = *obt; 
 			}
 		}
+		
+		#if IS_COMPACT_TRIPLESTORE == 0
+
 		s = b[S_sort];
 		p = b[P_OP];
 		o = b[O_OP];
@@ -7318,6 +7329,7 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		store_funcs.append_col(m->session->tr,
 				       mvc_bind_column(m, sop_tbl, "object"),
 				       o, TYPE_bat);
+
 		s = b[S_SO];
 		p = b[P_sort];
 		o = b[O_SO];
@@ -7366,6 +7378,7 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		store_funcs.append_col(m->session->tr,
 				       mvc_bind_column(m, ops_tbl, "object"),
 				       o, TYPE_bat);
+		#endif	/* IS_COMPACT_TRIPLESTORE == 0 */		 
 			       
 	#else  /* IS_DUPLICATE_FREE == 1*/
 	
@@ -7381,6 +7394,9 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		store_funcs.append_col(m->session->tr,
 				       mvc_bind_column(m, spo_tbl, "object"),
 				       o, TYPE_bat);
+				       
+		#if IS_COMPACT_TRIPLESTORE == 0				       
+
 		s = b[S_sort];
 		p = b[P_OP];
 		o = b[O_OP];
@@ -7393,6 +7409,8 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		store_funcs.append_col(m->session->tr,
 				       mvc_bind_column(m, sop_tbl, "object"),
 				       o, TYPE_bat);
+				       
+
 		s = b[S_SO];
 		p = b[P_sort];
 		o = b[O_SO];
@@ -7441,7 +7459,7 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		store_funcs.append_col(m->session->tr,
 				       mvc_bind_column(m, ops_tbl, "object"),
 				       o, TYPE_bat);
-			       
+		#endif /* IS_COMPACT_TRIPLESTORE == 0 */	       
 	#endif /* IS_DUPLICATE_FREE */
 
 #elif STORE == MLA_STORE
