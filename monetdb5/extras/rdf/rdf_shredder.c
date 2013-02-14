@@ -355,6 +355,7 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 		}
 
 		pdata->tcount++;
+		if (pdata->tcount % 500000 == 0) printf(".");
 	}
 
 	return;
@@ -749,8 +750,8 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema)
 
 	/* Init raptor2 */
 	world = raptor_new_world();
-	//pdata->rparser = rparser = raptor_new_parser(world,"guess");
-	pdata->rparser = rparser = raptor_new_parser(world,"turtle");
+	pdata->rparser = rparser = raptor_new_parser(world,"guess");
+	//pdata->rparser = rparser = raptor_new_parser(world,"turtle");
 
 	if (rparser == NULL) {
 #ifdef _TKNZR_H
@@ -827,7 +828,8 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema)
 				pdata->warningMsg);
 	}
 
-
+#else
+	printf("Total number of error %d , fatal %d , warning %d", pdata->error, pdata->fatal, pdata->warning);
 #endif
 	/* post processing step */
 	ret = post_processing(pdata);
