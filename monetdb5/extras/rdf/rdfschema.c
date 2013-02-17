@@ -117,7 +117,7 @@ void addCStoSet(CSset *csSet, CS item)
 
 static 
 CSrel* creataCSrel(oid csoid){
-	CSrel *csrel = malloc(sizeof(CSrel));
+	CSrel *csrel = (CSrel*) malloc(sizeof(CSrel));
 	csrel->origCSoid = csoid; 
 	csrel->lstRefCSoid = (oid*) malloc(sizeof(oid) * INIT_NUM_CSREL);
 	csrel->lstCnt = (int*) malloc(sizeof(int) * INIT_NUM_CSREL);		
@@ -130,7 +130,7 @@ CSrel* creataCSrel(oid csoid){
 static 
 CSrel* initCSrelset(oid numCSrel){
 	oid i; 
-	CSrel *csrelSet = malloc(sizeof(CSrel) * numCSrel); 
+	CSrel *csrelSet = (CSrel*) malloc(sizeof(CSrel) * numCSrel); 
 	CSrel *csrel; 
 	for (i = 0; i < numCSrel; i++){
 		csrel = creataCSrel(i); 
@@ -188,7 +188,7 @@ void printSubCSInformation(SubCSSet *subcsset, int num){
 
 static 
 SubCS* creatSubCS(oid subCSId, int numP, char* buff, oid subCSsign){
-	SubCS *subcs = malloc(sizeof(SubCS)); 
+	SubCS *subcs = (SubCS*) malloc(sizeof(SubCS)); 
 	subcs->subTypes =  (char*) malloc(sizeof(char) * numP);
 	
 	copyTypesSet(subcs->subTypes, buff, numP); 
@@ -200,12 +200,12 @@ SubCS* creatSubCS(oid subCSId, int numP, char* buff, oid subCSsign){
 
 static 
 SubCSSet* createaSubCSSet(oid csId){
-	SubCSSet* subCSset = malloc(sizeof(SubCSSet));
+	SubCSSet* subCSset = (SubCSSet*) malloc(sizeof(SubCSSet));
 	subCSset->csId = csId; 
 	subCSset->numAllocation = INIT_NUM_SUBCS;
 	subCSset->numSubCS = 0;
-	subCSset->subCSs = malloc(sizeof(SubCS) * INIT_NUM_SUBCS);
-	subCSset->freq = malloc(sizeof(int) * INIT_NUM_SUBCS);
+	subCSset->subCSs = (SubCS*) malloc(sizeof(SubCS) * INIT_NUM_SUBCS);
+	subCSset->freq = (int*) malloc(sizeof(int) * INIT_NUM_SUBCS);
 
 	return subCSset;
 }
@@ -213,7 +213,7 @@ SubCSSet* createaSubCSSet(oid csId){
 static 
 SubCSSet* initCS_SubCSMap(oid numSubCSSet){
 	oid i; 
-	SubCSSet *subcssets = malloc(sizeof(SubCSSet) * numSubCSSet); 
+	SubCSSet *subcssets = (SubCSSet*) malloc(sizeof(SubCSSet) * numSubCSSet); 
 	SubCSSet *subcsset;
 	for (i = 0; i < numSubCSSet;i++){
 		subcsset = createaSubCSSet(i); 
@@ -380,8 +380,8 @@ void freeCSset(CSset *csSet){
 
 static 
 CSset* initCSset(void){
-	CSset *csSet = malloc(sizeof(CSset)); 
-	csSet->items = malloc(sizeof(CS) * INIT_NUM_CS); 
+	CSset *csSet = (CSset*) malloc(sizeof(CSset)); 
+	csSet->items = (CS*) malloc(sizeof(CS) * INIT_NUM_CS); 
 	csSet->numAllocation = INIT_NUM_CS;
 	csSet->numCSadded = 0;
 
@@ -398,7 +398,7 @@ void freeCS(CS *cs){
 
 static 
 CS* creatCS(oid csId, int numP, oid* buff){
-	CS *cs = malloc(sizeof(CS)); 
+	CS *cs = (CS*)malloc(sizeof(CS)); 
 	cs->lstProp =  (oid*) malloc(sizeof(oid) * numP);
 	
 	if (cs->lstProp == NULL){
@@ -437,8 +437,8 @@ static
 void appendArrayToBat(BAT *b, BUN* inArray, int num){
 	//int i; 
 	BUN r = BUNlast(b);
-	if (r + num < b->batCapacity){
-		BATextend(b, smallbatsz); 
+	if (r + num > b->batCapacity){
+		BATextend(b, b->batCapacity + smallbatsz); 
 	}
 	//for (i = 0; i < num; i++){
 	memcpy(Tloc(b, BUNlast(b)), inArray, sizeof(BUN) * num); 
@@ -757,7 +757,7 @@ static void putPtoHash(map_t pmap, int key, oid *poid, int support){
 	*pkey = key; 
 
 	if (hashmap_get_forP(pmap, pkey,(void**)(&getPoid)) != MAP_OK){
-		putPoid = malloc(sizeof(oid)); 
+		putPoid = (oid*) malloc(sizeof(oid)); 
 		*putPoid = *poid; 
 
 		err = hashmap_put_forP(pmap, pkey, 1, putPoid, support); 	
@@ -1139,6 +1139,9 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 	freqCSset = initCSset();
 
 	maxSoid = (BUN *) Tloc(sbat, BUNlast(sbat) - 1);
+	printf("Max S oid: " BUNFMT "\n", *maxSoid);
+
+	assert(*maxSoid != BUN_NONE); 
 
 	subjCSMap = (oid *) malloc (sizeof(oid) * ((*maxSoid) + 1)); 
 	subjSubCSMap = (oid *) malloc (sizeof(oid) * ((*maxSoid) + 1)); 
@@ -1155,10 +1158,12 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 
 	printf("Max CS oid: " BUNFMT "\n", maxCSoid);
 
-	csFreqMap = malloc(sizeof(char) * (maxCSoid +1)); 
+	printf("Max Number of P (considering duplicated P): %d \n", maxNumPwithDup);
+
+	csFreqMap = (char*) malloc(sizeof(char) * (maxCSoid +1)); 
 	initCharArray(csFreqMap, maxCSoid +1, 0); 
 
-	csSuperCSMap = malloc(sizeof(oid) * (maxCSoid + 1));
+	csSuperCSMap = (oid*) malloc(sizeof(oid) * (maxCSoid + 1));
 	initArray(csSuperCSMap, maxCSoid + 1, BUN_NONE);
 
 
