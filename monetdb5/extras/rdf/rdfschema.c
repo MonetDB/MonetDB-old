@@ -150,39 +150,97 @@ void freeCSrelSet(CSrel *csrelSet, int numCSrel){
 	free(csrelSet);
 }
 
-
 static 
-void printCSrelSet(CSrel *csrelSet, char *csFreqMap, BAT* freqBat, int num){
+void printCSrelSet(CSrel *csrelSet, char *csFreqMap, BAT* freqBat, int num, char isWriteTofile, int freqThreshold){
 
-	int i; 
-	int j; 
-	int *freq; 
-	for (i = 0; i < num; i++){
-		if (csrelSet[i].numRef != 0){	//Only print CS with FK
-			printf("Relationship %d: ", i);
-			freq  = (int *) Tloc(freqBat, i);
-			printf("CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelSet[i].origCSoid, *freq, csFreqMap[i]);
-			for (j = 0; j < csrelSet[i].numRef; j++){
-				printf(BUNFMT " (%d) ", csrelSet[i].lstRefCSoid[j],csrelSet[i].lstCnt[j]);	
-			}	
-			printf("\n");
+	int 	i; 
+	int 	j; 
+	int 	*freq; 
+	FILE 	*fout; 
+	char 	filename[100];
+	char 	tmpStr[20];
+
+	if (isWriteTofile == 0){
+		for (i = 0; i < num; i++){
+			if (csrelSet[i].numRef != 0){	//Only print CS with FK
+				printf("Relationship %d: ", i);
+				freq  = (int *) Tloc(freqBat, i);
+				printf("CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelSet[i].origCSoid, *freq, csFreqMap[i]);
+				for (j = 0; j < csrelSet[i].numRef; j++){
+					printf(BUNFMT " (%d) ", csrelSet[i].lstRefCSoid[j],csrelSet[i].lstCnt[j]);	
+				}	
+				printf("\n");
+			}
 		}
 	}
+	else{
+	
+		strcpy(filename, "csRelatioinship");
+		sprintf(tmpStr, "%d", freqThreshold);
+		strcat(filename, tmpStr);
+		strcat(filename, ".txt");
+
+		fout = fopen(filename,"wt"); 
+
+		for (i = 0; i < num; i++){
+			if (csrelSet[i].numRef != 0){	//Only print CS with FK
+				fprintf(fout, "Relationship %d: ", i);
+				freq  = (int *) Tloc(freqBat, i);
+				fprintf(fout, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelSet[i].origCSoid, *freq, csFreqMap[i]);
+				for (j = 0; j < csrelSet[i].numRef; j++){
+					fprintf(fout, BUNFMT " (%d) ", csrelSet[i].lstRefCSoid[j],csrelSet[i].lstCnt[j]);	
+				}	
+				fprintf(fout, "\n");
+			}
+		}
+
+
+		fclose(fout);
+	}
+	
 }
 
 static 
-void printSubCSInformation(SubCSSet *subcsset, int num){
+void printSubCSInformation(SubCSSet *subcsset, int num, char isWriteTofile, int freqThreshold){
 
 	int i; 
 	int j; 
-	for (i = 0; i < num; i++){
-		if (subcsset[i].numSubCS != 0){	//Only print CS with FK
-			printf("CS " BUNFMT ": ", subcsset[i].csId);
-			for (j = 0; j < subcsset[i].numSubCS; j++){
-				printf(BUNFMT " (%d) ", subcsset[i].subCSs[j].subCSId, subcsset[i].freq[j]);	
-			}	
-			printf("\n");
+	
+	FILE 	*fout; 
+	char 	filename[100];
+	char 	tmpStr[20];
+
+	if (isWriteTofile == 0){
+		for (i = 0; i < num; i++){
+			if (subcsset[i].numSubCS != 0){	//Only print CS with FK
+				printf("CS " BUNFMT ": ", subcsset[i].csId);
+				for (j = 0; j < subcsset[i].numSubCS; j++){
+					printf(BUNFMT " (%d) ", subcsset[i].subCSs[j].subCSId, subcsset[i].freq[j]);	
+				}	
+				printf("\n");
+			}
 		}
+	}
+	else{
+		
+		strcpy(filename, "csSubCSInfo");
+		sprintf(tmpStr, "%d", freqThreshold);
+		strcat(filename, tmpStr);
+		strcat(filename, ".txt");
+
+		fout = fopen(filename,"wt"); 
+
+		for (i = 0; i < num; i++){
+			if (subcsset[i].numSubCS != 0){	//Only print CS with FK
+				fprintf(fout, "CS " BUNFMT ": ", subcsset[i].csId);
+				for (j = 0; j < subcsset[i].numSubCS; j++){
+					fprintf(fout, BUNFMT " (%d) ", subcsset[i].subCSs[j].subCSId, subcsset[i].freq[j]);	
+				}	
+				fprintf(fout, "\n");
+			}
+		}
+
+		fclose(fout);
 	}
 }
 
@@ -597,7 +655,7 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num,
 		isDuplicate = checkCSduplication(csBats->hsKeyBat, csBats->pOffsetBat, csBats->fullPBat, csKey, key, num, &csId);
 
 		if (isDuplicate == 0) {
-			printf(" No duplication (new CS) \n");	
+			//printf(" No duplication (new CS) \n");	
 			// New CS
 			csId = *csoid;
 			addNewCS(csBats, &csKey, key, csoid, num);
@@ -808,7 +866,7 @@ static void getStatisticCSsBySize(map_t csmap, int maximumNumP){
 */
 
 
-static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *fullPBat, char isWriteToFile){
+static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *fullPBat, char isWriteToFile, int freqThreshold){
 
 	//int 	*csPropNum; 
 	//int	*csFreq; 
@@ -818,9 +876,15 @@ static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *fullPB
 	BUN 	p, q; 
 	BATiter	pi, freqi; 
 	int	*freq; 
+	char 	filename[100];
+	char 	tmpStr[20];
 
+	strcpy(filename, "csStatistic");
+	sprintf(tmpStr, "%d", freqThreshold);
+	strcat(filename, tmpStr);
+	strcat(filename, ".txt");
 
-	fout = fopen("csStatistic.txt","wt"); 
+	fout = fopen(filename,"wt"); 
 	fprintf(fout, " csId  #Prop   #frequency \n"); 
 
 	pi = bat_iterator(pOffsetBat);
@@ -964,7 +1028,8 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 	int 	numP; 		/* Number of properties for current S */
 	int 	numPwithDup = 0; 
 	oid*	buff; 	 
-	int 	INIT_PROPERTY_NUM = 5000; 
+	oid*	_tmp; 
+	int 	INIT_PROPERTY_NUM = 100; 
 	oid 	returnCSid; 
 	
 	buff = (oid *) malloc (sizeof(oid) * INIT_PROPERTY_NUM);
@@ -999,10 +1064,17 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 				
 		pbt = (oid *) BUNtloc(pi, p); 
 
-		if (numP > INIT_PROPERTY_NUM){
-			throw(MAL, "rdf.RDFextractCS", "# of properties is greater than INIT_PROPERTY_NUM");
-			exit(-1);
+		if (INIT_PROPERTY_NUM <= numP){
+			//throw(MAL, "rdf.RDFextractCS", "# of properties is greater than INIT_PROPERTY_NUM");
+			//exit(-1);
+			INIT_PROPERTY_NUM = INIT_PROPERTY_NUM * 2; 
+                	_tmp = realloc(buff, (INIT_PROPERTY_NUM * sizeof(oid)));
+	                if (!_tmp){
+				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+			}
+			buff = (oid*)_tmp;
 		}
+
 		
 		if (curP != *pbt){	/* Multi values property */		
 			buff[numP] = *pbt; 
@@ -1177,9 +1249,9 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 	RDFrelationships(ret, sbat, si, oi, subjCSMap, subjSubCSMap, csSubCSMap, csrelSet, *maxSoid, maxNumPwithDup);
 
 
-	printCSrelSet(csrelSet,csFreqMap, csBats->freqBat, maxCSoid + 1);  
+	printCSrelSet(csrelSet,csFreqMap, csBats->freqBat, maxCSoid + 1, 1, *freqThreshold);  
 
-	printSubCSInformation(csSubCSMap, maxCSoid + 1); 
+	printSubCSInformation(csSubCSMap, maxCSoid + 1, 1, *freqThreshold); 
 
 	printf("Number of frequent CSs is: %d \n", freqCSset->numCSadded);
 
@@ -1191,7 +1263,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 
 	//getStatisticCSsBySize(csMap,maxNumProp); 
 
-	getStatisticCSsBySupports(csBats->pOffsetBat, csBats->freqBat, csBats->fullPBat,  1);
+	getStatisticCSsBySupports(csBats->pOffsetBat, csBats->freqBat, csBats->fullPBat,  1, *freqThreshold);
 
 	BBPreclaim(sbat); 
 	BBPreclaim(pbat); 
