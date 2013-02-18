@@ -200,7 +200,7 @@ CRKverifyCrackerIndex_@1(int *k, int *bid){
 			crkt++;
 			tuples++;
 		} else {
-			printf("\n Error: cracker index and column are not aligned. Checked %d tuples and %d index entries \n", tuples, indexEntries);
+			printf("\n (1)Error: cracker index and column are not aligned. Checked %d tuples and %d index entries \n", tuples, indexEntries);
 			BBPunfix(c->batCacheid);
 			BBPunfix(b->batCacheid);
 			return MAL_SUCCEED;
@@ -233,7 +233,7 @@ CRKverifyCrackerIndex_@1(int *k, int *bid){
 				crkt++;
 				tuples++;
 			} else {
-			printf("\n Error: cracker index and column are not aligned. Checked %d tuples and %d index entries \n", tuples, indexEntries);
+			printf("\n(2)Error: cracker index and column are not aligned. Checked %d tuples and %d index entries \n", tuples, indexEntries);
 				BBPunfix(c->batCacheid);
 				BBPunfix(b->batCacheid);
 				return MAL_SUCCEED;
@@ -250,7 +250,7 @@ CRKverifyCrackerIndex_@1(int *k, int *bid){
                                 crkt++;
 				tuples++;
 			} else {
-			printf("\n Error: cracker index and column are not aligned. Checked %d tuples and %d index entries \n", tuples, indexEntries);
+			printf("\n (3)Error: cracker index and column are not aligned. Checked %d tuples and %d index entries \n", tuples, indexEntries);
                                 BBPunfix(c->batCacheid);
                                 BBPunfix(b->batCacheid);
                                 return MAL_SUCCEED;
