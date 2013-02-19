@@ -42,9 +42,11 @@ lib_crackers = {
 			  crackers_selectst_ops.mx \
 			  crackers_selecthol_ops.mx \
 			  crackers_updates.mx \
+			  crackers_sideways.mx \
 			  opt_selcrack.mx \
 			  opt_selcrackst.mx \
-			  opt_selcrackhol.mx
+			  opt_selcrackhol.mx \
+			  opt_sidcrack.mx
 	LIBS = ../../tools/libmonetdb5 \
 		   ../../../gdk/libbat \
 		   ../../../common/stream/libstream \
@@ -59,6 +61,7 @@ headers_mal = {
 			  opt_selcrack.mx \
 			  opt_selcrackst.mx \
 			  opt_selcrackhol.mx \
+			  opt_sidcrack.mx \
 			  crackers_holistic.mal
 }
 

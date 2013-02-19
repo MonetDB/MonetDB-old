@@ -154,6 +154,23 @@ module crackers;
 @:TypeSwitch_1(CoreUnordered)@
 @:TypeSwitch_1(Validate)@
 @:TypeSwitch_1(Updates)@
+@:TypeSwitch_2(Sideways)@
+
+command getTotalStorage( ):void
+address CRKgetTotalStorage
+comment "Get the number of total tuples stored in sideways maps";
+
+command setStorageThreshold(threshold:lng):void
+address CRKsetStorageThreshold
+comment "set the maximum number of total tuples that can be stored in sideways maps";
+
+command fmclearReferences():void
+address CRKclearReferencesFullMaps
+comment "clear all references ";
+
+command fmremoveMap():void
+address CRKremoveFullMap
+comment "clear all debugging map ";
 
 #
 
@@ -409,6 +426,133 @@ comment "Validate whether a BAT is correctly broken into three pieces with
 	 tail<=low, low<tail<=hgh, tail>hgh,
 	 respectively@3.";
 @
+@= Sideways
+command getMap( b:bat[:oid,:@1], bp:bat[:oid,:@2] ):bat[:@1,:@2]
+address getCrackerMap
+comment "Get a certain map";
+
+command DeleteMap( b:bat[:oid,:@1], bp:bat[:oid,:@2] ):void
+address DeleteCrackerMap
+comment "Throw away a certain map"; 
+
+command insert( b:bat[:oid,:@1], bp:bat[:oid,:@2], c:bat[:@1,:@2]):void
+address CRKinsert
+comment "Keep the insertions BAT separatelly and merge in the future on demand with the Ripple";
+
+command printPendingInsertions( b:bat[:oid,:@1], bp:bat[:oid,:@2]):void
+address CRKprintPendingInsertions
+comment "Print the pending insertions";
+
+command extendCrackerMap(b:bat[:oid,:@1], bp:bat[:oid,:@2], P:lng):void
+address CRKextendCrackerMap
+comment "Extend the cracker map by P positions";
+
+command sizePendingInsertions(b:bat[:oid,:@1], bp:bat[:oid,:@2]):void
+address CRKsizePendingInsertions
+comment "Get the size of the pending insertions for this map";
+
+
+
+command hselect(b:bat[:oid,:@1],bp:bat[:oid,:@2],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@1]
+address CRKhselectBoundsSideways_@1_@2
+comment "Retrieve the subset head using a cracker
+        index producing preferably a BATview.";
+
+command tselect(b:bat[:oid,:@1],bp:bat[:oid,:@2],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@2]
+address CRKtselectBoundsSideways_@1_@2
+comment "Retrieve the subset tail using a cracker
+        index producing preferably a BATview.";
+
+command dselect(b:bat[:oid,:@1],bp:bat[:oid,:@2],l:@1,h:@1,li:bit,hi:bit,l2:@2,h2:@2,li2:bit,hi2:bit):bat[:oid,:bit]
+address CRKdselectBoundsSideways_@1_@2
+comment "Crack based on @1 and evaluate the @2 disjunctive predicate outside the cracked area. Return a bit vector.";
+
+
+command joinselect( b:bat[:oid,:@1],bp:bat[:oid,:@2], pivot:bat[:oid,:bit], cl:@1, ch:@1, cli:bit, chi:bit, l:@2, h:@2, li:bit, hi:bit ):bat[:oid,:bit]
+address CRKjoinSelectSideways_P_@1_@2
+comment "Use the pivot. For each tuple in pivot with a 1, check if the respective tuple (in the same position)
+	 in the tail of cpair satisfies the range restriction. If not mark the pivot BUN as 0.";
+
+command jointhetaselect( b:bat[:oid,:@1],bp:bat[:oid,:@2], pivot:bat[:oid,:bit], cl:@1, ch:@1, cli:bit, chi:bit, l:@2, op:str):bat[:oid,:bit]
+address CRKjointhetaSelectSideways_P_@1_@2
+comment "Use the pivot. For each tuple in pivot with a 1, check if the respective tuple (in the same position)
+	 in the tail of cpair satisfies the range restriction. If not mark the pivot BUN as 0.";
+
+command djoinselect( b:bat[:oid,:@1],bp:bat[:oid,:@2], pivot:bat[:oid,:bit], l:@2, h:@2, li:bit, hi:bit ):bat[:oid,:bit]
+address CRKdjoinSelectSideways_P_@1_@2
+comment "Use the pivot. For each tuple in pivot with a 0, check if the respective tuple (in the same position)
+	 in the tail of cpair satisfies the range restriction. If yes mark the pivot BUN as 1.";
+
+
+command project( b:bat[:oid,:@1],bp:bat[:oid,:@2], l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@2]
+address CRKProjectCrack_@1_@2
+comment "Sync map and project the tail";
+
+command project( b:bat[:oid,:@1],bp:bat[:oid,:@2],pivot:bat[:oid,:bit],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@2]
+address CRKProject_@1_@2
+comment "Sync map and project tail based on pivot";
+
+command projectH( b:bat[:oid,:@1],bp:bat[:oid,:@2],pivot:bat[:oid,:bit],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@1]
+address CRKProjectH_@1_@2
+comment "Sync map and project head based on pivot";
+
+command positionproject( b:bat[:oid,:@1],bp:bat[:oid,:@2],PositionPivot:bat[:oid,:oid],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@2]
+address CRKPositionProject_@1_@2
+comment "Sync the cracking pair and project the tail. The pivot holds the positions to be projected";
+
+command markedproject( b:bat[:oid,:@1],bp:bat[:oid,:@2],pivot:bat[:oid,:bit],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@2]
+address CRKMarkedProject_@1_@2
+comment "Sync the cracking pair and project the tail. The result bat has a marked head";
+
+command dproject( b:bat[:oid,:@1],bp:bat[:oid,:@2],pivot:bat[:oid,:bit]):bat[:oid,:@2]
+address CRKdProject_@1_@2
+comment "Sync the cracking pair and project the tail. Use for disjunctive queries that require a larger bit vector";
+
+command dprojectH( b:bat[:oid,:@1],bp:bat[:oid,:@2],pivot:bat[:oid,:bit]):bat[:oid,:@1]
+address CRKdProjectH_@1_@2
+comment "Sync the cracking pair and project the head. Use for disjunctive queries that require a larger bit vector";
+
+command positionproject( b:bat[:oid,:@1],bp:bat[:oid,:@2],pivot:bat[:oid,:oid]):bat[:oid,:@2]
+address CRKdPositionProject_@1_@2
+comment "Sync the cracking pair and project the tail. Use position based pivot";
+
+command pmselect(b:bat[:oid,:@1],bp:bat[:oid,:@2],l:@1,h:@1,li:bit,hi:bit,l2:@2,h2:@2,li2:bit,hi2:bit):bat[:oid,:bit]
+address CRKselectBoundsIncrementalSideways_@1_@2
+comment "Crack based on @1 and evaluate the @2 conjunctive predicate. Return a bit vector.";
+
+command pmtselect(b:bat[:oid,:@1],bp:bat[:oid,:@2],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@2]
+address CRKselectBoundsTailIncrementalSideways_@1_@2
+comment "Crack based on @1 and project the @2 tail .";
+
+command pmjoinselect(b:bat[:oid,:@1],bp:bat[:oid,:@2], pivot:bat[:oid,:bit], cl:@1, ch:@1, cli:bit, chi:bit, l:@2, h:@2, li:bit, hi:bit ):bat[:oid,:bit]
+address CRKjoinSelectIncrementalSideways_@1_@2
+comment "Use the pivot. For each tuple in pivot with a 1, check if the respective tuple (in the same position)
+	 in the tail of cpair(collection of pieces) satisfies the range restriction. If not mark the pivot BUN as 0.";
+
+command pmproject(b:bat[:oid,:@1],bp:bat[:oid,:@2],pivot:bat[:oid,:bit],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@2]
+address CRKProjectIncrementalSideways_@1_@2
+comment "Sync the map and project the tail based on the pivot";
+
+command pmmaxTail(b:bat[:oid,:@1],bp:bat[:oid,:@2],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@2]
+address CRKMaxTailIncrementalSideways_@1_@2
+comment "Sync/crack the map and get the max of the tail";
+
+command pmaddReference(b:bat[:oid,:@1],bp:bat[:oid,:@2]):void
+address CRKaddReference
+comment "add bp reference to map set of b";
+
+command pmclearReferences(b:bat[:oid,:@1]):void
+address CRKclearReferences
+comment "clear all references to b";
+
+command fmaddReference(b:bat[:oid,:@1],bp:bat[:oid,:@2]):void
+address CRKaddReferenceFullMaps
+comment "add bp reference to map set of b";
+
+command fmcreateMap(b:bat[:oid,:@1],bp:bat[:oid,:@2]):void
+address CRKcreateFullMap_@1_@2
+comment "make new map for debugging";
+@
 
  
 @h
@@ -441,6 +585,7 @@ comment "Validate whether a BAT is correctly broken into three pieces with
 #include "crackers_core_unordered.h"
 #include "crackers_AVL_tree.h"
 #include "crackers_updates.h"
+#include "crackers_sideways.h"
 
 #ifdef LIBCRACKERS 
 extern int maxCrackMap;

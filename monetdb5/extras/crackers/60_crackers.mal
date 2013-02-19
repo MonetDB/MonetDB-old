@@ -20,5 +20,6 @@ library crackers;
 include opt_selcrack;
 include opt_selcrackst;
 include opt_selcrackhol;
+include opt_sidcrack;
 include crackers;
 include crackers_holistic;
