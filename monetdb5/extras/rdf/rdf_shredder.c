@@ -615,11 +615,13 @@ post_processing (parserData *pdata)
 	#endif /* IS_COMPACT_TRIPLESTORE == 0 */
 
 	/* free memory */
-	BBPreclaim(S);
+	BBPunfix(S->batCacheid);
+	
 	#if IS_COMPACT_TRIPLESTORE == 0
-	BBPreclaim(P);
-	BBPreclaim(O);
-	#endif
+	BBPunfix(P->batCacheid);
+	BBPunfix(O->batCacheid);
+	#endif /* IS_COMPACT_TRIPLESTORE == 0 */
+
 
 	return MAL_SUCCEED;
 
