@@ -468,9 +468,9 @@ post_processing (parserData *pdata)
 {
 	BAT *map_oid = NULL, *S = NULL, *P = NULL, *O = NULL;
 	BAT **graph = pdata->graph;
-	BUN cnt;
 #if STORE == TRIPLE_STORE
-	BAT *ctref= NULL;
+	BAT *o1,*o2,*o3;
+	BAT *g1,*g2,*g3;
 #endif
 #ifdef _TKNZR_H
 
@@ -481,6 +481,8 @@ post_processing (parserData *pdata)
 	/* order MAP_LEX */
 
 	/* Do not order the MAP_LEX BAT */
+	/* This piece of code is for ordering the dictionary of literal
+	 * and re-assign the oid for objects in graph[O_sort] */
 	#ifdef ORDER_MAPLEX
 	BATorder(BATmirror(graph[MAP_LEX]));
 	map_oid = BATmark(graph[MAP_LEX], RDF_MIN_LITERAL);   /* BATmark will create a copy */
@@ -508,8 +510,8 @@ post_processing (parserData *pdata)
 	S = graph[S_sort];
 	P = graph[P_sort];
 	O = graph[O_sort];
-	cnt = BATcount(S);
 #else
+	BUN cnt; 
 	/* order MAP_LEX */
 	BATorder(BATmirror(graph[MAP_LEX]));
 	map_oid = BATmark(graph[MAP_LEX], 0);   /* BATmark will create a copy */
@@ -542,156 +544,87 @@ post_processing (parserData *pdata)
 
 #elif STORE == TRIPLE_STORE
 	/* order SPO/SOP */
-	graph[S_sort] = BATmirror(BATsort(BATmirror(S))); /* sort on S */
-	
-	if ( !(CTrefine(&map_oid, graph[S_sort], P)         /* refine O given graph[S_sort]= sorted  */
-		&& CTrefine(&ctref, map_oid, O)))/* refine PO given O          */
+	if (BATsubsort(&graph[S_sort], &o1, &g1, S, NULL, NULL, 0, 0) == GDK_FAIL)
 		goto bailout;
-
-	BBPreclaim(map_oid);                   /* free map_oid                       */
-	map_oid = BATmirror(BATmark(ctref,0)); /* map_oid[void,oid] gives the order  */
-	BBPreclaim(ctref);                     /* free o                             */
-
-	/* leftfetchjoin to re-order all BATs */
-	graph[P_PO] = BATleftfetchjoin(map_oid, P, cnt);
-	if (graph[P_PO] == NULL) goto bailout;
-	BBPcold(graph[P_PO]->batCacheid);
-	graph[O_PO] = BATleftfetchjoin(map_oid, O, cnt);
-	if (graph[O_PO] == NULL) goto bailout;
-	BBPcold(graph[O_PO]->batCacheid);
-	/* free map_oid */
-	BBPreclaim(map_oid);
-
+	if (BATsubsort(&graph[P_PO], &o2, &g2, P, o1, g1, 0, 0) == GDK_FAIL)
+		goto bailout;
+	if (BATsubsort(&graph[O_PO], &o3, &g3, O, o2, g2, 0, 0) == GDK_FAIL)
+		goto bailout;
+	BBPunfix(o2->batCacheid);
+	BBPunfix(g2->batCacheid);
+	BBPunfix(o3->batCacheid);
+	BBPunfix(g3->batCacheid);
+	
 	#if IS_COMPACT_TRIPLESTORE == 0
 
-	if ( !(CTrefine(&map_oid, graph[S_sort], O)         /* refine P given graph[S_sort]= sorted  */
-		&& CTrefine(&ctref, map_oid, P)))/* refine OP given P          */
+	if (BATsubsort(&graph[O_OP], &o2, &g2, O, o1, g1, 0, 0) == GDK_FAIL)
 		goto bailout;
-
-	BBPreclaim(map_oid);                   /* free map_oid                       */
-	map_oid = BATmirror(BATmark(ctref,0)); /* map_oid[void,oid] gives the order  */
-	BBPreclaim(ctref);                     /* free o                             */
-
-	/* leftfetchjoin to re-order all BATs */
-	graph[O_OP] = BATleftfetchjoin(map_oid, O, cnt);
-	if (graph[O_OP] == NULL) goto bailout;
-	BBPcold(graph[O_OP]->batCacheid);
-	graph[P_OP] = BATleftfetchjoin(map_oid, P, cnt);
-	if (graph[P_OP] == NULL) goto bailout;
-	BBPcold(graph[P_OP]->batCacheid);
-	/* free map_oid */
-	BBPreclaim(map_oid);
-
-
-	BATsetaccess(graph[S_sort], BAT_READ); /* force BATmark not to copy bat */
-	graph[S_sort] = BATmirror(BATmark(BATmirror(graph[S_sort]), 0));
-
+	if (BATsubsort(&graph[P_OP], &o3, &g3, P, o2, g2, 0, 0) == GDK_FAIL)
+		goto bailout;
+	BBPunfix(o1->batCacheid);
+	BBPunfix(g1->batCacheid);
+	BBPunfix(o2->batCacheid);
+	BBPunfix(g2->batCacheid);
+	BBPunfix(o3->batCacheid);
+	BBPunfix(g3->batCacheid);
 
 	/* order PSO/POS */
-	graph[P_sort] = BATmirror(BATsort(BATmirror(P))); /* sort on P */
-	
-
-	if ( !(CTrefine(&map_oid, graph[P_sort], S)         /* refine O given graph[P_sort]= sorted  */
-		&& CTrefine(&ctref, map_oid, O)))/* refine SO given O          */
+	if (BATsubsort(&graph[P_sort], &o1, &g1, P, NULL, NULL, 0, 0) == GDK_FAIL)
 		goto bailout;
-
-	BBPreclaim(map_oid);                   /* free map_oid                       */
-	map_oid = BATmirror(BATmark(ctref,0)); /* map_oid[void,oid] gives the order  */
-	BBPreclaim(ctref);                     /* free o                             */
-
-	/* leftfetchjoin to re-order all BATs */
-	graph[S_SO] = BATleftfetchjoin(map_oid, S, cnt);
-	if (graph[S_SO] == NULL) goto bailout;
-	BBPcold(graph[S_SO]->batCacheid);
-	graph[O_SO] = BATleftfetchjoin(map_oid, O, cnt);
-	if (graph[O_SO] == NULL) goto bailout;
-	BBPcold(graph[O_SO]->batCacheid);
-	/* free map_oid */
-	BBPreclaim(map_oid);
-
-
-	if ( !(CTrefine(&map_oid, graph[P_sort], O)         /* refine S given graph[P_sort]= sorted  */
-		&& CTrefine(&ctref, map_oid, S)))/* refine OS given S          */
+	if (BATsubsort(&graph[S_SO], &o2, &g2, S, o1, g1, 0, 0) == GDK_FAIL)
 		goto bailout;
-
-	BBPreclaim(map_oid);                   /* free map_oid                       */
-	map_oid = BATmirror(BATmark(ctref,0)); /* map_oid[void,oid] gives the order  */
-	BBPreclaim(ctref);                     /* free o                             */
-
-	/* leftfetchjoin to re-order all BATs */
-	graph[O_OS] = BATleftfetchjoin(map_oid, O, cnt);
-	if (graph[O_OS] == NULL) goto bailout;
-	BBPcold(graph[O_OS]->batCacheid);
-	graph[S_OS] = BATleftfetchjoin(map_oid, S, cnt);
-	if (graph[S_OS] == NULL) goto bailout;
-	BBPcold(graph[S_OS]->batCacheid);
-	/* free map_oid */
-	BBPreclaim(map_oid);
-
-
-
-	BATsetaccess(graph[P_sort], BAT_READ); /* force BATmark not to copy bat */
-	graph[P_sort] = BATmirror(BATmark(BATmirror(graph[P_sort]), 0));
-
+	if (BATsubsort(&graph[O_SO], &o3, &g3, O, o2, g2, 0, 0) == GDK_FAIL)
+		goto bailout;
+	BBPunfix(o2->batCacheid);
+	BBPunfix(g2->batCacheid);
+	BBPunfix(o3->batCacheid);
+	BBPunfix(g3->batCacheid);
+	if (BATsubsort(&graph[O_OS], &o2, &g2, O, o1, g1, 0, 0) == GDK_FAIL)
+		goto bailout;
+	if (BATsubsort(&graph[S_OS], &o3, &g3, S, o2, g2, 0, 0) == GDK_FAIL)
+		goto bailout;
+	BBPunfix(o1->batCacheid);
+	BBPunfix(g1->batCacheid);
+	BBPunfix(o2->batCacheid);
+	BBPunfix(g2->batCacheid);
+	BBPunfix(o3->batCacheid);
+	BBPunfix(g3->batCacheid);
 
 	/* order OPS/OSP */
-	graph[O_sort] = BATmirror(BATsort(BATmirror(O))); /* sort on O */
-	
-	if ( !(CTrefine(&map_oid, graph[O_sort], P)         /* refine S given graph[O_sort]= sorted  */
-		&& CTrefine(&ctref, map_oid, S)))/* refine PS given S          */
+	if (BATsubsort(&graph[O_sort], &o1, &g1, O, NULL, NULL, 0, 0) == GDK_FAIL)
 		goto bailout;
-
-	BBPreclaim(map_oid);                   /* free map_oid                       */
-	map_oid = BATmirror(BATmark(ctref,0)); /* map_oid[void,oid] gives the order  */
-	BBPreclaim(ctref);                     /* free o                             */
-
-	/* leftfetchjoin to re-order all BATs */
-	graph[P_PS] = BATleftfetchjoin(map_oid, P, cnt);
-	if (graph[P_PS] == NULL) goto bailout;
-	BBPcold(graph[P_PS]->batCacheid);
-	graph[S_PS] = BATleftfetchjoin(map_oid, S, cnt);
-	if (graph[S_PS] == NULL) goto bailout;
-	BBPcold(graph[S_PS]->batCacheid);
-	/* free map_oid */
-	BBPreclaim(map_oid);
-
-
-	if ( !(CTrefine(&map_oid, graph[O_sort], S)         /* refine P given graph[O_sort]= sorted  */
-		&& CTrefine(&ctref, map_oid, P)))/* refine SP given P          */
+	if (BATsubsort(&graph[P_PS], &o2, &g2, P, o1, g1, 0, 0) == GDK_FAIL)
 		goto bailout;
-
-	BBPreclaim(map_oid);                   /* free map_oid                       */
-	map_oid = BATmirror(BATmark(ctref,0)); /* map_oid[void,oid] gives the order  */
-	BBPreclaim(ctref);                     /* free o                             */
-
-	/* leftfetchjoin to re-order all BATs */
-	graph[S_SP] = BATleftfetchjoin(map_oid, S, cnt);
-	if (graph[S_SP] == NULL) goto bailout;
-	BBPcold(graph[S_SP]->batCacheid);
-	graph[P_SP] = BATleftfetchjoin(map_oid, P, cnt);
-	if (graph[P_SP] == NULL) goto bailout;
-	BBPcold(graph[P_SP]->batCacheid);
-	/* free map_oid */
-	BBPreclaim(map_oid);
-
-
-	BATsetaccess(graph[O_sort], BAT_READ); /* force BATmark not to copy bat */
-	graph[O_sort] = BATmirror(BATmark(BATmirror(graph[O_sort]), 0));
+	if (BATsubsort(&graph[S_PS], &o3, &g3, S, o2, g2, 0, 0) == GDK_FAIL)
+		goto bailout;
+	BBPunfix(o2->batCacheid);
+	BBPunfix(g2->batCacheid);
+	BBPunfix(o3->batCacheid);
+	BBPunfix(g3->batCacheid);
+	if (BATsubsort(&graph[S_SP], &o2, &g2, S, o1, g1, 0, 0) == GDK_FAIL)
+		goto bailout;
+	if (BATsubsort(&graph[P_SP], &o3, &g3, P, o2, g2, 0, 0) == GDK_FAIL)
+		goto bailout;
+	BBPunfix(o1->batCacheid);
+	BBPunfix(g1->batCacheid);
+	BBPunfix(o2->batCacheid);
+	BBPunfix(g2->batCacheid);
+	BBPunfix(o3->batCacheid);
+	BBPunfix(g3->batCacheid);
 
 	#endif /* IS_COMPACT_TRIPLESTORE == 0 */
 
 	/* free memory */
-	BBPunfix(S->batCacheid);
+	BBPreclaim(S);
 	#if IS_COMPACT_TRIPLESTORE == 0
-	BBPunfix(P->batCacheid);
-	BBPunfix(O->batCacheid);
+	BBPreclaim(P);
+	BBPreclaim(O);
 	#endif
 
 	return MAL_SUCCEED;
 
 bailout:
 	if (map_oid != NULL) BBPreclaim(map_oid);
-	if (ctref   != NULL) BBPreclaim(ctref);
 	if (S       != NULL) BBPreclaim(S);
 	if (P       != NULL) BBPreclaim(P);
 	if (O       != NULL) BBPreclaim(O);
