@@ -297,8 +297,16 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 	BAT **graph = pdata->graph;
 
 	if (pdata->error > pdata->lasterror){
-		printf("Incorrect or wrong syntax triple %s \n ", pdata->errorMsg);
+		unsigned char* objStr;
+		int objLen; 
+		//printf("[Incorrect or wrong syntax triple] %s \n ", pdata->errorMsg);
 		pdata->lasterror = pdata->error; 
+		objStr = raptor_term_to_string(triple->object);
+		objLen =  strlen((const char*)objStr);
+		//printf("Object: %s %d \n", objStr, objLen);
+		if (objLen == 2) 
+			printf("EMPTY OBJECT STRING \n");
+		free(objStr); 
 	}
 	else{
 		if (triple->subject->type == RAPTOR_TERM_TYPE_URI

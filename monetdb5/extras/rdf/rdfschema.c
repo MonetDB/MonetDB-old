@@ -127,6 +127,97 @@ CSrel* creataCSrel(oid csoid){
 	return csrel; 
 }
 
+
+static 
+void addReltoCSRel(oid origCSoid, oid refCSoid, CSrel *csrel)
+{
+	void *_tmp; 
+	void *_tmp2; 
+
+	int i = 0; 
+
+	assert (origCSoid == csrel->origCSoid);
+
+	while (i < csrel->numRef){
+		if (refCSoid == csrel->lstRefCSoid[i]){
+			//Existing
+			break; 
+		}
+		i++;
+	}
+	
+	if (i != csrel->numRef){ 
+		csrel->lstCnt[i]++; 
+		return; 
+	}
+	else{	// New Ref
+	
+		if(csrel->numRef == csrel->numAllocation) 
+		{ 
+			csrel->numAllocation += INIT_NUM_CSREL; 
+			
+			_tmp = realloc(csrel->lstRefCSoid, (csrel->numAllocation * sizeof(oid)));
+			_tmp2 = realloc(csrel->lstCnt, (csrel->numAllocation * sizeof(int)));
+
+			if (!_tmp || !_tmp2){
+				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+			}
+			csrel->lstRefCSoid = (oid*)_tmp;
+			csrel->lstCnt = (int*)_tmp2; 
+		}
+
+		csrel->lstRefCSoid[csrel->numRef] = refCSoid;
+		csrel->lstCnt[csrel->numRef] = 1; 
+		csrel->numRef++;
+	}
+}
+
+
+static 
+void addReltoCSRelWithFreq(oid origCSoid, oid refCSoid, int freq, CSrel *csrel)
+{
+	void *_tmp; 
+	void *_tmp2; 
+
+	int i = 0; 
+
+	assert (origCSoid == csrel->origCSoid);
+
+	while (i < csrel->numRef){
+		if (refCSoid == csrel->lstRefCSoid[i]){
+			//Existing
+			break; 
+		}
+		i++;
+	}
+	
+	if (i != csrel->numRef){ 
+		csrel->lstCnt[i] = csrel->lstCnt[i] + freq; 
+		return; 
+	}
+	else{	// New Ref
+	
+		if(csrel->numRef == csrel->numAllocation) 
+		{ 
+			csrel->numAllocation += INIT_NUM_CSREL; 
+			
+			_tmp = realloc(csrel->lstRefCSoid, (csrel->numAllocation * sizeof(oid)));
+			_tmp2 = realloc(csrel->lstCnt, (csrel->numAllocation * sizeof(int)));
+
+			if (!_tmp || !_tmp2){
+				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+			}
+			csrel->lstRefCSoid = (oid*)_tmp;
+			csrel->lstCnt = (int*)_tmp2; 
+		}
+
+		csrel->lstRefCSoid[csrel->numRef] = refCSoid;
+		csrel->lstCnt[csrel->numRef] = freq; 
+		csrel->numRef++;
+	}
+}
+
+
 static 
 CSrel* initCSrelset(oid numCSrel){
 	oid i; 
@@ -198,6 +289,54 @@ void printCSrelSet(CSrel *csrelSet, char *csFreqMap, BAT* freqBat, int num, char
 		fclose(fout);
 	}
 	
+}
+
+/*
+ * Show the relationship from each CS to maximumFreqCSs
+ * */
+
+static 
+void printCSrelWithMaxSet(oid* csSuperCSMap, CSrel *csrelWithMaxSet, CSrel *csrelSet, char *csFreqMap, BAT* freqBat, int num, int freqThreshold){
+
+	int 	i; 
+	int 	j; 
+	int 	*freq; 
+	FILE 	*fout; 
+	char 	filename[100];
+	char 	tmpStr[20];
+
+	strcpy(filename, "csRelatioinshipWithMaxFreqCS");
+	sprintf(tmpStr, "%d", freqThreshold);
+	strcat(filename, tmpStr);
+	strcat(filename, ".txt");
+
+	fout = fopen(filename,"wt"); 
+
+	// Merge the relationship
+	for (i = 0; i < num; i++){
+		if (csrelSet[i].numRef != 0){
+			for (j = 0; j < csrelSet[i].numRef; j++){		
+				if (csSuperCSMap[csrelSet[i].lstRefCSoid[j]] != BUN_NONE){
+					addReltoCSRelWithFreq(csrelSet[i].origCSoid, csSuperCSMap[csrelSet[i].lstRefCSoid[j]], csrelSet[i].lstCnt[j], &csrelWithMaxSet[i]);
+				}
+			}
+		}
+	}
+
+	for (i = 0; i < num; i++){
+		if (csrelWithMaxSet[i].numRef != 0){	//Only print CS with FK
+			fprintf(fout, "Relationship %d: ", i);
+			freq  = (int *) Tloc(freqBat, i);
+			fprintf(fout, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelWithMaxSet[i].origCSoid, *freq, csFreqMap[i]);
+			for (j = 0; j < csrelWithMaxSet[i].numRef; j++){
+				fprintf(fout, BUNFMT " (%d) ", csrelWithMaxSet[i].lstRefCSoid[j],csrelWithMaxSet[i].lstCnt[j]);	
+			}	
+			fprintf(fout, "\n");
+		}
+	}
+
+
+	fclose(fout);
 }
 
 static 
@@ -382,51 +521,7 @@ oid addSubCS(char *buff, int numP, int csId, SubCSSet* csSubCSMap){
 
 }
 
-static 
-void addReltoCSRel(oid origCSoid, oid refCSoid, CSrel *csrel)
-{
-	void *_tmp; 
-	void *_tmp2; 
-
-	int i = 0; 
-
-	assert (origCSoid == csrel->origCSoid);
-
-	while (i < csrel->numRef){
-		if (refCSoid == csrel->lstRefCSoid[i]){
-			//Existing
-			break; 
-		}
-		i++;
-	}
-	
-	if (i != csrel->numRef){ 
-		csrel->lstCnt[i]++; 
-		return; 
-	}
-	else{	// New Ref
-	
-		if(csrel->numRef == csrel->numAllocation) 
-		{ 
-			csrel->numAllocation += INIT_NUM_CSREL; 
-			
-			_tmp = realloc(csrel->lstRefCSoid, (csrel->numAllocation * sizeof(oid)));
-			_tmp2 = realloc(csrel->lstCnt, (csrel->numAllocation * sizeof(int)));
-
-			if (!_tmp || !_tmp2){
-				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-			}
-			csrel->lstRefCSoid = (oid*)_tmp;
-			csrel->lstCnt = (int*)_tmp2; 
-		}
-
-		csrel->lstRefCSoid[csrel->numRef] = refCSoid;
-		csrel->lstCnt[csrel->numRef] = 1; 
-		csrel->numRef++;
-	}
-}
-
-static 
+static
 void freeCSset(CSset *csSet){
 	int i;
 	for(i = 0; i < csSet->numCSadded; i ++){
@@ -647,7 +742,12 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num,
 	if (bun == BUN_NONE) {
 		csId = *csoid; 
 		addNewCS(csBats, &csKey, key, csoid, num);
-		//assert(csId != BUN_NONE);
+		
+		//Handle the case when freqThreshold == 1 
+		if (isStoreFreqCS ==1 && freqThreshold == 1){
+			freqCS = creatCS(csId, num, key);		
+			addCStoSet(freqCSset, *freqCS);
+		}
 	}
 	else{
 		//printf("Same HashKey: ");	
@@ -659,6 +759,12 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num,
 			// New CS
 			csId = *csoid;
 			addNewCS(csBats, &csKey, key, csoid, num);
+			
+			//Handle the case when freqThreshold == 1 
+			if (isStoreFreqCS ==1 && freqThreshold == 1){
+				freqCS = creatCS(csId, num, key);		
+				addCStoSet(freqCSset, *freqCS);
+			}
 
 		}
 		else{
@@ -866,7 +972,7 @@ static void getStatisticCSsBySize(map_t csmap, int maximumNumP){
 */
 
 
-static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *fullPBat, char isWriteToFile, int freqThreshold){
+static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *fullPBat, oid* csSuperCSMap, char isWriteToFile, int freqThreshold){
 
 	//int 	*csPropNum; 
 	//int	*csFreq; 
@@ -885,7 +991,7 @@ static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *fullPB
 	strcat(filename, ".txt");
 
 	fout = fopen(filename,"wt"); 
-	fprintf(fout, " csId  #Prop   #frequency \n"); 
+	fprintf(fout, " csId  #Prop   #frequency maxCSid\n"); 
 
 	pi = bat_iterator(pOffsetBat);
 	freqi = bat_iterator(freqBat);
@@ -905,9 +1011,9 @@ static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *fullPB
 
 		// Output the result 
 		if (isWriteToFile == 0)
-			printf(BUNFMT "  %d  %d \n", p, numP, *freq); 
+			printf(BUNFMT "  %d  %d " BUNFMT "\n", p, numP, *freq, csSuperCSMap[p]); 
 		else 
-			fprintf(fout, BUNFMT " %d  %d \n", p, numP, *freq); 
+			fprintf(fout, BUNFMT " %d  %d " BUNFMT "\n", p, numP, *freq, csSuperCSMap[p]); 
 	}
 
 	fclose(fout); 
@@ -1185,6 +1291,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 	int		maxNumPwithDup = 0; 
 	char		*csFreqMap; 
 	CSrel   	*csrelSet;
+	CSrel		*csrelWithMaxFreqSet;
 	SubCSSet 	*csSubCSMap; 
 	oid		*csSuperCSMap;  
 
@@ -1244,6 +1351,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 
 	csrelSet = initCSrelset(maxCSoid + 1);
 
+	csrelWithMaxFreqSet = initCSrelset(maxCSoid + 1);
+
 	csSubCSMap = initCS_SubCSMap(maxCSoid +1); 
 
 	RDFrelationships(ret, sbat, si, oi, subjCSMap, subjSubCSMap, csSubCSMap, csrelSet, *maxSoid, maxNumPwithDup);
@@ -1261,9 +1370,13 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 
 	getMaximumFreqCSs(freqCSset, csSuperCSMap, maxCSoid + 1); 
 
+
+	printCSrelWithMaxSet(csSuperCSMap, csrelWithMaxFreqSet, csrelSet,csFreqMap, csBats->freqBat, maxCSoid + 1, *freqThreshold);  
+
+
 	//getStatisticCSsBySize(csMap,maxNumProp); 
 
-	getStatisticCSsBySupports(csBats->pOffsetBat, csBats->freqBat, csBats->fullPBat,  1, *freqThreshold);
+	getStatisticCSsBySupports(csBats->pOffsetBat, csBats->freqBat, csBats->fullPBat, csSuperCSMap, 1, *freqThreshold);
 
 	BBPreclaim(sbat); 
 	BBPreclaim(pbat); 
@@ -1277,6 +1390,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 	freeCS_SubCSMapSet(csSubCSMap, maxCSoid + 1); 
 
 	freeCSrelSet(csrelSet, maxCSoid + 1); 
+	freeCSrelSet(csrelWithMaxFreqSet, maxCSoid + 1); 
 
 	freeCSBats(csBats);
 
