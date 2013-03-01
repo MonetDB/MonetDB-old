@@ -13,7 +13,7 @@
  * 
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
 */
 /*
@@ -130,6 +130,7 @@ newMalBlk(int maxvars, int maxstmts)
 	mb->recycle = 0;
 	mb->recid = 0;
 	mb->trap = 0;
+	mb->starttime = 0;
 	if (newMalBlkStmt(mb, maxstmts) < 0)
 		return NULL;
 	return mb;
@@ -1489,6 +1490,7 @@ defConstant(MalBlkPtr mb, int type, ValPtr cst)
 InstrPtr
 pushArgument(MalBlkPtr mb, InstrPtr p, int varid)
 {
+	assert(varid >= 0);
 	if (p->argc + 1 == p->maxarg) {
 		InstrPtr pn;
 		int pc = 0, pclimit;
@@ -1586,12 +1588,6 @@ delArgument(InstrPtr p, int idx)
 	p->argc--;
 	if (idx < p->retc)
 		p->retc--;
-}
-
-int
-getGDKType(int tpe)
-{
-	return tpe <= TYPE_str ? tpe : (tpe == TYPE_any ? TYPE_void : findGDKtype(tpe));
 }
 
 void

@@ -13,7 +13,7 @@
  * 
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
 */
 /*
@@ -133,11 +133,34 @@ MALstartDataflow( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	if ( getPC(mb, pci) > pci->jump)
 		throw(MAL,"language.dataflow","Illegal statement range");
-	msg = runMALdataflow(cntxt, mb, getPC(mb,pci), pci->jump, stk, 0, pci);
+	msg = runMALdataflow(cntxt, mb, getPC(mb,pci), pci->jump, stk);
 	*ret = 0;	/* continue at end of block */
 	return msg;
 }
 
+/*
+ * Garbage collection over variables can be postponed by grouping
+ * all dependent ones in a single sink() instruction.
+ */
+str
+MALgarbagesink( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+	return MAL_SUCCEED;
+}
+
+str
+MALpass( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+	return MAL_SUCCEED;
+}
 
 str 
 CMDregisterFunction(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
@@ -250,11 +273,11 @@ CMDsetMemoryTrace(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
     (void) mb;
     if( *flag) {
-		cntxt->flags |= bigfootFlag;
-        MCdefault |= bigfootFlag;
+		cntxt->flags |= footprintFlag;
+        MCdefault |= footprintFlag;
     } else {
-		cntxt->flags &= bigfootFlag;
-        MCdefault &= ~bigfootFlag;
+		cntxt->flags &= footprintFlag;
+        MCdefault &= ~footprintFlag;
 	}
     return MAL_SUCCEED;
 }

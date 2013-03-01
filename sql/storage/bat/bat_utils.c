@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -32,8 +32,10 @@ bat_new(int ht, int tt, BUN size)
 {
 	BAT *nb = BATnew(ht, tt, size);
 
-	if (ht == TYPE_void)
+	if (ht == TYPE_void) {
 		BATseqbase(nb, 0);
+		nb->H->dense = 1;
+	}
 	return nb;
 }
 
@@ -89,21 +91,10 @@ temp_copy(log_bid b, int temp)
 	return r;
 }
 
-void
-update_table_bat(BAT *b, BAT *ub)
-{
-	if (ub && BATcount(ub)) {
-		void_replace_bat(b, ub, TRUE);
-		BATclear(ub, TRUE);
-		BATcommit(ub);
-	}
-}
-
 BUN
 append_inserted(BAT *b, BAT *i )
 {
-	BUN nr = 0;
-	BUN r;
+	BUN nr = 0, r;
        	BATiter ii = bat_iterator(i);
 
        	for (r = i->batInserted; r < BUNlast(i); r++) {
@@ -139,6 +130,7 @@ ebat2real(log_bid b, oid ibase)
 	log_bid r;
 
 	BATseqbase(c, ibase );
+	c->H->dense = 1;
 	r = temp_create(c);
 	bat_destroy(c);
 	bat_destroy(o);
@@ -149,7 +141,7 @@ log_bid
 e_bat(int type)
 {
 	if (!ebats[type]) 
-		ebats[type] = BATnew(TYPE_void, type, 0);
+		ebats[type] = bat_new(TYPE_void, type, 0);
 	return temp_create(ebats[type]);
 }
 
@@ -157,7 +149,7 @@ BAT *
 e_BAT(int type)
 {
 	if (!ebats[type]) 
-		ebats[type] = BATnew(TYPE_void, type, 0);
+		ebats[type] = bat_new(TYPE_void, type, 0);
 	return temp_descriptor(ebats[type]->batCacheid);
 }
 
@@ -165,7 +157,7 @@ log_bid
 e_ubat(int type)
 {
 	if (!eubats[type]) 
-		eubats[type] = BATnew(TYPE_oid, type, 0);
+		eubats[type] = bat_new(TYPE_oid, type, 0);
 	return temp_create(eubats[type]);
 }
 
@@ -179,11 +171,12 @@ ebat_copy(log_bid b, oid ibase, int temp)
 	log_bid r;
 
 	if (!ebats[o->ttype]) 
-		ebats[o->ttype] = BATnew(TYPE_void, o->ttype, 0);
+		ebats[o->ttype] = bat_new(TYPE_void, o->ttype, 0);
 
 	if (!temp && BATcount(o)) {
 		c = BATcopy(o, TYPE_void, o->ttype, TRUE);
 		BATseqbase(c, ibase );
+		c->H->dense = 1;
 		BATcommit(c);
 		bat_set_access(c, BAT_READ);
 		r = temp_create(c);
@@ -205,7 +198,7 @@ eubat_copy(log_bid b, int temp)
 	log_bid r;
 
 	if (!eubats[o->ttype]) 
-		eubats[o->ttype] = BATnew(TYPE_oid, o->ttype, 0);
+		eubats[o->ttype] = bat_new(TYPE_oid, o->ttype, 0);
 
 	if (!temp && BATcount(o)) {
 		c = BATcopy(o, TYPE_oid, o->ttype, TRUE);
@@ -228,9 +221,8 @@ bat_utils_init(void)
 
 	for (t=1; t<GDKatomcnt; t++) {
 		if (t != TYPE_bat && BATatoms[t].name[0]) {
-			eubats[t] = BATnew(TYPE_oid, t, 0);
-			ebats[t] = BATnew(TYPE_void, t, 0);
-			BATseqbase(ebats[t],0);
+			eubats[t] = bat_new(TYPE_oid, t, 0);
+			ebats[t] = bat_new(TYPE_void, t, 0);
 			bat_set_access(eubats[t], BAT_READ);
 			bat_set_access(ebats[t], BAT_READ);
 		}

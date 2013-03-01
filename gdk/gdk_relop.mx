@@ -13,7 +13,7 @@ The Original Code is the MonetDB Database System.
 
 The Initial Developer of the Original Code is CWI.
 Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-Copyright August 2008-2012 MonetDB B.V.
+Copyright August 2008-2013 MonetDB B.V.
 All Rights Reserved.
 @
 
@@ -34,6 +34,9 @@ All Rights Reserved.
 
 #define SAMPLE_TRESHOLD_LOG 17
 #define SAMPLE_SLICE_SIZE 1000
+
+static BAT *BATnlthetajoin(BAT *l, BAT *r, int op, BUN estimate);
+
 /*
  * @+ Join Algorithms
  * All join related operations have the same prelude to check
@@ -439,14 +442,6 @@ BATmergejoin(BAT *l, BAT *r, BUN estimate)
 	return batmergejoin(l, r, estimate, TRUE, NULL);
 }
 
-BAT *
-BATleftmergejoin(BAT *l, BAT *r, BUN estimate)
-{
-	/* do not swap left and right input, and hence maintain order
-	 * of left head in result */
-	return batmergejoin(l, r, estimate, FALSE, NULL);
-}
-
 /*
  * @- hash join
  * These macros encode the core of the join algorithm. They are
@@ -487,6 +482,8 @@ BAThashjoin(BAT *l, BAT *r, BUN estimate)
 	@:joincheck(BAThashjoin,l->ttype,r->htype)@
 	@:joinbat(JOIN_EQ,BAThashjoin(l,r,BUN_NONE),estimate)@
 
+	ALGODEBUG fprintf(stderr, "#BATjoin: BAThashjoin(l %d  "BUNFMT",r %d  "BUNFMT"," BUNFMT " ldense %d rdense %d lkey %d rkey %d lordered %d rordered %d);\n", 
+			l->ttype, BATcount(l), r->htype,BATcount(r),  estimate,  BATtdense(l), BAThdense(r),BATtkey(l), BAThkey(r), BATtordered(l), BAThordered(r));
 	if (BATprepareHash(r)) {
 		return NULL;
 	}
@@ -895,14 +892,14 @@ batfetchjoin(BAT *l, BAT *r, BUN estimate, bit swap, bit hitalways)
 		return bn;
 @
 @c
-	} else if (hitalways && BATtdense(l) && BAThdense(r) && l->tseqbase == r->hseqbase) {
+	} else if (BATtdense(l) && BAThdense(r) && l->tseqbase == r->hseqbase && BATcount(l) <= BATcount(r)) {
 		/* always hit and tail of left is alligned with head
 		 * of right */
 		ALGODEBUG fprintf(stderr, "#BATfetchjoin: BATtdense(l) && BAThdense(r)\n");
 		ALGODEBUG fprintf(stderr, "#BATfetchjoin: VIEWcreate(l,r)\n");
 
 		return VIEWcreate(l, r);
-	} else if (hitalways && BAThdense(r) && BATtdense(r) && r->hseqbase == r->tseqbase) {
+	} else if (hitalways && BAThdense(r) && BATtdense(r) && r->hseqbase == r->tseqbase && BATcount(l) <= BATcount(r)) {
 		/* idempotent join: always hit and substitute tail with the same value */
 		ALGODEBUG fprintf(stderr, "#BATfetchjoin: BAThdense(r) && BATtdense(r)\n");
 		ALGODEBUG fprintf(stderr, "#BATfetchjoin: VIEWcreate(l,l)\n");
@@ -1128,12 +1125,14 @@ batfetchjoin(BAT *l, BAT *r, BUN estimate, bit swap, bit hitalways)
 		}
 	} else if (l->tseqbase != oid_nil) {
 		/* execute using slice */
-		BAT *v = BATmirror(VIEWhead(BATmirror(r)));
+		BAT *v = r;
 		oid lo_val = MAX(l->tseqbase, r->hseqbase);
 		oid hi_val = MIN(l->tseqbase + lcount, r->hseqbase + rcount);
 		BUN lo_pos = lo_val - r->hseqbase;
 		BUN hi_pos = hi_val;
 
+		if (v->H->type != TYPE_void) /* only create view when needed */
+			v = BATmirror(VIEWhead(BATmirror(r)));
 		if (hi_pos > r->hseqbase)
 			hi_pos -= r->hseqbase;
 		else
@@ -1144,7 +1143,8 @@ batfetchjoin(BAT *l, BAT *r, BUN estimate, bit swap, bit hitalways)
 		if (seqbase != oid_nil)
 			seqbase += lo_val - l->tseqbase;
 		BATseqbase(bn, seqbase);
-		BBPunfix(v->batCacheid);
+		if (v != r)
+			BBPunfix(v->batCacheid);
 	} else {
 		/* nil join column => empty result */
 		ALGODEBUG fprintf(stderr, "#BATfetchjoin: BAThvoid(l) && BATtvoid(l) && l->tseqbase == oid_nil\n");
@@ -1448,11 +1448,11 @@ batjoin(BAT *l, BAT *r, BUN estimate, bit swap)
 	 */
 	/* Simple rule, always build hash on the smallest */
 	if (swap && rsize > lsize) {
-		ALGODEBUG fprintf(stderr, "#BATjoin: BATmirror(BAThashjoin(BATmirror(r), BATmirror(l)," BUNFMT "));\n", estimate);
+		ALGODEBUG fprintf(stderr, "#BATjoin: swap = %d, rsize = "SZFMT", lsize = "SZFMT" => BATmirror(BAThashjoin(BATmirror(r), BATmirror(l)," BUNFMT "));\n", (int)swap, rsize, lsize, estimate);
 
 		return BATmirror(BAThashjoin(BATmirror(r), BATmirror(l), estimate));
 	}
-	ALGODEBUG fprintf(stderr, "#BATjoin: BAThashjoin(l,r," BUNFMT ");\n", estimate);
+	ALGODEBUG fprintf(stderr, "#BATjoin: swap = %d, rsize = "SZFMT", lsize = "SZFMT" => BAThashjoin(l,r," BUNFMT ");\n", (int)swap, rsize, lsize, estimate);
 
 	return BAThashjoin(l, r, estimate);
 }
@@ -1683,6 +1683,8 @@ BATouterjoin(BAT *l, BAT *r, BUN estimate)
  *
  * In the end, this results in 4*5*2*2 = 80 different inner loops.
  */
+static BAT *BATnlthetajoin(BAT *l, BAT *r, int op, BUN estimate);
+
 BAT *
 BATthetajoin(BAT *l, BAT *r, int op, BUN estimate)
 {
@@ -1699,26 +1701,6 @@ BATthetajoin(BAT *l, BAT *r, int op, BUN estimate)
 		ALGODEBUG fprintf(stderr, "#BATthetajoin(l,r,JOIN_EQ): BATjoin(l, r);\n");
 
 		return BATjoin(l, r, _estimate);
-	}
-	return BATnlthetajoin(l, r, op, _estimate);
-}
-
-BAT *
-BATleftthetajoin(BAT *l, BAT *r, int op, BUN estimate)
-{
-	BUN _lcount = BATcount(l);
-	BUN _rcount = BATcount(r);
-	BUN _estimate = (BUN) MIN((lng) _lcount * _rcount, BUN_MAX);
-
-	assert(_estimate <= BUN_MAX);
-	@:joincheck(BATleftthetajoin,l->ttype,r->htype)@
-	if (estimate < _estimate)
-		_estimate = estimate;
-	if (op == JOIN_EQ) {
-		/* exploit all equi-join optimizations */
-		ALGODEBUG fprintf(stderr, "#BATleftthetajoin(l,r,JOIN_EQ): BATleftjoin(l, r);\n");
-
-		return BATleftjoin(l, r, _estimate);
 	}
 	return BATnlthetajoin(l, r, op, _estimate);
 }
@@ -1835,7 +1817,7 @@ nlthetajoin_@2_@1(BAT *bn, BAT *l, BAT *r)
 @:nlthetajoin_tpe(impl,lt,<)@
 @:nlthetajoin_tpe(impl,le,<=)@
 @:nlthetajoin_tpe(impl,eq,==)@
-BAT *
+static BAT *
 BATnlthetajoin(BAT *l, BAT *r, int op, BUN estimate)
 {
 	int optimize = (l->htype == TYPE_oid || BAThdense(l)) && (r->ttype == TYPE_oid || BATtdense(r))

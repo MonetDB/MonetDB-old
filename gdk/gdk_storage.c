@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -71,7 +71,9 @@ GDKcreatedir(const char *dir)
 	char *r;
 	int ret = FALSE;
 
-	strcpy(path, dir);
+	assert(strlen(dir) < sizeof(path));
+	strncpy(path, dir, sizeof(path)-1);
+	path[sizeof(path)-1] = 0;
 	r = strrchr(path, DIR_SEP);
 	IODEBUG THRprintf(GDKstdout, "#GDKcreatedir(%s)\n", path);
 
@@ -131,7 +133,7 @@ GDKremovedir(const char *dirname)
 #define _FWRTHR         0x080000
 #define _FRDSEQ         0x100000
 
-static int
+int
 GDKfdlocate(const char *nme, const char *mode, const char *extension)
 {
 	char buf[PATHLENGTH], *path = buf;
@@ -352,7 +354,7 @@ GDKload(const char *nme, const char *ext, size_t size, size_t maxsize, storage_t
 	} else {
 		char path[PATHLENGTH];
 		struct stat st;
-		FILE *fp;
+		FILE *fp = NULL;
 
 		GDKfilepath(path, BATDIR, nme, ext);
 		if (stat(path, &st) >= 0 &&
@@ -369,18 +371,24 @@ GDKload(const char *nme, const char *ext, size_t size, size_t maxsize, storage_t
 #endif
 #endif
 		      fputc('\n', fp) >= 0 &&
-		      fflush(fp) >= 0 &&
-		      fclose(fp) >= 0))) {
-			int mod = MMAP_READ | MMAP_WRITE | MMAP_SEQUENTIAL | MMAP_SYNC;
+		      fflush(fp) >= 0))) {
+			if (fp == NULL || fclose(fp) >= 0) {
+				int mod = MMAP_READ | MMAP_WRITE | MMAP_SEQUENTIAL | MMAP_SYNC;
 
-			if (mode == STORE_PRIV)
-				mod |= MMAP_COPY;
-			ret = (char *) GDKmmap(path, mod, (off_t) 0, maxsize);
-			if (ret == (char *) -1L) {
-				ret = NULL;
+				if (mode == STORE_PRIV)
+					mod |= MMAP_COPY;
+				ret = (char *) GDKmmap(path, mod, maxsize);
+				if (ret == (char *) -1L) {
+					ret = NULL;
+				}
+				IODEBUG THRprintf(GDKstdout, "#mmap(NULL, 0, maxsize " SZFMT ", mod %d, path %s, 0) = " PTRFMT "\n", maxsize, mod, path, PTRFMTCAST(void *)ret);
 			}
-			IODEBUG THRprintf(GDKstdout, "#mmap(NULL, 0, maxsize " SZFMT ", mod %d, path %s, 0) = " PTRFMT "\n", maxsize, mod, path, PTRFMTCAST(void *)ret);
+			/* after fclose, successful or not, the file
+			 * is done with */
+			fp = NULL;
 		}
+		if (fp != NULL)
+			fclose(fp);
 	}
 	return ret;
 }
@@ -434,7 +442,7 @@ DESCload(int i)
 
 	/* reconstruct mode from BBP status (BATmode doesn't flush
 	 * descriptor, so loaded mode may be stale) */
-	b->batPersistence = (BBP_status(b->batCacheid) & BBPTMP) ? TRANSIENT : (BBP_status(b->batCacheid) & (BBPNEW | BBPPERSISTENT)) ? PERSISTENT : SESSION;
+	b->batPersistence = (BBP_status(b->batCacheid) & BBPPERSISTENT) ? PERSISTENT : TRANSIENT;
 	b->batCopiedtodisk = 1;
 	DESCclean(b);
 	return bs;
@@ -710,6 +718,7 @@ BATdelete(BAT *b)
 	if (loaded) {
 		b = loaded;
 		HASHdestroy(b);
+		IMPSdestroy(b);
 	}
 	assert(!b->H->heap.base || !b->T->heap.base || b->H->heap.base != b->T->heap.base);
 	if (b->batCopiedtodisk || (b->H->heap.storage != STORE_MEM)) {

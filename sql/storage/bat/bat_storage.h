@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -30,6 +30,7 @@ typedef struct sql_delta {
 	int ibid;		/* bat with inserts */
 	int ubid;		/* bat with updates */
 	size_t cnt;		/* number of tuples (excluding the deletes) */
+	size_t ucnt;		/* number of updates */
 	BAT *cached;		/* cached copy, used for schema bats only */
 } sql_delta;
 
@@ -47,7 +48,7 @@ extern BAT * delta_bind_ubat(sql_delta *bat, int access);
 extern BAT * delta_bind_bat( sql_delta *bat, int access, int temp);
 extern BAT * delta_bind_del(sql_dbat *bat, int access);
 
-extern void delta_update_bat( sql_delta *bat, BAT *upd, int is_new);
+extern void delta_update_bat( sql_delta *bat, BAT *tids, BAT *upd, int is_new);
 extern void delta_update_val( sql_delta *bat, oid rid, void *upd);
 extern void delta_append_bat( sql_delta *bat, BAT *i );
 extern void delta_append_val( sql_delta *bat, void *i );

@@ -13,7 +13,7 @@
  * 
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
 */
 
@@ -573,9 +573,9 @@ retryRead:
 							resource.ru_oublock);
 #endif
 				}
-				if (strncmp("bigfoot", b, 7) == 0) {
+				if (strncmp("footprint", b, 7) == 0) {
 					/* calculate the virtual memory footprint */
-					cntxt->flags |= bigfootFlag;
+					cntxt->flags |= footprintFlag;
 				}
 				continue;
 			}
@@ -913,9 +913,6 @@ retryRead:
 				printStackElm(out, mb, stk->stk + i, i, size, first);
 			continue;
 		}
-		case 'S':
-			dumpNamespaceStatistics(out, 1);
-			break;
 		case 'u':
 			if (strncmp("unset", b, 5)) {
 				skipWord(cntxt, b);
@@ -926,8 +923,8 @@ retryRead:
 					cntxt->flags &= ~memoryFlag;
 				if (strncmp("timer", b, 5) == 0)
 					cntxt->flags &= ~timerFlag;
-				if (strncmp("bigfoot", b, 7) == 0)
-					cntxt->flags &= ~bigfootFlag;
+				if (strncmp("footprint", b, 7) == 0)
+					cntxt->flags &= ~footprintFlag;
 				if (strncmp("io", b, 2) == 0)
 					cntxt->flags &= ~ioFlag;
 				continue;
@@ -1296,7 +1293,7 @@ str
 runMALDebugger(Client cntxt, Symbol s)
 {
 	cntxt->itrace = 'n';
-	runMAL(cntxt, s->def, 1, 0, 0, 0);
+	runMAL(cntxt, s->def, 0, 0);
 	return MAL_SUCCEED;
 }
 
@@ -1571,13 +1568,13 @@ memProfileVector(stream *out, int cells)
 			h = b->H->hash;
 			if (h && h->mask) {
 				mnstr_printf(out, "\thhash=" PTRFMT " size=" SZFMT "\n", PTRFMTCAST h, sizeof(*h));
-				mnstr_printf(out, "\thhashlink=" PTRFMT " size=" SZFMT "\n", PTRFMTCAST h->link,
+				mnstr_printf(out, "\thhashlink=" PTRFMT " size=" SZFMT "\n", PTRFMTCAST h->Link,
 						(h->mask + h->lim + 1) * sizeof(int));
 			}
 			h = b->T->hash;
 			if (h && h->mask) {
 				mnstr_printf(out, "\tthash=" PTRFMT " size=" SZFMT "\n", PTRFMTCAST h, sizeof(*h));
-				mnstr_printf(out, "\tthashlink=" PTRFMT " size=" SZFMT "\n", PTRFMTCAST h->link,
+				mnstr_printf(out, "\tthashlink=" PTRFMT " size=" SZFMT "\n", PTRFMTCAST h->Link,
 						(h->mask + h->lim + 1) * sizeof(int));
 			}
 			BBPunfix(b->batCacheid);

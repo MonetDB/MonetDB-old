@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -188,14 +188,16 @@ size_t monet_memory;
 #include "mal_client.h"
 #include "mal_sabaoth.h"
 #include "mal_recycle.h"
+#include "mal_dataflow.h"
 
-MT_Lock     mal_contextLock;
-MT_Lock     mal_remoteLock;
-MT_Lock  	mal_profileLock ;
-MT_Lock     mal_copyLock;
-MT_Lock     mal_delayLock;
+MT_Lock     mal_contextLock MT_LOCK_INITIALIZER("mal_contextLock");
+MT_Lock     mal_namespaceLock MT_LOCK_INITIALIZER("mal_namespaceLock");
+MT_Lock     mal_remoteLock MT_LOCK_INITIALIZER("mal_remoteLock");
+MT_Lock  	mal_profileLock MT_LOCK_INITIALIZER("mal_profileLock");
+MT_Lock     mal_copyLock MT_LOCK_INITIALIZER("mal_copyLock");
+MT_Lock     mal_delayLock MT_LOCK_INITIALIZER("mal_delayLock");
+MT_Sema		mal_parallelism;
 /*
- * @-
  * Initialization of the MAL context
  * The compiler directive STRUCT_ALIGNED tells that the
  * fields in the VALrecord all start at the same offset.
@@ -227,11 +229,19 @@ void tstAligned(void)
 #endif
 }
 int mal_init(void){
+#ifdef NEED_MT_LOCK_INIT
 	MT_lock_init( &mal_contextLock, "mal_contextLock");
+	MT_lock_init( &mal_namespaceLock, "mal_namespaceLock");
 	MT_lock_init( &mal_remoteLock, "mal_remoteLock");
 	MT_lock_init( &mal_profileLock, "mal_profileLock");
 	MT_lock_init( &mal_copyLock, "mal_copyLock");
 	MT_lock_init( &mal_delayLock, "mal_delayLock");
+#endif
+	/* "/2" is arbitrarily used / chosen, as on systems with
+	 * hyper-threading enabled, using all hardware threads rather than
+	 * "only" all physical cores does not necessarily yield a linear
+	 * performance benefit */
+	MT_sema_init( &mal_parallelism, (GDKnr_threads > 1 ? GDKnr_threads/2: 1), "mal_parallelism");
 
 	tstAligned();
 	MCinit();
@@ -240,6 +250,7 @@ int mal_init(void){
 		monet_memory = MT_npages() * MT_pagesize();
 	initNamespace();
 	initParser();
+	initHeartbeat();
 	RECYCLEinit();
 	if( malBootstrap() == 0)
 		return -1;
@@ -283,6 +294,9 @@ void mal_exit(void){
 	 */
 	RECYCLEshutdown(mal_clients); /* remove any left over intermediates */
 	stopProfiling();
+	stopHeartbeat();
+	stopMALdataflow();
+
 #if 0
 {
 	int reruns=0, goon;

@@ -13,7 +13,7 @@
  *
  *The Initial Developer of the Original Code is CWI.
  *Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- *Copyright August 2008-2012 MonetDB B.V.
+ *Copyright August 2008-2013 MonetDB B.V.
  *All Rights Reserved.
 */
 /*
@@ -219,8 +219,10 @@ MDBsetDebugStr(int *ret, str *flg)
 		GDKdebug |= GRPalgorithms;
 	if( strcmp("performance",*flg)==0)
 		GDKdebug |= GRPperformance;
+#if 0
 	if( strcmp("xproperties",*flg)==0)
 		GDKdebug |= GRPxproperties;
+#endif
 	if( strcmp("forcemito",*flg)==0)
 		GDKdebug |= GRPforcemito;
     return MAL_SUCCEED;
@@ -271,9 +273,9 @@ MDBsetBigfoot(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	(void) mb;
 	if( *flag)
-		cntxt->flags |= bigfootFlag;
+		cntxt->flags |= footprintFlag;
 	else
-		cntxt->flags &= ~bigfootFlag;
+		cntxt->flags &= ~footprintFlag;
 	return MAL_SUCCEED;
 }
 

@@ -13,7 +13,7 @@
  * 
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
 */
 
@@ -266,7 +266,7 @@ CLUSTER_column_any(BAT *nb, BAT *b, BAT *cmap)
 	BATsetcount(nb, BATcount(b));
 	BATderiveProps(nb, 0);
 	if (!(nb->batDirty&2)) 
-		nb = BATsetaccess(nb, BAT_READ);
+		BATsetaccess(nb, BAT_READ);
 	return MAL_SUCCEED;
 }
 /*

@@ -11,7 +11,7 @@
 -- The Original Code is the MonetDB Database System.
 --
 -- The Initial Developer of the Original Code is CWI.
--- Copyright August 2008-2012 MonetDB B.V.
+-- Copyright August 2008-2013 MonetDB B.V.
 -- All Rights Reserved.
 
 -- show the optimizer statistics maintained by the SQL frontend
@@ -41,11 +41,6 @@ create function optimizers ()
 create function environment()
 	returns table ("name" string, value string)
 	external name sql.sql_environment;
-
--- The database foot print
-create function storage()
-returns table ("schema" string, "table" string, "column" string, location string, "count" bigint, capacity bigint, width int, size bigint, hashsize bigint, sorted boolean)
-external name sql.storage;
 
 -- The BAT buffer pool overview
 create function bbp () 

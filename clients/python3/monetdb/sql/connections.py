@@ -12,7 +12,7 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2012 MonetDB B.V.
+# Copyright August 2008-2013 MonetDB B.V.
 # All Rights Reserved.
 
 import sys
@@ -23,14 +23,15 @@ from monetdb.exceptions import *
 from monetdb import mapi
 
 logger = logging.getLogger("monetdb")
+logger.addHandler(logging.NullHandler())
 
-class Connection:
-    """A MonetDB SQL database connection"""
+class Connection(object):
+    """This represents a MonetDB SQL database connection"""
     default_cursor = cursors.Cursor
 
     def __init__(self, username="monetdb", password="monetdb",
-        hostname="localhost", port=50000, database="demo", autocommit=False,
-        user=None, host=None):
+                 hostname="localhost", port=50000, database="demo", autocommit=False,
+                 user=None, host=None):
         """ Set up a connection to a MonetDB SQL database.
 
         username   -- username for connection (default: monetdb)
@@ -44,11 +45,12 @@ class Connection:
             username = user
         if host is not None:
             hostname = host
-        self.mapi = mapi.Server()
+        self.mapi = mapi.Connection()
         self.mapi.connect(hostname=hostname, port=int(port), username=username,
             password=password, database=database, language="sql")
         self.set_autocommit(autocommit)
         self.set_sizeheader(True)
+        self.set_replysize(100)
 
     def close(self):
         """ Close the connection. The connection will be unusable from this
@@ -58,7 +60,6 @@ class Connection:
         without committing the changes first will cause an implicit rollback
         to be performed.
         """
-
         if self.mapi:
             if not self.autocommit:
                 self.rollback()
@@ -81,6 +82,10 @@ class Connection:
         """
         self.command("Xsizeheader %s" % int(sizeheader))
         self.sizeheader = sizeheader
+
+    def set_replysize(self, replysize):
+        self.command("Xreply_size %s" % int(replysize))
+        self.replysize = replysize
 
     def commit(self):
         """
@@ -152,3 +157,4 @@ class Connection:
     InternalError = InternalError
     ProgrammingError = ProgrammingError
     NotSupportedError = NotSupportedError
+

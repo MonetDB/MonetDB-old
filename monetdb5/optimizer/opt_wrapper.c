@@ -59,6 +59,7 @@ All Rights Reserved.
 #include "opt_joinpath.h"
 #include "opt_joinselect.h"
 #include "opt_mapreduce.h"
+#include "opt_matpack.h"
 #include "opt_mergetable.h"
 #include "opt_mitosis.h"
 #include "opt_multiplex.h"
@@ -74,6 +75,7 @@ All Rights Reserved.
 #include "opt_reorder.h"
 #include "opt_statistics.h"
 #include "opt_strengthReduction.h"
+#include "opt_pushselect.h"
 
 struct{
 	str nme;
@@ -100,6 +102,7 @@ struct{
 	{"joinPath", &OPTjoinPathImplementation},
 	{"joinselect", &OPTjoinselectImplementation},
 	{"mapreduce", &OPTmapreduceImplementation},
+	{"matpack", &OPTmatpackImplementation},
 	{"mergetable", &OPTmergetableImplementation},
 	{"mitosis", &OPTmitosisImplementation},
 	{"multiplex", &OPTmultiplexImplementation},
@@ -108,12 +111,13 @@ struct{
 	{"prejoin", &OPTprejoinImplementation},
 	{"pushranges", &OPTpushrangesImplementation},
 	{"dumpQEP", &OPTdumpQEPImplementation},
-	{"recycler", &OPTrecyclerImplementation},
+	{"recycle", &OPTrecyclerImplementation},
 	{"reduce", &OPTreduceImplementation},
 	{"remap", &OPTremapImplementation},
 	{"remoteQueries", &OPTremoteQueriesImplementation},
 	{"reorder", &OPTreorderImplementation},
 	{"strengthReduction", &OPTstrengthReductionImplementation},
+	{"pushselect", &OPTpushselectImplementation},
 	{0,0}
 };
 opt_export str OPTwrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
@@ -121,8 +125,8 @@ opt_export str OPTwrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 #define OPTIMIZERDEBUG if (0) 
 
 str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
-	str modnme;
-	str fcnnme;
+	str modnme = 0;
+	str fcnnme = 0;
 	str msg= MAL_SUCCEED;
 	Symbol s= NULL;
 	lng t,clk= GDKusec();
@@ -131,8 +135,9 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	InstrPtr q= copyInstruction(p);
 
 	optimizerInit();
-	snprintf(optimizer,256,"%s",getFunctionId(p));
-	OPTIMIZERDEBUG mnstr_printf(cntxt->fdout,"=APPLY OPTIMIZER %s\n",getModuleId(p));
+	snprintf(optimizer,256,"%s", fcnnme = getFunctionId(p));
+	OPTIMIZERDEBUG 
+		mnstr_printf(cntxt->fdout,"=APPLY OPTIMIZER %s\n",fcnnme);
 	if( p && p->argc > 1 ){
 		if( getArgType(mb,p,1) != TYPE_str ||
 			getArgType(mb,p,2) != TYPE_str ||
@@ -180,7 +185,9 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 		printFunction(cntxt->fdout,mb,0,LIST_MAL_STMT | LIST_MAPI);
 	}
 	DEBUGoptimizers
-		mnstr_printf(cntxt->fdout,"#opt_reduce: " LLFMT " ms\n",t);
+		mnstr_printf(cntxt->fdout,"#optimizer %-11s %3d actions %5d MAL instructions ("SZFMT" K) " LLFMT" usec\n", optimizer, actions, mb->stop, 
+		((sizeof( MalBlkRecord) +mb->ssize * sizeof(InstrRecord)+ mb->vtop * sizeof(int) /* argv estimate */ +mb->vtop* sizeof(VarRecord) + mb->vsize*sizeof(VarPtr)+1023)/1024),
+		t);
 	QOTupdateStatistics(getModuleId(q),actions,t);
 	addtoMalBlkHistory(mb,getModuleId(q));
 	freeInstruction(q);

@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -291,6 +291,8 @@ loadLibrary(str filename, int flag)
 
 	MT_lock_set(&mal_contextLock, "loadModule");
 	if (lastfile == maxfiles) {
+		if (handle)
+			dlclose(handle);
 		showException(GDKout, MAL,"loadModule", "internal error, too many modules loaded");
 	} else {
 		filesLoaded[lastfile].filename = GDKstrdup(filename);

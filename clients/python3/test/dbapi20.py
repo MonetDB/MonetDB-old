@@ -12,7 +12,7 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2012 MonetDB B.V.
+# Copyright August 2008-2013 MonetDB B.V.
 # All Rights Reserved.
 
 ''' Python DB API 2.0 driver compliance unit test suite.
@@ -165,9 +165,7 @@ class DatabaseAPI20Test(unittest.TestCase):
 
     def _connect(self):
         try:
-            return self.driver.connect(
-                *self.connect_args,**self.connect_kwargs
-                )
+            return self.driver.connect(*self.connect_args, **self.connect_kwargs)
         except AttributeError:
             self.fail("No connect method found in self.driver module")
 
@@ -206,9 +204,9 @@ class DatabaseAPI20Test(unittest.TestCase):
 
     def test_Exceptions(self):
         # Make sure required exceptions exist, and are in the
-        # defined heirarchy.
-        self.assertTrue(issubclass(self.driver.Warning,StandardError))
-        self.assertTrue(issubclass(self.driver.Error,StandardError))
+        # defined hierarchy.
+        self.assertTrue(issubclass(self.driver.Warning,Exception))
+        self.assertTrue(issubclass(self.driver.Error,Exception))
         self.assertTrue(
             issubclass(self.driver.InterfaceError,self.driver.Error)
             )
@@ -947,7 +945,7 @@ class DatabaseAPI20Test(unittest.TestCase):
             "abc\\tdef",
             "abc\\\tdef",
             "\\x"
-            ]
+        ]
 
         con = self._connect()
         try:

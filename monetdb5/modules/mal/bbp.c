@@ -13,7 +13,7 @@
  * 
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
 */
 /*
@@ -1198,8 +1198,8 @@ str CMDbbp( int *NS, int *HT, int *TT, int *CNT, int *REFCNT, int *LREFCNT, int 
 			BUNins(dirty, &i, bn ? BATdirty(bn) ? "dirty" : DELTAdirty(bn) ? "diffs" : "clean" : (BBP_status(i) & BBPSWAPPED) ? "diffs" : "clean", FALSE);
 			BUNins(status, &i, loc, FALSE);
 			BUNins(kind, &i, mode, FALSE);
+			BBPunfix(bn->batCacheid);
 		}
-		BBPunfix(bn->batCacheid);
 	}
 	BBPkeepref(*NS = ns->batCacheid);
 	BBPkeepref(*HT = ht->batCacheid);

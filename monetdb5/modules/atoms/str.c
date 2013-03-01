@@ -13,7 +13,7 @@
  * 
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
 */
 /*
@@ -1404,16 +1404,13 @@ strSubString(str *res, str s, int *offset, int *length)
 			off = 0;
 		}
 	}
+	/* here, off >= 0 */
 	if (l < 0) {
 		*res = GDKstrdup("");
 		return GDK_SUCCEED;
 	}
-	s = UTF8_strtail(s, MAX(0, off));
+	s = UTF8_strtail(s, off);
 	len = (int)(UTF8_strtail(s, l) - s);
-	if (off < 0) {
-		len += off;
-		off = 0;
-	}
 	*res = (char *) GDKmalloc(len + 1);
 	strncpy(*res, s, len);
 	(*res)[len] = 0;

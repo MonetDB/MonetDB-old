@@ -13,7 +13,7 @@
  * 
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
 */
 
@@ -180,10 +180,10 @@ SYScpuStatistics(int *ret, int *ret2)
 	bn = BUNappend(bn, "elapuser", FALSE);
 	b = BUNappend(b, &i, FALSE);
 	i = newst.tms_stime * 1000 / HZ;
-	bn = BUNappend(b, "system", FALSE);
+	bn = BUNappend(bn, "system", FALSE);
 	b = BUNappend(b, &i, FALSE);
 	i = (newst.tms_stime - state.tms_stime) * 1000 / HZ;
-	bn = BUNappend(b, "elapsystem", FALSE);
+	bn = BUNappend(bn, "elapsystem", FALSE);
 	b = BUNappend(b, &i, FALSE);
 
 	state = newst;

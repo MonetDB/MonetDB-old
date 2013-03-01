@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2012 MonetDB B.V.
+ * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -22,7 +22,6 @@
 
 #include "sql_parser.h"
 #include "sql_symbol.h"
-#include "sql_statement.h"
 #include "sql_mvc.h"
 
 extern int mvc_debug_on(mvc *m, int flag);

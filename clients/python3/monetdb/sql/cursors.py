@@ -12,26 +12,25 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2012 MonetDB B.V.
+# Copyright August 2008-2013 MonetDB B.V.
 # All Rights Reserved.
 
 import logging
-from monetdb.sql import monetize, pythonize
 
+from monetdb.sql import monetize, pythonize
 from monetdb.exceptions import *
 from monetdb import mapi
 
 logger = logging.getLogger("monetdb")
+logger.addHandler(logging.NullHandler())
 
-
-class Cursor:
+class Cursor(object):
     """This object represents a database cursor, which is used to manage
     the context of a fetch operation. Cursors created from the same
     connection are not isolated, i.e., any changes done to the
     database by a cursor are immediately visible by the other
     cursors"""
     def __init__(self, connection):
-
         """This read-only attribute return a reference to the Connection
         object on which the cursor was created."""
         self.connection = connection
@@ -41,7 +40,7 @@ class Cursor:
 
         """This read/write attribute specifies the number of rows to
         fetch at a time with .fetchmany()"""
-        self.arraysize = 100
+        self.arraysize = connection.replysize
 
 
         """This read-only attribute specifies the number of rows that
@@ -89,7 +88,6 @@ class Cursor:
         # used to identify a query during server contact.
         #Only select queries have query ID
         self.__query_id = -1
-
 
         """This is a Python list object to which the interface appends
         tuples (exception class, exception value) for all messages
@@ -163,8 +161,12 @@ class Cursor:
         # clear message history
         self.messages = []
 
+        # convert to utf-8
+        #operation = str(operation).encode('utf-8')
+
         # set the number of rows to fetch
-        self.connection.command('Xreply_size %s' % self.arraysize)
+        if self.arraysize != self.connection.replysize:
+            self.connection.set_replysize(self.arraysize)
 
         if operation == self.operation:
             #same operation, DBAPI mentioned something about reuse
@@ -176,13 +178,9 @@ class Cursor:
         if parameters:
             if isinstance(parameters, dict):
                 query = operation % dict([(k, monetize.convert(v))
-                    for (k,v) in parameters.items()])
-            elif type(parameters) == list:
-                query = operation % tuple([monetize.convert(item)
-                    for item in parameters])
-            elif type(parameters) == tuple:
-                query = operation % tuple([monetize.convert(item)
-                    for item in parameters])
+                    for (k,v) in list(parameters.items())])
+            elif type(parameters) == list or type(parameters) == tuple:
+                query = operation % tuple([monetize.convert(item) for item in parameters])
             elif isinstance(parameters, str):
                 query = operation % monetize.convert(parameters)
             else:
@@ -370,7 +368,7 @@ class Cursor:
         return self
 
 
-    def next(self):
+    def __next__(self):
         row = self.fetchone()
         if not row:
             raise StopIteration

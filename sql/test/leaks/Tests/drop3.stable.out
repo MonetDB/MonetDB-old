@@ -1,4 +1,4 @@
-stdout of test 'drop3` in directory 'test/leaks` itself:
+stdout of test 'drop3` in directory 'sql/test/leaks` itself:
 
 
 # 22:02:53 >  
@@ -34,7 +34,7 @@ Ready.
 % L1,	L2 # name
 % char,	wrd # type
 % 10,	3 # length
-[ "persistent",	155	]
+[ "persistent",	166	]
 
 # 22:02:53 >  
 # 22:02:53 >  Done.
