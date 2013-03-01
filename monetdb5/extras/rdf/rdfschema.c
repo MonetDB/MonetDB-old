@@ -296,42 +296,62 @@ void printCSrelSet(CSrel *csrelSet, char *csFreqMap, BAT* freqBat, int num, char
  * */
 
 static 
-void printCSrelWithMaxSet(oid* csSuperCSMap, CSrel *csrelWithMaxSet, CSrel *csrelBetweenMaxSet, CSrel *csrelSet, char *csFreqMap, BAT* freqBat, int num, int freqThreshold){
+void printCSrelWithMaxSet(oid* csSuperCSMap, CSrel *csrelToMaxSet, CSrel *csrelFromMaxSet, CSrel *csrelBetweenMaxSet, CSrel *csrelSet, char *csFreqMap, BAT* freqBat, int num, int freqThreshold){
 
 	int 	i; 
 	int 	j; 
 	int 	*freq; 
-	FILE 	*fout, *fout2; 
-	char 	filename[100], filename2[100];
+	FILE 	*fout, *fout1, *fout1filter, *fout2; 
+	char 	filename[100], filename1[100], filename2[100];
 	char 	tmpStr[50];
 	oid 	maxCSoid; 
 
 
-	strcpy(filename, "csRelatioinshipWithMaxFreqCS");
+
+
+	// Merge the relationships to create csrelToMaxSet, csrelFromMaxSet
+	for (i = 0; i < num; i++){
+		maxCSoid = csSuperCSMap[csrelSet[i].origCSoid];
+		if (csrelSet[i].numRef != 0){
+			for (j = 0; j < csrelSet[i].numRef; j++){		
+				if (csSuperCSMap[csrelSet[i].lstRefCSoid[j]] != BUN_NONE){
+					addReltoCSRelWithFreq(csrelSet[i].origCSoid, csSuperCSMap[csrelSet[i].lstRefCSoid[j]], csrelSet[i].lstCnt[j], &csrelToMaxSet[i]);
+				}
+			}
+
+
+			// Add to csrelFromMaxSet
+			// For a referenced CS that is frequent, use its maxCSoid
+			// Else, use its csoid
+			if (maxCSoid != BUN_NONE){
+				for (j = 0; j < csrelSet[i].numRef; j++){		
+					if (csSuperCSMap[csrelSet[i].lstRefCSoid[j]] != BUN_NONE){
+						addReltoCSRelWithFreq(maxCSoid, csSuperCSMap[csrelSet[i].lstRefCSoid[j]], csrelSet[i].lstCnt[j], &csrelFromMaxSet[maxCSoid]);
+					}
+					else{
+						addReltoCSRelWithFreq(maxCSoid, csrelSet[i].lstRefCSoid[j], csrelSet[i].lstCnt[j], &csrelFromMaxSet[maxCSoid]);
+					}
+				}
+			}
+		}
+	}
+
+	// Write csrelToMaxSet to File
+	
+	strcpy(filename, "csRelatioinshipToMaxFreqCS");
 	sprintf(tmpStr, "%d", freqThreshold);
 	strcat(filename, tmpStr);
 	strcat(filename, ".txt");
 
 	fout = fopen(filename,"wt"); 
 
-	// Merge the relationships to create csrelWithMaxSet
 	for (i = 0; i < num; i++){
-		if (csrelSet[i].numRef != 0){
-			for (j = 0; j < csrelSet[i].numRef; j++){		
-				if (csSuperCSMap[csrelSet[i].lstRefCSoid[j]] != BUN_NONE){
-					addReltoCSRelWithFreq(csrelSet[i].origCSoid, csSuperCSMap[csrelSet[i].lstRefCSoid[j]], csrelSet[i].lstCnt[j], &csrelWithMaxSet[i]);
-				}
-			}
-		}
-	}
-
-	for (i = 0; i < num; i++){
-		if (csrelWithMaxSet[i].numRef != 0){	//Only print CS with FK
+		if (csrelToMaxSet[i].numRef != 0){	//Only print CS with FK
 			fprintf(fout, "Relationship %d: ", i);
 			freq  = (int *) Tloc(freqBat, i);
-			fprintf(fout, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelWithMaxSet[i].origCSoid, *freq, csFreqMap[i]);
-			for (j = 0; j < csrelWithMaxSet[i].numRef; j++){
-				fprintf(fout, BUNFMT " (%d) ", csrelWithMaxSet[i].lstRefCSoid[j],csrelWithMaxSet[i].lstCnt[j]);	
+			fprintf(fout, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelToMaxSet[i].origCSoid, *freq, csFreqMap[i]);
+			for (j = 0; j < csrelToMaxSet[i].numRef; j++){
+				fprintf(fout, BUNFMT " (%d) ", csrelToMaxSet[i].lstRefCSoid[j],csrelToMaxSet[i].lstCnt[j]);	
 			}	
 			fprintf(fout, "\n");
 		}
@@ -339,6 +359,40 @@ void printCSrelWithMaxSet(oid* csSuperCSMap, CSrel *csrelWithMaxSet, CSrel *csre
 
 	fclose(fout);
 
+	// Write csrelFromMaxSet to File
+	
+	strcpy(filename1, "csRelatioinshipFromMaxFreqCS");
+	sprintf(tmpStr, "%d", freqThreshold);
+	strcat(filename1, tmpStr);
+	strcat(filename1, ".txt");
+
+	fout1 = fopen(filename1,"wt"); 
+	strcat(filename1, ".filter");
+	fout1filter = fopen(filename1,"wt");
+
+	for (i = 0; i < num; i++){
+		if (csrelFromMaxSet[i].numRef != 0){	//Only print CS with FK
+			fprintf(fout1, "Relationship %d: ", i);
+			freq  = (int *) Tloc(freqBat, i);
+			fprintf(fout1, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelFromMaxSet[i].origCSoid, *freq, csFreqMap[i]);
+			fprintf(fout1filter, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelFromMaxSet[i].origCSoid, *freq, csFreqMap[i]);		
+
+			for (j = 0; j < csrelFromMaxSet[i].numRef; j++){
+				fprintf(fout1, BUNFMT " (%d) ", csrelFromMaxSet[i].lstRefCSoid[j],csrelFromMaxSet[i].lstCnt[j]);	
+
+				// Only put into the filer output file, the reference with appears in > 1 % of original CS
+				if (*freq < csrelFromMaxSet[i].lstCnt[j]*100){
+					fprintf(fout1filter, BUNFMT " (%d) ", csrelFromMaxSet[i].lstRefCSoid[j],csrelFromMaxSet[i].lstCnt[j]);
+				}
+			}	
+			fprintf(fout1, "\n");
+			fprintf(fout1filter, "\n");
+
+		}
+	}
+
+	fclose(fout1);
+	fclose(fout1filter);
 
 	/*------------------------*/
 
@@ -349,13 +403,13 @@ void printCSrelWithMaxSet(oid* csSuperCSMap, CSrel *csrelWithMaxSet, CSrel *csre
 
 	fout2 = fopen(filename2,"wt"); 
 
-	// Merge the csrelWithMaxSet --> csrelBetweenMaxSet
+	// Merge the csrelToMaxSet --> csrelBetweenMaxSet
 	for (i = 0; i < num; i++){
-		maxCSoid = csSuperCSMap[csrelWithMaxSet[i].origCSoid];
-		if (csrelWithMaxSet[i].numRef != 0 && maxCSoid != BUN_NONE){
-			for (j = 0; j < csrelWithMaxSet[i].numRef; j++){		
-				assert(csSuperCSMap[csrelWithMaxSet[i].lstRefCSoid[j]] == csrelWithMaxSet[i].lstRefCSoid[j]);
-				addReltoCSRelWithFreq(maxCSoid, csSuperCSMap[csrelWithMaxSet[i].lstRefCSoid[j]], csrelWithMaxSet[i].lstCnt[j], &csrelBetweenMaxSet[maxCSoid]);
+		maxCSoid = csSuperCSMap[csrelToMaxSet[i].origCSoid];
+		if (csrelToMaxSet[i].numRef != 0 && maxCSoid != BUN_NONE){
+			for (j = 0; j < csrelToMaxSet[i].numRef; j++){		
+				assert(csSuperCSMap[csrelToMaxSet[i].lstRefCSoid[j]] == csrelToMaxSet[i].lstRefCSoid[j]);
+				addReltoCSRelWithFreq(maxCSoid, csSuperCSMap[csrelToMaxSet[i].lstRefCSoid[j]], csrelToMaxSet[i].lstCnt[j], &csrelBetweenMaxSet[maxCSoid]);
 			}
 		}
 	}
@@ -1327,7 +1381,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 	int		maxNumPwithDup = 0; 
 	char		*csFreqMap; 
 	CSrel   	*csrelSet;
-	CSrel		*csrelWithMaxFreqSet;
+	CSrel		*csrelToMaxFreqSet, *csrelFromMaxFreqSet;
 	CSrel		*csrelBetweenMaxFreqSet; 
 	SubCSSet 	*csSubCSMap; 
 	oid		*csSuperCSMap;  
@@ -1407,10 +1461,11 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 	getMaximumFreqCSs(freqCSset, csSuperCSMap, maxCSoid + 1); 
 
 
-	csrelWithMaxFreqSet = initCSrelset(maxCSoid + 1);	// CS --> Reference MaxCSs
+	csrelToMaxFreqSet = initCSrelset(maxCSoid + 1);	// CS --> Reference MaxCSs
+	csrelFromMaxFreqSet = initCSrelset(maxCSoid + 1);	// CS --> Reference MaxCSs
 	csrelBetweenMaxFreqSet = initCSrelset(maxCSoid + 1);	// MaxCS --> Reference MaxCSs
 
-	printCSrelWithMaxSet(csSuperCSMap, csrelWithMaxFreqSet, csrelBetweenMaxFreqSet, csrelSet,csFreqMap, csBats->freqBat, maxCSoid + 1, *freqThreshold);  
+	printCSrelWithMaxSet(csSuperCSMap, csrelToMaxFreqSet, csrelFromMaxFreqSet, csrelBetweenMaxFreqSet, csrelSet,csFreqMap, csBats->freqBat, maxCSoid + 1, *freqThreshold);  
 
 
 	//getStatisticCSsBySize(csMap,maxNumProp); 
@@ -1429,7 +1484,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freq
 	freeCS_SubCSMapSet(csSubCSMap, maxCSoid + 1); 
 
 	freeCSrelSet(csrelSet, maxCSoid + 1); 
-	freeCSrelSet(csrelWithMaxFreqSet, maxCSoid + 1); 
+	freeCSrelSet(csrelToMaxFreqSet, maxCSoid + 1); 
 	freeCSrelSet(csrelBetweenMaxFreqSet, maxCSoid + 1);  
 
 	freeCSBats(csBats);
