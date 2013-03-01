@@ -42,6 +42,7 @@ All Rights Reserved.
 @
 @= TypeSwitch_2
 @:@1(int,,simple,,int,@2)@
+@:@1(lng,,simple,,lng,@2)@
 @:@1(dbl,,simple,,dbl,@2)@
 @:@1(date,,atom,TYPE_,loc,@2)@
 @
@@ -52,8 +53,11 @@ All Rights Reserved.
 @:@1(int,date,simple,,,@2)@
 @:@1(int,oid,simple,,,@2)@
 @:@1(dbl,date,simple,,,@2)@
+@:@1(lng,date,simple,,,@2)@
 @:@1(dbl,int,simple,,,@2)@
 @:@1(dbl,dbl,simple,,,@2)@
+@:@1(lng,lng,simple,,,@2)@
+
 
 @:@1(date,int,atom,TYPE_,,@2)@
 @:@1(date,lng,atom,TYPE_,,@2)@
@@ -66,6 +70,7 @@ All Rights Reserved.
 @:@1(int,date,simple,,,@2)@
 @:@1(int,oid,simple,,,@2)@
 @:@1(dbl,date,simple,,,@2)@
+@:@1(lng,date,simple,,,@2)@
 @:@1(dbl,int,simple,,,@2)@
 @:@1(dbl,dbl,simple,,,@2)@
 @

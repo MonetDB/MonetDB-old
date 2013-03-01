@@ -43,6 +43,8 @@ All Rights Reserved.
 @:@1(int,,simple,,int,@2)@
 @:@1(dbl,,simple,,dbl,@2)@
 @:@1(date,,atom,TYPE_,loc,@2)@
+@:@1(lng,,simple,,lng,@2)@
+
 @
 @= TypeSwitch_3
 /* TODO: add the rest of the type combinations once code is stable */
@@ -55,6 +57,9 @@ All Rights Reserved.
 @:@1(dbl,int,simple,,dbl,@2)@
 @:@1(dbl,dbl,simple,,dbl,@2)@
 @:@1(int,oid,simple,,int,@2)@
+@:@1(lng,date,simple,,lng,@2)@
+@:@1(lng,lng,simple,,lng,@2)@
+
 
 @:@1(date,int,atom,TYPE_,loc,@2)@
 @:@1(date,str,atom,TYPE_,loc,@2)@
@@ -67,6 +72,7 @@ All Rights Reserved.
 @:@1(int,int,simple,,,@2)@
 @:@1(int,date,simple,,,@2)@
 @:@1(dbl,date,simple,,,@2)@
+@:@1(lng,date,simple,,,@2)@
 @:@1(dbl,int,simple,,,@2)@
 @:@1(dbl,dbl,simple,,,@2)@
 
@@ -704,6 +710,7 @@ CRKProject_@1_@2(int *res, int *bid, int *pbid,int *pivot, @1 *low, @1 *hgh, bit
 
         size = BATcount(p);
  	r = BATnew(TYPE_void,slice->ttype,size);
+	BATseqbase(r, 0);
 
         pairt  = (@2 *)Tloc(slice, BUNfirst(slice));
         pivott = (bit*)Tloc(p, BUNfirst(p));
@@ -1723,36 +1730,36 @@ CreateTape_@1(int bid){
 
 str
 AddToTape_@1(int h, @1 low, @1 hgh, bit li, bit hi){
-	BAT *h1,*h2,*h1new,*h2new;
-
+	BAT *h1,*h2;
+	
 	if ((h1 = BATdescriptor(CrackerIndex[h].chid)) == NULL) 
                 throw(MAL, "crackers.sync", "Cannot access descriptor");
                                                 
         if ((h2 = BATdescriptor(CrackerIndex[h].hiid)) == NULL) 
                 throw(MAL, "crackers.sync", "Cannot access descriptor");
                                                 
-	h1new = BATnew(TYPE_@1,TYPE_@1,1); 
-        *(@1*)Hloc(h1new, BUNfirst(h1new)) = low;
-        *(@1*)Tloc(h1new, BUNfirst(h1new)) = hgh;
-	BATsetcount(h1new, 1);
+        *(@1*)Hloc(h1, BUNfirst(h1)+BATcount(h1)) = low;
+        *(@1*)Tloc(h1, BUNfirst(h1)+BATcount(h1)) = hgh;
+	BATsetcount(h1, BATcount(h1)+1);
 
-	h2new = BATnew(TYPE_bit,TYPE_bit,1); 
-        *(bit*)Hloc(h2new, BUNfirst(h2new)) = li;
-        *(bit*)Tloc(h2new, BUNfirst(h2new)) = hi;
-	BATsetcount(h2new, 1);
+        *(bit*)Hloc(h2, BUNfirst(h2)+BATcount(h2)) = li;
+        *(bit*)Tloc(h2, BUNfirst(h2)+BATcount(h2)) = hi;
+	BATsetcount(h2, BATcount(h2)+1);
 
-	BATins(h1,h1new,TRUE);
-	BATins(h2,h2new,TRUE);
+	@:printMacro(@1,low=,low)@
+	@:printMacro(@1,hgh=,hgh)@
+	BATprint(h1);
+	BATprint(h2);
 	
 	BBPunfix(h1->batCacheid);
         BBPunfix(h2->batCacheid);
-	BBPunfix(h1new->batCacheid);
-        BBPunfix(h2new->batCacheid);
         return MAL_SUCCEED;
 }
 @
 @= CreateResultSideways
 createView:
+
+fprintf(stderr,"vl="OIDFMT",vh="OIDFMT"\n",vl,vh);
 	if (tail){
 		BAT *vslice;
 		viewHead = VIEWhead_(BATmirror(b), BAT_READ);
@@ -1789,7 +1796,6 @@ createView:
 @= CreateCrackerMap
 		BAT *bo, *bp;
                 oid sizeM;
-                @2 *ptail, *ntail;
 		@1 *nhead, *ctail;
 		oid j;
 
@@ -1811,57 +1817,30 @@ createView:
 			assert(b->T->width <= bp->T->width);
 			if (bp->T->width != b->T->width)
 				GDKupgradevarheap(b->T, (var_t) 1 << (bp->T->width - 1), 0);
-			memcpy(Tloc(b,  BUNfirst(b)), Tloc(bp, BUNfirst(bp)), sizeM << bp->T->width);
+			memcpy(Tloc(b,  BUNfirst(b)), Tloc(bp, BUNfirst(bp)), sizeM * bp->T->width);
 
 			{
 				/* Copy the heap of the tail. I have to check this with niels */
-				int tt=TYPE_str;
-				int remap = 0;
-				int tremap = remap && BATtrestricted(bp) != BAT_WRITE && tt != TYPE_void;
-				int tvremap = tremap && ATOMstorage(tt) == TYPE_str && !GDK_ELIMDOUBLES(bp->T->vheap);
-				BUN  tcap = 0;
-				Heap bthp, thp;
-				memset(&bthp, 0, sizeof(Heap));
+				int tvremap = 0;
+				Heap thp;
 				memset(&thp, 0, sizeof(Heap));
 
-				if( 
-				    (bp->ttype && heapcopy(&bthp, &bp->T->heap, &tremap) < 0)||
-				    
-				    (b->T->vheap && heapcopy(&thp, bp->T->vheap, &tvremap) < 0)) {
+				if( (b->T->vheap && heapcopy(&thp, bp->T->vheap, &tvremap) < 0)) {
 					HEAPfree(&thp);
-					HEAPfree(&bthp);
 					return NULL;
 				}
 				/* succeeded; replace dummy small heaps by the real ones */
-				heapfree(&b->T->heap, &bthp);
 				if (b->T->vheap) {
 					thp.parentid = ABS(b->batCacheid);
 					heapfree(b->T->vheap, &thp);
 				}
 
-				/* make sure we use the correct capacity */
-				tcap = (BUN) (b->ttype?b->T->heap.size>>b->T->shift:0);
-				b->batCapacity = tcap;
-
-
 				/* first/inserted must point equally far into the heap as in the source */
 				b->batFirst = bp->batFirst;
 				b->batInserted = bp->batInserted;
-
-				/* if we have copy-on-write heaps, bn is a logical view on b to ensure the heaps stay stable */
-				if (tremap || tvremap) {
-					/*b->P->lview = TRUE;*/
-					BBPshare(b->T->heap.parentid = -bp->batCacheid);
-				}
 			}
 		}else{
-                	ntail = (@2*)Tloc(b,  BUNfirst(b));
-                	ptail = (@2*)Tloc(bp, BUNfirst(bp));
-			for(j=0;j<sizeM;j++){
-				*ntail = *ptail;
-				ntail++;
-				ptail++;
-			}
+			memcpy(Tloc(b,  BUNfirst(b)), Tloc(bp, BUNfirst(bp)), sizeM * bp->T->width);
 		}
                 b->hsorted = FALSE;
                 b->tsorted = FALSE;
@@ -2426,7 +2405,13 @@ CRKdRangeSideways_@1_@2(int *vid, int *bid, int *pbid, @1 *low, @1 *hgh, bit *in
         }  
         
 	size = BATcount(b);
+
 	p = BATnew(TYPE_void,TYPE_bit,size);
+	BATseqbase(p, 0);
+	BATprint(b);
+	
+
+	fprintf(stderr,"size="OIDFMT"\n",size);
 
 	pairt  = (@2*)Tloc(b, BUNfirst(b));
 	pivott = (bit*)Tloc(p, BUNfirst(p));
@@ -2443,6 +2428,9 @@ CRKdRangeSideways_@1_@2(int *vid, int *bid, int *pbid, @1 *low, @1 *hgh, bit *in
 
         BATsetcount(p, size);	
 	
+	BATprint(p);
+
+
 	p->hsorted = FALSE;
         p->hdense = FALSE;
 
@@ -2457,8 +2445,8 @@ CRKdRangeSideways_@1_@2(int *vid, int *bid, int *pbid, @1 *low, @1 *hgh, bit *in
 	BBPkeepref(p->batCacheid);
 	BBPunfix(b->batCacheid);
 	*res = p->batCacheid;
-
 	return MAL_SUCCEED;
+
 @
 @= JoinSelectBodySidewaysWithPivot
         BAT *b, *p, *c, *slice;     

@@ -49,6 +49,12 @@ All Rights Reserved.
 @:@1(dbl,simple,,dbl)@
 @:@1(dbl,simple,,date)@
 
+@:@1(lng,simple,,int)@
+@:@1(lng,simple,,str)@
+@:@1(lng,simple,,lng)@
+@:@1(lng,simple,,date)@
+
+
 @:@1(date,atom,TYPE_,int)@
 @:@1(date,atom,TYPE_,str)@
 @:@1(date,atom,TYPE_,lng)@

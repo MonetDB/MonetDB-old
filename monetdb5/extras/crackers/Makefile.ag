@@ -37,6 +37,7 @@ lib_crackers = {
 			  crackers_validation.mx \
 			  crackers_core_unordered.mx \
 			  crackers_select_ops.mx \
+			  crackers_joinselect_ops.mx \
 			  crackers_holistic.c \
 			  crackers_holistic.h \
 			  crackers_selectst_ops.mx \

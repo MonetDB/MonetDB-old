@@ -124,6 +124,7 @@ All Rights Reserved.
 @:@1(@2,flt)@
 @:@1(@2,dbl)@
 @:@1(@2,date)@
+@:@1(@2,lng)@
 @
 @= TypeSwitch_2
 @:TypeSwitch_temp2(@1,int)@
@@ -137,6 +138,8 @@ All Rights Reserved.
 @:@1(dbl,int)@
 @:@1(dbl,dbl)@
 @:@1(int,lng)@
+@:@1(lng,date)@
+@:@1(lng,lng)@
 @
 @= TypeSwitch_joins1
 @:@1(int,int)@
@@ -155,6 +158,7 @@ module crackers;
 @:TypeSwitch_1(Validate)@
 @:TypeSwitch_1(Updates)@
 @:TypeSwitch_2(Sideways)@
+@:TypeSwitch_1(JoinSelect)@
 
 command getTotalStorage( ):void
 address CRKgetTotalStorage
@@ -297,6 +301,45 @@ address CRKthetaselecthol_@2
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
 
+@
+@= JoinSelect
+command joinuselect( right:bat[:oid,:@2], l:@2, h:@2, li:bit, hi:bit, left:bat[:oid,:void] ):bat[:oid,:void]
+address CRKjoinSelectDefault_@2
+comment "Join left and right on head-OIDs.
+	From right, only those BUNs qualify that satisfy the range-restriction on the tail.
+	The result is a new [:oid,:void] BAT.";
+
+command joinuselect( right:bat[:oid,:@2], l:@2, h:@2, li:bit, hi:bit, left:bat[:oid,:void], inPlace:bit , isForeignKey:bit):bat[:oid,:void]
+address CRKjoinSelectBounds_@2
+comment "Join left and right on head-OIDs.
+	From right, only those BUNs qualify that satisfy the range-restriction on the tail.
+	If inPlace is TRUE (and left has an OID head and is not a BAT-view), we operate in-place,
+	overwriting left and returning it as result. Otherwise, the result is a new [:oid,:void] BAT.
+	If isForeignKey is TRUE, we assume that each tuple from left finds a match in right,
+	and hence skip the respective check.
+	(NOTE: This may lead to CRASHES, if isForeignKey is incorrectly passed as TRUE!)";
+
+command jointhetauselect( right:bat[:oid,:@2],v:@2,op:str, left:bat[:oid,:void], inPlace:bit , isForeignKey:bit):bat[:oid,:void]
+address CRKjointhetauselect_@2
+comment "Join left and right on head-OIDs.
+	From right, only those BUNs qualify that satisfy the range-restriction on the tail.
+	If inPlace is TRUE (and left has an OID head and is not a BAT-view), we operate in-place,
+	overwriting left and returning it as result. Otherwise, the result is a new [:oid,:void] BAT.
+	If isForeignKey is TRUE, we assume that each tuple from left finds a match in right,
+	and hence skip the respective check.
+	(NOTE: This may lead to CRASHES, if isForeignKey is incorrectly passed as TRUE!)";
+
+command joinselect( b:bat[:oid,:@2],l:@2, h:@2, li:bit, hi:bit ):bat[:oid,:bit]
+address CRKjoinSelectSideways_@2
+comment "From cpair, only those BUNs qualify that satisfy the range-restriction on the tail.
+        The result is a new [:oid,:bit] BAT that reflects the positions of buns in cpair. 
+	For each tuple that qualifies in cpair, the respective position in the pivot is marked with a 1";
+
+command jointhetaselect( b:bat[:oid,:@2],v:@2,op:str):bat[:oid,:bit]
+address CRKjointhetaSelectSideways_@2
+comment "From cpair, only those BUNs qualify that satisfy the range-restriction on the tail.
+        The result is a new [:oid,:bit] BAT that reflects the positions of buns in cpair. 
+	For each tuple that qualifies in cpair, the respective position in the pivot is marked with a 1";
 @
 @= Updates
 command insertionsPartiallyForget(b:bat[:any_1,:@2], c:bat[:any_1,:@2]):void
