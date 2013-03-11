@@ -12,9 +12,14 @@ command initFrequencyStruct_2(b:bat[:oid,:any],N:int,L1:int):void
 address CRKinitFrequencyStruct_2
 comment "Initialize the node with the distance from the optimal index.";
 
-command randomCrack():void
-address CRKrandomCrack
-comment "Do random crack on BATs ordered by descending weight";
+command randomCrack_1():void
+address CRKrandomCrack_1
+comment "Do random crack on BATs ordered by descending weight (cost models 1,3,5,7,9)";
+
+command randomCrack_2():void
+address CRKrandomCrack_2
+comment "Do random crack on BATs ordered by descending weight (cost models 2,4,6,8,10)";
+
 
 command zeroFrequency():void
 address CRKzeroFrequency
