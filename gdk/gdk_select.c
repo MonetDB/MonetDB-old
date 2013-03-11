@@ -1340,7 +1340,7 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 			*  ii) it is not an equi-select, and
 			* iii) is not var-sized.
 			*/
-			use_imprints = 1;
+			use_imprints = 0;
 		}
 		bn = BAT_scanselect(b, s, bn, tl, th, li, hi, equi, anti,
 				    lval, hval, maximum, use_imprints);
