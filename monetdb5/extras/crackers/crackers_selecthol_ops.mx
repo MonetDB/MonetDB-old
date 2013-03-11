@@ -74,46 +74,6 @@ crackers_export str CRKthetauselecthol_@1(int *vid, int *bid, @1 *val, str *op);
 #include "monetdb_config.h"
 #include "crackers.h"
 
-/*This function picks randomly 5 oids and their respective values and then chooses the median*/
-@= FndMedian
-	static @1 FndMedian_@1(BAT *c,oid a,oid b)
-	{
-		@1 *t;
-		@1 arr[5]={0,0,0,0,0};
-		int i, j, k; 
-		@1 temp;
-		
-		oid p;
-		int cnt=0;
-		t=(@1 *)Tloc(c,BUNfirst(c));
-		for(cnt=0;cnt<5;cnt++)
-		{
-			p=(rand()%(b-a+1))+a;
-			arr[cnt]=t[p];
-		}
-		for ( i = 1 ; i <= 4 ; i++ )
-		{
-			for ( j = 0 ; j < i ; j++ )
-			{
-				if ( arr[j] > arr[i] )
-				{
-					temp = arr[j] ;
-					arr[j] = arr[i] ;
-
-					for ( k = i ; k > j ; k-- )
-						arr[k] = arr[k - 1] ;
-
-					arr[k + 1] = temp ;
-				}
-			}
-		}
-		
-		return arr[2];
-	}
-@c
-
-@:TypeSwitch(FndMedian)@
-
 
 /* Local support functions and macros */
 @:TypeSwitch(crackOperations)@
@@ -309,6 +269,7 @@ createView:
 	BAT *b,*c,*bo;
 	BAT *view;
 	int  m;
+	int *t;
 	oid vl=0, vh=0, posl, posh;
 	/* vl and vh are the low and high index values to create the view with the result */
 	oid cl1=0, ch1=0, cl2=0, ch2=0;
@@ -317,7 +278,8 @@ createView:
 		if we have to crack only one piece, i.e., if our range falls
 		in one piece only then we crack from cl to ch otherwise we use
 		the other indices as it is shown */
-	oid _vl=0,temp_vl=0,temp_vh=0;
+	oid _vl=0;
+	/*oid temp_vl=0,temp_vh=0;*/
 	bit HBound, foundLow=0, foundHgh=0;
 	bit LBound=FALSE;
 	int gapL = 1;
@@ -332,7 +294,7 @@ createView:
 	int L1=8000; /*Number of integers that can fit into L1 cache (size: 32KB)*/
 
 	/*k and randomoid are used for DD1R*/
-	@1 k,temp_h;
+	/*@1 k,temp_h;*/
 
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
@@ -564,99 +526,78 @@ createView:
 	/* If one or both of the result view bounds were not found using the
 	index then we have to crack */
 
-	temp_h=*hgh;
 
-	if (foundLow == 0){
-			k=FndMedian_@1(b,cl1,ch1);
-			*hgh=k;
-			/*fprintf(stderr,"Random=%d Low=%d \n",k,(int)*low);*/
+	/* If one or both of the result view bounds were not found using the
+	index then we have to crack */
+	if (foundLow == 0 || foundHgh == 0) {
+		if (foundLow == 0 && foundHgh == 0) {
+			/* We have to do two cracks separatelly */
 
-			
-
-			foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
-			if (cl2 != 0) cl2++;
-			@:crkTwoRTree@5(@1,@5)@
-			if (IndexSize <IndexStop)
-			{
-					
-				if (gapH>0) addCrackerIndex_@1(m,hgh,HBound,vh,c);
-				FN->c = FN->c + 1;
-				
-			}
-			
-		        foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
-			if(foundLow==0)
-			{
-
-				if (cl1 != 0 && LBound==FALSE) cl1++;
-				 @:crkTwoLTree@5(@1,@5)@
-
-                        	if (IndexSize <IndexStop){
-                                        if (vl>0) _vl=vl-1; else _vl=vl;
-                                        if (gapL>0) addCrackerIndex_@1(m,low,*inclusiveLow,_vl,c);
-					FN->c = FN->c + 1;
-                                        temp_vl=vl;
-                        	}
-				
-			}else temp_vl=cl1;
-			
-
-		} else{ 
-			temp_vl = cl1;
-			
-		} 
-	
-	
-	*hgh=temp_h;
-	/* find out where in the index the high falls */
-        foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
-	if (cl2 != 0)   cl2++;
-	
-	
-	if (foundHgh == 0){
-			k=FndMedian_@1(b,cl2,ch2);
-			*low=k;
-			/*fprintf(stderr,"Random=%d High=%d\n",k,(int)*hgh);*/
-			
-
-
-			foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
-			if (cl1 != 0 && LBound==FALSE) cl1++;
+			/* For the cl bound and the next one in the index*/
 			@:crkTwoLTree@5(@1,@5)@
+			t = (int *) Tloc(b, BUNfirst(b));
 
-                       	if (IndexSize <IndexStop){
-                                 if (vl>0) _vl=vl-1; else _vl=vl;
-                                 if (gapL>0) addCrackerIndex_@1(m,low,*inclusiveLow,_vl,c);
-				FN->c = FN->c + 1;
-			}
-			foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
-			if(foundHgh==0)
-			{
-				if (cl2 != 0)   cl2++;
+			/* For the ch bound and the previous one in the index*/
+			@:crkTwoRTree@5(@1,@5)@
 
-				@:crkTwoRTree@5(@1,@5)@
-
-                        	if (IndexSize <IndexStop)
-                        	{
-
-                                	if (gapH>0) addCrackerIndex_@1(m,hgh,HBound,vh,c);
+			if (IndexSize < IndexStop) {
+				if (vl > 0)
+					_vl = vl - 1;
+				else
+					_vl = vl;
+				if (gapL>0)
+				{
+					addCrackerIndex_@1(m, low, *inclusiveLow, _vl, c);
 					FN->c = FN->c + 1;
-                                
-                        	}
-                        	temp_vh=vh;
-			}else temp_vh=ch2;
-				
-		} else{
-			 temp_vh = ch2;
+				}
+				if (gapH>0)
+				{ 
+					addCrackerIndex_@1(m, hgh, HBound, vh, c);
+					FN->c = FN->c + 1;
+				}
+				if ((vl == 1) && (*t == *low) && (*inclusiveLow == TRUE))
+					vl = vl - 1;
+			}
+		} else if (foundLow == 0) {
+			@:crkTwoLTree@5(@1,@5)@
+			t = (int *) Tloc(b, BUNfirst(b));
+			if (IndexSize < IndexStop) {
+				if (vl > 0)
+					_vl = vl - 1;
+				else
+					_vl = vl;
+				if (gapL>0) 
+				{
+					addCrackerIndex_@1(m, low, *inclusiveLow, _vl, c);
+					FN->c = FN->c + 1;
+				}
+				if ((vl == 1) && (*t == *low) && (*inclusiveLow == TRUE))
+					vl = vl - 1;
+			}
+			vh = ch2;
+		} else if (foundHgh == 0) {
+			@:crkTwoRTree@5(@1,@5)@
+			t = (int *) Tloc(b, BUNfirst(b));
+			if (IndexSize < IndexStop)
+				if (gapH>0) 
+				{
+					addCrackerIndex_@1(m, hgh, HBound, vh, c);
+					FN->c = FN->c + 1;
+				}
+			vl = cl1;
+			if ((vl == 0) && (*t < *low) && (*inclusiveLow == TRUE))
+				vl = vl + 1;
 		}
-	   	
-	vl=temp_vl;
-	vh=temp_vh;
-	if(foundLow != 0 && foundHgh != 0)
-	{
+	} else {
+		t = (int *) Tloc(b, BUNfirst(b));
 		vl = cl1;
+		if ((vl == 0) && (*t < *low) && (*inclusiveLow == TRUE))
+			vl = vl + 1;
 		vh = ch2;
 	}
+
+
+
 	countBatElements=BATcount(b);
 	/*fprintf(stderr,"BATcount(b)=%d\n",countBatElements);*/
 	if(FN->weight > 0)
