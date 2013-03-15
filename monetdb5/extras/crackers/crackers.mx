@@ -301,6 +301,47 @@ address CRKthetaselecthol_@2
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
 
+command selectholst(b:bat[:oid,:@2],l:@2,h:@2):bat[:oid,:@2]
+address CRKselectholst_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command selectholst(b:bat[:oid,:@2],l:@2):bat[:oid,:@2]
+address CRKselectholstValue_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command selectholst(b:bat[:oid,:@2],l:@2,h:@2,li:bit,hi:bit):bat[:oid,:@2]
+address CRKselectholstBounds_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command uselectholst(b:bat[:any_1,:@2],l:@2,h:@2):bat[:any_1,:void]
+address CRKuselectholst_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command uselectholst(b:bat[:any_1,:@2],l:@2):bat[:any_1,:void]
+address CRKuselectholstValue_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command uselectholst(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit):bat[:any_1,:void]
+address CRKuselectholstBounds_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command thetauselectholst(b:bat[:any_1,:@2],v:@2,op:str):bat[:any_1,:void]
+address CRKthetauselectholst_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command thetaselectholst(b:bat[:any_1,:@2],v:@2,op:str):bat[:any_1,:@2]
+address CRKthetaselectholst_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+
 @
 @= JoinSelect
 command joinuselect( right:bat[:oid,:@2], l:@2, h:@2, li:bit, hi:bit, left:bat[:oid,:void] ):bat[:oid,:void]
@@ -624,6 +665,7 @@ comment "make new map for debugging";
 #include "crackers_select_ops.h"
 #include "crackers_selectst_ops.h"
 #include "crackers_selecthol_ops.h"
+#include "crackers_selectholst_ops.h"
 #include "crackers_holistic.h"
 #include "crackers_core_unordered.h"
 #include "crackers_AVL_tree.h"
