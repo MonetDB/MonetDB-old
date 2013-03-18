@@ -79,7 +79,8 @@ typedef struct CSset{
 typedef struct CSrel{	
 	oid  origCSoid;	
 	oid* lstRefCSoid; 		
-	int* lstCnt; 	// Count per reference
+	oid* lstPropId; 	// Predicate for a relationship
+	int* lstCnt; 		// Count per reference
 	int  numRef; 
 	int  numAllocation; 
 } CSrel;
