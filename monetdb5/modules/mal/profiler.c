@@ -371,27 +371,9 @@ CMDgetFootprint( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	lng *l= getArgReference(stk,pci,0);
 
 	(void) cntxt;
-	*l = getFootPrint(mb,stk);
-	return MAL_SUCCEED;
-}
-
-str
-CMDsetMemoryFlag( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	(void) mb;
-	(void) stk;
-	(void) pci;
-	cntxt->flags |= memoryFlag;
-	return MAL_SUCCEED;
-}
-
-str
-CMDgetMemory( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	lng *l= getArgReference(stk,pci,0);
-
-	(void) mb;
-	*l = cntxt->memory;
-	cntxt->flags &= ~memoryFlag;
-	cntxt->memory= 0;
+	*l = stk->tmpspace;
+	cntxt->flags &= ~footprintFlag;	// clear it as well
 	return MAL_SUCCEED;
 }
 
@@ -399,5 +381,27 @@ str
 CMDtomograph(int *ret)
 {
 	(void) ret;
+	return MAL_SUCCEED;
+}
+
+str
+CMDcpustats(lng *user, lng *nice, lng *sys, lng *idle, lng *iowait)
+{
+	profilerGetCPUStat(user,nice,sys,idle,iowait);
+	return MAL_SUCCEED;
+}
+
+str
+CMDcpuloadPercentage(int *cycles, int *io, lng *user, lng *nice, lng *sys, lng *idle, lng *iowait)
+{
+	lng userN, niceN, sysN, idleN, iowaitN, N;
+	*cycles = 0;
+	*io = 0;
+	profilerGetCPUStat(&userN,&niceN,&sysN,&idleN,&iowaitN);
+	N = (userN - *user + niceN - *nice + sysN - *sys);
+	if ( N){
+		*cycles = (int) ( ((double) N) / (N + idleN - *idle + iowaitN - *iowait) *100);
+		*io = (int) ( ((double) iowaitN- *iowait) / (N + idleN - *idle + iowaitN - *iowait) *100);
+	}
 	return MAL_SUCCEED;
 }

@@ -417,7 +417,7 @@ offlineProfilerEvent(int idx, MalBlkPtr mb, MalStkPtr stk, int pc, int start)
 */
 	}
 	if (profileCounter[PROFfootprint].status) {
-		logadd(LLFMT",\t", getFootPrint(mb,stk)/1024/1024);
+		logadd(LLFMT",\t", stk->tmpspace);
 	}
 #ifdef HAVE_SYS_RESOURCE_H
 	if ((profileCounter[PROFreads].status ||
@@ -634,9 +634,15 @@ MPresetProfiler(stream *fdout)
 {
 	if (fdout != eventstream)
 		return;
+	if (mal_trace)
+		return;
 	MT_lock_set(&mal_profileLock, "profileLock");
 	eventstream = 0;
 	MT_lock_unset(&mal_profileLock, "profileLock");
+}
+
+void setFilterAll(void){
+	profileAll = 1;
 }
 
 /*
@@ -816,6 +822,7 @@ clrFilterVariable(MalBlkPtr mb, int arg)
  * for easy integration with SQL.
  */
 static int TRACE_event = 0;
+static BAT *TRACE_id_tag = 0;
 static BAT *TRACE_id_event = 0;
 static BAT *TRACE_id_time = 0;
 static BAT *TRACE_id_ticks = 0;
@@ -835,6 +842,7 @@ TRACEtable(BAT **r)
 	if (initTrace())
 		return ;
 	MT_lock_set(&mal_profileLock, "profileLock");
+	r[0] = BATcopy(TRACE_id_tag, TRACE_id_tag->htype, TRACE_id_tag->ttype, 0);
 	r[0] = BATcopy(TRACE_id_event, TRACE_id_event->htype, TRACE_id_event->ttype, 0);
 	r[1] = BATcopy(TRACE_id_time, TRACE_id_time->htype, TRACE_id_time->ttype, 0);
 	r[2] = BATcopy(TRACE_id_pc, TRACE_id_pc->htype, TRACE_id_pc->ttype, 0);
@@ -858,22 +866,17 @@ TRACEcreate(str hnme, str tnme, int tt)
 
 	snprintf(buf, 128, "trace_%s_%s", hnme, tnme);
 	b = BATdescriptor(BBPindex(buf));
-	if (b) {
-		if (b->htype == TYPE_int)
-			/* old code */
-			BBPreclaim(b);
-		else
-			return b;
-	}
+	if (b) 
+		return b;
 
 	b = BATnew(TYPE_void, tt, 1 << 16);
 	if (b == NULL)
 		return NULL;
 
+	BATmode(b, PERSISTENT);
 	BATseqbase(b, 0);
 	BATkey(b, TRUE);
 	BBPrename(b->batCacheid, buf);
-	BATmode(b, PERSISTENT);
 	BATcommit(b);
 	return b;
 }
@@ -884,6 +887,7 @@ TRACEcreate(str hnme, str tnme, int tt)
 static void
 _cleanupProfiler(void)
 {
+	CLEANUPprofile(TRACE_id_tag);
 	CLEANUPprofile(TRACE_id_event);
 	CLEANUPprofile(TRACE_id_time);
 	CLEANUPprofile(TRACE_id_pc);
@@ -901,6 +905,7 @@ _cleanupProfiler(void)
 void
 _initTrace(void)
 {
+	TRACE_id_tag = TRACEcreate("id", "tag", TYPE_int);
 	TRACE_id_event = TRACEcreate("id", "event", TYPE_int);
 	TRACE_id_time = TRACEcreate("id", "time", TYPE_str);
 	TRACE_id_ticks = TRACEcreate("id", "ticks", TYPE_lng);
@@ -914,6 +919,7 @@ _initTrace(void)
 	TRACE_id_thread = TRACEcreate("id", "thread", TYPE_int);
 	TRACE_id_user = TRACEcreate("id", "user", TYPE_int);
 	if (TRACE_id_event == NULL ||
+		TRACE_id_tag == NULL ||
 		TRACE_id_time == NULL ||
 		TRACE_id_ticks == NULL ||
 		TRACE_id_pc == NULL ||
@@ -959,6 +965,7 @@ clearTrace(void)
 		return;     /* not initialized */
 	MT_lock_set(&mal_contextLock, "cleanup");
 	/* drop all trace tables */
+	BBPclear(TRACE_id_tag->batCacheid);
 	BBPclear(TRACE_id_event->batCacheid);
 	BBPclear(TRACE_id_time->batCacheid);
 	BBPclear(TRACE_id_ticks->batCacheid);
@@ -979,6 +986,8 @@ getTrace(str nme)
 {
 	if (TRACE_init == 0)
 		return NULL;
+	if (strcmp(nme, "tag") == 0)
+		return BATcopy(TRACE_id_tag, TRACE_id_tag->htype, TRACE_id_tag->ttype, 0);
 	if (strcmp(nme, "event") == 0)
 		return BATcopy(TRACE_id_event, TRACE_id_event->htype, TRACE_id_event->ttype, 0);
 	if (strcmp(nme, "time") == 0)
@@ -1082,6 +1091,7 @@ cachedProfilerEvent(int idx, MalBlkPtr mb, MalStkPtr stk, int pc)
 
 	TRACE_id_user = BUNappend(TRACE_id_user, &idx, FALSE);
 
+	TRACE_id_tag = BUNappend(TRACE_id_tag, &mb->tag, FALSE);
 	TRACE_id_event = BUNappend(TRACE_id_event, &TRACE_event, FALSE);
 	TRACE_event++;
 
@@ -1269,9 +1279,9 @@ static int getCPULoad(char cpuload[BUFSIZ]){
 			s +=3;
 			if ( *s == ' ') {
 				s++;
-				goto skip;
-			} 
-			cpu = atoi(s);
+				cpu = 255; // the cpu totals stored here
+			}  else 
+				cpu = atoi(s);
 			s= strchr(s,' ');
 			if ( s== 0) goto skip;
 			
@@ -1281,7 +1291,7 @@ static int getCPULoad(char cpuload[BUFSIZ]){
 				goto skip;
 			newload = (user - corestat[cpu].user + nice - corestat[cpu].nice + system - corestat[cpu].system);
 			if (  newload)
-				corestat[cpu].load = (double) newload / (newload + idle - corestat[cpu].idle);
+				corestat[cpu].load = (double) newload / (newload + idle - corestat[cpu].idle + iowait - corestat[cpu].iowait);
 			corestat[cpu].user = user;
 			corestat[cpu].nice = nice;
 			corestat[cpu].system = system;
@@ -1293,12 +1303,23 @@ static int getCPULoad(char cpuload[BUFSIZ]){
 
 	s= cpuload;
 	len = BUFSIZ;
-	for ( cpu = 0; cpu < 256 && corestat[cpu].user; cpu++) {
+	// identify core processing
+	for ( cpu = 0; cpuload && cpu < 255 && corestat[cpu].user; cpu++) {
 		snprintf(s, len, " %.2f ",corestat[cpu].load);
 		len -= (int)strlen(s);
 		s += (int) strlen(s);
 	}
 	return 0;
+}
+
+void profilerGetCPUStat(lng *user, lng *nice, lng *sys, lng *idle, lng *iowait)
+{
+	(void) getCPULoad(0);
+	*user = corestat[255].user;
+	*nice = corestat[255].nice;
+	*sys = corestat[255].system;
+	*idle = corestat[255].idle;
+	*iowait = corestat[255].iowait;
 }
 
 void profilerHeartbeatEvent(str msg)
@@ -1392,9 +1413,8 @@ void profilerHeartbeatEvent(str msg)
 		logadd("%ld,\t", infoUsage.ru_oublock - prevUsage.ru_oublock);
 		prevUsage = infoUsage;
 	}
-	if (profileCounter[PROFfootprint].status) {
-		logadd(LLFMT",\t", getFootPrint(0,0)/1024/1024);
-	}
+	if (profileCounter[PROFfootprint].status)
+		logadd("0,\t");
 	if (profileCounter[PROFprocess].status && delayswitch < 0) {
 		logadd("%ld,\t", infoUsage.ru_minflt - prevUsage.ru_minflt);
 		logadd("%ld,\t", infoUsage.ru_majflt - prevUsage.ru_majflt);

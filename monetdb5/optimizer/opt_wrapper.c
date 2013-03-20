@@ -54,7 +54,6 @@ All Rights Reserved.
 #include "opt_factorize.h"
 #include "opt_garbageCollector.h"
 #include "opt_groups.h"
-#include "opt_history.h"
 #include "opt_inline.h"
 #include "opt_joinpath.h"
 #include "opt_mapreduce.h"
@@ -66,6 +65,7 @@ All Rights Reserved.
 #include "opt_octopus.h"
 #include "opt_prejoin.h"
 #include "opt_pushranges.h"
+#include "opt_querylog.h"
 #include "opt_qep.h"
 #include "opt_recycler.h"
 #include "opt_reduce.h"
@@ -84,7 +84,7 @@ struct{
 	{"aliases", &OPTaliasesImplementation},
 	{"centipede", &OPTcentipedeImplementation},
 	{"cluster", &OPTclusterImplementation},
-	{"coercion", &OPTcoercionImplementation},
+	{"coercions", &OPTcoercionImplementation},
 	{"commonTerms", &OPTcommonTermsImplementation},
 	{"compression", &OPTcompressionImplementation},
 	{"costModel", &OPTcostModelImplementation},
@@ -96,7 +96,6 @@ struct{
 	{"factorize", &OPTfactorizeImplementation},
 	{"groups", &OPTgroupsImplementation},
 	{"garbageCollector", &OPTgarbageCollectorImplementation},
-	{"history", &OPThistoryImplementation},
 	{"inline", &OPTinlineImplementation},
 	{"joinPath", &OPTjoinPathImplementation},
 	{"mapreduce", &OPTmapreduceImplementation},
@@ -108,6 +107,7 @@ struct{
 	{"origin", &OPToriginImplementation},
 	{"prejoin", &OPTprejoinImplementation},
 	{"pushranges", &OPTpushrangesImplementation},
+	{"querylog", &OPTquerylogImplementation},
 	{"dumpQEP", &OPTdumpQEPImplementation},
 	{"recycle", &OPTrecyclerImplementation},
 	{"reduce", &OPTreduceImplementation},
@@ -155,9 +155,7 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 		s= findSymbol(cntxt->nspace, putName(modnme,strlen(modnme)),putName(fcnnme,strlen(fcnnme)));
 
 		if( s == NULL) {
-			char buf[1024];
-			snprintf(buf,1024, "%s.%s",modnme,fcnnme);
-			throw(MAL, optimizer, RUNTIME_OBJECT_UNDEFINED ":%s", buf);
+			throw(MAL, optimizer, RUNTIME_OBJECT_UNDEFINED ":%s.%s", modnme, fcnnme);
 		}
 		mb = s->def;
 		stk= 0;
@@ -175,6 +173,9 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	if ( strcmp(codes[i].nme, optimizer)== 0 ){
 		actions = (int)(*(codes[i].fcn))(cntxt, mb, stk,0);
 		break;	
+	}
+	if ( codes[i].nme == 0){
+		throw(MAL, optimizer, RUNTIME_OBJECT_UNDEFINED ":%s.%s", modnme, fcnnme);
 	}
 
 	msg= optimizerCheck(cntxt, mb, optimizer, actions, t=(GDKusec() - clk),OPT_CHECK_ALL);

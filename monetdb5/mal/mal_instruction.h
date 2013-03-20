@@ -119,6 +119,7 @@ typedef struct PERF {
 typedef struct MALBLK {
 	str binding;				/* related C-function */
 	str help;					/* supportive commentary */
+	oid tag;					/* unique block tag */
 	struct MALBLK *alternative;
 	int vtop;					/* next free slot */
 	int vsize;					/* size of variable arena */
@@ -143,7 +144,8 @@ typedef struct MALBLK {
 	lng recid;					/* ID given by recycler optimizer */
 	lng legid;
 	sht trap;					/* call debugger when called */
-	lng starttime;				/* track when the query started, for resource management */
+	lng runtime;					/* average execution time of block in ticks */
+	int calls;					/* number of calls */
 } *MalBlkPtr, MalBlkRecord;
 
 /* Allocation of space assumes a rather exotic number of

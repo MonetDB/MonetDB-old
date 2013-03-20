@@ -1649,6 +1649,9 @@ table_ref(mvc *sql, sql_rel *rel, symbol *tableref)
 			}
 			return rel;
 		}
+		if ((isMergeTable(t) || isReplicaTable(t)) && list_empty(t->tables.set))
+			return sql_error(sql, 02, "Unable to query empty Merge or Replica tables");
+
 		return rel_basetable(sql, t, tname);
 	} else if (tableref->token == SQL_VALUES) {
 		return rel_values(sql, tableref);
@@ -3367,7 +3370,7 @@ rel_unop(mvc *sql, sql_rel **rel, symbol *se, int fs, exp_kind ek)
 
 
 #define is_addition(fname) (strcmp(fname, "sql_add") == 0)
-#define is_substraction(fname) (strcmp(fname, "sql_sub") == 0)
+#define is_subtraction(fname) (strcmp(fname, "sql_sub") == 0)
 
 sql_exp *
 rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
@@ -3392,7 +3395,7 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 	if (!t1 || !t2)
 		return sql_error(sql, 01, "Cannot have a parameter (?) on both sides of an expression");
 
-	if ((is_addition(fname) || is_substraction(fname)) && t1->type->eclass == EC_NUM && t2->type->eclass == EC_NUM) {
+	if ((is_addition(fname) || is_subtraction(fname)) && t1->type->eclass == EC_NUM && t2->type->eclass == EC_NUM) {
 		sql_subtype ntp;
 
 		sql_find_numeric(&ntp, t1->type->localtype, t1->digits+1);

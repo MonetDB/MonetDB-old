@@ -114,6 +114,7 @@ newMalBlk(int maxvars, int maxstmts)
 	mb->vtop = 0;
 	mb->vsize = maxvars;
 	mb->help = mb->binding = NULL;
+	mb->tag = 0;
 	mb->errors = 0;
 	mb->alternative = NULL;
 	mb->history = NULL;
@@ -130,7 +131,8 @@ newMalBlk(int maxvars, int maxstmts)
 	mb->recycle = 0;
 	mb->recid = 0;
 	mb->trap = 0;
-	mb->starttime = 0;
+	mb->runtime = 0;
+	mb->calls = 0;
 	if (newMalBlkStmt(mb, maxstmts) < 0)
 		return NULL;
 	return mb;
@@ -177,6 +179,7 @@ freeMalBlk(MalBlkPtr mb)
 	if (mb->binding)
 		GDKfree(mb->binding);
 	mb->binding = 0;
+	mb->tag = 0;
 	if (mb->help)
 		GDKfree(mb->help);
 	mb->help = 0;
@@ -237,11 +240,14 @@ copyMalBlk(MalBlkPtr old)
 	mb->help = old->help ? GDKstrdup(old->help) : NULL;
 	mb->binding = old->binding ? GDKstrdup(old->binding) : NULL;
 	mb->errors = old->errors;
+	mb->tag = old->tag;
 	mb->typefixed = old->typefixed;
 	mb->flowfixed = old->flowfixed;
 	mb->recycle = old->recycle;
 	mb->recid = old->recid;
 	mb->trap = old->trap;
+	mb->runtime = old->runtime;
+	mb->calls = old->calls;
 	mb->replica = old->replica;
 	mb->maxarg = old->maxarg;
 	mb->profiler = NULL;

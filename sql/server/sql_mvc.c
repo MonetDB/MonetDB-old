@@ -71,7 +71,7 @@ mvc_init(int debug, store_type store, backend_stack stk)
 			mvc_drop_table(m, s, t, 0);
 		}
 
-		t = mvc_create_view(m, s, "tables", SQL_PERSIST, "SELECT * FROM (SELECT p.*, 0 AS \"temporary\" FROM \"sys\".\"_tables\" AS p UNION ALL SELECT t.*, 1 AS \"temporary\" FROM \"tmp\".\"_tables\" AS t) AS tables where tables.type < 2;", 1);
+		t = mvc_create_view(m, s, "tables", SQL_PERSIST, "SELECT * FROM (SELECT p.*, 0 AS \"temporary\" FROM \"sys\".\"_tables\" AS p UNION ALL SELECT t.*, 1 AS \"temporary\" FROM \"tmp\".\"_tables\" AS t) AS tables where tables.type <> 2;", 1);
 		mvc_create_column_(m, t, "id", "int", 32);
 		mvc_create_column_(m, t, "name", "varchar", 1024);
 		mvc_create_column_(m, t, "schema_id", "int", 32);
@@ -100,9 +100,10 @@ mvc_init(int debug, store_type store, backend_stack stk)
 		mvc_create_column_(m, t, "default", "varchar", 2048);
 		mvc_create_column_(m, t, "null", "boolean", 1);
 		mvc_create_column_(m, t, "number", "int", 32);
-		/* TODO: the code below is out-of-date.  Should be changed into the
-		 * following with the next major catalogue change:
-		 * mvc_create_column(m, t, "storage", "varchar", 2048);
+		/* TODO: the code below is out-of-date, should be
+		 * 		mvc_create_column_(m, t, "storage", "varchar", 2048);
+		 * This has been corrected in the sciql branch (changeset
+		 * c77e81db6fe6).
 		 */
 		mvc_create_column_(m, t, "storage_type", "int", 32);
 

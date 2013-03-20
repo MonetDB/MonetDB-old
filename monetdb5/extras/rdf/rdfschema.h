@@ -30,7 +30,7 @@ rdf_export str
 RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid); 
 
 rdf_export str 
-RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, int *freqThreshold);
+RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold);
 
 typedef struct {
 	BAT*	hsKeyBat; 
@@ -40,6 +40,9 @@ typedef struct {
 	BAT* 	fullPBat;   /* Stores all set of properties */	
 } CSBats; 	// BATs for storing all information about CSs
 
+#define STOREFULLCS     1       /* Store full instance of a CS including the a subject and list of predicates, objects. 
+                                  Only use this for finding the name of the table corresponding to that CS */
+
 typedef struct CS
 {
 	oid 	csId;		//Id of the CS
@@ -47,6 +50,10 @@ typedef struct CS
 	int	numProp;
 	int	numAllocation;
 	char 	isSubset; 
+	#if STOREFULLCS
+	oid     subject;        //A subject
+	oid*    lstObj;         //List of sample objects
+	#endif
 } CS;
 
 typedef struct SubCS {

@@ -85,6 +85,7 @@ mal_export void clrFilter(Module cntxt, str mod, str fcn);
 mal_export void setFilterVariable(MalBlkPtr mb, int i);
 mal_export void clrFilterVariable(MalBlkPtr mb, int i);
 mal_export stream *getProfilerStream(void);
+mal_export void setFilterAll(void);
 
 mal_export void MPresetProfiler(stream *fdout);
 
@@ -100,6 +101,7 @@ mal_export lng getDiskReads(void);
 mal_export lng getDiskWrites(void);
 mal_export lng getUserTime(void);
 mal_export lng getSystemTime(void);
+mal_export void profilerGetCPUStat(lng *user, lng *nice, lng *sys, lng *idle, lng *iowait);
 mal_export void _initTrace(void);
 
 #endif
