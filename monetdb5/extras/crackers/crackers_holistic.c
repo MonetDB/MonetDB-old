@@ -64,7 +64,7 @@ getFrequencyStruct(char which)
 	
 	return *theNode;
 }
-
+/*this function pushes nodes in the list and is used in cost models: 2,4,6,8,10*/
 void 
 push(int bat_id,FrequencyNode* head)
 {
@@ -78,8 +78,7 @@ push(int bat_id,FrequencyNode* head)
 	new_node->next=head->next;
 	head->next=new_node; 
 }
-
-/*this function pushes nodes in the list in the first and the second experiment (1st & 2nd cost model)*/
+/*this function pushes nodes in the list and is used in cost models: 1,3,5*/
 void 
 push_2(int bat_id,FrequencyNode* head,int N,int L1)
 {
@@ -93,7 +92,20 @@ push_2(int bat_id,FrequencyNode* head,int N,int L1)
 	new_node->next=head->next;
 	head->next=new_node; 
 }
-
+/*this function pushes nodes in the list and is used in cost models: 7,9*/
+void 
+push_3(int bat_id,FrequencyNode* head)
+{
+	FrequencyNode* new_node;
+	new_node=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode));
+	new_node->bid=bat_id;
+	new_node->c=1;
+	new_node->f1=0;
+	new_node->f2=0;
+	new_node->weight=1.0;
+	new_node->next=head->next;
+	head->next=new_node; 
+}
 
 FrequencyNode*
 pop(FrequencyNode* head)
@@ -164,7 +176,7 @@ searchBAT(FrequencyNode* head,int bat_id)
 	}
 	return temp;
 }
-/*this function returns the maximum weight from the list and is used for the following cost models: 1,3,5,7,9*/
+/*this function returns the maximum weight from the list and is used for all the cost models*/
 FrequencyNode*
 findMax(FrequencyNode* head)
 {
@@ -187,27 +199,56 @@ findMax(FrequencyNode* head)
 	}
 	return ret_node;
 }
-/*this function returns the maximum weight from the list and is used for the following cost models: 2,4,6,8,10*/
+
+/*this function returns a random node from the list with positive weight*/
 FrequencyNode*
-findMax_2(FrequencyNode* head)
+pickRandom(FrequencyNode* head)
 {
 	FrequencyNode* temp;
 	FrequencyNode* ret_node=NULL;
-	double tmpW;
+	int *batids; /*it stores the number of the node in the list*/
+	int random_position;
+        int n=0;
+	int k=0;
 	temp=head->next;
-	tmpW=temp->weight;
 	while(temp!=NULL)
 	{
-		if((tmpW > 0) && (temp->weight >= tmpW))
+		if(temp->weight > 0)
 		{
-			tmpW=temp->weight;
-			ret_node=temp;
+			n++;			
 		}
 		temp=temp->next;
 	}
+	if (n!=0)
+	{
+		batids=(int *) GDKmalloc(n*sizeof(int));
+		n=0;
+		temp=head->next;
+		while(temp!=NULL)
+		{
+			if(temp->weight > 0)
+			{
+				batids[k]=n;
+				k++;			
+			}
+			temp=temp->next;
+			n++;
+		}
+		random_position=rand()%k;
+		n=0;
+		temp=head->next;
+		while(temp!=NULL)
+		{
+			if(n==batids[random_position])
+			{
+				ret_node=temp;
+			}
+			temp=temp->next;
+			n++;
+		}	
+	}
 	return ret_node;
 }
-
 
 /*The following function updates the weights in the list*/
 /*This cost model takes into consideration only the distance from the optimal index.*/
@@ -221,9 +262,8 @@ changeWeight_1(FrequencyNode* node,int N,int L1)
 	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
-	/*fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);*/
 	node->weight = d;
-	/*fprintf(stderr,"W=%lf\n",node->weight);*/
+	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
 	return node->weight;
 }
 /*The following function updates the weights in the list*/
@@ -238,17 +278,16 @@ changeWeight_2(FrequencyNode* node,int N,int L1)
 	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
-	/*fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);*/
 	if (node->f1==0)
 	{
-		node->weight = 0;
+		node->weight = 0.0;
 	}
 	else
 	{
 		node->weight = d;
 	}
 
-	/*fprintf(stderr,"W=%lf\n",node->weight);*/
+	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
 	return node->weight;
 }
 
@@ -264,7 +303,6 @@ changeWeight_3(FrequencyNode* node,int N,int L1)
 	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
-	/*fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);*/
 	if (node->f1==0)
 	{
 		node->weight = d;
@@ -273,7 +311,7 @@ changeWeight_3(FrequencyNode* node,int N,int L1)
 	{
 		node->weight = (double)(node->f1) * d;
 	}
-	/*fprintf(stderr,"W=%lf\n",node->weight);*/
+	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
 	return node->weight;
 }
 /*The following function updates the weights in the list*/
@@ -288,7 +326,6 @@ changeWeight_4(FrequencyNode* node,int N,int L1)
 	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
-	/*fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);*/
 	if (node->f1==0)
 	{
 		node->weight = 0;
@@ -297,7 +334,7 @@ changeWeight_4(FrequencyNode* node,int N,int L1)
 	{
 		node->weight = (double)(node->f1) * d;
 	}
-	/*fprintf(stderr,"W=%lf\n",node->weight);*/
+	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
 	return node->weight;
 }
 
@@ -314,8 +351,6 @@ changeWeight_5(FrequencyNode* node,int N,int L1)
 	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
-	/*fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);*/
-
 	if (node->f1==0)
 	{
 		node->weight = d;
@@ -327,7 +362,7 @@ changeWeight_5(FrequencyNode* node,int N,int L1)
 		else
 			node->weight = (double)(node->f1) * d;
 	}
-	/*fprintf(stderr,"W=%lf\n",node->weight);*/
+	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
 	return node->weight;
 
 }
@@ -344,8 +379,6 @@ changeWeight_6(FrequencyNode* node,int N,int L1)
 	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
-	/*fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);*/
-
 	if (node->f1==0)
 	{
 		node->weight = 0;
@@ -357,7 +390,7 @@ changeWeight_6(FrequencyNode* node,int N,int L1)
 		else
 			node->weight = (double)(node->f1) * d;
 	}
-	/*fprintf(stderr,"W=%lf\n",node->weight);*/
+	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
 	return node->weight;
 
 }
@@ -373,16 +406,18 @@ changeWeight_7(FrequencyNode* node,int N,int L1)
 	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
-	/*fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);*/
-	if (d > 0)
+	if (d>0)
 	{
-		node->weight = 1.0;
+		if (node->f1==0)
+			node->weight = 1.0;
+		else
+			node->weight = (double)(node->f1);
 	}
-	else if (d>0)
+	else
 	{
-		node->weight = (double)(node->f1);
+		node->weight = 0.0;
 	}
-	/*fprintf(stderr,"W=%lf\n",node->weight);*/
+	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
 	return node->weight;
 }
 
@@ -398,12 +433,16 @@ changeWeight_8(FrequencyNode* node,int N,int L1)
 	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
-	/*fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);*/
 	if (d > 0)
 	{
 		node->weight = (double)(node->f1);
 	}
-	/*fprintf(stderr,"W=%lf\n",node->weight);*/
+	else
+	{
+		node->weight = 0.0;
+	}
+
+	fprintf(stderr,"bid=%d f1=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,p,Sp,d,node->weight);
 	return node->weight;
 }
 
@@ -420,20 +459,24 @@ changeWeight_9(FrequencyNode* node,int N,int L1)
 	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
-	/*fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);*/
-
-	if (node->f1==0)
+	if (d>0)
 	{
-		node->weight = 1.0;
-	}
-	else if (d>0)
-	{
-		if (node->f2!=0)
-			node->weight = ((double)(node->f1)/(double)(node->f2));
+		if (node->f1==0)
+			node->weight = 1.0;
 		else
-			node->weight = (double)(node->f1);
+		{
+			if (node->f2!=0)
+				node->weight = ((double)(node->f1)/(double)(node->f2));
+			else
+				node->weight = (double)(node->f1);
+		}
 	}
-	/*fprintf(stderr,"W=%lf\n",node->weight);*/
+	else
+	{
+		node->weight = 0.0;
+	}
+
+	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
 	return node->weight;
 
 }
@@ -450,7 +493,6 @@ changeWeight_10(FrequencyNode* node,int N,int L1)
 	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
-	/*fprintf(stderr,"p=%d Sp=%lf d=%lf\n",p,Sp,d);*/
 	if (d>0)
 	{
 		if (node->f2!=0)
@@ -458,7 +500,13 @@ changeWeight_10(FrequencyNode* node,int N,int L1)
 		else
 			node->weight = (double)(node->f1);
 	}
-	/*fprintf(stderr,"W=%lf\n",node->weight);*/
+	else
+	{
+		node->weight = 0.0;
+	}
+
+
+	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);	
 	return node->weight;
 
 }
@@ -502,6 +550,18 @@ CRKinitFrequencyStruct_2(int *vid,int *bid,int* N,int* L1)
 	return MAL_SUCCEED;
 }
 
+/*this function initializes the list in the first & second experiment(1st & 2nd cost model)*/
+str 
+CRKinitFrequencyStruct_3(int *vid,int *bid)
+{
+	FrequencyNode *fs = getFrequencyStruct('A');
+	/*fprintf(stderr,"BAT_ID=%d\n",*bid);*/
+	push_3(*bid,fs);
+	*vid = 0;
+	return MAL_SUCCEED;
+}
+
+
 /*this function changes the frequencies into 0 in the end of the idle time interval*/
 str
 CRKzeroFrequency(int *vid)
@@ -519,9 +579,9 @@ CRKzeroFrequency(int *vid)
         return MAL_SUCCEED;
 }
 
-/*This function is used during idle time for cost models: 1,3,5,7,9*/
+/*This function is used during idle time for all the cost models*/
 str
-CRKrandomCrack_1(int *ret)
+CRKrandomCrack(int *ret)
 {
 	int bid=0;
 	FrequencyNode* max_node;
@@ -570,54 +630,4 @@ CRKrandomCrack_1(int *ret)
 	return MAL_SUCCEED;
 }
 
-/*This function is used during idle time for cost models: 2,4,6,8,10*/
-str
-CRKrandomCrack_2(int *ret)
-{
-	int bid=0;
-	FrequencyNode* max_node;
-	BAT *b;
-	int low=0, hgh=0;
-	int *t;
-	int temp=0;
-	oid posl,posh,p;
-	/*FILE *ofp1;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/same#tuples/new/hit_range/1st_CostModel_variation/sequential_AB_x/n4000/out.txt";*/
-	
-	bit inclusive=TRUE;
-	FrequencyNode *fs = getFrequencyStruct('A');	
-	isIdleQuery=1;
-	/*ofp1 = fopen(outputFilename1,"a");*/
-	max_node=findMax_2(fs);
-	if(max_node!=NULL && max_node->weight > 0)
-	{
-		bid=max_node->bid;
-		b=BATdescriptor(bid);
-		t=(int*)Tloc(b,BUNfirst(b));
-		posl=BUNfirst(b);
-		posh=BUNlast(b) - 1;
-		p=(rand()%(posh-posl+1))+posl;
-		low=t[p];
-		p=(rand()%(posh-posl+1))+posl;
-		hgh=t[p];
-		if(hgh < low)
-		{
-			temp=low;
-			low=hgh;
-			hgh=temp;
-		}
-	/*fprintf(stderr,"posl = "OIDFMT" posh = "OIDFMT" low = %d hgh = %d inclusive = %d", posl,posh,low,hgh,inclusive );*/
-		CRKselectholBounds_int(ret, &bid, &low, &hgh, &inclusive, &inclusive);
-		
-		/*fprintf(ofp1,"%d\n",bid);*/
-		}
-	
-		/*fclose(ofp1);*/
-
-	/*printFrequencyStruct(fs);*/
-	isIdleQuery=0;
-
-	*ret = 0;
-	return MAL_SUCCEED;
-}
 
