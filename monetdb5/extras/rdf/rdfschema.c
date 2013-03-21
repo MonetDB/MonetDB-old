@@ -739,7 +739,7 @@ CS* creatCS(oid csId, int numP, oid* buff)
 	}
 	copyOidSet(cs->lstObj, lstObject, numP); 
 	cs->subject = subjectId; 
-	printf("Create a CS with subjectId: " BUNFMT "\n", subjectId);
+	//printf("Create a CS with subjectId: " BUNFMT "\n", subjectId);
 	#endif
 	return cs; 
 }
