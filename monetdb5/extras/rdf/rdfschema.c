@@ -474,13 +474,15 @@ str printCSrelWithMaxSet(oid* csSuperCSMap, CSrel *csrelToMaxSet, CSrel *csrelFr
 }
 
 static 
-void printSubCSInformation(SubCSSet *subcsset, int num, char isWriteTofile, int freqThreshold){
+void printSubCSInformation(SubCSSet *subcsset, BAT* freqBat, int num, char isWriteTofile, int freqThreshold){
 
 	int i; 
 	int j; 
-	
-	FILE 	*fout; 
-	char 	filename[100];
+	int *freq; 
+	int numSubCSFilter; 
+
+	FILE 	*fout, *foutfreq, *foutfreqfilter; 
+	char 	filename[100], filenamefreq[100], filenamefreqfilter[100];
 	char 	tmpStr[20];
 
 	if (isWriteTofile == 0){
@@ -499,21 +501,47 @@ void printSubCSInformation(SubCSSet *subcsset, int num, char isWriteTofile, int 
 		strcpy(filename, "csSubCSInfo");
 		sprintf(tmpStr, "%d", freqThreshold);
 		strcat(filename, tmpStr);
+		strcpy(filenamefreq, filename); 
+		strcpy(filenamefreqfilter, filename); 
 		strcat(filename, ".txt");
+		strcat(filenamefreq,"_freq.txt");
+		strcat(filenamefreqfilter,"_freqfilter.txt");
 
 		fout = fopen(filename,"wt"); 
+		foutfreq = fopen(filenamefreq,"wt");
+		foutfreqfilter = fopen(filenamefreqfilter,"wt");
+		fprintf(foutfreq, "csId	#SubCS \n");
+		fprintf(foutfreqfilter, "csId	#FrequentSubCS  \n");
 
 		for (i = 0; i < num; i++){
-			if (subcsset[i].numSubCS != 0){	//Only print CS with FK
+			if (subcsset[i].numSubCS != 0){	
+				freq  = (int *) Tloc(freqBat, i);
 				fprintf(fout, "CS " BUNFMT ": ", subcsset[i].csId);
+
+				if (*freq > freqThreshold){
+					fprintf(foutfreq, BUNFMT "  ", subcsset[i].csId);
+					fprintf(foutfreqfilter, BUNFMT "  ", subcsset[i].csId);
+				}
+				numSubCSFilter = 0;
 				for (j = 0; j < subcsset[i].numSubCS; j++){
 					fprintf(fout, BUNFMT " (%d) ", subcsset[i].subCSs[j].subCSId, subcsset[i].freq[j]);	
+					
+					// Check frequent subCS which appears in > 1% 
+					if (*freq <  subcsset[i].freq[j]*10){
+						numSubCSFilter++;
+					}
 				}	
+				if (*freq > freqThreshold){
+					fprintf(foutfreq, "%d \n", subcsset[i].numSubCS);
+					fprintf(foutfreqfilter, "%d \n", numSubCSFilter);
+				}
 				fprintf(fout, "\n");
 			}
 		}
 
 		fclose(fout);
+		fclose(foutfreq);
+		fclose(foutfreqfilter);
 	}
 }
 
@@ -711,6 +739,7 @@ CS* creatCS(oid csId, int numP, oid* buff)
 	}
 	copyOidSet(cs->lstObj, lstObject, numP); 
 	cs->subject = subjectId; 
+	printf("Create a CS with subjectId: " BUNFMT "\n", subjectId);
 	#endif
 	return cs; 
 }
@@ -779,7 +808,7 @@ str printFreqCSSet(CSset *freqCSset, oid* csSuperCSMap, BAT *freqBat, BAT *mapba
 			freq  = (int *) Tloc(freqBat, cs.csId);
 			
 
-			takeOid(cs.csId, &subStr);	
+			takeOid(cs.subject, &subStr);	
 			
 			fprintf(fout,"CS " BUNFMT " (Freq: %d) | Subject: %s  | Parent " BUNFMT " \n", cs.csId, *freq, subStr, csSuperCSMap[cs.csId]);
 
@@ -1693,7 +1722,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	printCSrelSet(csrelSet,csFreqMap, csBats->freqBat, maxCSoid + 1, 1, *freqThreshold);  
 
-	printSubCSInformation(csSubCSMap, maxCSoid + 1, 1, *freqThreshold); 
+	printSubCSInformation(csSubCSMap, csBats->freqBat, maxCSoid + 1, 1, *freqThreshold); 
 
 	printf("Number of frequent CSs is: %d \n", freqCSset->numCSadded);
 
