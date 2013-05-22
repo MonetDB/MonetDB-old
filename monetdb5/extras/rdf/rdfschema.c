@@ -84,6 +84,13 @@ static void initArray(oid* inputArr, int num, oid defaultValue){
 }
 
 
+static void initIntArray(int* inputArr, int num, oid defaultValue){
+	int i; 
+	for (i = 0; i < num; i++){
+		inputArr[i] = defaultValue;
+	}
+}
+
 static void initCharArray(char* inputArr, int num, char defaultValue){
 	int i; 
 	for (i = 0; i < num; i++){
@@ -994,8 +1001,9 @@ void testBatHash(void){
 */
 
 static 
-void addNewCS(CSBats *csBats, BUN* csKey, oid* key, oid *csoid, int num){
+void addNewCS(CSBats *csBats, BUN* csKey, oid* key, oid *csoid, int num, int numTriples){
 	int freq = 1; 
+	int coverage = numTriples; 
 	BUN	offset; 
 
 	if (csBats->hsKeyBat->T->hash && BATcount(csBats->hsKeyBat) > 4 * csBats->hsKeyBat->T->hash->mask) {
@@ -1013,6 +1021,7 @@ void addNewCS(CSBats *csBats, BUN* csKey, oid* key, oid *csoid, int num){
 	appendArrayToBat(csBats->fullPBat, key, num);
 
 	BUNappend(csBats->freqBat, &freq, TRUE); 
+	BUNappend(csBats->coverageBat, &coverage, TRUE); 
 }
 /*
  * Put a CS to the hashmap. 
@@ -1023,16 +1032,17 @@ void addNewCS(CSBats *csBats, BUN* csKey, oid* key, oid *csoid, int num){
  * */
 #if STOREFULLCS
 static 
-oid putaCStoHash(CSBats *csBats, oid* key, int num, 
+oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples,  
 		oid *csoid, char isStoreFreqCS, int freqThreshold, CSset *freqCSset, oid subjectId, oid* buffObjs)
 #else
 static 
-oid putaCStoHash(CSBats *csBats, oid* key, int num, 
+oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples, 
 		oid *csoid, char isStoreFreqCS, int freqThreshold, CSset *freqCSset)
 #endif	
 {
 	BUN 	csKey; 
 	int 	*freq; 
+	oid	*coverage; 	//Total number of triples coverred by this CS
 	CS	*freqCS; 
 	BUN	bun; 
 	oid	csId; 		/* Id of the characteristic set */
@@ -1042,7 +1052,7 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num,
 	bun = BUNfnd(BATmirror(csBats->hsKeyBat),(ptr) &csKey);
 	if (bun == BUN_NONE) {
 		csId = *csoid; 
-		addNewCS(csBats, &csKey, key, csoid, num);
+		addNewCS(csBats, &csKey, key, csoid, num, numTriples);
 		
 		//Handle the case when freqThreshold == 1 
 		if (isStoreFreqCS ==1 && freqThreshold == 1){
@@ -1063,7 +1073,7 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num,
 			//printf(" No duplication (new CS) \n");	
 			// New CS
 			csId = *csoid;
-			addNewCS(csBats, &csKey, key, csoid, num);
+			addNewCS(csBats, &csKey, key, csoid, num, numTriples);
 			
 			//Handle the case when freqThreshold == 1 
 			if (isStoreFreqCS ==1 && freqThreshold == 1){
@@ -1083,6 +1093,9 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num,
 			// Update freqCS value
 			freq = (int *)Tloc(csBats->freqBat, csId);
 			(*freq)++; 
+			// Update number of coverred triples
+			coverage = (oid *)Tloc(csBats->coverageBat, csId); 
+			(*coverage) += numTriples;
 
 			if (isStoreFreqCS == 1){	/* Store the frequent CS to the CSset*/
 				//printf("FreqCS: Support = %d, Threshold %d  \n ", freq, freqThreshold);
@@ -1154,13 +1167,14 @@ void printCS(CS cs){
  * Here maximum frequent CS is a CS that there exist no other CS which contains that CS
  * */
 static 
-void getMaximumFreqCSs(CSset *freqCSset, oid* csSuperCSMap, int numCS){
+void getMaximumFreqCSs(CSset *freqCSset, oid* csSuperCSMap, BAT* coverageBat, int* superCSCoverage, int numCS){
 
 	int 	numFreqCS = freqCSset->numCSadded; 
 	int 	i, j; 
 	int 	numMaxCSs = 0;
 
 	oid 	tmpCSId; 
+	int* 	coverage; 
 
 	printf("Retrieving maximum frequent CSs: \n");
 
@@ -1210,6 +1224,14 @@ void getMaximumFreqCSs(CSset *freqCSset, oid* csSuperCSMap, int numCS){
 			//End. Update maximum CS for csSuperCSMap
 			csSuperCSMap[freqCSset->items[i].csId] = tmpCSId; 
 		}
+	}
+
+	// Update coverage for maximum CS
+	
+	for (i = 0; i < numFreqCS; i++){
+		tmpCSId = freqCSset->items[i].csId; 
+		coverage = (int*) Tloc(coverageBat, tmpCSId); 
+		superCSCoverage[tmpCSId] += *coverage;
 	}
 
 	/*
@@ -1286,7 +1308,57 @@ static void getStatisticCSsBySize(map_t csmap, int maximumNumP){
 */
 
 
-static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *fullPBat, oid* csSuperCSMap, char isWriteToFile, int freqThreshold){
+static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *coverageBat, BAT *fullPBat, oid* csSuperCSMap, char isWriteToFile, int freqThreshold){
+
+	//int 	*csPropNum; 
+	//int	*csFreq; 
+	FILE 	*fout; 
+	oid 	*offset, *offset2; 
+	int	numP; 
+	BUN 	p, q; 
+	BATiter	pi, freqi, coveri;
+	int	*freq, *coverage; 
+	char 	filename[100];
+	char 	tmpStr[20];
+
+	strcpy(filename, "csStatistic");
+	sprintf(tmpStr, "%d", freqThreshold);
+	strcat(filename, tmpStr);
+	strcat(filename, ".txt");
+
+	fout = fopen(filename,"wt"); 
+	fprintf(fout, " csId  #Prop   #frequency #coverage maxCSid\n"); 
+
+	pi = bat_iterator(pOffsetBat);
+	freqi = bat_iterator(freqBat);
+	coveri = bat_iterator(coverageBat); 
+
+	BATloop(pOffsetBat, p, q){
+		offset = (oid *) BUNtloc(pi, p);		
+
+		if ((p+1) != BUNlast(pOffsetBat)){
+			offset2 = (oid *)BUNtloc(pi, p + 1);
+			numP = *offset2 - *offset;
+		}
+		else	//Last element
+			numP = BUNlast(fullPBat) - *offset;
+
+		freq = (int *) BUNtloc(freqi, p); 
+		coverage = (int *) BUNtloc(coveri, p); 
+
+		// Output the result 
+		if (isWriteToFile == 0)
+			printf(BUNFMT "  %d  %d %d " BUNFMT "\n", p, numP, *freq, *coverage, csSuperCSMap[p]); 
+		else 
+			fprintf(fout, BUNFMT " %d  %d %d " BUNFMT "\n", p, numP, *freq, *coverage, csSuperCSMap[p]); 
+	}
+
+	fclose(fout); 
+	//free(csPropNum); 
+}
+
+
+static void getStatisticMaxCSs(BAT *pOffsetBat, BAT *freqBat, BAT *fullPBat, oid* csSuperCSMap, int* superCSCoverage, char isWriteToFile, int freqThreshold){
 
 	//int 	*csPropNum; 
 	//int	*csFreq; 
@@ -1299,13 +1371,15 @@ static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *fullPB
 	char 	filename[100];
 	char 	tmpStr[20];
 
-	strcpy(filename, "csStatistic");
+	printf("Get statistics of Maximum CSs \n");
+
+	strcpy(filename, "maxCSStatistic");
 	sprintf(tmpStr, "%d", freqThreshold);
 	strcat(filename, tmpStr);
 	strcat(filename, ".txt");
 
 	fout = fopen(filename,"wt"); 
-	fprintf(fout, " csId  #Prop   #frequency maxCSid\n"); 
+	fprintf(fout, " csId  #Prop   #frequency maxCSid coverage\n"); 
 
 	pi = bat_iterator(pOffsetBat);
 	freqi = bat_iterator(freqBat);
@@ -1322,18 +1396,20 @@ static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *fullPB
 
 		freq = (int *) BUNtloc(freqi, p); 
 
+		
+		if (csSuperCSMap[p] == p){		// Check whether it is a maximumCS
+			// Output the result 
+			if (isWriteToFile == 0)
+				printf(BUNFMT "  %d  %d " BUNFMT  " %d\n", p, numP, *freq, csSuperCSMap[p], superCSCoverage[p]); 
+			else 
+				fprintf(fout, BUNFMT " %d  %d " BUNFMT  " %d\n", p, numP, *freq, csSuperCSMap[p], superCSCoverage[p]); 
 
-		// Output the result 
-		if (isWriteToFile == 0)
-			printf(BUNFMT "  %d  %d " BUNFMT "\n", p, numP, *freq, csSuperCSMap[p]); 
-		else 
-			fprintf(fout, BUNFMT " %d  %d " BUNFMT "\n", p, numP, *freq, csSuperCSMap[p]); 
+		}
 	}
 
 	fclose(fout); 
 	//free(csPropNum); 
 }
-
 
 /*
  * Get the refer CS 
@@ -1420,6 +1496,12 @@ CSBats* initCSBats(void){
 		return NULL; 
 	}
 
+	csBats->coverageBat = BATnew(TYPE_void, TYPE_int, smallbatsz);
+	
+	if (csBats->coverageBat == NULL) {
+		return NULL; 
+	}
+
 	return csBats; 
 }
 
@@ -1430,6 +1512,7 @@ void freeCSBats(CSBats *csBats){
 	BBPreclaim(csBats->hsKeyBat); 
 	BBPreclaim(csBats->hsValueBat); 
 	BBPreclaim(csBats->freqBat); 
+	BBPreclaim(csBats->coverageBat); 
 	BBPreclaim(csBats->pOffsetBat); 
 	BBPreclaim(csBats->fullPBat); 
 
@@ -1456,7 +1539,7 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 	oid*	_tmp;
 	int 	INIT_PROPERTY_NUM = 100; 
 	oid 	returnCSid; 
-	
+
 	#if STOREFULLCS
 	oid	*obt; 
 	oid* 	buffObjs;
@@ -1478,9 +1561,9 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 		if (*sbt != curS){
 			if (p != 0){	/* Not the first S */
 				#if STOREFULLCS
-				returnCSid = putaCStoHash(csBats, buff, numP, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs); 
+				returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs); 
 				#else
-				returnCSid = putaCStoHash(csBats, buff, numP, &CSoid, 1, *freqThreshold, freqCSset); 
+				returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, &CSoid, 1, *freqThreshold, freqCSset); 
 				#endif
 
 				subjCSMap[curS] = returnCSid; 			
@@ -1541,9 +1624,9 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 	
 	/*put the last CS */
 	#if STOREFULLCS
-	returnCSid = putaCStoHash(csBats, buff, numP, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs); 
+	returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs); 
 	#else
-	returnCSid = putaCStoHash(csBats, buff, numP, &CSoid, 1, *freqThreshold, freqCSset ); 
+	returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, &CSoid, 1, *freqThreshold, freqCSset ); 
 	#endif
 	
 	subjCSMap[curS] = returnCSid; 			
@@ -1650,6 +1733,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	CSrel		*csrelBetweenMaxFreqSet; 
 	SubCSSet 	*csSubCSMap; 
 	oid		*csSuperCSMap;  
+	int		*superCSCoverage;  /* Store the number of triples coverred by each superCS 
+					      This array will have many NULL values  */
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
@@ -1708,6 +1793,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	csSuperCSMap = (oid*) malloc(sizeof(oid) * (maxCSoid + 1));
 	initArray(csSuperCSMap, maxCSoid + 1, BUN_NONE);
 
+	superCSCoverage = (int*) malloc(sizeof(int) * (maxCSoid + 1));
+	initIntArray(superCSCoverage, maxCSoid + 1, 0);
 
 	generateFreqCSMap(freqCSset,csFreqMap); 
 
@@ -1730,7 +1817,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	//getTopFreqCSs(csMap,*freqThreshold);
 
-	getMaximumFreqCSs(freqCSset, csSuperCSMap, maxCSoid + 1); 
+	getMaximumFreqCSs(freqCSset, csSuperCSMap, csBats->coverageBat, superCSCoverage, maxCSoid + 1); 
 
 	printFreqCSSet(freqCSset, csSuperCSMap, csBats->freqBat, mbat, 1, *freqThreshold); 
 
@@ -1743,7 +1830,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	//getStatisticCSsBySize(csMap,maxNumProp); 
 
-	getStatisticCSsBySupports(csBats->pOffsetBat, csBats->freqBat, csBats->fullPBat, csSuperCSMap, 1, *freqThreshold);
+	getStatisticCSsBySupports(csBats->pOffsetBat, csBats->freqBat, csBats->coverageBat, csBats->fullPBat, csSuperCSMap, 1, *freqThreshold);
+	getStatisticMaxCSs(csBats->pOffsetBat, csBats->freqBat, csBats->fullPBat, csSuperCSMap, superCSCoverage, 1, *freqThreshold);
 
 	BBPreclaim(sbat); 
 	BBPreclaim(pbat); 

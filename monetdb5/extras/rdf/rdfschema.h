@@ -35,9 +35,10 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 typedef struct {
 	BAT*	hsKeyBat; 
 	BAT* 	hsValueBat; 
-	BAT* 	freqBat;    /* Store the frequency of each Characteristic set */	
-	BAT* 	pOffsetBat; /* BAT storing the offset for set of properties, refer to fullPBat */
-	BAT* 	fullPBat;   /* Stores all set of properties */	
+	BAT* 	freqBat;    	/* Store the frequency of each Characteristic set */	
+	BAT* 	coverageBat;	/* Store the exact number of triples coverred by each CS */
+	BAT* 	pOffsetBat; 	/* BAT storing the offset for set of properties, refer to fullPBat */
+	BAT* 	fullPBat;    	/* Stores all set of properties */	
 } CSBats; 	// BATs for storing all information about CSs
 
 #define STOREFULLCS     1       /* Store full instance of a CS including the a subject and list of predicates, objects. 
@@ -55,6 +56,20 @@ typedef struct CS
 	oid*    lstObj;         //List of sample objects
 	#endif
 } CS;
+
+
+typedef struct maxCS
+{
+	oid 	csId;		//Id of the CS
+	oid*	lstProp;	//List of properties' Ids
+	int	numProp;
+	int	numAllocation;
+	int	support; 	//Sum of all subCS's frequency
+	#if STOREFULLCS
+	oid     subject;        //A subject
+	oid*    lstObj;         //List of sample objects
+	#endif
+} maxCS; 
 
 typedef struct SubCS {
 	//oid 	csId; 
