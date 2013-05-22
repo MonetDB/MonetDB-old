@@ -1231,7 +1231,7 @@ void getMaximumFreqCSs(CSset *freqCSset, oid* csSuperCSMap, BAT* coverageBat, in
 	for (i = 0; i < numFreqCS; i++){
 		tmpCSId = freqCSset->items[i].csId; 
 		coverage = (int*) Tloc(coverageBat, tmpCSId); 
-		superCSCoverage[tmpCSId] += *coverage;
+		superCSCoverage[csSuperCSMap[tmpCSId]] += *coverage;
 	}
 
 	/*
