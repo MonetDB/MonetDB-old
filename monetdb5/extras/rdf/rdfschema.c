@@ -1270,6 +1270,10 @@ static void putPtoHash(map_t pmap, int key, oid *poid, int support){
 
 		err = hashmap_put_forP(pmap, pkey, 1, putPoid, support); 	
 		assert(err == MAP_OK); 
+#ifdef NDEBUG
+		/* variable err is not used other than in above assertion */
+		(void) err;
+#endif
 				
 		(*poid)++; 
 	}
