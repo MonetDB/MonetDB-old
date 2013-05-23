@@ -148,6 +148,10 @@ void addReltoCSRel(oid origCSoid, oid refCSoid, oid propId, CSrel *csrel)
 	int i = 0; 
 
 	assert (origCSoid == csrel->origCSoid);
+#ifdef NDEBUG
+	/* parameter origCSoid is not used other in about assertion */
+	(void) origCSoid;
+#endif
 
 	while (i < csrel->numRef){
 		if (refCSoid == csrel->lstRefCSoid[i] && propId == csrel->lstPropId[i]){
@@ -197,6 +201,10 @@ void addReltoCSRelWithFreq(oid origCSoid, oid refCSoid, oid propId, int freq, CS
 	int i = 0; 
 
 	assert (origCSoid == csrel->origCSoid);
+#ifdef NDEBUG
+	/* parameter origCSoid is not used other in about assertion */
+	(void) origCSoid;
+#endif
 
 	while (i < csrel->numRef){
 		if (refCSoid == csrel->lstRefCSoid[i] && propId == csrel->lstPropId[i]){
