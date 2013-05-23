@@ -1676,6 +1676,12 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 	oid 		returnSubCSid; 
 	char* 		buffTypes; 
 
+	if (BATcount(sbat) == 0) {
+		throw(RDF, "rdf.RDFrelationships", "sbat must not be empty");
+		/* otherwise, variable sbt is not initialized and thus
+		 * cannot be dereferenced after the BATloop below */
+	}
+
 	buffTypes = (char *) malloc(sizeof(char) * (maxNumPwithDup + 1)); 
 
 	numPwithDup = 0;
@@ -1897,6 +1903,14 @@ RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid){
 	if ((pbat = BATdescriptor(*pbatid)) == NULL) {
 		BBPreleaseref(sbat->batCacheid);
 		throw(MAL, "rdf.RDFextractCS", RUNTIME_OBJECT_MISSING);
+	}
+
+	if (BATcount(pbat) == 0) {
+		BBPreleaseref(sbat->batCacheid);
+		BBPreleaseref(pbat->batCacheid);
+		throw(RDF, "rdf.RDFextractPfromPSO", "pbat must not be empty");
+		/* otherwise, variable bt is not initialized and thus
+		 * cannot be dereferenced after the BATloop below */
 	}
 	
 	si = bat_iterator(sbat); 
