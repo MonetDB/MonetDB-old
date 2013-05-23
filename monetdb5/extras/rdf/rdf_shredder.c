@@ -211,6 +211,19 @@ rdf_BUNappend(parserData* pdata, BAT *b, BUN* bun){
 
 }
 
+
+static void
+rdf_BUNappend_BlankNode_Obj(parserData* pdata, BAT *b, BUN* bun){
+	*bun |= (BUN)4 << (sizeof(BUN)*8 - 4);		//Blank node	
+	b = BUNappend(b, bun, TRUE);
+	if (b == NULL) {
+		pdata->exception++;
+		pdata->exceptionMsg =  "could not append to a BAT with rdf_BUNappend_BlankNode_Obj";
+		raptor_parser_parse_abort (pdata->rparser);
+	}
+
+}
+
 /* For inserting an literal object value of RDF triple */
 
 static void 
@@ -227,13 +240,13 @@ rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType obj
 	
 		/* Add the type here by changing 2 bits at position 62, 63 of oid */
 		if ( objType == DATETIME){ 
-			*bun |= (BUN)1 << (sizeof(BUN)*8 - 3);
+			*bun |= (BUN)1 << (sizeof(BUN)*8 - 4);
 		}
 		else if ( objType == NUMERIC){
-			*bun |= (BUN)2 << (sizeof(BUN)*8 - 3);
+			*bun |= (BUN)2 << (sizeof(BUN)*8 - 4);
 		}
 		else { /*  objType == STRING */
-			*bun |= (BUN)3 << (sizeof(BUN)*8 - 3);
+			*bun |= (BUN)3 << (sizeof(BUN)*8 - 4);
 		}
 
 		//b = BUNappend(b, (ptr) (str)objStr, TRUE);
@@ -336,8 +349,7 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 			raptor_exception(pdata, "could not determine type of property");
 		}
 
-		if (triple->object->type == RAPTOR_TERM_TYPE_URI
-				|| triple->object->type == RAPTOR_TERM_TYPE_BLANK) {
+		if (triple->object->type == RAPTOR_TERM_TYPE_URI) {
 			unsigned char* objStr;
 			objStr = raptor_term_to_string(triple->object);
 			//rdf_insert(pdata, graph[MAP_LEX], (str) objStr, &bun);
@@ -346,6 +358,16 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 
 			bun = BUN_NONE;
 			free(objStr);
+		} else if (triple->object->type == RAPTOR_TERM_TYPE_BLANK) {
+			unsigned char* objStr;
+			objStr = raptor_term_to_string(triple->object);
+			rdf_tknzr_insert((str) objStr, &bun);
+			rdf_BUNappend_BlankNode_Obj(pdata, graph[O_sort], &bun); 
+			//rdf_BUNappend(pdata, graph[O_sort], &bun); 
+
+			bun = BUN_NONE;
+			free(objStr);
+		
 		} else if (triple->object->type == RAPTOR_TERM_TYPE_LITERAL) {
 			unsigned char* objStr;
 			ObjectType objType;

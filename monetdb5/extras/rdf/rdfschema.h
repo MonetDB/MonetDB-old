@@ -103,6 +103,7 @@ typedef struct CSrel{
 	oid* lstRefCSoid; 		
 	oid* lstPropId; 	// Predicate for a relationship
 	int* lstCnt; 		// Count per reference
+	int* lstBlankCnt;	// Count # links to blank node
 	int  numRef; 
 	int  numAllocation; 
 } CSrel;

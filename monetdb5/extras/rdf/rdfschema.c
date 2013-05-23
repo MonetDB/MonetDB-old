@@ -131,6 +131,7 @@ CSrel* creataCSrel(oid csoid){
 	csrel->lstRefCSoid = (oid*) malloc(sizeof(oid) * INIT_NUM_CSREL);
 	csrel->lstPropId = (oid*) malloc(sizeof(oid) * INIT_NUM_CSREL);
 	csrel->lstCnt = (int*) malloc(sizeof(int) * INIT_NUM_CSREL);		
+	csrel->lstBlankCnt = (int*) malloc(sizeof(int) * INIT_NUM_CSREL);		
 	csrel->numRef = 0;
 	csrel->numAllocation = INIT_NUM_CSREL;
 
@@ -139,11 +140,12 @@ CSrel* creataCSrel(oid csoid){
 
 
 static 
-void addReltoCSRel(oid origCSoid, oid refCSoid, oid propId, CSrel *csrel)
+void addReltoCSRel(oid origCSoid, oid refCSoid, oid propId, CSrel *csrel, char isBlankNode)
 {
 	void *_tmp; 
 	void *_tmp1; 
-	void *_tmp2; 
+	void *_tmp2;
+	void *_tmp3; 
 
 	int i = 0; 
 
@@ -163,6 +165,7 @@ void addReltoCSRel(oid origCSoid, oid refCSoid, oid propId, CSrel *csrel)
 	
 	if (i != csrel->numRef){ 
 		csrel->lstCnt[i]++; 
+		csrel->lstBlankCnt[i] += (int) isBlankNode; 
 		return; 
 	}
 	else{	// New Ref
@@ -174,29 +177,33 @@ void addReltoCSRel(oid origCSoid, oid refCSoid, oid propId, CSrel *csrel)
 			_tmp = realloc(csrel->lstRefCSoid, (csrel->numAllocation * sizeof(oid)));
 			_tmp1 = realloc(csrel->lstPropId, (csrel->numAllocation * sizeof(oid)));
 			_tmp2 = realloc(csrel->lstCnt, (csrel->numAllocation * sizeof(int)));
+			_tmp3 = realloc(csrel->lstBlankCnt, (csrel->numAllocation * sizeof(int)));
 
-			if (!_tmp || !_tmp2){
+			if (!_tmp || !_tmp2 || !_tmp3){
 				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 			}
 			csrel->lstRefCSoid = (oid*)_tmp;
 			csrel->lstPropId = (oid*)_tmp1; 
 			csrel->lstCnt = (int*)_tmp2; 
+			csrel->lstBlankCnt = (int*)_tmp3; 
 		}
 
 		csrel->lstRefCSoid[csrel->numRef] = refCSoid;
 		csrel->lstPropId[csrel->numRef] = propId;
 		csrel->lstCnt[csrel->numRef] = 1; 
+		csrel->lstBlankCnt[csrel->numRef] = (int) isBlankNode; 
 		csrel->numRef++;
 	}
 }
 
 
 static 
-void addReltoCSRelWithFreq(oid origCSoid, oid refCSoid, oid propId, int freq, CSrel *csrel)
+void addReltoCSRelWithFreq(oid origCSoid, oid refCSoid, oid propId, int freq, int numBlank, CSrel *csrel)
 {
 	void *_tmp; 
 	void *_tmp1; 
 	void *_tmp2; 
+	void *_tmp3; 
 
 	int i = 0; 
 
@@ -216,6 +223,7 @@ void addReltoCSRelWithFreq(oid origCSoid, oid refCSoid, oid propId, int freq, CS
 	
 	if (i != csrel->numRef){ 
 		csrel->lstCnt[i] = csrel->lstCnt[i] + freq; 
+		csrel->lstBlankCnt[i] = csrel->lstBlankCnt[i] + numBlank; 
 		return; 
 	}
 	else{	// New Ref
@@ -227,18 +235,21 @@ void addReltoCSRelWithFreq(oid origCSoid, oid refCSoid, oid propId, int freq, CS
 			_tmp = realloc(csrel->lstRefCSoid, (csrel->numAllocation * sizeof(oid)));
 			_tmp1 = realloc(csrel->lstPropId, (csrel->numAllocation * sizeof(oid)));		
 			_tmp2 = realloc(csrel->lstCnt, (csrel->numAllocation * sizeof(int)));
+			_tmp3 = realloc(csrel->lstBlankCnt, (csrel->numAllocation * sizeof(int)));
 
-			if (!_tmp || !_tmp2){
+			if (!_tmp || !_tmp2 || !_tmp3){
 				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 			}
 			csrel->lstRefCSoid = (oid*)_tmp;
 			csrel->lstPropId = (oid*)_tmp1; 
 			csrel->lstCnt = (int*)_tmp2; 
+			csrel->lstBlankCnt = (int*)_tmp3; 
 		}
 
 		csrel->lstRefCSoid[csrel->numRef] = refCSoid;
 		csrel->lstPropId[csrel->numRef] = propId;
 		csrel->lstCnt[csrel->numRef] = freq; 
+		csrel->lstBlankCnt[csrel->numRef] = numBlank; 
 		csrel->numRef++;
 	}
 }
@@ -352,7 +363,7 @@ str printCSrelWithMaxSet(oid* csSuperCSMap, CSrel *csrelToMaxSet, CSrel *csrelFr
 		if (csrelSet[i].numRef != 0){
 			for (j = 0; j < csrelSet[i].numRef; j++){		
 				if (csSuperCSMap[csrelSet[i].lstRefCSoid[j]] != BUN_NONE){
-					addReltoCSRelWithFreq(csrelSet[i].origCSoid, csSuperCSMap[csrelSet[i].lstRefCSoid[j]], csrelSet[i].lstPropId[j], csrelSet[i].lstCnt[j], &csrelToMaxSet[i]);
+					addReltoCSRelWithFreq(csrelSet[i].origCSoid, csSuperCSMap[csrelSet[i].lstRefCSoid[j]], csrelSet[i].lstPropId[j], csrelSet[i].lstCnt[j], csrelSet[i].lstBlankCnt[j], &csrelToMaxSet[i]);
 				}
 			}
 
@@ -363,10 +374,10 @@ str printCSrelWithMaxSet(oid* csSuperCSMap, CSrel *csrelToMaxSet, CSrel *csrelFr
 			if (maxCSoid != BUN_NONE){
 				for (j = 0; j < csrelSet[i].numRef; j++){		
 					if (csSuperCSMap[csrelSet[i].lstRefCSoid[j]] != BUN_NONE){
-						addReltoCSRelWithFreq(maxCSoid, csSuperCSMap[csrelSet[i].lstRefCSoid[j]], csrelSet[i].lstPropId[j], csrelSet[i].lstCnt[j], &csrelFromMaxSet[maxCSoid]);
+						addReltoCSRelWithFreq(maxCSoid, csSuperCSMap[csrelSet[i].lstRefCSoid[j]], csrelSet[i].lstPropId[j], csrelSet[i].lstCnt[j],csrelSet[i].lstBlankCnt[j], &csrelFromMaxSet[maxCSoid]);
 					}
 					else{
-						addReltoCSRelWithFreq(maxCSoid, csrelSet[i].lstRefCSoid[j], csrelSet[i].lstPropId[j], csrelSet[i].lstCnt[j], &csrelFromMaxSet[maxCSoid]);
+						addReltoCSRelWithFreq(maxCSoid, csrelSet[i].lstRefCSoid[j], csrelSet[i].lstPropId[j], csrelSet[i].lstCnt[j], csrelSet[i].lstBlankCnt[j], &csrelFromMaxSet[maxCSoid]);
 					}
 				}
 			}
@@ -448,7 +459,7 @@ str printCSrelWithMaxSet(oid* csSuperCSMap, CSrel *csrelToMaxSet, CSrel *csrelFr
 		if (csrelToMaxSet[i].numRef != 0 && maxCSoid != BUN_NONE){
 			for (j = 0; j < csrelToMaxSet[i].numRef; j++){		
 				assert(csSuperCSMap[csrelToMaxSet[i].lstRefCSoid[j]] == csrelToMaxSet[i].lstRefCSoid[j]);
-				addReltoCSRelWithFreq(maxCSoid, csSuperCSMap[csrelToMaxSet[i].lstRefCSoid[j]], csrelToMaxSet[i].lstPropId[j], csrelToMaxSet[i].lstCnt[j], &csrelBetweenMaxSet[maxCSoid]);
+				addReltoCSRelWithFreq(maxCSoid, csSuperCSMap[csrelToMaxSet[i].lstRefCSoid[j]], csrelToMaxSet[i].lstPropId[j], csrelToMaxSet[i].lstCnt[j],csrelToMaxSet[i].lstBlankCnt[j], &csrelBetweenMaxSet[maxCSoid]);
 			}
 		}
 	}
@@ -464,13 +475,13 @@ str printCSrelWithMaxSet(oid* csSuperCSMap, CSrel *csrelToMaxSet, CSrel *csrelFr
 			for (j = 0; j < csrelBetweenMaxSet[i].numRef; j++){
 				#if SHOWPROPERTYNAME
 				takeOid(csrelBetweenMaxSet[i].lstPropId[j], &propStr);	
-				fprintf(fout2, BUNFMT "(P:" BUNFMT " - %s) (%d) ", csrelBetweenMaxSet[i].lstRefCSoid[j],csrelBetweenMaxSet[i].lstPropId[j], propStr, csrelBetweenMaxSet[i].lstCnt[j]);	
+				fprintf(fout2, BUNFMT "(P:" BUNFMT " - %s) (%d)(Blank:%d) ", csrelBetweenMaxSet[i].lstRefCSoid[j],csrelBetweenMaxSet[i].lstPropId[j], propStr, csrelBetweenMaxSet[i].lstCnt[j], csrelBetweenMaxSet[i].lstBlankCnt[j]);	
 				#else
-				fprintf(fout2, BUNFMT "(P:" BUNFMT ") (%d) ", csrelBetweenMaxSet[i].lstRefCSoid[j],csrelBetweenMaxSet[i].lstPropId[j], csrelBetweenMaxSet[i].lstCnt[j]);	
+				fprintf(fout2, BUNFMT "(P:" BUNFMT ") (%d)(Blank:%d) ", csrelBetweenMaxSet[i].lstRefCSoid[j],csrelBetweenMaxSet[i].lstPropId[j], csrelBetweenMaxSet[i].lstCnt[j], csrelBetweenMaxSet[i].lstBlankCnt[j]);	
 				#endif
 
 				if (*freq < csrelBetweenMaxSet[i].lstCnt[j]*100){
-					fprintf(fout2filter, BUNFMT "(P:" BUNFMT ") (%d) ", csrelBetweenMaxSet[i].lstRefCSoid[j],csrelBetweenMaxSet[i].lstPropId[j], csrelBetweenMaxSet[i].lstCnt[j]);	
+					fprintf(fout2filter, BUNFMT "(P:" BUNFMT ") (%d)(Blank:%d) ", csrelBetweenMaxSet[i].lstRefCSoid[j],csrelBetweenMaxSet[i].lstPropId[j], csrelBetweenMaxSet[i].lstCnt[j], csrelBetweenMaxSet[i].lstBlankCnt[j]);	
 				}
 			}	
 			fprintf(fout2, "\n");
@@ -843,9 +854,10 @@ str printFreqCSSet(CSset *freqCSset, oid* csSuperCSMap, BAT *freqBat, BAT *mapba
 				// Get object value
 				objOid = cs.lstObj[j]; 
 
-				objType = (char) (objOid >> (sizeof(BUN)*8 - 3))  &  3 ; 
+				objType = (char) (objOid >> (sizeof(BUN)*8 - 4))  &  7 ; 
 
-				if (objType == URI){
+				if (objType == URI || objType == BLANKNODE){
+					objOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
 					takeOid(objOid, &objStr); 
 				}
 				else{
@@ -1676,6 +1688,8 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 	char 		objType;
 	oid 		returnSubCSid; 
 	char* 		buffTypes; 
+	oid		realObjOid; 	
+	char 		isBlankNode; 
 
 	if (BATcount(sbat) == 0) {
 		throw(RDF, "rdf.RDFrelationships", "sbat must not be empty");
@@ -1703,17 +1717,21 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 				
 		obt = (oid *) BUNtloc(oi, p); 
 		/* Check type of object */
-		objType = (char) ((*obt) >> (sizeof(BUN)*8 - 3))  &  3 ;	/* Get two bits 63th, 62nd from object oid */
+		objType = (char) ((*obt) >> (sizeof(BUN)*8 - 4))  &  7 ;	/* Get two bits 63th, 62nd from object oid */
 
 		buffTypes[numPwithDup] = objType; 
 		numPwithDup++; 
 		
-		/* Look at sbat*/
-		if (objType == URI){
+		/* Look at the referenced CS Id using subjCSMap */
+		isBlankNode = 0;
+		if (objType == URI || objType == BLANKNODE){
 			pbt = (oid *) BUNtloc(pi, p); 
-			if (*obt <= maxSoid && subjCSMap[*obt] != BUN_NONE){
+			realObjOid = (*obt) - ((oid) objType << (sizeof(BUN)*8 - 4));
+
+			if (realObjOid <= maxSoid && subjCSMap[realObjOid] != BUN_NONE){
+				if (objType == BLANKNODE) isBlankNode = 1;
 				////printf(" Subject " BUNFMT " refer to CS " BUNFMT " \n",*sbt, subjCSMap[*obt]);
-				addReltoCSRel(subjCSMap[*sbt], subjCSMap[*obt], *pbt, &csrelSet[subjCSMap[*sbt]]);
+				addReltoCSRel(subjCSMap[*sbt], subjCSMap[realObjOid], *pbt, &csrelSet[subjCSMap[*sbt]], isBlankNode);
 			}
 		}
 	}

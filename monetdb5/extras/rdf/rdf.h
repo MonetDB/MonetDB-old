@@ -53,13 +53,14 @@ RDFleftfetchjoin_sorted(int *result, int* lid, int *rid);
 rdf_export str 
 TKNZRrdf2str (bat *res, bat *bid, bat *map);
 
-#define RDF_MIN_LITERAL (((oid) 1) << ((sizeof(oid)==8)?60:28))
+#define RDF_MIN_LITERAL (((oid) 1) << ((sizeof(oid)==8)?59:27))
 
 typedef enum {
-	URI,
+	URI,		
 	DATETIME, 
 	NUMERIC, 
-	STRING
+	STRING,
+	BLANKNODE	
 } ObjectType; 
 
 #define IS_DUPLICATE_FREE 0		/* 0: Duplications have not been removed, otherwise 1 */
