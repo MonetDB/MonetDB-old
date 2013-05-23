@@ -1752,16 +1752,23 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
 	if (!(sbat->tsorted)){
-		 throw(MAL, "rdf.RDFextractCSwithTypes", "sbat is not sorted");
+		BBPreleaseref(sbat->batCacheid);
+		throw(MAL, "rdf.RDFextractCSwithTypes", "sbat is not sorted");
 	}
 
 	if ((pbat = BATdescriptor(*pbatid)) == NULL) {
+		BBPreleaseref(sbat->batCacheid);
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
 	if ((obat = BATdescriptor(*obatid)) == NULL) {
+		BBPreleaseref(sbat->batCacheid);
+		BBPreleaseref(pbat->batCacheid);
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
 	if ((mbat = BATdescriptor(*mapbatid)) == NULL) {
+		BBPreleaseref(sbat->batCacheid);
+		BBPreleaseref(pbat->batCacheid);
+		BBPreleaseref(obat->batCacheid);
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
 
@@ -1848,6 +1855,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	BBPreclaim(sbat); 
 	BBPreclaim(pbat); 
 	BBPreclaim(obat);
+	BBPreclaim(mbat);
 
 	free (subjCSMap); 
 	free (subjSubCSMap);
@@ -1887,6 +1895,7 @@ RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid){
 		throw(MAL, "rdf.RDFextractCS", RUNTIME_OBJECT_MISSING);
 	}
 	if ((pbat = BATdescriptor(*pbatid)) == NULL) {
+		BBPreleaseref(sbat->batCacheid);
 		throw(MAL, "rdf.RDFextractCS", RUNTIME_OBJECT_MISSING);
 	}
 	
