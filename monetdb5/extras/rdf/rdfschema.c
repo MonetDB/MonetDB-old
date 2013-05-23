@@ -148,6 +148,10 @@ void addReltoCSRel(oid origCSoid, oid refCSoid, oid propId, CSrel *csrel)
 	int i = 0; 
 
 	assert (origCSoid == csrel->origCSoid);
+#ifdef NDEBUG
+	/* parameter origCSoid is not used other in about assertion */
+	(void) origCSoid;
+#endif
 
 	while (i < csrel->numRef){
 		if (refCSoid == csrel->lstRefCSoid[i] && propId == csrel->lstPropId[i]){
@@ -197,6 +201,10 @@ void addReltoCSRelWithFreq(oid origCSoid, oid refCSoid, oid propId, int freq, CS
 	int i = 0; 
 
 	assert (origCSoid == csrel->origCSoid);
+#ifdef NDEBUG
+	/* parameter origCSoid is not used other in about assertion */
+	(void) origCSoid;
+#endif
 
 	while (i < csrel->numRef){
 		if (refCSoid == csrel->lstRefCSoid[i] && propId == csrel->lstPropId[i]){
@@ -1267,6 +1275,10 @@ static void putPtoHash(map_t pmap, int key, oid *poid, int support){
 
 		err = hashmap_put_forP(pmap, pkey, 1, putPoid, support); 	
 		assert(err == MAP_OK); 
+#ifdef NDEBUG
+		/* variable err is not used other than in above assertion */
+		(void) err;
+#endif
 				
 		(*poid)++; 
 	}
@@ -1657,13 +1669,19 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 		oid *subjCSMap, oid *subjSubCSMap, SubCSSet *csSubCSMap, CSrel *csrelSet, BUN maxSoid, int maxNumPwithDup){
 
 	BUN	 	p, q; 
-	oid 		*sbt, *obt, *pbt; 
+	oid 		*sbt = 0, *obt, *pbt;
 	oid 		curS; 		/* current Subject oid */
 	//oid 		CSoid = 0; 	/* Characteristic set oid */
 	int 		numPwithDup;	/* Number of properties for current S */
 	char 		objType;
 	oid 		returnSubCSid; 
 	char* 		buffTypes; 
+
+	if (BATcount(sbat) == 0) {
+		throw(RDF, "rdf.RDFrelationships", "sbat must not be empty");
+		/* otherwise, variable sbt is not initialized and thus
+		 * cannot be dereferenced after the BATloop below */
+	}
 
 	buffTypes = (char *) malloc(sizeof(char) * (maxNumPwithDup + 1)); 
 
@@ -1742,16 +1760,23 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
 	if (!(sbat->tsorted)){
-		 throw(MAL, "rdf.RDFextractCSwithTypes", "sbat is not sorted");
+		BBPreleaseref(sbat->batCacheid);
+		throw(MAL, "rdf.RDFextractCSwithTypes", "sbat is not sorted");
 	}
 
 	if ((pbat = BATdescriptor(*pbatid)) == NULL) {
+		BBPreleaseref(sbat->batCacheid);
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
 	if ((obat = BATdescriptor(*obatid)) == NULL) {
+		BBPreleaseref(sbat->batCacheid);
+		BBPreleaseref(pbat->batCacheid);
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
 	if ((mbat = BATdescriptor(*mapbatid)) == NULL) {
+		BBPreleaseref(sbat->batCacheid);
+		BBPreleaseref(pbat->batCacheid);
+		BBPreleaseref(obat->batCacheid);
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
 
@@ -1841,6 +1866,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	BBPreclaim(sbat); 
 	BBPreclaim(pbat); 
 	BBPreclaim(obat);
+	BBPreclaim(mbat);
 
 	free (subjCSMap); 
 	free (subjSubCSMap);
@@ -1871,8 +1897,8 @@ RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid){
 	BUN 	p, q; 
 	BAT 	*sbat = NULL, *pbat = NULL; 
 	BATiter si, pi; 	/*iterator for BAT of s,p columns in spo table */
-	oid 	*bt, *sbt; 
-	oid 	curS; 		/* current Subject oid */
+	oid 	*bt = 0, *sbt;
+	oid 	curS = 0; 	/* current Subject oid */
 	oid 	curP; 		/* current Property oid */
 	map_t 	pMap; 		
 	int 	supportP; 	/* Support value for P */
@@ -1882,7 +1908,16 @@ RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid){
 		throw(MAL, "rdf.RDFextractCS", RUNTIME_OBJECT_MISSING);
 	}
 	if ((pbat = BATdescriptor(*pbatid)) == NULL) {
+		BBPreleaseref(sbat->batCacheid);
 		throw(MAL, "rdf.RDFextractCS", RUNTIME_OBJECT_MISSING);
+	}
+
+	if (BATcount(pbat) == 0) {
+		BBPreleaseref(sbat->batCacheid);
+		BBPreleaseref(pbat->batCacheid);
+		throw(RDF, "rdf.RDFextractPfromPSO", "pbat must not be empty");
+		/* otherwise, variable bt is not initialized and thus
+		 * cannot be dereferenced after the BATloop below */
 	}
 	
 	si = bat_iterator(sbat); 
