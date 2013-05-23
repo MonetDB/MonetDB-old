@@ -1668,7 +1668,7 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 		oid *subjCSMap, oid *subjSubCSMap, SubCSSet *csSubCSMap, CSrel *csrelSet, BUN maxSoid, int maxNumPwithDup){
 
 	BUN	 	p, q; 
-	oid 		*sbt, *obt, *pbt; 
+	oid 		*sbt = 0, *obt, *pbt;
 	oid 		curS; 		/* current Subject oid */
 	//oid 		CSoid = 0; 	/* Characteristic set oid */
 	int 		numPwithDup;	/* Number of properties for current S */
@@ -1876,8 +1876,8 @@ RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid){
 	BUN 	p, q; 
 	BAT 	*sbat = NULL, *pbat = NULL; 
 	BATiter si, pi; 	/*iterator for BAT of s,p columns in spo table */
-	oid 	*bt, *sbt; 
-	oid 	curS; 		/* current Subject oid */
+	oid 	*bt = 0, *sbt;
+	oid 	curS = 0; 	/* current Subject oid */
 	oid 	curP; 		/* current Property oid */
 	map_t 	pMap; 		
 	int 	supportP; 	/* Support value for P */
