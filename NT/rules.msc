@@ -22,6 +22,9 @@ VERSION=11.16.0
 # Maintained via vertoo. Please don't modify by hand!
 # Contact MonetDB-developers@lists.sourceforge.net for details and/or assistance.
 
+# should eventually be moved to TestTools/MdoWin.bat
+ENABLE_CRACKERS=1
+
 !IFDEF MAKE_INCLUDEFILE
 !INCLUDE $(MAKE_INCLUDEFILE)
 !ENDIF

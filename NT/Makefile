@@ -22,9 +22,6 @@ srcdir = $(TOPDIR)\..
 
 prefix = $(MAKEDIR)
 
-# should eventually be moved to TestTools/MdoWin.bat
-ENABLE_CRACKERS=1
-
 # ensure "all" is first target
 all: _all
 
