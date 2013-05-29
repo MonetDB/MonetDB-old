@@ -28,7 +28,7 @@
 #include "tokenizer.h"
 #include <gdk.h>
 #include <rdf.h>
-#include <raptor2.h>
+#include <rdfparser.h>
 
 typedef struct graphBATdef {
 	graphBATType batType;    /* BAT type             */
@@ -73,93 +73,7 @@ static graphBATdef graphdef[N_GRAPH_BAT] = {
 };
 #endif /* STORE */
 
-typedef struct parserData {
-	                              /**PROPERTIES             */
-	str location;                 /* rdf data file location */
-	oid tcount;                   /* triple count           */
-	raptor_parser *rparser;       /* the parser object      */
-	                              /**ERROR HANDLING         */
-	int exception;                /* raise an exception     */
-	int warning;                  /* number of warning msgs */
-	int error;                    /* number of error   msgs */
-	int lasterror;		      /* # errors before next triple */
-	int fatal;                    /* number of fatal   msgs */
-	const char *exceptionMsg;     /* exception msgs         */
-	const char *warningMsg;       /* warning msgs           */
-	const char *errorMsg;         /* error   msgs           */
-	const char *fatalMsg;         /* fatal   msgs           */
-	int line;                     /* locator for errors     */
-	int column;                   /* locator for errors     */
-	                              /**GRAPH DATA             */
-	BAT **graph;                  /* BATs for the result
-	                                 shredded RDF graph     */
-} parserData;
 
-/*
- * @-
- * The (fatal) errors and warnings produced by the raptor parser are handled
- * by the next three message handler functions.
- */
-
-static void
-fatalHandler (void *user_data, raptor_log_message* message)
-{
-	parserData *pdata = ((parserData *) user_data);
-	pdata->fatalMsg = GDKstrdup(message->text);
-	mnstr_printf(GDKout, "rdflib: fatal:%s\n", pdata->fatalMsg);
-	pdata->fatal++;
-
-	/* check for a valid locator object and only then use it */
-	if (message->locator != NULL) {
-		pdata->line = message->locator->line;
-		pdata->column = message->locator->column;
-		mnstr_printf(GDKout, "rdflib: fatal: at line %d column %d\n", pdata->line, pdata->column);
-	} 
-	
-}
-
-
-static void
-errorHandler (void *user_data, raptor_log_message* message)
-{
-	parserData *pdata = ((parserData *) user_data);
-	pdata->errorMsg = GDKstrdup(message->text);
-	mnstr_printf(GDKout, "rdflib: error:%s\n", pdata->errorMsg);
-	pdata->error++;
-
-	/* check for a valid locator object and only then use it */
-	if (message->locator != NULL) {
-		pdata->line = message->locator->line;
-		pdata->column = message->locator->column;
-		mnstr_printf(GDKout, "rdflib: error: at line %d column %d\n", pdata->line, pdata->column);
-	} 
-	
-}
-
-
-static void
-warningHandler (void *user_data, raptor_log_message* message)
-{
-	parserData *pdata = ((parserData *) user_data);
-	pdata->warningMsg = GDKstrdup(message->text);
-	mnstr_printf(GDKout, "rdflib: warning:%s\n", pdata->warningMsg);
-	pdata->warning++;
-
-	/* check for a valid locator object and only then use it */
-	if (message->locator != NULL) {
-		pdata->line = message->locator->line;
-		pdata->column = message->locator->column;
-		mnstr_printf(GDKout, "rdflib: warning: at line %d column %d\n", pdata->line, pdata->column);
-	} 
-	
-}
-
-static void 
-raptor_exception(parserData *pdata, const char* msg){
-	pdata->exception++;
-	pdata->exceptionMsg =  GDKstrdup(msg);
-	raptor_parser_parse_abort (pdata->rparser);
-}
 /*
 static void 
 rdf_BUNappend_unq(parserData* pdata, BAT *b, void* value, BUN* bun){
@@ -309,6 +223,7 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 	BUN bun = BUN_NONE;
 	BAT **graph = pdata->graph;
 
+	printf("%s   %s   %s\n",raptor_term_to_string(triple->subject),raptor_term_to_string(triple->predicate),raptor_term_to_string(triple->object));
 	if (pdata->error > pdata->lasterror){
 		unsigned char* objStr;
 		int objLen; 
@@ -805,4 +720,5 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema)
 	GDKfree(pdata);
 	return MAL_SUCCEED;
 }
+
 

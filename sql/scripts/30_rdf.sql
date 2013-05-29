@@ -33,3 +33,6 @@ create procedure rdf_shred(location string, gname string, sch string)
 
 create procedure rdf_schema_explore(tbname string, clname string)
 	external name rdf.rdfschemaexplore;
+
+create procedure rdf_loadOntology(location string, sch string)
+	external name rdf.rdfloadontology;
