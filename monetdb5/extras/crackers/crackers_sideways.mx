@@ -60,7 +60,6 @@ All Rights Reserved.
 @:@1(lng,date,simple,,lng,@2)@
 @:@1(lng,lng,simple,,lng,@2)@
 
-
 @:@1(date,int,atom,TYPE_,loc,@2)@
 @:@1(date,str,atom,TYPE_,loc,@2)@
 @:@1(date,lng,atom,TYPE_,loc,@2)@
@@ -527,7 +526,9 @@ CRKProjectCrack_@1_@2(int *res, int *bid, int *pbid, @1 *low, @1 *hgh, bit *incl
 	view = BATmirror(BATmark(BATmirror(vslice),cl1));
 
 	view->hsorted = TRUE;
+	view->hrevsorted = FALSE;
 	view->tsorted = FALSE;
+	view->trevsorted = FALSE;
 	view->hdense = TRUE;
 	view->tdense = FALSE;
         *res = view->batCacheid;
@@ -633,9 +634,11 @@ CRKPositionProject_@1_@2(int *res, int *bid, int *pbid,int *PositionPivot, @1 *l
         BATsetcount(r, size);
 
 	r->hsorted = FALSE;
-        r->tsorted = FALSE;
-        r->hdense = FALSE;
-        r->tdense = FALSE;
+	r->hrevsorted = FALSE;
+	r->tsorted = FALSE;
+	r->trevsorted = FALSE;
+	r->hdense = FALSE;
+	r->tdense = FALSE;
 
         *res = r->batCacheid;
         BBPkeepref(r->batCacheid);
@@ -732,9 +735,11 @@ CRKProject_@1_@2(int *res, int *bid, int *pbid,int *pivot, @1 *low, @1 *hgh, bit
         BATsetcount(r, fsize);
 
 	r->hsorted = FALSE;
-        r->tsorted = FALSE;
-        r->hdense = FALSE;
-        r->tdense = FALSE;
+	r->hrevsorted = FALSE;
+	r->tsorted = FALSE;
+	r->trevsorted = FALSE;
+	r->hdense = FALSE;
+	r->tdense = FALSE;
 
         *res = r->batCacheid;
         BBPkeepref(r->batCacheid);
@@ -831,10 +836,11 @@ CRKProjectH_@1_@2(int *res, int *bid, int *pbid,int *pivot, @1 *low, @1 *hgh, bi
         BATsetcount(r, fsize);
 
 	r->hsorted = FALSE;
-        r->tsorted = FALSE;
-        r->hdense = FALSE;
-        r->tdense = FALSE;
-
+	r->hrevsorted = FALSE;
+	r->tsorted = FALSE;
+	r->trevsorted = FALSE;
+	r->hdense = FALSE;
+	r->tdense = FALSE;
         *res = r->batCacheid;
         BBPkeepref(r->batCacheid);
 
@@ -962,9 +968,11 @@ CRKMarkedProject_@1_@2(int *res, int *bid, int *pbid,int *pivot, @1 *low, @1 *hg
         BATsetcount(r, fsize);
 
 	r->hsorted = FALSE;
-        r->tsorted = FALSE;
-        r->hdense = FALSE;
-        r->tdense = FALSE;
+	r->hrevsorted = FALSE;
+	r->tsorted = FALSE;
+	r->trevsorted = FALSE;
+	r->hdense = FALSE;
+	r->tdense = FALSE;
 
         *res = r->batCacheid;
         BBPkeepref(r->batCacheid);
@@ -1036,9 +1044,11 @@ CRKdProject_@1_@2(int *res, int *bid, int *pbid,int *pivot){
         BATsetcount(r, fsize);
 
 	r->hsorted = FALSE;
-        r->tsorted = FALSE;
-        r->hdense = FALSE;
-        r->tdense = FALSE;
+	r->hrevsorted = FALSE;
+	r->tsorted = FALSE;
+	r->trevsorted = FALSE;
+	r->hdense = FALSE;
+	r->tdense = FALSE;
 
         *res = r->batCacheid;
         BBPkeepref(r->batCacheid);
@@ -1100,9 +1110,11 @@ CRKdProjectH_@1_@2(int *res, int *bid, int *pbid,int *pivot){
         BATsetcount(r, fsize);
 
 	r->hsorted = FALSE;
-        r->tsorted = FALSE;
-        r->hdense = FALSE;
-        r->tdense = FALSE;
+	r->hrevsorted = FALSE;
+	r->tsorted = FALSE;
+	r->trevsorted = FALSE;
+	r->hdense = FALSE;
+	r->tdense = FALSE;
 
         *res = r->batCacheid;
         BBPkeepref(r->batCacheid);
@@ -1158,9 +1170,11 @@ CRKdPositionProject_@1_@2(int *res, int *bid, int *pbid,int *pivot){
         BATsetcount(r, size);
 
 	r->hsorted = FALSE;
-        r->tsorted = FALSE;
-        r->hdense = FALSE;
-        r->tdense = FALSE;
+	r->hrevsorted = FALSE;
+	r->tsorted = FALSE;
+	r->trevsorted = FALSE;
+	r->hdense = FALSE;
+	r->tdense = FALSE;
 
         *res = r->batCacheid;
         BBPkeepref(r->batCacheid);
@@ -1749,8 +1763,8 @@ AddToTape_@1(int h, @1 low, @1 hgh, bit li, bit hi){
 
 	@:printMacro(@1,low=,low)@
 	@:printMacro(@1,hgh=,hgh)@
-	BATprint(h1);
-	BATprint(h2);
+	/*BATprint(h1);*/
+	/*BATprint(h2);*/
 	
 	BBPunfix(h1->batCacheid);
         BBPunfix(h2->batCacheid);
@@ -1759,8 +1773,10 @@ AddToTape_@1(int h, @1 low, @1 hgh, bit li, bit hi){
 @
 @= CreateResultSideways
 createView:
+	b->hrevsorted = FALSE;   /*The "problem" caused by the wrong properties is temporarily fixed here. (It's not a permanent solution.)*/
+	b->trevsorted = FALSE;
 
-fprintf(stderr,"vl="OIDFMT",vh="OIDFMT"\n",vl,vh);
+/*fprintf(stderr,"vl="OIDFMT",vh="OIDFMT"\n",vl,vh);*/
 	if (tail){
 		BAT *vslice;
 		viewHead = VIEWhead_(BATmirror(b), BAT_READ);
@@ -1786,7 +1802,9 @@ fprintf(stderr,"vl="OIDFMT",vh="OIDFMT"\n",vl,vh);
 	}
 
 	view->hsorted = TRUE;
+	view->hrevsorted = FALSE;
 	view->tsorted = FALSE;
+	view->trevsorted = FALSE;
 	view->hdense = TRUE;
 	view->tdense = FALSE;
 	BBPunfix(viewHead->batCacheid);
@@ -1844,9 +1862,11 @@ fprintf(stderr,"vl="OIDFMT",vh="OIDFMT"\n",vl,vh);
 			memcpy(Tloc(b,  BUNfirst(b)), Tloc(bp, BUNfirst(bp)), sizeM * bp->T->width);
 		}
                 b->hsorted = FALSE;
-                b->tsorted = FALSE;
-                b->hdense = FALSE;
-                b->tdense = FALSE;
+		b->hrevsorted = FALSE;
+		b->tsorted = FALSE;
+		b->trevsorted = FALSE;
+		b->hdense = FALSE;
+		b->tdense = FALSE;
 
                 /*BATkey(b,TRUE);*/
 
@@ -2023,10 +2043,12 @@ createView:
 
         BATsetcount(p, size);
 
-        p->hsorted = FALSE;
-        p->tsorted = FALSE;
-        p->hdense = FALSE;
-        p->tdense = FALSE;
+        b->hsorted = FALSE;
+	b->hrevsorted = FALSE;
+	b->tsorted = FALSE;
+	b->trevsorted = FALSE;
+	b->hdense = FALSE;
+	b->tdense = FALSE;
 
         BBPkeepref(p->batCacheid);
         BBPunfix(b->batCacheid);
@@ -2409,7 +2431,7 @@ CRKdRangeSideways_@1_@2(int *vid, int *bid, int *pbid, @1 *low, @1 *hgh, bit *in
 
 	p = BATnew(TYPE_void,TYPE_bit,size);
 	BATseqbase(p, 0);
-	BATprint(b);
+	/*BATprint(b);*/
 	
 
 	fprintf(stderr,"size="OIDFMT"\n",size);
@@ -2429,7 +2451,7 @@ CRKdRangeSideways_@1_@2(int *vid, int *bid, int *pbid, @1 *low, @1 *hgh, bit *in
 
         BATsetcount(p, size);	
 	
-	BATprint(p);
+	/*BATprint(p);*/
 
 
 	p->hsorted = FALSE;

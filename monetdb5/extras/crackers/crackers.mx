@@ -381,6 +381,18 @@ address CRKjointhetaSelectSideways_@2
 comment "From cpair, only those BUNs qualify that satisfy the range-restriction on the tail.
         The result is a new [:oid,:bit] BAT that reflects the positions of buns in cpair. 
 	For each tuple that qualifies in cpair, the respective position in the pivot is marked with a 1";
+
+command joinselecthol( b:bat[:oid,:@2],l:@2, h:@2, li:bit, hi:bit ):bat[:oid,:bit]
+address CRKjoinSelectSidewayshol_@2
+comment "From cpair, only those BUNs qualify that satisfy the range-restriction on the tail.
+        The result is a new [:oid,:bit] BAT that reflects the positions of buns in cpair. 
+	For each tuple that qualifies in cpair, the respective position in the pivot is marked with a 1";
+
+command jointhetaselecthol( b:bat[:oid,:@2],v:@2,op:str):bat[:oid,:bit]
+address CRKjointhetaSelectSidewayshol_@2
+comment "From cpair, only those BUNs qualify that satisfy the range-restriction on the tail.
+        The result is a new [:oid,:bit] BAT that reflects the positions of buns in cpair. 
+	For each tuple that qualifies in cpair, the respective position in the pivot is marked with a 1";
 @
 @= Updates
 command insertionsPartiallyForget(b:bat[:any_1,:@2], c:bat[:any_1,:@2]):void
@@ -636,6 +648,134 @@ comment "add bp reference to map set of b";
 command fmcreateMap(b:bat[:oid,:@1],bp:bat[:oid,:@2]):void
 address CRKcreateFullMap_@1_@2
 comment "make new map for debugging";
+
+
+
+command getMaphol( b:bat[:oid,:@1], bp:bat[:oid,:@2] ):bat[:@1,:@2]
+address getCrackerMaphol
+comment "Get a certain map";
+
+command DeleteMaphol( b:bat[:oid,:@1], bp:bat[:oid,:@2] ):void
+address DeleteCrackerMaphol
+comment "Throw away a certain map"; 
+
+command inserthol( b:bat[:oid,:@1], bp:bat[:oid,:@2], c:bat[:@1,:@2]):void
+address CRKinserthol
+comment "Keep the insertions BAT separatelly and merge in the future on demand with the Ripple";
+
+command printPendingInsertionshol( b:bat[:oid,:@1], bp:bat[:oid,:@2]):void
+address CRKprintPendingInsertionshol
+comment "Print the pending insertions";
+
+command extendCrackerMaphol(b:bat[:oid,:@1], bp:bat[:oid,:@2], P:lng):void
+address CRKextendCrackerMaphol
+comment "Extend the cracker map by P positions";
+
+command sizePendingInsertionshol(b:bat[:oid,:@1], bp:bat[:oid,:@2]):void
+address CRKsizePendingInsertionshol
+comment "Get the size of the pending insertions for this map";
+
+
+
+command hselecthol(b:bat[:oid,:@1],bp:bat[:oid,:@2],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@1]
+address CRKhselectBoundsSidewayshol_@1_@2
+comment "Retrieve the subset head using a cracker
+        index producing preferably a BATview.";
+
+command tselecthol(b:bat[:oid,:@1],bp:bat[:oid,:@2],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@2]
+address CRKtselectBoundsSidewayshol_@1_@2
+comment "Retrieve the subset tail using a cracker
+        index producing preferably a BATview.";
+
+command dselecthol(b:bat[:oid,:@1],bp:bat[:oid,:@2],l:@1,h:@1,li:bit,hi:bit,l2:@2,h2:@2,li2:bit,hi2:bit):bat[:oid,:bit]
+address CRKdselectBoundsSidewayshol_@1_@2
+comment "Crack based on @1 and evaluate the @2 disjunctive predicate outside the cracked area. Return a bit vector.";
+
+
+command joinselecthol( b:bat[:oid,:@1],bp:bat[:oid,:@2], pivot:bat[:oid,:bit], cl:@1, ch:@1, cli:bit, chi:bit, l:@2, h:@2, li:bit, hi:bit ):bat[:oid,:bit]
+address CRKjoinSelectSidewayshol_P_@1_@2
+comment "Use the pivot. For each tuple in pivot with a 1, check if the respective tuple (in the same position)
+	 in the tail of cpair satisfies the range restriction. If not mark the pivot BUN as 0.";
+
+command jointhetaselecthol( b:bat[:oid,:@1],bp:bat[:oid,:@2], pivot:bat[:oid,:bit], cl:@1, ch:@1, cli:bit, chi:bit, l:@2, op:str):bat[:oid,:bit]
+address CRKjointhetaSelectSidewayshol_P_@1_@2
+comment "Use the pivot. For each tuple in pivot with a 1, check if the respective tuple (in the same position)
+	 in the tail of cpair satisfies the range restriction. If not mark the pivot BUN as 0.";
+
+command djoinselecthol( b:bat[:oid,:@1],bp:bat[:oid,:@2], pivot:bat[:oid,:bit], l:@2, h:@2, li:bit, hi:bit ):bat[:oid,:bit]
+address CRKdjoinSelectSidewayshol_P_@1_@2
+comment "Use the pivot. For each tuple in pivot with a 0, check if the respective tuple (in the same position)
+	 in the tail of cpair satisfies the range restriction. If yes mark the pivot BUN as 1.";
+
+
+command projecthol( b:bat[:oid,:@1],bp:bat[:oid,:@2], l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@2]
+address CRKProjectCrackhol_@1_@2
+comment "Sync map and project the tail";
+
+command projecthol( b:bat[:oid,:@1],bp:bat[:oid,:@2],pivot:bat[:oid,:bit],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@2]
+address CRKProjecthol_@1_@2
+comment "Sync map and project tail based on pivot";
+
+command projectHhol( b:bat[:oid,:@1],bp:bat[:oid,:@2],pivot:bat[:oid,:bit],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@1]
+address CRKProjectHhol_@1_@2
+comment "Sync map and project head based on pivot";
+
+command positionprojecthol( b:bat[:oid,:@1],bp:bat[:oid,:@2],PositionPivot:bat[:oid,:oid],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@2]
+address CRKPositionProjecthol_@1_@2
+comment "Sync the cracking pair and project the tail. The pivot holds the positions to be projected";
+
+command markedprojecthol( b:bat[:oid,:@1],bp:bat[:oid,:@2],pivot:bat[:oid,:bit],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@2]
+address CRKMarkedProjecthol_@1_@2
+comment "Sync the cracking pair and project the tail. The result bat has a marked head";
+
+command dprojecthol( b:bat[:oid,:@1],bp:bat[:oid,:@2],pivot:bat[:oid,:bit]):bat[:oid,:@2]
+address CRKdProjecthol_@1_@2
+comment "Sync the cracking pair and project the tail. Use for disjunctive queries that require a larger bit vector";
+
+command dprojectHhol( b:bat[:oid,:@1],bp:bat[:oid,:@2],pivot:bat[:oid,:bit]):bat[:oid,:@1]
+address CRKdProjectHhol_@1_@2
+comment "Sync the cracking pair and project the head. Use for disjunctive queries that require a larger bit vector";
+
+command positionprojecthol( b:bat[:oid,:@1],bp:bat[:oid,:@2],pivot:bat[:oid,:oid]):bat[:oid,:@2]
+address CRKdPositionProjecthol_@1_@2
+comment "Sync the cracking pair and project the tail. Use position based pivot";
+
+command pmselecthol(b:bat[:oid,:@1],bp:bat[:oid,:@2],l:@1,h:@1,li:bit,hi:bit,l2:@2,h2:@2,li2:bit,hi2:bit):bat[:oid,:bit]
+address CRKselectBoundsIncrementalSidewayshol_@1_@2
+comment "Crack based on @1 and evaluate the @2 conjunctive predicate. Return a bit vector.";
+
+command pmtselecthol(b:bat[:oid,:@1],bp:bat[:oid,:@2],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@2]
+address CRKselectBoundsTailIncrementalSidewayshol_@1_@2
+comment "Crack based on @1 and project the @2 tail .";
+
+command pmjoinselecthol(b:bat[:oid,:@1],bp:bat[:oid,:@2], pivot:bat[:oid,:bit], cl:@1, ch:@1, cli:bit, chi:bit, l:@2, h:@2, li:bit, hi:bit ):bat[:oid,:bit]
+address CRKjoinSelectIncrementalSidewayshol_@1_@2
+comment "Use the pivot. For each tuple in pivot with a 1, check if the respective tuple (in the same position)
+	 in the tail of cpair(collection of pieces) satisfies the range restriction. If not mark the pivot BUN as 0.";
+
+command pmprojecthol(b:bat[:oid,:@1],bp:bat[:oid,:@2],pivot:bat[:oid,:bit],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@2]
+address CRKProjectIncrementalSidewayshol_@1_@2
+comment "Sync the map and project the tail based on the pivot";
+
+command pmmaxTailhol(b:bat[:oid,:@1],bp:bat[:oid,:@2],l:@1,h:@1,li:bit,hi:bit):bat[:oid,:@2]
+address CRKMaxTailIncrementalSidewayshol_@1_@2
+comment "Sync/crack the map and get the max of the tail";
+
+command pmaddReferencehol(b:bat[:oid,:@1],bp:bat[:oid,:@2]):void
+address CRKaddReferencehol
+comment "add bp reference to map set of b";
+
+command pmclearReferenceshol(b:bat[:oid,:@1]):void
+address CRKclearReferenceshol
+comment "clear all references to b";
+
+command fmaddReferencehol(b:bat[:oid,:@1],bp:bat[:oid,:@2]):void
+address CRKaddReferenceFullMapshol
+comment "add bp reference to map set of b";
+
+command fmcreateMaphol(b:bat[:oid,:@1],bp:bat[:oid,:@2]):void
+address CRKcreateFullMaphol_@1_@2
+comment "make new map for debugging";
 @
 
  
@@ -667,10 +807,12 @@ comment "make new map for debugging";
 #include "crackers_selecthol_ops.h"
 #include "crackers_selectholst_ops.h"
 #include "crackers_holistic.h"
+#include "crackers_holisticsideways.h"
 #include "crackers_core_unordered.h"
 #include "crackers_AVL_tree.h"
 #include "crackers_updates.h"
 #include "crackers_sideways.h"
+#include "crackers_sidewayshol.h"
 
 #ifdef LIBCRACKERS 
 extern int maxCrackMap;

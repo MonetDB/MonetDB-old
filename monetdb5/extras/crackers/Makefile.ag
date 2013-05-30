@@ -40,11 +40,14 @@ lib_crackers = {
 			  crackers_joinselect_ops.mx \
 			  crackers_holistic.c \
 			  crackers_holistic.h \
+			  crackers_holisticsideways.c \
+			  crackers_holisticsideways.h \
 			  crackers_selectst_ops.mx \
 			  crackers_selecthol_ops.mx \
 			  crackers_selectholst_ops.mx \
 			  crackers_updates.mx \
 			  crackers_sideways.mx \
+			  crackers_sidewayshol.mx \
 			  opt_selcrack.mx \
 			  opt_selcrackst.mx \
 			  opt_selcrackhol.mx \
@@ -64,7 +67,8 @@ headers_mal = {
 			  opt_selcrackst.mx \
 			  opt_selcrackhol.mx \
 			  opt_sidcrack.mx \
-			  crackers_holistic.mal
+			  crackers_holistic.mal \
+			  crackers_holisticsideways.mal
 }
 
 headers_crackersautoload = {

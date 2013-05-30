@@ -323,9 +323,17 @@ createView:
 	struct Node *lowNode=NULL, *hghNode=NULL, *lowNodeNext=NULL, *temp;
 	BUN idxFirst;
 	bit copy=TRUE;
-	
+	int pieces=0;
 	/*k and randomoid are used for DD1R*/
 	@1 k,temp_h;
+	FILE *ofp;
+	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/experiments/stochastic/idle_time_2/pieces_stochastic.txt";
+	ofp = fopen(outputFilename1,"a");
+	if (ofp == NULL) {
+  		fprintf(stderr, "Can't open output file!\n");
+  		exit(1);
+	}
+
 
 
 	if (@2_GT(low,hgh,@3@1))
@@ -368,7 +376,10 @@ createView:
 
 			/*printf(" "LLFMT" \n ",posh-posl);*/
 			@:crkThreeTree@5(@1,posl,posh,@5)@
-			
+			pieces = pieces + 3;
+			fprintf(ofp,"%d\n",pieces);
+			fclose(ofp);
+
 			BBPincref(b->batCacheid,TRUE);
 			BBPunfix(bo->batCacheid);
 			goto createView;
@@ -554,7 +565,11 @@ createView:
 			if (IndexSize <IndexStop)
 			{
 					
-				if (gapH>0) addCrackerIndex_@1(m,hgh,HBound,vh,c);
+				if (gapH>0)
+				{ 
+					addCrackerIndex_@1(m,hgh,HBound,vh,c);
+					pieces=pieces+1;
+				}
 				
 			}
 			
@@ -567,7 +582,11 @@ createView:
 
                         	if (IndexSize <IndexStop){
                                         if (vl>0) _vl=vl-1; else _vl=vl;
-                                        if(gapL>0) addCrackerIndex_@1(m,low,*inclusiveLow,_vl,c);
+                                        if(gapL>0)
+					{
+						addCrackerIndex_@1(m,low,*inclusiveLow,_vl,c);
+						pieces=pieces+1;
+					}
                                         temp_vl=vl;
                         	}
 				
@@ -600,7 +619,11 @@ createView:
 
                        	if (IndexSize <IndexStop){
                                  if (vl>0) _vl=vl-1; else _vl=vl;
-                                 if (gapL>0) addCrackerIndex_@1(m,low,*inclusiveLow,_vl,c);
+                                 if (gapL>0)
+				 {
+					addCrackerIndex_@1(m,low,*inclusiveLow,_vl,c);
+					pieces=pieces+1;
+				 }
 			}
 			foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
 			if(foundHgh==0)
@@ -612,7 +635,11 @@ createView:
                         	if (IndexSize <IndexStop)
                         	{
 
-                                	if (gapH>0) addCrackerIndex_@1(m,hgh,HBound,vh,c);
+                                	if (gapH>0)
+					{
+		 				addCrackerIndex_@1(m,hgh,HBound,vh,c);
+						pieces=pieces+1;
+					}
                                 
                         	}
                         	temp_vh=vh;
@@ -630,7 +657,8 @@ createView:
 		vh = ch2;
 	}
 
-	
+	fprintf(ofp,"%d\n",pieces);
+	fclose(ofp);
 	@:CreateResult()@
 	return MAL_SUCCEED;
 @
