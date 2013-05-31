@@ -23,18 +23,6 @@
 #include "mal.h"
 #include "mal_client.h"
 
-
-#ifdef WIN32
-#ifndef LIBCRACKERS
-#define crackers_export extern __declspec(dllimport)
-#else
-#define crackers_export extern __declspec(dllexport)
-#endif
-#else
-#define crackers_export extern
-#endif
-
-
 typedef struct frequencysideways{
 
 	int 		bid_1;   		/* The head bid in cracker map (selection attribute) */
