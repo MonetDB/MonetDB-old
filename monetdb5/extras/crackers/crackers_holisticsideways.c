@@ -27,7 +27,8 @@
 static FrequencyNodeSideways *_InternalFrequencyStructSidewaysA = NULL;
 static FrequencyNodeSideways *_InternalFrequencyStructSidewaysB = NULL;
 static MT_Lock frequencylocksideways;
-//static int isIdleQuery = 0;
+
+int isIdleQuerySideways = 0;
 
 str
 CRKinitHolisticSideways(int *ret)

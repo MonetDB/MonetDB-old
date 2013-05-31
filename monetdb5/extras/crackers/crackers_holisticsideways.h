@@ -47,7 +47,7 @@ typedef struct frequencysideways{
 
 }FrequencyNodeSideways;
 
-int isIdleQuerySideways;
+crackers_export int isIdleQuerySideways;
 
 crackers_export FrequencyNodeSideways *getFrequencyStructSideways(char which);
 crackers_export void pushSideways(int bat_id1,int bat_id2,FrequencyNodeSideways* head);
