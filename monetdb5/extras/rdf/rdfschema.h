@@ -79,6 +79,17 @@ typedef struct SubCS {
 	int	numSubTypes; 
 } SubCS; 
 
+typedef struct mergeCS {	// CS formed by merging CS id1 and CS id2	
+	oid	id1; 
+	oid	id2; 
+	oid*	lstProp; 
+	int	numProp; 
+	int 	support;
+	int	coverage;
+
+} mergeCS; 
+
+
 #define INIT_NUM_SUBCS 4
 
 typedef struct SubCSSet{
@@ -96,6 +107,12 @@ typedef struct CSset{
 	int numCSadded;
 	int numAllocation;
 } CSset; 
+
+typedef struct mergeCSset{
+	mergeCS* items; 
+	int nummergeCSadded; 
+	int numAllocation; 
+} mergeCSset;
 
 #define INIT_NUM_CSREL 4
 typedef struct CSrel{	

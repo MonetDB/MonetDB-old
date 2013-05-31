@@ -125,6 +125,25 @@ void addCStoSet(CSset *csSet, CS item)
 }
 
 static 
+void addmergeCStoSet(mergeCSset *mergecsSet, mergeCS item)
+{
+	void *_tmp; 
+	if(mergecsSet->nummergeCSadded == mergecsSet->numAllocation) 
+	{ 
+		mergecsSet->numAllocation += INIT_NUM_CS; 
+		
+		_tmp = realloc(mergecsSet->items, (mergecsSet->numAllocation * sizeof(CS)));
+	
+		if (!_tmp){
+			fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+		}
+		mergecsSet->items = (mergeCS*)_tmp;
+	}
+	mergecsSet->items[mergecsSet->nummergeCSadded] = item;
+	mergecsSet->nummergeCSadded++;
+}
+
+static 
 CSrel* creataCSrel(oid csoid){
 	CSrel *csrel = (CSrel*) malloc(sizeof(CSrel));
 	csrel->origCSoid = csoid; 
@@ -719,6 +738,16 @@ void freeCSset(CSset *csSet){
 	free(csSet);	
 }
 
+static
+void freemergeCSset(mergeCSset *csSet){
+	int i;
+	for(i = 0; i < csSet->nummergeCSadded; i ++){
+		free(csSet->items[i].lstProp);
+	}
+	free(csSet->items);
+	free(csSet);	
+}
+
 static 
 CSset* initCSset(void){
 	CSset *csSet = (CSset*) malloc(sizeof(CSset)); 
@@ -727,6 +756,16 @@ CSset* initCSset(void){
 	csSet->numCSadded = 0;
 
 	return csSet;
+}
+
+static 
+mergeCSset* initmergeCSset(void){
+	mergeCSset *mergecsSet = (mergeCSset*) malloc(sizeof(mergeCSset)); 
+	mergecsSet->items = (mergeCS*) malloc(sizeof(mergeCS) * INIT_NUM_CS); 
+	mergecsSet->numAllocation = INIT_NUM_CS;
+	mergecsSet->nummergeCSadded = 0;
+
+	return mergecsSet;
 }
 
 /*
@@ -770,6 +809,95 @@ CS* creatCS(oid csId, int numP, oid* buff)
 	return cs; 
 }
 
+static 
+void mergeOidSets(oid* arr1, oid* arr2, oid* mergeArr, int m, int n, int numCombineP){
+	
+	int i = 0, j = 0;
+	int pos = 0;
+
+	while( j < m && i < n )
+	{
+		if( arr1[j] < arr2[i] ){
+			mergeArr[pos] = arr1[j];
+			pos++;
+			j++;
+		}
+		else if( arr1[j] == arr2[i] )
+		{
+			mergeArr[pos] = arr1[j];	
+			pos++;
+			j++;
+			i++;
+		}
+		else if( arr1[j] > arr2[i] ){
+			mergeArr[pos] = arr2[i];
+			pos++;
+			i++;
+		}
+	}
+	if (j == m && i < n){
+		while (i < n){
+			mergeArr[pos] = arr2[i];
+			pos++;
+			i++;
+		}		
+	} 
+
+	if (j < m && i == n){
+		while (j < m){
+			mergeArr[pos] = arr1[j];
+			pos++;
+			j++;
+		}		
+	} 
+	
+	assert(pos == numCombineP); 
+	/*
+	printf("pos = %d, numCombineP = %d\n", pos, numCombineP);
+
+	for (i = 0; i < m; i++){
+		printf(BUNFMT " ", arr1[i]);
+	}
+	
+	printf("\n");
+	for (i = 0; i < n; i++){
+		printf(BUNFMT " ", arr2[i]);
+	}
+
+	
+	printf("\n");
+	for (i = 0; i < pos; i++){
+		printf(BUNFMT " ", mergeArr[i]);
+	}
+	
+	printf("\n");
+	*/
+
+		
+}
+
+static 
+mergeCS* mergeTwoCSs(CS cs1, CS cs2, int numCombineP, int support, int coverage){
+
+	mergeCS *mergecs = (mergeCS*) malloc (sizeof (mergeCS)); 
+	mergecs->id1 = cs1.csId;  
+	mergecs->id2 = cs2.csId; 
+	mergecs->lstProp = (oid*) malloc(sizeof(oid) * numCombineP); 
+
+	if (mergecs->lstProp == NULL){
+		printf("Malloc failed. at %d", numCombineP);
+		exit(-1);
+	}
+
+	mergeOidSets(cs1.lstProp, cs2.lstProp, mergecs->lstProp, cs1.numProp, cs2.numProp, numCombineP); 
+
+	mergecs->numProp = numCombineP;
+	mergecs->support = support;
+	mergecs->coverage = coverage;
+	
+	return mergecs; 
+
+}
 
 static 
 str printFreqCSSet(CSset *freqCSset, oid* csSuperCSMap, BAT *freqBat, BAT *mapbat, char isWriteTofile, int freqThreshold){
@@ -886,6 +1014,52 @@ str printFreqCSSet(CSset *freqCSset, oid* csSuperCSMap, BAT *freqBat, BAT *mapba
 #if SHOWPROPERTYNAME
 	TKNZRclose(&ret);
 #endif
+	return MAL_SUCCEED;
+}
+
+
+static 
+str printmergeCSSet(mergeCSset *mergecsSet, int freqThreshold){
+
+	int 	i,j; 
+	FILE 	*fout; 
+	char 	filename[100];
+	char 	tmpStr[20];
+	int 	ret;
+
+	str 	propStr; 
+	char*   schema = "rdf";
+	int	nummergecs;	
+
+	nummergecs = mergecsSet->nummergeCSadded; 
+	
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "rdf.rdfschema",
+				"could not open the tokenizer\n");
+	}
+	
+
+	strcpy(filename, "mergeCSFullInfo");
+	sprintf(tmpStr, "%d", freqThreshold);
+	strcat(filename, tmpStr);
+	strcat(filename, ".txt");
+
+	fout = fopen(filename,"wt"); 
+
+	for (i = 0; i < nummergecs; i++){
+		mergeCS cs = (mergeCS)mergecsSet->items[i];
+		
+		fprintf(fout, "MergeCS %d: "BUNFMT " and " BUNFMT "\n",i,cs.id1, cs.id2);
+		for (j = 0; j < cs.numProp; j++){
+			takeOid(cs.lstProp[j], &propStr);	
+			fprintf(fout,"          %s\n", propStr);
+		}
+		fprintf(fout, "\n");
+	}
+
+	fclose(fout);
+	
+	TKNZRclose(&ret);
 	return MAL_SUCCEED;
 }
 
@@ -1171,6 +1345,40 @@ static int isSubset(oid* arr1, oid* arr2, int m, int n)
 }
 
 /*
+ * Use Jaccard similarity coefficient for computing the 
+ * similarity between two sets
+ * sim(A,B) = |A  B| / |A U B|
+ * Here each set contains distinct values only 
+ * */
+
+static 
+float similarityScore(oid* arr1, oid* arr2, int m, int n, int *numCombineP){
+	
+	int i = 0, j = 0;
+	int numOverlap = 0; 
+	 
+	while( i < n && j < m )
+	{
+		if( arr1[j] < arr2[i] )
+			j++;
+		else if( arr1[j] == arr2[i] )
+		{
+			j++;
+			i++;
+			numOverlap++;
+		}
+		else if( arr1[j] > arr2[i] )
+			i++;
+	}
+
+	*numCombineP = m + n - numOverlap;
+		
+	return  ((float)numOverlap / (*numCombineP));
+}
+
+
+
+/*
 static 
 void printCS(CS cs){
 	int i; 
@@ -1187,7 +1395,7 @@ void printCS(CS cs){
  * Here maximum frequent CS is a CS that there exist no other CS which contains that CS
  * */
 static 
-void getMaximumFreqCSs(CSset *freqCSset, oid* csSuperCSMap, BAT* coverageBat, int* superCSCoverage, BAT* freqBat, int* superCSFrequency, int numCS){
+void getMaximumFreqCSs(CSset *freqCSset, oid* csSuperCSMap, BAT* coverageBat, int* superCSCoverage, BAT* freqBat, int* superCSFrequency, int numCS, int *nMaxCSs){
 
 	int 	numFreqCS = freqCSset->numCSadded; 
 	int 	i, j; 
@@ -1224,6 +1432,8 @@ void getMaximumFreqCSs(CSset *freqCSset, oid* csSuperCSMap, BAT* coverageBat, in
 			//printCS( freqCSset->items[i]); 
 		}
 	}
+
+	*nMaxCSs = numMaxCSs;
 	printf("Number of maximum CSs: %d / %d CSs \n", numMaxCSs, numCS);
 
 	/*
@@ -1268,7 +1478,39 @@ void getMaximumFreqCSs(CSset *freqCSset, oid* csSuperCSMap, BAT* coverageBat, in
 	*/
 }
 
+static
+void mergeMaximumFreqCSs(CSset *freqCSset, oid* superCSFreqCSMap, oid* superCSMergeMaxCSMap, mergeCSset* mergecsSet, int numMaxCSs){
+	int 		i, j; 
+	int 		maxCSid = 0; 
+	int 		freqId1, freqId2; 
+	float 		simscore = 0.0; 
+	mergeCS     	*mergecs;
+	int 		numCombineP = 0; 
 
+	for (i = 0; i < freqCSset->numCSadded; i++){
+		if (freqCSset->items[i].isSubset == 0){
+			superCSFreqCSMap[maxCSid] = i; 
+			maxCSid++;
+		}
+	}
+
+	
+	for (i = 0; i < numMaxCSs; i++){
+	 	for (j = (i+1); j < numMaxCSs; j++){
+			freqId1 = superCSFreqCSMap[i]; 
+			freqId2 = superCSFreqCSMap[j];
+			simscore = similarityScore(freqCSset->items[freqId1].lstProp, freqCSset->items[freqId2].lstProp,
+					freqCSset->items[freqId1].numProp,freqCSset->items[freqId2].numProp,
+					&numCombineP);
+			if (simscore > 0.6){
+				mergecs = mergeTwoCSs(freqCSset->items[freqId1],freqCSset->items[freqId2],numCombineP, 0, 0);
+				addmergeCStoSet(mergecsSet, *mergecs);
+				superCSMergeMaxCSMap[i] = j; 	
+				//printf("Can merge " BUNFMT " and " BUNFMT " (sscore: %.2f) \n", freqCSset->items[freqId1].csId,freqCSset->items[freqId2].csId, simscore);
+			}
+		}
+	}
+}
 
 
 static void putPtoHash(map_t pmap, int key, oid *poid, int support){
@@ -1399,7 +1641,7 @@ static void getStatisticMaxCSs(BAT *pOffsetBat, BAT *fullPBat, oid* csSuperCSMap
 	char 	filename[100];
 	char 	tmpStr[20];
 
-	printf("Get statistics of Maximum CSs \n");
+	printf("Get statistics of Maximum CSs ....");
 
 	strcpy(filename, "maxCSStatistic");
 	sprintf(tmpStr, "%d", freqThreshold);
@@ -1434,6 +1676,7 @@ static void getStatisticMaxCSs(BAT *pOffsetBat, BAT *fullPBat, oid* csSuperCSMap
 
 	fclose(fout); 
 	//free(csPropNum); 
+	printf("Done \n");
 }
 
 /*
@@ -1774,6 +2017,12 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 					      This array will have many NULL values  */
 	int		*superCSFrequency; /* Store the frequency of each superCS (=sum of all its subCS's frequencies */
 
+
+	int		numMaxCSs = 0; 
+	oid		*superCSFreqCSMap; 
+	oid		*superCSMergeMaxCSMap;
+	mergeCSset	*mergecsSet; 
+
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
@@ -1865,9 +2114,20 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	//getTopFreqCSs(csMap,*freqThreshold);
 
-	getMaximumFreqCSs(freqCSset, csSuperCSMap, csBats->coverageBat, superCSCoverage, csBats->freqBat, superCSFrequency, maxCSoid + 1); 
+	getMaximumFreqCSs(freqCSset, csSuperCSMap, csBats->coverageBat, superCSCoverage, csBats->freqBat, superCSFrequency, maxCSoid + 1, &numMaxCSs); 
+
+	//printf("Number of maximumCS: %d", numMaxCSs);
+
+	superCSFreqCSMap = (oid*) malloc(sizeof(oid) * numMaxCSs); 
+	superCSMergeMaxCSMap = (oid*) malloc(sizeof(oid) * numMaxCSs);
+	mergecsSet = initmergeCSset(); 
+
+	mergeMaximumFreqCSs(freqCSset, superCSFreqCSMap, superCSMergeMaxCSMap, mergecsSet, numMaxCSs);
+
 
 	printFreqCSSet(freqCSset, csSuperCSMap, csBats->freqBat, mbat, 1, *freqThreshold); 
+
+	printmergeCSSet(mergecsSet, *freqThreshold);
 
 	csrelToMaxFreqSet = initCSrelset(maxCSoid + 1);	// CS --> Reference MaxCSs
 	csrelFromMaxFreqSet = initCSrelset(maxCSoid + 1);	// CS --> Reference MaxCSs
@@ -1892,6 +2152,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	free (csSuperCSMap);
 	free (superCSCoverage); 
 	free (superCSFrequency); 
+	free (superCSFreqCSMap);
+	free (superCSMergeMaxCSMap); 
 
 	freeCS_SubCSMapSet(csSubCSMap, maxCSoid + 1); 
 
@@ -1902,6 +2164,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	freeCSBats(csBats);
 
 	freeCSset(freqCSset); 
+
+	freemergeCSset(mergecsSet);
 
 	//testBatHash(); 
 

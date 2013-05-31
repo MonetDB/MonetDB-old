@@ -223,7 +223,7 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 	BUN bun = BUN_NONE;
 	BAT **graph = pdata->graph;
 
-	printf("%s   %s   %s\n",raptor_term_to_string(triple->subject),raptor_term_to_string(triple->predicate),raptor_term_to_string(triple->object));
+	//printf("%s   %s   %s\n",raptor_term_to_string(triple->subject),raptor_term_to_string(triple->predicate),raptor_term_to_string(triple->object));
 	if (pdata->error > pdata->lasterror){
 		unsigned char* objStr;
 		int objLen; 
