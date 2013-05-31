@@ -18,7 +18,6 @@
  */
 
 #include "monetdb_config.h"
-#include "crackers_holisticsideways.h"
 #include "crackers.h"
 #include "gdk.h"
 #include "mal_exception.h"
