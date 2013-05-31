@@ -46,7 +46,7 @@ typedef struct frequency{
 
 }FrequencyNode;
 
-int isIdleQuery;
+crackers_export int isIdleQuery;
 
 crackers_export FrequencyNode *getFrequencyStruct(char which);
 crackers_export void push(int bat_id,FrequencyNode* head);

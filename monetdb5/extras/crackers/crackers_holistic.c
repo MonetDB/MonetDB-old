@@ -27,7 +27,8 @@
 static FrequencyNode *_InternalFrequencyStructA = NULL;
 static FrequencyNode *_InternalFrequencyStructB = NULL;
 static MT_Lock frequencylock;
-//static int isIdleQuery = 0;
+
+int isIdleQuery = 0;
 
 str
 CRKinitHolistic(int *ret)
