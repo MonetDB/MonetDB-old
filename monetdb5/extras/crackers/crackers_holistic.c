@@ -121,28 +121,34 @@ void
 printFrequencyStruct(FrequencyNode* head)
 {
 	FrequencyNode* temp;
-	/*FILE *ofp1,*ofp2;
-	FILE *ofp3,*ofp4,*ofp5;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/same#tuples/new/hit_range/1st_CostModel_variation/sequential_ABCDE/outA.txt";
-	char outputFilename2[] = "/export/scratch2/petraki/experiments_1st_paper/same#tuples/new/hit_range/1st_CostModel_variation/sequential_ABCDE/outB.txt";
+	double d;
+	FILE *ofp1;
+	/*FILE *ofp2,*ofp3,*ofp4,*ofp5;*/
+	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/experiments/strategies/distance/out.txt";
+	/*char outputFilename2[] = "/export/scratch2/petraki/experiments_1st_paper/same#tuples/new/hit_range/1st_CostModel_variation/sequential_ABCDE/outB.txt";
 	char outputFilename3[] = "/export/scratch2/petraki/experiments_1st_paper/same#tuples/new/hit_range/1st_CostModel_variation/sequential_ABCDE/outC.txt";
         char outputFilename4[] = "/export/scratch2/petraki/experiments_1st_paper/same#tuples/new/hit_range/1st_CostModel_variation/sequential_ABCDE/outD.txt";
-	char outputFilename5[] = "/export/scratch2/petraki/experiments_1st_paper/same#tuples/new/hit_range/1st_CostModel_variation/sequential_ABCDE/outE.txt";
+	char outputFilename5[] = "/export/scratch2/petraki/experiments_1st_paper/same#tuples/new/hit_range/1st_CostModel_variation/sequential_ABCDE/outE.txt";*/
 	ofp1 = fopen(outputFilename1,"a");
-	ofp2 = fopen(outputFilename2,"a");
+	/*ofp2 = fopen(outputFilename2,"a");
 	ofp3 = fopen(outputFilename3,"a");
         ofp4 = fopen(outputFilename4,"a");
-        ofp5 = fopen(outputFilename5,"a");
+        ofp5 = fopen(outputFilename5,"a");*/
 
-	if (ofp1 == NULL || ofp2 == NULL) {
+	if (ofp1 == NULL) {
   		fprintf(stderr, "Can't open output file!\n");
   		exit(1);
-	}*/
+	}
 	temp=head;
 	while(temp != NULL)
 	{
-		fprintf(stderr,"Bid=%d c=%d f1=%d f2=%d W=%lf  \n",temp->bid,temp->c,temp->f1,temp->f2,temp->weight);
-		/*fprintf(ofp1,"%d\t%d\t",temp->bid,temp->c);*/
+		/*fprintf(stderr,"Bid=%d c=%d f1=%d f2=%d W=%lf  \n",temp->bid,temp->c,temp->f1,temp->f2,temp->weight);*/
+		if(temp->weight>0)
+		{
+			d=(100000000.0/temp->c) - 8000.0;
+			fprintf(ofp1,"%d\t%lf\n",temp->bid,d);
+			
+		}
 		/*if(temp->bid==231 && temp->weight>0)
 			fprintf(ofp1,"%d\t%d\n",temp->bid,temp->f1);
 		else if(temp->bid==232 && temp->weight>0)
@@ -156,8 +162,8 @@ printFrequencyStruct(FrequencyNode* head)
 		temp=temp->next;
 	}
 	/*fprintf(ofp,"\n");*/
-	/*fclose(ofp1);
-	fclose(ofp2);
+	fclose(ofp1);
+	/*fclose(ofp2);
 	fclose(ofp3);
 	fclose(ofp4);
 	fclose(ofp5);*/
@@ -287,7 +293,7 @@ changeWeight_2(FrequencyNode* node,int N,int L1)
 		node->weight = d;
 	}
 
-	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
+	/*fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);*/
 	return node->weight;
 }
 
@@ -334,7 +340,7 @@ changeWeight_4(FrequencyNode* node,int N,int L1)
 	{
 		node->weight = (double)(node->f1) * d;
 	}
-	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
+	/*fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);*/
 	return node->weight;
 }
 
@@ -357,10 +363,7 @@ changeWeight_5(FrequencyNode* node,int N,int L1)
 	}
 	else
 	{
-		if (node->f2!=0)
-			node->weight = ((double)(node->f1)/(double)(node->f2)) * d;
-		else
-			node->weight = (double)(node->f1) * d;
+		node->weight = ((double)(node->f1)-(double)(node->f2)) * d;
 	}
 	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
 	return node->weight;
@@ -385,12 +388,9 @@ changeWeight_6(FrequencyNode* node,int N,int L1)
 	}
 	else
 	{
-		if (node->f2!=0)
-			node->weight = ((double)(node->f1)/(double)(node->f2)) * d;
-		else
-			node->weight = (double)(node->f1) * d;
+		node->weight = ((double)(node->f1)-(double)(node->f2)) * d;
 	}
-	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
+	/*fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);*/
 	return node->weight;
 
 }
@@ -464,12 +464,7 @@ changeWeight_9(FrequencyNode* node,int N,int L1)
 		if (node->f1==0)
 			node->weight = 1.0;
 		else
-		{
-			if (node->f2!=0)
-				node->weight = ((double)(node->f1)/(double)(node->f2));
-			else
-				node->weight = (double)(node->f1);
-		}
+			node->weight = ((double)(node->f1)-(double)(node->f2));
 	}
 	else
 	{
@@ -495,10 +490,7 @@ changeWeight_10(FrequencyNode* node,int N,int L1)
 	d = Sp - L1;
 	if (d>0)
 	{
-		if (node->f2!=0)
-			node->weight = ((double)(node->f1)/(double)(node->f2));
-		else
-			node->weight = (double)(node->f1);
+		node->weight = ((double)(node->f1)-(double)(node->f2));
 	}
 	else
 	{
@@ -590,13 +582,13 @@ CRKrandomCrack(int *ret)
 	int *t;
 	int temp=0;
 	oid posl,posh,p;
-	/*FILE *ofp1;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/same#tuples/new/hit_range/1st_CostModel_variation/sequential_AB_x/n4000/out.txt";*/
+	FILE *ofp1;
+	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/experiments/strategies/change_parameters_abcde/a800b50c50d50e50/idle_queries_2";
 	
 	bit inclusive=TRUE;
 	FrequencyNode *fs = getFrequencyStruct('A');	
 	isIdleQuery=1;
-	/*ofp1 = fopen(outputFilename1,"a");*/
+	ofp1 = fopen(outputFilename1,"a");
 	max_node=findMax(fs);
 	if(max_node!=NULL && max_node->weight > 0)
 	{
@@ -617,11 +609,11 @@ CRKrandomCrack(int *ret)
 		}
 	/*fprintf(stderr,"posl = "OIDFMT" posh = "OIDFMT" low = %d hgh = %d inclusive = %d", posl,posh,low,hgh,inclusive );*/
 		CRKselectholBounds_int(ret, &bid, &low, &hgh, &inclusive, &inclusive);
+		fprintf(ofp1,"%d\n",max_node->bid);
 		
-		/*fprintf(ofp1,"%d\n",bid);*/
-		}
+	}
 	
-		/*fclose(ofp1);*/
+	fclose(ofp1);
 
 	/*printFrequencyStruct(fs);*/
 	isIdleQuery=0;
@@ -630,4 +622,45 @@ CRKrandomCrack(int *ret)
 	return MAL_SUCCEED;
 }
 
+/*This function is used during idle time for all the cost models*/
+str
+CRKrandomCrackST(int *ret)
+{
+        int bid=0;
+        FrequencyNode* max_node;
+        BAT *b;
+        int low=0, hgh=0;
+        int *t;
+        int temp=0;
+        oid posl,posh,p;
+
+        bit inclusive=TRUE;
+        FrequencyNode *fs = getFrequencyStruct('A');
+        isIdleQuery=1;
+        max_node=findMax(fs);
+        if(max_node!=NULL && max_node->weight > 0)
+	{
+                bid=max_node->bid;
+                b=BATdescriptor(bid);
+                t=(int*)Tloc(b,BUNfirst(b));
+                posl=BUNfirst(b);
+                posh=BUNlast(b) - 1;
+                p=(rand()%(posh-posl+1))+posl;
+                low=t[p];
+                p=(rand()%(posh-posl+1))+posl;
+                hgh=t[p];
+                if(hgh < low)
+                {
+                        temp=low;
+                        low=hgh;
+                        hgh=temp;
+                }
+                CRKselectholstBounds_int(ret, &bid, &low, &hgh, &inclusive, &inclusive);
+	 }
+
+        isIdleQuery=0;
+
+        *ret = 0;
+        return MAL_SUCCEED;
+}
 

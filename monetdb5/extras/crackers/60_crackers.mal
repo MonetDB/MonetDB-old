@@ -23,3 +23,4 @@ include opt_selcrackhol;
 include opt_sidcrack;
 include crackers;
 include crackers_holistic;
+include crackers_holisticsideways;

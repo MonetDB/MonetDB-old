@@ -529,6 +529,13 @@ addCrackerIndex_@1(int m, @1 *value, bit inclusive, oid index, BAT * b){
         if ( res != NULL ) {
 		/* use a new BUN only if we cannot reuse a previously deleted one */
 		@:insertIndexElement(@1, ph, pt, index, *value)@
+		b->hkey = 0;
+		b->hsorted = 0;
+		b->hrevsorted = 0;
+		b->hdense = 0;
+		b->tkey = 0;
+		b->tsorted = 0;
+		b->trevsorted = 0;
 		/* remove hash table since cracking has destroyed tuple positioning */
 		if (prev != NULL){
 			if (prev->slice != -1){

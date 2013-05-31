@@ -62,6 +62,7 @@ crackers_export str CRKinitFrequencyStruct(int *vid,int *bid);
 crackers_export str CRKinitFrequencyStruct_2(int *vid,int *bid,int* N,int* L1);
 crackers_export str CRKinitFrequencyStruct_3(int *vid,int *bid);
 crackers_export str CRKrandomCrack(int *ret);
+crackers_export str CRKrandomCrackST(int *ret);
 crackers_export str CRKzeroFrequency(int *vid);
 
 #endif /*crackers_holistic*/ 

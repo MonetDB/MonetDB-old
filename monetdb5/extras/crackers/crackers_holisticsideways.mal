@@ -1,0 +1,16 @@
+module crackers;
+
+command holisticSidewaysprelude():void
+address CRKinitHolisticSideways
+comment "Initialize holistic sideways module";
+
+command initFrequencyStructSideways(b1:bat[:oid,:any],b2:bat[:oid,:any]):void
+address CRKinitFrequencyStructSideways
+comment "Initialize the struct(lifo) with zero values.";
+
+command randomCrackSideways():void
+address CRKrandomCrackSideways
+comment "Do random crack on BATs ordered by descending weight";
+
+
+crackers.holisticSidewaysprelude();

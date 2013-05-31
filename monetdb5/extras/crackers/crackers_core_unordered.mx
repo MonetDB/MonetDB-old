@@ -57,7 +57,7 @@ All Rights Reserved.
 @:@1(dbl,int,simple,,,@2)@
 @:@1(dbl,dbl,simple,,,@2)@
 @:@1(lng,lng,simple,,,@2)@
-
+@:@1(lng,int,simple,,,@2)@
 
 @:@1(date,int,atom,TYPE_,,@2)@
 @:@1(date,lng,atom,TYPE_,,@2)@

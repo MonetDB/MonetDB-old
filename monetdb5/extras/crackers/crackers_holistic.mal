@@ -18,7 +18,12 @@ comment "Initialize the struct(lifo) with zero values.";
 
 command randomCrack():void
 address CRKrandomCrack
-comment "Do random crack on BATs ordered by descending weight (cost models 1,3,5,7,9)";
+comment "Do random crack on BATs ordered by descending weight";
+
+command randomCrackST():void
+address CRKrandomCrackST
+comment "Do random stochastic crack on BATs ordered by descending weight";
+
 
 command zeroFrequency():void
 address CRKzeroFrequency
