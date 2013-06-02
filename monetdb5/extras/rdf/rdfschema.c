@@ -851,7 +851,11 @@ void mergeOidSets(oid* arr1, oid* arr2, oid* mergeArr, int m, int n, int numComb
 		}		
 	} 
 	
-	assert(pos == numCombineP); 
+	assert(pos == numCombineP);
+#ifdef NDEBUG
+	/* "fake" use in case assertion are disabled */
+	(void) numCombineP;
+#endif
 	/*
 	printf("pos = %d, numCombineP = %d\n", pos, numCombineP);
 
