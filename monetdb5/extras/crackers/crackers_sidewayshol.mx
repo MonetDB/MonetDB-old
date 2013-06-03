@@ -2073,8 +2073,8 @@ createView:
 	bit crkTwoR, crkTwoL;
 	bit LBound=FALSE;
 
-	int countBatElements;
-	int L1; /*Number of elements that can fit into L1 cache (size: 32KB)*/
+	int countBatElements=0;
+	int L1=0; /*Number of elements that can fit into L1 cache (size: 32KB)*/
 	FrequencyNodeSideways* FNS;
 	FrequencyNodeSideways *FrequencyStructSidewaysA = getFrequencyStructSideways('A');
 	FNS=searchBATSideways(FrequencyStructSidewaysA,*bid,*pbid);
@@ -2243,8 +2243,8 @@ createView:
 	bit newTape = FALSE;
 
 
-	int countBatElements;
-	int L1; /*Number of elements that can fit into L1 cache (size: 32KB)*/
+	int countBatElements=0;
+	int L1=0; /*Number of elements that can fit into L1 cache (size: 32KB)*/
 	FrequencyNodeSideways* FNS;
 	FrequencyNodeSideways *FrequencyStructSidewaysA = getFrequencyStructSideways('A');
 	FNS=searchBATSideways(FrequencyStructSidewaysA,*bid,*pbid);
@@ -2372,8 +2372,8 @@ createView:
 	bit newTape = FALSE;
 	bit LBound=FALSE;
 
-	int countBatElements;
-	int L1; /*Number of elements that can fit into L1 cache (size: 32KB)*/
+	int countBatElements=0;
+	int L1=0; /*Number of elements that can fit into L1 cache (size: 32KB)*/
 	FrequencyNodeSideways* FNS;
 	FrequencyNodeSideways *FrequencyStructSidewaysA = getFrequencyStructSideways('A');
 	FNS=searchBATSideways(FrequencyStructSidewaysA,*bid,*pbid);

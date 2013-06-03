@@ -167,7 +167,7 @@ AlignInformation(FrequencyNodeSideways* head,FrequencyNodeSideways* node)
 {
 
 	FrequencyNodeSideways* temp;
-	double Weight;
+	double Weight=0.0;
 	int maxPieces;
 	temp=head;
 	maxPieces=temp->c;
