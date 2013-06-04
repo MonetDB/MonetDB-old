@@ -57,8 +57,32 @@ typedef struct RECSTAT {
 	int RPreset0;     /* Number of instructions evicted from RP by reset() due to updates*/
 } *RecPtr, RecStat;
 
+#define PROFevent   0
+#define PROFtime    1
+#define PROFthread  2
+#define PROFpc      3
+#define PROFfunc    4
+#define PROFticks   5
+#define PROFcpu     6
+#define PROFmemory  7
+#define PROFreads   8
+#define PROFwrites  9
+#define PROFrbytes  10
+#define PROFwbytes  11
+#define PROFstmt    12
+#define PROFaggr    13
+#define PROFprocess 14
+#define PROFuser    15
+#define PROFstart   16
+#define PROFtype    17
+#define PROFdot     18
+#define PROFflow   19
+#define PROFping   20	/* heartbeat ping messages */
+#define PROFfootprint 21
+
 mal_export str activateCounter(str name);
 mal_export str deactivateCounter(str name);
+mal_export int getProfileCounter(int idx);
 mal_export str openProfilerStream(stream *fd);
 mal_export str closeProfilerStream(void);
 
@@ -77,6 +101,7 @@ mal_export str stopProfiling(void);
 mal_export str cleanupProfiler(void);
 mal_export void initHeartbeat(void);
 mal_export void stopHeartbeat(void);
+mal_export double HeartbeatCPUload(void);
 
 mal_export int instrFilter(InstrPtr pci, str mod, str fcn);
 mal_export void setFilter(Module cntxt, str mod, str fcn);
@@ -101,6 +126,7 @@ mal_export lng getDiskReads(void);
 mal_export lng getDiskWrites(void);
 mal_export lng getUserTime(void);
 mal_export lng getSystemTime(void);
+mal_export void profilerGetCPUStat(lng *user, lng *nice, lng *sys, lng *idle, lng *iowait);
 mal_export void _initTrace(void);
 
 #endif

@@ -65,29 +65,6 @@ static int profileAll = 0;  /* all instructions should be profiled */
 static int delayswitch = 0; /* to wait before sending the profile info */
 static int eventcounter = 0;
 
-#define PROFevent   0
-#define PROFtime    1
-#define PROFthread  2
-#define PROFpc      3
-#define PROFfunc    4
-#define PROFticks   5
-#define PROFcpu     6
-#define PROFmemory  7
-#define PROFreads   8
-#define PROFwrites  9
-#define PROFrbytes  10
-#define PROFwbytes  11
-#define PROFstmt    12
-#define PROFaggr    13
-#define PROFprocess 14
-#define PROFuser    15
-#define PROFstart   16
-#define PROFtype    17
-#define PROFdot     18
-#define PROFflow   19
-#define PROFping   20	/* heartbeat ping messages */
-#define PROFfootprint 21
-
 static struct {
 	str name;		/* which logical counter is needed */
 	int status;		/* trace it or not */
@@ -116,6 +93,12 @@ static struct {
 	/*  21 */  { "footprint", 0},
 	/*  21 */  { 0, 0}
 };
+
+int
+getProfileCounter(int idx){
+	return profileCounter[idx].status ==1;
+}
+
 
 /*
  * The counters can be set individually.
@@ -1305,6 +1288,20 @@ static int getCPULoad(char cpuload[BUFSIZ]){
 		s += (int) strlen(s);
 	}
 	return 0;
+}
+// Give users the option to check for the system load between two heart beats
+double HeartbeatCPUload(void)
+{
+	return corestat[255].load;
+}
+void profilerGetCPUStat(lng *user, lng *nice, lng *sys, lng *idle, lng *iowait)
+{
+	(void) getCPULoad(0);
+	*user = corestat[255].user;
+	*nice = corestat[255].nice;
+	*sys = corestat[255].system;
+	*idle = corestat[255].idle;
+	*iowait = corestat[255].iowait;
 }
 
 void profilerHeartbeatEvent(str msg)
