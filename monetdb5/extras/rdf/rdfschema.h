@@ -80,12 +80,13 @@ typedef struct SubCS {
 } SubCS; 
 
 typedef struct mergeCS {	// CS formed by merging CS id1 and CS id2	
-	oid	id1; 
-	oid	id2; 
+	oid* 	lstParent; 	
+	int	numParent; 
 	oid*	lstProp; 
 	int	numProp; 
 	int 	support;
 	int	coverage;
+	char 	isRemove;
 
 } mergeCS; 
 
@@ -101,6 +102,7 @@ typedef struct SubCSSet{
 } SubCSSet;
 
 #define INIT_NUM_CS 100
+#define SIM_THRESHOLD 0.6
 
 typedef struct CSset{
 	CS* items;
