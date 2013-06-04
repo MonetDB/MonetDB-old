@@ -26,6 +26,7 @@
 #include <gdk.h>
 #include <rdf.h>
 #include <rdfparser.h>
+#include <rdfontologyload.h>
 
 /**
  * Ontology vocabulary is stored in two tables
@@ -56,6 +57,8 @@ static OntBATdef ontBatdef[N_ONTOLOGY_BAT]= {
 	{OntAttURI, "uriatt", TYPE_void, TYPE_oid},	
 	{OntAttAtt, "attribute", TYPE_void, TYPE_oid}	
 };
+
+
 
 static BAT*
 create_OntologyBAT(int ht, int tt, int size)
@@ -133,6 +136,45 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 	return; 
 }
 
+
+/*
+static 
+OntClass* creatOC(oid ocId, oid subClassofId, int numP, oid* buff)
+{
+	OntClass *oc = (OntClass*)malloc(sizeof(OntClass)); 
+	oc->lstProp =  (oid*) malloc(sizeof(oid) * numP);
+	
+	if (oc->lstProp == NULL){
+		printf("Malloc failed. at %d", numP);
+		exit(-1); 
+	}
+
+	copyOidSet(oc->lstProp, buff, numP); 
+	oc->ocId = ocId;
+	oc->subclassof = subClassofId; 
+	oc->numProp = numP; 
+	oc->numAllocation = numP; 
+	return oc; 
+}
+
+str
+RDFOntologyRead(int *ret, bat *ontcBatid, bat *ontaBatid, OntClassset* ontclassset){
+	BAT* ontcBat; 	// BAT for ontology classes 
+	BAT* ontaBat; 	// BAT for ontology 
+	if ((ontcBat = BATdescriptor(*ontcBatid)) == NULL) {
+		throw(MAL, "rdf.RDFOntologyParser", RUNTIME_OBJECT_MISSING);
+	}
+
+	if ((ontaBat = BATdescriptor(*ontaBatid)) == NULL) {
+		BBPreleaseref(ontcBat->batCacheid);
+		throw(MAL, "rdf.RDFOntologyParser", RUNTIME_OBJECT_MISSING);
+	}
+
+	*ret = 1; 
+	return MAL_SUCCEED; 
+}
+
+*/
 str
 RDFOntologyParser(int *xret, str *location, str *schema){
 
