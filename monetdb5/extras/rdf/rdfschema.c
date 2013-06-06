@@ -26,6 +26,7 @@
 #include <gdk.h>
 #include <hashmap/hashmap.h>
 #include "tokenizer.h"
+#include <math.h>
 
 #define SHOWPROPERTYNAME 1
 
@@ -1482,6 +1483,20 @@ static int isSubset(oid* arr1, oid* arr2, int m, int n)
 }
 
 /*
+ * Using TF-IDF for calculating the similarity score
+ * See http://disi.unitn.it/~bernardi/Courses/DL/Slides_11_12/measures.pdf
+ * tf(t,d): Number of times t occurs in d. --> For a CS, tf(prop, aCS) = 1; 
+ * idf(t): The rarity of a term t in the whold document collection
+ * idf(t) = log(#totalNumOfCSs / #numberCSs_containing_t +1)
+ * tf-idf(t,d,D) = tf(t,d) * idf(t,D)
+ * */
+
+static 
+float tfidfComp(int numContainedCSs, int totalNumCSs){
+	return log((float)totalNumCSs/(1+numContainedCSs)); 
+}
+
+/*
  * Use Jaccard similarity coefficient for computing the 
  * similarity between two sets
  * sim(A,B) = |A  B| / |A U B|
@@ -1514,6 +1529,32 @@ float similarityScore(oid* arr1, oid* arr2, int m, int n, int *numCombineP){
 }
 
 
+static 
+float similarityScoreTFIDF(oid* arr1, oid* arr2, int m, int n, int *numCombineP, PropStat* propStat){
+	
+	int i = 0, j = 0;
+	int numOverlap = 0; 
+	float score; 
+	 
+	while( i < n && j < m )
+	{
+		if( arr1[j] < arr2[i] )
+			j++;
+		else if( arr1[j] == arr2[i] )
+		{
+			j++;
+			i++;
+			numOverlap++;
+
+		}
+		else if( arr1[j] > arr2[i] )
+			i++;
+	}
+
+	*numCombineP = m + n - numOverlap;
+		
+	return  ((float)numOverlap / (*numCombineP));
+}
 
 /*
 static 
@@ -1652,6 +1693,111 @@ void mergeMaximumFreqCSs(CSset *freqCSset, oid* superCSFreqCSMap, oid* superCSMe
 }
 */
 
+
+static 
+PropStat* initPropStat(void){
+
+	PropStat *propStat = (PropStat *) malloc(sizeof(PropStat));
+	propStat->pBat = BATnew(TYPE_void, TYPE_oid, INIT_PROP_NUM);
+
+	BATseqbase(propStat->pBat, 0);
+	
+	if (propStat->pBat == NULL) {
+		return NULL; 
+	}
+
+	(void)BATprepareHash(BATmirror(propStat->pBat));
+	if (!(propStat->pBat->T->hash)){
+		return NULL;
+	}
+
+	propStat->freqs = (int*) malloc(sizeof(int) * INIT_PROP_NUM);
+	if (propStat->freqs == NULL) return NULL; 
+
+	propStat->tfidfs = (float*) malloc(sizeof(float) * INIT_PROP_NUM);
+	if (propStat->tfidfs == NULL) return NULL; 
+	
+	propStat->numAdded = 0; 
+	propStat->numAllocation = INIT_PROP_NUM; 
+	
+	return propStat; 
+}
+
+static 
+void addaProp(PropStat* propStat, oid prop){
+	BUN	bun; 
+	BUN	p; 
+
+	int* _tmp1; 
+	float* _tmp2; 
+	
+	p = prop; 
+	bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &prop);
+	if (bun == BUN_NONE) {	/* New Prop */
+	       if (propStat->pBat->T->hash && BATcount(propStat->pBat) > 4 * propStat->pBat->T->hash->mask) {
+			HASHdestroy(propStat->pBat);
+			BAThash(BATmirror(propStat->pBat), 2*BATcount(propStat->pBat));
+		}
+
+		propStat->pBat = BUNappend(propStat->pBat,&p, TRUE);
+		
+		if(propStat->numAdded == propStat->numAllocation){
+
+			propStat->numAllocation += INIT_PROP_NUM;
+
+			_tmp1 = realloc(propStat->freqs, ((propStat->numAllocation) * sizeof(int)));
+			if (!_tmp1){
+				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+			}
+			
+			propStat->freqs = (int*)_tmp1;
+			
+			_tmp2 = realloc(propStat->tfidfs, ((propStat->numAllocation) * sizeof(float)));
+			if (!_tmp2){
+				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+			}
+			
+			propStat->tfidfs = (float*)_tmp2;
+		}
+
+		propStat->numAdded++;
+		
+
+	}
+	else{		/*existing p*/
+		propStat->freqs[bun]++; 
+	}
+
+}
+static
+void getPropStatistics(PropStat* propStat, int numMaxCSs, oid* superCSFreqCSMap, CSset* freqCSset){
+
+	int i, j; 
+	oid freqId; 
+	CS cs;
+
+	for (i = 0; i < numMaxCSs; i++){
+		freqId = superCSFreqCSMap[i];
+		cs = (CS)freqCSset->items[freqId];
+
+		for (j = 0; j < cs.numProp; j++){
+			addaProp(propStat, cs.lstProp[j]);
+		}
+	}
+
+	for (i = 0; i < propStat->numAdded; i++){
+		propStat->tfidfs[i] = tfidfComp(propStat->freqs[i],numMaxCSs);
+	}
+}
+
+static 
+void freePropStat(PropStat *propStat){
+	BBPreclaim(propStat->pBat); 
+	free(propStat->freqs); 
+	free(propStat->tfidfs); 
+}
+
+
 static
 void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superCSMergeMaxCSMap, mergeCSset* mergecsSet, int numMaxCSs){
 	int 		i, j, k; 
@@ -1664,6 +1810,8 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superC
 	int 		numCombineP = 0; 
 	CS		cs1, cs2;
 	mergeCS		*existmergecs, *mergecs1, *mergecs2; 
+
+	PropStat	*propStat; 	/* Store statistics about properties */
 
 
 	for (i = 0; i < freqCSset->numCSadded; i++){
@@ -1679,16 +1827,24 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superC
 	}
 
 	
+	propStat = initPropStat();
+	getPropStatistics(propStat, numMaxCSs, superCSFreqCSMap, freqCSset);
+
+
 	for (i = 0; i < numMaxCSs; i++){
 		freqId1 = superCSFreqCSMap[i];
 		cs1 = (CS)freqCSset->items[freqId1];
 	 	for (j = (i+1); j < numMaxCSs; j++){
 			freqId2 = superCSFreqCSMap[j];
 			cs2 = (CS)freqCSset->items[freqId2];
-
-			simscore = similarityScore(cs1.lstProp, cs2.lstProp,
-					cs1.numProp,cs2.numProp,
-					&numCombineP);
+			
+			if(USINGTFIDF == 0){
+				simscore = similarityScore(cs1.lstProp, cs2.lstProp,
+					cs1.numProp,cs2.numProp,&numCombineP);
+			}
+			else{
+				
+			}
 			if (simscore > SIM_THRESHOLD){
 				//Check whether these CS's belong to any mergeCS
 				
@@ -1728,6 +1884,10 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superC
 			}
 		}
 	}
+
+
+	freePropStat(propStat);
+
 }
 
 
@@ -1943,6 +2103,9 @@ str getReferCS(BAT *sbat, BAT *pbat, oid *obt){
 	return MAL_SUCCEED;
 }
 */
+
+
+
 
 static 
 CSBats* initCSBats(void){
@@ -2335,6 +2498,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	getMaximumFreqCSs(freqCSset, csSuperCSMap, csBats->coverageBat, superCSCoverage, csBats->freqBat, superCSFrequency, maxCSoid + 1, &numMaxCSs); 
 
 	//printf("Number of maximumCS: %d", numMaxCSs);
+	
 
 	superCSFreqCSMap = (oid*) malloc(sizeof(oid) * numMaxCSs); 
 	superCSMergeMaxCSMap = (oid*) malloc(sizeof(oid) * numMaxCSs);

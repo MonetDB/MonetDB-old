@@ -41,6 +41,18 @@ typedef struct {
 	BAT* 	fullPBat;    	/* Stores all set of properties */	
 } CSBats; 	// BATs for storing all information about CSs
 
+/* Statistic about the properties */
+typedef struct PropStat {
+	BAT*	pBat; 		/* Store the list of properties */
+	int* 	freqs; 	/* Store number of CSs containing that property */
+	float*	tfidfs; 
+	int	numAllocation; 
+	int	numAdded; 
+} PropStat; 			
+
+#define INIT_PROP_NUM	10
+#define	USINGTFIDF	1
+
 #define STOREFULLCS     1       /* Store full instance of a CS including the a subject and list of predicates, objects. 
                                   Only use this for finding the name of the table corresponding to that CS */
 
