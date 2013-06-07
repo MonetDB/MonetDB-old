@@ -1489,6 +1489,9 @@ static int isSubset(oid* arr1, oid* arr2, int m, int n)
  * idf(t): The rarity of a term t in the whold document collection
  * idf(t) = log(#totalNumOfCSs / #numberCSs_containing_t +1)
  * tf-idf(t,d,D) = tf(t,d) * idf(t,D)
+ *
+ * Note that: If we use normalize tf by dividing with maximum tf 
+ * in each CS, we still get the value 1. 
  * */
 
 static 
@@ -1529,19 +1532,72 @@ float similarityScore(oid* arr1, oid* arr2, int m, int n, int *numCombineP){
 }
 
 
+/*Using cosine similarity score with vector of tf-idfs for properties in each CS */
 static 
 float similarityScoreTFIDF(oid* arr1, oid* arr2, int m, int n, int *numCombineP, PropStat* propStat){
 	
 	int i = 0, j = 0;
 	int numOverlap = 0; 
-	float score; 
-	 
+	float sumX2 = 0.0; 
+	float sumY2 = 0.0;
+	float sumXY = 0.0;
+	BUN bun; 
+	BUN	p; 
+	float 	tfidfV; 
+
+	// Get tf-idfs 
+	float *tfidf1 = (float *)malloc(sizeof(float) * m) ;
+	float *tfidf2 = (float *)malloc(sizeof(float) * n) ;
+
+	for (i = 0; i < m; i++){
+		p = arr1[i]; 
+		bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &p);
+		if (bun == BUN_NONE) {
+			printf("This prop must be there!!!!\n");
+			return 0.0; 
+		}
+		else{
+			tfidfV = propStat->tfidfs[bun]; 
+			sumX2 +=  tfidfV*tfidfV;	
+		}
+	}
+
+	for (i = 0; i < n; i++){
+		p = arr2[i]; 
+		bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &p);
+		if (bun == BUN_NONE) {
+			printf("This prop must be there!!!!\n");
+			return 0.0; 
+		}
+		else{
+			tfidfV = propStat->tfidfs[bun]; 
+			sumY2 +=  tfidfV*tfidfV;	
+		}
+	}
+	
+	i = 0;
+	j = 0;
 	while( i < n && j < m )
 	{
-		if( arr1[j] < arr2[i] )
+		if( arr1[j] < arr2[i] ){
 			j++;
+
+		}
 		else if( arr1[j] == arr2[i] )
 		{
+			p = arr1[j];
+			bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &p);
+
+			if (bun == BUN_NONE) {
+				printf("This prop must be there!!!!\n");
+				return 0.0; 
+			}
+			else{
+				tfidfV = propStat->tfidfs[bun];	 
+				// We can do this because the tfidfs of a property in any CS
+				// are the same
+				sumXY += tfidfV*tfidfV;
+			}
 			j++;
 			i++;
 			numOverlap++;
@@ -1552,8 +1608,11 @@ float similarityScoreTFIDF(oid* arr1, oid* arr2, int m, int n, int *numCombineP,
 	}
 
 	*numCombineP = m + n - numOverlap;
-		
-	return  ((float)numOverlap / (*numCombineP));
+	
+	free(tfidf1); 
+	free(tfidf2); 
+
+	return  ((float) sumXY / (sqrt(sumX2)*sqrt(sumY2)));
 }
 
 /*
@@ -1759,7 +1818,7 @@ void addaProp(PropStat* propStat, oid prop){
 			
 			propStat->tfidfs = (float*)_tmp2;
 		}
-
+		propStat->freqs[propStat->numAdded] = 1; 
 		propStat->numAdded++;
 		
 
@@ -1788,6 +1847,14 @@ void getPropStatistics(PropStat* propStat, int numMaxCSs, oid* superCSFreqCSMap,
 	for (i = 0; i < propStat->numAdded; i++){
 		propStat->tfidfs[i] = tfidfComp(propStat->freqs[i],numMaxCSs);
 	}
+
+	//BATprint(propStat->pBat); 
+	/*
+	for (i = 0; i < (int)BATcount(propStat->pBat); i++){
+		printf("Prop %d |||  freq: %d",i, propStat->freqs[i]);
+		printf("   tfidf: %f \n",propStat->tfidfs[i] );
+	}
+	*/
 }
 
 static 
@@ -1829,6 +1896,7 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superC
 	
 	propStat = initPropStat();
 	getPropStatistics(propStat, numMaxCSs, superCSFreqCSMap, freqCSset);
+	
 
 
 	for (i = 0; i < numMaxCSs; i++){
@@ -1841,11 +1909,21 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superC
 			if(USINGTFIDF == 0){
 				simscore = similarityScore(cs1.lstProp, cs2.lstProp,
 					cs1.numProp,cs2.numProp,&numCombineP);
+
+				//printf("simscore Jaccard = %f \n", simscore);
 			}
 			else{
+				simscore = similarityScoreTFIDF(cs1.lstProp, cs2.lstProp,
+					cs1.numProp,cs2.numProp,&numCombineP, propStat);
+				//printf("         Cosine = %f \n", simscore);
 				
 			}
-			if (simscore > SIM_THRESHOLD){
+
+			#if	USINGTFIDF	
+			if (simscore > SIM_TFIDF_THRESHOLD){
+			#else	
+			if (simscore > SIM_THRESHOLD) {
+			#endif				
 				//Check whether these CS's belong to any mergeCS
 				
 				if (superCSMergeMaxCSMap[i] == BUN_NONE && superCSMergeMaxCSMap[j] == BUN_NONE){	/* New merge */
