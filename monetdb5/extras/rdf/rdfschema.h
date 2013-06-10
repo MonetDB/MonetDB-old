@@ -32,6 +32,13 @@ RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid);
 rdf_export str 
 RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold);
 
+typedef enum {
+	NORMALCS, 
+	FREQCS, 
+	MAXCS, 
+	MERGECS
+} CStype; 
+
 typedef struct {
 	BAT*	hsKeyBat; 
 	BAT* 	hsValueBat; 
@@ -63,7 +70,7 @@ typedef struct CS
 	int	numProp;
 	int	numAllocation;
 	//char 	isSubset; 
-	oid 	parent; 
+	int	parentFreqIdx; 	//Index of the parent in freqCSset
 	#if STOREFULLCS
 	oid     subject;        //A subject
 	oid*    lstObj;         //List of sample objects
