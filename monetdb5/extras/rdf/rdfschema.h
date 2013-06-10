@@ -79,6 +79,10 @@ typedef struct CS
 	char	type; 
 	int 	support; 
 	int	coverage; 
+
+	//For mergeCS
+	int* 	lstConsistsOf; 	//The list of indexes of freqCS	
+	int	numConsistsOf; 
 } CS;
 
 
@@ -90,6 +94,7 @@ typedef struct SubCS {
 	int	numSubTypes; 
 } SubCS; 
 
+/*
 typedef struct mergeCS {	// CS formed by merging CS id1 and CS id2	
 	oid* 	lstConsistsOf; 	
 	int	numConsistsOf; 
@@ -101,6 +106,7 @@ typedef struct mergeCS {	// CS formed by merging CS id1 and CS id2
 
 } mergeCS; 
 
+*/
 
 #define INIT_NUM_SUBCS 4
 
@@ -118,15 +124,18 @@ typedef struct SubCSSet{
 
 typedef struct CSset{
 	CS* items;
+	int numOrigFreqCS; 
 	int numCSadded;
 	int numAllocation;
 } CSset; 
 
+/*
 typedef struct mergeCSset{
 	mergeCS* items; 
 	int nummergeCSadded; 
 	int numAllocation; 
 } mergeCSset;
+*/
 
 #define INIT_NUM_CSREL 4
 typedef struct CSrel{	

@@ -133,6 +133,7 @@ void addCStoSet(CSset *csSet, CS item)
 	csSet->numCSadded++;
 }
 
+/*
 static 
 void addmergeCStoSet(mergeCSset *mergecsSet, mergeCS item)
 {
@@ -151,6 +152,7 @@ void addmergeCStoSet(mergeCSset *mergecsSet, mergeCS item)
 	mergecsSet->items[mergecsSet->nummergeCSadded] = item;
 	mergecsSet->nummergeCSadded++;
 }
+*/
 
 static 
 CSrel* creataCSrel(oid csoid){
@@ -770,6 +772,7 @@ void freeCSset(CSset *csSet){
 	free(csSet);	
 }
 
+/*
 static
 void freemergeCSset(mergeCSset *csSet){
 	int i;
@@ -780,6 +783,8 @@ void freemergeCSset(mergeCSset *csSet){
 	free(csSet->items);
 	free(csSet);	
 }
+*/
+
 
 static 
 CSset* initCSset(void){
@@ -791,6 +796,7 @@ CSset* initCSset(void){
 	return csSet;
 }
 
+/*
 static 
 mergeCSset* initmergeCSset(void){
 	mergeCSset *mergecsSet = (mergeCSset*) malloc(sizeof(mergeCSset)); 
@@ -800,6 +806,8 @@ mergeCSset* initmergeCSset(void){
 
 	return mergecsSet;
 }
+
+*/
 
 /*
 static 
@@ -918,18 +926,19 @@ void mergeOidSets(oid* arr1, oid* arr2, oid* mergeArr, int m, int n, int *numCom
 }
 
 static 
-mergeCS* mergeTwoCSs(CS cs1, CS cs2, oid maxCSid1, oid maxCSid2, int support, int coverage){
+CS* mergeTwoCSs(CS cs1, CS cs2, int freqIdx1, int freqIdx2, oid mergeCSId){
 	
 	int numCombineP; 
-	mergeCS *mergecs = (mergeCS*) malloc (sizeof (mergeCS)); 
+	CS *mergecs = (CS*) malloc (sizeof (CS)); 
+	mergecs->type = MERGECS; 
 	mergecs->numConsistsOf = 2; 
-	mergecs->lstConsistsOf = (oid*) malloc(sizeof(oid) * 2);
+	mergecs->lstConsistsOf = (int*) malloc(sizeof(int) * 2);
 
-	//mergecs->lstConsistsOf[0] = cs1.csId;  
-	//mergecs->lstConsistsOf[1] = cs2.csId; 
+	//mergecs->lstConsistsOf[0] = cs1->csId;  
+	//mergecs->lstConsistsOf[1] = cs2->csId; 
 
-	mergecs->lstConsistsOf[0] = maxCSid1;  
-	mergecs->lstConsistsOf[1] = maxCSid2; 
+	mergecs->lstConsistsOf[0] = freqIdx1;  
+	mergecs->lstConsistsOf[1] = freqIdx2; 
 	
 	mergecs->lstProp = (oid*) malloc(sizeof(oid) * (cs1.numProp + cs2.numProp));  // will be redundant
 
@@ -941,9 +950,10 @@ mergeCS* mergeTwoCSs(CS cs1, CS cs2, oid maxCSid1, oid maxCSid2, int support, in
 	mergeOidSets(cs1.lstProp, cs2.lstProp, mergecs->lstProp, cs1.numProp, cs2.numProp, &numCombineP); 
 
 	mergecs->numProp = numCombineP;
-	mergecs->support = support;
-	mergecs->coverage = coverage;
-	mergecs->isRemove = 0;
+	mergecs->support = cs1.support + cs2.support;
+	mergecs->coverage = cs1.coverage + cs2.coverage;
+	mergecs->parentFreqIdx = -1; 
+	mergecs->csId = mergeCSId; 
 	
 	return mergecs; 
 
@@ -951,21 +961,21 @@ mergeCS* mergeTwoCSs(CS cs1, CS cs2, oid maxCSid1, oid maxCSid2, int support, in
 
 
 static 
-void mergeACStoExistingmergeCS(CS cs, oid maxCSid, mergeCS *mergecs, int support, int coverage){
+void mergeACStoExistingmergeCS(CS cs, int freqIdx , CS *mergecs){
 	
 	int numCombineP; 
 	oid* _tmp1; 
 	oid* _tmp2; 
 	oid* oldlstProp; 
 
-        _tmp1 = realloc(mergecs->lstConsistsOf, ((mergecs->numConsistsOf + 1) * sizeof(oid)));
+        _tmp1 = realloc(mergecs->lstConsistsOf, ((mergecs->numConsistsOf + 1) * sizeof(int)));
 
 	if (!_tmp1){
 		fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 	}
-	mergecs->lstConsistsOf = (oid*)_tmp1;
+	mergecs->lstConsistsOf = (int*)_tmp1;
 	//mergecs->lstConsistsOf[mergecs->numConsistsOf] = cs.csId; 
-	mergecs->lstConsistsOf[mergecs->numConsistsOf] = maxCSid; 
+	mergecs->lstConsistsOf[mergecs->numConsistsOf] = freqIdx; 
 	mergecs->numConsistsOf++;
 
 	oldlstProp = malloc (sizeof(oid) * (mergecs->numProp)); 
@@ -981,8 +991,8 @@ void mergeACStoExistingmergeCS(CS cs, oid maxCSid, mergeCS *mergecs, int support
 	mergeOidSets(cs.lstProp, oldlstProp, mergecs->lstProp, cs.numProp, mergecs->numProp, &numCombineP); 
 
 	mergecs->numProp = numCombineP;
-	mergecs->support = support;
-	mergecs->coverage = coverage;
+	mergecs->support += cs.support;
+	mergecs->coverage += cs.coverage;
 
 	free(oldlstProp);
 }
@@ -990,21 +1000,21 @@ void mergeACStoExistingmergeCS(CS cs, oid maxCSid, mergeCS *mergecs, int support
 
 /*Merge two mergeCSs with the condition that no parent belongs to both of them */
 static 
-void mergeTwomergeCS(mergeCS *mergecs1, mergeCS *mergecs2, int support, int coverage){
+void mergeTwomergeCS(CS *mergecs1, CS *mergecs2, int parentFreqIdx){
 	
 	int numCombineP; 
-	oid* _tmp1; 
+	int* _tmp1; 
 	oid* _tmp2; 
 	oid* oldlstProp1; 
 	oid* oldlstProp2; 
 	int i; 
 
-        _tmp1 = realloc(mergecs1->lstConsistsOf, ((mergecs1->numConsistsOf + mergecs2->numConsistsOf) * sizeof(oid)));
+        _tmp1 = realloc(mergecs1->lstConsistsOf, ((mergecs1->numConsistsOf + mergecs2->numConsistsOf) * sizeof(int)));
 
 	if (!_tmp1){
 		fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 	}
-	mergecs1->lstConsistsOf = (oid*)_tmp1;
+	mergecs1->lstConsistsOf = (int*)_tmp1;
 	for (i = 0; i < mergecs2->numConsistsOf; i++){
 		mergecs1->lstConsistsOf[mergecs1->numConsistsOf] = mergecs2->lstConsistsOf[i]; 
 		mergecs1->numConsistsOf++;
@@ -1027,11 +1037,11 @@ void mergeTwomergeCS(mergeCS *mergecs1, mergeCS *mergecs2, int support, int cove
 	mergeOidSets(oldlstProp1, oldlstProp2, mergecs1->lstProp, mergecs1->numProp, mergecs2->numProp, &numCombineP); 
 
 	mergecs1->numProp = numCombineP;
-	mergecs1->support = support;
-	mergecs1->coverage = coverage;
+	mergecs1->support += mergecs2->support;
+	mergecs1->coverage += mergecs2->coverage;
 
 	// Remove mergecs2
-	mergecs2->isRemove = 1; 
+	mergecs2->parentFreqIdx = parentFreqIdx; 
 
 	free(oldlstProp1);
 	free(oldlstProp2); 
@@ -1189,7 +1199,7 @@ str printamergeCS(mergeCS cs, int mergecsid, CSset *freqCSset, oid* superCSFreqC
 */
 
 static 
-str printmergeCSSet(mergeCSset *mergecsSet, CSset *freqCSset, oid* superCSFreqCSMap, int freqThreshold){
+str printmergeCSSet(CSset *freqCSset, int freqThreshold){
 
 	int 	i,j; 
 	FILE 	*fout; 
@@ -1202,8 +1212,8 @@ str printmergeCSSet(mergeCSset *mergecsSet, CSset *freqCSset, oid* superCSFreqCS
 	int	nummergecs;	
 	CS	freqcs; 
 
-	nummergecs = mergecsSet->nummergeCSadded; 
-	
+	nummergecs = freqCSset->numCSadded; 
+
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
 		throw(RDF, "rdf.rdfschema",
 				"could not open the tokenizer\n");
@@ -1217,12 +1227,12 @@ str printmergeCSSet(mergeCSset *mergecsSet, CSset *freqCSset, oid* superCSFreqCS
 
 	fout = fopen(filename,"wt"); 
 
-	for (i = 0; i < nummergecs; i++){
-		mergeCS cs = (mergeCS)mergecsSet->items[i];
-		if (cs.isRemove == 0){
+	for (i = freqCSset->numOrigFreqCS; i < nummergecs; i++){
+		CS cs = (CS)freqCSset->items[i];
+		if (cs.parentFreqIdx == -1){
 			fprintf(fout, "MergeCS %d (Number of parent: %d) \n",i, cs.numConsistsOf);
 			for (j = 0; j < cs.numConsistsOf; j++){
-				freqcs = freqCSset->items[superCSFreqCSMap[cs.lstConsistsOf[j]]];
+				freqcs = freqCSset->items[cs.lstConsistsOf[j]];
 				fprintf(fout, " " BUNFMT " ", freqcs.csId);
 			}
 			fprintf(fout, "\n");
@@ -1749,43 +1759,6 @@ void getMaximumFreqCSs(CSset *freqCSset, BAT* coverageBat, BAT* freqBat, int num
 
 }
 
-/*
-static
-void mergeMaximumFreqCSs(CSset *freqCSset, oid* superCSFreqCSMap, oid* superCSMergeMaxCSMap, mergeCSset* mergecsSet, int numMaxCSs){
-	int 		i, j; 
-	int 		maxCSid = 0; 
-	int 		freqId1, freqId2; 
-	float 		simscore = 0.0; 
-	mergeCS     	*mergecs;
-	int 		numCombineP = 0; 
-
-
-	for (i = 0; i < freqCSset->numCSadded; i++){
-		if (freqCSset->items[i].parentFreqIdx == -1){
-			superCSFreqCSMap[maxCSid] = i; 
-			maxCSid++;
-		}
-	}
-
-	
-	for (i = 0; i < numMaxCSs; i++){
-	 	for (j = (i+1); j < numMaxCSs; j++){
-			freqId1 = superCSFreqCSMap[i]; 
-			freqId2 = superCSFreqCSMap[j];
-			simscore = similarityScore(freqCSset->items[freqId1].lstProp, freqCSset->items[freqId2].lstProp,
-					freqCSset->items[freqId1].numProp,freqCSset->items[freqId2].numProp,
-					&numCombineP);
-			if (simscore > 0.6){
-				mergecs = mergeTwoCSs(freqCSset->items[freqId1],freqCSset->items[freqId2], 0, 0);
-				addmergeCStoSet(mergecsSet, *mergecs);
-				superCSMergeMaxCSMap[i] = j; 	
-				//printf("Can merge " BUNFMT " and " BUNFMT " (sscore: %.2f) \n", freqCSset->items[freqId1].csId,freqCSset->items[freqId2].csId, simscore);
-			}
-		}
-	}
-}
-*/
-
 
 static 
 PropStat* initPropStat(void){
@@ -1900,17 +1873,17 @@ void freePropStat(PropStat *propStat){
 
 
 static
-void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superCSMergeMaxCSMap, mergeCSset* mergecsSet, int numMaxCSs){
+void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superCSMergeMaxCSMap, int numMaxCSs, oid maxCSoid){
 	int 		i, j, k; 
 	int 		maxCSid = 0; 
 	int 		freqId1, freqId2; 
 	float 		simscore = 0.0; 
-	mergeCS     	*mergecs;
+	CS     		*mergecs;
 	oid		mercsId = 0; 
 	oid		existMergecsId = BUN_NONE; 
 	int 		numCombineP = 0; 
-	CS		cs1, cs2;
-	mergeCS		*existmergecs, *mergecs1, *mergecs2; 
+	CS		*cs1, *cs2;
+	CS		*existmergecs, *mergecs1, *mergecs2; 
 
 	PropStat	*propStat; 	/* Store statistics about properties */
 
@@ -1935,20 +1908,20 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superC
 
 	for (i = 0; i < numMaxCSs; i++){
 		freqId1 = superCSFreqCSMap[i];
-		cs1 = (CS)freqCSset->items[freqId1];
+		cs1 = (CS*) &(freqCSset->items[freqId1]);
 	 	for (j = (i+1); j < numMaxCSs; j++){
 			freqId2 = superCSFreqCSMap[j];
-			cs2 = (CS)freqCSset->items[freqId2];
+			cs2 = (CS*) &(freqCSset->items[freqId2]);
 			
 			if(USINGTFIDF == 0){
-				simscore = similarityScore(cs1.lstProp, cs2.lstProp,
-					cs1.numProp,cs2.numProp,&numCombineP);
+				simscore = similarityScore(cs1->lstProp, cs2->lstProp,
+					cs1->numProp,cs2->numProp,&numCombineP);
 
 				//printf("simscore Jaccard = %f \n", simscore);
 			}
 			else{
-				simscore = similarityScoreTFIDF(cs1.lstProp, cs2.lstProp,
-					cs1.numProp,cs2.numProp,&numCombineP, propStat);
+				simscore = similarityScoreTFIDF(cs1->lstProp, cs2->lstProp,
+					cs1->numProp,cs2->numProp,&numCombineP, propStat);
 				//printf("         Cosine = %f \n", simscore);
 				
 			}
@@ -1960,37 +1933,39 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superC
 			#endif				
 				//Check whether these CS's belong to any mergeCS
 				
-				if (superCSMergeMaxCSMap[i] == BUN_NONE && superCSMergeMaxCSMap[j] == BUN_NONE){	/* New merge */
-					mergecs = mergeTwoCSs(cs1,cs2,i,j, 0, 0);
-					addmergeCStoSet(mergecsSet, *mergecs);
-					superCSMergeMaxCSMap[i] = mercsId; 	
-					superCSMergeMaxCSMap[j] = mercsId; 
+				if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx == -1){	/* New merge */
+					mergecs = mergeTwoCSs(*cs1,*cs2, freqId1,freqId2, mercsId + maxCSoid);
+					//addmergeCStoSet(mergecsSet, *mergecs);
+					cs1->parentFreqIdx = freqCSset->numCSadded;
+					cs2->parentFreqIdx = freqCSset->numCSadded;
+					addCStoSet(freqCSset,*mergecs);
+
 					mercsId++;
 
 				}
-				else if (superCSMergeMaxCSMap[i] == BUN_NONE && superCSMergeMaxCSMap[j] != BUN_NONE){
-					existMergecsId = superCSMergeMaxCSMap[j];
-					existmergecs = (mergeCS*) &(mergecsSet->items[existMergecsId]);
-					mergeACStoExistingmergeCS(cs1,i, existmergecs, 0,0);
-					superCSMergeMaxCSMap[i] = existMergecsId;
+				else if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx != -1){
+					existMergecsId = cs2->parentFreqIdx;
+					existmergecs = (CS*) &(freqCSset->items[existMergecsId]);
+					mergeACStoExistingmergeCS(*cs1,freqId1, existmergecs);
+					cs1->parentFreqIdx = existMergecsId; 
 				}
 				
-				else if (superCSMergeMaxCSMap[i] != BUN_NONE && superCSMergeMaxCSMap[j] == BUN_NONE){
-					existMergecsId = superCSMergeMaxCSMap[i];
-					existmergecs = (mergeCS*)&(mergecsSet->items[existMergecsId]);
-					//printamergeCS(*existmergecs ,existMergecsId, freqCSset, superCSFreqCSMap);
-					mergeACStoExistingmergeCS(cs2,j, existmergecs, 0,0);
-					superCSMergeMaxCSMap[j] = existMergecsId;
+				else if (cs1->parentFreqIdx != -1 && cs2->parentFreqIdx == -1){
+					existMergecsId = cs1->parentFreqIdx;
+					existmergecs = (CS*)&(freqCSset->items[existMergecsId]);
+					mergeACStoExistingmergeCS(*cs2,freqId2, existmergecs);
+					cs2->parentFreqIdx = existMergecsId; 
 					//printamergeCS(mergecsSet->items[existMergecsId] ,existMergecsId, freqCSset, superCSFreqCSMap);
 				}
-				else if (superCSMergeMaxCSMap[i] != superCSMergeMaxCSMap[j]){
-					mergecs1 = (mergeCS*)&(mergecsSet->items[superCSMergeMaxCSMap[i]]);
-					mergecs2 = (mergeCS*)&(mergecsSet->items[superCSMergeMaxCSMap[j]]);
-					mergeTwomergeCS(mergecs1, mergecs2,0,0);
+				else if (cs1->parentFreqIdx != cs2->parentFreqIdx){
+					mergecs1 = (CS*)&(freqCSset->items[cs1->parentFreqIdx]);
+					mergecs2 = (CS*)&(freqCSset->items[cs2->parentFreqIdx]);
+					
+					mergeTwomergeCS(mergecs1, mergecs2, cs1->parentFreqIdx);
 
 					//Re-map for all maxCS in mergecs2
 					for (k = 0; k < mergecs2->numConsistsOf; k++){
-						superCSMergeMaxCSMap[mergecs2->lstConsistsOf[k]] = superCSMergeMaxCSMap[i];
+						freqCSset->items[mergecs2->lstConsistsOf[k]].parentFreqIdx = cs1->parentFreqIdx;
 					}
 				}
 			}
@@ -2396,6 +2371,9 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 		
 	*ret = 1; 
 
+	//Update the numOrigFreqCS for freqCS
+	freqCSset->numOrigFreqCS = freqCSset->numCSadded; 
+
 	return MAL_SUCCEED; 
 }
 
@@ -2498,7 +2476,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	int		numMaxCSs = 0; 
 	oid		*superCSFreqCSMap; 
 	oid		*superCSMergeMaxCSMap;
-	mergeCSset	*mergecsSet; 
+
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
@@ -2549,7 +2527,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	#else
 	RDFassignCSId(ret, sbat, si, pi, freqCSset, freqThreshold, csBats, subjCSMap, &maxCSoid, &maxNumProp, &maxNumPwithDup);
 	#endif
-
+	
 
 
 	//Phase 2: Check the relationship	
@@ -2589,15 +2567,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 	printFreqCSSet(freqCSset, csBats->freqBat, mbat, 1, *freqThreshold); 
 
-	superCSFreqCSMap = (oid*) malloc(sizeof(oid) * numMaxCSs); 
-	superCSMergeMaxCSMap = (oid*) malloc(sizeof(oid) * numMaxCSs);
-	mergecsSet = initmergeCSset(); 
-
-	//mergeMaximumFreqCSs(freqCSset, superCSFreqCSMap, superCSMergeMaxCSMap, mergecsSet, numMaxCSs);
-
-	mergeMaximumFreqCSsAll(freqCSset, superCSFreqCSMap, superCSMergeMaxCSMap, mergecsSet, numMaxCSs);
-
-	printmergeCSSet(mergecsSet,freqCSset, superCSFreqCSMap,  *freqThreshold);
 
 	csrelToMaxFreqSet = initCSrelset(maxCSoid + 1);	// CS --> Reference MaxCSs
 	csrelFromMaxFreqSet = initCSrelset(maxCSoid + 1);	// CS --> Reference MaxCSs
@@ -2609,7 +2578,14 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	printCSrelWithMaxSet(freqCSset, csIdFreqIdxMap, csrelToMaxFreqSet, csrelFromMaxFreqSet, csrelBetweenMaxFreqSet, csrelSet,csFreqMap, csBats->freqBat, maxCSoid + 1, *freqThreshold);  
 
+	superCSFreqCSMap = (oid*) malloc(sizeof(oid) * numMaxCSs); 
+	superCSMergeMaxCSMap = (oid*) malloc(sizeof(oid) * numMaxCSs);
 
+	//mergeMaximumFreqCSs(freqCSset, superCSFreqCSMap, superCSMergeMaxCSMap, mergecsSet, numMaxCSs);
+
+	mergeMaximumFreqCSsAll(freqCSset, superCSFreqCSMap, superCSMergeMaxCSMap, numMaxCSs, maxCSoid);
+
+	printmergeCSSet(freqCSset, *freqThreshold);
 	//getStatisticCSsBySize(csMap,maxNumProp); 
 
 	getStatisticCSsBySupports(csBats->pOffsetBat, csBats->freqBat, csBats->coverageBat, csBats->fullPBat, 1, *freqThreshold);
@@ -2637,7 +2613,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	freeCSset(freqCSset); 
 
-	freemergeCSset(mergecsSet);
 
 	//testBatHash(); 
 
