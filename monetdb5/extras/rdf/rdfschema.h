@@ -62,26 +62,18 @@ typedef struct CS
 	oid*	lstProp;	//List of properties' Ids
 	int	numProp;
 	int	numAllocation;
-	char 	isSubset; 
+	//char 	isSubset; 
+	oid 	parent; 
 	#if STOREFULLCS
 	oid     subject;        //A subject
 	oid*    lstObj;         //List of sample objects
 	#endif
+	
+	char	type; 
+	int 	support; 
+	int	coverage; 
 } CS;
 
-
-typedef struct maxCS
-{
-	oid 	csId;		//Id of the CS
-	oid*	lstProp;	//List of properties' Ids
-	int	numProp;
-	int	numAllocation;
-	int	support; 	//Sum of all subCS's frequency
-	#if STOREFULLCS
-	oid     subject;        //A subject
-	oid*    lstObj;         //List of sample objects
-	#endif
-} maxCS; 
 
 typedef struct SubCS {
 	//oid 	csId; 
@@ -92,8 +84,8 @@ typedef struct SubCS {
 } SubCS; 
 
 typedef struct mergeCS {	// CS formed by merging CS id1 and CS id2	
-	oid* 	lstParent; 	
-	int	numParent; 
+	oid* 	lstConsistsOf; 	
+	int	numConsistsOf; 
 	oid*	lstProp; 
 	int	numProp; 
 	int 	support;
