@@ -148,4 +148,14 @@ typedef struct CSrel{
 	int  numAllocation; 
 } CSrel;
 
+typedef struct CSmergeRel{
+	int  origFreqIdx;
+	int* lstRefFreqIdx;
+	oid* lstPropId;		// Predicate for a relationship
+	int* lstCnt;		// Count per reference
+	int* lstBlankCnt;	// Count # links to blank node
+	int  numRef;
+	int  numAllocation;
+} CSmergeRel;
+
 #endif /* _RDFSCHEMA_H_ */

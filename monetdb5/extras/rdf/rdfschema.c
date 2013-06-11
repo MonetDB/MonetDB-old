@@ -2450,6 +2450,159 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 	return MAL_SUCCEED; 
 }
 
+static
+void initCsRelBetweenMergeFreqSet(CSmergeRel *csRelBetweenMergeFreqSet, int num){
+	int i;
+	for (i = 0; i < num; ++i) {
+		csRelBetweenMergeFreqSet[i].origFreqIdx = i;
+		csRelBetweenMergeFreqSet[i].lstRefFreqIdx = (int *) malloc (sizeof(int) * INIT_NUM_CSREL);
+		csRelBetweenMergeFreqSet[i].lstPropId = (oid*) malloc(sizeof(oid) * INIT_NUM_CSREL);
+
+		csRelBetweenMergeFreqSet[i].lstCnt = (int*) malloc(sizeof(int) * INIT_NUM_CSREL);
+		csRelBetweenMergeFreqSet[i].lstBlankCnt = (int*) malloc(sizeof(int) * INIT_NUM_CSREL);
+
+		csRelBetweenMergeFreqSet[i].numRef = 0;
+		csRelBetweenMergeFreqSet[i].numAllocation = INIT_NUM_CSREL;
+	}
+}
+
+static
+void addReltoCSmergeRel(int origFreqIdx, int refFreqIdx, oid propId, int freq, int numBlank, CSmergeRel *csmergerel)
+{
+	void *_tmp;
+	void *_tmp1;
+	void *_tmp2;
+	void *_tmp3;
+
+	int i = 0;
+
+	assert (origFreqIdx == csmergerel->origFreqIdx);
+#ifdef NDEBUG
+	/* parameter origCSoid is not used other in about assertion */
+	(void) origFreqIdx;
+#endif
+
+	while (i < csmergerel->numRef){
+		if (refFreqIdx == csmergerel->lstRefFreqIdx[i] && propId == csmergerel->lstPropId[i]){
+			//Existing
+			break;
+		}
+		i++;
+	}
+
+	if (i != csmergerel->numRef){
+		csmergerel->lstCnt[i] = csmergerel->lstCnt[i] + freq;
+		csmergerel->lstBlankCnt[i] = csmergerel->lstBlankCnt[i] + numBlank;
+		return;
+	}
+	else{	// New Ref
+		if(csmergerel->numRef == csmergerel->numAllocation)
+		{
+			csmergerel->numAllocation += INIT_NUM_CSREL;
+
+			_tmp = realloc(csmergerel->lstRefFreqIdx, (csmergerel->numAllocation * sizeof(int)));
+			_tmp1 = realloc(csmergerel->lstPropId, (csmergerel->numAllocation * sizeof(oid)));
+			_tmp2 = realloc(csmergerel->lstCnt, (csmergerel->numAllocation * sizeof(int)));
+			_tmp3 = realloc(csmergerel->lstBlankCnt, (csmergerel->numAllocation * sizeof(int)));
+
+			if (!_tmp || !_tmp2 || !_tmp3){
+				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+			}
+			csmergerel->lstRefFreqIdx = (int*)_tmp;
+			csmergerel->lstPropId = (oid*)_tmp1;
+			csmergerel->lstCnt = (int*)_tmp2;
+			csmergerel->lstBlankCnt = (int*)_tmp3;
+		}
+
+		csmergerel->lstRefFreqIdx[csmergerel->numRef] = refFreqIdx;
+		csmergerel->lstPropId[csmergerel->numRef] = propId;
+		csmergerel->lstCnt[csmergerel->numRef] = freq;
+		csmergerel->lstBlankCnt[csmergerel->numRef] = numBlank;
+		csmergerel->numRef++;
+	}
+}
+
+/* Create a new data structure to store relationships including merged CS */
+static
+void generateCsRelBetweenMergeFreqSet(CSmergeRel *csRelBetweenMergeFreqSet, CSrel *csrelBetweenMaxFreqSet, int numOid, int *csIdFreqIdxMap, CSset *freqCSset){
+	int i,j;
+	for (i = 0; i < numOid; ++i) {
+		CSrel rel;
+		int from;
+		if (csrelBetweenMaxFreqSet[i].numRef == 0) continue; // ignore CS without relations
+		rel = csrelBetweenMaxFreqSet[i];
+
+		// update the 'from' value
+		from = csIdFreqIdxMap[rel.origCSoid];
+		assert (from != -1);
+		if (freqCSset->items[from].parentFreqIdx != -1) {
+			from = freqCSset->items[from].parentFreqIdx;
+			assert (freqCSset->items[from].type = MERGECS);
+		}
+
+		for (j = 0; j < rel.numRef; ++j) {
+			int to;
+			// update the 'to' value
+			to = csIdFreqIdxMap[rel.lstRefCSoid[j]];
+			assert (to != -1);
+			if (freqCSset->items[to].parentFreqIdx != -1) {
+				to = freqCSset->items[to].parentFreqIdx;
+				assert (freqCSset->items[to].type = MERGECS);
+			}
+
+			// add relation to new data structure
+			addReltoCSmergeRel(from, to, rel.lstPropId[j], rel.lstCnt[j], rel.lstBlankCnt[j], &csRelBetweenMergeFreqSet[from]);
+		}
+	}
+}
+
+static
+void printCSmergeRel(CSset *freqCSset, CSmergeRel *csRelBetweenMergeFreqSet, int freqThreshold){
+	FILE 	*fout2,*fout2filter;
+	char 	filename2[100];
+	char 	tmpStr[20];
+	str 	propStr;
+	int		i,j;
+	int		freq;
+
+	strcpy(filename2, "csRelationshipBetweenMergeFreqCS");
+	sprintf(tmpStr, "%d", freqThreshold);
+	strcat(filename2, tmpStr);
+	strcat(filename2, ".txt");
+
+	fout2 = fopen(filename2,"wt");
+	strcat(filename2, ".filter");
+	fout2filter = fopen(filename2,"wt");
+
+	for (i = 0; i < freqCSset->numCSadded; i++){
+		if (csRelBetweenMergeFreqSet[i].numRef != 0){	//Only print CS with FK
+			fprintf(fout2, "Relationship "BUNFMT": ", freqCSset->items[csRelBetweenMergeFreqSet[i].origFreqIdx].csId);
+			fprintf(fout2filter, "Relationship "BUNFMT": ", freqCSset->items[csRelBetweenMergeFreqSet[i].origFreqIdx].csId);
+			freq = freqCSset->items[csRelBetweenMergeFreqSet[i].origFreqIdx].support;
+			fprintf(fout2, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", freqCSset->items[csRelBetweenMergeFreqSet[i].origFreqIdx].csId, freq, 1);
+			fprintf(fout2filter, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", freqCSset->items[csRelBetweenMergeFreqSet[i].origFreqIdx].csId, freq, 1);
+
+			for (j = 0; j < csRelBetweenMergeFreqSet[i].numRef; j++){
+				#if SHOWPROPERTYNAME
+				takeOid(csRelBetweenMergeFreqSet[i].lstPropId[j], &propStr);
+				fprintf(fout2, BUNFMT "(P:" BUNFMT " - %s) (%d)(Blank:%d) ", freqCSset->items[csRelBetweenMergeFreqSet[i].lstRefFreqIdx[j]].csId,csRelBetweenMergeFreqSet[i].lstPropId[j], propStr, csRelBetweenMergeFreqSet[i].lstCnt[j], csRelBetweenMergeFreqSet[i].lstBlankCnt[j]);
+				#else
+				fprintf(fout2, BUNFMT "(P:" BUNFMT ") (%d)(Blank:%d) ", freqCSset->items[csRelBetweenMergeFreqSet[i].lstRefFreqIdx[j]].csId,csRelBetweenMergeFreqSet[i].lstPropId[j], csRelBetweenMergeFreqSet[i].lstCnt[j], csRelBetweenMergeFreqSet[i].lstBlankCnt[j]);
+				#endif
+
+				if (freq < csRelBetweenMergeFreqSet[i].lstCnt[j]*100){
+					fprintf(fout2filter, BUNFMT "(P:" BUNFMT ") (%d)(Blank:%d) ", freqCSset->items[csRelBetweenMergeFreqSet[i].lstRefFreqIdx[j]].csId,csRelBetweenMergeFreqSet[i].lstPropId[j], csRelBetweenMergeFreqSet[i].lstCnt[j], csRelBetweenMergeFreqSet[i].lstBlankCnt[j]);
+				}
+			}
+			fprintf(fout2, "\n");
+			fprintf(fout2filter, "\n");
+		}
+	}
+
+	fclose(fout2);
+	fclose(fout2filter);
+}
+
 /* Extract CS from SPO triples table */
 str
 RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold){
@@ -2469,6 +2622,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	CSrel   	*csrelSet;
 	CSrel		*csrelToMaxFreqSet, *csrelFromMaxFreqSet;
 	CSrel		*csrelBetweenMaxFreqSet; 
+	CSmergeRel	*csRelBetweenMergeFreqSet;
 	SubCSSet 	*csSubCSMap; 
 
 	int*		csIdFreqIdxMap; /* Map a CSId to a freqIdx. Should be removed in the future .... */
@@ -2585,6 +2739,11 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	mergeMaximumFreqCSsAll(freqCSset, superCSFreqCSMap, superCSMergeMaxCSMap, numMaxCSs, maxCSoid);
 
+	csRelBetweenMergeFreqSet = (CSmergeRel *) malloc (sizeof(CSmergeRel) * freqCSset->numCSadded);
+	initCsRelBetweenMergeFreqSet(csRelBetweenMergeFreqSet, freqCSset->numCSadded);
+	generateCsRelBetweenMergeFreqSet(csRelBetweenMergeFreqSet, csrelBetweenMaxFreqSet, maxCSoid + 1, csIdFreqIdxMap, freqCSset);
+	printCSmergeRel(freqCSset, csRelBetweenMergeFreqSet, *freqThreshold);
+
 	printmergeCSSet(freqCSset, *freqThreshold);
 	//getStatisticCSsBySize(csMap,maxNumProp); 
 
@@ -2605,6 +2764,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	freeCS_SubCSMapSet(csSubCSMap, maxCSoid + 1); 
 
 	free(csIdFreqIdxMap); 
+	free(csRelBetweenMergeFreqSet);
 	freeCSrelSet(csrelSet, maxCSoid + 1); 
 	freeCSrelSet(csrelToMaxFreqSet, maxCSoid + 1); 
 	freeCSrelSet(csrelBetweenMaxFreqSet, maxCSoid + 1);  
