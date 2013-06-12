@@ -60,7 +60,8 @@ typedef enum {
 	DATETIME, 
 	NUMERIC, 
 	STRING,
-	BLANKNODE	
+	BLANKNODE,
+	MULTIVALUES		// For the multi-value property 
 } ObjectType; 
 
 #define IS_DUPLICATE_FREE 0		/* 0: Duplications have not been removed, otherwise 1 */
@@ -68,6 +69,8 @@ typedef enum {
 #define TRIPLE_STORE 1
 #define MLA_STORE    2
 #define NOT_IGNORE_ERROR_TRIPLE 0
+#define USE_MULTIPLICITY 1		/* Properties having >= 2 values are being considered as having 
+					the same type, i.e., MULTIVALUES */
 
 #define STORE TRIPLE_STORE /* this should become a compile time option */
 

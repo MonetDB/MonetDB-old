@@ -596,7 +596,7 @@ void printSubCSInformation(SubCSSet *subcsset, BAT* freqBat, int num, char isWri
 			if (subcsset[i].numSubCS != 0){	
 				freq  = (int *) Tloc(freqBat, i);
 				fprintf(fout, "CS " BUNFMT ": ", subcsset[i].csId);
-
+					
 				if (*freq > freqThreshold){
 					fprintf(foutfreq, BUNFMT "  ", subcsset[i].csId);
 					fprintf(foutfreqfilter, BUNFMT "  ", subcsset[i].csId);
@@ -2391,6 +2391,7 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 	char* 		buffTypes; 
 	oid		realObjOid; 	
 	char 		isBlankNode; 
+	oid		curP; 
 
 	if (BATcount(sbat) == 0) {
 		throw(RDF, "rdf.RDFrelationships", "sbat must not be empty");
@@ -2402,38 +2403,53 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 
 	numPwithDup = 0;
 	curS = 0; 
+	curP = 0; 
 
 	BATloop(sbat, p, q){
 		sbt = (oid *) BUNtloc(si, p);		
 		if (*sbt != curS){
 			if (p != 0){	/* Not the first S */
-				returnSubCSid = addSubCS(buffTypes, numPwithDup, subjCSMap[*sbt], csSubCSMap);
+				returnSubCSid = addSubCS(buffTypes, numPwithDup, subjCSMap[curS], csSubCSMap);
+
 				//Get the subCSId
 				subjSubCSMap[*sbt] = returnSubCSid; 
 
 			}
 			curS = *sbt; 
 			numPwithDup = 0;
+			curP = 0; 
 		}
 				
 		obt = (oid *) BUNtloc(oi, p); 
 		/* Check type of object */
 		objType = (char) ((*obt) >> (sizeof(BUN)*8 - 4))  &  7 ;	/* Get two bits 63th, 62nd from object oid */
+	
+		pbt = (oid *) BUNtloc(pi, p);
 
-		buffTypes[numPwithDup] = objType; 
-		numPwithDup++; 
-		
 		/* Look at the referenced CS Id using subjCSMap */
 		isBlankNode = 0;
 		if (objType == URI || objType == BLANKNODE){
-			pbt = (oid *) BUNtloc(pi, p); 
 			realObjOid = (*obt) - ((oid) objType << (sizeof(BUN)*8 - 4));
 
 			if (realObjOid <= maxSoid && subjCSMap[realObjOid] != BUN_NONE){
 				if (objType == BLANKNODE) isBlankNode = 1;
-				////printf(" Subject " BUNFMT " refer to CS " BUNFMT " \n",*sbt, subjCSMap[*obt]);
 				addReltoCSRel(subjCSMap[*sbt], subjCSMap[realObjOid], *pbt, &csrelSet[subjCSMap[*sbt]], isBlankNode);
 			}
+		}
+
+		if (curP == *pbt){
+			#if USE_MULTIPLICITY == 1	
+			// Update the object type for this P as MULTIVALUES	
+			buffTypes[numPwithDup-1] = MULTIVALUES; 
+			#else
+			buffTypes[numPwithDup] = objType;
+			numPwithDup++;
+			#endif
+		}
+		else{			
+			buffTypes[numPwithDup] = objType; 
+			numPwithDup++; 
+			curP = *pbt; 
 		}
 	}
 	
@@ -2442,8 +2458,6 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 	subjSubCSMap[*sbt] = returnSubCSid; 
 
 	free (buffTypes); 
-
-
 
 	*ret = 1; 
 
