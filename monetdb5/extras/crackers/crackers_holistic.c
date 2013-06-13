@@ -95,20 +95,6 @@ push_2(int bat_id,FrequencyNode* head,int N,int L1)
 	new_node->next=head->next;
 	head->next=new_node; 
 }
-/*this function pushes nodes in the list and is used in cost models: 7,9*/
-void 
-push_3(int bat_id,FrequencyNode* head)
-{
-	FrequencyNode* new_node;
-	new_node=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode));
-	new_node->bid=bat_id;
-	new_node->c=1;
-	new_node->f1=0;
-	new_node->f2=0;
-	new_node->weight=1.0;
-	new_node->next=head->next;
-	head->next=new_node; 
-}
 
 FrequencyNode*
 pop(FrequencyNode* head)
@@ -126,17 +112,8 @@ printFrequencyStruct(FrequencyNode* head)
 	FrequencyNode* temp;
 	double d;
 	FILE *ofp1;
-	/*FILE *ofp2,*ofp3,*ofp4,*ofp5;*/
 	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/experiments/strategies/distance/out.txt";
-	/*char outputFilename2[] = "/export/scratch2/petraki/experiments_1st_paper/same#tuples/new/hit_range/1st_CostModel_variation/sequential_ABCDE/outB.txt";
-	char outputFilename3[] = "/export/scratch2/petraki/experiments_1st_paper/same#tuples/new/hit_range/1st_CostModel_variation/sequential_ABCDE/outC.txt";
-        char outputFilename4[] = "/export/scratch2/petraki/experiments_1st_paper/same#tuples/new/hit_range/1st_CostModel_variation/sequential_ABCDE/outD.txt";
-	char outputFilename5[] = "/export/scratch2/petraki/experiments_1st_paper/same#tuples/new/hit_range/1st_CostModel_variation/sequential_ABCDE/outE.txt";*/
 	ofp1 = fopen(outputFilename1,"a");
-	/*ofp2 = fopen(outputFilename2,"a");
-	ofp3 = fopen(outputFilename3,"a");
-        ofp4 = fopen(outputFilename4,"a");
-        ofp5 = fopen(outputFilename5,"a");*/
 
 	if (ofp1 == NULL) {
   		fprintf(stderr, "Can't open output file!\n");
@@ -152,24 +129,9 @@ printFrequencyStruct(FrequencyNode* head)
 			fprintf(ofp1,"%d\t%lf\n",temp->bid,d);
 			
 		}
-		/*if(temp->bid==231 && temp->weight>0)
-			fprintf(ofp1,"%d\t%d\n",temp->bid,temp->f1);
-		else if(temp->bid==232 && temp->weight>0)
-			fprintf(ofp2,"%d\t%d\n",temp->bid,temp->f1);
-		else if(temp->bid==233 && temp->weight>0)
-                        fprintf(ofp3,"%d\t%d\n",temp->bid,temp->f1);
-		else if(temp->bid==234 && temp->weight>0)
-                        fprintf(ofp4,"%d\t%d\n",temp->bid,temp->f1);
-		else if(temp->bid==235 && temp->weight>0)
-                        fprintf(ofp5,"%d\t%d\n",temp->bid,temp->f1);*/	
 		temp=temp->next;
 	}
-	/*fprintf(ofp,"\n");*/
 	fclose(ofp1);
-	/*fclose(ofp2);
-	fclose(ofp3);
-	fclose(ofp4);
-	fclose(ofp5);*/
 
 
 }
@@ -261,7 +223,7 @@ pickRandom(FrequencyNode* head)
 
 /*The following function updates the weights in the list*/
 /*This cost model takes into consideration only the distance from the optimal index.*/
-/*The initial weights are initialized to the distance from the optimal index (NON-ZERO)*/
+/*The initial weights are initialized to 0 (ZERO)*/
 double
 changeWeight_1(FrequencyNode* node,int N,int L1)
 {
@@ -271,12 +233,21 @@ changeWeight_1(FrequencyNode* node,int N,int L1)
 	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
-	node->weight = d;
+	if (node->f1==0)
+	{
+		node->weight = 0.0;
+	}
+	else
+	{
+		node->weight = d;
+	}
+
 	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
 	return node->weight;
 }
+
 /*The following function updates the weights in the list*/
-/*This cost model takes into consideration only the distance from the optimal index.*/
+/*This cost model takes into consideration both the frequency of the queries that use the index and the distance from the optimal index.*/
 /*The initial weights are initialized to 0 (ZERO)*/
 double
 changeWeight_2(FrequencyNode* node,int N,int L1)
@@ -289,20 +260,20 @@ changeWeight_2(FrequencyNode* node,int N,int L1)
 	d = Sp - L1;
 	if (node->f1==0)
 	{
-		node->weight = 0.0;
+		node->weight = 0;
 	}
 	else
 	{
-		node->weight = d;
+		node->weight = (double)(node->f1) * d;
 	}
-
-	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
+	/*fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);*/
 	return node->weight;
 }
 
 /*The following function updates the weights in the list*/
-/*This cost model takes into consideration both the frequency of the queries that use the index and the distance from the optimal index.*/
-/*The initial weights are initialized to the distance from the optimal index (NON-ZERO)*/
+/*This cost model takes into consideration the frequency of the queries that use the index,*/
+/* the frequency of the queries that "hit" the range in the index and the distance from the optimal index.*/
+/*The initial weights are initialized to 0 (ZERO)*/
 double
 changeWeight_3(FrequencyNode* node,int N,int L1)
 {
@@ -314,79 +285,6 @@ changeWeight_3(FrequencyNode* node,int N,int L1)
 	d = Sp - L1;
 	if (node->f1==0)
 	{
-		node->weight = d;
-	}
-	else
-	{
-		node->weight = (double)(node->f1) * d;
-	}
-	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
-	return node->weight;
-}
-/*The following function updates the weights in the list*/
-/*This cost model takes into consideration both the frequency of the queries that use the index and the distance from the optimal index.*/
-/*The initial weights are initialized to 0 (ZERO)*/
-double
-changeWeight_4(FrequencyNode* node,int N,int L1)
-{
-	int p; /*number of pieces in the index*/
-	double Sp; /*average size of each piece*/
-	double d; /*distance from optimal piece(L1)*/
-	p = node->c;
-	Sp =((double)N)/p;	
-	d = Sp - L1;
-	if (node->f1==0)
-	{
-		node->weight = 0;
-	}
-	else
-	{
-		node->weight = (double)(node->f1) * d;
-	}
-	/*fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);*/
-	return node->weight;
-}
-
-/*The following function updates the weights in the list*/
-/*This cost model takes into consideration the frequency of the queries that use the index,*/
-/* the frequency of the queries that "hit" the range in the index and the distance from the optimal index.*/
-/*The initial weights are initialized to the distance from the optimal index (NON-ZERO)*/
-double
-changeWeight_5(FrequencyNode* node,int N,int L1)
-{
-	int p; /*number of pieces in the index*/
-	double Sp; /*average size of each piece*/
-	double d; /*distance from optimal piece(L1)*/
-	p = node->c;
-	Sp =((double)N)/p;	
-	d = Sp - L1;
-	if (node->f1==0)
-	{
-		node->weight = d;
-	}
-	else
-	{
-		node->weight = ((double)(node->f1)-(double)(node->f2)) * d;
-	}
-	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
-	return node->weight;
-
-}
-/*The following function updates the weights in the list*/
-/*This cost model takes into consideration the frequency of the queries that use the index,*/
-/* the frequency of the queries that "hit" the range in the index and the distance from the optimal index.*/
-/*The initial weights are initialized to 0 (ZERO)*/
-double
-changeWeight_6(FrequencyNode* node,int N,int L1)
-{
-	int p; /*number of pieces in the index*/
-	double Sp; /*average size of each piece*/
-	double d; /*distance from optimal piece(L1)*/
-	p = node->c;
-	Sp =((double)N)/p;	
-	d = Sp - L1;
-	if (node->f1==0)
-	{
 		node->weight = 0;
 	}
 	else
@@ -394,114 +292,6 @@ changeWeight_6(FrequencyNode* node,int N,int L1)
 		node->weight = ((double)(node->f1)-(double)(node->f2)) * d;
 	}
 	/*fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);*/
-	return node->weight;
-
-}
-/*The following function updates the weights in the list*/
-/*This cost model takes into consideration mainly the frequency of the queries that use the index until the distance becomes equal to 0.*/
-/*The initial weights are initialized to 1 (NON-ZERO)*/
-double
-changeWeight_7(FrequencyNode* node,int N,int L1)
-{
-	int p; /*number of pieces in the index*/
-	double Sp; /*average size of each piece*/
-	double d; /*distance from optimal piece(L1)*/
-	p = node->c;
-	Sp =((double)N)/p;	
-	d = Sp - L1;
-	if (d>0)
-	{
-		if (node->f1==0)
-			node->weight = 1.0;
-		else
-			node->weight = (double)(node->f1);
-	}
-	else
-	{
-		node->weight = 0.0;
-	}
-	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
-	return node->weight;
-}
-
-/*The following function updates the weights in the list*/
-/*This cost model takes into consideration mainly the frequency of the queries that use the index until the distance becomes equal to 0.*/
-/*The initial weights are initialized to 0 (ZERO)*/
-double
-changeWeight_8(FrequencyNode* node,int N,int L1)
-{
-	int p; /*number of pieces in the index*/
-	double Sp; /*average size of each piece*/
-	double d; /*distance from optimal piece(L1)*/
-	p = node->c;
-	Sp =((double)N)/p;	
-	d = Sp - L1;
-	if (d > 0)
-	{
-		node->weight = (double)(node->f1);
-	}
-	else
-	{
-		node->weight = 0.0;
-	}
-
-	fprintf(stderr,"bid=%d f1=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,p,Sp,d,node->weight);
-	return node->weight;
-}
-
-/*The following function updates the weights in the list*/
-/*This cost model takes into consideration mainly the frequency of the queries that use the index and*/
-/* the frequency of the queries that "hit" the range in the index.*/
-/*The initial weights are initialized to 1 (NON-ZERO)*/
-double
-changeWeight_9(FrequencyNode* node,int N,int L1)
-{
-	int p; /*number of pieces in the index*/
-	double Sp; /*average size of each piece*/
-	double d; /*distance from optimal piece(L1)*/
-	p = node->c;
-	Sp =((double)N)/p;	
-	d = Sp - L1;
-	if (d>0)
-	{
-		if (node->f1==0)
-			node->weight = 1.0;
-		else
-			node->weight = ((double)(node->f1)-(double)(node->f2));
-	}
-	else
-	{
-		node->weight = 0.0;
-	}
-
-	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
-	return node->weight;
-
-}
-/*The following function updates the weights in the list*/
-/*This cost model takes into consideration mainly the frequency of the queries that use the index and*/
-/* the frequency of the queries that "hit" the range in the index.*/
-/*The initial weights are initialized to 0 (ZERO)*/
-double
-changeWeight_10(FrequencyNode* node,int N,int L1)
-{
-	int p; /*number of pieces in the index*/
-	double Sp; /*average size of each piece*/
-	double d; /*distance from optimal piece(L1)*/
-	p = node->c;
-	Sp =((double)N)/p;	
-	d = Sp - L1;
-	if (d>0)
-	{
-		node->weight = ((double)(node->f1)-(double)(node->f2));
-	}
-	else
-	{
-		node->weight = 0.0;
-	}
-
-
-	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);	
 	return node->weight;
 
 }
@@ -527,7 +317,6 @@ str
 CRKinitFrequencyStruct(int *vid,int *bid)
 {
 	FrequencyNode *fs = getFrequencyStruct('A');
-	/*fprintf(stderr,"BAT_ID=%d\n",*bid);*/
 	push(*bid,fs);
 	*vid = 0;
 	return MAL_SUCCEED;
@@ -539,19 +328,7 @@ str
 CRKinitFrequencyStruct_2(int *vid,int *bid,int* N,int* L1)
 {
 	FrequencyNode *fs = getFrequencyStruct('A');
-	/*fprintf(stderr,"BAT_ID=%d\n",*bid);*/
 	push_2(*bid,fs,*N,*L1);
-	*vid = 0;
-	return MAL_SUCCEED;
-}
-
-/*this function initializes the list in the first & second experiment(1st & 2nd cost model)*/
-str 
-CRKinitFrequencyStruct_3(int *vid,int *bid)
-{
-	FrequencyNode *fs = getFrequencyStruct('A');
-	/*fprintf(stderr,"BAT_ID=%d\n",*bid);*/
-	push_3(*bid,fs);
 	*vid = 0;
 	return MAL_SUCCEED;
 }
