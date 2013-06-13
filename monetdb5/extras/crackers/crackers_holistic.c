@@ -27,14 +27,17 @@
 static FrequencyNode *_InternalFrequencyStructA = NULL;
 static FrequencyNode *_InternalFrequencyStructB = NULL;
 static MT_Lock frequencylock;
+static MT_Id idletime_thread;
 
 int isIdleQuery = 0;
+IdleFuncPtr IdleFunc;
 
 str
 CRKinitHolistic(int *ret)
 {
+	IdleFunc=&CRKrandomCrack;
 	MT_lock_init(&frequencylock, "FrequencyStruct");
-
+	MT_create_thread(&idletime_thread,(void (*)(void *))HeartbeatCPUload, IdleFunc, MT_THR_JOINABLE);
 	*ret = 0;
 	return MAL_SUCCEED;
 }
@@ -186,11 +189,11 @@ searchBAT(FrequencyNode* head,int bat_id)
 FrequencyNode*
 findMax(FrequencyNode* head)
 {
-	FrequencyNode* temp;
+	FrequencyNode* temp=NULL;
 	FrequencyNode* ret_node=NULL;
 	double tmpW;
 	//int bat;
-	temp=head->next;
+	temp=head;
 	tmpW=temp->weight;
 	//bat=temp->bid;
 	while(temp!=NULL)
@@ -293,7 +296,7 @@ changeWeight_2(FrequencyNode* node,int N,int L1)
 		node->weight = d;
 	}
 
-	/*fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);*/
+	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
 	return node->weight;
 }
 
@@ -583,12 +586,14 @@ CRKrandomCrack(int *ret)
 	int temp=0;
 	oid posl,posh,p;
 	FILE *ofp1;
+	int dummy = 0;
 	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/experiments/strategies/change_parameters_abcde/a800b50c50d50e50/idle_queries_2";
 	
 	bit inclusive=TRUE;
 	FrequencyNode *fs = getFrequencyStruct('A');	
 	isIdleQuery=1;
 	ofp1 = fopen(outputFilename1,"a");
+	(void) ret;
 	max_node=findMax(fs);
 	if(max_node!=NULL && max_node->weight > 0)
 	{
@@ -608,7 +613,7 @@ CRKrandomCrack(int *ret)
 			hgh=temp;
 		}
 	/*fprintf(stderr,"posl = "OIDFMT" posh = "OIDFMT" low = %d hgh = %d inclusive = %d", posl,posh,low,hgh,inclusive );*/
-		CRKselectholBounds_int(ret, &bid, &low, &hgh, &inclusive, &inclusive);
+		CRKselectholBounds_int(&dummy, &bid, &low, &hgh, &inclusive, &inclusive);
 		fprintf(ofp1,"%d\n",max_node->bid);
 		
 	}
@@ -618,7 +623,7 @@ CRKrandomCrack(int *ret)
 	/*printFrequencyStruct(fs);*/
 	isIdleQuery=0;
 
-	*ret = 0;
+
 	return MAL_SUCCEED;
 }
 

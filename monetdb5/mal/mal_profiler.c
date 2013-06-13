@@ -1231,7 +1231,7 @@ static int hbdelay = 0;
 static struct{
 	lng user, nice, system, idle, iowait;
 	double load;
-} corestat[256];
+} corestat[257];
 
 static int getCPULoad(char cpuload[BUFSIZ]){
     int cpu, len, i;
@@ -1258,9 +1258,12 @@ static int getCPULoad(char cpuload[BUFSIZ]){
 			s +=3;
 			if ( *s == ' ') {
 				s++;
-				goto skip;
+				//goto skip;
 			} 
-			cpu = atoi(s);
+			if (*s == ' '){
+				cpu=256;
+			}
+			else cpu = atoi(s);
 			s= strchr(s,' ');
 			if ( s== 0) goto skip;
 			
@@ -1269,7 +1272,7 @@ static int getCPULoad(char cpuload[BUFSIZ]){
 			if ( i != 5 )
 				goto skip;
 			newload = (user - corestat[cpu].user + nice - corestat[cpu].nice + system - corestat[cpu].system);
-			if (  newload)
+			if (newload)
 				corestat[cpu].load = (double) newload / (newload + idle - corestat[cpu].idle);
 			corestat[cpu].user = user;
 			corestat[cpu].nice = nice;
@@ -1282,7 +1285,7 @@ static int getCPULoad(char cpuload[BUFSIZ]){
 
 	s= cpuload;
 	len = BUFSIZ;
-	for ( cpu = 0; cpu < 256 && corestat[cpu].user; cpu++) {
+	for ( cpu = 0; cpu < 257 && corestat[cpu].user; cpu++) {
 		snprintf(s, len, " %.2f ",corestat[cpu].load);
 		len -= (int)strlen(s);
 		s += (int) strlen(s);
@@ -1290,18 +1293,29 @@ static int getCPULoad(char cpuload[BUFSIZ]){
 	return 0;
 }
 // Give users the option to check for the system load between two heart beats
-double HeartbeatCPUload(void)
+void HeartbeatCPUload(str (*IdleFunc)(int *))
 {
-	return corestat[255].load;
+	char cpuload[BUFSIZ];
+	while(1)
+	{
+		MT_sleep_ms(100);
+		(void) getCPULoad(cpuload);
+		if (corestat[256].load < 0.1)
+		{
+			fprintf(stderr,"load=%lf\n",corestat[256].load);
+			IdleFunc(NULL);
+		}	
+		/*fprintf(stderr,"%s\n",cpuload);*/
+	}
 }
 void profilerGetCPUStat(lng *user, lng *nice, lng *sys, lng *idle, lng *iowait)
 {
 	(void) getCPULoad(0);
-	*user = corestat[255].user;
-	*nice = corestat[255].nice;
-	*sys = corestat[255].system;
-	*idle = corestat[255].idle;
-	*iowait = corestat[255].iowait;
+	*user = corestat[256].user;
+	*nice = corestat[256].nice;
+	*sys = corestat[256].system;
+	*idle = corestat[256].idle;
+	*iowait = corestat[256].iowait;
 }
 
 void profilerHeartbeatEvent(str msg)

@@ -74,6 +74,8 @@ crackers_export str CRKthetauselecthol_@1(int *vid, int *bid, @1 *val, str *op);
 #include "monetdb_config.h"
 #include "crackers.h"
 
+static MT_Lock rangeselectlock;
+
 
 /* Local support functions and macros */
 @:TypeSwitch(crackOperations)@
@@ -264,8 +266,11 @@ createView:
 
 	BBPunfix(b->batCacheid);
 	BBPunfix(c->batCacheid);
+	MT_lock_unset(&rangeselectlock, "RangeSelectBody");
+
 @
 @= RangeSelectBody
+
 	BAT *b,*c,*bo;
 	BAT *view;
 	int  m;
@@ -299,6 +304,9 @@ createView:
 
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
+
+	MT_lock_init(&rangeselectlock, "RangeSelectBody");
+	MT_lock_set(&rangeselectlock, "RangeSelectBody");
 	FN=searchBAT(FrequencyStructA,*bid);
 	
 	if (isIdleQuery!=1)

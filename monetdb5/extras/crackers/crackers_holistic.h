@@ -34,6 +34,7 @@ typedef struct frequency{
 
 }FrequencyNode;
 
+typedef  str (*IdleFuncPtr)(int *);
 crackers_export int isIdleQuery;
 
 crackers_export FrequencyNode *getFrequencyStruct(char which);
@@ -56,6 +57,7 @@ crackers_export double changeWeight_10(FrequencyNode* node,int N,int L1);
 crackers_export FrequencyNode* findMax(FrequencyNode* head);
 crackers_export FrequencyNode* pickRandom(FrequencyNode* head);
 crackers_export void deleteNode(FrequencyNode* head,int bat_id);
+crackers_export IdleFuncPtr IdleFunc;
 
 crackers_export str CRKinitHolistic(int *ret);
 crackers_export str CRKinitFrequencyStruct(int *vid,int *bid);
