@@ -54,6 +54,62 @@ RDFleftfetchjoin_sorted(bat *result, bat *lid, bat *rid)
 
 
 str
+RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
+	BAT *left, *right, *result, *map, *input;  
+	BATiter resulti,inputi;
+	BUN	p,q; 
+	oid	*rbt; 
+	oid	*ibt; 
+	
+
+	if ((left = BATdescriptor(*lid)) == NULL) {
+		throw(MAL, "rdf.RDFpartialjoin", RUNTIME_OBJECT_MISSING);
+	}
+	if ((right = BATdescriptor(*rid)) == NULL) {
+		BBPreleaseref(left->batCacheid);
+		throw(MAL, "rdf.RDFpartialjoin", RUNTIME_OBJECT_MISSING);
+	}
+
+	if ((input = BATdescriptor(*inputid)) == NULL) {
+		BBPreleaseref(left->batCacheid);
+		BBPreleaseref(right->batCacheid);
+		throw(MAL, "rdf.RDFpartialjoin", RUNTIME_OBJECT_MISSING);
+	}
+	//result = BATouterjoin(left, right, BUN_NONE);
+	map = BATleftfetchjoin(BATmirror(left), right, BUN_NONE);
+
+	BBPreleaseref(left->batCacheid);
+	BBPreleaseref(right->batCacheid);
+
+	//BATprint(map); 
+
+	result = BATouterjoin(input, map, BUN_NONE); 
+
+	resulti = bat_iterator(result);
+	inputi = bat_iterator(input);
+
+	BATloop(result, p, q){
+		rbt = (oid *) BUNtloc(resulti, p); 
+		if (*rbt == oid_nil){
+			ibt = (oid *) BUNtloc(inputi, p); 
+			*rbt = *ibt; 
+		}
+	}
+
+	BBPreleaseref(input->batCacheid);
+
+	//BATprint(result); 
+	if (result == NULL)
+		throw(MAL, "rdf.RDFpartialjoin", GDK_EXCEPTION);
+
+	*retid = result->batCacheid; 
+	BBPkeepref(*retid); 
+
+	return MAL_SUCCEED; 
+}
+
+
+str
 TKNZRrdf2str(bat *res, bat *bid, bat *map)
 {
 	BAT *r, *b, *m;

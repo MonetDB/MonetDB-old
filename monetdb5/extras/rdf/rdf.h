@@ -53,6 +53,11 @@ RDFleftfetchjoin_sorted(int *result, int* lid, int *rid);
 rdf_export str 
 TKNZRrdf2str (bat *res, bat *bid, bat *map);
 
+rdf_export str
+RDFpartialjoin (bat *res, bat *lmap, bat *rmap, bat *input); 
+
+
+
 #define RDF_MIN_LITERAL (((oid) 1) << ((sizeof(oid)==8)?59:27))
 
 typedef enum {

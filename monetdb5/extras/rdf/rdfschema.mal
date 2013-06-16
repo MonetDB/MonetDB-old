@@ -30,9 +30,13 @@ command rdfextractPfromPSO(pbat:bat[:any_1,:oid], sbat:bat[:any_2,:oid]):void
 address RDFextractPfromPSO
 comment "Extract Properties and their supports from PSO table";
 
-command rdfextractCSwithTypes( sbat:bat[:any_1,:oid], pbat:bat[:any_2,:oid], obat:bat[:any_3,:oid], mbat:bat[:any_4,:str], freqThreshold:int ) :void
+command rdfextractCSwithTypes( sbat:bat[:any_1,:oid], pbat:bat[:any_2,:oid], obat:bat[:any_3,:oid], mbat:bat[:any_4,:str], freqThreshold:int, freqCSset:void) :void
 address RDFextractCSwithTypes
 comment "Extract Characteristic sets from SPO table. While extracting CSs, detect the object type";
+
+command rdfreorganize( sbat:bat[:any_1,:oid], pbat:bat[:any_2,:oid], obat:bat[:any_3,:oid], mbat:bat[:any_4,:str], freqThreshold:int ) :void
+address RDFreorganize
+comment "Re-organize RDF triple store using the characteristic sets";
 
 command rdfloadontology(location:str, schema:str ) :void
 address RDFOntologyParser

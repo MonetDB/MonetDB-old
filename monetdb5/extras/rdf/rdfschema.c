@@ -2619,17 +2619,14 @@ void printCSmergeRel(CSset *freqCSset, CSmergeRel *csRelBetweenMergeFreqSet, int
 
 /* Extract CS from SPO triples table */
 str
-RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold){
+RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *_freqCSset, oid **subjCSMap, oid *maxCSoid){
 
 	BAT 		*sbat = NULL, *pbat = NULL, *obat = NULL, *mbat = NULL; 
 	BATiter 	si, pi, oi; 	/*iterator for BAT of s,p,o columns in spo table */
-	CSset		*freqCSset; 	/* Set of frequent CSs */
 
 	CSBats		*csBats; 
-	oid		*subjCSMap; 	/* Store the corresponding CS Id for each subject */
 	oid		*subjSubCSMap;  /* Store the corresponding CS sub Id for each subject */
 	BUN		*maxSoid; 	
-	oid 		maxCSoid = 0; 
 	int		maxNumProp = 0;
 	int		maxNumPwithDup = 0; 
 	char		*csFreqMap; 
@@ -2644,7 +2641,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	int		numMaxCSs = 0; 
 	oid		*superCSFreqCSMap; 
 	oid		*superCSMergeMaxCSMap;
-
+	CSset		*freqCSset; 
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
@@ -2676,52 +2673,53 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	csBats = initCSBats();
 
-	freqCSset = initCSset();
+	freqCSset = ((CSset *) _freqCSset); 
+
 
 	maxSoid = (BUN *) Tloc(sbat, BUNlast(sbat) - 1);
 	printf("Max S oid: " BUNFMT "\n", *maxSoid);
 
 	assert(*maxSoid != BUN_NONE); 
 
-	subjCSMap = (oid *) malloc (sizeof(oid) * ((*maxSoid) + 1)); 
+	*subjCSMap = (oid *) malloc (sizeof(oid) * ((*maxSoid) + 1)); 
 	subjSubCSMap = (oid *) malloc (sizeof(oid) * ((*maxSoid) + 1)); 
 	
-	initArray(subjCSMap, (*maxSoid) + 1, BUN_NONE);
+	initArray(*subjCSMap, (*maxSoid) + 1, BUN_NONE);
 
 
 	//Phase 1: Assign an ID for each CS
 	#if STOREFULLCS
-	RDFassignCSId(ret, sbat, si, pi, oi, freqCSset, freqThreshold, csBats, subjCSMap, &maxCSoid, &maxNumProp, &maxNumPwithDup);
+	RDFassignCSId(ret, sbat, si, pi, oi, freqCSset, freqThreshold, csBats, *subjCSMap, maxCSoid, &maxNumProp, &maxNumPwithDup);
 	#else
-	RDFassignCSId(ret, sbat, si, pi, freqCSset, freqThreshold, csBats, subjCSMap, &maxCSoid, &maxNumProp, &maxNumPwithDup);
+	RDFassignCSId(ret, sbat, si, pi, freqCSset, freqThreshold, csBats, *subjCSMap, maxCSoid, &maxNumProp, &maxNumPwithDup);
 	#endif
 	
 
 
 	//Phase 2: Check the relationship	
 
-	printf("Max CS oid: " BUNFMT "\n", maxCSoid);
+	printf("Max CS oid: " BUNFMT "\n", *maxCSoid);
 
 	printf("Max Number of P (considering duplicated P): %d \n", maxNumPwithDup);
 
-	csFreqMap = (char*) malloc(sizeof(char) * (maxCSoid +1)); 
-	initCharArray(csFreqMap, maxCSoid +1, 0); 
+	csFreqMap = (char*) malloc(sizeof(char) * (*maxCSoid +1)); 
+	initCharArray(csFreqMap, *maxCSoid +1, 0); 
 
 
 	generateFreqCSMap(freqCSset,csFreqMap); 
 
 
-	csrelSet = initCSrelset(maxCSoid + 1);
+	csrelSet = initCSrelset(*maxCSoid + 1);
 
 
-	csSubCSMap = initCS_SubCSMap(maxCSoid +1); 
+	csSubCSMap = initCS_SubCSMap(*maxCSoid +1); 
 
-	RDFrelationships(ret, sbat, si, pi, oi, subjCSMap, subjSubCSMap, csSubCSMap, csrelSet, *maxSoid, maxNumPwithDup);
+	RDFrelationships(ret, sbat, si, pi, oi, *subjCSMap, subjSubCSMap, csSubCSMap, csrelSet, *maxSoid, maxNumPwithDup);
 
 
-	printCSrelSet(csrelSet,csFreqMap, csBats->freqBat, maxCSoid + 1, 1, *freqThreshold);  
+	printCSrelSet(csrelSet,csFreqMap, csBats->freqBat, *maxCSoid + 1, 1, *freqThreshold);  
 
-	printSubCSInformation(csSubCSMap, csBats->freqBat, maxCSoid + 1, 1, *freqThreshold); 
+	printSubCSInformation(csSubCSMap, csBats->freqBat, *maxCSoid + 1, 1, *freqThreshold); 
 
 	printf("Number of frequent CSs is: %d \n", freqCSset->numCSadded);
 
@@ -2729,33 +2727,33 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	//getTopFreqCSs(csMap,*freqThreshold);
 
-	getMaximumFreqCSs(freqCSset, csBats->coverageBat,  csBats->freqBat, maxCSoid + 1, &numMaxCSs); 
+	getMaximumFreqCSs(freqCSset, csBats->coverageBat,  csBats->freqBat, *maxCSoid + 1, &numMaxCSs); 
 
 	//printf("Number of maximumCS: %d", numMaxCSs);
 	
 	printFreqCSSet(freqCSset, csBats->freqBat, mbat, 1, *freqThreshold); 
 
 
-	csrelToMaxFreqSet = initCSrelset(maxCSoid + 1);	// CS --> Reference MaxCSs
-	csrelFromMaxFreqSet = initCSrelset(maxCSoid + 1);	// CS --> Reference MaxCSs
-	csrelBetweenMaxFreqSet = initCSrelset(maxCSoid + 1);	// MaxCS --> Reference MaxCSs
+	csrelToMaxFreqSet = initCSrelset(*maxCSoid + 1);	// CS --> Reference MaxCSs
+	csrelFromMaxFreqSet = initCSrelset(*maxCSoid + 1);	// CS --> Reference MaxCSs
+	csrelBetweenMaxFreqSet = initCSrelset(*maxCSoid + 1);	// MaxCS --> Reference MaxCSs
 
 
-	csIdFreqIdxMap = (int *) malloc (sizeof(int) * (maxCSoid + 1)); 
-	initcsIdFreqIdxMap(csIdFreqIdxMap, maxCSoid + 1, -1, freqCSset);
+	csIdFreqIdxMap = (int *) malloc (sizeof(int) * (*maxCSoid + 1)); 
+	initcsIdFreqIdxMap(csIdFreqIdxMap, *maxCSoid + 1, -1, freqCSset);
 
-	printCSrelWithMaxSet(freqCSset, csIdFreqIdxMap, csrelToMaxFreqSet, csrelFromMaxFreqSet, csrelBetweenMaxFreqSet, csrelSet,csFreqMap, csBats->freqBat, maxCSoid + 1, *freqThreshold);  
+	printCSrelWithMaxSet(freqCSset, csIdFreqIdxMap, csrelToMaxFreqSet, csrelFromMaxFreqSet, csrelBetweenMaxFreqSet, csrelSet,csFreqMap, csBats->freqBat, *maxCSoid + 1, *freqThreshold);  
 
 	superCSFreqCSMap = (oid*) malloc(sizeof(oid) * numMaxCSs); 
 	superCSMergeMaxCSMap = (oid*) malloc(sizeof(oid) * numMaxCSs);
 
 	//mergeMaximumFreqCSs(freqCSset, superCSFreqCSMap, superCSMergeMaxCSMap, mergecsSet, numMaxCSs);
 
-	mergeMaximumFreqCSsAll(freqCSset, superCSFreqCSMap, superCSMergeMaxCSMap, numMaxCSs, maxCSoid);
+	mergeMaximumFreqCSsAll(freqCSset, superCSFreqCSMap, superCSMergeMaxCSMap, numMaxCSs, *maxCSoid);
 
 	csRelBetweenMergeFreqSet = (CSmergeRel *) malloc (sizeof(CSmergeRel) * freqCSset->numCSadded);
 	initCsRelBetweenMergeFreqSet(csRelBetweenMergeFreqSet, freqCSset->numCSadded);
-	generateCsRelBetweenMergeFreqSet(csRelBetweenMergeFreqSet, csrelBetweenMaxFreqSet, maxCSoid + 1, csIdFreqIdxMap, freqCSset);
+	generateCsRelBetweenMergeFreqSet(csRelBetweenMergeFreqSet, csrelBetweenMaxFreqSet, *maxCSoid + 1, csIdFreqIdxMap, freqCSset);
 	printCSmergeRel(freqCSset, csRelBetweenMergeFreqSet, *freqThreshold);
 
 	printmergeCSSet(freqCSset, *freqThreshold);
@@ -2769,23 +2767,21 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	BBPreclaim(obat);
 	BBPreclaim(mbat);
 
-	free (subjCSMap); 
 	free (subjSubCSMap);
 	free (csFreqMap);
 	free (superCSFreqCSMap);
 	free (superCSMergeMaxCSMap); 
 
-	freeCS_SubCSMapSet(csSubCSMap, maxCSoid + 1); 
+	freeCS_SubCSMapSet(csSubCSMap, *maxCSoid + 1); 
 
 	free(csIdFreqIdxMap); 
 	free(csRelBetweenMergeFreqSet);
-	freeCSrelSet(csrelSet, maxCSoid + 1); 
-	freeCSrelSet(csrelToMaxFreqSet, maxCSoid + 1); 
-	freeCSrelSet(csrelBetweenMaxFreqSet, maxCSoid + 1);  
+	freeCSrelSet(csrelSet, *maxCSoid + 1); 
+	freeCSrelSet(csrelToMaxFreqSet, *maxCSoid + 1); 
+	freeCSrelSet(csrelBetweenMaxFreqSet, *maxCSoid + 1);  
 
 	freeCSBats(csBats);
 
-	freeCSset(freqCSset); 
 
 
 	//testBatHash(); 
@@ -2867,4 +2863,66 @@ RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid){
 
 	return MAL_SUCCEED; 
 
+}
+
+
+str
+RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold){
+
+	CSset		*freqCSset; 	/* Set of frequent CSs */
+	oid		*subjCSMap = NULL;  	/* Store the corresponding CS Id for each subject */
+	oid		*csFreqCSMap;	
+	int 		i; 
+	oid 		maxCSoid = 0; 
+	BAT		*sbat = NULL;
+	BATiter		si; 
+	BUN		p,q; 
+	BAT		*sNewBat; 
+	BUN		newId; 
+	oid		*sbt; 
+
+	freqCSset = initCSset();
+
+	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid) != MAL_SUCCEED){
+		throw(RDF, "rdf.RDFreorganize", "Problem in extracting CSs");
+	} 
+	
+	printf("Start re-organizing triple store \n");
+	csFreqCSMap = (oid *) malloc (sizeof (oid) * maxCSoid); 
+	initArray(csFreqCSMap, maxCSoid, BUN_NONE);
+
+	for (i = 0; i < freqCSset->numOrigFreqCS; i++){
+		csFreqCSMap[freqCSset->items[i].csId] = i; 
+	}
+
+	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+
+	sNewBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+
+	if (sNewBat== NULL) {
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+
+	si = bat_iterator(sbat); 
+
+	printf("Re-assigning Subject oids \n");
+
+	BATloop(sbat, p, q){
+		sbt = (oid *) BUNtloc(si, p);
+		if (csFreqCSMap[subjCSMap[*sbt]] != BUN_NONE){
+			newId = csFreqCSMap[subjCSMap[*sbt]] * 10000 + p; 
+			sNewBat = BUNappend(sNewBat, &newId, TRUE);
+		}
+	}
+
+	freeCSset(freqCSset); 
+	free (subjCSMap); 
+	free(csFreqCSMap);
+
+	BBPreclaim(sbat);
+	BBPreclaim(sNewBat);
+
+	return MAL_SUCCEED; 
 }
