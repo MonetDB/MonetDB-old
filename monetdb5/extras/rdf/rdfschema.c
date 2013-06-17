@@ -2880,6 +2880,9 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	BAT		*sNewBat; 
 	BUN		newId; 
 	oid		*sbt; 
+	oid		*lastSubjId; 	/* Store the last subject Id in each freqCS */
+	oid		freqId; 
+	oid		lastS; 
 
 	freqCSset = initCSset();
 
@@ -2891,8 +2894,11 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	csFreqCSMap = (oid *) malloc (sizeof (oid) * maxCSoid); 
 	initArray(csFreqCSMap, maxCSoid, BUN_NONE);
 
+
+	lastSubjId = (oid *) malloc (sizeof(oid) * freqCSset->numOrigFreqCS); 
 	for (i = 0; i < freqCSset->numOrigFreqCS; i++){
 		csFreqCSMap[freqCSset->items[i].csId] = i; 
+		lastSubjId[i] = 0; 
 	}
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
@@ -2908,13 +2914,26 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	si = bat_iterator(sbat); 
 
 	printf("Re-assigning Subject oids \n");
-
+	lastS = 0; 
 	BATloop(sbat, p, q){
 		sbt = (oid *) BUNtloc(si, p);
-		if (csFreqCSMap[subjCSMap[*sbt]] != BUN_NONE){
-			newId = csFreqCSMap[subjCSMap[*sbt]] * 10000 + p; 
+		freqId = csFreqCSMap[subjCSMap[*sbt]];
+
+		if (freqId != BUN_NONE){
+
+			if (lastS != *sbt){	//new subject
+				lastSubjId[freqId]++;
+				lastS = *sbt; 
+			}
+
+			//newId = csFreqCSMap[subjCSMap[*sbt]] * 10000 + p; 
+			
+			newId = lastSubjId[freqId];
+			newId |= (BUN)freqId << (sizeof(BUN)*8 - NBITS_FOR_CSID);
+
 			sNewBat = BUNappend(sNewBat, &newId, TRUE);
 		}
+
 	}
 
 	freeCSset(freqCSset); 

@@ -52,7 +52,7 @@ RDFleftfetchjoin_sorted(bat *result, bat *lid, bat *rid)
 	return MAL_SUCCEED;
 }
 
-
+/*
 str
 RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 	BAT *left, *right, *result, *map, *input;  
@@ -75,8 +75,9 @@ RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 		BBPreleaseref(right->batCacheid);
 		throw(MAL, "rdf.RDFpartialjoin", RUNTIME_OBJECT_MISSING);
 	}
-	//result = BATouterjoin(left, right, BUN_NONE);
-	map = BATleftfetchjoin(BATmirror(left), right, BUN_NONE);
+
+	map = VIEWcreate(BATmirror(left), right);
+	//map = BATleftfetchjoin(BATmirror(left), right, BUN_NONE);
 
 	BBPreleaseref(left->batCacheid);
 	BBPreleaseref(right->batCacheid);
@@ -97,6 +98,68 @@ RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 	}
 
 	BBPreleaseref(input->batCacheid);
+
+	//BATprint(result); 
+	if (result == NULL)
+		throw(MAL, "rdf.RDFpartialjoin", GDK_EXCEPTION);
+
+	*retid = result->batCacheid; 
+	BBPkeepref(*retid); 
+
+	return MAL_SUCCEED; 
+}
+*/
+
+/*TODO: Modify the above function by using 
+ * BATsubouterjoin
+ *  
+ * */
+
+
+str
+RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
+	BAT *left, *right, *result1, *result2, *result, *input;  
+	BATiter resulti,inputi;
+	BUN	p,q; 
+	oid	*rbt; 
+	oid	*ibt; 
+	
+
+	if ((left = BATdescriptor(*lid)) == NULL) {
+		throw(MAL, "rdf.RDFpartialjoin", RUNTIME_OBJECT_MISSING);
+	}
+	if ((right = BATdescriptor(*rid)) == NULL) {
+		BBPreleaseref(left->batCacheid);
+		throw(MAL, "rdf.RDFpartialjoin", RUNTIME_OBJECT_MISSING);
+	}
+
+	if ((input = BATdescriptor(*inputid)) == NULL) {
+		BBPreleaseref(left->batCacheid);
+		BBPreleaseref(right->batCacheid);
+		throw(MAL, "rdf.RDFpartialjoin", RUNTIME_OBJECT_MISSING);
+	}
+
+	BATsubouterjoin(&result1, &result2, input, left, NULL, NULL, BUN_NONE); 
+	
+	result = BATproject(result2, right); 
+
+	BBPreleaseref(left->batCacheid);
+	BBPreleaseref(right->batCacheid);
+
+	resulti = bat_iterator(result);
+	inputi = bat_iterator(input);
+
+	BATloop(result, p, q){
+		rbt = (oid *) BUNtloc(resulti, p); 
+		if (*rbt == oid_nil){
+			ibt = (oid *) BUNtloc(inputi, p); 
+			*rbt = *ibt; 
+		}
+	}
+
+	BBPreleaseref(input->batCacheid);
+	BBPreclaim(result1);
+	BBPreclaim(result2);
 
 	//BATprint(result); 
 	if (result == NULL)

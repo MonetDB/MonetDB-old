@@ -66,6 +66,8 @@ typedef struct PropStat {
 #define STOREFULLCS     1       /* Store full instance of a CS including the a subject and list of predicates, objects. 
                                   Only use this for finding the name of the table corresponding to that CS */
 
+#define NBITS_FOR_CSID	15	/* Use bits from 62th bit --> (62 - NBITS_FOR_CSID) for encoding the CSId in each SubjectId */
+
 typedef struct CS
 {
 	oid 	csId;		//Id of the CS
