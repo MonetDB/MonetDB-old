@@ -46,7 +46,7 @@
 #include "mal_instruction.h"
 
 static lng recycleSeq = 0;		/* should become part of MAL block basics */
-static bte baseTableMode = 0;	/* only recycle base tables */
+static bte baseTableMode = 1;	/* only recycle base tables */
 
 int
 OPTrecyclerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
@@ -58,6 +58,10 @@ OPTrecyclerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	char *recycled;
 	short app_sc = -1, in = 0;
 	ValRecord cst;
+	
+	int preluded = 0;
+	
+	str mountRef = putName("mount", 5);
 
 	(void) cntxt;
 	(void) stk;
@@ -91,8 +95,12 @@ OPTrecyclerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	pushInstruction(mb, old[0]);
 	mb->recid = recycleSeq++;
 
-	/* create a handle for recycler */
-	(void) newFcnCall(mb, "recycle", "prelude");
+	if(!baseTableMode)
+	{
+		/* create a handle for recycler */
+		(void) newFcnCall(mb, "recycle", "prelude");
+	}
+	
 	in = 1;
 	for (i = 1; i < limit; i++) {
 		p = old[i];
@@ -181,11 +189,23 @@ OPTrecyclerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			continue;
 		}
 
-		if (getModuleId(p) == octopusRef &&
-			(getFunctionId(p) == bindRef || getFunctionId(p) == bindidxRef)) {
+// 		if (getModuleId(p) == octopusRef &&
+// 			(getFunctionId(p) == bindRef || getFunctionId(p) == bindidxRef)) {
+// 			recycled[getArg(p, 0)] = 1;
+// 			p->recycle = recycleMaxInterest;
+// 			marks++;
+// 		}
+		
+		if (getFunctionId(p) == mountRef) {
 			recycled[getArg(p, 0)] = 1;
 			p->recycle = recycleMaxInterest;
 			marks++;
+			
+			if(!preluded) {
+				/* create a handle for recycler */
+				(void) newFcnCall(mb, "recycle", "prelude");
+				preluded = 1;
+			}
 		}
 		/* During base table recycling skip marking instructions other than octopus.bind */
 		if (baseTableMode) {

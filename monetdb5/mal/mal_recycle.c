@@ -74,6 +74,8 @@
 static MT_Lock recycleLock MT_LOCK_INITIALIZER("recycleLock");
 MalBlkPtr recycleBlk = NULL;
 
+str RECYCLEprelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
+
 #define set1(x,i) ( x | ((lng)1 << i) )
 #define set0(x,i) ( x & ~((lng)1 << i) )
 #define getbit(x,i) ( x & ((lng)1 << i) )
@@ -121,7 +123,7 @@ aggrFun minAggr = NULL, maxAggr = NULL;
  * REUSE_COVER exploits potentional overlap in range selects
  * to reduce the amount of scanning.
  */
-int reusePolicy = REUSE_COVER;	/* recycle reuse policy
+int reusePolicy = REUSE_EXACT;	/* recycle reuse policy
 			REUSE_NONE: baseline, keeps stat, no admission, no reuse
 			REUSE_COVER: reuse smallest select covering
 			REUSE_EXACT: exact covering
@@ -140,7 +142,7 @@ int reusePolicy = REUSE_COVER;	/* recycle reuse policy
  * If we run low on memory, we either deploy the LRU or
  * BENEFIT algorithm to determine the victims.
  */
-int rcachePolicy = RCACHE_BENEFIT;  /* recycle cache management policy
+int rcachePolicy = RCACHE_LRU;  /* recycle cache management policy
 			RCACHE_ALL: baseline, do nothing
 			RCACHE_LRU: evict the LRU
 			RCACHE_BENEFIT: evict items with smallest benefit= weight * cost
@@ -2273,8 +2275,12 @@ RECYCLEentry(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	if ( p->recycle == NO_RECYCLING )
         	return 0;       /* don't count subsumption instructions */
 	cntxt->rcc->statements++;
-	if ( recycleBlk == NULL )
-		return 0;
+// 	if ( recycleBlk == NULL )
+// 		return 0;
+// 	if ( recycleBlk == NULL )
+// 		RECYCLEprelude(cntxt, mb, stk, p);
+// 	if ( cntxt->rcc->curQ < 0 )
+// 		RECYCLEprelude(cntxt, mb, stk, p);
 	if ( !RECYCLEinterest(p) )  /* don't scan RP for non-monitored instructions */
 		return 0;
 	if ( cntxt->rcc->curQ < 0 )	/* don't use recycling before initialization

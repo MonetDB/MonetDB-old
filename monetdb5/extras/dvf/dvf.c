@@ -76,7 +76,8 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	BATiter fli;
 	
-	int run_dataflow_opt = 1;
+	int run_dataflow_opt = 0;
+	int run_recycle_opt = 1;
 
 	VarRecord low, high;
 
@@ -279,13 +280,19 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		typeChecker(cntxt->fdout, cntxt->nspace, mb, o, FALSE);
 	}
 	
+	if(run_recycle_opt)
+	{
+		o = newFcnCall(mb, "optimizer", "recycle");
+		typeChecker(cntxt->fdout, cntxt->nspace, mb, o, FALSE);
+	}
+	
 	if(run_dataflow_opt)
 	{
 		o = newFcnCall(mb, "optimizer", "dataflow");
 		typeChecker(cntxt->fdout, cntxt->nspace, mb, o, FALSE);
 	}
 
-	if(run_mergetable_opt || run_dataflow_opt)
+	if(run_mergetable_opt || run_recycle_opt || run_dataflow_opt)
 		optimizeMALBlock(cntxt, mb);
 
 	/* New variables might have been created by the optimizers, so their values has to be copied into the stack. However, there might not be enough space in stack for them. We cannot reallocate the stack, but we may create our own enlarged stack, then run the rest of the plan with our own stack. */
@@ -336,8 +343,8 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* adjust variable lifetimes */
 	malGarbageCollector(mb);
 
- 	/* chkProgram(cntxt->fdout, cntxt->nspace, mb);
-	printFunction(cntxt->fdout,mb, 0, LIST_MAL_EXPLAIN); */
+	/*chkProgram(cntxt->fdout, cntxt->nspace, mb);
+	printFunction(cntxt->fdout,mb, 0, LIST_MAL_ALL); */
 
 	/* relocate the startpc, the instruction to proceed with the execution. Because it might be changed by the optimizers. */
 	for (i = 0; i < limit; i++)
