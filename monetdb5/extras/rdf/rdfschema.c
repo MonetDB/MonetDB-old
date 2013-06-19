@@ -2944,7 +2944,6 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 
 	CSset		*freqCSset; 	/* Set of frequent CSs */
 	oid		*subjCSMap = NULL;  	/* Store the corresponding CS Id for each subject */
-	oid		*csFreqCSMap;	
 	int 		i; 
 	oid 		maxCSoid = 0; 
 	BAT		*sbat = NULL, *obat = NULL, *pbat = NULL;
@@ -2958,7 +2957,8 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	oid		lastS;
 	oid		l,r; 
 	bat		oNewBatid, pNewBatid; 
-	
+	oid		*csMFreqCSMap;	/* Store the mapping from a CS id to an index of a maxCS or mergeCS in freqCSset. */
+
 	freqCSset = initCSset();
 
 	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid) != MAL_SUCCEED){
@@ -2966,13 +2966,18 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	} 
 	
 	printf("Start re-organizing triple store for " BUNFMT " CSs \n", maxCSoid);
-	csFreqCSMap = (oid *) malloc (sizeof (oid) * (maxCSoid + 1)); 
-	initArray(csFreqCSMap, (maxCSoid + 1), BUN_NONE);
+	csMFreqCSMap = (oid *) malloc (sizeof (oid) * (maxCSoid + 1)); 
+	initArray(csMFreqCSMap, (maxCSoid + 1), BUN_NONE);
 
 
 	lastSubjId = (oid *) malloc (sizeof(oid) * freqCSset->numOrigFreqCS); 
 	for (i = 0; i < freqCSset->numOrigFreqCS; i++){
-		csFreqCSMap[freqCSset->items[i].csId] = i; 
+		if (freqCSset->items[i].parentFreqIdx != -1){	// Use the maximum or merge CS instead 	
+			csMFreqCSMap[freqCSset->items[i].csId] = freqCSset->items[i].parentFreqIdx;
+		}
+		else
+			csMFreqCSMap[freqCSset->items[i].csId] = i; 
+
 		lastSubjId[i] = 0; 
 	}
 
@@ -3019,7 +3024,7 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	lastS = -1; 
 	BATloop(sbat, p, q){
 		sbt = (oid *) BUNtloc(si, p);
-		freqId = csFreqCSMap[subjCSMap[*sbt]];
+		freqId = csMFreqCSMap[subjCSMap[*sbt]];
 
 		if (freqId != BUN_NONE){
 
@@ -3086,7 +3091,7 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 		
 	freeCSset(freqCSset); 
 	free(subjCSMap); 
-	free(csFreqCSMap);
+	free(csMFreqCSMap);
 	
 	BBPreclaim(lmap);
 	BBPreclaim(rmap); 
