@@ -2865,6 +2865,79 @@ RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid){
 
 }
 
+static 
+BAT* getOriginalOBat(BAT *obat){
+	BAT*	origobat; 
+	BATiter	oi; 
+	BUN	p,q; 
+	oid 	*obt; 
+	char	objType; 
+
+	origobat = BATcopy(obat,  obat->htype, obat->ttype, TRUE);
+	oi = bat_iterator(origobat); 
+	
+	BATloop(origobat, p, q){
+
+		obt = (oid *) BUNtloc(oi, p); 
+		/* Check type of object */
+		objType = (char) ((*obt) >> (sizeof(BUN)*8 - 4))  &  7 ;	/* Get two bits 63th, 62nd from object oid */
+	
+		if (objType == URI || objType == BLANKNODE){
+			*obt = (*obt) - ((oid)objType << (sizeof(BUN)*8 - 4));
+		}
+		// Note that for the oid of literal data type, we do not need
+		// to remove the object oid since the map bat also use this
+		// oid
+
+	}
+	
+	return origobat; 
+}
+/*
+static 
+oid getTblidFromSoid(oid Soid){
+	int	freqCSid; 	
+	
+	return freqCSid; 
+}
+*/
+
+static
+str triplesubsort(BAT **sbat, BAT **pbat, BAT **obat){
+
+	BAT *o1,*o2,*o3;
+	BAT *g1,*g2,*g3;
+	BAT *S = NULL, *P = NULL, *O = NULL;
+
+	S = *sbat;
+	P = *pbat;
+	O = *obat;
+	/* order SPO/SOP */
+	if (BATsubsort(sbat, &o1, &g1, S, NULL, NULL, 0, 0) == GDK_FAIL){
+		if (S != NULL) BBPreclaim(S);
+		throw(RDF, "rdf.triplesubsort", "Fail in sorting for S");
+	}
+
+	if (BATsubsort(pbat, &o2, &g2, P, o1, g1, 0, 0) == GDK_FAIL){
+		BBPreclaim(S);
+		if (P != NULL) BBPreclaim(P);
+		throw(RDF, "rdf.triplesubsort", "Fail in sub-sorting for P");
+	}
+	if (BATsubsort(obat, &o3, &g3, O, o2, g2, 0, 0) == GDK_FAIL){
+		BBPreclaim(S);
+		BBPreclaim(P);
+		if (O != NULL) BBPreclaim(O);
+		throw(RDF, "rdf.triplesubsort", "Fail in sub-sorting for O");
+	}	
+
+	BBPunfix(o2->batCacheid);
+	BBPunfix(g2->batCacheid);
+	BBPunfix(o3->batCacheid);
+	BBPunfix(g3->batCacheid);
+
+	return MAL_SUCCEED; 
+}
+
 
 str
 RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold){
@@ -2874,25 +2947,27 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	oid		*csFreqCSMap;	
 	int 		i; 
 	oid 		maxCSoid = 0; 
-	BAT		*sbat = NULL;
+	BAT		*sbat = NULL, *obat = NULL, *pbat = NULL;
 	BATiter		si; 
 	BUN		p,q; 
-	BAT		*sNewBat; 
+	BAT		*sNewBat, *lmap, *rmap, *oNewBat, *origobat, *pNewBat; 
 	BUN		newId; 
 	oid		*sbt; 
 	oid		*lastSubjId; 	/* Store the last subject Id in each freqCS */
 	oid		freqId; 
-	oid		lastS; 
-
+	oid		lastS;
+	oid		l,r; 
+	bat		oNewBatid, pNewBatid; 
+	
 	freqCSset = initCSset();
 
 	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in extracting CSs");
 	} 
 	
-	printf("Start re-organizing triple store \n");
-	csFreqCSMap = (oid *) malloc (sizeof (oid) * maxCSoid); 
-	initArray(csFreqCSMap, maxCSoid, BUN_NONE);
+	printf("Start re-organizing triple store for " BUNFMT " CSs \n", maxCSoid);
+	csFreqCSMap = (oid *) malloc (sizeof (oid) * (maxCSoid + 1)); 
+	initArray(csFreqCSMap, (maxCSoid + 1), BUN_NONE);
 
 
 	lastSubjId = (oid *) malloc (sizeof(oid) * freqCSset->numOrigFreqCS); 
@@ -2905,43 +2980,123 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
 	}
 
-	sNewBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
-
-	if (sNewBat== NULL) {
+	if ((obat = BATdescriptor(*obatid)) == NULL) {
+		BBPreleaseref(sbat->batCacheid);
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
 	}
 
+	if ((pbat = BATdescriptor(*pbatid)) == NULL) {
+		BBPreleaseref(sbat->batCacheid);
+		BBPreleaseref(obat->batCacheid);
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+
+	sNewBat = BATnew(TYPE_void, TYPE_oid, BATcount(sbat));
+	if (sNewBat== NULL) {
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+	BATseqbase(sNewBat, 0);
+	
+	lmap = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+
+	if (lmap == NULL) {
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+	lmap->tsorted = TRUE;
+
+	BATseqbase(lmap, 0);
+	
+	rmap = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+	if (rmap == NULL) {
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+
+	BATseqbase(rmap, 0);
+	
 	si = bat_iterator(sbat); 
 
-	printf("Re-assigning Subject oids \n");
-	lastS = 0; 
+	printf("Re-assigning Subject oids ... ");
+	lastS = -1; 
 	BATloop(sbat, p, q){
 		sbt = (oid *) BUNtloc(si, p);
 		freqId = csFreqCSMap[subjCSMap[*sbt]];
 
 		if (freqId != BUN_NONE){
 
-			if (lastS != *sbt){	//new subject
-				lastSubjId[freqId]++;
-				lastS = *sbt; 
-			}
-
-			//newId = csFreqCSMap[subjCSMap[*sbt]] * 10000 + p; 
-			
 			newId = lastSubjId[freqId];
 			newId |= (BUN)freqId << (sizeof(BUN)*8 - NBITS_FOR_CSID);
 
-			sNewBat = BUNappend(sNewBat, &newId, TRUE);
+			if (lastS != *sbt){	//new subject
+				lastS = *sbt; 
+
+				l = *sbt; 
+				r = newId; 
+
+				lmap = BUNappend(lmap, &l, TRUE);
+				rmap = BUNappend(rmap, &r, TRUE);
+				lastSubjId[freqId]++;
+			}
+
 		}
+		else{	// Use original subject Id
+			newId = *sbt; 
+		}
+
+		sNewBat = BUNappend(sNewBat, &newId, TRUE);
 
 	}
 
-	freeCSset(freqCSset); 
-	free (subjCSMap); 
-	free(csFreqCSMap);
 
+	//BATprint(VIEWcreate(BATmirror(lmap),rmap)); 
+	
+	origobat = getOriginalOBat(obat); 
+
+	//BATprint(origobat);
+	
+	if (RDFpartialjoin(&oNewBatid, &lmap->batCacheid, &rmap->batCacheid, &origobat->batCacheid) == MAL_SUCCEED){
+		if ((oNewBat = BATdescriptor(oNewBatid)) == NULL) {
+			throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+		}
+	}
+	else
+		throw(RDF, "rdf.RDFreorganize", "Problem in using RDFpartialjoin for obat");
+
+
+	if (RDFpartialjoin(&pNewBatid, &lmap->batCacheid, &rmap->batCacheid, &pbat->batCacheid) == MAL_SUCCEED){
+		if ((pNewBat = BATdescriptor(pNewBatid)) == NULL) {
+			throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+		}
+	}
+	else
+		throw(RDF, "rdf.RDFreorganize", "Problem in using RDFpartialjoin for obat");
+
+	//BATprint(oNewBat);
+	printf("Done! \n");
+	
+	printf("Sort triple table according to P, S, O order ... ");
+	if (triplesubsort(&pNewBat, &sNewBat, &oNewBat) != MAL_SUCCEED){
+		throw(RDF, "rdf.RDFreorganize", "Problem in sorting PSO");	
+	}	
+	printf("Done  \n");
+
+	BATprint(pNewBat);
+
+	BATprint(sNewBat);
+
+		
+	freeCSset(freqCSset); 
+	free(subjCSMap); 
+	free(csFreqCSMap);
+	
+	BBPreclaim(lmap);
+	BBPreclaim(rmap); 
 	BBPreclaim(sbat);
 	BBPreclaim(sNewBat);
+	BBPreclaim(obat); 
+	BBPreclaim(origobat);
+	BBPreclaim(oNewBat); 
+	BBPreclaim(pbat); 
+	BBPreclaim(pNewBat); 
 
 	return MAL_SUCCEED; 
 }

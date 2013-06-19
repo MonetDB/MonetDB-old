@@ -110,12 +110,6 @@ RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 }
 */
 
-/*TODO: Modify the above function by using 
- * BATsubouterjoin
- *  
- * */
-
-
 str
 RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 	BAT *left, *right, *result1, *result2, *result, *input;  
