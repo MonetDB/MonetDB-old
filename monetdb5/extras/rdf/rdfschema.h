@@ -51,16 +51,24 @@ typedef struct {
 	BAT* 	fullPBat;    	/* Stores all set of properties */	
 } CSBats; 	// BATs for storing all information about CSs
 
+typedef struct Postinglist{
+	int*	lstIdx; 
+	int	numAdded;
+	int	numAllocation; 
+} Postinglist; 
+
 /* Statistic about the properties */
 typedef struct PropStat {
-	BAT*	pBat; 		/* Store the list of properties */
-	int* 	freqs; 	/* Store number of CSs containing that property */
-	float*	tfidfs; 
-	int	numAllocation; 
-	int	numAdded; 
+	BAT*		pBat; 		/* Store the list of properties */
+	int* 		freqs; 		/* Store number of CSs containing that property */
+	float*		tfidfs; 
+	int		numAllocation; 
+	int		numAdded; 
+	Postinglist* 	plCSidx;	/* Store posting list of CS index */				
 } PropStat; 			
 
 #define INIT_PROP_NUM	10
+#define INIT_CS_PER_PROP 10
 #define	USINGTFIDF	1
 
 #define STOREFULLCS     1       /* Store full instance of a CS including the a subject and list of predicates, objects. 

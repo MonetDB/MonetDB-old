@@ -1785,17 +1785,22 @@ PropStat* initPropStat(void){
 	
 	propStat->numAdded = 0; 
 	propStat->numAllocation = INIT_PROP_NUM; 
-	
+
+	// For posting list of each prop
+	propStat->plCSidx = (Postinglist*) malloc(sizeof(Postinglist) * INIT_PROP_NUM); 
+	if (propStat->plCSidx  == NULL) return NULL; 
+
 	return propStat; 
 }
 
 static 
-void addaProp(PropStat* propStat, oid prop){
+void addaProp(PropStat* propStat, oid prop, int csIdx){
 	BUN	bun; 
 	BUN	p; 
 
 	int* _tmp1; 
 	float* _tmp2; 
+	Postinglist* _tmp3;
 	
 	p = prop; 
 	bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &prop);
@@ -1824,19 +1829,51 @@ void addaProp(PropStat* propStat, oid prop){
 			}
 			
 			propStat->tfidfs = (float*)_tmp2;
+			
+			_tmp3 = realloc(propStat->plCSidx, ((propStat->numAllocation) * sizeof(Postinglist)));
+			if (!_tmp3){
+				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+			}
+			
+			propStat->plCSidx = (Postinglist*)_tmp3;
 		}
+
 		propStat->freqs[propStat->numAdded] = 1; 
-		propStat->numAdded++;
+
+		propStat->plCSidx[propStat->numAdded].lstIdx = (int *) malloc(sizeof(int) * INIT_CS_PER_PROP);
+		if (propStat->plCSidx[propStat->numAdded].lstIdx  == NULL){
+			fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+		} 
+	
+		propStat->plCSidx[propStat->numAdded].lstIdx[0] = csIdx;
+		propStat->plCSidx[propStat->numAdded].numAdded = 1; 
+		propStat->plCSidx[propStat->numAdded].numAllocation = INIT_CS_PER_PROP; 
 		
+		propStat->numAdded++;
 
 	}
 	else{		/*existing p*/
-		propStat->freqs[bun]++; 
+		propStat->freqs[bun]++;
+
+		if (propStat->plCSidx[bun].numAdded == propStat->plCSidx[bun].numAllocation){
+			
+			propStat->plCSidx[bun].numAllocation += INIT_CS_PER_PROP;
+		
+			_tmp1 = realloc(propStat->plCSidx[bun].lstIdx, ((propStat->plCSidx[bun].numAllocation) * sizeof(int)));
+			if (!_tmp1){
+				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+			}
+			propStat->plCSidx[bun].lstIdx = (int*) _tmp1; 
+			
+		}
+		propStat->plCSidx[bun].lstIdx[propStat->plCSidx[bun].numAdded] = csIdx; 
+		propStat->plCSidx[bun].numAdded++;
 	}
 
 }
+
 static
-void getPropStatistics(PropStat* propStat, int numMaxCSs, oid* superCSFreqCSMap, CSset* freqCSset){
+void getPropStatisticsFromMaxCSs(PropStat* propStat, int numMaxCSs, oid* superCSFreqCSMap, CSset* freqCSset){
 
 	int i, j; 
 	oid freqId; 
@@ -1847,7 +1884,7 @@ void getPropStatistics(PropStat* propStat, int numMaxCSs, oid* superCSFreqCSMap,
 		cs = (CS)freqCSset->items[freqId];
 
 		for (j = 0; j < cs.numProp; j++){
-			addaProp(propStat, cs.lstProp[j]);
+			addaProp(propStat, cs.lstProp[j],freqId);
 		}
 	}
 
@@ -1864,11 +1901,68 @@ void getPropStatistics(PropStat* propStat, int numMaxCSs, oid* superCSFreqCSMap,
 	*/
 }
 
+
+static
+PropStat* getPropStatisticsFromFreqCSs(CSset* freqCSset){
+
+	int i, j; 
+	CS cs;
+
+	PropStat* propStat; 
+	
+	propStat = initPropStat(); 
+
+	for (i = 0; i < freqCSset->numCSadded; i++){
+
+		if (freqCSset->items[i].parentFreqIdx == -1){	// Only use the maximum or merge CS 
+			cs = (CS)freqCSset->items[i];
+
+			for (j = 0; j < cs.numProp; j++){
+				addaProp(propStat, cs.lstProp[j], i);
+			}
+		}
+	}
+
+	/* Do not calculate the TFIDF score. May need in the future  
+	 *  
+	for (i = 0; i < propStat->numAdded; i++){
+		propStat->tfidfs[i] = tfidfComp(propStat->freqs[i],numMaxCSs);
+	}
+	*/
+
+	return propStat; 
+}
+
+static
+void printPropStat(PropStat* propStat){
+	int i, j; 
+	oid	*pbt; 
+	Postinglist ps; 
+
+	printf("---- PropStat --- \n");
+	for (i = 0; i < propStat->numAdded; i++){
+		pbt = (oid *) Tloc(propStat->pBat, i);
+		printf("Property " BUNFMT " :\n   FreqCSIdx: ", *pbt);
+
+		ps = propStat->plCSidx[i]; 
+		for (j = 0; j < ps.numAdded; j++){
+			printf("  %d",ps.lstIdx[j]);
+		}
+		printf("\n");
+	}
+}
+
 static 
 void freePropStat(PropStat *propStat){
+	int i; 
 	BBPreclaim(propStat->pBat); 
 	free(propStat->freqs); 
 	free(propStat->tfidfs); 
+	for (i = 0; i < propStat->numAdded; i++){
+		free(propStat->plCSidx[i].lstIdx);
+	}
+	free(propStat->plCSidx); 
+	free(propStat); 
 }
 
 
@@ -1902,7 +1996,7 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superC
 
 	
 	propStat = initPropStat();
-	getPropStatistics(propStat, numMaxCSs, superCSFreqCSMap, freqCSset);
+	getPropStatisticsFromMaxCSs(propStat, numMaxCSs, superCSFreqCSMap, freqCSset);
 	
 
 
@@ -2958,6 +3052,7 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	oid		l,r; 
 	bat		oNewBatid, pNewBatid; 
 	oid		*csMFreqCSMap;	/* Store the mapping from a CS id to an index of a maxCS or mergeCS in freqCSset. */
+	PropStat	*propStat; 
 
 	freqCSset = initCSset();
 
@@ -3088,6 +3183,8 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 
 	BATprint(sNewBat);
 
+	propStat = getPropStatisticsFromFreqCSs(freqCSset); 
+	printPropStat(propStat); 
 		
 	freeCSset(freqCSset); 
 	free(subjCSMap); 
