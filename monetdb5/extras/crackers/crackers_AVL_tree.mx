@@ -660,6 +660,7 @@ InsertTree_@1(int m, oid indexPosition, @1 value, bit inclusive, oid crackPositi
 		current->isPreviousSmaller = FALSE;
 		current->hols = (oid)0;
 		current->slice = -1;
+		pthread_rwlock_init(&current->pieceLock,0);
 		*newNode = current;
 		goto end;
         }

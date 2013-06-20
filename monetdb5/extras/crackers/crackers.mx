@@ -341,6 +341,45 @@ address CRKthetaselectholst_@2
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
 
+command selectholpl(b:bat[:oid,:@2],l:@2,h:@2):bat[:oid,:@2]
+address CRKselectholpl_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command selectholpl(b:bat[:oid,:@2],l:@2):bat[:oid,:@2]
+address CRKselectholplValue_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command selectholpl(b:bat[:oid,:@2],l:@2,h:@2,li:bit,hi:bit):bat[:oid,:@2]
+address CRKselectholplBounds_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command uselectholpl(b:bat[:any_1,:@2],l:@2,h:@2):bat[:any_1,:void]
+address CRKuselectholpl_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command uselectholpl(b:bat[:any_1,:@2],l:@2):bat[:any_1,:void]
+address CRKuselectholplValue_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command uselectholpl(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit):bat[:any_1,:void]
+address CRKuselectholplBounds_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command thetauselectholpl(b:bat[:any_1,:@2],v:@2,op:str):bat[:any_1,:void]
+address CRKthetauselectholpl_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command thetaselectholpl(b:bat[:any_1,:@2],v:@2,op:str):bat[:any_1,:@2]
+address CRKthetaselectholpl_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
 
 @
 @= JoinSelect
@@ -806,6 +845,7 @@ comment "make new map for debugging";
 #include "crackers_selectst_ops.h"
 #include "crackers_selecthol_ops.h"
 #include "crackers_selectholst_ops.h"
+#include "crackers_selectholpl_ops.h"
 #include "crackers_holistic.h"
 #include "crackers_holisticsideways.h"
 #include "crackers_core_unordered.h"
@@ -842,6 +882,7 @@ CrackerIndexNode *CrackerIndex;
 struct storageManagement *StorageInfo = NULL;
 
 int IndexEntries = 20000000; /* Initial size used for the bat that stores index values */
+
 
 /* Temp variables used to test the effect of stop updating the index, they operate only on one cracker bat */
 int IndexSize = 0;

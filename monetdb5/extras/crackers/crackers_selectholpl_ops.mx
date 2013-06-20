@@ -17,7 +17,7 @@ Copyright August 2008-2012 MonetDB B.V.
 All Rights Reserved.
 @
 
-@f crackers_selecthol_ops
+@f crackers_selectholpl_ops
 
 @c
 /*
@@ -43,25 +43,25 @@ All Rights Reserved.
 /*
  * @- Header file
  */
-#ifndef _CRACKERS_SELECTHOL_H_
-#define _CRACKERS_SELECTHOL_H_
+#ifndef _CRACKERS_SELECTHOLPL_H_
+#define _CRACKERS_SELECTHOLPL_H_
 
 /* Exported signatures */
-@:TypeSwitch(SelectholFunctions_decl)@
+@:TypeSwitch(SelectholplFunctions_decl)@
 
-#endif /* _CRACKERS_SELECTHOL_H */
+#endif /* _CRACKERS_SELECTHOLPL_H */
 /*
  * @- Exported signatures
  */
-@= SelectholFunctions_decl
-crackers_export str CRKselectholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh);
-crackers_export str CRKuselectholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh);
-crackers_export str CRKselectholValue_@1(int *vid, int *bid, @1 *value);
-crackers_export str CRKuselectholValue_@1(int *vid, int *bid, @1 *value);
-crackers_export str CRKselecthol_@1(int *vid, int *bid, @1 *low, @1 *hgh);
-crackers_export str CRKuselecthol_@1(int *vid, int *bid, @1 *low, @1 *hgh);
-crackers_export str CRKthetaselecthol_@1(int *vid, int *bid, @1 *val, str *op);
-crackers_export str CRKthetauselecthol_@1(int *vid, int *bid, @1 *val, str *op);
+@= SelectholplFunctions_decl
+crackers_export str CRKselectholplBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh);
+crackers_export str CRKuselectholplBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh);
+crackers_export str CRKselectholplValue_@1(int *vid, int *bid, @1 *value);
+crackers_export str CRKuselectholplValue_@1(int *vid, int *bid, @1 *value);
+crackers_export str CRKselectholpl_@1(int *vid, int *bid, @1 *low, @1 *hgh);
+crackers_export str CRKuselectholpl_@1(int *vid, int *bid, @1 *low, @1 *hgh);
+crackers_export str CRKthetaselectholpl_@1(int *vid, int *bid, @1 *val, str *op);
+crackers_export str CRKthetauselectholpl_@1(int *vid, int *bid, @1 *val, str *op);
 @
 
 @c
@@ -78,14 +78,14 @@ crackers_export str CRKthetauselecthol_@1(int *vid, int *bid, @1 *val, str *op);
 @:TypeSwitch(crackOperations)@
 
 /* Exported functions */
-@:TypeSwitch(SelectholFunctions_impl)@
+@:TypeSwitch(SelectholplFunctions_impl)@
 /*
  * @- Exported functions
  */
-@= SelectholFunctions_impl
+@= SelectholplFunctions_impl
 
 str
-CRKselectholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh){		
+CRKselectholplBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh){		
 	if (@2_EQ(low,ATOMnilptr(TYPE_@1),@3@1))
 		return CRKRangeLeftNilTree_@1(vid, bid, hgh, inclusiveHgh, TRUE);
 	else if (@2_EQ(hgh,ATOMnilptr(TYPE_@1),@3@1))
@@ -95,7 +95,7 @@ CRKselectholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, b
 }
 
 str
-CRKuselectholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh){
+CRKuselectholplBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh){
 	if (@2_EQ(low,ATOMnilptr(TYPE_@1),@3@1))
 		return CRKRangeLeftNilTree_@1(vid, bid, hgh, inclusiveHgh, FALSE);
 	else if (@2_EQ(hgh,ATOMnilptr(TYPE_@1),@3@1))
@@ -105,31 +105,31 @@ CRKuselectholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, 
 }
 
 str
-CRKselectholValue_@1(int *vid, int *bid, @1 *value){
+CRKselectholplValue_@1(int *vid, int *bid, @1 *value){
 	bit inclusive = TRUE;
-	return CRKuselectholBounds_@1(vid, bid, value, value, &inclusive, &inclusive);
+	return CRKuselectholplBounds_@1(vid, bid, value, value, &inclusive, &inclusive);
 }
 
 str
-CRKuselectholValue_@1(int *vid, int *bid, @1 *value){
+CRKuselectholplValue_@1(int *vid, int *bid, @1 *value){
 	bit inclusive = TRUE;
-	return CRKuselectholBounds_@1(vid, bid, value, value, &inclusive, &inclusive);
+	return CRKuselectholplBounds_@1(vid, bid, value, value, &inclusive, &inclusive);
 }
 
 str
-CRKselecthol_@1(int *vid, int *bid, @1 *low, @1 *hgh){
+CRKselectholpl_@1(int *vid, int *bid, @1 *low, @1 *hgh){
 	bit inclusive = TRUE;
-	return CRKselectholBounds_@1(vid, bid, low, hgh, &inclusive, &inclusive);
+	return CRKselectholplBounds_@1(vid, bid, low, hgh, &inclusive, &inclusive);
 }
 
 str
-CRKuselecthol_@1(int *vid, int *bid, @1 *low, @1 *hgh){
+CRKuselectholpl_@1(int *vid, int *bid, @1 *low, @1 *hgh){
 	bit inclusive = TRUE;
-	return CRKuselectholBounds_@1(vid, bid, low, hgh, &inclusive, &inclusive);
+	return CRKuselectholplBounds_@1(vid, bid, low, hgh, &inclusive, &inclusive);
 }
 
 str
-CRKthetaselecthol_@1(int *vid, int *bid, @1 *val, str *OP){
+CRKthetaselectholpl_@1(int *vid, int *bid, @1 *val, str *OP){
 	ptr nilptr = ATOMnilptr(TYPE_@1); 
 	char *op = *OP; 
 	bit lin = TRUE, rin = TRUE;
@@ -145,14 +145,14 @@ CRKthetaselecthol_@1(int *vid, int *bid, @1 *val, str *OP){
 		low = val;
 		lin = (op[1] == '=');
 	} else {
-		throw(MAL, "crackers.thetaselecthol", "unknown operator");
+		throw(MAL, "crackers.thetaselectholpl", "unknown operator");
 	}
 
-	return CRKselectholBounds_@1(vid, bid, low, high, &lin, &rin);
+	return CRKselectholplBounds_@1(vid, bid, low, high, &lin, &rin);
 }
 
 str
-CRKthetauselecthol_@1(int *vid, int *bid, @1 *val, str *OP){
+CRKthetauselectholpl_@1(int *vid, int *bid, @1 *val, str *OP){
 	ptr nilptr = ATOMnilptr(TYPE_@1); 
 	char *op = *OP; 
 	bit lin = TRUE, rin = TRUE;
@@ -167,10 +167,10 @@ CRKthetauselecthol_@1(int *vid, int *bid, @1 *val, str *OP){
 		low = val;
 		lin = (op[1] == '=');
 	} else {
-		throw(MAL, "crackers.thetauselecthol", "unknown operator");
+		throw(MAL, "crackers.thetauselectholpl", "unknown operator");
 	}
 
-	return CRKuselectholBounds_@1(vid, bid, low, high, &lin, &rin);
+	return CRKuselectholplBounds_@1(vid, bid, low, high, &lin, &rin);
 }
 
 
@@ -252,7 +252,7 @@ CRKthetauselecthol_@1(int *vid, int *bid, @1 *val, str *OP){
 @
 @= CreateResult
 createView:
-
+	assert(0);
 	if (!tail)
 		view = BATslice(VIEWhead_(b, BAT_READ), vl, vh+1);
 	else
@@ -260,15 +260,14 @@ createView:
 	
 	*vid = view->batCacheid;
 	BBPkeepref(*vid);
-
 	BBPunfix(b->batCacheid);
 	BBPunfix(c->batCacheid);
+
 	if (createIndex==1)
 	{
 		MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 		createIndex=0;	
 	}
-	MT_lock_unset(&CrackerIndex[m].columnLock,"Lock Attribute");
 
 @
 @= RangeSelectBody
@@ -339,7 +338,7 @@ createView:
 
 	m = existsCrackerIndex(*bid);
 	/*fprintf(stderr,"*BID=%d\n",*bid);*/
-	/* if this is the first time we selecthol something from this bat,
+	/* if this is the first time we selectholpl something from this bat,
 		we have to create the crack index for it and
 	   if necessary materialize the head of the bat */
 	if (m == -1){
@@ -376,7 +375,6 @@ createView:
 			/*printf(" "LLFMT" \n ",posh-posl);*/
 			@:crkThreeTree@5(@1,posl,posh,@5)@
 
-			MT_lock_set(&CrackerIndex[m].columnLock,"Lock Attribute");
 			createIndex=1;
 
 			FN->c = FN->c + 2;
@@ -387,7 +385,7 @@ createView:
 			/*printFrequencyStruct(FrequencyStructA);*/
 			BBPincref(b->batCacheid,TRUE);
 			BBPunfix(bo->batCacheid);
-			goto createView;
+			goto tempcreateView;
 		}
 		else{
 			assert(0);
@@ -426,9 +424,6 @@ createView:
 		
 	}
 	
-
-	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
-	MT_lock_set(&CrackerIndex[m].columnLock,"Lock Attribute");
 
 
 		/* If an index exists for this bat (so it has been cracked before)
@@ -514,12 +509,19 @@ createView:
 	}
 		
 
+	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
+
+	retry:;
+
+	pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
+
 	/* find out where in the index the low falls */
 	foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
 
 	/* find out where in the index the high falls */
 	foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
 
+	pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 
 	/*need to increase one position for the low bound only since we always store the previous position in the index*/
 	if (cl1 != 0 && LBound==FALSE) cl1++;
@@ -569,36 +571,18 @@ createView:
 	/* If one or both of the result view bounds were not found using the
 	index then we have to crack */
 	if (foundLow == 0 || foundHgh == 0) {
-		if (foundLow == 0 && foundHgh == 0) {
-			/* We have to do two cracks separatelly */
-
-			/* For the cl bound and the next one in the index*/
-			@:crkTwoLTree@5(@1,@5)@
-			t = (int *) Tloc(b, BUNfirst(b));
-
-			/* For the ch bound and the previous one in the index*/
-			@:crkTwoRTree@5(@1,@5)@
-
-			if (IndexSize < IndexStop) {
-				if (vl > 0)
-					_vl = vl - 1;
-				else
-					_vl = vl;
-				if (gapL>0)
-				{
-					addCrackerIndex_@1(m, low, *inclusiveLow, _vl, c);
-					FN->c = FN->c + 1;
-				}
-				if (gapH>0)
-				{ 
-					addCrackerIndex_@1(m, hgh, HBound, vh, c);
-					FN->c = FN->c + 1;
-				}
-				if ((vl == 1) && (*t == *low) && (*inclusiveLow == TRUE))
-					vl = vl - 1;
+		 if (foundLow == 0) {
+			pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
+			lowNode = findNodeL_@1(*low, TRUE, CrackerIndex[m].Tree, c, idxFirst, NULL);
+			if (pthread_rwlock_trywrlock(&lowNode->pieceLock)){
+				pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
+				pthread_rwlock_wrlock(&lowNode->pieceLock);
+				pthread_rwlock_unlock(&lowNode->pieceLock);
+				goto retry;	// some other thread might already crack on low, try to find it again
 			}
-		} else if (foundLow == 0) {
+			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 			@:crkTwoLTree@5(@1,@5)@
+			pthread_rwlock_wrlock(&CrackerIndex[m].columnRWLock);
 			t = (int *) Tloc(b, BUNfirst(b));
 			if (IndexSize < IndexStop) {
 				if (vl > 0)
@@ -614,8 +598,21 @@ createView:
 					vl = vl - 1;
 			}
 			vh = ch2;
-		} else if (foundHgh == 0) {
+			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
+			pthread_rwlock_unlock(&lowNode->pieceLock);
+		}
+		if (foundHgh == 0) {
+			pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
+			lowNode = findNodeL_@1(*low, TRUE, CrackerIndex[m].Tree, c, idxFirst, NULL);
+			if (pthread_rwlock_trywrlock(&lowNode->pieceLock)){
+				pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
+				pthread_rwlock_wrlock(&lowNode->pieceLock);
+				pthread_rwlock_unlock(&lowNode->pieceLock);
+				goto retry;	// some other thread might already crack on low, try to find it again
+			}
+			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 			@:crkTwoRTree@5(@1,@5)@
+			pthread_rwlock_wrlock(&CrackerIndex[m].columnRWLock);
 			t = (int *) Tloc(b, BUNfirst(b));
 			if (IndexSize < IndexStop)
 				if (gapH>0) 
@@ -626,6 +623,8 @@ createView:
 			vl = cl1;
 			if ((vl == 0) && (*t < *low) && (*inclusiveLow == TRUE))
 				vl = vl + 1;
+			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
+			pthread_rwlock_unlock(&lowNode->pieceLock);
 		}
 	} else {
 		t = (int *) Tloc(b, BUNfirst(b));
@@ -653,7 +652,51 @@ createView:
 	/*fprintf(ofp,"%d\n",FN->c);
 	fclose(ofp);*/
 
-	@:CreateResult()@
+//	@:CreateResult()@
+
+	tempcreateView:;
+
+	posh = BUNlast(b)-1;
+	idxFirst = BUNfirst(c);
+	pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
+	lowNode = findNodeL_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, idxFirst, NULL);
+	if (lowNode == NULL){
+		lowNodeNext = NULL;
+		temp = CrackerIndex[m].Tree;
+		if (temp->deleted == FALSE)
+			lowNodeNext = temp;
+		while (temp->left != NULL){
+			temp = temp->left;
+			if (temp->deleted == FALSE)
+				lowNodeNext = temp;
+		}
+		vl = 0;
+	} else {
+		lowNodeNext = findNextPiece(lowNode);
+		vl = lowNode->indexPosition;
+	}
+	hghNode = lowNodeNext;
+	vh = hghNode? hghNode->indexPosition : posh;
+	pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
+
+
+
+	if (!tail)
+		view = BATslice(VIEWhead_(b, BAT_READ), vl, vh+1);
+	else
+		view = BATslice(b, vl, vh+1);
+	
+	*vid = view->batCacheid;
+	BBPkeepref(*vid);
+	BBPunfix(b->batCacheid);
+	BBPunfix(c->batCacheid);
+
+	if (createIndex==1)
+	{
+		MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
+		createIndex=0;	
+	}
+
 	return MAL_SUCCEED;
 @
 @= crackOperations
@@ -962,7 +1005,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 
 	m = existsCrackerIndex(*bid);
 	assert(0);
-	/* if this is the first time we selecthol something from this bat,
+	/* if this is the first time we selectholpl something from this bat,
 		we have to create the crack indx for it and
 	   if necessary materialize the head of the bat */
 	if (m == -1){
@@ -1056,7 +1099,7 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 	int createIndex=0;
 	m = existsCrackerIndex(*bid);
 	assert(0);
-	/* if this is the first time we selecthol something from this bat,
+	/* if this is the first time we selectholpl something from this bat,
 		we have to create the crack indx for it and
 	   if necessary materialize the head of the bat */
 	if (m == -1){

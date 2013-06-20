@@ -28,6 +28,8 @@ static FrequencyNode *_InternalFrequencyStructA = NULL;
 static FrequencyNode *_InternalFrequencyStructB = NULL;
 static MT_Lock frequencylock;
 static MT_Id idletime_thread;
+MT_Lock CRKIndexLock;
+
 
 int isIdleQuery = 0;
 IdleFuncPtr IdleFunc;
@@ -37,6 +39,7 @@ CRKinitHolistic(int *ret)
 {
 	IdleFunc=&CRKrandomCrack;
 	MT_lock_init(&frequencylock, "FrequencyStruct");
+	MT_lock_init(&CRKIndexLock, "Cracker Index Lock");
 	MT_create_thread(&idletime_thread,(void (*)(void *))HeartbeatCPUload, IdleFunc, MT_THR_JOINABLE);
 	*ret = 0;
 	return MAL_SUCCEED;
@@ -48,7 +51,6 @@ getFrequencyStruct(char which)
 {
 	FrequencyNode **theNode = NULL;
 
-	MT_lock_set(&frequencylock, "getFrequencyStruct");
 	switch (which) {
                 case 'A':
                         theNode = &_InternalFrequencyStructA;
@@ -63,7 +65,6 @@ getFrequencyStruct(char which)
         /* GDKzalloc = calloc = malloc + memset(0) */
         if (*theNode == NULL)
                 *theNode = GDKzalloc(sizeof(FrequencyNode));
-	MT_lock_unset(&frequencylock, "getFrequencyStruct");
 	
 	return *theNode;
 }
@@ -71,29 +72,52 @@ getFrequencyStruct(char which)
 void 
 push(int bat_id,FrequencyNode* head)
 {
-	FrequencyNode* new_node;
-	new_node=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode));
-	new_node->bid=bat_id;
-	new_node->c=1;
-	new_node->f1=0;
-	new_node->f2=0;
-	new_node->weight=0.0; /*weight=f1*((N/c)-L1)*/
-	new_node->next=head->next;
-	head->next=new_node; 
+	FrequencyNode* new_node,*temp;
+	MT_lock_set(&frequencylock, "getFrequencyStruct");
+	temp=head;
+	while((temp->bid != bat_id))
+	{
+		temp=temp->next;
+		if (temp==NULL)
+		{
+			new_node=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode));
+			new_node->bid=bat_id;
+			new_node->c=1;
+			new_node->f1=0;
+			new_node->f2=0;
+			new_node->weight=0.0; /*weight=f1*((N/c)-L1)*/
+			MT_lock_init(&new_node->nodeLock, "Lock Node");
+			new_node->next=head->next;
+			head->next=new_node;
+			break;
+		}
+	} 
+	MT_lock_unset(&frequencylock, "getFrequencyStruct");
 }
 /*this function pushes nodes in the list and is used in cost models: 1,3,5*/
 void 
 push_2(int bat_id,FrequencyNode* head,int N,int L1)
 {
-	FrequencyNode* new_node;
-	new_node=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode));
-	new_node->bid=bat_id;
-	new_node->c=1;
-	new_node->f1=0;
-	new_node->f2=0;
-	new_node->weight=N-L1;
-	new_node->next=head->next;
-	head->next=new_node; 
+	FrequencyNode* new_node,*temp;
+	MT_lock_set(&frequencylock, "getFrequencyStruct");
+	temp=head;
+	while((temp->bid != bat_id))
+	{
+		temp=temp->next;
+		if (temp==NULL)
+		{
+			new_node=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode));
+			new_node->bid=bat_id;
+			new_node->c=1;
+			new_node->f1=0;
+			new_node->f2=0;
+			new_node->weight=N-L1;
+			new_node->next=head->next;
+			head->next=new_node;
+			break;
+		}
+	}
+	MT_lock_unset(&frequencylock, "getFrequencyStruct");	 
 }
 
 FrequencyNode*
@@ -227,9 +251,11 @@ pickRandom(FrequencyNode* head)
 double
 changeWeight_1(FrequencyNode* node,int N,int L1)
 {
+
 	int p; /*number of pieces in the index*/
 	double Sp; /*average size of each piece*/
 	double d; /*distance from optimal piece(L1)*/
+	MT_lock_set(&node->nodeLock, "Lock Node");
 	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
@@ -243,6 +269,7 @@ changeWeight_1(FrequencyNode* node,int N,int L1)
 	}
 
 	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
+	MT_lock_unset(&node->nodeLock, "Lock Node");
 	return node->weight;
 }
 

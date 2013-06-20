@@ -30,12 +30,14 @@ typedef struct frequency{
 	int 		f1;		/*number of queries that triggered cracking*/
 	int 		f2;		/*number of queries that did not trigger cracking(because the value already existed in the index)*/
 	double 		weight;
+	MT_Lock		nodeLock;
 	struct frequency *next;
 
 }FrequencyNode;
 
 typedef  str (*IdleFuncPtr)(int *);
 crackers_export int isIdleQuery;
+crackers_export MT_Lock CRKIndexLock;
 
 crackers_export FrequencyNode *getFrequencyStruct(char which);
 crackers_export void push(int bat_id,FrequencyNode* head);

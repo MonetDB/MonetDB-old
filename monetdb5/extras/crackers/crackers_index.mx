@@ -145,6 +145,8 @@ struct Node{
 	/*for merging techniques*/
 	oid sliceSize;		
 	oid contiguousArea;
+
+	pthread_rwlock_t pieceLock;	
 };
 
 typedef struct {
@@ -194,6 +196,9 @@ typedef struct {
 
 	/* for sort merge techniques */
 	struct sortMergeNode *smNode;
+
+	MT_Lock columnLock;
+	pthread_rwlock_t columnRWLock;
 
 } CrackerIndexNode;
 
@@ -510,8 +515,10 @@ addCrackerIndex_@1(int m, @1 *value, bit inclusive, oid index, BAT * b){
 
                 CrackerIndex[m].Tree->nextValue = NULL;	
 		CrackerIndex[m].Tree->indexPosition = index; 
-			
+		pthread_rwlock_init(&CrackerIndex[m].Tree->pieceLock,0);
 		CrackerIndex[m].pieces++;
+		MT_lock_init(&CrackerIndex[m].columnLock,0);
+		pthread_rwlock_init(&CrackerIndex[m].columnRWLock, 0);
                 return CrackerIndex[m].Tree;
         }
 

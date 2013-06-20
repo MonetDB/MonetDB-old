@@ -44,6 +44,7 @@ lib_crackers = {
 			  crackers_selectst_ops.mx \
 			  crackers_selecthol_ops.mx \
 			  crackers_selectholst_ops.mx \
+			  crackers_selectholpl_ops.mx \
 			  crackers_updates.mx \
 			  crackers_sideways.mx \
 			  crackers_sidewayshol.mx \
