@@ -304,19 +304,6 @@ createView:
 	
 	/*FILE *ofp;
 	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/experiments/stochastic/idle_time_2/pieces_holistic.txt";*/
-	
-
-	FrequencyNode* FN;
-	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
-
-	MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
-
-	FN=searchBAT(FrequencyStructA,*bid);
-	
-	if (isIdleQuery!=1)
-	{
-		FN->f1 = FN->f1 + 1;
-	}
 
 	/*ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
@@ -324,13 +311,16 @@ createView:
   		exit(1);
 	}*/
 
+
+
+	FrequencyNode* FN;
+	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
+
 	
 	if ((bo = BATdescriptor(*bid)) != NULL)
-		L1=32000/ATOMsize(bo->ttype);
+		L1=32000/ATOMsize(bo->ttype);	
 
-
-	/*fprintf(stderr,"This is from selcrack_HOL operators\n");*/	
-	/*fprintf(stderr,"FN->bid=%d\n",FN->bid);*/
+	MT_lock_set(&CRKIndexLock,"Cracker Index Lock");	
 
 	/*if (@2_GT(low,hgh,@3@1))
 		throw(MAL, "crackers.crack", "illegal range");*/
@@ -377,14 +367,19 @@ createView:
 			/*printf(" "LLFMT" \n ",posh-posl);*/
 			@:crkThreeTree@5(@1,posl,posh,@5)@
 
+			CRKinitFrequencyStruct(0,*bid);
+
 			createIndex=1;
+
+			FN=searchBAT(FrequencyStructA,*bid);
+						
+			if (isIdleQuery!=1)
+				FN->f1 = FN->f1 + 1;
 
 			FN->c = FN->c + 2;
 			FN->weight = changeWeight_1(FN,countBatElements,L1);
-			/*fprintf(ofp,"%d\n",FN->c);
-			fclose(ofp);*/
 
-			/*printFrequencyStruct(FrequencyStructA);*/
+			printFrequencyStruct(FrequencyStructA);
 			BBPincref(b->batCacheid,TRUE);
 			BBPunfix(bo->batCacheid);
 			goto createView;
@@ -429,6 +424,14 @@ createView:
 
 	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 	MT_lock_set(&CrackerIndex[m].columnLock,"Lock Attribute");
+
+
+	FN=searchBAT(FrequencyStructA,*bid);
+	
+	if (isIdleQuery!=1)
+	{
+		FN->f1 = FN->f1 + 1;
+	}
 
 
 		/* If an index exists for this bat (so it has been cracked before)
@@ -612,17 +615,10 @@ createView:
 
 
 	countBatElements=BATcount(b);
-	/*fprintf(stderr,"BATcount(b)=%d\n",countBatElements);*/
 	if(FN->weight > 0)
 		FN->weight = changeWeight_1(FN,countBatElements,L1);
 
-	/*if(FN->weight > 0 && isIdleQuery!=1)
-		printFrequencyStruct(FrequencyStructA);*/
-
-	/*if(FN->weight <0)
-		deleteNode(FrequencyStructA,FN->bid);
-	*/
-	/*printFrequencyStruct(FrequencyStructA);*/
+	printFrequencyStruct(FrequencyStructA);
 
 	/*fprintf(ofp,"%d\n",FN->c);
 	fclose(ofp);*/

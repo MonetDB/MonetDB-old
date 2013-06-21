@@ -307,14 +307,12 @@ createView:
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 
-	MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
-
-	FN=searchBAT(FrequencyStructA,*bid);
 	
-	if (isIdleQuery!=1)
-	{
-		FN->f1 = FN->f1 + 1;
-	}
+	if ((bo = BATdescriptor(*bid)) != NULL)
+		L1=32000/ATOMsize(bo->ttype);
+
+
+	MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
 
 	/*ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
@@ -322,9 +320,6 @@ createView:
   		exit(1);
 	}*/
 
-	
-	if ((bo = BATdescriptor(*bid)) != NULL)
-		L1=32000/ATOMsize(bo->ttype);
 
 
 	/*fprintf(stderr,"This is from selcrack_HOL operators\n");*/	
@@ -375,12 +370,17 @@ createView:
 			/*printf(" "LLFMT" \n ",posh-posl);*/
 			@:crkThreeTree@5(@1,posl,posh,@5)@
 
+			CRKinitFrequencyStruct(0,*bid);
+
 			createIndex=1;
+
+			FN=searchBAT(FrequencyStructA,*bid);
+						
+			if (isIdleQuery!=1)
+				FN->f1 = FN->f1 + 1;
 
 			FN->c = FN->c + 2;
 			FN->weight = changeWeight_1(FN,countBatElements,L1);
-			/*fprintf(ofp,"%d\n",FN->c);
-			fclose(ofp);*/
 
 			/*printFrequencyStruct(FrequencyStructA);*/
 			BBPincref(b->batCacheid,TRUE);
@@ -510,6 +510,13 @@ createView:
 		
 
 	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
+
+	FN=searchBAT(FrequencyStructA,*bid);
+	
+	if (isIdleQuery!=1)
+	{
+		FN->f1 = FN->f1 + 1;
+	}
 
 	retry:;
 

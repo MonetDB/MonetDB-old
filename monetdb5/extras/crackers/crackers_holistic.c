@@ -134,30 +134,12 @@ void
 printFrequencyStruct(FrequencyNode* head)
 {
 	FrequencyNode* temp;
-	double d;
-	FILE *ofp1;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/experiments/strategies/distance/out.txt";
-	ofp1 = fopen(outputFilename1,"a");
-
-	if (ofp1 == NULL) {
-  		fprintf(stderr, "Can't open output file!\n");
-  		exit(1);
-	}
 	temp=head;
 	while(temp != NULL)
 	{
-		/*fprintf(stderr,"Bid=%d c=%d f1=%d f2=%d W=%lf  \n",temp->bid,temp->c,temp->f1,temp->f2,temp->weight);*/
-		if(temp->weight>0)
-		{
-			d=(100000000.0/temp->c) - 8000.0;
-			fprintf(ofp1,"%d\t%lf\n",temp->bid,d);
-			
-		}
+		fprintf(stderr,"Bid=%d c=%d f1=%d f2=%d W=%lf  \n",temp->bid,temp->c,temp->f1,temp->f2,temp->weight);
 		temp=temp->next;
 	}
-	fclose(ofp1);
-
-
 }
 
 FrequencyNode* 
@@ -341,11 +323,11 @@ deleteNode(FrequencyNode* head,int bat_id)
 }
 
 str 
-CRKinitFrequencyStruct(int *vid,int *bid)
+CRKinitFrequencyStruct(int *vid,int bid)
 {
 	FrequencyNode *fs = getFrequencyStruct('A');
-	push(*bid,fs);
-	*vid = 0;
+	push(bid,fs);
+	(void) vid;
 	return MAL_SUCCEED;
 }
 

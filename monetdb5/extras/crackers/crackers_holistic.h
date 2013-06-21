@@ -54,7 +54,7 @@ crackers_export void deleteNode(FrequencyNode* head,int bat_id);
 crackers_export IdleFuncPtr IdleFunc;
 
 crackers_export str CRKinitHolistic(int *ret);
-crackers_export str CRKinitFrequencyStruct(int *vid,int *bid);
+crackers_export str CRKinitFrequencyStruct(int *vid,int bid);
 crackers_export str CRKinitFrequencyStruct_2(int *vid,int *bid,int* N,int* L1);
 crackers_export str CRKrandomCrack(int *ret);
 crackers_export str CRKrandomCrackST(int *ret);
