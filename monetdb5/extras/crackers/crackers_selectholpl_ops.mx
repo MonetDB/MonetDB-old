@@ -603,7 +603,7 @@ createView:
 		}
 		if (foundHgh == 0) {
 			pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
-			lowNode = findNodeL_@1(*low, TRUE, CrackerIndex[m].Tree, c, idxFirst, NULL);
+			lowNode = findNodeL_@1(*hgh, TRUE, CrackerIndex[m].Tree, c, idxFirst, NULL);
 			if (pthread_rwlock_trywrlock(&lowNode->pieceLock)){
 				pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 				pthread_rwlock_wrlock(&lowNode->pieceLock);
