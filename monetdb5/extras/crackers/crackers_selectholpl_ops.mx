@@ -277,6 +277,7 @@ createView:
 	int  m;
 	int *t;
 	int createIndex=0;
+	pthread_rwlock_t *plock=0;
 	oid vl=0, vh=0, posl, posh;
 	/* vl and vh are the low and high index values to create the view with the result */
 	oid cl1=0, ch1=0, cl2=0, ch2=0;
@@ -419,7 +420,7 @@ createView:
 
                         BBPincref(b->batCacheid,TRUE);
                         BBPunfix(bo->batCacheid);
-                        goto createView;
+                        goto tempcreateView;
                 }
 		
 	}
@@ -457,7 +458,7 @@ createView:
 		posh = BUNlast(b)-1;
 
 		@:crkThreeTree@5(@1,posl,posh,@5)@
-		goto createView;
+		goto tempcreateView;
 	}
 	
 	/* Take the index of the bat */
@@ -581,10 +582,11 @@ createView:
 		 if (foundLow == 0) {
 			pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
 			lowNode = findNodeL_@1(*low, TRUE, CrackerIndex[m].Tree, c, idxFirst, NULL);
-			if (pthread_rwlock_trywrlock(&lowNode->pieceLock)){
+			plock = (lowNode == NULL)? &CRKFirstPieceRWLock : &lowNode->pieceLock;
+			if (pthread_rwlock_trywrlock(plock)){
 				pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
-				pthread_rwlock_wrlock(&lowNode->pieceLock);
-				pthread_rwlock_unlock(&lowNode->pieceLock);
+				pthread_rwlock_wrlock(plock);
+				pthread_rwlock_unlock(plock);
 				goto retry;	// some other thread might already crack on low, try to find it again
 			}
 			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
@@ -606,15 +608,16 @@ createView:
 			}
 			vh = ch2;
 			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
-			pthread_rwlock_unlock(&lowNode->pieceLock);
+			pthread_rwlock_unlock(plock);
 		}
 		if (foundHgh == 0) {
 			pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
 			lowNode = findNodeL_@1(*hgh, TRUE, CrackerIndex[m].Tree, c, idxFirst, NULL);
-			if (pthread_rwlock_trywrlock(&lowNode->pieceLock)){
+			plock = (lowNode == NULL)? &CRKFirstPieceRWLock : &lowNode->pieceLock;
+			if (pthread_rwlock_trywrlock(plock)){
 				pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
-				pthread_rwlock_wrlock(&lowNode->pieceLock);
-				pthread_rwlock_unlock(&lowNode->pieceLock);
+				pthread_rwlock_wrlock(plock);
+				pthread_rwlock_unlock(plock);
 				goto retry;	// some other thread might already crack on low, try to find it again
 			}
 			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
@@ -631,7 +634,7 @@ createView:
 			if ((vl == 0) && (*t < *low) && (*inclusiveLow == TRUE))
 				vl = vl + 1;
 			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
-			pthread_rwlock_unlock(&lowNode->pieceLock);
+			pthread_rwlock_unlock(plock);
 		}
 	} else {
 		t = (int *) Tloc(b, BUNfirst(b));
@@ -659,7 +662,7 @@ createView:
 	/*fprintf(ofp,"%d\n",FN->c);
 	fclose(ofp);*/
 
-//	@:CreateResult()@
+	/*@:CreateResult()@*/
 
 	tempcreateView:;
 

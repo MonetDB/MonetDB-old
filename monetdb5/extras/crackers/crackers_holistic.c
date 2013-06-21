@@ -29,6 +29,7 @@ static FrequencyNode *_InternalFrequencyStructB = NULL;
 static MT_Lock frequencylock;
 static MT_Id idletime_thread;
 MT_Lock CRKIndexLock;
+pthread_rwlock_t CRKFirstPieceRWLock;
 
 
 int isIdleQuery = 0;

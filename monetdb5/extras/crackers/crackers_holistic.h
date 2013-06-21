@@ -38,6 +38,7 @@ typedef struct frequency{
 typedef  str (*IdleFuncPtr)(int *);
 crackers_export int isIdleQuery;
 crackers_export MT_Lock CRKIndexLock;
+crackers_export pthread_rwlock_t CRKFirstPieceRWLock;
 
 crackers_export FrequencyNode *getFrequencyStruct(char which);
 crackers_export void push(int bat_id,FrequencyNode* head);
