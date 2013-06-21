@@ -268,7 +268,8 @@ createView:
 		MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 		createIndex=0;	
 	}
-	MT_lock_unset(&CrackerIndex[m].columnLock,"Lock Attribute");
+	else
+		MT_lock_unset(&CrackerIndex[m].columnLock,"Lock Attribute");
 
 @
 @= RangeSelectBody
@@ -376,7 +377,6 @@ createView:
 			/*printf(" "LLFMT" \n ",posh-posl);*/
 			@:crkThreeTree@5(@1,posl,posh,@5)@
 
-			MT_lock_set(&CrackerIndex[m].columnLock,"Lock Attribute");
 			createIndex=1;
 
 			FN->c = FN->c + 2;
