@@ -35,6 +35,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 rdf_export str
 RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold);
 
+
+
 typedef enum {
 	NORMALCS, 
 	FREQCS, 
@@ -170,5 +172,15 @@ typedef struct CSmergeRel{
 	int  numRef;
 	int  numAllocation;
 } CSmergeRel;
+
+typedef struct CStable {
+	bat**   lstbatid;
+	int	numTables;
+	oid*	lastInsertedS; 
+} CStable; 
+
+
+rdf_export str
+RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, int numTables);
 
 #endif /* _RDFSCHEMA_H_ */

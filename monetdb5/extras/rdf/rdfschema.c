@@ -1903,20 +1903,22 @@ void getPropStatisticsFromMaxCSs(PropStat* propStat, int numMaxCSs, oid* superCS
 
 
 static
-PropStat* getPropStatisticsFromFreqCSs(CSset* freqCSset){
+PropStat* getPropStatisticsFromFreqCSs(CSset* freqCSset, int *numdistinctMCS){
 
-	int i, j; 
+	int i, j, k; 
 	CS cs;
 
 	PropStat* propStat; 
 	
 	propStat = initPropStat(); 
 
+	k = 0; 
+
 	for (i = 0; i < freqCSset->numCSadded; i++){
 
 		if (freqCSset->items[i].parentFreqIdx == -1){	// Only use the maximum or merge CS 
 			cs = (CS)freqCSset->items[i];
-
+			k++; 
 			for (j = 0; j < cs.numProp; j++){
 				addaProp(propStat, cs.lstProp[j], i);
 			}
@@ -1929,6 +1931,8 @@ PropStat* getPropStatisticsFromFreqCSs(CSset* freqCSset){
 		propStat->tfidfs[i] = tfidfComp(propStat->freqs[i],numMaxCSs);
 	}
 	*/
+
+	*numdistinctMCS = k; 
 
 	return propStat; 
 }
@@ -2987,14 +2991,15 @@ BAT* getOriginalOBat(BAT *obat){
 	
 	return origobat; 
 }
-/*
+
 static 
-oid getTblidFromSoid(oid Soid){
+int getTblidFromSoid(oid Soid){
 	int	freqCSid; 	
+	
+	freqCSid = (int) ((Soid >> (sizeof(BUN)*8 - NBITS_FOR_CSID))  &  ((1 << (NBITS_FOR_CSID-1)) - 1)) ;	
 	
 	return freqCSid; 
 }
-*/
 
 static
 str triplesubsort(BAT **sbat, BAT **pbat, BAT **obat){
@@ -3032,6 +3037,97 @@ str triplesubsort(BAT **sbat, BAT **pbat, BAT **obat){
 	return MAL_SUCCEED; 
 }
 
+static 
+CStable* initCStables(PropStat* propStat, int num){
+	CStable* cstable; 
+	int i; 
+	
+	cstable = (CStable *) malloc (sizeof (CStable));
+	cstable->lstbatid = (bat**) malloc(sizeof (bat*) * (propStat->numAdded)); 
+	for(i = 0; i < propStat->numAdded;i++){
+		cstable->lstbatid[i] = (bat*)malloc(sizeof(bat) * propStat->plCSidx[i].numAdded); 
+	}
+	cstable->numTables = num; 
+	return cstable; 
+}
+
+str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, int numdistinctMCS){
+	BAT *sbat = NULL, *pbat = NULL, *obat = NULL; 
+	BATiter si,pi,oi; 
+	BUN p,q; 
+	oid *pbt, *sbt, *obt;
+	oid lastP, lastS; 
+	CStable	*cstable; 
+	int	freqid; 
+	BUN	ppos; 
+
+	BAT**	setofBats = NULL;
+	int*	csIdBatidxmap; 		//small map for each p	
+
+	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
+		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
+	}
+	if ((pbat = BATdescriptor(*pbatid)) == NULL) {
+		BBPreleaseref(sbat->batCacheid);
+		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
+	}
+	if ((obat = BATdescriptor(*obatid)) == NULL) {
+		BBPreleaseref(sbat->batCacheid);
+		BBPreleaseref(pbat->batCacheid);
+		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
+	}
+
+	si = bat_iterator(sbat); 
+	pi = bat_iterator(pbat); 
+	oi = bat_iterator(obat);
+	
+	lastP = BUN_NONE; 
+	lastS = BUN_NONE; 
+	//Init cstable 
+	cstable = initCStables(propStat, numdistinctMCS); 
+	printf("Created cstable with %d tables \n", cstable->numTables);
+
+	BATloop(pbat, p, q){
+		pbt = (oid *) BUNtloc(pi, p);
+		sbt = (oid *) BUNtloc(si, p);
+		obt = (oid *) BUNtloc(oi, p);
+		if (*pbt != lastP){
+			if (csIdBatidxmap == NULL){
+				csIdBatidxmap = (int *) malloc(sizeof(int) * 1);
+			}
+
+			//Get number of BATs for this p
+			ppos = BUNfnd(BATmirror(propStat->pBat),pbt);
+			if (ppos == BUN_NONE)
+				throw(RDF, "rdf.RDFdistTriplesToCSs", "This prop must be in propStat bat");
+
+			if (setofBats != NULL) 
+				free(setofBats); 
+
+			//init set of BATs containing this property
+			setofBats = (BAT**) malloc(sizeof(BAT*) * propStat->plCSidx[ppos].numAdded);
+
+			
+			freqid = getTblidFromSoid(*sbt);			
+			printf("Table for prop " BUNFMT " | obj " BUNFMT "is %d \n",*pbt, *obt, freqid); 
+
+			lastP = *pbt; 
+		}
+		else if (*sbt != lastS){ 
+			lastS = *sbt; 
+		}
+
+		
+	}
+
+	*ret = 1; 
+	
+	BBPunfix(sbat->batCacheid);
+	BBPunfix(pbat->batCacheid);
+	BBPunfix(obat->batCacheid);
+
+	return MAL_SUCCEED; 
+}
 
 str
 RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold){
@@ -3053,6 +3149,7 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	bat		oNewBatid, pNewBatid; 
 	oid		*csMFreqCSMap;	/* Store the mapping from a CS id to an index of a maxCS or mergeCS in freqCSset. */
 	PropStat	*propStat; 
+	int		numdistinctMCS = 0; 
 
 	freqCSset = initCSset();
 
@@ -3183,8 +3280,12 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 
 	BATprint(sNewBat);
 
-	propStat = getPropStatisticsFromFreqCSs(freqCSset); 
+	propStat = getPropStatisticsFromFreqCSs(freqCSset, &numdistinctMCS); 
 	printPropStat(propStat); 
+
+	if (RDFdistTriplesToCSs(ret, &sNewBat->batCacheid, &pNewBat->batCacheid, &oNewBat->batCacheid, propStat, numdistinctMCS) != MAL_SUCCEED){
+		throw(RDF, "rdf.RDFreorganize", "Problem in distributing triples to BATs using CSs");		
+	}
 		
 	freeCSset(freqCSset); 
 	free(subjCSMap); 
