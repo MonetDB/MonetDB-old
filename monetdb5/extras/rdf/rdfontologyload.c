@@ -265,4 +265,105 @@ RDFOntologyParser(int *xret, str *location, str *schema){
 	return MAL_SUCCEED;
 }
 
+// defined in rdfschema.c
+extern str **ontattributes;
+extern int ontattributesCount;
+extern str **ontmetadata;
+extern int ontmetadataCount;
+
+str
+RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msuperid){
+	BUN			p, q;
+	BAT			*auri = NULL, *aattr = NULL, *muri = NULL, *msuper = NULL;
+	BATiter			aurii, aattri, murii, msuperi;
+	BUN			bun, bun2, bun3, bun4;
+	int			i;
+
+	if (ontattributesCount != 0 || ontmetadataCount != 0) {
+		// ontology data is already loaded
+		*ret = 1;
+		return MAL_SUCCEED;
+	}
+
+	if ((auri = BATdescriptor(*auriid)) == NULL) {
+		throw(MAL, "rdf.RDFloadsqlontologies", RUNTIME_OBJECT_MISSING);
+	}
+
+	if ((aattr = BATdescriptor(*aattrid)) == NULL) {
+		BBPreleaseref(auri->batCacheid);
+		throw(MAL, "rdf.RDFloadsqlontologies", RUNTIME_OBJECT_MISSING);
+	}
+	if ((muri = BATdescriptor(*muriid)) == NULL) {
+		BBPreleaseref(auri->batCacheid);
+		BBPreleaseref(aattr->batCacheid);
+		throw(MAL, "rdf.RDFloadsqlontologies", RUNTIME_OBJECT_MISSING);
+	}
+	if ((msuper = BATdescriptor(*msuperid)) == NULL) {
+		BBPreleaseref(auri->batCacheid);
+		BBPreleaseref(aattr->batCacheid);
+		BBPreleaseref(muri->batCacheid);
+		throw(MAL, "rdf.RDFloadsqlontologies", RUNTIME_OBJECT_MISSING);
+	}
+
+	aurii = bat_iterator(auri);
+	aattri = bat_iterator(aattr);
+	murii = bat_iterator(muri);
+	msuperi = bat_iterator(msuper);
+
+	// load ontattributes
+	i = 0;
+	bun = BUNfirst(auri);
+	bun2 = BUNfirst(aattr);
+
+	ontattributes = (str**) malloc(sizeof(str *) * 2);
+	ontmetadata = (str**) malloc(sizeof(str *) * 2);
+	if (!ontattributes || !ontmetadata) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+	ontattributes[0] = NULL; // uri
+	ontattributes[1] = NULL; // attr
+	ontmetadata[0] = NULL; // uri
+	ontmetadata[1] = NULL; // superclass
+
+	BATloop(auri, p, q){
+		str auristr = (str) BUNtail(aurii, bun + i);
+		str aattrstr = (str) BUNtail(aattri, bun2 + i);
+
+		ontattributes[0] = realloc(ontattributes[0], sizeof(str) * (ontattributesCount + 1));
+		ontattributes[1] = realloc(ontattributes[1], sizeof(str) * (ontattributesCount + 1));
+		if (!ontattributes[0] || !ontattributes[1]) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+		ontattributes[0][ontattributesCount] = auristr;
+		ontattributes[1][ontattributesCount] = aattrstr;
+		ontattributesCount += 1;
+
+		++i;
+	}
+
+	// load ontmetadata
+	i = 0;
+	bun3 = BUNfirst(muri);
+	bun4 = BUNfirst(msuper);
+
+	BATloop(muri, p, q){
+		str muristr = (str) BUNtail(murii, bun3 + i);
+		str msuperstr = (str) BUNtail(msuperi, bun4 + i);
+
+		ontmetadata[0] = realloc(ontmetadata[0], sizeof(str) * (ontmetadataCount + 1));
+		ontmetadata[1] = realloc(ontmetadata[1], sizeof(str) * (ontmetadataCount + 1));
+		if (!ontmetadata[0] || !ontmetadata[1]) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+		ontmetadata[0][ontmetadataCount] = muristr;
+		ontmetadata[1][ontmetadataCount] = msuperstr;
+		ontmetadataCount += 1;
+
+		++i;
+	}
+
+	BBPreclaim(auri);
+	BBPreclaim(aattr);
+	BBPreclaim(muri);
+	BBPreclaim(msuper);
+
+	*ret = 1;
+
+	return MAL_SUCCEED;
+}
+
 

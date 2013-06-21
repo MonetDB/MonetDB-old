@@ -22,6 +22,7 @@
 #include "monetdb_config.h"
 #include "rdf.h"
 #include "rdfschema.h"
+#include "rdflabels.h"
 #include "algebra.h"
 #include <gdk.h>
 #include <hashmap/hashmap.h>
@@ -2711,6 +2712,12 @@ void printCSmergeRel(CSset *freqCSset, CSmergeRel *csRelBetweenMergeFreqSet, int
 	fclose(fout2filter);
 }
 
+// for storing ontology data
+str	**ontattributes = NULL;
+int	ontattributesCount = 0;
+str	**ontmetadata = NULL;
+int	ontmetadataCount = 0;
+
 /* Extract CS from SPO triples table */
 str
 RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *_freqCSset, oid **subjCSMap, oid *maxCSoid){
@@ -2736,6 +2743,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	oid		*superCSFreqCSMap; 
 	oid		*superCSMergeMaxCSMap;
 	CSset		*freqCSset; 
+
+	Labels		*labels;
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
@@ -2855,6 +2864,17 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	getStatisticCSsBySupports(csBats->pOffsetBat, csBats->freqBat, csBats->coverageBat, csBats->fullPBat, 1, *freqThreshold);
 	getStatisticMaxCSs(freqCSset, 1, *freqThreshold);
+
+
+
+	// Phase 3: Labels
+	labels = createLabels(freqCSset, csRelBetweenMergeFreqSet, sbat, si, pi, oi, *subjCSMap, mbat, csIdFreqIdxMap, *freqThreshold, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount);
+
+	(void) labels; // TODO use
+
+	freeLabels(labels, freqCSset);
+
+
 
 	BBPreclaim(sbat); 
 	BBPreclaim(pbat); 

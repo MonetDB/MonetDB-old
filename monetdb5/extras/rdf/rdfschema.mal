@@ -42,3 +42,7 @@ command rdfloadontology(location:str, schema:str ) :void
 address RDFOntologyParser
 comment "Load ontologies into RDF store";
 
+command rdfloadsqlontologies( auri:bat[:any_1,:str], aattr:bat[:any_2,:str], muri:bat[:any_3,:str], msuper:bat[:any_4,:str] ) :void
+address RDFloadsqlontologies
+comment "Load ontologies from SQL into string arrays";
+

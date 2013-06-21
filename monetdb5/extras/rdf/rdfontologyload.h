@@ -37,6 +37,9 @@ typedef struct OntClassset{
 rdf_export str
 RDFOntologyParser(int *ret, str *location, str *schema);
 
+rdf_export str
+RDFloadsqlontologies(int *ret, bat *auri, bat *aattr, bat *muri, bat *msuper);
+
 /*
 rdf_export str
 RDFOntologyRead(int *ret, bat *ontcBatid, bat *ontaBatid, OntClassset* ontclassset);  */
