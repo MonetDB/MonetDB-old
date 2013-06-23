@@ -32,7 +32,7 @@ MT_Lock CRKIndexLock;
 pthread_rwlock_t CRKFirstPieceRWLock;
 
 
-int isIdleQuery = 0;
+//int isIdleQuery = 0;
 IdleFuncPtr IdleFunc;
 
 str
@@ -371,6 +371,7 @@ CRKrandomCrack(int *ret)
 	int low=0, hgh=0;
 	int *t;
 	int temp=0;
+	bit isIdleQuery=TRUE;
 	oid posl,posh,p;
 	FILE *ofp1;
 	int dummy = 0;
@@ -378,7 +379,7 @@ CRKrandomCrack(int *ret)
 	
 	bit inclusive=TRUE;
 	FrequencyNode *fs = getFrequencyStruct('A');	
-	isIdleQuery=1;
+//	isIdleQuery=1;
 	ofp1 = fopen(outputFilename1,"a");
 	(void) ret;
 	max_node=findMax(fs);
@@ -400,7 +401,7 @@ CRKrandomCrack(int *ret)
 			hgh=temp;
 		}
 	/*fprintf(stderr,"posl = "OIDFMT" posh = "OIDFMT" low = %d hgh = %d inclusive = %d", posl,posh,low,hgh,inclusive );*/
-		CRKselectholBounds_int(&dummy, &bid, &low, &hgh, &inclusive, &inclusive);
+		CRKselectholBounds_int(&dummy, &bid, &low, &hgh, &inclusive, &inclusive,&isIdleQuery);
 		fprintf(ofp1,"%d\n",max_node->bid);
 		
 	}
@@ -408,7 +409,7 @@ CRKrandomCrack(int *ret)
 	fclose(ofp1);
 
 	/*printFrequencyStruct(fs);*/
-	isIdleQuery=0;
+//	isIdleQuery=0;
 
 
 	return MAL_SUCCEED;
@@ -423,12 +424,13 @@ CRKrandomCrackST(int *ret)
         BAT *b;
         int low=0, hgh=0;
         int *t;
-        int temp=0;
+        //bit isIdleQuery=TRUE;
+	int temp=0;
         oid posl,posh,p;
 
         bit inclusive=TRUE;
         FrequencyNode *fs = getFrequencyStruct('A');
-        isIdleQuery=1;
+        //isIdleQuery=1;
         max_node=findMax(fs);
         if(max_node!=NULL && max_node->weight > 0)
 	{
@@ -450,7 +452,7 @@ CRKrandomCrackST(int *ret)
                 CRKselectholstBounds_int(ret, &bid, &low, &hgh, &inclusive, &inclusive);
 	 }
 
-        isIdleQuery=0;
+        //isIdleQuery=0;
 
         *ret = 0;
         return MAL_SUCCEED;

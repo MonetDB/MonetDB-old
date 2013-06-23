@@ -2171,7 +2171,7 @@ createView:
         if (cl1 != 0) cl1++;
         if (cl2 != 0) cl2++;
         
-	if((foundLow!=0 && foundHgh!=0)&&(isIdleQuery!=1)) FNS->f2 = FNS->f2 + 1;
+	if((foundLow!=0 && foundHgh!=0)&&(isIdleQuerySideways!=1)) FNS->f2 = FNS->f2 + 1;
  
         /* If one or both of the selection bounds were not found, then we have to crack */
 	crkTwoR = crkTwoL = FALSE;
@@ -2335,7 +2335,7 @@ createView:
         /* find out where in the index the high falls */        
 	foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
                 
-	if((foundHgh!=0)&&(isIdleQuery!=1)) FNS->f2 = FNS->f2 + 1;
+	if((foundHgh!=0)&&(isIdleQuerySideways!=1)) FNS->f2 = FNS->f2 + 1;
 
 	/* need to increase one position for the low bound only since we always store the previous position in the index */
         if (cl2 != 0) cl2++;
@@ -2462,7 +2462,7 @@ createView:
         /* find out where in the index the high falls */        
 	foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
           
-	if((foundLow!=0)&&(isIdleQuery!=1)) FNS->f2 = FNS->f2 + 1;
+	if((foundLow!=0)&&(isIdleQuerySideways!=1)) FNS->f2 = FNS->f2 + 1;
       
 	/* need to increase one position for the low bound only since we always store the previous position in the index */
         if (cl1 != 0) cl1++;

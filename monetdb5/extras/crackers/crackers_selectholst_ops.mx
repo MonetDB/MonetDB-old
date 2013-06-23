@@ -339,10 +339,10 @@ createView:
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 	FN=searchBAT(FrequencyStructA,*bid);
 	
-	if (isIdleQuery!=1)
-	{
+	//if (isIdleQuery!=1)
+	//{
 		FN->f1 = FN->f1 + 1;
-	}
+	//}
 
 	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
@@ -569,7 +569,7 @@ createView:
 
 
        
-	if((foundLow!=0 && foundHgh!=0)&&(isIdleQuery!=1)) FN->f2 = FN->f2 + 1;
+	//if((foundLow!=0 && foundHgh!=0)&&(isIdleQuery!=1)) FN->f2 = FN->f2 + 1;
 	/* If one or both of the result view bounds were not found using the
 	index then we have to crack */
 
