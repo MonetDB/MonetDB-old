@@ -592,6 +592,7 @@ createView:
 				pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 				pthread_rwlock_wrlock(plock);
 				pthread_rwlock_unlock(plock);
+				firstRetry=1;
 				goto retry;	// some other thread might already crack on low, try to find it again
 			}
 			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
@@ -626,6 +627,7 @@ createView:
 				pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 				pthread_rwlock_wrlock(plock);
 				pthread_rwlock_unlock(plock);
+				firstRetry=1;
 				goto retry;	// some other thread might already crack on low, try to find it again
 			}
 			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
