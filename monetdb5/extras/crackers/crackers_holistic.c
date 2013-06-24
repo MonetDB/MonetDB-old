@@ -73,51 +73,34 @@ getFrequencyStruct(char which)
 void 
 push(int bat_id,FrequencyNode* head)
 {
-	FrequencyNode* new_node,*temp;
+	FrequencyNode* new_node;
 	MT_lock_set(&frequencylock, "getFrequencyStruct");
-	temp=head;
-	while((temp->bid != bat_id))
-	{
-		temp=temp->next;
-		if (temp==NULL)
-		{
-			new_node=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode));
-			new_node->bid=bat_id;
-			new_node->c=1;
-			new_node->f1=0;
-			new_node->f2=0;
-			new_node->weight=0.0; /*weight=f1*((N/c)-L1)*/
-			MT_lock_init(&new_node->nodeLock, "Lock Node");
-			new_node->next=head->next;
-			head->next=new_node;
-			break;
-		}
-	} 
+	new_node=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode));
+	new_node->bid=bat_id;
+	new_node->c=1;
+	new_node->f1=0;
+	new_node->f2=0;
+	new_node->weight=0.0; /*weight=f1*((N/c)-L1)*/
+	MT_lock_init(&new_node->nodeLock, "Lock Node");
+	new_node->next=head->next;
+	head->next=new_node;
+
 	MT_lock_unset(&frequencylock, "getFrequencyStruct");
 }
 /*this function pushes nodes in the list and is used in cost models: 1,3,5*/
 void 
 push_2(int bat_id,FrequencyNode* head,int N,int L1)
 {
-	FrequencyNode* new_node,*temp;
+	FrequencyNode* new_node;
 	MT_lock_set(&frequencylock, "getFrequencyStruct");
-	temp=head;
-	while((temp->bid != bat_id))
-	{
-		temp=temp->next;
-		if (temp==NULL)
-		{
-			new_node=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode));
-			new_node->bid=bat_id;
-			new_node->c=1;
-			new_node->f1=0;
-			new_node->f2=0;
-			new_node->weight=N-L1;
-			new_node->next=head->next;
-			head->next=new_node;
-			break;
-		}
-	}
+	new_node=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode));
+	new_node->bid=bat_id;
+	new_node->c=1;
+	new_node->f1=0;
+	new_node->f2=0;
+	new_node->weight=N-L1;
+	new_node->next=head->next;
+	head->next=new_node;
 	MT_lock_unset(&frequencylock, "getFrequencyStruct");	 
 }
 
