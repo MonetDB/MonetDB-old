@@ -54,7 +54,8 @@ typedef struct {
 } CSBats; 	// BATs for storing all information about CSs
 
 typedef struct Postinglist{
-	int*	lstIdx; 
+	int*	lstIdx; 	/* List of CS containing the property */
+	int*	lstInvertIdx; 	/* List of property's index in each CS */
 	int	numAdded;
 	int	numAllocation; 
 } Postinglist; 
@@ -176,11 +177,13 @@ typedef struct CSmergeRel{
 typedef struct CStable {
 	bat**   lstbatid;
 	int	numTables;
+	int*	numPropPerTable; 
+	//int* 	freqIdx; 	//Idx of the corresponding freqCS for a table
 	oid*	lastInsertedS; 
 } CStable; 
 
 
 rdf_export str
-RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, int numTables);
+RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStable *cstable);
 
 #endif /* _RDFSCHEMA_H_ */

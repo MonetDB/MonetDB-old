@@ -86,6 +86,12 @@ static void initArray(oid* inputArr, int num, oid defaultValue){
 }
 
 
+static void initIntArray(int* inputArr, int num, oid defaultValue){
+	int i; 
+	for (i = 0; i < num; i++){
+		inputArr[i] = defaultValue;
+	}
+}
 
 static void initcsIdFreqIdxMap(int* inputArr, int num, int defaultValue, CSset *freqCSset){
 	int i; 
@@ -1795,13 +1801,14 @@ PropStat* initPropStat(void){
 }
 
 static 
-void addaProp(PropStat* propStat, oid prop, int csIdx){
+void addaProp(PropStat* propStat, oid prop, int csIdx, int invertIdx){
 	BUN	bun; 
 	BUN	p; 
 
 	int* _tmp1; 
 	float* _tmp2; 
 	Postinglist* _tmp3;
+	int* _tmp4; 
 	
 	p = prop; 
 	bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &prop);
@@ -1837,16 +1844,21 @@ void addaProp(PropStat* propStat, oid prop, int csIdx){
 			}
 			
 			propStat->plCSidx = (Postinglist*)_tmp3;
+
 		}
 
 		propStat->freqs[propStat->numAdded] = 1; 
 
 		propStat->plCSidx[propStat->numAdded].lstIdx = (int *) malloc(sizeof(int) * INIT_CS_PER_PROP);
+		propStat->plCSidx[propStat->numAdded].lstInvertIdx = (int *) malloc(sizeof(int) * INIT_CS_PER_PROP);
+
+
 		if (propStat->plCSidx[propStat->numAdded].lstIdx  == NULL){
 			fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 		} 
 	
 		propStat->plCSidx[propStat->numAdded].lstIdx[0] = csIdx;
+		propStat->plCSidx[propStat->numAdded].lstInvertIdx[0] = invertIdx;
 		propStat->plCSidx[propStat->numAdded].numAdded = 1; 
 		propStat->plCSidx[propStat->numAdded].numAllocation = INIT_CS_PER_PROP; 
 		
@@ -1866,8 +1878,16 @@ void addaProp(PropStat* propStat, oid prop, int csIdx){
 			}
 			propStat->plCSidx[bun].lstIdx = (int*) _tmp1; 
 			
+			_tmp4 = realloc(propStat->plCSidx[bun].lstInvertIdx, ((propStat->plCSidx[bun].numAllocation) * sizeof(int)));
+			if (!_tmp4){
+				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+			}
+			propStat->plCSidx[bun].lstInvertIdx = (int*) _tmp4; 
+
 		}
 		propStat->plCSidx[bun].lstIdx[propStat->plCSidx[bun].numAdded] = csIdx; 
+		propStat->plCSidx[bun].lstInvertIdx[propStat->plCSidx[bun].numAdded] = invertIdx; 
+
 		propStat->plCSidx[bun].numAdded++;
 	}
 
@@ -1885,7 +1905,7 @@ void getPropStatisticsFromMaxCSs(PropStat* propStat, int numMaxCSs, oid* superCS
 		cs = (CS)freqCSset->items[freqId];
 
 		for (j = 0; j < cs.numProp; j++){
-			addaProp(propStat, cs.lstProp[j],freqId);
+			addaProp(propStat, cs.lstProp[j],freqId, j);
 		}
 	}
 
@@ -1904,7 +1924,7 @@ void getPropStatisticsFromMaxCSs(PropStat* propStat, int numMaxCSs, oid* superCS
 
 
 static
-PropStat* getPropStatisticsFromFreqCSs(CSset* freqCSset, int *numdistinctMCS){
+PropStat* getPropStatisticsByTable(CSset* freqCSset, int* mfreqIdxTblIdxMapping, int *numdistinctMCS){
 
 	int i, j, k; 
 	CS cs;
@@ -1921,7 +1941,7 @@ PropStat* getPropStatisticsFromFreqCSs(CSset* freqCSset, int *numdistinctMCS){
 			cs = (CS)freqCSset->items[i];
 			k++; 
 			for (j = 0; j < cs.numProp; j++){
-				addaProp(propStat, cs.lstProp[j], i);
+				addaProp(propStat, cs.lstProp[j], mfreqIdxTblIdxMapping[i], j);
 			}
 		}
 	}
@@ -1965,6 +1985,7 @@ void freePropStat(PropStat *propStat){
 	free(propStat->tfidfs); 
 	for (i = 0; i < propStat->numAdded; i++){
 		free(propStat->plCSidx[i].lstIdx);
+		free(propStat->plCSidx[i].lstInvertIdx); 
 	}
 	free(propStat->plCSidx); 
 	free(propStat); 
@@ -3057,27 +3078,75 @@ str triplesubsort(BAT **sbat, BAT **pbat, BAT **obat){
 	return MAL_SUCCEED; 
 }
 
-static 
-CStable* initCStables(PropStat* propStat, int num){
-	CStable* cstable; 
-	int i; 
-	
+static
+CStable* initCStablesAndIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping){
+
+	int 		i, k; 
+	CS 		cs;
+	CStable* 	cstable; 
+	int		tmpParentidx; 
+	int		tmpNumProp; 
+
 	cstable = (CStable *) malloc (sizeof (CStable));
-	cstable->lstbatid = (bat**) malloc(sizeof (bat*) * (propStat->numAdded)); 
-	for(i = 0; i < propStat->numAdded;i++){
-		cstable->lstbatid[i] = (bat*)malloc(sizeof(bat) * propStat->plCSidx[i].numAdded); 
+	
+	// Get the number of tables 
+	k = 0; 
+	for (i = 0; i < freqCSset->numCSadded; i++){
+		if (freqCSset->items[i].parentFreqIdx == -1){	// Only use the maximum or merge CS 
+			mfreqIdxTblIdxMapping[i] = k; 
+			mTblIdxFreqIdxMapping[k] = i; 
+			k++; 
+		}
 	}
-	cstable->numTables = num; 
+	
+	// allocate memory space for cstable
+	cstable->numTables = k; 
+	cstable->lstbatid = (bat**) malloc(sizeof (bat*) * k); 
+	cstable->numPropPerTable = (int*) malloc(sizeof (int) * k); 
+	cstable->lastInsertedS = (oid*) malloc(sizeof(oid) * k);
+
+
+	k = 0; 
+	for (i = 0; i < freqCSset->numCSadded; i++){
+		if (freqCSset->items[i].parentFreqIdx == -1){	// Only use the maximum or merge CS 
+			tmpNumProp = freqCSset->items[i].numProp; 
+			cstable->numPropPerTable[k] = tmpNumProp; 
+			cstable->lstbatid[k] = (bat*) malloc (sizeof(bat) * tmpNumProp);  
+			k++; 
+		}
+	}
+
+	// Mapping the csid directly to the index of the table ==> csTblIndxMapping
+	
+	for (i = 0; i < freqCSset->numOrigFreqCS; i++){
+		cs = (CS)freqCSset->items[i];
+		tmpParentidx = cs.parentFreqIdx;
+		
+		if (tmpParentidx == -1){	// maximumCS 
+			csTblIdxMapping[cs.csId] = mfreqIdxTblIdxMapping[i];
+		}
+		else{	// A normal CS or a maxCS that have a mergeCS as its parent
+			if (freqCSset->items[tmpParentidx].parentFreqIdx == -1){
+				csTblIdxMapping[cs.csId] = mfreqIdxTblIdxMapping[tmpParentidx]; 
+			}	
+			else{
+				csTblIdxMapping[cs.csId] = mfreqIdxTblIdxMapping[freqCSset->items[tmpParentidx].parentFreqIdx];
+			}
+		}
+
+	}
+
+
 	return cstable; 
+
 }
 
-str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, int numdistinctMCS){
+str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStable *cstable){
 	BAT *sbat = NULL, *pbat = NULL, *obat = NULL; 
 	BATiter si,pi,oi; 
 	BUN p,q; 
 	oid *pbt, *sbt, *obt;
 	oid lastP, lastS; 
-	CStable	*cstable; 
 	int	freqid; 
 	BUN	ppos; 
 
@@ -3102,9 +3171,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	oi = bat_iterator(obat);
 	
 	lastP = BUN_NONE; 
-	lastS = BUN_NONE; 
-	//Init cstable 
-	cstable = initCStables(propStat, numdistinctMCS); 
+	
 	printf("Created cstable with %d tables \n", cstable->numTables);
 
 	BATloop(pbat, p, q){
@@ -3154,7 +3221,6 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 
 	CSset		*freqCSset; 	/* Set of frequent CSs */
 	oid		*subjCSMap = NULL;  	/* Store the corresponding CS Id for each subject */
-	int 		i; 
 	oid 		maxCSoid = 0; 
 	BAT		*sbat = NULL, *obat = NULL, *pbat = NULL;
 	BATiter		si; 
@@ -3163,13 +3229,16 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	BUN		newId; 
 	oid		*sbt; 
 	oid		*lastSubjId; 	/* Store the last subject Id in each freqCS */
-	oid		freqId; 
+	oid		tblIdx; 
 	oid		lastS;
 	oid		l,r; 
 	bat		oNewBatid, pNewBatid; 
-	oid		*csMFreqCSMap;	/* Store the mapping from a CS id to an index of a maxCS or mergeCS in freqCSset. */
+	int		*csTblIdxMapping;	/* Store the mapping from a CS id to an index of a maxCS or mergeCS in freqCSset. */
+	int		*mfreqIdxTblIdxMapping;  /* Store the mapping from the idx of a max/merge freqCS to the table Idx */
+	int		*mTblIdxFreqIdxMapping;  /* Invert of mfreqIdxTblIdxMapping */
 	PropStat	*propStat; 
 	int		numdistinctMCS = 0; 
+	CStable		*cstable;
 
 	freqCSset = initCSset();
 
@@ -3178,20 +3247,21 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	} 
 	
 	printf("Start re-organizing triple store for " BUNFMT " CSs \n", maxCSoid);
-	csMFreqCSMap = (oid *) malloc (sizeof (oid) * (maxCSoid + 1)); 
-	initArray(csMFreqCSMap, (maxCSoid + 1), BUN_NONE);
 
+	csTblIdxMapping = (int *) malloc (sizeof (int) * (maxCSoid + 1)); 
+	initIntArray(csTblIdxMapping, (maxCSoid + 1), -1);
 
-	lastSubjId = (oid *) malloc (sizeof(oid) * freqCSset->numOrigFreqCS); 
-	for (i = 0; i < freqCSset->numOrigFreqCS; i++){
-		if (freqCSset->items[i].parentFreqIdx != -1){	// Use the maximum or merge CS instead 	
-			csMFreqCSMap[freqCSset->items[i].csId] = freqCSset->items[i].parentFreqIdx;
-		}
-		else
-			csMFreqCSMap[freqCSset->items[i].csId] = i; 
+	mfreqIdxTblIdxMapping = (int *) malloc (sizeof (int) * freqCSset->numCSadded); 
+	initIntArray(mfreqIdxTblIdxMapping , freqCSset->numCSadded, -1);
 
-		lastSubjId[i] = 0; 
-	}
+	mTblIdxFreqIdxMapping = (int *) malloc (sizeof (int) * freqCSset->numCSadded);  // A little bit reduntdant space
+	initIntArray(mTblIdxFreqIdxMapping , freqCSset->numCSadded, -1);
+
+	//Mapping from from CSId to TableIdx 
+	cstable = initCStablesAndIdxMapping(freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping);
+
+	lastSubjId = (oid *) malloc (sizeof(oid) * cstable->numTables); 
+	initArray(lastSubjId, cstable->numTables, 0); 
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
@@ -3236,12 +3306,12 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	lastS = -1; 
 	BATloop(sbat, p, q){
 		sbt = (oid *) BUNtloc(si, p);
-		freqId = csMFreqCSMap[subjCSMap[*sbt]];
+		tblIdx = csTblIdxMapping[subjCSMap[*sbt]];
 
-		if (freqId != BUN_NONE){
+		if (tblIdx != BUN_NONE){
 
-			newId = lastSubjId[freqId];
-			newId |= (BUN)freqId << (sizeof(BUN)*8 - NBITS_FOR_CSID);
+			newId = lastSubjId[tblIdx];
+			newId |= (BUN)tblIdx << (sizeof(BUN)*8 - NBITS_FOR_CSID);
 
 			if (lastS != *sbt){	//new subject
 				lastS = *sbt; 
@@ -3251,7 +3321,7 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 
 				lmap = BUNappend(lmap, &l, TRUE);
 				rmap = BUNappend(rmap, &r, TRUE);
-				lastSubjId[freqId]++;
+				lastSubjId[tblIdx]++;
 			}
 
 		}
@@ -3300,16 +3370,17 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 
 	BATprint(sNewBat);
 
-	propStat = getPropStatisticsFromFreqCSs(freqCSset, &numdistinctMCS); 
+	propStat = getPropStatisticsByTable(freqCSset,mfreqIdxTblIdxMapping, &numdistinctMCS); 
+	
 	printPropStat(propStat); 
 
-	if (RDFdistTriplesToCSs(ret, &sNewBat->batCacheid, &pNewBat->batCacheid, &oNewBat->batCacheid, propStat, numdistinctMCS) != MAL_SUCCEED){
+	if (RDFdistTriplesToCSs(ret, &sNewBat->batCacheid, &pNewBat->batCacheid, &oNewBat->batCacheid, propStat, cstable) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in distributing triples to BATs using CSs");		
 	}
 		
 	freeCSset(freqCSset); 
 	free(subjCSMap); 
-	free(csMFreqCSMap);
+	free(csTblIdxMapping);
 	
 	BBPreclaim(lmap);
 	BBPreclaim(rmap); 
