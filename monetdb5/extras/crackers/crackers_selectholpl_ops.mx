@@ -301,6 +301,7 @@ createView:
 	bit rippledDeletions = FALSE;
 	struct Node *lowNode=NULL, *hghNode=NULL, *lowNodeNext=NULL, *temp;
 	BUN idxFirst;
+	int firstRetry=0;
 
 	bit copy=TRUE;
 	
@@ -318,19 +319,15 @@ createView:
 	if ((bo = BATdescriptor(*bid)) != NULL)
 		L1=32000/ATOMsize(bo->ttype);
 
-
-	MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
-
 	/*ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
   		fprintf(stderr, "Can't open output file!\n");
   		exit(1);
 	}*/
 
+	
+	MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
 
-
-	/*fprintf(stderr,"This is from selcrack_HOL operators\n");*/	
-	/*fprintf(stderr,"FN->bid=%d\n",FN->bid);*/
 
 	/*if (@2_GT(low,hgh,@3@1))
 		throw(MAL, "crackers.crack", "illegal range");*/
@@ -518,22 +515,25 @@ createView:
 
 	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 
-	FN=searchBAT(FrequencyStructA,*bid);
-	
-	if (*isIdleQuery==FALSE)
-	{
-		FN->f1 = FN->f1 + 1;
-	}
 
 	retry:;
 
 	pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
+
+	FN=searchBAT(FrequencyStructA,*bid);
+	
+	if ((*isIdleQuery==FALSE)&&(firstRetry==0))
+	{
+		FN->f1 = FN->f1 + 1;
+	}
 
 	/* find out where in the index the low falls */
 	foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
 
 	/* find out where in the index the high falls */
 	foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
+
+	if((foundLow!=0 && foundHgh!=0)&&(*isIdleQuery==FALSE)&&(firstRetry==0)) FN->f2 = FN->f2 + 1;
 
 	pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 
@@ -577,7 +577,6 @@ createView:
 
 
        
-	if((foundLow!=0 && foundHgh!=0)&&(*isIdleQuery==FALSE)) FN->f2 = FN->f2 + 1;
 	/* If one or both of the result view bounds were not found using the
 	index then we have to crack */
 
@@ -608,6 +607,9 @@ createView:
 				{
 					addCrackerIndex_@1(m, low, *inclusiveLow, _vl, c);
 					FN->c = FN->c + 1;
+					countBatElements=BATcount(b);
+					if(FN->weight > 0)
+						FN->weight = changeWeight_1(FN,countBatElements,L1);
 				}
 				if ((vl == 1) && (*t == *low) && (*inclusiveLow == TRUE))
 					vl = vl - 1;
@@ -635,6 +637,9 @@ createView:
 				{
 					addCrackerIndex_@1(m, hgh, HBound, vh, c);
 					FN->c = FN->c + 1;
+					countBatElements=BATcount(b);
+					if(FN->weight > 0)
+						FN->weight = changeWeight_1(FN,countBatElements,L1);
 				}
 			vl = cl1;
 			if ((vl == 0) && (*t < *low) && (*inclusiveLow == TRUE))
@@ -650,20 +655,6 @@ createView:
 		vh = ch2;
 	}
 
-
-
-	countBatElements=BATcount(b);
-	/*fprintf(stderr,"BATcount(b)=%d\n",countBatElements);*/
-	if(FN->weight > 0)
-		FN->weight = changeWeight_1(FN,countBatElements,L1);
-
-	/*if(FN->weight > 0 && isIdleQuery!=1)
-		printFrequencyStruct(FrequencyStructA);*/
-
-	/*if(FN->weight <0)
-		deleteNode(FrequencyStructA,FN->bid);
-	*/
-	/*printFrequencyStruct(FrequencyStructA);*/
 
 	/*fprintf(ofp,"%d\n",FN->c);
 	fclose(ofp);*/
