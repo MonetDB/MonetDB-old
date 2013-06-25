@@ -655,6 +655,9 @@ createView:
 		if ((vl == 0) && (*t < *low) && (*inclusiveLow == TRUE))
 			vl = vl + 1;
 		vh = ch2;
+		countBatElements=BATcount(b);
+		if(FN->weight > 0)
+			FN->weight = changeWeight_1(FN,countBatElements,L1);
 	}
 
 
