@@ -3431,12 +3431,12 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 
 	BBPreclaim(lmap);
 	BBPreclaim(rmap); 
-	BBPreclaim(sbat);
+	BBPunfix(sbat->batCacheid);
 	BBPreclaim(sNewBat);
-	BBPreclaim(obat); 
+	BBPunfix(obat->batCacheid); 
 	BBPreclaim(origobat);
 	BBPreclaim(oNewBat); 
-	BBPreclaim(pbat); 
+	BBPunfix(pbat->batCacheid); 
 	BBPreclaim(pNewBat); 
 
 	return MAL_SUCCEED; 
