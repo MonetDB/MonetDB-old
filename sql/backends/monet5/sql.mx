@@ -1274,6 +1274,12 @@ permutations of SPO and a mapping) in the RDF schema and an entry to table
 rdf.graph We can then query with SQL queries the RDF triple storeby quering 
 tables gid_spo, gid_pso etc., where gid is looked up in rdf.graph"
 
+pattern rdfreorganize (schema:str, table:str, threshold:int)
+address SQLrdfreorganize
+comment "This procedure call a function from rdf module to extract the relational schema 
+from rdf triples. Then, do re-organizing the rdf triples table by clustering according
+to the subject. " 
+
 command prelude()
 address SQLprelude;
 
@@ -1431,6 +1437,7 @@ sql5_export str SQLoctopusBind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrP
 sql5_export str SQLoctopusBinddbat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLargRecord(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLoptimizersUpdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str month_interval_str( int *ret, str *s, int *ek, int *sk );
 sql5_export str second_interval_str( lng *res, str *s, int *ek, int *sk );
@@ -1628,6 +1635,7 @@ sql5_export void freeVariables(Client c, MalBlkPtr mb, MalStkPtr glb, int start)
 #include <opt_pipes.h>
 #ifdef HAVE_RAPTOR
 # include <rdf.h>
+# include <rdfschema.h>
 #endif
 #include "mal_instruction.h"
 
@@ -7569,6 +7577,48 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	throw(SQL, "sql.rdfShred", "RDF support is missing from MonetDB5");
 #endif /* RDF */
 }
+
+
+/* Re-organize triple table by using clustering storage
+ * CALL rdf_reorganize('schema','tablename', 1);
+ * e.g., rdf_reorganize('rdf','spo0');
+ *
+ */
+str
+SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+
+	mvc *m = NULL;
+	str *schema = (str *) getArgReference(stk,pci,1);
+	str *tbname = (str *) getArgReference(stk,pci,2);
+	int *threshold = (int *) getArgReference(stk,pci,3);
+	sql_schema *sch; 
+	int ret = 0; 
+
+	str msg;
+	BAT	*sbat, *pbat, *obat, *mbat; 
+
+	rethrow("sql.rdfShred", msg, getSQLContext(cntxt, mb, &m, NULL));
+
+	if ((sch = mvc_bind_schema(m, *schema)) == NULL)
+		throw(SQL, "sql.rdfShred", "3F000!schema missing");
+
+	sbat = mvc_bind(m, *schema, *tbname, "subject",0);
+	pbat = mvc_bind(m, *schema, *tbname, "property",0);
+	obat = mvc_bind(m, *schema, *tbname, "object",0);
+	mbat = mvc_bind(m, *schema, "map0", "lexical",0);
+
+	rethrow("sql.rdfreorganize", msg, RDFreorganize(&ret, &sbat->batCacheid, &pbat->batCacheid, 
+				&obat->batCacheid, &mbat->batCacheid, threshold));
+
+	BBPunfix(sbat->batCacheid); 
+	BBPunfix(pbat->batCacheid);
+	BBPunfix(obat->batCacheid); 
+	BBPunfix(mbat->batCacheid);
+
+	return MAL_SUCCEED; 
+}
+
 
 /* after an update on the optimizer catalog, we have to change
  * the internal optimizer pipe line administration

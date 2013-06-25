@@ -2901,10 +2901,10 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 
 
-	BBPreclaim(sbat); 
-	BBPreclaim(pbat); 
-	BBPreclaim(obat);
-	BBPreclaim(mbat);
+	BBPunfix(sbat->batCacheid); 
+	BBPunfix(pbat->batCacheid); 
+	BBPunfix(obat->batCacheid);
+	BBPunfix(mbat->batCacheid);
 
 	free (subjSubCSMap);
 	free (csFreqMap);
@@ -3079,15 +3079,16 @@ str triplesubsort(BAT **sbat, BAT **pbat, BAT **obat){
 }
 
 static
-CStable* initCStablesAndIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping){
+CStableStat* initCStablesAndIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping){
 
 	int 		i, k; 
 	CS 		cs;
-	CStable* 	cstable; 
+	CStableStat* 	cstablestat; 
 	int		tmpParentidx; 
 	int		tmpNumProp; 
+	//str *schema =   "rdfro";
 
-	cstable = (CStable *) malloc (sizeof (CStable));
+	cstablestat = (CStableStat *) malloc (sizeof (CStableStat));
 	
 	// Get the number of tables 
 	k = 0; 
@@ -3099,19 +3100,20 @@ CStable* initCStablesAndIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* 
 		}
 	}
 	
-	// allocate memory space for cstable
-	cstable->numTables = k; 
-	cstable->lstbatid = (bat**) malloc(sizeof (bat*) * k); 
-	cstable->numPropPerTable = (int*) malloc(sizeof (int) * k); 
-	cstable->lastInsertedS = (oid*) malloc(sizeof(oid) * k);
-
+	// allocate memory space for cstablestat
+	cstablestat->numTables = k; 
+	cstablestat->lstbatid = (bat**) malloc(sizeof (bat*) * k); 
+	cstablestat->numPropPerTable = (int*) malloc(sizeof (int) * k); 
+	cstablestat->lastInsertedS = (oid*) malloc(sizeof(oid) * k);
+	//cstablestat->cstable = (CStable*) malloc(sizeof(CStable) * k); 
 
 	k = 0; 
 	for (i = 0; i < freqCSset->numCSadded; i++){
 		if (freqCSset->items[i].parentFreqIdx == -1){	// Only use the maximum or merge CS 
 			tmpNumProp = freqCSset->items[i].numProp; 
-			cstable->numPropPerTable[k] = tmpNumProp; 
-			cstable->lstbatid[k] = (bat*) malloc (sizeof(bat) * tmpNumProp);  
+			cstablestat->numPropPerTable[k] = tmpNumProp; 
+			cstablestat->lstbatid[k] = (bat*) malloc (sizeof(bat) * tmpNumProp);  
+
 			k++; 
 		}
 	}
@@ -3137,21 +3139,68 @@ CStable* initCStablesAndIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* 
 	}
 
 
-	return cstable; 
+	return cstablestat; 
 
 }
 
-str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStable *cstable){
+static 
+void freeCStableStat(CStableStat* cstablestat){
+	int i; 
+
+	for (i = 0; i < cstablestat->numTables; i++){
+		free(cstablestat->lstbatid[i]); 
+	}
+	free(cstablestat->lstbatid); 
+	free(cstablestat->lastInsertedS);
+	free(cstablestat->numPropPerTable);
+	free(cstablestat); 
+}
+
+static str
+creatPBats(BAT** setofBats, Postinglist ptl, int HeadType, int TailType){
+	int 	i; 
+	int	numbat; 
+
+	numbat = ptl.numAdded; 
+
+	for (i = 0; i < numbat; i++){ 
+		setofBats[ptl.lstIdx[i]] = BATnew(HeadType, TailType, smallbatsz);	
+		// only create BAT for few 
+	}
+
+	return MAL_SUCCEED; 
+}
+
+/*
+static str
+savePBats(BAT** setofBats, Postinglist ptl, CStableStat* cstablestat){
+	int 	i; 
+	int	numbat; 
+
+	numbat = ptl.numAdded; 
+
+	for (i = 0; i < numbat; i++){ 
+		//store to cstablestat
+		cstablestat->lstbatid[ptl.lstIdx[i]][ptl.lstInvertIdx[i]] = setofBats[ptl.lstIdx[i]]->batCacheid; 
+
+		//removec completely
+		BBPreclaim(setofBats[ptl.lstIdx[i]]) ;	
+	}
+
+	return MAL_SUCCEED; 
+}
+*/
+
+str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat){
 	BAT *sbat = NULL, *pbat = NULL, *obat = NULL; 
 	BATiter si,pi,oi; 
 	BUN p,q; 
 	oid *pbt, *sbt, *obt;
 	oid lastP, lastS; 
-	int	freqid; 
+	int	tblIdx; 
 	BUN	ppos; 
 
 	BAT**	setofBats = NULL;
-	int*	csIdBatidxmap; 		//small map for each p	
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
@@ -3172,32 +3221,29 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	
 	lastP = BUN_NONE; 
 	
-	printf("Created cstable with %d tables \n", cstable->numTables);
+	printf("Created cstablestat with %d tables \n", cstablestat->numTables);
+
+	setofBats = (BAT**)malloc(sizeof(BAT*) * cstablestat->numTables); 
 
 	BATloop(pbat, p, q){
 		pbt = (oid *) BUNtloc(pi, p);
 		sbt = (oid *) BUNtloc(si, p);
 		obt = (oid *) BUNtloc(oi, p);
 		if (*pbt != lastP){
-			if (csIdBatidxmap == NULL){
-				csIdBatidxmap = (int *) malloc(sizeof(int) * 1);
-			}
-
 			//Get number of BATs for this p
 			ppos = BUNfnd(BATmirror(propStat->pBat),pbt);
 			if (ppos == BUN_NONE)
 				throw(RDF, "rdf.RDFdistTriplesToCSs", "This prop must be in propStat bat");
 
-			if (setofBats != NULL) 
-				free(setofBats); 
 
 			//init set of BATs containing this property
-			setofBats = (BAT**) malloc(sizeof(BAT*) * propStat->plCSidx[ppos].numAdded);
-
+			if (creatPBats(setofBats, propStat->plCSidx[ppos], TYPE_void, TYPE_oid) != MAL_SUCCEED){
+				throw(RDF, "rdf.RDFdistTriplesToCSs", "Problem in creating set of bats for a P");
+			}
 			
-			freqid = getTblidFromSoid(*sbt);			
-			printf("Table for prop " BUNFMT " | obj " BUNFMT "is %d \n",*pbt, *obt, freqid); 
-
+			tblIdx = getTblidFromSoid(*sbt);			
+			printf("Table for prop " BUNFMT " | obj " BUNFMT "is %d \n",*pbt, *obt, tblIdx); 
+			
 			lastP = *pbt; 
 		}
 		else if (*sbt != lastS){ 
@@ -3238,7 +3284,7 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	int		*mTblIdxFreqIdxMapping;  /* Invert of mfreqIdxTblIdxMapping */
 	PropStat	*propStat; 
 	int		numdistinctMCS = 0; 
-	CStable		*cstable;
+	CStableStat	*cstablestat;
 
 	freqCSset = initCSset();
 
@@ -3258,10 +3304,10 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	initIntArray(mTblIdxFreqIdxMapping , freqCSset->numCSadded, -1);
 
 	//Mapping from from CSId to TableIdx 
-	cstable = initCStablesAndIdxMapping(freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping);
+	cstablestat = initCStablesAndIdxMapping(freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping);
 
-	lastSubjId = (oid *) malloc (sizeof(oid) * cstable->numTables); 
-	initArray(lastSubjId, cstable->numTables, 0); 
+	lastSubjId = (oid *) malloc (sizeof(oid) * cstablestat->numTables); 
+	initArray(lastSubjId, cstablestat->numTables, 0); 
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
@@ -3374,14 +3420,15 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	
 	printPropStat(propStat); 
 
-	if (RDFdistTriplesToCSs(ret, &sNewBat->batCacheid, &pNewBat->batCacheid, &oNewBat->batCacheid, propStat, cstable) != MAL_SUCCEED){
+	if (RDFdistTriplesToCSs(ret, &sNewBat->batCacheid, &pNewBat->batCacheid, &oNewBat->batCacheid, propStat, cstablestat) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in distributing triples to BATs using CSs");		
 	}
 		
 	freeCSset(freqCSset); 
 	free(subjCSMap); 
 	free(csTblIdxMapping);
-	
+	freeCStableStat(cstablestat); 
+
 	BBPreclaim(lmap);
 	BBPreclaim(rmap); 
 	BBPreclaim(sbat);

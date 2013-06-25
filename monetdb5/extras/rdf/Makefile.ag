@@ -21,6 +21,7 @@ INCLUDES = ../../modules/atoms ../../modules/mal ../../mal \
 		   ../../../common/options \
 		   ../../../common/stream \
 		   ../../../gdk \
+		   ../../../sql/include \
 		   $(raptor_CFLAGS)
 
 MTSAFE

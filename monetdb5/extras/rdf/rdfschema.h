@@ -20,6 +20,8 @@
 #ifndef _RDFSCHEMA_H_
 #define _RDFSCHEMA_H_
 
+#include <sql_catalog.h>
+
 rdf_export str
 RDFSchemaExplore(int *ret, str *tbname, str *clname);
 
@@ -174,16 +176,24 @@ typedef struct CSmergeRel{
 	int  numAllocation;
 } CSmergeRel;
 
+/*
 typedef struct CStable {
-	bat**   lstbatid;
-	int	numTables;
-	int*	numPropPerTable; 
-	//int* 	freqIdx; 	//Idx of the corresponding freqCS for a table
-	oid*	lastInsertedS; 
+	BAT**	colBats; 
 } CStable; 
+*/
+
+typedef struct CStableStat {
+	bat**   	lstbatid;
+	int		numTables;
+	int*		numPropPerTable; 
+	//int* 		freqIdx; 	//Idx of the corresponding freqCS for a table
+	oid*		lastInsertedS;
+	//sql_schema*	schema; 	
+	//CStable*	cstable; 
+} CStableStat; 
 
 
 rdf_export str
-RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStable *cstable);
+RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat);
 
 #endif /* _RDFSCHEMA_H_ */
