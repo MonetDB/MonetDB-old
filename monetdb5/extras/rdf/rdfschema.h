@@ -34,8 +34,7 @@ RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid);
 rdf_export str 
 RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *freqCSset, oid **subjCSMap, oid *maxCSoid);
 
-rdf_export str
-RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold);
+
 
 
 
@@ -176,11 +175,13 @@ typedef struct CSmergeRel{
 	int  numAllocation;
 } CSmergeRel;
 
-/*
+
 typedef struct CStable {
 	BAT**	colBats; 
+	int	numCol; 
 } CStable; 
-*/
+
+
 
 typedef struct CStableStat {
 	bat**   	lstbatid;
@@ -189,11 +190,17 @@ typedef struct CStableStat {
 	//int* 		freqIdx; 	//Idx of the corresponding freqCS for a table
 	oid*		lastInsertedS;
 	//sql_schema*	schema; 	
-	//CStable*	cstable; 
+	CStable*	lstcstable; 
 } CStableStat; 
 
 
 rdf_export str
 RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat);
+
+rdf_export str
+RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold);
+
+rdf_export void
+freeCStableStat(CStableStat *cstablestat); 
 
 #endif /* _RDFSCHEMA_H_ */

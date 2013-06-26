@@ -7594,6 +7594,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int *threshold = (int *) getArgReference(stk,pci,3);
 	sql_schema *sch; 
 	int ret = 0; 
+	CStableStat *cstablestat; 
 
 	str msg;
 	BAT	*sbat, *pbat, *obat, *mbat; 
@@ -7608,13 +7609,19 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	obat = mvc_bind(m, *schema, *tbname, "object",0);
 	mbat = mvc_bind(m, *schema, "map0", "lexical",0);
 
-	rethrow("sql.rdfreorganize", msg, RDFreorganize(&ret, &sbat->batCacheid, &pbat->batCacheid, 
+	cstablestat = (CStableStat *) malloc (sizeof (CStableStat));
+
+	rethrow("sql.rdfreorganize", msg, RDFreorganize(&ret, cstablestat, &sbat->batCacheid, &pbat->batCacheid, 
 				&obat->batCacheid, &mbat->batCacheid, threshold));
+
+	
 
 	BBPunfix(sbat->batCacheid); 
 	BBPunfix(pbat->batCacheid);
 	BBPunfix(obat->batCacheid); 
 	BBPunfix(mbat->batCacheid);
+	
+	freeCStableStat(cstablestat); 
 
 	return MAL_SUCCEED; 
 }

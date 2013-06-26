@@ -3079,16 +3079,16 @@ str triplesubsort(BAT **sbat, BAT **pbat, BAT **obat){
 }
 
 static
-CStableStat* initCStablesAndIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping){
+void initCStablesAndIdxMapping(CStableStat* cstablestat, CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping){
 
-	int 		i, k; 
+	int 		i,j, k; 
 	CS 		cs;
-	CStableStat* 	cstablestat; 
+	//CStableStat* 	cstablestat; 
 	int		tmpParentidx; 
 	int		tmpNumProp; 
 	//str *schema =   "rdfro";
 
-	cstablestat = (CStableStat *) malloc (sizeof (CStableStat));
+	//cstablestat = (CStableStat *) malloc (sizeof (CStableStat));
 	
 	// Get the number of tables 
 	k = 0; 
@@ -3105,7 +3105,7 @@ CStableStat* initCStablesAndIdxMapping(CSset* freqCSset, int* csTblIdxMapping, i
 	cstablestat->lstbatid = (bat**) malloc(sizeof (bat*) * k); 
 	cstablestat->numPropPerTable = (int*) malloc(sizeof (int) * k); 
 	cstablestat->lastInsertedS = (oid*) malloc(sizeof(oid) * k);
-	//cstablestat->cstable = (CStable*) malloc(sizeof(CStable) * k); 
+	cstablestat->lstcstable = (CStable*) malloc(sizeof(CStable) * k); 
 
 	k = 0; 
 	for (i = 0; i < freqCSset->numCSadded; i++){
@@ -3113,6 +3113,13 @@ CStableStat* initCStablesAndIdxMapping(CSset* freqCSset, int* csTblIdxMapping, i
 			tmpNumProp = freqCSset->items[i].numProp; 
 			cstablestat->numPropPerTable[k] = tmpNumProp; 
 			cstablestat->lstbatid[k] = (bat*) malloc (sizeof(bat) * tmpNumProp);  
+			cstablestat->lstcstable[k].numCol = tmpNumProp;
+			cstablestat->lstcstable[k].colBats = (BAT**)malloc(sizeof(BAT*) * tmpNumProp); 
+			
+			for(j = 0; j < tmpNumProp; j++){
+				cstablestat->lstcstable[k].colBats[j] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+				//TODO: use exact aount for each BAT
+			}
 
 			k++; 
 		}
@@ -3139,23 +3146,29 @@ CStableStat* initCStablesAndIdxMapping(CSset* freqCSset, int* csTblIdxMapping, i
 	}
 
 
-	return cstablestat; 
+	//return cstablestat; 
 
 }
 
-static 
 void freeCStableStat(CStableStat* cstablestat){
-	int i; 
+	int i,j; 
 
 	for (i = 0; i < cstablestat->numTables; i++){
 		free(cstablestat->lstbatid[i]); 
+		for (j = 0; j < cstablestat->numPropPerTable[i];j++){
+			BBPunfix(cstablestat->lstcstable[i].colBats[j]->batCacheid); 
+		}
+		free(cstablestat->lstcstable[i].colBats);
 	}
+
 	free(cstablestat->lstbatid); 
+	free(cstablestat->lstcstable); 
 	free(cstablestat->lastInsertedS);
 	free(cstablestat->numPropPerTable);
 	free(cstablestat); 
 }
 
+/*
 static str
 creatPBats(BAT** setofBats, Postinglist ptl, int HeadType, int TailType){
 	int 	i; 
@@ -3170,7 +3183,7 @@ creatPBats(BAT** setofBats, Postinglist ptl, int HeadType, int TailType){
 
 	return MAL_SUCCEED; 
 }
-
+*/
 /*
 static str
 savePBats(BAT** setofBats, Postinglist ptl, CStableStat* cstablestat){
@@ -3191,6 +3204,15 @@ savePBats(BAT** setofBats, Postinglist ptl, CStableStat* cstablestat){
 }
 */
 
+static
+void updateTblIdxPropIdxMap(int* tblIdxPropColumIdxMapping, int* lstCSIdx,int* lstInvertIdx,int numTblperPos){
+	int i; 
+	for (i = 0; i < numTblperPos; i++){
+		tblIdxPropColumIdxMapping[lstCSIdx[i]] = lstInvertIdx[i];
+	}
+
+}
+
 str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat){
 	BAT *sbat = NULL, *pbat = NULL, *obat = NULL; 
 	BATiter si,pi,oi; 
@@ -3199,8 +3221,16 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	oid lastP, lastS; 
 	int	tblIdx; 
 	BUN	ppos; 
-
-	BAT**	setofBats = NULL;
+	int*	tmpTblIdxPropIdxMap;	//For each property, this maps the table Idx (in the posting list
+					// of that property to the position of that property in the
+					// list of that table's properties
+	Postinglist tmpPtl; 
+	int	tmpColIdx = -1; 
+	BUN	bun; 
+	int	i,j; 
+	
+	(void) bun; 
+	//BAT**	setofBats = NULL;
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
@@ -3219,38 +3249,65 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	pi = bat_iterator(pbat); 
 	oi = bat_iterator(obat);
 	
+	tmpTblIdxPropIdxMap = (int*)malloc(sizeof(int) * cstablestat->numTables);
+	initIntArray(tmpTblIdxPropIdxMap, cstablestat->numTables, -1); 
+
 	lastP = BUN_NONE; 
+	lastS = BUN_NONE; 
 	
 	printf("Created cstablestat with %d tables \n", cstablestat->numTables);
 
-	setofBats = (BAT**)malloc(sizeof(BAT*) * cstablestat->numTables); 
+	//setofBats = (BAT**)malloc(sizeof(BAT*) * cstablestat->numTables); 
 
 	BATloop(pbat, p, q){
 		pbt = (oid *) BUNtloc(pi, p);
 		sbt = (oid *) BUNtloc(si, p);
 		obt = (oid *) BUNtloc(oi, p);
+
+
 		if (*pbt != lastP){
 			//Get number of BATs for this p
 			ppos = BUNfnd(BATmirror(propStat->pBat),pbt);
 			if (ppos == BUN_NONE)
 				throw(RDF, "rdf.RDFdistTriplesToCSs", "This prop must be in propStat bat");
 
-
+			tmpPtl =  propStat->plCSidx[ppos];
+			updateTblIdxPropIdxMap(tmpTblIdxPropIdxMap, 
+					tmpPtl.lstIdx, tmpPtl.lstInvertIdx,tmpPtl.numAdded);
 			//init set of BATs containing this property
-			if (creatPBats(setofBats, propStat->plCSidx[ppos], TYPE_void, TYPE_oid) != MAL_SUCCEED){
-				throw(RDF, "rdf.RDFdistTriplesToCSs", "Problem in creating set of bats for a P");
-			}
-			
-			tblIdx = getTblidFromSoid(*sbt);			
-			printf("Table for prop " BUNFMT " | obj " BUNFMT "is %d \n",*pbt, *obt, tblIdx); 
+			//
+			//if (creatPBats(setofBats, propStat->plCSidx[ppos], TYPE_void, TYPE_oid) != MAL_SUCCEED){
+			//	throw(RDF, "rdf.RDFdistTriplesToCSs", "Problem in creating set of bats for a P");
+			//}
 			
 			lastP = *pbt; 
 		}
-		else if (*sbt != lastS){ 
-			lastS = *sbt; 
+		else{
+			if (*sbt == lastS){ 	//multi-values prop
+				printf("Multi values prop \n"); 
+				continue; 				
+			}
+			else{
+				lastS = *sbt; 	
+			}
 		}
 
-		
+		tblIdx = getTblidFromSoid(*sbt);		
+
+		tmpColIdx = tmpTblIdxPropIdxMap[tblIdx]; 
+
+		printf(BUNFMT": Table %d | column %d  for prop " BUNFMT " | sub " BUNFMT " | obj " BUNFMT "\n",p, tblIdx, 
+							tmpColIdx, *pbt, *sbt, *obt); 
+
+		//TODO: Check last subjectId for this prop. If the subjectId is not continuous, insert NIL
+		BUNappend(cstablestat->lstcstable[tblIdx].colBats[tmpColIdx], obt, TRUE); 
+	}
+
+	//Keep the batCacheId
+	for (i = 0; i < cstablestat->numTables; i++){
+		for (j = 0; j < cstablestat->numPropPerTable[i];j++){
+			cstablestat->lstbatid[i][j] = cstablestat->lstcstable[i].colBats[j]->batCacheid; 
+		}
 	}
 
 	*ret = 1; 
@@ -3258,12 +3315,13 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	BBPunfix(sbat->batCacheid);
 	BBPunfix(pbat->batCacheid);
 	BBPunfix(obat->batCacheid);
+	free(tmpTblIdxPropIdxMap); 
 
 	return MAL_SUCCEED; 
 }
 
 str
-RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold){
+RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold){
 
 	CSset		*freqCSset; 	/* Set of frequent CSs */
 	oid		*subjCSMap = NULL;  	/* Store the corresponding CS Id for each subject */
@@ -3284,7 +3342,7 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	int		*mTblIdxFreqIdxMapping;  /* Invert of mfreqIdxTblIdxMapping */
 	PropStat	*propStat; 
 	int		numdistinctMCS = 0; 
-	CStableStat	*cstablestat;
+	//CStableStat	*cstablestat;
 
 	freqCSset = initCSset();
 
@@ -3304,7 +3362,7 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	initIntArray(mTblIdxFreqIdxMapping , freqCSset->numCSadded, -1);
 
 	//Mapping from from CSId to TableIdx 
-	cstablestat = initCStablesAndIdxMapping(freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping);
+	initCStablesAndIdxMapping(cstablestat, freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping);
 
 	lastSubjId = (oid *) malloc (sizeof(oid) * cstablestat->numTables); 
 	initArray(lastSubjId, cstablestat->numTables, 0); 
@@ -3323,6 +3381,9 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 		BBPreleaseref(obat->batCacheid);
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
 	}
+
+	BATprint(sbat); 
+	BATprint(pbat); 
 
 	sNewBat = BATnew(TYPE_void, TYPE_oid, BATcount(sbat));
 	if (sNewBat== NULL) {
@@ -3412,9 +3473,9 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	}	
 	printf("Done  \n");
 
-	BATprint(pNewBat);
+	//BATprint(pNewBat);
 
-	BATprint(sNewBat);
+	//BATprint(sNewBat);
 
 	propStat = getPropStatisticsByTable(freqCSset,mfreqIdxTblIdxMapping, &numdistinctMCS); 
 	
@@ -3427,7 +3488,7 @@ RDFreorganize(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, in
 	freeCSset(freqCSset); 
 	free(subjCSMap); 
 	free(csTblIdxMapping);
-	freeCStableStat(cstablestat); 
+	//freeCStableStat(cstablestat); 
 
 	BBPreclaim(lmap);
 	BBPreclaim(rmap); 

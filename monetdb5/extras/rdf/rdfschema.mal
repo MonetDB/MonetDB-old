@@ -34,6 +34,7 @@ command rdfextractCSwithTypes( sbat:bat[:any_1,:oid], pbat:bat[:any_2,:oid], oba
 address RDFextractCSwithTypes
 comment "Extract Characteristic sets from SPO table. While extracting CSs, detect the object type";
 
+#TODO: The list of parameters for this function is not correct any more sice it has been changed for the fucntion in sql.mx  												   
 command rdfreorganize( sbat:bat[:any_1,:oid], pbat:bat[:any_2,:oid], obat:bat[:any_3,:oid], mbat:bat[:any_4,:str], freqThreshold:int ) :void
 address RDFreorganize
 comment "Re-organize RDF triple store using the characteristic sets";
