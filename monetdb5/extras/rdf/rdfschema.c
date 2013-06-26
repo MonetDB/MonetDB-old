@@ -3034,12 +3034,14 @@ BAT* getOriginalOBat(BAT *obat){
 }
 
 static 
-int getTblidFromSoid(oid Soid){
-	int	freqCSid; 	
+void getTblidFromSoid(oid Soid, int *tbidx, oid *baseSoid){
+	//int	freqCSid; 	
 	
-	freqCSid = (int) ((Soid >> (sizeof(BUN)*8 - NBITS_FOR_CSID))  &  ((1 << (NBITS_FOR_CSID-1)) - 1)) ;	
+	*tbidx = (int) ((Soid >> (sizeof(BUN)*8 - NBITS_FOR_CSID))  &  ((1 << (NBITS_FOR_CSID-1)) - 1)) ;	
+
+	*baseSoid = Soid - ((oid) (*tbidx) << (sizeof(BUN)*8 - NBITS_FOR_CSID));
 	
-	return freqCSid; 
+	//return freqCSid; 
 }
 
 static
@@ -3219,7 +3221,8 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	BUN p,q; 
 	oid *pbt, *sbt, *obt;
 	oid lastP, lastS; 
-	int	tblIdx; 
+	int	tblIdx = -1; 
+	oid	tmpSoid = BUN_NONE; 
 	BUN	ppos; 
 	int*	tmpTblIdxPropIdxMap;	//For each property, this maps the table Idx (in the posting list
 					// of that property to the position of that property in the
@@ -3228,7 +3231,8 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	int	tmpColIdx = -1; 
 	BUN	bun; 
 	int	i,j; 
-	
+	BAT	*curBat; 
+
 	(void) bun; 
 	//BAT**	setofBats = NULL;
 
@@ -3292,15 +3296,17 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 			}
 		}
 
-		tblIdx = getTblidFromSoid(*sbt);		
+		getTblidFromSoid(*sbt, &tblIdx, &tmpSoid);		
 
 		tmpColIdx = tmpTblIdxPropIdxMap[tblIdx]; 
 
 		printf(BUNFMT": Table %d | column %d  for prop " BUNFMT " | sub " BUNFMT " | obj " BUNFMT "\n",p, tblIdx, 
-							tmpColIdx, *pbt, *sbt, *obt); 
+							tmpColIdx, *pbt, tmpSoid, *obt); 
 
 		//TODO: Check last subjectId for this prop. If the subjectId is not continuous, insert NIL
-		BUNappend(cstablestat->lstcstable[tblIdx].colBats[tmpColIdx], obt, TRUE); 
+		curBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
+		
+		BUNappend(curBat, obt, TRUE); 
 	}
 
 	//Keep the batCacheId
@@ -3365,7 +3371,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	initCStablesAndIdxMapping(cstablestat, freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping);
 
 	lastSubjId = (oid *) malloc (sizeof(oid) * cstablestat->numTables); 
-	initArray(lastSubjId, cstablestat->numTables, 0); 
+	initArray(lastSubjId, cstablestat->numTables, -1); 
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
@@ -3417,22 +3423,23 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 		if (tblIdx != BUN_NONE){
 
-			newId = lastSubjId[tblIdx];
-			newId |= (BUN)tblIdx << (sizeof(BUN)*8 - NBITS_FOR_CSID);
-
 			if (lastS != *sbt){	//new subject
 				lastS = *sbt; 
+
+				newId = lastSubjId[tblIdx] + 1;
+				newId |= (BUN)tblIdx << (sizeof(BUN)*8 - NBITS_FOR_CSID);
 
 				l = *sbt; 
 				r = newId; 
 
 				lmap = BUNappend(lmap, &l, TRUE);
 				rmap = BUNappend(rmap, &r, TRUE);
-				lastSubjId[tblIdx]++;
+
+				lastSubjId[tblIdx] = newId;
 			}
 
 		}
-		else{	// Use original subject Id
+		else{	// Does not belong to a freqCS. Use original subject Id
 			newId = *sbt; 
 		}
 

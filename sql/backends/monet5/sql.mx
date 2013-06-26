@@ -7595,6 +7595,11 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_schema *sch; 
 	int ret = 0; 
 	CStableStat *cstablestat; 
+	char	tmptbname[100]; 
+	char	tmpcolname[100]; 
+	sql_subtype tpe; 
+	sql_table	**cstables; 
+	int 	i, j; 
 
 	str msg;
 	BAT	*sbat, *pbat, *obat, *mbat; 
@@ -7615,6 +7620,34 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				&obat->batCacheid, &mbat->batCacheid, threshold));
 
 	
+	cstables = (sql_table **)malloc(sizeof(sql_table*) * cstablestat->numTables);
+
+	// Put to SQL tables
+	sql_find_subtype(&tpe, "oid", 31, 0);
+
+	for (i = 0; i < cstablestat->numTables; i++){
+		sprintf(tmptbname, "cstable%d",i);
+		cstables[i] = mvc_create_table(m, sch, tmptbname, tt_table, 0,
+				   SQL_PERSIST, 0, 3);
+		
+		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
+			//TODO: Use propertyId from Propstat
+			sprintf(tmpcolname, "col%d",j);
+			mvc_create_column(m, cstables[i], tmpcolname,  &tpe);
+			printf("Create column for %d for table %d \n", j, i);
+		}
+
+		//Add data
+		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
+			sprintf(tmpcolname, "col%d",j);
+                	store_funcs.append_col(m->session->tr,
+					mvc_bind_column(m, cstables[i],tmpcolname ), 
+					cstablestat->lstcstable[i].colBats[j], TYPE_bat);
+
+			printf("Create column for %d for table %d - sizeofbat " BUNFMT " \n", j, i, BATcount(cstablestat->lstcstable[i].colBats[j]));
+		}
+	}
+
 
 	BBPunfix(sbat->batCacheid); 
 	BBPunfix(pbat->batCacheid);
@@ -7622,6 +7655,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BBPunfix(mbat->batCacheid);
 	
 	freeCStableStat(cstablestat); 
+	free(cstables); 
 
 	return MAL_SUCCEED; 
 }
