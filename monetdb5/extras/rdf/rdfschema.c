@@ -1129,7 +1129,7 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 			for (j = 0; j < cs.numProp; j++){
 				takeOid(cs.lstProp[j], &propStr);
 				//fprintf(fout, "  P:" BUNFMT " --> ", cs.lstProp[j]);	
-				fprintf(fout, "  P:%s --> ", propStr);	
+				fprintf(fout, "  P(" BUNFMT "):%s --> ", cs.lstProp[j],propStr);	
 				if (cs.type == MAXCS){
 					fprintf(fout2, "  P:%s --> ", propStr);
 				}
@@ -3106,7 +3106,9 @@ void initCStablesAndIdxMapping(CStableStat* cstablestat, CSset* freqCSset, int* 
 	cstablestat->numTables = k; 
 	cstablestat->lstbatid = (bat**) malloc(sizeof (bat*) * k); 
 	cstablestat->numPropPerTable = (int*) malloc(sizeof (int) * k); 
-	cstablestat->lastInsertedS = (oid*) malloc(sizeof(oid) * k);
+
+	cstablestat->lastInsertedS = (oid**) malloc(sizeof(oid*) * k);
+
 	cstablestat->lstcstable = (CStable*) malloc(sizeof(CStable) * k); 
 
 	k = 0; 
@@ -3115,6 +3117,7 @@ void initCStablesAndIdxMapping(CStableStat* cstablestat, CSset* freqCSset, int* 
 			tmpNumProp = freqCSset->items[i].numProp; 
 			cstablestat->numPropPerTable[k] = tmpNumProp; 
 			cstablestat->lstbatid[k] = (bat*) malloc (sizeof(bat) * tmpNumProp);  
+			cstablestat->lastInsertedS[k] = (oid*) malloc(sizeof(oid) * tmpNumProp); 
 			cstablestat->lstcstable[k].numCol = tmpNumProp;
 			cstablestat->lstcstable[k].colBats = (BAT**)malloc(sizeof(BAT*) * tmpNumProp); 
 			
@@ -3157,6 +3160,7 @@ void freeCStableStat(CStableStat* cstablestat){
 
 	for (i = 0; i < cstablestat->numTables; i++){
 		free(cstablestat->lstbatid[i]); 
+		free(cstablestat->lastInsertedS[i]); 
 		for (j = 0; j < cstablestat->numPropPerTable[i];j++){
 			BBPunfix(cstablestat->lstcstable[i].colBats[j]->batCacheid); 
 		}
@@ -3164,8 +3168,8 @@ void freeCStableStat(CStableStat* cstablestat){
 	}
 
 	free(cstablestat->lstbatid); 
+	free(cstablestat->lastInsertedS); 
 	free(cstablestat->lstcstable); 
-	free(cstablestat->lastInsertedS);
 	free(cstablestat->numPropPerTable);
 	free(cstablestat); 
 }
@@ -3231,7 +3235,10 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	int	tmpColIdx = -1; 
 	BUN	bun; 
 	int	i,j; 
-	BAT	*curBat; 
+	BAT	*curBat;
+	oid	tmplastInsertedS; 
+	oid	k; 
+
 
 	(void) bun; 
 	//BAT**	setofBats = NULL;
@@ -3285,6 +3292,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 			//}
 			
 			lastP = *pbt; 
+			lastS = *sbt; 
 		}
 		else{
 			if (*sbt == lastS){ 	//multi-values prop
@@ -3303,10 +3311,21 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 		printf(BUNFMT": Table %d | column %d  for prop " BUNFMT " | sub " BUNFMT " | obj " BUNFMT "\n",p, tblIdx, 
 							tmpColIdx, *pbt, tmpSoid, *obt); 
 
-		//TODO: Check last subjectId for this prop. If the subjectId is not continuous, insert NIL
 		curBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
+		tmplastInsertedS = cstablestat->lastInsertedS[tblIdx][tmpColIdx];
 		
+		//TODO: Check last subjectId for this prop. If the subjectId is not continuous, insert NIL
+		if (tmpSoid > (tmplastInsertedS + 1)){	
+			for (k = tmplastInsertedS; k < tmpSoid-1; k++){
+				bun = BUN_NONE; 
+				BUNappend(curBat,&bun , TRUE);
+			}
+		}
+
 		BUNappend(curBat, obt, TRUE); 
+
+		//Update last inserted S
+		cstablestat->lastInsertedS[tblIdx][tmpColIdx] = tmpSoid;
 	}
 
 	//Keep the batCacheId
@@ -3389,7 +3408,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	}
 
 	BATprint(sbat); 
-	BATprint(pbat); 
+	//BATprint(pbat); 
 
 	sNewBat = BATnew(TYPE_void, TYPE_oid, BATcount(sbat));
 	if (sNewBat== NULL) {
@@ -3473,16 +3492,18 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	//BATprint(oNewBat);
 	printf("Done! \n");
-	
+	printf("sNewBat before sorting by P \n"); 
+	BATprint(sNewBat);
 	printf("Sort triple table according to P, S, O order ... ");
 	if (triplesubsort(&pNewBat, &sNewBat, &oNewBat) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in sorting PSO");	
 	}	
 	printf("Done  \n");
 
-	//BATprint(pNewBat);
-
-	//BATprint(sNewBat);
+	printf("pNewBat after sorting by P \n"); 
+	BATprint(pNewBat);
+	printf("sNewBat after sorting by P \n"); 
+	BATprint(sNewBat);
 
 	propStat = getPropStatisticsByTable(freqCSset,mfreqIdxTblIdxMapping, &numdistinctMCS); 
 	

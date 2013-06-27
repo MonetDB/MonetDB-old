@@ -188,7 +188,7 @@ typedef struct CStableStat {
 	int		numTables;
 	int*		numPropPerTable; 
 	//int* 		freqIdx; 	//Idx of the corresponding freqCS for a table
-	oid*		lastInsertedS;
+	oid**		lastInsertedS;	//Last S for each column
 	//sql_schema*	schema; 	
 	CStable*	lstcstable; 
 } CStableStat; 
