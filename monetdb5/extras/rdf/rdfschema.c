@@ -3219,7 +3219,21 @@ void updateTblIdxPropIdxMap(int* tblIdxPropColumIdxMapping, int* lstCSIdx,int* l
 
 }
 
-str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat){
+static 
+void fillMissingvalues(BAT* curBat, oid lastSubjId){
+	oid k; 
+	BUN bun; 
+	//Insert nil values to the last column if it does not have the same
+	//size as the table
+	if (curBat != NULL){
+		for(k = BATcount(curBat) -1; k < lastSubjId; k++){
+			bun = oid_nil; 
+			BUNappend(curBat,&bun , TRUE);
+		}
+	}
+}
+
+str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat, oid* lastSubjId){
 	BAT *sbat = NULL, *pbat = NULL, *obat = NULL; 
 	BATiter si,pi,oi; 
 	BUN p,q; 
@@ -3233,9 +3247,11 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 					// list of that table's properties
 	Postinglist tmpPtl; 
 	int	tmpColIdx = -1; 
+	int	lasttblIdx = -1; 
+	int	lastColIdx = -1; 
 	BUN	bun; 
 	int	i,j; 
-	BAT	*curBat;
+	BAT	*curBat = NULL;
 	oid	tmplastInsertedS; 
 	oid	k; 
 
@@ -3277,6 +3293,8 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 
 
 		if (*pbt != lastP){
+			fillMissingvalues(curBat, lastSubjId[tblIdx]); 
+			
 			//Get number of BATs for this p
 			ppos = BUNfnd(BATmirror(propStat->pBat),pbt);
 			if (ppos == BUN_NONE)
@@ -3308,8 +3326,11 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 
 		tmpColIdx = tmpTblIdxPropIdxMap[tblIdx]; 
 
-		printf(BUNFMT": Table %d | column %d  for prop " BUNFMT " | sub " BUNFMT " | obj " BUNFMT "\n",p, tblIdx, 
-							tmpColIdx, *pbt, tmpSoid, *obt); 
+		if (tmpColIdx != lastColIdx || lasttblIdx != tblIdx){
+			fillMissingvalues(curBat, lastSubjId[lasttblIdx]);
+			lastColIdx = tmpColIdx; 
+			lasttblIdx = tblIdx; 
+		}
 
 		curBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
 		tmplastInsertedS = cstablestat->lastInsertedS[tblIdx][tmpColIdx];
@@ -3317,18 +3338,23 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 		//TODO: Check last subjectId for this prop. If the subjectId is not continuous, insert NIL
 		if (tmpSoid > (tmplastInsertedS + 1)){	
 			for (k = tmplastInsertedS; k < tmpSoid-1; k++){
-				bun = BUN_NONE; 
+				printf("	Add nil value \n");
+				bun = oid_nil; 
 				BUNappend(curBat,&bun , TRUE);
 			}
 		}
 
 		BUNappend(curBat, obt, TRUE); 
 
+		printf(BUNFMT": Table %d | column %d  for prop " BUNFMT " | sub " BUNFMT " | obj " BUNFMT "\n",p, tblIdx, 
+							tmpColIdx, *pbt, tmpSoid, *obt); 
 		//Update last inserted S
 		cstablestat->lastInsertedS[tblIdx][tmpColIdx] = tmpSoid;
 	}
 
-	//Keep the batCacheId
+	fillMissingvalues(curBat, lastSubjId[tblIdx]); 
+
+	// Keep the batCacheId
 	for (i = 0; i < cstablestat->numTables; i++){
 		for (j = 0; j < cstablestat->numPropPerTable[i];j++){
 			cstablestat->lstbatid[i][j] = cstablestat->lstcstable[i].colBats[j]->batCacheid; 
@@ -3454,7 +3480,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 				lmap = BUNappend(lmap, &l, TRUE);
 				rmap = BUNappend(rmap, &r, TRUE);
 
-				lastSubjId[tblIdx] = newId;
+				lastSubjId[tblIdx]++;
 			}
 
 		}
@@ -3509,13 +3535,14 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	
 	printPropStat(propStat); 
 
-	if (RDFdistTriplesToCSs(ret, &sNewBat->batCacheid, &pNewBat->batCacheid, &oNewBat->batCacheid, propStat, cstablestat) != MAL_SUCCEED){
+	if (RDFdistTriplesToCSs(ret, &sNewBat->batCacheid, &pNewBat->batCacheid, &oNewBat->batCacheid, propStat, cstablestat,lastSubjId) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in distributing triples to BATs using CSs");		
 	}
 		
 	freeCSset(freqCSset); 
 	free(subjCSMap); 
 	free(csTblIdxMapping);
+	free(lastSubjId);
 	//freeCStableStat(cstablestat); 
 
 	BBPreclaim(lmap);
