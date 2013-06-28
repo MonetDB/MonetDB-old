@@ -23,6 +23,7 @@
 #include "rdf.h"
 #include "rdfschema.h"
 #include "rdflabels.h"
+#include "rdfretrieval.h"
 #include "algebra.h"
 #include <gdk.h>
 #include <hashmap/hashmap.h>
@@ -3011,6 +3012,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	Labels		*labels;
 
+	int		*subSchema = NULL;
+	int		subSchemaCount = 0;
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
@@ -3166,6 +3169,18 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	labels = createLabels(freqCSset, csRelBetweenMergeFreqSet, sbat, si, pi, oi, *subjCSMap, mbat, csIdFreqIdxMap, *freqThreshold, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount);
 
 	freeLabels(labels, freqCSset);
+
+
+
+	// Phase 4: Retrieval
+
+	subSchema = retrieval1(15451, 20, &subSchemaCount, freqCSset, csRelBetweenMergeFreqSet); // example for dbpadia data set, frequency threshold 10
+	//subSchema = retrieval2(15451, 20, &subSchemaCount, freqCSset, csRelBetweenMergeFreqSet);
+	//subSchema = retrieval2(15451, 20, &subSchemaCount, freqCSset, csRelBetweenMergeFreqSet);
+
+	(void) subSchema; // TODO use
+
+	free(subSchema);
 
 
 
