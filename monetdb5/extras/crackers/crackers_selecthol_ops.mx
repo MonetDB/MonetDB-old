@@ -74,6 +74,8 @@ crackers_export str CRKthetauselecthol_@1(int *vid, int *bid, @1 *val, str *op);
 #include "monetdb_config.h"
 #include "crackers.h"
 
+#define dt(a,b) (b.tv_sec - a.tv_sec + (b.tv_usec - a.tv_usec) * 1e-6)
+
 /* Local support functions and macros */
 @:TypeSwitch(crackOperations)@
 
@@ -302,7 +304,8 @@ createView:
 	bit rippledDeletions = FALSE;
 	struct Node *lowNode=NULL, *hghNode=NULL, *lowNodeNext=NULL, *temp;
 	BUN idxFirst;
-
+	struct timeval tv0, tv1;
+	double wt=0, ct=0;
 	bit copy=TRUE;
 	
 	int countBatElements=0;
@@ -326,7 +329,12 @@ createView:
 	if ((bo = BATdescriptor(*bid)) != NULL)
 		L1=32000/ATOMsize(bo->ttype);	
 
+
+	gettimeofday(&tv0,0);
+	
 	MT_lock_set(&CRKIndexLock,"Cracker Index Lock");	
+
+	gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 
 	/*if (@2_GT(low,hgh,@3@1))
 		throw(MAL, "crackers.crack", "illegal range");*/
@@ -388,6 +396,9 @@ createView:
 			printFrequencyStruct(FrequencyStructA);
 			BBPincref(b->batCacheid,TRUE);
 			BBPunfix(bo->batCacheid);
+			
+			gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+			fprintf(stderr,"Wait time: %9.6lf Selection time: %9.6lf\n",wt,ct);
 			goto createView;
 		}
 		else{
@@ -431,6 +442,7 @@ createView:
 	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 	MT_lock_set(&CrackerIndex[m].columnLock,"Lock Attribute");
 
+	gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 
 	FN=searchBAT(FrequencyStructA,*bid);
 	
@@ -629,6 +641,8 @@ createView:
 	/*fprintf(ofp,"%d\n",FN->c);
 	fclose(ofp);*/
 
+	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+	fprintf(stderr,"Wait time: %9.6lf Selection time: %9.6lf\n",wt,ct);
 	@:CreateResult()@
 	return MAL_SUCCEED;
 @
