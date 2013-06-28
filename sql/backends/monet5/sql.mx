@@ -7599,6 +7599,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	char	tmpcolname[100]; 
 	sql_subtype tpe; 
 	sql_table	**cstables; 
+	sql_table 	*psotbl;
 	int 	i, j; 
 
 	str msg;
@@ -7625,6 +7626,24 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	// Put to SQL tables
 	sql_find_subtype(&tpe, "oid", 31, 0);
 
+	// Add irregular triples to pso tbale
+	psotbl = mvc_create_table(m, sch, "pso", tt_table, 0,
+			                                   SQL_PERSIST, 0, 3);
+	mvc_create_column(m, psotbl, "p",  &tpe);
+	mvc_create_column(m, psotbl, "s",  &tpe);
+	mvc_create_column(m, psotbl, "o",  &tpe);
+
+
+	store_funcs.append_col(m->session->tr,
+			mvc_bind_column(m, psotbl,"p" ), 
+			cstablestat->pbat, TYPE_bat);
+	store_funcs.append_col(m->session->tr,
+			mvc_bind_column(m, psotbl,"s" ), 
+			cstablestat->sbat, TYPE_bat);
+	store_funcs.append_col(m->session->tr,
+			mvc_bind_column(m, psotbl,"o" ), 
+			cstablestat->obat, TYPE_bat);
+	// Add regular triple to cstables
 	for (i = 0; i < cstablestat->numTables; i++){
 		sprintf(tmptbname, "cstable%d",i);
 		cstables[i] = mvc_create_table(m, sch, tmptbname, tt_table, 0,
@@ -7634,7 +7653,6 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			//TODO: Use propertyId from Propstat
 			sprintf(tmpcolname, "col%d",j);
 			mvc_create_column(m, cstables[i], tmpcolname,  &tpe);
-			printf("Create column for %d for table %d \n", j, i);
 		}
 
 		//Add data
@@ -7643,8 +7661,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
                 	store_funcs.append_col(m->session->tr,
 					mvc_bind_column(m, cstables[i],tmpcolname ), 
 					cstablestat->lstcstable[i].colBats[j], TYPE_bat);
-
-			printf("Create column for %d for table %d - sizeofbat " BUNFMT " \n", j, i, BATcount(cstablestat->lstcstable[i].colBats[j]));
+			//printf("Create column for %d for table %d - sizeofbat " BUNFMT " \n", j, i, BATcount(cstablestat->lstcstable[i].colBats[j]));
 		}
 	}
 

@@ -191,6 +191,9 @@ typedef struct CStableStat {
 	oid**		lastInsertedS;	//Last S for each column
 	//sql_schema*	schema; 	
 	CStable*	lstcstable; 
+	BAT*		pbat; 
+	BAT*		sbat; 
+	BAT*		obat; 
 } CStableStat; 
 
 
@@ -202,5 +205,9 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 rdf_export void
 freeCStableStat(CStableStat *cstablestat); 
+
+
+rdf_export void
+printPropStat(PropStat *propstat); 
 
 #endif /* _RDFSCHEMA_H_ */
