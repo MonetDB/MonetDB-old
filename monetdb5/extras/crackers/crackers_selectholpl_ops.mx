@@ -279,9 +279,10 @@ createView:
 
 @
 @= RangeSelectBody
-
+	@1 *t0;
+	unsigned long long sum = 0;
 	BAT *b,*c,*bo;
-	BAT *view;
+	//BAT *view;
 	int  m;
 	int *t;
 	int createIndex=0;
@@ -301,11 +302,11 @@ createView:
 	int gapL = 1;
 	int gapH = 1;
 	bit rippledDeletions = FALSE;
-	struct Node *lowNode=NULL, *hghNode=NULL, *lowNodeNext=NULL, *temp;
+	struct Node *lowNode=NULL, *hghNode=NULL, *lowNodeNext=NULL, *temp, *stopNode=NULL;
 	BUN idxFirst;
 	int firstRetry=0;
 	struct timeval tv0, tv1;
-	double wt=0, ct=0;
+	double wt=0, ct=0, st=0;
 	bit copy=TRUE;	
 	int countBatElements=0;
 	int L1=0; /*Number of elements that can fit into L1 cache (size: 32KB)*/	
@@ -313,7 +314,7 @@ createView:
 	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/experiments/stochastic/idle_time_2/pieces_holistic.txt";*/
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
-
+	(void) tail;
 
 	gettimeofday(&tv0,0);
 	
@@ -682,6 +683,9 @@ createView:
 	
 	tempcreateView:;
 
+	t0   = (@1 *)Tloc(b, BUNfirst(b));
+	*vid = 0;
+
 	posh = BUNlast(b)-1;
 	idxFirst = BUNfirst(c);
 
@@ -705,22 +709,45 @@ createView:
 		lowNodeNext = findNextPiece(lowNode);
 		vl = lowNode->indexPosition;
 	}
-	hghNode = lowNodeNext;
-	vh = hghNode? hghNode->indexPosition : posh;
 	pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 
 
 
-	if (!tail)
-		view = BATslice(VIEWhead_(b, BAT_READ), vl, vh+1);
-	else
-		view = BATslice(b, vl, vh+1);
+	while (1){
+		plock = (lowNode == NULL)? &CRKFirstPieceRWLock : &lowNode->pieceLock;
+		pthread_rwlock_rdlock(plock);
+		gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+		hghNode = (lowNode == NULL)? lowNodeNext : findNextPiece(lowNode);
+		vh = hghNode? hghNode->indexPosition : posh;
+		while (vl<=vh){
+			if (t0[vl] >= *low && t0[vl] < *hgh){
+				sum += t0[vl];
+				(*vid)++;
+			}
+			vl++;
+		}
+		pthread_rwlock_unlock(plock);
+		gettimeofday(&tv1,0); st+=dt(tv0,tv1); tv0=tv1;
+		if (!hghNode) break;
+		if (hghNode == stopNode) break;
+		lowNode = hghNode;
+		vl = vh+1;
+	}
 	
-	*vid = view->batCacheid;
-	BBPkeepref(*vid);
+	// verify the result
+	if (!(sum == ((unsigned long long) *hgh - *low) * ((unsigned long long) *hgh + *low - 1)/ 2)){
+		fprintf(stderr,"lo=%d, hi=%d, %llu, %llu\n",
+			(int) *low, (int) *hgh, (unsigned long long) sum, 
+			(unsigned long long) (((unsigned long long) *hgh - *low) * ((unsigned long long) *hgh + *low - 1)/ 2));
+		assert(0);
+	}
+	
 	BBPunfix(b->batCacheid);
 	BBPunfix(c->batCacheid);
+
+	if(*isIdleQuery==FALSE)
+		fprintf(stderr,"wt=%9.6lf ct=%9.6lf st=%9.6lf lo=%d, hi=%d sum=%llu\n",wt,ct,st,(int) *low, (int) *hgh,(unsigned long long) sum);
 
 	if (createIndex==1)
 	{
