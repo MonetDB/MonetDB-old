@@ -62,6 +62,7 @@ crackers_export str CRKselecthol_@1(int *vid, int *bid, @1 *low, @1 *hgh);
 crackers_export str CRKuselecthol_@1(int *vid, int *bid, @1 *low, @1 *hgh);
 crackers_export str CRKthetaselecthol_@1(int *vid, int *bid, @1 *val, str *op);
 crackers_export str CRKthetauselecthol_@1(int *vid, int *bid, @1 *val, str *op);
+crackers_export str CRKsumholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh);
 @
 
 @c
@@ -180,7 +181,10 @@ CRKthetauselecthol_@1(int *vid, int *bid, @1 *val, str *OP){
 
 	return CRKuselectholBounds_@1(vid, bid, low, high, &lin, &rin, &isIdleQuery);
 }
-
+str
+CRKsumholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh){
+	return CRKRangeSumTree_@1(vid, bid, low, hgh, inclusiveLow, inclusiveHgh, FALSE);
+}
 
 @
 
@@ -282,9 +286,9 @@ createView:
 @
 @= RangeSelectBody
 
-	@1 *t0;
+
 	BAT *b,*c,*bo;
-	//BAT *view;
+	BAT *view;
 	int  m;
 	int *t;
 	int createIndex=0;
@@ -303,19 +307,17 @@ createView:
 	int gapL = 1;
 	int gapH = 1;
 	bit rippledDeletions = FALSE;
-	struct Node *lowNode=NULL, *hghNode=NULL, *lowNodeNext=NULL, *temp, *stopNode;
+	struct Node *lowNode=NULL, *hghNode=NULL, *lowNodeNext=NULL, *temp;
 	BUN idxFirst;
 	struct timeval tv0, tv1;
-	double wt=0, ct=0,st=0;
+	double wt=0, ct=0;
 	bit copy=TRUE;
-	unsigned long long sum = 0;	
 	int countBatElements=0;
 	int L1=0; /*Number of elements that can fit into L1 cache (size: 32KB)*/
 	/*FILE *ofp;
 	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/experiments/stochastic/idle_time_2/pieces_holistic.txt";*/
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
-	(void) tail;
 
 	gettimeofday(&tv0,0);
 
@@ -395,8 +397,6 @@ createView:
 			BBPincref(b->batCacheid,TRUE);
 			BBPunfix(bo->batCacheid);
 			
-			gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-			fprintf(stderr,"Wait time: %9.6lf Selection time: %9.6lf\n",wt,ct);
 			goto tempcreateView;
 		}
 		else{
@@ -638,12 +638,85 @@ createView:
 
 	/*fprintf(ofp,"%d\n",FN->c);
 	fclose(ofp);*/
-
-	//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-	//fprintf(stderr,"Wait time: %9.6lf Selection time: %9.6lf\n",wt,ct);
+	
 	/*@:CreateResult()@*/
 
 	tempcreateView:;
+
+	if (!tail)
+		view = BATslice(VIEWhead_(b, BAT_READ), vl, vh+1);
+	else
+		view = BATslice(b, vl, vh+1);
+	
+	*vid = view->batCacheid;
+	BBPkeepref(*vid);
+	BBPunfix(b->batCacheid);
+	BBPunfix(c->batCacheid);
+	if (createIndex==1)
+	{
+		MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
+		createIndex=0;	
+	}
+	else
+		MT_lock_unset(&CrackerIndex[m].columnLock,"Lock Attribute");	
+
+	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+	if(*isIdleQuery==FALSE)
+		fprintf(stderr,"Wait time: %9.6lf Selection time: %9.6lf\n",wt,ct);
+
+	return MAL_SUCCEED;
+@
+@= RangeSumBody
+	int m;
+	@1 *t0;
+	BAT *b,*c;
+	int *t;
+	bit foundLow=0, foundHgh=0;
+	bit LBound=FALSE;
+	oid vl=0, vh=0, posh;
+	BUN idxFirst;
+	unsigned long long sum = 0;	
+	/* vl and vh are the low and high index values to create the view with the result */
+	oid cl1=0, ch1=0, cl2=0, ch2=0;
+	struct Node *lowNode=NULL, *hghNode=NULL, *lowNodeNext=NULL, *temp, *stopNode;
+	(void) tail;
+
+	m = existsCrackerIndex(*bid);
+	
+	if(m == -1)
+		throw(MAL, "crackers.crackRange", "Index does not exist");
+
+	/* Take the index of the bat */
+	if ((c = BATdescriptor(CrackerIndex[m].cid)) == NULL)
+		throw(MAL, "crackers.crackRange", "Cannot access crack index");
+
+	/* Take the copy of the bat for which we maintain the index */
+	if ((b = BATdescriptor(CrackerIndex[m].cbid)) == NULL)
+		throw(MAL, "crackers.crackRange", "Cannot access crack index");
+
+	MT_lock_set(&CrackerIndex[m].columnLock,"Lock Attribute");
+
+	/* find out where in the index the low falls */
+	foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
+
+	/* find out where in the index the high falls */
+	foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
+
+	/*need to increase one position for the low bound only since we always store the previous position in the index*/
+	if (cl1 != 0 && LBound==FALSE) cl1++;
+	if (cl2 != 0) cl2++;
+	
+	/* If one or both of the result view bounds were not found using the
+	index then we have to crack */
+	if (foundLow == 0 || foundHgh == 0) {
+		throw(MAL, "crackers.crackRange", "Range is not found in index.");
+	} else {
+		t = (int *) Tloc(b, BUNfirst(b));
+		vl = cl1;
+		if ((vl == 0) && (*t < *low) && (*inclusiveLow == TRUE))
+			vl = vl + 1;
+		vh = ch2;
+	}
 
 	t0   = (@1 *)Tloc(b, BUNfirst(b));
 	*vid = 0;
@@ -670,7 +743,6 @@ createView:
 
 	stopNode = findNodeH_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, idxFirst, NULL);
 
-	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 	
 	while (1){
 		hghNode = (lowNode == NULL)? lowNodeNext : findNextPiece(lowNode);
@@ -687,7 +759,6 @@ createView:
 		lowNode = hghNode;
 		vl = vh+1;
 	}
-	gettimeofday(&tv1,0); st+=dt(tv0,tv1); tv0=tv1;
 	
 	// verify the result
 	if (!(sum == ((unsigned long long) *hgh - *low) * ((unsigned long long) *hgh + *low - 1)/ 2)){
@@ -697,23 +768,11 @@ createView:
 		assert(0);
 	}
 	
+	fprintf(stderr,"sum=%llu \n",(unsigned long long) sum);
+
 	BBPunfix(b->batCacheid);
 	BBPunfix(c->batCacheid);
-
-	if(*isIdleQuery==FALSE)
-		fprintf(stderr,"wt=%9.6lf ct=%9.6lf st=%9.6lf lo=%d, hi=%d sum=%llu\n",wt,ct,st,(int) *low, (int) *hgh,(unsigned long long) sum);
-	
-	//fprintf(out,"%9.6lf %9.6lf %9.6lf\n",wt,ct,st);
-	//fclose(out);
-
-	if (createIndex==1)
-	{
-		MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
-		createIndex=0;	
-	}
-	else
-		MT_lock_unset(&CrackerIndex[m].columnLock,"Lock Attribute");	
-
+	MT_lock_unset(&CrackerIndex[m].columnLock,"Lock Attribute");
 	return MAL_SUCCEED;
 @
 @= crackOperations
@@ -1005,6 +1064,10 @@ the appropriate pieces, update the index and return the result */
 static str
 CRKRangeTree_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh, bit tail, bit *isIdleQuery){	
 	@:RangeSelectBody(@1,@2,@3,@4,)@
+}
+static str
+CRKRangeSumTree_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh, bit tail){	
+	@:RangeSumBody(@1,@2,@3,@4,)@
 }
 
 static str

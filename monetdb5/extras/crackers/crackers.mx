@@ -159,6 +159,8 @@ module crackers;
 @:TypeSwitch_1(Updates)@
 @:TypeSwitch_2(Sideways)@
 @:TypeSwitch_1(JoinSelect)@
+@:TypeSwitch_1(Aggregation)@
+
 
 command getTotalStorage( ):void
 address CRKgetTotalStorage
@@ -816,8 +818,16 @@ command fmcreateMaphol(b:bat[:oid,:@1],bp:bat[:oid,:@2]):void
 address CRKcreateFullMaphol_@1_@2
 comment "make new map for debugging";
 @
+@= Aggregation
+command sumhol(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit):@2
+address CRKsumholBounds_@2
+comment "Calculate aggregate sum of range l-h.";
 
- 
+command sumholpl(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit):@2
+address CRKsumholplBounds_@2
+comment "Calculate aggregate sum of range l-h.";
+@
+
 @h
 /*
  * @- Header file
