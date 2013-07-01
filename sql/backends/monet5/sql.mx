@@ -7596,9 +7596,16 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int ret = 0; 
 	CStableStat *cstablestat; 
 	char	tmptbname[100]; 
+	char	tmptbnameex[100];
+	char	tmpviewname[100]; 
 	char	tmpcolname[100]; 
+	char	viewcommand[500];
 	sql_subtype tpe; 
 	sql_table	**cstables; 
+	#if CSTYPE_TABLE == 1
+	sql_table	**cstablesEx; 
+	sql_table	**viewcstables; 
+	#endif
 	sql_table 	*psotbl;
 	int 	i, j; 
 
@@ -7622,6 +7629,10 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	
 	cstables = (sql_table **)malloc(sizeof(sql_table*) * cstablestat->numTables);
+	#if CSTYPE_TABLE == 1
+	cstablesEx = (sql_table **)malloc(sizeof(sql_table*) * cstablestat->numTables);
+	viewcstables = (sql_table **)malloc(sizeof(sql_table*) * cstablestat->numTables);
+	#endif
 
 	// Put to SQL tables
 	sql_find_subtype(&tpe, "oid", 31, 0);
@@ -7643,7 +7654,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	store_funcs.append_col(m->session->tr,
 			mvc_bind_column(m, psotbl,"o" ), 
 			cstablestat->obat, TYPE_bat);
-	// Add regular triple to cstables
+	// Add regular triple to cstables and cstablesEx
 	for (i = 0; i < cstablestat->numTables; i++){
 		sprintf(tmptbname, "cstable%d",i);
 		cstables[i] = mvc_create_table(m, sch, tmptbname, tt_table, 0,
@@ -7663,6 +7674,42 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					cstablestat->lstcstable[i].colBats[j], TYPE_bat);
 			//printf("Create column for %d for table %d - sizeofbat " BUNFMT " \n", j, i, BATcount(cstablestat->lstcstable[i].colBats[j]));
 		}
+
+		#if CSTYPE_TABLE == 1
+		// Add non-default type table
+
+		sprintf(tmptbnameex, "cstableex%d",i);
+		cstablesEx[i] = mvc_create_table(m, sch, tmptbnameex, tt_table, 0,
+				   SQL_PERSIST, 0, 3);
+		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
+			//TODO: Use propertyId from Propstat
+			sprintf(tmpcolname, "colex%d",j);
+			mvc_create_column(m, cstablesEx[i], tmpcolname,  &tpe);
+		}
+
+		//Add data
+		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
+			sprintf(tmpcolname, "colex%d",j);
+                	store_funcs.append_col(m->session->tr,
+					mvc_bind_column(m, cstablesEx[i],tmpcolname ), 
+					cstablestat->lstcstableEx[i].colBats[j], TYPE_bat);
+			printf("Create column for %s for table %s sizeofbat " BUNFMT " \n", tmpcolname, tmptbname, BATcount(cstablestat->lstcstableEx[i].colBats[j]));
+		}
+
+
+		//Create a view to combine these tables
+		sprintf(tmpviewname, "viewcstable%d",i);
+		sprintf(viewcommand, "SELECT * from rdf.%s UNION SELECT * from rdf.%s;", tmptbname, tmptbnameex); 
+		printf("Create view %s \n", viewcommand);
+		viewcstables[i] = mvc_create_view(m, sch, tmpviewname, SQL_PERSIST,viewcommand, 1); 
+
+		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
+			//TODO: Use propertyId from Propstat
+			sprintf(tmpcolname, "col%d",j);
+			mvc_create_column(m, viewcstables[i], tmpcolname,  &tpe);
+		}
+		#endif
+
 	}
 
 
@@ -7672,7 +7719,9 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BBPunfix(mbat->batCacheid);
 	
 	freeCStableStat(cstablestat); 
-	free(cstables); 
+	free(cstables);
+	free(cstablesEx); 
+	free(viewcstables); 
 
 	return MAL_SUCCEED; 
 }

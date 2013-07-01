@@ -32,7 +32,7 @@ rdf_export str
 RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid); 
 
 rdf_export str 
-RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *freqCSset, oid **subjCSMap, oid *maxCSoid);
+RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *freqCSset, oid **subjCSMap, oid *maxCSoid, char **subjdefaultMap);
 
 
 
@@ -80,6 +80,8 @@ typedef struct PropStat {
 
 #define NBITS_FOR_CSID	15	/* Use bits from 62th bit --> (62 - NBITS_FOR_CSID) for encoding the CSId in each SubjectId */
 
+#define CSTYPE_TABLE	1
+
 typedef struct CS
 {
 	oid 	csId;		//Id of the CS
@@ -109,6 +111,7 @@ typedef struct SubCS {
 	oid 	sign;		// Signature generated from subTypes for quick comparison
 	char*	subTypes;
 	int	numSubTypes; 
+	char	isdefault; 
 } SubCS; 
 
 /*
@@ -191,6 +194,10 @@ typedef struct CStableStat {
 	oid**		lastInsertedS;	//Last S for each column
 	//sql_schema*	schema; 	
 	CStable*	lstcstable; 
+	#if CSTYPE_TABLE
+	CStable*        lstcstableEx;
+	oid**		lastInsertedSEx; 
+	#endif
 	BAT*		pbat; 
 	BAT*		sbat; 
 	BAT*		obat; 
@@ -198,7 +205,7 @@ typedef struct CStableStat {
 
 
 rdf_export str
-RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat, oid* lastSubjId);
+RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat, oid* lastSubjId, oid* lastSubjIdEx);
 
 rdf_export str
 RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold);
