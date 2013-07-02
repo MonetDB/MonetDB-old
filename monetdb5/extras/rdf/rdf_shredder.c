@@ -29,6 +29,9 @@
 #include <gdk.h>
 #include <rdf.h>
 #include <rdfparser.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 typedef struct graphBATdef {
 	graphBATType batType;    /* BAT type             */
@@ -605,7 +608,14 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema)
 	int iret;
 	raptor_world *world; 
 
+	struct stat s;
+	DIR *dp;
+       	struct dirent *ep;
+	//char *pch; 
+	char tmpfilename[200];
+
 	(void) graphname;
+
 
 	/* init tokenizer */
 #ifdef _TKNZR_H
@@ -666,16 +676,48 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema)
 	} else if (isURI) {
 		uri = raptor_new_uri(world, (unsigned char *) pdata->location);
 		iret = raptor_parser_parse_uri(rparser, uri, NULL);
-	} else {
-		
-                uri = raptor_new_uri(world,
-                                raptor_uri_filename_to_uri_string(pdata->location));
-                iret = raptor_parser_parse_file(rparser, uri, NULL);
+	} else {	// A dir or a file
+		if( stat(pdata->location,&s) == 0 ){
+			if( s.st_mode & S_IFDIR ){
+				//it's a directory
+				printf("Load directory %s \n",pdata->location);
+				// Go through each file
+				dp = opendir (pdata->location);
+				if (dp != NULL){
+					while ((ep = readdir (dp)) != NULL){
+						if (strstr (ep->d_name,".nt")!= NULL || strstr (ep->d_name,".ttl")!= NULL ){
+							sprintf(tmpfilename,"%s%s",pdata->location,ep->d_name);
+							printf("Loading file %s ..",tmpfilename);
+							uri = raptor_new_uri(world,raptor_uri_filename_to_uri_string(tmpfilename));
+							iret = raptor_parser_parse_file(rparser, uri, NULL);
+							raptor_free_uri(uri);
+							printf(".. Done \n");
+						}
+					}
+					closedir (dp);
+				}
+			}
+			else if( s.st_mode & S_IFREG )	{
+				//it's a file
+				printf("Load file %s \n", pdata->location);
+				uri = raptor_new_uri(world,
+						raptor_uri_filename_to_uri_string(pdata->location));
+				iret = raptor_parser_parse_file(rparser, uri, NULL);
+
+				raptor_free_uri(uri);
+			}
+			else{
+				printf("This is a not a file/directory or uri \n");
+				TKNZRclose(&iret);
+				clean(pdata);
+			}
+		}
+
+
 	}
 	
 	/* Free memory of raptor */
 	raptor_free_parser(rparser);
-	raptor_free_uri(uri);
 	raptor_free_world(world);
 
 #ifdef _TKNZR_H
