@@ -1398,15 +1398,15 @@ typedef var_t stridx_t; /* TODO: should also be unsigned short, but kept at var_
 
 #if SIZEOF_VAR_T == 8
 #define VarHeapValRaw(b,p,w)						\
-	((w)==1 ? (var_t)*((unsigned char *)(b)+(p))+GDK_VAROFFSET :	\
-	 ((w)==2 ? (var_t)*((unsigned short *)(b)+(p))+GDK_VAROFFSET :	\
-	  ((w)==4 ? (var_t)*((unsigned int *)(b)+(p)) :			\
-	   *((var_t *)(b)+(p)))))
+	((w) == 1 ? (var_t) ((unsigned char *) (b))[p] + GDK_VAROFFSET : \
+	 (w) == 2 ? (var_t) ((unsigned short *) (b))[p] + GDK_VAROFFSET : \
+	 (w) == 4 ? (var_t) ((unsigned int *) (b))[p] :			\
+	 ((var_t *) (b))[p])
 #else
 #define VarHeapValRaw(b,p,w)						\
-	((w)==1 ? (var_t)*((unsigned char *)(b)+(p))+GDK_VAROFFSET :	\
-	 ((w)==2 ? (var_t)*((unsigned short *)(b)+(p))+GDK_VAROFFSET :	\
-	  *((var_t *)(b)+(p))))
+	((w) == 1 ? (var_t) ((unsigned char *) (b))[p] + GDK_VAROFFSET : \
+	 (w) == 2 ? (var_t) ((unsigned short *) (b))[p] + GDK_VAROFFSET : \
+	 ((var_t *) (b))[p])
 #endif
 #define VarHeapVal(b,p,w) ((size_t) VarHeapValRaw(b,p,w)  << GDK_VARSHIFT)
 #define BUNhvaroff(bi,p) VarHeapVal((bi).b->H->heap.base, (p), (bi).b->H->width)
@@ -1650,9 +1650,10 @@ gdk_export int GDKcreatedir(const char *nme);
  * oid-s in the head columns. It performs the multijoin over them, and
  * prints the multi-column result on the file.
  */
-gdk_export int BATprint(BAT *b);
-gdk_export int BATprintf(stream *f, BAT *b);
-gdk_export int BATmultiprintf(stream *f, int argc, BAT *argv[], int printoid, int order, int printorderby);
+gdk_export gdk_return BATprintcols(stream *s, int argc, BAT *argv[]);
+gdk_export gdk_return BATprint(BAT *b);
+gdk_export gdk_return BATprintf(stream *f, BAT *b);
+gdk_export gdk_return BATmultiprintf(stream *f, int argc, BAT *argv[], int printoid, int order, int printorderby);
 
 /*
  * @- BAT clustering
@@ -3150,6 +3151,8 @@ gdk_export BAT *BATjoin(BAT *l, BAT *r, BUN estimate);
 gdk_export BAT *BATantijoin(BAT *l, BAT *r);
 gdk_export BAT *BATleftjoin(BAT *l, BAT *r, BUN estimate);
 gdk_export BAT *BATouterjoin(BAT *l, BAT *r, BUN estimate);
+gdk_export gdk_return BATcross1(BAT **r1p, BAT **r2p, BAT *l, BAT *r);
+gdk_export gdk_return BATsubcross(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr);
 gdk_export BAT *BATcross(BAT *l, BAT *r);
 
 gdk_export gdk_return BATsubleftjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, BUN estimate);
@@ -3191,14 +3194,6 @@ gdk_export BAT *BATintersectcand(BAT *a, BAT *b);
 gdk_export BAT *BATsample(BAT *b, BUN n);
 gdk_export BAT *BATsample_(BAT *b, BUN n); /* version that expects void head and returns oids */
 
-/* generic n-ary multijoin beast, with defines to interpret retval */
-#define MULTIJOIN_SORTED(r)	((char*) &r)[0]
-#define MULTIJOIN_KEY(r)	((char*) &r)[1]
-#define MULTIJOIN_SYNCED(r)	((char*) &r)[2]
-#define MULTIJOIN_LEAD(r)	((char*) &r)[3]
-
-typedef void (*ColFcn) (ptr, const void *);
-typedef void (*RowFcn) (ptr, ptr *);
 /*
  *
  */

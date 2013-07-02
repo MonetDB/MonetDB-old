@@ -27,15 +27,14 @@ Ready.
 % .explain # table_name
 % mal # name
 % clob # type
-% 72 # length
-function user.s0_1{autoCommit=true}(A0:bte,A1:bte):void;
+% 73 # length
+function user.s2_1{autoCommit=true}(A0:bte,A1:bte):void;
     X_4 := udf.fuse(A0,A1);
-    sql.exportValue(1,".","fuse_single_value","smallint",16,0,6,X_4,"");
-end s0_1;
-# optimizer.mitosis()
-# optimizer.dataflow()
+    sql.exportValue(1,".L","fuse_single_value","smallint",16,0,6,X_4,"");
+end s2_1;
+# querylog.define("explain select fuse(1,2);","default_pipe")
 #select fuse(1,2);
-% . # table_name
+% .L # table_name
 % fuse_single_value # name
 % smallint # type
 % 3 # length
@@ -44,13 +43,14 @@ end s0_1;
 % .explain # table_name
 % mal # name
 % clob # type
-% 67 # length
-function user.s1_1{autoCommit=true}(A0:sht,A1:sht):void;
+% 68 # length
+function user.s3_1{autoCommit=true}(A0:sht,A1:sht):void;
     X_4 := udf.fuse(A0,A1);
-    sql.exportValue(1,".","fuse_single_value","int",32,0,6,X_4,"");
-end s1_1;
+    sql.exportValue(1,".L","fuse_single_value","int",32,0,6,X_4,"");
+end s3_1;
+# querylog.define("explain select fuse(1000,2000);","default_pipe")
 #select fuse(1000,2000);
-% . # table_name
+% .L # table_name
 % fuse_single_value # name
 % int # type
 % 8 # length
@@ -60,12 +60,13 @@ end s1_1;
 % mal # name
 % clob # type
 % 73 # length
-function user.s2_1{autoCommit=true}(A0:int,A1:int):void;
+function user.s4_1{autoCommit=true}(A0:int,A1:int):void;
     X_4 := udf.fuse(A0,A1);
-    sql.exportValue(1,".","fuse_single_value","bigint",64,0,6,X_4,"");
-end s2_1;
+    sql.exportValue(1,".L","fuse_single_value","bigint",64,0,6,X_4,"");
+end s4_1;
+# querylog.define("explain select fuse(1000000,2000000);","default_pipe")
 #select fuse(1000000,2000000);
-% . # table_name
+% .L # table_name
 % fuse_single_value # name
 % bigint # type
 % 16 # length
@@ -93,7 +94,7 @@ end s2_1;
 % mal # name
 % clob # type
 % 75 # length
-function user.s5_1{autoCommit=true}():void;
+function user.s8_1{autoCommit=true}():void;
     X_2 := sql.mvc();
     X_3:bat[:oid,:oid]  := sql.tid(X_2,"sys","udf_fuse");
     X_6 := sql.bind(X_2,"sys","udf_fuse","a",0);
@@ -108,16 +109,17 @@ function user.s5_1{autoCommit=true}():void;
     X_22 := algebra.leftfetchjoin(X_3,X_21);
     X_23:bat[:oid,:sht]  := batudf.fuse(X_15,X_22);
     X_25 := sql.resultSet(1,1,X_23);
-    sql.rsColumn(X_25,"sys.","fuse_a","smallint",16,0,X_23);
+    sql.rsColumn(X_25,"sys.L","fuse_a","smallint",16,0,X_23);
     X_30 := io.stdout();
     sql.exportResult(X_30,X_25);
-end s5_1;
+end s8_1;
+# querylog.define("explain select fuse(a,b) from udf_fuse;","default_pipe")
 #explain select fuse(c,d) from udf_fuse;
 % .explain # table_name
 % mal # name
 % clob # type
 % 75 # length
-function user.s6_1{autoCommit=true}():void;
+function user.s9_1{autoCommit=true}():void;
     X_2 := sql.mvc();
     X_3:bat[:oid,:oid]  := sql.tid(X_2,"sys","udf_fuse");
     X_6 := sql.bind(X_2,"sys","udf_fuse","c",0);
@@ -132,16 +134,17 @@ function user.s6_1{autoCommit=true}():void;
     X_22 := algebra.leftfetchjoin(X_3,X_21);
     X_23:bat[:oid,:int]  := batudf.fuse(X_15,X_22);
     X_25 := sql.resultSet(1,1,X_23);
-    sql.rsColumn(X_25,"sys.","fuse_c","int",32,0,X_23);
+    sql.rsColumn(X_25,"sys.L","fuse_c","int",32,0,X_23);
     X_30 := io.stdout();
     sql.exportResult(X_30,X_25);
-end s6_1;
+end s9_1;
+# querylog.define("explain select fuse(c,d) from udf_fuse;","default_pipe")
 #explain select fuse(e,f) from udf_fuse;
 % .explain # table_name
 % mal # name
 % clob # type
 % 75 # length
-function user.s7_1{autoCommit=true}():void;
+function user.s10_1{autoCommit=true}():void;
     X_2 := sql.mvc();
     X_3:bat[:oid,:oid]  := sql.tid(X_2,"sys","udf_fuse");
     X_6 := sql.bind(X_2,"sys","udf_fuse","e",0);
@@ -156,12 +159,13 @@ function user.s7_1{autoCommit=true}():void;
     X_22 := algebra.leftfetchjoin(X_3,X_21);
     X_23:bat[:oid,:lng]  := batudf.fuse(X_15,X_22);
     X_25 := sql.resultSet(1,1,X_23);
-    sql.rsColumn(X_25,"sys.","fuse_e","bigint",64,0,X_23);
+    sql.rsColumn(X_25,"sys.L","fuse_e","bigint",64,0,X_23);
     X_30 := io.stdout();
     sql.exportResult(X_30,X_25);
-end s7_1;
+end s10_1;
+# querylog.define("explain select fuse(e,f) from udf_fuse;","default_pipe")
 #select fuse(a,b) from udf_fuse;
-% sys. # table_name
+% sys.L # table_name
 % fuse_a # name
 % smallint # type
 % 4 # length
@@ -170,7 +174,7 @@ end s7_1;
 [ 1286	]
 [ 1800	]
 #select fuse(c,d) from udf_fuse;
-% sys. # table_name
+% sys.L # table_name
 % fuse_c # name
 % int # type
 % 9 # length
@@ -179,7 +183,7 @@ end s7_1;
 [ 327686000	]
 [ 458760000	]
 #select fuse(e,f) from udf_fuse;
-% sys. # table_name
+% sys.L # table_name
 % fuse_e # name
 % bigint # type
 % 17 # length

@@ -18,6 +18,7 @@
 INCLUDES = ../../mal \
 		   ../../../common/options \
 		   ../../../common/stream \
+		   ../../../common/utils \
 		   ../../../gdk \
 		   $(libxml2_CFLAGS)
 MTSAFE
@@ -35,6 +36,7 @@ lib_atoms = {
 		str.c str.h \
 		url.c url.h \
 		json_atom.c json_atom.h \
+		uuid.c uuid.h \
 		xml.c xml.h
 }
 
@@ -51,9 +53,10 @@ headers_mal = {
 		str.mal \
 		url.mal \
 		json_atom.mal \
+		uuid.mal \
 		xml.mal \
 		mtime.mal
 }
 
 EXTRA_DIST_DIR = Tests
-EXTRA_DIST = blob.mal color.mal identifier.mal inet.mal xml.mal xml.sql batxml.sql str.mal batxml.mal url.mal json_atom.mal streams.mal mtime.mal
+EXTRA_DIST = blob.mal color.mal identifier.mal inet.mal xml.mal xml.sql batxml.sql str.mal batxml.mal url.mal json_atom.mal uuid.mal streams.mal mtime.mal

@@ -33,7 +33,8 @@ eligible(MalBlkPtr mb)
 			p->argc > 2 && getArgType(mb, p, 2) == TYPE_str &&
 			isVarConstant(mb, getArg(p, 2)) &&
 			getVarConstant(mb, getArg(p, 2)).val.sval != NULL &&
-			strstr(getVarConstant(mb, getArg(p, 2)).val.sval, "PRIMARY KEY constraint"))
+			(strstr(getVarConstant(mb, getArg(p, 2)).val.sval, "PRIMARY KEY constraint") ||
+			 strstr(getVarConstant(mb, getArg(p, 2)).val.sval, "UNIQUE constraint")))
 			return 0;
 	}
 	return 1;
@@ -42,7 +43,7 @@ eligible(MalBlkPtr mb)
 int
 OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
-	int i, j, limit, estimate = 0, pieces = 1, mito_parts = 0, mito_size = 0, row_size = 0;
+	int i, j, limit, slimit, estimate = 0, pieces = 1, mito_parts = 0, mito_size = 0, row_size = 0;
 	str schema = 0, table = 0;
 	wrd r = 0, rowcnt = 0;    /* table should be sizeable to consider parallel execution*/
 	InstrPtr q, *old, target = 0;
@@ -166,6 +167,7 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		return 0;
 
 	limit = mb->stop;
+	slimit = mb->ssize;
 	if (newMalBlkStmt(mb, mb->ssize + 2 * estimate) < 0)
 		return 0;
 	estimate = 0;
@@ -246,6 +248,9 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	for (; i<limit; i++) 
 		if (old[i])
 			pushInstruction(mb,old[i]);
+	for (; i<slimit; i++) 
+		if (old[i])
+			freeInstruction(old[i]);
 	GDKfree(old);
 	return 1;
 }

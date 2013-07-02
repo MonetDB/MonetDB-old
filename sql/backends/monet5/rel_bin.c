@@ -2976,11 +2976,13 @@ rel2bin_insert( mvc *sql, sql_rel *rel, list *refs)
 {
 	list *newl, *l;
 	stmt *inserts = NULL, *insert = NULL, *s, *ddl = NULL, *pin = NULL;
-	int idx_ins = 0;
+	int idx_ins = 0, constraint = 1;
 	node *n, *m;
 	sql_rel *tr = rel->l, *prel = rel->r;
 	sql_table *t = NULL;
 
+	if ((rel->flag&UPD_NO_CONSTRAINT)) 
+		constraint = 0;
 	if ((rel->flag&UPD_COMP)) {  /* special case ! */
 		idx_ins = 1;
 		prel = rel->l;
@@ -3027,7 +3029,7 @@ rel2bin_insert( mvc *sql, sql_rel *rel, list *refs)
 		if ((hash_index(i->type) && list_length(i->columns) <= 1) ||
 		    i->type == no_idx)
 			is = NULL;
-		if (i->key) {
+		if (i->key && constraint) {
 			stmt *ckeys = sql_insert_key(sql, newl, i->key, is, pin);
 
 			list_prepend(l, ckeys);
@@ -3045,7 +3047,8 @@ rel2bin_insert( mvc *sql, sql_rel *rel, list *refs)
 		return NULL;
 
 	l = list_append(l, stmt_list(sql->sa, newl));
-	sql_insert_check_null(sql, t, newl, l);
+	if (constraint)
+		sql_insert_check_null(sql, t, newl, l);
 	if (!sql_insert_triggers(sql, t, l)) 
 		return sql_error(sql, 02, "INSERT INTO: triggers failed for table '%s'", t->base.name);
 	if (insert->op1->nrcols == 0) {
@@ -3163,6 +3166,7 @@ update_check_ukey(mvc *sql, stmt **updates, sql_key *k, stmt *tids, stmt *idx_up
 			sql_subaggr *sum;
 			stmt *count_sum = NULL, *ssum;
 			stmt *g = NULL, *grp = NULL, *ext = NULL, *Cnt = NULL;
+			stmt *cand = NULL;
 			stmt *ss;
 			sql_subfunc *or = sql_bind_func_result(sql->sa, sql->session->schema, "or", bt, bt, bt);
 
@@ -3173,7 +3177,20 @@ update_check_ukey(mvc *sql, stmt **updates, sql_key *k, stmt *tids, stmt *idx_up
 				grp = stmt_result(sql->sa, g, 0);
 				ext = stmt_result(sql->sa, g, 1);
 				Cnt = stmt_result(sql->sa, g, 2);
+
+				/* choose only groups with cnt > 1 */
+				cand = stmt_uselect(sql->sa, Cnt, stmt_atom_wrd(sql->sa, 1), cmp_gt, NULL);
+				 /* project cand on ext and Cnt */
+				Cnt = stmt_project(sql->sa, cand, Cnt);
+				ext = stmt_project(sql->sa, cand, ext);
+
+				/* join ext with group to retrieve all oid's of the original
+				 * bat that belong to a group with Cnt >1 */
+				g = stmt_join(sql->sa, ext, grp, cmp_equal);
+				cand = stmt_result(sql->sa, g, 1);
+				grp = stmt_project(sql->sa, cand, grp);
 			}
+
 			for (m = k->columns->h; m; m = m->next) {
 				sql_kc *c = m->data;
 				stmt *upd;
@@ -3186,6 +3203,10 @@ update_check_ukey(mvc *sql, stmt **updates, sql_key *k, stmt *tids, stmt *idx_up
 				} else {
 					upd = stmt_col(sql, c->c, dels);
 				}
+
+				/* apply cand list first */
+				upd = stmt_project(sql->sa, cand, upd);
+
 				/* remove nulls */
 				if ((k->type == ukey) && stmt_has_null(upd)) {
 					stmt *nn = stmt_selectnonil(sql, upd, NULL);
@@ -3194,6 +3215,7 @@ update_check_ukey(mvc *sql, stmt **updates, sql_key *k, stmt *tids, stmt *idx_up
 						grp = stmt_reorder_project(sql->sa, nn, grp);
 				}
 
+				/* apply group by on groups with Cnt > 1 */
 				g = stmt_group(sql->sa, upd, grp, ext, Cnt);
 				grp = stmt_result(sql->sa, g, 0);
 				ext = stmt_result(sql->sa, g, 1);

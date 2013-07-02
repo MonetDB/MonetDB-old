@@ -50,12 +50,13 @@ json_export str JSONfilterObject(json *ret, json *j, str *pat);
 json_export str JSONfilterObjectAll(json *ret, json *j, str *pat);
 json_export str JSONfilterArray(json *ret, json *j, int *index);
 
-json_export str JSONisvalid(int *ret, json *j);
-json_export str JSONisobject(int *ret, json *j);
-json_export str JSONisarray(int *ret, json *j);
+json_export str JSONisvalid(bit *ret, json *j);
+json_export str JSONisobject(bit *ret, json *j);
+json_export str JSONisarray(bit *ret, json *j);
 
 json_export str JSONlength(int *ret, json *j);
 json_export str JSONunnest(int *key, int *val, json *j);
+json_export str JSONunnestOne(int *val, json *j);
 json_export str JSONunnestGrouped(int *grp, int *key, int *val, json *j);
 json_export str JSONnest(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 json_export str JSONnames(int *ret, json *j);
@@ -64,4 +65,6 @@ json_export str JSONprelude(int *ret);
 
 json_export str JSONrenderobject(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 json_export str JSONrenderarray(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+json_export str JSONpath( json *ret, json *js, str *expr);
+json_export str JSONtext( json *ret, json *js, str *expr);
 #endif /* JSON_H */

@@ -23,9 +23,9 @@
 #include <sql_string.h>
 #include <algebra.h>
 
-#define SNAPSHOT_MINSIZE ((BUN) 1024)
+#define SNAPSHOT_MINSIZE ((BUN) 1024*128)
 
-static sql_delta *
+sql_delta *
 timestamp_delta( sql_delta *d, int ts)
 {
 	while (d->next && d->wtime > ts) 
@@ -356,7 +356,7 @@ dup_delta(sql_trans *tr, sql_delta *obat, sql_delta *bat, int type, int oc_isnew
 	return LOG_OK;
 }
 
-static int 
+int 
 dup_bat(sql_trans *tr, sql_table *t, sql_delta *obat, sql_delta *bat, int type, int oc_isnew, int c_isnew)
 {
 	return dup_delta( tr, obat, bat, type, oc_isnew, c_isnew, isTempTable(t), t->sz);
@@ -415,6 +415,7 @@ update_idx(sql_trans *tr, sql_idx * i, void *tids, void *upd, int tpe)
 static void
 delta_append_bat( sql_delta *bat, BAT *i ) 
 {
+	int id = i->batCacheid;
 #ifndef NDEBUG
 	BAT *c = BBPquickdesc(bat->bid, 0); 
 #endif
@@ -429,22 +430,29 @@ delta_append_bat( sql_delta *bat, BAT *i )
 		bat->cached = NULL;
 	}
 	assert(!c || BATcount(c) == bat->ibase);
-	if (!isEbat(b)){
-		/* try to use mmap() */
-		if (BATcount(b)+BATcount(i) > (BUN) REMAP_PAGE_MAXSIZE) { 
-       			BATmmap(b, STORE_MMAP, STORE_MMAP, STORE_MMAP, STORE_MMAP, 1);
-    		}
-		assert(b->T->heap.storage != STORE_PRIV);
-	} else {
+	if (!bat->ibase && !BATcount(b) && BBP_refs(id) == 1 && BBP_lrefs(id) == 1 && !isVIEW(i) /* we need info if this is comming from copy into, like role == PERSISTENT */){
 		temp_destroy(bat->ibid);
-		bat->ibid = ebat2real(b->batCacheid, bat->ibase);
+		bat->ibid = id;
+		temp_dup(id);
 		bat_destroy(b);
-		b = temp_descriptor(bat->ibid);
+	} else {
+		if (!isEbat(b)){
+			/* try to use mmap() */
+			if (BATcount(b)+BATcount(i) > (BUN) REMAP_PAGE_MAXSIZE) { 
+       				BATmmap(b, STORE_MMAP, STORE_MMAP, STORE_MMAP, STORE_MMAP, 1);
+    			}
+			assert(b->T->heap.storage != STORE_PRIV);
+		} else {
+			temp_destroy(bat->ibid);
+			bat->ibid = ebat2real(b->batCacheid, bat->ibase);
+			bat_destroy(b);
+			b = temp_descriptor(bat->ibid);
+		}
+		BATappend(b, i, TRUE);
+		assert(BUNlast(b) > b->batInserted);
+		bat_destroy(b);
 	}
-	BATappend(b, i, TRUE);
 	bat->cnt += BATcount(i);
-	assert(BUNlast(b) > b->batInserted);
-	bat_destroy(b);
 }
 
 static void
@@ -547,6 +555,9 @@ append_col(sql_trans *tr, sql_column *c, void *i, int tpe)
        	bat = c->data;
 	/* appends only write */
 	bat->wtime = c->base.wtime = c->t->base.wtime = c->t->s->base.wtime = tr->wtime = tr->wstime;
+	/* inserts are ordered with the current delta implementation */
+	/* therefor mark appends as reads */
+	c->t->s->base.rtime = c->t->base.rtime = tr->stime;
 	if (tpe == TYPE_bat)
 		delta_append_bat(bat, i);
 	else
@@ -1038,16 +1049,6 @@ snapshot_create_idx(sql_trans *tr, sql_idx *ni)
 }
 
 static int
-new_persistent_dbat( sql_dbat *bat)
-{
-	BAT *b = temp_descriptor(bat->dbid);
-
-	bat->dbid = temp_create(b);
-	bat_destroy(b);
-	return LOG_OK;
-}
-
-static int
 load_dbat(sql_dbat *bat, int bid)
 {
 	BAT *b = quick_descriptor(bid);
@@ -1080,7 +1081,7 @@ create_del(sql_trans *tr, sql_table *t)
 			return load_dbat(bat, bid);
 		ok = LOG_ERR;
 	} else if (bat->dbid && !isTempTable(t)) {
-		return new_persistent_dbat(bat);
+		return ok;
 	} else if (!bat->dbid) {
 		b = bat_new(TYPE_void, TYPE_oid, t->sz);
 		bat_set_access(b, BAT_READ);

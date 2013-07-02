@@ -75,11 +75,14 @@ extern sql_exp * exp_if(sql_allocator *sa, sql_exp *cond, list *if_stmts, list *
 extern sql_exp * exp_rel(sql_allocator *sa, sql_rel * r);
 
 extern void exp_setname(sql_allocator *sa, sql_exp *e, char *rname, char *name );
+extern void exp_setrelname(sql_allocator *sa, sql_exp *e, int nr );
+
 extern void noninternexp_setname(sql_allocator *sa, sql_exp *e, char *rname, char *name );
 extern sql_exp* exp_label(sql_allocator *sa, sql_exp *e, int nr);
 
 extern sql_exp * exp_copy( sql_allocator *sa, sql_exp *e);
 extern list * exps_copy( sql_allocator *sa, list *exps);
+extern list * exps_alias( sql_allocator *sa, list *exps);
 
 
 extern void exp_swap( sql_exp *e );

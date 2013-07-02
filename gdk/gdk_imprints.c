@@ -447,8 +447,8 @@ do {                                                                          \
 				prvmask=mask;                                 \
 				im[icnt] = mask;                              \
 				icnt++;                                       \
-				if ((dcnt > 0) && !(d[dcnt - 1].repeat) &&    \
-				    (d[dcnt].cnt < (IMPS_MAX_CNT-1))) {       \
+				if ((dcnt > 0) && !(d[dcnt-1].repeat) &&      \
+				    (d[dcnt-1].cnt < (IMPS_MAX_CNT-1))) {     \
 					d[dcnt-1].cnt++;                      \
 				} else {                                      \
 					d[dcnt].cnt = 1;                      \
@@ -477,8 +477,8 @@ do {                                                                          \
 	} else {                                                              \
 		im[icnt] = mask;                                              \
 		icnt++;                                                       \
-		if ((dcnt > 0) && !(d[dcnt - 1].repeat) &&                    \
-		    (d[dcnt].cnt < (IMPS_MAX_CNT-1))) {                       \
+		if ((dcnt > 0) && !(d[dcnt-1].repeat) &&                      \
+		    (d[dcnt-1].cnt < (IMPS_MAX_CNT-1))) {                     \
 			d[dcnt-1].cnt++;                                      \
 		} else {                                                      \
 			d[dcnt].cnt = 1;                                      \
@@ -580,7 +580,7 @@ BATimprints(BAT *b) {
 		if (imprints->bins == NULL ||
 				(imprints->bins->filename =
 				GDKmalloc(strlen(nme) + 12)) == NULL ) {
-			if (imprints->imps != NULL) {
+			if (imprints->bins != NULL) {
 				GDKfree(imprints->bins);
 			}
 			GDKerror("#BATimprints: memory allocation error.\n");
@@ -812,6 +812,9 @@ IMPSremove(BAT *b) {
 	else
 		HEAPfree(imprints->bins);
 
+	GDKfree(imprints->imps);
+	GDKfree(imprints->dict);
+	GDKfree(imprints->bins);
 	GDKfree(imprints);
 
 	MT_lock_unset(&GDKimprintsLock(ABS(b->batCacheid)),
