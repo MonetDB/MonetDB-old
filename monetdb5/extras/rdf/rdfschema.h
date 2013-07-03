@@ -35,7 +35,10 @@ rdf_export str
 RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *freqCSset, oid **subjCSMap, oid *maxCSoid, char **subjdefaultMap);
 
 
-
+typedef enum{
+	EXPLOREONLY, 
+	REORGANIZE
+} ExpMode; 
 
 
 typedef enum {
@@ -208,7 +211,7 @@ rdf_export str
 RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat, oid* lastSubjId, oid* lastSubjIdEx);
 
 rdf_export str
-RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold);
+RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, int *mode);
 
 rdf_export void
 freeCStableStat(CStableStat *cstablestat); 

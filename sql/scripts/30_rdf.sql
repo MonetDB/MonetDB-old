@@ -37,5 +37,5 @@ create procedure rdf_schema_explore(tbname string, clname string)
 create procedure rdf_loadOntology(location string, sch string)
 	external name rdf.rdfloadontology;
 
-create procedure rdf_reorganize(sch string, tbname string, threshold int)
+create procedure rdf_reorganize(sch string, tbname string, threshold int, expmode int)
 	external name sql.rdfreorganize; 

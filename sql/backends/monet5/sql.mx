@@ -1274,7 +1274,7 @@ permutations of SPO and a mapping) in the RDF schema and an entry to table
 rdf.graph We can then query with SQL queries the RDF triple storeby quering 
 tables gid_spo, gid_pso etc., where gid is looked up in rdf.graph"
 
-pattern rdfreorganize (schema:str, table:str, threshold:int)
+pattern rdfreorganize (schema:str, table:str, threshold:int, expmode:int)
 address SQLrdfreorganize
 comment "This procedure call a function from rdf module to extract the relational schema 
 from rdf triples. Then, do re-organizing the rdf triples table by clustering according
@@ -7592,6 +7592,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str *schema = (str *) getArgReference(stk,pci,1);
 	str *tbname = (str *) getArgReference(stk,pci,2);
 	int *threshold = (int *) getArgReference(stk,pci,3);
+	int *mode = (int *) getArgReference(stk,pci,4);
 	sql_schema *sch; 
 	int ret = 0; 
 	CStableStat *cstablestat; 
@@ -7625,9 +7626,18 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	cstablestat = (CStableStat *) malloc (sizeof (CStableStat));
 
 	rethrow("sql.rdfreorganize", msg, RDFreorganize(&ret, cstablestat, &sbat->batCacheid, &pbat->batCacheid, 
-				&obat->batCacheid, &mbat->batCacheid, threshold));
+				&obat->batCacheid, &mbat->batCacheid, threshold, mode));
 
-	
+	if (*mode == EXPLOREONLY){
+		BBPunfix(sbat->batCacheid); 
+		BBPunfix(pbat->batCacheid);
+		BBPunfix(obat->batCacheid); 
+		BBPunfix(mbat->batCacheid);
+		
+		free(cstablestat); 
+		return MAL_SUCCEED; 
+	}
+
 	cstables = (sql_table **)malloc(sizeof(sql_table*) * cstablestat->numTables);
 	#if CSTYPE_TABLE == 1
 	cstablesEx = (sql_table **)malloc(sizeof(sql_table*) * cstablestat->numTables);
@@ -7693,14 +7703,13 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
                 	store_funcs.append_col(m->session->tr,
 					mvc_bind_column(m, cstablesEx[i],tmpcolname ), 
 					cstablestat->lstcstableEx[i].colBats[j], TYPE_bat);
-			printf("Create column for %s for table %s sizeofbat " BUNFMT " \n", tmpcolname, tmptbname, BATcount(cstablestat->lstcstableEx[i].colBats[j]));
 		}
 
 
 		//Create a view to combine these tables
 		sprintf(tmpviewname, "viewcstable%d",i);
 		sprintf(viewcommand, "SELECT * from rdf.%s UNION SELECT * from rdf.%s;", tmptbname, tmptbnameex); 
-		printf("Create view %s \n", viewcommand);
+		//printf("Create view %s \n", viewcommand);
 		viewcstables[i] = mvc_create_view(m, sch, tmpviewname, SQL_PERSIST,viewcommand, 1); 
 
 		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
