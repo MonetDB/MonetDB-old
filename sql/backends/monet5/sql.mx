@@ -7603,6 +7603,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	char	viewcommand[500];
 	sql_subtype tpe; 
 	sql_table	**cstables; 
+	sql_table	***csmvtables; 	//table for storing multi-values 
 	#if CSTYPE_TABLE == 1
 	sql_table	**cstablesEx; 
 	sql_table	**viewcstables; 
@@ -7639,6 +7640,8 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	cstables = (sql_table **)malloc(sizeof(sql_table*) * cstablestat->numTables);
+	csmvtables = (sql_table ***)malloc(sizeof(sql_table**) * cstablestat->numTables);
+
 	#if CSTYPE_TABLE == 1
 	cstablesEx = (sql_table **)malloc(sizeof(sql_table*) * cstablestat->numTables);
 	viewcstables = (sql_table **)malloc(sizeof(sql_table*) * cstablestat->numTables);
@@ -7669,11 +7672,23 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		sprintf(tmptbname, "cstable%d",i);
 		cstables[i] = mvc_create_table(m, sch, tmptbname, tt_table, 0,
 				   SQL_PERSIST, 0, 3);
+
+		//Multivalues tables for each column
+		csmvtables[i] = (sql_table **)malloc(sizeof(sql_table*) * cstablestat->numPropPerTable[i]);
 		
 		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
 			//TODO: Use propertyId from Propstat
 			sprintf(tmpcolname, "col%d",j);
 			mvc_create_column(m, cstables[i], tmpcolname,  &tpe);
+
+			//For multi-values table
+			sprintf(tmptbname, "mvtable%dp%d",i,j);
+			csmvtables[i][j] = mvc_create_table(m, sch, tmptbname, tt_table, 0, SQL_PERSIST, 0, 3); 
+			sprintf(tmpcolname, "objvalue");
+			mvc_create_column(m, csmvtables[i][j], tmpcolname,  &tpe);
+                	store_funcs.append_col(m->session->tr,
+					mvc_bind_column(m, csmvtables[i][j],tmpcolname ), 
+					cstablestat->lstcstable[i].mvBats[j], TYPE_bat);
 		}
 
 		//Add data
@@ -7683,6 +7698,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					mvc_bind_column(m, cstables[i],tmpcolname ), 
 					cstablestat->lstcstable[i].colBats[j], TYPE_bat);
 			//printf("Create column for %d for table %d - sizeofbat " BUNFMT " \n", j, i, BATcount(cstablestat->lstcstable[i].colBats[j]));
+
 		}
 
 		#if CSTYPE_TABLE == 1
@@ -7726,7 +7742,11 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BBPunfix(pbat->batCacheid);
 	BBPunfix(obat->batCacheid); 
 	BBPunfix(mbat->batCacheid);
-	
+	for (i = 0; i < cstablestat->numTables; i++){
+		free(csmvtables[i]);
+	}
+	free(csmvtables);
+
 	freeCStableStat(cstablestat); 
 	free(cstables);
 	free(cstablesEx); 

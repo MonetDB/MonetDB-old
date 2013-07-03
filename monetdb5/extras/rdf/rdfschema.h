@@ -184,6 +184,7 @@ typedef struct CSmergeRel{
 
 typedef struct CStable {
 	BAT**	colBats; 
+	BAT** 	mvBats; 	/* One bat for one Muti-values property */
 	int	numCol; 
 } CStable; 
 

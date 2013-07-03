@@ -3193,6 +3193,7 @@ void initCStablesAndIdxMapping(CStableStat* cstablestat, CSset* freqCSset, int* 
 			cstablestat->lastInsertedS[k] = (oid*) malloc(sizeof(oid) * tmpNumProp); 
 			cstablestat->lstcstable[k].numCol = tmpNumProp;
 			cstablestat->lstcstable[k].colBats = (BAT**)malloc(sizeof(BAT*) * tmpNumProp); 
+			cstablestat->lstcstable[k].mvBats = (BAT**)malloc(sizeof(BAT*) * tmpNumProp); 
 			#if CSTYPE_TABLE == 1
 			cstablestat->lastInsertedSEx[k] = (oid*) malloc(sizeof(oid) * tmpNumProp); 
 			cstablestat->lstcstableEx[k].numCol = tmpNumProp;
@@ -3201,6 +3202,7 @@ void initCStablesAndIdxMapping(CStableStat* cstablestat, CSset* freqCSset, int* 
 
 			for(j = 0; j < tmpNumProp; j++){
 				cstablestat->lstcstable[k].colBats[j] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+				cstablestat->lstcstable[k].mvBats[j] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
 				//TODO: use exact aount for each BAT
 				#if CSTYPE_TABLE == 1
 				cstablestat->lstcstableEx[k].colBats[j] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
@@ -3248,11 +3250,13 @@ void freeCStableStat(CStableStat* cstablestat){
 		#endif
 		for (j = 0; j < cstablestat->numPropPerTable[i];j++){
 			BBPunfix(cstablestat->lstcstable[i].colBats[j]->batCacheid); 
+			BBPunfix(cstablestat->lstcstable[i].mvBats[j]->batCacheid); 
 			#if CSTYPE_TABLE == 1
 			BBPunfix(cstablestat->lstcstableEx[i].colBats[j]->batCacheid); 
 			#endif
 		}
 		free(cstablestat->lstcstable[i].colBats);
+		free(cstablestat->lstcstable[i].mvBats);
 		#if CSTYPE_TABLE == 1
 		free(cstablestat->lstcstableEx[i].colBats);
 		#endif
@@ -3351,9 +3355,12 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	BUN	bun; 
 	int	i,j; 
 	BAT	*curBat = NULL;
+	BAT	*tmpmvBat = NULL; 	// Multi-values BAT
 	oid	tmplastInsertedS; 
 	oid	k; 
-
+	int	numMutiValues = 0;
+	oid* 	lastDupValue;
+	oid 	tmpmvValue; 
 
 	(void) bun; 
 	(void) lastSubjId;
@@ -3386,12 +3393,14 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	printf("Reorganize the triple store by using %d CS tables \n", cstablestat->numTables);
 
 	//setofBats = (BAT**)malloc(sizeof(BAT*) * cstablestat->numTables); 
+	//
 
 	BATloop(pbat, p, q){
 		pbt = (oid *) BUNtloc(pi, p);
 		sbt = (oid *) BUNtloc(si, p);
 		obt = (oid *) BUNtloc(oi, p);
-
+		
+		//printf("P = " BUNFMT " S = " BUNFMT " O = " BUNFMT " \n", *pbt, *sbt, *obt);
 
 		getTblidFromSoid(*sbt, &tblIdx, &tmpSoid, &tmpIsdefault);	
 
@@ -3422,14 +3431,36 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 			
 			lastP = *pbt; 
 			lastS = *sbt; 
+			numMutiValues = 0;
 		}
 		else{
 			if (*sbt == lastS){ 	//multi-values prop
-				//printf("Multi values prop \n"); 
+				printf("Multivalue at table %d col %d \n", tblIdx,tmpColIdx);
+				// Insert to mvbats 
+				if (numMutiValues == 0){ 	// The first duplication 
+					// Insert the last value from curBat to mvBat, then update this value 
+					// pointing to the offset of mul
+					lastDupValue = (oid *)Tloc(curBat, BUNlast(curBat) -1);
+					tmpmvValue = *lastDupValue; 
+					BUNappend(tmpmvBat, &tmpmvValue, TRUE); 
+					*lastDupValue = BUNlast(tmpmvBat) - 1; 
+					*lastDupValue |= (BUN)MULTIVALUES << (sizeof(BUN)*8 - 4);
+					
+					// Add the current object to mvBat
+					BUNappend(tmpmvBat, obt, TRUE);			
+					numMutiValues++;
+
+				}
+				else{
+					// Add the current object to mvBat
+					BUNappend(tmpmvBat, obt, TRUE);			
+					numMutiValues++;
+				}
 				continue; 				
 			}
 			else{
 				lastS = *sbt; 	
+				numMutiValues = 0;
 			}
 		}
 
@@ -3444,6 +3475,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 		}
 
 		curBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
+		tmpmvBat = cstablestat->lstcstable[tblIdx].mvBats[tmpColIdx];
 		tmplastInsertedS = cstablestat->lastInsertedS[tblIdx][tmpColIdx];
 		
 		//TODO: Check last subjectId for this prop. If the subjectId is not continuous, insert NIL
@@ -3506,14 +3538,19 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	BUN	bun; 
 	int	i,j; 
 	BAT	*curBat = NULL;
+	BAT     *tmpmvBat = NULL;       // Multi-values BAT
 	oid	tmplastInsertedS; 
 	oid	k; 
 	char	lastTableType = 0; 		// 1: default, 0: not default
+	int     numMutiValues = 0;
+	oid	*lastDupValue; 
+	oid	tmpmvValue; 
 
 	(void) bun; 
 	(void) lastSubjId;
 	(void) lastSubjIdEx; 
 	//BAT**	setofBats = NULL;
+	
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
@@ -3580,14 +3617,38 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 			
 			lastP = *pbt; 
 			lastS = *sbt; 
+			numMutiValues = 0;
+
 		}
 		else{
 			if (*sbt == lastS){ 	//multi-values prop
 				//printf("Multi values prop \n"); 
+				//printf("Multivalue at table %d col %d \n", tblIdx,tmpColIdx);
+				if (numMutiValues == 0){ 	// The first duplication 
+					// Insert the last value from curBat to mvBat, then update this value 
+					// pointing to the offset of mul
+					lastDupValue = (oid *)Tloc(curBat, BUNlast(curBat) -1);
+					tmpmvValue = *lastDupValue; 
+					BUNappend(tmpmvBat, &tmpmvValue, TRUE); 
+					*lastDupValue = BUNlast(tmpmvBat) - 1; 
+					*lastDupValue |= (BUN)MULTIVALUES << (sizeof(BUN)*8 - 4);
+					
+					// Add the current object to mvBat
+					BUNappend(tmpmvBat, obt, TRUE);			
+					numMutiValues++;
+
+				}
+				else{
+					// Add the current object to mvBat
+					BUNappend(tmpmvBat, obt, TRUE);			
+					numMutiValues++;
+				}
 				continue; 				
 			}
 			else{
 				lastS = *sbt; 	
+				numMutiValues = 0;
+
 			}
 		}
 
@@ -3614,7 +3675,8 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 			tmplastInsertedS = cstablestat->lastInsertedSEx[tblIdx][tmpColIdx];
 		}
 
-		
+		tmpmvBat = cstablestat->lstcstable[tblIdx].mvBats[tmpColIdx];
+
 		//TODO: Check last subjectId for this prop. If the subjectId is not continuous, insert NIL
 		if (tmpSoid > (tmplastInsertedS + 1)){	
 			for (k = tmplastInsertedS; k < tmpSoid-1; k++){
