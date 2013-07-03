@@ -24,65 +24,25 @@
 #include "rdflabels.h"
 
 static
-char** initAdjacencyMatrix(int csCount) {
-	char	**matrix = NULL; // matrix[from][to]
-	int	i, j;
-
-	matrix = (char **) malloc(sizeof(char *) * csCount);
-	if (!matrix) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-
-	for (i = 0; i < csCount; ++i) {
-		matrix[i] = (char *) malloc(sizeof(char *) * csCount);
-		if (!matrix) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-
-		for (j = 0; j < csCount; ++j) {
-			matrix[i][j] = 0;
-		}
+int edgeExists(long int from, long int to, long int* adjacency_from, long int* adjacency_to, int adjacencyCount) {
+	int	i;
+	for (i = 0; i < adjacencyCount; ++i) {
+		if (adjacency_from[i] == from && adjacency_to[i] == to) return 1;
 	}
-
-	return matrix;
+	return 0;
 }
 
 static
-void createAdjacencyMatrix(char** matrix, CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet) {
-	int	i, j, k;
-
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
-
-		for (j = 0; j < freqCSset->items[i].numProp; ++j) { // propNo in CS order
-			// check foreign key frequency
-			int sum = 0;
-			for (k = 0; k < csRelBetweenMergeFreqSet[i].numRef; ++k) {
-				if (csRelBetweenMergeFreqSet[i].lstPropId[k] == freqCSset->items[i].lstProp[j]) {
-					sum += csRelBetweenMergeFreqSet[i].lstCnt[k];
-				}
-			}
-
-			for (k = 0; k < csRelBetweenMergeFreqSet[i].numRef; ++k) { // propNo in CSrel
-				if (csRelBetweenMergeFreqSet[i].lstPropId[k] == freqCSset->items[i].lstProp[j]) {
-					int to = csRelBetweenMergeFreqSet[i].lstRefFreqIdx[k];
-					if (i == to) continue; // ignore self references
-					if ((int) (100.0 * csRelBetweenMergeFreqSet[i].lstCnt[k] / sum + 0.5) < FK_FREQ_THRESHOLD) continue; // foreign key is not frequent enough
-					matrix[i][to] = 1;
-				}
-			}	
-		}
-	}
-}
-
-static
-NodeStat* initNodeStats(CSset* freqCSset) {
+NodeStat* initNodeStats1(long int* table_freq, int tableCount) {
 	NodeStat*	nodeStats = NULL;
 	int		i;
 
-	nodeStats = (NodeStat *) malloc(sizeof(NodeStat) * freqCSset->numCSadded);
+	nodeStats = (NodeStat *) malloc(sizeof(NodeStat) * tableCount);
 	if (!nodeStats) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
-		nodeStats[i].origWeight = freqCSset->items[i].support;
-		nodeStats[i].weight = freqCSset->items[i].support; // weight = origWeight
+	for (i = 0; i < tableCount; ++i) {
+		nodeStats[i].origWeight = table_freq[i];
+		nodeStats[i].weight = table_freq[i]; // weight = origWeight
 		nodeStats[i].steps = -1;
 		nodeStats[i].predecessor = -1;
 	}
@@ -91,30 +51,11 @@ NodeStat* initNodeStats(CSset* freqCSset) {
 }
 
 static
-NodeStat* initNodeStats23(CSset* freqCSset) {
-	NodeStat*	nodeStats = NULL;
-	int		i;
-
-	nodeStats = (NodeStat *) malloc(sizeof(NodeStat) * freqCSset->numCSadded);
-	if (!nodeStats) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
-		nodeStats[i].origWeight = freqCSset->items[i].support;
-		nodeStats[i].weight = 0;
-		nodeStats[i].steps = -1; // not used
-		nodeStats[i].predecessor = 0; // not used
-	}
-
-	return nodeStats;
-}
-
-static
-void bfs1(int root, CSset* freqCSset, char** adjacencyMatrix, int* queue, int* visited, int* isInQueue, int* queuePosition, int* queueLength, NodeStat* nodeStats) {
+void bfs1(int root, long int* table_id, int tableCount, long int* adjacency_from, long int* adjacency_to, int adjacencyCount, int* queue, int* visited, int* isInQueue, int* queuePosition, int* queueLength, NodeStat* nodeStats) {
 	int	i;
 
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (adjacencyMatrix[root][i]) {
+	for (i = 0; i < tableCount; ++i) {
+		if (edgeExists(table_id[root], table_id[i], adjacency_from, adjacency_to, adjacencyCount)) {
 			if (nodeStats[i].steps == -1) {
 				// no previous path to this node
 				nodeStats[i].weight = nodeStats[root].weight + nodeStats[i].origWeight;
@@ -160,7 +101,7 @@ void bfs1(int root, CSset* freqCSset, char** adjacencyMatrix, int* queue, int* v
 
 			if (!visited[i] && !isInQueue[i]) {
 				// add to queue
-				queue[((*queueLength + *queuePosition) % freqCSset->numCSadded)] = i;
+				queue[((*queueLength + *queuePosition) % tableCount)] = i;
 				*queueLength += 1;
 				isInQueue[i] = 1;
 			}
@@ -169,26 +110,26 @@ void bfs1(int root, CSset* freqCSset, char** adjacencyMatrix, int* queue, int* v
 	}
 
 	if (*queueLength > 0) {
-		visited[queue[(*queuePosition % freqCSset->numCSadded)]] = 1;
-		isInQueue[queue[(*queuePosition % freqCSset->numCSadded)]] = 0;
+		visited[queue[(*queuePosition % tableCount)]] = 1;
+		isInQueue[queue[(*queuePosition % tableCount)]] = 0;
 		*queuePosition += 1;
 		*queueLength -= 1;
-		bfs1(queue[((*queuePosition + freqCSset->numCSadded - 1) % freqCSset->numCSadded)], freqCSset, adjacencyMatrix, queue, visited, isInQueue, queuePosition, queueLength, nodeStats);
+		bfs1(queue[((*queuePosition + tableCount - 1) % tableCount)], table_id, tableCount, adjacency_from, adjacency_to, adjacencyCount, queue, visited, isInQueue, queuePosition, queueLength, nodeStats);
 	}
 }
 
 static
-void addNode1(char** adjacencyMatrix, NodeStat* nodeStats, CSset* freqCSset, int root, char initial) {
-	int	queue[freqCSset->numCSadded]; // cyclic array
-	int	visited[freqCSset->numCSadded];
-	int	isInQueue[freqCSset->numCSadded];
+void addNode1(long int* adjacency_from, long int* adjacency_to, int adjacencyCount, NodeStat* nodeStats, long int* table_id, int tableCount, int root, char initial) {
+	int	queue[tableCount]; // cyclic array
+	int	visited[tableCount];
+	int	isInQueue[tableCount];
 	int	queuePosition; // next element in queue to view at
 	int	queueLength;
 	int	pathId, pathIdTmp;
 	int	i;
 
 	// init
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
+	for (i = 0; i < tableCount; ++i) {
 		queue[i] = -1;
 		visited[i] = 0;
 		isInQueue[i] = 0;
@@ -227,11 +168,11 @@ void addNode1(char** adjacencyMatrix, NodeStat* nodeStats, CSset* freqCSset, int
 		assert(steps == i);
 	}
 
-	bfs1(root, freqCSset, adjacencyMatrix, queue, visited, isInQueue, &queuePosition, &queueLength, nodeStats);
+	bfs1(root, table_id, tableCount, adjacency_from, adjacency_to, adjacencyCount, queue, visited, isInQueue, &queuePosition, &queueLength, nodeStats);
 }
 
-int* retrieval1(int root, int numNodesMax, int* numNodesActual, CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet) {
-	char		**adjacencyMatrix = NULL;
+static
+int* retrieval1(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, int adjacencyCount) {
 	NodeStat	*nodeStats = NULL;
 	int		numNodes;
 	int		*chosenNodes = NULL;
@@ -245,21 +186,18 @@ int* retrieval1(int root, int numNodesMax, int* numNodesActual, CSset* freqCSset
 	chosenNodes = (int *) malloc(sizeof(int) * numNodesMax);
 	if (!chosenNodes) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 
-	adjacencyMatrix = initAdjacencyMatrix(freqCSset->numCSadded);
-	createAdjacencyMatrix(adjacencyMatrix, freqCSset, csRelBetweenMergeFreqSet);
-	nodeStats = initNodeStats(freqCSset);
+	nodeStats = initNodeStats1(table_freq, tableCount);
 	numNodes = 1;
 
 	// add root node
-	addNode1(adjacencyMatrix, nodeStats, freqCSset, root, 1);
+	addNode1(adjacency_from, adjacency_to, adjacencyCount, nodeStats, table_id, tableCount, root, 1);
 
 	// add nodes
 	while (numNodes < numNodesMax) {
 		// get top node (highest fraction (weight/steps))
 		int top = -1;
-		for (i = 0; i < freqCSset->numCSadded; ++i) {
+		for (i = 0; i < tableCount; ++i) {
 			int topWeight, testWeight;
-			if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
 			if (nodeStats[i].steps == -1) continue; // non-reachable
 			if (nodeStats[i].steps == 0) continue; // already chosen
 			if (numNodes + nodeStats[i].steps > numNodesMax) continue; // path too long
@@ -275,36 +213,30 @@ int* retrieval1(int root, int numNodesMax, int* numNodesActual, CSset* freqCSset
 		}
 		if (top == -1) break; // not enough nodes found
 		numNodes += nodeStats[top].steps;
-		addNode1(adjacencyMatrix, nodeStats, freqCSset, top, 0); // add node(s)
+		addNode1(adjacency_from, adjacency_to, adjacencyCount, nodeStats, table_id, tableCount, top, 0); // add node(s)
 	}
 
 	// store list of chosen nodes
 	printf("SUBSCHEMA:\n");
 	j = 0; // counter for chosenNodes[]
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
+	for (i = 0; i < tableCount; ++i) {
 		if (nodeStats[i].steps != 0) continue; // non-chosen
 		chosenNodes[j++] = i;
-		printf("CS "BUNFMT"\n", freqCSset->items[i].csId);
+		printf("CS %s\n", table_name[i]);
 	}
 
 	// statistics
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
+	for (i = 0; i < tableCount; ++i) {
 		csCount += 1;
-		sumSubjects += freqCSset->items[i].support;
+		sumSubjects += table_freq[i];
 		if (nodeStats[i].steps == 0) {
-			sumChosenSubjects += freqCSset->items[i].support;
+			sumChosenSubjects += table_freq[i];
 		}
 	}
 	printf("COVERAGE:\n");
 	printf("%d out of %d (%f %%) using %d out of %d tables (%f %%)\n", sumChosenSubjects, sumSubjects, (100.00 * sumChosenSubjects) / sumSubjects, numNodes, csCount, (100.00 * numNodes) / csCount);
 
 	// free
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		free(adjacencyMatrix[i]);
-	}
-	free(adjacencyMatrix);
 	free(nodeStats);
 
 	*numNodesActual = numNodes;
@@ -312,7 +244,25 @@ int* retrieval1(int root, int numNodesMax, int* numNodesActual, CSset* freqCSset
 }
 
 static
-void assignWeightToChildren2(char** adjacencyMatrix, NodeStat* nodeStats, CSset* freqCSset, int root) {
+NodeStat* initNodeStats23(long int* table_freq, int tableCount) {
+	NodeStat*	nodeStats = NULL;
+	int		i;
+
+	nodeStats = (NodeStat *) malloc(sizeof(NodeStat) * tableCount);
+	if (!nodeStats) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+
+	for (i = 0; i < tableCount; ++i) {
+		nodeStats[i].origWeight = table_freq[i];
+		nodeStats[i].weight = 0;
+		nodeStats[i].steps = -1; // not used
+		nodeStats[i].predecessor = 0; // not used
+	}
+
+	return nodeStats;
+}
+
+static
+void assignWeightToChildren2(long int* adjacency_from, long int* adjacency_to, int adjacencyCount, NodeStat* nodeStats, long int* table_id, int tableCount, int root) {
 	int		i, j;
 
 	// mark root as a "chosen node"
@@ -320,12 +270,12 @@ void assignWeightToChildren2(char** adjacencyMatrix, NodeStat* nodeStats, CSset*
 	nodeStats[root].weight = 0;
 
 	// set summed weight for children
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (adjacencyMatrix[root][i]) {
+	for (i = 0; i < tableCount; ++i) {
+		if (edgeExists(table_id[root], table_id[i], adjacency_from, adjacency_to, adjacencyCount)) {
 			if (nodeStats[i].steps == 0) continue; // already in list
 			nodeStats[i].weight = 0;
-			for (j = 0; j < freqCSset->numCSadded; ++j) {
-				if (adjacencyMatrix[i][j]) {
+			for (j = 0; j < tableCount; ++j) {
+				if (edgeExists(table_id[i], table_id[j], adjacency_from, adjacency_to, adjacencyCount)) {
 					if (nodeStats[j].steps == 0) continue; // already in list
 					nodeStats[i].weight += nodeStats[j].origWeight;
 				}
@@ -335,8 +285,8 @@ void assignWeightToChildren2(char** adjacencyMatrix, NodeStat* nodeStats, CSset*
 	}
 }
 
-int* retrieval2(int root, int numNodesMax, int* numNodesActual, CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet) {
-	char		**adjacencyMatrix = NULL;
+static
+int* retrieval2(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, int adjacencyCount) {
 	NodeStat	*nodeStats = NULL;
 	int		numNodes;
 	int		*chosenNodes = NULL;
@@ -350,20 +300,18 @@ int* retrieval2(int root, int numNodesMax, int* numNodesActual, CSset* freqCSset
 	chosenNodes = (int *) malloc(sizeof(int) * numNodesMax);
 	if (!chosenNodes) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 
-	adjacencyMatrix = initAdjacencyMatrix(freqCSset->numCSadded);
-	createAdjacencyMatrix(adjacencyMatrix, freqCSset, csRelBetweenMergeFreqSet);
-	nodeStats = initNodeStats23(freqCSset);
+	nodeStats = initNodeStats23(table_freq, tableCount);
 	numNodes = 1;
 
 	// add root node
 	numNodes = 1;
-	assignWeightToChildren2(adjacencyMatrix, nodeStats, freqCSset, root);
+	assignWeightToChildren2(adjacency_from, adjacency_to, adjacencyCount, nodeStats, table_id, tableCount, root);
 
 	// add nodes
 	for (i = numNodes; i < numNodesMax; ++i) {
 		// get top node (highest weight)
 		int top = -1;
-		for (j = 0; j < freqCSset->numCSadded; ++j) {
+		for (j = 0; j < tableCount; ++j) {
 			if (nodeStats[j].weight != 0) {
 				if (top == -1) {
 					top = j; // set first value
@@ -376,36 +324,30 @@ int* retrieval2(int root, int numNodesMax, int* numNodesActual, CSset* freqCSset
 		}
 		if (top == -1) break; // not enough nodes found
 		numNodes += 1;
-		assignWeightToChildren2(adjacencyMatrix, nodeStats, freqCSset, top);
+		assignWeightToChildren2(adjacency_from, adjacency_to, adjacencyCount, nodeStats, table_id, tableCount, top);
 	}
 
 	// store list of chosen nodes
 	printf("SUBSCHEMA:\n");
 	j = 0; // counter for chosenNodes[]
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
+	for (i = 0; i < tableCount; ++i) {
 		if (nodeStats[i].steps != 0) continue; // non-chosen
 		chosenNodes[j++] = i;
-		printf("CS "BUNFMT"\n", freqCSset->items[i].csId);
+		printf("CS %s\n", table_name[i]);
 	}
 
 	// statistics
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
+	for (i = 0; i < tableCount; ++i) {
 		csCount += 1;
-		sumSubjects += freqCSset->items[i].support;
+		sumSubjects += table_freq[i];
 		if (nodeStats[i].steps == 0) {
-			sumChosenSubjects += freqCSset->items[i].support;
+			sumChosenSubjects += table_freq[i];
 		}
 	}
 	printf("COVERAGE:\n");
 	printf("%d out of %d (%f %%) using %d out of %d tables (%f %%)\n", sumChosenSubjects, sumSubjects, (100.00 * sumChosenSubjects) / sumSubjects, numNodes, csCount, (100.00 * numNodes) / csCount);
 
 	// free
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		free(adjacencyMatrix[i]);
-	}
-	free(adjacencyMatrix);
 	free(nodeStats);
 
 	*numNodesActual = numNodes;
@@ -413,30 +355,30 @@ int* retrieval2(int root, int numNodesMax, int* numNodesActual, CSset* freqCSset
 }
 
 static
-void assignWeightToChildren3(char** adjacencyMatrix, NodeStat* nodeStats, CSset* freqCSset, int root) {
+void assignWeightToChildren3(long int* adjacency_from, long int* adjacency_to, int adjacencyCount, NodeStat* nodeStats, long int* table_id, int tableCount, int root) {
 	int		i, j, k;
-	char		visited[freqCSset->numCSadded];
+	char		visited[tableCount];
 
 	// mark root as a "chosen node"
 	nodeStats[root].steps = 0;
 	nodeStats[root].weight = 0;
 
 	// set summed weight for children
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (adjacencyMatrix[root][i]) {
+	for (i = 0; i < tableCount; ++i) {
+		if (edgeExists(table_id[root], table_id[i], adjacency_from, adjacency_to, adjacencyCount)) {
 			if (nodeStats[i].steps == 0) continue; // already in list
 			nodeStats[i].weight = 0;
 
-			for (j = 0; j < freqCSset->numCSadded; ++j) {
+			for (j = 0; j < tableCount; ++j) {
 				visited[j] = 0;
 			}
 			visited[i] = 1;
 
-			for (j = 0; j < freqCSset->numCSadded; ++j) {
-				if (adjacencyMatrix[i][j]) {
+			for (j = 0; j < tableCount; ++j) {
+				if (edgeExists(table_id[i], table_id[j], adjacency_from, adjacency_to, adjacencyCount)) {
 					if (nodeStats[j].steps == 0) continue; // already in list
-					for (k = 0; k < freqCSset->numCSadded; ++k) {
-						if (adjacencyMatrix[j][k]) {
+					for (k = 0; k < tableCount; ++k) {
+						if (edgeExists(table_id[j], table_id[k], adjacency_from, adjacency_to, adjacencyCount)) {
 							if (nodeStats[k].steps == 0) continue; // already in list
 							if (visited[k]) continue; // cycle or reachable over multiple pathes
 							visited[k] = 1;
@@ -455,8 +397,8 @@ void assignWeightToChildren3(char** adjacencyMatrix, NodeStat* nodeStats, CSset*
 	}
 }
 
-int* retrieval3(int root, int numNodesMax, int* numNodesActual, CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet) {
-	char		**adjacencyMatrix = NULL;
+static
+int* retrieval3(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, int adjacencyCount) {
 	NodeStat	*nodeStats = NULL;
 	int		numNodes;
 	int		*chosenNodes = NULL;
@@ -470,20 +412,18 @@ int* retrieval3(int root, int numNodesMax, int* numNodesActual, CSset* freqCSset
 	chosenNodes = (int *) malloc(sizeof(int) * numNodesMax);
 	if (!chosenNodes) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 
-	adjacencyMatrix = initAdjacencyMatrix(freqCSset->numCSadded);
-	createAdjacencyMatrix(adjacencyMatrix, freqCSset, csRelBetweenMergeFreqSet);
-	nodeStats = initNodeStats23(freqCSset);
+	nodeStats = initNodeStats23(table_freq, tableCount);
 	numNodes = 1;
 
 	// add root node
 	numNodes = 1;
-	assignWeightToChildren3(adjacencyMatrix, nodeStats, freqCSset, root);
+	assignWeightToChildren3(adjacency_from, adjacency_to, adjacencyCount, nodeStats, table_id, tableCount, root);
 
 	// add nodes
 	for (i = numNodes; i < numNodesMax; ++i) {
 		// get top node (highest weight)
 		int top = -1;
-		for (j = 0; j < freqCSset->numCSadded; ++j) {
+		for (j = 0; j < tableCount; ++j) {
 			if (nodeStats[j].weight != 0) {
 				if (top == -1) {
 					top = j; // set first value
@@ -496,38 +436,42 @@ int* retrieval3(int root, int numNodesMax, int* numNodesActual, CSset* freqCSset
 		}
 		if (top == -1) break; // not enough nodes found
 		numNodes += 1;
-		assignWeightToChildren3(adjacencyMatrix, nodeStats, freqCSset, top);
+		assignWeightToChildren3(adjacency_from, adjacency_to, adjacencyCount, nodeStats, table_id, tableCount, top);
 	}
 
 	// store list of chosen nodes
 	printf("SUBSCHEMA:\n");
 	j = 0; // counter for chosenNodes[]
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
+	for (i = 0; i < tableCount; ++i) {
 		if (nodeStats[i].steps != 0) continue; // non-chosen
 		chosenNodes[j++] = i;
-		printf("CS "BUNFMT"\n", freqCSset->items[i].csId);
+		printf("CS %s\n", table_name[i]);
 	}
 
 	// statistics
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
+	for (i = 0; i < tableCount; ++i) {
 		csCount += 1;
-		sumSubjects += freqCSset->items[i].support;
+		sumSubjects += table_freq[i];
 		if (nodeStats[i].steps == 0) {
-			sumChosenSubjects += freqCSset->items[i].support;
+			sumChosenSubjects += table_freq[i];
 		}
 	}
 	printf("COVERAGE:\n");
 	printf("%d out of %d (%f %%) using %d out of %d tables (%f %%)\n", sumChosenSubjects, sumSubjects, (100.00 * sumChosenSubjects) / sumSubjects, numNodes, csCount, (100.00 * numNodes) / csCount);
 
 	// free
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		free(adjacencyMatrix[i]);
-	}
-	free(adjacencyMatrix);
 	free(nodeStats);
 
 	*numNodesActual = numNodes;
 	return chosenNodes;
 }
+
+int* retrieval(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, int adjacencyCount) {
+	if (SUBSCHEMA_HEURISTIC == 3) {
+		return retrieval3(root, numNodesMax, numNodesActual, table_id, table_name, table_freq, tableCount, adjacency_from, adjacency_to, adjacencyCount);
+	} else if (SUBSCHEMA_HEURISTIC == 2) {
+		return retrieval2(root, numNodesMax, numNodesActual, table_id, table_name, table_freq, tableCount, adjacency_from, adjacency_to, adjacencyCount);
+	}
+	// SUBSCHEMA_HEURISTIC == 1 or other value
+	return retrieval1(root, numNodesMax, numNodesActual, table_id, table_name, table_freq, tableCount, adjacency_from, adjacency_to, adjacencyCount);
+};
