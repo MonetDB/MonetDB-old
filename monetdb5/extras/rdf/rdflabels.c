@@ -322,13 +322,14 @@ void escapeURI(char* s) {
 }
 
 /* Modifies the parameter! */
-/* Replaces colons, quotes, spaces, and dashes with underscores. */
+/* Replaces colons, quotes, spaces, and dashes with underscores. All lowercase. */
 static
 void escapeURIforSQL(char* s) {
 	int i;
 
 	for (i = 0; i < (int) strlen(s); ++i) {
 		if (s[i] == ':' || s[i] == '"' || s[i] == ' ' || s[i] == '-') s[i] = '_';
+		s[i] = tolower(s[i]);
 	}
 }
 
@@ -364,7 +365,7 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 		if ( freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
 		strcpy(temp, labels[i].name);
 		escapeURIforSQL(temp);
-		fprintf(fout, "CREATE TABLE %s_"BUNFMT" (\nsubject VARCHAR(10) PRIMARY KEY,\n", temp, freqCSset->items[i].csId); // TODO uppercase? underscores?
+		fprintf(fout, "CREATE TABLE %s_"BUNFMT" (\nsubject VARCHAR(10) PRIMARY KEY,\n", temp, freqCSset->items[i].csId); // TODO underscores?
 		for (j = 0; j < labels[i].numProp; ++j) {
 			char temp2[100];
 			strcpy(temp2, labels[i].lstProp[j]);
@@ -409,6 +410,80 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 
 	fclose(fout);
 	TKNZRclose(&ret);
+}
+
+static
+void createSQLMetadata(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, Labels* labels) {
+	char	**matrix = NULL; // matrix[from][to]
+	int	i, j, k;
+	FILE	*fout;
+
+	// init
+	matrix = (char **) malloc(sizeof(char *) * freqCSset->numCSadded);
+	if (!matrix) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+
+	for (i = 0; i < freqCSset->numCSadded; ++i) {
+		matrix[i] = (char *) malloc(sizeof(char *) * freqCSset->numCSadded);
+		if (!matrix) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+
+		for (j = 0; j < freqCSset->numCSadded; ++j) {
+			matrix[i][j] = 0;
+		}
+	}
+
+	// set values
+	for (i = 0; i < freqCSset->numCSadded; ++i) {
+		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
+
+		for (j = 0; j < freqCSset->items[i].numProp; ++j) { // propNo in CS order
+			// check foreign key frequency
+			int sum = 0;
+			for (k = 0; k < csRelBetweenMergeFreqSet[i].numRef; ++k) {
+				if (csRelBetweenMergeFreqSet[i].lstPropId[k] == freqCSset->items[i].lstProp[j]) {
+					sum += csRelBetweenMergeFreqSet[i].lstCnt[k];
+				}
+			}
+
+			for (k = 0; k < csRelBetweenMergeFreqSet[i].numRef; ++k) { // propNo in CSrel
+				if (csRelBetweenMergeFreqSet[i].lstPropId[k] == freqCSset->items[i].lstProp[j]) {
+					int to = csRelBetweenMergeFreqSet[i].lstRefFreqIdx[k];
+					if (i == to) continue; // ignore self references
+					if ((int) (100.0 * csRelBetweenMergeFreqSet[i].lstCnt[k] / sum + 0.5) < FK_FREQ_THRESHOLD) continue; // foreign key is not frequent enough
+					matrix[i][to] = 1;
+				}
+			}
+		}
+	}
+
+	// store matrix as csv
+	fout = fopen("adjacencyList.csv", "wt");
+	for (i = 0; i < freqCSset->numCSadded; ++i) {
+		for (j = 0; j < freqCSset->numCSadded; ++j) {
+			if (matrix[i][j]) {
+				fprintf(fout, "\"%d\",\"%d\"\n",i,j);
+			}
+		}
+	}
+	fclose(fout);
+
+	// print id -> table name
+	fout = fopen("tableIdFreq.csv", "wt");
+	for (i = 0; i < freqCSset->numCSadded; ++i) {
+		char temp[100], temp2[100];
+		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
+		strcpy(temp, labels[i].name);
+		escapeURIforSQL(temp);
+		sprintf(temp2, "%s_"BUNFMT"", temp, freqCSset->items[i].csId); // TODO underscores?
+		fprintf(fout, "\"%d\",\"%s\",\"%d\"\n", i, temp2, freqCSset->items[i].support);
+	}
+	fclose(fout);
+
+	fout = fopen("CSmetadata.sql", "wt");
+	fprintf(fout, "CREATE TABLE table_id_freq (id VARCHAR(10), name VARCHAR(100), frequency VARCHAR(10));\n");
+	fprintf(fout, "CREATE TABLE adjacency_list (from_id VARCHAR(10), to_id VARCHAR(10));\n");
+	fprintf(fout, "COPY INTO table_id_freq from '/export/scratch2/linnea/dbfarm/test/tableIdFreq.csv' USING DELIMITERS ',','\\n','\"';\n");
+	fprintf(fout, "COPY INTO adjacency_list from '/export/scratch2/linnea/dbfarm/test/adjacencyList.csv' USING DELIMITERS ',','\\n','\"';");
+	fclose(fout);
 }
 
 /* Simple representation of the final labels for tables and attributes. */
@@ -1629,6 +1704,7 @@ Labels* createLabels(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, BAT
 	// Print and Export
 	printUML(freqCSset, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, ontologyLookupResult, ontologyLookupResultCount, links, labels, relationMetadata, relationMetadataCount, freqThreshold);
 	convertToSQL(freqCSset, relationMetadata, relationMetadataCount, labels, freqThreshold);
+	createSQLMetadata(freqCSset, csRelBetweenMergeFreqSet, labels);
 	printTxt(freqCSset, labels, freqThreshold);
 
 	// Free
