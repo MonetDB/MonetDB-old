@@ -1230,7 +1230,7 @@ static int hbdelay = 0;
 
 static struct{
 	lng user, nice, system, idle, iowait;
-	double load;
+	double load,idlecpu;
 } corestat[257];
 
 static int getCPULoad(char cpuload[BUFSIZ]){
@@ -1239,7 +1239,7 @@ static int getCPULoad(char cpuload[BUFSIZ]){
 	size_t n;
     char buf[BUFSIZ+1],*s;
 	static FILE *proc= NULL;
-	lng newload;
+	lng newload,newidlecpu;
 
 	if ( proc == NULL || ferror(proc))
 		proc = fopen("/proc/stat","r");
@@ -1272,8 +1272,11 @@ static int getCPULoad(char cpuload[BUFSIZ]){
 			if ( i != 5 )
 				goto skip;
 			newload = (user - corestat[cpu].user + nice - corestat[cpu].nice + system - corestat[cpu].system);
+			newidlecpu = (idle - corestat[cpu].idle);
 			if (newload)
 				corestat[cpu].load = (double) newload / (newload + idle - corestat[cpu].idle);
+			if (newidlecpu)
+				corestat[cpu].idlecpu = (double) newidlecpu / (newload + idle - corestat[cpu].idle);
 			corestat[cpu].user = user;
 			corestat[cpu].nice = nice;
 			corestat[cpu].system = system;
@@ -1298,14 +1301,18 @@ void HeartbeatCPUload(str (*IdleFunc)(int *))
 	char cpuload[BUFSIZ];
 	while(1)
 	{
-		MT_sleep_ms(100);
 		(void) getCPULoad(cpuload);
-		if (corestat[256].load < 0.1)
+		if (corestat[256].idlecpu < 0.8)
 		{
-			fprintf(stderr,"load=%lf\n",corestat[256].load);
-			IdleFunc(NULL);
+			//MT_sleep_ms(0.001);
+			//(void) getCPULoad(cpuload);
+			//if (corestat[256].idlecpu < 0.8)
+			//{
+				//fprintf(stderr,"load=%lf\n",corestat[256].idlecpu);
+				IdleFunc(NULL);
+			//}
 		}	
-		/*fprintf(stderr,"%s\n",cpuload);*/
+		//fprintf(stderr,"%s\n",cpuload);
 	}
 }
 void profilerGetCPUStat(lng *user, lng *nice, lng *sys, lng *idle, lng *iowait)

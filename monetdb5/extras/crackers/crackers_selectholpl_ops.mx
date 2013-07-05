@@ -314,8 +314,8 @@ createView:
 	bit copy=TRUE;	
 	int countBatElements=0;
 	int L1=0; /*Number of elements that can fit into L1 cache (size: 32KB)*/	
-	/*FILE *ofp;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/experiments/stochastic/idle_time_2/pieces_holistic.txt";*/
+	FILE *ofp;
+	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/thresholds/client1/waiting0/multiple_clients/breakdown.txt";
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 
@@ -324,11 +324,11 @@ createView:
 	if ((bo = BATdescriptor(*bid)) != NULL)
 		L1=32000/ATOMsize(bo->ttype);
 
-	/*ofp = fopen(outputFilename1,"a");
+	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
   		fprintf(stderr, "Can't open output file!\n");
   		exit(1);
-	}*/
+	}
 
 
 	MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
@@ -723,14 +723,18 @@ createView:
 	
 	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;	
 
-	if(*isIdleQuery==FALSE)
-		fprintf(stderr,"wt=%9.6lf ct=%9.6lf \n",wt,ct);
-
 	if (createIndex==1)
 	{
 		MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 		createIndex=0;	
 	}
+
+	if(*isIdleQuery==FALSE)
+		fprintf(ofp,"User_query \t 1 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf\n",wt,ct);
+	else
+		fprintf(ofp,"Idle_Query \t 0 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf\n",wt,ct);
+
+	fclose(ofp);
 
 	return MAL_SUCCEED;
 @
@@ -763,11 +767,16 @@ createView:
 	if ((b = BATdescriptor(CrackerIndex[m].cbid)) == NULL)
 		throw(MAL, "crackers.crackRange", "Cannot access crack index");
 
+	pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
+
 	/* find out where in the index the low falls */
 	foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
 
 	/* find out where in the index the high falls */
 	foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
+
+	pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
+
 
 	/*need to increase one position for the low bound only since we always store the previous position in the index*/
 	if (cl1 != 0 && LBound==FALSE) cl1++;

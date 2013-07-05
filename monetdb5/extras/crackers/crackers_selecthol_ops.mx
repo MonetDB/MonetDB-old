@@ -315,7 +315,7 @@ createView:
 	int countBatElements=0;
 	int L1=0; /*Number of elements that can fit into L1 cache (size: 32KB)*/
 	/*FILE *ofp;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/experiments/stochastic/idle_time_2/pieces_holistic.txt";*/
+	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/thresholds/client1/waiting01/cpuload70/idletime4/breakdown.txt";*/
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 
@@ -326,7 +326,6 @@ createView:
   		fprintf(stderr, "Can't open output file!\n");
   		exit(1);
 	}*/
-
 
 	if ((bo = BATdescriptor(*bid)) != NULL)
 		L1=32000/ATOMsize(bo->ttype);	
@@ -393,7 +392,7 @@ createView:
 			FN->c = FN->c + 2;
 			FN->weight = changeWeight_1(FN,countBatElements,L1);
 
-			printFrequencyStruct(FrequencyStructA);
+			//printFrequencyStruct(FrequencyStructA);
 			BBPincref(b->batCacheid,TRUE);
 			BBPunfix(bo->batCacheid);
 			
@@ -634,7 +633,7 @@ createView:
 	if(FN->weight > 0)
 		FN->weight = changeWeight_1(FN,countBatElements,L1);
 
-	printFrequencyStruct(FrequencyStructA);
+	//printFrequencyStruct(FrequencyStructA);
 
 	/*fprintf(ofp,"%d\n",FN->c);
 	fclose(ofp);*/
@@ -661,8 +660,12 @@ createView:
 		MT_lock_unset(&CrackerIndex[m].columnLock,"Lock Attribute");	
 
 	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-	if(*isIdleQuery==FALSE)
-		fprintf(stderr,"Wait time: %9.6lf Selection time: %9.6lf\n",wt,ct);
+	/*if(*isIdleQuery==FALSE)
+		fprintf(ofp,"User_query \t 1 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf\n",wt,ct);
+	else
+		fprintf(ofp,"Idle_Query \t 0 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf\n",wt,ct);
+
+	fclose(ofp);*/
 
 	return MAL_SUCCEED;
 @

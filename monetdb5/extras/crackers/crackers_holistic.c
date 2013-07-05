@@ -234,7 +234,7 @@ changeWeight_1(FrequencyNode* node,int N,int L1)
 		node->weight = d;
 	}
 
-	fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
+	//fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
 	MT_lock_unset(&node->nodeLock, "Lock Node");
 	return node->weight;
 }
@@ -356,14 +356,13 @@ CRKrandomCrack(int *ret)
 	int temp=0;
 	bit isIdleQuery=TRUE;
 	oid posl,posh,p;
-	FILE *ofp1;
+	//FILE *ofp1;
 	int dummy = 0;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/experiments/strategies/change_parameters_abcde/a800b50c50d50e50/idle_queries_2";
+	//char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/thresholds/client1/waiting0/cpuload70/idletime4/idle_columns.txt";
 	
 	bit inclusive=TRUE;
 	FrequencyNode *fs = getFrequencyStruct('A');	
-//	isIdleQuery=1;
-	ofp1 = fopen(outputFilename1,"a");
+	//ofp1 = fopen(outputFilename1,"a");
 	(void) ret;
 	max_node=findMax(fs);
 	if(max_node!=NULL && max_node->weight > 0)
@@ -383,17 +382,12 @@ CRKrandomCrack(int *ret)
 			low=hgh;
 			hgh=temp;
 		}
-	/*fprintf(stderr,"posl = "OIDFMT" posh = "OIDFMT" low = %d hgh = %d inclusive = %d", posl,posh,low,hgh,inclusive );*/
-		CRKselectholBounds_int(&dummy, &bid, &low, &hgh, &inclusive, &inclusive,&isIdleQuery);
-		fprintf(ofp1,"%d\n",max_node->bid);
+		CRKselectholplBounds_int(&dummy, &bid, &low, &hgh, &inclusive, &inclusive,&isIdleQuery);
+		//fprintf(ofp1,"%d\n",max_node->bid);
 		
 	}
 	
-	fclose(ofp1);
-
-	/*printFrequencyStruct(fs);*/
-//	isIdleQuery=0;
-
+	//fclose(ofp1);
 
 	return MAL_SUCCEED;
 }
