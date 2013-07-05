@@ -29,8 +29,8 @@ typedef struct NodeStat {
 	int	origWeight;	// = CS frequency
 } NodeStat;
 
-#define SUBSCHEMA_HEURISTIC 1
+#define SUBSCHEMA_HEURISTIC 4
 
-int* retrieval(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, int adjacencyCount);
+int* retrieval(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, long int* adjacency_freq, int adjacencyCount);
 
 #endif /* _RDFRETRIEVAL_H_ */

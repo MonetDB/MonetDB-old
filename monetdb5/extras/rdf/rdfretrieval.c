@@ -33,6 +33,15 @@ int edgeExists(long int from, long int to, long int* adjacency_from, long int* a
 }
 
 static
+int getTableIndex(long int id, long int* table_id, int tableCount) {
+	int i;
+	for (i = 0; i < tableCount; ++i) {
+		if (table_id[i] == id) return i;
+	}
+	return -1;
+}
+
+static
 NodeStat* initNodeStats1(long int* table_freq, int tableCount) {
 	NodeStat*	nodeStats = NULL;
 	int		i;
@@ -466,12 +475,95 @@ int* retrieval3(int root, int numNodesMax, int* numNodesActual, long int* table_
 	return chosenNodes;
 }
 
-int* retrieval(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, int adjacencyCount) {
-	if (SUBSCHEMA_HEURISTIC == 3) {
+static
+int* retrieval4(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, long int* adjacency_freq, int adjacencyCount) {
+	int		numNodes;
+	int		*chosenNodes = NULL;
+	int		i, j;
+	int		sumSubjects = 0;
+	int		csCount = 0;
+	int		sumChosenSubjects = 0;
+
+	if (numNodesMax < 1) fprintf(stderr, "ERROR: numNodesMax < 1!\n");
+
+	chosenNodes = (int *) malloc(sizeof(int) * numNodesMax);
+	if (!chosenNodes) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+
+	numNodes = 0;
+
+	// add root node
+	chosenNodes[numNodes] = root;
+	numNodes += 1;
+
+	// add nodes
+	while (numNodes < numNodesMax) {
+		int bestNextEdge = -1;
+		for (i = 0; i < adjacencyCount; ++i) {
+			char foundFrom = 0;
+			char foundTo = 0;
+			for (j = 0; j < numNodes; ++j) {
+				if (chosenNodes[j] == getTableIndex(adjacency_to[i], table_id, tableCount)) {
+					foundTo = 1;
+					break;
+				}
+			}
+			for (j = 0; j < numNodes; ++j) {
+				if (chosenNodes[j] == getTableIndex(adjacency_from[i], table_id, tableCount)) {
+					foundFrom = 1;
+					break;
+				}
+			}
+			if (foundFrom && !foundTo) {
+				// set or update
+				if (bestNextEdge == -1) {
+					// first edge
+					bestNextEdge = i;
+				} else {
+					if (adjacency_freq[i] > adjacency_freq[bestNextEdge]) bestNextEdge = i;
+				}
+			}
+		}
+		if (bestNextEdge == -1) {
+			// no more edges
+			break;
+		} else {
+			chosenNodes[numNodes] = getTableIndex(adjacency_to[bestNextEdge], table_id, tableCount);
+			numNodes += 1;
+		}
+	}
+
+	printf("SUBSCHEMA:\n");
+	for (i = 0; i < numNodes; ++i) {
+		str name = table_name[chosenNodes[i]];
+		printf("CS %s\n", name);
+	}
+
+	// statistics
+	for (i = 0; i < tableCount; ++i) {
+		csCount += 1;
+		sumSubjects += table_freq[i];
+		for (j = 0; j < numNodes; ++j) {
+			if (chosenNodes[j] == i) sumChosenSubjects += table_freq[i];
+		}
+	}
+	printf("COVERAGE:\n");
+	printf("%d out of %d (%f %%) using %d out of %d tables (%f %%)\n", sumChosenSubjects, sumSubjects, (100.00 * sumChosenSubjects) / sumSubjects, numNodes, csCount, (100.00 * numNodes) / csCount);
+
+	*numNodesActual = numNodes;
+	return chosenNodes;
+}
+
+int* retrieval(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, long int* adjacency_freq, int adjacencyCount) {
+	if (SUBSCHEMA_HEURISTIC == 4) {
+		return retrieval4(root, numNodesMax, numNodesActual, table_id, table_name, table_freq, tableCount, adjacency_from, adjacency_to, adjacency_freq, adjacencyCount);
+	} else if (SUBSCHEMA_HEURISTIC == 3) {
+		(void) adjacency_freq;
 		return retrieval3(root, numNodesMax, numNodesActual, table_id, table_name, table_freq, tableCount, adjacency_from, adjacency_to, adjacencyCount);
 	} else if (SUBSCHEMA_HEURISTIC == 2) {
+		(void) adjacency_freq;
 		return retrieval2(root, numNodesMax, numNodesActual, table_id, table_name, table_freq, tableCount, adjacency_from, adjacency_to, adjacencyCount);
 	}
 	// SUBSCHEMA_HEURISTIC == 1 or other value
+	(void) adjacency_freq;
 	return retrieval1(root, numNodesMax, numNodesActual, table_id, table_name, table_freq, tableCount, adjacency_from, adjacency_to, adjacencyCount);
 };

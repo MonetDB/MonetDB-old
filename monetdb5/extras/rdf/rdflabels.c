@@ -414,16 +414,16 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 
 static
 void createSQLMetadata(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, Labels* labels) {
-	char	**matrix = NULL; // matrix[from][to]
+	int	**matrix = NULL; // matrix[from][to] frequency
 	int	i, j, k;
 	FILE	*fout;
 
 	// init
-	matrix = (char **) malloc(sizeof(char *) * freqCSset->numCSadded);
+	matrix = (int **) malloc(sizeof(int *) * freqCSset->numCSadded);
 	if (!matrix) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		matrix[i] = (char *) malloc(sizeof(char *) * freqCSset->numCSadded);
+		matrix[i] = (int *) malloc(sizeof(char *) * freqCSset->numCSadded);
 		if (!matrix) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 
 		for (j = 0; j < freqCSset->numCSadded; ++j) {
@@ -449,7 +449,7 @@ void createSQLMetadata(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, L
 					int to = csRelBetweenMergeFreqSet[i].lstRefFreqIdx[k];
 					if (i == to) continue; // ignore self references
 					if ((int) (100.0 * csRelBetweenMergeFreqSet[i].lstCnt[k] / sum + 0.5) < FK_FREQ_THRESHOLD) continue; // foreign key is not frequent enough
-					matrix[i][to] = 1;
+					matrix[i][to] += csRelBetweenMergeFreqSet[i].lstCnt[k]; // multiple links from 'i' to 'to'? add the frequencies
 				}
 			}
 		}
@@ -460,7 +460,7 @@ void createSQLMetadata(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, L
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		for (j = 0; j < freqCSset->numCSadded; ++j) {
 			if (matrix[i][j]) {
-				fprintf(fout, "\"%d\",\"%d\"\n",i,j);
+				fprintf(fout, "\"%d\",\"%d\",\"%d\"\n", i, j, matrix[i][j]);
 			}
 		}
 	}
@@ -480,7 +480,7 @@ void createSQLMetadata(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, L
 
 	fout = fopen("CSmetadata.sql", "wt");
 	fprintf(fout, "CREATE TABLE table_id_freq (id VARCHAR(10), name VARCHAR(100), frequency VARCHAR(10));\n");
-	fprintf(fout, "CREATE TABLE adjacency_list (from_id VARCHAR(10), to_id VARCHAR(10));\n");
+	fprintf(fout, "CREATE TABLE adjacency_list (from_id VARCHAR(10), to_id VARCHAR(10), frequency VARCHAR(10));\n");
 	fprintf(fout, "COPY INTO table_id_freq from '/export/scratch2/linnea/dbfarm/test/tableIdFreq.csv' USING DELIMITERS ',','\\n','\"';\n");
 	fprintf(fout, "COPY INTO adjacency_list from '/export/scratch2/linnea/dbfarm/test/adjacencyList.csv' USING DELIMITERS ',','\\n','\"';");
 	fclose(fout);
