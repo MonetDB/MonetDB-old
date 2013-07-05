@@ -2223,6 +2223,7 @@ static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *covera
 	int	*freq, *coverage; 
 	char 	filename[100];
 	char 	tmpStr[20];
+	int 	totalCoverage =0;
 
 	strcpy(filename, "csStatistic");
 	sprintf(tmpStr, "%d", freqThreshold);
@@ -2248,6 +2249,10 @@ static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *covera
 
 		freq = (int *) BUNtloc(freqi, p); 
 		coverage = (int *) BUNtloc(coveri, p); 
+		 
+		if (*freq >= freqThreshold){
+			totalCoverage += *coverage;
+		}
 
 		// Output the result 
 		if (isWriteToFile == 0)
@@ -2255,7 +2260,8 @@ static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *covera
 		else 
 			fprintf(fout, BUNFMT " %d  %d %d \n", p, numP, *freq, *coverage); 
 	}
-
+	
+	printf("Number of triples covered by frequentCS: %d \n", totalCoverage);
 	fclose(fout); 
 	//free(csPropNum); 
 }
