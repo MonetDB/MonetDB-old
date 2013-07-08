@@ -1436,10 +1436,109 @@ void testBatHash(void){
 */
 
 static 
-void addNewCS(CSBats *csBats, BUN* csKey, oid* key, oid *csoid, int num, int numTriples){
+void addaProp(PropStat* propStat, oid prop, int csIdx, int invertIdx){
+	BUN	bun; 
+	BUN	p; 
+
+	int* _tmp1; 
+	float* _tmp2; 
+	Postinglist* _tmp3;
+	int* _tmp4; 
+	
+	p = prop; 
+	bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &prop);
+	if (bun == BUN_NONE) {	/* New Prop */
+	       if (propStat->pBat->T->hash && BATcount(propStat->pBat) > 4 * propStat->pBat->T->hash->mask) {
+			HASHdestroy(propStat->pBat);
+			BAThash(BATmirror(propStat->pBat), 2*BATcount(propStat->pBat));
+		}
+
+		propStat->pBat = BUNappend(propStat->pBat,&p, TRUE);
+		
+		if(propStat->numAdded == propStat->numAllocation){
+
+			propStat->numAllocation += INIT_PROP_NUM;
+
+			_tmp1 = realloc(propStat->freqs, ((propStat->numAllocation) * sizeof(int)));
+			if (!_tmp1){
+				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+			}
+			
+			propStat->freqs = (int*)_tmp1;
+			
+			_tmp2 = realloc(propStat->tfidfs, ((propStat->numAllocation) * sizeof(float)));
+			if (!_tmp2){
+				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+			}
+			
+			propStat->tfidfs = (float*)_tmp2;
+			
+			_tmp3 = realloc(propStat->plCSidx, ((propStat->numAllocation) * sizeof(Postinglist)));
+			if (!_tmp3){
+				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+			}
+			
+			propStat->plCSidx = (Postinglist*)_tmp3;
+
+		}
+
+		propStat->freqs[propStat->numAdded] = 1; 
+
+		propStat->plCSidx[propStat->numAdded].lstIdx = (int *) malloc(sizeof(int) * INIT_CS_PER_PROP);
+		propStat->plCSidx[propStat->numAdded].lstInvertIdx = (int *) malloc(sizeof(int) * INIT_CS_PER_PROP);
+
+
+		if (propStat->plCSidx[propStat->numAdded].lstIdx  == NULL){
+			fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+		} 
+	
+		propStat->plCSidx[propStat->numAdded].lstIdx[0] = csIdx;
+		propStat->plCSidx[propStat->numAdded].lstInvertIdx[0] = invertIdx;
+		propStat->plCSidx[propStat->numAdded].numAdded = 1; 
+		propStat->plCSidx[propStat->numAdded].numAllocation = INIT_CS_PER_PROP; 
+		
+		propStat->numAdded++;
+
+	}
+	else{		/*existing p*/
+		propStat->freqs[bun]++;
+
+		if (propStat->plCSidx[bun].numAdded == propStat->plCSidx[bun].numAllocation){
+			
+			propStat->plCSidx[bun].numAllocation += INIT_CS_PER_PROP;
+		
+			_tmp1 = realloc(propStat->plCSidx[bun].lstIdx, ((propStat->plCSidx[bun].numAllocation) * sizeof(int)));
+			if (!_tmp1){
+				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+			}
+			propStat->plCSidx[bun].lstIdx = (int*) _tmp1; 
+			
+			_tmp4 = realloc(propStat->plCSidx[bun].lstInvertIdx, ((propStat->plCSidx[bun].numAllocation) * sizeof(int)));
+			if (!_tmp4){
+				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+			}
+			propStat->plCSidx[bun].lstInvertIdx = (int*) _tmp4; 
+
+		}
+		propStat->plCSidx[bun].lstIdx[propStat->plCSidx[bun].numAdded] = csIdx; 
+		propStat->plCSidx[bun].lstInvertIdx[propStat->plCSidx[bun].numAdded] = invertIdx; 
+
+		propStat->plCSidx[bun].numAdded++;
+	}
+
+}
+
+
+static 
+void addNewCS(CSBats *csBats, PropStat* fullPropStat, BUN* csKey, oid* key, oid *csoid, int num, int numTriples){
 	int freq = 1; 
 	int coverage = numTriples; 
 	BUN	offset; 
+	#if FULL_PROP_STAT
+	int	i; 
+	#endif
+	
+	(void) fullPropStat; 
 
 	if (csBats->hsKeyBat->T->hash && BATcount(csBats->hsKeyBat) > 4 * csBats->hsKeyBat->T->hash->mask) {
 		HASHdestroy(csBats->hsKeyBat);
@@ -1455,6 +1554,12 @@ void addNewCS(CSBats *csBats, BUN* csKey, oid* key, oid *csoid, int num, int num
 	BUNappend(csBats->pOffsetBat, &offset , TRUE);
 	appendArrayToBat(csBats->fullPBat, key, num);
 
+	#if FULL_PROP_STAT == 1		// add property to fullPropStat
+	for (i = 0; i < num; i++){
+		addaProp(fullPropStat, key[i], *csoid, i);
+	}
+	#endif
+
 	BUNappend(csBats->freqBat, &freq, TRUE); 
 	BUNappend(csBats->coverageBat, &coverage, TRUE); 
 }
@@ -1468,11 +1573,11 @@ void addNewCS(CSBats *csBats, BUN* csKey, oid* key, oid *csoid, int num, int num
 #if STOREFULLCS
 static 
 oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples,  
-		oid *csoid, char isStoreFreqCS, int freqThreshold, CSset *freqCSset, oid subjectId, oid* buffObjs)
+		oid *csoid, char isStoreFreqCS, int freqThreshold, CSset *freqCSset, oid subjectId, oid* buffObjs, PropStat *fullPropStat)
 #else
 static 
 oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples, 
-		oid *csoid, char isStoreFreqCS, int freqThreshold, CSset *freqCSset)
+		oid *csoid, char isStoreFreqCS, int freqThreshold, CSset *freqCSset, PropStat *fullPropStat)
 #endif	
 {
 	BUN 	csKey; 
@@ -1487,7 +1592,7 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples,
 	bun = BUNfnd(BATmirror(csBats->hsKeyBat),(ptr) &csKey);
 	if (bun == BUN_NONE) {
 		csId = *csoid; 
-		addNewCS(csBats, &csKey, key, csoid, num, numTriples);
+		addNewCS(csBats, fullPropStat, &csKey, key, csoid, num, numTriples);
 		
 		//Handle the case when freqThreshold == 1 
 		if (isStoreFreqCS ==1 && freqThreshold == 1){
@@ -1508,7 +1613,7 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples,
 			//printf(" No duplication (new CS) \n");	
 			// New CS
 			csId = *csoid;
-			addNewCS(csBats, &csKey, key, csoid, num, numTriples);
+			addNewCS(csBats, fullPropStat, &csKey, key, csoid, num, numTriples);
 			
 			//Handle the case when freqThreshold == 1 
 			if (isStoreFreqCS ==1 && freqThreshold == 1){
@@ -1847,98 +1952,7 @@ PropStat* initPropStat(void){
 	return propStat; 
 }
 
-static 
-void addaProp(PropStat* propStat, oid prop, int csIdx, int invertIdx){
-	BUN	bun; 
-	BUN	p; 
 
-	int* _tmp1; 
-	float* _tmp2; 
-	Postinglist* _tmp3;
-	int* _tmp4; 
-	
-	p = prop; 
-	bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &prop);
-	if (bun == BUN_NONE) {	/* New Prop */
-	       if (propStat->pBat->T->hash && BATcount(propStat->pBat) > 4 * propStat->pBat->T->hash->mask) {
-			HASHdestroy(propStat->pBat);
-			BAThash(BATmirror(propStat->pBat), 2*BATcount(propStat->pBat));
-		}
-
-		propStat->pBat = BUNappend(propStat->pBat,&p, TRUE);
-		
-		if(propStat->numAdded == propStat->numAllocation){
-
-			propStat->numAllocation += INIT_PROP_NUM;
-
-			_tmp1 = realloc(propStat->freqs, ((propStat->numAllocation) * sizeof(int)));
-			if (!_tmp1){
-				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-			}
-			
-			propStat->freqs = (int*)_tmp1;
-			
-			_tmp2 = realloc(propStat->tfidfs, ((propStat->numAllocation) * sizeof(float)));
-			if (!_tmp2){
-				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-			}
-			
-			propStat->tfidfs = (float*)_tmp2;
-			
-			_tmp3 = realloc(propStat->plCSidx, ((propStat->numAllocation) * sizeof(Postinglist)));
-			if (!_tmp3){
-				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-			}
-			
-			propStat->plCSidx = (Postinglist*)_tmp3;
-
-		}
-
-		propStat->freqs[propStat->numAdded] = 1; 
-
-		propStat->plCSidx[propStat->numAdded].lstIdx = (int *) malloc(sizeof(int) * INIT_CS_PER_PROP);
-		propStat->plCSidx[propStat->numAdded].lstInvertIdx = (int *) malloc(sizeof(int) * INIT_CS_PER_PROP);
-
-
-		if (propStat->plCSidx[propStat->numAdded].lstIdx  == NULL){
-			fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-		} 
-	
-		propStat->plCSidx[propStat->numAdded].lstIdx[0] = csIdx;
-		propStat->plCSidx[propStat->numAdded].lstInvertIdx[0] = invertIdx;
-		propStat->plCSidx[propStat->numAdded].numAdded = 1; 
-		propStat->plCSidx[propStat->numAdded].numAllocation = INIT_CS_PER_PROP; 
-		
-		propStat->numAdded++;
-
-	}
-	else{		/*existing p*/
-		propStat->freqs[bun]++;
-
-		if (propStat->plCSidx[bun].numAdded == propStat->plCSidx[bun].numAllocation){
-			
-			propStat->plCSidx[bun].numAllocation += INIT_CS_PER_PROP;
-		
-			_tmp1 = realloc(propStat->plCSidx[bun].lstIdx, ((propStat->plCSidx[bun].numAllocation) * sizeof(int)));
-			if (!_tmp1){
-				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-			}
-			propStat->plCSidx[bun].lstIdx = (int*) _tmp1; 
-			
-			_tmp4 = realloc(propStat->plCSidx[bun].lstInvertIdx, ((propStat->plCSidx[bun].numAllocation) * sizeof(int)));
-			if (!_tmp4){
-				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-			}
-			propStat->plCSidx[bun].lstInvertIdx = (int*) _tmp4; 
-
-		}
-		propStat->plCSidx[bun].lstIdx[propStat->plCSidx[bun].numAdded] = csIdx; 
-		propStat->plCSidx[bun].lstInvertIdx[propStat->plCSidx[bun].numAdded] = invertIdx; 
-
-		propStat->plCSidx[bun].numAdded++;
-	}
-
-}
 
 static
 void getPropStatisticsFromMaxCSs(PropStat* propStat, int numMaxCSs, oid* superCSFreqCSMap, CSset* freqCSset){
@@ -2006,22 +2020,44 @@ PropStat* getPropStatisticsByTable(CSset* freqCSset, int* mfreqIdxTblIdxMapping,
 }
 
 
-void printPropStat(PropStat* propStat){
+void printPropStat(PropStat* propStat, int printToFile){
 	int i, j; 
 	oid	*pbt; 
 	Postinglist ps; 
 
-	printf("---- PropStat --- \n");
-	for (i = 0; i < propStat->numAdded; i++){
-		pbt = (oid *) Tloc(propStat->pBat, i);
-		printf("Property " BUNFMT " :\n   FreqCSIdx: ", *pbt);
+	FILE 	*fout; 
+	char 	filename[100];
 
-		ps = propStat->plCSidx[i]; 
-		for (j = 0; j < ps.numAdded; j++){
-			printf("  %d",ps.lstIdx[j]);
+	if (printToFile == 0){
+		printf("---- PropStat --- \n");
+		for (i = 0; i < propStat->numAdded; i++){
+			pbt = (oid *) Tloc(propStat->pBat, i);
+			printf("Property " BUNFMT " :\n   FreqCSIdx: ", *pbt);
+
+			ps = propStat->plCSidx[i]; 
+			for (j = 0; j < ps.numAdded; j++){
+				printf("  %d",ps.lstIdx[j]);
+			}
+			printf("\n");
 		}
-		printf("\n");
 	}
+	else{
+
+		strcpy(filename, "fullPropStat");
+		strcat(filename, ".txt");
+
+		fout = fopen(filename,"wt"); 
+		fprintf(fout, "PropertyOid #ofCSs ");	
+		for (i = 0; i < propStat->numAdded; i++){
+			pbt = (oid *) Tloc(propStat->pBat, i);
+			fprintf(fout, BUNFMT "  %d\n", *pbt, propStat->plCSidx[i].numAdded);
+		}
+		fclose(fout);
+	
+	}
+
+
+
 }
 
 static 
@@ -2441,6 +2477,10 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 	oid* 	buffObjs;
 	oid* 	_tmpObjs; 
 	#endif
+
+	PropStat *fullPropStat; 	
+
+	fullPropStat = initPropStat();
 	
 	buff = (oid *) malloc (sizeof(oid) * INIT_PROPERTY_NUM);
 	#if STOREFULLCS
@@ -2457,9 +2497,9 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 		if (*sbt != curS){
 			if (p != 0){	/* Not the first S */
 				#if STOREFULLCS
-				returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs); 
+				returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs, fullPropStat); 
 				#else
-				returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, &CSoid, 1, *freqThreshold, freqCSset); 
+				returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, &CSoid, 1, *freqThreshold, freqCSset, fullPropStat); 
 				#endif
 
 				subjCSMap[curS] = returnCSid; 			
@@ -2520,9 +2560,9 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 	
 	/*put the last CS */
 	#if STOREFULLCS
-	returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs); 
+	returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs, fullPropStat); 
 	#else
-	returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, &CSoid, 1, *freqThreshold, freqCSset ); 
+	returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, &CSoid, 1, *freqThreshold, freqCSset, fullPropStat ); 
 	#endif
 	
 	subjCSMap[curS] = returnCSid; 			
@@ -2541,7 +2581,13 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 	#if STOREFULLCS
 	free (buffObjs); 
 	#endif
-		
+
+	#if FULL_PROP_STAT
+	printPropStat(fullPropStat,1);
+	#endif	
+
+	freePropStat(fullPropStat); 
+
 	*ret = 1; 
 
 	//Update the numOrigFreqCS for freqCS
@@ -2824,6 +2870,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	CSset		*freqCSset; 
 
 	Labels		*labels;
+
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
@@ -3913,7 +3960,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	propStat = getPropStatisticsByTable(freqCSset,mfreqIdxTblIdxMapping, &numdistinctMCS); 
 	
-	//printPropStat(propStat); 
+	//printPropStat(propStat,0); 
 	
 	if (RDFdistTriplesToCSs(ret, &sNewBat->batCacheid, &pNewBat->batCacheid, &oNewBat->batCacheid, propStat, cstablestat,lastSubjId, lastSubjIdEx) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in distributing triples to BATs using CSs");		
@@ -3925,6 +3972,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	
 	free(lastSubjId);
 	free(lastSubjIdEx); 
+	freePropStat(propStat);
 	//freeCStableStat(cstablestat); 
 	//
 	if (subjdefaultMap != NULL) free(subjdefaultMap);

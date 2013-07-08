@@ -85,6 +85,8 @@ typedef struct PropStat {
 
 #define CSTYPE_TABLE	1
 
+#define FULL_PROP_STAT 1	// Only use for showing the statistic on all properties / all CSs. (Default should be 0)
+
 typedef struct CS
 {
 	oid 	csId;		//Id of the CS
@@ -219,6 +221,6 @@ freeCStableStat(CStableStat *cstablestat);
 
 
 rdf_export void
-printPropStat(PropStat *propstat); 
+printPropStat(PropStat *propstat, int isPrintToFile); 
 
 #endif /* _RDFSCHEMA_H_ */
