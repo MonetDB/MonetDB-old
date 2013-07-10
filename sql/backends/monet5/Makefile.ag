@@ -51,6 +51,7 @@ lib__sql = {
 		   ../../common/libsqlcommon \
 		   HAVE_RAPTOR?../../../monetdb5/extras/rdf/lib_rdf \
 		   HAVE_RAPTOR?../../../monetdb5/extras/rdf/hashmap/librdfhash \
+		   HAVE_RAPTOR?../../../monetdb5/extras/rdf/trie/librdftrie \
 		   ../../../monetdb5/tools/libmonetdb5 \
 		   ../../../gdk/libbat \
 		   ../../../common/stream/libstream \

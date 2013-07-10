@@ -26,7 +26,7 @@ INCLUDES = ../../modules/atoms ../../modules/mal ../../mal \
 
 MTSAFE
 
-SUBDIRS = hashmap
+SUBDIRS = hashmap trie
 
 lib__rdf = {
 	#MODULE
@@ -53,5 +53,5 @@ headers_autoload = {
 	SOURCES = 50_rdf.mal
 }
 
-EXTRA_DIST_DIR = hashmap
+EXTRA_DIST_DIR = hashmap trie
 EXTRA_DIST = 50_rdf.mal rdfalgebra.mal rdfschema.mal

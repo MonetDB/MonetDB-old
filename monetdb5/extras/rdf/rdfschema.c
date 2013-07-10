@@ -28,6 +28,8 @@
 #include <hashmap/hashmap.h>
 #include "tokenizer.h"
 #include <math.h>
+#include <time.h>
+#include <trie/trie.h>
 
 #define SHOWPROPERTYNAME 1
 
@@ -1691,6 +1693,81 @@ static int isSubset(oid* arr1, oid* arr2, int m, int n)
 }
 
 /*
+static int isSubset(oid* arr1, oid* arr2, int m, int n)
+{
+	int i = 0, j = 0;
+	 
+	if(m < n)
+		return 0;
+		 
+	while( i < n && j < m )
+	{
+		if( arr1[j] == arr2[i] )
+		{
+			j++;
+			i++;
+		}
+		else if ( arr1[j] < arr2[i] )
+		{
+			break;
+			//Check whether arr2[] is a subset of sorted arr1[]
+		}
+		else if( arr1[j] > arr2[i] ){
+			i++;
+			//Check whether arr2[] is a subset of sorted arr1[]
+		}
+	}
+	
+	if (arr1[j] < arr2[i]){
+		j++;
+		while( i < n && j < m )
+		{
+			if( arr1[j] < arr2[i] )
+				j++;
+			else if( arr1[j] == arr2[i] )
+			{
+				j++;
+				i++;
+			}
+			else if( arr1[j] > arr2[i] )
+				return 0;
+		}
+
+		if (i < n) 
+			return 0;
+		else 
+			return 1; 
+	
+	}
+	
+
+	if (arr1[j] > arr2[i]){
+		i++;
+
+		while( i < n && j < m )
+		{
+			if( arr1[j] > arr2[i] )
+				i++;
+			else if( arr1[j] == arr2[i] )
+			{
+				j++;
+				i++;
+			}
+			else if( arr1[j] < arr2[i] )
+				return 0;
+		}
+
+		if (j < m) 
+			return 0;
+		else
+			return -1; 
+	}
+
+	return 0;
+}
+*/
+
+/*
  * Using TF-IDF for calculating the similarity score
  * See http://disi.unitn.it/~bernardi/Courses/DL/Slides_11_12/measures.pdf
  * tf(t,d): Number of times t occurs in d. --> For a CS, tf(prop, aCS) = 1; 
@@ -1918,6 +1995,22 @@ void getMaximumFreqCSs(CSset *freqCSset, BAT* coverageBat, BAT* freqBat, int num
 
 }
 
+static 
+void createTreeForCSset(CSset *freqCSset){
+	struct trie_node* root;
+	int 	i; 	
+	int	numFreqCS;
+	
+	printf("Build tree from frequent CSs \n");
+	init_trie(&root);
+	numFreqCS = freqCSset->numCSadded;
+
+	for(i = 0; i < numFreqCS; i++){
+	   	trie_insert(root,freqCSset->items[i].lstProp, freqCSset->items[i].numProp,i);
+	}
+	
+	delete_trie(&root);
+}
 
 static 
 PropStat* initPropStat(void){
@@ -2868,6 +2961,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	oid		*superCSFreqCSMap; 
 	oid		*superCSMergeMaxCSMap;
 	CSset		*freqCSset; 
+	clock_t 	curT;
+	clock_t		tmpLastT; 
 
 	Labels		*labels;
 
@@ -2916,7 +3011,9 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 	initArray(*subjCSMap, (*maxSoid) + 1, BUN_NONE);
 	initCharArray(*subjdefaultMap,(*maxSoid) + 1, 0); 
-
+	
+	
+	tmpLastT = clock();
 
 	//Phase 1: Assign an ID for each CS
 	#if STOREFULLCS
@@ -2925,7 +3022,9 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	RDFassignCSId(ret, sbat, si, pi, freqCSset, freqThreshold, csBats, *subjCSMap, maxCSoid, &maxNumProp, &maxNumPwithDup);
 	#endif
 	
-
+	curT = clock(); 
+	printf (" ----- Exploring all CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
 
 	//Phase 2: Check the relationship	
 
@@ -2947,6 +3046,10 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	RDFrelationships(ret, sbat, si, pi, oi, *subjCSMap, subjSubCSMap, csSubCSSet, csrelSet, *maxSoid, maxNumPwithDup);
 
+	curT = clock(); 
+	printf (" ----- Exploring subCSs and FKs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
+
 
 	printCSrelSet(csrelSet,csFreqMap, csBats->freqBat, *maxCSoid + 1, 1, *freqThreshold);  
 
@@ -2956,16 +3059,29 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	printf("Number of frequent CSs is: %d \n", freqCSset->numCSadded);
 
+	createTreeForCSset(freqCSset); 
 	/*get the statistic */
-
+	
+	curT = clock(); 
+	printf (" -----	Create tree for frequent CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
+	
 	//getTopFreqCSs(csMap,*freqThreshold);
 
 	getMaximumFreqCSs(freqCSset, csBats->coverageBat,  csBats->freqBat, *maxCSoid + 1, &numMaxCSs); 
 
+	curT = clock(); 
+	printf (" -----	Get maximum frequent CSs took   %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
+	
 	//printf("Number of maximumCS: %d", numMaxCSs);
 	
 	printFreqCSSet(freqCSset, csBats->freqBat, mbat, 1, *freqThreshold); 
 
+
+	curT = clock(); 
+	printf (" -----	Print frequent CSs info took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
 
 	csrelToMaxFreqSet = initCSrelset(*maxCSoid + 1);	// CS --> Reference MaxCSs
 	csrelFromMaxFreqSet = initCSrelset(*maxCSoid + 1);	// CS --> Reference MaxCSs
@@ -2983,6 +3099,10 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	//mergeMaximumFreqCSs(freqCSset, superCSFreqCSMap, superCSMergeMaxCSMap, mergecsSet, numMaxCSs);
 
 	mergeMaximumFreqCSsAll(freqCSset, superCSFreqCSMap, superCSMergeMaxCSMap, numMaxCSs, *maxCSoid);
+
+	curT = clock(); 
+	printf (" ----- Merging Frequent CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
 
 	csRelBetweenMergeFreqSet = (CSmergeRel *) malloc (sizeof(CSmergeRel) * freqCSset->numCSadded);
 	initCsRelBetweenMergeFreqSet(csRelBetweenMergeFreqSet, freqCSset->numCSadded);
