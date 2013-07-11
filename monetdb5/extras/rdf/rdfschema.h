@@ -219,8 +219,10 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 rdf_export void
 freeCStableStat(CStableStat *cstablestat); 
 
-
 rdf_export void
 printPropStat(PropStat *propstat, int isPrintToFile); 
+
+rdf_export void 
+createTreeForCSset(CSset *freqCSset);
 
 #endif /* _RDFSCHEMA_H_ */

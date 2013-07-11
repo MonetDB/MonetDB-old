@@ -1995,20 +1995,121 @@ void getMaximumFreqCSs(CSset *freqCSset, BAT* coverageBat, BAT* freqBat, int num
 
 }
 
-static 
+static int 
+trie_insertwithFreqCS(struct trie_node* root, oid* key, int key_len, int val, CSset *freqCSset)
+{
+
+	int i, found_child;
+	int	returnvalue; 
+
+	struct trie_node* curr_node = NULL;
+	struct trie_node* new_node = NULL;
+	struct trie_node* iter = NULL;
+
+	/*
+	printf("Insert: \n");
+	for (i = 0; i < key_len; i++){
+		printf(BUNFMT " ", key[i]);
+	}
+	printf("\n");
+	*/
+
+
+	/* Negative values nor NULL keys are allowed */
+	if(val < 0 || root == NULL)
+		return -1; 
+
+	curr_node = root;
+
+	/* iterates over all key's elements. For each one,
+	tries to advance in the trie reusing the path. When 
+	the reusable part ends, start to add new nodes.
+	*/
+
+	for(i=0; i <= key_len; i++){ 
+		if(i == key_len){
+			returnvalue = curr_node->value;
+			if(curr_node->children != NULL){
+				// Go to the leaf of this path
+				while(curr_node->children != NULL)
+					curr_node = curr_node->children; 
+				
+
+				freqCSset->items[val].parentFreqIdx = curr_node->value;
+			}
+			return returnvalue;
+		}
+	
+		found_child = 0; 
+		for(iter=curr_node->children; iter != NULL; iter=iter->right)
+		{ 
+			if(iter->key == key[i])
+			{
+				found_child = 1;
+				curr_node = iter;
+				if (iter->value != TRIE_PATH){
+					freqCSset->items[iter->value].parentFreqIdx = val; 
+				}
+				break;
+			}
+		}
+
+		/* Adds a new node on the trie */
+		if(!found_child){	
+			new_node = malloc(sizeof(struct trie_node));
+			new_node->key = key[i];
+			/*If we are in the end of key, this node should get the
+			value*/
+			new_node->value = i == key_len-1 ? val:TRIE_PATH;	
+			new_node->parent = curr_node;
+ 			new_node->children = NULL; 		// DUC: CHECK. Force the children of newnode to be NULL
+			/*Updates the children linked list*/
+			new_node->left = NULL;
+			new_node->right = curr_node->children; 	
+			if(curr_node->children != NULL)
+				curr_node->children->left = new_node;
+	
+			curr_node->children = new_node; 	
+	
+			/*Next loop iteration consider the new node*/
+			curr_node = new_node; 
+		}
+		else {
+			if(i == key_len -1)
+				assert(curr_node->key == key[i]);
+				//curr_node->key = key[i];
+		}
+	}
+
+	return 1;
+}
+
 void createTreeForCSset(CSset *freqCSset){
 	struct trie_node* root;
 	int 	i; 	
 	int	numFreqCS;
+	int	numMaxCS = 0; 
+	int	numLeaf = 0; 
+
 	
 	printf("Build tree from frequent CSs \n");
 	init_trie(&root);
 	numFreqCS = freqCSset->numCSadded;
 
 	for(i = 0; i < numFreqCS; i++){
-	   	trie_insert(root,freqCSset->items[i].lstProp, freqCSset->items[i].numProp,i);
+	   	trie_insertwithFreqCS(root,freqCSset->items[i].lstProp, freqCSset->items[i].numProp,i,freqCSset);
 	}
-	
+
+	count_trieleaf(&root, &numLeaf);
+	printf("Num of leaf is %d \n", numLeaf);
+
+	for(i = 0; i < numFreqCS; i++){
+		if (freqCSset->items[i].parentFreqIdx == -1){
+			numMaxCS++;
+		}
+	}
+		
+	printf("Num max freqCSs explored from prefix tree: %d \n", numMaxCS);
 	delete_trie(&root);
 }
 
@@ -3059,13 +3160,13 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	printf("Number of frequent CSs is: %d \n", freqCSset->numCSadded);
 
-	createTreeForCSset(freqCSset); 
+	//createTreeForCSset(freqCSset); 	// DOESN'T HELP --> REMOVE
+	
+	//curT = clock(); 
+	//printf (" -----	Create tree for frequent CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	//tmpLastT = curT; 		
+
 	/*get the statistic */
-	
-	curT = clock(); 
-	printf (" -----	Create tree for frequent CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
-	tmpLastT = curT; 		
-	
 	//getTopFreqCSs(csMap,*freqThreshold);
 
 	getMaximumFreqCSs(freqCSset, csBats->coverageBat,  csBats->freqBat, *maxCSoid + 1, &numMaxCSs); 
