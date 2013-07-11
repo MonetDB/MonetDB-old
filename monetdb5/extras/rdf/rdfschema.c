@@ -1665,14 +1665,14 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples,
 /* Return 1 if sorted arr2[] is a subset of sorted arr1[] 
  * arr1 has m members, arr2 has n members
  * */
-
 static int isSubset(oid* arr1, oid* arr2, int m, int n)
 {
 	int i = 0, j = 0;
 	 
-	if(m < n)
-		return 0;
-		 
+	// m > n
+	//
+	if (arr2[n-1] > arr1[m-1]) return 0; 
+
 	while( i < n && j < m )
 	{
 		if( arr1[j] < arr2[i] )
@@ -1692,80 +1692,6 @@ static int isSubset(oid* arr1, oid* arr2, int m, int n)
 		return 1;
 }
 
-/*
-static int isSubset(oid* arr1, oid* arr2, int m, int n)
-{
-	int i = 0, j = 0;
-	 
-	if(m < n)
-		return 0;
-		 
-	while( i < n && j < m )
-	{
-		if( arr1[j] == arr2[i] )
-		{
-			j++;
-			i++;
-		}
-		else if ( arr1[j] < arr2[i] )
-		{
-			break;
-			//Check whether arr2[] is a subset of sorted arr1[]
-		}
-		else if( arr1[j] > arr2[i] ){
-			i++;
-			//Check whether arr2[] is a subset of sorted arr1[]
-		}
-	}
-	
-	if (arr1[j] < arr2[i]){
-		j++;
-		while( i < n && j < m )
-		{
-			if( arr1[j] < arr2[i] )
-				j++;
-			else if( arr1[j] == arr2[i] )
-			{
-				j++;
-				i++;
-			}
-			else if( arr1[j] > arr2[i] )
-				return 0;
-		}
-
-		if (i < n) 
-			return 0;
-		else 
-			return 1; 
-	
-	}
-	
-
-	if (arr1[j] > arr2[i]){
-		i++;
-
-		while( i < n && j < m )
-		{
-			if( arr1[j] > arr2[i] )
-				i++;
-			else if( arr1[j] == arr2[i] )
-			{
-				j++;
-				i++;
-			}
-			else if( arr1[j] < arr2[i] )
-				return 0;
-		}
-
-		if (j < m) 
-			return 0;
-		else
-			return -1; 
-	}
-
-	return 0;
-}
-*/
 
 /*
  * Using TF-IDF for calculating the similarity score
@@ -1932,18 +1858,24 @@ void getMaximumFreqCSs(CSset *freqCSset, BAT* coverageBat, BAT* freqBat, int num
 	for (i = 0; i < numFreqCS; i++){
 		if (freqCSset->items[i].parentFreqIdx != -1) continue;
 		for (j = (i+1); j < numFreqCS; j++){
-			if (isSubset(freqCSset->items[i].lstProp, freqCSset->items[j].lstProp,  
-					freqCSset->items[i].numProp,freqCSset->items[j].numProp) == 1) { 
-				/* CSj is a subset of CSi */
-				freqCSset->items[j].parentFreqIdx = i; 
+			if (freqCSset->items[j].numProp > freqCSset->items[i].numProp){
+				if (isSubset(freqCSset->items[j].lstProp, freqCSset->items[i].lstProp,  
+						freqCSset->items[j].numProp,freqCSset->items[i].numProp) == 1) { 
+					/* CSj is a superset of CSi */
+					freqCSset->items[i].parentFreqIdx = j; 
+					break; 
+				}
 			}
-			else if (isSubset(freqCSset->items[j].lstProp, freqCSset->items[i].lstProp,  
-					freqCSset->items[j].numProp,freqCSset->items[i].numProp) == 1) { 
-				/* CSj is a subset of CSi */
-				freqCSset->items[i].parentFreqIdx = j; 
-				break; 
-			}
+			else if (freqCSset->items[j].numProp < freqCSset->items[i].numProp){
+				if (isSubset(freqCSset->items[i].lstProp, freqCSset->items[j].lstProp,  
+						freqCSset->items[i].numProp,freqCSset->items[j].numProp) == 1) { 
+					/* CSj is a subset of CSi */
+					freqCSset->items[j].parentFreqIdx = i; 
+				}		
 			
+			}
+
+			//Do not need to consider the case that the numProps are the same
 		} 
 		/* By the end, if this CS is not a subset of any other CS */
 		if (freqCSset->items[i].parentFreqIdx == -1){
