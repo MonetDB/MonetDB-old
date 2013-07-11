@@ -324,17 +324,16 @@ createView:
 	BUN idxFirst;
 	bit copy=TRUE;
 	int pieces=0;
+	FILE *ofp;
+	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/thresholds/client1/waiting0/multiple_clients/breakdown_stochastic.txt";
 	/*k and randomoid are used for DD1R*/
 	@1 k,temp_h;
-	FILE *ofp;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/experiments/stochastic/idle_time_2/pieces_stochastic.txt";
+
 	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
   		fprintf(stderr, "Can't open output file!\n");
   		exit(1);
 	}
-
-
 
 	if (@2_GT(low,hgh,@3@1))
 		throw(MAL, "crackers.crack", "illegal range");
@@ -377,8 +376,9 @@ createView:
 			/*printf(" "LLFMT" \n ",posh-posl);*/
 			@:crkThreeTree@5(@1,posl,posh,@5)@
 			pieces = pieces + 3;
-			fprintf(ofp,"%d\n",pieces);
-			fclose(ofp);
+
+                        fprintf(ofp,"Low= \t %d \t Random= \t 0 \t High= \t %d \t Random= \t 0\n",(int)*low,(int)*hgh);
+                        fclose(ofp);
 
 			BBPincref(b->batCacheid,TRUE);
 			BBPunfix(bo->batCacheid);
@@ -411,7 +411,7 @@ createView:
 
                         /*printf(" "LLFMT" \n ",posh-posl);*/
                         @:crkThreeTreeCopy(@1,posl,posh,@5)@
-
+			
                         BBPincref(b->batCacheid,TRUE);
                         BBPunfix(bo->batCacheid);
                         goto createView;
@@ -555,7 +555,7 @@ createView:
 	if (foundLow == 0){
 			k=FndMedian_@1(b,cl1,ch1);
 			*hgh=k;
-			/*fprintf(stderr,"Random=%d Low=%d \n",k,(int)*low);*/
+			fprintf(ofp,"Low= \t %d \t Random= \t %d \t",(int)*low,(int)k);
 
 			
 
@@ -609,7 +609,7 @@ createView:
 		
 			k=FndMedian_@1(b,cl2,ch2);
 			*low=k;
-			/*fprintf(stderr,"Random=%d High=%d\n",k,(int)*hgh);*/
+			fprintf(ofp,"High= \t %d \t Random= \t %d",(int)*hgh,(int)k);
 			
 
 
@@ -657,8 +657,9 @@ createView:
 		vh = ch2;
 	}
 
-	fprintf(ofp,"%d\n",pieces);
+	fprintf(ofp,"\n");
 	fclose(ofp);
+
 	@:CreateResult()@
 	return MAL_SUCCEED;
 @

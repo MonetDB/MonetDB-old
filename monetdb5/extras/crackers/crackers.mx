@@ -383,6 +383,45 @@ address CRKthetaselectholpl_@2
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
 
+command selectpl(b:bat[:oid,:@2],l:@2,h:@2):bat[:oid,:@2]
+address CRKselectpl_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command selectpl(b:bat[:oid,:@2],l:@2):bat[:oid,:@2]
+address CRKselectplValue_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command selectpl(b:bat[:oid,:@2],l:@2,h:@2,li:bit,hi:bit):bat[:oid,:@2]
+address CRKselectplBounds_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command uselectpl(b:bat[:any_1,:@2],l:@2,h:@2):bat[:any_1,:void]
+address CRKuselectpl_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command uselectpl(b:bat[:any_1,:@2],l:@2):bat[:any_1,:void]
+address CRKuselectplValue_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command uselectpl(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit):bat[:any_1,:void]
+address CRKuselectplBounds_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command thetauselectpl(b:bat[:any_1,:@2],v:@2,op:str):bat[:any_1,:void]
+address CRKthetauselectpl_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command thetaselectpl(b:bat[:any_1,:@2],v:@2,op:str):bat[:any_1,:@2]
+address CRKthetaselectpl_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
 @
 @= JoinSelect
 command joinuselect( right:bat[:oid,:@2], l:@2, h:@2, li:bit, hi:bit, left:bat[:oid,:void] ):bat[:oid,:void]
@@ -826,6 +865,10 @@ comment "Calculate aggregate sum of range l-h.";
 command sumholpl(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit):@2
 address CRKsumholplBounds_@2
 comment "Calculate aggregate sum of range l-h.";
+
+command sumpl(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit):@2
+address CRKsumplBounds_@2
+comment "Calculate aggregate sum of range l-h.";
 @
 
 @h
@@ -856,6 +899,7 @@ comment "Calculate aggregate sum of range l-h.";
 #include "crackers_selecthol_ops.h"
 #include "crackers_selectholst_ops.h"
 #include "crackers_selectholpl_ops.h"
+#include "crackers_selectpl_ops.h"
 #include "crackers_holistic.h"
 #include "crackers_holisticsideways.h"
 #include "crackers_core_unordered.h"

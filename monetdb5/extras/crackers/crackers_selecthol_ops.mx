@@ -314,18 +314,18 @@ createView:
 	bit copy=TRUE;
 	int countBatElements=0;
 	int L1=0; /*Number of elements that can fit into L1 cache (size: 32KB)*/
-	/*FILE *ofp;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/thresholds/client1/waiting01/cpuload70/idletime4/breakdown.txt";*/
+	FILE *ofp;
+	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/thresholds/client1/waiting01/cpuload70/idletime4/breakdown.txt";
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 
 	gettimeofday(&tv0,0);
 
-	/*ofp = fopen(outputFilename1,"a");
+	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
   		fprintf(stderr, "Can't open output file!\n");
   		exit(1);
-	}*/
+	}
 
 	if ((bo = BATdescriptor(*bid)) != NULL)
 		L1=32000/ATOMsize(bo->ttype);	
@@ -660,12 +660,12 @@ createView:
 		MT_lock_unset(&CrackerIndex[m].columnLock,"Lock Attribute");	
 
 	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-	/*if(*isIdleQuery==FALSE)
+	if(*isIdleQuery==FALSE)
 		fprintf(ofp,"User_query \t 1 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf\n",wt,ct);
 	else
 		fprintf(ofp,"Idle_Query \t 0 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf\n",wt,ct);
 
-	fclose(ofp);*/
+	fclose(ofp);
 
 	return MAL_SUCCEED;
 @

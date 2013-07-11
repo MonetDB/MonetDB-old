@@ -331,10 +331,6 @@ createView:
 
 	int L1=0; /*Number of elements that can fit into L1 cache (size: 32KB)*/
 	
-	FILE *ofp;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/experiments/stochastic/idle_time_2/pieces_stholistic.txt";
-	
-
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 	FN=searchBAT(FrequencyStructA,*bid);
@@ -344,13 +340,6 @@ createView:
 		FN->f1 = FN->f1 + 1;
 	//}
 
-	ofp = fopen(outputFilename1,"a");
-	if (ofp == NULL) {
-  		fprintf(stderr, "Can't open output file!\n");
-  		exit(1);
-	}
-
-	
 	if ((bo = BATdescriptor(*bid)) != NULL)
 		L1=32000/ATOMsize(bo->ttype);
 
@@ -402,8 +391,6 @@ createView:
 			FN->c = FN->c + 2;
 			FN->weight = changeWeight_1(FN,countBatElements,L1);
 			/*printFrequencyStruct(FrequencyStructA);*/
-			fprintf(ofp,"%d\n",FN->c);
-			fclose(ofp);
 			BBPincref(b->batCacheid,TRUE);
 			BBPunfix(bo->batCacheid);
 			goto createView;
@@ -672,8 +659,6 @@ index then we have to crack */
 		deleteNode(FrequencyStructA,FN->bid);
 	*/
 	/*printFrequencyStruct(FrequencyStructA);*/
-	fprintf(ofp,"%d\n",FN->c);
-	fclose(ofp);
 	@:CreateResult()@
 	return MAL_SUCCEED;
 @
