@@ -16,14 +16,19 @@
  * Copyright August 2008-2013 MonetDB B.V.
  * All Rights Reserved.
 */
-#ifndef _OPT_RECYCLER_
-#define _OPT_RECYCLER_
+#ifndef _OPT_JSON_
+#define _OPT_JSON_
 #include "opt_prelude.h"
 #include "opt_support.h"
-#include "mal_recycle.h"
+#include "mal_interpreter.h"
+#include "mal_instruction.h"
+#include "mal_function.h"
 
-opt_export int OPTrecyclerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
+opt_export int OPTjsonImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
-#define OPTDEBUGrecycle  if ( optDebug & (1 <<DEBUG_OPT_RECYCLE) )
+/* #define _DEBUG_OPT_JSON_ */
+#undef DEBUG_OPT_JSON
+#define DEBUG_OPT_JSON 1
+#define OPTDEBUGjson  if ( optDebug & (1 <<DEBUG_OPT_JSON) )
 
 #endif

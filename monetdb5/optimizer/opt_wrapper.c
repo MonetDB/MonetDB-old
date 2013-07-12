@@ -58,6 +58,7 @@ All Rights Reserved.
 #include "opt_joinpath.h"
 #include "opt_mapreduce.h"
 #include "opt_matpack.h"
+#include "opt_json.h"
 #include "opt_mergetable.h"
 #include "opt_mitosis.h"
 #include "opt_multiplex.h"
@@ -102,6 +103,7 @@ struct{
 	{"joinPath", &OPTjoinPathImplementation},
 	{"mapreduce", &OPTmapreduceImplementation},
 	{"matpack", &OPTmatpackImplementation},
+	{"json", &OPTjsonImplementation},
 	{"mergetable", &OPTmergetableImplementation},
 	{"mitosis", &OPTmitosisImplementation},
 	{"multiplex", &OPTmultiplexImplementation},
@@ -111,7 +113,7 @@ struct{
 	{"pushranges", &OPTpushrangesImplementation},
 	{"pushselect", &OPTpushselectImplementation},
 	{"querylog", &OPTquerylogImplementation},
-	{"recycle", &OPTrecyclerImplementation},
+	{"recycler", &OPTrecyclerImplementation},
 	{"reduce", &OPTreduceImplementation},
 	{"remap", &OPTremapImplementation},
 	{"remoteQueries", &OPTremoteQueriesImplementation},

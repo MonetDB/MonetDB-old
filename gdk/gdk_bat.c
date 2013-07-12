@@ -974,7 +974,7 @@ BATcopy(BAT *b, int ht, int tt, int writable)
 	} else if (ATOMtype(ATOMstorage(ht)) == ATOMtype(ATOMstorage(b->htype))) {
 		bn->hsorted = b->hsorted || (cnt <= 1 && BATatoms[b->htype].linear);
 		bn->hrevsorted = b->hrevsorted || (cnt <= 1 && BATatoms[b->htype].linear);
-		bn->hdense = b->hdense;
+		bn->hdense = b->hdense && ATOMtype(bn->htype) == TYPE_oid;
 		if (b->hkey)
 			BATkey(bn, TRUE);
 		bn->H->nonil = b->H->nonil;
@@ -987,7 +987,7 @@ BATcopy(BAT *b, int ht, int tt, int writable)
 	} else if (ATOMtype(ATOMstorage(tt)) == ATOMtype(ATOMstorage(b->ttype))) {
 		bn->tsorted = b->tsorted || (cnt <= 1 && BATatoms[b->ttype].linear);
 		bn->trevsorted = b->trevsorted || (cnt <= 1 && BATatoms[b->ttype].linear);
-		bn->tdense = b->tdense;
+		bn->tdense = b->tdense && ATOMtype(bn->ttype) == TYPE_oid;
 		if (b->tkey)
 			BATkey(BATmirror(bn), TRUE);
 		bn->T->nonil = b->T->nonil;
@@ -2792,7 +2792,12 @@ BATmode(BAT *b, int mode)
  * "set" property is not checked.  Also note that the "nil" property
  * is not actually used anywhere, but it is checked. */
 
-#ifndef NDEBUG
+#ifdef NDEBUG
+/* assertions are disabled, turn failing tests into a message */
+#undef assert
+#define assert(test)	((void) ((test) || fprintf(stderr, "WARNING: %s:%d: assertion `%s' failed\n", __FILE__, __LINE__, #test)))
+#endif
+
 static void
 BATassertHeadProps(BAT *b)
 {
@@ -2978,7 +2983,6 @@ BATassertHeadProps(BAT *b)
 		assert(!b->H->nil || seennil);
 	}
 }
-#endif
 
 /* Assert that properties are set correctly.
  *
@@ -3023,7 +3027,6 @@ BATassertHeadProps(BAT *b)
 void
 BATassertProps(BAT *b)
 {
-#ifndef NDEBUG
 	BAT *bm;
 	int bbpstatus;
 
@@ -3049,9 +3052,6 @@ BATassertProps(BAT *b)
 	BATassertHeadProps(b);
 	if (b->H != bm->H)
 		BATassertHeadProps(bm);
-#else
-	(void) b;
-#endif
 }
 
 /* derive properties that can be derived with a simple scan: sorted,

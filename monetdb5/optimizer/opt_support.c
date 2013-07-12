@@ -162,6 +162,7 @@ struct OPTcatalog {
 {"history",		0,	0,	0,	DEBUG_OPT_HISTORY},
 {"inline",		0,	0,	0,	DEBUG_OPT_INLINE},
 {"joinPath",	0,	0,	0,	DEBUG_OPT_JOINPATH},
+{"json",		0,	0,	0,	DEBUG_OPT_JSON},
 {"macro",		0,	0,	0,	DEBUG_OPT_MACRO},
 {"mapreduce",	0,	0,	0,	DEBUG_OPT_MAPREDUCE},
 {"matpack",		0,	0,	0,	DEBUG_OPT_MATPACK},
@@ -769,6 +770,8 @@ hasSideEffects(InstrPtr p, int strict)
 		return TRUE;
 	}
 	if ( getModuleId(p) == remoteRef)
+		return TRUE;
+	if ( getModuleId(p) == recycleRef)
 		return TRUE;
 	return FALSE;
 }

@@ -25,15 +25,12 @@
 #include "mal_instruction.h"
 #include "mal_client.h"
 
-/*
 #define _DEBUG_RECYCLE_
 #define _DEBUG_RECYCLE_REUSE
 #define _DEBUG_CACHE_
 #define _DEBUG_RESET_
-*/
 
 /*
- * @-
  * We need some hard limits to not run out of datastructure
  * spaces.
  */
@@ -42,14 +39,11 @@
 
 #define HARDLIMIT_VAR 100000		/* maximum variables to watch */
 #define HARDLIMIT_STMT 20000		/* roughly 5/line needed */
-#define HARDLIMIT_MEM 8 * (GIGA/RU)     /* avoid memory overflow */
 
-mal_export int admissionPolicy;
-#define ADM_NONE	0
+// retained recycle policies
 #define ADM_ALL 	1
-#define ADM_CAT	2
-#define ADM_INTEREST	3
-#define ADM_ADAPT	4
+#define REUSE_COVER	1
+#define RCACHE_PROFIT 	3
 
 #define NO_RECYCLING -1
 #define REC_NO_INTEREST 0
@@ -60,22 +54,9 @@ mal_export lng recycleTime;
 mal_export lng recycleSearchTime;
 mal_export lng msFindTime;
 mal_export lng msComputeTime;
-/*mal_export lng recycleVolume; */
 
-mal_export int reusePolicy;
-#define REUSE_NONE	0
-#define REUSE_COVER	1
-#define REUSE_EXACT	2
-#define REUSE_MULTI	3
-
-mal_export int rcachePolicy;
-#define RCACHE_ALL		0
-#define RCACHE_LRU		1
-#define RCACHE_BENEFIT 	2
-#define RCACHE_PROFIT 	3
 
 mal_export int recycleCacheLimit;
-mal_export lng recycleMemory;	/* Units of memory permitted */
 mal_export lng recyclerUsedMemory;
 mal_export MalBlkPtr recycleBlk;
 mal_export double recycleAlpha;
@@ -83,7 +64,7 @@ mal_export int recycleMaxInterest;
 mal_export int monitorRecycler;
 
 /*
- * @- Statistics about query patterns
+ * Statistics about query patterns
  */
 typedef struct QRYSTAT {
 	lng recid;	/* unique id given by the recycle optimizer */
@@ -96,30 +77,31 @@ typedef struct QRYSTAT {
 	int stop;
 	int wl;		/* waterline of globally reused instructions*/
 	bte *gl;	/* mask for globally reused instructions */
-} QryStat, *QryStatPtr;
+} QryStat, *QryStatPtr,QryStatRec;
 
 typedef struct QRYPATTERN {
 	int cnt; /* number of query patterns */
 	int sz;  /* storage capacity */
 	QryStatPtr *ptrn; /* patterns */
-} QryPat, *QryPatPtr;
-
+} *RecyclePool, RecyclePoolRec;
 
 typedef str (*aggrFun) (ptr, int *);
 
-
-mal_export QryPatPtr recycleQPat;
-mal_export aggrFun minAggr;
-mal_export aggrFun maxAggr;
-
 mal_export void RECYCLEinit(void);
-mal_export int RECYCLEentry(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
-mal_export void RECYCLEexit(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr p, lng ticks);
-mal_export void RECYCLEreset(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
+mal_export lng  RECYCLEentry(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int pc);
+mal_export void RECYCLEexit(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int pc, lng ticks);
+mal_export str  RECYCLEreset(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int pc);
 mal_export void RECYCLEshutdown(Client cntxt);
-mal_export int RECYCLEinterest(InstrPtr p);
-mal_export int RECYCLEnewQryStat(MalBlkPtr mb);
-mal_export void RECYCLEinitQPat(int sz);
-mal_export bte RECYCLEgetQryCat(int qidx);
-mal_export bit isBindInstr(InstrPtr p);
+mal_export int  RECYCLEinterest(InstrPtr p);
+mal_export int  RECYCLEnewQryStat(MalBlkPtr mb);
+mal_export void RECYCLEinitRecyclePool(int sz);
+mal_export bit  isBindInstr(InstrPtr p);
+
+mal_export str RECYCLEstart(Client cntxt, MalBlkPtr mb);
+mal_export str RECYCLEstop(Client cntxt, MalBlkPtr mb);
+
+mal_export void RECYCLEdump(stream *s);
+mal_export void RECYCLEdumpRecyclerPool(stream *s);
+mal_export void RECYCLEdumpDataTrans(stream *s);
+mal_export str  RECYCLErunningStat(Client cntxt, MalBlkPtr mb);
 #endif
