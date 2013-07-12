@@ -7587,7 +7587,7 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-
+#ifdef HAVE_RAPTOR
 	mvc *m = NULL;
 	str *schema = (str *) getArgReference(stk,pci,1);
 	str *tbname = (str *) getArgReference(stk,pci,2);
@@ -7753,6 +7753,10 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	free(viewcstables); 
 
 	return MAL_SUCCEED; 
+#else
+	(void) cntxt; (void) mb; (void) stk; (void) pci;
+	throw(SQL, "sql.SQLrdfreorganize", "RDF support is missing from MonetDB5");
+#endif /* HAVE_RAPTOR */	
 }
 
 

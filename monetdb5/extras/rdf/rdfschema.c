@@ -984,7 +984,8 @@ void mergeOidSets(oid* arr1, oid* arr2, oid* mergeArr, int m, int n, int *numCom
 static 
 CS* mergeTwoCSs(CS cs1, CS cs2, int freqIdx1, int freqIdx2, oid mergeCSId){
 	
-	int numCombineP; 
+	int numCombineP = 0; 
+
 	CS *mergecs = (CS*) malloc (sizeof (CS)); 
 	mergecs->type = MERGECS; 
 	mergecs->numConsistsOf = 2; 
@@ -2215,6 +2216,7 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superC
 	CS		*existmergecs, *mergecs1, *mergecs2; 
 
 	PropStat	*propStat; 	/* Store statistics about properties */
+	int		nummergedCSs = 0;
 
 
 	for (i = 0; i < freqCSset->numCSadded; i++){
@@ -2254,7 +2256,8 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superC
 				//printf("         Cosine = %f \n", simscore);
 				
 			}
-
+			
+			//simscore = 0.0;
 			#if	USINGTFIDF	
 			if (simscore > SIM_TFIDF_THRESHOLD){
 			#else	
@@ -2301,6 +2304,13 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superC
 		}
 	}
 
+
+	for (i = 0; i < freqCSset->numCSadded; i++){
+		if (freqCSset->items[i].parentFreqIdx == -1){
+			nummergedCSs++;
+		}
+	}
+	printf("Number of freqCS after merging: %d \n", nummergedCSs);
 
 	freePropStat(propStat);
 
@@ -3558,7 +3568,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	int	lasttblIdx = -1; 
 	int	lastColIdx = -1; 
 	char	tmpIsdefault = 0; 
-	BUN	bun; 
+	BUN	bun = BUN_NONE; 
 	int	i,j; 
 	BAT	*curBat = NULL;
 	BAT	*tmpmvBat = NULL; 	// Multi-values BAT
@@ -3741,7 +3751,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	int	lasttblIdx = -1; 
 	int	lastColIdx = -1; 
 	char	tmpIsdefault = 0; 
-	BUN	bun; 
+	BUN	bun = BUN_NONE; 
 	int	i,j; 
 	BAT	*curBat = NULL;
 	BAT     *tmpmvBat = NULL;       // Multi-values BAT
