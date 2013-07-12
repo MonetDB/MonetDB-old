@@ -72,11 +72,12 @@ typedef struct PropStat {
 	int		numAllocation; 
 	int		numAdded; 
 	Postinglist* 	plCSidx;	/* Store posting list of CS index */				
+	int		maxNumPPerCS;   /* Maximum number of different properties in one CS */
 } PropStat; 			
 
 #define INIT_PROP_NUM	10
 #define INIT_CS_PER_PROP 10
-#define	USINGTFIDF	1
+#define	USINGTFIDF	0
 
 #define STOREFULLCS     1       /* Store full instance of a CS including the a subject and list of predicates, objects. 
                                   Only use this for finding the name of the table corresponding to that CS */

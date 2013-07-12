@@ -1561,6 +1561,8 @@ void addNewCS(CSBats *csBats, PropStat* fullPropStat, BUN* csKey, oid* key, oid 
 	for (i = 0; i < num; i++){
 		addaProp(fullPropStat, key[i], *csoid, i);
 	}
+	if (num > fullPropStat->maxNumPPerCS)
+		fullPropStat->maxNumPPerCS = num; 
 	#endif
 
 	BUNappend(csBats->freqBat, &freq, TRUE); 
@@ -1757,10 +1759,6 @@ float similarityScoreTFIDF(oid* arr1, oid* arr2, int m, int n, int *numCombineP,
 	BUN	p; 
 	float 	tfidfV; 
 
-	// Get tf-idfs 
-	float *tfidf1 = (float *)malloc(sizeof(float) * m) ;
-	float *tfidf2 = (float *)malloc(sizeof(float) * n) ;
-
 	for (i = 0; i < m; i++){
 		p = arr1[i]; 
 		bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &p);
@@ -1821,8 +1819,6 @@ float similarityScoreTFIDF(oid* arr1, oid* arr2, int m, int n, int *numCombineP,
 
 	*numCombineP = m + n - numOverlap;
 	
-	free(tfidf1); 
-	free(tfidf2); 
 
 	return  ((float) sumXY / (sqrt(sumX2)*sqrt(sumY2)));
 }
@@ -2076,6 +2072,8 @@ PropStat* initPropStat(void){
 	propStat->plCSidx = (Postinglist*) malloc(sizeof(Postinglist) * INIT_PROP_NUM); 
 	if (propStat->plCSidx  == NULL) return NULL; 
 
+	propStat->maxNumPPerCS = 0; 
+
 	return propStat; 
 }
 
@@ -2095,6 +2093,9 @@ void getPropStatisticsFromMaxCSs(PropStat* propStat, int numMaxCSs, oid* superCS
 		for (j = 0; j < cs.numProp; j++){
 			addaProp(propStat, cs.lstProp[j],freqId, j);
 		}
+
+		if (cs.numProp > propStat->maxNumPPerCS)
+			propStat->maxNumPPerCS = cs.numProp;
 	}
 
 	for (i = 0; i < propStat->numAdded; i++){
@@ -2131,6 +2132,9 @@ PropStat* getPropStatisticsByTable(CSset* freqCSset, int* mfreqIdxTblIdxMapping,
 			for (j = 0; j < cs.numProp; j++){
 				addaProp(propStat, cs.lstProp[j], mfreqIdxTblIdxMapping[i], j);
 			}
+
+			if (cs.numProp > propStat->maxNumPPerCS)
+				propStat->maxNumPPerCS = cs.numProp;
 		}
 	}
 
@@ -2234,8 +2238,6 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superC
 	
 	propStat = initPropStat();
 	getPropStatisticsFromMaxCSs(propStat, numMaxCSs, superCSFreqCSMap, freqCSset);
-	
-
 
 	for (i = 0; i < numMaxCSs; i++){
 		freqId1 = superCSFreqCSMap[i];
