@@ -1000,7 +1000,7 @@ CS* mergeTwoCSs(CS cs1, CS cs2, int freqIdx1, int freqIdx2, oid mergeCSId){
 	mergecs->lstProp = (oid*) malloc(sizeof(oid) * (cs1.numProp + cs2.numProp));  // will be redundant
 
 	if (mergecs->lstProp == NULL){
-		printf("Malloc failed. at %d", numCombineP);
+		printf("Malloc failed in merging two CSs \n");
 		exit(-1);
 	}
 
@@ -3578,8 +3578,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	oid* 	lastDupValue;
 	oid 	tmpmvValue; 
 
-	(void) lastSubIdEx; /* not used (yet) ? */
-	//BAT**	setofBats = NULL;
+	(void) lastSubIdEx; /* Only need to use when considering extra type-specific table for each CS */
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
@@ -3760,8 +3759,6 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	oid	*lastDupValue; 
 	oid	tmpmvValue; 
 
-	//BAT**	setofBats = NULL;
-	
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);

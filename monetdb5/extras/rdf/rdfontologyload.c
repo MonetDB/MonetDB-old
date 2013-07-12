@@ -127,11 +127,8 @@ static void
 tripleHandler(void* user_data, const raptor_statement* triple)
 {
 	parserData *pdata = ((parserData *) user_data);
-	//BUN bun = BUN_NONE;
-	//BAT **graph = pdata->graph;
-	
-	(void) triple; 
-	//printf("%s   %s   %s\n",(char*) raptor_term_to_string(triple->subject),(char *) raptor_term_to_string(triple->predicate), (char *)raptor_term_to_string(triple->object));
+
+	printf("%s   %s   %s\n",(char*) raptor_term_to_string(triple->subject),(char *) raptor_term_to_string(triple->predicate), (char *)raptor_term_to_string(triple->object));
 	
 	pdata->tcount++;
 	return; 
