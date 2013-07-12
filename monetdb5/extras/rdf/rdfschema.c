@@ -2908,7 +2908,7 @@ void generateCsRelBetweenMergeFreqSet(CSmergeRel *csRelBetweenMergeFreqSet, CSre
 		assert (from != -1);
 		if (freqCSset->items[from].parentFreqIdx != -1) {
 			from = freqCSset->items[from].parentFreqIdx;
-			assert (freqCSset->items[from].type = MERGECS);
+			assert (freqCSset->items[from].type == MERGECS);
 		}
 
 		for (j = 0; j < rel.numRef; ++j) {
@@ -2918,7 +2918,7 @@ void generateCsRelBetweenMergeFreqSet(CSmergeRel *csRelBetweenMergeFreqSet, CSre
 			assert (to != -1);
 			if (freqCSset->items[to].parentFreqIdx != -1) {
 				to = freqCSset->items[to].parentFreqIdx;
-				assert (freqCSset->items[to].type = MERGECS);
+				assert (freqCSset->items[to].type == MERGECS);
 			}
 
 			// add relation to new data structure
