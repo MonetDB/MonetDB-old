@@ -190,7 +190,7 @@ void addReltoCSRel(oid origCSoid, oid refCSoid, oid propId, CSrel *csrel, char i
 
 	assert (origCSoid == csrel->origCSoid);
 #ifdef NDEBUG
-	/* parameter origCSoid is not used other in about assertion */
+	/* parameter origCSoid is not used other than in above assertion */
 	(void) origCSoid;
 #endif
 
@@ -248,7 +248,7 @@ void addReltoCSRelWithFreq(oid origCSoid, oid refCSoid, oid propId, int freq, in
 
 	assert (origCSoid == csrel->origCSoid);
 #ifdef NDEBUG
-	/* parameter origCSoid is not used other in about assertion */
+	/* parameter origCSoid is not used other than in above assertion */
 	(void) origCSoid;
 #endif
 
@@ -2849,7 +2849,7 @@ void addReltoCSmergeRel(int origFreqIdx, int refFreqIdx, oid propId, int freq, i
 
 	assert (origFreqIdx == csmergerel->origFreqIdx);
 #ifdef NDEBUG
-	/* parameter origCSoid is not used other in about assertion */
+	/* parameter origFreqIdx is not used other than in about assertion */
 	(void) origFreqIdx;
 #endif
 

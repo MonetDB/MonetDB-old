@@ -7575,7 +7575,7 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #else
 	(void) cntxt; (void) mb; (void) stk; (void) pci;
 	throw(SQL, "sql.rdfShred", "RDF support is missing from MonetDB5");
-#endif /* RDF */
+#endif /* HAVE_RAPTOR */
 }
 
 
