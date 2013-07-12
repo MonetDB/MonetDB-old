@@ -1541,8 +1541,6 @@ void addNewCS(CSBats *csBats, PropStat* fullPropStat, BUN* csKey, oid* key, oid 
 	int	i; 
 	#endif
 	
-	(void) fullPropStat; 
-
 	if (csBats->hsKeyBat->T->hash && BATcount(csBats->hsKeyBat) > 4 * csBats->hsKeyBat->T->hash->mask) {
 		HASHdestroy(csBats->hsKeyBat);
 		BAThash(BATmirror(csBats->hsKeyBat), 2*BATcount(csBats->hsKeyBat));
@@ -1563,6 +1561,8 @@ void addNewCS(CSBats *csBats, PropStat* fullPropStat, BUN* csKey, oid* key, oid 
 	}
 	if (num > fullPropStat->maxNumPPerCS)
 		fullPropStat->maxNumPPerCS = num; 
+	#else
+	(void) fullPropStat; 
 	#endif
 
 	BUNappend(csBats->freqBat, &freq, TRUE); 
