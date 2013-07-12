@@ -3165,8 +3165,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	// Phase 3: Labels
 	labels = createLabels(freqCSset, csRelBetweenMergeFreqSet, sbat, si, pi, oi, *subjCSMap, mbat, csIdFreqIdxMap, *freqThreshold, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount);
 
-	(void) labels; // TODO use
-
 	freeLabels(labels, freqCSset);
 
 
@@ -3580,9 +3578,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	oid* 	lastDupValue;
 	oid 	tmpmvValue; 
 
-	(void) bun; 
-	(void) lastSubjId;
-	(void) lastSubIdEx; 
+	(void) lastSubIdEx; /* not used (yet) ? */
 	//BAT**	setofBats = NULL;
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
@@ -3764,9 +3760,6 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	oid	*lastDupValue; 
 	oid	tmpmvValue; 
 
-	(void) bun; 
-	(void) lastSubjId;
-	(void) lastSubjIdEx; 
 	//BAT**	setofBats = NULL;
 	
 
