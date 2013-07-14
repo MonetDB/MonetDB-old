@@ -27,7 +27,7 @@
 static FrequencyNode *_InternalFrequencyStructA = NULL;
 static FrequencyNode *_InternalFrequencyStructB = NULL;
 static MT_Lock frequencylock;
-//static MT_Id idletime_thread;
+static MT_Id idletime_thread[1];
 MT_Lock CRKIndexLock;
 pthread_rwlock_t CRKFirstPieceRWLock;
 
@@ -38,10 +38,12 @@ IdleFuncPtr IdleFunc;
 str
 CRKinitHolistic(int *ret)
 {
+	int i;
 	IdleFunc=&CRKrandomCrack;
 	MT_lock_init(&frequencylock, "FrequencyStruct");
 	MT_lock_init(&CRKIndexLock, "Cracker Index Lock");
-	//MT_create_thread(&idletime_thread,(void (*)(void *))HeartbeatCPUload, IdleFunc, MT_THR_JOINABLE);
+	for(i=0;i<0;i++)
+		MT_create_thread(&idletime_thread[i],(void (*)(void *))HeartbeatCPUload, IdleFunc, MT_THR_JOINABLE);
 	*ret = 0;
 	return MAL_SUCCEED;
 }

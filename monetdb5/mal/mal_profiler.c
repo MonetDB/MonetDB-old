@@ -1328,14 +1328,10 @@ void HeartbeatCPUload(str (*IdleFunc)(int *))
 		(void) getCPULoad(cpuload);
 		if (corestat[256].load < 80)
 		{
-			MT_sleep_ms(0.01);
-			(void) getCPULoad(cpuload);
-			if (corestat[256].load < 80)
-			{
-				fprintf(stderr,"cpuload=%lf\n",corestat[256].load);
-				IdleFunc(NULL);
-			}
-		}	
+			fprintf(stderr,"cpuload=%lf\n",corestat[256].load);
+			IdleFunc(NULL);
+		}
+		MT_sleep_ms(10);	
 		//fprintf(stderr,"%s\n",cpuload);
 	}
 }

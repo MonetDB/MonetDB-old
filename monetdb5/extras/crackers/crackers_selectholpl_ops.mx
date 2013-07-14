@@ -315,7 +315,7 @@ createView:
 	int countBatElements=0;
 	int L1=0; /*Number of elements that can fit into L1 cache (size: 32KB)*/	
 	FILE *ofp;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/thresholds/client1/waiting001/cpuload40/breakdown.txt";
+	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/thresholds/client1/waiting0/cpuload80/select/thread7/breakdown.txt";
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 
