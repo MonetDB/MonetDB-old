@@ -122,6 +122,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 	int last_insert_bind_return_var_id = -1;
 	int last_subselect_return_var_id = -1;
 	int last_update_bind_second_return_var_id = -1;
+	int last_subdelta_return_var_id = -1;
 
 	stk = stk; //to escape 'unused' parameter error.
 	pci = pci; //to escape 'unused' parameter error.
@@ -545,7 +546,26 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 			removeInstruction(mb, p);
 			
 			actions += 2;
-		}	
+		}
+		else if((state == 3) &&
+			getModuleId(p) == sqlRef &&
+			getFunctionId(p) == projectdeltaRef &&
+			p->argc == 6 &&
+			p->retc == 1 &&
+			last_subdelta_return_var_id == getArg(p, 1))
+		{
+			r = newInstruction(mb, ASSIGNsymbol);
+			setModuleId(r, algebraRef);
+			setFunctionId(r, leftfetchjoinRef);
+			r = pushReturn(mb, r, getArg(p, 0));
+			r = pushArgument(mb, r, getArg(p, 1));
+			r = pushArgument(mb, r, getArg(p, 2));
+			
+			insertInstruction(mb, r, i+1);
+			removeInstruction(mb, p);
+			
+			actions += 2;
+		}
 		else if((state == 3) && 
 			getModuleId(p) == sqlRef &&
 			getFunctionId(p) == subdeltaRef &&
@@ -553,6 +573,8 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 			p->retc == 1 &&
 			last_subselect_return_var_id == getArg(p, 1))
 		{
+			last_subdelta_return_var_id = getArg(p, 0);
+			
 			r = newInstruction(mb, ASSIGNsymbol);
 			r = pushReturn(mb, r, getArg(p, 0));
 			r = pushArgument(mb, r, last_subselect_return_var_id);
