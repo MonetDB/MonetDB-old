@@ -1,7 +1,8 @@
 # ChangeLog file for MonetDB
 # This file is updated with Maddlog
 
-* Mon Apr  8 2013 Sjoerd Mullender <sjoerd@acm.org>
-- Fixed a bug in case the candidate list is dense and completely
-  outside the range of the bat being worked upon.
+* Tue May  7 2013 Sjoerd Mullender <sjoerd@acm.org>
+- System calls to flush files to disks were added.  This may cause
+  some slowdown, but it should provide better durability, especially
+  in the face of power failures.
 

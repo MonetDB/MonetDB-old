@@ -365,7 +365,11 @@ dup_bat(sql_trans *tr, sql_table *t, sql_delta *obat, sql_delta *bat, int type, 
 static void
 update_col(sql_trans *tr, sql_column *c, void *tids, void *upd, int tpe)
 {
+	BAT *b = tids;
 	sql_delta *bat;
+
+	if (tpe == TYPE_bat && !BATcount(b)) 
+		return;
 
 	if (!c->data || !c->base.allocated) {
 		int type = c->type.type->localtype;
@@ -386,7 +390,11 @@ update_col(sql_trans *tr, sql_column *c, void *tids, void *upd, int tpe)
 static void 
 update_idx(sql_trans *tr, sql_idx * i, void *tids, void *upd, int tpe)
 {
+	BAT *b = tids;
 	sql_delta *bat;
+
+	if (tpe == TYPE_bat && !BATcount(b)) 
+		return;
 
 	if (!i->data || !i->base.allocated) {
 		int type = (i->type==join_idx)?TYPE_oid:TYPE_wrd;
@@ -523,7 +531,11 @@ dup_del(sql_trans *tr, sql_table *ot, sql_table *t)
 static void 
 append_col(sql_trans *tr, sql_column *c, void *i, int tpe)
 {
+	BAT *b = i;
 	sql_delta *bat;
+
+	if (tpe == TYPE_bat && !BATcount(b)) 
+		return;
 
 	if (!c->data || !c->base.allocated) {
 		int type = c->type.type->localtype;
@@ -544,7 +556,11 @@ append_col(sql_trans *tr, sql_column *c, void *i, int tpe)
 static void
 append_idx(sql_trans *tr, sql_idx * i, void *ib, int tpe)
 {
+	BAT *b = ib;
 	sql_delta *bat;
+
+	if (tpe == TYPE_bat && !BATcount(b)) 
+		return;
 
 	if (!i->data || !i->base.allocated) {
 		int type = (i->type==join_idx)?TYPE_oid:TYPE_wrd;
@@ -601,13 +617,17 @@ delta_delete_val( sql_dbat *bat, oid rid )
 static void
 delete_tab(sql_trans *tr, sql_table * t, void *ib, int tpe)
 {
+	BAT *b = ib;
 	sql_dbat *bat;
 	node *n;
+
+	if (tpe == TYPE_bat && !BATcount(b)) 
+		return;
 
 	if (!t->data || !t->base.allocated) {
 		sql_table *ot = tr_find_table(tr->parent, t);
 		sql_dbat *bat = t->data = ZNEW(sql_dbat), *obat = timestamp_dbat(ot->data, tr->stime);
-		dup_dbat(tr, obat, bat, isNew(ot), t->base.flag == TR_NEW); 
+		dup_dbat(tr, obat, bat, isNew(ot), isTempTable(t)); 
 		t->base.allocated = 1;
 	}
        	bat = t->data;
@@ -1302,6 +1322,7 @@ clear_col(sql_trans *tr, sql_column *c)
 		int type = c->type.type->localtype;
 		sql_column *oc = tr_find_column(tr->parent, c);
 		sql_delta *bat = c->data = ZNEW(sql_delta), *obat = timestamp_delta(oc->data, tr->stime);
+		assert(tr != gtrans);
 		(void)dup_bat(tr, c->t, obat, bat, type, isNew(oc), c->base.flag == TR_NEW); 
 		c->base.allocated = 1;
 	}
@@ -1323,6 +1344,25 @@ clear_idx(sql_trans *tr, sql_idx *i)
 	if (i->data)
 		return clear_delta(tr, i->data);
 	return 0;
+}
+
+static void 
+empty_col(sql_column *c)
+{
+	int type = c->type.type->localtype;
+	sql_delta *bat = c->data;
+
+	assert(c->data && c->base.allocated && bat->bid == 0);
+	bat->bid = e_bat(type);
+}
+static void 
+empty_idx(sql_idx *i)
+{
+	int type = (i->type==join_idx)?TYPE_oid:TYPE_wrd;
+	sql_delta *bat = i->data;
+
+	assert(i->data && i->base.allocated && bat->bid == 0);
+	bat->bid = e_bat(type);
 }
 
 static BUN
@@ -1350,7 +1390,7 @@ clear_del(sql_trans *tr, sql_table *t)
 	if (!t->data || !t->base.allocated) {
 		sql_table *ot = tr_find_table(tr->parent, t);
 		sql_dbat *bat = t->data = ZNEW(sql_dbat), *obat = timestamp_dbat(ot->data, tr->stime);
-		dup_dbat(tr, obat, bat, isNew(ot), t->base.flag == TR_NEW); 
+		dup_dbat(tr, obat, bat, isNew(ot), isTempTable(t)); 
 		t->base.allocated = 1;
 	}
 	return clear_dbat(tr, t->data);
@@ -1541,24 +1581,28 @@ int
 tr_update_delta( sql_trans *tr, sql_delta *obat, sql_delta *cbat, BUN snapshot_minsize)
 {
 	int ok = LOG_OK;
-	BAT *ups, *ins, *cur;
+	BAT *ups, *ins, *cur = NULL;
 	int cleared = 0;
 
 	(void)tr;
 	assert(store_nr_active==1);
 
+	
+	assert (obat->bid != 0);
 	/* for cleared tables the bid is reset */
+
 	if (cbat->bid == 0) {
 		cleared = 1;
 		cbat->bid = obat->bid;
 		temp_dup(cbat->bid);
 	}
 
-	cur = temp_descriptor(obat->bid);
+	if (obat->bid)
+		cur = temp_descriptor(obat->bid);
 	ins = temp_descriptor(cbat->ibid);
 	/* any inserts */
 	if (BUNlast(ins) > BUNfirst(ins) || cleared) {
-		if (!obat->ibase && BATcount(ins) > snapshot_minsize){
+		if ((!obat->ibase && BATcount(ins) > snapshot_minsize)){
 			/* swap cur and ins */
 			BAT *newcur = ins;
 
@@ -1594,7 +1638,7 @@ tr_update_delta( sql_trans *tr, sql_delta *obat, sql_delta *cbat, BUN snapshot_m
 	if (cbat->ucnt || cleared) {
 		ups = temp_descriptor(cbat->ubid);
 		/* any updates */
-		if (BUNlast(ups) > BUNfirst(ups) || cleared ) {
+		if (BUNlast(ups) > BUNfirst(ups)) {
 			void_replace_bat(cur, ups, TRUE);
 			/* cleanup the old deltas */
 			temp_destroy(obat->ubid);
@@ -1653,13 +1697,21 @@ update_table(sql_trans *tr, sql_table *ft, sql_table *tt)
 	int ok = LOG_OK;
 	node *n, *m;
 
-	if (ft->cleared) {
-		(void)store_funcs.clear_del(tr->parent, tt);
-		for (n = tt->columns.set->h; n; n = n->next) 
-			(void)store_funcs.clear_col(tr->parent, n->data);
-		if (tt->idxs.set) 
-			for (n = tt->idxs.set->h; n; n = n->next) 
-				(void)store_funcs.clear_idx(tr->parent, n->data);
+	if (ft->cleared){
+		if (store_nr_active == 1) {
+			(void)store_funcs.clear_del(tr->parent, tt);
+			for (n = tt->columns.set->h; n; n = n->next) 
+				(void)store_funcs.clear_col(tr->parent, n->data);
+			if (tt->idxs.set) 
+				for (n = tt->idxs.set->h; n; n = n->next) 
+					(void)store_funcs.clear_idx(tr->parent, n->data);
+		} else {
+			for (n = tt->columns.set->h; n; n = n->next) 
+				empty_col(n->data);
+			if (tt->idxs.set) 
+				for (n = tt->idxs.set->h; n; n = n->next) 
+					empty_idx(n->data);
+		}
 	}
 
 	if (ft->base.allocated) {
