@@ -77,7 +77,7 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BATiter fli;
 	
 	int run_dataflow_opt = 0;
-	int run_recycle_opt = 1;
+	int run_recycle_opt = 0;
 
 	VarRecord low, high;
 
@@ -343,8 +343,9 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* adjust variable lifetimes */
 	malGarbageCollector(mb);
 
-	/*chkProgram(cntxt->fdout, cntxt->nspace, mb);
-	printFunction(cntxt->fdout,mb, 0, LIST_MAL_ALL); */
+	/*chkProgram(cntxt->fdout, cntxt->nspace, mb);*/
+	/*printFunction(cntxt->fdout,mb, 0, LIST_MAL_EXPLAIN); */
+	/*printFunction(cntxt->fdout,mb, 0, LIST_MAL_ALL); */
 
 	/* relocate the startpc, the instruction to proceed with the execution. Because it might be changed by the optimizers. */
 	for (i = 0; i < limit; i++)

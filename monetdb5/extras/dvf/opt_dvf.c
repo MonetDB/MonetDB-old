@@ -119,6 +119,9 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 	int i, limit, which_column, actions = 0;
 	int last_bind_return_var_id = -1;
 	int last_data_tid_return_var_id = -1;
+	int last_insert_bind_return_var_id = -1;
+	int last_subselect_return_var_id = -1;
+	int last_update_bind_second_return_var_id = -1;
 
 	stk = stk; //to escape 'unused' parameter error.
 	pci = pci; //to escape 'unused' parameter error.
@@ -452,35 +455,107 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 			actions++;
 		}
 		else if((state == 2 || state == 3) &&
-			((getModuleId(p) == sqlRef &&
+			getModuleId(p) == sqlRef &&
 			getFunctionId(p) == bindRef &&
 			p->argc == 7 &&
 			p->retc == 2 &&
 			strcmp(getVarConstant(mb, getArg(p, 3)).val.sval, getVarConstant(mb, getArg(old[i1], 2)).val.sval) == 0 &&
 			strstr(getVarConstant(mb, getArg(p, 4)).val.sval, data_table_identifier) != NULL &&
-			getVarConstant(mb, getArg(p, 6)).val.ival == 2) ||
-			(getModuleId(p) == sqlRef &&
+			getVarConstant(mb, getArg(p, 6)).val.ival == 2)
+		{
+			last_update_bind_second_return_var_id = getArg(p, 1);
+			removeInstruction(mb, p);
+			i--;
+			actions++;
+		}
+		else if((state == 2 || state == 3) &&
+			getModuleId(p) == sqlRef &&
 			getFunctionId(p) == bindRef &&
 			p->argc == 6 &&
 			p->retc == 1 &&
 			strcmp(getVarConstant(mb, getArg(p, 2)).val.sval, getVarConstant(mb, getArg(old[i1], 2)).val.sval) == 0 &&
 			strstr(getVarConstant(mb, getArg(p, 3)).val.sval, data_table_identifier) != NULL &&
-			getVarConstant(mb, getArg(p, 5)).val.ival == 1)))
+			getVarConstant(mb, getArg(p, 5)).val.ival == 1)
+		{
+			last_insert_bind_return_var_id = getArg(p, 0);
+			removeInstruction(mb, p);
+			i--;
+			actions++;
+		}
+		else if((state == 2 || state == 3) &&
+			getModuleId(p) == algebraRef &&
+			getFunctionId(p) == subselectRef &&
+			p->argc == 8 &&
+			p->retc == 1 &&
+			getArg(p, 1) == last_bind_return_var_id)
+		{
+			last_subselect_return_var_id = getArg(p, 0);
+			
+			r = newInstruction(mb, ASSIGNsymbol);
+			setModuleId(r, algebraRef);
+			setFunctionId(r, subselectRef);
+			r = pushReturn(mb, r, getArg(p, 0));
+			r = pushArgument(mb, r, getArg(p, 1));
+			r = pushArgument(mb, r, getArg(p, 3));
+			r = pushArgument(mb, r, getArg(p, 4));
+			r = pushArgument(mb, r, getArg(p, 5));
+			r = pushArgument(mb, r, getArg(p, 6));
+			r = pushArgument(mb, r, getArg(p, 7));
+			
+			insertInstruction(mb, r, i+1);
+			removeInstruction(mb, p);
+			
+			actions += 2;
+		}
+		else if((state == 2 || state == 3) &&
+			getModuleId(p) == algebraRef &&
+			getFunctionId(p) == subselectRef &&
+			(p->argc == 7 || p->argc == 8) &&
+			p->retc == 1 &&
+			(getArg(p, 1) == last_update_bind_second_return_var_id || getArg(p, 1) == last_insert_bind_return_var_id))
 		{
 			removeInstruction(mb, p);
 			i--;
 			actions++;
 		}
 		else if((state == 3) &&
-			(getModuleId(p) == sqlRef &&
+			getModuleId(p) == sqlRef &&
 			getFunctionId(p) == projectdeltaRef &&
 			p->argc == 6 &&
 			p->retc == 1 &&
-			last_bind_return_var_id == getArg(p, 2)))
+			last_bind_return_var_id == getArg(p, 2))
+		{
+			r = newInstruction(mb, ASSIGNsymbol);
+			
+			if(getArg(p, 1) == last_data_tid_return_var_id)
+			{
+				r = pushReturn(mb, r, getArg(p, 0));
+				r = pushArgument(mb, r, last_bind_return_var_id);
+			}
+			else
+			{
+				setModuleId(r, algebraRef);
+				setFunctionId(r, leftfetchjoinRef);
+				r = pushReturn(mb, r, getArg(p, 0));
+				r = pushArgument(mb, r, getArg(p, 1));
+				r = pushArgument(mb, r, last_bind_return_var_id);
+			}
+			
+			insertInstruction(mb, r, i+1);
+			removeInstruction(mb, p);
+			
+			actions += 2;
+		}	
+		else if((state == 3) && 
+			getModuleId(p) == sqlRef &&
+			getFunctionId(p) == subdeltaRef &&
+			p->argc == 6 &&
+			p->retc == 1 &&
+			last_subselect_return_var_id == getArg(p, 1))
 		{
 			r = newInstruction(mb, ASSIGNsymbol);
 			r = pushReturn(mb, r, getArg(p, 0));
-			r = pushArgument(mb, r, last_bind_return_var_id);
+			r = pushArgument(mb, r, last_subselect_return_var_id);
 			
 			insertInstruction(mb, r, i+1);
 			removeInstruction(mb, p);
