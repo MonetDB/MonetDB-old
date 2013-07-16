@@ -199,7 +199,9 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					pushInstruction(mb, q);
 					actions++;
 				}
-
+				
+				BBPunfix(BAT_fl->batCacheid);
+				
 				/* check for logical error */
 				assert(which_fl == num_fl);
 
@@ -307,6 +309,14 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		memcpy(stk_new, stk, stackSize(stk->stksize));
 		stk_new->stksize = k;
 		is_stack_new = TRUE;
+		
+		for(j = 0; j < stk->stksize; j++)
+		{
+			if(stk->stk[j].vtype == TYPE_bat && stk->stk[j].val.bval != 0)
+			{
+				BBPincref(stk->stk[j].val.bval, TRUE);
+			}
+		}
 	}
 
 	/* copy values into the new stack */
@@ -382,7 +392,17 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	GDKfree(old);
 	freeMalBlk(mb);
 	if(is_stack_new)
+	{
+		for(j = 0; j < stk_new->stksize; j++)
+		{
+			if(stk_new->stk[j].vtype == TYPE_bat && stk_new->stk[j].val.bval != 0)
+			{
+				BBPdecref(stk_new->stk[j].val.bval, TRUE);
+			}
+		}
+		
 		freeStack(stk_new);
+	}
 
 finish:
 	/* for statistics we print if/how many patches have been made */
