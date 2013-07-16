@@ -302,12 +302,27 @@ IncidentFKs* initLinks(int csCount) {
 }
 
 /* Modifies the parameter! */
-/* from:   <URI>/   to:   URI */
+/* from:   <URI>/ or <URI>   to:   URI */
 static
 void removeBrackets(char** s) {
-	if (strlen(*s) < 3) return;
-	(*s)[strlen(*s) - 2] = '\0';
-	(*s) += 1;
+	if (strlen(*s) < 2) return;
+
+	if ((*s)[0] == '<' && (*s)[strlen(*s) - 2] == '>' && (*s)[strlen(*s) - 1] == '/') {
+		// case <URI>/
+		(*s)[strlen(*s) - 2] = '\0';
+		(*s) += 1;
+	} else if ((*s)[0] == '<' && (*s)[strlen(*s) - 2] == '/' && (*s)[strlen(*s) - 1] == '>') {
+		// case <URI/>
+		(*s)[strlen(*s) - 2] = '\0';
+		(*s) += 1;
+	} else if ((*s)[0] == '<' && (*s)[strlen(*s) - 1] == '>') {
+		// case <URI>
+		(*s)[strlen(*s) - 1] = '\0';
+		(*s) += 1;
+	} else if ((*s)[strlen(*s) - 1] == '/') {
+		// case URI/
+		(*s)[strlen(*s) - 1] = '\0';
+	}
 }
 
 /* Modifies the parameter! */
