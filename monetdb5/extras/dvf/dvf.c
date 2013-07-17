@@ -354,7 +354,7 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	malGarbageCollector(mb);
 
 	/*chkProgram(cntxt->fdout, cntxt->nspace, mb);*/
-	/*printFunction(cntxt->fdout,mb, 0, LIST_MAL_EXPLAIN); */
+	/*printFunction(cntxt->fdout,mb, 0, LIST_MAL_EXPLAIN);*/ 
 	/*printFunction(cntxt->fdout,mb, 0, LIST_MAL_ALL); */
 
 	/* relocate the startpc, the instruction to proceed with the execution. Because it might be changed by the optimizers. */
@@ -362,6 +362,11 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	{
 		InstrPtr ip = mb->stmt[i];
 		
+		if(ip == NULL)
+		{
+			mb->stop = i;
+			break;
+		}
 		/* check for
 		 * dvf.plan_modifier(...);
 		 */
