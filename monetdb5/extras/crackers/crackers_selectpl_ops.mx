@@ -306,10 +306,15 @@ createView:
 	double wt=0, ct=0;
 	bit copy=TRUE;	
 	FILE *ofp;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/thresholds/client1/waiting0/multiple_clients/breakdown_cracking.txt";
+	char *outputFilename1;
 
 	gettimeofday(&tv0,0);
 	
+	outputFilename1 = getenv("SELECT_PL");
+	if (outputFilename1 == NULL){
+  		fprintf(stderr, "Error: SELECT_PL\n");
+  		exit(1);
+	}
 
 	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {

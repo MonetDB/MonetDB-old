@@ -1323,10 +1323,19 @@ static int getCPULoad(char cpuload[BUFSIZ]){
 void HeartbeatCPUload(str (*IdleFunc)(int *))
 {
 	char cpuload[BUFSIZ];
+	char *p = getenv("CPULOAD_THRESHOLD");
+	int thres;
+	if (p == NULL)
+	{
+		fprintf(stderr, "Error: CPULOAD_THRESHOLD\n");
+  		exit(1);
+	}
+	else
+		thres = atoi(p);
 	while(1)
 	{
 		(void) getCPULoad(cpuload);
-		if (corestat[256].load < 80)
+		if (corestat[256].load < thres)
 		{
 			fprintf(stderr,"cpuload=%lf\n",corestat[256].load);
 			IdleFunc(NULL);

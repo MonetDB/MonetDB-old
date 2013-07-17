@@ -209,11 +209,16 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 	int retryIter=0;
 	int L1=0; /*Number of elements that can fit into L1 cache (size: 32KB)*/	
 	FILE *ofp;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/motivation/breakdown_idle.txt";
+	char *outputFilename1;
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 	gettimeofday(&tv0,0);
 	
+	outputFilename1 = getenv("HOLOUTPUT_RANDOM");
+	if (outputFilename1 == NULL){
+  		fprintf(stderr, "Error: HOLOUTPUT_RANDOM\n");
+  		exit(1);
+	}
 	if ((bo = BATdescriptor(*bid)) != NULL)
 		L1=32000/ATOMsize(bo->ttype);
 
@@ -521,12 +526,18 @@ createView:
 	int countBatElements=0;
 	int L1=0; /*Number of elements that can fit into L1 cache (size: 32KB)*/	
 	FILE *ofp;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/motivation/breakdown_user.txt";
+	char *outputFilename1;
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 
 	gettimeofday(&tv0,0);
 	
+	outputFilename1 = getenv("HOLOUTPUT_SELECT");
+	if (outputFilename1 == NULL){
+  		fprintf(stderr, "Error: HOLOUTPUT_SELECT\n");
+  		exit(1);
+	}
+
 	if ((bo = BATdescriptor(*bid)) != NULL)
 		L1=32000/ATOMsize(bo->ttype);
 

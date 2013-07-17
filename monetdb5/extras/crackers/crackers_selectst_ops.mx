@@ -325,9 +325,16 @@ createView:
 	bit copy=TRUE;
 	int pieces=0;
 	FILE *ofp;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/thresholds/client1/waiting0/multiple_clients/breakdown_stochastic.txt";
+	char* outputFilename1;
 	/*k and randomoid are used for DD1R*/
 	@1 k,temp_h;
+
+	outputFilename1 = getenv("STOCHASTIC_SELECT");
+	if (outputFilename1 == NULL){
+  		fprintf(stderr, "Error: STOCHASTIC_SELECT\n");
+  		exit(1);
+	}
+
 
 	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
