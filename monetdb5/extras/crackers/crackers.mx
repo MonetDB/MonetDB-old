@@ -273,7 +273,7 @@ address CRKselectholValue_@2
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
 
-command selecthol(b:bat[:oid,:@2],l:@2,h:@2,li:bit,hi:bit,iq:bit):bat[:oid,:@2]
+command selecthol(b:bat[:oid,:@2],l:@2,h:@2,li:bit,hi:bit):bat[:oid,:@2]
 address CRKselectholBounds_@2
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
@@ -288,7 +288,7 @@ address CRKuselectholValue_@2
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
 
-command uselecthol(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit,iq:bit):bat[:any_1,:void]
+command uselecthol(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit):bat[:any_1,:void]
 address CRKuselectholBounds_@2
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
@@ -353,7 +353,7 @@ address CRKselectholplValue_@2
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
 
-command selectholpl(b:bat[:oid,:@2],l:@2,h:@2,li:bit,hi:bit,iq:bit):bat[:oid,:@2]
+command selectholpl(b:bat[:oid,:@2],l:@2,h:@2,li:bit,hi:bit):bat[:oid,:@2]
 address CRKselectholplBounds_@2
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
@@ -368,7 +368,7 @@ address CRKuselectholplValue_@2
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
 
-command uselectholpl(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit,iq:bit):bat[:any_1,:void]
+command uselectholpl(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit):bat[:any_1,:void]
 address CRKuselectholplBounds_@2
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";

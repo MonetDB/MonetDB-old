@@ -162,6 +162,29 @@ findMax(FrequencyNode* head)
 	}
 	return ret_node;
 }
+/*this function returns the maximum weight (excluding the bid weight) from the list and is used for all the cost models*/
+FrequencyNode*
+findOtherMax(FrequencyNode* head, int bat_id)
+{
+	FrequencyNode* temp=NULL;
+	FrequencyNode* ret_node=NULL;
+	double tmpW;
+	//int bat;
+	temp=head;
+	tmpW=temp->weight;
+	//bat=temp->bid;
+	while(temp!=NULL)
+	{
+		if((temp->weight >= tmpW) && (temp->bid != bat_id))
+		{
+			tmpW=temp->weight;
+			//bat=temp->bid;
+			ret_node=temp;
+		}
+		temp=temp->next;
+	}
+	return ret_node;
+}
 
 /*this function returns a random node from the list with positive weight*/
 FrequencyNode*
@@ -352,45 +375,28 @@ CRKrandomCrack(int *ret)
 {
 	int bid=0;
 	FrequencyNode* max_node;
-	BAT *b;
-	int low=0, hgh=0;
-	int *t;
-	int temp=0;
-	bit isIdleQuery=TRUE;
-	oid posl,posh,p;
-	//FILE *ofp1;
-	int dummy = 0;
-	//char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/thresholds/client1/waiting0/cpuload70/idletime4/idle_columns.txt";
-	
+	int change_bat=0;
 	bit inclusive=TRUE;
 	FrequencyNode *fs = getFrequencyStruct('A');	
-	//ofp1 = fopen(outputFilename1,"a");
+
 	(void) ret;
 	max_node=findMax(fs);
 	if(max_node!=NULL && max_node->weight > 0)
 	{
 		bid=max_node->bid;
-		b=BATdescriptor(bid);
-		t=(int*)Tloc(b,BUNfirst(b));
-		posl=BUNfirst(b);
-		posh=BUNlast(b) - 1;
-		p=(rand()%(posh-posl+1))+posl;
-		low=t[p];
-		p=(rand()%(posh-posl+1))+posl;
-		hgh=t[p];
-		if(hgh < low)
+		change_bat = CRKrandomholpl_int(&bid,&inclusive);
+		if (change_bat == -1)
 		{
-			temp=low;
-			low=hgh;
-			hgh=temp;
+			max_node=findOtherMax(fs,bid);
+			if(max_node!=NULL && max_node->weight > 0)
+			{
+				bid=max_node->bid;
+				(void) CRKrandomholpl_int(&bid,&inclusive);
+			}
 		}
-		CRKselectholplBounds_int(&dummy, &bid, &low, &hgh, &inclusive, &inclusive,&isIdleQuery);
-		//fprintf(ofp1,"%d\n",max_node->bid);
 		
 	}
 	
-	//fclose(ofp1);
-
 	return MAL_SUCCEED;
 }
 

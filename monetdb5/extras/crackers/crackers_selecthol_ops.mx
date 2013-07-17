@@ -54,8 +54,8 @@ All Rights Reserved.
  * @- Exported signatures
  */
 @= SelectholFunctions_decl
-crackers_export str CRKselectholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh,bit *isIdleQuery);
-crackers_export str CRKuselectholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh, bit *isIdleQuery);
+crackers_export str CRKselectholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh);
+crackers_export str CRKuselectholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh);
 crackers_export str CRKselectholValue_@1(int *vid, int *bid, @1 *value);
 crackers_export str CRKuselectholValue_@1(int *vid, int *bid, @1 *value);
 crackers_export str CRKselecthol_@1(int *vid, int *bid, @1 *low, @1 *hgh);
@@ -88,51 +88,47 @@ crackers_export str CRKsumholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit
 @= SelectholFunctions_impl
 
 str
-CRKselectholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh, bit *isIdleQuery){		
+CRKselectholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh){		
 	if (@2_EQ(low,ATOMnilptr(TYPE_@1),@3@1))
-		return CRKRangeLeftNilTree_@1(vid, bid, hgh, inclusiveHgh, TRUE, isIdleQuery);
+		return CRKRangeLeftNilTree_@1(vid, bid, hgh, inclusiveHgh, TRUE);
 	else if (@2_EQ(hgh,ATOMnilptr(TYPE_@1),@3@1))
-		return CRKRangeRightNilTree_@1(vid, bid, low, inclusiveLow, TRUE, isIdleQuery);
+		return CRKRangeRightNilTree_@1(vid, bid, low, inclusiveLow, TRUE);
 	else
-		return CRKRangeTree_@1(vid, bid, low, hgh, inclusiveLow, inclusiveHgh, TRUE, isIdleQuery);
+		return CRKRangeTree_@1(vid, bid, low, hgh, inclusiveLow, inclusiveHgh, TRUE);
 }
 
 str
-CRKuselectholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh, bit *isIdleQuery){
+CRKuselectholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh){
 	if (@2_EQ(low,ATOMnilptr(TYPE_@1),@3@1))
-		return CRKRangeLeftNilTree_@1(vid, bid, hgh, inclusiveHgh, FALSE, isIdleQuery);
+		return CRKRangeLeftNilTree_@1(vid, bid, hgh, inclusiveHgh, FALSE);
 	else if (@2_EQ(hgh,ATOMnilptr(TYPE_@1),@3@1))
-		return CRKRangeRightNilTree_@1(vid, bid, low, inclusiveLow, FALSE, isIdleQuery);
+		return CRKRangeRightNilTree_@1(vid, bid, low, inclusiveLow, FALSE);
 	else
-		return CRKRangeTree_@1(vid, bid, low, hgh, inclusiveLow, inclusiveHgh, FALSE, isIdleQuery);
+		return CRKRangeTree_@1(vid, bid, low, hgh, inclusiveLow, inclusiveHgh, FALSE);
 }
 
 str
 CRKselectholValue_@1(int *vid, int *bid, @1 *value){
 	bit inclusive = TRUE;
-	bit isIdleQuery=FALSE;
-	return CRKuselectholBounds_@1(vid, bid, value, value, &inclusive, &inclusive, &isIdleQuery);
+	return CRKuselectholBounds_@1(vid, bid, value, value, &inclusive, &inclusive);
 }
 
 str
 CRKuselectholValue_@1(int *vid, int *bid, @1 *value){
 	bit inclusive = TRUE;
-	bit isIdleQuery=FALSE;
-	return CRKuselectholBounds_@1(vid, bid, value, value, &inclusive, &inclusive, &isIdleQuery);
+	return CRKuselectholBounds_@1(vid, bid, value, value, &inclusive, &inclusive);
 }
 
 str
 CRKselecthol_@1(int *vid, int *bid, @1 *low, @1 *hgh){
 	bit inclusive = TRUE;
-	bit isIdleQuery=FALSE;
-	return CRKselectholBounds_@1(vid, bid, low, hgh, &inclusive, &inclusive, &isIdleQuery);
+	return CRKselectholBounds_@1(vid, bid, low, hgh, &inclusive, &inclusive);
 }
 
 str
 CRKuselecthol_@1(int *vid, int *bid, @1 *low, @1 *hgh){
 	bit inclusive = TRUE;
-	bit isIdleQuery=FALSE;
-	return CRKuselectholBounds_@1(vid, bid, low, hgh, &inclusive, &inclusive, &isIdleQuery);
+	return CRKuselectholBounds_@1(vid, bid, low, hgh, &inclusive, &inclusive);
 }
 
 str
@@ -140,7 +136,6 @@ CRKthetaselecthol_@1(int *vid, int *bid, @1 *val, str *OP){
 	ptr nilptr = ATOMnilptr(TYPE_@1); 
 	char *op = *OP; 
 	bit lin = TRUE, rin = TRUE;
-	bit isIdleQuery=FALSE;
 	@1 *low = nilptr, *high = nilptr;
 
 	if (op[0] == '=') {
@@ -156,7 +151,7 @@ CRKthetaselecthol_@1(int *vid, int *bid, @1 *val, str *OP){
 		throw(MAL, "crackers.thetaselecthol", "unknown operator");
 	}
 
-	return CRKselectholBounds_@1(vid, bid, low, high, &lin, &rin, &isIdleQuery);
+	return CRKselectholBounds_@1(vid, bid, low, high, &lin, &rin);
 }
 
 str
@@ -164,7 +159,6 @@ CRKthetauselecthol_@1(int *vid, int *bid, @1 *val, str *OP){
 	ptr nilptr = ATOMnilptr(TYPE_@1); 
 	char *op = *OP; 
 	bit lin = TRUE, rin = TRUE;
-	bit isIdleQuery=FALSE;
 	@1 *low = nilptr, *high = nilptr;
 
 	if (op[0] == '=') {
@@ -179,7 +173,7 @@ CRKthetauselecthol_@1(int *vid, int *bid, @1 *val, str *OP){
 		throw(MAL, "crackers.thetauselecthol", "unknown operator");
 	}
 
-	return CRKuselectholBounds_@1(vid, bid, low, high, &lin, &rin, &isIdleQuery);
+	return CRKuselectholBounds_@1(vid, bid, low, high, &lin, &rin);
 }
 str
 CRKsumholBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh){
@@ -386,9 +380,7 @@ createView:
 
 			FN=searchBAT(FrequencyStructA,*bid);
 						
-			if (*isIdleQuery==FALSE)
-				FN->f1 = FN->f1 + 1;
-
+			FN->f1 = FN->f1 + 1;
 			FN->c = FN->c + 2;
 			FN->weight = changeWeight_1(FN,countBatElements,L1);
 
@@ -443,10 +435,7 @@ createView:
 
 	FN=searchBAT(FrequencyStructA,*bid);
 	
-	if (*isIdleQuery==FALSE)
-	{
-		FN->f1 = FN->f1 + 1;
-	}
+	FN->f1 = FN->f1 + 1;
 
 
 		/* If an index exists for this bat (so it has been cracked before)
@@ -579,7 +568,7 @@ createView:
 
 
        
-	if((foundLow!=0 && foundHgh!=0)&&(*isIdleQuery==FALSE)) FN->f2 = FN->f2 + 1;
+	if((foundLow!=0 && foundHgh!=0)) FN->f2 = FN->f2 + 1;
 	/* If one or both of the result view bounds were not found using the
 	index then we have to crack */
 
@@ -660,10 +649,7 @@ createView:
 		MT_lock_unset(&CrackerIndex[m].columnLock,"Lock Attribute");	
 
 	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-	if(*isIdleQuery==FALSE)
-		fprintf(ofp,"User_query \t 1 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf\n",wt,ct);
-	else
-		fprintf(ofp,"Idle_Query \t 0 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf\n",wt,ct);
+	fprintf(ofp,"User_query \t 1 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf\n",wt,ct);
 
 	fclose(ofp);
 
@@ -1065,7 +1051,7 @@ To do that, we first search the index to determine which parts of the result we 
 know and which parts we have to crack. Then we crack, if necessary,
 the appropriate pieces, update the index and return the result */
 static str
-CRKRangeTree_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh, bit tail, bit *isIdleQuery){	
+CRKRangeTree_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh, bit tail){	
 	@:RangeSelectBody(@1,@2,@3,@4,)@
 }
 static str
@@ -1074,7 +1060,7 @@ CRKRangeSumTree_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit 
 }
 
 static str
-CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail, bit *isIdleQuery){
+CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail){
 	BAT *b,*c,*bo;
 	BAT *view;
 	int  m;
@@ -1086,7 +1072,6 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 	if (*inclusiveHgh == TRUE) HBound = FALSE;
 	else	HBound = TRUE; 				
  
-	(void) isIdleQuery;
 
 	m = existsCrackerIndex(*bid);
 	assert(0);
@@ -1172,7 +1157,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 }
 
 static str
-CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail, bit *isIdleQuery){
+CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail){
 	BAT *b,*c,*bo;
 	BAT *view;
 	int  m;
@@ -1184,7 +1169,6 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 	int createIndex=0;
 	m = existsCrackerIndex(*bid);
 	assert(0);
-	(void) isIdleQuery;
 	/* if this is the first time we selecthol something from this bat,
 		we have to create the crack indx for it and
 	   if necessary materialize the head of the bat */

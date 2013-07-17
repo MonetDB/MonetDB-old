@@ -50,6 +50,7 @@ crackers_export double changeWeight_1(FrequencyNode* node,int N,int L1);
 crackers_export double changeWeight_2(FrequencyNode* node,int N,int L1);
 crackers_export double changeWeight_3(FrequencyNode* node,int N,int L1);
 crackers_export FrequencyNode* findMax(FrequencyNode* head);
+crackers_export FrequencyNode* findOtherMax(FrequencyNode* head,int bat_id);
 crackers_export FrequencyNode* pickRandom(FrequencyNode* head);
 crackers_export void deleteNode(FrequencyNode* head,int bat_id);
 crackers_export IdleFuncPtr IdleFunc;
