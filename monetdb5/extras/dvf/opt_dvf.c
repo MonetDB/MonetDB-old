@@ -510,8 +510,30 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 		}
 		else if((state == 2 || state == 3) &&
 			getModuleId(p) == algebraRef &&
-			getFunctionId(p) == subselectRef &&
-			(p->argc == 7 || p->argc == 8) &&
+			getFunctionId(p) == thetasubselectRef &&
+			p->argc == 5 &&
+			p->retc == 1 &&
+			getArg(p, 1) == last_bind_return_var_id)
+		{
+			last_subselect_return_var_id = getArg(p, 0);
+			
+			r = newInstruction(mb, ASSIGNsymbol);
+			setModuleId(r, algebraRef);
+			setFunctionId(r, thetasubselectRef);
+			r = pushReturn(mb, r, getArg(p, 0));
+			r = pushArgument(mb, r, getArg(p, 1));
+			r = pushArgument(mb, r, getArg(p, 3));
+			r = pushArgument(mb, r, getArg(p, 4));
+			
+			insertInstruction(mb, r, i+1);
+			removeInstruction(mb, p);
+			
+			actions += 2;
+		}
+		else if((state == 2 || state == 3) &&
+			getModuleId(p) == algebraRef &&
+			((getFunctionId(p) == subselectRef && (p->argc == 7 || p->argc == 8)) || 
+			(getFunctionId(p) == thetasubselectRef && (p->argc == 5 || p->argc == 4))) &&
 			p->retc == 1 &&
 			(getArg(p, 1) == last_update_bind_second_return_var_id || getArg(p, 1) == last_insert_bind_return_var_id))
 		{
