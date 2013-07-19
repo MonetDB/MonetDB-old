@@ -123,6 +123,8 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	copy_old = mb;
 	mb = copy_mb;
 
+	copy_old = copy_old; /* to escape 'unused' parameter error. */
+	
 	old = mb->stmt;
 	limit= mb->stop;
 	slimit = mb->ssize;
@@ -242,7 +244,7 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 /* 			s = s; */
 
 			/* comment out in the old for reusing the old */
-			copy_old->stmt[i]->token = REMsymbol;
+// 			copy_old->stmt[i]->token = REMsymbol;
 
 		}
 		else
@@ -253,11 +255,11 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			if (p->token == ENDsymbol) break;
 
 			/* comment out in the old for reusing the old */
-			if(i > startpc)
-			{
-/* 				old[i]->token = REMsymbol; */
-				copy_old->stmt[i]->token = REMsymbol;
-			}
+// 			if(i > startpc)
+// 			{
+// /* 				old[i]->token = REMsymbol; */
+// 				copy_old->stmt[i]->token = REMsymbol;
+// 			}
 		}
 	}
 	/* We would like to retain everything from the ENDsymbol
@@ -386,8 +388,8 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(MAL, "dvf.plan_modifier", "From the recursive call: %s", msg);
 	}
 
-/* 	chkProgram(cntxt->fdout, cntxt->nspace, copy_old); */
-/* 	printFunction(cntxt->fdout, copy_old, 0, LIST_MAL_EXPLAIN); */
+	/*chkProgram(cntxt->fdout, cntxt->nspace, copy_old);
+	printFunction(cntxt->fdout, copy_old, 0, LIST_MAL_EXPLAIN);*/
 
 	/* any remaining MAL instruction records are removed */
 	for(i = 0; i<slimit; i++)
@@ -409,6 +411,9 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		freeStack(stk_new);
 	}
 
+	/* make the plan_modifier call a return symbol, so that the MAL plan execution always ends after it. Then you can have a healthy plan in query cache for this query. */
+	pci->barrier = RETURNsymbol;
+	
 finish:
 	/* for statistics we print if/how many patches have been made */
 	DEBUGoptimizers
