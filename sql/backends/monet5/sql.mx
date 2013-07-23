@@ -7610,6 +7610,9 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	#endif
 	sql_table 	*psotbl;
 	int 	i, j; 
+	int	nonullmvtables = 0;
+	int	totalNoTablesCreated = 0;
+	int	totalNoViewCreated = 0;
 
 	str msg;
 	BAT	*sbat, *pbat, *obat, *mbat; 
@@ -7653,6 +7656,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	// Add irregular triples to pso tbale
 	psotbl = mvc_create_table(m, sch, "pso", tt_table, 0,
 			                                   SQL_PERSIST, 0, 3);
+	totalNoTablesCreated++;
 	mvc_create_column(m, psotbl, "p",  &tpe);
 	mvc_create_column(m, psotbl, "s",  &tpe);
 	mvc_create_column(m, psotbl, "o",  &tpe);
@@ -7668,11 +7672,14 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			mvc_bind_column(m, psotbl,"o" ), 
 			cstablestat->obat, TYPE_bat);
 	// Add regular triple to cstables and cstablesEx
+
+	printf("Starting creating SQL Table -- \n");
+	
 	for (i = 0; i < cstablestat->numTables; i++){
 		sprintf(tmptbname, "cstable%d",i);
 		cstables[i] = mvc_create_table(m, sch, tmptbname, tt_table, 0,
 				   SQL_PERSIST, 0, 3);
-
+		totalNoTablesCreated++;
 		//Multivalues tables for each column
 		csmvtables[i] = (sql_table **)malloc(sizeof(sql_table*) * cstablestat->numPropPerTable[i]);
 		
@@ -7682,13 +7689,18 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			mvc_create_column(m, cstables[i], tmpcolname,  &tpe);
 
 			//For multi-values table
-			sprintf(tmptbname, "mvtable%dp%d",i,j);
-			csmvtables[i][j] = mvc_create_table(m, sch, tmptbname, tt_table, 0, SQL_PERSIST, 0, 3); 
-			sprintf(tmpcolname, "objvalue");
-			mvc_create_column(m, csmvtables[i][j], tmpcolname,  &tpe);
-                	store_funcs.append_col(m->session->tr,
+			if (BATcount(cstablestat->lstcstable[i].mvBats[j]) != 0){
+				sprintf(tmptbname, "mvtable%dp%d",i,j);
+				csmvtables[i][j] = mvc_create_table(m, sch, tmptbname, tt_table, 0, SQL_PERSIST, 0, 3); 
+				totalNoTablesCreated++;
+				sprintf(tmpcolname, "objvalue");
+				mvc_create_column(m, csmvtables[i][j], tmpcolname,  &tpe);
+                		store_funcs.append_col(m->session->tr,
 					mvc_bind_column(m, csmvtables[i][j],tmpcolname ), 
 					cstablestat->lstcstable[i].mvBats[j], TYPE_bat);
+			}
+			else
+				nonullmvtables++;
 		}
 
 		//Add data
@@ -7707,6 +7719,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		sprintf(tmptbnameex, "cstableex%d",i);
 		cstablesEx[i] = mvc_create_table(m, sch, tmptbnameex, tt_table, 0,
 				   SQL_PERSIST, 0, 3);
+		totalNoTablesCreated++;
 		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
 			//TODO: Use propertyId from Propstat
 			sprintf(tmpcolname, "colex%d",j);
@@ -7727,7 +7740,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		sprintf(viewcommand, "SELECT * from rdf.%s UNION SELECT * from rdf.%s;", tmptbname, tmptbnameex); 
 		//printf("Create view %s \n", viewcommand);
 		viewcstables[i] = mvc_create_view(m, sch, tmpviewname, SQL_PERSIST,viewcommand, 1); 
-
+		totalNoViewCreated++;
 		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
 			//TODO: Use propertyId from Propstat
 			sprintf(tmpcolname, "col%d",j);
@@ -7737,6 +7750,9 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	}
 
+	printf("... Done ( %d tables + %d views created. Already exclude %d Null mvtables ) \n", 
+			totalNoTablesCreated, totalNoViewCreated, nonullmvtables);
+		
 
 	BBPunfix(sbat->batCacheid); 
 	BBPunfix(pbat->batCacheid);
