@@ -360,15 +360,15 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/*printFunction(cntxt->fdout,mb, 0, LIST_MAL_ALL); */
 
 	/* relocate the startpc, the instruction to proceed with the execution. Because it might be changed by the optimizers. */
-	for (i = 0; i < limit; i++)
+	for (i = 0; i < mb->stop; i++)
 	{
 		InstrPtr ip = mb->stmt[i];
 		
-		if(ip == NULL)
-		{
-			mb->stop = i;
-			break;
-		}
+// 		if(ip == NULL)
+// 		{
+// 			mb->stop = i;
+// 			break;
+// 		}
 		/* check for
 		 * dvf.plan_modifier(...);
 		 */
@@ -376,6 +376,7 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			getFunctionId(ip) == planmodifierRef)
 		{
 			startpc = i;
+			break;
 		}
 	}
 	
