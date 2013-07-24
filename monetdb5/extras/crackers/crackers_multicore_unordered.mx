@@ -1,0 +1,544 @@
+@/
+The contents of this file are subject to the MonetDB Public License
+Version 1.1 (the "License"); you may not use this file except in
+compliance with the License. You may obtain a copy of the License at
+http://www.monetdb.org/Legal/MonetDBLicense
+
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+License for the specific language governing rights and limitations
+under the License.
+
+The Original Code is the MonetDB Database System.
+
+The Initial Developer of the Original Code is CWI.
+Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+Copyright August 2008-2013 MonetDB B.V.
+All Rights Reserved.
+@
+
+@f crackers_multicore_unordered
+
+@c
+/*
+ * @a Martin Kersten, Stratos Idreos, Stefan Manegold
+ * @d March 2006 - July 2007
+ * @* MultiCore Cracking (unordered)
+ *
+ *
+ * @+ Interface
+ *
+ *
+ * @- Type expansion
+ */
+@= TypeSwitch
+@:@1(int,simple,,@2)@
+@
+@h
+/*
+ * @- Header file
+ */
+#ifndef _CRACKERS_MULTICORE_UNORDERED_H_
+#define _CRACKERS_MULTICORE_UNORDERED_H_
+
+#ifdef LIBCRACKERS
+
+typedef struct {
+        BAT *array;
+        int *temp_array;
+        int *data_less;
+        int *data_greater;
+        oid* left;
+        oid* right;
+        int tid;
+        int *pivot;
+} thread_data_t;
+
+typedef struct {
+        BAT *array;
+        int *temp_array;
+        int *data_less;
+        int *data_greater;
+        int nthreads; /*number of threads*/
+        int n; /*number of array elements*/
+        oid* left;
+        oid* right;
+        int tid;
+        int *pivot;
+} thread_data_new_t;
+
+
+/* Signatures shared within the crackers module/library */
+@:TypeSwitch(operations,_decl)@
+#endif
+
+/* Exported signatures */
+@:TypeSwitch(MultiCoreUnorderedFunctions_decl,)@
+
+#endif /* _CRACKERS_MULTICORE_UNORDERED_H */
+/*
+ * @- Exported signatures
+ */
+@= MultiCoreUnorderedFunctions_decl
+crackers_export str CRKcrackUnorderedZeroParallel_@1 (int *res, int *bid, @1 *mid);
+crackers_export str CRKcrackUnorderedThreeParallel_@1 (int *res, int *bid, @1 *low, @1 *hgh);
+@
+ * @- Signatures shared within the crackers module/library
+@= operations
+@:crackInTwoUnorderedPieces@4(@1,LE,LE,GT,@2,@3)@
+@:crackInTwoUnorderedPieces@4(@1,RE,LT,GE,@2,@3)@
+@:crackInThreeUnorderedPieces@4(@1,LO,RE,LE,GT,LE,GT,@2,@3)@
+@:crackInThreeUnorderedPieces@4(@1,LE,RE,LT,GE,LE,GT,@2,@3)@
+@:crackInThreeUnorderedPieces@4(@1,LO,RO,LE,GT,LT,GE,@2,@3)@
+@:crackInThreeUnorderedPieces@4(@1,LE,RO,LT,GE,LT,GE,@2,@3)@
+@
+@= crackInTwoUnorderedPieces_decl
+str CRKcrackUnorderedZeroParallel_@2_@1( BAT *b, @1 mval, oid first, oid last, oid *pos);
+str CRKscanUnorderedZeroParallel_@2_@1( BAT *b, @1 *temp_array, @1 *mval, oid first, oid last, int nthreads, int *data_less, int *data_greater);
+void *threadFuncScan_@2_@1(void *arg);
+@
+@= crackInThreeUnorderedPieces_decl
+str CRKcrackUnorderedThreeParallel_@2_@3_@1( BAT *b, @1 low, @1 hgh, oid first, oid last, oid *posl, oid *posh);
+str CRKcrackUnorderedThreeCopyParallel_@2_@3_@1( BAT *b, @1 low, @1 hgh, oid first, oid last, oid *posl, oid *posh, BAT *bc);
+@
+
+@c
+/*
+ * @+ Implementation
+ *
+ *
+ * @- C file
+ */
+#include "monetdb_config.h"
+#include "crackers.h"
+
+/* Functions shared within the crackers module/library */
+@:TypeSwitch(operations,_impl)@
+
+/* Exported functions */
+@:TypeSwitch(MultiCoreUnorderedFunctions_impl,)@
+/*
+ * @- Exported functions
+ */
+@= MultiCoreUnorderedFunctions_impl
+str
+CRKcrackUnorderedZeroParallel_@1 (int *res, int *bid, @1 *mid){
+        BAT *b;
+        str msg;
+	oid pos;
+
+        if ((b = BATdescriptor(*bid)) == NULL)
+                throw(MAL, "crackers.crack_zeroUnordered", "Cannot access descriptor");
+
+        /* set bounds for the iterator */
+       /* if( sizeof(struct SCRATCH{ oid hdummy; @1 tdummy; } ) != BUNsize(b) )
+                throw(MAL, "crackers.crack_zeroUnordered", "Need more clever mapping ");
+	*/
+        msg = CRKcrackUnorderedZeroParallel_LE_@1( b, *mid,(BUN) 0, BATcount(b)-1, &pos);
+
+        BBPkeepref(b->batCacheid);
+        *res = *bid;
+        return msg;
+}
+
+str
+CRKcrackUnorderedThreeParallel_@1 (int *res, int *bid, @1 *low, @1 *hgh){
+        BAT *b;
+        str msg;
+	oid posl, posh;
+
+        if (*(@1 *) low > *(@1 *) hgh)
+                throw(MAL, "crackers.crack_threeUnordered", "illegal range");
+        if ((b = BATdescriptor(*bid)) == NULL)
+                throw(MAL, "crackers.crack_threeUnordered", "Cannot access descriptor");
+
+        /* set bounds for the iterator */
+        /*if( sizeof(struct SCRATCH{ oid hdummy; @1 tdummy; } ) != BUNsize(b) )
+                throw(MAL, "crackers.crack_threeUnordered", "Need more clever mapping ");
+	*/
+        msg = CRKcrackUnorderedThreeParallel_LO_RE_@1( b, *low, *hgh, 0, BATcount(b)-1,&posl, &posh);
+
+        BBPkeepref(b->batCacheid);
+        *res = *bid;
+        return msg;
+}
+@
+ * @- Functions shared within the crackers module/library
+@= crackInTwoUnorderedPieces_impl
+str
+CRKcrackUnorderedZeroParallel_@2_@1( BAT *b, @1 mval, BUN first, BUN last, oid *pos){
+        @1  *ft, *lt, *t0;
+	oid *fh, *lh;
+        oid hdummy;
+        @1 tdummy;
+	
+
+        /* set bounds for the iterator */
+        t0 = (@1 *)Tloc(b, BUNfirst(b));
+        ft = (@1 *)Tloc(b, BUNfirst(b) + first);
+        lt = (@1 *)Tloc(b, BUNfirst(b) + last);
+        fh = (oid*)Hloc(b, BUNfirst(b) + first);
+        lh = (oid*)Hloc(b, BUNfirst(b) + last);
+
+        while(ft<lt) {
+                if (@5_@3(ft, &mval,@6@1)){
+                        ft++; fh++;
+		}
+                else {
+                        while( @5_@4(lt, &mval,@6@1) && lt>ft){
+                                lt--; lh--;
+			}
+                        @:shuffle(@1,ft,lt,fh,lh)@
+                        lt--;lh--;
+                        ft++;fh++;
+                }
+        }
+
+	if (lt == ft) {
+		if (@5_@4(lt, &mval,@6@1)){
+			if (lt==t0) 
+				*pos = (oid) BUNfirst(b);
+			else	
+				*pos = (oid) (lt - t0) - 1; /*works for empty left piece also*/
+		}
+		else{
+			*pos = (oid) (lt - t0); 
+			if (*pos==last) /*empty right piece*/
+				*pos = *pos + 1;
+		}
+	}
+	else{
+		if (lt > t0)
+			*pos = (oid) (lt - t0);
+		else
+			*pos = (oid) BUNfirst(b);
+	}		
+		
+        return MAL_SUCCEED;
+}
+
+str
+CRKscanUnorderedZeroParallel_@2_@1(BAT *b, @1 *temp_array, @1 *mval, oid first, oid last, int nthreads, int *data_less, int *data_greater){
+
+	int i;
+	oid partition_elements;
+	oid *lh;
+        thread_data_t *data;
+
+        pthread_t **thread = (pthread_t **) malloc (sizeof(pthread_t *) * nthreads);
+        for (i = 0; i < nthreads; i++)
+                thread[i] = (pthread_t *) malloc (sizeof(pthread_t));
+
+        data = malloc (nthreads * sizeof(thread_data_t));
+
+        lh = (oid*)Hloc(b, BUNfirst(b) + last);
+
+        partition_elements=(last-first+1)/nthreads;
+        for (i = 0; i < nthreads; i++) {
+		data[i].array = b;
+                data[i].temp_array = temp_array;
+                data[i].data_less = data_less;
+                data[i].data_greater = data_greater;
+                data[i].left = (oid*)Hloc(b, BUNfirst(b) + i*partition_elements);
+                data[i].pivot = mval;
+                if(i==(nthreads-1))
+                        data[i].right = lh;
+                else
+                        data[i].right = (oid*)Hloc(b, BUNfirst(b) + (i*partition_elements)+partition_elements-1);
+
+                data[i].tid = i;
+
+                if (pthread_create (thread[i], NULL, threadFuncScan_@2_@1, &data[i]))
+                {
+                        printf("Failed to create thread %d.\n",i);
+                        exit (-1);
+                }
+        }
+        // Wait for threads
+        for (i = 0; i < nthreads; i++) {
+                if (pthread_join(*thread[i], NULL)) {
+                        printf ("Error joining thread %d.\n", i);
+                        exit (-1);
+                 }
+        }
+
+        /* Clean up. */
+        for (i = 0; i < nthreads; i++)
+                free (thread[i]);
+
+        free (thread);
+
+	return MAL_SUCCEED;
+}
+
+void
+*threadFuncScan_@2_@1(void *arg) {
+        oid *i;
+        thread_data_t *my_data = (thread_data_t *) arg;
+        for(i=my_data->left; i <= my_data->right; i++)
+        {
+                if(((@1 *)Tloc(my_data->array, BUNfirst(my_data->array))) > my_data->pivot)
+                        my_data->data_greater[my_data->tid]++;
+                else
+                        my_data->data_less[my_data->tid]++;
+        }
+        pthread_exit(NULL);
+}
+@
+
+@= crackInThreeUnorderedPieces_impl
+str
+CRKcrackUnorderedThreeParallel_@2_@3_@1( BAT *b, @1 low, @1 hgh, oid first, oid last, oid *posl, oid *posh){
+        @1  *ft, *lt, *tmax, *t0;
+	oid *fh, *lh, *hmax;
+        oid hdummy;
+        @1 tdummy;
+	BUN firstBUN;
+
+        /* set bounds for the iterator */
+	firstBUN = BUNfirst(b);
+        t0   = (@1*)Tloc(b, firstBUN);
+        ft   = (@1*)Tloc(b, firstBUN + first);
+        tmax = (@1 *)Tloc(b, firstBUN + last);
+        fh   = (oid*)Hloc(b, firstBUN + first);
+        hmax = (oid*)Hloc(b, firstBUN + last);
+        while( @8_@7(tmax, &hgh,@9@1) && tmax>ft){
+                tmax--;hmax--;
+	}
+
+	if (tmax == ft){
+		if (@8_@7(tmax, &hgh,@9@1)){ /*left and middle are empty*/
+			*posl =  1;
+			*posh = -1;
+		}
+		else if (@8_@5(tmax, &low,@9@1))  /*result is one bun*/
+			*posl = *posh = (oid) (tmax-t0);
+		else{
+			*posl = (oid) (tmax-t0) - 1; 
+			*posh = (oid) (tmax-t0); 
+		}
+		return MAL_SUCCEED;
+	}
+
+        lt = tmax;lh=hmax;
+        while( @8_@5(lt, &low,@9@1) && lt>ft){
+                /* move all high values into their final place */
+                if( @8_@7(lt, &hgh,@9@1)){
+                        @:shuffle(@1,lt,tmax,lh,hmax)@
+                        tmax--;hmax--;
+                }
+                lt--;lh--;
+        }
+	if (lt == ft){/*left piece is empty*/
+		if (@8_@7(lt, &hgh,@9@1)){
+			@:shuffle(@1,lt,tmax,lh,hmax)@
+			*posl = (oid) (lt-t0);
+		}
+		else if (@8_@5(lt, &low,@9@1))
+			*posl = (oid) (lt-t0);
+		else
+			*posl = (oid) (lt-t0) + 1;
+		*posh = (oid) (tmax-t0);
+		return MAL_SUCCEED;
+	}
+        /* lt point to the first <=low, all values >hg are beyond tmax */
+
+        /* perform Zero crack first */
+        while(ft<=lt) {
+                if (@8_@4(ft, &low,@9@1)){
+                        ft++;fh++;
+		}
+                else {
+                        @:shuffle(@1,ft,lt,fh,lh)@
+                        while( @8_@5(lt, &low,@9@1) && lt>ft){
+                                if(@8_@7(lt, &hgh,@9@1) ){
+                                        @:shuffle(@1,lt,tmax,lh,hmax)@
+                                        tmax--;hmax--;
+                                }
+                                lt--;lh--;
+                        }
+                }
+        }
+	if (ft ==  (@1*)Tloc(b, firstBUN +last+1)){ /*right and middle are empty*/
+		*posl = -1;
+		*posh = -1;
+		return MAL_SUCCEED;
+	}	
+	if (tmax == lt){ /*then middle piece is empty*/
+		*posl = (oid) (lt - t0) + 1;
+		*posh = (oid) (tmax - t0);
+		return MAL_SUCCEED;
+	}
+	*posl = (oid) (ft - t0);
+	*posh = (oid) (tmax - t0);
+
+	return MAL_SUCCEED;
+}
+
+
+str
+CRKcrackUnorderedThreeCopyParallel_@2_@3_@1( BAT *b, @1 low, @1 hgh, oid first, oid last, oid *posl, oid *posh, BAT *bc){
+
+        @1  *ft, *lt, *tmax, *t0;
+	oid fh, lh, hmax; /*hold actual  oid values in this version*/
+	BUN firstBUN;
+
+        @1  *ft2, *lt2, *tmax2; 
+	oid *fh2, *lh2, *hmax2;
+	BUN firstBUN2;
+
+        oid hdummy;
+        @1 tdummy;
+	
+
+        /* set bounds for the iterator */
+	firstBUN = BUNfirst(b);
+        t0   = (@1*)Tloc(b, firstBUN);
+        ft   = (@1*)Tloc(b, firstBUN + first);
+        tmax = (@1 *)Tloc(b, firstBUN + last);
+        fh   = first;
+        hmax = last;
+
+	firstBUN2 = BUNfirst(bc);
+        ft2   = (@1*)Tloc(bc, firstBUN2 + first);
+        tmax2 = (@1 *)Tloc(bc, firstBUN2 + last);
+        fh2   = (oid*)Hloc(bc, firstBUN2 + first);
+        hmax2 = (oid*)Hloc(bc, firstBUN2 + last);
+	
+        while( @8_@7(tmax, &hgh,@9@1) && tmax>ft){
+		*tmax2=*tmax;
+		*hmax2=hmax;
+                tmax--;hmax--;
+                tmax2--;hmax2--;
+	}
+
+	if (tmax == ft){
+		if (@8_@7(tmax, &hgh,@9@1)){ /*left and middle are empty*/
+			*posl =  1;
+			*posh = -1;
+		}
+		else if (@8_@5(tmax, &low,@9@1))  /*result is one bun*/
+			*posl = *posh = (oid) (tmax-t0);
+		else{
+			*posl = (oid) (tmax-t0) - 1; 
+			*posh = (oid) (tmax-t0); 
+		}
+		return MAL_SUCCEED;
+	}
+
+        lt  = tmax;  lh  = hmax;
+        lt2 = tmax2; lh2 = hmax2;
+        while( @8_@5(lt, &low,@9@1) && lt>ft){
+                /* move all high values into their final place */
+                if( @8_@7(lt, &hgh,@9@1)){
+                        @:shuffle2(@1,lt,tmax,lh,hmax,lt2,tmax2,lh2,hmax2)@
+                        tmax--;hmax--;
+                        tmax2--;hmax2--;
+                }else{
+			*lt2=*lt;
+			*lh2=lh;
+		}	
+                lt--; lh--;
+                lt2--;lh2--;
+        }
+	if (lt == ft){/*left piece is empty*/
+		if (@8_@7(lt, &hgh,@9@1)){
+			@:shuffle2(@1,lt,tmax,lh,hmax,lt2,tmax2,lh2,hmax2)@
+			*posl = (oid) (lt-t0);
+		}
+		else if (@8_@5(lt, &low,@9@1))
+			*posl = (oid) (lt-t0);
+		else
+			*posl = (oid) (lt-t0) + 1;
+		*posh = (oid) (tmax-t0);
+		return MAL_SUCCEED;
+	}
+        /* lt point to the first <=low, all values >hg are beyond tmax */
+
+        /* perform Zero crack first */
+	*ft2=*ft;
+	*fh2=fh;
+        while(ft<=lt) {
+                if (@8_@4(ft2, &low,@9@1)){
+                        ft++; fh++;
+                        ft2++;fh2++;
+			if(ft<=lt){
+				*ft2=*ft;
+				*fh2=fh;
+			}
+		}
+                else {
+			*lt2=*ft2;
+			*lh2=*fh2;
+			*ft2=*lt;
+			*fh2=lh;
+                        if(@8_@5(lt2, &low,@9@1) && lt>ft){
+                                if(@8_@7(lt2, &hgh,@9@1) ){
+					@:shuffle(@1,lt2,tmax2,lh2,hmax2)@
+                                        tmax--; hmax--;
+                                        tmax2--;hmax2--;
+                                }
+                                lt--; lh--;
+                                lt2--;lh2--;
+                        }
+                        while( @8_@5(lt, &low,@9@1) && lt>ft){
+                                if(@8_@7(lt, &hgh,@9@1) ){
+					*lt2=*tmax2;
+					*lh2=*hmax2;
+					*tmax2=*lt;
+					*hmax2=lh;
+                                        tmax--; hmax--;
+                                        tmax2--;hmax2--;
+                                }else{
+					*lt2=*lt;
+					*lh2=lh;
+				}
+                                lt--; lh--;
+                                lt2--;lh2--;
+                        }
+                }
+        }
+	if (ft ==  (@1*)Tloc(bc, firstBUN +last+1)){ /*right and middle are empty*/
+		*posl = -1;
+		*posh = -1;
+		return MAL_SUCCEED;
+	}	
+	if (tmax == lt){ /*then middle piece is empty*/
+		*posl = (oid) (lt - t0) + 1;
+		*posh = (oid) (tmax - t0);
+		return MAL_SUCCEED;
+	}
+	*posl = (oid) (ft - t0);
+	*posh = (oid) (tmax - t0);
+
+	return MAL_SUCCEED;
+}
+
+@
+ * @- Local support functions and macros
+@= shuffle
+        tdummy = *@2;
+        *@2 = *@3;
+        *@3 = tdummy;
+
+        hdummy = *@4;
+        *@4 = *@5;
+        *@5 = hdummy;
+@
+@= shuffle2
+        *@7 = *@2;
+        *@6 = *@3;
+
+        *@9 = @4;
+        *@8 = @5;
+@
+@= printVarTypes
+{
+/* @1: the type; e.g., bte sht int oid wrd flt dbl lng str */
+	str MyBuf = NULL;
+	int MyBufLen = 0;
+	(void)(*BATatoms[TYPE_@1].atomToStr) (&MyBuf, &MyBufLen, (ptr)(&@2));
+	printf("%s \n", MyBuf);
+	GDKfree(MyBuf);
+}
+@

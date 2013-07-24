@@ -222,6 +222,17 @@ comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
 
 
+command parallelselect(b:bat[:oid,:@2],l:@2,h:@2,li:bit,hi:bit):bat[:oid,:@2]
+address CRKparallelselectBounds_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command paralleluselect(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit):bat[:any_1,:void]
+address CRKparalleluselectBounds_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+
 command selectst(b:bat[:oid,:@2],l:@2,h:@2):bat[:oid,:@2]
 address CRKselectst_@2
 comment "Retrieve the subset using a cracker
@@ -895,6 +906,7 @@ comment "Calculate aggregate sum of range l-h.";
 #include "crackers_index.h"
 #include "crackers_validation.h"
 #include "crackers_select_ops.h"
+#include "crackers_parallelselect_ops.h"
 #include "crackers_selectst_ops.h"
 #include "crackers_selecthol_ops.h"
 #include "crackers_selectholst_ops.h"
@@ -903,6 +915,7 @@ comment "Calculate aggregate sum of range l-h.";
 #include "crackers_holistic.h"
 #include "crackers_holisticsideways.h"
 #include "crackers_core_unordered.h"
+#include "crackers_multicore_unordered.h"
 #include "crackers_AVL_tree.h"
 #include "crackers_updates.h"
 #include "crackers_sideways.h"

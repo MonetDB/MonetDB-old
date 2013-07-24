@@ -35,6 +35,7 @@ lib_crackers = {
 			  crackers_index.mx \
 			  crackers_validation.mx \
 			  crackers_core_unordered.mx \
+			  crackers_multicore_unordered.mx \
 			  crackers_select_ops.mx \
 			  crackers_joinselect_ops.mx \
 			  crackers_holistic.c \
@@ -46,6 +47,7 @@ lib_crackers = {
 			  crackers_selectholst_ops.mx \
 			  crackers_selectholpl_ops.mx \
 			  crackers_selectpl_ops.mx \
+			  crackers_parallelselect_ops.mx \
 			  crackers_updates.mx \
 			  crackers_sideways.mx \
 			  crackers_sidewayshol.mx \
