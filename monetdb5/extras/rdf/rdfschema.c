@@ -3445,18 +3445,22 @@ void initCStablesAndIdxMapping(CStableStat* cstablestat, CSset* freqCSset, int* 
 			cstablestat->lstcstable[k].numCol = tmpNumProp;
 			cstablestat->lstcstable[k].colBats = (BAT**)malloc(sizeof(BAT*) * tmpNumProp); 
 			cstablestat->lstcstable[k].mvBats = (BAT**)malloc(sizeof(BAT*) * tmpNumProp); 
+			cstablestat->lstcstable[k].lstProp = (oid*)malloc(sizeof(oid) * tmpNumProp);
 			#if CSTYPE_TABLE == 1
 			cstablestat->lastInsertedSEx[k] = (oid*) malloc(sizeof(oid) * tmpNumProp); 
 			cstablestat->lstcstableEx[k].numCol = tmpNumProp;
 			cstablestat->lstcstableEx[k].colBats = (BAT**)malloc(sizeof(BAT*) * tmpNumProp); 
+			cstablestat->lstcstableEx[k].lstProp = (oid*)malloc(sizeof(oid) * tmpNumProp);
 			#endif
 
 			for(j = 0; j < tmpNumProp; j++){
 				cstablestat->lstcstable[k].colBats[j] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
 				cstablestat->lstcstable[k].mvBats[j] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+				cstablestat->lstcstable[k].lstProp[j] = freqCSset->items[i].lstProp[j];
 				//TODO: use exact aount for each BAT
 				#if CSTYPE_TABLE == 1
 				cstablestat->lstcstableEx[k].colBats[j] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+				cstablestat->lstcstableEx[k].lstProp[j] = freqCSset->items[i].lstProp[j];		/* Do not need to store this info ?*/
 				#endif
 
 			}
@@ -3508,8 +3512,10 @@ void freeCStableStat(CStableStat* cstablestat){
 		}
 		free(cstablestat->lstcstable[i].colBats);
 		free(cstablestat->lstcstable[i].mvBats);
+		free(cstablestat->lstcstable[i].lstProp);
 		#if CSTYPE_TABLE == 1
 		free(cstablestat->lstcstableEx[i].colBats);
+		free(cstablestat->lstcstableEx[i].lstProp);
 		#endif
 	}
 	BBPunfix(cstablestat->pbat->batCacheid); 

@@ -7685,7 +7685,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		
 		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
 			//TODO: Use propertyId from Propstat
-			sprintf(tmpcolname, "col%d",j);
+			sprintf(tmpcolname, "col%d",(int)cstablestat->lstcstable[i].lstProp[j]);
 			mvc_create_column(m, cstables[i], tmpcolname,  &tpe);
 
 			//For multi-values table
@@ -7705,7 +7705,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 		//Add data
 		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
-			sprintf(tmpcolname, "col%d",j);
+			sprintf(tmpcolname, "col%d",(int)cstablestat->lstcstable[i].lstProp[j]);
                 	store_funcs.append_col(m->session->tr,
 					mvc_bind_column(m, cstables[i],tmpcolname ), 
 					cstablestat->lstcstable[i].colBats[j], TYPE_bat);
@@ -7722,13 +7722,13 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		totalNoTablesCreated++;
 		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
 			//TODO: Use propertyId from Propstat
-			sprintf(tmpcolname, "colex%d",j);
+			sprintf(tmpcolname, "colex%d",(int)cstablestat->lstcstableEx[i].lstProp[j]);
 			mvc_create_column(m, cstablesEx[i], tmpcolname,  &tpe);
 		}
 
 		//Add data
 		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
-			sprintf(tmpcolname, "colex%d",j);
+			sprintf(tmpcolname, "colex%d",(int)cstablestat->lstcstableEx[i].lstProp[j]);
                 	store_funcs.append_col(m->session->tr,
 					mvc_bind_column(m, cstablesEx[i],tmpcolname ), 
 					cstablestat->lstcstableEx[i].colBats[j], TYPE_bat);
