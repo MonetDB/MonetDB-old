@@ -553,8 +553,257 @@ int* retrieval4(int root, int numNodesMax, int* numNodesActual, long int* table_
 	return chosenNodes;
 }
 
+static
+char** initEdgesOverview(long int* table_id, int tableCount, long int* adjacency_from, long int* adjacency_to, int adjacencyCount) {
+	char		**edges;
+	int		i, j;
+
+	edges = (char **) malloc(sizeof(char *) * tableCount);
+	if (!edges) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+
+	for (i = 0; i < tableCount; ++i) {
+		edges[i] = (char *) malloc(sizeof(char) * tableCount);
+		if (!edges[i]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+		for (j = 0; j < tableCount; ++j) {
+			edges[i][j] = 0;
+		}
+		edges[i][i] = 1; // self-reachability
+	}
+
+	for (i = 0; i < adjacencyCount; ++i) {
+		long int from = adjacency_from[i];
+		long int to = adjacency_to[i];
+		int fromIdx = -1;
+		int toIdx = -1;
+
+		// index lookup
+		for (j = 0; j < tableCount; ++j) {
+			if (table_id[j] == from) {fromIdx = j;}
+			if (table_id[j] == to) {toIdx = j;}
+			if (fromIdx > -1 && toIdx > -1) {break;}
+		}
+		assert(fromIdx > -1);
+		assert(toIdx > -1);
+
+		// set edge
+		edges[fromIdx][toIdx] = 1;
+	}
+
+	return edges;
+}
+
+static
+int compareOverviewNodes (const void * a, const void * b) {
+  return ( (*(Node*)b).reachabilityCount - (*(Node*)a).reachabilityCount ); // sort descending
+}
+
+static
+int* retrievalOverview(int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, int adjacencyCount) {
+	int		i, j, k;
+	char		**edges;
+	int		sumSubjects = 0;
+	int		csCount = 0;
+	int		sumChosenSubjects = 0;
+
+	int		queue[tableCount]; // cyclic array
+	int		isInQueue[tableCount];
+	int		queuePosition; // next element in queue to view at
+	int		queueLength;
+	char		visited[tableCount];
+	int		subgraphSize;
+	Groups		groups;
+	int		*chosenNodes = NULL;
+
+	groups.count = 0;
+	groups.groups = NULL;
+
+	edges = initEdgesOverview(table_id, tableCount, adjacency_from, adjacency_to, adjacencyCount);
+
+	for (i = 0; i < tableCount; ++i) {
+		visited[i] = 0;
+	}
+
+	// split into disconnected subgraph (ignoring the direction of the edges) using BFS
+	while (1) {
+		int root = -1;
+		for (i = 0; i < tableCount; ++i) {
+			if (!visited[i]) {
+				root = i;
+				break;
+			}
+		}
+		if (root == -1) break; // all nodes have been visited, all subgraphs have been found
+		// init
+		subgraphSize = 0;
+
+		for (i = 0; i < tableCount; ++i) {
+			queue[i] = -1;
+			isInQueue[i] = 0;
+		}
+
+		// add root node
+		queue[0] = root;
+		queuePosition = 0;
+		queueLength = 1;
+
+		visited[root] = 1;
+		isInQueue[root] = 1;
+
+		// bfs
+		while (queueLength > 0) {
+			// dequeue next value
+			int node = queue[queuePosition % tableCount];
+			visited[node] = 1;
+			subgraphSize++;
+			isInQueue[node] = 0;
+			queuePosition += 1;
+			queueLength -= 1;
+
+			// for all adjacent edges
+			for (i = 0; i < tableCount; ++i) {
+				if (visited[i] || isInQueue[i]) continue;
+				if (edges[node][i] || edges[i][node]) {
+					// ignore direction of edge
+
+					// enqueue
+					queue[((queueLength + queuePosition) % tableCount)] = i;
+					queueLength += 1;
+					isInQueue[i] = 1;
+				}
+			}
+		}
+
+		// store subgraph/group
+		j = 0;
+		// add group
+		groups.count++;
+		groups.groups = realloc(groups.groups, sizeof(Group) * groups.count);
+		if (!groups.groups) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+		groups.groups[groups.count - 1].size = subgraphSize;
+		groups.groups[groups.count - 1].nodes = (Node *) malloc(sizeof(Node) * subgraphSize);
+
+		for (i = 0; i < tableCount; ++i) {
+			if (visited[i] == 1) {
+				// add to group
+				groups.groups[groups.count - 1].nodes[j].idx = i;
+				j++;
+				visited[i] = 2; // node is still marked, but can be distinguished from nodes visited in other iterations
+			}
+		}
+		assert(j == subgraphSize);
+	}
+
+	// transitive closure (Floyd-Warshall-Algorithm)
+	for (k = 0; k < tableCount; ++k) {
+		for (i = 0; i < tableCount; ++i) {
+			for (j = 0; j < tableCount; ++j) {
+				if (i == j || i == k || j == k) continue;
+				if (edges[i][k] && edges[k][j]) edges[i][j] = 1;
+			}
+		}
+	}
+
+	// select nodes to be shown in the overview schema
+	for (i = 0; i < groups.count; ++i) {
+		int found = 0;
+
+		// count how many group members can be reached from each node
+		for (j = 0; j < groups.groups[i].size; ++j) {
+			int node = groups.groups[i].nodes[j].idx;
+			int reachabilityCount = 0;
+			for (k = 0; k < tableCount; ++k) {
+				if (edges[node][k]) {
+					reachabilityCount++;
+				}
+			}
+			groups.groups[i].nodes[j].reachabilityCount = reachabilityCount;
+
+			if (reachabilityCount == groups.groups[i].size) {
+				// found a node that links to all other nodes in that group --> add to overview schema
+				(*numNodesActual) += 1;
+				chosenNodes = realloc(chosenNodes, sizeof(int) * (*numNodesActual));
+				if (!chosenNodes) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+				chosenNodes[*numNodesActual - 1] = node;
+				found = 1;
+				break;
+			}
+		}
+		if (!found) {
+			int node;
+			char reachability[tableCount];
+			int reachabilityCount = 0;
+			int nextNode; // position in the (sorted) list of nodes to look at next
+
+			// greedy
+			qsort(groups.groups[i].nodes, groups.groups[i].size, sizeof(Node), compareOverviewNodes);
+
+			// take first node (covers the most nodes)
+			node = groups.groups[i].nodes[0].idx;
+			(*numNodesActual) += 1;
+			chosenNodes = realloc(chosenNodes, sizeof(int) * (*numNodesActual));
+			if (!chosenNodes) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+			chosenNodes[*numNodesActual - 1] = node;
+			nextNode = 1;
+			// store reachability vector
+			for (j = 0; j < tableCount; ++j) {
+				if (edges[node][j]) {
+					reachability[j] = 1;
+					reachabilityCount++;
+				} else {
+					reachability[j] = 0;
+				}
+			}
+			assert (groups.groups[i].nodes[0].reachabilityCount == reachabilityCount);
+
+			// take more nodes
+			for (j = nextNode; j < tableCount; ++j) {
+				int node = groups.groups[i].nodes[j].idx;;
+				if (reachabilityCount == groups.groups[i].size) break;
+				if (reachability[node]) continue;
+
+				// take this node
+				(*numNodesActual) += 1;
+				chosenNodes = realloc(chosenNodes, sizeof(int) * (*numNodesActual));
+				if (!chosenNodes) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+				chosenNodes[*numNodesActual - 1] = node;
+				nextNode = (j + 1);
+
+				// update reachability vector
+				for (k = 0; k < tableCount; ++k) {
+					if (edges[node][k] && !reachability[k]) {
+						reachability[k] = 1;
+						reachabilityCount++;
+					}
+				}
+			}
+		}
+	}
+
+	printf("SUBSCHEMA:\n");
+	for (i = 0; i < *numNodesActual; ++i) {
+		str name = table_name[chosenNodes[i]];
+		printf("CS %s\n", name);
+	}
+
+	// statistics
+	for (i = 0; i < tableCount; ++i) {
+		csCount += 1;
+		sumSubjects += table_freq[i];
+		for (j = 0; j < *numNodesActual; ++j) {
+			if (chosenNodes[j] == i) sumChosenSubjects += table_freq[i];
+		}
+	}
+	printf("COVERAGE:\n");
+	printf("%d out of %d (%f %%) using %d out of %d tables (%f %%)\n", sumChosenSubjects, sumSubjects, (100.00 * sumChosenSubjects) / sumSubjects, *numNodesActual, csCount, (100.00 * *numNodesActual) / csCount);
+	return chosenNodes;
+}
+
 int* retrieval(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, long int* adjacency_freq, int adjacencyCount) {
-	if (SUBSCHEMA_HEURISTIC == 4) {
+	if (SUBSCHEMA_HEURISTIC == 5) {
+		(void) numNodesMax;
+		(void) root;
+		return retrievalOverview(numNodesActual, table_id, table_name, table_freq, tableCount, adjacency_from, adjacency_to, adjacencyCount);
+	} else if (SUBSCHEMA_HEURISTIC == 4) {
 		return retrieval4(root, numNodesMax, numNodesActual, table_id, table_name, table_freq, tableCount, adjacency_from, adjacency_to, adjacency_freq, adjacencyCount);
 	} else if (SUBSCHEMA_HEURISTIC == 3) {
 		(void) adjacency_freq;

@@ -29,7 +29,22 @@ typedef struct NodeStat {
 	int	origWeight;	// = CS frequency
 } NodeStat;
 
-#define SUBSCHEMA_HEURISTIC 4
+typedef struct Node {
+	int	idx;
+	int	reachabilityCount;	// how many members of the group can be reached from this node? (self-reachability is included, max value is 'size')
+} Node;
+
+typedef struct Group {
+	int	size;
+	Node*	nodes;
+} Group;
+
+typedef struct Groups {
+	int	count;
+	Group	*groups;
+} Groups;
+
+#define SUBSCHEMA_HEURISTIC 5
 
 int* retrieval(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, long int* adjacency_freq, int adjacencyCount);
 
