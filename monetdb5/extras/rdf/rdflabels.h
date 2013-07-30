@@ -24,7 +24,7 @@
 
 // Counts the occurances of type attribute values
 typedef struct TypeAttributesFreq {
-	char		value[10000];	// TODO find better solution
+	char		*value;
 	int		freq;
 	int		percent;
 } TypeAttributesFreq;
@@ -39,7 +39,7 @@ typedef struct Relation {
 
 // Tokenized URI prefix of an ontology
 typedef struct ontology {
-	char		uri[100][100];	// tokenized namespace/prefix
+	char		uri[10][100];	// tokenized namespace/prefix
 	int		length;		// number of tokens in this uri
 } ontology;
 
