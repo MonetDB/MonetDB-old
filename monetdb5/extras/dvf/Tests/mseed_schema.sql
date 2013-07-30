@@ -117,3 +117,7 @@ FROM mseed.files AS f
 -- 
 -- COPY INTO mseed.data FROM '/export/scratch2/kargin/csv/mseed_example_data.csv';
 
+-- To dump information of the cached files
+CREATE FUNCTION dumpcache()
+RETURNS STRING EXTERNAL NAME recycle.dumpcache;
+

@@ -75,6 +75,50 @@ RECYCLEresetCMD(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return MAL_SUCCEED;
 }
 
+str
+RECYCLEdumpCache(str *res)
+{
+	int i = 0, used = 0, sz = 8192;
+	str s = (str) GDKmalloc(sz);
+
+	if (s == NULL) {
+		throw(MAL,"recycle.dumpcache", MAL_MALLOC_FAIL);
+	}
+
+	if (!recycleBlk) {
+		sprintf(s, "Empty cache\n");
+	} else {
+		/* dump the statistics per instruction*/
+		used = sprintf(s,"CacheID\tTimeAdded\tNrReuses\tTimeLastAccess\tInstr\n");
+		for(i=0; i< recycleBlk->stop; i++) {
+			if (getInstrPtr(recycleBlk,i)->token == NOOPsymbol) {
+				used += sprintf(s+used,"#NOOP ");
+			} else {
+				used += sprintf(s+used,"%6d\t"LLFMT"\t%7d\t"LLFMT"\t%s\n",
+						i+1,
+						recycleBlk->profiler[i].clk,
+						recycleBlk->profiler[i].calls-1,
+						recycleBlk->profiler[i].ticks,
+						instruction2str(recycleBlk,0,getInstrPtr(recycleBlk,i),TRUE));
+			}
+
+			if (sz - used < 256) {
+				str tmp;
+				sz *= 1.5;
+				tmp = GDKrealloc(s, sz);
+				if (tmp == NULL) {
+					GDKfree(s);
+					throw(MAL,"recycle.dumpcache", MAL_MALLOC_FAIL);
+				}
+				s = tmp;
+			}
+		}
+	}
+
+	*res = s;
+	return MAL_SUCCEED;
+}
+
 static void
 RECYCLEdump(stream *s)
 {
@@ -82,23 +126,23 @@ RECYCLEdump(stream *s)
 	str msg;
 	lng sz, persmem=0;
 	ValPtr v;
-    Client c;
-    lng statements=0, recycled=0, recycleMiss=0, recycleRem=0;
-    lng ccCalls=0, ccInstr=0, crdInstr=0;
+	Client c;
+	lng statements=0, recycled=0, recycleMiss=0, recycleRem=0;
+	lng ccCalls=0, ccInstr=0, crdInstr=0;
 
 	if (!recycleBlk) return;
 
 	mnstr_printf(s,"#Recycler  catalog\n");
-    mnstr_printf(s,"#admission= %d time ="LLFMT" alpha= %4.3f\n",
-                admissionPolicy, recycleTime, recycleAlpha);
-    mnstr_printf(s,"#reuse= %d\n", reusePolicy);
-    mnstr_printf(s,"#rcache= %d limit= %d memlimit="LLFMT"\n", rcachePolicy, recycleCacheLimit, recycleMemory);
-    mnstr_printf(s,"#hard stmt = %d hard var = %d hard mem="LLFMT"\n",
-                 HARDLIMIT_STMT, HARDLIMIT_VAR, HARDLIMIT_MEM);
+	mnstr_printf(s,"#admission= %d time ="LLFMT" alpha= %4.3f\n",
+				admissionPolicy, recycleTime, recycleAlpha);
+	mnstr_printf(s,"#reuse= %d\n", reusePolicy);
+	mnstr_printf(s,"#rcache= %d limit= %d memlimit="LLFMT"\n", rcachePolicy, recycleCacheLimit, recycleMemory);
+	mnstr_printf(s,"#hard stmt = %d hard var = %d hard mem="LLFMT"\n",
+				 HARDLIMIT_STMT, HARDLIMIT_VAR, HARDLIMIT_MEM);
 
 	for(i=0; i< recycleBlk->stop; i++){
 #ifdef _DEBUG_CACHE_
-                if ( getInstrPtr(recycleBlk,i)->token == NOOPsymbol ) continue;
+		if ( getInstrPtr(recycleBlk,i)->token == NOOPsymbol ) continue;
 #endif
 		v = &getVarConstant(recycleBlk,getArg(recycleBlk->stmt[i],0));
 		if ((v->vtype == TYPE_bat) &&
@@ -110,28 +154,28 @@ RECYCLEdump(stream *s)
 	}
 	persmem = (lng) persmem/RU;
 
-    for(c = mal_clients; c < mal_clients+MAL_MAXCLIENTS; c++)
-        if (c->mode != FREECLIENT) {
-            recycled += c->rcc->recycled;
-            statements += c->rcc->statements;
-            recycleMiss += c->rcc->recycleMiss;
-            recycleRem += c->rcc->recycleRem;
-            ccCalls += c->rcc->ccCalls;
-            ccInstr += c->rcc->ccInstr;
-            crdInstr += c->rcc->crdInstr;
-        };
+	for(c = mal_clients; c < mal_clients+MAL_MAXCLIENTS; c++)
+		if (c->mode != FREECLIENT) {
+			recycled += c->rcc->recycled;
+			statements += c->rcc->statements;
+			recycleMiss += c->rcc->recycleMiss;
+			recycleRem += c->rcc->recycleRem;
+			ccCalls += c->rcc->ccCalls;
+			ccInstr += c->rcc->ccInstr;
+			crdInstr += c->rcc->crdInstr;
+		};
 
 	incache = recycleBlk->stop;
 	mnstr_printf(s,"#recycled = "LLFMT" incache= %d executed = "LLFMT" memory(KB)= "LLFMT" PersBat memory="LLFMT"\n",
 		 recycled, incache,statements, recyclerUsedMemory, persmem);
 #ifdef _DEBUG_CACHE_
 	mnstr_printf(s,"#RPremoved = %d RPactive= %d RPmisses = %d\n",
-                 recycleRem, incache-recycleRem, recycleMiss);
+				 recycleRem, incache-recycleRem, recycleMiss);
 #endif
 	mnstr_printf(s,"#Cache search time= "LLFMT"(usec) cleanCache: "LLFMT" calls evicted "LLFMT" instructions \t Discarded by CRD "LLFMT"\n",recycleSearchTime, ccCalls,ccInstr, crdInstr);
 
 	/* and dump the statistics per instruction*/
-        mnstr_printf(s,"# CL\t   lru\t\tcnt\t ticks\t rd\t wr\t Instr\n");
+	mnstr_printf(s,"# CL\t   lru\t\tcnt\t ticks\t rd\t wr\t Instr\n");
 	for(i=0; i< recycleBlk->stop; i++){
 		if (getInstrPtr(recycleBlk,i)->token == NOOPsymbol)
 			mnstr_printf(s,"#NOOP ");
@@ -182,10 +226,10 @@ RECYCLEdumpDataTrans(stream *s)
 	mnstr_printf(s,"#pattern\t transf.\t from others\n");
 	for( i=0; i < n; i++){
 		rdt = recycleQPat->ptrn[i]->dtreuse;
-        dt = recycleQPat->ptrn[i]->dt;
-        mnstr_printf(s,"# %d \t\t "LLFMT"\t\t"LLFMT"\n", i, dt, rdt);
-        sum += dt;
-        rsum += rdt;
+		dt = recycleQPat->ptrn[i]->dt;
+		mnstr_printf(s,"# %d \t\t "LLFMT"\t\t"LLFMT"\n", i, dt, rdt);
+		sum += dt;
+		rsum += rdt;
 	}
 	mnstr_printf(s,"#########\n# Total transfer "LLFMT" Total reused "LLFMT"\n", sum, rsum);
 }
@@ -389,7 +433,7 @@ RECYCLElog(int *ret, str *nm)
 	(void) ret;
 	recycleLog = GDKstrdup(*nm);
 	s = open_wastream(recycleLog);
-    if (s){
+	if (s){
 
 		mnstr_printf(s,"# Q\t TimeQ(ms)\t");
 		if ( monitorRecycler & 2) { /* Current query stat */

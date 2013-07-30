@@ -43,6 +43,10 @@ comment "Dump summary of recycler structures into a file:
 2: statistics of query patterns;
 3: statistics of data transfer.";
 
+command dumpcache():str
+address RECYCLEdumpCache
+comment "Return information of cached files";
+
 pattern setAdmPolicy(p:int...):void
 address RECYCLEsetAdmission
 comment "Set recycler admission policy:
