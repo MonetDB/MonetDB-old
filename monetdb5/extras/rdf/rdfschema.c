@@ -23,6 +23,7 @@
 #include "rdf.h"
 #include "rdfschema.h"
 #include "rdflabels.h"
+#include "rdfretrieval.h"
 #include "algebra.h"
 #include <gdk.h>
 #include <hashmap/hashmap.h>
@@ -3044,7 +3045,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	clock_t		tmpLastT; 
 
 	Labels		*labels;
-
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);

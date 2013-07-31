@@ -31,6 +31,9 @@ create table rdf.graph (gname string, gid int);
 create procedure rdf_shred(location string, gname string, sch string)
 	external name sql.rdfshred;
 
+create procedure rdf_retrieveSubschema(oldschema string, count int, sch string)
+	external name sql.rdfretrievesubschema;
+
 create procedure rdf_schema_explore(tbname string, clname string)
 	external name rdf.rdfschemaexplore;
 

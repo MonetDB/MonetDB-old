@@ -1,5 +1,6 @@
 /* HashMap for the characteristic sets (CSs') in RDF */
 
+#include "monetdb_config.h"
 #include <hashmap.h>
 
 #include <stdlib.h>

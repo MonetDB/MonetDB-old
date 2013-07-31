@@ -1280,6 +1280,10 @@ comment "This procedure call a function from rdf module to extract the relationa
 from rdf triples. Then, do re-organizing the rdf triples table by clustering according
 to the subject. " 
 
+pattern rdfretrievesubschema (oldschema:str, count:int, keyword:str)
+address SQLrdfRetrieveSubschema
+comment "Procedure that creates a new schema containing views. The views link to the base schema. Wrapper around retrieval() in rdfretrieval.c."
+
 command prelude()
 address SQLprelude;
 
@@ -1438,6 +1442,7 @@ sql5_export str SQLoctopusBinddbat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, In
 sql5_export str SQLargRecord(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str SQLrdfRetrieveSubschema(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLoptimizersUpdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str month_interval_str( int *ret, str *s, int *ek, int *sk );
 sql5_export str second_interval_str( lng *res, str *s, int *ek, int *sk );
@@ -1636,6 +1641,7 @@ sql5_export void freeVariables(Client c, MalBlkPtr mb, MalStkPtr glb, int start)
 #ifdef HAVE_RAPTOR
 # include <rdf.h>
 # include <rdfschema.h>
+#include <rdfretrieval.h>
 #endif
 #include "mal_instruction.h"
 
@@ -7775,6 +7781,152 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif /* HAVE_RAPTOR */	
 }
 
+
+str
+SQLrdfRetrieveSubschema(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	sql_schema	*schOld, *schNew;
+	str		*oldSchema = (str *) getArgReference(stk,pci,1); // schema name (old)
+	int		*count = (int *) getArgReference(stk,pci,2); // number of tables in the sub schema
+	str		*keyword = (str *) getArgReference(stk,pci,3); // keyword to find the root table
+	mvc		*m = NULL;
+	str		msg;
+	int		i;
+
+	BAT		*table_id_freq_id, *table_id_freq_name, *table_id_freq_freq;
+	BAT		*adjacency_list_from, *adjacency_list_to, *adjacency_list_freq;
+	BATiter		table_id_freq_id_i, table_id_freq_name_i, table_id_freq_freq_i;
+	BATiter		adjacency_list_from_i, adjacency_list_to_i, adjacency_list_freq_i;
+	BUN		p, q;
+	BUN		p2, q2;
+	BUN		bun, bun2, bun3;
+	BUN		bun4, bun5, bun6;
+
+	int		tableCount = 0;
+	long int	*table_id = NULL;
+	str		*table_name = NULL;
+	long int	*table_freq = NULL;
+	long int	*adjacency_from = NULL;
+	long int	*adjacency_to = NULL;
+	long int	*adjacency_freq = NULL;
+	int		adjacencyCount = 0;
+
+	int		root;
+	int		countActual;
+	int		*nodes = NULL;
+	str		name; // new schema name
+
+	// init
+	rethrow("sql.rdfRetrieveSubschema", msg, getSQLContext(cntxt, mb, &m, NULL));
+
+	if ((schOld = mvc_bind_schema(m, *oldSchema)) == NULL)
+		throw(SQL, "sql.rdfRetrieveSubschema", "3F000!schema missing");
+
+	table_id_freq_id = mvc_bind(m, "sys", "table_id_freq", "id", 0);
+	table_id_freq_name = mvc_bind(m, "sys", "table_id_freq", "name", 0);
+	table_id_freq_freq = mvc_bind(m, "sys", "table_id_freq", "frequency", 0);
+	adjacency_list_from = mvc_bind(m, "sys", "adjacency_list", "from_id", 0);
+	adjacency_list_to = mvc_bind(m, "sys", "adjacency_list", "to_id", 0);
+	adjacency_list_freq = mvc_bind(m, "sys", "adjacency_list", "frequency", 0);
+
+	table_id_freq_id_i = bat_iterator(table_id_freq_id);
+	table_id_freq_name_i = bat_iterator(table_id_freq_name);
+	table_id_freq_freq_i = bat_iterator(table_id_freq_freq);
+	adjacency_list_from_i = bat_iterator(adjacency_list_from);
+	adjacency_list_to_i = bat_iterator(adjacency_list_to);
+	adjacency_list_freq_i = bat_iterator(adjacency_list_freq);
+
+	bun = BUNfirst(table_id_freq_id);
+	bun2 = BUNfirst(table_id_freq_name);
+	bun3 = BUNfirst(table_id_freq_freq);
+	bun4 = BUNfirst(adjacency_list_from);
+	bun5 = BUNfirst(adjacency_list_to);
+	bun6 = BUNfirst(adjacency_list_freq);
+
+	// store data
+	BATloop(table_id_freq_id, p, q) {
+		str id = (str) BUNtail(table_id_freq_id_i, bun + tableCount);
+		str name = (str) BUNtail(table_id_freq_name_i, bun2 + tableCount);
+		str freq = (str) BUNtail(table_id_freq_freq_i, bun3 + tableCount);
+
+		table_id = realloc(table_id, sizeof(long int) * (tableCount + 1));
+		table_name = realloc(table_name, sizeof(str) * (tableCount + 1));
+		table_freq = realloc(table_freq, sizeof(long int) * (tableCount + 1));
+		if (!table_id || !table_name || !table_freq) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+
+		table_id[tableCount] = strtol(id, NULL, 10);
+		table_name[tableCount] = name;
+		table_freq[tableCount]= strtol(freq, NULL, 10);
+		tableCount += 1;
+	}
+
+	// store data
+	BATloop(adjacency_list_from, p2, q2) {
+		str from = (str) BUNtail(adjacency_list_from_i, bun4 + adjacencyCount);
+		str to = (str) BUNtail(adjacency_list_to_i, bun5 + adjacencyCount);
+		str freq = (str) BUNtail(adjacency_list_freq_i, bun6 + adjacencyCount);
+
+		adjacency_from = realloc(adjacency_from, sizeof(long int) * (adjacencyCount + 1));
+		adjacency_to = realloc(adjacency_to, sizeof(long int) * (adjacencyCount + 1));
+		adjacency_freq = realloc(adjacency_freq, sizeof(long int) * (adjacencyCount + 1));
+		if (!adjacency_from || !adjacency_to || !adjacency_freq) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+
+		adjacency_from[adjacencyCount] = strtol(from, NULL, 10);
+		adjacency_to[adjacencyCount] = strtol(to, NULL, 10);
+		adjacency_freq[adjacencyCount] = strtol(freq, NULL, 10);
+		adjacencyCount += 1;
+	}
+
+	// TODO find root node using the keyword
+	root = 0;
+	(void) keyword;
+
+	// call retrieval function
+	countActual = 0;
+	nodes = retrieval(root, *count, &countActual, table_id, table_name, table_freq, tableCount, adjacency_from, adjacency_to, adjacency_freq, adjacencyCount);
+
+	// create schema
+	name = "s123"; // TODO create schema name
+	schNew = mvc_create_schema(m, name, schOld->auth_id, schOld->owner);
+
+	for (i = 0; i < countActual; ++i) {
+		sql_table *t;
+		char query[500];
+		sql_table *view;
+		node *n;
+
+		// get chosen table
+		t = mvc_bind_table(m, schOld, table_name[nodes[i]]);
+		assert(t != NULL); // else: inconsistency in my data!
+
+		// create view
+		sprintf(query, "select * from %s.%s;", *oldSchema, table_name[nodes[i]]);
+		view = mvc_create_view(m, schNew, table_name[nodes[i]], SQL_PERSIST, query, 0);
+
+		// loop through columns and copy them
+		for (n = t->columns.set->h; n; n = n->next) {
+			sql_column *c = n->data;
+
+			mvc_copy_column(m, view, c);
+		}
+	}
+
+	BBPreclaim(table_id_freq_id);
+	BBPreclaim(table_id_freq_name);
+	BBPreclaim(table_id_freq_freq);
+	BBPreclaim(adjacency_list_from);
+	BBPreclaim(adjacency_list_to);
+	BBPreclaim(adjacency_list_freq);
+
+	free(table_id);
+	free(table_name);
+	free(table_freq);
+	free(adjacency_from);
+	free(adjacency_to);
+	free(adjacency_freq);
+
+	return MAL_SUCCEED;
+}
 
 /* after an update on the optimizer catalog, we have to change
  * the internal optimizer pipe line administration
