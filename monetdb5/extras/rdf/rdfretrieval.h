@@ -46,6 +46,7 @@ typedef struct Groups {
 
 #define SUBSCHEMA_HEURISTIC 5
 
-int* retrieval(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, long int* adjacency_freq, int adjacencyCount);
+rdf_export int*
+retrieval(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, long int* adjacency_freq, int adjacencyCount);
 
 #endif /* _RDFRETRIEVAL_H_ */
