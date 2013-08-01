@@ -154,7 +154,9 @@ void addNode1(long int* adjacency_from, long int* adjacency_to, int adjacencyCou
 		nodeStats[root].weight = 0;
 	} else {
 		// add nodes on path to queue
+#ifndef NDEBUG
 		int steps = nodeStats[root].steps;
+#endif
 		int i = 0;
 
 		pathId = root;
