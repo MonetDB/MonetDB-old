@@ -132,10 +132,16 @@ CRKparalleluselectBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusive
 @= crkTwoLTree
 	/*CRACK in two pieces cl1-ch1 using >incLow bound*/
 	if (*inclusiveLow == TRUE)
+	{
 		CRKcrackUnorderedZeroParallel@2_RE_@1(b,*low, cl1, ch1,&vl);
+		CRKscanUnorderedZeroParallel@2_RE_@1(b, p_new, low, cl1, ch1, nthreads, p_data_less, p_data_greater);
+	}
 	else
+	{
 		CRKcrackUnorderedZeroParallel@2_LE_@1(b,*low, cl1, ch1,&vl);
-	
+		CRKscanUnorderedZeroParallel@2_LE_@1(b, p_new, low, cl1, ch1, nthreads, p_data_less, p_data_greater);
+        }
+
 	if (vl < cl1){
 		/*then the left piece is empty*/
 		gapL = -1;
@@ -152,9 +158,16 @@ CRKparalleluselectBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusive
 @= crkTwoRTree
 	/*CRACK in two pieces cl2-ch2 using <incHgh bound*/
 	if (*inclusiveHgh == TRUE)
+	{
 		CRKcrackUnorderedZeroParallel@2_LE_@1(b,*hgh, cl2, ch2,&vh);
+		CRKscanUnorderedZeroParallel@2_LE_@1(b, p_new, hgh, cl2, ch2, nthreads, p_data_less, p_data_greater);
+        }
 	else
+	{
 		CRKcrackUnorderedZeroParallel@2_RE_@1(b,*hgh, cl2, ch2,&vh);
+		CRKscanUnorderedZeroParallel@2_RE_@1(b, p_new, hgh, cl2, ch2, nthreads, p_data_less, p_data_greater);
+        }
+
 	/*check for gaps*/
 	if (vh < cl2)
 		/*then the left piece is empty*/
@@ -203,7 +216,18 @@ createView:
 	BUN idxFirst;
 	bit copy=TRUE;
 
+	int *p_new = NULL;
+	int *p_data_less = NULL;
+	int *p_data_greater = NULL;
+	int nthreads=2;
+
+
 	int pieces=0;
+	
+	p_data_less=(int *)malloc(nthreads * sizeof(int));
+	p_data_greater=(int *)malloc(nthreads * sizeof(int));
+
+
 	/*FILE *ofp;
 	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/experiments/stochastic/idle_time_2/pieces_cracking.txt";
 	ofp = fopen(outputFilename1,"a");
@@ -820,6 +844,14 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	oid cl2=0, ch2=0;
 	bit HBound,foundHgh=0;
 	int gapH = 1;
+
+	int *p_new = NULL;
+        int *p_data_less = NULL;
+        int *p_data_greater = NULL;
+        int nthreads=2;
+
+        p_data_less=(int *)malloc(nthreads * sizeof(int));
+        p_data_greater=(int *)malloc(nthreads * sizeof(int));
 	
 	
 	if (*inclusiveHgh == TRUE) HBound = FALSE;
@@ -920,6 +952,15 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 	bit foundLow=0;
 	int gapL = 1;
 	bit LBound=FALSE;
+
+	int *p_new = NULL;
+        int *p_data_less = NULL;
+        int *p_data_greater = NULL;
+        int nthreads=2;
+
+        p_data_less=(int *)malloc(nthreads * sizeof(int));
+        p_data_greater=(int *)malloc(nthreads * sizeof(int));
+
 
 	m = existsCrackerIndex(*bid);
 
