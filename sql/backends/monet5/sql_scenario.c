@@ -711,7 +711,7 @@ sql_update_oct2013(Client c)
 		fclose(fp3);
 	}
 
-	pos += snprintf(buf+pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('querylog_catalog', 'querylog_calls', 'queue', 'json_filter', 'json_filter_all', 'json_path', 'json_isvalid', 'json_isvalidobject', 'json_isvalidarray', 'json_length') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_FUNC);
+	pos += snprintf(buf+pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('querylog_catalog', 'querylog_calls', 'queue', 'json_filter', 'json_filter_all', 'json_path', 'json_text', 'json_isvalid', 'json_isvalidobject', 'json_isvalidarray', 'json_length') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_FUNC);
 	pos += snprintf(buf+pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('querylog_empty', 'querylog_enable', 'querylog_disable', 'pause', 'resume', 'sysmon_resume', 'stop') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_PROC);
 	pos += snprintf(buf+pos, bufsize-pos, "update sys._tables set system = true where name in ('tracelog', 'optimizers', 'environment', 'storage', 'storagemodel') and schema_id = (select id from sys.schemas where name = 'sys');\n");
 
@@ -975,8 +975,10 @@ SQLexitClient(Client c)
 			if (mvc_status(m) >= 0 && mvc_commit(m, 0, NULL) < 0)
 				(void) handle_error(m, c->fdout, 0);
 		}
-		if (m->session->active)
+		if (m->session->active){
+			RECYCLEdrop(0);
 			mvc_rollback(m, 0, NULL);
+		}
 
 		res_tables_destroy(m->results);
 		m->results= NULL;
@@ -1101,6 +1103,7 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 		sql_rel *r;
 		stmt *s;
 		int oldvtop, oldstop;
+		MalStkPtr oldglb = c->glb;
 
 		if (!m->sa)
 			m->sa = sa_create();
@@ -1117,6 +1120,8 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 			execute = 0;
 			if (!err)
 				continue;
+			assert(c->glb == 0 || c->glb == oldglb); /* detect leak */
+			c->glb = oldglb;
 			goto endofcompile;
 		}
 
@@ -1127,10 +1132,6 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 		 * optimize and produce code.
 		 * We don;t search the cache for a previous incarnation yet.
 		 */
-		if (c->glb) {
-			/* MSinitClientPrg clears c->glb, so free it here */
-			_DELETE(c->glb);
-		}
 		MSinitClientPrg(c,"user",nme);
 		oldvtop = c->curprg->def->vtop;
 		oldstop = c->curprg->def->stop;
@@ -1148,6 +1149,8 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 			MSresetInstructions(c->curprg->def, oldstop);
 			freeVariables(c,c->curprg->def, c->glb, oldvtop);
 			c->curprg->def->errors = 0;
+			assert(c->glb == 0 || c->glb == oldglb); /* detect leak */
+			c->glb = oldglb;
 			goto endofcompile;
 		}
 		/* generate MAL code */
@@ -1162,6 +1165,8 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 			freeVariables(c,c->curprg->def, c->glb, oldvtop);
 			c->curprg->def->errors = 0;
 			msg = createException(SQL, "SQLparser","Errors encountered in query");
+			assert(c->glb == 0 || c->glb == oldglb); /* detect leak */
+			c->glb = oldglb;
 			goto endofcompile;
 		}
 
@@ -1199,11 +1204,16 @@ noexecution:
 			}
 		}
 		sqlcleanup(m, 0);
-		if (!execute)
+		if (!execute) {
+			assert(c->glb == 0 || c->glb == oldglb); /* detect leak */
+			c->glb = oldglb;
 			goto endofcompile;
+		}
 #ifdef _SQL_COMPILE
 	mnstr_printf(c->fdout, "#parse/execute result %d\n", err);
 #endif
+		assert(c->glb == 0 || c->glb == oldglb); /* detect leak */
+		c->glb = oldglb;
 	}
 /*
  * We are done; a MAL procedure recides in the cache.
@@ -1321,6 +1331,7 @@ SQLinclude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 static int SQLautocommit(Client c, mvc *m){
 	if (m->session->auto_commit && m->session->active) {
 		if (mvc_status(m) < 0) {
+			RECYCLEdrop(0);
 			mvc_rollback(m, 0, NULL);
 		} else if (mvc_commit(m, 0, NULL) < 0) {
 		 	return handle_error(m, c->fdout, 0);
@@ -1715,6 +1726,7 @@ SQLparser(Client c)
 					msg = createException(SQL, "SQLparser",
 							"Xauto_commit (commit) failed");
 				} else if (!commit && mvc_rollback(m, 0, NULL) < 0) {
+					RECYCLEdrop(0);
 					mnstr_printf(out, "!COMMIT: rollback failed while "
 							"disabling auto_commit\n");
 					msg = createException(SQL, "SQLparser",
@@ -2061,6 +2073,7 @@ SQLengineIntern(Client c, backend *be)
 	if( m->emode == m_prepare)
 		goto cleanup_engine;
 
+	assert(c->glb == 0 || c->glb == oldglb); /* detect leak */
 	c->glb = 0;
 	be->language = 'D';
 	/*
@@ -2083,6 +2096,7 @@ cleanup_engine:
 			MSresetInstructions(c->curprg->def, 1);
 			freeVariables(c,c->curprg->def, c->glb, be->vtop);
 			be->language = oldlang;
+			assert(c->glb == 0 || c->glb == oldglb); /* detect leak */
 			c->glb = oldglb;
 			return SQLrecompile(c, be);
 		} else {
@@ -2123,6 +2137,7 @@ cleanup_engine:
 	 * Any error encountered during execution should block further processing
 	 * unless auto_commit has been set.
 	 */
+	assert(c->glb == 0 || c->glb == oldglb); /* detect leak */
 	c->glb = oldglb;
 	return msg;
 }

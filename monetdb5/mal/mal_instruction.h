@@ -145,7 +145,8 @@ typedef struct MALBLK {
 	lng recid;					/* Recycler identifier */
 	lng legid;					/* Octopus control */
 	sht trap;					/* call debugger when called */
-	lng runtime;					/* average execution time of block in ticks */
+	lng starttime;				/* track when the query started, for resource management */
+	lng runtime;				/* average execution time of block in ticks */
 	int calls;					/* number of calls */
 	lng optimize;				/* total optimizer time */
 } *MalBlkPtr, MalBlkRecord;

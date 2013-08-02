@@ -63,30 +63,20 @@ OPTrecyclerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 		return 0;
 	}
 	pushInstruction(mb, old[0]);
-	/* create a handle for the recycler */
-	(void) newFcnCall(mb, "recycle", "start");
 	for (i = 1; i < limit; i++) {
 		p = old[i];
-		if (p->token == ENDsymbol ){
-			(void) newFcnCall(mb, "recycle", "stop");
+		if (p->token == ENDsymbol )
 			break;
-		}
-		if (p->barrier == RETURNsymbol) 
-			(void) newFcnCall(mb, "recycle", "stop");
 		/* the first non-dataflow barrier breaks the recycler code*/
-		if (blockStart(p) && !(getFunctionId(p) && getFunctionId(p) == dataflowRef) ){
-			(void) newFcnCall(mb, "recycle", "stop");
+		if (blockStart(p) && !(getFunctionId(p) && getFunctionId(p) == dataflowRef) )
 			break;
-		}
 
 		if ( isUpdateInstruction(p) || hasSideEffects(p,TRUE)){
 			/*  update instructions are not recycled but monitored*/
 			pushInstruction(mb, p);
 			if (isUpdateInstruction(p)) {
 				if (getModuleId(p) == batRef && isaBatType(getArgType(mb, p, 1))) {
-					recycled[getArg(p, 1)] = 0;
 					q = newFcnCall(mb, "recycle", "reset");
-					pushArgument(mb, q, getArg(p, 0));// to keep dataflow dependency
 					pushArgument(mb, q, getArg(p, 1));
 					actions++;
 				}
@@ -96,6 +86,22 @@ OPTrecyclerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 					actions++;
 				}
 			}
+			continue;
+		}
+		// Not all instruction may be recycled. In particular, we should avoid
+		// MAL function with implicit/recursive side effects. 
+		// This can not always be detected easily. Likewise, we ignore cheap operations
+		// Therefore, we use a safe subset to start with
+		if ( ! (getModuleId(p) == sqlRef || getModuleId(p)== batRef || 
+				getModuleId(p) == algebraRef || getModuleId(p)==batcalcRef ||
+				getModuleId(p)== aggrRef || getModuleId(p)== groupRef ||
+				getModuleId(p)== batstrRef || getModuleId(p)== batmmathRef ||
+				getModuleId(p)== arrayRef || getModuleId(p)== batmtimeRef ||
+				getModuleId(p)== batcalcRef || getModuleId(p)== pcreRef ||
+				getModuleId(p)== mtimeRef || getModuleId(p) == calcRef  ||
+				getModuleId(p)== matRef )
+			){
+			pushInstruction(mb,p);
 			continue;
 		}
 
@@ -109,12 +115,12 @@ OPTrecyclerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			if (recycled[getArg(p, j)] ==0)
 				cand++;
 		if (cnt == p->argc - p->retc && cand == p->retc) {
-			//OPTDEBUGrecycle {
+			OPTDEBUGrecycle {
 				mnstr_printf(cntxt->fdout, "#recycle instruction: ");
 				printInstruction(cntxt->fdout, mb, 0, p, LIST_MAL_DEBUG);
-			//}
+			}
 			marks++;
-			p->recycle = recycleMaxInterest; /* this instruction is to be monitored */
+			p->recycle = RECYCLING; /* this instruction is to be monitored */
 			for (j = 0; j < p->retc; j++)
 				recycled[getArg(p, j)] = 1;
 		}

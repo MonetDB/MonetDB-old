@@ -70,7 +70,7 @@ BAT *GDKval = NULL;
 #define VALGRIND_FREELIKE_BLOCK(addr, rzB)
 #endif
 
-static volatile int GDKstopped = 1;
+static volatile ATOMIC_FLAG GDKstopped = ATOMIC_FLAG_INIT;
 static void GDKunlockHome(void);
 static int GDKgetHome(void);
 
@@ -688,9 +688,8 @@ GDKmallocmax(size_t size, size_t *maxsize, int emergency)
 void *
 GDKmalloc(size_t size)
 {
-	size_t maxsize = size;
-	void *p = GDKmallocmax(size, &maxsize, 0);
-	ALLOCDEBUG fprintf(stderr, "#GDKmalloc " SZFMT " " SZFMT " " PTRFMT "\n", size, maxsize, PTRFMTCAST p);
+	void *p = GDKmallocmax(size, &size, 0);
+	ALLOCDEBUG fprintf(stderr, "#GDKmalloc " SZFMT " " PTRFMT "\n", size, PTRFMTCAST p);
 #ifndef NDEBUG
 	DEADBEEFCHK if (p)
 		memset(p, 0xBD, size);
@@ -704,8 +703,14 @@ GDKzalloc(size_t size)
 	size_t maxsize = size;
 	void *p = GDKmallocmax(size, &maxsize, 0);
 	ALLOCDEBUG fprintf(stderr, "#GDKzalloc " SZFMT " " SZFMT " " PTRFMT "\n", size, maxsize, PTRFMTCAST p);
-	if (p)
+	if (p) {
 		memset(p, 0, size);
+#ifndef NDEBUG
+		/* DeadBeef allocated area beyond what was requested */
+		DEADBEEFCHK if (maxsize > size)
+			memset((char *) p + size, 0xBD, maxsize - size);
+#endif
+	}
 	return p;
 }
 
@@ -961,6 +966,7 @@ GDKinit(opt *set, int setlen)
 	MT_lock_init(&GDKthreadLock, "GDKthreadLock");
 	MT_lock_init(&GDKtmLock, "GDKtmLock");
 #endif
+	(void) ATOMIC_TAS(GDKstopped, GDKstoppedLock, "GDKinit");
 	for (i = 0; i <= BBP_BATMASK; i++) {
 		MT_lock_init(&GDKbatLock[i].swap, "GDKswapLock");
 		MT_lock_init(&GDKbatLock[i].hash, "GDKhashLock");
@@ -1112,14 +1118,14 @@ static int GDKnrofthreads;
 int
 GDKexiting(void)
 {
-	return ATOMIC_GET_int(GDKstopped, GDKstoppedLock, "GDKexiting");
+	return (int) GDKstopped;
 }
 
 /* coverity[+kill] */
 void
 GDKexit(int status)
 {
-	if (ATOMIC_CAS_int(GDKstopped, 0, 1, GDKstoppedLock, "GDKexit") == 0) {
+	if (ATOMIC_TAS(GDKstopped, GDKstoppedLock, "GDKexit") == 0) {
 		MT_lock_set(&GDKthreadLock, "GDKexit");
 		GDKnrofthreads = 0;
 		MT_lock_unset(&GDKthreadLock, "GDKexit");
@@ -1231,9 +1237,8 @@ GDKlockHome(void)
 	GDKlog(GDKLOGON);
 	/*
 	 * In shared mode, we allow more parties to join. Release the lock.
-	 * No need yet to use GDKstoppedLock: there are no other threads.
 	 */
-	ATOMIC_SET_int(GDKstopped, 0, GDKstoppedLock, "");
+	ATOMIC_CLEAR(GDKstopped, GDKstoppedLock, "");
 }
 
 static void

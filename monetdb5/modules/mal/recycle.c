@@ -41,19 +41,10 @@
 str
 RECYCLEdumpWrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int tp=1;
-
 	(void) mb;
-	if (pci->argc >1)
-		tp = * (int*) getArgReference(stk, pci,1);
-
-	switch(tp){
-		case 2:	RECYCLEdumpRecyclerPool(cntxt->fdout);
-				break;
-		case 3: RECYCLEdumpDataTrans(cntxt->fdout);
-				break;
-		default:RECYCLEdump(cntxt->fdout);
-	}
+	(void) stk;
+	(void) pci;
+	RECYCLEdump(cntxt->fdout);
 	return MAL_SUCCEED;
 }
 
@@ -75,34 +66,34 @@ RECYCLEsetCache(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
  * At the end of the session we have to cleanup the recycle cache.
  */
 str
-RECYCLEshutdownWrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
+RECYCLEdropWrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 
 	(void) mb;
 	(void) stk;
 	(void) p;
-	RECYCLEshutdown(cntxt);
-	return MAL_SUCCEED;
-}
-str
-RECYCLEmonitor(int *ret, int *p)
-{
-	(void) ret;
-	monitorRecycler = *p;
+	RECYCLEdrop(cntxt);
 	return MAL_SUCCEED;
 }
 
-
-str
-RECYCLEstartWrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
+str RECYCLEappendSQL(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
-	(void) stk;
-	(void) p;
-	return RECYCLEstart(cntxt,mb);
+	str sch = *(str*) getArgReference(stk, p, 2);
+	str tbl = *(str*) getArgReference(stk, p, 3);
+	str col = *(str*) getArgReference(stk, p, 4);
+	(void) mb;
+	return RECYCLEcolumn(cntxt,sch,tbl,col);
 }
 
-str
-RECYCLEstopWrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
-	(void) stk;
-	(void) p;
-	return RECYCLEstop(cntxt,mb);
+str RECYCLEdeleteSQL(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
+{
+	str sch = *(str*) getArgReference(stk, p, 2);
+	str tbl = *(str*) getArgReference(stk, p, 3);
+	(void) mb;
+	return RECYCLEcolumn(cntxt,sch,tbl,0);
+}
+
+str RECYCLEresetBATwrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
+{
+	(void) mb;
+	return RECYCLEresetBAT(cntxt,*(int*) getArgReference(stk,p,1));
 }

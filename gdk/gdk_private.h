@@ -50,6 +50,9 @@ void BBPtrim(size_t delta);
 void BBPunshare(bat b);
 void GDKclrerr(void);
 int GDKextend(const char *fn, size_t size);
+#ifndef NATIVE_WIN32
+int GDKextendf(int fd, off_t size);
+#endif
 int GDKfdlocate(const char *nme, const char *mode, const char *ext);
 FILE *GDKfilelocate(const char *nme, const char *mode, const char *ext);
 char *GDKload(const char *nme, const char *ext, size_t size, size_t chunk, storage_t mode);
@@ -76,12 +79,13 @@ void HEAP_init(Heap *heap, int tpe);
 int HEAPload(Heap *h, const char *nme, const char *ext, int trunc);
 int HEAP_mmappable(Heap *heap);
 int HEAPsave(Heap *h, const char *nme, const char *ext);
+int HEAPshrink(Heap *h, size_t size);
 int HEAPwarm(Heap *h);
 oid MAXoid(BAT *i);
 void MT_global_exit(int status)
 	__attribute__((__noreturn__));
 void MT_init_posix(void);
-void *MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t new_size);
+void *MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t *new_size);
 int MT_msync(void *p, size_t off, size_t len, int mode);
 int OIDdirty(void);
 int OIDinit(void);

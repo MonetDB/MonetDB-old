@@ -736,7 +736,6 @@ heapinit(COLrec *col, const char *buf, int *hashash, const char *HT, int oidsize
 	col->norevsorted = (BUN) norevsorted;
 	col->seq = base < 0 ? oid_nil : (oid) base;
 	col->align = (oid) align;
-	col->heap.maxsize = (size_t) size;
 	col->heap.free = (size_t) free;
 	col->heap.size = (size_t) size;
 	col->heap.base = NULL;
@@ -764,7 +763,6 @@ vheapinit(COLrec *col, const char *buf, int hashash, bat bid)
 			   "%n",
 			   &free, &size, &storage, &n) < 3)
 			GDKfatal("BBPinit: invalid format for BBP.dir\n%s", buf);
-		col->vheap->maxsize = (size_t) size;
 		col->vheap->free = (size_t) free;
 		col->vheap->size = (size_t) size;
 		col->vheap->base = NULL;
@@ -2630,7 +2628,7 @@ BBPtrim_scan(bat bbppos, bat bbplim)
 		GDKqsort(lastused, bbptrim, NULL, bbptrimlast,
 			 sizeof(lastused[0]), sizeof(bbptrim[0]), TYPE_int);
 		for (i = bbptrimfirst = 0; i < bbptrimlast; i++) {
-			MEMDEBUG THRprintf(GDKstdout, "#TRIMSCAN: %11d%c %9d=%s\t(#" BUNFMT ")\n", BBPLASTUSED(lastused[i]), (lastused[i] & 0x80000000) ? '*' : ' ', i, BBPname(bbptrim[i].bid), bbptrim[i].cnt);
+			MEMDEBUG THRprintf(GDKstdout, "#TRIMSCAN: %11d%c %9d=%s\t(#" BUNFMT ")\n", BBPLASTUSED(lastused[i]), (lastused[i] & (1 << 31)) ? '*' : ' ', i, BBPname(bbptrim[i].bid), bbptrim[i].cnt);
 
 			bbptrim[i].next = i + 1;
 		}
@@ -2869,7 +2867,7 @@ BBPtrim(size_t target)
 			}
 			MEMDEBUG THRprintf(GDKstdout, "#BBPTRIM: %8d%c %7d %s\n",
 					   BBPLASTUSED(lastused[i]),
-					   lastused[i] & 0x80000000 ? '*' : ' ',
+					   lastused[i] & (1 << 31) ? '*' : ' ',
 					   (int) bbptrim[i].bid,
 					   BBPname(bbptrim[i].bid));
 

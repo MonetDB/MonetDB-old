@@ -255,7 +255,6 @@ DFLOWworker(void *t)
 	str error = 0;
 
 	int i;
-	lng usec = 0;
 
 	thr = THRnew("DFLOWworker");
 
@@ -280,7 +279,6 @@ DFLOWworker(void *t)
 			continue;
 		}
 
-		usec = GDKusec();
 		/* skip all instructions when we have encontered an error */
 		if (flow->error == 0) {
 #ifdef USE_MAL_ADMISSION
@@ -327,7 +325,7 @@ DFLOWworker(void *t)
 		assert(p);
 		fe->hotclaim = 0;
 		for (i = 0; i < p->retc; i++)
-			fe->hotclaim += getMemoryClaim(flow->mb, flow->stk, fe->pc, i, FALSE);
+			fe->hotclaim += getMemoryClaim(flow->mb, flow->stk, p, i, FALSE);
 		}
 #endif
 		MT_lock_set(&flow->flowlock, "MALworker");
@@ -350,7 +348,8 @@ DFLOWworker(void *t)
 			if (todo->last == 0)
 				profilerHeartbeatEvent("wait");
 			else
-				MALresourceFairness(usec);
+			if ( flow->cntxt->idx > 1 )
+					MALresourceFairness(GDKusec()- flow->mb->starttime);
 		}
 	}
 	GDKfree(GDKerrbuf);
@@ -559,7 +558,7 @@ DFLOWscheduler(DataFlow flow)
 				throw(MAL, "dataflow", "DFLOWscheduler(): getInstrPtr(flow->mb,fe[i].pc) returned NULL");
 			}
 			for (j = p->retc; j < p->argc; j++)
-				fe[i].argclaim = getMemoryClaim(fe[0].flow->mb, fe[0].flow->stk, fe[i].pc, j, FALSE);
+				fe[i].argclaim = getMemoryClaim(fe[0].flow->mb, fe[0].flow->stk, p, j, FALSE);
 #endif
 			q_enqueue(todo, flow->status + i);
 			flow->status[i].state = DFLOWrunning;

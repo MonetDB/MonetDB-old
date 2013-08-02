@@ -2795,7 +2795,7 @@ BATmode(BAT *b, int mode)
 #ifdef NDEBUG
 /* assertions are disabled, turn failing tests into a message */
 #undef assert
-#define assert(test)	((void) ((test) || fprintf(stderr, "WARNING: %s:%d: assertion `%s' failed\n", __FILE__, __LINE__, #test)))
+#define assert(test)	((void) ((test) || fprintf(stderr, "!WARNING: %s:%d: assertion `%s' failed\n", __FILE__, __LINE__, #test)))
 #endif
 
 static void
@@ -2818,7 +2818,6 @@ BATassertHeadProps(BAT *b)
 	p = BUNfirst(b);
 	q = BUNlast(b);
 
-	assert(b->H->heap.size <= b->H->heap.maxsize);
 	assert(b->H->heap.free >= headsize(b, BUNlast(b)));
 	if (b->htype != TYPE_void) {
 		assert(b->batCount <= b->batCapacity);

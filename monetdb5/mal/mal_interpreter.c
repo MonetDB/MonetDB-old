@@ -379,9 +379,8 @@ str runMAL(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr env)
 		env->cmd = stk->cmd;
 	if (!stk->keepAlive && garbageControl(getInstrPtr(mb, 0)))
 		garbageCollector(cntxt, mb, stk, env != stk);
-	if (stk && stk != env) {
+	if (stk && stk != env)
 		GDKfree(stk);
-	}
 	if (cntxt->qtimeout && GDKms() > cntxt->qtimeout)
 		throw(MAL, "mal.interpreter", RUNTIME_QRY_TIMEOUT);
 	return ret;
@@ -495,7 +494,6 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 	int exceptionVar;
 	str ret = 0, localGDKerrbuf= GDKerrbuf;
 	int stamp = -1;
-	lng clk=0;
 	ValRecord backups[16];
 	ValPtr backup;
 	int garbages[16], *garbage;
@@ -520,6 +518,7 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 	if ( startpc == 1 ){
 		runtimeProfileInit(cntxt, mb, stk);
 		runtimeProfileBegin(cntxt, mb, stk, 0, &runtimeProfileFunction, 1);
+		mb->starttime = GDKusec();
 	} 
 	stkpc = startpc;
 	exceptionVar = -1;
@@ -546,10 +545,9 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 			}
 		}
 
+		//Ensure we spread system resources over multiple users as well.
 		runtimeProfileBegin(cntxt, mb, stk, stkpc, &runtimeProfile, 1);
-        if (pci->recycle > 0)
-            clk = GDKusec();
-        if (!RECYCLEentry(cntxt, mb, stk, pci,stkpc)){
+        if (!RECYCLEentry(cntxt, mb, stk, pci,&runtimeProfile)){
 			/* The interpreter loop
 			 * The interpreter is geared towards execution a MAL
 			 * procedure together with all its decendant
@@ -768,9 +766,10 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 				}
 
 				/* If needed recycle intermediate result */
-				if (pci->recycle > 0) {
-					RECYCLEexit(cntxt, mb, stk, pci, stkpc, clk);
-				}
+				if (pci->recycle > 0) 
+					RECYCLEexit(cntxt, mb, stk, pci, &runtimeProfile);
+				if ( cntxt->idx > 1 )
+					MALresourceFairness(GDKusec()- mb->starttime);
 
 				/* general garbage collection */
 				if (ret == MAL_SUCCEED && garbageControl(pci)) {

@@ -231,6 +231,26 @@ GDKmove(const char *dir1, const char *nme1, const char *ext1, const char *dir2, 
 	return ret;
 }
 
+#ifndef NATIVE_WIN32
+int
+GDKextendf(int fd, off_t size)
+{
+	struct stat stb;
+
+	if (fstat(fd, &stb) < 0) {
+		/* shouldn't happen */
+		return -1;
+	}
+	/* if necessary, extend the underlying file */
+	if (stb.st_size < size &&
+	    (lseek(fd, size - 1, SEEK_SET) < 0 ||
+	     write(fd, "\0", 1) < 0)) {
+		return -1;
+	}
+	return 0;
+}
+#endif
+
 int
 GDKextend(const char *fn, size_t size)
 {
@@ -358,12 +378,16 @@ GDKsave(const char *nme, const char *ext, void *buf, size_t size, storage_t mode
  * Space for the load is directly allocated and the heaps are mapped.
  * Further initialization of the atom heaps require a separate action
  * defined in their implementation.
+ *
+ * size -- how much to read
+ * maxsize -- how much to allocate
  */
 char *
 GDKload(const char *nme, const char *ext, size_t size, size_t maxsize, storage_t mode)
 {
 	char *ret = NULL;
 
+	assert(size <= maxsize);
 	IODEBUG {
 		THRprintf(GDKstdout, "#GDKload: name=%s, ext=%s, mode %d\n", nme, ext ? ext : "", (int) mode);
 	}
@@ -616,6 +640,20 @@ BATsave(BAT *bd)
 	if (err == 0) {
 		bd->batCopiedtodisk = 1;
 		DESCclean(bd);
+		if (bd->htype && bd->H->heap.storage == STORE_MMAP) {
+			HEAPshrink(&bd->H->heap, bd->H->heap.free);
+			if (bd->U->capacity > bd->H->heap.size >> bd->H->shift)
+				bd->U->capacity = (BUN) (bd->H->heap.size >> bd->H->shift);
+		}
+		if (bd->ttype && bd->T->heap.storage == STORE_MMAP) {
+			HEAPshrink(&bd->T->heap, bd->T->heap.free);
+			if (bd->U->capacity > bd->T->heap.size >> bd->T->shift)
+				bd->U->capacity = (BUN) (bd->T->heap.size >> bd->T->shift);
+		}
+		if (bd->H->vheap && bd->H->vheap->storage == STORE_MMAP)
+			HEAPshrink(bd->H->vheap, bd->H->vheap->free);
+		if (bd->T->vheap && bd->T->vheap->storage == STORE_MMAP)
+			HEAPshrink(bd->T->vheap, bd->T->vheap->free);
 		return bd;
 	}
 	return NULL;

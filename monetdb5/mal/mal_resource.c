@@ -66,11 +66,10 @@ int memoryclaims = 0;    /* number of threads active with expensive operations *
  * Views are consider cheap and ignored
  */
 lng
-getMemoryClaim(MalBlkPtr mb, MalStkPtr stk, int pc, int i, int flag)
+getMemoryClaim(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int i, int flag)
 {
 	lng total = 0, vol = 0;
 	BAT *b;
-	InstrPtr pci = getInstrPtr(mb,pc);
 	BUN cnt;
 
 	(void)mb;
@@ -175,7 +174,7 @@ MALadmission(lng argclaim, lng hotclaim)
  * them when resource stress occurs.
  */
 #include "gdk_atomic.h"
-static volatile int running;
+static volatile ATOMIC_TYPE running;
 #ifdef ATOMIC_LOCK
 static MT_Lock runningLock MT_LOCK_INITIALIZER("runningLock");
 #endif
@@ -188,31 +187,20 @@ MALresourceFairness(lng usec)
 	lng clk;
 	int threads;
 	int delayed= 0;
-#ifdef ATOMIC_LOCK
-#ifdef NEED_MT_LOCK_INIT
-	static int initialized = 0;
-	if (initialized++ == 0)
-		ATOMIC_INIT(runningLock, "runningLock");
-#endif
-#endif
 
-	if ( usec > 0 && ( (usec = GDKusec()-usec)) <= TIMESLICE )
-		return;
-	threads = GDKnr_threads > 0 ? GDKnr_threads : 1;
-
-	/* use GDKmem_cursize as MT_getrss(); is to expensive */
+	/* use GDKmem_cursize as MT_getrss() is too expensive */
 	rss = GDKmem_cursize();
 	/* ample of memory available*/
-	if ( rss < MEMORY_THRESHOLD * monet_memory)
+	if ( rss < MEMORY_THRESHOLD * monet_memory && usec <= TIMESLICE)
 		return;
+	threads = GDKnr_threads > 0 ? GDKnr_threads : 1;
 
 	/* worker reporting time spent  in usec! */
 	clk =  usec / 1000;
 
 	if ( clk > DELAYUNIT ) {
-		ATOMIC_CAS_int(running, 0, threads, runningLock, "MALresourceFairness");
 		PARDEBUG mnstr_printf(GDKstdout, "#delay initial "LLFMT"n", clk);
-		ATOMIC_DEC_int(running, runningLock, "MALresourceFairness");
+		ATOMIC_DEC(running, runningLock, "MALresourceFairness");
 		/* always keep one running to avoid all waiting  */
 		while (clk > 0 && running >= 2) {
 			/* speed up wake up when we have memory */
@@ -226,9 +214,20 @@ MALresourceFairness(lng usec)
 				}
 				MT_sleep_ms(delay);
 				rss = GDKmem_cursize();
-			}
+			} else break;
 			clk -= DELAYUNIT;
 		}
-		ATOMIC_INC_int(running, runningLock, "MALresourceFairness");
+		ATOMIC_INC(running, runningLock, "MALresourceFairness");
 	}
+}
+
+void
+initResource(void)
+{
+#ifdef ATOMIC_LOCK
+#ifdef NEED_MT_LOCK_INIT
+	ATOMIC_INIT(runningLock, "runningLock");
+#endif
+#endif
+	running = (ATOMIC_TYPE) GDKnr_threads;
 }

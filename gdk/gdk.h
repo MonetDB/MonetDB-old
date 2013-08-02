@@ -637,7 +637,6 @@ typedef enum {
 } storage_t;
 
 typedef struct {
-	size_t maxsize;		/* maximum realloc size (bytes) */
 	size_t free;		/* index where free area starts. */
 	size_t size;		/* size of the heap (bytes) */
 	char *base;		/* base pointer in memory. */
@@ -1200,7 +1199,8 @@ gdk_export bte ATOMelmshift(int sz);
 			if ((b)->HT->width < SIZEOF_VAR_T &&		\
 			    ((b)->HT->width <= 2 ? _d - GDK_VAROFFSET : _d) >= ((size_t) 1 << (8 * (b)->HT->width))) { \
 				/* doesn't fit in current heap, upgrade it */ \
-				GDKupgradevarheap((b)->HT, _d, (copyall)); \
+				if (GDKupgradevarheap((b)->HT, _d, (copyall)) == GDK_FAIL) \
+					goto bunins_failed;		\
 			}						\
 			_ptr = (p);					\
 			switch ((b)->HT->width) {			\
@@ -1246,7 +1246,8 @@ gdk_export bte ATOMelmshift(int sz);
 			if ((b)->HT->width < SIZEOF_VAR_T &&		\
 			    ((b)->HT->width <= 2 ? _d - GDK_VAROFFSET : _d) >= ((size_t) 1 << (8 * (b)->HT->width))) { \
 				/* doesn't fit in current heap, upgrade it */ \
-				GDKupgradevarheap((b)->HT, _d, 0);	\
+				if (GDKupgradevarheap((b)->HT, _d, 0) == GDK_FAIL) \
+					goto bunins_failed;		\
 			}						\
 			_ptr = (p);					\
 			switch ((b)->HT->width) {			\
@@ -2893,7 +2894,7 @@ gdk_export int ALIGNsetH(BAT *b1, BAT *b2);
 #define GDK_STREQ(l,r) (*(char*) (l) == *(char*) (r) && !strcmp(l,r))
 
 #define HASHloop(bi, h, hb, v)					\
-	for (hb = HASHget(h, HASHprobe((h), v));			\
+	for (hb = HASHget(h, HASHprobe((h), v));		\
 	     hb != HASHnil(h);					\
 	     hb = HASHgetlink(h,hb))				\
 		if (ATOMcmp(h->type, v, BUNhead(bi, hb)) == 0)
