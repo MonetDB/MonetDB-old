@@ -134,13 +134,19 @@ CRKparalleluselectBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusive
 	if (*inclusiveLow == TRUE)
 	{
 		CRKcrackUnorderedZeroParallel@2_RE_@1(b,*low, cl1, ch1,&vl);
-		CRKscanUnorderedZeroParallel@2_RE_@1(b, p_new, low, cl1, ch1, nthreads, p_data_less, p_data_greater);
+		CRKscanUnorderedZeroParallel@2_RE_@1(b, p_new, p_new_oid, *low, cl1, ch1, nthreads, p_data_less, p_data_greater);
+		p_new=(int *)malloc((ch1-cl1) * sizeof(int));
+		p_new_oid=(oid *)malloc((ch1-cl1) * sizeof(oid));
+		CRKreorganizeUnorderedZeroParallel@2_RE_@1(b, p_new, p_new_oid, *low, cl1, ch1, nthreads, p_data_less, p_data_greater);
 	}
 	else
 	{
 		CRKcrackUnorderedZeroParallel@2_LE_@1(b,*low, cl1, ch1,&vl);
-		CRKscanUnorderedZeroParallel@2_LE_@1(b, p_new, low, cl1, ch1, nthreads, p_data_less, p_data_greater);
-        }
+		CRKscanUnorderedZeroParallel@2_LE_@1(b, p_new, p_new_oid, *low, cl1, ch1, nthreads, p_data_less, p_data_greater);
+        	p_new=(int *)malloc((ch1-cl1) * sizeof(int));
+		p_new_oid=(oid *)malloc((ch1-cl1) * sizeof(oid));
+		CRKreorganizeUnorderedZeroParallel@2_LE_@1(b, p_new, p_new_oid, *low, cl1, ch1, nthreads, p_data_less, p_data_greater);
+	}
 
 	if (vl < cl1){
 		/*then the left piece is empty*/
@@ -160,13 +166,19 @@ CRKparalleluselectBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusive
 	if (*inclusiveHgh == TRUE)
 	{
 		CRKcrackUnorderedZeroParallel@2_LE_@1(b,*hgh, cl2, ch2,&vh);
-		CRKscanUnorderedZeroParallel@2_LE_@1(b, p_new, hgh, cl2, ch2, nthreads, p_data_less, p_data_greater);
+		CRKscanUnorderedZeroParallel@2_LE_@1(b, p_new, p_new_oid, *hgh, cl2, ch2, nthreads, p_data_less, p_data_greater);
+		p_new=(int *)malloc((ch2-cl2) * sizeof(int));
+		p_new_oid=(oid *)malloc((ch2-cl2) * sizeof(oid));
+		CRKreorganizeUnorderedZeroParallel@2_LE_@1(b, p_new, p_new_oid, *hgh, cl2, ch2, nthreads, p_data_less, p_data_greater);
         }
 	else
 	{
 		CRKcrackUnorderedZeroParallel@2_RE_@1(b,*hgh, cl2, ch2,&vh);
-		CRKscanUnorderedZeroParallel@2_RE_@1(b, p_new, hgh, cl2, ch2, nthreads, p_data_less, p_data_greater);
-        }
+		CRKscanUnorderedZeroParallel@2_RE_@1(b, p_new, p_new_oid, *hgh, cl2, ch2, nthreads, p_data_less, p_data_greater);
+		p_new=(int *)malloc((ch2-cl2) * sizeof(int));
+		p_new_oid=(oid *)malloc((ch2-cl2) * sizeof(oid));
+        	CRKreorganizeUnorderedZeroParallel@2_RE_@1(b, p_new, p_new_oid, *hgh, cl2, ch2, nthreads, p_data_less, p_data_greater);
+	}
 
 	/*check for gaps*/
 	if (vh < cl2)
@@ -217,6 +229,7 @@ createView:
 	bit copy=TRUE;
 
 	int *p_new = NULL;
+	oid *p_new_oid = NULL;
 	int *p_data_less = NULL;
 	int *p_data_greater = NULL;
 	int nthreads=2;
@@ -224,8 +237,8 @@ createView:
 
 	int pieces=0;
 	
-	p_data_less=(int *)malloc(nthreads * sizeof(int));
-	p_data_greater=(int *)malloc(nthreads * sizeof(int));
+	p_data_less=GDKzalloc(nthreads * sizeof(int));
+	p_data_greater=GDKzalloc(nthreads * sizeof(int));
 
 
 	/*FILE *ofp;
@@ -846,6 +859,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	int gapH = 1;
 
 	int *p_new = NULL;
+	oid *p_new_oid = NULL;
         int *p_data_less = NULL;
         int *p_data_greater = NULL;
         int nthreads=2;
@@ -954,6 +968,7 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 	bit LBound=FALSE;
 
 	int *p_new = NULL;
+	oid *p_new_oid = NULL;
         int *p_data_less = NULL;
         int *p_data_greater = NULL;
         int nthreads=2;
