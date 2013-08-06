@@ -133,7 +133,6 @@ CRKparalleluselectBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusive
 	/*CRACK in two pieces cl1-ch1 using >incLow bound*/
 	if (*inclusiveLow == TRUE)
 	{
-		//CRKcrackUnorderedZeroParallel@2_RE_@1(b,*low, cl1, ch1,&vl);
 		CRKscanUnorderedZeroParallel@2_RE_@1(b, pl_new, pl_new_oid, *low, cl1, ch1, nthreads, p_data_less, p_data_greater);
 		pl_new=(int *)malloc((ch1-cl1) * sizeof(int));
 		pl_new_oid=(oid *)malloc((ch1-cl1) * sizeof(oid));
@@ -142,7 +141,6 @@ CRKparalleluselectBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusive
 	}
 	else
 	{
-		//CRKcrackUnorderedZeroParallel@2_LE_@1(b,*low, cl1, ch1,&vl);
 		CRKscanUnorderedZeroParallel@2_LE_@1(b, pl_new, pl_new_oid, *low, cl1, ch1, nthreads, p_data_less, p_data_greater);
         	pl_new=(int *)malloc((ch1-cl1) * sizeof(int));
 		pl_new_oid=(oid *)malloc((ch1-cl1) * sizeof(oid));
@@ -167,7 +165,6 @@ CRKparalleluselectBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusive
 	/*CRACK in two pieces cl2-ch2 using <incHgh bound*/
 	if (*inclusiveHgh == TRUE)
 	{
-		//CRKcrackUnorderedZeroParallel@2_LE_@1(b,*hgh, cl2, ch2,&vh);
 		CRKscanUnorderedZeroParallel@2_LE_@1(b, pr_new, pr_new_oid, *hgh, cl2, ch2, nthreads, p_data_less, p_data_greater);
 		pr_new=(int *)malloc((ch2-cl2) * sizeof(int));
 		pr_new_oid=(oid *)malloc((ch2-cl2) * sizeof(oid));
@@ -176,7 +173,6 @@ CRKparalleluselectBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusive
 	 }
 	else
 	{
-		//CRKcrackUnorderedZeroParallel@2_RE_@1(b,*hgh, cl2, ch2,&vh);
 		CRKscanUnorderedZeroParallel@2_RE_@1(b, pr_new, pr_new_oid, *hgh, cl2, ch2, nthreads, p_data_less, p_data_greater);
 		pr_new=(int *)malloc((ch2-cl2) * sizeof(int));
 		pr_new_oid=(oid *)malloc((ch2-cl2) * sizeof(oid));
