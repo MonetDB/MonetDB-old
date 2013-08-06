@@ -69,6 +69,17 @@ typedef struct {
         int pivot;
 } thread_data_new_t;
 
+typedef struct {
+        BAT *array;
+        int *temp_array;
+        oid *temp_array_oid;
+        int nthreads; /*number of threads*/
+        oid first;
+        oid last;
+	int tempfirst;
+	int templast;
+        int tid;
+} thread_data_restore_t;
 
 /* Signatures shared within the crackers module/library */
 @:TypeSwitch(operations,_decl)@
@@ -97,9 +108,11 @@ crackers_export str CRKcrackUnorderedThreeParallel_@1 (int *res, int *bid, @1 *l
 @= crackInTwoUnorderedPieces_decl
 str CRKcrackUnorderedZeroParallel_@2_@1( BAT *b, @1 mval, oid first, oid last, oid *pos);
 str CRKscanUnorderedZeroParallel_@2_@1( BAT *b, @1 *temp_array, oid *temp_array_oid, @1 mval, oid first, oid last, int nthreads, int *data_less, int *data_greater);
-str CRKreorganizeUnorderedZeroParallel_@2_@1( BAT *b, @1 *temp_array, oid *temp_arra_oid, @1 mval, oid first, oid last, int nthreads, int *data_less, int *data_greater);
+str CRKreorganizeUnorderedZeroParallel_@2_@1( BAT *b, @1 *temp_array, oid *temp_array_oid, @1 mval, oid first, oid last, int nthreads, int *data_less, int *data_greater);
+str CRKrestoreUnorderedZeroParallel_@2_@1( BAT *b, @1 *temp_array, oid *temp_array_oid, @1 mval, oid first, oid last, int nthreads, int *data_less, int *data_greater, oid *pos);
 void *threadFuncScan_@2_@1(void *arg);
 void *threadFuncReorganize_@2_@1(void *arg);
+void *threadFuncRestore_@2_@1(void *arg);
 @
 @= crackInThreeUnorderedPieces_decl
 str CRKcrackUnorderedThreeParallel_@2_@3_@1( BAT *b, @1 low, @1 hgh, oid first, oid last, oid *posl, oid *posh);
@@ -332,6 +345,90 @@ CRKreorganizeUnorderedZeroParallel_@2_@1(BAT *b, @1 *temp_array, oid *temp_array
 	return MAL_SUCCEED;
 }
 
+str
+CRKrestoreUnorderedZeroParallel_@2_@1(BAT *b, @1 *temp_array, oid *temp_array_oid, @1 mval, oid first, oid last, int nthreads,int *data_less, int *data_greater,oid *pos) {
+
+        int i;
+	@1 *lt, *t0;
+        oid partition_elements, position=0;
+        thread_data_restore_t *data;
+
+        pthread_t **thread = (pthread_t **) malloc (sizeof(pthread_t *) * nthreads);
+
+	(void) data_greater;
+
+        /* Allocate memory for the pthread_ts. */
+        for (i = 0; i < nthreads; i++)
+                thread[i] = (pthread_t *) malloc (sizeof(pthread_t));
+
+        /* Allocate memory for thread data. */
+        data = malloc (nthreads * sizeof(thread_data_restore_t));
+
+        /* Now create the threads. */
+        partition_elements=(last-first+1)/nthreads;
+        //printf("Each partition consists of %d elements (almost).\n",partition_elements);
+        for (i = 0; i < nthreads; i++) {
+
+                data[i].array = b;
+                data[i].temp_array = temp_array;
+                data[i].temp_array_oid = temp_array_oid;
+                data[i].nthreads = nthreads;
+                data[i].first = first + i*partition_elements;
+		data[i].tempfirst = i*partition_elements;
+                if(i==(nthreads-1))
+		{
+                        data[i].last = last;
+                	data[i].templast = partition_elements-1;
+		}
+		else
+		{
+                        data[i].last = first + (i*partition_elements)+partition_elements-1;
+			data[i].templast = (i*partition_elements)+partition_elements-1;
+		}
+                data[i].tid = i;
+		if (pthread_create (thread[i], NULL, threadFuncRestore_@2_@1, &data[i]))
+                {
+                        printf("Failed to create thread %d.\n",i);
+                        exit (-1);
+                }
+        }
+        // Wait for threads
+        for (i = 0; i < nthreads; i++) {
+                if (pthread_join(*thread[i], NULL)) {
+                        printf ("Error joining thread %d.\n", i);
+                        exit (-1);
+                 }
+        }
+
+        /* Clean up. */
+        for (i = 0; i < nthreads; i++)
+                free (thread[i]);
+
+        free (thread);
+
+	for (i = 0; i < nthreads; i++)
+                position=position+data_less[i];
+
+	t0 = (@1 *)Tloc(b, BUNfirst(b));
+	lt = (@1 *)Tloc(b, BUNfirst(b) + first + position-1);
+//	*pos=(oid) (lt-t0);
+
+	if (@5_@4(lt, &mval,@6@1)){
+        	if (lt==t0)
+                	*pos = (oid) BUNfirst(b);
+                else
+                	*pos = (oid) (lt - t0) - 1; /*works for empty left piece also*/
+        }
+        else{
+                *pos = (oid) (lt - t0);
+                if (*pos==last) /*empty right piece*/
+ 	               *pos = *pos + 1;
+       }
+
+
+        return MAL_SUCCEED;
+}
+
 
 void
 *threadFuncScan_@2_@1(void *arg) {
@@ -393,6 +490,27 @@ void *threadFuncReorganize_@2_@1(void *arg) {
 
 	pthread_exit(NULL);
 }
+
+void *threadFuncRestore_@2_@1(void *arg) {
+        thread_data_restore_t *my_data = (thread_data_restore_t *) arg;
+        @1  *ft;
+        oid *fh, *lh;
+
+        /* set bounds for the iterator */
+        ft = (@1 *)Tloc(my_data->array, BUNfirst(my_data->array) + my_data->first);
+        fh = (oid*)Hloc(my_data->array, BUNfirst(my_data->array) + my_data->first);
+        lh = (oid*)Hloc(my_data->array, BUNfirst(my_data->array) + my_data->last);
+
+        while(fh<=lh) {
+                *ft=my_data->temp_array[my_data->tempfirst];
+                *fh=my_data->temp_array_oid[my_data->tempfirst];
+                my_data->tempfirst++;
+                ft++; fh++;
+        }
+
+	pthread_exit(NULL);
+}
+
 @
 
 @= crackInThreeUnorderedPieces_impl
