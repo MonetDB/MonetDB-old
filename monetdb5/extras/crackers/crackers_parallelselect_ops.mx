@@ -227,6 +227,8 @@ createView:
 	BUN idxFirst;
 	bit copy=TRUE;
 	int i;
+        int pieces=0;
+
 
 	int *pl_new = NULL;
 	oid *pl_new_oid = NULL;
@@ -234,11 +236,15 @@ createView:
         oid *pr_new_oid = NULL;
 	int *p_data_less = NULL;
 	int *p_data_greater = NULL;
-	int nthreads=2;
+	int nthreads=0;
+        char* p;
+        
+	p = getenv("MULTITHREADS");
+        if (p == NULL)
+                nthreads = 1;
+        else
+                nthreads = atoi(p);
 
-
-	int pieces=0;
-	
 	p_data_less=GDKzalloc(nthreads * sizeof(int));
 	p_data_greater=GDKzalloc(nthreads * sizeof(int));
 
@@ -891,7 +897,14 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
         oid *pr_new_oid = NULL;
         int *p_data_less = NULL;
         int *p_data_greater = NULL;
-        int nthreads=2;
+	int nthreads=0;
+        char* p;
+
+        p = getenv("MULTITHREADS");
+        if (p == NULL)
+                nthreads = 1;
+        else    
+                nthreads = atoi(p);
 
         p_data_less=(int *) GDKmalloc(nthreads * sizeof(int));
         p_data_greater=(int *) GDKmalloc(nthreads * sizeof(int));
@@ -1005,7 +1018,14 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 	oid *pl_new_oid = NULL;
         int *p_data_less = NULL;
         int *p_data_greater = NULL;
-        int nthreads=2;
+	int nthreads=0;
+        char* p;
+
+        p = getenv("MULTITHREADS");
+        if (p == NULL)
+                nthreads = 1;
+        else    
+                nthreads = atoi(p);
 
         p_data_less=(int *) GDKmalloc(nthreads * sizeof(int));
         p_data_greater=(int *) GDKmalloc(nthreads * sizeof(int));
