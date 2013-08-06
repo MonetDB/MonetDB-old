@@ -134,16 +134,16 @@ CRKparalleluselectBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusive
 	if (*inclusiveLow == TRUE)
 	{
 		CRKscanUnorderedZeroParallel@2_RE_@1(b, pl_new, pl_new_oid, *low, cl1, ch1, nthreads, p_data_less, p_data_greater);
-		pl_new=(int *)malloc((ch1-cl1) * sizeof(int));
-		pl_new_oid=(oid *)malloc((ch1-cl1) * sizeof(oid));
+		pl_new=(int *) GDKmalloc((ch1-cl1) * sizeof(int));
+		pl_new_oid=(oid *) GDKmalloc((ch1-cl1) * sizeof(oid));
 		CRKreorganizeUnorderedZeroParallel@2_RE_@1(b, pl_new, pl_new_oid, *low, cl1, ch1, nthreads, p_data_less, p_data_greater);
 		CRKrestoreUnorderedZeroParallel@2_RE_@1(b, pl_new, pl_new_oid, *low, cl1, ch1, nthreads, p_data_less, p_data_greater, &vl);
 	}
 	else
 	{
 		CRKscanUnorderedZeroParallel@2_LE_@1(b, pl_new, pl_new_oid, *low, cl1, ch1, nthreads, p_data_less, p_data_greater);
-        	pl_new=(int *)malloc((ch1-cl1) * sizeof(int));
-		pl_new_oid=(oid *)malloc((ch1-cl1) * sizeof(oid));
+        	pl_new=(int *) GDKmalloc((ch1-cl1) * sizeof(int));
+		pl_new_oid=(oid *) GDKmalloc((ch1-cl1) * sizeof(oid));
 		CRKreorganizeUnorderedZeroParallel@2_LE_@1(b, pl_new, pl_new_oid, *low, cl1, ch1, nthreads, p_data_less, p_data_greater);
 		CRKrestoreUnorderedZeroParallel@2_LE_@1(b, pl_new, pl_new_oid, *low, cl1, ch1, nthreads, p_data_less, p_data_greater, &vl);
 	}
@@ -166,16 +166,16 @@ CRKparalleluselectBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusive
 	if (*inclusiveHgh == TRUE)
 	{
 		CRKscanUnorderedZeroParallel@2_LE_@1(b, pr_new, pr_new_oid, *hgh, cl2, ch2, nthreads, p_data_less, p_data_greater);
-		pr_new=(int *)malloc((ch2-cl2) * sizeof(int));
-		pr_new_oid=(oid *)malloc((ch2-cl2) * sizeof(oid));
+		pr_new=(int *) GDKmalloc((ch2-cl2) * sizeof(int));
+		pr_new_oid=(oid *) GDKmalloc((ch2-cl2) * sizeof(oid));
 		CRKreorganizeUnorderedZeroParallel@2_LE_@1(b, pr_new, pr_new_oid, *hgh, cl2, ch2, nthreads, p_data_less, p_data_greater);
        		CRKrestoreUnorderedZeroParallel@2_LE_@1(b, pr_new, pr_new_oid, *hgh, cl2, ch2, nthreads, p_data_less, p_data_greater, &vh);
 	 }
 	else
 	{
 		CRKscanUnorderedZeroParallel@2_RE_@1(b, pr_new, pr_new_oid, *hgh, cl2, ch2, nthreads, p_data_less, p_data_greater);
-		pr_new=(int *)malloc((ch2-cl2) * sizeof(int));
-		pr_new_oid=(oid *)malloc((ch2-cl2) * sizeof(oid));
+		pr_new=(int *) GDKmalloc((ch2-cl2) * sizeof(int));
+		pr_new_oid=(oid *) GDKmalloc((ch2-cl2) * sizeof(oid));
         	CRKreorganizeUnorderedZeroParallel@2_RE_@1(b, pr_new, pr_new_oid, *hgh, cl2, ch2, nthreads, p_data_less, p_data_greater);
 		CRKrestoreUnorderedZeroParallel@2_RE_@1(b, pr_new, pr_new_oid, *hgh, cl2, ch2, nthreads, p_data_less, p_data_greater, &vh);
 	}
@@ -575,6 +575,13 @@ createView:
 
 	/*fprintf(ofp,"%d\n",pieces);
 	fclose(ofp);*/
+	
+	GDKfree(pl_new);
+	GDKfree(pl_new_oid);
+	GDKfree(pr_new);
+	GDKfree(pr_new_oid);
+	GDKfree(p_data_less);
+	GDKfree(p_data_greater);
 
 	@:CreateResult()@
 	return MAL_SUCCEED;
@@ -886,8 +893,8 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
         int *p_data_greater = NULL;
         int nthreads=2;
 
-        p_data_less=(int *)malloc(nthreads * sizeof(int));
-        p_data_greater=(int *)malloc(nthreads * sizeof(int));
+        p_data_less=(int *) GDKmalloc(nthreads * sizeof(int));
+        p_data_greater=(int *) GDKmalloc(nthreads * sizeof(int));
 	
 	
 	if (*inclusiveHgh == TRUE) HBound = FALSE;
@@ -973,7 +980,12 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	} 	
 	else
 		vh = ch2;
-		
+	
+        GDKfree(pr_new);
+        GDKfree(pr_new_oid);
+        GDKfree(p_data_less);
+        GDKfree(p_data_greater);
+
 	@:CreateResult()@
 	return MAL_SUCCEED;
 }
@@ -995,8 +1007,8 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
         int *p_data_greater = NULL;
         int nthreads=2;
 
-        p_data_less=(int *)malloc(nthreads * sizeof(int));
-        p_data_greater=(int *)malloc(nthreads * sizeof(int));
+        p_data_less=(int *) GDKmalloc(nthreads * sizeof(int));
+        p_data_greater=(int *) GDKmalloc(nthreads * sizeof(int));
 
 
 	m = existsCrackerIndex(*bid);
@@ -1081,7 +1093,12 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 	} 	
 	else
 		vl = cl1;
-		
+
+	GDKfree(pl_new);
+        GDKfree(pl_new_oid);
+        GDKfree(p_data_less);
+        GDKfree(p_data_greater);
+	
 	@:CreateResult()@
 	return MAL_SUCCEED;
 }

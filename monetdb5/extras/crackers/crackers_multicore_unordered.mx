@@ -167,11 +167,11 @@ CRKscanUnorderedZeroParallel_@2_@1(BAT *b, @1 *temp_array, oid *temp_array_oid, 
 	oid partition_elements;
         thread_data_t *data;
 
-        pthread_t **thread = (pthread_t **) malloc (sizeof(pthread_t *) * nthreads);
+        pthread_t **thread = (pthread_t **) GDKmalloc (sizeof(pthread_t *) * nthreads);
         for (i = 0; i < nthreads; i++)
-                thread[i] = (pthread_t *) malloc (sizeof(pthread_t));
+                thread[i] = (pthread_t *) GDKmalloc (sizeof(pthread_t));
 
-        data = malloc (nthreads * sizeof(thread_data_t));
+        data = GDKmalloc (nthreads * sizeof(thread_data_t));
 
 
         partition_elements=(last-first+1)/nthreads;
@@ -206,9 +206,9 @@ CRKscanUnorderedZeroParallel_@2_@1(BAT *b, @1 *temp_array, oid *temp_array_oid, 
 
         /* Clean up. */
         for (i = 0; i < nthreads; i++)
-                free (thread[i]);
+                GDKfree(thread[i]);
 
-        free (thread);
+        GDKfree(thread);
 
 	return MAL_SUCCEED;
 }
@@ -219,14 +219,14 @@ CRKreorganizeUnorderedZeroParallel_@2_@1(BAT *b, @1 *temp_array, oid *temp_array
 	oid partition_elements;
 	thread_data_new_t *data;
 
-    	pthread_t **thread = (pthread_t **) malloc (sizeof(pthread_t *) * nthreads);
+    	pthread_t **thread = (pthread_t **) GDKmalloc (sizeof(pthread_t *) * nthreads);
 
 	/* Allocate memory for the pthread_ts. */
  	for (i = 0; i < nthreads; i++) 
-    		thread[i] = (pthread_t *) malloc (sizeof(pthread_t));
+    		thread[i] = (pthread_t *) GDKmalloc (sizeof(pthread_t));
 	
 	/* Allocate memory for thread data. */
-    	data = malloc (nthreads * sizeof(thread_data_new_t));
+    	data = GDKmalloc (nthreads * sizeof(thread_data_new_t));
 
 	/* Now create the threads. */
   	partition_elements=(last-first+1)/nthreads;
@@ -265,9 +265,9 @@ CRKreorganizeUnorderedZeroParallel_@2_@1(BAT *b, @1 *temp_array, oid *temp_array
 
 	/* Clean up. */
   	for (i = 0; i < nthreads; i++)
-    		free (thread[i]);
+    		GDKfree(thread[i]);
   	
-  	free (thread);
+  	GDKfree(thread);
 	return MAL_SUCCEED;
 }
 
@@ -279,16 +279,16 @@ CRKrestoreUnorderedZeroParallel_@2_@1(BAT *b, @1 *temp_array, oid *temp_array_oi
         oid partition_elements, position=0;
         thread_data_restore_t *data;
 
-        pthread_t **thread = (pthread_t **) malloc (sizeof(pthread_t *) * nthreads);
+        pthread_t **thread = (pthread_t **) GDKmalloc (sizeof(pthread_t *) * nthreads);
 
 	(void) data_greater;
 
         /* Allocate memory for the pthread_ts. */
         for (i = 0; i < nthreads; i++)
-                thread[i] = (pthread_t *) malloc (sizeof(pthread_t));
+                thread[i] = (pthread_t *) GDKmalloc (sizeof(pthread_t));
 
         /* Allocate memory for thread data. */
-        data = malloc (nthreads * sizeof(thread_data_restore_t));
+        data = GDKmalloc (nthreads * sizeof(thread_data_restore_t));
 
         /* Now create the threads. */
         partition_elements=(last-first+1)/nthreads;
@@ -328,16 +328,15 @@ CRKrestoreUnorderedZeroParallel_@2_@1(BAT *b, @1 *temp_array, oid *temp_array_oi
 
         /* Clean up. */
         for (i = 0; i < nthreads; i++)
-                free (thread[i]);
+                GDKfree(thread[i]);
 
-        free (thread);
+        GDKfree(thread);
 
 	for (i = 0; i < nthreads; i++)
                 position=position+data_less[i];
 
 	t0 = (@1 *)Tloc(b, BUNfirst(b));
 	lt = (@1 *)Tloc(b, BUNfirst(b) + first + position-1);
-//	*pos=(oid) (lt-t0);
 
 	if (@5_@4(lt, &mval,@6@1)){
         	if (lt==t0)
@@ -350,7 +349,6 @@ CRKrestoreUnorderedZeroParallel_@2_@1(BAT *b, @1 *temp_array, oid *temp_array_oi
                 if (*pos==last) /*empty right piece*/
  	               *pos = *pos + 1;
        }
-
 
         return MAL_SUCCEED;
 }
