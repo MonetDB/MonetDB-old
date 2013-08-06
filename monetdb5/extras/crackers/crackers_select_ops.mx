@@ -187,19 +187,11 @@ CRKthetauselect_@1(int *vid, int *bid, @1 *val, str *OP){
 		CRKcrackUnorderedThree@4_LO_RE_@1(b,*low,*hgh, @2, @3, &vl, &vh);
 	if (*inclusiveLow == FALSE && *inclusiveHgh == FALSE)
 		CRKcrackUnorderedThree@4_LO_RO_@1(b,*low,*hgh, @2, @3, &vl, &vh);
-	
 
-#ifdef CRACK_DEBUG
-	fprintf(stderr,"AFTER CRKcrackUnorderedThree vl= "OIDFMT"  \n", vl );
-#endif
 	/*if (vl != -1 && vh != -1){*/
 		if (vl>0) _vl=vl-1; else _vl=vl;
 		addCrackerIndex_@1(m,low,*inclusiveLow,_vl,c);
 		addCrackerIndex_@1(m,hgh,HBound,vh,c);
-#ifdef CRACK_DEBUG
-	fprintf(stderr,"AFTER crkThreeTree vl= "OIDFMT"  \n", vl );
-#endif
-	
 @
 @= crkThreeTreeCopy
         /*printf("crack in three pieces\n");*/
@@ -226,10 +218,7 @@ CRKthetauselect_@1(int *vid, int *bid, @1 *val, str *OP){
 		CRKcrackUnorderedZero@2_RE_@1(b,*low, cl1, ch1,&vl);
 	else
 		CRKcrackUnorderedZero@2_LE_@1(b,*low, cl1, ch1,&vl);
-
-#ifdef CRACK_DEBUG
-	fprintf(stderr,"AFTER CRKcrackUnorderedZero vl= "OIDFMT"  \n", vl );	
-#endif
+	
 	if (vl < cl1){
 		/*then the left piece is empty*/
 		gapL = -1;
@@ -242,10 +231,6 @@ CRKthetauselect_@1(int *vid, int *bid, @1 *val, str *OP){
 
 	vl++; /* We need to take next position because the crack function always returns the last bun of the left piece.
 		Instead we want the first bun of the right piece*/
-#ifdef CRACK_DEBUG
-	fprintf(stderr,"AFTER crkTwoLTree vl= "OIDFMT"  \n", vl );
-#endif
-	 
 @
 @= crkTwoRTree
 	/*CRACK in two pieces cl2-ch2 using <incHgh bound*/
@@ -301,26 +286,11 @@ createView:
 	BUN idxFirst;
 	bit copy=TRUE;
 
-	int pieces=0;
-	/*FILE *ofp;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_1st_paper/experiments/stochastic/idle_time_2/pieces_cracking.txt";
-	ofp = fopen(outputFilename1,"a");
-	if (ofp == NULL) {
-  		fprintf(stderr, "Can't open output file!\n");
-  		exit(1);
-	}*/
-
-	
 	if (@2_GT(low,hgh,@3@1))
 		throw(MAL, "crackers.crack", "illegal range");
 	
 	if (*inclusiveHgh == TRUE) HBound = FALSE;
 	else	HBound = TRUE; 				
-
-#ifdef CRACK_DEBUG
-	fprintf(stderr,"RangeSelectBody\n");
-#endif
-	
 
 	m = existsCrackerIndex(*bid);
 
@@ -355,17 +325,8 @@ createView:
 			   anyway so crack in three pieces cl-ch */
 			posl = BUNfirst(b);
 			posh = BUNlast(b)-1;
-#ifdef CRACK_DEBUG
-			fprintf(stderr,"\nposl= "OIDFMT" posh= "OIDFMT" \n", posl,posh );	
-#endif
-			/*printf(" "LLFMT" \n ",posh-posl);*/
+			
 			@:crkThreeTree@5(@1,posl,posh,@5)@
-			pieces = pieces + 3;
-			/*fprintf(ofp,"%d\n",pieces);
-			fclose(ofp);*/
-#ifdef CRACK_DEBUG
-			fprintf(stderr,"\ncl1= "OIDFMT" ch1= "OIDFMT" cl2= "OIDFMT" ch2= "OIDFMT" vl= "OIDFMT" vh= "OIDFMT" ", cl1,ch1,cl2,ch2,vl,vh );	
-#endif
 			
 			BBPincref(b->batCacheid,TRUE);
 			BBPunfix(bo->batCacheid);
@@ -398,7 +359,6 @@ createView:
 			posl = BUNfirst(b);
 			posh = BUNlast(b)-1;
 
-			/*printf(" "LLFMT" \n ",posh-posl);*/
 			@:crkThreeTreeCopy(@1,posl,posh,@5)@
 			
 			BBPincref(b->batCacheid,TRUE);
@@ -488,33 +448,17 @@ createView:
                         throw(MAL, "crackers.crackRange", "%s", msg);
 	}
 
-	
-
-	
 	/* find out where in the index the low falls */
-	
 	foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
 
 	/* find out where in the index the high falls */
 	foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
 	
-	/*printAVLTree(CrackerIndex[m].Tree, c, BUNfirst(c));*/
-	/*BATprint(BATdescriptor(CrackerIndex[m].cbid));*/ /*Print the cracker column BAT*/
-	/*BATprint(BATdescriptor(CrackerIndex[m].cid));  print the cracker index for BAT*/
 	t=(int *)Tloc(b,BUNfirst(b));
-
-#ifdef CRACK_DEBUG
-	fprintf(stderr,"FoundLow=%d  FoundHgh=%d\n",foundLow,foundHgh);
-	fprintf(stderr,"cl1= "OIDFMT" ch1= "OIDFMT" cl2= "OIDFMT" ch2= "OIDFMT" vl= "OIDFMT" vh= "OIDFMT",...t=%d , LBound=%d \n", cl1,ch1,cl2,ch2,vl,vh,*t,LBound );
-#endif
 
 	/*need to increase one position for the low bound only since we always store the previous position in the index*/
 	if (cl1 != 0 && LBound==FALSE) cl1++;
 	if (cl2 != 0) cl2++;
-
-#ifdef CRACK_DEBUG
-	fprintf(stderr,"cl1= "OIDFMT" ch1= "OIDFMT" cl2= "OIDFMT" ch2= "OIDFMT" vl= "OIDFMT" vh= "OIDFMT" \n\n", cl1,ch1,cl2,ch2,vl,vh );
-#endif
 
 	/* find the hols if any in the pieces to crack so that cracking does not touch deleted buns */
         if (CrackerIndex[m].mergeDeletions == 2){
@@ -567,15 +511,9 @@ createView:
 				else
 					_vl = vl;
 				if (gapL>0)
-				{
 					addCrackerIndex_@1(m, low, *inclusiveLow, _vl, c);
-					pieces = pieces + 1;
-				}
 				if (gapH>0)
-				{
 					addCrackerIndex_@1(m, hgh, HBound, vh, c);
-					pieces = pieces + 1;
-				}	
 				if ((vl == 1) && (*t == *low) && (*inclusiveLow == TRUE))
 					vl = vl - 1;
 			}
@@ -588,10 +526,7 @@ createView:
 				else
 					_vl = vl;
 				if (gapL>0)
-				{
 					addCrackerIndex_@1(m, low, *inclusiveLow, _vl, c);
-					pieces = pieces + 1;
-				}
 				if ((vl == 1) && (*t == *low) && (*inclusiveLow == TRUE))
 					vl = vl - 1;
 			}
@@ -601,10 +536,7 @@ createView:
 			t = (int *) Tloc(b, BUNfirst(b));
 			if (IndexSize < IndexStop)
 				if (gapH>0)
-				{
 					addCrackerIndex_@1(m, hgh, HBound, vh, c);
-					pieces = pieces + 1;
-				}
 			vl = cl1;
 			if ((vl == 0) && (*t < *low) && (*inclusiveLow == TRUE))
 				vl = vl + 1;
@@ -616,9 +548,6 @@ createView:
 			vl = vl + 1;
 		vh = ch2;
 	}
-
-	/*fprintf(ofp,"%d\n",pieces);
-	fclose(ofp);*/
 
 	@:CreateResult()@
 	return MAL_SUCCEED;
