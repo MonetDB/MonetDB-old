@@ -97,14 +97,38 @@ CRKparalleluselectBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusive
 @= crkThreeTree
         /*printf("crack in three pieces\n");*/
 	if (*inclusiveLow == TRUE && *inclusiveHgh == TRUE)
+	{
 		CRKcrackUnorderedThreeParallel@4_LE_RE_@1(b,*low,*hgh, @2, @3, &vl, &vh);
+		CRKscanUnorderedThreeParallel@4_LE_RE_@1(b,plh_new, plh_new_oid, *low,*hgh, @2, @3, nthreads, p_data_less, p_data_greater, p_data_med);
+		plh_new=(int *) GDKmalloc((@3-@2) * sizeof(int));
+                plh_new_oid=(oid *) GDKmalloc((@3-@2) * sizeof(oid));
+		CRKreorganizeUnorderedThreeParallel@4_LE_RE_@1(b,plh_new, plh_new_oid, *low,*hgh, @2, @3, nthreads, p_data_less, p_data_greater, p_data_med);
+	}
 	if (*inclusiveLow == TRUE && *inclusiveHgh == FALSE)
-		CRKcrackUnorderedThreeParallel@4_LE_RO_@1(b,*low,*hgh, @2, @3, &vl, &vh);
+	{
+		//CRKcrackUnorderedThreeParallel@4_LE_RO_@1(b,*low,*hgh, @2, @3, &vl, &vh);
+		CRKscanUnorderedThreeParallel@4_LE_RO_@1(b,plh_new, plh_new_oid, *low,*hgh, @2, @3, nthreads, p_data_less, p_data_greater, p_data_med);
+		plh_new=(int *) GDKmalloc((@3-@2) * sizeof(int));
+                plh_new_oid=(oid *) GDKmalloc((@3-@2) * sizeof(oid));
+        	CRKreorganizeUnorderedThreeParallel@4_LE_RO_@1(b,plh_new, plh_new_oid, *low,*hgh, @2, @3, nthreads, p_data_less, p_data_greater, p_data_med);
+		CRKrestoreUnorderedThreeParallel@4_LE_RO_@1(b,plh_new, plh_new_oid, *low,*hgh, @2, @3, nthreads, p_data_less, p_data_greater, p_data_med, &vl, &vh);
+	}
 	if (*inclusiveLow == FALSE && *inclusiveHgh == TRUE)
+	{
 		CRKcrackUnorderedThreeParallel@4_LO_RE_@1(b,*low,*hgh, @2, @3, &vl, &vh);
+		CRKscanUnorderedThreeParallel@4_LO_RE_@1(b,plh_new, plh_new_oid, *low,*hgh, @2, @3, nthreads, p_data_less, p_data_greater, p_data_med);
+		plh_new=(int *) GDKmalloc((@3-@2) * sizeof(int));
+                plh_new_oid=(oid *) GDKmalloc((@3-@2) * sizeof(oid));
+        	CRKreorganizeUnorderedThreeParallel@4_LO_RE_@1(b,plh_new, plh_new_oid, *low,*hgh, @2, @3, nthreads, p_data_less, p_data_greater, p_data_med);
+	}
 	if (*inclusiveLow == FALSE && *inclusiveHgh == FALSE)
+	{
 		CRKcrackUnorderedThreeParallel@4_LO_RO_@1(b,*low,*hgh, @2, @3, &vl, &vh);
-	
+		CRKscanUnorderedThreeParallel@4_LO_RO_@1(b,plh_new, plh_new_oid, *low,*hgh, @2, @3, nthreads, p_data_less, p_data_greater, p_data_med);
+		plh_new=(int *) GDKmalloc((@3-@2) * sizeof(int));
+                plh_new_oid=(oid *) GDKmalloc((@3-@2) * sizeof(oid));
+        	CRKreorganizeUnorderedThreeParallel@4_LO_RO_@1(b,plh_new, plh_new_oid, *low,*hgh, @2, @3, nthreads, p_data_less, p_data_greater, p_data_med);
+	}
 	/*if (vl != -1 && vh != -1){*/
 		if (vl>0) _vl=vl-1; else _vl=vl;
 		addCrackerIndex_@1(m,low,*inclusiveLow,_vl,c);
@@ -230,8 +254,11 @@ createView:
 	oid *pl_new_oid = NULL;
 	int *pr_new = NULL;
         oid *pr_new_oid = NULL;
+	int *plh_new = NULL;
+        oid *plh_new_oid = NULL;
 	int *p_data_less = NULL;
 	int *p_data_greater = NULL;
+	int *p_data_med = NULL;
 	int nthreads;
         char* p;
         
@@ -243,6 +270,7 @@ createView:
 
 	p_data_less=GDKzalloc(nthreads * sizeof(int));
 	p_data_greater=GDKzalloc(nthreads * sizeof(int));
+	p_data_med=GDKzalloc(nthreads * sizeof(int));
 
 	if (@2_GT(low,hgh,@3@1))
 		throw(MAL, "crackers.crack", "illegal range");
