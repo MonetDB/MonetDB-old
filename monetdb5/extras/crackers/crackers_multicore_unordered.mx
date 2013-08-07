@@ -767,7 +767,7 @@ CRKrestoreUnorderedThreeParallel_@2_@3_@1(BAT *b, @1 *temp_array, oid *temp_arra
                 return MAL_SUCCEED;	
 	}
 
-       *posl = (oid) (lt - t0);
+       *posl = (oid) (lt - t0) + 1;
        *posh = (oid) (ht - t0);
 
         return MAL_SUCCEED;
