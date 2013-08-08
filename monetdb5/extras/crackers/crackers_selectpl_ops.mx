@@ -223,9 +223,9 @@ CRKsumplBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *
 @= crkTwoLTree
 	/*CRACK in two pieces cl1-ch1 using >incLow bound*/
 	if (*inclusiveLow == TRUE)
-		CRKcrackUnorderedZero@2_RE_@1(b,*low, cl1, ch1,&vl);
+		CRKcrackUnorderedZero@2_RE_@1(b,*low, cl1, ch1,&vl, int_nil);
 	else
-		CRKcrackUnorderedZero@2_LE_@1(b,*low, cl1, ch1,&vl);
+		CRKcrackUnorderedZero@2_LE_@1(b,*low, cl1, ch1,&vl, int_nil);
 	
 	if (vl < cl1){
 		/*then the left piece is empty*/
@@ -244,9 +244,9 @@ CRKsumplBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *
 @= crkTwoRTree
 	/*CRACK in two pieces cl2-ch2 using <incHgh bound*/
 	if (*inclusiveHgh == TRUE)
-		CRKcrackUnorderedZero@2_LE_@1(b,*hgh, cl2, ch2,&vh);
+		CRKcrackUnorderedZero@2_LE_@1(b,*hgh, cl2, ch2,&vh, int_nil);
 	else
-		CRKcrackUnorderedZero@2_RE_@1(b,*hgh, cl2, ch2,&vh);
+		CRKcrackUnorderedZero@2_RE_@1(b,*hgh, cl2, ch2,&vh, int_nil);
 
 	if (vh < cl2)
 		/*then the left piece is empty*/

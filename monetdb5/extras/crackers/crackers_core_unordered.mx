@@ -96,20 +96,20 @@ All Rights Reserved.
  * @- Exported signatures
  */
 @= CoreUnorderedFunctions_decl
-crackers_export str CRKcrackUnorderedZero_@1 (int *res, int *bid, @1 *mid);
+crackers_export str CRKcrackUnorderedZero_@1 (int *res, int *bid, @1 *mid, int nthreads);
 crackers_export str CRKcrackUnorderedThree_@1 (int *res, int *bid, @1 *low, @1 *hgh);
 @
  * @- Signatures shared within the crackers module/library
 @= operations
-@:crackInTwoUnorderedPieces@4(@1,LE,LE,GT,@2,@3)@
-@:crackInTwoUnorderedPieces@4(@1,RE,LT,GE,@2,@3)@
+@:crackInTwoUnorderedPieces@4(@1,LE,LE,GT,@2,@3,<=,>)@
+@:crackInTwoUnorderedPieces@4(@1,RE,LT,GE,@2,@3,<,>=)@
 @:crackInThreeUnorderedPieces@4(@1,LO,RE,LE,GT,LE,GT,@2,@3)@
 @:crackInThreeUnorderedPieces@4(@1,LE,RE,LT,GE,LE,GT,@2,@3)@
 @:crackInThreeUnorderedPieces@4(@1,LO,RO,LE,GT,LT,GE,@2,@3)@
 @:crackInThreeUnorderedPieces@4(@1,LE,RO,LT,GE,LT,GE,@2,@3)@
 @
 @= crackInTwoUnorderedPieces_decl
-str CRKcrackUnorderedZero_@2_@1( BAT *b, @1 mval, oid first, oid last, oid *pos);
+str CRKcrackUnorderedZero_@2_@1( BAT *b, @1 mval, oid first, oid last, oid *pos, int nthreads);
 @
 @= crackInThreeUnorderedPieces_decl
 str CRKcrackUnorderedThree_@2_@3_@1( BAT *b, @1 low, @1 hgh, oid first, oid last, oid *posl, oid *posh);
@@ -154,6 +154,24 @@ str CRKcrackUnorderedThreeSideways_@3_@4_@1_str( BAT *b, @1 low, @1 hgh, oid fir
 #include "monetdb_config.h"
 #include "crackers.h"
 
+#define CRACK_MUTLI_THREAD_DEBUG
+
+/* argument struct for countThread & crackThread functions */
+typedef struct {
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	int id;            /* thread id */
+ #endif
+	BUN n;             /* # tuples / values per piece / thread */
+	BUN *cnt_off;      /* counts/offsets pair:
+	                      [0] = first piece / smaller values
+	                      [1] = second piece / larger values */
+	const void *mval;  /* pivot value */
+	const void *src_t; /* input / source tail */
+	const oid *src_h;  /* input / source head */
+	void *dst_t;       /* output / destination tail */
+	oid *dst_h;        /* output / destination head */
+} c_Thread_t;
+
 /* Functions shared within the crackers module/library */
 @:TypeSwitch(operations,_impl)@
 @:TypeSwitch_4(operationsSideways,_impl)@
@@ -166,7 +184,7 @@ str CRKcrackUnorderedThreeSideways_@3_@4_@1_str( BAT *b, @1 low, @1 hgh, oid fir
  */
 @= CoreUnorderedFunctions_impl
 str
-CRKcrackUnorderedZero_@1 (int *res, int *bid, @1 *mid){
+CRKcrackUnorderedZero_@1 (int *res, int *bid, @1 *mid, int nthreads){
         BAT *b;
         str msg;
 	oid pos;
@@ -178,7 +196,7 @@ CRKcrackUnorderedZero_@1 (int *res, int *bid, @1 *mid){
        /* if( sizeof(struct SCRATCH{ oid hdummy; @1 tdummy; } ) != BUNsize(b) )
                 throw(MAL, "crackers.crack_zeroUnordered", "Need more clever mapping ");
 	*/
-        msg = CRKcrackUnorderedZero_LE_@1( b, *mid,(BUN) 0, BATcount(b)-1, &pos);
+        msg = CRKcrackUnorderedZero_LE_@1( b, *mid,(BUN) 0, BATcount(b)-1, &pos, nthreads);
 
         BBPkeepref(b->batCacheid);
         *res = *bid;
@@ -209,13 +227,23 @@ CRKcrackUnorderedThree_@1 (int *res, int *bid, @1 *low, @1 *hgh){
 @
  * @- Functions shared within the crackers module/library
 @= crackInTwoUnorderedPieces_impl
-str
-CRKcrackUnorderedZero_@2_@1( BAT *b, @1 mval, BUN first, BUN last, oid *pos){
+
+
+/* original single-threaded crack code */
+static str
+CRKcrackUnorderedZero_@2_@1_ST( BAT *b, @1 mval, BUN first, BUN last, oid *pos){
         @1  *ft, *lt, *t0;
 	oid *fh, *lh;
         oid hdummy;
         @1 tdummy;
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+        lng t_0, t_1;
 	
+	fprintf(stderr,
+		"CRKcrackUnorderedZero_@2_@1_ST ( %d, "LLFMT", "BUNFMT", "BUNFMT" ) ...\n",
+		b->batCacheid, (lng) mval, first, last);
+	t_0 = GDKusec();
+ #endif
 
         /* set bounds for the iterator */
         t0 = (@1 *)Tloc(b, BUNfirst(b));
@@ -257,9 +285,382 @@ CRKcrackUnorderedZero_@2_@1( BAT *b, @1 mval, BUN first, BUN last, oid *pos){
 		else
 			*pos = (oid) BUNfirst(b);
 	}		
+
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	t_1 = GDKusec();
+	fprintf(stderr,
+		"CRKcrackUnorderedZero_@2_@1_ST ( %d, "LLFMT", "BUNFMT", "BUNFMT" ) -> "OIDFMT" : %.6f secs\n",
+		b->batCacheid, (lng) mval, first, last, *pos, (dbl) (t_1 - t_0) / 1000000.0);
+ #endif
 		
         return MAL_SUCCEED;
 }
+
+
+/* revised single-threaded crack code */
+static str
+CRKcrackUnorderedZero_@2_@1_STx ( const BAT *b, const @1 mval, const BUN first, const BUN last, oid *pos )
+{
+	BUN p = 0, q = last - first;
+	oid *src_h;
+	@1  *src_t;
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	lng t_0, t_1;
+
+	fprintf(stderr,
+		"CRKcrackUnorderedZero_@2_@1_STx ( %d, "LLFMT", "BUNFMT", "BUNFMT" ) ...\n",
+		b->batCacheid, (lng) mval, first, last);
+	t_0 = GDKusec();
+ #endif
+
+	/* input (source) arrays */
+	src_h = (oid*) Hloc(b, BUNfirst(b) + first);
+	src_t = (@1 *) Tloc(b, BUNfirst(b) + first);
+
+	while (p < q) {
+		/* skip over smaller values from beginning */
+		while (p < q && src_t[p] @7 mval /*@5_@3(&src_t[p], &mval, @6@1)*/)
+			p++;
+		/* skip over larger values from end */
+		while (p < q && src_t[q] @8 mval /*@5_@4(&src_t[q], &mval, @6@1)*/)
+			q--;
+		if (p < q) {
+			/* swap values */
+			const oid h = src_h[p];
+			const @1  t = src_t[p];
+			src_h[p] = src_h[q];
+			src_t[p] = src_t[q];
+			src_h[q] = h;
+			src_t[q] = t;
+			p++;
+			q--;
+		}
+	}
+
+	/* return pivot position */
+	q = last - first;
+	while (p <= q && src_t[p] @7 mval /*@5_@3(&src_t[p], &mval, @6@1)*/)
+		p++;
+	*pos = (oid) (first + p - 2);
+
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	t_1 = GDKusec();
+	fprintf(stderr,
+		"CRKcrackUnorderedZero_@2_@1_STx ( %d, "LLFMT", "BUNFMT", "BUNFMT" ) -> "OIDFMT" : %.6f secs\n",
+		b->batCacheid, (lng) mval, first, last, *pos, (dbl) (t_1 - t_0) / 1000000.0);
+ #endif
+
+	return MAL_SUCCEED;
+}
+
+
+/* countThread for new multi-threaded crack code */
+static void*
+CRKcrackUnorderedZero_@2_@1_MT_countThread ( void *arg_p )
+{
+	c_Thread_t *arg = (c_Thread_t*) arg_p;
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	const int id = arg->id;                   /* thread id */
+ #endif
+	const BUN n = arg->n;                     /* # tuples / values per piece / thread */
+	BUN *cnt = arg->cnt_off;                  /* counts/offsets pair:
+	                                             [0] = first piece / smaller values
+	                                             [1] = second piece / larger values */
+	const @1 mval = * (@1*) arg->mval;        /* pivot value */
+	const @1 *src_t = (const @1*) arg->src_t; /* input / source tail */
+	BUN i;
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	lng t_0, t_1;
+
+	fprintf(stderr,
+		"CRKcrackUnorderedZero_@2_@1_MT_countThread ( %d, "LLFMT", "BUNFMT" ) ...\n",
+		id, (lng) mval, n);
+	t_0 = GDKusec();
+ #endif
+
+	/* count smaller / larger values */
+	for (i = 0; i < n; i++) {
+		/* [0] = first piece / smaller values */
+		/* [1] = second piece / larger values */
+		cnt[src_t[i] @8 mval /*@5_@4(&src_t[i], &mval, @6@1)*/]++;
+	}
+
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	t_1 = GDKusec();
+	fprintf(stderr,
+		"CRKcrackUnorderedZero_@2_@1_MT_countThread ( %d, "LLFMT", "BUNFMT" ) -> "BUNFMT", "BUNFMT" : %.6f s\n",
+		id, (lng) mval, n, cnt[0], cnt[1], (dbl) (t_1 - t_0) / 1000000.0);
+ #endif
+
+	pthread_exit(NULL);
+	return NULL;
+}
+
+
+/* crackThread for new multi-threaded crack code */
+static void*
+CRKcrackUnorderedZero_@2_@1_MT_crackThread ( void *arg_p )
+{
+	c_Thread_t *arg = (c_Thread_t*) arg_p;
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	const int id = arg->id;             /* thread id */
+ #endif
+	const BUN n = arg->n;               /* # tuples / values per piece / thread */
+	BUN *off = arg->cnt_off;            /* counts/offsets pair:
+	                                       [0] = first piece / smaller values
+	                                       [1] = second piece / larger values */
+	const @1 mval = * (@1*) arg->mval;  /* pivot value */
+	const @1 *src_t = (@1*) arg->src_t; /* input / source tail */
+	const oid *src_h = arg->src_h;      /* input / source head */
+	@1 *dst_t = (@1*) arg->dst_t;       /* output / destination tail */
+	oid *dst_h = arg->dst_h;            /* output / destination head */
+	BUN i;
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	lng t_0, t_1;
+
+	fprintf(stderr,
+		"CRKcrackUnorderedZero_@2_@1_MT_crackThread ( %d, "LLFMT", "BUNFMT", "BUNFMT", "BUNFMT" ) ...\n",
+		id, (lng) mval, n, off[0], off[1]);
+	t_0 = GDKusec();
+ #endif
+
+	/* crack into temp. arrays */
+	for (i = 0; i < n; i++) {
+		const bit x = src_t[i] @8 mval /*@5_@4(&src_t[i], &mval, @6@1)*/;
+		dst_h[off[x]] = src_h[i];
+		dst_t[off[x]] = src_t[i];
+		off[x]++;
+	}
+
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	t_1 = GDKusec();
+	fprintf(stderr,
+		"CRKcrackUnorderedZero_@2_@1_MT_crackThread ( %d, "LLFMT", "BUNFMT", "BUNFMT", "BUNFMT" ) : %.6f s\n",
+		id, (lng) mval, n, off[0], off[1], (dbl) (t_1 - t_0) / 1000000.0);
+ #endif
+
+	pthread_exit(NULL);
+	return NULL;
+}
+
+
+/* new multi-threaded crack code */
+static str
+CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, const BUN last, oid *pos, int nthreads )
+{
+	const BUN n = last - first + 1; /* total # tuples / values */
+	BUN m;                          /* # tuples / values per piece / thread */
+	BUN l;                          /* total # smaller values */
+	BUN *cnt, *off;                 /* counts/offsets pair:
+	                                   [0] = first piece / smaller values
+	                                   [1] = second piece / larger values */
+	oid *src_h, *dst_h;             /* head of input (source) & output (destination) */
+	@1  *src_t, *dst_t;             /* tail of input (source) & output (destination) */
+	pthread_t *c_Thread;            /* threads array */
+	c_Thread_t *c_Thread_arg;       /* thread arguments array */
+	int i, j;
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	lng t_0, t_1, t_2;
+
+	fprintf(stderr,
+		"CRKcrackUnorderedZero_@2_@1_MT ( %d, "LLFMT", "BUNFMT", "BUNFMT", %d ) ...\n",
+		b->batCacheid, (lng) mval, first, last, nthreads);
+	t_0 = GDKusec();
+ #endif
+
+	/* adjust nthreads */
+	if (nthreads == 0) {
+		/* automatic setting */
+		nthreads = GDKnr_threads;
+	}
+	if ((BUN) nthreads > n / 1000) {
+		/* more threads / smaller pieces does not make sense */
+		nthreads = (int) (n / 1000) + 1;
+	}
+
+	/* input (source) arrays */
+	src_h = (oid*) Hloc(b, BUNfirst(b) + first);
+	src_t = (@1 *) Tloc(b, BUNfirst(b) + first);
+
+	/* allocate temporary data structures */
+	cnt = GDKzalloc(nthreads * 2 * sizeof(BUN));
+	off = GDKzalloc(nthreads * 2 * sizeof(BUN));
+	dst_h = GDKmalloc(n * sizeof(oid));
+	dst_t = GDKmalloc(n * sizeof(@1 ));
+	c_Thread = GDKmalloc (nthreads * sizeof(pthread_t));
+	c_Thread_arg  = GDKzalloc(nthreads * sizeof(c_Thread_t));
+	if (!cnt || !off || !dst_h || !dst_t || !c_Thread || !c_Thread_arg) {
+		if (cnt)
+			GDKfree(cnt);
+		if (off)
+			GDKfree(off);
+		if (dst_h)
+			GDKfree(dst_h);
+		if (dst_t)
+			GDKfree(dst_t);
+		if (c_Thread)
+			GDKfree(c_Thread);
+		if (c_Thread_arg)
+			GDKfree(c_Thread_arg);
+		throw (MAL, "crackers.select", "CRKcrackUnorderedZero_@2_@1_MT(): GDKmalloc() failed.");
+	}
+
+	/* initilize countThread arguments */
+	m = n / nthreads;
+	for (i = 0, j = 0; i < nthreads; i++, j += 2) {
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+		c_Thread_arg[i].id      = i;
+ #endif
+		c_Thread_arg[i].n       = m;
+		c_Thread_arg[i].cnt_off = &cnt[j];
+		c_Thread_arg[i].mval    = &mval;
+		c_Thread_arg[i].src_t   = &src_t[i * m];
+		/* other arguments not needed for countThread */
+	}
+	c_Thread_arg[nthreads - 1].n = n - (nthreads - 1) * m;
+
+	/* count smaller / larger values */
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	t_2 = GDKusec();
+ #endif
+	for (i = 0; i < nthreads; i++) {
+		if (pthread_create(&c_Thread[i], NULL, CRKcrackUnorderedZero_@2_@1_MT_countThread, &c_Thread_arg[i])) {
+			GDKfree(cnt);
+			GDKfree(off);
+			GDKfree(dst_h);
+			GDKfree(dst_t);
+			GDKfree(c_Thread);
+			GDKfree(c_Thread_arg);
+			throw (MAL, "crackers.select", "CRKcrackUnorderedZero_@2_@1_MT(): Failed creating countThread %d.", i);
+		}
+	}
+	for (i = 0; i < nthreads; i++) {
+		if (pthread_join(c_Thread[i], NULL)) {
+			GDKfree(cnt);
+			GDKfree(off);
+			GDKfree(dst_h);
+			GDKfree(dst_t);
+			GDKfree(c_Thread);
+			GDKfree(c_Thread_arg);
+			throw (MAL, "crackers.select", "CRKcrackUnorderedZero_@2_@1_MT(): Failed joining countThread %d.", i);
+		 }
+	}
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	t_1 = GDKusec();
+	fprintf(stderr,
+		"CRKcrackUnorderedZero_@2_@1_MT ( %d, "LLFMT", "BUNFMT", "BUNFMT", %d ) count : %.6f sec\n",
+		b->batCacheid, (lng) mval, first, last, nthreads, (dbl) (t_1 - t_2) / 1000000.0);
+ #endif
+
+	/* turn local counts into global offsets */
+	l = 0;
+	for (j = 0, i = nthreads * 2; j < i; j += 2)
+		l += cnt[j];
+	off[0] = 0;
+	off[1] = l;
+	for (j = 2, i = nthreads * 2; j < i; j += 2) {
+		off[j] = off[j - 2] + cnt[j - 2];
+		off[j + 1] = off[j - 1] + cnt[j - 1];
+	}
+
+	/* initilize crackThread arguments */
+	for (i = 0, j = 0; i < nthreads; i++, j += 2) {
+		c_Thread_arg[i].cnt_off = &off[j];
+		c_Thread_arg[i].src_h   = &src_h[i * m];
+		c_Thread_arg[i].dst_h   = dst_h;
+		c_Thread_arg[i].dst_t   = dst_t;
+		/* other arguments already set for countThread */
+	}
+
+	/* crack into temp. arrays */
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	t_2 = GDKusec();
+ #endif
+	for (i = 0; i < nthreads; i++) {
+		if (pthread_create(&c_Thread[i], NULL, CRKcrackUnorderedZero_@2_@1_MT_crackThread, &c_Thread_arg[i])) {
+			GDKfree(cnt);
+			GDKfree(off);
+			GDKfree(dst_h);
+			GDKfree(dst_t);
+			GDKfree(c_Thread);
+			GDKfree(c_Thread_arg);
+			throw (MAL, "crackers.select", "CRKcrackUnorderedZero_@2_@1_MT(): Failed creating crackThread %d.", i);
+		}
+	}
+	for (i = 0; i < nthreads; i++) {
+		if (pthread_join(c_Thread[i], NULL)) {
+			GDKfree(cnt);
+			GDKfree(off);
+			GDKfree(dst_h);
+			GDKfree(dst_t);
+			GDKfree(c_Thread);
+			GDKfree(c_Thread_arg);
+			throw (MAL, "crackers.select", "CRKcrackUnorderedZero_@2_@1_MT(): Failed joining crackThread %d.", i);
+		 }
+	}
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	t_1 = GDKusec();
+	fprintf(stderr,
+		"CRKcrackUnorderedZero_@2_@1_MT ( %d, "LLFMT", "BUNFMT", "BUNFMT", %d ) crack : %.6f sec\n",
+		b->batCacheid, (lng) mval, first, last, nthreads, (dbl) (t_1 - t_2) / 1000000.0);
+ #endif
+
+	/* restore into BAT */
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	t_2 = GDKusec();
+ #endif
+	memcpy(src_h, dst_h, n * sizeof(oid));
+	memcpy(src_t, dst_t, n * sizeof(@1 ));
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	t_1 = GDKusec();
+	fprintf(stderr,
+		"CRKcrackUnorderedZero_@2_@1_MT ( %d, "LLFMT", "BUNFMT", "BUNFMT", %d ) restore : %.6f sec\n",
+		b->batCacheid, (lng) mval, first, last, nthreads, (dbl) (t_1 - t_2) / 1000000.0);
+ #endif
+
+	*pos = (oid) (first + l - 1);
+
+	GDKfree(cnt);
+	GDKfree(off);
+	GDKfree(dst_h);
+	GDKfree(dst_t);
+	GDKfree(c_Thread);
+	GDKfree(c_Thread_arg);
+
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	t_1 = GDKusec();
+	fprintf(stderr,
+		"CRKcrackUnorderedZero_@2_@1_MT ( %d, "LLFMT", "BUNFMT", "BUNFMT", %d ) -> "OIDFMT" : %.6f secs\n",
+		b->batCacheid, (lng) mval, first, last, nthreads, *pos, (dbl) (t_1 - t_0) / 1000000.0);
+ #endif
+
+	return MAL_SUCCEED;
+}
+
+
+/* crack implementation dispatcher */
+str
+CRKcrackUnorderedZero_@2_@1( BAT *b, @1 mval, BUN first, BUN last, oid *pos, int nthreads){
+	assert(b);
+	assert(last >= first);
+	assert(pos);
+
+	if (nthreads == int_nil) {
+		/* original single-threaded crack code */
+		return CRKcrackUnorderedZero_@2_@1_ST(b, mval, first, last, pos);
+	} else
+	if (nthreads == -1) {
+		/* revised single-threaded crack code */
+		return CRKcrackUnorderedZero_@2_@1_STx(b, mval, first, last, pos);
+	} else
+	if (nthreads >= 0) {
+		/* new multi-threaded crack code */
+		return CRKcrackUnorderedZero_@2_@1_MT(b, mval, first, last, pos, nthreads);
+	} else {
+		throw(MAL, "crackers.select", "CRKcrackUnorderedZero_@2_@1(): Illegal number of threads: %d", nthreads);
+	}
+}
+
 
 @
 @= crackInThreeUnorderedPieces_impl

@@ -54,6 +54,7 @@ All Rights Reserved.
  * @- Exported signatures
  */
 @= SelectFunctions_decl
+/* original single-threaded versions */
 crackers_export str CRKselectBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh);
 crackers_export str CRKuselectBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh);
 crackers_export str CRKselectValue_@1(int *vid, int *bid, @1 *value);
@@ -62,6 +63,15 @@ crackers_export str CRKselect_@1(int *vid, int *bid, @1 *low, @1 *hgh);
 crackers_export str CRKuselect_@1(int *vid, int *bid, @1 *low, @1 *hgh);
 crackers_export str CRKthetaselect_@1(int *vid, int *bid, @1 *val, str *op);
 crackers_export str CRKthetauselect_@1(int *vid, int *bid, @1 *val, str *op);
+/* new multi-threaded versions */
+crackers_export str CRKselectBounds_@1_MT(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh, const int *nthreads);
+crackers_export str CRKuselectBounds_@1_MT(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh, const int *nthreads);
+crackers_export str CRKselectValue_@1_MT(int *vid, int *bid, @1 *value, const int *nthreads);
+crackers_export str CRKuselectValue_@1_MT(int *vid, int *bid, @1 *value, const int *nthreads);
+crackers_export str CRKselect_@1_MT(int *vid, int *bid, @1 *low, @1 *hgh, const int *nthreads);
+crackers_export str CRKuselect_@1_MT(int *vid, int *bid, @1 *low, @1 *hgh, const int *nthreads);
+crackers_export str CRKthetaselect_@1_MT(int *vid, int *bid, @1 *val, str *op, const int *nthreads);
+crackers_export str CRKthetauselect_@1_MT(int *vid, int *bid, @1 *val, str *op, const int *nthreads);
 @
 @c
 /*
@@ -86,51 +96,79 @@ crackers_export str CRKthetauselect_@1(int *vid, int *bid, @1 *val, str *op);
 @= SelectFunctions_impl
 
 str
-CRKselectBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh){		
+CRKselectBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh){
+	return CRKselectBounds_@1_MT(vid, bid, low, hgh, inclusiveLow, inclusiveHgh, &int_nil);
+}
+str
+CRKselectBounds_@1_MT(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh, const int *nthreads){
 	if (@2_EQ(low,ATOMnilptr(TYPE_@1),@3@1))
-		return CRKRangeLeftNilTree_@1(vid, bid, hgh, inclusiveHgh, TRUE);
+		return CRKRangeLeftNilTree_@1(vid, bid, hgh, inclusiveHgh, TRUE, *nthreads);
 	else if (@2_EQ(hgh,ATOMnilptr(TYPE_@1),@3@1))
-		return CRKRangeRightNilTree_@1(vid, bid, low, inclusiveLow, TRUE);
+		return CRKRangeRightNilTree_@1(vid, bid, low, inclusiveLow, TRUE, *nthreads);
 	else
-		return CRKRangeTree_@1(vid, bid, low, hgh, inclusiveLow, inclusiveHgh, TRUE);
+		return CRKRangeTree_@1(vid, bid, low, hgh, inclusiveLow, inclusiveHgh, TRUE, *nthreads);
 }
 
 str
 CRKuselectBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh){
+	return CRKuselectBounds_@1_MT(vid, bid, low, hgh, inclusiveLow, inclusiveHgh, &int_nil);
+}
+str
+CRKuselectBounds_@1_MT(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh, const int *nthreads){
 	if (@2_EQ(low,ATOMnilptr(TYPE_@1),@3@1))
-		return CRKRangeLeftNilTree_@1(vid, bid, hgh, inclusiveHgh, FALSE);
+		return CRKRangeLeftNilTree_@1(vid, bid, hgh, inclusiveHgh, FALSE, *nthreads);
 	else if (@2_EQ(hgh,ATOMnilptr(TYPE_@1),@3@1))
-		return CRKRangeRightNilTree_@1(vid, bid, low, inclusiveLow, FALSE);
+		return CRKRangeRightNilTree_@1(vid, bid, low, inclusiveLow, FALSE, *nthreads);
 	else
-		return CRKRangeTree_@1(vid, bid, low, hgh, inclusiveLow, inclusiveHgh, FALSE);
+		return CRKRangeTree_@1(vid, bid, low, hgh, inclusiveLow, inclusiveHgh, FALSE, *nthreads);
 }
 
 str
 CRKselectValue_@1(int *vid, int *bid, @1 *value){
+	return CRKselectValue_@1_MT(vid, bid, value, &int_nil);
+}
+str
+CRKselectValue_@1_MT(int *vid, int *bid, @1 *value, const int *nthreads){
 	bit inclusive = TRUE;
-	return CRKuselectBounds_@1(vid, bid, value, value, &inclusive, &inclusive);
+	return CRKuselectBounds_@1_MT(vid, bid, value, value, &inclusive, &inclusive, nthreads);
 }
 
 str
 CRKuselectValue_@1(int *vid, int *bid, @1 *value){
+	return CRKuselectValue_@1_MT(vid, bid, value, &int_nil);
+}
+str
+CRKuselectValue_@1_MT(int *vid, int *bid, @1 *value, const int *nthreads){
 	bit inclusive = TRUE;
-	return CRKuselectBounds_@1(vid, bid, value, value, &inclusive, &inclusive);
+	return CRKuselectBounds_@1_MT(vid, bid, value, value, &inclusive, &inclusive, nthreads);
 }
 
 str
 CRKselect_@1(int *vid, int *bid, @1 *low, @1 *hgh){
+	return CRKselect_@1_MT(vid, bid, low, hgh, &int_nil);
+}
+str
+CRKselect_@1_MT(int *vid, int *bid, @1 *low, @1 *hgh, const int *nthreads){
 	bit inclusive = TRUE;
-	return CRKselectBounds_@1(vid, bid, low, hgh, &inclusive, &inclusive);
+	return CRKselectBounds_@1_MT(vid, bid, low, hgh, &inclusive, &inclusive, nthreads);
 }
 
 str
 CRKuselect_@1(int *vid, int *bid, @1 *low, @1 *hgh){
+	return CRKuselect_@1_MT(vid, bid, low, hgh, &int_nil);
+}
+str
+CRKuselect_@1_MT(int *vid, int *bid, @1 *low, @1 *hgh, const int *nthreads){
 	bit inclusive = TRUE;
-	return CRKuselectBounds_@1(vid, bid, low, hgh, &inclusive, &inclusive);
+	return CRKuselectBounds_@1_MT(vid, bid, low, hgh, &inclusive, &inclusive, nthreads);
 }
 
 str
 CRKthetaselect_@1(int *vid, int *bid, @1 *val, str *OP){
+	return CRKthetaselect_@1_MT(vid, bid, val, OP, &int_nil);
+}
+str
+CRKthetaselect_@1_MT(int *vid, int *bid, @1 *val, str *OP, const int *nthreads){
 	ptr nilptr = ATOMnilptr(TYPE_@1); 
 	char *op = *OP; 
 	bit lin = TRUE, rin = TRUE;
@@ -149,11 +187,15 @@ CRKthetaselect_@1(int *vid, int *bid, @1 *val, str *OP){
 		throw(MAL, "crackers.thetaselect", "unknown operator");
 	}
 
-	return CRKselectBounds_@1(vid, bid, low, high, &lin, &rin);
+	return CRKselectBounds_@1_MT(vid, bid, low, high, &lin, &rin, nthreads);
 }
 
 str
 CRKthetauselect_@1(int *vid, int *bid, @1 *val, str *OP){
+	return CRKthetauselect_@1_MT(vid, bid, val, OP, &int_nil);
+}
+str
+CRKthetauselect_@1_MT(int *vid, int *bid, @1 *val, str *OP, const int *nthreads){
 	ptr nilptr = ATOMnilptr(TYPE_@1); 
 	char *op = *OP; 
 	bit lin = TRUE, rin = TRUE;
@@ -171,7 +213,7 @@ CRKthetauselect_@1(int *vid, int *bid, @1 *val, str *OP){
 		throw(MAL, "crackers.thetauselect", "unknown operator");
 	}
 
-	return CRKuselectBounds_@1(vid, bid, low, high, &lin, &rin);
+	return CRKuselectBounds_@1_MT(vid, bid, low, high, &lin, &rin, nthreads);
 }
 
 @
@@ -215,9 +257,9 @@ CRKthetauselect_@1(int *vid, int *bid, @1 *val, str *OP){
 @= crkTwoLTree
 	/*CRACK in two pieces cl1-ch1 using >incLow bound*/
 	if (*inclusiveLow == TRUE)
-		CRKcrackUnorderedZero@2_RE_@1(b,*low, cl1, ch1,&vl);
+		CRKcrackUnorderedZero@2_RE_@1(b,*low, cl1, ch1,&vl, nthreads);
 	else
-		CRKcrackUnorderedZero@2_LE_@1(b,*low, cl1, ch1,&vl);
+		CRKcrackUnorderedZero@2_LE_@1(b,*low, cl1, ch1,&vl, nthreads);
 	
 	if (vl < cl1){
 		/*then the left piece is empty*/
@@ -235,9 +277,9 @@ CRKthetauselect_@1(int *vid, int *bid, @1 *val, str *OP){
 @= crkTwoRTree
 	/*CRACK in two pieces cl2-ch2 using <incHgh bound*/
 	if (*inclusiveHgh == TRUE)
-		CRKcrackUnorderedZero@2_LE_@1(b,*hgh, cl2, ch2,&vh);
+		CRKcrackUnorderedZero@2_LE_@1(b,*hgh, cl2, ch2,&vh, nthreads);
 	else
-		CRKcrackUnorderedZero@2_RE_@1(b,*hgh, cl2, ch2,&vh);
+		CRKcrackUnorderedZero@2_RE_@1(b,*hgh, cl2, ch2,&vh, nthreads);
 	/*check for gaps*/
 	if (vh < cl2)
 		/*then the left piece is empty*/
@@ -839,12 +881,12 @@ To do that, we first search the index to determine which parts of the result we 
 know and which parts we have to crack. Then we crack, if necessary,
 the appropriate pieces, update the index and return the result */
 static str
-CRKRangeTree_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh, bit tail){	
+CRKRangeTree_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh, bit tail, int nthreads){
 	@:RangeSelectBody(@1,@2,@3,@4,)@
 }
 
 static str
-CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail){
+CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail, int nthreads){
 	BAT *b,*c,*bo;
 	BAT *view;
 	int  m;
@@ -943,7 +985,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 }
 
 static str
-CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail){
+CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail, int nthreads){
 	BAT *b,*c,*bo;
 	BAT *view;
 	int  m;
