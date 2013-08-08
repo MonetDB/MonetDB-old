@@ -24,7 +24,7 @@
 #include "rdflabels.h"
 
 static
-int edgeExists(long int from, long int to, long int* adjacency_from, long int* adjacency_to, int adjacencyCount) {
+int edgeExists(int from, int to, int* adjacency_from, int* adjacency_to, int adjacencyCount) {
 	int	i;
 	for (i = 0; i < adjacencyCount; ++i) {
 		if (adjacency_from[i] == from && adjacency_to[i] == to) return 1;
@@ -33,7 +33,7 @@ int edgeExists(long int from, long int to, long int* adjacency_from, long int* a
 }
 
 static
-int getTableIndex(long int id, long int* table_id, int tableCount) {
+int getTableIndex(int id, int* table_id, int tableCount) {
 	int i;
 	for (i = 0; i < tableCount; ++i) {
 		if (table_id[i] == id) return i;
@@ -42,7 +42,7 @@ int getTableIndex(long int id, long int* table_id, int tableCount) {
 }
 
 static
-NodeStat* initNodeStats1(long int* table_freq, int tableCount) {
+NodeStat* initNodeStats1(int* table_freq, int tableCount) {
 	NodeStat*	nodeStats = NULL;
 	int		i;
 
@@ -60,7 +60,7 @@ NodeStat* initNodeStats1(long int* table_freq, int tableCount) {
 }
 
 static
-void bfs1(int root, long int* table_id, int tableCount, long int* adjacency_from, long int* adjacency_to, int adjacencyCount, int* queue, int* visited, int* isInQueue, int* queuePosition, int* queueLength, NodeStat* nodeStats) {
+void bfs1(int root, int* table_id, int tableCount, int* adjacency_from, int* adjacency_to, int adjacencyCount, int* queue, int* visited, int* isInQueue, int* queuePosition, int* queueLength, NodeStat* nodeStats) {
 	int	i;
 
 	for (i = 0; i < tableCount; ++i) {
@@ -128,7 +128,7 @@ void bfs1(int root, long int* table_id, int tableCount, long int* adjacency_from
 }
 
 static
-void addNode1(long int* adjacency_from, long int* adjacency_to, int adjacencyCount, NodeStat* nodeStats, long int* table_id, int tableCount, int root, char initial) {
+void addNode1(int* adjacency_from, int* adjacency_to, int adjacencyCount, NodeStat* nodeStats, int* table_id, int tableCount, int root, char initial) {
 	int	queue[tableCount]; // cyclic array
 	int	visited[tableCount];
 	int	isInQueue[tableCount];
@@ -183,7 +183,7 @@ void addNode1(long int* adjacency_from, long int* adjacency_to, int adjacencyCou
 }
 
 static
-int* retrieval1(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, int adjacencyCount) {
+int* retrieval1(int root, int numNodesMax, int* numNodesActual, int* table_id, str* table_name, int* table_freq, int tableCount, int* adjacency_from, int* adjacency_to, int adjacencyCount) {
 	NodeStat	*nodeStats = NULL;
 	int		numNodes;
 	int		*chosenNodes = NULL;
@@ -255,7 +255,7 @@ int* retrieval1(int root, int numNodesMax, int* numNodesActual, long int* table_
 }
 
 static
-NodeStat* initNodeStats23(long int* table_freq, int tableCount) {
+NodeStat* initNodeStats23(int* table_freq, int tableCount) {
 	NodeStat*	nodeStats = NULL;
 	int		i;
 
@@ -273,7 +273,7 @@ NodeStat* initNodeStats23(long int* table_freq, int tableCount) {
 }
 
 static
-void assignWeightToChildren2(long int* adjacency_from, long int* adjacency_to, int adjacencyCount, NodeStat* nodeStats, long int* table_id, int tableCount, int root) {
+void assignWeightToChildren2(int* adjacency_from, int* adjacency_to, int adjacencyCount, NodeStat* nodeStats, int* table_id, int tableCount, int root) {
 	int		i, j;
 
 	// mark root as a "chosen node"
@@ -297,7 +297,7 @@ void assignWeightToChildren2(long int* adjacency_from, long int* adjacency_to, i
 }
 
 static
-int* retrieval2(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, int adjacencyCount) {
+int* retrieval2(int root, int numNodesMax, int* numNodesActual, int* table_id, str* table_name, int* table_freq, int tableCount, int* adjacency_from, int* adjacency_to, int adjacencyCount) {
 	NodeStat	*nodeStats = NULL;
 	int		numNodes;
 	int		*chosenNodes = NULL;
@@ -366,7 +366,7 @@ int* retrieval2(int root, int numNodesMax, int* numNodesActual, long int* table_
 }
 
 static
-void assignWeightToChildren3(long int* adjacency_from, long int* adjacency_to, int adjacencyCount, NodeStat* nodeStats, long int* table_id, int tableCount, int root) {
+void assignWeightToChildren3(int* adjacency_from, int* adjacency_to, int adjacencyCount, NodeStat* nodeStats, int* table_id, int tableCount, int root) {
 	int		i, j, k;
 	char		visited[tableCount];
 
@@ -409,7 +409,7 @@ void assignWeightToChildren3(long int* adjacency_from, long int* adjacency_to, i
 }
 
 static
-int* retrieval3(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, int adjacencyCount) {
+int* retrieval3(int root, int numNodesMax, int* numNodesActual, int* table_id, str* table_name, int* table_freq, int tableCount, int* adjacency_from, int* adjacency_to, int adjacencyCount) {
 	NodeStat	*nodeStats = NULL;
 	int		numNodes;
 	int		*chosenNodes = NULL;
@@ -478,7 +478,7 @@ int* retrieval3(int root, int numNodesMax, int* numNodesActual, long int* table_
 }
 
 static
-int* retrieval4(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, long int* adjacency_freq, int adjacencyCount) {
+int* retrieval4(int root, int numNodesMax, int* numNodesActual, int* table_id, str* table_name, int* table_freq, int tableCount, int* adjacency_from, int* adjacency_to, int* adjacency_freq, int adjacencyCount) {
 	int		numNodes;
 	int		*chosenNodes = NULL;
 	int		i, j;
@@ -556,7 +556,7 @@ int* retrieval4(int root, int numNodesMax, int* numNodesActual, long int* table_
 }
 
 static
-char** initEdgesOverview(long int* table_id, int tableCount, long int* adjacency_from, long int* adjacency_to, int adjacencyCount) {
+char** initEdgesOverview(int* table_id, int tableCount, int* adjacency_from, int* adjacency_to, int adjacencyCount) {
 	char		**edges;
 	int		i, j;
 
@@ -573,8 +573,8 @@ char** initEdgesOverview(long int* table_id, int tableCount, long int* adjacency
 	}
 
 	for (i = 0; i < adjacencyCount; ++i) {
-		long int from = adjacency_from[i];
-		long int to = adjacency_to[i];
+		int from = adjacency_from[i];
+		int to = adjacency_to[i];
 		int fromIdx = -1;
 		int toIdx = -1;
 
@@ -600,7 +600,7 @@ int compareOverviewNodes (const void * a, const void * b) {
 }
 
 static
-int* retrievalOverview(int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, int adjacencyCount) {
+int* retrievalOverview(int* numNodesActual, int* table_id, str* table_name, int* table_freq, int tableCount, int* adjacency_from, int* adjacency_to, int adjacencyCount) {
 	int		i, j, k;
 	char		**edges;
 	int		sumSubjects = 0;
@@ -800,7 +800,7 @@ int* retrievalOverview(int* numNodesActual, long int* table_id, str* table_name,
 	return chosenNodes;
 }
 
-int* retrieval(int root, int numNodesMax, int* numNodesActual, long int* table_id, str* table_name, long int* table_freq, int tableCount, long int* adjacency_from, long int* adjacency_to, long int* adjacency_freq, int adjacencyCount) {
+int* retrieval(int root, int numNodesMax, int* numNodesActual, int* table_id, str* table_name, int* table_freq, int tableCount, int* adjacency_from, int* adjacency_to, int* adjacency_freq, int adjacencyCount) {
 	if (SUBSCHEMA_HEURISTIC == 5) {
 		(void) numNodesMax;
 		(void) root;

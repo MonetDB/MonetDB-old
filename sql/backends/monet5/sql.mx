@@ -7779,21 +7779,17 @@ SQLrdfRetrieveSubschema(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	BAT		*table_id_freq_id, *table_id_freq_name, *table_id_freq_freq;
 	BAT		*adjacency_list_from, *adjacency_list_to, *adjacency_list_freq;
-	BATiter		table_id_freq_id_i, table_id_freq_name_i, table_id_freq_freq_i;
-	BATiter		adjacency_list_from_i, adjacency_list_to_i, adjacency_list_freq_i;
+	BATiter		table_id_freq_name_i;
 	BUN		p, q;
-	BUN		p2, q2;
-	BUN		bun, bun2, bun3;
-	BUN		bun4, bun5, bun6;
 
-	int		tableCount = 0;
-	long int	*table_id = NULL;
+	BUN		tableCount = 0;
+	int		*table_id = NULL;
 	str		*table_name = NULL;
-	long int	*table_freq = NULL;
-	long int	*adjacency_from = NULL;
-	long int	*adjacency_to = NULL;
-	long int	*adjacency_freq = NULL;
-	int		adjacencyCount = 0;
+	int		*table_freq = NULL;
+	int		*adjacency_from = NULL;
+	int		*adjacency_to = NULL;
+	int		*adjacency_freq = NULL;
+	BUN		adjacencyCount = 0;
 
 	int		root;
 	int		countActual;
@@ -7813,53 +7809,33 @@ SQLrdfRetrieveSubschema(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	adjacency_list_to = mvc_bind(m, "sys", "adjacency_list", "to_id", 0);
 	adjacency_list_freq = mvc_bind(m, "sys", "adjacency_list", "frequency", 0);
 
-	table_id_freq_id_i = bat_iterator(table_id_freq_id);
+	tableCount = BATcount(table_id_freq_id);
+	table_name = GDKmalloc(sizeof(str) * tableCount);
+
+	if (!table_name) {
+		BBPreclaim(table_id_freq_id);
+		BBPreclaim(table_id_freq_name);
+		BBPreclaim(table_id_freq_freq);
+		BBPreclaim(adjacency_list_from);
+		BBPreclaim(adjacency_list_to);
+		BBPreclaim(adjacency_list_freq);
+		throw(SQL, "sql.rdfRetrieveSubschema", "ERROR: Couldn't GDKmalloc table_name array!\n");
+	}
+
+	table_id = (int*) Tloc(table_id_freq_id, BUNfirst(table_id_freq_id));
+	table_freq = (int*) Tloc(table_id_freq_freq, BUNfirst(table_id_freq_freq));
 	table_id_freq_name_i = bat_iterator(table_id_freq_name);
-	table_id_freq_freq_i = bat_iterator(table_id_freq_freq);
-	adjacency_list_from_i = bat_iterator(adjacency_list_from);
-	adjacency_list_to_i = bat_iterator(adjacency_list_to);
-	adjacency_list_freq_i = bat_iterator(adjacency_list_freq);
 
-	bun = BUNfirst(table_id_freq_id);
-	bun2 = BUNfirst(table_id_freq_name);
-	bun3 = BUNfirst(table_id_freq_freq);
-	bun4 = BUNfirst(adjacency_list_from);
-	bun5 = BUNfirst(adjacency_list_to);
-	bun6 = BUNfirst(adjacency_list_freq);
-
-	// store data
-	BATloop(table_id_freq_id, p, q) {
-		str id = (str) BUNtail(table_id_freq_id_i, bun + tableCount);
-		str name = (str) BUNtail(table_id_freq_name_i, bun2 + tableCount);
-		str freq = (str) BUNtail(table_id_freq_freq_i, bun3 + tableCount);
-
-		table_id = realloc(table_id, sizeof(long int) * (tableCount + 1));
-		table_name = realloc(table_name, sizeof(str) * (tableCount + 1));
-		table_freq = realloc(table_freq, sizeof(long int) * (tableCount + 1));
-		if (!table_id || !table_name || !table_freq) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-
-		table_id[tableCount] = strtol(id, NULL, 10);
-		table_name[tableCount] = name;
-		table_freq[tableCount]= strtol(freq, NULL, 10);
-		tableCount += 1;
+	tableCount = 0;
+	BATloop(table_id_freq_name, p, q) {
+		table_name[tableCount++] = (str) BUNtail(table_id_freq_name_i, p);
 	}
 
-	// store data
-	BATloop(adjacency_list_from, p2, q2) {
-		str from = (str) BUNtail(adjacency_list_from_i, bun4 + adjacencyCount);
-		str to = (str) BUNtail(adjacency_list_to_i, bun5 + adjacencyCount);
-		str freq = (str) BUNtail(adjacency_list_freq_i, bun6 + adjacencyCount);
+	adjacencyCount = BATcount(adjacency_list_from);
 
-		adjacency_from = realloc(adjacency_from, sizeof(long int) * (adjacencyCount + 1));
-		adjacency_to = realloc(adjacency_to, sizeof(long int) * (adjacencyCount + 1));
-		adjacency_freq = realloc(adjacency_freq, sizeof(long int) * (adjacencyCount + 1));
-		if (!adjacency_from || !adjacency_to || !adjacency_freq) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-
-		adjacency_from[adjacencyCount] = strtol(from, NULL, 10);
-		adjacency_to[adjacencyCount] = strtol(to, NULL, 10);
-		adjacency_freq[adjacencyCount] = strtol(freq, NULL, 10);
-		adjacencyCount += 1;
-	}
+	adjacency_from = (int*) Tloc(adjacency_list_from, BUNfirst(adjacency_list_from));
+	adjacency_to = (int*) Tloc(adjacency_list_to, BUNfirst(adjacency_list_to));
+	adjacency_freq = (int*) Tloc(adjacency_list_freq, BUNfirst(adjacency_list_freq));
 
 	// TODO find root node using the keyword
 	root = 0;
@@ -7902,12 +7878,12 @@ SQLrdfRetrieveSubschema(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BBPreclaim(adjacency_list_to);
 	BBPreclaim(adjacency_list_freq);
 
-	free(table_id);
-	free(table_name);
-	free(table_freq);
-	free(adjacency_from);
-	free(adjacency_to);
-	free(adjacency_freq);
+	GDKfree(table_id);
+	GDKfree(table_name);
+	GDKfree(table_freq);
+	GDKfree(adjacency_from);
+	GDKfree(adjacency_to);
+	GDKfree(adjacency_freq);
 
 	return MAL_SUCCEED;
 }
