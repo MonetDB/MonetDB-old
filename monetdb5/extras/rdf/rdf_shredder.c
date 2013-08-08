@@ -131,7 +131,7 @@ rdf_BUNappend(parserData* pdata, BAT *b, BUN* bun){
 
 static void
 rdf_BUNappend_BlankNode_Obj(parserData* pdata, BAT *b, BUN* bun){
-	*bun |= (BUN)4 << (sizeof(BUN)*8 - 4);		//Blank node	
+	*bun |= (BUN)BLANKNODE << (sizeof(BUN)*8 - 4);		//Blank node	
 	b = BUNappend(b, bun, TRUE);
 	if (b == NULL) {
 		pdata->exception++;
@@ -156,15 +156,7 @@ rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType obj
 		*bun = (BUN) (RDF_MIN_LITERAL + (b)->batCount);
 	
 		/* Add the type here by changing 2 bits at position 62, 63 of oid */
-		if ( objType == DATETIME){ 
-			*bun |= (BUN)1 << (sizeof(BUN)*8 - 4);
-		}
-		else if ( objType == NUMERIC){
-			*bun |= (BUN)2 << (sizeof(BUN)*8 - 4);
-		}
-		else { /*  objType == STRING */
-			*bun |= (BUN)3 << (sizeof(BUN)*8 - 4);
-		}
+		*bun |= (BUN)objType << (sizeof(BUN)*8 - 4);
 
 		//b = BUNappend(b, (ptr) (str)objStr, TRUE);
 		b = BUNins(b, (ptr) bun, (ptr) (str)objStr, TRUE); 
@@ -193,16 +185,17 @@ rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType obj
 static ObjectType 
 getObjectType(unsigned char* objStr){
 	ObjectType obType; 
-	if (strstr((const char*) objStr, "XMLSchema#date") != NULL){
+	if (strstr((const char*) objStr, "XMLSchema#date") != NULL || strstr((const char*) objStr, "XMLSchema#dateTime")){
 		obType = DATETIME;
 		//printf("%s: DateTime \n", objStr); 
 	}
-	else if (strstr((const char*) objStr, "XMLSchema#float") != NULL
-		|| strstr((const char*) objStr, "XMLSchema#integer") != NULL
-		)
-	{
-		obType = NUMERIC;
-		//printf("%s: Numeric \n", objStr); 
+	else if (strstr((const char*) objStr, "XMLSchema#int") != NULL || strstr((const char*) objStr, "XMLSchema#integer") != NULL){
+		obType = INTEGER;
+	}
+	else if (strstr((const char*) objStr, "XMLSchema#float") != NULL 
+			|| strstr((const char*) objStr, "XMLSchema#double") != NULL  
+			|| strstr((const char*) objStr, "XMLSchema#decimal") != NULL){
+		obType = FLOAT;
 	}
 	else {
 		obType = STRING;

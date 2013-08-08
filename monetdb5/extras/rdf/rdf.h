@@ -63,7 +63,8 @@ RDFpartialjoin (bat *res, bat *lmap, bat *rmap, bat *input);
 typedef enum {
 	URI,		
 	DATETIME, 
-	NUMERIC, 
+	INTEGER,
+	FLOAT,	
 	STRING,
 	BLANKNODE,
 	MULTIVALUES		// For the multi-value property 
