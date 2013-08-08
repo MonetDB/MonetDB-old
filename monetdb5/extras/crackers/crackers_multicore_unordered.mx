@@ -413,6 +413,7 @@ void
         }
         
         pthread_exit(NULL);
+        return NULL;
 }
 
 void *threadFuncReorganize_@2_@1(void *arg) {
@@ -449,6 +450,7 @@ void *threadFuncReorganize_@2_@1(void *arg) {
         }
 
 	pthread_exit(NULL);
+	return NULL;
 }
 
 void *threadFuncRestore_@2_@1(void *arg) {
@@ -469,6 +471,7 @@ void *threadFuncRestore_@2_@1(void *arg) {
         }
 
 	pthread_exit(NULL);
+	return NULL;
 }
 
 @
@@ -801,6 +804,7 @@ void
         }
 
         pthread_exit(NULL);
+        return NULL;
 }
 
 void
@@ -850,6 +854,7 @@ void
         }
 
         pthread_exit(NULL);
+        return NULL;
 }
 void *threadFuncRestoreThree_@2_@3_@1(void *arg) {
         thread_data_restore_t *my_data = (thread_data_restore_t *) arg;
@@ -869,6 +874,7 @@ void *threadFuncRestoreThree_@2_@3_@1(void *arg) {
         }
 
         pthread_exit(NULL);
+        return NULL;
 }
 str
 CRKcrackUnorderedThreeCopyParallel_@2_@3_@1( BAT *b, @1 low, @1 hgh, oid first, oid last, oid *posl, oid *posh, BAT *bc){
