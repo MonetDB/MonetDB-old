@@ -500,7 +500,7 @@ void createSQLMetadata(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, L
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		for (j = 0; j < freqCSset->numCSadded; ++j) {
 			if (matrix[i][j]) {
-				fprintf(fout, "\"%d\",\"%d\",\"%d\"\n", i, j, matrix[i][j]);
+				fprintf(fout, "%d,%d,%d\n", i, j, matrix[i][j]);
 			}
 		}
 	}
@@ -515,14 +515,14 @@ void createSQLMetadata(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, L
 		if (!temp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 		strcpy(temp, labels[i].name);
 		escapeURIforSQL(temp);
-		fprintf(fout, "\"%d\",\"%s_"BUNFMT"\",\"%d\"\n", i, temp, freqCSset->items[i].csId, freqCSset->items[i].support); // TODO underscores?
+		fprintf(fout, "%d,\"%s_"BUNFMT"\",%d\n", i, temp, freqCSset->items[i].csId, freqCSset->items[i].support); // TODO underscores?
 		free(temp);
 	}
 	fclose(fout);
 
 	fout = fopen("CSmetadata.sql", "wt");
-	fprintf(fout, "CREATE TABLE table_id_freq (id VARCHAR(10), name VARCHAR(100), frequency VARCHAR(10));\n");
-	fprintf(fout, "CREATE TABLE adjacency_list (from_id VARCHAR(10), to_id VARCHAR(10), frequency VARCHAR(10));\n");
+	fprintf(fout, "CREATE TABLE table_id_freq (id INTEGER, name VARCHAR(100), frequency INTEGER);\n");
+	fprintf(fout, "CREATE TABLE adjacency_list (from_id INTEGER, to_id INTEGER, frequency INTEGER);\n");
 	fprintf(fout, "COPY INTO table_id_freq from '/export/scratch2/linnea/dbfarm/test/tableIdFreq.csv' USING DELIMITERS ',','\\n','\"';\n");
 	fprintf(fout, "COPY INTO adjacency_list from '/export/scratch2/linnea/dbfarm/test/adjacencyList.csv' USING DELIMITERS ',','\\n','\"';");
 	fclose(fout);
