@@ -161,15 +161,13 @@ typedef struct {
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	int id;            /* thread id */
  #endif
-	BUN n;             /* # tuples / values per piece / thread */
-	BUN *cnt_off;      /* counts/offsets pair:
-	                      [0] = first piece / smaller values
-	                      [1] = second piece / larger values */
+	const BAT *b;      /* BAT to be cracked */
 	const void *mval;  /* pivot value */
-	const void *src_t; /* input / source tail */
-	const oid *src_h;  /* input / source head */
-	void *dst_t;       /* output / destination tail */
-	oid *dst_h;        /* output / destination head */
+	BUN first;         /* offset of first value in slice */
+	BUN last;          /* offset of last value in slice */
+	BUN pos;           /* offset of pivot value */
+	const char *msg;   /* error message */
+	BUN m;             /* size of half slice */
 } c_Thread_t;
 
 /* Functions shared within the crackers module/library */
@@ -299,24 +297,60 @@ CRKcrackUnorderedZero_@2_@1_ST( BAT *b, @1 mval, BUN first, BUN last, oid *pos){
 
 /* revised single-threaded crack code */
 static str
-CRKcrackUnorderedZero_@2_@1_STx ( const BAT *b, const @1 mval, const BUN first, const BUN last, oid *pos )
+CRKcrackUnorderedZero_@2_@1_STx ( const BAT *b, const @1 mval, const BUN first, const BUN last, const BUN m, oid *pos
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+                                 , const char *secs
+ #endif
+                                )
 {
-	BUN p = 0, q = last - first;
+	BUN p = first, q = last, pp = p + m - 1, qq = q - m + 1;
 	oid *src_h;
 	@1  *src_t;
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	lng t_0, t_1;
 
 	fprintf(stderr,
-		"CRKcrackUnorderedZero_@2_@1_STx ( %d, "LLFMT", "BUNFMT", "BUNFMT" ) ...\n",
-		b->batCacheid, (lng) mval, first, last);
+		"CRKcrackUnorderedZero_@2_@1_STx ( %d, "LLFMT", "BUNFMT", "BUNFMT", "BUNFMT" ) ...\n",
+		b->batCacheid, (lng) mval, first, last, m);
 	t_0 = GDKusec();
  #endif
 
 	/* input (source) arrays */
-	src_h = (oid*) Hloc(b, BUNfirst(b) + first);
-	src_t = (@1 *) Tloc(b, BUNfirst(b) + first);
+	src_h = (oid*) Hloc(b, BUNfirst(b));
+	src_t = (@1 *) Tloc(b, BUNfirst(b));
 
+	if (m && pp < qq - 1) {
+		/* crack disjoint left- & right-half of piece / slice */
+		while (p <= pp && q >= qq) {
+			/* skip over smaller values from beginning */
+			while (p <= pp && src_t[p] @7 mval /*@5_@3(&src_t[p], &mval, @6@1)*/)
+				p++;
+			/* skip over larger values from end */
+			while (q >= qq && src_t[q] @8 mval /*@5_@4(&src_t[q], &mval, @6@1)*/)
+				q--;
+			if (p <= pp && q >= qq) {
+				/* swap values */
+				const oid h = src_h[p];
+				const @1  t = src_t[p];
+				src_h[p] = src_h[q];
+				src_t[p] = src_t[q];
+				src_h[q] = h;
+				src_t[q] = t;
+				p++;
+				q--;
+			}
+		}
+		if (p > pp) {
+			/* exhausted left half, skip to right one */
+			p = qq;
+		}
+		if (q < qq) {
+			/* exhausted right half, skip to left one */
+			q = pp;
+		}
+	}
+
+	/* crack (remaining) consequtive piece / slice */
 	while (p < q) {
 		/* skip over smaller values from beginning */
 		while (p < q && src_t[p] @7 mval /*@5_@3(&src_t[p], &mval, @6@1)*/)
@@ -338,62 +372,18 @@ CRKcrackUnorderedZero_@2_@1_STx ( const BAT *b, const @1 mval, const BUN first, 
 	}
 
 	/* return pivot position */
-	q = last - first;
-	while (p <= q && src_t[p] @7 mval /*@5_@3(&src_t[p], &mval, @6@1)*/)
+	while (p <= last && src_t[p] @7 mval /*@5_@3(&src_t[p], &mval, @6@1)*/)
 		p++;
-	*pos = (oid) (first + p - 1);
+	*pos = (oid) (p - 1);
 
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	t_1 = GDKusec();
 	fprintf(stderr,
-		"CRKcrackUnorderedZero_@2_@1_STx ( %d, "LLFMT", "BUNFMT", "BUNFMT" ) -> "OIDFMT" : %.6f secs\n",
-		b->batCacheid, (lng) mval, first, last, *pos, (dbl) (t_1 - t_0) / 1000000.0);
+		"CRKcrackUnorderedZero_@2_@1_STx ( %d, "LLFMT", "BUNFMT", "BUNFMT", "BUNFMT" ) -> "OIDFMT" : %.6f %s\n",
+		b->batCacheid, (lng) mval, first, last, m, *pos, (dbl) (t_1 - t_0) / 1000000.0, secs);
  #endif
 
 	return MAL_SUCCEED;
-}
-
-
-/* countThread for new multi-threaded crack code */
-static void*
-CRKcrackUnorderedZero_@2_@1_MT_countThread ( void *arg_p )
-{
-	c_Thread_t *arg = (c_Thread_t*) arg_p;
- #ifdef CRACK_MUTLI_THREAD_DEBUG
-	const int id = arg->id;                   /* thread id */
- #endif
-	const BUN n = arg->n;                     /* # tuples / values per piece / thread */
-	BUN *cnt = arg->cnt_off;                  /* counts/offsets pair:
-	                                             [0] = first piece / smaller values
-	                                             [1] = second piece / larger values */
-	const @1 mval = * (@1*) arg->mval;        /* pivot value */
-	const @1 *src_t = (const @1*) arg->src_t; /* input / source tail */
-	BUN i;
- #ifdef CRACK_MUTLI_THREAD_DEBUG
-	lng t_0, t_1;
-
-	fprintf(stderr,
-		"CRKcrackUnorderedZero_@2_@1_MT_countThread ( %d, "LLFMT", "BUNFMT" ) ...\n",
-		id, (lng) mval, n);
-	t_0 = GDKusec();
- #endif
-
-	/* count smaller / larger values */
-	for (i = 0; i < n; i++) {
-		/* [0] = first piece / smaller values */
-		/* [1] = second piece / larger values */
-		cnt[src_t[i] @8 mval /*@5_@4(&src_t[i], &mval, @6@1)*/]++;
-	}
-
- #ifdef CRACK_MUTLI_THREAD_DEBUG
-	t_1 = GDKusec();
-	fprintf(stderr,
-		"CRKcrackUnorderedZero_@2_@1_MT_countThread ( %d, "LLFMT", "BUNFMT" ) -> "BUNFMT", "BUNFMT" : %.6f s\n",
-		id, (lng) mval, n, cnt[0], cnt[1], (dbl) (t_1 - t_0) / 1000000.0);
- #endif
-
-	pthread_exit(NULL);
-	return NULL;
 }
 
 
@@ -402,41 +392,30 @@ static void*
 CRKcrackUnorderedZero_@2_@1_MT_crackThread ( void *arg_p )
 {
 	c_Thread_t *arg = (c_Thread_t*) arg_p;
- #ifdef CRACK_MUTLI_THREAD_DEBUG
-	const int id = arg->id;             /* thread id */
- #endif
-	const BUN n = arg->n;               /* # tuples / values per piece / thread */
-	BUN *off = arg->cnt_off;            /* counts/offsets pair:
-	                                       [0] = first piece / smaller values
-	                                       [1] = second piece / larger values */
-	const @1 mval = * (@1*) arg->mval;  /* pivot value */
-	const @1 *src_t = (@1*) arg->src_t; /* input / source tail */
-	const oid *src_h = arg->src_h;      /* input / source head */
-	@1 *dst_t = (@1*) arg->dst_t;       /* output / destination tail */
-	oid *dst_h = arg->dst_h;            /* output / destination head */
-	BUN i;
+	@1 mval = * (@1*) arg->mval;
+	oid pos;
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	lng t_0, t_1;
 
 	fprintf(stderr,
 		"CRKcrackUnorderedZero_@2_@1_MT_crackThread ( %d, "LLFMT", "BUNFMT", "BUNFMT", "BUNFMT" ) ...\n",
-		id, (lng) mval, n, off[0], off[1]);
+		arg->id, (lng) mval, arg->first, arg->last, arg->m);
 	t_0 = GDKusec();
  #endif
 
-	/* crack into temp. arrays */
-	for (i = 0; i < n; i++) {
-		const bit x = src_t[i] @8 mval /*@5_@4(&src_t[i], &mval, @6@1)*/;
-		dst_h[off[x]] = src_h[i];
-		dst_t[off[x]] = src_t[i];
-		off[x]++;
-	}
+	/* call actual cracking routine for this slice */
+	arg->msg = CRKcrackUnorderedZero_@2_@1_STx ( arg->b, mval, arg->first, arg->last, arg->m, &pos
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	                                            , "se"
+ #endif
+	                                           );
+	arg->pos = (BUN) pos;
 
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	t_1 = GDKusec();
 	fprintf(stderr,
-		"CRKcrackUnorderedZero_@2_@1_MT_crackThread ( %d, "LLFMT", "BUNFMT", "BUNFMT", "BUNFMT" ) : %.6f s\n",
-		id, (lng) mval, n, off[0], off[1], (dbl) (t_1 - t_0) / 1000000.0);
+		"CRKcrackUnorderedZero_@2_@1_MT_crackThread ( %d, "LLFMT", "BUNFMT", "BUNFMT", "BUNFMT" ) -> "OIDFMT" : %.6f s\n",
+		arg->id, (lng) mval, arg->first, arg->last, arg->m, pos, (dbl) (t_1 - t_0) / 1000000.0);
  #endif
 
 	pthread_exit(NULL);
@@ -444,27 +423,25 @@ CRKcrackUnorderedZero_@2_@1_MT_crackThread ( void *arg_p )
 }
 
 
-/* new multi-threaded crack code */
+/* new multi-threaded crack code; Alternative 2 */
 static str
-CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, const BUN last, oid *pos, int nthreads )
+CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, const BUN last, oid *pos, int nthreads, int alt )
 {
-	const BUN n = last - first + 1; /* total # tuples / values */
-	BUN m;                          /* # tuples / values per piece / thread */
-	BUN l;                          /* total # smaller values */
-	BUN *cnt, *off;                 /* counts/offsets pair:
-	                                   [0] = first piece / smaller values
-	                                   [1] = second piece / larger values */
-	oid *src_h, *dst_h;             /* head of input (source) & output (destination) */
-	@1  *src_t, *dst_t;             /* tail of input (source) & output (destination) */
-	pthread_t *c_Thread;            /* threads array */
-	c_Thread_t *c_Thread_arg;       /* thread arguments array */
+	BUN n = last - first + 1; /* total # tuples / values */
+	BUN m;                    /* # tuples / values per slice */
+	BUN mm;                   /* # tuples / values in tmp arrays */
+	BUN f, l;                 /* first / last BUN per slice */
+	pthread_t *c_Thread;      /* threads array */
+	c_Thread_t *c_Thread_arg; /* thread arguments array */
+	oid *src_h = (oid*) Hloc(b, BUNfirst(b)), *tmp_h;
+	@1  *src_t = (@1 *) Tloc(b, BUNfirst(b)), *tmp_t;
 	int i, j;
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	lng t_0, t_1, t_2;
 
 	fprintf(stderr,
-		"CRKcrackUnorderedZero_@2_@1_MT ( %d, "LLFMT", "BUNFMT", "BUNFMT", %d ) ...\n",
-		b->batCacheid, (lng) mval, first, last, nthreads);
+		"CRKcrackUnorderedZero_@2_@1_MT ( %d, "LLFMT", "BUNFMT", "BUNFMT", %d, %d ) ...\n",
+		b->batCacheid, (lng) mval, first, last, nthreads, alt);
 	t_0 = GDKusec();
  #endif
 
@@ -474,30 +451,21 @@ CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, c
 		nthreads = GDKnr_threads;
 	}
 	if ((BUN) nthreads > n / 1000) {
-		/* more threads / smaller pieces does not make sense */
+		/* more threads / smaller slices does not make sense */
 		nthreads = (int) (n / 1000) + 1;
 	}
+	m = (n / nthreads) / alt;
+	mm = (alt == 1) ? m : 3 * m;
 
-	/* input (source) arrays */
-	src_h = (oid*) Hloc(b, BUNfirst(b) + first);
-	src_t = (@1 *) Tloc(b, BUNfirst(b) + first);
-
-	/* allocate temporary data structures */
-	cnt = GDKzalloc(nthreads * 2 * sizeof(BUN));
-	off = GDKzalloc(nthreads * 2 * sizeof(BUN));
-	dst_h = GDKmalloc(n * sizeof(oid));
-	dst_t = GDKmalloc(n * sizeof(@1 ));
+	tmp_h = GDKmalloc(mm * sizeof(oid));
+	tmp_t = GDKmalloc(mm * sizeof(@1 ));
 	c_Thread = GDKmalloc (nthreads * sizeof(pthread_t));
-	c_Thread_arg  = GDKzalloc(nthreads * sizeof(c_Thread_t));
-	if (!cnt || !off || !dst_h || !dst_t || !c_Thread || !c_Thread_arg) {
-		if (cnt)
-			GDKfree(cnt);
-		if (off)
-			GDKfree(off);
-		if (dst_h)
-			GDKfree(dst_h);
-		if (dst_t)
-			GDKfree(dst_t);
+	c_Thread_arg  = GDKzalloc(alt * nthreads * sizeof(c_Thread_t));
+	if (!tmp_h || !tmp_t || !c_Thread || !c_Thread_arg) {
+		if (tmp_h)
+			GDKfree(tmp_h);
+		if (tmp_t)
+			GDKfree(tmp_t);
 		if (c_Thread)
 			GDKfree(c_Thread);
 		if (c_Thread_arg)
@@ -505,133 +473,207 @@ CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, c
 		throw (MAL, "crackers.select", "CRKcrackUnorderedZero_@2_@1_MT(): GDKmalloc() failed.");
 	}
 
-	/* initilize countThread arguments */
-	m = n / nthreads;
-	for (i = 0, j = 0; i < nthreads; i++, j += 2) {
+	/* initilize crackThread arguments */
+	if (alt == 1) {
+		/* Alternative 1:
+		   - each thread cracks one consecutive slice */
+		for (i = 0, f = first, l = f + m - 1; i < nthreads; i++, f += m, l += m) {
  #ifdef CRACK_MUTLI_THREAD_DEBUG
-		c_Thread_arg[i].id      = i;
+			c_Thread_arg[i].id      = i;
  #endif
-		c_Thread_arg[i].n       = m;
-		c_Thread_arg[i].cnt_off = &cnt[j];
-		c_Thread_arg[i].mval    = &mval;
-		c_Thread_arg[i].src_t   = &src_t[i * m];
-		/* other arguments not needed for countThread */
-	}
-	c_Thread_arg[nthreads - 1].n = n - (nthreads - 1) * m;
-
-	/* count smaller / larger values */
+			c_Thread_arg[i].b       = b;
+			c_Thread_arg[i].mval    = &mval;
+			c_Thread_arg[i].first   = f;
+			c_Thread_arg[i].last    = (i < nthreads - 1) ? l : last;
+			c_Thread_arg[i].m       = 0;
+		}
+	} else /* alt == 2 */ {
+		/* Alternative 2:
+		   - nthreads-1 threads crack two disjoint half-slices
+		     (from either end of the input piece), each
+		   - last thread cracks center consecutive slice */
+		for (i = 0, f = first, l = last; i < nthreads; i++, f += m, l -= m) {
  #ifdef CRACK_MUTLI_THREAD_DEBUG
-	t_2 = GDKusec();
+			c_Thread_arg[i].id      = i;
  #endif
-	for (i = 0; i < nthreads; i++) {
-		if (pthread_create(&c_Thread[i], NULL, CRKcrackUnorderedZero_@2_@1_MT_countThread, &c_Thread_arg[i])) {
-			GDKfree(cnt);
-			GDKfree(off);
-			GDKfree(dst_h);
-			GDKfree(dst_t);
-			GDKfree(c_Thread);
-			GDKfree(c_Thread_arg);
-			throw (MAL, "crackers.select", "CRKcrackUnorderedZero_@2_@1_MT(): Failed creating countThread %d.", i);
+			c_Thread_arg[i].b       = b;
+			c_Thread_arg[i].mval    = &mval;
+			c_Thread_arg[i].first   = f;
+			c_Thread_arg[i].last    = l;
+			c_Thread_arg[i].m       = (i < nthreads - 1) ? m : l - f + 1;
 		}
 	}
-	for (i = 0; i < nthreads; i++) {
-		if (pthread_join(c_Thread[i], NULL)) {
-			GDKfree(cnt);
-			GDKfree(off);
-			GDKfree(dst_h);
-			GDKfree(dst_t);
-			GDKfree(c_Thread);
-			GDKfree(c_Thread_arg);
-			throw (MAL, "crackers.select", "CRKcrackUnorderedZero_@2_@1_MT(): Failed joining countThread %d.", i);
-		 }
-	}
- #ifdef CRACK_MUTLI_THREAD_DEBUG
-	t_1 = GDKusec();
-	fprintf(stderr,
-		"CRKcrackUnorderedZero_@2_@1_MT ( %d, "LLFMT", "BUNFMT", "BUNFMT", %d ) count : %.6f sec\n",
-		b->batCacheid, (lng) mval, first, last, nthreads, (dbl) (t_1 - t_2) / 1000000.0);
- #endif
 
-	/* turn local counts into global offsets */
-	l = 0;
-	for (j = 0, i = nthreads * 2; j < i; j += 2)
-		l += cnt[j];
-	off[0] = 0;
-	off[1] = l;
-	for (j = 2, i = nthreads * 2; j < i; j += 2) {
-		off[j] = off[j - 2] + cnt[j - 2];
-		off[j + 1] = off[j - 1] + cnt[j - 1];
-	}
-
-	/* initilize crackThread arguments */
-	for (i = 0, j = 0; i < nthreads; i++, j += 2) {
-		c_Thread_arg[i].cnt_off = &off[j];
-		c_Thread_arg[i].src_h   = &src_h[i * m];
-		c_Thread_arg[i].dst_h   = dst_h;
-		c_Thread_arg[i].dst_t   = dst_t;
-		/* other arguments already set for countThread */
-	}
-
-	/* crack into temp. arrays */
+	/* crack slices concurrently */
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	t_2 = GDKusec();
  #endif
+	/* span crackThreads */
 	for (i = 0; i < nthreads; i++) {
 		if (pthread_create(&c_Thread[i], NULL, CRKcrackUnorderedZero_@2_@1_MT_crackThread, &c_Thread_arg[i])) {
-			GDKfree(cnt);
-			GDKfree(off);
-			GDKfree(dst_h);
-			GDKfree(dst_t);
+			GDKfree(tmp_h);
+			GDKfree(tmp_t);
 			GDKfree(c_Thread);
 			GDKfree(c_Thread_arg);
-			throw (MAL, "crackers.select", "CRKcrackUnorderedZero_@2_@1_MT(): Failed creating crackThread %d.", i);
+			throw (MAL, "crackers.select", "CRKcrackUnorderedZero_@2_@1_MT(): Failed spaning crackThread %d.", i);
 		}
 	}
+	/* join crackThreads */
 	for (i = 0; i < nthreads; i++) {
 		if (pthread_join(c_Thread[i], NULL)) {
-			GDKfree(cnt);
-			GDKfree(off);
-			GDKfree(dst_h);
-			GDKfree(dst_t);
+			GDKfree(tmp_h);
+			GDKfree(tmp_t);
 			GDKfree(c_Thread);
 			GDKfree(c_Thread_arg);
 			throw (MAL, "crackers.select", "CRKcrackUnorderedZero_@2_@1_MT(): Failed joining crackThread %d.", i);
 		 }
 	}
+	/* check for & report failing crackThreads */
+	for (i = 0; i < nthreads; i++) {
+		if (c_Thread_arg[i].msg != MAL_SUCCEED) {
+			GDKfree(tmp_h);
+			GDKfree(tmp_t);
+			GDKfree(c_Thread);
+			GDKfree(c_Thread_arg);
+			throw (MAL, "crackers.select", "CRKcrackUnorderedZero_@2_@1_MT(): crackThread %d failed with '%s'.", i, c_Thread_arg[i].msg);
+		 }
+	}
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	t_1 = GDKusec();
 	fprintf(stderr,
-		"CRKcrackUnorderedZero_@2_@1_MT ( %d, "LLFMT", "BUNFMT", "BUNFMT", %d ) crack : %.6f sec\n",
-		b->batCacheid, (lng) mval, first, last, nthreads, (dbl) (t_1 - t_2) / 1000000.0);
+		"CRKcrackUnorderedZero_@2_@1_MT ( %d, "LLFMT", "BUNFMT", "BUNFMT", %d, %d ) crack : %.6f sec\n",
+		b->batCacheid, (lng) mval, first, last, nthreads, alt, (dbl) (t_1 - t_2) / 1000000.0);
  #endif
 
-	/* restore into BAT */
+	/* "meta-crack":
+	   move "wrong" parts of slices to correct final location */
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	t_2 = GDKusec();
  #endif
-	memcpy(src_h, dst_h, n * sizeof(oid));
-	memcpy(src_t, dst_t, n * sizeof(@1 ));
+	if (alt == 2) {
+		/* Alt. 2: treat each half-slice as individual slice */
+		for (i = 0, j = 2 * nthreads - 2; i < nthreads - 1; i++, j--) {
+			c_Thread_arg[j].m     = c_Thread_arg[i].m;
+			c_Thread_arg[j].pos   = c_Thread_arg[i].pos;
+			c_Thread_arg[j].last  = c_Thread_arg[i].last;
+			c_Thread_arg[j].first = c_Thread_arg[i].last  - c_Thread_arg[i].m + 1;
+			c_Thread_arg[i].last  = c_Thread_arg[i].first + c_Thread_arg[i].m - 1;
+		}
+	}
+	i = 0;
+	j = alt * nthreads - alt;
+	while (i < j) {
+		/* skip over "ready" left slices with only smaller values */
+		while (i < j && c_Thread_arg[i].pos >= c_Thread_arg[i].last)
+			i++;
+		/* skip over "ready" right slices with only larger values */
+		while (i < j && c_Thread_arg[j].pos <  c_Thread_arg[j].first)
+			j--;
+		if (i < j) {
+			BUN sh, st, pi, pj;
+			/* size of "wrong" part of left slice with larger values */
+			BUN si = c_Thread_arg[i].last - c_Thread_arg[i].pos;
+			/* size of "wrong" part of right slice with smaller values */
+			BUN sj = c_Thread_arg[j].pos - c_Thread_arg[j].first + 1;
+
+			assert(si <= mm);
+			assert(sj <= mm);
+			if (si < sj) {
+				/* "wrong" left part smaller than "wrong" right part */
+				/* adjust upper limit of remaining "wrong" part of right slice */
+				c_Thread_arg[j].pos -= si;
+				/* swap entire "wrong" left part with
+				   equal sized upper fraction of "wrong" right part */
+				sh = si * sizeof(oid);
+				st = si * sizeof(@1);
+				pi = c_Thread_arg[i].pos + 1;
+				pj = c_Thread_arg[j].pos + 1;
+				memcpy(tmp_h, &src_h[pi], sh);
+				memcpy(tmp_t, &src_t[pi], st);
+				memcpy(&src_h[pi], &src_h[pj], sh);
+				memcpy(&src_t[pi], &src_t[pj], st);
+				memcpy(&src_h[pj], tmp_h, sh);
+				memcpy(&src_t[pj], tmp_t, st);
+				/* adjust lower limit of (now empty) "wrong" part of left slice */
+				c_Thread_arg[i].pos += si;
+				/* continue with next left slice */
+				i++;
+			} else if (sj < si) {
+				/* "wrong" right part smaller than "wrong" left part */
+				/* adjust upper limit of (now empty) "wrong" part of right slice */
+				c_Thread_arg[j].pos -= sj;
+				/* swap entire "wrong" right part with
+				   equal sized lower fraction of "wrong" left part */
+				sh = sj * sizeof(oid);
+				st = sj * sizeof(@1);
+				pi = c_Thread_arg[i].pos + 1;
+				pj = c_Thread_arg[j].pos + 1;
+				memcpy(tmp_h, &src_h[pi], sh);
+				memcpy(tmp_t, &src_t[pi], st);
+				memcpy(&src_h[pi], &src_h[pj], sh);
+				memcpy(&src_t[pi], &src_t[pj], st);
+				memcpy(&src_h[pj], tmp_h, sh);
+				memcpy(&src_t[pj], tmp_t, st);
+				/* adjust lower limit of remaining "wrong" part of left slice */
+				c_Thread_arg[i].pos += sj;
+				/* continue with next right slice */
+				j--;
+			} else /* si == sj */ {
+				/* both "wrong" part equally large */
+				/* adjust upper limit of (now empty) "wrong" part of right slice */
+				c_Thread_arg[j].pos -= sj;
+				/* swap entire "wrong" left part
+				   with entire "wrong" right part */
+				sh = sj * sizeof(oid);
+				st = sj * sizeof(@1);
+				pi = c_Thread_arg[i].pos + 1;
+				pj = c_Thread_arg[j].pos + 1;
+				memcpy(tmp_h, &src_h[pi], sh);
+				memcpy(tmp_t, &src_t[pi], st);
+				memcpy(&src_h[pi], &src_h[pj], sh);
+				memcpy(&src_t[pi], &src_t[pj], st);
+				memcpy(&src_h[pj], tmp_h, sh);
+				memcpy(&src_t[pj], tmp_t, st);
+				/* adjust lower limit of (now empty) "wrong" part of left slice */
+				c_Thread_arg[i].pos += sj;
+				/* continue with next left & right slice */
+				i++;
+				j--;
+			}
+		}
+	}
+	/* determine pivot */
+	f = BUN_NONE;
+	for (i = 0, j = alt * nthreads - alt; i <= j; i++) {
+		l = c_Thread_arg[i].pos;
+		if (src_t[l] @7 mval /*@5_@3(&src_t[l], &mval, @6@1)*/ &&
+		    (l == last || src_t[l + 1] @8 mval /*@5_@4(&src_t[l], &mval, @6@1)*/)) {
+			if (f == BUN_NONE) {
+				f = l;
+			} else {
+				assert(f == l);
+			}
+		}
+	}
+	assert(f != BUN_NONE);
+	*pos = (oid) f;
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	t_1 = GDKusec();
 	fprintf(stderr,
-		"CRKcrackUnorderedZero_@2_@1_MT ( %d, "LLFMT", "BUNFMT", "BUNFMT", %d ) restore : %.6f sec\n",
-		b->batCacheid, (lng) mval, first, last, nthreads, (dbl) (t_1 - t_2) / 1000000.0);
+		"CRKcrackUnorderedZero_@2_@1_MT ( %d, "LLFMT", "BUNFMT", "BUNFMT", %d, %d ) meta-chrack : %.6f sec\n",
+		b->batCacheid, (lng) mval, first, last, nthreads, alt, (dbl) (t_1 - t_2) / 1000000.0);
  #endif
 
-	*pos = (oid) (first + l - 1);
-
-	GDKfree(cnt);
-	GDKfree(off);
-	GDKfree(dst_h);
-	GDKfree(dst_t);
+	GDKfree(tmp_h);
+	GDKfree(tmp_t);
 	GDKfree(c_Thread);
 	GDKfree(c_Thread_arg);
 
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	t_1 = GDKusec();
 	fprintf(stderr,
-		"CRKcrackUnorderedZero_@2_@1_MT ( %d, "LLFMT", "BUNFMT", "BUNFMT", %d ) -> "OIDFMT" : %.6f secs\n",
-		b->batCacheid, (lng) mval, first, last, nthreads, *pos, (dbl) (t_1 - t_0) / 1000000.0);
+		"CRKcrackUnorderedZero_@2_@1_MT ( %d, "LLFMT", "BUNFMT", "BUNFMT", %d, %d ) -> "OIDFMT" : %.6f secs\n",
+		b->batCacheid, (lng) mval, first, last, nthreads, alt, *pos, (dbl) (t_1 - t_0) / 1000000.0);
  #endif
 
 	return MAL_SUCCEED;
@@ -649,13 +691,21 @@ CRKcrackUnorderedZero_@2_@1( BAT *b, @1 mval, BUN first, BUN last, oid *pos, int
 		/* original single-threaded crack code */
 		return CRKcrackUnorderedZero_@2_@1_ST(b, mval, first, last, pos);
 	} else
-	if (nthreads == -1) {
+	if (nthreads == 0) {
 		/* revised single-threaded crack code */
-		return CRKcrackUnorderedZero_@2_@1_STx(b, mval, first, last, pos);
+		return CRKcrackUnorderedZero_@2_@1_STx(b, mval, first, last, 0, pos
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+		                                       , "secs"
+ #endif
+		                                      );
 	} else
-	if (nthreads >= 0) {
-		/* new multi-threaded crack code */
-		return CRKcrackUnorderedZero_@2_@1_MT(b, mval, first, last, pos, nthreads);
+	if (nthreads < 0) {
+		/* new multi-threaded crack code; Alternative 1 */
+		return CRKcrackUnorderedZero_@2_@1_MT(b, mval, first, last, pos, -nthreads, 1);
+	} else
+	if (nthreads > 0) {
+		/* new multi-threaded crack code; Alternative 2 */
+		return CRKcrackUnorderedZero_@2_@1_MT(b, mval, first, last, pos, nthreads, 2);
 	} else {
 		throw(MAL, "crackers.select", "CRKcrackUnorderedZero_@2_@1(): Illegal number of threads: %d", nthreads);
 	}
