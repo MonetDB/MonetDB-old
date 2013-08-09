@@ -341,7 +341,7 @@ CRKcrackUnorderedZero_@2_@1_STx ( const BAT *b, const @1 mval, const BUN first, 
 	q = last - first;
 	while (p <= q && src_t[p] @7 mval /*@5_@3(&src_t[p], &mval, @6@1)*/)
 		p++;
-	*pos = (oid) (first + p - 2);
+	*pos = (oid) (first + p - 1);
 
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	t_1 = GDKusec();
