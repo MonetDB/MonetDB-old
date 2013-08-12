@@ -4,8 +4,13 @@ NUMATTRIBUTES=`cat ontAttribute.dbpedia.csv | wc -l`
 cp loadOntologySAMPLE.sql loadtmp.sql
 sed -i "s:NUMMETADATA:$NUMMETADATA:g" loadtmp.sql
 sed -i "s:NUMATTRIBUTES:$NUMATTRIBUTES:g" loadtmp.sql
+sed -i "s:MetaFile:${PWD}/ontMetadata.dbpedia.csv:g" loadtmp.sql
+sed -i "s:AttFile:${PWD}/ontMetadata.dbpedia.csv:g" loadtmp.sql
 
-mclient -d dbpedia --port=50000 < loadtmp.sql
+
+
+
+mclient < loadtmp.sql
 
 
 
@@ -15,5 +20,8 @@ NUMATTRIBUTES=`cat ontAttribute.gr.csv | wc -l`
 cp loadOntologySAMPLE.sql loadtmp.sql
 sed -i "s:NUMMETADATA:$NUMMETADATA:g" loadtmp.sql
 sed -i "s:NUMATTRIBUTES:$NUMATTRIBUTES:g" loadtmp.sql
+sed -i "s:MetaFile:${PWD}/ontMetadata.gr.csv:g" loadtmp.sql
+sed -i "s:AttFile:${PWD}/ontMetadata.gr.csv:g" loadtmp.sql
 
-mclient -d dbpedia --port=50000 < loadtmp.sql
+
+mclient < loadtmp.sql

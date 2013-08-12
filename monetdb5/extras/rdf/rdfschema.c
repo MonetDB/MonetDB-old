@@ -31,6 +31,7 @@
 #include <math.h>
 #include <time.h>
 #include <trie/trie.h>
+#include <string.h>
 
 #define SHOWPROPERTYNAME 1
 
@@ -1843,7 +1844,7 @@ void printCS(CS cs){
  * Here maximum frequent CS is a CS that there exist no other CS which contains that CS
  * */
 static 
-void getMaximumFreqCSs(CSset *freqCSset, BAT* coverageBat, BAT* freqBat, int numCS, int *nMaxCSs){
+void getMaximumFreqCSs(CSset *freqCSset, Labels* labels, BAT* coverageBat, BAT* freqBat, int numCS, int *nMaxCSs){
 
 	int 	numFreqCS = freqCSset->numCSadded; 
 	int 	i, j; 
@@ -1852,6 +1853,8 @@ void getMaximumFreqCSs(CSset *freqCSset, BAT* coverageBat, BAT* freqBat, int num
 	int 	tmpParentIdx; 
 	int* 	coverage; 
 	int* 	freq; 
+
+	(void) labels; 
 
 	printf("Retrieving maximum frequent CSs: \n");
 
@@ -2210,7 +2213,7 @@ void freePropStat(PropStat *propStat){
 
 
 static
-void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superCSMergeMaxCSMap, int numMaxCSs, oid maxCSoid){
+void mergeMaximumFreqCSsAll(CSset *freqCSset, Labels* labels, oid* superCSFreqCSMap, oid* superCSMergeMaxCSMap, int numMaxCSs, oid maxCSoid){
 	int 		i, j, k; 
 	int 		maxCSid = 0; 
 	int 		freqId1, freqId2; 
@@ -2224,7 +2227,8 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superC
 
 	PropStat	*propStat; 	/* Store statistics about properties */
 	int		nummergedCSs = 0;
-
+	
+	(void) labels;
 
 	for (i = 0; i < freqCSset->numCSadded; i++){
 		if (freqCSset->items[i].parentFreqIdx == -1){
@@ -2261,6 +2265,13 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, oid* superCSFreqCSMap, oid* superC
 				//printf("         Cosine = %f \n", simscore);
 				
 			}
+			
+			#if	USE_LABEL_FOR_MERGING
+			if (strcmp(labels[freqId1].name, labels[freqId2].name) == 0){
+				//printf("Same labels between freqCS %d and freqCS %d \n", freqId1, freqId2);
+				simscore = 1; 
+			}
+			#endif
 			
 			//simscore = 0.0;
 			#if	USINGTFIDF	
@@ -3156,7 +3167,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 
 
-	getMaximumFreqCSs(freqCSset, csBats->coverageBat,  csBats->freqBat, *maxCSoid + 1, &numMaxCSs); 
+	getMaximumFreqCSs(freqCSset, labels, csBats->coverageBat,  csBats->freqBat, *maxCSoid + 1, &numMaxCSs); 
 
 	curT = clock(); 
 	printf (" -----	Get maximum frequent CSs took   %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
@@ -3182,7 +3193,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	//mergeMaximumFreqCSs(freqCSset, superCSFreqCSMap, superCSMergeMaxCSMap, mergecsSet, numMaxCSs);
 
-	mergeMaximumFreqCSsAll(freqCSset, superCSFreqCSMap, superCSMergeMaxCSMap, numMaxCSs, *maxCSoid);
+	mergeMaximumFreqCSsAll(freqCSset, labels, superCSFreqCSMap, superCSMergeMaxCSMap, numMaxCSs, *maxCSoid);
 
 	curT = clock(); 
 	printf (" ----- Merging Frequent CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
