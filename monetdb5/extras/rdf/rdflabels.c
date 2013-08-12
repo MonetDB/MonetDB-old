@@ -221,7 +221,6 @@ int** initRelationMetadataCount(CSset* freqCSset) {
 	if (!relationMetadataCount) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		relationMetadataCount[i] = NULL;
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
 		relationMetadataCount[i] = (int *) malloc(sizeof(int) * freqCSset->items[i].numProp);
 		if (!relationMetadataCount[i]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 		for (j = 0; j < freqCSset->items[i].numProp; ++j) {
@@ -234,7 +233,7 @@ int** initRelationMetadataCount(CSset* freqCSset) {
 
 /* Calculate frequency per foreign key relationship. */
 static
-Relation*** initRelationMetadata(int** relationMetadataCount, CSmergeRel* csRelBetweenMergeFreqSet, CSset* freqCSset) {
+Relation*** initRelationMetadata(int** relationMetadataCount, CSrel* csrelSet, int num, CSset* freqCSset, int* csIdFreqIdxMap) {
 	int		i, j, k;
 	Relation***	relationMetadata;
 
@@ -245,49 +244,51 @@ Relation*** initRelationMetadata(int** relationMetadataCount, CSmergeRel* csRelB
 
 	relationMetadata = (Relation ***) malloc(sizeof(Relation **) * freqCSset->numCSadded);
 	if (!relationMetadata) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-	for (i = 0; i < freqCSset->numCSadded; ++i) { // CS
-		CS cs = (CS) freqCSset->items[i];
-		if (cs.parentFreqIdx != -1) continue; // ignore
-		relationMetadata[i] = (Relation **) malloc (sizeof(Relation *) * cs.numProp);
-		if (!relationMetadata[i]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+	for (i = 0; i < num; ++i) { // CS
+		int csId = csIdFreqIdxMap[i];
+		CS cs = (CS) freqCSset->items[csId];
+		if (csId == -1) continue; // ignore
+		relationMetadata[csId] = (Relation **) malloc (sizeof(Relation *) * cs.numProp);
+		if (!relationMetadata[csId]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 		for (j = 0; j < cs.numProp; ++j) { // propNo in CS order
 			int sum = 0;
-			relationMetadataCount[i][j] = 0;
-			relationMetadata[i][j] = NULL;
-			for (k = 0; k < csRelBetweenMergeFreqSet[i].numRef; ++k) { // propNo in CSrel
+			relationMetadataCount[csId][j] = 0;
+			relationMetadata[csId][j] = NULL;
+			for (k = 0; k < csrelSet[i].numRef; ++k) { // propNo in CSrel
 
-				if (csRelBetweenMergeFreqSet[i].lstPropId[k] == cs.lstProp[j]) {
-					int toId = csRelBetweenMergeFreqSet[i].lstRefFreqIdx[k];
-					relationMetadataCount[i][j] += 1;
+				if (csrelSet[i].lstPropId[k] == cs.lstProp[j]) {
+					int toId = csIdFreqIdxMap[ csrelSet[i].lstRefCSoid[k] ];
+					if (toId == -1) continue; // ignore
+					relationMetadataCount[csId][j] += 1;
 
 					// alloc/realloc
-					if (relationMetadataCount[i][j] == 1) {
+					if (relationMetadataCount[csId][j] == 1) {
 						// alloc
-						relationMetadata[i][j] = (Relation *) malloc (sizeof(Relation));
-						if (!relationMetadata[i][j]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-						relationMetadata[i][j][0].to = toId;
-						relationMetadata[i][j][0].from = i;
-						relationMetadata[i][j][0].freq = csRelBetweenMergeFreqSet[i].lstCnt[k];
-						relationMetadata[i][j][0].percent = -1;
+						relationMetadata[csId][j] = (Relation *) malloc (sizeof(Relation));
+						if (!relationMetadata[csId][j]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+						relationMetadata[csId][j][0].to = toId;
+						relationMetadata[csId][j][0].from = csId;
+						relationMetadata[csId][j][0].freq = csrelSet[i].lstCnt[k];
+						relationMetadata[csId][j][0].percent = -1;
 					} else {
 						// realloc
-						relationMetadata[i][j] = (Relation *) realloc(relationMetadata[i][j], sizeof(Relation) * relationMetadataCount[i][j]);
-						if (!relationMetadata[i][j]) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-						relationMetadata[i][j][relationMetadataCount[i][j] - 1].to = toId;
-						relationMetadata[i][j][relationMetadataCount[i][j] - 1].from = i;
-						relationMetadata[i][j][relationMetadataCount[i][j] - 1].freq = csRelBetweenMergeFreqSet[i].lstCnt[k];
-						relationMetadata[i][j][relationMetadataCount[i][j] - 1].percent = -1;
+						relationMetadata[csId][j] = (Relation *) realloc(relationMetadata[csId][j], sizeof(Relation) * relationMetadataCount[csId][j]);
+						if (!relationMetadata[csId][j]) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+						relationMetadata[csId][j][relationMetadataCount[csId][j] - 1].to = toId;
+						relationMetadata[csId][j][relationMetadataCount[csId][j] - 1].from = csId;
+						relationMetadata[csId][j][relationMetadataCount[csId][j] - 1].freq = csrelSet[i].lstCnt[k];
+						relationMetadata[csId][j][relationMetadataCount[csId][j] - 1].percent = -1;
 					}
 				}
 			}
 
 			// get total count of values
-			for (k = 0; k < relationMetadataCount[i][j]; ++k) {
-				sum += relationMetadata[i][j][k].freq;
+			for (k = 0; k < relationMetadataCount[csId][j]; ++k) {
+				sum += relationMetadata[csId][j][k].freq;
 			}
 			// assign percentage values for every value
-			for (k = 0; k < relationMetadataCount[i][j]; ++k) {
-				relationMetadata[i][j][k].percent = (int) (100.0 * relationMetadata[i][j][k].freq / sum + 0.5);
+			for (k = 0; k < relationMetadataCount[csId][j]; ++k) {
+				relationMetadata[csId][j][k].percent = (int) (100.0 * relationMetadata[csId][j][k].freq / sum + 0.5);
 			}
 		}
 	}
@@ -387,7 +388,6 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 	// create statement for every table
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		char *temp;
-		if ( freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
 		temp = (char *) malloc(sizeof(char) * (strlen(labels[i].name) + 1));
 		if (!temp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 		strcpy(temp, labels[i].name);
@@ -414,7 +414,6 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 
 	// add foreign key columns and add foreign keys
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
 		for (j = 0; j < labels[i].numProp; ++j) {
 			char *temp2;
 			int refCounter = 0;
@@ -453,7 +452,7 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 }
 
 static
-void createSQLMetadata(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, Labels* labels) {
+void createSQLMetadata(CSset* freqCSset, CSrel* csrelSet, int num, Labels* labels, int* csIdFreqIdxMap) {
 	int	**matrix = NULL; // matrix[from][to] frequency
 	int	i, j, k;
 	FILE	*fout;
@@ -472,24 +471,27 @@ void createSQLMetadata(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, L
 	}
 
 	// set values
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
+	for (i = 0; i < num; ++i) {
+		int csId = csIdFreqIdxMap[i];
+		CS cs = (CS) freqCSset->items[csId];
+		if (csId == -1) continue; // ignore
 
-		for (j = 0; j < freqCSset->items[i].numProp; ++j) { // propNo in CS order
+		for (j = 0; j < cs.numProp; ++j) { // propNo in CS order
 			// check foreign key frequency
 			int sum = 0;
-			for (k = 0; k < csRelBetweenMergeFreqSet[i].numRef; ++k) {
-				if (csRelBetweenMergeFreqSet[i].lstPropId[k] == freqCSset->items[i].lstProp[j]) {
-					sum += csRelBetweenMergeFreqSet[i].lstCnt[k];
+			for (k = 0; k < csrelSet[i].numRef; ++k) {
+				if (csrelSet[i].lstPropId[k] == cs.lstProp[j]) {
+					sum += csrelSet[i].lstCnt[k];
 				}
 			}
 
-			for (k = 0; k < csRelBetweenMergeFreqSet[i].numRef; ++k) { // propNo in CSrel
-				if (csRelBetweenMergeFreqSet[i].lstPropId[k] == freqCSset->items[i].lstProp[j]) {
-					int to = csRelBetweenMergeFreqSet[i].lstRefFreqIdx[k];
-					if (i == to) continue; // ignore self references
-					if ((int) (100.0 * csRelBetweenMergeFreqSet[i].lstCnt[k] / sum + 0.5) < FK_FREQ_THRESHOLD) continue; // foreign key is not frequent enough
-					matrix[i][to] += csRelBetweenMergeFreqSet[i].lstCnt[k]; // multiple links from 'i' to 'to'? add the frequencies
+			for (k = 0; k < csrelSet[i].numRef; ++k) { // propNo in CSrel
+				if (csrelSet[i].lstPropId[k] == cs.lstProp[j]) {
+					int toId = csIdFreqIdxMap[ csrelSet[i].lstRefCSoid[k] ];
+					if (toId == -1) continue; // ignore
+					if (i == toId) continue; // ignore self references
+					if ((int) (100.0 * csrelSet[i].lstCnt[k] / sum + 0.5) < FK_FREQ_THRESHOLD) continue; // foreign key is not frequent enough
+					matrix[csId][toId] += csrelSet[i].lstCnt[k]; // multiple links from 'i' to 'toId'? add the frequencies
 				}
 			}
 		}
@@ -510,7 +512,6 @@ void createSQLMetadata(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, L
 	fout = fopen("tableIdFreq.csv", "wt");
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		char *temp;
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
 		temp = (char *) malloc(sizeof(char) * (strlen(labels[i].name) + 1));
 		if (!temp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 		strcpy(temp, labels[i].name);
@@ -542,7 +543,6 @@ void printTxt(CSset* freqCSset, Labels* labels, int freqThreshold) {
 
 	fout = fopen(filename, "wt");
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
 		fprintf(fout, "%s (CS "BUNFMT"): ", labels[i].name, freqCSset->items[i].csId);
 		for (j = 0; j < labels[i].numProp; ++j) {
 			if (j + 1 < labels[i].numProp) fprintf(fout, "%s, ", labels[i].lstProp[j]);
@@ -611,12 +611,7 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 		for (i = 0; i < typeAttributesCount; ++i) {
 			if (strstr(propStr, typeAttributes[i]) != NULL) {
 				// prop is a type!
-
-				// lookup maxCS/mergeCS
 				csFreqIdx = csIdFreqIdxMap[subjCSMap[*sbt]];
-				while (freqCSset->items[csFreqIdx].parentFreqIdx != -1) {
-					csFreqIdx = freqCSset->items[csFreqIdx].parentFreqIdx;
-				}
 
 				// get object
 				obt = (oid *) BUNtloc(oi, p);
@@ -679,7 +674,6 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 
 	// sort descending by frequency
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
 		for (j = 0; j < typeAttributesCount; ++j) {
 			qsort(typeAttributesHistogram[i][j], typeAttributesHistogramCount[i][j], sizeof(TypeAttributesFreq), compareTypeAttributesFreqs);
 		}
@@ -1041,7 +1035,6 @@ void createPropStatistics(PropStat* propStat, int numMaxCSs, CSset* freqCSset) {
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS cs = (CS)freqCSset->items[i];
-		if (cs.parentFreqIdx != -1) continue; // ignore
 		for (j = 0; j < cs.numProp; ++j) {
 			// add prop to propStat
 			BUN	bun = BUNfnd(BATmirror(propStat->pBat), (ptr) &cs.lstProp[j]);
@@ -1089,13 +1082,9 @@ static
 void createOntologyLookupResult(str** result, CSset* freqCSset, int* resultCount, str** ontattributes, int ontattributesCount, str** ontmetadata, int ontmetadataCount) {
 	int		i, j;
 	PropStat	*propStat;
-	int		numCS = 0;
 
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (freqCSset->items[i].parentFreqIdx == -1) numCS += 1;
-	}
 	propStat = initPropStat();
-	createPropStatistics(propStat, numCS, freqCSset);
+	createPropStatistics(propStat, freqCSset->numCSadded, freqCSset);
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS		cs;
@@ -1104,7 +1093,6 @@ void createOntologyLookupResult(str** result, CSset* freqCSset, int* resultCount
 		int		*propOntologiesCount = NULL;
 
 		cs = (CS) freqCSset->items[i];
-		if (cs.parentFreqIdx != -1) continue; // ignore
 
 		// order properties by ontologies
 		propOntologiesCount = (int *) malloc(sizeof(int) * ontologyCount);
@@ -1170,7 +1158,6 @@ void printUML(CSset *freqCSset, int typeAttributesCount, TypeAttributesFreq*** t
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS cs = (CS) freqCSset->items[i];
-		if (cs.parentFreqIdx != -1) continue; // ignore
 
 #if SHOW_CANDIDATES
 		/* DATA SOURCES */
@@ -1370,14 +1357,12 @@ void printUML(CSset *freqCSset, int typeAttributesCount, TypeAttributesFreq*** t
 			getPropNameShort(&propStrShort, propStr);
 #endif
 
-			if (cs.parentFreqIdx == -1) {
-				// if it is a type, include top-3 values
+			// if it is a type, include top-3 values
 #if USE_SHORT_NAMES
-				fprintf(fout, "<TR><TD PORT=\"%s\">%s</TD></TR>\n", propStrEscaped, propStrShort);
+			fprintf(fout, "<TR><TD PORT=\"%s\">%s</TD></TR>\n", propStrEscaped, propStrShort);
 #else
-				fprintf(fout, "<TR><TD PORT=\"%s\">%s</TD></TR>\n", propStrEscaped, propStr);
+			fprintf(fout, "<TR><TD PORT=\"%s\">%s</TD></TR>\n", propStrEscaped, propStr);
 #endif
-			}
 			free(propStrEscaped);
 
 		}
@@ -1387,7 +1372,6 @@ void printUML(CSset *freqCSset, int typeAttributesCount, TypeAttributesFreq*** t
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS cs = (CS) freqCSset->items[i];
-		if (cs.parentFreqIdx != -1) continue; // ignore
 		for (j = 0; j < cs.numProp; ++j) {
 			char    *propStrEscaped = NULL;
 #if USE_SHORT_NAMES
@@ -1588,7 +1572,6 @@ void getAllLabels(Labels* labels, CSset* freqCSset,  int typeAttributesCount, Ty
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS cs = (CS) freqCSset->items[i];
 		char *temp = NULL;
-		if (cs.parentFreqIdx != -1) continue; // ignore
 
 		// get table name
 		getTableName(&temp, i,  typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeStat, typeStatCount, result, resultCount, links);
@@ -1649,7 +1632,6 @@ void createLinks(CSset* freqCSset, Relation*** relationMetadata, int** relationM
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS cs = (CS) freqCSset->items[i];
-		if (cs.parentFreqIdx != -1) continue; // ignore
 		for (j = 0; j < cs.numProp; ++j) {
 			for (k = 0; k < relationMetadataCount[i][j]; ++k) {
 				int to;
@@ -1725,7 +1707,6 @@ void freeRelationMetadata(Relation*** relationMetadata, CSset* freqCSset) {
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) { // CS
 		CS cs = (CS) freqCSset->items[i];
-		if (cs.parentFreqIdx != -1) continue; // ignore
 		for (j = 0; j < cs.numProp; ++j) {
 			if (relationMetadata[i][j])
 				free(relationMetadata[i][j]);
@@ -1773,7 +1754,7 @@ void freeOntologyLookupResult(str** ontologyLookupResult, int csCount) {
 }
 
 /* Creates labels for all CS (without a parent). */
-Labels* createLabels(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, BAT* mbat, int *csIdFreqIdxMap, int freqThreshold, str** ontattributes, int ontattributesCount, str** ontmetadata, int ontmetadataCount) {
+Labels* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, BAT* mbat, int *csIdFreqIdxMap, int freqThreshold, str** ontattributes, int ontattributesCount, str** ontmetadata, int ontmetadataCount) {
 #if USE_TYPE_NAMES
 	char*		typeAttributes[] = {
 				"http://ogp.me/ns#type",
@@ -1824,7 +1805,7 @@ Labels* createLabels(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, BAT
 
 	// Relation (FK)
 	relationMetadataCount = initRelationMetadataCount(freqCSset);
-	relationMetadata = initRelationMetadata(relationMetadataCount, csRelBetweenMergeFreqSet, freqCSset);
+	relationMetadata = initRelationMetadata(relationMetadataCount, csrelSet, num, freqCSset, csIdFreqIdxMap);
 	links = initLinks(freqCSset->numCSadded);
 #if USE_FK_NAMES
 	createLinks(freqCSset, relationMetadata, relationMetadataCount, links);
@@ -1862,7 +1843,7 @@ Labels* createLabels(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, BAT
 	convertToSQL(freqCSset, relationMetadata, relationMetadataCount, labels, freqThreshold);
 	freeRelationMetadata(relationMetadata, freqCSset);
 	freeRelationMetadataCount(relationMetadataCount, freqCSset->numCSadded);
-	createSQLMetadata(freqCSset, csRelBetweenMergeFreqSet, labels);
+	createSQLMetadata(freqCSset, csrelSet, num, labels, csIdFreqIdxMap);
 	printTxt(freqCSset, labels, freqThreshold);
 
 	return labels;
@@ -1871,7 +1852,7 @@ Labels* createLabels(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, BAT
 void freeLabels(Labels* labels, CSset* freqCSset) {
 	int		i, j;
 
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
+	for (i = 0; i < freqCSset->numOrigFreqCS; ++i) { // do not use numCSadded because of additional mergeCS
 		for (j = 0; j < labels[i].numProp; ++j) {
 			free(labels[i].lstProp[j]);
 		}

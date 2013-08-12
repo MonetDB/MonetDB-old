@@ -86,10 +86,10 @@ typedef struct TypeStat {
 #define USE_TABLE_NAME 1		// calculate and store the final labels
 #define SHOW_CANDIDATES 0		// inserts a row in UML diagrams to show all candidate names
 
-Labels*
-createLabels(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, BAT* mapbat, int *csIdFreqIdxMap, int freqThreshold, str** ontattributes, int ontattributesCount, str** ontmetadata, int ontmetadataCount);
+rdf_export Labels*
+createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, BAT* mapbat, int *csIdFreqIdxMap, int freqThreshold, str** ontattributes, int ontattributesCount, str** ontmetadata, int ontmetadataCount);
 
-void
+rdf_export void
 freeLabels(Labels* labels, CSset* freqCSset);
 
 #endif /* _RDFLABELS_H_ */
