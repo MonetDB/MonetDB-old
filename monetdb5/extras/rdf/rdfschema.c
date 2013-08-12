@@ -3147,6 +3147,15 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	/*get the statistic */
 	//getTopFreqCSs(csMap,*freqThreshold);
 
+
+
+	// Create label per freqCS
+	csIdFreqIdxMap = (int *) malloc (sizeof(int) * (*maxCSoid + 1));
+	initcsIdFreqIdxMap(csIdFreqIdxMap, *maxCSoid + 1, -1, freqCSset);
+	labels = createLabels(freqCSset, csrelSet, *maxCSoid + 1, sbat, si, pi, oi, *subjCSMap, mbat, csIdFreqIdxMap, *freqThreshold, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount);
+
+
+
 	getMaximumFreqCSs(freqCSset, csBats->coverageBat,  csBats->freqBat, *maxCSoid + 1, &numMaxCSs); 
 
 	curT = clock(); 
@@ -3165,10 +3174,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	csrelToMaxFreqSet = initCSrelset(*maxCSoid + 1);	// CS --> Reference MaxCSs
 	csrelFromMaxFreqSet = initCSrelset(*maxCSoid + 1);	// CS --> Reference MaxCSs
 	csrelBetweenMaxFreqSet = initCSrelset(*maxCSoid + 1);	// MaxCS --> Reference MaxCSs
-
-
-	csIdFreqIdxMap = (int *) malloc (sizeof(int) * (*maxCSoid + 1)); 
-	initcsIdFreqIdxMap(csIdFreqIdxMap, *maxCSoid + 1, -1, freqCSset);
 
 	printCSrelWithMaxSet(freqCSset, csIdFreqIdxMap, csrelToMaxFreqSet, csrelFromMaxFreqSet, csrelBetweenMaxFreqSet, csrelSet,csFreqMap, csBats->freqBat, *maxCSoid + 1, *freqThreshold);  
 
@@ -3196,19 +3201,12 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 
 
-	// Phase 3: Labels
-	
-	labels = createLabels(freqCSset, csRelBetweenMergeFreqSet, sbat, si, pi, oi, *subjCSMap, mbat, csIdFreqIdxMap, *freqThreshold, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount);
-
-	freeLabels(labels, freqCSset);
-
-
-
 	BBPunfix(sbat->batCacheid); 
 	BBPunfix(pbat->batCacheid); 
 	BBPunfix(obat->batCacheid);
 	BBPunfix(mbat->batCacheid);
 
+	freeLabels(labels, freqCSset);
 	free (subjSubCSMap);
 	free (csFreqMap);
 	free (superCSFreqCSMap);
