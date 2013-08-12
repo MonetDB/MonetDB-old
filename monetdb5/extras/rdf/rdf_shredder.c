@@ -32,6 +32,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <ctype.h>
 
 typedef struct graphBATdef {
 	graphBATType batType;    /* BAT type             */
@@ -173,6 +174,56 @@ rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType obj
 
 }
 
+/*
+ * Get substring of a string
+ * */
+
+static 
+char *substring(char *string, int position, int length) 
+{
+	char *pointer;
+	int c;
+
+	pointer = malloc(length+1);
+
+	if (pointer == NULL)
+	{
+		throw(RDF, "rdf_shredder.substring", "Memory allocation failed!");
+	}
+
+	for (c = 0 ; c < position -1 ; c++) 
+		string++; 
+
+	for (c = 0 ; c < length ; c++)
+	{
+		*(pointer+c) = *string;      
+		string++;   
+	}
+
+	*(pointer+c) = '\0';
+
+	return pointer;
+}
+
+static
+char isInt(char *input){
+	
+	int i, len = strlen(input);
+	//printf("... Checking value %s with len %d \n", input, len);
+	for(i = 0; i < len; i++)
+	{
+		if(isdigit(input[i]) == 0){ // May also check ispunct(string[i]) != 0 
+			//printf("NOT A DIGIT \n");
+			break;
+		}
+	}
+	//printf("i is %d \n",i);
+	if(i == len)
+		return 1;
+	else
+		return 0;
+}
+
 
 /*
 * Get the specific type of the object value in an RDF triple
@@ -183,27 +234,52 @@ rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType obj
 */
 
 static ObjectType 
-getObjectType(unsigned char* objStr){
+getObjectType(unsigned char* objStr, BUN *realNumValue){
 	ObjectType obType; 
-	if (strstr((const char*) objStr, "XMLSchema#date") != NULL || strstr((const char*) objStr, "XMLSchema#dateTime")){
-		obType = DATETIME;
-		//printf("%s: DateTime \n", objStr); 
-	}
-	else if (strstr((const char*) objStr, "XMLSchema#int") != NULL || strstr((const char*) objStr, "XMLSchema#integer") != NULL){
-		obType = INTEGER;
-	}
-	else if (strstr((const char*) objStr, "XMLSchema#float") != NULL 
-			|| strstr((const char*) objStr, "XMLSchema#double") != NULL  
-			|| strstr((const char*) objStr, "XMLSchema#decimal") != NULL){
-		obType = FLOAT;
-	}
-	else {
-		obType = STRING;
-		//printf("%s: String \n", objStr); 
+	unsigned char* endpart;
+	char* valuepart; 
+	const char* pos = NULL; 
+
+	*realNumValue = BUN_NONE; 
+
+	if (strlen((str)objStr) > 20){
+		endpart = objStr + (strlen((str)objStr) - 19);   //XMLSchema#dateTime>
+		//printf("Original: %s  --> substring: %s \n", (str)objStr, (str)endpart);
+
+		if ( (pos = strstr((str)endpart , "XMLSchema#date>")) != NULL || (pos = strstr((str)endpart, "XMLSchema#dateTime>")) != NULL ){
+			obType = DATETIME;
+			//printf("%s: DateTime \n", objStr); 
+		}
+		else if ((pos = strstr((str) endpart, "XMLSchema#int>")) != NULL || (pos = strstr((str)endpart, "XMLSchema#integer>")) != NULL){
+			obType = INTEGER;
+			valuepart = substring((char*)objStr, 2 , (int) (pos - (str)objStr - 28)); 
+			//printf("%s: Integer \n. Length of value %d ==> value %s \n", objStr, (int) (pos - (str)objStr - 28), valuepart);
+			if (isInt(valuepart) == 1){	/* Check whether the real value is an integer */
+				*realNumValue = (BUN) atoi(valuepart); 
+				//printf("Real value is: " BUNFMT " \n", *realNumValue);
+			}
+			else 
+				obType = STRING;	
+
+			free(valuepart); 
+
+		}
+		else if ((pos = strstr((str) endpart, "XMLSchema#float>")) != NULL 
+				|| (pos = strstr((str) endpart, "XMLSchema#double>")) != NULL  
+				|| (pos = strstr((str) endpart, "XMLSchema#decimal>")) != NULL){
+			obType = FLOAT;
+			//printf("%s: Float \n", objStr);
+		}
+		else {
+			obType = STRING;
+			//printf("%s: String \n", objStr); 
+		}
 	}
 
 	return obType; 
 }
+
+
 
 
 /*
@@ -217,6 +293,8 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 {
 	parserData *pdata = ((parserData *) user_data);
 	BUN bun = BUN_NONE;
+	BUN realNumValue = BUN_NONE; 
+
 	BAT **graph = pdata->graph;
 
 	//printf("%s   %s   %s\n",raptor_term_to_string(triple->subject),raptor_term_to_string(triple->predicate),raptor_term_to_string(triple->object));
@@ -283,7 +361,7 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 			unsigned char* objStr;
 			ObjectType objType;
 			objStr = raptor_term_to_string(triple->object);
-			objType = getObjectType(objStr);
+			objType = getObjectType(objStr, &realNumValue);
 
 			rdf_BUNappend_unq_ForObj(pdata, graph[MAP_LEX], (str)objStr, objType, &bun);	
 			rdf_BUNappend(pdata, graph[O_sort], &bun); 
