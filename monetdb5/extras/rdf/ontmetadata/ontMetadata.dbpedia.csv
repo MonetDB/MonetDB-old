@@ -1,0 +1,1124 @@
+http://dbpedia.org/ontology/Scientist|scientist|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Scientist|scientist|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Scientist|scientist|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/AcademicJournal|academic journal|http://dbpedia.org/ontology/PeriodicalLiterature
+http://dbpedia.org/ontology/AcademicJournal|academic journal|http://dbpedia.org/ontology/WrittenWork
+http://dbpedia.org/ontology/AcademicJournal|academic journal|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/AcademicJournal|academic journal|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Activity|activity|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Actor|actor|http://dbpedia.org/ontology/Artist
+http://dbpedia.org/ontology/Actor|actor|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Actor|actor|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Actor|actor|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/AdministrativeRegion|administrative region|http://dbpedia.org/ontology/PopulatedPlace
+http://dbpedia.org/ontology/AdministrativeRegion|administrative region|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/AdministrativeRegion|administrative region|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/AdultActor|adult (pornographic) actor|http://dbpedia.org/ontology/Actor
+http://dbpedia.org/ontology/AdultActor|adult (pornographic) actor|http://dbpedia.org/ontology/Artist
+http://dbpedia.org/ontology/AdultActor|adult (pornographic) actor|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/AdultActor|adult (pornographic) actor|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/AdultActor|adult (pornographic) actor|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Agent|agent|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Aircraft|aircraft|http://dbpedia.org/ontology/MeanOfTransportation
+http://dbpedia.org/ontology/Aircraft|aircraft|http://schema.org/Product
+http://dbpedia.org/ontology/Aircraft|aircraft|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Airline|airline|http://dbpedia.org/ontology/Company
+http://dbpedia.org/ontology/Airline|airline|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/Airline|airline|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Airline|airline|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Airport|airport|http://dbpedia.org/ontology/Infrastructure
+http://dbpedia.org/ontology/Airport|airport|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Airport|airport|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Airport|airport|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Album|album|http://dbpedia.org/ontology/MusicalWork
+http://dbpedia.org/ontology/Album|album|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/Album|album|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Ambassador|ambassador|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Ambassador|ambassador|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Ambassador|ambassador|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/AmericanFootballLeague|american football league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/AmericanFootballLeague|american football league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/AmericanFootballLeague|american football league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/AmericanFootballLeague|american football league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/AmericanFootballPlayer|american football player|http://dbpedia.org/ontology/GridironFootballPlayer
+http://dbpedia.org/ontology/AmericanFootballPlayer|american football player|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/AmericanFootballPlayer|american football player|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/AmericanFootballPlayer|american football player|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/AmericanFootballPlayer|american football player|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/AmericanFootballTeam|american football team|http://dbpedia.org/ontology/SportsTeam
+http://dbpedia.org/ontology/AmericanFootballTeam|american football team|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/AmericanFootballTeam|american football team|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/AmericanFootballTeam|american football team|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Amphibian|amphibian|http://dbpedia.org/ontology/Animal
+http://dbpedia.org/ontology/Amphibian|amphibian|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Amphibian|amphibian|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Amphibian|amphibian|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/AnatomicalStructure|anatomical structure|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Animal|animal|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Animal|animal|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Animal|animal|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Arachnid|arachnid|http://dbpedia.org/ontology/Animal
+http://dbpedia.org/ontology/Arachnid|arachnid|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Arachnid|arachnid|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Arachnid|arachnid|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Archaea|archaea|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Archaea|archaea|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Architect|architect|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Architect|architect|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Architect|architect|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/ArchitecturalStructure|architectural structure|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/ArchitecturalStructure|architectural structure|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Arena|arena|http://dbpedia.org/ontology/Building
+http://dbpedia.org/ontology/Arena|arena|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Arena|arena|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Arena|arena|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Artery|artery|http://dbpedia.org/ontology/AnatomicalStructure
+http://dbpedia.org/ontology/Artery|artery|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Artist|artist|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Artist|artist|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Artist|artist|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Artwork|artwork|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/Artwork|artwork|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Asteroid|asteroid|http://dbpedia.org/ontology/CelestialBody
+http://dbpedia.org/ontology/Asteroid|asteroid|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Astronaut|astronaut|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Astronaut|astronaut|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Astronaut|astronaut|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Athlete|athlete|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Athlete|athlete|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Athlete|athlete|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Atoll|atoll|http://dbpedia.org/ontology/PopulatedPlace
+http://dbpedia.org/ontology/Atoll|atoll|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Atoll|atoll|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/AustralianFootballLeague|australian football league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/AustralianFootballLeague|australian football league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/AustralianFootballLeague|australian football league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/AustralianFootballLeague|australian football league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/AustralianRulesFootballPlayer|Australian rules football player|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/AustralianRulesFootballPlayer|Australian rules football player|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/AustralianRulesFootballPlayer|Australian rules football player|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/AustralianRulesFootballPlayer|Australian rules football player|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/AutoRacingLeague|auto racing league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/AutoRacingLeague|auto racing league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/AutoRacingLeague|auto racing league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/AutoRacingLeague|auto racing league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Automobile|automobile|http://dbpedia.org/ontology/MeanOfTransportation
+http://dbpedia.org/ontology/Automobile|automobile|http://schema.org/Product
+http://dbpedia.org/ontology/Automobile|automobile|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/AutomobileEngine|automobile engine|http://dbpedia.org/ontology/Device
+http://dbpedia.org/ontology/AutomobileEngine|automobile engine|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Award|award|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Bacteria|bacteria|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Bacteria|bacteria|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/BadmintonPlayer|badminton player|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/BadmintonPlayer|badminton player|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/BadmintonPlayer|badminton player|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/BadmintonPlayer|badminton player|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Band|Band|http://schema.org/MusicGroup
+http://dbpedia.org/ontology/Band|Band|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/Band|Band|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Band|Band|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/BaseballLeague|baseball league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/BaseballLeague|baseball league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/BaseballLeague|baseball league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/BaseballLeague|baseball league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/BaseballPlayer|baseball player|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/BaseballPlayer|baseball player|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/BaseballPlayer|baseball player|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/BaseballPlayer|baseball player|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/BaseballTeam|baseball team|http://dbpedia.org/ontology/SportsTeam
+http://dbpedia.org/ontology/BaseballTeam|baseball team|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/BaseballTeam|baseball team|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/BaseballTeam|baseball team|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/BasketballPlayer|basketball player|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/BasketballPlayer|basketball player|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/BasketballPlayer|basketball player|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/BasketballPlayer|basketball player|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/BasketballTeam|basketball team|http://dbpedia.org/ontology/SportsTeam
+http://dbpedia.org/ontology/BasketballTeam|basketball team|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/BasketballTeam|basketball team|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/BasketballTeam|basketball team|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Beverage|beverage|http://dbpedia.org/ontology/Food
+http://dbpedia.org/ontology/Beverage|beverage|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/BiologicalDatabase|Biological database|http://dbpedia.org/ontology/Database
+http://dbpedia.org/ontology/BiologicalDatabase|Biological database|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Biomolecule|Biomolecule|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Bird|bird|http://dbpedia.org/ontology/Animal
+http://dbpedia.org/ontology/Bird|bird|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Bird|bird|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Bird|bird|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/BodyOfWater|body of water|http://dbpedia.org/ontology/NaturalPlace
+http://dbpedia.org/ontology/BodyOfWater|body of water|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/BodyOfWater|body of water|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Bone|bone|http://dbpedia.org/ontology/AnatomicalStructure
+http://dbpedia.org/ontology/Bone|bone|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Book|book|http://dbpedia.org/ontology/WrittenWork
+http://dbpedia.org/ontology/Book|book|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/Book|book|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/BowlingLeague|bowling league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/BowlingLeague|bowling league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/BowlingLeague|bowling league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/BowlingLeague|bowling league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Boxer|boxer|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/Boxer|boxer|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Boxer|boxer|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Boxer|boxer|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/BoxingLeague|boxing league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/BoxingLeague|boxing league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/BoxingLeague|boxing league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/BoxingLeague|boxing league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Brain|brain|http://dbpedia.org/ontology/AnatomicalStructure
+http://dbpedia.org/ontology/Brain|brain|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Bridge|bridge|http://dbpedia.org/ontology/RouteOfTransportation
+http://dbpedia.org/ontology/Bridge|bridge|http://dbpedia.org/ontology/Infrastructure
+http://dbpedia.org/ontology/Bridge|bridge|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Bridge|bridge|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Bridge|bridge|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/BritishRoyalty|British royalty|http://dbpedia.org/ontology/Royalty
+http://dbpedia.org/ontology/BritishRoyalty|British royalty|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/BritishRoyalty|British royalty|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/BritishRoyalty|British royalty|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/BroadcastNetwork|broadcast network|http://dbpedia.org/ontology/Broadcaster
+http://dbpedia.org/ontology/BroadcastNetwork|broadcast network|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/BroadcastNetwork|broadcast network|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/BroadcastNetwork|broadcast network|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Broadcaster|broadcaster|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/Broadcaster|broadcaster|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Broadcaster|broadcaster|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Building|building|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Building|building|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Building|building|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/BullFighter|bullfighter|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/BullFighter|bullfighter|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/BullFighter|bullfighter|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/BullFighter|bullfighter|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/CanadianFootballLeague|canadian football league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/CanadianFootballLeague|canadian football league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/CanadianFootballLeague|canadian football league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/CanadianFootballLeague|canadian football league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/CanadianFootballPlayer|canadian football player|http://dbpedia.org/ontology/GridironFootballPlayer
+http://dbpedia.org/ontology/CanadianFootballPlayer|canadian football player|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/CanadianFootballPlayer|canadian football player|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/CanadianFootballPlayer|canadian football player|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/CanadianFootballPlayer|canadian football player|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/CanadianFootballTeam|canadian football team|http://dbpedia.org/ontology/SportsTeam
+http://dbpedia.org/ontology/CanadianFootballTeam|canadian football team|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/CanadianFootballTeam|canadian football team|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/CanadianFootballTeam|canadian football team|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Canal|canal|http://dbpedia.org/ontology/Stream
+http://dbpedia.org/ontology/Canal|canal|http://dbpedia.org/ontology/BodyOfWater
+http://dbpedia.org/ontology/Canal|canal|http://dbpedia.org/ontology/NaturalPlace
+http://dbpedia.org/ontology/Canal|canal|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Canal|canal|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Cardinal|cardinal|http://dbpedia.org/ontology/Cleric
+http://dbpedia.org/ontology/Cardinal|cardinal|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Cardinal|cardinal|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Cardinal|cardinal|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Cave|cave|http://dbpedia.org/ontology/NaturalPlace
+http://dbpedia.org/ontology/Cave|cave|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Cave|cave|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Celebrity|celebrity|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Celebrity|celebrity|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Celebrity|celebrity|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/CelestialBody|celestial body|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Chancellor|chancellor|http://dbpedia.org/ontology/Politician
+http://dbpedia.org/ontology/Chancellor|chancellor|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Chancellor|chancellor|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Chancellor|chancellor|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/ChemicalCompound|chemical compound|http://dbpedia.org/ontology/ChemicalSubstance
+http://dbpedia.org/ontology/ChemicalCompound|chemical compound|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/ChemicalElement|chemical element|http://dbpedia.org/ontology/ChemicalSubstance
+http://dbpedia.org/ontology/ChemicalElement|chemical element|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/ChemicalSubstance|chemical substance|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/ChessPlayer|chess player|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/ChessPlayer|chess player|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/ChessPlayer|chess player|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/ChristianBishop|Christian Bishop|http://dbpedia.org/ontology/Cleric
+http://dbpedia.org/ontology/ChristianBishop|Christian Bishop|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/ChristianBishop|Christian Bishop|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/ChristianBishop|Christian Bishop|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/ChristianPatriarch|Christian Patriarch|http://dbpedia.org/ontology/Cleric
+http://dbpedia.org/ontology/ChristianPatriarch|Christian Patriarch|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/ChristianPatriarch|Christian Patriarch|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/ChristianPatriarch|Christian Patriarch|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Church|church|http://dbpedia.org/ontology/ReligiousBuilding
+http://dbpedia.org/ontology/Church|church|http://dbpedia.org/ontology/Building
+http://dbpedia.org/ontology/Church|church|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Church|church|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Church|church|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/City|city|http://dbpedia.org/ontology/Settlement
+http://dbpedia.org/ontology/City|city|http://dbpedia.org/ontology/PopulatedPlace
+http://dbpedia.org/ontology/City|city|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/City|city|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Cleric|cleric|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Cleric|cleric|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Cleric|cleric|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/ClubMoss|club moss|http://dbpedia.org/ontology/Plant
+http://dbpedia.org/ontology/ClubMoss|club moss|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/ClubMoss|club moss|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/ClubMoss|club moss|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/College|college|http://dbpedia.org/ontology/EducationalInstitution
+http://dbpedia.org/ontology/College|college|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/College|college|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/College|college|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/CollegeCoach|college coach|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/CollegeCoach|college coach|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/CollegeCoach|college coach|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Colour|colour|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Comedian|comedian|http://dbpedia.org/ontology/Artist
+http://dbpedia.org/ontology/Comedian|comedian|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Comedian|comedian|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Comedian|comedian|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/ComicBook|comic book|http://dbpedia.org/ontology/WrittenWork
+http://dbpedia.org/ontology/ComicBook|comic book|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/ComicBook|comic book|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/ComicsCharacter|comics character|http://dbpedia.org/ontology/FictionalCharacter
+http://dbpedia.org/ontology/ComicsCharacter|comics character|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/ComicsCharacter|comics character|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/ComicsCharacter|comics character|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/ComicsCreator|comics creator|http://dbpedia.org/ontology/Artist
+http://dbpedia.org/ontology/ComicsCreator|comics creator|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/ComicsCreator|comics creator|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/ComicsCreator|comics creator|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Company|company|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/Company|company|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Company|company|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Congressman|congressman|http://dbpedia.org/ontology/Politician
+http://dbpedia.org/ontology/Congressman|congressman|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Congressman|congressman|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Congressman|congressman|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Conifer|conifer|http://dbpedia.org/ontology/Plant
+http://dbpedia.org/ontology/Conifer|conifer|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Conifer|conifer|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Conifer|conifer|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Constellation|Constellation|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Continent|continent|http://dbpedia.org/ontology/PopulatedPlace
+http://dbpedia.org/ontology/Continent|continent|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Continent|continent|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Convention|convention|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/Convention|convention|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Country|country|http://dbpedia.org/ontology/PopulatedPlace
+http://dbpedia.org/ontology/Country|country|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Country|country|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/CricketLeague|cricket league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/CricketLeague|cricket league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/CricketLeague|cricket league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/CricketLeague|cricket league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Cricketer|cricketer|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/Cricketer|cricketer|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Cricketer|cricketer|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Cricketer|cricketer|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Criminal|criminal|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Criminal|criminal|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Criminal|criminal|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Crustacean|crustacean|http://dbpedia.org/ontology/Animal
+http://dbpedia.org/ontology/Crustacean|crustacean|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Crustacean|crustacean|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Crustacean|crustacean|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/CurlingLeague|curling league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/CurlingLeague|curling league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/CurlingLeague|curling league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/CurlingLeague|curling league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Currency|currency|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Cycad|cycad|http://dbpedia.org/ontology/Plant
+http://dbpedia.org/ontology/Cycad|cycad|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Cycad|cycad|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Cycad|cycad|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/CyclingLeague|cycling league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/CyclingLeague|cycling league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/CyclingLeague|cycling league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/CyclingLeague|cycling league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Cyclist|cyclist|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/Cyclist|cyclist|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Cyclist|cyclist|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Cyclist|cyclist|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Database|Database|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Decoration|decoration|http://dbpedia.org/ontology/Award
+http://dbpedia.org/ontology/Decoration|decoration|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Deputy|deputy|http://dbpedia.org/ontology/Politician
+http://dbpedia.org/ontology/Deputy|deputy|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Deputy|deputy|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Deputy|deputy|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Device|device|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Disease|disease|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Drug|drug|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/EducationalInstitution|educational institution|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/EducationalInstitution|educational institution|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/EducationalInstitution|educational institution|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Election|Election|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/Election|Election|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Embryology|embryology|http://dbpedia.org/ontology/AnatomicalStructure
+http://dbpedia.org/ontology/Embryology|embryology|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/EthnicGroup|ethnic group|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Eukaryote|eukaryote|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Eukaryote|eukaryote|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/EurovisionSongContestEntry|Eurovision song contest entry|http://dbpedia.org/ontology/Song
+http://dbpedia.org/ontology/EurovisionSongContestEntry|Eurovision song contest entry|http://dbpedia.org/ontology/MusicalWork
+http://dbpedia.org/ontology/EurovisionSongContestEntry|Eurovision song contest entry|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/EurovisionSongContestEntry|Eurovision song contest entry|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Event|event|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Fern|fern|http://dbpedia.org/ontology/Plant
+http://dbpedia.org/ontology/Fern|fern|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Fern|fern|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Fern|fern|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/FictionalCharacter|fictional character|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/FictionalCharacter|fictional character|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/FictionalCharacter|fictional character|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/FieldHockeyLeague|field hockey league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/FieldHockeyLeague|field hockey league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/FieldHockeyLeague|field hockey league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/FieldHockeyLeague|field hockey league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/FigureSkater|figure skater|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/FigureSkater|figure skater|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/FigureSkater|figure skater|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/FigureSkater|figure skater|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Film|film|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/Film|film|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/FilmFestival|film festival|http://schema.org/Festival
+http://dbpedia.org/ontology/FilmFestival|film festival|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/FilmFestival|film festival|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Fish|fish|http://dbpedia.org/ontology/Animal
+http://dbpedia.org/ontology/Fish|fish|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Fish|fish|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Fish|fish|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Flag|flag|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/FloweringPlant|flowering plant|http://dbpedia.org/ontology/Plant
+http://dbpedia.org/ontology/FloweringPlant|flowering plant|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/FloweringPlant|flowering plant|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/FloweringPlant|flowering plant|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Food|Food|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/FootballMatch|football match|http://dbpedia.org/ontology/SportsEvent
+http://dbpedia.org/ontology/FootballMatch|football match|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/FootballMatch|football match|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/FormulaOneRacer|Formula One racer|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/FormulaOneRacer|Formula One racer|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/FormulaOneRacer|Formula One racer|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/FormulaOneRacer|Formula One racer|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/FormulaOneRacing|formula one racing|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/FormulaOneRacing|formula one racing|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/FormulaOneRacing|formula one racing|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/FormulaOneRacing|formula one racing|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Fungus|fungus|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Fungus|fungus|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Fungus|fungus|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/GaelicGamesPlayer|Gaelic games player|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/GaelicGamesPlayer|Gaelic games player|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/GaelicGamesPlayer|Gaelic games player|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/GaelicGamesPlayer|Gaelic games player|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Galaxy|galaxy|http://dbpedia.org/ontology/CelestialBody
+http://dbpedia.org/ontology/Galaxy|galaxy|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Game|game|http://dbpedia.org/ontology/Activity
+http://dbpedia.org/ontology/Game|game|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Gene|gene|http://dbpedia.org/ontology/Biomolecule
+http://dbpedia.org/ontology/Gene|gene|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/GeneLocation|GeneLocation|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/GeopoliticalOrganisation|geopolitical organisation|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/GeopoliticalOrganisation|geopolitical organisation|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/GeopoliticalOrganisation|geopolitical organisation|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Ginkgo|ginkgo|http://dbpedia.org/ontology/Plant
+http://dbpedia.org/ontology/Ginkgo|ginkgo|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Ginkgo|ginkgo|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Ginkgo|ginkgo|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/GivenName|first name|http://dbpedia.org/ontology/Name
+http://dbpedia.org/ontology/GivenName|first name|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Gnetophytes|Gnetophytes|http://dbpedia.org/ontology/Plant
+http://dbpedia.org/ontology/Gnetophytes|Gnetophytes|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Gnetophytes|Gnetophytes|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Gnetophytes|Gnetophytes|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/GolfLeague|golf league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/GolfLeague|golf league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/GolfLeague|golf league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/GolfLeague|golf league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/GolfPlayer|golf player|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/GolfPlayer|golf player|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/GolfPlayer|golf player|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/GolfPlayer|golf player|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/GovernmentAgency|government agency|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/GovernmentAgency|government agency|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/GovernmentAgency|government agency|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/GovernmentType|Government Type|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Governor|governor|http://dbpedia.org/ontology/Politician
+http://dbpedia.org/ontology/Governor|governor|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Governor|governor|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Governor|governor|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/GrandPrix|Grand Prix|http://dbpedia.org/ontology/SportsEvent
+http://dbpedia.org/ontology/GrandPrix|Grand Prix|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/GrandPrix|Grand Prix|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Grape|grape|http://dbpedia.org/ontology/FloweringPlant
+http://dbpedia.org/ontology/Grape|grape|http://dbpedia.org/ontology/Plant
+http://dbpedia.org/ontology/Grape|grape|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Grape|grape|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Grape|grape|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/GreenAlga|green alga|http://dbpedia.org/ontology/Plant
+http://dbpedia.org/ontology/GreenAlga|green alga|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/GreenAlga|green alga|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/GreenAlga|green alga|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/GridironFootballPlayer|gridiron football player|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/GridironFootballPlayer|gridiron football player|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/GridironFootballPlayer|gridiron football player|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/GridironFootballPlayer|gridiron football player|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/HandballLeague|handball league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/HandballLeague|handball league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/HandballLeague|handball league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/HandballLeague|handball league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/HistoricBuilding|historic building|http://dbpedia.org/ontology/Building
+http://dbpedia.org/ontology/HistoricBuilding|historic building|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/HistoricBuilding|historic building|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/HistoricBuilding|historic building|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/HistoricPlace|historic place|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/HistoricPlace|historic place|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/HockeyTeam|hockey team|http://dbpedia.org/ontology/SportsTeam
+http://dbpedia.org/ontology/HockeyTeam|hockey team|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/HockeyTeam|hockey team|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/HockeyTeam|hockey team|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Holiday|holiday|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Hospital|hospital|http://dbpedia.org/ontology/Building
+http://dbpedia.org/ontology/Hospital|hospital|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Hospital|hospital|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Hospital|hospital|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Hotel|hotel|http://dbpedia.org/ontology/Building
+http://dbpedia.org/ontology/Hotel|hotel|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Hotel|hotel|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Hotel|hotel|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/HumanGene|HumanGene|http://dbpedia.org/ontology/Gene
+http://dbpedia.org/ontology/HumanGene|HumanGene|http://dbpedia.org/ontology/Biomolecule
+http://dbpedia.org/ontology/HumanGene|HumanGene|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/HumanGeneLocation|HumanGeneLocation|http://dbpedia.org/ontology/GeneLocation
+http://dbpedia.org/ontology/HumanGeneLocation|HumanGeneLocation|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/IceHockeyLeague|ice hockey league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/IceHockeyLeague|ice hockey league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/IceHockeyLeague|ice hockey league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/IceHockeyLeague|ice hockey league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/IceHockeyPlayer|ice hockey player|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/IceHockeyPlayer|ice hockey player|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/IceHockeyPlayer|ice hockey player|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/IceHockeyPlayer|ice hockey player|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Ideology|ideology|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Infrastructure|infrastructure|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Infrastructure|infrastructure|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Infrastructure|infrastructure|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/InlineHockeyLeague|inline hockey league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/InlineHockeyLeague|inline hockey league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/InlineHockeyLeague|inline hockey league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/InlineHockeyLeague|inline hockey league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Insect|insect|http://dbpedia.org/ontology/Animal
+http://dbpedia.org/ontology/Insect|insect|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Insect|insect|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Insect|insect|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Instrument|Instrument|http://schema.org/Product
+http://dbpedia.org/ontology/Island|island|http://dbpedia.org/ontology/PopulatedPlace
+http://dbpedia.org/ontology/Island|island|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Island|island|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Journalist|journalist|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Journalist|journalist|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Journalist|journalist|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Judge|judge|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Judge|judge|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Judge|judge|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/LacrosseLeague|lacrosse league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/LacrosseLeague|lacrosse league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/LacrosseLeague|lacrosse league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/LacrosseLeague|lacrosse league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Lake|lake|http://dbpedia.org/ontology/BodyOfWater
+http://dbpedia.org/ontology/Lake|lake|http://dbpedia.org/ontology/NaturalPlace
+http://dbpedia.org/ontology/Lake|lake|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Lake|lake|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Language|language|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/LaunchPad|launch pad|http://dbpedia.org/ontology/Infrastructure
+http://dbpedia.org/ontology/LaunchPad|launch pad|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/LaunchPad|launch pad|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/LaunchPad|launch pad|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/LawFirm|law firm|http://dbpedia.org/ontology/Company
+http://dbpedia.org/ontology/LawFirm|law firm|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/LawFirm|law firm|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/LawFirm|law firm|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/LegalCase|Legal Case|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Legislature|legislature|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/Legislature|legislature|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Legislature|legislature|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Letter|letter|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Library|library|http://dbpedia.org/ontology/EducationalInstitution
+http://dbpedia.org/ontology/Library|library|http://dbpedia.org/ontology/Building
+http://dbpedia.org/ontology/Library|library|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Library|library|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/Library|library|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Library|library|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Library|library|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Library|library|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Lieutenant|lieutenant|http://dbpedia.org/ontology/Politician
+http://dbpedia.org/ontology/Lieutenant|lieutenant|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Lieutenant|lieutenant|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Lieutenant|lieutenant|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Lighthouse|lighthouse|http://dbpedia.org/ontology/Building
+http://dbpedia.org/ontology/Lighthouse|lighthouse|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Lighthouse|lighthouse|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Lighthouse|lighthouse|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Locomotive|locomotive|http://dbpedia.org/ontology/MeanOfTransportation
+http://dbpedia.org/ontology/Locomotive|locomotive|http://schema.org/Product
+http://dbpedia.org/ontology/Locomotive|locomotive|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/LunarCrater|lunar crater|http://dbpedia.org/ontology/NaturalPlace
+http://dbpedia.org/ontology/LunarCrater|lunar crater|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/LunarCrater|lunar crater|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Lymph|lymph|http://dbpedia.org/ontology/AnatomicalStructure
+http://dbpedia.org/ontology/Lymph|lymph|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Magazine|magazine|http://dbpedia.org/ontology/PeriodicalLiterature
+http://dbpedia.org/ontology/Magazine|magazine|http://dbpedia.org/ontology/WrittenWork
+http://dbpedia.org/ontology/Magazine|magazine|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/Magazine|magazine|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Mammal|mammal|http://dbpedia.org/ontology/Animal
+http://dbpedia.org/ontology/Mammal|mammal|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Mammal|mammal|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Mammal|mammal|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/MartialArtist|martial artist|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/MartialArtist|martial artist|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/MartialArtist|martial artist|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/MartialArtist|martial artist|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Mayor|mayor|http://dbpedia.org/ontology/Politician
+http://dbpedia.org/ontology/Mayor|mayor|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Mayor|mayor|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Mayor|mayor|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/MeanOfTransportation|mean of transportation|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/MemberOfParliament|member of parliament|http://dbpedia.org/ontology/Politician
+http://dbpedia.org/ontology/MemberOfParliament|member of parliament|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/MemberOfParliament|member of parliament|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/MemberOfParliament|member of parliament|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/MilitaryConflict|military conflict|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/MilitaryConflict|military conflict|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/MilitaryPerson|military person|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/MilitaryPerson|military person|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/MilitaryPerson|military person|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/MilitaryUnit|military unit|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/MilitaryUnit|military unit|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/MilitaryUnit|military unit|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Mineral|mineral|http://dbpedia.org/ontology/ChemicalSubstance
+http://dbpedia.org/ontology/Mineral|mineral|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/MixedMartialArtsEvent|mixed martial arts event|http://dbpedia.org/ontology/SportsEvent
+http://dbpedia.org/ontology/MixedMartialArtsEvent|mixed martial arts event|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/MixedMartialArtsEvent|mixed martial arts event|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/MixedMartialArtsLeague|mixed martial arts league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/MixedMartialArtsLeague|mixed martial arts league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/MixedMartialArtsLeague|mixed martial arts league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/MixedMartialArtsLeague|mixed martial arts league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Model|model|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Model|model|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Model|model|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Mollusca|mollusca|http://dbpedia.org/ontology/Animal
+http://dbpedia.org/ontology/Mollusca|mollusca|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Mollusca|mollusca|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Mollusca|mollusca|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Monarch|monarch|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Monarch|monarch|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Monarch|monarch|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Monument|monument|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Monument|monument|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Moss|moss|http://dbpedia.org/ontology/Plant
+http://dbpedia.org/ontology/Moss|moss|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Moss|moss|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Moss|moss|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/MotorcycleRacingLeague|motorcycle racing league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/MotorcycleRacingLeague|motorcycle racing league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/MotorcycleRacingLeague|motorcycle racing league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/MotorcycleRacingLeague|motorcycle racing league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Mountain|mountain|http://dbpedia.org/ontology/NaturalPlace
+http://dbpedia.org/ontology/Mountain|mountain|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Mountain|mountain|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/MountainPass|mountain pass|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/MountainPass|mountain pass|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/MountainRange|mountain range|http://dbpedia.org/ontology/NaturalPlace
+http://dbpedia.org/ontology/MountainRange|mountain range|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/MountainRange|mountain range|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/MouseGene|MouseGene|http://dbpedia.org/ontology/Gene
+http://dbpedia.org/ontology/MouseGene|MouseGene|http://dbpedia.org/ontology/Biomolecule
+http://dbpedia.org/ontology/MouseGene|MouseGene|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/MouseGeneLocation|MouseGeneLocation|http://dbpedia.org/ontology/GeneLocation
+http://dbpedia.org/ontology/MouseGeneLocation|MouseGeneLocation|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Muscle|muscle|http://dbpedia.org/ontology/AnatomicalStructure
+http://dbpedia.org/ontology/Muscle|muscle|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Museum|museum|http://dbpedia.org/ontology/Building
+http://dbpedia.org/ontology/Museum|museum|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Museum|museum|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Museum|museum|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/MusicFestival|music festival|http://schema.org/Festival
+http://dbpedia.org/ontology/MusicFestival|music festival|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/MusicFestival|music festival|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/MusicGenre|music genre|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Musical|musical|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/Musical|musical|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/MusicalArtist|musical artist|http://schema.org/MusicGroup
+http://dbpedia.org/ontology/MusicalArtist|musical artist|http://dbpedia.org/ontology/Artist
+http://dbpedia.org/ontology/MusicalArtist|musical artist|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/MusicalArtist|musical artist|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/MusicalArtist|musical artist|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/MusicalWork|musical work|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/MusicalWork|musical work|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Name|name|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/NascarDriver|nascar driver|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/NascarDriver|nascar driver|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/NascarDriver|nascar driver|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/NascarDriver|nascar driver|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/NationalCollegiateAthleticAssociationAthlete|national collegiate athletic association athlete|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/NationalCollegiateAthleticAssociationAthlete|national collegiate athletic association athlete|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/NationalCollegiateAthleticAssociationAthlete|national collegiate athletic association athlete|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/NationalCollegiateAthleticAssociationAthlete|national collegiate athletic association athlete|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/NationalSoccerClub|national soccer club|http://dbpedia.org/ontology/SoccerClub
+http://dbpedia.org/ontology/NationalSoccerClub|national soccer club|http://dbpedia.org/ontology/SportsTeam
+http://dbpedia.org/ontology/NationalSoccerClub|national soccer club|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/NationalSoccerClub|national soccer club|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/NationalSoccerClub|national soccer club|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/NaturalPlace|natural place|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/NaturalPlace|natural place|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Nerve|nerve|http://dbpedia.org/ontology/AnatomicalStructure
+http://dbpedia.org/ontology/Nerve|nerve|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Newspaper|newspaper|http://dbpedia.org/ontology/PeriodicalLiterature
+http://dbpedia.org/ontology/Newspaper|newspaper|http://dbpedia.org/ontology/WrittenWork
+http://dbpedia.org/ontology/Newspaper|newspaper|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/Newspaper|newspaper|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Non-ProfitOrganisation|non-profit organisation|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/Non-ProfitOrganisation|non-profit organisation|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Non-ProfitOrganisation|non-profit organisation|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/OfficeHolder|office holder|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/OfficeHolder|office holder|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/OfficeHolder|office holder|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/OlympicResult|olympic result|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Olympics|olympics|http://dbpedia.org/ontology/SportsEvent
+http://dbpedia.org/ontology/Olympics|olympics|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/Olympics|olympics|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Organisation|organisation|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Organisation|organisation|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/OrganisationMember|Organisation member|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/OrganisationMember|Organisation member|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/OrganisationMember|Organisation member|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/PaintballLeague|paintball league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/PaintballLeague|paintball league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/PaintballLeague|paintball league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/PaintballLeague|paintball league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Painting|Painting|http://dbpedia.org/ontology/Artwork
+http://dbpedia.org/ontology/Painting|Painting|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/Painting|Painting|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Park|park|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Park|park|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Park|park|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/PeriodicalLiterature|periodical literature|http://dbpedia.org/ontology/WrittenWork
+http://dbpedia.org/ontology/PeriodicalLiterature|periodical literature|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/PeriodicalLiterature|periodical literature|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Person|person|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Person|person|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/PersonFunction|person function|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Philosopher|philosopher|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Philosopher|philosopher|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Philosopher|philosopher|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Place|place|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Planet|planet|http://dbpedia.org/ontology/CelestialBody
+http://dbpedia.org/ontology/Planet|planet|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Plant|plant|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Plant|plant|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Plant|plant|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Play|play|http://dbpedia.org/ontology/WrittenWork
+http://dbpedia.org/ontology/Play|play|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/Play|play|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/PlayboyPlaymate|Playboy Playmate|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/PlayboyPlaymate|Playboy Playmate|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/PlayboyPlaymate|Playboy Playmate|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/PokerPlayer|poker player|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/PokerPlayer|poker player|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/PokerPlayer|poker player|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/PolishKing|king of Poland|http://dbpedia.org/ontology/Royalty
+http://dbpedia.org/ontology/PolishKing|king of Poland|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/PolishKing|king of Poland|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/PolishKing|king of Poland|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/PoliticalParty|political party|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/PoliticalParty|political party|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/PoliticalParty|political party|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Politician|politician|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Politician|politician|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Politician|politician|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/PoloLeague|polo league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/PoloLeague|polo league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/PoloLeague|polo league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/PoloLeague|polo league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Pope|pope|http://dbpedia.org/ontology/Cleric
+http://dbpedia.org/ontology/Pope|pope|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Pope|pope|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Pope|pope|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/PopulatedPlace|populated place|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/PopulatedPlace|populated place|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/PowerStation|power station|http://dbpedia.org/ontology/Infrastructure
+http://dbpedia.org/ontology/PowerStation|power station|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/PowerStation|power station|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/PowerStation|power station|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/President|president|http://dbpedia.org/ontology/Politician
+http://dbpedia.org/ontology/President|president|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/President|president|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/President|president|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Priest|priest|http://dbpedia.org/ontology/Cleric
+http://dbpedia.org/ontology/Priest|priest|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Priest|priest|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Priest|priest|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/PrimeMinister|prime minister|http://dbpedia.org/ontology/Politician
+http://dbpedia.org/ontology/PrimeMinister|prime minister|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/PrimeMinister|prime minister|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/PrimeMinister|prime minister|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/ProgrammingLanguage|programming language|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Project|project|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/ProtectedArea|protected area|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/ProtectedArea|protected area|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Protein|protein|http://dbpedia.org/ontology/Biomolecule
+http://dbpedia.org/ontology/Protein|protein|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/PublicTransitSystem|public transit system|http://dbpedia.org/ontology/RouteOfTransportation
+http://dbpedia.org/ontology/PublicTransitSystem|public transit system|http://dbpedia.org/ontology/Infrastructure
+http://dbpedia.org/ontology/PublicTransitSystem|public transit system|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/PublicTransitSystem|public transit system|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/PublicTransitSystem|public transit system|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Race|race|http://dbpedia.org/ontology/SportsEvent
+http://dbpedia.org/ontology/Race|race|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/Race|race|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/RadioControlledRacingLeague|radio-controlled racing league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/RadioControlledRacingLeague|radio-controlled racing league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/RadioControlledRacingLeague|radio-controlled racing league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/RadioControlledRacingLeague|radio-controlled racing league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/RadioStation|radio station|http://dbpedia.org/ontology/Broadcaster
+http://dbpedia.org/ontology/RadioStation|radio station|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/RadioStation|radio station|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/RadioStation|radio station|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/RailwayLine|railway line|http://dbpedia.org/ontology/RouteOfTransportation
+http://dbpedia.org/ontology/RailwayLine|railway line|http://dbpedia.org/ontology/Infrastructure
+http://dbpedia.org/ontology/RailwayLine|railway line|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/RailwayLine|railway line|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/RailwayLine|railway line|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/RailwayTunnel|railway tunnel|http://dbpedia.org/ontology/Tunnel
+http://dbpedia.org/ontology/RailwayTunnel|railway tunnel|http://dbpedia.org/ontology/RouteOfTransportation
+http://dbpedia.org/ontology/RailwayTunnel|railway tunnel|http://dbpedia.org/ontology/Infrastructure
+http://dbpedia.org/ontology/RailwayTunnel|railway tunnel|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/RailwayTunnel|railway tunnel|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/RailwayTunnel|railway tunnel|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/RecordLabel|record label|http://dbpedia.org/ontology/Company
+http://dbpedia.org/ontology/RecordLabel|record label|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/RecordLabel|record label|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/RecordLabel|record label|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Referee|referee|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Referee|referee|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Referee|referee|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/ReligiousBuilding|religious building|http://dbpedia.org/ontology/Building
+http://dbpedia.org/ontology/ReligiousBuilding|religious building|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/ReligiousBuilding|religious building|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/ReligiousBuilding|religious building|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Reptile|reptile|http://dbpedia.org/ontology/Animal
+http://dbpedia.org/ontology/Reptile|reptile|http://dbpedia.org/ontology/Eukaryote
+http://dbpedia.org/ontology/Reptile|reptile|http://dbpedia.org/ontology/Species
+http://dbpedia.org/ontology/Reptile|reptile|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/ResearchProject|research project|http://dbpedia.org/ontology/Project
+http://dbpedia.org/ontology/ResearchProject|research project|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Restaurant|restaurant|http://dbpedia.org/ontology/Building
+http://dbpedia.org/ontology/Restaurant|restaurant|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Restaurant|restaurant|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Restaurant|restaurant|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/River|river|http://dbpedia.org/ontology/Stream
+http://dbpedia.org/ontology/River|river|http://dbpedia.org/ontology/BodyOfWater
+http://dbpedia.org/ontology/River|river|http://dbpedia.org/ontology/NaturalPlace
+http://dbpedia.org/ontology/River|river|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/River|river|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Road|road|http://dbpedia.org/ontology/RouteOfTransportation
+http://dbpedia.org/ontology/Road|road|http://dbpedia.org/ontology/Infrastructure
+http://dbpedia.org/ontology/Road|road|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Road|road|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Road|road|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/RoadJunction|road junction|http://dbpedia.org/ontology/RouteOfTransportation
+http://dbpedia.org/ontology/RoadJunction|road junction|http://dbpedia.org/ontology/Infrastructure
+http://dbpedia.org/ontology/RoadJunction|road junction|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/RoadJunction|road junction|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/RoadJunction|road junction|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/RoadTunnel|road tunnel|http://dbpedia.org/ontology/Tunnel
+http://dbpedia.org/ontology/RoadTunnel|road tunnel|http://dbpedia.org/ontology/RouteOfTransportation
+http://dbpedia.org/ontology/RoadTunnel|road tunnel|http://dbpedia.org/ontology/Infrastructure
+http://dbpedia.org/ontology/RoadTunnel|road tunnel|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/RoadTunnel|road tunnel|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/RoadTunnel|road tunnel|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Rocket|rocket|http://dbpedia.org/ontology/MeanOfTransportation
+http://dbpedia.org/ontology/Rocket|rocket|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/RouteOfTransportation|route of transportation|http://dbpedia.org/ontology/Infrastructure
+http://dbpedia.org/ontology/RouteOfTransportation|route of transportation|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/RouteOfTransportation|route of transportation|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/RouteOfTransportation|route of transportation|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Royalty|royalty|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Royalty|royalty|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Royalty|royalty|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/RugbyClub|rugby club|http://dbpedia.org/ontology/SportsTeam
+http://dbpedia.org/ontology/RugbyClub|rugby club|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/RugbyClub|rugby club|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/RugbyClub|rugby club|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/RugbyLeague|rugby league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/RugbyLeague|rugby league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/RugbyLeague|rugby league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/RugbyLeague|rugby league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/RugbyPlayer|rugby player|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/RugbyPlayer|rugby player|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/RugbyPlayer|rugby player|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/RugbyPlayer|rugby player|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Saint|saint|http://dbpedia.org/ontology/Cleric
+http://dbpedia.org/ontology/Saint|saint|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Saint|saint|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Saint|saint|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Sales|sales|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SambaSchool|samba school|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/SambaSchool|samba school|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/SambaSchool|samba school|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/School|school|http://dbpedia.org/ontology/EducationalInstitution
+http://dbpedia.org/ontology/School|school|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/School|school|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/School|school|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Sculpture|Sculpture|http://dbpedia.org/ontology/Artwork
+http://dbpedia.org/ontology/Sculpture|Sculpture|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/Sculpture|Sculpture|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Senator|senator|http://dbpedia.org/ontology/Politician
+http://dbpedia.org/ontology/Senator|senator|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Senator|senator|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Senator|senator|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Settlement|municipality|http://dbpedia.org/ontology/PopulatedPlace
+http://dbpedia.org/ontology/Settlement|municipality|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Settlement|municipality|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Ship|ship|http://dbpedia.org/ontology/MeanOfTransportation
+http://dbpedia.org/ontology/Ship|ship|http://schema.org/Product
+http://dbpedia.org/ontology/Ship|ship|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/ShoppingMall|shopping mall|http://dbpedia.org/ontology/Building
+http://dbpedia.org/ontology/ShoppingMall|shopping mall|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/ShoppingMall|shopping mall|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/ShoppingMall|shopping mall|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Single|single|http://dbpedia.org/ontology/MusicalWork
+http://dbpedia.org/ontology/Single|single|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/Single|single|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SiteOfSpecialScientificInterest|Site of Special Scientific Interest|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/SiteOfSpecialScientificInterest|Site of Special Scientific Interest|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SkiArea|ski area|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/SkiArea|ski area|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Skyscraper|skyscraper|http://dbpedia.org/ontology/Building
+http://dbpedia.org/ontology/Skyscraper|skyscraper|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Skyscraper|skyscraper|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Skyscraper|skyscraper|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SnookerChamp|snooker world champion|http://dbpedia.org/ontology/SnookerPlayer
+http://dbpedia.org/ontology/SnookerChamp|snooker world champion|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/SnookerChamp|snooker world champion|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/SnookerChamp|snooker world champion|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/SnookerChamp|snooker world champion|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SnookerPlayer|snooker player|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/SnookerPlayer|snooker player|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/SnookerPlayer|snooker player|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/SnookerPlayer|snooker player|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SnookerWorldRanking|snooker world ranking|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SoccerClub|soccer club|http://dbpedia.org/ontology/SportsTeam
+http://dbpedia.org/ontology/SoccerClub|soccer club|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/SoccerClub|soccer club|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/SoccerClub|soccer club|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SoccerClubSeason|soccer club season|http://dbpedia.org/ontology/SportsTeamSeason
+http://dbpedia.org/ontology/SoccerClubSeason|soccer club season|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/SoccerClubSeason|soccer club season|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/SoccerClubSeason|soccer club season|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SoccerLeague|soccer league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/SoccerLeague|soccer league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/SoccerLeague|soccer league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/SoccerLeague|soccer league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SoccerLeagueSeason|soccer league season|http://dbpedia.org/ontology/SoccerLeague
+http://dbpedia.org/ontology/SoccerLeagueSeason|soccer league season|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/SoccerLeagueSeason|soccer league season|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/SoccerLeagueSeason|soccer league season|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/SoccerLeagueSeason|soccer league season|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SoccerManager|soccer manager|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/SoccerManager|soccer manager|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/SoccerManager|soccer manager|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SoccerPlayer|soccer player|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/SoccerPlayer|soccer player|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/SoccerPlayer|soccer player|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/SoccerPlayer|soccer player|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SoccerTournament|soccer tournoment|http://dbpedia.org/ontology/SportsEvent
+http://dbpedia.org/ontology/SoccerTournament|soccer tournoment|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/SoccerTournament|soccer tournoment|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SoftballLeague|softball league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/SoftballLeague|softball league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/SoftballLeague|softball league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/SoftballLeague|softball league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Software|software|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/Software|software|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Song|song|http://dbpedia.org/ontology/MusicalWork
+http://dbpedia.org/ontology/Song|song|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/Song|song|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SpaceMission|space mission|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/SpaceMission|space mission|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SpaceShuttle|space shuttle|http://dbpedia.org/ontology/MeanOfTransportation
+http://dbpedia.org/ontology/SpaceShuttle|space shuttle|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SpaceStation|space station|http://dbpedia.org/ontology/MeanOfTransportation
+http://dbpedia.org/ontology/SpaceStation|space station|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Spacecraft|spacecraft|http://dbpedia.org/ontology/MeanOfTransportation
+http://dbpedia.org/ontology/Spacecraft|spacecraft|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Species|species|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SpeedwayLeague|speedway league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/SpeedwayLeague|speedway league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/SpeedwayLeague|speedway league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/SpeedwayLeague|speedway league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SpeedwayTeam|speedway team|http://dbpedia.org/ontology/SportsTeam
+http://dbpedia.org/ontology/SpeedwayTeam|speedway team|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/SpeedwayTeam|speedway team|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/SpeedwayTeam|speedway team|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Sport|Αθλήματα|http://dbpedia.org/ontology/Activity
+http://dbpedia.org/ontology/Sport|Αθλήματα|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SportsEvent|sports event|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/SportsEvent|sports event|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SportsLeague|sports league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/SportsLeague|sports league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/SportsLeague|sports league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SportsTeam|sports team|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/SportsTeam|sports team|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/SportsTeam|sports team|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SportsTeamMember|Sports team member|http://dbpedia.org/ontology/OrganisationMember
+http://dbpedia.org/ontology/SportsTeamMember|Sports team member|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/SportsTeamMember|Sports team member|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/SportsTeamMember|Sports team member|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SportsTeamSeason|sports team season|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/SportsTeamSeason|sports team season|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/SportsTeamSeason|sports team season|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Stadium|stadium|http://dbpedia.org/ontology/Building
+http://dbpedia.org/ontology/Stadium|stadium|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Stadium|stadium|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Stadium|stadium|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Station|station|http://dbpedia.org/ontology/Infrastructure
+http://dbpedia.org/ontology/Station|station|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Station|station|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Station|station|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Stream|stream|http://dbpedia.org/ontology/BodyOfWater
+http://dbpedia.org/ontology/Stream|stream|http://dbpedia.org/ontology/NaturalPlace
+http://dbpedia.org/ontology/Stream|stream|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Stream|stream|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/SupremeCourtOfTheUnitedStatesCase|Supreme Court of the United States case|http://dbpedia.org/ontology/LegalCase
+http://dbpedia.org/ontology/SupremeCourtOfTheUnitedStatesCase|Supreme Court of the United States case|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Surname|surname|http://dbpedia.org/ontology/Name
+http://dbpedia.org/ontology/Surname|surname|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Swimmer|Swimmer|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/Swimmer|Swimmer|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Swimmer|Swimmer|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Swimmer|Swimmer|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Tax|tax|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/TeamMember|Team member|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/TeamMember|Team member|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/TeamMember|Team member|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/TeamMember|Team member|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/TelevisionEpisode|television episode|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/TelevisionEpisode|television episode|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/TelevisionSeason|television season|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/TelevisionSeason|television season|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/TelevisionShow|television show|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/TelevisionShow|television show|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/TelevisionStation|television station|http://dbpedia.org/ontology/Broadcaster
+http://dbpedia.org/ontology/TelevisionStation|television station|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/TelevisionStation|television station|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/TelevisionStation|television station|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/TennisLeague|tennis league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/TennisLeague|tennis league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/TennisLeague|tennis league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/TennisLeague|tennis league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/TennisPlayer|tennis player|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/TennisPlayer|tennis player|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/TennisPlayer|tennis player|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/TennisPlayer|tennis player|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/TennisTournament|tennis tournament|http://dbpedia.org/ontology/SportsEvent
+http://dbpedia.org/ontology/TennisTournament|tennis tournament|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/TennisTournament|tennis tournament|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Theatre|theatre|http://dbpedia.org/ontology/Building
+http://dbpedia.org/ontology/Theatre|theatre|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Theatre|theatre|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Theatre|theatre|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/TopicalConcept|topical concept|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Town|town|http://dbpedia.org/ontology/Settlement
+http://dbpedia.org/ontology/Town|town|http://dbpedia.org/ontology/PopulatedPlace
+http://dbpedia.org/ontology/Town|town|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Town|town|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/TradeUnion|trade union|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/TradeUnion|trade union|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/TradeUnion|trade union|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Tunnel|tunnel|http://dbpedia.org/ontology/RouteOfTransportation
+http://dbpedia.org/ontology/Tunnel|tunnel|http://dbpedia.org/ontology/Infrastructure
+http://dbpedia.org/ontology/Tunnel|tunnel|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/Tunnel|tunnel|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Tunnel|tunnel|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/University|university|http://dbpedia.org/ontology/EducationalInstitution
+http://dbpedia.org/ontology/University|university|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/University|university|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/University|university|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Unknown|Unknown|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Valley|valley|http://dbpedia.org/ontology/NaturalPlace
+http://dbpedia.org/ontology/Valley|valley|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Valley|valley|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Vein|vein|http://dbpedia.org/ontology/AnatomicalStructure
+http://dbpedia.org/ontology/Vein|vein|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/VicePresident|vice president|http://dbpedia.org/ontology/Politician
+http://dbpedia.org/ontology/VicePresident|vice president|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/VicePresident|vice president|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/VicePresident|vice president|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/VicePrimeMinister|vice prime minister|http://dbpedia.org/ontology/Politician
+http://dbpedia.org/ontology/VicePrimeMinister|vice prime minister|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/VicePrimeMinister|vice prime minister|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/VicePrimeMinister|vice prime minister|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/VideoGame|video game|http://dbpedia.org/ontology/Software
+http://dbpedia.org/ontology/VideoGame|video game|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/VideoGame|video game|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/VideogamesLeague|videogames league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/VideogamesLeague|videogames league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/VideogamesLeague|videogames league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/VideogamesLeague|videogames league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Village|village|http://dbpedia.org/ontology/Settlement
+http://dbpedia.org/ontology/Village|village|http://dbpedia.org/ontology/PopulatedPlace
+http://dbpedia.org/ontology/Village|village|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Village|village|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/VoiceActor|voice actor|http://dbpedia.org/ontology/Actor
+http://dbpedia.org/ontology/VoiceActor|voice actor|http://dbpedia.org/ontology/Artist
+http://dbpedia.org/ontology/VoiceActor|voice actor|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/VoiceActor|voice actor|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/VoiceActor|voice actor|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Volcano|volcano|http://dbpedia.org/ontology/NaturalPlace
+http://dbpedia.org/ontology/Volcano|volcano|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/Volcano|volcano|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/VolleyballLeague|volleyball league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/VolleyballLeague|volleyball league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/VolleyballLeague|volleyball league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/VolleyballLeague|volleyball league|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/VolleyballPlayer|volleyball player|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/VolleyballPlayer|volleyball player|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/VolleyballPlayer|volleyball player|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/VolleyballPlayer|volleyball player|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/WaterwayTunnel|waterway tunnel|http://dbpedia.org/ontology/Tunnel
+http://dbpedia.org/ontology/WaterwayTunnel|waterway tunnel|http://dbpedia.org/ontology/RouteOfTransportation
+http://dbpedia.org/ontology/WaterwayTunnel|waterway tunnel|http://dbpedia.org/ontology/Infrastructure
+http://dbpedia.org/ontology/WaterwayTunnel|waterway tunnel|http://dbpedia.org/ontology/ArchitecturalStructure
+http://dbpedia.org/ontology/WaterwayTunnel|waterway tunnel|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/WaterwayTunnel|waterway tunnel|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Weapon|weapon|http://dbpedia.org/ontology/Device
+http://dbpedia.org/ontology/Weapon|weapon|http://schema.org/Product
+http://dbpedia.org/ontology/Weapon|weapon|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Website|website|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/Website|website|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/WineRegion|wine region|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/WineRegion|wine region|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/WomensTennisAssociationTournament|Women's Tennis Association tournament|http://dbpedia.org/ontology/SportsEvent
+http://dbpedia.org/ontology/WomensTennisAssociationTournament|Women's Tennis Association tournament|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/WomensTennisAssociationTournament|Women's Tennis Association tournament|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Work|work|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/WorldHeritageSite|World Heritage Site|http://dbpedia.org/ontology/Place
+http://dbpedia.org/ontology/WorldHeritageSite|World Heritage Site|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Wrestler|wrestler|http://dbpedia.org/ontology/Athlete
+http://dbpedia.org/ontology/Wrestler|wrestler|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Wrestler|wrestler|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Wrestler|wrestler|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/WrestlingEvent|wrestling event|http://dbpedia.org/ontology/SportsEvent
+http://dbpedia.org/ontology/WrestlingEvent|wrestling event|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/WrestlingEvent|wrestling event|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Writer|writer|http://dbpedia.org/ontology/Artist
+http://dbpedia.org/ontology/Writer|writer|http://dbpedia.org/ontology/Person
+http://dbpedia.org/ontology/Writer|writer|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/Writer|writer|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/WrittenWork|written work|http://dbpedia.org/ontology/Work
+http://dbpedia.org/ontology/WrittenWork|written work|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/Year|year|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/Year|year|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/YearInSpaceflight|year in spaceflight|http://dbpedia.org/ontology/Event
+http://dbpedia.org/ontology/YearInSpaceflight|year in spaceflight|http://www.w3.org/2002/07/owl#Thing
+http://dbpedia.org/ontology/BasketballLeague|basketball league|http://dbpedia.org/ontology/SportsLeague
+http://dbpedia.org/ontology/BasketballLeague|basketball league|http://dbpedia.org/ontology/Organisation
+http://dbpedia.org/ontology/BasketballLeague|basketball league|http://dbpedia.org/ontology/Agent
+http://dbpedia.org/ontology/BasketballLeague|basketball league|http://www.w3.org/2002/07/owl#Thing

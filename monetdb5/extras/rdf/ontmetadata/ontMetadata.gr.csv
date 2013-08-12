@@ -1,0 +1,31 @@
+http://purl.org/goodrelations/v1#Brand|Brand|NULL
+http://purl.org/goodrelations/v1#BusinessEntity|Business entity|NULL
+http://purl.org/goodrelations/v1#BusinessEntityType|Business entity type|NULL
+http://purl.org/goodrelations/v1#BusinessFunction|Business function|NULL
+http://purl.org/goodrelations/v1#DayOfWeek|Day of week|NULL
+http://purl.org/goodrelations/v1#DeliveryChargeSpecification|Delivery charge spec|http://purl.org/goodrelations/v1#PriceSpecification
+http://purl.org/goodrelations/v1#DeliveryMethod|Delivery method|NULL
+http://purl.org/goodrelations/v1#DeliveryModeParcelService|Delivery mode parcel|http://purl.org/goodrelations/v1#DeliveryMethod
+http://purl.org/goodrelations/v1#Individual|Individual|http://purl.org/goodrelations/v1#ProductOrService
+http://purl.org/goodrelations/v1#Individual|Individual|http://schema.org/Product
+http://purl.org/goodrelations/v1#License|License|http://purl.org/goodrelations/v1#BusinessFunction
+http://purl.org/goodrelations/v1#Location|Location|NULL
+http://purl.org/goodrelations/v1#Offering|Offering|NULL
+http://purl.org/goodrelations/v1#OpeningHoursSpecification|Opening hours specif|NULL
+http://purl.org/goodrelations/v1#PaymentChargeSpecification|Payment charge speci|http://purl.org/goodrelations/v1#PriceSpecification
+http://purl.org/goodrelations/v1#PaymentMethod|Payment method|NULL
+http://purl.org/goodrelations/v1#PaymentMethodCreditCard|Payment method credi|http://purl.org/goodrelations/v1#PaymentMethod
+http://purl.org/goodrelations/v1#PriceSpecification|Price specification|NULL
+http://purl.org/goodrelations/v1#ProductOrService|Product or service|NULL
+http://purl.org/goodrelations/v1#ProductOrServiceModel|Product or service m|http://purl.org/goodrelations/v1#ProductOrService
+http://purl.org/goodrelations/v1#ProductOrServiceModel|Product or service m|http://schema.org/Product
+http://purl.org/goodrelations/v1#QualitativeValue|Qualitative value|NULL
+http://purl.org/goodrelations/v1#QuantitativeValue|Quantitative value|NULL
+http://purl.org/goodrelations/v1#QuantitativeValueFloat|Quantitative value f|http://purl.org/goodrelations/v1#QuantitativeValue
+http://purl.org/goodrelations/v1#QuantitativeValueInteger|Quantitative value i|http://purl.org/goodrelations/v1#QuantitativeValue
+http://purl.org/goodrelations/v1#SomeItems|Some items|http://purl.org/goodrelations/v1#ProductOrService
+http://purl.org/goodrelations/v1#SomeItems|Some items|http://schema.org/Product
+http://purl.org/goodrelations/v1#TypeAndQuantityNode|Type and quantity no|NULL
+http://purl.org/goodrelations/v1#UnitPriceSpecification|Unit price specifica|http://purl.org/goodrelations/v1#PriceSpecification
+http://purl.org/goodrelations/v1#WarrantyPromise|Warranty promise|NULL
+http://purl.org/goodrelations/v1#WarrantyScope|Warranty scope|NULL
