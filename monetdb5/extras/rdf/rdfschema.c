@@ -1853,19 +1853,31 @@ void getMaximumFreqCSs(CSset *freqCSset, Labels* labels, BAT* coverageBat, BAT* 
 	int 	tmpParentIdx; 
 	int* 	coverage; 
 	int* 	freq; 
+	char	isLabelComparable = 0;
 
 	(void) labels; 
+	(void) isLabelComparable;
 
 	printf("Retrieving maximum frequent CSs: \n");
 
 	for (i = 0; i < numFreqCS; i++){
 		if (freqCSset->items[i].parentFreqIdx != -1) continue;
+		isLabelComparable = 0;
+		if (strcmp(labels[i].name, "DUMMY") != 0) isLabelComparable = 1;
+
 		for (j = (i+1); j < numFreqCS; j++){
 			if (freqCSset->items[j].numProp > freqCSset->items[i].numProp){
 				if (isSubset(freqCSset->items[j].lstProp, freqCSset->items[i].lstProp,  
 						freqCSset->items[j].numProp,freqCSset->items[i].numProp) == 1) { 
 					/* CSj is a superset of CSi */
+					#if USE_LABEL_FINDING_MAXCS
+					if (isLabelComparable == 1 && strcmp(labels[i].name, labels[j].name) == 0) {
+						freqCSset->items[i].parentFreqIdx = j;
+						break;
+					}
+					#else	
 					freqCSset->items[i].parentFreqIdx = j; 
+					#endif
 					break; 
 				}
 			}
@@ -1873,7 +1885,13 @@ void getMaximumFreqCSs(CSset *freqCSset, Labels* labels, BAT* coverageBat, BAT* 
 				if (isSubset(freqCSset->items[i].lstProp, freqCSset->items[j].lstProp,  
 						freqCSset->items[i].numProp,freqCSset->items[j].numProp) == 1) { 
 					/* CSj is a subset of CSi */
+					#if USE_LABEL_FINDING_MAXCS
+					if (isLabelComparable == 1 && strcmp(labels[i].name, labels[j].name) == 0) {
+						freqCSset->items[j].parentFreqIdx = i;
+					}
+					#else
 					freqCSset->items[j].parentFreqIdx = i; 
+					#endif
 				}		
 			
 			}
@@ -2227,8 +2245,11 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, Labels* labels, oid* superCSFreqCS
 
 	PropStat	*propStat; 	/* Store statistics about properties */
 	int		nummergedCSs = 0;
+	char		isLabelComparable = 0; 
+	char		isSameLabel = 0; 
 	
 	(void) labels;
+	(void) isLabelComparable;
 
 	for (i = 0; i < freqCSset->numCSadded; i++){
 		if (freqCSset->items[i].parentFreqIdx == -1){
@@ -2248,30 +2269,38 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, Labels* labels, oid* superCSFreqCS
 
 	for (i = 0; i < numMaxCSs; i++){
 		freqId1 = superCSFreqCSMap[i];
+		//printf("Label of %d CS is %s \n", freqId1, labels[freqId1].name);
+		isLabelComparable = 0; 
+		if (strcmp(labels[freqId1].name,"DUMMY") != 0) isLabelComparable = 1; 
+
 		cs1 = (CS*) &(freqCSset->items[freqId1]);
 	 	for (j = (i+1); j < numMaxCSs; j++){
 			freqId2 = superCSFreqCSMap[j];
 			cs2 = (CS*) &(freqCSset->items[freqId2]);
-			
-			if(USINGTFIDF == 0){
-				simscore = similarityScore(cs1->lstProp, cs2->lstProp,
-					cs1->numProp,cs2->numProp,&numCombineP);
+			isSameLabel = 0; 
 
-				//printf("simscore Jaccard = %f \n", simscore);
-			}
-			else{
-				simscore = similarityScoreTFIDF(cs1->lstProp, cs2->lstProp,
-					cs1->numProp,cs2->numProp,&numCombineP, propStat);
-				//printf("         Cosine = %f \n", simscore);
-				
-			}
-			
 			#if	USE_LABEL_FOR_MERGING
-			if (strcmp(labels[freqId1].name, labels[freqId2].name) == 0){
-				//printf("Same labels between freqCS %d and freqCS %d \n", freqId1, freqId2);
+			if (isLabelComparable == 1 && strcmp(labels[freqId1].name, labels[freqId2].name) == 0){
+				//printf("Same labels between freqCS %d and freqCS %d - Old simscore is %f \n", freqId1, freqId2, simscore);
+				isSameLabel = 1;
 				simscore = 1; 
 			}
 			#endif
+
+			if (isSameLabel == 0){
+				if(USINGTFIDF == 0){
+					simscore = similarityScore(cs1->lstProp, cs2->lstProp,
+						cs1->numProp,cs2->numProp,&numCombineP);
+
+					//printf("simscore Jaccard = %f \n", simscore);
+				}
+				else{
+					simscore = similarityScoreTFIDF(cs1->lstProp, cs2->lstProp,
+						cs1->numProp,cs2->numProp,&numCombineP, propStat);
+					//printf("         Cosine = %f \n", simscore);
+					
+				}
+			}
 			
 			//simscore = 0.0;
 			#if	USINGTFIDF	
@@ -3163,6 +3192,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	// Create label per freqCS
 	csIdFreqIdxMap = (int *) malloc (sizeof(int) * (*maxCSoid + 1));
 	initcsIdFreqIdxMap(csIdFreqIdxMap, *maxCSoid + 1, -1, freqCSset);
+	printf("Using ontologies with %d ontattributesCount and %d ontmetadataCount \n",ontattributesCount,ontmetadataCount);
+
 	labels = createLabels(freqCSset, csrelSet, *maxCSoid + 1, sbat, si, pi, oi, *subjCSMap, mbat, csIdFreqIdxMap, *freqThreshold, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount);
 
 

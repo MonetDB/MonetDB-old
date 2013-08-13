@@ -359,7 +359,7 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 		
 		} else if (triple->object->type == RAPTOR_TERM_TYPE_LITERAL) {
 			unsigned char* objStr;
-			ObjectType objType;
+			ObjectType objType = STRING;
 			objStr = raptor_term_to_string(triple->object);
 			objType = getObjectType(objStr, &realNumValue);
 
