@@ -88,8 +88,8 @@ typedef struct PropStat {
 #define FULL_PROP_STAT 1	// Only use for showing the statistic on all properties / all CSs. (Default should be 0)
 
 
-#define USE_LABEL_FINDING_MAXCS	1 	// Use the labels received from labeling process for finding maxCS 
-#define USE_LABEL_FOR_MERGING	1 	// Use the labels received from labeling process for finding mergeCS
+#define USE_LABEL_FINDING_MAXCS	0 	// Use the labels received from labeling process for finding maxCS 
+#define USE_LABEL_FOR_MERGING	0 	// Use the labels received from labeling process for finding mergeCS
 
 typedef struct CS
 {

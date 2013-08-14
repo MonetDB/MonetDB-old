@@ -158,7 +158,7 @@ rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType obj
 	
 		/* Add the type here by changing 2 bits at position 62, 63 of oid */
 		*bun |= (BUN)objType << (sizeof(BUN)*8 - 4);
-
+		
 		//b = BUNappend(b, (ptr) (str)objStr, TRUE);
 		b = BUNins(b, (ptr) bun, (ptr) (str)objStr, TRUE); 
 
@@ -235,7 +235,7 @@ char isInt(char *input){
 
 static ObjectType 
 getObjectType(unsigned char* objStr, BUN *realNumValue){
-	ObjectType obType; 
+	ObjectType obType = STRING; 
 	unsigned char* endpart;
 	char* valuepart; 
 	const char* pos = NULL; 
@@ -275,6 +275,8 @@ getObjectType(unsigned char* objStr, BUN *realNumValue){
 			//printf("%s: String \n", objStr); 
 		}
 	}
+	else
+		obType = STRING; 
 
 	return obType; 
 }
@@ -362,7 +364,7 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 			ObjectType objType = STRING;
 			objStr = raptor_term_to_string(triple->object);
 			objType = getObjectType(objStr, &realNumValue);
-
+			
 			rdf_BUNappend_unq_ForObj(pdata, graph[MAP_LEX], (str)objStr, objType, &bun);	
 			rdf_BUNappend(pdata, graph[O_sort], &bun); 
 

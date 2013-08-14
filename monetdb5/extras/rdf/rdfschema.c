@@ -722,7 +722,21 @@ CSPropTypes* initCSPropTypes(CSset* freqCSset, int numMergedCS){
 	return csPropTypes;
 }
 
+static 
+void printCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSset){
+	int i, j, k; 
 
+	for (i = 0; i < numMergedCS; i++){
+		printf("MergedCS %d (Freq: %d): \n", i, freqCSset->items[csPropTypes[i].freqCSId].support);
+		for(j = 0; j < csPropTypes[i].numProp; j++){
+			printf("  P " BUNFMT " :  ", csPropTypes[i].lstPropTypes[j].prop);
+			for (k = 0; k < csPropTypes[i].lstPropTypes[j].numType; k++){
+				printf(" Type %d (%d)  | ", k, csPropTypes[i].lstPropTypes[j].lstFreq[k]);
+			}
+			printf("\n");
+		}
+	}
+}
 /*
  * Add types of properties 
  * Note that the property list is sorted by prop's oids
@@ -734,9 +748,11 @@ void addPropTypes(char *buffTypes, oid* buffP, int numP, int csId, int* csTblIdx
 	int i,j; 
 	int tblId = csTblIdxMapping[csId];
 	
+	//printf("Add %d prop from CS %d to table %d \n", numP, csId, tblId);
 	j = 0;
 	if (tblId != -1){
 		for (i = 0; i < numP; i++){
+			//printf("  P: " BUNFMT " Type: %d ", buffP[i], buffTypes[i]);
 			while (csPropTypes[tblId].lstPropTypes[j].prop != buffP[i]){
 				j++;
 			}	
@@ -745,6 +761,7 @@ void addPropTypes(char *buffTypes, oid* buffP, int numP, int csId, int* csTblIdx
 			
 		}
 	}
+	//printf("\n");
 }
 
 static
@@ -4202,14 +4219,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 		throw(RDF, "rdf.RDFreorganize", "Problem in extracting CSs");
 	} 
 
-	if (*mode == EXPLOREONLY){
-		printf("Only explore the schema information \n");
-		freeCSset(freqCSset); 
-		free(subjCSMap);
-		free(subjdefaultMap);
 
-		return MAL_SUCCEED;
-	}
 	
 	printf("Start re-organizing triple store for " BUNFMT " CSs \n", maxCSoid);
 
@@ -4227,13 +4237,6 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	// Init CStableStat
 	initCStables(cstablestat, freqCSset);
-
-
-	lastSubjId = (oid *) malloc (sizeof(oid) * cstablestat->numTables); 
-	initArray(lastSubjId, cstablestat->numTables, -1); 
-	
-	lastSubjIdEx = (oid *) malloc (sizeof(oid) * cstablestat->numTables); 
-	initArray(lastSubjIdEx, cstablestat->numTables, -1); 
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
@@ -4257,6 +4260,21 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	/* Get possible types of each property in a table (i.e., mergedCS) */
 	csPropTypes = initCSPropTypes(freqCSset, cstablestat->numTables);
 	RDFExtractCSPropTypes(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, csPropTypes, maxNumPwithDup);
+	printCSPropTypes(csPropTypes,cstablestat->numTables, freqCSset);
+
+	if (*mode == EXPLOREONLY){
+		printf("Only explore the schema information \n");
+		freeCSset(freqCSset); 
+		free(subjCSMap);
+		free(subjdefaultMap);
+		free(csTblIdxMapping);
+		free(mfreqIdxTblIdxMapping);
+		free(mTblIdxFreqIdxMapping);
+
+		return MAL_SUCCEED;
+	}
+
+
 
 
 	sNewBat = BATnew(TYPE_void, TYPE_oid, BATcount(sbat));
@@ -4281,6 +4299,11 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	BATseqbase(rmap, 0);
 	
+	lastSubjId = (oid *) malloc (sizeof(oid) * cstablestat->numTables); 
+	initArray(lastSubjId, cstablestat->numTables, -1); 
+	
+	lastSubjIdEx = (oid *) malloc (sizeof(oid) * cstablestat->numTables); 
+	initArray(lastSubjIdEx, cstablestat->numTables, -1); 
 
 	printf("Re-assigning Subject oids ... ");
 	lastS = -1; 
