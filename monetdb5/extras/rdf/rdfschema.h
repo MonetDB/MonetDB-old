@@ -32,8 +32,7 @@ rdf_export str
 RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid); 
 
 rdf_export str 
-RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *freqCSset, oid **subjCSMap, oid *maxCSoid, char **subjdefaultMap);
-
+RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *freqCSset, oid **subjCSMap, oid *maxCSoid, char **subjdefaultMap,int *maxNumPwithDup);
 
 typedef enum{
 	EXPLOREONLY, 
@@ -215,6 +214,18 @@ typedef struct CStableStat {
 	BAT*		obat; 
 } CStableStat; 
 
+typedef struct PropTypes{
+	oid	prop;
+	int	numType; 
+	char*	lstTypes; 
+	int*	lstFreq; 
+} PropTypes; 
+
+typedef struct CSPropTypes {
+	int		freqCSId; 
+	int		numProp; 
+	PropTypes*	lstPropTypes; 
+} CSPropTypes; 
 
 rdf_export str
 RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat, oid* lastSubjId, oid* lastSubjIdEx);

@@ -683,6 +683,86 @@ void printSubCSInformation(SubCSSet *subcsset, BAT* freqBat, int num, char isWri
 	}
 }
 
+/*
+ * Init property types for each CS in FreqCSset (after merging)
+ * For each property, init with all possible types (MULTIVALUES + 1))
+ * 
+ * */
+static 
+CSPropTypes* initCSPropTypes(CSset* freqCSset, int numMergedCS){
+	int numFreqCS = freqCSset->numCSadded;
+	int i, j, k ;
+	int id; 
+
+	CSPropTypes* csPropTypes = (CSPropTypes*)GDKmalloc(sizeof(CSPropTypes) * numMergedCS); 
+	
+	id = 0; 
+	for (i = 0; i < numFreqCS; i++){
+		if (freqCSset->items[i].parentFreqIdx == -1){   // Only use the maximum or merge CS		
+			csPropTypes[id].freqCSId = i; 
+			csPropTypes[id].numProp = freqCSset->items[i].numProp;
+			csPropTypes[id].lstPropTypes = (PropTypes*) GDKmalloc(sizeof(PropTypes) * csPropTypes[id].numProp);
+			for (j = 0; j < csPropTypes[id].numProp; j++){
+				csPropTypes[id].lstPropTypes[j].prop = freqCSset->items[i].lstProp[j]; 
+				csPropTypes[id].lstPropTypes[j].numType = MULTIVALUES + 1;
+				csPropTypes[id].lstPropTypes[j].lstTypes = (char*)GDKmalloc(sizeof(char) * csPropTypes[id].lstPropTypes[j].numType);
+				csPropTypes[id].lstPropTypes[j].lstFreq = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
+				for (k = 0; k < csPropTypes[id].lstPropTypes[j].numType; k++){
+					csPropTypes[id].lstPropTypes[j].lstFreq[k] = 0; 
+				}
+
+			}
+
+			id++;
+		}
+	}
+
+	assert(id == numMergedCS);
+
+	return csPropTypes;
+}
+
+
+/*
+ * Add types of properties 
+ * Note that the property list is sorted by prop's oids
+ * E.g., buffP = {3, 5, 7}
+ * csPropTypes[tbIdx] contains properties {1,3,4,5,7} with types for each property and frequency of each <property, type>
+ * */
+static 
+void addPropTypes(char *buffTypes, oid* buffP, int numP, int csId, int* csTblIdxMapping, CSPropTypes* csPropTypes){
+	int i,j; 
+	int tblId = csTblIdxMapping[csId];
+	
+	j = 0;
+	if (tblId != -1){
+		for (i = 0; i < numP; i++){
+			while (csPropTypes[tblId].lstPropTypes[j].prop != buffP[i]){
+				j++;
+			}	
+			//j is position of the property buffP[i] in csPropTypes[tblId]
+			csPropTypes[tblId].lstPropTypes[j].lstFreq[(int)buffTypes[i]]++; 
+			
+		}
+	}
+}
+
+static
+void freeCSPropTypes(CSPropTypes* csPropTypes, int numCS){
+	int i,j; 
+
+	for (i = 0; i < numCS; i++){
+		if (csPropTypes[i].freqCSId != -1){
+			for (j = 0; j < csPropTypes[i].numProp; j++){
+				free(csPropTypes[i].lstPropTypes[j].lstTypes); 
+				free(csPropTypes[i].lstPropTypes[j].lstFreq);
+			}
+			free(csPropTypes[i].lstPropTypes); 
+		}
+	}
+	free(csPropTypes);
+}
+
 static 
 SubCS* creatSubCS(oid subCSId, int numP, char* buff, oid subCSsign){
 	SubCS *subcs = (SubCS*) malloc(sizeof(SubCS)); 
@@ -1854,6 +1934,7 @@ void getMaximumFreqCSs(CSset *freqCSset, Labels* labels, BAT* coverageBat, BAT* 
 	int* 	coverage; 
 	int* 	freq; 
 	char	isLabelComparable = 0;
+	char	isDiffLabel = 0;
 
 	(void) labels; 
 	(void) isLabelComparable;
@@ -1866,34 +1947,30 @@ void getMaximumFreqCSs(CSset *freqCSset, Labels* labels, BAT* coverageBat, BAT* 
 		if (strcmp(labels[i].name, "DUMMY") != 0) isLabelComparable = 1;
 
 		for (j = (i+1); j < numFreqCS; j++){
-			if (freqCSset->items[j].numProp > freqCSset->items[i].numProp){
-				if (isSubset(freqCSset->items[j].lstProp, freqCSset->items[i].lstProp,  
-						freqCSset->items[j].numProp,freqCSset->items[i].numProp) == 1) { 
-					/* CSj is a superset of CSi */
-					#if USE_LABEL_FINDING_MAXCS
-					if (isLabelComparable == 1 && strcmp(labels[i].name, labels[j].name) == 0) {
-						freqCSset->items[i].parentFreqIdx = j;
-						break;
-					}
-					#else	
-					freqCSset->items[i].parentFreqIdx = j; 
-					#endif
-					break; 
-				}
+			isDiffLabel = 0; 
+			#if USE_LABEL_FINDING_MAXCS
+			if (isLabelComparable == 0 || strcmp(labels[i].name, labels[j].name) != 0) {
+				isDiffLabel = 1; 
 			}
-			else if (freqCSset->items[j].numProp < freqCSset->items[i].numProp){
-				if (isSubset(freqCSset->items[i].lstProp, freqCSset->items[j].lstProp,  
-						freqCSset->items[i].numProp,freqCSset->items[j].numProp) == 1) { 
-					/* CSj is a subset of CSi */
-					#if USE_LABEL_FINDING_MAXCS
-					if (isLabelComparable == 1 && strcmp(labels[i].name, labels[j].name) == 0) {
-						freqCSset->items[j].parentFreqIdx = i;
+			#endif
+
+			if (isDiffLabel == 0){
+				if (freqCSset->items[j].numProp > freqCSset->items[i].numProp){
+					if (isSubset(freqCSset->items[j].lstProp, freqCSset->items[i].lstProp,  
+							freqCSset->items[j].numProp,freqCSset->items[i].numProp) == 1) { 
+						/* CSj is a superset of CSi */
+						freqCSset->items[i].parentFreqIdx = j; 
+						break; 
 					}
-					#else
-					freqCSset->items[j].parentFreqIdx = i; 
-					#endif
-				}		
-			
+				}
+				else if (freqCSset->items[j].numProp < freqCSset->items[i].numProp){
+					if (isSubset(freqCSset->items[i].lstProp, freqCSset->items[j].lstProp,  
+							freqCSset->items[i].numProp,freqCSset->items[j].numProp) == 1) { 
+						/* CSj is a subset of CSi */
+						freqCSset->items[j].parentFreqIdx = i; 
+					}		
+				
+				}
 			}
 
 			//Do not need to consider the case that the numProps are the same
@@ -2864,6 +2941,73 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 	return MAL_SUCCEED; 
 }
 
+
+
+static 
+str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,  
+		oid *subjCSMap, int* csTblIdxMapping, CSPropTypes* csPropTypes, int maxNumPwithDup){
+
+	BUN	 	p, q; 
+	oid 		*sbt = 0, *obt, *pbt;
+	oid 		curS; 		/* current Subject oid */
+	//oid 		CSoid = 0; 	/* Characteristic set oid */
+	int 		numPwithDup;	/* Number of properties for current S */
+	char 		objType;
+	char* 		buffTypes; 
+	oid*		buffP;
+	oid		curP; 
+
+	buffTypes = (char *) malloc(sizeof(char) * (maxNumPwithDup + 1)); 
+	buffP = (oid *) malloc(sizeof(char) * (maxNumPwithDup + 1));
+
+	numPwithDup = 0;
+	curS = 0; 
+	curP = 0; 
+
+	BATloop(sbat, p, q){
+		sbt = (oid *) BUNtloc(si, p);		
+		if (*sbt != curS){
+			if (p != 0){	/* Not the first S */
+				addPropTypes(buffTypes, buffP, numPwithDup, subjCSMap[curS], csTblIdxMapping, csPropTypes);
+			}
+			curS = *sbt; 
+			numPwithDup = 0;
+			curP = 0; 
+		}
+				
+		obt = (oid *) BUNtloc(oi, p); 
+		/* Check type of object */
+		objType = (char) ((*obt) >> (sizeof(BUN)*8 - 4))  &  7 ;	/* Get two bits 63th, 62nd from object oid */
+	
+		pbt = (oid *) BUNtloc(pi, p);
+
+		if (curP == *pbt){
+			#if USE_MULTIPLICITY == 1	
+			// Update the object type for this P as MULTIVALUES	
+			buffTypes[numPwithDup-1] = MULTIVALUES; 
+			#else
+			buffTypes[numPwithDup] = objType;
+			numPwithDup++;
+			#endif
+		}
+		else{			
+			buffTypes[numPwithDup] = objType; 
+			buffP[numPwithDup] = *pbt;
+			numPwithDup++; 
+			curP = *pbt; 
+		}
+	}
+	
+	/* Check for the last CS */
+	addPropTypes(buffTypes, buffP, numPwithDup, subjCSMap[curS], csTblIdxMapping, csPropTypes);
+
+	free (buffTypes); 
+
+	*ret = 1; 
+
+	return MAL_SUCCEED; 
+}
+
 static
 void initCsRelBetweenMergeFreqSet(CSmergeRel *csRelBetweenMergeFreqSet, int num){
 	int i;
@@ -3057,7 +3201,7 @@ int	ontmetadataCount = 0;
 
 /* Extract CS from SPO triples table */
 str
-RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *_freqCSset, oid **subjCSMap, oid *maxCSoid, char **subjdefaultMap){
+RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *_freqCSset, oid **subjCSMap, oid *maxCSoid, char **subjdefaultMap,int *maxNumPwithDup){
 
 	BAT 		*sbat = NULL, *pbat = NULL, *obat = NULL, *mbat = NULL; 
 	BATiter 	si, pi, oi; 	/*iterator for BAT of s,p,o columns in spo table */
@@ -3067,7 +3211,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	BUN		*maxSoid; 	
 	int		maxNumProp = 0;
-	int		maxNumPwithDup = 0; 
 	char		*csFreqMap; 
 	CSrel   	*csrelSet;
 	CSrel		*csrelToMaxFreqSet, *csrelFromMaxFreqSet;
@@ -3083,6 +3226,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	CSset		*freqCSset; 
 	clock_t 	curT;
 	clock_t		tmpLastT; 
+
 
 	Labels		*labels;
 
@@ -3134,11 +3278,12 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 	tmpLastT = clock();
 
+	*maxNumPwithDup	 = 0;
 	//Phase 1: Assign an ID for each CS
 	#if STOREFULLCS
-	RDFassignCSId(ret, sbat, si, pi, oi, freqCSset, freqThreshold, csBats, *subjCSMap, maxCSoid, &maxNumProp, &maxNumPwithDup);
+	RDFassignCSId(ret, sbat, si, pi, oi, freqCSset, freqThreshold, csBats, *subjCSMap, maxCSoid, &maxNumProp, maxNumPwithDup);
 	#else
-	RDFassignCSId(ret, sbat, si, pi, freqCSset, freqThreshold, csBats, *subjCSMap, maxCSoid, &maxNumProp, &maxNumPwithDup);
+	RDFassignCSId(ret, sbat, si, pi, freqCSset, freqThreshold, csBats, *subjCSMap, maxCSoid, &maxNumProp, maxNumPwithDup);
 	#endif
 	
 	curT = clock(); 
@@ -3149,7 +3294,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	printf("Max CS oid: " BUNFMT "\n", *maxCSoid);
 
-	printf("Max Number of P (considering duplicated P): %d \n", maxNumPwithDup);
+	printf("Max Number of P (considering duplicated P): %d \n", *maxNumPwithDup);
 
 	csFreqMap = (char*) malloc(sizeof(char) * (*maxCSoid +1)); 
 	initCharArray(csFreqMap, *maxCSoid +1, 0); 
@@ -3163,7 +3308,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	csSubCSSet = initCS_SubCSSets(*maxCSoid +1); 
 
-	RDFrelationships(ret, sbat, si, pi, oi, *subjCSMap, subjSubCSMap, csSubCSSet, csrelSet, *maxSoid, maxNumPwithDup);
+	RDFrelationships(ret, sbat, si, pi, oi, *subjCSMap, subjSubCSMap, csSubCSSet, csrelSet, *maxSoid, *maxNumPwithDup);
 
 	curT = clock(); 
 	printf (" ----- Exploring subCSs and FKs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
@@ -3229,6 +3374,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	curT = clock(); 
 	printf (" ----- Merging Frequent CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
+	
 
 	csRelBetweenMergeFreqSet = (CSmergeRel *) malloc (sizeof(CSmergeRel) * freqCSset->numCSadded);
 	initCsRelBetweenMergeFreqSet(csRelBetweenMergeFreqSet, freqCSset->numCSadded);
@@ -3438,23 +3584,15 @@ str triplesubsort(BAT **sbat, BAT **pbat, BAT **obat){
 }
 
 static
-void initCStablesAndIdxMapping(CStableStat* cstablestat, CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping){
+void initCStables(CStableStat* cstablestat, CSset* freqCSset){
 
 	int 		i,j, k; 
-	CS 		cs;
-	//CStableStat* 	cstablestat; 
-	int		tmpParentidx; 
 	int		tmpNumProp; 
-	//str *schema =   "rdfro";
 
-	//cstablestat = (CStableStat *) malloc (sizeof (CStableStat));
-	
 	// Get the number of tables 
 	k = 0; 
 	for (i = 0; i < freqCSset->numCSadded; i++){
 		if (freqCSset->items[i].parentFreqIdx == -1){	// Only use the maximum or merge CS 
-			mfreqIdxTblIdxMapping[i] = k; 
-			mTblIdxFreqIdxMapping[k] = i; 
 			k++; 
 		}
 	}
@@ -3509,6 +3647,25 @@ void initCStablesAndIdxMapping(CStableStat* cstablestat, CSset* freqCSset, int* 
 		}
 	}
 
+}
+
+
+static
+void initCSTableIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping){
+
+	int 		i, k; 
+	CS 		cs;
+	int		tmpParentidx; 
+
+	k = 0; 
+	for (i = 0; i < freqCSset->numCSadded; i++){
+		if (freqCSset->items[i].parentFreqIdx == -1){	// Only use the maximum or merge CS 
+			mfreqIdxTblIdxMapping[i] = k; 
+			mTblIdxFreqIdxMapping[k] = i; 
+			k++; 
+		}
+	}
+	
 	// Mapping the csid directly to the index of the table ==> csTblIndxMapping
 	
 	for (i = 0; i < freqCSset->numOrigFreqCS; i++){
@@ -4018,7 +4175,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	oid		*subjCSMap = NULL;  	/* Store the corresponding CS Id for each subject */
 	oid 		maxCSoid = 0; 
 	BAT		*sbat = NULL, *obat = NULL, *pbat = NULL;
-	BATiter		si; 
+	BATiter		si,pi,oi; 
 	BUN		p,q; 
 	BAT		*sNewBat, *lmap, *rmap, *oNewBat, *origobat, *pNewBat; 
 	BUN		newId; 
@@ -4034,19 +4191,23 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	int		*mTblIdxFreqIdxMapping;  /* Invert of mfreqIdxTblIdxMapping */
 	PropStat	*propStat; 
 	int		numdistinctMCS = 0; 
+	int		maxNumPwithDup = 0;
 	//CStableStat	*cstablestat;
 	char		*subjdefaultMap = NULL; /* Specify whether this subject contains default value or not. This array may be large */
-				
+	CSPropTypes	*csPropTypes; 
 
 	freqCSset = initCSset();
 
-	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid, &subjdefaultMap) != MAL_SUCCEED){
+	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid, &subjdefaultMap, &maxNumPwithDup) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in extracting CSs");
 	} 
 
 	if (*mode == EXPLOREONLY){
 		printf("Only explore the schema information \n");
 		freeCSset(freqCSset); 
+		free(subjCSMap);
+		free(subjdefaultMap);
+
 		return MAL_SUCCEED;
 	}
 	
@@ -4062,7 +4223,11 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	initIntArray(mTblIdxFreqIdxMapping , freqCSset->numCSadded, -1);
 
 	//Mapping from from CSId to TableIdx 
-	initCStablesAndIdxMapping(cstablestat, freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping);
+	initCSTableIdxMapping(freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping);
+
+	// Init CStableStat
+	initCStables(cstablestat, freqCSset);
+
 
 	lastSubjId = (oid *) malloc (sizeof(oid) * cstablestat->numTables); 
 	initArray(lastSubjId, cstablestat->numTables, -1); 
@@ -4084,6 +4249,15 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 		BBPreleaseref(obat->batCacheid);
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
 	}
+
+	si = bat_iterator(sbat); 
+	pi = bat_iterator(pbat); 
+	oi = bat_iterator(obat); 
+
+	/* Get possible types of each property in a table (i.e., mergedCS) */
+	csPropTypes = initCSPropTypes(freqCSset, cstablestat->numTables);
+	RDFExtractCSPropTypes(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, csPropTypes, maxNumPwithDup);
+
 
 	sNewBat = BATnew(TYPE_void, TYPE_oid, BATcount(sbat));
 	if (sNewBat== NULL) {
@@ -4107,7 +4281,6 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	BATseqbase(rmap, 0);
 	
-	si = bat_iterator(sbat); 
 
 	printf("Re-assigning Subject oids ... ");
 	lastS = -1; 
@@ -4202,6 +4375,8 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 		throw(RDF, "rdf.RDFreorganize", "Problem in distributing triples to BATs using CSs");		
 	}
 		
+
+	freeCSPropTypes(csPropTypes,freqCSset->numCSadded);
 	freeCSset(freqCSset); 
 	free(subjCSMap); 
 	free(csTblIdxMapping);
