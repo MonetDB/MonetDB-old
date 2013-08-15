@@ -704,11 +704,17 @@ CSPropTypes* initCSPropTypes(CSset* freqCSset, int numMergedCS){
 			csPropTypes[id].lstPropTypes = (PropTypes*) GDKmalloc(sizeof(PropTypes) * csPropTypes[id].numProp);
 			for (j = 0; j < csPropTypes[id].numProp; j++){
 				csPropTypes[id].lstPropTypes[j].prop = freqCSset->items[i].lstProp[j]; 
+				csPropTypes[id].lstPropTypes[j].propFreq = 0; 
 				csPropTypes[id].lstPropTypes[j].numType = MULTIVALUES + 1;
 				csPropTypes[id].lstPropTypes[j].lstTypes = (char*)GDKmalloc(sizeof(char) * csPropTypes[id].lstPropTypes[j].numType);
 				csPropTypes[id].lstPropTypes[j].lstFreq = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
+				csPropTypes[id].lstPropTypes[j].colIdxes = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
+				csPropTypes[id].lstPropTypes[j].isMainTypes = (char*)GDKmalloc(sizeof(char) * csPropTypes[id].lstPropTypes[j].numType);
+
 				for (k = 0; k < csPropTypes[id].lstPropTypes[j].numType; k++){
 					csPropTypes[id].lstPropTypes[j].lstFreq[k] = 0; 
+					csPropTypes[id].lstPropTypes[j].isMainTypes[k] = 0; 
+					csPropTypes[id].lstPropTypes[j].colIdxes[k] = -1; 
 				}
 
 			}
@@ -723,9 +729,47 @@ CSPropTypes* initCSPropTypes(CSset* freqCSset, int numMergedCS){
 }
 
 static 
-void printCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSset){
+void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSset){
 	int i, j, k; 
+	int tmpMaxFreq;  
+	int defaultIdx;	 /* Index of the default type for a property */
+	int curTypeColIdx = 0;
 
+	(void) freqCSset;
+
+	for (i = 0; i < numMergedCS; i++){
+		curTypeColIdx = 0; 
+		for(j = 0; j < csPropTypes[i].numProp; j++){
+			tmpMaxFreq = csPropTypes[i].lstPropTypes[j].lstFreq[0];
+			defaultIdx = 0; 
+			for (k = 0; k < csPropTypes[i].lstPropTypes[j].numType; k++){
+				if (csPropTypes[i].lstPropTypes[j].lstFreq[k] > tmpMaxFreq){
+					tmpMaxFreq =  csPropTypes[i].lstPropTypes[j].lstFreq[k];
+					defaultIdx = k; 	
+				}
+				if (csPropTypes[i].lstPropTypes[j].lstFreq[k] < csPropTypes[i].lstPropTypes[j].propFreq * 0.1){
+					//non-frequent type goes to PSO
+					csPropTypes[i].lstPropTypes[j].isMainTypes[k] = PSOTBL; 
+				}
+				else
+					csPropTypes[i].lstPropTypes[j].isMainTypes[k] =TYPETBL;
+			}
+			/* One type is set to be the default type (in the main table) */
+			csPropTypes[i].lstPropTypes[j].isMainTypes[defaultIdx] = MAINTBL; 
+			csPropTypes[i].lstPropTypes[j].colIdxes[defaultIdx] = j;
+
+			/* Count the number of column needed */
+			for (k = 0; k < csPropTypes[i].lstPropTypes[j].numType; k++){
+				if (csPropTypes[i].lstPropTypes[j].isMainTypes[k] == TYPETBL){
+					csPropTypes[i].lstPropTypes[j].colIdxes[k] = curTypeColIdx; 
+					curTypeColIdx++;
+				}	
+			}
+		}
+	}
+
+	/* Print cspropTypes */
+	/*
 	for (i = 0; i < numMergedCS; i++){
 		printf("MergedCS %d (Freq: %d): \n", i, freqCSset->items[csPropTypes[i].freqCSId].support);
 		for(j = 0; j < csPropTypes[i].numProp; j++){
@@ -734,8 +778,14 @@ void printCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSse
 				printf(" Type %d (%d)  | ", k, csPropTypes[i].lstPropTypes[j].lstFreq[k]);
 			}
 			printf("\n");
+			printf("         ");
+			for (k = 0; k < csPropTypes[i].lstPropTypes[j].numType; k++){
+				printf(" Tbl %d (cl%d) | ", csPropTypes[i].lstPropTypes[j].isMainTypes[k], csPropTypes[i].lstPropTypes[j].colIdxes[k]);
+			}
+			printf("\n");
 		}
 	}
+	*/
 }
 /*
  * Add types of properties 
@@ -757,6 +807,7 @@ void addPropTypes(char *buffTypes, oid* buffP, int numP, int csId, int* csTblIdx
 				j++;
 			}	
 			//j is position of the property buffP[i] in csPropTypes[tblId]
+			csPropTypes[tblId].lstPropTypes[j].propFreq++;
 			csPropTypes[tblId].lstPropTypes[j].lstFreq[(int)buffTypes[i]]++; 
 			
 		}
@@ -773,6 +824,8 @@ void freeCSPropTypes(CSPropTypes* csPropTypes, int numCS){
 			for (j = 0; j < csPropTypes[i].numProp; j++){
 				free(csPropTypes[i].lstPropTypes[j].lstTypes); 
 				free(csPropTypes[i].lstPropTypes[j].lstFreq);
+				free(csPropTypes[i].lstPropTypes[j].colIdxes);
+				free(csPropTypes[i].lstPropTypes[j].isMainTypes);
 			}
 			free(csPropTypes[i].lstPropTypes); 
 		}
@@ -3668,7 +3721,7 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset){
 
 
 static
-void initCSTableIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping){
+void initCSTableIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping, int *numTables){
 
 	int 		i, k; 
 	CS 		cs;
@@ -3683,6 +3736,8 @@ void initCSTableIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdx
 		}
 	}
 	
+	*numTables = k; 
+
 	// Mapping the csid directly to the index of the table ==> csTblIndxMapping
 	
 	for (i = 0; i < freqCSset->numOrigFreqCS; i++){
@@ -4206,6 +4261,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	int		*csTblIdxMapping;	/* Store the mapping from a CS id to an index of a maxCS or mergeCS in freqCSset. */
 	int		*mfreqIdxTblIdxMapping;  /* Store the mapping from the idx of a max/merge freqCS to the table Idx */
 	int		*mTblIdxFreqIdxMapping;  /* Invert of mfreqIdxTblIdxMapping */
+	int		numTables = 0; 
 	PropStat	*propStat; 
 	int		numdistinctMCS = 0; 
 	int		maxNumPwithDup = 0;
@@ -4233,10 +4289,8 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	initIntArray(mTblIdxFreqIdxMapping , freqCSset->numCSadded, -1);
 
 	//Mapping from from CSId to TableIdx 
-	initCSTableIdxMapping(freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping);
+	initCSTableIdxMapping(freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping, &numTables);
 
-	// Init CStableStat
-	initCStables(cstablestat, freqCSset);
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
@@ -4258,9 +4312,12 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	oi = bat_iterator(obat); 
 
 	/* Get possible types of each property in a table (i.e., mergedCS) */
-	csPropTypes = initCSPropTypes(freqCSset, cstablestat->numTables);
+	csPropTypes = initCSPropTypes(freqCSset, numTables);
 	RDFExtractCSPropTypes(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, csPropTypes, maxNumPwithDup);
-	printCSPropTypes(csPropTypes,cstablestat->numTables, freqCSset);
+	genCSPropTypesColIdx(csPropTypes, numTables, freqCSset);
+
+	// Init CStableStat
+	initCStables(cstablestat, freqCSset);
 
 	if (*mode == EXPLOREONLY){
 		printf("Only explore the schema information \n");

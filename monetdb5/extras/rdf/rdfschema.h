@@ -39,6 +39,11 @@ typedef enum{
 	REORGANIZE
 } ExpMode; 
 
+typedef enum{
+	MAINTBL, 
+	TYPETBL,
+	PSOTBL
+} TableType; 		
 
 typedef enum {
 	NORMALCS, 
@@ -189,10 +194,11 @@ typedef struct CSmergeRel{
 
 
 typedef struct CStable {
-	BAT**	colBats; 
-	BAT** 	mvBats; 	/* One bat for one Muti-values property */
-	int	numCol; 
-	oid* 	lstProp;
+	BAT**		colBats; 
+	ObjectType	*colTypes; 
+	BAT** 		mvBats; 	/* One bat for one Muti-values property */
+	int		numCol; 
+	oid* 		lstProp;
 } CStable; 
 
 
@@ -217,8 +223,11 @@ typedef struct CStableStat {
 typedef struct PropTypes{
 	oid	prop;
 	int	numType; 
+	int	propFreq; 	/* without considering type */
 	char*	lstTypes; 
 	int*	lstFreq; 
+	int*	colIdxes; 
+	char*	isMainTypes;
 } PropTypes; 
 
 typedef struct CSPropTypes {
