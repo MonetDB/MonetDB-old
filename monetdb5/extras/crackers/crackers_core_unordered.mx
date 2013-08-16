@@ -500,7 +500,10 @@ CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, c
 			c_Thread_arg[i].mval    = &mval;
 			c_Thread_arg[i].first   = f;
 			c_Thread_arg[i].last    = l;
-			c_Thread_arg[i].m       = (i < nthreads - 1) ? m : l - f + 1;
+			if (nthreads!=1)
+				c_Thread_arg[i].m = (i < nthreads - 1) ? m : l - f + 1;
+			else
+				c_Thread_arg[i].m = 0;
 		}
 	}
 
