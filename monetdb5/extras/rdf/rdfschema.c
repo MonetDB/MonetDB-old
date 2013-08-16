@@ -701,19 +701,21 @@ CSPropTypes* initCSPropTypes(CSset* freqCSset, int numMergedCS){
 		if (freqCSset->items[i].parentFreqIdx == -1){   // Only use the maximum or merge CS		
 			csPropTypes[id].freqCSId = i; 
 			csPropTypes[id].numProp = freqCSset->items[i].numProp;
+			csPropTypes[id].numNonDefTypes = 0;
 			csPropTypes[id].lstPropTypes = (PropTypes*) GDKmalloc(sizeof(PropTypes) * csPropTypes[id].numProp);
 			for (j = 0; j < csPropTypes[id].numProp; j++){
 				csPropTypes[id].lstPropTypes[j].prop = freqCSset->items[i].lstProp[j]; 
 				csPropTypes[id].lstPropTypes[j].propFreq = 0; 
 				csPropTypes[id].lstPropTypes[j].numType = MULTIVALUES + 1;
+				csPropTypes[id].lstPropTypes[j].defaultType = STRING; 
 				csPropTypes[id].lstPropTypes[j].lstTypes = (char*)GDKmalloc(sizeof(char) * csPropTypes[id].lstPropTypes[j].numType);
 				csPropTypes[id].lstPropTypes[j].lstFreq = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
 				csPropTypes[id].lstPropTypes[j].colIdxes = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
-				csPropTypes[id].lstPropTypes[j].isMainTypes = (char*)GDKmalloc(sizeof(char) * csPropTypes[id].lstPropTypes[j].numType);
+				csPropTypes[id].lstPropTypes[j].TableTypes = (char*)GDKmalloc(sizeof(char) * csPropTypes[id].lstPropTypes[j].numType);
 
 				for (k = 0; k < csPropTypes[id].lstPropTypes[j].numType; k++){
 					csPropTypes[id].lstPropTypes[j].lstFreq[k] = 0; 
-					csPropTypes[id].lstPropTypes[j].isMainTypes[k] = 0; 
+					csPropTypes[id].lstPropTypes[j].TableTypes[k] = 0; 
 					csPropTypes[id].lstPropTypes[j].colIdxes[k] = -1; 
 				}
 
@@ -749,43 +751,44 @@ void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freq
 				}
 				if (csPropTypes[i].lstPropTypes[j].lstFreq[k] < csPropTypes[i].lstPropTypes[j].propFreq * 0.1){
 					//non-frequent type goes to PSO
-					csPropTypes[i].lstPropTypes[j].isMainTypes[k] = PSOTBL; 
+					csPropTypes[i].lstPropTypes[j].TableTypes[k] = PSOTBL; 
 				}
 				else
-					csPropTypes[i].lstPropTypes[j].isMainTypes[k] =TYPETBL;
+					csPropTypes[i].lstPropTypes[j].TableTypes[k] =TYPETBL;
 			}
 			/* One type is set to be the default type (in the main table) */
-			csPropTypes[i].lstPropTypes[j].isMainTypes[defaultIdx] = MAINTBL; 
+			csPropTypes[i].lstPropTypes[j].TableTypes[defaultIdx] = MAINTBL; 
 			csPropTypes[i].lstPropTypes[j].colIdxes[defaultIdx] = j;
+			csPropTypes[i].lstPropTypes[j].defaultType = defaultIdx; 
 
 			/* Count the number of column needed */
 			for (k = 0; k < csPropTypes[i].lstPropTypes[j].numType; k++){
-				if (csPropTypes[i].lstPropTypes[j].isMainTypes[k] == TYPETBL){
+				if (csPropTypes[i].lstPropTypes[j].TableTypes[k] == TYPETBL){
 					csPropTypes[i].lstPropTypes[j].colIdxes[k] = curTypeColIdx; 
 					curTypeColIdx++;
 				}	
 			}
 		}
+		csPropTypes[i].numNonDefTypes = curTypeColIdx;
+
 	}
 
 	/* Print cspropTypes */
-	/*
 	for (i = 0; i < numMergedCS; i++){
 		printf("MergedCS %d (Freq: %d): \n", i, freqCSset->items[csPropTypes[i].freqCSId].support);
 		for(j = 0; j < csPropTypes[i].numProp; j++){
-			printf("  P " BUNFMT " :  ", csPropTypes[i].lstPropTypes[j].prop);
+			printf("  P " BUNFMT "(%d):", csPropTypes[i].lstPropTypes[j].prop, csPropTypes[i].lstPropTypes[j].defaultType);
 			for (k = 0; k < csPropTypes[i].lstPropTypes[j].numType; k++){
 				printf(" Type %d (%d)  | ", k, csPropTypes[i].lstPropTypes[j].lstFreq[k]);
 			}
 			printf("\n");
 			printf("         ");
 			for (k = 0; k < csPropTypes[i].lstPropTypes[j].numType; k++){
-				printf(" Tbl %d (cl%d) | ", csPropTypes[i].lstPropTypes[j].isMainTypes[k], csPropTypes[i].lstPropTypes[j].colIdxes[k]);
+				printf(" Tbl %d (cl%d) | ", csPropTypes[i].lstPropTypes[j].TableTypes[k], csPropTypes[i].lstPropTypes[j].colIdxes[k]);
 			}
 			printf("\n");
 		}
 	}
-	*/
 }
 /*
  * Add types of properties 
@@ -825,7 +828,7 @@ void freeCSPropTypes(CSPropTypes* csPropTypes, int numCS){
 				free(csPropTypes[i].lstPropTypes[j].lstTypes); 
 				free(csPropTypes[i].lstPropTypes[j].lstFreq);
 				free(csPropTypes[i].lstPropTypes[j].colIdxes);
-				free(csPropTypes[i].lstPropTypes[j].isMainTypes);
+				free(csPropTypes[i].lstPropTypes[j].TableTypes);
 			}
 			free(csPropTypes[i].lstPropTypes); 
 		}
@@ -3654,77 +3657,90 @@ str triplesubsort(BAT **sbat, BAT **pbat, BAT **obat){
 }
 
 static
-void initCStables(CStableStat* cstablestat, CSset* freqCSset){
+void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPropTypes, int numTables){
 
-	int 		i,j, k; 
-	int		tmpNumProp; 
+	int 		i,j; 
+	int		tmpNumDefaultCol; 
+	int		tmpNumExCol; 		/*For columns of non-default types*/
+	char* 		mapObjBATtypes;
+	int		colExIdx, t; 
 
-	// Get the number of tables 
-	k = 0; 
-	for (i = 0; i < freqCSset->numCSadded; i++){
-		if (freqCSset->items[i].parentFreqIdx == -1){	// Only use the maximum or merge CS 
-			k++; 
-		}
-	}
-	
+	mapObjBATtypes = (char*) malloc(sizeof(char) * (MULTIVALUES + 1)); 
+	mapObjBATtypes[URI] = TYPE_oid; 
+	mapObjBATtypes[DATETIME] = TYPE_str;
+	mapObjBATtypes[INTEGER] = TYPE_int; 
+	mapObjBATtypes[FLOAT] = TYPE_flt; 
+	mapObjBATtypes[STRING] = TYPE_str; 
+	mapObjBATtypes[BLANKNODE] = TYPE_oid;
+	mapObjBATtypes[MULTIVALUES] = TYPE_oid;
+
+
 	// allocate memory space for cstablestat
-	cstablestat->numTables = k; 
-	cstablestat->lstbatid = (bat**) malloc(sizeof (bat*) * k); 
-	cstablestat->numPropPerTable = (int*) malloc(sizeof (int) * k); 
+	cstablestat->numTables = numTables; 
+	cstablestat->lstbatid = (bat**) malloc(sizeof (bat*) * numTables); 
+	cstablestat->numPropPerTable = (int*) malloc(sizeof (int) * numTables); 
 
 	cstablestat->pbat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
 	cstablestat->sbat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
 	cstablestat->obat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
 
-	cstablestat->lastInsertedS = (oid**) malloc(sizeof(oid*) * k);
-	cstablestat->lstcstable = (CStable*) malloc(sizeof(CStable) * k); 
+	cstablestat->lastInsertedS = (oid**) malloc(sizeof(oid*) * numTables);
+	cstablestat->lstcstable = (CStable*) malloc(sizeof(CStable) * numTables); 
+
 	#if CSTYPE_TABLE == 1
-	cstablestat->lastInsertedSEx = (oid**) malloc(sizeof(oid*) * k);
-	cstablestat->lstcstableEx = (CStable*) malloc(sizeof(CStable) * k);
+	cstablestat->lastInsertedSEx = (oid**) malloc(sizeof(oid*) * numTables);
+	cstablestat->lstcstableEx = (CStableEx*) malloc(sizeof(CStableEx) * numTables);
 	#endif
 
-	k = 0; 
-	for (i = 0; i < freqCSset->numCSadded; i++){
-		if (freqCSset->items[i].parentFreqIdx == -1){	// Only use the maximum or merge CS 
-			tmpNumProp = freqCSset->items[i].numProp; 
-			cstablestat->numPropPerTable[k] = tmpNumProp; 
-			cstablestat->lstbatid[k] = (bat*) malloc (sizeof(bat) * tmpNumProp);  
-			cstablestat->lastInsertedS[k] = (oid*) malloc(sizeof(oid) * tmpNumProp); 
-			cstablestat->lstcstable[k].numCol = tmpNumProp;
-			cstablestat->lstcstable[k].colBats = (BAT**)malloc(sizeof(BAT*) * tmpNumProp); 
-			cstablestat->lstcstable[k].mvBats = (BAT**)malloc(sizeof(BAT*) * tmpNumProp); 
-			cstablestat->lstcstable[k].lstProp = (oid*)malloc(sizeof(oid) * tmpNumProp);
-			#if CSTYPE_TABLE == 1
-			cstablestat->lastInsertedSEx[k] = (oid*) malloc(sizeof(oid) * tmpNumProp); 
-			cstablestat->lstcstableEx[k].numCol = tmpNumProp;
-			cstablestat->lstcstableEx[k].colBats = (BAT**)malloc(sizeof(BAT*) * tmpNumProp); 
-			cstablestat->lstcstableEx[k].lstProp = (oid*)malloc(sizeof(oid) * tmpNumProp);
-			#endif
+	for (i = 0; i < numTables; i++){
+		tmpNumDefaultCol = csPropTypes[i].numProp; 
+		cstablestat->numPropPerTable[i] = tmpNumDefaultCol; 
+		cstablestat->lstbatid[i] = (bat*) malloc (sizeof(bat) * tmpNumDefaultCol);  
+		cstablestat->lastInsertedS[i] = (oid*) malloc(sizeof(oid) * tmpNumDefaultCol); 
+		cstablestat->lstcstable[i].numCol = tmpNumDefaultCol;
+		cstablestat->lstcstable[i].colBats = (BAT**)malloc(sizeof(BAT*) * tmpNumDefaultCol); 
+		cstablestat->lstcstable[i].mvBats = (BAT**)malloc(sizeof(BAT*) * tmpNumDefaultCol); 
+		cstablestat->lstcstable[i].lstProp = (oid*)malloc(sizeof(oid) * tmpNumDefaultCol);
+		cstablestat->lstcstable[i].colTypes = (ObjectType *)malloc(sizeof(ObjectType) * tmpNumDefaultCol);
+		#if CSTYPE_TABLE == 1
+		tmpNumExCol = csPropTypes[i].numNonDefTypes; 
+		cstablestat->lastInsertedSEx[i] = (oid*) malloc(sizeof(oid) * tmpNumExCol); 
+		cstablestat->lstcstableEx[i].numCol = tmpNumExCol;
+		cstablestat->lstcstableEx[i].colBats = (BAT**)malloc(sizeof(BAT*) * tmpNumExCol); 
+		#endif
 
-			for(j = 0; j < tmpNumProp; j++){
-				cstablestat->lstcstable[k].colBats[j] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
-				cstablestat->lstcstable[k].mvBats[j] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
-				cstablestat->lstcstable[k].lstProp[j] = freqCSset->items[i].lstProp[j];
-				//TODO: use exact aount for each BAT
-				#if CSTYPE_TABLE == 1
-				cstablestat->lstcstableEx[k].colBats[j] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
-				cstablestat->lstcstableEx[k].lstProp[j] = freqCSset->items[i].lstProp[j];		/* Do not need to store this info ?*/
-				#endif
+		for(j = 0; j < tmpNumDefaultCol; j++){
 
-			}
-
-			k++; 
+			cstablestat->lstcstable[i].colBats[j] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
+			cstablestat->lstcstable[i].mvBats[j] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+			cstablestat->lstcstable[i].lstProp[j] = freqCSset->items[csPropTypes[i].freqCSId].lstProp[j];
+			//TODO: use exact size for each BAT
 		}
-	}
 
+		#if CSTYPE_TABLE == 1
+		colExIdx = 0; 
+		for(j = 0; j < csPropTypes[i].numProp; j++){
+			for (t = 0; t < csPropTypes[i].lstPropTypes[j].numType; t++){
+				if ( csPropTypes[i].lstPropTypes[j].TableTypes[t] == TYPETBL){
+					cstablestat->lstcstableEx[i].colBats[colExIdx] = BATnew(TYPE_void, mapObjBATtypes[t], smallbatsz);
+					colExIdx++;
+				}
+			}
+		}
+
+		assert(colExIdx == csPropTypes[i].numNonDefTypes);
+
+		#endif
+
+	}
 }
 
 
 static
 void initCSTableIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping, int *numTables){
 
-	int 		i, k; 
-	CS 		cs;
+int 		i, k; 
+CS 		cs;
 	int		tmpParentidx; 
 
 	k = 0; 
@@ -3784,7 +3800,6 @@ void freeCStableStat(CStableStat* cstablestat){
 		free(cstablestat->lstcstable[i].lstProp);
 		#if CSTYPE_TABLE == 1
 		free(cstablestat->lstcstableEx[i].colBats);
-		free(cstablestat->lstcstableEx[i].lstProp);
 		#endif
 	}
 	BBPunfix(cstablestat->pbat->batCacheid); 
@@ -4317,7 +4332,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	genCSPropTypesColIdx(csPropTypes, numTables, freqCSset);
 
 	// Init CStableStat
-	initCStables(cstablestat, freqCSset);
+	initCStables(cstablestat, freqCSset, csPropTypes, numTables);
 
 	if (*mode == EXPLOREONLY){
 		printf("Only explore the schema information \n");

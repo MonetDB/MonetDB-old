@@ -195,13 +195,18 @@ typedef struct CSmergeRel{
 
 typedef struct CStable {
 	BAT**		colBats; 
-	ObjectType	*colTypes; 
+	ObjectType*	colTypes; 
 	BAT** 		mvBats; 	/* One bat for one Muti-values property */
 	int		numCol; 
 	oid* 		lstProp;
 } CStable; 
 
 
+typedef struct CStableEx {		/* For non-default-type columns*/
+	BAT**		colBats; 
+	ObjectType*	colTypes; 
+	int		numCol; 
+} CStableEx; 
 
 typedef struct CStableStat {
 	bat**   	lstbatid;
@@ -212,7 +217,7 @@ typedef struct CStableStat {
 	//sql_schema*	schema; 	
 	CStable*	lstcstable; 
 	#if CSTYPE_TABLE
-	CStable*        lstcstableEx;
+	CStableEx*        lstcstableEx;
 	oid**		lastInsertedSEx; 
 	#endif
 	BAT*		pbat; 
@@ -227,12 +232,14 @@ typedef struct PropTypes{
 	char*	lstTypes; 
 	int*	lstFreq; 
 	int*	colIdxes; 
-	char*	isMainTypes;
+	char*	TableTypes;
+	char	defaultType; 
 } PropTypes; 
 
 typedef struct CSPropTypes {
 	int		freqCSId; 
 	int		numProp; 
+	int 		numNonDefTypes; 
 	PropTypes*	lstPropTypes; 
 } CSPropTypes; 
 
