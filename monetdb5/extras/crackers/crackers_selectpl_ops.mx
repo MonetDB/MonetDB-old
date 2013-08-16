@@ -1178,10 +1178,16 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	bit HBound,foundHgh=0;
 	int gapH = 1;
 	int createIndex=0;	
+	struct Node *lowNode=NULL;
+	pthread_rwlock_t *plock=0;
+	BUN idxFirst;
+
+        MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
+
 	if (*inclusiveHgh == TRUE) HBound = FALSE;
 	else	HBound = TRUE; 				
+
 	m = existsCrackerIndex(*bid);
-	assert(0);
 
 	/* if this is the first time we selectpl something from this bat,
 		we have to create the crack indx for it and
@@ -1211,12 +1217,15 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 		if (gapH>0) addCrackerIndex_@1(m,hgh,HBound,vh,c);
 		vl = BUNfirst(b);
 		
+		createIndex=1;
+			
 		BBPincref(b->batCacheid,TRUE);
 		BBPunfix(bo->batCacheid);
-		goto createView;
+		goto tempcreateViewL;
 	}
 	
 	if (CrackerIndex[m].cid == -1){
+		assert(0);
 		reCreateMap_@1(m);
 	
 		/* Take the index of the bat */
@@ -1233,7 +1242,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 		if (gapH>0) addCrackerIndex_@1(m,hgh,HBound,vh,c);
 		vl = BUNfirst(b);
 
-		goto createView;
+		goto tempcreateViewL;
 	}
 
 	/* Take the index of the bat */
@@ -1244,23 +1253,64 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	if ((b = BATdescriptor(CrackerIndex[m].cbid)) == NULL)
 		throw(MAL, "crackers.crackRange", "Cannot access crack index");
 
+	idxFirst = BUNfirst(c);
+
+	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
+
 	vl = BUNfirst(b);
+
+	retryL:
+
+	pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
 
 	/* find out where in the index the high falls */
 	foundHgh = GetHgh_@1(*hgh, HBound, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
+
+	pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 
 	/*need to increase one position for the low bound only since we always store the previous position in the index*/
 	if (cl2 != 0) cl2++;
 
 	if (foundHgh == 0){
+		pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
+                lowNode = findNodeL_@1(*hgh, TRUE, CrackerIndex[m].Tree, c, idxFirst, NULL);
+                plock = (lowNode == NULL)? &CRKFirstPieceRWLock : &lowNode->pieceLock;
+                if (pthread_rwlock_trywrlock(plock)){
+                	pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
+                        pthread_rwlock_wrlock(plock);
+                        pthread_rwlock_unlock(plock);
+                        goto retryL;     // some other thread might already crack on low, try to find it again
+                }
+                pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 		@:crkTwoRTree(@1)@
+		pthread_rwlock_wrlock(&CrackerIndex[m].columnRWLock);
 		if (IndexSize <IndexStop)
-			 if(gapH>0) addCrackerIndex_@1(m,hgh,HBound,vh,c);
+			if(gapH>0) addCrackerIndex_@1(m,hgh,HBound,vh,c);
+		pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
+                pthread_rwlock_unlock(plock);
+
 	} 	
 	else
 		vh = ch2;
-		
-	@:CreateResult()@
+
+	tempcreateViewL:
+
+	if (!tail)
+                view = BATslice(VIEWhead_(b, BAT_READ), vl, vh+1);
+        else
+                view = BATslice(b, vl, vh+1);
+
+        *vid = view->batCacheid;
+        BBPkeepref(*vid);
+        BBPunfix(b->batCacheid);
+        BBPunfix(c->batCacheid);
+
+        if (createIndex==1)
+        {
+                MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
+                createIndex=0;
+        }
+
 	return MAL_SUCCEED;
 }
 
