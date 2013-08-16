@@ -663,7 +663,7 @@ CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, c
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	t_1 = GDKusec();
 	fprintf(stderr,
-		"CRKcrackUnorderedZero_@2_@1_MT ( %d, "LLFMT", "BUNFMT", "BUNFMT", %d, %d ) meta-chrack : %.6f sec\n",
+		"CRKcrackUnorderedZero_@2_@1_MT ( %d, "LLFMT", "BUNFMT", "BUNFMT", %d, %d ) meta-crack : %.6f sec\n",
 		b->batCacheid, (lng) mval, first, last, nthreads, alt, (dbl) (t_1 - t_2) / 1000000.0);
  #endif
 
