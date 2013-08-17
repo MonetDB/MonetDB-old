@@ -89,16 +89,16 @@ RECYCLEdumpCache(str *res)
 		sprintf(s, "Empty cache\n");
 	} else {
 		/* dump the statistics per instruction*/
-		used = sprintf(s,"  ID\tfstAccess\tlstAccess\t#reuse\tInstr\n");
+		used = sprintf(s,"  ID firstAccess lastAccess #uses Instr\n");
 		for(i=0; i< recycleBlk->stop; i++) {
 			if (getInstrPtr(recycleBlk,i)->token == NOOPsymbol) {
 				used += sprintf(s+used,"#NOOP ");
 			} else {
-				used += sprintf(s+used,"%4d\t\t"LLFMT"\t\t"LLFMT"\t\t%7d\t%s\n",
+				used += sprintf(s+used,"%4d%11lld%11lld%6d %s\n",
 						i+1,
 						recycleBlk->profiler[i].ticks/1000000,
 						recycleBlk->profiler[i].clk/1000000,
-						recycleBlk->profiler[i].calls-1,
+						recycleBlk->profiler[i].calls,
 						instruction2str(recycleBlk,0,getInstrPtr(recycleBlk,i),TRUE));
 			}
 
