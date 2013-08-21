@@ -301,7 +301,7 @@ createView:
 	int gapH = 1;
 	bit rippledDeletions = FALSE;
 	struct Node *lowNode=NULL, *hghNode=NULL, *lowNodeNext=NULL, *temp;
-	BUN idxFirst;
+	BUN idxFirst = BUN_NONE;
 	//struct timeval tv0, tv1;
 	//double wt=0, ct=0;
 	bit copy=TRUE;	
@@ -769,7 +769,7 @@ createView:
 	bit foundLow=0, foundHgh=0;
 	bit LBound=FALSE;
 	oid vl=0, vh=0, posh;
-	BUN idxFirst;
+	BUN idxFirst = BUN_NONE;
 	unsigned long long sum = 0;	
 	/* vl and vh are the low and high index values to create the view with the result */
 	oid cl1=0, ch1=0, cl2=0, ch2=0;
@@ -1180,7 +1180,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	int createIndex=0;	
 	struct Node *lowNode=NULL;
 	pthread_rwlock_t *plock=0;
-	BUN idxFirst;
+	BUN idxFirst = BUN_NONE;
 
         MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
 
@@ -1327,7 +1327,7 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 	int createIndex=0;
         struct Node *lowNode=NULL;
 	pthread_rwlock_t *plock=0;
-        BUN idxFirst;
+        BUN idxFirst = BUN_NONE;
 
         MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
 
