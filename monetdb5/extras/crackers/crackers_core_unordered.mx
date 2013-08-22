@@ -154,7 +154,7 @@ str CRKcrackUnorderedThreeSideways_@3_@4_@1_str( BAT *b, @1 low, @1 hgh, oid fir
 #include "monetdb_config.h"
 #include "crackers.h"
 
-#define CRACK_MUTLI_THREAD_DEBUG
+/*#define CRACK_MUTLI_THREAD_DEBUG*/
 
 /* argument struct for countThread & crackThread functions */
 typedef struct {

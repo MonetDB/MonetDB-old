@@ -203,8 +203,8 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 	BUN idxFirst;
 	int gapL=1;
 	oid p;
-	struct timeval tv0, tv1;
-	double wt=0, ct=0;
+	//struct timeval tv0, tv1;
+	//double wt=0, ct=0;
 	int countBatElements=0;
 	int retryIter=0;
 	int L1=0; /*Number of elements that can fit into L1 cache (size: 32KB)*/	
@@ -212,7 +212,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 	char *outputFilename1;
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
-	gettimeofday(&tv0,0);
+	//gettimeofday(&tv0,0);
 	
 	outputFilename1 = getenv("HOLOUTPUT_RANDOM");
 	if (outputFilename1 == NULL){
@@ -234,7 +234,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 
 	MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
 
-	gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+	//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 
 	m = existsCrackerIndex(*bid);
 	/* if this is the first time we selectholpl something from this bat,
@@ -289,9 +289,9 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 		BBPunfix(bo->batCacheid);
 
 		MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
-		fprintf(ofp,"Idle_Query \t 0 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Low= \t %d\n",wt,ct,(int)*low);
+		//fprintf(ofp,"Idle_Query \t 0 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Low= \t %d\n",wt,ct,(int)*low);
 		GDKfree(low);
-		gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+		//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 
 		return 0;
 	}
@@ -307,7 +307,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 
 	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 
-	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+	//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 	countBatElements=BATcount(b);
 	FN=searchBAT(FrequencyStructA,*bid);
 	
@@ -318,7 +318,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 
 	pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
 
-	gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+	//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 
 	/* find out where in the index the low falls */
 	foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
@@ -328,20 +328,20 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 	/*need to increase one position for the low bound only since we always store the previous position in the index*/
 	if (cl1 != 0 && LBound==FALSE) cl1++;
 
-	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+	//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 
 	/* If one or both of the result view bounds were not found using the
 	index then we have to crack */
 	if (foundLow == 0) {
 		pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
-		gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+		//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 		lowNode = findNodeL_@1(*low, TRUE, CrackerIndex[m].Tree, c, idxFirst, NULL);
 		plock = (lowNode == NULL)? &CRKFirstPieceRWLock : &lowNode->pieceLock;
 		if (pthread_rwlock_trywrlock(plock)){
 			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
-			gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+			//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 			pthread_rwlock_wrlock(plock);
-			gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+			//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 			pthread_rwlock_unlock(plock);
 			retryIter++;
 			if(retryIter > 20)
@@ -353,9 +353,9 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 		}
 		pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 		@:crkTwoLTree@5(@1,@5)@
-		gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+		//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 		pthread_rwlock_wrlock(&CrackerIndex[m].columnRWLock);
-		gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+		//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 		t = (int *) Tloc(b, BUNfirst(b));
 		if (IndexSize < IndexStop) {
 			if (vl > 0)
@@ -374,7 +374,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 		}
 		pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 		pthread_rwlock_unlock(plock);
-		gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+		//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 
 	} else {
 		t = (int *) Tloc(b, BUNfirst(b));
@@ -385,9 +385,9 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 			FN->weight = changeWeight_1(FN,countBatElements,L1);
 	}
 
-	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;	
+	//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;	
 
-	fprintf(ofp,"Idle_Query \t 0 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Low= \t %d\n",wt,ct,(int)*low);
+	//fprintf(ofp,"Idle_Query \t 0 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Low= \t %d\n",wt,ct,(int)*low);
 
 	fclose(ofp);
 
@@ -519,8 +519,8 @@ createView:
 	struct Node *lowNode=NULL, *hghNode=NULL, *lowNodeNext=NULL, *temp;
 	BUN idxFirst;
 	int firstRetry=0;
-	struct timeval tv0, tv1;
-	double wt=0, ct=0;
+	//struct timeval tv0, tv1;
+	//double wt=0, ct=0;
 	bit copy=TRUE;	
 	int countBatElements=0;
 	int L1=0; /*Number of elements that can fit into L1 cache (size: 32KB)*/	
@@ -529,7 +529,7 @@ createView:
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 
-	gettimeofday(&tv0,0);
+	//gettimeofday(&tv0,0);
 	
 	outputFilename1 = getenv("HOLOUTPUT_SELECT");
 	if (outputFilename1 == NULL){
@@ -549,7 +549,7 @@ createView:
 
 	MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
 
-	gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+	//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 
 	/*if (@2_GT(low,hgh,@3@1))
 		throw(MAL, "crackers.crack", "illegal range");*/
@@ -607,7 +607,7 @@ createView:
 			/*printFrequencyStruct(FrequencyStructA);*/
 			BBPincref(b->batCacheid,TRUE);
 			BBPunfix(bo->batCacheid);
-			gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+			//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 			//fprintf(stderr,"Wait time: %9.6lf Selection time: %9.6lf\n",wt,ct);
 			goto tempcreateView;
 		}
@@ -735,13 +735,13 @@ createView:
 
 	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 
-	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+	//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 	
 	retry:;
 
 	pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
 
-	gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+	//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 
 	FN=searchBAT(FrequencyStructA,*bid);
 	
@@ -798,30 +798,30 @@ createView:
 		ch2 -= holsHgh;
 	}
 
-	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+	//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 
 	/* If one or both of the result view bounds were not found using the
 	index then we have to crack */
 	if (foundLow == 0 || foundHgh == 0) {
 		 if (foundLow == 0) {
 			pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
-			gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+			//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 			lowNode = findNodeL_@1(*low, TRUE, CrackerIndex[m].Tree, c, idxFirst, NULL);
 			plock = (lowNode == NULL)? &CRKFirstPieceRWLock : &lowNode->pieceLock;
 			if (pthread_rwlock_trywrlock(plock)){
 				pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
-				gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+				//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 				pthread_rwlock_wrlock(plock);
-				gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+				//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 				pthread_rwlock_unlock(plock);
 				firstRetry=1;
 				goto retry;	// some other thread might already crack on low, try to find it again
 			}
 			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 			@:crkTwoLTree@5(@1,@5)@
-			gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+			//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 			pthread_rwlock_wrlock(&CrackerIndex[m].columnRWLock);
-			gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+			//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 			t = (int *) Tloc(b, BUNfirst(b));
 			if (IndexSize < IndexStop) {
 				if (vl > 0)
@@ -843,26 +843,26 @@ createView:
 			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 			pthread_rwlock_unlock(plock);
 		}
-		gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+		//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 		if (foundHgh == 0) {
 			pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
-			gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+			//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 			lowNode = findNodeL_@1(*hgh, TRUE, CrackerIndex[m].Tree, c, idxFirst, NULL);
 			plock = (lowNode == NULL)? &CRKFirstPieceRWLock : &lowNode->pieceLock;
 			if (pthread_rwlock_trywrlock(plock)){
 				pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
-				gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+				//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 				pthread_rwlock_wrlock(plock);
-				gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+				//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 				pthread_rwlock_unlock(plock);
 				firstRetry=1;
 				goto retry;	// some other thread might already crack on low, try to find it again
 			}
 			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 			@:crkTwoRTree@5(@1,@5)@
-			gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+			//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 			pthread_rwlock_wrlock(&CrackerIndex[m].columnRWLock);
-			gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+			//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 			t = (int *) Tloc(b, BUNfirst(b));
 			if (IndexSize < IndexStop)
 				if (gapH>0) 
@@ -899,7 +899,7 @@ createView:
 	idxFirst = BUNfirst(c);
 
 	pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
-	gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+	//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 	lowNode = findNodeL_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, idxFirst, NULL);
 	if (lowNode == NULL){
 		lowNodeNext = NULL;
@@ -930,7 +930,7 @@ createView:
 	BBPunfix(b->batCacheid);
 	BBPunfix(c->batCacheid);
 	
-	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;	
+	//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;	
 
 	if (createIndex==1)
 	{
@@ -938,7 +938,7 @@ createView:
 		createIndex=0;	
 	}
 
-	fprintf(ofp,"User_query \t 1 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Low= \t %d \t High= \t %d\n",wt,ct,(int)*low,(int)*hgh);
+	//fprintf(ofp,"User_query \t 1 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Low= \t %d \t High= \t %d\n",wt,ct,(int)*low,(int)*hgh);
 
 	fclose(ofp);
 
