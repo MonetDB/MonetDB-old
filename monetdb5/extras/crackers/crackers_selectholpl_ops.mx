@@ -276,16 +276,15 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 				_vl = vl;
 			if (gapL>0) 
 			{
-				addCrackerIndex_@1(m, low, *inclusiveLow, _vl, c);		
+				addCrackerIndex_@1(m, low, *inclusiveLow, _vl, c);	
+				CRKinitFrequencyStruct(0,*bid);
+				FN=searchBAT(FrequencyStructA,*bid);
+				FN->c = FN->c + 1;
+				FN->weight = changeWeight_1(FN,countBatElements,L1);	
 			}
 			if ((vl == 1) && (*t == *low) && (*inclusiveLow == TRUE))
 				vl = vl - 1;
 		}
-		CRKinitFrequencyStruct(0,*bid);
-		FN=searchBAT(FrequencyStructA,*bid);
-		FN->c = FN->c + 1;
-		FN->weight = changeWeight_1(FN,countBatElements,L1);
-		/*printFrequencyStruct(FrequencyStructA);*/
 		BBPincref(b->batCacheid,TRUE);
 		BBPunfix(bo->batCacheid);
 
