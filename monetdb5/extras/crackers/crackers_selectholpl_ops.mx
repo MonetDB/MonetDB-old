@@ -1410,9 +1410,9 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 		if (gapH>0) addCrackerIndex_@1(m,hgh,HBound,vh,c);
 		vl = BUNfirst(b);
 		
-		createIndex=1;
-		
+		createIndex=1;		
 	 	countBatElements=BATcount(b);	
+		CRKinitFrequencyStruct(0,*bid);
 		FN=searchBAT(FrequencyStructA,*bid);					
 		FN->f1 = FN->f1 + 1;
 		FN->c = FN->c + 1;
@@ -1588,7 +1588,8 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 		vh = BUNlast(b)-(oid)1;
 		
 		createIndex=1;
-		countBatElements=BATcount(b);	
+		countBatElements=BATcount(b);
+		CRKinitFrequencyStruct(0,*bid);	
 		FN=searchBAT(FrequencyStructA,*bid);					
 		FN->f1 = FN->f1 + 1;
 		FN->c = FN->c + 1;
