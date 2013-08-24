@@ -406,7 +406,25 @@ CRKrandomCrack(int *ret)
 	
 	return MAL_SUCCEED;
 }
+/*holistic indexing strategy dispatcher*/
+dbl
+changeWeight(FrequencyNode* node,int N,int L1){
+	char* p;
+	int j;
 
+        p = getenv("HOLSTRATEGY");
+        if (p == NULL)
+                j = 0;
+        else
+                j = atoi(p);
+
+	if (j==2)
+		return changeWeight_2(node,N,L1);
+	else if (j==3)
+		return changeWeight_3(node,N,L1);
+	else
+                return changeWeight_1(node,N,L1);
+}
 /*This function is used during idle time for all the cost models*/
 str
 CRKrandomCrackST(int *ret)

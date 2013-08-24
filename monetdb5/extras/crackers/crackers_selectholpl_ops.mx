@@ -280,7 +280,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 				CRKinitFrequencyStruct(0,*bid);
 				FN=searchBAT(FrequencyStructA,*bid);
 				FN->c = FN->c + 1;
-				FN->weight = changeWeight_1(FN,countBatElements,L1);	
+				FN->weight = changeWeight(FN,countBatElements,L1);	
 			}
 			if ((vl == 1) && (*t == *low) && (*inclusiveLow == TRUE))
 				vl = vl - 1;
@@ -367,7 +367,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 				addCrackerIndex_@1(m, low, *inclusiveLow, _vl, c);
 				FN->c = FN->c + 1;
 				if(FN->weight > 0)
-					FN->weight = changeWeight_1(FN,countBatElements,L1);		
+					FN->weight = changeWeight(FN,countBatElements,L1);		
 			}
 			if ((vl == 1) && (*t == *low) && (*inclusiveLow == TRUE))
 				vl = vl - 1;
@@ -382,7 +382,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 		if ((vl == 0) && (*t < *low) && (*inclusiveLow == TRUE))
 			vl = vl + 1;
 		if(FN->weight > 0)
-			FN->weight = changeWeight_1(FN,countBatElements,L1);
+			FN->weight = changeWeight(FN,countBatElements,L1);
 	}
 
 	//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;	
@@ -602,7 +602,7 @@ createView:
 						
 			FN->f1 = FN->f1 + 1;
 			FN->c = FN->c + 2;
-			FN->weight = changeWeight_1(FN,countBatElements,L1);
+			FN->weight = changeWeight(FN,countBatElements,L1);
 
 			/*printFrequencyStruct(FrequencyStructA);*/
 			BBPincref(b->batCacheid,TRUE);
@@ -834,7 +834,7 @@ createView:
 					FN->c = FN->c + 1;
 					countBatElements=BATcount(b);
 					if(FN->weight > 0)
-						FN->weight = changeWeight_1(FN,countBatElements,L1);
+						FN->weight = changeWeight(FN,countBatElements,L1);
 				}
 				if ((vl == 1) && (*t == *low) && (*inclusiveLow == TRUE))
 					vl = vl - 1;
@@ -871,7 +871,7 @@ createView:
 					FN->c = FN->c + 1;
 					countBatElements=BATcount(b);
 					if(FN->weight > 0)
-						FN->weight = changeWeight_1(FN,countBatElements,L1);
+						FN->weight = changeWeight(FN,countBatElements,L1);
 				}
 			vl = cl1;
 			if ((vl == 0) && (*t < *low) && (*inclusiveLow == TRUE))
@@ -887,7 +887,7 @@ createView:
 		vh = ch2;
 		countBatElements=BATcount(b);
 		if(FN->weight > 0)
-			FN->weight = changeWeight_1(FN,countBatElements,L1);
+			FN->weight = changeWeight(FN,countBatElements,L1);
 	}
 
 
@@ -1415,7 +1415,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 		FN=searchBAT(FrequencyStructA,*bid);					
 		FN->f1 = FN->f1 + 1;
 		FN->c = FN->c + 1;
-		FN->weight = changeWeight_1(FN,countBatElements,L1);	
+		FN->weight = changeWeight(FN,countBatElements,L1);	
 
 		BBPincref(b->batCacheid,TRUE);
 		BBPunfix(bo->batCacheid);
@@ -1500,7 +1500,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 				FN->c = FN->c + 1;
 				countBatElements=BATcount(b);
 				if(FN->weight > 0)
-					FN->weight = changeWeight_1(FN,countBatElements,L1);
+					FN->weight = changeWeight(FN,countBatElements,L1);
 			}
 		}
 		pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
@@ -1592,7 +1592,7 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 		FN=searchBAT(FrequencyStructA,*bid);					
 		FN->f1 = FN->f1 + 1;
 		FN->c = FN->c + 1;
-		FN->weight = changeWeight_1(FN,countBatElements,L1);
+		FN->weight = changeWeight(FN,countBatElements,L1);
 
 		BBPincref(b->batCacheid,TRUE);
 		BBPunfix(bo->batCacheid);
@@ -1677,7 +1677,7 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 				FN->c = FN->c + 1;
 				countBatElements=BATcount(b);
 				if(FN->weight > 0)
-					FN->weight = changeWeight_1(FN,countBatElements,L1);
+					FN->weight = changeWeight(FN,countBatElements,L1);
 			}
 		}
 		pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
