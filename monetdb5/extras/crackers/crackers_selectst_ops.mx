@@ -971,6 +971,9 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	oid cl2=0, ch2=0;
 	bit HBound,foundHgh=0;
 	int gapH = 1;
+	/*k and randomoid are used for DD1R*/
+	@1 k,temp_h;
+	
 	
 	if (*inclusiveHgh == TRUE) HBound = FALSE;
 	else	HBound = TRUE; 				
@@ -1046,13 +1049,32 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	/*need to increase one position for the low bound only since we always store the previous position in the index*/
 	if (cl2 != 0) cl2++;
 
+
+	temp_h=*hgh;
+
 	if (foundHgh == 0){
+		/*stochastic*/
+		k=FndMedian_@1(b,cl2,ch2);
+		*hgh=k;
+		foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
+		if (cl2 != 0) cl2++;
+		@:crkTwoRTree@5(@1)@
+		if (IndexSize <IndexStop)
+		{					
+			if (gapH>0)
+				addCrackerIndex_@1(m,hgh,HBound,vh,c);
+		}
+
+		*hgh=temp_h;
+		foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
+		if (cl2 != 0) cl2++;
 		@:crkTwoRTree(@1)@
 		if (IndexSize <IndexStop)
 			 if (gapH>0) addCrackerIndex_@1(m,hgh,HBound,vh,c);
 	} 	
 	else
 		vh = ch2;
+
 		
 	@:CreateResult()@
 	return MAL_SUCCEED;
