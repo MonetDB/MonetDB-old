@@ -42,7 +42,8 @@ typedef enum{
 typedef enum{
 	MAINTBL, 
 	TYPETBL,
-	PSOTBL
+	PSOTBL,
+	MVTBL
 } TableType; 		
 
 typedef enum {
@@ -244,7 +245,7 @@ typedef struct CSPropTypes {
 } CSPropTypes; 
 
 rdf_export str
-RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat, oid* lastSubjId, oid* lastSubjIdEx);
+RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId);
 
 rdf_export str
 RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, int *mode);

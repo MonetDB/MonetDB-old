@@ -7673,9 +7673,9 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	CStableStat *cstablestat; 
 	char	tmptbname[100]; 
 	char	tmptbnameex[100];
-	char	tmpviewname[100]; 
+	//char	tmpviewname[100]; 
 	char	tmpcolname[100]; 
-	char	viewcommand[500];
+	//char	viewcommand[500];
 	sql_subtype tpe; 
 	sql_table	**cstables; 
 	sql_table	***csmvtables; 	//table for storing multi-values 
@@ -7707,13 +7707,14 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	rethrow("sql.rdfreorganize", msg, RDFreorganize(&ret, cstablestat, &sbat->batCacheid, &pbat->batCacheid, 
 				&obat->batCacheid, &mbat->batCacheid, threshold, mode));
 
-	if (*mode == EXPLOREONLY){
+	//if (*mode == EXPLOREONLY){
+	if (*mode < 3){
 		BBPunfix(sbat->batCacheid); 
 		BBPunfix(pbat->batCacheid);
 		BBPunfix(obat->batCacheid); 
 		BBPunfix(mbat->batCacheid);
 		
-		free(cstablestat); 
+		freeCStableStat(cstablestat); 
 		return MAL_SUCCEED; 
 	}
 
@@ -7795,15 +7796,15 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		cstablesEx[i] = mvc_create_table(m, sch, tmptbnameex, tt_table, 0,
 				   SQL_PERSIST, 0, 3);
 		totalNoTablesCreated++;
-		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
+		for (j = 0; j < cstablestat->lstcstableEx[i].numCol; j++){
 			//TODO: Use propertyId from Propstat
-			sprintf(tmpcolname, "colex%d",(int)cstablestat->lstcstable[i].lstProp[j]);
+			sprintf(tmpcolname, "colex%d",(int)j);
 			mvc_create_column(m, cstablesEx[i], tmpcolname,  &tpe);
 		}
 
 		//Add data
-		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
-			sprintf(tmpcolname, "colex%d",(int)cstablestat->lstcstable[i].lstProp[j]);
+		for (j = 0; j < cstablestat->lstcstableEx[i].numCol; j++){
+			sprintf(tmpcolname, "colex%d",(int)j);
                 	store_funcs.append_col(m->session->tr,
 					mvc_bind_column(m, cstablesEx[i],tmpcolname ), 
 					cstablestat->lstcstableEx[i].colBats[j], TYPE_bat);
@@ -7811,6 +7812,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 
 		//Create a view to combine these tables
+		/*
 		sprintf(tmpviewname, "viewcstable%d",i);
 		sprintf(viewcommand, "SELECT * from rdf.%s UNION SELECT * from rdf.%s;", tmptbname, tmptbnameex); 
 		//printf("Create view %s \n", viewcommand);
@@ -7821,6 +7823,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			sprintf(tmpcolname, "col%d",j);
 			mvc_create_column(m, viewcstables[i], tmpcolname,  &tpe);
 		}
+		*/
 		#endif
 
 	}
