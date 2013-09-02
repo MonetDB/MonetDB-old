@@ -1057,14 +1057,15 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 		k=FndMedian_@1(b,cl2,ch2);
 		*hgh=k;
 		foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
-		if (cl2 != 0) cl2++;
-		@:crkTwoRTree@5(@1)@
-		if (IndexSize <IndexStop)
-		{					
-			if (gapH>0)
-				addCrackerIndex_@1(m,hgh,HBound,vh,c);
+		if (foundHgh == 0){
+			if (cl2 != 0) cl2++;
+			@:crkTwoRTree@5(@1)@
+			if (IndexSize <IndexStop)
+			{					
+				if (gapH>0)
+					addCrackerIndex_@1(m,hgh,HBound,vh,c);
+			}
 		}
-
 		*hgh=temp_h;
 		foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
 		if (cl2 != 0) cl2++;
@@ -1090,6 +1091,9 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 	bit foundLow=0;
 	int gapL = 1;
 	bit LBound=FALSE;
+	/*k and randomoid are used for DD1R*/
+	@1 k,temp_l;
+	
 
 	m = existsCrackerIndex(*bid);
 
@@ -1157,14 +1161,33 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 
 	vh = BUNlast(b)-(oid)1;
 
-
 	/* find out where in the index the low falls */
 	foundLow = GetLow_@1(*low,*inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
 
 	/*need to increase one position for the low bound only since we always store the previous position in the index*/
 	if (cl1 != 0) cl1++;
 
+	temp_l=*low;
+
 	if (foundLow == 0){
+
+		/*stochastic*/
+		k=FndMedian_@1(b,cl1,ch1);
+		*low=k;
+		foundLow = GetLow_@1(*low,*inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
+		if(foundLow == 0)
+		{
+			if (cl1 != 0) cl1++;
+			@:crkTwoLTree@5(@1)@
+			if (IndexSize <IndexStop)
+			{					
+				if (gapL>0)
+					addCrackerIndex_@1(m,low,*inclusiveLow,vl,c);
+			}
+		}
+		*low=temp_l;
+		foundLow = GetLow_@1(*low,*inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
+		if (cl1 != 0) cl1++;
 		@:crkTwoLTree(@1)@
 		if (IndexSize <IndexStop)
 			if (gapL>0) addCrackerIndex_@1(m,low,*inclusiveLow,vl,c);
