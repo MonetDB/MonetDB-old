@@ -229,7 +229,8 @@ typedef struct CStableStat {
 typedef struct PropTypes{
 	oid	prop;
 	int	numType; 
-	int	propFreq; 	/* without considering type */
+	int	propFreq; 	/* without considering type = Table frequency*/
+	int	propCover; 	/* = coverage of that property */	
 	char*	lstTypes; 
 	int*	lstFreq; 
 	int*	colIdxes; 

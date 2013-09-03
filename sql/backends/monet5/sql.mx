@@ -7715,6 +7715,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		BBPunfix(mbat->batCacheid);
 		
 		freeCStableStat(cstablestat); 
+		//free(cstablestat);
 		return MAL_SUCCEED; 
 	}
 

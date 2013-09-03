@@ -166,8 +166,8 @@ void addmergeCStoSet(mergeCSset *mergecsSet, mergeCS item)
 */
 
 static 
-CSrel* creataCSrel(oid csoid){
-	CSrel *csrel = (CSrel*) malloc(sizeof(CSrel));
+void creataCSrel(oid csoid, CSrel *csrel){
+	//CSrel *csrel = (CSrel*) malloc(sizeof(CSrel));
 	csrel->origCSoid = csoid; 
 	csrel->lstRefCSoid = (oid*) malloc(sizeof(oid) * INIT_NUM_CSREL);
 	csrel->lstPropId = (oid*) malloc(sizeof(oid) * INIT_NUM_CSREL);
@@ -176,7 +176,7 @@ CSrel* creataCSrel(oid csoid){
 	csrel->numRef = 0;
 	csrel->numAllocation = INIT_NUM_CSREL;
 
-	return csrel; 
+	//return csrel; 
 }
 
 
@@ -300,10 +300,11 @@ static
 CSrel* initCSrelset(oid numCSrel){
 	oid i; 
 	CSrel *csrelSet = (CSrel*) malloc(sizeof(CSrel) * numCSrel); 
-	CSrel *csrel; 
+	//CSrel *csrel; 
 	for (i = 0; i < numCSrel; i++){
-		csrel = creataCSrel(i); 
-		csrelSet[i] = (CSrel) *csrel;
+		//csrel = creataCSrel(i); 
+		//csrelSet[i] = (CSrel) *csrel;
+		creataCSrel(i, &csrelSet[i]);
 	}
 	return csrelSet;
 }
@@ -540,6 +541,7 @@ str printCSrelWithMaxSet(CSset *freqCSset, int* csIdFreqIdxMap, CSrel *csrelToMa
 				#if SHOWPROPERTYNAME
 				takeOid(csrelBetweenMaxSet[i].lstPropId[j], &propStr);	
 				fprintf(fout2, BUNFMT "(P:" BUNFMT " - %s) (%d)(Blank:%d) ", csrelBetweenMaxSet[i].lstRefCSoid[j],csrelBetweenMaxSet[i].lstPropId[j], propStr, csrelBetweenMaxSet[i].lstCnt[j], csrelBetweenMaxSet[i].lstBlankCnt[j]);	
+				GDKfree(propStr);
 				#else
 				fprintf(fout2, BUNFMT "(P:" BUNFMT ") (%d)(Blank:%d) ", csrelBetweenMaxSet[i].lstRefCSoid[j],csrelBetweenMaxSet[i].lstPropId[j], csrelBetweenMaxSet[i].lstCnt[j], csrelBetweenMaxSet[i].lstBlankCnt[j]);	
 				#endif
@@ -713,6 +715,7 @@ CSPropTypes* initCSPropTypes(CSset* freqCSset, int numMergedCS){
 			for (j = 0; j < csPropTypes[id].numProp; j++){
 				csPropTypes[id].lstPropTypes[j].prop = freqCSset->items[i].lstProp[j]; 
 				csPropTypes[id].lstPropTypes[j].propFreq = 0; 
+				csPropTypes[id].lstPropTypes[j].propCover = 0; 
 				csPropTypes[id].lstPropTypes[j].numType = MULTIVALUES + 1;
 				csPropTypes[id].lstPropTypes[j].defaultType = STRING; 
 				csPropTypes[id].lstPropTypes[j].lstTypes = (char*)GDKmalloc(sizeof(char) * csPropTypes[id].lstPropTypes[j].numType);
@@ -784,7 +787,7 @@ void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freq
 	for (i = 0; i < numMergedCS; i++){
 		printf("MergedCS %d (Freq: %d): \n", i, freqCSset->items[csPropTypes[i].freqCSId].support);
 		for(j = 0; j < csPropTypes[i].numProp; j++){
-			printf("  P " BUNFMT "(%d):", csPropTypes[i].lstPropTypes[j].prop, csPropTypes[i].lstPropTypes[j].defaultType);
+			printf("  P " BUNFMT "(%d | cov:%d):", csPropTypes[i].lstPropTypes[j].prop, csPropTypes[i].lstPropTypes[j].defaultType,csPropTypes[i].lstPropTypes[j].propCover);
 			for (k = 0; k < csPropTypes[i].lstPropTypes[j].numType; k++){
 				printf(" Type %d (%d)  | ", k, csPropTypes[i].lstPropTypes[j].lstFreq[k]);
 			}
@@ -804,7 +807,7 @@ void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freq
  * csPropTypes[tbIdx] contains properties {1,3,4,5,7} with types for each property and frequency of each <property, type>
  * */
 static 
-void addPropTypes(char *buffTypes, oid* buffP, int numP, int csId, int* csTblIdxMapping, CSPropTypes* csPropTypes){
+void addPropTypes(char *buffTypes, oid* buffP, int numP, int* buffCover, int csId, int* csTblIdxMapping, CSPropTypes* csPropTypes){
 	int i,j; 
 	int tblId = csTblIdxMapping[csId];
 	
@@ -817,9 +820,11 @@ void addPropTypes(char *buffTypes, oid* buffP, int numP, int csId, int* csTblIdx
 				j++;
 			}	
 			//j is position of the property buffP[i] in csPropTypes[tblId]
+
 			csPropTypes[tblId].lstPropTypes[j].propFreq++;
+			csPropTypes[tblId].lstPropTypes[j].propCover += buffCover[i]; 
 			csPropTypes[tblId].lstPropTypes[j].lstFreq[(int)buffTypes[i]]++; 
-			
+
 		}
 	}
 	//printf("\n");
@@ -855,25 +860,21 @@ SubCS* creatSubCS(oid subCSId, int numP, char* buff, oid subCSsign){
 }
 
 static 
-SubCSSet* createaSubCSSet(oid csId){
-	SubCSSet* subCSset = (SubCSSet*) malloc(sizeof(SubCSSet));
+void createaSubCSSet(oid csId, SubCSSet* subCSset){
 	subCSset->csId = csId; 
 	subCSset->numAllocation = INIT_NUM_SUBCS;
 	subCSset->numSubCS = 0;
 	subCSset->subCSs = (SubCS*) malloc(sizeof(SubCS) * INIT_NUM_SUBCS);
 	subCSset->freq = (int*) malloc(sizeof(int) * INIT_NUM_SUBCS);
 
-	return subCSset;
 }
 
 static 
 SubCSSet* initCS_SubCSSets(oid numSubCSSet){
 	oid i; 
 	SubCSSet *subcssets = (SubCSSet*) malloc(sizeof(SubCSSet) * numSubCSSet); 
-	SubCSSet *subcsset;
 	for (i = 0; i < numSubCSSet;i++){
-		subcsset = createaSubCSSet(i); 
-		subcssets[i] = (SubCSSet) *subcsset; 
+		createaSubCSSet(i, &subcssets[i]); 
 	}
 
 	return subcssets; 
@@ -969,7 +970,8 @@ oid addSubCS(char *buff, int numP, int csId, SubCSSet* csSubCSSet){
 	
 	if (isFound == 0){	// Add new 
 		subCS = creatSubCS(subCSId, numP, buff, subCSsign);
-		addSubCStoSet(subcsset,*subCS);
+		addSubCStoSet(subcsset, *subCS);
+		free(subCS);
 	}
 	else{			// Exist
 		//Update frequency
@@ -985,6 +987,10 @@ void freeCSset(CSset *csSet){
 	int i;
 	for(i = 0; i < csSet->numCSadded; i ++){
 		free(csSet->items[i].lstProp);
+		#if STOREFULLCS
+		free(csSet->items[i].lstObj);
+		#endif
+
 	}
 	free(csSet->items);
 	free(csSet);	
@@ -1305,6 +1311,7 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 			takeOid(cs.csId, &subStr);	
 
 			printf("CS " BUNFMT " (Freq: %d) | Subject: %s  |  Parent " BUNFMT " \n", cs.csId, *freq, subStr, freqCSset->items[cs.parentFreqIdx].csId);
+			GDKfree(subStr);
 			for (j = 0; j < cs.numProp; j++){
 				printf("  P:" BUNFMT " --> \n", cs.lstProp[j]);	
 			}	
@@ -1337,6 +1344,8 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 			if (cs.type == MAXCS){
 				fprintf(fout2,"CS " BUNFMT " (Freq: %d) | Subject: %s  | Parent " BUNFMT " \n", cs.csId, *freq, subStr, cs.csId);
 			}
+				
+			GDKfree(subStr);
 
 			for (j = 0; j < cs.numProp; j++){
 				takeOid(cs.lstProp[j], &propStr);
@@ -1345,6 +1354,8 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 				if (cs.type == MAXCS){
 					fprintf(fout2, "  P:%s --> ", propStr);
 				}
+
+				GDKfree(propStr);
 
 				// Get object value
 				objOid = cs.lstObj[j]; 
@@ -1364,6 +1375,10 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 				fprintf(fout, "  O: %s \n", objStr);
 				if (cs.type == MAXCS){
 					fprintf(fout2, "  O: %s \n", objStr);
+				}
+
+				if (objType == URI || objType == BLANKNODE){
+					GDKfree(objStr);
 				}
 
 
@@ -1458,6 +1473,7 @@ str printmergeCSSet(CSset *freqCSset, int freqThreshold){
 			for (j = 0; j < cs.numProp; j++){
 				takeOid(cs.lstProp[j], &propStr);	
 				fprintf(fout,"          %s\n", propStr);
+				GDKfree(propStr);
 			}
 			fprintf(fout, "\n");
 		}
@@ -1769,6 +1785,7 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples,
 			freqCS = creatCS(csId, num, key, FREQCS,-1,0,0);			
 			#endif
 			addCStoSet(freqCSset, *freqCS);
+			free(freqCS);
 		}
 	}
 	else{
@@ -1791,6 +1808,7 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples,
 				freqCS = creatCS(csId, num, key, FREQCS,-1,0,0);			
 				#endif
 				addCStoSet(freqCSset, *freqCS);
+				free(freqCS);
 			}
 
 		}
@@ -1813,6 +1831,7 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples,
 					freqCS = creatCS(csId, num, key, FREQCS,-1,0,0);			
 					#endif
 					addCStoSet(freqCSset, *freqCS);
+					free(freqCS);
 				}
 			}
 		}
@@ -2471,6 +2490,7 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, Labels* labels, oid* superCSFreqCS
 					cs1->parentFreqIdx = freqCSset->numCSadded;
 					cs2->parentFreqIdx = freqCSset->numCSadded;
 					addCStoSet(freqCSset,*mergecs);
+					free(mergecs);
 
 					mercsId++;
 
@@ -3030,13 +3050,15 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 	oid 		curS; 		/* current Subject oid */
 	//oid 		CSoid = 0; 	/* Characteristic set oid */
 	int 		numPwithDup;	/* Number of properties for current S */
+	int*		buffCoverage;	/* Number of triples coverage by each property. For deciding on MULTI-VALUED P */
 	char 		objType;
 	char* 		buffTypes; 
 	oid*		buffP;
 	oid		curP; 
 
 	buffTypes = (char *) malloc(sizeof(char) * (maxNumPwithDup + 1)); 
-	buffP = (oid *) malloc(sizeof(char) * (maxNumPwithDup + 1));
+	buffP = (oid *) malloc(sizeof(oid) * (maxNumPwithDup + 1));
+	buffCoverage = (int *)malloc(sizeof(int) * (maxNumPwithDup + 1));
 
 	numPwithDup = 0;
 	curS = 0; 
@@ -3046,7 +3068,7 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 		sbt = (oid *) BUNtloc(si, p);		
 		if (*sbt != curS){
 			if (p != 0){	/* Not the first S */
-				addPropTypes(buffTypes, buffP, numPwithDup, subjCSMap[curS], csTblIdxMapping, csPropTypes);
+				addPropTypes(buffTypes, buffP, numPwithDup, buffCoverage, subjCSMap[curS], csTblIdxMapping, csPropTypes);
 			}
 			curS = *sbt; 
 			numPwithDup = 0;
@@ -3063,6 +3085,7 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 			#if USE_MULTIPLICITY == 1	
 			// Update the object type for this P as MULTIVALUES	
 			buffTypes[numPwithDup-1] = MULTIVALUES; 
+			buffCoverage[numPwithDup-1]++;
 			#else
 			buffTypes[numPwithDup] = objType;
 			numPwithDup++;
@@ -3071,15 +3094,20 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 		else{			
 			buffTypes[numPwithDup] = objType; 
 			buffP[numPwithDup] = *pbt;
+			buffCoverage[numPwithDup] = 1; 
 			numPwithDup++; 
 			curP = *pbt; 
 		}
+
+
 	}
 	
 	/* Check for the last CS */
-	addPropTypes(buffTypes, buffP, numPwithDup, subjCSMap[curS], csTblIdxMapping, csPropTypes);
+	addPropTypes(buffTypes, buffP, numPwithDup, buffCoverage, subjCSMap[curS], csTblIdxMapping, csPropTypes);
 
 	free (buffTypes); 
+	free (buffP); 
+	free (buffCoverage);
 
 	*ret = 1; 
 
@@ -3248,6 +3276,7 @@ void printCSmergeRel(CSset *freqCSset, CSmergeRel *csRelBetweenMergeFreqSet, int
 				#if SHOWPROPERTYNAME
 				takeOid(csRelBetweenMergeFreqSet[i].lstPropId[j], &propStr);
 				fprintf(fout2, BUNFMT "(P:" BUNFMT " - %s) (%d)(Blank:%d) ", freqCSset->items[csRelBetweenMergeFreqSet[i].lstRefFreqIdx[j]].csId,csRelBetweenMergeFreqSet[i].lstPropId[j], propStr, csRelBetweenMergeFreqSet[i].lstCnt[j], csRelBetweenMergeFreqSet[i].lstBlankCnt[j]);
+				GDKfree(propStr);
 				#else
 				fprintf(fout2, BUNFMT "(P:" BUNFMT ") (%d)(Blank:%d) ", freqCSset->items[csRelBetweenMergeFreqSet[i].lstRefFreqIdx[j]].csId,csRelBetweenMergeFreqSet[i].lstPropId[j], csRelBetweenMergeFreqSet[i].lstCnt[j], csRelBetweenMergeFreqSet[i].lstBlankCnt[j]);
 				#endif
@@ -3484,6 +3513,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	freeMergeCSrelset(csRelBetweenMergeFreqSet,freqCSset->numCSadded);
 	freeCSrelSet(csrelSet, *maxCSoid + 1); 
 	freeCSrelSet(csrelToMaxFreqSet, *maxCSoid + 1); 
+	freeCSrelSet(csrelFromMaxFreqSet, *maxCSoid + 1);
 	freeCSrelSet(csrelBetweenMaxFreqSet, *maxCSoid + 1);  
 
 	freeCSBats(csBats);
@@ -3732,6 +3762,8 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 		#endif
 
 	}
+
+	free(mapObjBATtypes);
 }
 
 
@@ -4219,6 +4251,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 		free(csTblIdxMapping);
 		free(mfreqIdxTblIdxMapping);
 		free(mTblIdxFreqIdxMapping);
+		freeCSPropTypes(csPropTypes,numTables);
 
 		return MAL_SUCCEED;
 	}

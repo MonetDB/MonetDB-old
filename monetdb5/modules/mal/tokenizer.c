@@ -472,7 +472,7 @@ takeOid(oid id, str *val)
 		lngth += strlen(parts[i]);
 	}
 
-	*val = (str) GDKmalloc(lngth+depth+1);
+	*val = (str) GDKmalloc(sizeof(char) * lngth+depth+1);
 	s = *val;
 
 	for (i = 0; i < depth; i++) {
