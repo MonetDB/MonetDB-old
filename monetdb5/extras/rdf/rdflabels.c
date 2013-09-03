@@ -312,27 +312,45 @@ IncidentFKs* initLinks(int csCount) {
 	return links;
 }
 
-/* Modifies the parameter! */
-/* from:   <URI>/ or <URI>   to:   URI */
+/* from:   <URI>/ or <URI/> or <URI> or URI/   to:   URI */
 static
-void removeBrackets(char** s) {
-	if (strlen(*s) < 2) return;
+str removeBrackets(char* s) {
+	str retStr;
 
-	if ((*s)[0] == '<' && (*s)[strlen(*s) - 2] == '>' && (*s)[strlen(*s) - 1] == '/') {
+	if (s[0] == '<' && s[strlen(s) - 2] == '>' && s[strlen(s) - 1] == '/') {
 		// case <URI>/
-		(*s)[strlen(*s) - 2] = '\0';
-		(*s) += 1;
-	} else if ((*s)[0] == '<' && (*s)[strlen(*s) - 2] == '/' && (*s)[strlen(*s) - 1] == '>') {
+		retStr = (str) GDKmalloc(strlen(s) - 2);
+		if (!retStr) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+		strncpy(retStr, s + 1, strlen(s) - 3);
+		retStr[strlen(s) - 3] = '\0';
+		return retStr;
+	} else if (s[0] == '<' && s[strlen(s) - 2] == '/' && s[strlen(s) - 1] == '>') {
 		// case <URI/>
-		(*s)[strlen(*s) - 2] = '\0';
-		(*s) += 1;
-	} else if ((*s)[0] == '<' && (*s)[strlen(*s) - 1] == '>') {
+		retStr = (str) GDKmalloc(strlen(s) - 2);
+		if (!retStr) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+		strncpy(retStr, s + 1, strlen(s) - 3);
+		retStr[strlen(s) - 3] = '\0';
+		return retStr;
+	} else if (s[0] == '<' && s[strlen(s) - 1] == '>') {
 		// case <URI>
-		(*s)[strlen(*s) - 1] = '\0';
-		(*s) += 1;
-	} else if ((*s)[strlen(*s) - 1] == '/') {
+		retStr = (str) GDKmalloc(strlen(s) - 1);
+		if (!retStr) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+		strncpy(retStr, s + 1, strlen(s) - 2);
+		retStr[strlen(s) - 2] = '\0';
+		return retStr;
+	} else if (s[strlen(s) - 1] == '/') {
 		// case URI/
-		(*s)[strlen(*s) - 1] = '\0';
+		retStr = (str) GDKmalloc(strlen(s));
+		if (!retStr) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+		strncpy(retStr, s + 1, strlen(s) - 1);
+		retStr[strlen(s) - 1] = '\0';
+		return retStr;
+	} else {
+		// copy
+		retStr = (str) GDKmalloc(strlen(s) + 1);
+		if (!retStr) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+		strcpy(retStr, s);
+		return retStr;
 	}
 }
 
@@ -567,8 +585,7 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 	BUN		p, q;
 	oid 		*sbt, *obt, *pbt;
 	char 		objType;
-	str		propStr, objStr;
-	char		*objStrPtr;
+	str		propStr, objStr, tmpStr;
 
 	char		*start, *end;
 	int		length;
@@ -620,9 +637,8 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 
 				if (objType == URI || objType == BLANKNODE) {
 					objOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
-					takeOid(objOid, &objStr);
-					removeBrackets(&objStr);
-					objStrPtr = objStr;
+					takeOid(objOid, &tmpStr);
+					objStr = removeBrackets(tmpStr);
 				} else {
 					objOid = objOid - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the real objOid from Map or Tokenizer */
 					bun = BUNfirst(mapbat);
@@ -633,19 +649,15 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 					end = strrchr(objStr, '"');
 					if (start != NULL && end != NULL) {
 						length = end - start;
-						objStrPtr = (char *) malloc(sizeof(char) * (length + 1));
-						if (!objStrPtr) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-						memcpy(objStrPtr, start, length);
-						objStrPtr[length] = '\0';
-					} else {
-						objStrPtr = objStr;
+						objStr++;
+						objStr[length] = '\0';
 					}
 				}
 
 				// add object to histogram
 				fit = 0;
 				for (j = 0; j < typeAttributesHistogramCount[csFreqIdx][i]; ++j) {
-					if (strcmp(typeAttributesHistogram[csFreqIdx][i][j].value, objStrPtr) == 0) {
+					if (strcmp(typeAttributesHistogram[csFreqIdx][i][j].value, objStr) == 0) {
 						// bucket exists
 						typeAttributesHistogram[csFreqIdx][i][j].freq += 1;
 						fit = 1;
@@ -660,16 +672,19 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 					if (!typeAttributesHistogram[csFreqIdx][i]) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 
 					// insert value
-					typeAttributesHistogram[csFreqIdx][i][typeAttributesHistogramCount[csFreqIdx][i] - 1].value = (str) malloc(sizeof(char)*(strlen(objStrPtr)+1));
+					typeAttributesHistogram[csFreqIdx][i][typeAttributesHistogramCount[csFreqIdx][i] - 1].value = (str) malloc(sizeof(char)*(strlen(objStr)+1));
 					if (!typeAttributesHistogram[csFreqIdx][i][typeAttributesHistogramCount[csFreqIdx][i] - 1].value) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-					strcpy(typeAttributesHistogram[csFreqIdx][i][typeAttributesHistogramCount[csFreqIdx][i] - 1].value, objStrPtr);
+					strcpy(typeAttributesHistogram[csFreqIdx][i][typeAttributesHistogramCount[csFreqIdx][i] - 1].value, objStr);
 					typeAttributesHistogram[csFreqIdx][i][typeAttributesHistogramCount[csFreqIdx][i] - 1].freq = 1;
 				}
-
-				if (!(objType == URI || objType == BLANKNODE)) free(objStrPtr); // malloc, therefore free
+				if (objType == URI || objType == BLANKNODE) {
+					GDKfree(tmpStr); // allocated by takeOid()
+					GDKfree(objStr); // allocated by removeBrackets()
+				}
 				break;
 			}
 		}
+		GDKfree(propStr);
 	}
 
 	// sort descending by frequency
@@ -769,10 +784,10 @@ str** findOntologies(CS cs, int *propOntologiesCount, oid*** propOntologiesOids)
 			char		**tokenizedUri = NULL;
 			char		*token;			// token, modified during tokenization
 			char		*uri;			// uri, modified during tokenization
-			str		propStr;
+			str		propStr, tmpStr;
 
-			takeOid(cs.lstProp[j], &propStr);
-			removeBrackets(&propStr);
+			takeOid(cs.lstProp[j], &tmpStr);
+			propStr = removeBrackets(tmpStr);
 			uri = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
 			if (!uri) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 			strcpy(uri, propStr);
@@ -810,6 +825,7 @@ str** findOntologies(CS cs, int *propOntologiesCount, oid*** propOntologiesOids)
 			for (k = 0; k < length; ++k) {
 				free(tokenizedUri[k]);
 			}
+			GDKfree(tmpStr);
 			free(tokenizedUri);
 		}
 	}
@@ -1121,7 +1137,7 @@ void createOntologyLookupResult(str** result, CSset* freqCSset, int* resultCount
 /* Print the dot code to draw an UML-like diagram. Call:   dot -Tpdf -O <filename>   to create <filename>.pdf */
 static
 void printUML(CSset *freqCSset, int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, str** result, int* resultCount, IncidentFKs* links, Labels* labels, Relation*** relationMetadata, int** relationMetadataCount, int freqThreshold) {
-	str 		propStr;
+	str		propStr, tmpStr;
 	int		ret;
 	char*   	schema = "rdf";
 
@@ -1280,14 +1296,13 @@ void printUML(CSset *freqCSset, int typeAttributesCount, TypeAttributesFreq*** t
 			}
 			strcat(resultStr, "<FONT color=\"green\">");
 			for (j = 0; j < links[i].num; ++j) {
-				str propStr;
 				char *temp = NULL;
 #if USE_SHORT_NAMES
 				char *resultShort = NULL;
 #endif
 
-				takeOid(links[i].fks[j].prop, &propStr);
-				removeBrackets(&propStr);
+				takeOid(links[i].fks[j].prop, &tmpStr);
+				propStr = removeBrackets(tmpStr);
 #if USE_SHORT_NAMES
 				getPropNameShort(&resultShort, propStr);
 				temp = (char *) malloc(sizeof(char) * (strlen(resultShort) + 3));
@@ -1298,6 +1313,9 @@ void printUML(CSset *freqCSset, int typeAttributesCount, TypeAttributesFreq*** t
 				if (!temp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 				sprintf(temp, "%s, ", propStr);
 #endif
+				GDKfree(tmpStr);
+				GDKfree(propStr);
+
 				// resize resultStr ?
 				while (strlen(resultStr) + strlen(temp) + 1 > resultStrSize) { // + 1 for \0
 					resultStrSize *= 2;
@@ -1345,10 +1363,11 @@ void printUML(CSset *freqCSset, int typeAttributesCount, TypeAttributesFreq*** t
 #if USE_SHORT_NAMES
 			char    *propStrShort = NULL;
 #endif
-			takeOid(cs.lstProp[j], &propStr);
+
+			takeOid(cs.lstProp[j], &tmpStr);
 
 			// copy propStr to propStrEscaped because .dot-PORTs cannot contain colons and quotes
-			removeBrackets(&propStr);
+			propStr = removeBrackets(tmpStr);
 			propStrEscaped = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
 			if (!propStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 			memcpy(propStrEscaped, propStr, (strlen(propStr) + 1));
@@ -1363,6 +1382,8 @@ void printUML(CSset *freqCSset, int typeAttributesCount, TypeAttributesFreq*** t
 #else
 			fprintf(fout, "<TR><TD PORT=\"%s\">%s</TD></TR>\n", propStrEscaped, propStr);
 #endif
+			GDKfree(tmpStr);
+			GDKfree(propStr);
 			free(propStrEscaped);
 
 		}
@@ -1377,10 +1398,11 @@ void printUML(CSset *freqCSset, int typeAttributesCount, TypeAttributesFreq*** t
 #if USE_SHORT_NAMES
 			char    *propStrShort = NULL;
 #endif
-			takeOid(cs.lstProp[j], &propStr);
+
+			takeOid(cs.lstProp[j], &tmpStr);
 
 			// copy propStr to propStrEscaped because .dot-PORTs cannot contain colons and quotes
-			removeBrackets(&propStr);
+			propStr = removeBrackets(tmpStr);
 			propStrEscaped = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
 			if (!propStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 			memcpy(propStrEscaped, propStr, (strlen(propStr) + 1));
@@ -1402,6 +1424,8 @@ void printUML(CSset *freqCSset, int typeAttributesCount, TypeAttributesFreq*** t
 #endif
 				}
 			}
+			GDKfree(tmpStr);
+			GDKfree(propStr);
 			free(propStrEscaped);
 		}
 	}
@@ -1529,15 +1553,17 @@ void getTableName(char** name, int csIdx,  int typeAttributesCount, TypeAttribut
 	// --- FK ---
 	// incident foreign keys --> use the one with the most occurances (num and freq)
 	if (links[csIdx].num > 0) {
-		str propStr;
-		takeOid(links[csIdx].fks[0].prop, &propStr); // sorted
-		removeBrackets(&propStr);
+		str propStr, tmpStr;
+		takeOid(links[csIdx].fks[0].prop, &tmpStr); // sorted
+		propStr = removeBrackets(tmpStr);
 #if USE_SHORT_NAMES
 		getPropNameShort(name, propStr);
 #else
 		(*name) = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
 		strcpy(*name, propStr);
 #endif
+		GDKfree(tmpStr);
+		GDKfree(propStr);
 		return;
 	}
 
@@ -1584,12 +1610,12 @@ void getAllLabels(Labels* labels, CSset* freqCSset,  int typeAttributesCount, Ty
 		labels[i].lstProp = (str *) malloc(sizeof(str) * cs.numProp);
 		if (!labels[i].lstProp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 		for (j = 0; j < cs.numProp; ++j) {
-			str propStr;
+			str propStr, tmpStr;
 #if USE_SHORT_NAMES
 			char *propStrShort = NULL;
 #endif
-			takeOid(cs.lstProp[j], &propStr);
-			removeBrackets(&propStr);
+			takeOid(cs.lstProp[j], &tmpStr);
+			propStr = removeBrackets(tmpStr);
 #if USE_SHORT_NAMES
 			getPropNameShort(&propStrShort, propStr);
 			labels[i].lstProp[j] = (char *) malloc(sizeof(char) * (strlen(propStrShort) + 1));
@@ -1600,6 +1626,8 @@ void getAllLabels(Labels* labels, CSset* freqCSset,  int typeAttributesCount, Ty
 			if (!labels[i].lstProp[j]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 			memcpy(labels[i].lstProp[j], propStr, sizeof(char) * (strlen(propStr) + 1));
 #endif
+			GDKfree(tmpStr);
+			GDKfree(propStr);
 		}
 	}
 }
