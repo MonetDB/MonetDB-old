@@ -7858,6 +7858,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 SQLrdfRetrieveSubschema(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+#ifdef HAVE_RAPTOR
 	sql_schema	*schOld, *schNew;
 	str		*oldSchema = (str *) getArgReference(stk,pci,1); // schema name (old)
 	int		*count = (int *) getArgReference(stk,pci,2); // number of tables in the sub schema
@@ -7975,6 +7976,10 @@ SQLrdfRetrieveSubschema(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	GDKfree(adjacency_freq);
 
 	return MAL_SUCCEED;
+#else
+	(void) cntxt; (void) mb; (void) stk; (void) pci;
+	throw(SQL, "sql.rdfRetrieveSubschema", "RDF support is missing from MonetDB5");
+#endif /* HAVE_RAPTOR */
 }
 
 /* after an update on the optimizer catalog, we have to change
