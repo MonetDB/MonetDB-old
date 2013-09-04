@@ -987,11 +987,16 @@ void freeCSset(CSset *csSet){
 	int i;
 	for(i = 0; i < csSet->numCSadded; i ++){
 		free(csSet->items[i].lstProp);
-		#if STOREFULLCS
-		free(csSet->items[i].lstObj);
-		#endif
 
 	}
+
+	#if STOREFULLCS
+	for(i = 0; i < csSet->numOrigFreqCS; i ++){
+		free(csSet->items[i].lstObj);
+	}
+	#endif
+
+
 	free(csSet->items);
 	free(csSet);	
 }
