@@ -107,7 +107,7 @@ ontology ontologies[] = {
 static
 void getPropNameShort(char** name, char* propStr) {
 	char		*token;
-	char		*uri;
+	char		*uri, *uriPtr;
 	int		length = 0;		// number of tokens
 	char		**tokenizedUri = NULL;	// list of tokens
 	int		i, j;
@@ -117,6 +117,7 @@ void getPropNameShort(char** name, char* propStr) {
 	uri = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
 	if (!uri) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 	strcpy(uri, propStr); // uri will be modified during tokenization
+	uriPtr = uri; // uri will be modified, uriPtr keeps original pointer
 	token = strtok(uri, "/#");
 	while (token != NULL) {
 		tokenizedUri = realloc(tokenizedUri, sizeof(char*) * ++length);
@@ -124,6 +125,7 @@ void getPropNameShort(char** name, char* propStr) {
 		tokenizedUri[length - 1] = token;
 		token = strtok(NULL, "/#");
 	}
+	free(uriPtr);
 
 	// match with ontologies
 	for (j = 0; j < ontologyCount; ++j) {
@@ -159,7 +161,7 @@ void getPropNameShort(char** name, char* propStr) {
 
 	// no matching ontology found, return content of last token
 
-	if (length == 1) {
+	if (length <= 1) {
 		// value
 		(*name) = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
 		if (!(*name)) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
@@ -171,7 +173,6 @@ void getPropNameShort(char** name, char* propStr) {
 	}
 
 	free(tokenizedUri);
-	free(uri);
 	return;
 }
 #endif
