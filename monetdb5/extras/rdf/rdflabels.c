@@ -246,9 +246,10 @@ Relation*** initRelationMetadata(int** relationMetadataCount, CSrel* csrelSet, i
 	relationMetadata = (Relation ***) malloc(sizeof(Relation **) * freqCSset->numCSadded);
 	if (!relationMetadata) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 	for (i = 0; i < num; ++i) { // CS
+		CS cs;
 		int csId = csIdFreqIdxMap[i];
-		CS cs = (CS) freqCSset->items[csId];
 		if (csId == -1) continue; // ignore
+		cs = (CS) freqCSset->items[csId];
 		relationMetadata[csId] = (Relation **) malloc (sizeof(Relation *) * cs.numProp);
 		if (!relationMetadata[csId]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 		for (j = 0; j < cs.numProp; ++j) { // propNo in CS order
@@ -491,9 +492,10 @@ void createSQLMetadata(CSset* freqCSset, CSrel* csrelSet, int num, Labels* label
 
 	// set values
 	for (i = 0; i < num; ++i) {
+		CS cs;
 		int csId = csIdFreqIdxMap[i];
-		CS cs = (CS) freqCSset->items[csId];
 		if (csId == -1) continue; // ignore
+		cs = (CS) freqCSset->items[csId];
 
 		for (j = 0; j < cs.numProp; ++j) { // propNo in CS order
 			// check foreign key frequency
