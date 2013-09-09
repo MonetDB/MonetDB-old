@@ -93,6 +93,8 @@ typedef struct PropStat {
 
 #define FULL_PROP_STAT 1	// Only use for showing the statistic on all properties / all CSs. (Default should be 0)
 
+#define STAT_ANALYZE 1	// Only use for collecting the statistic on the number of multi/null/single-valued prop
+
 
 #define USE_LABEL_FINDING_MAXCS	0 	// Use the labels received from labeling process for finding maxCS 
 #define USE_LABEL_FOR_MERGING	0 	// Use the labels received from labeling process for finding mergeCS
@@ -229,6 +231,11 @@ typedef struct CStableStat {
 typedef struct PropTypes{
 	oid	prop;
 	int	numType; 
+#if STAT_ANALYZE	
+	int	numMVType;	/* Number of subjects having this property a multi-valued prop. */
+	int	numNull;	/* Number of subjects that don't have obj value for this prop */
+	int	numSingleType;	/* Number of subjects having the */
+#endif	
 	int	propFreq; 	/* without considering type = Table frequency*/
 	int	propCover; 	/* = coverage of that property */	
 	char*	lstTypes; 

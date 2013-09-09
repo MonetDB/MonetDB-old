@@ -243,20 +243,20 @@ getObjectType(unsigned char* objStr, BUN *realNumValue){
 	*realNumValue = BUN_NONE; 
 
 	if (strlen((str)objStr) > 20){
-		endpart = objStr + (strlen((str)objStr) - 19);   //XMLSchema#dateTime>
-		//printf("Original: %s  --> substring: %s \n", (str)objStr, (str)endpart);
+		endpart = objStr + (strlen((str)objStr) - 19);   /* XMLSchema#dateTime> */
+		/* printf("Original: %s  --> substring: %s \n", (str)objStr, (str)endpart); */
 
 		if ( (pos = strstr((str)endpart , "XMLSchema#date>")) != NULL || (pos = strstr((str)endpart, "XMLSchema#dateTime>")) != NULL ){
 			obType = DATETIME;
-			//printf("%s: DateTime \n", objStr); 
+			/* printf("%s: DateTime \n", objStr); */
 		}
 		else if ((pos = strstr((str) endpart, "XMLSchema#int>")) != NULL || (pos = strstr((str)endpart, "XMLSchema#integer>")) != NULL){
 			obType = INTEGER;
 			valuepart = substring((char*)objStr, 2 , (int) (pos - (str)objStr - 28)); 
-			//printf("%s: Integer \n. Length of value %d ==> value %s \n", objStr, (int) (pos - (str)objStr - 28), valuepart);
+			/* printf("%s: Integer \n. Length of value %d ==> value %s \n", objStr, (int) (pos - (str)objStr - 28), valuepart); */
 			if (isInt(valuepart) == 1){	/* Check whether the real value is an integer */
 				*realNumValue = (BUN) atoi(valuepart); 
-				//printf("Real value is: " BUNFMT " \n", *realNumValue);
+				/* printf("Real value is: " BUNFMT " \n", *realNumValue); */
 			}
 			else 
 				obType = STRING;	
@@ -268,11 +268,11 @@ getObjectType(unsigned char* objStr, BUN *realNumValue){
 				|| (pos = strstr((str) endpart, "XMLSchema#double>")) != NULL  
 				|| (pos = strstr((str) endpart, "XMLSchema#decimal>")) != NULL){
 			obType = FLOAT;
-			//printf("%s: Float \n", objStr);
+			/* printf("%s: Float \n", objStr); */
 		}
 		else {
 			obType = STRING;
-			//printf("%s: String \n", objStr); 
+			/* printf("%s: String \n", objStr); */
 		}
 	}
 	else
@@ -758,6 +758,7 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema)
 				dp = opendir (pdata->location);
 				if (dp != NULL){
 					while ((ep = readdir (dp)) != NULL){
+						printf("Checking file %s \n",ep->d_name);	
 						if (strstr (ep->d_name,".nt")!= NULL || strstr (ep->d_name,".ttl")!= NULL ){
 							sprintf(tmpfilename,"%s%s",pdata->location,ep->d_name);
 							printf("Loading file %s ..",tmpfilename);
