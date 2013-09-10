@@ -791,6 +791,20 @@ void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freq
 
 }
 
+#if     COLORINGPROP
+static 
+void updatePropSupport(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSset){
+	int i, j; 
+	int freqId; 
+	for (i = 0; i < numMergedCS; i++){
+		freqId = csPropTypes[i].freqCSId; 
+		freqCSset->items[freqId].lstPropSupport = (int*) malloc (sizeof(int) * freqCSset->items[freqId].numProp);
+		for (j = 0; j < freqCSset->items[freqId].numProp; j++){
+			freqCSset->items[freqId].lstPropSupport[j] = csPropTypes[i].lstPropTypes[j].propFreq; 
+		}
+	}
+}
+#endif /* #if COLORINGPROP */
 static 
 void printCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSset, int freqThreshold){
 	char filename[100]; 
@@ -831,8 +845,9 @@ void printCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSse
 				numMVColsFilter++;
 			}
 
-			fprintf(fout, "  P " BUNFMT "(%d | cov:%d | Null: %d | Single: %d | Multi: %d) \n", 
-					csPropTypes[i].lstPropTypes[j].prop, csPropTypes[i].lstPropTypes[j].defaultType,csPropTypes[i].lstPropTypes[j].propCover,
+			fprintf(fout, "  P " BUNFMT "(%d | freq: %d | cov:%d | Null: %d | Single: %d | Multi: %d) \n", 
+					csPropTypes[i].lstPropTypes[j].prop, csPropTypes[i].lstPropTypes[j].defaultType,
+					csPropTypes[i].lstPropTypes[j].propFreq, csPropTypes[i].lstPropTypes[j].propCover,
 					csPropTypes[i].lstPropTypes[j].numNull, csPropTypes[i].lstPropTypes[j].numSingleType, csPropTypes[i].lstPropTypes[j].numMVType);
 			fprintf(fout, "         ");
 			for (k = 0; k < csPropTypes[i].lstPropTypes[j].numType; k++){
@@ -1074,6 +1089,10 @@ void freeCSset(CSset *csSet){
 	int i;
 	for(i = 0; i < csSet->numCSadded; i ++){
 		free(csSet->items[i].lstProp);
+		#if COLORINGPROP
+		if (csSet->items[i].lstPropSupport != NULL)
+			free(csSet->items[i].lstPropSupport);
+		#endif
 
 	}
 
@@ -1141,6 +1160,9 @@ CS* creatCS(oid csId, int numP, oid* buff, char type,  int parentfreqIdx, int su
 #endif	
 {
 	CS *cs = (CS*)malloc(sizeof(CS)); 
+	#if COLORINGPROP
+	cs->lstPropSupport = NULL; 
+	#endif
 	cs->lstProp =  (oid*) malloc(sizeof(oid) * numP);
 	
 	if (cs->lstProp == NULL){
@@ -3400,7 +3422,7 @@ int	ontmetadataCount = 0;
 
 /* Extract CS from SPO triples table */
 str
-RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *_freqCSset, oid **subjCSMap, oid *maxCSoid, char **subjdefaultMap,int *maxNumPwithDup){
+RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *_freqCSset, oid **subjCSMap, oid *maxCSoid, char **subjdefaultMap,int *maxNumPwithDup, CSmergeRel **csRelBetweenMergeFreqSet){
 
 	BAT 		*sbat = NULL, *pbat = NULL, *obat = NULL, *mbat = NULL; 
 	BATiter 	si, pi, oi; 	/*iterator for BAT of s,p,o columns in spo table */
@@ -3414,7 +3436,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	CSrel   	*csrelSet;
 	CSrel		*csrelToMaxFreqSet, *csrelFromMaxFreqSet;
 	CSrel		*csrelBetweenMaxFreqSet; 
-	CSmergeRel	*csRelBetweenMergeFreqSet;
 	SubCSSet 	*csSubCSSet; 
 
 	int*		csIdFreqIdxMap; /* Map a CSId to a freqIdx. Should be removed in the future .... */
@@ -3575,12 +3596,12 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	curT = clock(); 
 	printf (" ----- Merging Frequent CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
-	
 
-	csRelBetweenMergeFreqSet = (CSmergeRel *) malloc (sizeof(CSmergeRel) * freqCSset->numCSadded);
-	initCsRelBetweenMergeFreqSet(csRelBetweenMergeFreqSet, freqCSset->numCSadded);
-	generateCsRelBetweenMergeFreqSet(csRelBetweenMergeFreqSet, csrelBetweenMaxFreqSet, *maxCSoid + 1, csIdFreqIdxMap, freqCSset);
-	printCSmergeRel(freqCSset, csRelBetweenMergeFreqSet, *freqThreshold);
+
+	*csRelBetweenMergeFreqSet = (CSmergeRel *) malloc (sizeof(CSmergeRel) * freqCSset->numCSadded);
+	initCsRelBetweenMergeFreqSet(*csRelBetweenMergeFreqSet, freqCSset->numCSadded);
+	generateCsRelBetweenMergeFreqSet(*csRelBetweenMergeFreqSet, csrelBetweenMaxFreqSet, *maxCSoid + 1, csIdFreqIdxMap, freqCSset);
+	printCSmergeRel(freqCSset, *csRelBetweenMergeFreqSet, *freqThreshold);
 
 	printmergeCSSet(freqCSset, *freqThreshold);
 	//getStatisticCSsBySize(csMap,maxNumProp); 
@@ -3604,7 +3625,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	freeCS_SubCSMapSet(csSubCSSet, *maxCSoid + 1); 
 
 	free(csIdFreqIdxMap); 
-	freeMergeCSrelset(csRelBetweenMergeFreqSet,freqCSset->numCSadded);
 	freeCSrelSet(csrelSet, *maxCSoid + 1); 
 	freeCSrelSet(csrelToMaxFreqSet, *maxCSoid + 1); 
 	freeCSrelSet(csrelFromMaxFreqSet, *maxCSoid + 1);
@@ -4285,11 +4305,11 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	//CStableStat	*cstablestat;
 	char		*subjdefaultMap = NULL; /* Specify whether this subject contains default value or not. This array may be large */
 	CSPropTypes	*csPropTypes; 
-
+	CSmergeRel	*csRelBetweenMergeFreqSet = NULL;
 
 	freqCSset = initCSset();
 
-	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid, &subjdefaultMap, &maxNumPwithDup) != MAL_SUCCEED){
+	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid, &subjdefaultMap, &maxNumPwithDup, &csRelBetweenMergeFreqSet) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in extracting CSs");
 	} 
 
@@ -4334,6 +4354,11 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	RDFExtractCSPropTypes(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, csPropTypes, maxNumPwithDup);
 	genCSPropTypesColIdx(csPropTypes, numTables, freqCSset);
 	printCSPropTypes(csPropTypes, numTables, freqCSset, *freqThreshold);
+	
+	#if COLORINGPROP
+	/* Update list of support for properties in freqCSset */
+	updatePropSupport(csPropTypes, numTables, freqCSset);
+	#endif
 
 	// Init CStableStat
 	initCStables(cstablestat, freqCSset, csPropTypes, numTables);
@@ -4347,6 +4372,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 		free(mfreqIdxTblIdxMapping);
 		free(mTblIdxFreqIdxMapping);
 		freeCSPropTypes(csPropTypes,numTables);
+		freeMergeCSrelset(csRelBetweenMergeFreqSet,freqCSset->numCSadded);
 
 		return MAL_SUCCEED;
 	}
@@ -4455,6 +4481,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	}
 		
 
+	freeMergeCSrelset(csRelBetweenMergeFreqSet,freqCSset->numCSadded);
 	freeCSPropTypes(csPropTypes,numTables);
 	freeCSset(freqCSset); 
 	free(subjCSMap); 

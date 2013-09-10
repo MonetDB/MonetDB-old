@@ -31,8 +31,7 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int *freqThreshold);
 rdf_export str
 RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid); 
 
-rdf_export str 
-RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *freqCSset, oid **subjCSMap, oid *maxCSoid, char **subjdefaultMap,int *maxNumPwithDup);
+
 
 typedef enum{
 	EXPLOREONLY, 
@@ -95,6 +94,8 @@ typedef struct PropStat {
 
 #define STAT_ANALYZE 1	// Only use for collecting the statistic on the number of multi/null/single-valued prop
 
+#define COLORINGPROP 1	// Only use for coloring property in schema representation. 
+
 
 #define USE_LABEL_FINDING_MAXCS	0 	// Use the labels received from labeling process for finding maxCS 
 #define USE_LABEL_FOR_MERGING	0 	// Use the labels received from labeling process for finding mergeCS
@@ -103,13 +104,16 @@ typedef struct CS
 {
 	oid 	csId;		//Id of the CS
 	oid*	lstProp;	//List of properties' Ids
+	#if	COLORINGPROP	
+	int*	lstPropSupport;	 //Number of subjects that the object value for this is not null
+	#endif
 	int	numProp;
 	int	numAllocation;
 	//char 	isSubset; 
 	int	parentFreqIdx; 	//Index of the parent in freqCSset
 	#if STOREFULLCS
-	oid     subject;        //A subject
-	oid*    lstObj;         //List of sample objects
+	oid     subject;         //A subject
+	oid*    lstObj;          //List of sample objects
 	#endif
 	
 	char	type; 
@@ -254,6 +258,9 @@ typedef struct CSPropTypes {
 
 rdf_export str
 RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId);
+
+rdf_export str 
+RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *freqCSset, oid **subjCSMap, oid *maxCSoid, char **subjdefaultMap,int *maxNumPwithDup,CSmergeRel **csRelBetweenMergeFreqSet);
 
 rdf_export str
 RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, int *mode);
