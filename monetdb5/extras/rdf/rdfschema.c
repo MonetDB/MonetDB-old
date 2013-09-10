@@ -2135,7 +2135,7 @@ void printCS(CS cs){
  * Here maximum frequent CS is a CS that there exist no other CS which contains that CS
  * */
 static 
-void getMaximumFreqCSs(CSset *freqCSset, Labels* labels, BAT* coverageBat, BAT* freqBat, int numCS, int *nMaxCSs){
+void getMaximumFreqCSs(CSset *freqCSset, CSlabel* labels, BAT* coverageBat, BAT* freqBat, int numCS, int *nMaxCSs){
 
 	int 	numFreqCS = freqCSset->numCSadded; 
 	int 	i, j; 
@@ -2519,7 +2519,7 @@ void freePropStat(PropStat *propStat){
 
 
 static
-void mergeMaximumFreqCSsAll(CSset *freqCSset, Labels* labels, oid* superCSFreqCSMap, oid* superCSMergeMaxCSMap, int numMaxCSs, oid maxCSoid){
+void mergeMaximumFreqCSsAll(CSset *freqCSset, CSlabel* labels, oid* superCSFreqCSMap, oid* superCSMergeMaxCSMap, int numMaxCSs, oid maxCSoid){
 	int 		i, j, k; 
 	int 		maxCSid = 0; 
 	int 		freqId1, freqId2; 
@@ -3422,7 +3422,7 @@ int	ontmetadataCount = 0;
 
 /* Extract CS from SPO triples table */
 str
-RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *_freqCSset, oid **subjCSMap, oid *maxCSoid, char **subjdefaultMap,int *maxNumPwithDup, CSmergeRel **csRelBetweenMergeFreqSet){
+RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *_freqCSset, oid **subjCSMap, oid *maxCSoid, char **subjdefaultMap,int *maxNumPwithDup, CSlabel** labels, CSmergeRel **csRelBetweenMergeFreqSet){
 
 	BAT 		*sbat = NULL, *pbat = NULL, *obat = NULL, *mbat = NULL; 
 	BATiter 	si, pi, oi; 	/*iterator for BAT of s,p,o columns in spo table */
@@ -3446,9 +3446,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	CSset		*freqCSset; 
 	clock_t 	curT;
 	clock_t		tmpLastT; 
-
-
-	Labels		*labels;
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
@@ -3559,13 +3556,13 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	initcsIdFreqIdxMap(csIdFreqIdxMap, *maxCSoid + 1, -1, freqCSset);
 	printf("Using ontologies with %d ontattributesCount and %d ontmetadataCount \n",ontattributesCount,ontmetadataCount);
 	
-	labels = createLabels(freqCSset, csrelSet, *maxCSoid + 1, sbat, si, pi, oi, *subjCSMap, mbat, csIdFreqIdxMap, *freqThreshold, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount);
+	(*labels) = createLabels(freqCSset, csrelSet, *maxCSoid + 1, sbat, si, pi, oi, *subjCSMap, mbat, csIdFreqIdxMap, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount);
 
 	curT = clock(); 
 	printf("Done labeling!!! Took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT;
 
-	getMaximumFreqCSs(freqCSset, labels, csBats->coverageBat,  csBats->freqBat, *maxCSoid + 1, &numMaxCSs); 
+	getMaximumFreqCSs(freqCSset, *labels, csBats->coverageBat,  csBats->freqBat, *maxCSoid + 1, &numMaxCSs); 
 
 	curT = clock(); 
 	printf (" -----	Get maximum frequent CSs took   %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
@@ -3591,7 +3588,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	//mergeMaximumFreqCSs(freqCSset, superCSFreqCSMap, superCSMergeMaxCSMap, mergecsSet, numMaxCSs);
 
-	mergeMaximumFreqCSsAll(freqCSset, labels, superCSFreqCSMap, superCSMergeMaxCSMap, numMaxCSs, *maxCSoid);
+	mergeMaximumFreqCSsAll(freqCSset, *labels, superCSFreqCSMap, superCSMergeMaxCSMap, numMaxCSs, *maxCSoid);
 
 	curT = clock(); 
 	printf (" ----- Merging Frequent CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
@@ -3616,7 +3613,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	BBPunfix(obat->batCacheid);
 	BBPunfix(mbat->batCacheid);
 
-	freeLabels(labels, freqCSset);
 	free (subjSubCSMap);
 	free (csFreqMap);
 	free (superCSFreqCSMap);
@@ -4305,15 +4301,14 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	//CStableStat	*cstablestat;
 	char		*subjdefaultMap = NULL; /* Specify whether this subject contains default value or not. This array may be large */
 	CSPropTypes	*csPropTypes; 
+	CSlabel		*labels, *labels2;
 	CSmergeRel	*csRelBetweenMergeFreqSet = NULL;
 
 	freqCSset = initCSset();
 
-	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid, &subjdefaultMap, &maxNumPwithDup, &csRelBetweenMergeFreqSet) != MAL_SUCCEED){
+	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid, &subjdefaultMap, &maxNumPwithDup, &labels, &csRelBetweenMergeFreqSet) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in extracting CSs");
-	} 
-
-
+	}
 	
 	printf("Start re-organizing triple store for " BUNFMT " CSs \n", maxCSoid);
 
@@ -4360,11 +4355,18 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	updatePropSupport(csPropTypes, numTables, freqCSset);
 	#endif
 
+	// final labeling
+	labels2 = createFinalLabels(labels, freqCSset, csRelBetweenMergeFreqSet, *freqThreshold);
+	(void) labels2; // TODO use!
+
 	// Init CStableStat
 	initCStables(cstablestat, freqCSset, csPropTypes, numTables);
 
 	if (*mode == EXPLOREONLY){
 		printf("Only explore the schema information \n");
+		freeFinalLabels(labels2, freqCSset);
+		freeLabels(labels, freqCSset);
+		freeMergeCSrelset(csRelBetweenMergeFreqSet,freqCSset->numCSadded);
 		freeCSset(freqCSset); 
 		free(subjCSMap);
 		free(subjdefaultMap);
@@ -4483,6 +4485,9 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	freeMergeCSrelset(csRelBetweenMergeFreqSet,freqCSset->numCSadded);
 	freeCSPropTypes(csPropTypes,numTables);
+	freeFinalLabels(labels2, freqCSset);
+	freeLabels(labels, freqCSset);
+	freeMergeCSrelset(csRelBetweenMergeFreqSet,freqCSset->numCSadded);
 	freeCSset(freqCSset); 
 	free(subjCSMap); 
 	free(csTblIdxMapping);

@@ -103,4 +103,13 @@ typedef enum {
 
 #define N_GRAPH_BAT (MAP_LEX+1)
 
+// Final data structure that stores the labels for tables and attributes
+typedef struct CSlabel {
+	str		name;		// table name
+	str		*hierarchy;     // hierarchy "bottom to top"
+	int		hierarchyCount; // number of entries in the hierarchy list
+	int		numProp;	// number of properties, copied from freqCSset->items[x].numProp
+	char		**lstProp;	// attribute names (same order as in freqCSset->items[x].lstProp)
+} CSlabel;
+
 #endif /* _RDF_H_ */

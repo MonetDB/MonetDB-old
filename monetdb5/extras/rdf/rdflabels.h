@@ -56,13 +56,6 @@ typedef struct IncidentFKs {
 	IncidentFK	*fks;
 } IncidentFKs;
 
-// Final data structure that stores the labels for tables and attributes
-typedef struct Labels {
-	str		name;		// table name
-	int		numProp;	// number of properties, copied from freqCSset->items[x].numProp
-	char		**lstProp;	// attribute names (same order as in freqCSset->items[x].lstProp)
-} Labels;
-
 // Statistics for an ontology class
 typedef struct ClassStat {
 	char		*ontoClass;	// URI of the ontology class
@@ -75,7 +68,7 @@ typedef struct TypeStat {
 	int		freq;		// number of CS's the value occurs in
 } TypeStat;
 
-#define FK_FREQ_THRESHOLD 10		// X % of the targeted subjects have to be in this table
+#define FK_FREQ_THRESHOLD 25		// X % of the targeted subjects have to be in this table
 #define TYPE_FREQ_THRESHOLD 10		// X % of the type values have to be this value
 #define ONTOLOGY_FREQ_THRESHOLD 0.5	// similarity threshold for tfidf simularity for ontology classes
 
@@ -86,10 +79,16 @@ typedef struct TypeStat {
 #define USE_TABLE_NAME 1		// calculate and store the final labels
 #define SHOW_CANDIDATES 0		// inserts a row in UML diagrams to show all candidate names
 
-rdf_export Labels*
-createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, BAT* mapbat, int *csIdFreqIdxMap, int freqThreshold, str** ontattributes, int ontattributesCount, str** ontmetadata, int ontmetadataCount);
+rdf_export CSlabel*
+createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, BAT* mapbat, int *csIdFreqIdxMap, str** ontattributes, int ontattributesCount, str** ontmetadata, int ontmetadataCount);
+
+rdf_export CSlabel*
+createFinalLabels(CSlabel* labels, CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, int freqThreshold);
 
 rdf_export void
-freeLabels(Labels* labels, CSset* freqCSset);
+freeLabels(CSlabel* labels, CSset* freqCSset);
+
+rdf_export void
+freeFinalLabels(CSlabel* labels, CSset* freqCSset);
 
 #endif /* _RDFLABELS_H_ */

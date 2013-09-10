@@ -31,6 +31,7 @@ RDFextractCS(int *ret, bat *sbatid, bat *pbatid, int *freqThreshold);
 rdf_export str
 RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid); 
 
+struct CSmergeRel; // forward declaration
 
 
 typedef enum{
@@ -260,7 +261,7 @@ rdf_export str
 RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId);
 
 rdf_export str 
-RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *freqCSset, oid **subjCSMap, oid *maxCSoid, char **subjdefaultMap,int *maxNumPwithDup,CSmergeRel **csRelBetweenMergeFreqSet);
+RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *freqCSset, oid **subjCSMap, oid *maxCSoid, char **subjdefaultMap,int *maxNumPwithDup, CSlabel** labels, CSmergeRel **csRelBetweenMergeFreqSet);
 
 rdf_export str
 RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, int *mode);
