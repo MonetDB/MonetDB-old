@@ -1289,6 +1289,9 @@ CS* mergeTwoCSs(CS cs1, CS cs2, int freqIdx1, int freqIdx2, oid mergeCSId){
 	mergeOidSets(cs1.lstProp, cs2.lstProp, mergecs->lstProp, cs1.numProp, cs2.numProp, &numCombineP); 
 
 	mergecs->numProp = numCombineP;
+	#if     COLORINGPROP 
+	mergecs->lstPropSupport = NULL; 
+	#endif
 	mergecs->support = cs1.support + cs2.support;
 	mergecs->coverage = cs1.coverage + cs2.coverage;
 	mergecs->parentFreqIdx = -1; 
@@ -4374,7 +4377,6 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 		free(mfreqIdxTblIdxMapping);
 		free(mTblIdxFreqIdxMapping);
 		freeCSPropTypes(csPropTypes,numTables);
-		freeMergeCSrelset(csRelBetweenMergeFreqSet,freqCSset->numCSadded);
 
 		return MAL_SUCCEED;
 	}
