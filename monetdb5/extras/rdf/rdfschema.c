@@ -118,13 +118,6 @@ static void initCharArray(char* inputArr, int num, char defaultValue){
 	}
 }
 
-static void generateFreqCSMap(CSset *freqCSset, char *csFreqMap){
-	int i; 
-	for (i = 0; i < freqCSset->numCSadded; i++){
-		csFreqMap[freqCSset->items[i].csId] = 1;
-	}
-}
-
 static 
 void addCStoSet(CSset *csSet, CS item)
 {
@@ -323,7 +316,7 @@ void freeCSrelSet(CSrel *csrelSet, int numCSrel){
 }
 
 static 
-void printCSrelSet(CSrel *csrelSet, char *csFreqMap, BAT* freqBat, int num, char isWriteTofile, int freqThreshold){
+void printCSrelSet(CSrel *csrelSet, int *csIdFreqIdxMap, BAT* freqBat, int num, char isWriteTofile, int freqThreshold){
 
 	int 	i; 
 	int 	j; 
@@ -337,7 +330,7 @@ void printCSrelSet(CSrel *csrelSet, char *csFreqMap, BAT* freqBat, int num, char
 			if (csrelSet[i].numRef != 0){	//Only print CS with FK
 				printf("Relationship %d: ", i);
 				freq  = (int *) Tloc(freqBat, i);
-				printf("CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelSet[i].origCSoid, *freq, csFreqMap[i]);
+				printf("CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelSet[i].origCSoid, *freq, csIdFreqIdxMap[i]);
 				for (j = 0; j < csrelSet[i].numRef; j++){
 					printf(BUNFMT " (%d) ", csrelSet[i].lstRefCSoid[j],csrelSet[i].lstCnt[j]);	
 				}	
@@ -358,7 +351,7 @@ void printCSrelSet(CSrel *csrelSet, char *csFreqMap, BAT* freqBat, int num, char
 			if (csrelSet[i].numRef != 0){	//Only print CS with FK
 				fprintf(fout, "Relationship %d: ", i);
 				freq  = (int *) Tloc(freqBat, i);
-				fprintf(fout, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelSet[i].origCSoid, *freq, csFreqMap[i]);
+				fprintf(fout, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelSet[i].origCSoid, *freq, csIdFreqIdxMap[i]);
 				for (j = 0; j < csrelSet[i].numRef; j++){
 					fprintf(fout, BUNFMT " (%d) ", csrelSet[i].lstRefCSoid[j],csrelSet[i].lstCnt[j]);	
 				}	
@@ -399,7 +392,7 @@ oid getMaxCSIdFromCSId(oid csId, int* csIdFreqIdxMap, CSset *freqCSset){
 
 
 static 
-str printCSrelWithMaxSet(CSset *freqCSset, int* csIdFreqIdxMap, CSrel *csrelToMaxSet, CSrel *csrelFromMaxSet, CSrel *csrelBetweenMaxSet, CSrel *csrelSet, char *csFreqMap, BAT* freqBat, int num, int freqThreshold){
+str printCSrelWithMaxSet(CSset *freqCSset, int* csIdFreqIdxMap, CSrel *csrelToMaxSet, CSrel *csrelFromMaxSet, CSrel *csrelBetweenMaxSet, CSrel *csrelSet, BAT* freqBat, int num, int freqThreshold){
 
 	int 	i; 
 	int 	j; 
@@ -463,7 +456,7 @@ str printCSrelWithMaxSet(CSset *freqCSset, int* csIdFreqIdxMap, CSrel *csrelToMa
 		if (csrelToMaxSet[i].numRef != 0){	//Only print CS with FK
 			fprintf(fout, "Relationship %d: ", i);
 			freq  = (int *) Tloc(freqBat, i);
-			fprintf(fout, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelToMaxSet[i].origCSoid, *freq, csFreqMap[i]);
+			fprintf(fout, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelToMaxSet[i].origCSoid, *freq, csIdFreqIdxMap[i]);
 			for (j = 0; j < csrelToMaxSet[i].numRef; j++){
 				fprintf(fout, BUNFMT " (%d) ", csrelToMaxSet[i].lstRefCSoid[j],csrelToMaxSet[i].lstCnt[j]);	
 			}	
@@ -488,8 +481,8 @@ str printCSrelWithMaxSet(CSset *freqCSset, int* csIdFreqIdxMap, CSrel *csrelToMa
 		if (csrelFromMaxSet[i].numRef != 0){	//Only print CS with FK
 			fprintf(fout1, "Relationship %d: ", i);
 			freq  = (int *) Tloc(freqBat, i);
-			fprintf(fout1, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelFromMaxSet[i].origCSoid, *freq, csFreqMap[i]);
-			fprintf(fout1filter, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelFromMaxSet[i].origCSoid, *freq, csFreqMap[i]);		
+			fprintf(fout1, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelFromMaxSet[i].origCSoid, *freq, csIdFreqIdxMap[i]);
+			fprintf(fout1filter, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelFromMaxSet[i].origCSoid, *freq, csIdFreqIdxMap[i]);		
 
 			for (j = 0; j < csrelFromMaxSet[i].numRef; j++){
 				fprintf(fout1, BUNFMT " (%d) ", csrelFromMaxSet[i].lstRefCSoid[j],csrelFromMaxSet[i].lstCnt[j]);	
@@ -534,8 +527,8 @@ str printCSrelWithMaxSet(CSset *freqCSset, int* csIdFreqIdxMap, CSrel *csrelToMa
 			fprintf(fout2, "Relationship %d: ", i);
 			fprintf(fout2filter, "Relationship %d: ", i);
 			freq  = (int *) Tloc(freqBat, i);
-			fprintf(fout2, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelBetweenMaxSet[i].origCSoid, *freq, csFreqMap[i]);
-			fprintf(fout2filter, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelBetweenMaxSet[i].origCSoid, *freq, csFreqMap[i]);
+			fprintf(fout2, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelBetweenMaxSet[i].origCSoid, *freq, csIdFreqIdxMap[i]);
+			fprintf(fout2filter, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", csrelBetweenMaxSet[i].origCSoid, *freq, csIdFreqIdxMap[i]);
 
 			for (j = 0; j < csrelBetweenMaxSet[i].numRef; j++){
 				#if SHOWPROPERTYNAME
@@ -1098,7 +1091,8 @@ void freeCSset(CSset *csSet){
 
 	#if STOREFULLCS
 	for(i = 0; i < csSet->numOrigFreqCS; i ++){
-		free(csSet->items[i].lstObj);
+		if (csSet->items[i].lstObj != NULL)
+			free(csSet->items[i].lstObj);
 	}
 	#endif
 
@@ -1176,13 +1170,17 @@ CS* creatCS(oid csId, int numP, oid* buff, char type,  int parentfreqIdx, int su
 	cs->numAllocation = numP; 
 	/*By default, this CS is not known to be a subset of any other CS*/
 	#if STOREFULLCS
-	cs->lstObj =  (oid*) malloc(sizeof(oid) * numP);
-	if (cs->lstObj == NULL){
-		printf("Malloc failed. at %d", numP);
-		exit(-1); 
-	}
-	copyOidSet(cs->lstObj, lstObject, numP); 
 	cs->subject = subjectId; 
+	if (subjectId != BUN_NONE){
+		cs->lstObj =  (oid*) malloc(sizeof(oid) * numP);
+		if (cs->lstObj == NULL){
+			printf("Malloc failed. at %d", numP);
+			exit(-1); 
+		}
+		copyOidSet(cs->lstObj, lstObject, numP); 
+		}
+	else
+		cs->lstObj = NULL; 
 	//printf("Create a CS with subjectId: " BUNFMT "\n", subjectId);
 	#endif
 
@@ -1401,22 +1399,23 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 
 #if SHOWPROPERTYNAME
 	str 	propStr; 
+	#if STOREFULLCS
 	str	subStr; 
 	str	objStr; 
 	oid 	objOid; 
 	char 	objType; 
-	BATiter mapi; 
-	int	ret; 
 	BUN	bun; 
+	#endif
+	int	ret; 
 	char*   schema = "rdf";
-
-
+	
+	BATiter mapi; 
+	(void) mapi;
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
 		throw(RDF, "rdf.rdfschema",
 				"could not open the tokenizer\n");
 	}
 	
-
 	mapi = bat_iterator(mapbat); 
 #endif	
 
@@ -1425,10 +1424,7 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 			CS cs = (CS)freqCSset->items[i];
 			freq  = (int *) Tloc(freqBat, cs.csId);
 
-			takeOid(cs.csId, &subStr);	
-
-			printf("CS " BUNFMT " (Freq: %d) | Subject: %s  |  Parent " BUNFMT " \n", cs.csId, *freq, subStr, freqCSset->items[cs.parentFreqIdx].csId);
-			GDKfree(subStr);
+			printf("CS " BUNFMT " (Freq: %d) | Parent " BUNFMT " \n", cs.csId, *freq, freqCSset->items[cs.parentFreqIdx].csId);
 			for (j = 0; j < cs.numProp; j++){
 				printf("  P:" BUNFMT " --> \n", cs.lstProp[j]);	
 			}	
@@ -1451,18 +1447,30 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 		for (i = 0; i < freqCSset->numCSadded; i++){
 			CS cs = (CS)freqCSset->items[i];
 			freq  = (int *) Tloc(freqBat, cs.csId);
-			
+			if (cs.type != MAXCS) assert(*freq == cs.support);
 
-			takeOid(cs.subject, &subStr);	
-			
-			fprintf(fout,"CS " BUNFMT " (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, *freq, subStr, cs.parentFreqIdx);
-
-			// Filter max freq cs set
-			if (cs.type == MAXCS){
-				fprintf(fout2,"CS " BUNFMT " (Freq: %d) | Subject: %s  | Parent " BUNFMT " \n", cs.csId, *freq, subStr, cs.csId);
-			}
+			#if STOREFULLCS	
+			if (cs.subject != BUN_NONE){
+				takeOid(cs.subject, &subStr);	
 				
-			GDKfree(subStr);
+				fprintf(fout,"CS " BUNFMT " (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, *freq, subStr, cs.parentFreqIdx);
+
+				// Filter max freq cs set
+				if (cs.type == MAXCS){
+					fprintf(fout2,"CS " BUNFMT " (Freq: %d) | Subject: %s  | Parent " BUNFMT " \n", cs.csId, cs.support, subStr, cs.csId);
+				}
+					
+				GDKfree(subStr);
+			}
+			else{
+				fprintf(fout,"CS " BUNFMT " (Freq: %d) | Subject: NOTAVAI  | FreqParentIdx %d \n", cs.csId, *freq, cs.parentFreqIdx);
+
+				if (cs.type == MAXCS){
+					fprintf(fout2,"CS " BUNFMT " (Freq: %d) | Subject: NOTAVAI  | Parent " BUNFMT " \n", cs.csId, cs.support, cs.csId);
+				}
+					
+			}
+			#endif	
 
 			for (j = 0; j < cs.numProp; j++){
 				takeOid(cs.lstProp[j], &propStr);
@@ -1473,30 +1481,34 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 				}
 
 				GDKfree(propStr);
-
+				
+				#if STOREFULLCS
 				// Get object value
-				objOid = cs.lstObj[j]; 
+				if (cs.lstObj != NULL){
+					objOid = cs.lstObj[j]; 
 
-				objType = getObjType(objOid); 
+					objType = getObjType(objOid); 
 
-				if (objType == URI || objType == BLANKNODE){
-					objOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
-					takeOid(objOid, &objStr); 
-				}
-				else{
-					objOid = objOid - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the real objOid from Map or Tokenizer */ 
-					bun = BUNfirst(mapbat);
-					objStr = (str) BUNtail(mapi, bun + objOid); 
-				}
+					if (objType == URI || objType == BLANKNODE){
+						objOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
+						takeOid(objOid, &objStr); 
+					}
+					else{
+						objOid = objOid - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the real objOid from Map or Tokenizer */ 
+						bun = BUNfirst(mapbat);
+						objStr = (str) BUNtail(mapi, bun + objOid); 
+					}
 
-				fprintf(fout, "  O: %s \n", objStr);
-				if (cs.type == MAXCS){
-					fprintf(fout2, "  O: %s \n", objStr);
-				}
+					fprintf(fout, "  O: %s \n", objStr);
+					if (cs.type == MAXCS){
+						fprintf(fout2, "  O: %s \n", objStr);
+					}
 
-				if (objType == URI || objType == BLANKNODE){
-					GDKfree(objStr);
+					if (objType == URI || objType == BLANKNODE){
+						GDKfree(objStr);
+					}
 				}
+				#endif
 
 
 			}	
@@ -2228,8 +2240,8 @@ void getMaximumFreqCSs(CSset *freqCSset, CSlabel* labels, BAT* coverageBat, BAT*
 		}
 		else{
 			freqCSset->items[i].type = MAXCS; 	//Update type for this freqCS
-			freqCSset->items[i].coverage += *coverage;
-			freqCSset->items[i].support += *freq;
+			//freqCSset->items[i].coverage += *coverage;
+			//freqCSset->items[i].support += *freq;
 
 		}
 
@@ -3069,6 +3081,66 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 	return MAL_SUCCEED; 
 }
 
+
+static 
+str RDFgetRefCounts(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, int maxNumProp, BUN maxSoid, int *refCount){
+
+	BUN 		p, q; 
+	oid 		*sbt, *pbt, *obt; 
+	oid 		curS; 		/* current Subject oid */
+	oid 		curP; 		/* current Property oid */
+	int 		numP; 		/* Number of properties for current S */
+	oid*		buff; 	 
+	oid 		tmpCSid; 
+
+	char 		objType;
+	oid		realObjOid; 	
+
+	buff = (oid *) malloc (sizeof(oid) * maxNumProp);
+
+	numP = 0;
+	curP = 0; 
+	curS = 0; 
+
+	BATloop(sbat, p, q){
+		sbt = (oid *) BUNtloc(si, p);		
+		if (*sbt != curS){
+			curS = *sbt; 
+			curP = 0;
+			numP = 0;
+		}
+			
+		obt = (oid *) BUNtloc(oi, p);
+		objType = getObjType(*obt);
+	
+		pbt = (oid *) BUNtloc(pi, p);
+
+		/* Look at the referenced CS Id using subjCSMap */
+		if (objType == URI || objType == BLANKNODE){
+			realObjOid = (*obt) - ((oid) objType << (sizeof(BUN)*8 - 4));
+			tmpCSid = subjCSMap[realObjOid];
+			if (realObjOid <= maxSoid && tmpCSid != BUN_NONE){
+				refCount[tmpCSid]++; 
+			}
+
+		}
+
+		if (curP != *pbt){	/* Multi values property */		
+			buff[numP] = *pbt; 
+			numP++; 
+			curP = *pbt; 
+		}
+
+		
+	}
+	
+	free (buff); 
+
+	*ret = 1; 
+
+	return MAL_SUCCEED; 
+}
+
 static 
 str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,  
 		oid *subjCSMap, oid *subjSubCSMap, SubCSSet *csSubCSSet, CSrel *csrelSet, BUN maxSoid, int maxNumPwithDup){
@@ -3114,7 +3186,7 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 				
 		obt = (oid *) BUNtloc(oi, p); 
 		/* Check type of object */
-		objType = (char) ((*obt) >> (sizeof(BUN)*8 - 4))  &  7 ;	/* Get two bits 63th, 62nd from object oid */
+		objType = getObjType(*obt);
 	
 		pbt = (oid *) BUNtloc(pi, p);
 
@@ -3156,6 +3228,69 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 	return MAL_SUCCEED; 
 }
 
+static
+str addHighRefCSsToFreqCS(BAT *pOffsetBat, BAT *freqBat, BAT *coverageBat, BAT *fullPBat, 
+		int* refCount, CSset *freqCSset, int *csIdFreqIdxMap, int numCS, int threshold){
+	int 	i; 
+	int 	numP; 
+	CS      *freqCS;
+	BATiter pi, freqi, coveri; 
+	int	freqId = -1; 
+	int 	*freq, *coverage;
+	oid	*buffP; 
+	oid	*offset, *offset2;
+	
+	pi = bat_iterator(pOffsetBat);
+	freqi = bat_iterator(freqBat);
+	coveri = bat_iterator(coverageBat); 
+	
+	assert((BUN)numCS == BATcount(pOffsetBat)); 
+	for (i = 0; i < numCS; i ++){			
+		//printf("refCount[%d] = %d \n", i,refCount[i]);
+		freqId = csIdFreqIdxMap[i];
+		if (freqId == -1){  /* Not a freqCS */
+			if (refCount[i] > threshold){	/* Add highly referred CS to freqCSset*/
+				
+				offset = (oid *) BUNtloc(pi, i);		
+
+				if ((BUN)(i+1) != BUNlast(pOffsetBat)){
+					offset2 = (oid *)BUNtloc(pi, (BUN)i + 1);
+					numP = *offset2 - *offset;
+				}
+				else	//Last element
+					numP = BUNlast(fullPBat) - *offset;
+
+				freq = (int *) BUNtloc(freqi, (BUN)i); 
+				coverage = (int *) BUNtloc(coveri, (BUN)i); 	
+
+			
+				buffP = (oid *)Tloc(fullPBat, *offset);	
+				#if STOREFULLCS
+				/* use BUN_NONE for subjId --> do not have this information*/
+				freqCS = creatCS(i, numP, buffP, BUN_NONE, NULL, FREQCS,-1,  *freq,*coverage);
+				#else
+				freqCS = creatCS(i, numP, buffP, FREQCS,-1,*freq,*coverage);
+				#endif
+				//printf("Add highly referred CS \n"); 
+				addCStoSet(freqCSset, *freqCS);
+				csIdFreqIdxMap[i] = freqCSset->numCSadded - 1; 
+				free(freqCS);
+
+			}
+		}
+		else{	/* Update */
+			freq = (int *) BUNtloc(freqi, (BUN)i);
+			coverage = (int *) BUNtloc(coveri, (BUN)i);
+			freqCSset->items[freqId].support = *freq;
+			freqCSset->items[freqId].coverage = *coverage;
+		}
+	}
+
+	/* Update number of original FreqCS*/
+	freqCSset->numOrigFreqCS = freqCSset->numCSadded;
+
+	return MAL_SUCCEED; 
+}
 
 
 static 
@@ -3435,11 +3570,12 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	BUN		*maxSoid; 	
 	int		maxNumProp = 0;
-	char		*csFreqMap; 
 	CSrel   	*csrelSet;
 	CSrel		*csrelToMaxFreqSet, *csrelFromMaxFreqSet;
 	CSrel		*csrelBetweenMaxFreqSet; 
 	SubCSSet 	*csSubCSSet; 
+
+	int 		*refCount; 	/* Count the number of references to each CS */
 
 	int*		csIdFreqIdxMap; /* Map a CSId to a freqIdx. Should be removed in the future .... */
 
@@ -3449,7 +3585,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	CSset		*freqCSset; 
 	clock_t 	curT;
 	clock_t		tmpLastT; 
-
 	OntoUsageNode	*ontoUsageTree = NULL;
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
@@ -3507,26 +3642,34 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	#else
 	RDFassignCSId(ret, sbat, si, pi, freqCSset, freqThreshold, csBats, *subjCSMap, maxCSoid, &maxNumProp, maxNumPwithDup);
 	#endif
-	
+		
 	curT = clock(); 
 	printf (" ----- Exploring all CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
+	
+	/* Phase 2: Get the references count for each CS. Add frequent one to freqCSset */
 
+	csIdFreqIdxMap = (int *) malloc (sizeof(int) * (*maxCSoid + 1));
+	initcsIdFreqIdxMap(csIdFreqIdxMap, *maxCSoid + 1, -1, freqCSset);
+
+	refCount = (int *) malloc(sizeof(int) * (*maxCSoid + 1));
+	initIntArray(refCount, (*maxCSoid + 1), 0); 
+	RDFgetRefCounts(ret, sbat, si, pi,oi, *subjCSMap, maxNumProp, *maxSoid, refCount);
+	addHighRefCSsToFreqCS(csBats->pOffsetBat, csBats->freqBat, csBats->coverageBat, csBats->fullPBat, refCount, freqCSset, csIdFreqIdxMap, *maxCSoid + 1, 2* (*freqThreshold)); 
+
+	
 	//Phase 2: Check the relationship	
 
 	printf("Max CS oid: " BUNFMT "\n", *maxCSoid);
 
 	printf("Max Number of P (considering duplicated P): %d \n", *maxNumPwithDup);
 
-	csFreqMap = (char*) malloc(sizeof(char) * (*maxCSoid +1)); 
-	initCharArray(csFreqMap, *maxCSoid +1, 0); 
+	printf("Number of freqCSs: %d \n", freqCSset->numCSadded);
 
 
-	generateFreqCSMap(freqCSset,csFreqMap); 
 
 
 	csrelSet = initCSrelset(*maxCSoid + 1);
-
 
 	csSubCSSet = initCS_SubCSSets(*maxCSoid +1); 
 
@@ -3537,7 +3680,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	tmpLastT = curT; 		
 
 
-	printCSrelSet(csrelSet,csFreqMap, csBats->freqBat, *maxCSoid + 1, 1, *freqThreshold);  
+	printCSrelSet(csrelSet,csIdFreqIdxMap, csBats->freqBat, *maxCSoid + 1, 1, *freqThreshold);  
 
 	setdefaultSubCSs(csSubCSSet,*maxCSoid + 1, sbat, subjSubCSMap, *subjCSMap, *subjdefaultMap);
 
@@ -3557,8 +3700,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 
 	// Create label per freqCS
-	csIdFreqIdxMap = (int *) malloc (sizeof(int) * (*maxCSoid + 1));
-	initcsIdFreqIdxMap(csIdFreqIdxMap, *maxCSoid + 1, -1, freqCSset);
+
 	printf("Using ontologies with %d ontattributesCount and %d ontmetadataCount \n",ontattributesCount,ontmetadataCount);
 	
 	(*labels) = createLabels(freqCSset, csrelSet, *maxCSoid + 1, sbat, si, pi, oi, *subjCSMap, mbat, csIdFreqIdxMap, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &ontoUsageTree);
@@ -3586,7 +3728,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	csrelFromMaxFreqSet = initCSrelset(*maxCSoid + 1);	// CS --> Reference MaxCSs
 	csrelBetweenMaxFreqSet = initCSrelset(*maxCSoid + 1);	// MaxCS --> Reference MaxCSs
 
-	printCSrelWithMaxSet(freqCSset, csIdFreqIdxMap, csrelToMaxFreqSet, csrelFromMaxFreqSet, csrelBetweenMaxFreqSet, csrelSet,csFreqMap, csBats->freqBat, *maxCSoid + 1, *freqThreshold);  
+	printCSrelWithMaxSet(freqCSset, csIdFreqIdxMap, csrelToMaxFreqSet, csrelFromMaxFreqSet, csrelBetweenMaxFreqSet, csrelSet, csBats->freqBat, *maxCSoid + 1, *freqThreshold);  
 
 	superCSFreqCSMap = (oid*) malloc(sizeof(oid) * numMaxCSs); 
 	superCSMergeMaxCSMap = (oid*) malloc(sizeof(oid) * numMaxCSs);
@@ -3620,7 +3762,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	freeOntoUsageTree(ontoUsageTree);
 	free (subjSubCSMap);
-	free (csFreqMap);
 	free (superCSFreqCSMap);
 	free (superCSMergeMaxCSMap); 
 
