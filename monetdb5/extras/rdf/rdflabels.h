@@ -68,6 +68,17 @@ typedef struct TypeStat {
 	int		freq;		// number of CS's the value occurs in
 } TypeStat;
 
+// Tree node to store the number of tuples per ontology class
+typedef struct OntoUsageNode {
+	struct OntoUsageNode	*parent;
+	struct OntoUsageNode	**lstChildren;
+	str			uri; // TODO uri==NULL <=> artificial root
+	int			numChildren;
+	int			numOccurances; // TODO overflow 2,000,000?
+	int			numOccurancesSum;
+	float			percentage; // TODO rename, range [0..1]
+} OntoUsageNode;
+
 #define FK_FREQ_THRESHOLD 25		// X % of the targeted subjects have to be in this table
 #define TYPE_FREQ_THRESHOLD 10		// X % of the type values have to be this value
 #define ONTOLOGY_FREQ_THRESHOLD 0.5	// similarity threshold for tfidf simularity for ontology classes
@@ -80,7 +91,7 @@ typedef struct TypeStat {
 #define SHOW_CANDIDATES 0		// inserts a row in UML diagrams to show all candidate names
 
 rdf_export CSlabel*
-createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, BAT* mapbat, int *csIdFreqIdxMap, str** ontattributes, int ontattributesCount, str** ontmetadata, int ontmetadataCount);
+createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, BAT* mapbat, int *csIdFreqIdxMap, str** ontattributes, int ontattributesCount, str** ontmetadata, int ontmetadataCount, OntoUsageNode** ontoUsageTree);
 
 rdf_export CSlabel*
 createFinalLabels(CSlabel* labels, CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, int freqThreshold);
@@ -90,5 +101,8 @@ freeLabels(CSlabel* labels, CSset* freqCSset);
 
 rdf_export void
 freeFinalLabels(CSlabel* labels, CSset* freqCSset);
+
+rdf_export void
+freeOntoUsageTree(OntoUsageNode* tree);
 
 #endif /* _RDFLABELS_H_ */

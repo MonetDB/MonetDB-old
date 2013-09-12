@@ -1656,7 +1656,6 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 	TKNZRclose(&ret);
 }
 
-#if USE_TABLE_NAME
 static
 str* getOntoHierarchy(str ontology, int* hierarchyCount, str** ontmetadata, int ontmetadataCount) {
 	int		i;
@@ -1677,7 +1676,7 @@ str* getOntoHierarchy(str ontology, int* hierarchyCount, str** ontmetadata, int 
 		// lookup superclass
 		int foundTuple = 0;
 		for (i = 0; i < ontmetadataCount; ++i) {
-		str muristr = ontmetadata[0][i];
+			str muristr = ontmetadata[0][i];
 			str msuperstr = ontmetadata[1][i];
 			if (strcmp(hierarchy[(*hierarchyCount) - 1], muristr) == 0) {
 				// found entry
@@ -1707,8 +1706,6 @@ str* getOntoHierarchy(str ontology, int* hierarchyCount, str** ontmetadata, int 
 
 	return hierarchy;
 }
-#endif
-
 
 #if USE_TABLE_NAME
 /* For one CS: Choose the best table name out of all collected candidates (ontology, type, fk). */
@@ -1972,6 +1969,182 @@ void createLinks(CSset* freqCSset, Relation*** relationMetadata, int** relationM
 #endif
 
 static
+void createOntoUsageTreeStatistics(OntoUsageNode* tree, int numTuples) {
+	int i;
+
+	if (tree->numChildren == 0) {
+		// leaf node
+		tree->numOccurancesSum = tree->numOccurances;
+		tree->percentage = (1.0 * tree->numOccurancesSum) / numTuples;
+	} else {
+		// inner node
+		tree->numOccurancesSum = tree->numOccurances;
+		for (i = 0; i < tree->numChildren; ++i) {
+			createOntoUsageTreeStatistics(tree->lstChildren[i], numTuples);
+			// sum up data
+			tree->numOccurancesSum += tree->lstChildren[i]->numOccurancesSum;
+		}
+		tree->percentage = (1.0 * tree->numOccurancesSum) / numTuples;
+	}
+}
+
+static
+void addToOntoUsageTree(OntoUsageNode* tree, str* hierarchy, int hierarchyCount, int numTuples) {
+	int		i;
+	str		uri;
+	OntoUsageNode	*leaf;
+
+	if (hierarchyCount == 0) {
+		// found position in tree
+//		tree->numOccurances += numTuples; // TODO cs.support not yet available
+		tree->numOccurances += 1;
+		return;
+	}
+
+	// search through children
+	uri  = hierarchy[hierarchyCount - 1];
+	hierarchyCount--;
+	for (i = 0; i < tree->numChildren; ++i) {
+		if (strcmp(tree->lstChildren[i]->uri, uri) == 0) {
+			// found
+			addToOntoUsageTree(tree->lstChildren[i], hierarchy, hierarchyCount, numTuples);
+			return;
+		}
+	}
+
+	// child not found
+	// create leaf
+	leaf = (OntoUsageNode *) malloc(sizeof(OntoUsageNode));
+	if (!leaf)
+		fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+	leaf->parent = tree;
+	leaf->uri = (str) malloc(sizeof(char) * (strlen(uri) + 1));
+	if (!leaf->uri)
+		fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+	strcpy(leaf->uri, uri);
+	leaf->lstChildren = NULL;
+	leaf->numChildren = 0;
+	leaf->numOccurances = 0;
+	leaf->numOccurancesSum = 0;
+	leaf->percentage = 0.0;
+	// add to tree
+	tree->numChildren++;
+	tree->lstChildren = realloc(tree->lstChildren, sizeof(OntoUsageNode *) * tree->numChildren);
+	if (!tree->lstChildren)
+		fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+	tree->lstChildren[tree->numChildren - 1] = leaf;
+	// call
+	addToOntoUsageTree(leaf, hierarchy, hierarchyCount, numTuples);
+}
+
+
+static
+void printTree(OntoUsageNode* tree, int level) {
+	int i;
+	printf("Level %d URI %s Count %d Sum %d Percent %.1f\n", level, tree->uri, tree->numOccurances, tree->numOccurancesSum, tree->percentage * 100);
+	for (i = 0; i < tree->numChildren; ++i) {
+		printTree(tree->lstChildren[i], level+1);
+	}
+}
+
+static
+void createOntoUsageTree(OntoUsageNode** tree, CSset* freqCSset, str** ontmetadata, int ontmetadataCount, str** result, int* resultCount, int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount) {
+	int 		i, j, k;
+	str		*tmpList;
+	int		tmpListCount;
+	int 		numTuples = 0;
+
+	// init tree with an artifical root node
+	(*tree) = (OntoUsageNode *) malloc(sizeof(OntoUsageNode));
+	if (!(*tree))
+		fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+	(*tree)->parent = NULL;
+	(*tree)->uri = NULL; // artificial root;
+	(*tree)->lstChildren = NULL;
+	(*tree)->numChildren = 0;
+	(*tree)->numOccurances = 0;
+	(*tree)->numOccurancesSum = 0;
+	(*tree)->percentage = 0.0;
+
+	// loop through data
+	for (i = 0; i < freqCSset->numCSadded; ++i) {
+		str		uri;
+		int		hierarchyCount = 0;
+		str*		hierarchy;
+
+		// get ontology
+		// copied from getTableName, TODO improve!
+		if (resultCount[i] == 0) {
+			// no hierarchy --> ignore
+			continue;
+		} else if (resultCount[i] == 1) {
+			// one ontology class --> use it
+			uri = (char *) malloc(sizeof(char) * (strlen(result[i][0]) + 1));
+			if (!uri)
+				fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			strcpy(uri, result[i][0]);
+		} else {
+			// multiple ontology classes --> intersect with types
+			tmpList = NULL;
+			tmpListCount = 0;
+			// search for type values
+			for (i = 0; i < typeAttributesCount; ++i) {
+				for (j = 0; j < typeAttributesHistogramCount[i][i]; ++j) {
+					if (typeAttributesHistogram[i][i][j].percent < TYPE_FREQ_THRESHOLD) break; // sorted
+					// intersect type with ontology classes
+					for (k = 0; k < resultCount[i]; ++k) {
+						if (strcmp(result[i][k], typeAttributesHistogram[i][i][j].value) == 0) {
+							// found, copy ontology class to tmpList
+							tmpList = (str *) realloc(tmpList, sizeof(str) * (tmpListCount + 1));
+							if (!tmpList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+							tmpList[tmpListCount] = result[i][k]; // pointer, no copy
+							tmpListCount += 1;
+						}
+					}
+				}
+			}
+			if (tmpListCount == 1) {
+				// only one left --> use it
+				uri = (char *) malloc(sizeof(char) * (strlen(tmpList[0]) + 1));
+				if (!uri)
+					fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+				strcpy(uri, tmpList[0]);
+				free(tmpList);
+			} else if (tmpListCount > 1) {
+				// multiple left --> use the class that covers most attributes, most popular ontology, ...
+				uri = (char *) malloc(sizeof(char) * (strlen(tmpList[0]) + 1));
+				if (!uri)
+					fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+				strcpy(uri, tmpList[0]); // sorted
+				free(tmpList);
+			} else {
+				// empty intersection -> use the class that covers most attributes, most popular ontology, ..
+				uri = (char *) malloc(sizeof(char) * (strlen(result[i][0]) + 1));
+				if (!uri)
+					fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+				strcpy(uri, result[i][0]); // sorted
+				free(tmpList);
+			}
+		}
+
+		// get ontology hierarchy
+		hierarchy = getOntoHierarchy(uri, &hierarchyCount, ontmetadata, ontmetadataCount);
+
+		// search class in tree and add CS to statistics
+		addToOntoUsageTree(*tree, hierarchy, hierarchyCount, freqCSset->items[i].support);
+//		numTuples += freqCSset->items[i].support; // update total number of tuples in dataset // TODO cs.support not yet available
+		numTuples += 1;
+	}
+
+	// calculate summed parameters
+	createOntoUsageTreeStatistics(*tree, numTuples);
+
+	// print
+	printf("Ontology tree:\n");
+	printTree(*tree, 0);
+}
+
+static
 void freeTypeAttributesHistogram(TypeAttributesFreq*** typeAttributesHistogram, int csCount, int typeAttributesCount) {
 	int		i, j;
 
@@ -2111,7 +2284,7 @@ int* getSubCS(CSset* freqCSset, int csIdx, int* csListLength) {
 }
 
 /* Creates labels for all CS (without a parent). */
-CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, BAT* mbat, int *csIdFreqIdxMap, str** ontattributes, int ontattributesCount, str** ontmetadata, int ontmetadataCount) {
+CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, BAT* mbat, int *csIdFreqIdxMap, str** ontattributes, int ontattributesCount, str** ontmetadata, int ontmetadataCount, OntoUsageNode** ontoUsageTree) {
 #if USE_TYPE_NAMES
 	char*		typeAttributes[] = {
 				"http://ogp.me/ns#type",
@@ -2178,9 +2351,7 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 	// freeOntmetadata(ontmetadata);
 #else
 	(void) ontattributesCount;
-	(void) ontmetadataCount;
 	(void) ontattributes;
-	(void) ontmetadata;
 #endif
 
 	// Assigning Names
@@ -2189,6 +2360,9 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 	getAllLabels(labels, freqCSset, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeStat, typeStatCount, ontologyLookupResult, ontologyLookupResultCount, links, ontmetadata, ontmetadataCount);
 	if (typeStatCount > 0) free(typeStat);
 #endif
+
+	// Collect ontology statistics (tree)
+	createOntoUsageTree(ontoUsageTree, freqCSset, ontmetadata, ontmetadataCount, ontologyLookupResult, ontologyLookupResultCount, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount);
 
 	free(ontologyLookupResultCount);
 	freeOntologyLookupResult(ontologyLookupResult, freqCSset->numCSadded);
@@ -2310,4 +2484,23 @@ void freeFinalLabels(CSlabel* labels, CSset* freqCSset) {
 		}
 	}
 	free(labels);
+}
+
+void freeOntoUsageTree(OntoUsageNode* tree) {
+	int i;
+
+	if (tree->numChildren == 0) {
+		// leaf node
+		free(tree->uri);
+		free(tree);
+		return;
+	}
+
+	// inner node
+	for (i = 0; i < tree->numChildren; ++i) {
+		freeOntoUsageTree(tree->lstChildren[i]);
+	}
+	free(tree->lstChildren);
+	free(tree->uri);
+	free(tree);
 }
