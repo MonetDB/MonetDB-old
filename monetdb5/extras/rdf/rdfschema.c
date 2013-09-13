@@ -1584,6 +1584,7 @@ str printmergeCSSet(CSset *freqCSset, int freqThreshold){
 	char*   schema = "rdf";
 	int	nummergecs;	
 	CS	freqcs; 
+	int	totalCoverage = 0; 
 
 	nummergecs = freqCSset->numCSadded; 
 
@@ -1620,6 +1621,17 @@ str printmergeCSSet(CSset *freqCSset, int freqThreshold){
 
 	fclose(fout);
 	
+	/*Asserting the total number of coverage by mergeCS */
+
+	for (i = 0; i < nummergecs; i++){
+		CS cs = (CS)freqCSset->items[i];
+		if (cs.parentFreqIdx == -1){
+			totalCoverage += cs.coverage; 
+		}
+	}
+
+	printf("Total coverage by merged CS's: %d \n", totalCoverage);
+
 	TKNZRclose(&ret);
 	return MAL_SUCCEED;
 }
@@ -2754,7 +2766,6 @@ static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *covera
 	int	*freq, *coverage; 
 	char 	filename[100];
 	char 	tmpStr[20];
-	int 	totalCoverage =0;
 
 	strcpy(filename, "csStatistic");
 	sprintf(tmpStr, "%d", freqThreshold);
@@ -2781,10 +2792,6 @@ static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *covera
 		freq = (int *) BUNtloc(freqi, p); 
 		coverage = (int *) BUNtloc(coveri, p); 
 		 
-		if (*freq >= freqThreshold){
-			totalCoverage += *coverage;
-		}
-
 		// Output the result 
 		if (isWriteToFile == 0)
 			printf(BUNFMT "  %d  %d %d \n", p, numP, *freq, *coverage); 
@@ -2792,7 +2799,6 @@ static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *covera
 			fprintf(fout, BUNFMT " %d  %d %d \n", p, numP, *freq, *coverage); 
 	}
 	
-	printf("Number of triples covered by frequentCS: %d \n", totalCoverage);
 	fclose(fout); 
 	//free(csPropNum); 
 }
@@ -3264,6 +3270,8 @@ str addHighRefCSsToFreqCS(BAT *pOffsetBat, BAT *freqBat, BAT *coverageBat, BAT *
 	int 	*freq, *coverage;
 	oid	*buffP; 
 	oid	*offset, *offset2;
+	int	totalCoverByFreqCS = 0;
+
 	
 	pi = bat_iterator(pOffsetBat);
 	freqi = bat_iterator(freqBat);
@@ -3313,6 +3321,14 @@ str addHighRefCSsToFreqCS(BAT *pOffsetBat, BAT *freqBat, BAT *coverageBat, BAT *
 
 	/* Update number of original FreqCS*/
 	freqCSset->numOrigFreqCS = freqCSset->numCSadded;
+
+	/* Check the total number of triples covered by freqCS */	
+	for (i = 0; i < freqCSset->numOrigFreqCS; i++){
+		CS cs = (CS)freqCSset->items[i];
+		totalCoverByFreqCS += cs.coverage; 
+	}
+
+	printf("Total coverage by freq CS's: %d \n", totalCoverByFreqCS);
 
 	return MAL_SUCCEED; 
 }
@@ -3726,14 +3742,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	//createTreeForCSset(freqCSset); 	// DOESN'T HELP --> REMOVE
 	
-	//curT = clock(); 
-	//printf (" -----	Create tree for frequent CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
-	//tmpLastT = curT; 		
-
 	/*get the statistic */
 	//getTopFreqCSs(csMap,*freqThreshold);
-
-
 
 	// Create label per freqCS
 
