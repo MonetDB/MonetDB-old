@@ -389,40 +389,16 @@ oid getMaxCSIdFromCSId(oid csId, int* csIdFreqIdxMap, CSset *freqCSset){
 	return maxCSoid; 
 }
 
-/*
- * Show the relationship from each CS to maximumFreqCSs
- * */
-
-
 static 
-str printCSrelWithMaxSet(CSset *freqCSset, int* csIdFreqIdxMap, CSrel *csrelToMaxSet, CSrel *csrelFromMaxSet, CSrel *csrelBetweenMaxSet, CSrel *csrelSet, BAT* freqBat, int num, int freqThreshold){
-
-	int 	i; 
-	int 	j; 
-	int 	*freq; 
-	FILE 	*fout, *fout1, *fout1filter, *fout2,*fout2filter; 
-	char 	filename[100], filename1[100], filename2[100];
-	char 	tmpStr[50];
-	oid 	maxCSoid; 
-
-#if SHOWPROPERTYNAME
-	str 	propStr; 
-	int	ret; 
-	char*   schema = "rdf";
-
-	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
-		throw(RDF, "rdf.rdfschema",
-				"could not open the tokenizer\n");
-	}
-
-#endif	
-
-
+str generateCSrelWithMaxSet(CSset *freqCSset, int* csIdFreqIdxMap, CSrel *csrelToMaxSet, CSrel *csrelFromMaxSet, CSrel *csrelBetweenMaxSet, CSrel *csrelSet,  int num){
+	
+	int i, j; 
+	oid maxCSoid;
 
 	// Merge the relationships to create csrelToMaxSet, csrelFromMaxSet
 	for (i = 0; i < num; i++){
-		maxCSoid = getMaxCSIdFromCSId(csrelSet[i].origCSoid, csIdFreqIdxMap,freqCSset); 
 		if (csrelSet[i].numRef != 0){
+			maxCSoid = getMaxCSIdFromCSId(csrelSet[i].origCSoid, csIdFreqIdxMap,freqCSset); 
 			for (j = 0; j < csrelSet[i].numRef; j++){		
 				if (getMaxCSIdFromCSId(csrelSet[i].lstRefCSoid[j],csIdFreqIdxMap,freqCSset) != BUN_NONE){
 					addReltoCSRelWithFreq(csrelSet[i].origCSoid, getMaxCSIdFromCSId(csrelSet[i].lstRefCSoid[j], csIdFreqIdxMap,freqCSset), csrelSet[i].lstPropId[j], csrelSet[i].lstCnt[j], csrelSet[i].lstBlankCnt[j], &csrelToMaxSet[i]);
@@ -445,6 +421,48 @@ str printCSrelWithMaxSet(CSset *freqCSset, int* csIdFreqIdxMap, CSrel *csrelToMa
 			}
 		}
 	}
+
+
+	// Merge the csrelToMaxSet --> csrelBetweenMaxSet
+	for (i = 0; i < num; i++){
+		maxCSoid = getMaxCSIdFromCSId(csrelToMaxSet[i].origCSoid, csIdFreqIdxMap,freqCSset);
+		if (csrelToMaxSet[i].numRef != 0 && maxCSoid != BUN_NONE){
+			for (j = 0; j < csrelToMaxSet[i].numRef; j++){		
+				assert(getMaxCSIdFromCSId(csrelToMaxSet[i].lstRefCSoid[j], csIdFreqIdxMap,freqCSset) == csrelToMaxSet[i].lstRefCSoid[j]);
+				addReltoCSRelWithFreq(maxCSoid, getMaxCSIdFromCSId(csrelToMaxSet[i].lstRefCSoid[j], csIdFreqIdxMap,freqCSset), csrelToMaxSet[i].lstPropId[j], csrelToMaxSet[i].lstCnt[j],csrelToMaxSet[i].lstBlankCnt[j], &csrelBetweenMaxSet[maxCSoid]);
+			}
+		}
+	}
+
+	return MAL_SUCCEED; 
+}
+/*
+ * Show the relationship from each CS to maximumFreqCSs
+ * */
+
+static 
+str printCSrelWithMaxSet(int* csIdFreqIdxMap, CSrel *csrelToMaxSet, CSrel *csrelFromMaxSet, CSrel *csrelBetweenMaxSet, BAT* freqBat, int num, int freqThreshold){
+
+	int 	i; 
+	int 	j; 
+	int 	*freq; 
+	FILE 	*fout, *fout1, *fout1filter, *fout2,*fout2filter; 
+	char 	filename[100], filename1[100], filename2[100];
+	char 	tmpStr[50];
+
+#if SHOWPROPERTYNAME
+	str 	propStr; 
+	int	ret; 
+	char*   schema = "rdf";
+
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "rdf.rdfschema",
+				"could not open the tokenizer\n");
+	}
+
+#endif	
+
+
 
 	// Write csrelToMaxSet to File
 	
@@ -514,16 +532,7 @@ str printCSrelWithMaxSet(CSset *freqCSset, int* csIdFreqIdxMap, CSrel *csrelToMa
 	strcat(filename2, ".filter");
 	fout2filter = fopen(filename2,"wt");
 
-	// Merge the csrelToMaxSet --> csrelBetweenMaxSet
-	for (i = 0; i < num; i++){
-		maxCSoid = getMaxCSIdFromCSId(csrelToMaxSet[i].origCSoid, csIdFreqIdxMap,freqCSset);
-		if (csrelToMaxSet[i].numRef != 0 && maxCSoid != BUN_NONE){
-			for (j = 0; j < csrelToMaxSet[i].numRef; j++){		
-				assert(getMaxCSIdFromCSId(csrelToMaxSet[i].lstRefCSoid[j], csIdFreqIdxMap,freqCSset) == csrelToMaxSet[i].lstRefCSoid[j]);
-				addReltoCSRelWithFreq(maxCSoid, getMaxCSIdFromCSId(csrelToMaxSet[i].lstRefCSoid[j], csIdFreqIdxMap,freqCSset), csrelToMaxSet[i].lstPropId[j], csrelToMaxSet[i].lstCnt[j],csrelToMaxSet[i].lstBlankCnt[j], &csrelBetweenMaxSet[maxCSoid]);
-			}
-		}
-	}
+
 	
 	for (i = 0; i < num; i++){
 		if (csrelBetweenMaxSet[i].numRef != 0){	//Only print CS with FK
@@ -2181,18 +2190,21 @@ void getMaximumFreqCSs(CSset *freqCSset, CSlabel* labels, BAT* coverageBat, BAT*
 	int 	tmpParentIdx; 
 	int* 	coverage; 
 	int* 	freq; 
+	#if USE_LABEL_FINDING_MAXCS
 	char	isLabelComparable = 0;
+	#endif
 	char	isDiffLabel = 0;
-
-	(void) labels; 
-	(void) isLabelComparable;
+	
+	(void) labels;
 
 	printf("Retrieving maximum frequent CSs: \n");
 
 	for (i = 0; i < numFreqCS; i++){
 		if (freqCSset->items[i].parentFreqIdx != -1) continue;
+		#if USE_LABEL_FINDING_MAXCS
 		isLabelComparable = 0;
 		if (strcmp(labels[i].name, "DUMMY") != 0) isLabelComparable = 1;
+		#endif
 
 		for (j = (i+1); j < numFreqCS; j++){
 			isDiffLabel = 0; 
@@ -2262,9 +2274,6 @@ void getMaximumFreqCSs(CSset *freqCSset, CSlabel* labels, BAT* coverageBat, BAT*
 		}
 		else{
 			freqCSset->items[i].type = MAXCS; 	//Update type for this freqCS
-			//freqCSset->items[i].coverage += *coverage;
-			//freqCSset->items[i].support += *freq;
-
 		}
 
 	}
@@ -2554,11 +2563,39 @@ void freePropStat(PropStat *propStat){
 	free(propStat); 
 }
 
+static 
+void initSuperCSFreqCSMap(CSset *freqCSset, oid *superCSFreqCSMap){
+	int i; 
+	int	maxCSid = 0; 
+
+	for (i = 0; i < freqCSset->numCSadded; i++){
+		if (freqCSset->items[i].parentFreqIdx == -1){
+			superCSFreqCSMap[maxCSid] = i; 
+			maxCSid++;
+		}
+	}
+}
+
+static
+void mergeMaxFreqCSByS6(CSrel *csrelBetweenMaxFreqSet, CSset *freqCSset, oid* superCSFreqCSMap, int numMaxCSs){
+	int i; 
+	int freqId1;
+	int relId; 
+	CS*	cs1;
+	for (i = 0; i < numMaxCSs; i++){
+		freqId1 = superCSFreqCSMap[i];
+		cs1 = (CS*) &freqCSset->items[freqId1];
+		relId = cs1->csId; 
+		if (csrelBetweenMaxFreqSet[relId].numRef != 0){
+			continue; 		
+		}
+	}
+
+}
 
 static
 void mergeMaximumFreqCSsAll(CSset *freqCSset, CSlabel* labels, oid* superCSFreqCSMap, oid* superCSMergeMaxCSMap, int numMaxCSs, oid maxCSoid){
 	int 		i, j, k; 
-	int 		maxCSid = 0; 
 	int 		freqId1, freqId2; 
 	float 		simscore = 0.0; 
 	CS     		*mergecs;
@@ -2576,12 +2613,7 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, CSlabel* labels, oid* superCSFreqC
 	(void) labels;
 	(void) isLabelComparable;
 
-	for (i = 0; i < freqCSset->numCSadded; i++){
-		if (freqCSset->items[i].parentFreqIdx == -1){
-			superCSFreqCSMap[maxCSid] = i; 
-			maxCSid++;
-		}
-	}
+
 
 	//Initial superCSMergeMaxCSMap
 	for (i = 0; i < numMaxCSs; i++){
@@ -3754,7 +3786,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	curT = clock(); 
 	printf("Done labeling!!! Took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT;
-
+	
+	/*S4: Merge two CS's having the subset-superset relationship */
 	getMaximumFreqCSs(freqCSset, *labels, csBats->coverageBat,  csBats->freqBat, *maxCSoid + 1, &numMaxCSs); 
 
 	curT = clock(); 
@@ -3774,13 +3807,18 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	csrelFromMaxFreqSet = initCSrelset(*maxCSoid + 1);	// CS --> Reference MaxCSs
 	csrelBetweenMaxFreqSet = initCSrelset(*maxCSoid + 1);	// MaxCS --> Reference MaxCSs
 
-	printCSrelWithMaxSet(freqCSset, csIdFreqIdxMap, csrelToMaxFreqSet, csrelFromMaxFreqSet, csrelBetweenMaxFreqSet, csrelSet, csBats->freqBat, *maxCSoid + 1, *freqThreshold);  
+	generateCSrelWithMaxSet(freqCSset, csIdFreqIdxMap, csrelToMaxFreqSet, csrelFromMaxFreqSet, csrelBetweenMaxFreqSet, csrelSet, *maxCSoid + 1);  	
+
+	printCSrelWithMaxSet(csIdFreqIdxMap, csrelToMaxFreqSet, csrelFromMaxFreqSet, csrelBetweenMaxFreqSet, csBats->freqBat, *maxCSoid + 1, *freqThreshold);  
 
 	superCSFreqCSMap = (oid*) malloc(sizeof(oid) * numMaxCSs); 
+
+	initSuperCSFreqCSMap(freqCSset, superCSFreqCSMap);
+	/* S6: Merged CS referred from the same CS via the same property */
+	mergeMaxFreqCSByS6(csrelBetweenMaxFreqSet, freqCSset, superCSFreqCSMap, numMaxCSs);
+
 	superCSMergeMaxCSMap = (oid*) malloc(sizeof(oid) * numMaxCSs);
-
-	//mergeMaximumFreqCSs(freqCSset, superCSFreqCSMap, superCSMergeMaxCSMap, mergecsSet, numMaxCSs);
-
+	/* S1, S2, S3, S5 */
 	mergeMaximumFreqCSsAll(freqCSset, *labels, superCSFreqCSMap, superCSMergeMaxCSMap, numMaxCSs, *maxCSoid);
 
 	curT = clock(); 
