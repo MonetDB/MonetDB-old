@@ -97,6 +97,8 @@ typedef struct PropStat {
 
 #define COLORINGPROP 1	// Only use for coloring property in schema representation. 
 
+#define NEEDSUBCS 0	// We actually do not need to use SubCS as the idea of default subCS is not used. But it is still good
+			// for collecting the statistical information (For reporting/writing)
 
 #define USE_LABEL_FINDING_MAXCS	0 	// Use the labels received from labeling process for finding maxCS 
 #define USE_LABEL_FOR_MERGING	0 	// Use the labels received from labeling process for finding mergeCS
@@ -261,7 +263,7 @@ rdf_export str
 RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId);
 
 rdf_export str 
-RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *freqCSset, oid **subjCSMap, oid *maxCSoid, char **subjdefaultMap,int *maxNumPwithDup, CSlabel** labels, CSmergeRel **csRelBetweenMergeFreqSet);
+RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *freqCSset, oid **subjCSMap, oid *maxCSoid, int *maxNumPwithDup, CSlabel** labels, CSmergeRel **csRelBetweenMergeFreqSet);
 
 rdf_export str
 RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, int *mode);

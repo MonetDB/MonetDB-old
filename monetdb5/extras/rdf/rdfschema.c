@@ -48,6 +48,7 @@ static void copyOidSet(oid* dest, oid* orig, int len){
 }
 
 
+#if NEEDSUBCS
 static void copyTypesSet(char* dest, char* orig, int len){
 	memcpy(dest, orig, len * sizeof(char));
 }
@@ -71,6 +72,13 @@ static oid RDF_hash_Tyleslist(char* types, int num){
 	return hashCode;
 }
 
+static void initCharArray(char* inputArr, int num, char defaultValue){
+	int i; 
+	for (i = 0; i < num; i++){
+		inputArr[i] = defaultValue;
+	}
+}
+#endif /* if NEEDSUBCS */
 /*
 static void printArray(oid* inputArr, int num){
 	int i; 
@@ -111,12 +119,7 @@ static void initcsIdFreqIdxMap(int* inputArr, int num, int defaultValue, CSset *
 
 
 
-static void initCharArray(char* inputArr, int num, char defaultValue){
-	int i; 
-	for (i = 0; i < num; i++){
-		inputArr[i] = defaultValue;
-	}
-}
+
 
 static 
 void addCStoSet(CSset *csSet, CS item)
@@ -558,7 +561,7 @@ str printCSrelWithMaxSet(CSset *freqCSset, int* csIdFreqIdxMap, CSrel *csrelToMa
 	return MAL_SUCCEED; 
 }
 
-
+#if NEEDSUBCS
 static 
 void setdefaultSubCSs(SubCSSet *subcsset, int num, BAT *sbat, oid *subjSubCSMap,oid *subjCSMap, char *subjdefaultMap){
 
@@ -602,6 +605,9 @@ void setdefaultSubCSs(SubCSSet *subcsset, int num, BAT *sbat, oid *subjSubCSMap,
 	}
 }
 
+#endif
+
+#if NEEDSUBCS
 static 
 void printSubCSInformation(SubCSSet *subcsset, BAT* freqBat, int num, char isWriteTofile, int freqThreshold){
 
@@ -677,6 +683,8 @@ void printSubCSInformation(SubCSSet *subcsset, BAT* freqBat, int num, char isWri
 		fclose(foutfreqfilter);
 	}
 }
+
+#endif  /* NEEDSUBCS */
 
 static char
 getObjType(oid objOid){
@@ -941,6 +949,7 @@ void freeCSPropTypes(CSPropTypes* csPropTypes, int numCS){
 	GDKfree(csPropTypes);
 }
 
+#if NEEDSUBCS
 static 
 SubCS* creatSubCS(oid subCSId, int numP, char* buff, oid subCSsign){
 	SubCS *subcs = (SubCS*) malloc(sizeof(SubCS)); 
@@ -1076,6 +1085,7 @@ oid addSubCS(char *buff, int numP, int csId, SubCSSet* csSubCSSet){
 	return subCSId; 
 
 }
+#endif /*if NEEDSUBCS*/
 
 static
 void freeCSset(CSset *csSet){
@@ -3141,9 +3151,16 @@ str RDFgetRefCounts(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid
 	return MAL_SUCCEED; 
 }
 
+#if NEEDSUBCS
 static 
 str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,  
 		oid *subjCSMap, oid *subjSubCSMap, SubCSSet *csSubCSSet, CSrel *csrelSet, BUN maxSoid, int maxNumPwithDup){
+#else
+static
+str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
+		oid *subjCSMap, CSrel *csrelSet, BUN maxSoid, int maxNumPwithDup){
+#endif	
+
 
 	BUN	 	p, q; 
 	oid 		*sbt = 0, *obt, *pbt;
@@ -3151,7 +3168,9 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 	//oid 		CSoid = 0; 	/* Characteristic set oid */
 	int 		numPwithDup;	/* Number of properties for current S */
 	char 		objType;
+	#if NEEDSUBCS
 	oid 		returnSubCSid; 
+	#endif
 	char* 		buffTypes; 
 	oid		realObjOid; 	
 	char 		isBlankNode; 
@@ -3172,6 +3191,7 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 	BATloop(sbat, p, q){
 		sbt = (oid *) BUNtloc(si, p);		
 		if (*sbt != curS){
+			#if NEEDSUBCS
 			if (p != 0){	/* Not the first S */
 				returnSubCSid = addSubCS(buffTypes, numPwithDup, subjCSMap[curS], csSubCSSet);
 
@@ -3179,6 +3199,7 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 				subjSubCSMap[curS] = returnSubCSid; 
 
 			}
+			#endif
 			curS = *sbt; 
 			numPwithDup = 0;
 			curP = 0; 
@@ -3217,9 +3238,11 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 		}
 	}
 	
+	#if NEEDSUBCS
 	/* Check for the last CS */
 	returnSubCSid = addSubCS(buffTypes, numPwithDup, subjCSMap[*sbt], csSubCSSet);
 	subjSubCSMap[*sbt] = returnSubCSid; 
+	#endif
 
 	free (buffTypes); 
 
@@ -3560,20 +3583,24 @@ int	ontmetadataCount = 0;
 
 /* Extract CS from SPO triples table */
 str
-RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *_freqCSset, oid **subjCSMap, oid *maxCSoid, char **subjdefaultMap,int *maxNumPwithDup, CSlabel** labels, CSmergeRel **csRelBetweenMergeFreqSet){
+RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *_freqCSset, oid **subjCSMap, oid *maxCSoid, int *maxNumPwithDup, CSlabel** labels, CSmergeRel **csRelBetweenMergeFreqSet){
 
 	BAT 		*sbat = NULL, *pbat = NULL, *obat = NULL, *mbat = NULL; 
 	BATiter 	si, pi, oi; 	/*iterator for BAT of s,p,o columns in spo table */
 
 	CSBats		*csBats; 
-	oid		*subjSubCSMap;  /* Store the corresponding CS sub Id for each subject */
 
 	BUN		*maxSoid; 	
 	int		maxNumProp = 0;
 	CSrel   	*csrelSet;
 	CSrel		*csrelToMaxFreqSet, *csrelFromMaxFreqSet;
 	CSrel		*csrelBetweenMaxFreqSet; 
+
+	#if	NEEDSUBCS
 	SubCSSet 	*csSubCSSet; 
+	oid		*subjSubCSMap;  /* Store the corresponding CS sub Id for each subject */
+	char		*subjdefaultMap = NULL; /* Specify whether this subject contains default value or not. This array may be large */
+	#endif
 
 	int 		*refCount; 	/* Count the number of references to each CS */
 
@@ -3626,11 +3653,9 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	assert(*maxSoid != BUN_NONE); 
 
 	*subjCSMap = (oid *) malloc (sizeof(oid) * ((*maxSoid) + 1)); 
-	subjSubCSMap = (oid *) malloc (sizeof(oid) * ((*maxSoid) + 1)); 
-	*subjdefaultMap = (char *) malloc (sizeof(char) * ((*maxSoid) + 1));
-	
 	initArray(*subjCSMap, (*maxSoid) + 1, BUN_NONE);
-	initCharArray(*subjdefaultMap,(*maxSoid) + 1, 0); 
+
+
 	
 	
 	tmpLastT = clock();
@@ -3645,6 +3670,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 		
 	curT = clock(); 
 	printf (" ----- Exploring all CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	printf("Number of freqCSs found by frequency: %d \n", freqCSset->numCSadded);
 	tmpLastT = curT; 		
 	
 	/* Phase 2: Get the references count for each CS. Add frequent one to freqCSset */
@@ -3656,6 +3682,10 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	initIntArray(refCount, (*maxCSoid + 1), 0); 
 	RDFgetRefCounts(ret, sbat, si, pi,oi, *subjCSMap, maxNumProp, *maxSoid, refCount);
 	addHighRefCSsToFreqCS(csBats->pOffsetBat, csBats->freqBat, csBats->coverageBat, csBats->fullPBat, refCount, freqCSset, csIdFreqIdxMap, *maxCSoid + 1, 2* (*freqThreshold)); 
+	curT = clock();
+	printf (" ----- Counting references and adding highly referred CS's took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	printf("Number of freqCSs after considering # references: %d \n", freqCSset->numCSadded);
+	tmpLastT = curT;
 
 	
 	//Phase 2: Check the relationship	
@@ -3664,16 +3694,22 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	printf("Max Number of P (considering duplicated P): %d \n", *maxNumPwithDup);
 
-	printf("Number of freqCSs: %d \n", freqCSset->numCSadded);
-
-
 
 
 	csrelSet = initCSrelset(*maxCSoid + 1);
+	
+	#if NEEDSUBCS
+	subjSubCSMap = (oid *) malloc (sizeof(oid) * ((*maxSoid) + 1)); 
+	subjdefaultMap = (char *) malloc (sizeof(char) * ((*maxSoid) + 1));
+
+	initCharArray(subjdefaultMap,(*maxSoid) + 1, 0); 
 
 	csSubCSSet = initCS_SubCSSets(*maxCSoid +1); 
 
 	RDFrelationships(ret, sbat, si, pi, oi, *subjCSMap, subjSubCSMap, csSubCSSet, csrelSet, *maxSoid, *maxNumPwithDup);
+	#else
+	RDFrelationships(ret, sbat, si, pi, oi, *subjCSMap, csrelSet, *maxSoid, *maxNumPwithDup);
+	#endif
 
 	curT = clock(); 
 	printf (" ----- Exploring subCSs and FKs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
@@ -3682,9 +3718,10 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	printCSrelSet(csrelSet,csIdFreqIdxMap, csBats->freqBat, *maxCSoid + 1, 1, *freqThreshold);  
 
-	setdefaultSubCSs(csSubCSSet,*maxCSoid + 1, sbat, subjSubCSMap, *subjCSMap, *subjdefaultMap);
-
+	#if NEEDSUBCS
+	setdefaultSubCSs(csSubCSSet,*maxCSoid + 1, sbat, subjSubCSMap, *subjCSMap, subjdefaultMap);
 	printSubCSInformation(csSubCSSet, csBats->freqBat, *maxCSoid + 1, 1, *freqThreshold); 
+	#endif
 
 	printf("Number of frequent CSs is: %d \n", freqCSset->numCSadded);
 
@@ -3761,11 +3798,13 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	BBPunfix(mbat->batCacheid);
 
 	freeOntoUsageTree(ontoUsageTree);
-	free (subjSubCSMap);
 	free (superCSFreqCSMap);
 	free (superCSMergeMaxCSMap); 
-
+	
+	#if NEEDSUBCS
+	free (subjSubCSMap);
 	freeCS_SubCSMapSet(csSubCSSet, *maxCSoid + 1); 
+	#endif
 
 	free(csIdFreqIdxMap); 
 	freeCSrelSet(csrelSet, *maxCSoid + 1); 
@@ -4446,14 +4485,13 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	int		numdistinctMCS = 0; 
 	int		maxNumPwithDup = 0;
 	//CStableStat	*cstablestat;
-	char		*subjdefaultMap = NULL; /* Specify whether this subject contains default value or not. This array may be large */
 	CSPropTypes	*csPropTypes; 
 	CSlabel		*labels, *labels2;
 	CSmergeRel	*csRelBetweenMergeFreqSet = NULL;
 
 	freqCSset = initCSset();
 
-	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid, &subjdefaultMap, &maxNumPwithDup, &labels, &csRelBetweenMergeFreqSet) != MAL_SUCCEED){
+	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid, &maxNumPwithDup, &labels, &csRelBetweenMergeFreqSet) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in extracting CSs");
 	}
 	
@@ -4516,7 +4554,6 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 		freeMergeCSrelset(csRelBetweenMergeFreqSet,freqCSset->numCSadded);
 		freeCSset(freqCSset); 
 		free(subjCSMap);
-		free(subjdefaultMap);
 		free(csTblIdxMapping);
 		free(mfreqIdxTblIdxMapping);
 		free(mTblIdxFreqIdxMapping);
@@ -4643,7 +4680,6 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	freePropStat(propStat);
 	//freeCStableStat(cstablestat); 
 	//
-	if (subjdefaultMap != NULL) free(subjdefaultMap);
 
 	BBPreclaim(lmap);
 	BBPreclaim(rmap); 
