@@ -271,11 +271,11 @@ createView:
 	BBPunfix(c->batCacheid);
 	if (createIndex==1)
 	{
-		MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
+		//MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 		createIndex=0;	
 	}
-	else
-		MT_lock_unset(&CrackerIndex[m].columnLock,"Lock Attribute");
+	//else
+		//MT_lock_unset(&CrackerIndex[m].columnLock,"Lock Attribute");
 
 @
 @= RangeSelectBody
@@ -303,31 +303,31 @@ createView:
 	bit rippledDeletions = FALSE;
 	struct Node *lowNode=NULL, *hghNode=NULL, *lowNodeNext=NULL, *temp;
 	BUN idxFirst;
-	struct timeval tv0, tv1;
-	double wt=0, ct=0;
+	//struct timeval tv0, tv1;
+	//double wt=0, ct=0;
 	bit copy=TRUE;
 	int countBatElements=0;
 	int L1=0; /*Number of elements that can fit into L1 cache (size: 32KB)*/
-	FILE *ofp;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/thresholds/client1/waiting01/cpuload70/idletime4/breakdown.txt";
+	//FILE *ofp;
+	//char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/thresholds/client1/waiting01/cpuload70/idletime4/breakdown.txt";
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 
-	gettimeofday(&tv0,0);
+	//gettimeofday(&tv0,0);
 
-	ofp = fopen(outputFilename1,"a");
+	/*ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
   		fprintf(stderr, "Can't open output file!\n");
   		exit(1);
-	}
+	}*/
 
 	if ((bo = BATdescriptor(*bid)) != NULL)
 		L1=32000/ATOMsize(bo->ttype);	
 
 	
-	MT_lock_set(&CRKIndexLock,"Cracker Index Lock");	
+	//MT_lock_set(&CRKIndexLock,"Cracker Index Lock");	
 
-	gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+	//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 
 	/*if (@2_GT(low,hgh,@3@1))
 		throw(MAL, "crackers.crack", "illegal range");*/
@@ -428,10 +428,10 @@ createView:
 	}
 	
 
-	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
-	MT_lock_set(&CrackerIndex[m].columnLock,"Lock Attribute");
+	//MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
+	//MT_lock_set(&CrackerIndex[m].columnLock,"Lock Attribute");
 
-	gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+	//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 
 	FN=searchBAT(FrequencyStructA,*bid);
 	
@@ -514,7 +514,8 @@ createView:
 
 	/* deal with pending insertions if any */
 	if (CrackerIndex[m].mergeInsertions >= 0){
-		str msg; assert(0);
+		str msg; 
+		//assert(0);
 		msg = selectMergeInsertionsPart_@1(bid, low, inclusiveLow, hgh, inclusiveHgh, m);
                 if (msg != NULL)
                         throw(MAL, "crackers.crackRange", "%s", msg);
@@ -642,16 +643,16 @@ createView:
 	BBPunfix(c->batCacheid);
 	if (createIndex==1)
 	{
-		MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
+		//MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 		createIndex=0;	
 	}
-	else
-		MT_lock_unset(&CrackerIndex[m].columnLock,"Lock Attribute");	
+	//else
+	//	MT_lock_unset(&CrackerIndex[m].columnLock,"Lock Attribute");	
 
-	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-	fprintf(ofp,"User_query \t 1 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf\n",wt,ct);
+	//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+	//fprintf(ofp,"User_query \t 1 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf\n",wt,ct);
 
-	fclose(ofp);
+	//fclose(ofp);
 
 	return MAL_SUCCEED;
 @
@@ -683,7 +684,7 @@ createView:
 	if ((b = BATdescriptor(CrackerIndex[m].cbid)) == NULL)
 		throw(MAL, "crackers.crackRange", "Cannot access crack index");
 
-	MT_lock_set(&CrackerIndex[m].columnLock,"Lock Attribute");
+	//MT_lock_set(&CrackerIndex[m].columnLock,"Lock Attribute");
 
 	/* find out where in the index the low falls */
 	foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
@@ -761,7 +762,7 @@ createView:
 
 	BBPunfix(b->batCacheid);
 	BBPunfix(c->batCacheid);
-	MT_lock_unset(&CrackerIndex[m].columnLock,"Lock Attribute");
+	//MT_lock_unset(&CrackerIndex[m].columnLock,"Lock Attribute");
 	return MAL_SUCCEED;
 @
 @= crackOperations

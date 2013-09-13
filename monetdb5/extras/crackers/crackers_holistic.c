@@ -55,6 +55,15 @@ CRKinitHolistic(int *ret)
 	return MAL_SUCCEED;
 }
 
+str
+CRKinitHolisticUpdates(int *ret)
+{
+        MT_lock_init(&frequencylock, "FrequencyStruct");
+        *ret = 0;
+        return MAL_SUCCEED;
+}
+
+
 /*singleton pattern*/
 FrequencyNode *
 getFrequencyStruct(char which)
@@ -468,3 +477,38 @@ CRKrandomCrackST(int *ret)
         return MAL_SUCCEED;
 }
 
+str
+CRKrandomCrackUpdates(int *ret)
+{
+        int bid=0;
+        FrequencyNode* max_node;
+        BAT *b;
+        int low=0, hgh=0;
+        int *t;
+	int temp=0;
+        oid posl,posh,p;
+        bit inclusive=TRUE;
+        FrequencyNode *fs = getFrequencyStruct('A');
+        max_node=findMax(fs);
+        if(max_node!=NULL && max_node->weight > 0)
+        {
+bid=max_node->bid;
+                b=BATdescriptor(bid);
+                t=(int*)Tloc(b,BUNfirst(b));
+                posl=BUNfirst(b);
+                posh=BUNlast(b) - 1;
+                p=(rand()%(posh-posl+1))+posl;
+                low=t[p];
+                p=(rand()%(posh-posl+1))+posl;
+                hgh=t[p];
+                if(hgh < low)
+                {
+                        temp=low;
+                        low=hgh;
+                        hgh=temp;
+                }
+                CRKselectholBounds_int(ret, &bid, &low, &hgh, &inclusive, &inclusive);
+         }
+        *ret = 0;
+        return MAL_SUCCEED;
+}

@@ -4,6 +4,10 @@ command holisticprelude():void
 address CRKinitHolistic
 comment "Initialize holistic module";
 
+command holisticpreludeUpdates():void
+address CRKinitHolisticUpdates
+comment "Initialize holistic module";
+
 command initFrequencyStruct(b:bat[:oid,:any]):void
 address CRKinitFrequencyStruct
 comment "Initialize the struct(lifo) with zero values.";
@@ -24,6 +28,9 @@ command randomCrackST():void
 address CRKrandomCrackST
 comment "Do random stochastic crack on BATs ordered by descending weight";
 
+command randomCrackUpdates():void
+address CRKrandomCrackUpdates
+comment "Handling updates with holistic indexing";
 
 command zeroFrequency():void
 address CRKzeroFrequency
