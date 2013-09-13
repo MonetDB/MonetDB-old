@@ -3101,7 +3101,6 @@ str RDFgetRefCounts(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid
 	oid 		curP; 		/* current Property oid */
 	int 		numP; 		/* Number of properties for current S */
 	oid*		buff; 	 
-	oid 		tmpCSid; 
 
 	char 		objType;
 	oid		realObjOid; 	
@@ -3128,9 +3127,9 @@ str RDFgetRefCounts(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid
 		/* Look at the referenced CS Id using subjCSMap */
 		if (objType == URI || objType == BLANKNODE){
 			realObjOid = (*obt) - ((oid) objType << (sizeof(BUN)*8 - 4));
-			tmpCSid = subjCSMap[realObjOid];
-			if (realObjOid <= maxSoid && tmpCSid != BUN_NONE){
-				refCount[tmpCSid]++; 
+
+			if (realObjOid <= maxSoid && subjCSMap[realObjOid] != BUN_NONE){
+				refCount[subjCSMap[realObjOid]]++; 
 			}
 
 		}
@@ -3154,14 +3153,12 @@ str RDFgetRefCounts(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid
 #if NEEDSUBCS
 static 
 str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,  
-		oid *subjCSMap, oid *subjSubCSMap, SubCSSet *csSubCSSet, CSrel *csrelSet, BUN maxSoid, int maxNumPwithDup){
+		oid *subjCSMap, oid *subjSubCSMap, SubCSSet *csSubCSSet, CSrel *csrelSet, BUN maxSoid, int maxNumPwithDup,int *csIdFreqIdxMap){
 #else
 static
 str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
-		oid *subjCSMap, CSrel *csrelSet, BUN maxSoid, int maxNumPwithDup){
+		oid *subjCSMap, CSrel *csrelSet, BUN maxSoid, int maxNumPwithDup,int *csIdFreqIdxMap){
 #endif	
-
-
 	BUN	 	p, q; 
 	oid 		*sbt = 0, *obt, *pbt;
 	oid 		curS; 		/* current Subject oid */
@@ -3174,7 +3171,8 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 	char* 		buffTypes; 
 	oid		realObjOid; 	
 	char 		isBlankNode; 
-	oid		curP; 
+	oid		curP;
+
 
 	if (BATcount(sbat) == 0) {
 		throw(RDF, "rdf.RDFrelationships", "sbat must not be empty");
@@ -3190,6 +3188,7 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 
 	BATloop(sbat, p, q){
 		sbt = (oid *) BUNtloc(si, p);		
+		if ( csIdFreqIdxMap[subjCSMap[*sbt]] == -1) continue; /* Do not consider infrequentCS */
 		if (*sbt != curS){
 			#if NEEDSUBCS
 			if (p != 0){	/* Not the first S */
@@ -3205,18 +3204,19 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 			curP = 0; 
 		}
 				
+		pbt = (oid *) BUNtloc(pi, p);
+
 		obt = (oid *) BUNtloc(oi, p); 
 		/* Check type of object */
 		objType = getObjType(*obt);
-	
-		pbt = (oid *) BUNtloc(pi, p);
 
 		/* Look at the referenced CS Id using subjCSMap */
 		isBlankNode = 0;
 		if (objType == URI || objType == BLANKNODE){
 			realObjOid = (*obt) - ((oid) objType << (sizeof(BUN)*8 - 4));
 
-			if (realObjOid <= maxSoid && subjCSMap[realObjOid] != BUN_NONE){
+			/* Only consider references to freqCS */	
+			if (realObjOid <= maxSoid && subjCSMap[realObjOid] != BUN_NONE && csIdFreqIdxMap[subjCSMap[realObjOid]] != -1){
 				if (objType == BLANKNODE) isBlankNode = 1;
 				addReltoCSRel(subjCSMap[*sbt], subjCSMap[realObjOid], *pbt, &csrelSet[subjCSMap[*sbt]], isBlankNode);
 			}
@@ -3250,6 +3250,8 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 
 	return MAL_SUCCEED; 
 }
+
+
 
 static
 str addHighRefCSsToFreqCS(BAT *pOffsetBat, BAT *freqBat, BAT *coverageBat, BAT *fullPBat, 
@@ -3670,7 +3672,11 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 		
 	curT = clock(); 
 	printf (" ----- Exploring all CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+		
+	printf("Max CS oid: " BUNFMT "\n", *maxCSoid);
+	printf("Max Number of P per CS (with/without duplication): %d / %d \n", maxNumProp, *maxNumPwithDup);
 	printf("Number of freqCSs found by frequency: %d \n", freqCSset->numCSadded);
+
 	tmpLastT = curT; 		
 	
 	/* Phase 2: Get the references count for each CS. Add frequent one to freqCSset */
@@ -3686,15 +3692,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printf (" ----- Counting references and adding highly referred CS's took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	printf("Number of freqCSs after considering # references: %d \n", freqCSset->numCSadded);
 	tmpLastT = curT;
-
 	
-	//Phase 2: Check the relationship	
-
-	printf("Max CS oid: " BUNFMT "\n", *maxCSoid);
-
-	printf("Max Number of P (considering duplicated P): %d \n", *maxNumPwithDup);
-
-
+	//Phase 3: Check the relationship	
 
 	csrelSet = initCSrelset(*maxCSoid + 1);
 	
@@ -3706,9 +3705,9 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	csSubCSSet = initCS_SubCSSets(*maxCSoid +1); 
 
-	RDFrelationships(ret, sbat, si, pi, oi, *subjCSMap, subjSubCSMap, csSubCSSet, csrelSet, *maxSoid, *maxNumPwithDup);
+	RDFrelationships(ret, sbat, si, pi, oi, *subjCSMap, subjSubCSMap, csSubCSSet, csrelSet, *maxSoid, *maxNumPwithDup, csIdFreqIdxMap);
 	#else
-	RDFrelationships(ret, sbat, si, pi, oi, *subjCSMap, csrelSet, *maxSoid, *maxNumPwithDup);
+	RDFrelationships(ret, sbat, si, pi, oi, *subjCSMap, csrelSet, *maxSoid, *maxNumPwithDup, csIdFreqIdxMap);
 	#endif
 
 	curT = clock(); 
