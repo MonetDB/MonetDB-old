@@ -183,8 +183,10 @@ typedef struct mergeCSset{
 
 #define INIT_NUM_CSREL 4
 typedef struct CSrel{	
-	oid  origCSoid;	
-	oid* lstRefCSoid; 		
+	//oid  origCSoid;	
+	//oid* lstRefCSoid; 		
+	oid	origFreqIdx;
+	oid	*lstRefFreqIdx; 
 	oid* lstPropId; 	// Predicate for a relationship
 	int* lstCnt; 		// Count per reference
 	int* lstBlankCnt;	// Count # links to blank node

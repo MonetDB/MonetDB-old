@@ -234,7 +234,7 @@ int** initRelationMetadataCount(CSset* freqCSset) {
 
 /* Calculate frequency per foreign key relationship. */
 static
-Relation*** initRelationMetadata(int** relationMetadataCount, CSrel* csrelSet, int num, CSset* freqCSset, int* csIdFreqIdxMap) {
+Relation*** initRelationMetadata(int** relationMetadataCount, CSrel* csrelSet, int num, CSset* freqCSset) {
 	int		i, j, k;
 	Relation***	relationMetadata;
 
@@ -247,8 +247,7 @@ Relation*** initRelationMetadata(int** relationMetadataCount, CSrel* csrelSet, i
 	if (!relationMetadata) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 	for (i = 0; i < num; ++i) { // CS
 		CS cs;
-		int csId = csIdFreqIdxMap[i];
-		if (csId == -1) continue; // ignore
+		int csId = i;
 		cs = (CS) freqCSset->items[csId];
 		relationMetadata[csId] = (Relation **) malloc (sizeof(Relation *) * cs.numProp);
 		if (!relationMetadata[csId]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
@@ -259,8 +258,7 @@ Relation*** initRelationMetadata(int** relationMetadataCount, CSrel* csrelSet, i
 			for (k = 0; k < csrelSet[i].numRef; ++k) { // propNo in CSrel
 
 				if (csrelSet[i].lstPropId[k] == cs.lstProp[j]) {
-					int toId = csIdFreqIdxMap[ csrelSet[i].lstRefCSoid[k] ];
-					if (toId == -1) continue; // ignore
+					int toId = csrelSet[i].lstRefFreqIdx[k];
 					relationMetadataCount[csId][j] += 1;
 
 					// alloc/realloc
@@ -2335,7 +2333,7 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 
 	// Relation (FK)
 	relationMetadataCount = initRelationMetadataCount(freqCSset);
-	relationMetadata = initRelationMetadata(relationMetadataCount, csrelSet, num, freqCSset, csIdFreqIdxMap);
+	relationMetadata = initRelationMetadata(relationMetadataCount, csrelSet, num, freqCSset);
 	links = initLinks(freqCSset->numCSadded);
 #if USE_FK_NAMES
 	createLinks(freqCSset, relationMetadata, relationMetadataCount, links);
