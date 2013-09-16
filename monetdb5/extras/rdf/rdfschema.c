@@ -2665,6 +2665,27 @@ void mergeMaxFreqCSByS6(CSrel *csrelBetweenMaxFreqSet, CSset *freqCSset, oid* su
 }
 
 static
+char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels){	/*Rule S1 S2 S3*/
+	int i, j; 
+	int k1, k2; 
+
+	if (strcmp(labels[freqId1].name, labels[freqId2].name) == 0)  
+		return 1;
+	else{ /* Check top k candidates */
+		k1 =  (labels[freqId1].candidatesCount < TOPK)?labels[freqId1].candidatesCount:TOPK;
+		k2 =  (labels[freqId2].candidatesCount < TOPK)?labels[freqId2].candidatesCount:TOPK;	
+
+		for (i = 0; i < k1; i++){
+			for (j = 0; j < k2; j++){
+				if (strcmp(labels[freqId1].candidates[i], labels[freqId2].candidates[j]) == 0) return 1; 
+			}
+		}
+	}
+
+	return 0;
+}
+
+static
 void mergeMaximumFreqCSsAll(CSset *freqCSset, CSlabel* labels, oid* superCSFreqCSMap, int numMaxCSs, oid *mergecsId){
 	int 		i, j, k; 
 	int 		freqId1, freqId2; 
@@ -2700,7 +2721,7 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, CSlabel* labels, oid* superCSFreqC
 	propStat = initPropStat();
 	getPropStatisticsFromMaxCSs(propStat, numMaxCSs, superCSFreqCSMap, freqCSset); /*TODO: Get PropStat from MaxCSs or From mergedCS only*/
 
-	for (i = 0; i < numMaxCSs; i++){
+	for (i = 0; i < numMaxCSs; i++){		/*TODO: Only go through the list of mergedCS. */
 		freqId1 = superCSFreqCSMap[i];
 		//printf("Label of %d CS is %s \n", freqId1, labels[freqId1].name);
 		isLabelComparable = 0; 
@@ -2713,7 +2734,7 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, CSlabel* labels, oid* superCSFreqC
 			isSameLabel = 0; 
 
 			#if	USE_LABEL_FOR_MERGING
-			if (isLabelComparable == 1 && strcmp(labels[freqId1].name, labels[freqId2].name) == 0){
+			if (isLabelComparable == 1 && isSemanticSimilar(freqId1, freqId2, labels) == 1){
 				//printf("Same labels between freqCS %d and freqCS %d - Old simscore is %f \n", freqId1, freqId2, simscore);
 				isSameLabel = 1;
 				simscore = 1; 

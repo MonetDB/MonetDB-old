@@ -102,6 +102,7 @@ typedef struct PropStat {
 
 #define USE_LABEL_FINDING_MAXCS	0 	// Use the labels received from labeling process for finding maxCS 
 #define USE_LABEL_FOR_MERGING	1 	// Use the labels received from labeling process for finding mergeCS
+#define TOPK	3			//Check top 3 candidate
 
 typedef struct CS
 {
