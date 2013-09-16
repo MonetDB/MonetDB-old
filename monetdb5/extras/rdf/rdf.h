@@ -106,6 +106,8 @@ typedef enum {
 // Final data structure that stores the labels for tables and attributes
 typedef struct CSlabel {
 	str		name;		// table name
+	str		*candidates;	// list of table name candidates, candidates[0] == name
+	int		candidatesCount;// number of entries in the candidates list
 	str		*hierarchy;     // hierarchy "bottom to top"
 	int		hierarchyCount; // number of entries in the hierarchy list
 	int		numProp;	// number of properties, copied from freqCSset->items[x].numProp

@@ -1712,8 +1712,20 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	int		i, j, k;
 	str		*tmpList;
 	int		tmpListCount;
+	char		nameFound = 0;
 
 	// --- ONTOLOGY ---
+	// add all ontology candidates to list of candidates
+	if (resultCount[csIdx] >= 1) {
+		label->candidates = realloc(label->candidates, sizeof(str) * (label->candidatesCount + resultCount[csIdx]));
+		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+		for (i = 0; i < resultCount[csIdx]; ++i) {
+			label->candidates[label->candidatesCount + i] = (char *) malloc(sizeof(char) * (strlen(result[csIdx][i]) + 1));
+			strcpy(label->candidates[label->candidatesCount + i], result[csIdx][i]);
+		}
+		label->candidatesCount += resultCount[csIdx];
+	}
+
 	// one ontology class --> use it
 	if (resultCount[csIdx] == 1) {
 #if USE_SHORT_NAMES
@@ -1721,65 +1733,74 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 #else
 		label->name = (char *) malloc(sizeof(char) * (strlen(result[csIdx][0]) + 1));
 		strcpy(label->name, result[csIdx][0]);
-		label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 #endif
-		return;
+		label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
+		nameFound = 1;
 	}
 
-	// multiple ontology classes --> intersect with types
-	if (resultCount[csIdx] > 1) {
-		tmpList = NULL;
-		tmpListCount = 0;
-		// search for type values
-		for (i = 0; i < typeAttributesCount; ++i) {
-			for (j = 0; j < typeAttributesHistogramCount[csIdx][i]; ++j) {
-				if (typeAttributesHistogram[csIdx][i][j].percent < TYPE_FREQ_THRESHOLD) break; // sorted
-				// intersect type with ontology classes
-				for (k = 0; k < resultCount[csIdx]; ++k) {
-					if (strcmp(result[csIdx][k], typeAttributesHistogram[csIdx][i][j].value) == 0) {
-						// found, copy ontology class to tmpList
-						tmpList = (str *) realloc(tmpList, sizeof(str) * (tmpListCount + 1));
-						if (!tmpList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-						tmpList[tmpListCount] = result[csIdx][k]; // pointer, no copy
-						tmpListCount += 1;
+	if (!nameFound) {
+		// multiple ontology classes --> intersect with types
+		if (resultCount[csIdx] > 1) {
+			tmpList = NULL;
+			tmpListCount = 0;
+			// search for type values
+			for (i = 0; i < typeAttributesCount; ++i) {
+				for (j = 0; j < typeAttributesHistogramCount[csIdx][i]; ++j) {
+					if (typeAttributesHistogram[csIdx][i][j].percent < TYPE_FREQ_THRESHOLD) break; // sorted
+					// intersect type with ontology classes
+					for (k = 0; k < resultCount[csIdx]; ++k) {
+						if (strcmp(result[csIdx][k], typeAttributesHistogram[csIdx][i][j].value) == 0) {
+							// found, copy ontology class to tmpList
+							tmpList = (str *) realloc(tmpList, sizeof(str) * (tmpListCount + 1));
+							if (!tmpList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+							tmpList[tmpListCount] = result[csIdx][k]; // pointer, no copy
+							tmpListCount += 1;
+						}
 					}
 				}
 			}
-		}
-		// only one left --> use it
-		if (tmpListCount == 1) {
+
+			// only one left --> use it
+			if (tmpListCount == 1) {
 #if USE_SHORT_NAMES
-			getPropNameShort(&(label->name), tmpList[0]);
+				getPropNameShort(&(label->name), tmpList[0]);
 #else
-			label->name = (char *) malloc(sizeof(char) * (strlen(tmpList[0]) + 1));
-			strcpy(label->name, tmpList[0]);
+				label->name = (char *) malloc(sizeof(char) * (strlen(tmpList[0]) + 1));
+				strcpy(label->name, tmpList[0]);
 #endif
-			label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
-			free(tmpList);
-			return;
-		}
-		// multiple left --> use the class that covers most attributes, most popular ontology, ...
-		if (tmpListCount > 1) {
+				label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
+				free(tmpList);
+				nameFound = 1;
+			}
+
+			if (!nameFound) {
+				// multiple left --> use the class that covers most attributes, most popular ontology, ...
+				if (tmpListCount > 1) {
 #if USE_SHORT_NAMES
-			getPropNameShort(&(label->name), tmpList[0]); // sorted
+					getPropNameShort(&(label->name), tmpList[0]); // sorted
 #else
-			label->name = (char *) malloc(sizeof(char) * (strlen(tmpList[0]) + 1));
-			strcpy(label->name, tmpList[0]); // sorted
+					label->name = (char *) malloc(sizeof(char) * (strlen(tmpList[0]) + 1));
+					strcpy(label->name, tmpList[0]); // sorted
 #endif
-			label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
-			free(tmpList);
-			return;
-		}
-		// empty intersection -> use the class that covers most attributes, most popular ontology, ..
+					label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
+					free(tmpList);
+					nameFound = 1;
+				}
+			}
+
+			if (!nameFound) {
+				// empty intersection -> use the class that covers most attributes, most popular ontology, ..
 #if USE_SHORT_NAMES
-		getPropNameShort(&(label->name), result[csIdx][0]); // sorted
+				getPropNameShort(&(label->name), result[csIdx][0]); // sorted
 #else
-		label->name = (char *) malloc(sizeof(char) * (strlen(result[csIdx][0]) + 1));
-		strcpy(label->name, result[csIdx][0]); // sorted
+				label->name = (char *) malloc(sizeof(char) * (strlen(result[csIdx][0]) + 1));
+				strcpy(label->name, result[csIdx][0]); // sorted
 #endif
-		label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
-		free(tmpList);
-		return;
+				label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
+				free(tmpList);
+				nameFound = 1;
+			}
+		}
 	}
 
 	// --- TYPE ---
@@ -1794,54 +1815,107 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		tmpList[tmpListCount] = typeAttributesHistogram[csIdx][i][0].value; // pointer, no copy
 		tmpListCount += 1;
 	}
-	// one type attribute --> use most frequent one
-	if (tmpListCount == 1) {
-		// only one type attribute, use most frequent value (sorted)
-#if USE_SHORT_NAMES
-		getPropNameShort(&(label->name), tmpList[0]);
-#else
-		label->name = (char *) malloc(sizeof(char) * (strlen(tmpList[0]) + 1));
-		strcpy(label->name, tmpList[0]);
-#endif
-		return;
-	}
-	// multiple type attributes --> use the one with fewest occurances in other CS's
-	if (tmpListCount > 1) {
+
+	// add all most frequent type values to list of candidates
+	if (tmpListCount >= 1) {
+		int counter = 0;
+		label->candidates = realloc(label->candidates, sizeof(str) * (label->candidatesCount + tmpListCount));
+		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 		for (i = 0; i < typeStatCount; ++i) {
 			for (j = 0; j < tmpListCount; ++j) {
 				if (strcmp(typeStat[i].value, tmpList[j]) == 0) {
+					label->candidates[label->candidatesCount + counter] = (char *) malloc(sizeof(char) * (strlen(tmpList[j]) + 1));
+					strcpy(label->candidates[label->candidatesCount + counter], tmpList[j]);
+					counter++;
+				}
+			}
+		}
+		assert(counter == tmpListCount);
+		label->candidatesCount += tmpListCount;
+	}
+
+	if (!nameFound) {
+		// one type attribute --> use most frequent one
+		if (tmpListCount == 1) {
+			// only one type attribute, use most frequent value (sorted)
 #if USE_SHORT_NAMES
-					getPropNameShort(&(label->name), tmpList[j]);
+			getPropNameShort(&(label->name), tmpList[0]);
 #else
-					label->name = (char *) malloc(sizeof(char) * (strlen(tmpList[j]) + 1));
-					strcpy(label->name, tmpList[j]);
+			label->name = (char *) malloc(sizeof(char) * (strlen(tmpList[0]) + 1));
+			strcpy(label->name, tmpList[0]);
 #endif
-					return;
+			nameFound = 1;
+		}
+	}
+
+	if (!nameFound) {
+		// multiple type attributes --> use the one with fewest occurances in other CS's
+		if (tmpListCount > 1) {
+			for (i = 0; i < typeStatCount && !nameFound; ++i) {
+				for (j = 0; j < tmpListCount && !nameFound; ++j) {
+					if (strcmp(typeStat[i].value, tmpList[j]) == 0) {
+#if USE_SHORT_NAMES
+						getPropNameShort(&(label->name), tmpList[j]);
+#else
+						label->name = (char *) malloc(sizeof(char) * (strlen(tmpList[j]) + 1));
+						strcpy(label->name, tmpList[j]);
+#endif
+						nameFound = 1;
+					}
 				}
 			}
 		}
 	}
 
 	// --- FK ---
-	// incident foreign keys --> use the one with the most occurances (num and freq)
+	// add top3 fk values to list of candidates
 	if (links[csIdx].num > 0) {
-		str propStr, tmpStr;
-		takeOid(links[csIdx].fks[0].prop, &tmpStr); // sorted
-		propStr = removeBrackets(tmpStr);
+		label->candidates = realloc(label->candidates, sizeof(str) * (label->candidatesCount + MIN(3, links[csIdx].num)));
+		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+		for (i = 0; i < MIN(3, links[csIdx].num); ++i) {
+			str propStr, tmpStr;
+			takeOid(links[csIdx].fks[0].prop, &tmpStr);
+			propStr = removeBrackets(tmpStr);
+
+			label->candidates[label->candidatesCount + i] = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
+			strcpy(label->candidates[label->candidatesCount + i], propStr);
+		}
+		label->candidatesCount += MIN(3, links[csIdx].num);
+	}
+
+	if (!nameFound) {
+		// incident foreign keys --> use the one with the most occurances (num and freq)
+		if (links[csIdx].num > 0) {
+			str propStr, tmpStr;
+			takeOid(links[csIdx].fks[0].prop, &tmpStr); // sorted
+			propStr = removeBrackets(tmpStr);
 #if USE_SHORT_NAMES
-		getPropNameShort(&(label->name), propStr);
+			getPropNameShort(&(label->name), propStr);
 #else
-		label->name = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
-		strcpy(label->name, propStr);
+			label->name = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
+			strcpy(label->name, propStr);
 #endif
-		GDKfree(tmpStr);
-		GDKfree(propStr);
-		return;
+			GDKfree(tmpStr);
+			GDKfree(propStr);
+			nameFound = 1;
+		}
 	}
 
 	// --- NOTHING ---
-	label->name = (char *) malloc(sizeof(char) * 6);
-	strcpy(label->name, "DUMMY");
+	if (label->candidatesCount == 0) {
+		label->candidates = realloc(label->candidates, sizeof(str));
+		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+		label->candidates[0] = (char *) malloc(sizeof(char) * 6);
+		strcpy(label->candidates[0], "DUMMY");
+		label->candidatesCount = 1;
+	}
+
+	if (!nameFound) {
+		label->name = (char *) malloc(sizeof(char) * 6);
+		strcpy(label->name, "DUMMY");
+		nameFound = 1;
+	}
+
 	return;
 }
 #endif
@@ -1855,6 +1929,8 @@ CSlabel* initLabels(CSset *freqCSset) {
 	if (!labels) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		labels[i].name = NULL;
+		labels[i].candidates = NULL;
+		labels[i].candidatesCount = 0;
 		labels[i].hierarchy = NULL;
 		labels[i].hierarchyCount = 0;
 		labels[i].numProp = 0;
@@ -2376,24 +2452,28 @@ void freeLabels(CSlabel* labels, CSset* freqCSset) {
 	int		i, j;
 
 	for (i = 0; i < freqCSset->numOrigFreqCS; ++i) { // do not use numCSadded because of additional mergeCS
-		for (j = 0; j < labels[i].numProp; ++j) {
-			free(labels[i].lstProp[j]);
-		}
 		free(labels[i].name);
-		if (labels[i].lstProp)
+
+		for (j = 0; j < labels[i].numProp; ++j)
+			free(labels[i].lstProp[j]);
+		if (labels[i].numProp > 0)
 			free(labels[i].lstProp);
-		if (labels[i].hierarchy) {
-			for (j = 0; j < labels[i].hierarchyCount; ++j) {
-				free(labels[i].hierarchy[j]);
-			}
-		free(labels[i].hierarchy);
-		}
+
+		for (j = 0; j < labels[i].hierarchyCount; ++j)
+			free(labels[i].hierarchy[j]);
+		if (labels[i].hierarchyCount > 0)
+			free(labels[i].hierarchy);
+
+		for (j = 0; j < labels[i].candidatesCount; ++j)
+			free(labels[i].candidates[j]);
+		if (labels[i].candidatesCount > 0)
+			free(labels[i].candidates);
 	}
 	free(labels);
 }
 
 CSlabel* createFinalLabels(CSlabel* labels, CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, int freqThreshold) {
-	int			i, j;
+	int			i, j, k;
 	int			**relationMetadataCount;
 	Relation		***relationMetadata;
 	CSlabel			*labels2;
@@ -2415,6 +2495,33 @@ CSlabel* createFinalLabels(CSlabel* labels, CSset* freqCSset, CSmergeRel* csRelB
 			labels2[i].name = (char *) malloc(sizeof(char) * (strlen(labels[i].name) + 1));
 			if (!labels2[i].name) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 			strcpy(labels2[i].name, labels[i].name);
+
+			// hierarchy
+			if (labels[i].hierarchyCount > 0) {
+				labels2[i].hierarchyCount = labels[i].hierarchyCount;
+				labels2[i].hierarchy = (str *) malloc(sizeof(str) * labels2[i].hierarchyCount);
+				if (!labels2[i].hierarchy)
+					fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+				for (k = 0; k < labels2[i].hierarchyCount; ++k) {
+					labels2[i].hierarchy[k] = (str) malloc(sizeof(char) * (strlen(labels[i].hierarchy[k]) + 1));
+					if (!labels2[i].hierarchy[k])
+						fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+					strcpy(labels2[i].hierarchy[k], labels[i].hierarchy[k]);
+				}
+			}
+
+			// candidates
+			labels2[i].candidatesCount = labels[i].candidatesCount;
+			labels2[i].candidates = (str *) malloc(sizeof(str) * labels2[i].candidatesCount);
+			if (!labels2[i].candidates)
+				fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			for (k = 0; k < labels2[i].candidatesCount; ++k) {
+				labels2[i].candidates[k] = (str) malloc(sizeof(char) * (strlen(labels[i].candidates[k]) + 1));
+				if (!labels2[i].candidates[k])
+					fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+				strcpy(labels2[i].candidates[k], labels[i].candidates[k]);
+			}
+
 		} else {
 			// get list of CS this finalCS consists of
 			subCSlist = getSubCS(freqCSset, i, &subCSlistLength);
@@ -2425,6 +2532,34 @@ CSlabel* createFinalLabels(CSlabel* labels, CSset* freqCSset, CSmergeRel* csRelB
 				labels2[i].name = (char *) malloc(sizeof(char) * (strlen(labels[subCSlist[j]].name) + 1));
 				if (!labels2[i].name) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 				strcpy(labels2[i].name, labels[subCSlist[j]].name);
+
+				// hierarchy
+				if (labels[subCSlist[j]].hierarchyCount > 0) {
+					labels2[i].hierarchyCount = labels[subCSlist[j]].hierarchyCount;
+					labels2[i].hierarchy = (str *) malloc(sizeof(str) * labels2[i].hierarchyCount);
+					if (!labels2[i].hierarchy)
+						fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+					for (k = 0; k < labels2[i].hierarchyCount; ++k) {
+						labels2[i].hierarchy[k] = (str) malloc(sizeof(char) * (strlen(labels[subCSlist[j]].hierarchy[k]) + 1));
+						if (!labels2[i].hierarchy[k])
+							fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+						strcpy(labels2[i].hierarchy[k], labels[subCSlist[j]].hierarchy[k]);
+					}
+				}
+
+				// candidates
+				// TODO create new list of candidates (make sure that [0] == name)
+				labels2[i].candidatesCount = labels[subCSlist[j]].candidatesCount;
+				labels2[i].candidates = (str *) malloc(sizeof(str) * labels2[i].candidatesCount);
+				if (!labels2[i].candidates)
+					fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+				for (k = 0; k < labels2[i].candidatesCount; ++k) {
+					labels2[i].candidates[k] = (str) malloc(sizeof(char) * (strlen(labels[subCSlist[j]].candidates[k]) + 1));
+					if (!labels2[i].candidates[k])
+						fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+					strcpy(labels2[i].candidates[k], labels[subCSlist[j]].candidates[k]);
+				}
+
 				break;
 			}
 			free(subCSlist);
@@ -2468,18 +2603,22 @@ void freeFinalLabels(CSlabel* labels, CSset* freqCSset) {
 	int		i, j;
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		for (j = 0; j < labels[i].numProp; ++j) {
-			free(labels[i].lstProp[j]);
-		}
 		free(labels[i].name);
-		if (labels[i].lstProp)
+
+		for (j = 0; j < labels[i].numProp; ++j)
+			free(labels[i].lstProp[j]);
+		if (labels[i].numProp > 0)
 			free(labels[i].lstProp);
-		if (labels[i].hierarchy) {
-			for (j = 0; j < labels[i].hierarchyCount; ++j) {
-				free(labels[i].hierarchy[j]);
-			}
+
+		for (j = 0; j < labels[i].hierarchyCount; ++j)
+			free(labels[i].hierarchy[j]);
+		if (labels[i].hierarchyCount > 0)
 			free(labels[i].hierarchy);
-		}
+
+		for (j = 0; j < labels[i].candidatesCount; ++j)
+			free(labels[i].candidates[j]);
+		if (labels[i].candidatesCount > 0)
+			free(labels[i].candidates);
 	}
 	free(labels);
 }
