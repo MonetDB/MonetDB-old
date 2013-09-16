@@ -279,7 +279,9 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 				addCrackerIndex_@1(m, low, *inclusiveLow, _vl, c);	
 				CRKinitFrequencyStruct(0,*bid);
 				FN=searchBAT(FrequencyStructA,*bid);
+				MT_lock_set(&FN->nodeLock, "Lock Node");
 				FN->c = FN->c + 1;
+				MT_lock_unset(&FN->nodeLock, "Lock Node");
 				FN->weight = changeWeight(FN,countBatElements,L1);	
 			}
 			if ((vl == 1) && (*t == *low) && (*inclusiveLow == TRUE))
@@ -365,7 +367,9 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 			if (gapL>0) 
 			{
 				addCrackerIndex_@1(m, low, *inclusiveLow, _vl, c);
+				MT_lock_set(&FN->nodeLock, "Lock Node");
 				FN->c = FN->c + 1;
+				MT_lock_unset(&FN->nodeLock, "Lock Node");
 				if(FN->weight > 0)
 					FN->weight = changeWeight(FN,countBatElements,L1);		
 			}
@@ -1370,6 +1374,14 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	int countBatElements=0;
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
+	FILE *ofp;
+	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/cpu_holistic_pieces.txt";
+
+	ofp = fopen(outputFilename1,"a");
+	if (ofp == NULL) {
+  		fprintf(stderr, "Can't open output file!\n");
+  		exit(1);
+	}
 
 	if ((bo = BATdescriptor(*bid)) != NULL)
 		L1=32000/ATOMsize(bo->ttype);
@@ -1413,10 +1425,13 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	 	countBatElements=BATcount(b);	
 		CRKinitFrequencyStruct(0,*bid);
 		FN=searchBAT(FrequencyStructA,*bid);					
+		MT_lock_set(&FN->nodeLock, "Lock Node");
 		FN->f1 = FN->f1 + 1;
 		FN->c = FN->c + 1;
+		fprintf(ofp,"%d\n",FN->c);
+		MT_lock_unset(&FN->nodeLock, "Lock Node");
 		FN->weight = changeWeight(FN,countBatElements,L1);	
-
+		fclose(ofp);
 		BBPincref(b->batCacheid,TRUE);
 		BBPunfix(bo->batCacheid);
 		goto tempcreateViewL;
@@ -1465,13 +1480,20 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	
 	if (firstRetry==0)
 	{
+		MT_lock_set(&FN->nodeLock, "Lock Node");
 		FN->f1 = FN->f1 + 1;
+		MT_lock_unset(&FN->nodeLock, "Lock Node");
 	}
 
 	/* find out where in the index the high falls */
 	foundHgh = GetHgh_@1(*hgh, HBound, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
 
-	if((foundHgh!=0)&&(firstRetry==0)) FN->f2 = FN->f2 + 1;
+	if((foundHgh!=0)&&(firstRetry==0))
+	{
+		MT_lock_set(&FN->nodeLock, "Lock Node");
+ 		FN->f2 = FN->f2 + 1;
+		MT_lock_unset(&FN->nodeLock, "Lock Node");
+	}
 
 	pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 
@@ -1497,7 +1519,10 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 			if(gapH>0)
 			{
 				addCrackerIndex_@1(m,hgh,HBound,vh,c);
+				MT_lock_set(&FN->nodeLock, "Lock Node");
 				FN->c = FN->c + 1;
+				fprintf(ofp,"%d\n",FN->c);
+				MT_lock_unset(&FN->nodeLock, "Lock Node");
 				countBatElements=BATcount(b);
 				if(FN->weight > 0)
 					FN->weight = changeWeight(FN,countBatElements,L1);
@@ -1509,6 +1534,9 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	} 	
 	else
 		vh = ch2;
+
+	fclose(ofp);
+
 
 	tempcreateViewL:
 

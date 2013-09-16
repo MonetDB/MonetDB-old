@@ -28,6 +28,7 @@ static FrequencyNode *_InternalFrequencyStructA = NULL;
 static FrequencyNode *_InternalFrequencyStructB = NULL;
 static MT_Lock frequencylock;
 static MT_Id *idletime_thread;
+//static MT_Id *cpuload_thread;
 MT_Lock CRKIndexLock;
 pthread_rwlock_t CRKFirstPieceRWLock;
 
@@ -47,10 +48,12 @@ CRKinitHolistic(int *ret)
 	else
 		j = atoi(p);
 	idletime_thread = GDKzalloc(j * sizeof(*idletime_thread));
+	//cpuload_thread = GDKzalloc(sizeof(*cpuload_thread));
 	MT_lock_init(&frequencylock, "FrequencyStruct");
 	MT_lock_init(&CRKIndexLock, "Cracker Index Lock");
 	for(i=0;i<j;i++)
 		MT_create_thread(&idletime_thread[i],(void (*)(void *))HeartbeatCPUload, IdleFunc, MT_THR_JOINABLE);
+	//MT_create_thread(cpuload_thread,(void (*)(void *))HeartbeatCPUload_total, NULL, MT_THR_JOINABLE);
 	*ret = 0;
 	return MAL_SUCCEED;
 }
@@ -289,6 +292,7 @@ changeWeight_2(FrequencyNode* node,int N,int L1)
 	int p; /*number of pieces in the index*/
 	double Sp; /*average size of each piece*/
 	double d; /*distance from optimal piece(L1)*/
+	MT_lock_set(&node->nodeLock, "Lock Node");
 	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
@@ -300,6 +304,7 @@ changeWeight_2(FrequencyNode* node,int N,int L1)
 	{
 		node->weight = (double)(node->f1) * d;
 	}
+	MT_lock_unset(&node->nodeLock, "Lock Node");
 	/*fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);*/
 	return node->weight;
 }
@@ -314,6 +319,7 @@ changeWeight_3(FrequencyNode* node,int N,int L1)
 	int p; /*number of pieces in the index*/
 	double Sp; /*average size of each piece*/
 	double d; /*distance from optimal piece(L1)*/
+	MT_lock_set(&node->nodeLock, "Lock Node");
 	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
@@ -326,6 +332,7 @@ changeWeight_3(FrequencyNode* node,int N,int L1)
 		node->weight = ((double)(node->f1)-(double)(node->f2)) * d;
 	}
 	/*fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);*/
+	MT_lock_unset(&node->nodeLock, "Lock Node");
 	return node->weight;
 
 }

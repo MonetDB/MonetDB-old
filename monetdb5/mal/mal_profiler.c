@@ -1335,14 +1335,37 @@ void HeartbeatCPUload(str (*IdleFunc)(int *))
 	while(1)
 	{
 		(void) getCPULoad(cpuload);
+		fprintf(stderr,"cpuload=%lf\n",corestat[256].load);
 		if (corestat[256].load < thres)
 		{
-			fprintf(stderr,"cpuload=%lf\n",corestat[256].load);
 			IdleFunc(NULL);
 		}
 		MT_sleep_ms(10);	
 		//fprintf(stderr,"%s\n",cpuload);
 	}
+}
+
+// Give users the option to check for the system load between two heart beats
+void HeartbeatCPUload_total(void)
+{
+	char cpuload[BUFSIZ];
+	FILE *ofp;
+	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/cpuload_holistic.txt";
+
+	ofp = fopen(outputFilename1,"a");
+	if (ofp == NULL) {
+  		fprintf(stderr, "Can't open output file!\n");
+  		exit(1);
+	}
+
+	while(1)
+	{
+		(void) getCPULoad(cpuload);
+		fprintf(ofp,"cpuload=%lf\n",corestat[256].load);
+		MT_sleep_ms(10);	
+		//fprintf(stderr,"%s\n",cpuload);
+	}
+	fclose(ofp);
 }
 void profilerGetCPUStat(lng *user, lng *nice, lng *sys, lng *idle, lng *iowait)
 {
