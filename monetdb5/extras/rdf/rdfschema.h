@@ -101,7 +101,7 @@ typedef struct PropStat {
 			// for collecting the statistical information (For reporting/writing)
 
 #define USE_LABEL_FINDING_MAXCS	0 	// Use the labels received from labeling process for finding maxCS 
-#define USE_LABEL_FOR_MERGING	0 	// Use the labels received from labeling process for finding mergeCS
+#define USE_LABEL_FOR_MERGING	1 	// Use the labels received from labeling process for finding mergeCS
 
 typedef struct CS
 {
@@ -204,6 +204,13 @@ typedef struct CSmergeRel{
 	int  numAllocation;
 } CSmergeRel;
 
+typedef struct CSrelSum{
+	oid     origFreqIdx;
+	int	numProp;		
+	oid 	*lstPropId;
+	int	*numPropRef; 	//Number of references per prop
+	int	**freqIdList; 			
+} CSrelSum;
 
 typedef struct CStable {
 	BAT**		colBats; 

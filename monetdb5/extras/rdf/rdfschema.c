@@ -2499,29 +2499,177 @@ void initSuperCSFreqCSMap(CSset *freqCSset, oid *superCSFreqCSMap){
 }
 
 static
-void mergeMaxFreqCSByS6(CSrel *csrelBetweenMaxFreqSet, CSset *freqCSset, oid* superCSFreqCSMap, int numMaxCSs){
+CSrelSum* initCSrelSum(int maxNumProp, int maxNumRefPerCS){
 	int i; 
-	int freqId1;
-	int relId; 
-	CS*	cs1;
-	for (i = 0; i < numMaxCSs; i++){
-		freqId1 = superCSFreqCSMap[i];
-		cs1 = (CS*) &freqCSset->items[freqId1];
-		relId = cs1->csId; 
-		if (csrelBetweenMaxFreqSet[relId].numRef != 0){
-			continue; 		
+	CSrelSum *csRelSum; 	
+	csRelSum = (CSrelSum*)malloc(sizeof(CSrelSum)); 
+	csRelSum->origFreqIdx = -1;
+	csRelSum->numProp = 0;		/* Initially there is no prop */
+	csRelSum->lstPropId = (oid*)malloc(sizeof(oid) * maxNumProp); 
+	csRelSum->numPropRef = (int*)malloc(sizeof(int) * maxNumProp);		
+	csRelSum->freqIdList = (int**)malloc(sizeof(int*) * maxNumProp);
+	for (i = 0; i < maxNumProp; i++){
+		csRelSum->numPropRef[i] = 0;
+		csRelSum->freqIdList[i] = (int*)malloc(sizeof(int) * maxNumRefPerCS);
+	}	
+
+	return csRelSum;
+}
+
+static 
+void freeCSrelSum(int maxNumProp, CSrelSum *csRelSum){
+	int i; 
+	for (i = 0; i < maxNumProp; i++){
+		free(csRelSum->freqIdList[i]);
+	}
+	free(csRelSum->freqIdList);
+	free(csRelSum->numPropRef);
+	free(csRelSum->lstPropId);
+	free(csRelSum);
+}
+
+static 
+void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRelSum){
+	int i; 
+	int propIdx; 
+	int refIdx; 
+	int freq; 
+
+	csRelSum->origFreqIdx = freqId;
+	csRelSum->numProp = freqCSset->items[freqId].numProp;
+	copyOidSet(csRelSum->lstPropId, freqCSset->items[freqId].lstProp, csRelSum->numProp);
+
+	for (i = 0; i < csRelSum->numProp; i++){
+		csRelSum->numPropRef[i] = 0;
+	}
+
+	for (i = 0; i < csRel.numRef; i++){
+		freq = freqCSset->items[csRel.origFreqIdx].support; 
+		if (freq < csRel.lstCnt[i] * 100){			
+			propIdx = 0;
+			while (csRelSum->lstPropId[propIdx] != csRel.lstPropId[i])
+				propIdx++;
+		
+			//Add to this prop
+			refIdx = csRelSum->numPropRef[propIdx];
+			csRelSum->freqIdList[propIdx][refIdx] = csRel.lstRefFreqIdx[i]; 
+			csRelSum->numPropRef[propIdx]++;
 		}
 	}
 
 }
 
 static
-void mergeMaximumFreqCSsAll(CSset *freqCSset, CSlabel* labels, oid* superCSFreqCSMap, oid* superCSMergeMaxCSMap, int numMaxCSs, oid maxCSoid){
+void mergeMaxFreqCSByS6(CSrel *csrelBetweenMaxFreqSet, CSset *freqCSset, oid* superCSFreqCSMap, int numMaxCSs, int maxNumProp, oid *mergecsId){
+	int 		i; 
+	int 		freqId, freqId1, freqId2;
+	//int 		relId; 
+	//CS*		cs1;
+	CSrelSum 	*csRelSum; 
+	int		maxNumRefPerCS = 0; 
+	int 		j, k; 
+
+	CS     		*mergecs;
+	oid		existMergecsId = BUN_NONE; 
+	CS		*cs1, *cs2;
+	CS		*existmergecs, *mergecs1, *mergecs2; 
+
+	char 		filename[100];
+	FILE		*fout; 
+
+	strcpy(filename, "csRelSum.txt");
+
+	fout = fopen(filename,"wt"); 
+
+	for (i = 0; i < numMaxCSs; i++){
+		freqId = superCSFreqCSMap[i];
+		if (csrelBetweenMaxFreqSet[freqId].numRef > maxNumRefPerCS){
+		 	maxNumRefPerCS = csrelBetweenMaxFreqSet[freqId].numRef ; 		
+		}
+	}
+	printf("maxNumRefPerCS = %d \n", maxNumRefPerCS);
+
+	csRelSum = initCSrelSum(maxNumProp,maxNumRefPerCS);
+	
+	for (i = 0; i < numMaxCSs; i++){
+		freqId = superCSFreqCSMap[i];
+		if (csrelBetweenMaxFreqSet[freqId].numRef != 0){
+			generatecsRelSum(csrelBetweenMaxFreqSet[freqId], freqId, freqCSset, csRelSum);
+			/* Check the number of */
+			fprintf(fout, "csRelSum " BUNFMT ": ",csRelSum->origFreqIdx);
+			for (j = 0; j < csRelSum->numProp; j++){
+				if ( csRelSum->numPropRef[j] > 1){
+					fprintf(fout, "  P " BUNFMT " -->",csRelSum->lstPropId[j]);
+					for (k = 0; k < csRelSum->numPropRef[j]; k++){
+						fprintf(fout, " %d | ", csRelSum->freqIdList[j][k]);
+					}	
+					/* Merge each refCS into the first CS. 
+					 * TODO: The Multi-way merging should be better
+					 * */ 
+					freqId1 = csRelSum->freqIdList[j][0];
+					cs1 = (CS*) &(freqCSset->items[freqId1]);
+					for (k = 1; k < csRelSum->numPropRef[j]; k++){
+						freqId2 = csRelSum->freqIdList[j][k];
+						cs2 = (CS*) &(freqCSset->items[freqId2]);
+						//Check whether these CS's belong to any mergeCS
+						if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx == -1){	/* New merge */
+							mergecs = mergeTwoCSs(*cs1,*cs2, freqId1,freqId2, *mergecsId);
+							//addmergeCStoSet(mergecsSet, *mergecs);
+							cs1->parentFreqIdx = freqCSset->numCSadded;
+							cs2->parentFreqIdx = freqCSset->numCSadded;
+							addCStoSet(freqCSset,*mergecs);
+							free(mergecs);
+
+							mergecsId[0]++;
+						}
+						else if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx != -1){
+							existMergecsId = cs2->parentFreqIdx;
+							existmergecs = (CS*) &(freqCSset->items[existMergecsId]);
+							mergeACStoExistingmergeCS(*cs1,freqId1, existmergecs);
+							cs1->parentFreqIdx = existMergecsId; 
+						}
+						
+						else if (cs1->parentFreqIdx != -1 && cs2->parentFreqIdx == -1){
+							existMergecsId = cs1->parentFreqIdx;
+							existmergecs = (CS*)&(freqCSset->items[existMergecsId]);
+							mergeACStoExistingmergeCS(*cs2,freqId2, existmergecs);
+							cs2->parentFreqIdx = existMergecsId; 
+							//printamergeCS(mergecsSet->items[existMergecsId] ,existMergecsId, freqCSset, superCSFreqCSMap);
+						}
+						else if (cs1->parentFreqIdx != cs2->parentFreqIdx){
+							mergecs1 = (CS*)&(freqCSset->items[cs1->parentFreqIdx]);
+							mergecs2 = (CS*)&(freqCSset->items[cs2->parentFreqIdx]);
+							
+							mergeTwomergeCS(mergecs1, mergecs2, cs1->parentFreqIdx);
+
+							//Re-map for all maxCS in mergecs2
+							for (k = 0; k < mergecs2->numConsistsOf; k++){
+								freqCSset->items[mergecs2->lstConsistsOf[k]].parentFreqIdx = cs1->parentFreqIdx;
+							}
+						}
+
+					}
+				}
+			}
+			fprintf(fout, "\n");
+		}
+	}
+	
+
+
+	fclose(fout); 
+
+
+	freeCSrelSum(maxNumProp, csRelSum);
+
+}
+
+static
+void mergeMaximumFreqCSsAll(CSset *freqCSset, CSlabel* labels, oid* superCSFreqCSMap, int numMaxCSs, oid *mergecsId){
 	int 		i, j, k; 
 	int 		freqId1, freqId2; 
 	float 		simscore = 0.0; 
 	CS     		*mergecs;
-	oid		mercsId = 0; 
 	oid		existMergecsId = BUN_NONE; 
 	int 		numCombineP = 0; 
 	CS		*cs1, *cs2;
@@ -2531,20 +2679,26 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, CSlabel* labels, oid* superCSFreqC
 	int		nummergedCSs = 0;
 	char		isLabelComparable = 0; 
 	char		isSameLabel = 0; 
+
+	int		numcurMergedCS; 	
+	
+
 	
 	(void) labels;
 	(void) isLabelComparable;
 
-
-
-	//Initial superCSMergeMaxCSMap
-	for (i = 0; i < numMaxCSs; i++){
-		superCSMergeMaxCSMap[i] = BUN_NONE; 
+	numcurMergedCS = 0;
+	for (i = 0; i < freqCSset->numCSadded; i++){
+		if (freqCSset->items[i].parentFreqIdx == -1)	numcurMergedCS++;
 	}
 
-	
+
+	printf("Number of freqCS added = %d \n",freqCSset->numCSadded);
+	printf("Number of freqCS after merging using S6: = %d \n",numcurMergedCS);
+
+
 	propStat = initPropStat();
-	getPropStatisticsFromMaxCSs(propStat, numMaxCSs, superCSFreqCSMap, freqCSset);
+	getPropStatisticsFromMaxCSs(propStat, numMaxCSs, superCSFreqCSMap, freqCSset); /*TODO: Get PropStat from MaxCSs or From mergedCS only*/
 
 	for (i = 0; i < numMaxCSs; i++){
 		freqId1 = superCSFreqCSMap[i];
@@ -2588,16 +2742,16 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, CSlabel* labels, oid* superCSFreqC
 			if (simscore > SIM_THRESHOLD) {
 			#endif				
 				//Check whether these CS's belong to any mergeCS
-				
 				if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx == -1){	/* New merge */
-					mergecs = mergeTwoCSs(*cs1,*cs2, freqId1,freqId2, mercsId + maxCSoid);
+					mergecs = mergeTwoCSs(*cs1,*cs2, freqId1,freqId2, *mergecsId);
 					//addmergeCStoSet(mergecsSet, *mergecs);
 					cs1->parentFreqIdx = freqCSset->numCSadded;
 					cs2->parentFreqIdx = freqCSset->numCSadded;
 					addCStoSet(freqCSset,*mergecs);
 					free(mergecs);
 
-					mercsId++;
+					mergecsId[0]++;
+
 
 				}
 				else if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx != -1){
@@ -3581,10 +3735,10 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	int 		*refCount; 	/* Count the number of references to each CS */
 
 	int*		csIdFreqIdxMap; /* Map a CSId to a freqIdx. Should be removed in the future .... */
+	oid		mergecsId = 0; 
 
 	int		numMaxCSs = 0; 
 	oid		*superCSFreqCSMap; 
-	oid		*superCSMergeMaxCSMap;
 	CSset		*freqCSset; 
 	clock_t 	curT;
 	clock_t		tmpLastT; 
@@ -3736,15 +3890,26 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	printCSrelWithMaxSet(csrelToMaxFreqSet, csrelBetweenMaxFreqSet, freqCSset, freqCSset->numCSadded, *freqThreshold);  
 
+
+	curT = clock(); 
+	printf (" -----	Generate CSrel with max set took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
+
 	superCSFreqCSMap = (oid*) malloc(sizeof(oid) * numMaxCSs); 
 
 	initSuperCSFreqCSMap(freqCSset, superCSFreqCSMap);
-	/* S6: Merged CS referred from the same CS via the same property */
-	mergeMaxFreqCSByS6(csrelBetweenMaxFreqSet, freqCSset, superCSFreqCSMap, numMaxCSs);
 
-	superCSMergeMaxCSMap = (oid*) malloc(sizeof(oid) * numMaxCSs);
+	mergecsId = *maxCSoid + 1; 
+	/* S6: Merged CS referred from the same CS via the same property */
+	mergeMaxFreqCSByS6(csrelBetweenMaxFreqSet, freqCSset, superCSFreqCSMap, numMaxCSs, maxNumProp, &mergecsId);
+
+	curT = clock(); 
+	printf (" -----	MergeCS using S6 took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
+	
 	/* S1, S2, S3, S5 */
-	mergeMaximumFreqCSsAll(freqCSset, *labels, superCSFreqCSMap, superCSMergeMaxCSMap, numMaxCSs, *maxCSoid);
+	mergeMaximumFreqCSsAll(freqCSset, *labels, superCSFreqCSMap, numMaxCSs, &mergecsId);
+
 
 	curT = clock(); 
 	printf (" ----- Merging Frequent CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
@@ -3771,7 +3936,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	freeOntoUsageTree(ontoUsageTree);
 	free (superCSFreqCSMap);
-	free (superCSMergeMaxCSMap); 
 	
 	#if NEEDSUBCS
 	free (subjSubCSMap);
