@@ -76,8 +76,8 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	BATiter fli;
 	
-	int run_dataflow_opt = 0;
-	int run_recycle_opt = 0;
+	int run_dataflow_opt = 1;
+	int run_recycle_opt = 1;
 
 	VarRecord low, high;
 
