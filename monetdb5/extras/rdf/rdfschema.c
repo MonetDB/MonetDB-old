@@ -2665,10 +2665,15 @@ void mergeMaxFreqCSByS6(CSrel *csrelBetweenMaxFreqSet, CSset *freqCSset, oid* su
 }
 
 static
-char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels){	/*Rule S1 S2 S3*/
+char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode *tree){	/*Rule S1 S2 S3*/
 	int i, j; 
 	int k1, k2; 
-
+	//int commonHierarchy = -1;
+	int minCount = 0; 
+	int hCount1, hCount2; 
+	int level; 
+	OntoUsageNode *tmpNode; 
+	
 	if (strcmp(labels[freqId1].name, labels[freqId2].name) == 0)  
 		return 1;
 	else{ /* Check top k candidates */
@@ -2677,16 +2682,66 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels){	/*Rule S1 S2 
 
 		for (i = 0; i < k1; i++){
 			for (j = 0; j < k2; j++){
-				if (strcmp(labels[freqId1].candidates[i], labels[freqId2].candidates[j]) == 0) return 1; 
+				if (strcmp(labels[freqId1].candidates[i], labels[freqId2].candidates[j]) == 0) 
+				{
+					//printf("FreqCS %d and %d shares top-k candidates i = %d, j = %d: %s \n", freqId1, freqId2, i, j, labels[freqId2].candidates[j]);
+					return 1; 
+				}
 			}
 		}
 	}
+
+	// Check for the most common ancestor
+	hCount1 = labels[freqId1].hierarchyCount;
+	hCount2 = labels[freqId2].hierarchyCount;
+	minCount = (hCount1 > hCount2)?hCount2:hCount1;
+	
+	/*
+	printf("minCount = %d \n", minCount);
+	printf("Finding common ancestor for %d and %d \n", freqId1, freqId2 );
+	printf("FreqCS1: ");
+	for (i = 0; i < hCount1; i++){
+		printf("  %s", labels[freqId1].hierarchy[hCount1-1-i]);
+	}
+	printf(" \n ");
+	printf("FreqCS2: ");
+	for (i = 0; i < hCount2; i++){
+		printf("  %s", labels[freqId2].hierarchy[hCount2-1-i]);
+	}
+	printf(" \n ");
+	*/
+
+	for (i = 0; i < minCount; i++){
+		if (strcmp(labels[freqId1].hierarchy[hCount1-1-i], labels[freqId2].hierarchy[hCount2-1-i]) != 0) 
+				break;
+	}
+	//printf("The common ancestor of freqCS %d and %d is at %d \n",freqId1, freqId2,i);
+	if (i !=0 && i != minCount){ /*There is a common ancestor at i */
+		level = 1;
+		tmpNode = tree; 
+		while(level < i){
+			for (j = 0; j < tmpNode->numChildren; j++) {	
+				if (strcmp(tmpNode->lstChildren[j]->uri, labels[freqId1].hierarchy[hCount1-1-level]) == 0){
+					tmpNode = tmpNode->lstChildren[j];
+					break;
+				}
+			}
+			level++;
+		}
+		//printf("The common ancestor of freqCS %d and %d is: %s --- Importance score: %f \n", freqId1, freqId2, tmpNode->uri, tmpNode->percentage);
+		if (tmpNode->percentage < 0.4) {
+			//printf("Merge two CS's using the common ancestor \n");
+			return 1;
+		}
+
+	}
+
 
 	return 0;
 }
 
 static
-void mergeMaximumFreqCSsAll(CSset *freqCSset, CSlabel* labels, oid* superCSFreqCSMap, int numMaxCSs, oid *mergecsId){
+void mergeMaximumFreqCSsAll(CSset *freqCSset, CSlabel* labels, oid* superCSFreqCSMap, int numMaxCSs, oid *mergecsId,OntoUsageNode *ontoUsageTree){
 	int 		i, j, k; 
 	int 		freqId1, freqId2; 
 	float 		simscore = 0.0; 
@@ -2734,7 +2789,7 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, CSlabel* labels, oid* superCSFreqC
 			isSameLabel = 0; 
 
 			#if	USE_LABEL_FOR_MERGING
-			if (isLabelComparable == 1 && isSemanticSimilar(freqId1, freqId2, labels) == 1){
+			if (isLabelComparable == 1 && isSemanticSimilar(freqId1, freqId2, labels, ontoUsageTree) == 1){
 				//printf("Same labels between freqCS %d and freqCS %d - Old simscore is %f \n", freqId1, freqId2, simscore);
 				isSameLabel = 1;
 				simscore = 1; 
@@ -3883,7 +3938,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printf("Using ontologies with %d ontattributesCount and %d ontmetadataCount \n",ontattributesCount,ontmetadataCount);
 	
 	(*labels) = createLabels(freqCSset, csrelSet, freqCSset->numCSadded, sbat, si, pi, oi, *subjCSMap, mbat, csIdFreqIdxMap, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &ontoUsageTree);
-
+	
 	curT = clock(); 
 	printf("Done labeling!!! Took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT;
@@ -3929,7 +3984,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	tmpLastT = curT; 		
 	
 	/* S1, S2, S3, S5 */
-	mergeMaximumFreqCSsAll(freqCSset, *labels, superCSFreqCSMap, numMaxCSs, &mergecsId);
+	mergeMaximumFreqCSsAll(freqCSset, *labels, superCSFreqCSMap, numMaxCSs, &mergecsId, ontoUsageTree);
 
 
 	curT = clock(); 
