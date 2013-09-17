@@ -1612,9 +1612,6 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 
 		for (j = 0; j < cs.numProp; ++j) {
 			char    *propStrEscaped = NULL;
-#if USE_SHORT_NAMES
-			char    *propStrShort = NULL;
-#endif
 
 			takeOid(cs.lstProp[j], &tmpStr);
 
@@ -1624,9 +1621,6 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 			if (!propStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 			memcpy(propStrEscaped, propStr, (strlen(propStr) + 1));
 			escapeURI(propStrEscaped);
-#if USE_SHORT_NAMES
-			getPropNameShort(&propStrShort, propStr);
-#endif
 
 			for (k = 0; k < relationMetadataCount[i][j]; ++k) {
 
@@ -1634,11 +1628,7 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 					// target of links is frequent enough, not an outlier
 					int from = relationMetadata[i][j][k].from;
 					int to = relationMetadata[i][j][k].to;
-#if USE_SHORT_NAMES
-					fprintf(fout, "\""BUNFMT"\":\"%s\" -> \""BUNFMT"\" [label=\"%s\"];\n", freqCSset->items[from].csId, propStrEscaped, freqCSset->items[to].csId, propStrShort); // print foreign keys to dot file
-#else
 					fprintf(fout, "\""BUNFMT"\":\"%s\" -> \""BUNFMT"\" [label=\"%s\"];\n", freqCSset->items[from].csId, propStrEscaped, freqCSset->items[to].csId, propStr); // print foreign keys to dot file
-#endif
 				}
 			}
 			GDKfree(tmpStr);
@@ -1701,7 +1691,6 @@ str* getOntoHierarchy(str ontology, int* hierarchyCount, str** ontmetadata, int 
 			foundTop = 1;
 		}
 	}
-
 	return hierarchy;
 }
 
@@ -1728,12 +1717,8 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 
 	// one ontology class --> use it
 	if (resultCount[csIdx] == 1) {
-#if USE_SHORT_NAMES
-		getPropNameShort(&(label->name), result[csIdx][0]);
-#else
 		label->name = (char *) malloc(sizeof(char) * (strlen(result[csIdx][0]) + 1));
 		strcpy(label->name, result[csIdx][0]);
-#endif
 		label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 		nameFound = 1;
 	}
@@ -1762,12 +1747,8 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 
 			// only one left --> use it
 			if (tmpListCount == 1) {
-#if USE_SHORT_NAMES
-				getPropNameShort(&(label->name), tmpList[0]);
-#else
 				label->name = (char *) malloc(sizeof(char) * (strlen(tmpList[0]) + 1));
 				strcpy(label->name, tmpList[0]);
-#endif
 				label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 				free(tmpList);
 				nameFound = 1;
@@ -1776,12 +1757,8 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			if (!nameFound) {
 				// multiple left --> use the class that covers most attributes, most popular ontology, ...
 				if (tmpListCount > 1) {
-#if USE_SHORT_NAMES
-					getPropNameShort(&(label->name), tmpList[0]); // sorted
-#else
 					label->name = (char *) malloc(sizeof(char) * (strlen(tmpList[0]) + 1));
 					strcpy(label->name, tmpList[0]); // sorted
-#endif
 					label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 					free(tmpList);
 					nameFound = 1;
@@ -1790,12 +1767,8 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 
 			if (!nameFound) {
 				// empty intersection -> use the class that covers most attributes, most popular ontology, ..
-#if USE_SHORT_NAMES
-				getPropNameShort(&(label->name), result[csIdx][0]); // sorted
-#else
 				label->name = (char *) malloc(sizeof(char) * (strlen(result[csIdx][0]) + 1));
 				strcpy(label->name, result[csIdx][0]); // sorted
-#endif
 				label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 				free(tmpList);
 				nameFound = 1;
@@ -1838,12 +1811,8 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		// one type attribute --> use most frequent one
 		if (tmpListCount == 1) {
 			// only one type attribute, use most frequent value (sorted)
-#if USE_SHORT_NAMES
-			getPropNameShort(&(label->name), tmpList[0]);
-#else
 			label->name = (char *) malloc(sizeof(char) * (strlen(tmpList[0]) + 1));
 			strcpy(label->name, tmpList[0]);
-#endif
 			nameFound = 1;
 		}
 	}
@@ -1854,12 +1823,8 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			for (i = 0; i < typeStatCount && !nameFound; ++i) {
 				for (j = 0; j < tmpListCount && !nameFound; ++j) {
 					if (strcmp(typeStat[i].value, tmpList[j]) == 0) {
-#if USE_SHORT_NAMES
-						getPropNameShort(&(label->name), tmpList[j]);
-#else
 						label->name = (char *) malloc(sizeof(char) * (strlen(tmpList[j]) + 1));
 						strcpy(label->name, tmpList[j]);
-#endif
 						nameFound = 1;
 					}
 				}
@@ -1889,12 +1854,8 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			str propStr, tmpStr;
 			takeOid(links[csIdx].fks[0].prop, &tmpStr); // sorted
 			propStr = removeBrackets(tmpStr);
-#if USE_SHORT_NAMES
-			getPropNameShort(&(label->name), propStr);
-#else
 			label->name = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
 			strcpy(label->name, propStr);
-#endif
 			GDKfree(tmpStr);
 			GDKfree(propStr);
 			nameFound = 1;
@@ -1957,21 +1918,16 @@ void getAllLabels(CSlabel* labels, CSset* freqCSset,  int typeAttributesCount, T
 		if (!labels[i].lstProp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 		for (j = 0; j < cs.numProp; ++j) {
 			str propStr, tmpStr;
-#if USE_SHORT_NAMES
 			char *propStrShort = NULL;
-#endif
 			takeOid(cs.lstProp[j], &tmpStr);
 			propStr = removeBrackets(tmpStr);
-#if USE_SHORT_NAMES
 			getPropNameShort(&propStrShort, propStr);
 			labels[i].lstProp[j] = (char *) malloc(sizeof(char) * (strlen(propStrShort) + 1));
 			if (!labels[i].lstProp[j]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 			memcpy(labels[i].lstProp[j], propStrShort, sizeof(char) * (strlen(propStrShort) + 1));
-#else
 			labels[i].lstProp[j] = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
 			if (!labels[i].lstProp[j]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 			memcpy(labels[i].lstProp[j], propStr, sizeof(char) * (strlen(propStr) + 1));
-#endif
 			GDKfree(tmpStr);
 			GDKfree(propStr);
 		}
@@ -2588,6 +2544,7 @@ CSlabel* createFinalLabels(CSlabel* labels, CSset* freqCSset, CSmergeRel* csRelB
 	relationMetadata = initRelationMetadata2(relationMetadataCount, csRelBetweenMergeFreqSet, freqCSset);
 
 	// Print and Export
+	// TODO add USE_SHORT_NAMES
 	printUML2(freqCSset, labels2, relationMetadata, relationMetadataCount, freqThreshold);
 	convertToSQL(freqCSset, relationMetadata, relationMetadataCount, labels2, freqThreshold);
 	createSQLMetadata(freqCSset, csRelBetweenMergeFreqSet, labels2);
