@@ -1329,7 +1329,7 @@ void mergeTwomergeCS(CS *mergecs1, CS *mergecs2, int parentFreqIdx){
 }
 
 static 
-str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofile, int freqThreshold){
+str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofile, int freqThreshold, CSlabel* labels){
 
 	int 	i; 
 	int 	j; 
@@ -1394,7 +1394,7 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 			if (cs.subject != BUN_NONE){
 				takeOid(cs.subject, &subStr);	
 				
-				fprintf(fout,"CS " BUNFMT " (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, *freq, subStr, cs.parentFreqIdx);
+				fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, labels[i].name, *freq, subStr, cs.parentFreqIdx);
 
 				// Filter max freq cs set
 				if (cs.type == MAXCS){
@@ -2674,6 +2674,7 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 	int level; 
 	OntoUsageNode *tmpNode; 
 	
+	//if(0){
 	if (strcmp(labels[freqId1].name, labels[freqId2].name) == 0)  
 		return 1;
 	else{ /* Check top k candidates */
@@ -2690,13 +2691,14 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 			}
 		}
 	}
-
+	//}
 	// Check for the most common ancestor
 	hCount1 = labels[freqId1].hierarchyCount;
 	hCount2 = labels[freqId2].hierarchyCount;
 	minCount = (hCount1 > hCount2)?hCount2:hCount1;
 	
 	/*
+	if (minCount > 0){
 	printf("minCount = %d \n", minCount);
 	printf("Finding common ancestor for %d and %d \n", freqId1, freqId2 );
 	printf("FreqCS1: ");
@@ -2709,15 +2711,18 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 		printf("  %s", labels[freqId2].hierarchy[hCount2-1-i]);
 	}
 	printf(" \n ");
+	}
+
 	*/
 
 	for (i = 0; i < minCount; i++){
 		if (strcmp(labels[freqId1].hierarchy[hCount1-1-i], labels[freqId2].hierarchy[hCount2-1-i]) != 0) 
 				break;
 	}
-	//printf("The common ancestor of freqCS %d and %d is at %d \n",freqId1, freqId2,i);
+
+	//printf("The common ancestor of freqCS %d and %d is at %d (minCount = %d) \n",freqId1, freqId2,i, minCount);
 	if (i !=0 && i != minCount){ /*There is a common ancestor at i */
-		level = 1;
+		level = 0;
 		tmpNode = tree; 
 		while(level < i){
 			for (j = 0; j < tmpNode->numChildren; j++) {	
@@ -2728,9 +2733,9 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 			}
 			level++;
 		}
-		//printf("The common ancestor of freqCS %d and %d is: %s --- Importance score: %f \n", freqId1, freqId2, tmpNode->uri, tmpNode->percentage);
-		if (tmpNode->percentage < 0.4) {
-			//printf("Merge two CS's using the common ancestor \n");
+		//printf("The common ancestor of freqCS %d (%s) and freqCS %d (%s) is: %s --- %f \n", freqId1, labels[freqId1].name, freqId2, labels[freqId2].name, tmpNode->uri, tmpNode->percentage);
+		if (tmpNode->percentage < IMPORTANCE_THRESHOLD) {
+			//printf("Merge two CS's %s and %s using the common ancestor (%s) at level %d (score: %f)\n",labels[freqId1].name,labels[freqId2].name,tmpNode->uri, i,tmpNode->percentage);
 			return 1;
 		}
 
@@ -3943,6 +3948,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printf("Done labeling!!! Took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT;
 	
+
 	/*S4: Merge two CS's having the subset-superset relationship */
 	getMaximumFreqCSs(freqCSset, *labels, csBats->coverageBat,  csBats->freqBat, *maxCSoid + 1, &numMaxCSs); 
 
@@ -3952,7 +3958,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 	//printf("Number of maximumCS: %d", numMaxCSs);
 	
-	printFreqCSSet(freqCSset, csBats->freqBat, mbat, 1, *freqThreshold); 
+	printFreqCSSet(freqCSset, csBats->freqBat, mbat, 1, *freqThreshold, *labels); 
 
 
 	curT = clock(); 

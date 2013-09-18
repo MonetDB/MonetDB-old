@@ -166,7 +166,7 @@ typedef struct SubCSSet{
 #define INIT_NUM_CS 100
 #define SIM_THRESHOLD 0.6
 #define SIM_TFIDF_THRESHOLD 0.55
-#define IMPORTANCE_THRESHOLD 0.4
+#define IMPORTANCE_THRESHOLD 0.01
 
 typedef struct CSset{
 	CS* items;

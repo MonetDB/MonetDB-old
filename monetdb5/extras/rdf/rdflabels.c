@@ -2170,8 +2170,10 @@ void createOntoUsageTree(OntoUsageNode** tree, CSset* freqCSset, str** ontmetada
 	createOntoUsageTreeStatistics(*tree, numTuples);
 
 	// print
+	if(0){
 	printf("Ontology tree:\n");
 	printTree(*tree, 0);
+	}
 }
 
 static
