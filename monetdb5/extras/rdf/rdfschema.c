@@ -3102,6 +3102,7 @@ void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset){
 	BUN 	bun; 
 	int 	*_tmp; 
 	int	freqIdx;
+	int	numDummy = 0; 
 
 	//Preparation
 	for (i = 0; i  < freqCSset->numCSadded; i++){
@@ -3134,9 +3135,12 @@ void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset){
 				labelStat->lstCount[bun]++;
 			}
 		}
+		else
+			numDummy++;
 	}
 	
 	printf("Total number of distinct labels is %d \n", labelStat->numLabeladded);
+	printf("Number of DUMMY freqCS: %d \n",numDummy);
 	//Build list of FreqCS
 	labelStat->freqIdList = (int**) malloc(sizeof(int*) * labelStat->numLabeladded);
 	for (i =0; i < labelStat->numLabeladded; i++){
@@ -4050,6 +4054,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	labelStat = initLabelStat(); 
 	buildLabelStat(labelStat, *labels, freqCSset);
+
 	freeLabelStat(labelStat);
 	/*
 	{
