@@ -214,6 +214,15 @@ typedef struct CSrelSum{
 	int	**freqIdList; 			
 } CSrelSum;
 
+#define INIT_DISTINCT_LABEL 400
+typedef struct LabelStat{	/*Store the list of freqIds having the same label*/
+	BAT	*labelBat; 
+	int	*lstCount; 	/* Number of items per name */
+	int	**freqIdList; 
+	int	numLabeladded; 
+	int	numAllocation; 
+} LabelStat; 
+
 typedef struct CStable {
 	BAT**		colBats; 
 	ObjectType*	colTypes; 

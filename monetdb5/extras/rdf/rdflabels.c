@@ -2407,6 +2407,11 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 }
 
 str updateLabel(int ruleNumber, CSlabel *labels, int mergeCSFreqId, int freqCS1, int freqCS2){
+	(void) ruleNumber;
+	(void) labels;
+	(void) mergeCSFreqId;
+	(void) freqCS1;
+	(void) freqCS2;
 
 	return MAL_SUCCEED; 
 }

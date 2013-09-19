@@ -3077,6 +3077,103 @@ str getReferCS(BAT *sbat, BAT *pbat, oid *obt){
 }
 */
 
+static
+LabelStat* initLabelStat(void){
+	LabelStat *labelStat = (LabelStat*) malloc(sizeof(LabelStat)); 
+	labelStat->labelBat = BATnew(TYPE_void, TYPE_str, INIT_DISTINCT_LABEL);	
+	if (labelStat->labelBat == NULL){
+		return NULL; 
+	}
+	(void)BATprepareHash(BATmirror(labelStat->labelBat));
+	if (!(labelStat->labelBat->T->hash)) 
+		return NULL; 
+	labelStat->lstCount = (int*)malloc(sizeof(int) * INIT_DISTINCT_LABEL);
+
+	labelStat->freqIdList = NULL;	
+	labelStat->numLabeladded = 0;
+	labelStat->numAllocation = INIT_DISTINCT_LABEL;
+
+	return labelStat; 
+}
+
+static
+void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset){
+	int 	i; 
+	BUN 	bun; 
+	int 	*_tmp; 
+	int	freqIdx;
+
+	//Preparation
+	for (i = 0; i  < freqCSset->numCSadded; i++){
+		if (strcmp(labels[i].name,"DUMMY") != 0){
+			bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr)labels[i].name);
+			if (bun == BUN_NONE) {
+				/*New string*/
+				if (labelStat->labelBat->T->hash && BATcount(labelStat->labelBat) > 4 * labelStat->labelBat->T->hash->mask) {
+					HASHdestroy(labelStat->labelBat);
+					BAThash(BATmirror(labelStat->labelBat), 2*BATcount(labelStat->labelBat));
+				}
+
+				labelStat->labelBat = BUNappend(labelStat->labelBat, (ptr) (str)labels[i].name, TRUE);
+						
+				if(labelStat->numLabeladded == labelStat->numAllocation) 
+				{ 
+					labelStat->numAllocation += INIT_DISTINCT_LABEL; 
+					
+					_tmp = realloc(labelStat->lstCount, (labelStat->numAllocation * sizeof(int)));
+				
+					if (!_tmp){
+						fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+					}
+					labelStat->lstCount = (int*)_tmp;
+				}
+				labelStat->lstCount[labelStat->numLabeladded] = 1; 
+				labelStat->numLabeladded++;
+			}
+			else{
+				labelStat->lstCount[bun]++;
+			}
+		}
+	}
+	
+	printf("Total number of distinct labels is %d \n", labelStat->numLabeladded);
+	//Build list of FreqCS
+	labelStat->freqIdList = (int**) malloc(sizeof(int*) * labelStat->numLabeladded);
+	for (i =0; i < labelStat->numLabeladded; i++){
+		labelStat->freqIdList[i] = (int*)malloc(sizeof(int) * labelStat->lstCount[i]);
+		//reset the lstCount
+		labelStat->lstCount[i] = 0;
+	}
+	
+	for (i = 0; i  < freqCSset->numCSadded; i++){
+		if (strcmp(labels[i].name,"DUMMY") != 0){
+			bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr) labels[i].name);
+			if (bun == BUN_NONE) {
+				fprintf(stderr, "All the name should be stored already!\n");
+			}
+			else{
+				freqIdx = labelStat->lstCount[bun];
+				labelStat->freqIdList[bun][freqIdx] = i; 
+				labelStat->lstCount[bun]++;
+			}
+		}
+	}
+}
+static 
+void freeLabelStat(LabelStat *labelStat){
+	int i; 
+	if (labelStat->freqIdList != NULL){
+		for (i = 0; i < labelStat->numLabeladded;i++){
+			free(labelStat->freqIdList[i]);
+		} 
+		free(labelStat->freqIdList);
+	}	
+	free(labelStat->lstCount);
+	BBPreclaim(labelStat->labelBat);
+	free(labelStat);
+}
+
+
 
 
 
@@ -3824,6 +3921,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	clock_t 	curT;
 	clock_t		tmpLastT; 
 	OntoUsageNode	*ontoUsageTree = NULL;
+	LabelStat	*labelStat = NULL; 
+
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
@@ -3948,6 +4047,20 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printf("Done labeling!!! Took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT;
 	
+
+	labelStat = initLabelStat(); 
+	buildLabelStat(labelStat, *labels, freqCSset);
+	freeLabelStat(labelStat);
+	/*
+	{
+	str tknzLabel = "cslabel";
+	if (TKNZRopen (NULL, &tknzLabel) != MAL_SUCCEED) {
+		throw(RDF, "RDFextractCSwithTypes", "could not open the tokenizer\n");
+	}
+
+	TKNZRclose(ret);
+	}
+	*/
 
 	/*S4: Merge two CS's having the subset-superset relationship */
 	getMaximumFreqCSs(freqCSset, *labels, csBats->coverageBat,  csBats->freqBat, *maxCSoid + 1, &numMaxCSs); 
