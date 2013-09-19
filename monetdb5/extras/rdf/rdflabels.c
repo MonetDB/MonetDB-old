@@ -27,79 +27,79 @@
 // list of known ontologies
 int ontologyCount = 73;
 ontology ontologies[] = {
-{{"http:", "www.facebook.com", "2008"}, 3},
-{{"http:", "facebook.com", "2008"}, 3},
-{{"http:", "developers.facebook.com", "schema"}, 3},
-{{"https:", "www.facebook.com", "2008"}, 3},
-{{"http:", "purl.org", "dc", "elements", "1.1"}, 5}, // dc DublinCore
-{{"http:", "purl.org", "dc", "terms"}, 4}, // DublinCore
-{{"http:", "purl.org", "goodrelations", "v1"}, 4}, // GoodRelations
-{{"http:", "purl.org", "rss", "1.0", "modules"}, 5},
-{{"http:", "purl.org", "stuff"}, 3},
-{{"http:", "www.purl.org", "stuff"}, 3},
-{{"http:", "ogp.me", "ns"}, 3},
-{{"https:", "ogp.me", "ns"}, 3},
-{{"http:", "www.w3.org", "1999", "02", "22-rdf-syntax-ns"}, 5}, // rdf
-{{"http:", "www.w3.org", "2000", "01", "rdf-schema"}, 5}, // rdfs
-{{"http:", "www.w3.org", "2004", "02", "skos", "core"}, 6}, // skos (Simple Knowledge Organization System)
-{{"http:", "www.w3.org", "2002", "07", "owl"}, 5},
-{{"http:", "www.w3.org", "2006", "vcard", "ns"}, 5}, // vcard
-{{"http:", "www.w3.org", "2001", "vcard-rdf", "3.0"}, 5},
-{{"http:", "www.w3.org", "2003", "01", "geo", "wgs84_pos"}, 6}, // geo
-{{"http:", "www.w3.org", "1999", "xhtml", "vocab"}, 5}, // xhtml
-{{"http:", "search.yahoo.com", "searchmonkey"}, 3},
-{{"https:", "search.yahoo.com", "searchmonkey"}, 3},
-{{"http:", "search.yahoo.co.jp", "searchmonkey"}, 3},
-{{"http:", "g.yahoo.com", "searchmonkey"}, 3},
-{{"http:", "opengraphprotocol.org", "schema"}, 3},
-{{"https:", "opengraphprotocol.org", "schema"}, 3},
-{{"http:", "opengraph.org", "schema"}, 3},
-{{"https:", "opengraph.org", "schema"}, 3},
-{{"http:", "creativecommons.org", "ns"}, 3}, // cc
-{{"http:", "rdf.data-vocabulary.org"}, 2}, // by google
-{{"http:", "rdfs.org", "sioc", "ns"}, 4}, // sioc (pronounced "shock", Semantically-Interlinked Online Communities Project)
-{{"http:", "xmlns.com", "foaf", "0.1"}, 4}, // foaf (Friend of a Friend)
-{{"http:", "mixi-platform.com", "ns"}, 3}, // japanese social graph
-{{"http:", "commontag.org", "ns"}, 3},
-{{"http:", "semsl.org", "ontology"}, 3}, // semantic web for second life
-{{"http:", "schema.org"}, 2},
-{{"http:", "openelectiondata.org", "0.1"}, 3},
-{{"http:", "search.aol.com", "rdf"}, 3},
-{{"http:", "www.loc.gov", "loc.terms", "relators"}, 4}, // library of congress
-{{"http:", "dbpedia.org", "ontology"}, 3}, // dbo
-{{"http:", "dbpedia.org", "resource"}, 3}, // dbpedia
-{{"http:", "dbpedia.org", "property"}, 3}, // dbp
-{{"http:", "www.aktors.org", "ontology", "portal"}, 4}, // akt (research, publications, ...)
-{{"http:", "purl.org", "ontology", "bibo"}, 4}, // bibo (bibliography)
-{{"http:", "purl.org", "ontology", "mo"}, 4}, // mo (music)
-{{"http:", "www.geonames.org", "ontology"}, 3}, // geonames
-{{"http:", "purl.org", "vocab", "frbr", "core"}, 5}, // frbr (Functional Requirements for Bibliographic Records)
-{{"http:", "www.w3.org", "2001", "XMLSchema"}, 4}, // xsd
-{{"http:", "www.w3.org", "2006", "time"}, 4}, // time
-{{"http:", "purl.org", "NET", "c4dm", "event.owl"}, 5}, // event
-{{"http:", "www.openarchives.org", "ore", "terms"}, 4}, // ore (Open Archive)
-{{"http:", "purl.org", "vocab", "bio", "0.1"}, 5}, // bio (biographical data)
-{{"http:", "www.holygoat.co.uk", "owl", "redwood", "0.1", "tags"}, 6}, // tag
-{{"http:", "rdfs.org", "ns", "void"}, 4}, // void (Vocabulary of Interlinked Datasets)
-{{"http:", "www.w3.org", "2006", "http"}, 4}, // http
-{{"http:", "purl.uniprot.org", "core"}, 3}, // uniprot (protein annotation)
-{{"http:", "umbel.org", "umbel"}, 3}, // umbel (Upper Mapping and Binding Exchange Layer)
-{{"http:", "purl.org", "stuff", "rev"}, 4}, // rev (review)
-{{"http:", "purl.org", "linked-data", "cube"}, 4}, // qb (data cube)
-{{"http:", "www.w3.org", "ns", "org"}, 4}, // org (organizations)
-{{"http:", "purl.org", "vocab", "vann"}, 4}, // vann (vocabulary for annotating vocabulary descriptions)
-{{"http:", "data.ordnancesurvey.co.uk", "ontology", "admingeo"}, 4}, // admingeo (administrative geography and civil voting area)
-{{"http:", "www.w3.org", "2007", "05", "powder-s"}, 5}, // wdrs (Web Description Resources)
-{{"http:", "usefulinc.com", "ns", "doap"}, 4}, // doap (Description of a Project)
-{{"http:", "lod.taxonconcept.org", "ontology", "txn.owl"}, 4}, // txn (TaxonConcept, species)
-{{"http:", "xmlns.com", "wot", "0.1"}, 4}, // wot (Web Of Trust)
-{{"http:", "purl.org", "net", "compass"}, 4}, // compass
-{{"http:", "www.w3.org", "2004", "03", "trix", "rdfg-1"}, 6}, // rdfg (RDF graph)
-{{"http:", "purl.org", "NET", "c4dm", "timeline.owl"}, 5}, // tl (timeline)
-{{"http:", "purl.org", "dc", "dcam"}, 4}, // dcam (DublinCore metadata)
-{{"http:", "swrc.ontoware.org", "ontology"}, 3}, // swrc (university, research)
-{{"http:", "zeitkunst.org", "bibtex", "0.1", "bibtex.owl"}, 5}, // bib (bibTeX entries)
-{{"http:", "purl.org", "ontology", "po"}, 4} // po (tv and radio programmes)
+{{"<http:", "www.facebook.com", "2008"}, 3},
+{{"<http:", "facebook.com", "2008"}, 3},
+{{"<http:", "developers.facebook.com", "schema"}, 3},
+{{"<https:", "www.facebook.com", "2008"}, 3},
+{{"<http:", "purl.org", "dc", "elements", "1.1"}, 5}, // dc DublinCore
+{{"<http:", "purl.org", "dc", "terms"}, 4}, // DublinCore
+{{"<http:", "purl.org", "goodrelations", "v1"}, 4}, // GoodRelations
+{{"<http:", "purl.org", "rss", "1.0", "modules"}, 5},
+{{"<http:", "purl.org", "stuff"}, 3},
+{{"<http:", "www.purl.org", "stuff"}, 3},
+{{"<http:", "ogp.me", "ns"}, 3},
+{{"<https:", "ogp.me", "ns"}, 3},
+{{"<http:", "www.w3.org", "1999", "02", "22-rdf-syntax-ns"}, 5}, // rdf
+{{"<http:", "www.w3.org", "2000", "01", "rdf-schema"}, 5}, // rdfs
+{{"<http:", "www.w3.org", "2004", "02", "skos", "core"}, 6}, // skos (Simple Knowledge Organization System)
+{{"<http:", "www.w3.org", "2002", "07", "owl"}, 5},
+{{"<http:", "www.w3.org", "2006", "vcard", "ns"}, 5}, // vcard
+{{"<http:", "www.w3.org", "2001", "vcard-rdf", "3.0"}, 5},
+{{"<http:", "www.w3.org", "2003", "01", "geo", "wgs84_pos"}, 6}, // geo
+{{"<http:", "www.w3.org", "1999", "xhtml", "vocab"}, 5}, // xhtml
+{{"<http:", "search.yahoo.com", "searchmonkey"}, 3},
+{{"<https:", "search.yahoo.com", "searchmonkey"}, 3},
+{{"<http:", "search.yahoo.co.jp", "searchmonkey"}, 3},
+{{"<http:", "g.yahoo.com", "searchmonkey"}, 3},
+{{"<http:", "opengraphprotocol.org", "schema"}, 3},
+{{"<https:", "opengraphprotocol.org", "schema"}, 3},
+{{"<http:", "opengraph.org", "schema"}, 3},
+{{"<https:", "opengraph.org", "schema"}, 3},
+{{"<http:", "creativecommons.org", "ns"}, 3}, // cc
+{{"<http:", "rdf.data-vocabulary.org"}, 2}, // by google
+{{"<http:", "rdfs.org", "sioc", "ns"}, 4}, // sioc (pronounced "shock", Semantically-Interlinked Online Communities Project)
+{{"<http:", "xmlns.com", "foaf", "0.1"}, 4}, // foaf (Friend of a Friend)
+{{"<http:", "mixi-platform.com", "ns"}, 3}, // japanese social graph
+{{"<http:", "commontag.org", "ns"}, 3},
+{{"<http:", "semsl.org", "ontology"}, 3}, // semantic web for second life
+{{"<http:", "schema.org"}, 2},
+{{"<http:", "openelectiondata.org", "0.1"}, 3},
+{{"<http:", "search.aol.com", "rdf"}, 3},
+{{"<http:", "www.loc.gov", "loc.terms", "relators"}, 4}, // library of congress
+{{"<http:", "dbpedia.org", "ontology"}, 3}, // dbo
+{{"<http:", "dbpedia.org", "resource"}, 3}, // dbpedia
+{{"<http:", "dbpedia.org", "property"}, 3}, // dbp
+{{"<http:", "www.aktors.org", "ontology", "portal"}, 4}, // akt (research, publications, ...)
+{{"<http:", "purl.org", "ontology", "bibo"}, 4}, // bibo (bibliography)
+{{"<http:", "purl.org", "ontology", "mo"}, 4}, // mo (music)
+{{"<http:", "www.geonames.org", "ontology"}, 3}, // geonames
+{{"<http:", "purl.org", "vocab", "frbr", "core"}, 5}, // frbr (Functional Requirements for Bibliographic Records)
+{{"<http:", "www.w3.org", "2001", "XMLSchema"}, 4}, // xsd
+{{"<http:", "www.w3.org", "2006", "time"}, 4}, // time
+{{"<http:", "purl.org", "NET", "c4dm", "event.owl"}, 5}, // event
+{{"<http:", "www.openarchives.org", "ore", "terms"}, 4}, // ore (Open Archive)
+{{"<http:", "purl.org", "vocab", "bio", "0.1"}, 5}, // bio (biographical data)
+{{"<http:", "www.holygoat.co.uk", "owl", "redwood", "0.1", "tags"}, 6}, // tag
+{{"<http:", "rdfs.org", "ns", "void"}, 4}, // void (Vocabulary of Interlinked Datasets)
+{{"<http:", "www.w3.org", "2006", "http"}, 4}, // http
+{{"<http:", "purl.uniprot.org", "core"}, 3}, // uniprot (protein annotation)
+{{"<http:", "umbel.org", "umbel"}, 3}, // umbel (Upper Mapping and Binding Exchange Layer)
+{{"<http:", "purl.org", "stuff", "rev"}, 4}, // rev (review)
+{{"<http:", "purl.org", "linked-data", "cube"}, 4}, // qb (data cube)
+{{"<http:", "www.w3.org", "ns", "org"}, 4}, // org (organizations)
+{{"<http:", "purl.org", "vocab", "vann"}, 4}, // vann (vocabulary for annotating vocabulary descriptions)
+{{"<http:", "data.ordnancesurvey.co.uk", "ontology", "admingeo"}, 4}, // admingeo (administrative geography and civil voting area)
+{{"<http:", "www.w3.org", "2007", "05", "powder-s"}, 5}, // wdrs (Web Description Resources)
+{{"<http:", "usefulinc.com", "ns", "doap"}, 4}, // doap (Description of a Project)
+{{"<http:", "lod.taxonconcept.org", "ontology", "txn.owl"}, 4}, // txn (TaxonConcept, species)
+{{"<http:", "xmlns.com", "wot", "0.1"}, 4}, // wot (Web Of Trust)
+{{"<http:", "purl.org", "net", "compass"}, 4}, // compass
+{{"<http:", "www.w3.org", "2004", "03", "trix", "rdfg-1"}, 6}, // rdfg (RDF graph)
+{{"<http:", "purl.org", "NET", "c4dm", "timeline.owl"}, 5}, // tl (timeline)
+{{"<http:", "purl.org", "dc", "dcam"}, 4}, // dcam (DublinCore metadata)
+{{"<http:", "swrc.ontoware.org", "ontology"}, 3}, // swrc (university, research)
+{{"<http:", "zeitkunst.org", "bibtex", "0.1", "bibtex.owl"}, 5}, // bib (bibTeX entries)
+{{"<http:", "purl.org", "ontology", "po"}, 4} // po (tv and radio programmes)
 };
 
 #if USE_SHORT_NAMES
@@ -107,25 +107,25 @@ ontology ontologies[] = {
 static
 void getPropNameShort(char** name, char* propStr) {
 	char		*token;
-	char		*uri, *uriPtr;
+	char		*uri;
+	char		*uriPtr;
 	int		length = 0;		// number of tokens
 	char		**tokenizedUri = NULL;	// list of tokens
 	int		i, j;
 	int		fit;
 
 	// tokenize uri
-	uri = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
+	uri = (char *) GDKmalloc(sizeof(char) * (strlen(propStr) + 1));
 	if (!uri) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 	strcpy(uri, propStr); // uri will be modified during tokenization
 	uriPtr = uri; // uri will be modified, uriPtr keeps original pointer
 	token = strtok(uri, "/#");
 	while (token != NULL) {
-		tokenizedUri = realloc(tokenizedUri, sizeof(char*) * ++length);
+		tokenizedUri = GDKrealloc(tokenizedUri, sizeof(char*) * ++length);
 		if (!tokenizedUri) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 		tokenizedUri[length - 1] = token;
 		token = strtok(NULL, "/#");
 	}
-	free(uriPtr);
 
 	// match with ontologies
 	for (j = 0; j < ontologyCount; ++j) {
@@ -142,7 +142,7 @@ void getPropNameShort(char** name, char* propStr) {
 				for (i = ontologies[j].length; i < length; ++i) {
 					totalLength += (strlen(tokenizedUri[i]) + 1); // additional char for underscore
 				}
-				(*name) = (char *) malloc(sizeof(char) * (totalLength + 1));
+				(*name) = (char *) GDKmalloc(sizeof(char) * (totalLength + 1));
 				if (!(*name)) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 				strcpy(*name, "\0");
 
@@ -153,7 +153,10 @@ void getPropNameShort(char** name, char* propStr) {
 				// remove trailing underscore
 				(*name)[strlen(*name) - 1] = '\0';
 
-				free(tokenizedUri);
+				if ((*name)[strlen(*name) - 1] == '>') (*name)[strlen(*name) - 1] = '\0'; // remove >
+
+				GDKfree(tokenizedUri);
+				GDKfree(uriPtr);
 				return;
 			}
 		}
@@ -163,16 +166,19 @@ void getPropNameShort(char** name, char* propStr) {
 
 	if (length <= 1) {
 		// value
-		(*name) = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
+		(*name) = (char *) GDKmalloc(sizeof(char) * (strlen(propStr) + 1));
 		if (!(*name)) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 		strcpy(*name, propStr);
 	} else {
-		(*name) = (char *) malloc(sizeof(char) * (strlen(tokenizedUri[length - 1]) + 1));
+		(*name) = (char *) GDKmalloc(sizeof(char) * (strlen(tokenizedUri[length - 1]) + 1));
 		if (!(*name)) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 		strcpy(*name, tokenizedUri[length - 1]);
 	}
 
-	free(tokenizedUri);
+	if ((*name)[strlen(*name) - 1] == '>') (*name)[strlen(*name) - 1] = '\0'; // remove >
+
+	GDKfree(tokenizedUri);
+	GDKfree(uriPtr);
 	return;
 }
 #endif
@@ -238,11 +244,6 @@ Relation*** initRelationMetadata(int** relationMetadataCount, CSrel* csrelSet, i
 	int		i, j, k;
 	Relation***	relationMetadata;
 
-	int		ret;
-	char*		schema = "rdf";
-
-	TKNZRopen (NULL, &schema);
-
 	relationMetadata = (Relation ***) malloc(sizeof(Relation **) * freqCSset->numCSadded);
 	if (!relationMetadata) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 	for (i = 0; i < num; ++i) { // CS
@@ -293,21 +294,14 @@ Relation*** initRelationMetadata(int** relationMetadataCount, CSrel* csrelSet, i
 		}
 	}
 
-	TKNZRclose(&ret);
-
 	return relationMetadata;
 }
 
 /* Calculate frequency per foreign key relationship. */
 static
-Relation*** initRelationMetadata2(int** relationMetadataCount, CSmergeRel* csRelBetweenMergeFreqSet, CSset* freqCSset) {
+Relation*** initRelationMetadata2(int** relationMetadataCount, CSrel* csRelBetweenMergeFreqSet, CSset* freqCSset) {
 	int		i, j, k;
 	Relation***	relationMetadata;
-
-	int		ret;
-	char*		schema = "rdf";
-
-	TKNZRopen (NULL, &schema);
 
 	relationMetadata = (Relation ***) malloc(sizeof(Relation **) * freqCSset->numCSadded);
 	if (!relationMetadata) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
@@ -359,8 +353,6 @@ Relation*** initRelationMetadata2(int** relationMetadataCount, CSmergeRel* csRel
 			}
 		}
 	}
-
-	TKNZRclose(&ret);
 
 	return relationMetadata;
 }
@@ -439,7 +431,7 @@ void escapeURIforSQL(char* s) {
 	int i;
 
 	for (i = 0; i < (int) strlen(s); ++i) {
-		if (s[i] == ':' || s[i] == '"' || s[i] == ' ' || s[i] == '-') s[i] = '_';
+		if (s[i] == ':' || s[i] == '"' || s[i] == ' ' || s[i] == '-' || s[i] == '<' || s[i] == '>' || s[i] == '/' || s[i] == '(' || s[i] == ')' || s[i] == '.' || s[i] == '%') s[i] = '_';
 		s[i] = tolower(s[i]);
 	}
 }
@@ -447,21 +439,12 @@ void escapeURIforSQL(char* s) {
 /* Create SQL CREATE TABLE statements including foreign keys. */
 static
 void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relationMetadataCount, CSlabel* labels, int freqThreshold) {
-	// tokenizer
-	int		ret;
-	char*		schema = "rdf";
-
 	// file i/o
 	FILE		*fout;
 	char		filename[20], tmp[10];
 
 	// looping
 	int		i, j, k;
-
-	// tokenizer
-	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
-		fprintf(stderr, "could not open the tokenizer\n");
-	}
 
 	strcpy(filename, "CS");
 	sprintf(tmp, "%d", freqThreshold);
@@ -472,30 +455,71 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 
 	// create statement for every table
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		char *temp;
+		str labelStr, tmpStr;
 
 		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
 
-		temp = (char *) malloc(sizeof(char) * (strlen(labels[i].name) + 1));
-		if (!temp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-		strcpy(temp, labels[i].name);
-		escapeURIforSQL(temp);
-		fprintf(fout, "CREATE TABLE %s_"BUNFMT" (\nsubject VARCHAR(10) PRIMARY KEY,\n", temp, freqCSset->items[i].csId); // TODO underscores?
-		free(temp);
+		if (labels[i].name == BUN_NONE) {
+			fprintf(fout, "CREATE TABLE %s_"BUNFMT" (\nsubject VARCHAR(10) PRIMARY KEY,\n", "DUMMY", freqCSset->items[i].csId); // TODO underscores?
+		} else {
+#if USE_SHORT_NAMES
+			str labelStrShort = NULL;
+#endif
+			takeOid(labels[i].name, &labelStr);
+#if USE_SHORT_NAMES
+			getPropNameShort(&labelStrShort, labelStr);
+			tmpStr = (str) malloc(sizeof(char) * (strlen(labelStrShort) + 1));
+			if (!tmpStr) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			strcpy(tmpStr, labelStrShort);
+			escapeURIforSQL(tmpStr);
+			fprintf(fout, "CREATE TABLE %s_"BUNFMT" (\nsubject VARCHAR(10) PRIMARY KEY,\n", tmpStr, freqCSset->items[i].csId); // TODO underscores?
+			free(tmpStr);
+			GDKfree(labelStrShort);
+#else
+			tmpStr = (str) malloc(sizeof(char) * (strlen(labelStr) + 1));
+			if (!tmpStr) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			strcpy(tmpStr, labelStr);
+			escapeURIforSQL(tmpStr);
+			fprintf(fout, "CREATE TABLE %s_"BUNFMT" (\nsubject VARCHAR(10) PRIMARY KEY,\n", tmpStr, freqCSset->items[i].csId); // TODO underscores?
+			free(tmpStr);
+#endif
+		}
 		for (j = 0; j < labels[i].numProp; ++j) {
-			char *temp2;
-			temp2 = (char *) malloc(sizeof(char) * (strlen(labels[i].lstProp[j]) + 1));
-			if (!temp2) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			strcpy(temp2, labels[i].lstProp[j]);
-			escapeURIforSQL(temp2);
+			str propStr, tmpStr2;
+#if USE_SHORT_NAMES
+			str propStrShort = NULL;
+#endif
+			takeOid(labels[i].lstProp[j], &propStr);
+
+#if USE_SHORT_NAMES
+			getPropNameShort(&propStrShort, propStr);
+			tmpStr2 = (char *) malloc(sizeof(char) * (strlen(propStrShort) + 1));
+			if (!tmpStr2) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			strcpy(tmpStr2, propStrShort);
+			escapeURIforSQL(tmpStr2);
 
 			if (j + 1 < labels[i].numProp) {
-				fprintf(fout, "%s_%d BOOLEAN,\n", temp2, j);
+				fprintf(fout, "%s_%d BOOLEAN,\n", tmpStr2, j);
 			} else {
 				// last column
-				fprintf(fout, "%s_%d BOOLEAN\n", temp2, j);
+				fprintf(fout, "%s_%d BOOLEAN\n", tmpStr2, j);
 			}
-			free(temp2);
+			free(tmpStr2);
+			GDKfree(propStrShort);
+#else
+			tmpStr2 = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
+			if (!tmpStr2) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			strcpy(tmpStr2, propStr);
+			escapeURIforSQL(tmpStr2);
+
+			if (j + 1 < labels[i].numProp) {
+				fprintf(fout, "%s_%d BOOLEAN,\n", tmpStr2, j);
+			} else {
+				// last column
+				fprintf(fout, "%s_%d BOOLEAN\n", tmpStr2, j);
+			}
+			free(tmpStr2);
+#endif
 		}
 		fprintf(fout, ");\n\n");
 	}
@@ -505,44 +529,104 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
 
 		for (j = 0; j < labels[i].numProp; ++j) {
-			char *temp2;
+			str propStr, tmpStr2;
+#if USE_SHORT_NAMES
+			str propStrShort = NULL;
+#endif
 			int refCounter = 0;
-			temp2 = (char *) malloc(sizeof(char) * (strlen(labels[i].lstProp[j]) + 1));
-			if (!temp2) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			strcpy(temp2, labels[i].lstProp[j]);
-			escapeURIforSQL(temp2);
+
+			takeOid(labels[i].lstProp[j], &propStr);
+#if USE_SHORT_NAMES
+			getPropNameShort(&propStrShort, propStr);
+			tmpStr2 = (str) malloc(sizeof(char) * (strlen(propStrShort) + 1));
+			if (!tmpStr2) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			strcpy(tmpStr2, propStrShort);
+			escapeURIforSQL(tmpStr2);
+			GDKfree(propStrShort);
+#else
+			tmpStr2 = (str) malloc(sizeof(char) * (strlen(propStr) + 1));
+			if (!tmpStr2) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			strcpy(tmpStr2, propStr);
+			escapeURIforSQL(tmpStr2);
+#endif
 
 			for (k = 0; k < relationMetadataCount[i][j]; ++k) {
 				int from, to;
-				char *tempFrom, *tempTo;
+				str tmpStrFrom, tmpStrTo;
+
+
+
 				if (relationMetadata[i][j][k].percent < FK_FREQ_THRESHOLD) continue; // foreign key is not frequent enough
+
 				from = relationMetadata[i][j][k].from;
 				to = relationMetadata[i][j][k].to;
-				tempFrom = (char *) malloc(sizeof(char) * (strlen(labels[from].name) + 1));
-				if (!tempFrom) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-				tempTo = (char *) malloc(sizeof(char) * (strlen(labels[to].name) + 1));
-				if (!tempTo) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-				strcpy(tempFrom, labels[from].name);
-				escapeURIforSQL(tempFrom);
-				strcpy(tempTo, labels[to].name);
-				escapeURIforSQL(tempTo);
 
-				fprintf(fout, "ALTER TABLE %s_"BUNFMT" ADD COLUMN %s_%d_%d VARCHAR(10);\n", tempFrom, freqCSset->items[from].csId, temp2, j, refCounter);
-				fprintf(fout, "ALTER TABLE %s_"BUNFMT" ADD FOREIGN KEY (%s_%d_%d) REFERENCES %s_"BUNFMT"(subject);\n\n", tempFrom, freqCSset->items[from].csId, temp2, j, refCounter, tempTo, freqCSset->items[to].csId);
+				// get "from" and "to" table names
+				if (labels[from].name == BUN_NONE) {
+					tmpStrFrom = (str) malloc(sizeof(char) * 6);
+					if (!tmpStrFrom) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+					strcpy(tmpStrFrom, "DUMMY");
+				} else {
+					str labelStrFrom;
+#if USE_SHORT_NAMES
+					str labelStrFromShort;
+#endif
+					takeOid(labels[from].name, &labelStrFrom);
+#if USE_SHORT_NAMES
+					getPropNameShort(&labelStrFromShort, labelStrFrom);
+					tmpStrFrom = (str) malloc(sizeof(char) * (strlen(labelStrFromShort) + 1));
+					if (!tmpStrFrom) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+					strcpy(tmpStrFrom, labelStrFromShort);
+					escapeURIforSQL(tmpStrFrom);
+					GDKfree(labelStrFromShort);
+#else
+					tmpStrFrom = (str) malloc(sizeof(char) * (strlen(labelStrFrom) + 1));
+					if (!tmpStrFrom) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+					strcpy(tmpStrFrom, labelStrFrom);
+					escapeURIforSQL(tmpStrFrom);
+#endif
+				}
+
+				if (labels[to].name == BUN_NONE) {
+					tmpStrTo = (str) malloc(sizeof(char) * 6);
+					if (!tmpStrTo) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+					strcpy(tmpStrTo, "DUMMY");
+				} else {
+					str labelStrTo;
+#if USE_SHORT_NAMES
+					str labelStrToShort;
+#endif
+					takeOid(labels[to].name, &labelStrTo);
+#if USE_SHORT_NAMES
+					getPropNameShort(&labelStrToShort, labelStrTo);
+					tmpStrTo = (str) malloc(sizeof(char) * (strlen(labelStrToShort) + 1));
+					if (!tmpStrTo) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+					strcpy(tmpStrTo, labelStrToShort);
+					escapeURIforSQL(tmpStrTo);
+					GDKfree(labelStrToShort);
+#else
+					tmpStrTo = (str) malloc(sizeof(char) * (strlen(labelStrTo) + 1));
+					if (!tmpStrTo) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+					strcpy(tmpStrTo, labelStrTo);
+					escapeURIforSQL(tmpStrTo);
+#endif
+				}
+
+				fprintf(fout, "ALTER TABLE %s_"BUNFMT" ADD COLUMN %s_%d_%d VARCHAR(10);\n", tmpStrFrom, freqCSset->items[from].csId, tmpStr2, j, refCounter);
+				fprintf(fout, "ALTER TABLE %s_"BUNFMT" ADD FOREIGN KEY (%s_%d_%d) REFERENCES %s_"BUNFMT"(subject);\n\n", tmpStrFrom, freqCSset->items[from].csId, tmpStr2, j, refCounter, tmpStrTo, freqCSset->items[to].csId);
 				refCounter += 1;
-				free(tempFrom);
-				free(tempTo);
+				free(tmpStrFrom);
+				free(tmpStrTo);
 			}
-			free(temp2);
+			free(tmpStr2);
 		}
 	}
 
 	fclose(fout);
-	TKNZRclose(&ret);
 }
 
 static
-void createSQLMetadata(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, CSlabel* labels) {
+void createSQLMetadata(CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, CSlabel* labels) {
 	int	**matrix = NULL; // matrix[from][to] frequency
 	int	i, j, k;
 	FILE	*fout;
@@ -601,16 +685,35 @@ void createSQLMetadata(CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, C
 	// print id -> table name
 	fout = fopen("tableIdFreq.csv", "wt");
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		char *temp;
-
 		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
 
-		temp = (char *) malloc(sizeof(char) * (strlen(labels[i].name) + 1));
-		if (!temp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-		strcpy(temp, labels[i].name);
-		escapeURIforSQL(temp);
-		fprintf(fout, "%d,\"%s_"BUNFMT"\",%d\n", i, temp, freqCSset->items[i].csId, freqCSset->items[i].support); // TODO underscores?
-		free(temp);
+		if (labels[i].name == BUN_NONE) {
+			fprintf(fout, "%d,\"%s_"BUNFMT"\",%d\n", i, "DUMMY", freqCSset->items[i].csId, freqCSset->items[i].support); // TODO underscores?
+		} else {
+			str labelStr, tmpStr;
+#if USE_SHORT_NAMES
+			str labelStrShort;
+#endif
+
+			takeOid(labels[i].name, &labelStr);
+
+#if USE_SHORT_NAMES
+			getPropNameShort(&labelStrShort, labelStr);
+			tmpStr = (str) GDKmalloc(sizeof(char) * (strlen(labelStrShort) + 1));
+			if (!tmpStr) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			strcpy(tmpStr, labelStrShort);
+			escapeURIforSQL(tmpStr);
+			GDKfree(labelStrShort);
+#else
+			tmpStr = (str) GDKmalloc(sizeof(char) * (strlen(labelStr) + 1));
+			if (!tmpStr) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			strcpy(tmpStr, labelStr);
+			escapeURIforSQL(tmpStr);
+#endif
+
+			fprintf(fout, "%d,\"%s_"BUNFMT"\",%d\n", i, tmpStr, freqCSset->items[i].csId, freqCSset->items[i].support); // TODO underscores?
+			GDKfree(tmpStr);
+		}
 	}
 	fclose(fout);
 
@@ -636,12 +739,40 @@ void printTxt(CSset* freqCSset, CSlabel* labels, int freqThreshold) {
 
 	fout = fopen(filename, "wt");
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
+		str labelStr;
+#if USE_SHORT_NAMES
+		str labelStrShort = NULL;
+#endif
+
 		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
 
-		fprintf(fout, "%s (CS "BUNFMT"): ", labels[i].name, freqCSset->items[i].csId);
+		if (labels[i].name == BUN_NONE) {
+			fprintf(fout, "%s (CS "BUNFMT"): ", "DUMMY", freqCSset->items[i].csId);
+		} else {
+			takeOid(labels[i].name, &labelStr);
+#if USE_SHORT_NAMES
+			getPropNameShort(&labelStrShort, labelStr);
+			fprintf(fout, "%s (CS "BUNFMT"): ", labelStrShort, freqCSset->items[i].csId);
+			GDKfree(labelStrShort);
+#else
+			fprintf(fout, "%s (CS "BUNFMT"): ", labelStr, freqCSset->items[i].csId);
+#endif
+		}
 		for (j = 0; j < labels[i].numProp; ++j) {
-			if (j + 1 < labels[i].numProp) fprintf(fout, "%s, ", labels[i].lstProp[j]);
-			else fprintf(fout, "%s\n", labels[i].lstProp[j]);
+			str propStr;
+#if USE_SHORT_NAMES
+			str propStrShort = NULL;
+#endif
+			takeOid(labels[i].lstProp[j], &propStr);
+#if USE_SHORT_NAMES
+			getPropNameShort(&propStrShort, propStr);
+			if (j + 1 < labels[i].numProp) fprintf(fout, "%s, ", propStrShort);
+			else fprintf(fout, "%s\n", propStrShort);
+			GDKfree(propStrShort);
+#else
+			if (j + 1 < labels[i].numProp) fprintf(fout, "%s, ", propStr);
+			else fprintf(fout, "%s\n", propStr);
+#endif
 		}
 	}
 	fclose(fout);
@@ -657,29 +788,19 @@ int compareTypeAttributesFreqs (const void * a, const void * b) {
 #if USE_TYPE_NAMES
 /* Loop through all subjects to collect frequency statistics for type attribute values. */
 static
-void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, BAT* mapbat, CSset *freqCSset, int *csIdFreqIdxMap, int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, char** typeAttributes) {
+void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, CSset *freqCSset, int *csIdFreqIdxMap, int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, char** typeAttributes) {
 	// looping, extracting
 	BUN		p, q;
 	oid 		*sbt, *obt, *pbt;
 	char 		objType;
-	str		propStr, objStr, tmpStr;
-
-	char		*start, *end;
-	int		length;
-
 	oid 		objOid;
-	BUN		bun;
-	BATiter		mapi;
 	int		csFreqIdx;
-	char		*schema = "rdf";
 
 	// histogram
 	int		i, j, k;
 	int		fit;
 
-	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
-		fprintf(stderr, "could not open the tokenizer\n");
-	}
+	oid typeAttributesOids[typeAttributesCount];
 
 	if (BATcount(sbat) == 0) {
 		fprintf(stderr, "sbat must not be empty");
@@ -687,7 +808,10 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 		 * cannot be dereferenced after the BATloop below */
 	}
 
-	mapi = bat_iterator(mapbat);
+	// get oids for typeAttributes[]
+	for (i = 0; i < typeAttributesCount; ++i) {
+		TKNZRappend(&typeAttributesOids[i], &typeAttributes[i]);
+	}
 
 	BATloop(sbat, p, q) {
 		// Get data
@@ -700,10 +824,10 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 			continue;
 		}
 
-		// get property, check if it is a type
-		takeOid(*pbt, &propStr);
+		// check if property (*pbt) is a type
 		for (i = 0; i < typeAttributesCount; ++i) {
-			if (strstr(propStr, typeAttributes[i]) != NULL) {
+			if (*pbt == typeAttributesOids[i]) {
+
 				// prop is a type!
 				csFreqIdx = csIdFreqIdxMap[subjCSMap[*sbt]];
 
@@ -714,27 +838,14 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 
 				if (objType == URI || objType == BLANKNODE) {
 					objOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
-					takeOid(objOid, &tmpStr);
-					objStr = removeBrackets(tmpStr);
 				} else {
 					objOid = objOid - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the real objOid from Map or Tokenizer */
-					bun = BUNfirst(mapbat);
-					objStr = (str) BUNtail(mapi, bun + objOid);
-
-					// get part between enclosing quotation marks
-					start = strchr(objStr, '"') + 1;
-					end = strrchr(objStr, '"');
-					if (start != NULL && end != NULL) {
-						length = end - start;
-						objStr++;
-						objStr[length] = '\0';
-					}
 				}
 
 				// add object to histogram
 				fit = 0;
 				for (j = 0; j < typeAttributesHistogramCount[csFreqIdx][i]; ++j) {
-					if (strcmp(typeAttributesHistogram[csFreqIdx][i][j].value, objStr) == 0) {
+					if (typeAttributesHistogram[csFreqIdx][i][j].value == objOid) {
 						// bucket exists
 						typeAttributesHistogram[csFreqIdx][i][j].freq += 1;
 						fit = 1;
@@ -749,19 +860,12 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 					if (!typeAttributesHistogram[csFreqIdx][i]) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 
 					// insert value
-					typeAttributesHistogram[csFreqIdx][i][typeAttributesHistogramCount[csFreqIdx][i] - 1].value = (str) malloc(sizeof(char)*(strlen(objStr)+1));
-					if (!typeAttributesHistogram[csFreqIdx][i][typeAttributesHistogramCount[csFreqIdx][i] - 1].value) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-					strcpy(typeAttributesHistogram[csFreqIdx][i][typeAttributesHistogramCount[csFreqIdx][i] - 1].value, objStr);
+					typeAttributesHistogram[csFreqIdx][i][typeAttributesHistogramCount[csFreqIdx][i] - 1].value = objOid;
 					typeAttributesHistogram[csFreqIdx][i][typeAttributesHistogramCount[csFreqIdx][i] - 1].freq = 1;
-				}
-				if (objType == URI || objType == BLANKNODE) {
-					GDKfree(tmpStr); // allocated by takeOid()
-					GDKfree(objStr); // allocated by removeBrackets()
 				}
 				break;
 			}
 		}
-		GDKfree(propStr);
 	}
 
 	// sort descending by frequency
@@ -770,8 +874,6 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 			qsort(typeAttributesHistogram[i][j], typeAttributesHistogramCount[i][j], sizeof(TypeAttributesFreq), compareTypeAttributesFreqs);
 		}
 	}
-
-	TKNZRclose(NULL);
 
 	// assign percentage
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
@@ -813,7 +915,7 @@ TypeStat* getTypeStats(int* typeStatCount, int csCount, int typeAttributesCount,
 				if (typeAttributesHistogram[i][j][k].percent < TYPE_FREQ_THRESHOLD) break;
 				// search for this value
 				for (l = 0; l < *typeStatCount; ++l) {
-					if (strcmp(typeAttributesHistogram[i][j][k].value, typeStat[l].value) == 0) {
+					if (typeAttributesHistogram[i][j][k].value == typeStat[l].value) {
 						// found
 						typeStat[l].freq += 1;
 						found = 1;
@@ -824,7 +926,7 @@ TypeStat* getTypeStats(int* typeStatCount, int csCount, int typeAttributesCount,
 					// create new entry
 					typeStat = (TypeStat *) realloc(typeStat, sizeof(TypeStat) * (*typeStatCount + 1));
 					if (!typeStat) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-					typeStat[*typeStatCount].value = typeAttributesHistogram[i][j][k].value; // pointer, no copy
+					typeStat[*typeStatCount].value = typeAttributesHistogram[i][j][k].value;
 					typeStat[*typeStatCount].freq = 1;
 					*typeStatCount += 1;
 				}
@@ -861,13 +963,12 @@ str** findOntologies(CS cs, int *propOntologiesCount, oid*** propOntologiesOids)
 			char		**tokenizedUri = NULL;
 			char		*token;			// token, modified during tokenization
 			char		*uri;			// uri, modified during tokenization
-			str		propStr, tmpStr;
+			str		tmpStr;
 
 			takeOid(cs.lstProp[j], &tmpStr);
-			propStr = removeBrackets(tmpStr);
-			uri = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
+			uri = (char *) malloc(sizeof(char) * (strlen(tmpStr) + 1));
 			if (!uri) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			strcpy(uri, propStr);
+			strcpy(uri, tmpStr);
 
 			// tokenize uri
 			token = strtok(uri, "/#");
@@ -894,7 +995,7 @@ str** findOntologies(CS cs, int *propOntologiesCount, oid*** propOntologiesOids)
 					propOntologies[i] = realloc(propOntologies[i], sizeof(str) * (propOntologiesCount[i] + 1));
 					(*propOntologiesOids)[i] = realloc((*propOntologiesOids)[i], sizeof(str) * (propOntologiesCount[i] + 1));
 					if (!propOntologies[i] || !(*propOntologiesOids)[i]) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-					propOntologies[i][propOntologiesCount[i]] = propStr;
+					propOntologies[i][propOntologiesCount[i]] = tmpStr;
 					(*propOntologiesOids)[i][propOntologiesCount[i]] = cs.lstProp[j];
 					propOntologiesCount[i] += 1;
 				}
@@ -902,7 +1003,6 @@ str** findOntologies(CS cs, int *propOntologiesCount, oid*** propOntologiesOids)
 			for (k = 0; k < length; ++k) {
 				free(tokenizedUri[k]);
 			}
-			GDKfree(tmpStr);
 			free(tokenizedUri);
 		}
 	}
@@ -925,13 +1025,13 @@ int compareOntologyCandidates (const void * a, const void * b) {
 #if USE_ONTOLOGY_NAMES
 /* For one CS: Calculate the ontology classes that are similar (tfidf) to the list of attributes. */
 static
-str* getOntologyCandidates(str** ontattributes, int ontattributesCount, str** ontmetadata, int ontmetadataCount, int *resultCount, str **list, oid **listOids, int *listCount, int listNum, PropStat *propStat) {
+oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount, int *resultCount, oid **listOids, int *listCount, int listNum, PropStat *propStat) {
 	int		i, j, k, l;
-	str		*result = NULL;
+	oid		*result = NULL;
 
 	for (i = 0; i < listNum; ++i) {
 		int		filledListsCount = 0;
-		str		**candidates = NULL;
+		oid		**candidates = NULL;
 		int		*candidatesCount;
 		ClassStat*	classStat = NULL;
 		int		num;
@@ -939,7 +1039,7 @@ str* getOntologyCandidates(str** ontattributes, int ontattributesCount, str** on
 
 		if (listCount[i] == 0) continue;
 
-		candidates = (str **) malloc(sizeof(str *) * listCount[i]);
+		candidates = (oid **) malloc(sizeof(oid *) * listCount[i]);
 		candidatesCount = (int *) malloc(sizeof(int) * listCount[i]);
 		if (!candidates || !candidatesCount) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 		for (j = 0; j < listCount[i]; ++j) {
@@ -948,15 +1048,15 @@ str* getOntologyCandidates(str** ontattributes, int ontattributesCount, str** on
 		}
 
 		for (j = 0; j < ontattributesCount; ++j) {
-			str auristr = ontattributes[0][j];
-			str aattrstr = ontattributes[1][j];
+			oid auri = ontattributes[0][j];
+			oid aattr = ontattributes[1][j];
 
 			for (k = 0; k < listCount[i]; ++k) {
-				if (strcmp(aattrstr, list[i][k]) == 0) {
+				if (aattr == listOids[i][k]) {
 					// attribute found, store auristr in list
-					candidates[k] = realloc(candidates[k], sizeof(str) * (candidatesCount[k] + 1));
+					candidates[k] = realloc(candidates[k], sizeof(oid) * (candidatesCount[k] + 1));
 					if (!candidates[k]) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-					candidates[k][candidatesCount[k]] = auristr;
+					candidates[k][candidatesCount[k]] = auri;
 					candidatesCount[k] += 1;
 					if (candidatesCount[k] == 1) filledListsCount += 1; // new list
 				}
@@ -976,7 +1076,7 @@ str* getOntologyCandidates(str** ontattributes, int ontattributesCount, str** on
 				// search for this class
 				int found = 0;
 				for (l = 0; l < num; ++l) {
-					if (strcmp(candidates[j][k], classStat[l].ontoClass)== 0) {
+					if (candidates[j][k] == classStat[l].ontoClass) {
 						// add tdidf^2 to sum
 						classStat[l].tfidfs += (propStat->tfidfs[bun] * propStat->tfidfs[bun]);
 						found = 1;
@@ -1014,16 +1114,14 @@ str* getOntologyCandidates(str** ontattributes, int ontattributesCount, str** on
 			int found = 0;
 			if (classStat[k].tfidfs < ONTOLOGY_FREQ_THRESHOLD) break; // values not frequent enough (list is sorted by tfidfs)
 			for (j = 0; j < ontmetadataCount && (found == 0); ++j) {
-				str muristr = ontmetadata[0][j];
-				str msuperstr = ontmetadata[1][j];
-				if (strcmp(classStat[k].ontoClass, muristr) == 0) {
-					if (strcmp(msuperstr, "\x80") == 0) {
+				oid muri = ontmetadata[0][j];
+				oid msuper = ontmetadata[1][j];
+				if (classStat[k].ontoClass == muri) {
+					if (msuper == BUN_NONE) {
 						// muristr is a candidate! (because it has no superclass)
-						result = realloc(result, sizeof(char *) * ((*resultCount) + 1));
+						result = realloc(result, sizeof(oid) * ((*resultCount) + 1));
 						if (!result) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-						result[*resultCount] = (str) malloc(sizeof(char) * (strlen(muristr) + 1));
-						if (!result[*resultCount]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-						strcpy(result[*resultCount], muristr);
+						result[*resultCount] = muri;
 						*resultCount += 1;
 						found = 1;
 						break;
@@ -1031,7 +1129,7 @@ str* getOntologyCandidates(str** ontattributes, int ontattributesCount, str** on
 
 					for (l = 0; l < num; ++l) {
 						if (classStat[k].tfidfs > classStat[l].tfidfs) break; // superclass has to have a higher/equal tfidf to be concidered
-						if (strcmp(msuperstr, classStat[l].ontoClass) == 0) {
+						if (msuper == classStat[l].ontoClass) {
 							// superclass is in list, therefore do not copy subclass
 							found = 1;
 							break;
@@ -1041,11 +1139,9 @@ str* getOntologyCandidates(str** ontattributes, int ontattributesCount, str** on
 			}
 			if (found == 0) {
 				// superclass not in list, classStat[k].ontoClass is a candidate!
-				result = realloc(result, sizeof(str) * ((*resultCount) + 1));
+				result = realloc(result, sizeof(oid) * ((*resultCount) + 1));
 				if (!result) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-				result[*resultCount] = (str) malloc(sizeof(char) * (strlen(classStat[k].ontoClass) + 1));
-				if (!result[*resultCount]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-				strcpy(result[*resultCount], classStat[k].ontoClass);
+				result[*resultCount] = classStat[k].ontoClass;
 				*resultCount += 1;
 				break;
 			}
@@ -1078,11 +1174,11 @@ int* initOntologyLookupResultCount(int csCount) {
 }
 
 static
-str** initOntologyLookupResult(int csCount) {
-	str		**result; // result[cs][index] (list of class names per cs)
+oid** initOntologyLookupResult(int csCount) {
+	oid		**result; // result[cs][index] (list of class names per cs)
 	int i;
 
-	result = (str **) malloc(sizeof(str *) * csCount);
+	result = (oid **) malloc(sizeof(oid *) * csCount);
 	if (!result) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 	for (i = 0; i < csCount; ++i) {
 		result[i] = NULL;
@@ -1172,7 +1268,7 @@ void freePropStat(PropStat *propStat) {
 #if USE_ONTOLOGY_NAMES
 /* For all CS: Calculate the ontology classes that are similar (tfidf) to the list of attributes. */
 static
-void createOntologyLookupResult(str** result, CSset* freqCSset, int* resultCount, str** ontattributes, int ontattributesCount, str** ontmetadata, int ontmetadataCount) {
+void createOntologyLookupResult(oid** result, CSset* freqCSset, int* resultCount, oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount) {
 	int		i, j;
 	PropStat	*propStat;
 
@@ -1197,7 +1293,7 @@ void createOntologyLookupResult(str** result, CSset* freqCSset, int* resultCount
 
 		// get class names
 		resultCount[i] = 0;
-		result[i] = getOntologyCandidates(ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &(resultCount[i]), propOntologies, propOntologiesOids, propOntologiesCount, ontologyCount, propStat);
+		result[i] = getOntologyCandidates(ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &(resultCount[i]), propOntologiesOids, propOntologiesCount, ontologyCount, propStat);
 
 		for (j = 0; j < ontologyCount; ++j) {
 			free(propOntologies[j]);
@@ -1216,8 +1312,6 @@ void createOntologyLookupResult(str** result, CSset* freqCSset, int* resultCount
 static
 void printUML(CSset *freqCSset, int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, str** result, int* resultCount, IncidentFKs* links, CSlabel* labels, Relation*** relationMetadata, int** relationMetadataCount, int freqThreshold) {
 	str		propStr, tmpStr;
-	int		ret;
-	char*   	schema = "rdf";
 
 #if SHOW_CANDIDATES
 	char*           resultStr = NULL;
@@ -1228,10 +1322,6 @@ void printUML(CSset *freqCSset, int typeAttributesCount, TypeAttributesFreq*** t
 	int 		i, j, k;
 	FILE 		*fout;
 	char 		filename[20], tmp[10];
-
-	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
-		fprintf(stderr, "could not open the tokenizer\n");
-	}
 
 	strcpy(filename, "CSmax");
 	sprintf(tmp, "%d", freqThreshold);
@@ -1391,8 +1481,6 @@ void printUML(CSset *freqCSset, int typeAttributesCount, TypeAttributesFreq*** t
 				if (!temp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 				sprintf(temp, "%s, ", propStr);
 #endif
-				GDKfree(tmpStr);
-				GDKfree(propStr);
 
 				// resize resultStr ?
 				while (strlen(resultStr) + strlen(temp) + 1 > resultStrSize) { // + 1 for \0
@@ -1460,8 +1548,6 @@ void printUML(CSset *freqCSset, int typeAttributesCount, TypeAttributesFreq*** t
 #else
 			fprintf(fout, "<TR><TD PORT=\"%s\">%s</TD></TR>\n", propStrEscaped, propStr);
 #endif
-			GDKfree(tmpStr);
-			GDKfree(propStr);
 			free(propStrEscaped);
 
 		}
@@ -1502,8 +1588,6 @@ void printUML(CSset *freqCSset, int typeAttributesCount, TypeAttributesFreq*** t
 #endif
 				}
 			}
-			GDKfree(tmpStr);
-			GDKfree(propStr);
 			free(propStrEscaped);
 		}
 	}
@@ -1511,26 +1595,16 @@ void printUML(CSset *freqCSset, int typeAttributesCount, TypeAttributesFreq*** t
 	fprintf(fout, "}\n"); // footer
 
 	fclose(fout);
-
-	TKNZRclose(&ret);
 }
 */
 
 static
 void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, int** relationMetadataCount, int freqThreshold) {
-	str		propStr, tmpStr;
-	int		ret;
-	char*   	schema = "rdf";
-
 	int 		i, j, k;
 	FILE 		*fout;
 	char 		filename[20], tmp[10];
 
 	int		smallest = -1, biggest = -1;
-
-	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
-		fprintf(stderr, "could not open the tokenizer\n");
-	}
 
 	strcpy(filename, "CS2max");
 	sprintf(tmp, "%d", freqThreshold);
@@ -1559,6 +1633,12 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		int width;
+		str labelStr;
+		str labelStrEscaped = NULL;
+#if USE_SHORT_NAMES
+		str labelStrShort = NULL;
+#endif
+
 		CS cs = (CS) freqCSset->items[i];
 		if (cs.parentFreqIdx != -1) continue; // ignore
 
@@ -1566,9 +1646,34 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 		width = (int) ((300 + 300 * (log10(freqCSset->items[i].coverage) - log10(freqCSset->items[smallest].coverage)) / (log10(freqCSset->items[biggest].coverage) - log10(freqCSset->items[smallest].coverage))) + 0.5); // width between 300 and 600 px, using logarithm
 		fprintf(fout, "\"" BUNFMT "\" [\n", cs.csId);
 		fprintf(fout, "label = <<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\">\n");
-		fprintf(fout, "<TR><TD WIDTH=\"%d\"><B>%s (#triples: %d)</B></TD></TR>\n", width, labels[i].name, cs.coverage);
+
+		if (labels[i].name == BUN_NONE) {
+			labelStrEscaped = (str) GDKmalloc(sizeof(char) * 6);
+			if (!labelStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			strcpy(labelStrEscaped, "DUMMY");
+		} else {
+			takeOid(labels[i].name, &labelStr);
+#if USE_SHORT_NAMES
+			getPropNameShort(&labelStrShort, labelStr);
+			labelStrEscaped = (str) GDKmalloc(sizeof(char) * (strlen(labelStrShort) + 1));
+			if (!labelStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			memcpy(labelStrEscaped, labelStrShort, (strlen(labelStrShort) + 1));
+			escapeURI(labelStrEscaped);
+			GDKfree(labelStrShort);
+#else
+			labelStrEscaped = (str) GDKmalloc(sizeof(char) * (strlen(labelStr) + 1));
+			if (!labelStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			memcpy(labelStrEscaped, labelStr, (strlen(labelStr) + 1));
+			escapeURI(labelStrEscaped);
+#endif
+		}
+
+		fprintf(fout, "<TR><TD WIDTH=\"%d\"><B>%s (#triples: %d)</B></TD></TR>\n", width, labelStrEscaped, cs.coverage);
+		GDKfree(labelStrEscaped);
 
 		for (j = 0; j < cs.numProp; ++j) {
+			str		propStr;
+			str		tmpStr;
 			char    *propStrEscaped = NULL;
 			char    *propStrShort = NULL;
 			str color;
@@ -1597,7 +1702,6 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 			}
 			fprintf(fout, "<TR><TD BGCOLOR=\"%s\" PORT=\"%s\">%s (%d%%)</TD></TR>\n", color, propStrEscaped, propStrShort, (100 * cs.lstPropSupport[j])/cs.support);
 
-			GDKfree(tmpStr);
 			GDKfree(propStr);
 			free(propStrEscaped);
 
@@ -1611,6 +1715,8 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 		if (cs.parentFreqIdx != -1) continue; // ignore
 
 		for (j = 0; j < cs.numProp; ++j) {
+			str	tmpStr;
+			str	propStr;
 			char    *propStrEscaped = NULL;
 
 			takeOid(cs.lstProp[j], &tmpStr);
@@ -1631,7 +1737,6 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 					fprintf(fout, "\""BUNFMT"\":\"%s\" -> \""BUNFMT"\" [label=\"%s\"];\n", freqCSset->items[from].csId, propStrEscaped, freqCSset->items[to].csId, propStr); // print foreign keys to dot file
 				}
 			}
-			GDKfree(tmpStr);
 			GDKfree(propStr);
 			free(propStrEscaped);
 		}
@@ -1640,23 +1745,20 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 	fprintf(fout, "}\n"); // footer
 
 	fclose(fout);
-
-	TKNZRclose(&ret);
 }
 
 static
-str* getOntoHierarchy(str ontology, int* hierarchyCount, str** ontmetadata, int ontmetadataCount) {
+oid* getOntoHierarchy(oid ontology, int* hierarchyCount, oid** ontmetadata, int ontmetadataCount) {
 	int		i;
-	str		*hierarchy;
+	oid		*hierarchy;
 	int		foundTop;
 
 	// add 'ontology' to hierarchy
 	(*hierarchyCount) = 1;
-	hierarchy = (str *) malloc(sizeof(str) * (*hierarchyCount));
+	hierarchy = (oid *) malloc(sizeof(oid) * (*hierarchyCount));
 	if (!hierarchy)
 		fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-	hierarchy[(*hierarchyCount) -1] = (str) malloc(sizeof(char) * (strlen(ontology) + 1));
-	strcpy(hierarchy[(*hierarchyCount) - 1], ontology);
+	hierarchy[(*hierarchyCount) -1] = ontology;
 
 	// follow the hierarchy from bottom to top
 	foundTop = 0;
@@ -1664,12 +1766,13 @@ str* getOntoHierarchy(str ontology, int* hierarchyCount, str** ontmetadata, int 
 		// lookup superclass
 		int foundTuple = 0;
 		for (i = 0; i < ontmetadataCount; ++i) {
-			str muristr = ontmetadata[0][i];
-			str msuperstr = ontmetadata[1][i];
-			if (strcmp(hierarchy[(*hierarchyCount) - 1], muristr) == 0) {
+			oid muri = ontmetadata[0][i];
+			oid msuper = ontmetadata[1][i];
+
+			if (hierarchy[(*hierarchyCount) - 1] == muri) {
 				// found entry
 				foundTuple = 1;
-				if (strcmp(msuperstr, "\x80") == 0) {
+				if (msuper == BUN_NONE) {
 					// no superclass
 					foundTop = 1;
 					break;
@@ -1677,11 +1780,10 @@ str* getOntoHierarchy(str ontology, int* hierarchyCount, str** ontmetadata, int 
 					// superclass
 					// add 'msuperstr' to hierarchy
 					(*hierarchyCount) += 1;
-					hierarchy = realloc(hierarchy, sizeof(str) * (*hierarchyCount));
+					hierarchy = realloc(hierarchy, sizeof(oid) * (*hierarchyCount));
 					if (!hierarchy)
 						fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-					hierarchy[(*hierarchyCount) -1] = (str) malloc(sizeof(char) * (strlen(msuperstr) + 1));
-					strcpy(hierarchy[(*hierarchyCount) - 1], msuperstr);
+					hierarchy[(*hierarchyCount) -1] = msuper;
 					break;
 				}
 			}
@@ -1697,28 +1799,26 @@ str* getOntoHierarchy(str ontology, int* hierarchyCount, str** ontmetadata, int 
 #if USE_TABLE_NAME
 /* For one CS: Choose the best table name out of all collected candidates (ontology, type, fk). */
 static
-void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, TypeStat* typeStat, int typeStatCount, str** result, int* resultCount, IncidentFKs* links, str** ontmetadata, int ontmetadataCount) {
+void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, TypeStat* typeStat, int typeStatCount, oid** result, int* resultCount, IncidentFKs* links, oid** ontmetadata, int ontmetadataCount) {
 	int		i, j, k;
-	str		*tmpList;
+	oid		*tmpList;
 	int		tmpListCount;
 	char		nameFound = 0;
 
 	// --- ONTOLOGY ---
 	// add all ontology candidates to list of candidates
 	if (resultCount[csIdx] >= 1) {
-		label->candidates = realloc(label->candidates, sizeof(str) * (label->candidatesCount + resultCount[csIdx]));
+		label->candidates = realloc(label->candidates, sizeof(oid) * (label->candidatesCount + resultCount[csIdx]));
 		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 		for (i = 0; i < resultCount[csIdx]; ++i) {
-			label->candidates[label->candidatesCount + i] = (char *) malloc(sizeof(char) * (strlen(result[csIdx][i]) + 1));
-			strcpy(label->candidates[label->candidatesCount + i], result[csIdx][i]);
+			label->candidates[label->candidatesCount + i] = result[csIdx][i];
 		}
 		label->candidatesCount += resultCount[csIdx];
 	}
 
 	// one ontology class --> use it
 	if (resultCount[csIdx] == 1) {
-		label->name = (char *) malloc(sizeof(char) * (strlen(result[csIdx][0]) + 1));
-		strcpy(label->name, result[csIdx][0]);
+		label->name = result[csIdx][0];
 		label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 		nameFound = 1;
 	}
@@ -1732,13 +1832,14 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			for (i = 0; i < typeAttributesCount; ++i) {
 				for (j = 0; j < typeAttributesHistogramCount[csIdx][i]; ++j) {
 					if (typeAttributesHistogram[csIdx][i][j].percent < TYPE_FREQ_THRESHOLD) break; // sorted
+
 					// intersect type with ontology classes
 					for (k = 0; k < resultCount[csIdx]; ++k) {
-						if (strcmp(result[csIdx][k], typeAttributesHistogram[csIdx][i][j].value) == 0) {
+						if (result[csIdx][k] == typeAttributesHistogram[csIdx][i][j].value) {
 							// found, copy ontology class to tmpList
-							tmpList = (str *) realloc(tmpList, sizeof(str) * (tmpListCount + 1));
+							tmpList = (oid *) realloc(tmpList, sizeof(oid) * (tmpListCount + 1));
 							if (!tmpList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-							tmpList[tmpListCount] = result[csIdx][k]; // pointer, no copy
+							tmpList[tmpListCount] = result[csIdx][k];
 							tmpListCount += 1;
 						}
 					}
@@ -1747,8 +1848,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 
 			// only one left --> use it
 			if (tmpListCount == 1) {
-				label->name = (char *) malloc(sizeof(char) * (strlen(tmpList[0]) + 1));
-				strcpy(label->name, tmpList[0]);
+				label->name = tmpList[0];
 				label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 				free(tmpList);
 				nameFound = 1;
@@ -1757,8 +1857,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			if (!nameFound) {
 				// multiple left --> use the class that covers most attributes, most popular ontology, ...
 				if (tmpListCount > 1) {
-					label->name = (char *) malloc(sizeof(char) * (strlen(tmpList[0]) + 1));
-					strcpy(label->name, tmpList[0]); // sorted
+					label->name = tmpList[0]; // sorted
 					label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 					free(tmpList);
 					nameFound = 1;
@@ -1767,8 +1866,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 
 			if (!nameFound) {
 				// empty intersection -> use the class that covers most attributes, most popular ontology, ..
-				label->name = (char *) malloc(sizeof(char) * (strlen(result[csIdx][0]) + 1));
-				strcpy(label->name, result[csIdx][0]); // sorted
+				label->name = result[csIdx][0]; // sorted
 				label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 				free(tmpList);
 				nameFound = 1;
@@ -1783,22 +1881,21 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	for (i = 0; i < typeAttributesCount; ++i) {
 		if (typeAttributesHistogramCount[csIdx][i] == 0) continue;
 		if (typeAttributesHistogram[csIdx][i][0].percent < TYPE_FREQ_THRESHOLD) continue; // sorted
-		tmpList = (str *) realloc(tmpList, sizeof(str) * (tmpListCount + 1));
+		tmpList = (oid *) realloc(tmpList, sizeof(oid) * (tmpListCount + 1));
 		if (!tmpList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-		tmpList[tmpListCount] = typeAttributesHistogram[csIdx][i][0].value; // pointer, no copy
+		tmpList[tmpListCount] = typeAttributesHistogram[csIdx][i][0].value;
 		tmpListCount += 1;
 	}
 
 	// add all most frequent type values to list of candidates
 	if (tmpListCount >= 1) {
 		int counter = 0;
-		label->candidates = realloc(label->candidates, sizeof(str) * (label->candidatesCount + tmpListCount));
+		label->candidates = realloc(label->candidates, sizeof(oid) * (label->candidatesCount + tmpListCount));
 		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 		for (i = 0; i < typeStatCount; ++i) {
 			for (j = 0; j < tmpListCount; ++j) {
-				if (strcmp(typeStat[i].value, tmpList[j]) == 0) {
-					label->candidates[label->candidatesCount + counter] = (char *) malloc(sizeof(char) * (strlen(tmpList[j]) + 1));
-					strcpy(label->candidates[label->candidatesCount + counter], tmpList[j]);
+				if (typeStat[i].value == tmpList[j]) {
+					label->candidates[label->candidatesCount + counter] = tmpList[j];
 					counter++;
 				}
 			}
@@ -1811,8 +1908,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		// one type attribute --> use most frequent one
 		if (tmpListCount == 1) {
 			// only one type attribute, use most frequent value (sorted)
-			label->name = (char *) malloc(sizeof(char) * (strlen(tmpList[0]) + 1));
-			strcpy(label->name, tmpList[0]);
+			label->name = tmpList[0];
 			nameFound = 1;
 		}
 	}
@@ -1822,9 +1918,8 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		if (tmpListCount > 1) {
 			for (i = 0; i < typeStatCount && !nameFound; ++i) {
 				for (j = 0; j < tmpListCount && !nameFound; ++j) {
-					if (strcmp(typeStat[i].value, tmpList[j]) == 0) {
-						label->name = (char *) malloc(sizeof(char) * (strlen(tmpList[j]) + 1));
-						strcpy(label->name, tmpList[j]);
+					if (typeStat[i].value == tmpList[j]) {
+						label->name = tmpList[j];
 						nameFound = 1;
 					}
 				}
@@ -1835,15 +1930,10 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	// --- FK ---
 	// add top3 fk values to list of candidates
 	if (links[csIdx].num > 0) {
-		label->candidates = realloc(label->candidates, sizeof(str) * (label->candidatesCount + MIN(3, links[csIdx].num)));
+		label->candidates = realloc(label->candidates, sizeof(oid) * (label->candidatesCount + MIN(3, links[csIdx].num)));
 		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 		for (i = 0; i < MIN(3, links[csIdx].num); ++i) {
-			str propStr, tmpStr;
-			takeOid(links[csIdx].fks[0].prop, &tmpStr);
-			propStr = removeBrackets(tmpStr);
-
-			label->candidates[label->candidatesCount + i] = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
-			strcpy(label->candidates[label->candidatesCount + i], propStr);
+			label->candidates[label->candidatesCount + i] = links[csIdx].fks[0].prop;
 		}
 		label->candidatesCount += MIN(3, links[csIdx].num);
 	}
@@ -1851,29 +1941,21 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	if (!nameFound) {
 		// incident foreign keys --> use the one with the most occurances (num and freq)
 		if (links[csIdx].num > 0) {
-			str propStr, tmpStr;
-			takeOid(links[csIdx].fks[0].prop, &tmpStr); // sorted
-			propStr = removeBrackets(tmpStr);
-			label->name = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
-			strcpy(label->name, propStr);
-			GDKfree(tmpStr);
-			GDKfree(propStr);
+			label->name = links[csIdx].fks[0].prop; // sorted
 			nameFound = 1;
 		}
 	}
 
 	// --- NOTHING ---
 	if (label->candidatesCount == 0) {
-		label->candidates = realloc(label->candidates, sizeof(str));
+		label->candidates = realloc(label->candidates, sizeof(oid));
 		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-		label->candidates[0] = (char *) malloc(sizeof(char) * 6);
-		strcpy(label->candidates[0], "DUMMY");
+		label->candidates[0] = BUN_NONE;
 		label->candidatesCount = 1;
 	}
 
 	if (!nameFound) {
-		label->name = (char *) malloc(sizeof(char) * 6);
-		strcpy(label->name, "DUMMY");
+		label->name = BUN_NONE;
 		nameFound = 1;
 	}
 
@@ -1889,7 +1971,6 @@ CSlabel* initLabels(CSset *freqCSset) {
 	labels = (CSlabel *) malloc(sizeof(CSlabel) * freqCSset->numCSadded);
 	if (!labels) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		labels[i].name = NULL;
 		labels[i].candidates = NULL;
 		labels[i].candidatesCount = 0;
 		labels[i].hierarchy = NULL;
@@ -1903,7 +1984,7 @@ CSlabel* initLabels(CSset *freqCSset) {
 #if USE_TABLE_NAME
 /* Creates the final result of the labeling: table name and attribute names. */
 static
-void getAllLabels(CSlabel* labels, CSset* freqCSset,  int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, TypeStat* typeStat, int typeStatCount, str** result, int* resultCount, IncidentFKs* links, str** ontmetadata, int ontmetadataCount) {
+void getAllLabels(CSlabel* labels, CSset* freqCSset,  int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, TypeStat* typeStat, int typeStatCount, oid** result, int* resultCount, IncidentFKs* links, oid** ontmetadata, int ontmetadataCount) {
 	int		i, j;
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
@@ -1912,24 +1993,12 @@ void getAllLabels(CSlabel* labels, CSset* freqCSset,  int typeAttributesCount, T
 		// get table name
 		getTableName(&labels[i], i,  typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeStat, typeStatCount, result, resultCount, links, ontmetadata, ontmetadataCount);
 
-		// get attribute names
+		// copy attribute oids (names)
 		labels[i].numProp = cs.numProp;
-		labels[i].lstProp = (str *) malloc(sizeof(str) * cs.numProp);
+		labels[i].lstProp = (oid *) malloc(sizeof(oid) * cs.numProp);
 		if (!labels[i].lstProp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 		for (j = 0; j < cs.numProp; ++j) {
-			str propStr, tmpStr;
-			char *propStrShort = NULL;
-			takeOid(cs.lstProp[j], &tmpStr);
-			propStr = removeBrackets(tmpStr);
-			getPropNameShort(&propStrShort, propStr);
-			labels[i].lstProp[j] = (char *) malloc(sizeof(char) * (strlen(propStrShort) + 1));
-			if (!labels[i].lstProp[j]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			memcpy(labels[i].lstProp[j], propStrShort, sizeof(char) * (strlen(propStrShort) + 1));
-			labels[i].lstProp[j] = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
-			if (!labels[i].lstProp[j]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			memcpy(labels[i].lstProp[j], propStr, sizeof(char) * (strlen(propStr) + 1));
-			GDKfree(tmpStr);
-			GDKfree(propStr);
+			labels[i].lstProp[j] = cs.lstProp[j];
 		}
 	}
 }
@@ -2019,9 +2088,9 @@ void createOntoUsageTreeStatistics(OntoUsageNode* tree, int numTuples) {
 }
 
 static
-void addToOntoUsageTree(OntoUsageNode* tree, str* hierarchy, int hierarchyCount, int numTuples) {
+void addToOntoUsageTree(OntoUsageNode* tree, oid* hierarchy, int hierarchyCount, int numTuples) {
 	int		i;
-	str		uri;
+	oid		uri;
 	OntoUsageNode	*leaf;
 
 	if (hierarchyCount == 0) {
@@ -2035,7 +2104,7 @@ void addToOntoUsageTree(OntoUsageNode* tree, str* hierarchy, int hierarchyCount,
 	uri  = hierarchy[hierarchyCount - 1];
 	hierarchyCount--;
 	for (i = 0; i < tree->numChildren; ++i) {
-		if (strcmp(tree->lstChildren[i]->uri, uri) == 0) {
+		if (tree->lstChildren[i]->uri == uri) {
 			// found
 			addToOntoUsageTree(tree->lstChildren[i], hierarchy, hierarchyCount, numTuples);
 			return;
@@ -2048,10 +2117,7 @@ void addToOntoUsageTree(OntoUsageNode* tree, str* hierarchy, int hierarchyCount,
 	if (!leaf)
 		fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 	leaf->parent = tree;
-	leaf->uri = (str) malloc(sizeof(char) * (strlen(uri) + 1));
-	if (!leaf->uri)
-		fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-	strcpy(leaf->uri, uri);
+	leaf->uri = uri;
 	leaf->lstChildren = NULL;
 	leaf->numChildren = 0;
 	leaf->numOccurances = 0;
@@ -2071,16 +2137,20 @@ void addToOntoUsageTree(OntoUsageNode* tree, str* hierarchy, int hierarchyCount,
 static
 void printTree(OntoUsageNode* tree, int level) {
 	int i;
-	printf("Level %d URI %s Count %d Sum %d Percent %.1f\n", level, tree->uri, tree->numOccurances, tree->numOccurancesSum, tree->percentage * 100);
+	str uriStr;
+
+	takeOid(tree->uri, &uriStr);
+	printf("Level %d URI %s Count %d Sum %d Percent %.1f\n", level, uriStr, tree->numOccurances, tree->numOccurancesSum, tree->percentage * 100);
+
 	for (i = 0; i < tree->numChildren; ++i) {
 		printTree(tree->lstChildren[i], level+1);
 	}
 }
 
 static
-void createOntoUsageTree(OntoUsageNode** tree, CSset* freqCSset, str** ontmetadata, int ontmetadataCount, str** result, int* resultCount, int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount) {
-	int 		i, j, k;
-	str		*tmpList;
+void createOntoUsageTree(OntoUsageNode** tree, CSset* freqCSset, oid** ontmetadata, int ontmetadataCount, oid** result, int* resultCount, int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount) {
+	int 		i, j, k, l;
+	oid		*tmpList;
 	int		tmpListCount;
 	int 		numTuples = 0;
 
@@ -2088,8 +2158,7 @@ void createOntoUsageTree(OntoUsageNode** tree, CSset* freqCSset, str** ontmetada
 	(*tree) = (OntoUsageNode *) malloc(sizeof(OntoUsageNode));
 	if (!(*tree))
 		fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-	(*tree)->parent = NULL;
-	(*tree)->uri = NULL; // artificial root;
+	(*tree)->parent = NULL; // artificial root
 	(*tree)->lstChildren = NULL;
 	(*tree)->numChildren = 0;
 	(*tree)->numOccurances = 0;
@@ -2098,36 +2167,33 @@ void createOntoUsageTree(OntoUsageNode** tree, CSset* freqCSset, str** ontmetada
 
 	// loop through data
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		str		uri;
+		oid		uri;
 		int		hierarchyCount = 0;
-		str*		hierarchy;
+		oid*		hierarchy;
 
 		// get ontology
-		// copied from getTableName, TODO improve!
+		// copied from getTableName
 		if (resultCount[i] == 0) {
 			// no hierarchy --> ignore
 			continue;
 		} else if (resultCount[i] == 1) {
 			// one ontology class --> use it
-			uri = (char *) malloc(sizeof(char) * (strlen(result[i][0]) + 1));
-			if (!uri)
-				fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			strcpy(uri, result[i][0]);
+			uri = result[i][0];
 		} else {
 			// multiple ontology classes --> intersect with types
 			tmpList = NULL;
 			tmpListCount = 0;
 			// search for type values
-			for (i = 0; i < typeAttributesCount; ++i) {
-				for (j = 0; j < typeAttributesHistogramCount[i][i]; ++j) {
-					if (typeAttributesHistogram[i][i][j].percent < TYPE_FREQ_THRESHOLD) break; // sorted
+			for (l = 0; l < typeAttributesCount; ++l) {
+				for (j = 0; j < typeAttributesHistogramCount[i][l]; ++j) {
+					if (typeAttributesHistogram[i][l][j].percent < TYPE_FREQ_THRESHOLD) break; // sorted
 					// intersect type with ontology classes
 					for (k = 0; k < resultCount[i]; ++k) {
-						if (strcmp(result[i][k], typeAttributesHistogram[i][i][j].value) == 0) {
+						if (result[i][k] == typeAttributesHistogram[i][l][j].value) {
 							// found, copy ontology class to tmpList
-							tmpList = (str *) realloc(tmpList, sizeof(str) * (tmpListCount + 1));
+							tmpList = (oid *) realloc(tmpList, sizeof(oid) * (tmpListCount + 1));
 							if (!tmpList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-							tmpList[tmpListCount] = result[i][k]; // pointer, no copy
+							tmpList[tmpListCount] = result[i][k];
 							tmpListCount += 1;
 						}
 					}
@@ -2135,26 +2201,15 @@ void createOntoUsageTree(OntoUsageNode** tree, CSset* freqCSset, str** ontmetada
 			}
 			if (tmpListCount == 1) {
 				// only one left --> use it
-				uri = (char *) malloc(sizeof(char) * (strlen(tmpList[0]) + 1));
-				if (!uri)
-					fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-				strcpy(uri, tmpList[0]);
-				free(tmpList);
+				uri = tmpList[0];
 			} else if (tmpListCount > 1) {
 				// multiple left --> use the class that covers most attributes, most popular ontology, ...
-				uri = (char *) malloc(sizeof(char) * (strlen(tmpList[0]) + 1));
-				if (!uri)
-					fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-				strcpy(uri, tmpList[0]); // sorted
-				free(tmpList);
+				uri = tmpList[0]; // sorted
 			} else {
 				// empty intersection -> use the class that covers most attributes, most popular ontology, ..
-				uri = (char *) malloc(sizeof(char) * (strlen(result[i][0]) + 1));
-				if (!uri)
-					fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-				strcpy(uri, result[i][0]); // sorted
-				free(tmpList);
+				uri = result[i][0]; // sorted
 			}
+			free(tmpList);
 		}
 
 		// get ontology hierarchy
@@ -2251,7 +2306,7 @@ void freeLinks(IncidentFKs* links, int csCount) {
 //}
 
 static
-void freeOntologyLookupResult(str** ontologyLookupResult, int csCount) {
+void freeOntologyLookupResult(oid** ontologyLookupResult, int csCount) {
 	int		i;
 
 	for (i = 0; i < csCount; ++i) {
@@ -2316,26 +2371,26 @@ int* getSubCS(CSset* freqCSset, int csIdx, int* csListLength) {
 }
 
 /* Creates labels for all CS (without a parent). */
-CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, BAT* mbat, int *csIdFreqIdxMap, str** ontattributes, int ontattributesCount, str** ontmetadata, int ontmetadataCount, OntoUsageNode** ontoUsageTree) {
+CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, int *csIdFreqIdxMap, oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount, OntoUsageNode** ontoUsageTree) {
 #if USE_TYPE_NAMES
 	char*		typeAttributes[] = {
-				"http://ogp.me/ns#type",
-				"https://ogp.me/ns#type",
-				"http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-				"http://purl.org/dc/elements/1.1/type",
-				"http://mixi-platform.com/ns#type",
-				"http://ogp.me/ns/fb#type",
-				"http://opengraph.org/schema/type",
-				"http://opengraphprotocol.org/schema/type",
-				"http://purl.org/dc/terms/type",
-				"http://purl.org/goodrelations/v1#typeOfGood",
-				"http://search.yahoo.com/searchmonkey/media/type",
-				"https://opengraphprotocol.org/schema/type",
-				"https://search.yahoo.com/searchmonkey/media/type",
-				"http://www.w3.org/1999/xhtmltype",
-				"http://dbpedia.org/ontology/longtype",
-				"http://dbpedia.org/ontology/type",
-				"http://dbpedia.org/ontology/typeOfElectrification"};
+				"<http://ogp.me/ns#type>",
+				"<https://ogp.me/ns#type>",
+				"<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>",
+				"<http://purl.org/dc/elements/1.1/type>",
+				"<http://mixi-platform.com/ns#type>",
+				"<http://ogp.me/ns/fb#type>",
+				"<http://opengraph.org/schema/type>",
+				"<http://opengraphprotocol.org/schema/type>",
+				"<http://purl.org/dc/terms/type>",
+				"<http://purl.org/goodrelations/v1#typeOfGood>",
+				"<http://search.yahoo.com/searchmonkey/media/type>",
+				"<https://opengraphprotocol.org/schema/type>",
+				"<https://search.yahoo.com/searchmonkey/media/type>",
+				"<http://www.w3.org/1999/xhtmltype>",
+				"<http://dbpedia.org/ontology/longtype>",
+				"<http://dbpedia.org/ontology/type>",
+				"<http://dbpedia.org/ontology/typeOfElectrification>"}; // <...> necessary to get the correct oids
 #endif
 	int			typeAttributesCount = 17;
 	int			**typeAttributesHistogramCount;
@@ -2344,16 +2399,21 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 	int			typeStatCount = 0;
 	int			**relationMetadataCount;
 	Relation		***relationMetadata;
-	str			**ontologyLookupResult;
+	oid			**ontologyLookupResult;
 	int			*ontologyLookupResultCount;
 	IncidentFKs		*links;
 	CSlabel			*labels;
+
+	str		schema = "rdf";
+	int		ret;
+
+	TKNZRopen (NULL, &schema);
 
 	// Type
 	typeAttributesHistogramCount = initTypeAttributesHistogramCount(typeAttributesCount, freqCSset->numCSadded);
 	typeAttributesHistogram = initTypeAttributesHistogram(typeAttributesCount, freqCSset->numCSadded);
 #if USE_TYPE_NAMES
-	createTypeAttributesHistogram(sbat, si, pi, oi, subjCSMap, mbat, freqCSset, csIdFreqIdxMap, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeAttributes);
+	createTypeAttributesHistogram(sbat, si, pi, oi, subjCSMap, freqCSset, csIdFreqIdxMap, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeAttributes);
 	typeStat = getTypeStats(&typeStatCount, freqCSset->numCSadded, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount);
 #else
 	(void) sbat;
@@ -2361,7 +2421,6 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 	(void) pi;
 	(void) oi;
 	(void) subjCSMap;
-	(void) mbat;
 	(void) csIdFreqIdxMap;
 #endif
 
@@ -2403,6 +2462,9 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 	freeLinks(links, freqCSset->numCSadded);
 	freeRelationMetadata(relationMetadata, freqCSset);
 	freeRelationMetadataCount(relationMetadataCount, freqCSset->numCSadded);
+
+	TKNZRclose(&ret);
+
 	return labels;
 }
 
@@ -2416,30 +2478,22 @@ str updateLabel(int ruleNumber, CSlabel *labels, int mergeCSFreqId, int freqCS1,
 	return MAL_SUCCEED; 
 }
 void freeLabels(CSlabel* labels, CSset* freqCSset) {
-	int		i, j;
+	int		i;
 
 	for (i = 0; i < freqCSset->numOrigFreqCS; ++i) { // do not use numCSadded because of additional mergeCS
-		free(labels[i].name);
-
-		for (j = 0; j < labels[i].numProp; ++j)
-			free(labels[i].lstProp[j]);
 		if (labels[i].numProp > 0)
 			free(labels[i].lstProp);
 
-		for (j = 0; j < labels[i].hierarchyCount; ++j)
-			free(labels[i].hierarchy[j]);
 		if (labels[i].hierarchyCount > 0)
 			free(labels[i].hierarchy);
 
-		for (j = 0; j < labels[i].candidatesCount; ++j)
-			free(labels[i].candidates[j]);
 		if (labels[i].candidatesCount > 0)
 			free(labels[i].candidates);
 	}
 	free(labels);
 }
 
-CSlabel* createFinalLabels(CSlabel* labels, CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, int freqThreshold) {
+CSlabel* createFinalLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, int freqThreshold) {
 	int			i, j, k;
 	int			**relationMetadataCount;
 	Relation		***relationMetadata;
@@ -2459,34 +2513,34 @@ CSlabel* createFinalLabels(CSlabel* labels, CSset* freqCSset, CSmergeRel* csRelB
 		if (cs.type != MERGECS) {
 			// reuse old name
 			// TODO create better name
-			labels2[i].name = (char *) malloc(sizeof(char) * (strlen(labels[i].name) + 1));
-			if (!labels2[i].name) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			strcpy(labels2[i].name, labels[i].name);
+			labels2[i].name = labels[i].name;
 
 			// hierarchy
 			if (labels[i].hierarchyCount > 0) {
 				labels2[i].hierarchyCount = labels[i].hierarchyCount;
-				labels2[i].hierarchy = (str *) malloc(sizeof(str) * labels2[i].hierarchyCount);
+				labels2[i].hierarchy = (oid *) malloc(sizeof(oid) * labels2[i].hierarchyCount);
 				if (!labels2[i].hierarchy)
 					fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 				for (k = 0; k < labels2[i].hierarchyCount; ++k) {
-					labels2[i].hierarchy[k] = (str) malloc(sizeof(char) * (strlen(labels[i].hierarchy[k]) + 1));
-					if (!labels2[i].hierarchy[k])
-						fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-					strcpy(labels2[i].hierarchy[k], labels[i].hierarchy[k]);
+					labels2[i].hierarchy[k] = labels[i].hierarchy[k];
 				}
 			}
 
 			// candidates
 			labels2[i].candidatesCount = labels[i].candidatesCount;
-			labels2[i].candidates = (str *) malloc(sizeof(str) * labels2[i].candidatesCount);
+			labels2[i].candidates = (oid *) malloc(sizeof(oid) * labels2[i].candidatesCount);
 			if (!labels2[i].candidates)
 				fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 			for (k = 0; k < labels2[i].candidatesCount; ++k) {
-				labels2[i].candidates[k] = (str) malloc(sizeof(char) * (strlen(labels[i].candidates[k]) + 1));
-				if (!labels2[i].candidates[k])
-					fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-				strcpy(labels2[i].candidates[k], labels[i].candidates[k]);
+				labels2[i].candidates[k] = labels[i].candidates[k];
+			}
+
+			// set property names
+			labels2[i].numProp = cs.numProp;
+			labels2[i].lstProp = (oid *) malloc(sizeof(oid) * cs.numProp);
+			if (!labels2[i].lstProp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			for (k = 0; k < cs.numProp; ++k) {
+				labels2[i].lstProp[k] = cs.lstProp[k];
 			}
 
 		} else {
@@ -2496,66 +2550,48 @@ CSlabel* createFinalLabels(CSlabel* labels, CSset* freqCSset, CSmergeRel* csRelB
 				if (freqCSset->items[subCSlist[j]].type == MERGECS) continue;
 
 				// TODO use biggest subCS instead of first one
-				labels2[i].name = (char *) malloc(sizeof(char) * (strlen(labels[subCSlist[j]].name) + 1));
-				if (!labels2[i].name) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-				strcpy(labels2[i].name, labels[subCSlist[j]].name);
+				labels2[i].name = labels[subCSlist[j]].name;
 
 				// hierarchy
 				if (labels[subCSlist[j]].hierarchyCount > 0) {
 					labels2[i].hierarchyCount = labels[subCSlist[j]].hierarchyCount;
-					labels2[i].hierarchy = (str *) malloc(sizeof(str) * labels2[i].hierarchyCount);
+					labels2[i].hierarchy = (oid *) malloc(sizeof(oid) * labels2[i].hierarchyCount);
 					if (!labels2[i].hierarchy)
 						fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 					for (k = 0; k < labels2[i].hierarchyCount; ++k) {
-						labels2[i].hierarchy[k] = (str) malloc(sizeof(char) * (strlen(labels[subCSlist[j]].hierarchy[k]) + 1));
-						if (!labels2[i].hierarchy[k])
-							fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-						strcpy(labels2[i].hierarchy[k], labels[subCSlist[j]].hierarchy[k]);
+						labels2[i].hierarchy[k] = labels[subCSlist[j]].hierarchy[k];
 					}
 				}
 
 				// candidates
 				// TODO create new list of candidates (make sure that [0] == name)
 				labels2[i].candidatesCount = labels[subCSlist[j]].candidatesCount;
-				labels2[i].candidates = (str *) malloc(sizeof(str) * labels2[i].candidatesCount);
+				labels2[i].candidates = (oid *) malloc(sizeof(oid) * labels2[i].candidatesCount);
 				if (!labels2[i].candidates)
 					fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 				for (k = 0; k < labels2[i].candidatesCount; ++k) {
-					labels2[i].candidates[k] = (str) malloc(sizeof(char) * (strlen(labels[subCSlist[j]].candidates[k]) + 1));
-					if (!labels2[i].candidates[k])
-						fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-					strcpy(labels2[i].candidates[k], labels[subCSlist[j]].candidates[k]);
+					labels2[i].candidates[k] = labels[subCSlist[j]].candidates[k];
+				}
+
+				// set property names
+				labels2[i].numProp = cs.numProp;
+				labels2[i].lstProp = (oid *) malloc(sizeof(oid) * cs.numProp);
+				if (!labels2[i].lstProp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+				for (k = 0; k < cs.numProp; ++k) {
+					labels2[i].lstProp[k] = cs.lstProp[k];
 				}
 
 				break;
 			}
 			free(subCSlist);
 		}
-
-		// set property names // TODO better re-use old values?
-		labels2[i].numProp = cs.numProp;
-		labels2[i].lstProp = (str *) malloc(sizeof(str) * cs.numProp);
-		if (!labels2[i].lstProp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-		for (j = 0; j < cs.numProp; ++j) {
-			str propStr, tmpStr;
-			char *propStrShort = NULL;
-			takeOid(cs.lstProp[j], &tmpStr);
-			propStr = removeBrackets(tmpStr);
-			getPropNameShort(&propStrShort, propStr);
-			labels2[i].lstProp[j] = (char *) malloc(sizeof(char) * (strlen(propStrShort) + 1));
-			if (!labels2[i].lstProp[j]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			memcpy(labels2[i].lstProp[j], propStrShort, sizeof(char) * (strlen(propStrShort) + 1));
-			GDKfree(tmpStr);
-			GDKfree(propStr);
-		}
 	}
 
-	// FK (TODO duplicated call!)
+	// FK
 	relationMetadataCount = initRelationMetadataCount(freqCSset);
 	relationMetadata = initRelationMetadata2(relationMetadataCount, csRelBetweenMergeFreqSet, freqCSset);
 
 	// Print and Export
-	// TODO add USE_SHORT_NAMES
 	printUML2(freqCSset, labels2, relationMetadata, relationMetadataCount, freqThreshold);
 	convertToSQL(freqCSset, relationMetadata, relationMetadataCount, labels2, freqThreshold);
 	createSQLMetadata(freqCSset, csRelBetweenMergeFreqSet, labels2);
@@ -2568,23 +2604,15 @@ CSlabel* createFinalLabels(CSlabel* labels, CSset* freqCSset, CSmergeRel* csRelB
 }
 
 void freeFinalLabels(CSlabel* labels, CSset* freqCSset) {
-	int		i, j;
+	int		i;
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		free(labels[i].name);
-
-		for (j = 0; j < labels[i].numProp; ++j)
-			free(labels[i].lstProp[j]);
 		if (labels[i].numProp > 0)
 			free(labels[i].lstProp);
 
-		for (j = 0; j < labels[i].hierarchyCount; ++j)
-			free(labels[i].hierarchy[j]);
 		if (labels[i].hierarchyCount > 0)
 			free(labels[i].hierarchy);
 
-		for (j = 0; j < labels[i].candidatesCount; ++j)
-			free(labels[i].candidates[j]);
 		if (labels[i].candidatesCount > 0)
 			free(labels[i].candidates);
 	}
@@ -2596,7 +2624,6 @@ void freeOntoUsageTree(OntoUsageNode* tree) {
 
 	if (tree->numChildren == 0) {
 		// leaf node
-		free(tree->uri);
 		free(tree);
 		return;
 	}
@@ -2606,6 +2633,5 @@ void freeOntoUsageTree(OntoUsageNode* tree) {
 		freeOntoUsageTree(tree->lstChildren[i]);
 	}
 	free(tree->lstChildren);
-	free(tree->uri);
 	free(tree);
 }

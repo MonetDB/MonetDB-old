@@ -24,7 +24,7 @@
 
 // Counts the occurances of type attribute values
 typedef struct TypeAttributesFreq {
-	char		*value;
+	oid		value;
 	int		freq;
 	int		percent;
 } TypeAttributesFreq;
@@ -58,21 +58,21 @@ typedef struct IncidentFKs {
 
 // Statistics for an ontology class
 typedef struct ClassStat {
-	char		*ontoClass;	// URI of the ontology class
+	oid		ontoClass;	// URI of the ontology class
 	float		tfidfs;		// summarized tfidf score of all properties that accur in the ontology class
 } ClassStat;
 
 // Statistics for a type attribute value
 typedef struct TypeStat {
-	char		*value;		// type value
+	oid		value;		// type value
 	int		freq;		// number of CS's the value occurs in
 } TypeStat;
 
 // Tree node to store the number of tuples per ontology class
 typedef struct OntoUsageNode {
-	struct OntoUsageNode	*parent;
+	struct OntoUsageNode	*parent;		// parent == NULL <=> artificial root
 	struct OntoUsageNode	**lstChildren;
-	str			uri; // TODO uri==NULL <=> artificial root
+	oid			uri;
 	int			numChildren;
 	int			numOccurances; // TODO overflow 2,000,000?
 	int			numOccurancesSum;
@@ -100,10 +100,10 @@ enum {
 #define SHOW_CANDIDATES 0		// inserts a row in UML diagrams to show all candidate names
 
 rdf_export CSlabel*
-createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, BAT* mapbat, int *csIdFreqIdxMap, str** ontattributes, int ontattributesCount, str** ontmetadata, int ontmetadataCount, OntoUsageNode** ontoUsageTree);
+createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, int *csIdFreqIdxMap, oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount, OntoUsageNode** ontoUsageTree);
 
 rdf_export CSlabel*
-createFinalLabels(CSlabel* labels, CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, int freqThreshold);
+createFinalLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, int freqThreshold);
 
 rdf_export str
 updateLabel(int ruleNumber, CSlabel *labels, int mergeCSFreqId, int freqCS1, int freqCS2);

@@ -102,7 +102,7 @@ typedef struct PropStat {
 
 #define USE_LABEL_FINDING_MAXCS	0 	// Use the labels received from labeling process for finding maxCS 
 #define USE_LABEL_FOR_MERGING	1 	// Use the labels received from labeling process for finding mergeCS
-#define TOPK	3			//Check top 3 candidate
+#define TOPK	2			//Check top 3 candidate
 
 typedef struct CS
 {
@@ -185,26 +185,14 @@ typedef struct mergeCSset{
 
 #define INIT_NUM_CSREL 4
 typedef struct CSrel{	
-	//oid  origCSoid;	
-	//oid* lstRefCSoid; 		
 	oid	origFreqIdx;
 	oid	*lstRefFreqIdx; 
-	oid* lstPropId; 	// Predicate for a relationship
-	int* lstCnt; 		// Count per reference
-	int* lstBlankCnt;	// Count # links to blank node
-	int  numRef; 
-	int  numAllocation; 
+	oid* 	lstPropId; 	// Predicate for a relationship
+	int* 	lstCnt; 		// Count per reference
+	int* 	lstBlankCnt;	// Count # links to blank node
+	int  	numRef; 
+	int  	numAllocation; 
 } CSrel;
-
-typedef struct CSmergeRel{
-	int  origFreqIdx;
-	int* lstRefFreqIdx;
-	oid* lstPropId;		// Predicate for a relationship
-	int* lstCnt;		// Count per reference
-	int* lstBlankCnt;	// Count # links to blank node
-	int  numRef;
-	int  numAllocation;
-} CSmergeRel;
 
 typedef struct CSrelSum{
 	oid     origFreqIdx;
@@ -283,7 +271,7 @@ rdf_export str
 RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId);
 
 rdf_export str 
-RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *freqCSset, oid **subjCSMap, oid *maxCSoid, int *maxNumPwithDup, CSlabel** labels, CSmergeRel **csRelBetweenMergeFreqSet);
+RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *freqCSset, oid **subjCSMap, oid *maxCSoid, int *maxNumPwithDup, CSlabel** labels, CSrel **csRelBetweenMergeFreqSet);
 
 rdf_export str
 RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, int *mode);

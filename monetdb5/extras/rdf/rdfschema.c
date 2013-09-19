@@ -352,145 +352,6 @@ void printCSrelSet(CSrel *csrelSet, CSset *freqCSset,  int num,  int freqThresho
 	
 }
 
-static 
-oid getMaxFreqIdFromFreqId(oid freqIdx, CSset *freqCSset){
-	
-	if (freqCSset->items[freqIdx].type == MAXCS){
-		return freqIdx;
-	}
-	else 
-		return freqCSset->items[freqIdx].parentFreqIdx;
-}
-
-static 
-str generateCSrelWithMaxSet(CSset *freqCSset, CSrel *csrelToMaxSet, CSrel *csrelBetweenMaxSet, CSrel *csrelSet,  int num){
-	
-	int i, j; 
-	oid maxFreqId;
-
-	// Merge the relationships to create csrelToMaxSet
-	for (i = 0; i < num; i++){
-		if (csrelSet[i].numRef != 0){
-			maxFreqId = getMaxFreqIdFromFreqId(csrelSet[i].origFreqIdx, freqCSset); 
-			for (j = 0; j < csrelSet[i].numRef; j++){		
-				addReltoCSRelWithFreq(csrelSet[i].origFreqIdx, getMaxFreqIdFromFreqId(csrelSet[i].lstRefFreqIdx[j], freqCSset), csrelSet[i].lstPropId[j], csrelSet[i].lstCnt[j], csrelSet[i].lstBlankCnt[j], &csrelToMaxSet[i]);
-				}
-			}
-
-	}
-
-
-	// Merge the csrelToMaxSet --> csrelBetweenMaxSet
-	for (i = 0; i < num; i++){
-		maxFreqId = getMaxFreqIdFromFreqId(csrelToMaxSet[i].origFreqIdx, freqCSset);
-		if (csrelToMaxSet[i].numRef != 0){
-			for (j = 0; j < csrelToMaxSet[i].numRef; j++){		
-				assert(getMaxFreqIdFromFreqId(csrelToMaxSet[i].lstRefFreqIdx[j], freqCSset) == csrelToMaxSet[i].lstRefFreqIdx[j]);
-				addReltoCSRelWithFreq(maxFreqId, csrelToMaxSet[i].lstRefFreqIdx[j], csrelToMaxSet[i].lstPropId[j], csrelToMaxSet[i].lstCnt[j],csrelToMaxSet[i].lstBlankCnt[j], &csrelBetweenMaxSet[maxFreqId]);
-			}
-		}
-	}
-
-	return MAL_SUCCEED; 
-}
-/*
- * Show the relationship from each CS to maximumFreqCSs
- * */
-
-static 
-str printCSrelWithMaxSet(CSrel *csrelToMaxSet, CSrel *csrelBetweenMaxSet, CSset *freqCSset, int num, int freqThreshold){
-
-	int 	i; 
-	int 	j; 
-	int 	freq; 
-	FILE 	*fout, *fout2,*fout2filter; 
-	char 	filename[100], filename2[100];
-	char 	tmpStr[50];
-
-#if SHOWPROPERTYNAME
-	str 	propStr; 
-	int	ret; 
-	char*   schema = "rdf";
-
-	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
-		throw(RDF, "rdf.rdfschema",
-				"could not open the tokenizer\n");
-	}
-
-#endif	
-
-
-
-	// Write csrelToMaxSet to File
-	
-	strcpy(filename, "csRelationshipToMaxFreqCS");
-	sprintf(tmpStr, "%d", freqThreshold);
-	strcat(filename, tmpStr);
-	strcat(filename, ".txt");
-
-	fout = fopen(filename,"wt"); 
-
-	for (i = 0; i < num; i++){
-		if (csrelToMaxSet[i].numRef != 0){	//Only print CS with FK
-			fprintf(fout, "Relationship %d: ", i);
-			freq  = freqCSset->items[i].support;
-			fprintf(fout, "FreqCS " BUNFMT " (Freq: %d) --> ", csrelToMaxSet[i].origFreqIdx, freq);
-			for (j = 0; j < csrelToMaxSet[i].numRef; j++){
-				fprintf(fout, BUNFMT " (%d) ", csrelToMaxSet[i].lstRefFreqIdx[j],csrelToMaxSet[i].lstCnt[j]);	
-			}	
-			fprintf(fout, "\n");
-		}
-	}
-
-	fclose(fout);
-
-
-	strcpy(filename2, "csRelationshipBetweenMaxFreqCS");
-	sprintf(tmpStr, "%d", freqThreshold);
-	strcat(filename2, tmpStr);
-	strcat(filename2, ".txt");
-
-	fout2 = fopen(filename2,"wt"); 
-	strcat(filename2, ".filter");
-	fout2filter = fopen(filename2,"wt");
-
-
-	
-	for (i = 0; i < num; i++){
-		if (csrelBetweenMaxSet[i].numRef != 0){	//Only print CS with FK
-			fprintf(fout2, "Relationship %d: ", i);
-			fprintf(fout2filter, "Relationship %d: ", i);
-			freq = freqCSset->items[i].support;
-			fprintf(fout2, "FreqCS " BUNFMT " (Freq: %d) --> ", csrelBetweenMaxSet[i].origFreqIdx, freq);
-			fprintf(fout2filter, "FreqCS " BUNFMT " (Freq: %d) --> ", csrelBetweenMaxSet[i].origFreqIdx, freq);
-
-			for (j = 0; j < csrelBetweenMaxSet[i].numRef; j++){
-				#if SHOWPROPERTYNAME
-				takeOid(csrelBetweenMaxSet[i].lstPropId[j], &propStr);	
-				fprintf(fout2, BUNFMT "(P:" BUNFMT " - %s) (%d)(Blank:%d) ", csrelBetweenMaxSet[i].lstRefFreqIdx[j],csrelBetweenMaxSet[i].lstPropId[j], propStr, csrelBetweenMaxSet[i].lstCnt[j], csrelBetweenMaxSet[i].lstBlankCnt[j]);	
-				GDKfree(propStr);
-				#else
-				fprintf(fout2, BUNFMT "(P:" BUNFMT ") (%d)(Blank:%d) ", csrelBetweenMaxSet[i].lstRefFreqIdx[j],csrelBetweenMaxSet[i].lstPropId[j], csrelBetweenMaxSet[i].lstCnt[j], csrelBetweenMaxSet[i].lstBlankCnt[j]);	
-				#endif
-
-				if (freq < csrelBetweenMaxSet[i].lstCnt[j]*100){
-					fprintf(fout2filter, BUNFMT "(P:" BUNFMT ") (%d)(Blank:%d) ", csrelBetweenMaxSet[i].lstRefFreqIdx[j],csrelBetweenMaxSet[i].lstPropId[j], csrelBetweenMaxSet[i].lstCnt[j], csrelBetweenMaxSet[i].lstBlankCnt[j]);	
-				}
-			}	
-			fprintf(fout2, "\n");
-			fprintf(fout2filter, "\n");
-		}
-	}
-
-	fclose(fout2);
-	fclose(fout2filter);
-
-#if SHOWPROPERTYNAME
-	TKNZRclose(&ret);
-
-#endif
-	return MAL_SUCCEED; 
-}
 
 #if NEEDSUBCS
 static 
@@ -1019,6 +880,19 @@ oid addSubCS(char *buff, int numP, int csId, SubCSSet* csSubCSSet){
 #endif /*if NEEDSUBCS*/
 
 static
+int countNumberMergeCS(CSset *csSet){
+	int i; 
+	int num = 0;
+	for (i = 0; i < csSet->numCSadded; i ++){
+		if (csSet->items[i].parentFreqIdx == -1){
+			num++;	
+		}
+	}
+
+	return num; 
+
+}
+static
 void freeCSset(CSset *csSet){
 	int i;
 	for(i = 0; i < csSet->numCSadded; i ++){
@@ -1392,9 +1266,15 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 
 			#if STOREFULLCS	
 			if (cs.subject != BUN_NONE){
-				takeOid(cs.subject, &subStr);	
-				
-				fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, labels[i].name, *freq, subStr, cs.parentFreqIdx);
+				takeOid(cs.subject, &subStr);
+
+				if (labels[i].name == BUN_NONE) {
+					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, "DUMMY", *freq, subStr, cs.parentFreqIdx);
+				} else {
+					str labelStr;
+					takeOid(labels[i].name, &labelStr);
+					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, labelStr, *freq, subStr, cs.parentFreqIdx);
+				}
 
 				// Filter max freq cs set
 				if (cs.type == MAXCS){
@@ -2103,15 +1983,14 @@ void printCS(CS cs){
  * Here maximum frequent CS is a CS that there exist no other CS which contains that CS
  * */
 static 
-void getMaximumFreqCSs(CSset *freqCSset, CSlabel* labels, BAT* coverageBat, BAT* freqBat, int numCS, int *nMaxCSs){
+void mergeCSbyS4(CSset *freqCSset, CSlabel* labels, oid *mergeCSFreqCSMap, int curNumMergeCS){
 
-	int 	numFreqCS = freqCSset->numCSadded; 
+	int 	numMergeCS = curNumMergeCS; 
 	int 	i, j; 
 	int 	numMaxCSs = 0;
 
 	int 	tmpParentIdx; 
-	int* 	coverage; 
-	int* 	freq; 
+	int	freqId1, freqId2; 
 	#if USE_LABEL_FINDING_MAXCS
 	char	isLabelComparable = 0;
 	#endif
@@ -2121,35 +2000,37 @@ void getMaximumFreqCSs(CSset *freqCSset, CSlabel* labels, BAT* coverageBat, BAT*
 
 	printf("Retrieving maximum frequent CSs: \n");
 
-	for (i = 0; i < numFreqCS; i++){
-		if (freqCSset->items[i].parentFreqIdx != -1) continue;
+	for (i = 0; i < numMergeCS; i++){
+		freqId1 = mergeCSFreqCSMap[i]; 
+		if (freqCSset->items[freqId1].parentFreqIdx != -1) continue;
 		#if USE_LABEL_FINDING_MAXCS
 		isLabelComparable = 0;
-		if (strcmp(labels[i].name, "DUMMY") != 0) isLabelComparable = 1;
+		if (labels[i].name != BUN_NONE) isLabelComparable = 1; // no "DUMMY"
 		#endif
 
-		for (j = (i+1); j < numFreqCS; j++){
+		for (j = (i+1); j < numMergeCS; j++){
+			freqId2 = mergeCSFreqCSMap[j];
 			isDiffLabel = 0; 
 			#if USE_LABEL_FINDING_MAXCS
-			if (isLabelComparable == 0 || strcmp(labels[i].name, labels[j].name) != 0) {
+			if (isLabelComparable == 0 || strcmp(labels[freqId1].name, labels[freqId2].name) != 0) {
 				isDiffLabel = 1; 
 			}
 			#endif
 
 			if (isDiffLabel == 0){
-				if (freqCSset->items[j].numProp > freqCSset->items[i].numProp){
-					if (isSubset(freqCSset->items[j].lstProp, freqCSset->items[i].lstProp,  
-							freqCSset->items[j].numProp,freqCSset->items[i].numProp) == 1) { 
+				if (freqCSset->items[freqId2].numProp > freqCSset->items[freqId1].numProp){
+					if (isSubset(freqCSset->items[freqId2].lstProp, freqCSset->items[freqId1].lstProp,  
+							freqCSset->items[freqId2].numProp,freqCSset->items[freqId1].numProp) == 1) { 
 						/* CSj is a superset of CSi */
-						freqCSset->items[i].parentFreqIdx = j; 
+						freqCSset->items[freqId1].parentFreqIdx = freqId2; 
 						break; 
 					}
 				}
-				else if (freqCSset->items[j].numProp < freqCSset->items[i].numProp){
-					if (isSubset(freqCSset->items[i].lstProp, freqCSset->items[j].lstProp,  
-							freqCSset->items[i].numProp,freqCSset->items[j].numProp) == 1) { 
+				else if (freqCSset->items[freqId2].numProp < freqCSset->items[freqId1].numProp){
+					if (isSubset(freqCSset->items[freqId1].lstProp, freqCSset->items[freqId2].lstProp,  
+							freqCSset->items[freqId1].numProp,freqCSset->items[freqId2].numProp) == 1) { 
 						/* CSj is a subset of CSi */
-						freqCSset->items[j].parentFreqIdx = i; 
+						freqCSset->items[freqId2].parentFreqIdx = freqId1; 
 					}		
 				
 				}
@@ -2158,18 +2039,17 @@ void getMaximumFreqCSs(CSset *freqCSset, CSlabel* labels, BAT* coverageBat, BAT*
 			//Do not need to consider the case that the numProps are the same
 		} 
 		/* By the end, if this CS is not a subset of any other CS */
-		if (freqCSset->items[i].parentFreqIdx == -1){
+		if (freqCSset->items[freqId1].parentFreqIdx == -1){
 			numMaxCSs++;
-			//printCS( freqCSset->items[i]); 
 		}
 	}
 
-	*nMaxCSs = numMaxCSs;
-	printf("Number of maximum CSs: %d / %d CSs \n", numMaxCSs, numCS);
+	printf("Number of maximum CSs: %d / %d CSs \n", numMaxCSs, numMergeCS);
 
 
-	//Tunning
-	for (i = 0; i < numFreqCS; i++){
+	//Update the parentFreqIdx for all freqCS
+
+	for (i = 0; i < freqCSset->numCSadded; i++){
 		if (freqCSset->items[i].parentFreqIdx != -1){
 			tmpParentIdx = freqCSset->items[i].parentFreqIdx; 
 			while (freqCSset->items[tmpParentIdx].parentFreqIdx != -1){
@@ -2181,21 +2061,16 @@ void getMaximumFreqCSs(CSset *freqCSset, CSlabel* labels, BAT* coverageBat, BAT*
 		}
 	}
 
-	// Update coverage for maximum CS
+	// Update freq/coverage for maximumCS
 	
-	for (i = 0; i < numFreqCS; i++){
-		tmpParentIdx = freqCSset->items[i].parentFreqIdx; 
-
-		coverage = (int*) Tloc(coverageBat, freqCSset->items[i].csId);
-		freq = (int*) Tloc(freqBat, freqCSset->items[i].csId); 
+	for (i = 0; i < numMergeCS; i++){
+		freqId1 = mergeCSFreqCSMap[i];
+		tmpParentIdx = freqCSset->items[freqId1].parentFreqIdx; 
 
 		if (tmpParentIdx != -1){
 			
-			freqCSset->items[tmpParentIdx].coverage  += *coverage;
-			freqCSset->items[tmpParentIdx].support  += *freq;
-		}
-		else{
-			freqCSset->items[i].type = MAXCS; 	//Update type for this freqCS
+			freqCSset->items[tmpParentIdx].coverage  += freqCSset->items[freqId1].coverage;
+			freqCSset->items[tmpParentIdx].support  += freqCSset->items[freqId1].support;
 		}
 
 	}
@@ -2360,14 +2235,14 @@ PropStat* initPropStat(void){
 
 
 static
-void getPropStatisticsFromMaxCSs(PropStat* propStat, int numMaxCSs, oid* superCSFreqCSMap, CSset* freqCSset){
+void getPropStatisticsFromMergeCSs(PropStat* propStat,int  curNumMergeCS, oid* mergeCSFreqCSMap, CSset* freqCSset){
 
 	int i, j; 
 	oid freqId; 
 	CS cs;
 
-	for (i = 0; i < numMaxCSs; i++){
-		freqId = superCSFreqCSMap[i];
+	for (i = 0; i < curNumMergeCS; i++){
+		freqId = mergeCSFreqCSMap[i];
 		cs = (CS)freqCSset->items[freqId];
 
 		for (j = 0; j < cs.numProp; j++){
@@ -2379,7 +2254,7 @@ void getPropStatisticsFromMaxCSs(PropStat* propStat, int numMaxCSs, oid* superCS
 	}
 
 	for (i = 0; i < propStat->numAdded; i++){
-		propStat->tfidfs[i] = tfidfComp(propStat->freqs[i],numMaxCSs);
+		propStat->tfidfs[i] = tfidfComp(propStat->freqs[i],curNumMergeCS);
 	}
 
 	//BATprint(propStat->pBat); 
@@ -2486,14 +2361,14 @@ void freePropStat(PropStat *propStat){
 }
 
 static 
-void initSuperCSFreqCSMap(CSset *freqCSset, oid *superCSFreqCSMap){
+void initMergeCSFreqCSMap(CSset *freqCSset, oid *mergeCSFreqCSMap){
 	int i; 
-	int	maxCSid = 0; 
+	int	mergeCSid = 0; 
 
 	for (i = 0; i < freqCSset->numCSadded; i++){
 		if (freqCSset->items[i].parentFreqIdx == -1){
-			superCSFreqCSMap[maxCSid] = i; 
-			maxCSid++;
+			mergeCSFreqCSMap[mergeCSid] = i; 
+			mergeCSid++;
 		}
 	}
 }
@@ -2560,7 +2435,180 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 }
 
 static
-void mergeMaxFreqCSByS6(CSrel *csrelBetweenMaxFreqSet, CSset *freqCSset, oid* superCSFreqCSMap, int numMaxCSs, int maxNumProp, oid *mergecsId){
+LabelStat* initLabelStat(void){
+	LabelStat *labelStat = (LabelStat*) malloc(sizeof(LabelStat)); 
+	labelStat->labelBat = BATnew(TYPE_void, TYPE_oid, INIT_DISTINCT_LABEL);	
+	if (labelStat->labelBat == NULL){
+		return NULL; 
+	}
+	(void)BATprepareHash(BATmirror(labelStat->labelBat));
+	if (!(labelStat->labelBat->T->hash)) 
+		return NULL; 
+	labelStat->lstCount = (int*)malloc(sizeof(int) * INIT_DISTINCT_LABEL);
+
+	labelStat->freqIdList = NULL;	
+	labelStat->numLabeladded = 0;
+	labelStat->numAllocation = INIT_DISTINCT_LABEL;
+
+	return labelStat; 
+}
+
+static
+void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset, int k){
+	int 	i,j; 
+	BUN 	bun; 
+	int 	*_tmp; 
+	int	freqIdx;
+	int	numDummy = 0; 
+	int	numCheck = 0;
+
+	//Preparation
+	for (i = 0; i  < freqCSset->numCSadded; i++){
+		if (labels[i].name != BUN_NONE){
+			numCheck = (labels[i].candidatesCount > k)?k:labels[i].candidatesCount;
+			for (j = 0; j < numCheck; j++){
+				bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr) &labels[i].candidates[j]);
+				if (bun == BUN_NONE) {
+					/*New string*/
+					if (labelStat->labelBat->T->hash && BATcount(labelStat->labelBat) > 4 * labelStat->labelBat->T->hash->mask) {
+						HASHdestroy(labelStat->labelBat);
+						BAThash(BATmirror(labelStat->labelBat), 2*BATcount(labelStat->labelBat));
+					}
+
+					labelStat->labelBat = BUNappend(labelStat->labelBat, (ptr) &labels[i].candidates[j], TRUE);
+							
+					if(labelStat->numLabeladded == labelStat->numAllocation) 
+					{ 
+						labelStat->numAllocation += INIT_DISTINCT_LABEL; 
+						
+						_tmp = realloc(labelStat->lstCount, (labelStat->numAllocation * sizeof(int)));
+					
+						if (!_tmp){
+							fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+						}
+						labelStat->lstCount = (int*)_tmp;
+					}
+					labelStat->lstCount[labelStat->numLabeladded] = 1; 
+					labelStat->numLabeladded++;
+				}
+				else{
+					labelStat->lstCount[bun]++;
+				}
+			}
+		}
+		else
+			numDummy++;
+	}
+	
+	printf("Total number of distinct labels in Top%d is %d \n", k, labelStat->numLabeladded);
+	printf("Number of DUMMY freqCS: %d \n",numDummy);
+	//Build list of FreqCS
+	labelStat->freqIdList = (int**) malloc(sizeof(int*) * labelStat->numLabeladded);
+	for (i =0; i < labelStat->numLabeladded; i++){
+		labelStat->freqIdList[i] = (int*)malloc(sizeof(int) * labelStat->lstCount[i]);
+		//reset the lstCount
+		labelStat->lstCount[i] = 0;
+	}
+	
+	for (i = 0; i  < freqCSset->numCSadded; i++){
+		if (labels[i].name != BUN_NONE){
+			numCheck = (labels[i].candidatesCount > k)?k:labels[i].candidatesCount;
+			for (j = 0; j < numCheck; j++){
+				bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr) &labels[i].candidates[j]);
+				if (bun == BUN_NONE) {
+					fprintf(stderr, "All the name should be stored already!\n");
+				}
+				else{
+					freqIdx = labelStat->lstCount[bun];
+					labelStat->freqIdList[bun][freqIdx] = i; 
+					labelStat->lstCount[bun]++;
+				}
+			}
+		}
+	}
+}
+static 
+void freeLabelStat(LabelStat *labelStat){
+	int i; 
+	if (labelStat->freqIdList != NULL){
+		for (i = 0; i < labelStat->numLabeladded;i++){
+			free(labelStat->freqIdList[i]);
+		} 
+		free(labelStat->freqIdList);
+	}	
+	free(labelStat->lstCount);
+	BBPreclaim(labelStat->labelBat);
+	free(labelStat);
+}
+
+
+static
+void mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel* labels, oid *mergecsId){
+	int 		i,k; 
+	int 		freqId1, freqId2;
+
+	CS     		*mergecs;
+	oid		existMergecsId = BUN_NONE; 
+	CS		*cs1, *cs2;
+	CS		*existmergecs, *mergecs1, *mergecs2; 
+	LabelStat	*labelStat = NULL; 
+
+	labelStat = initLabelStat(); 
+	buildLabelStat(labelStat, labels, freqCSset, TOPK);
+
+	for (i = 0; i < labelStat->numLabeladded; i++){
+		if (labelStat->lstCount[i] > 1){
+			/*TODO: Multi-way merge */
+			freqId1 = labelStat->freqIdList[i][0];
+			cs1 = (CS*) &(freqCSset->items[freqId1]);
+			for (k = 1; k < labelStat->lstCount[i]; k++){
+				freqId2 = labelStat->freqIdList[i][k];
+				cs2 = (CS*) &(freqCSset->items[freqId2]);
+				//Check whether these CS's belong to any mergeCS
+				if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx == -1){	/* New merge */
+					mergecs = mergeTwoCSs(*cs1,*cs2, freqId1,freqId2, *mergecsId);
+					//addmergeCStoSet(mergecsSet, *mergecs);
+					cs1->parentFreqIdx = freqCSset->numCSadded;
+					cs2->parentFreqIdx = freqCSset->numCSadded;
+					addCStoSet(freqCSset,*mergecs);
+					free(mergecs);
+
+					mergecsId[0]++;
+				}
+				else if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx != -1){
+					existMergecsId = cs2->parentFreqIdx;
+					existmergecs = (CS*) &(freqCSset->items[existMergecsId]);
+					mergeACStoExistingmergeCS(*cs1,freqId1, existmergecs);
+					cs1->parentFreqIdx = existMergecsId; 
+				}
+				
+				else if (cs1->parentFreqIdx != -1 && cs2->parentFreqIdx == -1){
+					existMergecsId = cs1->parentFreqIdx;
+					existmergecs = (CS*)&(freqCSset->items[existMergecsId]);
+					mergeACStoExistingmergeCS(*cs2,freqId2, existmergecs);
+					cs2->parentFreqIdx = existMergecsId; 
+				}
+				else if (cs1->parentFreqIdx != cs2->parentFreqIdx){
+					mergecs1 = (CS*)&(freqCSset->items[cs1->parentFreqIdx]);
+					mergecs2 = (CS*)&(freqCSset->items[cs2->parentFreqIdx]);
+					
+					mergeTwomergeCS(mergecs1, mergecs2, cs1->parentFreqIdx);
+
+					//Re-map for all maxCS in mergecs2
+					for (k = 0; k < mergecs2->numConsistsOf; k++){
+						freqCSset->items[mergecs2->lstConsistsOf[k]].parentFreqIdx = cs1->parentFreqIdx;
+					}
+				}
+
+			}
+		}
+	}
+
+	freeLabelStat(labelStat);
+}
+
+static
+void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, oid* mergeCSFreqCSMap, int curNumMergeCS, int maxNumProp, oid *mergecsId){
 	int 		i; 
 	int 		freqId, freqId1, freqId2;
 	//int 		relId; 
@@ -2581,20 +2629,20 @@ void mergeMaxFreqCSByS6(CSrel *csrelBetweenMaxFreqSet, CSset *freqCSset, oid* su
 
 	fout = fopen(filename,"wt"); 
 
-	for (i = 0; i < numMaxCSs; i++){
-		freqId = superCSFreqCSMap[i];
-		if (csrelBetweenMaxFreqSet[freqId].numRef > maxNumRefPerCS){
-		 	maxNumRefPerCS = csrelBetweenMaxFreqSet[freqId].numRef ; 		
+	for (i = 0; i < curNumMergeCS; i++){
+		freqId = mergeCSFreqCSMap[i];
+		if (csrelMergeFreqSet[freqId].numRef > maxNumRefPerCS){
+		 	maxNumRefPerCS = csrelMergeFreqSet[freqId].numRef ; 		
 		}
 	}
 	printf("maxNumRefPerCS = %d \n", maxNumRefPerCS);
 
 	csRelSum = initCSrelSum(maxNumProp,maxNumRefPerCS);
 	
-	for (i = 0; i < numMaxCSs; i++){
-		freqId = superCSFreqCSMap[i];
-		if (csrelBetweenMaxFreqSet[freqId].numRef != 0){
-			generatecsRelSum(csrelBetweenMaxFreqSet[freqId], freqId, freqCSset, csRelSum);
+	for (i = 0; i < curNumMergeCS; i++){
+		freqId = mergeCSFreqCSMap[i];
+		if (csrelMergeFreqSet[freqId].numRef != 0){
+			generatecsRelSum(csrelMergeFreqSet[freqId], freqId, freqCSset, csRelSum);
 			/* Check the number of */
 			fprintf(fout, "csRelSum " BUNFMT ": ",csRelSum->origFreqIdx);
 			for (j = 0; j < csRelSum->numProp; j++){
@@ -2634,7 +2682,6 @@ void mergeMaxFreqCSByS6(CSrel *csrelBetweenMaxFreqSet, CSset *freqCSset, oid* su
 							existmergecs = (CS*)&(freqCSset->items[existMergecsId]);
 							mergeACStoExistingmergeCS(*cs2,freqId2, existmergecs);
 							cs2->parentFreqIdx = existMergecsId; 
-							//printamergeCS(mergecsSet->items[existMergecsId] ,existMergecsId, freqCSset, superCSFreqCSMap);
 						}
 						else if (cs1->parentFreqIdx != cs2->parentFreqIdx){
 							mergecs1 = (CS*)&(freqCSset->items[cs1->parentFreqIdx]);
@@ -2667,31 +2714,30 @@ void mergeMaxFreqCSByS6(CSrel *csrelBetweenMaxFreqSet, CSset *freqCSset, oid* su
 static
 char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode *tree){	/*Rule S1 S2 S3*/
 	int i, j; 
-	int k1, k2; 
 	//int commonHierarchy = -1;
 	int minCount = 0; 
 	int hCount1, hCount2; 
 	int level; 
 	OntoUsageNode *tmpNode; 
-	
-	//if(0){
-	if (strcmp(labels[freqId1].name, labels[freqId2].name) == 0)  
+	/*
+	int k1, k2; 
+	if (labels[freqId1].name == labels[freqId2].name)
 		return 1;
-	else{ /* Check top k candidates */
+	else{ 
 		k1 =  (labels[freqId1].candidatesCount < TOPK)?labels[freqId1].candidatesCount:TOPK;
 		k2 =  (labels[freqId2].candidatesCount < TOPK)?labels[freqId2].candidatesCount:TOPK;	
 
 		for (i = 0; i < k1; i++){
 			for (j = 0; j < k2; j++){
-				if (strcmp(labels[freqId1].candidates[i], labels[freqId2].candidates[j]) == 0) 
+				if (labels[freqId1].candidates[i] == labels[freqId2].candidates[j])
 				{
-					//printf("FreqCS %d and %d shares top-k candidates i = %d, j = %d: %s \n", freqId1, freqId2, i, j, labels[freqId2].candidates[j]);
 					return 1; 
 				}
 			}
 		}
 	}
-	//}
+	*/
+
 	// Check for the most common ancestor
 	hCount1 = labels[freqId1].hierarchyCount;
 	hCount2 = labels[freqId2].hierarchyCount;
@@ -2716,7 +2762,7 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 	*/
 
 	for (i = 0; i < minCount; i++){
-		if (strcmp(labels[freqId1].hierarchy[hCount1-1-i], labels[freqId2].hierarchy[hCount2-1-i]) != 0) 
+		if (labels[freqId1].hierarchy[hCount1-1-i] != labels[freqId2].hierarchy[hCount2-1-i])
 				break;
 	}
 
@@ -2726,7 +2772,7 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 		tmpNode = tree; 
 		while(level < i){
 			for (j = 0; j < tmpNode->numChildren; j++) {	
-				if (strcmp(tmpNode->lstChildren[j]->uri, labels[freqId1].hierarchy[hCount1-1-level]) == 0){
+				if (tmpNode->lstChildren[j]->uri == labels[freqId1].hierarchy[hCount1-1-level]){
 					tmpNode = tmpNode->lstChildren[j];
 					break;
 				}
@@ -2746,7 +2792,7 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 }
 
 static
-void mergeMaximumFreqCSsAll(CSset *freqCSset, CSlabel* labels, oid* superCSFreqCSMap, int numMaxCSs, oid *mergecsId,OntoUsageNode *ontoUsageTree){
+void mergeCSByS3S5(CSset *freqCSset, CSlabel* labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId,OntoUsageNode *ontoUsageTree){
 	int 		i, j, k; 
 	int 		freqId1, freqId2; 
 	float 		simscore = 0.0; 
@@ -2779,17 +2825,17 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, CSlabel* labels, oid* superCSFreqC
 
 
 	propStat = initPropStat();
-	getPropStatisticsFromMaxCSs(propStat, numMaxCSs, superCSFreqCSMap, freqCSset); /*TODO: Get PropStat from MaxCSs or From mergedCS only*/
+	getPropStatisticsFromMergeCSs(propStat, curNumMergeCS, mergeCSFreqCSMap, freqCSset); /*TODO: Get PropStat from MaxCSs or From mergedCS only*/
 
-	for (i = 0; i < numMaxCSs; i++){		/*TODO: Only go through the list of mergedCS. */
-		freqId1 = superCSFreqCSMap[i];
+	for (i = 0; i < curNumMergeCS; i++){		/*TODO: Only go through the list of mergedCS. */
+		freqId1 = mergeCSFreqCSMap[i];
 		//printf("Label of %d CS is %s \n", freqId1, labels[freqId1].name);
 		isLabelComparable = 0; 
-		if (strcmp(labels[freqId1].name,"DUMMY") != 0) isLabelComparable = 1; 
+		if (labels[freqId1].name != BUN_NONE) isLabelComparable = 1; // no "DUMMY"
 
 		cs1 = (CS*) &(freqCSset->items[freqId1]);
-	 	for (j = (i+1); j < numMaxCSs; j++){
-			freqId2 = superCSFreqCSMap[j];
+	 	for (j = (i+1); j < curNumMergeCS; j++){
+			freqId2 = mergeCSFreqCSMap[j];
 			cs2 = (CS*) &(freqCSset->items[freqId2]);
 			isSameLabel = 0; 
 
@@ -2847,7 +2893,6 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, CSlabel* labels, oid* superCSFreqC
 					existmergecs = (CS*)&(freqCSset->items[existMergecsId]);
 					mergeACStoExistingmergeCS(*cs2,freqId2, existmergecs);
 					cs2->parentFreqIdx = existMergecsId; 
-					//printamergeCS(mergecsSet->items[existMergecsId] ,existMergecsId, freqCSset, superCSFreqCSMap);
 				}
 				else if (cs1->parentFreqIdx != cs2->parentFreqIdx){
 					mergecs1 = (CS*)&(freqCSset->items[cs1->parentFreqIdx]);
@@ -3076,106 +3121,6 @@ str getReferCS(BAT *sbat, BAT *pbat, oid *obt){
 	return MAL_SUCCEED;
 }
 */
-
-static
-LabelStat* initLabelStat(void){
-	LabelStat *labelStat = (LabelStat*) malloc(sizeof(LabelStat)); 
-	labelStat->labelBat = BATnew(TYPE_void, TYPE_str, INIT_DISTINCT_LABEL);	
-	if (labelStat->labelBat == NULL){
-		return NULL; 
-	}
-	(void)BATprepareHash(BATmirror(labelStat->labelBat));
-	if (!(labelStat->labelBat->T->hash)) 
-		return NULL; 
-	labelStat->lstCount = (int*)malloc(sizeof(int) * INIT_DISTINCT_LABEL);
-
-	labelStat->freqIdList = NULL;	
-	labelStat->numLabeladded = 0;
-	labelStat->numAllocation = INIT_DISTINCT_LABEL;
-
-	return labelStat; 
-}
-
-static
-void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset){
-	int 	i; 
-	BUN 	bun; 
-	int 	*_tmp; 
-	int	freqIdx;
-	int	numDummy = 0; 
-
-	//Preparation
-	for (i = 0; i  < freqCSset->numCSadded; i++){
-		if (strcmp(labels[i].name,"DUMMY") != 0){
-			bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr)labels[i].name);
-			if (bun == BUN_NONE) {
-				/*New string*/
-				if (labelStat->labelBat->T->hash && BATcount(labelStat->labelBat) > 4 * labelStat->labelBat->T->hash->mask) {
-					HASHdestroy(labelStat->labelBat);
-					BAThash(BATmirror(labelStat->labelBat), 2*BATcount(labelStat->labelBat));
-				}
-
-				labelStat->labelBat = BUNappend(labelStat->labelBat, (ptr) (str)labels[i].name, TRUE);
-						
-				if(labelStat->numLabeladded == labelStat->numAllocation) 
-				{ 
-					labelStat->numAllocation += INIT_DISTINCT_LABEL; 
-					
-					_tmp = realloc(labelStat->lstCount, (labelStat->numAllocation * sizeof(int)));
-				
-					if (!_tmp){
-						fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-					}
-					labelStat->lstCount = (int*)_tmp;
-				}
-				labelStat->lstCount[labelStat->numLabeladded] = 1; 
-				labelStat->numLabeladded++;
-			}
-			else{
-				labelStat->lstCount[bun]++;
-			}
-		}
-		else
-			numDummy++;
-	}
-	
-	printf("Total number of distinct labels is %d \n", labelStat->numLabeladded);
-	printf("Number of DUMMY freqCS: %d \n",numDummy);
-	//Build list of FreqCS
-	labelStat->freqIdList = (int**) malloc(sizeof(int*) * labelStat->numLabeladded);
-	for (i =0; i < labelStat->numLabeladded; i++){
-		labelStat->freqIdList[i] = (int*)malloc(sizeof(int) * labelStat->lstCount[i]);
-		//reset the lstCount
-		labelStat->lstCount[i] = 0;
-	}
-	
-	for (i = 0; i  < freqCSset->numCSadded; i++){
-		if (strcmp(labels[i].name,"DUMMY") != 0){
-			bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr) labels[i].name);
-			if (bun == BUN_NONE) {
-				fprintf(stderr, "All the name should be stored already!\n");
-			}
-			else{
-				freqIdx = labelStat->lstCount[bun];
-				labelStat->freqIdList[bun][freqIdx] = i; 
-				labelStat->lstCount[bun]++;
-			}
-		}
-	}
-}
-static 
-void freeLabelStat(LabelStat *labelStat){
-	int i; 
-	if (labelStat->freqIdList != NULL){
-		for (i = 0; i < labelStat->numLabeladded;i++){
-			free(labelStat->freqIdList[i]);
-		} 
-		free(labelStat->freqIdList);
-	}	
-	free(labelStat->lstCount);
-	BBPreclaim(labelStat->labelBat);
-	free(labelStat);
-}
 
 
 
@@ -3701,127 +3646,43 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 	return MAL_SUCCEED; 
 }
 
-static
-void initCsRelBetweenMergeFreqSet(CSmergeRel *csRelBetweenMergeFreqSet, int num){
-	int i;
-	for (i = 0; i < num; ++i) {
-		csRelBetweenMergeFreqSet[i].origFreqIdx = i;
-		csRelBetweenMergeFreqSet[i].lstRefFreqIdx = (int *) malloc (sizeof(int) * INIT_NUM_CSREL);
-		csRelBetweenMergeFreqSet[i].lstPropId = (oid*) malloc(sizeof(oid) * INIT_NUM_CSREL);
-
-		csRelBetweenMergeFreqSet[i].lstCnt = (int*) malloc(sizeof(int) * INIT_NUM_CSREL);
-		csRelBetweenMergeFreqSet[i].lstBlankCnt = (int*) malloc(sizeof(int) * INIT_NUM_CSREL);
-
-		csRelBetweenMergeFreqSet[i].numRef = 0;
-		csRelBetweenMergeFreqSet[i].numAllocation = INIT_NUM_CSREL;
-	}
-}
-
-static 
-void freeMergeCSrelset(CSmergeRel *csrelSet, int numCSrel){
-	int i; 
-
-	for (i = 0; i < numCSrel; i++){
-		free(csrelSet[i].lstRefFreqIdx);
-		free(csrelSet[i].lstPropId);
-		free(csrelSet[i].lstCnt); 
-		free(csrelSet[i].lstBlankCnt);
-	}
-	free(csrelSet);
-}
-
-static
-void addReltoCSmergeRel(int origFreqIdx, int refFreqIdx, oid propId, int freq, int numBlank, CSmergeRel *csmergerel)
-{
-	void *_tmp;
-	void *_tmp1;
-	void *_tmp2;
-	void *_tmp3;
-
-	int i = 0;
-
-	assert (origFreqIdx == csmergerel->origFreqIdx);
-#ifdef NDEBUG
-	/* parameter origFreqIdx is not used other than in about assertion */
-	(void) origFreqIdx;
-#endif
-
-	while (i < csmergerel->numRef){
-		if (refFreqIdx == csmergerel->lstRefFreqIdx[i] && propId == csmergerel->lstPropId[i]){
-			//Existing
-			break;
-		}
-		i++;
-	}
-
-	if (i != csmergerel->numRef){
-		csmergerel->lstCnt[i] = csmergerel->lstCnt[i] + freq;
-		csmergerel->lstBlankCnt[i] = csmergerel->lstBlankCnt[i] + numBlank;
-		return;
-	}
-	else{	// New Ref
-		if(csmergerel->numRef == csmergerel->numAllocation)
-		{
-			csmergerel->numAllocation += INIT_NUM_CSREL;
-
-			_tmp = realloc(csmergerel->lstRefFreqIdx, (csmergerel->numAllocation * sizeof(int)));
-			_tmp1 = realloc(csmergerel->lstPropId, (csmergerel->numAllocation * sizeof(oid)));
-			_tmp2 = realloc(csmergerel->lstCnt, (csmergerel->numAllocation * sizeof(int)));
-			_tmp3 = realloc(csmergerel->lstBlankCnt, (csmergerel->numAllocation * sizeof(int)));
-
-			if (!_tmp || !_tmp2 || !_tmp3){
-				fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-			}
-			csmergerel->lstRefFreqIdx = (int*)_tmp;
-			csmergerel->lstPropId = (oid*)_tmp1;
-			csmergerel->lstCnt = (int*)_tmp2;
-			csmergerel->lstBlankCnt = (int*)_tmp3;
-		}
-
-		csmergerel->lstRefFreqIdx[csmergerel->numRef] = refFreqIdx;
-		csmergerel->lstPropId[csmergerel->numRef] = propId;
-		csmergerel->lstCnt[csmergerel->numRef] = freq;
-		csmergerel->lstBlankCnt[csmergerel->numRef] = numBlank;
-		csmergerel->numRef++;
-	}
-}
 
 /* Create a new data structure to store relationships including merged CS */
 static
-void generateCsRelBetweenMergeFreqSet(CSmergeRel *csRelBetweenMergeFreqSet, CSrel *csrelBetweenMaxFreqSet, int numOid, CSset *freqCSset){
-	int i,j;
-	for (i = 0; i < numOid; ++i) {
-		CSrel rel;
-		int from;
-		if (csrelBetweenMaxFreqSet[i].numRef == 0) continue; // ignore CS without relations
-		rel = csrelBetweenMaxFreqSet[i];
+CSrel* generateCsRelBetweenMergeFreqSet(CSrel *csrelFreqSet, CSset *freqCSset){
+	int 	i,j;
+	int	numFreqCS = freqCSset->numOrigFreqCS; 
+	int 	from, to;
+	CSrel 	rel;
+	CSrel*  csRelMergeFreqSet;
+	
+	csRelMergeFreqSet = initCSrelset(freqCSset->numCSadded);
 
+	for (i = 0; i < numFreqCS; ++i) {
+		if (csrelFreqSet[i].numRef == 0) continue; // ignore CS without relations
+		rel = csrelFreqSet[i];
 		// update the 'from' value
-		from = rel.origFreqIdx;
-		assert (from != -1);
+		from = i;
 		if (freqCSset->items[from].parentFreqIdx != -1) {
 			from = freqCSset->items[from].parentFreqIdx;
-			assert (freqCSset->items[from].type == MERGECS);
 		}
 
 		for (j = 0; j < rel.numRef; ++j) {
-			int to;
 			// update the 'to' value
 			to = rel.lstRefFreqIdx[j];
-			assert (to != -1);
 			if (freqCSset->items[to].parentFreqIdx != -1) {
 				to = freqCSset->items[to].parentFreqIdx;
-				assert (freqCSset->items[to].type == MERGECS);
 			}
 
 			// add relation to new data structure
-			addReltoCSmergeRel(from, to, rel.lstPropId[j], rel.lstCnt[j], rel.lstBlankCnt[j], &csRelBetweenMergeFreqSet[from]);
+			addReltoCSRelWithFreq(from, to, rel.lstPropId[j], rel.lstCnt[j], rel.lstBlankCnt[j], &csRelMergeFreqSet[from]);
 		}
 	}
+	return csRelMergeFreqSet;
 }
 
 static
-void printCSmergeRel(CSset *freqCSset, CSmergeRel *csRelBetweenMergeFreqSet, int freqThreshold){
+void printCSRel(CSset *freqCSset, CSrel *csRelMergeFreqSet, int freqThreshold){
 	FILE 	*fout2,*fout2filter;
 	char 	filename2[100];
 	char 	tmpStr[20];
@@ -3852,26 +3713,26 @@ void printCSmergeRel(CSset *freqCSset, CSmergeRel *csRelBetweenMergeFreqSet, int
 	
 	fprintf(fout2filter, "TblIdx: (Frequency) --> TblIdx (Property) (#of References) (#of blanknodes),...");	
 	for (i = 0; i < freqCSset->numCSadded; i++){
-		if (csRelBetweenMergeFreqSet[i].numRef != 0){	//Only print CS with FK
-			fprintf(fout2, "Relationship "BUNFMT": ", freqCSset->items[csRelBetweenMergeFreqSet[i].origFreqIdx].csId);
-			fprintf(fout2filter, "Relationship "BUNFMT": ", freqCSset->items[csRelBetweenMergeFreqSet[i].origFreqIdx].csId);
-			freq = freqCSset->items[csRelBetweenMergeFreqSet[i].origFreqIdx].support;
-			fprintf(fout2, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", freqCSset->items[csRelBetweenMergeFreqSet[i].origFreqIdx].csId, freq, 1);
-			/*fprintf(fout2filter, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", freqCSset->items[csRelBetweenMergeFreqSet[i].origFreqIdx].csId, freq, 1);*/
-			fprintf(fout2filter, "Tbl %d (Freq: %d) --> ", mfreqIdxTblIdxMapping[csRelBetweenMergeFreqSet[i].origFreqIdx], freq);
-			for (j = 0; j < csRelBetweenMergeFreqSet[i].numRef; j++){
+		if (csRelMergeFreqSet[i].numRef != 0){	//Only print CS with FK
+			fprintf(fout2, "Relationship "BUNFMT": ", freqCSset->items[csRelMergeFreqSet[i].origFreqIdx].csId);
+			fprintf(fout2filter, "Relationship "BUNFMT": ", freqCSset->items[csRelMergeFreqSet[i].origFreqIdx].csId);
+			freq = freqCSset->items[csRelMergeFreqSet[i].origFreqIdx].support;
+			fprintf(fout2, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", freqCSset->items[csRelMergeFreqSet[i].origFreqIdx].csId, freq, 1);
+			/*fprintf(fout2filter, "CS " BUNFMT " (Freq: %d, isFreq: %d) --> ", freqCSset->items[csRelMergeFreqSet[i].origFreqIdx].csId, freq, 1);*/
+			fprintf(fout2filter, "Tbl %d (Freq: %d) --> ", mfreqIdxTblIdxMapping[csRelMergeFreqSet[i].origFreqIdx], freq);
+			for (j = 0; j < csRelMergeFreqSet[i].numRef; j++){
 				#if SHOWPROPERTYNAME
-				takeOid(csRelBetweenMergeFreqSet[i].lstPropId[j], &propStr);
-				fprintf(fout2, BUNFMT "(P:" BUNFMT " - %s) (%d)(Blank:%d) ", freqCSset->items[csRelBetweenMergeFreqSet[i].lstRefFreqIdx[j]].csId,csRelBetweenMergeFreqSet[i].lstPropId[j], propStr, csRelBetweenMergeFreqSet[i].lstCnt[j], csRelBetweenMergeFreqSet[i].lstBlankCnt[j]);
+				takeOid(csRelMergeFreqSet[i].lstPropId[j], &propStr);
+				fprintf(fout2, BUNFMT "(P:" BUNFMT " - %s) (%d)(Blank:%d) ", freqCSset->items[csRelMergeFreqSet[i].lstRefFreqIdx[j]].csId,csRelMergeFreqSet[i].lstPropId[j], propStr, csRelMergeFreqSet[i].lstCnt[j], csRelMergeFreqSet[i].lstBlankCnt[j]);
 				GDKfree(propStr);
 				#else
-				fprintf(fout2, BUNFMT "(P:" BUNFMT ") (%d)(Blank:%d) ", freqCSset->items[csRelBetweenMergeFreqSet[i].lstRefFreqIdx[j]].csId,csRelBetweenMergeFreqSet[i].lstPropId[j], csRelBetweenMergeFreqSet[i].lstCnt[j], csRelBetweenMergeFreqSet[i].lstBlankCnt[j]);
+				fprintf(fout2, BUNFMT "(P:" BUNFMT ") (%d)(Blank:%d) ", freqCSset->items[csRelMergeFreqSet[i].lstRefFreqIdx[j]].csId,csRelMergeFreqSet[i].lstPropId[j], csRelMergeFreqSet[i].lstCnt[j], csRelMergeFreqSet[i].lstBlankCnt[j]);
 				#endif
 
-				if (freq < csRelBetweenMergeFreqSet[i].lstCnt[j]*100){
-					/*fprintf(fout2filter, BUNFMT "(P:" BUNFMT ") (%d)(Blank:%d) ", freqCSset->items[csRelBetweenMergeFreqSet[i].lstRefFreqIdx[j]].csId,csRelBetweenMergeFreqSet[i].lstPropId[j], csRelBetweenMergeFreqSet[i].lstCnt[j], csRelBetweenMergeFreqSet[i].lstBlankCnt[j]);*/
-					fprintf(fout2filter, "Tbl %d (P:" BUNFMT ") (%d)(Blank:%d) ", mfreqIdxTblIdxMapping[csRelBetweenMergeFreqSet[i].lstRefFreqIdx[j]],csRelBetweenMergeFreqSet[i].lstPropId[j], csRelBetweenMergeFreqSet[i].lstCnt[j], csRelBetweenMergeFreqSet[i].lstBlankCnt[j]);
-					if (freq == csRelBetweenMergeFreqSet[i].lstCnt[j]){
+				if (freq < csRelMergeFreqSet[i].lstCnt[j]*100){
+					/*fprintf(fout2filter, BUNFMT "(P:" BUNFMT ") (%d)(Blank:%d) ", freqCSset->items[csRelMergeFreqSet[i].lstRefFreqIdx[j]].csId,csRelMergeFreqSet[i].lstPropId[j], csRelMergeFreqSet[i].lstCnt[j], csRelMergeFreqSet[i].lstBlankCnt[j]);*/
+					fprintf(fout2filter, "Tbl %d (P:" BUNFMT ") (%d)(Blank:%d) ", mfreqIdxTblIdxMapping[csRelMergeFreqSet[i].lstRefFreqIdx[j]],csRelMergeFreqSet[i].lstPropId[j], csRelMergeFreqSet[i].lstCnt[j], csRelMergeFreqSet[i].lstBlankCnt[j]);
+					if (freq == csRelMergeFreqSet[i].lstCnt[j]){
 						fprintf(fout2filter, " (FKRel) ");
 					}
 				}
@@ -3888,14 +3749,14 @@ void printCSmergeRel(CSset *freqCSset, CSmergeRel *csRelBetweenMergeFreqSet, int
 }
 
 // for storing ontology data
-str	**ontattributes = NULL;
+oid	**ontattributes = NULL;
 int	ontattributesCount = 0;
-str	**ontmetadata = NULL;
+oid	**ontmetadata = NULL;
 int	ontmetadataCount = 0;
 
 /* Extract CS from SPO triples table */
 str
-RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *_freqCSset, oid **subjCSMap, oid *maxCSoid, int *maxNumPwithDup, CSlabel** labels, CSmergeRel **csRelBetweenMergeFreqSet){
+RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *_freqCSset, oid **subjCSMap, oid *maxCSoid, int *maxNumPwithDup, CSlabel** labels, CSrel **csRelMergeFreqSet){
 
 	BAT 		*sbat = NULL, *pbat = NULL, *obat = NULL, *mbat = NULL; 
 	BATiter 	si, pi, oi; 	/*iterator for BAT of s,p,o columns in spo table */
@@ -3905,8 +3766,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	BUN		*maxSoid; 	
 	int		maxNumProp = 0;
 	CSrel   	*csrelSet;
-	CSrel		*csrelToMaxFreqSet;
-	CSrel		*csrelBetweenMaxFreqSet; 
 
 	#if	NEEDSUBCS
 	SubCSSet 	*csSubCSSet; 
@@ -3919,13 +3778,12 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	int*		csIdFreqIdxMap; /* Map a CSId to a freqIdx. Should be removed in the future .... */
 	oid		mergecsId = 0; 
 
-	int		numMaxCSs = 0; 
-	oid		*superCSFreqCSMap; 
+	oid		*mergeCSFreqCSMap; 
 	CSset		*freqCSset; 
 	clock_t 	curT;
 	clock_t		tmpLastT; 
 	OntoUsageNode	*ontoUsageTree = NULL;
-	LabelStat	*labelStat = NULL; 
+	int		curNumMergeCS = 0; 
 
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
@@ -4045,81 +3903,69 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	printf("Using ontologies with %d ontattributesCount and %d ontmetadataCount \n",ontattributesCount,ontmetadataCount);
 	
-	(*labels) = createLabels(freqCSset, csrelSet, freqCSset->numCSadded, sbat, si, pi, oi, *subjCSMap, mbat, csIdFreqIdxMap, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &ontoUsageTree);
+	(*labels) = createLabels(freqCSset, csrelSet, freqCSset->numCSadded, sbat, si, pi, oi, *subjCSMap, csIdFreqIdxMap, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &ontoUsageTree);
 	
 	curT = clock(); 
 	printf("Done labeling!!! Took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT;
 	
-
-	labelStat = initLabelStat(); 
-	buildLabelStat(labelStat, *labels, freqCSset);
-
-	freeLabelStat(labelStat);
-	/*
-	{
-	str tknzLabel = "cslabel";
-	if (TKNZRopen (NULL, &tknzLabel) != MAL_SUCCEED) {
-		throw(RDF, "RDFextractCSwithTypes", "could not open the tokenizer\n");
-	}
-
-	TKNZRclose(ret);
-	}
-	*/
-
-	/*S4: Merge two CS's having the subset-superset relationship */
-	getMaximumFreqCSs(freqCSset, *labels, csBats->coverageBat,  csBats->freqBat, *maxCSoid + 1, &numMaxCSs); 
-
-	curT = clock(); 
-	printf (" -----	Get maximum frequent CSs took   %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
-	tmpLastT = curT; 		
-	
-	//printf("Number of maximumCS: %d", numMaxCSs);
-	
 	printFreqCSSet(freqCSset, csBats->freqBat, mbat, 1, *freqThreshold, *labels); 
 
-
-	curT = clock(); 
-	printf (" -----	Print frequent CSs info took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
-	tmpLastT = curT; 		
-
-	csrelToMaxFreqSet = initCSrelset(*maxCSoid + 1);	// CS --> Reference MaxCSs
-	csrelBetweenMaxFreqSet = initCSrelset(*maxCSoid + 1);	// MaxCS --> Reference MaxCSs
-
-	generateCSrelWithMaxSet(freqCSset, csrelToMaxFreqSet, csrelBetweenMaxFreqSet, csrelSet, freqCSset->numCSadded);  	
-
-	printCSrelWithMaxSet(csrelToMaxFreqSet, csrelBetweenMaxFreqSet, freqCSset, freqCSset->numCSadded, *freqThreshold);  
-
-
-	curT = clock(); 
-	printf (" -----	Generate CSrel with max set took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
-	tmpLastT = curT; 		
-
-	superCSFreqCSMap = (oid*) malloc(sizeof(oid) * numMaxCSs); 
-
-	initSuperCSFreqCSMap(freqCSset, superCSFreqCSMap);
-
+	/* ---------- S1, S2 ------- */
 	mergecsId = *maxCSoid + 1; 
-	/* S6: Merged CS referred from the same CS via the same property */
-	mergeMaxFreqCSByS6(csrelBetweenMaxFreqSet, freqCSset, superCSFreqCSMap, numMaxCSs, maxNumProp, &mergecsId);
+
+	mergeMaxFreqCSByS1(freqCSset, *labels, &mergecsId); /*S1: Merge all freqCS's sharing top-3 candidates */
+	
+	curNumMergeCS = countNumberMergeCS(freqCSset);
 
 	curT = clock(); 
-	printf (" -----	MergeCS using S6 took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	printf("Merging with S1 took %f. (Number of mergeCS: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);
+	tmpLastT = curT;
+	
+	/* ---------- S4 ------- */
+	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
+	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
+
+	/*S4: Merge two CS's having the subset-superset relationship */
+	mergeCSbyS4(freqCSset, *labels, mergeCSFreqCSMap,curNumMergeCS); 
+
+	curNumMergeCS = countNumberMergeCS(freqCSset);
+	curT = clock(); 
+	printf ("Merging with S4 took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);
 	tmpLastT = curT; 		
 	
-	/* S1, S2, S3, S5 */
-	mergeMaximumFreqCSsAll(freqCSset, *labels, superCSFreqCSMap, numMaxCSs, &mergecsId, ontoUsageTree);
+	/* ---------- S6 ------- */
+	free(mergeCSFreqCSMap);
+	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
+	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
+	
+	*csRelMergeFreqSet = generateCsRelBetweenMergeFreqSet(csrelSet, freqCSset);
+
+	/* S6: Merged CS referred from the same CS via the same property */
+	mergeMaxFreqCSByS6(*csRelMergeFreqSet, freqCSset, mergeCSFreqCSMap, curNumMergeCS, maxNumProp, &mergecsId);
+
+	curNumMergeCS = countNumberMergeCS(freqCSset);
+	curT = clock(); 
+	printf ("Merging with S6 took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);
+	tmpLastT = curT; 		
+	
+	/* S3, S5 */
+	free(mergeCSFreqCSMap);
+	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
+
+	mergeCSByS3S5(freqCSset, *labels, mergeCSFreqCSMap, curNumMergeCS, &mergecsId, ontoUsageTree);
 
 
 	curT = clock(); 
-	printf (" ----- Merging Frequent CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	printf ("Merging with S3, S5 took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);	
 	tmpLastT = curT; 		
 
-
-	*csRelBetweenMergeFreqSet = (CSmergeRel *) malloc (sizeof(CSmergeRel) * freqCSset->numCSadded);
-	initCsRelBetweenMergeFreqSet(*csRelBetweenMergeFreqSet, freqCSset->numCSadded);
-	generateCsRelBetweenMergeFreqSet(*csRelBetweenMergeFreqSet, csrelBetweenMaxFreqSet, freqCSset->numOrigFreqCS, freqCSset);
-	printCSmergeRel(freqCSset, *csRelBetweenMergeFreqSet, *freqThreshold);
+	
+	//Finally, re-create mergeFreqSet
+	
+	freeCSrelSet(*csRelMergeFreqSet,freqCSset->numOrigFreqCS);
+	*csRelMergeFreqSet = generateCsRelBetweenMergeFreqSet(csrelSet, freqCSset);
+	printCSRel(freqCSset, *csRelMergeFreqSet, *freqThreshold);
 
 	printmergeCSSet(freqCSset, *freqThreshold);
 	//getStatisticCSsBySize(csMap,maxNumProp); 
@@ -4135,7 +3981,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	BBPunfix(mbat->batCacheid);
 
 	freeOntoUsageTree(ontoUsageTree);
-	free (superCSFreqCSMap);
 	
 	#if NEEDSUBCS
 	free (subjSubCSMap);
@@ -4144,8 +3989,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	free(csIdFreqIdxMap); 
 	freeCSrelSet(csrelSet, freqCSset->numOrigFreqCS); 
-	freeCSrelSet(csrelToMaxFreqSet, freqCSset->numOrigFreqCS); 
-	freeCSrelSet(csrelBetweenMaxFreqSet, freqCSset->numOrigFreqCS);  
 
 	freeCSBats(csBats);
 
@@ -4822,11 +4665,11 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	//CStableStat	*cstablestat;
 	CSPropTypes	*csPropTypes; 
 	CSlabel		*labels, *labels2;
-	CSmergeRel	*csRelBetweenMergeFreqSet = NULL;
+	CSrel		*csRelMergeFreqSet = NULL;
 
 	freqCSset = initCSset();
 
-	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid, &maxNumPwithDup, &labels, &csRelBetweenMergeFreqSet) != MAL_SUCCEED){
+	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid, &maxNumPwithDup, &labels, &csRelMergeFreqSet) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in extracting CSs");
 	}
 	
@@ -4876,7 +4719,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	#endif
 
 	// final labeling
-	labels2 = createFinalLabels(labels, freqCSset, csRelBetweenMergeFreqSet, *freqThreshold);
+	labels2 = createFinalLabels(labels, freqCSset, csRelMergeFreqSet, *freqThreshold);
 	(void) labels2; // TODO use!
 
 	// Init CStableStat
@@ -4886,7 +4729,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 		printf("Only explore the schema information \n");
 		freeFinalLabels(labels2, freqCSset);
 		freeLabels(labels, freqCSset);
-		freeMergeCSrelset(csRelBetweenMergeFreqSet,freqCSset->numCSadded);
+		freeCSrelSet(csRelMergeFreqSet,freqCSset->numCSadded);
 		freeCSset(freqCSset); 
 		free(subjCSMap);
 		free(csTblIdxMapping);
@@ -5001,7 +4844,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	}
 		
 
-	freeMergeCSrelset(csRelBetweenMergeFreqSet,freqCSset->numCSadded);
+	freeCSrelSet(csRelMergeFreqSet,freqCSset->numCSadded);
 	freeCSPropTypes(csPropTypes,numTables);
 	freeFinalLabels(labels2, freqCSset);
 	freeLabels(labels, freqCSset);
