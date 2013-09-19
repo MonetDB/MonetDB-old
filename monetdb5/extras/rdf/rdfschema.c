@@ -2608,7 +2608,7 @@ void mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel* labels, oid *mergecsId){
 }
 
 static
-void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, oid* mergeCSFreqCSMap, int curNumMergeCS, int maxNumProp, oid *mergecsId){
+void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId){
 	int 		i; 
 	int 		freqId, freqId1, freqId2;
 	//int 		relId; 
@@ -2624,6 +2624,7 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, oid* mergeCS
 
 	char 		filename[100];
 	FILE		*fout; 
+	int		maxNumPropInMergeCS =0;
 
 	strcpy(filename, "csRelSum.txt");
 
@@ -2631,13 +2632,16 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, oid* mergeCS
 
 	for (i = 0; i < curNumMergeCS; i++){
 		freqId = mergeCSFreqCSMap[i];
-		if (csrelMergeFreqSet[freqId].numRef > maxNumRefPerCS){
+		if (csrelMergeFreqSet[freqId].numRef > maxNumRefPerCS)
 		 	maxNumRefPerCS = csrelMergeFreqSet[freqId].numRef ; 		
-		}
+
+		if (freqCSset->items[freqId].numProp > maxNumPropInMergeCS)
+			maxNumPropInMergeCS = freqCSset->items[freqId].numProp;
 	}
 	printf("maxNumRefPerCS = %d \n", maxNumRefPerCS);
+	printf("max number of prop in mergeCS: %d \n", maxNumPropInMergeCS);
 
-	csRelSum = initCSrelSum(maxNumProp,maxNumRefPerCS);
+	csRelSum = initCSrelSum(maxNumPropInMergeCS,maxNumRefPerCS);
 	
 	for (i = 0; i < curNumMergeCS; i++){
 		freqId = mergeCSFreqCSMap[i];
@@ -2707,12 +2711,12 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, oid* mergeCS
 	fclose(fout); 
 
 
-	freeCSrelSum(maxNumProp, csRelSum);
+	freeCSrelSum(maxNumPropInMergeCS, csRelSum);
 
 }
 
 static
-char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode *tree){	/*Rule S1 S2 S3*/
+char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode *tree, int numOrigFreqCS){	/*Rule S1 S2 S3*/
 	int i, j; 
 	//int commonHierarchy = -1;
 	int minCount = 0; 
@@ -2761,6 +2765,9 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 
 	*/
 
+	if ((freqId1 > numOrigFreqCS -1) || (freqId2 > numOrigFreqCS -1))
+		return 0;
+
 	for (i = 0; i < minCount; i++){
 		if (labels[freqId1].hierarchy[hCount1-1-i] != labels[freqId2].hierarchy[hCount2-1-i])
 				break;
@@ -2803,25 +2810,14 @@ void mergeCSByS3S5(CSset *freqCSset, CSlabel* labels, oid* mergeCSFreqCSMap, int
 	CS		*existmergecs, *mergecs1, *mergecs2; 
 
 	PropStat	*propStat; 	/* Store statistics about properties */
-	int		nummergedCSs = 0;
 	char		isLabelComparable = 0; 
 	char		isSameLabel = 0; 
 
-	int		numcurMergedCS; 	
 	
 
 	
 	(void) labels;
 	(void) isLabelComparable;
-
-	numcurMergedCS = 0;
-	for (i = 0; i < freqCSset->numCSadded; i++){
-		if (freqCSset->items[i].parentFreqIdx == -1)	numcurMergedCS++;
-	}
-
-
-	printf("Number of freqCS added = %d \n",freqCSset->numCSadded);
-	printf("Number of freqCS after merging using S6: = %d \n",numcurMergedCS);
 
 
 	propStat = initPropStat();
@@ -2840,7 +2836,7 @@ void mergeCSByS3S5(CSset *freqCSset, CSlabel* labels, oid* mergeCSFreqCSMap, int
 			isSameLabel = 0; 
 
 			#if	USE_LABEL_FOR_MERGING
-			if (isLabelComparable == 1 && isSemanticSimilar(freqId1, freqId2, labels, ontoUsageTree) == 1){
+			if (isLabelComparable == 1 && isSemanticSimilar(freqId1, freqId2, labels, ontoUsageTree,freqCSset->numOrigFreqCS) == 1){
 				//printf("Same labels between freqCS %d and freqCS %d - Old simscore is %f \n", freqId1, freqId2, simscore);
 				isSameLabel = 1;
 				simscore = 1; 
@@ -2909,13 +2905,6 @@ void mergeCSByS3S5(CSset *freqCSset, CSlabel* labels, oid* mergeCSFreqCSMap, int
 		}
 	}
 
-
-	for (i = 0; i < freqCSset->numCSadded; i++){
-		if (freqCSset->items[i].parentFreqIdx == -1){
-			nummergedCSs++;
-		}
-	}
-	printf("Number of freqCS after merging: %d \n", nummergedCSs);
 
 	freePropStat(propStat);
 
@@ -3942,7 +3931,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	*csRelMergeFreqSet = generateCsRelBetweenMergeFreqSet(csrelSet, freqCSset);
 
 	/* S6: Merged CS referred from the same CS via the same property */
-	mergeMaxFreqCSByS6(*csRelMergeFreqSet, freqCSset, mergeCSFreqCSMap, curNumMergeCS, maxNumProp, &mergecsId);
+	mergeMaxFreqCSByS6(*csRelMergeFreqSet, freqCSset, mergeCSFreqCSMap, curNumMergeCS,  &mergecsId);
 
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	curT = clock(); 
@@ -3952,10 +3941,11 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	/* S3, S5 */
 	free(mergeCSFreqCSMap);
 	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
+	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
 
 	mergeCSByS3S5(freqCSset, *labels, mergeCSFreqCSMap, curNumMergeCS, &mergecsId, ontoUsageTree);
 
-
+	curNumMergeCS = countNumberMergeCS(freqCSset);
 	curT = clock(); 
 	printf ("Merging with S3, S5 took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);	
 	tmpLastT = curT; 		
