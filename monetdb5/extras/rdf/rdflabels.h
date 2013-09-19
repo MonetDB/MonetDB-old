@@ -79,6 +79,15 @@ typedef struct OntoUsageNode {
 	float			percentage; // TODO rename, range [0..1]
 } OntoUsageNode;
 
+enum {
+	S1, 
+	S2, 
+	S3,
+	S4, 
+	S5,
+	S6
+} RULE; 
+
 #define FK_FREQ_THRESHOLD 25		// X % of the targeted subjects have to be in this table
 #define TYPE_FREQ_THRESHOLD 10		// X % of the type values have to be this value
 #define ONTOLOGY_FREQ_THRESHOLD 0.5	// similarity threshold for tfidf simularity for ontology classes
@@ -95,6 +104,9 @@ createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, 
 
 rdf_export CSlabel*
 createFinalLabels(CSlabel* labels, CSset* freqCSset, CSmergeRel* csRelBetweenMergeFreqSet, int freqThreshold);
+
+rdf_export str
+updateLabel(int ruleNumber, CSlabel *labels, int mergeCSFreqId, int freqCS1, int freqCS2);
 
 rdf_export void
 freeLabels(CSlabel* labels, CSset* freqCSset);
