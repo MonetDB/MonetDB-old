@@ -264,9 +264,9 @@ RDFOntologyParser(int *xret, str *location, str *schema){
 }
 
 // defined in rdfschema.c
-extern str **ontattributes;
+extern oid **ontattributes;
 extern int ontattributesCount;
-extern str **ontmetadata;
+extern oid **ontmetadata;
 extern int ontmetadataCount;
 
 str
@@ -275,7 +275,11 @@ RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msup
 	BAT			*auri = NULL, *aattr = NULL, *muri = NULL, *msuper = NULL;
 	BATiter			aurii, aattri, murii, msuperi;
 	BUN			bun, bun2, bun3, bun4;
+	BUN			auriCount, muriCount;
 	int			i;
+	str			schema = "rdf";
+
+	TKNZRopen (NULL, &schema);
 
 	if (ontattributesCount != 0 || ontmetadataCount != 0) {
 		// ontology data is already loaded
@@ -313,26 +317,44 @@ RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msup
 	bun = BUNfirst(auri);
 	bun2 = BUNfirst(aattr);
 
-	ontattributes = (str**) malloc(sizeof(str *) * 2);
-	ontmetadata = (str**) malloc(sizeof(str *) * 2);
-	if (!ontattributes || !ontmetadata) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-	ontattributes[0] = NULL; // uri
-	ontattributes[1] = NULL; // attr
-	ontmetadata[0] = NULL; // uri
-	ontmetadata[1] = NULL; // superclass
+	auriCount = BATcount(auri);
+
+	ontattributes = (oid**) malloc(sizeof(oid *) * 2);
+	if (!ontattributes) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+	ontattributes[0] = malloc(sizeof(str) * auriCount); // uri
+	ontattributes[1] = malloc(sizeof(str) * auriCount); // attr
+	if (!ontattributes[0] || !ontattributes[1]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 
 	BATloop(auri, p, q){
 		str auristr = (str) BUNtail(aurii, bun + i);
 		str aattrstr = (str) BUNtail(aattri, bun2 + i);
 
-		ontattributes[0] = realloc(ontattributes[0], sizeof(str) * (ontattributesCount + 1));
-		ontattributes[1] = realloc(ontattributes[1], sizeof(str) * (ontattributesCount + 1));
-		if (!ontattributes[0] || !ontattributes[1]) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-		ontattributes[0][ontattributesCount] = auristr;
-		ontattributes[1][ontattributesCount] = aattrstr;
+		oid aurioid, aattroid;
+
+		// add <...> around strings
+		str auristr2 = (str) GDKmalloc(strlen(auristr) + 3);
+		str aattrstr2 = (str) GDKmalloc(strlen(aattrstr) + 3);
+		if (!auristr2 || !aattrstr2) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+		auristr2[0] = '<';
+		strcpy(&(auristr2[1]), auristr);
+		auristr2[strlen(auristr) + 1] = '>';
+		auristr2[strlen(auristr) + 2] = '\0';
+		aattrstr2[0] = '<';
+		strcpy(&(aattrstr2[1]), aattrstr);
+		aattrstr2[strlen(aattrstr) + 1] = '>';
+		aattrstr2[strlen(aattrstr) + 2] = '\0';
+
+		TKNZRappend(&aurioid, &auristr2);
+		TKNZRappend(&aattroid, &aattrstr2);
+
+		ontattributes[0][ontattributesCount] = aurioid;
+		ontattributes[1][ontattributesCount] = aattroid;
 		ontattributesCount += 1;
 
 		++i;
+
+		GDKfree(auristr2);
+		GDKfree(aattrstr2);
 	}
 
 	// load ontmetadata
@@ -340,24 +362,56 @@ RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msup
 	bun3 = BUNfirst(muri);
 	bun4 = BUNfirst(msuper);
 
+	muriCount = BATcount(muri);
+
+	ontmetadata = (oid**) malloc(sizeof(oid *) * 2);
+	if (!ontmetadata) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+	ontmetadata[0] = malloc(sizeof(str) * muriCount); // uri
+	ontmetadata[1] = malloc(sizeof(str) * muriCount); // superclass
+	if (!ontmetadata[0] || !ontmetadata[1]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+
 	BATloop(muri, p, q){
 		str muristr = (str) BUNtail(murii, bun3 + i);
 		str msuperstr = (str) BUNtail(msuperi, bun4 + i);
 
-		ontmetadata[0] = realloc(ontmetadata[0], sizeof(str) * (ontmetadataCount + 1));
-		ontmetadata[1] = realloc(ontmetadata[1], sizeof(str) * (ontmetadataCount + 1));
-		if (!ontmetadata[0] || !ontmetadata[1]) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-		ontmetadata[0][ontmetadataCount] = muristr;
-		ontmetadata[1][ontmetadataCount] = msuperstr;
+		oid murioid, msuperoid;
+
+		// add <...> around strings
+		str muristr2 = (str) GDKmalloc(strlen(muristr) + 3);
+		str msuperstr2 = (str) GDKmalloc(strlen(msuperstr) + 3);
+		if (!muristr2 || !msuperstr2) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+		muristr2[0] = '<';
+		strcpy(&(muristr2[1]), muristr);
+		muristr2[strlen(muristr) + 1] = '>';
+		muristr2[strlen(muristr) + 2] = '\0';
+		msuperstr2[0] = '<';
+		strcpy(&(msuperstr2[1]), msuperstr);
+		msuperstr2[strlen(msuperstr) + 1] = '>';
+		msuperstr2[strlen(msuperstr) + 2] = '\0';
+
+		TKNZRappend(&murioid, &muristr2);
+		TKNZRappend(&msuperoid, &msuperstr2);
+
+		ontmetadata[0][ontmetadataCount] = murioid;
+		if (strcmp(msuperstr, "\x80") == 0) {
+			ontmetadata[1][ontmetadataCount] = BUN_NONE;
+		} else {
+			ontmetadata[1][ontmetadataCount] = msuperoid;
+		}
 		ontmetadataCount += 1;
 
 		++i;
+
+		GDKfree(muristr2);
+		GDKfree(msuperstr2);
 	}
 
 	BBPreclaim(auri);
 	BBPreclaim(aattr);
 	BBPreclaim(muri);
 	BBPreclaim(msuper);
+
+	TKNZRclose(ret);
 
 	*ret = 1;
 

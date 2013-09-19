@@ -1392,9 +1392,15 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 
 			#if STOREFULLCS	
 			if (cs.subject != BUN_NONE){
-				takeOid(cs.subject, &subStr);	
-				
-				fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, labels[i].name, *freq, subStr, cs.parentFreqIdx);
+				takeOid(cs.subject, &subStr);
+
+				if (labels[i].name == BUN_NONE) {
+					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, "DUMMY", *freq, subStr, cs.parentFreqIdx);
+				} else {
+					str labelStr;
+					takeOid(labels[i].name, &labelStr);
+					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, labelStr, *freq, subStr, cs.parentFreqIdx);
+				}
 
 				// Filter max freq cs set
 				if (cs.type == MAXCS){
@@ -2125,7 +2131,7 @@ void getMaximumFreqCSs(CSset *freqCSset, CSlabel* labels, BAT* coverageBat, BAT*
 		if (freqCSset->items[i].parentFreqIdx != -1) continue;
 		#if USE_LABEL_FINDING_MAXCS
 		isLabelComparable = 0;
-		if (strcmp(labels[i].name, "DUMMY") != 0) isLabelComparable = 1;
+		if (labels[i].name != BUN_NONE) isLabelComparable = 1; // no "DUMMY"
 		#endif
 
 		for (j = (i+1); j < numFreqCS; j++){
@@ -2675,7 +2681,7 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 	OntoUsageNode *tmpNode; 
 	
 	//if(0){
-	if (strcmp(labels[freqId1].name, labels[freqId2].name) == 0)  
+	if (labels[freqId1].name == labels[freqId2].name)
 		return 1;
 	else{ /* Check top k candidates */
 		k1 =  (labels[freqId1].candidatesCount < TOPK)?labels[freqId1].candidatesCount:TOPK;
@@ -2683,7 +2689,7 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 
 		for (i = 0; i < k1; i++){
 			for (j = 0; j < k2; j++){
-				if (strcmp(labels[freqId1].candidates[i], labels[freqId2].candidates[j]) == 0) 
+				if (labels[freqId1].candidates[i] == labels[freqId2].candidates[j])
 				{
 					//printf("FreqCS %d and %d shares top-k candidates i = %d, j = %d: %s \n", freqId1, freqId2, i, j, labels[freqId2].candidates[j]);
 					return 1; 
@@ -2716,7 +2722,7 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 	*/
 
 	for (i = 0; i < minCount; i++){
-		if (strcmp(labels[freqId1].hierarchy[hCount1-1-i], labels[freqId2].hierarchy[hCount2-1-i]) != 0) 
+		if (labels[freqId1].hierarchy[hCount1-1-i] != labels[freqId2].hierarchy[hCount2-1-i])
 				break;
 	}
 
@@ -2726,7 +2732,7 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 		tmpNode = tree; 
 		while(level < i){
 			for (j = 0; j < tmpNode->numChildren; j++) {	
-				if (strcmp(tmpNode->lstChildren[j]->uri, labels[freqId1].hierarchy[hCount1-1-level]) == 0){
+				if (tmpNode->lstChildren[j]->uri == labels[freqId1].hierarchy[hCount1-1-level]){
 					tmpNode = tmpNode->lstChildren[j];
 					break;
 				}
@@ -2785,7 +2791,7 @@ void mergeMaximumFreqCSsAll(CSset *freqCSset, CSlabel* labels, oid* superCSFreqC
 		freqId1 = superCSFreqCSMap[i];
 		//printf("Label of %d CS is %s \n", freqId1, labels[freqId1].name);
 		isLabelComparable = 0; 
-		if (strcmp(labels[freqId1].name,"DUMMY") != 0) isLabelComparable = 1; 
+		if (labels[freqId1].name != BUN_NONE) isLabelComparable = 1; // no "DUMMY"
 
 		cs1 = (CS*) &(freqCSset->items[freqId1]);
 	 	for (j = (i+1); j < numMaxCSs; j++){
@@ -3787,9 +3793,9 @@ void printCSmergeRel(CSset *freqCSset, CSmergeRel *csRelBetweenMergeFreqSet, int
 }
 
 // for storing ontology data
-str	**ontattributes = NULL;
+oid	**ontattributes = NULL;
 int	ontattributesCount = 0;
-str	**ontmetadata = NULL;
+oid	**ontmetadata = NULL;
 int	ontmetadataCount = 0;
 
 /* Extract CS from SPO triples table */
@@ -3942,7 +3948,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	printf("Using ontologies with %d ontattributesCount and %d ontmetadataCount \n",ontattributesCount,ontmetadataCount);
 	
-	(*labels) = createLabels(freqCSset, csrelSet, freqCSset->numCSadded, sbat, si, pi, oi, *subjCSMap, mbat, csIdFreqIdxMap, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &ontoUsageTree);
+	(*labels) = createLabels(freqCSset, csrelSet, freqCSset->numCSadded, sbat, si, pi, oi, *subjCSMap, csIdFreqIdxMap, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &ontoUsageTree);
 	
 	curT = clock(); 
 	printf("Done labeling!!! Took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
