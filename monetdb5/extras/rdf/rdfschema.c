@@ -32,6 +32,7 @@
 #include <time.h>
 #include <trie/trie.h>
 #include <string.h>
+#include "rdfminheap.h"
 
 #define SHOWPROPERTYNAME 1
 
@@ -1076,6 +1077,8 @@ void mergeOidSets(oid* arr1, oid* arr2, oid* mergeArr, int m, int n, int *numCom
 		
 }
 
+
+
 static 
 CS* mergeTwoCSs(CS cs1, CS cs2, int freqIdx1, int freqIdx2, oid mergeCSId){
 	
@@ -1201,6 +1204,63 @@ void mergeTwomergeCS(CS *mergecs1, CS *mergecs2, int parentFreqIdx){
 	free(oldlstProp1);
 	free(oldlstProp2); 
 }
+
+
+/*Multi-way merging */
+/*
+void mergeMultiOidSets(CSset *freqCSset, oid* mergeArr, int numCS){
+		
+}
+
+
+static 
+void mergeMultiCS(CS *freqCSset, int *lstFreqId, int num){
+	
+	int numCombineP; 
+	int* _tmp1; 
+	oid* _tmp2; 
+	oid* oldlstProp1; 
+	oid* oldlstProp2; 
+	int i; 
+
+        _tmp1 = realloc(mergecs1->lstConsistsOf, ((mergecs1->numConsistsOf + mergecs2->numConsistsOf) * sizeof(int)));
+
+	if (!_tmp1){
+		fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+	}
+	mergecs1->lstConsistsOf = (int*)_tmp1;
+	for (i = 0; i < mergecs2->numConsistsOf; i++){
+		mergecs1->lstConsistsOf[mergecs1->numConsistsOf] = mergecs2->lstConsistsOf[i]; 
+		mergecs1->numConsistsOf++;
+	}
+
+
+	oldlstProp1 = malloc (sizeof(oid) * mergecs1->numProp); 
+	memcpy(oldlstProp1, mergecs1->lstProp, (mergecs1->numProp) * sizeof(oid));
+	
+	oldlstProp2 = malloc (sizeof(oid) * mergecs2->numProp); 
+	memcpy(oldlstProp2, mergecs2->lstProp, (mergecs2->numProp) * sizeof(oid));
+
+        _tmp2 = realloc(mergecs1->lstProp, ((mergecs1->numProp + mergecs2->numProp) * sizeof(oid)));
+
+	if (!_tmp2){
+		fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+	}
+	mergecs1->lstProp = (oid*)_tmp2;
+
+	mergeOidSets(oldlstProp1, oldlstProp2, mergecs1->lstProp, mergecs1->numProp, mergecs2->numProp, &numCombineP); 
+
+	mergecs1->numProp = numCombineP;
+	mergecs1->support += mergecs2->support;
+	mergecs1->coverage += mergecs2->coverage;
+
+	// Remove mergecs2
+	mergecs2->parentFreqIdx = parentFreqIdx; 
+
+	free(oldlstProp1);
+	free(oldlstProp2); 
+}
+*/
 
 static 
 str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofile, int freqThreshold, CSlabel* labels){
@@ -2632,6 +2692,8 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, oid* mergeCS
 	char 		filename[100];
 	FILE		*fout; 
 	int		maxNumPropInMergeCS =0;
+	//int 		numCombinedP = 0; 
+	
 
 	strcpy(filename, "csRelSum.txt");
 
@@ -2665,6 +2727,8 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, oid* mergeCS
 					/* Merge each refCS into the first CS. 
 					 * TODO: The Multi-way merging should be better
 					 * */ 
+					//mergeMultiPropList(freqCSset, csRelSum->freqIdList[j],csRelSum->numPropRef[j] , &numCombinedP);
+
 					freqId1 = csRelSum->freqIdList[j][0];
 					cs1 = (CS*) &(freqCSset->items[freqId1]);
 					for (k = 1; k < csRelSum->numPropRef[j]; k++){
