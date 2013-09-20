@@ -1810,13 +1810,13 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples,
 
 /* Return 1 if sorted arr2[] is a subset of sorted arr1[] 
  * arr1 has m members, arr2 has n members
+ * m > n
  * */
 static int isSubset(oid* arr1, oid* arr2, int m, int n)
 {
 	int i = 0, j = 0;
 	 
-	// m > n
-	//
+
 	if (arr2[n-1] > arr1[m-1]) return 0; 
 
 	while( i < n && j < m )
@@ -1995,6 +1995,7 @@ void mergeCSbyS4(CSset *freqCSset, CSlabel* labels, oid *mergeCSFreqCSMap, int c
 	char	isLabelComparable = 0;
 	#endif
 	char	isDiffLabel = 0;
+	int	numP1, numP2; 
 	
 	(void) labels;
 
@@ -2018,17 +2019,18 @@ void mergeCSbyS4(CSset *freqCSset, CSlabel* labels, oid *mergeCSFreqCSMap, int c
 			#endif
 
 			if (isDiffLabel == 0){
-				if (freqCSset->items[freqId2].numProp > freqCSset->items[freqId1].numProp){
-					if (isSubset(freqCSset->items[freqId2].lstProp, freqCSset->items[freqId1].lstProp,  
-							freqCSset->items[freqId2].numProp,freqCSset->items[freqId1].numProp) == 1) { 
+				numP2 = freqCSset->items[freqId2].numProp;
+				numP1 = freqCSset->items[freqId1].numProp;
+				if (numP2 > numP1 && (numP2-numP1)< MAX_SUB_SUPER_NUMPROP_DIF){
+					if (isSubset(freqCSset->items[freqId2].lstProp, freqCSset->items[freqId1].lstProp, numP2,numP1) == 1) { 
 						/* CSj is a superset of CSi */
 						freqCSset->items[freqId1].parentFreqIdx = freqId2; 
 						break; 
 					}
 				}
-				else if (freqCSset->items[freqId2].numProp < freqCSset->items[freqId1].numProp){
+				else if (numP2 < numP1 && (numP1-numP2)< MAX_SUB_SUPER_NUMPROP_DIF){
 					if (isSubset(freqCSset->items[freqId1].lstProp, freqCSset->items[freqId2].lstProp,  
-							freqCSset->items[freqId1].numProp,freqCSset->items[freqId2].numProp) == 1) { 
+							numP1,numP2) == 1) { 
 						/* CSj is a subset of CSi */
 						freqCSset->items[freqId2].parentFreqIdx = freqId1; 
 					}		
@@ -2057,7 +2059,7 @@ void mergeCSbyS4(CSset *freqCSset, CSlabel* labels, oid *mergeCSFreqCSMap, int c
 			}
 
 			//End. Update maximum CS for each frequent CS
-			freqCSset->items[i].parentFreqIdx = tmpParentIdx; 
+			freqCSset->items[i].parentFreqIdx = tmpParentIdx;
 		}
 	}
 
@@ -2066,11 +2068,11 @@ void mergeCSbyS4(CSset *freqCSset, CSlabel* labels, oid *mergeCSFreqCSMap, int c
 	for (i = 0; i < numMergeCS; i++){
 		freqId1 = mergeCSFreqCSMap[i];
 		tmpParentIdx = freqCSset->items[freqId1].parentFreqIdx; 
-
+		
 		if (tmpParentIdx != -1){
-			
 			freqCSset->items[tmpParentIdx].coverage  += freqCSset->items[freqId1].coverage;
 			freqCSset->items[tmpParentIdx].support  += freqCSset->items[freqId1].support;
+			//printf("NumProp differences between sub-super CS: %d / %d \n", freqCSset->items[tmpParentIdx].numProp - freqCSset->items[freqId1].numProp, freqCSset->items[tmpParentIdx].numProp);
 		}
 
 	}
@@ -2607,18 +2609,6 @@ void mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel* labels, oid *mergecsId){
 
 			}
 		}
-	}
-
-	printf("labelStat->numLabeladded = %d \n", labelStat->numLabeladded);
-	printf("Num FreqCSadded after using S1 = %d \n", freqCSset->numCSadded);
-	{
-	int numMergeCSinOrig = 0;
-	for (i = 0; i < freqCSset->numOrigFreqCS; i++){
-		if (freqCSset->items[i].parentFreqIdx == -1){
-			numMergeCSinOrig++;
-		}
-	}
-	printf("Num mergeCS in orgirinalFreqCSset after using S1 = %d \n", numMergeCSinOrig);
 	}
 
 	freeLabelStat(labelStat);
