@@ -963,10 +963,10 @@ void freeCS(CS *cs){
 */
 #if STOREFULLCS
 static
-CS* creatCS(oid csId, int numP, oid* buff, oid subjectId, oid* lstObject, char type, int parentfreqIdx, int support, int coverage)
+CS* creatCS(oid csId, int freqIdx, int numP, oid* buff, oid subjectId, oid* lstObject, char type, int parentfreqIdx, int support, int coverage)
 #else
 static 
-CS* creatCS(oid csId, int numP, oid* buff, char type,  int parentfreqIdx, int support, int coverage)
+CS* creatCS(oid csId, int freqIdx, int numP, oid* buff, char type,  int parentfreqIdx, int support, int coverage)
 #endif	
 {
 	CS *cs = (CS*)malloc(sizeof(CS)); 
@@ -1006,6 +1006,11 @@ CS* creatCS(oid csId, int numP, oid* buff, char type,  int parentfreqIdx, int su
 	cs->parentFreqIdx = parentfreqIdx; 
 	cs->support = support;
 	cs->coverage = coverage; 
+
+	// For using in the merging process
+	cs->numConsistsOf = 1;
+	cs->lstConsistsOf = (int *) malloc(sizeof(int)); 
+	cs->lstConsistsOf[0]= freqIdx; 
 
 	return cs; 
 }
@@ -1212,55 +1217,193 @@ void mergeMultiOidSets(CSset *freqCSset, oid* mergeArr, int numCS){
 		
 }
 
-
-static 
-void mergeMultiCS(CS *freqCSset, int *lstFreqId, int num){
-	
-	int numCombineP; 
-	int* _tmp1; 
-	oid* _tmp2; 
-	oid* oldlstProp1; 
-	oid* oldlstProp2; 
-	int i; 
-
-        _tmp1 = realloc(mergecs1->lstConsistsOf, ((mergecs1->numConsistsOf + mergecs2->numConsistsOf) * sizeof(int)));
-
-	if (!_tmp1){
-		fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-	}
-	mergecs1->lstConsistsOf = (int*)_tmp1;
-	for (i = 0; i < mergecs2->numConsistsOf; i++){
-		mergecs1->lstConsistsOf[mergecs1->numConsistsOf] = mergecs2->lstConsistsOf[i]; 
-		mergecs1->numConsistsOf++;
-	}
-
-
-	oldlstProp1 = malloc (sizeof(oid) * mergecs1->numProp); 
-	memcpy(oldlstProp1, mergecs1->lstProp, (mergecs1->numProp) * sizeof(oid));
-	
-	oldlstProp2 = malloc (sizeof(oid) * mergecs2->numProp); 
-	memcpy(oldlstProp2, mergecs2->lstProp, (mergecs2->numProp) * sizeof(oid));
-
-        _tmp2 = realloc(mergecs1->lstProp, ((mergecs1->numProp + mergecs2->numProp) * sizeof(oid)));
-
-	if (!_tmp2){
-		fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-	}
-	mergecs1->lstProp = (oid*)_tmp2;
-
-	mergeOidSets(oldlstProp1, oldlstProp2, mergecs1->lstProp, mergecs1->numProp, mergecs2->numProp, &numCombineP); 
-
-	mergecs1->numProp = numCombineP;
-	mergecs1->support += mergecs2->support;
-	mergecs1->coverage += mergecs2->coverage;
-
-	// Remove mergecs2
-	mergecs2->parentFreqIdx = parentFreqIdx; 
-
-	free(oldlstProp1);
-	free(oldlstProp2); 
-}
 */
+/* Get distinct list of mergedFreqIdx */
+static  
+int* getDistinctList(int *lstMergeCSFreqId, int num, int *numDistinct){
+	int i; 
+	int *lstDistinctFreqId;
+	BAT 	*tmpBat; 
+	int 	*first; 
+	int 	last; 
+
+	lstDistinctFreqId = (int*) malloc(sizeof(int) * num); /* A bit redundant */
+	
+	tmpBat = BATnew(TYPE_void, TYPE_int, num);
+
+	for (i = 0; i < num; i++){
+		tmpBat = BUNappend(tmpBat, &lstMergeCSFreqId[i], TRUE);
+	}
+
+	/* Sort the array of the freqIdx list in order to remove duplication */
+	
+	//TODO: Ask whether there is a sorting function available for an array
+	//TODO: Ask why it is not possible by using memcpy
+	
+	//memcpy(Tloc(tmpBat, BUNfirst(tmpBat)), lstMergeCSFreqId, sizeof(int) * num); 
+	//memcpy(Hloc(tmpBat, BUNfirst(tmpBat)), hSeq, sizeof(oid) * num); 
+	//BATsetcount(tmpBat, (BUN) (tmpBat->batCount + num));
+
+	BATorder(BATmirror(tmpBat));
+
+	first = (int*)Tloc(tmpBat, BUNfirst(tmpBat));
+	last = *first; 
+	*numDistinct = 1; 
+	lstDistinctFreqId[0] = *first; 
+	for (i =1; i < num; i++){
+		first++; 
+		if (last != *first){	/*new value*/
+			lstDistinctFreqId[*numDistinct] = *first; 
+			(*numDistinct)++;
+			last = *first; 
+		}
+	}
+
+	BBPreclaim(tmpBat);
+
+	return lstDistinctFreqId; 
+
+}
+/*
+Multi-way merging for list of freqCS
+*/
+static 
+void mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId){
+	
+	int 	i, j, tmpIdx; 
+	int 	*lstMergeCSFreqId, *lstDistinctFreqId; 
+	int 	numDistinct = 0; 
+	int	mergeNumConsistsOf = 0;
+	int	tmpFreqIdx; 
+	int 	tmpConsistFreqIdx; 
+	CS	*newmergeCS; 
+	char 	isExistingMergeCS = 0;
+	int	mergecsFreqIdx = -1;
+	int	*_tmp; 
+	oid	*_tmp2; 
+	oid	*tmpPropList; 
+	int	origSupport = 0;
+	int 	origCoverage = 0;
+	int 	numCombinedP = 0; 
+	
+
+
+
+	/* Get the list of merge FreqIdx */
+	lstMergeCSFreqId = (int*) malloc(sizeof(int) * num); 
+
+	for (i = 0; i < num; i++){
+		if (freqCSset->items[lstFreqId[i]].parentFreqIdx != -1){
+			lstMergeCSFreqId[i] = freqCSset->items[lstFreqId[i]].parentFreqIdx;
+			mergecsFreqIdx = lstMergeCSFreqId[i]; //An existing one
+			isExistingMergeCS = 1; 
+		}
+		else
+			lstMergeCSFreqId[i] = lstFreqId[i];
+	}
+	if (isExistingMergeCS == 0) mergecsFreqIdx = freqCSset->numCSadded; 
+
+	lstDistinctFreqId = getDistinctList(lstMergeCSFreqId,num, &numDistinct);
+
+	if (numDistinct < 2){
+		free(lstMergeCSFreqId);
+		free(lstDistinctFreqId);
+		return;
+	}
+
+	/* Create or not create a new CS */
+	if (isExistingMergeCS){
+		newmergeCS = (CS*) &(freqCSset->items[mergecsFreqIdx]);
+		origSupport = newmergeCS->support; 
+		origCoverage = newmergeCS->coverage;
+	}
+	else{
+		newmergeCS = (CS*) malloc (sizeof (CS));
+		newmergeCS->support = 0;
+		newmergeCS->coverage = 0; 
+	}
+
+	/*Reset parentIdx */
+	newmergeCS->parentFreqIdx = -1;
+	newmergeCS->type = MERGECS;
+	
+
+	/* Calculate number of consistsOf in the merged CS 
+
+	 and  Update support and coverage: Total of all suppors */
+
+	for (i = 0; i < numDistinct; i++){
+		tmpFreqIdx = lstDistinctFreqId[i]; 
+		mergeNumConsistsOf += freqCSset->items[tmpFreqIdx].numConsistsOf; 
+	}
+	
+	printf("Number of freqCS consisted in mergeCS: %d \n", mergeNumConsistsOf);
+	if (isExistingMergeCS){
+		_tmp = realloc(newmergeCS->lstConsistsOf, sizeof(int) * mergeNumConsistsOf); 
+        	if (!_tmp){
+			fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+		}
+		newmergeCS->lstConsistsOf = (int*)_tmp;
+	}
+	else{
+		newmergeCS->lstConsistsOf = (int*)malloc(sizeof(int)  * mergeNumConsistsOf);
+	}
+
+	tmpIdx = 0;
+	for (i = 0; i < numDistinct; i++){
+		tmpFreqIdx = lstDistinctFreqId[i];
+		for (j = 0; j < freqCSset->items[tmpFreqIdx].numConsistsOf; j++){
+			tmpConsistFreqIdx =  freqCSset->items[tmpFreqIdx].lstConsistsOf[j];
+			newmergeCS->lstConsistsOf[tmpIdx] = tmpConsistFreqIdx; 
+			//Reset the parentFreqIdx
+			freqCSset->items[tmpConsistFreqIdx].parentFreqIdx = mergecsFreqIdx;
+			tmpIdx++;
+		}
+		//Update support
+		newmergeCS->support += freqCSset->items[tmpFreqIdx].support; 
+		newmergeCS->coverage += freqCSset->items[tmpFreqIdx].coverage;
+	}
+	assert(tmpIdx == mergeNumConsistsOf);
+	newmergeCS->numConsistsOf = mergeNumConsistsOf;
+
+	// Has to minus the support & coverage of the existed CS
+	newmergeCS->support = newmergeCS->support - origSupport;
+	newmergeCS->coverage = newmergeCS->coverage - origCoverage; 
+
+	/*Merge the list of prop list */
+	tmpPropList = mergeMultiPropList(freqCSset, lstDistinctFreqId, numDistinct, &numCombinedP);
+	printf("Combined P has %d props \n", numCombinedP); 
+	if (isExistingMergeCS){		//For existed mergeCS, reallocate lstProp	
+		_tmp2 = realloc(newmergeCS->lstProp, sizeof(oid) * numCombinedP); 
+		
+        	if (!_tmp2){
+			fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+		}
+		newmergeCS->lstProp = (oid*)_tmp2; 
+		memcpy(newmergeCS->lstProp, tmpPropList, numCombinedP * sizeof(oid));
+		newmergeCS->numProp = numCombinedP;
+		newmergeCS->numAllocation = numCombinedP;
+	}
+	else{
+		newmergeCS->lstProp =  (oid*) malloc(sizeof(oid) * numCombinedP);
+		memcpy(newmergeCS->lstProp, tmpPropList, numCombinedP * sizeof(oid));		
+		newmergeCS->numProp = numCombinedP;
+		newmergeCS->numAllocation = numCombinedP;
+		newmergeCS->csId = *mergecsId;
+		mergecsId[0]++;
+	}
+
+	free(tmpPropList); 
+
+	
+	if (isExistingMergeCS == 0){
+		addCStoSet(freqCSset, *newmergeCS);
+		free(newmergeCS); 
+	}
+
+	free(lstMergeCSFreqId);
+	free(lstDistinctFreqId);
+}
 
 static 
 str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofile, int freqThreshold, CSlabel* labels){
@@ -1802,9 +1945,9 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples,
 		//Handle the case when freqThreshold == 1 
 		if (isStoreFreqCS ==1 && freqThreshold == 1){
 			#if STOREFULLCS
-			freqCS = creatCS(csId, num, key, subjectId, buffObjs, FREQCS, -1, 0,0);		
+			freqCS = creatCS(csId, freqCSset->numCSadded, num, key, subjectId, buffObjs, FREQCS, -1, 0,0);		
 			#else
-			freqCS = creatCS(csId, num, key, FREQCS,-1,0,0);			
+			freqCS = creatCS(csId, freqCSset->numCSadded, num, key, FREQCS,-1,0,0);			
 			#endif
 			addCStoSet(freqCSset, *freqCS);
 			free(freqCS);
@@ -1825,9 +1968,9 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples,
 			if (isStoreFreqCS ==1 && freqThreshold == 1){
 				
 				#if STOREFULLCS
-				freqCS = creatCS(csId, num, key, subjectId, buffObjs, FREQCS,-1,0,0);		
+				freqCS = creatCS(csId, freqCSset->numCSadded, num, key, subjectId, buffObjs, FREQCS,-1,0,0);		
 				#else
-				freqCS = creatCS(csId, num, key, FREQCS,-1,0,0);			
+				freqCS = creatCS(csId, freqCSset->numCSadded, num, key, FREQCS,-1,0,0);			
 				#endif
 				addCStoSet(freqCSset, *freqCS);
 				free(freqCS);
@@ -1848,9 +1991,9 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples,
 				//printf("FreqCS: Support = %d, Threshold %d  \n ", freq, freqThreshold);
 				if (*freq == freqThreshold){
 					#if STOREFULLCS
-					freqCS = creatCS(csId, num, key, subjectId, buffObjs, FREQCS,-1,0,0);		
+					freqCS = creatCS(csId, freqCSset->numCSadded, num, key, subjectId, buffObjs, FREQCS,-1,0,0);		
 					#else
-					freqCS = creatCS(csId, num, key, FREQCS,-1,0,0);			
+					freqCS = creatCS(csId, freqCSset->numCSadded, num, key, FREQCS,-1,0,0);			
 					#endif
 					addCStoSet(freqCSset, *freqCS);
 					free(freqCS);
@@ -2728,6 +2871,8 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, oid* mergeCS
 					 * TODO: The Multi-way merging should be better
 					 * */ 
 					//mergeMultiPropList(freqCSset, csRelSum->freqIdList[j],csRelSum->numPropRef[j] , &numCombinedP);
+					if(0)
+						mergeMultiCS(freqCSset, csRelSum->freqIdList[j],csRelSum->numPropRef[j], mergecsId); 
 
 					freqId1 = csRelSum->freqIdList[j][0];
 					cs1 = (CS*) &(freqCSset->items[freqId1]);
@@ -2740,6 +2885,7 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, oid* mergeCS
 							//addmergeCStoSet(mergecsSet, *mergecs);
 							cs1->parentFreqIdx = freqCSset->numCSadded;
 							cs2->parentFreqIdx = freqCSset->numCSadded;
+							//printf("Merge into %d \n", freqCSset->numCSadded);
 							addCStoSet(freqCSset,*mergecs);
 							free(mergecs);
 
@@ -2750,6 +2896,8 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, oid* mergeCS
 							existmergecs = (CS*) &(freqCSset->items[existMergecsId]);
 							mergeACStoExistingmergeCS(*cs1,freqId1, existmergecs);
 							cs1->parentFreqIdx = existMergecsId; 
+							//printf("Merge into "BUNFMT" \n", existMergecsId);
+							
 						}
 						
 						else if (cs1->parentFreqIdx != -1 && cs2->parentFreqIdx == -1){
@@ -2757,13 +2905,14 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, oid* mergeCS
 							existmergecs = (CS*)&(freqCSset->items[existMergecsId]);
 							mergeACStoExistingmergeCS(*cs2,freqId2, existmergecs);
 							cs2->parentFreqIdx = existMergecsId; 
+							//printf("Merge into "BUNFMT" \n", existMergecsId);
 						}
 						else if (cs1->parentFreqIdx != cs2->parentFreqIdx){
 							mergecs1 = (CS*)&(freqCSset->items[cs1->parentFreqIdx]);
 							mergecs2 = (CS*)&(freqCSset->items[cs2->parentFreqIdx]);
 							
 							mergeTwomergeCS(mergecs1, mergecs2, cs1->parentFreqIdx);
-
+							//printf("Merge into %d \n", cs1->parentFreqIdx);
 							//Re-map for all maxCS in mergecs2
 							for (m = 0; m < mergecs2->numConsistsOf; m++){
 								freqCSset->items[mergecs2->lstConsistsOf[m]].parentFreqIdx = cs1->parentFreqIdx;
@@ -3599,9 +3748,9 @@ str addHighRefCSsToFreqCS(BAT *pOffsetBat, BAT *freqBat, BAT *coverageBat, BAT *
 				buffP = (oid *)Tloc(fullPBat, *offset);	
 				#if STOREFULLCS
 				/* use BUN_NONE for subjId --> do not have this information*/
-				freqCS = creatCS(i, numP, buffP, BUN_NONE, NULL, FREQCS,-1,  *freq,*coverage);
+				freqCS = creatCS(i, freqCSset->numCSadded, numP, buffP, BUN_NONE, NULL, FREQCS,-1,  *freq,*coverage);
 				#else
-				freqCS = creatCS(i, numP, buffP, FREQCS,-1,*freq,*coverage);
+				freqCS = creatCS(i, freqCSset->numCSadded, numP, buffP, FREQCS,-1,*freq,*coverage);
 				#endif
 				//printf("Add highly referred CS \n"); 
 				addCStoSet(freqCSset, *freqCS);
@@ -3991,7 +4140,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	curT = clock(); 
-	printf ("Merging with S4 took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);
+	printf("Merging with S4 took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);
+	printf("Number of added CS after S4: %d \n", freqCSset->numCSadded);
 	tmpLastT = curT; 		
 	
 	/* ---------- S6 ------- */

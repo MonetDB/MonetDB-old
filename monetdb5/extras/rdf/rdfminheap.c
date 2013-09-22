@@ -133,7 +133,7 @@ int *mergeKArrays(int **arr, int k)
 }
 
 /* Merge multi property lists in freqCSset. This is used for forming mergeCS */
-#define INIT_MERGELIST_SIZE 1000 
+#define INIT_MERGELIST_SIZE 100 
 
 oid* mergeMultiPropList(CSset *freqCSset, int *freqIdList, int k, int *numCombinedP)
 {
@@ -142,8 +142,10 @@ oid* mergeMultiPropList(CSset *freqCSset, int *freqIdList, int k, int *numCombin
 	MinHeap *hp;
 	int freqIdx; 
 	MinHeapNode *harr;
+	int numAllocation = INIT_MERGELIST_SIZE;
+	oid *tmp;
 
-	oid *output = (oid *) malloc(sizeof(oid) * INIT_MERGELIST_SIZE); // Output array
+	oid *output = (oid *) malloc(sizeof(oid) * numAllocation); // Output array
 
 	/*
 	printf("Input list: \n");
@@ -180,6 +182,11 @@ oid* mergeMultiPropList(CSset *freqCSset, int *freqIdList, int k, int *numCombin
 		if (root.element == INT_MAX) break; 
 		
 		if (output[*numCombinedP - 1] != root.element){		//Only append the distinct prop to combined list
+			if (*numCombinedP == numAllocation){
+				numAllocation += INIT_MERGELIST_SIZE;		
+				tmp = realloc(output, sizeof(oid) * numAllocation); 
+				output = (oid*)tmp; 
+			}
 			output[*numCombinedP] = root.element;
 			(*numCombinedP)++;
 		}
