@@ -106,6 +106,10 @@ typedef struct PropStat {
 #define MAX_SUB_SUPER_NUMPROP_DIF 3
 #define USE_MULTIWAY_MERGING	1
 
+#define MINIMIZE_CONSISTSOF	1	/*Only store the minimize list of consistsof CS's Id. 
+					Specifically, the consistsOf list only contains 
+					the freqIdx of merged CS from previous rule. */
+
 typedef struct CS
 {
 	oid 	csId;		//Id of the CS

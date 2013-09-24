@@ -1366,6 +1366,7 @@ void mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId){
 		newmergeCS = (CS*) malloc (sizeof (CS));
 		newmergeCS->support = 0;
 		newmergeCS->coverage = 0; 
+		newmergeCS->numConsistsOf = 0;
 	}
 
 
@@ -1375,12 +1376,20 @@ void mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId){
 
 	 and  Update support and coverage: Total of all suppors */
 	//printf("Distinct: \n");
+	
+	#if MINIMIZE_CONSISTSOF
+	tmpIdx = newmergeCS->numConsistsOf;
+	mergeNumConsistsOf = newmergeCS->numConsistsOf + numDistinct - isExistingMergeCS;
+	#else
+	tmpIdx = 0;
 	for (i = 0; i < numDistinct; i++){
 		tmpFreqIdx = lstDistinctFreqId[i]; 
 		//printf("CS%d (%d)  ", tmpFreqIdx, freqCSset->items[tmpFreqIdx].numConsistsOf);
 		mergeNumConsistsOf += freqCSset->items[tmpFreqIdx].numConsistsOf; 
 	}
 	
+	#endif
+
 	//printf("Number of freqCS consisted in mergeCS %d:  %d \n", mergecsFreqIdx, mergeNumConsistsOf);
 	if (isExistingMergeCS){
 		_tmp = realloc(newmergeCS->lstConsistsOf, sizeof(int) * mergeNumConsistsOf); 
@@ -1395,17 +1404,26 @@ void mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId){
 
 	
 	/*Update the parentIdx of the CS to-be-merged and its children */
-	tmpIdx = 0;
 	for (i = 0; i < numDistinct; i++){
 		tmpFreqIdx = lstDistinctFreqId[i];
 		for (j = 0; j < freqCSset->items[tmpFreqIdx].numConsistsOf; j++){
 			tmpConsistFreqIdx =  freqCSset->items[tmpFreqIdx].lstConsistsOf[j];
+
+			#if !MINIMIZE_CONSISTSOF
 			newmergeCS->lstConsistsOf[tmpIdx] = tmpConsistFreqIdx; 
+			tmpIdx++;
+			#endif
+
 			//Reset the parentFreqIdx
 			freqCSset->items[tmpConsistFreqIdx].parentFreqIdx = mergecsFreqIdx;
-			tmpIdx++;
 		}
 		freqCSset->items[tmpFreqIdx].parentFreqIdx = mergecsFreqIdx;
+		#if MINIMIZE_CONSISTSOF
+		if (tmpFreqIdx != mergecsFreqIdx) {
+			newmergeCS->lstConsistsOf[tmpIdx] = tmpFreqIdx;
+			tmpIdx++;
+		}
+		#endif
 		//Update support
 		totalSupport += freqCSset->items[tmpFreqIdx].support; 
 		totalCoverage += freqCSset->items[tmpFreqIdx].coverage;
