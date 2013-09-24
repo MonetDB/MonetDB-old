@@ -158,6 +158,12 @@ oid* mergeMultiPropList(CSset *freqCSset, int *freqIdList, int k, int *numCombin
 		printf("\n");
 	}
 	*/
+	/*
+	for (i = 0; i < k; i++){
+		freqIdx = freqIdList[i];
+		printf("  %d ",freqCSset->items[freqIdx].numProp);
+	}
+	*/
 
 	//Create a min heap with k heap nodes.  Every heap node
 	//has first element of an array

@@ -893,6 +893,22 @@ int countNumberMergeCS(CSset *csSet){
 	return num; 
 
 }
+
+static
+int countNumberConsistOfCS(CSset *csSet){
+	int i; 
+	int num = 0;
+	for (i = 0; i < csSet->numCSadded; i ++){
+		if (csSet->items[i].parentFreqIdx == -1){
+			num += csSet->items[i].numConsistsOf; 	
+			//printf("FCS %d: %d  ",i,csSet->items[i].numConsistsOf);
+		}
+	}
+	printf("\n");
+
+	return num; 
+
+}
 static
 void freeCSset(CSset *csSet){
 	int i;
@@ -902,7 +918,7 @@ void freeCSset(CSset *csSet){
 		if (csSet->items[i].lstPropSupport != NULL)
 			free(csSet->items[i].lstPropSupport);
 		#endif
-
+		free(csSet->items[i].lstConsistsOf);
 	}
 
 	#if STOREFULLCS
@@ -1160,7 +1176,21 @@ void mergeACStoExistingmergeCS(CS cs, int freqIdx , CS *mergecs){
 	free(oldlstProp);
 }
 
-
+/* Merge list of consistsOf into mergecs1 */
+static
+void mergeConsistsOf(CS *mergecs1, CS *mergecs2){
+	int* _tmp1;
+	int i; 
+	_tmp1 = realloc(mergecs1->lstConsistsOf, ((mergecs1->numConsistsOf + mergecs2->numConsistsOf) * sizeof(int)));
+	if (!_tmp1){
+		fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+	}
+	mergecs1->lstConsistsOf = (int*)_tmp1;
+	for (i = 0; i < mergecs2->numConsistsOf; i++){
+		mergecs1->lstConsistsOf[mergecs1->numConsistsOf] = mergecs2->lstConsistsOf[i]; 
+		mergecs1->numConsistsOf++;
+	}
+}
 /*Merge two mergeCSs with the condition that no parent belongs to both of them */
 static 
 void mergeTwomergeCS(CS *mergecs1, CS *mergecs2, int parentFreqIdx){
@@ -1210,14 +1240,8 @@ void mergeTwomergeCS(CS *mergecs1, CS *mergecs2, int parentFreqIdx){
 	free(oldlstProp2); 
 }
 
-
+#if USE_MULTIWAY_MERGING
 /*Multi-way merging */
-/*
-void mergeMultiOidSets(CSset *freqCSset, oid* mergeArr, int numCS){
-		
-}
-
-*/
 /* Get distinct list of mergedFreqIdx */
 static  
 int* getDistinctList(int *lstMergeCSFreqId, int num, int *numDistinct){
@@ -1282,36 +1306,47 @@ void mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId){
 	int	*_tmp; 
 	oid	*_tmp2; 
 	oid	*tmpPropList; 
-	int	origSupport = 0;
-	int 	origCoverage = 0;
+	int	totalSupport = 0;
+	int	totalCoverage = 0; 
 	int 	numCombinedP = 0; 
-	
+	int	tmpParentIdx;	
 
 
 
 	/* Get the list of merge FreqIdx */
 	lstMergeCSFreqId = (int*) malloc(sizeof(int) * num); 
 	
-	/*printf("List of input freqIdx: \n");
-	for (i = 0; i < num; i++) printf("  %d",lstFreqId[i]);
-	printf("\n"); */
+	//printf("Number of input %d \n",num);
+	//printf("List of input freqIdx: \n");
+	//for (i = 0; i < num; i++) printf("  %d",lstFreqId[i]);
+	//printf("\n");
 
 	for (i = 0; i < num; i++){
 		if (freqCSset->items[lstFreqId[i]].parentFreqIdx != -1){
-			lstMergeCSFreqId[i] = freqCSset->items[lstFreqId[i]].parentFreqIdx;
+			tmpParentIdx = freqCSset->items[lstFreqId[i]].parentFreqIdx;
+			//Go to the last mergeCS
+			while(freqCSset->items[tmpParentIdx].parentFreqIdx != -1)
+				tmpParentIdx = freqCSset->items[tmpParentIdx].parentFreqIdx;
+
+			lstMergeCSFreqId[i] = tmpParentIdx;
 			mergecsFreqIdx = lstMergeCSFreqId[i]; //An existing one
 			isExistingMergeCS = 1; 
 		}
 		else
 			lstMergeCSFreqId[i] = lstFreqId[i];
+
+		//printf(" %d --> %d  | ", lstFreqId[i], lstMergeCSFreqId[i]);
 	}
+	//printf("\n");
+
 	if (isExistingMergeCS == 0) mergecsFreqIdx = freqCSset->numCSadded; 
 
 	lstDistinctFreqId = getDistinctList(lstMergeCSFreqId,num, &numDistinct);
 
-	/* printf("List of distinct input parent freqIdx: \n");
-	for (i = 0; i < numDistinct; i++) printf("  %d",lstDistinctFreqId[i]);
-	printf("\n"); */
+	//printf("Number of distinct values %d \n", numDistinct);	
+	// printf("List of distinct input parent freqIdx: \n");
+	//for (i = 0; i < numDistinct; i++) printf("  %d",lstDistinctFreqId[i]);
+	//printf("\n"); 
 	
 	if (numDistinct < 2){
 		free(lstMergeCSFreqId);
@@ -1326,8 +1361,6 @@ void mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId){
 	/* Create or not create a new CS */
 	if (isExistingMergeCS){
 		newmergeCS = (CS*) &(freqCSset->items[mergecsFreqIdx]);
-		origSupport = newmergeCS->support; 
-		origCoverage = newmergeCS->coverage;
 	}
 	else{
 		newmergeCS = (CS*) malloc (sizeof (CS));
@@ -1341,13 +1374,14 @@ void mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId){
 	/* Calculate number of consistsOf in the merged CS 
 
 	 and  Update support and coverage: Total of all suppors */
-
+	//printf("Distinct: \n");
 	for (i = 0; i < numDistinct; i++){
 		tmpFreqIdx = lstDistinctFreqId[i]; 
+		//printf("CS%d (%d)  ", tmpFreqIdx, freqCSset->items[tmpFreqIdx].numConsistsOf);
 		mergeNumConsistsOf += freqCSset->items[tmpFreqIdx].numConsistsOf; 
 	}
 	
-	//printf("Number of freqCS consisted in mergeCS: %d \n", mergeNumConsistsOf);
+	//printf("Number of freqCS consisted in mergeCS %d:  %d \n", mergecsFreqIdx, mergeNumConsistsOf);
 	if (isExistingMergeCS){
 		_tmp = realloc(newmergeCS->lstConsistsOf, sizeof(int) * mergeNumConsistsOf); 
         	if (!_tmp){
@@ -1373,8 +1407,8 @@ void mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId){
 		}
 		freqCSset->items[tmpFreqIdx].parentFreqIdx = mergecsFreqIdx;
 		//Update support
-		newmergeCS->support += freqCSset->items[tmpFreqIdx].support; 
-		newmergeCS->coverage += freqCSset->items[tmpFreqIdx].coverage;
+		totalSupport += freqCSset->items[tmpFreqIdx].support; 
+		totalCoverage += freqCSset->items[tmpFreqIdx].coverage;
 	}
 	assert(tmpIdx == mergeNumConsistsOf);
 	newmergeCS->numConsistsOf = mergeNumConsistsOf;
@@ -1383,13 +1417,14 @@ void mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId){
 	newmergeCS->parentFreqIdx = -1;
 	newmergeCS->type = MERGECS;
 
-	// Has to minus the support & coverage of the existed CS
-	newmergeCS->support = newmergeCS->support - origSupport;
-	newmergeCS->coverage = newmergeCS->coverage - origCoverage; 
+	newmergeCS->support = totalSupport;
+	newmergeCS->coverage = totalCoverage; 
 
 	/*Merge the list of prop list */
+	//printf("Merge list of prop from %d cs .... ", numDistinct);
 	tmpPropList = mergeMultiPropList(freqCSset, lstDistinctFreqId, numDistinct, &numCombinedP);
-	//printf("Combined P has %d props \n", numCombinedP); 
+	//printf("Done (numCombinedP = %d) \n",numCombinedP);
+	//printf("Cobined P has %d props \n", numCombinedP); 
 	if (isExistingMergeCS){		//For existed mergeCS, reallocate lstProp	
 		_tmp2 = realloc(newmergeCS->lstProp, sizeof(oid) * numCombinedP); 
 		
@@ -1413,6 +1448,10 @@ void mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId){
 	free(tmpPropList); 
 
 	
+	#if     COLORINGPROP 
+	newmergeCS->lstPropSupport = NULL; 
+	#endif
+
 	if (isExistingMergeCS == 0){
 		addCStoSet(freqCSset, *newmergeCS);
 		free(newmergeCS); 
@@ -1421,6 +1460,8 @@ void mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId){
 	free(lstMergeCSFreqId);
 	free(lstDistinctFreqId);
 }
+
+#endif /* USE_MULTIWAY_MERGING */
 
 static 
 str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofile, int freqThreshold, CSlabel* labels){
@@ -2198,6 +2239,28 @@ void printCS(CS cs){
 }
 */
 
+/*Recursively update the parentFreqIdx so that 
+ *a cs.parentFreqIdx points to the last merged CS
+ * */
+static
+void updateParentIdxAll(CSset *freqCSset){
+	int i; 
+	int tmpParentIdx;
+
+	for (i = 0; i < freqCSset->numCSadded; i++){
+		if (freqCSset->items[i].parentFreqIdx != -1){
+			tmpParentIdx = freqCSset->items[i].parentFreqIdx; 
+			while (freqCSset->items[tmpParentIdx].parentFreqIdx != -1){
+				tmpParentIdx = freqCSset->items[tmpParentIdx].parentFreqIdx; // tracing to the maximum CS
+			}
+
+			//End. Update maximum CS for each frequent CS
+			freqCSset->items[i].parentFreqIdx = tmpParentIdx;
+
+		}
+	}
+}
+
 /*
  * Get the maximum frequent CSs from a CSset
  * Here maximum frequent CS is a CS that there exist no other CS which contains that CS
@@ -2216,7 +2279,7 @@ void mergeCSbyS4(CSset *freqCSset, CSlabel* labels, oid *mergeCSFreqCSMap, int c
 	#endif
 	char	isDiffLabel = 0;
 	int	numP1, numP2; 
-	
+	CS	*mergecs1, *mergecs2; 
 	(void) labels;
 
 	printf("Retrieving maximum frequent CSs: \n");
@@ -2268,36 +2331,29 @@ void mergeCSbyS4(CSset *freqCSset, CSlabel* labels, oid *mergeCSFreqCSMap, int c
 
 	printf("Number of maximum CSs: %d / %d CSs \n", numMaxCSs, numMergeCS);
 
-
 	//Update the parentFreqIdx for all freqCS
-
-	for (i = 0; i < freqCSset->numCSadded; i++){
-		if (freqCSset->items[i].parentFreqIdx != -1){
-			tmpParentIdx = freqCSset->items[i].parentFreqIdx; 
-			while (freqCSset->items[tmpParentIdx].parentFreqIdx != -1){
-				tmpParentIdx = freqCSset->items[tmpParentIdx].parentFreqIdx; // tracing to the maximum CS
-			}
-
-			//End. Update maximum CS for each frequent CS
-			freqCSset->items[i].parentFreqIdx = tmpParentIdx;
-		}
-	}
-
-	// Update freq/coverage for maximumCS
+	updateParentIdxAll(freqCSset);
+	
+	// Update freq/coverage for maximumCS and merge ListConsists of
 	
 	for (i = 0; i < numMergeCS; i++){
 		freqId1 = mergeCSFreqCSMap[i];
 		tmpParentIdx = freqCSset->items[freqId1].parentFreqIdx; 
 		
 		if (tmpParentIdx != -1){
+
 			freqCSset->items[tmpParentIdx].coverage  += freqCSset->items[freqId1].coverage;
 			freqCSset->items[tmpParentIdx].support  += freqCSset->items[freqId1].support;
 			//printf("NumProp differences between sub-super CS: %d / %d \n", freqCSset->items[tmpParentIdx].numProp - freqCSset->items[freqId1].numProp, freqCSset->items[tmpParentIdx].numProp);
+
+			mergecs1 = (CS*)&(freqCSset->items[tmpParentIdx]);
+			mergecs2 = (CS*)&(freqCSset->items[freqId1]);
+			mergeConsistsOf(mergecs1, mergecs2);
 		}
 
 	}
 
-
+	
 
 }
 
@@ -2770,13 +2826,16 @@ void freeLabelStat(LabelStat *labelStat){
 
 static
 void mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel* labels, oid *mergecsId){
-	int 		i,k,j; 
-	int 		freqId1, freqId2;
+	int 		i; 
 
+	#if !USE_MULTIWAY_MERGING
+	int		j,k;
+	int 		freqId1, freqId2;
 	CS     		*mergecs;
 	oid		existMergecsId = BUN_NONE; 
 	CS		*cs1, *cs2;
 	CS		*existmergecs, *mergecs1, *mergecs2; 
+	#endif
 	LabelStat	*labelStat = NULL; 
 
 	labelStat = initLabelStat(); 
@@ -2786,6 +2845,9 @@ void mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel* labels, oid *mergecsId){
 	for (i = 0; i < labelStat->numLabeladded; i++){
 		if (labelStat->lstCount[i] > 1){
 			/*TODO: Multi-way merge */
+			#if USE_MULTIWAY_MERGING	
+			mergeMultiCS(freqCSset,  labelStat->freqIdList[i], labelStat->lstCount[i], mergecsId); 
+			#else
 			freqId1 = labelStat->freqIdList[i][0];
 			cs1 = (CS*) &(freqCSset->items[freqId1]);
 			for (j = 1; j < labelStat->lstCount[i]; j++){
@@ -2828,6 +2890,7 @@ void mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel* labels, oid *mergecsId){
 				}
 
 			}
+			#endif /* USE_MULTIWAY_MERGING */
 		}
 	}
 
@@ -2857,6 +2920,7 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, oid* mergeCS
 	int		maxNumPropInMergeCS =0;
 	//int 		numCombinedP = 0; 
 	
+	printf("Start merging CS by using S6 \n");
 
 	strcpy(filename, "csRelSum.txt");
 
@@ -3894,17 +3958,18 @@ CSrel* generateCsRelBetweenMergeFreqSet(CSrel *csrelFreqSet, CSset *freqCSset){
 		rel = csrelFreqSet[i];
 		// update the 'from' value
 		from = i;
-		if (freqCSset->items[from].parentFreqIdx != -1) {
+		while (freqCSset->items[from].parentFreqIdx != -1) {
 			from = freqCSset->items[from].parentFreqIdx;
 		}
+		assert(freqCSset->items[from].parentFreqIdx == -1);
 
 		for (j = 0; j < rel.numRef; ++j) {
 			// update the 'to' value
 			to = rel.lstRefFreqIdx[j];
-			if (freqCSset->items[to].parentFreqIdx != -1) {
+			while (freqCSset->items[to].parentFreqIdx != -1) {
 				to = freqCSset->items[to].parentFreqIdx;
 			}
-
+			assert(freqCSset->items[to].parentFreqIdx == -1);
 			// add relation to new data structure
 			addReltoCSRelWithFreq(from, to, rel.lstPropId[j], rel.lstCnt[j], rel.lstBlankCnt[j], &csRelMergeFreqSet[from]);
 		}
@@ -4150,7 +4215,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 
 	curT = clock(); 
-	printf("Merging with S1 took %f. (Number of mergeCS: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);
+	printf("Merging with S1 took %f. (Number of mergeCS: %d | NumconsistOf: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS, countNumberConsistOfCS(freqCSset));
 	tmpLastT = curT;
 	
 	/* ---------- S4 ------- */
@@ -4162,7 +4227,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	curT = clock(); 
-	printf("Merging with S4 took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);
+	printf("Merging with S4 took %f. (Number of mergeCS: %d | NumconsistOf: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS, countNumberConsistOfCS(freqCSset));
 	printf("Number of added CS after S4: %d \n", freqCSset->numCSadded);
 	tmpLastT = curT; 		
 	
@@ -4178,7 +4243,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	curT = clock(); 
-	printf ("Merging with S6 took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);
+	printf("Merging with S6 took %f. (Number of mergeCS: %d | NumconsistOf: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS, countNumberConsistOfCS(freqCSset));
 	tmpLastT = curT; 		
 	
 	/* S3, S5 */
@@ -4193,7 +4258,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printf ("Merging with S3, S5 took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);	
 	tmpLastT = curT; 		
 
-	
+	updateParentIdxAll(freqCSset); 
 	//Finally, re-create mergeFreqSet
 	
 	freeCSrelSet(*csRelMergeFreqSet,freqCSset->numOrigFreqCS);
