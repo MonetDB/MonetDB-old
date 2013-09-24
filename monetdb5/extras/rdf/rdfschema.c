@@ -1247,30 +1247,23 @@ static
 int* getDistinctList(int *lstMergeCSFreqId, int num, int *numDistinct){
 	int i; 
 	int *lstDistinctFreqId;
-	BAT 	*tmpBat; 
 	int 	*first; 
 	int 	last; 
 
 	lstDistinctFreqId = (int*) malloc(sizeof(int) * num); /* A bit redundant */
 	
-	tmpBat = BATnew(TYPE_void, TYPE_int, num);
-
+	printf("\n Before sorting: ");
 	for (i = 0; i < num; i++){
-		tmpBat = BUNappend(tmpBat, &lstMergeCSFreqId[i], TRUE);
+		printf("  %d",lstMergeCSFreqId[i]);
 	}
-
-	/* Sort the array of the freqIdx list in order to remove duplication */
+	GDKqsort(lstMergeCSFreqId, NULL, NULL, num, sizeof(int), 0, TYPE_int);
 	
-	//TODO: Ask whether there is a sorting function available for an array
-	//TODO: Ask why it is not possible by using memcpy
-	
-	//memcpy(Tloc(tmpBat, BUNfirst(tmpBat)), lstMergeCSFreqId, sizeof(int) * num); 
-	//memcpy(Hloc(tmpBat, BUNfirst(tmpBat)), hSeq, sizeof(oid) * num); 
-	//BATsetcount(tmpBat, (BUN) (tmpBat->batCount + num));
-
-	BATorder(BATmirror(tmpBat));
-
-	first = (int*)Tloc(tmpBat, BUNfirst(tmpBat));
+	printf("\n After sorting: ");
+	for (i = 0; i < num; i++){
+		printf("  %d",lstMergeCSFreqId[i]);
+	}
+	printf("\n");
+	first = lstMergeCSFreqId;
 	last = *first; 
 	*numDistinct = 1; 
 	lstDistinctFreqId[0] = *first; 
@@ -1283,9 +1276,81 @@ int* getDistinctList(int *lstMergeCSFreqId, int num, int *numDistinct){
 		}
 	}
 
-	BBPreclaim(tmpBat);
-
 	return lstDistinctFreqId; 
+
+}
+
+
+/* Calculate number of consistsOf in the merged CS 
+ and  Update support and coverage: Total of all suppors */
+
+static
+void updateConsistsOfListAndSupport(CSset *freqCSset, CS *newmergeCS, int *lstDistinctFreqId, int numDistinct, char isExistingMergeCS, int mergecsFreqIdx){
+	int 	i, j, tmpIdx, tmpFreqIdx;
+	int 	mergeNumConsistsOf = 0;
+	int	*_tmp; 
+	int	totalSupport = 0;
+	int	totalCoverage = 0; 
+	int 	tmpConsistFreqIdx; 
+
+	
+	//printf("Distinct: \n");
+	#if MINIMIZE_CONSISTSOF
+	tmpIdx = newmergeCS->numConsistsOf;
+	mergeNumConsistsOf = newmergeCS->numConsistsOf + numDistinct - isExistingMergeCS;
+	#else
+	tmpIdx = 0;
+	for (i = 0; i < numDistinct; i++){
+		tmpFreqIdx = lstDistinctFreqId[i]; 
+		//printf("CS%d (%d)  ", tmpFreqIdx, freqCSset->items[tmpFreqIdx].numConsistsOf);
+		mergeNumConsistsOf += freqCSset->items[tmpFreqIdx].numConsistsOf; 
+	}
+	
+	#endif
+
+	//printf("Number of freqCS consisted in mergeCS %d:  %d \n", mergecsFreqIdx, mergeNumConsistsOf);
+	if (isExistingMergeCS){
+		_tmp = realloc(newmergeCS->lstConsistsOf, sizeof(int) * mergeNumConsistsOf); 
+        	if (!_tmp){
+			fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+		}
+		newmergeCS->lstConsistsOf = (int*)_tmp;
+	}
+	else{
+		newmergeCS->lstConsistsOf = (int*)malloc(sizeof(int)  * mergeNumConsistsOf);
+	}
+
+	
+	/*Update the parentIdx of the CS to-be-merged and its children */
+	for (i = 0; i < numDistinct; i++){
+		tmpFreqIdx = lstDistinctFreqId[i];
+		for (j = 0; j < freqCSset->items[tmpFreqIdx].numConsistsOf; j++){
+			tmpConsistFreqIdx =  freqCSset->items[tmpFreqIdx].lstConsistsOf[j];
+
+			#if !MINIMIZE_CONSISTSOF
+			newmergeCS->lstConsistsOf[tmpIdx] = tmpConsistFreqIdx; 
+			tmpIdx++;
+			#endif
+
+			//Reset the parentFreqIdx
+			freqCSset->items[tmpConsistFreqIdx].parentFreqIdx = mergecsFreqIdx;
+		}
+		freqCSset->items[tmpFreqIdx].parentFreqIdx = mergecsFreqIdx;
+		#if MINIMIZE_CONSISTSOF
+		if (tmpFreqIdx != mergecsFreqIdx) {
+			newmergeCS->lstConsistsOf[tmpIdx] = tmpFreqIdx;
+			tmpIdx++;
+		}
+		#endif
+		//Update support
+		totalSupport += freqCSset->items[tmpFreqIdx].support; 
+		totalCoverage += freqCSset->items[tmpFreqIdx].coverage;
+	}
+	assert(tmpIdx == mergeNumConsistsOf);
+	newmergeCS->numConsistsOf = mergeNumConsistsOf;
+
+	newmergeCS->support = totalSupport;
+	newmergeCS->coverage = totalCoverage; 
 
 }
 /*
@@ -1294,20 +1359,14 @@ Multi-way merging for list of freqCS
 static 
 void mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId){
 	
-	int 	i, j, tmpIdx; 
+	int 	i; 
 	int 	*lstMergeCSFreqId, *lstDistinctFreqId; 
 	int 	numDistinct = 0; 
-	int	mergeNumConsistsOf = 0;
-	int	tmpFreqIdx; 
-	int 	tmpConsistFreqIdx; 
 	CS	*newmergeCS; 
 	char 	isExistingMergeCS = 0;
 	int	mergecsFreqIdx = -1;
-	int	*_tmp; 
 	oid	*_tmp2; 
 	oid	*tmpPropList; 
-	int	totalSupport = 0;
-	int	totalCoverage = 0; 
 	int 	numCombinedP = 0; 
 	int	tmpParentIdx;	
 
@@ -1370,73 +1429,11 @@ void mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId){
 	}
 
 
-	
-
-	/* Calculate number of consistsOf in the merged CS 
-
-	 and  Update support and coverage: Total of all suppors */
-	//printf("Distinct: \n");
-	
-	#if MINIMIZE_CONSISTSOF
-	tmpIdx = newmergeCS->numConsistsOf;
-	mergeNumConsistsOf = newmergeCS->numConsistsOf + numDistinct - isExistingMergeCS;
-	#else
-	tmpIdx = 0;
-	for (i = 0; i < numDistinct; i++){
-		tmpFreqIdx = lstDistinctFreqId[i]; 
-		//printf("CS%d (%d)  ", tmpFreqIdx, freqCSset->items[tmpFreqIdx].numConsistsOf);
-		mergeNumConsistsOf += freqCSset->items[tmpFreqIdx].numConsistsOf; 
-	}
-	
-	#endif
-
-	//printf("Number of freqCS consisted in mergeCS %d:  %d \n", mergecsFreqIdx, mergeNumConsistsOf);
-	if (isExistingMergeCS){
-		_tmp = realloc(newmergeCS->lstConsistsOf, sizeof(int) * mergeNumConsistsOf); 
-        	if (!_tmp){
-			fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-		}
-		newmergeCS->lstConsistsOf = (int*)_tmp;
-	}
-	else{
-		newmergeCS->lstConsistsOf = (int*)malloc(sizeof(int)  * mergeNumConsistsOf);
-	}
-
-	
-	/*Update the parentIdx of the CS to-be-merged and its children */
-	for (i = 0; i < numDistinct; i++){
-		tmpFreqIdx = lstDistinctFreqId[i];
-		for (j = 0; j < freqCSset->items[tmpFreqIdx].numConsistsOf; j++){
-			tmpConsistFreqIdx =  freqCSset->items[tmpFreqIdx].lstConsistsOf[j];
-
-			#if !MINIMIZE_CONSISTSOF
-			newmergeCS->lstConsistsOf[tmpIdx] = tmpConsistFreqIdx; 
-			tmpIdx++;
-			#endif
-
-			//Reset the parentFreqIdx
-			freqCSset->items[tmpConsistFreqIdx].parentFreqIdx = mergecsFreqIdx;
-		}
-		freqCSset->items[tmpFreqIdx].parentFreqIdx = mergecsFreqIdx;
-		#if MINIMIZE_CONSISTSOF
-		if (tmpFreqIdx != mergecsFreqIdx) {
-			newmergeCS->lstConsistsOf[tmpIdx] = tmpFreqIdx;
-			tmpIdx++;
-		}
-		#endif
-		//Update support
-		totalSupport += freqCSset->items[tmpFreqIdx].support; 
-		totalCoverage += freqCSset->items[tmpFreqIdx].coverage;
-	}
-	assert(tmpIdx == mergeNumConsistsOf);
-	newmergeCS->numConsistsOf = mergeNumConsistsOf;
+	updateConsistsOfListAndSupport(freqCSset, newmergeCS, lstDistinctFreqId, numDistinct, isExistingMergeCS,mergecsFreqIdx);
 
 	/*Reset parentIdx */
 	newmergeCS->parentFreqIdx = -1;
 	newmergeCS->type = MERGECS;
-
-	newmergeCS->support = totalSupport;
-	newmergeCS->coverage = totalCoverage; 
 
 	/*Merge the list of prop list */
 	//printf("Merge list of prop from %d cs .... ", numDistinct);
