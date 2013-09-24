@@ -43,8 +43,6 @@ crackers_export pthread_rwlock_t CRKFirstPieceRWLock;
 
 crackers_export FrequencyNode *getFrequencyStruct(char which);
 crackers_export void push(int bat_id,FrequencyNode* head);
-crackers_export void push_2(int bat_id,FrequencyNode* head,int N,int L1);
-crackers_export FrequencyNode* pop(FrequencyNode* head);
 crackers_export void printFrequencyStruct(FrequencyNode* head);
 crackers_export FrequencyNode* searchBAT(FrequencyNode* head,int bat_id);
 crackers_export double changeWeight_1(FrequencyNode* node,int N,int L1);
@@ -54,15 +52,12 @@ crackers_export double changeWeight(FrequencyNode* node,int N,int L1);
 crackers_export FrequencyNode* findMax(FrequencyNode* head);
 crackers_export FrequencyNode* findOtherMax(FrequencyNode* head,int bat_id);
 crackers_export FrequencyNode* pickRandom(FrequencyNode* head);
-crackers_export void deleteNode(FrequencyNode* head,int bat_id);
 crackers_export IdleFuncPtr IdleFunc;
 
 crackers_export str CRKinitHolistic(int *ret);
 crackers_export str CRKinitHolisticUpdates(int *ret);
 crackers_export str CRKinitFrequencyStruct(int *vid,int bid);
-crackers_export str CRKinitFrequencyStruct_2(int *vid,int *bid,int* N,int* L1);
 crackers_export str CRKrandomCrack(int *ret);
 crackers_export str CRKrandomCrackST(int *ret);
-crackers_export str CRKzeroFrequency(int *vid);
 crackers_export str CRKrandomCrackUpdates(int *ret);
 #endif /*crackers_holistic*/ 

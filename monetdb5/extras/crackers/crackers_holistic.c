@@ -31,9 +31,6 @@ static MT_Id *idletime_thread;
 MT_Lock frequencylock;
 MT_Lock CRKIndexLock;
 pthread_rwlock_t CRKFirstPieceRWLock;
-
-
-//int isIdleQuery = 0;
 IdleFuncPtr IdleFunc;
 
 str
@@ -66,7 +63,6 @@ CRKinitHolisticUpdates(int *ret)
         return MAL_SUCCEED;
 }
 
-
 /*singleton pattern*/
 FrequencyNode *
 getFrequencyStruct(char which)
@@ -83,13 +79,22 @@ getFrequencyStruct(char which)
                 default:
                         assert(0);
          }
-
         /* GDKzalloc = calloc = malloc + memset(0) */
         if (*theNode == NULL)
                 *theNode = GDKzalloc(sizeof(FrequencyNode));
 	
 	return *theNode;
 }
+
+str 
+CRKinitFrequencyStruct(int *vid,int bid)
+{
+	FrequencyNode *fs = getFrequencyStruct('A');
+	push(bid,fs);
+	(void) vid;
+	return MAL_SUCCEED;
+}
+
 /*this function pushes nodes in the list and is used in cost models: 2,4,6,8,10*/
 void 
 push(int bat_id,FrequencyNode* head)
@@ -107,31 +112,17 @@ push(int bat_id,FrequencyNode* head)
 	head->next=new_node;
 	//MT_lock_unset(&frequencylock, "getFrequencyStruct");
 }
-/*this function pushes nodes in the list and is used in cost models: 1,3,5*/
-void 
-push_2(int bat_id,FrequencyNode* head,int N,int L1)
-{
-	FrequencyNode* new_node;
-	//MT_lock_set(&frequencylock, "getFrequencyStruct");
-	new_node=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode));
-	new_node->bid=bat_id;
-	new_node->c=1;
-	new_node->f1=0;
-	new_node->f2=0;
-	new_node->weight=N-L1;
-	new_node->next=head->next;
-	head->next=new_node;
-	//MT_lock_unset(&frequencylock, "getFrequencyStruct");	 
-}
 
-FrequencyNode*
-pop(FrequencyNode* head)
+FrequencyNode* 
+searchBAT(FrequencyNode* head,int bat_id)
 {
-	FrequencyNode* dummy;
-	dummy=head->next;
-	head->next=head->next->next;
-	GDKfree(dummy);
-	return head;
+	FrequencyNode* temp;
+	temp=head;
+	while((temp->bid != bat_id))
+	{
+		temp=temp->next;
+	}
+	return temp;
 }
 
 void 
@@ -146,17 +137,6 @@ printFrequencyStruct(FrequencyNode* head)
 	}
 }
 
-FrequencyNode* 
-searchBAT(FrequencyNode* head,int bat_id)
-{
-	FrequencyNode* temp;
-	temp=head;
-	while((temp->bid != bat_id))
-	{
-		temp=temp->next;
-	}
-	return temp;
-}
 /*this function returns the maximum weight from the list and is used for all the cost models*/
 FrequencyNode*
 findMax(FrequencyNode* head)
@@ -180,6 +160,7 @@ findMax(FrequencyNode* head)
 	}
 	return ret_node;
 }
+
 /*this function returns the maximum weight (excluding the bid weight) from the list and is used for all the cost models*/
 FrequencyNode*
 findOtherMax(FrequencyNode* head, int bat_id)
@@ -334,61 +315,6 @@ changeWeight_3(FrequencyNode* node,int N,int L1)
 	//MT_lock_unset(&node->nodeLock, "Lock Node");
 	return node->weight;
 
-}
-
-void
-deleteNode(FrequencyNode* head,int bat_id)
-{
-	FrequencyNode* temp;
-	temp=head;
-	while((temp->next != NULL))
-	{
-		if(temp->next->bid == bat_id)
-		{
-			temp->next=temp->next->next;	
-			break;
-		}
-		temp=temp->next;
-	}
-
-}
-
-str 
-CRKinitFrequencyStruct(int *vid,int bid)
-{
-	FrequencyNode *fs = getFrequencyStruct('A');
-	push(bid,fs);
-	(void) vid;
-	return MAL_SUCCEED;
-}
-
-
-/*this function initializes the list in the first & second experiment(1st & 2nd cost model)*/
-str 
-CRKinitFrequencyStruct_2(int *vid,int *bid,int* N,int* L1)
-{
-	FrequencyNode *fs = getFrequencyStruct('A');
-	push_2(*bid,fs,*N,*L1);
-	*vid = 0;
-	return MAL_SUCCEED;
-}
-
-
-/*this function changes the frequencies into 0 in the end of the idle time interval*/
-str
-CRKzeroFrequency(int *vid)
-{
-        FrequencyNode *fs = getFrequencyStruct('A');
-        FrequencyNode* temp;
-	temp=fs;
-        while(temp != NULL)
-        {
-		temp->f1=0;
-		temp->f2=0;
-                temp=temp->next;
-        }
-	*vid = 0;
-        return MAL_SUCCEED;
 }
 
 /*This function is used during idle time for all the cost models*/
