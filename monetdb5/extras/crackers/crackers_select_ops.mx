@@ -896,7 +896,16 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 	int gapH = 1;
 	int pieces=0;
 	FILE *ofp;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/cpu_cracking_pieces.txt";
+	char *outputFilename1;
+
+
+	//gettimeofday(&tv0,0);
+	
+	outputFilename1 = getenv("CRACKING_PIECES");
+	if (outputFilename1 == NULL){
+  		fprintf(stderr, "Error: CRACKING_PIECES\n");
+  		exit(1);
+	}
 
 	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {

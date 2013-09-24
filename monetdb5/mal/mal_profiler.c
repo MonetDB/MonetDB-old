@@ -1345,12 +1345,18 @@ void HeartbeatCPUload(str (*IdleFunc)(int *))
 	}
 }
 
-// Give users the option to check for the system load between two heart beats
+// Give users the option to check for the system total load between two heart beats
 void HeartbeatCPUload_total(void)
 {
 	char cpuload[BUFSIZ];
 	FILE *ofp;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/cpuload_cracking.txt";
+	char *outputFilename1;
+	
+	outputFilename1 = getenv("TOTAL_CPULOAD");
+	if (outputFilename1 == NULL){
+  		fprintf(stderr, "Error: TOTAL_CPULOAD\n");
+  		exit(1);
+	}
 
 	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
@@ -1361,9 +1367,8 @@ void HeartbeatCPUload_total(void)
 	while(1)
 	{
 		(void) getCPULoad(cpuload);
-		fprintf(ofp,"cpuload=%lf\n",corestat[256].load);
+		fprintf(ofp,"%lf\n",corestat[256].load);
 		MT_sleep_ms(10);	
-		//fprintf(stderr,"%s\n",cpuload);
 	}
 	fclose(ofp);
 }

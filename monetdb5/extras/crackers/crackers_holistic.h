@@ -36,7 +36,6 @@ typedef struct frequency{
 }FrequencyNode;
 
 typedef  str (*IdleFuncPtr)(int *);
-//crackers_export int isIdleQuery;
 crackers_export MT_Lock frequencylock;
 crackers_export MT_Lock CRKIndexLock;
 crackers_export pthread_rwlock_t CRKFirstPieceRWLock;

@@ -301,7 +301,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 		//fprintf(ofp,"Idle_Query \t 0 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Low= \t %d\n",wt,ct,(int)*low);
 		GDKfree(low);
 		//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-
+		fclose(ofp);
 		return 0;
 	}
 	/* Take the index of the bat */
@@ -401,6 +401,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 
 	GDKfree(low);	
 
+	fclose(ofp);
 	return 0;
 }
 
