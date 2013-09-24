@@ -1350,7 +1350,7 @@ void HeartbeatCPUload_total(void)
 {
 	char cpuload[BUFSIZ];
 	FILE *ofp;
-	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/cpuload_holistic.txt";
+	char outputFilename1[] = "/export/scratch2/petraki/experiments_paper1/cpuload_cracking.txt";
 
 	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {

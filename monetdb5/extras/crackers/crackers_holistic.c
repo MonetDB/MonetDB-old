@@ -26,9 +26,9 @@
 
 static FrequencyNode *_InternalFrequencyStructA = NULL;
 static FrequencyNode *_InternalFrequencyStructB = NULL;
-static MT_Lock frequencylock;
 static MT_Id *idletime_thread;
 //static MT_Id *cpuload_thread;
+MT_Lock frequencylock;
 MT_Lock CRKIndexLock;
 pthread_rwlock_t CRKFirstPieceRWLock;
 
@@ -95,25 +95,24 @@ void
 push(int bat_id,FrequencyNode* head)
 {
 	FrequencyNode* new_node;
-	MT_lock_set(&frequencylock, "getFrequencyStruct");
+	//MT_lock_set(&frequencylock, "getFrequencyStruct");
 	new_node=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode));
 	new_node->bid=bat_id;
 	new_node->c=1;
 	new_node->f1=0;
 	new_node->f2=0;
 	new_node->weight=0.0; /*weight=f1*((N/c)-L1)*/
-	MT_lock_init(&new_node->nodeLock, "Lock Node");
+	//MT_lock_init(&new_node->nodeLock, "Lock Node");
 	new_node->next=head->next;
 	head->next=new_node;
-
-	MT_lock_unset(&frequencylock, "getFrequencyStruct");
+	//MT_lock_unset(&frequencylock, "getFrequencyStruct");
 }
 /*this function pushes nodes in the list and is used in cost models: 1,3,5*/
 void 
 push_2(int bat_id,FrequencyNode* head,int N,int L1)
 {
 	FrequencyNode* new_node;
-	MT_lock_set(&frequencylock, "getFrequencyStruct");
+	//MT_lock_set(&frequencylock, "getFrequencyStruct");
 	new_node=(FrequencyNode *) GDKmalloc(sizeof(FrequencyNode));
 	new_node->bid=bat_id;
 	new_node->c=1;
@@ -122,7 +121,7 @@ push_2(int bat_id,FrequencyNode* head,int N,int L1)
 	new_node->weight=N-L1;
 	new_node->next=head->next;
 	head->next=new_node;
-	MT_lock_unset(&frequencylock, "getFrequencyStruct");	 
+	//MT_lock_unset(&frequencylock, "getFrequencyStruct");	 
 }
 
 FrequencyNode*
@@ -265,7 +264,7 @@ changeWeight_1(FrequencyNode* node,int N,int L1)
 	int p; /*number of pieces in the index*/
 	double Sp; /*average size of each piece*/
 	double d; /*distance from optimal piece(L1)*/
-	MT_lock_set(&node->nodeLock, "Lock Node");
+	//MT_lock_set(&node->nodeLock, "Lock Node");
 	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
@@ -279,7 +278,7 @@ changeWeight_1(FrequencyNode* node,int N,int L1)
 	}
 
 	//fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);
-	MT_lock_unset(&node->nodeLock, "Lock Node");
+	//MT_lock_unset(&node->nodeLock, "Lock Node");
 	return node->weight;
 }
 
@@ -292,7 +291,7 @@ changeWeight_2(FrequencyNode* node,int N,int L1)
 	int p; /*number of pieces in the index*/
 	double Sp; /*average size of each piece*/
 	double d; /*distance from optimal piece(L1)*/
-	MT_lock_set(&node->nodeLock, "Lock Node");
+	//MT_lock_set(&node->nodeLock, "Lock Node");
 	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
@@ -304,7 +303,7 @@ changeWeight_2(FrequencyNode* node,int N,int L1)
 	{
 		node->weight = (double)(node->f1) * d;
 	}
-	MT_lock_unset(&node->nodeLock, "Lock Node");
+	//MT_lock_unset(&node->nodeLock, "Lock Node");
 	/*fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);*/
 	return node->weight;
 }
@@ -319,7 +318,7 @@ changeWeight_3(FrequencyNode* node,int N,int L1)
 	int p; /*number of pieces in the index*/
 	double Sp; /*average size of each piece*/
 	double d; /*distance from optimal piece(L1)*/
-	MT_lock_set(&node->nodeLock, "Lock Node");
+	//MT_lock_set(&node->nodeLock, "Lock Node");
 	p = node->c;
 	Sp =((double)N)/p;	
 	d = Sp - L1;
@@ -332,7 +331,7 @@ changeWeight_3(FrequencyNode* node,int N,int L1)
 		node->weight = ((double)(node->f1)-(double)(node->f2)) * d;
 	}
 	/*fprintf(stderr,"bid=%d f1=%d f2=%d p=%d Sp=%lf d=%lf W=%lf\n",node->bid,node->f1,node->f2,p,Sp,d,node->weight);*/
-	MT_lock_unset(&node->nodeLock, "Lock Node");
+	//MT_lock_unset(&node->nodeLock, "Lock Node");
 	return node->weight;
 
 }
@@ -403,14 +402,18 @@ CRKrandomCrack(int *ret)
 	FrequencyNode *fs = getFrequencyStruct('A');	
 
 	(void) ret;
+	MT_lock_set(&frequencylock, "getFrequencyStruct");
 	max_node=findMax(fs);
+	MT_lock_unset(&frequencylock, "getFrequencyStruct");
 	if(max_node!=NULL && max_node->weight > 0)
 	{
 		bid=max_node->bid;
 		change_bat = CRKrandomholpl_int(&bid,&inclusive);
 		if (change_bat == -1)
 		{
+			MT_lock_set(&frequencylock, "getFrequencyStruct");
 			max_node=findOtherMax(fs,bid);
+			MT_lock_unset(&frequencylock, "getFrequencyStruct");
 			if(max_node!=NULL && max_node->weight > 0)
 			{
 				bid=max_node->bid;
