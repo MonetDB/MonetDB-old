@@ -188,6 +188,7 @@ oid* mergeMultiPropList(CSset *freqCSset, int *freqIdList, int k, int *numCombin
 		if (root.element == INT_MAX) break; 
 		
 		if (output[*numCombinedP - 1] != root.element){		//Only append the distinct prop to combined list
+
 			if (*numCombinedP == numAllocation){
 				numAllocation += INIT_MERGELIST_SIZE;		
 				tmp = realloc(output, sizeof(oid) * numAllocation); 
@@ -220,5 +221,7 @@ oid* mergeMultiPropList(CSset *freqCSset, int *freqIdList, int k, int *numCombin
 	}
 	printf("\n");
 	*/
+	free(hp); 
+	free(harr); 
 	return output;
 }

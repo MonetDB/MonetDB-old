@@ -475,6 +475,7 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 			fprintf(fout, "CREATE TABLE %s_"BUNFMT" (\nsubject VARCHAR(10) PRIMARY KEY,\n", tmpStr, freqCSset->items[i].csId); // TODO underscores?
 			free(tmpStr);
 			GDKfree(labelStrShort);
+			GDKfree(labelStr);
 #else
 			tmpStr = (str) malloc(sizeof(char) * (strlen(labelStr) + 1));
 			if (!tmpStr) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
@@ -482,6 +483,7 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 			escapeURIforSQL(tmpStr);
 			fprintf(fout, "CREATE TABLE %s_"BUNFMT" (\nsubject VARCHAR(10) PRIMARY KEY,\n", tmpStr, freqCSset->items[i].csId); // TODO underscores?
 			free(tmpStr);
+			GDKfree(labelStr);
 #endif
 		}
 		for (j = 0; j < labels[i].numProp; ++j) {
@@ -506,6 +508,7 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 			}
 			free(tmpStr2);
 			GDKfree(propStrShort);
+			GDKfree(propStr); 
 #else
 			tmpStr2 = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
 			if (!tmpStr2) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
@@ -519,6 +522,7 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 				fprintf(fout, "%s_%d BOOLEAN\n", tmpStr2, j);
 			}
 			free(tmpStr2);
+			GDKfree(propStr); 
 #endif
 		}
 		fprintf(fout, ");\n\n");
@@ -543,11 +547,13 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 			strcpy(tmpStr2, propStrShort);
 			escapeURIforSQL(tmpStr2);
 			GDKfree(propStrShort);
+			GDKfree(propStr);
 #else
 			tmpStr2 = (str) malloc(sizeof(char) * (strlen(propStr) + 1));
 			if (!tmpStr2) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 			strcpy(tmpStr2, propStr);
 			escapeURIforSQL(tmpStr2);
+			GDKfree(propStr);
 #endif
 
 			for (k = 0; k < relationMetadataCount[i][j]; ++k) {
@@ -579,11 +585,13 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 					strcpy(tmpStrFrom, labelStrFromShort);
 					escapeURIforSQL(tmpStrFrom);
 					GDKfree(labelStrFromShort);
+					GDKfree(labelStrFrom);
 #else
 					tmpStrFrom = (str) malloc(sizeof(char) * (strlen(labelStrFrom) + 1));
 					if (!tmpStrFrom) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 					strcpy(tmpStrFrom, labelStrFrom);
 					escapeURIforSQL(tmpStrFrom);
+					GDKfree(labelStrFrom);
 #endif
 				}
 
@@ -604,11 +612,13 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 					strcpy(tmpStrTo, labelStrToShort);
 					escapeURIforSQL(tmpStrTo);
 					GDKfree(labelStrToShort);
+					GDKfree(labelStrTo);
 #else
 					tmpStrTo = (str) malloc(sizeof(char) * (strlen(labelStrTo) + 1));
 					if (!tmpStrTo) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 					strcpy(tmpStrTo, labelStrTo);
 					escapeURIforSQL(tmpStrTo);
+					GDKfree(labelStrTo);
 #endif
 				}
 
@@ -704,6 +714,7 @@ void createSQLMetadata(CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, CSlabe
 			strcpy(tmpStr, labelStrShort);
 			escapeURIforSQL(tmpStr);
 			GDKfree(labelStrShort);
+			GDKfree(labelStr); 
 #else
 			tmpStr = (str) GDKmalloc(sizeof(char) * (strlen(labelStr) + 1));
 			if (!tmpStr) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
@@ -723,6 +734,11 @@ void createSQLMetadata(CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, CSlabe
 	fprintf(fout, "COPY INTO table_id_freq from '/export/scratch2/linnea/dbfarm/test/tableIdFreq.csv' USING DELIMITERS ',','\\n','\"';\n");
 	fprintf(fout, "COPY INTO adjacency_list from '/export/scratch2/linnea/dbfarm/test/adjacencyList.csv' USING DELIMITERS ',','\\n','\"';");
 	fclose(fout);
+
+	for (i = 0; i < freqCSset->numCSadded; ++i) {
+		free(matrix[i]);
+	}
+	free(matrix);
 }
 
 /* Simple representation of the final labels for tables and attributes. */
@@ -754,8 +770,10 @@ void printTxt(CSset* freqCSset, CSlabel* labels, int freqThreshold) {
 			getPropNameShort(&labelStrShort, labelStr);
 			fprintf(fout, "%s (CS "BUNFMT"): ", labelStrShort, freqCSset->items[i].csId);
 			GDKfree(labelStrShort);
+			GDKfree(labelStr);
 #else
 			fprintf(fout, "%s (CS "BUNFMT"): ", labelStr, freqCSset->items[i].csId);
+			GDKfree(labelStr);
 #endif
 		}
 		for (j = 0; j < labels[i].numProp; ++j) {
@@ -769,9 +787,11 @@ void printTxt(CSset* freqCSset, CSlabel* labels, int freqThreshold) {
 			if (j + 1 < labels[i].numProp) fprintf(fout, "%s, ", propStrShort);
 			else fprintf(fout, "%s\n", propStrShort);
 			GDKfree(propStrShort);
+			GDKfree(propStr);
 #else
 			if (j + 1 < labels[i].numProp) fprintf(fout, "%s, ", propStr);
 			else fprintf(fout, "%s\n", propStr);
+			GDKfree(propStr);
 #endif
 		}
 	}
@@ -1004,6 +1024,8 @@ str** findOntologies(CS cs, int *propOntologiesCount, oid*** propOntologiesOids)
 				free(tokenizedUri[k]);
 			}
 			free(tokenizedUri);
+
+			GDKfree(tmpStr);
 		}
 	}
 	return propOntologies;
@@ -1032,7 +1054,7 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 	for (i = 0; i < listNum; ++i) {
 		int		filledListsCount = 0;
 		oid		**candidates = NULL;
-		int		*candidatesCount;
+		int		*candidatesCount = NULL;
 		ClassStat*	classStat = NULL;
 		int		num;
 		float		totalTfidfs;
@@ -1064,6 +1086,12 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 		}
 
 		if (filledListsCount == 0) {
+			free(candidatesCount);
+			for (k = 0; k < listCount[i]; ++k) {
+				if (candidates[k] != NULL) free(candidates[k]);
+			}
+			free(candidates);
+
 			continue; // no new results will be generated using this ontology
 		}
 		totalTfidfs = 0.0;
@@ -1262,6 +1290,8 @@ void freePropStat(PropStat *propStat) {
 	BBPreclaim(propStat->pBat);
 	free(propStat->freqs);
 	free(propStat->tfidfs);
+
+	free(propStat);
 }
 #endif
 
@@ -1660,11 +1690,13 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 			memcpy(labelStrEscaped, labelStrShort, (strlen(labelStrShort) + 1));
 			escapeURI(labelStrEscaped);
 			GDKfree(labelStrShort);
+			GDKfree(labelStr);
 #else
 			labelStrEscaped = (str) GDKmalloc(sizeof(char) * (strlen(labelStr) + 1));
 			if (!labelStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 			memcpy(labelStrEscaped, labelStr, (strlen(labelStr) + 1));
 			escapeURI(labelStrEscaped);
+			GDKfree(labelStr);
 #endif
 		}
 
@@ -1703,7 +1735,9 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 			fprintf(fout, "<TR><TD BGCOLOR=\"%s\" PORT=\"%s\">%s (%d%%)</TD></TR>\n", color, propStrEscaped, propStrShort, (100 * cs.lstPropSupport[j])/cs.support);
 
 			GDKfree(propStr);
+			GDKfree(propStrShort);
 			free(propStrEscaped);
+			GDKfree(tmpStr); 
 
 		}
 		fprintf(fout, "</TABLE>>\n");
@@ -1739,6 +1773,7 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 			}
 			GDKfree(propStr);
 			free(propStrEscaped);
+			GDKfree(tmpStr); 
 		}
 	}
 
@@ -1958,7 +1993,8 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		label->name = BUN_NONE;
 		nameFound = 1;
 	}
-
+	
+	if(tmpList != NULL) free(tmpList);
 	return;
 }
 #endif
@@ -2217,6 +2253,7 @@ void createOntoUsageTree(OntoUsageNode** tree, CSset* freqCSset, oid** ontmetada
 
 		// search class in tree and add CS to statistics
 		addToOntoUsageTree(*tree, hierarchy, hierarchyCount, freqCSset->items[i].support);
+		free(hierarchy);
 //		numTuples += freqCSset->items[i].support; // update total number of tuples in dataset // TODO cs.support not yet available
 		numTuples += 1;
 	}

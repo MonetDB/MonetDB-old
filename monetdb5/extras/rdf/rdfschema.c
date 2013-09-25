@@ -1252,17 +1252,8 @@ int* getDistinctList(int *lstMergeCSFreqId, int num, int *numDistinct){
 
 	lstDistinctFreqId = (int*) malloc(sizeof(int) * num); /* A bit redundant */
 	
-	printf("\n Before sorting: ");
-	for (i = 0; i < num; i++){
-		printf("  %d",lstMergeCSFreqId[i]);
-	}
 	GDKqsort(lstMergeCSFreqId, NULL, NULL, num, sizeof(int), 0, TYPE_int);
 	
-	printf("\n After sorting: ");
-	for (i = 0; i < num; i++){
-		printf("  %d",lstMergeCSFreqId[i]);
-	}
-	printf("\n");
 	first = lstMergeCSFreqId;
 	last = *first; 
 	*numDistinct = 1; 
@@ -1375,11 +1366,6 @@ void mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId){
 	/* Get the list of merge FreqIdx */
 	lstMergeCSFreqId = (int*) malloc(sizeof(int) * num); 
 	
-	//printf("Number of input %d \n",num);
-	//printf("List of input freqIdx: \n");
-	//for (i = 0; i < num; i++) printf("  %d",lstFreqId[i]);
-	//printf("\n");
-
 	for (i = 0; i < num; i++){
 		if (freqCSset->items[lstFreqId[i]].parentFreqIdx != -1){
 			tmpParentIdx = freqCSset->items[lstFreqId[i]].parentFreqIdx;
@@ -1396,27 +1382,17 @@ void mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId){
 
 		//printf(" %d --> %d  | ", lstFreqId[i], lstMergeCSFreqId[i]);
 	}
-	//printf("\n");
 
 	if (isExistingMergeCS == 0) mergecsFreqIdx = freqCSset->numCSadded; 
 
 	lstDistinctFreqId = getDistinctList(lstMergeCSFreqId,num, &numDistinct);
 
-	//printf("Number of distinct values %d \n", numDistinct);	
-	// printf("List of distinct input parent freqIdx: \n");
-	//for (i = 0; i < numDistinct; i++) printf("  %d",lstDistinctFreqId[i]);
-	//printf("\n"); 
-	
 	if (numDistinct < 2){
 		free(lstMergeCSFreqId);
 		free(lstDistinctFreqId);
 		return;
 	}
 	
-	//if (isExistingMergeCS) printf("They will be merged into an existing  %d \n",mergecsFreqIdx);
-	//else  printf("They will be merged into a new %d \n",mergecsFreqIdx);
-
-
 	/* Create or not create a new CS */
 	if (isExistingMergeCS){
 		newmergeCS = (CS*) &(freqCSset->items[mergecsFreqIdx]);
@@ -1436,10 +1412,8 @@ void mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId){
 	newmergeCS->type = MERGECS;
 
 	/*Merge the list of prop list */
-	//printf("Merge list of prop from %d cs .... ", numDistinct);
 	tmpPropList = mergeMultiPropList(freqCSset, lstDistinctFreqId, numDistinct, &numCombinedP);
-	//printf("Done (numCombinedP = %d) \n",numCombinedP);
-	//printf("Cobined P has %d props \n", numCombinedP); 
+
 	if (isExistingMergeCS){		//For existed mergeCS, reallocate lstProp	
 		_tmp2 = realloc(newmergeCS->lstProp, sizeof(oid) * numCombinedP); 
 		
@@ -1550,6 +1524,7 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 					str labelStr;
 					takeOid(labels[i].name, &labelStr);
 					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, labelStr, *freq, subStr, cs.parentFreqIdx);
+					GDKfree(labelStr); 
 				}
 
 				// Filter max freq cs set
@@ -4095,7 +4070,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	clock_t		tmpLastT; 
 	OntoUsageNode	*ontoUsageTree = NULL;
 	int		curNumMergeCS = 0; 
-
+	int 		tmpNumRel = 0;
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
@@ -4169,6 +4144,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	initIntArray(refCount, (*maxCSoid + 1), 0); 
 	RDFgetRefCounts(ret, sbat, si, pi,oi, *subjCSMap, maxNumProp, *maxSoid, refCount);
 	addHighRefCSsToFreqCS(csBats->pOffsetBat, csBats->freqBat, csBats->coverageBat, csBats->fullPBat, refCount, freqCSset, csIdFreqIdxMap, *maxCSoid + 1, 2* (*freqThreshold)); 
+	free(refCount);
 	curT = clock();
 	printf (" ----- Counting references and adding highly referred CS's took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	printf("Number of freqCSs after considering # references: %d \n", freqCSset->numCSadded);
@@ -4252,9 +4228,12 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
 	
 	*csRelMergeFreqSet = generateCsRelBetweenMergeFreqSet(csrelSet, freqCSset);
+	tmpNumRel = freqCSset->numCSadded; 
 
 	/* S6: Merged CS referred from the same CS via the same property */
 	mergeMaxFreqCSByS6(*csRelMergeFreqSet, freqCSset, mergeCSFreqCSMap, curNumMergeCS,  &mergecsId);
+
+	freeCSrelSet(*csRelMergeFreqSet,tmpNumRel);
 
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	curT = clock(); 
@@ -4267,6 +4246,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
 
 	mergeCSByS3S5(freqCSset, *labels, mergeCSFreqCSMap, curNumMergeCS, &mergecsId, ontoUsageTree);
+	free(mergeCSFreqCSMap);
 
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	curT = clock(); 
@@ -4276,7 +4256,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	updateParentIdxAll(freqCSset); 
 	//Finally, re-create mergeFreqSet
 	
-	freeCSrelSet(*csRelMergeFreqSet,freqCSset->numOrigFreqCS);
 	*csRelMergeFreqSet = generateCsRelBetweenMergeFreqSet(csrelSet, freqCSset);
 	printCSRel(freqCSset, *csRelMergeFreqSet, *freqThreshold);
 
@@ -4620,6 +4599,7 @@ void freeCStableStat(CStableStat* cstablestat){
 		free(cstablestat->lstcstable[i].colBats);
 		free(cstablestat->lstcstable[i].mvBats);
 		free(cstablestat->lstcstable[i].lstProp);
+		free(cstablestat->lstcstable[i].colTypes);
 		#if CSTYPE_TABLE == 1
 		free(cstablestat->lstcstableEx[i].colBats);
 		#endif
