@@ -27,7 +27,7 @@
 static FrequencyNode *_InternalFrequencyStructA = NULL;
 static FrequencyNode *_InternalFrequencyStructB = NULL;
 static MT_Id *idletime_thread;
-//static MT_Id *cpuload_thread;
+static MT_Id *cpuload_thread;
 MT_Lock frequencylock;
 MT_Lock CRKIndexLock;
 pthread_rwlock_t CRKFirstPieceRWLock;
@@ -45,12 +45,12 @@ CRKinitHolistic(int *ret)
 	else
 		j = atoi(p);
 	idletime_thread = GDKzalloc(j * sizeof(*idletime_thread));
-	//cpuload_thread = GDKzalloc(sizeof(*cpuload_thread));
+	cpuload_thread = GDKzalloc(sizeof(*cpuload_thread));
 	MT_lock_init(&frequencylock, "FrequencyStruct");
 	MT_lock_init(&CRKIndexLock, "Cracker Index Lock");
 	for(i=0;i<j;i++)
 		MT_create_thread(&idletime_thread[i],(void (*)(void *))HeartbeatCPUload, IdleFunc, MT_THR_JOINABLE);
-	//MT_create_thread(cpuload_thread,(void (*)(void *))HeartbeatCPUload_total, NULL, MT_THR_JOINABLE);
+	MT_create_thread(cpuload_thread,(void (*)(void *))HeartbeatCPUload_total, NULL, MT_THR_JOINABLE);
 	*ret = 0;
 	return MAL_SUCCEED;
 }
