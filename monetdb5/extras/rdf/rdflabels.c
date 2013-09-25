@@ -2454,12 +2454,16 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
  * If no MERGECS is created (subset-superset relation), mergeCSFreqId contains the Id of the superset class.
  * For S1 and S2, parameter 'name' is used to avoid recomputation of CS names
  */
-str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, int mergeCSFreqId, int freqCS1, int freqCS2, oid name, oid **ontmetadata, int ontmetadataCount){
+str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, int mergeCSFreqId, int freqCS1, int freqCS2, oid name, oid **ontmetadata, int ontmetadataCount, int *lstFreqId, int numIds){
 	int		i;
 	int		freqCS1Counter;
 	CSlabel		*big;
 	CSlabel		*label;
-	CS		cs;
+	CS		cs;	
+	#if     USE_MULTIWAY_MERGING
+	int		tmpMaxCoverage; 
+	int		tmpFreqId;
+	#endif
 
 	if (newCS) {
 		// realloc labels
@@ -2491,6 +2495,12 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		// use common name
 		label->name = name;
 
+		#if     USE_MULTIWAY_MERGING
+		(void)ontmetadata;
+		(void)ontmetadataCount; 
+		(void)freqCS2;
+
+		#else
 		// TODO candidates
 		//label->candidates = ;
 		//label->candidatesCount = ;
@@ -2520,6 +2530,7 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 			// no top 1 name, no hierarchy available
 			label->hierarchy = getOntoHierarchy(name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 		}
+		#endif
 
 		break;
 
@@ -2559,13 +2570,25 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 
 		case S4: // FALLTHROUGH
 		case S5:
+		#if	USE_MULTIWAY_MERGING
+		tmpMaxCoverage = 0; 
+		tmpFreqId = 0;
+		for (i = 0; i < numIds; i++){
+			if (freqCSset->items[lstFreqId[i]].coverage > tmpMaxCoverage){
+				tmpFreqId = lstFreqId[i];
+				tmpMaxCoverage = freqCSset->items[lstFreqId[i]].coverage;
+			}
+		}
+		big = &(*labels)[tmpFreqId];
+
+		#else
 		// use label of biggest CS (higher coverage value)
 		if (freqCSset->items[freqCS1].coverage > freqCSset->items[freqCS2].coverage) {
 			big = &(*labels)[freqCS1];
 		} else {
 			big = &(*labels)[freqCS2];
 		}
-
+		#endif
 		label->name = big->name;
 
 		// TODO candidates
@@ -2581,7 +2604,6 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 				label->hierarchy[i] = big->hierarchy[i];
 			}
 		}
-
 		break;
 
 		default:

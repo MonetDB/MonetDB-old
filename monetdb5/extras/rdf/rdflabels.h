@@ -106,7 +106,7 @@ rdf_export void
 exportLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, int freqThreshold);
 
 rdf_export str
-updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, int mergeCSFreqId, int freqCS1, int freqCS2, oid name, oid **ontmetadata, int ontmetadataCount);
+updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, int mergeCSFreqId, int freqCS1, int freqCS2, oid name, oid **ontmetadata, int ontmetadataCount, int *lstFreqId, int numIds);
 
 rdf_export void
 freeLabels(CSlabel* labels, CSset* freqCSset);
