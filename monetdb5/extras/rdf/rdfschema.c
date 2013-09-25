@@ -1698,6 +1698,51 @@ str printmergeCSSet(CSset *freqCSset, int freqThreshold){
 	return MAL_SUCCEED;
 }
 
+
+static 
+str printsubsetFromCSset(CSset *freqCSset, int* subsetIdx, int num){
+
+	int 	i,j; 
+	FILE 	*fout; 
+	char 	filename[100];
+	char 	tmpStr[20];
+	int 	ret;
+
+	str 	propStr; 
+	char*   schema = "rdf";
+
+
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "rdf.rdfschema",
+				"could not open the tokenizer\n");
+	}
+	
+
+	strcpy(filename, "selectedSubset");
+	sprintf(tmpStr, "%d", num);
+	strcat(filename, tmpStr);
+	strcat(filename, ".txt");
+
+	fout = fopen(filename,"wt"); 
+
+	for (i = 0; i < num; i++){
+		CS cs = (CS)freqCSset->items[subsetIdx[i]];
+		assert (cs.parentFreqIdx == -1);
+		fprintf(fout, "Table %d (Coverage: %d) \n",i,cs.coverage);
+		for (j = 0; j < cs.numProp; j++){
+			takeOid(cs.lstProp[j], &propStr);	
+			fprintf(fout,"          %s\n", propStr);
+			GDKfree(propStr);
+		}
+		fprintf(fout, "\n");
+	}
+
+	fclose(fout);
+	
+	TKNZRclose(&ret);
+	return MAL_SUCCEED;
+}
+
 /*
  * Hashing function for a set of values
  * Rely on djb2 http://www.cse.yorku.ca/~oz/hash.html
@@ -3119,7 +3164,7 @@ void mergeCSByS3S5(CSset *freqCSset, CSlabel* labels, oid* mergeCSFreqCSMap, int
 	propStat = initPropStat();
 	getPropStatisticsFromMergeCSs(propStat, curNumMergeCS, mergeCSFreqCSMap, freqCSset); /*TODO: Get PropStat from MaxCSs or From mergedCS only*/
 
-	for (i = 0; i < curNumMergeCS; i++){		/*TODO: Only go through the list of mergedCS. */
+	for (i = 0; i < curNumMergeCS; i++){		
 		freqId1 = mergeCSFreqCSMap[i];
 		//printf("Label of %d CS is %s \n", freqId1, labels[freqId1].name);
 		isLabelComparable = 0; 
@@ -3471,6 +3516,66 @@ void freeCSBats(CSBats *csBats){
 
 	free(csBats);
 
+}
+
+static
+void generateTablesForEvaluating(CSset *freqCSset, int numTbl,oid* mergeCSFreqCSMap, int curNumMergeCS){
+	int	*cumDist; 
+	int	totalCoverage = 0; 
+	int	curCoverage = 0;
+	int	randValue = 0;
+	int	tmpIdx; 
+	int	freqId; 
+	int	minIdx, maxIdx; 
+	int	i;
+	int	*output;
+
+	cumDist = (int*)malloc(sizeof(int) * curNumMergeCS);
+	output = (int*)malloc(sizeof(int) * numTbl);
+			
+	for (i = 0; i < curNumMergeCS; i++){		
+		freqId = mergeCSFreqCSMap[i];
+		totalCoverage += freqCSset->items[freqId].coverage; 
+	}
+
+	for (i = 0; i < curNumMergeCS; i++){		
+		freqId = mergeCSFreqCSMap[i];
+		curCoverage += freqCSset->items[freqId].coverage; 
+		cumDist[i] = curCoverage; 
+	}
+
+	
+	for (i = 0; i < numTbl; i++){
+		//Get the index of freqCS for a random value [0-> totalCoverage -1]
+		//Using binary search
+		randValue = rand() % totalCoverage; 
+		minIdx = 0;
+		maxIdx = curNumMergeCS - 1;
+			
+		if (randValue < cumDist[minIdx]){
+			tmpIdx = minIdx; 
+		}
+		
+		while ((maxIdx - minIdx) > 1){
+			tmpIdx = minIdx + (maxIdx - minIdx)/2;
+			if (randValue > cumDist[tmpIdx] ){
+				minIdx =  minIdx + (maxIdx - minIdx)/2;
+			}
+			else{
+				maxIdx =  minIdx + (maxIdx - minIdx)/2;
+			}
+		}
+
+		tmpIdx = maxIdx; 
+
+		output[i] = mergeCSFreqCSMap[tmpIdx];
+	}
+
+	//Print the results
+	printsubsetFromCSset(freqCSset, output, numTbl)	;
+
+	free(cumDist); 
+	free(output);
 }
 
 #if STOREFULLCS
@@ -4254,6 +4359,14 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	tmpLastT = curT; 		
 
 	updateParentIdxAll(freqCSset); 
+
+	//Generate evaluating tables
+	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
+	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
+
+	generateTablesForEvaluating(freqCSset, 20, mergeCSFreqCSMap, curNumMergeCS);
+	free(mergeCSFreqCSMap);
+
 	//Finally, re-create mergeFreqSet
 	
 	*csRelMergeFreqSet = generateCsRelBetweenMergeFreqSet(csrelSet, freqCSset);
