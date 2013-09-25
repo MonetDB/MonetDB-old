@@ -104,7 +104,7 @@ typedef struct PropStat {
 #define USE_LABEL_FOR_MERGING	1 	// Use the labels received from labeling process for finding mergeCS
 #define TOPK 1			//Check top 3 candidate
 #define MAX_SUB_SUPER_NUMPROP_DIF 3
-#define USE_MULTIWAY_MERGING	1
+#define USE_MULTIWAY_MERGING	0
 
 #define MINIMIZE_CONSISTSOF	1	/*Only store the minimize list of consistsof CS's Id. 
 					Specifically, the consistsOf list only contains 

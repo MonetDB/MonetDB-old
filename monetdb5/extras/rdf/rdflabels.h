@@ -102,17 +102,14 @@ enum {
 rdf_export CSlabel*
 createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, int *csIdFreqIdxMap, oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount, OntoUsageNode** ontoUsageTree);
 
-rdf_export CSlabel*
-createFinalLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, int freqThreshold);
+rdf_export void
+exportLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, int freqThreshold);
 
 rdf_export str
-updateLabel(int ruleNumber, CSlabel *labels, int mergeCSFreqId, int freqCS1, int freqCS2);
+updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, int mergeCSFreqId, int freqCS1, int freqCS2, oid name, oid **ontmetadata, int ontmetadataCount);
 
 rdf_export void
 freeLabels(CSlabel* labels, CSset* freqCSset);
-
-rdf_export void
-freeFinalLabels(CSlabel* labels, CSset* freqCSset);
 
 rdf_export void
 freeOntoUsageTree(OntoUsageNode* tree);

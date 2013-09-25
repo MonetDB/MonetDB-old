@@ -1790,7 +1790,7 @@ oid* getOntoHierarchy(oid ontology, int* hierarchyCount, oid** ontmetadata, int 
 
 	// add 'ontology' to hierarchy
 	(*hierarchyCount) = 1;
-	hierarchy = (oid *) malloc(sizeof(oid) * (*hierarchyCount));
+	hierarchy = (oid *) GDKmalloc(sizeof(oid) * (*hierarchyCount));
 	if (!hierarchy)
 		fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 	hierarchy[(*hierarchyCount) -1] = ontology;
@@ -1815,7 +1815,7 @@ oid* getOntoHierarchy(oid ontology, int* hierarchyCount, oid** ontmetadata, int 
 					// superclass
 					// add 'msuperstr' to hierarchy
 					(*hierarchyCount) += 1;
-					hierarchy = realloc(hierarchy, sizeof(oid) * (*hierarchyCount));
+					hierarchy = GDKrealloc(hierarchy, sizeof(oid) * (*hierarchyCount));
 					if (!hierarchy)
 						fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 					hierarchy[(*hierarchyCount) -1] = msuper;
@@ -1843,7 +1843,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	// --- ONTOLOGY ---
 	// add all ontology candidates to list of candidates
 	if (resultCount[csIdx] >= 1) {
-		label->candidates = realloc(label->candidates, sizeof(oid) * (label->candidatesCount + resultCount[csIdx]));
+		label->candidates = GDKrealloc(label->candidates, sizeof(oid) * (label->candidatesCount + resultCount[csIdx]));
 		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 		for (i = 0; i < resultCount[csIdx]; ++i) {
 			label->candidates[label->candidatesCount + i] = result[csIdx][i];
@@ -1925,7 +1925,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	// add all most frequent type values to list of candidates
 	if (tmpListCount >= 1) {
 		int counter = 0;
-		label->candidates = realloc(label->candidates, sizeof(oid) * (label->candidatesCount + tmpListCount));
+		label->candidates = GDKrealloc(label->candidates, sizeof(oid) * (label->candidatesCount + tmpListCount));
 		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 		for (i = 0; i < typeStatCount; ++i) {
 			for (j = 0; j < tmpListCount; ++j) {
@@ -1965,7 +1965,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	// --- FK ---
 	// add top3 fk values to list of candidates
 	if (links[csIdx].num > 0) {
-		label->candidates = realloc(label->candidates, sizeof(oid) * (label->candidatesCount + MIN(3, links[csIdx].num)));
+		label->candidates = GDKrealloc(label->candidates, sizeof(oid) * (label->candidatesCount + MIN(3, links[csIdx].num)));
 		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 		for (i = 0; i < MIN(3, links[csIdx].num); ++i) {
 			label->candidates[label->candidatesCount + i] = links[csIdx].fks[0].prop;
@@ -1983,7 +1983,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 
 	// --- NOTHING ---
 	if (label->candidatesCount == 0) {
-		label->candidates = realloc(label->candidates, sizeof(oid));
+		label->candidates = GDKrealloc(label->candidates, sizeof(oid));
 		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 		label->candidates[0] = BUN_NONE;
 		label->candidatesCount = 1;
@@ -2004,7 +2004,7 @@ CSlabel* initLabels(CSset *freqCSset) {
 	CSlabel		*labels;
 	int		i;
 
-	labels = (CSlabel *) malloc(sizeof(CSlabel) * freqCSset->numCSadded);
+	labels = (CSlabel *) GDKmalloc(sizeof(CSlabel) * freqCSset->numCSadded);
 	if (!labels) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		labels[i].candidates = NULL;
@@ -2031,7 +2031,7 @@ void getAllLabels(CSlabel* labels, CSset* freqCSset,  int typeAttributesCount, T
 
 		// copy attribute oids (names)
 		labels[i].numProp = cs.numProp;
-		labels[i].lstProp = (oid *) malloc(sizeof(oid) * cs.numProp);
+		labels[i].lstProp = (oid *) GDKmalloc(sizeof(oid) * cs.numProp);
 		if (!labels[i].lstProp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 		for (j = 0; j < cs.numProp; ++j) {
 			labels[i].lstProp[j] = cs.lstProp[j];
@@ -2169,7 +2169,6 @@ void addToOntoUsageTree(OntoUsageNode* tree, oid* hierarchy, int hierarchyCount,
 	addToOntoUsageTree(leaf, hierarchy, hierarchyCount, numTuples);
 }
 
-
 static
 void printTree(OntoUsageNode* tree, int level) {
 	int i;
@@ -2253,7 +2252,7 @@ void createOntoUsageTree(OntoUsageNode** tree, CSset* freqCSset, oid** ontmetada
 
 		// search class in tree and add CS to statistics
 		addToOntoUsageTree(*tree, hierarchy, hierarchyCount, freqCSset->items[i].support);
-		free(hierarchy);
+		GDKfree(hierarchy);
 //		numTuples += freqCSset->items[i].support; // update total number of tuples in dataset // TODO cs.support not yet available
 		numTuples += 1;
 	}
@@ -2351,60 +2350,6 @@ void freeOntologyLookupResult(oid** ontologyLookupResult, int csCount) {
 			free(ontologyLookupResult[i]);
 	}
 	free(ontologyLookupResult);
-}
-
-/* Returns the indexes of all CS a CS consists of. */
-static
-int* getSubCS(CSset* freqCSset, int csIdx, int* csListLength) {
-	int		*csList = NULL;
-	int		i, j;
-
-	CS cs = freqCSset->items[csIdx];
-
-	(*csListLength) = 0;
-
-	if (cs.type == MAXCS) {
-//printf("MAXCS ");
-		// get itself & all childen
-		(*csListLength)++;
-		csList = (int *) malloc(sizeof(int) * *csListLength);
-		csList[*csListLength - 1] = csIdx;
-		for (i = 0; i < freqCSset->numCSadded; ++i) {
-			if (freqCSset->items[i].parentFreqIdx != csIdx) continue;
-			(*csListLength)++;
-			csList = (int *) realloc(csList, sizeof(int) * *csListLength);
-			if (!csList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-			csList[*csListLength - 1] = i;
-//printf(BUNFMT" ", freqCSset->items[i].csId);
-		}
-	} else if (cs.type == MERGECS) {
-//printf("MERGECS ( ");
-		// get all children
-		for (i = 0; i < cs.numConsistsOf; ++i) {
-			int length;
-			int *list = getSubCS(freqCSset, cs.lstConsistsOf[i], &length); // recursive call
-
-			// merge into existing list
-			csList = realloc(csList, sizeof(int) * (*csListLength + length));
-			if (!csList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-			for (j = 0; j < length; ++j) {
-				csList[*csListLength + j] = list[j];
-			}
-			(*csListLength) += length;
-			free(list);
-		}
-//printf(")\n");
-	} else { // FREQCS
-//printf("FREQCS ");
-		// copy entry
-		csList = (int *) malloc(sizeof(int) * 1);
-		*csListLength = 1;
-		csList[0] = csIdx;
-//printf(BUNFMT" ", freqCSset->items[csIdx].csId);
-		return csList;
-	}
-
-	return csList;
 }
 
 /* Creates labels for all CS (without a parent). */
@@ -2505,155 +2450,180 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 	return labels;
 }
 
-str updateLabel(int ruleNumber, CSlabel *labels, int mergeCSFreqId, int freqCS1, int freqCS2){
-	(void) ruleNumber;
-	(void) labels;
-	(void) mergeCSFreqId;
-	(void) freqCS1;
-	(void) freqCS2;
+/* Create labels for merged CS's. Uses rules S1 to S5 (new names!).
+ * If no MERGECS is created (subset-superset relation), mergeCSFreqId contains the Id of the superset class.
+ * For S1 and S2, parameter 'name' is used to avoid recomputation of CS names
+ */
+str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, int mergeCSFreqId, int freqCS1, int freqCS2, oid name, oid **ontmetadata, int ontmetadataCount){
+	int		i;
+	int		freqCS1Counter;
+	CSlabel		*big;
+	CSlabel		*label;
+	CS		cs;
 
-	return MAL_SUCCEED; 
+	if (newCS) {
+		// realloc labels
+		*labels = GDKrealloc(*labels, sizeof(CSlabel) * freqCSset->numCSadded);
+		if (!(*labels)) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+		(*labels)[mergeCSFreqId].candidates = NULL;
+		(*labels)[mergeCSFreqId].candidatesCount = 0;
+		(*labels)[mergeCSFreqId].hierarchy = NULL;
+		(*labels)[mergeCSFreqId].hierarchyCount = 0;
+		(*labels)[mergeCSFreqId].numProp = 0;
+		(*labels)[mergeCSFreqId].lstProp = NULL;
+	}
+	label = &(*labels)[mergeCSFreqId];
+	cs = freqCSset->items[mergeCSFreqId];
+
+	// copy properties
+	if (ruleNumber != S3) {
+		if (label->numProp > 0) GDKfree(label->lstProp);
+		label->numProp = cs.numProp;
+		label->lstProp = (oid *) GDKmalloc(sizeof(oid) * label->numProp);
+		if (!label->lstProp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+		for (i = 0; i < label->numProp; ++i) {
+			label->lstProp[i] = cs.lstProp[i];
+		}
+	}
+
+	switch (ruleNumber) {
+		case S1: // was: (S1 or S2), now combined
+		// use common name
+		label->name = name;
+
+		// TODO candidates
+		//label->candidates = ;
+		//label->candidatesCount = ;
+
+		// hierarchy
+		if ((*labels)[freqCS1].name == label->name) {
+			// copy hierarchy from CS freqCS1
+			label->hierarchyCount = (*labels)[freqCS1].hierarchyCount;
+			if (label->hierarchyCount > 0) {
+				label->hierarchy = (oid *) GDKmalloc(sizeof(oid) * label->hierarchyCount);
+				if (!label->hierarchy) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+				for (i = 0; i < label->hierarchyCount; ++i) {
+					label->hierarchy[i] = (*labels)[freqCS1].hierarchy[i];
+				}
+			}
+		} else if ((*labels)[freqCS2].name == label->name) {
+			// copy hierarchy from CS freqCS2
+			label->hierarchyCount = (*labels)[freqCS2].hierarchyCount;
+			if (label->hierarchyCount > 0) {
+				label->hierarchy = (oid *) GDKmalloc(sizeof(oid) * label->hierarchyCount);
+				if (!label->hierarchy) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+				for (i = 0; i < label->hierarchyCount; ++i) {
+					label->hierarchy[i] = (*labels)[freqCS2].hierarchy[i];
+				}
+			}
+		} else {
+			// no top 1 name, no hierarchy available
+			label->hierarchy = getOntoHierarchy(name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
+		}
+
+		break;
+
+		case S2:
+		// use common ancestor
+		label->name = name;
+
+		// TODO candidates
+		//label->candidates = ;
+		//label->candidatesCount = ;
+
+		// hierarchy
+		freqCS1Counter = (*labels)[freqCS1].hierarchyCount - 1;
+		while (TRUE) {
+			if ((*labels)[freqCS1].hierarchy[freqCS1Counter] == label->name)
+				break;
+			freqCS1Counter--;
+		}
+		label->hierarchyCount = (*labels)[freqCS1].hierarchyCount - freqCS1Counter;
+		if (label->hierarchyCount > 0) {
+			label->hierarchy = (oid *) GDKmalloc(sizeof(oid) * label->hierarchyCount);
+			if (!label->hierarchy) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			for (i = 0; i < label->hierarchyCount; ++i) {
+				label->hierarchy[i] = (*labels)[freqCS1].hierarchy[freqCS1Counter + i];
+			}
+		}
+
+		break;
+
+		case S3:
+		// subset-superset relation
+		// candidates already set
+		// hierarchy already set
+		// properties already set
+
+		break;
+
+		case S4: // FALLTHROUGH
+		case S5:
+		// use label of biggest CS (higher coverage value)
+		if (freqCSset->items[freqCS1].coverage > freqCSset->items[freqCS2].coverage) {
+			big = &(*labels)[freqCS1];
+		} else {
+			big = &(*labels)[freqCS2];
+		}
+
+		label->name = big->name;
+
+		// TODO candidates
+		//label->candidatesCount = ;
+		//label->candidates = ;
+
+		// hierarchy
+		label->hierarchyCount = big->hierarchyCount;
+		if (label->hierarchyCount > 0) {
+			label->hierarchy = (oid *) GDKmalloc(sizeof(oid) * label->hierarchyCount);
+			if (!label->hierarchy) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			for (i = 0; i < label->hierarchyCount; ++i) {
+				label->hierarchy[i] = big->hierarchy[i];
+			}
+		}
+
+		break;
+
+		default:
+		// error
+		return "ERROR: ruleNumber must be S1, S2, S3, S4, or S5";
+	}
+
+	return MAL_SUCCEED;
 }
+
 void freeLabels(CSlabel* labels, CSset* freqCSset) {
 	int		i;
 
 	for (i = 0; i < freqCSset->numOrigFreqCS; ++i) { // do not use numCSadded because of additional mergeCS
 		if (labels[i].numProp > 0)
-			free(labels[i].lstProp);
+			GDKfree(labels[i].lstProp);
 
 		if (labels[i].hierarchyCount > 0)
-			free(labels[i].hierarchy);
+			GDKfree(labels[i].hierarchy);
 
 		if (labels[i].candidatesCount > 0)
-			free(labels[i].candidates);
+			GDKfree(labels[i].candidates);
 	}
-	free(labels);
+	GDKfree(labels);
 }
 
-CSlabel* createFinalLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, int freqThreshold) {
-	int			i, j, k;
+void exportLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelMergeFreqSet, int freqThreshold) {
 	int			**relationMetadataCount;
 	Relation		***relationMetadata;
-	CSlabel			*labels2;
-
-	// create final labels
-	labels2 = initLabels(freqCSset);
-
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		int		*subCSlist;
-		int		subCSlistLength;
-		CS		cs;
-
-		cs = (CS) freqCSset->items[i];
-		if (cs.parentFreqIdx != -1) continue; // ignore
-
-		if (cs.type != MERGECS) {
-			// reuse old name
-			// TODO create better name
-			labels2[i].name = labels[i].name;
-
-			// hierarchy
-			if (labels[i].hierarchyCount > 0) {
-				labels2[i].hierarchyCount = labels[i].hierarchyCount;
-				labels2[i].hierarchy = (oid *) malloc(sizeof(oid) * labels2[i].hierarchyCount);
-				if (!labels2[i].hierarchy)
-					fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-				for (k = 0; k < labels2[i].hierarchyCount; ++k) {
-					labels2[i].hierarchy[k] = labels[i].hierarchy[k];
-				}
-			}
-
-			// candidates
-			labels2[i].candidatesCount = labels[i].candidatesCount;
-			labels2[i].candidates = (oid *) malloc(sizeof(oid) * labels2[i].candidatesCount);
-			if (!labels2[i].candidates)
-				fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			for (k = 0; k < labels2[i].candidatesCount; ++k) {
-				labels2[i].candidates[k] = labels[i].candidates[k];
-			}
-
-			// set property names
-			labels2[i].numProp = cs.numProp;
-			labels2[i].lstProp = (oid *) malloc(sizeof(oid) * cs.numProp);
-			if (!labels2[i].lstProp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			for (k = 0; k < cs.numProp; ++k) {
-				labels2[i].lstProp[k] = cs.lstProp[k];
-			}
-
-		} else {
-			// get list of CS this finalCS consists of
-			subCSlist = getSubCS(freqCSset, i, &subCSlistLength);
-			for (j = 0; j < subCSlistLength; ++j) {
-				if (freqCSset->items[subCSlist[j]].type == MERGECS) continue;
-
-				// TODO use biggest subCS instead of first one
-				labels2[i].name = labels[subCSlist[j]].name;
-
-				// hierarchy
-				if (labels[subCSlist[j]].hierarchyCount > 0) {
-					labels2[i].hierarchyCount = labels[subCSlist[j]].hierarchyCount;
-					labels2[i].hierarchy = (oid *) malloc(sizeof(oid) * labels2[i].hierarchyCount);
-					if (!labels2[i].hierarchy)
-						fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-					for (k = 0; k < labels2[i].hierarchyCount; ++k) {
-						labels2[i].hierarchy[k] = labels[subCSlist[j]].hierarchy[k];
-					}
-				}
-
-				// candidates
-				// TODO create new list of candidates (make sure that [0] == name)
-				labels2[i].candidatesCount = labels[subCSlist[j]].candidatesCount;
-				labels2[i].candidates = (oid *) malloc(sizeof(oid) * labels2[i].candidatesCount);
-				if (!labels2[i].candidates)
-					fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-				for (k = 0; k < labels2[i].candidatesCount; ++k) {
-					labels2[i].candidates[k] = labels[subCSlist[j]].candidates[k];
-				}
-
-				// set property names
-				labels2[i].numProp = cs.numProp;
-				labels2[i].lstProp = (oid *) malloc(sizeof(oid) * cs.numProp);
-				if (!labels2[i].lstProp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-				for (k = 0; k < cs.numProp; ++k) {
-					labels2[i].lstProp[k] = cs.lstProp[k];
-				}
-
-				break;
-			}
-			free(subCSlist);
-		}
-	}
 
 	// FK
 	relationMetadataCount = initRelationMetadataCount(freqCSset);
-	relationMetadata = initRelationMetadata2(relationMetadataCount, csRelBetweenMergeFreqSet, freqCSset);
+	relationMetadata = initRelationMetadata2(relationMetadataCount, csRelMergeFreqSet, freqCSset);
 
 	// Print and Export
-	printUML2(freqCSset, labels2, relationMetadata, relationMetadataCount, freqThreshold);
-	convertToSQL(freqCSset, relationMetadata, relationMetadataCount, labels2, freqThreshold);
-	createSQLMetadata(freqCSset, csRelBetweenMergeFreqSet, labels2);
-	printTxt(freqCSset, labels2, freqThreshold);
+	printUML2(freqCSset, labels, relationMetadata, relationMetadataCount, freqThreshold);
+	convertToSQL(freqCSset, relationMetadata, relationMetadataCount, labels, freqThreshold);
+	createSQLMetadata(freqCSset, csRelMergeFreqSet, labels);
+	printTxt(freqCSset, labels, freqThreshold);
 
 	freeRelationMetadata(relationMetadata, freqCSset);
 	freeRelationMetadataCount(relationMetadataCount, freqCSset->numCSadded);
-
-	return labels2;
-}
-
-void freeFinalLabels(CSlabel* labels, CSset* freqCSset) {
-	int		i;
-
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (labels[i].numProp > 0)
-			free(labels[i].lstProp);
-
-		if (labels[i].hierarchyCount > 0)
-			free(labels[i].hierarchy);
-
-		if (labels[i].candidatesCount > 0)
-			free(labels[i].candidates);
-	}
-	free(labels);
 }
 
 void freeOntoUsageTree(OntoUsageNode* tree) {
