@@ -278,7 +278,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 			if (gapL>0) 
 			{
 				addCrackerIndex_@1(m, low, *inclusiveLow, _vl, c);
-				incr_pieces=1;	
+				incr_pieces++;	
 
 			}
 			if ((vl == 1) && (*t == *low) && (*inclusiveLow == TRUE))
@@ -287,8 +287,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 
 		MT_lock_set(&frequencylock, "getFrequencyStruct");
 		FN=searchBAT(FrequencyStructA,*bid);
-		if(incr_pieces!=0)
-			FN->c = FN->c + 1;
+		FN->c = FN->c + incr_pieces;
 		if(FN->weight > 0)
 			FN->weight = changeWeight(FN,countBatElements,L1);
 		MT_lock_unset(&frequencylock, "getFrequencyStruct");
@@ -393,8 +392,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 	countBatElements=BATcount(b);
 	MT_lock_set(&frequencylock, "getFrequencyStruct");
 	FN=searchBAT(FrequencyStructA,*bid);
-	if(incr_pieces!=0)
-		FN->c = FN->c + 1;
+	FN->c = FN->c + incr_pieces;
 	if(FN->weight > 0)
 		FN->weight = changeWeight(FN,countBatElements,L1);
 	MT_lock_unset(&frequencylock, "getFrequencyStruct");
@@ -889,8 +887,7 @@ createView:
 	FN->f1 = FN->f1 + 1;
 	if((foundLow!=0 && foundHgh!=0)) 
 		FN->f2 = FN->f2 + 1;
-	if(incr_pieces)
-		FN->c = FN->c + incr_pieces;
+	FN->c = FN->c + incr_pieces;
 	if(FN->weight > 0)
 		FN->weight = changeWeight(FN,countBatElements,L1);
 	MT_lock_unset(&frequencylock, "getFrequencyStruct");
@@ -1513,7 +1510,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 			if(gapH>0)
 			{
 				addCrackerIndex_@1(m,hgh,HBound,vh,c);
-				incr_pieces=1;
+				incr_pieces++;
 			}
 		}
 		pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
@@ -1530,8 +1527,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	FN->f1 = FN->f1 + 1;
 	if (foundHgh != 0)
 		FN->f2 = FN->f2 + 1;
-	if(incr_pieces!=0)
-		FN->c = FN->c + 1;
+	FN->c = FN->c + incr_pieces;
 	fprintf(ofp,"%d\t%d\n",FN->bid,FN->c);
 	fclose(ofp);
 	if(FN->weight > 0)
@@ -1718,7 +1714,7 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 			if(gapL>0)
 			{
 				addCrackerIndex_@1(m,low,*inclusiveLow,vl,c);
-				incr_pieces=1;
+				incr_pieces++;
 			}
 		}
 		pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
@@ -1734,8 +1730,7 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 	FN->f1 = FN->f1 + 1;
 	if (foundLow != 0)
 		FN->f2 = FN->f2 + 1;
-	if(incr_pieces!=0)
-		FN->c = FN->c + 1;
+	FN->c = FN->c + incr_pieces;
 	fprintf(ofp,"%d\t%d\n",FN->bid,FN->c);
 	fclose(ofp);
 	if(FN->weight > 0)
