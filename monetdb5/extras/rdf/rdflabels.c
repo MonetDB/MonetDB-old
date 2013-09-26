@@ -1664,6 +1664,7 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		int width;
 		str labelStr;
+		str tmpStr;
 		str labelStrEscaped = NULL;
 #if USE_SHORT_NAMES
 		str labelStrShort = NULL;
@@ -1682,7 +1683,8 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 			if (!labelStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 			strcpy(labelStrEscaped, "DUMMY");
 		} else {
-			takeOid(labels[i].name, &labelStr);
+			takeOid(labels[i].name, &tmpStr);
+			labelStr = removeBrackets(tmpStr);
 #if USE_SHORT_NAMES
 			getPropNameShort(&labelStrShort, labelStr);
 			labelStrEscaped = (str) GDKmalloc(sizeof(char) * (strlen(labelStrShort) + 1));
@@ -1706,18 +1708,12 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 			str		propStr;
 			str		tmpStr;
 			char    *propStrEscaped = NULL;
+#if USE_SHORT_NAMES
 			char    *propStrShort = NULL;
+#endif
 			str color;
 
 			takeOid(cs.lstProp[j], &tmpStr);
-
-			// copy propStr to propStrEscaped because .dot-PORTs cannot contain colons and quotes
-			propStr = removeBrackets(tmpStr);
-			propStrEscaped = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
-			if (!propStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			memcpy(propStrEscaped, propStr, (strlen(propStr) + 1));
-			escapeURI(propStrEscaped);
-			getPropNameShort(&propStrShort, propStr);
 
 			// assign color (the more tuples the property occurs in, the darker
 			if ((1.0 * cs.lstPropSupport[j])/cs.support > 0.8) {
@@ -1731,10 +1727,22 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 			} else {
 				color = "#DDDDFF";
 			}
+
+			// copy propStr to propStrEscaped because .dot-PORTs cannot contain colons and quotes
+			propStr = removeBrackets(tmpStr);
+			propStrEscaped = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
+			if (!propStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			memcpy(propStrEscaped, propStr, (strlen(propStr) + 1));
+			escapeURI(propStrEscaped);
+#if USE_SHORT_NAMES
+			getPropNameShort(&propStrShort, propStr);
 			fprintf(fout, "<TR><TD BGCOLOR=\"%s\" PORT=\"%s\">%s (%d%%)</TD></TR>\n", color, propStrEscaped, propStrShort, (100 * cs.lstPropSupport[j])/cs.support);
+			GDKfree(propStrShort);
+#else
+			fprintf(fout, "<TR><TD BGCOLOR=\"%s\" PORT=\"%s\">%s (%d%%)</TD></TR>\n", color, propStrEscaped, propStrEscaped, (100 * cs.lstPropSupport[j])/cs.support);
+#endif
 
 			GDKfree(propStr);
-			GDKfree(propStrShort);
 			free(propStrEscaped);
 			GDKfree(tmpStr); 
 
@@ -1751,6 +1759,9 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 			str	tmpStr;
 			str	propStr;
 			char    *propStrEscaped = NULL;
+#if USE_SHORT_NAMES
+			char    *propStrShort = NULL;
+#endif
 
 			takeOid(cs.lstProp[j], &tmpStr);
 
@@ -1761,15 +1772,30 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 			memcpy(propStrEscaped, propStr, (strlen(propStr) + 1));
 			escapeURI(propStrEscaped);
 
+#if USE_SHORT_NAMES
+			getPropNameShort(&propStrShort, propStr);
 			for (k = 0; k < relationMetadataCount[i][j]; ++k) {
 
 				if (relationMetadata[i][j][k].percent >= FK_FREQ_THRESHOLD) {
 					// target of links is frequent enough, not an outlier
 					int from = relationMetadata[i][j][k].from;
 					int to = relationMetadata[i][j][k].to;
-					fprintf(fout, "\""BUNFMT"\":\"%s\" -> \""BUNFMT"\" [label=\"%s\"];\n", freqCSset->items[from].csId, propStrEscaped, freqCSset->items[to].csId, propStr); // print foreign keys to dot file
+					fprintf(fout, "\""BUNFMT"\":\"%s\" -> \""BUNFMT"\" [label=\"%s\"];\n", freqCSset->items[from].csId, propStrEscaped, freqCSset->items[to].csId, propStrShort); // print foreign keys to dot file
 				}
 			}
+			GDKfree(propStrShort);
+#else
+			for (k = 0; k < relationMetadataCount[i][j]; ++k) {
+
+				if (relationMetadata[i][j][k].percent >= FK_FREQ_THRESHOLD) {
+					// target of links is frequent enough, not an outlier
+					int from = relationMetadata[i][j][k].from;
+					int to = relationMetadata[i][j][k].to;
+					fprintf(fout, "\""BUNFMT"\":\"%s\" -> \""BUNFMT"\" [label=\"%s\"];\n", freqCSset->items[from].csId, propStrEscaped, freqCSset->items[to].csId, propStrEscaped); // print foreign keys to dot file
+				}
+			}
+#endif
+
 			GDKfree(propStr);
 			free(propStrEscaped);
 			GDKfree(tmpStr); 
@@ -1871,7 +1897,24 @@ void removeDuplicatedCandidates(CSlabel *label) {
 		label->candidatesFK = cFK;
 	}
 
-	// DUMMY value on position 0 is kept to ensure that name == candidates[0]
+	// remove DUMMY value on position 0
+	if (label->candidates[0] == BUN_NONE && label->candidatesCount > 1) {
+		for (i = 1; i < label->candidatesCount; ++i) {
+			label->candidates[i - 1] = label->candidates[i];
+		}
+		label->candidatesCount--;
+
+		// update value in category;
+		if (label->candidatesNew > 0) {
+			label->candidatesNew--;
+		} else if (label->candidatesOntology > 0) {
+			label->candidatesOntology--;
+		} else if (label->candidatesType > 0) {
+			label->candidatesType--;
+		} else {
+			label->candidatesFK--;
+		}
+	}
 }
 
 #if USE_TABLE_NAME
@@ -2638,6 +2681,9 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		label->candidatesType = candidatesType;
 		label->candidatesFK = candidatesFK;
 		removeDuplicatedCandidates(label);
+		if (label->name == BUN_NONE && label->candidates[0] != BUN_NONE) {
+			label->name = label->candidates[0];
+		}
 
 		// hierarchy
 		if ((*labels)[freqCS1].name == label->name) {
@@ -2683,6 +2729,9 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		label->candidatesType = candidatesType;
 		label->candidatesFK = candidatesFK;
 		removeDuplicatedCandidates(label);
+		if (label->name == BUN_NONE && label->candidates[0] != BUN_NONE) {
+			label->name = label->candidates[0];
+		}
 
 		// hierarchy
 		freqCS1Counter = (*labels)[freqCS1].hierarchyCount - 1;
@@ -2715,6 +2764,9 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		label->candidatesType = candidatesType;
 		label->candidatesFK = candidatesFK;
 		removeDuplicatedCandidates(label);
+		if (label->name == BUN_NONE && label->candidates[0] != BUN_NONE) {
+			label->name = label->candidates[0];
+		}
 
 		// hierarchy already set
 		// properties already set
@@ -2756,6 +2808,9 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		label->candidatesType = candidatesType;
 		label->candidatesFK = candidatesFK;
 		removeDuplicatedCandidates(label);
+		if (label->name == BUN_NONE && label->candidates[0] != BUN_NONE) {
+			label->name = label->candidates[0];
+		}
 
 		// hierarchy
 		label->hierarchyCount = big.hierarchyCount;
