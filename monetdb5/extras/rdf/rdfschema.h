@@ -273,6 +273,21 @@ typedef struct CSPropTypes {
 	PropTypes*	lstPropTypes; 
 } CSPropTypes; 
 
+#define NUM_SAMPLETABLE 20
+#define	NUM_SAMPLE_INSTANCE 10
+#define NUM_SAMPLE_CANDIDATE 3
+typedef struct CSSample{
+	int	freqIdx;
+	int 	tblIdx; 
+	oid	*candidates;
+	oid	candidateCount; 
+	int	numProp; 
+	oid	*lstProp; 
+	oid	*lstSubjOid;
+	oid	**lstObj; 
+	int	numInstances; 
+} CSSample;
+
 rdf_export str
 RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId);
 

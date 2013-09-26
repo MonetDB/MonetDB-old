@@ -1709,16 +1709,19 @@ str printmergeCSSet(CSset *freqCSset, int freqThreshold){
 
 
 static 
-str printsubsetFromCSset(CSset *freqCSset, int* subsetIdx, int num){
+str printsubsetFromCSset(CSset *freqCSset, BAT* subsetIdxBat, int num, oid* mergeCSFreqCSMap){
 
 	int 	i,j; 
 	FILE 	*fout; 
 	char 	filename[100];
 	char 	tmpStr[20];
 	int 	ret;
+	int	*tblIdx; 
+	int	freqIdx; 
 
 	str 	propStr; 
 	char*   schema = "rdf";
+	CS	cs; 
 
 
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
@@ -1735,7 +1738,9 @@ str printsubsetFromCSset(CSset *freqCSset, int* subsetIdx, int num){
 	fout = fopen(filename,"wt"); 
 
 	for (i = 0; i < num; i++){
-		CS cs = (CS)freqCSset->items[subsetIdx[i]];
+		tblIdx = (int*) Tloc(subsetIdxBat, i); 
+		freqIdx = mergeCSFreqCSMap[*tblIdx];
+		cs = (CS)freqCSset->items[freqIdx];
 		assert (cs.parentFreqIdx == -1);
 		fprintf(fout, "Table %d (Coverage: %d, NumProp: %d) \n",i,cs.coverage, cs.numProp);
 		for (j = 0; j < cs.numProp; j++){
@@ -3592,20 +3597,28 @@ void freeCSBats(CSBats *csBats){
 }
 
 static
-void generateTablesForEvaluating(CSset *freqCSset, int numTbl,oid* mergeCSFreqCSMap, int curNumMergeCS){
+BAT* generateTablesForEvaluating(CSset *freqCSset, int numTbl,oid* mergeCSFreqCSMap, int curNumMergeCS){
 	int	*cumDist; 
 	int	totalCoverage = 0; 
 	int	curCoverage = 0;
 	int	randValue = 0;
 	int	tmpIdx; 
 	int	freqId; 
+	BAT	*outputBat; 
 	int	minIdx, maxIdx; 
 	int	i;
-	int	*output;
+	BUN	bun = BUN_NONE;
+	int	numLoop; 
 
 	cumDist = (int*)malloc(sizeof(int) * curNumMergeCS);
-	output = (int*)malloc(sizeof(int) * numTbl);
-			
+	outputBat = BATnew(TYPE_void, TYPE_int, numTbl);
+	if (outputBat == NULL){
+		return NULL; 
+	}
+	(void)BATprepareHash(BATmirror(outputBat));
+	if (!(outputBat->T->hash)) 
+		return NULL; 
+
 	for (i = 0; i < curNumMergeCS; i++){		
 		freqId = mergeCSFreqCSMap[i];
 		totalCoverage += freqCSset->items[freqId].coverage; 
@@ -3619,7 +3632,9 @@ void generateTablesForEvaluating(CSset *freqCSset, int numTbl,oid* mergeCSFreqCS
 	}
 
 	srand(123456);
-	for (i = 0; i < numTbl; i++){
+	i = 0; 
+	numLoop = 0;
+	while(i < numTbl){
 		//Get the index of freqCS for a random value [0-> totalCoverage -1]
 		//Using binary search
 		randValue = rand() % totalCoverage; 
@@ -3641,15 +3656,28 @@ void generateTablesForEvaluating(CSset *freqCSset, int numTbl,oid* mergeCSFreqCS
 		}
 
 		tmpIdx = maxIdx; 
-		output[i] = mergeCSFreqCSMap[tmpIdx];
+
 		//printf("tmpIdx = %d --> FreqCS %d \n",tmpIdx, output[i]);
+		bun = BUNfnd(BATmirror(outputBat),(ptr) &tmpIdx);
+		if (bun == BUN_NONE) {
+			/*New FreqIdx*/
+			if (outputBat->T->hash && BATcount(outputBat) > 4 * outputBat->T->hash->mask) {
+				HASHdestroy(outputBat);
+				BAThash(BATmirror(outputBat), 2*BATcount(outputBat));
+			}
+			outputBat = BUNappend(outputBat, (ptr) &tmpIdx, TRUE);
+			i++;
+		}
+		numLoop++;
 	}
 
 	//Print the results
-	printsubsetFromCSset(freqCSset, output, numTbl)	;
+	printf("Get the sample tables after %d loop \n",numLoop );
+	printsubsetFromCSset(freqCSset, outputBat, numTbl,mergeCSFreqCSMap);
 
 	free(cumDist); 
-	free(output);
+
+	return outputBat; 
 }
 
 #if STOREFULLCS
@@ -4109,7 +4137,283 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 
 	return MAL_SUCCEED; 
 }
+static 
+void initSampleData(CSSample *csSample,BAT *candBat,CSset *freqCSset, oid *mergeCSFreqCSMap, CSlabel *label){
+	int 	i, j, k; 
+	int	numCand = 0; 
+	int	freqId; 
+	int	*tblId; 
+	CS	cs; 
+	int	tmpNumcand; 
+	oid	tmpCandidate; 
+	int 	randValue = 0; 
 
+	numCand = BATcount(candBat); 
+	srand(123456); 
+	for (i = 0; i < numCand; i++){
+		tblId = (int*) Tloc(candBat, i); 
+		freqId = mergeCSFreqCSMap[*tblId];
+		cs = freqCSset->items[freqId];
+		csSample[i].freqIdx = freqId;
+		tmpNumcand = (NUM_SAMPLE_CANDIDATE > label[freqId].candidatesCount)?label[freqId].candidatesCount:NUM_SAMPLE_CANDIDATE;
+		csSample[i].candidateCount = tmpNumcand;
+		csSample[i].candidates = (oid*)malloc(sizeof(oid) * tmpNumcand); 
+		for (k = 0; k < tmpNumcand; k++){
+			csSample[i].candidates[k] = label[freqId].candidates[k]; 
+		}
+		//Randomly exchange the value, change the position k with a random pos
+		for (k = 0; k < tmpNumcand; k++){
+			randValue = rand() % tmpNumcand;
+			tmpCandidate = csSample[i].candidates[k];
+			csSample[i].candidates[k] = csSample[i].candidates[randValue];
+			csSample[i].candidates[randValue] = tmpCandidate;
+		}
+
+		csSample[i].numProp = cs.numProp;
+		csSample[i].lstProp = (oid*)malloc(sizeof(oid) * cs.numProp); 
+		memcpy(csSample[i].lstProp, cs.lstProp, cs.numProp * sizeof(oid));
+		csSample[i].lstSubjOid = (oid*)malloc(sizeof(oid) * NUM_SAMPLE_INSTANCE);
+		for (k = 0; k < NUM_SAMPLE_INSTANCE; k++)
+			csSample[i].lstSubjOid[k] = BUN_NONE; 
+
+		csSample[i].lstObj = (oid**)malloc(sizeof(oid*) * cs.numProp); 
+		for (j = 0; j < cs.numProp; j++){
+			csSample[i].lstObj[j] = (oid*)malloc(sizeof(oid) * NUM_SAMPLE_INSTANCE);
+			for (k = 0; k < NUM_SAMPLE_INSTANCE; k++)
+				csSample[i].lstObj[j][k] = BUN_NONE; 
+		}
+		csSample[i].numInstances = 0;
+
+	}
+}
+static 
+void freeSampleData(CSSample *csSample, int numCand){
+	int i, j; 
+	for (i = 0; i < numCand; i++){
+		free(csSample[i].lstProp);
+		free(csSample[i].candidates); 
+		free(csSample[i].lstSubjOid);
+		for (j = 0; j < csSample[i].numProp; j++){
+			free(csSample[i].lstObj[j]);
+		}
+		free(csSample[i].lstObj);
+	}
+
+	free(csSample);
+}
+
+static 
+void addSampleInstance(oid subj, oid *buffO, oid* buffP, int numP, int sampleIdx, CSSample *csSample){
+	int i,j; 
+	int curPos; 
+	
+	j = 0;
+	curPos= csSample[sampleIdx].numInstances;
+	csSample[sampleIdx].lstSubjOid[curPos] = subj;
+	for (i = 0; i < numP; i++){
+		//printf("  P: " BUNFMT " Type: %d ", buffP[i], buffTypes[i]);
+		while (csSample[sampleIdx].lstProp[j] != buffP[i]){
+			j++;
+		}	
+		assert(j < csSample[sampleIdx].numProp);
+		//j is position of the property buffP[i] in csPropTypes[tblId]
+		csSample[sampleIdx].lstObj[j][curPos] = buffO[i]; 
+	}
+	csSample[sampleIdx].numInstances++;
+}
+
+static 
+void getObjStr(BAT *mapbat, BATiter mapi, oid objOid, str *objStr, char *retObjType){
+	BUN bun; 
+
+	char objType = getObjType(objOid); 
+
+	if (objType == URI || objType == BLANKNODE){
+		objOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
+		takeOid(objOid, objStr); 
+	}
+	else{
+		objOid = objOid - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the real objOid from Map or Tokenizer */ 
+		bun = BUNfirst(mapbat);
+		*objStr = (str) BUNtail(mapi, bun + objOid); 
+	}
+
+	*retObjType = objType; 
+
+
+
+
+}
+static 
+str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
+
+	int 	i,j, k; 
+	FILE 	*fout; 
+	char 	filename[100];
+	char 	tmpStr[20];
+	int 	ret;
+
+	str 	propStr; 
+	str	subjStr; 
+	char*   schema = "rdf";
+	CSSample	sample; 
+	CS		freqCS; 
+	char	objType = 0; 
+	str	objStr; 	
+	oid	objOid = BUN_NONE; 
+	BATiter mapi;
+	str	canStr; 
+
+	mapi = bat_iterator(mbat);
+
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "rdf.rdfschema",
+				"could not open the tokenizer\n");
+	}
+	
+
+	strcpy(filename, "sampleData");
+	sprintf(tmpStr, "%d", num);
+	strcat(filename, tmpStr);
+	strcat(filename, ".txt");
+
+	fout = fopen(filename,"wt"); 
+
+	for (i = 0; i < num; i++){
+		sample = csSample[i];
+		freqCS = freqCSset->items[sample.freqIdx];
+		fprintf(fout,"Sample table %d \n Candidates: ", i);
+		for (j = 0; j < (int)sample.candidateCount; j++){
+			//fprintf(fout,"  "  BUNFMT,sample.candidates[j]);
+			if (sample.candidates[j] != BUN_NONE){
+				takeOid(sample.candidates[j], &canStr); 
+				fprintf(fout,"%s, ",  canStr);
+				GDKfree(canStr); 
+			
+			}
+		}
+		fprintf(fout, "\n");
+		//List of columns
+		fprintf(fout,"Subject, ");
+		for (j = 0; j < sample.numProp; j++){
+			takeOid(sample.lstProp[j], &propStr);	
+			fprintf(fout,"%s, ", propStr);
+			GDKfree(propStr);
+		}
+		fprintf(fout, "\n");
+		
+		//List of support
+		fprintf(fout,"NONE, ");
+		for (j = 0; j < sample.numProp; j++){
+			fprintf(fout,"%d, ", freqCS.lstPropSupport[j]);
+		}
+		fprintf(fout, "\n");
+
+		//All the instances 
+		for (k = 0; k < sample.numInstances; k++){
+			takeOid(sample.lstSubjOid[k], &subjStr); 
+			fprintf(fout,"%s, ", subjStr);
+			GDKfree(subjStr); 
+			
+			for (j = 0; j < sample.numProp; j++){
+				objOid = sample.lstObj[j][k];
+				if (objOid == BUN_NONE)
+					fprintf(fout,"NULL, ");
+				else{
+					getObjStr(mbat, mapi, objOid, &objStr, &objType);
+					fprintf(fout,"%s, ", objStr);
+
+					if (objType == URI || objType == BLANKNODE){
+						GDKfree(objStr);
+					}
+				}
+			}
+			fprintf(fout, "\n");
+		}
+
+		fprintf(fout, "\n \n");
+	}
+
+	fclose(fout);
+	
+	TKNZRclose(&ret);
+	return MAL_SUCCEED;
+}
+
+static 
+str RDFExtractSampleData(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,  
+		oid *subjCSMap, int* csTblIdxMapping, int maxNumPwithDup, CSSample *csSample, BAT *tblCandBat){
+
+	BUN	 	p, q; 
+	oid 		*sbt = 0, *obt, *pbt;
+	oid 		curS; 		/* current Subject oid */
+	//oid 		CSoid = 0; 	/* Characteristic set oid */
+	int 		numP;	/* Number of properties for current S */
+	oid* 		buffO; 
+	oid*		buffP;
+	oid		curP; 
+	int		tblIdx; 
+	BUN		sampleIdx = BUN_NONE; 
+	int		totalInstance = 0; 
+	int		maxNumInstance = NUM_SAMPLE_INSTANCE * NUM_SAMPLETABLE;
+
+	(void) csSample; 
+
+	buffO = (oid *) malloc(sizeof(oid) * (maxNumPwithDup + 1)); 
+	buffP = (oid *) malloc(sizeof(oid) * (maxNumPwithDup + 1));
+
+	numP = 0;
+	curS = 0; 
+	curP = 0; 
+
+	BATloop(sbat, p, q){
+		sbt = (oid *) BUNtloc(si, p);		
+		if (*sbt != curS){
+			if (p != 0){	/* Not the first S */
+				tblIdx = csTblIdxMapping[subjCSMap[curS]];
+				if (tblIdx != -1){
+				
+					sampleIdx = BUNfnd(BATmirror(tblCandBat),(ptr) &tblIdx);
+					if (sampleIdx != BUN_NONE) {
+						assert(!(numP > csSample[sampleIdx].numProp));
+						if (csSample[sampleIdx].numInstances < NUM_SAMPLE_INSTANCE){	
+							addSampleInstance(*sbt, buffO, buffP, numP, sampleIdx, csSample);
+							totalInstance++;
+						}
+					}
+				}
+			}
+			curS = *sbt; 
+			numP = 0;
+			curP = 0; 
+		}
+				
+		if (totalInstance == maxNumInstance) break;
+
+		obt = (oid *) BUNtloc(oi, p); 
+		/* Check type of object */
+	
+		pbt = (oid *) BUNtloc(pi, p);
+
+		if (curP != *pbt){
+			buffO[numP] = *obt; 
+			buffP[numP] = *pbt;
+			numP++; 
+			curP = *pbt; 
+		}
+
+
+	}
+	
+	/* Check for the last CS */
+
+	free (buffO); 
+	free (buffP); 
+
+	*ret = 1; 
+
+	return MAL_SUCCEED; 
+}
 
 /* Create a new data structure to store relationships including merged CS */
 static
@@ -4434,13 +4738,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	updateParentIdxAll(freqCSset); 
 
-	//Generate evaluating tables
-	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
-	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
-
-	generateTablesForEvaluating(freqCSset, 20, mergeCSFreqCSMap, curNumMergeCS);
-	free(mergeCSFreqCSMap);
-
+	
 	//Finally, re-create mergeFreqSet
 	
 	*csRelMergeFreqSet = generateCsRelBetweenMergeFreqSet(csrelSet, freqCSset);
@@ -5123,7 +5421,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	CSset		*freqCSset; 	/* Set of frequent CSs */
 	oid		*subjCSMap = NULL;  	/* Store the corresponding CS Id for each subject */
 	oid 		maxCSoid = 0; 
-	BAT		*sbat = NULL, *obat = NULL, *pbat = NULL;
+	BAT		*sbat = NULL, *obat = NULL, *pbat = NULL, *mbat = NULL;
 	BATiter		si,pi,oi; 
 	BUN		p,q; 
 	BAT		*sNewBat, *lmap, *rmap, *oNewBat, *origobat, *pNewBat; 
@@ -5203,6 +5501,34 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	// Init CStableStat
 	initCStables(cstablestat, freqCSset, csPropTypes, numTables);
+
+	
+	/* Extract sample data for the evaluation */
+	{	
+	int 	curNumMergeCS;
+	oid	*mergeCSFreqCSMap;
+	BAT	*outputBat;
+	CSSample *csSample; 
+
+	if ((mbat = BATdescriptor(*mapbatid)) == NULL) {
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+	//Generate evaluating tables
+	curNumMergeCS = countNumberMergeCS(freqCSset);
+	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
+	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
+
+	outputBat = generateTablesForEvaluating(freqCSset, NUM_SAMPLETABLE, mergeCSFreqCSMap, curNumMergeCS);
+	assert (BATcount(outputBat) == NUM_SAMPLETABLE);
+	csSample = (CSSample*)malloc(sizeof(CSSample) * NUM_SAMPLETABLE);
+	initSampleData(csSample, outputBat, freqCSset, mergeCSFreqCSMap, labels);
+	RDFExtractSampleData(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, maxNumPwithDup, csSample, outputBat);
+	printSampleData(csSample, freqCSset, mbat, NUM_SAMPLETABLE);
+	freeSampleData(csSample, NUM_SAMPLETABLE);
+	BBPreclaim(outputBat);
+	BBPunfix(mbat->batCacheid);
+	free(mergeCSFreqCSMap);
+	}
 
 	if (*mode == EXPLOREONLY){
 		printf("Only explore the schema information \n");
