@@ -108,6 +108,10 @@ typedef struct CSlabel {
 	oid		name;		// table name
 	oid		*candidates;	// list of table name candidates, candidates[0] == name
 	int		candidatesCount;// number of entries in the candidates list
+	int		candidatesNew;		// number of candidates that are created during merging (e.g. ancestor name)
+	int		candidatesOntology;	// number of ontology candidates (first category)
+	int		candidatesType;		// number of type candidates (second category)
+	int		candidatesFK;		// number of fk candidates (third category)
 	oid		*hierarchy;     // hierarchy "bottom to top"
 	int		hierarchyCount; // number of entries in the hierarchy list
 	int		numProp;	// number of properties, copied from freqCSset->items[x].numProp
