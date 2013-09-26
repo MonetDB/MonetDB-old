@@ -1106,7 +1106,7 @@ CS* mergeTwoCSs(CS cs1, CS cs2, int freqIdx1, int freqIdx2, oid mergeCSId){
 	int numCombineP = 0; 
 
 	CS *mergecs = (CS*) malloc (sizeof (CS)); 
-	mergecs->type = MERGECS; 
+	mergecs->type = (char)MERGECS; 
 	mergecs->numConsistsOf = 2; 
 	mergecs->lstConsistsOf = (int*) malloc(sizeof(int) * 2);
 
@@ -1128,6 +1128,9 @@ CS* mergeTwoCSs(CS cs1, CS cs2, int freqIdx1, int freqIdx2, oid mergeCSId){
 	mergecs->numProp = numCombineP;
 	#if     COLORINGPROP 
 	mergecs->lstPropSupport = NULL; 
+	#endif
+	#if STOREFULLCS
+	mergecs->lstObj = NULL; 
 	#endif
 	mergecs->support = cs1.support + cs2.support;
 	mergecs->coverage = cs1.coverage + cs2.coverage;
@@ -1348,7 +1351,7 @@ void updateConsistsOfListAndSupport(CSset *freqCSset, CS *newmergeCS, int *lstDi
 Multi-way merging for list of freqCS
 */
 static 
-int* mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId,int *retNumDistinct){
+int* mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId,int *retNumDistinct, int *isNew, int *retFreqIdx){
 	
 	int 	i; 
 	int 	*lstMergeCSFreqId;
@@ -1450,6 +1453,9 @@ int* mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId,int 
 	free(lstMergeCSFreqId);
 
 	*retNumDistinct = numDistinct;
+	*isNew = 1 -  isExistingMergeCS;
+	*retFreqIdx = mergecsFreqIdx;
+
 	return lstDistinctFreqId;
 }
 
@@ -2878,10 +2884,14 @@ void mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid*
 	#else
 	int		*lstDistinctFreqId = NULL;		
 	int		numDistinct = 0;
+	int		isNew = 0; 
+	int  		mergeFreqIdx = -1; 
 	#endif
 	LabelStat	*labelStat = NULL; 
 	oid		*name;
-
+	(void) name; 
+	(void) ontmetadata;
+	(void) ontmetadataCount;
 	labelStat = initLabelStat(); 
 	buildLabelStat(labelStat, (*labels), freqCSset, TOPK);
 	printf("Num FreqCSadded before using S1 = %d \n", freqCSset->numCSadded);
@@ -2891,16 +2901,18 @@ void mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid*
 		if (labelStat->lstCount[i] > 1){
 			/*TODO: Multi-way merge */
 			#if USE_MULTIWAY_MERGING	
-			lstDistinctFreqId = mergeMultiCS(freqCSset,  labelStat->freqIdList[i], labelStat->lstCount[i], mergecsId, &numDistinct); 
+			lstDistinctFreqId = mergeMultiCS(freqCSset,  labelStat->freqIdList[i], labelStat->lstCount[i], mergecsId, &numDistinct, &isNew, &mergeFreqIdx); 
 			if (lstDistinctFreqId != NULL){
-				updateLabel(S1, freqCSset, labels, 1, freqCSset->numCSadded - 1, -1, -1, *name, ontmetadata, ontmetadataCount, lstDistinctFreqId, numDistinct);
+				updateLabel(S1, freqCSset, labels, isNew, mergeFreqIdx, -1, -1, *name, ontmetadata, ontmetadataCount, lstDistinctFreqId, numDistinct);
 			}
 			#else
 			freqId1 = labelStat->freqIdList[i][0];
-			cs1 = (CS*) &(freqCSset->items[freqId1]);
+			cs1 = &(freqCSset->items[freqId1]);
+			if (i == 89) 
+				printf("Check here \n");
 			for (j = 1; j < labelStat->lstCount[i]; j++){
 				freqId2 = labelStat->freqIdList[i][j];
-				cs2 = (CS*) &(freqCSset->items[freqId2]);
+				cs2 = &(freqCSset->items[freqId2]);
 				//Check whether these CS's belong to any mergeCS
 				if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx == -1){	/* New merge */
 					mergecs = mergeTwoCSs(*cs1,*cs2, freqId1,freqId2, *mergecsId);
@@ -2915,7 +2927,7 @@ void mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid*
 				}
 				else if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx != -1){
 					existMergecsId = cs2->parentFreqIdx;
-					existmergecs = (CS*) &(freqCSset->items[existMergecsId]);
+					existmergecs = &(freqCSset->items[existMergecsId]);
 					mergeACStoExistingmergeCS(*cs1,freqId1, existmergecs);
 					cs1->parentFreqIdx = existMergecsId; 
 					updateLabel(S1, freqCSset, labels, 0, existMergecsId, freqId1, freqId2, *name, ontmetadata, ontmetadataCount, NULL, -1);
@@ -2923,14 +2935,14 @@ void mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid*
 				
 				else if (cs1->parentFreqIdx != -1 && cs2->parentFreqIdx == -1){
 					existMergecsId = cs1->parentFreqIdx;
-					existmergecs = (CS*)&(freqCSset->items[existMergecsId]);
+					existmergecs = &(freqCSset->items[existMergecsId]);
 					mergeACStoExistingmergeCS(*cs2,freqId2, existmergecs);
 					cs2->parentFreqIdx = existMergecsId; 
 					updateLabel(S1, freqCSset, labels, 0, existMergecsId, freqId1, freqId2, *name, ontmetadata, ontmetadataCount, NULL, -1);
 				}
 				else if (cs1->parentFreqIdx != cs2->parentFreqIdx){
-					mergecs1 = (CS*)&(freqCSset->items[cs1->parentFreqIdx]);
-					mergecs2 = (CS*)&(freqCSset->items[cs2->parentFreqIdx]);
+					mergecs1 = &(freqCSset->items[cs1->parentFreqIdx]);
+					mergecs2 = &(freqCSset->items[cs2->parentFreqIdx]);
 					
 					mergeTwomergeCS(mergecs1, mergecs2, cs1->parentFreqIdx);
 
@@ -2968,6 +2980,8 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 	#else
 	int		*lstDistinctFreqId = NULL;		
 	int		numDistinct = 0;
+	int		isNew = 0; 
+	int  		mergeFreqIdx = -1; 
 	#endif	
 
 	char 		filename[100];
@@ -3011,10 +3025,10 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 					 * */ 
 					//mergeMultiPropList(freqCSset, csRelSum->freqIdList[j],csRelSum->numPropRef[j] , &numCombinedP);
 					#if USE_MULTIWAY_MERGING	
-					lstDistinctFreqId = mergeMultiCS(freqCSset, csRelSum->freqIdList[j],csRelSum->numPropRef[j], mergecsId, &numDistinct); 
+					lstDistinctFreqId = mergeMultiCS(freqCSset, csRelSum->freqIdList[j],csRelSum->numPropRef[j], mergecsId, &numDistinct, &isNew, &mergeFreqIdx); 
 					
 					if (lstDistinctFreqId != NULL){
-						updateLabel(S5, freqCSset, labels, 1, freqCSset->numCSadded - 1, -1, -1, BUN_NONE, ontmetadata, ontmetadataCount, lstDistinctFreqId, numDistinct);
+						updateLabel(S5, freqCSset, labels, isNew, mergeFreqIdx, -1, -1, BUN_NONE, ontmetadata, ontmetadataCount, lstDistinctFreqId, numDistinct);
 					}
 					#else
 					freqId1 = csRelSum->freqIdList[j][0];

@@ -1690,14 +1690,13 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 			memcpy(labelStrEscaped, labelStrShort, (strlen(labelStrShort) + 1));
 			escapeURI(labelStrEscaped);
 			GDKfree(labelStrShort);
-			GDKfree(labelStr);
 #else
 			labelStrEscaped = (str) GDKmalloc(sizeof(char) * (strlen(labelStr) + 1));
 			if (!labelStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 			memcpy(labelStrEscaped, labelStr, (strlen(labelStr) + 1));
 			escapeURI(labelStrEscaped);
-			GDKfree(labelStr);
 #endif
+			GDKfree(labelStr);
 		}
 
 		fprintf(fout, "<TR><TD WIDTH=\"%d\"><B>%s (#triples: %d)</B></TD></TR>\n", width, labelStrEscaped, cs.coverage);
@@ -2007,6 +2006,7 @@ CSlabel* initLabels(CSset *freqCSset) {
 	labels = (CSlabel *) GDKmalloc(sizeof(CSlabel) * freqCSset->numCSadded);
 	if (!labels) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
+		labels[i].name = BUN_NONE; 
 		labels[i].candidates = NULL;
 		labels[i].candidatesCount = 0;
 		labels[i].hierarchy = NULL;
@@ -2464,11 +2464,13 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 	int		tmpMaxCoverage; 
 	int		tmpFreqId;
 	#endif
-
+	(void) lstFreqId;
+	(void) numIds;
 	if (newCS) {
 		// realloc labels
 		*labels = GDKrealloc(*labels, sizeof(CSlabel) * freqCSset->numCSadded);
 		if (!(*labels)) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+		(*labels)[mergeCSFreqId].name = BUN_NONE; 
 		(*labels)[mergeCSFreqId].candidates = NULL;
 		(*labels)[mergeCSFreqId].candidatesCount = 0;
 		(*labels)[mergeCSFreqId].hierarchy = NULL;
@@ -2510,6 +2512,7 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 			// copy hierarchy from CS freqCS1
 			label->hierarchyCount = (*labels)[freqCS1].hierarchyCount;
 			if (label->hierarchyCount > 0) {
+				if (label->hierarchy != NULL) GDKfree(label->hierarchy);
 				label->hierarchy = (oid *) GDKmalloc(sizeof(oid) * label->hierarchyCount);
 				if (!label->hierarchy) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 				for (i = 0; i < label->hierarchyCount; ++i) {
@@ -2598,6 +2601,7 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		// hierarchy
 		label->hierarchyCount = big->hierarchyCount;
 		if (label->hierarchyCount > 0) {
+			if (label->hierarchy != NULL) GDKfree(label->hierarchy);
 			label->hierarchy = (oid *) GDKmalloc(sizeof(oid) * label->hierarchyCount);
 			if (!label->hierarchy) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 			for (i = 0; i < label->hierarchyCount; ++i) {
@@ -2617,7 +2621,8 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 void freeLabels(CSlabel* labels, CSset* freqCSset) {
 	int		i;
 
-	for (i = 0; i < freqCSset->numOrigFreqCS; ++i) { // do not use numCSadded because of additional mergeCS
+	//for (i = 0; i < freqCSset->numOrigFreqCS; ++i) { // do not use numCSadded because of additional mergeCS
+	for (i = 0; i < freqCSset->numCSadded; ++i) {	
 		if (labels[i].numProp > 0)
 			GDKfree(labels[i].lstProp);
 
