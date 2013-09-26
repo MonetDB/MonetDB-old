@@ -1872,7 +1872,24 @@ void removeDuplicatedCandidates(CSlabel *label) {
 		label->candidatesFK = cFK;
 	}
 
-	// DUMMY value on position 0 is kept to ensure that name == candidates[0]
+	// remove DUMMY value on position 0
+	if (label->candidates[0] == BUN_NONE && label->candidatesCount > 1) {
+		for (i = 1; i < label->candidatesCount; ++i) {
+			label->candidates[i - 1] = label->candidates[i];
+		}
+		label->candidatesCount--;
+
+		// update value in category;
+		if (label->candidatesNew > 0) {
+			label->candidatesNew--;
+		} else if (label->candidatesOntology > 0) {
+			label->candidatesOntology--;
+		} else if (label->candidatesType > 0) {
+			label->candidatesType--;
+		} else {
+			label->candidatesFK--;
+		}
+	}
 }
 
 #if USE_TABLE_NAME
@@ -2624,6 +2641,9 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		label->candidatesType = candidatesType;
 		label->candidatesFK = candidatesFK;
 		removeDuplicatedCandidates(label);
+		if (label->name == BUN_NONE && label->candidates[0] != BUN_NONE) {
+			label->name = label->candidates[0];
+		}
 
 		// hierarchy
 		if ((*labels)[freqCS1].name == label->name) {
@@ -2667,6 +2687,9 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		label->candidatesType = candidatesType;
 		label->candidatesFK = candidatesFK;
 		removeDuplicatedCandidates(label);
+		if (label->name == BUN_NONE && label->candidates[0] != BUN_NONE) {
+			label->name = label->candidates[0];
+		}
 
 		// hierarchy
 		freqCS1Counter = (*labels)[freqCS1].hierarchyCount - 1;
@@ -2699,6 +2722,9 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		label->candidatesType = candidatesType;
 		label->candidatesFK = candidatesFK;
 		removeDuplicatedCandidates(label);
+		if (label->name == BUN_NONE && label->candidates[0] != BUN_NONE) {
+			label->name = label->candidates[0];
+		}
 
 		// hierarchy already set
 		// properties already set
@@ -2728,6 +2754,9 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		label->candidatesType = candidatesType;
 		label->candidatesFK = candidatesFK;
 		removeDuplicatedCandidates(label);
+		if (label->name == BUN_NONE && label->candidates[0] != BUN_NONE) {
+			label->name = label->candidates[0];
+		}
 
 		// hierarchy
 		label->hierarchyCount = big.hierarchyCount;
