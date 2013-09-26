@@ -169,7 +169,7 @@ typedef struct SubCSSet{
 	int 	numAllocation; 
 } SubCSSet;
 
-#define INIT_NUM_CS 100
+#define INIT_NUM_CS 9999 // workaround
 #define SIM_THRESHOLD 0.6
 #define SIM_TFIDF_THRESHOLD 0.55
 #define IMPORTANCE_THRESHOLD 0.01

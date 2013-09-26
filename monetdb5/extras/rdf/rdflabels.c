@@ -1830,6 +1830,50 @@ oid* getOntoHierarchy(oid ontology, int* hierarchyCount, oid** ontmetadata, int 
 	return hierarchy;
 }
 
+/* Remove duplicated candidate values and remove DUMMY values if better candidates exist
+ */
+static
+void removeDuplicatedCandidates(CSlabel *label) {
+	int i, j;
+	int cNew = label->candidatesNew, cOnto = label->candidatesOntology, cType = label->candidatesType, cFK = label->candidatesFK;
+
+	if (label->candidatesCount < 2) return; // no duplicates
+
+	// loop through all candidates
+	for (i = 0; i < label->candidatesCount - 1; ++i) {
+		// search (direction: right) whether this value occurs again
+		int moveLeft = 0;
+		for (j = i + 1; j < label->candidatesCount; ++j) {
+			// find out which category (new, onto, type, fk) we are in
+			int *cPtr = NULL;
+			if (j < label->candidatesNew) cPtr = &cNew;
+			else if (j < label->candidatesNew + label->candidatesOntology) cPtr = &cOnto;
+			else if (j < label->candidatesNew + label->candidatesOntology + label->candidatesType) cPtr = &cType;
+			else cPtr = &cFK;
+
+			if (label->candidates[i] == label->candidates[j] || label->candidates[j] == BUN_NONE) {
+				// DUMMY value will be overwritten
+				// OR:
+				// value occurs again, will be overwritten
+				moveLeft++;
+				(*cPtr)--;
+			} else {
+				// different value, keep it
+				label->candidates[j - moveLeft] = label->candidates[j];
+			}
+		}
+		// value 'i' is unique now
+		// update counts
+		label->candidatesCount -= moveLeft;
+		label->candidatesNew = cNew;
+		label->candidatesOntology = cOnto;
+		label->candidatesType = cType;
+		label->candidatesFK = cFK;
+	}
+
+	// DUMMY value on position 0 is kept to ensure that name == candidates[0]
+}
+
 #if USE_TABLE_NAME
 /* For one CS: Choose the best table name out of all collected candidates (ontology, type, fk). */
 static
@@ -1842,6 +1886,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	// --- ONTOLOGY ---
 	// add all ontology candidates to list of candidates
 	if (resultCount[csIdx] >= 1) {
+		label->candidatesOntology = resultCount[csIdx];
 		label->candidates = GDKrealloc(label->candidates, sizeof(oid) * (label->candidatesCount + resultCount[csIdx]));
 		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 		for (i = 0; i < resultCount[csIdx]; ++i) {
@@ -1924,6 +1969,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	// add all most frequent type values to list of candidates
 	if (tmpListCount >= 1) {
 		int counter = 0;
+		label->candidatesType = tmpListCount;
 		label->candidates = GDKrealloc(label->candidates, sizeof(oid) * (label->candidatesCount + tmpListCount));
 		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 		for (i = 0; i < typeStatCount; ++i) {
@@ -1964,6 +2010,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	// --- FK ---
 	// add top3 fk values to list of candidates
 	if (links[csIdx].num > 0) {
+		label->candidatesFK = MIN(3, links[csIdx].num);
 		label->candidates = GDKrealloc(label->candidates, sizeof(oid) * (label->candidatesCount + MIN(3, links[csIdx].num)));
 		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 		for (i = 0; i < MIN(3, links[csIdx].num); ++i) {
@@ -1982,6 +2029,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 
 	// --- NOTHING ---
 	if (label->candidatesCount == 0) {
+		label->candidatesNew = 1;
 		label->candidates = GDKrealloc(label->candidates, sizeof(oid));
 		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 		label->candidates[0] = BUN_NONE;
@@ -1993,6 +2041,9 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		nameFound = 1;
 	}
 	
+	// de-duplicate
+	removeDuplicatedCandidates(label);
+
 	if(tmpList != NULL) free(tmpList);
 	return;
 }
@@ -2009,6 +2060,10 @@ CSlabel* initLabels(CSset *freqCSset) {
 		labels[i].name = BUN_NONE; 
 		labels[i].candidates = NULL;
 		labels[i].candidatesCount = 0;
+		labels[i].candidatesNew = 0;
+		labels[i].candidatesOntology = 0;
+		labels[i].candidatesType = 0;
+		labels[i].candidatesFK = 0;
 		labels[i].hierarchy = NULL;
 		labels[i].hierarchyCount = 0;
 		labels[i].numProp = 0;
@@ -2450,6 +2505,68 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 	return labels;
 }
 
+/* Merge two lists of candidates.
+ * Result: <common name> <ontology candidates CS1> <ontology candidates CS2> <type candidates CS1> <type candidates CS2> <FK candidates CS1> <FK candidates CS2>
+ */
+static
+oid* mergeCandidates(int *candidatesCount, int *candidatesNew, int *candidatesOntology, int *candidatesType, int *candidatesFK, CSlabel cs1, CSlabel cs2, oid commonName) {
+	oid	*candidates;
+	int	counter = 0;
+	int	i;
+
+	(*candidatesCount) = cs1.candidatesCount + cs2.candidatesCount + 1; // +1 for common name
+	candidates = GDKmalloc(sizeof(oid) * (*candidatesCount));
+
+	candidates[counter] = commonName;
+	counter++;
+
+	// copy "new"
+	for (i = 0; i < cs1.candidatesNew; ++i) {
+		candidates[counter] = cs1.candidates[i];
+		counter++;
+	}
+	for (i = 0; i < cs2.candidatesNew; ++i) {
+		candidates[counter] = cs2.candidates[i];
+		counter++;
+	}
+	(*candidatesNew) = counter;
+
+	// copy "ontology"
+	for (i = 0; i < cs1.candidatesOntology; ++i) {
+		candidates[counter] = cs1.candidates[cs1.candidatesNew + i];
+		counter++;
+	}
+	for (i = 0; i < cs2.candidatesOntology; ++i) {
+		candidates[counter] = cs2.candidates[cs2.candidatesNew + i];
+		counter++;
+	}
+	(*candidatesOntology) = counter - (*candidatesNew);
+
+	// copy "type"
+	for (i = 0; i < cs1.candidatesType; ++i) {
+		candidates[counter] = cs1.candidates[cs1.candidatesNew + cs1.candidatesOntology + i];
+		counter++;
+	}
+	for (i = 0; i < cs2.candidatesType; ++i) {
+		candidates[counter] = cs2.candidates[cs2.candidatesNew + cs2.candidatesOntology + i];
+		counter++;
+	}
+	(*candidatesType) = counter - (*candidatesNew) - (*candidatesOntology);
+
+	// copy "fk"
+	for (i = 0; i < cs1.candidatesFK; ++i) {
+		candidates[counter] = cs1.candidates[cs1.candidatesNew + cs1.candidatesOntology + cs1.candidatesType + i];
+		counter++;
+	}
+	for (i = 0; i < cs2.candidatesFK; ++i) {
+		candidates[counter] = cs2.candidates[cs2.candidatesNew + cs2.candidatesOntology + cs2.candidatesType + i];
+		counter++;
+	}
+	(*candidatesFK) = counter - (*candidatesNew) - (*candidatesOntology) - (*candidatesType);
+
+	return candidates;
+}
+
 /* Create labels for merged CS's. Uses rules S1 to S5 (new names!).
  * If no MERGECS is created (subset-superset relation), mergeCSFreqId contains the Id of the superset class.
  * For S1 and S2, parameter 'name' is used to avoid recomputation of CS names
@@ -2457,15 +2574,19 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, int mergeCSFreqId, int freqCS1, int freqCS2, oid name, oid **ontmetadata, int ontmetadataCount, int *lstFreqId, int numIds){
 	int		i;
 	int		freqCS1Counter;
-	CSlabel		*big;
+	CSlabel		big, small;
 	CSlabel		*label;
 	CS		cs;	
 	#if     USE_MULTIWAY_MERGING
 	int		tmpMaxCoverage; 
 	int		tmpFreqId;
 	#endif
+	oid		*mergedCandidates = NULL;
+	int		candidatesCount, candidatesNew, candidatesOntology, candidatesType, candidatesFK;
+
 	(void) lstFreqId;
 	(void) numIds;
+
 	if (newCS) {
 		// realloc labels
 		*labels = GDKrealloc(*labels, sizeof(CSlabel) * freqCSset->numCSadded);
@@ -2473,6 +2594,10 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		(*labels)[mergeCSFreqId].name = BUN_NONE; 
 		(*labels)[mergeCSFreqId].candidates = NULL;
 		(*labels)[mergeCSFreqId].candidatesCount = 0;
+		(*labels)[mergeCSFreqId].candidatesNew = 0;
+		(*labels)[mergeCSFreqId].candidatesOntology = 0;
+		(*labels)[mergeCSFreqId].candidatesType = 0;
+		(*labels)[mergeCSFreqId].candidatesFK = 0;
 		(*labels)[mergeCSFreqId].hierarchy = NULL;
 		(*labels)[mergeCSFreqId].hierarchyCount = 0;
 		(*labels)[mergeCSFreqId].numProp = 0;
@@ -2503,9 +2628,16 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		(void)freqCS2;
 
 		#else
-		// TODO candidates
-		//label->candidates = ;
-		//label->candidatesCount = ;
+		// candidates
+		mergedCandidates = mergeCandidates(&candidatesCount, &candidatesNew, &candidatesOntology, &candidatesType, &candidatesFK, (*labels)[freqCS1], (*labels)[freqCS2], label->name);
+		GDKfree(label->candidates);
+		label->candidates = mergedCandidates; // TODO check access outside function
+		label->candidatesCount = candidatesCount;
+		label->candidatesNew = candidatesNew;
+		label->candidatesOntology = candidatesOntology;
+		label->candidatesType = candidatesType;
+		label->candidatesFK = candidatesFK;
+		removeDuplicatedCandidates(label);
 
 		// hierarchy
 		if ((*labels)[freqCS1].name == label->name) {
@@ -2541,9 +2673,16 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		// use common ancestor
 		label->name = name;
 
-		// TODO candidates
-		//label->candidates = ;
-		//label->candidatesCount = ;
+		// candidates
+		mergedCandidates = mergeCandidates(&candidatesCount, &candidatesNew, &candidatesOntology, &candidatesType, &candidatesFK, (*labels)[freqCS1], (*labels)[freqCS2], label->name);
+		GDKfree(label->candidates);
+		label->candidates = mergedCandidates; // TODO check access outside function
+		label->candidatesCount = candidatesCount;
+		label->candidatesNew = candidatesNew;
+		label->candidatesOntology = candidatesOntology;
+		label->candidatesType = candidatesType;
+		label->candidatesFK = candidatesFK;
+		removeDuplicatedCandidates(label);
 
 		// hierarchy
 		freqCS1Counter = (*labels)[freqCS1].hierarchyCount - 1;
@@ -2565,7 +2704,18 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 
 		case S3:
 		// subset-superset relation
-		// candidates already set
+
+		// candidates
+		mergedCandidates = mergeCandidates(&candidatesCount, &candidatesNew, &candidatesOntology, &candidatesType, &candidatesFK, (*labels)[freqCS1], (*labels)[freqCS2], label->name); // freqCS1 is superCS, freqCS2 is subCS
+		GDKfree(label->candidates);
+		label->candidates = mergedCandidates; // TODO check access outside function
+		label->candidatesCount = candidatesCount;
+		label->candidatesNew = candidatesNew;
+		label->candidatesOntology = candidatesOntology;
+		label->candidatesType = candidatesType;
+		label->candidatesFK = candidatesFK;
+		removeDuplicatedCandidates(label);
+
 		// hierarchy already set
 		// properties already set
 
@@ -2587,25 +2737,34 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		#else
 		// use label of biggest CS (higher coverage value)
 		if (freqCSset->items[freqCS1].coverage > freqCSset->items[freqCS2].coverage) {
-			big = &(*labels)[freqCS1];
+			big = (*labels)[freqCS1];
+			small = (*labels)[freqCS2];
 		} else {
-			big = &(*labels)[freqCS2];
+			big = (*labels)[freqCS2];
+			small = (*labels)[freqCS1];
 		}
 		#endif
-		label->name = big->name;
+		label->name = big.name;
 
-		// TODO candidates
-		//label->candidatesCount = ;
-		//label->candidates = ;
+		// candidates
+		mergedCandidates = mergeCandidates(&candidatesCount, &candidatesNew, &candidatesOntology, &candidatesType, &candidatesFK, big, small, label->name);
+		GDKfree(label->candidates);
+		label->candidates = mergedCandidates; // TODO check access outside function
+		label->candidatesCount = candidatesCount;
+		label->candidatesNew = candidatesNew;
+		label->candidatesOntology = candidatesOntology;
+		label->candidatesType = candidatesType;
+		label->candidatesFK = candidatesFK;
+		removeDuplicatedCandidates(label);
 
 		// hierarchy
-		label->hierarchyCount = big->hierarchyCount;
+		label->hierarchyCount = big.hierarchyCount;
 		if (label->hierarchyCount > 0) {
 			if (label->hierarchy != NULL) GDKfree(label->hierarchy);
 			label->hierarchy = (oid *) GDKmalloc(sizeof(oid) * label->hierarchyCount);
 			if (!label->hierarchy) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 			for (i = 0; i < label->hierarchyCount; ++i) {
-				label->hierarchy[i] = big->hierarchy[i];
+				label->hierarchy[i] = big.hierarchy[i];
 			}
 		}
 		break;
