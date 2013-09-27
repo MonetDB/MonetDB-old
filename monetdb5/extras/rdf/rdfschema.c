@@ -884,11 +884,15 @@ static
 int countNumberMergeCS(CSset *csSet){
 	int i; 
 	int num = 0;
+	int maxNumProp = 0; 
 	for (i = 0; i < csSet->numCSadded; i ++){
 		if (csSet->items[i].parentFreqIdx == -1){
 			num++;	
+			if (csSet->items[i].numProp > maxNumProp) maxNumProp = csSet->items[i].numProp;
 		}
 	}
+
+	printf("Max number of prop among %d merged CS is: %d \n", num, maxNumProp);
 
 	return num; 
 
@@ -2749,7 +2753,7 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 
 	for (i = 0; i < csRel.numRef; i++){
 		freq = freqCSset->items[csRel.origFreqIdx].support; 
-		if (freq < csRel.lstCnt[i] * 100){			
+		if (freq < csRel.lstCnt[i] * MIN_PERCETAGE_S6){			
 			propIdx = 0;
 			while (csRelSum->lstPropId[propIdx] != csRel.lstPropId[i])
 				propIdx++;
@@ -4450,6 +4454,43 @@ CSrel* generateCsRelBetweenMergeFreqSet(CSrel *csrelFreqSet, CSset *freqCSset){
 	return csRelMergeFreqSet;
 }
 
+
+static
+CSrel* generateCsRelToMergeFreqSet(CSrel *csrelFreqSet, CSset *freqCSset){
+	int 	i,j;
+	int	numFreqCS = freqCSset->numOrigFreqCS; 
+	int 	from, to;
+	CSrel 	rel;
+	CSrel*  csRelMergeFreqSet;
+	
+	csRelMergeFreqSet = initCSrelset(freqCSset->numCSadded);
+
+	for (i = 0; i < numFreqCS; ++i) {
+		if (csrelFreqSet[i].numRef == 0) continue; // ignore CS without relations
+		rel = csrelFreqSet[i];
+		// update the 'from' value
+		from = i;
+		/*
+		while (freqCSset->items[from].parentFreqIdx != -1) {
+			from = freqCSset->items[from].parentFreqIdx;
+		}
+		assert(freqCSset->items[from].parentFreqIdx == -1);
+		*/
+
+		for (j = 0; j < rel.numRef; ++j) {
+			// update the 'to' value
+			to = rel.lstRefFreqIdx[j];
+			while (freqCSset->items[to].parentFreqIdx != -1) {
+				to = freqCSset->items[to].parentFreqIdx;
+			}
+			assert(freqCSset->items[to].parentFreqIdx == -1);
+			// add relation to new data structure
+			addReltoCSRelWithFreq(from, to, rel.lstPropId[j], rel.lstCnt[j], rel.lstBlankCnt[j], &csRelMergeFreqSet[from]);
+		}
+	}
+	return csRelMergeFreqSet;
+}
+
 static
 void printCSRel(CSset *freqCSset, CSrel *csRelMergeFreqSet, int freqThreshold){
 	FILE 	*fout2,*fout2filter;
@@ -4554,6 +4595,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	OntoUsageNode	*ontoUsageTree = NULL;
 	int		curNumMergeCS = 0; 
 	int 		tmpNumRel = 0;
+	CSrel		*tmpCSrelToMergeCS = NULL; 
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
@@ -4681,6 +4723,10 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 	printFreqCSSet(freqCSset, csBats->freqBat, mbat, 1, *freqThreshold, *labels); 
 
+	curNumMergeCS = countNumberMergeCS(freqCSset);
+	printf("Before using rules: Number of freqCS is: %d \n",curNumMergeCS);
+
+
 	/* ---------- S1, S2 ------- */
 	mergecsId = *maxCSoid + 1; 
 
@@ -4710,13 +4756,13 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
 	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
 	
-	*csRelMergeFreqSet = generateCsRelBetweenMergeFreqSet(csrelSet, freqCSset);
+	tmpCSrelToMergeCS = generateCsRelToMergeFreqSet(csrelSet, freqCSset);
 	tmpNumRel = freqCSset->numCSadded; 
 
 	/* S6: Merged CS referred from the same CS via the same property */
-	mergeMaxFreqCSByS6(*csRelMergeFreqSet, freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS,  &mergecsId, ontmetadata, ontmetadataCount);
+	mergeMaxFreqCSByS6(tmpCSrelToMergeCS, freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS,  &mergecsId, ontmetadata, ontmetadataCount);
 
-	freeCSrelSet(*csRelMergeFreqSet,tmpNumRel);
+	freeCSrelSet(tmpCSrelToMergeCS,tmpNumRel);
 
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	curT = clock(); 
