@@ -4282,56 +4282,94 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 	for (i = 0; i < num; i++){
 		sample = csSample[i];
 		freqCS = freqCSset->items[sample.freqIdx];
-		fprintf(fout,"Sample table %d \n Candidates: ", i);
+		fprintf(fout,"Sample table %d Candidates: ", i);
 		for (j = 0; j < (int)sample.candidateCount; j++){
 			//fprintf(fout,"  "  BUNFMT,sample.candidates[j]);
 			if (sample.candidates[j] != BUN_NONE){
+#if USE_SHORT_NAMES
+				str canStrShort = NULL;
+#endif
 				takeOid(sample.candidates[j], &canStr); 
-				fprintf(fout,"%s, ",  canStr);
+#if USE_SHORT_NAMES
+				getPropNameShort(&canStrShort, canStr);
+				fprintf(fout,";%s",  canStrShort);
+				GDKfree(canStrShort);
+#else
+				fprintf(fout,";%s",  canStr);
+#endif
 				GDKfree(canStr); 
 			
 			}
 		}
 		fprintf(fout, "\n");
 		//List of columns
-		fprintf(fout,"Subject, ");
+		fprintf(fout,"Subject");
 		for (j = 0; j < sample.numProp; j++){
+#if USE_SHORT_NAMES
+			str propStrShort = NULL;
+#endif
 			takeOid(sample.lstProp[j], &propStr);	
-			fprintf(fout,"%s, ", propStr);
+#if USE_SHORT_NAMES
+			getPropNameShort(&propStrShort, propStr);
+			fprintf(fout,";%s", propStrShort);
+			GDKfree(propStrShort);
+#else
+			fprintf(fout,";%s", propStr);
+#endif
 			GDKfree(propStr);
 		}
 		fprintf(fout, "\n");
 		
 		//List of support
-		fprintf(fout,"NONE, ");
 		for (j = 0; j < sample.numProp; j++){
-			fprintf(fout,"%d, ", freqCS.lstPropSupport[j]);
+			fprintf(fout,";%d", freqCS.lstPropSupport[j]);
 		}
 		fprintf(fout, "\n");
 
 		//All the instances 
 		for (k = 0; k < sample.numInstances; k++){
+#if USE_SHORT_NAMES
+			str subjStrShort = NULL;
+#endif
 			takeOid(sample.lstSubjOid[k], &subjStr); 
-			fprintf(fout,"%s, ", subjStr);
+#if USE_SHORT_NAMES
+			getPropNameShort(&subjStrShort, subjStr);
+			fprintf(fout,"<%s>", subjStrShort);
+			GDKfree(subjStrShort);
+#else
+			fprintf(fout,"%s", subjStr);
+#endif
 			GDKfree(subjStr); 
 			
 			for (j = 0; j < sample.numProp; j++){
 				objOid = sample.lstObj[j][k];
 				if (objOid == BUN_NONE)
-					fprintf(fout,"NULL, ");
+					fprintf(fout,";NULL");
 				else{
+					objStr = NULL;
 					getObjStr(mbat, mapi, objOid, &objStr, &objType);
-					fprintf(fout,"%s, ", objStr);
-
 					if (objType == URI || objType == BLANKNODE){
+#if USE_SHORT_NAMES
+						str objStrShort = NULL;
+						getPropNameShort(&objStrShort, objStr);
+						fprintf(fout,";<%s>", objStrShort);
+						GDKfree(objStrShort);
+#else
+						fprintf(fout,";%s", objStr);
+#endif
 						GDKfree(objStr);
+					} else {
+						str betweenQuotes;
+						getStringBetweenQuotes(&betweenQuotes, objStr);
+						fprintf(fout,";%s", betweenQuotes);
+						GDKfree(betweenQuotes);
 					}
 				}
 			}
 			fprintf(fout, "\n");
 		}
 
-		fprintf(fout, "\n \n");
+		fprintf(fout, "\n");
 	}
 
 	fclose(fout);
