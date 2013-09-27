@@ -99,6 +99,12 @@ enum {
 #define USE_TABLE_NAME 1		// calculate and store the final labels
 #define SHOW_CANDIDATES 0		// inserts a row in UML diagrams to show all candidate names
 
+rdf_export void
+getPropNameShort(char** name, char* propStr);
+
+rdf_export void
+getStringBetweenQuotes(str* out, str in);
+
 rdf_export CSlabel*
 createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, int *csIdFreqIdxMap, oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount, OntoUsageNode** ontoUsageTree);
 

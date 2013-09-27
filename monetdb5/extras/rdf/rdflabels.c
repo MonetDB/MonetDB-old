@@ -102,9 +102,7 @@ ontology ontologies[] = {
 {{"<http:", "purl.org", "ontology", "po"}, 4} // po (tv and radio programmes)
 };
 
-#if USE_SHORT_NAMES
 /* Extracts the "human-readable" part of an URI (usually the last token). */
-static
 void getPropNameShort(char** name, char* propStr) {
 	char		*token;
 	char		*uri;
@@ -181,7 +179,6 @@ void getPropNameShort(char** name, char* propStr) {
 	GDKfree(uriPtr);
 	return;
 }
-#endif
 
 static
 int** initTypeAttributesHistogramCount(int typeAttributesCount, int num) {
@@ -433,6 +430,36 @@ void escapeURIforSQL(char* s) {
 	for (i = 0; i < (int) strlen(s); ++i) {
 		if (s[i] == ':' || s[i] == '"' || s[i] == ' ' || s[i] == '-' || s[i] == '<' || s[i] == '>' || s[i] == '/' || s[i] == '(' || s[i] == ')' || s[i] == '.' || s[i] == '%') s[i] = '_';
 		s[i] = tolower(s[i]);
+	}
+}
+
+void
+getStringBetweenQuotes(str* out, str in) {
+	int open = -1, close = -1;
+	int i;
+
+	for (i = 0; i < (int) strlen(in); ++i) {
+		if (in[i] == '"') {
+			if (open == -1) {
+				open = i;
+			} else {
+				close = i;
+				break;
+			}
+		}
+	}
+	if (close != -1) {
+		// found pair of quotes
+		(*out) = (str) GDKmalloc(close - open);
+		if (!(*out)) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+		strncpy((*out), &(in[open + 1]), (close - open - 1));
+		(*out)[close - open - 1] = '\0';
+	} else {
+		// copy whole string
+		(*out) = (str) GDKmalloc(strlen(in) + 1);
+		if (!(*out)) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+		strncpy((*out), in, strlen(in));
+		(*out)[strlen(in)] = '\0';
 	}
 }
 
