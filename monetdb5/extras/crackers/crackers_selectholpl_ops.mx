@@ -215,9 +215,9 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 	//gettimeofday(&tv0,0);
 	
-	outputFilename1 = getenv("HOLOUTPUT_RANDOM");
+	outputFilename1 = getenv("HOLOUTPUT_ATTRIBUTES");
 	if (outputFilename1 == NULL){
-  		fprintf(stderr, "Error: HOLOUTPUT_RANDOM\n");
+  		fprintf(stderr, "Error: HOLOUTPUT_ATTRIBUTES\n");
   		exit(1);
 	}
 	if ((bo = BATdescriptor(*bid)) != NULL)
@@ -290,6 +290,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 		FN->c = FN->c + incr_pieces;
 		if(FN->weight > 0)
 			FN->weight = changeWeight(FN,countBatElements,L1);
+		fprintf(ofp,"%d\n",*bid);
 		MT_lock_unset(&frequencylock, "getFrequencyStruct");
 
 
@@ -395,6 +396,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 	FN->c = FN->c + incr_pieces;
 	if(FN->weight > 0)
 		FN->weight = changeWeight(FN,countBatElements,L1);
+	fprintf(ofp,"%d\n",*bid);
 	MT_lock_unset(&frequencylock, "getFrequencyStruct");
 
 	GDKfree(low);	
