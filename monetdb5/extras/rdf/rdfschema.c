@@ -1713,7 +1713,7 @@ str printmergeCSSet(CSset *freqCSset, int freqThreshold){
 
 
 static 
-str printsubsetFromCSset(CSset *freqCSset, BAT* subsetIdxBat, int num, oid* mergeCSFreqCSMap){
+str printsubsetFromCSset(CSset *freqCSset, BAT* subsetIdxBat, int num, oid* mergeCSFreqCSMap, CSlabel *label){
 
 	int 	i,j; 
 	FILE 	*fout; 
@@ -1726,6 +1726,8 @@ str printsubsetFromCSset(CSset *freqCSset, BAT* subsetIdxBat, int num, oid* merg
 	str 	propStr; 
 	char*   schema = "rdf";
 	CS	cs; 
+	int	tmpNumcand;
+	str	canStr; 
 
 
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
@@ -1746,7 +1748,30 @@ str printsubsetFromCSset(CSset *freqCSset, BAT* subsetIdxBat, int num, oid* merg
 		freqIdx = mergeCSFreqCSMap[*tblIdx];
 		cs = (CS)freqCSset->items[freqIdx];
 		assert (cs.parentFreqIdx == -1);
-		fprintf(fout, "Table %d (Coverage: %d, NumProp: %d) \n",i,cs.coverage, cs.numProp);
+		tmpNumcand = (NUM_SAMPLE_CANDIDATE > label[freqIdx].candidatesCount)?label[freqIdx].candidatesCount:NUM_SAMPLE_CANDIDATE;
+		fprintf(fout, "Table %d  | Candidates: ",i);
+		
+		for (j = 0; j < tmpNumcand; j++){
+			//fprintf(fout,"  "  BUNFMT,sample.candidates[j]);
+			if (label[freqIdx].candidates[j] != BUN_NONE){
+#if USE_SHORT_NAMES
+				str canStrShort = NULL;
+#endif
+				takeOid(label[freqIdx].candidates[j], &canStr); 
+#if USE_SHORT_NAMES
+				getPropNameShort(&canStrShort, canStr);
+				fprintf(fout," %s  ::: ",  canStrShort);
+				GDKfree(canStrShort);
+#else
+				fprintf(fout," %s  ::: ",  canStr);
+#endif
+				GDKfree(canStr); 
+			
+			}
+		}
+		fprintf(fout, "\n");
+		fprintf(fout, "Coverage: %d, NumProp: %d) \n",cs.coverage, cs.numProp);
+
 		for (j = 0; j < cs.numProp; j++){
 			takeOid(cs.lstProp[j], &propStr);	
 			fprintf(fout,"          %s\n", propStr);
@@ -3712,7 +3737,6 @@ BAT* generateTablesForEvaluating(CSset *freqCSset, int numTbl,oid* mergeCSFreqCS
 
 	//Print the results
 	printf("Get the sample tables after %d loop \n",numLoop );
-	printsubsetFromCSset(freqCSset, outputBat, numTbl,mergeCSFreqCSMap);
 
 	free(cumDist); 
 
@@ -5654,6 +5678,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	printf("Select sample instances for %d tables \n", numSampleTbl);
 	initSampleData(csSample, outputBat, freqCSset, mergeCSFreqCSMap, labels);
 	RDFExtractSampleData(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, maxNumPwithDup, csSample, outputBat, numSampleTbl);
+	printsubsetFromCSset(freqCSset, outputBat, numSampleTbl, mergeCSFreqCSMap, labels);
 	printSampleData(csSample, freqCSset, mbat, numSampleTbl);
 	freeSampleData(csSample, numSampleTbl);
 	BBPreclaim(outputBat);
