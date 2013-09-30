@@ -3488,7 +3488,7 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 	}
 	
 	fclose(fout); 
-	printf("\nTotal " BUNFMT " triples, coverred by final CSs: %d  (%f percent) \n", BATcount(sbat), totalCoverage, 100 * (float)(totalCoverage/BATcount(sbat)));
+	printf("\nTotal " BUNFMT " triples, coverred by final CSs: %d  (%f percent) \n", BATcount(sbat), totalCoverage, 100 * ((float)totalCoverage/BATcount(sbat)));
 	printf("Max number of triples coverred by one final CS: %d \n", maxNumtriple);
 	printf("Min number of triples coverred by one final CS: %d \n", minNumtriple);
 	printf("Avg number of triples coverred by one final CS: %f \n", (float)(totalCoverage/numMergeCS));
@@ -3514,7 +3514,7 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 	}
 	
 	printf("AFTER removing all the 'small' final CSs  ==> Only %d final CSs \n", numMergeCS);
-	printf("Total " BUNFMT " triples, coverred by final CSs: %d  (%f percent) \n", BATcount(sbat), totalCoverage, 100 * (float)(totalCoverage/BATcount(sbat)));
+	printf("Total " BUNFMT " triples, coverred by final CSs: %d  (%f percent) \n", BATcount(sbat), totalCoverage, 100 * ((float)totalCoverage/BATcount(sbat)));
 	printf("Max number of triples coverred by one final CS: %d \n", maxNumtriple);
 	printf("Min number of triples coverred by one final CS: %d \n", minNumtriple);
 	printf("Avg number of triples coverred by one final CS: %f \n", (float)(totalCoverage/numMergeCS));
