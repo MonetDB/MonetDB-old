@@ -3450,39 +3450,74 @@ static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *covera
 }
 
 
-static void getStatisticMaxCSs(CSset *freqCSset, char isWriteToFile, int freqThreshold){
+static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold, int curNumMergeCS, oid* mergeCSFreqCSMap){
 
 	//int 	*csPropNum; 
 	//int	*csFreq; 
 	FILE 	*fout; 
-	int	numFreqCS, i ; 
+	int	i ; 
 	char 	filename[100];
 	char 	tmpStr[20];
+	int	maxNumtriple; 
+	int	minNumtriple = INT_MAX; 
+	int	numMergeCS = 0; 
+	int 	totalCoverage = 0; 
+	int	freqId; 
 
-	printf("Get statistics of Maximum CSs ....");
+	printf("Get statistics of final CSs ....");
 
-	numFreqCS = freqCSset->numCSadded; 
-
-	strcpy(filename, "maxCSStatistic");
+	strcpy(filename, "finalCSStatistic");
 	sprintf(tmpStr, "%d", freqThreshold);
 	strcat(filename, tmpStr);
 	strcat(filename, ".txt");
 
 	fout = fopen(filename,"wt"); 
-	fprintf(fout, " csId  #Prop   #frequency maxCSid coverage\n"); 
+	fprintf(fout, " csId  #Prop   #frequency #coverage\n"); 
 
-	for (i = 0; i < numFreqCS; i++){
-		if (freqCSset->items[i].parentFreqIdx == -1){		// Check whether it is a maximumCS
+	for (i = 0; i < curNumMergeCS; i++){
+		freqId = mergeCSFreqCSMap[i]; 
+		if (freqCSset->items[freqId].parentFreqIdx == -1){		// Check whether it is a maximumCS
 			// Output the result 
-			if (isWriteToFile == 0)
-				printf(BUNFMT "  %d  %d  %d\n", freqCSset->items[i].csId, freqCSset->items[i].numProp,freqCSset->items[i].support, freqCSset->items[i].coverage); 
-			else 
-				fprintf(fout, BUNFMT " %d  %d  %d\n", freqCSset->items[i].csId, freqCSset->items[i].numProp,freqCSset->items[i].support, freqCSset->items[i].coverage); 
-
+			fprintf(fout, BUNFMT " %d  %d  %d\n", freqCSset->items[freqId].csId, freqCSset->items[freqId].numProp,freqCSset->items[freqId].support, freqCSset->items[freqId].coverage); 
+			if (freqCSset->items[freqId].coverage > maxNumtriple) maxNumtriple = freqCSset->items[freqId].coverage;
+			if (freqCSset->items[freqId].coverage < minNumtriple) minNumtriple = freqCSset->items[freqId].coverage;
+			
+			totalCoverage += freqCSset->items[freqId].coverage;
+			numMergeCS++;
 		}
 	}
-
+	
 	fclose(fout); 
+	printf("\nTotal " BUNFMT " triples, coverred by final CSs: %d  (%f percent) \n", BATcount(sbat), totalCoverage, 100 * (float)(totalCoverage/BATcount(sbat)));
+	printf("Max number of triples coverred by one final CS: %d \n", maxNumtriple);
+	printf("Min number of triples coverred by one final CS: %d \n", minNumtriple);
+	printf("Avg number of triples coverred by one final CS: %f \n", (float)(totalCoverage/numMergeCS));
+
+	//Check if remove all the final CS covering less than 10000 triples
+	
+	totalCoverage = 0;
+	maxNumtriple = 0;
+	minNumtriple = INT_MAX;
+	numMergeCS = 0;
+
+	for (i = 0; i < curNumMergeCS; i++){
+		freqId = mergeCSFreqCSMap[i]; 
+		if (freqCSset->items[freqId].parentFreqIdx == -1 && freqCSset->items[freqId].coverage > MINIMUM_TABLE_SIZE){		// Check whether it is a maximumCS
+			// Output the result 
+			fprintf(fout, BUNFMT " %d  %d  %d\n", freqCSset->items[freqId].csId, freqCSset->items[freqId].numProp,freqCSset->items[freqId].support, freqCSset->items[freqId].coverage); 
+			if (freqCSset->items[freqId].coverage > maxNumtriple) maxNumtriple = freqCSset->items[freqId].coverage;
+			if (freqCSset->items[freqId].coverage < minNumtriple) minNumtriple = freqCSset->items[freqId].coverage;
+			
+			totalCoverage += freqCSset->items[freqId].coverage;
+			numMergeCS++;
+		}
+	}
+	
+	printf("AFTER removing all the 'small' final CSs  ==> Only %d final CSs \n", numMergeCS);
+	printf("Total " BUNFMT " triples, coverred by final CSs: %d  (%f percent) \n", BATcount(sbat), totalCoverage, 100 * (float)(totalCoverage/BATcount(sbat)));
+	printf("Max number of triples coverred by one final CS: %d \n", maxNumtriple);
+	printf("Min number of triples coverred by one final CS: %d \n", minNumtriple);
+	printf("Avg number of triples coverred by one final CS: %f \n", (float)(totalCoverage/numMergeCS));
 	//free(csPropNum); 
 	printf("Done \n");
 }
@@ -4384,7 +4419,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 
 static 
 str RDFExtractSampleData(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,  
-		oid *subjCSMap, int* csTblIdxMapping, int maxNumPwithDup, CSSample *csSample, BAT *tblCandBat){
+		oid *subjCSMap, int* csTblIdxMapping, int maxNumPwithDup, CSSample *csSample, BAT *tblCandBat, int numSampleTbl){
 
 	BUN	 	p, q; 
 	oid 		*sbt = 0, *obt, *pbt;
@@ -4397,7 +4432,7 @@ str RDFExtractSampleData(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi
 	int		tblIdx; 
 	BUN		sampleIdx = BUN_NONE; 
 	int		totalInstance = 0; 
-	int		maxNumInstance = NUM_SAMPLE_INSTANCE * NUM_SAMPLETABLE;
+	int		maxNumInstance = NUM_SAMPLE_INSTANCE * numSampleTbl;
 
 	(void) csSample; 
 
@@ -4832,7 +4867,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	//getStatisticCSsBySize(csMap,maxNumProp); 
 
 	getStatisticCSsBySupports(csBats->pOffsetBat, csBats->freqBat, csBats->coverageBat, csBats->fullPBat, 1, *freqThreshold);
-	getStatisticMaxCSs(freqCSset, 1, *freqThreshold);
 
 
 
@@ -5529,13 +5563,17 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	CSlabel		*labels;
 	CSrel		*csRelMergeFreqSet = NULL;
 
+	int 		curNumMergeCS;
+	oid		*mergeCSFreqCSMap;
+	int		numSampleTbl = 0;  
+
 	freqCSset = initCSset();
 
 	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid, &maxNumPwithDup, &labels, &csRelMergeFreqSet) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in extracting CSs");
 	}
 	
-	printf("Start re-organizing triple store for " BUNFMT " CSs \n", maxCSoid);
+	printf("Start re-organizing triple store for " BUNFMT " CSs \n", maxCSoid + 1);
 
 	csTblIdxMapping = (int *) malloc (sizeof (int) * (maxCSoid + 1)); 
 	initIntArray(csTblIdxMapping, (maxCSoid + 1), -1);
@@ -5585,12 +5623,17 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	// Init CStableStat
 	initCStables(cstablestat, freqCSset, csPropTypes, numTables);
-
 	
+	// Summarize the statistics
+	curNumMergeCS = countNumberMergeCS(freqCSset);
+	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
+	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
+	getStatisticFinalCSs(freqCSset, sbat, *freqThreshold, curNumMergeCS, mergeCSFreqCSMap);
+	free(mergeCSFreqCSMap);
+
 	/* Extract sample data for the evaluation */
 	{	
-	int 	curNumMergeCS;
-	oid	*mergeCSFreqCSMap;
+
 	BAT	*outputBat;
 	CSSample *csSample; 
 
@@ -5602,13 +5645,17 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
 	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
 
-	outputBat = generateTablesForEvaluating(freqCSset, NUM_SAMPLETABLE, mergeCSFreqCSMap, curNumMergeCS);
-	assert (BATcount(outputBat) == NUM_SAMPLETABLE);
-	csSample = (CSSample*)malloc(sizeof(CSSample) * NUM_SAMPLETABLE);
+	numSampleTbl = (NUM_SAMPLETABLE > (curNumMergeCS/2))?(curNumMergeCS/2):NUM_SAMPLETABLE;
+
+	printf("Select list of sample tables \n");
+	outputBat = generateTablesForEvaluating(freqCSset, numSampleTbl, mergeCSFreqCSMap, curNumMergeCS);
+	assert (BATcount(outputBat) == (oid) numSampleTbl);
+	csSample = (CSSample*)malloc(sizeof(CSSample) * numSampleTbl);
+	printf("Select sample instances for %d tables \n", numSampleTbl);
 	initSampleData(csSample, outputBat, freqCSset, mergeCSFreqCSMap, labels);
-	RDFExtractSampleData(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, maxNumPwithDup, csSample, outputBat);
-	printSampleData(csSample, freqCSset, mbat, NUM_SAMPLETABLE);
-	freeSampleData(csSample, NUM_SAMPLETABLE);
+	RDFExtractSampleData(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, maxNumPwithDup, csSample, outputBat, numSampleTbl);
+	printSampleData(csSample, freqCSset, mbat, numSampleTbl);
+	freeSampleData(csSample, numSampleTbl);
 	BBPreclaim(outputBat);
 	BBPunfix(mbat->batCacheid);
 	free(mergeCSFreqCSMap);

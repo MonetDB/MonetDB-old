@@ -173,7 +173,8 @@ typedef struct SubCSSet{
 #define SIM_THRESHOLD 0.6
 #define SIM_TFIDF_THRESHOLD 0.55
 #define IMPORTANCE_THRESHOLD 0.01
-#define MIN_PERCETAGE_S6 10	// Merge all CS refered by more than 1/MIN_PERCETAGE_S6 percent of a CS via one property
+#define MIN_PERCETAGE_S6 5	// Merge all CS refered by more than 1/MIN_PERCETAGE_S6 percent of a CS via one property
+#define MINIMUM_TABLE_SIZE 10000   //The minimum number of triples coverred by a table (i.e., a final CS) 
 
 typedef struct CSset{
 	CS* items;
