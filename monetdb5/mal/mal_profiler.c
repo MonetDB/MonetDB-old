@@ -1320,11 +1320,12 @@ static int getCPULoad(char cpuload[BUFSIZ]){
 }
 
 // Give users the option to check for the system load between two heart beats
-void HeartbeatCPUload(str (*IdleFunc)(int *))
+void HeartbeatCPUload(void *arg)
 {
 	char cpuload[BUFSIZ];
 	char *p = getenv("CPULOAD_THRESHOLD");
 	int thres;
+	str (*IdleFunc)(int *) = arg;
 	if (p == NULL)
 	{
 		fprintf(stderr, "Error: CPULOAD_THRESHOLD\n");
@@ -1346,12 +1347,13 @@ void HeartbeatCPUload(str (*IdleFunc)(int *))
 }
 
 // Give users the option to check for the system total load between two heart beats
-void HeartbeatCPUload_total(void)
+void HeartbeatCPUload_total(void* dummy)
 {
 	char cpuload[BUFSIZ];
 	FILE *ofp;
 	char *outputFilename1;
-	
+	(void) dummy;
+
 	outputFilename1 = getenv("TOTAL_CPULOAD");
 	if (outputFilename1 == NULL){
   		fprintf(stderr, "Error: TOTAL_CPULOAD\n");
