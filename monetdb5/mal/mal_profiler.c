@@ -1336,7 +1336,7 @@ void HeartbeatCPUload(void *arg)
 	while(1)
 	{
 		(void) getCPULoad(cpuload);
-		fprintf(stderr,"cpuload=%lf\n",corestat[256].load);
+		//fprintf(stderr,"cpuload=%lf\n",corestat[256].load);
 		if (corestat[256].load < thres)
 		{
 			IdleFunc(NULL);
