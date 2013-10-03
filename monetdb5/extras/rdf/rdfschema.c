@@ -2778,7 +2778,7 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 
 	for (i = 0; i < csRel.numRef; i++){
 		freq = freqCSset->items[csRel.origFreqIdx].support; 
-		if (freq < csRel.lstCnt[i] * MIN_PERCETAGE_S6){			
+		if (freq > MIN_FROMTABLE_SIZE_S6 && freq < csRel.lstCnt[i] * MIN_PERCETAGE_S6){			
 			propIdx = 0;
 			while (csRelSum->lstPropId[propIdx] != csRel.lstPropId[i])
 				propIdx++;
@@ -2811,6 +2811,38 @@ LabelStat* initLabelStat(void){
 	return labelStat; 
 }
 
+/*
+ * 
+ * */
+#if USE_ALTERNATIVE_NAME 
+static
+oid getMostSuitableName(CSlabel *labels, int freqIdx, int candIdx){
+	oid candidate; 
+	int i; 
+	candidate = labels[freqIdx].candidates[candIdx];
+
+	if (labels[freqIdx].hierarchyCount > 1){
+		for (i = 0; i < labels[freqIdx].hierarchyCount; i++){
+			if (labels[freqIdx].hierarchy[i] == candidate) break;
+		}
+
+	}
+	
+	if (i == labels[freqIdx].hierarchyCount)	// Not appears in the hierarchy
+		return candidate; 
+	else if (i > TOP_GENERAL_NAME)		// Not a too general candidate
+		return candidate; 
+	else if ((candIdx+1) < labels[freqIdx].candidatesCount){
+		//printf("Use another candidate \n");
+		return labels[freqIdx].candidates[candIdx+1];
+	}
+		
+	//No choice			
+	return candidate; 
+
+}
+#endif
+
 static
 void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset, int k){
 	int 	i,j; 
@@ -2826,7 +2858,11 @@ void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset, int
 		if (labels[i].name != BUN_NONE){
 			numCheck = (labels[i].candidatesCount > k)?k:labels[i].candidatesCount;
 			for (j = 0; j < numCheck; j++){
+				#if USE_ALTERNATIVE_NAME
+				candidate = getMostSuitableName(labels, i, j);
+				#else
 				candidate = labels[i].candidates[j];
+				#endif
 				bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr) &candidate);
 				if (bun == BUN_NONE) {
 					/*New string*/
@@ -2874,7 +2910,11 @@ void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset, int
 		if (labels[i].name != BUN_NONE){
 			numCheck = (labels[i].candidatesCount > k)?k:labels[i].candidatesCount;
 			for (j = 0; j < numCheck; j++){
+				#if USE_ALTERNATIVE_NAME
+				candidate = getMostSuitableName(labels, i, j);
+				#else
 				candidate = labels[i].candidates[j];
+				#endif
 				bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr) &candidate);
 				if (bun == BUN_NONE) {
 					fprintf(stderr, "All the name should be stored already!\n");
@@ -2903,18 +2943,63 @@ void freeLabelStat(LabelStat *labelStat){
 	free(labelStat);
 }
 
+static 
+void doMerge(CSset *freqCSset, int ruleNum, CS* cs1, CS* cs2, int freqId1, int freqId2, oid *mergecsId, CSlabel** labels, oid** ontmetadata, int ontmetadataCount, oid name){
+	CS 	*mergecs; 
+	int		existMergecsId; 
+	CS		*existmergecs, *mergecs1, *mergecs2; 
+	int	k; 
+
+	//Check whether these CS's belong to any mergeCS
+	if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx == -1){	/* New merge */
+		mergecs = mergeTwoCSs(*cs1,*cs2, freqId1,freqId2, *mergecsId);
+		//addmergeCStoSet(mergecsSet, *mergecs);
+		cs1->parentFreqIdx = freqCSset->numCSadded;
+		cs2->parentFreqIdx = freqCSset->numCSadded;
+		addCStoSet(freqCSset,*mergecs);
+		updateLabel(ruleNum, freqCSset, labels, 1, freqCSset->numCSadded - 1, freqId1, freqId2, name, ontmetadata, ontmetadataCount, NULL, -1);
+		free(mergecs);
+
+		mergecsId[0]++;
+	}
+	else if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx != -1){
+		existMergecsId = cs2->parentFreqIdx;
+		existmergecs = &(freqCSset->items[existMergecsId]);
+		mergeACStoExistingmergeCS(*cs1,freqId1, existmergecs);
+		cs1->parentFreqIdx = existMergecsId; 
+		updateLabel(ruleNum, freqCSset, labels, 0, existMergecsId, freqId1, freqId2, name, ontmetadata, ontmetadataCount, NULL, -1);
+	}
+	
+	else if (cs1->parentFreqIdx != -1 && cs2->parentFreqIdx == -1){
+		existMergecsId = cs1->parentFreqIdx;
+		existmergecs = &(freqCSset->items[existMergecsId]);
+		mergeACStoExistingmergeCS(*cs2,freqId2, existmergecs);
+		cs2->parentFreqIdx = existMergecsId; 
+		updateLabel(ruleNum, freqCSset, labels, 0, existMergecsId, freqId1, freqId2, name, ontmetadata, ontmetadataCount, NULL, -1);
+	}
+	else if (cs1->parentFreqIdx != cs2->parentFreqIdx){
+		mergecs1 = &(freqCSset->items[cs1->parentFreqIdx]);
+		mergecs2 = &(freqCSset->items[cs2->parentFreqIdx]);
+		
+		mergeTwomergeCS(mergecs1, mergecs2, cs1->parentFreqIdx);
+
+		//Re-map for all maxCS in mergecs2
+		for (k = 0; k < mergecs2->numConsistsOf; k++){
+			freqCSset->items[mergecs2->lstConsistsOf[k]].parentFreqIdx = cs1->parentFreqIdx;
+		}
+		updateLabel(ruleNum, freqCSset, labels, 0, cs1->parentFreqIdx, freqId1, freqId2, name, ontmetadata, ontmetadataCount, NULL, -1);
+	}
+
+}
 
 static
-void mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** ontmetadata, int ontmetadataCount){
+str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** ontmetadata, int ontmetadataCount){
 	int 		i; 
 
 	#if !USE_MULTIWAY_MERGING
-	int		j,k;
+	int		j, k;
 	int 		freqId1, freqId2;
-	CS     		*mergecs;
-	int		existMergecsId; 
 	CS		*cs1, *cs2;
-	CS		*existmergecs, *mergecs1, *mergecs2; 
 	#else
 	int		*lstDistinctFreqId = NULL;		
 	int		numDistinct = 0;
@@ -2923,6 +3008,17 @@ void mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid*
 	#endif
 	LabelStat	*labelStat = NULL; 
 	oid		*name;
+	#if OUTPUT_FREQID_PER_LABEL
+	FILE    	*fout;
+	char*   	schema = "rdf";
+	int		ret = 0;
+	str		tmpLabel; 
+	int		tmpCount; 
+	
+	#if USE_SHORT_NAMES
+	str canStrShort = NULL;
+	#endif
+	#endif
 	(void) name; 
 	(void) ontmetadata;
 	(void) ontmetadataCount;
@@ -2930,6 +3026,15 @@ void mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid*
 	buildLabelStat(labelStat, (*labels), freqCSset, TOPK);
 	printf("Num FreqCSadded before using S1 = %d \n", freqCSset->numCSadded);
 
+	#if OUTPUT_FREQID_PER_LABEL
+
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "rdf.rdfschema",
+				"could not open the tokenizer\n");
+	}
+	
+	fout = fopen("freqIdPerLabel.txt","wt");
+	#endif
 	for (i = 0; i < labelStat->numLabeladded; i++){
 		name = (oid*) Tloc(labelStat->labelBat, i);
 		if (labelStat->lstCount[i] > 1){
@@ -2940,65 +3045,97 @@ void mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid*
 				updateLabel(S1, freqCSset, labels, isNew, mergeFreqIdx, -1, -1, *name, ontmetadata, ontmetadataCount, lstDistinctFreqId, numDistinct);
 			}
 			#else
-			freqId1 = labelStat->freqIdList[i][0];
+
+			//For ontology name
+			tmpCount = 0; 
+			for (k = 0; k < labelStat->lstCount[i]; k++){
+				freqId1 = labelStat->freqIdList[i][k];
+				if ((*labels)[freqId1].isOntology == 1) break; 
+			}
 			cs1 = &(freqCSset->items[freqId1]);
-			if (i == 89) 
-				printf("Check here \n");
-			for (j = 1; j < labelStat->lstCount[i]; j++){
+			for (j = k; j < labelStat->lstCount[i]; j++){
 				freqId2 = labelStat->freqIdList[i][j];
 				cs2 = &(freqCSset->items[freqId2]);
-				//Check whether these CS's belong to any mergeCS
-				if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx == -1){	/* New merge */
-					mergecs = mergeTwoCSs(*cs1,*cs2, freqId1,freqId2, *mergecsId);
-					//addmergeCStoSet(mergecsSet, *mergecs);
-					cs1->parentFreqIdx = freqCSset->numCSadded;
-					cs2->parentFreqIdx = freqCSset->numCSadded;
-					addCStoSet(freqCSset,*mergecs);
-					updateLabel(S1, freqCSset, labels, 1, freqCSset->numCSadded - 1, freqId1, freqId2, *name, ontmetadata, ontmetadataCount, NULL, -1);
-					free(mergecs);
+				if ((*labels)[freqId2].isOntology == 1){
+					doMerge(freqCSset, S1, cs1, cs2, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name);
+					tmpCount++;
+				}
+			}
+			fprintf(fout, " %d names are same by Ontology. MergedCS has %d prop. \n", tmpCount, freqCSset->items[freqCSset->numCSadded -1].numProp);
 
-					mergecsId[0]++;
+			//For Type
+			tmpCount = 0;
+			for (k = 0; k < labelStat->lstCount[i]; k++){
+				freqId1 = labelStat->freqIdList[i][k];
+				if ((*labels)[freqId1].isType == 1) break; 
+			}
+			cs1 = &(freqCSset->items[freqId1]);
+			for (j = k; j < labelStat->lstCount[i]; j++){
+				freqId2 = labelStat->freqIdList[i][j];
+				cs2 = &(freqCSset->items[freqId2]);
+				if ((*labels)[freqId2].isType == 1){
+					doMerge(freqCSset, S1, cs1, cs2, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name);
+					tmpCount++;
 				}
-				else if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx != -1){
-					existMergecsId = cs2->parentFreqIdx;
-					existmergecs = &(freqCSset->items[existMergecsId]);
-					mergeACStoExistingmergeCS(*cs1,freqId1, existmergecs);
-					cs1->parentFreqIdx = existMergecsId; 
-					updateLabel(S1, freqCSset, labels, 0, existMergecsId, freqId1, freqId2, *name, ontmetadata, ontmetadataCount, NULL, -1);
-				}
-				
-				else if (cs1->parentFreqIdx != -1 && cs2->parentFreqIdx == -1){
-					existMergecsId = cs1->parentFreqIdx;
-					existmergecs = &(freqCSset->items[existMergecsId]);
-					mergeACStoExistingmergeCS(*cs2,freqId2, existmergecs);
-					cs2->parentFreqIdx = existMergecsId; 
-					updateLabel(S1, freqCSset, labels, 0, existMergecsId, freqId1, freqId2, *name, ontmetadata, ontmetadataCount, NULL, -1);
-				}
-				else if (cs1->parentFreqIdx != cs2->parentFreqIdx){
-					mergecs1 = &(freqCSset->items[cs1->parentFreqIdx]);
-					mergecs2 = &(freqCSset->items[cs2->parentFreqIdx]);
-					
-					mergeTwomergeCS(mergecs1, mergecs2, cs1->parentFreqIdx);
+			}
+			fprintf(fout, " %d names are same by TYPE. MergedCS has %d prop. \n", tmpCount, freqCSset->items[freqCSset->numCSadded -1].numProp);
 
-					//Re-map for all maxCS in mergecs2
-					for (k = 0; k < mergecs2->numConsistsOf; k++){
-						freqCSset->items[mergecs2->lstConsistsOf[k]].parentFreqIdx = cs1->parentFreqIdx;
-					}
-					updateLabel(S1, freqCSset, labels, 0, cs1->parentFreqIdx, freqId1, freqId2, *name, ontmetadata, ontmetadataCount, NULL, -1);
+			//For FK
+			tmpCount = 0;
+			for (k = 0; k < labelStat->lstCount[i]; k++){
+				freqId1 = labelStat->freqIdList[i][k];
+				if ((*labels)[freqId1].isFK == 1) break; 
+			}
+			cs1 = &(freqCSset->items[freqId1]);
+			for (j = k; j < labelStat->lstCount[i]; j++){
+				freqId2 = labelStat->freqIdList[i][j];
+				cs2 = &(freqCSset->items[freqId2]);
+				if ((*labels)[freqId2].isFK == 1){
+					doMerge(freqCSset, S1, cs1, cs2, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name);
+					tmpCount++;
 				}
-
 			}
 			#endif /* USE_MULTIWAY_MERGING */
+			fprintf(fout, " %d names are same by FK. MergedCS has %d prop. \n", tmpCount, freqCSset->items[freqCSset->numCSadded -1].numProp);
+
+
+			#if OUTPUT_FREQID_PER_LABEL
+			
+			takeOid(*name, &tmpLabel); 
+			#if USE_SHORT_NAMES
+			getPropNameShort(&canStrShort, tmpLabel);
+			fprintf(fout,"Label %d:  %s \n", i, canStrShort);
+			GDKfree(canStrShort);
+			#else
+			fprintf(fout,"Label %d:  %s \n", i, tmpLabel);
+			#endif  /* USE_SHORT_NAMES */
+			GDKfree(tmpLabel); 
+			fprintf(fout,"Totally contains %d freqCSs. MergedCS has %d prop. \n", labelStat->lstCount[i], freqCSset->items[freqCSset->numCSadded -1].numProp); 
+			for (j = 0; j < labelStat->lstCount[i]; j++){
+				fprintf(fout," %d  | ", labelStat->freqIdList[i][j]); 
+			}
+			
+		 	fprintf(fout,"\n");
+			#endif /*OUTPUT_FREQID_PER_LABEL*/
 		}
+		
+
 	}
 
+	#if OUTPUT_FREQID_PER_LABEL
+	fclose(fout);
+	TKNZRclose(&ret);
+	#endif
+
 	freeLabelStat(labelStat);
+
+	return MAL_SUCCEED; 
 }
 
 static
 void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId, oid** ontmetadata, int ontmetadataCount){
 	int 		i; 
-	int 		freqId;
+	int 		freqId, refFreqId;
 	//int 		relId; 
 	//CS*		cs1;
 	CSrelSum 	*csRelSum; 
@@ -3047,12 +3184,13 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 		if (csrelMergeFreqSet[freqId].numRef != 0){
 			generatecsRelSum(csrelMergeFreqSet[freqId], freqId, freqCSset, csRelSum);
 			/* Check the number of */
-			fprintf(fout, "csRelSum " BUNFMT ": ",csRelSum->origFreqIdx);
+			fprintf(fout, "csRelSum " BUNFMT " (support: %d, coverage %d ): ",csRelSum->origFreqIdx, freqCSset->items[freqId].support, freqCSset->items[freqId].coverage);
 			for (j = 0; j < csRelSum->numProp; j++){
 				if ( csRelSum->numPropRef[j] > 1){
 					fprintf(fout, "  P " BUNFMT " -->",csRelSum->lstPropId[j]);
 					for (k = 0; k < csRelSum->numPropRef[j]; k++){
-						fprintf(fout, " %d | ", csRelSum->freqIdList[j][k]);
+						refFreqId = csRelSum->freqIdList[j][k];
+						fprintf(fout, " %d | ", refFreqId);
 					}	
 					/* Merge each refCS into the first CS. 
 					 * TODO: The Multi-way merging should be better

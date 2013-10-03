@@ -103,6 +103,11 @@ typedef enum {
 
 #define N_GRAPH_BAT (MAP_LEX+1)
 
+#define INFO_WHERE_NAME_FROM 1
+#define TOP_GENERAL_NAME 2	//Level of hierrachy in which a name is considered to be a general name
+				//For example, PERSON, THING is at level 1	
+#define	USE_ALTERNATIVE_NAME 0	//Use different but may be better name for a general name
+
 // Final data structure that stores the labels for tables and attributes
 typedef struct CSlabel {
 	oid		name;		// table name
@@ -116,6 +121,11 @@ typedef struct CSlabel {
 	int		hierarchyCount; // number of entries in the hierarchy list
 	int		numProp;	// number of properties, copied from freqCSset->items[x].numProp
 	oid		*lstProp;	// attribute names (same order as in freqCSset->items[x].lstProp)
+	#if 	INFO_WHERE_NAME_FROM	
+	char 		isOntology; 	// First name is decided by ontology
+	char		isType; 	// First name is decided based on Type
+	char		isFK; 	
+	#endif
 } CSlabel;
 
 #endif /* _RDF_H_ */

@@ -1167,6 +1167,7 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 		// remove subclass if superclass is in list
 		for (k = 0; k < num; ++k) {
 			int found = 0;
+			printf("    TFIDF score at %d is: %f \n",k, classStat[k].tfidfs);
 			if (classStat[k].tfidfs < ONTOLOGY_FREQ_THRESHOLD) break; // values not frequent enough (list is sorted by tfidfs)
 			for (j = 0; j < ontmetadataCount && (found == 0); ++j) {
 				oid muri = ontmetadata[0][j];
@@ -1346,7 +1347,18 @@ void createOntologyLookupResult(oid** result, CSset* freqCSset, int* resultCount
 		for (j = 0; j < ontologyCount; ++j) {
 			propOntologiesCount[j] = 0;
 		}
+
+		printf("Get ontology for FreqId %d. Orignal numProp = %d \n", i, cs.numProp);
+
 		propOntologies = findOntologies(cs, propOntologiesCount, &propOntologiesOids);
+
+		/*
+		printf("Prop ontologies count. \n");
+		for (j = 0; j < ontologyCount; ++j) {
+			if (propOntologiesCount[j] > 0)
+				printf("    (%d) props in ontology %d \n ", propOntologiesCount[j], j);
+		}
+		*/
 
 		// get class names
 		resultCount[i] = 0;
@@ -1970,6 +1982,9 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		label->name = result[csIdx][0];
 		label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 		nameFound = 1;
+		#if INFO_WHERE_NAME_FROM
+		label->isOntology = 1; 
+		#endif
 	}
 
 	if (!nameFound) {
@@ -2001,6 +2016,9 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 				label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 				free(tmpList);
 				nameFound = 1;
+				#if INFO_WHERE_NAME_FROM
+				label->isOntology = 1; 
+				#endif
 			}
 
 			if (!nameFound) {
@@ -2010,6 +2028,10 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 					label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 					free(tmpList);
 					nameFound = 1;
+					
+					#if INFO_WHERE_NAME_FROM
+					label->isOntology = 1; 
+					#endif
 				}
 			}
 
@@ -2019,6 +2041,10 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 				label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 				free(tmpList);
 				nameFound = 1;
+
+				#if INFO_WHERE_NAME_FROM
+				label->isOntology = 1; 
+				#endif
 			}
 		}
 	}
@@ -2060,6 +2086,10 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			// only one type attribute, use most frequent value (sorted)
 			label->name = tmpList[0];
 			nameFound = 1;
+			#if INFO_WHERE_NAME_FROM
+			label->isType = 1; 
+			#endif
+
 		}
 	}
 
@@ -2071,6 +2101,10 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 					if (typeStat[i].value == tmpList[j]) {
 						label->name = tmpList[j];
 						nameFound = 1;
+
+						#if INFO_WHERE_NAME_FROM
+						label->isType = 1; 
+						#endif
 					}
 				}
 			}
@@ -2094,6 +2128,10 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		if (links[csIdx].num > 0) {
 			label->name = links[csIdx].fks[0].prop; // sorted
 			nameFound = 1;
+
+			#if INFO_WHERE_NAME_FROM
+			label->isFK = 1; 
+			#endif
 		}
 	}
 
@@ -2138,6 +2176,11 @@ CSlabel* initLabels(CSset *freqCSset) {
 		labels[i].hierarchyCount = 0;
 		labels[i].numProp = 0;
 		labels[i].lstProp = NULL;
+		#if INFO_WHERE_NAME_FROM
+		labels[i].isOntology = 0; 
+		labels[i].isType = 0; 
+		labels[i].isFK = 0; 
+		#endif
 	}
 	return labels;
 }

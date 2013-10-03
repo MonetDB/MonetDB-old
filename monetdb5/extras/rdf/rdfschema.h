@@ -110,6 +110,8 @@ typedef struct PropStat {
 					Specifically, the consistsOf list only contains 
 					the freqIdx of merged CS from previous rule. */
 
+#define OUTPUT_FREQID_PER_LABEL 1 	/* This is for evaluating the results of merging using S1. TODO: Set it to 0 for default*/
+
 typedef struct CS
 {
 	oid 	csId;		//Id of the CS
@@ -174,6 +176,8 @@ typedef struct SubCSSet{
 #define SIM_TFIDF_THRESHOLD 0.55
 #define IMPORTANCE_THRESHOLD 0.01
 #define MIN_PERCETAGE_S6 5	// Merge all CS refered by more than 1/MIN_PERCETAGE_S6 percent of a CS via one property
+#define MIN_FROMTABLE_SIZE_S6 100  // The minimum size of the "from" table in S6. Meaning that 
+				    // the CS's to-be-merged in this rule must cover > MIN_FROMTABLE_SIZE_S6 / MIN_PERCETAGE_S6 triples
 #define MINIMUM_TABLE_SIZE 10000   //The minimum number of triples coverred by a table (i.e., a final CS) 
 
 typedef struct CSset{
