@@ -179,6 +179,7 @@ typedef struct SubCSSet{
 #define MIN_FROMTABLE_SIZE_S6 100  // The minimum size of the "from" table in S6. Meaning that 
 				    // the CS's to-be-merged in this rule must cover > MIN_FROMTABLE_SIZE_S6 / MIN_PERCETAGE_S6 triples
 #define MINIMUM_TABLE_SIZE 10000   //The minimum number of triples coverred by a table (i.e., a final CS) 
+#define SAMPLE_FILTER_THRESHOLD 1  // SAMPLE_FILTER_THRESHOLD/ 100	
 
 typedef struct CSset{
 	CS* items;

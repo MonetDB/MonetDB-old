@@ -1074,7 +1074,7 @@ int compareOntologyCandidates (const void * a, const void * b) {
 #if USE_ONTOLOGY_NAMES
 /* For one CS: Calculate the ontology classes that are similar (tfidf) to the list of attributes. */
 static
-oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount, int *resultCount, oid **listOids, int *listCount, int listNum, PropStat *propStat) {
+oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount, int *resultCount, oid **listOids, int *listCount, int listNum, PropStat *propStat, float *totaltfidfsPerOntology) {
 	int		i, j, k, l;
 	oid		*result = NULL;
 
@@ -1095,7 +1095,7 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 			candidates[j] = NULL;
 			candidatesCount[j] = 0;
 		}
-
+		//printf("Number of attribute in corresponding ontology is: %d \n", ontattributesCount);
 		for (j = 0; j < ontattributesCount; ++j) {
 			oid auri = ontattributes[0][j];
 			oid aattr = ontattributes[1][j];
@@ -1143,11 +1143,27 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 					classStat = (ClassStat *) realloc(classStat, sizeof(ClassStat) * (num + 1));
 					if (!classStat) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 					classStat[num].ontoClass = candidates[j][k]; // pointer, no copy
+					classStat[num].totaltfidfs = 0.0;
 					classStat[num].tfidfs = (propStat->tfidfs[bun] * propStat->tfidfs[bun]);
 					num += 1;
 				}
 			}
 		}
+		
+		//[DUC --- add the total tfidf score for a ontology class]  //TODO: Compute before, not here
+		for (l = 0; l < num; ++l){
+			for (j = 0; j < ontmetadataCount; ++j) {
+				oid auri = ontmetadata[0][j];
+				//printf("auri = " BUNFMT "\n", auri);
+				if (auri == classStat[l].ontoClass){
+					//printf("Classstat %d (uri: "BUNFMT ") - Set totaltfidf with ontology %dth: %f \n", l, auri, j, totaltfidfsPerOntology[j]); 
+					classStat[l].totaltfidfs = totaltfidfsPerOntology[j]; 
+					break; 
+				}
+			}
+		}
+		//[ ... DUC]
+
 
 		// calculate optimal tfidf score (all properties) & normalize tfidf sums
 		totalTfidfs = 0.0;
@@ -1158,7 +1174,11 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 			totalTfidfs += (propStat->tfidfs[bun] * propStat->tfidfs[bun]);
 		}
 		for (j = 0; j < num; ++j) {
-			classStat[j].tfidfs /= totalTfidfs;
+			//classStat[j].tfidfs /= totalTfidfs;  //[DUC--modify]
+			//printf("original classStat[j].tfidfs = %f \n", classStat[j].tfidfs);
+			classStat[j].tfidfs = classStat[j].tfidfs / (sqrt(totalTfidfs)*sqrt(classStat[j].totaltfidfs));
+			//printf("totalTfidfs = %f    || classStat[j].totaltfidfs =  %f || classStat[j].tfidfs = %f \n",totalTfidfs,classStat[j].totaltfidfs,classStat[j].tfidfs);
+			
 		}
 
 		// sort by tfidf desc
@@ -1167,7 +1187,7 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 		// remove subclass if superclass is in list
 		for (k = 0; k < num; ++k) {
 			int found = 0;
-			printf("    TFIDF score at %d is: %f \n",k, classStat[k].tfidfs);
+			//printf("    TFIDF score at %d is: %f  \n",k, classStat[k].tfidfs);
 			if (classStat[k].tfidfs < ONTOLOGY_FREQ_THRESHOLD) break; // values not frequent enough (list is sorted by tfidfs)
 			for (j = 0; j < ontmetadataCount && (found == 0); ++j) {
 				oid muri = ontmetadata[0][j];
@@ -1274,6 +1294,7 @@ PropStat* initPropStat(void) {
 
 #if USE_ONTOLOGY_NAMES
 /* Copied from Duc's code. */
+/*
 static
 void createPropStatistics(PropStat* propStat, int numMaxCSs, CSset* freqCSset) {
 	int		i, j;
@@ -1310,6 +1331,44 @@ void createPropStatistics(PropStat* propStat, int numMaxCSs, CSset* freqCSset) {
 		propStat->tfidfs[i] = log(((float)numMaxCSs) / (1 + propStat->freqs[i]));
 	}
 }
+*/
+//[DUC] Create propstat for ontology only 
+static
+void createPropStatistics(PropStat* propStat, oid** ontattributes, int ontattributesCount) {
+	int		i;
+
+	for (i = 0; i < ontattributesCount; ++i) {
+		oid attr = ontattributes[1][i];
+		// add prop to propStat
+		BUN	bun = BUNfnd(BATmirror(propStat->pBat), (ptr) &attr);
+		if (bun == BUN_NONE) {
+			if (propStat->pBat->T->hash && BATcount(propStat->pBat) > 4 * propStat->pBat->T->hash->mask) {
+				HASHdestroy(propStat->pBat);
+				BAThash(BATmirror(propStat->pBat), 2*BATcount(propStat->pBat));
+			}
+
+			propStat->pBat = BUNappend(propStat->pBat, &attr, TRUE);
+
+			if (propStat->numAdded == propStat->numAllocation) {
+				propStat->numAllocation += INIT_PROP_NUM;
+
+				propStat->freqs = realloc(propStat->freqs, ((propStat->numAllocation) * sizeof(int)));
+				propStat->tfidfs = realloc(propStat->tfidfs, ((propStat->numAllocation) * sizeof(float)));
+				if (!propStat->freqs || !propStat->tfidfs) {fprintf(stderr, "ERROR: Couldn't realloc memory!\n");}
+			}
+			propStat->freqs[propStat->numAdded] = 1;
+			propStat->numAdded++;
+		} else {
+			propStat->freqs[bun]++;
+		}
+	}
+
+	for (i = 0; i < propStat->numAdded; ++i) {
+		propStat->tfidfs[i] = log(((float)ontattributesCount) / (1 + propStat->freqs[i]));
+	}
+}
+
+//... [DUC]
 #endif
 
 #if USE_ONTOLOGY_NAMES
@@ -1329,9 +1388,43 @@ static
 void createOntologyLookupResult(oid** result, CSset* freqCSset, int* resultCount, oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount) {
 	int		i, j;
 	PropStat	*propStat;
+	float*		totaltfidfsPerOntology; 	//[DUC]
+	oid		lastUri; 
 
 	propStat = initPropStat();
-	createPropStatistics(propStat, freqCSset->numCSadded, freqCSset);
+
+	//[DUC] Change the function for getting propStat. Use ontattributes for the propStat. 
+	// Not the properties from freqCS
+	//createPropStatistics(propStat, freqCSset->numCSadded, freqCSset);
+	createPropStatistics(propStat, ontattributes, ontattributesCount);
+	
+
+	lastUri = BUN_NONE; 
+	totaltfidfsPerOntology = (float*) malloc(sizeof(float) * ontmetadataCount);
+	//printf("Init tfidf for all %d ontologies \n",ontmetadataCount );
+	for (i = 0; i < ontmetadataCount; ++i) {
+		oid auri = ontmetadata[0][i];
+
+		if (auri == lastUri){ 
+			//printf("Duplication at %d value " BUNFMT "\n", i, auri); 
+			continue; 
+		}
+		else lastUri = auri; 
+		totaltfidfsPerOntology[i] = 0; 
+
+		for (j = 0; j < ontattributesCount; j++){
+			oid tmpuri = ontattributes[0][j];
+			oid aattr = ontattributes[1][j];
+			if (auri == tmpuri){
+				BUN bun = BUNfnd(BATmirror(propStat->pBat), (ptr) &aattr);
+				if (bun == BUN_NONE) printf("[Debug] This cannot happen \n");
+				else
+					totaltfidfsPerOntology[i] += (propStat->tfidfs[bun] * propStat->tfidfs[bun]);
+			}	
+		}
+		//printf("Computed totaltfidfsPerOntology of ontology %d: %f (uri = "BUNFMT")\n",i, totaltfidfsPerOntology[i],auri);
+	}
+	//... [DUC]
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS		cs;
@@ -1347,8 +1440,8 @@ void createOntologyLookupResult(oid** result, CSset* freqCSset, int* resultCount
 		for (j = 0; j < ontologyCount; ++j) {
 			propOntologiesCount[j] = 0;
 		}
-
-		printf("Get ontology for FreqId %d. Orignal numProp = %d \n", i, cs.numProp);
+		
+		//printf("Get ontology for FreqId %d. Orignal numProp = %d \n", i, cs.numProp);
 
 		propOntologies = findOntologies(cs, propOntologiesCount, &propOntologiesOids);
 
@@ -1356,13 +1449,13 @@ void createOntologyLookupResult(oid** result, CSset* freqCSset, int* resultCount
 		printf("Prop ontologies count. \n");
 		for (j = 0; j < ontologyCount; ++j) {
 			if (propOntologiesCount[j] > 0)
-				printf("    (%d) props in ontology %d \n ", propOntologiesCount[j], j);
+				printf("    %d props in ontology %d \n ", propOntologiesCount[j], j);
 		}
 		*/
 
 		// get class names
 		resultCount[i] = 0;
-		result[i] = getOntologyCandidates(ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &(resultCount[i]), propOntologiesOids, propOntologiesCount, ontologyCount, propStat);
+		result[i] = getOntologyCandidates(ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &(resultCount[i]), propOntologiesOids, propOntologiesCount, ontologyCount, propStat,totaltfidfsPerOntology);
 
 		for (j = 0; j < ontologyCount; ++j) {
 			free(propOntologies[j]);
@@ -1373,6 +1466,7 @@ void createOntologyLookupResult(oid** result, CSset* freqCSset, int* resultCount
 		free(propOntologiesCount);
 	}
 	freePropStat(propStat);
+	free(totaltfidfsPerOntology);
 }
 #endif
 

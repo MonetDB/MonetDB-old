@@ -4464,6 +4464,9 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 	oid	objOid = BUN_NONE; 
 	BATiter mapi;
 	str	canStr; 
+#if USE_SHORT_NAMES
+	str	propStrShort = NULL;
+#endif
 
 	mapi = bat_iterator(mbat);
 
@@ -4506,8 +4509,9 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 		//List of columns
 		fprintf(fout,"Subject");
 		for (j = 0; j < sample.numProp; j++){
+			if (freqCS.lstPropSupport[j] * 100 < freqCS.support * SAMPLE_FILTER_THRESHOLD) continue; 
 #if USE_SHORT_NAMES
-			str propStrShort = NULL;
+			propStrShort = NULL;
 #endif
 			takeOid(sample.lstProp[j], &propStr);	
 #if USE_SHORT_NAMES
@@ -4523,6 +4527,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 		
 		//List of support
 		for (j = 0; j < sample.numProp; j++){
+			if (freqCS.lstPropSupport[j] * 100 < freqCS.support * SAMPLE_FILTER_THRESHOLD) continue; 
 			fprintf(fout,";%d", freqCS.lstPropSupport[j]);
 		}
 		fprintf(fout, "\n");
@@ -4543,6 +4548,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 			GDKfree(subjStr); 
 			
 			for (j = 0; j < sample.numProp; j++){
+				if (freqCS.lstPropSupport[j] * 100 < freqCS.support * SAMPLE_FILTER_THRESHOLD) continue; 
 				objOid = sample.lstObj[j][k];
 				if (objOid == BUN_NONE)
 					fprintf(fout,";NULL");
