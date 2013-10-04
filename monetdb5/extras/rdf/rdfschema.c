@@ -4357,6 +4357,7 @@ void initSampleData(CSSample *csSample,BAT *candBat,CSset *freqCSset, oid *merge
 		cs = freqCSset->items[freqId];
 		csSample[i].freqIdx = freqId;
 		tmpNumcand = (NUM_SAMPLE_CANDIDATE > label[freqId].candidatesCount)?label[freqId].candidatesCount:NUM_SAMPLE_CANDIDATE;
+		csSample[i].name = label[freqId].name; 
 		csSample[i].candidateCount = tmpNumcand;
 		csSample[i].candidates = (oid*)malloc(sizeof(oid) * tmpNumcand); 
 		for (k = 0; k < tmpNumcand; k++){
@@ -4449,7 +4450,7 @@ static
 str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 
 	int 	i,j, k; 
-	FILE 	*fout; 
+	FILE 	*fout, *fouttb, *foutis; 
 	char 	filename[100];
 	char 	tmpStr[20];
 	int 	ret;
@@ -4480,8 +4481,11 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 	sprintf(tmpStr, "%d", num);
 	strcat(filename, tmpStr);
 	strcat(filename, ".txt");
+	
 
 	fout = fopen(filename,"wt"); 
+	fouttb = fopen("createSampleTable.sh","wt");
+	foutis = fopen("loadSampleToMonet.sh","wt");
 
 	for (i = 0; i < num; i++){
 		sample = csSample[i];
@@ -4506,8 +4510,22 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 			}
 		}
 		fprintf(fout, "\n");
+		
+
+		if (sample.name != BUN_NONE){
+			str canStrShort = NULL;
+			takeOid(sample.name, &canStr);
+			getPropNameShort(&canStrShort, canStr);
+			fprintf(fouttb,"CREATE TABLE %s \n(\n ",  canStrShort);
+			GDKfree(canStrShort);
+			GDKfree(canStr);
+		}
+		else
+			fprintf(fouttb,"CREATE TABLE tbSample%d \n (\n ", i);
+
 		//List of columns
 		fprintf(fout,"Subject");
+		fprintf(fouttb,"Subject string, \n");
 		for (j = 0; j < sample.numProp; j++){
 			if (freqCS.lstPropSupport[j] * 100 < freqCS.support * SAMPLE_FILTER_THRESHOLD) continue; 
 #if USE_SHORT_NAMES
@@ -4517,6 +4535,10 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 #if USE_SHORT_NAMES
 			getPropNameShort(&propStrShort, propStr);
 			fprintf(fout,";%s", propStrShort);
+			if (j == (sample.numProp -1))	//last column
+				fprintf(fouttb,"%s string\n",propStrShort);
+			else
+				fprintf(fouttb,"%s string,\n",propStrShort);
 			GDKfree(propStrShort);
 #else
 			fprintf(fout,";%s", propStr);
@@ -4524,6 +4546,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 			GDKfree(propStr);
 		}
 		fprintf(fout, "\n");
+		fprintf(fouttb, "); \n \n");
 		
 		//List of support
 		for (j = 0; j < sample.numProp; j++){
@@ -4531,7 +4554,8 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 			fprintf(fout,";%d", freqCS.lstPropSupport[j]);
 		}
 		fprintf(fout, "\n");
-
+		
+		fprintf(foutis, "echo \" ");
 		//All the instances 
 		for (k = 0; k < sample.numInstances; k++){
 #if USE_SHORT_NAMES
@@ -4541,6 +4565,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 #if USE_SHORT_NAMES
 			getPropNameShort(&subjStrShort, subjStr);
 			fprintf(fout,"<%s>", subjStrShort);
+			fprintf(foutis,"<%s>", subjStrShort);
 			GDKfree(subjStrShort);
 #else
 			fprintf(fout,"%s", subjStr);
@@ -4550,8 +4575,10 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 			for (j = 0; j < sample.numProp; j++){
 				if (freqCS.lstPropSupport[j] * 100 < freqCS.support * SAMPLE_FILTER_THRESHOLD) continue; 
 				objOid = sample.lstObj[j][k];
-				if (objOid == BUN_NONE)
+				if (objOid == BUN_NONE){
 					fprintf(fout,";NULL");
+					fprintf(foutis,"|NULL");
+				}
 				else{
 					objStr = NULL;
 					getObjStr(mbat, mapi, objOid, &objStr, &objType);
@@ -4560,6 +4587,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 						str objStrShort = NULL;
 						getPropNameShort(&objStrShort, objStr);
 						fprintf(fout,";<%s>", objStrShort);
+						fprintf(foutis,"|<%s>", objStrShort);
 						GDKfree(objStrShort);
 #else
 						fprintf(fout,";%s", objStr);
@@ -4569,17 +4597,39 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 						str betweenQuotes;
 						getStringBetweenQuotes(&betweenQuotes, objStr);
 						fprintf(fout,";%s", betweenQuotes);
+						fprintf(foutis,"|%s", betweenQuotes);
 						GDKfree(betweenQuotes);
 					}
 				}
 			}
 			fprintf(fout, "\n");
+			fprintf(foutis, "\n");
+
 		}
 
 		fprintf(fout, "\n");
+		fprintf(foutis, "\" > tmp.txt \n \n");
+
+		if (sample.name != BUN_NONE){
+			str canStrShort = NULL;
+			takeOid(sample.name, &canStr);
+			getPropNameShort(&canStrShort, canStr);
+			fprintf(foutis, "echo \"COPY %d RECORDS INTO %s FROM 'tmp.txt'     USING DELIMITERS '|', '\\n'; \" > tmpload.sql \n", sample.numInstances, canStrShort);
+			fprintf(foutis, "mclient < tmpload.sql \n");
+			GDKfree(canStrShort);
+			GDKfree(canStr);
+		}
+		else{
+			fprintf(foutis, "echo \"COPY %d RECORDS INTO tbSample%d FROM 'tmp.txt'     USING DELIMITERS '|', '\\n'; \" > tmpload.sql \n", sample.numInstances, i);
+			fprintf(foutis, "mclient < tmpload.sql \n");
+		}
+
+			
 	}
 
 	fclose(fout);
+	fclose(fouttb); 
+	fclose(foutis); 
 	
 	TKNZRclose(&ret);
 	return MAL_SUCCEED;

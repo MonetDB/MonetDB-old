@@ -293,6 +293,7 @@ typedef struct CSSample{
 	oid	*lstSubjOid;
 	oid	**lstObj; 
 	int	numInstances; 
+	oid	name;
 } CSSample;
 
 rdf_export str
