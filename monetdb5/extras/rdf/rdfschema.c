@@ -4467,6 +4467,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 	str	canStr; 
 #if USE_SHORT_NAMES
 	str	propStrShort = NULL;
+	char 	*pch; 
 #endif
 
 	mapi = bat_iterator(mbat);
@@ -4516,16 +4517,18 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 			str canStrShort = NULL;
 			takeOid(sample.name, &canStr);
 			getPropNameShort(&canStrShort, canStr);
-			fprintf(fouttb,"CREATE TABLE %s \n(\n ",  canStrShort);
+			pch = strstr (canStrShort,"(");
+			if (pch != NULL) *pch = '\0';	//Remove (...) characters from table name
+			fprintf(fouttb,"CREATE TABLE %s \n(\n",  canStrShort);
 			GDKfree(canStrShort);
 			GDKfree(canStr);
 		}
 		else
-			fprintf(fouttb,"CREATE TABLE tbSample%d \n (\n ", i);
+			fprintf(fouttb,"CREATE TABLE tbSample%d \n (\n", i);
 
 		//List of columns
 		fprintf(fout,"Subject");
-		fprintf(fouttb,"Subject string, \n");
+		fprintf(fouttb,"SubjectCol string");
 		for (j = 0; j < sample.numProp; j++){
 			if (freqCS.lstPropSupport[j] * 100 < freqCS.support * SAMPLE_FILTER_THRESHOLD) continue; 
 #if USE_SHORT_NAMES
@@ -4535,10 +4538,11 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 #if USE_SHORT_NAMES
 			getPropNameShort(&propStrShort, propStr);
 			fprintf(fout,";%s", propStrShort);
-			if (j == (sample.numProp -1))	//last column
-				fprintf(fouttb,"%s string\n",propStrShort);
+			if (strcmp(propStrShort,"type") == 0 || strcmp(propStrShort,"position") == 0 ||
+					strcmp(propStrShort,"order") == 0)
+				fprintf(fouttb,",\n%s_%d string",propStrShort,j);
 			else
-				fprintf(fouttb,"%s string,\n",propStrShort);
+				fprintf(fouttb,",\n%s string",propStrShort);
 			GDKfree(propStrShort);
 #else
 			fprintf(fout,";%s", propStr);
@@ -4546,7 +4550,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 			GDKfree(propStr);
 		}
 		fprintf(fout, "\n");
-		fprintf(fouttb, "); \n \n");
+		fprintf(fouttb, "\n); \n \n");
 		
 		//List of support
 		for (j = 0; j < sample.numProp; j++){
@@ -4555,7 +4559,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 		}
 		fprintf(fout, "\n");
 		
-		fprintf(foutis, "echo \" ");
+		fprintf(foutis, "echo \"");
 		//All the instances 
 		for (k = 0; k < sample.numInstances; k++){
 #if USE_SHORT_NAMES
@@ -4597,6 +4601,8 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 						str betweenQuotes;
 						getStringBetweenQuotes(&betweenQuotes, objStr);
 						fprintf(fout,";%s", betweenQuotes);
+						pch = strstr (betweenQuotes,"\\");
+						if (pch != NULL) *pch = '\0';	//Remove \ characters from table name
 						fprintf(foutis,"|%s", betweenQuotes);
 						GDKfree(betweenQuotes);
 					}
@@ -4614,13 +4620,15 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 			str canStrShort = NULL;
 			takeOid(sample.name, &canStr);
 			getPropNameShort(&canStrShort, canStr);
-			fprintf(foutis, "echo \"COPY %d RECORDS INTO %s FROM 'tmp.txt'     USING DELIMITERS '|', '\\n'; \" > tmpload.sql \n", sample.numInstances, canStrShort);
+			pch = strstr (canStrShort,"(");
+			if (pch != NULL) *pch = '\0';	//Remove (...) characters from table name
+			fprintf(foutis, "echo \"COPY %d RECORDS INTO %s FROM 'ABSOLUTEPATH/tmp.txt'     USING DELIMITERS '|', '\\n'; \" > tmpload.sql \n", sample.numInstances, canStrShort);
 			fprintf(foutis, "mclient < tmpload.sql \n");
 			GDKfree(canStrShort);
 			GDKfree(canStr);
 		}
 		else{
-			fprintf(foutis, "echo \"COPY %d RECORDS INTO tbSample%d FROM 'tmp.txt'     USING DELIMITERS '|', '\\n'; \" > tmpload.sql \n", sample.numInstances, i);
+			fprintf(foutis, "echo \"COPY %d RECORDS INTO tbSample%d FROM 'ABSOLUTEPATH/tmp.txt'     USING DELIMITERS '|', '\\n'; \" > tmpload.sql \n", sample.numInstances, i);
 			fprintf(foutis, "mclient < tmpload.sql \n");
 		}
 
