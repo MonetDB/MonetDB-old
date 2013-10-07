@@ -4465,6 +4465,15 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 	oid	objOid = BUN_NONE; 
 	BATiter mapi;
 	str	canStr; 
+	char	isTitle = 0; 
+	char	isUrl = 0;
+	char 	isType = 0;
+	char	isDescription = 0;
+	char 	isImage = 0; 
+	char	isSite = 0;
+	char	isEmail = 0; 
+	char 	isCountry = 0; 
+	char 	isLocality = 0;
 #if USE_SHORT_NAMES
 	str	propStrShort = NULL;
 	char 	*pch; 
@@ -4517,18 +4526,36 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 			str canStrShort = NULL;
 			takeOid(sample.name, &canStr);
 			getPropNameShort(&canStrShort, canStr);
-			pch = strstr (canStrShort,"(");
-			if (pch != NULL) *pch = '\0';	//Remove (...) characters from table name
-			fprintf(fouttb,"CREATE TABLE %s \n(\n",  canStrShort);
+
+			if (strstr (canStrShort,".") != NULL || 
+				strcmp(canStrShort,"") == 0 || 
+				strstr(canStrShort,"-") != NULL	){	// WEBCRAWL specific problem with Table name a.jpg, b.png....
+				fprintf(fouttb,"CREATE TABLE tbSample%d \n (\n", i);			
+			}
+			else if (strcmp(canStrShort,"page") == 0){
+				fprintf(fouttb,"CREATE TABLE %s%d \n(\n",  canStrShort, i);
+			}
+			else {
+				pch = strstr (canStrShort,"(");
+				if (pch != NULL) *pch = '\0';	//Remove (...) characters from table name
+				fprintf(fouttb,"CREATE TABLE %s \n(\n",  canStrShort);
+			}
+
 			GDKfree(canStrShort);
 			GDKfree(canStr);
 		}
-		else
+		else 
 			fprintf(fouttb,"CREATE TABLE tbSample%d \n (\n", i);
 
 		//List of columns
 		fprintf(fout,"Subject");
 		fprintf(fouttb,"SubjectCol string");
+		isTitle = 0; 
+		isUrl = 0;
+		isType = 0; 
+		isDescription = 0; 
+		isImage = 0;
+		isSite = 0; 
 		for (j = 0; j < sample.numProp; j++){
 			if (freqCS.lstPropSupport[j] * 100 < freqCS.support * SAMPLE_FILTER_THRESHOLD) continue; 
 #if USE_SHORT_NAMES
@@ -4538,11 +4565,47 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 #if USE_SHORT_NAMES
 			getPropNameShort(&propStrShort, propStr);
 			fprintf(fout,";%s", propStrShort);
-			if (strcmp(propStrShort,"type") == 0 || strcmp(propStrShort,"position") == 0 ||
-					strcmp(propStrShort,"order") == 0)
+
+			pch = strstr (propStrShort,"-");
+			if (pch != NULL) *pch = '\0';	//Remove - characters from prop  //WEBCRAWL specific problem
+
+			if ((strcmp(propStrShort,"type") == 0 && isType == 1)|| 
+					strcmp(propStrShort,"position") == 0 ||
+					strcmp(propStrShort,"order") == 0 || 
+					(strcmp(propStrShort,"title") == 0 && isTitle == 1) ||
+					(strcmp(propStrShort,"url") == 0 && isUrl == 1) ||
+					(strcmp(propStrShort,"description") == 0 && isDescription == 1) ||
+					(strcmp(propStrShort,"site_name") == 0 && isSite == 1) ||
+					(strcmp(propStrShort,"image") == 0 && isImage == 1)  ||
+					(strcmp(propStrShort,"email") == 0 && isEmail == 1)  ||
+					(strcmp(propStrShort,"country") == 0 && isCountry == 1)  ||
+					(strcmp(propStrShort,"locality") == 0 && isLocality == 1)  ||
+					strcmp(propStrShort,"fbmladmins") == 0 ||
+					strcmp(propStrShort,"latitude") == 0 ||
+					strcmp(propStrShort,"fbmlapp_id") == 0 ||
+					strcmp(propStrShort,"locale") == 0 ||
+					strcmp(propStrShort,"longitude") == 0 ||
+					strcmp(propStrShort,"phone_number") == 0 ||
+					strcmp(propStrShort,"postal") == 0 ||
+					strcmp(propStrShort,"street") == 0 ||
+					strcmp(propStrShort,"region") == 0 ||
+					strcmp(propStrShort,"fax_number") == 0 ||
+					strcmp(propStrShort,"app_id") == 0 
+					)
 				fprintf(fouttb,",\n%s_%d string",propStrShort,j);
 			else
 				fprintf(fouttb,",\n%s string",propStrShort);
+
+			if (strcmp(propStrShort,"title") == 0) isTitle = 1; //WEBCRAWL specific problem, duplicate title
+			if (strcmp(propStrShort,"url") == 0) isUrl = 1; //WEBCRAWL specific problem, duplicate url
+			if (strcmp(propStrShort,"type") == 0) isType = 1; //WEBCRAWL specific problem, duplicate type
+			if (strcmp(propStrShort,"description") == 0) isDescription = 1; //WEBCRAWL specific problem, duplicate type
+			if (strcmp(propStrShort,"image") == 0) isImage = 1; //WEBCRAWL specific problem, duplicate type
+			if (strcmp(propStrShort,"site_name") == 0) isSite = 1; //WEBCRAWL specific problem, duplicate site_name
+			if (strcmp(propStrShort,"email") == 0) isEmail = 1; //WEBCRAWL specific problem, duplicate email		
+			if (strcmp(propStrShort,"country") == 0) isCountry = 1; //WEBCRAWL specific problem, duplicate site_name
+			if (strcmp(propStrShort,"locality") == 0) isLocality = 1; //WEBCRAWL specific problem, duplicate email		
+
 			GDKfree(propStrShort);
 #else
 			fprintf(fout,";%s", propStr);
@@ -4620,9 +4683,21 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 			str canStrShort = NULL;
 			takeOid(sample.name, &canStr);
 			getPropNameShort(&canStrShort, canStr);
-			pch = strstr (canStrShort,"(");
-			if (pch != NULL) *pch = '\0';	//Remove (...) characters from table name
-			fprintf(foutis, "echo \"COPY %d RECORDS INTO %s FROM 'ABSOLUTEPATH/tmp.txt'     USING DELIMITERS '|', '\\n'; \" > tmpload.sql \n", sample.numInstances, canStrShort);
+
+			if (strstr (canStrShort,".") != NULL || 
+				strcmp(canStrShort,"") == 0 || 
+				strstr(canStrShort,"-") != NULL	){	// WEBCRAWL specific problem with Table name a.jpg, b.png....
+				fprintf(foutis, "echo \"COPY %d RECORDS INTO tbSample%d FROM 'ABSOLUTEPATH/tmp.txt'     USING DELIMITERS '|', '\\n'; \" > tmpload.sql \n", sample.numInstances, i);
+			}
+			else if (strcmp(canStrShort,"page") == 0){
+				fprintf(foutis, "echo \"COPY %d RECORDS INTO %s%d FROM 'ABSOLUTEPATH/tmp.txt'     USING DELIMITERS '|', '\\n'; \" > tmpload.sql \n", sample.numInstances, canStrShort, i);
+			}
+			else{
+
+				pch = strstr (canStrShort,"(");
+				if (pch != NULL) *pch = '\0';	//Remove (...) characters from table name
+				fprintf(foutis, "echo \"COPY %d RECORDS INTO %s FROM 'ABSOLUTEPATH/tmp.txt'     USING DELIMITERS '|', '\\n'; \" > tmpload.sql \n", sample.numInstances, canStrShort);
+			}
 			fprintf(foutis, "mclient < tmpload.sql \n");
 			GDKfree(canStrShort);
 			GDKfree(canStr);
