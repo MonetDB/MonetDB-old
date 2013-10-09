@@ -220,8 +220,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
   		fprintf(stderr, "Error: HOLOUTPUT_ATTRIBUTES\n");
   		exit(1);
 	}
-	if ((bo = BATdescriptor(*bid)) != NULL)
-		L1=32000/ATOMsize(bo->ttype);
+	L1=32000/ATOMsize(TYPE_@1);
 
 	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
@@ -257,7 +256,8 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow){
 		b->batRestricted= BAT_READ;
 		BATmode(b,PERSISTENT);
 		bo->batRestricted= BAT_READ;
-
+		
+		BBPincref(*bid,TRUE);
 		m = newCrackerIndex_@1(*bid,b->batCacheid);
 
 		countBatElements=BATcount(b);
@@ -546,8 +546,7 @@ createView:
   		exit(1);
 	}
 
-	if ((bo = BATdescriptor(*bid)) != NULL)
-		L1=32000/ATOMsize(bo->ttype);
+	L1=32000/ATOMsize(TYPE_@1);
 
 	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
@@ -589,6 +588,7 @@ createView:
 			bo->batRestricted= BAT_READ;
 
 			m = newCrackerIndex_@1(*bid,b->batCacheid);
+			BBPincref(*bid, TRUE);
 
 			if ((c = BATdescriptor(CrackerIndex[m].cid)) == NULL)
 				throw(MAL, "crackers.crackRange", "Cannot access crack index");
@@ -637,6 +637,7 @@ createView:
                         bo->batRestricted= BAT_READ;
 
                         m = newCrackerIndex_@1(*bid,b->batCacheid);
+			BBPincref(*bid, TRUE);
 
 	
                         if ((c = BATdescriptor(CrackerIndex[m].cid)) == NULL)
@@ -1391,8 +1392,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
   		exit(1);
 	}
 
-	if ((bo = BATdescriptor(*bid)) != NULL)
-		L1=32000/ATOMsize(bo->ttype);
+	L1=32000/ATOMsize(TYPE_@1);
 
         MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
 
@@ -1418,6 +1418,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 		BATmode(b,PERSISTENT);
 		bo->batRestricted= BAT_READ;
 
+		BBPincref(*bid, TRUE);
 		m = newCrackerIndex_@1(*bid,b->batCacheid);
 
 		if ((c = BATdescriptor(CrackerIndex[m].cid)) == NULL)
@@ -1596,8 +1597,7 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
   		exit(1);
 	}
 
-	if ((bo = BATdescriptor(*bid)) != NULL)
-		L1=32000/ATOMsize(bo->ttype);
+	L1=32000/ATOMsize(TYPE_@1);
 
         MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
 
@@ -1620,6 +1620,7 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 		BATmode(b,PERSISTENT);
 		bo->batRestricted= BAT_READ;
 
+		BBPincref(*bid, TRUE);
 		m = newCrackerIndex_@1(*bid,b->batCacheid);
 
 		if ((c = BATdescriptor(CrackerIndex[m].cid)) == NULL)
