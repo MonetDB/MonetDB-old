@@ -112,6 +112,11 @@ typedef struct PropStat {
 
 #define OUTPUT_FREQID_PER_LABEL 1 	/* This is for evaluating the results of merging using S1. TODO: Set it to 0 for default*/
 
+#define IS_MULVALUE_THRESHOLD  1.1	/* The ratio betweeen (the number of triple coverred by Prop P) / (number of Non-NULL object values for P)
+					   If this ratio is ~1, only use single value column for that prop
+					*/
+#define INFREQ_TYPE_THRESHOLD  0.1	/* Threshold that a type is consider as an infrequent type */
+
 typedef struct CS
 {
 	oid 	csId;		//Id of the CS
@@ -228,6 +233,7 @@ typedef struct CStable {
 	BAT**		colBats; 
 	ObjectType*	colTypes; 
 	BAT** 		mvBats; 	/* One bat for one Muti-values property */
+	BAT**		mvExBats; 	/* One more bat for infrequent datatype in multi-valued prop*/	
 	int		numCol; 
 	oid* 		lstProp;
 } CStable; 
@@ -268,9 +274,11 @@ typedef struct PropTypes{
 	int	propCover; 	/* = coverage of that property */	
 	char*	lstTypes; 
 	int*	lstFreq; 
+	int* 	lstFreqWithMV; 	/* Frequency of each type considering types in MV property*/
 	int*	colIdxes; 
 	char*	TableTypes;
 	char	defaultType; 
+	char	isMVProp; 	/* = 1 if this prop is a multi-valued prop*/
 } PropTypes; 
 
 typedef struct CSPropTypes {

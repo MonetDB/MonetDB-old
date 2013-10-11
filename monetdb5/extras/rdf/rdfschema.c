@@ -517,13 +517,16 @@ CSPropTypes* initCSPropTypes(CSset* freqCSset, int numMergedCS){
 				csPropTypes[id].lstPropTypes[j].propCover = 0; 
 				csPropTypes[id].lstPropTypes[j].numType = MULTIVALUES + 1;
 				csPropTypes[id].lstPropTypes[j].defaultType = STRING; 
+				csPropTypes[id].lstPropTypes[j].isMVProp = 0; 
 				csPropTypes[id].lstPropTypes[j].lstTypes = (char*)GDKmalloc(sizeof(char) * csPropTypes[id].lstPropTypes[j].numType);
 				csPropTypes[id].lstPropTypes[j].lstFreq = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
+				csPropTypes[id].lstPropTypes[j].lstFreqWithMV = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
 				csPropTypes[id].lstPropTypes[j].colIdxes = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
 				csPropTypes[id].lstPropTypes[j].TableTypes = (char*)GDKmalloc(sizeof(char) * csPropTypes[id].lstPropTypes[j].numType);
 
 				for (k = 0; k < csPropTypes[id].lstPropTypes[j].numType; k++){
 					csPropTypes[id].lstPropTypes[j].lstFreq[k] = 0; 
+					csPropTypes[id].lstPropTypes[j].lstFreqWithMV[k] = 0; 
 					csPropTypes[id].lstPropTypes[j].TableTypes[k] = 0; 
 					csPropTypes[id].lstPropTypes[j].colIdxes[k] = -1; 
 				}
@@ -540,6 +543,18 @@ CSPropTypes* initCSPropTypes(CSset* freqCSset, int numMergedCS){
 }
 
 static 
+char isMultiValueCol(PropTypes pt){
+	double tmpRatio;
+
+	tmpRatio = (double) (pt.propCover / (pt.numSingleType + pt.numMVType));
+
+	if ((pt.numMVType > 0) && (tmpRatio > IS_MULVALUE_THRESHOLD)){
+		return 1; 
+	}
+	else return 0; 
+}
+
+static 
 void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSset){
 	int i, j, k; 
 	int tmpMaxFreq;  
@@ -551,31 +566,63 @@ void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freq
 	for (i = 0; i < numMergedCS; i++){
 		curTypeColIdx = 0; 
 		for(j = 0; j < csPropTypes[i].numProp; j++){
-			tmpMaxFreq = csPropTypes[i].lstPropTypes[j].lstFreq[0];
-			defaultIdx = 0; 
-			for (k = 0; k < csPropTypes[i].lstPropTypes[j].numType; k++){
-				if (csPropTypes[i].lstPropTypes[j].lstFreq[k] > tmpMaxFreq){
-					tmpMaxFreq =  csPropTypes[i].lstPropTypes[j].lstFreq[k];
-					defaultIdx = k; 	
-				}
-				if (csPropTypes[i].lstPropTypes[j].lstFreq[k] < csPropTypes[i].lstPropTypes[j].propFreq * 0.1){
-					//non-frequent type goes to PSO
-					csPropTypes[i].lstPropTypes[j].TableTypes[k] = PSOTBL; 
-				}
-				else
-					csPropTypes[i].lstPropTypes[j].TableTypes[k] =TYPETBL;
-			}
-			/* One type is set to be the default type (in the main table) */
-			csPropTypes[i].lstPropTypes[j].TableTypes[defaultIdx] = MAINTBL; 
-			csPropTypes[i].lstPropTypes[j].colIdxes[defaultIdx] = j;
-			csPropTypes[i].lstPropTypes[j].defaultType = defaultIdx; 
+			if (isMultiValueCol(csPropTypes[i].lstPropTypes[j])){
+				//if this property is a Multi-valued prop
+				csPropTypes[i].lstPropTypes[j].TableTypes[MULTIVALUES] = MAINTBL;
+				csPropTypes[i].lstPropTypes[j].colIdxes[MULTIVALUES] = j;
+				csPropTypes[i].lstPropTypes[j].isMVProp = 1; 
 
-			/* Count the number of column needed */
-			for (k = 0; k < csPropTypes[i].lstPropTypes[j].numType; k++){
-				if (csPropTypes[i].lstPropTypes[j].TableTypes[k] == TYPETBL){
-					csPropTypes[i].lstPropTypes[j].colIdxes[k] = curTypeColIdx; 
-					curTypeColIdx++;
-				}	
+				//Find the default type for this MV col
+				tmpMaxFreq = csPropTypes[i].lstPropTypes[j].lstFreqWithMV[0];
+				defaultIdx = 0; 
+				//find the default type of the multi-valued prop
+				for (k = 0; k < MULTIVALUES; k++){
+					csPropTypes[i].lstPropTypes[j].TableTypes[k] = MVTBL;
+					if (csPropTypes[i].lstPropTypes[j].lstFreqWithMV[k] > tmpMaxFreq){
+						tmpMaxFreq =  csPropTypes[i].lstPropTypes[j].lstFreqWithMV[k];
+						defaultIdx = k; 	
+					}
+					
+				}
+				/* One type is set to be the default type (in the mv table) */
+				csPropTypes[i].lstPropTypes[j].defaultType = defaultIdx;
+
+				/* Count the number of column for MV table needed */
+
+			}
+			else{
+				csPropTypes[i].lstPropTypes[j].isMVProp = 0;
+
+
+				tmpMaxFreq = csPropTypes[i].lstPropTypes[j].lstFreq[0];
+				defaultIdx = 0; 
+				for (k = 0; k < MULTIVALUES; k++){
+					if (csPropTypes[i].lstPropTypes[j].lstFreq[k] > tmpMaxFreq){
+						tmpMaxFreq =  csPropTypes[i].lstPropTypes[j].lstFreq[k];
+						defaultIdx = k; 	
+					}
+					if (csPropTypes[i].lstPropTypes[j].lstFreq[k] < csPropTypes[i].lstPropTypes[j].propFreq * INFREQ_TYPE_THRESHOLD){
+						//non-frequent type goes to PSO
+						csPropTypes[i].lstPropTypes[j].TableTypes[k] = PSOTBL; 
+					}
+					else
+						csPropTypes[i].lstPropTypes[j].TableTypes[k] =TYPETBL;
+				}
+				/* One type is set to be the default type (in the main table) */
+				csPropTypes[i].lstPropTypes[j].TableTypes[defaultIdx] = MAINTBL; 
+				csPropTypes[i].lstPropTypes[j].colIdxes[defaultIdx] = j;
+				csPropTypes[i].lstPropTypes[j].defaultType = defaultIdx; 
+				
+				//Multi-valued prop go to PSO
+				csPropTypes[i].lstPropTypes[j].TableTypes[MULTIVALUES] = PSOTBL;
+		
+				/* Count the number of column needed */
+				for (k = 0; k < csPropTypes[i].lstPropTypes[j].numType; k++){
+					if (csPropTypes[i].lstPropTypes[j].TableTypes[k] == TYPETBL){
+						csPropTypes[i].lstPropTypes[j].colIdxes[k] = curTypeColIdx; 
+						curTypeColIdx++;
+					}	
+				}
 			}
 		}
 		csPropTypes[i].numNonDefTypes = curTypeColIdx;
@@ -598,6 +645,9 @@ void updatePropSupport(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSs
 		}
 	}
 }
+
+
+
 #endif /* #if COLORINGPROP */
 static 
 void printCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSset, int freqThreshold){
@@ -612,8 +662,6 @@ void printCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSse
 	int	numNonMVCS = 0; 
 	char	tmpIsMVCS = 0; 
 	char 	tmpIsMVCSFilter = 0; 
-	double	threshold = 1.1; 
-	double  tmpRatio; 
 
 	strcpy(filename, "csPropTypes");
 	sprintf(tmpStr, "%d", freqThreshold);
@@ -632,9 +680,8 @@ void printCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSse
 				tmpIsMVCS = 1; 
 				numMVCols++;
 			}
-			tmpRatio = (double) (csPropTypes[i].lstPropTypes[j].propCover / (csPropTypes[i].lstPropTypes[j].numSingleType + csPropTypes[i].lstPropTypes[j].numMVType));
 
-			if ((csPropTypes[i].lstPropTypes[j].numMVType > 0) && (tmpRatio > threshold)){
+			if (isMultiValueCol(csPropTypes[i].lstPropTypes[j])){
 				tmpIsMVCSFilter = 1; 
 				numMVColsFilter++;
 			}
@@ -645,7 +692,7 @@ void printCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSse
 					csPropTypes[i].lstPropTypes[j].numNull, csPropTypes[i].lstPropTypes[j].numSingleType, csPropTypes[i].lstPropTypes[j].numMVType);
 			fprintf(fout, "         ");
 			for (k = 0; k < csPropTypes[i].lstPropTypes[j].numType; k++){
-				fprintf(fout, " Type %d (%d)  | ", k, csPropTypes[i].lstPropTypes[j].lstFreq[k]);
+				fprintf(fout, " Type %d (%d)(+MV: %d) | ", k, csPropTypes[i].lstPropTypes[j].lstFreq[k],csPropTypes[i].lstPropTypes[j].lstFreqWithMV[k]);
 			}
 			fprintf(fout, "\n");
 			fprintf(fout, "         ");
@@ -684,8 +731,8 @@ void printCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSse
  * csPropTypes[tbIdx] contains properties {1,3,4,5,7} with types for each property and frequency of each <property, type>
  * */
 static 
-void addPropTypes(char *buffTypes, oid* buffP, int numP, int* buffCover, int csId, int* csTblIdxMapping, CSPropTypes* csPropTypes){
-	int i,j; 
+void addPropTypes(char *buffTypes, oid* buffP, int numP, int* buffCover, int **buffTypesCoverMV, int csId, int* csTblIdxMapping, CSPropTypes* csPropTypes){
+	int i,j,k; 
 	int tblId = csTblIdxMapping[csId];
 	
 	//printf("Add %d prop from CS %d to table %d \n", numP, csId, tblId);
@@ -704,6 +751,16 @@ void addPropTypes(char *buffTypes, oid* buffP, int numP, int* buffCover, int csI
 			csPropTypes[tblId].lstPropTypes[j].propFreq++;
 			csPropTypes[tblId].lstPropTypes[j].propCover += buffCover[i]; 
 			csPropTypes[tblId].lstPropTypes[j].lstFreq[(int)buffTypes[i]]++; 
+			csPropTypes[tblId].lstPropTypes[j].lstFreqWithMV[(int)buffTypes[i]]++;
+			
+			if (buffTypes[i] == MULTIVALUES){	
+				//Add the number of triples per type (e.g., int, string
+				//in this multi-valued prop to the freq of each type
+				for  (k = 0; k < MULTIVALUES; k++){	
+					csPropTypes[tblId].lstPropTypes[j].lstFreqWithMV[k] += buffTypesCoverMV[i][k]; 
+				}
+			}
+
 			#if STAT_ANALYZE
 			if (buffTypes[i] == MULTIVALUES){
 				csPropTypes[tblId].lstPropTypes[j].numMVType++;
@@ -734,6 +791,7 @@ void freeCSPropTypes(CSPropTypes* csPropTypes, int numCS){
 		for (j = 0; j < csPropTypes[i].numProp; j++){
 			GDKfree(csPropTypes[i].lstPropTypes[j].lstTypes); 
 			GDKfree(csPropTypes[i].lstPropTypes[j].lstFreq);
+			GDKfree(csPropTypes[i].lstPropTypes[j].lstFreqWithMV);
 			GDKfree(csPropTypes[i].lstPropTypes[j].colIdxes);
 			GDKfree(csPropTypes[i].lstPropTypes[j].TableTypes);
 		}
@@ -1471,8 +1529,8 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 	int 	i; 
 	int 	j; 
 	int 	*freq; 
-	FILE 	*fout, *fout2; 
-	char 	filename[100], filename2[100];
+	FILE 	*fout; 
+	char 	filename[100];
 	char 	tmpStr[20];
 
 #if SHOWPROPERTYNAME
@@ -1514,13 +1572,9 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 		strcpy(filename, "freqCSFullInfo");
 		sprintf(tmpStr, "%d", freqThreshold);
 		strcat(filename, tmpStr);
-		strcpy(filename2, "max");
-		strcat(filename2, filename);  
 		strcat(filename, ".txt");
-		strcat(filename2, ".txt");
 
 		fout = fopen(filename,"wt"); 
-		fout2 = fopen(filename2, "wt");
 
 		for (i = 0; i < freqCSset->numCSadded; i++){
 			CS cs = (CS)freqCSset->items[i];
@@ -1540,20 +1594,10 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 					GDKfree(labelStr); 
 				}
 
-				// Filter max freq cs set
-				if (cs.type == MAXCS){
-					fprintf(fout2,"CS " BUNFMT " (Freq: %d) | Subject: %s  | Parent " BUNFMT " \n", cs.csId, cs.support, subStr, cs.csId);
-				}
-					
 				GDKfree(subStr);
 			}
 			else{
 				fprintf(fout,"CS " BUNFMT " (Freq: %d) | Subject: NOTAVAI  | FreqParentIdx %d \n", cs.csId, *freq, cs.parentFreqIdx);
-
-				if (cs.type == MAXCS){
-					fprintf(fout2,"CS " BUNFMT " (Freq: %d) | Subject: NOTAVAI  | Parent " BUNFMT " \n", cs.csId, cs.support, cs.csId);
-				}
-					
 			}
 			#endif	
 
@@ -1561,9 +1605,6 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 				takeOid(cs.lstProp[j], &propStr);
 				//fprintf(fout, "  P:" BUNFMT " --> ", cs.lstProp[j]);	
 				fprintf(fout, "  P(" BUNFMT "):%s --> ", cs.lstProp[j],propStr);	
-				if (cs.type == MAXCS){
-					fprintf(fout2, "  P:%s --> ", propStr);
-				}
 
 				GDKfree(propStr);
 				
@@ -1585,9 +1626,6 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 					}
 
 					fprintf(fout, "  O: %s \n", objStr);
-					if (cs.type == MAXCS){
-						fprintf(fout2, "  O: %s \n", objStr);
-					}
 
 					if (objType == URI || objType == BLANKNODE){
 						GDKfree(objStr);
@@ -1598,13 +1636,9 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 
 			}	
 			fprintf(fout, "\n");
-			if (cs.type == MAXCS){
-				fprintf(fout2, "\n");
-			}
 		}
 
 		fclose(fout);
-		fclose(fout2);
 	}
 	
 #if SHOWPROPERTYNAME
@@ -3680,7 +3714,8 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 	printf("Total " BUNFMT " triples, coverred by final CSs: %d  (%f percent) \n", BATcount(sbat), totalCoverage, 100 * ((float)totalCoverage/BATcount(sbat)));
 	printf("Max number of triples coverred by one final CS: %d \n", maxNumtriple);
 	printf("Min number of triples coverred by one final CS: %d \n", minNumtriple);
-	printf("Avg number of triples coverred by one final CS: %f \n", (float)(totalCoverage/numMergeCS));
+	if (numMergeCS != 0) printf("Avg number of triples coverred by one final CS: %f \n", (float)(totalCoverage/numMergeCS));
+
 	//free(csPropNum); 
 	printf("Done \n");
 }
@@ -4278,10 +4313,16 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 	int*		buffCoverage;	/* Number of triples coverage by each property. For deciding on MULTI-VALUED P */
 	char 		objType;
 	char* 		buffTypes; 
+	int		**buffTypesCoverMV; /*Store the types of each value in a multi-value prop */		
 	oid*		buffP;
 	oid		curP; 
+	int 		i;
 
 	buffTypes = (char *) malloc(sizeof(char) * (maxNumPwithDup + 1)); 
+	buffTypesCoverMV = (int **)malloc(sizeof(int*) * (maxNumPwithDup + 1));
+	for (i = 0; i < (maxNumPwithDup + 1); i++){
+		buffTypesCoverMV[i] = (int *) malloc(sizeof(int) * (MULTIVALUES)); 
+	}
 	buffP = (oid *) malloc(sizeof(oid) * (maxNumPwithDup + 1));
 	buffCoverage = (int *)malloc(sizeof(int) * (maxNumPwithDup + 1));
 
@@ -4293,7 +4334,7 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 		sbt = (oid *) BUNtloc(si, p);		
 		if (*sbt != curS){
 			if (p != 0){	/* Not the first S */
-				addPropTypes(buffTypes, buffP, numPwithDup, buffCoverage, subjCSMap[curS], csTblIdxMapping, csPropTypes);
+				addPropTypes(buffTypes, buffP, numPwithDup, buffCoverage, buffTypesCoverMV, subjCSMap[curS], csTblIdxMapping, csPropTypes);
 			}
 			curS = *sbt; 
 			numPwithDup = 0;
@@ -4302,7 +4343,7 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 				
 		obt = (oid *) BUNtloc(oi, p); 
 		/* Check type of object */
-		objType = (char) ((*obt) >> (sizeof(BUN)*8 - 4))  &  7 ;	/* Get two bits 63th, 62nd from object oid */
+		objType = getObjType(*obt);	/* Get two bits 63th, 62nd from object oid */
 	
 		pbt = (oid *) BUNtloc(pi, p);
 
@@ -4311,12 +4352,17 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 			// Update the object type for this P as MULTIVALUES	
 			buffTypes[numPwithDup-1] = MULTIVALUES; 
 			buffCoverage[numPwithDup-1]++;
+			buffTypesCoverMV[numPwithDup-1][(int)objType]++;
 			#else
 			buffTypes[numPwithDup] = objType;
 			numPwithDup++;
 			#endif
 		}
 		else{			
+			for (i = 0; i < MULTIVALUES; i++){
+				buffTypesCoverMV[numPwithDup][i] = 0;
+			}
+			buffTypesCoverMV[numPwithDup][(int)objType] = 1;
 			buffTypes[numPwithDup] = objType; 
 			buffP[numPwithDup] = *pbt;
 			buffCoverage[numPwithDup] = 1; 
@@ -4328,7 +4374,12 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 	}
 	
 	/* Check for the last CS */
-	addPropTypes(buffTypes, buffP, numPwithDup, buffCoverage, subjCSMap[curS], csTblIdxMapping, csPropTypes);
+	addPropTypes(buffTypes, buffP, numPwithDup, buffCoverage,buffTypesCoverMV, subjCSMap[curS], csTblIdxMapping, csPropTypes);
+
+	for (i = 0; i < (maxNumPwithDup + 1); i++){
+		free(buffTypesCoverMV[i]);
+	}
+	free(buffTypesCoverMV); 
 
 	free (buffTypes); 
 	free (buffP); 
@@ -5399,6 +5450,7 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 		cstablestat->lstcstable[i].numCol = tmpNumDefaultCol;
 		cstablestat->lstcstable[i].colBats = (BAT**)malloc(sizeof(BAT*) * tmpNumDefaultCol); 
 		cstablestat->lstcstable[i].mvBats = (BAT**)malloc(sizeof(BAT*) * tmpNumDefaultCol); 
+		cstablestat->lstcstable[i].mvExBats = (BAT**)malloc(sizeof(BAT*) * tmpNumDefaultCol); 
 		cstablestat->lstcstable[i].lstProp = (oid*)malloc(sizeof(oid) * tmpNumDefaultCol);
 		cstablestat->lstcstable[i].colTypes = (ObjectType *)malloc(sizeof(ObjectType) * tmpNumDefaultCol);
 		#if CSTYPE_TABLE == 1
@@ -5409,11 +5461,18 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 		#endif
 
 		for(j = 0; j < tmpNumDefaultCol; j++){
-
-			cstablestat->lstcstable[i].colBats[j] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
-			cstablestat->lstcstable[i].mvBats[j] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
-			cstablestat->lstcstable[i].lstProp[j] = freqCSset->items[csPropTypes[i].freqCSId].lstProp[j];
-			//TODO: use exact size for each BAT
+			if (csPropTypes[i].lstPropTypes[j].isMVProp == 0){
+				cstablestat->lstcstable[i].colBats[j] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
+				cstablestat->lstcstable[i].mvBats[j] =  NULL;
+				cstablestat->lstcstable[i].mvExBats[j] =  NULL;
+				cstablestat->lstcstable[i].lstProp[j] = freqCSset->items[csPropTypes[i].freqCSId].lstProp[j];
+				//TODO: use exact size for each BAT
+			}
+			else{
+				cstablestat->lstcstable[i].colBats[j] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+				cstablestat->lstcstable[i].mvBats[j] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz) ;
+				cstablestat->lstcstable[i].mvExBats[j] = BATnew(TYPE_void, TYPE_oid,  smallbatsz) ;
+			}
 		}
 
 		#if CSTYPE_TABLE == 1
@@ -5491,7 +5550,11 @@ void freeCStableStat(CStableStat* cstablestat){
 		#endif
 		for (j = 0; j < cstablestat->numPropPerTable[i];j++){
 			BBPunfix(cstablestat->lstcstable[i].colBats[j]->batCacheid); 
-			BBPunfix(cstablestat->lstcstable[i].mvBats[j]->batCacheid); 
+			if (cstablestat->lstcstable[i].mvBats[j] != NULL)
+				BBPunfix(cstablestat->lstcstable[i].mvBats[j]->batCacheid); 
+
+			if (cstablestat->lstcstable[i].mvExBats[j] != NULL)
+				BBPunfix(cstablestat->lstcstable[i].mvExBats[j]->batCacheid); 
 
 		}
 
@@ -5502,6 +5565,7 @@ void freeCStableStat(CStableStat* cstablestat){
 		#endif
 		free(cstablestat->lstcstable[i].colBats);
 		free(cstablestat->lstcstable[i].mvBats);
+		free(cstablestat->lstcstable[i].mvExBats);
 		free(cstablestat->lstcstable[i].lstProp);
 		free(cstablestat->lstcstable[i].colTypes);
 		#if CSTYPE_TABLE == 1
@@ -5766,7 +5830,9 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 			lasttblIdx = tblIdx;
 		}
 
-		/* New column. Finish with lastTblIdx and lastColIdx */
+		/* New column. Finish with lastTblIdx and lastColIdx. Note: This lastColIdx is
+		 * the position of the prop in a final CS. Not the exact colIdx in MAINTBL or TYPETBL
+		 * */
 		if (tmpColIdx != lastColIdx || lasttblIdx != tblIdx){ 
 			//Insert missing values for all columns of this property in this table
 
@@ -5867,13 +5933,22 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	int 		curNumMergeCS;
 	oid		*mergeCSFreqCSMap;
 	int		numSampleTbl = 0;  
+	
+	clock_t 	curT;
+	clock_t		tmpLastT; 
 
+	tmpLastT = clock();
 	freqCSset = initCSset();
 
 	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid, &maxNumPwithDup, &labels, &csRelMergeFreqSet) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in extracting CSs");
 	}
 	
+
+	curT = clock(); 
+	printf (" Total schema extraction process took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
+
 	printf("Start re-organizing triple store for " BUNFMT " CSs \n", maxCSoid + 1);
 
 	csTblIdxMapping = (int *) malloc (sizeof (int) * (maxCSoid + 1)); 
@@ -5919,8 +5994,17 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	updatePropSupport(csPropTypes, numTables, freqCSset);
 	#endif
 
+	curT = clock(); 
+	printf (" Preparing process took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
+
 	// print labels
 	exportLabels(labels, freqCSset, csRelMergeFreqSet, *freqThreshold);
+
+
+	curT = clock(); 
+	printf (" Export label process took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
 
 	// Init CStableStat
 	initCStables(cstablestat, freqCSset, csPropTypes, numTables);

@@ -206,9 +206,10 @@ char *substring(char *string, int position, int length)
 }
 
 static
-char isInt(char *input){
+char isInt(char *input, int len){
 	
-	int i, len = strlen(input);
+	int 	i;
+	//int	len = strlen(input);
 	//printf("... Checking value %s with len %d \n", input, len);
 	for(i = 0; i < len; i++)
 	{
@@ -224,6 +225,26 @@ char isInt(char *input){
 		return 0;
 }
 
+/*
+static
+char isIntWithQuote(char *input, int len){	// "123123" ==> INT
+	
+	int 	i;
+	if (len < 3) return 0;
+	for(i = 1; i < len-1; i++)
+	{
+		if(isdigit(input[i]) == 0){ // May also check ispunct(string[i]) != 0 
+			//printf("NOT A DIGIT \n");
+			break;
+		}
+	}
+	//printf("i is %d \n",i);
+	if(i == len)
+		return 1;
+	else
+		return 0;
+}
+*/
 
 /*
 * Get the specific type of the object value in an RDF triple
@@ -239,11 +260,14 @@ getObjectType(unsigned char* objStr, BUN *realNumValue){
 	unsigned char* endpart;
 	char* valuepart; 
 	const char* pos = NULL; 
+	int	len = 0; 
+	int	subLen = 0; 
 
 	*realNumValue = BUN_NONE; 
+	len = strlen((str)objStr);
 
-	if (strlen((str)objStr) > 20){
-		endpart = objStr + (strlen((str)objStr) - 19);   /* XMLSchema#dateTime> */
+	if (len > 20){
+		endpart = objStr + (len - 19);   /* XMLSchema#dateTime> */
 		/* printf("Original: %s  --> substring: %s \n", (str)objStr, (str)endpart); */
 
 		if ( (pos = strstr((str)endpart , "XMLSchema#date>")) != NULL || (pos = strstr((str)endpart, "XMLSchema#dateTime>")) != NULL ){
@@ -252,9 +276,10 @@ getObjectType(unsigned char* objStr, BUN *realNumValue){
 		}
 		else if ((pos = strstr((str) endpart, "XMLSchema#int>")) != NULL || (pos = strstr((str)endpart, "XMLSchema#integer>")) != NULL){
 			obType = INTEGER;
-			valuepart = substring((char*)objStr, 2 , (int) (pos - (str)objStr - 28)); 
+			subLen = (int) (pos - (str)objStr - 28);
+			valuepart = substring((char*)objStr, 2 , subLen); 
 			/* printf("%s: Integer \n. Length of value %d ==> value %s \n", objStr, (int) (pos - (str)objStr - 28), valuepart); */
-			if (isInt(valuepart) == 1){	/* Check whether the real value is an integer */
+			if (isInt(valuepart, subLen) == 1){	/* Check whether the real value is an integer */
 				*realNumValue = (BUN) atoi(valuepart); 
 				/* printf("Real value is: " BUNFMT " \n", *realNumValue); */
 			}
@@ -275,7 +300,7 @@ getObjectType(unsigned char* objStr, BUN *realNumValue){
 			/* printf("%s: String \n", objStr); */
 		}
 	}
-	else
+	else	// There is no XMLschema
 		obType = STRING; 
 
 	return obType; 
