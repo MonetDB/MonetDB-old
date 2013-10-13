@@ -48,8 +48,12 @@ lng get_line_num(str filename);
 lng get_file_paths(str repo_path, str** ret_file_paths);
 str mseed_create_temp_container(temp_container* ret_tc);
 str mseed_create_temp_container_with_data_tables(temp_container* ret_tc);
+str mseed_create_temp_container_segments_mode(temp_container* ret_tc);
+str mseed_create_temp_container_with_data_tables_segments_mode(temp_container* ret_tc);
 str mseed_register(str file_path, temp_container* ret_tc);
 str mseed_register_and_mount(str file_path, temp_container* ret_tc);
+str mseed_register_segments_mode(str file_path, temp_container* ret_tc);
+str mseed_register_and_mount_segments_mode(str file_path, temp_container* ret_tc);
 int concatenate_strs(str* words_to_concat, int num_words_to_concat, str* ret_concatenated);
 str prepare_insertion(Client cntxt, temp_container* tc);
 str insert_into_vault(Client cntxt, temp_container* tc);
@@ -59,6 +63,10 @@ void *register_files(void *args);
 
 pthread_mutex_t create_lock;
 pthread_mutex_t insert_lock;
+
+double  timetol      = -1.0; /* Time tolerance for continuous traces */
+double  sampratetol  = -1.0; /* Sample rate tolerance for continuous traces */
+int verbose = 1;
 
 /*
  * returns number of lines in a file.
@@ -280,37 +288,37 @@ str mseed_create_temp_container_with_data_tables(temp_container* ret_tc)
 	int num_c_cat = 7;
 	int num_c_dat = 4;
 	int c, t;
-
+	
 	str sch_name = "mseed";
-
+	
 	str cn_fil[] = {"file_location", "dataquality", "network", "station", "location", "channel", "encoding", "byte_order"};
 	str cn_cat[] = {"file_location", "seq_no", "record_length", "start_time", "frequency", "sample_count", "sample_type"};
 	str cn_dat[] = {"file_location", "seq_no", "sample_time", "sample_value"};
-
+	
 	str cts_fil[] = {"string", "char", "string", "string", "string", "string", "tinyint", "boolean"};
 	str cts_cat[] = {"string", "int", "int", "timestamp", "double", "bigint", "char"};
 	str cts_dat[] = {"string", "int", "timestamp", "int"};
-
+	
 	sht ct_fil[] = {TYPE_str, TYPE_str, TYPE_str, TYPE_str, TYPE_str, TYPE_str, TYPE_bte, TYPE_bit};
 	sht ct_cat[] = {TYPE_str, TYPE_int, TYPE_int, TYPE_timestamp, TYPE_dbl, TYPE_lng, TYPE_str};
 	sht ct_dat[] = {TYPE_str, TYPE_int, TYPE_timestamp, TYPE_int};
-
+	
 	str tn[] = {"files", "catalog", "data"};
 	int num_c[] = {8, 7, 4};
-
+	
 	bat *cb_fil = (bat*)GDKmalloc(num_c_fil*sizeof(bat));
 	bat *cb_cat = (bat*)GDKmalloc(num_c_cat*sizeof(bat));
 	bat *cb_dat = (bat*)GDKmalloc(num_c_dat*sizeof(bat));
-
+	
 	temp_subcontainer *tscs = (temp_subcontainer*)GDKmalloc(num_tables*sizeof(temp_subcontainer));
-
+	
 	BAT *aBAT;
-
+	
 	assert(cb_fil!=NULL);
 	assert(cb_cat!=NULL);
 	assert(cb_dat!=NULL);
 	assert(tscs!=NULL);
-
+	
 	/* cb_fil */
 	for(c = 0; c < num_c_fil; c++)
 	{
@@ -322,7 +330,7 @@ str mseed_create_temp_container_with_data_tables(temp_container* ret_tc)
 			throw(MAL,"mseed_create_temp_container",MAL_MALLOC_FAIL);
 		BBPkeepref(cb_fil[c] = aBAT->batCacheid);
 	}
-
+	
 	/* cb_cat */
 	for(c = 0; c < num_c_cat; c++)
 	{
@@ -334,7 +342,7 @@ str mseed_create_temp_container_with_data_tables(temp_container* ret_tc)
 			throw(MAL,"mseed_create_temp_container",MAL_MALLOC_FAIL);
 		BBPkeepref(cb_cat[c] = aBAT->batCacheid);
 	}
-
+	
 	/* cb_dat */
 	for(c = 0; c < num_c_dat; c++)
 	{
@@ -346,11 +354,11 @@ str mseed_create_temp_container_with_data_tables(temp_container* ret_tc)
 			throw(MAL,"mseed_create_temp_container",MAL_MALLOC_FAIL);
 		BBPkeepref(cb_dat[c] = aBAT->batCacheid);
 	}
-
+	
 	(tscs+0)->column_bats = cb_fil;
 	(tscs+1)->column_bats = cb_cat;
 	(tscs+2)->column_bats = cb_dat;
-
+	
 	(tscs+0)->column_names = (str*) GDKmalloc(num_c[0]*sizeof(str));
 	(tscs+0)->column_types_strs = (str*) GDKmalloc(num_c[0]*sizeof(str));
 	for(c = 0; c < num_c[0]; c++)
@@ -358,7 +366,7 @@ str mseed_create_temp_container_with_data_tables(temp_container* ret_tc)
 		(tscs+0)->column_names[c] = GDKstrdup(cn_fil[c]);
 		(tscs+0)->column_types_strs[c] = GDKstrdup(cts_fil[c]);
 	}
-
+	
 	(tscs+1)->column_names = (str*) GDKmalloc(num_c[1]*sizeof(str));
 	(tscs+1)->column_types_strs = (str*) GDKmalloc(num_c[1]*sizeof(str));
 	for(c = 0; c < num_c[1]; c++)
@@ -366,7 +374,7 @@ str mseed_create_temp_container_with_data_tables(temp_container* ret_tc)
 		(tscs+1)->column_names[c] = GDKstrdup(cn_cat[c]);
 		(tscs+1)->column_types_strs[c] = GDKstrdup(cts_cat[c]);
 	}
-
+	
 	(tscs+2)->column_names = (str*) GDKmalloc(num_c[2]*sizeof(str));
 	(tscs+2)->column_types_strs = (str*) GDKmalloc(num_c[2]*sizeof(str));
 	for(c = 0; c < num_c[2]; c++)
@@ -374,10 +382,10 @@ str mseed_create_temp_container_with_data_tables(temp_container* ret_tc)
 		(tscs+2)->column_names[c] = GDKstrdup(cn_dat[c]);
 		(tscs+2)->column_types_strs[c] = GDKstrdup(cts_dat[c]);
 	}
-
+	
 	ret_tc->schema_name = sch_name;
 	ret_tc->tables_columns = tscs;
-
+	
 	ret_tc->table_names = (str*) GDKmalloc(num_tables*sizeof(str));
 	ret_tc->num_columns = (int*) GDKmalloc(num_tables*sizeof(int));
 	for(t = 0; t < num_tables; t++)
@@ -385,9 +393,239 @@ str mseed_create_temp_container_with_data_tables(temp_container* ret_tc)
 		ret_tc->table_names[t] = GDKstrdup(tn[t]);
 		ret_tc->num_columns[t] = num_c[t];
 	}
-
+	
 	ret_tc->num_tables = num_tables;
+	
+	return MAL_SUCCEED;
+}
 
+/*
+ * fills the temp_container structure with the "mseed" metadata tables' info.
+ *
+ * returns error or MAL_SUCCEED
+ *
+ * TODO: This function is now hardcoding every info. It can be made generic,
+ * because required info is in sql_catalog.
+ */
+str mseed_create_temp_container_segments_mode(temp_container* ret_tc)
+{
+	/* seg: (metadata) segments, fil: (metadata) files. */
+	int num_tables = 2;
+	int num_c_fil = 8;
+	int num_c_seg = 8;
+	int c, t;
+	
+	str sch_name = "mseed";
+	
+	str cn_fil[] = {"file_location", "dataquality", "network", "station", "location", "channel", "encoding", "byte_order"};
+	str cn_seg[] = {"file_location", "segment_id", "start_time", "end_time", "prev_gap", "frequency", "sample_count", "sample_type"};
+	
+	str cts_fil[] = {"string", "char", "string", "string", "string", "string", "tinyint", "boolean"};
+	str cts_seg[] = {"string", "int", "timestamp", "timestamp", "double", "double", "bigint", "char"};
+	
+	sht ct_fil[] = {TYPE_str, TYPE_str, TYPE_str, TYPE_str, TYPE_str, TYPE_str, TYPE_bte, TYPE_bit};
+	sht ct_seg[] = {TYPE_str, TYPE_int, TYPE_timestamp, TYPE_timestamp, TYPE_dbl, TYPE_dbl, TYPE_lng, TYPE_str};
+	
+	str tn[] = {"files", "segments"};
+	int num_c[] = {8, 8};
+	
+	bat *cb_fil = (bat*)GDKmalloc(num_c_fil*sizeof(bat));
+	
+	bat *cb_seg = (bat*)GDKmalloc(num_c_seg*sizeof(bat));
+	
+	temp_subcontainer *tscs = (temp_subcontainer*)GDKmalloc(num_tables*sizeof(temp_subcontainer));
+	
+	BAT *aBAT;
+	
+	assert(cb_fil!=NULL);
+	assert(cb_seg!=NULL);
+	assert(tscs!=NULL);
+	
+	/* cb_fil */
+	for(c = 0; c < num_c_fil; c++)
+	{
+		aBAT = BATnew(TYPE_void, ct_fil[c], 0); /* create empty BAT for each column. */
+		if ( aBAT == NULL)
+			throw(MAL,"mseed_create_temp_container",MAL_MALLOC_FAIL);
+		BATseqbase(aBAT, 0);
+		if ( aBAT == NULL)
+			throw(MAL,"mseed_create_temp_container",MAL_MALLOC_FAIL);
+		BBPkeepref(cb_fil[c] = aBAT->batCacheid);
+	}
+	
+	/* cb_seg */
+	for(c = 0; c < num_c_seg; c++)
+	{
+		aBAT = BATnew(TYPE_void, ct_seg[c], 0); /* create empty BAT for each column. */
+		if ( aBAT == NULL)
+			throw(MAL,"mseed_create_temp_container",MAL_MALLOC_FAIL);
+		BATseqbase(aBAT, 0);
+		if ( aBAT == NULL)
+			throw(MAL,"mseed_create_temp_container",MAL_MALLOC_FAIL);
+		BBPkeepref(cb_seg[c] = aBAT->batCacheid);
+	}
+	
+	(tscs+0)->column_bats = cb_fil;
+	
+	(tscs+1)->column_bats = cb_seg;
+	
+	(tscs+0)->column_names = (str*) GDKmalloc(num_c[0]*sizeof(str));
+	(tscs+0)->column_types_strs = (str*) GDKmalloc(num_c[0]*sizeof(str));
+	for(c = 0; c < num_c[0]; c++)
+	{
+		(tscs+0)->column_names[c] = GDKstrdup(cn_fil[c]);
+		(tscs+0)->column_types_strs[c] = GDKstrdup(cts_fil[c]);
+	}
+	
+	(tscs+1)->column_names = (str*) GDKmalloc(num_c[1]*sizeof(str));
+	(tscs+1)->column_types_strs = (str*) GDKmalloc(num_c[1]*sizeof(str));
+	for(c = 0; c < num_c[1]; c++)
+	{
+		(tscs+1)->column_names[c] = GDKstrdup(cn_seg[c]);
+		(tscs+1)->column_types_strs[c] = GDKstrdup(cts_seg[c]);
+	}
+	
+	ret_tc->schema_name = sch_name;
+	ret_tc->tables_columns = tscs;
+	
+	ret_tc->table_names = (str*) GDKmalloc(num_tables*sizeof(str));
+	ret_tc->num_columns = (int*) GDKmalloc(num_tables*sizeof(int));
+	for(t = 0; t < num_tables; t++)
+	{
+		ret_tc->table_names[t] = GDKstrdup(tn[t]);
+		ret_tc->num_columns[t] = num_c[t];
+	}
+	
+	ret_tc->num_tables = num_tables;
+	
+	return MAL_SUCCEED;
+}
+
+
+/*
+ * fills the temp_container structure with the "mseed" meta-data and data tables' info.
+ *
+ * returns error or MAL_SUCCEED
+ *
+ * TODO: This function is now hardcoding every info. It can be made generic,
+ * because required info is in sql_catalog.
+ */
+str mseed_create_temp_container_with_data_tables_segments_mode(temp_container* ret_tc)
+{
+	/* seg: (metadata) segments, fil: (metadata) files. */
+	int num_tables = 3;
+	int num_c_fil = 8;
+	int num_c_seg = 8;
+	int num_c_dat = 4;
+	int c, t;
+	
+	str sch_name = "mseed";
+	
+	str cn_fil[] = {"file_location", "dataquality", "network", "station", "location", "channel", "encoding", "byte_order"};
+	str cn_seg[] = {"file_location", "segment_id", "start_time", "end_time", "prev_gap", "frequency", "sample_count", "sample_type"};
+	str cn_dat[] = {"file_location", "segment_id", "sample_time", "sample_value"};
+	
+	str cts_fil[] = {"string", "char", "string", "string", "string", "string", "tinyint", "boolean"};
+	str cts_seg[] = {"string", "int", "timestamp", "timestamp", "double", "double", "bigint", "char"};
+	str cts_dat[] = {"string", "int", "timestamp", "int"};
+	
+	sht ct_fil[] = {TYPE_str, TYPE_str, TYPE_str, TYPE_str, TYPE_str, TYPE_str, TYPE_bte, TYPE_bit};
+	sht ct_seg[] = {TYPE_str, TYPE_int, TYPE_timestamp, TYPE_timestamp, TYPE_dbl, TYPE_dbl, TYPE_lng, TYPE_str};
+	sht ct_dat[] = {TYPE_str, TYPE_int, TYPE_timestamp, TYPE_int};
+	
+	str tn[] = {"files", "segments", "data"};
+	int num_c[] = {8, 8, 4};
+	
+	bat *cb_fil = (bat*)GDKmalloc(num_c_fil*sizeof(bat));
+	bat *cb_seg = (bat*)GDKmalloc(num_c_seg*sizeof(bat));
+	bat *cb_dat = (bat*)GDKmalloc(num_c_dat*sizeof(bat));
+	
+	temp_subcontainer *tscs = (temp_subcontainer*)GDKmalloc(num_tables*sizeof(temp_subcontainer));
+	
+	BAT *aBAT;
+	
+	assert(cb_fil!=NULL);
+	assert(cb_seg!=NULL);
+	assert(cb_dat!=NULL);
+	assert(tscs!=NULL);
+	
+	/* cb_fil */
+	for(c = 0; c < num_c_fil; c++)
+	{
+		aBAT = BATnew(TYPE_void, ct_fil[c], 0); /* create empty BAT for each column. */
+		if ( aBAT == NULL)
+			throw(MAL,"mseed_create_temp_container",MAL_MALLOC_FAIL);
+		BATseqbase(aBAT, 0);
+		if ( aBAT == NULL)
+			throw(MAL,"mseed_create_temp_container",MAL_MALLOC_FAIL);
+		BBPkeepref(cb_fil[c] = aBAT->batCacheid);
+	}
+	
+	/* cb_seg */
+	for(c = 0; c < num_c_seg; c++)
+	{
+		aBAT = BATnew(TYPE_void, ct_seg[c], 0); /* create empty BAT for each column. */
+		if ( aBAT == NULL)
+			throw(MAL,"mseed_create_temp_container",MAL_MALLOC_FAIL);
+		BATseqbase(aBAT, 0);
+		if ( aBAT == NULL)
+			throw(MAL,"mseed_create_temp_container",MAL_MALLOC_FAIL);
+		BBPkeepref(cb_seg[c] = aBAT->batCacheid);
+	}
+	
+	/* cb_dat */
+	for(c = 0; c < num_c_dat; c++)
+	{
+		aBAT = BATnew(TYPE_void, ct_dat[c], 0); /* create empty BAT for each column. */
+		if ( aBAT == NULL)
+			throw(MAL,"mseed_create_temp_container",MAL_MALLOC_FAIL);
+		BATseqbase(aBAT, 0);
+		if ( aBAT == NULL)
+			throw(MAL,"mseed_create_temp_container",MAL_MALLOC_FAIL);
+		BBPkeepref(cb_dat[c] = aBAT->batCacheid);
+	}
+	
+	(tscs+0)->column_bats = cb_fil;
+	(tscs+1)->column_bats = cb_seg;
+	(tscs+2)->column_bats = cb_dat;
+	
+	(tscs+0)->column_names = (str*) GDKmalloc(num_c[0]*sizeof(str));
+	(tscs+0)->column_types_strs = (str*) GDKmalloc(num_c[0]*sizeof(str));
+	for(c = 0; c < num_c[0]; c++)
+	{
+		(tscs+0)->column_names[c] = GDKstrdup(cn_fil[c]);
+		(tscs+0)->column_types_strs[c] = GDKstrdup(cts_fil[c]);
+	}
+	
+	(tscs+1)->column_names = (str*) GDKmalloc(num_c[1]*sizeof(str));
+	(tscs+1)->column_types_strs = (str*) GDKmalloc(num_c[1]*sizeof(str));
+	for(c = 0; c < num_c[1]; c++)
+	{
+		(tscs+1)->column_names[c] = GDKstrdup(cn_seg[c]);
+		(tscs+1)->column_types_strs[c] = GDKstrdup(cts_seg[c]);
+	}
+	
+	(tscs+2)->column_names = (str*) GDKmalloc(num_c[2]*sizeof(str));
+	(tscs+2)->column_types_strs = (str*) GDKmalloc(num_c[2]*sizeof(str));
+	for(c = 0; c < num_c[2]; c++)
+	{
+		(tscs+2)->column_names[c] = GDKstrdup(cn_dat[c]);
+		(tscs+2)->column_types_strs[c] = GDKstrdup(cts_dat[c]);
+	}
+	
+	ret_tc->schema_name = sch_name;
+	ret_tc->tables_columns = tscs;
+	
+	ret_tc->table_names = (str*) GDKmalloc(num_tables*sizeof(str));
+	ret_tc->num_columns = (int*) GDKmalloc(num_tables*sizeof(int));
+	for(t = 0; t < num_tables; t++)
+	{
+		ret_tc->table_names[t] = GDKstrdup(tn[t]);
+		ret_tc->num_columns[t] = num_c[t];
+	}
+	
+	ret_tc->num_tables = num_tables;
+	
 	return MAL_SUCCEED;
 }
 
@@ -835,6 +1073,447 @@ str mseed_register_and_mount(str file_path, temp_container* ret_tc)
 	if ( retcode != MS_ENDOFFILE )
 		throw(MAL, "mseed_register", "Cannot read %s: %s\n", file_path, ms_errorstr(retcode));
 
+	return MAL_SUCCEED;
+}
+
+/*
+ * appends the metadata of the input "mseed" file provided in the file_path,
+ * to the end of BATs of temp_container ret_tc.
+ *
+ * returns error or MAL_SUCCEED.
+ *
+ * WARNING: this is the DEVELOPER-PROVIDED function.
+ *
+ * TODO: A better interface can be provided to submit values for the attributes
+ * of tables_to_be_filled.
+ */
+str mseed_register_segments_mode(str file_path, temp_container* ret_tc)
+{
+	MSTraceList *mstl = 0;
+	MSRecord *msr = NULL;
+	MSFileParam *msfp = NULL;
+	int dataquality = 0;
+	int verbose = 1;
+	int retcode;
+	MSTraceID *id = 0;
+	MSTraceSeg *seg = 0;
+	double gap;
+	double delta;
+	int tracecnt = 0;
+	int nogap;
+	
+	timestamp start_timestamp;
+	timestamp end_timestamp;
+	int files_done = FALSE;
+	BAT *aBAT = NULL;
+	int segment_id_fake = 0;
+	lng st;
+	str ch = (str) GDKmalloc(2*sizeof(char));
+	ch[1] = '\0';
+	
+	
+	mstl = mstl_init (NULL);
+	
+	/* while ((retcode = ms_readmsr (&msr, file_path, 0, NULL, NULL, 1, 0, verbose)) == MS_NOERROR) */
+	while ((retcode = ms_readmsr_r (&msfp, &msr, file_path, 0, NULL, NULL, 1, 0, verbose)) == MS_NOERROR)
+	{
+		if(!files_done)
+		{
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[0])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) file_path, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[0]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[1])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			ch[0] = msr->dataquality;
+			BUNappend(aBAT, (ptr) ch, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[1]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[2])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) msr->network, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[2]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[3])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) msr->station, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[3]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[4])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) msr->location, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[4]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[5])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) msr->channel, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[5]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[6])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) &(msr->encoding), FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[6]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[7])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) &(msr->byteorder), FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[7]);
+			
+			files_done = TRUE;
+		}
+		
+		/* collect all records in a tracelist */
+		mstl_addmsr (mstl, msr, dataquality, 1, timetol, sampratetol);
+		
+	}
+	
+	if ( retcode != MS_ENDOFFILE )
+		throw(MAL, "mseed_register", "Cannot read %s: %s\n", file_path, ms_errorstr(retcode));
+	
+	if (!mstl)
+	{
+		throw(MAL, "mseed_register_segments_mode", RUNTIME_OBJECT_MISSING);
+	}
+	
+	/* Loop through trace list */
+	id = mstl->traces;
+	while (id)
+	{
+		/* Loop through segment list */
+		seg = id->first;
+		while (seg)
+		{
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[0])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) file_path, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[1].column_bats[0]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[1])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) &(segment_id_fake), FALSE);
+			BBPreleaseref(ret_tc->tables_columns[1].column_bats[1]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[2])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			st = (lng) seg->starttime / 1000;
+			MTIMEtimestamp_lng(&start_timestamp, &st);
+			BUNappend(aBAT, (ptr) &start_timestamp, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[1].column_bats[2]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[3])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			st = (lng) seg->endtime / 1000;
+			MTIMEtimestamp_lng(&end_timestamp, &st);
+			BUNappend(aBAT, (ptr) &end_timestamp, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[1].column_bats[3]);
+			
+			/* Compute gap with previous segment */
+			gap = 0.0;
+			nogap = 0;
+			
+			if ( seg->prev )
+				gap = (double) (seg->starttime - seg->prev->endtime) / HPTMODULUS;
+			else
+				nogap = 1;
+			
+			/* Check that any overlap is not larger than the trace coverage */
+			if ( gap < 0.0 )
+			{
+				delta = ( seg->samprate ) ? (1.0 / seg->samprate) : 0.0;
+				
+				if ( (gap * -1.0) > (((double)(seg->endtime - seg->starttime)/HPTMODULUS) + delta) )
+					gap = -(((double)(seg->endtime - seg->starttime)/HPTMODULUS) + delta);
+			}
+						
+			printf("frq: %lf, sampcnt: %lld\n", seg->samprate, (long long int)seg->samplecnt);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[4])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			if(nogap)
+				BUNappend(aBAT, (ptr) NULL, FALSE);
+			else
+				BUNappend(aBAT, (ptr) &(gap), FALSE);
+			BBPreleaseref(ret_tc->tables_columns[1].column_bats[4]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[5])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) &(seg->samprate), FALSE);
+			BBPreleaseref(ret_tc->tables_columns[1].column_bats[5]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[6])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) &(seg->samplecnt), FALSE);
+			BBPreleaseref(ret_tc->tables_columns[1].column_bats[6]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[7])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			ch[0] = seg->sampletype;
+			BUNappend(aBAT, (ptr) ch, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[1].column_bats[7]);
+			
+			segment_id_fake++;
+			seg = seg->next;
+		}
+		
+		tracecnt++;
+		id = id->next;
+	}
+	
+	if(tracecnt != 1)
+		printf("Trace count is greater than 1. Total %d traces in file %s", tracecnt, file_path);
+	
+	GDKfree(ch);
+	
+	/* Cleanup memory and close file */
+	/* ms_readmsr (&msr, NULL, 0, NULL, NULL, 0, 0, 0); */
+	ms_readmsr_r (&msfp, &msr, NULL, 0, NULL, NULL, 0, 0, 0);
+	if ( mstl )
+		mstl_free (&mstl, 0);
+	
+	if ( retcode != MS_ENDOFFILE )
+		throw(MAL, "mseed_register", "Cannot read %s: %s\n", file_path, ms_errorstr(retcode));
+	
+	return MAL_SUCCEED;
+}
+
+
+/*
+ * appends the meta-data and actual data of the input "mseed" file provided in the file_path,
+ * to the end of BATs of temp_container ret_tc.
+ *
+ * returns error or MAL_SUCCEED.
+ *
+ * WARNING: this may be an optional DEVELOPER-PROVIDED function.
+ *
+ * TODO: A better interface can be provided to submit values for the attributes
+ * of tables_to_be_filled.
+ */
+str mseed_register_and_mount_segments_mode(str file_path, temp_container* ret_tc)
+{
+	
+	MSTraceList *mstl = 0;
+	MSRecord *msr = NULL;
+	MSFileParam *msfp = NULL;
+	int dataquality = 0;
+	int retcode;
+	MSTraceID *id = 0;
+	MSTraceSeg *seg = 0;
+	double gap;
+	double delta;
+	int tracecnt = 0;
+	int nogap;
+	
+	BAT *aBAT = NULL;
+	int segment_id_fake = 0;
+	lng st;
+	str ch = (str) GDKmalloc(2*sizeof(char));
+	timestamp start_timestamp;
+	timestamp end_timestamp;
+	int files_done = FALSE;
+	BAT *btime = NULL, *bvalue = NULL, *bfile = NULL, *bsegid = NULL;
+	
+	short int data_flag = 1;
+	ch[1] = '\0';
+	
+	mstl = mstl_init (NULL);
+	
+	/* while ((retcode = ms_readmsr (&msr, file_path, 0, NULL, NULL, 1, 0, verbose)) == MS_NOERROR) */
+	while ((retcode = ms_readmsr_r (&msfp, &msr, file_path, 0, NULL, NULL, 1, data_flag, verbose)) == MS_NOERROR)
+	{
+		if(!files_done)
+		{
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[0])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) file_path, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[0]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[1])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			ch[0] = msr->dataquality;
+			BUNappend(aBAT, (ptr) ch, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[1]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[2])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) msr->network, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[2]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[3])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) msr->station, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[3]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[4])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) msr->location, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[4]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[5])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) msr->channel, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[5]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[6])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) &(msr->encoding), FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[6]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[7])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) &(msr->byteorder), FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[7]);
+			
+			files_done = TRUE;
+		}
+		
+		/* collect all records in a tracelist */
+		mstl_addmsr (mstl, msr, dataquality, 1, timetol, sampratetol);
+		
+	}
+	
+	if ( retcode != MS_ENDOFFILE )
+		throw(MAL, "mseed_register", "Cannot read %s: %s\n", file_path, ms_errorstr(retcode));
+	
+	if (!mstl)
+	{
+		throw(MAL, "mseed_register_segments_mode", RUNTIME_OBJECT_MISSING);
+	}
+	
+	/* Loop through trace list */
+	id = mstl->traces;
+	while (id)
+	{
+		/* Loop through segment list */
+		seg = id->first;
+		while (seg)
+		{
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[0])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) file_path, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[1].column_bats[0]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[1])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) &(segment_id_fake), FALSE);
+			BBPreleaseref(ret_tc->tables_columns[1].column_bats[1]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[2])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			st = (lng) seg->starttime / 1000;
+			MTIMEtimestamp_lng(&start_timestamp, &st);
+			BUNappend(aBAT, (ptr) &start_timestamp, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[1].column_bats[2]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[3])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			st = (lng) seg->endtime / 1000;
+			MTIMEtimestamp_lng(&end_timestamp, &st);
+			BUNappend(aBAT, (ptr) &end_timestamp, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[1].column_bats[3]);
+			
+			/* Compute gap with previous segment */
+			gap = 0.0;
+			nogap = 0;
+			
+			if ( seg->prev )
+				gap = (double) (seg->starttime - seg->prev->endtime) / HPTMODULUS;
+			else
+				nogap = 1;
+			
+			/* Check that any overlap is not larger than the trace coverage */
+			if ( gap < 0.0 )
+			{
+				delta = ( seg->samprate ) ? (1.0 / seg->samprate) : 0.0;
+				
+				if ( (gap * -1.0) > (((double)(seg->endtime - seg->starttime)/HPTMODULUS) + delta) )
+					gap = -(((double)(seg->endtime - seg->starttime)/HPTMODULUS) + delta);
+			}
+			
+			printf("frq: %lf, sampcnt: %lld\n", seg->samprate, (long long int)seg->samplecnt);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[4])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			if(nogap)
+				BUNappend(aBAT, (ptr) NULL, FALSE);
+			else
+				BUNappend(aBAT, (ptr) &(gap), FALSE);
+			BBPreleaseref(ret_tc->tables_columns[1].column_bats[4]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[5])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) &(seg->samprate), FALSE);
+			BBPreleaseref(ret_tc->tables_columns[1].column_bats[5]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[6])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) &(seg->samplecnt), FALSE);
+			BBPreleaseref(ret_tc->tables_columns[1].column_bats[6]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[7])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			ch[0] = seg->sampletype;
+			BUNappend(aBAT, (ptr) ch, FALSE);
+			BBPreleaseref(ret_tc->tables_columns[1].column_bats[7]);
+		
+			/* mount */
+			{
+				lng i;
+				int segment_id = segment_id_fake;
+				double sample_interval = HPTMODULUS / seg->samprate; /* calculate sampling interval from frequency */
+				lng sampling_time = seg->starttime;
+				
+				lng num_samples = seg->numsamples;
+				int *data_samples = seg->datasamples;
+				
+				if ((bfile = BATdescriptor(ret_tc->tables_columns[2].column_bats[0])) == NULL)
+					throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+				if ((bsegid = BATdescriptor(ret_tc->tables_columns[2].column_bats[1])) == NULL)
+					throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+				if ((btime = BATdescriptor(ret_tc->tables_columns[2].column_bats[2])) == NULL)
+					throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+				if ((bvalue = BATdescriptor(ret_tc->tables_columns[2].column_bats[3])) == NULL)
+					throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+				
+				for(i = 0; i<num_samples; i++)
+				{
+					
+					timestamp sampling_timestamp;
+					lng st = sampling_time / 1000;
+					MTIMEtimestamp_lng(&sampling_timestamp, &st);
+					
+					/* For each sample add one row to the table */
+					BUNappend(bfile, (ptr) file_path, FALSE);
+					BUNappend(bsegid, (ptr) &segment_id, FALSE);
+					BUNappend(btime, (ptr) &sampling_timestamp, FALSE);
+					BUNappend(bvalue, (ptr) (data_samples+i), FALSE);
+					sampling_time += sample_interval;
+				}
+				
+				BBPreleaseref(ret_tc->tables_columns[2].column_bats[0]);
+				BBPreleaseref(ret_tc->tables_columns[2].column_bats[1]);
+				BBPreleaseref(ret_tc->tables_columns[2].column_bats[2]);
+				BBPreleaseref(ret_tc->tables_columns[2].column_bats[3]);
+			}
+		
+			segment_id_fake++;
+			seg = seg->next;
+		}
+		tracecnt++;
+		id = id->next;
+	}
+	
+	if(tracecnt != 1)
+		printf("Warning! Unexpectedly, trace count is greater than 1 in a file! Total %d traces in file %s", tracecnt, file_path);
+	
+	GDKfree(ch);
+	
+	/* Cleanup memory and close file */
+	/* ms_readmsr (&msr, NULL, 0, NULL, NULL, 0, 0, 0); */
+	ms_readmsr_r (&msfp, &msr, NULL, 0, NULL, NULL, 0, 0, 0);
+	if (mstl)
+		mstl_free (&mstl, 0);
+	
 	return MAL_SUCCEED;
 }
 
