@@ -56,7 +56,14 @@ TKNZRrdf2str (bat *res, bat *bid, bat *map);
 rdf_export str
 RDFpartialjoin (bat *res, bat *lmap, bat *rmap, bat *input); 
 
+rdf_export int
+getIntFromRDFString(str input); 
 
+rdf_export float
+getFloatFromRDFString(str input); 
+
+rdf_export str
+getDateTimeFromRDFString(str input); 
 
 #define RDF_MIN_LITERAL (((oid) 1) << ((sizeof(oid)==8)?59:27))
 

@@ -225,6 +225,54 @@ char isInt(char *input, int len){
 		return 0;
 }
 
+int getIntFromRDFString(str input){
+	int i; 
+	assert(input[0] == '\"');
+	
+	//Find the second quote
+	i = 1; 
+	while (input[i] != '\"'){
+		i++; 
+	}
+	input[i] = '\0';
+	input++;
+	//printf("Input after extraction %s \n", input);	
+	return atoi(input); 
+}
+
+float getFloatFromRDFString(str input){
+	int i; 
+	assert(input[0] == '\"');
+	
+	//Find the second quote
+	i = 1; 
+	while (input[i] != '\"'){
+		i++; 
+	}
+	input[i] = '\0';
+	input++;
+	//printf("Input after extraction %s \n", input);
+
+	return atof(input); 
+}
+
+str getDateTimeFromRDFString(str input){
+
+	int i; 
+	assert(input[0] == '\"');
+	
+	//Find the second quote
+	i = 1; 
+	while (input[i] != '\"'){
+		i++; 
+	}
+	input[i] = '\0';
+	input++;
+	//printf("Input after extraction %s \n", input);
+
+	return input; 
+}
+
 /*
 static
 char isIntWithQuote(char *input, int len){	// "123123" ==> INT

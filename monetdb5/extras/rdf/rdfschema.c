@@ -5664,10 +5664,55 @@ void fillMissingvaluesAll(CStableStat* cstablestat, CSPropTypes *csPropTypes, in
 	}
 }
 
-str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId){
+static
+void getRealValue(oid objOid, ObjectType objType, BATiter mapi, BAT *mapbat){
+	str 	objStr; 
+	BUN	bun; 	
+	BUN	maxObjectURIOid =  ((oid)1 << (sizeof(BUN)*8 - NBITS_FOR_CSID - 1)); //Base on getTblIdxFromS
+
+	if (objType == URI || objType == BLANKNODE){
+		objOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
+
+		if (objOid < maxObjectURIOid){
+			takeOid(objOid, &objStr); 
+			printf("From tokenizer URI object value: "BUNFMT " (str: %s) \n", objOid, objStr);
+		}
+	}
+	else{
+		objOid = objOid - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the real objOid from Map or Tokenizer */ 
+		bun = BUNfirst(mapbat);
+		objStr = (str) BUNtail(mapi, bun + objOid); 
+	}
+		
+
+	switch (objType)
+	{
+		case STRING:
+			printf("A String object value: %s \n",objStr);
+			//return objStr; 
+			break; 
+		case DATETIME:
+			printf("A datetime object value: %s \n",getDateTimeFromRDFString(objStr));
+			//return objStr; 
+			break; 
+		case INTEGER:
+			printf("Full object value: %s \n",objStr);
+			printf("A INTEGER object value: %i \n",getIntFromRDFString(objStr));
+			break; 
+		case FLOAT:
+			printf("Full object value: %s \n",objStr);
+			printf("A FLOAT object value: %f \n",getFloatFromRDFString(objStr));
+			break; 
+		default: //URI or BLANK NODE		
+			printf("A URI object value: " BUNFMT " \n", objOid);
+	}
+
+}
+
+str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *mbatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId){
 	
-	BAT *sbat = NULL, *pbat = NULL, *obat = NULL; 
-	BATiter si,pi,oi; 
+	BAT *sbat = NULL, *pbat = NULL, *obat = NULL, *mbat = NULL; 
+	BATiter si,pi,oi, mi; 
 	BUN p,q; 
 	oid *pbt, *sbt, *obt;
 	oid lastP, lastS; 
@@ -5689,11 +5734,18 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	BAT	*curBat = NULL;
 	BAT	*tmpBat = NULL; 
 	BAT     *tmpmvBat = NULL;       // Multi-values BAT
+	BAT	*tmpmvExBat = NULL; 
 	oid	*tmplastInsertedS; 
-	int     numMutiValues = 0;
-	oid	*lastDupValue; 
+	int     numMultiValues = 0;
 	oid	tmpmvValue; 
-
+	char	istmpMVProp = 0; 
+	oid	tmpNil = oid_nil; 
+	char*   schema = "rdf";
+	
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "RDFdistTriplesToCSs",
+				"could not open the tokenizer\n");
+	}
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
@@ -5708,9 +5760,17 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
 	}
 
+	if ((mbat = BATdescriptor(*mbatid)) == NULL) {
+		BBPreleaseref(sbat->batCacheid);
+		BBPreleaseref(pbat->batCacheid);
+		BBPreleaseref(obat->batCacheid);
+		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
+	}
+
 	si = bat_iterator(sbat); 
 	pi = bat_iterator(pbat); 
 	oi = bat_iterator(obat);
+	mi = bat_iterator(mbat);
 	
 	tmpTblIdxPropIdxMap = (int*)malloc(sizeof(int) * cstablestat->numTables);
 	initIntArray(tmpTblIdxPropIdxMap, cstablestat->numTables, -1); 
@@ -5754,65 +5814,56 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 			tmpPtl =  propStat->plCSidx[ppos];
 			updateTblIdxPropIdxMap(tmpTblIdxPropIdxMap, 
 					tmpPtl.lstIdx, tmpPtl.lstInvertIdx,tmpPtl.numAdded);
-			//init set of BATs containing this property
-			//
-			//if (creatPBats(setofBats, propStat->plCSidx[ppos], TYPE_void, TYPE_oid) != MAL_SUCCEED){
-			//	throw(RDF, "rdf.RDFdistTriplesToCSs", "Problem in creating set of bats for a P");
-			//}
 			
 			lastP = *pbt; 
 			lastS = *sbt; 
-			numMutiValues = 0;
+			numMultiValues = 0;
+			tmplastInsertedS[MULTIVALUES] = 0;
 
-		}
-		else{
-			if (*sbt == lastS){ 	//multi-values prop
-				printf("Multi values prop \n"); 
-				//printf("Multivalue at table %d col %d \n", tblIdx,tmpColIdx);
-				if (numMutiValues == 0){ 	// The first duplication 
-					// Insert the last value from curBat to mvBat, then update this value to null
-					// Add a value to MULVALUE column in TableEx
-					// pointing to the offset of mul
-					lastDupValue = (oid *)Tloc(curBat, BUNlast(curBat) -1);
-					tmpmvValue = *lastDupValue; 
-					BUNappend(tmpmvBat, &tmpmvValue, TRUE); 
-
-					*lastDupValue = oid_nil; 	
-					//*lastDupValue = BUNlast(tmpmvBat) - 1; 
-					//*lastDupValue |= (BUN)MULTIVALUES << (sizeof(BUN)*8 - 4);
-					
-					// Add the current object to mvBat
-					BUNappend(tmpmvBat, obt, TRUE);			
-					
-					// For the MULTIVALUE column in TableEx
-					tmpColExIdx = csPropTypes[tblIdx].lstPropTypes[tmpColIdx].colIdxes[MULTIVALUES];
-					tmpBat = cstablestat->lstcstableEx[tblIdx].colBats[tmpColExIdx];
-					if (tmpSoid > (tmplastInsertedS[MULTIVALUES] + 1)){
-						fillMissingvalues(tmpBat, tmplastInsertedS[MULTIVALUES] + 1, tmpSoid-1);
-					}
-					tmpmvValue = BUNlast(tmpmvBat) - 1;
-					BUNappend(tmpBat,&tmpmvValue, TRUE);
-
-					numMutiValues++;
-
-				}
-				else{
-					// Add the current object to mvBat
-					BUNappend(tmpmvBat, obt, TRUE);			
-					numMutiValues++;
-				}
-				continue; 				
-			}
-			else{
-				lastS = *sbt; 	
-				numMutiValues = 0;
-
-			}
 		}
 
 		objType = getObjType(*obt); 
 
 		tmpColIdx = tmpTblIdxPropIdxMap[tblIdx]; 
+
+		istmpMVProp = csPropTypes[tblIdx].lstPropTypes[tmpColIdx].isMVProp; 
+
+		if (istmpMVProp == 1){	// This is a multi-valued prop
+			printf("Multi values prop \n"); 
+			if (*sbt != lastS){ 	
+				numMultiValues = 0;
+			}
+
+			tmpmvBat = cstablestat->lstcstable[tblIdx].mvBats[tmpColIdx];
+			tmpmvExBat = cstablestat->lstcstable[tblIdx].mvExBats[tmpColIdx];
+			tmpBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
+			
+			getRealValue(*obt, objType, mi, mbat);
+			if (objType == csPropTypes[tblIdx].lstPropTypes[tmpColIdx].defaultType){
+				BUNappend(tmpmvBat, obt, TRUE);		
+				BUNappend(tmpmvExBat, &tmpNil, TRUE); 
+			}	
+			else{	//TODO: Try to cast the value
+				BUNappend(tmpmvExBat, obt, TRUE);
+				BUNappend(tmpmvBat, &tmpNil, TRUE);
+			}
+
+			if (numMultiValues == 0){	
+				//In search the position of the first value 
+				//to the correcponding column in the MAINTBL
+				//First: Insert all missing value
+				if (tmpSoid > (tmplastInsertedS[MULTIVALUES] + 1)){
+					fillMissingvalues(tmpBat, tmplastInsertedS[MULTIVALUES] + 1, tmpSoid-1);
+				}
+				tmpmvValue = BUNlast(tmpmvBat) - 1;
+				BUNappend(tmpBat, &tmpmvValue, TRUE);
+				tmplastInsertedS[MULTIVALUES] = tmpSoid; 
+				numMultiValues++;
+			}
+			
+			continue; 
+		}
+
 
 		tmpTableType = csPropTypes[tblIdx].lstPropTypes[tmpColIdx].TableTypes[(int)objType]; 
 
@@ -5856,14 +5907,13 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 			printf(" tmpColIdx = %d \n",tmpColExIdx);
 		}
 
-		tmpmvBat = cstablestat->lstcstable[tblIdx].mvBats[tmpColIdx];
-
 		//TODO: Check last subjectId for this prop. If the subjectId is not continuous, insert NIL
 		if (tmpSoid > (tmplastInsertedS[(int)objType] + 1)){
 			printf("Fill begin from tmplastInsertedS[%d] = "BUNFMT" to " BUNFMT "\n",  (int)objType, tmplastInsertedS[(int)objType],tmpSoid-1);
 			fillMissingvalues(curBat, tmplastInsertedS[(int)objType] + 1, tmpSoid-1);
 		}
 
+		getRealValue(*obt, objType, mi, mbat);
 		BUNappend(curBat, obt, TRUE); 
 
 		//printf(BUNFMT": Table %d | column %d  for prop " BUNFMT " | sub " BUNFMT " | obj " BUNFMT "\n",p, tblIdx, 
@@ -5895,7 +5945,11 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid, PropSta
 	BBPunfix(sbat->batCacheid);
 	BBPunfix(pbat->batCacheid);
 	BBPunfix(obat->batCacheid);
+	BBPunfix(mbat->batCacheid);
+
 	free(tmpTblIdxPropIdxMap); 
+
+	TKNZRclose(ret);
 
 	return MAL_SUCCEED; 
 }
@@ -6160,7 +6214,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	
 	//printPropStat(propStat,0); 
 	
-	if (RDFdistTriplesToCSs(ret, &sNewBat->batCacheid, &pNewBat->batCacheid, &oNewBat->batCacheid, propStat, cstablestat, csPropTypes, lastSubjId) != MAL_SUCCEED){
+	if (RDFdistTriplesToCSs(ret, &sNewBat->batCacheid, &pNewBat->batCacheid, &oNewBat->batCacheid, mapbatid, propStat, cstablestat, csPropTypes, lastSubjId) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in distributing triples to BATs using CSs");		
 	}
 		
