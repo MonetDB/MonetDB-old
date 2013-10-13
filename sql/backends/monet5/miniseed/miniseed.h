@@ -20,6 +20,7 @@
 #endif
 
 vault_export str MiniseedMount(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+vault_export str MiniseedMountSegmentMode(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 #define _MSEED_DEBUG_
 
