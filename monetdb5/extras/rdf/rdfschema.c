@@ -5433,6 +5433,9 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 	cstablestat->pbat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
 	cstablestat->sbat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
 	cstablestat->obat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+	BATseqbase(cstablestat->pbat, 0);
+	BATseqbase(cstablestat->sbat, 0);
+	BATseqbase(cstablestat->obat, 0);
 
 	cstablestat->lastInsertedS = (oid**) malloc(sizeof(oid*) * numTables);
 	cstablestat->lstcstable = (CStable*) malloc(sizeof(CStable) * numTables); 
@@ -5470,8 +5473,10 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 			}
 			else{
 				cstablestat->lstcstable[i].colBats[j] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+				BATseqbase(cstablestat->lstcstable[i].colBats[j], 0);	
 				cstablestat->lstcstable[i].mvBats[j] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz) ;
-				cstablestat->lstcstable[i].mvExBats[j] = BATnew(TYPE_void, TYPE_oid,  smallbatsz) ;
+				cstablestat->lstcstable[i].mvExBats[j] = BATnew(TYPE_void, TYPE_oid,  smallbatsz) ; 	//TODO: Check whether the MVCol need ExCol
+				BATseqbase(cstablestat->lstcstable[i].mvExBats[j], 0);
 			}
 		}
 
@@ -5665,11 +5670,16 @@ void fillMissingvaluesAll(CStableStat* cstablestat, CSPropTypes *csPropTypes, in
 }
 
 static
-void getRealValue(oid objOid, ObjectType objType, BATiter mapi, BAT *mapbat){
+void getRealValue(void **returnValue, oid objOid, ObjectType objType, BATiter mapi, BAT *mapbat){
 	str 	objStr; 
+	str	datetimeStr; 
 	BUN	bun; 	
 	BUN	maxObjectURIOid =  ((oid)1 << (sizeof(BUN)*8 - NBITS_FOR_CSID - 1)); //Base on getTblIdxFromS
+	float	realFloat; 
+	int	realInt; 
+	oid	realUri;
 
+	printf("objOid = " BUNFMT " \n",objOid);
 	if (objType == URI || objType == BLANKNODE){
 		objOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
 
@@ -5682,6 +5692,7 @@ void getRealValue(oid objOid, ObjectType objType, BATiter mapi, BAT *mapbat){
 		objOid = objOid - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the real objOid from Map or Tokenizer */ 
 		bun = BUNfirst(mapbat);
 		objStr = (str) BUNtail(mapi, bun + objOid); 
+		printf("From mapbat BATcount= "BUNFMT" at position " BUNFMT ": %s \n", BATcount(mapbat),  bun + objOid,objStr);
 	}
 		
 
@@ -5689,22 +5700,34 @@ void getRealValue(oid objOid, ObjectType objType, BATiter mapi, BAT *mapbat){
 	{
 		case STRING:
 			printf("A String object value: %s \n",objStr);
-			//return objStr; 
+			if (*returnValue != NULL) free(*returnValue);
+			*returnValue = (char *)malloc(sizeof(char) * strlen(objStr) + 1); 
+			memcpy(*returnValue,objStr, sizeof(char) * strlen(objStr) + 1);
+			printf("A String value of returnValue: %s \n", (char *)(*returnValue));
 			break; 
 		case DATETIME:
-			printf("A datetime object value: %s \n",getDateTimeFromRDFString(objStr));
-			//return objStr; 
+			datetimeStr = getDateTimeFromRDFString(objStr);
+			if (*returnValue != NULL) free(*returnValue);
+			*returnValue = (char *)malloc(sizeof(char) * strlen(datetimeStr) + 1); 
+			memcpy(*returnValue,datetimeStr,sizeof(char) * strlen(objStr) + 1);
+			printf("A datetime object value: %s \n",(char *)(*returnValue));
 			break; 
 		case INTEGER:
 			printf("Full object value: %s \n",objStr);
-			printf("A INTEGER object value: %i \n",getIntFromRDFString(objStr));
+			realInt = getIntFromRDFString(objStr);
+			printf("A INTEGER object value: %i \n",realInt);
+			*(int*)(*returnValue) = realInt;
 			break; 
 		case FLOAT:
 			printf("Full object value: %s \n",objStr);
-			printf("A FLOAT object value: %f \n",getFloatFromRDFString(objStr));
+			realFloat = getFloatFromRDFString(objStr);
+			printf("A FLOAT object value: %f \n",realFloat);
+			*(float*)(*returnValue) = realFloat;
 			break; 
 		default: //URI or BLANK NODE		
 			printf("A URI object value: " BUNFMT " \n", objOid);
+			realUri = objOid;
+			*(oid*)(*returnValue) = realUri;
 	}
 
 }
@@ -5739,8 +5762,8 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	int     numMultiValues = 0;
 	oid	tmpmvValue; 
 	char	istmpMVProp = 0; 
-	oid	tmpNil = oid_nil; 
 	char*   schema = "rdf";
+	void* 	realObjValue = NULL;
 	
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
 		throw(RDF, "RDFdistTriplesToCSs",
@@ -5826,6 +5849,8 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 
 		tmpColIdx = tmpTblIdxPropIdxMap[tblIdx]; 
 
+		printf(" Tbl: %d   |   Col: %d \n", tblIdx, tmpColIdx);
+
 		istmpMVProp = csPropTypes[tblIdx].lstPropTypes[tmpColIdx].isMVProp; 
 
 		if (istmpMVProp == 1){	// This is a multi-valued prop
@@ -5837,15 +5862,18 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			tmpmvBat = cstablestat->lstcstable[tblIdx].mvBats[tmpColIdx];
 			tmpmvExBat = cstablestat->lstcstable[tblIdx].mvExBats[tmpColIdx];
 			tmpBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
-			
-			getRealValue(*obt, objType, mi, mbat);
+			BATprint(tmpBat);
+			BATprint(tmpmvBat);
+			getRealValue(&realObjValue, *obt, objType, mi, mbat);
+
 			if (objType == csPropTypes[tblIdx].lstPropTypes[tmpColIdx].defaultType){
-				BUNappend(tmpmvBat, obt, TRUE);		
-				BUNappend(tmpmvExBat, &tmpNil, TRUE); 
+				//BUNappend(tmpmvBat, obt, TRUE);		
+				BUNappend(tmpmvBat, (ptr) realObjValue, TRUE); 
+				BUNappend(tmpmvExBat, ATOMnilptr(tmpmvExBat->ttype), TRUE); 
 			}	
 			else{	//TODO: Try to cast the value
 				BUNappend(tmpmvExBat, obt, TRUE);
-				BUNappend(tmpmvBat, &tmpNil, TRUE);
+				BUNappend(tmpmvBat, ATOMnilptr(tmpmvBat->ttype), TRUE);
 			}
 
 			if (numMultiValues == 0){	
@@ -5855,8 +5883,12 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				if (tmpSoid > (tmplastInsertedS[MULTIVALUES] + 1)){
 					fillMissingvalues(tmpBat, tmplastInsertedS[MULTIVALUES] + 1, tmpSoid-1);
 				}
-				tmpmvValue = BUNlast(tmpmvBat) - 1;
+				
+				BATprint(tmpmvBat);
+				tmpmvValue = (oid)(BUNlast(tmpmvBat) - 1);
+				printf("Insert the refered oid " BUNFMT "for MV prop \n", tmpmvValue);
 				BUNappend(tmpBat, &tmpmvValue, TRUE);
+				BATprint(tmpBat);
 				tmplastInsertedS[MULTIVALUES] = tmpSoid; 
 				numMultiValues++;
 			}
@@ -5867,7 +5899,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 
 		tmpTableType = csPropTypes[tblIdx].lstPropTypes[tmpColIdx].TableTypes[(int)objType]; 
 
-		printf("  objType: %d  TblType: %d", (int)objType,(int)tmpTableType);
+		printf("  objType: %d  TblType: %d \n", (int)objType,(int)tmpTableType);
 		if (tmpTableType == PSOTBL){			//For infrequent type ---> go to PSO
 			BUNappend(cstablestat->pbat,pbt , TRUE);
 			BUNappend(cstablestat->sbat,sbt , TRUE);
@@ -5913,8 +5945,10 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			fillMissingvalues(curBat, tmplastInsertedS[(int)objType] + 1, tmpSoid-1);
 		}
 
-		getRealValue(*obt, objType, mi, mbat);
-		BUNappend(curBat, obt, TRUE); 
+		getRealValue(&realObjValue, *obt, objType, mi, mbat);
+		if (objType == STRING) printf("Value returned by getRealValue is %s \n", (char*)realObjValue);
+		//BUNappend(curBat, obt, TRUE); 
+		BUNappend(curBat, (ptr) realObjValue, TRUE); 
 
 		//printf(BUNFMT": Table %d | column %d  for prop " BUNFMT " | sub " BUNFMT " | obj " BUNFMT "\n",p, tblIdx, 
 		//					tmpColIdx, *pbt, tmpSoid, *obt); 
@@ -5933,8 +5967,17 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 
 	// Keep the batCacheId
 	for (i = 0; i < cstablestat->numTables; i++){
+		printf("----- Table %d ------ \n",i );
 		for (j = 0; j < cstablestat->numPropPerTable[i];j++){
+			printf("Column %d \n", j);
 			cstablestat->lstbatid[i][j] = cstablestat->lstcstable[i].colBats[j]->batCacheid; 
+			BATprint(cstablestat->lstcstable[i].colBats[j]);
+			if (csPropTypes[i].lstPropTypes[j].isMVProp){
+				printf("MV Columns: \n");
+				BATprint(cstablestat->lstcstable[i].mvBats[j]);
+				BATprint(cstablestat->lstcstable[i].mvExBats[j]);
+			}
+
 		}
 	}
 
