@@ -255,7 +255,7 @@ str MiniseedMountSegmentMode(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 	if ( mstl )
 		mstl_free (&mstl, 0);
 	
-	printf("num_segments: "LLFMT", num_records: "LLFMT"\n", num_rows, num_records);
+	printf("num_segments: %d, num_records: "LLFMT", num_data_points: "LLFMT"\n", segment_id_fake, num_records, num_rows);
 	
 	BBPkeepref(*ret[0] = bfile->batCacheid); /* return BAT. */
 	BBPkeepref(*ret[1] = bsegid->batCacheid); /* return BAT. */
