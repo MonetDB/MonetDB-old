@@ -134,7 +134,7 @@ str MiniseedMountSegmentMode(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 	MSTraceSeg *seg = 0;
 	int tracecnt = 0;
 	
-	int segment_id_fake = 1;
+	int segment_id_fake = 0;
 	
 	short int data_flag = 1;
 	
