@@ -1231,7 +1231,7 @@ str mseed_register_segments_mode(str file_path, temp_container* ret_tc)
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[4])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			if(nogap)
-				BUNappend(aBAT, (ptr) NULL, FALSE);
+				BUNappend(aBAT, (ptr) &(dbl_nil), FALSE);
 			else
 				BUNappend(aBAT, (ptr) &(gap), FALSE);
 			BBPreleaseref(ret_tc->tables_columns[1].column_bats[4]);
@@ -1435,7 +1435,7 @@ str mseed_register_and_mount_segments_mode(str file_path, temp_container* ret_tc
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[4])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			if(nogap)
-				BUNappend(aBAT, (ptr) NULL, FALSE);
+				BUNappend(aBAT, (ptr) &(dbl_nil), FALSE);
 			else
 				BUNappend(aBAT, (ptr) &(gap), FALSE);
 			BBPreleaseref(ret_tc->tables_columns[1].column_bats[4]);
@@ -1683,9 +1683,9 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		tc = (temp_container*)GDKmalloc(sizeof(temp_container));
 		assert(tc != NULL);
 		if(mode == 0)
-			err = mseed_create_temp_container(tc); /* depending on design can get different argument(s) */
+			err = mseed_create_temp_container_segments_mode(tc); /* depending on design can get different argument(s) */
 		else
-			err = mseed_create_temp_container_with_data_tables(tc); /* depending on design can get different argument(s) */
+			err = mseed_create_temp_container_with_data_tables_segments_mode(tc); /* depending on design can get different argument(s) */
 		if(err != MAL_SUCCEED)
 		{/* temp_container creation failed, what to do */
 			throw(MAL,"registrar.register_repo", "temp_container creation failed: %s\n", err);
@@ -1697,7 +1697,7 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		{
 			for(i = 0; i < num_file_paths; i++)
 			{
-				err = mseed_register(file_paths[i], tc);
+				err = mseed_register_segments_mode(file_paths[i], tc);
 				if(err != MAL_SUCCEED)
 				{/* current file cannot be registered, what to do */
 					/* throw(MAL,"registrar.register_repo", "Current file cannot be registered: %s\n", err); */
@@ -1709,7 +1709,7 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		{
 			for(i = 0; i < num_file_paths; i++)
 			{
-				err = mseed_register_and_mount(file_paths[i], tc);
+				err = mseed_register_and_mount_segments_mode(file_paths[i], tc);
 				if(err != MAL_SUCCEED)
 				{/* current file cannot be registered, what to do */
 					/* throw(MAL,"registrar.register_repo", "Current file cannot be registered: %s\n", err); */
