@@ -35,7 +35,7 @@ int get_column_num(str schema_name, str table_name, str column_name)
 
 	if(strcmp(column_name, "file_location") == 0)
 		return 0;
-	else if(strcmp(column_name, "seq_no") == 0)
+	else if(strcmp(column_name, "segment_id") == 0)
 		return 1;
 	else if(strcmp(column_name, "sample_time") == 0)
 		return 2;
