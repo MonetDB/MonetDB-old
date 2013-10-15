@@ -7703,7 +7703,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	mbat = mvc_bind(m, *schema, "map0", "lexical",0);
 
 	cstablestat = (CStableStat *) malloc (sizeof (CStableStat));
-
+	
 	rethrow("sql.rdfreorganize", msg, RDFreorganize(&ret, cstablestat, &sbat->batCacheid, &pbat->batCacheid, 
 				&obat->batCacheid, &mbat->batCacheid, threshold, mode));
 
@@ -7713,7 +7713,6 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		BBPunfix(pbat->batCacheid);
 		BBPunfix(obat->batCacheid); 
 		BBPunfix(mbat->batCacheid);
-		
 		freeCStableStat(cstablestat); 
 		//free(cstablestat);
 		return MAL_SUCCEED; 

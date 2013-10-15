@@ -492,12 +492,10 @@ getObjType(oid objOid){
  * 
  * */
 static 
-CSPropTypes* initCSPropTypes(CSset* freqCSset, int numMergedCS){
+void initCSPropTypes(CSPropTypes* csPropTypes, CSset* freqCSset, int numMergedCS){
 	int numFreqCS = freqCSset->numCSadded;
 	int i, j, k ;
 	int id; 
-
-	CSPropTypes* csPropTypes = (CSPropTypes*)GDKmalloc(sizeof(CSPropTypes) * numMergedCS); 
 	
 	id = 0; 
 	for (i = 0; i < numFreqCS; i++){
@@ -539,7 +537,7 @@ CSPropTypes* initCSPropTypes(CSset* freqCSset, int numMergedCS){
 
 	assert(id == numMergedCS);
 
-	return csPropTypes;
+	//return csPropTypes;
 }
 
 static 
@@ -1597,7 +1595,14 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 				GDKfree(subStr);
 			}
 			else{
-				fprintf(fout,"CS " BUNFMT " (Freq: %d) | Subject: NOTAVAI  | FreqParentIdx %d \n", cs.csId, *freq, cs.parentFreqIdx);
+				if (labels[i].name == BUN_NONE) {
+					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | FreqParentIdx %d \n", cs.csId, i, "DUMMY", *freq, cs.parentFreqIdx);
+				} else {
+					str labelStr;
+					takeOid(labels[i].name, &labelStr);
+					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | FreqParentIdx %d \n", cs.csId, i, labelStr, *freq, cs.parentFreqIdx);
+					GDKfree(labelStr);
+				}
 			}
 			#endif	
 
@@ -3652,7 +3657,7 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 	//int 	*csPropNum; 
 	//int	*csFreq; 
 	FILE 	*fout; 
-	int	i ; 
+	int	i,j ; 
 	char 	filename[100];
 	char 	tmpStr[20];
 	int	maxNumtriple; 
@@ -3660,6 +3665,7 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 	int	numMergeCS = 0; 
 	int 	totalCoverage = 0; 
 	int	freqId; 
+	int	maxNumProp, tmpNumProp; 
 
 	printf("Get statistics of final CSs ....");
 
@@ -3690,6 +3696,32 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 	printf("Min number of triples coverred by one final CS: %d \n", minNumtriple);
 	printf("Avg number of triples coverred by one final CS: %f \n", (float)(totalCoverage/numMergeCS));
 
+	//Check if remove all non-frequent Prop
+	maxNumtriple = 0;
+	minNumtriple = INT_MAX;
+	maxNumProp = 0; 
+	tmpNumProp = 0;
+	for (i = 0; i < curNumMergeCS; i++){
+		freqId = mergeCSFreqCSMap[i]; 
+		if (freqCSset->items[freqId].parentFreqIdx == -1){		// Check whether it is a maximumCS
+			// Output the result 
+			tmpNumProp = freqCSset->items[freqId].numProp;	
+			for (j = 0; j < freqCSset->items[freqId].numProp; j++){
+				//Check infrequent Prop
+				if (freqCSset->items[freqId].lstPropSupport[j] < freqCSset->items[freqId].coverage * INFREQ_PROP_THRESHOLD){
+					totalCoverage = totalCoverage - freqCSset->items[freqId].lstPropSupport[j];
+					tmpNumProp--; 
+				}
+			}
+
+			if (tmpNumProp > maxNumProp) maxNumProp = tmpNumProp; 
+		}
+	}
+
+	printf("If Removing all INFREQUENT Prop \n");
+	printf("Max number of props: %d \n", maxNumProp);
+	printf("Total " BUNFMT " triples, coverred by final CSs: %d  (%f percent) \n", BATcount(sbat), totalCoverage, 100 * ((float)totalCoverage/BATcount(sbat)));
+
 	//Check if remove all the final CS covering less than 10000 triples
 	
 	totalCoverage = 0;
@@ -3701,7 +3733,6 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 		freqId = mergeCSFreqCSMap[i]; 
 		if (freqCSset->items[freqId].parentFreqIdx == -1 && freqCSset->items[freqId].coverage > MINIMUM_TABLE_SIZE){		// Check whether it is a maximumCS
 			// Output the result 
-			fprintf(fout, BUNFMT " %d  %d  %d\n", freqCSset->items[freqId].csId, freqCSset->items[freqId].numProp,freqCSset->items[freqId].support, freqCSset->items[freqId].coverage); 
 			if (freqCSset->items[freqId].coverage > maxNumtriple) maxNumtriple = freqCSset->items[freqId].coverage;
 			if (freqCSset->items[freqId].coverage < minNumtriple) minNumtriple = freqCSset->items[freqId].coverage;
 			
@@ -3710,7 +3741,7 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 		}
 	}
 	
-	printf("AFTER removing all the 'small' final CSs  ==> Only %d final CSs \n", numMergeCS);
+	printf("IF Removing all the 'SMALL' final CSs  ==> Only %d final CSs \n", numMergeCS);
 	printf("Total " BUNFMT " triples, coverred by final CSs: %d  (%f percent) \n", BATcount(sbat), totalCoverage, 100 * ((float)totalCoverage/BATcount(sbat)));
 	printf("Max number of triples coverred by one final CS: %d \n", maxNumtriple);
 	printf("Min number of triples coverred by one final CS: %d \n", minNumtriple);
@@ -6081,7 +6112,8 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	oi = bat_iterator(obat); 
 
 	/* Get possible types of each property in a table (i.e., mergedCS) */
-	csPropTypes = initCSPropTypes(freqCSset, numTables);
+	csPropTypes = (CSPropTypes*)GDKmalloc(sizeof(CSPropTypes) * numTables); 
+	initCSPropTypes(csPropTypes, freqCSset, numTables);
 	RDFExtractCSPropTypes(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, csPropTypes, maxNumPwithDup);
 	genCSPropTypesColIdx(csPropTypes, numTables, freqCSset);
 	printCSPropTypes(csPropTypes, numTables, freqCSset, *freqThreshold);

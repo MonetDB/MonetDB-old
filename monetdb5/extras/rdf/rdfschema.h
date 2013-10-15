@@ -185,6 +185,8 @@ typedef struct SubCSSet{
 				    // the CS's to-be-merged in this rule must cover > MIN_FROMTABLE_SIZE_S6 / MIN_PERCETAGE_S6 triples
 #define MINIMUM_TABLE_SIZE 10000   //The minimum number of triples coverred by a table (i.e., a final CS) 
 #define SAMPLE_FILTER_THRESHOLD 1  // SAMPLE_FILTER_THRESHOLD/ 100	
+#define	INFREQ_PROP_THRESHOLD	0.001
+
 
 typedef struct CSset{
 	CS* items;
@@ -254,7 +256,7 @@ typedef struct CStableStat {
 	//sql_schema*	schema; 	
 	CStable*	lstcstable; 
 	#if CSTYPE_TABLE
-	CStableEx*        lstcstableEx;
+	CStableEx*      lstcstableEx;
 	oid**		lastInsertedSEx; 
 	#endif
 	BAT*		pbat; 
