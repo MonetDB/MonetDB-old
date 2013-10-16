@@ -3017,6 +3017,12 @@ void exportLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelMergeFreqSet, i
 	int			**relationMetadataCount;
 	Relation		***relationMetadata;
 
+
+	str             schema = "rdf";
+	int             ret;
+	
+	TKNZRopen (NULL, &schema);
+
 	// FK
 	relationMetadataCount = initRelationMetadataCount(freqCSset);
 	relationMetadata = initRelationMetadata2(relationMetadataCount, csRelMergeFreqSet, freqCSset);
@@ -3029,6 +3035,8 @@ void exportLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelMergeFreqSet, i
 
 	freeRelationMetadata(relationMetadata, freqCSset);
 	freeRelationMetadataCount(relationMetadataCount, freqCSset->numCSadded);
+
+	TKNZRclose(&ret);
 }
 
 void freeOntoUsageTree(OntoUsageNode* tree) {

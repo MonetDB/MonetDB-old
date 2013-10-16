@@ -43,7 +43,8 @@ typedef enum{
 	MAINTBL, 
 	TYPETBL,
 	PSOTBL,
-	MVTBL
+	MVTBL,
+	NOTBL		//No data for this 
 } TableType; 		
 
 typedef enum {
@@ -185,6 +186,7 @@ typedef struct SubCSSet{
 				    // the CS's to-be-merged in this rule must cover > MIN_FROMTABLE_SIZE_S6 / MIN_PERCETAGE_S6 triples
 #define MINIMUM_TABLE_SIZE 10000   //The minimum number of triples coverred by a table (i.e., a final CS) 
 #define SAMPLE_FILTER_THRESHOLD 1  // SAMPLE_FILTER_THRESHOLD/ 100	
+#define HIGH_REFER_THRESHOLD 5
 #define	INFREQ_PROP_THRESHOLD	0.001
 
 
@@ -231,11 +233,18 @@ typedef struct LabelStat{	/*Store the list of freqIds having the same label*/
 	int	numAllocation; 
 } LabelStat; 
 
+typedef struct CSMVtableEx {		/* For non-default-type columns*/
+	BAT**		mvBats;		/* The first is the default col, other is ex-type-specific cols*/
+	ObjectType*	colTypes; 
+	int		numCol; 
+} CSMVtableEx; 
+
 typedef struct CStable {
 	BAT**		colBats; 
 	ObjectType*	colTypes; 
-	BAT** 		mvBats; 	/* One bat for one Muti-values property */
-	BAT**		mvExBats; 	/* One more bat for infrequent datatype in multi-valued prop*/	
+	//BAT**		mvBats; 	/* One bat for one Muti-values property */
+	//BAT**		mvExBats; 	/* One more bat for infrequent datatype in multi-valued prop*/	
+	CSMVtableEx	*lstMVTables; 
 	int		numCol; 
 	oid* 		lstProp;
 } CStable; 
@@ -246,6 +255,7 @@ typedef struct CStableEx {		/* For non-default-type columns*/
 	ObjectType*	colTypes; 
 	int		numCol; 
 } CStableEx; 
+
 
 typedef struct CStableStat {
 	bat**   	lstbatid;
@@ -281,6 +291,7 @@ typedef struct PropTypes{
 	char*	TableTypes;
 	char	defaultType; 
 	char	isMVProp; 	/* = 1 if this prop is a multi-valued prop*/
+	char	numMvTypes; 	/* Number of extype BAT for this MV col */
 } PropTypes; 
 
 typedef struct CSPropTypes {

@@ -516,6 +516,7 @@ void initCSPropTypes(CSPropTypes* csPropTypes, CSset* freqCSset, int numMergedCS
 				csPropTypes[id].lstPropTypes[j].numType = MULTIVALUES + 1;
 				csPropTypes[id].lstPropTypes[j].defaultType = STRING; 
 				csPropTypes[id].lstPropTypes[j].isMVProp = 0; 
+				csPropTypes[id].lstPropTypes[j].numMvTypes = 0; 
 				csPropTypes[id].lstPropTypes[j].lstTypes = (char*)GDKmalloc(sizeof(char) * csPropTypes[id].lstPropTypes[j].numType);
 				csPropTypes[id].lstPropTypes[j].lstFreq = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
 				csPropTypes[id].lstPropTypes[j].lstFreqWithMV = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
@@ -558,6 +559,7 @@ void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freq
 	int tmpMaxFreq;  
 	int defaultIdx;	 /* Index of the default type for a property */
 	int curTypeColIdx = 0;
+	int curNumTypeMVTbl = 0; 
 
 	(void) freqCSset;
 
@@ -575,16 +577,33 @@ void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freq
 				defaultIdx = 0; 
 				//find the default type of the multi-valued prop
 				for (k = 0; k < MULTIVALUES; k++){
-					csPropTypes[i].lstPropTypes[j].TableTypes[k] = MVTBL;
 					if (csPropTypes[i].lstPropTypes[j].lstFreqWithMV[k] > tmpMaxFreq){
 						tmpMaxFreq =  csPropTypes[i].lstPropTypes[j].lstFreqWithMV[k];
 						defaultIdx = k; 	
 					}
 					
 				}
+
 				/* One type is set to be the default type (in the mv table) */
 				csPropTypes[i].lstPropTypes[j].defaultType = defaultIdx;
-
+				csPropTypes[i].lstPropTypes[j].colIdxes[defaultIdx] = 0; 	//The default type is the first col in the MV table
+				csPropTypes[i].lstPropTypes[j].TableTypes[defaultIdx] = MVTBL;
+				
+				curNumTypeMVTbl = 1; //One default column for MV Table
+				for (k = 0; k < MULTIVALUES; k++){
+					if (csPropTypes[i].lstPropTypes[j].lstFreqWithMV[k] > 0){
+						csPropTypes[i].lstPropTypes[j].TableTypes[k] = MVTBL;
+						if (k != defaultIdx){
+							csPropTypes[i].lstPropTypes[j].colIdxes[k] = curNumTypeMVTbl; 
+							curNumTypeMVTbl++;
+						}
+					}
+					else{
+						csPropTypes[i].lstPropTypes[j].TableTypes[k] = NOTBL;
+					}
+				}
+				csPropTypes[i].lstPropTypes[j].numMvTypes = curNumTypeMVTbl;
+				printf("Table %d with MV col %d has %d types",i, j, curNumTypeMVTbl);
 				/* Count the number of column for MV table needed */
 
 			}
@@ -599,6 +618,7 @@ void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freq
 						tmpMaxFreq =  csPropTypes[i].lstPropTypes[j].lstFreq[k];
 						defaultIdx = k; 	
 					}
+					//TODO: Check the case of single value col has a property with multi-valued objects
 					if (csPropTypes[i].lstPropTypes[j].lstFreq[k] < csPropTypes[i].lstPropTypes[j].propFreq * INFREQ_TYPE_THRESHOLD){
 						//non-frequent type goes to PSO
 						csPropTypes[i].lstPropTypes[j].TableTypes[k] = PSOTBL; 
@@ -3708,7 +3728,7 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 			tmpNumProp = freqCSset->items[freqId].numProp;	
 			for (j = 0; j < freqCSset->items[freqId].numProp; j++){
 				//Check infrequent Prop
-				if (freqCSset->items[freqId].lstPropSupport[j] < freqCSset->items[freqId].coverage * INFREQ_PROP_THRESHOLD){
+				if (freqCSset->items[freqId].lstPropSupport[j] < freqCSset->items[freqId].support * INFREQ_PROP_THRESHOLD){
 					totalCoverage = totalCoverage - freqCSset->items[freqId].lstPropSupport[j];
 					tmpNumProp--; 
 				}
@@ -5124,7 +5144,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	refCount = (int *) malloc(sizeof(int) * (*maxCSoid + 1));
 	initIntArray(refCount, (*maxCSoid + 1), 0); 
 	RDFgetRefCounts(ret, sbat, si, pi,oi, *subjCSMap, maxNumProp, *maxSoid, refCount);
-	addHighRefCSsToFreqCS(csBats->pOffsetBat, csBats->freqBat, csBats->coverageBat, csBats->fullPBat, refCount, freqCSset, csIdFreqIdxMap, *maxCSoid + 1, 2* (*freqThreshold)); 
+	addHighRefCSsToFreqCS(csBats->pOffsetBat, csBats->freqBat, csBats->coverageBat, csBats->fullPBat, refCount, freqCSset, csIdFreqIdxMap, *maxCSoid + 1, HIGH_REFER_THRESHOLD * (*freqThreshold)); 
 	free(refCount);
 	curT = clock();
 	printf (" ----- Counting references and adding highly referred CS's took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
@@ -5440,11 +5460,12 @@ str triplesubsort(BAT **sbat, BAT **pbat, BAT **obat){
 static
 void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPropTypes, int numTables){
 
-	int 		i,j; 
+	int 		i,j, k; 
 	int		tmpNumDefaultCol; 
 	int		tmpNumExCol; 		/*For columns of non-default types*/
 	char* 		mapObjBATtypes;
 	int		colExIdx, t; 
+	int		mvColIdx; 
 
 	mapObjBATtypes = (char*) malloc(sizeof(char) * (MULTIVALUES + 1)); 
 	mapObjBATtypes[URI] = TYPE_oid; 
@@ -5483,8 +5504,9 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 		cstablestat->lastInsertedS[i] = (oid*) malloc(sizeof(oid) * tmpNumDefaultCol); 
 		cstablestat->lstcstable[i].numCol = tmpNumDefaultCol;
 		cstablestat->lstcstable[i].colBats = (BAT**)malloc(sizeof(BAT*) * tmpNumDefaultCol); 
-		cstablestat->lstcstable[i].mvBats = (BAT**)malloc(sizeof(BAT*) * tmpNumDefaultCol); 
-		cstablestat->lstcstable[i].mvExBats = (BAT**)malloc(sizeof(BAT*) * tmpNumDefaultCol); 
+		//cstablestat->lstcstable[i].mvBats = (BAT**)malloc(sizeof(BAT*) * tmpNumDefaultCol); 
+		//cstablestat->lstcstable[i].mvExBats = (BAT**)malloc(sizeof(BAT*) * tmpNumDefaultCol); 
+		cstablestat->lstcstable[i].lstMVTables = (CSMVtableEx *) malloc(sizeof(CSMVtableEx) * tmpNumDefaultCol); // TODO: Only allocate memory for multi-valued columns
 		cstablestat->lstcstable[i].lstProp = (oid*)malloc(sizeof(oid) * tmpNumDefaultCol);
 		cstablestat->lstcstable[i].colTypes = (ObjectType *)malloc(sizeof(ObjectType) * tmpNumDefaultCol);
 		#if CSTYPE_TABLE == 1
@@ -5497,17 +5519,35 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 		for(j = 0; j < tmpNumDefaultCol; j++){
 			if (csPropTypes[i].lstPropTypes[j].isMVProp == 0){
 				cstablestat->lstcstable[i].colBats[j] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
-				cstablestat->lstcstable[i].mvBats[j] =  NULL;
-				cstablestat->lstcstable[i].mvExBats[j] =  NULL;
+				//cstablestat->lstcstable[i].mvBats[j] =  NULL;
+				//cstablestat->lstcstable[i].mvExBats[j] =  NULL;
+				cstablestat->lstcstable[i].lstMVTables[j].numCol = 0; 	//There is no MV Tbl for this prop
 				cstablestat->lstcstable[i].lstProp[j] = freqCSset->items[csPropTypes[i].freqCSId].lstProp[j];
 				//TODO: use exact size for each BAT
 			}
 			else{
 				cstablestat->lstcstable[i].colBats[j] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
 				BATseqbase(cstablestat->lstcstable[i].colBats[j], 0);	
-				cstablestat->lstcstable[i].mvBats[j] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz) ;
-				cstablestat->lstcstable[i].mvExBats[j] = BATnew(TYPE_void, TYPE_oid,  smallbatsz) ; 	//TODO: Check whether the MVCol need ExCol
-				BATseqbase(cstablestat->lstcstable[i].mvExBats[j], 0);
+				//cstablestat->lstcstable[i].mvBats[j] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz) ;
+				//cstablestat->lstcstable[i].mvExBats[j] = BATnew(TYPE_void, TYPE_oid,  smallbatsz) ; 	//TODO: Check whether the MVCol need ExCol
+				cstablestat->lstcstable[i].lstMVTables[j].numCol = csPropTypes[i].lstPropTypes[j].numMvTypes;
+				if (cstablestat->lstcstable[i].lstMVTables[j].numCol != 0){
+					cstablestat->lstcstable[i].lstMVTables[j].colTypes = (ObjectType *)malloc(sizeof(ObjectType)* cstablestat->lstcstable[i].lstMVTables[j].numCol);
+					cstablestat->lstcstable[i].lstMVTables[j].mvBats = (BAT **)malloc(sizeof(BAT*) * cstablestat->lstcstable[i].lstMVTables[j].numCol);
+			
+					mvColIdx = 0;	//Go through all types
+					cstablestat->lstcstable[i].lstMVTables[j].colTypes[0] = csPropTypes[i].lstPropTypes[j].defaultType; //Default type for this MV col
+					//Init the first col (default type) in MV Table
+					cstablestat->lstcstable[i].lstMVTables[j].mvBats[0] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
+					for (k = 0; k < MULTIVALUES; k++){
+						if (k != csPropTypes[i].lstPropTypes[j].defaultType && csPropTypes[i].lstPropTypes[j].TableTypes[k] == MVTBL){
+							mvColIdx++;
+							cstablestat->lstcstable[i].lstMVTables[j].colTypes[mvColIdx] = k;
+							cstablestat->lstcstable[i].lstMVTables[j].mvBats[mvColIdx] = BATnew(TYPE_void, mapObjBATtypes[k], smallbatsz);
+						}	
+					}
+				}
+				//BATseqbase(cstablestat->lstcstable[i].mvExBats[j], 0);
 			}
 		}
 
@@ -5576,7 +5616,7 @@ CS 		cs;
 }
 
 void freeCStableStat(CStableStat* cstablestat){
-	int i,j; 
+	int i,j, k; 
 
 	for (i = 0; i < cstablestat->numTables; i++){
 		free(cstablestat->lstbatid[i]); 
@@ -5586,12 +5626,21 @@ void freeCStableStat(CStableStat* cstablestat){
 		#endif
 		for (j = 0; j < cstablestat->numPropPerTable[i];j++){
 			BBPunfix(cstablestat->lstcstable[i].colBats[j]->batCacheid); 
+			/*
 			if (cstablestat->lstcstable[i].mvBats[j] != NULL)
 				BBPunfix(cstablestat->lstcstable[i].mvBats[j]->batCacheid); 
 
 			if (cstablestat->lstcstable[i].mvExBats[j] != NULL)
 				BBPunfix(cstablestat->lstcstable[i].mvExBats[j]->batCacheid); 
+			*/
 
+			if (cstablestat->lstcstable[i].lstMVTables[j].numCol != 0){
+				for (k = 0; k < cstablestat->lstcstable[i].lstMVTables[j].numCol; k++){
+					BBPunfix(cstablestat->lstcstable[i].lstMVTables[j].mvBats[k]->batCacheid);
+				}
+				free(cstablestat->lstcstable[i].lstMVTables[j].mvBats);
+				free(cstablestat->lstcstable[i].lstMVTables[j].colTypes);
+			}
 		}
 
 		#if CSTYPE_TABLE == 1
@@ -5600,8 +5649,9 @@ void freeCStableStat(CStableStat* cstablestat){
 		}
 		#endif
 		free(cstablestat->lstcstable[i].colBats);
-		free(cstablestat->lstcstable[i].mvBats);
-		free(cstablestat->lstcstable[i].mvExBats);
+		//free(cstablestat->lstcstable[i].mvBats);
+		//free(cstablestat->lstcstable[i].mvExBats);
+		free(cstablestat->lstcstable[i].lstMVTables);
 		free(cstablestat->lstcstable[i].lstProp);
 		free(cstablestat->lstcstable[i].colTypes);
 		#if CSTYPE_TABLE == 1
@@ -5779,16 +5829,17 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	Postinglist tmpPtl; 
 	int	tmpColIdx = -1; 
 	int	tmpColExIdx = -1; 
+	int	tmpMVColIdx = -1; 
 	int	lasttblIdx = -1; 
 	int	lastColIdx = -1; 
 	char	objType; 
 	char	tmpTableType = 0;
 
-	int	i,j; 
+	int	i,j, k; 
 	BAT	*curBat = NULL;
 	BAT	*tmpBat = NULL; 
 	BAT     *tmpmvBat = NULL;       // Multi-values BAT
-	BAT	*tmpmvExBat = NULL; 
+	//BAT	*tmpmvExBat = NULL; 
 	oid	*tmplastInsertedS; 
 	int     numMultiValues = 0;
 	oid	tmpmvValue; 
@@ -5890,21 +5941,23 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				numMultiValues = 0;
 			}
 
-			tmpmvBat = cstablestat->lstcstable[tblIdx].mvBats[tmpColIdx];
-			tmpmvExBat = cstablestat->lstcstable[tblIdx].mvExBats[tmpColIdx];
+			assert(objType != MULTIVALUES); 	//TODO: Remove this
+			tmpMVColIdx = csPropTypes[tblIdx].lstPropTypes[tmpColIdx].colIdxes[(int)objType];
 			tmpBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
 			BATprint(tmpBat);
 			BATprint(tmpmvBat);
 			getRealValue(&realObjValue, *obt, objType, mi, mbat);
 
-			if (objType == csPropTypes[tblIdx].lstPropTypes[tmpColIdx].defaultType){
-				//BUNappend(tmpmvBat, obt, TRUE);		
-				BUNappend(tmpmvBat, (ptr) realObjValue, TRUE); 
-				BUNappend(tmpmvExBat, ATOMnilptr(tmpmvExBat->ttype), TRUE); 
-			}	
-			else{	//TODO: Try to cast the value
-				BUNappend(tmpmvExBat, obt, TRUE);
-				BUNappend(tmpmvBat, ATOMnilptr(tmpmvBat->ttype), TRUE);
+			for (i = 0; i < cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].numCol; i++){
+				tmpmvBat = cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].mvBats[i];
+				if (i == tmpMVColIdx){	
+					// TODO: If i != 0, try to cast to default value		
+					BUNappend(tmpmvBat, (ptr) realObjValue, TRUE);
+				}
+				else{
+					BUNappend(tmpmvBat, ATOMnilptr(tmpmvBat->ttype), TRUE);	
+				}
+			
 			}
 
 			if (numMultiValues == 0){	
@@ -6005,8 +6058,10 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			BATprint(cstablestat->lstcstable[i].colBats[j]);
 			if (csPropTypes[i].lstPropTypes[j].isMVProp){
 				printf("MV Columns: \n");
-				BATprint(cstablestat->lstcstable[i].mvBats[j]);
-				BATprint(cstablestat->lstcstable[i].mvExBats[j]);
+				for (k = 0; k < cstablestat->lstcstable[i].lstMVTables[j].numCol; k++){
+					BATprint(cstablestat->lstcstable[i].lstMVTables[j].mvBats[k]);
+				}
+
 			}
 
 		}
