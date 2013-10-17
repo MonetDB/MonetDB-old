@@ -603,7 +603,7 @@ void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freq
 					}
 				}
 				csPropTypes[i].lstPropTypes[j].numMvTypes = curNumTypeMVTbl;
-				printf("Table %d with MV col %d has %d types",i, j, curNumTypeMVTbl);
+				//printf("Table %d with MV col %d has %d types",i, j, curNumTypeMVTbl);
 				/* Count the number of column for MV table needed */
 
 			}
@@ -3112,7 +3112,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 				if ((*labels)[freqId1].isOntology == 1) break; 
 			}
 			cs1 = &(freqCSset->items[freqId1]);
-			for (j = k; j < labelStat->lstCount[i]; j++){
+			for (j = k+1; j < labelStat->lstCount[i]; j++){
 				freqId2 = labelStat->freqIdList[i][j];
 				cs2 = &(freqCSset->items[freqId2]);
 				if ((*labels)[freqId2].isOntology == 1){
@@ -3129,7 +3129,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 				if ((*labels)[freqId1].isType == 1) break; 
 			}
 			cs1 = &(freqCSset->items[freqId1]);
-			for (j = k; j < labelStat->lstCount[i]; j++){
+			for (j = k+1; j < labelStat->lstCount[i]; j++){
 				freqId2 = labelStat->freqIdList[i][j];
 				cs2 = &(freqCSset->items[freqId2]);
 				if ((*labels)[freqId2].isType == 1){
@@ -3146,7 +3146,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 				if ((*labels)[freqId1].isFK == 1) break; 
 			}
 			cs1 = &(freqCSset->items[freqId1]);
-			for (j = k; j < labelStat->lstCount[i]; j++){
+			for (j = k+1; j < labelStat->lstCount[i]; j++){
 				freqId2 = labelStat->freqIdList[i][j];
 				cs2 = &(freqCSset->items[freqId2]);
 				if ((*labels)[freqId2].isFK == 1){
@@ -6077,6 +6077,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	BBPunfix(mbat->batCacheid);
 
 	free(tmpTblIdxPropIdxMap); 
+	free(tmplastInsertedS);
 
 	TKNZRclose(ret);
 
@@ -6355,7 +6356,8 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	freeCSset(freqCSset); 
 	free(subjCSMap); 
 	free(csTblIdxMapping);
-	
+	free(mfreqIdxTblIdxMapping);
+	free(mTblIdxFreqIdxMapping);
 	free(lastSubjId);
 	//free(lastSubjIdEx); 
 	freePropStat(propStat);
