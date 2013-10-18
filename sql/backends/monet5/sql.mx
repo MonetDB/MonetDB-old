@@ -7672,11 +7672,14 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int ret = 0; 
 	CStableStat *cstablestat; 
 	char	tmptbname[100]; 
+	char	tmpstr[20]; 
 	char	tmptbnameex[100];
 	//char	tmpviewname[100]; 
 	char	tmpcolname[100]; 
 	//char	viewcommand[500];
-	sql_subtype tpe; 
+	sql_subtype tpe; 	
+	sql_subtype tpes[50];
+
 	sql_table	**cstables; 
 	sql_table	***csmvtables; 	//table for storing multi-values 
 	#if CSTYPE_TABLE == 1
@@ -7692,7 +7695,8 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	str msg;
 	BAT	*sbat, *pbat, *obat, *mbat; 
-
+	BAT	*tmpbat; 
+	
 	rethrow("sql.rdfShred", msg, getSQLContext(cntxt, mb, &m, NULL));
 
 	if ((sch = mvc_bind_schema(m, *schema)) == NULL)
@@ -7752,8 +7756,41 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	printf("Starting creating SQL Table -- \n");
 	
+	
+
+	sql_find_subtype(&tpes[TYPE_oid], "oid", 31 , 0);
+	printf("Tpes %d Type name is: %s \n", TYPE_oid, tpes[TYPE_oid].type->sqlname);
+
+	sql_find_subtype(&tpes[TYPE_str], "varchar", 500 , 0);
+	printf("Tpes %d Type name is: %s \n", TYPE_str, tpes[TYPE_str].type->sqlname);
+
+	sql_find_subtype(&tpes[TYPE_dbl], "double", 53 , 0);
+	printf("Tpes %d Type name is: %s \n", TYPE_dbl, tpes[TYPE_dbl].type->sqlname);
+
+	sql_find_subtype(&tpes[TYPE_int], "int", 9 , 0);
+	printf("Tpes %d Type name is: %s \n", TYPE_int, tpes[TYPE_int].type->sqlname);
+
+	sql_find_subtype(&tpes[TYPE_flt], "real", 23, 0);
+	printf("Tpes %d Type name is: %s \n", TYPE_flt, tpes[TYPE_flt].type->sqlname);
+
+	/*
+	sql_find_subtype(&tpe, "float", 0 , 0);
+	printf("Test Type name is: %s \n", tpe.type->sqlname);
+	sql_find_subtype(&tpe, "int", 9 , 0);
+	printf("Test Type name is: %s \n", tpe.type->sqlname);
+	sql_find_subtype(&tpe, "oid", 31 , 0);
+	printf("Test Type name is: %s \n", tpe.type->sqlname);
+	*/
+
 	for (i = 0; i < cstablestat->numTables; i++){
-		sprintf(tmptbname, "cstable%d",i);
+		printf("creating table %d \n", i);
+		//sprintf(tmptbname, "cstable%d",i);
+
+		sprintf(tmpstr, "%d",i);
+		getTblName(tmptbname, cstablestat->lstcstable[i].tblname); 
+		strcat(tmptbname,tmpstr);
+		printf("Table %d: %s \n",i, tmptbname);
+
 		cstables[i] = mvc_create_table(m, sch, tmptbname, tt_table, 0,
 				   SQL_PERSIST, 0, 3);
 		totalNoTablesCreated++;
@@ -7761,10 +7798,14 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		csmvtables[i] = (sql_table **)malloc(sizeof(sql_table*) * cstablestat->numPropPerTable[i]);
 		
 		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
+
 			//TODO: Use propertyId from Propstat
 			sprintf(tmpcolname, "col%d",(int)cstablestat->lstcstable[i].lstProp[j]);
-			mvc_create_column(m, cstables[i], tmpcolname,  &tpe);
 
+			tmpbat = cstablestat->lstcstable[i].colBats[j];
+
+			mvc_create_column(m, cstables[i], tmpcolname,  &tpes[tmpbat->ttype]);
+			
 			//For multi-values table
 			tmpNumMVCols = cstablestat->lstcstable[i].lstMVTables[j].numCol;
 			if (tmpNumMVCols != 0){
@@ -7774,48 +7815,83 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 				for (k = 0; k < tmpNumMVCols; k++){
 					sprintf(tmpcolname, "mvCol%dt%dp%dc",i,j,k);
-					mvc_create_column(m, csmvtables[i][j], tmpcolname,  &tpe);
-                			store_funcs.append_col(m->session->tr,
-						mvc_bind_column(m, csmvtables[i][j],tmpcolname ), 
-						cstablestat->lstcstable[i].lstMVTables[j].mvBats[k], TYPE_bat);
+					tmpbat = cstablestat->lstcstable[i].lstMVTables[j].mvBats[k];
+					mvc_create_column(m, csmvtables[i][j], tmpcolname,  &tpes[tmpbat->ttype]);
 				}
 			}
 			else
 				nonullmvtables++;
 		}
 
-		//Add data
-		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
-			sprintf(tmpcolname, "col%d",(int)cstablestat->lstcstable[i].lstProp[j]);
-                	store_funcs.append_col(m->session->tr,
-					mvc_bind_column(m, cstables[i],tmpcolname ), 
-					cstablestat->lstcstable[i].colBats[j], TYPE_bat);
-			//printf("Create column for %d for table %d - sizeofbat " BUNFMT " \n", j, i, BATcount(cstablestat->lstcstable[i].colBats[j]));
-
-		}
 
 		#if CSTYPE_TABLE == 1
 		// Add non-default type table
+		if (cstablestat->lstcstableEx[i].numCol != 0){	
+			//sprintf(tmptbnameex, "cstableex%d",i);
 
-		sprintf(tmptbnameex, "cstableex%d",i);
-		cstablesEx[i] = mvc_create_table(m, sch, tmptbnameex, tt_table, 0,
-				   SQL_PERSIST, 0, 3);
-		totalNoTablesCreated++;
-		for (j = 0; j < cstablestat->lstcstableEx[i].numCol; j++){
+			sprintf(tmpstr, "Ex%d",i);
+			getTblName(tmptbname, cstablestat->lstcstable[i].tblname); 
+			strcat(tmptbname,tmpstr);
+			printf("TableEx %d: %s \n",i, tmptbname);
+
+			cstablesEx[i] = mvc_create_table(m, sch, tmptbnameex, tt_table, 0,
+					   SQL_PERSIST, 0, 3);
+			totalNoTablesCreated++;
+			for (j = 0; j < cstablestat->lstcstableEx[i].numCol; j++){
+				//TODO: Use propertyId from Propstat
+				sprintf(tmpcolname, "colex%d",(int)j);
+				tmpbat = cstablestat->lstcstableEx[i].colBats[j];
+				mvc_create_column(m, cstablesEx[i], tmpcolname,  &tpes[tmpbat->ttype]);				
+			}
+		}
+
+		#endif
+
+
+		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
+
 			//TODO: Use propertyId from Propstat
-			sprintf(tmpcolname, "colex%d",(int)j);
-			mvc_create_column(m, cstablesEx[i], tmpcolname,  &tpe);
-		}
+			sprintf(tmpcolname, "col%d",(int)cstablestat->lstcstable[i].lstProp[j]);
 
-		//Add data
-		for (j = 0; j < cstablestat->lstcstableEx[i].numCol; j++){
-			sprintf(tmpcolname, "colex%d",(int)j);
+			tmpbat = cstablestat->lstcstable[i].colBats[j];
+
                 	store_funcs.append_col(m->session->tr,
-					mvc_bind_column(m, cstablesEx[i],tmpcolname ), 
-					cstablestat->lstcstableEx[i].colBats[j], TYPE_bat);
+					mvc_bind_column(m, cstables[i],tmpcolname ), 
+					tmpbat, TYPE_bat);
+			//For multi-values table
+			tmpNumMVCols = cstablestat->lstcstable[i].lstMVTables[j].numCol;
+			if (tmpNumMVCols != 0){
+				sprintf(tmptbname, "mvtable%dp%d",i,j);
+
+				for (k = 0; k < tmpNumMVCols; k++){
+					sprintf(tmpcolname, "mvCol%dt%dp%dc",i,j,k);
+					
+					tmpbat = cstablestat->lstcstable[i].lstMVTables[j].mvBats[k];
+                			store_funcs.append_col(m->session->tr,
+						mvc_bind_column(m, csmvtables[i][j],tmpcolname ), 
+						tmpbat, TYPE_bat);
+				}
+			}
+			else
+				nonullmvtables++;
 		}
 
 
+		#if CSTYPE_TABLE == 1
+		// Add non-default type table
+		if (cstablestat->lstcstableEx[i].numCol != 0){	
+			for (j = 0; j < cstablestat->lstcstableEx[i].numCol; j++){
+				//TODO: Use propertyId from Propstat
+				sprintf(tmpcolname, "colex%d",(int)j);
+
+				tmpbat = cstablestat->lstcstableEx[i].colBats[j];
+				store_funcs.append_col(m->session->tr,
+						mvc_bind_column(m, cstablesEx[i],tmpcolname ), 
+						tmpbat, TYPE_bat);
+			}
+		}
+
+		#endif
 		//Create a view to combine these tables
 		/*
 		sprintf(tmpviewname, "viewcstable%d",i);
@@ -7829,7 +7905,8 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			mvc_create_column(m, viewcstables[i], tmpcolname,  &tpe);
 		}
 		*/
-		#endif
+
+		printf("Done creating table %d with %d cols \n", i,cstablestat->numPropPerTable[i]);
 
 	}
 

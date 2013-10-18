@@ -4548,6 +4548,45 @@ void getObjStr(BAT *mapbat, BATiter mapi, oid objOid, str *objStr, char *retObjT
 
 
 }
+
+//Assume Tokenizer is openned 
+//
+void getTblName(char *name, oid nameId){
+	str canStr = NULL; 
+	str canStrShort = NULL;
+	char    *pch;
+
+	if (nameId != BUN_NONE){
+		takeOid(nameId, &canStr);
+		getPropNameShort(&canStrShort, canStr);
+
+		if (strstr (canStrShort,".") != NULL || 
+			strcmp(canStrShort,"") == 0 || 
+			strstr(canStrShort,"-") != NULL	){	// WEBCRAWL specific problem with Table name a.jpg, b.png....
+
+			strcpy(name,"NONAME");
+		}
+		else {
+			pch = strstr (canStrShort,"(");
+			if (pch != NULL) *pch = '\0';	//Remove (...) characters from table name
+		}
+
+		GDKfree(canStr);
+		if (strlen(canStrShort) < 50){
+			strcpy(name,canStrShort);
+		}
+		else{
+			strncpy (name, canStrShort, 50);
+		}
+
+		GDKfree(canStrShort); 
+	}
+	else 
+		strcpy(name,"NONAME");
+
+
+}
+
 static 
 str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 
@@ -4931,6 +4970,35 @@ CSrel* generateCsRelBetweenMergeFreqSet(CSrel *csrelFreqSet, CSset *freqCSset){
 }
 
 
+/* Create a new data structure to store relationships including merged CS */
+/*
+static
+CSrel* getRefinedCsRelSet(CSrel *csrelFreqSet, CSset *freqCSset){
+	int 	i,j;
+	int	numFreqCS = freqCSset->numOrigFreqCS; 
+	int 	from, to;
+	CSrel 	rel;
+	CSrel*  refinedCsRel;
+	int	numRel = freqCSset->numCSadded;
+	
+	refinedCsRel = initCSrelset(numRel);
+
+	for (i = 0; i < numRel; ++i) {
+		if (csrelFreqSet[i].numRef == 0) continue; // ignore CS without relations
+		rel = csrelFreqSet[i];
+		// update the 'from' value
+		from = i;
+		assert(freqCSset[from].parentFreqIdx == -1);
+		for (j = 0; j < rel.numRef; ++j) {
+			to = rel.lstRefFreqIdx[j];
+			assert(freqCSset->items[to].parentFreqIdx == -1);
+			// add relation to new data structure
+			addReltoCSRelWithFreq(from, to, rel.lstPropId[j], rel.lstCnt[j], rel.lstBlankCnt[j], &refinedCsRel[from]);
+		}
+	}
+	return refinedCsRel;
+}
+*/
 static
 CSrel* generateCsRelToMergeFreqSet(CSrel *csrelFreqSet, CSset *freqCSset){
 	int 	i,j;
@@ -5263,8 +5331,13 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 	//Finally, re-create mergeFreqSet
 	
+	
 	*csRelMergeFreqSet = generateCsRelBetweenMergeFreqSet(csrelSet, freqCSset);
 	printCSRel(freqCSset, *csRelMergeFreqSet, *freqThreshold);
+	
+	curT = clock(); 
+	printf ("Get the final relationships between mergeCS took %f. \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC);	
+	tmpLastT = curT; 		
 
 	printmergeCSSet(freqCSset, *freqThreshold);
 	//getStatisticCSsBySize(csMap,maxNumProp); 
@@ -5458,7 +5531,7 @@ str triplesubsort(BAT **sbat, BAT **pbat, BAT **obat){
 }
 
 static
-void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPropTypes, int numTables){
+void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPropTypes, int numTables, CSlabel *labels, int *mTblIdxFreqIdxMapping){
 
 	int 		i,j, k; 
 	int		tmpNumDefaultCol; 
@@ -5509,11 +5582,13 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 		cstablestat->lstcstable[i].lstMVTables = (CSMVtableEx *) malloc(sizeof(CSMVtableEx) * tmpNumDefaultCol); // TODO: Only allocate memory for multi-valued columns
 		cstablestat->lstcstable[i].lstProp = (oid*)malloc(sizeof(oid) * tmpNumDefaultCol);
 		cstablestat->lstcstable[i].colTypes = (ObjectType *)malloc(sizeof(ObjectType) * tmpNumDefaultCol);
+		cstablestat->lstcstable[i].tblname = labels[mTblIdxFreqIdxMapping[i]].name;
 		#if CSTYPE_TABLE == 1
 		tmpNumExCol = csPropTypes[i].numNonDefTypes; 
 		cstablestat->lastInsertedSEx[i] = (oid*) malloc(sizeof(oid) * tmpNumExCol); 
 		cstablestat->lstcstableEx[i].numCol = tmpNumExCol;
 		cstablestat->lstcstableEx[i].colBats = (BAT**)malloc(sizeof(BAT*) * tmpNumExCol); 
+		cstablestat->lstcstableEx[i].tblname = labels[mTblIdxFreqIdxMapping[i]].name;
 		#endif
 
 		for(j = 0; j < tmpNumDefaultCol; j++){
@@ -5780,33 +5855,33 @@ void getRealValue(void **returnValue, oid objOid, ObjectType objType, BATiter ma
 	switch (objType)
 	{
 		case STRING:
-			printf("A String object value: %s \n",objStr);
+			//printf("A String object value: %s \n",objStr);
 			if (*returnValue != NULL) free(*returnValue);
 			*returnValue = (char *)malloc(sizeof(char) * strlen(objStr) + 1); 
 			memcpy(*returnValue,objStr, sizeof(char) * strlen(objStr) + 1);
-			printf("A String value of returnValue: %s \n", (char *)(*returnValue));
+			//printf("A String value of returnValue: %s \n", (char *)(*returnValue));
 			break; 
 		case DATETIME:
 			datetimeStr = getDateTimeFromRDFString(objStr);
 			if (*returnValue != NULL) free(*returnValue);
 			*returnValue = (char *)malloc(sizeof(char) * strlen(datetimeStr) + 1); 
 			memcpy(*returnValue,datetimeStr,sizeof(char) * strlen(objStr) + 1);
-			printf("A datetime object value: %s \n",(char *)(*returnValue));
+			//printf("A datetime object value: %s \n",(char *)(*returnValue));
 			break; 
 		case INTEGER:
-			printf("Full object value: %s \n",objStr);
+			//printf("Full object value: %s \n",objStr);
 			realInt = getIntFromRDFString(objStr);
-			printf("A INTEGER object value: %i \n",realInt);
+			//printf("A INTEGER object value: %i \n",realInt);
 			*(int*)(*returnValue) = realInt;
 			break; 
 		case FLOAT:
-			printf("Full object value: %s \n",objStr);
+			//printf("Full object value: %s \n",objStr);
 			realFloat = getFloatFromRDFString(objStr);
-			printf("A FLOAT object value: %f \n",realFloat);
+			//printf("A FLOAT object value: %f \n",realFloat);
 			*(float*)(*returnValue) = realFloat;
 			break; 
 		default: //URI or BLANK NODE		
-			printf("A URI object value: " BUNFMT " \n", objOid);
+			//printf("A URI object value: " BUNFMT " \n", objOid);
 			realUri = objOid;
 			*(oid*)(*returnValue) = realUri;
 	}
@@ -5944,12 +6019,11 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			assert(objType != MULTIVALUES); 	//TODO: Remove this
 			tmpMVColIdx = csPropTypes[tblIdx].lstPropTypes[tmpColIdx].colIdxes[(int)objType];
 			tmpBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
-			BATprint(tmpBat);
-			BATprint(tmpmvBat);
 			getRealValue(&realObjValue, *obt, objType, mi, mbat);
 
 			for (i = 0; i < cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].numCol; i++){
 				tmpmvBat = cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].mvBats[i];
+				BATprint(tmpmvBat);
 				if (i == tmpMVColIdx){	
 					// TODO: If i != 0, try to cast to default value		
 					BUNappend(tmpmvBat, (ptr) realObjValue, TRUE);
@@ -6141,7 +6215,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	mfreqIdxTblIdxMapping = (int *) malloc (sizeof (int) * freqCSset->numCSadded); 
 	initIntArray(mfreqIdxTblIdxMapping , freqCSset->numCSadded, -1);
 
-	mTblIdxFreqIdxMapping = (int *) malloc (sizeof (int) * freqCSset->numCSadded);  // A little bit reduntdant space
+	mTblIdxFreqIdxMapping = (int *) malloc (sizeof (int) * freqCSset->numCSadded);  // TODO: little bit reduntdant space
 	initIntArray(mTblIdxFreqIdxMapping , freqCSset->numCSadded, -1);
 
 	//Mapping from from CSId to TableIdx 
@@ -6192,7 +6266,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	tmpLastT = curT; 		
 
 	// Init CStableStat
-	initCStables(cstablestat, freqCSset, csPropTypes, numTables);
+	initCStables(cstablestat, freqCSset, csPropTypes, numTables, labels, mTblIdxFreqIdxMapping);
 	
 	// Summarize the statistics
 	curNumMergeCS = countNumberMergeCS(freqCSset);

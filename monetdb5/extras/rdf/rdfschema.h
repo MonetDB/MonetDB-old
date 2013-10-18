@@ -178,7 +178,7 @@ typedef struct SubCSSet{
 } SubCSSet;
 
 //#define INIT_NUM_CS 9999 // workaround
-#define INIT_NUM_CS 100 // workaround
+#define INIT_NUM_CS 500 // workaround
 #define SIM_THRESHOLD 0.6
 #define SIM_TFIDF_THRESHOLD 0.55
 #define IMPORTANCE_THRESHOLD 0.01
@@ -248,6 +248,7 @@ typedef struct CStable {
 	CSMVtableEx	*lstMVTables; 
 	int		numCol; 
 	oid* 		lstProp;
+	oid		tblname;	/* Label of the table */
 } CStable; 
 
 
@@ -255,6 +256,7 @@ typedef struct CStableEx {		/* For non-default-type columns*/
 	BAT**		colBats; 
 	ObjectType*	colTypes; 
 	int		numCol; 
+	oid		tblname; 	/* Label of the table */
 } CStableEx; 
 
 
@@ -326,6 +328,9 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 rdf_export str
 RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, int *mode);
+
+rdf_export void
+getTblName(char *name, oid nameId);
 
 rdf_export void
 freeCStableStat(CStableStat *cstablestat); 
