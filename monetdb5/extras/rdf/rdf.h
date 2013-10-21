@@ -28,6 +28,7 @@
 #define _RDF_H_
 
 #include <gdk.h>
+#include "tokenizer.h"
 
 #ifdef WIN32
 #ifndef LIBRDF
