@@ -43,6 +43,7 @@
 #include "mal_profiler.h"
 #include "mal_runtime.h"
 #include "mal_debugger.h"
+#include "gdk_mapreduce.h"
 
 stream *eventstream = 0;
 
@@ -1324,25 +1325,46 @@ void HeartbeatCPUload(void *arg)
 {
 	char cpuload[BUFSIZ];
 	char *p = getenv("CPULOAD_THRESHOLD");
-	int thres;
-	str (*IdleFunc)(int *) = arg;
-	if (p == NULL)
+	char *cores = getenv("CORES");  /*number of physical cores*/
+	int threshold=0, max_threads=0;
+	lng load;
+	lng t0,t1,t;
+	int n=0;  /*number of idle cores*/
+	int N=0;  /*number of busy cores*/
+	
+	void (*IdleFunc)(void *) = arg;
+
+	if (p == NULL || cores == NULL)
 	{
-		fprintf(stderr, "Error: CPULOAD_THRESHOLD\n");
+		fprintf(stderr, "Error HeartbeatCPUload: environment variable is missing.\n");
   		exit(1);
 	}
 	else
-		thres = atoi(p);
+	{
+		threshold = atoi(p);
+		max_threads=atoi(cores);
+	}
+
 	while(1)
 	{
 		(void) getCPULoad(cpuload);
-		//fprintf(stderr,"cpuload=%lf\n",corestat[256].load);
-		if (corestat[256].load < thres)
+		load = corestat[256].load;
+		if ( load < threshold)
 		{
+			
+			N = (load/100) * max_threads;
+			n = max_threads - N;
+			(void) n;
+			t0 = GDKusec();
+			//MRschedule(n, NULL, IdleFunc);
 			IdleFunc(NULL);
+			t1 = GDKusec();
+			t = 10000 - (t1 - t0);
+			if (t < 0 ) 
+				MT_sleep_ms(t);
 		}
-		MT_sleep_ms(10);	
-		//fprintf(stderr,"%s\n",cpuload);
+		else
+			MT_sleep_ms(10);	
 	}
 }
 
