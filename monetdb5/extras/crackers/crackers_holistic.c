@@ -36,20 +36,12 @@ IdleFuncPtr IdleFunc;
 str
 CRKinitHolistic(int *ret)
 {
-	int i,j;
-	char* p;
 	IdleFunc=&CRKrandomCrack;
-	p = getenv("HOLTHREADS");
-	if (p == NULL)
-		j = 0;
-	else
-		j = atoi(p);
-	idletime_thread = GDKzalloc(j * sizeof(*idletime_thread));
+	idletime_thread = GDKzalloc(sizeof(*idletime_thread));
 	cpuload_thread = GDKzalloc(sizeof(*cpuload_thread));
 	MT_lock_init(&frequencylock, "FrequencyStruct");
 	MT_lock_init(&CRKIndexLock, "Cracker Index Lock");
-	for(i=0;i<j;i++)
-		MT_create_thread(&idletime_thread[i],(void (*)(void *))HeartbeatCPUload, IdleFunc, MT_THR_JOINABLE);
+	MT_create_thread(idletime_thread,(void (*)(void *))HeartbeatCPUload, IdleFunc, MT_THR_JOINABLE);
 	MT_create_thread(cpuload_thread,(void (*)(void *))HeartbeatCPUload_total, NULL, MT_THR_JOINABLE);
 	*ret = 0;
 	return MAL_SUCCEED;

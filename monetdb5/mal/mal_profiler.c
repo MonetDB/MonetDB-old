@@ -1356,8 +1356,7 @@ void HeartbeatCPUload(void *arg)
 			n = max_threads - N;
 			(void) n;
 			t0 = GDKusec();
-			//MRschedule(n, NULL, IdleFunc);
-			IdleFunc(NULL);
+			MRschedule(n, NULL, IdleFunc);
 			t1 = GDKusec();
 			t = 10000 - (t1 - t0);
 			if (t < 0 ) 
