@@ -1331,10 +1331,12 @@ void HeartbeatCPUload(void *arg)
 	lng t0,t1,t;
 	int n=0;  /*number of idle cores*/
 	int N=0;  /*number of busy cores*/
-	
+	FILE *ofp;
+	char *outputFilename1 = getenv("TOTAL_CPULOAD");
 	void (*IdleFunc)(void *) = arg;
 
-	if (p == NULL || cores == NULL)
+
+	if (p == NULL || cores == NULL || outputFilename1 == NULL)
 	{
 		fprintf(stderr, "Error HeartbeatCPUload: environment variable is missing.\n");
   		exit(1);
@@ -1343,58 +1345,49 @@ void HeartbeatCPUload(void *arg)
 	{
 		threshold = atoi(p);
 		max_threads=atoi(cores);
-	}
-
-	while(1)
-	{
-		(void) getCPULoad(cpuload);
-		load = corestat[256].load;
-		if ( load < threshold)
-		{
-			
-			N = (load/100) * max_threads;
-			n = max_threads - N;
-			(void) n;
-			t0 = GDKusec();
-			MRschedule(n, NULL, IdleFunc);
-			t1 = GDKusec();
-			t = 10000 - (t1 - t0);
-			if (t < 0 ) 
-				MT_sleep_ms(t);
+		ofp = fopen(outputFilename1,"a");
+		if (ofp == NULL) {
+  			fprintf(stderr, "Can't open output file!\n");
+  			exit(1);
 		}
-		else
-			MT_sleep_ms(10);	
-	}
-}
-
-// Give users the option to check for the system total load between two heart beats
-void HeartbeatCPUload_total(void* dummy)
-{
-	char cpuload[BUFSIZ];
-	FILE *ofp;
-	char *outputFilename1;
-	(void) dummy;
-
-	outputFilename1 = getenv("TOTAL_CPULOAD");
-	if (outputFilename1 == NULL){
-  		fprintf(stderr, "Error: TOTAL_CPULOAD\n");
-  		exit(1);
 	}
 
-	ofp = fopen(outputFilename1,"a");
-	if (ofp == NULL) {
-  		fprintf(stderr, "Can't open output file!\n");
-  		exit(1);
-	}
-
-	while(1)
+	if (max_threads > 0)
 	{
-		(void) getCPULoad(cpuload);
-		fprintf(ofp,"%lf\n",corestat[256].load);
-		MT_sleep_ms(10);	
+		while(1)
+		{
+			(void) getCPULoad(cpuload);
+			load = corestat[256].load;
+			fprintf(ofp,"%lf\n",corestat[256].load);
+			if ( load < threshold)
+			{
+				N = (load/100) * max_threads;
+				n = max_threads - N;
+				(void) n;
+				t0 = GDKusec();
+				MRschedule(n, NULL, IdleFunc);
+				t1 = GDKusec();
+				t = 10000 - (t1 - t0);
+				if (t < 0 ) 
+					MT_sleep_ms(t);
+			}
+			else
+				MT_sleep_ms(10);	
+		}
+	}
+	else
+	{
+		while(1)
+		{
+			(void) getCPULoad(cpuload);
+			fprintf(ofp,"%lf\n",corestat[256].load);
+			MT_sleep_ms(10);
+		}
 	}
 	fclose(ofp);
 }
+
+// Give users the option to check for the system total load between two heart beats
 void profilerGetCPUStat(lng *user, lng *nice, lng *sys, lng *idle, lng *iowait)
 {
 	(void) getCPULoad(0);
