@@ -1328,21 +1328,18 @@ void HeartbeatCPUload(void *arg)
 	char *cores = getenv("CORES");  /*number of physical cores*/
 	int threshold=0, max_threads=0;
 	lng load;
-	lng t0,t1,t;
 	int n=0;  /*number of idle cores*/
-	int N=0;  /*number of busy cores*/
+	double N=0;  /*number of busy cores*/
 	FILE *ofp;
 	char *outputFilename1 = getenv("TOTAL_CPULOAD");
 	void (*IdleFunc)(void *) = arg;
 
 
-	if (p == NULL || cores == NULL || outputFilename1 == NULL)
-	{
+	if (p == NULL || cores == NULL || outputFilename1 == NULL){
 		fprintf(stderr, "Error HeartbeatCPUload: environment variable is missing.\n");
   		exit(1);
 	}
-	else
-	{
+	else{
 		threshold = atoi(p);
 		max_threads=atoi(cores);
 		ofp = fopen(outputFilename1,"a");
@@ -1352,33 +1349,26 @@ void HeartbeatCPUload(void *arg)
 		}
 	}
 
-	if (max_threads > 0)
-	{
-		while(1)
-		{
+	if (max_threads > 0){
+		while(1){
 			(void) getCPULoad(cpuload);
 			load = corestat[256].load;
-			fprintf(ofp,"%lf\n",corestat[256].load);
-			if ( load < threshold)
-			{
-				N = (load/100) * max_threads;
+			if ( load < threshold){
+				N = (int) (load * max_threads) / 100.0;
 				n = max_threads - N;
-				(void) n;
-				t0 = GDKusec();
 				MRschedule(n, NULL, IdleFunc);
-				t1 = GDKusec();
-				t = 10000 - (t1 - t0);
-				if (t < 0 ) 
-					MT_sleep_ms(t);
+				(void) getCPULoad(cpuload);
+                                fprintf(ofp,"%lf\n",corestat[256].load);
+				MT_sleep_ms(10);
 			}
-			else
-				MT_sleep_ms(10);	
+			else{
+                                fprintf(ofp,"%lf\n",corestat[256].load);
+                                MT_sleep_ms(10);
+                        }	
 		}
 	}
-	else
-	{
-		while(1)
-		{
+	else{
+		while(1){
 			(void) getCPULoad(cpuload);
 			fprintf(ofp,"%lf\n",corestat[256].load);
 			MT_sleep_ms(10);
