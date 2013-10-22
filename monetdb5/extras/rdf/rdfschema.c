@@ -5835,16 +5835,18 @@ void fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, 
 	int tmpColExIdx; 
 	oid k; 
 
-	printf("Fill nils for Table %d and prop %d from " BUNFMT " to " BUNFMT "\n", tblIdx, colIdx, from, to);
+	printf("Fill nils for Table %d  (type: %d)and prop %d from " BUNFMT " to " BUNFMT "\n", tblIdx, tblType, colIdx, from, to);
 
 	tmpBat = cstablestat->lstcstable[tblIdx].colBats[colIdx];	
 	//Fill all missing values from From to To
 	if (to > (from + 1)){
 		for(k = from -1; k < to - 1; k++){
+			printf("Append null to main table: Col: %d \n", colIdx);
 			BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
 		}
 	}
 	if (tblType != MAINTBL){
+		printf("Append null to not to-be-inserted col in main table: Col: %d \n", colIdx);
 		BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
 	}
 	for (i = 0; i < (MULTIVALUES + 1); i++){
@@ -5854,15 +5856,19 @@ void fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, 
 			//Fill all missing values from From to To
 			if (to > (from + 1)){
 				for(k = from -1; k < (to - 1); k++){
+					printf("Append null to ex table: Col: %d \n", tmpColExIdx);
 					BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
 				}
 			}
 
-			if (tblType != MAINTBL && tmpColExIdx != colIdxEx){
+			if (tblType != MAINTBL){
+				printf("Append null to not to-be-inserted col in ex table: Col: %d  (# colIdxEx = %d) \n", tmpColExIdx, colIdxEx);
 				BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
 			}
-			else
+			else if (tmpColExIdx != colIdxEx){
+				printf("Append null to not to-be-inserted col in ex table: Col: %d (WHILE tblType = %d,  colIdxEx = %d) \n", tmpColExIdx, tblType, colIdxEx);
 				BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
+			}
 		}
 		
 	}
