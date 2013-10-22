@@ -256,6 +256,7 @@ typedef struct CStableEx {		/* For non-default-type columns*/
 	BAT**		colBats; 
 	ObjectType*	colTypes; 
 	int		numCol; 
+	int*		mainTblColIdx;	
 	oid		tblname; 	/* Label of the table */
 } CStableEx; 
 

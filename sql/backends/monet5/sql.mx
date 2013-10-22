@@ -7844,7 +7844,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			totalNoTablesCreated++;
 			for (j = 0; j < cstablestat->lstcstableEx[i].numCol; j++){
 				//TODO: Use propertyId from Propstat
-				sprintf(tmpcolname, "colex%d",(int)j);
+				sprintf(tmpcolname, "colex%dtype%d",cstablestat->lstcstableEx[i].mainTblColIdx[j], (int)cstablestat->lstcstableEx[i].colTypes[j]);
 				tmpbat = cstablestat->lstcstableEx[i].colBats[j];
 				mvc_create_column(m, cstablesEx[i], tmpcolname,  &tpes[tmpbat->ttype]);				
 			}
@@ -7892,7 +7892,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if (cstablestat->lstcstableEx[i].numCol != 0){	
 			for (j = 0; j < cstablestat->lstcstableEx[i].numCol; j++){
 				//TODO: Use propertyId from Propstat
-				sprintf(tmpcolname, "colex%d",(int)j);
+				sprintf(tmpcolname, "colex%dtype%d",cstablestat->lstcstableEx[i].mainTblColIdx[j], (int)cstablestat->lstcstableEx[i].colTypes[j]);
 
 				tmpbat = cstablestat->lstcstableEx[i].colBats[j];
 				

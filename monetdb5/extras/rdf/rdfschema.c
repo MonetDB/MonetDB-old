@@ -5588,14 +5588,14 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 		cstablestat->lastInsertedSEx[i] = (oid*) malloc(sizeof(oid) * tmpNumExCol); 
 		cstablestat->lstcstableEx[i].numCol = tmpNumExCol;
 		cstablestat->lstcstableEx[i].colBats = (BAT**)malloc(sizeof(BAT*) * tmpNumExCol); 
+		cstablestat->lstcstableEx[i].colTypes = (ObjectType*)malloc(sizeof(ObjectType) * tmpNumExCol); 
+		cstablestat->lstcstableEx[i].mainTblColIdx  = (int*)malloc(sizeof(int) * tmpNumExCol); 
 		cstablestat->lstcstableEx[i].tblname = labels[mTblIdxFreqIdxMapping[i]].name;
 		#endif
-
+		
 		for(j = 0; j < tmpNumDefaultCol; j++){
 			if (csPropTypes[i].lstPropTypes[j].isMVProp == 0){
 				cstablestat->lstcstable[i].colBats[j] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
-				//cstablestat->lstcstable[i].mvBats[j] =  NULL;
-				//cstablestat->lstcstable[i].mvExBats[j] =  NULL;
 				cstablestat->lstcstable[i].lstMVTables[j].numCol = 0; 	//There is no MV Tbl for this prop
 				cstablestat->lstcstable[i].lstProp[j] = freqCSset->items[csPropTypes[i].freqCSId].lstProp[j];
 				//TODO: use exact size for each BAT
@@ -5603,8 +5603,6 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 			else{
 				cstablestat->lstcstable[i].colBats[j] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
 				BATseqbase(cstablestat->lstcstable[i].colBats[j], 0);	
-				//cstablestat->lstcstable[i].mvBats[j] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz) ;
-				//cstablestat->lstcstable[i].mvExBats[j] = BATnew(TYPE_void, TYPE_oid,  smallbatsz) ; 	//TODO: Check whether the MVCol need ExCol
 				cstablestat->lstcstable[i].lstMVTables[j].numCol = csPropTypes[i].lstPropTypes[j].numMvTypes;
 				if (cstablestat->lstcstable[i].lstMVTables[j].numCol != 0){
 					cstablestat->lstcstable[i].lstMVTables[j].colTypes = (ObjectType *)malloc(sizeof(ObjectType)* cstablestat->lstcstable[i].lstMVTables[j].numCol);
@@ -5632,7 +5630,11 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 			for (t = 0; t < csPropTypes[i].lstPropTypes[j].numType; t++){
 				if ( csPropTypes[i].lstPropTypes[j].TableTypes[t] == TYPETBL){
 					cstablestat->lstcstableEx[i].colBats[colExIdx] = BATnew(TYPE_void, mapObjBATtypes[t], smallbatsz);
+					//Set mainTblColIdx for ex-table
+					cstablestat->lstcstableEx[i].colTypes[colExIdx] = t; 
+					cstablestat->lstcstableEx[i].mainTblColIdx[colExIdx] = j; 
 					colExIdx++;
+
 				}
 			}
 		}
@@ -5731,6 +5733,8 @@ void freeCStableStat(CStableStat* cstablestat){
 		free(cstablestat->lstcstable[i].colTypes);
 		#if CSTYPE_TABLE == 1
 		free(cstablestat->lstcstableEx[i].colBats);
+		free(cstablestat->lstcstableEx[i].colTypes);
+		free(cstablestat->lstcstableEx[i].mainTblColIdx);
 		#endif
 	}
 	BBPunfix(cstablestat->pbat->batCacheid); 
@@ -5861,7 +5865,7 @@ void fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, 
 				}
 			}
 
-			if (tblType != MAINTBL){
+			if (tblType == MAINTBL){
 				printf("Append null to not to-be-inserted col in ex table: Col: %d  (# colIdxEx = %d) \n", tmpColExIdx, colIdxEx);
 				BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
 			}
