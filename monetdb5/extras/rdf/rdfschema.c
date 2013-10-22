@@ -5797,11 +5797,11 @@ void updateTblIdxPropIdxMap(int* tblIdxPropColumIdxMapping, int* lstCSIdx,int* l
 }
 
 static 
-void fillMissingvalues(BAT* curBat, oid from, oid to){
-	oid k; 
+void fillMissingvalues(BAT* curBat, int from, int to){
+	int k; 
 	//Insert nil values to the last column if it does not have the same
 	//size as the table
-	printf("Fill from  " BUNFMT " to " BUNFMT " \n", from, to);
+	printf("Fill from  %d to %d \n", from, to);
 	if (curBat != NULL){
 		for(k = from -1; k < to; k++){
 			BUNappend(curBat, ATOMnilptr(curBat->ttype), TRUE);
@@ -5818,13 +5818,13 @@ void fillMissingvaluesAll(CStableStat* cstablestat, CSPropTypes *csPropTypes, in
 	printf("Fill for Table %d and prop %d (lastSubjId = " BUNFMT" \n", lasttblIdx, lastColIdx, lastSubjId[lasttblIdx]);
 
 	tmpBat = cstablestat->lstcstable[lasttblIdx].colBats[lastColIdx];	
-	fillMissingvalues(tmpBat, BATcount(tmpBat), lastSubjId[lasttblIdx]); 
+	fillMissingvalues(tmpBat, (int)BATcount(tmpBat), (int)lastSubjId[lasttblIdx]); 
 	for (i = 0; i < (MULTIVALUES + 1); i++){
 		if (csPropTypes[lasttblIdx].lstPropTypes[lastColIdx].TableTypes[i] == TYPETBL){
 			tmpColExIdx = csPropTypes[lasttblIdx].lstPropTypes[lastColIdx].colIdxes[i]; 
 			tmpBat = cstablestat->lstcstableEx[lasttblIdx].colBats[tmpColExIdx];
 			printf("Fill excol %d \n", tmpColExIdx);
-			fillMissingvalues(tmpBat, BATcount(tmpBat), lastSubjId[lasttblIdx]);
+			fillMissingvalues(tmpBat, (int)BATcount(tmpBat), (int)lastSubjId[lasttblIdx]);
 		}
 		
 	}
@@ -5832,22 +5832,21 @@ void fillMissingvaluesAll(CStableStat* cstablestat, CSPropTypes *csPropTypes, in
 
 
 // colIdx: The column to be appenned
+// First append nils for all missing subject from "from" to "to - 1"
 static 
-void fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, int tblIdx, int colIdx, int colIdxEx, char tblType, oid from, oid to){
+void fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, int tblIdx, int colIdx, int colIdxEx, char tblType,int from, int to){
 	BAT     *tmpBat = NULL;
 	int i; 
 	int tmpColExIdx; 
-	oid k; 
+	int k; 
 
-	printf("Fill nils for Table %d  (type: %d)and prop %d from " BUNFMT " to " BUNFMT "\n", tblIdx, tblType, colIdx, from, to);
+	printf("Fill nils for Table %d  (type: %d)and prop %d from %d to %d \n", tblIdx, tblType, colIdx, from, to);
 
 	tmpBat = cstablestat->lstcstable[tblIdx].colBats[colIdx];	
 	//Fill all missing values from From to To
-	if (to > (from + 1)){
-		for(k = from -1; k < to - 1; k++){
-			printf("Append null to main table: Col: %d \n", colIdx);
-			BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
-		}
+	for(k = from; k < to; k++){
+		printf("Append null to main table: Col: %d \n", colIdx);
+		BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
 	}
 	if (tblType != MAINTBL){
 		printf("Append null to not to-be-inserted col in main table: Col: %d \n", colIdx);
@@ -5858,11 +5857,9 @@ void fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, 
 			tmpColExIdx = csPropTypes[tblIdx].lstPropTypes[colIdx].colIdxes[i]; 
 			tmpBat = cstablestat->lstcstableEx[tblIdx].colBats[tmpColExIdx];
 			//Fill all missing values from From to To
-			if (to > (from + 1)){
-				for(k = from -1; k < (to - 1); k++){
-					printf("Append null to ex table: Col: %d \n", tmpColExIdx);
-					BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
-				}
+			for(k = from; k < to; k++){
+				printf("Append null to ex table: Col: %d \n", tmpColExIdx);
+				BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
 			}
 
 			if (tblType == MAINTBL){
@@ -5968,7 +5965,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	BAT	*tmpBat = NULL; 
 	BAT     *tmpmvBat = NULL;       // Multi-values BAT
 	//BAT	*tmpmvExBat = NULL; 
-	oid	tmplastInsertedS; 
+	int	tmplastInsertedS = -1; 
 	int     numMultiValues = 0;
 	oid	tmpmvValue; 
 	char	istmpMVProp = 0; 
@@ -6008,7 +6005,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	tmpTblIdxPropIdxMap = (int*)malloc(sizeof(int) * cstablestat->numTables);
 	initIntArray(tmpTblIdxPropIdxMap, cstablestat->numTables, -1); 
 
-	tmplastInsertedS = 0; 
+	tmplastInsertedS = -1; 
 	
 
 	lastP = BUN_NONE; 
@@ -6053,7 +6050,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			//lastS = *sbt; 
 			lastS = BUN_NONE; 
 			numMultiValues = 0;
-			tmplastInsertedS = 0;
+			tmplastInsertedS = -1;
 
 		}
 
@@ -6066,6 +6063,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		if (p == 0){
 			lastColIdx = tmpColIdx;
 			lasttblIdx = tblIdx;
+			cstablestat->lastInsertedS[tblIdx][tmpColIdx] = BUN_NONE;
 		}
 
 		/* New column. Finish with lastTblIdx and lastColIdx. Note: This lastColIdx is
@@ -6077,8 +6075,8 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			fillMissingvaluesAll(cstablestat, csPropTypes, lasttblIdx, lastColIdx, lastSubjId);
 			lastColIdx = tmpColIdx; 
 			lasttblIdx = tblIdx;
-			tmplastInsertedS = 0;
-			cstablestat->lastInsertedS[tblIdx][tmpColIdx] = 0;
+			tmplastInsertedS = -1;
+			cstablestat->lastInsertedS[tblIdx][tmpColIdx] = BUN_NONE;
 			
 		}
 
@@ -6113,8 +6111,8 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				//In search the position of the first value 
 				//to the correcponding column in the MAINTBL
 				//First: Insert all missing value
-				if (tmpSoid > (tmplastInsertedS + 1)){
-					fillMissingvalues(tmpBat, tmplastInsertedS + 1, tmpSoid-1);
+				if ((int)tmpSoid > (tmplastInsertedS + 1)){
+					fillMissingvalues(tmpBat, tmplastInsertedS + 1, (int)tmpSoid-1);
 				}
 				
 				BATprint(tmpmvBat);
@@ -6122,7 +6120,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				printf("Insert the refered oid " BUNFMT "for MV prop \n", tmpmvValue);
 				BUNappend(tmpBat, &tmpmvValue, TRUE);
 				BATprint(tmpBat);
-				tmplastInsertedS = tmpSoid; 
+				tmplastInsertedS = (int)tmpSoid; 
 				
 				lastColIdx = tmpColIdx; 
 				lasttblIdx = tblIdx;
@@ -6173,20 +6171,11 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		}
 
 
-		tmplastInsertedS = cstablestat->lastInsertedS[tblIdx][tmpColIdx];
+		tmplastInsertedS = (cstablestat->lastInsertedS[tblIdx][tmpColIdx] == BUN_NONE)?(-1):(int)(cstablestat->lastInsertedS[tblIdx][tmpColIdx]);
 
-		//TODO: Check last subjectId for this prop. If the subjectId is not continuous, insert NIL
-		/*
-		if (tmpSoid > (tmplastInsertedS[(int)objType] + 1)){
-			printf("Fill begin from tmplastInsertedS[%d] = "BUNFMT" to " BUNFMT "\n",  (int)objType, tmplastInsertedS[(int)objType],tmpSoid-1);
-			fillMissingvalues(curBat, tmplastInsertedS[(int)objType] + 1, tmpSoid-1);
-		}
-		*/
-
-		fillMissingValueByNils(cstablestat, csPropTypes, tblIdx, tmpColIdx, tmpColExIdx, tmpTableType, tmplastInsertedS + 1, tmpSoid);
+		//If S is not continuous meaning that some S's have missing values for this property. Fill nils for them.
+		fillMissingValueByNils(cstablestat, csPropTypes, tblIdx, tmpColIdx, tmpColExIdx, tmpTableType, tmplastInsertedS + 1, (int)tmpSoid);
 		
-		//fillMissingvalues(tmpBat, BATcount(tmpBat), lastSubjId[tblIdx]);
-
 		getRealValue(&realObjValue, *obt, objType, mi, mbat);
 		if (objType == STRING) printf("Value returned by getRealValue is %s \n", (char*)realObjValue);
 		//BUNappend(curBat, obt, TRUE); 
