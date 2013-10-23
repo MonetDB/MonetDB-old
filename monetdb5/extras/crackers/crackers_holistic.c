@@ -27,6 +27,7 @@
 static FrequencyNode *_InternalFrequencyStructA = NULL;
 static FrequencyNode *_InternalFrequencyStructB = NULL;
 static MT_Id *idletime_thread;
+static MT_Id *cpuload_thread;
 MT_Lock frequencylock;
 MT_Lock CRKIndexLock;
 pthread_rwlock_t CRKFirstPieceRWLock;
@@ -35,11 +36,24 @@ IdleFuncPtr IdleFunc;
 str
 CRKinitHolistic(int *ret)
 {
+	char *p = getenv("MOTIVATION_EXPERIMENT");
+	int motivation_experiment=0;
+
+	if (p == NULL){
+		fprintf(stderr, "Error initHolistic: environment variable is missing.\n");
+  		exit(1);
+	}
+	else
+		motivation_experiment=atoi(p);
+
 	IdleFunc=&CRKrandomCrack;
 	idletime_thread = GDKzalloc(sizeof(*idletime_thread));
+	cpuload_thread = GDKzalloc(sizeof(*idletime_thread));
 	MT_lock_init(&frequencylock, "FrequencyStruct");
 	MT_lock_init(&CRKIndexLock, "Cracker Index Lock");
 	MT_create_thread(idletime_thread,(void (*)(void *))HeartbeatCPUload, IdleFunc, MT_THR_JOINABLE);
+	if (motivation_experiment != 0)
+		MT_create_thread(cpuload_thread,(void (*)(void *))HeartbeatCPUload_total, NULL, MT_THR_JOINABLE);
 	*ret = 0;
 	return MAL_SUCCEED;
 }

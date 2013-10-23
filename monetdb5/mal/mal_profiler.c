@@ -1321,6 +1321,33 @@ static int getCPULoad(char cpuload[BUFSIZ]){
 }
 
 // Give users the option to check for the system load between two heart beats
+void HeartbeatCPUload_total(void *arg)
+{
+	char cpuload[BUFSIZ];
+	FILE *ofp;
+	char *outputFilename1 = getenv("TOTAL_CPULOAD");
+
+	(void) arg;
+
+	if (outputFilename1 == NULL){
+		fprintf(stderr, "Error HeartbeatCPUload_total: wrong environment variable.\n");
+  		exit(1);
+	}
+	ofp = fopen(outputFilename1,"a");
+	if (ofp == NULL) {
+  		fprintf(stderr, "Can't open output file!\n");
+  		exit(1);
+	}
+
+	while(1){
+		(void) getCPULoad(cpuload);
+		fprintf(ofp,"%lf\n",corestat[256].load);
+		MT_sleep_ms(10);
+	}
+	fclose(ofp);
+}
+
+// Give users the option to check for the system load between two heart beats
 void HeartbeatCPUload(void *arg)
 {
 	char cpuload[BUFSIZ];
@@ -1330,23 +1357,16 @@ void HeartbeatCPUload(void *arg)
 	lng load;
 	int n=0;  /*number of idle cores*/
 	double N=0;  /*number of busy cores*/
-	FILE *ofp;
-	char *outputFilename1 = getenv("TOTAL_CPULOAD");
 	void (*IdleFunc)(void *) = arg;
 
 
-	if (p == NULL || cores == NULL || outputFilename1 == NULL){
+	if (p == NULL || cores == NULL){
 		fprintf(stderr, "Error HeartbeatCPUload: environment variable is missing.\n");
   		exit(1);
 	}
 	else{
 		threshold = atoi(p);
 		max_threads=atoi(cores);
-		ofp = fopen(outputFilename1,"a");
-		if (ofp == NULL) {
-  			fprintf(stderr, "Can't open output file!\n");
-  			exit(1);
-		}
 	}
 
 	if (max_threads > 0){
@@ -1357,24 +1377,12 @@ void HeartbeatCPUload(void *arg)
 				N = (int) (load * max_threads) / 100.0;
 				n = max_threads - N;
 				MRschedule(n, NULL, IdleFunc);
-				(void) getCPULoad(cpuload);
-                                fprintf(ofp,"%lf\n",corestat[256].load);
 				MT_sleep_ms(10);
 			}
-			else{
-                                fprintf(ofp,"%lf\n",corestat[256].load);
+			else
                                 MT_sleep_ms(10);
-                        }	
 		}
 	}
-	else{
-		while(1){
-			(void) getCPULoad(cpuload);
-			fprintf(ofp,"%lf\n",corestat[256].load);
-			MT_sleep_ms(10);
-		}
-	}
-	fclose(ofp);
 }
 
 // Give users the option to check for the system total load between two heart beats

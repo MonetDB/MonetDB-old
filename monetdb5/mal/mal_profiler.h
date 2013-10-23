@@ -102,6 +102,7 @@ mal_export str cleanupProfiler(void);
 mal_export void initHeartbeat(void);
 mal_export void stopHeartbeat(void);
 mal_export void HeartbeatCPUload(void*);
+mal_export void HeartbeatCPUload_total(void*);
 
 mal_export int instrFilter(InstrPtr pci, str mod, str fcn);
 mal_export void setFilter(Module cntxt, str mod, str fcn);
