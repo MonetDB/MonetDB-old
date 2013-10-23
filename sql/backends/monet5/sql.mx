@@ -7759,19 +7759,19 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	
 
 	sql_find_subtype(&tpes[TYPE_oid], "oid", 31 , 0);
-	printf("Tpes %d Type name is: %s \n", TYPE_oid, tpes[TYPE_oid].type->sqlname);
+	//printf("Tpes %d Type name is: %s \n", TYPE_oid, tpes[TYPE_oid].type->sqlname);
 
 	sql_find_subtype(&tpes[TYPE_str], "varchar", 500 , 0);
-	printf("Tpes %d Type name is: %s \n", TYPE_str, tpes[TYPE_str].type->sqlname);
+	//printf("Tpes %d Type name is: %s \n", TYPE_str, tpes[TYPE_str].type->sqlname);
 
 	sql_find_subtype(&tpes[TYPE_dbl], "double", 53 , 0);
-	printf("Tpes %d Type name is: %s \n", TYPE_dbl, tpes[TYPE_dbl].type->sqlname);
+	//printf("Tpes %d Type name is: %s \n", TYPE_dbl, tpes[TYPE_dbl].type->sqlname);
 
 	sql_find_subtype(&tpes[TYPE_int], "int", 9 , 0);
-	printf("Tpes %d Type name is: %s \n", TYPE_int, tpes[TYPE_int].type->sqlname);
+	//printf("Tpes %d Type name is: %s \n", TYPE_int, tpes[TYPE_int].type->sqlname);
 
 	sql_find_subtype(&tpes[TYPE_flt], "real", 23, 0);
-	printf("Tpes %d Type name is: %s \n", TYPE_flt, tpes[TYPE_flt].type->sqlname);
+	//printf("Tpes %d Type name is: %s \n", TYPE_flt, tpes[TYPE_flt].type->sqlname);
 
 	/*
 	sql_find_subtype(&tpe, "float", 0 , 0);
@@ -7788,13 +7788,13 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	}
 	for (i = 0; i < cstablestat->numTables; i++){
-		printf("creating table %d \n", i);
+		//printf("creating table %d \n", i);
 		sprintf(tmptbname, "cstable%d",i);
 
 		sprintf(tmpstr, "%d",i);
 		//getTblName(tmptbname, cstablestat->lstcstable[i].tblname); 
 		strcat(tmptbname,tmpstr);
-		printf("Table %d:||  %s ||\n",i, tmptbname);
+		//printf("Table %d:||  %s ||\n",i, tmptbname);
 
 		cstables[i] = mvc_create_table(m, sch, tmptbname, tt_table, 0,
 				   SQL_PERSIST, 0, 3);
@@ -7837,7 +7837,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			sprintf(tmpstr, "Ex%d",i);
 			//getTblName(tmptbname, cstablestat->lstcstable[i].tblname); 
 			strcat(tmptbname,tmpstr);
-			printf("TableEx %d: || %s || \n",i, tmptbname);
+			//printf("TableEx %d: || %s || \n",i, tmptbname);
 
 			cstablesEx[i] = mvc_create_table(m, sch, tmptbnameex, tt_table, 0,
 					   SQL_PERSIST, 0, 3);
@@ -7860,8 +7860,8 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 			tmpbat = cstablestat->lstcstable[i].colBats[j];
 
-			printf("Column %d: \n",j); 
-			BATprint(tmpbat);
+			//printf("Column %d: \n",j); 
+			//BATprint(tmpbat);
                 	store_funcs.append_col(m->session->tr,
 					mvc_bind_column(m, cstables[i],tmpcolname ), 
 					tmpbat, TYPE_bat);
@@ -7875,8 +7875,8 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					
 					tmpbat = cstablestat->lstcstable[i].lstMVTables[j].mvBats[k];
 					
-					printf("MVColumn %d: \n",k); 
-					BATprint(tmpbat);
+					//printf("MVColumn %d: \n",k); 
+					//BATprint(tmpbat);
                 			store_funcs.append_col(m->session->tr,
 						mvc_bind_column(m, csmvtables[i][j],tmpcolname ), 
 						tmpbat, TYPE_bat);
@@ -7896,8 +7896,8 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 				tmpbat = cstablestat->lstcstableEx[i].colBats[j];
 				
-				printf("ColumnEx %d: \n",j); 
-				BATprint(tmpbat);
+				//printf("ColumnEx %d: \n",j); 
+				//BATprint(tmpbat);
 				store_funcs.append_col(m->session->tr,
 						mvc_bind_column(m, cstablesEx[i],tmpcolname ), 
 						tmpbat, TYPE_bat);
@@ -7919,7 +7919,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 		*/
 
-		printf("Done creating table %d with %d cols \n", i,cstablestat->numPropPerTable[i]);
+		//printf("Done creating table %d with %d cols \n", i,cstablestat->numPropPerTable[i]);
 
 	}
 	printf("... Done ( %d tables + %d views created. Already exclude %d Null mvtables ) \n", 
