@@ -1541,9 +1541,9 @@ void *register_files(void *args)
 	tc = (temp_container*)GDKmalloc(sizeof(temp_container));
 	assert(tc != NULL);
 	if(targv.mode == 0)
-		err = mseed_create_temp_container(tc); /* depending on design can get different argument(s) */
+		err = mseed_create_temp_container_segments_mode(tc); /* depending on design can get different argument(s) */
 	else
-		err = mseed_create_temp_container_with_data_tables(tc); /* depending on design can get different argument(s) */
+		err = mseed_create_temp_container_with_data_tables_segments_mode(tc); /* depending on design can get different argument(s) */
 	if(err != MAL_SUCCEED)
 	{/* temp_container creation failed, what to do */
 		throw(MAL,"registrar.register_repo", "temp_container creation failed in thread %d: %s\n", targv.tid, err);
@@ -1555,7 +1555,7 @@ void *register_files(void *args)
 	{
 		for(i = targv.loop_start; i < targv.loop_end; i++)
 		{
-			err = mseed_register(targv.file_paths[i], tc);
+			err = mseed_register_segments_mode(targv.file_paths[i], tc);
 			if(err != MAL_SUCCEED)
 			{/* current file cannot be registered, what to do */
 				/*throw(MAL,"registrar.register_repo", "Current file cannot be registered: %s\n", err); */
@@ -1567,7 +1567,7 @@ void *register_files(void *args)
 	{
 		for(i = targv.loop_start; i < targv.loop_end; i++)
 		{
-			err = mseed_register_and_mount(targv.file_paths[i], tc);
+			err = mseed_register_and_mount_segments_mode(targv.file_paths[i], tc);
 			if(err != MAL_SUCCEED)
 			{/* current file cannot be registered, what to do */
 				/* throw(MAL,"registrar.register_repo", "Current file cannot be registered: %s\n", err); */
