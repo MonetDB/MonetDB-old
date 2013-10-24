@@ -731,13 +731,24 @@ str insert_into_vault(Client cntxt, temp_container* tc)
 	for(t = 0; t < tc->num_tables; t++)
 	{
 		str q = (str)GDKmalloc(512*sizeof(char));
+		str s = (str)GDKmalloc(512*sizeof(char));
+		
 		sprintf(q, "INSERT INTO %s.%s SELECT * FROM %s_%s_reg("LLFMT", %d);\n", tc->schema_name, tc->table_names[t], tc->schema_name, tc->table_names[t], ticket, t);
 
 		if((msg =SQLstatementIntern(cntxt,&q,"registrar.insert",TRUE,FALSE))!= MAL_SUCCEED)
 		{/* insert into query not succeeded, what to do */
 			return msg;
 		}
-
+		GDKfree(q);
+		
+		
+		sprintf(s, "DROP FUNCTION %s_%s_reg(BIGINT, INTEGER);\n", tc->schema_name, tc->table_names[t]);
+		
+		if((msg =SQLstatementIntern(cntxt,&s,"registrar.insert",TRUE,FALSE))!= MAL_SUCCEED)
+		{/* drop function not succeeded, what to do */
+			return msg;
+		}
+		GDKfree(s);
 	}
 
 	return MAL_SUCCEED;
