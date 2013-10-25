@@ -1230,19 +1230,19 @@ static int hbdelay = 0;
  * Given the parsing involved, it should be used sparingly */
 
 static struct{
-	lng user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice;
-	double load;
+	float user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice;
+	float load;
 } corestat[257];
 
 static int getCPULoad(char cpuload[BUFSIZ]){
         int cpu, len, i;
-	lng user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice;
-        lng u_frme, s_frme, n_frme, i_frme, w_frme, irq_frme, sirq_frme, steal_frme, g_frme, ng_frme, tot_frme;
+	float user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice;
+        float u_frme, s_frme, n_frme, i_frme, w_frme, irq_frme, sirq_frme, steal_frme, g_frme, ng_frme, tot_frme;
 	size_t n;
         char buf[BUFSIZ+1],*s;
 	static FILE *proc= NULL;
-	lng newload;
-	float scale;
+	float newload;
+	float scale=0.0;
 
 	if ( proc == NULL || ferror(proc))
 		proc = fopen("/proc/stat","r");
@@ -1271,7 +1271,7 @@ static int getCPULoad(char cpuload[BUFSIZ]){
 			if ( s== 0) goto skip;
 			
 			while( *s && isspace((int)*s)) s++;
-			i= sscanf(s,LLFMT" "LLFMT" "LLFMT" "LLFMT" "LLFMT" "LLFMT" "LLFMT" "LLFMT" "LLFMT" "LLFMT ,  &user, &nice, &system, &idle, &iowait, &irq, &softirq, &steal, &guest, &guest_nice);
+			i= sscanf(s,"%f %f %f %f %f %f %f %f %f %f",  &user, &nice, &system, &idle, &iowait, &irq, &softirq, &steal, &guest, &guest_nice);
 
 			if ( i != 10 )
 				goto skip;
@@ -1287,14 +1287,11 @@ static int getCPULoad(char cpuload[BUFSIZ]){
 			g_frme = guest - corestat[cpu].guest;
 			ng_frme = guest_nice - corestat[cpu].guest_nice;
 			tot_frme = u_frme + s_frme + n_frme + i_frme + w_frme + irq_frme + sirq_frme + steal_frme + g_frme + ng_frme;
-   			if (tot_frme < 1) tot_frme = 1;
-   			scale = 100.0 / (float)tot_frme;
-
+   			if (tot_frme > 0)
+   				scale = 100.0 / tot_frme;
 			newload = u_frme + s_frme + n_frme + w_frme + irq_frme + sirq_frme + steal_frme + g_frme + ng_frme;
-			if (newload)
-				corestat[cpu].load = (double) newload * scale;
-			//if(cpu==256)
-                        //      fprintf(stderr,"cpu=%d user="LLFMT" nice="LLFMT" system="LLFMT" idle="LLFMT" iowait="LLFMT" newload="LLFMT" load=%.2f cor.idle="LLFMT"\n",cpu,user,nice,system,idle,iowait,newload,corestat[cpu].load,corestat[cpu].idle);
+			if (newload > 0 && scale != 0)
+				corestat[cpu].load = newload * scale;
      
 			corestat[cpu].user = user;
 			corestat[cpu].nice = nice;
@@ -1323,7 +1320,7 @@ static int getCPULoad(char cpuload[BUFSIZ]){
 // Give users the option to check for the system load between two heart beats
 void HeartbeatCPUload_total(void *arg)
 {
-	lng load;
+	float load;
 	char cpuload[BUFSIZ];
 	FILE *ofp;
 	char *outputFilename1 = getenv("TOTAL_CPULOAD");
@@ -1344,8 +1341,8 @@ void HeartbeatCPUload_total(void *arg)
 		(void) getCPULoad(cpuload);
 		load = corestat[256].load;
 		if ( load >= 0 && load <= 100.0)
-			fprintf(ofp,"%lf\n",corestat[256].load);
-		MT_sleep_ms(10);
+			fprintf(ofp,"%f\n",corestat[256].load);
+		MT_sleep_ms(1000);
 	}
 	fclose(ofp);
 }
@@ -1357,7 +1354,7 @@ void HeartbeatCPUload(void *arg)
 	char *p = getenv("CPULOAD_THRESHOLD");
 	char *cores = getenv("CORES");  /*number of physical cores*/
 	int threshold=0, max_threads=0;
-	lng load;
+	float load;
 	int n=0;  /*number of idle cores*/
 	double N=0;  /*number of busy cores*/
 	void (*IdleFunc)(void *) = arg;
@@ -1380,10 +1377,11 @@ void HeartbeatCPUload(void *arg)
 				N = (int) (load * max_threads) / 100.0;
 				n = max_threads - N;
 				MRschedule(n, NULL, IdleFunc);
-				MT_sleep_ms(10);
+				(void) getCPULoad(cpuload);
+				MT_sleep_ms(1000);
 			}
 			else
-                                MT_sleep_ms(10);
+                                MT_sleep_ms(1000);
 		}
 	}
 }
