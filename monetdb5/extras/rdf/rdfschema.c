@@ -1746,7 +1746,7 @@ str printmergeCSSet(CSset *freqCSset, int freqThreshold){
 			fprintf(fout, "\n");
 			for (j = 0; j < cs.numProp; j++){
 				takeOid(cs.lstProp[j], &propStr);	
-				fprintf(fout,"          %s\n", propStr);
+				fprintf(fout,"PropId: "BUNFMT"  --->    %s\n", cs.lstProp[j],  propStr);
 				GDKfree(propStr);
 			}
 			fprintf(fout, "\n");
@@ -3671,7 +3671,6 @@ static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *covera
 	//free(csPropNum); 
 }
 
-
 static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold, int curNumMergeCS, oid* mergeCSFreqCSMap){
 
 	//int 	*csPropNum; 
@@ -3680,7 +3679,7 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 	int	i,j ; 
 	char 	filename[100];
 	char 	tmpStr[20];
-	int	maxNumtriple; 
+	int	maxNumtriple = 0; 
 	int	minNumtriple = INT_MAX; 
 	int	numMergeCS = 0; 
 	int 	totalCoverage = 0; 
@@ -4395,7 +4394,11 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 		obt = (oid *) BUNtloc(oi, p); 
 		/* Check type of object */
 		objType = getObjType(*obt);	/* Get two bits 63th, 62nd from object oid */
-	
+		
+		if (objType == BLANKNODE){	//BLANKNODE object values will be stored in the same column with URI object values	
+			objType = URI; 
+		}
+
 		pbt = (oid *) BUNtloc(pi, p);
 
 		if (curP == *pbt){
@@ -4970,35 +4973,55 @@ CSrel* generateCsRelBetweenMergeFreqSet(CSrel *csrelFreqSet, CSset *freqCSset){
 }
 
 
-/* Create a new data structure to store relationships including merged CS */
-/*
+/* Refine the relationship between mergeCS in order to create FK relationship between tables */
+
 static
-CSrel* getRefinedCsRelSet(CSrel *csrelFreqSet, CSset *freqCSset){
+CSrel* getFKBetweenTableSet(CSrel *csrelFreqSet, CSset *freqCSset, CSPropTypes* csPropTypes, int* mfreqIdxTblIdxMapping, int numTables){
 	int 	i,j;
-	int	numFreqCS = freqCSset->numOrigFreqCS; 
 	int 	from, to;
+	int	toFreqId; 
 	CSrel 	rel;
 	CSrel*  refinedCsRel;
-	int	numRel = freqCSset->numCSadded;
-	
-	refinedCsRel = initCSrelset(numRel);
+	int	propIdx; 	//Index of prop in list of props for each FreqCS
+	int 	numRel = freqCSset->numCSadded; 
+
+	refinedCsRel = initCSrelset(numTables);
 
 	for (i = 0; i < numRel; ++i) {
-		if (csrelFreqSet[i].numRef == 0) continue; // ignore CS without relations
+		if (csrelFreqSet[i].numRef == 0 || freqCSset->items[i].coverage > MINIMUM_TABLE_SIZE) continue; // ignore CS without relations
+		assert(freqCSset->items[i].parentFreqIdx == -1);
 		rel = csrelFreqSet[i];
+		from = mfreqIdxTblIdxMapping[i];
+		assert(from < numTables);
 		// update the 'from' value
-		from = i;
-		assert(freqCSset[from].parentFreqIdx == -1);
 		for (j = 0; j < rel.numRef; ++j) {
-			to = rel.lstRefFreqIdx[j];
-			assert(freqCSset->items[to].parentFreqIdx == -1);
+			toFreqId = rel.lstRefFreqIdx[j];
+			assert(freqCSset->items[toFreqId].parentFreqIdx == -1);
 			// add relation to new data structure
+
+			//Compare with prop coverage from csproptype	
+			if (rel.lstCnt[j]  < freqCSset->items[toFreqId].support * MIN_FK_FREQUENCY)	continue; 
+
+			to = mfreqIdxTblIdxMapping[toFreqId]; 
+			
+			//printf("Pass all basic conditions \n"); 
+
+			//Compare with the property coverage from csPropTypes
+			propIdx = 0; 
+			while (csPropTypes[from].lstPropTypes[propIdx].prop != rel.lstPropId[j]){
+				propIdx++;
+			}
+			assert(propIdx < freqCSset->items[i].numProp);
+			
+			if (csPropTypes[from].lstPropTypes[propIdx].propCover * MIN_FK_PROPCOVERAGE > rel.lstCnt[j]) continue; 
+			
+			assert(to < numTables);
 			addReltoCSRelWithFreq(from, to, rel.lstPropId[j], rel.lstCnt[j], rel.lstBlankCnt[j], &refinedCsRel[from]);
 		}
 	}
 	return refinedCsRel;
 }
-*/
+
 static
 CSrel* generateCsRelToMergeFreqSet(CSrel *csrelFreqSet, CSset *freqCSset){
 	int 	i,j;
@@ -5036,7 +5059,7 @@ CSrel* generateCsRelToMergeFreqSet(CSrel *csrelFreqSet, CSset *freqCSset){
 }
 
 static
-void printCSRel(CSset *freqCSset, CSrel *csRelMergeFreqSet, int freqThreshold){
+str printCSRel(CSset *freqCSset, CSrel *csRelMergeFreqSet, int freqThreshold){
 	FILE 	*fout2,*fout2filter;
 	char 	filename2[100];
 	char 	tmpStr[20];
@@ -5044,6 +5067,8 @@ void printCSRel(CSset *freqCSset, CSrel *csRelMergeFreqSet, int freqThreshold){
 	int		i,j, k;
 	int		freq;
 	int	*mfreqIdxTblIdxMapping;
+	char*   schema = "rdf";
+	int	ret; 
 
 	strcpy(filename2, "csRelationshipBetweenMergeFreqCS");
 	sprintf(tmpStr, "%d", freqThreshold);
@@ -5065,6 +5090,12 @@ void printCSRel(CSset *freqCSset, CSrel *csRelMergeFreqSet, int freqThreshold){
 		}
 	}
 	
+
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "printCSrel",
+				"could not open the tokenizer\n");
+	}
+
 	fprintf(fout2filter, "TblIdx: (Frequency) --> TblIdx (Property) (#of References) (#of blanknodes),...");	
 	for (i = 0; i < freqCSset->numCSadded; i++){
 		if (csRelMergeFreqSet[i].numRef != 0){	//Only print CS with FK
@@ -5096,10 +5127,58 @@ void printCSRel(CSset *freqCSset, CSrel *csRelMergeFreqSet, int freqThreshold){
 		}
 	}
 
+	TKNZRclose(&ret);
 	fclose(fout2);
 	fclose(fout2filter);
 	free(mfreqIdxTblIdxMapping);
 
+	return MAL_SUCCEED; 
+}
+
+
+static
+str printFKs(CSrel *csRelFinalFKs, int freqThreshold, int numTables){
+	FILE 	*fout;
+	char 	filename[100];
+	char 	tmpStr[20];
+	str 	propStr;
+	int	i,j;
+	char*   schema = "rdf";
+	int	ret; 
+
+	strcpy(filename, "FKRelationship");
+	sprintf(tmpStr, "%d", freqThreshold);
+	strcat(filename, tmpStr);
+	strcat(filename, ".txt");
+
+	fout = fopen(filename,"wt");
+
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "printFKs",
+				"could not open the tokenizer\n");
+	}
+
+	for (i = 0; i < numTables; i++){
+		if (csRelFinalFKs[i].numRef != 0){	//Only print CS with FK
+			fprintf(fout, "FK "BUNFMT ": ", csRelFinalFKs[i].origFreqIdx);
+			for (j = 0; j < csRelFinalFKs[i].numRef; j++){
+				#if SHOWPROPERTYNAME
+				takeOid(csRelFinalFKs[i].lstPropId[j], &propStr);
+				fprintf(fout, BUNFMT "(P:" BUNFMT " - %s) (%d)(Blank:%d) ", csRelFinalFKs[i].lstRefFreqIdx[j], csRelFinalFKs[i].lstPropId[j], propStr, csRelFinalFKs[i].lstCnt[j], csRelFinalFKs[i].lstBlankCnt[j]);
+				GDKfree(propStr);
+				#else
+				fprintf(fout, BUNFMT "(P:" BUNFMT ") (%d)(Blank:%d) ", csRelFinalFKs[i].lstRefFreqIdx[j],csRelFinalFKs[i].lstPropId[j], csRelFinalFKs[i].lstCnt[j], csRelFinalFKs[i].lstBlankCnt[j]);
+				#endif
+
+			}
+			fprintf(fout, "\n");
+		}
+	}
+
+	TKNZRclose(&ret);
+	fclose(fout);
+
+	return MAL_SUCCEED; 
 }
 
 // for storing ontology data
@@ -5447,7 +5526,7 @@ RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid){
 }
 
 static 
-BAT* getOriginalOBat(BAT *obat){
+BAT* getOriginalUriOBat(BAT *obat){
 	BAT*	origobat; 
 	BATiter	oi; 
 	BUN	p,q; 
@@ -5461,8 +5540,8 @@ BAT* getOriginalOBat(BAT *obat){
 
 		obt = (oid *) BUNtloc(oi, p); 
 		/* Check type of object */
-		objType = (char) ((*obt) >> (sizeof(BUN)*8 - 4))  &  7 ;	/* Get two bits 63th, 62nd from object oid */
-	
+		objType = getObjType(*obt); 
+
 		if (objType == URI || objType == BLANKNODE){
 			*obt = (*obt) - ((oid)objType << (sizeof(BUN)*8 - 4));
 		}
@@ -5880,7 +5959,7 @@ void getRealValue(void **returnValue, oid objOid, ObjectType objType, BATiter ma
 	str 	objStr; 
 	str	datetimeStr; 
 	BUN	bun; 	
-	BUN	maxObjectURIOid =  ((oid)1 << (sizeof(BUN)*8 - NBITS_FOR_CSID - 1)); //Base on getTblIdxFromS
+	BUN	maxObjectURIOid =  ((oid)1 << (sizeof(BUN)*8 - NBITS_FOR_CSID - 1)) - 1; //Base on getTblIdxFromS
 	float	realFloat; 
 	int	realInt; 
 	oid	realUri;
@@ -5888,11 +5967,14 @@ void getRealValue(void **returnValue, oid objOid, ObjectType objType, BATiter ma
 	//printf("objOid = " BUNFMT " \n",objOid);
 	if (objType == URI || objType == BLANKNODE){
 		objOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
-
+		
 		if (objOid < maxObjectURIOid){
-			takeOid(objOid, &objStr); 
+			//takeOid(objOid, &objStr); 		//TODO: Do we need to get URI string???
 			//printf("From tokenizer URI object value: "BUNFMT " (str: %s) \n", objOid, objStr);
 		}
+		//else, this object value refers to a subject oid
+		//IDEA: Modify the function for calculating new subject Id:
+		//==> subjectID = TBLID ... tmpSoid .... 	      
 	}
 	else{
 		objOid = objOid - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the real objOid from Map or Tokenizer */ 
@@ -5915,25 +5997,28 @@ void getRealValue(void **returnValue, oid objOid, ObjectType objType, BATiter ma
 			datetimeStr = getDateTimeFromRDFString(objStr);
 			if (*returnValue != NULL) free(*returnValue);
 			*returnValue = (char *)malloc(sizeof(char) * strlen(datetimeStr) + 1); 
-			memcpy(*returnValue,datetimeStr,sizeof(char) * strlen(objStr) + 1);
+			memcpy(*returnValue,datetimeStr,sizeof(char) * strlen(datetimeStr) + 1);
 			//printf("A datetime object value: %s \n",(char *)(*returnValue));
 			break; 
 		case INTEGER:
 			//printf("Full object value: %s \n",objStr);
 			realInt = getIntFromRDFString(objStr);
-			//printf("A INTEGER object value: %i \n",realInt);
+			(*returnValue) = (int*)malloc(sizeof(int));
 			*(int*)(*returnValue) = realInt;
+			//printf("A INTEGER object value: %d \n",*(int*)*returnValue);
 			break; 
 		case FLOAT:
 			//printf("Full object value: %s \n",objStr);
 			realFloat = getFloatFromRDFString(objStr);
-			//printf("A FLOAT object value: %f \n",realFloat);
+			(*returnValue) = (float *)malloc(sizeof(float));
 			*(float*)(*returnValue) = realFloat;
+			//printf("A FLOAT object value: %f \n", *(float*)*returnValue);
 			break; 
 		default: //URI or BLANK NODE		
-			//printf("A URI object value: " BUNFMT " \n", objOid);
+			(*returnValue) = (oid*)malloc(sizeof(oid));
 			realUri = objOid;
 			*(oid*)(*returnValue) = realUri;
+			//printf("A URI object value: " BUNFMT " \n", *(oid*)*returnValue);
 	}
 
 }
@@ -6058,6 +6143,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		}
 
 		objType = getObjType(*obt); 
+		assert (objType != BLANKNODE);
 
 		tmpColIdx = tmpTblIdxPropIdxMap[tblIdx]; 
 
@@ -6110,6 +6196,9 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				}
 			
 			}
+
+			free(realObjValue); 
+			realObjValue = NULL; 
 
 			if (numMultiValues == 0){	
 				//In search the position of the first value 
@@ -6184,7 +6273,10 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		//if (objType == STRING) printf("Value returned by getRealValue is %s \n", (char*)realObjValue);
 		//BUNappend(curBat, obt, TRUE); 
 		BUNappend(curBat, (ptr) realObjValue, TRUE); 
-
+		
+		free(realObjValue); 
+		realObjValue = NULL; 
+		
 		//printf(BUNFMT": Table %d | column %d  for prop " BUNFMT " | sub " BUNFMT " | obj " BUNFMT "\n",p, tblIdx, 
 		//					tmpColIdx, *pbt, tmpSoid, *obt); 
 					
@@ -6261,6 +6353,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	CSPropTypes	*csPropTypes; 
 	CSlabel		*labels;
 	CSrel		*csRelMergeFreqSet = NULL;
+	CSrel		*csRelFinalFKs = NULL;   	//Store foreign key relationships 
 
 	int 		curNumMergeCS;
 	oid		*mergeCSFreqCSMap;
@@ -6338,6 +6431,10 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	curT = clock(); 
 	printf (" Export label process took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
+	
+
+	csRelFinalFKs = getFKBetweenTableSet(csRelMergeFreqSet, freqCSset, csPropTypes,mfreqIdxTblIdxMapping,numTables);
+	printFKs(csRelFinalFKs, *freqThreshold, numTables); 
 
 	// Init CStableStat
 	initCStables(cstablestat, freqCSset, csPropTypes, numTables, labels, mTblIdxFreqIdxMapping);
@@ -6461,8 +6558,10 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	//BATprint(VIEWcreate(BATmirror(lmap),rmap)); 
 	
-	origobat = getOriginalOBat(obat); 
-
+	origobat = getOriginalUriOBat(obat); 	//Return obat without type-specific information for URI & BLANKNODE
+						//This is to get the same oid as the subject oid for a same URI, BLANKNODE
+						//--> There will be no BLANKNODE indication in this obat object oid. 
+	//BATprint(origobat);
 	if (RDFpartialjoin(&oNewBatid, &lmap->batCacheid, &rmap->batCacheid, &origobat->batCacheid) == MAL_SUCCEED){
 		if ((oNewBat = BATdescriptor(oNewBatid)) == NULL) {
 			throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);

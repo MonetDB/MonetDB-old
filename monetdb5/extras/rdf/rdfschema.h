@@ -190,6 +190,8 @@ typedef struct SubCSSet{
 #define HIGH_REFER_THRESHOLD 5
 #define	INFREQ_PROP_THRESHOLD	0.001
 
+#define	MIN_FK_FREQUENCY 	0.1	// The frequency of a FK should be > MIN_FK_FREQUENCY * The frequency of a mergedCS (or the number of tuples in one table)	
+#define MIN_FK_PROPCOVERAGE	0.9	// The FK needs to happen in MIN_FK_PROPCOVERAGE of all instances of the particular property
 
 typedef struct CSset{
 	CS* items;

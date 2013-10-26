@@ -7692,6 +7692,9 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int	nonullmvtables = 0;
 	int	totalNoTablesCreated = 0;
 	int	totalNoViewCreated = 0;
+	int	totalNoExTables = 0; 
+	int	totalNumDefCols = 0; 
+	int	totalNumNonDefCols = 0; 
 
 	str msg;
 	BAT	*sbat, *pbat, *obat, *mbat; 
@@ -7805,7 +7808,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
 
 			//TODO: Use propertyId from Propstat
-			sprintf(tmpcolname, "col%d",(int)cstablestat->lstcstable[i].lstProp[j]);
+			sprintf(tmpcolname, "col%d",(int)(cstablestat->lstcstable[i].lstProp[j]));
 
 			tmpbat = cstablestat->lstcstable[i].colBats[j];
 
@@ -7827,7 +7830,8 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			else
 				nonullmvtables++;
 		}
-
+		
+		totalNumDefCols += cstablestat->lstcstable[i].numCol;
 
 		#if CSTYPE_TABLE == 1
 		// Add non-default type table
@@ -7842,12 +7846,14 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			cstablesEx[i] = mvc_create_table(m, sch, tmptbnameex, tt_table, 0,
 					   SQL_PERSIST, 0, 3);
 			totalNoTablesCreated++;
+			totalNoExTables++;
 			for (j = 0; j < cstablestat->lstcstableEx[i].numCol; j++){
 				//TODO: Use propertyId from Propstat
-				sprintf(tmpcolname, "colex%dtype%d",cstablestat->lstcstableEx[i].mainTblColIdx[j], (int)cstablestat->lstcstableEx[i].colTypes[j]);
+				sprintf(tmpcolname, "colex%dtype%d",cstablestat->lstcstableEx[i].mainTblColIdx[j], (int)(cstablestat->lstcstableEx[i].colTypes[j]));
 				tmpbat = cstablestat->lstcstableEx[i].colBats[j];
 				mvc_create_column(m, cstablesEx[i], tmpcolname,  &tpes[tmpbat->ttype]);				
 			}
+			totalNumNonDefCols += cstablestat->lstcstableEx[i].numCol;
 		}
 
 		#endif
@@ -7922,9 +7928,10 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		//printf("Done creating table %d with %d cols \n", i,cstablestat->numPropPerTable[i]);
 
 	}
-	printf("... Done ( %d tables + %d views created. Already exclude %d Null mvtables ) \n", 
-			totalNoTablesCreated, totalNoViewCreated, nonullmvtables);
-		
+	printf("... Done ( %d tables (in which %d tables are non-default) + %d views created. Already exclude %d Null mvtables ) \n", 
+			totalNoTablesCreated, totalNoExTables, totalNoViewCreated, nonullmvtables);
+	printf("Number of default-type columns: %d \n ", totalNumDefCols);
+	printf("Number of non-default-type columns: %d  (%f ex-types per prop) \n ", totalNumNonDefCols, (float)totalNumNonDefCols/totalNumDefCols);
 
 	TKNZRclose(&ret);
 
