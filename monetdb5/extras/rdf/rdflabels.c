@@ -3021,18 +3021,22 @@ void exportLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelMergeFreqSet, i
 	str             schema = "rdf";
 	int             ret;
 	
-	TKNZRopen (NULL, &schema);
-
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		fprintf(stderr, "ERROR: Couldn't open tokenizer!\n");
+	}
 	// FK
+	printf("exportLabels: initRelationMetadataCount \n"); 
 	relationMetadataCount = initRelationMetadataCount(freqCSset);
+	printf("exportLabels: initRelationMetadata2 \n"); 
 	relationMetadata = initRelationMetadata2(relationMetadataCount, csRelMergeFreqSet, freqCSset);
-
+	
 	// Print and Export
+	printf("exportLabels: printUML \n"); 
 	printUML2(freqCSset, labels, relationMetadata, relationMetadataCount, freqThreshold);
 	convertToSQL(freqCSset, relationMetadata, relationMetadataCount, labels, freqThreshold);
 	createSQLMetadata(freqCSset, csRelMergeFreqSet, labels);
 	printTxt(freqCSset, labels, freqThreshold);
-
+	printf("exportLabels: Done \n"); 
 	freeRelationMetadata(relationMetadata, freqCSset);
 	freeRelationMetadataCount(relationMetadataCount, freqCSset->numCSadded);
 

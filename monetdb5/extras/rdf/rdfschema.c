@@ -6425,6 +6425,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	tmpLastT = curT; 		
 
 	// print labels
+	printf("Start exporting labels \n"); 
 	exportLabels(labels, freqCSset, csRelMergeFreqSet, *freqThreshold);
 
 
