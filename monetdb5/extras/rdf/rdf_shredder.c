@@ -176,8 +176,8 @@ rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType obj
 
 /*
  * Get substring of a string
+ * NOTE: The position starts from 1 (not from 0)
  * */
-
 static 
 char *substring(char *string, int position, int length) 
 {
@@ -227,6 +227,9 @@ char isInt(char *input, int len){
 
 int getIntFromRDFString(str input){
 	int i; 
+	int ret; 
+	char *tmpStr; 
+
 	assert(input[0] == '\"');
 	
 	//Find the second quote
@@ -234,14 +237,21 @@ int getIntFromRDFString(str input){
 	while (input[i] != '\"'){
 		i++; 
 	}
-	input[i] = '\0';
-	input++;
-	//printf("Input after extraction %s \n", input);	
-	return atoi(input); 
+	//input[i] = '\0';
+	//input++;
+	tmpStr = substring(input, 2, i - 1);
+	//printf("INT: Input after extraction %s \n", tmpStr);	
+	ret = atoi(tmpStr);
+	//printf("return value: %d \n",ret); 
+	free(tmpStr); 
+	return ret; 
 }
 
 float getFloatFromRDFString(str input){
 	int i; 
+	float ret; 
+	char *tmpStr; 
+
 	assert(input[0] == '\"');
 	
 	//Find the second quote
@@ -249,16 +259,19 @@ float getFloatFromRDFString(str input){
 	while (input[i] != '\"'){
 		i++; 
 	}
-	input[i] = '\0';
-	input++;
-	//printf("Input after extraction %s \n", input);
-
-	return atof(input); 
+	//input[i] = '\0';
+	//input++;
+	tmpStr = substring(input, 2, i - 1);
+	//printf("FLOAT: Input after extraction %s \n", tmpStr);
+	ret = atof(tmpStr); 
+	//printf("return value: %f \n",ret); 
+	return ret; 
 }
 
 str getDateTimeFromRDFString(str input){
 
 	int i; 
+	char *tmpStr; 
 	assert(input[0] == '\"');
 	
 	//Find the second quote
@@ -266,11 +279,12 @@ str getDateTimeFromRDFString(str input){
 	while (input[i] != '\"'){
 		i++; 
 	}
-	input[i] = '\0';
-	input++;
-	//printf("Input after extraction %s \n", input);
+	//input[i] = '\0';
+	//input++;
+	tmpStr = substring(input, 2, i - 1);
+	//printf("DATETIME: Input after extraction %s \n", tmpStr);
 
-	return input; 
+	return tmpStr; 
 }
 
 /*

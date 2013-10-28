@@ -5998,6 +5998,7 @@ void getRealValue(void **returnValue, oid objOid, ObjectType objType, BATiter ma
 			if (*returnValue != NULL) free(*returnValue);
 			*returnValue = (char *)malloc(sizeof(char) * strlen(datetimeStr) + 1); 
 			memcpy(*returnValue,datetimeStr,sizeof(char) * strlen(datetimeStr) + 1);
+			free(datetimeStr); 
 			//printf("A datetime object value: %s \n",(char *)(*returnValue));
 			break; 
 		case INTEGER:
