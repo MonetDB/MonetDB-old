@@ -5673,10 +5673,11 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 		#endif
 		
 		for(j = 0; j < tmpNumDefaultCol; j++){
+			cstablestat->lstcstable[i].lstProp[j] = freqCSset->items[csPropTypes[i].freqCSId].lstProp[j];
+
 			if (csPropTypes[i].lstPropTypes[j].isMVProp == 0){
 				cstablestat->lstcstable[i].colBats[j] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
 				cstablestat->lstcstable[i].lstMVTables[j].numCol = 0; 	//There is no MV Tbl for this prop
-				cstablestat->lstcstable[i].lstProp[j] = freqCSset->items[csPropTypes[i].freqCSId].lstProp[j];
 				//TODO: use exact size for each BAT
 			}
 			else{
