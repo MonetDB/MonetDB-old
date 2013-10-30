@@ -5656,8 +5656,6 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 		cstablestat->lastInsertedS[i] = (oid*) malloc(sizeof(oid) * tmpNumDefaultCol); 
 		cstablestat->lstcstable[i].numCol = tmpNumDefaultCol;
 		cstablestat->lstcstable[i].colBats = (BAT**)malloc(sizeof(BAT*) * tmpNumDefaultCol); 
-		//cstablestat->lstcstable[i].mvBats = (BAT**)malloc(sizeof(BAT*) * tmpNumDefaultCol); 
-		//cstablestat->lstcstable[i].mvExBats = (BAT**)malloc(sizeof(BAT*) * tmpNumDefaultCol); 
 		cstablestat->lstcstable[i].lstMVTables = (CSMVtableEx *) malloc(sizeof(CSMVtableEx) * tmpNumDefaultCol); // TODO: Only allocate memory for multi-valued columns
 		cstablestat->lstcstable[i].lstProp = (oid*)malloc(sizeof(oid) * tmpNumDefaultCol);
 		cstablestat->lstcstable[i].colTypes = (ObjectType *)malloc(sizeof(ObjectType) * tmpNumDefaultCol);
@@ -5699,7 +5697,11 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 							cstablestat->lstcstable[i].lstMVTables[j].mvBats[mvColIdx] = BATnew(TYPE_void, mapObjBATtypes[k], smallbatsz);
 						}	
 					}
+
+					//Add a bat for storing FK to the main table
+					cstablestat->lstcstable[i].lstMVTables[j].keyBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
 				}
+
 				//BATseqbase(cstablestat->lstcstable[i].mvExBats[j], 0);
 			}
 		}
@@ -5797,6 +5799,7 @@ void freeCStableStat(CStableStat* cstablestat){
 				}
 				free(cstablestat->lstcstable[i].lstMVTables[j].mvBats);
 				free(cstablestat->lstcstable[i].lstMVTables[j].colTypes);
+				BBPunfix(cstablestat->lstcstable[i].lstMVTables[j].keyBat->batCacheid); 
 			}
 		}
 
@@ -6056,6 +6059,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	int	tmplastInsertedS = -1; 
 	int     numMultiValues = 0;
 	oid	tmpmvValue; 
+	oid	tmpmvKey = BUN_NONE; 
 	char	istmpMVProp = 0; 
 	char*   schema = "rdf";
 	void* 	realObjValue = NULL;
@@ -6215,12 +6219,20 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				//printf("Insert the refered oid " BUNFMT "for MV prop \n", tmpmvValue);
 				BUNappend(tmpBat, &tmpmvValue, TRUE);
 				//BATprint(tmpBat);
+				
+				//Insert this "key" to the key column of mv table.
+				tmpmvKey = tmpmvValue; 
+				BUNappend(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat, &tmpmvKey, TRUE);
 				tmplastInsertedS = (int)tmpSoid; 
 				
 				lastColIdx = tmpColIdx; 
 				lasttblIdx = tblIdx;
 				
 				numMultiValues++;
+			}
+			else{
+				//Repeat referred "key" in the key column of mvtable
+				BUNappend(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat, &tmpmvKey, TRUE);
 			}
 			
 			continue; 

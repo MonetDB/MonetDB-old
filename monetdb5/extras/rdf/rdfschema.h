@@ -237,6 +237,7 @@ typedef struct LabelStat{	/*Store the list of freqIds having the same label*/
 } LabelStat; 
 
 typedef struct CSMVtableEx {		/* For non-default-type columns*/
+	BAT*		keyBat; 	/* Key bat refers to corresponding column in the main table*/
 	BAT**		mvBats;		/* The first is the default col, other is ex-type-specific cols*/
 	ObjectType*	colTypes; 
 	int		numCol; 

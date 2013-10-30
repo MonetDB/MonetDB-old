@@ -7821,11 +7821,18 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				csmvtables[i][j] = mvc_create_table(m, sch, tmptbname, tt_table, 0, SQL_PERSIST, 0, 3); 
 				totalNoTablesCreated++;
 
+				//One column for key
+				sprintf(tmpcolname, "mvCol%dt%dpKey",i,j);
+				tmpbat = cstablestat->lstcstable[i].lstMVTables[j].keyBat;
+				mvc_create_column(m, csmvtables[i][j], tmpcolname,  &tpes[tmpbat->ttype]);
+
+				//Value columns 
 				for (k = 0; k < tmpNumMVCols; k++){
 					sprintf(tmpcolname, "mvCol%dt%dp%dc",i,j,k);
 					tmpbat = cstablestat->lstcstable[i].lstMVTables[j].mvBats[k];
 					mvc_create_column(m, csmvtables[i][j], tmpcolname,  &tpes[tmpbat->ttype]);
 				}
+
 			}
 			else
 				nonullmvtables++;
@@ -7876,6 +7883,14 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			if (tmpNumMVCols != 0){
 				sprintf(tmptbname, "mvtable%dp%d",i,j);
 
+				//One column for key
+				sprintf(tmpcolname, "mvCol%dt%dpKey",i,j);
+				tmpbat = cstablestat->lstcstable[i].lstMVTables[j].keyBat;
+				store_funcs.append_col(m->session->tr,
+					mvc_bind_column(m, csmvtables[i][j],tmpcolname), 
+					tmpbat, TYPE_bat);
+
+				//Value columns
 				for (k = 0; k < tmpNumMVCols; k++){
 					sprintf(tmpcolname, "mvCol%dt%dp%dc",i,j,k);
 					
@@ -7884,7 +7899,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					//printf("MVColumn %d: \n",k); 
 					//BATprint(tmpbat);
                 			store_funcs.append_col(m->session->tr,
-						mvc_bind_column(m, csmvtables[i][j],tmpcolname ), 
+						mvc_bind_column(m, csmvtables[i][j],tmpcolname), 
 						tmpbat, TYPE_bat);
 				}
 			}
