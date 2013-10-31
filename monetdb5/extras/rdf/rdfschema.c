@@ -5960,78 +5960,6 @@ void fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, 
 }
 
 
-#if 0
-static
-void getRealValue(void **returnValue, oid objOid, ObjectType objType, BATiter mapi, BAT *mapbat){
-	str 	objStr; 
-	str	datetimeStr; 
-	BUN	bun; 	
-	BUN	maxObjectURIOid =  ((oid)1 << (sizeof(BUN)*8 - NBITS_FOR_CSID - 1)) - 1; //Base on getTblIdxFromS
-	float	realFloat; 
-	int	realInt; 
-	oid	realUri;
-
-	//printf("objOid = " BUNFMT " \n",objOid);
-	if (objType == URI || objType == BLANKNODE){
-		objOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
-		
-		if (objOid < maxObjectURIOid){
-			//takeOid(objOid, &objStr); 		//TODO: Do we need to get URI string???
-			//printf("From tokenizer URI object value: "BUNFMT " (str: %s) \n", objOid, objStr);
-		}
-		//else, this object value refers to a subject oid
-		//IDEA: Modify the function for calculating new subject Id:
-		//==> subjectID = TBLID ... tmpSoid .... 	      
-	}
-	else{
-		objOid = objOid - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the real objOid from Map or Tokenizer */ 
-		bun = BUNfirst(mapbat);
-		objStr = (str) BUNtail(mapi, bun + objOid); 
-		//printf("From mapbat BATcount= "BUNFMT" at position " BUNFMT ": %s \n", BATcount(mapbat),  bun + objOid,objStr);
-	}
-		
-
-	switch (objType)
-	{
-		case STRING:
-			//printf("A String object value: %s \n",objStr);
-			if (*returnValue != NULL) free(*returnValue);
-			*returnValue = (char *)malloc(sizeof(char) * strlen(objStr) + 1); 
-			memcpy(*returnValue,objStr, sizeof(char) * strlen(objStr) + 1);
-			//printf("A String value of returnValue: %s \n", (char *)(*returnValue));
-			break; 
-		case DATETIME:
-			datetimeStr = getDateTimeFromRDFString(objStr);
-			if (*returnValue != NULL) free(*returnValue);
-			*returnValue = (char *)malloc(sizeof(char) * strlen(datetimeStr) + 1); 
-			memcpy(*returnValue,datetimeStr,sizeof(char) * strlen(datetimeStr) + 1);
-			free(datetimeStr); 
-			//printf("A datetime object value: %s \n",(char *)(*returnValue));
-			break; 
-		case INTEGER:
-			//printf("Full object value: %s \n",objStr);
-			realInt = getIntFromRDFString(objStr);
-			(*returnValue) = (int*)malloc(sizeof(int));
-			*(int*)(*returnValue) = realInt;
-			//printf("A INTEGER object value: %d \n",*(int*)*returnValue);
-			break; 
-		case FLOAT:
-			//printf("Full object value: %s \n",objStr);
-			realFloat = getFloatFromRDFString(objStr);
-			(*returnValue) = (float *)malloc(sizeof(float));
-			*(float*)(*returnValue) = realFloat;
-			//printf("A FLOAT object value: %f \n", *(float*)*returnValue);
-			break; 
-		default: //URI or BLANK NODE		
-			(*returnValue) = (oid*)malloc(sizeof(oid));
-			realUri = objOid;
-			*(oid*)(*returnValue) = realUri;
-			//printf("A URI object value: " BUNFMT " \n", *(oid*)*returnValue);
-	}
-
-}
-#endif
-
 static
 void getRealValue(ValPtr returnValue, oid objOid, ObjectType objType, BATiter mapi, BAT *mapbat){
 	str 	objStr; 
@@ -6112,7 +6040,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	int	lasttblIdx = -1; 
 	int	lastColIdx = -1; 
 	char	isSetLasttblIdx = 0;
-	char	objType; 
+	char	objType, defaultType; 
 	char	tmpTableType = 0;
 
 	int	i,j, k; 
@@ -6128,7 +6056,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	char*   schema = "rdf";
 	//void* 	realObjValue = NULL;
 	ValRecord	vrRealObjValue;
-
+	ValRecord	vrCastedObjValue; 
 	
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
 		throw(RDF, "RDFdistTriplesToCSs",
@@ -6242,6 +6170,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		}
 
 		istmpMVProp = csPropTypes[tblIdx].lstPropTypes[tmpColIdx].isMVProp; 
+		defaultType = csPropTypes[tblIdx].lstPropTypes[tmpColIdx].defaultType; 
 
 		if (istmpMVProp == 1){	// This is a multi-valued prop
 			//printf("Multi values prop \n"); 
@@ -6253,9 +6182,8 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			assert(objType != MULTIVALUES); 	//TODO: Remove this
 			tmpMVColIdx = csPropTypes[tblIdx].lstPropTypes[tmpColIdx].colIdxes[(int)objType];
 			tmpBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
-			//getRealValue(&realObjValue, *obt, objType, mi, mbat);
 			getRealValue(&vrRealObjValue, *obt, objType, mi, mbat);
-
+				
 			for (i = 0; i < cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].numCol; i++){
 				tmpmvBat = cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].mvBats[i];
 				//BATprint(tmpmvBat);
@@ -6265,13 +6193,21 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 					BUNappend(tmpmvBat, VALget(&vrRealObjValue), TRUE);
 				}
 				else{
-					BUNappend(tmpmvBat, ATOMnilptr(tmpmvBat->ttype), TRUE);	
+					if (i == 0){	//The deafult type column
+						//Check whether we can cast the value to the default type value
+						if (rdfcast(objType, defaultType, &vrRealObjValue, &vrCastedObjValue) == 1){
+							BUNappend(tmpmvBat, VALget(&vrCastedObjValue), TRUE);
+							VALclear(&vrCastedObjValue);
+						}
+						else
+							BUNappend(tmpmvBat, ATOMnilptr(tmpmvBat->ttype), TRUE);
+					}
+					else
+						BUNappend(tmpmvBat, ATOMnilptr(tmpmvBat->ttype), TRUE);	
 				}
 			
 			}
 
-			//free(realObjValue); 
-			//realObjValue = NULL; 
 			VALclear(&vrRealObjValue);
 
 			if (numMultiValues == 0){	
@@ -6351,7 +6287,6 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		//If S is not continuous meaning that some S's have missing values for this property. Fill nils for them.
 		fillMissingValueByNils(cstablestat, csPropTypes, tblIdx, tmpColIdx, tmpColExIdx, tmpTableType, tmplastInsertedS + 1, (int)tmpSoid);
 		
-		//getRealValue(&realObjValue, *obt, objType, mi, mbat);
 		getRealValue(&vrRealObjValue, *obt, objType, mi, mbat);
 		
 		//if (objType == STRING) printf("Value returned by getRealValue is %s \n", (char*)realObjValue);
@@ -6359,8 +6294,6 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		//BUNappend(curBat, (ptr) realObjValue, TRUE); 
 		BUNappend(curBat, VALget(&vrRealObjValue), TRUE);
 		
-		//free(realObjValue); 
-		//realObjValue = NULL; 
 		VALclear(&vrRealObjValue);
 		
 		//printf(BUNFMT": Table %d | column %d  for prop " BUNFMT " | sub " BUNFMT " | obj " BUNFMT "\n",p, tblIdx, 
