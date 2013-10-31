@@ -1831,6 +1831,7 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 			memcpy(labelStrEscaped, labelStr, (strlen(labelStr) + 1));
 			escapeURI(labelStrEscaped);
 #endif
+			GDKfree(tmpStr);
 			GDKfree(labelStr);
 		}
 

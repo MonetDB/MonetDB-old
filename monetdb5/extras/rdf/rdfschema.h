@@ -21,6 +21,7 @@
 #define _RDFSCHEMA_H_
 
 #include <sql_catalog.h>
+#include "rdftypes.h"
 
 rdf_export str
 RDFSchemaExplore(int *ret, str *tbname, str *clname);

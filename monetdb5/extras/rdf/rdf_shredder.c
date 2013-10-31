@@ -28,6 +28,7 @@
 #include "tokenizer.h"
 #include <gdk.h>
 #include <rdf.h>
+#include <rdftypes.h>
 #include <rdfparser.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -175,140 +176,6 @@ rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType obj
 }
 
 /*
- * Get substring of a string
- * NOTE: The position starts from 1 (not from 0)
- * */
-static 
-char *substring(char *string, int position, int length) 
-{
-	char *pointer;
-	int c;
-
-	pointer = malloc(length+1);
-
-	if (pointer == NULL)
-	{
-		throw(RDF, "rdf_shredder.substring", "Memory allocation failed!");
-	}
-
-	for (c = 0 ; c < position -1 ; c++) 
-		string++; 
-
-	for (c = 0 ; c < length ; c++)
-	{
-		*(pointer+c) = *string;      
-		string++;   
-	}
-
-	*(pointer+c) = '\0';
-
-	return pointer;
-}
-
-static
-char isInt(char *input, int len){
-	
-	int 	i;
-	//int	len = strlen(input);
-	//printf("... Checking value %s with len %d \n", input, len);
-	for(i = 0; i < len; i++)
-	{
-		if(isdigit(input[i]) == 0){ // May also check ispunct(string[i]) != 0 
-			//printf("NOT A DIGIT \n");
-			break;
-		}
-	}
-	//printf("i is %d \n",i);
-	if(i == len)
-		return 1;
-	else
-		return 0;
-}
-
-int getIntFromRDFString(str input){
-	int i; 
-	int ret; 
-	char *tmpStr; 
-
-	assert(input[0] == '\"');
-	
-	//Find the second quote
-	i = 1; 
-	while (input[i] != '\"'){
-		i++; 
-	}
-	//input[i] = '\0';
-	//input++;
-	tmpStr = substring(input, 2, i - 1);
-	//printf("INT: Input after extraction %s \n", tmpStr);	
-	ret = atoi(tmpStr);
-	//printf("return value: %d \n",ret); 
-	free(tmpStr); 
-	return ret; 
-}
-
-float getFloatFromRDFString(str input){
-	int i; 
-	float ret; 
-	char *tmpStr; 
-
-	assert(input[0] == '\"');
-	
-	//Find the second quote
-	i = 1; 
-	while (input[i] != '\"'){
-		i++; 
-	}
-	//input[i] = '\0';
-	//input++;
-	tmpStr = substring(input, 2, i - 1);
-	//printf("FLOAT: Input after extraction %s \n", tmpStr);
-	ret = atof(tmpStr); 
-	//printf("return value: %f \n",ret); 
-	return ret; 
-}
-
-str getDateTimeFromRDFString(str input){
-
-	int i; 
-	char *tmpStr; 
-	assert(input[0] == '\"');
-	
-	//Find the second quote
-	i = 1; 
-	while (input[i] != '\"'){
-		i++; 
-	}
-	//input[i] = '\0';
-	//input++;
-	tmpStr = substring(input, 2, i - 1);
-	//printf("DATETIME: Input after extraction %s \n", tmpStr);
-
-	return tmpStr; 
-}
-
-/*
-static
-char isIntWithQuote(char *input, int len){	// "123123" ==> INT
-	
-	int 	i;
-	if (len < 3) return 0;
-	for(i = 1; i < len-1; i++)
-	{
-		if(isdigit(input[i]) == 0){ // May also check ispunct(string[i]) != 0 
-			//printf("NOT A DIGIT \n");
-			break;
-		}
-	}
-	//printf("i is %d \n",i);
-	if(i == len)
-		return 1;
-	else
-		return 0;
-}
-*/
-
-/*
 * Get the specific type of the object value in an RDF triple
 * The URI object can be recoginized by raptor parser. 
 * If the object value is not an URI ==> it is a literal, and 
@@ -348,7 +215,7 @@ getObjectType(unsigned char* objStr, BUN *realNumValue){
 			else 
 				obType = STRING;	
 
-			free(valuepart); 
+			GDKfree(valuepart); 
 
 		}
 		else if ((pos = strstr((str) endpart, "XMLSchema#float>")) != NULL 

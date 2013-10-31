@@ -57,26 +57,9 @@ TKNZRrdf2str (bat *res, bat *bid, bat *map);
 rdf_export str
 RDFpartialjoin (bat *res, bat *lmap, bat *rmap, bat *input); 
 
-rdf_export int
-getIntFromRDFString(str input); 
-
-rdf_export float
-getFloatFromRDFString(str input); 
-
-rdf_export str
-getDateTimeFromRDFString(str input); 
-
 #define RDF_MIN_LITERAL (((oid) 1) << ((sizeof(oid)==8)?59:27))
 
-typedef enum {
-	URI,		
-	DATETIME, 
-	INTEGER,
-	FLOAT,	
-	STRING,
-	BLANKNODE,
-	MULTIVALUES		// For the multi-value property 
-} ObjectType; 
+
 
 #define IS_DUPLICATE_FREE 0		/* 0: Duplications have not been removed, otherwise 1 */
 #define IS_COMPACT_TRIPLESTORE 1	/* 1: Only keep SPO for triple store */
