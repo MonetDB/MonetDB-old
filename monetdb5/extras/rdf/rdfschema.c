@@ -5932,10 +5932,14 @@ void fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, 
 		//printf("Append null to main table: Col: %d \n", colIdx);
 		BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
 	}
+
+	//"Append null to not to-be-inserted col in main table: Col: %d \n", colIdx
+	// MOVE OUT as we want to consider whether we can use the casted value instead of NULL value
+	/*
 	if (tblType != MAINTBL){
-		//printf("Append null to not to-be-inserted col in main table: Col: %d \n", colIdx);
 		BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
 	}
+	*/
 	for (i = 0; i < (MULTIVALUES + 1); i++){
 		if (csPropTypes[tblIdx].lstPropTypes[colIdx].TableTypes[i] == TYPETBL){
 			tmpColExIdx = csPropTypes[tblIdx].lstPropTypes[colIdx].colIdxes[i]; 
@@ -6288,10 +6292,20 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		fillMissingValueByNils(cstablestat, csPropTypes, tblIdx, tmpColIdx, tmpColExIdx, tmpTableType, tmplastInsertedS + 1, (int)tmpSoid);
 		
 		getRealValue(&vrRealObjValue, *obt, objType, mi, mbat);
+
+		if (tmpTableType != MAINTBL){	//Check whether it can be casted to the default type
+			tmpBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
+			if (rdfcast(objType, defaultType, &vrRealObjValue, &vrCastedObjValue) == 1){
+				//printf("Casted a value (type: %d) to tables %d col %d (type: %d)  \n", objType, tblIdx,tmpColIdx,defaultType);
+				BUNappend(tmpBat, VALget(&vrCastedObjValue), TRUE);
+			}
+			else{
+				BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
+			}
+
+			VALclear(&vrCastedObjValue);
+		}
 		
-		//if (objType == STRING) printf("Value returned by getRealValue is %s \n", (char*)realObjValue);
-		//BUNappend(curBat, obt, TRUE); 
-		//BUNappend(curBat, (ptr) realObjValue, TRUE); 
 		BUNappend(curBat, VALget(&vrRealObjValue), TRUE);
 		
 		VALclear(&vrRealObjValue);
