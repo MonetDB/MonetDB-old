@@ -272,7 +272,7 @@ createView:
 
 	if (createIndex==1)
 	{
-		MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
+		MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
 		createIndex=0;	
 	}
 
@@ -305,23 +305,11 @@ createView:
 	//struct timeval tv0, tv1;
 	//double wt=0, ct=0;
 	bit copy=TRUE;	
-	FILE *ofp,*file;
+	FILE *ofp;
 	char *outputFilename1;
- 	char filename[150];
-	lng t0 = GDKusec();
-
+	int mod_bid=0;
 
 	//gettimeofday(&tv0,0);
-
-	snprintf (filename, sizeof(filename), "/export/scratch2/petraki/experiments_paper1/concurrency/multiple_clients/select/client8/%d.txt", getpid());
-
-	file = fopen(filename,"a");
-	if (file == NULL) {
-  		fprintf(stderr, "Can't open thread file!\n");
-  		exit(1);
-	}
-	fprintf(file,"timestamp=\t" LLFMT "\t0\n",t0);
-	fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
 
 	outputFilename1 = getenv("SELECT_PL");
 	if (outputFilename1 == NULL){
@@ -334,19 +322,12 @@ createView:
   		fprintf(stderr, "Can't open output file!\n");
   		exit(1);
 	}
+	
+	mod_bid=ABS(*bid)%LOCKS;
 
-
-	t0 = GDKusec();
-	fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
-	fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
-
-	MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
+	MT_lock_set(&CRKIndexLock[mod_bid],"Cracker Index Lock");
 
 	//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
-	t0 = GDKusec();
-	fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
-	fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
-
 
 	/*if (@2_GT(low,hgh,@3@1))
 		throw(MAL, "crackers.crack", "illegal range");*/
@@ -519,22 +500,12 @@ createView:
 	}
 		
 
-	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
-	t0 = GDKusec();
-	fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
-	fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
-
+	MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
 	//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+
 	retry:;
-	t0 = GDKusec();
-	fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
-	fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
 
 	pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
-
-	t0 = GDKusec();
-	fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
-	fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
 
 	//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 
@@ -590,40 +561,22 @@ createView:
 	index then we have to crack */
 	if (foundLow == 0 || foundHgh == 0) {
 		 if (foundLow == 0) {
-			t0 = GDKusec();
-			fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
-			fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
 			pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
 			//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
-			t0 = GDKusec();
-			fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
-			fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
 			lowNode = findNodeL_@1(*low, TRUE, CrackerIndex[m].Tree, c, idxFirst, NULL);
 			plock = (lowNode == NULL)? &CRKFirstPieceRWLock : &lowNode->pieceLock;
 			if (pthread_rwlock_trywrlock(plock)){
 				pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 				//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-				t0 = GDKusec();
-				fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
-				fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
 				pthread_rwlock_wrlock(plock);
 				//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
-				t0 = GDKusec();
-				fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
-				fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
 				pthread_rwlock_unlock(plock);
 				goto retry;	// some other thread might already crack on low, try to find it again
 			}
 			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 			@:crkTwoLTree@5(@1,@5)@
 			//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-			t0 = GDKusec();
-			fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
-			fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
 			pthread_rwlock_wrlock(&CrackerIndex[m].columnRWLock);
-			t0 = GDKusec();
-			fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
-			fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
 			//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 			t = (int *) Tloc(b, BUNfirst(b));
 			if (IndexSize < IndexStop) {
@@ -642,41 +595,23 @@ createView:
 		}
 		//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 		if (foundHgh == 0) {
-			t0 = GDKusec();
-			fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
-			fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
 			pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
 			//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
-			t0 = GDKusec();
-			fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
-			fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
 			lowNode = findNodeL_@1(*hgh, TRUE, CrackerIndex[m].Tree, c, idxFirst, NULL);
 			plock = (lowNode == NULL)? &CRKFirstPieceRWLock : &lowNode->pieceLock;
 			if (pthread_rwlock_trywrlock(plock)){
 				pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 				//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-				t0 = GDKusec();
-				fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
-				fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
 				pthread_rwlock_wrlock(plock);
 				//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
-				t0 = GDKusec();
-				fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
-				fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
 				pthread_rwlock_unlock(plock);
 				goto retry;	// some other thread might already crack on low, try to find it again
 			}
 			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
 			@:crkTwoRTree@5(@1,@5)@
 			//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-			t0 = GDKusec();
-			fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
-			fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
 			pthread_rwlock_wrlock(&CrackerIndex[m].columnRWLock);
 			//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
-			t0 = GDKusec();
-			fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
-			fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
 
 			t = (int *) Tloc(b, BUNfirst(b));
 			if (IndexSize < IndexStop)
@@ -704,16 +639,8 @@ createView:
 	posh = BUNlast(b)-1;
 	idxFirst = BUNfirst(c);
 
-	
-	t0 = GDKusec();
-	fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
-	fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
-
 	pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
 	//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
-	t0 = GDKusec();
-	fprintf(file,"timestamp=\t" LLFMT "\t1\n",t0);
-	fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
 	lowNode = findNodeL_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, idxFirst, NULL);
 	if (lowNode == NULL){
 		lowNodeNext = NULL;
@@ -748,14 +675,10 @@ createView:
 
 	if (createIndex==1)
 	{
-		MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
+		MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
 		createIndex=0;	
 	}
 
-	t0 = GDKusec();
-	fprintf(file,"timestamp=\t" LLFMT "\t2\n",t0);
-	fprintf(file,"timestamp=\t" LLFMT "\t0\n",t0);
-	fclose(file);
 	/*fprintf(ofp,"User_query \t 1 \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Low= \t %d \t High= \t %d \n",wt,ct,(int)*low,(int)*hgh);*/
 	fclose(ofp);
 	return MAL_SUCCEED;
@@ -1181,8 +1104,11 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	struct Node *lowNode=NULL;
 	pthread_rwlock_t *plock=0;
 	BUN idxFirst = BUN_NONE;
+	int mod_bid=0;
 
-        MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
+	mod_bid=ABS(*bid)%LOCKS;
+
+        MT_lock_set(&CRKIndexLock[mod_bid],"Cracker Index Lock");
 
 	if (*inclusiveHgh == TRUE) HBound = FALSE;
 	else	HBound = TRUE; 				
@@ -1255,7 +1181,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 
 	idxFirst = BUNfirst(c);
 
-	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
+	MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
 
 	vl = BUNfirst(b);
 
@@ -1307,7 +1233,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 
         if (createIndex==1)
         {
-                MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
+                MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
                 createIndex=0;
         }
 
@@ -1328,8 +1254,11 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
         struct Node *lowNode=NULL;
 	pthread_rwlock_t *plock=0;
         BUN idxFirst = BUN_NONE;
+	int mod_bid=0;
 
-        MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
+	mod_bid=ABS(*bid)%LOCKS;
+
+        MT_lock_set(&CRKIndexLock[mod_bid],"Cracker Index Lock");
 
 	m = existsCrackerIndex(*bid);
 
@@ -1399,7 +1328,7 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 
 	idxFirst = BUNfirst(c);
 
-	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
+	MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
 
 	vh = BUNlast(b)-(oid)1;
 
@@ -1459,7 +1388,7 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 
         if (createIndex==1)
         {
-                MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
+                MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
                 createIndex=0;
         }
 

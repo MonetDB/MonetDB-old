@@ -23,6 +23,8 @@
 #include "mal.h"
 #include "mal_client.h"
 
+#define LOCKS 64
+
 typedef struct frequency{
 
 	int 		bid;   		/* The base BAT */
@@ -37,7 +39,7 @@ typedef struct frequency{
 
 typedef  str (*IdleFuncPtr)(int *);
 crackers_export MT_Lock frequencylock;
-crackers_export MT_Lock CRKIndexLock;
+crackers_export MT_Lock CRKIndexLock[LOCKS];
 crackers_export pthread_rwlock_t CRKFirstPieceRWLock;
 
 crackers_export FrequencyNode *getFrequencyStruct(char which);
