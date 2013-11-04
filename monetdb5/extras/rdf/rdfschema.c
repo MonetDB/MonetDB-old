@@ -354,6 +354,72 @@ void printCSrelSet(CSrel *csrelSet, CSset *freqCSset,  int num,  int freqThresho
 }
 
 
+static 
+void getOrigRefCount(CSrel *csrelSet, int num,  int* refCount){
+
+	int 	i, j; 
+	int	freqId; 
+
+	for (i = 0; i < num; i++){
+		if (csrelSet[i].numRef != 0){	
+			for (j = 0; j < csrelSet[i].numRef; j++){
+				freqId = csrelSet[i].lstRefFreqIdx[j]; 
+				//Do not count the self-reference
+				if (freqId != i) refCount[freqId] += csrelSet[i].lstCnt[j];
+			}	
+		}
+	}
+
+}
+
+/* Get the number of indirect references to a CS */
+static 
+void getIRNums(CSrel *csrelSet, int num,  int* refCount, float *curIRScores, int noIter){
+
+	int 	i, j, k; 
+	int	freqId; 
+	float	*lastIRScores;
+	
+	lastIRScores = (float *) malloc(sizeof(float) * num);
+	for (i = 0; i < num; i++){
+		curIRScores[i] = 0.0; 
+		lastIRScores[i] = 0.0; 
+	}
+   
+	for (k = 0; k < noIter; k++){
+		for (i = 0; i < num; i++){
+			curIRScores[i] = 0.0;
+		}
+		for (i = 0; i < num; i++){
+			if (csrelSet[i].numRef != 0){	
+				for (j = 0; j < csrelSet[i].numRef; j++){
+					freqId = csrelSet[i].lstRefFreqIdx[j]; 
+
+					if (freqId != i){	//Do not count the self-reference
+						curIRScores[freqId] += (lastIRScores[i] * (float)csrelSet[i].lstCnt[j]/(float)refCount[freqId] +  csrelSet[i].lstCnt[j]);
+					}
+				}	
+			}
+		}
+		
+		//Update the last Indirect reference scores
+		for (i = 0; i < num; i++){
+			lastIRScores[i] = curIRScores[i]; 
+		}
+
+		/*
+		printf(" ======== After %d iteration \n", k); 
+		for (i = 0; i < num; i++){
+			printf("IR score[%d] is %f \n", i, curIRScores[i]);
+		}
+		*/
+	}
+	
+
+
+	free(lastIRScores);
+}
+
 #if NEEDSUBCS
 static 
 void setdefaultSubCSs(SubCSSet *subcsset, int num, BAT *sbat, oid *subjSubCSMap,oid *subjCSMap, char *subjdefaultMap){
@@ -5220,6 +5286,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	int		curNumMergeCS = 0; 
 	int 		tmpNumRel = 0;
 	CSrel		*tmpCSrelToMergeCS = NULL; 
+	float		*curIRScores = NULL; 
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
@@ -5347,6 +5414,23 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 	printFreqCSSet(freqCSset, csBats->freqBat, mbat, 1, *freqThreshold, *labels); 
 
+	/* Get the number of indirect refs in order to detect dimension table */
+	refCount = (int *) malloc(sizeof(int) * (freqCSset->numCSadded));
+	curIRScores = (float *) malloc(sizeof(float) * (freqCSset->numCSadded));
+	
+	initIntArray(refCount, freqCSset->numCSadded, 0); 
+
+	getOrigRefCount(csrelSet, freqCSset->numCSadded, refCount);  
+	getIRNums(csrelSet, freqCSset->numCSadded, refCount, curIRScores,NUM_ITERATION_FOR_IR);  
+
+	free(refCount); 
+	free(curIRScores);
+
+	curT = clock(); 
+	printf("Get number of indirect referrences to detect dimension tables !!! Took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT;
+	/*------------------------------------*/
+	
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	printf("Before using rules: Number of freqCS is: %d \n",curNumMergeCS);
 

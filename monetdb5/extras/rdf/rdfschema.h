@@ -119,6 +119,8 @@ typedef struct PropStat {
 					*/
 #define INFREQ_TYPE_THRESHOLD  0.1	/* Threshold that a type is consider as an infrequent type */
 
+#define	NUM_ITERATION_FOR_IR 	3	/* Number of iteration for indirect referrences to a CS (table) */
+
 typedef struct CS
 {
 	oid 	csId;		//Id of the CS
