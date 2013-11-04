@@ -420,6 +420,25 @@ void getIRNums(CSrel *csrelSet, int num,  int* refCount, float *curIRScores, int
 	free(lastIRScores);
 }
 
+
+static 
+void updateFreqCStype(CSset *freqCSset, int num,  float *curIRScores, int *refCount){
+
+	int 	i; 
+	int	numDimensionCS = 0; 
+
+	for (i = 0; i < num; i++){
+		if (refCount[i] < freqCSset->items[i].support) continue; 
+		if (curIRScores[i] < IR_DIMENSION_THRESHOLD) continue; 
+
+		freqCSset->items[i].type = DIMENSIONCS;
+		numDimensionCS++;
+	}
+
+	printf("There are %d dimension CSs \n", numDimensionCS); 
+
+}
+
 #if NEEDSUBCS
 static 
 void setdefaultSubCSs(SubCSSet *subcsset, int num, BAT *sbat, oid *subjSubCSMap,oid *subjCSMap, char *subjdefaultMap){
@@ -1420,7 +1439,6 @@ int* getDistinctList(int *lstMergeCSFreqId, int num, int *numDistinct){
 	return lstDistinctFreqId; 
 
 }
-
 
 /* Calculate number of consistsOf in the merged CS 
  and  Update support and coverage: Total of all suppors */
@@ -2491,6 +2509,10 @@ void mergeCSbyS4(CSset *freqCSset, CSlabel** labels, oid *mergeCSFreqCSMap, int 
 	for (i = 0; i < numMergeCS; i++){
 		freqId1 = mergeCSFreqCSMap[i]; 
 		if (freqCSset->items[freqId1].parentFreqIdx != -1) continue;
+		#if	NOT_MERGE_DIMENSIONCS
+		if (freqCSset->items[freqId1].type == DIMENSIONCS) continue; 
+		#endif
+
 		#if USE_LABEL_FINDING_MAXCS
 		isLabelComparable = 0;
 		if ((*labels)[i].name != BUN_NONE) isLabelComparable = 1; // no "DUMMY"
@@ -2498,6 +2520,10 @@ void mergeCSbyS4(CSset *freqCSset, CSlabel** labels, oid *mergeCSFreqCSMap, int 
 
 		for (j = (i+1); j < numMergeCS; j++){
 			freqId2 = mergeCSFreqCSMap[j];
+			#if	NOT_MERGE_DIMENSIONCS
+			if (freqCSset->items[freqId2].type == DIMENSIONCS) continue; 
+			#endif
+
 			isDiffLabel = 0; 
 			#if USE_LABEL_FINDING_MAXCS
 			if (isLabelComparable == 0 || strcmp((*labels)[freqId1].name, (*labels)[freqId2].name) != 0) {
@@ -3182,6 +3208,9 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 			for (j = k+1; j < labelStat->lstCount[i]; j++){
 				freqId2 = labelStat->freqIdList[i][j];
 				cs2 = &(freqCSset->items[freqId2]);
+				#if	NOT_MERGE_DIMENSIONCS
+				if (cs2->type == DIMENSIONCS) continue; 
+				#endif
 				if ((*labels)[freqId2].isOntology == 1){
 					doMerge(freqCSset, S1, cs1, cs2, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name);
 					tmpCount++;
@@ -3199,6 +3228,9 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 			for (j = k+1; j < labelStat->lstCount[i]; j++){
 				freqId2 = labelStat->freqIdList[i][j];
 				cs2 = &(freqCSset->items[freqId2]);
+				#if	NOT_MERGE_DIMENSIONCS
+				if (cs2->type == DIMENSIONCS) continue; 
+				#endif
 				if ((*labels)[freqId2].isType == 1){
 					doMerge(freqCSset, S1, cs1, cs2, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name);
 					tmpCount++;
@@ -3216,6 +3248,9 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 			for (j = k+1; j < labelStat->lstCount[i]; j++){
 				freqId2 = labelStat->freqIdList[i][j];
 				cs2 = &(freqCSset->items[freqId2]);
+				#if	NOT_MERGE_DIMENSIONCS
+				if (cs2->type == DIMENSIONCS) continue; 
+				#endif
 				if ((*labels)[freqId2].isFK == 1){
 					doMerge(freqCSset, S1, cs1, cs2, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name);
 					tmpCount++;
@@ -3269,11 +3304,7 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 	int 		j, k; 
 	#if 		!USE_MULTIWAY_MERGING
 	int 		freqId1, freqId2;
-	int 		m; 
-	CS     		*mergecs;
-	int		existMergecsId; 
 	CS		*cs1, *cs2;
-	CS		*existmergecs, *mergecs1, *mergecs2; 
 	#else
 	int		*lstDistinctFreqId = NULL;		
 	int		numDistinct = 0;
@@ -3285,6 +3316,7 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 	FILE		*fout; 
 	int		maxNumPropInMergeCS =0;
 	//int 		numCombinedP = 0; 
+	int		startIdx = 0; 
 	
 	printf("Start merging CS by using S6 \n");
 
@@ -3329,54 +3361,31 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 						updateLabel(S5, freqCSset, labels, isNew, mergeFreqIdx, -1, -1, BUN_NONE, ontmetadata, ontmetadataCount, lstDistinctFreqId, numDistinct);
 					}
 					#else
-					freqId1 = csRelSum->freqIdList[j][0];
+
+					startIdx = 0;
+					#if	NOT_MERGE_DIMENSIONCS
+					while(startIdx < csRelSum->numPropRef[j]) {
+						freqId1 = csRelSum->freqIdList[j][startIdx];
+						cs1 = (CS*) &(freqCSset->items[freqId1]);
+						if (cs1->type == DIMENSIONCS) 
+							startIdx++;
+						else 
+							break;
+					}
+					#else
+					freqId1 = csRelSum->freqIdList[j][startIdx];
 					cs1 = (CS*) &(freqCSset->items[freqId1]);
-					for (k = 1; k < csRelSum->numPropRef[j]; k++){
+					#endif
+
+					for (k = (startIdx+1); k < csRelSum->numPropRef[j]; k++){
 						freqId2 = csRelSum->freqIdList[j][k];
 						cs2 = (CS*) &(freqCSset->items[freqId2]);
-						//Check whether these CS's belong to any mergeCS
-						if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx == -1){	/* New merge */
-							mergecs = mergeTwoCSs(*cs1,*cs2, freqId1,freqId2, *mergecsId);
-							//addmergeCStoSet(mergecsSet, *mergecs);
-							cs1->parentFreqIdx = freqCSset->numCSadded;
-							cs2->parentFreqIdx = freqCSset->numCSadded;
-							//printf("Merge into %d \n", freqCSset->numCSadded);
-							addCStoSet(freqCSset,*mergecs);
-							free(mergecs);
 
-							mergecsId[0]++;
-							updateLabel(S5, freqCSset, labels, 1, freqCSset->numCSadded - 1, freqId1, freqId2, BUN_NONE, ontmetadata, ontmetadataCount, NULL, -1);
-						}
-						else if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx != -1){
-							existMergecsId = cs2->parentFreqIdx;
-							existmergecs = (CS*) &(freqCSset->items[existMergecsId]);
-							mergeACStoExistingmergeCS(*cs1,freqId1, existmergecs);
-							cs1->parentFreqIdx = existMergecsId; 
-							//printf("Merge into "BUNFMT" \n", existMergecsId);
-							updateLabel(S5, freqCSset, labels, 0, existMergecsId, freqId1, freqId2, BUN_NONE, ontmetadata, ontmetadataCount, NULL, -1);
-							
-						}
-						
-						else if (cs1->parentFreqIdx != -1 && cs2->parentFreqIdx == -1){
-							existMergecsId = cs1->parentFreqIdx;
-							existmergecs = (CS*)&(freqCSset->items[existMergecsId]);
-							mergeACStoExistingmergeCS(*cs2,freqId2, existmergecs);
-							cs2->parentFreqIdx = existMergecsId; 
-							//printf("Merge into "BUNFMT" \n", existMergecsId);
-							updateLabel(S5, freqCSset, labels, 0, existMergecsId, freqId1, freqId2, BUN_NONE, ontmetadata, ontmetadataCount, NULL, -1);
-						}
-						else if (cs1->parentFreqIdx != cs2->parentFreqIdx){
-							mergecs1 = (CS*)&(freqCSset->items[cs1->parentFreqIdx]);
-							mergecs2 = (CS*)&(freqCSset->items[cs2->parentFreqIdx]);
-							
-							mergeTwomergeCS(mergecs1, mergecs2, cs1->parentFreqIdx);
-							//printf("Merge into %d \n", cs1->parentFreqIdx);
-							//Re-map for all maxCS in mergecs2
-							for (m = 0; m < mergecs2->numConsistsOf; m++){
-								freqCSset->items[mergecs2->lstConsistsOf[m]].parentFreqIdx = cs1->parentFreqIdx;
-							}
-							updateLabel(S5, freqCSset, labels, 0, cs1->parentFreqIdx, freqId1, freqId2, BUN_NONE, ontmetadata, ontmetadataCount, NULL, -1);
-						}
+						#if	NOT_MERGE_DIMENSIONCS
+						if (cs2->type == DIMENSIONCS) continue; 
+						#endif
+
+						doMerge(freqCSset, S5, cs1, cs2, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, BUN_NONE);
 
 					}
 
@@ -3514,9 +3523,16 @@ void mergeCSByS3S5(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, in
 		if ((*labels)[freqId1].name != BUN_NONE) isLabelComparable = 1; // no "DUMMY"
 
 		cs1 = (CS*) &(freqCSset->items[freqId1]);
+				
+		#if	NOT_MERGE_DIMENSIONCS
+		if (cs1->type == DIMENSIONCS) continue; 
+		#endif
 	 	for (j = (i+1); j < curNumMergeCS; j++){
 			freqId2 = mergeCSFreqCSMap[j];
 			cs2 = (CS*) &(freqCSset->items[freqId2]);
+			#if	NOT_MERGE_DIMENSIONCS
+			if (cs2->type == DIMENSIONCS) continue; 
+			#endif
 			isSameLabel = 0; 
 
 			#if	USE_LABEL_FOR_MERGING
@@ -4342,7 +4358,9 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 }
 
 
-
+/* 
+ * Add highly referred CS to freqCSset, and update the frequency + coverage for each freqCS
+ * */
 static
 str addHighRefCSsToFreqCS(BAT *pOffsetBat, BAT *freqBat, BAT *coverageBat, BAT *fullPBat, 
 		int* refCount, CSset *freqCSset, int *csIdFreqIdxMap, int numCS, int threshold){
@@ -5359,7 +5377,9 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	refCount = (int *) malloc(sizeof(int) * (*maxCSoid + 1));
 	initIntArray(refCount, (*maxCSoid + 1), 0); 
 	RDFgetRefCounts(ret, sbat, si, pi,oi, *subjCSMap, maxNumProp, *maxSoid, refCount);
+
 	addHighRefCSsToFreqCS(csBats->pOffsetBat, csBats->freqBat, csBats->coverageBat, csBats->fullPBat, refCount, freqCSset, csIdFreqIdxMap, *maxCSoid + 1, HIGH_REFER_THRESHOLD * (*freqThreshold)); 
+
 	free(refCount);
 	curT = clock();
 	printf (" ----- Counting references and adding highly referred CS's took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
@@ -5421,7 +5441,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	initIntArray(refCount, freqCSset->numCSadded, 0); 
 
 	getOrigRefCount(csrelSet, freqCSset->numCSadded, refCount);  
-	getIRNums(csrelSet, freqCSset->numCSadded, refCount, curIRScores,NUM_ITERATION_FOR_IR);  
+	getIRNums(csrelSet, freqCSset->numCSadded, refCount, curIRScores, NUM_ITERATION_FOR_IR);  
+	updateFreqCStype(freqCSset, freqCSset->numCSadded, curIRScores, refCount);
 
 	free(refCount); 
 	free(curIRScores);

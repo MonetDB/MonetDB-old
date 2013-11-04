@@ -52,7 +52,8 @@ typedef enum {
 	NORMALCS, 
 	FREQCS, 
 	MAXCS, 
-	MERGECS
+	MERGECS,
+	DIMENSIONCS
 } CStype; 
 
 typedef struct {
@@ -119,7 +120,15 @@ typedef struct PropStat {
 					*/
 #define INFREQ_TYPE_THRESHOLD  0.1	/* Threshold that a type is consider as an infrequent type */
 
+
+
+/* ---- For detecting dimension table */
 #define	NUM_ITERATION_FOR_IR 	3	/* Number of iteration for indirect referrences to a CS (table) */
+
+#define IR_DIMENSION_THRESHOLD	100000	/* Score of indirect references that the CS can be considered as a dimension CS 
+					   Number of IR references should be several times larger than the CS frequency
+					*/
+#define NOT_MERGE_DIMENSIONCS	1
 
 typedef struct CS
 {
