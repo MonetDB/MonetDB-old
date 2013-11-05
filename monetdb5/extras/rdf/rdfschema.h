@@ -125,9 +125,10 @@ typedef struct PropStat {
 /* ---- For detecting dimension table */
 #define	NUM_ITERATION_FOR_IR 	3	/* Number of iteration for indirect referrences to a CS (table) */
 
-#define IR_DIMENSION_THRESHOLD	100000	/* Score of indirect references that the CS can be considered as a dimension CS 
-					   Number of IR references should be several times larger than the CS frequency
-					*/
+#define IR_DIMENSION_THRESHOLD_PERCENTAGE	0.02	/* Score of indirect references that the CS can be considered as a dimension CS 
+							   IR_DIMENSION_THRESHOLD_PERCENTAGE * totalFrequency
+							   Number of IR references should be several times larger than the CS frequency
+							*/
 #define NOT_MERGE_DIMENSIONCS	1
 
 #define FILTER_INFREQ_FK_FOR_IR	1		/* We filter out all the dirty references from a CS */
@@ -210,6 +211,8 @@ typedef struct SubCSSet{
 
 #define	MIN_FK_FREQUENCY 	0.1	// The frequency of a FK should be > MIN_FK_FREQUENCY * The frequency of a mergedCS (or the number of tuples in one table)	
 #define MIN_FK_PROPCOVERAGE	0.9	// The FK needs to happen in MIN_FK_PROPCOVERAGE of all instances of the particular property
+
+#define EXPORT_LABEL		0	/* Export labels: TODO: Only disable the  */
 
 typedef struct CSset{
 	CS* items;

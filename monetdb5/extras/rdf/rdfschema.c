@@ -432,10 +432,17 @@ void updateFreqCStype(CSset *freqCSset, int num,  float *curIRScores, int *refCo
 
 	int 	i; 
 	int	numDimensionCS = 0; 
-
+	int 	totalSupport = 0; 	/* Total CS frequency */
+	float	threshold  = 0.0; 
+	
+	for (i = 0; i < num; i++){	
+		totalSupport += freqCSset->items[i].support; 
+	}
+	threshold = (float)totalSupport * IR_DIMENSION_THRESHOLD_PERCENTAGE; 
+	printf("Total support %d --> Threshold for dimension table is: %f \n", totalSupport, threshold);
 	for (i = 0; i < num; i++){
 		if (refCount[i] < freqCSset->items[i].support) continue; 
-		if (curIRScores[i] < IR_DIMENSION_THRESHOLD) continue; 
+		if (curIRScores[i] < threshold) continue; 
 
 		freqCSset->items[i].type = DIMENSIONCS;
 		//printf("A dimension CS with IR score = %f \n", curIRScores[i]);
@@ -6571,7 +6578,10 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	// print labels
 	printf("Start exporting labels \n"); 
+	
+	#if EXPORT_LABEL
 	exportLabels(labels, freqCSset, csRelMergeFreqSet, *freqThreshold);
+	#endif
 
 
 	curT = clock(); 
