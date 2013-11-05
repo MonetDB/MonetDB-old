@@ -401,7 +401,8 @@ void getIRNums(CSrel *csrelSet, CSset *freqCSset, int num,  int* refCount, float
 					if (csrelSet[i].lstCnt[j] < FILTER_THRESHOLD_FK_FOR_IR * freqCSset->items[freqId].support) continue; 
 					#endif
 					if (freqId != i){	//Do not count the self-reference
-						curIRScores[freqId] += (lastIRScores[i] * (float)csrelSet[i].lstCnt[j]/(float)refCount[freqId] +  csrelSet[i].lstCnt[j]);
+						//curIRScores[freqId] += (lastIRScores[i] * (float)csrelSet[i].lstCnt[j]/(float)refCount[freqId]) +  csrelSet[i].lstCnt[j];
+						curIRScores[freqId] += (lastIRScores[i] * (float)csrelSet[i].lstCnt[j]/(float)refCount[freqId] * (float)csrelSet[i].lstCnt[j]/freqCSset->items[i].support) +  csrelSet[i].lstCnt[j];
 					}
 				}	
 			}
@@ -437,6 +438,7 @@ void updateFreqCStype(CSset *freqCSset, int num,  float *curIRScores, int *refCo
 		if (curIRScores[i] < IR_DIMENSION_THRESHOLD) continue; 
 
 		freqCSset->items[i].type = DIMENSIONCS;
+		//printf("A dimension CS with IR score = %f \n", curIRScores[i]);
 		numDimensionCS++;
 	}
 
