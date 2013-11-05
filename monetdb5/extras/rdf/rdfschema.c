@@ -355,7 +355,7 @@ void printCSrelSet(CSrel *csrelSet, CSset *freqCSset,  int num,  int freqThresho
 
 
 static 
-void getOrigRefCount(CSrel *csrelSet, int num,  int* refCount){
+void getOrigRefCount(CSrel *csrelSet, CSset *freqCSset, int num,  int* refCount){
 
 	int 	i, j; 
 	int	freqId; 
@@ -364,6 +364,9 @@ void getOrigRefCount(CSrel *csrelSet, int num,  int* refCount){
 		if (csrelSet[i].numRef != 0){	
 			for (j = 0; j < csrelSet[i].numRef; j++){
 				freqId = csrelSet[i].lstRefFreqIdx[j]; 
+				#if FILTER_INFREQ_FK_FOR_IR
+				if (csrelSet[i].lstCnt[j] < FILTER_THRESHOLD_FK_FOR_IR * freqCSset->items[freqId].support) continue; 
+				#endif
 				//Do not count the self-reference
 				if (freqId != i) refCount[freqId] += csrelSet[i].lstCnt[j];
 			}	
@@ -374,7 +377,7 @@ void getOrigRefCount(CSrel *csrelSet, int num,  int* refCount){
 
 /* Get the number of indirect references to a CS */
 static 
-void getIRNums(CSrel *csrelSet, int num,  int* refCount, float *curIRScores, int noIter){
+void getIRNums(CSrel *csrelSet, CSset *freqCSset, int num,  int* refCount, float *curIRScores, int noIter){
 
 	int 	i, j, k; 
 	int	freqId; 
@@ -394,7 +397,9 @@ void getIRNums(CSrel *csrelSet, int num,  int* refCount, float *curIRScores, int
 			if (csrelSet[i].numRef != 0){	
 				for (j = 0; j < csrelSet[i].numRef; j++){
 					freqId = csrelSet[i].lstRefFreqIdx[j]; 
-
+					#if FILTER_INFREQ_FK_FOR_IR
+					if (csrelSet[i].lstCnt[j] < FILTER_THRESHOLD_FK_FOR_IR * freqCSset->items[freqId].support) continue; 
+					#endif
 					if (freqId != i){	//Do not count the self-reference
 						curIRScores[freqId] += (lastIRScores[i] * (float)csrelSet[i].lstCnt[j]/(float)refCount[freqId] +  csrelSet[i].lstCnt[j]);
 					}
@@ -5440,8 +5445,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 	initIntArray(refCount, freqCSset->numCSadded, 0); 
 
-	getOrigRefCount(csrelSet, freqCSset->numCSadded, refCount);  
-	getIRNums(csrelSet, freqCSset->numCSadded, refCount, curIRScores, NUM_ITERATION_FOR_IR);  
+	getOrigRefCount(csrelSet, freqCSset, freqCSset->numCSadded, refCount);  
+	getIRNums(csrelSet, freqCSset, freqCSset->numCSadded, refCount, curIRScores, NUM_ITERATION_FOR_IR);  
 	updateFreqCStype(freqCSset, freqCSset->numCSadded, curIRScores, refCount);
 
 	free(refCount); 

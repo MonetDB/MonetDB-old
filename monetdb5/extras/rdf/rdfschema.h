@@ -130,6 +130,12 @@ typedef struct PropStat {
 					*/
 #define NOT_MERGE_DIMENSIONCS	1
 
+#define FILTER_INFREQ_FK_FOR_IR	1		/* We filter out all the dirty references from a CS */
+#define FILTER_THRESHOLD_FK_FOR_IR	0.1	/* The FK that their frequency < FILTER_THRESHOLD_FK_FOR_IR * FreqCS's frequency */ 	
+
+/*------------------------------------*/
+
+
 typedef struct CS
 {
 	oid 	csId;		//Id of the CS
