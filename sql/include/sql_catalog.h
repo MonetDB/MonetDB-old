@@ -434,8 +434,7 @@ typedef enum table_types {
 	tt_merge_table = 3,	/* multiple tables form one table */
 	tt_stream = 4,		/* stream */
 	tt_remote = 5,		/* stored on a remote server */
-	tt_replica_table = 6,	/* multiple replica of the same table */
-	tt_actual_data_table = 7	/* dvf: a table that is never filled in */
+	tt_replica_table = 6	/* multiple replica of the same table */
 } table_types;
 
 #define isTable(x) 	  (x->type==tt_table)
@@ -445,8 +444,7 @@ typedef enum table_types {
 #define isStream(x)  	  (x->type==tt_stream)
 #define isRemote(x)  	  (x->type==tt_remote)
 #define isReplicaTable(x) (x->type==tt_replica_table)
-#define isActualDataTable(x) (x->type==tt_actual_data_table)
-#define isKindOfTable(x)  (isTable(x) || isMergeTable(x) || isRemote(x) || isReplicaTable(x) || isActualDataTable(x))
+#define isKindOfTable(x)  (isTable(x) || isMergeTable(x) || isRemote(x) || isReplicaTable(x))
 
 typedef struct sql_table {
 	sql_base base;

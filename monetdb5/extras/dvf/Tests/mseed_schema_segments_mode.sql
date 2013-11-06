@@ -54,7 +54,7 @@ CREATE VIEW mseed.dataview AS
 SELECT f.file_location, dataquality, network, station, location, channel, encoding, byte_order, s.segment_id, start_time, end_time, prev_gap, frequency, sample_count, sample_type, sample_time, sample_value
 FROM mseed.files AS f 
 	JOIN mseed.segments AS s
-		ON f.file_location = s.file_location 
+		ON f.file_location = s.file_location
 	JOIN mseed.data AS d 
 		ON s.file_location = d.file_location AND s.segment_id = d.segment_id;
 
