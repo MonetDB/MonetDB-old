@@ -578,6 +578,43 @@ find_basetable( sql_rel *r)
 	}
 }
 
+static bit 
+has_actual_data_table(sql_rel *rel)
+{
+	switch (rel->op) {
+		case op_basetable:
+		case op_table:
+			if(find_prop(rel->p, PROP_ACTUAL_DATA_NEEDED))
+				return TRUE;
+			break;
+		case op_join: 
+		case op_left: 
+		case op_right: 
+		case op_full: 
+			
+		case op_semi: 
+		case op_anti: 
+			
+		case op_union: 
+		case op_inter: 
+		case op_except: 
+			return (has_actual_data_table(rel->l) || has_actual_data_table(rel->r));
+		case op_project:
+		case op_select:
+		case op_groupby:
+		case op_topn:
+		case op_sample:
+		case op_ddl:
+			return has_actual_data_table(rel->l);
+		case op_insert:
+		case op_update:
+		case op_delete:
+			break;
+	}
+	
+	return FALSE;
+}
+
 static list *
 order_join_expressions(sql_allocator *sa, list *dje, list *rels)
 {
@@ -591,7 +628,8 @@ order_join_expressions(sql_allocator *sa, list *dje, list *rels)
 		sql_exp *e = n->data;
 
 		keys[i] = exp_keyvalue(e);
-		/* add some weight for the selections */
+		
+		/* add some weight for the selections and remove some weight for the actual data table */
 		if (e->type == e_cmp && !is_complex_exp(e->flag)) {
 			sql_rel *l = find_rel(rels, e->l);
 			sql_rel *r = find_rel(rels, e->r);
@@ -600,6 +638,10 @@ order_join_expressions(sql_allocator *sa, list *dje, list *rels)
 				keys[i] += list_length(l->exps)*10;
 			if (r && is_select(r->op) && r->exps)
 				keys[i] += list_length(r->exps)*10;
+			if(has_actual_data_table(l))
+				keys[i] += -10000;
+			if(has_actual_data_table(r))
+				keys[i] += -10000;
 		}
 		pos[i] = i;
 	}
