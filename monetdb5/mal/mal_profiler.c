@@ -1373,10 +1373,11 @@ void HeartbeatCPUload(void *arg)
 		while(1){
 			(void) getCPULoad(cpuload);
 			load = corestat[256].load;
-			if ( load >= 0 && load <= 100.0 && load < threshold){
+			if ( load >= 0 && load <= 100.0 && load <= threshold){
 				N = (int) (load * max_threads) / 100.0;
 				n = max_threads - N;
-				MRschedule(n, NULL, IdleFunc);
+				if(n>0)
+					MRschedule(n, NULL, IdleFunc);
 				(void) getCPULoad(cpuload);
 				MT_sleep_ms(1000);
 			}
