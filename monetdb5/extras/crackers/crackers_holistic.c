@@ -328,7 +328,6 @@ CRKrandomCrack(int *ret)
 {
 	int bid=0;
 	FrequencyNode* max_node;
-	int change_bat=0;
 	bit inclusive=TRUE;
 	FrequencyNode *fs = getFrequencyStruct('A');	
 
@@ -339,8 +338,8 @@ CRKrandomCrack(int *ret)
 	if(max_node!=NULL && max_node->weight > 0)
 	{
 		bid=max_node->bid;
-		change_bat = CRKrandomholpl_int(&bid,&inclusive);
-		if (change_bat == -1)
+		CRKrandomholpl_int(&bid,&inclusive,&inclusive);
+		/*if (change_bat == -1)
 		{
 			MT_lock_set(&frequencylock, "getFrequencyStruct");
 			max_node=findOtherMax(fs,bid);
@@ -350,7 +349,7 @@ CRKrandomCrack(int *ret)
 				bid=max_node->bid;
 				(void) CRKrandomholpl_int(&bid,&inclusive);
 			}
-		}
+		}*/
 		
 	}
 	
