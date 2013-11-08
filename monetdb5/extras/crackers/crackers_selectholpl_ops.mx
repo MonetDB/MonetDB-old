@@ -255,6 +255,8 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow, bit *inclusiveHgh){
 
 	MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
 
+	countBatElements=BATcount(b);
+
 	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 	
 	retry:;
