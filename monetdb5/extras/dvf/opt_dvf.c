@@ -153,7 +153,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 			strstr(getVarConstant(mb, getArg(p, 3)).val.sval, data_table_identifier) == NULL &&
 			strcmp(getVarConstant(mb, getArg(p, 4)).val.sval, file_location_identifier) == 0 &&
 			getVarConstant(mb, getArg(p, 5)).val.ival == 0 &&
-			state <= 3)
+			state < 3)
 		{
 			i1 = i;
 			state = 1;
