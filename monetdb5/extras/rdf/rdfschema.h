@@ -129,7 +129,7 @@ typedef struct PropStat {
 							   IR_DIMENSION_THRESHOLD_PERCENTAGE * totalFrequency
 							   Number of IR references should be several times larger than the CS frequency
 							*/
-#define NOT_MERGE_DIMENSIONCS	1
+#define NOT_MERGE_DIMENSIONCS	1		/* Default: 1, 0: Is for example data */
 
 #define FILTER_INFREQ_FK_FOR_IR	1		/* We filter out all the dirty references from a CS */
 #define FILTER_THRESHOLD_FK_FOR_IR	0.1	/* The FK that their frequency < FILTER_THRESHOLD_FK_FOR_IR * FreqCS's frequency */ 	
@@ -204,6 +204,7 @@ typedef struct SubCSSet{
 #define MIN_PERCETAGE_S6 5	// Merge all CS refered by more than 1/MIN_PERCETAGE_S6 percent of a CS via one property
 #define MIN_FROMTABLE_SIZE_S6 100  // The minimum size of the "from" table in S6. Meaning that 
 				    // the CS's to-be-merged in this rule must cover > MIN_FROMTABLE_SIZE_S6 / MIN_PERCETAGE_S6 triples
+//#define MIN_FROMTABLE_SIZE_S6 1		/* For example data */
 #define MINIMUM_TABLE_SIZE 10000   //The minimum number of triples coverred by a table (i.e., a final CS) 
 #define SAMPLE_FILTER_THRESHOLD 1  // SAMPLE_FILTER_THRESHOLD/ 100	
 #define HIGH_REFER_THRESHOLD 5
