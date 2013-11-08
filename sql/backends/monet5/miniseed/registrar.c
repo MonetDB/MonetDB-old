@@ -67,6 +67,7 @@ pthread_mutex_t insert_lock;
 double  timetol      = -1.0; /* Time tolerance for continuous traces */
 double  sampratetol  = -1.0; /* Sample rate tolerance for continuous traces */
 int verbose = 1;
+static lng file_counter = 0;
 
 /*
  * returns number of lines in a file.
@@ -1122,7 +1123,8 @@ str mseed_register_segments_mode(str file_path, temp_container* ret_tc)
 	str ch = (str) GDKmalloc(2*sizeof(char));
 	ch[1] = '\0';
 	
-	
+	printf(""LLFMT".file\n", file_counter);
+	file_counter++;
 	mstl = mstl_init (NULL);
 	
 	/* while ((retcode = ms_readmsr (&msr, file_path, 0, NULL, NULL, 1, 0, verbose)) == MS_NOERROR) */
@@ -1180,7 +1182,7 @@ str mseed_register_segments_mode(str file_path, temp_container* ret_tc)
 	}
 	
 	if ( retcode != MS_ENDOFFILE )
-		throw(MAL, "mseed_register", "Cannot read %s: %s\n", file_path, ms_errorstr(retcode));
+		throw(MAL, "mseed_register_segments_mode", "Cannot read %s: %s\n", file_path, ms_errorstr(retcode));
 	
 	if (!mstl)
 	{
@@ -1237,7 +1239,7 @@ str mseed_register_segments_mode(str file_path, temp_container* ret_tc)
 					gap = -(((double)(seg->endtime - seg->starttime)/HPTMODULUS) + delta);
 			}
 						
-			printf("frq: %lf, sampcnt: %lld\n", seg->samprate, (long long int)seg->samplecnt);
+			printf("%d. segment, frq: %lf, sampcnt: %lld\n", segment_id_fake, seg->samprate, (long long int)seg->samplecnt);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[4])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
@@ -1327,6 +1329,9 @@ str mseed_register_and_mount_segments_mode(str file_path, temp_container* ret_tc
 	short int data_flag = 1;
 	ch[1] = '\0';
 	
+	printf(""LLFMT".file\n", file_counter);
+	file_counter++;
+	
 	mstl = mstl_init (NULL);
 	
 	/* while ((retcode = ms_readmsr (&msr, file_path, 0, NULL, NULL, 1, 0, verbose)) == MS_NOERROR) */
@@ -1384,11 +1389,11 @@ str mseed_register_and_mount_segments_mode(str file_path, temp_container* ret_tc
 	}
 	
 	if ( retcode != MS_ENDOFFILE )
-		throw(MAL, "mseed_register", "Cannot read %s: %s\n", file_path, ms_errorstr(retcode));
+		throw(MAL, "mseed_register_and_mount_segments_mode", "Cannot read %s: %s\n", file_path, ms_errorstr(retcode));
 	
 	if (!mstl)
 	{
-		throw(MAL, "mseed_register_segments_mode", RUNTIME_OBJECT_MISSING);
+		throw(MAL, "mseed_register_and_mount_segments_mode", RUNTIME_OBJECT_MISSING);
 	}
 	
 	/* Loop through trace list */
@@ -1441,7 +1446,7 @@ str mseed_register_and_mount_segments_mode(str file_path, temp_container* ret_tc
 					gap = -(((double)(seg->endtime - seg->starttime)/HPTMODULUS) + delta);
 			}
 			
-			printf("frq: %lf, sampcnt: %lld\n", seg->samprate, (long long int)seg->samplecnt);
+			printf("%d. segment, frq: %lf, sampcnt: %lld\n", segment_id_fake, seg->samprate, (long long int)seg->samplecnt);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[4])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
