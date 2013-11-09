@@ -68,6 +68,7 @@ double  timetol      = -1.0; /* Time tolerance for continuous traces */
 double  sampratetol  = -1.0; /* Sample rate tolerance for continuous traces */
 int verbose = 1;
 static lng file_counter = 0;
+static lng num_registered_files = 0;
 
 /*
  * returns number of lines in a file.
@@ -1287,6 +1288,8 @@ str mseed_register_segments_mode(str file_path, temp_container* ret_tc)
 	if ( retcode != MS_ENDOFFILE )
 		throw(MAL, "mseed_register", "Cannot read %s: %s\n", file_path, ms_errorstr(retcode));
 	
+	num_registered_files++;
+	
 	return MAL_SUCCEED;
 }
 
@@ -1530,6 +1533,8 @@ str mseed_register_and_mount_segments_mode(str file_path, temp_container* ret_tc
 	if (mstl)
 		mstl_free (&mstl, 0);
 	
+	num_registered_files++;
+	
 	return MAL_SUCCEED;
 }
 
@@ -1638,7 +1643,7 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	temp_container *tc;
 	lng i;
 	str err = NULL;
-	int start, finish;
+	int start, finish, total_start, total_finish;
 	int function_created = 0;
 	mvc *m = NULL;
 
@@ -1649,6 +1654,8 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(MAL,"registrar.register_repo", "Problematic repository: %s\n", err);
 	}
 
+	total_start = GDKms();
+	
 	if(num_threads > 1)
 	{
 		
@@ -1772,6 +1779,12 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	
 	GDKfree(file_paths);
+	
+	total_finish = GDKms();
+	
+	printf("#. Average Time for loading (meta-)data of one file: "LLFMT" milliseconds\n", ((total_finish - total_start)/num_file_paths));
+	printf("#. Number of files registered | failed registration: "LLFMT" | "LLFMT".\n", num_registered_files, num_file_paths - num_registered_files);
+	
 	return MAL_SUCCEED;
 }
 
