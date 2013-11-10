@@ -663,20 +663,24 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 }
 
 static
-void createSQLMetadata(CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, CSlabel* labels) {
+void createSQLMetadata(CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, CSlabel* labels, int*  mTblIdxFreqIdxMapping,int* mfreqIdxTblIdxMapping,int numTables) {
 	int	**matrix = NULL; // matrix[from][to] frequency
 	int	i, j, k;
 	FILE	*fout;
+	int	tblfrom, tblto;
 
+	(void) mTblIdxFreqIdxMapping; 
+	(void) mfreqIdxTblIdxMapping; 
+	(void) numTables; 
 	// init
-	matrix = (int **) malloc(sizeof(int *) * freqCSset->numCSadded);
+	matrix = (int **) malloc(sizeof(int *) * numTables);
 	if (!matrix) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		matrix[i] = (int *) malloc(sizeof(int) * freqCSset->numCSadded);
+ 	for (i = 0; i < numTables; ++i) {
+		matrix[i] = (int *) malloc(sizeof(int) * numTables);
 		if (!matrix) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 
-		for (j = 0; j < freqCSset->numCSadded; ++j) {
+		for (j = 0; j < numTables; ++j) {
 			matrix[i][j] = 0;
 		}
 	}
@@ -702,7 +706,9 @@ void createSQLMetadata(CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, CSlabe
 					if (toId == -1) continue; // ignore
 					if (i == toId) continue; // ignore self references
 					if ((int) (100.0 * csRelBetweenMergeFreqSet[i].lstCnt[k] / sum + 0.5) < FK_FREQ_THRESHOLD) continue; // foreign key is not frequent enough
-					matrix[i][toId] += csRelBetweenMergeFreqSet[i].lstCnt[k]; // multiple links from 'i' to 'toId'? add the frequencies
+					tblfrom = mfreqIdxTblIdxMapping[i]; 
+					tblto = mfreqIdxTblIdxMapping[toId];
+					matrix[tblfrom][tblto] += csRelBetweenMergeFreqSet[i].lstCnt[k]; // multiple links from 'i' to 'toId'? add the frequencies
 				}
 			}
 		}
@@ -710,10 +716,10 @@ void createSQLMetadata(CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, CSlabe
 
 	// store matrix as csv
 	fout = fopen("adjacencyList.csv", "wt");
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		for (j = 0; j < freqCSset->numCSadded; ++j) {
+	for (i = 0; i < numTables; ++i) {
+		for (j = 0; j < numTables; ++j) {
 			if (matrix[i][j]) {
-				fprintf(fout, "%d,%d,%d\n", i, j, matrix[i][j]);
+				fprintf(fout, "%d,%d,%d\n", mTblIdxFreqIdxMapping[i], mTblIdxFreqIdxMapping[j], matrix[i][j]);
 			}
 		}
 	}
@@ -762,7 +768,7 @@ void createSQLMetadata(CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, CSlabe
 	fprintf(fout, "COPY INTO adjacency_list from '/export/scratch2/linnea/dbfarm/test/adjacencyList.csv' USING DELIMITERS ',','\\n','\"';");
 	fclose(fout);
 
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
+	for (i = 0; i < numTables; ++i) {
 		free(matrix[i]);
 	}
 	free(matrix);
@@ -3014,7 +3020,7 @@ void freeLabels(CSlabel* labels, CSset* freqCSset) {
 	GDKfree(labels);
 }
 
-void exportLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelMergeFreqSet, int freqThreshold) {
+void exportLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelMergeFreqSet, int freqThreshold, int*  mTblIdxFreqIdxMapping, int* mfreqIdxTblIdxMapping, int numTables) {
 	int			**relationMetadataCount;
 	Relation		***relationMetadata;
 
@@ -3035,7 +3041,7 @@ void exportLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelMergeFreqSet, i
 	printf("exportLabels: printUML \n"); 
 	printUML2(freqCSset, labels, relationMetadata, relationMetadataCount, freqThreshold);
 	convertToSQL(freqCSset, relationMetadata, relationMetadataCount, labels, freqThreshold);
-	createSQLMetadata(freqCSset, csRelMergeFreqSet, labels);
+	createSQLMetadata(freqCSset, csRelMergeFreqSet, labels,  mTblIdxFreqIdxMapping, mfreqIdxTblIdxMapping, numTables);
 	printTxt(freqCSset, labels, freqThreshold);
 	printf("exportLabels: Done \n"); 
 	freeRelationMetadata(relationMetadata, freqCSset);

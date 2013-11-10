@@ -2594,7 +2594,7 @@ void mergeCSbyS4(CSset *freqCSset, CSlabel** labels, oid *mergeCSFreqCSMap, int 
 
 			mergecs1 = (CS*)&(freqCSset->items[tmpParentIdx]);
 			mergecs2 = (CS*)&(freqCSset->items[freqId1]);
-			printf("MaxCS: Merge freqCS %d and freqCS %d \n", tmpParentIdx, freqId1);
+			//printf("MaxCS: Merge freqCS %d and freqCS %d \n", tmpParentIdx, freqId1);
 			mergeConsistsOf(mergecs1, mergecs2);
 		}
 
@@ -3234,9 +3234,9 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 					continue; 
 				#endif
 				if ((*labels)[freqId2].isOntology == 1){
-					printf("Merge FreqCS %d and FreqCS %d by Ontology name \n", freqId1, freqId2);
+					//printf("Merge FreqCS %d and FreqCS %d by Ontology name \n", freqId1, freqId2);
 					doMerge(freqCSset, S1, cs1, cs2, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name);
-					printf("Number of added cs in freqCS: %d \n", freqCSset->numCSadded); 
+					//printf("Number of added cs in freqCS: %d \n", freqCSset->numCSadded); 
 					tmpCount++;
 				}
 			}
@@ -3262,9 +3262,9 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 				if (cs2->type == DIMENSIONCS) continue; 
 				#endif
 				if ((*labels)[freqId2].isType == 1){
-					printf("Merge FreqCS %d and FreqCS %d by Type name \n", freqId1, freqId2);
+					//printf("Merge FreqCS %d and FreqCS %d by Type name \n", freqId1, freqId2);
 					doMerge(freqCSset, S1, cs1, cs2, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name);
-					printf("Number of added cs in freqCS: %d \n", freqCSset->numCSadded); 				
+					//printf("Number of added cs in freqCS: %d \n", freqCSset->numCSadded); 				
 					tmpCount++;
 				}
 			}
@@ -3290,9 +3290,9 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 				if (cs2->type == DIMENSIONCS) continue; 
 				#endif
 				if ((*labels)[freqId2].isFK == 1){
-					printf("Merge FreqCS %d and FreqCS %d by FK name \n", freqId1, freqId2);
+					//printf("Merge FreqCS %d and FreqCS %d by FK name \n", freqId1, freqId2);
 					doMerge(freqCSset, S1, cs1, cs2, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name);
-					printf("Number of added cs in freqCS: %d \n", freqCSset->numCSadded); 					
+					//printf("Number of added cs in freqCS: %d \n", freqCSset->numCSadded); 					
 					tmpCount++;
 				}
 			}
@@ -6615,7 +6615,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	printf("Start exporting labels \n"); 
 	
 	#if EXPORT_LABEL
-	exportLabels(labels, freqCSset, csRelMergeFreqSet, *freqThreshold);
+	exportLabels(labels, freqCSset, csRelMergeFreqSet, *freqThreshold, mTblIdxFreqIdxMapping, mfreqIdxTblIdxMapping, numTables);
 	#endif
 
 
