@@ -203,7 +203,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow, bit *inclusiveHgh){
 	double wt=0, ct=0;
 	int countBatElements=0;
 	int L1=0; /*Number of elements that can fit into L1 cache (size: 32KB)*/	
-	int mod_bid=0;
+	//int mod_bid=0;
 	FILE *ofp;
 	char *outputFilename1;
 	FrequencyNode* FN;
@@ -230,9 +230,10 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow, bit *inclusiveHgh){
   		exit(1);
 	}
 
-	mod_bid=ABS(*bid)%LOCKS;
+	//mod_bid=ABS(*bid)%LOCKS;
 
-	MT_lock_set(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	//MT_lock_set(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
 
 	gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 
@@ -253,7 +254,8 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow, bit *inclusiveHgh){
 
 	idxFirst = BUNfirst(c);
 
-	MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	//MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 
 	countBatElements=BATcount(b);
 
@@ -481,7 +483,8 @@ createView:
 
 	if (createIndex==1)
 	{
-		MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+		//MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+		MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 		createIndex=0;	
 	}
 
@@ -517,7 +520,7 @@ createView:
 	bit copy=TRUE;	
 	int countBatElements=0;
 	int L1=0; /*Number of elements that can fit into L1 cache (size: 32KB)*/	
-	int mod_bid=0;
+	//int mod_bid=0;
 	FILE *ofp;
 	char *outputFilename1;
 	FrequencyNode* FN;
@@ -539,9 +542,10 @@ createView:
   		exit(1);
 	}
 
-	mod_bid=ABS(*bid)%LOCKS;
+	//mod_bid=ABS(*bid)%LOCKS;
 
-	MT_lock_set(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	//MT_lock_set(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
 
 	//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 
@@ -729,7 +733,8 @@ createView:
 	}
 		
 
-	MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	//MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 
 	//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 	
@@ -924,7 +929,8 @@ createView:
 
 	if (createIndex==1)
 	{
-		MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+		//MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+		MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 		createIndex=0;	
 	}
 
@@ -1359,7 +1365,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	struct timeval tv0, tv1;
         double wt=0, ct=0;
 	int L1=0;
-	int mod_bid=0;
+	//int mod_bid=0;
 	int countBatElements=0;
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
@@ -1382,9 +1388,10 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 
 	L1=32000/ATOMsize(TYPE_@1);
 	
-	mod_bid=ABS(*bid)%LOCKS;
+	//mod_bid=ABS(*bid)%LOCKS;
 
-        MT_lock_set(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+        //MT_lock_set(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+        MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
 	gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 
 	if (*inclusiveHgh == TRUE) HBound = FALSE;
@@ -1477,7 +1484,8 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 
 	idxFirst = BUNfirst(c);
 
-	MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	//MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 
         gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 
@@ -1564,7 +1572,8 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 
         if (createIndex==1)
         {
-                MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+                //MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+                MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
                 createIndex=0;
         }
 
@@ -1587,7 +1596,7 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
         BUN idxFirst = BUN_NONE;
 	int incr_pieces=0;
 	int L1=0;
-	int mod_bid=0;
+	//int mod_bid=0;
 	int countBatElements;
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
@@ -1611,9 +1620,10 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 
 	L1=32000/ATOMsize(TYPE_@1);
 
-	mod_bid=ABS(*bid)%LOCKS;
+	//mod_bid=ABS(*bid)%LOCKS;
 
-        MT_lock_set(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+        //MT_lock_set(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+        MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
 
 	m = existsCrackerIndex(*bid);
 
@@ -1695,7 +1705,8 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 
 	idxFirst = BUNfirst(c);
 
-	MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	//MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 
 	vh = BUNlast(b)-(oid)1;
 
@@ -1778,7 +1789,8 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 
         if (createIndex==1)
         {
-                MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+                //MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+                MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
                 createIndex=0;
         }
 

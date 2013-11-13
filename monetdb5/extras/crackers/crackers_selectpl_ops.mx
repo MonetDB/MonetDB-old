@@ -272,7 +272,8 @@ createView:
 
 	if (createIndex==1)
 	{
-		MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+		//MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+		MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 		createIndex=0;	
 	}
 
@@ -307,7 +308,7 @@ createView:
 	bit copy=TRUE;	
 	FILE *ofp;
 	char *outputFilename1;
-	int mod_bid=0;
+	//int mod_bid=0;
 
 	//gettimeofday(&tv0,0);
 
@@ -323,9 +324,10 @@ createView:
   		exit(1);
 	}
 	
-	mod_bid=ABS(*bid)%LOCKS;
+	//mod_bid=ABS(*bid)%LOCKS;
 
-	MT_lock_set(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	//MT_lock_set(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
 
 	//gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
 
@@ -500,7 +502,8 @@ createView:
 	}
 		
 
-	MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	//MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 	//gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 
 	retry:;
@@ -675,7 +678,8 @@ createView:
 
 	if (createIndex==1)
 	{
-		MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+		//MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+		MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 		createIndex=0;	
 	}
 
@@ -1104,11 +1108,12 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	struct Node *lowNode=NULL;
 	pthread_rwlock_t *plock=0;
 	BUN idxFirst = BUN_NONE;
-	int mod_bid=0;
+	//int mod_bid=0;
 
-	mod_bid=ABS(*bid)%LOCKS;
+	//mod_bid=ABS(*bid)%LOCKS;
 
-        MT_lock_set(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+        //MT_lock_set(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+        MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
 
 	if (*inclusiveHgh == TRUE) HBound = FALSE;
 	else	HBound = TRUE; 				
@@ -1181,7 +1186,8 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 
 	idxFirst = BUNfirst(c);
 
-	MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	//MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 
 	vl = BUNfirst(b);
 
@@ -1233,7 +1239,8 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 
         if (createIndex==1)
         {
-                MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+                //MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+                MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
                 createIndex=0;
         }
 
@@ -1254,11 +1261,12 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
         struct Node *lowNode=NULL;
 	pthread_rwlock_t *plock=0;
         BUN idxFirst = BUN_NONE;
-	int mod_bid=0;
+	//int mod_bid=0;
 
-	mod_bid=ABS(*bid)%LOCKS;
+	//mod_bid=ABS(*bid)%LOCKS;
 
-        MT_lock_set(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+        //MT_lock_set(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+        MT_lock_set(&CRKIndexLock,"Cracker Index Lock");
 
 	m = existsCrackerIndex(*bid);
 
@@ -1328,7 +1336,8 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 
 	idxFirst = BUNfirst(c);
 
-	MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	//MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+	MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
 
 	vh = BUNlast(b)-(oid)1;
 
@@ -1388,7 +1397,8 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 
         if (createIndex==1)
         {
-                MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+                //MT_lock_unset(&CRKIndexLock[mod_bid],"Cracker Index Lock");
+                MT_lock_unset(&CRKIndexLock,"Cracker Index Lock");
                 createIndex=0;
         }
 
