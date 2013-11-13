@@ -77,6 +77,7 @@ crackers_export str CRKrandomholpl_@1(int *bid, bit *inclusiveLow,bit *inclusive
  */
 #include "monetdb_config.h"
 #include "crackers.h"
+//#include <papi.h>
 
 /* Local support functions and macros */
 @:TypeSwitch(crackOperations)@
@@ -384,7 +385,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow, bit *inclusiveHgh){
 	FN->c = FN->c + incr_pieces;
 	if(FN->weight > 0)
 		FN->weight = changeWeight(FN,countBatElements,L1);
-	fprintf(ofp,"Idle_Query \t 0 \t Bat_id= \t %d \t Pieces= \t %d \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Low= \t %d \t Thread_id= \t" SZFMT "\n",FN->bid,FN->c,wt,ct,(int)*low,MT_getpid());
+	fprintf(ofp,"Idle_Query \t 0 \t Bat_id= \t %d \t Pieces= \t %d \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Thread_id= \t" SZFMT "\n",FN->bid,FN->c,wt,ct,MT_getpid());
 	fclose(ofp);
 	MT_lock_unset(&frequencylock, "getFrequencyStruct");
 
@@ -1371,6 +1372,12 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
 	FILE *ofp;
 	char *outputFilename1;
+        //long long counters[2];
+ 	//int PAPI_events[] = {
+        //      PAPI_L2_DCA,
+        //      PAPI_L2_DCM};
+
+        //PAPI_start_counters(PAPI_events, 2);
 
 	gettimeofday(&tv0,0);
 	
@@ -1444,8 +1451,10 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 		FN->c = FN->c + incr_pieces;
 		FN->weight = changeWeight(FN,countBatElements,L1);
 		gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-		fprintf(ofp,"User_Query \t 0 \t Bat_id= \t %d \t Pieces= \t %d \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Hgh= \t %d \t Thread_id= \t" SZFMT "\n",FN->bid,FN->c,wt,ct,(int)*hgh,MT_getpid());
-+		fclose(ofp);
+		//PAPI_read_counters(counters, 2);
+		//fprintf(ofp,"User_Query \t 0 \t Bat_id= \t %d \t Pieces= \t %d \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Thread_id= \t" SZFMT "\t L2_DCA= \t %lld \t L2_DCM \t %lld\n",FN->bid,FN->c,wt,ct,MT_getpid(),counters[0],counters[1]);
+		fprintf(ofp,"User_Query \t 0 \t Bat_id= \t %d \t Pieces= \t %d \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Thread_id= \t" SZFMT "\n",FN->bid,FN->c,wt,ct,MT_getpid());
+		fclose(ofp);
 		MT_lock_unset(&frequencylock, "getFrequencyStruct");
 
 		BBPincref(b->batCacheid,TRUE);
@@ -1552,8 +1561,10 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
 	if(FN->weight > 0)
 		FN->weight = changeWeight(FN,countBatElements,L1);
 	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-	fprintf(ofp,"User_Query \t 0 \t Bat_id= \t %d \t Pieces= \t %d \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Hgh= \t %d \t Thread_id= \t" SZFMT "\n",FN->bid,FN->c,wt,ct,(int)*hgh,MT_getpid());
-+	fclose(ofp);
+	//PAPI_read_counters(counters, 2);
+	//fprintf(ofp,"User_Query \t 0 \t Bat_id= \t %d \t Pieces= \t %d \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Thread_id= \t" SZFMT "\t L2_DCA \t %lld \t L2_DCM= \t %lld \n",FN->bid,FN->c,wt,ct,MT_getpid(),counters[0],counters[1]);
+	fprintf(ofp,"User_Query \t 0 \t Bat_id= \t %d \t Pieces= \t %d \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Thread_id= \t" SZFMT "\n",FN->bid,FN->c,wt,ct,MT_getpid());
+	fclose(ofp);
 	MT_lock_unset(&frequencylock, "getFrequencyStruct");
 
 
