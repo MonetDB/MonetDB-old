@@ -46,6 +46,11 @@ typedef struct {
 
 lng get_line_num(str filename);
 lng get_file_paths(str repo_path, str** ret_file_paths);
+
+str get_column_info_of_table(sql_table* t, str** ret_column_names, str** ret_column_type_strs, sht** ret_column_types);
+bit is_actual_data_table(str tname);
+str create_temp_container_segments_mode(mvc* m, temp_container* ret_tc, int is_with_mount);
+
 str mseed_create_temp_container(temp_container* ret_tc);
 str mseed_create_temp_container_with_data_tables(temp_container* ret_tc);
 str mseed_create_temp_container_segments_mode(temp_container* ret_tc);
@@ -401,6 +406,176 @@ str mseed_create_temp_container_with_data_tables(temp_container* ret_tc)
 	return MAL_SUCCEED;
 }
 
+str get_column_info_of_table(sql_table* t, str** ret_column_names, str** ret_column_type_strs, sht** ret_column_types)
+{
+	int num_columns;
+	int c = 0;
+	node *n;
+	
+	num_columns = list_length(t->columns.set);
+	
+	*ret_column_names = (str*) GDKmalloc(num_columns*sizeof(str));
+	*ret_column_type_strs = (str*) GDKmalloc(num_columns*sizeof(str));
+	*ret_column_types = (sht*) GDKmalloc(num_columns*sizeof(sht));
+	
+	for (n = t->columns.set->h; n; n = n->next) {
+		sql_column *col = n->data;
+		
+		(*ret_column_names)[c] = GDKstrdup(col->base.name);
+		if(strstr(col->type.type->sqlname, "varchar") != NULL) 
+		{
+			char varchar_str[15];
+			char digits_str[5];
+			strcpy(varchar_str, col->type.type->sqlname);
+			strcat(varchar_str, "(");
+			sprintf(digits_str, "%d", col->type.digits);
+			strcat(varchar_str, digits_str);
+			strcat(varchar_str, ")");
+			(*ret_column_type_strs)[c] = GDKstrdup(varchar_str);
+		}
+		else
+			(*ret_column_type_strs)[c] = GDKstrdup(col->type.type->sqlname);
+		(*ret_column_types)[c] = col->type.type->localtype;
+		
+		c++;
+	}
+	
+	return MAL_SUCCEED;
+}
+
+bit is_actual_data_table(str tname)
+{
+	str actual_data_str = "data";
+	if(strstr(tname, actual_data_str) != NULL) 
+		return TRUE;
+	else 
+		return FALSE;
+}
+
+/*
+ * fills the temp_container structure with the "mseed" metadata tables' info.
+ *
+ * returns error or MAL_SUCCEED
+ *
+ * TODO: This function is now hardcoding every info. It can be made generic,
+ * because required info is in sql_catalog.
+ */
+str create_temp_container_segments_mode(mvc* m, temp_container* ret_tc, int is_with_mount)
+{
+	str schema_name = "mseed";
+	sql_schema *s = mvc_bind_schema(m, schema_name);
+// 	sql_table *t;
+	node *n;
+	int num_tables;
+	int i, c;
+	BAT *aBAT;
+	str msg;
+	
+	str* table_names;
+	str** column_names; 
+	str** column_type_strs; 
+	sht** column_types;
+	int* num_c;
+	bat** column_bats;
+	temp_subcontainer *tscs;
+	
+	num_tables = 0;
+	
+	if (s == NULL)
+		throw(SQL,"create_temp_container_segments_mode","3F000!Schema missing");
+		
+	for (n = s->tables.set->h; n; n = n->next) {
+		sql_table *t = n->data;
+		
+		/* skip the views and so. */
+		if(!isTable(t))
+			continue;
+		
+		/* skip the actual data tables if not is_with_mount */
+		if(!is_with_mount && is_actual_data_table(t->base.name))
+			continue;
+		
+		num_tables++;
+	}
+	
+	table_names = (str*) GDKmalloc(num_tables*sizeof(str));
+	column_names = (str**) GDKmalloc(num_tables*sizeof(str*)); 
+	column_type_strs = (str**) GDKmalloc(num_tables*sizeof(str*)); 
+	column_types = (sht**) GDKmalloc(num_tables*sizeof(sht*));
+	num_c = (int*) GDKmalloc(num_tables*sizeof(int));
+	column_bats = (bat**) GDKmalloc(num_tables*sizeof(bat*));
+	tscs = (temp_subcontainer*)GDKmalloc(num_tables*sizeof(temp_subcontainer));
+	
+	assert(tscs!=NULL);
+	
+	i = 0;
+	
+	for (n = s->tables.set->h; n; n = n->next) {
+		sql_table *t = n->data;
+		
+		/* skip the views and so. */
+		if(!isTable(t))
+			continue;
+		
+		/* skip the actual data tables if not is_with_mount */
+		if(!is_with_mount && is_actual_data_table(t->base.name))
+			continue;
+		
+		table_names[i] = GDKstrdup(t->base.name);
+		
+		num_c[i] = list_length(t->columns.set);
+		
+		printf("%d. num_c: %d\n", i, num_c[i]);
+		
+		msg = get_column_info_of_table(t, &(column_names[i]), &(column_type_strs[i]), &(column_types[i]));
+		if (msg)
+			return msg;
+		
+		column_bats[i] = (bat*)GDKmalloc(num_c[i]*sizeof(bat));
+		
+		assert(column_bats[i]!=NULL);
+		
+		for(c = 0; c < num_c[i]; c++)
+		{
+			aBAT = BATnew(TYPE_void, column_types[i][c], 0); /* create empty BAT for each column. */
+			if ( aBAT == NULL)
+				throw(MAL,"create_temp_container_segments_mode",MAL_MALLOC_FAIL);
+			BATseqbase(aBAT, 0);
+			if ( aBAT == NULL)
+				throw(MAL,"create_temp_container_segments_mode",MAL_MALLOC_FAIL);
+			BBPkeepref(column_bats[i][c] = aBAT->batCacheid);
+		}
+		
+		(tscs+i)->column_bats = column_bats[i];
+		
+		(tscs+i)->column_names = (str*) GDKmalloc(num_c[i]*sizeof(str));
+		(tscs+i)->column_types_strs = (str*) GDKmalloc(num_c[i]*sizeof(str));
+		for(c = 0; c < num_c[i]; c++)
+		{
+			(tscs+i)->column_names[c] = GDKstrdup(column_names[i][c]);
+			(tscs+i)->column_types_strs[c] = GDKstrdup(column_type_strs[i][c]);
+		}
+		
+		i++;
+	}
+	
+	ret_tc->schema_name = schema_name;
+	ret_tc->tables_columns = tscs;
+	
+	ret_tc->table_names = (str*) GDKmalloc(num_tables*sizeof(str));
+	ret_tc->num_columns = (int*) GDKmalloc(num_tables*sizeof(int));
+	for(i = 0; i < num_tables; i++)
+	{
+		ret_tc->table_names[i] = GDKstrdup(table_names[i]);
+		ret_tc->num_columns[i] = num_c[i];
+	}
+	
+	ret_tc->num_tables = num_tables;
+	
+	return MAL_SUCCEED;
+}
+
+
 /*
  * fills the temp_container structure with the "mseed" metadata tables' info.
  *
@@ -410,7 +585,7 @@ str mseed_create_temp_container_with_data_tables(temp_container* ret_tc)
  * because required info is in sql_catalog.
  */
 str mseed_create_temp_container_segments_mode(temp_container* ret_tc)
-{
+{	
 	/* seg: (metadata) segments, fil: (metadata) files. */
 	int num_tables = 2;
 	int num_c_fil = 8;
@@ -1656,6 +1831,11 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	total_start = GDKms();
 	
+	if((err = getSQLContext(cntxt, mb, &m, NULL))!= MAL_SUCCEED)
+	{/* getting mvc failed, what to do */
+		return err;
+	}
+	
 	if(num_threads > 1)
 	{
 		
@@ -1705,6 +1885,7 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		/* create temp_container */
 		tc = (temp_container*)GDKmalloc(sizeof(temp_container));
 		assert(tc != NULL);
+		
 		if(mode == 0)
 			err = mseed_create_temp_container_segments_mode(tc); /* depending on design can get different argument(s) */
 		else
@@ -1766,11 +1947,6 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			throw(MAL,"registrar.register_repo", "Cleaning up the temp_container failed: %s\n", err);
 		}
 
-	}
-	
-	if((err = getSQLContext(cntxt, mb, &m, NULL))!= MAL_SUCCEED)
-	{/* getting mvc failed, what to do */
-		return err;
 	}
 	
 	if(mvc_commit(m, 0, NULL) < 0)
