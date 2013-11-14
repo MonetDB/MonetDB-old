@@ -803,6 +803,7 @@ void printCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSse
 	char	tmpIsMVCS = 0; 
 	char 	tmpIsMVCSFilter = 0; 
 
+
 	strcpy(filename, "csPropTypes");
 	sprintf(tmpStr, "%d", freqThreshold);
 	strcat(filename, tmpStr);
@@ -864,6 +865,77 @@ void printCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSse
 	fclose(fout); 
 
 }
+
+
+static 
+void getTableStatisticViaCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSset, int freqThreshold){
+	char filename[100]; 
+	char tmpStr[50]; 
+	FILE *fout; 
+	int i, j; 
+	int	totalTblNo = 0; 
+	int	totalDefColNo = 0; 
+	int	totalExColNo = 0; 
+	int	totalMVTbl = 0;
+	int	totalColInMVTbl = 0; 
+
+	int	tmpNumMVCols; 
+	int	tmpRealCov; 
+	int	tmpTotalCols; 
+
+	strcpy(filename, "tblStatisticByPropType");
+	sprintf(tmpStr, "%d", freqThreshold);
+	strcat(filename, tmpStr);
+	strcat(filename, ".txt");
+
+	fout = fopen(filename,"wt"); 
+	fprintf(fout, "TblId	NumProp	#InfreqProp	#DefCol	#ExCol	#MVColInMain(#MVtbl)	#totalCols  #RealCoverage	#MaxPossibleCoverage\n");
+	/* Print cspropTypes */
+	totalTblNo = numMergedCS;
+	for (i = 0; i < numMergedCS; i++){
+		fprintf(fout, "%d	%d	%d	%d	%d	", i, csPropTypes[i].numProp, csPropTypes[i].numInfreqProp, 
+				csPropTypes[i].numProp - csPropTypes[i].numInfreqProp, csPropTypes[i].numNonDefTypes);
+
+		totalDefColNo += csPropTypes[i].numProp - csPropTypes[i].numInfreqProp;
+		totalExColNo += csPropTypes[i].numNonDefTypes;
+
+
+		tmpNumMVCols = 0;
+		tmpRealCov = 0;
+		tmpTotalCols = 0; 
+		tmpTotalCols = csPropTypes[i].numProp - csPropTypes[i].numInfreqProp + csPropTypes[i].numNonDefTypes;
+		for(j = 0; j < csPropTypes[i].numProp; j++){
+			if (csPropTypes[i].lstPropTypes[j].defColIdx == -1) continue; 	
+
+			if (csPropTypes[i].lstPropTypes[j].isMVProp == 1){
+				totalTblNo++;
+				tmpNumMVCols++;
+				totalColInMVTbl += csPropTypes[i].lstPropTypes[j].numMvTypes;	// Do not count the key column
+				tmpTotalCols = csPropTypes[i].lstPropTypes[j].numMvTypes; 	//TODO: +1 for the key column in MVtable
+
+			}
+
+			tmpRealCov += csPropTypes[i].lstPropTypes[j].propCover;	
+		}
+
+		if (csPropTypes[i].numNonDefTypes > 0)	totalTblNo++;
+		totalMVTbl += tmpNumMVCols;
+
+		fprintf(fout, "%d       %d      %d	%d\n", tmpNumMVCols, tmpTotalCols, tmpRealCov, freqCSset->items[csPropTypes[i].freqCSId].coverage); 
+		
+
+	}
+		
+	fprintf(fout, "Total number of tables: %d \n", totalTblNo);
+	fprintf(fout, "Total number of MV tables (=MVcols in maintbl): %d \n", totalMVTbl);
+	fprintf(fout, "Total number of Default cols: %d \n", totalDefColNo);
+	fprintf(fout, "Total number of Ex cols: %d \n", totalExColNo);
+	fprintf(fout, "Total number of MV cols in MVTable: %d \n", totalColInMVTbl);
+	
+	fclose(fout); 
+
+}
+
 /*
  * Add types of properties 
  * Note that the property list is sorted by prop's oids
@@ -6644,6 +6716,9 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	RDFExtractCSPropTypes(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, csPropTypes, maxNumPwithDup);
 	genCSPropTypesColIdx(csPropTypes, numTables, freqCSset);
 	printCSPropTypes(csPropTypes, numTables, freqCSset, *freqThreshold);
+
+	//Collecting the statistic
+	getTableStatisticViaCSPropTypes(csPropTypes, numTables, freqCSset, *freqThreshold);
 	
 	#if COLORINGPROP
 	/* Update list of support for properties in freqCSset */
