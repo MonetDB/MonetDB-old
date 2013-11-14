@@ -115,10 +115,10 @@ typedef struct PropStat {
 
 #define OUTPUT_FREQID_PER_LABEL 1 	/* This is for evaluating the results of merging using S1. TODO: Set it to 0 for default*/
 
-#define IS_MULVALUE_THRESHOLD  1.3	/* The ratio betweeen (the number of triple coverred by Prop P) / (number of Non-NULL object values for P)
+#define IS_MULVALUE_THRESHOLD  1.1	/* The ratio betweeen (the number of triple coverred by Prop P) / (number of Non-NULL object values for P)
 					   If this ratio is ~1, only use single value column for that prop
 					*/
-#define INFREQ_TYPE_THRESHOLD  0.1	/* Threshold that a type is consider as an infrequent type */
+#define INFREQ_TYPE_THRESHOLD  0.01	/* Threshold that a type is consider as an infrequent type */
 
 
 
@@ -196,8 +196,8 @@ typedef struct SubCSSet{
 	int 	numAllocation; 
 } SubCSSet;
 
-//#define INIT_NUM_CS 9999 // workaround
-#define INIT_NUM_CS 500 // workaround
+#define INIT_NUM_CS 9999 // workaround
+//#define INIT_NUM_CS 500 // workaround
 #define SIM_THRESHOLD 0.6
 #define SIM_TFIDF_THRESHOLD 0.55
 #define IMPORTANCE_THRESHOLD 0.01
@@ -208,7 +208,10 @@ typedef struct SubCSSet{
 #define MINIMUM_TABLE_SIZE 10000   //The minimum number of triples coverred by a table (i.e., a final CS) 
 #define SAMPLE_FILTER_THRESHOLD 1  // SAMPLE_FILTER_THRESHOLD/ 100	
 #define HIGH_REFER_THRESHOLD 5
-#define	INFREQ_PROP_THRESHOLD	0.001
+
+#define	INFREQ_PROP_THRESHOLD	0.01
+//#define	INFREQ_PROP_THRESHOLD	0.2 	//For Testing
+#define REMOVE_INFREQ_PROP	1
 
 #define	MIN_FK_FREQUENCY 	0.1	// The frequency of a FK should be > MIN_FK_FREQUENCY * The frequency of a mergedCS (or the number of tuples in one table)	
 #define MIN_FK_PROPCOVERAGE	0.9	// The FK needs to happen in MIN_FK_PROPCOVERAGE of all instances of the particular property
@@ -316,7 +319,8 @@ typedef struct PropTypes{
 	char*	lstTypes; 
 	int*	lstFreq; 
 	int* 	lstFreqWithMV; 	/* Frequency of each type considering types in MV property*/
-	int*	colIdxes; 
+	int*	colIdxes; 	/* colIdxes for each type */
+	int	defColIdx; 	/* Column index in the main table */
 	char*	TableTypes;
 	char	defaultType; 
 	char	isMVProp; 	/* = 1 if this prop is a multi-valued prop*/
@@ -326,6 +330,7 @@ typedef struct PropTypes{
 typedef struct CSPropTypes {
 	int		freqCSId; 
 	int		numProp; 
+	int		numInfreqProp; 
 	int 		numNonDefTypes; 
 	PropTypes*	lstPropTypes; 
 } CSPropTypes; 
@@ -357,6 +362,9 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 rdf_export void
 getTblName(char *name, oid nameId);
+
+rdf_export char 
+getObjType(oid objOid);		/* Return the type of the object value from obj oid*/
 
 rdf_export void
 freeCStableStat(CStableStat *cstablestat); 

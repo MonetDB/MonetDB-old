@@ -578,7 +578,7 @@ void printSubCSInformation(SubCSSet *subcsset, BAT* freqBat, int num, char isWri
 
 #endif  /* NEEDSUBCS */
 
-static char
+char
 getObjType(oid objOid){
 	char objType = (char) (objOid >> (sizeof(BUN)*8 - 4))  &  7 ;
 
@@ -601,6 +601,7 @@ void initCSPropTypes(CSPropTypes* csPropTypes, CSset* freqCSset, int numMergedCS
 		if (freqCSset->items[i].parentFreqIdx == -1){   // Only use the maximum or merge CS		
 			csPropTypes[id].freqCSId = i; 
 			csPropTypes[id].numProp = freqCSset->items[i].numProp;
+			csPropTypes[id].numInfreqProp = 0; 
 			csPropTypes[id].numNonDefTypes = 0;
 			csPropTypes[id].lstPropTypes = (PropTypes*) GDKmalloc(sizeof(PropTypes) * csPropTypes[id].numProp);
 			for (j = 0; j < csPropTypes[id].numProp; j++){
@@ -616,6 +617,7 @@ void initCSPropTypes(CSPropTypes* csPropTypes, CSset* freqCSset, int numMergedCS
 				csPropTypes[id].lstPropTypes[j].defaultType = STRING; 
 				csPropTypes[id].lstPropTypes[j].isMVProp = 0; 
 				csPropTypes[id].lstPropTypes[j].numMvTypes = 0; 
+				csPropTypes[id].lstPropTypes[j].defColIdx = -1; 
 				csPropTypes[id].lstPropTypes[j].lstTypes = (char*)GDKmalloc(sizeof(char) * csPropTypes[id].lstPropTypes[j].numType);
 				csPropTypes[id].lstPropTypes[j].lstFreq = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
 				csPropTypes[id].lstPropTypes[j].lstFreqWithMV = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
@@ -658,18 +660,38 @@ void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freq
 	int tmpMaxFreq;  
 	int defaultIdx;	 /* Index of the default type for a property */
 	int curTypeColIdx = 0;
+	int curDefaultColIdx = 0; 
 	int curNumTypeMVTbl = 0; 
+	int	freqId; 
 
 	(void) freqCSset;
+	(void) freqId; 
 
 	for (i = 0; i < numMergedCS; i++){
 		curTypeColIdx = 0; 
+		curDefaultColIdx = -1; 
 		for(j = 0; j < csPropTypes[i].numProp; j++){
+			#if REMOVE_INFREQ_PROP
+			freqId = csPropTypes[i].freqCSId;
+			if (csPropTypes[i].lstPropTypes[j].propFreq < freqCSset->items[freqId].support * INFREQ_PROP_THRESHOLD){
+				for (k = 0; k < (MULTIVALUES+1); k++){
+					csPropTypes[i].lstPropTypes[j].TableTypes[k] = PSOTBL;
+					csPropTypes[i].lstPropTypes[j].colIdxes[k] = -1; 
+				}	
+				csPropTypes[i].lstPropTypes[j].isMVProp = 0;
+				csPropTypes[i].numInfreqProp++;
+
+				continue; 
+			}
+			#endif
+			curDefaultColIdx++;
+			csPropTypes[i].lstPropTypes[j].defColIdx = curDefaultColIdx;
+
 			//printf("genCSPropTypesColIdx: Table: %d | Prop: %d \n", i, j);
 			if (isMultiValueCol(csPropTypes[i].lstPropTypes[j])){
 				//if this property is a Multi-valued prop
 				csPropTypes[i].lstPropTypes[j].TableTypes[MULTIVALUES] = MAINTBL;
-				csPropTypes[i].lstPropTypes[j].colIdxes[MULTIVALUES] = j;
+				csPropTypes[i].lstPropTypes[j].colIdxes[MULTIVALUES] = curDefaultColIdx;
 				csPropTypes[i].lstPropTypes[j].isMVProp = 1; 
 
 				//Find the default type for this MV col
@@ -728,7 +750,7 @@ void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freq
 				}
 				/* One type is set to be the default type (in the main table) */
 				csPropTypes[i].lstPropTypes[j].TableTypes[defaultIdx] = MAINTBL; 
-				csPropTypes[i].lstPropTypes[j].colIdxes[defaultIdx] = j;
+				csPropTypes[i].lstPropTypes[j].colIdxes[defaultIdx] = curDefaultColIdx;
 				csPropTypes[i].lstPropTypes[j].defaultType = defaultIdx; 
 				
 				//Multi-valued prop go to PSO
@@ -2594,7 +2616,7 @@ void mergeCSbyS4(CSset *freqCSset, CSlabel** labels, oid *mergeCSFreqCSMap, int 
 
 			mergecs1 = (CS*)&(freqCSset->items[tmpParentIdx]);
 			mergecs2 = (CS*)&(freqCSset->items[freqId1]);
-			//printf("MaxCS: Merge freqCS %d and freqCS %d \n", tmpParentIdx, freqId1);
+			//printf("MaxCS: Merge freqCS %d into freqCS %d \n", freqId1, tmpParentIdx);
 			mergeConsistsOf(mergecs1, mergecs2);
 		}
 
@@ -5771,7 +5793,7 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 	int		tmpNumDefaultCol; 
 	int		tmpNumExCol; 		/*For columns of non-default types*/
 	char* 		mapObjBATtypes;
-	int		colExIdx, t; 
+	int		colIdx, colExIdx, t; 
 	int		mvColIdx; 
 
 	mapObjBATtypes = (char*) malloc(sizeof(char) * (MULTIVALUES + 1)); 
@@ -5782,8 +5804,8 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 	mapObjBATtypes[STRING] = TYPE_str; 
 	mapObjBATtypes[BLANKNODE] = TYPE_oid;
 	mapObjBATtypes[MULTIVALUES] = TYPE_oid;
-
-
+	
+	printf("Start initCStables \n"); 
 	// allocate memory space for cstablestat
 	cstablestat->numTables = numTables; 
 	cstablestat->lstbatid = (bat**) malloc(sizeof (bat*) * numTables); 
@@ -5803,9 +5825,9 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 	cstablestat->lastInsertedSEx = (oid**) malloc(sizeof(oid*) * numTables);
 	cstablestat->lstcstableEx = (CStableEx*) malloc(sizeof(CStableEx) * numTables);
 	#endif
-
+	
 	for (i = 0; i < numTables; i++){
-		tmpNumDefaultCol = csPropTypes[i].numProp; 
+		tmpNumDefaultCol = csPropTypes[i].numProp -  csPropTypes[i].numInfreqProp; 
 		cstablestat->numPropPerTable[i] = tmpNumDefaultCol; 
 		cstablestat->lstbatid[i] = (bat*) malloc (sizeof(bat) * tmpNumDefaultCol);  
 		cstablestat->lastInsertedS[i] = (oid*) malloc(sizeof(oid) * tmpNumDefaultCol); 
@@ -5825,64 +5847,72 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 		cstablestat->lstcstableEx[i].tblname = labels[mTblIdxFreqIdxMapping[i]].name;
 		#endif
 		
-		for(j = 0; j < tmpNumDefaultCol; j++){
-			cstablestat->lstcstable[i].lstProp[j] = freqCSset->items[csPropTypes[i].freqCSId].lstProp[j];
+		colIdx = -1; 
+		colExIdx = 0; 
+		for(j = 0; j < csPropTypes[i].numProp; j++){
+			#if	REMOVE_INFREQ_PROP
+			if (csPropTypes[i].lstPropTypes[j].defColIdx == -1)	continue;  //Infrequent prop
+			#endif
+
+			colIdx++;	
+			cstablestat->lstcstable[i].lstProp[colIdx] = freqCSset->items[csPropTypes[i].freqCSId].lstProp[j];
 
 			if (csPropTypes[i].lstPropTypes[j].isMVProp == 0){
-				cstablestat->lstcstable[i].colBats[j] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
-				cstablestat->lstcstable[i].lstMVTables[j].numCol = 0; 	//There is no MV Tbl for this prop
+				cstablestat->lstcstable[i].colBats[colIdx] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
+				cstablestat->lstcstable[i].lstMVTables[colIdx].numCol = 0; 	//There is no MV Tbl for this prop
 				//TODO: use exact size for each BAT
 			}
 			else{
-				cstablestat->lstcstable[i].colBats[j] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
-				BATseqbase(cstablestat->lstcstable[i].colBats[j], 0);	
-				cstablestat->lstcstable[i].lstMVTables[j].numCol = csPropTypes[i].lstPropTypes[j].numMvTypes;
-				if (cstablestat->lstcstable[i].lstMVTables[j].numCol != 0){
-					cstablestat->lstcstable[i].lstMVTables[j].colTypes = (ObjectType *)malloc(sizeof(ObjectType)* cstablestat->lstcstable[i].lstMVTables[j].numCol);
-					cstablestat->lstcstable[i].lstMVTables[j].mvBats = (BAT **)malloc(sizeof(BAT*) * cstablestat->lstcstable[i].lstMVTables[j].numCol);
+				cstablestat->lstcstable[i].colBats[colIdx] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+				BATseqbase(cstablestat->lstcstable[i].colBats[colIdx], 0);	
+				cstablestat->lstcstable[i].lstMVTables[colIdx].numCol = csPropTypes[i].lstPropTypes[j].numMvTypes;
+				if (cstablestat->lstcstable[i].lstMVTables[colIdx].numCol != 0){
+					cstablestat->lstcstable[i].lstMVTables[colIdx].colTypes = (ObjectType *)malloc(sizeof(ObjectType)* cstablestat->lstcstable[i].lstMVTables[colIdx].numCol);
+					cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats = (BAT **)malloc(sizeof(BAT*) * cstablestat->lstcstable[i].lstMVTables[colIdx].numCol);
 			
 					mvColIdx = 0;	//Go through all types
-					cstablestat->lstcstable[i].lstMVTables[j].colTypes[0] = csPropTypes[i].lstPropTypes[j].defaultType; //Default type for this MV col
+					cstablestat->lstcstable[i].lstMVTables[colIdx].colTypes[0] = csPropTypes[i].lstPropTypes[j].defaultType; //Default type for this MV col
 					//Init the first col (default type) in MV Table
-					cstablestat->lstcstable[i].lstMVTables[j].mvBats[0] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
+					cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[0] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
 					for (k = 0; k < MULTIVALUES; k++){
 						if (k != csPropTypes[i].lstPropTypes[j].defaultType && csPropTypes[i].lstPropTypes[j].TableTypes[k] == MVTBL){
 							mvColIdx++;
-							cstablestat->lstcstable[i].lstMVTables[j].colTypes[mvColIdx] = k;
-							cstablestat->lstcstable[i].lstMVTables[j].mvBats[mvColIdx] = BATnew(TYPE_void, mapObjBATtypes[k], smallbatsz);
+							cstablestat->lstcstable[i].lstMVTables[colIdx].colTypes[mvColIdx] = k;
+							cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[mvColIdx] = BATnew(TYPE_void, mapObjBATtypes[k], smallbatsz);
 						}	
 					}
 
 					//Add a bat for storing FK to the main table
-					cstablestat->lstcstable[i].lstMVTables[j].keyBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+					cstablestat->lstcstable[i].lstMVTables[colIdx].keyBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
 				}
 
-				//BATseqbase(cstablestat->lstcstable[i].mvExBats[j], 0);
+				//BATseqbase(cstablestat->lstcstable[i].mvExBats[colIdx], 0);
 			}
-		}
+			
 
-		#if CSTYPE_TABLE == 1
-		colExIdx = 0; 
-		for(j = 0; j < csPropTypes[i].numProp; j++){
+			//For ex-type columns
+			#if CSTYPE_TABLE == 1
 			for (t = 0; t < csPropTypes[i].lstPropTypes[j].numType; t++){
 				if ( csPropTypes[i].lstPropTypes[j].TableTypes[t] == TYPETBL){
 					cstablestat->lstcstableEx[i].colBats[colExIdx] = BATnew(TYPE_void, mapObjBATtypes[t], smallbatsz);
 					//Set mainTblColIdx for ex-table
 					cstablestat->lstcstableEx[i].colTypes[colExIdx] = t; 
-					cstablestat->lstcstableEx[i].mainTblColIdx[colExIdx] = j; 
+					cstablestat->lstcstableEx[i].mainTblColIdx[colExIdx] = colIdx; 
 					colExIdx++;
 
 				}
 			}
-		}
 
+			#endif
+		}
+		
 		assert(colExIdx == csPropTypes[i].numNonDefTypes);
 
-		#endif
 
 	}
 
 	free(mapObjBATtypes);
+	printf("Finish initCStables \n"); 
 }
 
 
@@ -6048,7 +6078,7 @@ void fillMissingvalues(BAT* curBat, int from, int to){
 }
 
 static 
-void fillMissingvaluesAll(CStableStat* cstablestat, CSPropTypes *csPropTypes, int lasttblIdx, int lastColIdx, oid* lastSubjId){
+void fillMissingvaluesAll(CStableStat* cstablestat, CSPropTypes *csPropTypes, int lasttblIdx, int lastColIdx, int lastPropIdx, oid* lastSubjId){
 	BAT     *tmpBat = NULL;
 	int i; 
 	int tmpColExIdx; 
@@ -6058,8 +6088,8 @@ void fillMissingvaluesAll(CStableStat* cstablestat, CSPropTypes *csPropTypes, in
 	tmpBat = cstablestat->lstcstable[lasttblIdx].colBats[lastColIdx];	
 	fillMissingvalues(tmpBat, (int)BATcount(tmpBat), (int)lastSubjId[lasttblIdx]); 
 	for (i = 0; i < (MULTIVALUES + 1); i++){
-		if (csPropTypes[lasttblIdx].lstPropTypes[lastColIdx].TableTypes[i] == TYPETBL){
-			tmpColExIdx = csPropTypes[lasttblIdx].lstPropTypes[lastColIdx].colIdxes[i]; 
+		if (csPropTypes[lasttblIdx].lstPropTypes[lastPropIdx].TableTypes[i] == TYPETBL){
+			tmpColExIdx = csPropTypes[lasttblIdx].lstPropTypes[lastPropIdx].colIdxes[i]; 
 			tmpBat = cstablestat->lstcstableEx[lasttblIdx].colBats[tmpColExIdx];
 			//printf("Fill excol %d \n", tmpColExIdx);
 			fillMissingvalues(tmpBat, (int)BATcount(tmpBat), (int)lastSubjId[lasttblIdx]);
@@ -6072,7 +6102,7 @@ void fillMissingvaluesAll(CStableStat* cstablestat, CSPropTypes *csPropTypes, in
 // colIdx: The column to be appenned
 // First append nils for all missing subject from "from" to "to - 1"
 static 
-void fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, int tblIdx, int colIdx, int colIdxEx, char tblType,int from, int to){
+void fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, int tblIdx, int colIdx, int propIdx, int colIdxEx, char tblType,int from, int to){
 	BAT     *tmpBat = NULL;
 	int i; 
 	int tmpColExIdx; 
@@ -6095,8 +6125,8 @@ void fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, 
 	}
 	*/
 	for (i = 0; i < (MULTIVALUES + 1); i++){
-		if (csPropTypes[tblIdx].lstPropTypes[colIdx].TableTypes[i] == TYPETBL){
-			tmpColExIdx = csPropTypes[tblIdx].lstPropTypes[colIdx].colIdxes[i]; 
+		if (csPropTypes[tblIdx].lstPropTypes[propIdx].TableTypes[i] == TYPETBL){
+			tmpColExIdx = csPropTypes[tblIdx].lstPropTypes[propIdx].colIdxes[i]; 
 			tmpBat = cstablestat->lstcstableEx[tblIdx].colBats[tmpColExIdx];
 			//Fill all missing values from From to To
 			for(k = from; k < to; k++){
@@ -6192,11 +6222,13 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 					// of that property to the position of that property in the
 					// list of that table's properties
 	Postinglist tmpPtl; 
+	int	tmpPropIdx = -1; 	// The index of property in the property list in a CS. It is not the same as the column Idx as some infrequent props can be removed
 	int	tmpColIdx = -1; 
 	int	tmpColExIdx = -1; 
 	int	tmpMVColIdx = -1; 
 	int	lasttblIdx = -1; 
 	int	lastColIdx = -1; 
+	int	lastPropIdx = -1; 
 	char	isSetLasttblIdx = 0;
 	char	objType, defaultType; 
 	char	tmpTableType = 0;
@@ -6302,12 +6334,21 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		objType = getObjType(*obt); 
 		assert (objType != BLANKNODE);
 
-		tmpColIdx = tmpTblIdxPropIdxMap[tblIdx]; 
+
+		tmpPropIdx = tmpTblIdxPropIdxMap[tblIdx]; 
+		tmpColIdx = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].defColIdx; 
+		if (tmpColIdx == -1){ 	// This col is removed as an infrequent prop
+			BUNappend(cstablestat->pbat,pbt , TRUE);
+			BUNappend(cstablestat->sbat,sbt , TRUE);
+			BUNappend(cstablestat->obat,obt , TRUE);
+			continue; 
+		}
 
 		//printf(" Tbl: %d   |   Col: %d \n", tblIdx, tmpColIdx);
 		
 		if (isSetLasttblIdx == 0){
 			lastColIdx = tmpColIdx;
+			lastPropIdx = tmpPropIdx; 
 			lasttblIdx = tblIdx;
 			cstablestat->lastInsertedS[tblIdx][tmpColIdx] = BUN_NONE;
 			isSetLasttblIdx = 1; 
@@ -6319,16 +6360,17 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		if (tmpColIdx != lastColIdx || lasttblIdx != tblIdx){ 
 			//Insert missing values for all columns of this property in this table
 
-			fillMissingvaluesAll(cstablestat, csPropTypes, lasttblIdx, lastColIdx, lastSubjId);
+			fillMissingvaluesAll(cstablestat, csPropTypes, lasttblIdx, lastColIdx, lastPropIdx, lastSubjId);
 			lastColIdx = tmpColIdx; 
+			lastPropIdx = tmpPropIdx; 
 			lasttblIdx = tblIdx;
 			tmplastInsertedS = -1;
 			cstablestat->lastInsertedS[tblIdx][tmpColIdx] = BUN_NONE;
 			
 		}
 
-		istmpMVProp = csPropTypes[tblIdx].lstPropTypes[tmpColIdx].isMVProp; 
-		defaultType = csPropTypes[tblIdx].lstPropTypes[tmpColIdx].defaultType; 
+		istmpMVProp = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isMVProp; 
+		defaultType = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].defaultType; 
 
 		if (istmpMVProp == 1){	// This is a multi-valued prop
 			//printf("Multi values prop \n"); 
@@ -6338,7 +6380,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			}
 
 			assert(objType != MULTIVALUES); 	//TODO: Remove this
-			tmpMVColIdx = csPropTypes[tblIdx].lstPropTypes[tmpColIdx].colIdxes[(int)objType];
+			tmpMVColIdx = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].colIdxes[(int)objType];
 			tmpBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
 			getRealValue(&vrRealObjValue, *obt, objType, mi, mbat);
 				
@@ -6388,6 +6430,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				tmplastInsertedS = (int)tmpSoid; 
 				
 				lastColIdx = tmpColIdx; 
+				lastPropIdx = tmpPropIdx; 
 				lasttblIdx = tblIdx;
 				
 				numMultiValues++;
@@ -6415,7 +6458,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		}
 
 
-		tmpTableType = csPropTypes[tblIdx].lstPropTypes[tmpColIdx].TableTypes[(int)objType]; 
+		tmpTableType = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].TableTypes[(int)objType]; 
 
 		//printf("  objType: %d  TblType: %d \n", (int)objType,(int)tmpTableType);
 		if (tmpTableType == PSOTBL){			//For infrequent type ---> go to PSO
@@ -6434,7 +6477,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			//printf(" tmpColIdx = %d \n",tmpColIdx);
 		}
 		else{	//tmpTableType == TYPETBL
-			tmpColExIdx = csPropTypes[tblIdx].lstPropTypes[tmpColIdx].colIdxes[(int)objType];
+			tmpColExIdx = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].colIdxes[(int)objType];
 			curBat = cstablestat->lstcstableEx[tblIdx].colBats[tmpColExIdx];
 			//printf(" tmpColExIdx = %d \n",tmpColExIdx);
 		}
@@ -6443,7 +6486,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		tmplastInsertedS = (cstablestat->lastInsertedS[tblIdx][tmpColIdx] == BUN_NONE)?(-1):(int)(cstablestat->lastInsertedS[tblIdx][tmpColIdx]);
 
 		//If S is not continuous meaning that some S's have missing values for this property. Fill nils for them.
-		fillMissingValueByNils(cstablestat, csPropTypes, tblIdx, tmpColIdx, tmpColExIdx, tmpTableType, tmplastInsertedS + 1, (int)tmpSoid);
+		fillMissingValueByNils(cstablestat, csPropTypes, tblIdx, tmpColIdx, tmpPropIdx, tmpColExIdx, tmpTableType, tmplastInsertedS + 1, (int)tmpSoid);
 		
 		getRealValue(&vrRealObjValue, *obt, objType, mi, mbat);
 
@@ -6473,7 +6516,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	}
 
 	//HAVE TO GO THROUGH ALL BATS
-	fillMissingvaluesAll(cstablestat, csPropTypes, lasttblIdx, lastColIdx, lastSubjId);
+	fillMissingvaluesAll(cstablestat, csPropTypes, lasttblIdx, lastColIdx, lastPropIdx, lastSubjId);
 
 	
 	// Keep the batCacheId
