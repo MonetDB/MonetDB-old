@@ -1886,10 +1886,8 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		tc = (temp_container*)GDKmalloc(sizeof(temp_container));
 		assert(tc != NULL);
 		
-		if(mode == 0)
-			err = mseed_create_temp_container_segments_mode(tc); /* depending on design can get different argument(s) */
-		else
-			err = mseed_create_temp_container_with_data_tables_segments_mode(tc); /* depending on design can get different argument(s) */
+		err = create_temp_container_segments_mode(m, tc, mode); /* depending on design can get different argument(s) */
+		
 		if(err != MAL_SUCCEED)
 		{/* temp_container creation failed, what to do */
 			throw(MAL,"registrar.register_repo", "temp_container creation failed: %s\n", err);
