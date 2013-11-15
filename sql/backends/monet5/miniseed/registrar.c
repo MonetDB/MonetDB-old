@@ -462,8 +462,7 @@ bit is_actual_data_table(str tname)
  */
 str create_temp_container_segments_mode(mvc* m, temp_container* ret_tc, int is_with_mount)
 {
-	str schema_name = "mseed";
-	sql_schema *s = mvc_bind_schema(m, schema_name);
+	sql_schema *s = mvc_bind_schema(m, m->session->schema_name);
 // 	sql_table *t;
 	node *n;
 	int num_tables;
@@ -559,7 +558,7 @@ str create_temp_container_segments_mode(mvc* m, temp_container* ret_tc, int is_w
 		i++;
 	}
 	
-	ret_tc->schema_name = schema_name;
+	ret_tc->schema_name = GDKstrdup(m->session->schema_name);
 	ret_tc->tables_columns = tscs;
 	
 	ret_tc->table_names = (str*) GDKmalloc(num_tables*sizeof(str));
