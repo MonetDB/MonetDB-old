@@ -654,6 +654,13 @@ char isMultiValueCol(PropTypes pt){
 	else return 0; 
 }
 
+static
+char isInfrequentProp(PropTypes pt, CS cs){
+	if (pt.propFreq < cs.support * INFREQ_PROP_THRESHOLD) return 1; 
+	else return 0;
+
+}
+
 static 
 void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSset){
 	int i, j, k; 
@@ -673,7 +680,7 @@ void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freq
 		for(j = 0; j < csPropTypes[i].numProp; j++){
 			#if REMOVE_INFREQ_PROP
 			freqId = csPropTypes[i].freqCSId;
-			if (csPropTypes[i].lstPropTypes[j].propFreq < freqCSset->items[freqId].support * INFREQ_PROP_THRESHOLD){
+			if (isInfrequentProp(csPropTypes[i].lstPropTypes[j], freqCSset->items[freqId])){
 				for (k = 0; k < (MULTIVALUES+1); k++){
 					csPropTypes[i].lstPropTypes[j].TableTypes[k] = PSOTBL;
 					csPropTypes[i].lstPropTypes[j].colIdxes[k] = -1; 
@@ -3888,7 +3895,7 @@ static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *covera
 	//free(csPropNum); 
 }
 
-static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold, int curNumMergeCS, oid* mergeCSFreqCSMap){
+static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold, int curNumMergeCS, oid* mergeCSFreqCSMap, CSPropTypes* csPropTypes){
 
 	//int 	*csPropNum; 
 	//int	*csFreq; 
@@ -3944,8 +3951,8 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 			tmpNumProp = freqCSset->items[freqId].numProp;	
 			for (j = 0; j < freqCSset->items[freqId].numProp; j++){
 				//Check infrequent Prop
-				if (freqCSset->items[freqId].lstPropSupport[j] < freqCSset->items[freqId].support * INFREQ_PROP_THRESHOLD){
-					totalCoverage = totalCoverage - freqCSset->items[freqId].lstPropSupport[j];
+				if (isInfrequentProp(csPropTypes[i].lstPropTypes[j], freqCSset->items[freqId])){
+					totalCoverage = totalCoverage -  csPropTypes[i].lstPropTypes[j].propCover;
 					tmpNumProp--; 
 				}
 			}
@@ -6302,7 +6309,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	int	lastColIdx = -1; 
 	int	lastPropIdx = -1; 
 	char	isSetLasttblIdx = 0;
-	char	objType, defaultType; 
+	ObjectType	objType, defaultType; 
 	char	tmpTableType = 0;
 
 	int	i,j, k; 
@@ -6752,7 +6759,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
 	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
-	getStatisticFinalCSs(freqCSset, sbat, *freqThreshold, curNumMergeCS, mergeCSFreqCSMap);
+	getStatisticFinalCSs(freqCSset, sbat, *freqThreshold, curNumMergeCS, mergeCSFreqCSMap, csPropTypes);
 	free(mergeCSFreqCSMap);
 
 	/* Extract sample data for the evaluation */
