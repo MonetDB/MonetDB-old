@@ -16,7 +16,7 @@ int get_column_type(str schema_name, str table_name, int column_num)
 	switch(column_num)
 	{
 		case 0:
-			return TYPE_str;
+			return TYPE_int;
 		case 1:
 			return TYPE_int;
 		case 2:
@@ -33,7 +33,7 @@ int get_column_num(str schema_name, str table_name, str column_name)
 	if(strcmp(schema_name, "mseed") != 0 || strcmp(table_name, "data") != 0)
 		return -1;
 
-	if(strcmp(column_name, "file_location") == 0)
+	if(strcmp(column_name, "file_id") == 0)
 		return 0;
 	else if(strcmp(column_name, "segment_id") == 0)
 		return 1;
