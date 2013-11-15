@@ -40,7 +40,7 @@
  * patterns like
  *
  *  ...
- *  v3 := sql.bind(..., schema_name, meta_table_name, "file_location", 0);
+ *  v3 := sql.bind(..., schema_name, meta_table_name, "file_id", 0);
  *  ...
  *  v4 := algebra.leftjoin(v2, v3);
  *  .
@@ -58,7 +58,7 @@
  * And transforms them into
  *
  *  ...
- *  v3 := sql.bind(..., schema_name, meta_table_name, "file_location", 0);
+ *  v3 := sql.bind(..., schema_name, meta_table_name, "file_id", 0);
  *  ...
  *  v4 := algebra.leftjoin(v2, v3);
  *  .
@@ -103,7 +103,9 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 	str sys_schema_name = "sys";
 	str schema_name = "mseed";
 	str data_table_identifier = "data";
-	str file_location_identifier = "file_location";
+	str file_identifier_str = "file_id";
+	str files_table_name = "files";
+	str file_location_str = "file_location";
 	str mountRef = putName("mount", 5);
 	str miniseedRef = putName("miniseed", 8);
 	str dvfRef = putName("dvf", 3);
@@ -115,7 +117,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 	//state variables (instruction index) numbered with state
 	int i1 = 0, i2 = 0;
 
-	InstrPtr *old = NULL, q = NULL, r = NULL, t = NULL, b = NULL, m = NULL, e = NULL, *ps_iter = NULL;
+	InstrPtr *old = NULL, q = NULL, r = NULL, t = NULL, b = NULL, m = NULL, e = NULL, b0 = NULL, b1 = NULL, b2 = NULL, pd = NULL, *ps_iter = NULL;
 	int i, limit, which_column, actions = 0;
 	int last_bind_return_var_id = -1;
 	int last_data_tid_return_var_id = -1;
@@ -123,6 +125,8 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 	int last_subselect_return_var_id = -1;
 	int last_update_bind_second_return_var_id = -1;
 	int last_subdelta_return_var_id = -1;
+	
+	int var_sql_mvc;
 
 	stk = stk; //to escape 'unused' parameter error.
 	pci = pci; //to escape 'unused' parameter error.
@@ -143,7 +147,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 		InstrPtr p = old[i];
 
 		/* check for
-		 * v3 := sql.bind(..., schema_name, meta_table_name, "file_location", 0);
+		 * v3 := sql.bind(..., schema_name, meta_table_name, "file_id", 0);
 		 */
 		if(getModuleId(p) == sqlRef &&
 			getFunctionId(p) == bindRef &&
@@ -151,12 +155,13 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 			p->retc == 1 &&
 			strcmp(getVarConstant(mb, getArg(p, 2)).val.sval, sys_schema_name) != 0 &&
 			strstr(getVarConstant(mb, getArg(p, 3)).val.sval, data_table_identifier) == NULL &&
-			strcmp(getVarConstant(mb, getArg(p, 4)).val.sval, file_location_identifier) == 0 &&
+			strcmp(getVarConstant(mb, getArg(p, 4)).val.sval, file_identifier_str) == 0 &&
 			getVarConstant(mb, getArg(p, 5)).val.ival == 0 &&
 			state < 3)
 		{
 			i1 = i;
 			state = 1;
+			var_sql_mvc = getArg(p, 1);
 		}
 		/* check for
 		 * v4 := algebra.leftjoin(v2, v3);
@@ -232,13 +237,19 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						 * (t1, t2) := group.done(v6);
 						 *  t3 := bat.mirror(t1);
 						 *  t4 := algebra.leftjoin(t3, v6);
-						 * barrier (o, fileLocation) := iterator.new(t4);
+						 * 
+						 * X_17 := sql.bind(X_3,"mseed","files","file_location",0);
+						 * (X_19,r1_24) := sql.bind(X_3,"mseed","files","file_location",2);
+						 * X_21 := sql.bind(X_3,"mseed","files","file_location",1);
+						 * X_22 := sql.projectdelta(t4,X_17,X_19,r1_24,X_21);
+						 * 
+						 * barrier (o, fileLocation) := iterator.new(X_22);
 						 * (v71:bat[:oid,:int], v81:bat[:oid,:int], v91:bat[:oid,:timestamp], ...) :=miniseed.mount(fileLocation);
 						 * v7 := sql.append(v7,v71);
 						 * v8 := sql.append(v8,v81);
 						 * v9 := sql.append(v9,v91);
 						 * ...
-						 * redo (o, fileLocation) := iterator.next(t4);
+						 * redo (o, fileLocation) := iterator.next(X_22);
 						 * exit (o,fileLocation);
 						 */
 						
@@ -266,9 +277,55 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						t = newInstruction(mb, ASSIGNsymbol);
 						setModuleId(t, algebraRef);
 						setFunctionId(t, leftfetchjoinRef);
-						t = pushReturn(mb, t, newTmpVariable(mb, TYPE_bat));
+						t = pushReturn(mb, t, newTmpVariable(mb, TYPE_bat)); /* t4 */
 						t = pushArgument(mb, t, getArg(q, 1));
 						t = pushArgument(mb, t, getArg(old[i2], 0));
+						
+						/* create sql.bind 0 instruction */
+						b0 = newInstruction(mb, ASSIGNsymbol);
+						setModuleId(b0, sqlRef);
+						setFunctionId(b0, bindRef);
+						b0 = pushReturn(mb, b0, newTmpVariable(mb, TYPE_bat)); /* X_17 */
+						b0 = pushArgument(mb, b0, var_sql_mvc); /* X_3: sql_mvc */
+						b0 = pushStr(mb, b0, schema_name); /* schema_name */
+						b0 = pushStr(mb, b0, files_table_name); /* "files" */
+						b0 = pushStr(mb, b0, file_location_str); /* "file_location" */
+						b0 = pushInt(mb, b0, 0); /* contents: 0, inserts: 1, or updates: 2 */
+						
+						/* create sql.bind 2 instruction */
+						b2 = newInstruction(mb, ASSIGNsymbol);
+						setModuleId(b2, sqlRef);
+						setFunctionId(b2, bindRef);
+						b2 = pushReturn(mb, b2, newTmpVariable(mb, TYPE_bat)); /* X_19 */
+						b2 = pushReturn(mb, b2, newTmpVariable(mb, TYPE_bat)); /* r1_24 */
+						b2 = pushArgument(mb, b2, var_sql_mvc); /* X_3: sql_mvc */
+						b2 = pushStr(mb, b2, schema_name); /* schema_name */
+						b2 = pushStr(mb, b2, files_table_name); /* "files" */
+						b2 = pushStr(mb, b2, file_location_str); /* "file_location" */
+						b2 = pushInt(mb, b0, 2); /* contents: 0, inserts: 1, or updates: 2 */
+						
+						/* create sql.bind 1 instruction */
+						b1 = newInstruction(mb, ASSIGNsymbol);
+						setModuleId(b1, sqlRef);
+						setFunctionId(b1, bindRef);
+						b1 = pushReturn(mb, b1, newTmpVariable(mb, TYPE_bat)); /* X_21 */
+						b1 = pushArgument(mb, b1, var_sql_mvc); /* X_3: sql_mvc */
+						b1 = pushStr(mb, b1, schema_name); /* schema_name */
+						b1 = pushStr(mb, b1, files_table_name); /* "files" */
+						b1 = pushStr(mb, b1, file_location_str); /* "file_location" */
+						b1 = pushInt(mb, b1, 1); /* contents: 0, inserts: 1, or updates: 2 */
+						
+						/* create sql.projectdelta instruction */
+						pd = newInstruction(mb, ASSIGNsymbol);
+						setModuleId(pd, sqlRef);
+						setFunctionId(pd, projectdeltaRef);
+						pd = pushReturn(mb, pd, newTmpVariable(mb, TYPE_bat)); /* X_22 */
+						pd = pushArgument(mb, pd, getArg(t, 0)); /* t4 */
+						pd = pushArgument(mb, pd, getArg(b0, 0)); /* X_17 */
+						pd = pushArgument(mb, pd, getArg(b2, 0)); /* X_19 */
+						pd = pushArgument(mb, pd, getArg(b2, 1)); /* r1_24 */
+						pd = pushArgument(mb, pd, getArg(b1, 0)); /* X_21 */
+						
 						
 						/* create barrier instruction */
 						b = newInstruction(mb, ASSIGNsymbol);
@@ -277,7 +334,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						b->barrier = BARRIERsymbol;
 						b = pushReturn(mb, b, newTmpVariable(mb, TYPE_any)); /* o */
 						b = pushReturn(mb, b, newTmpVariable(mb, TYPE_any)); /* fileLocation iterator */
-						b = pushArgument(mb, b, getArg(t, 0));
+						b = pushArgument(mb, b, getArg(pd, 0)); /* X_22 */
 						
 						/* create redo instruction */
 						r = newInstruction(mb, ASSIGNsymbol);
@@ -286,7 +343,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						r->barrier = REDOsymbol;
 						r = pushReturn(mb, r, getArg(b, 0)); /* o */
 						r = pushReturn(mb, r, getArg(b, 1)); /* fileLocation iterator */
-						r = pushArgument(mb, r, getArg(t, 0));
+						r = pushArgument(mb, r, getArg(pd, 0)); /* X_22 */
 						
 						/* create mount instruction */
 						m = newInstruction(mb, ASSIGNsymbol);
@@ -298,7 +355,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 							type = get_column_type(schema_name, data_table_identifier, a);
 							if(type < 0)
 							{
-								printf("dvf.get_column_num is not defined yet for schema: %s and table: %s and column: %d.\n", schema_name, data_table_identifier, a);
+								printf("dvf.get_column_type is not defined yet for schema: %s and table: %s and column: %d.\n", schema_name, data_table_identifier, a);
 								return -1;
 							}
 							
@@ -342,6 +399,11 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						}
 						insertInstruction(mb, m, i2+1);
 						insertInstruction(mb, b, i2+1);
+						
+						insertInstruction(mb, pd, i2+1);
+						insertInstruction(mb, b1, i2+1);
+						insertInstruction(mb, b2, i2+1);
+						insertInstruction(mb, b0, i2+1);
 						
 						insertInstruction(mb, t, i2+1);
 // 						insertInstruction(mb, s, i2+1);
