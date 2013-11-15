@@ -1,6 +1,8 @@
 -- Optimized schema for mSEED (meta-)data.
 CREATE SCHEMA mseed;
 
+SET SCHEMA mseed;
+
 CREATE TABLE "mseed"."files" (
 --	"file_id"  INTEGER,
 	"file_location" STRING,
