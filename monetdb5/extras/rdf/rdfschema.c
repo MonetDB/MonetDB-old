@@ -5371,7 +5371,7 @@ str printCSRel(CSset *freqCSset, CSrel *csRelMergeFreqSet, int freqThreshold){
 
 
 static
-str printFKs(CSrel *csRelFinalFKs, int freqThreshold, int numTables){
+str printFKs(CSrel *csRelFinalFKs, int freqThreshold, int numTables,  CSPropTypes* csPropTypes){
 	FILE 	*fout;
 	char 	filename[100];
 	char 	tmpStr[20];
@@ -5379,6 +5379,7 @@ str printFKs(CSrel *csRelFinalFKs, int freqThreshold, int numTables){
 	int	i,j;
 	char*   schema = "rdf";
 	int	ret; 
+	int	propIdx; 	//Index of prop in each table
 
 	strcpy(filename, "FKRelationship");
 	sprintf(tmpStr, "%d", freqThreshold);
@@ -5396,13 +5397,22 @@ str printFKs(CSrel *csRelFinalFKs, int freqThreshold, int numTables){
 		if (csRelFinalFKs[i].numRef != 0){	//Only print CS with FK
 			fprintf(fout, "FK "BUNFMT ": ", csRelFinalFKs[i].origFreqIdx);
 			for (j = 0; j < csRelFinalFKs[i].numRef; j++){
+
+				propIdx = 0; 
+				while (csPropTypes[i].lstPropTypes[propIdx].prop !=  csRelFinalFKs[i].lstPropId[j]){
+					propIdx++;
+				}
+				assert(propIdx < csPropTypes[i].numProp);
+
 				#if SHOWPROPERTYNAME
 				takeOid(csRelFinalFKs[i].lstPropId[j], &propStr);
-				fprintf(fout, BUNFMT "(P:" BUNFMT " - %s) (%d)(Blank:%d) ", csRelFinalFKs[i].lstRefFreqIdx[j], csRelFinalFKs[i].lstPropId[j], propStr, csRelFinalFKs[i].lstCnt[j], csRelFinalFKs[i].lstBlankCnt[j]);
+				fprintf(fout, BUNFMT "(P:" BUNFMT " - %s) (%d | %d)(Blank:%d) ", csRelFinalFKs[i].lstRefFreqIdx[j], csRelFinalFKs[i].lstPropId[j], propStr, csRelFinalFKs[i].lstCnt[j], csPropTypes[i].lstPropTypes[propIdx].propCover, csRelFinalFKs[i].lstBlankCnt[j]);
 				GDKfree(propStr);
 				#else
-				fprintf(fout, BUNFMT "(P:" BUNFMT ") (%d)(Blank:%d) ", csRelFinalFKs[i].lstRefFreqIdx[j],csRelFinalFKs[i].lstPropId[j], csRelFinalFKs[i].lstCnt[j], csRelFinalFKs[i].lstBlankCnt[j]);
+				fprintf(fout, BUNFMT "(P:" BUNFMT ") (%d | %d)(Blank:%d) ", csRelFinalFKs[i].lstRefFreqIdx[j],csRelFinalFKs[i].lstPropId[j], csRelFinalFKs[i].lstCnt[j], csPropTypes[i].lstPropTypes[propIdx].propCover, csRelFinalFKs[i].lstBlankCnt[j]);
 				#endif
+				//Indicate FK with dirty data
+				if ( csPropTypes[i].lstPropTypes[propIdx].propCover >  csRelFinalFKs[i].lstCnt[j]) fprintf(fout, "[DIRTY]"); 
 
 			}
 			fprintf(fout, "\n");
@@ -6750,7 +6760,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	
 
 	csRelFinalFKs = getFKBetweenTableSet(csRelMergeFreqSet, freqCSset, csPropTypes,mfreqIdxTblIdxMapping,numTables);
-	printFKs(csRelFinalFKs, *freqThreshold, numTables); 
+	printFKs(csRelFinalFKs, *freqThreshold, numTables, csPropTypes); 
 
 	// Init CStableStat
 	initCStables(cstablestat, freqCSset, csPropTypes, numTables, labels, mTblIdxFreqIdxMapping);
