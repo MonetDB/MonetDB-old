@@ -430,7 +430,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						* X_21 := sql.bind(X_3,"mseed","files","file_location",1);
 						* X_22 := sql.projectdelta(t4,X_17,X_19,r1_24,X_21);
 						* 
-						*  dvf.plan_modifier(schema_name, X_22, mode);
+						*  dvf.plan_modifier(schema_name, t4, X_22, mode);
 						*/
 
 						/* create group.done instruction */
@@ -509,7 +509,8 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						setFunctionId(q, planmodifierRef);
 						q = pushReturn(mb, q, newTmpVariable(mb, TYPE_void));
 						q = pushArgument(mb, q, getArg(p, 2));
-						q = pushArgument(mb, q, getArg(pd, 0));
+						q = pushArgument(mb, q, getArg(t, 0)); /* t4 */
+						q = pushArgument(mb, q, getArg(pd, 0)); /* X_22 */
 						if(mode == 2)
 							q = pushInt(mb, q, 0);
 						else
