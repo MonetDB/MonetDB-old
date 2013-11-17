@@ -424,7 +424,13 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						/* (t1, t2) := group.done(v6);
 						*  t3 := bat.mirror(t1);
 						*  t4 := algebra.leftjoin(t3, v6);
-						*  dvf.plan_modifier(schema_name, t4);
+						* 
+						* X_17 := sql.bind(X_3,"mseed","files","file_location",0);
+						* (X_19,r1_24) := sql.bind(X_3,"mseed","files","file_location",2);
+						* X_21 := sql.bind(X_3,"mseed","files","file_location",1);
+						* X_22 := sql.projectdelta(t4,X_17,X_19,r1_24,X_21);
+						* 
+						*  dvf.plan_modifier(schema_name, X_22, mode);
 						*/
 
 						/* create group.done instruction */
@@ -448,9 +454,54 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						t = newInstruction(mb, ASSIGNsymbol);
 						setModuleId(t, algebraRef);
 						setFunctionId(t, leftfetchjoinRef);
-						t = pushReturn(mb, t, newTmpVariable(mb, TYPE_bat));
+						t = pushReturn(mb, t, newTmpVariable(mb, TYPE_bat)); /* t4 */
 						t = pushArgument(mb, t, getArg(r, 1));
 						t = pushArgument(mb, t, getArg(old[i2], 0));
+						
+						/* create sql.bind 0 instruction */
+						b0 = newInstruction(mb, ASSIGNsymbol);
+						setModuleId(b0, sqlRef);
+						setFunctionId(b0, bindRef);
+						b0 = pushReturn(mb, b0, newTmpVariable(mb, TYPE_bat)); /* X_17 */
+						b0 = pushArgument(mb, b0, var_sql_mvc); /* X_3: sql_mvc */
+						b0 = pushStr(mb, b0, schema_name); /* schema_name */
+						b0 = pushStr(mb, b0, files_table_name); /* "files" */
+						b0 = pushStr(mb, b0, file_location_str); /* "file_location" */
+						b0 = pushInt(mb, b0, 0); /* contents: 0, inserts: 1, or updates: 2 */
+						
+						/* create sql.bind 2 instruction */
+						b2 = newInstruction(mb, ASSIGNsymbol);
+						setModuleId(b2, sqlRef);
+						setFunctionId(b2, bindRef);
+						b2 = pushReturn(mb, b2, newTmpVariable(mb, TYPE_bat)); /* X_19 */
+						b2 = pushReturn(mb, b2, newTmpVariable(mb, TYPE_bat)); /* r1_24 */
+						b2 = pushArgument(mb, b2, var_sql_mvc); /* X_3: sql_mvc */
+						b2 = pushStr(mb, b2, schema_name); /* schema_name */
+						b2 = pushStr(mb, b2, files_table_name); /* "files" */
+						b2 = pushStr(mb, b2, file_location_str); /* "file_location" */
+						b2 = pushInt(mb, b0, 2); /* contents: 0, inserts: 1, or updates: 2 */
+						
+						/* create sql.bind 1 instruction */
+						b1 = newInstruction(mb, ASSIGNsymbol);
+						setModuleId(b1, sqlRef);
+						setFunctionId(b1, bindRef);
+						b1 = pushReturn(mb, b1, newTmpVariable(mb, TYPE_bat)); /* X_21 */
+						b1 = pushArgument(mb, b1, var_sql_mvc); /* X_3: sql_mvc */
+						b1 = pushStr(mb, b1, schema_name); /* schema_name */
+						b1 = pushStr(mb, b1, files_table_name); /* "files" */
+						b1 = pushStr(mb, b1, file_location_str); /* "file_location" */
+						b1 = pushInt(mb, b1, 1); /* contents: 0, inserts: 1, or updates: 2 */
+						
+						/* create sql.projectdelta instruction */
+						pd = newInstruction(mb, ASSIGNsymbol);
+						setModuleId(pd, sqlRef);
+						setFunctionId(pd, projectdeltaRef);
+						pd = pushReturn(mb, pd, newTmpVariable(mb, TYPE_bat)); /* X_22 */
+						pd = pushArgument(mb, pd, getArg(t, 0)); /* t4 */
+						pd = pushArgument(mb, pd, getArg(b0, 0)); /* X_17 */
+						pd = pushArgument(mb, pd, getArg(b2, 0)); /* X_19 */
+						pd = pushArgument(mb, pd, getArg(b2, 1)); /* r1_24 */
+						pd = pushArgument(mb, pd, getArg(b1, 0)); /* X_21 */
 
 						/* create dvf.plan_modifier instruction */
 						q = newInstruction(mb, ASSIGNsymbol);
@@ -458,7 +509,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						setFunctionId(q, planmodifierRef);
 						q = pushReturn(mb, q, newTmpVariable(mb, TYPE_void));
 						q = pushArgument(mb, q, getArg(p, 2));
-						q = pushArgument(mb, q, getArg(t, 0));
+						q = pushArgument(mb, q, getArg(pd, 0));
 						if(mode == 2)
 							q = pushInt(mb, q, 0);
 						else
@@ -466,11 +517,17 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 
 						/* insert the new instructions in pc i2+1 */
 						insertInstruction(mb, q, i2+1);
+						
+						insertInstruction(mb, pd, i2+1);
+						insertInstruction(mb, b1, i2+1);
+						insertInstruction(mb, b2, i2+1);
+						insertInstruction(mb, b0, i2+1);
+						
 						insertInstruction(mb, t, i2+1);
 // 						insertInstruction(mb, s, i2+1);
 						insertInstruction(mb, r, i2+1);
 
-						actions += 4;
+						actions += 7;
 						state = 3;
 					}
 					
