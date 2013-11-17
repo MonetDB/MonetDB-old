@@ -618,6 +618,9 @@ void initCSPropTypes(CSPropTypes* csPropTypes, CSset* freqCSset, int numMergedCS
 				csPropTypes[id].lstPropTypes[j].isMVProp = 0; 
 				csPropTypes[id].lstPropTypes[j].numMvTypes = 0; 
 				csPropTypes[id].lstPropTypes[j].defColIdx = -1; 
+				csPropTypes[id].lstPropTypes[j].isFKProp = 0;
+				csPropTypes[id].lstPropTypes[j].refTblId = -1; 
+				csPropTypes[id].lstPropTypes[j].isDirtyFKProp = 0; 
 				csPropTypes[id].lstPropTypes[j].lstTypes = (char*)GDKmalloc(sizeof(char) * csPropTypes[id].lstPropTypes[j].numType);
 				csPropTypes[id].lstPropTypes[j].lstFreq = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
 				csPropTypes[id].lstPropTypes[j].lstFreqWithMV = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
@@ -5244,13 +5247,22 @@ CSrel* getFKBetweenTableSet(CSrel *csrelFreqSet, CSset *freqCSset, CSPropTypes* 
 			// else, all instances of that prop must refer to the certain table
 			if (freqCSset->items[i].coverage > MINIMUM_TABLE_SIZE){
 				if (csPropTypes[from].lstPropTypes[propIdx].propCover * MIN_FK_PROPCOVERAGE > rel.lstCnt[j]) continue; 
+				else
+					csPropTypes[from].lstPropTypes[propIdx].isDirtyFKProp = 1;
 			}
 			else{
 				if (csPropTypes[from].lstPropTypes[propIdx].propCover != rel.lstCnt[j]) continue; 
+				else
+					csPropTypes[from].lstPropTypes[propIdx].isDirtyFKProp = 0;
 			}
 			
 			assert(to < numTables);
 			addReltoCSRelWithFreq(from, to, rel.lstPropId[j], rel.lstCnt[j], rel.lstBlankCnt[j], &refinedCsRel[from]);
+
+			//Add rel info to csPropTypes
+			csPropTypes[from].lstPropTypes[propIdx].isFKProp = 1; 
+			csPropTypes[from].lstPropTypes[propIdx].refTblId = to;
+
 		}
 	}
 	return refinedCsRel;
@@ -5835,6 +5847,16 @@ void getTblIdxFromS(oid Soid, int *tbidx, oid *baseSoid){
 
 	*tbidx = *tbidx - 1; 
 
+	//return freqCSid; 
+}
+
+/* This function should be the same as getTblIdxFromS */
+static 
+void getTblIdxFromO(oid Ooid, int *tbidx){
+	
+	*tbidx = (int) ((Ooid >> (sizeof(BUN)*8 - NBITS_FOR_CSID))  &  ((1 << (NBITS_FOR_CSID-1)) - 1)) ;
+	
+	*tbidx = *tbidx - 1; 
 
 	//return freqCSid; 
 }
@@ -6305,6 +6327,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	oid *pbt, *sbt, *obt;
 	oid lastP, lastS; 
 	int	tblIdx = -1; 
+	int	tmpOidTblIdx = -1; 
 	oid	tmpSoid = BUN_NONE; 
 	BUN	ppos; 
 	int*	tmpTblIdxPropIdxMap;	//For each property, this maps the table Idx (in the posting list
@@ -6431,6 +6454,26 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			BUNappend(cstablestat->sbat,sbt , TRUE);
 			BUNappend(cstablestat->obat,obt , TRUE);
 			continue; 
+		}
+
+		if (csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isDirtyFKProp){	//Check whether this URI have a reference 		
+			if (objType != URI){ //Must be a dirty one --> put to pso
+				//printf("Dirty FK at tbl %d | propId " BUNFMT " \n", tblIdx, *pbt);
+				BUNappend(cstablestat->pbat,pbt , TRUE);
+				BUNappend(cstablestat->sbat,sbt , TRUE);
+				BUNappend(cstablestat->obat,obt , TRUE);
+				continue; 
+			}
+			else{ //  
+				getTblIdxFromO(*obt,&tmpOidTblIdx);
+				if (tmpOidTblIdx != csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblId){
+					//printf("Dirty FK at tbl %d | propId " BUNFMT " \n", tblIdx, *pbt);
+					BUNappend(cstablestat->pbat,pbt , TRUE);
+					BUNappend(cstablestat->sbat,sbt , TRUE);
+					BUNappend(cstablestat->obat,obt , TRUE);
+					continue; 
+				}
+			}
 		}
 
 		//printf(" Tbl: %d   |   Col: %d \n", tblIdx, tmpColIdx);

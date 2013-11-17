@@ -325,6 +325,9 @@ typedef struct PropTypes{
 	char	defaultType; 
 	char	isMVProp; 	/* = 1 if this prop is a multi-valued prop*/
 	char	numMvTypes; 	/* Number of extype BAT for this MV col */
+	char	isFKProp; 
+	int	refTblId;	/* refTblId != -1 only when isFKProp = 1 */
+	char 	isDirtyFKProp; 	/* = 1 if not all instances of this prop points to  refTblId*/
 } PropTypes; 
 
 typedef struct CSPropTypes {
