@@ -55,8 +55,9 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	InstrPtr *old = NULL, *mounts = NULL, q = NULL, r = NULL, o = NULL;
 	int i, j, k, limit, slimit, actions = 0;
-	int num_fl = 0;
-	BUN b1 = 0, b2 = 0;
+	int num_fl = 0, num_fi = 0;
+	int* file_ids = NULL;
+	BUN b1 = 0, b2 = 0, b3 = 0, b4 = 0;
 
 	/* Declarations for copying of vars into stack and making a recursive runMALsequence call */
 	str msg = MAL_SUCCEED;
@@ -66,15 +67,17 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	MalBlkPtr copy_old, copy_mb;
 	bit is_stack_new = FALSE;
 
+	BAT *BAT_fi = NULL; /* BAT for file_ids */
 	BAT *BAT_fl = NULL; /* BAT for file_locations */
 
 	bit after_first_data_bind = FALSE;
 
 	str *schema_name = (str*) getArgReference(stk,pci,1); /* arg 1: schema_name */
-	int bat_fl = *(int*) getArgReference(stk,pci,2); /* arg 2: bat of file_locations */
-	int run_mergetable_opt = *(int*) getArgReference(stk,pci,3); /* arg 3: whether plan_modifier should integrate mergetable optimizer */
+	int bat_fi = *(int*) getArgReference(stk,pci,2); /* arg 2: bat of file_ids */
+	int bat_fl = *(int*) getArgReference(stk,pci,3); /* arg 3: bat of file_locations */
+	int run_mergetable_opt = *(int*) getArgReference(stk,pci,4); /* arg 4: whether plan_modifier should integrate mergetable optimizer */
 
-	BATiter fli;
+	BATiter fli, fii;
 	
 	int run_dataflow_opt = 1;
 	int run_recycle_opt = 1;
@@ -93,6 +96,18 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	stk = stk; /* to escape 'unused' parameter error. */
 	pci = pci; /* to escape 'unused' parameter error. */
 
+	if ((BAT_fi = BATdescriptor(bat_fi)) == NULL)
+		throw(MAL, "dvf.plan_modifier", RUNTIME_OBJECT_MISSING);
+	
+	/* check tail type */
+	if (BAT_fi->ttype != TYPE_int)
+	{
+		throw(MAL, "dvf.plan_modifier",
+		      "tail-type of input file_id BAT must be TYPE_int");
+	}
+	
+	BBPincref(bat_fi, TRUE);
+	
 	if ((BAT_fl = BATdescriptor(bat_fl)) == NULL)
 		throw(MAL, "dvf.plan_modifier", RUNTIME_OBJECT_MISSING);
 
@@ -100,14 +115,18 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (BAT_fl->ttype != TYPE_str)
 	{
 		throw(MAL, "dvf.plan_modifier",
-		      "tail-type of input BAT must be TYPE_str");
+		      "tail-type of input file_location BAT must be TYPE_str");
 	}
 
 	BBPincref(bat_fl, TRUE);
 
 	num_fl = BAT_fl->U->count;
+	num_fi = BAT_fi->U->count;
 
 	printf("files of interest: %d\n", num_fl);
+	
+	/* check for logical error */
+	assert(num_fi == num_fl);
 	
 	/* when number of files to be mounted is 0. */
 	if(num_fl == 0)
@@ -116,6 +135,11 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* prepare to keep the potential mount instructions */
 	mounts = (InstrPtr*)GDKmalloc(num_fl*sizeof(InstrPtr));
 	if(mounts == NULL)
+		throw(MAL, "dvf.plan_modifier", MAL_MALLOC_FAIL);
+	
+	/* prepare to keep the file_ids */
+	file_ids = (int*) GDKmalloc(num_fl*sizeof(int));
+	if(file_ids == NULL)
 		throw(MAL, "dvf.plan_modifier", MAL_MALLOC_FAIL);
 
 	/* save the old stage of the MAL block */
@@ -167,9 +191,25 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				/* push mount instructions */
 				/* create BAT iterator */
 				fli = bat_iterator(BAT_fl);
+				fii = bat_iterator(BAT_fi);
 
+				/* loop over the file_ids */
+				BATloop(BAT_fi, b3, b4)
+				{
+					/* get tail value */
+					int t = *(int*) BUNtail(fii, b3);
+					
+					/* collect file_ids */
+					file_ids[which_fl] = t;
+					which_fl++;
+				}
+				
+				/* check for logical error */
+				assert(which_fl == num_fl);
+				
+				which_fl = 0;
+				
 				/* loop over the file_locations */
-
 				BATloop(BAT_fl, b1, b2)
 				{
 					int a = 0, type;
@@ -190,6 +230,7 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 						varSetProp(mb, getArg(q, a), PropertyIndex("hub"), op_lt, (ptr) &high.value);
 					}
 
+					q = pushInt(mb, q, file_ids[which_fl]);
 					q = pushStr(mb, q, t);
 
 					low.value.val.oval += 1;
