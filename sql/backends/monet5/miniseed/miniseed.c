@@ -249,7 +249,7 @@ str MiniseedMountSegmentMode(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 	}
 	
 	if(tracecnt != 1)
-		printf("Warning! Unexpectedly, trace count is greater than 1 in a file! Total %d traces in file %s", tracecnt, *targetfile);
+		printf("Warning! Unexpectedly, trace count is not 1 in a file! Total %d traces in file %s", tracecnt, *targetfile);
 	
 	/* cleanup memory and close file */
 	ms_readmsr_r (&msfp, &msr, NULL, 0, NULL, NULL, 0, 0, 0);
