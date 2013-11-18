@@ -18,5 +18,5 @@ All Rights Reserved.
 */
 
 -- Mount an mseed file
-create function mount(file_path string)
-returns table(file_location string, seq_no integer, sample_time timestamp, sample_value integer) external name miniseed.mount;
+create function mount(file_id integer, file_path string)
+returns table(file_id integer, seq_no integer, sample_time timestamp, sample_value integer) external name miniseed.mount;

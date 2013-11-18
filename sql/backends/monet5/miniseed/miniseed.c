@@ -116,7 +116,8 @@ str MiniseedMountSegmentMode(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 {
 	bat** ret;
 	
-	str *targetfile = (str*) getArgReference(stk,pci,4); /* arg 1: string containing the input file path. */
+	int file_id = *(int*) getArgReference(stk,pci,4); /* arg 1: file_id of the input file. */
+	str *targetfile = (str*) getArgReference(stk,pci,5); /* arg 2: string containing the input file path. */
 	BAT *btime, *bvalue, *bfile, *bsegid; /* BATs to return, representing columns of a table. */
 	
 	lng num_rows = 0;
@@ -155,7 +156,7 @@ str MiniseedMountSegmentMode(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 	cntxt = cntxt; /* to escape 'unused' parameter error. */
 	mb = mb; /* to escape 'unused' parameter error. */
 	
-	bfile = BATnew(TYPE_void, TYPE_str, 0); /* create empty BAT for ret0. */
+	bfile = BATnew(TYPE_void, TYPE_int, 0); /* create empty BAT for ret0. */
 	if ( bfile == NULL)
 		throw(MAL,"miniseed.mount",MAL_MALLOC_FAIL);
 	BATseqbase(bfile, 0);
@@ -230,7 +231,7 @@ str MiniseedMountSegmentMode(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 					MTIMEtimestamp_lng(&sampling_timestamp, &st);
 					
 					/* For each sample add one row to the table */
-					BUNappend(bfile, (ptr) *targetfile, FALSE);
+					BUNappend(bfile, (ptr) &file_id, FALSE);
 					BUNappend(bsegid, (ptr) &segment_id, FALSE);
 					BUNappend(btime, (ptr) &sampling_timestamp, FALSE);
 					BUNappend(bvalue, (ptr) (data_samples+i), FALSE);
