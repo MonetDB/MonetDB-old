@@ -218,6 +218,10 @@ typedef struct SubCSSet{
 
 #define EXPORT_LABEL		1	/* Export labels: TODO: Only disable the  */
 
+
+#define DETECT_PKCOL		1	/* Detect whether a col can be a primary key col while reorganizing triples table*/
+#define ONLY_URI_PK		1	/* Only URI can be considered for PK */
+
 typedef struct CSset{
 	CS* items;
 	int numOrigFreqCS; 
@@ -324,6 +328,7 @@ typedef struct PropTypes{
 	char*	TableTypes;
 	char	defaultType; 
 	char	isMVProp; 	/* = 1 if this prop is a multi-valued prop*/
+	char	isPKProp; 	/* = 1 if all the values in this columns is unique */
 	char	numMvTypes; 	/* Number of extype BAT for this MV col */
 	char	isFKProp; 
 	int	refTblId;	/* refTblId != -1 only when isFKProp = 1 */

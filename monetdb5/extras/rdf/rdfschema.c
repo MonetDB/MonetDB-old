@@ -616,6 +616,7 @@ void initCSPropTypes(CSPropTypes* csPropTypes, CSset* freqCSset, int numMergedCS
 				csPropTypes[id].lstPropTypes[j].numType = MULTIVALUES + 1;
 				csPropTypes[id].lstPropTypes[j].defaultType = STRING; 
 				csPropTypes[id].lstPropTypes[j].isMVProp = 0; 
+				csPropTypes[id].lstPropTypes[j].isPKProp = 0; 
 				csPropTypes[id].lstPropTypes[j].numMvTypes = 0; 
 				csPropTypes[id].lstPropTypes[j].defColIdx = -1; 
 				csPropTypes[id].lstPropTypes[j].isFKProp = 0;
@@ -3903,13 +3904,15 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 	//int 	*csPropNum; 
 	//int	*csFreq; 
 	FILE 	*fout; 
-	int	i,j ; 
+	int	i,j, k ; 
 	char 	filename[100];
 	char 	tmpStr[20];
 	int	maxNumtriple = 0; 
 	int	minNumtriple = INT_MAX; 
 	int	numMergeCS = 0; 
 	int 	totalCoverage = 0; 
+	int	totalCoverage10[10]; 
+	int	tmpNumProp10[10], maxNumProp10[10]; 
 	int	freqId; 
 	int	maxNumProp, tmpNumProp; 
 
@@ -3947,26 +3950,48 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 	minNumtriple = INT_MAX;
 	maxNumProp = 0; 
 	tmpNumProp = 0;
+	for (k = 1; k < 10; k++) {
+		totalCoverage10[k] = totalCoverage;
+		maxNumProp10[k] = 0; 
+	}
 	for (i = 0; i < curNumMergeCS; i++){
 		freqId = mergeCSFreqCSMap[i]; 
 		if (freqCSset->items[freqId].parentFreqIdx == -1){		// Check whether it is a maximumCS
 			// Output the result 
 			tmpNumProp = freqCSset->items[freqId].numProp;	
+			for (k = 1; k < 10; k++) {
+				tmpNumProp10[k] = freqCSset->items[freqId].numProp;
+			}
 			for (j = 0; j < freqCSset->items[freqId].numProp; j++){
 				//Check infrequent Prop
 				if (isInfrequentProp(csPropTypes[i].lstPropTypes[j], freqCSset->items[freqId])){
 					totalCoverage = totalCoverage -  csPropTypes[i].lstPropTypes[j].propCover;
 					tmpNumProp--; 
 				}
+
+				for (k = 1; k < 10; k++) {
+					if ((csPropTypes[i].lstPropTypes[j].propFreq * k)  < freqCSset->items[freqId].support * INFREQ_PROP_THRESHOLD){
+						totalCoverage10[k] = totalCoverage10[k] - csPropTypes[i].lstPropTypes[j].propCover;
+						tmpNumProp10[k]--; 
+					};
+				}
 			}
 
 			if (tmpNumProp > maxNumProp) maxNumProp = tmpNumProp; 
+			for (k = 1; k < 10; k++){
+				if (tmpNumProp10[k] > maxNumProp10[k]) maxNumProp10[k] = tmpNumProp10[k]; 
+			}
 		}
 	}
 
 	printf("If Removing all INFREQUENT Prop \n");
 	printf("Max number of props: %d \n", maxNumProp);
 	printf("Total " BUNFMT " triples, coverred by final CSs: %d  (%f percent) \n", BATcount(sbat), totalCoverage, 100 * ((float)totalCoverage/BATcount(sbat)));
+
+	printf("If Removing all INFREQUENT Prop (k times smaller threshold) \n");
+	for (k = 1; k < 10; k++) {
+		printf("k = %d  |  Max # props: %d | coverred by final CSs: %d  (%f percent)  \n", k, maxNumProp10[k], totalCoverage10[k],  100 * ((float)totalCoverage10[k]/BATcount(sbat)));
+	}
 
 	//Check if remove all the final CS covering less than 10000 triples
 	
@@ -5213,6 +5238,8 @@ CSrel* getFKBetweenTableSet(CSrel *csrelFreqSet, CSset *freqCSset, CSPropTypes* 
 	CSrel*  refinedCsRel;
 	int	propIdx; 	//Index of prop in list of props for each FreqCS
 	int 	numRel = freqCSset->numCSadded; 
+	int	numOneToMany = 0;
+	int	numManyToMany = 0;
 
 	refinedCsRel = initCSrelset(numTables);
 
@@ -5257,6 +5284,15 @@ CSrel* getFKBetweenTableSet(CSrel *csrelFreqSet, CSset *freqCSset, CSPropTypes* 
 			}
 			
 			assert(to < numTables);
+			if (rel.lstCnt[j] > freqCSset->items[toFreqId].support){
+				//printf("ONE to MANY relatioship \n");	
+				numOneToMany++;
+			}
+			if (csPropTypes[from].lstPropTypes[propIdx].isMVProp){
+				//printf("MANY to MANY relatioship \n"); 
+				numManyToMany++;
+			}
+
 			addReltoCSRelWithFreq(from, to, rel.lstPropId[j], rel.lstCnt[j], rel.lstBlankCnt[j], &refinedCsRel[from]);
 
 			//Add rel info to csPropTypes
@@ -5265,6 +5301,9 @@ CSrel* getFKBetweenTableSet(CSrel *csrelFreqSet, CSset *freqCSset, CSPropTypes* 
 
 		}
 	}
+	printf("FK relationship: Possible number of One-to-Many FK: %d \n", numOneToMany);
+	printf("FK relationship: Possible number of Many-to-Many FK: %d \n", numManyToMany);
+
 	return refinedCsRel;
 }
 
@@ -5661,7 +5700,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	tmpNumRel = freqCSset->numCSadded; 
 
 	/* S6: Merged CS referred from the same CS via the same property */
-	mergeMaxFreqCSByS6(tmpCSrelToMergeCS, freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS,  &mergecsId, ontmetadata, ontmetadataCount);
+	if (1) mergeMaxFreqCSByS6(tmpCSrelToMergeCS, freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS,  &mergecsId, ontmetadata, ontmetadataCount);
+	//printf("DISABLE S6 (For Testing) \n"); 
 
 	freeCSrelSet(tmpCSrelToMergeCS,tmpNumRel);
 
@@ -6359,6 +6399,13 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	//void* 	realObjValue = NULL;
 	ValRecord	vrRealObjValue;
 	ValRecord	vrCastedObjValue; 
+	#if	DETECT_PKCOL
+	BAT	*tmpHashBat = NULL; 
+	char	isCheckDone = 0; 
+	BUN	tmpObjBun = BUN_NONE; 
+	int	numPKcols = 0; 
+	char	isPossiblePK = 0; 
+	#endif
 	
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
 		throw(RDF, "RDFdistTriplesToCSs",
@@ -6408,6 +6455,10 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		pbt = (oid *) BUNtloc(pi, p);
 		sbt = (oid *) BUNtloc(si, p);
 		obt = (oid *) BUNtloc(oi, p);
+
+		//BATprint(pbat);
+		//BATprint(sbat); 
+		//BATprint(obat); 
 		
 		//printf(BUNFMT ": " BUNFMT "  |  " BUNFMT " | " BUNFMT "\n", p, *pbt, *sbt, *obt); 
 		getTblIdxFromS(*sbt, &tblIdx, &tmpSoid);	
@@ -6478,11 +6529,27 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 
 		//printf(" Tbl: %d   |   Col: %d \n", tblIdx, tmpColIdx);
 		
+		istmpMVProp = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isMVProp; 
+		defaultType = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].defaultType; 
+		#if     DETECT_PKCOL
+			isPossiblePK = 1;
+			#if ONLY_URI_PK
+			if (defaultType != URI) isPossiblePK = 0; 
+			#endif
+		#endif
 		if (isSetLasttblIdx == 0){
 			lastColIdx = tmpColIdx;
 			lastPropIdx = tmpPropIdx; 
 			lasttblIdx = tblIdx;
 			cstablestat->lastInsertedS[tblIdx][tmpColIdx] = BUN_NONE;
+			#if     DETECT_PKCOL
+			if (isPossiblePK){
+				tmpHashBat = BATnew(TYPE_void, TYPE_oid, lastSubjId[tblIdx] + 1);
+				(void)BATprepareHash(BATmirror(tmpHashBat));
+				isCheckDone = 0; 
+				numPKcols++;
+			}
+			#endif
 			isSetLasttblIdx = 1; 
 		}
 
@@ -6498,11 +6565,38 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			lasttblIdx = tblIdx;
 			tmplastInsertedS = -1;
 			cstablestat->lastInsertedS[tblIdx][tmpColIdx] = BUN_NONE;
+			#if     DETECT_PKCOL	
+			if (isPossiblePK){
+				if (tmpHashBat != NULL){
+					BBPreclaim(tmpHashBat); 
+					tmpHashBat = NULL; 
+				}
+				tmpHashBat = BATnew(TYPE_void, TYPE_oid, lastSubjId[tblIdx] + 1);
+				(void)BATprepareHash(BATmirror(tmpHashBat));
+				csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isPKProp = 1;  /* Assume that the object values are all unique*/
+				isCheckDone = 0;
+				numPKcols++;
+			}
+			#endif
 			
 		}
+		#if     DETECT_PKCOL
+		else{
+			if (isCheckDone == 0 && isPossiblePK){
+				tmpObjBun = BUNfnd(BATmirror(tmpHashBat),(ptr) obt);
+				if (tmpObjBun == BUN_NONE){
+					BUNappend(tmpHashBat,obt, TRUE);
+				}
+				else{
+					isCheckDone = 1; 
+					csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isPKProp = 0; 
+					numPKcols--;
+					//printf("Found duplicated value at " BUNFMT "  |  " BUNFMT " | " BUNFMT "\n", *pbt, *sbt, *obt);
+				}
+			}
+		}
+		#endif
 
-		istmpMVProp = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isMVProp; 
-		defaultType = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].defaultType; 
 
 		if (istmpMVProp == 1){	// This is a multi-valued prop
 			//printf("Multi values prop \n"); 
@@ -6601,9 +6695,6 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			continue; 
 		}
 
-
-		
-
 		if (tmpTableType == MAINTBL){
 			curBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
 			//printf(" tmpColIdx = %d \n",tmpColIdx);
@@ -6646,7 +6737,14 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		cstablestat->lastInsertedS[tblIdx][tmpColIdx] = tmpSoid;
 
 	}
-
+	
+	#if DETECT_PKCOL 
+	if (tmpHashBat != NULL){
+		BBPreclaim(tmpHashBat); 
+		tmpHashBat = NULL; 
+	}
+	printf("Number of possible PK cols is: %d \n", numPKcols); 
+	#endif
 	//HAVE TO GO THROUGH ALL BATS
 	fillMissingvaluesAll(cstablestat, csPropTypes, lasttblIdx, lastColIdx, lastPropIdx, lastSubjId);
 
@@ -6856,7 +6954,8 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 		free(mfreqIdxTblIdxMapping);
 		free(mTblIdxFreqIdxMapping);
 		freeCSPropTypes(csPropTypes,numTables);
-
+		printf("Finish & Exit exploring step! \n"); 
+		
 		return MAL_SUCCEED;
 	}
 
@@ -6962,10 +7061,16 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	
 	//printPropStat(propStat,0); 
 	
+	curT = clock(); 
+	printf (" Prepare and create sub-sorted PSO took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
 	if (RDFdistTriplesToCSs(ret, &sNewBat->batCacheid, &pNewBat->batCacheid, &oNewBat->batCacheid, mapbatid, propStat, cstablestat, csPropTypes, lastSubjId) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in distributing triples to BATs using CSs");		
 	}
 		
+	curT = clock(); 
+	printf ("RDFdistTriplesToCSs process took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
 
 	freeCSrelSet(csRelMergeFreqSet,freqCSset->numCSadded);
 	freeCSrelSet(csRelFinalFKs, numTables); 
