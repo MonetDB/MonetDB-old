@@ -262,7 +262,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow, bit *inclusiveHgh){
 
 	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 	
-	retry:;
+	retryValues:;
 
 	t = (int *) Tloc(b, BUNfirst(b));
 	p=rand()%countBatElements;
@@ -276,8 +276,9 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow, bit *inclusiveHgh){
 		*low=temp_val;
 	}
 	else if (*low==*hgh)
-		goto retry;
+		goto retryValues;
 
+	retry:;
 
 	pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
 
