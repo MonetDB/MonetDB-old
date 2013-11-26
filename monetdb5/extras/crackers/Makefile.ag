@@ -43,6 +43,7 @@ lib_crackers = {
 			  crackers_holisticsideways.c \
 			  crackers_holisticsideways.h \
 			  crackers_selectst_ops.mx \
+			  crackers_selectstpl_ops.mx \
 			  crackers_selecthol_ops.mx \
 			  crackers_selectholst_ops.mx \
 			  crackers_selectholpl_ops.mx \

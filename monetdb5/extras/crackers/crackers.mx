@@ -298,8 +298,6 @@ comment "Retrieve the subset using a cracker
         nthreads <  0    ->  1st (inferior) version of new multi-threaded implementation,
         nthreads >  0    ->  2nd (superior) version of new multi-threaded implementation.";
 
-#
-
 command parallelselect(b:bat[:oid,:@2],l:@2,h:@2,li:bit,hi:bit):bat[:oid,:@2]
 address CRKparallelselectBounds_@2
 comment "Retrieve the subset using a cracker
@@ -351,6 +349,45 @@ address CRKthetaselectst_@2
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
 
+command selectstpl(b:bat[:oid,:@2],l:@2,h:@2):bat[:oid,:@2]
+address CRKselectstpl_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command selectstpl(b:bat[:oid,:@2],l:@2):bat[:oid,:@2]
+address CRKselectstplValue_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command selectstpl(b:bat[:oid,:@2],l:@2,h:@2,li:bit,hi:bit):bat[:oid,:@2]
+address CRKselectstplBounds_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command uselectstpl(b:bat[:any_1,:@2],l:@2,h:@2):bat[:any_1,:void]
+address CRKuselectstpl_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command uselectstpl(b:bat[:any_1,:@2],l:@2):bat[:any_1,:void]
+address CRKuselectstplValue_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command uselectstpl(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit):bat[:any_1,:void]
+address CRKuselectstplBounds_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command thetauselectstpl(b:bat[:any_1,:@2],v:@2,op:str):bat[:any_1,:void]
+address CRKthetauselectstpl_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
+
+command thetaselectstpl(b:bat[:any_1,:@2],v:@2,op:str):bat[:any_1,:@2]
+address CRKthetaselectstpl_@2
+comment "Retrieve the subset using a cracker
+        index producing preferably a BATview.";
 
 command selecthol(b:bat[:oid,:@2],l:@2,h:@2):bat[:oid,:@2]
 address CRKselecthol_@2
@@ -986,6 +1023,7 @@ comment "Calculate aggregate sum of range l-h.";
 #include "crackers_select_ops.h"
 #include "crackers_parallelselect_ops.h"
 #include "crackers_selectst_ops.h"
+#include "crackers_selectstpl_ops.h"
 #include "crackers_selecthol_ops.h"
 #include "crackers_selectholst_ops.h"
 #include "crackers_selectholpl_ops.h"
