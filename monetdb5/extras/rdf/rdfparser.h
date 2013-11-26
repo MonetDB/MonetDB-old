@@ -29,7 +29,7 @@
 
 #include <raptor2.h>
 
-
+#define CHECK_NUM_DBPONTOLOGY   0       /* Check how many rdf triples use dbpontology */
 
 typedef struct parserData {
 	                              /**PROPERTIES             */
@@ -51,6 +51,10 @@ typedef struct parserData {
 	                              /**GRAPH DATA             */
 	BAT **graph;                  /* BATs for the result
 	                                 shredded RDF graph     */
+#if CHECK_NUM_DBPONTOLOGY
+	int numOntologyTriples; 
+#endif
+	
 } parserData;
 
 void fatalHandler (void *user_data, raptor_log_message* message);

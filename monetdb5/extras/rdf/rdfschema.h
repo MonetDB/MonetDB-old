@@ -222,6 +222,11 @@ typedef struct SubCSSet{
 #define DETECT_PKCOL		1	/* Detect whether a col can be a primary key col while reorganizing triples table*/
 #define ONLY_URI_PK		1	/* Only URI can be considered for PK */
 
+#define COUNT_DISTINCT_REFERRED_S	1 	/* Count the number of distinct subject referred by the object values of certain 
+						This is to detect whether the FK is ONE-to-MANY or MANY-to-MANY ....
+						*/
+
+
 typedef struct CSset{
 	CS* items;
 	int numOrigFreqCS; 
@@ -332,6 +337,9 @@ typedef struct PropTypes{
 	char	numMvTypes; 	/* Number of extype BAT for this MV col */
 	char	isFKProp; 
 	int	refTblId;	/* refTblId != -1 only when isFKProp = 1 */
+	int	refTblSupport; 	/* Support of the table referred by this prop */
+	int	numReferring; 	/* Number of references from this prop */
+	int	numDisRefValues;	/* Number of distinct referred values */
 	char 	isDirtyFKProp; 	/* = 1 if not all instances of this prop points to  refTblId*/
 } PropTypes; 
 

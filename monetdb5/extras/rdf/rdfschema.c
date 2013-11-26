@@ -621,6 +621,9 @@ void initCSPropTypes(CSPropTypes* csPropTypes, CSset* freqCSset, int numMergedCS
 				csPropTypes[id].lstPropTypes[j].defColIdx = -1; 
 				csPropTypes[id].lstPropTypes[j].isFKProp = 0;
 				csPropTypes[id].lstPropTypes[j].refTblId = -1; 
+				csPropTypes[id].lstPropTypes[j].refTblSupport = 0;
+				csPropTypes[id].lstPropTypes[j].numReferring = 0;
+				csPropTypes[id].lstPropTypes[j].numDisRefValues = 0;
 				csPropTypes[id].lstPropTypes[j].isDirtyFKProp = 0; 
 				csPropTypes[id].lstPropTypes[j].lstTypes = (char*)GDKmalloc(sizeof(char) * csPropTypes[id].lstPropTypes[j].numType);
 				csPropTypes[id].lstPropTypes[j].lstFreq = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
@@ -5298,6 +5301,9 @@ CSrel* getFKBetweenTableSet(CSrel *csrelFreqSet, CSset *freqCSset, CSPropTypes* 
 			//Add rel info to csPropTypes
 			csPropTypes[from].lstPropTypes[propIdx].isFKProp = 1; 
 			csPropTypes[from].lstPropTypes[propIdx].refTblId = to;
+			csPropTypes[from].lstPropTypes[propIdx].refTblSupport = freqCSset->items[toFreqId].support;
+			csPropTypes[from].lstPropTypes[propIdx].numReferring = rel.lstCnt[j];
+
 
 		}
 	}
@@ -5474,6 +5480,59 @@ str printFKs(CSrel *csRelFinalFKs, int freqThreshold, int numTables,  CSPropType
 	fclose(fout);
 
 	return MAL_SUCCEED; 
+}
+
+
+static 
+void printFKMultiplicityFromCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, int freqThreshold){
+	char filename[100]; 
+	char tmpStr[50]; 
+	FILE *fout; 
+	int i, j; 
+	
+	int	numMtoM = 0; 	//Many To Many
+	int	numOtoM = 0; 	//One to Many
+	int	numOtoO = 0; 
+
+	printf("Collect the statistic for FK multiplicity ... ");
+	strcpy(filename, "FKMultiplicity");
+	sprintf(tmpStr, "%d", freqThreshold);
+	strcat(filename, tmpStr);
+	strcat(filename, ".txt");
+
+	fout = fopen(filename,"wt"); 
+
+	/* Print cspropTypes */
+
+	fprintf(fout, "FromTbl	PropId	Prop	ToTbl	isMultiProp	PropCoverage	RefferedTblSupport	NumReffering	NumReferred	Ratio\n");
+	for (i = 0; i < numMergedCS; i++){
+		for(j = 0; j < csPropTypes[i].numProp; j++){
+			if (csPropTypes[i].lstPropTypes[j].isFKProp){
+				if (csPropTypes[i].lstPropTypes[j].numDisRefValues == 0) continue; // These columns may be put into PSO, thus no FK
+
+				fprintf(fout, "%d	%d	"BUNFMT"	%d	%d	%d	%d	%d	%d	%f\n",
+						i , j, csPropTypes[i].lstPropTypes[j].prop, csPropTypes[i].lstPropTypes[j].refTblId, 
+						csPropTypes[i].lstPropTypes[j].isMVProp, csPropTypes[i].lstPropTypes[j].propCover, 
+						csPropTypes[i].lstPropTypes[j].refTblSupport, csPropTypes[i].lstPropTypes[j].numReferring,
+						csPropTypes[i].lstPropTypes[j].numDisRefValues, 
+						(float)csPropTypes[i].lstPropTypes[j].numReferring / csPropTypes[i].lstPropTypes[j].numDisRefValues
+						);
+				if (csPropTypes[i].lstPropTypes[j].numReferring == csPropTypes[i].lstPropTypes[j].numDisRefValues) numOtoO++;
+				if  (csPropTypes[i].lstPropTypes[j].isMVProp)	numMtoM++;
+				if (csPropTypes[i].lstPropTypes[j].numReferring > csPropTypes[i].lstPropTypes[j].numDisRefValues) numOtoM++;	
+			}
+		}
+
+	}
+	
+	printf("Done!\n"); 
+	
+	printf("There are %d One to Many FKs\n", numOtoM);
+	printf("There are %d Many to Many FKs\n", numMtoM);
+	printf("There are %d One to One FKs\n", numOtoO);
+
+	fclose(fout); 
+
 }
 
 // for storing ontology data
@@ -6339,6 +6398,7 @@ void getRealValue(ValPtr returnValue, oid objOid, ObjectType objType, BATiter ma
 			VALset(returnValue, TYPE_str, tmpStr);
 			break; 
 		case DATETIME:
+			//printf("A Datetime object value: %s \n",objStr);
 			datetimeStr = getDateTimeFromRDFString(objStr);
 			VALset(returnValue, TYPE_str, datetimeStr);
 			break; 
@@ -6405,6 +6465,12 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	BUN	tmpObjBun = BUN_NONE; 
 	int	numPKcols = 0; 
 	char	isPossiblePK = 0; 
+	#endif
+	#if	COUNT_DISTINCT_REFERRED_S
+	BAT     *tmpFKHashBat = NULL;
+	int	initHashBatgz = 0; 
+	BUN	tmpFKRefBun = BUN_NONE; 
+	char	isFKCol = 0; 
 	#endif
 	
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
@@ -6499,6 +6565,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 
 
 		tmpPropIdx = tmpTblIdxPropIdxMap[tblIdx]; 
+		//printf(" PropIdx = %d \n", tmpPropIdx);
 		tmpColIdx = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].defColIdx; 
 		if (tmpColIdx == -1){ 	// This col is removed as an infrequent prop
 			BUNappend(cstablestat->pbat,pbt , TRUE);
@@ -6528,6 +6595,9 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		}
 
 		//printf(" Tbl: %d   |   Col: %d \n", tblIdx, tmpColIdx);
+		#if COUNT_DISTINCT_REFERRED_S
+		isFKCol = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isFKProp; 
+		#endif
 		
 		istmpMVProp = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isMVProp; 
 		defaultType = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].defaultType; 
@@ -6546,8 +6616,17 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			if (isPossiblePK){
 				tmpHashBat = BATnew(TYPE_void, TYPE_oid, lastSubjId[tblIdx] + 1);
 				(void)BATprepareHash(BATmirror(tmpHashBat));
+				BUNappend(tmpHashBat,obt, TRUE);		//Insert the first value
 				isCheckDone = 0; 
 				numPKcols++;
+			}
+			#endif
+			#if COUNT_DISTINCT_REFERRED_S
+			if (isFKCol){
+				initHashBatgz = (csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblSupport > smallHashBatsz)?smallHashBatsz:csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblSupport;
+				tmpFKHashBat = BATnew(TYPE_void, TYPE_oid, initHashBatgz + 1);
+				(void)BATprepareHash(BATmirror(tmpFKHashBat));
+				BUNappend(tmpFKHashBat,obt, TRUE);		//The first value
 			}
 			#endif
 			isSetLasttblIdx = 1; 
@@ -6560,11 +6639,30 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			//Insert missing values for all columns of this property in this table
 
 			fillMissingvaluesAll(cstablestat, csPropTypes, lasttblIdx, lastColIdx, lastPropIdx, lastSubjId);
+				
+			#if COUNT_DISTINCT_REFERRED_S
+			if (csPropTypes[lasttblIdx].lstPropTypes[lastPropIdx].isFKProp ) {
+				//printf("Update refcount for FK Col at: Table %d  Prop %d (Orig Ref size: %d) --> " BUNFMT "\n", lasttblIdx, lastPropIdx, csPropTypes[lasttblIdx].lstPropTypes[lastPropIdx].refTblSupport, BATcount(tmpFKHashBat)); 
+				csPropTypes[lasttblIdx].lstPropTypes[lastPropIdx].numDisRefValues = BATcount(tmpFKHashBat);
+				if (tmpFKHashBat != NULL){
+					BBPreclaim(tmpFKHashBat);
+					tmpFKHashBat = NULL; 
+				}
+			}
+			if (isFKCol){
+				initHashBatgz = (csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblSupport > smallHashBatsz)?smallHashBatsz:csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblSupport;
+				tmpFKHashBat = BATnew(TYPE_void, TYPE_oid, initHashBatgz + 1);
+				(void)BATprepareHash(BATmirror(tmpFKHashBat));
+				BUNappend(tmpFKHashBat,obt, TRUE);		//The first value
+			}
+			#endif
+
 			lastColIdx = tmpColIdx; 
 			lastPropIdx = tmpPropIdx; 
 			lasttblIdx = tblIdx;
 			tmplastInsertedS = -1;
 			cstablestat->lastInsertedS[tblIdx][tmpColIdx] = BUN_NONE;
+
 			#if     DETECT_PKCOL	
 			if (isPossiblePK){
 				if (tmpHashBat != NULL){
@@ -6574,14 +6672,17 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				tmpHashBat = BATnew(TYPE_void, TYPE_oid, lastSubjId[tblIdx] + 1);
 				(void)BATprepareHash(BATmirror(tmpHashBat));
 				csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isPKProp = 1;  /* Assume that the object values are all unique*/
+				BUNappend(tmpHashBat,obt, TRUE);		//Insert the first value
 				isCheckDone = 0;
 				numPKcols++;
 			}
 			#endif
+
 			
 		}
-		#if     DETECT_PKCOL
 		else{
+
+			#if     DETECT_PKCOL
 			if (isCheckDone == 0 && isPossiblePK){
 				tmpObjBun = BUNfnd(BATmirror(tmpHashBat),(ptr) obt);
 				if (tmpObjBun == BUN_NONE){
@@ -6594,8 +6695,17 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 					//printf("Found duplicated value at " BUNFMT "  |  " BUNFMT " | " BUNFMT "\n", *pbt, *sbt, *obt);
 				}
 			}
+
+			#endif
+			#if COUNT_DISTINCT_REFERRED_S
+			if (isFKCol){
+				tmpFKRefBun = BUNfnd(BATmirror(tmpFKHashBat),(ptr) obt);
+				if (tmpFKRefBun == BUN_NONE){
+					BUNappend(tmpFKHashBat,obt, TRUE);
+				}
+			}
+			#endif
 		}
-		#endif
 
 
 		if (istmpMVProp == 1){	// This is a multi-valued prop
@@ -6718,12 +6828,12 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			if (rdfcast(objType, defaultType, &vrRealObjValue, &vrCastedObjValue) == 1){
 				//printf("Casted a value (type: %d) to tables %d col %d (type: %d)  \n", objType, tblIdx,tmpColIdx,defaultType);
 				BUNappend(tmpBat, VALget(&vrCastedObjValue), TRUE);
+				VALclear(&vrCastedObjValue);
 			}
 			else{
 				BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
 			}
 
-			VALclear(&vrCastedObjValue);
 		}
 		
 		BUNappend(curBat, VALget(&vrRealObjValue), TRUE);
@@ -6745,6 +6855,19 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	}
 	printf("Number of possible PK cols is: %d \n", numPKcols); 
 	#endif
+
+	#if COUNT_DISTINCT_REFERRED_S
+	if (isFKCol){
+		//Update FK referred count for the last csProp
+		printf("LAST update ref count for FK Col at: Table %d  Prop %d (Orig Ref size: %d) \n", tblIdx, tmpPropIdx, csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblSupport); 
+		csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].numDisRefValues = BATcount(tmpFKHashBat);
+		if (tmpFKHashBat != NULL){
+			BBPreclaim(tmpFKHashBat);
+			tmpFKHashBat = NULL; 
+		}
+	}
+	#endif
+
 	//HAVE TO GO THROUGH ALL BATS
 	fillMissingvaluesAll(cstablestat, csPropTypes, lasttblIdx, lastColIdx, lastPropIdx, lastSubjId);
 
@@ -6874,7 +6997,6 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	RDFExtractCSPropTypes(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, csPropTypes, maxNumPwithDup);
 	genCSPropTypesColIdx(csPropTypes, numTables, freqCSset);
 	printCSPropTypes(csPropTypes, numTables, freqCSset, *freqThreshold);
-
 	//Collecting the statistic
 	getTableStatisticViaCSPropTypes(csPropTypes, numTables, freqCSset, *freqThreshold);
 	
@@ -7071,7 +7193,9 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	curT = clock(); 
 	printf ("RDFdistTriplesToCSs process took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
-
+	
+	printFKMultiplicityFromCSPropTypes(csPropTypes, numTables, *freqThreshold);
+		
 	freeCSrelSet(csRelMergeFreqSet,freqCSset->numCSadded);
 	freeCSrelSet(csRelFinalFKs, numTables); 
 	freeCSPropTypes(csPropTypes,numTables);

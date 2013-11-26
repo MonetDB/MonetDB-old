@@ -73,6 +73,7 @@ RDFpartialjoin (bat *res, bat *lmap, bat *rmap, bat *input);
 
 #define batsz 10000000
 #define smallbatsz 100000
+#define smallHashBatsz 10000
 
 #if STORE == TRIPLE_STORE
  typedef enum {

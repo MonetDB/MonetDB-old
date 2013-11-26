@@ -247,6 +247,9 @@ getObjectType(unsigned char* objStr, BUN *realNumValue){
 static void 
 tripleHandler(void* user_data, const raptor_statement* triple)
 {
+#if CHECK_NUM_DBPONTOLOGY
+	const char* pos = NULL;
+#endif
 	parserData *pdata = ((parserData *) user_data);
 	BUN bun = BUN_NONE;
 	BUN realNumValue = BUN_NONE; 
@@ -284,6 +287,11 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 		if (triple->predicate->type == RAPTOR_TERM_TYPE_URI) {
 			unsigned char* predicateStr;
 			predicateStr = raptor_term_to_string(triple->predicate);
+			#if CHECK_NUM_DBPONTOLOGY
+			if ( (pos = strstr((str)predicateStr , "http://dbpedia.org/ontology")) != NULL){
+				pdata->numOntologyTriples++;
+			}
+			#endif
 			//rdf_insert(pdata, graph[MAP_LEX], (str) predicateStr, &bun);
 			rdf_tknzr_insert((str) predicateStr, &bun);
 			rdf_BUNappend(pdata, graph[P_sort], &bun); 
@@ -377,6 +385,9 @@ parserData_create (str location, BAT** graph)
 	pdata->warning = 0;
 	pdata->location = location;
 	pdata->graph = graph;
+#if CHECK_NUM_DBPONTOLOGY
+	pdata->numOntologyTriples = 0;
+#endif
 
 	for (i = 0; i <= N_GRAPH_BAT; i++) {
 		pdata->graph[i] = NULL;
@@ -719,7 +730,11 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema)
 							uri = raptor_new_uri(world,raptor_uri_filename_to_uri_string(tmpfilename));
 							iret = raptor_parser_parse_file(rparser, uri, NULL);
 							raptor_free_uri(uri);
-							printf(".. Done \n");
+							#if CHECK_NUM_DBPONTOLOGY
+							printf(".. Done (No errors: %d | Loaded: " BUNFMT " | Ontology-based: %d) \n",pdata->error, pdata->tcount, pdata->numOntologyTriples);
+							#else
+							printf(".. Done (No errors: %d | Loaded: " BUNFMT ") \n",pdata->error, pdata->tcount);
+							#endif
 						}
 					}
 					closedir (dp);
@@ -779,6 +794,11 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema)
 	}
 
 #else
+	#if CHECK_NUM_DBPONTOLOGY
+	printf("Total number of triples loaded: " BUNFMT " (Number of available ontology-based triples: %d) \n", pdata->tcount, pdata->numOntologyTriples);
+	#else
+	printf("Total number of triples loaded: " BUNFMT "\n", pdata->tcount);
+	#endif
 	printf("Total number of error %d , fatal %d , warning %d", pdata->error, pdata->fatal, pdata->warning);
 #endif
 	/* post processing step */
