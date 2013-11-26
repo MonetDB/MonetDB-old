@@ -302,7 +302,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						b2 = pushStr(mb, b2, schema_name); /* schema_name */
 						b2 = pushStr(mb, b2, files_table_name); /* "files" */
 						b2 = pushStr(mb, b2, file_location_str); /* "file_location" */
-						b2 = pushInt(mb, b0, 2); /* contents: 0, inserts: 1, or updates: 2 */
+						b2 = pushInt(mb, b2, 2); /* contents: 0, inserts: 1, or updates: 2 */
 						
 						/* create sql.bind 1 instruction */
 						b1 = newInstruction(mb, ASSIGNsymbol);
@@ -479,7 +479,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						b2 = pushStr(mb, b2, schema_name); /* schema_name */
 						b2 = pushStr(mb, b2, files_table_name); /* "files" */
 						b2 = pushStr(mb, b2, file_location_str); /* "file_location" */
-						b2 = pushInt(mb, b0, 2); /* contents: 0, inserts: 1, or updates: 2 */
+						b2 = pushInt(mb, b2, 2); /* contents: 0, inserts: 1, or updates: 2 */
 						
 						/* create sql.bind 1 instruction */
 						b1 = newInstruction(mb, ASSIGNsymbol);
