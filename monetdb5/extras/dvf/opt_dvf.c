@@ -110,14 +110,17 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 	str miniseedRef = putName("miniseed", 8);
 	str dvfRef = putName("dvf", 3);
 	str planmodifierRef = putName("plan_modifier", 13);
+	str fetchfileidsandlocationsRef = putName("fetch_file_ids_and_locations", 28);
 
 	//states of finding the pattern
 	int state = 0; //0: start, 1:found v3, 2:found v5, 3:done with injection;
 
 	//state variables (instruction index) numbered with state
 	int i1 = 0, i2 = 0;
+	
+	//
 
-	InstrPtr *old = NULL, q = NULL, r = NULL, t = NULL, b = NULL, m = NULL, e = NULL, b0 = NULL, b1 = NULL, b2 = NULL, pd = NULL, *ps_iter = NULL;
+	InstrPtr *old = NULL, q = NULL, r = NULL, t = NULL, b = NULL, m = NULL, e = NULL, b0 = NULL, b1 = NULL, b2 = NULL, ffiali = NULL, *ps_iter = NULL;
 	int i, limit, which_column, actions = 0;
 	int last_bind_return_var_id = -1;
 	int last_data_tid_return_var_id = -1;
@@ -238,19 +241,17 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						 *  t3 := bat.mirror(t1);
 						 *  t4 := algebra.leftjoin(t3, v6);
 						 * 
-						 * X_17 := sql.bind(X_3,"mseed","files","file_location",0);
-						 * (X_19,r1_24) := sql.bind(X_3,"mseed","files","file_location",2);
-						 * X_21 := sql.bind(X_3,"mseed","files","file_location",1);
-						 * X_22 := sql.projectdelta(t4,X_17,X_19,r1_24,X_21);
+						 * (X_21,X_22) := dvf.fetch_file_ids_and_locations("mseed",t4);
 						 * 
-						 * barrier (o, fileLocation) := iterator.new(X_22);
-						 * (v71:bat[:oid,:int], v81:bat[:oid,:int], v91:bat[:oid,:timestamp], ...) :=miniseed.mount(fileLocation);
+						 * barrier (o, fileId) := iterator.new(X_21);
+						 * fileLocation:= algebra.fetch(X_22,o);
+						 * (v71:bat[:oid,:int], v81:bat[:oid,:int], v91:bat[:oid,:timestamp], ...) :=miniseed.mount(fileId,fileLocation);
 						 * v7 := sql.append(v7,v71);
 						 * v8 := sql.append(v8,v81);
 						 * v9 := sql.append(v9,v91);
 						 * ...
-						 * redo (o, fileLocation) := iterator.next(X_22);
-						 * exit (o,fileLocation);
+						 * redo (o, fileId) := iterator.next(X_21);
+						 * exit (o,fileId);
 						 */
 						
 						int a = 0, type;
@@ -281,50 +282,14 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						t = pushArgument(mb, t, getArg(q, 1));
 						t = pushArgument(mb, t, getArg(old[i2], 0));
 						
-						/* create sql.bind 0 instruction */
-						b0 = newInstruction(mb, ASSIGNsymbol);
-						setModuleId(b0, sqlRef);
-						setFunctionId(b0, bindRef);
-						b0 = pushReturn(mb, b0, newTmpVariable(mb, TYPE_bat)); /* X_17 */
-						b0 = pushArgument(mb, b0, var_sql_mvc); /* X_3: sql_mvc */
-						b0 = pushStr(mb, b0, schema_name); /* schema_name */
-						b0 = pushStr(mb, b0, files_table_name); /* "files" */
-						b0 = pushStr(mb, b0, file_location_str); /* "file_location" */
-						b0 = pushInt(mb, b0, 0); /* contents: 0, inserts: 1, or updates: 2 */
-						
-						/* create sql.bind 2 instruction */
-						b2 = newInstruction(mb, ASSIGNsymbol);
-						setModuleId(b2, sqlRef);
-						setFunctionId(b2, bindRef);
-						b2 = pushReturn(mb, b2, newTmpVariable(mb, TYPE_bat)); /* X_19 */
-						b2 = pushReturn(mb, b2, newTmpVariable(mb, TYPE_bat)); /* r1_24 */
-						b2 = pushArgument(mb, b2, var_sql_mvc); /* X_3: sql_mvc */
-						b2 = pushStr(mb, b2, schema_name); /* schema_name */
-						b2 = pushStr(mb, b2, files_table_name); /* "files" */
-						b2 = pushStr(mb, b2, file_location_str); /* "file_location" */
-						b2 = pushInt(mb, b2, 2); /* contents: 0, inserts: 1, or updates: 2 */
-						
-						/* create sql.bind 1 instruction */
-						b1 = newInstruction(mb, ASSIGNsymbol);
-						setModuleId(b1, sqlRef);
-						setFunctionId(b1, bindRef);
-						b1 = pushReturn(mb, b1, newTmpVariable(mb, TYPE_bat)); /* X_21 */
-						b1 = pushArgument(mb, b1, var_sql_mvc); /* X_3: sql_mvc */
-						b1 = pushStr(mb, b1, schema_name); /* schema_name */
-						b1 = pushStr(mb, b1, files_table_name); /* "files" */
-						b1 = pushStr(mb, b1, file_location_str); /* "file_location" */
-						b1 = pushInt(mb, b1, 1); /* contents: 0, inserts: 1, or updates: 2 */
-						
-						/* create sql.projectdelta instruction */
-						pd = newInstruction(mb, ASSIGNsymbol);
-						setModuleId(pd, sqlRef);
-						setFunctionId(pd, projectdeltaRef);
-						pd = pushReturn(mb, pd, newTmpVariable(mb, TYPE_bat)); /* X_22 */
-						pd = pushArgument(mb, pd, getArg(t, 0)); /* t4 */
-						pd = pushArgument(mb, pd, getArg(b0, 0)); /* X_17 */
-						pd = pushArgument(mb, pd, getArg(b2, 0)); /* X_19 */
-						pd = pushArgument(mb, pd, getArg(b2, 1)); /* r1_24 */
-						pd = pushArgument(mb, pd, getArg(b1, 0)); /* X_21 */
+						/* create dvf.fetch_file_ids_and_locations instruction */
+						ffiali = newInstruction(mb, ASSIGNsymbol);
+						setModuleId(ffiali, dvfRef);
+						setFunctionId(ffiali, fetchfileidsandlocationsRef);
+						ffiali = pushReturn(mb, ffiali, newTmpVariable(mb, TYPE_bat)); /* X_21 */
+						ffiali = pushReturn(mb, ffiali, newTmpVariable(mb, TYPE_bat)); /* X_22 */
+						ffiali = pushStr(mb, ffiali, schema_name); /* schema_name */
+						ffiali = pushArgument(mb, ffiali, getArg(t, 0)); /* t4 */
 						
 						
 						/* create barrier instruction */
@@ -333,8 +298,8 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						setFunctionId(b, newRef);
 						b->barrier = BARRIERsymbol;
 						b = pushReturn(mb, b, newTmpVariable(mb, TYPE_any)); /* o */
-						b = pushReturn(mb, b, newTmpVariable(mb, TYPE_any)); /* fileLocation iterator */
-						b = pushArgument(mb, b, getArg(pd, 0)); /* X_22 */
+						b = pushReturn(mb, b, newTmpVariable(mb, TYPE_any)); /* fileId iterator */
+						b = pushArgument(mb, b, getArg(ffiali, 0)); /* X_21 */
 						
 						/* create redo instruction */
 						r = newInstruction(mb, ASSIGNsymbol);
@@ -342,8 +307,16 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						setFunctionId(r, nextRef);
 						r->barrier = REDOsymbol;
 						r = pushReturn(mb, r, getArg(b, 0)); /* o */
-						r = pushReturn(mb, r, getArg(b, 1)); /* fileLocation iterator */
-						r = pushArgument(mb, r, getArg(pd, 0)); /* X_22 */
+						r = pushReturn(mb, r, getArg(b, 1)); /* fileId iterator */
+						r = pushArgument(mb, r, getArg(ffiali, 0)); /* X_21 */
+						
+						/* create algebra.fetch instruction */
+						f = newInstruction(mb, ASSIGNsymbol);
+						setModuleId(f, algebraRef);
+						setFunctionId(f, fetchRef);
+						f = pushReturn(mb, f, newTmpVariable(mb, TYPE_str)); /* fileLocation iterator */
+						f = pushArgument(mb, f, getArg(ffiali, 1));  /* X_22 */
+						f = pushArgument(mb, f, getArg(b, 0)); /* o */
 						
 						/* create mount instruction */
 						m = newInstruction(mb, ASSIGNsymbol);
@@ -381,14 +354,15 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 							ps_iter[a+NUM_RET_MOUNT] = pushArgument(mb, ps_iter[a+NUM_RET_MOUNT], getArg(m, a));
 						}
 						
-						/* push arg of mount instruction */
-						m = pushArgument(mb, m, getArg(b, 1));
+						/* push args of mount instruction */
+						m = pushArgument(mb, m, getArg(b, 1)); /* fileId iterator */
+						m = pushArgument(mb, m, getArg(f, 0)); /* fileLocation iterator */
 						
 						/* create exit instruction */
 						e = newInstruction(mb, ASSIGNsymbol);
 						e->barrier = EXITsymbol;
 						e = pushReturn(mb, e, getArg(b, 0)); /* o */
-						e = pushReturn(mb, e, getArg(b, 1)); /* fileLocation iterator */
+						e = pushReturn(mb, e, getArg(b, 1)); /* fileId iterator */
 						
 						/* insert the new instructions in pc i2+1 */
 						insertInstruction(mb, e, i2+1);
@@ -398,12 +372,10 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 							insertInstruction(mb, ps_iter[a+NUM_RET_MOUNT], i2+1);
 						}
 						insertInstruction(mb, m, i2+1);
+						insertInstruction(mb, f, i2+1);
 						insertInstruction(mb, b, i2+1);
 						
-						insertInstruction(mb, pd, i2+1);
-						insertInstruction(mb, b1, i2+1);
-						insertInstruction(mb, b2, i2+1);
-						insertInstruction(mb, b0, i2+1);
+						insertInstruction(mb, ffiali, i2+1);
 						
 						insertInstruction(mb, t, i2+1);
 // 						insertInstruction(mb, s, i2+1);
@@ -414,8 +386,8 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 							insertInstruction(mb, ps_iter[a], i2+1);
 						}
 						
-						i += 6 + NUM_RET_MOUNT * 2 - 1; /* -1 because this bind should be reconsidered with state=3 in the next iteration. */
-						actions += 7 + NUM_RET_MOUNT * 2;
+						i += 8 + NUM_RET_MOUNT * 2 - 1; /* -1 because this bind should be reconsidered with state=3 in the next iteration. */
+						actions += 8 + NUM_RET_MOUNT * 2;
 						state = 3;
 						
 					}
