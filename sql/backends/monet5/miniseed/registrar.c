@@ -10,6 +10,10 @@
 #include "sql_mvc.h"
 #include "sql.h"
 
+#include "stream.h"
+#include "sql_scenario.h"
+#include "mal_linker.h"
+
 #ifdef HAVE_PTHREAD_H
 #include <pthread.h>
 #endif
@@ -42,6 +46,7 @@ typedef struct {
 	int mode; /* carries to the thread */
 	Client cntxt; /* carries to the thread */
 	int *function_created;
+	int base_file_id;
 } thread_argv;
 
 lng get_line_num(str filename);
@@ -55,16 +60,17 @@ str mseed_create_temp_container(temp_container* ret_tc);
 str mseed_create_temp_container_with_data_tables(temp_container* ret_tc);
 str mseed_create_temp_container_segments_mode(temp_container* ret_tc);
 str mseed_create_temp_container_with_data_tables_segments_mode(temp_container* ret_tc);
-str mseed_register(str file_path, temp_container* ret_tc);
-str mseed_register_and_mount(str file_path, temp_container* ret_tc);
-str mseed_register_segments_mode(str file_path, temp_container* ret_tc);
-str mseed_register_and_mount_segments_mode(str file_path, temp_container* ret_tc);
+str mseed_register(int assigned_file_id, str file_path, temp_container* ret_tc);
+str mseed_register_and_mount(int assigned_file_id, str file_path, temp_container* ret_tc);
+str mseed_register_segments_mode(int assigned_file_id, str file_path, temp_container* ret_tc);
+str mseed_register_and_mount_segments_mode(int assigned_file_id, str file_path, temp_container* ret_tc);
 int concatenate_strs(str* words_to_concat, int num_words_to_concat, str* ret_concatenated);
 str prepare_insertion(Client cntxt, temp_container* tc);
 str insert_into_vault(Client cntxt, temp_container* tc);
 str SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output);
 str register_clean_up(temp_container* tc);
 void *register_files(void *args);
+// static str runSQLQuery(Client c, char **result, char * query);
 
 pthread_mutex_t create_lock;
 pthread_mutex_t insert_lock;
@@ -976,7 +982,7 @@ str register_clean_up(temp_container* tc)
  * TODO: A better interface can be provided to submit values for the attributes
  * of tables_to_be_filled.
  */
-str mseed_register(str file_path, temp_container* ret_tc)
+str mseed_register(int assigned_file_id, str file_path, temp_container* ret_tc)
 {
 
 	MSRecord *msr = NULL;
@@ -998,51 +1004,56 @@ str mseed_register(str file_path, temp_container* ret_tc)
 		{
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[0])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) file_path, FALSE);
+			BUNappend(aBAT, (ptr) &assigned_file_id, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[0]);
-
+			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[1])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			ch[0] = msr->dataquality;
-			BUNappend(aBAT, (ptr) ch, FALSE);
+			BUNappend(aBAT, (ptr) file_path, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[1]);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[2])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) msr->network, FALSE);
+			ch[0] = msr->dataquality;
+			BUNappend(aBAT, (ptr) ch, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[2]);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[3])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) msr->station, FALSE);
+			BUNappend(aBAT, (ptr) msr->network, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[3]);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[4])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) msr->location, FALSE);
+			BUNappend(aBAT, (ptr) msr->station, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[4]);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[5])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) msr->channel, FALSE);
+			BUNappend(aBAT, (ptr) msr->location, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[5]);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[6])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) &(msr->encoding), FALSE);
+			BUNappend(aBAT, (ptr) msr->channel, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[6]);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[7])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) &(msr->byteorder), FALSE);
+			BUNappend(aBAT, (ptr) &(msr->encoding), FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[7]);
+
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[8])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) &(msr->byteorder), FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[8]);
 
 			files_done = TRUE;
 		}
 
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[0])) == NULL)
 			throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-		BUNappend(aBAT, (ptr) file_path, FALSE);
+		BUNappend(aBAT, (ptr) &assigned_file_id, FALSE);
 		BBPreleaseref(ret_tc->tables_columns[1].column_bats[0]);
 
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[1])) == NULL)
@@ -1105,7 +1116,7 @@ str mseed_register(str file_path, temp_container* ret_tc)
  * TODO: A better interface can be provided to submit values for the attributes
  * of tables_to_be_filled.
  */
-str mseed_register_and_mount(str file_path, temp_container* ret_tc)
+str mseed_register_and_mount(int assigned_file_id, str file_path, temp_container* ret_tc)
 {
 
 	MSRecord *msr = NULL;
@@ -1130,51 +1141,56 @@ str mseed_register_and_mount(str file_path, temp_container* ret_tc)
 		{
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[0])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) file_path, FALSE);
+			BUNappend(aBAT, (ptr) &assigned_file_id, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[0]);
-
+			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[1])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			ch[0] = msr->dataquality;
-			BUNappend(aBAT, (ptr) ch, FALSE);
+			BUNappend(aBAT, (ptr) file_path, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[1]);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[2])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) msr->network, FALSE);
+			ch[0] = msr->dataquality;
+			BUNappend(aBAT, (ptr) ch, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[2]);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[3])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) msr->station, FALSE);
+			BUNappend(aBAT, (ptr) msr->network, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[3]);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[4])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) msr->location, FALSE);
+			BUNappend(aBAT, (ptr) msr->station, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[4]);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[5])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) msr->channel, FALSE);
+			BUNappend(aBAT, (ptr) msr->location, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[5]);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[6])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) &(msr->encoding), FALSE);
+			BUNappend(aBAT, (ptr) msr->channel, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[6]);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[7])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) &(msr->byteorder), FALSE);
+			BUNappend(aBAT, (ptr) &(msr->encoding), FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[7]);
+
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[8])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) &(msr->byteorder), FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[8]);
 
 			files_done = TRUE;
 		}
 
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[0])) == NULL)
 			throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-		BUNappend(aBAT, (ptr) file_path, FALSE);
+		BUNappend(aBAT, (ptr) &assigned_file_id, FALSE);
 		BBPreleaseref(ret_tc->tables_columns[1].column_bats[0]);
 
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[1])) == NULL)
@@ -1237,7 +1253,7 @@ str mseed_register_and_mount(str file_path, temp_container* ret_tc)
 				MTIMEtimestamp_lng(&sampling_timestamp, &st);
 
 				/* For each sample add one row to the table */
-				BUNappend(bfile, (ptr) file_path, FALSE);
+				BUNappend(bfile, (ptr) &assigned_file_id, FALSE);
 				BUNappend(bseqno, (ptr) &seq_no, FALSE);
 				BUNappend(btime, (ptr) &sampling_timestamp, FALSE);
 				BUNappend(bdata, (ptr) (data_samples+i), FALSE);
@@ -1274,7 +1290,7 @@ str mseed_register_and_mount(str file_path, temp_container* ret_tc)
  * TODO: A better interface can be provided to submit values for the attributes
  * of tables_to_be_filled.
  */
-str mseed_register_segments_mode(str file_path, temp_container* ret_tc)
+str mseed_register_segments_mode(int assigned_file_id, str file_path, temp_container* ret_tc)
 {
 	MSTraceList *mstl = 0;
 	MSRecord *msr = NULL;
@@ -1309,44 +1325,49 @@ str mseed_register_segments_mode(str file_path, temp_container* ret_tc)
 		{
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[0])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) file_path, FALSE);
+			BUNappend(aBAT, (ptr) &assigned_file_id, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[0]);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[1])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			ch[0] = msr->dataquality;
-			BUNappend(aBAT, (ptr) ch, FALSE);
+			BUNappend(aBAT, (ptr) file_path, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[1]);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[2])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) msr->network, FALSE);
+			ch[0] = msr->dataquality;
+			BUNappend(aBAT, (ptr) ch, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[2]);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[3])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) msr->station, FALSE);
+			BUNappend(aBAT, (ptr) msr->network, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[3]);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[4])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) msr->location, FALSE);
+			BUNappend(aBAT, (ptr) msr->station, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[4]);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[5])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) msr->channel, FALSE);
+			BUNappend(aBAT, (ptr) msr->location, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[5]);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[6])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) &(msr->encoding), FALSE);
+			BUNappend(aBAT, (ptr) msr->channel, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[6]);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[7])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) &(msr->byteorder), FALSE);
+			BUNappend(aBAT, (ptr) &(msr->encoding), FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[7]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[8])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) &(msr->byteorder), FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[8]);
 			
 			files_done = TRUE;
 		}
@@ -1374,7 +1395,7 @@ str mseed_register_segments_mode(str file_path, temp_container* ret_tc)
 		{
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[0])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) file_path, FALSE);
+			BUNappend(aBAT, (ptr) &assigned_file_id, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[1].column_bats[0]);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[1])) == NULL)
@@ -1479,7 +1500,7 @@ str mseed_register_segments_mode(str file_path, temp_container* ret_tc)
  * TODO: A better interface can be provided to submit values for the attributes
  * of tables_to_be_filled.
  */
-str mseed_register_and_mount_segments_mode(str file_path, temp_container* ret_tc)
+str mseed_register_and_mount_segments_mode(int assigned_file_id, str file_path, temp_container* ret_tc)
 {
 	
 	MSTraceList *mstl = 0;
@@ -1518,44 +1539,49 @@ str mseed_register_and_mount_segments_mode(str file_path, temp_container* ret_tc
 		{
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[0])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) file_path, FALSE);
+			BUNappend(aBAT, (ptr) &assigned_file_id, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[0]);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[1])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			ch[0] = msr->dataquality;
-			BUNappend(aBAT, (ptr) ch, FALSE);
+			BUNappend(aBAT, (ptr) file_path, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[1]);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[2])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) msr->network, FALSE);
+			ch[0] = msr->dataquality;
+			BUNappend(aBAT, (ptr) ch, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[2]);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[3])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) msr->station, FALSE);
+			BUNappend(aBAT, (ptr) msr->network, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[3]);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[4])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) msr->location, FALSE);
+			BUNappend(aBAT, (ptr) msr->station, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[4]);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[5])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) msr->channel, FALSE);
+			BUNappend(aBAT, (ptr) msr->location, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[5]);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[6])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) &(msr->encoding), FALSE);
+			BUNappend(aBAT, (ptr) msr->channel, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[6]);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[7])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) &(msr->byteorder), FALSE);
+			BUNappend(aBAT, (ptr) &(msr->encoding), FALSE);
 			BBPreleaseref(ret_tc->tables_columns[0].column_bats[7]);
+			
+			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[8])) == NULL)
+				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
+			BUNappend(aBAT, (ptr) &(msr->byteorder), FALSE);
+			BBPreleaseref(ret_tc->tables_columns[0].column_bats[8]);
 			
 			files_done = TRUE;
 		}
@@ -1583,7 +1609,7 @@ str mseed_register_and_mount_segments_mode(str file_path, temp_container* ret_tc
 		{
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[0])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
-			BUNappend(aBAT, (ptr) file_path, FALSE);
+			BUNappend(aBAT, (ptr) &assigned_file_id, FALSE);
 			BBPreleaseref(ret_tc->tables_columns[1].column_bats[0]);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[1])) == NULL)
@@ -1676,7 +1702,7 @@ str mseed_register_and_mount_segments_mode(str file_path, temp_container* ret_tc
 					MTIMEtimestamp_lng(&sampling_timestamp, &st);
 					
 					/* For each sample add one row to the table */
-					BUNappend(bfile, (ptr) file_path, FALSE);
+					BUNappend(bfile, (ptr) &assigned_file_id, FALSE);
 					BUNappend(bsegid, (ptr) &segment_id, FALSE);
 					BUNappend(btime, (ptr) &sampling_timestamp, FALSE);
 					BUNappend(bvalue, (ptr) (data_samples+i), FALSE);
@@ -1712,12 +1738,60 @@ str mseed_register_and_mount_segments_mode(str file_path, temp_container* ret_tc
 	return MAL_SUCCEED;
 }
 
+// static str
+// runSQLQuery(Client c, char **result, char * query)
+// {
+// 	str msg = MAL_SUCCEED;
+// 	str qmsg = MAL_SUCCEED;
+// 	char * resultstring = NULL;
+// 	struct buffer * resultbuffer;
+// 	stream * resultstream;
+// // 	Client c;
+// 	int len = 0;
+// // 	backend *be;
+// 	
+// 	resultbuffer = buffer_create(BLOCK);
+// 	resultstream = buffer_wastream(resultbuffer, "resultstring");
+// 	
+// // 	c = MCinitClient(CONSOLE, fin, resultstream);
+// // 	c->nspace = newModule(NULL, putName("user", 4));
+// // 	
+// // 	// TODO: lookup user_id in bat
+// // 	c->user = 1;
+// // 	initLibraries();
+// // 	msg = setScenario(c, "sql");
+// // 	msg = SQLinitClient(c);
+// // 	MSinitClientPrg(c, "user", "main");
+// // 	(void) MCinitClientThread(c);
+// // 	// TODO: check that be <> NULL
+// // // 	be = (backend*)c->sqlcontext;
+// 	
+// 	c->fdout = resultstream;
+// 	
+// 	qmsg = SQLstatementIntern(c, &query, "rest", TRUE, TRUE);
+// 	if (qmsg == MAL_SUCCEED) {
+// 		resultstring = buffer_get_buf(resultbuffer);
+// 		*result = GDKstrdup(resultstring);
+// 		free(resultstring);
+// 	} else {
+// 			len = strlen(qmsg) + 19;
+// 			resultstring = malloc(len);
+// 			snprintf(resultstring, len, "{ \"error\": \"%s\" }\n", qmsg);
+// 			*result = GDKstrdup(resultstring);
+// 			free(resultstring);
+// 		}
+// 	buffer_destroy(resultbuffer);
+// 	c->fdout = GDKstdout;
+// 	return msg;
+// }
+
 void *register_files(void *args)
 {
 	temp_container *tc;
 	lng i;
 	str err = NULL;
 	int start, finish;
+	int current_file_id;
 	
 	thread_argv targv = *((thread_argv*)args);
 	
@@ -1734,29 +1808,36 @@ void *register_files(void *args)
 	}
 	
 	start = GDKms();
+	
+	current_file_id = targv.base_file_id;
+	
 	/* loop through the file_paths in repo */
 	if(targv.mode == 0)
 	{
 		for(i = targv.loop_start; i < targv.loop_end; i++)
 		{
-			err = mseed_register_segments_mode(targv.file_paths[i], tc);
+			err = mseed_register_segments_mode(current_file_id, targv.file_paths[i], tc);
 			if(err != MAL_SUCCEED)
 			{/* current file cannot be registered, what to do */
 				/*throw(MAL,"registrar.register_repo", "Current file cannot be registered: %s\n", err); */
 				printf("registrar.register_repo: current file cannot be registered in thread %d: %s\n", targv.tid, err);
 			}
+			else
+				current_file_id++;
 		}
 	}
 	else
 	{
 		for(i = targv.loop_start; i < targv.loop_end; i++)
 		{
-			err = mseed_register_and_mount_segments_mode(targv.file_paths[i], tc);
+			err = mseed_register_and_mount_segments_mode(current_file_id, targv.file_paths[i], tc);
 			if(err != MAL_SUCCEED)
 			{/* current file cannot be registered, what to do */
 				/* throw(MAL,"registrar.register_repo", "Current file cannot be registered: %s\n", err); */
 				printf("registrar.register_repo: current file cannot be registered and/or mounted in thread %d: %s\n", targv.tid, err);
 			}
+			else
+				current_file_id++;
 		}
 	}
 	finish = GDKms();
@@ -1820,6 +1901,13 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int start, finish, total_start, total_finish;
 	int function_created = 0;
 	mvc *m = NULL;
+	int max_file_id = -1;
+	int current_file_id;
+	
+// 	char * resultstring = NULL;
+// 	struct buffer * resultbuffer;
+// 	str q, msg;
+// 	str* res_q = (str*) GDKmalloc(sizeof(str));
 
 	/* fetch file_paths from repo_path */
 	num_file_paths = get_file_paths(*repo_path, &file_paths);
@@ -1834,6 +1922,36 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	{/* getting mvc failed, what to do */
 		return err;
 	}
+	
+	/* reset the file counters */
+	file_counter = 0;
+	num_registered_files = 0;
+	
+// 	q = (str)GDKmalloc(256*sizeof(char));
+// 	
+// 	sprintf(q, "SELECT MAX(file_id) FROM %s.files;\n", m->session->schema_name);
+// 	
+// 	msg = runSQLQuery(cntxt, res_q, q);
+// 	
+// 	printf("res_q: %s\nmsg: %s\n", *res_q, msg);
+	
+// 	s = (str)GDKmalloc(256*sizeof(char));
+// 	
+// 	sprintf(s, "SET SCHEMA %s;\n", m->session->schema_name);
+// 	
+// 	if((msg =SQLstatementIntern(cntxt,&s,"registrar.register_repo",TRUE,FALSE))!= MAL_SUCCEED)
+// 	{/* insert into query not succeeded, what to do */
+// 		return msg;
+// 	}
+	
+// 	if(1 == 1)
+// 		return MAL_SUCCEED;
+	
+// 	max_file_id = do_sth(*res_q);
+	current_file_id = max_file_id + 1;
+	
+// 	GDKfree(q);
+// 	GDKfree(s);
 	
 	if(num_threads > 1)
 	{
@@ -1859,6 +1977,7 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				targvs[j].loop_end = loop_start + num_file_paths_per_thread;
 			else
 				targvs[j].loop_end = num_file_paths;
+			targvs[j].base_file_id = max_file_id + 1 + targvs[j].loop_start;
 			loop_start = targvs[j].loop_end;
 			targvs[j].mode = mode;
 			targvs[j].cntxt = cntxt;
@@ -1898,24 +2017,28 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		{
 			for(i = 0; i < num_file_paths; i++)
 			{
-				err = mseed_register_segments_mode(file_paths[i], tc);
+				err = mseed_register_segments_mode(current_file_id, file_paths[i], tc);
 				if(err != MAL_SUCCEED)
 				{/* current file cannot be registered, what to do */
 					/* throw(MAL,"registrar.register_repo", "Current file cannot be registered: %s\n", err); */
 					printf("registrar.register_repo: current file cannot be registered: %s\n", err);
 				}
+				else
+					current_file_id++;
 			}
 		}
 		else
 		{
 			for(i = 0; i < num_file_paths; i++)
 			{
-				err = mseed_register_and_mount_segments_mode(file_paths[i], tc);
+				err = mseed_register_and_mount_segments_mode(current_file_id, file_paths[i], tc);
 				if(err != MAL_SUCCEED)
 				{/* current file cannot be registered, what to do */
 					/* throw(MAL,"registrar.register_repo", "Current file cannot be registered: %s\n", err); */
 					printf("registrar.register_repo: current file cannot be registered and/or mounted: %s\n", err);
 				}
+				else
+					current_file_id++;
 			}
 		}
 		finish = GDKms();
