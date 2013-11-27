@@ -1843,8 +1843,8 @@ void *register_files(void *args)
 				/*throw(MAL,"registrar.register_repo", "Current file cannot be registered: %s\n", err); */
 				printf("registrar.register_repo: current file cannot be registered in thread %d: %s\n", targv.tid, err);
 			}
-			else
-				current_file_id++;
+			
+			current_file_id++;
 		}
 	}
 	else
@@ -1857,8 +1857,8 @@ void *register_files(void *args)
 				/* throw(MAL,"registrar.register_repo", "Current file cannot be registered: %s\n", err); */
 				printf("registrar.register_repo: current file cannot be registered and/or mounted in thread %d: %s\n", targv.tid, err);
 			}
-			else
-				current_file_id++;
+			
+			current_file_id++;
 		}
 	}
 	finish = GDKms();
@@ -2049,8 +2049,8 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					/* throw(MAL,"registrar.register_repo", "Current file cannot be registered: %s\n", err); */
 					printf("registrar.register_repo: current file cannot be registered: %s\n", err);
 				}
-				else
-					current_file_id++;
+				
+				current_file_id++;
 			}
 		}
 		else
@@ -2063,8 +2063,8 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					/* throw(MAL,"registrar.register_repo", "Current file cannot be registered: %s\n", err); */
 					printf("registrar.register_repo: current file cannot be registered and/or mounted: %s\n", err);
 				}
-				else
-					current_file_id++;
+				
+				current_file_id++;
 			}
 		}
 		finish = GDKms();
