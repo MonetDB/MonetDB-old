@@ -6068,12 +6068,14 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 			cstablestat->lstcstable[i].lstProp[colIdx] = freqCSset->items[csPropTypes[i].freqCSId].lstProp[j];
 
 			if (csPropTypes[i].lstPropTypes[j].isMVProp == 0){
-				cstablestat->lstcstable[i].colBats[colIdx] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
+				//cstablestat->lstcstable[i].colBats[colIdx] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
+				cstablestat->lstcstable[i].colBats[colIdx] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], freqCSset->items[csPropTypes[i].freqCSId].support + 1);
 				cstablestat->lstcstable[i].lstMVTables[colIdx].numCol = 0; 	//There is no MV Tbl for this prop
 				//TODO: use exact size for each BAT
 			}
 			else{
-				cstablestat->lstcstable[i].colBats[colIdx] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+				//cstablestat->lstcstable[i].colBats[colIdx] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+				cstablestat->lstcstable[i].colBats[colIdx] = BATnew(TYPE_void, TYPE_oid, freqCSset->items[csPropTypes[i].freqCSId].support + 1);
 				BATseqbase(cstablestat->lstcstable[i].colBats[colIdx], 0);	
 				cstablestat->lstcstable[i].lstMVTables[colIdx].numCol = csPropTypes[i].lstPropTypes[j].numMvTypes;
 				if (cstablestat->lstcstable[i].lstMVTables[colIdx].numCol != 0){
@@ -6083,17 +6085,20 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 					mvColIdx = 0;	//Go through all types
 					cstablestat->lstcstable[i].lstMVTables[colIdx].colTypes[0] = csPropTypes[i].lstPropTypes[j].defaultType; //Default type for this MV col
 					//Init the first col (default type) in MV Table
-					cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[0] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
+					//cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[0] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
+					cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[0] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], csPropTypes[i].lstPropTypes[j].propCover + 1);
 					for (k = 0; k < MULTIVALUES; k++){
 						if (k != csPropTypes[i].lstPropTypes[j].defaultType && csPropTypes[i].lstPropTypes[j].TableTypes[k] == MVTBL){
 							mvColIdx++;
 							cstablestat->lstcstable[i].lstMVTables[colIdx].colTypes[mvColIdx] = k;
-							cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[mvColIdx] = BATnew(TYPE_void, mapObjBATtypes[k], smallbatsz);
+							//cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[mvColIdx] = BATnew(TYPE_void, mapObjBATtypes[k], smallbatsz);
+							cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[mvColIdx] = BATnew(TYPE_void, mapObjBATtypes[k],csPropTypes[i].lstPropTypes[j].propCover + 1);
 						}	
 					}
 
 					//Add a bat for storing FK to the main table
-					cstablestat->lstcstable[i].lstMVTables[colIdx].keyBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+					//cstablestat->lstcstable[i].lstMVTables[colIdx].keyBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+					cstablestat->lstcstable[i].lstMVTables[colIdx].keyBat = BATnew(TYPE_void, TYPE_oid, csPropTypes[i].lstPropTypes[j].propCover + 1);
 				}
 
 				//BATseqbase(cstablestat->lstcstable[i].mvExBats[colIdx], 0);
@@ -6104,7 +6109,8 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 			#if CSTYPE_TABLE == 1
 			for (t = 0; t < csPropTypes[i].lstPropTypes[j].numType; t++){
 				if ( csPropTypes[i].lstPropTypes[j].TableTypes[t] == TYPETBL){
-					cstablestat->lstcstableEx[i].colBats[colExIdx] = BATnew(TYPE_void, mapObjBATtypes[t], smallbatsz);
+					//cstablestat->lstcstableEx[i].colBats[colExIdx] = BATnew(TYPE_void, mapObjBATtypes[t], smallbatsz);
+					cstablestat->lstcstableEx[i].colBats[colExIdx] = BATnew(TYPE_void, mapObjBATtypes[t], freqCSset->items[csPropTypes[i].freqCSId].support + 1);
 					//Set mainTblColIdx for ex-table
 					cstablestat->lstcstableEx[i].colTypes[colExIdx] = t; 
 					cstablestat->lstcstableEx[i].mainTblColIdx[colExIdx] = colIdx; 
@@ -6532,10 +6538,11 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	isSetLasttblIdx = 0; 
 
 	BATloop(pbat, p, q){
+		if (p % 1048576 == 0) printf(".");
 		pbt = (oid *) BUNtloc(pi, p);
 		sbt = (oid *) BUNtloc(si, p);
 		obt = (oid *) BUNtloc(oi, p);
-
+		
 		//BATprint(pbat);
 		//BATprint(sbat); 
 		//BATprint(obat); 
