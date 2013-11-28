@@ -6282,7 +6282,8 @@ void fillMissingvalues(BAT* curBat, int from, int to){
 	//printf("Fill from  %d to %d \n", from, to);
 	if (curBat != NULL){
 		for(k = from -1; k < to; k++){
-			BUNappend(curBat, ATOMnilptr(curBat->ttype), TRUE);
+			//BUNappend(curBat, ATOMnilptr(curBat->ttype), TRUE);
+			BUNfastins(curBat, ATOMnilptr(TYPE_void), ATOMnilptr(curBat->ttype));
 		}
 	}
 }
@@ -6341,16 +6342,19 @@ void fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, 
 			//Fill all missing values from From to To
 			for(k = from; k < to; k++){
 				//printf("Append null to ex table: Col: %d \n", tmpColExIdx);
-				BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
+				//BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
+				BUNfastins(tmpBat, ATOMnilptr(TYPE_void), ATOMnilptr(tmpBat->ttype));
 			}
 
 			if (tblType == MAINTBL){
 				//printf("Append null to not to-be-inserted col in ex table: Col: %d  (# colIdxEx = %d) \n", tmpColExIdx, colIdxEx);
-				BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
+				//BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
+				BUNfastins(tmpBat, ATOMnilptr(TYPE_void), ATOMnilptr(tmpBat->ttype));
 			}
 			else if (tmpColExIdx != colIdxEx){
 				//printf("Append null to not to-be-inserted col in ex table: Col: %d (WHILE tblType = %d,  colIdxEx = %d) \n", tmpColExIdx, tblType, colIdxEx);
-				BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
+				//BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
+				BUNfastins(tmpBat, ATOMnilptr(TYPE_void), ATOMnilptr(tmpBat->ttype));
 			}
 		}
 		
@@ -6418,6 +6422,16 @@ void getRealValue(ValPtr returnValue, oid objOid, ObjectType objType, BATiter ma
 	}
 
 }
+
+
+//Macro for inserting to PSO
+#define insToPSO(pb, sb, ob, pbt, sbt, obt)	\
+	do{					\
+			BUNfastins(pb, ATOMnilptr(TYPE_void), pbt);	\
+			BUNfastins(sb, ATOMnilptr(TYPE_void), sbt);	\
+			BUNfastins(ob, ATOMnilptr(TYPE_void), obt);	\
+	}while (0)
+
 
 str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *mbatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId){
 	
@@ -6532,9 +6546,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 
 
 		if (tblIdx == -1){	// This is for irregular triples, put them to pso table
-			BUNappend(cstablestat->pbat,pbt , TRUE);
-			BUNappend(cstablestat->sbat,sbt , TRUE);
-			BUNappend(cstablestat->obat,obt , TRUE);
+			insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
 			//printf(" ==> To PSO \n");
 
 			continue; 
@@ -6568,27 +6580,21 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		//printf(" PropIdx = %d \n", tmpPropIdx);
 		tmpColIdx = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].defColIdx; 
 		if (tmpColIdx == -1){ 	// This col is removed as an infrequent prop
-			BUNappend(cstablestat->pbat,pbt , TRUE);
-			BUNappend(cstablestat->sbat,sbt , TRUE);
-			BUNappend(cstablestat->obat,obt , TRUE);
+			insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
 			continue; 
 		}
 
 		if (csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isDirtyFKProp){	//Check whether this URI have a reference 		
 			if (objType != URI){ //Must be a dirty one --> put to pso
 				//printf("Dirty FK at tbl %d | propId " BUNFMT " \n", tblIdx, *pbt);
-				BUNappend(cstablestat->pbat,pbt , TRUE);
-				BUNappend(cstablestat->sbat,sbt , TRUE);
-				BUNappend(cstablestat->obat,obt , TRUE);
+				insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
 				continue; 
 			}
 			else{ //  
 				getTblIdxFromO(*obt,&tmpOidTblIdx);
 				if (tmpOidTblIdx != csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblId){
 					//printf("Dirty FK at tbl %d | propId " BUNFMT " \n", tblIdx, *pbt);
-					BUNappend(cstablestat->pbat,pbt , TRUE);
-					BUNappend(cstablestat->sbat,sbt , TRUE);
-					BUNappend(cstablestat->obat,obt , TRUE);
+					insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
 					continue; 
 				}
 			}
@@ -6725,21 +6731,20 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				//BATprint(tmpmvBat);
 				if (i == tmpMVColIdx){	
 					// TODO: If i != 0, try to cast to default value		
-					//BUNappend(tmpmvBat, (ptr) realObjValue, TRUE);
-					BUNappend(tmpmvBat, VALget(&vrRealObjValue), TRUE);
+					BUNfastins(tmpmvBat, ATOMnilptr(TYPE_void), VALget(&vrRealObjValue)); 
 				}
 				else{
 					if (i == 0){	//The deafult type column
 						//Check whether we can cast the value to the default type value
 						if (rdfcast(objType, defaultType, &vrRealObjValue, &vrCastedObjValue) == 1){
-							BUNappend(tmpmvBat, VALget(&vrCastedObjValue), TRUE);
+							BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),VALget(&vrCastedObjValue)); 
 							VALclear(&vrCastedObjValue);
 						}
 						else
-							BUNappend(tmpmvBat, ATOMnilptr(tmpmvBat->ttype), TRUE);
+							BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),ATOMnilptr(tmpmvBat->ttype)); 
 					}
 					else
-						BUNappend(tmpmvBat, ATOMnilptr(tmpmvBat->ttype), TRUE);	
+						BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),ATOMnilptr(tmpmvBat->ttype)); 
 				}
 			
 			}
@@ -6757,12 +6762,12 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				//BATprint(tmpmvBat);
 				tmpmvValue = (oid)(BUNlast(tmpmvBat) - 1);
 				//printf("Insert the refered oid " BUNFMT "for MV prop \n", tmpmvValue);
-				BUNappend(tmpBat, &tmpmvValue, TRUE);
+				BUNfastins(tmpBat, ATOMnilptr(TYPE_void), &tmpmvValue); 
 				//BATprint(tmpBat);
 				
 				//Insert this "key" to the key column of mv table.
 				tmpmvKey = tmpmvValue; 
-				BUNappend(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat, &tmpmvKey, TRUE);
+				BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,ATOMnilptr(TYPE_void),&tmpmvKey); 
 				tmplastInsertedS = (int)tmpSoid; 
 				
 				lastColIdx = tmpColIdx; 
@@ -6773,7 +6778,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			}
 			else{
 				//Repeat referred "key" in the key column of mvtable
-				BUNappend(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat, &tmpmvKey, TRUE);
+				BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,ATOMnilptr(TYPE_void),&tmpmvKey); 
 			}
 			
 			continue; 
@@ -6785,9 +6790,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				lastS = *sbt; 
 			}
 			else{	// This is an extra object value
-				BUNappend(cstablestat->pbat,pbt , TRUE);
-				BUNappend(cstablestat->sbat,sbt , TRUE);
-				BUNappend(cstablestat->obat,obt , TRUE);
+				insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
 				//printf(" Extra object value ==> To PSO \n");
 				continue; 
 			}
@@ -6798,9 +6801,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 
 		//printf("  objType: %d  TblType: %d \n", (int)objType,(int)tmpTableType);
 		if (tmpTableType == PSOTBL){			//For infrequent type ---> go to PSO
-			BUNappend(cstablestat->pbat,pbt , TRUE);
-			BUNappend(cstablestat->sbat,sbt , TRUE);
-			BUNappend(cstablestat->obat,obt , TRUE);
+			insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
 			//printf(" ==> To PSO \n");
 			continue; 
 		}
@@ -6827,16 +6828,16 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			tmpBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
 			if (rdfcast(objType, defaultType, &vrRealObjValue, &vrCastedObjValue) == 1){
 				//printf("Casted a value (type: %d) to tables %d col %d (type: %d)  \n", objType, tblIdx,tmpColIdx,defaultType);
-				BUNappend(tmpBat, VALget(&vrCastedObjValue), TRUE);
+				BUNfastins(tmpBat, ATOMnilptr(TYPE_void), VALget(&vrCastedObjValue)); 
 				VALclear(&vrCastedObjValue);
 			}
 			else{
-				BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
+				BUNfastins(tmpBat, ATOMnilptr(TYPE_void),ATOMnilptr(tmpBat->ttype)); 
 			}
 
 		}
 		
-		BUNappend(curBat, VALget(&vrRealObjValue), TRUE);
+		BUNfastins(curBat, ATOMnilptr(TYPE_void), VALget(&vrRealObjValue)); 
 		
 		VALclear(&vrRealObjValue);
 		
@@ -6969,6 +6970,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	initIntArray(mTblIdxFreqIdxMapping , freqCSset->numCSadded, -1);
 
 	//Mapping from from CSId to TableIdx 
+	printf("Init CS tableIdxMapping \n");
 	initCSTableIdxMapping(freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping, &numTables);
 
 
@@ -6994,10 +6996,13 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	/* Get possible types of each property in a table (i.e., mergedCS) */
 	csPropTypes = (CSPropTypes*)GDKmalloc(sizeof(CSPropTypes) * numTables); 
 	initCSPropTypes(csPropTypes, freqCSset, numTables);
+	
+	printf("Extract CSPropTypes \n");
 	RDFExtractCSPropTypes(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, csPropTypes, maxNumPwithDup);
 	genCSPropTypesColIdx(csPropTypes, numTables, freqCSset);
 	printCSPropTypes(csPropTypes, numTables, freqCSset, *freqThreshold);
 	//Collecting the statistic
+	printf("Get table statistics by CSPropTypes \n");
 	getTableStatisticViaCSPropTypes(csPropTypes, numTables, freqCSset, *freqThreshold);
 	
 	#if COLORINGPROP

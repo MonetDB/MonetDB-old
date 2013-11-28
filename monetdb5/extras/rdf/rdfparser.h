@@ -29,7 +29,7 @@
 
 #include <raptor2.h>
 
-#define CHECK_NUM_DBPONTOLOGY   0       /* Check how many rdf triples use dbpontology */
+#define CHECK_NUM_DBPONTOLOGY   1       /* Check how many rdf triples use dbpontology */
 
 typedef struct parserData {
 	                              /**PROPERTIES             */
