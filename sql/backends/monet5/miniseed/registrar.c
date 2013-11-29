@@ -2111,7 +2111,7 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	
 	total_finish = GDKms();
 	
-	printf("#. Average Time for loading (meta-)data of one file: "LLFMT" milliseconds\n", ((total_finish - total_start)/num_file_paths));
+	printf("#. Average Time for loading (meta-)data of one file: %lf milliseconds\n", (((double)total_finish - total_start)/num_file_paths));
 	printf("#. Number of files registered | failed registration: "LLFMT" | "LLFMT".\n", num_registered_files, num_file_paths - num_registered_files);
 	
 	return MAL_SUCCEED;
