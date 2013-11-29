@@ -949,7 +949,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 		if (gapH>0) addCrackerIndex_@1(m,hgh,HBound,vh,c);
 		vl = BUNfirst(b);
 		pieces=pieces+2;
-		fprintf(ofp,"%d\n",pieces);
+		fprintf(ofp,"%d \t %d\n",*bid,pieces);
 		fclose(ofp);
 		BBPincref(b->batCacheid,TRUE);
 		BBPunfix(bo->batCacheid);
@@ -1003,7 +1003,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 	} 	
 	else
 		vh = ch2;
-	fprintf(ofp,"%d\n",pieces);
+	fprintf(ofp,"%d \t %d\n",*bid,pieces);
 	fclose(ofp);
 	
 	@:CreateResult()@

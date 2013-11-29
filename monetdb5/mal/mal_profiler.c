@@ -1357,8 +1357,8 @@ void HeartbeatCPUload(void *arg)
 	float load;
 	int n=0;  /*number of idle cores*/
 	double N=0;  /*number of busy cores*/
-	FILE *ofp;
-        char *outputFilename1 = "/scratch/petraki/experiments/multiple_clients_cputhreshold/breakdown1/load.txt";
+	//FILE *ofp;
+        //char *outputFilename1 = "/scratch/petraki/experiments/multiple_clients_cputhreshold/breakdown1/load.txt";
 	void (*IdleFunc)(void *) = arg;
 
 
@@ -1370,11 +1370,11 @@ void HeartbeatCPUload(void *arg)
 		threshold = atoi(p);
 		max_threads=atoi(cores);
 	}
-	ofp = fopen(outputFilename1,"a");
+	/*ofp = fopen(outputFilename1,"a");
         if (ofp == NULL) {
                 fprintf(stderr, "Can't open output file!\n");
                 exit(1);
-        }
+        }*/
 
 	if (max_threads > 0){
 		while(1){
@@ -1386,14 +1386,14 @@ void HeartbeatCPUload(void *arg)
 				if(n>0)
 					MRschedule(n, NULL, IdleFunc);
 				(void) getCPULoad(cpuload);
-				fprintf(ofp,"%f\t%d\n",load,n);
+				//fprintf(ofp,"%f\t%d\n",load,n);
 				MT_sleep_ms(1000);
 			}
 			else
                                 MT_sleep_ms(1000);
 		}
 	}
-	fclose(ofp);
+	//fclose(ofp);
 }
 
 // Give users the option to check for the system total load between two heart beats

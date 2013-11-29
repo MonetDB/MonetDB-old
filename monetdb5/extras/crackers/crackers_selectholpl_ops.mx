@@ -223,7 +223,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow, bit *inclusiveHgh){
   		exit(1);
 	}
 
-	L1=32000/ATOMsize(TYPE_@1);
+	L1=512000/ATOMsize(TYPE_@1);
 
 	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
@@ -536,7 +536,7 @@ createView:
   		exit(1);
 	}
 
-	L1=32000/ATOMsize(TYPE_@1);
+	L1=512000/ATOMsize(TYPE_@1);
 
 	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
@@ -1399,7 +1399,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail)
   		exit(1);
 	}
 
-	L1=32000/ATOMsize(TYPE_@1);
+	L1=512000/ATOMsize(TYPE_@1);
 	
 	mod_bid=ABS(*bid)%LOCKS;
 
@@ -1634,7 +1634,7 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
   		exit(1);
 	}
 
-	L1=32000/ATOMsize(TYPE_@1);
+	L1=512000/ATOMsize(TYPE_@1);
 
 	mod_bid=ABS(*bid)%LOCKS;
 
