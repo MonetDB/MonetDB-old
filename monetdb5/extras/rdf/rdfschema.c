@@ -6538,7 +6538,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	char	isFKCol = 0; 
 	#endif
 
-	maxOrigPbt = 1 << (sizeof(BUN)*8 - NBITS_FOR_CSID) - 1; 
+	maxOrigPbt = ((oid)1 << (sizeof(BUN)*8 - NBITS_FOR_CSID)) - 1; 
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
 		throw(RDF, "RDFdistTriplesToCSs",
 				"could not open the tokenizer\n");
