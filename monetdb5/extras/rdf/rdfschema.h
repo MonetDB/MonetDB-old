@@ -368,7 +368,7 @@ typedef struct CSSample{
 } CSSample;
 
 rdf_export str
-RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,bat *mbatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId);
+RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,bat *mbatid, bat *lmapbatid, bat *rmapbatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId);
 
 rdf_export str 
 RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *freqCSset, oid **subjCSMap, oid *maxCSoid, int *maxNumPwithDup, CSlabel** labels, CSrel **csRelBetweenMergeFreqSet);
