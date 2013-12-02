@@ -104,13 +104,15 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 	str schema_name = "mseed";
 	str data_table_identifier = "data";
 	str file_identifier_str = "file_id";
-	str files_table_name = "files";
-	str file_location_str = "file_location";
+// 	str files_table_name = "files";
+// 	str file_location_str = "file_location";
 	str mountRef = putName("mount", 5);
 	str miniseedRef = putName("miniseed", 8);
 	str dvfRef = putName("dvf", 3);
 	str planmodifierRef = putName("plan_modifier", 13);
 	str fetchfileidsandlocationsRef = putName("fetch_file_ids_and_locations", 28);
+	
+	str fetchRef = putName("fetch", 5);
 
 	//states of finding the pattern
 	int state = 0; //0: start, 1:found v3, 2:found v5, 3:done with injection;
@@ -120,7 +122,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 	
 	//
 
-	InstrPtr *old = NULL, q = NULL, r = NULL, t = NULL, b = NULL, m = NULL, e = NULL, b0 = NULL, b1 = NULL, b2 = NULL, ffiali = NULL, *ps_iter = NULL;
+	InstrPtr *old = NULL, q = NULL, r = NULL, t = NULL, b = NULL, m = NULL, e = NULL, f = NULL, ffiali = NULL, *ps_iter = NULL;
 	int i, limit, which_column, actions = 0;
 	int last_bind_return_var_id = -1;
 	int last_data_tid_return_var_id = -1;
@@ -129,7 +131,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 	int last_update_bind_second_return_var_id = -1;
 	int last_subdelta_return_var_id = -1;
 	
-	int var_sql_mvc;
+// 	int var_sql_mvc;
 
 	stk = stk; //to escape 'unused' parameter error.
 	pci = pci; //to escape 'unused' parameter error.
@@ -164,7 +166,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 		{
 			i1 = i;
 			state = 1;
-			var_sql_mvc = getArg(p, 1);
+// 			var_sql_mvc = getArg(p, 1);
 		}
 		/* check for
 		 * v4 := algebra.leftjoin(v2, v3);
@@ -397,12 +399,9 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						*  t3 := bat.mirror(t1);
 						*  t4 := algebra.leftjoin(t3, v6);
 						* 
-						* X_17 := sql.bind(X_3,"mseed","files","file_location",0);
-						* (X_19,r1_24) := sql.bind(X_3,"mseed","files","file_location",2);
-						* X_21 := sql.bind(X_3,"mseed","files","file_location",1);
-						* X_22 := sql.projectdelta(t4,X_17,X_19,r1_24,X_21);
+						* (X_21,X_22) := dvf.fetch_file_ids_and_locations(schema_name,t4);
 						* 
-						*  dvf.plan_modifier(schema_name, t4, X_22, mode);
+						*  dvf.plan_modifier(schema_name, X_21, X_22, mode);
 						*/
 
 						/* create group.done instruction */
@@ -430,59 +429,23 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						t = pushArgument(mb, t, getArg(r, 1));
 						t = pushArgument(mb, t, getArg(old[i2], 0));
 						
-						/* create sql.bind 0 instruction */
-						b0 = newInstruction(mb, ASSIGNsymbol);
-						setModuleId(b0, sqlRef);
-						setFunctionId(b0, bindRef);
-						b0 = pushReturn(mb, b0, newTmpVariable(mb, TYPE_bat)); /* X_17 */
-						b0 = pushArgument(mb, b0, var_sql_mvc); /* X_3: sql_mvc */
-						b0 = pushStr(mb, b0, schema_name); /* schema_name */
-						b0 = pushStr(mb, b0, files_table_name); /* "files" */
-						b0 = pushStr(mb, b0, file_location_str); /* "file_location" */
-						b0 = pushInt(mb, b0, 0); /* contents: 0, inserts: 1, or updates: 2 */
-						
-						/* create sql.bind 2 instruction */
-						b2 = newInstruction(mb, ASSIGNsymbol);
-						setModuleId(b2, sqlRef);
-						setFunctionId(b2, bindRef);
-						b2 = pushReturn(mb, b2, newTmpVariable(mb, TYPE_bat)); /* X_19 */
-						b2 = pushReturn(mb, b2, newTmpVariable(mb, TYPE_bat)); /* r1_24 */
-						b2 = pushArgument(mb, b2, var_sql_mvc); /* X_3: sql_mvc */
-						b2 = pushStr(mb, b2, schema_name); /* schema_name */
-						b2 = pushStr(mb, b2, files_table_name); /* "files" */
-						b2 = pushStr(mb, b2, file_location_str); /* "file_location" */
-						b2 = pushInt(mb, b2, 2); /* contents: 0, inserts: 1, or updates: 2 */
-						
-						/* create sql.bind 1 instruction */
-						b1 = newInstruction(mb, ASSIGNsymbol);
-						setModuleId(b1, sqlRef);
-						setFunctionId(b1, bindRef);
-						b1 = pushReturn(mb, b1, newTmpVariable(mb, TYPE_bat)); /* X_21 */
-						b1 = pushArgument(mb, b1, var_sql_mvc); /* X_3: sql_mvc */
-						b1 = pushStr(mb, b1, schema_name); /* schema_name */
-						b1 = pushStr(mb, b1, files_table_name); /* "files" */
-						b1 = pushStr(mb, b1, file_location_str); /* "file_location" */
-						b1 = pushInt(mb, b1, 1); /* contents: 0, inserts: 1, or updates: 2 */
-						
-						/* create sql.projectdelta instruction */
-						pd = newInstruction(mb, ASSIGNsymbol);
-						setModuleId(pd, sqlRef);
-						setFunctionId(pd, projectdeltaRef);
-						pd = pushReturn(mb, pd, newTmpVariable(mb, TYPE_bat)); /* X_22 */
-						pd = pushArgument(mb, pd, getArg(t, 0)); /* t4 */
-						pd = pushArgument(mb, pd, getArg(b0, 0)); /* X_17 */
-						pd = pushArgument(mb, pd, getArg(b2, 0)); /* X_19 */
-						pd = pushArgument(mb, pd, getArg(b2, 1)); /* r1_24 */
-						pd = pushArgument(mb, pd, getArg(b1, 0)); /* X_21 */
+						/* create dvf.fetch_file_ids_and_locations instruction */
+						ffiali = newInstruction(mb, ASSIGNsymbol);
+						setModuleId(ffiali, dvfRef);
+						setFunctionId(ffiali, fetchfileidsandlocationsRef);
+						ffiali = pushReturn(mb, ffiali, newTmpVariable(mb, TYPE_bat)); /* X_21 */
+						ffiali = pushReturn(mb, ffiali, newTmpVariable(mb, TYPE_bat)); /* X_22 */
+						ffiali = pushStr(mb, ffiali, schema_name); /* schema_name */
+						ffiali = pushArgument(mb, ffiali, getArg(t, 0)); /* t4 */
 
 						/* create dvf.plan_modifier instruction */
 						q = newInstruction(mb, ASSIGNsymbol);
 						setModuleId(q, dvfRef);
 						setFunctionId(q, planmodifierRef);
 						q = pushReturn(mb, q, newTmpVariable(mb, TYPE_void));
-						q = pushArgument(mb, q, getArg(p, 2));
-						q = pushArgument(mb, q, getArg(t, 0)); /* t4 */
-						q = pushArgument(mb, q, getArg(pd, 0)); /* X_22 */
+						q = pushArgument(mb, q, getArg(p, 2)); /* schema_name */
+						q = pushArgument(mb, q, getArg(ffiali, 0)); /* X_21 */
+						q = pushArgument(mb, q, getArg(ffiali, 1)); /* X_22 */
 						if(mode == 2)
 							q = pushInt(mb, q, 0);
 						else
@@ -491,16 +454,13 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						/* insert the new instructions in pc i2+1 */
 						insertInstruction(mb, q, i2+1);
 						
-						insertInstruction(mb, pd, i2+1);
-						insertInstruction(mb, b1, i2+1);
-						insertInstruction(mb, b2, i2+1);
-						insertInstruction(mb, b0, i2+1);
+						insertInstruction(mb, ffiali, i2+1);
 						
 						insertInstruction(mb, t, i2+1);
 // 						insertInstruction(mb, s, i2+1);
 						insertInstruction(mb, r, i2+1);
 
-						actions += 7;
+						actions += 4;
 						state = 3;
 					}
 					
