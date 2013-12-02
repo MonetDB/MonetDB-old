@@ -4,22 +4,22 @@ pattern plan_modifier{unsafe}(schema_name:str, file_ids:bat[:oid,:int], file_loc
 address plan_modifier
 comment "Modify the rest of the plan in the execution time according to the files to be mounted.";
 
-function fetch_file_ids_and_locations(file_ids:bat[:oid,:int])(:bat[:oid,:int],:bat[:oid,:str])
+function fetch_file_ids_and_locations(schema_name:str,file_ids:bat[:oid,:int])(:bat[:oid,:int],:bat[:oid,:str]);
 	X_2 := sql.mvc();
 
-	X_3:bat[:oid,:oid]:= sql.tid(X_2,"mseed","files");
+	X_3:bat[:oid,:oid]:= sql.tid(X_2,schema_name,"files");
 
-	X_6 := sql.bind(X_2,"mseed","files","file_id",0);
-	(X_9,r1_9) := sql.bind(X_2,"mseed","files","file_id",2);
-	X_12 := sql.bind(X_2,"mseed","files","file_id",1);
+	X_6 := sql.bind(X_2,schema_name,"files","file_id",0);
+	(X_9,r1_9) := sql.bind(X_2,schema_name,"files","file_id",2);
+	X_12 := sql.bind(X_2,schema_name,"files","file_id",1);
 	X_14 := sql.delta(X_6,X_9,r1_9,X_12);
 	X_15 := algebra.leftfetchjoin(X_3,X_14);
 
 	(X_29,r1_38) := algebra.join(X_15,file_ids);
 
-	X_32 := sql.bind(X_2,"mseed","files","file_location",0);
-	(X_37,r1_46) := sql.bind(X_2,"mseed","files","file_location",2);
-	X_40 := sql.bind(X_2,"mseed","files","file_location",1);
+	X_32 := sql.bind(X_2,schema_name,"files","file_location",0);
+	(X_37,r1_46) := sql.bind(X_2,schema_name,"files","file_location",2);
+	X_40 := sql.bind(X_2,schema_name,"files","file_location",1);
 	X_42 := sql.delta(X_32,X_37,r1_46,X_40);
 	X_43 := algebra.leftfetchjoin(X_3,X_42);
 
@@ -27,4 +27,4 @@ function fetch_file_ids_and_locations(file_ids:bat[:oid,:int])(:bat[:oid,:int],:
 	X_45 := algebra.leftfetchjoin(X_29,X_43);
 	return (X_44,X_45);
 	
-end fetch_file_locations;
+end fetch_file_ids_and_locations;
