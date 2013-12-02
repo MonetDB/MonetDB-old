@@ -217,9 +217,9 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow, bit *inclusiveHgh){
 	if (low==NULL || hgh==NULL)
 		throw(MAL, "crackers.crackRange", "low or null cannot get memory");
 	
-	outputFilename1 = getenv("HOLOUTPUT_ATTRIBUTES");
+	outputFilename1 = getenv("HOLOUTPUT_PIECES");
 	if (outputFilename1 == NULL){
-  		fprintf(stderr, "Error: HOLOUTPUT_ATTRIBUTES\n");
+  		fprintf(stderr, "Error: HOLOUTPUT_PIECES\n");
   		exit(1);
 	}
 

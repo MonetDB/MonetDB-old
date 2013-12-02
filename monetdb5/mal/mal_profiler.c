@@ -1383,6 +1383,12 @@ void HeartbeatCPUload(void *arg)
 			if ( load >= 0 && load <= 100.0 && load <= threshold){
 				N = (int) (load * max_threads) / 100.0;
 				n = max_threads - N;
+				//n = 16 - N; /*experiment multicore_cracking*/
+				//if(n>0 && max_threads<n)
+				//      MRschedule(max_threads, NULL, IdleFunc);
+			       //else if (n>0 && max_threads>=n)
+	                      //      MRschedule(n, NULL, IdleFunc);
+	
 				if(n>0)
 					MRschedule(n, NULL, IdleFunc);
 				(void) getCPULoad(cpuload);
