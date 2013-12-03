@@ -216,7 +216,7 @@ typedef struct SubCSSet{
 #define	MIN_FK_FREQUENCY 	0.1	// The frequency of a FK should be > MIN_FK_FREQUENCY * The frequency of a mergedCS (or the number of tuples in one table)	
 #define MIN_FK_PROPCOVERAGE	0.9	// The FK needs to happen in MIN_FK_PROPCOVERAGE of all instances of the particular property
 
-#define EXPORT_LABEL		1	/* Export labels: TODO: Only disable the  */
+#define EXPORT_LABEL		0	/* Export labels: TODO:   */
 
 
 #define DETECT_PKCOL		1	/* Detect whether a col can be a primary key col while reorganizing triples table*/
@@ -226,6 +226,7 @@ typedef struct SubCSSet{
 						This is to detect whether the FK is ONE-to-MANY or MANY-to-MANY ....
 						*/
 
+#define REMOVE_SMALL_TABLE	1	/* Remove SMALL but NOT dimension table*/
 
 typedef struct CSset{
 	CS* items;
@@ -391,7 +392,8 @@ printPropStat(PropStat *propstat, int isPrintToFile);
 rdf_export void 
 createTreeForCSset(CSset *freqCSset);
 
-
+rdf_export char
+isCSTable(CS item); 
 
 
 #endif /* _RDFSCHEMA_H_ */

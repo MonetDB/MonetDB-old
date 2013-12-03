@@ -484,7 +484,7 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		str labelStr, tmpStr;
 
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
+		if (!isCSTable(freqCSset->items[i])) continue; // ignore
 
 		if (labels[i].name == BUN_NONE) {
 			fprintf(fout, "CREATE TABLE %s_"BUNFMT" (\nsubject VARCHAR(10) PRIMARY KEY,\n", "DUMMY", freqCSset->items[i].csId); // TODO underscores?
@@ -557,7 +557,7 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 
 	// add foreign key columns and add foreign keys
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
+		if (!isCSTable(freqCSset->items[i])) continue; // ignore
 
 		for (j = 0; j < labels[i].numProp; ++j) {
 			str propStr, tmpStr2;
@@ -689,7 +689,8 @@ void createSQLMetadata(CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, CSlabe
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS cs = (CS) freqCSset->items[i];
 
-		if (cs.parentFreqIdx != -1) continue; // ignore
+		if (!isCSTable(cs)) continue; // ignore
+		if (csRelBetweenMergeFreqSet[i].numRef == 0) continue; 
 
 		for (j = 0; j < cs.numProp; ++j) { // propNo in CS order
 			// check foreign key frequency
@@ -705,6 +706,7 @@ void createSQLMetadata(CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, CSlabe
 					int toId = csRelBetweenMergeFreqSet[i].lstRefFreqIdx[k];
 					if (toId == -1) continue; // ignore
 					if (i == toId) continue; // ignore self references
+					if (!isCSTable(freqCSset->items[toId])) continue; 
 					if ((int) (100.0 * csRelBetweenMergeFreqSet[i].lstCnt[k] / sum + 0.5) < FK_FREQ_THRESHOLD) continue; // foreign key is not frequent enough
 					tblfrom = mfreqIdxTblIdxMapping[i]; 
 					tblto = mfreqIdxTblIdxMapping[toId];
@@ -728,7 +730,7 @@ void createSQLMetadata(CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, CSlabe
 	// print id -> table name
 	fout = fopen("tableIdFreq.csv", "wt");
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
+		if (!isCSTable(freqCSset->items[i])) continue; // ignore
 
 		if (labels[i].name == BUN_NONE) {
 			fprintf(fout, "%d,\"%s_"BUNFMT"\",%d\n", i, "DUMMY", freqCSset->items[i].csId, freqCSset->items[i].support); // TODO underscores?
@@ -793,7 +795,7 @@ void printTxt(CSset* freqCSset, CSlabel* labels, int freqThreshold) {
 		str labelStrShort = NULL;
 #endif
 
-		if (freqCSset->items[i].parentFreqIdx != -1) continue; // ignore
+		if (!isCSTable(freqCSset->items[i])) continue; // ignore
 
 		if (labels[i].name == BUN_NONE) {
 			fprintf(fout, "%s (CS "BUNFMT"): ", "DUMMY", freqCSset->items[i].csId);
@@ -1790,7 +1792,7 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 	// find biggest and smallest table
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS cs = (CS) freqCSset->items[i];
-		if (cs.parentFreqIdx != -1) continue; // ignore
+		if (!isCSTable(cs)) continue; // ignore
 
 		// first values
 		if (smallest == -1) smallest = i;
@@ -1810,7 +1812,7 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 #endif
 
 		CS cs = (CS) freqCSset->items[i];
-		if (cs.parentFreqIdx != -1) continue; // ignore
+		if (!isCSTable(cs)) continue; // ignore
 
 		// print header
 		width = (int) ((300 + 300 * (log10(freqCSset->items[i].coverage) - log10(freqCSset->items[smallest].coverage)) / (log10(freqCSset->items[biggest].coverage) - log10(freqCSset->items[smallest].coverage))) + 0.5); // width between 300 and 600 px, using logarithm
@@ -1893,7 +1895,7 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS cs = (CS) freqCSset->items[i];
-		if (cs.parentFreqIdx != -1) continue; // ignore
+		if (!isCSTable(cs)) continue; // ignore
 
 		for (j = 0; j < cs.numProp; ++j) {
 			str	tmpStr;
