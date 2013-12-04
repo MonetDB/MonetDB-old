@@ -1893,11 +1893,8 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	mvc *m = NULL;
 	int max_file_id = -1;
 	int current_file_id;
-	
-// 	char * resultstring = NULL;
-// 	struct buffer * resultbuffer;
-// 	str q, msg;
-// 	str* res_q = (str*) GDKmalloc(sizeof(str));
+	ValRecord *v;
+	str q, msg, s;
 
 	/* fetch file_paths from repo_path */
 	num_file_paths = get_file_paths(*repo_path, &file_paths);
@@ -1917,31 +1914,28 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	file_counter = 0;
 	num_registered_files = 0;
 	
-// 	q = (str)GDKmalloc(256*sizeof(char));
-// 	
-// 	sprintf(q, "SELECT MAX(file_id) FROM %s.files;\n", m->session->schema_name);
-// 	
-// 	msg = runSQLQuery(cntxt, res_q, q);
-// 	
-// 	printf("res_q: %s\nmsg: %s\n", *res_q, msg);
+	q = "DECLARE fid INTEGER;\n";
 	
-// 	s = (str)GDKmalloc(256*sizeof(char));
-// 	
-// 	sprintf(s, "SET SCHEMA %s;\n", m->session->schema_name);
-// 	
-// 	if((msg =SQLstatementIntern(cntxt,&s,"registrar.register_repo",TRUE,FALSE))!= MAL_SUCCEED)
-// 	{/* insert into query not succeeded, what to do */
-// 		return msg;
-// 	}
+	if((msg =SQLstatementIntern(cntxt,&q,"registrar.register_repo",TRUE,FALSE))!= MAL_SUCCEED)
+	{/* declare fid not succeeded, what to do */
+		return msg;
+	}
+		
+	s = (str)GDKmalloc(256*sizeof(char));
 	
-// 	if(1 == 1)
-// 		return MAL_SUCCEED;
+	sprintf(s, "SELECT MAX(file_id) INTO fid FROM %s.files;\n", m->session->schema_name);
 	
-// 	max_file_id = do_sth(*res_q);
+	if((msg =SQLstatementIntern(cntxt,&s,"registrar.register_repo",TRUE,FALSE))!= MAL_SUCCEED)
+	{/* insert into query not succeeded, what to do */
+		return msg;
+	}
+	
+	v = stack_get_var(m, "fid");
+	
+	max_file_id = v->val.ival;
 	current_file_id = max_file_id + 1;
 	
-// 	GDKfree(q);
-// 	GDKfree(s);
+	GDKfree(s);
 	
 	if(num_threads > 1)
 	{
