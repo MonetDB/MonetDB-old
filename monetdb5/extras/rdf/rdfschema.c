@@ -5505,7 +5505,7 @@ str printFKs(CSrel *csRelFinalFKs, int freqThreshold, int numTables,  CSPropType
 
 
 static 
-void printFKMultiplicityFromCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, int freqThreshold){
+void printFKMultiplicityFromCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset *freqCSset, int freqThreshold){
 	char filename[100]; 
 	char tmpStr[50]; 
 	FILE *fout; 
@@ -5514,6 +5514,7 @@ void printFKMultiplicityFromCSPropTypes(CSPropTypes* csPropTypes, int numMergedC
 	int	numMtoM = 0; 	//Many To Many
 	int	numOtoM = 0; 	//One to Many
 	int	numOtoO = 0; 
+	int	freqCSId; 
 
 	printf("Collect the statistic for FK multiplicity ... ");
 	strcpy(filename, "FKMultiplicity");
@@ -5525,15 +5526,18 @@ void printFKMultiplicityFromCSPropTypes(CSPropTypes* csPropTypes, int numMergedC
 
 	/* Print cspropTypes */
 
-	fprintf(fout, "FromTbl	PropId	Prop	ToTbl	isMultiProp	PropCoverage	RefferedTblSupport	NumReffering	NumReferred	Ratio\n");
+	fprintf(fout, "FromTbl	PropId	Prop	ToTbl	isMultiProp	PropCoverage	PropSupport	RefferingTblSupport	PropSupportRatio	RefferedTblSupport	NumReffering	NumReferred	Ratio\n");
 	for (i = 0; i < numMergedCS; i++){
 		for(j = 0; j < csPropTypes[i].numProp; j++){
 			if (csPropTypes[i].lstPropTypes[j].isFKProp){
 				if (csPropTypes[i].lstPropTypes[j].numDisRefValues == 0) continue; // These columns may be put into PSO, thus no FK
-
-				fprintf(fout, "%d	%d	"BUNFMT"	%d	%d	%d	%d	%d	%d	%f\n",
+				
+				freqCSId = csPropTypes[i].freqCSId; 
+				fprintf(fout, "%d	%d	"BUNFMT"	%d	%d	%d	%d	%d	%f	%d	%d	%d	%f\n",
 						i , j, csPropTypes[i].lstPropTypes[j].prop, csPropTypes[i].lstPropTypes[j].refTblId, 
 						csPropTypes[i].lstPropTypes[j].isMVProp, csPropTypes[i].lstPropTypes[j].propCover, 
+						csPropTypes[i].lstPropTypes[j].propFreq, freqCSset->items[freqCSId].support,
+						(float)csPropTypes[i].lstPropTypes[j].propFreq / freqCSset->items[freqCSId].support,
 						csPropTypes[i].lstPropTypes[j].refTblSupport, csPropTypes[i].lstPropTypes[j].numReferring,
 						csPropTypes[i].lstPropTypes[j].numDisRefValues, 
 						(float)csPropTypes[i].lstPropTypes[j].numReferring / csPropTypes[i].lstPropTypes[j].numDisRefValues
@@ -7384,7 +7388,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	printf ("RDFdistTriplesToCSs process took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
 	
-	printFKMultiplicityFromCSPropTypes(csPropTypes, numTables, *freqThreshold);
+	printFKMultiplicityFromCSPropTypes(csPropTypes, numTables, freqCSset, *freqThreshold);
 		
 	freeCSrelSet(csRelMergeFreqSet,freqCSset->numCSadded);
 	freeCSrelSet(csRelFinalFKs, numTables); 
