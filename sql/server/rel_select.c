@@ -28,6 +28,7 @@
 #include "rel_xml.h"
 #include "rel_dump.h"
 #include "rel_prop.h"
+#include "rel_psm.h"
 #include "rel_schema.h"
 #include "rel_sequence.h"
 
@@ -5655,6 +5656,12 @@ rel_selects(mvc *sql, symbol *s)
 	switch (s->token) {
 	case SQL_SELECT: {
 		exp_kind ek = {type_value, card_relation, TRUE};
+		SelectNode *sn = (SelectNode *) s;
+
+		if (sn->into) {
+			sql->type = Q_SCHEMA;
+			return rel_select_with_into(sql, s);
+		}
 		ret = rel_subquery(sql, NULL, s, ek);
 		sql->type = Q_TABLE;
 	}	break;
