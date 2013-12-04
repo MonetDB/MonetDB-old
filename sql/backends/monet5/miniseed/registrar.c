@@ -78,6 +78,7 @@ double  sampratetol  = -1.0; /* Sample rate tolerance for continuous traces */
 int verbose = 1;
 static lng file_counter = 0;
 static lng num_registered_files = 0;
+static int fid_declared = 0;
 
 /*
  * returns number of lines in a file.
@@ -1914,11 +1915,16 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	file_counter = 0;
 	num_registered_files = 0;
 	
-	q = "DECLARE fid INTEGER;\n";
-	
-	if((msg =SQLstatementIntern(cntxt,&q,"registrar.register_repo",TRUE,FALSE))!= MAL_SUCCEED)
-	{/* declare fid not succeeded, what to do */
-		return msg;
+	if(!fid_declared)
+	{
+		q = "DECLARE fid INTEGER;\n";
+		
+		if((msg =SQLstatementIntern(cntxt,&q,"registrar.register_repo",TRUE,FALSE))!= MAL_SUCCEED)
+		{/* declare fid not succeeded, what to do */
+			return msg;
+		}
+		
+		fid_declared = 1;
 	}
 		
 	s = (str)GDKmalloc(256*sizeof(char));
