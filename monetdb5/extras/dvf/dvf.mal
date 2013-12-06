@@ -4,8 +4,7 @@ pattern plan_modifier{unsafe}(schema_name:str, file_ids:bat[:oid,:int], file_loc
 address plan_modifier
 comment "Modify the rest of the plan in the execution time according to the files to be mounted.";
 
-function fetch_file_ids_and_locations(schema_name:str,file_ids:bat[:oid,:int])(:bat[:oid,:int],:bat[:oid,:str]);
-	X_2 := sql.mvc();
+function fetch_file_ids_and_locations(X_2:int, schema_name:str,file_ids:bat[:oid,:int])(:bat[:oid,:int],:bat[:oid,:str]);
 
 	X_3:bat[:oid,:oid]:= sql.tid(X_2,schema_name,"files");
 

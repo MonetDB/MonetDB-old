@@ -131,7 +131,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 	int last_update_bind_second_return_var_id = -1;
 	int last_subdelta_return_var_id = -1;
 	
-// 	int var_sql_mvc;
+	int var_sql_mvc;
 
 	stk = stk; //to escape 'unused' parameter error.
 	pci = pci; //to escape 'unused' parameter error.
@@ -166,7 +166,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 		{
 			i1 = i;
 			state = 1;
-// 			var_sql_mvc = getArg(p, 1);
+			var_sql_mvc = getArg(p, 1);
 		}
 		/* check for
 		 * v4 := algebra.leftjoin(v2, v3);
@@ -399,7 +399,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						*  t3 := bat.mirror(t1);
 						*  t4 := algebra.leftjoin(t3, v6);
 						* 
-						* (X_21,X_22) := dvf.fetch_file_ids_and_locations(schema_name,t4);
+						* (X_21,X_22) := dvf.fetch_file_ids_and_locations(var_sql_mvc,schema_name,t4);
 						* 
 						*  dvf.plan_modifier(schema_name, X_21, X_22, mode);
 						*/
@@ -435,6 +435,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						setFunctionId(ffiali, fetchfileidsandlocationsRef);
 						ffiali = pushReturn(mb, ffiali, newTmpVariable(mb, TYPE_bat)); /* X_21 */
 						ffiali = pushReturn(mb, ffiali, newTmpVariable(mb, TYPE_bat)); /* X_22 */
+						ffiali = pushArgument(mb, ffiali, var_sql_mvc);
 						ffiali = pushStr(mb, ffiali, schema_name); /* schema_name */
 						ffiali = pushArgument(mb, ffiali, getArg(t, 0)); /* t4 */
 
