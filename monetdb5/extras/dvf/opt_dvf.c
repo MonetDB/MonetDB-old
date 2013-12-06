@@ -290,6 +290,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						setFunctionId(ffiali, fetchfileidsandlocationsRef);
 						ffiali = pushReturn(mb, ffiali, newTmpVariable(mb, TYPE_bat)); /* X_21 */
 						ffiali = pushReturn(mb, ffiali, newTmpVariable(mb, TYPE_bat)); /* X_22 */
+						ffiali = pushArgument(mb, ffiali, var_sql_mvc);
 						ffiali = pushStr(mb, ffiali, schema_name); /* schema_name */
 						ffiali = pushArgument(mb, ffiali, getArg(t, 0)); /* t4 */
 						
