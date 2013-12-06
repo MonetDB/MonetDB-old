@@ -78,7 +78,6 @@ double  sampratetol  = -1.0; /* Sample rate tolerance for continuous traces */
 int verbose = 1;
 static lng file_counter = 0;
 static lng num_registered_files = 0;
-static int fid_declared = 0;
 
 /*
  * returns number of lines in a file.
@@ -1915,7 +1914,9 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	file_counter = 0;
 	num_registered_files = 0;
 	
-	if(!fid_declared)
+	v = stack_get_var(m, "fid");
+	
+	if(v == NULL)
 	{
 		q = "DECLARE fid INTEGER;\n";
 		
@@ -1923,10 +1924,8 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		{/* declare fid not succeeded, what to do */
 			return msg;
 		}
-		
-		fid_declared = 1;
 	}
-		
+	
 	s = (str)GDKmalloc(256*sizeof(char));
 	
 	sprintf(s, "SELECT MAX(file_id) INTO fid FROM %s.files;\n", m->session->schema_name);
@@ -1938,7 +1937,10 @@ str register_repo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	
 	v = stack_get_var(m, "fid");
 	
-	max_file_id = v->val.ival;
+	if(v->val.ival < 0)
+		max_file_id = -1;
+	else
+		max_file_id = v->val.ival;
 	current_file_id = max_file_id + 1;
 	
 	GDKfree(s);
