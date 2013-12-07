@@ -111,6 +111,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 	str dvfRef = putName("dvf", 3);
 	str planmodifierRef = putName("plan_modifier", 13);
 	str fetchfileidsandlocationsRef = putName("fetch_file_ids_and_locations", 28);
+	str barrier_to_defend_against_dataflow_identifier = "dataflow_defender";
 	
 	str fetchRef = putName("fetch", 5);
 
@@ -122,7 +123,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 	
 	//
 
-	InstrPtr *old = NULL, q = NULL, r = NULL, t = NULL, b = NULL, m = NULL, e = NULL, f = NULL, ffiali = NULL, *ps_iter = NULL;
+	InstrPtr *old = NULL, q = NULL, r = NULL, t = NULL, b = NULL, bar = NULL, m = NULL, e = NULL, f = NULL, ffiali = NULL, *ps_iter = NULL;
 	int i, limit, which_column, actions = 0;
 	int last_bind_return_var_id = -1;
 	int last_data_tid_return_var_id = -1;
@@ -132,6 +133,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 	int last_subdelta_return_var_id = -1;
 	
 	int var_sql_mvc;
+	int barrier_to_defend_against_dataflow = 0;
 
 	stk = stk; //to escape 'unused' parameter error.
 	pci = pci; //to escape 'unused' parameter error.
@@ -453,7 +455,16 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 						else
 							q = pushInt(mb, q, 1);
 
+						/* create barrier instruction */
+						bar = newInstruction(mb, ASSIGNsymbol);
+						bar->barrier = BARRIERsymbol;
+						bar = pushReturn(mb, bar, newTmpVariable(mb, TYPE_any));
+						bar = pushStr(mb, bar, barrier_to_defend_against_dataflow_identifier);
+						
+						
 						/* insert the new instructions in pc i2+1 */
+						insertInstruction(mb, bar, i2+1);
+						barrier_to_defend_against_dataflow = 1;
 						insertInstruction(mb, q, i2+1);
 						
 						insertInstruction(mb, ffiali, i2+1);
@@ -462,7 +473,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 // 						insertInstruction(mb, s, i2+1);
 						insertInstruction(mb, r, i2+1);
 
-						actions += 4;
+						actions += 5;
 						state = 3;
 					}
 					
@@ -682,6 +693,19 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 			
 			actions += 3;
 		}
+		
+		/* put the exit instruction of the dataflow defender barrier */
+		else if(p->token == ENDsymbol && barrier_to_defend_against_dataflow)
+		{
+			/* create exit instruction */
+			e = newInstruction(mb, ASSIGNsymbol);
+			e->barrier = EXITsymbol;
+			e = pushReturn(mb, e, getArg(bar, 0)); /* o */
+			insertInstruction(mb, e, i);
+			i++;
+			barrier_to_defend_against_dataflow = 0;
+		}
+			
 		
 	}
 

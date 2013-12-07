@@ -48,6 +48,7 @@ int get_column_num(str schema_name, str table_name, str column_name)
 str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str data_table_identifier = "data";
+	str barrier_to_defend_against_dataflow_identifier = "dataflow_defender";
 	str mountRef = putName("mount", 5);
 	str miniseedRef = putName("miniseed", 8);
 	str dvfRef = putName("dvf", 3);
@@ -57,6 +58,7 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int i, j, k, limit, slimit, actions = 0;
 	int num_fl = 0, num_fi = 0;
 	int* file_ids = NULL;
+	int var_bar = -1;
 	BUN b1 = 0, b2 = 0, b3 = 0, b4 = 0;
 
 	/* Declarations for copying of vars into stack and making a recursive runMALsequence call */
@@ -171,6 +173,18 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		{
 			startpc = i;
 			pushInstruction(mb, copyInstruction(old[i]));
+		}
+		else if(p->barrier == BARRIERsymbol &&
+			getVarConstant(mb, getArg(p, 1)).val.sval != NULL &&
+			strcmp(getVarConstant(mb, getArg(p, 1)).val.sval, barrier_to_defend_against_dataflow_identifier) == 0)
+		{
+			var_bar = getArg(p, 0);
+			continue;
+		}
+		else if(p->barrier == EXITsymbol &&
+			getArg(p, 0) == var_bar)
+		{
+			continue;
 		}
 		/* check for
 		 * v7 := sql.bind(..., schema_name, data_table_name, ..., ...);
