@@ -85,7 +85,7 @@ typedef struct PropStat {
 
 #define INIT_PROP_NUM	10
 #define INIT_CS_PER_PROP 10
-#define	USINGTFIDF	0
+#define	USINGTFIDF	1
 
 #define STOREFULLCS     1       /* Store full instance of a CS including the a subject and list of predicates, objects. 
                                   Only use this for finding the name of the table corresponding to that CS */
@@ -125,10 +125,12 @@ typedef struct PropStat {
 /* ---- For detecting dimension table */
 #define	NUM_ITERATION_FOR_IR 	3	/* Number of iteration for indirect referrences to a CS (table) */
 
-#define IR_DIMENSION_THRESHOLD_PERCENTAGE	0.02	/* Score of indirect references that the CS can be considered as a dimension CS 
+#define IR_DIMENSION_THRESHOLD_PERCENTAGE	0.2	/* Score of indirect references that the CS can be considered as a dimension CS 
 							   IR_DIMENSION_THRESHOLD_PERCENTAGE * totalFrequency
 							   Number of IR references should be several times larger than the CS frequency
 							*/
+//#define IR_DIMENSION_THRESHOLD_PERCENTAGE	0.02	//Value 0.2 is for example data only
+
 #define NOT_MERGE_DIMENSIONCS	1		/* Default: 1, 0: Is for example data */
 
 #define FILTER_INFREQ_FK_FOR_IR	1		/* We filter out all the dirty references from a CS */
@@ -161,6 +163,12 @@ typedef struct CS
 	int* 	lstConsistsOf; 	//The list of indexes of freqCS	
 	int	numConsistsOf; 
 } CS;
+
+typedef struct TFIDFInfo {
+	int 	freqId;
+	float*	lsttfidfs;	//TFIDF score of each prop in a CS
+	float	totalTFIDF; 	// sqrt of (Sum = Total tfidfV*tfidfV of all props in that CS)
+} TFIDFInfo; 
 
 
 typedef struct SubCS {

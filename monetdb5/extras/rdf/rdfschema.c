@@ -2514,43 +2514,13 @@ float similarityScore(oid* arr1, oid* arr2, int m, int n, int *numCombineP){
 
 /*Using cosine similarity score with vector of tf-idfs for properties in each CS */
 static 
-float similarityScoreTFIDF(oid* arr1, oid* arr2, int m, int n, int *numCombineP, PropStat* propStat){
+float similarityScoreTFIDF(oid* arr1, oid* arr2, int m, int n, int *numCombineP, 
+		TFIDFInfo *tfidfInfos, int mergeCSId1, int mergeCSId2){
 	
 	int i = 0, j = 0;
 	int numOverlap = 0; 
-	float sumX2 = 0.0; 
-	float sumY2 = 0.0;
 	float sumXY = 0.0;
-	BUN bun; 
-	BUN	p; 
-	float 	tfidfV; 
 
-	for (i = 0; i < m; i++){
-		p = arr1[i]; 
-		bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &p);
-		if (bun == BUN_NONE) {
-			printf("This prop must be there!!!!\n");
-			return 0.0; 
-		}
-		else{
-			tfidfV = propStat->tfidfs[bun]; 
-			sumX2 +=  tfidfV*tfidfV;	
-		}
-	}
-
-	for (i = 0; i < n; i++){
-		p = arr2[i]; 
-		bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &p);
-		if (bun == BUN_NONE) {
-			printf("This prop must be there!!!!\n");
-			return 0.0; 
-		}
-		else{
-			tfidfV = propStat->tfidfs[bun]; 
-			sumY2 +=  tfidfV*tfidfV;	
-		}
-	}
-	
 	i = 0;
 	j = 0;
 	while( i < n && j < m )
@@ -2561,19 +2531,7 @@ float similarityScoreTFIDF(oid* arr1, oid* arr2, int m, int n, int *numCombineP,
 		}
 		else if( arr1[j] == arr2[i] )
 		{
-			p = arr1[j];
-			bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &p);
-
-			if (bun == BUN_NONE) {
-				printf("This prop must be there!!!!\n");
-				return 0.0; 
-			}
-			else{
-				tfidfV = propStat->tfidfs[bun];	 
-				// We can do this because the tfidfs of a property in any CS
-				// are the same
-				sumXY += tfidfV*tfidfV;
-			}
+			sumXY += tfidfInfos[mergeCSId1].lsttfidfs[j] * tfidfInfos[mergeCSId1].lsttfidfs[j];
 			j++;
 			i++;
 			numOverlap++;
@@ -2586,7 +2544,7 @@ float similarityScoreTFIDF(oid* arr1, oid* arr2, int m, int n, int *numCombineP,
 	*numCombineP = m + n - numOverlap;
 	
 
-	return  ((float) sumXY / (sqrt(sumX2)*sqrt(sumY2)));
+	return  ((float) sumXY / (tfidfInfos[mergeCSId1].totalTFIDF * tfidfInfos[mergeCSId2].totalTFIDF));
 }
 
 /*
@@ -3655,6 +3613,39 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 }
 
 static
+void initTFIDFInfos(TFIDFInfo *tfidfInfos, int curNumMergeCS, oid* mergeCSFreqCSMap, CSset *freqCSset, PropStat *propStat){
+	int 	i, j; 
+	int	freqId; 
+	CS	*cs; 	
+	oid	p; 
+	float 	tfidfV; 
+	float	sum; 
+	BUN	bun = BUN_NONE; 
+	for (i = 0; i < curNumMergeCS; i++){
+		freqId = mergeCSFreqCSMap[i];
+		cs = (CS*) &(freqCSset->items[freqId]);
+		tfidfInfos[i].freqId = freqId; 
+		tfidfInfos[i].lsttfidfs = (float*)malloc(sizeof(float) * (cs->numProp)); 
+		sum = 0.0; 
+		for (j = 0; j < cs->numProp; j++){
+			p = cs->lstProp[j]; 
+			bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &p);
+			if (bun == BUN_NONE) {
+				printf("This prop must be there!!!!\n");
+			}
+			else{
+				tfidfV = propStat->tfidfs[bun]; 
+				sum +=  tfidfV*tfidfV;	
+			}
+			tfidfInfos[i].lsttfidfs[j] = tfidfV; 
+
+		}
+		assert(sum > 0); 
+		tfidfInfos[i].totalTFIDF = sqrt(sum); 
+	}
+	
+}
+static
 void mergeCSByS3S5(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId,OntoUsageNode *ontoUsageTree, oid **ontmetadata, int ontmetadataCount){
 	int 		i, j, k; 
 	int 		freqId1, freqId2; 
@@ -3669,7 +3660,7 @@ void mergeCSByS3S5(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, in
 	char		isLabelComparable = 0; 
 	char		isSameLabel = 0; 
 	oid		name;		/* Name of the common ancestor */
-
+	TFIDFInfo	*tfidfInfos;
 	
 
 	
@@ -3679,6 +3670,9 @@ void mergeCSByS3S5(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, in
 
 	propStat = initPropStat();
 	getPropStatisticsFromMergeCSs(propStat, curNumMergeCS, mergeCSFreqCSMap, freqCSset); /*TODO: Get PropStat from MaxCSs or From mergedCS only*/
+	tfidfInfos = (TFIDFInfo*)malloc(sizeof(TFIDFInfo) * curNumMergeCS); 
+	initTFIDFInfos(tfidfInfos, curNumMergeCS, mergeCSFreqCSMap, freqCSset, propStat); 
+
 
 	for (i = 0; i < curNumMergeCS; i++){		
 		freqId1 = mergeCSFreqCSMap[i];
@@ -3716,7 +3710,7 @@ void mergeCSByS3S5(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, in
 				}
 				else{
 					simscore = similarityScoreTFIDF(cs1->lstProp, cs2->lstProp,
-						cs1->numProp,cs2->numProp,&numCombineP, propStat);
+						cs1->numProp,cs2->numProp,&numCombineP, tfidfInfos, i, j);
 					//printf("         Cosine = %f \n", simscore);
 					
 				}
@@ -3963,7 +3957,7 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 	printf("\nTotal " BUNFMT " triples, coverred by %d final CSs: %d  (%f percent) \n", BATcount(sbat), numTables, totalCoverage, 100 * ((float)totalCoverage/BATcount(sbat)));
 	printf("Max number of triples coverred by one final CS: %d \n", maxNumtriple);
 	printf("Min number of triples coverred by one final CS: %d \n", minNumtriple);
-	printf("Avg number of triples coverred by one final CS: %f \n", (float)(totalCoverage/numMergeCS));
+	if (numMergeCS != 0) printf("Avg number of triples coverred by one final CS: %f \n", (float)(totalCoverage/numMergeCS));
 
 	//Check if remove all non-frequent Prop
 	maxNumtriple = 0;
