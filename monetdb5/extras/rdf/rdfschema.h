@@ -125,11 +125,11 @@ typedef struct PropStat {
 /* ---- For detecting dimension table */
 #define	NUM_ITERATION_FOR_IR 	3	/* Number of iteration for indirect referrences to a CS (table) */
 
-#define IR_DIMENSION_THRESHOLD_PERCENTAGE	0.2	/* Score of indirect references that the CS can be considered as a dimension CS 
+#define IR_DIMENSION_THRESHOLD_PERCENTAGE	0.02	/* Score of indirect references that the CS can be considered as a dimension CS
 							   IR_DIMENSION_THRESHOLD_PERCENTAGE * totalFrequency
-							   Number of IR references should be several times larger than the CS frequency
+							   Number of IR references should be several times larger than the CS frequenc
 							*/
-//#define IR_DIMENSION_THRESHOLD_PERCENTAGE	0.02	//Value 0.2 is for example data only
+//#define IR_DIMENSION_THRESHOLD_PERCENTAGE	0.2	//Value 0.2 is for example data only
 
 #define NOT_MERGE_DIMENSIONCS	1		/* Default: 1, 0: Is for example data */
 
@@ -214,6 +214,7 @@ typedef struct SubCSSet{
 				    // the CS's to-be-merged in this rule must cover > MIN_FROMTABLE_SIZE_S6 / MIN_PERCETAGE_S6 triples
 //#define MIN_FROMTABLE_SIZE_S6 1		/* For example data */
 #define MINIMUM_TABLE_SIZE 10000   //The minimum number of triples coverred by a table (i.e., a final CS) 
+//#define MINIMUM_TABLE_SIZE 1   // For example dataset only 
 #define SAMPLE_FILTER_THRESHOLD 1  // SAMPLE_FILTER_THRESHOLD/ 100	
 #define HIGH_REFER_THRESHOLD 5
 

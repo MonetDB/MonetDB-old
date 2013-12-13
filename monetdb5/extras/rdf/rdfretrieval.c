@@ -129,13 +129,17 @@ void bfs1(int root, int* table_id, int tableCount, int* adjacency_from, int* adj
 
 static
 void addNode1(int* adjacency_from, int* adjacency_to, int adjacencyCount, NodeStat* nodeStats, int* table_id, int tableCount, int root, char initial) {
-	int	queue[tableCount]; // cyclic array
-	int	visited[tableCount];
-	int	isInQueue[tableCount];
+	int	*queue; // cyclic array
+	int	*visited;
+	int	*isInQueue;
 	int	queuePosition; // next element in queue to view at
 	int	queueLength;
 	int	pathId, pathIdTmp;
 	int	i;
+
+	queue = (int*)malloc(sizeof(int) * tableCount); 
+	visited = (int*)malloc(sizeof(int) * tableCount); 
+	isInQueue = (int*)malloc(sizeof(int) * tableCount); 
 
 	// init
 	for (i = 0; i < tableCount; ++i) {
@@ -180,6 +184,10 @@ void addNode1(int* adjacency_from, int* adjacency_to, int adjacencyCount, NodeSt
 	}
 
 	bfs1(root, table_id, tableCount, adjacency_from, adjacency_to, adjacencyCount, queue, visited, isInQueue, &queuePosition, &queueLength, nodeStats);
+
+	free(queue); 
+	free(visited); 
+	free(isInQueue); 
 }
 
 static
@@ -368,8 +376,9 @@ int* retrieval2(int root, int numNodesMax, int* numNodesActual, int* table_id, s
 static
 void assignWeightToChildren3(int* adjacency_from, int* adjacency_to, int adjacencyCount, NodeStat* nodeStats, int* table_id, int tableCount, int root) {
 	int		i, j, k;
-	char		visited[tableCount];
-
+	char		*visited;
+	
+	visited = (char*)malloc(sizeof(char) * tableCount);
 	// mark root as a "chosen node"
 	nodeStats[root].steps = 0;
 	nodeStats[root].weight = 0;
@@ -406,6 +415,8 @@ void assignWeightToChildren3(int* adjacency_from, int* adjacency_to, int adjacen
 			nodeStats[i].weight += nodeStats[i].origWeight;
 		}
 	}
+
+	free(visited); 
 }
 
 static
@@ -607,14 +618,18 @@ int* retrievalOverview(int* numNodesActual, int* table_id, str* table_name, int*
 	int		csCount = 0;
 	int		sumChosenSubjects = 0;
 
-	int		queue[tableCount]; // cyclic array
-	int		isInQueue[tableCount];
+	int		*queue; // cyclic array
+	int		*isInQueue;
 	int		queuePosition; // next element in queue to view at
 	int		queueLength;
-	char		visited[tableCount];
+	char		*visited;
 	int		subgraphSize;
 	Groups		groups;
 	int		*chosenNodes = NULL;
+	
+	queue = (int*)malloc(sizeof(int) * tableCount); 
+	isInQueue = (int*)malloc(sizeof(int) * tableCount); 
+	visited = (char*)malloc(sizeof(char) * tableCount);
 
 	groups.count = 0;
 	groups.groups = NULL;
@@ -695,6 +710,10 @@ int* retrievalOverview(int* numNodesActual, int* table_id, str* table_name, int*
 		assert(j == subgraphSize);
 	}
 
+	free(queue);
+	free(visited); 
+	free(isInQueue); 
+
 	// transitive closure (Floyd-Warshall-Algorithm)
 	for (k = 0; k < tableCount; ++k) {
 		for (i = 0; i < tableCount; ++i) {
@@ -732,7 +751,7 @@ int* retrievalOverview(int* numNodesActual, int* table_id, str* table_name, int*
 		}
 		if (!found) {
 			int node;
-			char reachability[tableCount];
+			char *reachability = malloc(sizeof(char) * tableCount);
 			int reachabilityCount = 0;
 			int nextNode; // position in the (sorted) list of nodes to look at next
 
@@ -778,6 +797,8 @@ int* retrievalOverview(int* numNodesActual, int* table_id, str* table_name, int*
 					}
 				}
 			}
+
+			free(reachability);
 		}
 	}
 

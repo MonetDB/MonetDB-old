@@ -855,7 +855,7 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 	int		i, j, k;
 	int		fit;
 
-	oid typeAttributesOids[typeAttributesCount];
+	oid 		*typeAttributesOids = malloc(sizeof(oid) * typeAttributesCount);
 
 	if (BATcount(sbat) == 0) {
 		fprintf(stderr, "sbat must not be empty");
@@ -944,6 +944,8 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 			}
 		}
 	}
+
+	free(typeAttributesOids);
 }
 #endif
 

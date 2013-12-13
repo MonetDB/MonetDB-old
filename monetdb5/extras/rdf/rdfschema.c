@@ -3527,6 +3527,27 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 
 }
 
+/*
+static 
+str printTKNZStringFromOid(oid id){
+	int ret; 
+	char*   schema = "rdf";
+	str propStr; 
+
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "rdf.rdfschema",
+				"could not open the tokenizer\n");
+	}
+
+	takeOid(id, &propStr);	
+	printf("String for "BUNFMT": %s\n", id, propStr);
+
+	TKNZRclose(&ret);
+
+	return MAL_SUCCEED; 
+}
+*/
+
 static
 char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode *tree, int numOrigFreqCS, oid *ancestor){	/*Rule S1 S2 S3*/
 	int i, j; 
@@ -3599,9 +3620,18 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 			}
 			level++;
 		}
-		//printf("The common ancestor of freqCS %d (%s) and freqCS %d (%s) is: %s --- %f \n", freqId1, labels[freqId1].name, freqId2, labels[freqId2].name, tmpNode->uri, tmpNode->percentage);
+		/*
+		printf("The common ancestor of freqCS %d ("BUNFMT") and freqCS %d ("BUNFMT") is: "BUNFMT" --- %f \n", freqId1, labels[freqId1].name, freqId2, labels[freqId2].name, tmpNode->uri, tmpNode->percentage);
+
+		printTKNZStringFromOid(labels[freqId1].name);
+		printTKNZStringFromOid(labels[freqId2].name);
+		printTKNZStringFromOid(tmpNode->uri);
+		*/
+
 		if (tmpNode->percentage < IMPORTANCE_THRESHOLD) {
-			//printf("Merge two CS's %s and %s using the common ancestor (%s) at level %d (score: %f)\n",labels[freqId1].name,labels[freqId2].name,tmpNode->uri, i,tmpNode->percentage);
+			printf("Merge two CS's %d (Label: "BUNFMT") and %d (Label: "BUNFMT") using the common ancestor ("BUNFMT") at level %d (score: %f)\n",
+					freqId1, labels[freqId1].name, freqId2, labels[freqId2].name,tmpNode->uri, i,tmpNode->percentage);
+
 			(*ancestor) = tmpNode->uri;
 			return 1;
 		}
@@ -3722,7 +3752,7 @@ void mergeCSByS3S5(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, in
 			#else	
 			if (simscore > SIM_THRESHOLD) {
 			#endif		
-				//printf("S3S5: merge freqCS %d and freqCS %d \n", freqId1, freqId2);
+				//printf("S3S5: merge freqCS %d and freqCS %d (sim: %f)\n", freqId1, freqId2,simscore);
 				//Check whether these CS's belong to any mergeCS
 				if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx == -1){	/* New merge */
 					mergecs = mergeTwoCSs(*cs1,*cs2, freqId1,freqId2, *mergecsId);
@@ -5774,14 +5804,17 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
 	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
 	
+
+	/* S6: Merged CS referred from the same CS via the same property */
+	if (1){
 	tmpCSrelToMergeCS = generateCsRelToMergeFreqSet(csrelSet, freqCSset);
 	tmpNumRel = freqCSset->numCSadded; 
 
-	/* S6: Merged CS referred from the same CS via the same property */
-	if (1) mergeMaxFreqCSByS6(tmpCSrelToMergeCS, freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS,  &mergecsId, ontmetadata, ontmetadataCount);
+	mergeMaxFreqCSByS6(tmpCSrelToMergeCS, freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS,  &mergecsId, ontmetadata, ontmetadataCount);
 	//printf("DISABLE S6 (For Testing) \n"); 
 
 	freeCSrelSet(tmpCSrelToMergeCS,tmpNumRel);
+	}
 
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	curT = clock(); 
