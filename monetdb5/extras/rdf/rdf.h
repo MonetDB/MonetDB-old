@@ -44,7 +44,7 @@
 #define _RDF_DEBUG
 
 rdf_export str
-RDFParser(BAT **graph, str *location, str *graphname, str *schemam);
+RDFParser(BAT **graph, str *location, str *graphname, str *schemam, bat *ontbatid);
 
 rdf_export str 
 RDFleftfetchjoin_sortedestimate(int *result, int *lid, int *rid, lng *estimate);

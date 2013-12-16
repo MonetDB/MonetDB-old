@@ -235,7 +235,27 @@ getObjectType(unsigned char* objStr, BUN *realNumValue){
 	return obType; 
 }
 
-
+#if BUILD_ONTOLOGIES_HISTO
+static
+void printHistogram(parserData *pdata){
+	str	value; 
+	int	total = 0; 
+	int	i;
+	int	numOnt = (int)BATcount(pdata->ontBat); 
+	BATiter	onti; 
+	
+	(void) value;
+	//BATprint(pdata->ontBat);
+	onti = bat_iterator(pdata->ontBat); 
+	for (i = 0; i < numOnt; i++){
+		value = (str)BUNtail(onti, i); 
+		printf("%s: %d \n", value, pdata->numOntInstances[i]); 
+		total +=  pdata->numOntInstances[i];
+	}
+	total += pdata->numNonOnt;
+	printf("Number of non-ontology data: %d / %d (%f) \n", pdata->numNonOnt, total, (float)pdata->numNonOnt/total);
+}
+#endif
 
 
 /*
@@ -249,6 +269,12 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 {
 #if CHECK_NUM_DBPONTOLOGY
 	const char* pos = NULL;
+#endif
+#if BUILD_ONTOLOGIES_HISTO
+	char* 	ontpart;
+	char*	ptrEndOnt; 
+	int	ontlen = 0; 
+	BUN	bunOnt;
 #endif
 	parserData *pdata = ((parserData *) user_data);
 	BUN bun = BUN_NONE;
@@ -291,7 +317,34 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 			if ( (pos = strstr((str)predicateStr , "http://dbpedia.org/ontology")) != NULL){
 				pdata->numOntologyTriples++;
 			}
+
+			//Store all ontology prefixes in a BAT, 
+			//Extract the prefix from each predicateStr by locating the last # (if available), or /)  --> strrchr
+			//Then, look for this prefix in the BAT, must prepare hash for the BAT	
 			#endif
+			#if BUILD_ONTOLOGIES_HISTO
+			ptrEndOnt = NULL;
+			ptrEndOnt = strrchr((str)predicateStr, '#');
+			if (ptrEndOnt == NULL) ptrEndOnt = strrchr((str)predicateStr, '/');
+			if (ptrEndOnt == NULL) 
+				raptor_exception(pdata, "Could not get the ontology");
+
+			ontlen = (int) (ptrEndOnt - (str)predicateStr);
+
+			ontpart = substring((char*)predicateStr, 1, ontlen); 
+			//printf("Ontpart of %s is %s \n", (str)predicateStr, (str)ontpart);
+			(void) ontpart; 
+
+			//Check whether ontpart appear in the ontBat
+			bunOnt = BUNfnd(BATmirror(pdata->ontBat),(ptr) (str)ontpart);	
+			if (bunOnt == BUN_NONE){
+				pdata->numNonOnt++;
+			}
+			else{
+				pdata->numOntInstances[(int)bunOnt]++;
+			}
+			#endif
+
 			//rdf_insert(pdata, graph[MAP_LEX], (str) predicateStr, &bun);
 			rdf_tknzr_insert((str) predicateStr, &bun);
 			rdf_BUNappend(pdata, graph[P_sort], &bun); 
@@ -370,11 +423,12 @@ create_BAT(int ht, int tt, int size)
 }
 
 static parserData*
-parserData_create (str location, BAT** graph)
+parserData_create (str location, BAT** graph, bat *ontbatid)
 {
 	int i;
 
 	parserData *pdata = (parserData *) GDKmalloc(sizeof(parserData));
+
 	if (pdata == NULL) return NULL;
 
 	pdata->tcount = 0;
@@ -425,10 +479,45 @@ parserData_create (str location, BAT** graph)
 	/* Reset the dense property of graph[MAP_LEX] */
 	pdata->graph[MAP_LEX]->hdense = FALSE;
 
+	(void) ontbatid; 
+	#if BUILD_ONTOLOGIES_HISTO
+	if (ontbatid == NULL){
+		printf("There is no ontology list loaded \n"); 
+		return NULL; 
+	}
+	else{
+		if ((pdata->ontBat = BATdescriptor(*ontbatid)) == NULL) {
+			return NULL; 
+		}
+		(void)BATprepareHash(BATmirror(pdata->ontBat));
+		if (!(pdata->ontBat->T->hash)){
+			return NULL; 
+		}
+
+		printf("Ontology list contains "BUNFMT" ontologies \n ", BATcount(pdata->ontBat)); 
+
+		pdata->numOntInstances = GDKmalloc(sizeof(int) * BATcount(pdata->ontBat));
+		for (i = 0; i < (int)BATcount(pdata->ontBat); i++){
+			pdata->numOntInstances[i] = 0; 
+		}
+
+		pdata->numNonOnt = 0;
+	}
+	#endif
+
 	return pdata;
 }
 
+static 
+void freeParserData(parserData *pdata){
+	
+	#if BUILD_ONTOLOGIES_HISTO
+	BBPunfix(pdata->ontBat->batCacheid);
+	GDKfree(pdata->numOntInstances);
+	#endif
+	GDKfree(pdata);
 
+}
 
 /*
  * @-
@@ -629,14 +718,14 @@ clean(parserData *pdata){
 			if (pdata->graph[iret] != NULL)
 				BBPreclaim(pdata->graph[iret]);
 		}
-
-		GDKfree(pdata);
+		freeParserData(pdata);
 	}
 }
 
+
 /* Main RDF parser function that drives raptor */
 str
-RDFParser (BAT **graph, str *location, str *graphname, str *schema)
+RDFParser (BAT **graph, str *location, str *graphname, str *schema, bat *ontbatid)
 {
 	raptor_parser *rparser;
 	parserData *pdata;
@@ -666,7 +755,7 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema)
 #endif
 
 	/* Init pdata  */
-	pdata = parserData_create(*location,graph);
+	pdata = parserData_create(*location,graph, ontbatid);
 	if (pdata == NULL) {
 #ifdef _TKNZR_H
 		TKNZRclose(&iret);
@@ -801,13 +890,16 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema)
 	#endif
 	printf("Total number of error %d , fatal %d , warning %d", pdata->error, pdata->fatal, pdata->warning);
 #endif
+	#if	BUILD_ONTOLOGIES_HISTO
+	printHistogram(pdata);
+	#endif
 	/* post processing step */
 	ret = post_processing(pdata);
 	if (ret != MAL_SUCCEED) {
 		clean(pdata);
 		throw(RDF, "rdf.rdfShred", "could not post-proccess data");
 	}
-	GDKfree(pdata);
+	freeParserData(pdata);
 	return MAL_SUCCEED;
 }
 

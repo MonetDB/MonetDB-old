@@ -121,4 +121,7 @@ freeLabels(CSlabel* labels, CSset* freqCSset);
 rdf_export void
 freeOntoUsageTree(OntoUsageNode* tree);
 
+rdf_export void
+printListOntology(void);
+
 #endif /* _RDFLABELS_H_ */

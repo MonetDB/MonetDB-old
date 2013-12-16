@@ -1,0 +1,1 @@
+COPY NUMONT RECORDS INTO OntList  FROM 'OntListFile' USING DELIMITERS '|', '\n';

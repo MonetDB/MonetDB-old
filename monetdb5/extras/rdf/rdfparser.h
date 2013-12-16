@@ -30,6 +30,7 @@
 #include <raptor2.h>
 
 #define CHECK_NUM_DBPONTOLOGY   1       /* Check how many rdf triples use dbpontology */
+#define BUILD_ONTOLOGIES_HISTO	0	/* Check how much percentage each ontology has in the dataset */
 
 typedef struct parserData {
 	                              /**PROPERTIES             */
@@ -51,6 +52,11 @@ typedef struct parserData {
 	                              /**GRAPH DATA             */
 	BAT **graph;                  /* BATs for the result
 	                                 shredded RDF graph     */
+	#if  BUILD_ONTOLOGIES_HISTO
+	BAT	*ontBat; 		//Stored the set of preloaded ontologies
+	int	*numOntInstances;	//Number of instances for each ontology
+	int	numNonOnt; 
+	#endif
 #if CHECK_NUM_DBPONTOLOGY
 	int numOntologyTriples; 
 #endif

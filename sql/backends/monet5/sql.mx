@@ -7348,6 +7348,8 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	oid	curS = 0, curP = 0, curO = 0;
 #endif /* IS_DUPLICATE_FREE */
 
+	BAT *ontbat = NULL; 
+
 	rethrow("sql.rdfShred", msg, getSQLContext(cntxt, mb, &m, NULL));
 
 	if ((sch = mvc_bind_schema(m, *schema)) == NULL)
@@ -7365,7 +7367,16 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	store_funcs.append_col(m->session->tr, gname, *name, TYPE_str);
 	store_funcs.append_col(m->session->tr, gid, &id, TYPE_int);
 
-	rethrow("sql.rdfShred", msg, RDFParser(b, location, name, schema));
+	ontbat = mvc_bind(m, "sys", "ontlist", "mont",0);
+	if (ontbat == NULL){
+		printf("There is column ontlist/mont \n"); 
+		rethrow("sql.rdfShred", msg, RDFParser(b, location, name, schema, NULL));
+	}
+	else{
+		rethrow("sql.rdfShred", msg, RDFParser(b, location, name, schema, &ontbat->batCacheid));
+	}
+
+	BBPunfix(ontbat->batCacheid);
 
 	if (sizeof(oid) == 8) {
 		sql_find_subtype(&tpe, "oid", 31, 0);

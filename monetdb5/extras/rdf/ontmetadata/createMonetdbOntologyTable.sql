@@ -9,3 +9,7 @@ create table OntAttributes(
 	mURI string, 
 	mAttr string
 );
+
+create table OntList(
+	mOnt string
+);

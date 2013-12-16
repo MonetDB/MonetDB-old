@@ -102,6 +102,16 @@ ontology ontologies[] = {
 {{"<http:", "purl.org", "ontology", "po"}, 4} // po (tv and radio programmes)
 };
 
+void printListOntology(void){
+	int i,j; 
+	for (i = 0; i < ontologyCount; ++i) {
+		printf("%s/",ontologies[i].uri[0]);
+		for (j = 1; j < ontologies[i].length; j++){
+			printf("/%s",ontologies[i].uri[j]);
+		}
+		printf("\n"); 
+	}
+}
 /* Extracts the "human-readable" part of an URI (usually the last token). */
 void getPropNameShort(char** name, char* propStr) {
 	char		*token;

@@ -25,3 +25,13 @@ sed -i "s:AttFile:${PWD}/ontAttribute.gr.csv:g" loadtmp.sql
 
 
 mclient < loadtmp.sql
+
+
+NUMONT=`cat ontList.csv | wc -l`
+
+cp loadOntologyListSAMPLE.sql loadtmp.sql
+sed -i "s:NUMONT:$NUMONT:g" loadtmp.sql
+sed -i "s:OntListFile:${PWD}/ontList.csv:g" loadtmp.sql
+
+
+mclient < loadtmp.sql
