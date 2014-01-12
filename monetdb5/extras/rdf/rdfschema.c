@@ -686,6 +686,12 @@ char isInfrequentProp(PropTypes pt, CS cs){
 
 }
 
+static
+char isInfrequentSampleProp(CS freqCS, int propIdx){
+	if (freqCS.lstPropSupport[propIdx] * 100 < freqCS.support * SAMPLE_FILTER_THRESHOLD) return 1; 
+	else return 0;
+}
+
 static 
 void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSset){
 	int i, j, k; 
@@ -1997,7 +2003,7 @@ str printmergeCSSet(CSset *freqCSset, int freqThreshold){
 
 
 static 
-str printsubsetFromCSset(CSset *freqCSset, BAT* subsetIdxBat, int num, int* mergeCSFreqCSMap, CSlabel *label){
+str printsubsetFromCSset(CSset *freqCSset, BAT* subsetIdxBat, int num, int* mergeCSFreqCSMap, CSlabel *label, int sampleVersion){
 
 	int 	i,j; 
 	FILE 	*fout; 
@@ -2021,7 +2027,7 @@ str printsubsetFromCSset(CSset *freqCSset, BAT* subsetIdxBat, int num, int* merg
 	
 
 	strcpy(filename, "selectedSubset");
-	sprintf(tmpStr, "%d", num);
+	sprintf(tmpStr, "%d_v%d", num, sampleVersion);
 	strcat(filename, tmpStr);
 	strcat(filename, ".txt");
 
@@ -4889,12 +4895,12 @@ void getTblName(char *name, oid nameId){
 }
 
 static 
-str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
+str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, int sampleVersion){
 
 	int 	i,j, k; 
 	FILE 	*fout, *fouttb, *foutis; 
-	char 	filename[100];
-	char 	tmpStr[20];
+	char 	filename[100], filename2[100], filename3[100];
+	char 	tmpStr[20], tmpStr2[20], tmpStr3[20];
 	int 	ret;
 
 	str 	propStr; 
@@ -4930,14 +4936,23 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 	
 
 	strcpy(filename, "sampleData");
-	sprintf(tmpStr, "%d", num);
+	sprintf(tmpStr, "%d_v%d", num,sampleVersion);
 	strcat(filename, tmpStr);
 	strcat(filename, ".txt");
 	
-
+	strcpy(filename2, "createSampleTable");
+	sprintf(tmpStr2, "%d_v%d", num,sampleVersion);
+	strcat(filename2, tmpStr2);
+	strcat(filename2, ".sh");
+	
+	strcpy(filename3, "loadSampleToMonet");
+	sprintf(tmpStr3, "%d_v%d", num,sampleVersion);
+	strcat(filename3, tmpStr3);
+	strcat(filename3, ".sh");
+	
 	fout = fopen(filename,"wt"); 
-	fouttb = fopen("createSampleTable.sh","wt");
-	foutis = fopen("loadSampleToMonet.sh","wt");
+	fouttb = fopen(filename2,"wt");
+	foutis = fopen(filename3,"wt");
 
 	for (i = 0; i < num; i++){
 		sample = csSample[i];
@@ -4999,7 +5014,9 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 		isImage = 0;
 		isSite = 0; 
 		for (j = 0; j < sample.numProp; j++){
-			if (freqCS.lstPropSupport[j] * 100 < freqCS.support * SAMPLE_FILTER_THRESHOLD) continue; 
+			if (sampleVersion > 1){		//Do not consider infreq Prop 
+				if (isInfrequentSampleProp(freqCS, j)) continue; 
+			}
 #if USE_SHORT_NAMES
 			propStrShort = NULL;
 #endif
@@ -5059,8 +5076,13 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 		
 		//List of support
 		for (j = 0; j < sample.numProp; j++){
-			if (freqCS.lstPropSupport[j] * 100 < freqCS.support * SAMPLE_FILTER_THRESHOLD) continue; 
-			fprintf(fout,";%d", freqCS.lstPropSupport[j]);
+			if (sampleVersion > 1){		//Do not consider infreq Prop 
+				if (isInfrequentSampleProp(freqCS, j)) continue; 
+				fprintf(fout,";%d", freqCS.lstPropSupport[j]);
+			}
+			else{
+				fprintf(fout,";%d", freqCS.support);
+			}
 		}
 		fprintf(fout, "\n");
 		
@@ -5082,7 +5104,9 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num){
 			GDKfree(subjStr); 
 			
 			for (j = 0; j < sample.numProp; j++){
-				if (freqCS.lstPropSupport[j] * 100 < freqCS.support * SAMPLE_FILTER_THRESHOLD) continue; 
+				if (sampleVersion > 1){		//Do not consider infreq Prop 
+					if (isInfrequentSampleProp(freqCS, j)) continue; 
+				}
 				objOid = sample.lstObj[j][k];
 				if (objOid == BUN_NONE){
 					fprintf(fout,";NULL");
@@ -5584,6 +5608,80 @@ void printFKMultiplicityFromCSPropTypes(CSPropTypes* csPropTypes, int numMergedC
 
 }
 
+static 
+str getSampleData(int *ret, bat *mapbatid, int numTables, CSset* freqCSset, BAT *sbat, BATiter si, BATiter pi, BATiter oi, int* mTblIdxFreqIdxMapping, 
+		CSlabel* labels, int* csTblIdxMapping, int maxNumPwithDup, oid* subjCSMap, int sampleVersion){
+
+	BAT		*outputBat = NULL, *mbat = NULL;
+	CSSample 	*csSample; 
+	int		numSampleTbl = 0;  
+
+	if ((mbat = BATdescriptor(*mapbatid)) == NULL) {
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+	//Generate evaluating tables
+
+	numSampleTbl = (NUM_SAMPLETABLE > (numTables/2))?(numTables/2):NUM_SAMPLETABLE;
+
+	printf("Select list of sample tables \n");
+	outputBat = generateTablesForEvaluating(freqCSset, numSampleTbl, mTblIdxFreqIdxMapping, numTables);
+	assert (BATcount(outputBat) == (oid) numSampleTbl);
+	csSample = (CSSample*)malloc(sizeof(CSSample) * numSampleTbl);
+	printf("Select sample instances for %d tables \n", numSampleTbl);
+	initSampleData(csSample, outputBat, freqCSset, mTblIdxFreqIdxMapping, labels);
+	RDFExtractSampleData(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, maxNumPwithDup, csSample, outputBat, numSampleTbl);
+	printsubsetFromCSset(freqCSset, outputBat, numSampleTbl, mTblIdxFreqIdxMapping, labels, sampleVersion);
+	printSampleData(csSample, freqCSset, mbat, numSampleTbl, sampleVersion);
+	freeSampleData(csSample, numSampleTbl);
+	BBPreclaim(outputBat);
+	BBPunfix(mbat->batCacheid);
+	
+	return MAL_SUCCEED; 
+}
+
+static
+void initCSTableIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping, int *numTables){
+
+int 		i, k; 
+CS 		cs;
+	int		tmpParentidx; 
+
+	k = 0; 
+	for (i = 0; i < freqCSset->numCSadded; i++){
+		if (isCSTable(freqCSset->items[i])){	// Only use the not-removed maximum or merge CS  
+			mfreqIdxTblIdxMapping[i] = k; 
+			mTblIdxFreqIdxMapping[k] = i; 
+			k++; 
+		}
+	}
+	
+	*numTables = k; 
+
+	// Mapping the csid directly to the index of the table ==> csTblIndxMapping
+	
+	for (i = 0; i < freqCSset->numOrigFreqCS; i++){
+		cs = (CS)freqCSset->items[i];
+		tmpParentidx = cs.parentFreqIdx;
+		
+		if (tmpParentidx == -1){	// maximumCS 
+			csTblIdxMapping[cs.csId] = mfreqIdxTblIdxMapping[i];
+		}
+		else{	// A normal CS or a maxCS that have a mergeCS as its parent
+			if (freqCSset->items[tmpParentidx].parentFreqIdx == -1){
+				csTblIdxMapping[cs.csId] = mfreqIdxTblIdxMapping[tmpParentidx]; 
+			}	
+			else{
+				csTblIdxMapping[cs.csId] = mfreqIdxTblIdxMapping[freqCSset->items[tmpParentidx].parentFreqIdx];
+			}
+		}
+
+	}
+
+
+	//return cstablestat; 
+
+}
+
 // for storing ontology data
 oid	**ontattributes = NULL;
 int	ontattributesCount = 0;
@@ -5768,12 +5866,37 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	curT = clock(); 
 	printf("Get number of indirect referrences to detect dimension tables !!! Took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT;
+	/*------------------------------------*/	
+
+	{
+	int numTables = 0; 
+	int *csTblIdxMapping, *mfreqIdxTblIdxMapping, *mTblIdxFreqIdxMapping;
+	
+
+	csTblIdxMapping = (int *) malloc (sizeof (int) * (*maxCSoid + 1)); 
+	initIntArray(csTblIdxMapping, (*maxCSoid + 1), -1);
+
+	mfreqIdxTblIdxMapping = (int *) malloc (sizeof (int) * freqCSset->numCSadded); 
+	initIntArray(mfreqIdxTblIdxMapping , freqCSset->numCSadded, -1);
+
+	mTblIdxFreqIdxMapping = (int *) malloc (sizeof (int) * freqCSset->numCSadded);  // TODO: little bit reduntdant space
+	initIntArray(mTblIdxFreqIdxMapping , freqCSset->numCSadded, -1);
+
+	//Mapping from from CSId to TableIdx 
+	printf("Init CS tableIdxMapping \n");
+	initCSTableIdxMapping(freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping, &numTables);
+
+	getSampleData(ret, mapbatid, numTables, freqCSset, sbat, si, pi, oi, 
+			mTblIdxFreqIdxMapping, *labels, csTblIdxMapping, *maxNumPwithDup, *subjCSMap, 1); 
+
+	}
+
 	/*------------------------------------*/
 	
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	printf("Before using rules: Number of freqCS is: %d \n",curNumMergeCS);
 
-
+	
 	/* ---------- S1, S2 ------- */
 	mergecsId = *maxCSoid + 1; 
 
@@ -6203,48 +6326,7 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 
 
 
-static
-void initCSTableIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping, int *numTables){
 
-int 		i, k; 
-CS 		cs;
-	int		tmpParentidx; 
-
-	k = 0; 
-	for (i = 0; i < freqCSset->numCSadded; i++){
-		if (isCSTable(freqCSset->items[i])){	// Only use the not-removed maximum or merge CS  
-			mfreqIdxTblIdxMapping[i] = k; 
-			mTblIdxFreqIdxMapping[k] = i; 
-			k++; 
-		}
-	}
-	
-	*numTables = k; 
-
-	// Mapping the csid directly to the index of the table ==> csTblIndxMapping
-	
-	for (i = 0; i < freqCSset->numOrigFreqCS; i++){
-		cs = (CS)freqCSset->items[i];
-		tmpParentidx = cs.parentFreqIdx;
-		
-		if (tmpParentidx == -1){	// maximumCS 
-			csTblIdxMapping[cs.csId] = mfreqIdxTblIdxMapping[i];
-		}
-		else{	// A normal CS or a maxCS that have a mergeCS as its parent
-			if (freqCSset->items[tmpParentidx].parentFreqIdx == -1){
-				csTblIdxMapping[cs.csId] = mfreqIdxTblIdxMapping[tmpParentidx]; 
-			}	
-			else{
-				csTblIdxMapping[cs.csId] = mfreqIdxTblIdxMapping[freqCSset->items[tmpParentidx].parentFreqIdx];
-			}
-		}
-
-	}
-
-
-	//return cstablestat; 
-
-}
 
 void freeCStableStat(CStableStat* cstablestat){
 	int i,j, k; 
@@ -7133,7 +7215,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	CSset		*freqCSset; 	/* Set of frequent CSs */
 	oid		*subjCSMap = NULL;  	/* Store the corresponding CS Id for each subject */
 	oid 		maxCSoid = 0; 
-	BAT		*sbat = NULL, *obat = NULL, *pbat = NULL, *mbat = NULL;
+	BAT		*sbat = NULL, *obat = NULL, *pbat = NULL;
 	BATiter		si,pi,oi; 
 	BUN		p,q; 
 	BAT		*sNewBat, *lmap, *rmap, *oNewBat, *origobat, *pNewBat; 
@@ -7160,7 +7242,6 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	//int 		curNumMergeCS;
 	//oid		*mergeCSFreqCSMap;
-	int		numSampleTbl = 0;  
 	
 	clock_t 	curT;
 	clock_t		tmpLastT; 
@@ -7170,7 +7251,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	tmpLastT = clock();
 	freqCSset = initCSset();
 
-	if (1) printListOntology();
+	//if (1) printListOntology();
 
 	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid, &maxNumPwithDup, &labels, &csRelMergeFreqSet) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in extracting CSs");
@@ -7260,31 +7341,8 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	getStatisticFinalCSs(freqCSset, sbat, *freqThreshold, numTables, mTblIdxFreqIdxMapping, csPropTypes);
 
 	/* Extract sample data for the evaluation */
-	{	
-
-	BAT	*outputBat;
-	CSSample *csSample; 
-
-	if ((mbat = BATdescriptor(*mapbatid)) == NULL) {
-		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
-	}
-	//Generate evaluating tables
-
-	numSampleTbl = (NUM_SAMPLETABLE > (numTables/2))?(numTables/2):NUM_SAMPLETABLE;
-
-	printf("Select list of sample tables \n");
-	outputBat = generateTablesForEvaluating(freqCSset, numSampleTbl, mTblIdxFreqIdxMapping, numTables);
-	assert (BATcount(outputBat) == (oid) numSampleTbl);
-	csSample = (CSSample*)malloc(sizeof(CSSample) * numSampleTbl);
-	printf("Select sample instances for %d tables \n", numSampleTbl);
-	initSampleData(csSample, outputBat, freqCSset, mTblIdxFreqIdxMapping, labels);
-	RDFExtractSampleData(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, maxNumPwithDup, csSample, outputBat, numSampleTbl);
-	printsubsetFromCSset(freqCSset, outputBat, numSampleTbl, mTblIdxFreqIdxMapping, labels);
-	printSampleData(csSample, freqCSset, mbat, numSampleTbl);
-	freeSampleData(csSample, numSampleTbl);
-	BBPreclaim(outputBat);
-	BBPunfix(mbat->batCacheid);
-	}
+	getSampleData(ret, mapbatid, numTables, freqCSset, sbat, si, pi, oi, mTblIdxFreqIdxMapping, labels, csTblIdxMapping, maxNumPwithDup, subjCSMap, 2); 
+	
 
 	if (*mode == EXPLOREONLY){
 		printf("Only explore the schema information \n");

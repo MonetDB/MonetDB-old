@@ -215,7 +215,6 @@ typedef struct SubCSSet{
 //#define MIN_FROMTABLE_SIZE_S6 1		/* For example data */
 #define MINIMUM_TABLE_SIZE 10000   //The minimum number of triples coverred by a table (i.e., a final CS) 
 //#define MINIMUM_TABLE_SIZE 1   // For example dataset only 
-#define SAMPLE_FILTER_THRESHOLD 1  // SAMPLE_FILTER_THRESHOLD/ 100	
 #define HIGH_REFER_THRESHOLD 5
 
 #define	INFREQ_PROP_THRESHOLD	0.01
@@ -364,6 +363,8 @@ typedef struct CSPropTypes {
 #define NUM_SAMPLETABLE 20
 #define	NUM_SAMPLE_INSTANCE 10
 #define NUM_SAMPLE_CANDIDATE 3
+#define SAMPLE_FILTER_THRESHOLD 10  // SAMPLE_FILTER_THRESHOLD/ 100	
+#define GETSAMPLE_BEFOREMERGING 1  // Get the sample data before merging CS's
 typedef struct CSSample{
 	int	freqIdx;
 	int 	tblIdx; 
