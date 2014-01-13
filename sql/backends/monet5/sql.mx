@@ -7374,9 +7374,10 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	else{
 		rethrow("sql.rdfShred", msg, RDFParser(b, location, name, schema, &ontbat->batCacheid));
+
+		BBPunfix(ontbat->batCacheid);
 	}
 
-	BBPunfix(ontbat->batCacheid);
 
 	if (sizeof(oid) == 8) {
 		sql_find_subtype(&tpe, "oid", 31, 0);
