@@ -4304,7 +4304,7 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 	#endif	
 
 	numP = 0;
-	curP = 0; 
+	curP = BUN_NONE; 
 	curS = 0; 
 
 	printf("freqThreshold = %d \n", *freqThreshold);	
@@ -4330,7 +4330,7 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 				 
 			}
 			curS = *sbt; 
-			curP = 0;
+			curP = BUN_NONE;
 			numP = 0;
 			numPwithDup = 0; 
 		}
@@ -4429,14 +4429,14 @@ str RDFgetRefCounts(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid
 	buff = (oid *) malloc (sizeof(oid) * maxNumProp);
 
 	numP = 0;
-	curP = 0; 
+	curP = BUN_NONE; 
 	curS = 0; 
 
 	BATloop(sbat, p, q){
 		sbt = (oid *) BUNtloc(si, p);		
 		if (*sbt != curS){
 			curS = *sbt; 
-			curP = 0;
+			curP = BUN_NONE;
 			numP = 0;
 		}
 			
@@ -4507,7 +4507,7 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 
 	numPwithDup = 0;
 	curS = 0; 
-	curP = 0; 
+	curP = BUN_NONE; 
 
 	BATloop(sbat, p, q){
 		sbt = (oid *) BUNtloc(si, p);		
@@ -4525,7 +4525,7 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 			#endif
 			curS = *sbt; 
 			numPwithDup = 0;
-			curP = 0; 
+			curP = BUN_NONE; 
 		}
 				
 		pbt = (oid *) BUNtloc(pi, p);
@@ -4682,7 +4682,7 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 
 	numPwithDup = 0;
 	curS = 0; 
-	curP = 0; 
+	curP = BUN_NONE; 
 
 	BATloop(sbat, p, q){
 		sbt = (oid *) BUNtloc(si, p);		
@@ -4692,7 +4692,7 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 			}
 			curS = *sbt; 
 			numPwithDup = 0;
-			curP = 0; 
+			curP = BUN_NONE; 
 		}
 				
 		obt = (oid *) BUNtloc(oi, p); 
@@ -5208,7 +5208,7 @@ str RDFExtractSampleData(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi
 
 	numP = 0;
 	curS = 0; 
-	curP = 0; 
+	curP = BUN_NONE; 
 
 	BATloop(sbat, p, q){
 		sbt = (oid *) BUNtloc(si, p);		
@@ -5229,7 +5229,7 @@ str RDFExtractSampleData(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi
 			}
 			curS = *sbt; 
 			numP = 0;
-			curP = 0; 
+			curP = BUN_NONE; 
 		}
 				
 		if (totalInstance == maxNumInstance) break;
@@ -6036,7 +6036,7 @@ RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid){
 
 	/* Init a hashmap */
 	pMap = hashmap_new(); 
-	curP = 0; 
+	curP = BUN_NONE; 
 	supportP = 0; 
 
 	BATloop(pbat, p, q){
