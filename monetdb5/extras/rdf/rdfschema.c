@@ -2549,6 +2549,7 @@ float similarityScoreTFIDF(oid* arr1, oid* arr2, int m, int n, int *numCombineP,
 
 	*numCombineP = m + n - numOverlap;
 	
+	if (sumXY == 0) return 0; 
 
 	return  ((float) sumXY / (tfidfInfos[mergeCSId1].totalTFIDF * tfidfInfos[mergeCSId2].totalTFIDF));
 }
@@ -3676,7 +3677,7 @@ void initTFIDFInfos(TFIDFInfo *tfidfInfos, int curNumMergeCS, oid* mergeCSFreqCS
 			tfidfInfos[i].lsttfidfs[j] = tfidfV; 
 
 		}
-		assert(sum > 0); 
+		//assert(sum > 0); 
 		tfidfInfos[i].totalTFIDF = sqrt(sum); 
 	}
 	
