@@ -1265,7 +1265,9 @@ CSset* initCSset(void){
 	csSet->items = (CS*) malloc(sizeof(CS) * INIT_NUM_CS); 
 	csSet->numAllocation = INIT_NUM_CS;
 	csSet->numCSadded = 0;
-
+	#if STORE_PERFORMANCE_METRIC_INFO
+	csSet->totalInRef = 0;
+	#endif
 	return csSet;
 }
 
@@ -1339,6 +1341,11 @@ CS* creatCS(oid csId, int freqIdx, int numP, oid* buff, char type,  int parentfr
 	cs->numConsistsOf = 1;
 	cs->lstConsistsOf = (int *) malloc(sizeof(int)); 
 	cs->lstConsistsOf[0]= freqIdx; 
+
+	#if STORE_PERFORMANCE_METRIC_INFO
+	cs->numInRef = 0;
+	cs->numFill = 0;
+	#endif
 
 	return cs; 
 }
@@ -1449,6 +1456,10 @@ CS* mergeTwoCSs(CS cs1, CS cs2, int freqIdx1, int freqIdx2, oid mergeCSId){
 	mergecs->parentFreqIdx = -1; 
 	mergecs->csId = mergeCSId; 
 	
+	#if STORE_PERFORMANCE_METRIC_INFO
+	mergecs->numInRef = cs1.numInRef + cs2.numInRef;
+	mergecs->numFill = cs1.numFill + cs2.numFill;
+	#endif
 	return mergecs; 
 
 }
@@ -1487,6 +1498,11 @@ void mergeACStoExistingmergeCS(CS cs, int freqIdx , CS *mergecs){
 	mergecs->numProp = numCombineP;
 	mergecs->support += cs.support;
 	mergecs->coverage += cs.coverage;
+	
+	#if STORE_PERFORMANCE_METRIC_INFO
+	mergecs->numInRef += cs.numInRef;
+	mergecs->numFill += cs.numFill;
+	#endif
 
 	free(oldlstProp);
 }
@@ -1547,6 +1563,11 @@ void mergeTwomergeCS(CS *mergecs1, CS *mergecs2, int parentFreqIdx){
 	mergecs1->numProp = numCombineP;
 	mergecs1->support += mergecs2->support;
 	mergecs1->coverage += mergecs2->coverage;
+
+	#if STORE_PERFORMANCE_METRIC_INFO
+	mergecs1->numInRef += mergecs2->numInRef;
+	mergecs1->numFill += mergecs2->numFill;
+	#endif
 
 	// Remove mergecs2
 	mergecs2->parentFreqIdx = parentFreqIdx; 
@@ -2682,6 +2703,10 @@ void mergeCSbyS4(CSset *freqCSset, CSlabel** labels, oid *mergeCSFreqCSMap, int 
 			freqCSset->items[tmpParentIdx].coverage  += freqCSset->items[freqId1].coverage;
 			freqCSset->items[tmpParentIdx].support  += freqCSset->items[freqId1].support;
 			//printf("NumProp differences between sub-super CS: %d / %d \n", freqCSset->items[tmpParentIdx].numProp - freqCSset->items[freqId1].numProp, freqCSset->items[tmpParentIdx].numProp);
+			#if STORE_PERFORMANCE_METRIC_INFO
+			freqCSset->items[tmpParentIdx].numInRef += freqCSset->items[freqId1].numInRef;
+			freqCSset->items[tmpParentIdx].numFill += freqCSset->items[freqId1].numFill;
+			#endif
 
 			mergecs1 = (CS*)&(freqCSset->items[tmpParentIdx]);
 			mergecs2 = (CS*)&(freqCSset->items[freqId1]);
@@ -5682,7 +5707,62 @@ CS 		cs;
 	//return cstablestat; 
 
 }
+#if STORE_PERFORMANCE_METRIC_INFO
+static 
+void setInitialMetricsInfo(int* refCount, CSset *freqCSset){
+	int i;
+	int total = 0; 
+	oid csId;
+	CS* cs;
+	for (i = 0; i < freqCSset->numCSadded; i++){
+		cs = &(freqCSset->items[i]);
+		csId = cs->csId;
+		cs->numInRef = refCount[csId];
+		cs->numFill = cs->numProp * cs->support; 
+		total += cs->numFill; 
+	}
 
+	freqCSset->totalInRef = total; 
+}
+
+static
+void computeMetricsQ(CSset *freqCSset){
+	float* fillRatio;
+	float* refRatio;
+	float* weight;
+	int tblIdx = -1;
+	CS cs;	
+	int	totalCov = 0; 
+	float	Q = 0.0;
+	int	i;
+	int curNumMergeCS = countNumberMergeCS(freqCSset);
+
+	fillRatio = (float*)malloc(sizeof(float) * curNumMergeCS);
+	refRatio = (float*)malloc(sizeof(float) * curNumMergeCS);
+	weight = (float*)malloc(sizeof(float) * curNumMergeCS);
+
+	for (i = 0; i < freqCSset->numCSadded; i ++){
+		if (freqCSset->items[i].parentFreqIdx == -1){
+			//Table i;
+			cs = freqCSset->items[i];
+			tblIdx++;	
+			fillRatio[tblIdx] = (float) cs.numFill /((float)cs.numProp *  cs.support);
+			refRatio[tblIdx] = (float) cs.numInRef / freqCSset->totalInRef;
+			weight[tblIdx] = (float) cs.coverage * ( fillRatio[tblIdx] + refRatio[tblIdx]); 
+			//weight[tblIdx] = (float) cs.coverage * ( fillRatio[tblIdx]);  //If do not consider reference ratio
+			totalCov += cs.coverage;
+			
+			Q += weight[tblIdx];
+		}
+	}
+	printf("Performance metric Q = (weighting %f)/(totalCov %d * numTbl %d) \n", Q,totalCov, curNumMergeCS);
+
+	Q = Q/((float)totalCov * curNumMergeCS);
+
+	printf("==> Performance metric Q = %f \n", Q);
+
+}
+#endif
 // for storing ontology data
 oid	**ontattributes = NULL;
 int	ontattributesCount = 0;
@@ -5797,6 +5877,11 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	addHighRefCSsToFreqCS(csBats->pOffsetBat, csBats->freqBat, csBats->coverageBat, csBats->fullPBat, refCount, freqCSset, csIdFreqIdxMap, *maxCSoid + 1, HIGH_REFER_THRESHOLD * (*freqThreshold)); 
 
+	#if STORE_PERFORMANCE_METRIC_INFO
+	setInitialMetricsInfo(refCount, freqCSset);		
+	computeMetricsQ(freqCSset);
+	#endif
+
 	free(refCount);
 	curT = clock();
 	printf (" ----- Counting references and adding highly referred CS's took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
@@ -5890,6 +5975,11 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	getSampleData(ret, mapbatid, numTables, freqCSset, sbat, si, pi, oi, 
 			mTblIdxFreqIdxMapping, *labels, csTblIdxMapping, *maxNumPwithDup, *subjCSMap, 1); 
 
+
+	free(csTblIdxMapping);
+	free(mfreqIdxTblIdxMapping);
+	free(mTblIdxFreqIdxMapping);
+
 	}
 
 	/*------------------------------------*/
@@ -5908,6 +5998,10 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	curT = clock(); 
 	printf("Merging with S1 took %f. (Number of mergeCS: %d | NumconsistOf: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS, countNumberConsistOfCS(freqCSset));
 	printf("Number of added CS after S1: %d \n", freqCSset->numCSadded);
+
+	#if STORE_PERFORMANCE_METRIC_INFO	
+	computeMetricsQ(freqCSset);
+	#endif
 	tmpLastT = curT;
 	
 	/* ---------- S4 ------- */
@@ -5921,6 +6015,11 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	curT = clock(); 
 	printf("Merging with S4 took %f. (Number of mergeCS: %d | NumconsistOf: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS, countNumberConsistOfCS(freqCSset));
 	printf("Number of added CS after S4: %d \n", freqCSset->numCSadded);
+	
+	#if STORE_PERFORMANCE_METRIC_INFO	
+	computeMetricsQ(freqCSset);
+	#endif
+
 	tmpLastT = curT; 		
 	
 	/* ---------- S6 ------- */
@@ -5943,6 +6042,11 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	curT = clock(); 
 	printf("Merging with S6 took %f. (Number of mergeCS: %d | NumconsistOf: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS, countNumberConsistOfCS(freqCSset));
+
+	#if STORE_PERFORMANCE_METRIC_INFO	
+	computeMetricsQ(freqCSset);
+	#endif
+
 	tmpLastT = curT; 		
 	
 	/* S3, S5 */
@@ -5956,6 +6060,11 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	curT = clock(); 
 	printf ("Merging with S3, S5 took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);	
+
+	#if STORE_PERFORMANCE_METRIC_INFO	
+	computeMetricsQ(freqCSset);
+	#endif
+
 	tmpLastT = curT; 		
 
 	updateParentIdxAll(freqCSset); 

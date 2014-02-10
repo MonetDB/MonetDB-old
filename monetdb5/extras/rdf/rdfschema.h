@@ -138,6 +138,8 @@ typedef struct PropStat {
 
 /*------------------------------------*/
 
+#define STORE_PERFORMANCE_METRIC_INFO	1
+
 
 typedef struct CS
 {
@@ -162,6 +164,14 @@ typedef struct CS
 	//For mergeCS
 	int* 	lstConsistsOf; 	//The list of indexes of freqCS	
 	int	numConsistsOf; 
+
+	#if STORE_PERFORMANCE_METRIC_INFO
+	int	numInRef;	//Number of references to this table
+	int	numFill;	//Number of triples covered by this CS. 
+				//Note that: We count a multi-value prop with serveral obj values as one
+				//Max numFill = numProp x support
+	#endif
+
 } CS;
 
 typedef struct TFIDFInfo {
@@ -236,11 +246,15 @@ typedef struct SubCSSet{
 
 #define REMOVE_SMALL_TABLE	1	/* Remove SMALL but NOT dimension table*/
 
+
 typedef struct CSset{
 	CS* items;
 	int numOrigFreqCS; 
 	int numCSadded;
 	int numAllocation;
+	#if STORE_PERFORMANCE_METRIC_INFO
+	int totalInRef;
+	#endif
 } CSset; 
 
 /*
