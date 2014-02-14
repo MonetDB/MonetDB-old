@@ -521,6 +521,7 @@ void printSubCSInformation(SubCSSet *subcsset, BAT* freqBat, int num, char isWri
 	int j; 
 	int *freq; 
 	int numSubCSFilter; 
+	int totalNumSubCS = 0;
 
 	FILE 	*fout, *foutfreq, *foutfreqfilter; 
 	char 	filename[100], filenamefreq[100], filenamefreqfilter[100];
@@ -556,6 +557,7 @@ void printSubCSInformation(SubCSSet *subcsset, BAT* freqBat, int num, char isWri
 
 		for (i = 0; i < num; i++){
 			if (subcsset[i].numSubCS != 0){	
+				totalNumSubCS += subcsset[i].numSubCS;
 				freq  = (int *) Tloc(freqBat, i);
 				fprintf(fout, "CS " BUNFMT " (Freq: %d) : ", subcsset[i].csId, *freq);
 					
@@ -587,6 +589,8 @@ void printSubCSInformation(SubCSSet *subcsset, BAT* freqBat, int num, char isWri
 		fclose(fout);
 		fclose(foutfreq);
 		fclose(foutfreqfilter);
+
+		printf("Avg. number of subCSs per CS: %f \n", (float) totalNumSubCS / num);
 	}
 }
 
@@ -4538,7 +4542,9 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 	BATloop(sbat, p, q){
 		sbt = (oid *) BUNtloc(si, p);		
 		from = csIdFreqIdxMap[subjCSMap[*sbt]];
+		#if GETSUBCS_FORALL == 0
 		if ( from == -1) continue; /* Do not consider infrequentCS */
+		#endif
 		if (*sbt != curS){
 			#if NEEDSUBCS
 			if (p != 0){	/* Not the first S */
@@ -4562,7 +4568,8 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 
 		/* Look at the referenced CS Id using subjCSMap */
 		isBlankNode = 0;
-		if (objType == URI || objType == BLANKNODE){
+		//if (objType == URI || objType == BLANKNODE){
+		if ((objType == URI || objType == BLANKNODE) && from != -1){
 			realObjOid = (*obt) - ((oid) objType << (sizeof(BUN)*8 - 4));
 
 			/* Only consider references to freqCS */	

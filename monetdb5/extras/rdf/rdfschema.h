@@ -100,8 +100,9 @@ typedef struct PropStat {
 
 #define COLORINGPROP 1	// Only use for coloring property in schema representation. 
 
-#define NEEDSUBCS 0	// We actually do not need to use SubCS as the idea of default subCS is not used. But it is still good
+#define NEEDSUBCS 1	// We actually do not need to use SubCS as the idea of default subCS is not used. But it is still good
 			// for collecting the statistical information (For reporting/writing)
+#define GETSUBCS_FORALL 1 //Get subCS info for all CS, not only frequent one
 
 #define USE_LABEL_FINDING_MAXCS	0 	// Use the labels received from labeling process for finding maxCS 
 #define USE_LABEL_FOR_MERGING	1 	// Use the labels received from labeling process for finding mergeCS
