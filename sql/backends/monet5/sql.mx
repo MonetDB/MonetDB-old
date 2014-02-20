@@ -7349,6 +7349,9 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif /* IS_DUPLICATE_FREE */
 
 	BAT *ontbat = NULL; 
+	clock_t tmpbeginT, tmpendT, beginT, endT; 
+	
+	beginT = clock();
 
 	rethrow("sql.rdfShred", msg, getSQLContext(cntxt, mb, &m, NULL));
 
@@ -7368,6 +7371,8 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	store_funcs.append_col(m->session->tr, gid, &id, TYPE_int);
 
 	ontbat = mvc_bind(m, "sys", "ontlist", "mont",0);
+
+	tmpbeginT = clock(); 
 	if (ontbat == NULL){
 		printf("There is column ontlist/mont \n"); 
 		rethrow("sql.rdfShred", msg, RDFParser(b, location, name, schema, NULL));
@@ -7377,7 +7382,8 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 		BBPunfix(ontbat->batCacheid);
 	}
-
+	tmpendT = clock(); 
+	printf ("Parsing process took %f seconds.\n", ((float)(tmpendT - tmpbeginT))/CLOCKS_PER_SEC);
 
 	if (sizeof(oid) == 8) {
 		sql_find_subtype(&tpe, "oid", 31, 0);
@@ -7396,7 +7402,7 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	mvc_create_column(m, spo_tbl, "object", &tpe);
 
 	#if IS_COMPACT_TRIPLESTORE == 0 
-
+	tmpbeginT = clock(); 
 	sprintf(buff, "sop%d", id);
 	sop_tbl = mvc_create_table(m, sch, buff, tt_table, 0,
 				   SQL_PERSIST, 0, 3);
@@ -7431,6 +7437,9 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	mvc_create_column(m, ops_tbl, "object", &tpe);
 	mvc_create_column(m, ops_tbl, "property", &tpe);
 	mvc_create_column(m, ops_tbl, "subject", &tpe);
+
+	tmpendT = clock(); 
+	printf ("Creating remaining triple tables took %f seconds.\n", ((float)(tmpendT - tmpbeginT))/CLOCKS_PER_SEC);
 
 	#endif /* IS_COMPACT_TRIPLESTORE == 0 */
 
@@ -7493,68 +7502,185 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 		
 		#if IS_COMPACT_TRIPLESTORE == 0
-
+		tmpbeginT = clock(); 
 		s = b[S_sort];
 		p = b[P_OP];
 		o = b[O_OP];
-		store_funcs.append_col(m->session->tr,
-				       mvc_bind_column(m, sop_tbl, "subject"),
-				       s, TYPE_bat);
-		store_funcs.append_col(m->session->tr,
-				       mvc_bind_column(m, sop_tbl, "property"),
-				       p, TYPE_bat);
-		store_funcs.append_col(m->session->tr,
-				       mvc_bind_column(m, sop_tbl, "object"),
-				       o, TYPE_bat);
+
+		si = bat_iterator(s); 
+		pi = bat_iterator(p); 
+		oi = bat_iterator(o); 
+		
+		curS = 0;
+		curP = 0;
+		curO = 0;
+
+		BATloop(s, pb, qb){
+			sbt = (oid *) BUNtloc(si, pb);
+			pbt = (oid *) BUNtloc(pi, pb);
+			obt = (oid *) BUNtloc(oi, pb);
+
+			if (*sbt != curS || *pbt != curP || *obt != curO){
+				store_funcs.append_col(m->session->tr,
+						       mvc_bind_column(m, sop_tbl, "subject"),
+						       s, TYPE_oid);
+				store_funcs.append_col(m->session->tr,
+						       mvc_bind_column(m, sop_tbl, "property"),
+						       p, TYPE_oid);
+				store_funcs.append_col(m->session->tr,
+						       mvc_bind_column(m, sop_tbl, "object"),
+						       o, TYPE_oid);
+				
+				/* Update current value */		       
+				curS = *sbt; 
+				curP = *pbt; 
+				curO = *obt; 
+			}
+		}
 
 		s = b[S_SO];
 		p = b[P_sort];
 		o = b[O_SO];
-		store_funcs.append_col(m->session->tr,
-				       mvc_bind_column(m, pso_tbl, "subject"),
-				       s, TYPE_bat);
-		store_funcs.append_col(m->session->tr,
-				       mvc_bind_column(m, pso_tbl, "property"),
-				       p, TYPE_bat);
-		store_funcs.append_col(m->session->tr,
-				       mvc_bind_column(m, pso_tbl, "object"),
-				       o, TYPE_bat);
+
+		si = bat_iterator(s); 
+		pi = bat_iterator(p); 
+		oi = bat_iterator(o); 
+		
+		curS = 0;
+		curP = 0;
+		curO = 0;
+
+		BATloop(s, pb, qb){
+			sbt = (oid *) BUNtloc(si, pb);
+			pbt = (oid *) BUNtloc(pi, pb);
+			obt = (oid *) BUNtloc(oi, pb);
+
+			if (*sbt != curS || *pbt != curP || *obt != curO){
+				store_funcs.append_col(m->session->tr,
+						       mvc_bind_column(m, pso_tbl, "subject"),
+						       s, TYPE_oid);
+				store_funcs.append_col(m->session->tr,
+						       mvc_bind_column(m, pso_tbl, "property"),
+						       p, TYPE_oid);
+				store_funcs.append_col(m->session->tr,
+						       mvc_bind_column(m, pso_tbl, "object"),
+						       o, TYPE_oid);		
+				
+				/* Update current value */		       
+				curS = *sbt; 
+				curP = *pbt; 
+				curO = *obt; 
+			}
+		}
 		s = b[S_OS];
 		p = b[P_sort];
 		o = b[O_OS];
-		store_funcs.append_col(m->session->tr,
-				       mvc_bind_column(m, pos_tbl, "subject"),
-				       s, TYPE_bat);
-		store_funcs.append_col(m->session->tr,
-				       mvc_bind_column(m, pos_tbl, "property"),
-				       p, TYPE_bat);
-		store_funcs.append_col(m->session->tr,
-				       mvc_bind_column(m, pos_tbl, "object"),
-				       o, TYPE_bat);
+		
+		si = bat_iterator(s); 
+		pi = bat_iterator(p); 
+		oi = bat_iterator(o); 
+		
+		curS = 0;
+		curP = 0;
+		curO = 0;
+
+		BATloop(s, pb, qb){
+			sbt = (oid *) BUNtloc(si, pb);
+			pbt = (oid *) BUNtloc(pi, pb);
+			obt = (oid *) BUNtloc(oi, pb);
+
+			if (*sbt != curS || *pbt != curP || *obt != curO){
+				store_funcs.append_col(m->session->tr,
+						       mvc_bind_column(m, pos_tbl, "subject"),
+						       s, TYPE_oid);
+				store_funcs.append_col(m->session->tr,
+						       mvc_bind_column(m, pos_tbl, "property"),
+						       p, TYPE_oid);
+				store_funcs.append_col(m->session->tr,
+						       mvc_bind_column(m, pos_tbl, "object"),
+						       o, TYPE_oid);
+				
+				/* Update current value */		       
+				curS = *sbt; 
+				curP = *pbt; 
+				curO = *obt; 
+			}
+		}
+
 		s = b[S_SP];
 		p = b[P_SP];
 		o = b[O_sort];
-		store_funcs.append_col(m->session->tr,
-				       mvc_bind_column(m, osp_tbl, "subject"),
-				       s, TYPE_bat);
-		store_funcs.append_col(m->session->tr,
-				       mvc_bind_column(m, osp_tbl, "property"),
-				       p, TYPE_bat);
-		store_funcs.append_col(m->session->tr,
-				       mvc_bind_column(m, osp_tbl, "object"),
-				       o, TYPE_bat);
+		
+		si = bat_iterator(s); 
+		pi = bat_iterator(p); 
+		oi = bat_iterator(o); 
+		
+		curS = 0;
+		curP = 0;
+		curO = 0;
+
+		BATloop(s, pb, qb){
+			sbt = (oid *) BUNtloc(si, pb);
+			pbt = (oid *) BUNtloc(pi, pb);
+			obt = (oid *) BUNtloc(oi, pb);
+
+			if (*sbt != curS || *pbt != curP || *obt != curO){
+				store_funcs.append_col(m->session->tr,
+						       mvc_bind_column(m, osp_tbl, "subject"),
+						       s, TYPE_oid);
+				store_funcs.append_col(m->session->tr,
+						       mvc_bind_column(m, osp_tbl, "property"),
+						       p, TYPE_oid);
+				store_funcs.append_col(m->session->tr,
+						       mvc_bind_column(m, osp_tbl, "object"),
+						       o, TYPE_oid);
+				
+				/* Update current value */		       
+				curS = *sbt; 
+				curP = *pbt; 
+				curO = *obt; 
+			}
+		}
+
 		s = b[S_PS];
 		p = b[P_PS];
 		o = b[O_sort];
-		store_funcs.append_col(m->session->tr,
-				       mvc_bind_column(m, ops_tbl, "subject"),
-				       s, TYPE_bat);
-		store_funcs.append_col(m->session->tr,
-				       mvc_bind_column(m, ops_tbl, "property"),
-				       p, TYPE_bat);
-		store_funcs.append_col(m->session->tr,
-				       mvc_bind_column(m, ops_tbl, "object"),
-				       o, TYPE_bat);
+		
+		si = bat_iterator(s); 
+		pi = bat_iterator(p); 
+		oi = bat_iterator(o); 
+		
+		curS = 0;
+		curP = 0;
+		curO = 0;
+
+		BATloop(s, pb, qb){
+			sbt = (oid *) BUNtloc(si, pb);
+			pbt = (oid *) BUNtloc(pi, pb);
+			obt = (oid *) BUNtloc(oi, pb);
+
+			if (*sbt != curS || *pbt != curP || *obt != curO){
+				store_funcs.append_col(m->session->tr,
+						       mvc_bind_column(m, ops_tbl, "subject"),
+						       s, TYPE_oid);
+				store_funcs.append_col(m->session->tr,
+						       mvc_bind_column(m, ops_tbl, "property"),
+						       p, TYPE_oid);
+				store_funcs.append_col(m->session->tr,
+						       mvc_bind_column(m, ops_tbl, "object"),
+						       o, TYPE_oid);
+
+				/* Update current value */		       
+				curS = *sbt; 
+				curP = *pbt; 
+				curO = *obt; 
+			}
+		}
+		
+		tmpendT = clock(); 
+
+		printf ("Inserting from BATs to remaining triple tables took %f seconds.\n", ((float)(tmpendT - tmpbeginT))/CLOCKS_PER_SEC);
+
 		#endif	/* IS_COMPACT_TRIPLESTORE == 0 */		 
 			       
 	#else  /* IS_DUPLICATE_FREE == 1*/
@@ -7658,6 +7784,10 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for(id=0; b[id]; id++) {
 		BBPunfix(b[id]->batCacheid);
 	}
+	
+	endT = clock(); 
+	printf ("Full rdf_shred() took %f seconds.\n", ((float)(endT - beginT))/CLOCKS_PER_SEC);
+
 	return MAL_SUCCEED;
 #else
 	(void) cntxt; (void) mb; (void) stk; (void) pci;

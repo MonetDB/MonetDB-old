@@ -541,6 +541,7 @@ int CTrefine(BAT **ret, BAT *b, BAT *a); /* from modules/kernel/group.mx */
 static str
 post_processing (parserData *pdata)
 {
+	clock_t beginT, endT; 	
 	BAT *map_oid = NULL, *S = NULL, *P = NULL, *O = NULL;
 	BAT **graph = pdata->graph;
 #if STORE == TRIPLE_STORE
@@ -631,6 +632,7 @@ post_processing (parserData *pdata)
 	BBPunfix(g3->batCacheid);
 	
 	#if IS_COMPACT_TRIPLESTORE == 0
+	beginT = clock(); 
 
 	if (BATsubsort(&graph[O_OP], &o2, &g2, O, o1, g1, 0, 0) == GDK_FAIL)
 		goto bailout;
@@ -687,6 +689,9 @@ post_processing (parserData *pdata)
 	BBPunfix(o3->batCacheid);
 	BBPunfix(g3->batCacheid);
 
+	endT = clock(); 
+	printf (" Sorting remaining tables in post_processing took %f seconds.\n", ((float)(endT - beginT))/CLOCKS_PER_SEC);
+	
 	#endif /* IS_COMPACT_TRIPLESTORE == 0 */
 
 	/* free memory */
@@ -740,8 +745,10 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema, bat *ontbati
        	struct dirent *ep;
 	//char *pch; 
 	char tmpfilename[200];
+	clock_t tmpbeginT, tmpendT; 
 
 	(void) graphname;
+
 
 
 	/* init tokenizer */
@@ -814,6 +821,7 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema, bat *ontbati
 					while ((ep = readdir (dp)) != NULL){
 						printf("Checking file %s \n",ep->d_name);	
 						if (strstr (ep->d_name,".nt")!= NULL || strstr (ep->d_name,".ttl")!= NULL ){
+							tmpbeginT = clock(); 
 							sprintf(tmpfilename,"%s%s",pdata->location,ep->d_name);
 							printf("Loading file %s ..",tmpfilename);
 							uri = raptor_new_uri(world,raptor_uri_filename_to_uri_string(tmpfilename));
@@ -824,6 +832,8 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema, bat *ontbati
 							#else
 							printf(".. Done (No errors: %d | Loaded: " BUNFMT ") \n",pdata->error, pdata->tcount);
 							#endif
+							tmpendT = clock(); 
+							printf ("  Loading took %f seconds.\n", ((float)(tmpendT - tmpbeginT))/CLOCKS_PER_SEC);
 						}
 					}
 					closedir (dp);
@@ -831,12 +841,15 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema, bat *ontbati
 			}
 			else if( s.st_mode & S_IFREG )	{
 				//it's a file
+				tmpbeginT = clock();
 				printf("Load file %s \n", pdata->location);
 				uri = raptor_new_uri(world,
 						raptor_uri_filename_to_uri_string(pdata->location));
 				iret = raptor_parser_parse_file(rparser, uri, NULL);
 
 				raptor_free_uri(uri);
+				tmpendT = clock();
+				printf ("  Loading took %f seconds.\n", ((float)(tmpendT - tmpbeginT))/CLOCKS_PER_SEC);
 			}
 			else{
 				printf("This is a not a file/directory or uri \n");
@@ -888,17 +901,20 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema, bat *ontbati
 	#else
 	printf("Total number of triples loaded: " BUNFMT "\n", pdata->tcount);
 	#endif
-	printf("Total number of error %d , fatal %d , warning %d", pdata->error, pdata->fatal, pdata->warning);
+	printf("Total number of error %d , fatal %d , warning %d \n", pdata->error, pdata->fatal, pdata->warning);
 #endif
 	#if	BUILD_ONTOLOGIES_HISTO
 	printHistogram(pdata);
 	#endif
 	/* post processing step */
+	tmpbeginT = clock();
 	ret = post_processing(pdata);
 	if (ret != MAL_SUCCEED) {
 		clean(pdata);
 		throw(RDF, "rdf.rdfShred", "could not post-proccess data");
 	}
+	tmpendT = clock();
+	printf ("Post processing took %f seconds.\n", ((float)(tmpendT - tmpbeginT))/CLOCKS_PER_SEC);
 	freeParserData(pdata);
 	return MAL_SUCCEED;
 }

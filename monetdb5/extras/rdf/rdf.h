@@ -29,6 +29,7 @@
 
 #include <gdk.h>
 #include "tokenizer.h"
+#include <time.h>
 
 #ifdef WIN32
 #ifndef LIBRDF
@@ -62,7 +63,7 @@ RDFpartialjoin (bat *res, bat *lmap, bat *rmap, bat *input);
 
 
 #define IS_DUPLICATE_FREE 0		/* 0: Duplications have not been removed, otherwise 1 */
-#define IS_COMPACT_TRIPLESTORE 1	/* 1: Only keep SPO for triple store */
+#define IS_COMPACT_TRIPLESTORE 0	/* 1: Only keep SPO for triple store */
 #define TRIPLE_STORE 1
 #define MLA_STORE    2
 #define NOT_IGNORE_ERROR_TRIPLE 0
