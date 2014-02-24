@@ -328,10 +328,18 @@ changeWeight_3(FrequencyNode* node,int N,int L1)
 str
 CRKrandomCrack(int *ret)
 {
-	int bid=0;
+	int bid=0, change_bat=0, i=0, cracks=0;
 	FrequencyNode* max_node;
 	bit inclusive=TRUE;
 	FrequencyNode *fs = getFrequencyStruct('A');	
+        char *p = getenv("CRACKS");
+
+        if (p == NULL){
+                fprintf(stderr, "Error randomCrack: environment variable (CRACKS) is missing.\n");
+                exit(1);
+        }
+        else
+                cracks=atoi(p);
 
 	(void) ret;
 	MT_lock_set(&frequencylock, "getFrequencyStruct");
@@ -340,21 +348,24 @@ CRKrandomCrack(int *ret)
 	if(max_node!=NULL && max_node->weight > 0)
 	{
 		bid=max_node->bid;
-		CRKrandomholpl_int(&bid,&inclusive,&inclusive);
-		/*if (change_bat == -1)
-		{
-			MT_lock_set(&frequencylock, "getFrequencyStruct");
-			max_node=findOtherMax(fs,bid);
-			MT_lock_unset(&frequencylock, "getFrequencyStruct");
-			if(max_node!=NULL && max_node->weight > 0)
+                for (i=0; i<cracks; i++)
+                {
+			change_bat = CRKrandomholpl_int(&bid,&inclusive);
+			if (change_bat == -1)
 			{
-				bid=max_node->bid;
-				(void) CRKrandomholpl_int(&bid,&inclusive);
+				/*MT_lock_set(&frequencylock, "getFrequencyStruct");
+				max_node=findOtherMax(fs,bid);
+				MT_lock_unset(&frequencylock, "getFrequencyStruct");
+				if(max_node!=NULL && max_node->weight > 0)
+				{
+					bid=max_node->bid;
+					(void) CRKrandomholpl_int(&bid,&inclusive);
+				}*/
+				fprintf(stderr,"Exception in randomholpl.\n");
 			}
-		}*/
+		}
 		
 	}
-	
 	return MAL_SUCCEED;
 }
 /*holistic indexing strategy dispatcher*/

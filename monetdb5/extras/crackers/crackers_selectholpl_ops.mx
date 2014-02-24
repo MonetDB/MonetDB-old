@@ -65,7 +65,7 @@ crackers_export str CRKuselectholpl_@1(int *vid, int *bid, @1 *low, @1 *hgh);
 crackers_export str CRKthetaselectholpl_@1(int *vid, int *bid, @1 *val, str *op);
 crackers_export str CRKthetauselectholpl_@1(int *vid, int *bid, @1 *val, str *op);
 crackers_export str CRKsumholplBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bit *inclusiveHgh);
-crackers_export str CRKrandomholpl_@1(int *bid, bit *inclusiveLow,bit *inclusiveHgh);
+crackers_export int CRKrandomholpl_@1(int *bid, bit *inclusiveHgh);
 @
 
 @c
@@ -182,21 +182,21 @@ CRKsumholplBounds_@1(int *vid, int *bid, @1 *low, @1 *hgh, bit *inclusiveLow, bi
 	return CRKRangeSumTree_@1(vid, bid, low, hgh, inclusiveLow, inclusiveHgh, FALSE);
 }
 
-str
-CRKrandomholpl_@1(int *bid, bit *inclusiveLow, bit *inclusiveHgh){
+int
+CRKrandomholpl_@1(int *bid, bit *inclusiveHgh){
 
 	BAT *b,*c;
-	int  m,temp_val;
+	int  m;
 	int *t;
 	oid p;
-	int gapL = 1;
 	int gapH = 1;
-	@1 *low=NULL, *hgh=NULL;
+        //int retryIterations=0;
+	@1 *hgh=NULL;
 	pthread_rwlock_t *plock=0;
-	oid vl=0, vh=0;
-	oid cl1=0, ch1=0, cl2=0, ch2=0, _vl=0;
-	bit foundLow=0, foundHgh=0;
-	bit LBound=FALSE,HBound=FALSE;
+	oid vh=0;
+	oid cl2=0, ch2=0;
+	bit foundHgh=0;
+	bit HBound=FALSE;
 	struct Node *lowNode=NULL;
 	BUN idxFirst;
 	int incr_pieces=0;
@@ -212,11 +212,10 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow, bit *inclusiveHgh){
 
 	gettimeofday(&tv0,0);
 
-	low=(@1*) GDKmalloc(sizeof(@1));
 	hgh=(@1*) GDKmalloc(sizeof(@1));
-	if (low==NULL || hgh==NULL)
-		throw(MAL, "crackers.crackRange", "low or null cannot get memory");
-	
+        if (hgh==NULL)
+                return -1;
+
 	outputFilename1 = getenv("HOLOUTPUT_PIECES");
 	if (outputFilename1 == NULL){
   		fprintf(stderr, "Error: HOLOUTPUT_PIECES\n");
@@ -243,15 +242,15 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow, bit *inclusiveHgh){
 		we have to create the crack index for it and
 	   if necessary materialize the head of the bat */
 	if (m == -1)
-		throw(MAL, "crackers.crackRange", "index should already exist");
+		return -1;
 		
 	/* Take the index of the bat */
 	if ((c = BATdescriptor(CrackerIndex[m].cid)) == NULL)
-		throw(MAL, "crackers.crackRange", "Cannot access crack index");
+		return -1;
 
 	/* Take the copy of the bat for which we maintain the index */
 	if ((b = BATdescriptor(CrackerIndex[m].cbid)) == NULL)
-		throw(MAL, "crackers.crackRange", "Cannot access crack index");
+		return -1;
 
 	idxFirst = BUNfirst(c);
 
@@ -262,30 +261,15 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow, bit *inclusiveHgh){
 
 	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 	
-	retryValues:;
+	retry:;
 
 	t = (int *) Tloc(b, BUNfirst(b));
 	p=rand()%countBatElements;
-	*low=t[p];
-	p=rand()%countBatElements;
 	*hgh=t[p];
-	if(*low > *hgh)
-	{
-		temp_val=*hgh;
-		*hgh=*low;
-		*low=temp_val;
-	}
-	else if (*low==*hgh)
-		goto retryValues;
-
-	retry:;
 
 	pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
 
 	gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
-
-	/* find out where in the index the low falls */
-	foundLow = GetLow_@1(*low, *inclusiveLow, CrackerIndex[m].Tree, c, BUNfirst(c), &cl1, &ch1, 0, BUNlast(b)-(oid)1,&LBound);
 
 	/* find out where in the index the high falls */
 	foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
@@ -295,94 +279,49 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow, bit *inclusiveHgh){
 	gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
 
 	/*need to increase one position for the low bound only since we always store the previous position in the index*/
-	if (cl1 != 0 && LBound==FALSE) cl1++;
 	if (cl2 != 0) cl2++;
 
 	/* If one or both of the result view bounds were not found using the
 	index then we have to crack */
-	if (foundLow == 0 || foundHgh == 0) {
-		 if (foundLow == 0) {
-			pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
-			gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
-			lowNode = findNodeL_@1(*low, TRUE, CrackerIndex[m].Tree, c, idxFirst, NULL);
-			plock = (lowNode == NULL)? &CRKFirstPieceRWLock : &lowNode->pieceLock;
-			if (pthread_rwlock_trywrlock(plock)){
-				pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
-				gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-				pthread_rwlock_wrlock(plock);
-				gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
-				pthread_rwlock_unlock(plock);
-				goto retry;	
-			}
-			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
-			@:crkTwoLTree@5(@1,@5)@
-			gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-			pthread_rwlock_wrlock(&CrackerIndex[m].columnRWLock);
-			gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
-			t = (int *) Tloc(b, BUNfirst(b));
-			if (IndexSize < IndexStop) {
-				if (vl > 0)
-					_vl = vl - 1;
-				else
-					_vl = vl;
-				if (gapL>0) 
-				{
-					addCrackerIndex_@1(m, low, *inclusiveLow, _vl, c);
-					incr_pieces++;
-				}
-				if ((vl == 1) && (*t == *low) && (*inclusiveLow == TRUE))
-					vl = vl - 1;
-			}
-			vh = ch2;
-			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
-			pthread_rwlock_unlock(plock);
-		}
-		gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-		if (foundHgh == 0) {
-			pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
-			gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
-			lowNode = findNodeL_@1(*hgh, TRUE, CrackerIndex[m].Tree, c, idxFirst, NULL);
-			plock = (lowNode == NULL)? &CRKFirstPieceRWLock : &lowNode->pieceLock;
-			if (pthread_rwlock_trywrlock(plock)){
-				pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
-				gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-				pthread_rwlock_wrlock(plock);
-				gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
-				pthread_rwlock_unlock(plock);
-				goto retry;	// some other thread might already crack on low, try to find it again
-			}
-			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
-			@:crkTwoRTree@5(@1,@5)@
-			gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
-			pthread_rwlock_wrlock(&CrackerIndex[m].columnRWLock);
-			gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
-			t = (int *) Tloc(b, BUNfirst(b));
-			if (IndexSize < IndexStop)
-				if (gapH>0) 
-				{
-					addCrackerIndex_@1(m, hgh, HBound, vh, c);
-					incr_pieces++;					
-				}
-			vl = cl1;
-			if ((vl == 0) && (*t < *low) && (*inclusiveLow == TRUE))
-				vl = vl + 1;
-			pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
-			pthread_rwlock_unlock(plock);
-		}
-	} else {
-		t = (int *) Tloc(b, BUNfirst(b));
-		vl = cl1;
-		if ((vl == 0) && (*t < *low) && (*inclusiveLow == TRUE))
-			vl = vl + 1;
-		vh = ch2;
-	}
+
+        if (foundHgh == 0){
+                 pthread_rwlock_rdlock(&CrackerIndex[m].columnRWLock);
+                 gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+                 lowNode = findNodeL_@1(*hgh, TRUE, CrackerIndex[m].Tree, c, idxFirst, NULL);
+                 plock = (lowNode == NULL)? &CRKFirstPieceRWLock : &lowNode->pieceLock;
+                 if (pthread_rwlock_trywrlock(plock)){
+                         pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
+                         gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+                         pthread_rwlock_wrlock(plock);
+                         gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+                         pthread_rwlock_unlock(plock);
+                        //retryIterations++;
+                        //if (retryIterations > 5)
+                        //      return -1;
+                         goto retry;     // some other thread might already crack on low, try to find it again
+                 }
+                 pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
+                 @:crkTwoRTree(@1)@
+                 gettimeofday(&tv1,0); ct+=dt(tv0,tv1); tv0=tv1;
+                 pthread_rwlock_wrlock(&CrackerIndex[m].columnRWLock);
+                 gettimeofday(&tv1,0); wt+=dt(tv0,tv1); tv0=tv1;
+                 if (IndexSize <IndexStop)
+                 {
+                         if(gapH>0)
+                         {
+                                 addCrackerIndex_@1(m,hgh,HBound,vh,c);
+                                 incr_pieces++;
+                         }
+                 }
+                 pthread_rwlock_unlock(&CrackerIndex[m].columnRWLock);
+                 pthread_rwlock_unlock(plock);
+        }
+        else
+                 vh = ch2;
 
 	countBatElements=BATcount(b);
 	MT_lock_set(&frequencylock, "getFrequencyStruct");
 	FN=searchBAT(FrequencyStructA,*bid);
-	FN->f1 = FN->f1 + 1;
-	if((foundLow!=0 && foundHgh!=0)) 
-		FN->f2 = FN->f2 + 1;
 	FN->c = FN->c + incr_pieces;
 	if(FN->weight > 0)
 		FN->weight = changeWeight(FN,countBatElements,L1);
@@ -390,7 +329,7 @@ CRKrandomholpl_@1(int *bid, bit *inclusiveLow, bit *inclusiveHgh){
 	fclose(ofp);
 	MT_lock_unset(&frequencylock, "getFrequencyStruct");
 
-	return MAL_SUCCEED;
+	return 0;
 }
 
 
