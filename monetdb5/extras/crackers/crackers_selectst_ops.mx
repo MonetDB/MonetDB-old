@@ -1093,7 +1093,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 		foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
 		if (foundHgh == 0){
 			if (cl2 != 0) cl2++;
-			@:crkTwoRTree@5(@1)@
+			@:crkTwoRTree(@1)@
 			if (IndexSize <IndexStop)
 			{					
 				if (gapH>0)
@@ -1102,10 +1102,15 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 		}
 		*hgh=temp_h;
 		foundHgh = GetHgh_@1(*hgh, *inclusiveHgh, CrackerIndex[m].Tree, c, BUNfirst(c), &cl2, &ch2, 0, BUNlast(b)-(oid)1);
-		if (cl2 != 0) cl2++;
-		@:crkTwoRTree(@1)@
-		if (IndexSize <IndexStop)
-			 if (gapH>0) addCrackerIndex_@1(m,hgh,HBound,vh,c);
+                if (foundHgh == 0){
+                        if (cl2 != 0) cl2++;
+                        @:crkTwoRTree(@1)@
+                        if (IndexSize <IndexStop)
+                        {
+                                if (gapH>0)
+                                        addCrackerIndex_@1(m,hgh,HBound,vh,c);
+                        }
+                }
 	} 	
 	else
 		vh = ch2;
