@@ -1359,6 +1359,9 @@ void HeartbeatCPUload(void *arg)
 	double N=0;  /*number of busy cores*/
 	//FILE *ofp;
         //char *outputFilename1 = "/scratch/petraki/experiments/multiple_clients_cputhreshold/breakdown1/load.txt";
+       //char *outputFilename1 = "/scratch/petraki/experiments/motivation/time_workers/time.txt";
+       //struct timeval t0,t1;
+       //double elapsedTime;
 	void (*IdleFunc)(void *) = arg;
 
 
@@ -1383,14 +1386,22 @@ void HeartbeatCPUload(void *arg)
 			if ( load >= 0 && load <= 100.0 && load <= threshold){
 				N = (int) (load * max_threads) / 100.0;
 				n = max_threads - N;
-				//n = 16 - N; /*experiment multicore_cracking*/
+                                if(n>0)
+                                {
+                                        //gettimeofday(&t0, NULL);
+                                        MRschedule(n, NULL, IdleFunc);
+                                        //gettimeofday(&t1, NULL);
+                                        //elapsedTime = (t1.tv_sec - t0.tv_sec) * 1000.0;      // sec to ms
+                                        //elapsedTime += (t1.tv_usec - t0.tv_usec) / 1000.0;
+                                        //fprintf(ofp,"%lf %d\n",elapsedTime,n);
+                                }
+				/*following 5 lines: experiment multicore_cracking*/
+				//n = 16 - N; 
 				//if(n>0 && max_threads<n)
 				//      MRschedule(max_threads, NULL, IdleFunc);
-			       //else if (n>0 && max_threads>=n)
-	                      //      MRschedule(n, NULL, IdleFunc);
-	
-				if(n>0)
-					MRschedule(n, NULL, IdleFunc);
+			        //else if (n>0 && max_threads>=n)
+	                        //      MRschedule(n, NULL, IdleFunc);
+
 				(void) getCPULoad(cpuload);
 				//fprintf(ofp,"%f\t%d\n",load,n);
 				MT_sleep_ms(1000);
