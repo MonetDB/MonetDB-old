@@ -423,7 +423,7 @@ rdf_export str
 RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, int *mode);
 
 rdf_export void
-getTblName(char *name, oid nameId);
+getTblName(str *name, oid nameId);
 
 rdf_export char 
 getObjType(oid objOid);		/* Return the type of the object value from obj oid*/

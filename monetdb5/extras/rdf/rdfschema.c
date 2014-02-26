@@ -5178,6 +5178,7 @@ void getObjStr(BAT *mapbat, BATiter mapi, oid objOid, str *objStr, char *retObjT
 
 //Assume Tokenizer is openned 
 //
+/*
 void getTblName(char *name, oid nameId){
 	str canStr = NULL; 
 	str canStrShort = NULL;
@@ -5190,7 +5191,7 @@ void getTblName(char *name, oid nameId){
 		if (strstr (canStrShort,".") != NULL || 
 			strcmp(canStrShort,"") == 0 || 
 			strstr(canStrShort,"-") != NULL	){	// WEBCRAWL specific problem with Table name a.jpg, b.png....
-
+	
 			strcpy(name,"NONAME");
 		}
 		else {
@@ -5213,7 +5214,65 @@ void getTblName(char *name, oid nameId){
 
 
 }
+*/
 
+void getTblName(str *name, oid nameId){
+	str canStr = NULL; 
+	str canStrShort = NULL;
+	char    *pch;
+	int 	lngth = 0; 
+	str	s;
+	int	i; 
+
+	if (nameId != BUN_NONE){
+		takeOid(nameId, &canStr);
+		getPropNameShort(&canStrShort, canStr);
+
+		if (strstr (canStrShort,".") != NULL || 
+			strcmp(canStrShort,"") == 0 || 
+			strstr(canStrShort,"-") != NULL	){	// WEBCRAWL specific problem with Table name a.jpg, b.png....
+	
+			lngth = 6;
+			*name = (str)GDKmalloc(sizeof(char) * lngth + 1);
+			s = *name;
+			strcpy(s,"noname");
+			s += lngth;
+			*s = '\0';
+		}
+		else {
+			pch = strstr (canStrShort,"(");
+			if (pch != NULL) *pch = '\0';	//Remove (...) characters from table name
+			
+			lngth = strlen(canStrShort);
+			*name = (str)GDKmalloc(sizeof(char) * lngth + 1);
+			s = *name; 
+			strcpy(s,canStrShort);
+
+			//Convert to lower case
+			for (i = 0; i < lngth; i++){
+				if (s[i] >= 65 && s[i] <= 90){
+					s[i] = s[i] | 32;
+				} 
+			}
+			s += lngth;
+			*s = '\0';
+		}
+
+
+		GDKfree(canStr);
+
+		GDKfree(canStrShort); 
+	}
+	else {
+		lngth = 6;
+		*name = (str)GDKmalloc(sizeof(char) * lngth + 1);
+		s = *name;
+		strcpy(s,"noname");
+		s += lngth;
+		*s = '\0';
+	}
+
+}
 
 #if NO_OUTPUTFILE == 0 
 static 

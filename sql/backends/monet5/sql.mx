@@ -7813,6 +7813,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_schema *sch; 
 	int ret = 0; 
 	CStableStat *cstablestat; 
+	str	baseTblName;
 	char	tmptbname[100]; 
 	char	tmpstr[20]; 
 	char	tmptbnameex[100];
@@ -7934,15 +7935,16 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	for (i = 0; i < cstablestat->numTables; i++){
 		//printf("creating table %d \n", i);
-		sprintf(tmptbname, "cstable");
 
 		sprintf(tmpstr, "%d",i);
-		//getTblName(tmptbname, cstablestat->lstcstable[i].tblname); 
+		getTblName(&baseTblName, cstablestat->lstcstable[i].tblname); 
+		sprintf(tmptbname, "%s", baseTblName);
 		strcat(tmptbname,tmpstr);
-		//printf("Table %d:||  %s ||\n",i, tmptbname);
+		printf("Table %d:||  %s ||\n",i, tmptbname);
 
 		cstables[i] = mvc_create_table(m, sch, tmptbname, tt_table, 0,
 				   SQL_PERSIST, 0, 3);
+		GDKfree(baseTblName);
 		totalNoTablesCreated++;
 		//Multivalues tables for each column
 		csmvtables[i] = (sql_table **)malloc(sizeof(sql_table*) * cstablestat->numPropPerTable[i]);
@@ -7985,15 +7987,16 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		#if CSTYPE_TABLE == 1
 		// Add non-default type table
 		if (cstablestat->lstcstableEx[i].numCol != 0){	
-			sprintf(tmptbnameex, "cstable");
 
 			sprintf(tmpstr, "ex%d",i);
-			//getTblName(tmptbname, cstablestat->lstcstable[i].tblname); 
+			getTblName(&baseTblName, cstablestat->lstcstable[i].tblname); 
+			sprintf(tmptbnameex, "%s", baseTblName);
 			strcat(tmptbnameex,tmpstr);
-			//printf("TableEx %d: || %s || \n",i, tmptbname);
+			printf("TableEx %d: || %s || \n",i, tmptbnameex);
 
 			cstablesEx[i] = mvc_create_table(m, sch, tmptbnameex, tt_table, 0,
 					   SQL_PERSIST, 0, 3);
+			GDKfree(baseTblName);
 			totalNoTablesCreated++;
 			totalNoExTables++;
 			for (j = 0; j < cstablestat->lstcstableEx[i].numCol; j++){
