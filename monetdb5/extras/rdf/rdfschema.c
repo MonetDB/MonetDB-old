@@ -4951,6 +4951,7 @@ str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, C
 		assert(tmpNumCols > 0); 
 			
 		csSampleEx[i].lstProp = (oid*)malloc(sizeof(oid) * tmpNumCols); 
+		csSampleEx[i].lstPropSupport = (int*)malloc(sizeof(int) * tmpNumCols); 
 		csSampleEx[i].lstIsInfrequentProp = (char*)malloc(sizeof(char) * tmpNumCols); 
 		csSampleEx[i].lstIsMVCol = (char*)malloc(sizeof(char) * tmpNumCols); 
 		csSampleEx[i].colBats = (BAT**)malloc(sizeof(BAT*) * tmpNumCols);
@@ -4962,6 +4963,7 @@ str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, C
 			#endif
 			colIdx++;
 			csSampleEx[i].lstProp[colIdx] = csPropTypes[i].lstPropTypes[j].prop;
+			csSampleEx[i].lstPropSupport[colIdx] = csPropTypes[i].lstPropTypes[j].propFreq;
 			
 			csSampleEx[i].colBats[colIdx] = BATnew(TYPE_void, cstablestat->lstcstable[i].colBats[colIdx]->ttype , NUM_SAMPLE_INSTANCE + 1);
 
@@ -5062,6 +5064,7 @@ void freeSampleExData(CSSampleExtend *csSampleEx, int numCand){
 	int i, j; 
 	for (i = 0; i < numCand; i++){
 		free(csSampleEx[i].lstProp);
+		free(csSampleEx[i].lstPropSupport);
 		free(csSampleEx[i].lstIsInfrequentProp);
 		free(csSampleEx[i].lstIsMVCol);
 		free(csSampleEx[i].candidates); 
@@ -5113,10 +5116,8 @@ void getObjStr(BAT *mapbat, BATiter mapi, oid objOid, str *objStr, char *retObjT
 
 	*retObjType = objType; 
 
-
-
-
 }
+
 
 //Assume Tokenizer is openned 
 //
@@ -5446,25 +5447,22 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 	return MAL_SUCCEED;
 }
 
-#if 0
 static 
-str printFullSampleData(CSSampleExtend *csSampleEx, CSset *freqCSset, BAT *mbat, int num, int sampleVersion){
+str printFullSampleData(CSSampleExtend *csSampleEx, int num){
 
 	int 	i,j, k; 
 	FILE 	*fout, *fouttb, *foutis; 
 	char 	filename[100], filename2[100], filename3[100];
-	char 	tmpStr[20], tmpStr2[20], tmpStr3[20];
 	int 	ret;
 
 	str 	propStr; 
 	str	subjStr; 
 	char*   schema = "rdf";
-	CSSample	sample; 
-	CS		freqCS; 
-	char	objType = 0; 
+	CSSampleExtend	sample; 
 	str	objStr; 	
-	oid	objOid = BUN_NONE; 
-	BATiter mapi;
+	oid	*objOid = NULL; 
+	float	*objFlt = NULL; 
+	int	*objInt = NULL; 
 	str	canStr; 
 	char	isTitle = 0; 
 	char	isUrl = 0;
@@ -5475,15 +5473,14 @@ str printFullSampleData(CSSampleExtend *csSampleEx, CSset *freqCSset, BAT *mbat,
 	char	isEmail = 0; 
 	char 	isCountry = 0; 
 	char 	isLocality = 0;
-	BAT	*lmap = NULL, *rmap = NULL
+	BAT	*tmpBat = NULL; 
+	BATiter	tmpi; 
 #if USE_SHORT_NAMES
 	str	propStrShort = NULL;
 	char 	*pch; 
 #endif
 
 
-
-	mapi = bat_iterator(mbat);
 
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
 		throw(RDF, "rdf.rdfschema",
@@ -5505,8 +5502,7 @@ str printFullSampleData(CSSampleExtend *csSampleEx, CSset *freqCSset, BAT *mbat,
 	foutis = fopen(filename3,"wt");
 
 	for (i = 0; i < num; i++){
-		sample = csSample[i];
-		freqCS = freqCSset->items[sample.freqIdx];
+		sample = csSampleEx[i];
 		fprintf(fout,"Sample table %d Candidates: ", i);
 		for (j = 0; j < (int)sample.candidateCount; j++){
 			//fprintf(fout,"  "  BUNFMT,sample.candidates[j]);
@@ -5564,6 +5560,7 @@ str printFullSampleData(CSSampleExtend *csSampleEx, CSset *freqCSset, BAT *mbat,
 		isImage = 0;
 		isSite = 0; 
 		for (j = 0; j < sample.numProp; j++){
+			if (sample.lstIsInfrequentProp[j] == 1) continue; 
 #if USE_SHORT_NAMES
 			propStrShort = NULL;
 #endif
@@ -5623,15 +5620,11 @@ str printFullSampleData(CSSampleExtend *csSampleEx, CSset *freqCSset, BAT *mbat,
 		
 		//List of support
 		for (j = 0; j < sample.numProp; j++){
-			if (sampleVersion > 1){		//Do not consider infreq Prop 
-				if (isInfrequentSampleProp(freqCS, j)) continue; 
-				fprintf(fout,";%d", freqCS.lstPropSupport[j]);
-			}
-			else{
-				fprintf(fout,";%d", freqCS.support);
-			}
+			if (sample.lstIsInfrequentProp[j] == 1) continue;
+			fprintf(fout,";%d", sample.lstPropSupport[j]);
 		}
 		fprintf(fout, "\n");
+	
 		
 		fprintf(foutis, "echo \"");
 		//All the instances 
@@ -5651,42 +5644,76 @@ str printFullSampleData(CSSampleExtend *csSampleEx, CSset *freqCSset, BAT *mbat,
 			GDKfree(subjStr); 
 			
 			for (j = 0; j < sample.numProp; j++){
-				if (sampleVersion > 1){		//Do not consider infreq Prop 
-					if (isInfrequentSampleProp(freqCS, j)) continue; 
-				}
-				objOid = sample.lstObj[j][k];
-				if (objOid == BUN_NONE){
-					fprintf(fout,";NULL");
-					fprintf(foutis,"|NULL");
-				}
-				else{
-					objStr = NULL;
-					getObjStr(mbat, mapi, objOid, &objStr, &objType);
-					if (objType == URI || objType == BLANKNODE){
-#if USE_SHORT_NAMES
-						str objStrShort = NULL;
-						getPropNameShort(&objStrShort, objStr);
-						fprintf(fout,";<%s>", objStrShort);
-						fprintf(foutis,"|<%s>", objStrShort);
-						GDKfree(objStrShort);
-#else
-						fprintf(fout,";%s", objStr);
-#endif
-						GDKfree(objStr);
-					} else {
-						str betweenQuotes;
-						getStringBetweenQuotes(&betweenQuotes, objStr);
-						fprintf(fout,";%s", betweenQuotes);
-						pch = strstr (betweenQuotes,"\\");
-						if (pch != NULL) *pch = '\0';	//Remove \ characters from table name
-						fprintf(foutis,"|%s", betweenQuotes);
-						GDKfree(betweenQuotes);
+				if (sample.lstIsInfrequentProp[j] == 1) continue; 			
+
+				tmpBat = sample.colBats[j];
+				tmpi = bat_iterator(tmpBat);
+				
+				if (tmpBat->ttype == TYPE_oid){	//URI or BLANK NODE  or MVCol
+					objOid = (oid *) BUNtail(tmpi, k);
+					if (*objOid == oid_nil){
+						fprintf(fout,";NULL");
+						fprintf(foutis,"|NULL");
+					}
+					else{
+						if (sample.lstIsMVCol[j] == 1){	//
+							fprintf(fout,";<"BUNFMT">",*objOid);
+						}
+						else{
+							str objStrShort = NULL;
+							takeOid(*objOid, &objStr);
+							getPropNameShort(&objStrShort, objStr);
+
+							fprintf(fout,";<%s>", objStrShort);
+							fprintf(foutis,"|<%s>", objStrShort);
+							GDKfree(objStrShort);
+							GDKfree(objStr);
+
+
+						}
 					}
 				}
+				else if (tmpBat->ttype == TYPE_flt){
+					objFlt = (float *) BUNtail(tmpi, k); 
+					if (*objFlt == flt_nil){
+						fprintf(fout,";NULL");
+						fprintf(foutis,"|NULL");
+					} 
+					else{
+						fprintf(fout,";%f", *objFlt);
+						fprintf(foutis,"|%f", *objFlt);
+
+					}
+				}
+				else if (tmpBat->ttype == TYPE_int){
+					objInt = (int *) BUNtail(tmpi, k);
+					if (*objInt == int_nil){
+						fprintf(fout,";NULL");
+						fprintf(foutis,"|NULL");
+					}
+					else{
+						fprintf(fout,";%d", *objInt);
+						fprintf(foutis,"|%d", *objInt);
+					}
+				
+				}
+				else{ //tmpBat->ttype == TYPE_str
+					objStr = NULL; 
+					objStr = BUNtail(tmpi, k);
+					if (strcmp(objStr, str_nil) == 0){
+						fprintf(fout,";NULL");
+						fprintf(foutis,"|NULL");
+					}
+					else{
+						fprintf(fout,";%s", objStr);
+						fprintf(foutis,"| %s", objStr);
+					}
+				}
+
+
 			}
 			fprintf(fout, "\n");
 			fprintf(foutis, "\n");
-
 		}
 
 		fprintf(fout, "\n");
@@ -5733,7 +5760,6 @@ str printFullSampleData(CSSampleExtend *csSampleEx, CSset *freqCSset, BAT *mbat,
 	return MAL_SUCCEED;
 }
 
-#endif
 
 static 
 str RDFExtractSampleData(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,  
@@ -6199,7 +6225,7 @@ str getFullSampleData(CStableStat* cstablestat, CSPropTypes *csPropTypes, int *m
 	
 	initFullSampleData(csSampleEx, mTblIdxFreqIdxMapping, labels, cstablestat, csPropTypes, freqCSset, numTables, lmapbatid, rmapbatid);
 
-	//printFullSampleData(csSampleEx, mbat, numTables);
+	printFullSampleData(csSampleEx, numTables);
 	
 	freeSampleExData(csSampleEx, numTables);
 

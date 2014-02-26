@@ -401,7 +401,8 @@ typedef struct CSSampleExtend{
 	oid	*candidates;
 	oid	candidateCount; 
 	int	numProp; 
-	oid	*lstProp; 
+	oid	*lstProp;
+	int	*lstPropSupport; 
 	char	*lstIsInfrequentProp;
 	char	*lstIsMVCol; 
 	oid	*lstSubjOid;
