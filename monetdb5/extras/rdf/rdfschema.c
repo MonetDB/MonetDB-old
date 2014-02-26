@@ -695,6 +695,11 @@ char isInfrequentSampleProp(CS freqCS, int propIdx){
 	if (freqCS.lstPropSupport[propIdx] * 100 < freqCS.support * SAMPLE_FILTER_THRESHOLD) return 1; 
 	else return 0;
 }
+static
+char isInfrequentSampleCol(CS freqCS, PropTypes pt){
+	if (pt.propFreq * 100 <  freqCS.support * SAMPLE_FILTER_THRESHOLD) return 1;
+	else return 0; 
+}
 
 static 
 void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSset){
@@ -4830,6 +4835,211 @@ void initSampleData(CSSample *csSample,BAT *candBat,CSset *freqCSset, int *merge
 
 	}
 }
+
+
+static
+void getSubjIdFromTablePosition(int tblIdx, int pos, oid *sOid){
+	oid id; 
+	id = pos;
+	id |= (BUN)(tblIdx + 1) << (sizeof(BUN)*8 - NBITS_FOR_CSID);
+	*sOid = id; 
+}
+
+static
+str getOrigSbt(oid *sbt, oid *origSbt, BAT *lmap, BAT *rmap){
+	BUN pos; 
+	oid *tmp; 
+	pos = BUNfnd(BATmirror(rmap),sbt);
+	if (pos == BUN_NONE){
+		throw(RDF, "rdf.RDFdistTriplesToCSs", "This encoded subject must be in rmap");
+	}
+	tmp = (oid *) Tloc(lmap, pos);
+	if (*tmp == BUN_NONE){
+		throw(RDF, "rdf.RDFdistTriplesToCSs", "The encoded subject must be in lmap");
+	}
+
+	*origSbt = *tmp; 		
+
+	return MAL_SUCCEED; 
+}
+
+static
+str getOrigObt(oid *obt, oid *origObt, BAT *lmap, BAT *rmap){
+	BUN pos; 
+	oid *tmp; 
+	oid	tmporigOid = BUN_NONE; 
+	char objType; 
+	BUN	maxObjectURIOid =  ((oid)1 << (sizeof(BUN)*8 - NBITS_FOR_CSID - 1)) - 1; //Base on getTblIdxFromS
+
+	objType = getObjType(*obt); 
+
+	if (objType == URI || objType == BLANKNODE){
+		tmporigOid = (*obt) - ((oid)objType << (sizeof(BUN)*8 - 4));
+	}
+	
+	if (tmporigOid > maxObjectURIOid){
+		pos = BUNfnd(BATmirror(rmap),&tmporigOid);
+		if (pos == BUN_NONE){
+			throw(RDF, "rdf.RDFdistTriplesToCSs", "This encoded object must be in rmap");
+		}
+		tmp = (oid *) Tloc(lmap, pos);
+		if (*tmp == BUN_NONE){
+			throw(RDF, "rdf.RDFdistTriplesToCSs", "The encoded object must be in lmap");
+		}
+
+		*origObt = *tmp; 		
+	}
+	else{
+		*origObt = tmporigOid;
+	}
+
+	return MAL_SUCCEED; 
+}
+
+static 
+str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, CSlabel *label, CStableStat* cstablestat, CSPropTypes *csPropTypes, CSset *freqCSset, int numTables,  bat *lmapbatid, bat *rmapbatid){
+	int 	i, j, k; 
+	int	freqId; 
+	int	tmpNumcand; 
+	oid	tmpCandidate; 
+	int 	randValue = 0; 
+	int	ranPosition = 0; 	//random position of the instance in a table
+	int	tmpNumCols; 
+	int 	colIdx; 
+	BAT     *tmpbat = NULL;
+	BATiter tmpi; 
+	BAT	*cursamplebat = NULL; 
+	int	tmpNumRows = 0; 
+	oid	tmpSoid = BUN_NONE, origSoid = BUN_NONE;  
+	oid	origOid = BUN_NONE; 
+	BAT	*lmap = NULL, *rmap = NULL; 
+
+	if ((lmap = BATdescriptor(*lmapbatid)) == NULL) {
+		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
+	}
+	
+	if ((rmap = BATdescriptor(*rmapbatid)) == NULL) {
+		BBPreleaseref(lmap->batCacheid);
+		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
+	}
+	srand(123456); 
+	for (i = 0; i < numTables; i++){
+		freqId = mTblIdxFreqIdxMapping[i];
+		csSampleEx[i].freqIdx = freqId;
+		tmpNumcand = (NUM_SAMPLE_CANDIDATE > label[freqId].candidatesCount)?label[freqId].candidatesCount:NUM_SAMPLE_CANDIDATE;
+		csSampleEx[i].name = cstablestat->lstcstable[i].tblname; 
+		csSampleEx[i].candidateCount = tmpNumcand;
+		csSampleEx[i].candidates = (oid*)malloc(sizeof(oid) * tmpNumcand); 
+		for (k = 0; k < tmpNumcand; k++){
+			csSampleEx[i].candidates[k] = label[freqId].candidates[k]; 
+		}
+		//Randomly exchange the value, change the position k with a random pos
+		for (k = 0; k < tmpNumcand; k++){
+			randValue = rand() % tmpNumcand;
+			tmpCandidate = csSampleEx[i].candidates[k];
+			csSampleEx[i].candidates[k] = csSampleEx[i].candidates[randValue];
+			csSampleEx[i].candidates[randValue] = tmpCandidate;
+		}
+
+		csSampleEx[i].lstSubjOid = (oid*)malloc(sizeof(oid) * NUM_SAMPLE_INSTANCE);
+		for (k = 0; k < NUM_SAMPLE_INSTANCE; k++)
+			csSampleEx[i].lstSubjOid[k] = BUN_NONE; 
+
+		tmpNumCols = csPropTypes[i].numProp -  csPropTypes[i].numInfreqProp; //already remove infrequent column;
+		csSampleEx[i].numProp = tmpNumCols;
+		
+		assert(tmpNumCols > 0); 
+			
+		csSampleEx[i].lstProp = (oid*)malloc(sizeof(oid) * tmpNumCols); 
+		csSampleEx[i].lstIsInfrequentProp = (char*)malloc(sizeof(char) * tmpNumCols); 
+		csSampleEx[i].lstIsMVCol = (char*)malloc(sizeof(char) * tmpNumCols); 
+		csSampleEx[i].colBats = (BAT**)malloc(sizeof(BAT*) * tmpNumCols);
+		colIdx = -1;
+		csSampleEx[i].numInstances = 0;
+		for(j = 0; j < csPropTypes[i].numProp; j++){
+			#if     REMOVE_INFREQ_PROP
+			if (csPropTypes[i].lstPropTypes[j].defColIdx == -1)     continue;  //Infrequent prop
+			#endif
+			colIdx++;
+			csSampleEx[i].lstProp[colIdx] = csPropTypes[i].lstPropTypes[j].prop;
+			
+			csSampleEx[i].colBats[colIdx] = BATnew(TYPE_void, cstablestat->lstcstable[i].colBats[colIdx]->ttype , NUM_SAMPLE_INSTANCE + 1);
+
+			//Mark whether this col is infrequent sample cols
+			if ( isInfrequentSampleCol(freqCSset->items[freqId], csPropTypes[i].lstPropTypes[j])){
+				csSampleEx[i].lstIsInfrequentProp[colIdx] = 1;
+			}
+			else
+				csSampleEx[i].lstIsInfrequentProp[colIdx] = 0;
+
+			//Mark whther this col is a MV col
+			csSampleEx[i].lstIsMVCol[colIdx] = csPropTypes[i].lstPropTypes[j].isMVProp;
+			
+			//if this is a multivalue column, get the data type of the first column
+
+		}
+		assert(colIdx == (tmpNumCols - 1)); 
+
+		
+		// Inserting instances to csSampleEx
+		
+		tmpNumRows = BATcount(cstablestat->lstcstable[i].colBats[0]);
+		
+		for (k = 0; k < NUM_SAMPLE_INSTANCE; k++){
+			ranPosition = rand() % tmpNumRows;
+
+			getSubjIdFromTablePosition(i, ranPosition, &tmpSoid);	
+			
+			if (getOrigSbt(&tmpSoid, &origSoid, lmap, rmap) != MAL_SUCCEED){
+				throw(RDF, "rdf.RDFdistTriplesToCSs","Problem in getting the orignal sbt ");
+			} 
+
+			csSampleEx[i].lstSubjOid[k] = origSoid;
+
+			for (j = 0; j < tmpNumCols; j++){
+				cursamplebat = csSampleEx[i].colBats[j];
+
+				tmpbat = cstablestat->lstcstable[i].colBats[j]; 	
+				tmpi = bat_iterator(tmpbat);
+
+				if (tmpbat->ttype == TYPE_oid && csSampleEx[i].lstIsMVCol[j] == 0){
+					//Get the original object oid
+					oid *tmpOid = (oid *) BUNtail(tmpi, ranPosition);
+					if(*tmpOid != oid_nil){
+						if (getOrigObt(tmpOid, &origOid, lmap, rmap) != MAL_SUCCEED){
+							throw(RDF, "rdf.RDFdistTriplesToCSs","Problem in getting the orignal obt ");
+						}
+						BUNappend(cursamplebat, &origOid, TRUE);
+					}
+					else{
+						BUNappend(cursamplebat, ATOMnilptr(TYPE_oid), TRUE);
+					}
+
+				}
+				else
+					BUNappend(cursamplebat, BUNtail(tmpi, ranPosition), TRUE);
+
+
+				
+			}
+			csSampleEx[i].numInstances++;
+		}
+
+		if (i == 0)
+			for (j = 0; j < tmpNumCols; j++){
+				//BATprint(cstablestat->lstcstable[i].colBats[j]);
+				BATprint(csSampleEx[i].colBats[j]);
+			}
+		
+	}
+
+	BBPunfix(lmap->batCacheid);
+	BBPunfix(rmap->batCacheid);
+
+	return MAL_SUCCEED;
+
+}
+
 static 
 void freeSampleData(CSSample *csSample, int numCand){
 	int i, j; 
@@ -4844,6 +5054,25 @@ void freeSampleData(CSSample *csSample, int numCand){
 	}
 
 	free(csSample);
+}
+
+
+static 
+void freeSampleExData(CSSampleExtend *csSampleEx, int numCand){
+	int i, j; 
+	for (i = 0; i < numCand; i++){
+		free(csSampleEx[i].lstProp);
+		free(csSampleEx[i].lstIsInfrequentProp);
+		free(csSampleEx[i].lstIsMVCol);
+		free(csSampleEx[i].candidates); 
+		free(csSampleEx[i].lstSubjOid);
+		for (j = 0; j < csSampleEx[i].numProp; j++){
+			BBPunfix(csSampleEx[i].colBats[j]->batCacheid);
+		}
+		free(csSampleEx[i].colBats);
+	}
+
+	free(csSampleEx);
 }
 
 static 
@@ -5217,6 +5446,295 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 	return MAL_SUCCEED;
 }
 
+#if 0
+static 
+str printFullSampleData(CSSampleExtend *csSampleEx, CSset *freqCSset, BAT *mbat, int num, int sampleVersion){
+
+	int 	i,j, k; 
+	FILE 	*fout, *fouttb, *foutis; 
+	char 	filename[100], filename2[100], filename3[100];
+	char 	tmpStr[20], tmpStr2[20], tmpStr3[20];
+	int 	ret;
+
+	str 	propStr; 
+	str	subjStr; 
+	char*   schema = "rdf";
+	CSSample	sample; 
+	CS		freqCS; 
+	char	objType = 0; 
+	str	objStr; 	
+	oid	objOid = BUN_NONE; 
+	BATiter mapi;
+	str	canStr; 
+	char	isTitle = 0; 
+	char	isUrl = 0;
+	char 	isType = 0;
+	char	isDescription = 0;
+	char 	isImage = 0; 
+	char	isSite = 0;
+	char	isEmail = 0; 
+	char 	isCountry = 0; 
+	char 	isLocality = 0;
+	BAT	*lmap = NULL, *rmap = NULL
+#if USE_SHORT_NAMES
+	str	propStrShort = NULL;
+	char 	*pch; 
+#endif
+
+
+
+	mapi = bat_iterator(mbat);
+
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "rdf.rdfschema",
+				"could not open the tokenizer\n");
+	}
+	
+
+	strcpy(filename, "sampleDataFull");
+	strcat(filename, ".txt");
+	
+	strcpy(filename2, "createSampleTableFull");
+	strcat(filename2, ".sh");
+	
+	strcpy(filename3, "loadSampleToMonetFull");
+	strcat(filename3, ".sh");
+	
+	fout = fopen(filename,"wt"); 
+	fouttb = fopen(filename2,"wt");
+	foutis = fopen(filename3,"wt");
+
+	for (i = 0; i < num; i++){
+		sample = csSample[i];
+		freqCS = freqCSset->items[sample.freqIdx];
+		fprintf(fout,"Sample table %d Candidates: ", i);
+		for (j = 0; j < (int)sample.candidateCount; j++){
+			//fprintf(fout,"  "  BUNFMT,sample.candidates[j]);
+			if (sample.candidates[j] != BUN_NONE){
+#if USE_SHORT_NAMES
+				str canStrShort = NULL;
+#endif
+				takeOid(sample.candidates[j], &canStr); 
+#if USE_SHORT_NAMES
+				getPropNameShort(&canStrShort, canStr);
+				fprintf(fout,";%s",  canStrShort);
+				GDKfree(canStrShort);
+#else
+				fprintf(fout,";%s",  canStr);
+#endif
+				GDKfree(canStr); 
+			
+			}
+		}
+		fprintf(fout, "\n");
+		
+
+		if (sample.name != BUN_NONE){
+			str canStrShort = NULL;
+			takeOid(sample.name, &canStr);
+			getPropNameShort(&canStrShort, canStr);
+
+			if (strstr (canStrShort,".") != NULL || 
+				strcmp(canStrShort,"") == 0 || 
+				strstr(canStrShort,"-") != NULL	){	// WEBCRAWL specific problem with Table name a.jpg, b.png....
+				fprintf(fouttb,"CREATE TABLE tbSample%d \n (\n", i);			
+			}
+			else if (strcmp(canStrShort,"page") == 0){
+				fprintf(fouttb,"CREATE TABLE %s%d \n(\n",  canStrShort, i);
+			}
+			else {
+				pch = strstr (canStrShort,"(");
+				if (pch != NULL) *pch = '\0';	//Remove (...) characters from table name
+				fprintf(fouttb,"CREATE TABLE %s \n(\n",  canStrShort);
+			}
+
+			GDKfree(canStrShort);
+			GDKfree(canStr);
+		}
+		else 
+			fprintf(fouttb,"CREATE TABLE tbSample%d \n (\n", i);
+
+		//List of columns
+		fprintf(fout,"Subject");
+		fprintf(fouttb,"SubjectCol string");
+		isTitle = 0; 
+		isUrl = 0;
+		isType = 0; 
+		isDescription = 0; 
+		isImage = 0;
+		isSite = 0; 
+		for (j = 0; j < sample.numProp; j++){
+#if USE_SHORT_NAMES
+			propStrShort = NULL;
+#endif
+			takeOid(sample.lstProp[j], &propStr);	
+#if USE_SHORT_NAMES
+			getPropNameShort(&propStrShort, propStr);
+			fprintf(fout,";%s", propStrShort);
+
+			pch = strstr (propStrShort,"-");
+			if (pch != NULL) *pch = '\0';	//Remove - characters from prop  //WEBCRAWL specific problem
+
+			if ((strcmp(propStrShort,"type") == 0 && isType == 1)|| 
+					strcmp(propStrShort,"position") == 0 ||
+					strcmp(propStrShort,"order") == 0 || 
+					(strcmp(propStrShort,"title") == 0 && isTitle == 1) ||
+					(strcmp(propStrShort,"url") == 0 && isUrl == 1) ||
+					(strcmp(propStrShort,"description") == 0 && isDescription == 1) ||
+					(strcmp(propStrShort,"site_name") == 0 && isSite == 1) ||
+					(strcmp(propStrShort,"image") == 0 && isImage == 1)  ||
+					(strcmp(propStrShort,"email") == 0 && isEmail == 1)  ||
+					(strcmp(propStrShort,"country") == 0 && isCountry == 1)  ||
+					(strcmp(propStrShort,"locality") == 0 && isLocality == 1)  ||
+					strcmp(propStrShort,"fbmladmins") == 0 ||
+					strcmp(propStrShort,"latitude") == 0 ||
+					strcmp(propStrShort,"fbmlapp_id") == 0 ||
+					strcmp(propStrShort,"locale") == 0 ||
+					strcmp(propStrShort,"longitude") == 0 ||
+					strcmp(propStrShort,"phone_number") == 0 ||
+					strcmp(propStrShort,"postal") == 0 ||
+					strcmp(propStrShort,"street") == 0 ||
+					strcmp(propStrShort,"region") == 0 ||
+					strcmp(propStrShort,"fax_number") == 0 ||
+					strcmp(propStrShort,"app_id") == 0 
+					)
+				fprintf(fouttb,",\n%s_%d string",propStrShort,j);
+			else
+				fprintf(fouttb,",\n%s string",propStrShort);
+
+			if (strcmp(propStrShort,"title") == 0) isTitle = 1; //WEBCRAWL specific problem, duplicate title
+			if (strcmp(propStrShort,"url") == 0) isUrl = 1; //WEBCRAWL specific problem, duplicate url
+			if (strcmp(propStrShort,"type") == 0) isType = 1; //WEBCRAWL specific problem, duplicate type
+			if (strcmp(propStrShort,"description") == 0) isDescription = 1; //WEBCRAWL specific problem, duplicate type
+			if (strcmp(propStrShort,"image") == 0) isImage = 1; //WEBCRAWL specific problem, duplicate type
+			if (strcmp(propStrShort,"site_name") == 0) isSite = 1; //WEBCRAWL specific problem, duplicate site_name
+			if (strcmp(propStrShort,"email") == 0) isEmail = 1; //WEBCRAWL specific problem, duplicate email		
+			if (strcmp(propStrShort,"country") == 0) isCountry = 1; //WEBCRAWL specific problem, duplicate site_name
+			if (strcmp(propStrShort,"locality") == 0) isLocality = 1; //WEBCRAWL specific problem, duplicate email		
+
+			GDKfree(propStrShort);
+#else
+			fprintf(fout,";%s", propStr);
+#endif
+			GDKfree(propStr);
+		}
+		fprintf(fout, "\n");
+		fprintf(fouttb, "\n); \n \n");
+		
+		//List of support
+		for (j = 0; j < sample.numProp; j++){
+			if (sampleVersion > 1){		//Do not consider infreq Prop 
+				if (isInfrequentSampleProp(freqCS, j)) continue; 
+				fprintf(fout,";%d", freqCS.lstPropSupport[j]);
+			}
+			else{
+				fprintf(fout,";%d", freqCS.support);
+			}
+		}
+		fprintf(fout, "\n");
+		
+		fprintf(foutis, "echo \"");
+		//All the instances 
+		for (k = 0; k < sample.numInstances; k++){
+#if USE_SHORT_NAMES
+			str subjStrShort = NULL;
+#endif
+			takeOid(sample.lstSubjOid[k], &subjStr); 
+#if USE_SHORT_NAMES
+			getPropNameShort(&subjStrShort, subjStr);
+			fprintf(fout,"<%s>", subjStrShort);
+			fprintf(foutis,"<%s>", subjStrShort);
+			GDKfree(subjStrShort);
+#else
+			fprintf(fout,"%s", subjStr);
+#endif
+			GDKfree(subjStr); 
+			
+			for (j = 0; j < sample.numProp; j++){
+				if (sampleVersion > 1){		//Do not consider infreq Prop 
+					if (isInfrequentSampleProp(freqCS, j)) continue; 
+				}
+				objOid = sample.lstObj[j][k];
+				if (objOid == BUN_NONE){
+					fprintf(fout,";NULL");
+					fprintf(foutis,"|NULL");
+				}
+				else{
+					objStr = NULL;
+					getObjStr(mbat, mapi, objOid, &objStr, &objType);
+					if (objType == URI || objType == BLANKNODE){
+#if USE_SHORT_NAMES
+						str objStrShort = NULL;
+						getPropNameShort(&objStrShort, objStr);
+						fprintf(fout,";<%s>", objStrShort);
+						fprintf(foutis,"|<%s>", objStrShort);
+						GDKfree(objStrShort);
+#else
+						fprintf(fout,";%s", objStr);
+#endif
+						GDKfree(objStr);
+					} else {
+						str betweenQuotes;
+						getStringBetweenQuotes(&betweenQuotes, objStr);
+						fprintf(fout,";%s", betweenQuotes);
+						pch = strstr (betweenQuotes,"\\");
+						if (pch != NULL) *pch = '\0';	//Remove \ characters from table name
+						fprintf(foutis,"|%s", betweenQuotes);
+						GDKfree(betweenQuotes);
+					}
+				}
+			}
+			fprintf(fout, "\n");
+			fprintf(foutis, "\n");
+
+		}
+
+		fprintf(fout, "\n");
+		fprintf(foutis, "\" > tmp.txt \n \n");
+
+		if (sample.name != BUN_NONE){
+			str canStrShort = NULL;
+			takeOid(sample.name, &canStr);
+			getPropNameShort(&canStrShort, canStr);
+
+			if (strstr (canStrShort,".") != NULL || 
+				strcmp(canStrShort,"") == 0 || 
+				strstr(canStrShort,"-") != NULL	){	// WEBCRAWL specific problem with Table name a.jpg, b.png....
+				fprintf(foutis, "echo \"COPY %d RECORDS INTO tbSample%d FROM 'ABSOLUTEPATH/tmp.txt'     USING DELIMITERS '|', '\\n'; \" > tmpload.sql \n", sample.numInstances, i);
+			}
+			else if (strcmp(canStrShort,"page") == 0){
+				fprintf(foutis, "echo \"COPY %d RECORDS INTO %s%d FROM 'ABSOLUTEPATH/tmp.txt'     USING DELIMITERS '|', '\\n'; \" > tmpload.sql \n", sample.numInstances, canStrShort, i);
+			}
+			else{
+
+				pch = strstr (canStrShort,"(");
+				if (pch != NULL) *pch = '\0';	//Remove (...) characters from table name
+				fprintf(foutis, "echo \"COPY %d RECORDS INTO %s FROM 'ABSOLUTEPATH/tmp.txt'     USING DELIMITERS '|', '\\n'; \" > tmpload.sql \n", sample.numInstances, canStrShort);
+			}
+			fprintf(foutis, "mclient < tmpload.sql \n");
+			GDKfree(canStrShort);
+			GDKfree(canStr);
+		}
+		else{
+			fprintf(foutis, "echo \"COPY %d RECORDS INTO tbSample%d FROM 'ABSOLUTEPATH/tmp.txt'     USING DELIMITERS '|', '\\n'; \" > tmpload.sql \n", sample.numInstances, i);
+			fprintf(foutis, "mclient < tmpload.sql \n");
+		}
+
+			
+	}
+
+	fclose(fout);
+	fclose(fouttb); 
+	fclose(foutis); 
+	
+	TKNZRclose(&ret);
+
+
+	return MAL_SUCCEED;
+}
+
+#endif
+
 static 
 str RDFExtractSampleData(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,  
 		oid *subjCSMap, int* csTblIdxMapping, int maxNumPwithDup, CSSample *csSample, BAT *tblCandBat, int numSampleTbl){
@@ -5379,6 +5897,8 @@ CSrel* getFKBetweenTableSet(CSrel *csrelFreqSet, CSset *freqCSset, CSPropTypes* 
 			// else, all instances of that prop must refer to the certain table
 			if (freqCSset->items[i].coverage > MINIMUM_TABLE_SIZE){
 				if (csPropTypes[from].lstPropTypes[propIdx].propCover * MIN_FK_PROPCOVERAGE > rel.lstCnt[j]) continue; 
+				else if (csPropTypes[from].lstPropTypes[propIdx].propCover == rel.lstCnt[j])
+					csPropTypes[from].lstPropTypes[propIdx].isDirtyFKProp = 0;
 				else
 					csPropTypes[from].lstPropTypes[propIdx].isDirtyFKProp = 1;
 			}
@@ -5671,6 +6191,101 @@ str getSampleData(int *ret, bat *mapbatid, int numTables, CSset* freqCSset, BAT 
 	
 	return MAL_SUCCEED; 
 }
+
+static
+str getFullSampleData(CStableStat* cstablestat, CSPropTypes *csPropTypes, int *mTblIdxFreqIdxMapping, CSlabel *labels, int numTables,  bat *lmapbatid, bat *rmapbatid, CSset *freqCSset){
+	CSSampleExtend *csSampleEx;
+	csSampleEx = (CSSampleExtend *)malloc(sizeof(CSSampleExtend) * numTables);
+	
+	initFullSampleData(csSampleEx, mTblIdxFreqIdxMapping, labels, cstablestat, csPropTypes, freqCSset, numTables, lmapbatid, rmapbatid);
+
+	//printFullSampleData(csSampleEx, mbat, numTables);
+	
+	freeSampleExData(csSampleEx, numTables);
+
+	return MAL_SUCCEED; 
+}
+
+static
+str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int numTables, int freqThreshold){
+
+	int 		i,j; 
+	int		tmpNumDefaultCol; 
+	FILE		*fout;
+	char    	filename[100];
+	char    	tmpStr[20];
+	int		ret; 
+	str		subjStr; 
+	str		propStr; 
+	int 		numNoNameTable = 0;
+	char*		schema = "rdf";
+
+	printf("Summarizing the final table information \n"); 
+	// allocate memory space for cstablestat
+	strcpy(filename, "finalSchema");
+	sprintf(tmpStr, "%d", freqThreshold);
+	strcat(filename, tmpStr);
+	strcat(filename, ".txt");
+
+	fout = fopen(filename,"wt"); 
+
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "rdf.rdfschema",
+				"could not open the tokenizer\n");
+	}
+	for (i = 0; i < numTables; i++){
+
+		tmpNumDefaultCol = csPropTypes[i].numProp -  csPropTypes[i].numInfreqProp;
+		
+		if (cstablestat->lstcstable[i].tblname != BUN_NONE){
+			str subjStrShort = NULL;
+			takeOid(cstablestat->lstcstable[i].tblname, &subjStr);
+			getPropNameShort(&subjStrShort, subjStr);
+		
+			fprintf(fout, "Table %d (Name: %s | NumCols: %d)\n", i, subjStrShort, tmpNumDefaultCol);
+
+			GDKfree(subjStrShort);
+			GDKfree(subjStr);
+		}
+		else{
+			fprintf(fout, "Table %d (Name: <NoName> | NumCols: %d)\n", i, tmpNumDefaultCol);
+			numNoNameTable++;
+		}
+
+
+		for(j = 0; j < csPropTypes[i].numProp; j++){
+			str propStrShort = NULL;
+			#if     REMOVE_INFREQ_PROP
+			if (csPropTypes[i].lstPropTypes[j].defColIdx == -1)     continue;  //Infrequent prop
+			#endif
+			takeOid(csPropTypes[i].lstPropTypes[j].prop, &propStr);
+			getPropNameShort(&propStrShort, propStr);
+
+			fprintf(fout, "     Prop ("BUNFMT"): %s",csPropTypes[i].lstPropTypes[j].prop, propStr);
+
+			if (csPropTypes[i].lstPropTypes[j].isFKProp == 1){
+				fprintf(fout, " == FK ==> %d \n", csPropTypes[i].lstPropTypes[j].refTblId);
+			}
+			else
+				fprintf(fout, "\n");
+			GDKfree(propStrShort);
+			GDKfree(propStr);
+		}
+
+		fprintf(fout, "\n");
+
+	}
+	
+	printf(" Number of no-name table: %d | (Total: %d)\n",numNoNameTable,numTables);
+
+	fclose(fout); 
+
+
+	TKNZRclose(&ret);
+
+	return MAL_SUCCEED; 
+}
+
 
 static
 void initCSTableIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping, int *numTables){
@@ -6251,6 +6866,9 @@ void getTblIdxFromO(oid Ooid, int *tbidx){
 
 	//return freqCSid; 
 }
+
+
+
 
 static
 str getOrigPbt(oid *pbt, oid *origPbt, BAT *lmap, BAT *rmap){
@@ -7460,6 +8078,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	/* Extract sample data for the evaluation */
 	getSampleData(ret, mapbatid, numTables, freqCSset, sbat, si, pi, oi, mTblIdxFreqIdxMapping, labels, csTblIdxMapping, maxNumPwithDup, subjCSMap, 2); 
 	
+	printFinalStructure(cstablestat, csPropTypes, numTables,*freqThreshold);
 
 	if (*mode == EXPLOREONLY){
 		printf("Only explore the schema information \n");
@@ -7593,6 +8212,8 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	tmpLastT = curT; 		
 	
 	printFKMultiplicityFromCSPropTypes(csPropTypes, numTables, freqCSset, *freqThreshold);
+
+	getFullSampleData(cstablestat, csPropTypes, mTblIdxFreqIdxMapping, labels, numTables, &lmap->batCacheid, &rmap->batCacheid, freqCSset);
 		
 	freeCSrelSet(csRelMergeFreqSet,freqCSset->numCSadded);
 	freeCSrelSet(csRelFinalFKs, numTables); 

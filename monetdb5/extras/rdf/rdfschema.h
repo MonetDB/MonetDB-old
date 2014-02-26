@@ -380,6 +380,7 @@ typedef struct CSPropTypes {
 #define NUM_SAMPLE_CANDIDATE 3
 #define SAMPLE_FILTER_THRESHOLD 10  // SAMPLE_FILTER_THRESHOLD/ 100	
 #define GETSAMPLE_BEFOREMERGING 1  // Get the sample data before merging CS's
+
 typedef struct CSSample{
 	int	freqIdx;
 	int 	tblIdx; 
@@ -392,6 +393,22 @@ typedef struct CSSample{
 	int	numInstances; 
 	oid	name;
 } CSSample;
+
+
+typedef struct CSSampleExtend{
+	int	freqIdx;
+	int 	tblIdx; 
+	oid	*candidates;
+	oid	candidateCount; 
+	int	numProp; 
+	oid	*lstProp; 
+	char	*lstIsInfrequentProp;
+	char	*lstIsMVCol; 
+	oid	*lstSubjOid;
+	BAT** 	colBats; 
+	int	numInstances; 
+	oid	name;
+} CSSampleExtend;
 
 rdf_export str
 RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,bat *mbatid, bat *lmapbatid, bat *rmapbatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId);
