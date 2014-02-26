@@ -114,7 +114,7 @@ typedef struct PropStat {
 					Specifically, the consistsOf list only contains 
 					the freqIdx of merged CS from previous rule. */
 
-#define OUTPUT_FREQID_PER_LABEL 1 	/* This is for evaluating the results of merging using S1. TODO: Set it to 0 for default*/
+#define OUTPUT_FREQID_PER_LABEL 0 	/* This is for evaluating the results of merging using S1. TODO: Set it to 0 for default*/
 
 #define IS_MULVALUE_THRESHOLD  1.1	/* The ratio betweeen (the number of triple coverred by Prop P) / (number of Non-NULL object values for P)
 					   If this ratio is ~1, only use single value column for that prop
@@ -140,6 +140,8 @@ typedef struct PropStat {
 /*------------------------------------*/
 
 #define STORE_PERFORMANCE_METRIC_INFO	1
+
+#define NO_OUTPUTFILE	1		/*Do not write the output to any file */
 
 
 typedef struct CS

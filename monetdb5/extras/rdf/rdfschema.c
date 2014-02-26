@@ -329,6 +329,7 @@ void freeCSrelSet(CSrel *csrelSet, int numCSrel){
 	free(csrelSet);
 }
 
+#if NO_OUTPUTFILE == 0
 static 
 void printCSrelSet(CSrel *csrelSet, CSset *freqCSset,  int num,  int freqThreshold){
 
@@ -362,7 +363,7 @@ void printCSrelSet(CSrel *csrelSet, CSset *freqCSset,  int num,  int freqThresho
 	fclose(fout);
 	
 }
-
+#endif
 
 static 
 void getOrigRefCount(CSrel *csrelSet, CSset *freqCSset, int num,  int* refCount){
@@ -514,6 +515,8 @@ void setdefaultSubCSs(SubCSSet *subcsset, int num, BAT *sbat, oid *subjSubCSMap,
 #endif
 
 #if NEEDSUBCS
+
+#if NO_OUTPUTFILE == 0 
 static 
 void printSubCSInformation(SubCSSet *subcsset, BAT* freqBat, int num, char isWriteTofile, int freqThreshold){
 
@@ -593,7 +596,7 @@ void printSubCSInformation(SubCSSet *subcsset, BAT* freqBat, int num, char isWri
 		printf("Avg. number of subCSs per CS: %f \n", (float) totalNumSubCS / num);
 	}
 }
-
+#endif /*NO_OUTPUTFILE*/
 #endif  /* NEEDSUBCS */
 
 char
@@ -690,16 +693,21 @@ char isInfrequentProp(PropTypes pt, CS cs){
 
 }
 
+#if NO_OUTPUTFILE == 0 
 static
 char isInfrequentSampleProp(CS freqCS, int propIdx){
 	if (freqCS.lstPropSupport[propIdx] * 100 < freqCS.support * SAMPLE_FILTER_THRESHOLD) return 1; 
 	else return 0;
 }
+#endif
+
+#if NO_OUTPUTFILE == 0 
 static
 char isInfrequentSampleCol(CS freqCS, PropTypes pt){
 	if (pt.propFreq * 100 <  freqCS.support * SAMPLE_FILTER_THRESHOLD) return 1;
 	else return 0; 
 }
+#endif
 
 static 
 void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSset){
@@ -836,6 +844,8 @@ void updatePropSupport(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSs
 
 
 #endif /* #if COLORINGPROP */
+
+#if NO_OUTPUTFILE == 0
 static 
 void printCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSset, int freqThreshold){
 	char filename[100]; 
@@ -912,8 +922,9 @@ void printCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSse
 	fclose(fout); 
 
 }
+#endif
 
-
+#if NO_OUTPUTFILE == 0
 static 
 void getTableStatisticViaCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSset, int freqThreshold){
 	char filename[100]; 
@@ -982,6 +993,7 @@ void getTableStatisticViaCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, 
 	fclose(fout); 
 
 }
+#endif
 
 /*
  * Add types of properties 
@@ -1802,6 +1814,7 @@ int* mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId,int 
 
 #endif /* USE_MULTIWAY_MERGING */
 
+#if NO_OUTPUTFILE == 0
 static 
 str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofile, int freqThreshold, CSlabel* labels){
 
@@ -1932,7 +1945,7 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 #endif
 	return MAL_SUCCEED;
 }
-
+#endif
 
 /*
 static 
@@ -1966,6 +1979,7 @@ str printamergeCS(mergeCS cs, int mergecsid, CSset *freqCSset, oid* superCSFreqC
 }
 */
 
+#if NO_OUTPUTFILE == 0
 static 
 str printmergeCSSet(CSset *freqCSset, int freqThreshold){
 
@@ -2030,8 +2044,10 @@ str printmergeCSSet(CSset *freqCSset, int freqThreshold){
 	TKNZRclose(&ret);
 	return MAL_SUCCEED;
 }
+#endif
 
 
+#if NO_OUTPUTFILE == 0 
 static 
 str printsubsetFromCSset(CSset *freqCSset, BAT* subsetIdxBat, int num, int* mergeCSFreqCSMap, CSlabel *label, int sampleVersion){
 
@@ -2105,6 +2121,7 @@ str printsubsetFromCSset(CSset *freqCSset, BAT* subsetIdxBat, int num, int* merg
 	TKNZRclose(&ret);
 	return MAL_SUCCEED;
 }
+#endif
 
 /*
  * Hashing function for a set of values
@@ -2954,7 +2971,7 @@ PropStat* getPropStatisticsByTable(int numTables, int* mTblIdxFreqIdxMapping, CS
 	return propStat; 
 }
 
-
+#if NO_OUTPUTFILE == 0
 void printPropStat(PropStat* propStat, int printToFile){
 	int i, j; 
 	oid	*pbt; 
@@ -2991,9 +3008,8 @@ void printPropStat(PropStat* propStat, int printToFile){
 	
 	}
 
-
-
 }
+#endif
 
 static 
 void freePropStat(PropStat *propStat){
@@ -3299,12 +3315,13 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 	#endif
 	LabelStat	*labelStat = NULL; 
 	oid		*name;
+	int		tmpCount; 
+
 	#if OUTPUT_FREQID_PER_LABEL
 	FILE    	*fout;
 	char*   	schema = "rdf";
 	int		ret = 0;
 	str		tmpLabel; 
-	int		tmpCount; 
 	
 	#if USE_SHORT_NAMES
 	str canStrShort = NULL;
@@ -3364,7 +3381,9 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 					tmpCount++;
 				}
 			}
+			#if OUTPUT_FREQID_PER_LABEL
 			fprintf(fout, " %d freqCS merged as having same name by Ontology. MergedCS has %d prop. \n", tmpCount, freqCSset->items[freqCSset->numCSadded -1].numProp);
+			#endif
 
 			//For Type
 			tmpCount = 0;
@@ -3392,7 +3411,9 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 					tmpCount++;
 				}
 			}
+			#if OUTPUT_FREQID_PER_LABEL
 			fprintf(fout, " %d freqCS merged as having same name by TYPE. MergedCS has %d prop. \n", tmpCount, freqCSset->items[freqCSset->numCSadded -1].numProp);
+			#endif
 
 			//For FK
 			tmpCount = 0;
@@ -3421,9 +3442,10 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 				}
 			}
 			#endif /* USE_MULTIWAY_MERGING */
-			fprintf(fout, " %d freqCS merged as having same name by FK. MergedCS has %d prop. \n", tmpCount, freqCSset->items[freqCSset->numCSadded -1].numProp);
 
 			#if OUTPUT_FREQID_PER_LABEL
+
+			fprintf(fout, " %d freqCS merged as having same name by FK. MergedCS has %d prop. \n", tmpCount, freqCSset->items[freqCSset->numCSadded -1].numProp);
 			
 			takeOid(*name, &tmpLabel); 
 			#if USE_SHORT_NAMES
@@ -3459,7 +3481,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 static
 void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId, oid** ontmetadata, int ontmetadataCount){
 	int 		i; 
-	int 		freqId, refFreqId;
+	int 		freqId;
 	//int 		relId; 
 	//CS*		cs1;
 	CSrelSum 	*csRelSum; 
@@ -3474,18 +3496,23 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 	int		isNew = 0; 
 	int  		mergeFreqIdx = -1; 
 	#endif	
-
+	
+	#if NO_OUTPUTFILE == 0
 	char 		filename[100];
-	FILE		*fout; 
+	FILE		*fout;
+	int 		refFreqId;
+	#endif
 	int		maxNumPropInMergeCS =0;
 	//int 		numCombinedP = 0; 
 	int		startIdx = 0; 
 	
 	printf("Start merging CS by using S6 \n");
-
+	
+	#if NO_OUTPUTFILE == 0
 	strcpy(filename, "csRelSum.txt");
 
 	fout = fopen(filename,"wt"); 
+	#endif
 
 	for (i = 0; i < curNumMergeCS; i++){
 		freqId = mergeCSFreqCSMap[i];
@@ -3505,14 +3532,19 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 		if (csrelMergeFreqSet[freqId].numRef != 0){
 			generatecsRelSum(csrelMergeFreqSet[freqId], freqId, freqCSset, csRelSum);
 			/* Check the number of */
+			#if NO_OUTPUTFILE == 0
 			fprintf(fout, "csRelSum " BUNFMT " (support: %d, coverage %d ): ",csRelSum->origFreqIdx, freqCSset->items[freqId].support, freqCSset->items[freqId].coverage);
+			#endif
 			for (j = 0; j < csRelSum->numProp; j++){
 				if ( csRelSum->numPropRef[j] > 1){
+					#if NO_OUTPUTFILE == 0
 					fprintf(fout, "  P " BUNFMT " -->",csRelSum->lstPropId[j]);
 					for (k = 0; k < csRelSum->numPropRef[j]; k++){
 						refFreqId = csRelSum->freqIdList[j][k];
 						fprintf(fout, " %d | ", refFreqId);
 					}	
+					#endif
+
 					/* Merge each refCS into the first CS. 
 					 * TODO: The Multi-way merging should be better
 					 * */ 
@@ -3555,14 +3587,16 @@ void mergeMaxFreqCSByS6(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 					#endif /*If USE_MULTIWAY_MERGING */
 				}
 			}
+			#if NO_OUTPUTFILE == 0
 			fprintf(fout, "\n");
+			#endif
 		}
 	}
 	
 
-
+	#if NO_OUTPUTFILE == 0
 	fclose(fout); 
-
+	#endif
 
 	freeCSrelSum(maxNumPropInMergeCS, csRelSum);
 
@@ -3934,7 +3968,7 @@ static void getStatisticCSsBySize(map_t csmap, int maximumNumP){
 }
 */
 
-
+#if NO_OUTPUTFILE == 0
 static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *coverageBat, BAT *fullPBat, char isWriteToFile, int freqThreshold){
 
 	//int 	*csPropNum; 
@@ -3983,7 +4017,9 @@ static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *covera
 	fclose(fout); 
 	//free(csPropNum); 
 }
+#endif
 
+#if NO_OUTPUTFILE == 0
 static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold, int numTables, int* mergeCSFreqCSMap, CSPropTypes* csPropTypes){
 
 	//int 	*csPropNum; 
@@ -4106,6 +4142,7 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 	//free(csPropNum); 
 	printf("Done \n");
 }
+#endif
 
 /*
  * Get the refer CS 
@@ -4220,6 +4257,8 @@ void freeCSBats(CSBats *csBats){
 
 }
 
+
+#if NO_OUTPUTFILE == 0 
 static
 BAT* generateTablesForEvaluating(CSset *freqCSset, int numTbl, int* mergeCSFreqCSMap, int curNumMergeCS){
 	int	*cumDist; 
@@ -4302,6 +4341,7 @@ BAT* generateTablesForEvaluating(CSset *freqCSset, int numTbl, int* mergeCSFreqC
 
 	return outputBat; 
 }
+#endif
 
 #if STOREFULLCS
 static 
@@ -4434,7 +4474,9 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 	#endif
 
 	#if FULL_PROP_STAT
+	#if NO_OUTPUTFILE == 0
 	printPropStat(fullPropStat,1);
+	#endif
 	#endif	
 
 	freePropStat(fullPropStat); 
@@ -4785,6 +4827,9 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 
 	return MAL_SUCCEED; 
 }
+
+
+#if NO_OUTPUTFILE == 0 
 static 
 void initSampleData(CSSample *csSample,BAT *candBat,CSset *freqCSset, int *mergeCSFreqCSMap, CSlabel *label){
 	int 	i, j, k; 
@@ -4835,8 +4880,9 @@ void initSampleData(CSSample *csSample,BAT *candBat,CSset *freqCSset, int *merge
 
 	}
 }
+#endif
 
-
+#if NO_OUTPUTFILE == 0 
 static
 void getSubjIdFromTablePosition(int tblIdx, int pos, oid *sOid){
 	oid id; 
@@ -4895,7 +4941,9 @@ str getOrigObt(oid *obt, oid *origObt, BAT *lmap, BAT *rmap){
 
 	return MAL_SUCCEED; 
 }
+#endif
 
+#if NO_OUTPUTFILE == 0
 static 
 str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, CSlabel *label, CStableStat* cstablestat, CSPropTypes *csPropTypes, CSset *freqCSset, int numTables,  bat *lmapbatid, bat *rmapbatid){
 	int 	i, j, k; 
@@ -5041,7 +5089,9 @@ str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, C
 	return MAL_SUCCEED;
 
 }
+#endif
 
+#if NO_OUTPUTFILE == 0 
 static 
 void freeSampleData(CSSample *csSample, int numCand){
 	int i, j; 
@@ -5057,8 +5107,9 @@ void freeSampleData(CSSample *csSample, int numCand){
 
 	free(csSample);
 }
+#endif
 
-
+#if NO_OUTPUTFILE == 0
 static 
 void freeSampleExData(CSSampleExtend *csSampleEx, int numCand){
 	int i, j; 
@@ -5077,7 +5128,10 @@ void freeSampleExData(CSSampleExtend *csSampleEx, int numCand){
 
 	free(csSampleEx);
 }
+#endif
 
+
+#if NO_OUTPUTFILE == 0 
 static 
 void addSampleInstance(oid subj, oid *buffO, oid* buffP, int numP, int sampleIdx, CSSample *csSample){
 	int i,j; 
@@ -5097,7 +5151,10 @@ void addSampleInstance(oid subj, oid *buffO, oid* buffP, int numP, int sampleIdx
 	}
 	csSample[sampleIdx].numInstances++;
 }
+#endif
 
+
+#if NO_OUTPUTFILE == 0 
 static 
 void getObjStr(BAT *mapbat, BATiter mapi, oid objOid, str *objStr, char *retObjType){
 	BUN bun; 
@@ -5117,7 +5174,7 @@ void getObjStr(BAT *mapbat, BATiter mapi, oid objOid, str *objStr, char *retObjT
 	*retObjType = objType; 
 
 }
-
+#endif
 
 //Assume Tokenizer is openned 
 //
@@ -5157,6 +5214,8 @@ void getTblName(char *name, oid nameId){
 
 }
 
+
+#if NO_OUTPUTFILE == 0 
 static 
 str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, int sampleVersion){
 
@@ -5446,7 +5505,9 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 	TKNZRclose(&ret);
 	return MAL_SUCCEED;
 }
+#endif
 
+#if NO_OUTPUTFILE == 0
 static 
 str printFullSampleData(CSSampleExtend *csSampleEx, int num){
 
@@ -5759,8 +5820,10 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num){
 
 	return MAL_SUCCEED;
 }
+#endif
 
 
+#if NO_OUTPUTFILE == 0 
 static 
 str RDFExtractSampleData(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,  
 		oid *subjCSMap, int* csTblIdxMapping, int maxNumPwithDup, CSSample *csSample, BAT *tblCandBat, int numSampleTbl){
@@ -5835,6 +5898,7 @@ str RDFExtractSampleData(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi
 
 	return MAL_SUCCEED; 
 }
+#endif
 
 /* Create a new data structure to store relationships including merged CS */
 static
@@ -5997,6 +6061,7 @@ CSrel* generateCsRelToMergeFreqSet(CSrel *csrelFreqSet, CSset *freqCSset){
 	return csRelMergeFreqSet;
 }
 
+#if NO_OUTPUTFILE == 0 
 static
 str printCSRel(CSset *freqCSset, CSrel *csRelMergeFreqSet, int freqThreshold){
 	FILE 	*fout2,*fout2filter;
@@ -6073,8 +6138,9 @@ str printCSRel(CSset *freqCSset, CSrel *csRelMergeFreqSet, int freqThreshold){
 
 	return MAL_SUCCEED; 
 }
+#endif
 
-
+#if NO_OUTPUTFILE == 0
 static
 str printFKs(CSrel *csRelFinalFKs, int freqThreshold, int numTables,  CSPropTypes* csPropTypes){
 	FILE 	*fout;
@@ -6129,8 +6195,9 @@ str printFKs(CSrel *csRelFinalFKs, int freqThreshold, int numTables,  CSPropType
 
 	return MAL_SUCCEED; 
 }
+#endif
 
-
+#if NO_OUTPUTFILE == 0
 static 
 void printFKMultiplicityFromCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset *freqCSset, int freqThreshold){
 	char filename[100]; 
@@ -6186,7 +6253,10 @@ void printFKMultiplicityFromCSPropTypes(CSPropTypes* csPropTypes, int numMergedC
 	fclose(fout); 
 
 }
+#endif
 
+
+#if NO_OUTPUTFILE == 0 
 static 
 str getSampleData(int *ret, bat *mapbatid, int numTables, CSset* freqCSset, BAT *sbat, BATiter si, BATiter pi, BATiter oi, int* mTblIdxFreqIdxMapping, 
 		CSlabel* labels, int* csTblIdxMapping, int maxNumPwithDup, oid* subjCSMap, int sampleVersion){
@@ -6217,7 +6287,9 @@ str getSampleData(int *ret, bat *mapbatid, int numTables, CSset* freqCSset, BAT 
 	
 	return MAL_SUCCEED; 
 }
+#endif
 
+#if NO_OUTPUTFILE == 0
 static
 str getFullSampleData(CStableStat* cstablestat, CSPropTypes *csPropTypes, int *mTblIdxFreqIdxMapping, CSlabel *labels, int numTables,  bat *lmapbatid, bat *rmapbatid, CSset *freqCSset){
 	CSSampleExtend *csSampleEx;
@@ -6231,7 +6303,10 @@ str getFullSampleData(CStableStat* cstablestat, CSPropTypes *csPropTypes, int *m
 
 	return MAL_SUCCEED; 
 }
+#endif
 
+
+#if NO_OUTPUTFILE == 0 
 static
 str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int numTables, int freqThreshold){
 
@@ -6311,7 +6386,7 @@ str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int 
 
 	return MAL_SUCCEED; 
 }
-
+#endif
 
 static
 void initCSTableIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping, int *numTables){
@@ -6557,12 +6632,16 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printf (" ----- Exploring subCSs and FKs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
 
-
+	#if NO_OUTPUTFILE == 0
 	printCSrelSet(csrelSet, freqCSset, freqCSset->numCSadded, *freqThreshold);  
+	#endif
 
 	#if NEEDSUBCS
 	setdefaultSubCSs(csSubCSSet,*maxCSoid + 1, sbat, subjSubCSMap, *subjCSMap, subjdefaultMap);
+	
+	#if NO_OUTPUTFILE == 0 
 	printSubCSInformation(csSubCSSet, csBats->freqBat, *maxCSoid + 1, 1, *freqThreshold); 
+	#endif
 	#endif
 
 	printf("Number of frequent CSs is: %d \n", freqCSset->numCSadded);
@@ -6582,7 +6661,9 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printf("Done labeling!!! Took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT;
 	
+	#if NO_OUTPUTFILE == 0
 	printFreqCSSet(freqCSset, csBats->freqBat, mbat, 1, *freqThreshold, *labels); 
+	#endif
 
 	/* Get the number of indirect refs in order to detect dimension table */
 	refCount = (int *) malloc(sizeof(int) * (freqCSset->numCSadded));
@@ -6620,8 +6701,11 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printf("Init CS tableIdxMapping \n");
 	initCSTableIdxMapping(freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping, &numTables);
 
+
+	#if NO_OUTPUTFILE == 0 
 	getSampleData(ret, mapbatid, numTables, freqCSset, sbat, si, pi, oi, 
 			mTblIdxFreqIdxMapping, *labels, csTblIdxMapping, *maxNumPwithDup, *subjCSMap, 1); 
+	#endif
 
 
 	free(csTblIdxMapping);
@@ -6722,17 +6806,21 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 	
 	*csRelMergeFreqSet = generateCsRelBetweenMergeFreqSet(csrelSet, freqCSset);
+
+	#if NO_OUTPUTFILE == 0 
 	printCSRel(freqCSset, *csRelMergeFreqSet, *freqThreshold);
+	#endif
 	
 	curT = clock(); 
 	printf ("Get the final relationships between mergeCS took %f. \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC);	
 	tmpLastT = curT; 		
-
+	
+	#if NO_OUTPUTFILE == 0
 	printmergeCSSet(freqCSset, *freqThreshold);
 	//getStatisticCSsBySize(csMap,maxNumProp); 
 
 	getStatisticCSsBySupports(csBats->pOffsetBat, csBats->freqBat, csBats->coverageBat, csBats->fullPBat, 1, *freqThreshold);
-
+	#endif
 
 
 	BBPunfix(sbat->batCacheid); 
@@ -8065,10 +8153,13 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	printf("Extract CSPropTypes \n");
 	RDFExtractCSPropTypes(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, csPropTypes, maxNumPwithDup);
 	genCSPropTypesColIdx(csPropTypes, numTables, freqCSset);
+
+	#if NO_OUTPUTFILE == 0
 	printCSPropTypes(csPropTypes, numTables, freqCSset, *freqThreshold);
 	//Collecting the statistic
 	printf("Get table statistics by CSPropTypes \n");
 	getTableStatisticViaCSPropTypes(csPropTypes, numTables, freqCSset, *freqThreshold);
+	#endif
 	
 	#if COLORINGPROP
 	/* Update list of support for properties in freqCSset */
@@ -8093,18 +8184,28 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	
 
 	csRelFinalFKs = getFKBetweenTableSet(csRelMergeFreqSet, freqCSset, csPropTypes,mfreqIdxTblIdxMapping,numTables);
+	#if NO_OUTPUTFILE == 0
 	printFKs(csRelFinalFKs, *freqThreshold, numTables, csPropTypes); 
+	#endif
 
 	// Init CStableStat
 	initCStables(cstablestat, freqCSset, csPropTypes, numTables, labels, mTblIdxFreqIdxMapping);
 	
 	// Summarize the statistics
+	#if NO_OUTPUTFILE == 0
 	getStatisticFinalCSs(freqCSset, sbat, *freqThreshold, numTables, mTblIdxFreqIdxMapping, csPropTypes);
+	#endif	
 
 	/* Extract sample data for the evaluation */
+
+	#if NO_OUTPUTFILE == 0 
 	getSampleData(ret, mapbatid, numTables, freqCSset, sbat, si, pi, oi, mTblIdxFreqIdxMapping, labels, csTblIdxMapping, maxNumPwithDup, subjCSMap, 2); 
+	#endif
 	
+
+	#if NO_OUTPUTFILE == 0 
 	printFinalStructure(cstablestat, csPropTypes, numTables,*freqThreshold);
+	#endif
 
 	if (*mode == EXPLOREONLY){
 		printf("Only explore the schema information \n");
@@ -8237,9 +8338,13 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	printf ("RDFdistTriplesToCSs process took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
 	
+	#if NO_OUTPUTFILE == 0
 	printFKMultiplicityFromCSPropTypes(csPropTypes, numTables, freqCSset, *freqThreshold);
-
+	#endif
+	
+	#if NO_OUTPUTFILE == 0
 	getFullSampleData(cstablestat, csPropTypes, mTblIdxFreqIdxMapping, labels, numTables, &lmap->batCacheid, &rmap->batCacheid, freqCSset);
+	#endif	
 		
 	freeCSrelSet(csRelMergeFreqSet,freqCSset->numCSadded);
 	freeCSrelSet(csRelFinalFKs, numTables); 
