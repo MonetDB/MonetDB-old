@@ -218,7 +218,7 @@ typedef struct SubCSSet{
 } SubCSSet;
 
 //#define INIT_NUM_CS 9999 // workaround
-//#define INIT_NUM_CS 500 // workaround
+#define INIT_NUM_CS 500 // workaround
 #define INIT_NUM_CS 2
 #define SIM_THRESHOLD 0.6
 #define SIM_TFIDF_THRESHOLD 0.55
