@@ -5074,12 +5074,14 @@ str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, C
 			}
 			csSampleEx[i].numInstances++;
 		}
-
+		
+		/*
 		if (i == 0)
 			for (j = 0; j < tmpNumCols; j++){
 				//BATprint(cstablestat->lstcstable[i].colBats[j]);
 				BATprint(csSampleEx[i].colBats[j]);
 			}
+			*/
 		
 	}
 
@@ -5920,7 +5922,7 @@ str RDFExtractSampleData(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi
 					if (sampleIdx != BUN_NONE) {
 						assert(!(numP > csSample[sampleIdx].numProp));
 						if (csSample[sampleIdx].numInstances < NUM_SAMPLE_INSTANCE){	
-							addSampleInstance(*sbt, buffO, buffP, numP, sampleIdx, csSample);
+							addSampleInstance(curS, buffO, buffP, numP, sampleIdx, csSample);
 							totalInstance++;
 						}
 					}
