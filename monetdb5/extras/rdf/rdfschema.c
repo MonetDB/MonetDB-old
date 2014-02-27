@@ -3750,6 +3750,15 @@ void initTFIDFInfos(TFIDFInfo *tfidfInfos, int curNumMergeCS, oid* mergeCSFreqCS
 	}
 	
 }
+static 
+void freeTFIDFInfo(TFIDFInfo *tfidfInfos, int curNumMergeCS){
+	int i; 
+	for (i = 0; i < curNumMergeCS; i++){
+		free(tfidfInfos[i].lsttfidfs);
+	}
+	free(tfidfInfos);
+}
+
 static
 void mergeCSByS3S5(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId,OntoUsageNode *ontoUsageTree, oid **ontmetadata, int ontmetadataCount){
 	int 		i, j, k; 
@@ -3899,6 +3908,7 @@ void mergeCSByS3S5(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, in
 
 
 	freePropStat(propStat);
+	freeTFIDFInfo(tfidfInfos, curNumMergeCS);
 
 }
 
@@ -6545,6 +6555,10 @@ void computeMetricsQ(CSset *freqCSset){
 
 	printf("==> Performance metric Q = %f \n", Q);
 
+	free(fillRatio); 
+	free(refRatio); 
+	free(weight); 
+
 }
 #endif
 // for storing ontology data
@@ -6893,6 +6907,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 	#if NEEDSUBCS
 	free (subjSubCSMap);
+	free (subjdefaultMap);
 	freeCS_SubCSMapSet(csSubCSSet, *maxCSoid + 1); 
 	#endif
 
