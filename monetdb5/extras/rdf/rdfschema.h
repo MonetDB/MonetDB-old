@@ -218,8 +218,7 @@ typedef struct SubCSSet{
 } SubCSSet;
 
 //#define INIT_NUM_CS 9999 // workaround
-#define INIT_NUM_CS 500 // workaround
-#define INIT_NUM_CS 2
+#define INIT_NUM_CS 1000 // workaround
 #define SIM_THRESHOLD 0.6
 #define SIM_TFIDF_THRESHOLD 0.55
 #define IMPORTANCE_THRESHOLD 0.01
@@ -269,7 +268,7 @@ typedef struct mergeCSset{
 } mergeCSset;
 */
 
-#define INIT_NUM_CSREL 4
+#define INIT_NUM_CSREL 10
 typedef struct CSrel{	
 	oid	origFreqIdx;
 	oid	*lstRefFreqIdx; 

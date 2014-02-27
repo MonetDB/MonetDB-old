@@ -7842,6 +7842,9 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg;
 	BAT	*sbat, *pbat, *obat, *mbat; 
 	BAT	*tmpbat; 
+	clock_t tmpbeginT, tmpendT, beginT, endT;
+
+	beginT = clock();
 	
 	rethrow("sql.rdfShred", msg, getSQLContext(cntxt, mb, &m, NULL));
 
@@ -7855,8 +7858,13 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	cstablestat = (CStableStat *) malloc (sizeof (CStableStat));
 	
+	tmpbeginT = clock();
+
 	rethrow("sql.rdfreorganize", msg, RDFreorganize(&ret, cstablestat, &sbat->batCacheid, &pbat->batCacheid, 
 				&obat->batCacheid, &mbat->batCacheid, threshold, mode));
+
+	tmpendT = clock(); 
+	printf ("Sql.mx: Reorganizing process process took %f seconds.\n", ((float)(tmpendT - tmpbeginT))/CLOCKS_PER_SEC);
 
 	//if (*mode == EXPLOREONLY){
 	if (*mode < 3){
@@ -7868,7 +7876,8 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		//free(cstablestat);
 		return MAL_SUCCEED; 
 	}
-
+	
+	tmpbeginT = clock();
 	cstables = (sql_table **)malloc(sizeof(sql_table*) * cstablestat->numTables);
 	csmvtables = (sql_table ***)malloc(sizeof(sql_table**) * cstablestat->numTables);
 
@@ -8108,6 +8117,12 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	free(cstables);
 	free(cstablesEx); 
 	free(viewcstables); 
+
+	tmpendT = clock(); 
+	printf ("Sql.mx: Put Bats to Relational Table  process took %f seconds.\n", ((float)(tmpendT - tmpbeginT))/CLOCKS_PER_SEC);
+
+	endT = clock(); 
+	printf ("Sql.mx: All processes took  %f seconds.\n", ((float)(endT - beginT))/CLOCKS_PER_SEC);
 
 	return MAL_SUCCEED; 
 #else
