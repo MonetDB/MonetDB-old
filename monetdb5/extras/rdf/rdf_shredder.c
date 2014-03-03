@@ -541,7 +541,9 @@ int CTrefine(BAT **ret, BAT *b, BAT *a); /* from modules/kernel/group.mx */
 static str
 post_processing (parserData *pdata)
 {
+	#if IS_COMPACT_TRIPLESTORE == 0
 	clock_t beginT, endT; 	
+	#endif
 	BAT *map_oid = NULL, *S = NULL, *P = NULL, *O = NULL;
 	BAT **graph = pdata->graph;
 #if STORE == TRIPLE_STORE
