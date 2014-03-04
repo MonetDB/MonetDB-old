@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -34,10 +34,12 @@ typedef void (*fdestroy) (void *);
 typedef struct list {
 	sql_allocator *sa;
 	sql_hash *ht;
+	MT_Lock ht_lock;	/* latch protecting ht */
 	fdestroy destroy;
 	node *h;
 	node *t;
 	int cnt;
+	int expected_cnt;
 } list;
 
 typedef int (*traverse_func) (void *clientdata, int seqnr, void *data);

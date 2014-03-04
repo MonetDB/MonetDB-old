@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -310,7 +310,6 @@ SQLSetDescField(SQLHDESC DescriptorHandle,
 	return SQLSetDescField_((ODBCDesc *) DescriptorHandle, RecNumber, FieldIdentifier, ValuePtr, BufferLength);
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLSetDescFieldW(SQLHDESC DescriptorHandle,
 		 SQLSMALLINT RecNumber,
@@ -324,9 +323,10 @@ SQLSetDescFieldW(SQLHDESC DescriptorHandle,
 	SQLINTEGER n;
 
 #ifdef ODBCDEBUG
-	ODBCLOG("SQLSetDescFieldW " PTRFMT " %d %s\n",
+	ODBCLOG("SQLSetDescFieldW " PTRFMT " %d %s " PTRFMT "\n",
 		PTRFMTCAST DescriptorHandle, (int) RecNumber,
-		translateFieldIdentifier(FieldIdentifier));
+		translateFieldIdentifier(FieldIdentifier),
+		PTRFMTCAST ValuePtr);
 #endif
 
 	if (!isValidDesc(desc))
@@ -355,4 +355,3 @@ SQLSetDescFieldW(SQLHDESC DescriptorHandle,
 
 	return rc;
 }
-#endif /* WITH_WCHAR */

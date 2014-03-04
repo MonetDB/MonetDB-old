@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -323,13 +323,11 @@ CMDgetEvent( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	writes = (lng *) getArgReference(stk,pci,2);
 
 	(void) cntxt;
-	if( mb->profiler == 0)
-		throw(MAL,"profiler.getEvent", OPERATION_FAILED " Monitor not active");
 
 	pc= getPC(mb,pci)-1; /* take previous instruction */
-	*clk = mb->profiler[pc].ticks;
-	*reads = mb->profiler[pc].rbytes;
-	*writes = mb->profiler[pc].wbytes;
+	*clk = 0;
+	*reads = mb->stmt[pc]->rbytes;
+	*writes = mb->stmt[pc]->wbytes;
 	return MAL_SUCCEED;
 }
 str

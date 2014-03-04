@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -101,12 +101,10 @@ BATcreatedesc(int ht, int tt, int heapnames)
 	assert(ht >= 0 && tt >= 0);
 	bs->BM.H = &bs->T;
 	bs->BM.T = &bs->H;
-	bs->BM.P = &bs->P;
-	bs->BM.U = &bs->U;
+	bs->BM.S = &bs->S;
 	bs->B.H = &bs->H;
 	bs->B.T = &bs->T;
-	bs->B.P = &bs->P;
-	bs->B.U = &bs->U;
+	bs->B.S = &bs->S;
 
 	bn = &bs->B;
 
@@ -223,8 +221,8 @@ BATsetdims(BAT *b)
 	b->T->shift = ATOMelmshift(Tsize(b));
 	assert_shift_width(b->H->shift, b->H->width);
 	assert_shift_width(b->T->shift, b->T->width);
-	b->H->varsized = BATatoms[b->htype].varsized;
-	b->T->varsized = BATatoms[b->ttype].varsized;
+	b->H->varsized = b->htype == TYPE_void || BATatoms[b->htype].atomPut != NULL;
+	b->T->varsized = b->ttype == TYPE_void || BATatoms[b->ttype].atomPut != NULL;
 }
 
 /*
@@ -254,7 +252,7 @@ BATnewstorage(int ht, int tt, BUN cap)
 	bn = &bs->B;
 
 	BATsetdims(bn);
-	bn->U->capacity = cap;
+	bn->batCapacity = cap;
 
 	/* alloc the main heaps */
 	if (ht && HEAPalloc(&bn->H->heap, cap, bn->H->width) < 0) {
@@ -337,7 +335,7 @@ BATattach(int tt, const char *heapfile)
 	ERRORcheck(st.st_nlink != 1, "BATattach: heapfile must have only one link\n");
 	atomsize = ATOMsize(tt);
 	ERRORcheck(st.st_size % atomsize != 0, "BATattach: heapfile size not integral number of atoms\n");
-	ERRORcheck(st.st_size / atomsize > (off_t) BUN_MAX, "BATattach: heapfile too large\n");
+	ERRORcheck((size_t) (st.st_size / atomsize) > (size_t) BUN_MAX, "BATattach: heapfile too large\n");
 	cap = (BUN) (st.st_size / atomsize);
 	bs = BATcreatedesc(TYPE_void, tt, 1);
 	if (bs == NULL)
@@ -364,7 +362,7 @@ BATattach(int tt, const char *heapfile)
 	}
 	bn->batRestricted = BAT_READ;
 	bn->T->heap.size = (size_t) st.st_size;
-	bn->T->heap.newstorage = bn->T->heap.storage = (bn->T->heap.size < REMAP_PAGE_MAXSIZE) ? STORE_MEM : STORE_MMAP;
+	bn->T->heap.newstorage = bn->T->heap.storage = (bn->T->heap.size < GDK_mmap_minsize) ? STORE_MEM : STORE_MMAP;
 	if (HEAPload(&bn->T->heap, BBP_physical(bn->batCacheid), "tail", TRUE) < 0) {
 		HEAPfree(&bn->T->heap);
 		GDKfree(bs);
@@ -479,12 +477,14 @@ BATextend(BAT *b, BUN newcap)
 	hheap_size *= Hsize(b);
 	if (b->H->heap.base && GDKdebug & HEAPMASK)
 		fprintf(stderr, "#HEAPextend in BATextend %s " SZFMT " " SZFMT "\n", b->H->heap.filename, b->H->heap.size, hheap_size);
-	if (b->H->heap.base && HEAPextend(&b->H->heap, hheap_size) < 0)
+	if (b->H->heap.base &&
+	    HEAPextend(&b->H->heap, hheap_size, b->batRestricted == BAT_READ) < 0)
 		return NULL;
 	theap_size *= Tsize(b);
 	if (b->T->heap.base && GDKdebug & HEAPMASK)
 		fprintf(stderr, "#HEAPextend in BATextend %s " SZFMT " " SZFMT "\n", b->T->heap.filename, b->T->heap.size, theap_size);
-	if (b->T->heap.base && HEAPextend(&b->T->heap, theap_size) < 0)
+	if (b->T->heap.base &&
+	    HEAPextend(&b->T->heap, theap_size, b->batRestricted == BAT_READ) < 0)
 		return NULL;
 	HASHdestroy(b);
 	IMPSdestroy(b);
@@ -837,13 +837,13 @@ BATcopy(BAT *b, int ht, int tt, int writable)
 		if (bn->hvarsized && bn->htype) {
 			bn->H->shift = b->H->shift;
 			bn->H->width = b->H->width;
-			if (HEAPextend(&bn->H->heap, BATcapacity(bn) << bn->H->shift) < 0)
+			if (HEAPextend(&bn->H->heap, BATcapacity(bn) << bn->H->shift, TRUE) < 0)
 				goto bunins_failed;
 		}
 		if (bn->tvarsized && bn->ttype) {
 			bn->T->shift = b->T->shift;
 			bn->T->width = b->T->width;
-			if (HEAPextend(&bn->T->heap, BATcapacity(bn) << bn->T->shift) < 0)
+			if (HEAPextend(&bn->T->heap, BATcapacity(bn) << bn->T->shift, TRUE) < 0)
 				goto bunins_failed;
 		}
 
@@ -888,11 +888,11 @@ BATcopy(BAT *b, int ht, int tt, int writable)
 			hcap = (BUN) (bn->htype ? bn->H->heap.size >> bn->H->shift : 0);
 			tcap = (BUN) (bn->ttype ? bn->T->heap.size >> bn->T->shift : 0);
 			if (hcap && tcap)
-				bn->U->capacity = MIN(hcap, tcap);
+				bn->batCapacity = MIN(hcap, tcap);
 			else if (hcap)
-				bn->U->capacity = hcap;
+				bn->batCapacity = hcap;
 			else
-				bn->U->capacity = tcap;
+				bn->batCapacity = tcap;
 
 
 			/* first/inserted must point equally far into
@@ -928,41 +928,15 @@ BATcopy(BAT *b, int ht, int tt, int writable)
 			}
 		} else {
 			/* case (4): optimized for simple array copy */
-			int tpe = ATOMstorage(ht | tt);
 			BUN p = BUNfirst(b);
-			char *cur = (ht ? Hloc(b, p) : Tloc(b, p));
-			char *d = (ht ? Hloc(bn, 0) : Tloc(bn, 0));
 
 			bn->H->heap.free = bn->T->heap.free = 0;
-			if (ht)
+			if (ht) {
 				bn->H->heap.free = bunstocopy * Hsize(bn);
-			else
-				bn->T->heap.free = bunstocopy * Tsize(bn);
-
-			if (tpe == TYPE_bte) {
-				bte *src = (bte *) cur, *dst = (bte *) d;
-
-				while (bunstocopy--) {
-					*dst++ = *src++;
-				}
-			} else if (tpe == TYPE_sht) {
-				sht *src = (sht *) cur, *dst = (sht *) d;
-
-				while (bunstocopy--) {
-					*dst++ = *src++;
-				}
-			} else if ((tpe == TYPE_int) || (tpe == TYPE_flt)) {
-				int *src = (int *) cur, *dst = (int *) d;
-
-				while (bunstocopy--) {
-					*dst++ = *src++;
-				}
+				memcpy(Hloc(bn, 0), Hloc(b, p), bn->H->heap.free);
 			} else {
-				lng *src = (lng *) cur, *dst = (lng *) d;
-
-				while (bunstocopy--) {
-					*dst++ = *src++;
-				}
+				bn->T->heap.free = bunstocopy * Tsize(bn);
+				memcpy(Tloc(bn, 0), Tloc(b, p), bn->T->heap.free);
 			}
 		}
 		/* copy all properties (size+other) from the source bat */
@@ -1199,9 +1173,6 @@ BUNins(BAT *b, const void *h, const void *t, bit force)
 	void_materialize(b, h);
 	void_materialize(b, t);
 
-	if (b->batSet && BUNlocate(b, h, t) != BUN_NONE) {
-		return b;
-	}
 	if ((b->hkey & BOUND2BTRUE) && (p = BUNfnd(b, h)) != BUN_NONE) {
 		if (BUNinplace(b, p, h, t, force) == NULL)
 			return NULL;
@@ -1543,6 +1514,8 @@ BUNdelete(BAT *b, BUN p, bit force)
 	return BUNdelete_(b, p, force);
 }
 
+static BUN BUNlocate(BAT *b, const void *x, const void *y);
+
 BAT *
 BUNdel(BAT *b, const void *x, const void *y, bit force)
 {
@@ -1777,7 +1750,7 @@ BUNfnd(BAT *b, const void *v)
 	}
 	if (!b->H->hash) {
 		if (BAThordered(b) || BAThrevordered(b))
-			return SORTfnd(b, v);
+			return SORTfnd(BATmirror(b), v);
 	}
 	switch (ATOMstorage(b->htype)) {
 	case TYPE_bte:
@@ -1821,7 +1794,7 @@ BUNfnd(BAT *b, const void *v)
 			   (ATOMstorage(hp->type) != TYPE_str ||	\
 			    !GDK_ELIMDOUBLES(hp->vheap)))
 
-BUN
+static BUN
 BUNlocate(BAT *b, const void *x, const void *y)
 {
 	BATiter bi = bat_iterator(b);
@@ -2070,7 +2043,7 @@ BUNlocate(BAT *b, const void *x, const void *y)
 void
 BATsetcapacity(BAT *b, BUN cnt)
 {
-	b->U->capacity = cnt;
+	b->batCapacity = cnt;
 	assert(b->batCount <= cnt);
 }
 
@@ -2156,26 +2129,6 @@ BATkey(BAT *b, int flag)
 
 
 BAT *
-BATset(BAT *b, int flag)
-{
-	BATcheck(b, "BATset");
-	if (b->htype == TYPE_void) {
-		if (b->hseqbase == oid_nil && flag == BOUND2BTRUE)
-			BATkey(BATmirror(b), flag);
-	} else if (b->ttype == TYPE_void) {
-		if (b->tseqbase == oid_nil && flag == BOUND2BTRUE)
-			BATkey(b, flag);
-	} else {
-		if (flag)
-			flag = TRUE;
-		if (b->batSet != flag)
-			b->batDirtydesc = TRUE;
-		b->batSet = flag;
-	}
-	return b;
-}
-
-BAT *
 BATseqbase(BAT *b, oid o)
 {
 	BATcheck(b, "BATseqbase");
@@ -2195,9 +2148,9 @@ BATseqbase(BAT *b, oid o)
 		/* adapt keyness */
 		if (BAThvoid(b)) {
 			if (o == oid_nil) {
-				b->hkey = b->U->count <= 1;
-				b->H->nonil = b->U->count == 0;
-				b->H->nil = b->U->count > 0;
+				b->hkey = b->batCount <= 1;
+				b->H->nonil = b->batCount == 0;
+				b->H->nil = b->batCount > 0;
 				b->hsorted = b->hrevsorted = 1;
 			} else {
 				if (!b->hkey) {
@@ -2207,7 +2160,7 @@ BATseqbase(BAT *b, oid o)
 				b->H->nonil = 1;
 				b->H->nil = 0;
 				b->hsorted = 1;
-				b->hrevsorted = b->U->count <= 1;
+				b->hrevsorted = b->batCount <= 1;
 			}
 		}
 	}
@@ -2600,29 +2553,6 @@ BATcheckmodes(BAT *b, int existing)
 	return 0;
 }
 
-#define heap_unshare(heap, heapname, id)				\
-	do {								\
-		if ((heap)->copied) {					\
-			Heap hp;					\
-									\
-			memset(&hp, 0, sizeof(Heap));			\
-			if (HEAPcopy(&hp, (heap)) < 0) {		\
-				GDKerror("%s: remapped " #heapname	\
-					 " of %s could not be copied.\n", \
-					 fcn, BATgetId(b));		\
-				return -1;				\
-									\
-			}						\
-			hp.parentid = (id);				\
-			if ((heap)->parentid == (id))			\
-				HEAPfree(heap);				\
-			else						\
-				BBPunshare((heap)->parentid);		\
-			* (heap) = hp;					\
-			(heap)->copied = 0;				\
-		}							\
-	} while (0)
-
 BAT *
 BATsetaccess(BAT *b, int newmode)
 {
@@ -2988,8 +2918,7 @@ BATassertHeadProps(BAT *b)
  * A BAT can have a bunch of properties set.  Mostly, the property
  * bits are set if we *know* the property holds, and not set if we
  * don't know whether the property holds (or if we know it doesn't
- * hold).  Most properties are per column, only the "set" property is
- * over two columns.
+ * hold).  All properties are per column.
  *
  * The properties currently maintained are:
  *
@@ -3003,18 +2932,11 @@ BATassertHeadProps(BAT *b)
  *		then all values are equal.
  * revsorted	The column is reversely sorted (descending).  If
  *		also sorted, then all values are equal.
- * set		The combinations of head and tail values are distinct.
  *
  * The "key" property consists of two bits.  The lower bit, when set,
  * indicates that all values in the column are distinct.  The upper
  * bit, when set, indicates that all values must be distinct
  * (BOUND2BTRUE).
- *
- * Note also that the "set" property is somewhat confused.  On the one
- * hand, some comments suggest it is merely an indication of the
- * current state of affairs, i.e. all head/tail combinations are
- * distinct.  The code in BUNins suggests that it means that the
- * combinations must be distinct.
  *
  * Note that the functions BATseqbase and BATkey also set more
  * properties than you might suspect.  When setting properties on a
@@ -3035,13 +2957,12 @@ BATassertProps(BAT *b)
 	assert(bm != NULL);
 	assert(b->H == bm->T);
 	assert(b->T == bm->H);
-	assert(b->U == bm->U);
-	assert(b->P == bm->P);
+	assert(b->S == bm->S);
 	assert(b->batDeleted < BUN_MAX);
 	assert(b->batFirst >= b->batDeleted);
 	assert(b->batInserted >= b->batFirst);
 	assert(b->batFirst + b->batCount >= b->batInserted);
-	assert(b->U->first == 0);
+	assert(b->batFirst == 0);
 	bbpstatus = BBP_status(b->batCacheid);
 	/* only at most one of BBPDELETED, BBPEXISTING, BBPNEW may be set */
 	assert(((bbpstatus & BBPDELETED) != 0) +

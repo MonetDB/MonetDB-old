@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -57,6 +57,7 @@ typedef enum tokens {
 	SQL_DROP_COLUMN,
 	SQL_DROP_CONSTRAINT,
 	SQL_DROP_DEFAULT,
+	SQL_ANALYZE,
 	SQL_DECLARE,
 	SQL_SET,
 	SQL_CALL,

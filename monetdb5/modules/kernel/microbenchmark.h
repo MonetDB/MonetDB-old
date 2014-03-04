@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -35,10 +35,11 @@
 #define mb_export extern
 #endif
 
-mb_export str MBMrandom(int *ret, oid *base, int *size, int *domain);
-mb_export str MBMuniform(int *ret, oid *base, int *size, int *domain);
-mb_export str MBMnormal(int *ret, oid *base, int *size, int *domain, int *stddev, int *mean);
+mb_export str MBMrandom(int *ret, oid *base, wrd *size, int *domain);
+mb_export str MBMrandom_seed(int *ret, oid *base, wrd *size, int *domain, const int *seed);
+mb_export str MBMuniform(int *ret, oid *base, wrd *size, int *domain);
+mb_export str MBMnormal(int *ret, oid *base, wrd *size, int *domain, int *stddev, int *mean);
 mb_export str MBMmix(int *ret, int *batid);
-mb_export str MBMskewed(int *ret, oid *base, int *size, int *domain, int *skew);
+mb_export str MBMskewed(int *ret, oid *base, wrd *size, int *domain, int *skew);
 
 #endif /* _MBM_H_ */

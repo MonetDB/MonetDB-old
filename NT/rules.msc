@@ -14,10 +14,10 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2013 MonetDB B.V.
+# Copyright August 2008-2014 MonetDB B.V.
 # All Rights Reserved.
 
-VERSION=11.16.0
+VERSION=11.18.0
 #       ^^^^^^
 # Maintained via vertoo. Please don't modify by hand!
 # Contact MonetDB-developers@lists.sourceforge.net for details and/or assistance.
@@ -246,7 +246,6 @@ LIBC_INCS = $(PTHREAD_INCS)
 MATH_LIBS =
 SOCKET_LIBS = wsock32.lib Ws2_32.lib
 
-MX=$(TOPDIR)\buildtools\Mx\Mx.exe
 CP=copy
 MV=copy
 DEL=del
@@ -329,6 +328,11 @@ create_winconfig_conds_new_py:
 	$(ECHO) HAVE_GEOM_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ELSE
 	$(ECHO) HAVE_GEOM_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
+!ENDIF
+!IFDEF HAVE_GSL
+	$(ECHO) HAVE_GSL_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
+!ELSE
+	$(ECHO) HAVE_GSL_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ENDIF
 !IFDEF HAVE_JAVA
 	$(ECHO) HAVE_JAVA_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
@@ -508,40 +512,6 @@ CFLAGS = $(CFLAGS) -DMONET_OID32
 
 CONFIG_H = monetdb_config.h
 
-{$(srcdir)}.mx.h:
-	$(MX) $(MXFLAGS) -l -x h $<
-
-.mx.h:
-	$(MX) $(MXFLAGS) -l -x h $<
-
-{$(srcdir)}.mx.c:
-	$(MX) $(MXFLAGS) -x c $<
-
-.mx.c:
-	$(MX) $(MXFLAGS) -x c $<
-
-{$(srcdir)}.mx.mal:
-	$(MX) $(MXFLAGS) -l -x mal $<
-	if not exist .libs $(MKDIR) .libs
-	$(INSTALL) $@ .libs\$@
-
-.mx.mal:
-	$(MX) $(MXFLAGS) -l -x mal $<
-	if not exist .libs $(MKDIR) .libs
-	$(INSTALL) $@ .libs\$@
-
-{$(srcdir)}.mx.sql:
-	$(MX) $(MXFLAGS) -l -x sql $<
-
-.mx.sql:
-	$(MX) $(MXFLAGS) -l -x sql $<
-
-{$(srcdir)}.mx.y:
-	$(MX) $(MXFLAGS) -x y $<
-
-.mx.y:
-	$(MX) $(MXFLAGS) -x y $<
-
 {$(srcdir)}.c.obj:
 	$(CC) $(CFLAGS) -c $<
 
@@ -556,4 +526,4 @@ CONFIG_H = monetdb_config.h
 	echo EXPORTS > $@
 	type $< >> $@
 
-.SUFFIXES: .mx .syms .def
+.SUFFIXES: .syms .def

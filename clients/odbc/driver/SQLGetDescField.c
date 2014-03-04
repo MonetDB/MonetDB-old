@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -307,7 +307,6 @@ SQLGetDescField(SQLHDESC DescriptorHandle,
 				StringLengthPtr);
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLGetDescFieldA(SQLHDESC DescriptorHandle,
 		 SQLSMALLINT RecordNumber,
@@ -389,4 +388,3 @@ SQLGetDescFieldW(SQLHDESC DescriptorHandle,
 
 	return rc;
 }
-#endif /* WITH_WCHAR */

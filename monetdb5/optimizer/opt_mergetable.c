@@ -3,19 +3,20 @@
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.monetdb.org/Legal/MonetDBLicense
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * The Original Code is the MonetDB Database System.
- * 
+ *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
+
 #include "monetdb_config.h"
 #include "opt_mergetable.h"
 
@@ -206,7 +207,7 @@ mat_set_prop( MalBlkPtr mb, InstrPtr p)
 {
 	int k, tpe = getArgType(mb, p, 0);
 
-	tpe = getTailType(tpe);
+	tpe = getColumnType(tpe);
 	for(k=1; k < p->argc; k++) {
 		setPartnr(mb, -1, getArg(p,k), k);
 		if (tpe == TYPE_oid)
@@ -217,7 +218,7 @@ mat_set_prop( MalBlkPtr mb, InstrPtr p)
 static InstrPtr
 mat_delta(MalBlkPtr mb, InstrPtr p, mat_t *mat, int m, int n, int o, int e, int mvar, int nvar, int ovar, int evar)
 {
-	int tpe, k, is_subdelta = (getFunctionId(p) == subdeltaRef);
+	int tpe, k, j, is_subdelta = (getFunctionId(p) == subdeltaRef);
 	InstrPtr r = NULL;
 
 	//printf("# %s.%s(%d,%d,%d,%d)", getModuleId(p), getFunctionId(p), m, n, o, e);
@@ -228,41 +229,78 @@ mat_delta(MalBlkPtr mb, InstrPtr p, mat_t *mat, int m, int n, int o, int e, int 
 	getArg(r, 0) = getArg(p,0);
 	tpe = getArgType(mb,p,0);
 
-	for(k=1; k < mat[m].mi->argc; k++) {
-		InstrPtr q = copyInstruction(p);
+	/* Handle like mat_leftfetchjoin, ie overlapping partitions */
+	if (evar == 1 && mat[e].mi->argc != mat[m].mi->argc) {
+		int nr = 1;
+		for(k=1; k < mat[e].mi->argc; k++) {
+			for(j=1; j < mat[m].mi->argc; j++) {
+				if (overlap(mb, getArg(mat[e].mi, k), getArg(mat[m].mi, j), k, j, 0)){
+					InstrPtr q = copyInstruction(p);
 
-		/* remove last argument */
-		if (k < mat[m].mi->argc-1)
-			q->argc--;
-		/* make sure to resolve again */
-		q->token = ASSIGNsymbol; 
-		q->typechk = TYPE_UNKNOWN;
-        	q->fcn = NULL;
-        	q->blk = NULL;
+					/* remove last argument */
+					if (k < mat[m].mi->argc-1)
+						q->argc--;
+					/* make sure to resolve again */
+					q->token = ASSIGNsymbol; 
+					q->typechk = TYPE_UNKNOWN;
+        				q->fcn = NULL;
+        				q->blk = NULL;
 
-		getArg(q, 0) = newTmpVariable(mb, tpe);
-		getArg(q, mvar) = getArg(mat[m].mi, k);
-		getArg(q, nvar) = getArg(mat[n].mi, k);
-		getArg(q, ovar) = getArg(mat[o].mi, k);
-		if (e >= 0)
-			getArg(q, evar) = getArg(mat[e].mi, k);
-		pushInstruction(mb, q);
-		setPartnr(mb, is_subdelta?getArg(mat[m].mi, k):-1, getArg(q,0), k);
-		r = pushArgument(mb, r, getArg(q, 0));
+					getArg(q, 0) = newTmpVariable(mb, tpe);
+					getArg(q, mvar) = getArg(mat[m].mi, j);
+					getArg(q, nvar) = getArg(mat[n].mi, j);
+					getArg(q, ovar) = getArg(mat[o].mi, j);
+					getArg(q, evar) = getArg(mat[e].mi, k);
+					pushInstruction(mb, q);
+					setPartnr(mb, getArg(mat[m].mi, j), getArg(q,0), nr);
+					r = pushArgument(mb, r, getArg(q, 0));
+
+					nr++;
+					break;
+				}
+			}
+		}
+	} else {
+		for(k=1; k < mat[m].mi->argc; k++) {
+			InstrPtr q = copyInstruction(p);
+
+			/* remove last argument */
+			if (k < mat[m].mi->argc-1)
+				q->argc--;
+			/* make sure to resolve again */
+			q->token = ASSIGNsymbol; 
+			q->typechk = TYPE_UNKNOWN;
+        		q->fcn = NULL;
+        		q->blk = NULL;
+
+			getArg(q, 0) = newTmpVariable(mb, tpe);
+			getArg(q, mvar) = getArg(mat[m].mi, k);
+			getArg(q, nvar) = getArg(mat[n].mi, k);
+			getArg(q, ovar) = getArg(mat[o].mi, k);
+			if (e >= 0)
+				getArg(q, evar) = getArg(mat[e].mi, k);
+			pushInstruction(mb, q);
+			setPartnr(mb, is_subdelta?getArg(mat[m].mi, k):-1, getArg(q,0), k);
+			r = pushArgument(mb, r, getArg(q, 0));
+		}
 	}
 	return r;
 }
 
 
 static InstrPtr
-mat_apply1(MalBlkPtr mb, InstrPtr p, mat_t *mat, int m, int var)
+mat_apply1(MalBlkPtr mb, InstrPtr p, mat_t *mat, int mtop, int m, int var)
 {
 	int tpe, k, is_select = isSubSelect(p), is_mirror = (getFunctionId(p) == mirrorRef);
 	int is_identity = (getFunctionId(p) == identityRef && getModuleId(p) == batcalcRef);
-	int ident_var = 0;
+	int ident_var = 0, is_assign = (getFunctionId(p) == NULL), n = 0;
 	InstrPtr r = NULL, q;
 
-	//printf("# %s.%s(%d)", getModuleId(p), getFunctionId(p), m);
+	/* Find the mat we overwrite */
+	if (is_assign) {
+		n = is_a_mat(getArg(p, 0), mat, mtop);
+		is_assign = (n >= 0);
+	}
 
 	r = newInstruction(mb, ASSIGNsymbol);
 	setModuleId(r,matRef);
@@ -282,7 +320,10 @@ mat_apply1(MalBlkPtr mb, InstrPtr p, mat_t *mat, int m, int var)
 	for(k=1; k < mat[m].mi->argc; k++) {
 		q = copyInstruction(p);
 
-		getArg(q, 0) = newTmpVariable(mb, tpe);
+		if (is_assign)
+			getArg(q, 0) = getArg(mat[n].mi, k);
+		else
+			getArg(q, 0) = newTmpVariable(mb, tpe);
 		if (is_identity)
 			getArg(q, 1) = newTmpVariable(mb, TYPE_oid);
 		getArg(q, var+is_identity) = getArg(mat[m].mi, k);
@@ -797,7 +838,7 @@ static int
 mat_group_project(MalBlkPtr mb, InstrPtr p, mat_t *mat, int mtop, int e, int a)
 {
 	int tp = getArgType(mb,p,0), k;
-	int tail = getTailType(tp);
+	int tail = getColumnType(tp);
 	InstrPtr ai1 = newInstruction(mb, ASSIGNsymbol), r;
 
 	setModuleId(ai1,matRef);
@@ -1134,7 +1175,7 @@ mat_group_derive(MalBlkPtr mb, InstrPtr p, mat_t *mat, int mtop, int b, int g)
 	if (getFunctionId(p) == subgroupdoneRef)
 		push = 1;
 
-	if (mat[g].im == -1){ /* allready packed */
+	if (mat[g].im == -1){ /* already packed */
 		pushInstruction(mb, copyInstruction(p));
 		return mtop;
 	}
@@ -1368,7 +1409,11 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 	old = mb->stmt;
 	oldtop= mb->stop;
 
-        vars= (int*) GDKmalloc(sizeof(int)* mb->vtop);
+	vars= (int*) GDKmalloc(sizeof(int)* mb->vtop);
+	if( vars == NULL){
+		GDKerror("mergetable"MAL_MALLOC_FAIL);
+		return 0;
+	}
 	/* check for bailout conditions */
 	for (i = 1; i < oldtop; i++) {
 		int j;
@@ -1641,7 +1686,7 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		if (match == 1 && bats == 1 && (isFragmentGroup(p) || isMapOp(p) || 
 		   (!getModuleId(p) && !getFunctionId(p) && p->barrier == 0 /* simple assignment */)) && p->retc != 2 && 
 		   (m=is_a_mat(getArg(p,fm), mat, mtop)) >= 0){
-			if ((r = mat_apply1(mb, p, mat, m, fm)) != NULL)
+			if ((r = mat_apply1(mb, p, mat, mtop, m, fm)) != NULL)
 				mtop = mat_add(mat, mtop, r, mat_type(mat, m), getFunctionId(p));
 			actions++;
 			continue;

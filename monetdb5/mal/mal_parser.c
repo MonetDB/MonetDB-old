@@ -13,45 +13,25 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
-/* Author(s): M. L. Kersten
- *The Parser Implementation
- * The parser (and its target language) are designed for speed of analysis.
- * For, parsing is a dominant cost-factor in applications interfering with
- * MonetDB. For the language design it meant that look-ahead and ambiguity
- * is avoided where-ever possible without compromising readability and
- * to ease debugging.
- *
- * The syntax layout of a MAL program consists of a module name,
- * a list of include commands, a list of function/ pattern/ command/ factory
- * definitions and concludes with the statements to be executed as
- * the main body of the program.  All components are optional.
- *
- * The program may be decorated with comments, which starts with a # and
- * runs till the end of the current line. Comments are retained
- * in the code block for debugging, but can be removed with an optimizer to reduce space
- * and interpretation overhead.
- *
- * @+ The lexical analyzer
- * The implementation of the lexical analyzer is straightforward:
- * the input is taken from a client input buffer. It is assumed that
- * this buffer contains the complete MAL structure to be parsed.
+/* (c): M. L. Kersten
 */
 
 #include "monetdb_config.h"
 #include "mal_parser.h"
 #include "mal_resolve.h"
 #include "mal_linker.h"
-#include "mal_atom.h"       /* for malAtomDefinition(), malAtomArray(), malAtomProperty() */
+#include "mal_atom.h"       /* for malAtomDefinition(), malAtomProperty() */
 #include "mal_interpreter.h"    /* for showErrors() */
 #include "mal_instruction.h"    /* for pushEndInstruction(), findVariableLength() */
 #include "mal_namespace.h"
 #include "mal_utils.h"
 #include "mal_builder.h"
 #include "mal_type.h"
+#include "mal_private.h"
 
 #define FATALINPUT MAXERRORS+1
 #define NL(X) ((X)=='\n' || (X)=='\r')
@@ -255,17 +235,6 @@ keyphrase2(Client cntxt, str kw)
 	skipSpace(cntxt);
 	if (CURRENT(cntxt)[0] == kw[0] && CURRENT(cntxt)[1] == kw[1]) {
 		advance(cntxt, 2);
-		return 1;
-	}
-	return 0;
-}
-
-static inline int
-keyphrase(Client cntxt, str kw, int length)
-{
-	skipSpace(cntxt);
-	if (strncmp(CURRENT(cntxt), kw, length) == 0) {
-		advance(cntxt, length);
 		return 1;
 	}
 	return 0;
@@ -709,7 +678,7 @@ parseTypeId(Client cntxt, int defaultType)
 		if (kh > 0)
 			setAnyHeadIndex(i, kh);
 		if (kt > 0)
-			setAnyTailIndex(i, kt);
+			setAnyColumnIndex(i, kt);
 
 		if (currChar(cntxt) != ']')
 			parseError(cntxt, "']' expected\n");
@@ -725,13 +694,13 @@ parseTypeId(Client cntxt, int defaultType)
 	if (strncmp(s, ":col", 4) == 0 && !idCharacter[(int) s[4]]) {
 		/* parse default for :col[:any] */
 		advance(cntxt, 4);
-		return newColType(TYPE_any);
+		return newColumnType(TYPE_any);
 	}
 	if (currChar(cntxt) == ':') {
 		ht = simpleTypeId(cntxt);
 		kt = typeAlias(cntxt, ht);
 		if (kt > 0)
-			setAnyTailIndex(ht, kt);
+			setAnyColumnIndex(ht, kt);
 		return ht;
 	}
 	parseError(cntxt, "<type identifier> expected\n");
@@ -1082,18 +1051,20 @@ parseInclude(Client cntxt)
 	if (currChar(cntxt) != ';') {
 		parseError(cntxt, "';' expected\n");
 		skipToEnd(cntxt);
-		return "";
+		return 0;
 	}
 	skipToEnd(cntxt);
 
 	s = loadLibrary(modnme, FALSE);
 	if (s) {
-		mnstr_printf(cntxt->fdout, "#WARNING: %s\n", s);
+		parseError(cntxt, s);
 		GDKfree(s);
+		return 0;
 	}
 	if ((s = malInclude(cntxt, modnme, 0))) {
-		mnstr_printf(cntxt->fdout, "#WARNING: %s\n", s);
+		parseError(cntxt, s);
 		GDKfree(s);
+		return 0;
 	}
 	return "";
 }

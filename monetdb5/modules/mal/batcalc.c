@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -729,6 +729,18 @@ CMDbatMULenlarge(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	return CMDbatBINARY2(stk, pci, BATcalcmul, BATcalcmulcst, BATcalccstmul,
 						 calctypeenlarge, 1, "batcalc.mul_enlarge");
+}
+
+batcalc_export str CMDbatDIV(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+
+str
+CMDbatDIV(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	(void) mb;
+
+	return CMDbatBINARY2(stk, pci, BATcalcdiv, BATcalcdivcst, BATcalccstdiv,
+						 calcdivtype, 0, "batcalc.div_noerror");
 }
 
 batcalc_export str CMDbatDIVsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -289,8 +289,12 @@ DCsliceStrict(int *ret, bat *bid, lng *start, lng *end)
 	assert(*end < (lng) BUN_MAX);
 	assert(*start <= *end);
 
+	assert(b->htype == TYPE_void);
 	if ((BUN) ((*end - *start) + 1) > BATcount(b)) {
-		bn = BATnew(b->htype, b->ttype, 0);
+		bn = BATnew(TYPE_void, b->ttype, 0);
+		if( bn == NULL){
+			throw(SQL,"datacell.slice",MAL_MALLOC_FAIL);
+		}
 		BATsetcount(bn, 0);
 		*ret = bn->batCacheid;
 		BBPkeepref(*ret);

@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -26,6 +26,8 @@
 #include "monetdb_config.h"
 #include "gdk.h"
 #include "gdk_private.h"
+
+#undef BATsample
 
 #define DRAND ((double)rand()/(double)RAND_MAX)
 
@@ -146,7 +148,7 @@ BATsample_(BAT *b, BUN n)
 		wrd top = b->hseqbase + cnt - n;
 		wrd p = ((wrd) b->hseqbase) - 1;
 		oid *o;
-		bn = BATnew(TYPE_void, TYPE_oid, smp);
+		bn = BATnew(TYPE_void, TYPE_oid, n);
 		if (bn == NULL) {
 			GDKerror("#BATsample: memory allocation error");
 			return NULL;
@@ -168,19 +170,19 @@ BATsample_(BAT *b, BUN n)
 		}
 		/* 1 left */
 		p += (BUN) rand() % cnt;
-		o[smp] = (oid) p;
+		o[smp] = (oid) p+1;
 
 		/* property management */
 		BATsetcount(bn, n);
-		bn->trevsorted = bn->U->count <= 1;
+		bn->trevsorted = bn->batCount <= 1;
 		bn->tkey = 1;
-		bn->tdense = bn->U->count <= 1;
-		if (bn->U->count == 1)
+		bn->tdense = bn->batCount <= 1;
+		if (bn->batCount == 1)
 			bn->tseqbase = * (oid *) Tloc(bn, BUNfirst(bn));
 		bn->hdense = 1;
 		bn->hseqbase = 0;
 		bn->hkey = 1;
-		bn->hrevsorted = bn->U->count <= 1;
+		bn->hrevsorted = bn->batCount <= 1;
 	}
 
 	return bn;

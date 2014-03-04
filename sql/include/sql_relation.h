@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -107,7 +107,6 @@ typedef struct expression {
 #define DDL_CREATE_TYPE 30 
 #define DDL_DROP_TYPE   31 
 
-#define DDL_CREATE_INDEX  32
 #define DDL_DROP_INDEX    33
 
 #define DDL_CREATE_FUNCTION 41 
@@ -126,7 +125,7 @@ typedef struct expression {
 #define DDL_CREATE_ROLE 59
 #define DDL_DROP_ROLE 	60
 
-#define MAXOPS 20
+#define MAXOPS 21
 
 typedef enum operator_type {
 	op_basetable = 0,
@@ -247,6 +246,8 @@ typedef enum operator_type {
 	(rel->processed)
 #define set_processed(rel) \
 	rel->processed = 1
+#define reset_processed(rel) \
+	rel->processed = 0
 #define is_subquery(rel) \
 	(rel->subquery)
 #define set_subquery(rel) \

@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -23,6 +23,7 @@
 #include "rel_exp.h"
 #include "rel_psm.h"
 #include "rel_prop.h" /* for prop_copy() */
+#include "rel_optimizer.h"
 
 static sql_exp * 
 exp_create(sql_allocator *sa, int type ) 
@@ -39,7 +40,6 @@ exp_create(sql_allocator *sa, int type )
 	e->p = NULL;
 	e->used = 0;
 	e->tpe.type = NULL;
-	e->tpe.comp_type = NULL;
 	e->tpe.digits = e->tpe.scale = 0;
 	return e;
 }
@@ -149,9 +149,9 @@ exp_convert(sql_allocator *sa, sql_exp *exp, sql_subtype *fromtype, sql_subtype 
 	e->r = append(append(sa_list(sa), dup_subtype(sa, fromtype)),totype);
 	e->tpe = *totype; 
 	if (exp->name)
-		e->name = sa_strdup(sa, exp->name);
+		e->name = exp->name;
 	if (exp->rname)
-		e->rname = sa_strdup(sa, exp->rname);
+		e->rname = exp->rname;
 	return e;
 }
 
@@ -302,7 +302,7 @@ sql_exp *
 exp_param(sql_allocator *sa, char *name, sql_subtype *tpe, int frame) 
 {
 	sql_exp *e = exp_create(sa, e_atom);
-	e->r = sa_strdup(sa, name);
+	e->r = name;
 	e->card = CARD_ATOM;
 	e->flag = frame;
 	if (tpe)
@@ -350,10 +350,10 @@ exp_alias(sql_allocator *sa, char *arname, char *acname, char *org_rname, char *
 
 	assert(acname && org_cname);
 	e->card = card;
-	e->rname = (arname)?sa_strdup(sa, arname):(org_rname)?sa_strdup(sa, org_rname):NULL;
-	e->name = sa_strdup(sa, acname);
-	e->l = (org_rname)?sa_strdup(sa, org_rname):NULL;
-	e->r = sa_strdup(sa, org_cname);
+	e->rname = (arname)?arname:org_rname;
+	e->name = acname;
+	e->l = org_rname;
+	e->r = org_cname;
 	if (t)
 		e->tpe = *t;
 	if (!has_nils)
@@ -370,10 +370,10 @@ exp_column(sql_allocator *sa, char *rname, char *cname, sql_subtype *t, int card
 
 	assert(cname);
 	e->card = card;
-	e->name = sa_strdup(sa, cname);
-	e->rname = (rname)?sa_strdup(sa, rname):NULL;
-	e->r = sa_strdup(sa, cname);
-	e->l = (rname)?sa_strdup(sa, rname):NULL;
+	e->name = cname;
+	e->rname = rname;
+	e->r = e->name;
+	e->l = e->rname;
 	if (t)
 		e->tpe = *t;
 	if (!has_nils)
@@ -401,6 +401,17 @@ exp_var(sql_allocator *sa, char *name, sql_subtype *type, int level)
 
 	e->name = name;
 	e->tpe = *type;
+	e->flag = PSM_VAR + SET_PSM_LEVEL(level);
+	return e;
+}
+
+sql_exp * 
+exp_table(sql_allocator *sa, char *name, sql_table *t, int level)
+{
+	sql_exp *e = exp_create(sa, e_psm);
+
+	e->name = name;
+	e->f = t;
 	e->flag = PSM_VAR + SET_PSM_LEVEL(level);
 	return e;
 }
@@ -439,10 +450,11 @@ exp_if(sql_allocator *sa, sql_exp *cond, list *if_stmts, list *else_stmts)
 }
 
 sql_exp * 
-exp_rel(sql_allocator *sa, sql_rel *rel)
+exp_rel(mvc *sql, sql_rel *rel)
 {
-	sql_exp *e = exp_create(sa, e_psm);
+	sql_exp *e = exp_create(sql->sa, e_psm);
 
+	rel = rel_optimizer(sql, rel);
 	e->l = rel;
 	e->flag = PSM_REL;
 	return e;
@@ -528,12 +540,15 @@ exp_subtype( sql_exp *e )
 		break;
 	case e_aggr: {
 		sql_subaggr *a = e->f;
-		return &a->res;
+		if (a->res && list_length(a->res) == 1) 
+			return a->res->h->data;
+		return NULL;
 	}
 	case e_func: {
 		if (e->f) {
 			sql_subfunc *f = e->f;
-			return &f->res;
+			if (f->res && list_length(f->res) == 1) 
+				return f->res->h->data;
 		}
 		return NULL;
 	}
@@ -761,7 +776,9 @@ exp_match_exp( sql_exp *e1, sql_exp *e2)
 			break;
 		case e_func:
 			if (!subfunc_cmp(e1->f, e2->f) && /* equal functions */
-			    exp_match_list(e1->l, e2->l))
+			    exp_match_list(e1->l, e2->l) &&
+			    /* optional order by expressions */
+			    exp_match_list(e1->r, e2->r))
 				return 1;
 			break;
 		case e_atom:
@@ -792,7 +809,7 @@ exps_are_joins( list *l )
 int
 exp_is_join_exp(sql_exp *e)
 {
-	if (exp_is_join(e) == 0)
+	if (exp_is_join(e, NULL) == 0)
 		return 0;
 	if (e->type == e_cmp && e->flag == cmp_or && e->card >= CARD_AGGR)
 		if (exps_are_joins(e->l) == 0 && exps_are_joins(e->r) == 0)
@@ -879,8 +896,42 @@ distinct_rel(sql_exp *e, char **rname)
 	}
 	return 0;
 }
+
+int
+rel_has_exp(sql_rel *rel, sql_exp *e) 
+{
+	if (rel_find_exp(rel, e) != NULL) 
+		return 0;
+	return -1;
+}
+
+sql_rel *
+find_rel(list *rels, sql_exp *e)
+{
+	node *n = list_find(rels, e, (fcmp)&rel_has_exp);
+	if (n) 
+		return n->data;
+	return NULL;
+}
+
+sql_rel *
+find_one_rel(list *rels, sql_exp *e)
+{
+	node *n;
+	sql_rel *fnd = NULL;
+
+	for(n = rels->h; n; n = n->next) {
+		if (rel_has_exp(n->data, e) == 0) {
+			if (fnd)
+				return NULL;
+			fnd = n->data;
+		}
+	}
+	return fnd;
+}
+
 static int 
-exp_is_rangejoin(sql_exp *e)
+exp_is_rangejoin(sql_exp *e, list *rels)
 {
 	/* assume e is a e_cmp with 3 args 
 	 * Need to check e->r and e->f only touch one table.
@@ -889,11 +940,17 @@ exp_is_rangejoin(sql_exp *e)
 
 	if (distinct_rel(e->r, &rname) && distinct_rel(e->f, &rname))
 		return 0;
+	if (rels) { 
+		sql_rel *r = find_rel(rels, e->r);
+		sql_rel *f = find_rel(rels, e->f);
+		if (r && f && r == f)
+			return 0;
+	}
 	return -1;
 }
 
 int
-exp_is_join(sql_exp *e)
+exp_is_join(sql_exp *e, list *rels)
 {
 	/* only simple compare expressions, ie not or lists
 		or range expressions (e->f)
@@ -904,7 +961,7 @@ exp_is_join(sql_exp *e)
 		return 0;
 	/* range expression */
 	if (e->type == e_cmp && !is_complex_exp(e->flag) && e->l && e->r && e->f && e->card >= CARD_AGGR && !complex_select(e)) 
-		return exp_is_rangejoin(e);
+		return exp_is_rangejoin(e, rels);
 	return -1;
 }
 
@@ -1029,6 +1086,8 @@ exp_is_atom( sql_exp *e )
 {
 	switch (e->type) {
 	case e_atom:
+		if (e->f) /* values list */
+			return 0;
 		return 1;
 	case e_convert:
 		return exp_is_atom(e->l);
@@ -1050,6 +1109,17 @@ exp_is_atom( sql_exp *e )
 		return 0;
 	}
 	return 0;
+}
+
+int
+exps_are_atoms( list *exps)
+{
+	node *n;
+	int atoms = 1;
+
+	for(n=exps->h; n && atoms; n=n->next) 
+		atoms &= exp_is_atom(n->data);
+	return atoms;
 }
 
 static int
@@ -1106,35 +1176,41 @@ exps_bind_column( list *exps, char *cname, int *ambiguous )
 	if (exps && cname) {
 		node *en;
 
-		if (exps && !exps->ht && list_length(exps) > HASH_MIN_SIZE) {
-			exps->ht = hash_new(exps->sa, list_length(exps), (fkeyvalue)&exp_key);
+		if (exps) {
+			MT_lock_set(&exps->ht_lock, "exps_bind_column");
+			if (!exps->ht && list_length(exps) > HASH_MIN_SIZE) {
+				exps->ht = hash_new(exps->sa, list_length(exps), (fkeyvalue)&exp_key);
 
-			for (en = exps->h; en; en = en->next ) {
-				sql_exp *e = en->data;
-				if (e->name) {
-					int key = exp_key(e);
+				for (en = exps->h; en; en = en->next ) {
+					sql_exp *e = en->data;
+					if (e->name) {
+						int key = exp_key(e);
 
-					hash_add(exps->ht, key, e);
-				}
-			}
-		}
-		if (exps && exps->ht) {
-			int key = hash_key(cname);
-			sql_hash_e *he = exps->ht->buckets[key&(exps->ht->size-1)]; 
-
-			for (; he; he = he->chain) {
-				sql_exp *ce = he->value;
-
-				if (ce->name && strcmp(ce->name, cname) == 0) {
-					if (e) {
-						if (ambiguous)
-							*ambiguous = 1;
-						return NULL;
+						hash_add(exps->ht, key, e);
 					}
-					e = ce;
 				}
 			}
-			return e;
+			if (exps->ht) {
+				int key = hash_key(cname);
+				sql_hash_e *he = exps->ht->buckets[key&(exps->ht->size-1)]; 
+
+				for (; he; he = he->chain) {
+					sql_exp *ce = he->value;
+
+					if (ce->name && strcmp(ce->name, cname) == 0) {
+						if (e) {
+							if (ambiguous)
+								*ambiguous = 1;
+							MT_lock_unset(&exps->ht_lock, "exps_bind_column");
+							return NULL;
+						}
+						e = ce;
+					}
+				}
+				MT_lock_unset(&exps->ht_lock, "exps_bind_column");
+				return e;
+			}
+			MT_lock_unset(&exps->ht_lock, "exps_bind_column");
 		}
 		for (en = exps->h; en; en = en->next ) {
 			sql_exp *ce = en->data;
@@ -1157,31 +1233,37 @@ exps_bind_column2( list *exps, char *rname, char *cname )
 	if (exps) {
 		node *en;
 
-		if (exps && !exps->ht && list_length(exps) > HASH_MIN_SIZE) {
-			exps->ht = hash_new(exps->sa, list_length(exps), (fkeyvalue)&exp_key);
+		if (exps) {
+			MT_lock_set(&exps->ht_lock, "exps_bind_column2");
+			if (!exps->ht && list_length(exps) > HASH_MIN_SIZE) {
+				exps->ht = hash_new(exps->sa, list_length(exps), (fkeyvalue)&exp_key);
 
-			for (en = exps->h; en; en = en->next ) {
-				sql_exp *e = en->data;
-				if (e->name) {
-					int key = exp_key(e);
+				for (en = exps->h; en; en = en->next ) {
+					sql_exp *e = en->data;
+					if (e->name) {
+						int key = exp_key(e);
 
-					hash_add(exps->ht, key, e);
+						hash_add(exps->ht, key, e);
+					}
 				}
 			}
-		}
-		if (exps && exps->ht) {
-			int key = hash_key(cname);
-			sql_hash_e *he = exps->ht->buckets[key&(exps->ht->size-1)]; 
+			if (exps->ht) {
+				int key = hash_key(cname);
+				sql_hash_e *he = exps->ht->buckets[key&(exps->ht->size-1)]; 
 
-			for (; he; he = he->chain) {
-				sql_exp *e = he->value;
+				for (; he; he = he->chain) {
+					sql_exp *e = he->value;
 
-				if (e && is_column(e->type) && e->name && e->rname && strcmp(e->name, cname) == 0 && strcmp(e->rname, rname) == 0)
-					return e;
-				if (e && e->type == e_column && e->name && !e->rname && e->l && strcmp(e->name, cname) == 0 && strcmp(e->l, rname) == 0)
-					return e;
+					if ((e && is_column(e->type) && e->name && e->rname && strcmp(e->name, cname) == 0 && strcmp(e->rname, rname) == 0) ||
+					    (e && e->type == e_column && e->name && !e->rname && e->l && strcmp(e->name, cname) == 0 && strcmp(e->l, rname) == 0)) {
+						MT_lock_unset(&exps->ht_lock, "exps_bind_column2");
+						return e;
+					}
+				}
+				MT_lock_unset(&exps->ht_lock, "exps_bind_column2");
+				return NULL;
 			}
-			return NULL;
+			MT_lock_unset(&exps->ht_lock, "exps_bind_column2");
 		}
 		for (en = exps->h; en; en = en->next ) {
 			sql_exp *e = en->data;
@@ -1239,6 +1321,19 @@ exps_fix_card( list *exps, int card)
 		sql_exp *e = n->data;
 
 		if (e->card > card)
+			e->card = card;
+	}
+}
+
+void
+exps_setcard( list *exps, int card)
+{
+	node *n;
+
+	for (n = exps->h; n; n = n->next) {
+		sql_exp *e = n->data;
+
+		if (e->card != CARD_ATOM)
 			e->card = card;
 	}
 }

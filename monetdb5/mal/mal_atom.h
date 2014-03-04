@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -22,12 +22,6 @@
 
 /* #define MAL_ATOM_DEBUG  */
 
-#include "mal_instruction.h"
-mal_export void malAtomDefinition(stream *out, str name,int tpe);
-mal_export int malAtomProperty(MalBlkPtr mb, InstrPtr pci);
-mal_export int malAtomArray(int tpe, int idx);
-mal_export int malAtomFixed(int size, int align, char *name);
 mal_export int malAtomSize(int size, int align, char *name);
-mal_export void showAtoms(stream *fd);  /* used in src/mal/mal_debugger.c */
 
 #endif /*  _MAL_ATOM_H*/

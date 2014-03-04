@@ -3,19 +3,20 @@
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.monetdb.org/Legal/MonetDBLicense
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * The Original Code is the MonetDB Database System.
- * 
+ *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
+
 /*
  * @a M. Kersten
  * @- Map-reduce processing
@@ -322,7 +323,7 @@ getJoinPathType(MalBlkPtr mb, InstrPtr p)
 		!isaBatType(getArgType(mb,p,p->argc-1))) 
 		return TYPE_any;
 	ht = getHeadType(getArgType(mb,p,1));
-	tt = getTailType(getArgType(mb,p,p->argc-1));
+	tt = getColumnType(getArgType(mb,p,p->argc-1));
 	tpe = newBatType(ht,tt);
 	return tpe;
 }
@@ -338,6 +339,11 @@ OCTnewTentacle(Client cntxt, MalBlkPtr mb, bte tidx, int v2, int *cl)
 	int *alias= (int*) GDKzalloc(mb->vtop * sizeof(int));
 	int i, j, k, conn= 0, last = mb->stop-1, tpe;
 	str nm;
+	
+	if( alias == NULL){
+		GDKerror("octopus"MAL_MALLOC_FAIL);
+		return NULL;
+	}
 
 	ocl = &octCluster[tidx];
 
@@ -506,6 +512,16 @@ OCTnewOctBlk(MalBlkPtr mb, InstrPtr *old, int v2)
 	bid = (int**) GDKzalloc(sizeof(int*) * tcnt);
 	res = (int**) GDKzalloc(sizeof(int*) * tcnt);
 
+	if( wnm == NULL || wvar == NULL || tnm == NULL || bid == NULL || res == NULL){
+		GDKerror("octopus"MAL_MALLOC_FAIL);
+		if(wnm) GDKfree(wnm);
+		if(wvar) GDKfree(wvar);
+		if(tnm) GDKfree(tnm);
+		if(bid) GDKfree(bid);
+		if(res) GDKfree(res);
+		return ;
+	}
+
 	for ( j= 0; j < tcnt; j++){
 		snprintf(buf,BUFSIZ,"worker_%d",j); 
 		cst.val.sval= GDKstrdup(buf);
@@ -518,9 +534,17 @@ OCTnewOctBlk(MalBlkPtr mb, InstrPtr *old, int v2)
 		cst.len= (int) strlen(cst.val.sval);
 		tnm[j] = defConstant(mb, TYPE_str, &cst);
 		bid[j] = (int*) GDKzalloc(sizeof(int) * tcnt);
+		if( bid[j] == NULL){
+			GDKerror("octopus" MAL_MALLOC_FAIL);
+			break;
+		}
 			
 		ocl = &octCluster[j+1];
 		res[j] = (int*) GDKzalloc(sizeof(int) * ocl->retcnt);
+		if( res[j] == NULL){
+			GDKerror("octopus" MAL_MALLOC_FAIL);
+			break;
+		}
 		for ( i = 0; i < ocl->retcnt; i++){
 			snprintf(buf,BUFSIZ,"res_%d_%d",j+1,i); 
 			res[j][i] = newVariable(mb,GDKstrdup(buf),getVarType(mb,ocl->ret[i]));	
@@ -606,7 +630,7 @@ OCTnewOctBlk(MalBlkPtr mb, InstrPtr *old, int v2)
 			if (isaBatType(tpe)) {
 				r = newFcnCall(mb, batRef, newRef);
 				r = pushType(mb, r, getHeadType(tpe));
-				r = pushType(mb, r, getTailType(tpe));
+				r = pushType(mb, r, getColumnType(tpe));
 			} else {
 				r = newAssignment(mb);
 				r = pushNil(mb, r, tpe);
@@ -848,7 +872,7 @@ OCTnewExec(Client cntxt, MalBlkPtr mb, MalBlkPtr t, int tno)
 		if (isaBatType(tpe)) {                /* exec_qry:= bat.new(:htp,:ttp); */
 			q = newFcnCall(sm, batRef, newRef);
 			q = pushType(sm, q, getHeadType(tpe));
-			q = pushType(sm, q, getTailType(tpe));
+			q = pushType(sm, q, getColumnType(tpe));
 		}else  {                        /* exec_qry:= nil:tp; */
 			q = newAssignment(sm);
 			q = pushNil(sm, q, tpe);
@@ -1000,7 +1024,16 @@ OPToctopusImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 
 	/* exclude variable reuse */
 	alias = (int*) GDKzalloc(mb->vtop * sizeof(int));
+	if( alias == NULL){
+		GDKerror("octopus" MAL_MALLOC_FAIL);
+		return 0;
+	}
 	set = (bte*) GDKzalloc(mb->vtop);
+	if( set == NULL){
+		GDKfree(alias);
+		GDKerror("octopus" MAL_MALLOC_FAIL);
+		return 0;
+	}
 	for (i = 0; i < mb->vtop; i++) 
 		alias[i] = i;
 	
@@ -1039,6 +1072,14 @@ OPToctopusImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci
 	src = (int*) GDKzalloc(mb->vtop * sizeof(int));
 	pref = (InstrPtr*) GDKzalloc(mb->stop * sizeof(InstrPtr));
 
+	if( malPart == NULL || bnd == NULL || src == NULL || pref == NULL){
+		if(malPart) GDKfree(malPart);
+		if(bnd) GDKfree(bnd);
+		if(src) GDKfree(src);
+		if(pref) GDKfree(pref);
+		GDKerror("octopus" MAL_MALLOC_FAIL);
+		return 0;
+	}
 
 	/* analysis and clustering of instructions */
 	for (i = 1; i < limit; i++) {

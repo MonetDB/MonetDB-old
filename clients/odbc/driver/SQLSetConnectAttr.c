@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -101,6 +101,9 @@ SQLSetConnectAttr_(ODBCDbc *dbc,
 		if (dbc->mid)
 			mapi_timeout(dbc->mid, dbc->sql_attr_connection_timeout);
 		break;
+	case SQL_ATTR_TXN_ISOLATION:
+		/* nothing to change, we only do the highest level */
+		break;
 
 		/* TODO: implement connection attribute behavior */
 	case SQL_ATTR_ACCESS_MODE:
@@ -113,7 +116,6 @@ SQLSetConnectAttr_(ODBCDbc *dbc,
 	case SQL_ATTR_TRACEFILE:
 	case SQL_ATTR_TRANSLATE_LIB:
 	case SQL_ATTR_TRANSLATE_OPTION:
-	case SQL_ATTR_TXN_ISOLATION:
 		/* Optional feature not implemented */
 		addDbcError(dbc, "HYC00", NULL, 0);
 		return SQL_ERROR;
@@ -151,7 +153,6 @@ SQLSetConnectAttr(SQLHDBC ConnectionHandle,
 				  StringLength);
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLSetConnectAttrA(SQLHDBC ConnectionHandle,
 		   SQLINTEGER Attribute,
@@ -209,4 +210,3 @@ SQLSetConnectAttrW(SQLHDBC ConnectionHandle,
 
 	return rc;
 }
-#endif /* WITH_WCHAR */

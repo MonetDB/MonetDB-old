@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -454,7 +454,7 @@ ODBCLength(ODBCDescRec *rec, int lengthtype)
 			6;
 	case SQL_GUID:
 		if (lengthtype == SQL_DESC_OCTET_LENGTH)
-			return 16;
+			return 16; /* sizeof(SQLGUID) */
 		/* strlen("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee") */
 		return 36;
 	default:

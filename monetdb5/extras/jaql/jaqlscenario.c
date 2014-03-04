@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -27,6 +27,7 @@
 #include "mal_exception.h"
 #include "mal_scenario.h"
 #include "mal_instruction.h"
+#include "mal_debugger.h"
 #include "optimizer.h"
 #include "opt_pipes.h"
 
@@ -81,8 +82,6 @@ JAQLinitClient(Client c)
 
 	j = GDKzalloc(sizeof(jc));
 	jaqllex_init_extra(j, &j->scanner);
-
-	optimizerInit();  /* for all xxxRef vars in dumpcode */
 
 	/* Set state, this indicates an initialized client scenario */
 	c->state[MAL_SCENARIO_READER] = c;
@@ -155,7 +154,7 @@ JAQLreader(Client c)
 	/* "activate" the stream by sending a prompt (client sync) */
 	if (c->fdin->eof != 0) {
 		if (mnstr_flush(c->fdout) < 0) {
-			c->mode = FINISHING;
+			c->mode = FINISHCLIENT;
 		} else {
 			c->fdin->eof = 0;
 		}
@@ -180,7 +179,7 @@ JAQLparser(Client c)
 		fprintf(stderr, "%s, cannot handle client!\n", errmsg);
 		/* stop here, instead of printing the exception below to the
 		 * client in an endless loop */
-		c->mode = FINISHING;
+		c->mode = FINISHCLIENT;
 		return errmsg;
 	}
 
@@ -204,7 +203,7 @@ JAQLparser(Client c)
 
 	/* stop if it seems nothing is going to come any more */
 	if (j->scanstreameof == 1) {
-		c->mode = FINISHING;
+		c->mode = FINISHCLIENT;
 		freetree(j->p);
 		j->p = NULL;
 		return MAL_SUCCEED;
@@ -294,6 +293,7 @@ JAQLengine(Client c)
 		printtree(c->fdout, j->p, 0, j->planf);
 		mnstr_printf(c->fdout, "\n");
 		freetree(j->p);
+		c->glb = oldglb;
 		return MAL_SUCCEED;  /* don't have a plan generated */
 	} else if (j->debug) {
 		msg = runMALDebugger(c, c->curprg);
@@ -318,7 +318,7 @@ JAQLengine(Client c)
 	}
 
 	MSresetInstructions(c->curprg->def, 1);
-	freeVariables(c, c->curprg->def, c->glb, j->vtop);
+	freeVariables(c, c->curprg->def, NULL, j->vtop);
 	assert(c->glb == 0 || c->glb == oldglb); /* detect leak */
 	c->glb = oldglb;
 

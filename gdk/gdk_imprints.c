@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -551,7 +551,7 @@ BATimprints(BAT *b) {
 	MT_lock_set(&GDKimprintsLock(ABS(b->batCacheid)), "BATimprints");
 	if (b->T->imprints == NULL) {
 		Imprints *imprints;
-		BAT *smp;
+		BAT *smp, *s;
 		BUN cnt;
 		str nme = BBP_physical(b->batCacheid);
 
@@ -568,10 +568,15 @@ BATimprints(BAT *b) {
 		}
 
 #define SMP_SIZE 2048
-		smp = BATsample(b, SMP_SIZE);
-		smp = BATmirror(BATorder(BATmirror(smp)));
-		smp = BATmirror(BATkunique(BATmirror(smp)));
-		/* sample now is ordered and unique on tail */
+		s = BATsample_(b, SMP_SIZE);
+		smp = BATsubunique(b, s);
+		BBPunfix(s->batCacheid);
+		s = BATproject(smp,b);
+		BBPunfix(smp->batCacheid);
+		s->tkey=1; /* we know is unique on tail now */
+		BATsubsort(&smp,NULL,NULL,s,NULL,NULL,0,0);
+		BBPunfix(s->batCacheid);
+		/* smp now is ordered and unique on tail */
 		assert(smp->tkey && smp->tsorted);
 		cnt = BATcount(smp);
 
@@ -603,7 +608,7 @@ BATimprints(BAT *b) {
 #define FILL_HISTOGRAM(TYPE)                                      \
 do {                                                              \
 	BUN k;                                                    \
-	TYPE *s = (TYPE *)Tloc(smp, smp->U->first);               \
+	TYPE *s = (TYPE *)Tloc(smp, smp->batFirst);               \
 	TYPE *h = (TYPE *)imprints->bins->base;                   \
 	if (cnt < 64-1) {                                         \
 		TYPE max = GDK_##TYPE##_max;                      \
@@ -682,9 +687,9 @@ do {                                                              \
 		sprintf(imprints->dict->filename, "%s.dict", nme);
 
 		/* TODO: better estimation for the size to alloc */
-		if (HEAPalloc(imprints->imps, b->T->heap.size/IMPS_PAGE,
+		if (HEAPalloc(imprints->imps, (b->T->heap.size+IMPS_PAGE-1)/IMPS_PAGE,
 					imprints->bits/8) +
-			HEAPalloc(imprints->dict, b->T->heap.size/IMPS_PAGE,
+			HEAPalloc(imprints->dict, (b->T->heap.size+IMPS_PAGE-1)/IMPS_PAGE,
 				sizeof(cchdc_t)) < 0) {
 			GDKerror("#BATimprints: memory allocation error");
 			HEAPfree(imprints->bins);
@@ -727,8 +732,9 @@ do {                                                              \
 		BBPunfix(b->batCacheid);
 		b = o;
 	}
+	assert(b->batCapacity >= BATcount(b));
 	return b;
-};
+}
 
 int
 IMPSgetbin(int tpe, bte bits, char *inbins, const void *v)
@@ -782,8 +788,20 @@ IMPSgetbin(int tpe, bte bits, char *inbins, const void *v)
 	return ret;
 }
 
+#define heapinfo(X) if ((X) && (X)->base) vol = (X)->free; else vol = 0;
 
-void
+lng
+IMPSimprintsize(BAT *b)
+{
+	lng sz=0;
+	if( b->T->imprints){
+		sz = b->T->imprints->impcnt * sizeof(IMPS_PAGE/8);
+		sz += b->T->imprints->dictcnt * sizeof(cchdc_t);
+	}
+	return sz;
+}
+
+static void
 IMPSremove(BAT *b) {
 	Imprints *imprints;
 
@@ -839,6 +857,8 @@ IMPSdestroy(BAT *b) {
 	return;
 }
 
+#ifndef NDEBUG
+/* never called, useful for debugging */
 void
 IMPSprint(BAT *b) {
 	Imprints *imprints;
@@ -878,3 +898,4 @@ do {									\
 		}
 	}
 }
+#endif

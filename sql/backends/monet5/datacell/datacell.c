@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -60,7 +60,7 @@ DCprocedureStmt(Client cntxt, MalBlkPtr mb, str schema, str nme)
 	sql_func *f;
 	/*sql_trans *tr;*/
 
-	if (msg)
+	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
 		return msg;
 	s = mvc_bind_schema(m, schema);
 	if (s == NULL)
@@ -109,7 +109,7 @@ DCinitialize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_func *f;
 	sql_trans *tr;
 
-	if (msg)
+	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
 		return msg;
 
 	assert(m != NULL);

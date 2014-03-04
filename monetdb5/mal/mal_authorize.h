@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -22,7 +22,6 @@
 
 /* #define _DEBUG_AUTH_*/
 #include "mal.h"
-#include "mal_exception.h"
 #include "mal_instruction.h"
 #include "mal_client.h"
 
@@ -38,12 +37,10 @@ mal_export str AUTHgetUsers(BAT **ret, Client *c);
 mal_export str AUTHgetPasswordHash(str *ret, Client *c, str *username);
 
 mal_export str AUTHrequireAdmin(Client *c);
-mal_export str AUTHrequireAdminOrUser(Client *c, str *username);
-mal_export str AUTHinitTables(void);
+mal_export str AUTHinitTables(str *passwd);
 
 
 /*
- * @-
  * Authorisation is based on a password.  The passwords are stored hashed
  * in a BAT.  Access to this BAT is ok from the MAL level, and in
  * particular SQL needs it to dump (and later restore) users.

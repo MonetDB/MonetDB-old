@@ -1,4 +1,3 @@
-
 -- The contents of this file are subject to the MonetDB Public License
 -- Version 1.1 (the "License"); you may not use this file except in
 -- compliance with the License. You may obtain a copy of the License at
@@ -12,68 +11,89 @@
 -- The Original Code is the MonetDB Database System.
 --
 -- The Initial Developer of the Original Code is CWI.
--- Copyright August 2008-2013 MonetDB B.V.
+-- Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+-- Copyright August 2008-2014 MonetDB B.V.
 -- All Rights Reserved.
 
 -- (co) Martin Kersten
 -- The JSON type comes with a few operators.
 
+create schema json;
+
 create type json external name json;
 
 -- access the top level key by name, return its value
-create function sys.json_filter(js json, name string)
+create function json.filter(js json, pathexpr string)
 returns json external name json.filter;
 
-create function sys.json_filter_all(js json, name string)
-returns json external name json.filterall;
+create function json.filter(js json, name tinyint)
+returns json external name json.filter;
 
--- a simple path extractor
-create function sys.json_path(js json, e string)
-returns json external name json.path;
+create function json.filter(js json, name integer)
+returns json external name json.filter;
 
--- a simple path extractor as plain text
-create function sys.json_text(js json, e string)
+create function json.filter(js json, name bigint)
+returns json external name json.filter;
+
+create function json.text(js json, e string)
 returns string external name json.text;
 
+create function json.number(js json)
+returns float external name json.number;
+
+create function json."integer"(js json)
+returns bigint external name json."integer";
+
 -- test string for JSON compliancy
-create function sys.json_isvalid(js string)
+create function json.isvalid(js string)
 returns bool external name json.isvalid;
 
-create function sys.json_isvalidobject(js string)
-returns bool external name json.isvalidobject;
+create function json.isobject(js string)
+returns bool external name json.isobject;
 
-create function sys.json_isvalidarray(js string)
-returns bool external name json.isvalidarray;
+create function json.isarray(js string)
+returns bool external name json.isarray;
+
+create function json.isvalid(js json)
+returns bool external name json.isvalid;
+
+create function json.isobject(js json)
+returns bool external name json.isobject;
+
+create function json.isarray(js json)
+returns bool external name json.isarray;
 
 -- return the number of primary components
-create function sys.json_length(js json)
+create function json.length(js json)
 returns integer external name json.length;
 
--- The remainder awaits the implementation of
--- proper functions with table type arguments.
+create function json.keyarray(js json)
+returns json external name json.keyarray;
+
+create function json.valuearray(js json)
+returns  json external name json.valuearray;
+
+create function json.text(js json)
+returns string external name json.text;
+
+-- The remainder awaits the implementation 
+
+-- create function json.object(*) returns json external name json.objectrender;
+
+-- create function json.array(*) returns json external name json.arrayrender;
 
 -- unnesting the JSON structure
 
--- create function sys.json_unnest(js json)
+-- create function json.unnest(js json)
 -- returns table( id integer, k string, v string) external name json.unnest;
 
--- create function sys.json_unnest(js json)
+-- create function json.unnest(js json)
 -- returns table( k string, v string) external name json.unnest;
 
--- create function sys.json_unnest(js json)
+-- create function json.unnest(js json)
 -- returns table( v string) external name json.unnest;
 
--- create function sys.json_nest table( id integer, k string, v string)
+-- create function json.nest table( id integer, k string, v string)
 -- returns json external name json.nest;
 
--- create function sys.json_names(js json)
--- returns table ( nme string) external name json.names;
 
--- create function sys.json_values(js json)
--- returns table ( val string) external name json."values";
-
--- rendering functions
--- create function sys.json_object(*)
--- returns json external name json.objectrender;
--- create function sys.json_array(*)
--- returns json external name json.arrayrender;

@@ -12,7 +12,7 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2013 MonetDB B.V.
+# Copyright August 2008-2014 MonetDB B.V.
 # All Rights Reserved.
 
 INCLUDES = ../mal ../modules/atoms ../modules/mal ../modules/kernel \
@@ -28,18 +28,16 @@ MTSAFE
 lib_optimizer = {
 	NOINST
 	SOURCES = \
-		optimizer.c optimizer.h \
+		optimizer.c optimizer.h optimizer_private.h \
 		opt_accumulators.c opt_accumulators.h \
 		opt_aliases.c opt_aliases.h \
 		opt_cluster.c opt_cluster.h \
 		opt_coercion.c opt_coercion.h \
 		opt_commonTerms.c opt_commonTerms.h \
-		opt_compression.c opt_compression.h \
 		opt_constants.c opt_constants.h \
 		opt_costModel.c opt_costModel.h \
 		opt_dataflow.c opt_dataflow.h \
 		opt_deadcode.c opt_deadcode.h \
-		opt_dictionary.c opt_dictionary.h \
 		opt_emptySet.c opt_emptySet.h \
 		opt_evaluate.c opt_evaluate.h \
 		opt_factorize.c opt_factorize.h \
@@ -56,9 +54,7 @@ lib_optimizer = {
 		opt_mitosis.c opt_mitosis.h \
 		opt_multiplex.c opt_multiplex.h \
 		opt_octopus.c opt_octopus.h \
-		opt_origin.c opt_origin.h \
 		opt_pipes.c opt_pipes.h \
-		opt_prejoin.c opt_prejoin.h \
 		opt_prelude.c opt_prelude.h \
 		opt_pushranges.c opt_pushranges.h \
 		opt_qep.c opt_qep.h \

@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -45,6 +45,7 @@ opt_export  str batmmathRef;
 opt_export  str batxmlRef;
 opt_export  str bbpRef;
 opt_export  str tidRef;
+opt_export  str dateRef;
 opt_export  str deltaRef;
 opt_export  str subdeltaRef;
 opt_export  str projectdeltaRef;
@@ -58,7 +59,6 @@ opt_export  str catalogRef;
 opt_export  str centipedeRef;
 opt_export  str clear_tableRef;
 opt_export  str closeRef;
-opt_export  str compressRef;
 opt_export  str columnRef;
 opt_export  str commitRef;
 opt_export  str columnBindRef;
@@ -74,7 +74,6 @@ opt_export  str createRef;
 opt_export  str datacellRef;
 opt_export  str dataflowRef;
 opt_export  str datacyclotronRef;
-opt_export  str decompressRef;
 opt_export  str dblRef;
 opt_export  str deleteRef;
 opt_export  str depositRef;
@@ -84,6 +83,7 @@ opt_export  str tintersectRef;
 opt_export  str tdiffRef;
 opt_export  str tinterRef;
 opt_export  str mergecandRef;
+opt_export  str mergepackRef;
 opt_export  str intersectcandRef;
 opt_export  str eqRef;
 opt_export  str disconnectRef;
@@ -108,11 +108,16 @@ opt_export  str insertRef;
 opt_export  str intRef;
 opt_export  str ioRef;
 opt_export  str iteratorRef;
-opt_export  str joinRef;
 opt_export  str joinPathRef;
 opt_export  str jsonRef;
+opt_export  str joinRef;
+opt_export  str antijoinRef;
 opt_export  str bandjoinRef;
 opt_export  str thetajoinRef;
+opt_export  str subjoinRef;
+opt_export  str subantijoinRef;
+opt_export  str subbandjoinRef;
+opt_export  str subthetajoinRef;
 opt_export  str thetauselectRef;
 opt_export  str thetaselectRef;
 opt_export  str kdifferenceRef;
@@ -142,7 +147,6 @@ opt_export  str mark_grpRef;
 opt_export  str materializeRef;
 opt_export  str mtimeRef;
 opt_export  str dense_rank_grpRef;
-opt_export  str materializeRef;
 opt_export  str matRef;
 opt_export  str max_no_nilRef;
 opt_export  str maxRef;
@@ -153,11 +157,12 @@ opt_export  str min_no_nilRef;
 opt_export  str minRef;
 opt_export  str subminRef;
 opt_export  str mirrorRef;
-opt_export	str mitosisRef;
+opt_export  str mitosisRef;
 opt_export  str mkeyRef;
 opt_export  str mmathRef;
 opt_export  str multiplexRef;
-opt_export  str multicolumnsRef;
+opt_export  str manifoldRef;
+opt_export  str multicolumnRef;
 opt_export  str mvcRef;
 opt_export  str newRef;
 opt_export  str notRef;
@@ -231,7 +236,7 @@ opt_export  str sumRef;
 opt_export  str subsumRef;
 opt_export  str subavgRef;
 opt_export  str subsortRef;
-opt_export  str sunionRef;
+opt_export  str timestampRef;
 opt_export  str takeRef;
 opt_export  str topn_minRef;
 opt_export  str topn_maxRef;
@@ -239,7 +244,6 @@ opt_export  str utopn_minRef;
 opt_export  str utopn_maxRef;
 opt_export  str tuniqueRef;
 opt_export  str not_uniqueRef;
-opt_export  str unionRef;
 opt_export  str unpackRef;
 opt_export  str unpinRef;
 opt_export  str unlockRef;
@@ -252,7 +256,6 @@ opt_export  str uselectRef;
 opt_export  str userRef;
 opt_export  str vectorRef;
 opt_export  str antiuselectRef;
-opt_export  str antijoinRef;
 opt_export  str zero_or_oneRef;
 
 opt_export int canBeCrackedProp;	/* binary */
@@ -284,6 +287,4 @@ opt_export int tlbProp;			/* any (tail lower bound) */
 opt_export int tubProp;			/* any (tail upper bound) */
 opt_export int horiginProp;		/* original oid source */
 opt_export int toriginProp;		/* original oid source */
-
-opt_export void optimizerInit(void);
 #endif

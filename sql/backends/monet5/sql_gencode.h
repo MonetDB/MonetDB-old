@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -21,6 +21,7 @@
 #define _SQL2MAL_H
 
 #include <sql.h>
+#include <mal_backend.h>
 #include <sql_atom.h>
 #include <sql_statement.h>
 #include <sql_env.h>
@@ -33,6 +34,5 @@ sql5_export void backend_call(backend *be, Client c, cq *q);
 sql5_export void initSQLreferences(void);
 sql5_export str backend_name(cq *cq);
 sql5_export int monet5_resolve_function(ptr M, sql_func *f);
-sql5_export int backend_create_func(backend *be, sql_func *f);
 
 #endif /* _SQL2MAL_H */

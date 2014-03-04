@@ -3,22 +3,25 @@
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.monetdb.org/Legal/MonetDBLicense
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * The Original Code is the MonetDB Database System.
- * 
+ *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
 
+/* (author) M.L. Kersten 
+ */
 #include "monetdb_config.h"
 #include "mal_resource.h"
+#include "mal_private.h"
 
 #define heapinfo(X) if ((X) && (X)->base) vol = (X)->free; else vol = 0;
 #define hashinfo(X) if ((X) && (X)->mask) vol = ((X)->mask + (X)->lim + 1) * sizeof(int) + sizeof(*(X)) + cnt * sizeof(int); else vol = 0;
@@ -124,6 +127,8 @@ getMemoryClaim(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int i, int flag)
  * The hotclaim is a hint how large the result would be.
  */
 #ifdef USE_MAL_ADMISSION
+static MT_Lock admissionLock MT_LOCK_INITIALIZER("admissionLock");
+
 /* experiments on sf-100 on small machine showed no real improvement */
 int
 MALadmission(lng argclaim, lng hotclaim)
@@ -132,7 +137,7 @@ MALadmission(lng argclaim, lng hotclaim)
 	if (argclaim == 0)
 		return 0;
 
-	MT_lock_set(&mal_contextLock, "DFLOWdelay");
+	MT_lock_set(&admissionLock, "MALadmission");
 	if (memoryclaims < 0)
 		memoryclaims = 0;
 	if (memorypool <= 0 && memoryclaims == 0)
@@ -145,12 +150,12 @@ MALadmission(lng argclaim, lng hotclaim)
 			PARDEBUG
 			mnstr_printf(GDKstdout, "#DFLOWadmit %3d thread %d pool " LLFMT "claims " LLFMT "," LLFMT "\n",
 						 memoryclaims, THRgettid(), memorypool, argclaim, hotclaim);
-			MT_lock_unset(&mal_contextLock, "DFLOWdelay");
+			MT_lock_unset(&admissionLock, "MALadmission");
 			return 0;
 		}
 		PARDEBUG
 		mnstr_printf(GDKstdout, "#Delayed due to lack of memory " LLFMT " requested " LLFMT " memoryclaims %d\n", memorypool, argclaim + hotclaim, memoryclaims);
-		MT_lock_unset(&mal_contextLock, "DFLOWdelay");
+		MT_lock_unset(&admissionLock, "MALadmission");
 		return -1;
 	}
 	/* release memory claimed before */
@@ -159,7 +164,7 @@ MALadmission(lng argclaim, lng hotclaim)
 	PARDEBUG
 	mnstr_printf(GDKstdout, "#DFLOWadmit %3d thread %d pool " LLFMT " claims " LLFMT "," LLFMT "\n",
 				 memoryclaims, THRgettid(), memorypool, argclaim, hotclaim);
-	MT_lock_unset(&mal_contextLock, "DFLOWdelay");
+	MT_lock_unset(&admissionLock, "MALadmission");
 	return 0;
 }
 #endif
@@ -193,19 +198,19 @@ MALresourceFairness(lng usec)
 	/* ample of memory available*/
 	if ( rss < MEMORY_THRESHOLD * monet_memory && usec <= TIMESLICE)
 		return;
-	threads = GDKnr_threads > 0 ? GDKnr_threads : 1;
 
 	/* worker reporting time spent  in usec! */
 	clk =  usec / 1000;
 
 	if ( clk > DELAYUNIT ) {
 		PARDEBUG mnstr_printf(GDKstdout, "#delay initial "LLFMT"n", clk);
-		ATOMIC_DEC(running, runningLock, "MALresourceFairness");
+		(void) ATOMIC_DEC(running, runningLock, "MALresourceFairness");
 		/* always keep one running to avoid all waiting  */
-		while (clk > 0 && running >= 2) {
+		while (clk > 0 && running >= 2 && delayed < MAX_DELAYS) {
 			/* speed up wake up when we have memory */
 			if (rss < MEMORY_THRESHOLD * monet_memory)
 				break;
+			threads = GDKnr_threads > 0 ? GDKnr_threads : 1;
 			delay = (unsigned int) ( ((double)DELAYUNIT * running) / threads);
 			if (delay) {
 				if ( delayed++ == 0){
@@ -217,16 +222,17 @@ MALresourceFairness(lng usec)
 			} else break;
 			clk -= DELAYUNIT;
 		}
-		ATOMIC_INC(running, runningLock, "MALresourceFairness");
+		(void) ATOMIC_INC(running, runningLock, "MALresourceFairness");
 	}
 }
 
 void
 initResource(void)
 {
-#ifdef ATOMIC_LOCK
 #ifdef NEED_MT_LOCK_INIT
 	ATOMIC_INIT(runningLock, "runningLock");
+#ifdef USE_MAL_ADMISSION
+	MT_lock_init(&admissionLock, "admissionLock");
 #endif
 #endif
 	running = (ATOMIC_TYPE) GDKnr_threads;

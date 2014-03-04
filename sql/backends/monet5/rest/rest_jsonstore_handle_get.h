@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -33,11 +33,22 @@
 #define rest_export extern
 #endif
 
+rest_export str RESTunknown(char **result);
 rest_export str RESTwelcome(char **result);
 rest_export str RESTuuid(char **result);
 rest_export str RESTallDBs(char **result);
-rest_export str RESTcreateDB(char **result, char * dbName);
-rest_export str RESTdeleteDB(char **result, char * dbName);
-rest_export str RESTcreateDoc(char **result, char * dbName, const char * doc);
+rest_export str RESTcreateDB(char **result, char * dbname);
+rest_export str RESTdeleteDB(char **result, char * dbname);
+rest_export str RESTcreateDoc(char **result, char * dbname, const char * doc);
+rest_export str RESTdbInfo(char **result, char * dbname);
+rest_export str RESTgetDoc(char ** result, char * dbname, const char * doc_id);
+rest_export str RESTupdateDoc(char **result, char * dbname, const char * doc, const char * doc_id);
+rest_export str RESTdeleteDoc(char ** result, char * dbname, const char * doc_id);
+rest_export str RESTerror(char **result, int rest_command);
+rest_export str RESTinsertAttach(char ** result, char * dbname, const char * attachment, const char * doc_id);
+rest_export str RESTgetAttach(char ** result, char * dbname, const char * doc_id);
+rest_export str RESTdeleteAttach(char ** result, char * dbname, const char * doc_id);
+rest_export str RESTinsertDesign(char ** result, char * dbname, const char * doc_id, const char * doc);
+rest_export str RESTgetDesign(char ** result, char * dbname, const char * doc_id);
 
 #endif

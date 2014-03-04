@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -66,7 +66,7 @@ xml_export str XMLconcat(xml *ret, xml *left, xml *right);
 xml_export str XMLforest(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 
 xml_export size_t XMLquotestring(const char *s, char *buf, size_t len);
-xml_export size_t XMLunquotestring(char **p, char q, char *buf);
+xml_export size_t XMLunquotestring(const char **p, char q, char *buf);
 
 xml_export str XMLprelude(void);
 

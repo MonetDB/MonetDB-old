@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -28,11 +28,6 @@
  * Currently the bid estimate is made using only the recycle cache.
  * ToDo: use the info about server load
  * FactFinder
- * @-
- */
-/*
- * @-
- * Bidding described ...
  */
 #include "monetdb_config.h"
 #include <mal.h>
@@ -135,7 +130,7 @@ static lng estimateSavings(MalBlkPtr mb, sht bidtype)
 	            }
 
 				if ( bidtype == BID_TRANS )
-					savedKB += recycleBlk->profiler[i].wbytes;
+					savedKB += recycleBlk->stmt[i]->wbytes;
 				else savedInstr++;
 				break;
 			}
@@ -148,7 +143,7 @@ static lng estimateSavings(MalBlkPtr mb, sht bidtype)
 						&getVarConstant(recycleBlk, getArg(q,j))) )
 					goto nomatch;
 				nr_part = * (int*) getVarValue(mb, getArg(p,7));
-				savedKB += nr_part?recycleBlk->profiler[i].wbytes/nr_part : 0;
+				savedKB += nr_part?recycleBlk->stmt[i]->wbytes/nr_part : 0;
 			}
 
 			nomatch:

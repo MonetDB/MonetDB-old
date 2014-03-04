@@ -13,10 +13,9 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
-
 
 #include "monetdb_config.h"
 #include "sql_parser.h"
@@ -211,6 +210,8 @@ rel_semantic(mvc *sql, symbol *s)
 
 	case SQL_CREATE_TRIGGER:
 	case SQL_DROP_TRIGGER:
+
+	case SQL_ANALYZE:
 		return rel_psm(sql, s);
 
 	case SQL_INSERT:

@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -45,7 +45,6 @@
 #define DEBUG_OPT_ALIASES			3
 #define DEBUG_OPT_REDUCE			4
 #define DEBUG_OPT_COMMONTERMS		5
-#define DEBUG_OPT_COMPRESS			6
 #define DEBUG_OPT_CONSTANTS			7
 #define DEBUG_OPT_COSTMODEL			8
 #define DEBUG_OPT_CRACK				9
@@ -113,6 +112,7 @@ opt_export int hasCommonResults(InstrPtr p, InstrPtr q);
 opt_export int isProcedure(MalBlkPtr mb, InstrPtr p);
 opt_export int isUpdateInstruction(InstrPtr p);
 opt_export int hasSideEffects(InstrPtr p, int strict);
+opt_export int mayhaveSideEffects(Client cntxt, MalBlkPtr mb, InstrPtr p, int strict);
 opt_export int isSideEffectFree(MalBlkPtr mb);
 opt_export int isBlocking(InstrPtr p);
 opt_export int isAllScalar(MalBlkPtr mb, InstrPtr p);

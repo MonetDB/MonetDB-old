@@ -3,19 +3,20 @@
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.monetdb.org/Legal/MonetDBLicense
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * The Original Code is the MonetDB Database System.
- * 
+ *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
+
 #ifndef _STREAMS_H_
 #define _STREAMS_H_
 
@@ -56,8 +57,6 @@ streams_export str open_block_streamwrap(Stream *S, Stream *is);
 streams_export str bstream_create_wrapwrap(Bstream *Bs, Stream *S, int *bufsize);
 streams_export str bstream_destroy_wrapwrap(int *ret, Bstream *BS);
 streams_export str bstream_read_wrapwrap(int *res, Bstream *BS, int *size);
-streams_export str mnstr_readIntwrap(int *ret, Stream *S);
-streams_export str mnstr_read_stringwrap(str *res, Stream *s);
 
 streams_export str mnstr_open_rstreamwrap(Stream *S, str *filename);
 streams_export str mnstr_open_wstreamwrap(Stream *S, str *filename);

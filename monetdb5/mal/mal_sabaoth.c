@@ -13,14 +13,13 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
 /*
- * @f mal_sabaoth
- * @a Fabian Groffen
- * @+ Cluster support
+ * (author) Fabian Groffen
+ *  Cluster support
  * The cluster facilitation currently only deals with (de-)registering of
  * services offered by the local server to other servers.
  * The name of this module is inspired by the Armada setting of anchient
@@ -28,12 +27,6 @@
  * Hosts'' in an army setting as found in the Bible's New Testament.  This
  * module allows an army of Mservers to be aware of each other on a local
  * machine and redirect to each other when necessary.
- * @- Implementation
- *
- */
-/*
- * @-
- *
  */
 #include "monetdb_config.h"
 #include "mal_sabaoth.h"

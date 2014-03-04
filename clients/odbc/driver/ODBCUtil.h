@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -78,13 +78,6 @@ extern char *dupODBCstring(const SQLCHAR *inStr, size_t length);
 	} while (0)
 
 
-/*
-  Function to translate an ODBC SQL query to native format.
-  The return value is a freshly allocated null-terminated string.
-  For now this function just calls dupODBCstring.
-*/
-extern char *ODBCTranslateSQL(const SQLCHAR *query, size_t length, SQLUINTEGER noscan);
-
 /* Utility macro to copy a string to an output argument.  In the ODBC
    API there are generally three arguments involved: the pointer to a
    buffer, the length of that buffer, and a pointer to where the
@@ -110,7 +103,6 @@ extern char *ODBCTranslateSQL(const SQLCHAR *query, size_t length, SQLUINTEGER n
 			errfunc((hdl), "01004", NULL, 0);		\
 	} while (0)
 
-#ifdef WITH_WCHAR
 extern SQLCHAR *ODBCwchar2utf8(const SQLWCHAR *s, SQLLEN length, char **errmsg);
 extern char *ODBCutf82wchar(const SQLCHAR *s, SQLINTEGER length, SQLWCHAR *buf, SQLLEN buflen, SQLSMALLINT *buflenout);
 
@@ -142,7 +134,6 @@ extern char *ODBCutf82wchar(const SQLCHAR *s, SQLINTEGER length, SQLWCHAR *buf, 
 		if (wslp)						\
 			*(wslp) = (sl) * (cw);				\
 	} while (0)
-#endif /* WITH_WCHAR */
 
 char *ODBCParseOA(const char *tab, const char *col, const char *arg, size_t len);
 char *ODBCParsePV(const char *tab, const char *col, const char *arg, size_t len);

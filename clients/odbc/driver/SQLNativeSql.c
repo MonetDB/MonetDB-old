@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -62,7 +62,7 @@ SQLNativeSql_(ODBCDbc *dbc,
 	ODBCLOG("\"%.*s\"\n", (int) TextLength1, (char *) InStatementText);
 #endif
 
-	query = ODBCTranslateSQL(InStatementText, (size_t) TextLength1,
+	query = ODBCTranslateSQL(dbc, InStatementText, (size_t) TextLength1,
 				 SQL_NOSCAN_OFF);
 	copyString(query, strlen(query), OutStatementText, BufferLength,
 		   TextLength2Ptr, SQLINTEGER, addDbcError, dbc,
@@ -99,7 +99,6 @@ SQLNativeSql(SQLHDBC ConnectionHandle,
 			     TextLength2Ptr);
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLNativeSqlA(SQLHDBC ConnectionHandle,
 	      SQLCHAR *InStatementText,
@@ -158,4 +157,3 @@ SQLNativeSqlW(SQLHDBC ConnectionHandle,
 
 	return rc;
 }
-#endif /* WITH_WCHAR */

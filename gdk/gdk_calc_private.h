@@ -13,11 +13,15 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
 /* This file contains shared definitions for gdk_calc.c and gdk_aggr.c */
+
+#ifndef LIBGDK
+#error this file should not be included outside its source directory
+#endif
 
 #ifdef HAVE_LONG_LONG
 typedef unsigned long long ulng;
@@ -56,10 +60,19 @@ typedef unsigned __int64 ulng;
 					start = (s)->T->seq;		\
 					end = start + BATcount(s);	\
 				} else {				\
-					cand = (const oid *) Tloc((s), BUNfirst(s)); \
-					candend = cand + BATcount(s);	\
-					start = *cand;			\
-					end = candend[-1] + 1;		\
+					oid x = (b)->H->seq;		\
+					start = SORTfndfirst((s), &x);	\
+					x += BATcount(b);		\
+					end = SORTfndfirst((s), &x);	\
+					cand = (const oid *) Tloc((s), start); \
+					candend = (const oid *) Tloc((s), end); \
+					if (cand == candend) {		\
+						start = end = 0;	\
+					} else {			\
+						assert(cand < candend);	\
+						start = *cand;		\
+						end = candend[-1] + 1;	\
+					}				\
 				}					\
 				assert(start <= end);			\
 				if (start <= (b)->H->seq)		\

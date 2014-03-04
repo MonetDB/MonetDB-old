@@ -13,10 +13,9 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
-
 
 /*#define DEBUG*/
 
@@ -419,15 +418,6 @@ exp_keyvalue(sql_exp *e)
 	return cnt;
 }
 
-static sql_rel *
-find_rel(list *rels, sql_exp *e)
-{
-	node *n = list_find(rels, e, (fcmp)&rel_has_exp);
-	if (n) 
-		return n->data;
-	return NULL;
-}
-
 static int
 joinexp_cmp(list *rels, sql_exp *h, sql_exp *key)
 {
@@ -654,7 +644,7 @@ find_fk( mvc *sql, list *rels, list *exps)
 	list *sdje, *aje, *dje;
 
 	/* first find the distinct join expressions */
-	aje = list_select(exps, (void*)1, (fcmp) &exp_is_join, (fdup)NULL);
+	aje = list_select(exps, rels, (fcmp) &exp_is_join, (fdup)NULL);
 	dje = list_distinct2(aje, rels, (fcmp2) &joinexp_cmp, (fdup)NULL);
 	for(djn=dje->h; djn; djn = djn->next) {
 		/* equal join expressions */
@@ -896,7 +886,7 @@ order_joins(mvc *sql, list *rels, list *exps)
 			if (exp_is_join_exp(e) == 0)
 				rel_join_add_exp(sql->sa, top->l, e);
 			else
-				rel_select_add_exp(top, e);
+				rel_select_add_exp(sql->sa, top, e);
 		}
 	}
 	return top;
@@ -1390,6 +1380,8 @@ rel_push_func_down(int *changes, mvc *sql, sql_rel *rel)
 	if ((is_select(rel->op) || is_join(rel->op) || is_semi(rel->op)) && rel->l && rel->exps && !(rel_is_ref(rel))) {
 		list *exps = rel->exps;
 
+		if (is_select(rel->op) &&  list_length(rel->exps) <= 1)  /* only push down when thats useful */
+			return rel;
 		if (exps_can_push_func(exps, rel)) {
 			sql_rel *nrel;
 			sql_rel *l = rel->l, *ol = l;
@@ -1441,7 +1433,7 @@ rel_push_func_down(int *changes, mvc *sql, sql_rel *rel)
 								append(r->exps, ne);
 							else
 								append(l->exps, ne);
-							ne = exp_column(sql->sa, NULL, exp_name(ne), exp_subtype(ne), ne->card, has_nil(ne), is_intern(ne));
+							ne = exp_column(sql->sa, exp_relname(ne), exp_name(ne), exp_subtype(ne), ne->card, has_nil(ne), is_intern(ne));
 							(*changes)++;
 						}
 						e->l = ne;
@@ -1455,7 +1447,7 @@ rel_push_func_down(int *changes, mvc *sql, sql_rel *rel)
 								append(r->exps, ne);
 							else
 								append(l->exps, ne);
-							ne = exp_column(sql->sa, NULL, exp_name(ne), exp_subtype(ne), ne->card, has_nil(ne), is_intern(ne));
+							ne = exp_column(sql->sa, exp_relname(ne), exp_name(ne), exp_subtype(ne), ne->card, has_nil(ne), is_intern(ne));
 							(*changes)++;
 						}
 						e->r = ne;
@@ -1470,7 +1462,7 @@ rel_push_func_down(int *changes, mvc *sql, sql_rel *rel)
 									append(r->exps, ne);
 								else
 									append(l->exps, ne);
-								ne = exp_column(sql->sa, NULL, exp_name(ne), exp_subtype(ne), ne->card, has_nil(ne), is_intern(ne));
+								ne = exp_column(sql->sa, exp_relname(ne), exp_name(ne), exp_subtype(ne), ne->card, has_nil(ne), is_intern(ne));
 								(*changes)++;
 							}
 							e->f = ne;
@@ -1960,7 +1952,7 @@ rel_distinct_project2groupby(int *changes, mvc *sql, sql_rel *rel)
 	if (rel->op == op_project && rel->l && !rel->r /* no order by */ && need_distinct(rel) &&
 	    exps_card(rel->exps) <= CARD_ATOM) {
 		set_nodistinct(rel);
-		rel->l = NULL;
+		rel->l = rel_topn(sql->sa, rel->l, append(sa_list(sql->sa), exp_atom_wrd(sql->sa, 1)));
 	}
 
 	/* rewrite distinct project [ pk ] ( select ( table ) [ e op val ]) 
@@ -1970,8 +1962,8 @@ rel_distinct_project2groupby(int *changes, mvc *sql, sql_rel *rel)
 		set_nodistinct(rel);
 	/* rewrite distinct project [ gbe ] ( select ( groupby [ gbe ] [ gbe, e ] )[ e op val ]) 
 	 * into project [ gbe ] ( select ( group etc ) */
-	if (rel->op == op_project && rel->l && !rel->r /* no order by */ && need_distinct(rel) &&
-	    l->op == op_select) {
+	if (rel->op == op_project && rel->l && !rel->r /* no order by */ && 
+	    need_distinct(rel) && l->op == op_select){ 
 		sql_rel *g = l->l;
 		if (is_groupby(g->op)) {
 			list *gbe = g->r;
@@ -1996,7 +1988,8 @@ rel_distinct_project2groupby(int *changes, mvc *sql, sql_rel *rel)
 				set_nodistinct(rel);
 		}
 	}
-	if (rel->op == op_project && rel->l && !rel->r /* no order by */ && need_distinct(rel)) {
+	if (rel->op == op_project && rel->l && !rel->r /* no order by */ && 
+	    need_distinct(rel) && exps_card(rel->exps) > CARD_ATOM) {
 		node *n;
 		list *exps = new_exp_list(sql->sa), *gbe = new_exp_list(sql->sa);
 
@@ -3011,12 +3004,12 @@ rel_push_select_down(int *changes, mvc *sql, sql_rel *rel)
 				ne = exp_push_down(sql, e, jl, jl);
 			if (ne && ne != e) {
 				done = 1; 
-				rel_select_add_exp(jl, ne);
+				rel_select_add_exp(sql->sa, jl, ne);
 			} else if (right) {
 				ne = exp_push_down(sql, e, jr, jr);
 				if (ne && ne != e) {
 					done = 1; 
-					rel_select_add_exp(jr, ne);
+					rel_select_add_exp(sql->sa, jr, ne);
 				}
 			}
 			if (!done)
@@ -3072,7 +3065,7 @@ rel_push_select_down(int *changes, mvc *sql, sql_rel *rel)
 
 				/* can we move it down */
 				if (ne && ne != e) {
-					rel_select_add_exp(pl, ne);
+					rel_select_add_exp(sql->sa, pl, ne);
 					(*changes)++;
 				} else {
 					append(rel->exps, (ne)?ne:e);
@@ -3105,9 +3098,9 @@ rel_push_select_down_join(int *changes, mvc *sql, sql_rel *rel)
 				sql_exp *re = e->r;
 
 				if (re->card >= CARD_AGGR) {
-					rel->l = rel_push_join(sql->sa, r, e->l, re, NULL, e);
+					rel->l = rel_push_join(sql, r, e->l, re, NULL, e);
 				} else {
-					rel->l = rel_push_select(sql->sa, r, e->l, e);
+					rel->l = rel_push_select(sql, r, e->l, e);
 				}
 				/* only pushed down selects are counted */
 				if (r == rel->l) {
@@ -3276,7 +3269,7 @@ rel_push_semijoin_down(int *changes, mvc *sql, sql_rel *rel)
 			l = l->l;
 		*/
 
-		if (!is_join(l->op)  
+		if (!is_join(l->op))
 			return rel;
 
 		ll = l->l;
@@ -3687,7 +3680,7 @@ rel_push_select_down_union(int *changes, mvc *sql, sql_rel *rel)
 static sql_rel *
 rel_push_project_down_union(int *changes, mvc *sql, sql_rel *rel) 
 {
-	/* first remove distinct if allready unique */
+	/* first remove distinct if already unique */
 	if (rel->op == op_project && need_distinct(rel) && rel->exps && exps_unique(rel->exps))
 		set_nodistinct(rel);
 
@@ -3824,6 +3817,10 @@ rel_reduce_groupby_exps(int *changes, mvc *sql, sql_rel *rel)
 		}
 		if (i) { /* forall tables find pkey and 
 				remove useless other columns */
+			/* TODO also remove group by columns which are related to
+			 * the other columns using a foreign-key join (n->1), ie 1
+			 * on the to be removed side.
+			 */
 			for(j = 0; j < i; j++) {
 				int l, nr = 0, cnr = 0;
 
@@ -3876,7 +3873,7 @@ rel_reduce_groupby_exps(int *changes, mvc *sql, sql_rel *rel)
 					}
 				}
 				if (cnr && nr && list_length(tbls[j]->pkey->k.columns) == nr) {
-					char rname[16], *rnme = number2name(rname, 16, ++sql->label);
+					char rname[16], *rnme = sa_strdup(sql->sa, number2name(rname, 16, ++sql->label));
 					sql_rel *r = rel_basetable(sql, tbls[j], rnme);
 					list *ngbe = new_exp_list(sql->sa);
 					list *exps = rel->exps, *nexps = new_exp_list(sql->sa);
@@ -3946,6 +3943,68 @@ rel_reduce_groupby_exps(int *changes, mvc *sql, sql_rel *rel)
 	return rel;
 }
 
+/* Rewrite group by expressions with distinct 
+ *
+ * ie select a, count(distinct b) from c where ... groupby a;
+ * No other aggregations should be present
+ */
+
+static sql_rel *
+rel_groupby_distinct(int *changes, mvc *sql, sql_rel *rel) 
+{
+	if (is_groupby(rel->op) && rel->r && !rel_is_ref(rel)) {
+		node *n;
+		int nr = 0;
+		list *gbe, *ngbe, *arg, *exps, *nexps;
+		sql_exp *distinct = NULL, *darg;
+		sql_rel *l = NULL;
+
+		for (n=rel->exps->h; n && nr <= 2; n = n->next) {
+			sql_exp *e = n->data;
+			if (need_distinct(e)) {
+				distinct = n->data;
+				nr++;
+			}
+		}
+		if (nr != 1 || list_length(rel->r) + nr != list_length(rel->exps)) 
+			return rel;
+		arg = distinct->l;
+		if (distinct->type != e_aggr || list_length(arg) != 1)
+			return rel;
+
+		darg = arg->h->data;
+		exp_label(sql->sa, darg, ++sql->label);
+
+		gbe = rel->r;
+		ngbe = sa_list(sql->sa);
+		exps = sa_list(sql->sa);
+		nexps = sa_list(sql->sa);
+		for (n=rel->exps->h; n; n = n->next) {
+			sql_exp *e = n->data;
+			if (e != distinct) {
+				e = exp_column(sql->sa, exp_find_rel_name(e), exp_name(e), exp_subtype(e), e->card, has_nil(e), is_intern(e));
+				append(ngbe, e);
+				append(exps, e);
+				e = exp_column(sql->sa, exp_find_rel_name(e), exp_name(e), exp_subtype(e), e->card, has_nil(e), is_intern(e));
+				append(nexps, e);
+			}
+		}
+
+		list_append(gbe, exp_copy(sql->sa, darg));
+		darg = exp_column(sql->sa, exp_find_rel_name(darg), exp_name(darg), exp_subtype(darg), darg->card, has_nil(darg), is_intern(darg));
+		list_append(exps, exp_copy(sql->sa, darg));
+		arg->h->data = darg;
+		l = rel->l = rel_groupby(sql, rel->l, gbe);
+		l->exps = exps;
+		rel->r = ngbe;
+		rel->exps = nexps;
+		set_nodistinct(distinct);
+		append(nexps, distinct);
+		(*changes)++;
+	}
+	return rel;
+}
+
 static sql_exp *split_aggr_and_project(mvc *sql, list *aexps, sql_exp *e);
 
 static void
@@ -3985,6 +4044,139 @@ split_aggr_and_project(mvc *sql, list *aexps, sql_exp *e)
 		return e;
 	}
 	return NULL;
+}
+
+static sql_exp *
+exp_use_consts(mvc *sql, sql_exp *e, list *consts);
+
+static list *
+exps_use_consts(mvc *sql, list *exps, list *consts)
+{
+	node *n;
+	list *nl = new_exp_list(sql->sa);
+
+	if (!exps)
+		return sa_list(sql->sa);
+	for(n = exps->h; n; n = n->next) {
+		sql_exp *arg = n->data, *narg = NULL;
+
+		narg = exp_use_consts(sql, arg, consts);
+		if (!narg) 
+			return NULL;
+		if (arg->p)
+			narg->p = prop_copy(sql->sa, arg->p);
+		append(nl, narg);
+	}
+	return nl;
+}
+
+static sql_exp *
+exp_use_consts(mvc *sql, sql_exp *e, list *consts) 
+{
+	sql_exp *ne = NULL, *l, *r, *r2;
+
+	switch(e->type) {
+	case e_column:
+		if (e->l) 
+			ne = exps_bind_column2(consts, e->l, e->r);
+		if (!ne && !e->l)
+			ne = exps_bind_column(consts, e->r, NULL);
+		if (!ne)
+			return e;
+		return ne;
+	case e_cmp: 
+		if (e->flag == cmp_or) {
+			list *l = exps_use_consts(sql, e->l, consts);
+			list *r = exps_use_consts(sql, e->r, consts);
+
+			if (!l || !r) 
+				return NULL;
+			return exp_or(sql->sa, l, r);
+		} else if (e->flag == cmp_in || e->flag == cmp_notin || get_cmp(e) == cmp_filter) {
+			sql_exp *l = exp_use_consts(sql, e->l, consts);
+			list *r = exps_use_consts(sql, e->r, consts);
+
+			if (!l || !r) 
+				return NULL;
+			if (get_cmp(e) == cmp_filter) 
+				return exp_filter(sql->sa, l, r, e->f, is_anti(e));
+			return exp_in(sql->sa, l, r, e->flag);
+		} else {
+			l = exp_use_consts(sql, e->l, consts);
+			r = exp_use_consts(sql, e->r, consts);
+			if (e->f) {
+				r2 = exp_use_consts(sql, e->f, consts);
+				if (l && r && r2)
+					return exp_compare2(sql->sa, l, r, r2, e->flag);
+			} else if (l && r) {
+				return exp_compare(sql->sa, l, r, e->flag);
+			}
+		}
+		return NULL;
+	case e_convert:
+		l = exp_use_consts(sql, e->l, consts);
+		if (l)
+			return exp_convert(sql->sa, l, exp_fromtype(e), exp_totype(e));
+		return NULL;
+	case e_aggr:
+	case e_func: {
+		list *l = e->l, *nl = NULL;
+
+		if (!l) {
+			return e;
+		} else {
+			nl = exps_use_consts(sql, l, consts);
+			if (!nl)
+				return NULL;
+		}
+		if (e->type == e_func)
+			return exp_op(sql->sa, nl, e->f);
+		else 
+			return exp_aggr(sql->sa, nl, e->f, need_distinct(e), need_no_nil(e), e->card, has_nil(e));
+	}	
+	case e_atom:
+	case e_psm:
+		return e;
+	}
+	return NULL;
+}
+
+static sql_rel *
+rel_remove_join(int *changes, mvc *sql, sql_rel *rel)
+{
+	if (is_join(rel->op)) {
+		sql_rel *l = rel->l;
+		sql_rel *r = rel->r;
+		int lconst = 0, rconst = 0;
+
+
+		if (!l || rel_is_ref(l) || !r || rel_is_ref(r) ||
+		   (l->op != op_project && r->op != op_project)) 
+			return rel;
+		if (l->op == op_project && exps_are_atoms(l->exps))
+			lconst = 1;
+		if (r->op == op_project && exps_are_atoms(r->exps))
+			rconst = 1;
+		if (!lconst && !rconst)
+			return rel;
+		(*changes)++;
+		/* use constant (instead of alias) in expressions */
+		if (lconst) {
+			sql_rel *s = l;
+			l = r;
+			r = s;
+		}
+		rel->exps = exps_use_consts(sql, rel->exps, r->exps);
+		/* change into select */
+		rel->op = op_select;
+		rel->l = l;
+		rel->r = NULL;
+		/* wrap in a project including, the constant columns */
+		l->subquery = 0;
+		rel = rel_project(sql->sa, rel, rel_projections(sql, l, NULL, 1, 1));
+		list_merge(rel->exps, r->exps, (fdup)NULL);
+	}
+	return rel;
 }
 
 /* Pushing projects up the tree. Done very early in the optimizer.
@@ -4162,7 +4354,7 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 				break;
 			case e_convert: 
 				list_append(pexps, e);
-				split_aggr_and_project(sql, aexps, e->l);
+				e->l = split_aggr_and_project(sql, aexps, e->l);
 				break;
 			default: /* simple alias */
 				list_append(aexps, e);
@@ -4370,9 +4562,20 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 			rel_mark_used(sql, rel->l, 0);
 		}
 		break;
-	case op_insert:
 	case op_update:
 	case op_delete:
+		if (proj && rel->r) {
+			sql_rel *r = rel->r;
+			if (r->exps && r->exps->h) { /* TID is used */
+				sql_exp *e = r->exps->h->data;
+				e->used = 1;
+			}
+			exps_mark_used(sql->sa, rel, rel->r);
+			rel_mark_used(sql, rel->r, 0);
+		}
+		break;
+
+	case op_insert:
 	case op_ddl:
 		break;
 
@@ -4553,10 +4756,17 @@ rel_dce_down(mvc *sql, sql_rel *rel, int skip_proj)
 			rel_dce_sub(sql, rel);
 
 	case op_insert:
-	case op_update:
-	case op_delete:
 	case op_ddl:
 
+		return rel;
+
+	case op_update:
+	case op_delete:
+
+		if (skip_proj && rel->r)
+			rel->r = rel_dce_down(sql, rel->r, 0);
+		if (!skip_proj)
+			rel_dce_sub(sql, rel);
 		return rel;
 
 	case op_topn: 
@@ -5036,22 +5246,33 @@ exp_merge_range(sql_allocator *sa, list *exps)
 
 				if (f->type == e_cmp && f->flag < cmp_equal && !f->f  &&
 				    rf->card > CARD_ATOM) {
-					sql_exp *ne;
+					sql_exp *ne, *t;
 					int swap = 0, lt = 0, gt = 0;
 					comp_type ef = (comp_type) e->flag, ff = (comp_type) f->flag;
 				
+					/* both swapped ? */
+				     	if (exp_match_exp(re, rf)) {
+						t = re; 
+						re = le;
+						le = t;
+						ef = swap_compare(ef);
+						t = rf;
+						rf = lf;
+						lf = t;
+						ff = swap_compare(ff);
+					}
+
 					/* is left swapped ? */
 				     	if (exp_match_exp(re, lf)) {
-						sql_exp *t = re; 
-
+						t = re; 
 						re = le;
 						le = t;
 						ef = swap_compare(ef);
 					}
+
 					/* is right swapped ? */
 				     	if (exp_match_exp(le, rf)) {
-						sql_exp *t = rf; 
-
+						t = rf; 
 						rf = lf;
 						lf = t;
 						ff = swap_compare(ff);
@@ -5153,8 +5374,9 @@ rel_project_reduce_casts(int *changes, mvc *sql, sql_rel *rel)
 
 			if (e && e->type == e_func) {
 				sql_subfunc *f = e->f;
+				sql_subtype *res = f->res->h->data; 
 
-				if (!f->func->s && !strcmp(f->func->base.name, "sql_mul") && f->res.scale > 0) {
+				if (!f->func->s && !strcmp(f->func->base.name, "sql_mul") && res->scale > 0) {
 					list *args = e->l;
 					sql_exp *h = args->h->data;
 					sql_exp *t = args->t->data;
@@ -5164,7 +5386,7 @@ rel_project_reduce_casts(int *changes, mvc *sql, sql_rel *rel)
 					    (is_atom(t->type) && (a = exp_value(t, sql->args, sql->argc)) != NULL)) {
 						int rs = reduce_scale(a);
 
-						f->res.scale -= rs; 
+						res->scale -= rs; 
 						if (rs)
 							(*changes)+= rs;
 					}
@@ -5256,11 +5478,8 @@ is_identity_of(sql_exp *e, sql_rel *l)
 	return 1;
 }
 
-/* rewrite {semi,anti}join (A, join(A,B)) into {semi,anti}join (A,B) */
-/* TODO: handle A, join(B,A) as well */
 
 /* More general case is (join reduction)
- *
    	{semi,anti}join (A, join(A,B) [A.c1 == B.c1]) [ A.c1 == B.c1 ]
 	into {semi,anti}join (A,B) [ A.c1 == B.c1 ] 
 */
@@ -5273,21 +5492,26 @@ rel_rewrite_semijoin(int *changes, mvc *sql, sql_rel *rel)
 		sql_rel *l = rel->l;
 		sql_rel *r = rel->r;
 		sql_rel *rl = (r->l)?r->l:NULL;
+		int on_identity = 1;
 
-		if (l->ref.refcnt == 2 && 
-		   ((is_join(r->op) && l == r->l) || 
-		    (is_project(r->op) && rl && is_join(rl->op) && l == rl->l))){
+		if (!rel->exps || list_length(rel->exps) != 1 || !is_identity_of(rel->exps->h->data, l))
+			on_identity = 0;
+			
+		/* rewrite {semi,anti}join (A, join(A,B)) into {semi,anti}join (A,B) 
+		 * and     {semi,anti}join (A, join(B,A)) into {semi,anti}join (A,B) 
+		 * Where the semi/anti join is done using the identity */
+		if (on_identity && l->ref.refcnt == 2 && ((is_join(r->op) && (l == r->l || l == r->r)) || 
+		   (is_project(r->op) && rl && is_join(rl->op) && (l == rl->l || l == rl->r)))){
 			sql_rel *or = r;
 
-			if (!rel->exps || list_length(rel->exps) != 1 ||
-			    !is_identity_of(rel->exps->h->data, l)) 
-				return rel;
-			
 			if (is_project(r->op)) 
 				r = rl;
 
-			rel->r = rel_dup(r->r);
-			/* maybe rename exps ? */
+			if (l == r->r)
+				rel->r = rel_dup(r->l);
+			else
+				rel->r = rel_dup(r->r);
+
 			rel->exps = r->exps;
 			r->exps = NULL;
 			rel_destroy(or);
@@ -5442,7 +5666,9 @@ rel_merge_table_rewrite(int *changes, mvc *sql, sql_rel *rel)
 					node *n, *m;
 
 					/* rename (mostly the idxs) */
+					MT_lock_set(&prel->exps->ht_lock, "rel_merge_table_rewrite");
 					prel->exps->ht = NULL;
+					MT_lock_unset(&prel->exps->ht_lock, "rel_merge_table_rewrite");
 					for (n = rel->exps->h, m = prel->exps->h; n && m; n = n->next, m = m->next ) {
 						sql_exp *e = n->data;
 						sql_exp *ne = m->data;
@@ -5684,6 +5910,7 @@ rel_rename(mvc *sql, sql_rel *rel, list *aliases)
 		nme = number2name(name, 16, ++sql->label);
 		/* label + put aliases list into aliases */
 		nrel->l = rel->l;
+		nrel->r = rel->r;
 		nrel->exps = new_exp_list(sql->sa);
 		for (n = rel->exps->h; n; n = n->next) {
 			sql_exp *e = n->data, *ne, *a;
@@ -5756,7 +5983,10 @@ rel_apply_rename(mvc *sql, sql_rel *rel)
 		return rel;
 	switch(rel->op) {
 	case op_basetable:
+		return rel;
 	case op_table:
+		if (rel->l)
+			rel->l = rel_apply_rename(sql, rel->l);
 		return rel;
 	case op_project:
 	case op_select: 
@@ -5861,6 +6091,18 @@ rel_apply_rewrite(int *changes, mvc *sql, sql_rel *rel)
 		(*changes)++;
 		return nrel;
 	}
+	/* table function (TODO should output any input cols) */
+	if (r->op == op_table && r->l) {
+		/*
+		int used = rel_uses_exps(r->l, rel->exps);
+
+		if (used) {
+		*/
+			/* ugh */
+			r->l = rel->l;
+			return r;
+		//}
+	} 
 	if (r->op == op_table || r->op == op_basetable) {
 		if (rel->flag == APPLY_LOJ)
 			rel->op = op_left;
@@ -5870,7 +6112,7 @@ rel_apply_rewrite(int *changes, mvc *sql, sql_rel *rel)
 		return rel;
 	}
 	if (r->op == op_project) { /* merge projections */
-		if (!r->l) { // TODO check realy apply case 
+		if (!r->l) { /* TODO check realy apply case */
 			(*changes)++;
 			return l;
 		} else {
@@ -6162,6 +6404,11 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 	if (gp.cnt[op_project])
 		rel = rewrite(sql, rel, &rel_push_project_up, &changes); 
 
+	/* join's/crossproducts between a relation and a constant (row).
+	 * could be rewritten */
+	if (gp.cnt[op_join] && gp.cnt[op_project])
+		rel = rewrite(sql, rel, &rel_remove_join, &changes); 
+
 	if (gp.cnt[op_join] || 
 	    gp.cnt[op_left] || gp.cnt[op_right] || gp.cnt[op_full] || 
 	    gp.cnt[op_semi] || gp.cnt[op_anti] ||
@@ -6230,6 +6477,7 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 		rel = rewrite_topdown(sql, rel, &rel_push_aggr_down, &changes);
 		rel = rewrite(sql, rel, &rel_groupby_order, &changes); 
 		rel = rewrite(sql, rel, &rel_reduce_groupby_exps, &changes); 
+		rel = rewrite(sql, rel, &rel_groupby_distinct, &changes); 
 	}
 
 	if (gp.cnt[op_join] || gp.cnt[op_left] || 
@@ -6254,6 +6502,10 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 	if (gp.cnt[op_project])
 		rel = rewrite(sql, rel, &rel_push_project_down_union, &changes);
 
+	/* Remove unused expressions */
+	if (level <= 0)
+		rel = rel_dce(sql, rel);
+
 	if (gp.cnt[op_join] || 
 	    gp.cnt[op_left] || gp.cnt[op_right] || gp.cnt[op_full] || 
 	    gp.cnt[op_semi] || gp.cnt[op_anti] ||
@@ -6266,9 +6518,6 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 	}
 
 	rel = rewrite_topdown(sql, rel, &rel_merge_table_rewrite, &changes);
-
-	/* Remove unused expressions */
-	rel = rel_dce(sql, rel);
 
 	if (changes && level > 10) {
 		assert(0);

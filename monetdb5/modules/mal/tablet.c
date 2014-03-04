@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -53,39 +53,9 @@
 #include <string.h>
 #include <ctype.h>
 
-#define CLEAR(X) if(X) {GDKfree(X);X = NULL;}
-
-#ifdef _MSC_VER
-#define getcwd _getcwd
-#endif
-
 tablet_export str CMDtablet_input(int *ret, int *nameid, int *sepid, int *typeid, stream *s, int *nr);
 
-
-#define LINE(s, X)								\
-	do {										\
-		int n=(int)(X)-1;						\
-		mnstr_write(s, "#", 1, 1);				\
-		while(--n>0)							\
-			mnstr_write(s, "-", 1, 1);			\
-		mnstr_printf(s, "#\n");					\
-	} while (0)
-#define TABS(s, X)								\
-	do {										\
-		int n=(int)(X);							\
-		while(n-->0)							\
-			mnstr_printf(s, "\t");				\
-	} while (0)
-
-static ptr
-bun_tail(BAT *b, BUN nr)
-{
-	BATiter bi = bat_iterator(b);
-	register BUN _i = BUNfirst(b);
-
-	return (ptr) BUNtail(bi, _i + nr);
-}
-
+static MT_Lock errorlock MT_LOCK_INITIALIZER("errorlock");
 
 static BAT *
 void_bat_create(int adt, BUN nr)
@@ -98,8 +68,6 @@ void_bat_create(int adt, BUN nr)
 	if (BATmirror(b))
 		BATseqbase(b, 0);
 	BATsetaccess(b, BAT_APPEND);
-	if (nr > (BUN) REMAP_PAGE_MAXSIZE)
-		BATmmap(b, STORE_MMAP, STORE_MMAP, STORE_MMAP, STORE_MMAP, 0);
 	if (nr > BATTINY && adt)
 		b = BATextend(b, nr);
 	if (b == NULL)
@@ -125,7 +93,7 @@ void_bat_create(int adt, BUN nr)
 	return b;
 }
 
-ptr *
+static void *
 TABLETstrFrStr(Column *c, char *s, char *e)
 {
 	int len = (int) (e - s + 1);	/* 64bit: should check for overflow */
@@ -143,15 +111,15 @@ TABLETstrFrStr(Column *c, char *s, char *e)
 	return c->data;
 }
 
-ptr *
+void *
 TABLETadt_frStr(Column *c, int type, char *s, char *e, char quote)
 {
 	if (s == NULL || (!quote && strcmp(s, "nil") == 0)) {
 		memcpy(c->data, ATOMnilptr(type), c->nillen);
 	} else if (type == TYPE_str) {
 		return TABLETstrFrStr(c, s, e);
-	} else {
-		(void) (*BATatoms[type].atomFromStr) (s, &c->len, (ptr) &c->data);
+	} else if ((*BATatoms[type].atomFromStr) (s, &c->len, (ptr) &c->data) < 0) {
+		return NULL;
 	}
 	return c->data;
 }
@@ -184,23 +152,6 @@ TABLETadt_toStr(void *extra, char **buf, int *len, int type, ptr a)
 	}
 }
 
-#define myisspace(s)  ((s) == ' ' || (s) == '\t')
-
-int
-has_whitespace(char *sep)
-{
-	char *s = sep;
-
-	if (myisspace(*s))
-		return 1;
-	while (*s)
-		s++;
-	s--;
-	if (myisspace(*s))
-		return 1;
-	return 0;
-}
-
 void
 TABLETdestroy_format(Tablet *as)
 {
@@ -208,20 +159,10 @@ TABLETdestroy_format(Tablet *as)
 	Column *fmt = as->format;
 
 	for (p = 0; p < as->nr_attrs; p++) {
-		if (fmt[p].c[0])
-			BBPunfix(fmt[p].c[0]->batCacheid);
-		if (fmt[p].sep)
-			GDKfree(fmt[p].sep);
-		if (fmt[p].nullstr)
-			GDKfree(fmt[p].nullstr);
+		if (fmt[p].c)
+			BBPunfix(fmt[p].c->batCacheid);
 		if (fmt[p].data)
 			GDKfree(fmt[p].data);
-		if (fmt[p].nildata)
-			GDKfree(fmt[p].nildata);
-		if (fmt[p].batfile)
-			GDKfree(fmt[p].batfile);
-		if (fmt[p].rawfile)
-			GDKfree(fmt[p].rawfile);
 		if (fmt[p].type)
 			GDKfree(fmt[p].type);
 	}
@@ -236,19 +177,19 @@ check_BATs(Tablet *as)
 	BUN cnt;
 	oid base;
 
-	if (fmt[i].c[0] == NULL)
+	if (fmt[i].c == NULL)
 		i++;
-	cnt = BATcount(fmt[i].c[0]);
-	base = fmt[i].c[0]->hseqbase;
+	cnt = BATcount(fmt[i].c);
+	base = fmt[i].c->hseqbase;
 
-	if (!BAThdense(fmt[i].c[0]) || as->nr != cnt)
+	if (!BAThdense(fmt[i].c) || as->nr != cnt)
 		return oid_nil;
 
 	for (i = 0; i < as->nr_attrs; i++) {
 		BAT *b;
 		BUN offset;
 
-		b = fmt[i].c[0];
+		b = fmt[i].c;
 		if (b == NULL)
 			continue;
 		offset = BUNfirst(b) + as->offset;
@@ -266,20 +207,17 @@ TABLETcreate_bats(Tablet *as, BUN est)
 {
 	Column *fmt = as->format;
 	BUN i;
-	char nme[BUFSIZ];
-
-	if (getcwd(nme, BUFSIZ) == NULL) {
-		GDKerror("TABLETcreate_bats: Failed to locate directory\n");
-		return -1;
-	}
-
-	assert(strlen(nme) < BUFSIZ - 50);
+	char errbuf[42];
 
 	for (i = 0; i < as->nr_attrs; i++) {
-		fmt[i].c[0] = void_bat_create(fmt[i].adt, est);
-		fmt[i].ci[0] = bat_iterator(fmt[i].c[0]);
-		if (!fmt[i].c[0]) {
-			GDKerror("TABLETcreate_bats: Failed to create bat of size " BUNFMT "\n", as->nr);
+		fmt[i].c = void_bat_create(fmt[i].adt, est);
+		fmt[i].ci = bat_iterator(fmt[i].c);
+		if (!fmt[i].c) {
+			snprintf(errbuf, sizeof(errbuf), "Failed to create bat of size " BUNFMT "\n", as->nr);
+			MT_lock_set(&errorlock, "TABLETcreate_bats");
+			if (as->error == NULL && (as->error = GDKstrdup(errbuf)) == NULL)
+				as->error = M5OutOfMemory;
+			MT_lock_unset(&errorlock, "TABLETcreate_bats");
 			return -1;
 		}
 	}
@@ -292,19 +230,23 @@ TABLETcollect(Tablet *as)
 	BAT **bats = GDKmalloc(sizeof(BAT *) * as->nr_attrs);
 	Column *fmt = as->format;
 	BUN i;
-	BUN cnt = BATcount(fmt[0].c[0]);
+	BUN cnt = BATcount(fmt[0].c);
+	char errbuf[42];
 
 	if (bats == NULL)
 		return NULL;
 	for (i = 0; i < as->nr_attrs; i++) {
-		bats[i] = fmt[i].c[0];
+		bats[i] = fmt[i].c;
 		BBPincref(bats[i]->batCacheid, FALSE);
-		BATsetaccess(fmt[i].c[0], BAT_READ);
-		BATderiveProps(fmt[i].c[0], 1);
+		BATsetaccess(fmt[i].c, BAT_READ);
+		BATderiveProps(fmt[i].c, 1);
 
-		if (cnt != BATcount(fmt[i].c[0])) {
-			if (as->error == 0)	/* a new error */
-				GDKerror("Error: column " BUNFMT "  count " BUNFMT " differs from " BUNFMT "\n", i, BATcount(fmt[i].c[0]), cnt);
+		if (cnt != BATcount(fmt[i].c)) {
+			snprintf(errbuf, sizeof(errbuf), "Error: column " BUNFMT "  count " BUNFMT " differs from " BUNFMT "\n", i, BATcount(fmt[i].c), cnt);
+			MT_lock_set(&errorlock, "TABLETcollect");
+			if (as->error == NULL && (as->error = GDKstrdup(errbuf)) == NULL)
+				as->error = M5OutOfMemory;
+			MT_lock_unset(&errorlock, "TABLETcollect");
 			return NULL;
 		}
 	}
@@ -317,144 +259,48 @@ TABLETcollect_parts(Tablet *as, BUN offset)
 	BAT **bats = GDKmalloc(sizeof(BAT *) * as->nr_attrs);
 	Column *fmt = as->format;
 	BUN i;
-	BUN cnt = BATcount(fmt[0].c[0]);
+	BUN cnt = BATcount(fmt[0].c);
+	char errbuf[42];
 
 	if (bats == NULL)
 		return NULL;
 	for (i = 0; i < as->nr_attrs; i++) {
-		BAT *b = fmt[i].c[0];
+		BAT *b = fmt[i].c;
 		BAT *bv = NULL;
 
 		BATsetaccess(b, BAT_READ);
-		bv = BATslice(b, offset, BATcount(b));
+		bv = BATslice(b, (offset>0)?offset-1:0, BATcount(b));
 		bats[i] = bv;
 		BATderiveProps(bv, 1);
 
-		b->hkey &= bv->hkey;
-		b->tkey &= bv->tkey;
-		b->H->nonil &= bv->H->nonil;
+		b->tkey = (offset>0)?FALSE:bv->tkey; 
 		b->T->nonil &= bv->T->nonil;
-		b->hdense &= bv->hdense;
 		b->tdense &= bv->tdense;
-		if (b->hsorted != bv->hsorted)
-			b->hsorted = 0;
-		if (b->hrevsorted != bv->hrevsorted)
-			b->hrevsorted = 0;
 		if (b->tsorted != bv->tsorted)
 			b->tsorted = 0;
 		if (b->trevsorted != bv->trevsorted)
 			b->trevsorted = 0;
+		if (b->tdense)
+			b->tkey = TRUE;
 		b->batDirty = TRUE;
 
+		if (offset>0) {
+			BBPunfix(bv->batCacheid);
+			bats[i] = BATslice(b, offset, BATcount(b));
+		}
 		if (cnt != BATcount(b)) {
-			if (as->error == 0)	/* a new error */
-				GDKerror("Error: column " BUNFMT "  count " BUNFMT " differs from " BUNFMT "\n", i, BATcount(b), cnt);
+			snprintf(errbuf, sizeof(errbuf), "Error: column " BUNFMT "  count " BUNFMT " differs from " BUNFMT "\n", i, BATcount(b), cnt);
+			MT_lock_set(&errorlock, "TABLETcollect_parts");
+			if (as->error == NULL && (as->error = GDKstrdup(errbuf)) == NULL)
+				as->error = M5OutOfMemory;
+			MT_lock_unset(&errorlock, "TABLETcollect_parts");
 			return NULL;
 		}
 	}
 	return bats;
 }
 
-static inline char *
-rstrip(char *s, char *e)
-{
-	e--;
-	while (myisspace((int) *e) && e >= s)
-		e--;
-	e++;
-	*e = 0;
-	return e;
-}
-
-static inline char *
-find_quote(char *s, char quote)
-{
-	while (*s != quote)
-		s++;
-	return s;
-}
-
-static inline char *
-rfind_quote(char *s, char *e, char quote)
-{
-	while (*e != quote && e > s)
-		e--;
-	return e;
-}
-
-static inline int
-insert_val(Column *fmt, char *s, char *e, char quote, ptr key, str *err, int c)
-{
-	char bak = 0;
-	ptr *adt;
-	char buf[BUFSIZ];
-
-	if (quote) {
-		/* string needs the quotes included */
-		s = find_quote(s, quote);
-		if (!s) {
-			snprintf(buf, BUFSIZ, "quote '%c' expected but not found in \"%s\" from line " BUNFMT "\n", quote, s, BATcount(fmt->c[0]));
-			*err = GDKstrdup(buf);
-			return -1;
-		}
-		s++;
-		e = rfind_quote(s, e, quote);
-		if (s != e) {
-			bak = *e;
-			*e = 0;
-		}
-		if ((s == e && fmt->nullstr[0] == 0) ||
-			(quote == fmt->nullstr[0] && e > s &&
-			 strncasecmp(s, fmt->nullstr + 1, fmt->nillen) == 0 &&
-			 quote == fmt->nullstr[fmt->nillen - 1])) {
-			adt = fmt->nildata;
-			fmt->c[0]->T->nonil = 0;
-		} else
-			adt = fmt->frstr(fmt, fmt->adt, s, e, quote);
-		if (bak)
-			*e = bak;
-	} else {
-		if (s != e) {
-			bak = *e;
-			*e = 0;
-		}
-
-		if ((s == e && fmt->nullstr[0] == 0) ||
-			(e > s && strcasecmp(s, fmt->nullstr) == 0)) {
-			adt = fmt->nildata;
-			fmt->c[0]->T->nonil = 0;
-		} else
-			adt = fmt->frstr(fmt, fmt->adt, s, e, quote);
-		if (bak)
-			*e = bak;
-	}
-
-	if (!adt) {
-		char *val;
-		bak = *e;
-		*e = 0;
-		val = (s != e) ? GDKstrdup(s) : GDKstrdup("");
-		*e = bak;
-
-		snprintf(buf, BUFSIZ, "value '%s' while parsing '%s' from line " BUNFMT " field %d not inserted, expecting type %s\n", val, s, BATcount(fmt->c[0]), c, fmt->type);
-		*err = GDKstrdup(buf);
-		GDKfree(val);
-		return -1;
-	}
-	/* key may be NULL but that's not a problem, as long as we have void */
-	if (fmt->raw) {
-		mnstr_write(fmt->raw, adt, ATOMsize(fmt->adt), 1);
-	} else {
-		bunfastins(fmt->c[0], key, adt);
-	}
-	return 0;
-  bunins_failed:
-	snprintf(buf, BUFSIZ, "while parsing '%s' from line " BUNFMT " field %d not inserted\n", s, BATcount(fmt->c[0]), c);
-	*err = GDKstrdup(buf);
-	return -1;
-}
-
-char *
+static char *
 tablet_skip_string(char *s, char quote)
 {
 	while (*s) {
@@ -476,80 +322,6 @@ tablet_skip_string(char *s, char quote)
 	return s;
 }
 
-inline int
-insert_line(Tablet *as, char *line, ptr key, BUN col1, BUN col2)
-{
-	Column *fmt = as->format;
-	char *s, *e = 0, quote = 0, seperator = 0;
-	BUN i;
-	char errmsg[BUFSIZ];
-
-	for (i = 0; i < as->nr_attrs; i++) {
-		e = 0;
-
-		/* skip leading spaces */
-		if (fmt[i].ws)
-			while (myisspace((int) (*line)))
-				line++;
-		s = line;
-
-		/* recognize fields starting with a quote */
-		if (*line && *line == fmt[i].quote && (line == s || *(line - 1) != '\\')) {
-			quote = *line;
-			line++;
-			line = tablet_skip_string(line, quote);
-			if (!line) {
-				snprintf(errmsg, BUFSIZ, "End of string (%c) missing " "in %s at line " BUNFMT "\n", quote, s, BATcount(fmt->c[0]));
-				as->error = GDKstrdup(errmsg);
-				if (!as->tryall)
-					return -1;
-				BUNins(as->complaints, NULL, as->error, TRUE);
-			}
-		}
-
-		/* skip until separator */
-		seperator = fmt[i].sep[0];
-		if (fmt[i].sep[1] == 0) {
-			while (*line) {
-				if (*line == seperator) {
-					e = line;
-					break;
-				}
-				line++;
-			}
-		} else {
-			while (*line) {
-				if (*line == seperator &&
-					strncmp(fmt[i].sep, line, fmt[i].seplen) == 0) {
-					e = line;
-					break;
-				}
-				line++;
-			}
-		}
-		if (!e && i == (as->nr_attrs - 1))
-			e = line;
-		if (e) {
-			if (i >= col1 && i < col2)
-				(void) insert_val(&fmt[i], s, e, quote, key, &as->error, (int) i);
-			quote = 0;
-			line = e + fmt[i].seplen;
-			if (as->error) {
-				if (!as->tryall)
-					return -1;
-				BUNins(as->complaints, NULL, as->error, TRUE);
-			}
-		} else {
-			snprintf(errmsg, BUFSIZ, "missing separator '%s' line " BUNFMT " field " BUNFMT "\n", fmt->sep, BATcount(fmt->c[0]), i);
-			as->error = GDKstrdup(errmsg);
-			if (!as->tryall)
-				return -1;
-			BUNins(as->complaints, NULL, as->error, TRUE);
-		}
-	}
-	return 0;
-}
-
 static int
 TABLET_error(stream *s)
 {
@@ -564,49 +336,19 @@ TABLET_error(stream *s)
 	return -1;
 }
 
-static inline int
-dump_line(char **buf, int *len, Column *fmt, stream *fd, BUN nr_attrs, BUN id)
-{
-	BUN i;
-
-	for (i = 0; i < nr_attrs; i++) {
-		Column *f;
-		char *p;
-		int l;
-
-		f = fmt + i;
-		if (f->c[0]) {
-			p = (char *) bun_tail(f->c[0], id);
-
-			if (!p || ATOMcmp(f->adt, ATOMnilptr(f->adt), p) == 0) {
-				l = (int) strlen(f->nullstr);
-				if (mnstr_write(fd, f->nullstr, 1, l) != l)
-					return TABLET_error(fd);
-			} else {
-				l = f->tostr(f->extra, buf, len, f->adt, p);
-				if (mnstr_write(fd, *buf, 1, l) != l)
-					return TABLET_error(fd);
-			}
-		}
-		if (mnstr_write(fd, f->sep, 1, f->seplen) != f->seplen)
-			return TABLET_error(fd);
-	}
-	return 0;
-}
-
-/* The output line is first build before being sent. It solves a problem
+/* The output line is first built before being sent. It solves a problem
    with UDP, where you may loose most of the information using short writes
 */
 static inline int
 output_line(char **buf, int *len, char **localbuf, int *locallen, Column *fmt, stream *fd, BUN nr_attrs, ptr id)
 {
-	BUN i = 0;
+	BUN i;
 	int fill = 0;
 
 	for (i = 0; i < nr_attrs; i++) {
-		if (fmt[i].c[0] == NULL)
+		if (fmt[i].c == NULL)
 			continue;
-		fmt[i].p = BUNfnd(fmt[i].c[0], id);
+		fmt[i].p = BUNfnd(fmt[i].c, id);
 
 		if (fmt[i].p == BUN_NONE)
 			break;
@@ -614,11 +356,11 @@ output_line(char **buf, int *len, char **localbuf, int *locallen, Column *fmt, s
 	if (i == nr_attrs) {
 		for (i = 0; i < nr_attrs; i++) {
 			Column *f = fmt + i;
-			char *p;
+			const char *p;
 			int l;
 
-			if (f->c[0]) {
-				p = BUNtail(f->ci[0], f->p);
+			if (f->c) {
+				p = BUNtail(f->ci, f->p);
 
 				if (!p || ATOMcmp(f->adt, ATOMnilptr(f->adt), p) == 0) {
 					p = f->nullstr;
@@ -627,9 +369,9 @@ output_line(char **buf, int *len, char **localbuf, int *locallen, Column *fmt, s
 					l = f->tostr(f->extra, localbuf, locallen, f->adt, p);
 					p = *localbuf;
 				}
-				if (fill + l + f->seplen > *len) {
+				if (fill + l + f->seplen >= *len) {
 					/* extend the buffer */
-					*buf = (char *) GDKrealloc(*buf, fill + l + f->seplen + BUFSIZ);
+					*buf = GDKrealloc(*buf, fill + l + f->seplen + BUFSIZ);
 					*len = fill + l + f->seplen + BUFSIZ;
 					if (*buf == NULL)
 						return -1;
@@ -654,10 +396,11 @@ output_line_dense(char **buf, int *len, char **localbuf, int *locallen, Column *
 
 	for (i = 0; i < nr_attrs; i++) {
 		Column *f = fmt + i;
+		const char *p;
+		int l;
 
-		if (f->c[0]) {
-			char *p = BUNtail(f->ci[0], f->p);
-			int l;
+		if (f->c) {
+			p = BUNtail(f->ci, f->p);
 
 			if (!p || ATOMcmp(f->adt, ATOMnilptr(f->adt), p) == 0) {
 				p = f->nullstr;
@@ -668,7 +411,7 @@ output_line_dense(char **buf, int *len, char **localbuf, int *locallen, Column *
 			}
 			if (fill + l + f->seplen >= *len) {
 				/* extend the buffer */
-				*buf = (char *) GDKrealloc(*buf, fill + l + f->seplen + BUFSIZ);
+				*buf = GDKrealloc(*buf, fill + l + f->seplen + BUFSIZ);
 				*len = fill + l + f->seplen + BUFSIZ;
 				if (*buf == NULL)
 					return -1;
@@ -693,8 +436,8 @@ output_line_lookup(char **buf, int *len, Column *fmt, stream *fd, BUN nr_attrs, 
 	for (i = 0; i < nr_attrs; i++) {
 		Column *f = fmt + i;
 
-		if (f->c[0]) {
-			char *p = BUNtail(f->ci[0], id +BUNfirst(f->c[0]));
+		if (f->c) {
+			char *p = BUNtail(f->ci, id +BUNfirst(f->c));
 
 			if (!p || ATOMcmp(f->adt, ATOMnilptr(f->adt), p) == 0) {
 				size_t l = strlen(f->nullstr);
@@ -713,7 +456,7 @@ output_line_lookup(char **buf, int *len, Column *fmt, stream *fd, BUN nr_attrs, 
 	return 0;
 }
 
-int
+static int
 tablet_read_more(bstream *in, stream *out, size_t n)
 {
 	if (out) {
@@ -815,7 +558,7 @@ output_file_default(Tablet *as, BAT *order, stream *fd)
 	return res;
 }
 
-int
+static int
 output_file_dense(Tablet *as, stream *fd)
 {
 	int len = BUFSIZ, locallen= BUFSIZ, res = 0;
@@ -976,11 +719,15 @@ SQLload_error(READERtask *task, int idx)
 		else
 			sz += task->seplen;
 
-	line = (str) GDKzalloc(sz + task->rseplen + 1);
+	line = (str) GDKmalloc(sz + task->rseplen + 1);
 	if (line == 0) {
-		task->as->error = M5OutOfMemory;
+		MT_lock_set(&errorlock, "SQLload_error");
+		if (task->as->error == NULL)
+			task->as->error = M5OutOfMemory;
+		MT_lock_unset(&errorlock, "SQLload_error");
 		return 0;
 	}
+	line[0] = 0;
 	for (i = 0; i < task->as->nr_attrs; i++) {
 		if (task->fields[i][idx])
 			strcat(line, task->fields[i][idx]);
@@ -1000,7 +747,7 @@ SQLload_error(READERtask *task, int idx)
 static inline int
 SQLinsert_val(Column *fmt, char *s, char quote, ptr key, str *err, int col)
 {
-	ptr *adt;
+	const void *adt;
 	char buf[BUFSIZ];
 	char *e, *t;
 	int ret = 0;
@@ -1011,7 +758,7 @@ SQLinsert_val(Column *fmt, char *s, char quote, ptr key, str *err, int col)
 		mnstr_printf(GDKout, "nil value '%s' (%d) found in :%s\n", fmt->nullstr, fmt->nillen, (s ? s : ""));
 #endif
 		adt = fmt->nildata;
-		fmt->c[0]->T->nonil = 0;
+		fmt->c->T->nonil = 0;
 	} else if (quote && *s == quote) {
 		/* strip the quotes when present */
 		s++;
@@ -1025,14 +772,14 @@ SQLinsert_val(Column *fmt, char *s, char quote, ptr key, str *err, int col)
 		if (adt == NULL && s == e && fmt->nullstr &&
 			strncasecmp(s, fmt->nullstr, fmt->null_length + 1) == 0) {
 			adt = fmt->nildata;
-			fmt->c[0]->T->nonil = 0;
+			fmt->c->T->nonil = 0;
 		}
 	} else {
 		for (e = s; *e; e++) ;
 		adt = fmt->frstr(fmt, fmt->adt, s, e, 0);
 	}
 
-	if (!adt) {
+	if (adt == NULL) {
 		char *val;
 		val = *s ? GDKstrdup(s) : GDKstrdup("");
 		if (*err == NULL) {
@@ -1041,31 +788,27 @@ SQLinsert_val(Column *fmt, char *s, char quote, ptr key, str *err, int col)
 						 " field %d not inserted, expecting type %s\n",
 						 BUFSIZ - 200, val,
 						 strlen(val) > (size_t) BUFSIZ - 200 ? "..." : "",
-						 BATcount(fmt->c[0]) + 1, col, fmt->type) < 0)
+						 BATcount(fmt->c) + 1, col, fmt->type) < 0)
 				snprintf(buf, BUFSIZ,
 						 "value from line " BUNFMT
 						 " field %d not inserted, expecting type %s\n",
-						 BATcount(fmt->c[0]) + 1, col, fmt->type);
+						 BATcount(fmt->c) + 1, col, fmt->type);
 			*err = GDKstrdup(buf);
 		}
 		GDKfree(val);
 		/* replace it with a nil */
 		adt = fmt->nildata;
-		fmt->c[0]->T->nonil = 0;
+		fmt->c->T->nonil = 0;
 		ret = -1;
 	}
 	/* key may be NULL but that's not a problem, as long as we have void */
-	if (fmt->raw) {
-		mnstr_write(fmt->raw, adt, ATOMsize(fmt->adt), 1);
-	} else {
-		bunfastins(fmt->c[0], key, adt);
-	}
+	bunfastins(fmt->c, key, adt);
 	return ret;
   bunins_failed:
 	if (*err == NULL) {
 		snprintf(buf, BUFSIZ,
-				 "parsing error from line " BUNFMT " field %d not inserted\n",
-				 BATcount(fmt->c[0]) + 1, col);
+				 "value from line " BUNFMT " field %d not inserted: %s\n",
+				 BATcount(fmt->c) + 1, col, GDKerrbuf);
 		*err = GDKstrdup(buf);
 	}
 	return -1;
@@ -1080,10 +823,12 @@ SQLworker_column(READERtask *task, int col)
 
 	/* watch out for concurrent threads */
 	MT_lock_set(&mal_copyLock, "tablet insert value");
-	if (BATcapacity(fmt[col].c[0]) < BATcount(fmt[col].c[0]) + task->next) {
-		if ((fmt[col].c[0] = BATextend(fmt[col].c[0], BATgrows(fmt[col].c[0]) + task->limit)) == NULL) {
+	if (BATcapacity(fmt[col].c) < BATcount(fmt[col].c) + task->next) {
+		if ((fmt[col].c = BATextend(fmt[col].c, BATgrows(fmt[col].c) + task->limit)) == NULL) {
+			MT_lock_set(&errorlock, "SQLworker_column");
 			if (task->as->error == NULL)
-				task->as->error = GDKstrdup("Failed to extend the BAT, perhaps disk full");
+				task->as->error = GDKstrdup("Failed to extend the BAT, perhaps disk full\n");
+			MT_lock_unset(&errorlock, "SQLworker_column");
 			MT_lock_unset(&mal_copyLock, "tablet insert value");
 			mnstr_printf(GDKout, "Failed to extend the BAT, perhaps disk full");
 			return -1;
@@ -1098,8 +843,10 @@ SQLworker_column(READERtask *task, int col)
 				MT_lock_set(&mal_copyLock, "tablet insert value");
 				if (!task->as->tryall) {
 					/* watch out for concurrent threads */
+					MT_lock_set(&errorlock, "SQLworker_column");
 					if (task->as->error == NULL)
 						task->as->error = err;	/* restore for upper layers */
+					MT_lock_unset(&errorlock, "SQLworker_column");
 				} else
 					BUNins(task->as->complaints, NULL, err, TRUE);
 				MT_lock_unset(&mal_copyLock, "tablet insert value");
@@ -1110,8 +857,10 @@ SQLworker_column(READERtask *task, int col)
 	if (err) {
 		/* watch out for concurrent threads */
 		MT_lock_set(&mal_copyLock, "tablet insert value");
+		MT_lock_set(&errorlock, "SQLworker_column");
 		if (task->as->error == NULL)
 			task->as->error = err;	/* restore for upper layers */
+		MT_lock_unset(&errorlock, "SQLworker_column");
 		MT_lock_unset(&mal_copyLock, "tablet insert value");
 	}
 	return err ? -1 : 0;
@@ -1148,9 +897,7 @@ SQLload_file_line(READERtask *task, int idx)
 						 "End of string (%c) missing in \"%s\" at line " BUNFMT
 						 " field " BUNFMT "\n",
 						 task->quote, (errline ? errline : ""),
-						 BATcount(as->format->c[0]) + task->next + 1, i);
-				if (errline)
-					GDKerror("%s", errmsg);
+						 BATcount(as->format->c) + task->next + 1, i);
 				GDKfree(errline);
 				goto errors;
 			}
@@ -1171,18 +918,22 @@ SQLload_file_line(READERtask *task, int idx)
 			snprintf(errmsg, BUFSIZ,
 					 "missing separator '%s' line " BUNFMT " expecting "
 					 BUNFMT " got " BUNFMT "  fields\n",
-					 fmt->sep, BATcount(fmt->c[0]) + idx, as->nr_attrs - 1, i);
+					 fmt->sep, BATcount(fmt->c) + idx, as->nr_attrs - 1, i);
 		  errors:
 			/* we save all errors detected */
 			MT_lock_set(&mal_copyLock, "tablet line break");
 			if (as->tryall)
 				BUNins(as->complaints, NULL, errmsg, TRUE);
+			MT_lock_set(&errorlock, "SQLload_file_line");
 			if (as->error) {
 				str s = GDKstrdup(errmsg);
 				snprintf(errmsg, BUFSIZ, "%s%s", as->error, s);
 				GDKfree(s);
+				if (as->error != M5OutOfMemory)
+					GDKfree(as->error);
 			}
 			as->error = GDKstrdup(errmsg);
+			MT_lock_unset(&errorlock, "SQLload_file_line");
 			MT_lock_unset(&mal_copyLock, "tablet line break");
 			for (i = 0; i < as->nr_attrs; i++)
 				task->fields[i][idx] = NULL;
@@ -1277,7 +1028,10 @@ SQLworkdivider(READERtask *task, READERtask *ptask, int nr_attrs, int threads)
 	}
 	loc = (lng *) GDKzalloc(sizeof(lng) * threads);
 	if (loc == 0) {
-		task->as->error = M5OutOfMemory;
+		MT_lock_set(&errorlock, "SQLworkdivider");
+		if (task->as->error == NULL)
+			task->as->error = M5OutOfMemory;
+		MT_lock_unset(&errorlock, "SQLworkdivider");
 		return;
 	}
 	/* use of load directives */
@@ -1359,7 +1113,10 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 		ptask[i].cols = 0;
 
 	if (task == 0) {
-		as->error = M5OutOfMemory;
+		MT_lock_set(&errorlock, "SQLload_file");
+		if (task->as->error == NULL)
+			as->error = M5OutOfMemory;
+		MT_lock_unset(&errorlock, "SQLload_file");
 		return BUN_NONE;
 	}
 
@@ -1379,7 +1136,10 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 	task->basesize = b->size + 2;
 
 	if (task->fields == 0 || task->cols == 0 || task->time == 0 || task->base == 0) {
-		as->error = M5OutOfMemory;
+		MT_lock_set(&errorlock, "SQLload_file");
+		if (task->as->error == NULL)
+			as->error = M5OutOfMemory;
+		MT_lock_unset(&errorlock, "SQLload_file");
 		goto bailout;
 	}
 
@@ -1405,7 +1165,9 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 	mlock(task->time, as->nr_attrs * sizeof(lng));
 	mlock(task->base, b->size + 2);
 #endif
+	MT_lock_set(&errorlock, "SQLload_file");
 	as->error = NULL;
+	MT_lock_unset(&errorlock, "SQLload_file");
 
 	/* there is no point in creating more threads than we have columns */
 	if (as->nr_attrs < (BUN) threads)
@@ -1417,7 +1179,10 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 	for (i = 0; i < as->nr_attrs; i++) {
 		task->fields[i] = GDKzalloc(sizeof(char *) * task->limit);
 		if (task->fields[i] == 0) {
-			as->error = M5OutOfMemory;
+			MT_lock_set(&errorlock, "SQLload_file");
+			if (task->as->error == NULL)
+				as->error = M5OutOfMemory;
+			MT_lock_unset(&errorlock, "SQLload_file");
 			goto bailout;
 		}
 #ifdef MLOCK_TST
@@ -1435,7 +1200,10 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 		ptask[j].id = j;
 		ptask[j].cols = (int *) GDKzalloc(as->nr_attrs * sizeof(int));
 		if (ptask[j].cols == 0) {
-			as->error = M5OutOfMemory;
+			MT_lock_set(&errorlock, "SQLload_file");
+			if (task->as->error == NULL)
+				as->error = M5OutOfMemory;
+			MT_lock_unset(&errorlock, "SQLload_file");
 			goto bailout;
 		}
 #ifdef MLOCK_TST
@@ -1464,8 +1232,14 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 		if (task->errbuf && task->errbuf[0]) {
 			msg = catchKernelException(cntxt, msg);
 			if (msg) {
-				showException(task->out, MAL, "copy_from", "%s", msg);
-				GDKfree(msg);
+				MT_lock_set(&errorlock, "SQLload_file");
+				if (as->error == NULL)
+					as->error = msg;
+				else {
+					showException(task->out, MAL, "copy_from", "%s", msg);
+					GDKfree(msg);
+				}
+				MT_lock_unset(&errorlock, "SQLload_file");
 				goto bailout;
 			}
 		}
@@ -1525,7 +1299,8 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 				if (rseplen == 1) {
 					for (; *e; e++) {
 						if (*e == '\\') {
-							e++;
+							if (*++e == 0)
+								break;
 							continue;
 						}
 						if (*e == *rsep)
@@ -1534,7 +1309,8 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 				} else if (rseplen == 2) {
 					for (; *e; e++) {
 						if (*e == '\\') {
-							e++;
+							if (*++e == 0)
+								break;
 							continue;
 						}
 						if (*e == *rsep && e[1] == rsep[1])
@@ -1543,7 +1319,8 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 				} else {
 					for (; *e; e++) {
 						if (*e == '\\') {
-							e++;
+							if (*++e == 0)
+								break;
 							continue;
 						}
 						if (*e == *rsep && strncmp(e, rsep, rseplen) == 0)
@@ -1559,8 +1336,8 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 					else if (*e == quote)
 						q = *e;
 					else if (*e == '\\') {
-						if (e[1])
-							e++;
+						if (*++e == 0)
+							break;
 					} else if (!q && *e == *rsep)
 						break;
 				}
@@ -1587,8 +1364,8 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 					else if (*e == quote)
 						q = *e;
 					else if (*e == '\\') {
-						if (e[1])
-							e++;
+						if (*++e == 0)
+							break;
 					} else if (!q && *e == *rsep && strncmp(e, rsep, rseplen) == 0)
 						break;
 				}
@@ -1618,7 +1395,7 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 		total += t1;
 		iototal += tio;
 #ifdef _DEBUG_TABLET_
-		mnstr_printf(GDKout, "fill the BATs %d  " BUNFMT " cap " BUNFMT "\n", task->next, cnt, BATcapacity(as->format[0].c[0]));
+		mnstr_printf(GDKout, "fill the BATs %d  " BUNFMT " cap " BUNFMT "\n", task->next, cnt, BATcapacity(as->format[0].c));
 #endif
 		t1 = GDKusec();
 		if (task->next) {
@@ -1673,7 +1450,12 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 	}
 
 	if (task->b->pos < task->b->len && cnt < (BUN) maxrow && task->ateof) {
-		showException(task->out, MAL, "copy_from", "Incomplete record at end of file.\n");
+		MT_lock_set(&errorlock, "SQLload_file");
+		if (as->error == NULL)
+			as->error = GDKstrdup("Incomplete record at end of file.\n");
+		else
+			showException(task->out, MAL, "copy_from", "Incomplete record at end of file.\n");
+		MT_lock_unset(&errorlock, "SQLload_file");
 		/* indicate that we did read everything (even if we couldn't
 		 * deal with it */
 		task->b->pos = task->b->len;
@@ -1684,7 +1466,7 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 		if (cnt < (BUN) maxrow && maxrow > 0)
 			/* providing a precise count is not always easy, instead
 			 * consider maxrow as an upper bound */
-			mnstr_printf(GDKout, "#SQLload_file: read error, tuples missing (after loading " BUNFMT " records)\n", BATcount(as->format[0].c[0]));
+			mnstr_printf(GDKout, "#SQLload_file: read error, tuples missing (after loading " BUNFMT " records)\n", BATcount(as->format[0].c));
 		mnstr_printf(GDKout, "# COPY reader time " LLFMT " line break " LLFMT " io " LLFMT "\n", total, lio, iototal);
 #ifdef _DEBUG_TABLET_
 		for (i = 0; i < as->nr_attrs; i++)

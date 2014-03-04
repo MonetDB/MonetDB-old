@@ -13,16 +13,14 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
 /*
- * @f mal_builder
- * @a M. Kersten
- * @v 1.0
+ * (authors) M. Kersten
  *
- * @* The MAL builder
+ * MAL builder
  * The MAL builder library containst the primitives to simplify construction
  * of programs by compilers. It has grown out of the MonetDB/SQL code generator.
  * The strings being passed as arguments are copied in the process.
@@ -30,22 +28,15 @@
  */
 #include "monetdb_config.h"
 #include "mal_builder.h"
+#include "mal_function.h"
+#include "mal_namespace.h"
+
 InstrPtr
 newAssignment(MalBlkPtr mb)
 {
 	InstrPtr q = newInstruction(mb,ASSIGNsymbol);
 
 	getArg(q,0)= newTmpVariable(mb,TYPE_any);
-	pushInstruction(mb, q);
-	return q;
-}
-
-InstrPtr
-newAssignmentId(MalBlkPtr mb, str nme)
-{
-	InstrPtr q = newInstruction(mb,ASSIGNsymbol);
-
-	getArg(q,0)= newVariable(mb, GDKstrdup(nme), TYPE_any);
 	pushInstruction(mb, q);
 	return q;
 }
@@ -83,18 +74,6 @@ newStmt2(MalBlkPtr mb, str module, char *name)
 	setFunctionId(q, name);
 	setDestVar(q, newTmpVariable(mb, TYPE_any));
 	pushInstruction(mb, q);
-	return q;
-}
-InstrPtr
-newStmtId(MalBlkPtr mb, char *id, char *module, char *name)
-{
-	InstrPtr q = newInstruction(mb,ASSIGNsymbol);
-
-	setModuleId(q, (module) ? putName(module, strlen(module)) : NULL);
-	setFunctionId(q, (name) ? putName(name, strlen(name)) : NULL);
-	setDestVar(q, newVariable(mb, GDKstrdup(id), TYPE_any));
-	pushInstruction(mb, q);
-
 	return q;
 }
 
@@ -247,6 +226,18 @@ pushLng(MalBlkPtr mb, InstrPtr q, lng val)
 }
 
 InstrPtr
+pushSht(MalBlkPtr mb, InstrPtr q, sht val)
+{
+	int _t;
+	ValRecord cst;
+
+	cst.vtype= TYPE_sht;
+	cst.val.shval= val;
+	_t = defConstant(mb,TYPE_sht,&cst);
+	return pushArgument(mb, q, _t);
+}
+
+InstrPtr
 pushDbl(MalBlkPtr mb, InstrPtr q, dbl val)
 {
 	int _t;
@@ -376,8 +367,8 @@ pushEmptyBAT(MalBlkPtr mb, InstrPtr q, int tpe)
 	getModuleId(q) = getName("bat",3);
 	getFunctionId(q) = getName("new",3);
 
-	q = pushArgument(mb, q, newTypeVariable(mb,getHeadType(tpe)));
-	q = pushArgument(mb, q, newTypeVariable(mb,getTailType(tpe)));
+	q = pushArgument(mb, q, newTypeVariable(mb,TYPE_void));
+	q = pushArgument(mb, q, newTypeVariable(mb,getColumnType(tpe)));
 	q = pushZero(mb,q,TYPE_lng);
 	return q;
 }

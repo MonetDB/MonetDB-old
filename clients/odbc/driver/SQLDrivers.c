@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -42,7 +42,6 @@ SQLDrivers(SQLHENV EnvironmentHandle,
 	return SQL_ERROR;
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLDriversA(SQLHENV EnvironmentHandle,
 	    SQLUSMALLINT Direction,
@@ -84,4 +83,3 @@ SQLDriversW(SQLHENV EnvironmentHandle,
 		    "Driver Manager only function", 0);
 	return SQL_ERROR;
 }
-#endif /* WITH_WCHAR */

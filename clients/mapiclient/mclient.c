@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -115,7 +115,8 @@ enum formatters {
 	CSVformatter,
 	XMLformatter,
 	TESTformatter,
-	CLEANformatter
+	CLEANformatter,
+	TIMERformatter
 };
 static enum formatters formatter = NOformatter;
 char *output = NULL;		/* output format as string */
@@ -1021,6 +1022,15 @@ RAWrenderer(MapiHdl hdl)
 }
 
 static void
+TIMERrenderer(MapiHdl hdl)
+{
+	SQLqueryEcho(hdl);
+	while (fetch_line(hdl) != 0)
+		;
+	printf("%s\n", timerHuman());
+}
+
+static void
 SQLheader(MapiHdl hdl, int *len, int fields, char more)
 {
 	SQLqueryEcho(hdl);
@@ -1131,6 +1141,11 @@ SQLrenderer(MapiHdl hdl, char singleinstr)
 			 * NULL or empty string, so MINCOLSIZE (below)
 			 * will work great */
 			len[i] = pagewidth <= 0 ? DEFWIDTH : pagewidth;
+		} else if (len[i] == 0 &&
+			   strcmp(mapi_get_type(hdl, i), "uuid") == 0) {
+			/* we know how large the UUID representation
+			 * is, even if the server doesn't */
+			len[i] = 36;
 		}
 		if (len[i] < MINCOLSIZE)
 			len[i] = MINCOLSIZE;
@@ -1364,6 +1379,8 @@ setFormatter(char *s)
 		_set_output_format(_TWO_DIGIT_EXPONENT);
 #endif
 		formatter = TESTformatter;
+	} else if (strcmp(s, "timer") == 0) {
+		formatter = TIMERformatter;
 	} else {
 		mnstr_printf(toConsole, "unsupported formatter\n");
 	}
@@ -1578,6 +1595,9 @@ format_result(Mapi mid, MapiHdl hdl, char singleinstr)
 					SQLrenderer(hdl, singleinstr);
 					break;
 				}
+				break;
+			case TIMERformatter:
+				TIMERrenderer(hdl);
 				break;
 			default:
 				RAWrenderer(hdl);
@@ -2562,6 +2582,7 @@ set_timezone(Mapi mid)
 	tmp = gmtime(&t);
 	gt = mktime(tmp);
 	tmp = localtime(&t);
+	tmp->tm_isdst=0; /* We need the difference without dst */
 	lt = mktime(tmp);
 	assert((lng) gt - (lng) lt >= (lng) INT_MIN && (lng) gt - (lng) lt <= (lng) INT_MAX);
 	tzone = (int) (gt - lt);

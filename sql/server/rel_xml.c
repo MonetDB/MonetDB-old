@@ -13,10 +13,9 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
-
 
 #include "monetdb_config.h"
 #include "rel_xml.h"
@@ -25,8 +24,8 @@
 #include "sql_semantic.h"
 #include "sql_parser.h"
 
-static sql_subtype xml_type = { NULL, 0, 0, NULL };
-static sql_subtype str_type = { NULL, 0, 0, NULL };
+static sql_subtype xml_type = { NULL, 0, 0 };
+static sql_subtype str_type = { NULL, 0, 0 };
 
 static sql_exp *
 rel_xmlelement(mvc *sql, sql_rel **rel, symbol *sym, int f, exp_kind knd) 

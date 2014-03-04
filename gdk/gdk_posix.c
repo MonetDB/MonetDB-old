@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -34,10 +34,6 @@
 #include <unistd.h>		/* sbrk on Solaris */
 #include <string.h>     /* strncpy */
 
-#ifdef __hpux
-extern char *sbrk(int);
-#endif
-
 #ifdef HAVE_FCNTL_H
 # include <fcntl.h>
 #endif
@@ -55,12 +51,6 @@ extern char *sbrk(int);
 # include <sys/param.h>
 # include <sys/sysctl.h>
 # include <sys/user.h>
-#endif
-
-#ifdef WIN32
-int GDK_mem_pagebits = 16;	/* on windows, the mmap addresses can be set by the 64KB */
-#else
-int GDK_mem_pagebits = 14;	/* on linux, 4KB pages can be addressed (but we use 16KB) */
 #endif
 
 #ifndef MAP_NORESERVE
@@ -96,9 +86,6 @@ setenv(const char *name, const char *value, int overwrite)
 	return ret;
 }
 #endif
-
-char *MT_heapbase = NULL;
-
 
 /* Crude VM buffer management that keep a list of all memory mapped
  * regions.
@@ -277,7 +264,6 @@ char *MT_heapbase = NULL;
 void
 MT_init_posix(void)
 {
-	MT_heapbase = (char *) sbrk(0);
 }
 
 /* return RSS in bytes */
@@ -359,17 +345,11 @@ MT_getrss(void)
 }
 
 
-char *
-MT_heapcur(void)
-{
-	return (char *) sbrk(0);
-}
-
 void *
 MT_mmap(const char *path, int mode, size_t len)
 {
 	int fd = open(path, O_CREAT | ((mode & MMAP_WRITE) ? O_RDWR : O_RDONLY), MONETDB_MODE);
-	void *ret = (void *) -1L;
+	void *ret = MAP_FAILED;
 
 	if (fd >= 0) {
 		ret = mmap(NULL,
@@ -380,7 +360,7 @@ MT_mmap(const char *path, int mode, size_t len)
 			   0);
 		close(fd);
 	}
-	return ret;
+	return ret == MAP_FAILED ? NULL : ret;
 }
 
 int
@@ -406,15 +386,20 @@ MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t
 	int flags = mode & MMAP_COPY ? MAP_PRIVATE : MAP_SHARED;
 	int prot = PROT_WRITE | PROT_READ;
 
+	/* round up to multiple of page size */
+	*new_size = (*new_size + GDK_mmap_pagesize - 1) & ~(GDK_mmap_pagesize - 1);
+
 	/* doesn't make sense for us to extend read-only memory map */
 	assert(mode & MMAP_WRITABLE);
 
 	if (*new_size < old_size) {
 		/* shrink */
 		if (munmap((char *) old_address + *new_size,
-			   old_size - *new_size) < 0)
+			   old_size - *new_size) < 0) {
+			fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): munmap() failed\n", __FILE__, __LINE__, path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
 			return NULL;
-		if (truncate(path, (off_t) *new_size) < 0)
+		}
+		if (truncate(path, *new_size) < 0)
 			fprintf(stderr, "#MT_mremap(%s): truncate failed\n", path);
 #ifdef MMAP_DEBUG
 		fprintf(stderr, "MT_mremap(%s,"PTRFMT","SZFMT","SZFMT") -> shrinking\n", path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
@@ -432,10 +417,13 @@ MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t
 	if (!(mode & MMAP_COPY) && path != NULL) {
 		/* "normal" memory map */
 
-		if ((fd = open(path, O_RDWR)) < 0)
+		if ((fd = open(path, O_RDWR)) < 0) {
+			fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): open() failed\n", __FILE__, __LINE__, path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
 			return NULL;
+		}
 		if (GDKextendf(fd, *new_size) < 0) {
 			close(fd);
+			fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): GDKextendf() failed\n", __FILE__, __LINE__, path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
 			return NULL;
 		}
 #ifdef HAVE_MREMAP
@@ -474,8 +462,10 @@ MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t
 #ifdef MAP_ANONYMOUS
 		flags |= MAP_ANONYMOUS;
 #else
-		if ((fd = open("/dev/zero", O_RDWR)) < 0)
+		if ((fd = open("/dev/zero", O_RDWR)) < 0) {
+			fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): open('/dev/zero') failed\n", __FILE__, __LINE__, path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
 			return NULL;
+		}
 #endif
 		/* try to map an anonymous area as extent to the
 		 * current map */
@@ -519,7 +509,6 @@ MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t
 					/* size not too big yet or
 					 * anonymous, try to make new
 					 * anonymous mmap and copy
-
 					 * data over */
 					p = mmap(NULL, *new_size, prot, flags,
 						 fd, 0);
@@ -540,14 +529,15 @@ MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t
 					fd = open(p, O_RDWR | O_CREAT,
 						  MONETDB_MODE);
 					free(p);
-					if (fd < 0)
+					if (fd < 0) {
+						fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): fd < 0\n", __FILE__, __LINE__, path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
 						return NULL;
+					}
 					if (write(fd, old_address,
 						  old_size) < 0 ||
-					    lseek(fd, *new_size - 1,
-						  SEEK_SET) < 0 ||
-					    write(fd, "\0", 1) < 0) {
+					    ftruncate(fd, *new_size) < 0) {
 						close(fd);
+						fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): write() or ftruncate() failed\n", __FILE__, __LINE__, path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
 						return NULL;
 					}
 					p = mmap(NULL, *new_size, prot, flags,
@@ -564,13 +554,15 @@ MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t
 #ifdef MMAP_DEBUG
 	fprintf(stderr, "MT_mremap(%s,"PTRFMT","SZFMT","SZFMT") -> "PTRFMT"%s\n", path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size, PTRFMTCAST p, path && mode & MMAP_COPY ? " private" : "");
 #endif
+	if (p == MAP_FAILED)
+		fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): p == MAP_FAILED\n", __FILE__, __LINE__, path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
 	return p == MAP_FAILED ? NULL : p;
 }
 
 int
-MT_msync(void *p, size_t off, size_t len, int mode)
+MT_msync(void *p, size_t len, int mode)
 {
-	int ret = msync(((char *) p) + off, len,
+	int ret = msync(p, len,
 			(mode & MMAP_SYNC) ? MS_SYNC :
 			((mode & MMAP_ASYNC) ? MS_ASYNC : MS_INVALIDATE));
 
@@ -661,7 +653,6 @@ MT_ignore_exceptions(struct _EXCEPTION_POINTERS *ExceptionInfo)
 void
 MT_init_posix(void)
 {
-	MT_heapbase = 0;
 	SetUnhandledExceptionFilter(MT_ignore_exceptions);
 }
 
@@ -673,12 +664,6 @@ MT_getrss(void)
 	if (GetProcessMemoryInfo(GetCurrentProcess(), &ctr, sizeof(ctr)))
 		return ctr.WorkingSetSize;
 	return 0;
-}
-
-char *
-MT_heapcur(void)
-{
-	return (char *) 0;
 }
 
 /* Windows mmap keeps a global list of base addresses for complex
@@ -728,7 +713,7 @@ MT_mmap(const char *path, int mode, size_t len)
 		if (h1 == INVALID_HANDLE_VALUE) {
 			GDKsyserror("MT_mmap: CreateFile('%s', %lu, %lu, &sa, %lu, %lu, NULL) failed\n",
 				    path, mode0, mode1, (DWORD) OPEN_ALWAYS, mode2);
-			return (void *) -1;
+			return NULL;
 		}
 	}
 
@@ -739,14 +724,14 @@ MT_mmap(const char *path, int mode, size_t len)
 			    (DWORD) (((__int64) len >> 32) & LL_CONSTANT(0xFFFFFFFF)),
 			    (DWORD) (len & LL_CONSTANT(0xFFFFFFFF)));
 		CloseHandle(h1);
-		return (void *) -1;
+		return NULL;
 	}
 	CloseHandle(h1);
 
 	ret = MapViewOfFileEx(h2, mode4, (DWORD) 0, (DWORD) 0, len, NULL);
 	CloseHandle(h2);
 
-	return ret ? ret : (void *) -1;
+	return ret;
 }
 
 int
@@ -768,34 +753,41 @@ MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t
 	/* doesn't make sense for us to extend read-only memory map */
 	assert(mode & MMAP_WRITABLE);
 
+	/* round up to multiple of page size */
+	*new_size = (*new_size + GDK_mmap_pagesize - 1) & ~(GDK_mmap_pagesize - 1);
+
 	if (old_size >= *new_size) {
 		*new_size = old_size;
 		return old_address;	/* don't bother shrinking */
 	}
-	if (GDKextend(path, *new_size) < 0)
+	if (GDKextend(path, *new_size) < 0) {
+		fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): GDKextend() failed\n", __FILE__, __LINE__, path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
 		return NULL;
+	}
 	if (path && !(mode & MMAP_COPY))
 		MT_munmap(old_address, old_size);
 	p = MT_mmap(path, mode, *new_size);
-	if ((path == NULL || (mode & MMAP_COPY)) && p != (void *) -1) {
+	if (p != NULL && (path == NULL || (mode & MMAP_COPY))) {
 		memcpy(p, old_address, old_size);
 		MT_munmap(old_address, old_size);
 	}
 #ifdef MMAP_DEBUG
 	fprintf(stderr, "MT_mremap(%s,"PTRFMT","SZFMT","SZFMT") -> "PTRFMT"\n", path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size, PTRFMTCAST p);
 #endif
+	if (p == NULL)
+		fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): p == NULL\n", __FILE__, __LINE__, path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
 	return p;
 }
 
 int
-MT_msync(void *p, size_t off, size_t len, int mode)
+MT_msync(void *p, size_t len, int mode)
 {
 	int ret = 0;
 
 	(void) mode;
 	/*       Windows' UnmapViewOfFile returns success!=0, error== 0,
 	 * while Unix's   munmap          returns success==0, error==-1. */
-	return -(FlushViewOfFile(((char *) p) + off, len) == 0);
+	return -(FlushViewOfFile(p, len) == 0);
 }
 
 #ifndef _HEAPOK			/* MinGW */
@@ -853,32 +845,6 @@ MT_path_absolute(const char *pathname)
 		(pathname[2] == '/' || pathname[2] == '\\'));
 }
 
-
-#ifndef HAVE_FTRUNCATE
-int
-ftruncate(int fd, off_t size)
-{
-	HANDLE hfile;
-	unsigned int curpos;
-
-	if (fd < 0)
-		return -1;
-
-	hfile = (HANDLE) _get_osfhandle(fd);
-	curpos = SetFilePointer(hfile, 0, NULL, FILE_CURRENT);
-	if (curpos == 0xFFFFFFFF ||
-	    SetFilePointer(hfile, (LONG) size, NULL, FILE_BEGIN) == 0xFFFFFFFF ||
-	    !SetEndOfFile(hfile)) {
-		int error = GetLastError();
-
-		if (error && error != ERROR_INVALID_HANDLE)
-			SetLastError(ERROR_OPEN_FAILED);	/* enforce EIO */
-		return -1;
-	}
-
-	return 0;
-}
-#endif
 
 #ifndef HAVE_GETTIMEOFDAY
 static int nodays[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };

@@ -13,32 +13,28 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
 #ifndef _GROUPBY_H
 #define _GROUPBY_H
 
-#define _DEBUG_GROUPBY_
+//#define _DEBUG_GROUPBY_
 
 #include "mal.h"
 #include "mal_interpreter.h"
 
 #ifdef WIN32
 #if !defined(LIBMAL) && !defined(LIBATOMS) && !defined(LIBKERNEL) && !defined(LIBMAL) && !defined(LIBOPTIMIZER) && !defined(LIBSCHEDULER) && !defined(LIBMONETDB5)
-#define group_by extern __declspec(dllimport)
+#define group_by_export extern __declspec(dllimport)
 #else
-#define group_by extern __declspec(dllexport)
+#define group_by_export extern __declspec(dllexport)
 #endif
 #else
-#define group_by extern
+#define group_by_export extern
 #endif
 
-group_by str GROUPid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-group_by str GROUPcount(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-group_by str GROUPmax(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-group_by str GROUPmin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-group_by str GROUPavg(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+group_by_export str GROUPmulticolumngroup(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 #endif /* _GROUPBY_H */

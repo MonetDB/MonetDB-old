@@ -13,37 +13,28 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
 #ifndef _MAL_CLIENT_H_
 #define _MAL_CLIENT_H_
-#define bitset int
 
+#include "mal.h"
 /*#define MAL_CLIENT_DEBUG */
 
 #include "mal_resolve.h"
 #include "mal_profiler.h"
-#include "mal.h"
 
 #define CONSOLE     0
 #define isAdministrator(X) (X==mal_clients)
 
-#define FREECLIENT  0
-#define FINISHING   1   
-#define CLAIMED     2
+#define FREECLIENT  	0
+#define FINISHCLIENT	1   
+#define RUNCLIENT		2
+#define BLOCKCLIENT     3
 
 #define PROCESSTIMEOUT  2   /* seconds */
-
-#ifdef HAVE_SYS_RESOURCE_H
-# include <sys/resource.h>
-#endif
-
-#ifdef HAVE_SYS_TIMES_H
-# include <sys/times.h>
-#endif
-#include <setjmp.h>
 
 /*
  * The prompt structure is designed to simplify recognition of the
@@ -94,8 +85,10 @@ typedef struct CLIENT {
 
 	time_t      login;  
 	time_t      lastcmd;	/* set when input is received */
-	lng 	    qtimeout;	/* query abort after x milliseconds */
-	lng	        stimeout;	/* session abort after x milliseconds */
+	bit			active;		/* processing a query or not */
+	lng 		session;	/* usec since start of server */
+	lng 	    qtimeout;	/* query abort after x usec*/
+	lng	        stimeout;	/* session abort after x usec */
 	/*
 	 * Communication channels for the interconnect are stored here.
 	 * It is perfectly legal to have a client without input stream.
@@ -113,7 +106,7 @@ typedef struct CLIENT {
 	 * input, (2) also demonstrates the MAL internal structure, (4) adds
 	 * the type information.
 	 */
-	bitset  listing;        
+	int  listing;        
 	str prompt;         /* acknowledge prompt */
 	size_t promptlength;
 	ClientInput *bak;   /* used for recursive script and string execution */
@@ -134,7 +127,7 @@ typedef struct CLIENT {
 	 * pervasive debugger command. For detailed information on the
 	 * debugger features.
 	 */
-	bitset debug;
+	int debug;
 	void  *mdb;            /* context upon suspend */
 	str    history;	       /* where to keep console history */
 	short  mode;           /* FREECLIENT..BLOCKED */
@@ -189,16 +182,12 @@ mal_export Client  MCgetClient(int id);
 mal_export Client  MCinitClient(oid user, bstream *fin, stream *fout);
 mal_export Client  MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout);
 mal_export int     MCinitClientThread(Client c);
+mal_export void	   MCstopClients(Client c);
+mal_export int     MCshutdowninprogress(void);
+mal_export int	   MCactiveClients(void);
 mal_export void    MCcloseClient(Client c);
-mal_export Client  MCforkClient(Client c);
-mal_export int     MCcountClients(void);
-mal_export int     MCreadClient(Client c);
 mal_export str     MCsuspendClient(int id);
 mal_export str     MCawakeClient(int id);
-mal_export void    MCcleanupClients(void);
-mal_export void    MCtraceAllClients(int flag);
-mal_export void    MCtraceClient(oid which, int flag);
 mal_export int     MCpushClientInput(Client c, bstream *new_input, int listing, char *prompt);
-mal_export void    MCpopClientInput(Client c);
 
 #endif /* _MAL_CLIENT_H_ */

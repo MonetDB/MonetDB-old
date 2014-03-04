@@ -3,19 +3,19 @@
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.monetdb.org/Legal/MonetDBLicense
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * The Original Code is the MonetDB Database System.
- * 
+ *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
 
 /* Author(s) Martin Kersten
  * This module contains the framework for inclusion query transformers, i.e.
@@ -31,6 +31,9 @@
 */
 #include "monetdb_config.h"
 #include "optimizer.h"
+#include "mal_debugger.h"
+#include "optimizer_private.h"
+
 /*
  * Upon loading the module it should inspect the scenario table
  * for any unresolved references to the MALoptimizer and set the 
@@ -44,6 +47,7 @@ optimizer_prelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	(void) mb;
 	(void) p;
 	updateScenario("mal", "MALoptimizer", (MALfcn) MALoptimizer);
+	optimizerInit();
 	return MAL_SUCCEED;
 }
 

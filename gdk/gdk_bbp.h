@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -67,7 +67,7 @@
 
 gdk_export int BBPin;		/* BATs swapped into BBP  */
 gdk_export int BBPout;		/* BATs swapped out of BBP */
-gdk_export bat BBPsize;		/* current occupied size of BBP array */
+gdk_export bat getBBPsize(void); /* current occupied size of BBP array */
 
 /* global calls */
 gdk_export int BBPdir(int cnt, bat *subcommit);

@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -51,7 +51,6 @@ typedef enum stmt_type {
 	st_rs_column,
 	st_tid,
 	st_bat,
-	st_dbat,
 	st_idxbat,
 	st_const,
 	st_mark,
@@ -98,8 +97,6 @@ typedef enum stmt_type {
 	st_group,
 	st_unique,
 	st_convert,
-	st_unop,
-	st_binop,
 	st_Nop,
 	st_func,
 	st_aggr,
@@ -123,9 +120,9 @@ typedef enum stmt_type {
 
 typedef struct stmt {
 	st_type type;
-	struct stmt* op1;
-	struct stmt* op2;
-	struct stmt* op3;
+	struct stmt *op1;
+	struct stmt *op2;
+	struct stmt *op3;
 	stmtdata op4;		/* only op4 will hold other types */
 
 	char nrcols;
@@ -144,28 +141,25 @@ typedef struct stmt {
 } stmt;
 
 extern int stmt_key(stmt *s);
-extern const char *st_type2string(st_type type);
 
 extern stmt **stmt_array(sql_allocator *sa, stmt *s);
-extern void print_stmts( sql_allocator *sa, stmt ** stmts );
-extern void print_tree( sql_allocator *sa, stmt * stmts );
-extern void clear_stmts( stmt ** stmts );
+extern void print_stmts(sql_allocator *sa, stmt **stmts);
+extern void print_tree(sql_allocator *sa, stmt *stmts);
+extern void clear_stmts(stmt **stmts);
 
 extern stmt *stmt_none(sql_allocator *sa);
 
 #define VAR_DECLARE 1
 #define VAR_GLOBAL(f) ((f>>1)==1)
 extern stmt *stmt_var(sql_allocator *sa, char *varname, sql_subtype *t, int declare, int level);
+extern stmt *stmt_vars(sql_allocator *sa, char *varname, sql_table *t, int declare, int level);
 extern stmt *stmt_varnr(sql_allocator *sa, int nr, sql_subtype *t);
 
 extern stmt *stmt_table(sql_allocator *sa, stmt *cols, int temp);
-extern stmt *stmt_tbat(sql_allocator *sa, sql_table *t, int access);
-
-
 extern stmt *stmt_rs_column(sql_allocator *sa, stmt *result_set, int i, sql_subtype *tpe);
 
 extern stmt *stmt_bat(sql_allocator *sa, sql_column *c, int access);
-extern stmt *stmt_idxbat(sql_allocator *sa, sql_idx * i, int access);
+extern stmt *stmt_idxbat(sql_allocator *sa, sql_idx *i, int access);
 extern stmt *stmt_tid(sql_allocator *sa, sql_table *t);
 
 extern stmt *stmt_append_col(sql_allocator *sa, sql_column *c, stmt *b);
@@ -184,12 +178,11 @@ extern stmt *stmt_temp(sql_allocator *sa, sql_subtype *t);
 extern stmt *stmt_atom(sql_allocator *sa, atom *op1);
 extern stmt *stmt_atom_string(sql_allocator *sa, char *s);
 extern stmt *stmt_atom_string_nil(sql_allocator *sa);
-extern stmt *stmt_atom_clob(sql_allocator *sa, char *S);
 extern stmt *stmt_atom_int(sql_allocator *sa, int i);
 extern stmt *stmt_atom_wrd(sql_allocator *sa, wrd i);
 extern stmt *stmt_atom_wrd_nil(sql_allocator *sa);
-extern stmt *stmt_atom_lng(sql_allocator *sa, lng l);
 extern stmt *stmt_bool(sql_allocator *sa, int b);
+
 extern stmt *stmt_uselect(sql_allocator *sa, stmt *op1, stmt *op2, comp_type cmptype, stmt *sub);
 /* cmp
        0 ==   l <  x <  h
@@ -200,9 +193,6 @@ extern stmt *stmt_uselect(sql_allocator *sa, stmt *op1, stmt *op2, comp_type cmp
 extern stmt *stmt_uselect2(sql_allocator *sa, stmt *op1, stmt *op2, stmt *op3, int cmp, stmt *sub);
 extern stmt *stmt_genselect(sql_allocator *sa, stmt *l, stmt *rops, sql_subfunc *f, stmt *sub);
 
-#define isEqJoin(j) \
-	(j->type == st_join && (j->flag == cmp_equal || j->flag == cmp_project))
-
 extern stmt *stmt_tunion(sql_allocator *sa, stmt *op1, stmt *op2);
 extern stmt *stmt_tdiff(sql_allocator *sa, stmt *op1, stmt *op2);
 extern stmt *stmt_tinter(sql_allocator *sa, stmt *op1, stmt *op2);
@@ -210,7 +200,7 @@ extern stmt *stmt_tinter(sql_allocator *sa, stmt *op1, stmt *op2);
 extern stmt *stmt_join(sql_allocator *sa, stmt *op1, stmt *op2, comp_type cmptype);
 extern stmt *stmt_join2(sql_allocator *sa, stmt *l, stmt *ra, stmt *rb, int cmp, int swapped);
 /* generic join operator, with a left and right statement list */
-extern stmt *stmt_joinN(sql_allocator *sa, stmt *l, stmt *r, stmt *opt, sql_subfunc *op);
+extern stmt *stmt_joinN(sql_allocator *sa, stmt *l, stmt *r, stmt *opt, sql_subfunc *op, int swapped);
 
 extern stmt *stmt_project(sql_allocator *sa, stmt *op1, stmt *op2);
 extern stmt *stmt_project_delta(sql_allocator *sa, stmt *col, stmt *upd, stmt *ins);
@@ -229,9 +219,8 @@ extern stmt *stmt_exception(sql_allocator *sa, stmt *cond, char *errstr, int err
 
 extern stmt *stmt_const(sql_allocator *sa, stmt *s, stmt *val);
 
-extern stmt *stmt_mark(sql_allocator *sa, stmt *s, oid id);
 extern stmt *stmt_mark_tail(sql_allocator *sa, stmt *s, oid id);
-extern stmt *stmt_gen_group(sql_allocator *sa, stmt *gids, stmt *cnts); /* given a gid,cnt blowup to full groups */
+extern stmt *stmt_gen_group(sql_allocator *sa, stmt *gids, stmt *cnts);	/* given a gid,cnt blowup to full groups */
 extern stmt *stmt_reverse(sql_allocator *sa, stmt *s);
 extern stmt *stmt_mirror(sql_allocator *sa, stmt *s);
 extern stmt *stmt_result(sql_allocator *sa, stmt *s, int nr);
@@ -260,23 +249,21 @@ extern stmt *stmt_affected_rows(sql_allocator *sa, stmt *l);
 /* flow control statements */
 extern stmt *stmt_cond(sql_allocator *sa, stmt *cond, stmt *outer, int loop);
 extern stmt *stmt_control_end(sql_allocator *sa, stmt *cond);
-extern stmt *stmt_while(sql_allocator *sa, stmt *cond, stmt *whilestmts );
+extern stmt *stmt_while(sql_allocator *sa, stmt *cond, stmt *whilestmts);
 extern stmt *stmt_if(sql_allocator *sa, stmt *cond, stmt *ifstmts, stmt *elsestmts);
 extern stmt *stmt_return(sql_allocator *sa, stmt *val, int nr_of_declared_tables);
 extern stmt *stmt_assign(sql_allocator *sa, char *varname, stmt *val, int level);
 
-extern sql_subtype *head_type(stmt *st);
 extern sql_subtype *tail_type(stmt *st);
-extern int stmt_has_null( stmt *s );
+extern int stmt_has_null(stmt *s);
 
 extern char *column_name(sql_allocator *sa, stmt *st);
 extern char *table_name(sql_allocator *sa, stmt *st);
 extern char *schema_name(sql_allocator *sa, stmt *st);
 
 /*Dependency control*/
-extern list* stmt_list_dependencies(sql_allocator *sa, stmt *s, int depend_type);
+extern list *stmt_list_dependencies(sql_allocator *sa, stmt *s, int depend_type);
 
-extern stmt *const_column(sql_allocator *sa, stmt *val );
+extern stmt *const_column(sql_allocator *sa, stmt *val);
 
 #endif /* _SQL_STATEMENT_H_ */
-

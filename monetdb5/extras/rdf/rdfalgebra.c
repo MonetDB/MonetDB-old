@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -133,7 +133,7 @@ RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 		throw(MAL, "rdf.RDFpartialjoin", RUNTIME_OBJECT_MISSING);
 	}
 
-	BATsubouterjoin(&result1, &result2, input, left, NULL, NULL, BUN_NONE); 
+	BATsubouterjoin(&result1, &result2, input, left, NULL, NULL, 0, BUN_NONE); 
 	
 	result = BATproject(result2, right); 
 

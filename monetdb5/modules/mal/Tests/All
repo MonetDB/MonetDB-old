@@ -5,8 +5,6 @@ clients01
 
 bigsum
 
-compress
-
 inspect00
 inspect05
 inspect10
@@ -18,14 +16,14 @@ mserver00
 
 qgram
 
-# statistics00
-#statistics01
+groupby00
+
+imprints
 
 call00
 callstring
 callfunction
 
-#radix
 
 #ascii_io2 needs work
 
@@ -66,6 +64,10 @@ mapi01
 cluster00
 tokenizer00
 zorder
+
+manifold
+manifoldstr
+#manifoldaggr
 
 #HAVE_RAPTOR?rdf
 

@@ -13,12 +13,14 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
 #ifndef _REL_EXP_H_
 #define _REL_EXP_H_
+
+#include "sql_mvc.h"
 
 #define new_exp_list(sa) sa_list(sa)
 #define exp2list(sa,e)   append(sa_list(sa),e)
@@ -69,10 +71,11 @@ extern sql_exp * exp_column(sql_allocator *sa, char *rname, char *name, sql_subt
 extern sql_exp * exp_alias(sql_allocator *sa, char *arname, char *acname, char *org_rname, char *org_cname, sql_subtype *t, int card, int has_nils, int intern);
 extern sql_exp * exp_set(sql_allocator *sa, char *name, sql_exp *val, int level);
 extern sql_exp * exp_var(sql_allocator *sa, char *name, sql_subtype *type, int level);
+extern sql_exp * exp_table(sql_allocator *sa, char *name, sql_table *t, int level);
 extern sql_exp * exp_return(sql_allocator *sa, sql_exp *val, int level);
 extern sql_exp * exp_while(sql_allocator *sa, sql_exp *cond, list *stmts);
 extern sql_exp * exp_if(sql_allocator *sa, sql_exp *cond, list *if_stmts, list *else_stmts);
-extern sql_exp * exp_rel(sql_allocator *sa, sql_rel * r);
+extern sql_exp * exp_rel(mvc *sql, sql_rel * r);
 
 extern void exp_setname(sql_allocator *sa, sql_exp *e, char *rname, char *name );
 extern void exp_setrelname(sql_allocator *sa, sql_exp *e, int nr );
@@ -103,12 +106,17 @@ extern int exp_match_exp( sql_exp *e1, sql_exp *e2);
 /* match just the column (cmp equality) expressions */
 extern int exp_match_col_exps( sql_exp *e, list *l);
 extern int exps_match_col_exps( sql_exp *e1, sql_exp *e2);
-extern int exp_is_join(sql_exp *e);
+extern int exp_is_join(sql_exp *e, list *rels);
 extern int exp_is_eqjoin(sql_exp *e);
 extern int exp_is_correlation(sql_exp *e, sql_rel *r );
 extern int exp_is_join_exp(sql_exp *e);
 extern int exp_is_atom(sql_exp *e);
+extern int exps_are_atoms(list *exps);
 extern int exp_has_func(sql_exp *e);
+
+extern int rel_has_exp(sql_rel *rel, sql_exp *e);
+extern sql_rel *find_rel(list *rels, sql_exp *e);
+extern sql_rel *find_one_rel(list *rels, sql_exp *e);
 
 extern sql_exp *exps_bind_column( list *exps, char *cname, int *ambiguous);
 extern sql_exp *exps_bind_column2( list *exps, char *rname, char *cname);
@@ -116,6 +124,7 @@ extern sql_exp *exps_bind_alias( list *exps, char *rname, char *cname);
 
 extern int exps_card( list *l );
 extern void exps_fix_card( list *exps, int card);
+extern void exps_setcard( list *exps, int card);
 extern int exps_intern(list *exps);
 
 extern char *compare_func( comp_type t );

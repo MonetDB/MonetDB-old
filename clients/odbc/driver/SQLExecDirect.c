@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -97,7 +97,7 @@ ODBCExecDirect(ODBCStmt *stmt, SQLCHAR *StatementText, SQLINTEGER TextLength)
 	 * 'value'} or {ts 'value'} or {escape 'e-char'} or {oj
 	 * outer-join} or {fn scalar-function} etc. ) to MonetDB SQL
 	 * syntax */
-	query = ODBCTranslateSQL(StatementText, (size_t) TextLength,
+	query = ODBCTranslateSQL(stmt->Dbc, StatementText, (size_t) TextLength,
 				 stmt->noScan);
 
 	ODBCResetStmt(stmt);
@@ -201,7 +201,6 @@ SQLExecDirect(SQLHSTMT StatementHandle,
 			      TextLength);
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLExecDirectA(SQLHSTMT StatementHandle,
 	       SQLCHAR *StatementText,
@@ -238,4 +237,3 @@ SQLExecDirectW(SQLHSTMT StatementHandle,
 
 	return rc;
 }
-#endif /* WITH_WCHAR */

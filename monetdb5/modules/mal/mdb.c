@@ -1,21 +1,22 @@
 /*
- *The contents of this file are subject to the MonetDB Public License
- *Version 1.1 (the "License"); you may not use this file except in
- *compliance with the License. You may obtain a copy of the License at
- *http://www.monetdb.org/Legal/MonetDBLicense
+ * The contents of this file are subject to the MonetDB Public License
+ * Version 1.1 (the "License"); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.monetdb.org/Legal/MonetDBLicense
  *
- *Software distributed under the License is distributed on an "AS IS"
- *basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- *License for the specific language governing rights and limitations
- *under the License.
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+ * License for the specific language governing rights and limitations
+ * under the License.
  *
- *The Original Code is the MonetDB Database System.
+ * The Original Code is the MonetDB Database System.
  *
- *The Initial Developer of the Original Code is CWI.
- *Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- *Copyright August 2008-2013 MonetDB B.V.
- *All Rights Reserved.
-*/
+ * The Initial Developer of the Original Code is CWI.
+ * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+ * Copyright August 2008-2014 MonetDB B.V.
+ * All Rights Reserved.
+ */
+
 /*
  * author Martin Kersten
  * MAL debugger interface
@@ -108,7 +109,7 @@ MDBstart(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	if( p->argc == 2){
 		/* debug running process */
 		pid = *(int *) getArgReference(stk, p, 1);
-		if( pid< 0 || pid > MAL_MAXCLIENTS || mal_clients[pid].mode <= FINISHING)
+		if( pid< 0 || pid >= MAL_MAXCLIENTS || mal_clients[pid].mode <= FINISHCLIENT)
 			throw(MAL, "mdb.start", ILLEGAL_ARGUMENT " Illegal process id");
 		c= mal_clients+pid;
 		/* make client aware of being debugged */
@@ -216,12 +217,12 @@ MDBsetDebugStr(int *ret, str *flg)
 		GDKdebug |= GRPmodules;
 	if( strcmp("algorithms",*flg)==0)
 		GDKdebug |= GRPalgorithms;
+	if( strcmp("optimizers",*flg)==0)
+		GDKdebug |= GRPoptimizers;
+	if( strcmp("recycler",*flg)==0)
+		GDKdebug |= GRPrecycler;
 	if( strcmp("performance",*flg)==0)
 		GDKdebug |= GRPperformance;
-#if 0
-	if( strcmp("xproperties",*flg)==0)
-		GDKdebug |= GRPxproperties;
-#endif
 	if( strcmp("forcemito",*flg)==0)
 		GDKdebug |= GRPforcemito;
     return MAL_SUCCEED;

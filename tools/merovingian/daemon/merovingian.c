@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -660,7 +660,11 @@ main(int argc, char *argv[])
 	}
 
 	/* read the merovingian properties from the dbfarm */
-	readProps(ckv, ".");
+	if (readProps(ckv, ".") != 0) {
+		Mfprintf(stderr, "cannot find or read properties file, was "
+				"this dbfarm created by `monetdbd create`?\n");
+		MERO_EXIT_CLEAN(1);
+	}
 	_mero_props = ckv;
 
 	pidfilename = getConfVal(_mero_props, "pidfile");

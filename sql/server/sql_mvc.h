@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -66,11 +66,13 @@
 #define mod_locked 	16 
 
 typedef struct sql_var {
-	void *s;	
 	char *name;
 	ValRecord value;
 	sql_subtype type;
-	int view;
+	sql_table *t;
+	sql_rel *rel;	
+	char view;
+	char frame;
 } sql_var;
 
 #define MAXSTATS 8
@@ -116,6 +118,7 @@ typedef struct mvc {
 	sql_session *session;	
 
 	int type;		/* query type */
+	int pushdown;		/* AND or OR query handling */
 	int label;		/* numbers for relational projection labels */
 	list *cascade_action;  /* protection against recursive cascade actions */
 
@@ -168,7 +171,7 @@ extern sql_key *mvc_bind_ukey(sql_table *t, list *cols);
 extern sql_trigger *mvc_bind_trigger(mvc *c, sql_schema *s, char *tname);
 
 extern sql_type *mvc_create_type(mvc *sql, sql_schema *s, char *sqlname, int digits, int scale, int radix, char *impl);
-extern sql_func *mvc_create_func(mvc *sql, sql_allocator *sa, sql_schema *s, char *name, list *args, sql_subtype *res, int type, char *mod, char *impl, char *query);
+extern sql_func *mvc_create_func(mvc *sql, sql_allocator *sa, sql_schema *s, char *name, list *args, list *res, int type, char *mod, char *impl, char *query, bit varres, bit vararg);
 extern void mvc_drop_func(mvc *c, sql_schema *s, sql_func * func, int drop_action);
 extern void mvc_drop_all_func(mvc *c, sql_schema *s, list *list_func, int drop_action);
 
@@ -178,7 +181,6 @@ extern BUN mvc_clear_table(mvc *m, sql_table *t);
 extern void mvc_drop_table(mvc *c, sql_schema *s, sql_table * t, int drop_action);
 extern sql_table *mvc_create_table(mvc *c, sql_schema *s, char *name, int tt, bit system, int persistence, int commit_action, int sz);
 extern sql_table *mvc_create_view(mvc *c, sql_schema *s, char *name, int persistence, char *sql, bit system);
-extern sql_table *mvc_create_generated(mvc *c, sql_schema *s, char *name, char *sql, bit system);
 extern sql_table *mvc_create_remote(mvc *c, sql_schema *s, char *name, int persistence, char *loc);
 
 extern void mvc_drop_column(mvc *c, sql_table *t, sql_column *col, int drop_action);
@@ -217,12 +219,14 @@ extern int mvc_disconnect_catalog_ALL(mvc *m);
 /* variable management */
 extern void stack_push_var(mvc *sql, char *name, sql_subtype *type);
 extern void stack_push_rel_var(mvc *sql, char *name, sql_rel *var, sql_subtype *type);
+extern void stack_push_table(mvc *sql, char *name, sql_rel *var, sql_table *t);
 extern void stack_push_rel_view(mvc *sql, char *name, sql_rel *view);
 
 extern void stack_push_frame(mvc *sql, char *name);
 extern void stack_pop_frame(mvc *sql);
 extern void stack_pop_until(mvc *sql, int top);
 extern sql_subtype *stack_find_type(mvc *sql, char *name);
+extern sql_table *stack_find_table(mvc *sql, char *name);
 extern sql_rel *stack_find_rel_view(mvc *sql, char *name);
 extern int stack_find_var(mvc *sql, char *name);
 extern sql_rel *stack_find_rel_var(mvc *sql, char *name);
@@ -239,6 +243,7 @@ extern void stack_set_var(mvc *sql, char *name, ValRecord *v);
 
 extern str stack_get_string(mvc *sql, char *name);
 extern void stack_set_string(mvc *sql, char *name, str v);
+extern lng val_get_number(ValRecord *val);
 extern lng stack_get_number(mvc *sql, char *name);
 extern void stack_set_number(mvc *sql, char *name, lng v);
 

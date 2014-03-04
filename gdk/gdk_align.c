@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -223,7 +223,11 @@ VIEWhcreate(BAT *h)
 	if (hp)
 		BBPshare(hp);
 	*bn->H = *h->H;
-	*bn->U = *h->U;
+	bn->batDeleted = h->batDeleted;
+	bn->batFirst = h->batFirst;
+	bn->batInserted = h->batInserted;
+	bn->batCount = h->batCount;
+	bn->batCapacity = h->batCapacity;
 	if (bn->H->vheap) {
 		assert(bn->H->vheap->parentid != 0);
 		BBPshare(bn->H->vheap->parentid);
@@ -237,9 +241,7 @@ VIEWhcreate(BAT *h)
 	if (hp && isVIEW(h))
 		bn->H->hash = NULL;
 	BATinit_idents(bn);
-	/* The b->P structure cannot be shared and must be copied
-	 * individually. */
-	bn->batSet = h->batSet;
+	/* some bits must be copied individually. */
 	bn->batDirty = BATdirty(h);
 	bn->batRestricted = BAT_READ;
 
@@ -258,6 +260,8 @@ VIEWcreate_(BAT *h, BAT *t, int slice_view)
 	BATcheck(h, "VIEWcreate_");
 	BATcheck(t, "VIEWcreate_");
 
+	if (BATcount(h) != BATcount(t))
+		slice_view = 1;
 	bs = BATcreatedesc(h->htype, t->ttype, FALSE);
 	if (bs == NULL)
 		return NULL;
@@ -275,11 +279,15 @@ VIEWcreate_(BAT *h, BAT *t, int slice_view)
 	 * copies because in case of a mark, we are going to override
 	 * a column with a void. Take care to zero the accelerator
 	 * data, though. */
-	*bn->U = *h->U;
 	*bn->H = *h->H;
-	if (bn->U->first > 0) {
-		bn->H->heap.base += h->U->first * h->H->width;
-		bn->U->first = 0;
+	bn->batDeleted = h->batDeleted;
+	bn->batFirst = h->batFirst;
+	bn->batInserted = h->batInserted;
+	bn->batCount = h->batCount;
+	bn->batCapacity = h->batCapacity;
+	if (bn->batFirst > 0) {
+		bn->H->heap.base += h->batFirst * h->H->width;
+		bn->batFirst = 0;
 	}
 	if (h->H == t->T) {
 		vc = 1;
@@ -287,11 +295,11 @@ VIEWcreate_(BAT *h, BAT *t, int slice_view)
 		bn->T = bn->H;
 	} else {
 		*bn->T = *t->T;
-		if (bn->U->capacity > t->U->capacity)
-			bn->U->capacity = t->U->capacity;
-		if (t->U->first > 0)
-			bn->T->heap.base += t->U->first * t->T->width;
-		if (bn->U->count < t->U->count) {
+		if (bn->batCapacity > t->batCapacity)
+			bn->batCapacity = t->batCapacity;
+		if (t->batFirst > 0)
+			bn->T->heap.base += t->batFirst * t->T->width;
+		if (bn->batCount < t->batCount) {
 			/* we can't be sure anymore there are nils */
 			bn->T->nil = 0;
 		}
@@ -323,16 +331,9 @@ VIEWcreate_(BAT *h, BAT *t, int slice_view)
 	if (tp)
 		bn->T->heap.parentid = tp;
 	BATinit_idents(bn);
-	/* The b->P structure cannot be shared and must be copied
-	 * individually. */
-	bn->batSet = h->batSet;
+	/* Some bits must be copied individually. */
 	bn->batDirty = BATdirty(h);
 	bn->batRestricted = BAT_READ;
-	/* The U record may be shared with the parent; in that case,
-	 * the search accelerators of the parent can be used. If,
-	 * however, we want to take a horizontal fragment
-	 * (stable=false), this cannot be done, and we need to put
-	 * different information in U (so we can't use a copy. */
 	if (slice_view || !hp || isVIEW(h))
 		/* slices are unequal to their parents; cannot use accs */
 		bn->H->hash = NULL;
@@ -666,8 +667,7 @@ VIEWreset(BAT *b)
 		}
 
 		/* make sure everything points there */
-		m->U = n->U = &bs->U;
-		m->P = n->P = &bs->P;
+		m->S = n->S = &bs->S;
 		m->T = n->H = &bs->H;
 		m->H = n->T = &bs->T;
 
@@ -723,7 +723,7 @@ VIEWreset(BAT *b)
 		/* make the BAT empty and insert all again */
 		DELTAinit(n);
 		/* reset capacity */
-		n->U->capacity = cnt;
+		n->batCapacity = cnt;
 
 		/* swap n and v in case the original input was reversed, because
 		 * BATins demands (v)oid-headed input */

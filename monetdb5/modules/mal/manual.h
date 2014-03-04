@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -40,8 +40,6 @@
 #endif
 
 manual_export str MANUALcreateSection(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-manual_export str MANUALcreate1(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-manual_export str MANUALcreate0(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 manual_export str MANUALsearch(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 manual_export str MANUALhelp(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 manual_export str MANUALcreateIndex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

@@ -1,21 +1,21 @@
 /*
-The contents of this file are subject to the MonetDB Public License
-Version 1.1 (the "License"); you may not use this file except in
-compliance with the License. You may obtain a copy of the License at
-http://www.monetdb.org/Legal/MonetDBLicense
-
-Software distributed under the License is distributed on an "AS IS"
-basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
-License for the specific language governing rights and limitations
-under the License.
-
-The Original Code is the MonetDB Database System.
-
-The Initial Developer of the Original Code is CWI.
-Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-Copyright August 2008-2013 MonetDB B.V.
-All Rights Reserved.
-*/
+ * The contents of this file are subject to the MonetDB Public License
+ * Version 1.1 (the "License"); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.monetdb.org/Legal/MonetDBLicense
+ *
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ *
+ * The Original Code is the MonetDB Database System.
+ *
+ * The Initial Developer of the Original Code is CWI.
+ * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+ * Copyright August 2008-2014 MonetDB B.V.
+ * All Rights Reserved.
+ */
 
 /*  author M.L. Kersten
  * The optimizer wrapper code is the interface to the MAL optimizer calls.
@@ -43,12 +43,10 @@ All Rights Reserved.
 #include "opt_cluster.h"
 #include "opt_coercion.h"
 #include "opt_commonTerms.h"
-#include "opt_compression.h"
 #include "opt_constants.h"
 #include "opt_costModel.h"
 #include "opt_dataflow.h"
 #include "opt_deadcode.h"
-#include "opt_dictionary.h"
 #include "opt_emptySet.h"
 #include "opt_evaluate.h"
 #include "opt_factorize.h"
@@ -63,8 +61,6 @@ All Rights Reserved.
 #include "opt_mitosis.h"
 #include "opt_multiplex.h"
 #include "opt_octopus.h"
-#include "opt_origin.h"
-#include "opt_prejoin.h"
 #include "opt_pushranges.h"
 #include "opt_pushselect.h"
 #include "opt_qep.h"
@@ -87,12 +83,10 @@ struct{
 	{"cluster", &OPTclusterImplementation},
 	{"coercions", &OPTcoercionImplementation},
 	{"commonTerms", &OPTcommonTermsImplementation},
-	{"compression", &OPTcompressionImplementation},
 	{"constants", &OPTconstantsImplementation},
 	{"costModel", &OPTcostModelImplementation},
 	{"dataflow", &OPTdataflowImplementation},
 	{"deadcode", &OPTdeadcodeImplementation},
-	{"dictionary", &OPTdictionaryImplementation},
 	{"dumpQEP", &OPTdumpQEPImplementation},
 	{"emptySet", &OPTemptySetImplementation},
 	{"evaluate", &OPTevaluateImplementation},
@@ -108,8 +102,6 @@ struct{
 	{"mitosis", &OPTmitosisImplementation},
 	{"multiplex", &OPTmultiplexImplementation},
 	{"octopus", &OPToctopusImplementation},
-	{"origin", &OPToriginImplementation},
-	{"prejoin", &OPTprejoinImplementation},
 	{"pushranges", &OPTpushrangesImplementation},
 	{"pushselect", &OPTpushselectImplementation},
 	{"querylog", &OPTquerylogImplementation},
@@ -135,7 +127,6 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	char optimizer[256];
 	InstrPtr q= copyInstruction(p);
 
-	optimizerInit();
 	snprintf(optimizer,256,"%s", fcnnme = getFunctionId(p));
 	OPTIMIZERDEBUG 
 		mnstr_printf(cntxt->fdout,"=APPLY OPTIMIZER %s\n",fcnnme);

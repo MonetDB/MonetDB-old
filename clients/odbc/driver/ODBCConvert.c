@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -397,13 +397,12 @@ ODBCDefaultType(ODBCDescRec *rec)
 	case SQL_LONGVARCHAR:
 	case SQL_DECIMAL:
 	case SQL_NUMERIC:
+	case SQL_GUID:
 		return SQL_C_CHAR;
-#ifdef WITH_WCHAR
 	case SQL_WCHAR:
 	case SQL_WVARCHAR:
 	case SQL_WLONGVARCHAR:
 		return SQL_C_WCHAR;
-#endif
 	case SQL_BIT:
 		return SQL_C_BIT;
 	case SQL_TINYINT:
@@ -455,8 +454,6 @@ ODBCDefaultType(ODBCDescRec *rec)
 		return SQL_C_INTERVAL_HOUR_TO_SECOND;
 	case SQL_INTERVAL_MINUTE_TO_SECOND:
 		return SQL_C_INTERVAL_MINUTE_TO_SECOND;
-	case SQL_GUID:
-		return SQL_C_GUID;
 	}
 	return 0;
 }
@@ -1093,8 +1090,6 @@ ODBCFetch(ODBCStmt *stmt,
 
 	/* see SQLExecute.c for possible types */
 	switch (sql_type) {
-	case SQL_CHAR:
-		break;
 	case SQL_DECIMAL:
 	case SQL_TINYINT:
 	case SQL_SMALLINT:
@@ -1206,6 +1201,8 @@ ODBCFetch(ODBCStmt *stmt,
 			return SQL_ERROR;
 		}
 		break;
+	case SQL_GUID:
+		/* nothing special to do here */
 	default:
 		/* any other type can only be converted to SQL_C_CHAR */
 		break;
@@ -1215,9 +1212,7 @@ ODBCFetch(ODBCStmt *stmt,
 
 	switch (type) {
 	case SQL_C_CHAR:
-#ifdef WITH_WCHAR
 	case SQL_C_WCHAR:
-#endif
 	{
 		SQLPOINTER origptr;
 		SQLLEN origbuflen;
@@ -1237,20 +1232,21 @@ ODBCFetch(ODBCStmt *stmt,
 
 		origbuflen = buflen;
 		origlenp = lenp;
-#ifdef WITH_WCHAR
 		if (type == SQL_C_WCHAR) {
 			/* allocate temporary space */
 			buflen = 511; /* should be enough for most types */
 			if (data != NULL &&
 			    (sql_type == SQL_CHAR ||
 			     sql_type == SQL_VARCHAR ||
-			     sql_type == SQL_LONGVARCHAR))
+			     sql_type == SQL_LONGVARCHAR ||
+			     sql_type == SQL_WCHAR ||
+			     sql_type == SQL_WVARCHAR ||
+			     sql_type == SQL_WLONGVARCHAR))
 				buflen = (SQLLEN) datalen + 1; /* but this is certainly enough for strings */
 			ptr = malloc(buflen);
 
 			lenp = NULL;
 		}
-#endif
 		switch (sql_type) {
 			SQLLEN sz;
 
@@ -1258,7 +1254,29 @@ ODBCFetch(ODBCStmt *stmt,
 		case SQL_CHAR:
 		case SQL_VARCHAR:
 		case SQL_LONGVARCHAR:
-			copyString(data, datalen, ptr, buflen, lenp, SQLLEN, addStmtError, stmt, return SQL_ERROR);
+		case SQL_WCHAR:
+		case SQL_WVARCHAR:
+		case SQL_WLONGVARCHAR:
+		case SQL_GUID:
+			if (irdrec->already_returned > datalen) {
+				data += datalen;
+				datalen = 0;
+			} else {
+				data += irdrec->already_returned;
+				datalen -= irdrec->already_returned;
+			}
+			if (datalen == 0 && irdrec->already_returned != 0) {
+				/* no more data to return */
+				if (type == SQL_C_WCHAR)
+					free(ptr);
+				return SQL_NO_DATA;
+			}
+			copyString(data, datalen, ptr, buflen, lenp, SQLLEN,
+				   addStmtError, stmt, return SQL_ERROR);
+			if (datalen < (size_t) buflen)
+				irdrec->already_returned += datalen;
+			else
+				irdrec->already_returned += buflen;
 			break;
 		case SQL_BINARY:
 		case SQL_VARBINARY:
@@ -1272,11 +1290,22 @@ ODBCFetch(ODBCStmt *stmt,
 			if (buflen < 0) {
 				/* Invalid string or buffer length */
 				addStmtError(stmt, "HY090", NULL, 0);
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
+			}
+			if (irdrec->already_returned > datalen) {
+				data += datalen;
+				datalen = 0;
+			} else {
+				data += irdrec->already_returned;
+				datalen -= irdrec->already_returned;
+			}
+			if (datalen == 0 && irdrec->already_returned != 0) {
+				/* no more data to return */
+				if (type == SQL_C_WCHAR)
+					free(ptr);
+				return SQL_NO_DATA;
 			}
 			for (k = 0; k < datalen; k++) {
 				if ('0' <= data[k] && data[k] <= '9')
@@ -1289,10 +1318,8 @@ ODBCFetch(ODBCStmt *stmt,
 					/* should not happen */
 					/* General error */
 					addStmtError(stmt, "HY000", "Unexpected data from server", 0);
-#ifdef WITH_WCHAR
 					if (type == SQL_C_WCHAR)
 						free(ptr);
-#endif
 					return SQL_ERROR;
 				}
 				if (k & 1) {
@@ -1303,6 +1330,7 @@ ODBCFetch(ODBCStmt *stmt,
 				} else
 					c = n << 4;
 			}
+			irdrec->already_returned += k;
 			if (lenp)
 				*lenp = j;
 			break;
@@ -1324,10 +1352,8 @@ ODBCFetch(ODBCStmt *stmt,
 				/* Numeric value out of range */
 				addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
 			}
 			if (lenp)
@@ -1360,10 +1386,8 @@ ODBCFetch(ODBCStmt *stmt,
 						 * of range */
 						addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 						if (type == SQL_C_WCHAR)
 							free(ptr);
-#endif
 						return SQL_ERROR;
 					}
 					/* current precision (i) doesn't fit,
@@ -1388,10 +1412,8 @@ ODBCFetch(ODBCStmt *stmt,
 				/* Numeric value out of range */
 				addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
 			}
 			data = (char *) ptr;
@@ -1413,10 +1435,8 @@ ODBCFetch(ODBCStmt *stmt,
 				/* Numeric value out of range */
 				addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
 			}
 			data = (char *) ptr;
@@ -1448,10 +1468,8 @@ ODBCFetch(ODBCStmt *stmt,
 				/* Numeric value out of range */
 				addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
 			}
 			if (lenp)
@@ -1487,10 +1505,8 @@ ODBCFetch(ODBCStmt *stmt,
 				/* Numeric value out of range */
 				addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
 			}
 			if (lenp)
@@ -1507,10 +1523,8 @@ ODBCFetch(ODBCStmt *stmt,
 				/* Numeric value out of range */
 				addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
 			}
 			if (lenp)
@@ -1527,10 +1541,8 @@ ODBCFetch(ODBCStmt *stmt,
 				/* Numeric value out of range */
 				addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
 			}
 			if (lenp)
@@ -1546,10 +1558,8 @@ ODBCFetch(ODBCStmt *stmt,
 				/* Numeric value out of range */
 				addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
 			}
 			if (lenp)
@@ -1566,10 +1576,8 @@ ODBCFetch(ODBCStmt *stmt,
 				/* Numeric value out of range */
 				addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
 			}
 			if (lenp)
@@ -1587,10 +1595,8 @@ ODBCFetch(ODBCStmt *stmt,
 				/* Numeric value out of range */
 				addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
 			}
 			if (lenp)
@@ -1613,10 +1619,8 @@ ODBCFetch(ODBCStmt *stmt,
 				/* Numeric value out of range */
 				addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
 			}
 			data += sz;
@@ -1654,10 +1658,8 @@ ODBCFetch(ODBCStmt *stmt,
 				/* Numeric value out of range */
 				addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
 			}
 			if (lenp)
@@ -1675,10 +1677,8 @@ ODBCFetch(ODBCStmt *stmt,
 				/* Numeric value out of range */
 				addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
 			}
 			if (lenp)
@@ -1701,10 +1701,8 @@ ODBCFetch(ODBCStmt *stmt,
 				/* Numeric value out of range */
 				addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
 			}
 			data += sz;
@@ -1743,10 +1741,8 @@ ODBCFetch(ODBCStmt *stmt,
 				/* Numeric value out of range */
 				addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
 			}
 			if (lenp)
@@ -1769,10 +1765,8 @@ ODBCFetch(ODBCStmt *stmt,
 				/* Numeric value out of range */
 				addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
 			}
 			data += sz;
@@ -1816,10 +1810,8 @@ ODBCFetch(ODBCStmt *stmt,
 				/* Numeric value out of range */
 				addStmtError(stmt, "22003", NULL, 0);
 
-#ifdef WITH_WCHAR
 				if (type == SQL_C_WCHAR)
 					free(ptr);
-#endif
 				return SQL_ERROR;
 			}
 			data += sz;
@@ -1847,7 +1839,6 @@ ODBCFetch(ODBCStmt *stmt,
 			break;
 		}
 		}
-#ifdef WITH_WCHAR
 		if (type == SQL_C_WCHAR) {
 			SQLSMALLINT n;
 
@@ -1857,7 +1848,6 @@ ODBCFetch(ODBCStmt *stmt,
 				*origlenp = n * sizeof(SQLWCHAR); /* # of bytes, not chars */
 			free(ptr);
 		}
-#endif
 		break;
 	}
 	case SQL_C_BINARY:
@@ -1871,6 +1861,9 @@ ODBCFetch(ODBCStmt *stmt,
 
 		switch (sql_type) {
 		case SQL_CHAR:
+		case SQL_VARCHAR:
+		case SQL_WCHAR:
+		case SQL_WVARCHAR:
 		case SQL_DECIMAL:
 		case SQL_TINYINT:
 		case SQL_SMALLINT:
@@ -1909,6 +1902,9 @@ ODBCFetch(ODBCStmt *stmt,
 			*lenp = 1;
 		switch (sql_type) {
 		case SQL_CHAR:
+		case SQL_VARCHAR:
+		case SQL_WCHAR:
+		case SQL_WVARCHAR:
 			if (!parsedouble(data, &fval)) {
 				/* Invalid character value for cast
 				   specification */
@@ -1992,9 +1988,9 @@ ODBCFetch(ODBCStmt *stmt,
 		case SQL_C_LONG:
 			maxval <<= 31;
 			if (lenp)
-				*lenp = sizeof(long);
+				*lenp = sizeof(int);
 			if (ardrec && row > 0)
-				ptr = (SQLPOINTER) ((char *) ptr + row * (bind_type == SQL_BIND_BY_COLUMN ? sizeof(long) : bind_type));
+				ptr = (SQLPOINTER) ((char *) ptr + row * (bind_type == SQL_BIND_BY_COLUMN ? sizeof(int) : bind_type));
 			break;
 		case SQL_C_SBIGINT:
 			maxval <<= 63;
@@ -2006,6 +2002,9 @@ ODBCFetch(ODBCStmt *stmt,
 		}
 		switch (sql_type) {
 		case SQL_CHAR:
+		case SQL_VARCHAR:
+		case SQL_WCHAR:
+		case SQL_WVARCHAR:
 		case SQL_DOUBLE:
 		case SQL_REAL:
 			/* reparse double and float, parse char */
@@ -2051,7 +2050,7 @@ ODBCFetch(ODBCStmt *stmt,
 				break;
 			case SQL_C_SLONG:
 			case SQL_C_LONG:
-				*(long *) ptr = nval.sign ? (long) nval.val : -(long) nval.val;
+				*(int *) ptr = nval.sign ? (int) nval.val : -(int) nval.val;
 				break;
 			case SQL_C_SBIGINT:
 				*(SQLBIGINT *) ptr = nval.sign ? (SQLBIGINT) nval.val : -(SQLBIGINT) nval.val;
@@ -2090,9 +2089,9 @@ ODBCFetch(ODBCStmt *stmt,
 		case SQL_C_ULONG:
 			maxval <<= 32;
 			if (lenp)
-				*lenp = sizeof(unsigned long);
+				*lenp = sizeof(unsigned int);
 			if (ardrec && row > 0)
-				ptr = (SQLPOINTER) ((char *) ptr + row * (bind_type == SQL_BIND_BY_COLUMN ? sizeof(unsigned long) : bind_type));
+				ptr = (SQLPOINTER) ((char *) ptr + row * (bind_type == SQL_BIND_BY_COLUMN ? sizeof(unsigned int) : bind_type));
 			break;
 		case SQL_C_UBIGINT:
 			if (lenp)
@@ -2104,6 +2103,9 @@ ODBCFetch(ODBCStmt *stmt,
 		maxval--;
 		switch (sql_type) {
 		case SQL_CHAR:
+		case SQL_VARCHAR:
+		case SQL_WCHAR:
+		case SQL_WVARCHAR:
 		case SQL_DOUBLE:
 		case SQL_REAL:
 			/* reparse double and float, parse char */
@@ -2146,7 +2148,7 @@ ODBCFetch(ODBCStmt *stmt,
 				*(unsigned short *) ptr = (unsigned short) nval.val;
 				break;
 			case SQL_C_ULONG:
-				*(unsigned long *) ptr = (unsigned long) nval.val;
+				*(unsigned int *) ptr = (unsigned int) nval.val;
 				break;
 			case SQL_C_UBIGINT:
 				*(SQLUBIGINT *) ptr = (SQLUBIGINT) nval.val;
@@ -2167,6 +2169,9 @@ ODBCFetch(ODBCStmt *stmt,
 
 		switch (sql_type) {
 		case SQL_CHAR:
+		case SQL_VARCHAR:
+		case SQL_WCHAR:
+		case SQL_WVARCHAR:
 		case SQL_DOUBLE:
 		case SQL_REAL:
 			/* reparse double and float, parse char */
@@ -2222,6 +2227,9 @@ ODBCFetch(ODBCStmt *stmt,
 	case SQL_C_DOUBLE:
 		switch (sql_type) {
 		case SQL_CHAR:
+		case SQL_VARCHAR:
+		case SQL_WCHAR:
+		case SQL_WVARCHAR:
 			if (!parsedouble(data, &fval)) {
 				/* Invalid character value for cast
 				 * specification */
@@ -2286,6 +2294,9 @@ ODBCFetch(ODBCStmt *stmt,
 		i = 1;
 		switch (sql_type) {
 		case SQL_CHAR:
+		case SQL_VARCHAR:
+		case SQL_WCHAR:
+		case SQL_WVARCHAR:
 			i = parsetimestamp(data, &tsval);
 			/* fall through */
 		case SQL_TYPE_TIMESTAMP:	/* note i==1 unless we fell through */
@@ -2322,6 +2333,9 @@ ODBCFetch(ODBCStmt *stmt,
 		i = 1;
 		switch (sql_type) {
 		case SQL_CHAR:
+		case SQL_VARCHAR:
+		case SQL_WCHAR:
+		case SQL_WVARCHAR:
 			i = parsetimestamp(data, &tsval);
 			/* fall through */
 		case SQL_TYPE_TIMESTAMP:	/* note i==1 unless we fell through */
@@ -2358,6 +2372,9 @@ ODBCFetch(ODBCStmt *stmt,
 		i = 1;
 		switch (sql_type) {
 		case SQL_CHAR:
+		case SQL_VARCHAR:
+		case SQL_WCHAR:
+		case SQL_WVARCHAR:
 			i = parsetimestamp(data, &tsval);
 			if (i == 0) {
 				i = parsetime(data, &tval);
@@ -2419,6 +2436,9 @@ ODBCFetch(ODBCStmt *stmt,
 
 		switch (sql_type) {
 		case SQL_CHAR:
+		case SQL_VARCHAR:
+		case SQL_WCHAR:
+		case SQL_WVARCHAR:
 			if (parsemonthintervalstring(&data, NULL, &ival) == SQL_ERROR) {
 				/* Invalid character value for cast
 				 * specification */
@@ -2496,6 +2516,9 @@ ODBCFetch(ODBCStmt *stmt,
 
 		switch (sql_type) {
 		case SQL_CHAR:
+		case SQL_VARCHAR:
+		case SQL_WCHAR:
+		case SQL_WVARCHAR:
 			if (parsesecondintervalstring(&data, NULL, &ival, &ivalprec) == SQL_ERROR) {
 				/* Invalid character value for cast
 				 * specification */
@@ -2672,6 +2695,52 @@ ODBCFetch(ODBCStmt *stmt,
 		if (lenp)
 			*lenp = sizeof(SQL_INTERVAL_STRUCT);
 		break;
+	case SQL_C_GUID:
+		if (datalen != 36) {
+			/* Restricted data type attribute violation */
+			addStmtError(stmt, "07006", NULL, 0);
+			return SQL_ERROR;
+		}
+		for (i = 0; i < 16; i++) {
+			if (i == 8 || i == 12 || i == 16 || i == 20) {
+				if (*data != '-') {
+					/* Restricted data type
+					 * attribute violation */
+					addStmtError(stmt, "07006", NULL, 0);
+					return SQL_ERROR;
+				}
+				data++;
+			}
+			if ('0' <= *data && *data <= '9')
+				* (unsigned char *) ptr = *data - '0';
+			else if ('a' <= *data && *data <= 'f')
+				* (unsigned char *) ptr = *data - 'a' + 10;
+			else if ('A' <= *data && *data <= 'F')
+				* (unsigned char *) ptr = *data - 'A' + 10;
+			else {
+				/* Restricted data type attribute
+				 * violation */
+				addStmtError(stmt, "07006", NULL, 0);
+				return SQL_ERROR;
+			}
+			* (unsigned char *) ptr <<= 4;
+			data++;
+			if ('0' <= *data && *data <= '9')
+				* (unsigned char *) ptr |= *data - '0';
+			else if ('a' <= *data && *data <= 'f')
+				* (unsigned char *) ptr |= *data - 'a' + 10;
+			else if ('A' <= *data && *data <= 'F')
+				* (unsigned char *) ptr |= *data - 'A' + 10;
+			else {
+				/* Restricted data type attribute
+				 * violation */
+				addStmtError(stmt, "07006", NULL, 0);
+				return SQL_ERROR;
+			}
+			data++;
+			ptr = (SQLPOINTER) ((char *) ptr + 1);
+		}
+		break;
 	default:
 		/* Invalid application buffer type */
 		addStmtError(stmt, "HY003", NULL, 0);
@@ -2799,12 +2868,10 @@ ODBCStore(ODBCStmt *stmt,
 		sval = (char *) ptr;
 		fixODBCstring(sval, slen, SQLLEN, addStmtError, stmt, return SQL_ERROR);
 		break;
-#ifdef WITH_WCHAR
 	case SQL_C_WCHAR:
 		slen = strlen_or_ind_ptr ? *strlen_or_ind_ptr : SQL_NTS;
 		fixWcharIn((SQLWCHAR *) ptr, slen, char, sval, addStmtError, stmt, return SQL_ERROR);
 		break;
-#endif
 	case SQL_C_BIT:
 		nval.precision = 1;
 		nval.scale = 0;
@@ -3025,12 +3092,13 @@ ODBCStore(ODBCStmt *stmt,
 	case SQL_CHAR:
 	case SQL_VARCHAR:
 	case SQL_LONGVARCHAR:
+	case SQL_WCHAR:
+	case SQL_WVARCHAR:
+	case SQL_WLONGVARCHAR:
 		assign(buf, bufpos, buflen, '\'', stmt);
 		switch (ctype) {
 		case SQL_C_CHAR:
-#ifdef WITH_WCHAR
 		case SQL_C_WCHAR:
-#endif
 		case SQL_C_BINARY:
 			for (i = 0; i < slen; i++) {
 				unsigned char c = (unsigned char) sval[i];
@@ -3189,6 +3257,25 @@ ODBCStore(ODBCStmt *stmt,
 			}
 			break;
 		case SQL_C_GUID:
+			snprintf(data, sizeof(data),
+				 "%02x%02x%02x%02x-%02x%02x-%02x%02x-"
+				 "%02x%02x-%02x%02x%02x%02x%02x%02x",
+				 ((unsigned char *) ptr)[0],
+				 ((unsigned char *) ptr)[1],
+				 ((unsigned char *) ptr)[2],
+				 ((unsigned char *) ptr)[3],
+				 ((unsigned char *) ptr)[4],
+				 ((unsigned char *) ptr)[5],
+				 ((unsigned char *) ptr)[6],
+				 ((unsigned char *) ptr)[7],
+				 ((unsigned char *) ptr)[8],
+				 ((unsigned char *) ptr)[9],
+				 ((unsigned char *) ptr)[10],
+				 ((unsigned char *) ptr)[11],
+				 ((unsigned char *) ptr)[12],
+				 ((unsigned char *) ptr)[13],
+				 ((unsigned char *) ptr)[14],
+				 ((unsigned char *) ptr)[15]);
 			break;
 		}
 		assign(buf, bufpos, buflen, '\'', stmt);
@@ -3218,9 +3305,7 @@ ODBCStore(ODBCStmt *stmt,
 		i = 1;
 		switch (ctype) {
 		case SQL_C_CHAR:
-#ifdef WITH_WCHAR
 		case SQL_C_WCHAR:
-#endif
 		case SQL_C_BINARY:
 			i = parsetimestamp(sval, &tsval);
 			/* fall through */
@@ -3257,9 +3342,7 @@ ODBCStore(ODBCStmt *stmt,
 		i = 1;
 		switch (ctype) {
 		case SQL_C_CHAR:
-#ifdef WITH_WCHAR
 		case SQL_C_WCHAR:
-#endif
 		case SQL_C_BINARY:
 			i = parsetimestamp(sval, &tsval);
 			/* fall through */
@@ -3295,9 +3378,7 @@ ODBCStore(ODBCStmt *stmt,
 	case SQL_TYPE_TIMESTAMP:
 		switch (ctype) {
 		case SQL_C_CHAR:
-#ifdef WITH_WCHAR
 		case SQL_C_WCHAR:
-#endif
 		case SQL_C_BINARY:
 			i = parsetimestamp(sval, &tsval);
 			if (i == 0) {
@@ -3368,9 +3449,7 @@ ODBCStore(ODBCStmt *stmt,
 	case SQL_INTERVAL_YEAR_TO_MONTH:
 		switch (ctype) {
 		case SQL_C_CHAR:
-#ifdef WITH_WCHAR
 		case SQL_C_WCHAR:
-#endif
 		case SQL_C_BINARY:
 			if (parsemonthintervalstring(&sval, &slen, &ival) == SQL_ERROR) {
 				/* Invalid character value for cast
@@ -3430,9 +3509,7 @@ ODBCStore(ODBCStmt *stmt,
 	case SQL_INTERVAL_MINUTE_TO_SECOND:
 		switch (ctype) {
 		case SQL_C_CHAR:
-#ifdef WITH_WCHAR
 		case SQL_C_WCHAR:
-#endif
 		case SQL_C_BINARY:
 			if (parsesecondintervalstring(&sval, &slen, &ival, &ivalprec) == SQL_ERROR) {
 				/* Invalid character value for cast
@@ -3493,9 +3570,7 @@ ODBCStore(ODBCStmt *stmt,
 			sval = data;
 			/* fall through */
 		case SQL_C_CHAR:
-#ifdef WITH_WCHAR
 		case SQL_C_WCHAR:
-#endif
 		case SQL_C_BINARY:
 			/* parse character data, reparse floating
 			 * point number */
@@ -3613,9 +3688,7 @@ ODBCStore(ODBCStmt *stmt,
 	case SQL_DOUBLE:
 		switch (ctype) {
 		case SQL_C_CHAR:
-#ifdef WITH_WCHAR
 		case SQL_C_WCHAR:
-#endif
 		case SQL_C_BINARY:
 			if (!parsedouble(sval, &fval)) {
 				/* Invalid character value for cast specification */
@@ -3704,20 +3777,62 @@ ODBCStore(ODBCStmt *stmt,
 		}
 		assigns(buf, bufpos, buflen, data, stmt);
 		break;
+	case SQL_GUID:
+		switch (ctype) {
+		case SQL_C_CHAR:
+		case SQL_C_WCHAR:
+			if (slen != 36) {
+				/* not sure this is the correct error */
+				/* Invalid character value for cast
+				 * specification */
+				addStmtError(stmt, "22018", NULL, 0);
+				goto failure;
+			}
+			for (i = 0; i < 36; i++) {
+				if (strchr("0123456789abcdefABCDEF-",
+					   sval[i]) == NULL) {
+					/* not sure this is the
+					 * correct error */
+					/* Invalid character value for
+					 * cast specification */
+					addStmtError(stmt, "22018", NULL, 0);
+					goto failure;
+				}
+			}
+			snprintf(data, sizeof(data), "%.36s", sval);
+			break;
+		case SQL_C_GUID:
+			snprintf(data, sizeof(data), "%08lx-%04x-%04x-%02x%02x-"
+				 "%02x%02x%02x%02x%02x%02x",
+				 (unsigned long) ((SQLGUID *) ptr)->Data1,
+				 (unsigned int) ((SQLGUID *) ptr)->Data2,
+				 (unsigned int) ((SQLGUID *) ptr)->Data3,
+				 (unsigned int) ((SQLGUID *) ptr)->Data4[0],
+				 (unsigned int) ((SQLGUID *) ptr)->Data4[1],
+				 (unsigned int) ((SQLGUID *) ptr)->Data4[2],
+				 (unsigned int) ((SQLGUID *) ptr)->Data4[3],
+				 (unsigned int) ((SQLGUID *) ptr)->Data4[4],
+				 (unsigned int) ((SQLGUID *) ptr)->Data4[5],
+				 (unsigned int) ((SQLGUID *) ptr)->Data4[6],
+				 (unsigned int) ((SQLGUID *) ptr)->Data4[7]);
+			break;
+		default:
+			/* Restricted data type attribute violation */
+			addStmtError(stmt, "07006", NULL, 0);
+			goto failure;
+		}
+		assigns(buf, bufpos, buflen, data, stmt);
+		break;
 	}
-#ifdef WITH_WCHAR
 	if (ctype == SQL_C_WCHAR)
 		free(sval);
-#endif
 	*bufp = buf;
 	*bufposp = bufpos;
 	*buflenp = buflen;
 	return SQL_SUCCESS;
 
   failure:
-#ifdef WITH_WCHAR
 	if (ctype == SQL_C_WCHAR)
 		free(sval);
-#endif
 	return SQL_ERROR;
 }

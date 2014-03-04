@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -21,12 +21,6 @@
 #define _MAL_PROPERTIES_
 #include "mal.h"
 #include "mal_namespace.h"
-
-typedef struct MalProp {
-	bte idx;
-	bte op;
-	int var;
-} *MalPropPtr, MalProp;
 
 typedef enum prop_op_t {
 	op_lt = 0,

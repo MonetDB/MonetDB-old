@@ -3,19 +3,20 @@
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.monetdb.org/Legal/MonetDBLicense
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * The Original Code is the MonetDB Database System.
- * 
+ *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
+
 /*
  * author N.J. Nes, M.L. Kersten
  * 01/07/1996, 31/01/2002
@@ -576,7 +577,7 @@ IOtableAll(stream *f, Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, i
 		if (b == NULL) {
 			for (k = 0; k < nbats; k++)
 				BBPunfix(piv[k]->batCacheid);
-			throw(MAL, "io.table", MAL_MALLOC_FAIL);
+			throw(MAL, "io.table", ILLEGAL_ARGUMENT " null BAT encountered");
 		}
 		piv[nbats++] = b;
 	}
@@ -706,12 +707,14 @@ IOimport(int *ret, int *bid, str *fnme)
 	BAT *b;
 	int (*hconvert) (const char *, int *, ptr *);
 	int (*tconvert) (const char *, int *, ptr *);
+	int n;
 	size_t bufsize = 2048;	/* NIELS:tmp change used to be 1024 */
 	char *base, *cur, *end;
 	char *buf;
 	ptr h = 0, t = 0;
 	int lh = 0, lt = 0;
 	FILE *fp = fopen(*fnme, "r");
+	char msg[BUFSIZ];
 
 	if ((b = BATdescriptor(*bid)) == NULL) {
 		if (fp)
@@ -761,7 +764,7 @@ IOimport(int *ret, int *bid, str *fnme)
 		}
 #endif
 		base = cur = (char *) MT_mmap(*fnme, MMAP_SEQUENTIAL, (size_t) st.st_size);
-		if (cur == (char *) -1) {
+		if (cur == NULL) {
 			BBPunfix(b->batCacheid);
 			throw(MAL, "io.mport", OPERATION_FAILED "MT_mmap()");
 		}
@@ -818,23 +821,39 @@ IOimport(int *ret, int *bid, str *fnme)
 			for (p++; *p && GDKisspace(*p); p++)
 				;
 		if (*p == 0) {
-			char msg[BUFSIZ];
-			BBPunfix(*ret=b->batCacheid);
-			snprintf(msg,BUFSIZ,"error in input %s",buf);
-			throw(MAL,  "io.import", "%s", msg);
+			BBPunfix(b->batCacheid);
+			snprintf(msg,sizeof(msg),"error in input %s",buf);
+			throw(MAL, "io.import", "%s", msg);
 		}
-		p += hconvert(p, &lh, (ptr*)&h);
+		n = hconvert(p, &lh, (ptr*)&h);
+		if (n <= 0) {
+			BBPunfix(b->batCacheid);
+			snprintf(msg,sizeof(msg),"error in input %s",buf);
+			throw(MAL, "io.import", "%s", msg);
+		}
+		p += n;
 
-		for (;*p && *p != COMMA; p++);
-		if (*p) for (p++; *p && GDKisspace(*p); p++);
+		for (;*p && *p != COMMA; p++)
+			;
+		if (*p)
+			for (p++; *p && GDKisspace(*p); p++)
+				;
 		if (*p == 0) {
-			char msg[BUFSIZ];
-			BBPunfix(*ret=b->batCacheid);
-			snprintf(msg,BUFSIZ,"error in input %s",buf);
-			throw(MAL,  "io.import", "%s", msg);
+			BBPunfix(b->batCacheid);
+			snprintf(msg,sizeof(msg),"error in input %s",buf);
+			throw(MAL, "io.import", "%s", msg);
 		}
-		p += tconvert(p, &lt, (ptr*)&t);
-		BUNins(b, h, t, FALSE);
+		n = tconvert(p, &lt, (ptr*)&t);
+		if (n <= 0) {
+			BBPunfix(b->batCacheid);
+			snprintf(msg,sizeof(msg),"error in input %s",buf);
+			throw(MAL, "io.import", "%s", msg);
+		}
+		p += n;
+		if (BUNins(b, h, t, FALSE) == NULL) {
+			BBPunfix(b->batCacheid);
+			throw(MAL, "io.import", "insert failed");
+		}
 
 /*
  * Unmap already parsed memory, to keep the memory usage low.

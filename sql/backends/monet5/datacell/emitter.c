@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -116,7 +116,7 @@ EMemitterStartInternal(int *ret, str *tbl, str *host, int *port, int mode, int p
 	em->table.format = GDKzalloc(sizeof(Column) * (len + 1));
 	em->table.format[0].c[0] = NULL;
 	em->table.format[0].name = NULL;
-	em->table.format[0].sep = GDKstrdup("[ ");
+	em->table.format[0].sep = "[ ";
 	em->table.format[0].seplen = (int) strlen(em->table.format[0].sep);
 
 	for (j = 0, i = 0; i < baskets[idx].colcount; i++) {
@@ -128,12 +128,12 @@ EMemitterStartInternal(int *ret, str *tbl, str *host, int *port, int mode, int p
 
 		em->table.format[j].c[0] = BATcopy(b, b->htype, b->ttype, FALSE);
 		em->table.format[j].ci[0] = bat_iterator(em->table.format[j].c[0]);
-		em->table.format[j].name = GDKstrdup(baskets[idx].cols[i]);
-		em->table.format[j].sep = GDKstrdup(",");
+		em->table.format[j].name = baskets[idx].cols[i];
+		em->table.format[j].sep = ",";
 		em->table.format[j].seplen = (int) strlen(em->table.format[j].sep);
 		em->table.format[j].type = GDKstrdup(ATOMname(em->table.format[j].c[0]->ttype));
 		em->table.format[j].adt = em->table.format[j].c[0]->ttype;
-		em->table.format[j].nullstr = GDKstrdup("");
+		em->table.format[j].nullstr = "";
 		em->table.format[j].tostr = &TABLETadt_toStr;
 		em->table.format[j].frstr = &TABLETadt_frStr;
 		em->table.format[j].extra = em->table.format + j;
@@ -143,7 +143,7 @@ EMemitterStartInternal(int *ret, str *tbl, str *host, int *port, int mode, int p
 		j++;
 	}
 	GDKfree(em->table.format[j - 1].sep);
-	em->table.format[j - 1].sep = GDKstrdup("\n");
+	em->table.format[j - 1].sep = "\n";
 	em->table.format[j - 1].seplen = (int) strlen(em->table.format[j - 1].sep);
 	em->table.nr_attrs = j;
 	em->status = BSKTPAUSE;
@@ -314,10 +314,6 @@ bodyRestart:
 		if (em->status == BSKTSTOP) {
 			/* request to finalize the emitter*/
 			mnstr_close(em->emitter);
-			for (j = 0; j < em->table.nr_attrs; j++) {
-				GDKfree(em->table.format[j].sep);
-				GDKfree(em->table.format[j].name);
-			}
 			GDKfree(em->table.format);
 			shutdown(em->newsockfd, SHUT_RDWR);
 			GDKfree(em);
@@ -452,44 +448,44 @@ EMtable(int *nameId, int *hostId, int *portId, int *protocolId, int *modeId, int
 	BAT *protocol = NULL, *mode = NULL, *status = NULL, *port = NULL, *host = NULL;
 	Emitter em = emAnchor;
 
-	name = BATnew(TYPE_oid, TYPE_str, BATTINY);
+	name = BATnew(TYPE_void, TYPE_str, BATTINY);
 	if (name == 0)
 		goto wrapup;
 	BATseqbase(name, 0);
-	host = BATnew(TYPE_oid, TYPE_str, BATTINY);
+	host = BATnew(TYPE_void, TYPE_str, BATTINY);
 	if (host == 0)
 		goto wrapup;
 	BATseqbase(host, 0);
-	port = BATnew(TYPE_oid, TYPE_int, BATTINY);
+	port = BATnew(TYPE_void, TYPE_int, BATTINY);
 	if (port == 0)
 		goto wrapup;
 	BATseqbase(port, 0);
-	protocol = BATnew(TYPE_oid, TYPE_str, BATTINY);
+	protocol = BATnew(TYPE_void, TYPE_str, BATTINY);
 	if (protocol == 0)
 		goto wrapup;
 	BATseqbase(protocol, 0);
-	mode = BATnew(TYPE_oid, TYPE_str, BATTINY);
+	mode = BATnew(TYPE_void, TYPE_str, BATTINY);
 	if (mode == 0)
 		goto wrapup;
 	BATseqbase(mode, 0);
 
-	seen = BATnew(TYPE_oid, TYPE_timestamp, BATTINY);
+	seen = BATnew(TYPE_void, TYPE_timestamp, BATTINY);
 	if (seen == 0)
 		goto wrapup;
 	BATseqbase(seen, 0);
-	cycles = BATnew(TYPE_oid, TYPE_int, BATTINY);
+	cycles = BATnew(TYPE_void, TYPE_int, BATTINY);
 	if (cycles == 0)
 		goto wrapup;
 	BATseqbase(cycles, 0);
-	pending = BATnew(TYPE_oid, TYPE_int, BATTINY);
+	pending = BATnew(TYPE_void, TYPE_int, BATTINY);
 	if (pending == 0)
 		goto wrapup;
 	BATseqbase(pending, 0);
-	sent = BATnew(TYPE_oid, TYPE_int, BATTINY);
+	sent = BATnew(TYPE_void, TYPE_int, BATTINY);
 	if (sent == 0)
 		goto wrapup;
 	BATseqbase(sent, 0);
-	status = BATnew(TYPE_oid, TYPE_str, BATTINY);
+	status = BATnew(TYPE_void, TYPE_str, BATTINY);
 	if (status == 0)
 		goto wrapup;
 	BATseqbase(status, 0);

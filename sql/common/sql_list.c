@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -40,7 +40,9 @@ list_create(fdestroy destroy)
 	l->destroy = destroy;
 	l->h = l->t = NULL;
 	l->cnt = 0;
+	l->expected_cnt = 0;
 	l->ht = NULL;
+	MT_lock_init(&l->ht_lock, "sa_ht_lock");
 	return l;
 }
 
@@ -54,6 +56,7 @@ sa_list(sql_allocator *sa)
 	l->h = l->t = NULL;
 	l->cnt = 0;
 	l->ht = NULL;
+	MT_lock_init(&l->ht_lock, "sa_ht_lock");
 	return l;
 }
 
@@ -67,6 +70,7 @@ list_new(sql_allocator *sa, fdestroy destroy)
 	l->h = l->t = NULL;
 	l->cnt = 0;
 	l->ht = NULL;
+	MT_lock_init(&l->ht_lock, "sa_ht_lock");
 	return l;
 }
 
@@ -104,6 +108,7 @@ list_destroy(list *l)
 	if (l) {
 		node *n = l->h;
 
+		MT_lock_destroy(&l->ht_lock);
 		while (n && (l->destroy|| !l->sa)) {
 			node *t = n;
 
@@ -135,11 +140,13 @@ list_append(list *l, void *data)
 	}
 	l->t = n;
 	l->cnt++;
+	MT_lock_set(&l->ht_lock, "list_append");
 	if (l->ht) {
 		int key = l->ht->key(data);
 	
 		hash_add(l->ht, key, data);
 	}
+	MT_lock_unset(&l->ht_lock, "list_append");
 	return l;
 }
 
@@ -158,11 +165,13 @@ list_append_before(list *l, node *m, void *data)
 		p->next = n;
 	}
 	l->cnt++;
+	MT_lock_set(&l->ht_lock, "list_append_before");
 	if (l->ht) {
 		int key = l->ht->key(data);
 	
 		hash_add(l->ht, key, data);
 	}
+	MT_lock_unset(&l->ht_lock, "list_append_before");
 	return l;
 }
 
@@ -177,11 +186,13 @@ list_prepend(list *l, void *data)
 	n->next = l->h;
 	l->h = n;
 	l->cnt++;
+	MT_lock_set(&l->ht_lock, "list_prepend");
 	if (l->ht) {
 		int key = l->ht->key(data);
 	
 		hash_add(l->ht, key, data);
 	}
+	MT_lock_unset(&l->ht_lock, "list_prepend");
 	return l;
 }
 
@@ -221,8 +232,10 @@ list_remove_node(list *l, node *n)
 		l->t = p;
 	node_destroy(l, n);
 	l->cnt--;
+	MT_lock_set(&l->ht_lock, "list_remove_node");
 	if (l->ht && data)
 		hash_delete(l->ht, data);
+	MT_lock_unset(&l->ht_lock, "list_remove_node");
 	return p;
 }
 
@@ -234,8 +247,10 @@ list_remove_data(list *s, void *data)
 	/* maybe use compare func */
 	for (n = s->h; n; n = n->next) {
 		if (n->data == data) {
+			MT_lock_set(&s->ht_lock, "list_remove_data");
 			if (s->ht && n->data)
 				hash_delete(s->ht, n->data);
+			MT_lock_unset(&s->ht_lock, "list_remove_data");
 			n->data = NULL;
 			list_remove_node(s, n);
 			break;
@@ -250,8 +265,10 @@ list_move_data(list *s, list *d, void *data)
 
 	for (n = s->h; n; n = n->next) {
 		if (n->data == data) {
+			MT_lock_set(&s->ht_lock, "list_move_data");
 			if (s->ht && n->data)
 				hash_delete(s->ht, n->data);
+			MT_lock_unset(&s->ht_lock, "list_move_data");
 			n->data = NULL;	/* make sure data isn't destroyed */
 			list_remove_node(s, n);
 			break;

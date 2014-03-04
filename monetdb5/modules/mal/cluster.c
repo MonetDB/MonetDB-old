@@ -3,19 +3,19 @@
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.monetdb.org/Legal/MonetDBLicense
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * The Original Code is the MonetDB Database System.
- * 
+ *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
 
 /*
  * @a Martin Kersten, Niels Nes
@@ -270,7 +270,6 @@ CLUSTER_column_any(BAT *nb, BAT *b, BAT *cmap)
 	return MAL_SUCCEED;
 }
 /*
- * @-
  * The hash key and the oid are materialized to prepare for reclustering.
  */
 str
@@ -313,7 +312,6 @@ CLUSTER_key( bat *M, bat *B){
 	return MAL_SUCCEED;
 }
 /*
- * @-
  * Recluster the hash <oid,oid> table into a number of buckets
  * on the high order bits,
  * If the baskets are full before we have moved everything
@@ -360,7 +358,6 @@ CLUSTER_map(bat *RB, bat *B)
 	BATmax(b, (ptr) &rng); /* get the maximum hash key , could use mask !*/
 	rng++; 
 	/*
-	 * @-
 	 * The key challenge is to determine the number of clusters.
 	 * A large number of clusters benefits subsequent performance,
 	 * but also challenges the prepare phase. The clustering should
@@ -430,7 +427,6 @@ CLUSTER_map(bat *RB, bat *B)
 	return MAL_SUCCEED;
 }
 /*
- * @-
  * The order of the tuples in the cluster map
  * represent the read/write order. Under the assumption
  * that those read/writes are already localized, it becomes
@@ -445,7 +441,8 @@ str
 CLUSTER_apply(bat *bid, BAT *b, BAT *cmap)
 {
 	BAT *nb;
-	nb= BATnew(b->htype, b->ttype, BATcapacity(b));
+	assert(b->htype==TYPE_void);
+	nb= BATnew(TYPE_void, b->ttype, BATcapacity(b));
 	BATseqbase(nb,0);
 	nb->hrevsorted = 0;
 	nb->tsorted= FALSE;
@@ -578,6 +575,11 @@ CLS_create_bte( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 
 	/* convert histogram into prefix sum */
 	pos = (wrd*)GDKzalloc(sizeof(wrd) * (mask+1)); 
+	if( pos == NULL){
+		BBPunfix(*B);
+		BBPunfix(psum->batCacheid);
+		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
+	}
 	for (sum = 0, i=0 ; i <= mask; i++) {
 		wrd psum = sum;
 
@@ -658,6 +660,11 @@ CLS_create_sht( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 
 	/* convert histogram into prefix sum */
 	pos = (wrd*)GDKzalloc(sizeof(wrd) * (mask+1)); 
+	if( pos == NULL){
+		BBPunfix(*B);
+		BBPunfix(psum->batCacheid);
+		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
+	}
 	for (sum = 0, i=0 ; i <= mask; i++) {
 		wrd psum = sum;
 
@@ -738,6 +745,11 @@ CLS_create_int( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 
 	/* convert histogram into prefix sum */
 	pos = (wrd*)GDKzalloc(sizeof(wrd) * (mask+1)); 
+	if( pos == NULL){
+		BBPunfix(*B);
+		BBPunfix(psum->batCacheid);
+		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
+	}
 	for (sum = 0, i=0 ; i <= mask; i++) {
 		wrd psum = sum;
 
@@ -818,6 +830,11 @@ CLS_create_wrd( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 
 	/* convert histogram into prefix sum */
 	pos = (wrd*)GDKzalloc(sizeof(wrd) * (mask+1)); 
+	if( pos == NULL){
+		BBPunfix(*B);
+		BBPunfix(psum->batCacheid);
+		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
+	}
 	for (sum = 0, i=0 ; i <= mask; i++) {
 		wrd psum = sum;
 
@@ -898,6 +915,11 @@ CLS_create_lng( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 
 	/* convert histogram into prefix sum */
 	pos = (wrd*)GDKzalloc(sizeof(wrd) * (mask+1)); 
+	if( pos == NULL){
+		BBPunfix(*B);
+		BBPunfix(psum->batCacheid);
+		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
+	}
 	for (sum = 0, i=0 ; i <= mask; i++) {
 		wrd psum = sum;
 
@@ -978,6 +1000,11 @@ CLS_create_dbl( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 
 	/* convert histogram into prefix sum */
 	pos = (wrd*)GDKzalloc(sizeof(wrd) * (mask+1)); 
+	if( pos == NULL){
+		BBPunfix(*B);
+		BBPunfix(psum->batCacheid);
+		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
+	}
 	for (sum = 0, i=0 ; i <= mask; i++) {
 		wrd psum = sum;
 
@@ -1057,6 +1084,11 @@ CLS_create_flt( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 
 	/* convert histogram into prefix sum */
 	pos = (wrd*)GDKzalloc(sizeof(wrd) * (mask+1)); 
+	if( pos == NULL){
+		BBPunfix(*B);
+		BBPunfix(psum->batCacheid);
+		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
+	}
 	for (sum = 0, i=0 ; i <= mask; i++) {
 		wrd psum = sum;
 

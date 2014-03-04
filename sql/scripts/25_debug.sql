@@ -11,7 +11,8 @@
 -- The Original Code is the MonetDB Database System.
 --
 -- The Initial Developer of the Original Code is CWI.
--- Copyright August 2008-2013 MonetDB B.V.
+-- Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+-- Copyright August 2008-2014 MonetDB B.V.
 -- All Rights Reserved.
 
 -- show the optimizer statistics maintained by the SQL frontend
@@ -55,7 +56,7 @@ create function sys.bbp ()
 		ttype string, count BIGINT, refcnt int, lrefcnt int, 
 		location string, heat int, dirty string, 
 		status string, kind string) 
-	external name sql.bbp;
+	external name bbp.get;
 
 create procedure sys.evalAlgebra( ra_stmt string, opt bool)
 	external name sql."evalAlgebra";

@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -128,6 +128,7 @@
 #include "mal_listing.h"
 #include "mal_debugger.h"
 #include "opt_multiplex.h"
+#include "manifold.h"
 
 /*
  * @-
@@ -146,7 +147,6 @@ struct OPTcatalog {
 {"cluster",		0,	0,	0,	DEBUG_OPT_CLUSTER},
 {"coercions",	0,	0,	0,	DEBUG_OPT_COERCION},
 {"commonTerms",	0,	0,	0,	DEBUG_OPT_COMMONTERMS},
-{"compress",	0,	0,	0,	DEBUG_OPT_COMPRESS},
 {"constants",	0,	0,	0,	DEBUG_OPT_CONSTANTS},
 {"costModel",	0,	0,	0,	DEBUG_OPT_COSTMODEL},
 {"crack",		0,	0,	0,	DEBUG_OPT_CRACK},
@@ -154,7 +154,6 @@ struct OPTcatalog {
 {"datacyclotron",0,	0,	0,	DEBUG_OPT_DATACYCLOTRON},
 {"dataflow",	0,	0,	0,	DEBUG_OPT_DATAFLOW},
 {"deadcode",	0,	0,	0,	DEBUG_OPT_DEADCODE},
-{"dictionary",	0,	0,	0,	DEBUG_OPT_DICTIONARY},
 {"emptySet",	0,	0,	0,	DEBUG_OPT_EMPTYSET},
 {"evaluate",	0,	0,	0,	DEBUG_OPT_EVALUATE},
 {"factorize",	0,	0,	0,	DEBUG_OPT_FACTORIZE},
@@ -172,7 +171,6 @@ struct OPTcatalog {
 {"octopus",		0,	0,	0,	DEBUG_OPT_OCTOPUS},
 {"origin",		0,	0,	0,	DEBUG_OPT_ORIGIN},
 {"peephole",	0,	0,	0,	DEBUG_OPT_PEEPHOLE},
-{"prejoin",		0,	0,	0,	DEBUG_OPT_PREJOIN},
 {"pushranges",	0,	0,	0,	DEBUG_OPT_PUSHRANGES},
 {"recycler",	0,	0,	0,	DEBUG_OPT_RECYCLE},
 {"reduce",		0,	0,	0,	DEBUG_OPT_REDUCE},
@@ -271,7 +269,6 @@ optimizeMALBlock(Client cntxt, MalBlkPtr mb)
 	int cnt = 0;
 	lng clk = GDKusec();
 
-	optimizerInit();
 	/* assume the type and flow have been checked already */
 	/* SQL functions intended to be inlined should not be optimized */
 	if ( varGetProp( mb, getArg(getInstrPtr(mb,0),0), inlineProp ) != NULL &&
@@ -710,6 +707,9 @@ hasSideEffects(InstrPtr p, int strict)
 	if (getFunctionId(p) == depositRef)
 		return TRUE;
 
+	if (getModuleId(p) == malRef && getFunctionId(p) == multiplexRef)
+		return FALSE;
+
 	if( getModuleId(p) == ioRef ||
 		getModuleId(p) == streamsRef ||
 		getModuleId(p) == bstreamRef ||
@@ -722,7 +722,7 @@ hasSideEffects(InstrPtr p, int strict)
 		getModuleId(p) == semaRef ||
 		getModuleId(p) == recycleRef ||
 		getModuleId(p) == alarmRef)
-			return TRUE;
+		return TRUE;
 
 	if (getModuleId(p) == sqlRef){
 		if (getFunctionId(p) == tidRef) return FALSE;
@@ -775,6 +775,17 @@ hasSideEffects(InstrPtr p, int strict)
 		return TRUE;
 	return FALSE;
 }
+
+int
+mayhaveSideEffects(Client cntxt, MalBlkPtr mb, InstrPtr p, int strict)
+{
+	if (getModuleId(p) != malRef || getFunctionId(p) != multiplexRef) 
+		return hasSideEffects( p, strict);
+	if (MANIFOLDtypecheck(cntxt,mb,p) == NULL)
+		return TRUE;
+	return FALSE;
+}
+
 /*
  * @-
  * Side-effect free functions are crucial for several operators.
@@ -827,13 +838,15 @@ int isAllScalar(MalBlkPtr mb, InstrPtr p)
  * and should be conservative.
  */
 int isMapOp(InstrPtr p){
-	return	(getModuleId(p) == malRef && getFunctionId(p) == multiplexRef) ||
+	return	getModuleId(p) &&
+		((getModuleId(p) == malRef && getFunctionId(p) == multiplexRef) ||
 		(getModuleId(p)== batcalcRef && getFunctionId(p) != mark_grpRef && getFunctionId(p) != rank_grpRef) ||
 		(getModuleId(p)== batmtimeRef) ||
 		(getModuleId(p)== batstrRef) ||
 		(getModuleId(p)== batmmathRef) ||
 		(getModuleId(p)== batxmlRef) ||
-		(getModuleId(p)== mkeyRef);
+		(strcmp(getModuleId(p),"batsql") == 0) ||
+		(getModuleId(p)== mkeyRef));
 }
 
 int isLikeOp(InstrPtr p){

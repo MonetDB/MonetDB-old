@@ -13,10 +13,9 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
-
 
 #ifndef _MAL_SCENARIO_H
 #define _MAL_SCENARIO_H
@@ -73,9 +72,6 @@ mal_export str setScenario(Client c, str nme);
 mal_export str runScenario(Client c);
 mal_export str getScenarioLanguage(Client c);
 mal_export Scenario getFreeScenario(void);
-
-mal_export str defaultScenario(Client c);	/* used in src/mal/mal_session.c */
-mal_export void exitScenario(Client c);	/* used in src/mal/mal_session.c */
 
 mal_export void showCurrentScenario(void);
 mal_export void showScenarioByName(stream *f, str s);

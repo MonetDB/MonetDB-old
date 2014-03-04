@@ -14,7 +14,7 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2013 MonetDB B.V.
+# Copyright August 2008-2014 MonetDB B.V.
 # All Rights Reserved.
 
 """ Script to test database capabilities and the DB-API interface
@@ -373,7 +373,7 @@ class DatabaseTest(unittest.TestCase):
     def test_customtype(self):
         t = ["list", "test"]
         self.assertRaises(ProgrammingError, self.db_module.monetize.convert, t)
-        self.db_module.monetize.mapping[list] = str
+        self.db_module.monetize.mapping_dict[list] = str
         self.assertEqual(self.db_module.monetize.convert(t), "['list', 'test']")
 
     def test_multiple_queries(self):

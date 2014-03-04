@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -224,8 +224,8 @@ SQLGetInfo_(ODBCDbc *dbc,
 			SQL_CVT_TIMESTAMP |
 			SQL_CVT_TINYINT |
 			SQL_CVT_VARBINARY |
-			SQL_CVT_VARCHAR;
-		/* SQL_CVT_GUID */
+			SQL_CVT_VARCHAR |
+			SQL_CVT_GUID;
 		len = sizeof(SQLUINTEGER);
 		break;
 	case SQL_CONVERT_FUNCTIONS:
@@ -436,7 +436,7 @@ SQLGetInfo_(ODBCDbc *dbc,
 		sValue = "N";
 		break;
 	case SQL_DEFAULT_TXN_ISOLATION:
-		nValue = SQL_TXN_READ_COMMITTED;
+		nValue = SQL_TXN_SERIALIZABLE;
 		len = sizeof(SQLUINTEGER);
 		break;
 	case SQL_EXPRESSIONS_IN_ORDERBY:
@@ -525,7 +525,7 @@ SQLGetInfo_(ODBCDbc *dbc,
 		break;
 	case SQL_STRING_FUNCTIONS:
 		nValue = SQL_FN_STR_ASCII |
-			SQL_FN_STR_CHAR |
+			/* SQL_FN_STR_CHAR | */
 			SQL_FN_STR_CONCAT |
 			SQL_FN_STR_DIFFERENCE |
 			SQL_FN_STR_INSERT |
@@ -533,6 +533,7 @@ SQLGetInfo_(ODBCDbc *dbc,
 			SQL_FN_STR_LEFT |
 			SQL_FN_STR_LENGTH |
 			SQL_FN_STR_LOCATE |
+			SQL_FN_STR_LOCATE_2 |
 			SQL_FN_STR_LTRIM |
 			SQL_FN_STR_REPEAT |
 			SQL_FN_STR_REPLACE |
@@ -568,7 +569,7 @@ SQLGetInfo_(ODBCDbc *dbc,
 		len = sizeof(SQLUINTEGER);
 		break;
 	case SQL_TXN_ISOLATION_OPTION:
-		nValue = SQL_TXN_REPEATABLE_READ;
+		nValue = SQL_TXN_SERIALIZABLE;
 		len = sizeof(SQLUINTEGER);
 		break;
 	case SQL_INTEGRITY:
@@ -1107,7 +1108,6 @@ SQLGetInfo(SQLHDBC ConnectionHandle,
 			   StringLengthPtr);
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLGetInfoA(SQLHDBC ConnectionHandle,
 	    SQLUSMALLINT InfoType,
@@ -1211,4 +1211,3 @@ SQLGetInfoW(SQLHDBC ConnectionHandle,
 
 	return rc;
 }
-#endif /* WITH_WCHAR */

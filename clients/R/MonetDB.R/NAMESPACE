@@ -1,0 +1,23 @@
+import(DBI,digest,methods)
+
+# export only driver constructor, everything else is DBI stuff..
+export(MonetDB,MonetR,MonetDBR,MonetDB.R)
+export(monet.read.csv,monetdb.read.csv)
+# this one is not in the DBI
+exportMethods(dbSendUpdate,dbSendUpdateAsync)
+export(monetdbGetTransferredBytes)
+export(monetdbRtype)
+
+# shorthand for db connections
+export(mc)
+
+# control.R
+export(monetdb.server.setup)
+export(monetdb.server.start)
+export(monetdb.server.stop)
+export(monetdbd.liststatus)
+export(monetdb.liststatus)
+useDynLib(MonetDB.R)
+
+
+

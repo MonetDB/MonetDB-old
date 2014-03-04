@@ -1,3 +1,22 @@
+/*
+ * The contents of this file are subject to the MonetDB Public License
+ * Version 1.1 (the "License"); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.monetdb.org/Legal/MonetDBLicense
+ *
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ *
+ * The Original Code is the MonetDB Database System.
+ *
+ * The Initial Developer of the Original Code is CWI.
+ * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+ * Copyright August 2008-2014 MonetDB B.V.
+ * All Rights Reserved.
+ */
+
 /* Manual config.h. needed for win32 .  */
 
 /* We use the value of _MSC_VER to distinguish the various versions of
@@ -108,7 +127,7 @@
 /* Define if you have ctime_r(time_t*,char *buf,size_t s) */
 #define HAVE_CTIME_R3 1
 /* there is something very similar to ctime_r on Windows: */
-#define ctime_r(t,b,s)	ctime_s(b,s,t)
+#define ctime_r(t,b,s)	(ctime_s(b,s,t) ? NULL : (b))
 
 /* Define if you have the cURL library */
 /* #undef HAVE_CURL */
@@ -148,7 +167,8 @@
 #define HAVE_FTIME 1
 
 /* Define to 1 if you have the `ftruncate' function. */
-/* #undef HAVE_FTRUNCATE */
+#define HAVE_FTRUNCATE 1
+#define ftruncate(fd, sz)	(_chsize_s((fd), (__int64) (sz)) == 0 ? 0 : -1)
 
 /* Does your compiler support function attributes (__attribute__)? */
 /* #undef HAVE_FUNCTION_ATTRIBUTES */
@@ -185,6 +205,9 @@
 
 /* Define to 1 if you have the `gettimeofday' function. */
 /* #undef HAVE_GETTIMEOFDAY */
+
+/* Define if you have the gsl library */
+/* #undef HAVE_GSL */
 
 /* Define to 1 if you have the `getuid' function. */
 /* #undef HAVE_GETUID */
@@ -751,13 +774,13 @@
 #define PACKAGE_NAME "MonetDB"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "MonetDB 11.16.0"
+#define PACKAGE_STRING "MonetDB 11.18.0"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "MonetDB"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "11.16.0"
+#define PACKAGE_VERSION "11.18.0"
 
 /* Define to the home page for this package. */
 #define PACKAGE_URL ""
@@ -977,43 +1000,6 @@ typedef unsigned __int64 uint64_t;
 #ifndef vsnprintf
 #define vsnprintf _vsnprintf
 #endif
-#endif
-
-/* if nothing defined, ALGEBRA is default.
-   if ALGEBRA_IS_DEFAULT is defined to 0, SQL is default.
-   if both ALGEBRA_IS_DEFAULT and SQL_IS_DEFAULT are defined to 0, we
-   fallback to MPS */
-/* Use algebra back-end by default? */
-#ifndef ALGEBRA_IS_DEFAULT
-#if defined(MILPRINT_SUMMER_IS_DEFAULT) && MILPRINT_SUMMER_IS_DEFAULT
-#define ALGEBRA_IS_DEFAULT 0
-#elif defined(SQL_IS_DEFAULT) && SQL_IS_DEFAULT
-#define ALGEBRA_IS_DEFAULT 0
-#else
-#define ALGEBRA_IS_DEFAULT 1
-#endif
-#endif
-
-/* Use milprint_summer back-end by default? */
-#ifndef MILPRINT_SUMMER_IS_DEFAULT
-#if defined(SQL_IS_DEFAULT) && !SQL_IS_DEFAULT && !ALGEBRA_IS_DEFAULT
-#define MILPRINT_SUMMER_IS_DEFAULT 1
-#else
-#define MILPRINT_SUMMER_IS_DEFAULT 0
-#endif
-#endif
-
-/* Use sql back-end by default? */
-#ifndef SQL_IS_DEFAULT
-#if ALGEBRA_IS_DEFAULT || MILPRINT_SUMMER_IS_DEFAULT
-#define SQL_IS_DEFAULT 0
-#else
-#define SQL_IS_DEFAULT 1
-#endif
-#endif
-
-#if (ALGEBRA_IS_DEFAULT + MILPRINT_SUMMER_IS_DEFAULT + SQL_IS_DEFAULT) != 1
-#error "Only one of ALGEBRA_IS_DEFAULT, MILPRINT_SUMMER_IS_DEFAULT, SQL_IS_DEFAULT can be set to 1"
 #endif
 
 #ifndef _SEEN_MONETDB_CONFIG_H

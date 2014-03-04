@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -73,6 +73,11 @@ BAT *GDKval = NULL;
 static volatile ATOMIC_FLAG GDKstopped = ATOMIC_FLAG_INIT;
 static void GDKunlockHome(void);
 static int GDKgetHome(void);
+
+#undef malloc
+#undef calloc
+#undef realloc
+#undef free
 
 /*
  * @+ Monet configuration file
@@ -197,6 +202,10 @@ GDKlog(const char *format, ...)
 	char *p = 0, buf[1024];
 	int mustopen = GDKgetHome();
 	time_t tm = time(0);
+#if defined(HAVE_CTIME_R3) || defined(HAVE_CTIME_R)
+	char tbuf[26];
+#endif
+	char *ctm;
 
 	if (MT_pagesize() == 0)
 		return;
@@ -215,7 +224,16 @@ GDKlog(const char *format, ...)
 #ifndef HAVE_GETUID
 #define getuid() 0
 #endif
-	fprintf(GDKlockFile, "USR=%d PID=%d TIME=%.24s @ %s\n", (int) getuid(), (int) getpid(), ctime(&tm), buf);
+#ifdef HAVE_CTIME_R3
+	ctm = ctime_r(&tm, tbuf, sizeof(tbuf));
+#else
+#ifdef HAVE_CTIME_R
+	ctm = ctime_r(&tm, tbuf);
+#else
+	ctm = ctime(&tm);
+#endif
+#endif
+	fprintf(GDKlockFile, "USR=%d PID=%d TIME=%.24s @ %s\n", (int) getuid(), (int) getpid(), ctm, buf);
 	fflush(GDKlockFile);
 
 	if (mustopen)
@@ -281,10 +299,9 @@ BATSIGinit(void)
 
 /* memory thresholds; these values some "sane" constants only, really
  * set in GDKinit() */
-size_t GDK_mmap_minsize = GDK_VM_MAXSIZE;
-static size_t GDK_mem_maxsize_max = GDK_VM_MAXSIZE;
+size_t GDK_mmap_minsize = (size_t) 1 << 18;
+size_t GDK_mmap_pagesize = (size_t) 1 << 16; /* mmap granularity */
 size_t GDK_mem_maxsize = GDK_VM_MAXSIZE;
-size_t GDK_mem_bigsize = GDK_VM_MAXSIZE;
 size_t GDK_vm_maxsize = GDK_VM_MAXSIZE;
 
 int GDK_vm_trim = 1;
@@ -331,8 +348,8 @@ static MT_Lock mbyteslock MT_LOCK_INITIALIZER("mbyteslock");
 static MT_Lock GDKstoppedLock MT_LOCK_INITIALIZER("GDKstoppedLock");
 #endif
 
-size_t _MT_pagesize = 0;	/* variable holding memory size */
-size_t _MT_npages = 0;		/* variable holding page size */
+size_t _MT_pagesize = 0;	/* variable holding page size */
+size_t _MT_npages = 0;		/* variable holding memory size in pages */
 
 void
 MT_init(void)
@@ -433,24 +450,15 @@ MT_init(void)
 size_t
 GDKmem_cursize(void)
 {
-	/* RAM/swapmem that Monet has claimed from OS */
-	size_t heapsize = MT_heapcur() - MT_heapbase;
-
-	return (size_t) SEG_SIZE(heapsize, MT_VMUNITLOG);
-}
-
-size_t
-GDKmem_inuse(void)
-{
 	/* RAM/swapmem that Monet is really using now */
-	return (size_t) ATOMIC_GET(GDK_mallocedbytes_estimate, mbyteslock, "GDKmem_inuse");
+	return (size_t) ATOMIC_GET(GDK_mallocedbytes_estimate, mbyteslock, "GDKmem_cursize");
 }
 
 size_t
 GDKvm_cursize(void)
 {
 	/* current Monet VM address space usage */
-	return (size_t) ATOMIC_GET(GDK_vm_cursize, mbyteslock, "GDKvm_cursize") + GDKmem_inuse();
+	return (size_t) ATOMIC_GET(GDK_vm_cursize, mbyteslock, "GDKvm_cursize") + GDKmem_cursize();
 }
 
 #ifdef GDK_MEM_KEEPHISTO
@@ -460,7 +468,7 @@ GDKvm_cursize(void)
 									\
 		ATOMIC_ADD(GDK_mallocedbytes_estimate, _memdelta, mbyteslock, "heapinc"); \
 		GDKmallidx(_idx, _memdelta);				\
-		ATOMIC_INC(GDK_nmallocs[_idx], mbyteslock, "heapinc");	\
+		(void) ATOMIC_INC(GDK_nmallocs[_idx], mbyteslock, "heapinc"); \
 	} while (0)
 #define heapdec(memdelta)						\
 	do {								\
@@ -469,7 +477,7 @@ GDKvm_cursize(void)
 									\
 		ATOMIC_SUB(GDK_mallocedbytes_estimate, _memdelta, mbyteslock, "heapdec"); \
 		GDKmallidx(_idx, _memdelta);				\
-		ATOMIC_DEC(GDK_nmallocs[_idx], mbyteslock, "heapdec");	\
+		(void) ATOMIC_DEC(GDK_nmallocs[_idx], mbyteslock, "heapdec"); \
 	} while (0)
 #else
 #define heapinc(_memdelta)						\
@@ -485,7 +493,7 @@ GDKvm_cursize(void)
 		int _idx;						\
 									\
 		GDKmallidx(_idx, _vmdelta);				\
-		ATOMIC_INC(GDK_vm_nallocs[_idx], mbyteslock, fcn);	\
+		(void) ATOMIC_INC(GDK_vm_nallocs[_idx], mbyteslock, fcn); \
 		ATOMIC_ADD(GDK_vm_cursize, _vmdelta, mbyteslock, fcn);	\
 	} while (0)
 #define memdec(vmdelta, fcn)						\
@@ -494,7 +502,7 @@ GDKvm_cursize(void)
 		int _idx;						\
 									\
 		GDKmallidx(_idx, _vmdelta);				\
-		ATOMIC_DEC(GDK_vm_nallocs[_idx], mbyteslock, fcn);	\
+		(void) ATOMIC_DEC(GDK_vm_nallocs[_idx], mbyteslock, fcn); \
 		ATOMIC_SUB(GDK_vm_cursize, _vmdelta, mbyteslock, fcn);	\
 	} while (0)
 #else
@@ -600,8 +608,8 @@ GDKmemfail(str s, size_t len)
 
 	/* bumped your nose against the wall; try to prevent
 	 * repetition by adjusting maxsizes
-	   if (memtarget < 0.3 * GDKmem_inuse()) {
-		   size_t newmax = (size_t) (0.7 * (double) GDKmem_inuse());
+	   if (memtarget < 0.3 * GDKmem_cursize()) {
+		   size_t newmax = (size_t) (0.7 * (double) GDKmem_cursize());
 
 		   if (newmax < GDK_mem_maxsize)
 		   GDK_mem_maxsize = newmax;
@@ -614,14 +622,14 @@ GDKmemfail(str s, size_t len)
 	   }
 	 */
 
-	THRprintf(GDKstdout, "#%s(" SZFMT ") fails, try to free up space [memory in use=" SZFMT ",virtual memory in use=" SZFMT "]\n", s, len, GDKmem_inuse(), GDKvm_cursize());
+	THRprintf(GDKstdout, "#%s(" SZFMT ") fails, try to free up space [memory in use=" SZFMT ",virtual memory in use=" SZFMT "]\n", s, len, GDKmem_cursize(), GDKvm_cursize());
 	GDKmemdump();
 /*	GDKdebug |= MEMMASK;  avoid debugging output */
 
 	BBPtrim(BBPTRIM_ALL);
 
 	GDKdebug = MIN(GDKdebug, bak);
-	THRprintf(GDKstdout, "#%s(" SZFMT ") result [mem=" SZFMT ",vm=" SZFMT "]\n", s, len, GDKmem_inuse(), GDKvm_cursize());
+	THRprintf(GDKstdout, "#%s(" SZFMT ") result [mem=" SZFMT ",vm=" SZFMT "]\n", s, len, GDKmem_cursize(), GDKvm_cursize());
 	GDKmemdump();
 }
 
@@ -639,24 +647,28 @@ GDKmemfail(str s, size_t len)
 
 /* allocate 8 bytes extra (so it stays 8-bytes aligned) and put
  * realsize in front */
-#define GDKmalloc_prefixsize(s,size)					\
-	do {								\
-		s = (ssize_t *) malloc(size + MALLOC_EXTRA_SPACE + GLIBC_BUG); \
-		if (s != NULL) {					\
-			assert((((size_t) s)&7) == 0); /* no MISALIGN */ \
-			s = (ssize_t*) ((char*) s + MALLOC_EXTRA_SPACE); \
-			s[-1] = (ssize_t) (size + MALLOC_EXTRA_SPACE);	\
-		}							\
-	} while (0)
+static inline void *
+GDKmalloc_prefixsize(size_t size)
+{
+	ssize_t *s;
+
+	if ((s = malloc(size + MALLOC_EXTRA_SPACE + GLIBC_BUG)) != NULL) {
+		assert((((size_t) s) & 7) == 0); /* no MISALIGN */
+		s = (ssize_t*) ((char*) s + MALLOC_EXTRA_SPACE);
+		s[-1] = (ssize_t) (size + MALLOC_EXTRA_SPACE);
+	}
+	return s;
+}
 
 /*
  * The emergency flag can be set to force a fatal error if needed.
  * Otherwise, the caller is able to deal with the lack of memory.
  */
+#undef GDKmallocmax
 void *
 GDKmallocmax(size_t size, size_t *maxsize, int emergency)
 {
-	ssize_t *s = NULL;
+	void *s;
 
 	if (size == 0) {
 #ifdef GDK_MEM_NULLALLOWED
@@ -666,10 +678,10 @@ GDKmallocmax(size_t size, size_t *maxsize, int emergency)
 #endif
 	}
 	size = (size + 7) & ~7;	/* round up to a multiple of eight */
-	GDKmalloc_prefixsize(s, size);
+	s = GDKmalloc_prefixsize(size);
 	if (s == NULL) {
 		GDKmemfail("GDKmalloc", size);
-		GDKmalloc_prefixsize(s, size);
+		s = GDKmalloc_prefixsize(size);
 		if (s == NULL) {
 			if (emergency == 0) {
 				GDKerror("GDKmallocmax: failed for " SZFMT " bytes", size);
@@ -682,14 +694,14 @@ GDKmallocmax(size_t size, size_t *maxsize, int emergency)
 	}
 	*maxsize = size;
 	heapinc(size + MALLOC_EXTRA_SPACE);
-	return (void *) s;
+	return s;
 }
 
+#undef GDKmalloc
 void *
 GDKmalloc(size_t size)
 {
 	void *p = GDKmallocmax(size, &size, 0);
-	ALLOCDEBUG fprintf(stderr, "#GDKmalloc " SZFMT " " PTRFMT "\n", size, PTRFMTCAST p);
 #ifndef NDEBUG
 	DEADBEEFCHK if (p)
 		memset(p, 0xBD, size);
@@ -697,12 +709,12 @@ GDKmalloc(size_t size)
 	return p;
 }
 
+#undef GDKzalloc
 void *
 GDKzalloc(size_t size)
 {
 	size_t maxsize = size;
 	void *p = GDKmallocmax(size, &maxsize, 0);
-	ALLOCDEBUG fprintf(stderr, "#GDKzalloc " SZFMT " " SZFMT " " PTRFMT "\n", size, maxsize, PTRFMTCAST p);
 	if (p) {
 		memset(p, 0, size);
 #ifndef NDEBUG
@@ -714,8 +726,9 @@ GDKzalloc(size_t size)
 	return p;
 }
 
-static void
-GDKfree_(void *blk)
+#undef GDKfree
+void
+GDKfree(void *blk)
 {
 	ssize_t size = 0, *s = (ssize_t *) blk;
 
@@ -750,13 +763,7 @@ GDKfree_(void *blk)
 	heapdec(size);
 }
 
-void
-GDKfree(void *blk)
-{
-	ALLOCDEBUG fprintf(stderr, "#GDKfree " PTRFMT "\n", PTRFMTCAST blk);
-	GDKfree_(blk);
-}
-
+#undef GDKreallocmax
 ptr
 GDKreallocmax(void *blk, size_t size, size_t *maxsize, int emergency)
 {
@@ -769,7 +776,7 @@ GDKreallocmax(void *blk, size_t size, size_t *maxsize, int emergency)
 	}
 	if (size == 0) {
 #ifdef GDK_MEM_NULLALLOWED
-		GDKfree_(blk);
+		GDKfree(blk);
 		*maxsize = 0;
 		return NULL;
 #else
@@ -815,18 +822,19 @@ GDKreallocmax(void *blk, size_t size, size_t *maxsize, int emergency)
 	return blk;
 }
 
+#undef GDKrealloc
 ptr
 GDKrealloc(void *blk, size_t size)
 {
 	size_t sz = size;
 	void *p;
 
-	p = GDKreallocmax(blk, size, &size, 0);
-	ALLOCDEBUG fprintf(stderr, "#GDKrealloc " SZFMT " " SZFMT " " PTRFMT " " PTRFMT "\n", sz, size, PTRFMTCAST blk, PTRFMTCAST p);
+	p = GDKreallocmax(blk, sz, &size, 0);
 	return p;
 }
 
 
+#undef GDKstrdup
 char *
 GDKstrdup(const char *s)
 {
@@ -843,34 +851,34 @@ GDKstrdup(const char *s)
  * @- virtual memory
  * allocations affect only the logical VM resources.
  */
+#undef GDKmmap
 void *
 GDKmmap(const char *path, int mode, size_t len)
 {
 	void *ret = MT_mmap(path, mode, len);
 
-	if (ret == (void *) -1L) {
+	if (ret == NULL) {
 		GDKmemfail("GDKmmap", len);
 		ret = MT_mmap(path, mode, len);
-		if (ret != (void *) -1L) {
+		if (ret != NULL) {
 			THRprintf(GDKstdout, "#GDKmmap: recovery ok. Continuing..\n");
 		}
 	}
-	ALLOCDEBUG fprintf(stderr, "#GDKmmap " SZFMT " " PTRFMT "\n", len, PTRFMTCAST ret);
-	if (ret != (void *) -1L) {
+	if (ret != NULL) {
 		/* since mmap directly have content we say it's zero-ed
 		 * memory */
 		VALGRIND_MALLOCLIKE_BLOCK(ret, len, 0, 1);
 		meminc(len, "GDKmmap");
 	}
-	return (void *) ret;
+	return ret;
 }
 
+#undef GDKmunmap
 int
 GDKmunmap(void *addr, size_t size)
 {
 	int ret;
 
-	ALLOCDEBUG fprintf(stderr, "#GDKmunmap " SZFMT " " PTRFMT "\n", size, PTRFMTCAST addr);
 	ret = MT_munmap(addr, size);
 	VALGRIND_FREELIKE_BLOCK(addr, 0);
 	if (ret == 0)
@@ -942,7 +950,7 @@ GDKinit(opt *set, int setlen)
 	char *dbpath = mo_find_option(set, setlen, "gdk_dbpath");
 	char *p;
 	opt *n;
-	int i, j, nlen = 0;
+	int i, nlen = 0;
 	char buf[16];
 
 	/* some sanity checks (should also find if symbols are not defined) */
@@ -984,9 +992,6 @@ GDKinit(opt *set, int setlen)
 	if ((p = mo_find_option(set, setlen, "gdk_debug")))
 		GDKdebug = strtol(p, NULL, 10);
 
-	if ((p = mo_find_option(set, setlen, "gdk_mem_pagebits")))
-		GDK_mem_pagebits = (int) strtol(p, NULL, 10);
-
 	if (mnstr_init() < 0)
 		return 0;
 	MT_init_posix();
@@ -1002,18 +1007,48 @@ GDKinit(opt *set, int setlen)
 	GDKlockHome();
 
 	/* Mserver by default takes 80% of all memory as a default */
-	GDK_mem_maxsize = GDK_mem_maxsize_max = (size_t) ((double) MT_npages() * (double) MT_pagesize() * 0.815);
-#ifdef NATIVE_WIN32
-	GDK_mmap_minsize = GDK_mem_maxsize_max;
-#else
-	GDK_mmap_minsize = MIN( 1<<30 , GDK_mem_maxsize_max/6 );
-	/*   per op:  2 args + 1 res, each with head & tail  =>  (2+1)*2 = 6  ^ */
-#endif
-	GDK_mem_bigsize = 1024*1024;
+	GDK_mem_maxsize = (size_t) ((double) MT_npages() * (double) MT_pagesize() * 0.815);
 	GDKremovedir(DELDIR);
 	BBPinit();
 
-	HEAPcacheInit();
+	n = (opt *) malloc(setlen * sizeof(opt));
+	for (i = 0; i < setlen; i++) {
+		int done = 0;
+		int j;
+
+		for (j = 0; j < nlen; j++) {
+			if (strcmp(n[j].name, set[i].name) == 0) {
+				if (n[j].kind < set[i].kind) {
+					n[j] = set[i];
+				}
+				done = 1;
+				break;
+			}
+		}
+		if (!done) {
+			n[nlen] = set[i];
+			nlen++;
+		}
+	}
+	/* check some options before creating our first BAT */
+	for (i = 0; i < nlen; i++) {
+		if (strcmp("gdk_mem_maxsize", n[i].name) == 0) {
+			GDK_mem_maxsize = (size_t) strtoll(n[i].value, NULL, 10);
+			GDK_mem_maxsize = MAX(1 << 26, GDK_mem_maxsize);
+		} else if (strcmp("gdk_vm_maxsize", n[i].name) == 0) {
+			GDK_vm_maxsize = (size_t) strtoll(n[i].value, NULL, 10);
+			GDK_vm_maxsize = MAX(1 << 30, GDK_vm_maxsize);
+		} else if (strcmp("gdk_mmap_minsize", n[i].name) == 0) {
+			GDK_mmap_minsize = (size_t) strtoll(n[i].value, NULL, 10);
+		} else if (strcmp("gdk_mmap_pagesize", n[i].name) == 0) {
+			GDK_mmap_pagesize = (size_t) strtoll(n[i].value, NULL, 10);
+			for (i = 12; i < 20; i++)
+				if (GDK_mmap_pagesize == ((size_t) 1 << i))
+					break;
+			if (i == 20)
+				GDKfatal("GDKinit: gdk_mmap_pagesize must be power of 2 between 2**12 and 2**20\n");
+		}
+	}
 
 	GDKkey = BATnew(TYPE_void, TYPE_str, 100);
 	GDKval = BATnew(TYPE_void, TYPE_str, 100);
@@ -1031,27 +1066,14 @@ GDKinit(opt *set, int setlen)
 	BATrename(GDKval, "environment_val");
 	BATmode(GDKval, TRANSIENT);
 
-	n = (opt *) malloc(setlen * sizeof(opt));
-	for (i = 0; i < setlen; i++) {
-		int done = 0;
-
-		for (j = 0; j < nlen; j++) {
-			if (strcmp(n[j].name, set[i].name) == 0) {
-				if (n[j].kind < set[i].kind) {
-					n[j] = set[i];
-				}
-				done = 1;
-				break;
-			}
-		}
-		if (!done) {
-			n[nlen] = set[i];
-			nlen++;
-		}
-	}
+	/* store options into environment BATs */
 	for (i = 0; i < nlen; i++)
 		GDKsetenv(n[i].name, n[i].value);
 	free(n);
+
+	GDKnr_threads = GDKgetenv_int("gdk_nr_threads", 0);
+	if (GDKnr_threads == 0)
+		GDKnr_threads = MT_check_nr_cores();
 
 	if ((p = GDKgetenv("gdk_dbpath")) != NULL &&
 	    (p = strrchr(p, DIR_SEP)) != NULL) {
@@ -1062,49 +1084,41 @@ GDKinit(opt *set, int setlen)
 		GDKsetenv("gdk_dbname", p + 1);
 #endif
 	}
-	if ((p = GDKgetenv("gdk_mem_maxsize"))) {
-		GDK_mem_maxsize = MAX(1 << 26, (size_t) strtoll(p, NULL, 10));
+	if (GDKgetenv("gdk_vm_maxsize") == NULL) {
+		snprintf(buf, sizeof(buf), SZFMT, GDK_vm_maxsize);
+		GDKsetenv("gdk_vm_maxsize", buf);
 	}
-	if ((p = GDKgetenv("gdk_vm_maxsize"))) {
-		GDK_vm_maxsize = MAX(1 << 30, (size_t) strtoll(p, NULL, 10));
+	if (GDKgetenv("gdk_mem_maxsize") == NULL) {
+		snprintf(buf, sizeof(buf), SZFMT, GDK_mem_maxsize);
+		GDKsetenv("gdk_mem_maxsize", buf);
 	}
-	if ((p = GDKgetenv("gdk_mem_bigsize"))) {
-		/* when allocating >6% of all RAM; do so using
-		 * vmalloc() iso malloc() */
-		lng max_mem_bigsize = GDK_mem_maxsize_max / 16;
-
-		/* sanity check to avoid memory fragmentation */
-		GDK_mem_bigsize = (size_t) MIN(max_mem_bigsize, strtoll(p, NULL, 10));
+	if (GDKgetenv("gdk_mmap_minsize") == NULL) {
+		snprintf(buf, sizeof(buf), SZFMT, GDK_mmap_minsize);
+		GDKsetenv("gdk_mmap_minsize", buf);
 	}
-	if ((p = GDKgetenv("gdk_mmap_minsize"))) {
-		GDK_mmap_minsize = MAX(REMAP_PAGE_MAXSIZE, (size_t) strtoll(p, NULL, 10));
-	}
-	if (GDKgetenv("gdk_mem_pagebits") == NULL) {
-		snprintf(buf, sizeof(buf), "%d", GDK_mem_pagebits);
-		GDKsetenv("gdk_mem_pagebits", buf);
-	}
-	if (GDKgetenv("gdk_mem_bigsize") == NULL) {
-		snprintf(buf, sizeof(buf), SZFMT, GDK_mem_bigsize);
-		GDKsetenv("gdk_mem_bigsize", buf);
+	if (GDKgetenv("gdk_mmap_pagesize") == NULL) {
+		snprintf(buf, sizeof(buf), SZFMT, GDK_mmap_pagesize);
+		GDKsetenv("gdk_mmap_pagesize", buf);
 	}
 	if (GDKgetenv("monet_pid") == NULL) {
 		snprintf(buf, sizeof(buf), "%d", (int) getpid());
 		GDKsetenv("monet_pid", buf);
 	}
 
-	GDKnr_threads = GDKgetenv_int("gdk_nr_threads", 0);
-	if (GDKnr_threads == 0)
-		GDKnr_threads = MT_check_nr_cores();
-#ifdef NATIVE_WIN32
-	GDK_mmap_minsize /= (GDKnr_threads ? GDKnr_threads : 1);
+	/* only start vmtrim thread when explicitly asked to do so or
+	 * when on a 32 bit architecture and not told to not start
+	 * it;
+	 * see also mo_builtin_settings() in common/options/monet_options.c
+	 */
+	p = mo_find_option(set, setlen, "gdk_vmtrim");
+	if (
+#if SIZEOF_VOID_P == 4
+	    /* 32 bit architecture */
+	    p == NULL ||	/* default is yes */
 #else
-	/* WARNING: This unconditionally overwrites above settings, */
-	/* incl. setting via MonetDB env. var. "gdk_mmap_minsize" ! */
-	GDK_mmap_minsize = MIN( 1<<30 , (GDK_mem_maxsize_max/6) / (GDKnr_threads ? GDKnr_threads : 1) );
-	/*    per op:  2 args + 1 res, each with head & tail  =>  (2+1)*2 = 6  ^ */
+	    /* 64 bit architecture */
+	    p != NULL &&	/* default is no */
 #endif
-
-	if ((p = mo_find_option(set, setlen, "gdk_vmtrim")) == NULL ||
 	    strcasecmp(p, "yes") == 0)
 		MT_create_thread(&GDKvmtrim_id, GDKvmtrim, &GDK_mem_maxsize,
 				 MT_THR_JOINABLE);
@@ -1118,7 +1132,15 @@ static int GDKnrofthreads;
 int
 GDKexiting(void)
 {
-	return (int) GDKstopped;
+	int stopped;
+#ifdef ATOMIC_LOCK
+	pthread_mutex_lock(&GDKstoppedLock);
+#endif
+	stopped = GDKstopped != 0;
+#ifdef ATOMIC_LOCK
+	pthread_mutex_unlock(&GDKstoppedLock);
+#endif
+	return stopped;
 }
 
 /* coverity[+kill] */
@@ -1138,6 +1160,7 @@ GDKexit(int status)
 			MT_Id pid = MT_getpid();
 			Thread t, s;
 
+			MT_lock_set(&GDKthreadLock, "GDKexit");
 			for (t = GDKthreads, s = t + THREADS; t < s; t++) {
 				if (t->pid) {
 					MT_Id victim = t->pid;
@@ -1146,6 +1169,7 @@ GDKexit(int status)
 						MT_kill_thread(victim);
 				}
 			}
+			MT_lock_unset(&GDKthreadLock, "GDKexit");
 		}
 		(void) GDKgetHome();
 #if 0
@@ -1618,8 +1642,8 @@ THRnew(str name)
 		s->data[0] = THRdata[0];
 		s->sp = THRsp();
 
-		PARDEBUG THRprintf(GDKstdout, "#%x " SZFMT " sp = " SZFMT "\n", s->tid, (size_t) pid, s->sp);
-		PARDEBUG THRprintf(GDKstdout, "#nrofthreads %d\n", GDKnrofthreads);
+		PARDEBUG fprintf(stderr, "#%x " SZFMT " sp = " SZFMT "\n", s->tid, (size_t) pid, s->sp);
+		PARDEBUG fprintf(stderr, "#nrofthreads %d\n", GDKnrofthreads);
 
 		GDKnrofthreads++;
 	}
@@ -1636,9 +1660,7 @@ THRdel(Thread t)
 		GDKfatal("THRdel: illegal call\n");
 	}
 	MT_lock_set(&GDKthreadLock, "THRdel");
-/*	The stream may haven been closed (e.g. in freeClient)  causing an abort
-	PARDEBUG THRprintf(GDKstdout, "#pid = " SZFMT ", disconnected, %d left\n", (size_t) t->pid, GDKnrofthreads);
-*/
+	PARDEBUG fprintf(stderr, "#pid = " SZFMT ", disconnected, %d left\n", (size_t) t->pid, GDKnrofthreads);
 
 	t->pid = 0;
 	GDKnrofthreads--;
@@ -1651,16 +1673,18 @@ THRhighwater(void)
 	size_t c;
 	Thread s;
 	size_t diff;
+	int rc = 0;
 
+	MT_lock_set(&GDKthreadLock, "THRhighwater");
 	s = GDK_find_thread(MT_getpid());
-	if (s == NULL)
-		return 0;
-	c = THRsp();
-	diff = (c < s->sp) ? s->sp - c : c - s->sp;
-	if (diff > (THREAD_STACK_SIZE - 16 * 1024)) {
-		return 1;
+	if (s != NULL) {
+		c = THRsp();
+		diff = c < s->sp ? s->sp - c : c - s->sp;
+		if (diff > THREAD_STACK_SIZE - 16 * 1024)
+			rc = 1;
 	}
-	return 0;
+	MT_lock_unset(&GDKthreadLock, "THRhighwater");
+	return rc;
 }
 
 /*
@@ -1684,26 +1708,39 @@ THRinit(void)
 void
 THRsetdata(int n, ptr val)
 {
-	Thread s = GDK_find_thread(MT_getpid());
+	Thread s;
 
+	MT_lock_set(&GDKthreadLock, "THRsetdata");
+	s = GDK_find_thread(MT_getpid());
 	if (s)
 		s->data[n] = val;
+	MT_lock_unset(&GDKthreadLock, "THRsetdata");
 }
 
 void *
 THRgetdata(int n)
 {
-	Thread s = GDK_find_thread(MT_getpid());
+	Thread s;
+	void *d;
 
-	return (s ? s->data[n] : THRdata[n]);
+	MT_lock_set(&GDKthreadLock, "THRgetdata");
+	s = GDK_find_thread(MT_getpid());
+	d = s ? s->data[n] : THRdata[n];
+	MT_lock_unset(&GDKthreadLock, "THRgetdata");
+	return d;
 }
 
 int
 THRgettid(void)
 {
-	Thread s = GDK_find_thread(MT_getpid());
+	Thread s;
+	int t;
 
-	return s ? s->tid : 1;
+	MT_lock_set(&GDKthreadLock, "THRgettid");
+	s = GDK_find_thread(MT_getpid());
+	t = s ? s->tid : 1;
+	MT_lock_unset(&GDKthreadLock, "THRgettid");
+	return t;
 }
 
 static char THRprintbuf[BUFSIZ];

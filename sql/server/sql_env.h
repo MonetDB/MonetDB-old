@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -26,7 +26,7 @@
 
 extern int mvc_debug_on(mvc *m, int flag);
 
-extern str sql_update_var(mvc *sql, char *name);
+extern str sql_update_var(mvc *sql, char *name, char *sval, lng sgn);
 
 extern int sql_create_env(mvc *sql, sql_schema *s);
 

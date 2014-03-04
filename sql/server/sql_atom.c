@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -32,6 +32,7 @@ atom_create( sql_allocator *sa )
 
 	memset(&a->data, 0, sizeof(a->data));
 	a->d = dbl_nil;
+	a->varid = -1;
 	return a;
 }
 
@@ -552,8 +553,10 @@ atom_cast(atom *a, sql_subtype *tp)
 					return 0;
 				break;
 			case TYPE_int:
-#if SIZEOF_WRD == SIZEOF_INT
+#if SIZEOF_OID == SIZEOF_INT
 			case TYPE_oid:
+#endif
+#if SIZEOF_WRD == SIZEOF_INT
 			case TYPE_wrd:
 #endif
 				if (at->type->localtype == TYPE_bte) 
@@ -564,8 +567,10 @@ atom_cast(atom *a, sql_subtype *tp)
 					return 0;
 				break;
 			case TYPE_lng:
-#if SIZEOF_WRD == SIZEOF_LNG
+#if SIZEOF_OID == SIZEOF_LNG
 			case TYPE_oid:
+#endif
+#if SIZEOF_WRD == SIZEOF_LNG
 			case TYPE_wrd:
 #endif
 				if (at->type->localtype == TYPE_bte) 
@@ -602,8 +607,10 @@ atom_cast(atom *a, sql_subtype *tp)
 					return 0;
 				break;
 			case TYPE_int:
-#if SIZEOF_WRD == SIZEOF_INT
+#if SIZEOF_OID == SIZEOF_INT
 			case TYPE_oid:
+#endif
+#if SIZEOF_WRD == SIZEOF_INT
 			case TYPE_wrd:
 #endif
 				if (at->type->localtype == TYPE_bte) 
@@ -614,8 +621,10 @@ atom_cast(atom *a, sql_subtype *tp)
 					return 0;
 				break;
 			case TYPE_lng:
-#if SIZEOF_WRD == SIZEOF_LNG
+#if SIZEOF_OID == SIZEOF_LNG
 			case TYPE_oid:
+#endif
+#if SIZEOF_WRD == SIZEOF_LNG
 			case TYPE_wrd:
 #endif
 				if (at->type->localtype == TYPE_bte) 
@@ -731,8 +740,10 @@ atom_cast(atom *a, sql_subtype *tp)
 					return 0;
 				break;
 			case TYPE_int:
-#if SIZEOF_WRD == SIZEOF_INT
+#if SIZEOF_OID == SIZEOF_INT
 			case TYPE_oid:
+#endif
+#if SIZEOF_WRD == SIZEOF_INT
 			case TYPE_wrd:
 #endif
 				if (at->type->localtype == TYPE_bte) 
@@ -743,8 +754,10 @@ atom_cast(atom *a, sql_subtype *tp)
 					return 0;
 				break;
 			case TYPE_lng:
-#if SIZEOF_WRD == SIZEOF_LNG
+#if SIZEOF_OID == SIZEOF_LNG
 			case TYPE_oid:
+#endif
+#if SIZEOF_WRD == SIZEOF_LNG
 			case TYPE_wrd:
 #endif
 				if (at->type->localtype == TYPE_bte) 

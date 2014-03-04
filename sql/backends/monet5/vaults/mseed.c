@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -288,33 +288,6 @@ wrapup:
 	ms_readmsr (&msr, NULL, 0, NULL, NULL, 0, 0, 0);
 	if ( retcode != MS_ENDOFFILE )
 		throw(MAL, "mseed.load", "Cannot read %s: %s\n", targetfile, ms_errorstr(retcode));
-	return msg;
-}
-
-str
-MseedLoadSQL(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	int *ret = (int*) getArgReference(stk,pci,0);
-	str *targetfile = (str*) getArgReference(stk,pci,1);
-	str msg = MAL_SUCCEED;
-	BAT *btime, *bdata, *table;
-
-	(void) cntxt;
-	(void) mb;
-
-/* XXX: BATs of BATs are no longer allowed and this code hasn't worked
- * for quite some time anyway */
-	table = BATnew(TYPE_str,TYPE_bat,0);
-	if ( table == NULL)
-		throw(MAL, "mseed.load", MAL_MALLOC_FAIL);
-	msg = MseedLoadIntern(&btime, &bdata, *targetfile);
-	if ( msg == MAL_SUCCEED){
-		BUNins(table, (ptr)"time", (ptr)&btime->batCacheid, FALSE);
-		BUNins(table, (ptr)"data", (ptr)&bdata->batCacheid, FALSE);
-		BBPreleaseref(btime->batCacheid);
-		BBPreleaseref(bdata->batCacheid);
-		BBPkeepref(*ret= table->batCacheid);
-	}
 	return msg;
 }
 

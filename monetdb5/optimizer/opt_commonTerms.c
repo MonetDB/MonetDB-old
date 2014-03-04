@@ -3,19 +3,20 @@
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.monetdb.org/Legal/MonetDBLicense
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * The Original Code is the MonetDB Database System.
- * 
+ *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
+
 #include "monetdb_config.h"
 #include "opt_commonTerms.h"
 #include "mal_exception.h"
@@ -117,7 +118,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 		mnstr_printf(cntxt->fdout,"#CANDIDATE[%d] ",i);
 		printInstruction(cntxt->fdout, mb, 0, p, LIST_MAL_ALL);
 #endif
-		prop = hasSideEffects(p,TRUE) || isUpdateInstruction(p);
+		prop = mayhaveSideEffects(cntxt, mb, p,TRUE) || isUpdateInstruction(p);
 		j =	isVarConstant(mb, getArg(p,p->argc-1))? cstlist: candidate;
 				
 		cnt = mb->stop / 128 < 32? 32 : mb->stop/128;	/* limit search depth */
@@ -133,7 +134,7 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 					q->token != ASSIGNsymbol ,
 					list[getArg(q,q->argc-1)],i,
 					!hasCommonResults(p, q), 
-					!hasSideEffects(q, TRUE),
+					!mayhaveSideEffects(cntxt, mb, q, TRUE),
 					!isUpdateInstruction(q),
 					isLinearFlow(q),
 					isLinearFlow(p));
@@ -175,8 +176,8 @@ OPTcommonTermsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 				}
 			}
 #ifdef DEBUG_OPT_COMMONTERMS_MORE
-			else if ( hasSideEffects(q, TRUE) || isUpdateInstruction(p)){
-				mnstr_printf(cntxt->fdout, "COMMON SKIPPED %d %d\n", hasSideEffects(q, TRUE) , isUpdateInstruction(p));
+			else if ( mayhaveSideEffects(cntxt, mb, q, TRUE) || isUpdateInstruction(p)){
+				mnstr_printf(cntxt->fdout, "COMMON SKIPPED %d %d\n", mayhaveSideEffects(cntxt, mb, q, TRUE) , isUpdateInstruction(p));
 				printInstruction(cntxt->fdout, mb, 0, q, LIST_MAL_ALL);
 			}
 #endif

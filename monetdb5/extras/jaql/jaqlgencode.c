@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -4674,7 +4674,7 @@ dumpvariabletransformation(jc *j, Client cntxt, MalBlkPtr mb, tree *t, int elems
 
 				q = newInstruction(mb, ASSIGNsymbol);
 				setModuleId(q, batRef);
-				setFunctionId(q, putName("getTailType", 11));
+				setFunctionId(q, putName("getColumnType", 13));
 				q = pushReturn(mb, q, newTmpVariable(mb, TYPE_any));
 				q = pushArgument(mb, q, c);
 				d = getArg(q, 0);
@@ -5168,7 +5168,7 @@ matchfuncsig(jc *j, Client cntxt, tree *t, int *coltpos, enum treetype (*coltype
 				if (isaBatType(itype)) {
 					if (getHeadType(itype) != TYPE_oid)
 						break;
-					itype = getTailType(itype);
+					itype = getColumnType(itype);
 				} else if (f->retc != 7) {
 					break;
 				}

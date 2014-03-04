@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -40,6 +40,7 @@
 #include "mal_interpreter.h"	/* for showErrors() */
 #include "mal_linker.h"		/* for loadModuleLibrary() */
 #include "mal_parser.h"
+#include "mal_private.h"
 
 void
 slash_2_dir_sep(str fname)
@@ -87,7 +88,7 @@ malOpenSource(str file)
  * to find out how long the input is.
  * For the time being, we assume at most 1Mb.
 */
-str
+static str
 malLoadScript(Client c, str name, bstream **fdin)
 {
 	stream *fd;
@@ -105,9 +106,9 @@ malLoadScript(Client c, str name, bstream **fdin)
 
 /*
  * Beware that we have to isolate the execution of the source file
- * in its own environment. E.g. we have to removed the execution
+ * in its own environment. E.g. we have to remove the execution
  * state until we are finished.
- * The script being read my contain errors, such as non-balanced
+ * The script being read may contain errors, such as non-balanced
  * brackets as indicated by blkmode.
  * It should be reset before continuing.
 */
@@ -158,10 +159,11 @@ malLoadScript(Client c, str name, bstream **fdin)
 	c->mode = oldmode; \
 	c->blkmode = oldblkmode; \
 	c->srcFile = oldsrcFile;
+
 /*
  * The include operation parses the file indentified and
  * leaves the MAL code behind in the 'main' function.
-*/
+ */
 str
 malInclude(Client c, str name, int listing)
 {

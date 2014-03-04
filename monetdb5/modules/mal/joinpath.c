@@ -3,19 +3,20 @@
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.monetdb.org/Legal/MonetDBLicense
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * The Original Code is the MonetDB Database System.
- * 
+ *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
+
 /*
  * Post-optimization. After the join path has been constructed
  * we could search for common subpaths. This heuristic is to
@@ -71,10 +72,10 @@ ALGjoinCost(Client cntxt, BAT *l, BAT *r, int flag)
 	/* The sampling method */
 	if(flag < 2 && ( lc > 100000 || rc > 100000)){
 		lsize= MIN(lc/100, (1<<SAMPLE_THRESHOLD_lOG)/3);
-		lsample= BATsample(l,lsize);
+		lsample= BATsample_(l,lsize);
 		BBPreclaim(lsample);
 		rsize= MIN(rc/100, (1<<SAMPLE_THRESHOLD_lOG)/3);
-		rsample= BATsample(r,rsize);
+		rsample= BATsample_(r,rsize);
 		BBPreclaim(rsample);
 		j= BATjoin(l,r, MAX(lsize,rsize));
 		lsize= BATcount(j);
@@ -169,6 +170,11 @@ ALGjoinPathBody(Client cntxt, int top, BAT **joins, int flag)
 	int *postpone= (int*) GDKzalloc(sizeof(int) *top);
 	int postponed=0;
 
+	if(postpone == NULL){
+		GDKerror("joinPathBody" MAL_MALLOC_FAIL);
+		return NULL;
+	}
+
 	/* solve the join by pairing the smallest first */
 	while (top > 1) {
 		j = 0;
@@ -187,7 +193,6 @@ ALGjoinPathBody(Client cntxt, int top, BAT **joins, int flag)
 			}
 		}
 		/*
-		 * @-
 		 * BEWARE. you may not use a size estimation, because it
 		 * may fire a BATproperty check in a few cases.
 		 * In case a join fails, we may try another order first before
@@ -210,7 +215,8 @@ ALGjoinPathBody(Client cntxt, int top, BAT **joins, int flag)
 			b = BATsemijoin(joins[j], joins[j + 1]);
 			break;
 		case 3:
-			b = BATleftfetchjoin(joins[j], joins[j + 1], BATcount(joins[j]));
+			b = BATproject(joins[j], joins[j + 1]);
+			break;
 		}
 		if (b==NULL){
 			if ( postpone[j] && postpone[j+1]){

@@ -3,19 +3,20 @@
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.monetdb.org/Legal/MonetDBLicense
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * The Original Code is the MonetDB Database System.
- * 
+ *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
+
 /*
  * @a N.J. Nes
  * @- Cluster
@@ -166,7 +167,7 @@ _cluster_orderby(MalBlkPtr mb, int *ord, int ol, int *prj, int pl)
 		InstrPtr c, q = old[ord[0]], *no, m, s, o;
 		int i, j, p, cur = 0;
 		int ht = getHeadType(getArgType(mb, q, 1)), 
-		    tt = getTailType(getArgType(mb, q, 1)); 
+		    tt = getColumnType(getArgType(mb, q, 1)); 
 		int bits = 5; 
 		int offset = 3; 
 		
@@ -212,6 +213,11 @@ _cluster_orderby(MalBlkPtr mb, int *ord, int ol, int *prj, int pl)
 		
 		/* order these parts then pack2 */
 		no = (InstrPtr*)GDKzalloc(sizeof(InstrPtr)*nr_parts);
+		if( no == NULL){
+			GDKerror("cluster" MAL_MALLOC_FAIL);
+			mb->stmt = old;
+			return 0;
+		}
 		o = old[ord[0]];
 		for (p = 0; p<nr_parts; p++) {
 			no[p] = copyInstruction(o);
@@ -312,6 +318,11 @@ cluster_orderby(MalBlkPtr mb)
 	int *prj = (int*) GDKzalloc(sizeof(int) * MAX_STMTS);
 	InstrPtr q;
 
+	if( ord == NULL || prj == NULL){
+		if( ord) GDKfree(ord);
+		if( prj) GDKfree(prj);
+		return 0;
+	}
 	/* TODO only cluster on large inputs */
 	/* TODO reuse ordered columns */
 
@@ -384,9 +395,9 @@ _cluster_join(MalBlkPtr mb, int *join, int jl, int *prj, int pjl)
 		int njn0 = -1, mr0 = -1, rmr0 = -1, p;
 		int i, j, cur = 0;
 		int ht = getHeadType(getArgType(mb, q, 1)), 
-		    tt = getTailType(getArgType(mb, q, 1)); 
+		    tt = getColumnType(getArgType(mb, q, 1)); 
 		int t2 = getHeadType(getArgType(mb, q, 2)), 
-		    h2 = getTailType(getArgType(mb, q, 2)); 
+		    h2 = getColumnType(getArgType(mb, q, 2)); 
 		int bits = 5; 
 		int offset = 0; 
 		
@@ -461,6 +472,15 @@ _cluster_join(MalBlkPtr mb, int *join, int jl, int *prj, int pjl)
 		njn = (InstrPtr*)GDKzalloc(sizeof(InstrPtr)*nr_parts);
 		mr = (InstrPtr*)GDKzalloc(sizeof(InstrPtr)*nr_parts);
 		rmr = (InstrPtr*)GDKzalloc(sizeof(InstrPtr)*nr_parts);
+
+		if( njn== NULL || mr == NULL || rmr == NULL){
+			if(njn ) GDKfree(njn);
+			if(mr ) GDKfree(mr);
+			if(rmr ) GDKfree(rmr);
+			mb->errors++;
+			return 0;
+		}
+
 		jn = old[join[0]];
 		for (p = 0; p<nr_parts; p++) {
 			InstrPtr r = newStmt2( mb, batRef, reverseRef);
@@ -573,6 +593,11 @@ cluster_join(MalBlkPtr mb)
 	int *prj = (int*) GDKzalloc(sizeof(int) * MAX_STMTS);
 	InstrPtr q;
 
+	if( join == NULL || prj == NULL){
+		if(join) GDKfree(join);
+		if(prj) GDKfree(prj);
+		return 0;
+	}
 	/* locate the a sequence of group.new/derive statements */
 	for (i=1; i< mb->stop && j < MAX_STMTS && k < MAX_STMTS; i++) {
 		q = getInstrPtr(mb,i);

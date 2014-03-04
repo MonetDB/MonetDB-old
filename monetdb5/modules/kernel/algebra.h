@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -63,57 +63,50 @@ algebra_export str ALGselectInclusive(int *result, int *bid, ptr low, ptr high, 
 algebra_export str ALGselectInclusiveHead(int *result, int *bid, ptr low, ptr high, bit *lin, bit *rin);
 algebra_export str ALGuselectInclusive(int *result, int *bid, ptr low, ptr high, bit *lin, bit *rin);
 algebra_export str ALGantiuselectInclusive(int *result, int *bid, ptr low, ptr high, bit *lin, bit *rin);
-algebra_export str ALGfragment(int *result, int *bid, ptr hlow, ptr hhigh, ptr tlow, ptr thigh);
 
 algebra_export str ALGantijoin2(int *l, int *r, int *lid, int *rid);
 algebra_export str ALGjoin2(int *l, int *r, int *lid, int *rid);
 algebra_export str ALGthetajoin2(int *l, int *r, int *lid, int *rid, int *opc);
 algebra_export str ALGcrossproduct2(int *l, int *r, int *lid, int *rid);
-algebra_export str ALGbandjoin2(int *l, int *r, int *lid, int *rid, ptr *minus, ptr *plus, bit *li, bit *hi);
+algebra_export str ALGbandjoin2(int *l, int *r, int *lid, int *rid, const void *minus, const void *plus, bit *li, bit *hi);
 algebra_export str ALGrangejoin2(int *l, int *r, int *lid, int *rlid, int *rhid, bit *li, bit *hi);
 
 algebra_export str ALGthetajoinEstimate(int *result, int *lid, int *rid, int *opc, lng *estimate);
 algebra_export str ALGthetajoin(int *result, int *lid, int *rid, int *opc);
-algebra_export str ALGbandjoin_default(int *result, int *lid, int *rid, ptr *minus, ptr *plus);
-algebra_export str ALGbandjoin(int *result, int *lid, int *rid, ptr *minus, ptr *plus, bit *li, bit *hi);
+algebra_export str ALGbandjoin_default(int *result, int *lid, int *rid, const void *minus, const void *plus);
+algebra_export str ALGbandjoin(int *result, int *lid, int *rid, const void *minus, const void *plus, bit *li, bit *hi);
 algebra_export str ALGrangejoin(int *result, int *lid, int *rlid, int *rhid, bit *li, bit *hi);
-algebra_export str ALGsubjoin(bat *r1, bat *r2, bat *l, bat *r, bat *sl, bat *sr, lng *estimate);
-algebra_export str ALGsubleftjoin(bat *r1, bat *r2, bat *l, bat *r, bat *sl, bat *sr, lng *estimate);
-algebra_export str ALGsubouterjoin(bat *r1, bat *r2, bat *l, bat *r, bat *sl, bat *sr, lng *estimate);
-algebra_export str ALGsubthetajoin(bat *r1, bat *r2, bat *l, bat *r, bat *sl, bat *sr, str *op, lng *estimate);
+algebra_export str ALGsubjoin(bat *r1, bat *r2, bat *l, bat *r, bat *sl, bat *sr, bit *nil_matches, lng *estimate);
+algebra_export str ALGsubleftjoin(bat *r1, bat *r2, bat *l, bat *r, bat *sl, bat *sr, bit *nil_matches, lng *estimate);
+algebra_export str ALGsubouterjoin(bat *r1, bat *r2, bat *l, bat *r, bat *sl, bat *sr, bit *nil_matches, lng *estimate);
+algebra_export str ALGsubthetajoin(bat *r1, bat *r2, bat *l, bat *r, bat *sl, bat *sr, int *op, bit *nil_matches, lng *estimate);
 
 algebra_export str ALGhistogram(int *result, int *bid);
-algebra_export str ALGmerge(int *result, int *bid);
-algebra_export str ALGsplit(int *result, int *bid);
 algebra_export str ALGcopy(int *result, int *bid);
 algebra_export str ALGkunique(int *result, int *bid);
-algebra_export str ALGsunique(int *result, int *bid);
 algebra_export str ALGtunique(int *result, int *bid);
+algebra_export str ALGsubunique2(bat *result, bat *bid, bat *sid);
+algebra_export str ALGsubunique1(bat *result, bat *bid);
 algebra_export str ALGcross(int *result, int *lid, int *rid);
 algebra_export str ALGantijoin(int *result, int *lid, int *rid);
 algebra_export str ALGjoinestimate(int *result, int *lid, int *rid, lng *estimate);
 algebra_export str ALGjoin(int *result, int* lid, int *rid);
 algebra_export str ALGleftjoinestimate(int *result, int *lid, int *rid, lng *estimate);
 algebra_export str ALGleftjoin(int *result, int* lid, int *rid);
-algebra_export str ALGleftfetchjoinestimate(int *result, int *lid, int *rid, lng *estimate);
 algebra_export str ALGleftfetchjoin(int *result, int* lid, int *rid);
 algebra_export str ALGouterjoinestimate(int *result, int *lid, int *rid, lng *estimate);
 algebra_export str ALGouterjoin(int *result, int* lid, int *rid);
 algebra_export str ALGsemijoin(int *result, int *lid, int *rid);
-algebra_export str ALGsunion(int *result, int *lid, int *rid);
 algebra_export str ALGkunion(int *result, int *lid, int *rid);
 algebra_export str ALGtunion(int *result, int *lid, int *rid);
-algebra_export str ALGsintersect(int *result, int *lid, int *rid);
 algebra_export str ALGtintersect(int *result, int *lid, int *rid);
 algebra_export str ALGtinter(int *result, int *lid, int *rid);
-algebra_export str ALGsdiff(int *result, int *lid, int *rid);
 algebra_export str ALGkdiff(int *result, int *lid, int *rid);
 algebra_export str ALGtdifference(int *result, int *lid, int *rid);
 algebra_export str ALGtdiff(int *result, int *lid, int *rid);
 algebra_export str ALGsample(int *result, int* bid, int *param);
 algebra_export str ALGsubsample(int *result, int* bid, int *param);
 
-algebra_export str ALGtunique(int *result, int *bid);
 algebra_export str ALGtsort(int *result, int *bid);
 algebra_export str ALGtsort_rev(int *result, int *bid);
 algebra_export str ALGhsort(int *result, int *bid);
@@ -143,20 +136,16 @@ algebra_export str ALGmarkHead_default(int *result, int *bid);
 algebra_export str ALGhmarkp(int *result, int *bid, int *nr_parts, int *part_nr);
 algebra_export str ALGmark_grp_1(int *result, int *bid, int *gid);
 algebra_export str ALGmark_grp_2(int *result, int *bid, int *gid, oid *base);
-algebra_export str ALGhistogram_rev(int *result, int *bid);
 algebra_export str ALGlike(int *ret, int *bid, str *k);
 algebra_export str ALGslice(int *ret, bat *bid, lng *start, lng *end);
 algebra_export str ALGslice_int(int *ret, bat *bid, int *start, int *end);
 algebra_export str ALGslice_wrd(int *ret, bat *bid, wrd *start, wrd *end);
 algebra_export str ALGslice_oid(int *ret, bat *bid, oid *start, oid *end);
 algebra_export str ALGsubslice_wrd(int *ret, bat *bid, wrd *start, wrd *end);
-algebra_export str ALGposition(wrd *retval, int *bid, ptr val);
-algebra_export str ALGpositionBUN(wrd *retval, int *bid, ptr val, ptr tval);
 algebra_export str ALGfetch(ptr ret, int *bid, lng *pos);
 algebra_export str ALGfetchoid(int *ret, int *bid, oid *pos);
 algebra_export str ALGfetchint(int *ret, int *bid, int *pos);
 algebra_export str ALGexist(bit *ret, int *bid, ptr val);
-algebra_export str ALGexistBUN(bit *ret, int *bid, ptr val, ptr tval);
 algebra_export str ALGfind(ptr ret, int *bid, ptr val);
 algebra_export str ALGindexjoin(int *result, int *lid, int *rid);
 algebra_export str ALGprojectNIL(int *ret, int *bid);

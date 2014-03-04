@@ -2,7 +2,7 @@
  * The contents of this file are subject to the MonetDB Public License
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdbuorg/Legal/MonetDBtxtLicense
+ * http://www.monetdb.org/Legal/MonetDBLicense
  *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -39,6 +39,20 @@ QueryQueue QRYqueue;
 static int qtop, qsize;
 static int qtag= 1;
 
+
+static void 
+formatVolume(str buf, int len, lng vol){
+	if( vol <1024)
+		snprintf(buf,len,LLFMT,vol);
+	else
+	if( vol <1024*1024)
+		snprintf(buf,len,LLFMT "K",vol/1024);
+	else
+	if( vol <1024* 1024*1024)
+		snprintf(buf,len, LLFMT "M",vol/1024/1024);
+	else
+		snprintf(buf,len, "%6.1fG",vol/1024.0/1024/1024);
+}
 
 static str isaSQLquery(MalBlkPtr mb){
 	int i;
@@ -72,6 +86,11 @@ runtimeProfileInit(Client cntxt, MalBlkPtr mb, MalStkPtr stk)
 	else
 	if ( qtop +1 == qsize )
 		QRYqueue = (QueryQueue) GDKrealloc( QRYqueue, sizeof (struct QRYQUEUE) * (qsize +=256));
+	if ( QRYqueue == NULL){
+		GDKerror("runtimeProfileInit" MAL_MALLOC_FAIL);
+		MT_lock_unset(&mal_delayLock, "sysmon");
+		return;
+	}
 	for( i = 0; i < qtop; i++)
 		if ( QRYqueue[i].mb == mb)
 			break;
@@ -125,45 +144,53 @@ runtimeProfileFinish(Client cntxt, MalBlkPtr mb)
 }
 
 void
-runtimeProfileBegin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int stkpc, RuntimeProfile prof, int start)
+finishSessionProfiler(Client cntxt)
 {
-	if ( mb->profiler == NULL)
-		return;
+	int i,j;
 
-	/* always collect the MAL instruction execution time */
-	prof->stkpc = stkpc;
-	mb->profiler[stkpc].clk = GDKusec();
+	(void) cntxt;
 
-	if (malProfileMode == 0 && mb->stmt[stkpc]->recycle == 0)
-		return; /* mostly true */
-	
-	if (stk && mb->profiler[stkpc].trace) {
-		gettimeofday(&mb->profiler[stkpc].clock, NULL);
-		/* emit the instruction upon start as well */
-		if(malProfileMode)
-			profilerEvent(cntxt->idx, mb, stk, stkpc, start);
-#ifdef HAVE_TIMES
-		times(&mb->profiler[stkpc].timer);
-#endif
+	MT_lock_set(&mal_delayLock, "sysmon");
+	for( i=j=0; i< qtop; i++)
+	if ( QRYqueue[i].cntxt != cntxt)
+		QRYqueue[j++] = QRYqueue[i];
+	else  {
+		//reset entry
+		if (QRYqueue[i].query)
+			GDKfree(QRYqueue[i].query);
+		QRYqueue[i].cntxt = 0;
+		QRYqueue[i].tag = 0;
+		QRYqueue[i].query = 0;
+		QRYqueue[i].status =0;
+		QRYqueue[i].stk =0;
+		QRYqueue[i].mb =0;
 	}
+	qtop = j;
+	MT_lock_unset(&mal_delayLock, "sysmon");
+}
+
+void
+runtimeProfileBegin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, RuntimeProfile prof)
+{
+	/* always collect the MAL instruction execution time */
+	prof->ticks = GDKusec();
+	/* emit the instruction upon start as well */
+	if(malProfileMode)
+		profilerEvent(cntxt->idx, mb, stk, pci, TRUE);
 }
 
 void
 runtimeProfileExit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, RuntimeProfile prof)
 {
-	int i,j,fnd, stkpc;
+	int i,j,fnd;
 
-	if ( mb->profiler == NULL)
-		return;
-
+	assert(pci);
+	assert(prof);
 	/* always collect the MAL instruction execution time */
-	stkpc= prof->stkpc;
-	mb->profiler[stkpc].ticks = GDKusec() - mb->profiler[stkpc].clk;
+	pci->ticks += GDKusec() - prof->ticks;
+	pci->calls++;
 
-	if (malProfileMode == 0 && pci->recycle == 0)
-		return; /* mostly true */
-
-	if (getProfileCounter(PROFfootprint) && pci){
+	if (getProfileCounter(PROFfootprint) ){
 		for (i = 0; i < pci->retc; i++)
 			if ( isaBatType(getArgType(mb,pci,i)) && stk->stk[getArg(pci,i)].val.bval){
 				/* avoid simple alias operations */
@@ -176,20 +203,14 @@ runtimeProfileExit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Runt
 			}
 	}
 
-	if (stk != NULL && stkpc >= 0 && (mb->profiler[stkpc].trace || pci->recycle) ) {
-		gettimeofday(&mb->profiler[stkpc].clock, NULL);
-		mb->profiler[stkpc].calls++;
-		mb->profiler[stkpc].totalticks += mb->profiler[stkpc].ticks;
-		if (pci) {
-			// it is a potential expensive operation
-			if (getProfileCounter(PROFrbytes) || pci->recycle)
-				mb->profiler[stkpc].rbytes = getVolume(stk, pci, 0);
-			if (getProfileCounter(PROFwbytes) || pci->recycle)
-				mb->profiler[stkpc].wbytes = getVolume(stk, pci, 1);
-		}
-		if(malProfileMode)
-			profilerEvent(cntxt->idx, mb, stk, stkpc, 0);
-	}
+	// it is a potential expensive operation
+	if (getProfileCounter(PROFrbytes) || pci->recycle)
+		pci->rbytes += getVolume(stk, pci, 0);
+	if (getProfileCounter(PROFwbytes) || pci->recycle)
+		pci->wbytes += getVolume(stk, pci, 1);
+	
+	if(malProfileMode)
+			profilerEvent(cntxt->idx, mb, stk, pci, FALSE);
 }
 
 /*
@@ -205,6 +226,8 @@ lng getVolume(MalStkPtr stk, InstrPtr pci, int rd)
 	BAT *b;
 	int isview = 0;
 
+	if( stk == NULL)
+		return 0;
 	limit = rd == 0 ? pci->retc : pci->argc;
 	i = rd ? pci->retc : 0;
 

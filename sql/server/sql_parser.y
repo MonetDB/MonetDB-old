@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -314,6 +314,9 @@ int yydebug=1;
 	row_commalist
 	qname
 	qfunc
+	qrank
+	qaggr
+	qaggr2
 	routine_name
 	sort_specification_list
 	opt_schema_element_list
@@ -534,7 +537,7 @@ SQLCODE SQLERROR UNDER WHENEVER
 %token CHECK CONSTRAINT CREATE
 %token TYPE PROCEDURE FUNCTION AGGREGATE RETURNS EXTERNAL sqlNAME DECLARE
 %token CALL LANGUAGE 
-%token SQL_EXPLAIN SQL_PLAN SQL_DEBUG SQL_TRACE SQL_DOT PREPARE EXECUTE
+%token ANALYZE SQL_EXPLAIN SQL_PLAN SQL_DEBUG SQL_TRACE SQL_DOT PREPARE EXECUTE
 %token DEFAULT DISTINCT DROP
 %token FOREIGN
 %token RENAME ENCRYPTED UNENCRYPTED PASSWORD GRANT REVOKE ROLE ADMIN INTO
@@ -675,6 +678,12 @@ sql:
  |  alter_statement
  |  declare_statement
  |  set_statement
+ |  ANALYZE qname opt_column_list opt_sample	
+		{ dlist *l = L();
+		append_list(l, $2);
+		append_list(l, $3);
+		append_symbol(l, $4);
+		$$ = _symbol_create_list( SQL_ANALYZE, l); }
  |  call_procedure_statement
  ;
 
@@ -959,7 +968,12 @@ alter_statement:
  | ALTER TABLE qname SET READ ONLY
 	{ dlist *l = L();
 	  append_list(l, $3);
-	  append_symbol(l, NULL);
+	  append_symbol(l, _symbol_create_int(SQL_ALTER_TABLE, tr_readonly));
+	  $$ = _symbol_create_list( SQL_ALTER_TABLE, l ); }
+ | ALTER TABLE qname SET READ WRITE
+	{ dlist *l = L();
+	  append_list(l, $3);
+	  append_symbol(l, _symbol_create_int(SQL_ALTER_TABLE, tr_writable));
 	  $$ = _symbol_create_list( SQL_ALTER_TABLE, l ); }
  | ALTER USER ident passwd_schema
 	{ dlist *l = L();
@@ -1765,19 +1779,6 @@ func_def:
 				append_list(f, NULL);
 				append_int(f, F_FUNC);
 			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
- /* table in / table out functions */
- |  create UNION FUNCTION qname
-	'(' opt_paramlist ')'
-    RETURNS func_data_type
-    EXTERNAL sqlNAME external_function_name 	
-			{ dlist *f = L();
-				append_list(f, $4);
-				append_list(f, $6);
-				append_symbol(f, $9);
-				append_list(f, $12);
-				append_list(f, NULL);
-				append_int(f, F_UNION);
-			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
  |  create FUNCTION qname
 	'(' opt_paramlist ')'
     RETURNS func_data_type
@@ -1932,6 +1933,7 @@ routine_invocation:
 		{ dlist *l = L(); 
 		  append_list( l, $1);
 		  append_list( l, $3);
+		  assert(0);
 		  $$ = _symbol_create_list( SQL_FUNC, l);
 		}
     ;
@@ -2091,6 +2093,10 @@ func_data_type:
 
 opt_paramlist:
     paramlist
+ |  '*'			{ dlist *vararg = L();
+			  append_string(vararg, "*");
+			  append_type(vararg, NULL);
+			  $$ = append_list(L(), vararg); }
  |			{ $$ = NULL; }
  ;
 
@@ -2248,14 +2254,6 @@ drop_statement:
 	  append_int(l, $5 );
 	  append_int(l, F_FUNC );
 	  $$ = _symbol_create_list( SQL_DROP_FUNC, l ); }
- | drop UNION FUNCTION qname opt_typelist drop_action
-	{ dlist *l = L();
-	  append_list(l, $4 );
-	  append_int(l, 0 );
-	  append_list(l, $5 );
-	  append_int(l, $6 );
-	  append_int(l, F_UNION );
-	  $$ = _symbol_create_list( SQL_DROP_FUNC, l ); }
  | drop FILTER FUNCTION qname opt_typelist drop_action
 	{ dlist *l = L();
 	  append_list(l, $4 );
@@ -2287,14 +2285,6 @@ drop_statement:
 	  append_list(l, NULL );
 	  append_int(l, $5 );
 	  append_int(l, F_FUNC );
-	  $$ = _symbol_create_list( SQL_DROP_FUNC, l ); }
- | drop ALL UNION FUNCTION qname drop_action
-	{ dlist *l = L();
-	  append_list(l, $5 );
-	  append_int(l, 1 );
-	  append_list(l, NULL );
-	  append_int(l, $6 );
-	  append_int(l, F_UNION );
 	  $$ = _symbol_create_list( SQL_DROP_FUNC, l ); }
  | drop ALL FILTER FUNCTION qname drop_action
 	{ dlist *l = L();
@@ -2684,18 +2674,20 @@ assignment_commalist:
 
 assignment:
    column '=' search_condition
-
 	{ dlist *l = L();
 	  append_symbol(l, $3 );
 	  append_string(l, $1);
 	  $$ = _symbol_create_list( SQL_ASSIGN, l); }
-
  | column '=' sqlNULL
-
 	{ dlist *l = L();
 	  append_symbol(l, NULL );
 	  append_string(l, $1);
 	  $$ = _symbol_create_list( SQL_ASSIGN, l); }
+ |  column_commalist_parens '=' subquery
+	{ dlist *l = L();
+	  append_symbol(l, $3);
+	  append_list(l, $1);
+	  $$ = _symbol_create_list( SQL_ASSIGN, l ); }
  ;
 
 opt_where_clause:
@@ -3520,7 +3512,7 @@ window_function:
   ;
 
 window_function_type:
-	RANK '(' ')' 	{ $$ = _symbol_create( SQL_RANK, $1 ); }
+	qrank '(' ')' 	{ $$ = _symbol_create_list( SQL_RANK, $1 ); }
   |	aggr_ref
   ;
 
@@ -3633,7 +3625,7 @@ qfunc:
  ;
 
 func_ident:
-	IDENT 	{ $$ = $1; }
+	ident 	{ $$ = $1; }
  |	LEFT	{ $$ = sa_strdup(SA, "left"); }
  |	RIGHT	{ $$ = sa_strdup(SA, "right"); }
  |	INSERT	{ $$ = sa_strdup(SA, "insert"); }
@@ -3791,50 +3783,59 @@ atom:
 	}
  ;
 
+qrank:
+	RANK		{ $$ = append_string(L(), $1); }
+ |      ident '.' RANK	{ $$ = append_string(
+			  append_string(L(), $1), $3);}
+ ;
+
+qaggr:
+	AGGR		{ $$ = append_string(L(), $1); }
+ |      ident '.' AGGR	{ $$ = append_string(
+			  append_string(L(), $1), $3);}
+ ;
+
+qaggr2:
+	AGGR2		{ $$ = append_string(L(), $1); }
+ |      ident '.' AGGR2	{ $$ = append_string(
+			  append_string(L(), $1), $3);}
+ ;
 
 /* change to set function */
 aggr_ref:
-    AGGR '(' '*' ')'
+    qaggr '(' '*' ')'
 		{ dlist *l = L();
-  		  append_string(l, $1);
+  		  append_list(l, $1);
   		  append_int(l, FALSE);
   		  append_symbol(l, NULL);
 		  $$ = _symbol_create_list( SQL_AGGR, l ); }
- |  AGGR '(' ident '.' '*' ')'
+ |  qaggr '(' ident '.' '*' ')'
 		{ dlist *l = L();
-  		  append_string(l, $1);
+  		  append_list(l, $1);
   		  append_int(l, FALSE);
   		  append_symbol(l, NULL);
 		  $$ = _symbol_create_list( SQL_AGGR, l ); }
-/*
- |  AGGR '(' DISTINCT column_ref ')'
+ |  qaggr '(' DISTINCT case_scalar_exp ')'
 		{ dlist *l = L();
-  		  append_string(l, $1);
-  		  append_int(l, TRUE);
-  		  append_symbol(l, _symbol_create_list(SQL_COLUMN, $4));
-		  $$ = _symbol_create_list( SQL_AGGR, l ); }
-*/
- |  AGGR '(' DISTINCT case_scalar_exp ')'
-		{ dlist *l = L();
-  		  append_string(l, $1);
+  		  append_list(l, $1);
   		  append_int(l, TRUE);
   		  append_symbol(l, $4);
 		  $$ = _symbol_create_list( SQL_AGGR, l ); }
- |  AGGR '(' ALL case_scalar_exp ')'
+ |  qaggr '(' ALL case_scalar_exp ')'
 		{ dlist *l = L();
-  		  append_string(l, $1);
+  		  append_list(l, $1);
   		  append_int(l, FALSE);
   		  append_symbol(l, $4);
 		  $$ = _symbol_create_list( SQL_AGGR, l ); }
- |  AGGR '(' case_scalar_exp ')'
+ |  qaggr '(' case_scalar_exp ')'
 		{ dlist *l = L();
-  		  append_string(l, $1);
+  		  append_list(l, $1);
   		  append_int(l, FALSE);
   		  append_symbol(l, $3);
 		  $$ = _symbol_create_list( SQL_AGGR, l ); }
- |  AGGR2 '(' case_scalar_exp ',' case_scalar_exp ')'
+ |  qaggr2 '(' case_scalar_exp ',' case_scalar_exp ')'
 		{ dlist *l = L();
-  		  append_string(l, $1);
+  		  append_list(l, $1);
   		  append_int(l, FALSE);
   		  append_symbol(l, $3);
   		  append_symbol(l, $5);
@@ -4762,6 +4763,7 @@ non_reserved_word:
 |  URI		{ $$ = sa_strdup(SA, "uri"); }
 |  FILTER	{ $$ = sa_strdup(SA, "filter"); }
 |  TEMPORARY	{ $$ = sa_strdup(SA, "temporary"); }
+|  ANALYZE	{ $$ = sa_strdup(SA, "analyze"); }
 ;
 
 name_commalist:
@@ -5360,7 +5362,7 @@ XML_aggregate:
 			YYABORT;
 		}
 	  }
-	  append_string(aggr, "xmlagg");
+          append_list(aggr, append_string(append_string(L(), "sys"), "xmlagg"));
   	  append_int(aggr, FALSE);
 	  append_symbol(aggr, $3);
 	  /* int returning not used */

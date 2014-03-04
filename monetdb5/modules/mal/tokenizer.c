@@ -3,17 +3,17 @@
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.monetdb.org/Legal/MonetDBLicense
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * The Original Code is the MonetDB Database System.
- * 
+ *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -122,6 +122,9 @@ TKNZRopen(int *ret, str *in)
 
 	snprintf(name, 128, "%s", *in);
 	batname = (str) GDKmalloc(134 * sizeof(char));
+	if( batname == NULL)
+		throw(MAL, "tokenizer.open", MAL_MALLOC_FAIL);
+	
 	snprintf(batname, 134, "%s_index", name);
 	idx = BBPindex(batname);
 
@@ -224,8 +227,7 @@ TKNZRappend(oid *pos, str *s)
 		throw(MAL, "tokenizer", "no tokenizer store open");
 
 	if ((url = GDKstrdup(*s)) == NULL) {
-		throw(MAL, "tokenizer.append",
-				OPERATION_FAILED "could not allocate memory");
+		throw(MAL, "tokenizer.append", OPERATION_FAILED MAL_MALLOC_FAIL);
 	}
 
 	depth = TKNZRtokenize(url, parts, '/');
@@ -409,7 +411,7 @@ TKNZRlocate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	url = (str) GDKmalloc(sizeof(char) *
 			(strlen(*(str *) getArgReference(stk, pci, 1)) + 1));
 	if (url == NULL) {
-		throw(MAL, "tokenizer.locate", OPERATION_FAILED "memory allocation");
+		throw(MAL, "tokenizer.locate", MAL_MALLOC_FAIL);
 	}
 	strcpy(url, *(str *) getArgReference(stk, pci, 1));
 
@@ -472,7 +474,9 @@ takeOid(oid id, str *val)
 		lngth += strlen(parts[i]);
 	}
 
-	*val = (str) GDKmalloc(sizeof(char) * lngth+depth+1);
+	*val = (str) GDKmalloc(lngth+depth+1);
+	if( *val == NULL)
+		throw(MAL, "tokenizer.takeOid", MAL_MALLOC_FAIL);
 	s = *val;
 
 	for (i = 0; i < depth; i++) {

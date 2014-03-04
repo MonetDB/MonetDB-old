@@ -11,7 +11,8 @@
 -- The Original Code is the MonetDB Database System.
 --
 -- The Initial Developer of the Original Code is CWI.
--- Copyright August 2008-2013 MonetDB B.V.
+-- Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+-- Copyright August 2008-2014 MonetDB B.V.
 -- All Rights Reserved.
 
 create function curdate( ) returns date
@@ -29,15 +30,15 @@ create function "current_timestamp"( ) returns TIMESTAMPTZ
 	external name mtime."current_timestamp";
 
 create function "localtime"( ) returns TIME
-	external name mtime."current_time";
+	external name sql."current_time";
+
 create function "localtimestamp"( ) returns TIMESTAMP
-	external name mtime."current_timestamp";
+	external name sql."current_timestamp";
 
 create type second_interval as interval day to sec;
 
 create function local_timezone( ) returns second_interval
 	external name mtime.local_timezone;
-
 
 create function sql_sub( date, second_interval ) returns date
 	external name mtime.date_sub_sec_interval;

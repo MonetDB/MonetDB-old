@@ -13,9 +13,9 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
 
 /*
  * @a S. Manegold
@@ -269,7 +269,6 @@ str OPTsql_append(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	lng t,clk= GDKusec();
 	int actions = 0;
 
-	optimizerInit();
 	if( p )
 		removeInstruction(mb, p);
 	OPTDEBUGsql_append mnstr_printf(cntxt->fdout,"=APPLY OPTIMIZER sql_append\n");

@@ -3,19 +3,20 @@
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.monetdb.org/Legal/MonetDBLicense
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * The Original Code is the MonetDB Database System.
- * 
+ *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
+
 /*
  * M. Kersten
  * Centipede
@@ -87,6 +88,11 @@ OPTexecController(Client cntxt, MalBlkPtr mb, MalBlkPtr pmb, InstrPtr ret, Instr
 		return 0;
 	nrpack= getInstrPtr(pmb,0)->retc;
 	pack = (InstrPtr *) GDKzalloc(sizeof(InstrPtr) * nrpack);
+	if( pack == NULL){
+		GDKerror("centipede" MAL_MALLOC_FAIL);
+		mb->errors++;
+		return mb;
+	}
 
 	pushInstruction(cmb, copyInstruction(pmb->stmt[0]));
 	getFunctionId( getInstrPtr(cmb,0)) = putName(nme,strlen(nme));
@@ -96,6 +102,12 @@ OPTexecController(Client cntxt, MalBlkPtr mb, MalBlkPtr pmb, InstrPtr ret, Instr
 	q= newFcnCall(cmb, sqlRef, mvcRef);
 	x= getArg(q,0);
 	alias = (int*) GDKzalloc(nrservers * sizeof(int));
+	if (alias == NULL){
+		GDKerror("centipede" MAL_MALLOC_FAIL);
+		GDKfree(pack);
+		mb->errors++;
+		return mb;
+	}
 	if( slices->column) {
 		q= newInstruction(cmb, ASSIGNsymbol);
 		getModuleId(q) = sqlRef;
@@ -323,6 +335,9 @@ OPTplanStub(Client cntxt, MalBlkPtr mb, MalBlkPtr pmb, oid plantag)
 
 	sig = getInstrPtr(smb,0);
 	arg = (int*) GDKzalloc(sizeof(int) * sig->argc);
+	if( arg == NULL){
+		GDKerror("centipede" MAL_MALLOC_FAIL);
+	}
 	/* k:= remote.put(conn,kvar) */
 	for (j= sig->retc+1; j < sig->argc; j++) {
 		q= newFcnCall(smb,remoteRef,putRef);
@@ -830,7 +845,7 @@ OPTbakePlans(Client cntxt, MalBlkPtr mb, Slices *slices)
 				q= pushArgument(plan,q,getArg(p,1));
 				q= pushArgument(plan,q,getArg(p,p->argc-1));
 				snprintf(buf,BUFSIZ,"Y_%d",id);
-				getArg(q,0) = newVariable(plan, GDKstrdup(buf), newBatType(TYPE_oid, getTailType(getVarType(plan,id))));
+				getArg(q,0) = newVariable(plan, GDKstrdup(buf), newBatType(TYPE_oid, getColumnType(getVarType(plan,id))));
 				addvartolist(plan,&planreturn,getArg(q,0));
 				addvartolist(plan,&packs,getArg(q,0));
 				setVarUsed(plan,getArg(q,0)); 
@@ -1039,7 +1054,7 @@ OPTcentipedeImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	slices.schema = GDKstrdup(getVarConstant(mb, getArg(target,2)).val.sval);
 	slices.table = GDKstrdup(getVarConstant(mb, getArg(target,3)).val.sval);
 	slices.column = GDKstrdup(getVarConstant(mb,getArg(target,4)).val.sval);
-	slices.type = getTailType(getVarType(mb,getArg(target,0)));
+	slices.type = getColumnType(getVarType(mb,getArg(target,0)));
 	slices.lslices=  newTmpVariable(mb, TYPE_oid);
 	slices.hslices=  newTmpVariable(mb, TYPE_oid);
 	slices.slice = 0;

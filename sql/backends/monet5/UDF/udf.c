@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -254,15 +254,15 @@ UDFBATfuse_(BAT **ret, const BAT *bone, const BAT *btwo)
 	switch (bone->ttype) {
 	case TYPE_bte:
 		msg = UDFBATfuse_bte_sht ( bres, bone, btwo, n,
-		        &two_tail_sorted_unsigned, &two_tail_revsorted_unsigned );
+			&two_tail_sorted_unsigned, &two_tail_revsorted_unsigned );
 		break;
 	case TYPE_sht:
 		msg = UDFBATfuse_sht_int ( bres, bone, btwo, n,
-		        &two_tail_sorted_unsigned, &two_tail_revsorted_unsigned );
+			&two_tail_sorted_unsigned, &two_tail_revsorted_unsigned );
 		break;
 	case TYPE_int:
 		msg = UDFBATfuse_int_lng ( bres, bone, btwo, n,
-		        &two_tail_sorted_unsigned, &two_tail_revsorted_unsigned );
+			&two_tail_sorted_unsigned, &two_tail_revsorted_unsigned );
 		break;
 	default:
 		BBPreleaseref(bres->batCacheid);

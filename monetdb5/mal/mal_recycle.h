@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -33,7 +33,7 @@
 /*
  * We need some hard limits to not run out of datastructure spaces.
  */
-#define HARDLIMIT_STMT 250 /*5000*/
+#define HARDLIMIT_STMT 1000 /*5000*/
 
 #define NO_RECYCLING -1
 #define RECYCLING 1

@@ -3,19 +3,20 @@
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.monetdb.org/Legal/MonetDBLicense
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * The Original Code is the MonetDB Database System.
- * 
+ *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
+
 #ifndef _INSPECT_H
 #define _INSPECT_H
 
@@ -56,15 +57,11 @@ inspect_export str INSPECTgetFunctionSize(Client cntxt, MalBlkPtr mb, MalStkPtr 
 inspect_export str INSPECTgetSize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 inspect_export str INSPECTgetEnvironment(int *ret, int *ret2);
 inspect_export str INSPECTgetEnvironmentKey(str *ret, str *key);
-inspect_export str INSPECTsymbolType(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 inspect_export str INSPECTatom_names(int *ret);
 inspect_export str INSPECTatom_sup_names(int *ret);
 inspect_export str INSPECTatom_sizes(int *ret);
 inspect_export str INSPECTshowFunction(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 inspect_export str INSPECTshowFunction3(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
-inspect_export str INSPECTtypename(str *ret, int *tpe);
-inspect_export str INSPECTtype(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 inspect_export str INSPECTtypeName(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-inspect_export str INSPECTtypeIndex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 inspect_export str INSPECTequalType(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 #endif /* _INSPECT_H */

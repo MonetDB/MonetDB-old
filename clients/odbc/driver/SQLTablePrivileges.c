@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -221,7 +221,6 @@ SQLTablePrivileges(SQLHSTMT StatementHandle,
 				   TableName, NameLength3);
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLTablePrivilegesA(SQLHSTMT StatementHandle,
 		    SQLCHAR *CatalogName,
@@ -281,4 +280,3 @@ SQLTablePrivilegesW(SQLHSTMT StatementHandle,
 
 	return rc;
 }
-#endif /* WITH_WCHAR */

@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -23,6 +23,5 @@
 
 mal_export str mal_quote(const char *msg, size_t size);
 mal_export void mal_unquote(char *msg);
-mal_export void formatVolume(str buf, int len, lng vol);
 
 #endif /* MAL_UTILS_H */

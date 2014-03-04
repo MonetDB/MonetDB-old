@@ -13,17 +13,12 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
 #ifndef _GDK_MAPREDUCE_H_
 #define _GDK_MAPREDUCE_H_
-
-typedef struct {
-	MT_Sema *sema;			/* micro scheduler handle */
-	void (*cmd) (void *);		/* the function to be executed */
-} MRtask;
 
 gdk_export void MRschedule(int taskcnt, void **arg, void (*cmd) (void *p));
 

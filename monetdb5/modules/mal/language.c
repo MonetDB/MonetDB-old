@@ -3,19 +3,20 @@
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.monetdb.org/Legal/MonetDBLicense
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * The Original Code is the MonetDB Database System.
- * 
+ *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
+
 /*
  *  Martin Kersten
  * Language Extensions
@@ -139,19 +140,12 @@ CMDcallFunction(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 MALstartDataflow( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str msg= MAL_SUCCEED;
 	int *ret = (int*) getArgReference(stk,pci,0);
 
-	(void) cntxt;
-	if (stk->cmd ){
-		*ret = 1; /* in debugging mode, ignore dataflow request, and run sequentially */
-		return MAL_SUCCEED;
-	}
 	if ( getPC(mb, pci) > pci->jump)
 		throw(MAL,"language.dataflow","Illegal statement range");
-	msg = runMALdataflow(cntxt, mb, getPC(mb,pci), pci->jump, stk);
 	*ret = 0;	/* continue at end of block */
-	return msg;
+	return runMALdataflow(cntxt, mb, getPC(mb,pci), pci->jump, stk);
 }
 
 /*

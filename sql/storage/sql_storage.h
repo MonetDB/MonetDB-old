@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -245,7 +245,7 @@ typedef struct store_functions {
 
 extern store_functions store_funcs;
 
-typedef int (*logger_create_fptr) (char *logdir, int catalog_version);
+typedef int (*logger_create_fptr) (int debug, char *logdir, int catalog_version);
 
 typedef void (*logger_destroy_fptr) (void);
 typedef int (*logger_restart_fptr) (void);
@@ -306,7 +306,7 @@ extern int sql_trans_commit(sql_trans *tr);
 
 extern sql_type *sql_trans_create_type(sql_trans *tr, sql_schema * s, char *sqlname, int digits, int scale, int radix, char *impl);
 
-extern sql_func *sql_trans_create_func(sql_trans *tr, sql_schema * s, char *func, list *args, sql_subtype *res, int type, char *mod, char *impl, char *query);
+extern sql_func *sql_trans_create_func(sql_trans *tr, sql_schema * s, char *func, list *args, list *res, int type, char *mod, char *impl, char *query, bit varres, bit vararg);
 
 extern void sql_trans_drop_func(sql_trans *tr, sql_schema *s, int id, int drop_action);
 extern void sql_trans_drop_all_func(sql_trans *tr, sql_schema *s, list *list_func, int drop_action);
@@ -322,7 +322,7 @@ extern sql_table *sql_trans_del_table(sql_trans *tr, sql_table *mt, sql_table *p
 
 extern void sql_trans_drop_table(sql_trans *tr, sql_schema *s, int id, int drop_action);
 extern BUN sql_trans_clear_table(sql_trans *tr, sql_table *t);
-extern sql_table *sql_trans_alter_readonly(sql_trans *tr, sql_table *t, int readonly);
+extern sql_table *sql_trans_alter_readonly(sql_trans *tr, sql_table *t, bit readonly);
 
 extern sql_column *sql_trans_create_column(sql_trans *tr, sql_table *t, char *name, sql_subtype *tpe);
 extern void sql_trans_drop_column(sql_trans *tr, sql_table *t, int id, int drop_action);
@@ -379,7 +379,7 @@ extern sql_key * key_create_done(sql_allocator *sa, sql_key *k);
 
 extern sql_idx *create_sql_idx(sql_allocator *sa, sql_table *t, char *nme, idx_type it);
 extern sql_idx *create_sql_ic(sql_allocator *sa, sql_idx *i, sql_column *c);
-extern sql_func *create_sql_func(sql_allocator *sa, char *func, list *args, sql_subtype *res, int type, char *mod, char *impl, char *query);
+extern sql_func *create_sql_func(sql_allocator *sa, char *func, list *args, list *res, int type, char *mod, char *impl, char *query, bit varres, bit vararg);
 
 /* for alter we need to duplicate a table */
 extern sql_table *dup_sql_table(sql_allocator *sa, sql_table *t);

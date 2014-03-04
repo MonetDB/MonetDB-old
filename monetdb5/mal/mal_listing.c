@@ -13,12 +13,12 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
 
 /*
- * M. Kersten
+ * (author) M. Kersten
 */
 
 #include "monetdb_config.h"
@@ -392,11 +392,15 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 				VALformat(&cv, &stk->stk[getArg(p, i)]);
 				if ( cv && strlen(cv) > len - (t - s)) {
 					char *ns = (char *) GDKmalloc(len = strlen(cv) + len + 5);
-					*t = 0;
-					strcpy(ns, s);
-					t = ns + (t - s);
-					GDKfree(s);
-					s = ns;
+					if ( ns == NULL){
+						GDKerror(MAL_MALLOC_FAIL);
+					} else {
+						*t = 0;
+						strcpy(ns, s);
+						t = ns + (t - s);
+						GDKfree(s);
+						s = ns;
+					}
 				}
 				if ( cv && strcmp(cv,"nil") ){
 					strcat(t, "=");
@@ -482,10 +486,14 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 				if ( !isVarConstant(mb, getArg(p,i)) && flg & LIST_MAL_ARG)
 					snprintf(t,(len-(t-base)),"%s%s", (*getArgName(mb,p,i)== TMPMARKER?"X":""), getArgName(mb, p, i));
 				advance(t,base,len);
-				if( getTailType(getArgType(mb,p,i)) > TYPE_str )
+				if( getColumnType(getArgType(mb,p,i)) > TYPE_str )
 				{ 	char *ct;
 					VALformat(&cv, &stk->stk[getArg(p, i)]);
 					ct= (char*) GDKmalloc(1024+strlen(cv));
+					if ( ct == NULL){
+						GDKerror("instruction2str"MAL_MALLOC_FAIL);
+						break;
+					}
 					if (isVarUDFtype(mb, getArg(p, i)) ) {
 						if ( strcmp(cv,"nil") == 0)
 							snprintf(ct, 1024+strlen(cv), "=%s", cv);
@@ -493,9 +501,9 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 							snprintf(ct, 1024+strlen(cv), "=\"%s\"", cv);
 					} else
 					if ( strcmp(cv,"nil") == 0)
-						snprintf(ct, 1024+strlen(cv), "=%s:%s", cv, getTypeName(getTailType(getArgType(mb,p,i))));
+						snprintf(ct, 1024+strlen(cv), "=%s:%s", cv, getTypeName(getColumnType(getArgType(mb,p,i))));
 					else
-						snprintf(ct, 1024+strlen(cv), "=\"%s\":%s", cv, getTypeName(getTailType(getArgType(mb,p,i))));
+						snprintf(ct, 1024+strlen(cv), "=\"%s\":%s", cv, getTypeName(getColumnType(getArgType(mb,p,i))));
 					if( cv) GDKfree(cv);
 					cv= ct;
 				} else
@@ -504,10 +512,14 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 				if ( p->recycle && flg & LIST_MAL_ARG)
 					snprintf(t,(len-(t-base)),"%s%s=", (*getArgName(mb,p,i)== TMPMARKER?"X":""), getArgName(mb, p, i));
 				advance(t,base,len);
-				if( getTailType(getArgType(mb,p,i)) > TYPE_str )
+				if( getColumnType(getArgType(mb,p,i)) > TYPE_str )
 				{ char *ct=cv;
 					VALformat(&cv, &getVar(mb, getArg(p, i))->value);
 					ct= (char*) GDKmalloc(1024+strlen(cv));
+					if ( ct == NULL){
+						GDKerror("instruction2str"MAL_MALLOC_FAIL);
+						break;
+					}
 					if (isVarUDFtype(mb, getArg(p, i)) ) {
 						if ( strcmp(cv,"nil") == 0)
 							snprintf(ct, 1024+strlen(cv), "%s", cv);
@@ -515,9 +527,9 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 							snprintf(ct, 1024+strlen(cv), "\"%s\"", cv);
 					} else
 					if ( strcmp(cv,"nil") == 0)
-						snprintf(ct, 1024+strlen(cv), "%s:%s", cv, getTypeName(getTailType(getArgType(mb,p,i))));
+						snprintf(ct, 1024+strlen(cv), "%s:%s", cv, getTypeName(getColumnType(getArgType(mb,p,i))));
 					else
-						snprintf(ct, 1024+strlen(cv), "\"%s\":%s", cv, getTypeName(getTailType(getArgType(mb,p,i))));
+						snprintf(ct, 1024+strlen(cv), "\"%s\":%s", cv, getTypeName(getColumnType(getArgType(mb,p,i))));
 					if( cv) GDKfree(cv);
 					cv= ct;
 				} else
@@ -525,6 +537,10 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 			}
 			if ( cv && strlen(cv) > len - (t - s)) {
 				char *ns = (char *) GDKmalloc(len = strlen(cv) + len + 5);
+				if ( ns == NULL){
+					GDKerror("instruction2str"MAL_MALLOC_FAIL);
+					return s;
+				}
 
 				*t = 0;
 				strcpy(ns, s);
@@ -626,19 +642,31 @@ mal2str(MalBlkPtr mb, int flg, int first, int last)
 
 	txt = GDKmalloc(sizeof(str) * mb->stop);
 	len = GDKmalloc(sizeof(int) * mb->stop);
+
+	if( txt == NULL || len == NULL){
+		GDKerror("mal2str"MAL_MALLOC_FAIL);
+		if( txt ) GDKfree(txt);
+		if( len ) GDKfree(len);
+		return NULL;
+	}
 	for (i = first; i < last; i++) {
 		txt[i] = instruction2str(mb, 0, getInstrPtr(mb, i), flg);
 		if ( txt[i])
 			totlen += len[i] = (int)strlen(txt[i]);
 	}
 	ps = GDKmalloc(totlen + mb->stop + 1);
+	if( ps == NULL)
+		GDKerror("mal2str"MAL_MALLOC_FAIL);
+
 	totlen = 0;
 	for (i = first; i < last; i++) 
 	if( txt[i]){
-		strncpy(ps + totlen, txt[i], len[i]);
-		ps[totlen + len[i]] = '\n';
-		ps[totlen + len[i] + 1] = 0;
-		totlen += len[i] + 1;
+		if( ps){
+			strncpy(ps + totlen, txt[i], len[i]);
+			ps[totlen + len[i]] = '\n';
+			ps[totlen + len[i] + 1] = 0;
+			totlen += len[i] + 1;
+		}
 		GDKfree(txt[i]);
 	}
 	GDKfree(len);
@@ -684,10 +712,12 @@ printSignature(stream *fd, Symbol s, int flg)
 		return;
 	}
 	txt = GDKzalloc(MAXLISTING); /* some slack for large blocks */
-	p = getSignature(s);
-	(void) fcnDefinition(s->def, p, txt, flg, txt, MAXLISTING);
-	mnstr_printf(fd, "%s\n", txt);
-	GDKfree(txt);
+	if( txt){
+		p = getSignature(s);
+		(void) fcnDefinition(s->def, p, txt, flg, txt, MAXLISTING);
+		mnstr_printf(fd, "%s\n", txt);
+		GDKfree(txt);
+	} else GDKerror("printSignature"MAL_MALLOC_FAIL);
 }
 
 /*

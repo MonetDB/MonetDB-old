@@ -11,7 +11,7 @@ stdout of test 'pgexample` in directory 'sql/test/json` itself:
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 15.629 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2014 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
 # Listening for connection requests on mapi:monetdb://vienna.ins.cwi.nl:37692/
 # Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-30874/.s.monetdb.37692
@@ -34,7 +34,7 @@ Ready.
 [ 1	]
 #SELECT  json_path(b,'f1') AS f1, json_path(b,'f3') FROM jsonTbl WHERE a =1;
 % sys.L,	sys.L # table_name
-% f1,	json_path_b # name
+% f1,	filter_b # name
 % json,	json # type
 % 3,	20 # length
 [ "[1]",	"[\"Hi I'm \\\"Daisy\\\"\"]"	]
@@ -52,13 +52,13 @@ Ready.
 [ "[[1,\"Robert \\\"M\\\"\",true]]"	]
 #SELECT  json_path(b,'f3') AS f1, json_text(b,'f3') FROM jsonTbl WHERE a =1;
 % sys.L,	sys.L # table_name
-% f1,	json_text_b # name
+% f1,	text_filter_b # name
 % json,	clob # type
-% 20,	16 # length
-[ "[\"Hi I'm \\\"Daisy\\\"\"]",	" Hi I'm \"Daisy\" "	]
+% 20,	14 # length
+[ "[\"Hi I'm \\\"Daisy\\\"\"]",	"Hi I'm \"Daisy\""	]
 #SELECT json_path(b,'f1[0]') as f1_0 , json_text(b,'f1[0]')FROM jsonTbl WHERE a = 3;
 % sys.L,	sys.L # table_name
-% f1_0,	json_text_b # name
+% f1_0,	text_filter_b # name
 % json,	clob # type
 % 25,	17 # length
 [ "[[1,\"Robert \\\"M\\\"\",true]]",	"1 Robert \"M\" true"	]

@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -136,7 +136,7 @@ GDKremovedir(const char *dirname)
 int
 GDKfdlocate(const char *nme, const char *mode, const char *extension)
 {
-	char buf[PATHLENGTH], *path = buf;
+	char path[PATHLENGTH];
 	int fd, flags = 0;
 
 	if ((nme == NULL) || (*nme == 0)) {
@@ -164,11 +164,8 @@ GDKfdlocate(const char *nme, const char *mode, const char *extension)
 #endif
 	fd = open(path, flags, MONETDB_MODE);
 	if (fd < 0 && *mode == 'w') {
-		/* try to create the directory, if that was the problem */
-		char tmp[PATHLENGTH];
-
-		strcpy(tmp, buf);
-		if (GDKcreatedir(tmp)) {
+		/* try to create the directory, in case that was the problem */
+		if (GDKcreatedir(path)) {
 			fd = open(path, flags, MONETDB_MODE);
 		}
 	}
@@ -231,9 +228,8 @@ GDKmove(const char *dir1, const char *nme1, const char *ext1, const char *dir2, 
 	return ret;
 }
 
-#ifndef NATIVE_WIN32
 int
-GDKextendf(int fd, off_t size)
+GDKextendf(int fd, size_t size)
 {
 	struct stat stb;
 
@@ -242,46 +238,31 @@ GDKextendf(int fd, off_t size)
 		return -1;
 	}
 	/* if necessary, extend the underlying file */
-	if (stb.st_size < size &&
-	    (lseek(fd, size - 1, SEEK_SET) < 0 ||
-	     write(fd, "\0", 1) < 0)) {
-		return -1;
+	if (stb.st_size < (off_t) size) {
+#ifdef WIN32
+		return -(_chsize_s(fd, (__int64) size) != 0);
+#else
+		return ftruncate(fd, (off_t) size);
+#endif
 	}
 	return 0;
 }
-#endif
 
 int
 GDKextend(const char *fn, size_t size)
 {
-	FILE *fp;
 	int t0 = 0;
+	int rt = -1, fd;
 
 	IODEBUG t0 = GDKms();
-	if ((fp = fopen(fn, "rb+")) == NULL)
-		return -1;
-#if defined(_WIN64)
-	if (_fseeki64(fp, (ssize_t) size - 1, SEEK_SET) < 0)
-		goto bailout;
-#elif defined(HAVE_FSEEKO)
-	if (fseeko(fp, (off_t) size - 1, SEEK_SET) < 0)
-		goto bailout;
-#else
-	if (fseek(fp, size - 1, SEEK_SET) < 0)
-		goto bailout;
-#endif
-	if (fputc('\n', fp) < 0)
-		goto bailout;
-	if (fflush(fp) < 0)
-		goto bailout;
-	if (fclose(fp) < 0)
-		return -1;
-	IODEBUG fprintf(stderr, "#GDKextend %s " SZFMT " %dms\n", fn, size, GDKms() - t0);
-	return 0;
-  bailout:
-	fclose(fp);
-	IODEBUG fprintf(stderr, "#GDKextend %s failed " SZFMT " %dms\n", fn, size, GDKms() - t0);
-	return -1;
+	rt = -1;
+	if ((fd = open(fn, O_RDWR)) >= 0) {
+		rt = GDKextendf(fd, size);
+		close(fd);
+	}
+	IODEBUG fprintf(stderr, "#GDKextend %s " SZFMT " %dms%s\n", fn, size,
+			GDKms() - t0, rt < 0 ? " (failed)" : "");
+	return rt;
 }
 
 /*
@@ -297,79 +278,83 @@ GDKextend(const char *fn, size_t size)
 int
 GDKsave(const char *nme, const char *ext, void *buf, size_t size, storage_t mode)
 {
-	int fd = -1, err = 0;
+	int err = 0;
 
 	IODEBUG THRprintf(GDKstdout, "#GDKsave: name=%s, ext=%s, mode %d\n", nme, ext ? ext : "", (int) mode);
 
 	if (mode == STORE_MMAP) {
-		/*
-		 * Only dirty pages must be written to disk.
-		 * Unchanged block will still be mapped on the file,
-		 * reading those will be cheap.  Only the changed
-		 * blocks are now mapped to swap space.  PUSHED OUT:
-		 * due to rather horrendous performance caused by
-		 * updating the image on disk.
-		 *
-		 * Maybe it is better to make use of MT_msync().  But
-		 * then we would need to bring in a backup mechanism,
-		 * in which stable images of the BATs are created at
-		 * commit-time.
-		 */
 		if (size)
-			err = MT_msync(buf, 0, size, MMAP_SYNC);
+			err = MT_msync(buf, size, MMAP_SYNC);
 		if (err)
-			GDKsyserror("GDKsave: error on: name=%s, ext=%s, mode=%d\n", nme, ext ? ext : "", (int) mode);
-		IODEBUG THRprintf(GDKstdout, "#MT_msync(buf " PTRFMT ", size " SZFMT ", MMAP_SYNC) = %d\n", PTRFMTCAST buf, size, err);
+			GDKsyserror("GDKsave: error on: name=%s, ext=%s, "
+				    "mode=%d\n", nme, ext ? ext : "",
+				    (int) mode);
+		IODEBUG THRprintf(GDKstdout,
+				  "#MT_msync(buf " PTRFMT ", size " SZFMT
+				  ", MMAP_SYNC) = %d\n",
+				  PTRFMTCAST buf, size, err);
 	} else {
+		int fd;
+
 		if ((fd = GDKfdlocate(nme, "wb", ext)) >= 0) {
 			/* write() on 64-bits Redhat for IA64 returns
 			 * 32-bits signed result (= OS BUG)! write()
-			 * on Windows only takes int as size */
+			 * on Windows only takes unsigned int as
+			 * size */
 			while (size > 0) {
 				/* circumvent problems by writing huge
-				 * buffers in chunks <= 1GB */
-				ssize_t ret = write(fd, buf, (unsigned) MIN(1 << 30, size));
+				 * buffers in chunks <= 1GiB */
+				ssize_t ret;
 
+				ret = write(fd, buf,
+					    (unsigned) MIN(1 << 30, size));
 				if (ret < 0) {
 					err = -1;
-					GDKsyserror("GDKsave: error " SSZFMT " on: name=%s, ext=%s, mode=%d\n", ret, nme, ext ? ext : "", (int) mode);
+					GDKsyserror("GDKsave: error " SSZFMT
+						    " on: name=%s, ext=%s, "
+						    "mode=%d\n", ret, nme,
+						    ext ? ext : "", (int) mode);
 					break;
 				}
 				size -= ret;
 				buf = (void *) ((char *) buf + ret);
-				IODEBUG THRprintf(GDKstdout, "#write(fd %d, buf " PTRFMT ", size %u) = " SSZFMT "\n", fd, PTRFMTCAST buf, (unsigned) MIN(1 << 30, size), ret);
+				IODEBUG THRprintf(GDKstdout,
+						  "#write(fd %d, buf " PTRFMT
+						  ", size %u) = " SSZFMT "\n",
+						  fd, PTRFMTCAST buf,
+						  (unsigned) MIN(1 << 30, size),
+						  ret);
+			}
+			if (!(GDKdebug & FORCEMITOMASK) &&
+#if defined(NATIVE_WIN32)
+			    _commit(fd) < 0
+#elif defined(HAVE_FDATASYNC)
+			    fdatasync(fd) < 0
+#elif defined(HAVE_FSYNC)
+			    fsync(fd) < 0
+#else
+			    0
+#endif
+				) {
+				GDKsyserror("GDKsave: error on: name=%s, "
+					    "ext=%s, mode=%d\n", nme,
+					    ext ? ext : "", (int) mode);
+				err = -1;
+			}
+			err |= close(fd);
+			if (err && GDKunlink(BATDIR, nme, ext)) {
+				/* do not tolerate corrupt heap images
+				 * (BBPrecover on restart will kill
+				 * them) */
+				GDKfatal("GDKsave: could not open: name=%s, "
+					 "ext=%s, mode %d\n", nme,
+					 ext ? ext : "", (int) mode);
 			}
 		} else {
 			err = -1;
+			GDKerror("GDKsave: failed name=%s, ext=%s, mode %d\n",
+				 nme, ext ? ext : "", (int) mode);
 		}
-	}
-	if (fd >= 0) {
-		if (!(GDKdebug & FORCEMITOMASK) &&
-#ifdef NATIVE_WIN32
-			_commit(fd) < 0
-#else
-#ifdef HAVE_FDATASYNC
-			fdatasync(fd) < 0
-#else
-#ifdef HAVE_FSYNC
-			fsync(fd) < 0
-#else
-			0
-#endif
-#endif
-#endif
-			) {
-			GDKsyserror("GDKsave: error on: name=%s, ext=%s, mode=%d\n", nme, ext ? ext : "", (int) mode);
-			err = -1;
-		}
-		err |= close(fd);
-		if (err && GDKunlink(BATDIR, nme, ext)) {
-			/* do not tolerate corrupt heap images
-			 * (BBPrecover on restart will kill them) */
-			GDKfatal("GDKsave: could not open: name=%s, ext=%s, mode %d\n", nme, ext ? ext : "", (int) mode);
-		}
-	} else if (mode != STORE_MMAP) {
-		GDKerror("GDKsave: failed name=%s, ext=%s, mode %d\n", nme, ext ? ext : "", (int) mode);
 	}
 	return err;
 }
@@ -380,14 +365,14 @@ GDKsave(const char *nme, const char *ext, void *buf, size_t size, storage_t mode
  * defined in their implementation.
  *
  * size -- how much to read
- * maxsize -- how much to allocate
+ * *maxsize -- (in/out) how much to allocate / how much was allocated
  */
 char *
-GDKload(const char *nme, const char *ext, size_t size, size_t maxsize, storage_t mode)
+GDKload(const char *nme, const char *ext, size_t size, size_t *maxsize, storage_t mode)
 {
 	char *ret = NULL;
 
-	assert(size <= maxsize);
+	assert(size <= *maxsize);
 	IODEBUG {
 		THRprintf(GDKstdout, "#GDKload: name=%s, ext=%s, mode %d\n", nme, ext ? ext : "", (int) mode);
 	}
@@ -395,7 +380,7 @@ GDKload(const char *nme, const char *ext, size_t size, size_t maxsize, storage_t
 		int fd = GDKfdlocate(nme, "rb", ext);
 
 		if (fd >= 0) {
-			char *dst = ret = (char *) GDKmalloc(maxsize);
+			char *dst = ret = GDKmalloc(*maxsize);
 			ssize_t n_expected, n = 0;
 
 			if (ret) {
@@ -418,8 +403,8 @@ GDKload(const char *nme, const char *ext, size_t size, size_t maxsize, storage_t
 #ifndef NDEBUG
 				/* just to make valgrind happy, we
 				 * initialize the whole thing */
-				if (ret && maxsize > size)
-					memset(ret + size, 0, maxsize - size);
+				if (ret && *maxsize > size)
+					memset(ret + size, 0, *maxsize - size);
 #endif
 			}
 			close(fd);
@@ -428,22 +413,24 @@ GDKload(const char *nme, const char *ext, size_t size, size_t maxsize, storage_t
 		}
 	} else {
 		char path[PATHLENGTH];
-		struct stat st;
 
+		/* round up to multiple of GDK_mmap_pagesize with a
+		 * minimum of one */
+		size = (*maxsize + GDK_mmap_pagesize - 1) & ~(GDK_mmap_pagesize - 1);
+		if (size == 0)
+			size = GDK_mmap_pagesize;
 		GDKfilepath(path, BATDIR, nme, ext);
-		if (stat(path, &st) >= 0 &&
-		    (maxsize <= (size_t) st.st_size ||
-		     /* mmap storage is auto-extended here */
-		     GDKextend(path, maxsize) == 0)) {
+		if (GDKextend(path, size) == 0) {
 			int mod = MMAP_READ | MMAP_WRITE | MMAP_SEQUENTIAL | MMAP_SYNC;
 
 			if (mode == STORE_PRIV)
 				mod |= MMAP_COPY;
-			ret = (char *) GDKmmap(path, mod, maxsize);
-			if (ret == (char *) -1L) {
-				ret = NULL;
+			ret = GDKmmap(path, mod, size);
+			if (ret != NULL) {
+				/* success: update allocated size */
+				*maxsize = size;
 			}
-			IODEBUG THRprintf(GDKstdout, "#mmap(NULL, 0, maxsize " SZFMT ", mod %d, path %s, 0) = " PTRFMT "\n", maxsize, mod, path, PTRFMTCAST(void *)ret);
+			IODEBUG THRprintf(GDKstdout, "#mmap(NULL, 0, maxsize " SZFMT ", mod %d, path %s, 0) = " PTRFMT "\n", size, mod, path, PTRFMTCAST(void *)ret);
 		}
 	}
 	return ret;
@@ -589,11 +576,11 @@ BATsave(BAT *bd)
 	bs = *BBP_desc(b->batCacheid);
 	/* fix up internal pointers */
 	b = &bs.BM;		/* first the mirror */
-	b->P = &bs.P;
+	b->S = &bs.S;
 	b->H = &bs.T;
 	b->T = &bs.H;
 	b = &bs.B;		/* then the unmirrored version */
-	b->P = &bs.P;
+	b->S = &bs.S;
 	b->H = &bs.H;
 	b->T = &bs.T;
 
@@ -642,13 +629,13 @@ BATsave(BAT *bd)
 		DESCclean(bd);
 		if (bd->htype && bd->H->heap.storage == STORE_MMAP) {
 			HEAPshrink(&bd->H->heap, bd->H->heap.free);
-			if (bd->U->capacity > bd->H->heap.size >> bd->H->shift)
-				bd->U->capacity = (BUN) (bd->H->heap.size >> bd->H->shift);
+			if (bd->batCapacity > bd->H->heap.size >> bd->H->shift)
+				bd->batCapacity = (BUN) (bd->H->heap.size >> bd->H->shift);
 		}
 		if (bd->ttype && bd->T->heap.storage == STORE_MMAP) {
 			HEAPshrink(&bd->T->heap, bd->T->heap.free);
-			if (bd->U->capacity > bd->T->heap.size >> bd->T->shift)
-				bd->U->capacity = (BUN) (bd->T->heap.size >> bd->T->shift);
+			if (bd->batCapacity > bd->T->heap.size >> bd->T->shift)
+				bd->batCapacity = (BUN) (bd->T->heap.size >> bd->T->shift);
 		}
 		if (bd->H->vheap && bd->H->vheap->storage == STORE_MMAP)
 			HEAPshrink(bd->H->vheap, bd->H->vheap->free);
@@ -702,11 +689,11 @@ BATload_intern(bat i, int lock)
 			if (cap < (b->T->heap.size >> b->T->shift)) {
 				cap = (BUN) (b->T->heap.size >> b->T->shift);
 				HEAPDEBUG fprintf(stderr, "#HEAPextend in BATload_inter %s " SZFMT " " SZFMT "\n", b->H->heap.filename, b->H->heap.size, headsize(b, cap));
-				HEAPextend(&b->H->heap, headsize(b, cap));
+				HEAPextend(&b->H->heap, headsize(b, cap), b->batRestricted == BAT_READ);
 				b->batCapacity = cap;
 			} else {
 				HEAPDEBUG fprintf(stderr, "#HEAPextend in BATload_intern %s " SZFMT " " SZFMT "\n", b->T->heap.filename, b->T->heap.size, tailsize(b, cap));
-				HEAPextend(&b->T->heap, tailsize(b, cap));
+				HEAPextend(&b->T->heap, tailsize(b, cap), b->batRestricted == BAT_READ);
 			}
 		}
 	} else {
@@ -720,9 +707,7 @@ BATload_intern(bat i, int lock)
 			HEAPfree(&b->T->heap);
 			return NULL;
 		}
-		if (BATatoms[b->htype].atomHeapCheck == HEAP_check) {
-			HEAP_init(b->H->vheap, b->htype);
-		} else if (ATOMstorage(b->htype) == TYPE_str) {
+		if (ATOMstorage(b->htype) == TYPE_str) {
 			strCleanHash(b->H->vheap, FALSE);	/* ensure consistency */
 		}
 	}
@@ -736,9 +721,7 @@ BATload_intern(bat i, int lock)
 			HEAPfree(&b->T->heap);
 			return NULL;
 		}
-		if (BATatoms[b->ttype].atomHeapCheck == HEAP_check) {
-			HEAP_init(b->T->vheap, b->ttype);
-		} else if (ATOMstorage(b->ttype) == TYPE_str) {
+		if (ATOMstorage(b->ttype) == TYPE_str) {
 			strCleanHash(b->T->vheap, FALSE);	/* ensure consistency */
 		}
 	}
@@ -958,7 +941,7 @@ BATmultiprintf(stream *s, int argc, BAT *argv[], int printhead, int order, int p
 
 		if ((r = BATmirror(BATmark(argv[i], 0))) == NULL)
 			goto bailout;
-		ret = BATsubleftjoin(&a, &b, bats[0], r, NULL, NULL, BUN_NONE);
+		ret = BATsubleftjoin(&a, &b, bats[0], r, NULL, NULL, 0, BUN_NONE);
 		BBPunfix(r->batCacheid);
 		if (ret == GDK_FAIL)
 			goto bailout;

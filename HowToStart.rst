@@ -1,3 +1,20 @@
+.. The contents of this file are subject to the MonetDB Public License
+.. Version 1.1 (the "License"); you may not use this file except in
+.. compliance with the License. You may obtain a copy of the License at
+.. http://www.monetdb.org/Legal/MonetDBLicense
+..
+.. Software distributed under the License is distributed on an "AS IS"
+.. basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+.. License for the specific language governing rights and limitations
+.. under the License.
+..
+.. The Original Code is the MonetDB Database System.
+..
+.. The Initial Developer of the Original Code is CWI.
+.. Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+.. Copyright August 2008-2014 MonetDB B.V.
+.. All Rights Reserved.
+
 How To Start with MonetDB
 =========================
 
@@ -72,6 +89,19 @@ autoconf/automake/libtool
 	during the Bootstrap_ phase, and libtool__ (>= 1.5) during the
 	Make_ phase.  autoconf and automake are not needed when you
 	start with the source distribution.
+
+iconv
+	A macrofile `iconv.m4` is expected in `/usr/share/aclocal/`.
+	On Ubuntu, you can search with `apt-file` what provides these
+	files:
+
+	$ apt-file search iconv.m4
+	gettext: /usr/share/aclocal/iconv.m4
+	gnulib: /usr/share/gnulib/m4/iconv.m4
+
+	The .m4 that usually works is in gettext. Simply run,
+
+	$ sudo apt-get install gettext
 
 standard software development tools
 	To compile MonetDB, you also need to have the following

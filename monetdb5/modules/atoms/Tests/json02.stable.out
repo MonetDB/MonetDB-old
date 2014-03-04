@@ -11,7 +11,7 @@ stdout of test 'json02` in directory 'monetdb5/modules/atoms` itself:
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 15.629 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2014 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
 # Listening for connection requests on mapi:monetdb://vienna.ins.cwi.nl:35654/
 # Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-10794/.s.monetdb.35654
@@ -21,48 +21,48 @@ stdout of test 'json02` in directory 'monetdb5/modules/atoms` itself:
 function user.main():void;
 #validity tests 
     b := json.new("{\"f1\":1}");
-    f := json.names(b);
+    f := json.keys(b);
     io.print(f);
     ff := json.values(b);
     io.print(ff);
     b := json.new("{\"f1\":1,\"f2\":2}");
-    f := json.names(b);
+    f := json.keys(b);
     io.print(f);
     ff := json.values(b);
     io.print(ff);
     b := json.new("{\"f1\":1,\"f2\":2,\"f1\":3}");
-    f := json.names(b);
+    f := json.keys(b);
     io.print(f);
     ff := json.values(b);
     io.print(ff);
     b := json.new("{\"f1\":{\"f12\":3},\"f2\":[2,3,4]}");
-    f := json.names(b);
+    f := json.keys(b);
     io.print(f);
     ff := json.values(b);
     io.print(ff);
     i := json.length(b);
     io.print(i);
     b := json.new("[]");
-    z := json.isvalidarray(b);
+    z := json.isarray(b);
     io.print(z);
     ff := json.values(b);
     io.print(ff);
     i := json.length(b);
     io.print(i);
     b := json.new("[1,\"f2\", 2]");
-    z := json.isvalidarray(b);
+    z := json.isarray(b);
     io.print(z);
     ff := json.values(b);
     io.print(ff);
     b := json.new("[1,2,null,true,false ]");
-    z := json.isvalidarray(b);
+    z := json.isarray(b);
     io.print(z);
     ff := json.values(b);
     io.print(ff);
     i := json.length(b);
     io.print(i);
     b := json.new("[\"\\/\" , 2 ]");
-    z := json.isvalidarray(b);
+    z := json.isarray(b);
     io.print(z);
     ff := json.values(b);
     io.print(ff);

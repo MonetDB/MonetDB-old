@@ -10,7 +10,7 @@ stdout of test 'Test_Dobjects` in directory 'sql/jdbc/tests` itself:
 # Compiled for x86_64-pc-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 15.662 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2014 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
 # Listening for connection requests on mapi:monetdb://sofia.ins.cwi.nl:35456/
 # MonetDB/GIS module loaded
@@ -54,6 +54,7 @@ TABLE_TYPE
 mTests_sql_jdbc_tests	
 Resultset with 3 columns
 TABLE_SCHEM	TABLE_CATALOG	TABLE_CAT	
+json	mTests_sql_jdbc_tests	mTests_sql_jdbc_tests	
 sys	mTests_sql_jdbc_tests	mTests_sql_jdbc_tests	
 tmp	mTests_sql_jdbc_tests	mTests_sql_jdbc_tests	
 Resultset with 3 columns
@@ -75,6 +76,7 @@ mTests_sql_jdbc_tests	sys	objects	SYSTEM TABLE	null	null	null	null	rowid	SYSTEM
 mTests_sql_jdbc_tests	sys	privileges	SYSTEM TABLE	null	null	null	null	rowid	SYSTEM	
 mTests_sql_jdbc_tests	sys	schemas	SYSTEM TABLE	null	null	null	null	rowid	SYSTEM	
 mTests_sql_jdbc_tests	sys	sequences	SYSTEM TABLE	null	null	null	null	rowid	SYSTEM	
+mTests_sql_jdbc_tests	sys	statistics	SYSTEM TABLE	null	null	null	null	rowid	SYSTEM	
 mTests_sql_jdbc_tests	sys	storagemodelinput	SYSTEM TABLE	null	null	null	null	rowid	SYSTEM	
 mTests_sql_jdbc_tests	sys	systemfunctions	SYSTEM TABLE	null	null	null	null	rowid	SYSTEM	
 mTests_sql_jdbc_tests	sys	triggers	SYSTEM TABLE	null	null	null	null	rowid	SYSTEM	
@@ -97,6 +99,7 @@ select qd.*, ql."start",ql."stop", ql.arguments, ql.tuples, ql.run, ql.ship, ql.
 from sys.querylog_catalog() qd, sys.querylog_calls() ql
 where qd.id = ql.id and qd.owner = user;	null	null	null	rowid	SYSTEM	
 mTests_sql_jdbc_tests	sys	queue	SYSTEM VIEW	create view sys.queue as select * from sys.queue();	null	null	null	rowid	SYSTEM	
+mTests_sql_jdbc_tests	sys	sessions	SYSTEM VIEW	create view sys.sessions as select * from sys.sessions();	null	null	null	rowid	SYSTEM	
 mTests_sql_jdbc_tests	sys	storage	SYSTEM VIEW	create view sys.storage as select * from sys.storage();	null	null	null	rowid	SYSTEM	
 mTests_sql_jdbc_tests	sys	storagemodel	SYSTEM VIEW	create view sys.storagemodel as select * from sys.storagemodel();	null	null	null	rowid	SYSTEM	
 mTests_sql_jdbc_tests	sys	tables	SYSTEM VIEW	SELECT * FROM (SELECT p.*, 0 AS "temporary" FROM "sys"."_tables" AS p UNION ALL SELECT t.*, 1 AS "temporary" FROM "tmp"."_tables" AS t) AS tables where tables.type <> 2;	null	null	null	rowid	SYSTEM	
@@ -107,7 +110,8 @@ create view sys.tablestoragemodel
 as select "schema","table",max(count) as "count",
 	sum(columnsize) as columnsize,
 	sum(heapsize) as heapsize,
-	sum(indices) as indices,
+	sum(hashes) as hashes,
+	sum(imprints) as imprints,
 	sum(case when sorted = false then 8 * count else 0 end) as auxillary
 from sys.storagemodel() group by "schema","table";	null	null	null	rowid	SYSTEM	
 mTests_sql_jdbc_tests	sys	tracelog	SYSTEM VIEW	create view sys.tracelog as select * from sys.tracelog();	null	null	null	rowid	SYSTEM	

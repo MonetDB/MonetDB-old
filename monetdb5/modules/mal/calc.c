@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -632,25 +632,6 @@ CMDsetoid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	default:
 		return mythrow(MAL, "calc.setoid", ILLEGAL_ARGUMENT);
 	}
-	return MAL_SUCCEED;
-}
-
-calc_export str CALCbat2batid(int *ret, bat *bid);
-
-str
-CALCbat2batid(bat *ret, bat *bid)
-{
-	BAT *b;
-
-	if (*bid == bat_nil) {
-		*ret = bat_nil;
-		return MAL_SUCCEED;
-	}
-	b = BATdescriptor(*bid);
-	if (b == 0)
-		return mythrow(MAL, "calc.getBAT", RUNTIME_OBJECT_MISSING);
-	*ret = b->batCacheid;
-	BBPkeepref(b->batCacheid);
 	return MAL_SUCCEED;
 }
 

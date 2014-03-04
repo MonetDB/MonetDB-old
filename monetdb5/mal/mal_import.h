@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -26,8 +26,6 @@
 #include "mal_utils.h"
 
 mal_export void slash_2_dir_sep(str fname);
-mal_export str malLoadScript(Client c, str name, bstream **fdin);
-mal_export str malInclude(Client c, str name, int listing);
 mal_export str evalFile(Client c, str fname, int listing);
 mal_export str compileString(Symbol *fcn, Client c, str s);
 mal_export int callString(Client c, str s, int listing);

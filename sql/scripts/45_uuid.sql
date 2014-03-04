@@ -11,7 +11,7 @@
 -- The Original Code is the MonetDB Database System.
 --
 -- The Initial Developer of the Original Code is CWI.
--- Copyright August 2008-2013 MonetDB B.V.
+-- Copyright August 2008-2014 MonetDB B.V.
 -- All Rights Reserved.
 
 -- (co) Martin Kersten
@@ -26,3 +26,5 @@ returns uuid external name uuid."new";
 create function sys.isaUUID(u uuid)
 returns uuid external name uuid."isaUUID";
 
+create function sys.isaUUID(u string)
+returns uuid external name uuid."isaUUID";

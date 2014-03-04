@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -145,8 +145,8 @@ TMcommit(void)
 
 	/* commit with the BBP globally locked */
 	BBPlock("TMcommit");
-	if (prelude(BBPsize, NULL) == 0 && BBPsync(BBPsize, NULL) == 0) {
-		ret = epilogue(BBPsize, NULL);
+	if (prelude(getBBPsize(), NULL) == 0 && BBPsync(getBBPsize(), NULL) == 0) {
+		ret = epilogue(getBBPsize(), NULL);
 	}
 	BBPunlock("TMcommit");
 	return ret;
@@ -247,7 +247,7 @@ TMabort(void)
 	int i;
 
 	BBPlock("TMabort");
-	for (i = 1; i < BBPsize; i++) {
+	for (i = 1; i < getBBPsize(); i++) {
 		if (BBP_status(i) & BBPNEW) {
 			BAT *b = BBPquickdesc(i, FALSE);
 
@@ -259,7 +259,7 @@ TMabort(void)
 			}
 		}
 	}
-	for (i = 1; i < BBPsize; i++) {
+	for (i = 1; i < getBBPsize(); i++) {
 		if (BBP_status(i) & (BBPPERSISTENT | BBPDELETED | BBPSWAPPED)) {
 			BAT *b = BBPquickdesc(i, TRUE);
 

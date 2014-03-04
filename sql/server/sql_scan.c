@@ -13,10 +13,9 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
-
 
 #include "monetdb_config.h"
 #include <sql_mem.h>
@@ -46,6 +45,7 @@ scanner_init_keywords(void)
 	keywords_insert("AND", AND);
 	keywords_insert("MEDIAN", AGGR);
 	keywords_insert("CORR", AGGR2);
+	keywords_insert("QUANTILE", AGGR2);
 	keywords_insert("AVG", AGGR);
 	keywords_insert("MIN", AGGR);
 	keywords_insert("MAX", AGGR);
@@ -284,6 +284,7 @@ scanner_init_keywords(void)
 	keywords_insert("CALL", CALL);
 	keywords_insert("LANGUAGE", LANGUAGE);
 
+	keywords_insert("ANALYZE", ANALYZE);
 	keywords_insert("EXPLAIN", SQL_EXPLAIN);
 	keywords_insert("PLAN", SQL_PLAN);
 	keywords_insert("DEBUG", SQL_DEBUG);
@@ -910,36 +911,42 @@ tokenize(mvc * c, int cur)
 	}
 }
 
+/* SQL 'quoted' idents consist of a set of any character of 
+ * the source language character set other than a 'quote' 
+ *
+ * MonetDB has 2 restrictions:
+ * 	1 we disallow '%' as the first character.
+ * 	2 the length is reduced to 1024 characters 
+ */
 static int
 valid_ident(char *s, char *dst)
 {
 	int escaped = 0;
 	int p = 0;
 	
-	if (*s != '_' && !(isascii((int) *s) && isalnum((int) *s)) && *s != ' ' &&
-	    *s != '(' && *s != ')') 
+	if (*s == '%')
 		return 0;
 	/* do unescaping in the loop */
 	while (*s && (*s != '"' || escaped)) {
-		if (*s == '\\') {
+		if (*s == '"' && s[1] == '"') {
 			escaped = !escaped;
-			if (!escaped) {
+			if (!escaped) 
 				dst[p++] = *s;
-			}
 		} else if (*s == '"' && escaped) {
 			escaped = 0;
 			dst[p++] = *s;
-		} else if (*s != '_' && !(isascii((int) *s) && isalnum((int) *s)) && *s != ' ' &&
-			   *s != '(' && *s != ')') {
-			return 0;
 		} else {
 			escaped = 0;
 			dst[p++] = *s;
 		}
+		//if (*s == '\\') 
+			//dst[p++] = *s;
 		s++;
 		if (p >= 1024)
 			return 0;
 	}
+	if (*s)
+		return 0;
 	dst[p] = '\0';
 	return 1;
 }
@@ -983,12 +990,11 @@ sql_get_next_token(YYSTYPE *yylval, void *parm) {
 		yylval->sval = sa_strndup(c->sa, yylval->sval, lc->yycur-lc->yysval);
 	else if (token == STRING) {
 		char quote = *yylval->sval;
-		char *str = sa_alloc( c->sa, (lc->yycur-lc->yysval-2)*2 +1 );
+		char *str = sa_alloc( c->sa, (lc->yycur-lc->yysval-2)*2 + 1 );
 		assert(quote == '"' || quote == '\'');
 
 		lc->rs->buf[lc->rs->pos+lc->yycur- 1] = 0; 
 		if (quote == '"') {
-			/* Todo check if what valid 'quoted' idents are */
 			if (valid_ident(yylval->sval+1,str)) {
 				token = IDENT;
 			} else {

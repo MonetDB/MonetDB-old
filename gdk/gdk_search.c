@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -123,9 +123,28 @@ HASHmask(BUN cnt)
 static void
 HASHclear(Hash *h)
 {
-	BUN i, j, nil = (BUN) HASHnil(h);
-	for (i = 0, j = h->mask; i <= j; i++)
-		(void) HASHput(h, i, nil);
+	BUN i, j = h->mask, nil = HASHnil(h);
+
+	switch (h->width) {
+	case 1:
+		for (i = 0; i <= j; i++)
+			HASHput1(h, i, nil);
+		break;
+	case 2:
+		for (i = 0; i <= j; i++)
+			HASHput2(h, i, nil);
+		break;
+	case 4:
+		for (i = 0; i <= j; i++)
+			HASHput4(h, i, nil);
+		break;
+#if SIZEOF_BUN == 8
+	case 8:
+		for (i = 0; i <= j; i++)
+			HASHput8(h, i, nil);
+		break;
+#endif
+	}
 }
 
 Hash *
@@ -329,10 +348,22 @@ BAThash(BAT *b, BUN masksize)
 				break;
 			case TYPE_int:
 			case TYPE_flt:
+#if SIZEOF_OID == SIZEOF_INT
+			case TYPE_oid:
+#endif
+#if SIZEOF_WRD == SIZEOF_INT
+			case TYPE_wrd:
+#endif
 				starthash(int);
 				break;
 			case TYPE_dbl:
 			case TYPE_lng:
+#if SIZEOF_OID == SIZEOF_LNG
+			case TYPE_oid:
+#endif
+#if SIZEOF_WRD == SIZEOF_LNG
+			case TYPE_wrd:
+#endif
 				starthash(lng);
 				break;
 			default:
@@ -361,10 +392,22 @@ BAThash(BAT *b, BUN masksize)
 			break;
 		case TYPE_int:
 		case TYPE_flt:
+#if SIZEOF_OID == SIZEOF_INT
+		case TYPE_oid:
+#endif
+#if SIZEOF_WRD == SIZEOF_INT
+		case TYPE_wrd:
+#endif
 			finishhash(int);
 			break;
 		case TYPE_dbl:
 		case TYPE_lng:
+#if SIZEOF_OID == SIZEOF_LNG
+		case TYPE_oid:
+#endif
+#if SIZEOF_WRD == SIZEOF_LNG
+		case TYPE_wrd:
+#endif
 			finishhash(lng);
 			break;
 		default:
@@ -514,31 +557,48 @@ HASHgonebad(BAT *b, const void *v)
 		}							\
 	} while (0)
 
+enum find_which {
+	FIND_FIRST,
+	FIND_ANY,
+	FIND_LAST
+};
+
 static BUN
-SORTfndwhich(BAT *b, const void *v, int which)
+SORTfndwhich(BAT *b, const void *v, enum find_which which)
 {
-	BUN lo = BUNfirst(b), hi = BUNlast(b), mid;
-	int cmp = 1;
-	BUN cur = BUN_NONE;
-	BATiter bi = bat_iterator(b);
+	BUN lo, hi, mid;
+	int cmp;
+	BUN cur;
+	BATiter bi;
 	BUN diff, end;
+	int tp;
 
 	if (b == NULL || (!b->tsorted && !b->trevsorted))
 		return BUN_NONE;
 
+	lo = BUNfirst(b);
+	hi = BUNlast(b);
+
 	if (BATtdense(b)) {
 		/* no need for binary search on dense column */
 		if (*(const oid *) v < b->tseqbase)
-			return which == 0 ? BUN_NONE : lo;
+			return which == FIND_ANY ? BUN_NONE : lo;
 		if (*(const oid *) v >= b->tseqbase + BATcount(b))
-			return which == 0 ? BUN_NONE : hi;
+			return which == FIND_ANY ? BUN_NONE : hi;
 		cur = (BUN) (*(const oid *) v - b->tseqbase) + lo;
-		if (which > 0)
-			cur++;
-		return cur;
+		return cur + (which == FIND_LAST);
 	}
 
-	if (which < 0) {
+	cmp = 1;
+	cur = BUN_NONE;
+	bi = bat_iterator(b);
+	tp = b->ttype;
+	/* only use storage type if comparison functions are equal */
+	if (BATatoms[tp].atomCmp == BATatoms[ATOMstorage(tp)].atomCmp)
+		tp = ATOMstorage(tp);
+
+	switch (which) {
+	case FIND_FIRST:
 		end = lo;
 		if (lo >= hi || (b->tsorted ? atom_GE(BUNtail(bi, lo), v, b->ttype) : atom_LE(BUNtail(bi, lo), v, b->ttype))) {
 			/* shortcut: if BAT is empty or first (and
@@ -546,7 +606,8 @@ SORTfndwhich(BAT *b, const void *v, int which)
 			 * or <= v (if revsorted), we're done */
 			return lo;
 		}
-	} else if (which > 0) {
+		break;
+	case FIND_LAST:
 		end = hi;
 		if (lo >= hi || (b->tsorted ? atom_LE(BUNtail(bi, hi - 1), v, b->ttype) : atom_GE(BUNtail(bi, hi - 1), v, b->ttype))) {
 			/* shortcut: if BAT is empty or first (and
@@ -554,16 +615,18 @@ SORTfndwhich(BAT *b, const void *v, int which)
 			 * or >= v (if revsorted), we're done */
 			return hi;
 		}
-	} else {
+		break;
+	default: /* case FIND_ANY -- stupid compiler */
 		end = 0;	/* not used in this case */
 		if (lo >= hi) {
 			/* empty BAT: value not found */
 			return BUN_NONE;
 		}
+		break;
 	}
 
 	if (b->tsorted) {
-		switch (ATOMstorage(b->ttype)) {
+		switch (tp) {
 		case TYPE_bte:
 			SORTfndloop(bte, simple_CMP, BUNtloc);
 			break;
@@ -590,7 +653,7 @@ SORTfndwhich(BAT *b, const void *v, int which)
 			break;
 		}
 	} else {
-		switch (ATOMstorage(b->ttype)) {
+		switch (tp) {
 		case TYPE_bte:
 			SORTfndloop(bte, -simple_CMP, BUNtloc);
 			break;
@@ -618,7 +681,8 @@ SORTfndwhich(BAT *b, const void *v, int which)
 		}
 	}
 
-	if (which < 0) {
+	switch (which) {
+	case FIND_FIRST:
 		if (cmp == 0 && b->tkey == 0) {
 			/* shift over multiple equals */
 			for (diff = cur - end; diff; diff >>= 1) {
@@ -627,7 +691,8 @@ SORTfndwhich(BAT *b, const void *v, int which)
 					cur -= diff;
 			}
 		}
-	} else if (which > 0) {
+		break;
+	case FIND_LAST:
 		if (cmp == 0 && b->tkey == 0) {
 			/* shift over multiple equals */
 			for (diff = (end - cur) >> 1; diff; diff >>= 1) {
@@ -636,32 +701,40 @@ SORTfndwhich(BAT *b, const void *v, int which)
 					cur += diff;
 			}
 		}
-		if (cmp == 0)
-			cur++;
-	} else {
+		cur += (cmp == 0);
+		break;
+	default: /* case FIND_ANY -- stupid compiler */
 		if (cmp) {
 			/* not found */
 			cur = BUN_NONE;
 		}
+		break;
 	}
 	return cur;
 }
 
+/* Return the BUN of any tail value in b that is equal to v; if no
+ * match is found, return BUN_NONE.  b must be sorted (reverse of
+ * forward). */
 BUN
 SORTfnd(BAT *b, const void *v)
 {
-	/* works on HEAD column! */
-	return SORTfndwhich(BATmirror(b), v, 0);
+	return SORTfndwhich(b, v, FIND_ANY);
 }
 
+/* Return the BUN of the first (lowest numbered) tail value that is
+ * equal to v; if no match is found, return the BUN of the next higher
+ * value in b.  b must be sorted (reverse of forward). */
 BUN
 SORTfndfirst(BAT *b, const void *v)
 {
-	return SORTfndwhich(b, v, -1);
+	return SORTfndwhich(b, v, FIND_FIRST);
 }
 
+/* Return the BUN of the first (lowest numbered) tail value beyond v.
+ * b must be sorted (reverse of forward). */
 BUN
 SORTfndlast(BAT *b, const void *v)
 {
-	return SORTfndwhich(b, v, 1);
+	return SORTfndwhich(b, v, FIND_LAST);
 }

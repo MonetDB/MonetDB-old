@@ -3,19 +3,20 @@
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.monetdb.org/Legal/MonetDBLicense
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * The Original Code is the MonetDB Database System.
- * 
+ *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
+
 /*
  * The statemens are all checked for being eligible for dataflow.
  */
@@ -23,6 +24,7 @@
 #include "opt_dataflow.h"
 #include "mal_instruction.h"
 #include "mal_interpreter.h"
+#include "manifold.h"
 
 /*
  * dataflow processing incurs overhead and is only
@@ -155,9 +157,13 @@ dflowAssignConflict(InstrPtr p, int pc, int *assigned, int *eolife)
 */
 
 /* a limited set of MAL instructions may appear in the dataflow block*/
-int
-dataflowConflict(InstrPtr p) {
-	if ( p->token == ENDsymbol || getFunctionId(p) == multiplexRef || blockCntrl(p) || blockStart(p) || blockExit(p))	
+static int
+dataflowConflict(Client cntxt, MalBlkPtr mb,InstrPtr p) 
+{
+	if (p->token == ENDsymbol || 
+	    (getFunctionId(p) == multiplexRef && 
+	     MANIFOLDtypecheck(cntxt,mb,p) == NULL) || 
+	    blockCntrl(p) || blockStart(p) || blockExit(p))
 		return TRUE;
 	switch(p->token){
 	case ASSIGNsymbol:
@@ -177,7 +183,7 @@ dflowGarbagesink(MalBlkPtr mb, int var, InstrPtr *sink, int top){
 	r = newInstruction(NULL,ASSIGNsymbol);
 	getModuleId(r) = languageRef;
 	getFunctionId(r) = passRef;
-	getArg(r,0) = newTmpVariable(mb,getVarType(mb,var));
+	getArg(r,0) = newTmpVariable(mb,TYPE_void);
 	r= pushArgument(mb,r, var);
 	sink[top++] = r;
 	return top;
@@ -240,7 +246,7 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		assert(p);
 		conflict = 0;
 
-		if ( dataflowConflict(p) || (conflict = dflowAssignConflict(p,i,assigned,eolife)) )  {
+		if ( dataflowConflict(cntxt,mb,p) || (conflict = dflowAssignConflict(p,i,assigned,eolife)) )  {
 			/* close previous flow block */
 			if ( !(simple = simpleFlow(old,start,i))){
 				for( j=start ; j<i; j++){

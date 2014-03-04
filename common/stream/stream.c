@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -115,6 +115,9 @@
 #define pclose _pclose
 #endif
 
+#define UTF8BOM		"\xEF\xBB\xBF" /* UTF-8 encoding of Unicode BOM */
+#define UTF8BOMLENGTH	3	       /* length of above */
+
 #define short_int_SWAP(s) ((short)(((0x00ff&(s))<<8) | ((0xff00&(s))>>8)))
 
 #define normal_int_SWAP(i) (((0x000000ff&(i))<<24) | ((0x0000ff00&(i))<<8) | \
@@ -127,7 +130,8 @@
 
 struct stream {
 	short byteorder;
-	short access;		/* read/write */
+	char access;		/* read/write */
+	char isutf8;		/* known to be UTF-8 due to BOM */
 	short type;		/* ascii/binary */
 	char *name;
 	unsigned int timeout;
@@ -463,6 +467,7 @@ create_stream(const char *name)
 		return NULL;
 	s->byteorder = 1234;
 	s->access = ST_READ;
+	s->isutf8 = 0;		/* not known for sure */
 	s->type = ST_ASCII;
 	s->name = strdup(name);
 	s->stream_data.p = NULL;
@@ -625,6 +630,8 @@ open_stream(const char *filename, const char *flags)
 {
 	stream *s;
 	FILE *fp;
+	lng pos;
+	char buf[4];
 
 	if ((s = create_stream(filename)) == NULL)
 		return NULL;
@@ -639,20 +646,19 @@ open_stream(const char *filename, const char *flags)
 	s->fgetpos = file_fgetpos;
 	s->fsetpos = file_fsetpos;
 	s->stream_data.p = (void *) fp;
+	/* if file is opened for reading, and it starts with the UTF-8
+	 * encoding of the Unicode Byte Order Mark, skip the mark, and
+	 * mark the stream as being a UTF-8 stream */
+	if (fp != NULL &&
+	    flags[0] == 'r' &&
+	    file_fgetpos(s, &pos) == 0) {
+		if (file_read(s, buf, 1, UTF8BOMLENGTH) == 3 &&
+		    strncmp(buf, UTF8BOM, UTF8BOMLENGTH) == 0)
+			s->isutf8 = 1;
+		else
+			file_fsetpos(s, pos);
+	}
 	return s;
-}
-
-stream *
-dupFileStream(stream *s)
-{
-	stream *ns;
-	if (s->read != file_read)
-		return NULL;
-	if (s->access == ST_WRITE)
-		ns = open_stream(s->name, "w");
-	else
-		ns = open_stream(s->name, "r");
-	return ns;
 }
 
 /* ------------------------------------------------------------------ */
@@ -664,11 +670,11 @@ stream_gzread(stream *s, void *buf, size_t elmsize, size_t cnt)
 {
 	gzFile fp = (gzFile) s->stream_data.p;
 	int size = (int) (elmsize * cnt);
-	int err;
+	int err = 0;
 
 	if (!gzeof(fp)) {
 		size = gzread(fp, buf, size);
-		if (gzerror(fp, &err) != NULL) {
+		if (gzerror(fp, &err) != NULL && err < 0) {
 			s->errnr = MNSTR_READ_ERROR;
 			return -1;
 		}
@@ -682,11 +688,11 @@ stream_gzwrite(stream *s, const void *buf, size_t elmsize, size_t cnt)
 {
 	gzFile fp = (gzFile) s->stream_data.p;
 	int size = (int) (elmsize * cnt);
-	int err;
+	int err = 0;
 
 	if (size) {
 		size = gzwrite(fp, buf, size);
-		if (gzerror(fp, &err) != NULL) {
+		if (gzerror(fp, &err) != NULL && err < 0) {
 			s->errnr = MNSTR_WRITE_ERROR;
 			return -1;
 		}
@@ -1858,6 +1864,7 @@ file_stream(const char *name)
 	s->write = file_write;
 	s->close = file_close;
 	s->flush = file_flush;
+	s->fsync = file_fsync;
 	s->fgetpos = file_fgetpos;
 	s->fsetpos = file_fsetpos;
 	return s;
@@ -2169,6 +2176,8 @@ ic_open(iconv_t cd, stream *ss, const char *name)
 	stream *s;
 	struct icstream *ic;
 
+	if (ss->isutf8)
+		return ss;
 	if ((s = create_stream(name)) == NULL)
 		return NULL;
 	s->read = ic_read;
@@ -2203,6 +2212,7 @@ iconv_rstream(stream *ss, const char *charset, const char *name)
 		return NULL;
 	s = ic_open(cd, ss, name);
 	s->access = ST_READ;
+	s->isutf8 = 1;
 	return s;
 }
 
@@ -2679,30 +2689,6 @@ bs_update_timeout(stream *ss)
 	}
 }
 
-/* Read the next bit of a block.  If this was the last bit of the
- * current block, set the value pointed to by last to 1, otherwise set
- * it to 0. */
-ssize_t
-bs_read_next(stream *ss, void *buf, size_t nbytes, int *last)
-{
-	ssize_t n;
-	bs *s = (bs *) ss->stream_data.p;
-
-	n = bs_read(ss, buf, 1, nbytes);
-	if (n < 0) {
-		if (last)
-			*last = 1;
-		return -1;
-	}
-	if (last)
-		*last = s->itotal == 0;
-	if (s->itotal == 0) {
-		/* we don't want to get an empty buffer at the next read */
-		s->nr = 0;
-	}
-	return n;
-}
-
 static void
 bs_close(stream *ss)
 {
@@ -2761,99 +2747,6 @@ isa_block_stream(stream *s)
 	assert(s != NULL);
 	return s->read == bs_read || s->write == bs_write;
 }
-
-/* ------------------------------------------------------------------ */
-
-/* A tee stream just duplicates the output of a stream to to streams */
-
-typedef struct {
-	stream *orig, *log;
-} tee_stream;
-
-static ssize_t
-ts_write(stream *s, const void *buf, size_t elmsize, size_t cnt)
-{
-	tee_stream *ts = (tee_stream *) s->stream_data.p;
-	ssize_t reorig = ts->orig->write(ts->orig, buf, elmsize, cnt);
-	ssize_t relog = ts->log->write(ts->log, buf, elmsize, cnt);
-	return reorig < relog ? reorig : relog;
-}
-
-static int
-ts_flush(stream *s)
-{
-	tee_stream *ts = (tee_stream *) s->stream_data.p;
-	int reorig = ts->orig->flush(ts->orig);
-	int relog = ts->log->flush(ts->log);
-	return reorig < relog ? reorig : relog;
-}
-
-static void
-ts_close(stream *s)
-{
-	tee_stream *ts = (tee_stream *) s->stream_data.p;
-	ts->orig->close(ts->orig);
-	ts->log->close(ts->log);
-}
-
-static void
-ts_destroy(stream *s)
-{
-	tee_stream *ts = (tee_stream *) s->stream_data.p;
-	ts->orig->destroy(ts->orig);
-	ts->log->destroy(ts->log);
-	free(ts);
-	destroy(s);
-}
-
-void
-detach_teestream(stream *s)
-{
-	tee_stream *ts = (tee_stream *) s->stream_data.p;
-	ts->log->close(ts->log);
-	ts->log->destroy(ts->log);
-	free(ts);
-	destroy(s);
-}
-
-stream *
-attach_teestream(stream *orig, stream *log)
-{
-	tee_stream *ts;
-	stream *ns;
-
-	/* we require two write streams of the same type */
-	if (orig == NULL || log == NULL || orig->access != ST_WRITE || log->access != ST_WRITE)
-		return NULL;
-	ts = (tee_stream *) malloc(sizeof(tee_stream));
-
-	if (ts == NULL)
-		return NULL;
-	ts->orig = orig;
-	ts->log = log;
-
-#ifdef STREAM_DEBUG
-	printf("tee_stream %s %s\n", orig->name ? orig->name : "<unnamed>", log->name ? log->name : "<unnamed>");
-#endif
-	if ((ns = create_stream(orig->name)) == NULL) {
-		free(ts);
-		return NULL;
-	}
-	/* blocksizes have a fixed little endian byteorder */
-#ifdef WORDS_BIGENDIAN
-	ns->byteorder = 3412;	/* simply != 1234 */
-#endif
-	ns->type = orig->type;
-	ns->access = orig->access;
-	ns->write = ts_write;
-	ns->close = ts_close;
-	ns->flush = ts_flush;
-	ns->destroy = ts_destroy;
-	ns->stream_data.p = (void *) ts;
-
-	return ns;
-}
-
 
 /* ------------------------------------------------------------------ */
 

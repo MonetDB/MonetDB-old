@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -36,6 +36,7 @@
  * we update its context descriptor to denote an SQL scenario.
  */
 #include "monetdb_config.h"
+#include "mal_backend.h"
 #include "sql_scenario.h"
 #include "sql_result.h"
 #include "sql_gencode.h"
@@ -69,9 +70,9 @@ MT_Lock sql_contextLock MT_LOCK_INITIALIZER("sql_contextLock");
 static void
 monet5_freestack(int clientid, backend_stack stk)
 {
-	MalStkPtr p = (ptr)stk;
+	MalStkPtr p = (ptr) stk;
 
-	(void)clientid;
+	(void) clientid;
 	if (p != NULL)
 		freeStack(p);
 #ifdef _SQL_SCENARIO_DEBUG
@@ -85,7 +86,7 @@ monet5_freecode(int clientid, backend_code code, backend_stack stk, int nr, char
 	(void) code;
 	(void) stk;
 	(void) nr;
-	(void)clientid;
+	(void) clientid;
 	SQLCacheRemove(MCgetClient(clientid), name);
 
 #ifdef _SQL_SCENARIO_DEBUG
@@ -96,10 +97,10 @@ monet5_freecode(int clientid, backend_code code, backend_stack stk, int nr, char
 str
 SQLsession(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str *ret = (str*) getArgReference(stk, pci, 0);
+	str *ret = (str *) getArgReference(stk, pci, 0);
 	str msg = MAL_SUCCEED;
 
-	(void)mb;
+	(void) mb;
 	if (SQLinitialized == 0 && (msg = SQLprelude()) != MAL_SUCCEED)
 		return msg;
 	msg = setScenario(cntxt, "sql");
@@ -110,10 +111,10 @@ SQLsession(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 SQLsession2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str *ret = (str*) getArgReference(stk, pci, 0);
+	str *ret = (str *) getArgReference(stk, pci, 0);
 	str msg = MAL_SUCCEED;
 
-	(void)mb;
+	(void) mb;
 	if (SQLinitialized == 0 && (msg = SQLprelude()) != MAL_SUCCEED)
 		return msg;
 	msg = setScenario(cntxt, "msql");
@@ -158,15 +159,15 @@ SQLprelude(void)
 	ms->engine = "MALengine";
 	tmp = SQLinit();
 	if (tmp != MAL_SUCCEED)
-		return(tmp);
+		return (tmp);
 	fprintf(stdout, "# MonetDB/SQL module loaded\n");
-	fflush(stdout); /* make merovingian see this *now* */
+	fflush(stdout);		/* make merovingian see this *now* */
 
 	/* only register availability of scenarios AFTER we are inited! */
 	s->name = "sql";
 	tmp = msab_marchScenario(s->name);
 	if (tmp != MAL_SUCCEED)
-		return(tmp);
+		return (tmp);
 	ms->name = "msql";
 	tmp = msab_marchScenario(ms->name);
 	return tmp;
@@ -178,9 +179,9 @@ SQLepilogue(void)
 	char *s = "sql", *m = "msql";
 	str res;
 
-	if( SQLinitialized){
+	if (SQLinitialized) {
 		mvc_exit();
-		SQLinitialized= FALSE;
+		SQLinitialized = FALSE;
 	}
 	/* this function is never called, but for the style of it, we clean
 	 * up our own mess */
@@ -196,9 +197,9 @@ static str
 SQLinit(void)
 {
 	char *debug_str = GDKgetenv("sql_debug");
-	int readonly  = GDKgetenv_isyes("gdk_readonly");
+	int readonly = GDKgetenv_isyes("gdk_readonly");
 	int single_user = GDKgetenv_isyes("gdk_single_user");
-	char *gmt = "GMT";
+	const char *gmt = "GMT";
 	tzone tz;
 
 #ifdef _SQL_SCENARIO_DEBUG
@@ -208,25 +209,25 @@ SQLinit(void)
 		return MAL_SUCCEED;
 
 #ifdef NEED_MT_LOCK_INIT
-	MT_lock_init( &sql_contextLock, "sql_contextLock");
+	MT_lock_init(&sql_contextLock, "sql_contextLock");
 #endif
 
 	MT_lock_set(&sql_contextLock, "SQL init");
-	memset((char*)&be_funcs, 0, sizeof(backend_functions));
-	be_funcs.fstack		= &monet5_freestack;
-	be_funcs.fcode		= &monet5_freecode;
-	be_funcs.fresolve_function	= &monet5_resolve_function;
+	memset((char *) &be_funcs, 0, sizeof(backend_functions));
+	be_funcs.fstack = &monet5_freestack;
+	be_funcs.fcode = &monet5_freecode;
+	be_funcs.fresolve_function = &monet5_resolve_function;
 	monet5_user_init(&be_funcs);
 
 	MTIMEtimezone(&tz, &gmt);
 	(void) tz;
 	if (debug_str)
-		SQLdebug = strtol(debug_str,NULL,10);
+		SQLdebug = strtol(debug_str, NULL, 10);
 	if (single_user)
 		SQLdebug |= 64;
 	if (readonly)
 		SQLdebug |= 32;
-	if ((SQLnewcatalog = mvc_init(FALSE, store_bat, readonly, single_user, 0)) < 0)
+	if ((SQLnewcatalog = mvc_init(SQLdebug, store_bat, readonly, single_user, 0)) < 0)
 		throw(SQL, "SQLinit", "Catalogue initialization failed");
 	SQLinitialized = TRUE;
 	MT_lock_unset(&sql_contextLock, "SQL init");
@@ -248,7 +249,7 @@ SQLexit(Client c)
 	mnstr_printf(GDKout, "#SQLexit\n");
 #endif
 	(void) c;		/* not used */
-	if( SQLinitialized == FALSE)
+	if (SQLinitialized == FALSE)
 		throw(SQL, "SQLexit", "Catalogue not available");
 	return MAL_SUCCEED;
 }
@@ -271,7 +272,7 @@ global_variables(mvc *sql, char *user, char *schema)
 	ValRecord src;
 	str opt;
 
- 	typename = "int";
+	typename = "int";
 	sql_find_subtype(&ctype, typename, 0, 0);
 	SQLglobal("debug", &sql->debug);
 	SQLglobal("cache", &sql->cache);
@@ -281,11 +282,13 @@ global_variables(mvc *sql, char *user, char *schema)
 	SQLglobal("current_schema", schema);
 	SQLglobal("current_user", user);
 	SQLglobal("current_role", user);
+
 	/* inherit the optimizer from the server */
-	opt = initSQLoptimizer();
+	opt = GDKgetenv("sql_optimizer");
+	if (!opt)
+		opt = "default_pipe";
 	SQLglobal("optimizer", opt);
-	GDKfree(opt);
-	SQLglobal("trace","show,ticks,stmt");
+	SQLglobal("trace", "show,ticks,stmt");
 
 	typename = "sec_interval";
 	sql_find_subtype(&ctype, typename, inttype2digits(ihour, isec), 0);
@@ -312,18 +315,18 @@ error(stream *out, char *str)
 	if (mnstr_errnr(out))
 		return -1;
 	while ((p = strchr(str, '\n')) != NULL) {
-		p++;        /* include newline */
-		if (*str != '!' && mnstr_write(out, "!", 1, 1) != 1)
+		p++;		/* include newline */
+		if (*str !='!' && mnstr_write(out, "!", 1, 1) != 1)
 			return -1;
 		if (mnstr_write(out, str, p - str, 1) != 1)
-			return -1;
+			 return -1;
 		str = p;
 	}
-	if (str && *str) {
-		if (*str != '!' && mnstr_write(out, "!", 1, 1) != 1)
+	if (str &&*str) {
+		if (*str !='!' && mnstr_write(out, "!", 1, 1) != 1)
 			return -1;
 		if (mnstr_write(out, str, strlen(str), 1) != 1 || mnstr_write(out, "\n", 1, 1) != 1)
-			return -1;
+			 return -1;
 	}
 	return 0;
 }
@@ -354,222 +357,58 @@ handle_error(mvc *m, stream *out, int pstatus)
 }
 
 static str
-sql_update_dec2011( Client c, mvc *m )
-{
-	node *nsch, *ntab, *ncol;
-	sql_trans *tr;
-	char *buf = GDKmalloc(1024), *err = NULL;
-	size_t bufsize = 1024, pos = 0;
-
-	buf[0] = 0;
- 	tr = m->session->tr;
-	for( nsch = tr->schemas.set->h; nsch; nsch= nsch->next) {
-		sql_schema *s = nsch->data;
-
-		if ( isalpha((int)s->base.name[0]) ) {
-			if (!s->tables.set)
-				continue;
-			for( ntab = (s)->tables.set->h ;ntab; ntab = ntab->next){
-				sql_table *t = ntab->data;
-
-				if (!isTable(t) || !t->columns.set)
-					continue;
-				for ( ncol = (t)->columns.set->h; ncol; ncol= ncol->next){
-					sql_column *c = (sql_column *) ncol->data;
-
-					if (c->type.type->eclass == EC_INTERVAL &&
-					    strcmp(c->type.type->sqlname, "sec_interval") == 0) {
-						while (bufsize < pos + 100 + strlen(s->base.name) + strlen(t->base.name) + 3*strlen(c->base.name))
-							buf = GDKrealloc(buf, bufsize += 1024);
-						pos += snprintf(buf+pos, bufsize-pos, "update \"%s\".\"%s\" set \"%s\"=1000*\"%s\" where \"%s\" is not null;\n",
-							s->base.name, t->base.name, c->base.name, c->base.name, c->base.name);
-					}
-				}
-			}
-		}
-	}
-	if (bufsize < pos + 400)
-		buf = GDKrealloc(buf, bufsize += 1024);
-	pos += snprintf(buf+pos, bufsize-pos, "create filter function sys.\"like\"(val string, pat string, esc string) external name pcre.like_filter;\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create filter function sys.\"ilike\"(val string, pat string, esc string) external name pcre.ilike_filter;\n");
-	pos += snprintf(buf + pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('ilike', 'like') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_FILT);
-	printf("Running database upgrade commands:\n%s\n", buf);
-	err = SQLstatementIntern(c, &buf, "update", 1, 0);
-	GDKfree(buf);
-	return err;		/* usually MAL_SUCCEED */
-}
-
-static str
-sql_update_apr2012(Client c)
-{
-	char *buf = GDKmalloc(2048), *err = NULL;
-	size_t bufsize = 2048, pos = 0;
-
-	/* sys.median and sys.corr functions */
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.median(val TINYINT) returns TINYINT external name \"aggr\".\"median\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.median(val SMALLINT) returns SMALLINT external name \"aggr\".\"median\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.median(val INTEGER) returns INTEGER external name \"aggr\".\"median\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.median(val BIGINT) returns BIGINT external name \"aggr\".\"median\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.median(val REAL) returns REAL external name \"aggr\".\"median\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.median(val DOUBLE) returns DOUBLE external name \"aggr\".\"median\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.corr(e1 TINYINT, e2 TINYINT) returns TINYINT external name \"aggr\".\"corr\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.corr(e1 SMALLINT, e2 SMALLINT) returns SMALLINT external name \"aggr\".\"corr\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.corr(e1 INTEGER, e2 INTEGER) returns INTEGER external name \"aggr\".\"corr\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.corr(e1 BIGINT, e2 BIGINT) returns BIGINT external name \"aggr\".\"corr\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.corr(e1 REAL, e2 REAL) returns REAL external name \"aggr\".\"corr\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.corr(e1 DOUBLE, e2 DOUBLE) returns DOUBLE external name \"aggr\".\"corr\";\n");
-
-	pos += snprintf(buf + pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('median', 'corr') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_AGGR);
-
-	assert(pos < 2048);
-
-	printf("Running database upgrade commands:\n%s\n", buf);
-	err = SQLstatementIntern(c, &buf, "update", 1, 0);
-	GDKfree(buf);
-	return err;		/* usually MAL_SUCCEED */
-}
-
-static str
-sql_update_apr2012_sp1(Client c)
-{
-	char *buf = GDKmalloc(2048), *err = NULL;
-	size_t bufsize = 2048, pos = 0;
-
-	/* changes in createdb/25_debug.sql */
-	pos += snprintf(buf+pos, bufsize-pos, "update sys.functions set type = %d, side_effect = false where type = %d and id not in (select func_id from sys.args where number = 0 and name = 'result');\n", F_PROC, F_FUNC);
-	pos += snprintf(buf+pos, bufsize-pos, "drop function sys.storage;\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create function sys.storage() returns table (\"schema\" string, \"table\" string, \"column\" string, location string, \"count\" bigint, capacity bigint, width int, size bigint, hashsize bigint, sorted boolean) external name sql.storage;\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create function sys.optimizers() returns table (name string, def string, status string) external name sql.optimizers;\n");
-	pos += snprintf(buf+pos, bufsize-pos, "drop procedure sys.ra;\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create procedure sys.evalAlgebra( ra_stmt string, opt bool) external name sql.\"evalAlgebra\";\n");
-
-	pos += snprintf(buf + pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('storage', 'optimizers') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_FUNC);
-	pos += snprintf(buf + pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('evalalgebra') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_PROC);
-
-	assert(pos < 2048);
-
-	printf("Running database upgrade commands:\n%s\n", buf);
-	err = SQLstatementIntern(c, &buf, "update", 1, 0);
-	GDKfree(buf);
-	return err;		/* usually MAL_SUCCEED */
-}
-
-static str
-sql_update_jul2012(Client c)
-{
-	char *buf = GDKmalloc(2048), *err = NULL;
-	size_t bufsize = 2048, pos = 0;
-
-	/* new function sys.alpha */
-	pos += snprintf(buf+pos, bufsize-pos, "create function sys.alpha(pdec double, pradius double) returns double external name sql.alpha;\n");
-
-	pos += snprintf(buf + pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name = 'alpha' and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_FUNC);
-
-	assert(pos < 2048);
-
-	printf("Running database upgrade commands:\n%s\n", buf);
-	err = SQLstatementIntern(c, &buf, "update", 1, 0);
-	GDKfree(buf);
-	return err;		/* usually MAL_SUCCEED */
-}
-
-static str
-sql_update_oct2012(Client c)
-{
-	char *buf = GDKmalloc(2048), *err = NULL;
-	size_t bufsize = 2048, pos = 0;
-
-	/* new function sys.alpha */
-	pos += snprintf(buf+pos, bufsize-pos, "drop function sys.zorder_slice;\n");
-
-	assert(pos < 2048);
-
-	printf("Running database upgrade commands:\n%s\n", buf);
-	err = SQLstatementIntern(c, &buf, "update", 1, 0);
-	GDKfree(buf);
-	return err;		/* usually MAL_SUCCEED */
-}
-
-static str
-sql_update_oct2012_sp1(Client c)
-{
-	char *buf = GDKmalloc(2048), *err = NULL;
-	size_t bufsize = 2048, pos = 0;
-
-	/* sys.stddev functions */
-	pos += snprintf(buf+pos, bufsize-pos, "drop aggregate sys.stddev(TINYINT);\n");
-	pos += snprintf(buf+pos, bufsize-pos, "drop aggregate sys.stddev(SMALLINT);\n");
-	pos += snprintf(buf+pos, bufsize-pos, "drop aggregate sys.stddev(INTEGER);\n");
-	pos += snprintf(buf+pos, bufsize-pos, "drop aggregate sys.stddev(BIGINT);\n");
-	pos += snprintf(buf+pos, bufsize-pos, "drop aggregate sys.stddev(REAL);\n");
-	pos += snprintf(buf+pos, bufsize-pos, "drop aggregate sys.stddev(DOUBLE);\n");
-
-	pos += snprintf(buf+pos, bufsize-pos, "drop aggregate sys.stddev(DATE);\n");
-	pos += snprintf(buf+pos, bufsize-pos, "drop aggregate sys.stddev(TIME);\n");
-	pos += snprintf(buf+pos, bufsize-pos, "drop aggregate sys.stddev(TIMESTAMP);\n");
-
-	pos += snprintf(buf + pos, bufsize-pos, "delete from sys.systemfunctions where function_id in (select f.id from sys.functions f, sys.schemas s where f.name = 'stddev' and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_AGGR);
-
-	assert(pos < 2048);
-
-	printf("Running database upgrade commands:\n%s\n", buf);
-	err = SQLstatementIntern(c, &buf, "update", 1, 0);
-	GDKfree(buf);
-	return err;		/* usually MAL_SUCCEED */
-}
-
-static str
 sql_update_feb2013(Client c)
 {
 	char *buf = GDKmalloc(4096), *err = NULL;
 	size_t bufsize = 4096, pos = 0;
 
 	/* sys.stddev_samp functions */
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_samp(val TINYINT) returns DOUBLE external name \"aggr\".\"stdev\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_samp(val SMALLINT) returns DOUBLE external name \"aggr\".\"stdev\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_samp(val INTEGER) returns DOUBLE external name \"aggr\".\"stdev\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_samp(val BIGINT) returns DOUBLE external name \"aggr\".\"stdev\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_samp(val REAL) returns DOUBLE external name \"aggr\".\"stdev\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_samp(val DOUBLE) returns DOUBLE external name \"aggr\".\"stdev\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_samp(val TINYINT) returns DOUBLE external name \"aggr\".\"stdev\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_samp(val SMALLINT) returns DOUBLE external name \"aggr\".\"stdev\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_samp(val INTEGER) returns DOUBLE external name \"aggr\".\"stdev\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_samp(val BIGINT) returns DOUBLE external name \"aggr\".\"stdev\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_samp(val REAL) returns DOUBLE external name \"aggr\".\"stdev\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_samp(val DOUBLE) returns DOUBLE external name \"aggr\".\"stdev\";\n");
 
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_samp(val DATE) returns DOUBLE external name \"aggr\".\"stdev\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_samp(val TIME) returns DOUBLE external name \"aggr\".\"stdev\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_samp(val TIMESTAMP) returns DOUBLE external name \"aggr\".\"stdev\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_samp(val DATE) returns DOUBLE external name \"aggr\".\"stdev\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_samp(val TIME) returns DOUBLE external name \"aggr\".\"stdev\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_samp(val TIMESTAMP) returns DOUBLE external name \"aggr\".\"stdev\";\n");
 
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_pop(val TINYINT) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_pop(val SMALLINT) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_pop(val INTEGER) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_pop(val BIGINT) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_pop(val REAL) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_pop(val DOUBLE) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_pop(val TINYINT) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_pop(val SMALLINT) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_pop(val INTEGER) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_pop(val BIGINT) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_pop(val REAL) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_pop(val DOUBLE) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
 
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_pop(val DATE) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_pop(val TIME) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_pop(val TIMESTAMP) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_pop(val DATE) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_pop(val TIME) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_pop(val TIMESTAMP) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
 
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_samp(val TINYINT) returns DOUBLE external name \"aggr\".\"variance\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_samp(val SMALLINT) returns DOUBLE external name \"aggr\".\"variance\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_samp(val INTEGER) returns DOUBLE external name \"aggr\".\"variance\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_samp(val BIGINT) returns DOUBLE external name \"aggr\".\"variance\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_samp(val REAL) returns DOUBLE external name \"aggr\".\"variance\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_samp(val DOUBLE) returns DOUBLE external name \"aggr\".\"variance\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_samp(val TINYINT) returns DOUBLE external name \"aggr\".\"variance\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_samp(val SMALLINT) returns DOUBLE external name \"aggr\".\"variance\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_samp(val INTEGER) returns DOUBLE external name \"aggr\".\"variance\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_samp(val BIGINT) returns DOUBLE external name \"aggr\".\"variance\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_samp(val REAL) returns DOUBLE external name \"aggr\".\"variance\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_samp(val DOUBLE) returns DOUBLE external name \"aggr\".\"variance\";\n");
 
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_samp(val DATE) returns DOUBLE external name \"aggr\".\"variance\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_samp(val TIME) returns DOUBLE external name \"aggr\".\"variance\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_samp(val TIMESTAMP) returns DOUBLE external name \"aggr\".\"variance\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_samp(val DATE) returns DOUBLE external name \"aggr\".\"variance\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_samp(val TIME) returns DOUBLE external name \"aggr\".\"variance\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_samp(val TIMESTAMP) returns DOUBLE external name \"aggr\".\"variance\";\n");
 
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_pop(val TINYINT) returns DOUBLE external name \"aggr\".\"variancep\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_pop(val SMALLINT) returns DOUBLE external name \"aggr\".\"variancep\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_pop(val INTEGER) returns DOUBLE external name \"aggr\".\"variancep\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_pop(val BIGINT) returns DOUBLE external name \"aggr\".\"variancep\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_pop(val REAL) returns DOUBLE external name \"aggr\".\"variancep\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_pop(val DOUBLE) returns DOUBLE external name \"aggr\".\"variancep\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_pop(val TINYINT) returns DOUBLE external name \"aggr\".\"variancep\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_pop(val SMALLINT) returns DOUBLE external name \"aggr\".\"variancep\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_pop(val INTEGER) returns DOUBLE external name \"aggr\".\"variancep\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_pop(val BIGINT) returns DOUBLE external name \"aggr\".\"variancep\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_pop(val REAL) returns DOUBLE external name \"aggr\".\"variancep\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_pop(val DOUBLE) returns DOUBLE external name \"aggr\".\"variancep\";\n");
 
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_pop(val DATE) returns DOUBLE external name \"aggr\".\"variancep\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_pop(val TIME) returns DOUBLE external name \"aggr\".\"variancep\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_pop(val TIMESTAMP) returns DOUBLE external name \"aggr\".\"variancep\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_pop(val DATE) returns DOUBLE external name \"aggr\".\"variancep\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_pop(val TIME) returns DOUBLE external name \"aggr\".\"variancep\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_pop(val TIMESTAMP) returns DOUBLE external name \"aggr\".\"variancep\";\n");
 
-	pos += snprintf(buf + pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('stddev_samp', 'stddev_pop', 'var_samp', 'var_pop') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_AGGR);
+	pos += snprintf(buf + pos, bufsize - pos,
+			"insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('stddev_samp', 'stddev_pop', 'var_samp', 'var_pop') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_AGGR);
 
 	assert(pos < 4096);
 
@@ -585,30 +424,139 @@ sql_update_feb2013_sp1(Client c)
 {
 	size_t bufsize = 10240, pos = 0;
 	char *buf = GDKmalloc(bufsize), *err = NULL;
-	char *fullname;
-	FILE *fp = NULL;
-
-	snprintf(buf, bufsize, "createdb%c75_storagemodel", DIR_SEP);
- 	if ((fullname = MSP_locate_sqlscript(buf, 1)) != NULL) {
-		fp = fopen(fullname, "r");
-		GDKfree(fullname);
-	}
 
 	/* sys.stddev functions */
-	pos += snprintf(buf+pos, bufsize-pos, "drop filter function sys.\"like\"(string, string, string);\n");
-	pos += snprintf(buf+pos, bufsize-pos, "drop filter function sys.\"ilike\"(string, string, string);\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create filter function sys.\"like\"(val string, pat string, esc string) external name algebra.likesubselect;\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create filter function sys.\"ilike\"(val string, pat string, esc string) external name algebra.ilikesubselect;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop filter function sys.\"like\"(string, string, string);\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop filter function sys.\"ilike\"(string, string, string);\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create filter function sys.\"like\"(val string, pat string, esc string) external name algebra.likesubselect;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create filter function sys.\"ilike\"(val string, pat string, esc string) external name algebra.ilikesubselect;\n");
 
-	pos += snprintf(buf+pos, bufsize-pos, "drop function sys.storage;\n");
-	if (fp) {
-		pos += fread(buf+pos, 1, bufsize-pos, fp);
-		fclose(fp);
-	}
+	pos += snprintf(buf + pos, bufsize - pos, "drop function sys.storage;\n");
 
-	pos += snprintf(buf + pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('like', 'ilike') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_FILT);
-	pos += snprintf(buf + pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('storage', 'columnsize', 'heapsize', 'indexsize', 'storagemodel') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_FUNC);
-	pos += snprintf(buf + pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name = 'storagemodelinit' and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_PROC);
+	/* 75_storagemodel.sql */
+	pos += snprintf(buf + pos, bufsize - pos, "\
+create function sys.storage()\n\
+returns table (\"schema\" string, \"table\" string, \"column\" string, \"type\" string, location string, \"count\" bigint, typewidth int, columnsize bigint, heapsize bigint, indices bigint, sorted boolean)\n\
+external name sql.storage;\n\
+\n\
+create table sys.storagemodelinput(\n\
+	\"schema\" string,\n\
+	\"table\" string,\n\
+	\"column\" string,\n\
+	\"type\" string,\n\
+	\"typewidth\" int,\n\
+	\"count\"	bigint,\n\
+	\"distinct\" bigint,\n\
+	\"atomwidth\" int,\n\
+	\"reference\" boolean,\n\
+	\"sorted\" boolean\n\
+);\n\
+update sys._tables\n\
+	set system = true\n\
+	where name = 'storagemodelinput'\n\
+		and schema_id = (select id from sys.schemas where name = 'sys');\n\
+\n\
+create procedure sys.storagemodelinit()\n\
+begin\n\
+	delete from sys.storagemodelinput;\n\
+	insert into sys.storagemodelinput\n\
+	select X.\"schema\", X.\"table\", X.\"column\", X.\"type\", X.typewidth, X.count, 0, X.typewidth, false, X.sorted from sys.storage() X;\n\
+	update sys.storagemodelinput\n\
+	set reference = true\n\
+	where concat(concat(\"schema\",\"table\"), \"column\") in (\n\
+		SELECT concat( concat(\"fkschema\".\"name\", \"fktable\".\"name\"), \"fkkeycol\".\"name\" )\n\
+		FROM	\"sys\".\"keys\" AS    \"fkkey\",\n\
+				\"sys\".\"objects\" AS \"fkkeycol\",\n\
+				\"sys\".\"tables\" AS  \"fktable\",\n\
+				\"sys\".\"schemas\" AS \"fkschema\"\n\
+		WHERE   \"fktable\".\"id\" = \"fkkey\".\"table_id\"\n\
+			AND \"fkkey\".\"id\" = \"fkkeycol\".\"id\"\n\
+			AND \"fkschema\".\"id\" = \"fktable\".\"schema_id\"\n\
+			AND \"fkkey\".\"rkey\" > -1);\n\
+	update sys.storagemodelinput\n\
+	set \"distinct\" = \"count\"\n\
+	where \"type\" = 'varchar' or \"type\"='clob';\n\
+end;\n\
+\n\
+create function sys.columnsize(nme string, i bigint, d bigint)\n\
+returns bigint\n\
+begin\n\
+	case\n\
+	when nme = 'boolean' then return i;\n\
+	when nme = 'char' then return 2*i;\n\
+	when nme = 'smallint' then return 2 * i;\n\
+	when nme = 'int'	 then return 4 * i;\n\
+	when nme = 'bigint'	 then return 8 * i;\n\
+	when nme = 'timestamp' then return 8 * i;\n\
+	when  nme = 'varchar' then\n\
+		case\n\
+		when cast(d as bigint) << 8 then return i;\n\
+		when cast(d as bigint) << 16 then return 2 * i;\n\
+		when cast(d as bigint) << 32 then return 4 * i;\n\
+		else return 8 * i;\n\
+		end case;\n\
+	else return 8 * i;\n\
+	end case;\n\
+end;\n\
+\n\
+create function sys.heapsize(tpe string, i bigint, w int)\n\
+returns bigint\n\
+begin\n\
+	if  tpe <> 'varchar' and tpe <> 'clob'\n\
+	then\n\
+		return 0;\n\
+	end if;\n\
+	return 10240 + i * w;\n\
+end;\n\
+\n\
+create function sys.indexsize(b boolean, i bigint)\n\
+returns bigint\n\
+begin\n\
+\n\
+	if  b = true\n\
+	then\n\
+		return 8 * i;\n\
+	end if;\n\
+	return 0;\n\
+end;\n\
+\n\
+create function sys.storagemodel()\n\
+returns table (\n\
+	\"schema\" string,\n\
+	\"table\" string,\n\
+	\"column\" string,\n\
+	\"type\" string,\n\
+	\"count\"	bigint,\n\
+	columnsize bigint,\n\
+	heapsize bigint,\n\
+	indices bigint,\n\
+	sorted boolean)\n\
+begin\n\
+	return select I.\"schema\", I.\"table\", I.\"column\", I.\"type\", I.\"count\",\n\
+	columnsize(I.\"type\", I.count, I.\"distinct\"),\n\
+	heapsize(I.\"type\", I.\"distinct\", I.\"atomwidth\"),\n\
+	indexsize(I.\"reference\", I.\"count\"),\n\
+	I.sorted\n\
+	from sys.storagemodelinput I;\n\
+end;\n\
+\n\
+create view sys.tablestoragemodel\n\
+as select \"schema\",\"table\",max(count) as \"count\",\n\
+	sum(columnsize) as columnsize,\n\
+	sum(heapsize) as heapsize,\n\
+	sum(indices) as indices,\n\
+	sum(case when sorted = false then 8 * count else 0 end) as auxillary\n\
+from sys.storagemodel() group by \"schema\",\"table\";\n\
+update sys._tables\n\
+	set system = true\n\
+	where name = 'tablestoragemodel'\n\
+		and schema_id = (select id from sys.schemas where name = 'sys');\n");
+
+	pos += snprintf(buf + pos, bufsize - pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('like', 'ilike') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_FILT);
+	pos += snprintf(buf + pos, bufsize - pos,
+			"insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('storage', 'columnsize', 'heapsize', 'indexsize', 'storagemodel') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n",
+			F_FUNC);
+	pos += snprintf(buf + pos, bufsize - pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name = 'storagemodelinit' and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_PROC);
 
 	assert(pos < bufsize);
 
@@ -625,14 +573,16 @@ sql_update_feb2013_sp3(Client c)
 	size_t bufsize = 4096, pos = 0;
 
 	/* aggregates on type WRD */
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_samp(val WRD) returns DOUBLE external name \"aggr\".\"stdev\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.stddev_pop(val WRD) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_samp(val WRD) returns DOUBLE external name \"aggr\".\"variance\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.var_pop(val WRD) returns DOUBLE external name \"aggr\".\"variancep\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.median(val WRD) returns WRD external name \"aggr\".\"median\";\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create aggregate sys.corr(e1 WRD, e2 WRD) returns WRD external name \"aggr\".\"corr\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_samp(val WRD) returns DOUBLE external name \"aggr\".\"stdev\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_pop(val WRD) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_samp(val WRD) returns DOUBLE external name \"aggr\".\"variance\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_pop(val WRD) returns DOUBLE external name \"aggr\".\"variancep\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.median(val WRD) returns WRD external name \"aggr\".\"median\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.corr(e1 WRD, e2 WRD) returns WRD external name \"aggr\".\"corr\";\n");
 
-	pos += snprintf(buf + pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('stddev_samp', 'stddev_pop', 'var_samp', 'var_pop', 'median', 'corr') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_AGGR);
+	pos += snprintf(buf + pos, bufsize - pos,
+			"insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('stddev_samp', 'stddev_pop', 'var_samp', 'var_pop', 'median', 'corr') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n",
+			F_AGGR);
 
 	assert(pos < 4096);
 
@@ -642,85 +592,333 @@ sql_update_feb2013_sp3(Client c)
 	return err;		/* usually MAL_SUCCEED */
 }
 
+/*
+ * TODO
+ * 	rewrite agrs table, ie add vararg and inout columns
+ * 	update all table functions, ie make them type F_UNION
+ *	update columns view, ie change storage_type-int into storage - varchar
+ *	remove table return types (#..), ie tt_generated from _tables
+ *	drop declared schema.
+ */
 static str
-sql_update_oct2013(Client c)
+sql_update_jan2014(Client c)
 {
-	char *buf = GDKmalloc(10240), *err = NULL;
-	size_t bufsize = 10240, pos = 0;
-	char *fullname;
-	FILE *fp1 = NULL, *fp2 = NULL, *fp3 = NULL;
+	size_t bufsize = 25000, pos = 0;
+	char *buf = GDKmalloc(bufsize), *err = NULL;
 	ValRecord *schvar = stack_get_var(((backend *) c->sqlcontext)->mvc, "current_schema");
 	char *schema = NULL;
 
 	if (schvar)
 		schema = strdup(schvar->val.sval);
 
-	snprintf(buf, bufsize, "createdb%c15_querylog", DIR_SEP);
- 	if ((fullname = MSP_locate_sqlscript(buf, 1)) != NULL) {
-		fp1 = fopen(fullname, "r");
-		GDKfree(fullname);
-	}
-	snprintf(buf, bufsize, "createdb%c26_sysmon", DIR_SEP);
- 	if ((fullname = MSP_locate_sqlscript(buf, 1)) != NULL) {
-		fp2 = fopen(fullname, "r");
-		GDKfree(fullname);
-	}
-	snprintf(buf, bufsize, "createdb%c40_json", DIR_SEP);
- 	if ((fullname = MSP_locate_sqlscript(buf, 1)) != NULL) {
-		fp3 = fopen(fullname, "r");
-		GDKfree(fullname);
-	}
-
-	pos += snprintf(buf+pos, bufsize-pos, "set schema \"sys\";\n");
-
-	/* new entry in 16_tracelog.sql */
-	pos += snprintf(buf+pos, bufsize-pos, "create view sys.tracelog as select * from sys.tracelog();\n");
-
-	/* deleted entry from 22_clients.sql */
-	pos += snprintf(buf+pos, bufsize-pos, "drop function sys.clients;\n");
-
-	/* added entry in 25_debug.sql */
-	pos += snprintf(buf+pos, bufsize-pos, "create view sys.optimizers as select * from sys.optimizers();\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create view sys.environment as select * from sys.environment();\n");
-
-	/* added entry in 75_storagemodel.sql */
-	pos += snprintf(buf+pos, bufsize-pos, "create view sys.storage as select * from sys.storage();\n");
-	pos += snprintf(buf+pos, bufsize-pos, "create view sys.storagemodel as select * from sys.storagemodel();\n");
+	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
 
 	/* replaced 15_history.sql by 15_querylog.sql */
-	pos += snprintf(buf+pos, bufsize-pos, "drop procedure sys.resetHistory;\n");
-	pos += snprintf(buf+pos, bufsize-pos, "drop procedure sys.keepCall;\n");
-	pos += snprintf(buf+pos, bufsize-pos, "drop procedure sys.keepQuery;\n");
-	pos += snprintf(buf+pos, bufsize-pos, "drop view sys.queryLog;\n");
-	pos += snprintf(buf+pos, bufsize-pos, "drop table sys.callHistory;\n");
-	pos += snprintf(buf+pos, bufsize-pos, "drop table sys.queryHistory;\n");
-	if (fp1) {
-		pos += fread(buf+pos, 1, bufsize-pos, fp1);
-		fclose(fp1);
+	pos += snprintf(buf + pos, bufsize - pos, "drop procedure sys.resetHistory;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop procedure sys.keepCall;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop procedure sys.keepQuery;\n");
+	{
+		char *msg;
+		mvc *sql = NULL;
+
+		if ((msg = getSQLContext(c, c->curprg->def, &sql, NULL)) != MAL_SUCCEED) {
+			GDKfree(msg);
+		} else {
+			sql_schema *s;
+
+			if ((s = mvc_bind_schema(sql, "sys")) != NULL) {
+				sql_table *t;
+
+				if ((t = mvc_bind_table(sql, s, "querylog")) != NULL)
+					t->system = 0;
+				if ((t = mvc_bind_table(sql, s, "callhistory")) != NULL)
+					t->system = 0;
+				if ((t = mvc_bind_table(sql, s, "queryhistory")) != NULL)
+					t->system = 0;
+			}
+		}
 	}
+	pos += snprintf(buf + pos, bufsize - pos, "update sys._tables set system = false where name in ('callhistory','queryhistory','querylog') and schema_id = (select id from sys.schemas where name = 'sys');\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop view sys.queryLog;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop table sys.callHistory;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop table sys.queryHistory;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "\
+create function sys.querylog_catalog()\n\
+returns table(\n\
+	id oid,\n\
+	owner string,\n\
+	defined timestamp,\n\
+	query string,\n\
+	pipe string,\n\
+	mal int,			-- size of MAL plan\n\
+	optimize bigint 	-- time in usec\n\
+)\n\
+external name sql.querylog_catalog;\n\
+\n\
+create function sys.querylog_calls()\n\
+returns table(\n\
+	id oid,				 -- references query plan\n\
+	\"start\" timestamp,	-- time the statement was started\n\
+	\"stop\" timestamp,	-- time the statement was completely finished\n\
+	arguments string,	-- actual call structure\n\
+	tuples wrd,			-- number of tuples in the result set\n\
+	run bigint,		-- time spent (in usec)  until the result export\n\
+	ship bigint,		-- time spent (in usec)  to ship the result set\n\
+	cpu int,  		-- average cpu load percentage during execution\n\
+	io int,			-- percentage time waiting for IO to finish \n\
+	space bigint		-- total storage size of intermediates created (in MB)\n\
+)\n\
+external name sql.querylog_calls;\n\
+\n\
+create view sys.querylog_catalog as select * from sys.querylog_catalog();\n\
+create view sys.querylog_calls as select * from sys.querylog_calls();\n\
+create view sys.querylog_history as\n\
+select qd.*, ql.\"start\",ql.\"stop\", ql.arguments, ql.tuples, ql.run, ql.ship, ql.cpu, ql.space, ql.io \n\
+from sys.querylog_catalog() qd, sys.querylog_calls() ql\n\
+where qd.id = ql.id and qd.owner = user;\n\
+\n\
+update sys._tables\n\
+    set system = true\n\
+    where name in ('querylog_history', 'querylog_calls', 'querylog_catalog')\n\
+        and schema_id = (select id from sys.schemas where name = 'sys');\n\
+\n\
+create procedure sys.querylog_empty()\n\
+external name sql.querylog_empty;\n\
+\n\
+create procedure sys.querylog_enable()\n\
+external name sql.querylog_enable;\n\
+create procedure sys.querylog_enable(threshold smallint)\n\
+external name sql.querylog_enable_threshold;\n\
+create procedure sys.querylog_disable()\n\
+external name sql.querylog_disable;\n");
+
+	/* new entry in 16_tracelog.sql */
+	pos += snprintf(buf + pos, bufsize - pos, "create view sys.tracelog as select * from sys.tracelog();\n");
+
+	/* deleted entry from and new entries in 22_clients.sql */
+	pos += snprintf(buf + pos, bufsize - pos, "drop function sys.clients;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create function sys.sessions() returns table(\"user\" string, \"login\" timestamp, \"sessiontimeout\" bigint, \"lastcommand\" timestamp, \"querytimeout\" bigint, \"active\" bool) external name sql.sessions;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create view sys.sessions as select * from sys.sessions();\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create procedure sys.shutdown(delay tinyint) external name sql.shutdown;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create procedure sys.shutdown(delay tinyint, force bool) external name sql.shutdown;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create procedure sys.settimeout(\"query\" bigint) external name sql.settimeout;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create procedure sys.settimeout(\"query\" bigint, \"session\" bigint) external name sql.settimeout;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create procedure sys.setsession(\"timeout\" bigint) external name sql.setsession;\n");
+
+	/* added entry in 25_debug.sql */
+	pos += snprintf(buf + pos, bufsize - pos, "create view sys.optimizers as select * from sys.optimizers();\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create view sys.environment as select * from sys.environment();\n");
 
 	/* new file 26_sysmon.sql */
-	if (fp2) {
-		pos += fread(buf+pos, 1, bufsize-pos, fp2);
-		fclose(fp2);
-	}
+	pos += snprintf(buf + pos, bufsize - pos, "\
+create function sys.queue()\n\
+returns table(\n\
+	qtag bigint,\n\
+	\"user\" string,\n\
+	started timestamp,\n\
+	estimate timestamp,\n\
+	progress int,\n\
+	status string,\n\
+	tag oid,\n\
+	query string\n\
+)\n\
+external name sql.sysmon_queue;\n\
+\n\
+create view sys.queue as select * from sys.queue();\n\
+update sys._tables\n\
+    set system = true\n\
+    where name = 'queue'\n\
+        and schema_id = (select id from sys.schemas where name = 'sys');\n\
+\n\
+create procedure sys.pause(tag int)\n\
+external name sql.sysmon_pause;\n\
+create procedure sys.resume(tag int)\n\
+external name sql.sysmon_resume;\n\
+create procedure sys.stop(tag int)\n\
+external name sql.sysmon_stop;\n\
+\n\
+create procedure sys.pause(tag bigint)\n\
+external name sql.sysmon_pause;\n\
+create procedure sys.resume(tag bigint)\n\
+external name sql.sysmon_resume;\n\
+create procedure sys.stop(tag bigint)\n\
+external name sql.sysmon_stop;\n");
 
-	/* new file 40_json.sql */
-	if (fp3) {
-		pos += fread(buf+pos, 1, bufsize-pos, fp3);
-		fclose(fp3);
-	}
+	/* new entries in 39_analytics.sql for quantiles and one
+	 * previously missing median */
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val TINYINT, q DOUBLE) returns TINYINT external name \"aggr\".\"quantile\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val SMALLINT, q DOUBLE) returns SMALLINT external name \"aggr\".\"quantile\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val INTEGER, q DOUBLE) returns INTEGER external name \"aggr\".\"quantile\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val WRD, q DOUBLE) returns WRD external name \"aggr\".\"quantile\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val BIGINT, q DOUBLE) returns BIGINT external name \"aggr\".\"quantile\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val DECIMAL, q DOUBLE) returns DECIMAL external name \"aggr\".\"quantile\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val REAL, q DOUBLE) returns REAL external name \"aggr\".\"quantile\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val DOUBLE, q DOUBLE) returns DOUBLE external name \"aggr\".\"quantile\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val DATE, q DOUBLE) returns DATE external name \"aggr\".\"quantile\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val TIME, q DOUBLE) returns TIME external name \"aggr\".\"quantile\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val TIMESTAMP, q DOUBLE) returns TIMESTAMP external name \"aggr\".\"quantile\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate median(val DECIMAL) returns DECIMAL external name \"aggr\".\"median\";\n");
 
-	pos += snprintf(buf+pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('querylog_catalog', 'querylog_calls', 'queue', 'json_filter', 'json_filter_all', 'json_path', 'json_text', 'json_isvalid', 'json_isvalidobject', 'json_isvalidarray', 'json_length') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_FUNC);
-	pos += snprintf(buf+pos, bufsize-pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('querylog_empty', 'querylog_enable', 'querylog_disable', 'pause', 'resume', 'sysmon_resume', 'stop') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_PROC);
-	pos += snprintf(buf+pos, bufsize-pos, "update sys._tables set system = true where name in ('tracelog', 'optimizers', 'environment', 'storage', 'storagemodel') and schema_id = (select id from sys.schemas where name = 'sys');\n");
+	/* added entry in 75_storagemodel.sql */
+	pos += snprintf(buf + pos, bufsize - pos, "create view sys.storage as select * from sys.storage();\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create view sys.storagemodel as select * from sys.storagemodel();\n");
+
+	/* new file 80_statistics.sql */
+	pos += snprintf(buf + pos, bufsize - pos, "\
+CREATE TABLE sys.statistics(\n\
+	\"schema\" string,\n\
+	\"table\" string,\n\
+	\"column\" string,\n\
+	\"type\" string,\n\
+	width integer,\n\
+	stamp timestamp,\n\
+	\"sample\" bigint,\n\
+	\"count\" bigint,\n\
+	\"unique\" bigint,\n\
+	\"nils\" bigint,\n\
+	minval string,\n\
+	maxval string,\n\
+	sorted boolean);\n\
+\n\
+update sys._tables\n\
+	set system = true\n\
+	where name = 'statistics'\n\
+		and schema_id = (select id from sys.schemas where name = 'sys');\n\
+\n\
+create procedure analyze()\n\
+external name sql.analyze;\n\
+\n\
+create procedure analyze(tbl string)\n\
+external name sql.analyze;\n\
+\n\
+create procedure analyze(sch string, tbl string)\n\
+external name sql.analyze;\n\
+\n\
+create procedure analyze(sch string, tbl string, col string)\n\
+external name sql.analyze;\n\
+\n\
+create procedure analyze(\"sample\" bigint)\n\
+external name sql.analyze;\n\
+\n\
+create procedure analyze(tbl string, \"sample\" bigint)\n\
+external name sql.analyze;\n\
+\n\
+create procedure analyze(sch string, tbl string, \"sample\" bigint)\n\
+external name sql.analyze;\n\
+\n\
+create procedure analyze(sch string, tbl string, col string, \"sample\" bigint)\n\
+external name sql.analyze;\n");
+
+	pos += snprintf(buf + pos, bufsize - pos,
+			"insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('json_filter', 'json_filter_all', 'json_isvalid', 'json_isvalidarray', 'json_isvalidobject', 'json_length', 'json_path', 'json_text', 'querylog_calls', 'querylog_catalog', 'queue', 'sessions') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n",
+			F_FUNC);
+	pos += snprintf(buf + pos, bufsize - pos,
+			"insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('analyze', 'pause', 'querylog_disable', 'querylog_empty', 'querylog_enable', 'resume', 'setsession', 'settimeout', 'shutdown', 'stop', 'sysmon_resume') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n",
+			F_PROC);
+	pos += snprintf(buf + pos, bufsize - pos, "insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('quantile', 'median') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n", F_AGGR);
+
+	pos += snprintf(buf + pos, bufsize - pos, "update sys._tables set system = true where name in ('environment', 'optimizers', 'queue', 'sessions', 'statistics', 'storage', 'storagemodel', 'tracelog') and schema_id = (select id from sys.schemas where name = 'sys');\n");
+
+	/* 17_compress script has been removed */
+	pos += snprintf(buf + pos, bufsize - pos, "drop procedure gzcompress;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop procedure gzcdeompress;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop procedure gzctruncate;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop procedure gzcexpand;\n");
 
 	if (schema) {
-		pos += snprintf(buf+pos, bufsize-pos, "set schema \"%s\";\n", schema);
+		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
 		free(schema);
 	}
 
-	assert(pos < 10240);
+	assert(pos < bufsize);
+
+	printf("Running database upgrade commands:\n%s\n", buf);
+	err = SQLstatementIntern(c, &buf, "update", 1, 0);
+	GDKfree(buf);
+	return err;		/* usually MAL_SUCCEED */
+}
+
+static str
+sql_update_default(Client c)
+{
+	size_t bufsize = 8192, pos = 0;
+	char *buf = GDKmalloc(bufsize), *err = NULL;
+	ValRecord *schvar = stack_get_var(((backend *) c->sqlcontext)->mvc, "current_schema");
+	char *schema = NULL;
+	char *fullname;
+	FILE *fp;
+
+	if (schvar)
+		schema = strdup(schvar->val.sval);
+
+	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
+
+	/* change in 25_debug.sql */
+	pos += snprintf(buf + pos, bufsize - pos, "drop function sys.bbp;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create function sys.bbp() returns table (id int, name string, htype string, ttype string, count BIGINT, refcnt int, lrefcnt int, location string, heat int, dirty string, status string, kind string) external name bbp.get;\n");
+
+	/* new file 40_json.sql */
+	snprintf(buf + pos, bufsize - pos, "createdb%c40_json", DIR_SEP);
+	if ((fullname = MSP_locate_sqlscript(buf + pos, 1)) != NULL) {
+		if ((fp = fopen(fullname, "r")) != NULL) {
+			pos += fread(buf + pos, 1, bufsize - pos, fp);
+			fclose(fp);
+		}
+		GDKfree(fullname);
+	}
+
+	/* new file 41_jsonstore.sql */
+	pos += snprintf(buf + pos, bufsize - pos, "create function sys.md5(v string) returns string external name clients.md5sum;\n");
+
+	/* new file 45_uuid.sql */
+	pos += snprintf(buf + pos, bufsize - pos, "create type uuid external name uuid;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create function sys.uuid() returns uuid external name uuid.\"new\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create function sys.isaUUID(u uuid) returns uuid external name uuid.\"isaUUID\";\n");
+
+	pos += snprintf(buf + pos, bufsize - pos,
+			"insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('isauuid', 'md5', 'uuid') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n",
+			F_FUNC);
+
+	if (schema) {
+		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
+		free(schema);
+	}
+
+	/* change to 75_storage functions */
+	pos += snprintf(buf + pos, bufsize - pos, "update sys._tables set system = false where name in ('storage','storagemodel','tablestoragemodel') and schema_id = (select id from sys.schemas where name = 'sys');\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop view sys.storage;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop function sys.storage();\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop view sys.storagemodel;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop view sys.tablestoragemodel;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop function sys.storagemodel();\n");
+
+	pos += snprintf(buf + pos, bufsize - pos, "create function sys.storage() returns table (\"schema\" string, \"table\" string, \"column\" string, \"type\" string, location string, \"count\" bigint, typewidth int, columnsize bigint, heapsize bigint, hashes bigint, imprints bigint, sorted boolean) external name sql.storage;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create view sys.storage as select * from sys.storage();\n");
+
+	pos += snprintf(buf + pos, bufsize - pos, "create function sys.storagemodel() returns table ("
+"    \"schema\" string, \"table\" string, \"column\" string, \"type\" string, \"count\" bigint,"
+"    columnsize bigint, heapsize bigint, hashes bigint, imprints bigint, sorted boolean)"
+"	begin return select I.\"schema\", I.\"table\", I.\"column\", I.\"type\", I.\"count\","
+"		columnsize(I.\"type\", I.count, I.\"distinct\"),"
+"		heapsize(I.\"type\", I.\"distinct\", I.\"atomwidth\"),"
+"		hashsize(I.\"reference\", I.\"count\"),"
+"		imprintsize(I.\"count\",I.\"type\"),"
+"		I.sorted"
+"		from sys.storagemodelinput I;"
+"	end;\n");
+	pos += snprintf(buf + pos, bufsize - pos, 
+"create view sys.tablestoragemodel"
+" as select \"schema\",\"table\",max(count) as \"count\","
+"    sum(columnsize) as columnsize,"
+"    sum(heapsize) as heapsize,"
+"    sum(hashes) as hashes,"
+"    sum(imprints) as imprints,"
+"    sum(case when sorted = false then 8 * count else 0 end) as auxillary"
+"from sys.storagemodel() group by \"schema\",\"table\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create view sys.storagemodel as select * from sys.storagemodel();\n");
+	pos += snprintf(buf + pos, bufsize - pos, "update sys._tables set system = true where name in ('storage','storagemodel','tablestoragemodel') and schema_id = (select id from sys.schemas where name = 'sys');\n");
+
+	assert(pos < bufsize);
 
 	printf("Running database upgrade commands:\n%s\n", buf);
 	err = SQLstatementIntern(c, &buf, "update", 1, 0);
@@ -748,8 +946,8 @@ SQLinitClient(Client c)
 	 * string with all information needed to initialize the catalog
 	 * based on the mandatory scripts to be executed.
 	 */
-	if (sqlinit) { /* add sqlinit to the fdin stack */
-		buffer *b = (buffer*)GDKmalloc(sizeof(buffer));
+	if (sqlinit) {		/* add sqlinit to the fdin stack */
+		buffer *b = (buffer *) GDKmalloc(sizeof(buffer));
 		size_t len = strlen(sqlinit);
 		bstream *fdin;
 
@@ -761,7 +959,7 @@ SQLinitClient(Client c)
 	if (c->sqlcontext == 0) {
 		m = mvc_create(c->idx, 0, SQLdebug, c->fdin, c->fdout);
 		global_variables(m, "monetdb", "sys");
-		if (isAdministrator(c) || strcmp(c->scenario, "msql") == 0)  /* console should return everything */
+		if (isAdministrator(c) || strcmp(c->scenario, "msql") == 0)	/* console should return everything */
 			m->reply_size = -1;
 		be = (void *) backend_create(m, c);
 	} else {
@@ -840,103 +1038,53 @@ SQLinitClient(Client c)
 			GDKfree(fullname);
 		} else
 			fprintf(stderr, "!could not read createdb.sql\n");
-	} else { /* handle upgrades */
+	} else {		/* handle upgrades */
 		sql_subtype tp;
 		char *err;
 
 		if (!m->sa)
 			m->sa = sa_create();
-		/* if filter function sys.like(str,str,str) does not
-		 * exist, we need to update */
-        	sql_find_subtype(&tp, "clob", 0, 0);
-		if (!sql_bind_func3(m->sa, mvc_bind_schema(m,"sys"), "like", &tp, &tp, &tp, F_FILT )) {
-			if ((err = sql_update_dec2011(c, m)) != NULL) {
-				fprintf(stderr, "!%s\n", err);
-				GDKfree(err);
-			}
-		}
-		/* if aggregate function sys.median(int) does not
-		 * exist, we need to update */
-        	sql_find_subtype(&tp, "int", 0, 0);
-		if (!sql_bind_func(m->sa, mvc_bind_schema(m,"sys"), "median", &tp, NULL, F_AGGR )) {
-			if ((err = sql_update_apr2012(c)) != NULL) {
-				fprintf(stderr, "!%s\n", err);
-				GDKfree(err);
-			}
-		}
-		/* if function sys.optimizers() does not exist, we
-		 * need to update */
-		if (!sql_bind_func(m->sa, mvc_bind_schema(m,"sys"), "optimizers", NULL, NULL, F_FUNC )) {
-			if ((err = sql_update_apr2012_sp1(c)) != NULL) {
-				fprintf(stderr, "!%s\n", err);
-				GDKfree(err);
-			}
-		}
-		/* if function sys.alpa(double) does not
-		 * exist, we need to update */
-        	sql_find_subtype(&tp, "double", 0, 0);
-		if (!sql_bind_func(m->sa, mvc_bind_schema(m,"sys"), "alpha", &tp, &tp, F_FUNC )) {
-			if ((err = sql_update_jul2012(c)) != NULL) {
-				fprintf(stderr, "!%s\n", err);
-				GDKfree(err);
-			}
-		}
-		/* if function sys.zorder_slice() does exist, we need
-		 * to update */
-		{
-			list *l = sa_list(m->sa);
-			sql_find_subtype(&tp, "int", 0, 0);
-			list_append(l, &tp);
-			list_append(l, &tp);
-			list_append(l, &tp);
-			list_append(l, &tp);
-			if (sql_bind_func_(m->sa, mvc_bind_schema(m,"sys"),
-					   "zorder_slice", l, F_FUNC )) {
-				if ((err = sql_update_oct2012(c)) != NULL) {
-					fprintf(stderr, "!%s\n", err);
-					GDKfree(err);
-				}
-			}
-		}
-		/* if aggregate function sys.stddev(int) does
-		 * exist, we need to update */
-        	sql_find_subtype(&tp, "int", 0, 0);
-		if (sql_bind_func(m->sa, mvc_bind_schema(m,"sys"), "stddev", &tp, NULL, F_AGGR )) {
-			if ((err = sql_update_oct2012_sp1(c)) != NULL) {
-				fprintf(stderr, "!%s\n", err);
-				GDKfree(err);
-			}
-		}
 		/* if aggregate function sys.stddev_samp(int) does not
 		 * exist, we need to update */
-        	sql_find_subtype(&tp, "int", 0, 0);
-		if (!sql_bind_func(m->sa, mvc_bind_schema(m,"sys"), "stddev_samp", &tp, NULL, F_AGGR )) {
-			if ((err = sql_update_feb2013(c)) != NULL) {
+		sql_find_subtype(&tp, "int", 0, 0);
+		if (!sql_bind_func(m->sa, mvc_bind_schema(m, "sys"), "stddev_samp", &tp, NULL, F_AGGR)) {
+			if ((err = sql_update_feb2013(c)) !=NULL) {
 				fprintf(stderr, "!%s\n", err);
 				GDKfree(err);
 			}
 		}
 		/* if function sys.storagemodel() does not exist, we
 		 * need to update */
-		if (!sql_bind_func(m->sa, mvc_bind_schema(m,"sys"), "storagemodel", NULL, NULL, F_FUNC )) {
-			if ((err = sql_update_feb2013_sp1(c)) != NULL) {
+		if (!sql_bind_func(m->sa, mvc_bind_schema(m, "sys"), "storagemodel", NULL, NULL, F_FUNC) && 
+		    !sql_bind_func(m->sa, mvc_bind_schema(m, "sys"), "storagemodel", NULL, NULL, F_UNION)) {
+			if ((err = sql_update_feb2013_sp1(c)) !=NULL) {
 				fprintf(stderr, "!%s\n", err);
 				GDKfree(err);
 			}
 		}
 		/* if aggregate function sys.stddev_samp(wrd) does not
 		 * exist, we need to update */
-        	sql_find_subtype(&tp, "wrd", 0, 0);
-		if (!sql_bind_func(m->sa, mvc_bind_schema(m,"sys"), "stddev_samp", &tp, NULL, F_AGGR )) {
-			if ((err = sql_update_feb2013_sp3(c)) != NULL) {
+		sql_find_subtype(&tp, "wrd", 0, 0);
+		if (!sql_bind_func(m->sa, mvc_bind_schema(m, "sys"), "stddev_samp", &tp, NULL, F_AGGR)) {
+			if ((err = sql_update_feb2013_sp3(c)) !=NULL) {
 				fprintf(stderr, "!%s\n", err);
 				GDKfree(err);
 			}
 		}
 		/* if function sys.querylog_catalog() does not exist, we
 		 * need to update */
-		if (!sql_bind_func(m->sa, mvc_bind_schema(m,"sys"), "querylog_catalog", NULL, NULL, F_FUNC )) {
-			if ((err = sql_update_oct2013(c)) != NULL) {
+		if (!sql_bind_func(m->sa, mvc_bind_schema(m, "sys"), "querylog_catalog", NULL, NULL, F_FUNC) &&
+		    !sql_bind_func(m->sa, mvc_bind_schema(m, "sys"), "querylog_catalog", NULL, NULL, F_UNION)) {
+			if ((err = sql_update_jan2014(c)) !=NULL) {
+				fprintf(stderr, "!%s\n", err);
+				GDKfree(err);
+			}
+		}
+		/* if function sys.md5(str) does not exist, we need to
+		 * update */
+		sql_find_subtype(&tp, "clob", 0, 0);
+		if (!sql_bind_func(m->sa, mvc_bind_schema(m, "sys"), "md5", &tp, NULL, F_FUNC)) {
+			if ((err = sql_update_default(c)) !=NULL) {
 				fprintf(stderr, "!%s\n", err);
 				GDKfree(err);
 			}
@@ -967,7 +1115,7 @@ SQLexitClient(Client c)
 		mvc *m = NULL;
 		if (c->sqlcontext == NULL)
 			throw(SQL, "SQLexitClient", "MVC catalogue not available");
-		be = (backend *)c->sqlcontext;
+		be = (backend *) c->sqlcontext;
 		m = be->mvc;
 
 		assert(m->session);
@@ -975,13 +1123,13 @@ SQLexitClient(Client c)
 			if (mvc_status(m) >= 0 && mvc_commit(m, 0, NULL) < 0)
 				(void) handle_error(m, c->fdout, 0);
 		}
-		if (m->session->active){
+		if (m->session->active) {
 			RECYCLEdrop(0);
 			mvc_rollback(m, 0, NULL);
 		}
 
 		res_tables_destroy(m->results);
-		m->results= NULL;
+		m->results = NULL;
 
 		mvc_destroy(m);
 		backend_destroy(be);
@@ -994,7 +1142,6 @@ SQLexitClient(Client c)
 }
 
 /*
- * @-
  * A statement received internally is simply appended for
  * execution
  */
@@ -1003,6 +1150,7 @@ SQLinitEnvironment(Client cntxt)
 {
 	return SQLinitClient(cntxt);
 }
+
 static void
 SQLtrans(mvc *m)
 {
@@ -1010,8 +1158,8 @@ SQLtrans(mvc *m)
 	if (m && !m->session->active)
 		mvc_trans(m);
 }
+
 /*
- * @-
  * The SQLcompile operation can be used by separate
  * front-ends to benefit from the SQL functionality.
  * It expects a string and returns the name of the
@@ -1057,7 +1205,7 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 
 	initSQLreferences();
 	m = sql->mvc;
- 	ac = m->session->auto_commit;
+	ac = m->session->auto_commit;
 	o = NEW(mvc);
 	if (!o)
 		throw(SQL, "SQLstatement", "Out of memory");
@@ -1068,22 +1216,23 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 	SQLtrans(m);
 	status = m->session->status;
 
-	m->type= Q_PARSE;
+	m->type = Q_PARSE;
 	be = sql;
 	sql = backend_create(m, c);
+	sql->output_format = be->output_format;
 	m->qc = NULL;
 	m->caching = 0;
 	m->user_id = m->role_id = USER_MONETDB;
 
-	b = (buffer*)GDKmalloc(sizeof(buffer));
+	b = (buffer *) GDKmalloc(sizeof(buffer));
 	n = GDKmalloc(len + 1 + 1);
 	strncpy(n, *expr, len);
 	n[len] = '\n';
-	n[len+1] = 0;
+	n[len + 1] = 0;
 	len++;
 	buffer_init(b, n, len);
 	buf = buffer_rastream(b, "sqlstatement");
-	scanner_init( &m->scanner, bstream_create(buf , b->len), NULL);
+	scanner_init(&m->scanner, bstream_create(buf, b->len), NULL);
 	m->scanner.mode = LINE_N;
 	bstream_next(m->scanner.rs);
 
@@ -1094,12 +1243,11 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 	if (!m->sa)
 		m->sa = sa_create();
 	/*
-	 * @-
 	 * System has been prepared to parse it and generate code.
 	 * Scan the complete string for SQL statements, stop at the first error.
 	 */
 	c->sqlcontext = sql;
-	while( m->scanner.rs->pos < m->scanner.rs->len ){
+	while (msg == MAL_SUCCEED && m->scanner.rs->pos < m->scanner.rs->len) {
 		sql_rel *r;
 		stmt *s;
 		int oldvtop, oldstop;
@@ -1108,9 +1256,9 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 		if (!m->sa)
 			m->sa = sa_create();
 		m->sym = NULL;
-		if ( (err = sqlparse(m)) ||
-			/* Only forget old errors on transaction boundaries */
-			(mvc_status(m) && m->type != Q_TRANS) || !m->sym) {
+		if ((err = sqlparse(m)) ||
+		    /* Only forget old errors on transaction boundaries */
+		    (mvc_status(m) && m->type != Q_TRANS) || !m->sym) {
 			if (!err)
 				err = mvc_status(m);
 			if (*m->errstr)
@@ -1120,7 +1268,7 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 			execute = 0;
 			if (!err)
 				continue;
-			assert(c->glb == 0 || c->glb == oldglb); /* detect leak */
+			assert(c->glb == 0 || c->glb == oldglb);	/* detect leak */
 			c->glb = oldglb;
 			goto endofcompile;
 		}
@@ -1132,93 +1280,73 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 		 * optimize and produce code.
 		 * We don;t search the cache for a previous incarnation yet.
 		 */
-		MSinitClientPrg(c,"user",nme);
+		MSinitClientPrg(c, "user", nme);
 		oldvtop = c->curprg->def->vtop;
 		oldstop = c->curprg->def->stop;
 		r = sql_symbol2relation(m, m->sym);
 		s = sql_relation2stmt(m, r);
 #ifdef _SQL_COMPILE
-		mnstr_printf(c->fdout,"#SQLstatement:\n");
+		mnstr_printf(c->fdout, "#SQLstatement:\n");
 #endif
 		scanner_query_processed(&(m->scanner));
-		if (s==0 || (err = mvc_status(m))) {
+		if (s == 0 || (err = mvc_status(m))) {
 			msg = createException(PARSE, "SQLparser", "%s", m->errstr);
 			handle_error(m, c->fdout, status);
 			sqlcleanup(m, err);
 			/* restore the state */
 			MSresetInstructions(c->curprg->def, oldstop);
-			freeVariables(c,c->curprg->def, c->glb, oldvtop);
+			freeVariables(c, c->curprg->def, c->glb, oldvtop);
 			c->curprg->def->errors = 0;
-			assert(c->glb == 0 || c->glb == oldglb); /* detect leak */
+			assert(c->glb == 0 || c->glb == oldglb);	/* detect leak */
 			c->glb = oldglb;
 			goto endofcompile;
 		}
 		/* generate MAL code */
-		if (backend_callinline(sql, c, s ) == 0)
+		if (backend_callinline(sql, c, s) == 0)
 			addQueryToCache(c);
 		else
 			err = 1;
 
-		if( err || c->curprg->def->errors){
+		if (err ||c->curprg->def->errors) {
 			/* restore the state */
 			MSresetInstructions(c->curprg->def, oldstop);
-			freeVariables(c,c->curprg->def, c->glb, oldvtop);
+			freeVariables(c, c->curprg->def, c->glb, oldvtop);
 			c->curprg->def->errors = 0;
-			msg = createException(SQL, "SQLparser","Errors encountered in query");
-			assert(c->glb == 0 || c->glb == oldglb); /* detect leak */
+			msg = createException(SQL, "SQLparser", "Errors encountered in query");
+			assert(c->glb == 0 || c->glb == oldglb);	/* detect leak */
 			c->glb = oldglb;
 			goto endofcompile;
 		}
-
 #ifdef _SQL_COMPILE
-		mnstr_printf(c->fdout,"#result of sql.eval()\n");
+		mnstr_printf(c->fdout, "#result of sql.eval()\n");
 		printFunction(c->fdout, c->curprg->def, 0, c->listing);
 #endif
 
-		if ( execute) {
-			bstream *tmp=NULL;
-			buffer *b= (buffer*) GDKmalloc(sizeof(buffer));
+		if (execute) {
 			MalBlkPtr mb = c->curprg->def;
 
 			if (!output)
-				sql->out = NULL; /* no output */
-
-			/* if the MAL program has been turned into a string returing function
-			 * then pick the result set from a scratch file (as is) */
-			if ( mb->var[0]->type == TYPE_str){
-				tmp = bstream_create(buffer_rastream(b, "SQLoutput"), 0);
-				if ( tmp == NULL){
-					msg = createException(SQL,"sql.eval","Can not create tmp file");
-					GDKfree(b);
-					goto noexecution;
-				}
-				//sql->out = tmp;
-			}
-			msg = (str) runMAL(c, mb, 0, 0);
-noexecution:
+				sql->out = NULL;	/* no output */
+			msg = runMAL(c, mb, 0, 0);
 			MSresetInstructions(mb, oldstop);
-			freeVariables(c, mb, c->glb, oldvtop);
-			if (msg == MAL_SUCCEED && tmp){
-				msg = GDKstrdup(b->buf);
-				(void) bstream_destroy(tmp);
-			}
+			freeVariables(c, mb, NULL, oldvtop);
 		}
 		sqlcleanup(m, 0);
 		if (!execute) {
-			assert(c->glb == 0 || c->glb == oldglb); /* detect leak */
+			assert(c->glb == 0 || c->glb == oldglb);	/* detect leak */
 			c->glb = oldglb;
 			goto endofcompile;
 		}
 #ifdef _SQL_COMPILE
-	mnstr_printf(c->fdout, "#parse/execute result %d\n", err);
+		mnstr_printf(c->fdout, "#parse/execute result %d\n", err);
 #endif
-		assert(c->glb == 0 || c->glb == oldglb); /* detect leak */
+		assert(c->glb == 0 || c->glb == oldglb);	/* detect leak */
 		c->glb = oldglb;
 	}
 /*
- * We are done; a MAL procedure recides in the cache.
+ * We are done; a MAL procedure resides in the cache.
  */
-endofcompile:
+      endofcompile:
 	if (execute)
 		MSresetInstructions(c->curprg->def, 1);
 
@@ -1249,12 +1377,12 @@ endofcompile:
 str
 SQLstatement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str *expr = (str*) getArgReference(stk, pci, 1);
+	str *expr = (str *) getArgReference(stk, pci, 1);
 	bit output = TRUE;
 
-	(void)mb;
+	(void) mb;
 	if (pci->argc == 3)
- 		output = *(bit*) getArgReference(stk, pci, 2);
+		output = *(bit *) getArgReference(stk, pci, 2);
 
 	return SQLstatementIntern(cntxt, expr, "SQLstatement", TRUE, output);
 }
@@ -1262,19 +1390,19 @@ SQLstatement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 SQLcompile(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str *ret = (str*) getArgReference(stk, pci, 0);
-	str *expr = (str*) getArgReference(stk, pci, 1);
+	str *ret = (str *) getArgReference(stk, pci, 0);
+	str *expr = (str *) getArgReference(stk, pci, 1);
 	str msg;
 
-	(void)mb;
+	(void) mb;
 	*ret = NULL;
 	msg = SQLstatementIntern(cntxt, expr, "SQLcompile", FALSE, FALSE);
-	if( msg == MAL_SUCCEED)
-		*ret= _STRDUP("SQLcompile");
+	if (msg == MAL_SUCCEED)
+		*ret = _STRDUP("SQLcompile");
 	return msg;
 }
+
 /*
- * @-
  * Locate a file with SQL commands and execute it. For the time being a 1MB
  * file limit is implicitly imposed. If the file can not be located in the
  * script library, we assume it is sufficiently self descriptive.
@@ -1305,7 +1433,7 @@ SQLinclude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	expr = &bfd->buf;
 	msg = SQLstatementIntern(cntxt, expr, "sql.include", TRUE, FALSE);
 	bstream_destroy(bfd);
-	m = ((backend *)cntxt->sqlcontext)->mvc;
+	m = ((backend *) cntxt->sqlcontext)->mvc;
 	if (m->sa)
 		sa_destroy(m->sa);
 	m->sa = NULL;
@@ -1314,7 +1442,6 @@ SQLinclude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 /*
- * @-
  * The SQL reader collects a (sequence) of statements from the input
  * stream, but only when no unresolved 'nxt' character is visible.
  * In combination with SQLparser this ensures that all statements
@@ -1328,13 +1455,15 @@ SQLinclude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
  * the duration of these calls.
  */
 
-static int SQLautocommit(Client c, mvc *m){
+static int
+SQLautocommit(Client c, mvc *m)
+{
 	if (m->session->auto_commit && m->session->active) {
 		if (mvc_status(m) < 0) {
 			RECYCLEdrop(0);
 			mvc_rollback(m, 0, NULL);
 		} else if (mvc_commit(m, 0, NULL) < 0) {
-		 	return handle_error(m, c->fdout, 0);
+			return handle_error(m, c->fdout, 0);
 		}
 	}
 	return TRUE;
@@ -1354,35 +1483,30 @@ SQLreader(Client c)
 	int blocked = isa_block_stream(in->s);
 
 	if (SQLinitialized == FALSE) {
-		c->mode = FINISHING;
+		c->mode = FINISHCLIENT;
 		return NULL;
 	}
-	if (!be || c->mode <= FINISHING) {
+	if (!be || c->mode <= FINISHCLIENT) {
 #ifdef _SQL_READER_DEBUG
 		mnstr_printf(GDKout, "#SQL client finished\n");
 #endif
-		c->mode = FINISHING;
+		c->mode = FINISHCLIENT;
 		return NULL;
 	}
 #ifdef _SQL_READER_DEBUG
-	mnstr_printf(GDKout, "#SQLparser: start reading SQL %s %s\n",
-			(be->console ? " from console" : ""),
-			(blocked ? "Blocked read" : ""));
+	mnstr_printf(GDKout, "#SQLparser: start reading SQL %s %s\n", (be->console ? " from console" : ""), (blocked ? "Blocked read" : ""));
 #endif
-	language = be->language;    /* 'S' for SQL, 'D' from debugger */
+	language = be->language;	/* 'S' for SQL, 'D' from debugger */
 	m = be->mvc;
 	m->errstr[0] = 0;
 	/*
-	 * @-
 	 * Continue processing any left-over input from the previous round.
 	 */
 
 #ifdef _SQL_READER_DEBUG
-	mnstr_printf(GDKout, "#pos %d len %d eof %d \n",
-			in->pos, in->len, in->eof);
+	mnstr_printf(GDKout, "#pos %d len %d eof %d \n", in->pos, in->len, in->eof);
 #endif
 	/*
-	 * @-
 	 * Distinguish between console reading and mclient connections.
 	 * The former comes with readline functionality.
 	 */
@@ -1390,16 +1514,16 @@ SQLreader(Client c)
 		more = FALSE;
 
 		/* Different kinds of supported statements sequences
-		    A;	-- single line			s
-		    A \n B;	-- multi line			S
-		    A; B;   -- compound single block	s
-		    A;	-- many multi line
-		    B \n C; -- statements in one block	S
+		   A;   -- single line                  s
+		   A \n B;      -- multi line                   S
+		   A; B;   -- compound single block     s
+		   A;   -- many multi line
+		   B \n C; -- statements in one block   S
 		 */
 		/* auto_commit on end of statement */
 		if (m->scanner.mode == LINE_N && !commit_done) {
 			go = SQLautocommit(c, m);
-			commit_done=TRUE;
+			commit_done = TRUE;
 		}
 
 		if (go && in->pos >= in->len) {
@@ -1441,7 +1565,7 @@ SQLreader(Client c)
 				if (be->language == 'D' && in->eof == 0)
 					return 0;
 
-				if (rd == 0 && language != 0 && in->eof && !be->console) {
+				if (rd == 0 && language !=0 && in->eof && !be->console) {
 					/* we hadn't seen the EOF before, so just try again
 					   (this time with prompt) */
 					more = TRUE;
@@ -1450,6 +1574,10 @@ SQLreader(Client c)
 				go = FALSE;
 				break;
 			} else if (go && !be->console && language == 0) {
+				if (in->buf[in->pos] == 's' && !in->eof) {
+					while ((rd = bstream_next(in)) > 0)
+						;
+				}
 				be->language = in->buf[in->pos++];
 				if (be->language == 's') {
 					be->language = 'S';
@@ -1463,21 +1591,19 @@ SQLreader(Client c)
 #endif
 		}
 	}
-	if (!go || (strncmp(CURRENT(c), "\\q", 2) == 0)) {
-		in->pos = in->len;  /* skip rest of the input */
-		c->mode = FINISHING;
+	if ( (c->stimeout &&  GDKusec()- c->session > c->stimeout) || !go || (strncmp(CURRENT(c), "\\q", 2) == 0)) {
+		in->pos = in->len;	/* skip rest of the input */
+		c->mode = FINISHCLIENT;
 		return NULL;
 	}
 	return 0;
 }
 
 /*
- * @-
  * The SQL block is stored in the client input buffer, from which it
  * can be parsed by the SQL parser. The client structure contains
  * a small table of bounded tables. This should be reset before we
  * parse a new statement sequence.
- * @-
  * Before we parse the sql statement, we look for any variable settings
  * for specific commands.
  * The most important one is to prepare code to be handled by the debugger.
@@ -1489,20 +1615,19 @@ SQLsetDebugger(Client c, mvc *m, int onoff)
 {
 	if (m == 0 || !(m->emod & mod_debug))
 		return;
-	c->itrace='n';
-	if( onoff){
-		newStmt(c->curprg->def,"mdb","start");
+	c->itrace = 'n';
+	if (onoff) {
+		newStmt(c->curprg->def, "mdb", "start");
 		c->debugOptimizer = TRUE;
 		c->curprg->def->keephistory = TRUE;
 	} else {
-		newStmt(c->curprg->def,"mdb","stop");
+		newStmt(c->curprg->def, "mdb", "stop");
 		c->debugOptimizer = FALSE;
 		c->curprg->def->keephistory = FALSE;
 	}
 }
 
 /*
- * @-
  * The trace operation collects the events in the BATs
  * and creates a secondary result set upon termination
  * of the query. This feature is extended with
@@ -1522,22 +1647,22 @@ SQLsetTrace(backend *be, Client c, bit onoff)
 	str colname[MAXCOLS];
 	int coltype[MAXCOLS];
 	MalBlkPtr mb = c->curprg->def;
-	str traceFlag, t,s, def= GDKstrdup("show,ticks,stmt");
+	str traceFlag, t, s, def = GDKstrdup("show,ticks,stmt");
 
 	traceFlag = stack_get_string(be->mvc, "trace");
-	if ( traceFlag && *traceFlag){
+	if (traceFlag && *traceFlag) {
 		GDKfree(def);
-		def= GDKstrdup(traceFlag);
+		def = GDKstrdup(traceFlag);
 	}
-	t= def;
+	t = def;
 
-	if (onoff){
-		if ( strstr(def,"keep") == 0)
-			(void) newStmt(mb,"profiler","reset");
-		q = newStmt(mb,"profiler","setFilter");
-		q = pushStr(mb,q, "*");
-		q = pushStr(mb,q, "*");
-		(void) newStmt(mb,"profiler","start");
+	if (onoff) {
+		if (strstr(def, "keep") == 0)
+			(void) newStmt(mb, "profiler", "reset");
+		q = newStmt(mb, "profiler", "setFilter");
+		q = pushStr(mb, q, "*");
+		q = pushStr(mb, q, "*");
+		(void) newStmt(mb, "profiler", "start");
 	} else if (def && strstr(def, "show")) {
 		(void) newStmt(mb, "profiler", "stop");
 
@@ -1557,27 +1682,15 @@ SQLsetTrace(backend *be, Client c, bit onoff)
 				/* FIXME: type for name should come from
 				 * mal_profiler.mx, second FIXME: check the user
 				 * supplied values */
-				if (
-						strcmp(s, "time") == 0 ||
-						strcmp(s, "pc") == 0 ||
-						strcmp(s, "stmt") == 0
-				) {
+				if (strcmp(s, "time") == 0 || strcmp(s, "pc") == 0 || strcmp(s, "stmt") == 0) {
 					coltype[i] = TYPE_str;
-				} else if (
-						strcmp(s, "ticks") == 0 ||
-						strcmp(s, "rbytes") == 0 ||
-						strcmp(s, "wbytes") == 0 ||
-						strcmp(s, "reads") == 0 ||
-						strcmp(s, "writes") == 0
-				) {
+				} else if (strcmp(s, "ticks") == 0 || strcmp(s, "rbytes") == 0 || strcmp(s, "wbytes") == 0 || strcmp(s, "reads") == 0 || strcmp(s, "writes") == 0) {
 					coltype[i] = TYPE_lng;
-				} else if (
-						strcmp(s, "thread") == 0
-				) {
+				} else if (strcmp(s, "thread") == 0) {
 					coltype[i] = TYPE_int;
 				}
 				i++;
-				if (i == MAXCOLS) /* just ignore the rest */
+				if (i == MAXCOLS)	/* just ignore the rest */
 					break;
 			}
 		} while (t++);
@@ -1620,14 +1733,11 @@ SQLsetTrace(backend *be, Client c, bit onoff)
 
 #define MAX_QUERY 	(64*1024*1024)
 
-static int 
-cachable( mvc *m, stmt *s ) 
+static int
+cachable(mvc *m, stmt *s)
 {
-	if (m->emode == m_plan ||
-	   !m->caching ||
-            m->type == Q_TRANS || /*m->type == Q_SCHEMA || cachable to make sure we have trace on alter statements  */
-	    (s && s->type == st_none) || 
-	    sa_size(m->sa) > MAX_QUERY)
+	if (m->emode == m_plan || !m->caching || m->type == Q_TRANS ||	/*m->type == Q_SCHEMA || cachable to make sure we have trace on alter statements  */
+	    (s && s->type == st_none) || sa_size(m->sa) > MAX_QUERY)
 		return 0;
 	return 1;
 }
@@ -1658,7 +1768,7 @@ SQLparser(Client c)
 		fprintf(stderr, "SQL state descriptor missing, cannot handle client!\n");
 		/* stop here, instead of printing the exception below to the
 		 * client in an endless loop */
-		c->mode = FINISHING;
+		c->mode = FINISHCLIENT;
 		throw(SQL, "SQLparser", "State descriptor missing");
 	}
 	oldvtop = c->curprg->def->vtop;
@@ -1689,9 +1799,9 @@ SQLparser(Client c)
 			n = sscanf(in->buf + in->pos + 7, "%d %d %d", &v, &off, &len);
 
 		if (n == 2 || n == 3) {
-			mvc_export_chunk(m, out, v, off, n == 3 ? len : m->reply_size);
+			mvc_export_chunk(be, out, v, off, n == 3 ? len : m->reply_size);
 
-			in->pos = in->len;  /* HACK: should use parsed length */
+			in->pos = in->len;	/* HACK: should use parsed length */
 			return MAL_SUCCEED;
 		}
 		if (strncmp(in->buf + in->pos, "close ", 6) == 0) {
@@ -1701,7 +1811,7 @@ SQLparser(Client c)
 			t = res_tables_find(m->results, v);
 			if (t)
 				m->results = res_tables_remove(m->results, t);
-			in->pos = in->len;  /* HACK: should use parsed length */
+			in->pos = in->len;	/* HACK: should use parsed length */
 			return MAL_SUCCEED;
 		}
 		if (strncmp(in->buf + in->pos, "release ", 8) == 0) {
@@ -1709,8 +1819,8 @@ SQLparser(Client c)
 
 			v = (int) strtol(in->buf + in->pos + 8, NULL, 0);
 			if ((q = qc_find(m->qc, v)) != NULL)
-				qc_delete(m->qc, q);
-			in->pos = in->len;  /* HACK: should use parsed length */
+				 qc_delete(m->qc, q);
+			in->pos = in->len;	/* HACK: should use parsed length */
 			return MAL_SUCCEED;
 		}
 		if (strncmp(in->buf + in->pos, "auto_commit ", 12) == 0) {
@@ -1721,19 +1831,15 @@ SQLparser(Client c)
 			m->session->ac_on_commit = m->session->auto_commit;
 			if (m->session->active) {
 				if (commit && mvc_commit(m, 0, NULL) < 0) {
-					mnstr_printf(out, "!COMMIT: commit failed while "
-							"enabling auto_commit\n");
-					msg = createException(SQL, "SQLparser",
-							"Xauto_commit (commit) failed");
+					mnstr_printf(out, "!COMMIT: commit failed while " "enabling auto_commit\n");
+					msg = createException(SQL, "SQLparser", "Xauto_commit (commit) failed");
 				} else if (!commit && mvc_rollback(m, 0, NULL) < 0) {
 					RECYCLEdrop(0);
-					mnstr_printf(out, "!COMMIT: rollback failed while "
-							"disabling auto_commit\n");
-					msg = createException(SQL, "SQLparser",
-							"Xauto_commit (rollback) failed");
+					mnstr_printf(out, "!COMMIT: rollback failed while " "disabling auto_commit\n");
+					msg = createException(SQL, "SQLparser", "Xauto_commit (rollback) failed");
 				}
 			}
-			in->pos = in->len;  /* HACK: should use parsed length */
+			in->pos = in->len;	/* HACK: should use parsed length */
 			if (msg != NULL)
 				goto finalize;
 			return MAL_SUCCEED;
@@ -1741,34 +1847,33 @@ SQLparser(Client c)
 		if (strncmp(in->buf + in->pos, "reply_size ", 11) == 0) {
 			v = (int) strtol(in->buf + in->pos + 11, NULL, 10);
 			m->reply_size = v;
-			in->pos = in->len;  /* HACK: should use parsed length */
+			in->pos = in->len;	/* HACK: should use parsed length */
 			return MAL_SUCCEED;
 		}
 		if (strncmp(in->buf + in->pos, "sizeheader", 10) == 0) {
 			v = (int) strtol(in->buf + in->pos + 10, NULL, 10);
 			m->sizeheader = v != 0;
-			in->pos = in->len;  /* HACK: should use parsed length */
+			in->pos = in->len;	/* HACK: should use parsed length */
 			return MAL_SUCCEED;
 		}
 		if (strncmp(in->buf + in->pos, "quit", 4) == 0) {
-			c->mode = FINISHING;
+			c->mode = FINISHCLIENT;
 			return MAL_SUCCEED;
 		}
 		mnstr_printf(out, "!unrecognized X command: %s\n", in->buf + in->pos);
 		msg = createException(SQL, "SQLparser", "unrecognized X command");
 		goto finalize;
 	}
-	if (be->language != 'S') {
+	if (be->language !='S') {
 		mnstr_printf(out, "!unrecognized language prefix: %ci\n", be->language);
-		msg = createException(SQL, "SQLparser",
-				"unrecognized language prefix: %c", be->language);
+		msg = createException(SQL, "SQLparser", "unrecognized language prefix: %c", be->language);
 		goto finalize;
 	}
 
-	if ( (err = sqlparse(m)) ||
-	    	/* Only forget old errors on transaction boundaries */
-		(mvc_status(m) && m->type != Q_TRANS) || !m->sym) {
-		if (!err && m->scanner.started) /* repeat old errors, with a parsed query */
+	if ((err = sqlparse(m)) ||
+	    /* Only forget old errors on transaction boundaries */
+	    (mvc_status(m) && m->type != Q_TRANS) || !m->sym) {
+		if (!err &&m->scanner.started)	/* repeat old errors, with a parsed query */
 			err = mvc_status(m);
 		if (err) {
 			msg = createException(PARSE, "SQLparser", "%s", m->errstr);
@@ -1790,30 +1895,22 @@ SQLparser(Client c)
 		be->q = qc_find(m->qc, m->sym->data.lval->h->data.i_val);
 		if (!be->q) {
 			err = -1;
-			mnstr_printf(out, "!07003!EXEC: no prepared statement with id: %d\n",
-					m->sym->data.lval->h->data.i_val);
-			msg = createException(SQL, "PREPARE",
-					"no prepared statement with id: %d",
-					m->sym->data.lval->h->data.i_val);
+			mnstr_printf(out, "!07003!EXEC: no prepared statement with id: %d\n", m->sym->data.lval->h->data.i_val);
+			msg = createException(SQL, "PREPARE", "no prepared statement with id: %d", m->sym->data.lval->h->data.i_val);
 			handle_error(m, c->fdout, pstatus);
 			sqlcleanup(m, err);
 			goto finalize;
 		} else if (be->q->type != Q_PREPARE) {
 			err = -1;
-			mnstr_printf(out, "!07005!EXEC: given handle id is not for a "
-					"prepared statement: %d\n",
-					m->sym->data.lval->h->data.i_val);
-			msg = createException(SQL, "PREPARE",
-					"is not a prepared statement: %d",
-					m->sym->data.lval->h->data.i_val);
+			mnstr_printf(out, "!07005!EXEC: given handle id is not for a " "prepared statement: %d\n", m->sym->data.lval->h->data.i_val);
+			msg = createException(SQL, "PREPARE", "is not a prepared statement: %d", m->sym->data.lval->h->data.i_val);
 			handle_error(m, c->fdout, pstatus);
 			sqlcleanup(m, err);
 			goto finalize;
 		}
 		m->emode = m_inplace;
 		scanner_query_processed(&(m->scanner));
-	} else if (cachable(m, NULL) && m->emode != m_prepare &&
-                  (be->q = qc_match(m->qc, m->sym, m->args, m->argc, m->scanner.key ^ m->session->schema->base.id)) != NULL) {
+	} else if (cachable(m, NULL) && m->emode != m_prepare && (be->q = qc_match(m->qc, m->sym, m->args, m->argc, m->scanner.key ^ m->session->schema->base.id)) != NULL) {
 
 		if (m->emod & mod_debug)
 			SQLsetDebugger(c, m, TRUE);
@@ -1859,16 +1956,13 @@ SQLparser(Client c)
 			}
 		} else {
 			/* generate a factory instantiation */
-			be->q = qc_insert(m->qc,
-					m->sa,        /* the allocator */
-					r,	      /* keep relational query */
-					m->sym,       /* the sql symbol tree */
-					m->args,      /* the argument list */
-					m->argc,
-					m->scanner.key ^ m->session->schema->base.id,  /* the statement hash key */
-					m->emode == m_prepare ? Q_PREPARE :
-					m->type,  /* the type of the statement */
-					sql_escape_str(QUERY(m->scanner)));
+			be->q = qc_insert(m->qc, m->sa,	/* the allocator */
+					  r,	/* keep relational query */
+					  m->sym,	/* the sql symbol tree */
+					  m->args,	/* the argument list */
+					  m->argc, m->scanner.key ^ m->session->schema->base.id,	/* the statement hash key */
+					  m->emode == m_prepare ? Q_PREPARE : m->type,	/* the type of the statement */
+					  sql_escape_str(QUERY(m->scanner)));
 			scanner_query_processed(&(m->scanner));
 			be->q->code = (backend_code) backend_dumpproc(be, c, be->q, s);
 			if (!be->q->code)
@@ -1885,7 +1979,7 @@ SQLparser(Client c)
 				m->emode = m_inplace;
 		}
 	}
-	if (err) 
+	if (err)
 		m->session->status = -10;
 	if (err == 0) {
 		if (be->q) {
@@ -1893,7 +1987,7 @@ SQLparser(Client c)
 				err = mvc_export_prepare(m, c->fdout, be->q, "");
 			else if (m->emode == m_inplace) {
 				/* everything ready for a fast call */
-			} else { /* call procedure generation (only in cache mode) */
+			} else {	/* call procedure generation (only in cache mode) */
 				backend_call(be, c, be->q);
 			}
 		}
@@ -1905,16 +1999,16 @@ SQLparser(Client c)
 			SQLsetDebugger(c, m, FALSE);
 
 		/*
-	 	 * During the execution of the query exceptions can be raised.
-	 	 * The default action is to print them out at the end of the
-	 	 * query block.
-	 	 */
+		 * During the execution of the query exceptions can be raised.
+		 * The default action is to print them out at the end of the
+		 * query block.
+		 */
 		if (be->q)
 			pushEndInstruction(c->curprg->def);
 
-		chkTypes(c->fdout, c->nspace, c->curprg->def, TRUE); /* resolve types */
+		chkTypes(c->fdout, c->nspace, c->curprg->def, TRUE);	/* resolve types */
 		/* we know more in this case than
-		    chkProgram(c->fdout, c->nspace, c->curprg->def); */
+		   chkProgram(c->fdout, c->nspace, c->curprg->def); */
 		if (c->curprg->def->errors) {
 			showErrors(c);
 			/* restore the state */
@@ -1924,7 +2018,7 @@ SQLparser(Client c)
 			msg = createException(PARSE, "SQLparser", "Semantic errors");
 		}
 	}
-finalize:
+      finalize:
 	if (msg)
 		sqlcleanup(m, 0);
 	return msg;
@@ -1938,7 +2032,7 @@ finalize:
  * and prepare the stack for immediate execution
  */
 static str
-SQLexecutePrepared(Client c, backend *be, cq *q )
+SQLexecutePrepared(Client c, backend *be, cq *q)
 {
 	mvc *m = be->mvc;
 	int argc, parc;
@@ -1951,36 +2045,36 @@ SQLexecutePrepared(Client c, backend *be, cq *q )
 	str ret;
 	Symbol qcode = q->code;
 
-	if (!qcode || qcode->def->errors ) {
+	if (!qcode || qcode->def->errors) {
 		if (!qcode && *m->errstr)
 			return createException(PARSE, "SQLparser", "%s", m->errstr);
 		throw(SQL, "SQLengine", "39000!program contains errors");
 	}
 	mb = qcode->def;
-	pci = getInstrPtr(mb,0);
-	if( pci->argc >= MAXARG)
+	pci = getInstrPtr(mb, 0);
+	if (pci->argc >= MAXARG)
 		argv = (ValPtr *) GDKmalloc(sizeof(ValPtr) * pci->argc);
 	else
 		argv = argvbuffer;
 
-	if( pci->retc >= MAXARG)
-		argrec = (ValRecord *)GDKmalloc(sizeof(ValRecord) * pci->retc);
+	if (pci->retc >= MAXARG)
+		argrec = (ValRecord *) GDKmalloc(sizeof(ValRecord) * pci->retc);
 	else
 		argrec = argrecbuffer;
 
 	/* prepare the target variables */
-	for(i=0; i<pci->retc; i++){
-		argv[i] = argrec+i;
-		argv[i]->vtype= getVarGDKType(mb,i);
+	for (i = 0; i < pci->retc; i++) {
+		argv[i] = argrec + i;
+		argv[i]->vtype = getVarGDKType(mb, i);
 	}
 
 	argc = m->argc;
 	parc = q->paramlen;
 
 	if (argc != parc) {
-		if( pci->argc >= MAXARG)
+		if (pci->argc >= MAXARG)
 			GDKfree(argv);
-		if( pci->retc >= MAXARG)
+		if (pci->retc >= MAXARG)
 			GDKfree(argrec);
 		throw(SQL, "sql.prepare", "07001!EXEC: wrong number of arguments for prepared statement: %d, expected %d", argc, parc);
 	} else {
@@ -1994,28 +2088,25 @@ SQLexecutePrepared(Client c, backend *be, cq *q )
 					GDKfree(argv);
 				if (pci->retc >= MAXARG)
 					GDKfree(argrec);
-				throw(SQL, "sql.prepare", "07001!EXEC: wrong type for argument %d of "
-						"prepared statement: %s, expected %s",
-						i + 1, atom_type(arg)->type->sqlname,
-						pt->type->sqlname);
+				throw(SQL, "sql.prepare", "07001!EXEC: wrong type for argument %d of " "prepared statement: %s, expected %s", i + 1, atom_type(arg)->type->sqlname, pt->type->sqlname);
 			}
 			argv[pci->retc + i] = &arg->data;
 		}
 	}
-	glb = (MalStkPtr)(q->stk);
-	ret= callMAL(c, mb, &glb, argv, (m->emod & mod_debug?'n':0));
+	glb = (MalStkPtr) (q->stk);
+	ret = callMAL(c, mb, &glb, argv, (m->emod & mod_debug ? 'n' : 0));
 	/* cleanup the arguments */
-	for(i=pci->retc; i<pci->argc; i++) {
-		garbageElement(c,v= &glb->stk[pci->argv[i]]);
-		v->vtype= TYPE_int;
-		v->val.ival= int_nil;
+	for (i = pci->retc; i < pci->argc; i++) {
+		garbageElement(c, v = &glb->stk[pci->argv[i]]);
+		v->vtype = TYPE_int;
+		v->val.ival = int_nil;
 	}
-	q->stk = (backend_stack)glb;
-	if (glb && SQLdebug&1)
+	q->stk = (backend_stack) glb;
+	if (glb && SQLdebug & 1)
 		printStack(GDKstdout, mb, glb);
-	if( pci->argc >= MAXARG)
+	if (pci->argc >= MAXARG)
 		GDKfree(argv);
-	if( pci->retc >= MAXARG)
+	if (pci->retc >= MAXARG)
 		GDKfree(argrec);
 	return ret;
 }
@@ -2027,12 +2118,12 @@ SQLengineIntern(Client c, backend *be)
 {
 	str msg = MAL_SUCCEED;
 	MalStkPtr oldglb = c->glb;
-	char oldlang= be->language;
+	char oldlang = be->language;
 	mvc *m = be->mvc;
 	InstrPtr p;
 	MalBlkPtr mb;
 
-	if (oldlang == 'X'){ 	/* return directly from X-commands */
+	if (oldlang == 'X') {	/* return directly from X-commands */
 		sqlcleanup(be->mvc, 0);
 		return MAL_SUCCEED;
 	}
@@ -2040,8 +2131,8 @@ SQLengineIntern(Client c, backend *be)
 	if (m->emod & mod_explain) {
 		if (be->q && be->q->code)
 			printFunction(c->fdout, ((Symbol) (be->q->code))->def, 0, LIST_MAL_STMT | LIST_MAL_UDF | LIST_MAPI);
-		else if (be->q) 
-			msg = createException(PARSE, "SQLparser", "%s", (*m->errstr)?m->errstr:"39000!program contains errors");
+		else if (be->q)
+			msg = createException(PARSE, "SQLparser", "%s", (*m->errstr) ? m->errstr : "39000!program contains errors");
 		else if (c->curprg && c->curprg->def)
 			printFunction(c->fdout, c->curprg->def, 0, LIST_MAL_STMT | LIST_MAL_UDF | LIST_MAPI);
 		goto cleanup_engine;
@@ -2050,30 +2141,29 @@ SQLengineIntern(Client c, backend *be)
 		if (be->q && be->q->code)
 			showFlowGraph(((Symbol) (be->q->code))->def, 0, "stdout-mapi");
 		else if (be->q)
-			msg = createException(PARSE, "SQLparser", "%s", (*m->errstr)?m->errstr:"39000!program contains errors");
+			msg = createException(PARSE, "SQLparser", "%s", (*m->errstr) ? m->errstr : "39000!program contains errors");
 		else if (c->curprg && c->curprg->def)
 			showFlowGraph(c->curprg->def, 0, "stdout-mapi");
 		goto cleanup_engine;
 	}
-
 #ifdef SQL_SCENARIO_DEBUG
 	mnstr_printf(GDKout, "#Ready to execute SQL statement\n");
 #endif
 
-	if( c->curprg->def->stop == 1 ){
+	if (c->curprg->def->stop == 1) {
 		sqlcleanup(be->mvc, 0);
 		return MAL_SUCCEED;
 	}
 
 	if (m->emode == m_inplace) {
-		msg = SQLexecutePrepared(c, be, be->q );
+		msg = SQLexecutePrepared(c, be, be->q);
 		goto cleanup_engine;
 	}
 
-	if( m->emode == m_prepare)
+	if (m->emode == m_prepare)
 		goto cleanup_engine;
 
-	assert(c->glb == 0 || c->glb == oldglb); /* detect leak */
+	assert(c->glb == 0 || c->glb == oldglb);	/* detect leak */
 	c->glb = 0;
 	be->language = 'D';
 	/*
@@ -2087,16 +2177,16 @@ SQLengineIntern(Client c, backend *be)
 		msg = (str) runMAL(c, c->curprg->def, 0, 0);
 	}
 
-cleanup_engine:
-	if (m->type == Q_SCHEMA) 
-        	qc_clean(m->qc);
+      cleanup_engine:
+	if (m->type == Q_SCHEMA)
+		qc_clean(m->qc);
 	if (msg) {
 		enum malexception type = getExceptionType(msg);
 		if (type == OPTIMIZER) {
 			MSresetInstructions(c->curprg->def, 1);
-			freeVariables(c,c->curprg->def, c->glb, be->vtop);
+			freeVariables(c, c->curprg->def, NULL, be->vtop);
 			be->language = oldlang;
-			assert(c->glb == 0 || c->glb == oldglb); /* detect leak */
+			assert(c->glb == 0 || c->glb == oldglb);	/* detect leak */
 			c->glb = oldglb;
 			return SQLrecompile(c, be);
 		} else {
@@ -2118,9 +2208,8 @@ cleanup_engine:
 
 	mb = c->curprg->def;
 	if (m->type != Q_SCHEMA && be->q && msg) {
-		qc_delete(m->qc, be->q); 
-	} else if (m->type != Q_SCHEMA && be->q && mb &&
-	    varGetProp(mb, getArg(p = getInstrPtr(mb,0), 0), runonceProp)){
+		qc_delete(m->qc, be->q);
+	} else if (m->type != Q_SCHEMA && be->q && mb && varGetProp(mb, getArg(p = getInstrPtr(mb, 0), 0), runonceProp)) {
 		SQLCacheRemove(c, getFunctionId(p));
 		qc_delete(be->mvc->qc, be->q);
 		///* this should invalidate any match */
@@ -2129,15 +2218,15 @@ cleanup_engine:
 		///* qc_delete(be->q) */
 	}
 	be->q = NULL;
-	sqlcleanup(be->mvc, (!msg)?0:-1);
+	sqlcleanup(be->mvc, (!msg) ? 0 : -1);
 	MSresetInstructions(c->curprg->def, 1);
-	freeVariables(c,c->curprg->def, c->glb, be->vtop);
+	freeVariables(c, c->curprg->def, NULL, be->vtop);
 	be->language = oldlang;
 	/*
 	 * Any error encountered during execution should block further processing
 	 * unless auto_commit has been set.
 	 */
-	assert(c->glb == 0 || c->glb == oldglb); /* detect leak */
+	assert(c->glb == 0 || c->glb == oldglb);	/* detect leak */
 	c->glb = oldglb;
 	return msg;
 }
@@ -2152,17 +2241,17 @@ SQLrecompile(Client c, backend *be)
 
 	SQLCacheRemove(c, be->q->name);
 	s = sql_relation2stmt(m, be->q->rel);
-	be->q->code = (backend_code)backend_dumpproc(be, c, be->q, s);
+	be->q->code = (backend_code) backend_dumpproc(be, c, be->q, s);
 	be->q->stk = 0;
 
 	pushEndInstruction(c->curprg->def);
 
-	chkTypes(c->fdout, c->nspace, c->curprg->def, TRUE); /* resolve types */
+	chkTypes(c->fdout, c->nspace, c->curprg->def, TRUE);	/* resolve types */
 	if (!be->q->code || c->curprg->def->errors) {
 		showErrors(c);
 		/* restore the state */
 		MSresetInstructions(c->curprg->def, oldstop);
-		freeVariables(c,c->curprg->def, c->glb, oldvtop);
+		freeVariables(c, c->curprg->def, c->glb, oldvtop);
 		c->curprg->def->errors = 0;
 		throw(SQL, "SQLrecompile", "M0M27!semantic errors");
 	}
@@ -2177,31 +2266,23 @@ SQLengine(Client c)
 }
 
 /*
- * @-
  * Assertion errors detected during the execution of a code block
  * raises an exception. An debugger dump is generated upon request
  * to ease debugging.
  */
 str
-SQLassert(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	bit *flg = (bit*) getArgReference(stk,pci, 1);
-	str *msg = (str*) getArgReference(stk,pci, 2);
+SQLassert(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	bit *flg = (bit *) getArgReference(stk, pci, 1);
+	str *msg = (str *) getArgReference(stk, pci, 2);
 	(void) cntxt;
-	(void)mb;
-	if (*flg){
+	(void) mb;
+	if (*flg) {
 		const char *sqlstate = "M0M29!";
-		/* mdbDump(mb,stk,pci);*/
-		if (strlen(*msg) > 6 && (*msg)[5] == '!' &&
-		    (('0' <= (*msg)[0] && (*msg)[0] <= '9') ||
-		     ('A' <= (*msg)[0] && (*msg)[0] <= 'Z')) &&
-		    (('0' <= (*msg)[1] && (*msg)[1] <= '9') ||
-		     ('A' <= (*msg)[1] && (*msg)[1] <= 'Z')) &&
-		    (('0' <= (*msg)[2] && (*msg)[2] <= '9') ||
-		     ('A' <= (*msg)[2] && (*msg)[2] <= 'Z')) &&
-		    (('0' <= (*msg)[3] && (*msg)[3] <= '9') ||
-		     ('A' <= (*msg)[3] && (*msg)[3] <= 'Z')) &&
-		    (('0' <= (*msg)[4] && (*msg)[4] <= '9') ||
-		     ('A' <= (*msg)[4] && (*msg)[4] <= 'Z')))
+		/* mdbDump(mb,stk,pci); */
+		if (strlen(*msg) > 6 && (*msg)[5] == '!' && (('0' <= (*msg)[0] && (*msg)[0] <= '9') || ('A' <= (*msg)[0] && (*msg)[0] <= 'Z')) && (('0' <= (*msg)[1] && (*msg)[1] <= '9') || ('A' <= (*msg)[1] && (*msg)[1] <= 'Z')) &&
+		    (('0' <= (*msg)[2] && (*msg)[2] <= '9') || ('A' <= (*msg)[2] && (*msg)[2] <= 'Z')) && (('0' <= (*msg)[3] && (*msg)[3] <= '9') || ('A' <= (*msg)[3] && (*msg)[3] <= 'Z')) && (('0' <= (*msg)[4] && (*msg)[4] <= '9') ||
+																								 ('A' <= (*msg)[4] && (*msg)[4] <= 'Z')))
 			sqlstate = "";
 		throw(SQL, "assert", "%s%s", sqlstate, *msg);
 	}
@@ -2209,25 +2290,18 @@ SQLassert(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 }
 
 str
-SQLassertInt(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	int *flg = (int*) getArgReference(stk,pci, 1);
-	str *msg = (str*) getArgReference(stk,pci, 2);
+SQLassertInt(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	int *flg = (int *) getArgReference(stk, pci, 1);
+	str *msg = (str *) getArgReference(stk, pci, 2);
 	(void) cntxt;
-	(void)mb;
-	if (*flg){
+	(void) mb;
+	if (*flg) {
 		const char *sqlstate = "M0M29!";
-		/* mdbDump(mb,stk,pci);*/
-		if (strlen(*msg) > 6 && (*msg)[5] == '!' &&
-		    (('0' <= (*msg)[0] && (*msg)[0] <= '9') ||
-		     ('A' <= (*msg)[0] && (*msg)[0] <= 'Z')) &&
-		    (('0' <= (*msg)[1] && (*msg)[1] <= '9') ||
-		     ('A' <= (*msg)[1] && (*msg)[1] <= 'Z')) &&
-		    (('0' <= (*msg)[2] && (*msg)[2] <= '9') ||
-		     ('A' <= (*msg)[2] && (*msg)[2] <= 'Z')) &&
-		    (('0' <= (*msg)[3] && (*msg)[3] <= '9') ||
-		     ('A' <= (*msg)[3] && (*msg)[3] <= 'Z')) &&
-		    (('0' <= (*msg)[4] && (*msg)[4] <= '9') ||
-		     ('A' <= (*msg)[4] && (*msg)[4] <= 'Z')))
+		/* mdbDump(mb,stk,pci); */
+		if (strlen(*msg) > 6 && (*msg)[5] == '!' && (('0' <= (*msg)[0] && (*msg)[0] <= '9') || ('A' <= (*msg)[0] && (*msg)[0] <= 'Z')) && (('0' <= (*msg)[1] && (*msg)[1] <= '9') || ('A' <= (*msg)[1] && (*msg)[1] <= 'Z')) &&
+		    (('0' <= (*msg)[2] && (*msg)[2] <= '9') || ('A' <= (*msg)[2] && (*msg)[2] <= 'Z')) && (('0' <= (*msg)[3] && (*msg)[3] <= '9') || ('A' <= (*msg)[3] && (*msg)[3] <= 'Z')) && (('0' <= (*msg)[4] && (*msg)[4] <= '9') ||
+																								 ('A' <= (*msg)[4] && (*msg)[4] <= 'Z')))
 			sqlstate = "";
 		throw(SQL, "assert", "%s%s", sqlstate, *msg);
 	}
@@ -2235,25 +2309,18 @@ SQLassertInt(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 }
 
 str
-SQLassertWrd(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	wrd *flg = (wrd*) getArgReference(stk,pci, 1);
-	str *msg = (str*) getArgReference(stk,pci, 2);
+SQLassertWrd(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	wrd *flg = (wrd *) getArgReference(stk, pci, 1);
+	str *msg = (str *) getArgReference(stk, pci, 2);
 	(void) cntxt;
-	(void)mb;
-	if (*flg){
+	(void) mb;
+	if (*flg) {
 		const char *sqlstate = "M0M29!";
-		/* mdbDump(mb,stk,pci);*/
-		if (strlen(*msg) > 6 && (*msg)[5] == '!' &&
-		    (('0' <= (*msg)[0] && (*msg)[0] <= '9') ||
-		     ('A' <= (*msg)[0] && (*msg)[0] <= 'Z')) &&
-		    (('0' <= (*msg)[1] && (*msg)[1] <= '9') ||
-		     ('A' <= (*msg)[1] && (*msg)[1] <= 'Z')) &&
-		    (('0' <= (*msg)[2] && (*msg)[2] <= '9') ||
-		     ('A' <= (*msg)[2] && (*msg)[2] <= 'Z')) &&
-		    (('0' <= (*msg)[3] && (*msg)[3] <= '9') ||
-		     ('A' <= (*msg)[3] && (*msg)[3] <= 'Z')) &&
-		    (('0' <= (*msg)[4] && (*msg)[4] <= '9') ||
-		     ('A' <= (*msg)[4] && (*msg)[4] <= 'Z')))
+		/* mdbDump(mb,stk,pci); */
+		if (strlen(*msg) > 6 && (*msg)[5] == '!' && (('0' <= (*msg)[0] && (*msg)[0] <= '9') || ('A' <= (*msg)[0] && (*msg)[0] <= 'Z')) && (('0' <= (*msg)[1] && (*msg)[1] <= '9') || ('A' <= (*msg)[1] && (*msg)[1] <= 'Z')) &&
+		    (('0' <= (*msg)[2] && (*msg)[2] <= '9') || ('A' <= (*msg)[2] && (*msg)[2] <= 'Z')) && (('0' <= (*msg)[3] && (*msg)[3] <= '9') || ('A' <= (*msg)[3] && (*msg)[3] <= 'Z')) && (('0' <= (*msg)[4] && (*msg)[4] <= '9') ||
+																								 ('A' <= (*msg)[4] && (*msg)[4] <= 'Z')))
 			sqlstate = "";
 		throw(SQL, "assert", "%s%s", sqlstate, *msg);
 	}
@@ -2261,25 +2328,18 @@ SQLassertWrd(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 }
 
 str
-SQLassertLng(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	lng *flg = (lng*) getArgReference(stk,pci, 1);
-	str *msg = (str*) getArgReference(stk,pci, 2);
+SQLassertLng(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	lng *flg = (lng *) getArgReference(stk, pci, 1);
+	str *msg = (str *) getArgReference(stk, pci, 2);
 	(void) cntxt;
-	(void)mb;
-	if (*flg){
+	(void) mb;
+	if (*flg) {
 		const char *sqlstate = "M0M29!";
-		/* mdbDump(mb,stk,pci);*/
-		if (strlen(*msg) > 6 && (*msg)[5] == '!' &&
-		    (('0' <= (*msg)[0] && (*msg)[0] <= '9') ||
-		     ('A' <= (*msg)[0] && (*msg)[0] <= 'Z')) &&
-		    (('0' <= (*msg)[1] && (*msg)[1] <= '9') ||
-		     ('A' <= (*msg)[1] && (*msg)[1] <= 'Z')) &&
-		    (('0' <= (*msg)[2] && (*msg)[2] <= '9') ||
-		     ('A' <= (*msg)[2] && (*msg)[2] <= 'Z')) &&
-		    (('0' <= (*msg)[3] && (*msg)[3] <= '9') ||
-		     ('A' <= (*msg)[3] && (*msg)[3] <= 'Z')) &&
-		    (('0' <= (*msg)[4] && (*msg)[4] <= '9') ||
-		     ('A' <= (*msg)[4] && (*msg)[4] <= 'Z')))
+		/* mdbDump(mb,stk,pci); */
+		if (strlen(*msg) > 6 && (*msg)[5] == '!' && (('0' <= (*msg)[0] && (*msg)[0] <= '9') || ('A' <= (*msg)[0] && (*msg)[0] <= 'Z')) && (('0' <= (*msg)[1] && (*msg)[1] <= '9') || ('A' <= (*msg)[1] && (*msg)[1] <= 'Z')) &&
+		    (('0' <= (*msg)[2] && (*msg)[2] <= '9') || ('A' <= (*msg)[2] && (*msg)[2] <= 'Z')) && (('0' <= (*msg)[3] && (*msg)[3] <= '9') || ('A' <= (*msg)[3] && (*msg)[3] <= 'Z')) && (('0' <= (*msg)[4] && (*msg)[4] <= '9') ||
+																								 ('A' <= (*msg)[4] && (*msg)[4] <= 'Z')))
 			sqlstate = "";
 		throw(SQL, "assert", "%s%s", sqlstate, *msg);
 	}
@@ -2295,12 +2355,12 @@ SQLCacheRemove(Client c, str nme)
 	mnstr_printf(GDKout, "#SQLCacheRemove %s\n", nme);
 #endif
 
-	s= findSymbolInModule(c->nspace, nme);
+	s = findSymbolInModule(c->nspace, nme);
 	if (s == NULL)
 		throw(MAL, "cache.remove", "internal error, symbol missing\n");
-	if( getInstrPtr(s->def,0)->token == FACTORYsymbol)
-		shutdownFactoryByName(c,c->nspace, nme);
+	if (getInstrPtr(s->def, 0)->token == FACTORYsymbol)
+		shutdownFactoryByName(c, c->nspace, nme);
 	else
-		deleteSymbol(c->nspace,s);
+		deleteSymbol(c->nspace, s);
 	return MAL_SUCCEED;
 }

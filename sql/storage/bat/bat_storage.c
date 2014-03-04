@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -139,8 +139,10 @@ delta_bind_bat( sql_delta *bat, int access, int temp)
 {
 	BAT *b;
 
-	assert(access == RDONLY || access == RD_INS);
+	assert(access == RDONLY || access == RD_INS || access == QUICK);
 	assert(bat != NULL);
+	if (access == QUICK)
+		return quick_descriptor(bat->bid);
 	if (temp || access == RD_INS) {
 		assert(bat->ibid);
 		b = temp_descriptor(bat->ibid);
@@ -416,31 +418,29 @@ static void
 delta_append_bat( sql_delta *bat, BAT *i ) 
 {
 	int id = i->batCacheid;
+	BAT *b;
 #ifndef NDEBUG
 	BAT *c = BBPquickdesc(bat->bid, 0); 
+	assert(!c || c->htype == TYPE_void);
 #endif
-	BAT *b;
 
 	if (!BATcount(i))
 		return ;
 	b = temp_descriptor(bat->ibid);
+	assert(b->htype == TYPE_void);
 
 	if (bat->cached) {
 		bat_destroy(bat->cached);
 		bat->cached = NULL;
 	}
 	assert(!c || BATcount(c) == bat->ibase);
-	if (!bat->ibase && !BATcount(b) && BBP_refs(id) == 1 && BBP_lrefs(id) == 1 && !isVIEW(i) /* we need info if this is comming from copy into, like role == PERSISTENT */){
+	if (!bat->ibase && BATcount(b) == 0 && BBP_refs(id) == 1 && BBP_lrefs(id) == 1 && !isVIEW(i) && i->ttype /* we need info if this is coming from copy into, like role == PERSISTENT */){
 		temp_destroy(bat->ibid);
 		bat->ibid = id;
 		temp_dup(id);
 		bat_destroy(b);
 	} else {
 		if (!isEbat(b)){
-			/* try to use mmap() */
-			if (BATcount(b)+BATcount(i) > (BUN) REMAP_PAGE_MAXSIZE) { 
-       				BATmmap(b, STORE_MMAP, STORE_MMAP, STORE_MMAP, STORE_MMAP, 1);
-    			}
 			assert(b->T->heap.storage != STORE_PRIV);
 		} else {
 			temp_destroy(bat->ibid);
@@ -448,7 +448,12 @@ delta_append_bat( sql_delta *bat, BAT *i )
 			bat_destroy(b);
 			b = temp_descriptor(bat->ibid);
 		}
-		BATappend(b, i, TRUE);
+		if (isVIEW(i) && b->batCacheid == ABS(VIEWtparent(i))) {
+			BAT *ic = BATcopy(i, TYPE_void, i->ttype, TRUE);
+			BATappend(b, ic, TRUE);
+			bat_destroy(ic);
+		} else 
+			BATappend(b, i, TRUE);
 		assert(BUNlast(b) > b->batInserted);
 		bat_destroy(b);
 	}
@@ -461,8 +466,10 @@ delta_append_val( sql_delta *bat, void *i )
 	BAT *b = temp_descriptor(bat->ibid);
 #ifndef NDEBUG
 	BAT *c = BBPquickdesc(bat->bid, 0);
+	assert(!c || c->htype == TYPE_void);
 #endif
 
+	assert(b->htype == TYPE_void);
 	if (bat->cached) {
 		bat_destroy(bat->cached);
 		bat->cached = NULL;
@@ -761,10 +768,10 @@ sorted_col(sql_trans *tr, sql_column *col)
 	}
 
 	if (col && col->data) {
-		BAT *b = bind_col(tr, col, RDONLY);
+		BAT *b = bind_col(tr, col, QUICK);
 
-		sorted = BATtordered(b);
-		bat_destroy(b);
+		if (b)
+			sorted = BATtordered(b);
 	}
 	return sorted;
 }
@@ -825,8 +832,6 @@ snapshot_new_persistent_bat(sql_trans *tr, sql_delta *bat)
 	bat_set_access(b, BAT_READ);
 	if (BATcount(b) > SNAPSHOT_MINSIZE)
 		BATmode(b, PERSISTENT);
-	if (BATcount(b) > (BUN) REMAP_PAGE_MAXSIZE)
-       		BATmmap(b, STORE_MMAP, STORE_MMAP, STORE_MMAP, STORE_MMAP, 0);
 	bat_destroy(b);
 	return ok;
 }
@@ -1122,8 +1127,6 @@ snapshot_create_del(sql_trans *tr, sql_table *t)
 	bat_set_access(b, BAT_READ);
 	if (BATcount(b) > SNAPSHOT_MINSIZE) 
 		BATmode(b, PERSISTENT);
-	if (BATcount(b) > (BUN) REMAP_PAGE_MAXSIZE)
-       		BATmmap(b, STORE_MMAP, STORE_MMAP, STORE_MMAP, STORE_MMAP, 0);
 	bat_destroy(b);
 	return LOG_OK;
 }
@@ -1420,9 +1423,6 @@ gtr_update_delta( sql_trans *tr, sql_delta *cbat, int *changes)
 	/* any inserts */
 	if (BUNlast(ins) > BUNfirst(ins)) {
 		(*changes)++;
-		if (BATcount(cur)+BATcount(ins) > (BUN) REMAP_PAGE_MAXSIZE) { /* try to use mmap() */
-       			BATmmap(cur, STORE_MMAP, STORE_MMAP, STORE_MMAP, STORE_MMAP, 1);
-    		}
 		assert(cur->T->heap.storage != STORE_PRIV);
 		BATappend(cur,ins,TRUE);
 		cbat->cnt = cbat->ibase = BATcount(cur);
@@ -1578,8 +1578,8 @@ gtr_minmax( sql_trans *tr )
 	return _gtr_update(tr, &gtr_minmax_table);
 }
 
-int 
-tr_update_delta( sql_trans *tr, sql_delta *obat, sql_delta *cbat, BUN snapshot_minsize)
+static int 
+tr_update_delta( sql_trans *tr, sql_delta *obat, sql_delta *cbat, int unique)
 {
 	int ok = LOG_OK;
 	BAT *ups, *ins, *cur = NULL;
@@ -1598,15 +1598,27 @@ tr_update_delta( sql_trans *tr, sql_delta *obat, sql_delta *cbat, BUN snapshot_m
 		temp_dup(cbat->bid);
 	}
 
+	if (obat->cached) {
+		bat_destroy(obat->cached);
+		obat->cached = NULL;
+	}
+	if (cbat->cached) {
+		bat_destroy(cbat->cached);
+		cbat->cached = NULL;
+	}
 	if (obat->bid)
 		cur = temp_descriptor(obat->bid);
 	ins = temp_descriptor(cbat->ibid);
+	if (unique)
+		BATkey(BATmirror(cur), TRUE);
 	/* any inserts */
 	if (BUNlast(ins) > BUNfirst(ins) || cleared) {
-		if ((!obat->ibase && BATcount(ins) > snapshot_minsize)){
+		if ((!obat->ibase && BATcount(ins) > SNAPSHOT_MINSIZE)){
 			/* swap cur and ins */
 			BAT *newcur = ins;
 
+			if (unique)
+				BATkey(BATmirror(newcur), TRUE);
 			temp_destroy(cbat->bid);
 			temp_destroy(obat->bid);
 			obat->bid = cbat->ibid;
@@ -1615,8 +1627,6 @@ tr_update_delta( sql_trans *tr, sql_delta *obat, sql_delta *cbat, BUN snapshot_m
 			ins = cur;
 			cur = newcur;
 		} else {
-			if (BATcount(cur)+BATcount(ins) > (BUN) REMAP_PAGE_MAXSIZE) /* try to use mmap() */
-       				BATmmap(cur, STORE_MMAP, STORE_MMAP, STORE_MMAP, STORE_MMAP, 1);
 			assert(cur->T->heap.storage != STORE_PRIV);
 			assert((BATcount(cur) + BATcount(ins)) == cbat->cnt);
 			assert((BATcount(cur) + BATcount(ins)) == (obat->cnt + (BUNlast(ins) - ins->batInserted)));
@@ -1659,7 +1669,7 @@ tr_update_delta( sql_trans *tr, sql_delta *obat, sql_delta *cbat, BUN snapshot_m
 	return ok;
 }
 
-int
+static int
 tr_update_dbat(sql_trans *tr, sql_dbat *tdb, sql_dbat *fdb, int cleared)
 {
 	int ok = LOG_OK;
@@ -1672,7 +1682,8 @@ tr_update_dbat(sql_trans *tr, sql_dbat *tdb, sql_dbat *fdb, int cleared)
 	if (BUNlast(db) > db->batInserted || cleared) {
 		BAT *odb = temp_descriptor(tdb->dbid);
 
-		if (!BATcount(odb)) {
+		/* For large deletes write the new deletes bat */
+		if (BATcount(db) > SNAPSHOT_MINSIZE) {
 			temp_destroy(tdb->dbid);
 			tdb->dbid = fdb->dbid;
 		} else {
@@ -1745,6 +1756,7 @@ update_table(sql_trans *tr, sql_table *ft, sql_table *tt)
 			cc->base.allocated = cc->base.rtime = cc->base.wtime = 0;
 			continue;
 		}
+
 		assert(oc->base.wtime < cc->base.wtime);
 		if (store_nr_active > 1) { /* move delta */
 			sql_delta *b = cc->data, *p = NULL;
@@ -1762,8 +1774,15 @@ update_table(sql_trans *tr, sql_table *ft, sql_table *tt)
 			}
 		} else {
 			assert(oc->base.allocated);
-			tr_update_delta(tr, oc->data, cc->data, SNAPSHOT_MINSIZE);
+			tr_update_delta(tr, oc->data, cc->data, cc->unique == 1);
 		}
+
+		oc->null = cc->null;
+		oc->unique = cc->unique;
+		if (cc->storage_type && (!cc->storage_type || strcmp(cc->storage_type, oc->storage_type) != 0))
+			oc->storage_type = sa_strdup(tr->sa, cc->storage_type);
+		if (cc->def && (!cc->def || strcmp(cc->def, oc->def) != 0))
+			oc->def = sa_strdup(tr->sa, cc->def);
 
 		if (oc->base.rtime < cc->base.rtime)
 			oc->base.rtime = cc->base.rtime;
@@ -1800,7 +1819,7 @@ update_table(sql_trans *tr, sql_table *ft, sql_table *tt)
 				}
 			} else {
 				assert(oi->base.allocated);
-				tr_update_delta(tr, oi->data, ci->data, SNAPSHOT_MINSIZE);
+				tr_update_delta(tr, oi->data, ci->data, 0);
 			}
 
 			if (oi->base.rtime < ci->base.rtime)
@@ -1822,7 +1841,7 @@ update_table(sql_trans *tr, sql_table *ft, sql_table *tt)
 	return ok;
 }
 
-int 
+static int 
 tr_log_delta( sql_trans *tr, sql_delta *cbat, int cleared)
 {
 	int ok = LOG_OK;
@@ -1858,7 +1877,7 @@ tr_log_delta( sql_trans *tr, sql_delta *cbat, int cleared)
 	return ok;
 }
 
-int
+static int
 tr_log_dbat(sql_trans *tr, sql_dbat *fdb, int cleared)
 {
 	int ok = LOG_OK;
@@ -1873,8 +1892,11 @@ tr_log_dbat(sql_trans *tr, sql_dbat *fdb, int cleared)
 		log_bat_clear(bat_logger, fdb->dname);
 
 	db = temp_descriptor(fdb->dbid);
-	if (BUNlast(db) > db->batInserted || cleared) 
-		ok = log_bat(bat_logger, db, fdb->dname);
+	if (BUNlast(db) > BUNfirst(db)) {
+		assert(store_nr_active>0);
+		if (BUNlast(db) > db->batInserted) 
+			ok = log_bat(bat_logger, db, fdb->dname);
+	}
 	bat_destroy(db);
 	return ok;
 }
@@ -1925,8 +1947,6 @@ tr_snapshot_bat( sql_trans *tr, sql_delta *cbat)
 		if (BUNlast(ins) > BUNfirst(ins)) {
 			bat_set_access(ins, BAT_READ);
 			BATmode(ins, PERSISTENT);
-			if (BATcount(ins) > (BUN) REMAP_PAGE_MAXSIZE)
-       				BATmmap(ins, STORE_MMAP, STORE_MMAP, STORE_MMAP, STORE_MMAP, 0);
 		}
 		bat_destroy(ins);
 	}

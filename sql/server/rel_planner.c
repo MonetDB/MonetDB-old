@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -59,14 +59,19 @@ static memoitem*
 memo_find(list *memo, char *name)
 {
 	int key = hash_key(name);
-	sql_hash_e *he = memo->ht->buckets[key&(memo->ht->size-1)]; 
+	sql_hash_e *he;
 
+	MT_lock_set(&memo->ht_lock, "memo_find");
+	he = memo->ht->buckets[key&(memo->ht->size-1)]; 
 	for (; he; he = he->chain) {
 		memoitem *mi = he->value;
 
-		if (mi->name && strcmp(mi->name, name) == 0) 
+		if (mi->name && strcmp(mi->name, name) == 0) {
+			MT_lock_unset(&memo->ht_lock, "memo_find");
 			return mi;
+		}
 	}
+	MT_lock_unset(&memo->ht_lock, "memo_find");
 	return NULL;
 }
 
@@ -258,7 +263,9 @@ memo_create(mvc *sql, list *rels )
 	list *memo = sa_list(sql->sa);
 	node *n;
 
+	MT_lock_set(&memo->ht_lock, "memo_create");
 	memo->ht = hash_new(sql->sa, len*len, (fkeyvalue)&memoitem_key);
+	MT_lock_unset(&memo->ht_lock, "memo_create");
 	for(n = rels->h; n; n = n->next) {
 		sql_rel *r = n->data;
 		memoitem *mi = memoitem_create(memo, sql->sa, rel_name(r), NULL, 1);
@@ -748,27 +755,4 @@ rel_planner(mvc *sql, list *rels, list *sdje)
 	return top;
 }
 
-int
-rel_has_exp(sql_rel *rel, sql_exp *e) 
-{
-	if (rel_find_exp(rel, e) != NULL) 
-		return 0;
-	return -1;
-}
-
-sql_rel *
-find_one_rel(list *rels, sql_exp *e)
-{
-	node *n;
-	sql_rel *fnd = NULL;
-
-	for(n = rels->h; n; n = n->next) {
-		if (rel_has_exp(n->data, e) == 0) {
-			if (fnd)
-				return NULL;
-			fnd = n->data;
-		}
-	}
-	return fnd;
-}
 

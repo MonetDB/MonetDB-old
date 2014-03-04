@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -62,7 +62,6 @@
 #define MONETDB_PRODUCT_NAME "MonetDB ODBC driver"
 #define MONETDB_SERVER_NAME  "MonetDB"
 
-#define WITH_WCHAR	1
 #define ODBCDEBUG	1
 
 #ifdef WIN32

@@ -13,11 +13,27 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
 /* This file should not be included in any file outside of this directory */
+
+#ifndef LIBGDK
+#error this file should not be included outside its source directory
+#endif
+
+/*
+ * The different parts of which a BAT consists are physically stored
+ * next to each other in the BATstore type.
+ */
+struct BATstore {
+	BAT B;			/* storage for BAT descriptor */
+	BAT BM;			/* mirror (reverse) BAT */
+	COLrec H;		/* storage for head column */
+	COLrec T;		/* storage for tail column */
+	BATrec S;		/* the BAT properties */
+};
 
 int ALIGNcommit(BAT *b);
 int ALIGNundo(BAT *b);
@@ -44,18 +60,17 @@ size_t BATvmsize(BAT *b, int dirty);
 void BBPcacheit(BATstore *bs, int lock);
 void BBPdump(void);		/* never called: for debugging only */
 void BBPexit(void);
+BATstore *BBPgetdesc(bat i);
 void BBPinit(void);
 bat BBPinsert(BATstore *bs);
 void BBPtrim(size_t delta);
 void BBPunshare(bat b);
 void GDKclrerr(void);
 int GDKextend(const char *fn, size_t size);
-#ifndef NATIVE_WIN32
-int GDKextendf(int fd, off_t size);
-#endif
+int GDKextendf(int fd, size_t size);
 int GDKfdlocate(const char *nme, const char *mode, const char *ext);
 FILE *GDKfilelocate(const char *nme, const char *mode, const char *ext);
-char *GDKload(const char *nme, const char *ext, size_t size, size_t chunk, storage_t mode);
+char *GDKload(const char *nme, const char *ext, size_t size, size_t *maxsize, storage_t mode);
 void GDKlog(_In_z_ _Printf_format_string_ const char *format, ...)
 	__attribute__((__format__(__printf__, 1, 2)));
 void *GDKmallocmax(size_t size, size_t *maxsize, int emergency);
@@ -72,12 +87,9 @@ BUN HASHmask(BUN cnt);
 Hash *HASHnew(Heap *hp, int tpe, BUN size, BUN mask);
 void HASHremove(BAT *b);
 int HEAPalloc(Heap *h, size_t nitems, size_t itemsize);
-void HEAPcacheInit(void);
-int HEAP_check(Heap *h, HeapRepair *hr);
+int HEAPcopy(Heap *dst, Heap *src);
 int HEAPdelete(Heap *h, const char *o, const char *ext);
-void HEAP_init(Heap *heap, int tpe);
 int HEAPload(Heap *h, const char *nme, const char *ext, int trunc);
-int HEAP_mmappable(Heap *heap);
 int HEAPsave(Heap *h, const char *nme, const char *ext);
 int HEAPshrink(Heap *h, size_t size);
 int HEAPwarm(Heap *h);
@@ -86,7 +98,7 @@ void MT_global_exit(int status)
 	__attribute__((__noreturn__));
 void MT_init_posix(void);
 void *MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t *new_size);
-int MT_msync(void *p, size_t off, size_t len, int mode);
+int MT_msync(void *p, size_t len, int mode);
 int OIDdirty(void);
 int OIDinit(void);
 oid OIDread(str buf);
@@ -98,11 +110,27 @@ var_t strLocate(Heap *h, const char *v);
 void VIEWdestroy(BAT *b);
 BAT *VIEWreset(BAT *b);
 int IMPSgetbin(int tpe, bte bits, char *bins, const void *v);
-void IMPSremove(BAT *b);
+#ifndef NDEBUG
 void IMPSprint(BAT *b);
+#endif
 
 #define BBP_BATMASK	511
 #define BBP_THREADMASK	63
+
+struct PROPrec {
+	int id;
+	ValRecord v;
+	struct PROPrec *next;	/* simple chain of properties */
+};
+
+struct Imprints {
+	bte bits;        /* how many bits in imprints */
+	Heap *bins;      /* ranges of bins */
+	Heap *imps;      /* heap of imprints */
+	BUN impcnt;      /* counter for imprints*/
+	Heap *dict;      /* cache dictionary for compressing imprints */
+	BUN dictcnt;     /* counter for cache dictionary */
+};
 
 typedef struct {
 	MT_Lock swap;
@@ -116,27 +144,33 @@ typedef struct {
 	bat free;
 } bbplock_t;
 
+typedef char long_str[IDLENGTH];	/* standard GDK static string */
+
 extern int BBP_dirty;	/* BBP table dirty? */
 extern batlock_t GDKbatLock[BBP_BATMASK + 1];
 extern bbplock_t GDKbbpLock[BBP_THREADMASK + 1];
 extern size_t GDK_mmap_minsize;	/* size after which we use memory mapped files */
+extern size_t GDK_mmap_pagesize; /* mmap granularity */
 extern MT_Lock GDKnameLock;
 extern MT_Lock GDKthreadLock;
 extern MT_Lock GDKtmLock;
 extern MT_Lock MT_system_lock;
 
-#define ATOMappendpriv(t, h)						\
-	((BATatoms[t].atomHeapCheck != HEAP_check || !HEAP_mmappable(h)) && \
-	 (ATOMstorage(t) != TYPE_str || GDK_ELIMDOUBLES(h)))
+#define ATOMappendpriv(t, h) (ATOMstorage(t) != TYPE_str || GDK_ELIMDOUBLES(h))
 
 #define BBPdirty(x)	(BBP_dirty=(x))
 
 #define GDKswapLock(x)  GDKbatLock[(x)&BBP_BATMASK].swap
 #define GDKhashLock(x)  GDKbatLock[(x)&BBP_BATMASK].hash
 #define GDKimprintsLock(x)  GDKbatLock[(x)&BBP_BATMASK].imprints
-#define GDKtrimLock(y)  GDKbbpLock[(y)&BBP_THREADMASK].trim
-#define GDKcacheLock(y) GDKbbpLock[(y)&BBP_THREADMASK].alloc
-#define BBP_free(y)	GDKbbpLock[(y)&BBP_THREADMASK].free
+#if SIZEOF_SIZE_T == 8
+#define threadmask(y)	((int) ((mix_int((unsigned int) y) ^ mix_int((unsigned int) (y >> 32))) & BBP_THREADMASK))
+#else
+#define threadmask(y)	((int) (mix_int(y) & BBP_THREADMASK))
+#endif
+#define GDKtrimLock(y)	GDKbbpLock[y].trim
+#define GDKcacheLock(y)	GDKbbpLock[y].alloc
+#define BBP_free(y)	GDKbbpLock[y].free
 
 #define SORTloop_TYPE(b, p, q, tl, th, TYPE)				\
 	if (!BATtordered(b))						\
@@ -166,3 +200,85 @@ extern MT_Lock MT_system_lock;
 #define SORTloop_var(b,p,q,tl,th) SORTloop_loc(b,p,q,tl,th)
 
 #define SORTloop_bit(b,p,q,tl,th) SORTloop_bte(b,p,q,tl,th)
+
+#ifndef NDEBUG
+/* see comment in gdk.h */
+#ifdef __GNUC__
+#define GDKmallocmax(s,ps,e)						\
+	({								\
+		size_t _size = (s);					\
+		size_t *_psize  = (ps);					\
+		void *_res = GDKmallocmax(_size,_psize,e);		\
+		ALLOCDEBUG						\
+			fprintf(stderr,					\
+				"#GDKmallocmax(" SZFMT ",(" SZFMT ")) -> " \
+				PTRFMT " %s[%s:%d]\n",			\
+				_size, *_psize, PTRFMTCAST _res,	\
+				__func__, __FILE__, __LINE__);		\
+		_res;							\
+	 })
+#define GDKmunmap(p, l)							\
+	({	void *_ptr = (p);					\
+		size_t _len = (l);					\
+		int _res = GDKmunmap(_ptr, _len);			\
+		ALLOCDEBUG						\
+			fprintf(stderr,					\
+				"#GDKmunmap(" PTRFMT "," SZFMT ") -> %d" \
+				" %s[%s:%d]\n",				\
+				PTRFMTCAST _ptr, _len, _res,		\
+				__func__, __FILE__, __LINE__);		\
+		_res;							\
+	})
+#define GDKreallocmax(p,s,ps,e)						\
+	({								\
+		void *_ptr = (p);					\
+		size_t _size = (s);					\
+		size_t *_psize  = (ps);					\
+		void *_res = GDKreallocmax(_ptr,_size,_psize,e);	\
+		ALLOCDEBUG						\
+			fprintf(stderr,					\
+				"#GDKreallocmax(" PTRFMT "," SZFMT \
+				",(" SZFMT ")) -> " PTRFMT		\
+				" %s[%s:%d]\n", PTRFMTCAST _ptr,	\
+				_size, *_psize, PTRFMTCAST _res,	\
+				__func__, __FILE__, __LINE__);		\
+		_res;							\
+	 })
+#else
+static inline void *
+GDKmallocmax_debug(size_t size, size_t *psize, int emergency,
+		   const char *filename, int lineno)
+{
+	void *res = GDKmallocmax(size, psize, emergency);
+	ALLOCDEBUG fprintf(stderr,
+			   "#GDKmallocmax(" SZFMT ",(" SZFMT ")) -> "
+			   PTRFMT " [%s:%d]\n",
+			   size, *psize, PTRFMTCAST res, filename, lineno);
+	return res;
+}
+#define GDKmallocmax(s, ps, e)	GDKmallocmax_debug((s), (ps), (e), __FILE__, __LINE__)
+static inline int
+GDKmunmap_debug(void *ptr, size_t len, const char *filename, int lineno)
+{
+	int res = GDKmunmap(ptr, len);
+	ALLOCDEBUG fprintf(stderr,
+			   "#GDKmunmap(" PTRFMT "," SZFMT ") -> %d [%s:%d]\n",
+			   PTRFMTCAST ptr, len, res, filename, lineno);
+	return res;
+}
+#define GDKmunmap(p, l)		GDKmunmap_debug((p), (l), __FILE__, __LINE__)
+static inline void *
+GDKreallocmax_debug(void *ptr, size_t size, size_t *psize, int emergency,
+		    const char *filename, int lineno)
+{
+	void *res = GDKreallocmax(ptr, size, psize, emergency);
+	ALLOCDEBUG fprintf(stderr,
+			   "#GDKreallocmax(" PTRFMT "," SZFMT
+			   ",(" SZFMT ")) -> " PTRFMT " [%s:%d]\n",
+			   PTRFMTCAST ptr, size, *psize, PTRFMTCAST res,
+			   filename, lineno);
+	return res;
+}
+#define GDKreallocmax(p, s, ps, e)	GDKreallocmax_debug((p), (s), (ps), (e), __FILE__, __LINE__)
+#endif
+#endif

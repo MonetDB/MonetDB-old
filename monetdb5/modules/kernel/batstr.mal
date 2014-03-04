@@ -1,3 +1,20 @@
+# The contents of this file are subject to the MonetDB Public License
+# Version 1.1 (the "License"); you may not use this file except in
+# compliance with the License. You may obtain a copy of the License at
+# http://www.monetdb.org/Legal/MonetDBLicense
+#
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+# License for the specific language governing rights and limitations
+# under the License.
+#
+# The Original Code is the MonetDB Database System.
+#
+# The Initial Developer of the Original Code is CWI.
+# Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+# Copyright August 2008-2014 MonetDB B.V.
+# All Rights Reserved.
+
 module batstr;
 
 command batstr.length( s:bat[:oid,:str] ) :bat[:oid,:int]
@@ -90,16 +107,3 @@ comment "Substitute first occurrence of 'src' by
 	recursion and result strings of unlimited
 	size, repeating is only done iff src is
 	not a substring of dst.";
-
-command batstr.like_uselect(s:bat[:oid,:str],pat:str):bat[:oid,:void]
-address STRbatlike_uselect2
-comment "Perform SQL like operation against a string bat";
-
-command batstr.like_uselect(s:bat[:oid,:str],pat:str,esc:str):bat[:oid,:void]
-address STRbatlike_uselect
-comment "Perform SQL like operation against a string bat";
-
-command batstr.replace(s:bat[:oid,:str],pat:str,s2:str):bat[:oid,:str]
-address STRbatreplace
-comment "Insert a string into another";
-

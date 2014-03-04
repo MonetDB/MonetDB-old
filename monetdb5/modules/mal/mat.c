@@ -3,19 +3,19 @@
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.monetdb.org/Legal/MonetDBLicense
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * The Original Code is the MonetDB Database System.
- * 
+ *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
 
 /*
  * Martin Kersten
@@ -84,12 +84,14 @@ MAThasMoreElements(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
  * do not produce RUNTIME_OBJECT_MISSING.
  */
 static str
-MATpackInternal(MalStkPtr stk, InstrPtr p)
+MATpackInternal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
 	int i, *ret = (int*) getArgReference(stk,p,0);
 	BAT *b, *bn;
 	BUN cap = 0;
 	int tt = TYPE_any;
+	(void) cntxt;
+	(void) mb;
 
 	for (i = 1; i < p->argc; i++) {
 		int bid = stk->stk[getArg(p,i)].val.ival;
@@ -114,7 +116,6 @@ MATpackInternal(MalStkPtr stk, InstrPtr p)
 	bn = BATnew(TYPE_void, tt, cap);
 	if (bn == NULL)
 		throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
-	BATsettrivprop(bn);
 
 	for (i = 1; i < p->argc; i++) {
 		b = BATdescriptor(stk->stk[getArg(p,i)].val.ival);
@@ -129,6 +130,8 @@ MATpackInternal(MalStkPtr stk, InstrPtr p)
 	}
 	assert(!bn->H->nil || !bn->H->nonil);
 	assert(!bn->T->nil || !bn->T->nonil);
+	BATsettrivprop(bn);
+	BATderiveProps(bn,FALSE);
 	BBPkeepref(*ret = bn->batCacheid);
 	return MAL_SUCCEED;
 }
@@ -159,7 +162,7 @@ MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		/* allocate enough space for the strings */
 		if ( b->T->vheap && bn->T->vheap ){
 			newsize =  b->T->vheap->size * pieces;
-			if (HEAPextend(bn->T->vheap, newsize) < 0) 
+			if (HEAPextend(bn->T->vheap, newsize, TRUE) < 0)
 				throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
 		}
 		BATseqbase(bn, b->H->seq);
@@ -285,12 +288,12 @@ MATpackSliceInternal(MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		cap -= fst;
 	cnt = MIN(cnt, cap);
 
-	bn = BATnew(ht, tt, cnt);
+	assert(ht== TYPE_void);
+	bn = BATnew(TYPE_void, tt, cnt);
 	if (bn == NULL)
 		throw(MAL, "mat.packSlice", MAL_MALLOC_FAIL);
 	/* must set seqbase or else BATins will not materialize column */
-	if (ht == TYPE_void)
-		BATseqbase(bn, 0);
+	BATseqbase(bn, 0);
 	if (tt == TYPE_void)
 		BATseqbase(BATmirror(bn), 0);
 
@@ -367,76 +370,108 @@ MATpack2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	return MATpack2Internal(stk,p);
 }
 
-/*
- * the next one is specific to the centipede, where we carve out
- * a portion of table based on the value ids. They are simply glued
- * together in a void-headed bat.
- * The special case that only one partition is filled is taken separately.
-*/
-static str
-MATpack3Internal(MalStkPtr stk, InstrPtr p)
-{
-	int i,*ret, nonempty=0, ref=0, type =0;
-	BAT *b, *bn;
-	BUN cap=0;
-
-	for(i = 1; i < p->argc; i++){
-		b= BATdescriptor(stk->stk[getArg(p,i)].val.ival);
-		if( b == NULL)
-			throw(MAL, "mat.pack", RUNTIME_OBJECT_MISSING);
-		type= b->ttype;	/* all tail types are the same */
-		cap += BATcount(b);
-		nonempty += (BATcount(b) != 0);
-		if ( BATcount(b)) 
-			ref = i;
-		BBPunfix(b->batCacheid);
-	}
-	if ( nonempty == 1) {
-		b= BATdescriptor(stk->stk[getArg(p,ref)].val.ival);
-		if( b == NULL)
-			throw(MAL, "mat.pack", RUNTIME_OBJECT_MISSING);
-		if ( b->htype == TYPE_void && b->hseqbase == 0 ) {
-			/* steal the BAT */
-			ret= (int*) getArgReference(stk,p,0);
-			BBPkeepref(*ret = b->batCacheid);
-			return MAL_SUCCEED;
-		} 
-		bn = BATcopy(b, TYPE_void, type, TRUE);
-		BBPreleaseref(b->batCacheid);
-	} else {
-		bn = BATnew( TYPE_void, type, cap);
-		for( i = 1; bn && i < p->argc; i++){
-			b= BATdescriptor(stk->stk[getArg(p,i)].val.ival);
-			if( b == NULL){
-				BBPreleaseref(bn->batCacheid);
-				throw(MAL, "mat.pack", RUNTIME_OBJECT_MISSING);
-			}
-			BATappend(bn,b,FALSE);
-			BBPreleaseref(b->batCacheid);
-		}
-	}
-	if( bn == NULL)
-		throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
-	BATseqbase(bn,0);
-	ret= (int*) getArgReference(stk,p,0);
-	BBPkeepref(*ret = bn->batCacheid);
-	return MAL_SUCCEED;
-}
-
-str
-MATpack3(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
-{
-	(void) cntxt;
-	(void) mb;
-	return MATpack3Internal(stk,p);
-}
-
 str
 MATpack(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
-	(void) cntxt;
-	(void) mb;
-	return MATpackInternal(stk,p);
+	return MATpackInternal(cntxt,mb,stk,p);
+}
+
+// merging multiple OID lists, optimized for empty bats
+// Further improvement should come from multi-bat merging.
+str
+MATmergepack(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
+{
+	int i,j= 0, *ret = (int*) getArgReference(stk,p,0);
+	int top=0;
+	oid  **o_end, **o_src, *o, *oo, onxt;
+	BAT *b, *bn, *bm, **bats;
+	BUN cap = 0;
+
+	(void)cntxt;
+	(void)mb;
+	bats = (BAT**) GDKzalloc(sizeof(BAT*) * p->argc);
+	o_end = (oid**) GDKzalloc(sizeof(oid*) * p->argc);
+	o_src = (oid**) GDKzalloc(sizeof(oid*) * p->argc);
+
+	if ( bats ==0 || o_end == 0 || o_src == 0){
+		if (bats) GDKfree(bats);
+		if (o_src) GDKfree(o_src);
+		if (o_end) GDKfree(o_end);
+		throw(MAL,"mat.mergepack",MAL_MALLOC_FAIL);
+	}
+	for (i = 1; i < p->argc; i++) {
+		int bid = stk->stk[getArg(p,i)].val.ival;
+		b = BATdescriptor(ABS(bid));
+		if (b ){
+			cap += BATcount(b);
+			if ( BATcount(b) ){
+				// pre-sort the arguments
+				onxt = *(oid*) Tloc(b,BUNfirst(b));
+				for( j =top; j > 0 && onxt < *o_src[j-1]; j--){
+					o_src[j] = o_src[j-1];
+					o_end[j] = o_end[j-1];
+					bats[j] = bats[j-1];
+				}
+				o_src[j] = (oid*) Tloc(b,BUNfirst(b));
+				o_end[j] = o_src[j] + BATcount(b);
+				bats[j] = b;
+				top++;
+			}
+		}
+	}
+
+	bn = BATnew(TYPE_void, TYPE_oid, cap);
+	if (bn == NULL)
+		throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
+	if ( cap == 0){
+		BATseqbase(bn, 0);
+		BATseqbase(BATmirror(bn), 0);
+		BBPkeepref(*ret = bn->batCacheid);
+		GDKfree(bats);
+		GDKfree(o_src);
+		GDKfree(o_end);
+		return MAL_SUCCEED;
+	}
+	BATseqbase(bn, bats[0]->hseqbase);
+	// UNROLL THE MULTI-BAT MERGE
+	o = (oid*) Tloc(bn,BUNfirst(bn));
+	while( top){
+		*o++ = *o_src[0];
+		o_src[0]++;
+		if( o_src[0] == o_end[0]){
+			// remove this one
+			for(j=0; j< top; j++){
+				o_src[j]= o_src[j+1];
+				o_end[j]= o_end[j+1];
+				bats[j] = bats[j+1];
+			}
+			top--;
+		} else{
+			// resort priority queue
+			onxt= *o_src[0];
+			for( j=1; j< top && onxt > *o_src[j]; j++){
+				oo = o_src[j]; o_src[j]= o_src[j-1]; o_src[j-1]= oo;
+				oo = o_end[j]; o_end[j]= o_end[j-1]; o_end[j-1]= oo;
+				bm = bats[j]; bats[j]=bats[j-1]; bats[j-1] = bm;
+			}
+		}
+	}
+	for( i=0; i< top; i++)
+		BBPunfix(bats[i]->batCacheid);
+    BATsetcount(bn, (BUN) (o - (oid *) Tloc(bn, BUNfirst(bn))));
+    BATseqbase(bn, 0);
+	BATsettrivprop(bn);
+	GDKfree(bats);
+	GDKfree(o_src);
+	GDKfree(o_end);
+    /* properties */
+    bn->trevsorted = 0;
+    bn->tsorted = 1;
+    bn->tkey = 1;
+    bn->T->nil = 0;
+    bn->T->nonil = 1;
+	BBPkeepref(*ret = bn->batCacheid);
+	return MAL_SUCCEED;
 }
 
 str

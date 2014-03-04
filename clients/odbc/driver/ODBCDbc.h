@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -158,5 +158,11 @@ SQLRETURN SQLAllocStmt_(ODBCDbc *dbc, SQLHANDLE *pnOutputHandle);
 SQLRETURN SQLConnect_(ODBCDbc *dbc, SQLCHAR *szDataSource, SQLSMALLINT nDataSourceLength, SQLCHAR *szUID, SQLSMALLINT nUIDLength, SQLCHAR *szPWD, SQLSMALLINT nPWDLength, const char *host, int port, const char *schema);
 SQLRETURN SQLGetConnectAttr_(ODBCDbc *dbc, SQLINTEGER Attribute, SQLPOINTER ValuePtr, SQLINTEGER BufferLength, SQLINTEGER *StringLength);
 SQLRETURN SQLSetConnectAttr_(ODBCDbc *dbc, SQLINTEGER Attribute, SQLPOINTER ValuePtr, SQLINTEGER StringLength);
+
+/*
+ * Function to translate an ODBC SQL query to native format.
+ * The return value is a freshly allocated null-terminated string.
+ */
+extern char *ODBCTranslateSQL(ODBCDbc *dbc, const SQLCHAR *query, size_t length, SQLUINTEGER noscan);
 
 #endif

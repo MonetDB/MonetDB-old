@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -127,6 +127,9 @@ SQLFetch_(ODBCStmt *stmt)
 			*statusp = SQL_ROW_SUCCESS;
 
 		stmt->rowSetSize++;
+
+		for (i = 1; i <= ird->sql_desc_count; i++)
+			ird->descRec[i].already_returned = 0;
 
 		for (i = 1; i <= ard->sql_desc_count; i++) {
 			rec = &ard->descRec[i];

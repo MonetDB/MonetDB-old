@@ -13,10 +13,9 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
-
 
 #include "monetdb_config.h"
 #include "rel_updates.h"
@@ -612,7 +611,7 @@ rel_update_join_idx(mvc *sql, sql_idx *i, sql_rel *updates)
 	int need_nulls = 0;
 	node *m, *o;
 	sql_key *rk = &((sql_fkey *) i->key)->rkey->k;
-	sql_rel *rt = rel_basetable(sql, rk->t, nme);
+	sql_rel *rt = rel_basetable(sql, rk->t, sa_strdup(sql->sa, nme));
 
 	sql_subtype *bt = sql_bind_localtype("bit");
 	sql_subfunc *or = sql_bind_func_result(sql->sa, sql->session->schema, "or", bt, bt, bt);
@@ -763,9 +762,10 @@ rel_update(mvc *sql, sql_rel *t, sql_rel *uprel, sql_exp **updates, list *exps)
 		sql_column *c = m->data;
 		sql_exp *v = updates[c->colnr];
 
-		if (!v) 
+		if (tab && tab->idxs.set && !v) 
 			v = exp_column(sql->sa, tab->base.name, c->base.name, &c->type, CARD_MULTI, c->null, 0);
-		rel_project_add_exp(sql, uprel, v);
+		if (v)
+			rel_project_add_exp(sql, uprel, v);
 	}
 
 	r->op = op_update;
@@ -778,6 +778,23 @@ rel_update(mvc *sql, sql_rel *t, sql_rel *uprel, sql_exp **updates, list *exps)
 	return r;
 }
 
+
+static sql_exp *
+update_check_column(mvc *sql, sql_table *t, sql_column *c, sql_exp *v, sql_rel *r, char *cname)
+{
+	if (!c) {
+		rel_destroy(r);
+		return sql_error(sql, 02, "42S22!UPDATE: no such column '%s.%s'", t->base.name, cname);
+	}
+	if (!table_privs(sql, t, PRIV_UPDATE) && !sql_privilege(sql, sql->user_id, c->base.id, PRIV_UPDATE, 0)) 
+		return sql_error(sql, 02, "UPDATE: insufficient privileges for user '%s' to update table '%s' on column '%s'", stack_get_string(sql, "current_user"), t->base.name, cname);
+	if (!v || (v = rel_check_type(sql, &c->type, v, type_equal)) == NULL) {
+		rel_destroy(r);
+		return NULL;
+	}
+	return v;
+}
+
 static sql_rel *
 update_table(mvc *sql, dlist *qname, dlist *assignmentlist, symbol *opt_where)
 {
@@ -785,6 +802,7 @@ update_table(mvc *sql, dlist *qname, dlist *assignmentlist, symbol *opt_where)
 	char *tname = qname_table(qname);
 	sql_schema *s = NULL;
 	sql_table *t = NULL;
+	sql_rel *bt = NULL;
 
 	if (sname && !(s=mvc_bind_schema(sql,sname))) {
 		(void) sql_error(sql, 02, "3F000!UPDATE: no such schema '%s'", sname);
@@ -798,11 +816,8 @@ update_table(mvc *sql, dlist *qname, dlist *assignmentlist, symbol *opt_where)
 		t = mvc_bind_table(sql, s, tname);
 		if (!t) 
 			t = mvc_bind_table(sql, NULL, tname);
-		if (!t) {
-			sql_subtype *tpe = stack_find_type(sql, tname);
-			if (tpe)
-				t = tpe->comp_type;
-		}
+		if (!t) 
+			t = stack_find_table(sql, tname);
 	}
 	if (!t) {
 		return sql_error(sql, 02, "42S02!UPDATE: no such table '%s'", tname);
@@ -813,7 +828,7 @@ update_table(mvc *sql, dlist *qname, dlist *assignmentlist, symbol *opt_where)
 	} else {
 		sql_exp *e = NULL, **updates;
 		sql_rel *r = NULL;
-		list *exps = new_exp_list(sql->sa);//, *pexps;
+		list *exps = new_exp_list(sql->sa);
 		dnode *n;
 
 		if (t && !isTempTable(t) && STORE_READONLY)
@@ -826,12 +841,12 @@ update_table(mvc *sql, dlist *qname, dlist *assignmentlist, symbol *opt_where)
 			if (r) { /* simple predicate which is not using the to 
 				    be updated table. We add a select all */
 
-				sql_rel *l = rel_basetable(sql, t, t->base.name );
+				sql_rel *l = bt = rel_basetable(sql, t, t->base.name );
 				r = rel_crossproduct(sql->sa, l, r, op_semi);
 			} else {
 				sql->errstr[0] = 0;
 				sql->session->status = status;
-				r = rel_basetable(sql, t, t->base.name );
+				bt = r = rel_basetable(sql, t, t->base.name );
 				r = rel_logical_exp(sql, r, opt_where, sql_where);
 				if (r && is_join(r->op))
 					r->op = op_semi;
@@ -839,91 +854,110 @@ update_table(mvc *sql, dlist *qname, dlist *assignmentlist, symbol *opt_where)
 			if (!r) 
 				return NULL;
 		} else {	/* update all */
-			r = rel_basetable(sql, t, t->base.name );
+			bt = r = rel_basetable(sql, t, t->base.name );
 		}
 	
-		//pexps = rel_projections(sql, r, NULL, 1, 0);
-		/* We simply create a relation TID, updates */
-
 		/* first create the project */
 		e = exp_column(sql->sa, rel_name(r), TID, sql_bind_localtype("oid"), CARD_MULTI, 0, 1);
-		//r = rel_project(sql->sa, r, append(new_exp_list(sql->sa),e));
-		//e = exp_column(sql->sa, rel_name(r), TID, sql_bind_localtype("oid"), CARD_MULTI, 0, 1);
 		append(exps, e);
 		updates = table_update_array(sql, t);
 		for (n = assignmentlist->h; n; n = n->next) {
 			symbol *a = NULL;
 			sql_exp *v = NULL;
+			sql_rel *rel_val = NULL;
 			dlist *assignment = n->data.sym->data.lval;
-			char *cname = assignment->h->next->data.sval;
-			sql_column *c = mvc_bind_column(sql, t, cname);
+			int single = (assignment->h->next->type == type_string);
+			/* Single assignments have a name, multicolumn a list */
 
-			if (!c) {
-				rel_destroy(r);
-				return sql_error(sql, 02, "42S22!UPDATE: no such column '%s.%s'", t->base.name, cname);
-			}
-			if (!table_privs(sql, t, PRIV_UPDATE) && !sql_privilege(sql, sql->user_id, c->base.id, PRIV_UPDATE, 0)) 
-				return sql_error(sql, 02, "UPDATE: insufficient privileges for user '%s' to update table '%s' on column '%s'", stack_get_string(sql, "current_user"), tname, c->base.name);
 			a = assignment->h->data.sym;
 			if (a) {
 				int status = sql->session->status;
-				sql_rel *rel_val = NULL;
-				exp_kind ek = {type_value, card_column, FALSE};
+				exp_kind ek = {type_value, (single)?card_column:card_relation, FALSE};
 
-				v = rel_value_exp(sql, &rel_val, a, sql_sel, ek);
+				if (single) 
+					v = rel_value_exp(sql, &rel_val, a, sql_sel, ek);
+				else
+					rel_val = rel_subquery(sql, NULL, a, ek, APPLY_JOIN);
 
 				if (!v) {
-					//symbol *s = n->data.sym;
 					sql->errstr[0] = 0;
 					sql->session->status = status;
-					v = rel_value_exp(sql, &r, a, sql_sel, ek);
-					//s->token = SQL_COLUMN;
-					//v = rel_column_exp(sql, &r, s, sql_sel);
-
-					/*
-					if (v && r && r->op == op_project) {
-						sql_rel *rl = r->l;
-
-						if (rl && rl->op == op_project)
-							list_merge(rl->exps, pexps, (fdup)NULL);
+					if (single) {
+						v = rel_value_exp(sql, &r, a, sql_sel, ek);
+					} else {
+						list *val_exps;
+						r = rel_subquery(sql, r, a, ek, APPLY_JOIN);
+					       	val_exps = rel_projections(sql, r->r, NULL, 0, 1);
+						r = rel_project(sql->sa, r, rel_projections(sql, r, NULL, 1, 1));
+						list_merge(r->exps, val_exps, (fdup)NULL);
 					}
-					*/
 				}
-				if (!v || (v = rel_check_type(sql, &c->type, v, type_equal)) == NULL) {
+				if ((single && !v) || (!single && !r)) {
 					rel_destroy(r);
 					return NULL;
 				}
 				if (rel_val) {
-					//sql_rel *nr;
-					//list *exps;
-
 					if (!exp_name(v))
 						exp_label(sql->sa, v, ++sql->label);
-					rel_val = rel_project(sql->sa, rel_val, rel_projections(sql, rel_val, NULL, 0, 1));
-					rel_project_add_exp(sql, rel_val, v);
-					//exps = rel_projections(sql, r, NULL, 0, 1);
-					//nr = rel_project(sql->sa, rel_crossproduct(sql->sa, rel_dup(r->l), rel_val, op_join), exps);
+					if (single) {
+						rel_val = rel_project(sql->sa, rel_val, rel_projections(sql, rel_val, NULL, 0, 1));
+						rel_project_add_exp(sql, rel_val, v);
+					}
 					r = rel_crossproduct(sql->sa, r, rel_val, op_join);
-					//rel_destroy(r);
-					//r = nr;
-					v = exp_column(sql->sa, NULL, exp_name(v), exp_subtype(v), v->card, has_nil(v), is_intern(v));
-				}		
-			} else {
-				v = exp_atom(sql->sa, atom_general(sql->sa, &c->type, NULL));
+					if (single) 
+						v = exp_column(sql->sa, NULL, exp_name(v), exp_subtype(v), v->card, has_nil(v), is_intern(v));
+				}
 			}
+			if (!single) {
+				dlist *cols = assignment->h->next->data.lval;
+				dnode *m;
+				node *n;
+				int nr;
 
-			if (!v) {
-				rel_destroy(r);
-				return NULL;
+				if (!rel_val)
+					rel_val = r;
+				if (!rel_val || !is_project(rel_val->op) ||
+				    dlist_length(cols) >= list_length(rel_val->exps)) {
+					rel_destroy(r);
+					return NULL;
+				}
+				nr = (list_length(rel_val->exps)-dlist_length(cols));
+				for(n=rel_val->exps->h; nr; nr--, n = n->next)
+					; 
+				for(m = cols->h; n && m; n = n->next, m = m->next) {
+					char *cname = m->data.sval;
+					sql_column *c = mvc_bind_column(sql, t, cname);
+					sql_exp *v = n->data;
+
+					v = exp_column(sql->sa, exp_relname(v), exp_name(v), exp_subtype(v), v->card, has_nil(v), is_intern(v));
+					if (!v) { /* check for NULL */
+						v = exp_atom(sql->sa, atom_general(sql->sa, &c->type, NULL));
+					} else if ((v = update_check_column(sql, t, c, v, r, cname)) == NULL) {
+						return NULL;
+					}
+					list_append(exps, exp_column(sql->sa, t->base.name, cname, &c->type, CARD_MULTI, 0, 0));
+					assert(!updates[c->colnr]);
+					exp_setname(sql->sa, v, c->t->base.name, c->base.name);
+					updates[c->colnr] = v;
+				}
+			} else {
+				char *cname = assignment->h->next->data.sval;
+				sql_column *c = mvc_bind_column(sql, t, cname);
+
+				if (!v) {
+					v = exp_atom(sql->sa, atom_general(sql->sa, &c->type, NULL));
+				} else if ((v = update_check_column(sql, t, c, v, r, cname)) == NULL) {
+					return NULL;
+				}
+				list_append(exps, exp_column(sql->sa, t->base.name, cname, &c->type, CARD_MULTI, 0, 0));
+				assert(!updates[c->colnr]);
+				exp_setname(sql->sa, v, c->t->base.name, c->base.name);
+				updates[c->colnr] = v;
 			}
-			list_append(exps, exp_column(sql->sa, t->base.name, cname, &c->type, CARD_MULTI, 0, 0));
-			assert(!updates[c->colnr]);
-			exp_setname(sql->sa, v, c->t->base.name, c->base.name);
-			updates[c->colnr] = v;
 		}
 		e = exp_column(sql->sa, rel_name(r), TID, sql_bind_localtype("oid"), CARD_MULTI, 0, 1);
 		r = rel_project(sql->sa, r, append(new_exp_list(sql->sa),e));
-		r = rel_update(sql, rel_basetable(sql, t, tname), r, updates, exps);
+		r = rel_update(sql, bt, r, updates, exps);
 		return r;
 	}
 }
@@ -959,11 +993,8 @@ delete_table(mvc *sql, dlist *qname, symbol *opt_where)
 		t = mvc_bind_table(sql, schema, tname);
 		if (!t) 
 			t = mvc_bind_table(sql, NULL, tname);
-		if (!t) {
-			sql_subtype *tpe = stack_find_type(sql, tname);
-			if (tpe)
-				t = tpe->comp_type;
-		}
+		if (!t) 
+			t = stack_find_table(sql, tname);
 	}
 	if (!t) {
 		return sql_error(sql, 02, "42S02!DELETE FROM: no such table '%s'", tname);
@@ -1009,6 +1040,19 @@ delete_table(mvc *sql, dlist *qname, symbol *opt_where)
 	}
 }
 
+static list *
+table_column_types(sql_allocator *sa, sql_table *t)
+{
+	node *n;
+	list *types = sa_list(sa);
+
+	if (t->columns.set) for (n = t->columns.set->h; n; n = n->next) {
+		sql_column *c = n->data;
+		append(types, &c->type);
+	}
+	return types;
+}
+
 static sql_rel *
 rel_import(mvc *sql, sql_table *t, char *tsep, char *rsep, char *ssep, char *ns, char *filename, lng nr, lng offset, int locked)
 {
@@ -1019,9 +1063,9 @@ rel_import(mvc *sql, sql_table *t, char *tsep, char *rsep, char *ssep, char *ns,
 	sql_exp *import;
 	sql_schema *sys = mvc_bind_schema(sql, "sys");
 	int len = 7 + (filename?1:0);
-	sql_subfunc *f = sql_find_func(sql->sa, sys, "copyfrom", len, F_FUNC); 
+	sql_subfunc *f = sql_find_func(sql->sa, sys, "copyfrom", len, F_UNION); 
 	
-	f->res.comp_type = t;
+	f->res = table_column_types(sql->sa, t);
  	sql_find_subtype(&tpe, "varchar", 0, 0);
 	args = append( append( append( append( append( append( new_exp_list(sql->sa), 
 		exp_atom_str(sql->sa, t->s?t->s->base.name:NULL, &tpe)), 
@@ -1077,11 +1121,8 @@ copyfrom(mvc *sql, dlist *qname, dlist *files, dlist *seps, dlist *nr_offset, st
 	if (!t && !sname) {
 		s = tmp_schema(sql);
 		t = mvc_bind_table(sql, s, tname);
-		if (!t) {
-			sql_subtype *tpe = stack_find_type(sql, tname);
-			if (tpe)
-				t = tpe->comp_type;
-		}
+		if (!t) 
+			t = stack_find_table(sql, tname);
 	}
 	if (!t) 
 		return sql_error(sql, 02, "42S02!COPY INTO: no such table '%s'", tname);
@@ -1172,7 +1213,7 @@ bincopyfrom(mvc *sql, dlist *qname, dlist *files, int constraint)
 	sql_subtype tpe;
 	sql_exp *import;
 	sql_schema *sys = mvc_bind_schema(sql, "sys");
-	sql_subfunc *f = sql_find_func(sql->sa, sys, "copyfrom", 2, F_FUNC); 
+	sql_subfunc *f = sql_find_func(sql->sa, sys, "copyfrom", 2, F_UNION); 
 
 	if (sql->user_id != USER_MONETDB) {
 		(void) sql_error(sql, 02, "COPY INTO: insufficient privileges: "
@@ -1190,11 +1231,8 @@ bincopyfrom(mvc *sql, dlist *qname, dlist *files, int constraint)
 	if (!t && !sname) {
 		s = tmp_schema(sql);
 		t = mvc_bind_table(sql, s, tname);
-		if (!t) {
-			sql_subtype *tpe = stack_find_type(sql, tname);
-			if (tpe)
-				t = tpe->comp_type;
-		}
+		if (!t) 
+			t = stack_find_table(sql, tname);
 	}
 	if (!t) 
 		return sql_error(sql, 02, "42S02!COPY INTO: no such table '%s'", tname);
@@ -1205,7 +1243,7 @@ bincopyfrom(mvc *sql, dlist *qname, dlist *files, int constraint)
 	if (files == NULL)
 		return sql_error(sql, 02, "COPY INTO: must specify files");
 
-	f->res.comp_type = t;
+	f->res = table_column_types(sql->sa, t);
  	sql_find_subtype(&tpe, "varchar", 0, 0);
 	args = append( append( new_exp_list(sql->sa), 
 		exp_atom_str(sql->sa, t->s?t->s->base.name:NULL, &tpe)), 

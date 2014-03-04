@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -129,6 +129,8 @@ levenshtein_impl(int *result, str *S, str *T, int *insdel_cost, int *replace_cos
 	}
 	sz = (n + 1) * (m + 1) * sizeof(int);
 	d = (int *) GDKmalloc(sz);
+	if ( d == NULL)
+		throw(MAL,"levenshtein", MAL_MALLOC_FAIL);
 
 	/* Step 2 */
 	for (i = 0; i <= n; i++) {
@@ -269,6 +271,8 @@ soundex_impl(str *res, str *Name)
 	RETURN_NIL_IF(strNil(*Name), TYPE_str);
 
 	*res = (str) GDKmalloc(sizeof(char) * (SoundexLen + 1));
+	if( *res == NULL)
+		throw(MAL,"soundex", MAL_MALLOC_FAIL);
 
 	/* calculate Key for Name */
 	soundex_code(*Name, *res);

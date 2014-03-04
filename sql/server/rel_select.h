@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -42,7 +42,7 @@ extern sql_exp *rel_column_exp(mvc *sql, sql_rel **rel, symbol *column_e, int f)
 
 extern void rel_add_intern(mvc *sql, sql_rel *rel);
 
-extern void rel_select_add_exp(sql_rel *l, sql_exp *e);
+extern void rel_select_add_exp(sql_allocator *sa, sql_rel *l, sql_exp *e);
 extern sql_rel *rel_select(sql_allocator *sa, sql_rel *l, sql_exp *e);
 extern sql_rel *rel_select_copy(sql_allocator *sa, sql_rel *l, list *exps);
 extern sql_rel *rel_basetable(mvc *sql, sql_table *t, char *tname);
@@ -58,8 +58,8 @@ extern sql_exp * rel_value_exp2(mvc *sql, sql_rel **rel, symbol *se, int f, exp_
 extern sql_rel *rel_crossproduct(sql_allocator *sa, sql_rel *l, sql_rel *r, operator_type join);
 extern void rel_join_add_exp(sql_allocator *sa, sql_rel *rel, sql_exp *e);
 
-extern sql_rel *rel_push_select(sql_allocator *sa, sql_rel *rel, sql_exp *ls, sql_exp *e);
-extern sql_rel *rel_push_join(sql_allocator *sa, sql_rel *rel, sql_exp *ls, sql_exp *rs, sql_exp *rs2, sql_exp *e);
+extern sql_rel *rel_push_select(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *e);
+extern sql_rel *rel_push_join(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *rs, sql_exp *rs2, sql_exp *e);
 /* TODO rename to exp_check_type + move to rel_exp.mx */
 extern sql_exp *rel_check_type(mvc *sql, sql_subtype *t, sql_exp *exp, int tpe);
 extern int rel_convert_types(mvc *sql, sql_exp **L, sql_exp **R, int scale_fixing, int tpe);

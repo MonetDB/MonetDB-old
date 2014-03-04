@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -205,12 +205,13 @@ typedef struct MT_Lock {
 	size_t sleep;
 	struct MT_Lock * volatile next;
 	const char *name;
+	const char *locker;
 #endif
 } MT_Lock;
 
 #ifndef NDEBUG
 
-#define MT_LOCK_INITIALIZER(name)	= {0, 0, 0, 0, (struct MT_Lock *) -1, name}
+#define MT_LOCK_INITIALIZER(name)	= {0, 0, 0, 0, (struct MT_Lock *) -1, name, NULL}
 
 gdk_export void GDKlockstatistics(int);
 gdk_export MT_Lock * volatile GDKlocklist;
@@ -218,16 +219,17 @@ gdk_export ATOMIC_FLAG volatile GDKlocklistlock;
 gdk_export ATOMIC_TYPE volatile GDKlockcnt;
 gdk_export ATOMIC_TYPE volatile GDKlockcontentioncnt;
 gdk_export ATOMIC_TYPE volatile GDKlocksleepcnt;
-#define _DBG_LOCK_COUNT_0(l, n)		ATOMIC_INC(GDKlockcnt, dummy, n)
+#define _DBG_LOCK_COUNT_0(l, n)		(void) ATOMIC_INC(GDKlockcnt, dummy, n)
+#define _DBG_LOCK_LOCKER(l, n)		((l)->locker = (n))
 #define _DBG_LOCK_CONTENTION(l, n)					\
 	do {								\
 		TEMDEBUG fprintf(stderr, "#lock %s contention in %s\n", (l)->name, n); \
-		ATOMIC_INC(GDKlockcontentioncnt, dummy, n);		\
+		(void) ATOMIC_INC(GDKlockcontentioncnt, dummy, n);	\
 	} while (0)
-#define _DBG_LOCK_SLEEP(l, n)					\
-	do {							\
-		if (_spincnt == 1024)				\
-			ATOMIC_INC(GDKlocksleepcnt, dummy, n);	\
+#define _DBG_LOCK_SLEEP(l, n)						\
+	do {								\
+		if (_spincnt == 1024)					\
+			(void) ATOMIC_INC(GDKlocksleepcnt, dummy, n);	\
 	} while (0)
 #define _DBG_LOCK_COUNT_1(l)			\
 	do {					\
@@ -248,42 +250,58 @@ gdk_export ATOMIC_TYPE volatile GDKlocksleepcnt;
 #define _DBG_LOCK_INIT(l, n)						\
 	do {								\
 		(l)->count = (l)->contention = (l)->sleep = 0;		\
-		(l)->name = n;						\
-		while (ATOMIC_TAS(GDKlocklistlock, dummy, "") != 0)	\
-			;						\
-		(l)->next = GDKlocklist;				\
-		GDKlocklist = (l);					\
-		ATOMIC_CLEAR(GDKlocklistlock, dummy, "");		\
+		(l)->name = (n);					\
+		_DBG_LOCK_LOCKER(l, NULL);				\
+		/* if name starts with "sa_" don't link in GDKlocklist */ \
+		/* since the lock is in memory that is governed by the */ \
+		/* SQL storage allocator, and hence we have no control */ \
+		/* over when the lock is destroyed and the memory freed */ \
+		if (strncmp((n), "sa_", 3) != 0) {			\
+			while (ATOMIC_TAS(GDKlocklistlock, dummy, "") != 0) \
+				;					\
+			(l)->next = GDKlocklist;			\
+			GDKlocklist = (l);				\
+			ATOMIC_CLEAR(GDKlocklistlock, dummy, "");	\
+		} else {						\
+			(l)->next = NULL;				\
+		}							\
 	} while (0)
 #define _DBG_LOCK_DESTROY(l)						\
 	do {								\
-		MT_Lock * volatile _p;					\
-		/* save a copy for statistical purposes */		\
-		_p = GDKmalloc(sizeof(MT_Lock));			\
-		memcpy(_p, l, sizeof(MT_Lock));				\
-		while (ATOMIC_TAS(GDKlocklistlock, dummy, "") != 0)	\
-			;						\
-		_p->next = GDKlocklist;					\
-		GDKlocklist = _p;					\
-		for (_p = GDKlocklist; _p; _p = _p->next)		\
-			if (_p->next == (l)) {				\
-				_p->next = (l)->next;			\
-				break;					\
-			}						\
-		ATOMIC_CLEAR(GDKlocklistlock, dummy, "");		\
+		/* if name starts with "sa_" don't link in GDKlocklist */ \
+		/* since the lock is in memory that is governed by the */ \
+		/* SQL storage allocator, and hence we have no control */ \
+		/* over when the lock is destroyed and the memory freed */ \
+		if (strncmp((l)->name, "sa_", 3) != 0) {		\
+			MT_Lock * volatile _p;				\
+			/* save a copy for statistical purposes */	\
+			_p = GDKmalloc(sizeof(MT_Lock));		\
+			memcpy(_p, l, sizeof(MT_Lock));			\
+			while (ATOMIC_TAS(GDKlocklistlock, dummy, "") != 0) \
+				;					\
+			_p->next = GDKlocklist;				\
+			GDKlocklist = _p;				\
+			for (_p = GDKlocklist; _p; _p = _p->next)	\
+				if (_p->next == (l)) {			\
+					_p->next = (l)->next;		\
+					break;				\
+				}					\
+			ATOMIC_CLEAR(GDKlocklistlock, dummy, "");	\
+		}							\
 	} while (0)
 
 #else
 
 #define MT_LOCK_INITIALIZER(name)	= ATOMIC_FLAG_INIT
 
-#define _DBG_LOCK_COUNT_0(l, n)		((void) n)
-#define _DBG_LOCK_CONTENTION(l, n)	((void) n)
-#define _DBG_LOCK_SLEEP(l, n)		((void) n)
+#define _DBG_LOCK_COUNT_0(l, n)		((void) (n))
+#define _DBG_LOCK_CONTENTION(l, n)	((void) (n))
+#define _DBG_LOCK_SLEEP(l, n)		((void) (n))
 #define _DBG_LOCK_COUNT_1(l)		((void) 0)
 #define _DBG_LOCK_COUNT_2(l)		((void) 0)
-#define _DBG_LOCK_INIT(l, n)		((void) n)
+#define _DBG_LOCK_INIT(l, n)		((void) (n))
 #define _DBG_LOCK_DESTROY(l)		((void) 0)
+#define _DBG_LOCK_LOCKER(l, n)		((void) (n))
 
 #endif
 
@@ -302,6 +320,7 @@ gdk_export ATOMIC_TYPE volatile GDKlocksleepcnt;
 			} while (ATOMIC_TAS((l)->lock, dummy, n) != 0); \
 			_DBG_LOCK_COUNT_1(l);				\
 		}							\
+		_DBG_LOCK_LOCKER(l, n);					\
 		_DBG_LOCK_COUNT_2(l);					\
 	} while (0)
 #define MT_lock_init(l, n)				\
@@ -309,7 +328,11 @@ gdk_export ATOMIC_TYPE volatile GDKlocksleepcnt;
 		ATOMIC_CLEAR((l)->lock, dummy, n);	\
 		_DBG_LOCK_INIT(l, n);			\
 	} while (0)
-#define MT_lock_unset(l, n)	ATOMIC_CLEAR((l)->lock, dummy, n)
+#define MT_lock_unset(l, n)					\
+		do {						\
+			_DBG_LOCK_LOCKER(l, n);			\
+			ATOMIC_CLEAR((l)->lock, dummy, n);	\
+		} while (0)
 #define MT_lock_destroy(l)	_DBG_LOCK_DESTROY(l)
 /* return 0 on success, -1 on failure to get the lock */
 #define MT_lock_try(l)		((ATOMIC_TAS((l)->lock, dummy, dummy) == 0) - 1)

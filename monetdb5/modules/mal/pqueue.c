@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -1066,6 +1066,33 @@ PQinit(int *ret, int *bid, wrd *maxsize)
 	return MAL_SUCCEED;
 }
 
+static void
+PQtopn_sorted_min( BAT **bn, BAT *b, wrd NN )
+{
+	BUN cnt = BATcount(b), N = (BUN) NN;
+	assert(NN >= 0);
+	if (b->tsorted) {
+		b = BATslice(b, N>=cnt?0:cnt-N, cnt);
+		*bn = BATsort_rev(b);
+		BBPreleaseref(b->batCacheid);	
+	} else 
+		*bn = BATslice(b, 0, N>=cnt?cnt:N);
+}
+
+static void
+PQtopn_sorted_max( BAT **bn, BAT *b, wrd NN )
+{
+	BUN cnt = BATcount(b), N = (BUN) NN;
+	assert(NN >= 0);
+	if (b->tsorted) 
+		*bn = BATslice(b, 0, N>=cnt?cnt:N);
+	else {
+		b = BATslice(b, N>=cnt?0:cnt-N, cnt);
+		*bn = BATsort_rev(b);
+		BBPreleaseref(b->batCacheid);	
+	}
+}
+
 #define PQimpl1a(X,Y)												\
 	str																\
 	PQenqueue_##X##Y(int *ret, int *bid, oid *idx, X *el){			\
@@ -1119,6 +1146,15 @@ PQinit(int *ret, int *bid, wrd *maxsize)
 		BAT *b,*bn = NULL;												\
 		if( (b= BATdescriptor(*bid)) == NULL)							\
 			throw(MAL, "pqueue.topN", RUNTIME_OBJECT_MISSING);			\
+		if (b->tsorted || b->trevsorted) { 	\
+			PQtopn_sorted_##K(&bn, b, *N);	\
+			if (bn) { 			\
+				*ret= bn->batCacheid;		\
+				BBPkeepref(*ret);		\
+				BBPreleaseref(b->batCacheid);	\
+				return MAL_SUCCEED;		\
+			}				\
+		} else					\
 		if ((b->htype == TYPE_void ? pqueue_topn_void##TYPE##K(&bn,b,N) : pqueue_topn_##TYPE##K(&bn,b,N)) == GDK_SUCCEED && bn) { \
 			*ret= bn->batCacheid;										\
 			BBPkeepref(*ret);											\
@@ -1148,24 +1184,34 @@ PQinit(int *ret, int *bid, wrd *maxsize)
 	{																	\
 		BUN n, i,j, cnt;												\
 		BAT *a, *b,*bn = NULL;											\
+		oid id = 0;					\
 		if ((a=BATdescriptor(*aid)) == NULL || (b=BATdescriptor(*bid)) == NULL)	\
 			throw(MAL, "pqueue.topN", RUNTIME_OBJECT_MISSING);			\
-																		\
-		cnt = n = BATcount(a);											\
+		if (a->ttype == 0) { 			\
+			*ret= a->batCacheid;		\
+			BBPkeepref(*ret);		\
+			BBPreleaseref(b->batCacheid);	\
+			return MAL_SUCCEED;		\
+		}					\
+		id = a->hseqbase;			\
+		cnt = n = BATcount(a);			\
 		if (*N != wrd_nil && *N >= 0 && *N <= (wrd) BUN_MAX && (BUN) *N < n) \
 			n = (BUN) *N;												\
 		bn = BATnew(TYPE_oid, TYPE_oid, n);								\
-		for(i=0; i<n; ) {												\
+		for(i=0; i<n; id++) {												\
 			oid ov = * (oid *) Tloc(a, i);								\
 			for (j = i; j < cnt && * (oid *) Tloc(a, j) == ov; j++)		\
 				;														\
 			if (j == i+1) {												\
-				BUNins(bn, Hloc(a,i), &ov, FALSE);						\
+				if (a->htype == 0)			\
+					BUNins(bn, &id, &ov, FALSE);	\
+				else					\
+					BUNins(bn, Hloc(a,i), &ov, FALSE);						\
 			} else {													\
 				BAT *s = BATslice(b, i, j), *sbn = NULL;				\
 				wrd nn = n-i;											\
 																		\
-				if ((b->htype == TYPE_void ? pqueue_topn_void##TYPE##K(&sbn,s,&nn) : pqueue_topn_##TYPE##K(&sbn,s,&nn)) == GDK_SUCCEED && sbn) { \
+				if ((s->htype == TYPE_void ? pqueue_topn_void##TYPE##K(&sbn,s,&nn) : pqueue_topn_##TYPE##K(&sbn,s,&nn)) == GDK_SUCCEED && sbn) { \
 					BATins(bn, sbn, FALSE);								\
 					BBPunfix(sbn->batCacheid);							\
 					BBPunfix(s->batCacheid);							\
@@ -1190,24 +1236,35 @@ PQinit(int *ret, int *bid, wrd *maxsize)
 	{																	\
 		BUN n, i,j, cnt;												\
 		BAT *a, *b,*bn = NULL;											\
+		oid id = 0;					\
 																		\
 		if ((a=BATdescriptor(*aid)) == NULL || (b=BATdescriptor(*bid)) == NULL)	\
 			throw(MAL, "pqueue.topN", RUNTIME_OBJECT_MISSING);			\
-		cnt = n = BATcount(a);											\
+		if (a->ttype == 0) { 			\
+			*ret= a->batCacheid;		\
+			BBPkeepref(*ret);		\
+			BBPreleaseref(b->batCacheid);	\
+			return MAL_SUCCEED;		\
+		}					\
+		id = a->hseqbase;			\
+		cnt = n = BATcount(a);			\
 		if (*N != wrd_nil && *N >= 0 && *N <= (wrd) BUN_MAX && (BUN) *N < n) \
 			n = (BUN) *N;												\
 		bn = BATnew(TYPE_oid, TYPE_oid, n);								\
-		for(i=0; i<n; ) {												\
+		for(i=0; i<n; id++) {												\
 			oid ov = * (oid *) Tloc(a, i);								\
 			for (j = i; j < cnt && * (oid *) Tloc(a, j) == ov; j++)		\
 				;														\
 			if (j == i+1) {												\
-				BUNins(bn, Hloc(a,i), &ov, FALSE);						\
+				if (a->htype == 0)				\
+					BUNins(bn, &id, &ov, FALSE);		\
+				else						\
+					BUNins(bn, Hloc(a,i), &ov, FALSE); 	\
 			} else {													\
 				BAT *s = BATslice(b, i, j), *sbn = NULL;				\
 				wrd nn = n-i;											\
 																		\
-				if ((b->htype == TYPE_void ? pqueue_utopn_void##TYPE##K(&sbn,s,&nn) : pqueue_utopn_##TYPE##K(&sbn,s,&nn)) == GDK_SUCCEED && sbn) { \
+				if ((s->htype == TYPE_void ? pqueue_utopn_void##TYPE##K(&sbn,s,&nn) : pqueue_utopn_##TYPE##K(&sbn,s,&nn)) == GDK_SUCCEED && sbn) { \
 					BATins(bn, sbn, FALSE);								\
 					BBPunfix(sbn->batCacheid);							\
 					BBPunfix(s->batCacheid);							\
@@ -1243,7 +1300,7 @@ PQinit(int *ret, int *bid, wrd *maxsize)
 
 
 PQminmax(bte)
-	PQminmax(sht)
+PQminmax(sht)
 PQminmax(int)
 PQminmax(oid)
 PQminmax(wrd)

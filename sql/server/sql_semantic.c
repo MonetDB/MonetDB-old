@@ -13,10 +13,9 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
-
 
 #include "monetdb_config.h"
 #include "sql_parser.h"
@@ -58,16 +57,15 @@ sql_add_arg(mvc *sql, atom *v)
 void
 sql_add_param(mvc *sql, char *name, sql_subtype *st)
 {
-	sql_arg *a = SA_NEW(sql->sa, sql_arg);
+	sql_arg *a = SA_ZNEW(sql->sa, sql_arg);
 
-	a->name = NULL;
 	if (name)
 		a->name = sa_strdup(sql->sa, name);
-	if (st)
+	if (st && st->type)
 		a->type = *st;
-	else
-		a->type.type = NULL;
-
+	a->inout = ARG_IN;
+	if (name && strcmp(name, "*") == 0) 
+		a->type = *sql_bind_localtype("int");
 	if (!sql->params)
 		sql->params = sa_list(sql->sa);
 	list_append(sql->params, a);

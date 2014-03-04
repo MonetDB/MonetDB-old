@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -142,15 +142,17 @@ GDKlockstatistics(int what)
 		return;
 	}
 	GDKlocklist = sortlocklist(GDKlocklist);
+	fprintf(stderr, "# lock name\tcount\tcontention\tsleep\tlocked\t(un)locker\n");
 	for (l = GDKlocklist; l; l = l->next)
 		if (what == 0 ||
 		    (what == 1 && l->count) ||
 		    (what == 2 && l->contention) ||
 		    (what == 3 && l->lock))
-			fprintf(stderr, "#lock %-18s\t" SZFMT "\t" SZFMT "\t" SZFMT "%s\n",
+			fprintf(stderr, "# %-18s\t" SZFMT "\t" SZFMT "\t" SZFMT "\t%s\t%s\n",
 				l->name ? l->name : "unknown",
 				l->count, l->contention, l->sleep,
-				what != 3 && l->lock ? "\tlocked" : "");
+				l->lock ? "locked" : "",
+				l->locker ? l->locker : "");
 	fprintf(stderr, "#total lock count " SZFMT "\n", (size_t) GDKlockcnt);
 	fprintf(stderr, "#lock contention  " SZFMT "\n", (size_t) GDKlockcontentioncnt);
 	fprintf(stderr, "#lock sleep count " SZFMT "\n", (size_t) GDKlocksleepcnt);
@@ -480,16 +482,18 @@ MT_thread_sigmask(sigset_t * new_mask, sigset_t * orig_mask)
 #endif
 
 static void
-rm_posthread(struct posthread *p)
+rm_posthread(struct posthread *p, int lock)
 {
 	struct posthread **pp;
 
-	pthread_mutex_lock(&posthread_lock);
+	if (lock)
+		pthread_mutex_lock(&posthread_lock);
 	for (pp = &posthreads; *pp && *pp != p; pp = &(*pp)->next)
 		;
 	if (*pp)
 		*pp = p->next;
-	pthread_mutex_unlock(&posthread_lock);
+	if (lock)
+		pthread_mutex_unlock(&posthread_lock);
 	free(p);
 }
 
@@ -499,7 +503,9 @@ thread_starter(void *arg)
 	struct posthread *p = (struct posthread *) arg;
 
 	(*p->func)(p->arg);
+	pthread_mutex_lock(&posthread_lock);
 	p->exited = 1;
+	pthread_mutex_unlock(&posthread_lock);
 }
 
 static void
@@ -507,22 +513,24 @@ join_threads(void)
 {
 	struct posthread *p;
 	int waited;
+	pthread_t tid;
 
+	pthread_mutex_lock(&posthread_lock);
 	do {
 		waited = 0;
-		pthread_mutex_lock(&posthread_lock);
 		for (p = posthreads; p; p = p->next) {
 			if (p->exited) {
+				tid = p->tid;
+				rm_posthread(p, 0);
 				pthread_mutex_unlock(&posthread_lock);
-				pthread_join(p->tid, NULL);
-				rm_posthread(p);
+				pthread_join(tid, NULL);
 				pthread_mutex_lock(&posthread_lock);
 				waited = 1;
 				break;
 			}
 		}
-		pthread_mutex_unlock(&posthread_lock);
 	} while (waited);
+	pthread_mutex_unlock(&posthread_lock);
 }
 
 int
@@ -568,7 +576,7 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d)
 		*t = (MT_Id) (((size_t) newt) + 1);	/* use pthread-id + 1 */
 #endif
 	} else if (p) {
-		rm_posthread(p);
+		rm_posthread(p, 1);
 	}
 #ifdef HAVE_PTHREAD_SIGMASK
 	MT_thread_sigmask(&orig_mask, NULL);

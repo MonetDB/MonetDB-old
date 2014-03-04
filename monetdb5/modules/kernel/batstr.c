@@ -13,9 +13,9 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
 
 /*
  *  M.L. Kersten
@@ -82,9 +82,6 @@ batstr_export str STRbatLength(bat *ret, bat *l);
 batstr_export str STRbatstringLength(bat *ret, bat *l);
 batstr_export str STRbatBytes(bat *ret, bat *l);
 
-batstr_export str STRbatSubstitutecst(bat *ret, bat *l, str *arg2, str *arg3, bit *rep);
-batstr_export str STRbatlike_uselect(bat *ret, bat *bid, str *pat, str *esc);
-batstr_export str STRbatlike_uselect2(bat *ret, bat *bid, str *pat);
 batstr_export str STRbatsubstringcst(bat *ret, bat *bid, int *start, int *length);
 batstr_export str STRbatsubstring(bat *ret, bat *l, bat *r, bat *t);
 batstr_export str STRbatreplace(bat *ret, bat *l, str *pat, str *s2);
@@ -775,53 +772,6 @@ bunins_failed:
 }
 
 /*
- * The pattern matching routine is optimized for SQL pattern structures.
- */
-#define percent "\001"
-#define underscore "\002"
-str
-STRbatlike_uselect(bat *ret, bat *bid, str *pat, str *esc)
-{
-	BATiter bi;
-	BAT *b,*bn;
-	BUN p, q;
-	oid o = oid_nil;
-
-	if( (b= BATdescriptor(*bid)) == NULL)
-		throw(MAL, "batstr.like", RUNTIME_OBJECT_MISSING);
-	bn= BATnew(BAThtype(b),TYPE_void, BATcount(b)/10+5);
-	BATseqbase(BATmirror(b),o);
-	bn->hsorted = b->hsorted;
-	bn->hrevsorted = b->hrevsorted;
-	bn->tsorted = 1;
-	bn->trevsorted = 1;
-
-	bi = bat_iterator(b);
-
-	BATloop(b, p, q) {
-		ptr h = BUNhead(bi, p);
-		ptr t = BUNtail(bi, p);
-
-		if (STRlike((str) t, *pat, *esc))
-			bunfastins(bn, h, &o);
-	}
-	bn->T->nonil = 0;
-  bunins_failed:
-	if (!(bn->batDirty&2)) bn = BATsetaccess(bn, BAT_READ);
-	*ret = bn->batCacheid;
-	BBPkeepref(bn->batCacheid);
-	BBPreleaseref(b->batCacheid);
-	return MAL_SUCCEED;
-}
-
-str
-STRbatlike_uselect2(bat *ret, bat *bid, str *pat)
-{
-	str esc="";
-	return STRbatlike_uselect(ret,bid,pat,&esc);
-}
-
-/*
  * The substring functions require slightly different arguments
  */
 str
@@ -836,7 +786,7 @@ STRbatsubstringcst(bat *ret, bat *bid, int *start, int *length)
 	if( (b= BATdescriptor(*bid)) == NULL)
 		throw(MAL, "batstr.substring",RUNTIME_OBJECT_MISSING);
 	bn= BATnew(TYPE_void, TYPE_str, BATcount(b)/10+5);
-	BATseqbase(bn, 0);
+	BATseqbase(bn, b->hseqbase);
 	bn->hsorted = b->hsorted;
 	bn->hrevsorted = b->hrevsorted;
 	bn->tsorted = b->tsorted;
@@ -892,7 +842,7 @@ str STRbatsubstring(bat *ret, bat *l, bat *r, bat *t)
 		throw(MAL, "batstr.substring", ILLEGAL_ARGUMENT " Requires bats of identical size");
 
 	bn= BATnew(TYPE_void, TYPE_str,BATcount(left));
-	BATseqbase(bn, 0);
+	BATseqbase(bn, left->hseqbase);
 	if( bn == NULL){
 		BBPreleaseref(left->batCacheid);
 		BBPreleaseref(start->batCacheid);
@@ -928,43 +878,3 @@ str STRbatsubstring(bat *ret, bat *l, bat *r, bat *t)
 	finalizeResult(ret,bn,left);
 	return MAL_SUCCEED;
 }
-
-str STRbatreplace(bat *ret, bat *l, str *pat, str *s2)
-{
-	BATiter li;
-	BAT *bn, *left;
-	BUN p,q;
-	str v, *vp= &v;
-
-	if( (left= BATdescriptor(*l)) == NULL )
-		throw(MAL, "batstr.replace" , RUNTIME_OBJECT_MISSING);
-	bn= BATnew(TYPE_void, TYPE_str,BATcount(left));
-	BATseqbase(bn, 0);
-	if (bn == NULL){
-		BBPreleaseref(left->batCacheid);
-		throw(MAL, "batstr.replace", MAL_MALLOC_FAIL);
-	}
-	bn->hsorted= left->hsorted;
-	bn->hrevsorted= left->hrevsorted;
-	bn->tsorted=0;
-	bn->trevsorted=0;
-
-	li = bat_iterator(left);
-	BATloop(left, p, q) {
-		str tl = (str) BUNtail(li,p);
-		STRreplace(vp, &tl, pat, s2);
-		BUNappend(bn, *vp, FALSE);
-		GDKfree(*vp);
-	}
-	if (left->htype != bn->htype) {
-		BAT *r = VIEWcreate(left,bn);
-
-		BBPreleaseref(bn->batCacheid);
-		bn = r;
-	}
-	bn->T->nonil = 0;
-	finalizeResult(ret,bn,left);
-	return MAL_SUCCEED;
-}
-
-

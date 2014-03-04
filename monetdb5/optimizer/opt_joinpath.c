@@ -3,19 +3,20 @@
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.monetdb.org/Legal/MonetDBLicense
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * The Original Code is the MonetDB Database System.
- * 
+ *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2014 MonetDB B.V.
  * All Rights Reserved.
-*/
+ */
+
 /*
  * Post-optimization. After the join path has been constructed
  * we could search for common subpaths. This heuristic is to
@@ -254,10 +255,10 @@ OPTjoinPathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			 * Final type check and hardwire the result type, because that  can not be inferred directly from the signature
 			 */
 			for(j=1; j<q->argc-1; j++)
-				if( getTailType(getArgType(mb,q,j)) != getHeadType(getArgType(mb,q,j+1)) &&
-				!( getTailType(getArgType(mb,q,j))== TYPE_oid  &&
+				if( getColumnType(getArgType(mb,q,j)) != getHeadType(getArgType(mb,q,j+1)) &&
+				!( getColumnType(getArgType(mb,q,j))== TYPE_oid  &&
 				getHeadType(getArgType(mb,q,j))== TYPE_void) &&
-				!( getTailType(getArgType(mb,q,j))== TYPE_void &&
+				!( getColumnType(getArgType(mb,q,j))== TYPE_void &&
 				getHeadType(getArgType(mb,q,j))== TYPE_oid)){
 				/* don't use it */
 					freeInstruction(q);
@@ -266,7 +267,7 @@ OPTjoinPathImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 			/* fix the type */
 			setVarUDFtype(mb, getArg(q,0));
-			setVarType(mb, getArg(q,0), newBatType( getHeadType(getArgType(mb,q,q->retc)), getTailType(getArgType(mb,q,q->argc-1))));
+			setVarType(mb, getArg(q,0), newBatType( getHeadType(getArgType(mb,q,q->retc)), getColumnType(getArgType(mb,q,q->argc-1))));
 			if ( q->argc > 3  &&  getFunctionId(q) == joinRef)
 				setFunctionId(q,joinPathRef);
 			else if ( q->argc > 3  &&  getFunctionId(q) == leftjoinRef)
