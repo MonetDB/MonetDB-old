@@ -17,7 +17,7 @@
 
 module rdf;
 
-io.print("RDFschemaExplore mal loaded");
+#io.print("RDFschemaExplore mal loaded");
 command rdfschemaexplore(tbname:str, clname:str ) :void
 address RDFSchemaExplore
 comment "Explore the schema information from input table e.g., SPO in RDF";
