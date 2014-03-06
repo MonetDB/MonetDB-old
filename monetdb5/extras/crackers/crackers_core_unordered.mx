@@ -519,6 +519,7 @@ CRKcrackUnorderedZero_@2_@1_STx ( const BAT *b, const @1 mval, const BUN first, 
 	                                            , "se"
  #endif
 	                                           );
+	/* pivot: turn first of right piece into last of left piece (if possible) */
 	*pos = (oid) (pos_r == 0 ? 0 : pos_r - 1);
 
  #ifdef CRACK_MUTLI_THREAD_DEBUG
@@ -808,6 +809,7 @@ CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, c
 		if (!(src_t[l] @8 mval))
 			fprintf(stderr,"d "BUNFMT": %d !@8 %d\n",l,(int)src_t[l],(int)mval);
 #endif
+	/* pivot: turn first of right piece into last of left piece (if possible) */
 	*pos = (oid) (f == 0 ? 0 : f - 1);
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	t_1 = GDKusec();
