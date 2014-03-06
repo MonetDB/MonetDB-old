@@ -787,8 +787,9 @@ CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, c
 	f = BUN_NONE;
 	for (i = 0, j = alt * nthreads - alt; i <= j; j--) {
 		l = c_Thread_arg[j].pos_r;
-		if (l <= last && src_t[l] @8 mval &&
-		    (l == first || src_t[l - 1] @7 mval)) {
+		if (l == last + 1 ||
+		    (l <= last && src_t[l] @8 mval &&
+		     (l == first || src_t[l - 1] @7 mval))) {
 			if (f == BUN_NONE) {
 				f = l;
 			} else {
@@ -797,8 +798,8 @@ CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, c
 		}
 	}
 	assert(f != BUN_NONE);
-	assert(src_t[f] @8 mval);
-	assert(f == first || src_t[f-1] @7 mval);
+	assert((f == last + 1 && src_t[f-1] @7 mval) || src_t[f]   @8 mval);
+	assert((f == first    && src_t[f]   @8 mval) || src_t[f-1] @7 mval);
 #ifndef NDEBUG
 	for (l = first; l < f; l++)
 		if (!(src_t[l] @7 mval))
