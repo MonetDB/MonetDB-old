@@ -466,8 +466,11 @@ CRKcrackUnorderedZero_@2_@1_STxx ( const BAT *b, const @1 mval, const BUN first,
 	assert(p == last + 1 || src_t[p] @8 mval);
 #ifndef NDEBUG
 	for (q = first; q < p; q++) {
-		if (m && pp + 1 < qq && q == pp + 1)
+		if (m && pp + 1 < qq && q == pp + 1) {
 			q = qq;
+			if (q >= p)
+				break;
+		}
 		if (!(src_t[q] @7 mval))
 			fprintf(stderr,"a "BUNFMT": %d !@7 %d\n",q,(int)src_t[q],(int)mval);
 	}
