@@ -154,7 +154,7 @@ str CRKcrackUnorderedThreeSideways_@3_@4_@1_str( BAT *b, @1 low, @1 hgh, oid fir
 #include "monetdb_config.h"
 #include "crackers.h"
 
-/*#define CRACK_MUTLI_THREAD_DEBUG*/
+//#define CRACK_MUTLI_THREAD_DEBUG
 
 /* argument struct for countThread & crackThread functions */
 typedef struct {
@@ -165,7 +165,7 @@ typedef struct {
 	const void *mval;  /* pivot value */
 	BUN first;         /* offset of first value in slice */
 	BUN last;          /* offset of last value in slice */
-	BUN pos;           /* offset of pivot value */
+	BUN pos_r;         /* first(!) pos of right(!) piece */
 	const char *msg;   /* error message */
 	BUN m;             /* size of half slice */
 } c_Thread_t;
@@ -297,15 +297,210 @@ CRKcrackUnorderedZero_@2_@1_ST( BAT *b, @1 mval, BUN first, BUN last, oid *pos){
 
 /* revised single-threaded crack code */
 static str
+CRKcrackUnorderedZero_@2_@1_STxx ( const BAT *b, const @1 mval, const BUN first, const BUN last, const BUN m, BUN *pos_r
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+                                 , const char *secs
+ #endif
+                                )
+{
+	BUN p = first, q = last, pp = p + m - 1, qq = q + 1 - m;
+	oid *src_h;
+	@1  *src_t;
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	lng t_0, t_1;
+
+	fprintf(stderr,
+		"CRKcrackUnorderedZero_@2_@1_STxx ( %d, "LLFMT", "BUNFMT", "BUNFMT", "BUNFMT", "BUNFMT", "BUNFMT" ) ...\n",
+		b->batCacheid, (lng) mval, first, pp, qq, last, m);
+	t_0 = GDKusec();
+ #endif
+
+	assert(b);
+	assert(pos_r);
+
+	/* input (source) arrays */
+	src_h = (oid*) Hloc(b, BUNfirst(b));
+	src_t = (@1 *) Tloc(b, BUNfirst(b));
+
+	if (m && pp + 1 < qq) {
+		/* crack disjoint left- & right-half of piece / slice */
+		while (p <= pp && q >= qq) {
+#if 1 /* option 1 */
+			/* skip over smaller values from beginning */
+			while (p <= pp && src_t[p] @7 mval)
+				p++;
+			if (p > pp) {
+				/* exhausted left half, skip to right one */
+				p = qq;
+				break; /* not really required */
+			}
+#endif
+#if 0 /* option 2 */
+			/* skip over smaller value from beginning */
+			if (src_t[p] @7 mval) {
+				p++;
+				if (p > pp) {
+					/* exhausted left half, skip to right one */
+					p = qq;
+					break; /* not really required */
+				}
+			}
+#endif
+			else {
+				/* skip over larger values from end */
+				while (q >= qq && src_t[q] @8 mval)
+					q--;
+				if (q < qq) {
+					/* exhausted right half, skip to left one */
+					q = pp;
+					break; /* not really required */
+				} else {
+					/* swap values */
+#if 1 /* option 1 */
+					const oid h = src_h[p];
+					const @1  t = src_t[p];
+					src_h[p] = src_h[q];
+					src_t[p] = src_t[q];
+					src_h[q] = h;
+					src_t[q] = t;
+#endif
+#if 0 /* option 2 */
+					oid h;
+					@1  t;
+					h = src_h[p];
+					src_h[p] = src_h[q];
+					src_h[q] = h;
+					t = src_t[p];
+					src_t[p] = src_t[q];
+					src_t[q] = t;
+#endif
+					p++;
+					q--;
+					if (p > pp) {
+						/* exhausted left half, skip to right one */
+						p = qq;
+					}
+					if (q < qq) {
+						/* exhausted left half, skip to right one */
+						q = pp;
+					}
+					if (p > pp || q < qq) {
+						break; /* not really required */
+					}
+				}
+			}
+		}
+	}
+
+	/* crack (remaining) consequtive piece / slice */
+	if (!(m && pp + 1 < qq) || p >= qq || q <= pp) {
+		while (p < q) {
+#if 1 /* option 1 */
+			/* skip over smaller values from beginning */
+			while (p < q && src_t[p] @7 mval) {
+				p++;
+			}
+#endif
+#if 0 /* option 2 */
+			/* skip over smaller value from beginning */
+			if (src_t[p] @7 mval) {
+				p++;
+			} else 
+#endif
+			{
+				/* skip over larger values from end */
+				while (p < q && src_t[q] @8 mval) {
+					q--;
+				}
+				if (p < q)
+				{
+					/* swap values */
+#if 1 /* option 1 */
+					const oid h = src_h[p];
+					const @1  t = src_t[p];
+					src_h[p] = src_h[q];
+					src_t[p] = src_t[q];
+					src_h[q] = h;
+					src_t[q] = t;
+#endif
+#if 0 /* option 2 */
+					oid h;
+					@1  t;
+					h = src_h[p];
+					src_h[p] = src_h[q];
+					src_h[q] = h;
+					t = src_t[p];
+					src_t[p] = src_t[q];
+					src_t[q] = t;
+#endif
+					p++;
+					q--;
+				}
+			}
+		}
+	}
+
+	/* return pivot position, i.e., first(!) pos in right(!) piece */
+	assert(p >= first && p <= last);
+	if (m && pp + 1 < qq) {
+		if (p <= pp + 1) {
+			assert(p == first || src_t[p-1] @7 mval);
+			while (p <= pp && src_t[p] @7 mval)
+				p++;
+			if (p == pp + 1)
+				p = qq;
+		}
+		if (p >= qq) {
+			assert((p == qq && src_t[pp] @7 mval) || (p > qq && src_t[p-1] @7 mval));
+			while (p <= last && src_t[p] @7 mval)
+				p++;
+		}
+	} else {
+		assert(p == first || src_t[p-1] @7 mval);
+		while (p <= last && src_t[p] @7 mval)
+			p++;
+	}
+
+	assert(p >= first && p <= last + 1);
+	assert(p == first || (m && pp + 1 < qq && p == qq && src_t[pp] @7 mval) || (!(m && pp + 1 < qq && p == qq) && src_t[p-1] @7 mval));
+	assert(p == last + 1 || src_t[p] @8 mval);
+#ifndef NDEBUG
+	for (q = first; q < p; q++) {
+		if (m && pp + 1 < qq && q == pp + 1)
+			q = qq;
+		if (!(src_t[q] @7 mval))
+			fprintf(stderr,"a "BUNFMT": %d !@7 %d\n",q,(int)src_t[q],(int)mval);
+	}
+	for (q = p; q <= last; q++) {
+		if (m && pp + 1 < qq && q == pp + 1)
+			q = qq;
+		if (!(src_t[q] @8 mval))
+			fprintf(stderr,"b "BUNFMT": %d !@8 %d\n",q,(int)src_t[q],(int)mval);
+	}
+#endif
+	*pos_r = p;
+
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	t_1 = GDKusec();
+	fprintf(stderr,
+		"CRKcrackUnorderedZero_@2_@1_STxx ( %d, "LLFMT", "BUNFMT", "BUNFMT", "BUNFMT", "BUNFMT", "BUNFMT" ) -> "BUNFMT" : %.6f %s\n",
+		b->batCacheid, (lng) mval, first, pp, qq, last, m, *pos_r, (dbl) (t_1 - t_0) / 1000000.0, secs);
+ #endif
+
+	return MAL_SUCCEED;
+}
+
+
+static str
 CRKcrackUnorderedZero_@2_@1_STx ( const BAT *b, const @1 mval, const BUN first, const BUN last, const BUN m, oid *pos
  #ifdef CRACK_MUTLI_THREAD_DEBUG
                                  , const char *secs
  #endif
                                 )
 {
-	BUN p = first, q = last, pp = p + m - 1, qq = q - m + 1;
-	oid *src_h;
-	@1  *src_t;
+	str msg;
+	BUN pos_r;
+
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	lng t_0, t_1;
 
@@ -315,66 +510,16 @@ CRKcrackUnorderedZero_@2_@1_STx ( const BAT *b, const @1 mval, const BUN first, 
 	t_0 = GDKusec();
  #endif
 
-	/* input (source) arrays */
-	src_h = (oid*) Hloc(b, BUNfirst(b));
-	src_t = (@1 *) Tloc(b, BUNfirst(b));
+	assert(b);
+	assert(pos);
+	assert(m == 0 || first + m - 1 + 1 == last + 1 - m);
 
-	if (m && pp < qq - 1) {
-		/* crack disjoint left- & right-half of piece / slice */
-		while (p <= pp && q >= qq) {
-			/* skip over smaller values from beginning */
-			while (p <= pp && src_t[p] @7 mval /*@5_@3(&src_t[p], &mval, @6@1)*/)
-				p++;
-			/* skip over larger values from end */
-			while (q >= qq && src_t[q] @8 mval /*@5_@4(&src_t[q], &mval, @6@1)*/)
-				q--;
-			if (p <= pp && q >= qq) {
-				/* swap values */
-				const oid h = src_h[p];
-				const @1  t = src_t[p];
-				src_h[p] = src_h[q];
-				src_t[p] = src_t[q];
-				src_h[q] = h;
-				src_t[q] = t;
-				p++;
-				q--;
-			}
-		}
-		if (p > pp) {
-			/* exhausted left half, skip to right one */
-			p = qq;
-		}
-		if (q < qq) {
-			/* exhausted right half, skip to left one */
-			q = pp;
-		}
-	}
-
-	/* crack (remaining) consequtive piece / slice */
-	while (p < q) {
-		/* skip over smaller values from beginning */
-		while (p < q && src_t[p] @7 mval /*@5_@3(&src_t[p], &mval, @6@1)*/)
-			p++;
-		/* skip over larger values from end */
-		while (p < q && src_t[q] @8 mval /*@5_@4(&src_t[q], &mval, @6@1)*/)
-			q--;
-		if (p < q) {
-			/* swap values */
-			const oid h = src_h[p];
-			const @1  t = src_t[p];
-			src_h[p] = src_h[q];
-			src_t[p] = src_t[q];
-			src_h[q] = h;
-			src_t[q] = t;
-			p++;
-			q--;
-		}
-	}
-
-	/* return pivot position */
-	while (p <= last && src_t[p] @7 mval /*@5_@3(&src_t[p], &mval, @6@1)*/)
-		p++;
-	*pos = (oid) (p - 1);
+	msg = CRKcrackUnorderedZero_@2_@1_STxx ( b, mval, first, last, m, &pos_r
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	                                            , "se"
+ #endif
+	                                           );
+	*pos = (oid) (pos_r == 0 ? 0 : pos_r - 1);
 
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	t_1 = GDKusec();
@@ -383,7 +528,7 @@ CRKcrackUnorderedZero_@2_@1_STx ( const BAT *b, const @1 mval, const BUN first, 
 		b->batCacheid, (lng) mval, first, last, m, *pos, (dbl) (t_1 - t_0) / 1000000.0, secs);
  #endif
 
-	return MAL_SUCCEED;
+	return msg;
 }
 
 
@@ -393,7 +538,7 @@ CRKcrackUnorderedZero_@2_@1_MT_crackThread ( void *arg_p )
 {
 	c_Thread_t *arg = (c_Thread_t*) arg_p;
 	@1 mval = * (@1*) arg->mval;
-	oid pos;
+	BUN pos_r;
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	lng t_0, t_1;
 
@@ -404,18 +549,18 @@ CRKcrackUnorderedZero_@2_@1_MT_crackThread ( void *arg_p )
  #endif
 
 	/* call actual cracking routine for this slice */
-	arg->msg = CRKcrackUnorderedZero_@2_@1_STx ( arg->b, mval, arg->first, arg->last, arg->m, &pos
+	arg->msg = CRKcrackUnorderedZero_@2_@1_STxx ( arg->b, mval, arg->first, arg->last, arg->m, &pos_r
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	                                            , "se"
  #endif
 	                                           );
-	arg->pos = (BUN) pos;
+	arg->pos_r = pos_r;
 
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	t_1 = GDKusec();
 	fprintf(stderr,
-		"CRKcrackUnorderedZero_@2_@1_MT_crackThread ( %d, "LLFMT", "BUNFMT", "BUNFMT", "BUNFMT" ) -> "OIDFMT" : %.6f s\n",
-		arg->id, (lng) mval, arg->first, arg->last, arg->m, pos, (dbl) (t_1 - t_0) / 1000000.0);
+		"CRKcrackUnorderedZero_@2_@1_MT_crackThread ( %d, "LLFMT", "BUNFMT", "BUNFMT", "BUNFMT" ) -> "BUNFMT" : %.6f s\n",
+		arg->id, (lng) mval, arg->first, arg->last, arg->m, pos_r, (dbl) (t_1 - t_0) / 1000000.0);
  #endif
 
 	pthread_exit(NULL);
@@ -511,7 +656,7 @@ CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, c
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	t_2 = GDKusec();
  #endif
-	/* span crackThreads */
+	/* spawn crackThreads */
 	for (i = 0; i < nthreads; i++) {
 		if (pthread_create(&c_Thread[i], NULL, CRKcrackUnorderedZero_@2_@1_MT_crackThread, &c_Thread_arg[i])) {
 			GDKfree(tmp_h);
@@ -556,101 +701,94 @@ CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, c
 	if (alt == 2) {
 		/* Alt. 2: treat each half-slice as individual slice */
 		for (i = 0, j = 2 * nthreads - 2; i < nthreads - 1; i++, j--) {
+			assert(i < j - 1);
+			assert(c_Thread_arg[i].m > 0);
 			c_Thread_arg[j].m     = c_Thread_arg[i].m;
-			c_Thread_arg[j].pos   = c_Thread_arg[i].pos;
 			c_Thread_arg[j].last  = c_Thread_arg[i].last;
 			c_Thread_arg[j].first = c_Thread_arg[i].last  - c_Thread_arg[i].m + 1;
 			c_Thread_arg[i].last  = c_Thread_arg[i].first + c_Thread_arg[i].m - 1;
+			assert(first <= c_Thread_arg[i].first);
+			assert(c_Thread_arg[i].first < c_Thread_arg[i].last);
+			assert(c_Thread_arg[i].last /*+ 1*/ < c_Thread_arg[j].first);
+			assert(c_Thread_arg[j].first < c_Thread_arg[j].last);
+			assert(c_Thread_arg[j].last <= last);
+			if (c_Thread_arg[i].pos_r < c_Thread_arg[j].first) {
+				c_Thread_arg[j].pos_r = c_Thread_arg[j].first;
+			} else {
+				c_Thread_arg[j].pos_r = c_Thread_arg[i].pos_r;
+				c_Thread_arg[i].pos_r = c_Thread_arg[i].last + 1;
+			}
 		}
+		assert(i == j);
 	}
 	i = 0;
 	j = alt * nthreads - alt;
 	while (i < j) {
-		/* skip over "ready" left slices with only smaller values */
-		while (i < j && c_Thread_arg[i].pos >= c_Thread_arg[i].last)
+#if 1 /* option 1 */
+		/* skip over entirely smaller slices from beginning */
+		while (i < j && c_Thread_arg[i].pos_r > c_Thread_arg[i].last) {
 			i++;
-		/* skip over "ready" right slices with only larger values */
-		while (i < j && c_Thread_arg[j].pos <  c_Thread_arg[j].first)
-			j--;
-		if (i < j) {
-			BUN sh, st, pi, pj;
-			/* size of "wrong" part of left slice with larger values */
-			BUN si = c_Thread_arg[i].last - c_Thread_arg[i].pos;
-			/* size of "wrong" part of right slice with smaller values */
-			BUN sj = c_Thread_arg[j].pos - c_Thread_arg[j].first + 1;
+		}
+#endif
+#if 0 /* option 2 */
+		/* skip over entirely smaller slice from beginning */
+		if (c_Thread_arg[i].pos_r > c_Thread_arg[i].last) {
+			i++;
+		} else
+#endif
+		{
+			/* skip over entirely larger slices from end */
+			while (i < j && (c_Thread_arg[j].pos_r <=  c_Thread_arg[j].first)) {
+				j--;
+			}
+			if (i < j) {
+				/* size of "wrong" part of left slice with larger values */
+				const BUN si = c_Thread_arg[i].last + 1 - c_Thread_arg[i].pos_r;
+				/* size of "wrong" part of right slice with smaller values */
+				const BUN sj = c_Thread_arg[j].pos_r - c_Thread_arg[j].first;
+				const BUN sk = MIN( si , sj );
+				const BUN sh = sk * sizeof(oid);
+				const BUN st = sk * sizeof(@1);
+				const BUN pi = c_Thread_arg[i].pos_r;
+				const BUN pj = c_Thread_arg[j].pos_r - sk;
 
-			assert(si <= mm);
-			assert(sj <= mm);
-			if (si < sj) {
-				/* "wrong" left part smaller than "wrong" right part */
-				/* adjust upper limit of remaining "wrong" part of right slice */
-				c_Thread_arg[j].pos -= si;
-				/* swap entire "wrong" left part with
-				   equal sized upper fraction of "wrong" right part */
-				sh = si * sizeof(oid);
-				st = si * sizeof(@1);
-				pi = c_Thread_arg[i].pos + 1;
-				pj = c_Thread_arg[j].pos + 1;
+				assert(si <= mm);
+				assert(sj <= mm);
+
+#if 1 /* option 1 */
 				memcpy(tmp_h, &src_h[pi], sh);
 				memcpy(tmp_t, &src_t[pi], st);
 				memcpy(&src_h[pi], &src_h[pj], sh);
 				memcpy(&src_t[pi], &src_t[pj], st);
 				memcpy(&src_h[pj], tmp_h, sh);
 				memcpy(&src_t[pj], tmp_t, st);
-				/* adjust lower limit of (now empty) "wrong" part of left slice */
-				c_Thread_arg[i].pos += si;
-				/* continue with next left slice */
-				i++;
-			} else if (sj < si) {
-				/* "wrong" right part smaller than "wrong" left part */
-				/* adjust upper limit of (now empty) "wrong" part of right slice */
-				c_Thread_arg[j].pos -= sj;
-				/* swap entire "wrong" right part with
-				   equal sized lower fraction of "wrong" left part */
-				sh = sj * sizeof(oid);
-				st = sj * sizeof(@1);
-				pi = c_Thread_arg[i].pos + 1;
-				pj = c_Thread_arg[j].pos + 1;
+#endif
+#if 0 /* option 2 */
 				memcpy(tmp_h, &src_h[pi], sh);
-				memcpy(tmp_t, &src_t[pi], st);
 				memcpy(&src_h[pi], &src_h[pj], sh);
-				memcpy(&src_t[pi], &src_t[pj], st);
 				memcpy(&src_h[pj], tmp_h, sh);
-				memcpy(&src_t[pj], tmp_t, st);
-				/* adjust lower limit of remaining "wrong" part of left slice */
-				c_Thread_arg[i].pos += sj;
-				/* continue with next right slice */
-				j--;
-			} else /* si == sj */ {
-				/* both "wrong" part equally large */
-				/* adjust upper limit of (now empty) "wrong" part of right slice */
-				c_Thread_arg[j].pos -= sj;
-				/* swap entire "wrong" left part
-				   with entire "wrong" right part */
-				sh = sj * sizeof(oid);
-				st = sj * sizeof(@1);
-				pi = c_Thread_arg[i].pos + 1;
-				pj = c_Thread_arg[j].pos + 1;
-				memcpy(tmp_h, &src_h[pi], sh);
 				memcpy(tmp_t, &src_t[pi], st);
-				memcpy(&src_h[pi], &src_h[pj], sh);
 				memcpy(&src_t[pi], &src_t[pj], st);
-				memcpy(&src_h[pj], tmp_h, sh);
 				memcpy(&src_t[pj], tmp_t, st);
-				/* adjust lower limit of (now empty) "wrong" part of left slice */
-				c_Thread_arg[i].pos += sj;
-				/* continue with next left & right slice */
-				i++;
-				j--;
+#endif
+
+				c_Thread_arg[i].pos_r += sk;
+				c_Thread_arg[j].pos_r -= sk;
+
+				assert((si <= sj) == (c_Thread_arg[i].pos_r == c_Thread_arg[i].last + 1));
+				assert((sj <= si) == (c_Thread_arg[j].pos_r == c_Thread_arg[j].first));
+
+				i += (si <= sj);
+				j -= (sj <= si);
 			}
 		}
 	}
 	/* determine pivot */
 	f = BUN_NONE;
-	for (i = 0, j = alt * nthreads - alt; i <= j; i++) {
-		l = c_Thread_arg[i].pos;
-		if (src_t[l] @7 mval /*@5_@3(&src_t[l], &mval, @6@1)*/ &&
-		    (l == last || src_t[l + 1] @8 mval /*@5_@4(&src_t[l], &mval, @6@1)*/)) {
+	for (i = 0, j = alt * nthreads - alt; i <= j; j--) {
+		l = c_Thread_arg[j].pos_r;
+		if (l <= last && src_t[l] @8 mval &&
+		    (l == first || src_t[l - 1] @7 mval)) {
 			if (f == BUN_NONE) {
 				f = l;
 			} else {
@@ -659,7 +797,17 @@ CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, c
 		}
 	}
 	assert(f != BUN_NONE);
-	*pos = (oid) f;
+	assert(src_t[f] @8 mval);
+	assert(f == first || src_t[f-1] @7 mval);
+#ifndef NDEBUG
+	for (l = first; l < f; l++)
+		if (!(src_t[l] @7 mval))
+			fprintf(stderr,"c "BUNFMT": %d !@7 %d\n",l,(int)src_t[l],(int)mval);
+	for (l = f; l <= last; l++)
+		if (!(src_t[l] @8 mval))
+			fprintf(stderr,"d "BUNFMT": %d !@8 %d\n",l,(int)src_t[l],(int)mval);
+#endif
+	*pos = (oid) (f == 0 ? 0 : f - 1);
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	t_1 = GDKusec();
 	fprintf(stderr,
@@ -686,32 +834,49 @@ CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, c
 /* crack implementation dispatcher */
 str
 CRKcrackUnorderedZero_@2_@1( BAT *b, @1 mval, BUN first, BUN last, oid *pos, int nthreads){
+	str msg = MAL_SUCCEED;
+	lng t_0, t_1;
+	str x = "";
+
 	assert(b);
 	assert(last >= first);
 	assert(pos);
 
+	t_0 = GDKusec();
+
 	if (nthreads == int_nil) {
 		/* original single-threaded crack code */
-		return CRKcrackUnorderedZero_@2_@1_ST(b, mval, first, last, pos);
+		msg = CRKcrackUnorderedZero_@2_@1_ST(b, mval, first, last, pos);
+		x = "s";
 	} else
 	if (nthreads == 0) {
 		/* revised single-threaded crack code */
-		return CRKcrackUnorderedZero_@2_@1_STx(b, mval, first, last, 0, pos
+		msg = CRKcrackUnorderedZero_@2_@1_STx(b, mval, first, last, 0, pos
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 		                                       , "secs"
  #endif
 		                                      );
+		x = "S";
 	} else
 	if (nthreads < 0) {
 		/* new multi-threaded crack code; Alternative 1 */
-		return CRKcrackUnorderedZero_@2_@1_MT(b, mval, first, last, pos, -nthreads, 1);
+		msg = CRKcrackUnorderedZero_@2_@1_MT(b, mval, first, last, pos, -nthreads, 1);
+		x = "m";
 	} else
 	if (nthreads > 0) {
 		/* new multi-threaded crack code; Alternative 2 */
-		return CRKcrackUnorderedZero_@2_@1_MT(b, mval, first, last, pos, nthreads, 2);
+		msg = CRKcrackUnorderedZero_@2_@1_MT(b, mval, first, last, pos, nthreads, 2);
+		x = "M";
 	} else {
 		throw(MAL, "crackers.select", "CRKcrackUnorderedZero_@2_@1(): Illegal number of threads: %d", nthreads);
 	}
+
+	t_1 = GDKusec();
+	fprintf(stderr,
+		"%s ( "LLFMT", "BUNFMT", "BUNFMT" ) -> "OIDFMT" : %.6f s\n",
+		x, (lng) mval, first, last, *pos, (dbl) (t_1 - t_0) / 1000000.0);
+
+	return msg;
 }
 
 
