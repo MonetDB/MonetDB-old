@@ -325,7 +325,7 @@ CRKcrackUnorderedZero_@2_@1_STxx ( const BAT *b, const @1 mval, const BUN first,
 	if (m && pp + 1 < qq) {
 		/* crack disjoint left- & right-half of piece / slice */
 		while (p <= pp && q >= qq) {
-#if 1 /* option 1 */
+#if 1 /* option 1a */
 			/* skip over smaller values from beginning */
 			while (p <= pp && src_t[p] @7 mval)
 				p++;
@@ -335,7 +335,7 @@ CRKcrackUnorderedZero_@2_@1_STxx ( const BAT *b, const @1 mval, const BUN first,
 				break; /* not really required */
 			}
 #endif
-#if 0 /* option 2 */
+#if 0 /* option 1b */
 			/* skip over smaller value from beginning */
 			if (src_t[p] @7 mval) {
 				p++;
@@ -356,7 +356,7 @@ CRKcrackUnorderedZero_@2_@1_STxx ( const BAT *b, const @1 mval, const BUN first,
 					break; /* not really required */
 				} else {
 					/* swap values */
-#if 1 /* option 1 */
+#if 1 /* option 2a */
 					const oid h = src_h[p];
 					const @1  t = src_t[p];
 					src_h[p] = src_h[q];
@@ -364,7 +364,7 @@ CRKcrackUnorderedZero_@2_@1_STxx ( const BAT *b, const @1 mval, const BUN first,
 					src_h[q] = h;
 					src_t[q] = t;
 #endif
-#if 0 /* option 2 */
+#if 0 /* option 2b */
 					oid h;
 					@1  t;
 					h = src_h[p];
@@ -395,13 +395,13 @@ CRKcrackUnorderedZero_@2_@1_STxx ( const BAT *b, const @1 mval, const BUN first,
 	/* crack (remaining) consequtive piece / slice */
 	if (!(m && pp + 1 < qq) || p >= qq || q <= pp) {
 		while (p < q) {
-#if 1 /* option 1 */
+#if 1 /* option 3a */
 			/* skip over smaller values from beginning */
 			while (p < q && src_t[p] @7 mval) {
 				p++;
 			}
 #endif
-#if 0 /* option 2 */
+#if 0 /* option 3b */
 			/* skip over smaller value from beginning */
 			if (src_t[p] @7 mval) {
 				p++;
@@ -415,7 +415,7 @@ CRKcrackUnorderedZero_@2_@1_STxx ( const BAT *b, const @1 mval, const BUN first,
 				if (p < q)
 				{
 					/* swap values */
-#if 1 /* option 1 */
+#if 1 /* option 4a */
 					const oid h = src_h[p];
 					const @1  t = src_t[p];
 					src_h[p] = src_h[q];
@@ -423,7 +423,7 @@ CRKcrackUnorderedZero_@2_@1_STxx ( const BAT *b, const @1 mval, const BUN first,
 					src_h[q] = h;
 					src_t[q] = t;
 #endif
-#if 0 /* option 2 */
+#if 0 /* option 4b */
 					oid h;
 					@1  t;
 					h = src_h[p];
@@ -728,13 +728,13 @@ CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, c
 	i = 0;
 	j = alt * nthreads - alt;
 	while (i < j) {
-#if 1 /* option 1 */
+#if 1 /* option 5a */
 		/* skip over entirely smaller slices from beginning */
 		while (i < j && c_Thread_arg[i].pos_r > c_Thread_arg[i].last) {
 			i++;
 		}
 #endif
-#if 0 /* option 2 */
+#if 0 /* option 5b */
 		/* skip over entirely smaller slice from beginning */
 		if (c_Thread_arg[i].pos_r > c_Thread_arg[i].last) {
 			i++;
@@ -759,7 +759,7 @@ CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, c
 				assert(si <= mm);
 				assert(sj <= mm);
 
-#if 1 /* option 1 */
+#if 0 /* option 6a */
 				memcpy(tmp_h, &src_h[pi], sh);
 				memcpy(tmp_t, &src_t[pi], st);
 				memcpy(&src_h[pi], &src_h[pj], sh);
@@ -767,7 +767,7 @@ CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, c
 				memcpy(&src_h[pj], tmp_h, sh);
 				memcpy(&src_t[pj], tmp_t, st);
 #endif
-#if 0 /* option 2 */
+#if 1 /* option 6b */
 				memcpy(tmp_h, &src_h[pi], sh);
 				memcpy(&src_h[pi], &src_h[pj], sh);
 				memcpy(&src_h[pj], tmp_h, sh);
