@@ -30,8 +30,27 @@
 #include "rel_planner.h"
 #include "sql_env.h"
 
+#include "mtime.h"
+#include "mal_client.h"
+
 #define new_func_list(sa) sa_list(sa)
 #define new_col_list(sa) sa_list(sa)
+
+
+typedef struct table_pkeys
+{
+	str table_name;
+	struct list *pkey_column_names;
+} table_pkeys;
+
+typedef struct sel_predicate
+{
+	sht cmp_type; // cmp_gt = 0, cmp_gte = 1, cmp_lte = 2, cmp_lt = 3, cmp_equal = 4, cmp_notequal = 5, cmp_filter = 6, cmp_or = 7, cmp_in = 8, cmp_notin = 9, cmp_all = 10, cmp_project = 11  (up to here taken from sql/rel.txt), cmp_range = 12, 13, 14, 15 (both not equal, first not equal second equal, first equal second not equal, both equal, respectively).
+	sql_column* column; // column of the selection predicate
+	ValRecord** values; // array of values (valrecord pointers) compared. Could be of different cardinality. E.g. 1 if cmp_equal, 2 if cmp_range, anything if cmp_in, etc.
+	int num_values; // length of the values array.
+} sel_predicate;
+
 
 typedef struct global_props {
 	int cnt[MAXOPS];
@@ -41,6 +60,20 @@ typedef sql_rel *(*rewrite_fptr)(int *changes, mvc *sql, sql_rel *rel);
 typedef int (*find_prop_fptr)(mvc *sql, sql_rel *rel);
 
 static sql_subfunc *find_func( mvc *sql, char *name, list *exps );
+int is_table_in_list_table_pkeys(list *l, sql_table* st);
+int is_column_in_list_columns(list *l, sql_column* c);
+int is_column_of_table_in_list_table_pkeys(list *l, sql_table* st, sql_column* c);
+list* extract_column_names_from_list_of_columns(list* list_of_columns);
+list* collect_PERPAD(mvc *sql, sql_rel *rel);
+lng get_enum_step_length(sql_column* c);
+sel_predicate** convert_all_into_in_clause_except_cmp_equal(list *list_of_PERPAD);
+int enumerate_pkey_space(str** ret, sel_predicate** sps, int sps_enum_start, int num_PERPAD, int* is_pkey_to_be_enumerated);
+int* enumerate_and_insert_into_temp_table(mvc *sql, sel_predicate** sps, int num_PERPAD);
+str SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output);
+str VAL2str(ValRecord* valp);
+void check_if_required_derived_metadata_is_already_available(list* list_of_PERPAD, int* is_pkey_to_be_enumerated, int num_pkeys_to_be_enumerated);
+
+list *discovered_table_pkeys;
 
 /* The important task of the relational optimizer is to optimize the
    join order. 
@@ -577,6 +610,792 @@ find_basetable( sql_rel *r)
 		return NULL;
 	}
 }
+
+int is_table_in_list_table_pkeys(list *l, sql_table* st)
+{
+	node *n = NULL;
+	
+	if (l && st) {
+		for (n = l->h; n; n = n->next) 
+		{
+			table_pkeys *tp = n->data;
+			if (strcmp(tp->table_name, st->base.name) == 0)
+				return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+int is_column_in_list_columns(list *l, sql_column* c)
+{
+	node *n = NULL;
+	
+	if (l && c) {
+		for (n = l->h; n; n = n->next) 
+		{
+			str s = n->data;
+			if (strcmp(s, c->base.name) == 0)
+				return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+int is_column_of_table_in_list_table_pkeys(list *l, sql_table* st, sql_column* c)
+{
+	node *n = NULL;
+	
+	if (l && st && c) {
+		for (n = l->h; n; n = n->next) 
+		{
+			table_pkeys *tp = n->data;
+			if (strcmp(tp->table_name, st->base.name) == 0)
+			{
+				return is_column_in_list_columns(tp->pkey_column_names, c);
+			}
+		}
+	}
+	return FALSE;
+}
+
+
+list* extract_column_names_from_list_of_columns(list* list_of_sql_kc)
+{
+	node *n = NULL;
+	list* list_of_str = list_create(NULL);
+	
+	if (list_of_sql_kc) {
+		for (n = list_of_sql_kc->h; n; n = n->next) 
+		{
+			sql_kc* skc = n->data;
+			list_append(list_of_str, GDKstrdup(skc->c->base.name));
+		}
+	}
+	return list_of_str;
+}
+
+
+list* collect_PERPAD(mvc *sql, sql_rel *rel)
+{
+	node *n = NULL;
+	int i;
+	list *res = NULL;
+	list *first = NULL, *second = NULL;
+	
+	if(rel == NULL)
+		return NULL;
+	
+	printf("=====enter: collect_PERPAD\n");
+	
+	switch (rel->op) 
+	{
+		case op_basetable:
+		case op_table:
+			return NULL;
+		case op_join: 
+		case op_left: 
+		case op_right: 
+		case op_full: 
+			
+		case op_semi: 
+		case op_anti: 
+			
+		case op_union: 
+		case op_inter: 
+		case op_except: 
+			first = collect_PERPAD(sql, rel->l);
+			second = collect_PERPAD(sql, rel->r);
+			if(first == NULL && second == NULL)
+				return NULL;
+			else if(first == NULL)
+				return list_merge(second, first, (fdup)NULL);
+			else 
+				return list_merge(first, second, (fdup)NULL);
+		case op_project:
+			return collect_PERPAD(sql, rel->l);
+		case op_select:
+			printf("op_select!\n");
+			if(rel->exps == NULL)
+				break;
+			
+			if(rel->exps->h == NULL)
+				break;
+			
+			
+			res = list_create(NULL);
+			
+			for (n = rel->exps->h, i = 0; n; n = n->next, i++) 
+			{
+				sql_exp *e = n->data;
+			
+				printf("i: %d\n", i);
+				if(e == NULL)
+					continue;
+				
+				if(e->type == e_cmp)
+				{
+					sql_exp *el = (sql_exp*) e->l;
+					sql_exp *er = (sql_exp*) e->r;
+					sql_exp *ef = NULL;
+					sql_exp *pivot = NULL;
+					
+					if(e->f)
+					{
+						ef = (sql_exp*) e->f;
+					}
+					
+					if(el->type == e_column || er->type == e_column)
+					{
+						sql_column *c;
+						atom *a;
+						
+						if(el->type != e_column)
+						{
+							pivot = el;
+							el = er;
+							er = pivot;
+						}
+						
+						c = exp_find_column(rel, el, -1);
+						if(c == NULL)
+							continue;
+						printf("column: %s & table: %s & er_type: %d & atom: %s & atom_r: %s\n", c->base.name, c->t->base.name, er->type, er->name, er->rname);
+						
+						if(find_prop(el->p, PROP_HASHCOL))
+						{
+							sql_ukey *su = (sql_ukey*) ((prop*)el->p)->value;
+							if(!is_table_in_list_table_pkeys(discovered_table_pkeys, c->t))
+							{
+								// TODO: add the table only if it is a partially materialized view
+								table_pkeys *tp = (table_pkeys*) GDKmalloc(sizeof(table_pkeys));
+								tp->table_name = GDKstrdup(c->t->base.name);
+								tp->pkey_column_names = extract_column_names_from_list_of_columns(su->k.columns);
+								list_append(discovered_table_pkeys, tp);
+							}
+						}
+						
+						if(is_column_of_table_in_list_table_pkeys(discovered_table_pkeys, c->t, c))
+						{
+							
+							sel_predicate* sp = (sel_predicate*) GDKmalloc(sizeof(sel_predicate));
+							
+							sp->cmp_type = e->flag;
+							sp->column = c;
+							sp->values = (ValRecord**) GDKmalloc(sizeof(ValRecord*));
+							
+							printf("pkey!\n");
+							
+							/* if it is a range */
+							if(ef)
+							{
+								if(ef->type == e_convert)
+									ef = ef->l;
+								if (is_atom(ef->type) && (a = exp_value(ef, sql->args, sql->argc)) != NULL) 
+								{
+									ValRecord** vr = NULL;
+									if(a->isnull)
+										printf("ERROR: range boundary is given as NULL\n");
+									
+									/* TODO: how to understand which type of range it is */
+									sp->cmp_type = 15;
+									sp->num_values = 2;
+									vr = (ValRecord**) GDKrealloc(sp->values, 2*sizeof(ValRecord*));
+									if(vr == NULL)
+									{
+										printf("ERROR: can not allocate memory\n");
+									}
+									sp->values = vr;
+									/* TODO: check if ef is always the upper boundary of the range */
+									sp->values[1] = &(a->data);
+									printf("atom2sql: %s\n", atom2sql(a));
+								}
+								else
+								{
+									printf("ERROR: NOT atom or NO value in atom!\n");
+								}
+							}
+							
+							if(er->type == e_convert)
+								er = er->l;
+							
+							
+							
+							if (is_atom(er->type) && (a = exp_value(er, sql->args, sql->argc)) != NULL) 
+							{
+								
+								if(a->isnull)
+									printf("ERROR: primary key should not be NULL\n");
+								
+								
+								switch(sp->cmp_type)
+								{
+									case 0:
+									case 1:
+									case 2:
+									case 3:
+									case 4:
+									case 5:
+										sp->num_values = 1;
+										sp->values[0] = &(a->data);
+										break;
+									case 6:
+									case 7:
+										/* not handled (yet) */
+										printf("ERROR: case not handled yet!\n");
+										break;
+									case 8:
+									case 9:
+										/* TODO: handle IN and NOT IN */
+										printf("ERROR: case not handled yet!\n");
+										break;
+									case 10:
+									case 11:
+										/* not handled (yet) */
+										printf("ERROR: case not handled yet!\n");
+										break;
+									case 12:
+									case 13:
+									case 14:
+									case 15:
+										sp->values[0] = &(a->data);
+										break;
+								}
+								
+								printf("atom2sql: %s\n", atom2sql(a));
+							}
+							else
+							{
+								printf("ERROR: NOT atom or NO value in atom!\n");
+							}
+							
+							
+							
+							res = list_append(res, sp);
+						}
+						
+						
+						
+						
+						
+					
+					}
+					else
+						printf("ERROR: unexpected el->type: %d & er->type: %d\n", el->type, er->type);	
+				}
+				else 
+					printf("ERROR: unexpected e->type: %d\n", e->type);
+				
+				/* collect the PERPAD */
+				
+				// how to get which table the corresponding attribute belongs to? All the selections has to be pushed down at this point. So, below the selection should be a base table. That is the table we look for.
+				// how to recognize if this attribute is a pkey of a specific table? It is the pkey of the base table below, if it has the PROP_HASHCOL property.
+				
+				
+			}
+			return res;
+		case op_groupby:
+		case op_topn:
+		case op_sample:
+			return collect_PERPAD(sql, rel->l);
+		case op_ddl:
+			break;
+		case op_insert:
+		case op_update:
+		case op_delete:
+			break;
+	}
+	
+	return NULL;
+}
+
+
+lng get_enum_step_length(sql_column* c)
+{
+	if(strcmp(c->t->base.name, "windowmetadata") == 0 && strcmp(c->base.name, "window_start_ts") == 0)
+		return 86400000;
+	else return 0;
+}
+
+sel_predicate** convert_all_into_in_clause_except_cmp_equal(list *list_of_PERPAD)
+{
+	int i;
+	node *n = NULL;
+	int num_sp;
+	sel_predicate** sps;
+	
+	if(list_of_PERPAD == NULL)
+		return NULL;
+	
+	num_sp = list_length(list_of_PERPAD);
+	sps = (sel_predicate**) GDKmalloc(num_sp*sizeof(sel_predicate*));
+	
+	
+	
+	for(i = 0; i < num_sp; i++)
+		sps[i] = (sel_predicate*) GDKmalloc(sizeof(sel_predicate));
+	
+	
+	for (n = list_of_PERPAD->h, i = 0; n; n = n->next, i++) 
+	{
+		lng step_length;
+		sel_predicate *sp = n->data;
+		
+		switch(sp->cmp_type)
+		{
+			case 0:
+			case 1:
+			case 2:
+			case 3:
+				/* not handled (yet) */
+				printf("ERROR: conversion case not handled yet!\n");
+				break;
+			case 4:
+				/* do not touch cmp_equal */
+				sps[i]->cmp_type = sp->cmp_type;
+				sps[i]->column = sp->column;
+				sps[i]->values = sp->values;
+				sps[i]->num_values = sp->num_values;
+				
+				break;
+			case 5:
+				/* not handled (yet) */
+				printf("ERROR: conversion case not handled yet!\n");
+				break;
+			case 6:
+			case 7:
+				/* not handled (yet) */
+				printf("ERROR: conversion case not handled yet!\n");
+				break;
+			case 8:
+				/* already in clause */
+				sps[i]->cmp_type = sp->cmp_type;
+				sps[i]->column = sp->column;
+				sps[i]->values = sp->values;
+				sps[i]->num_values = sp->num_values;
+				
+				break;
+			case 9:
+				/* not handled (yet) */
+				printf("ERROR: conversion case not handled yet!\n");
+				break;
+			case 10:
+			case 11:
+				/* not handled (yet) */
+				printf("ERROR: conversion case not handled yet!\n");
+				break;
+			case 12:
+			case 13:
+			case 14:
+			case 15:
+				/* TODO: till now we assumed all ranges are 15 */
+				switch(sp->values[0]->vtype)
+				{
+					case TYPE_str: /* should be timestamp, because enumerating a string range is not realistic */
+					{
+						timestamp *tl = (timestamp*) GDKmalloc(sizeof(timestamp)); 
+						timestamp *th = (timestamp*) GDKmalloc(sizeof(timestamp)); 
+						timestamp *tr_tl = (timestamp*) GDKmalloc(sizeof(timestamp)); 
+						timestamp *tr_th = (timestamp*) GDKmalloc(sizeof(timestamp)); 
+						timestamp *current = (timestamp*) GDKmalloc(sizeof(timestamp));
+						timestamp *next = (timestamp*) GDKmalloc(sizeof(timestamp));
+						lng range_diff = 0;
+						int j;
+						str str_day = "day";
+						
+						MTIMEtimestamp_fromstr(tl, &(sp->values[0]->val.sval));
+						MTIMEtimestamp_fromstr(th, &(sp->values[1]->val.sval));
+						step_length = get_enum_step_length(sp->column); /* TODO: window_unit should somehow have an effect here */
+						
+						/* ceiling tl, floor th */
+						timestamp_trunc(tr_tl, tl, &str_day); /* TODO: "str" should be specified somehow differently */
+						timestamp_trunc(tr_th, th, &str_day); /* TODO: "str" should be specified somehow differently */
+						if(tr_tl->days == tl->days && tr_tl->msecs == tl->msecs)
+							tl = tr_tl;
+						else
+							MTIMEtimestamp_add(tl, tr_tl, &step_length);
+						th = tr_th;
+						
+						MTIMEtimestamp_diff(&range_diff, th, tl);
+						sps[i]->num_values = (range_diff / step_length) + 1;
+						sps[i]->values = (ValRecord**) GDKmalloc(sps[i]->num_values * sizeof(ValRecord*));
+						
+						sps[i]->column = sp->column;
+						sps[i]->cmp_type = 8; /* cmp_in */
+						
+						*next = *tl;
+						for(j = 0; j < sps[i]->num_values; j++)
+						{
+							int buf_size = 24;
+							str buf = (str) GDKmalloc(buf_size * sizeof(char));
+							*current = *next;
+							sps[i]->values[j] = (ValRecord*) GDKmalloc(sizeof(ValRecord));
+							sps[i]->values[j]->vtype = TYPE_str; /* keep enumerated timestamps as str again */
+							
+							timestamp_tostr(&buf, &buf_size, current);
+							sps[i]->values[j]->val.sval = GDKstrdup(buf);
+							
+							MTIMEtimestamp_add(next, current, &step_length);
+						}
+						assert(current->days == th->days && current->msecs == th->msecs);
+						
+						break;
+					}
+					
+					default:
+						printf("ERROR: range for this type is not possible or not handled (yet)!\n");
+						break;
+				}
+				break;
+		}
+	}
+	
+	return sps;
+}
+
+/* recursive function to enumerate the pkey space */
+int enumerate_pkey_space(str** ret, sel_predicate** sps, int sps_enum_start, int num_PERPAD, int* is_pkey_to_be_enumerated)
+{
+// 	ret = (str**) GDKmalloc(sizeof(str*));
+	
+	if(!is_pkey_to_be_enumerated[sps_enum_start])
+	{
+		if(num_PERPAD == sps_enum_start + 1)
+		{
+			ret[0] = NULL;
+			return 0;
+		}
+		else
+			return enumerate_pkey_space(ret, sps, sps_enum_start+1, num_PERPAD, is_pkey_to_be_enumerated);
+	}
+	else
+	{
+		str* already_enumerated = NULL;
+// 		str* enumerated;
+		int num_already_enumerated;
+		
+		if(num_PERPAD == sps_enum_start + 1)
+		{
+			num_already_enumerated = 1;
+		}
+		else
+		{
+			num_already_enumerated = enumerate_pkey_space(&already_enumerated, sps, sps_enum_start+1, num_PERPAD, is_pkey_to_be_enumerated);
+		}
+		
+		ret[0] = (str*) GDKmalloc(sps[sps_enum_start]->num_values * num_already_enumerated * sizeof(str));
+		
+		switch(sps[sps_enum_start]->values[0]->vtype)
+		{
+			case TYPE_str: /* should be timestamp, because enumerating a string range is not realistic */
+			{
+				int i, j;
+				for(i = 0; i < sps[sps_enum_start]->num_values; i++)
+				{
+					for(j = 0; j < num_already_enumerated; j++)
+					{
+						str buf = (str)GDKmalloc(512*sizeof(char));
+						if(already_enumerated)
+						{
+							sprintf(buf, "\'%s\', %s", sps[sps_enum_start]->values[i]->val.sval, already_enumerated[j]);
+						}
+						else
+						{
+							sprintf(buf, "\'%s\'", sps[sps_enum_start]->values[i]->val.sval);
+						}
+						ret[0][i * num_already_enumerated + j] = GDKstrdup(buf);
+						GDKfree(buf);
+					}
+				}
+				
+				
+			}
+			break;
+			default:
+				printf("ERROR: enumerating pkey space: range for this type is not possible or not handled (yet)!\n");
+				break;
+		}
+		
+// 		*ret = enumerated;
+		return sps[sps_enum_start]->num_values * num_already_enumerated;
+	}
+}
+
+/* 
+ Fill in this type of query:
+ CREATE TEMP TABLE tt (d date) ON COMMIT PRESERVE ROWS;
+ INSERT INTO tt VALUES ('2013-01-08'), ('2013-01-09'), ('2013-01-10'), ('2013-01-11'), ('2013-01-12'), ('2013-01-13'), ('2013-01-14'), ('2013-01-15'), ('2013-01-16'), ('2013-01-17'), ('2013-01-18'), ('2013-01-19'), ('2013-01-20'), ('2013-01-21'), ('2013-01-22');
+ */
+int* enumerate_and_insert_into_temp_table(mvc *sql, sel_predicate** sps, int num_PERPAD)
+{
+	/* all selection predicates in sps are either IN clause or point query (cmp_equal) */
+	
+	int i, j, num_pkeys_to_be_enumerated = 0;
+	int *is_pkey_to_be_enumerated = (int*) GDKmalloc(num_PERPAD * sizeof(int));
+	char temp_column_name = 97;
+	str temp_table_name = "tt";
+	str s, q;
+	str* enumerated_pkeys = NULL;
+	int num_enumerated_pkeys;
+	int enum_char_length = 0;
+	Client cntxt;
+	
+	if(num_PERPAD == 0 || sps == NULL)
+		return NULL;
+	
+	/* how many and which sp are IN clause? */
+	for(i = 0; i < num_PERPAD; i++)
+	{
+		if(sps[i]->cmp_type == 8)
+		{
+			is_pkey_to_be_enumerated[i] = 1;
+			num_pkeys_to_be_enumerated++;
+		}
+		else
+			is_pkey_to_be_enumerated[i] = 0;
+	}
+	
+	s = (str)GDKmalloc(512*sizeof(char));
+	sprintf(s, "CREATE TEMP TABLE %s (", temp_table_name);
+	j = 0;
+	for(i = 0; i < num_PERPAD; i++)
+	{
+		if(is_pkey_to_be_enumerated[i])
+		{
+			str buf = (str)GDKmalloc(512*sizeof(char));
+			if(j == 0)
+				sprintf(buf, "%s%c %s", s, temp_column_name, sps[i]->column->type.type->sqlname);
+			else
+				sprintf(buf, "%s,%c %s", s, temp_column_name, sps[i]->column->type.type->sqlname);
+			s = GDKstrdup(buf);
+			GDKfree(buf);
+			temp_column_name++;
+			j++;
+		}
+	}
+	q = (str)GDKmalloc(512*sizeof(char));
+	sprintf(q, "%s%s", s, ") ON COMMIT PRESERVE ROWS;\n");
+	
+	printf("q: %s", q);
+	
+	cntxt = MCgetClient(sql->clientid);
+	
+	/* TODO: how long will this temp table stay? There might be a new query trying to recreate it. */
+	if(SQLstatementIntern(cntxt,&q,"pmv.create_temp_table",TRUE,FALSE)!= MAL_SUCCEED)
+	{/* insert into query not succeeded, what to do */
+		return NULL;
+	}
+	
+	if(mvc_commit(sql, 0, NULL) < 0)
+	{/* committing failed */
+// 		throw(MAL,"pmv.create_temp_table", "committing failed\n");
+		return NULL;
+	}
+	
+	GDKfree(s);
+	GDKfree(q);
+	
+	/* do the insert into temp table */
+	s = (str)GDKmalloc(512*sizeof(char));
+	sprintf(s, "INSERT INTO %s VALUES ", temp_table_name);
+	
+	
+	num_enumerated_pkeys = enumerate_pkey_space(&enumerated_pkeys, sps, 0, num_PERPAD, is_pkey_to_be_enumerated);
+	
+	assert(num_enumerated_pkeys > 0 && enumerated_pkeys != NULL); //otherwise the query is not healthy.
+	
+	enum_char_length = num_enumerated_pkeys * (strlen(enumerated_pkeys[0]) + 4) + strlen(s);
+	
+	for(i = 0; i < num_enumerated_pkeys; i++)
+	{
+		str buf = (str)GDKmalloc(enum_char_length*sizeof(char));
+		if(i == num_enumerated_pkeys - 1)
+		{
+			sprintf(buf, "%s(%s);\n", s, enumerated_pkeys[i]);
+		}
+		else
+		{
+			sprintf(buf, "%s(%s), ", s, enumerated_pkeys[i]);
+		}
+		s = GDKstrdup(buf);
+		GDKfree(buf);
+	}
+	
+	printf("q2: %s", s);
+	
+	if(SQLstatementIntern(cntxt,&s,"pmv.insert_into_temp_table",TRUE,FALSE)!= MAL_SUCCEED)
+	{/* insert into query not succeeded, what to do */
+		return NULL;
+	}
+	
+	GDKfree(s);
+	return is_pkey_to_be_enumerated;
+	
+}
+
+str VAL2str(ValRecord* valp)
+{
+	char buf[BUFSIZ];
+	
+	if(valp == NULL)
+		return NULL;
+	
+	switch (valp->vtype) {
+		case TYPE_lng:
+			sprintf(buf, LLFMT, valp->val.lval);
+			break;
+		case TYPE_wrd:
+			sprintf(buf, SSZFMT, valp->val.wval);
+			break;
+		case TYPE_oid:
+			sprintf(buf, OIDFMT "@0", valp->val.oval);
+			break;
+		case TYPE_int:
+			sprintf(buf, "%d", valp->val.ival);
+			break;
+		case TYPE_sht:
+			sprintf(buf, "%d", valp->val.shval);
+			break;
+		case TYPE_bte:
+			sprintf(buf, "%d", valp->val.btval);
+			break;
+		case TYPE_bit:
+			if (valp->val.btval)
+				return GDKstrdup("true");
+			return GDKstrdup("false");
+		case TYPE_flt:
+			sprintf(buf, "%f", valp->val.fval);
+			break;
+		case TYPE_dbl:
+			sprintf(buf, "%f", valp->val.dval);
+			break;
+		case TYPE_str:
+			if (valp->val.sval)
+				sprintf(buf, "\'%s\'", valp->val.sval);
+			else
+				sprintf(buf, "NULL");
+			break;
+		default:
+			printf("ERROR: this type is not handled by VAL2str!\n");
+			break;
+	}
+	return GDKstrdup(buf);
+}
+
+/* form and run this kind of query:
+ SELECT * FROM tt LEFT OUTER JOIN (SELECT d_st FROM days WHERE d_st >= '2013-01-08' AND d_st <= '2013-01-22') AS dd ON tt.d = dd.d_st;*
+ */
+void check_if_required_derived_metadata_is_already_available(list* list_of_PERPAD, int* is_pkey_to_be_enumerated, int num_pkeys_to_be_enumerated)
+{
+	/* Form the sub-query. That has the PERPAD, but like in the original query */
+	
+	int i,j;
+	node *n = NULL;
+	int num_sp;
+	str s, table_name, buf2;
+		
+	if(list_of_PERPAD == NULL || is_pkey_to_be_enumerated == NULL)
+		return;
+	
+	num_sp = list_length(list_of_PERPAD);
+	
+	s = "SELECT ";
+	
+	for (n = list_of_PERPAD->h, i = 0, j = 0; n; n = n->next, i++) 
+	{
+		sel_predicate *sp = n->data;
+		
+		if(is_pkey_to_be_enumerated[i])
+		{
+			str buf = (str)GDKmalloc(num_sp*64*sizeof(char));
+			j++;
+			if(j == num_pkeys_to_be_enumerated)
+				sprintf(buf, "%s %s.%s", s, sp->column->t->base.name, sp->column->base.name);
+			else
+				sprintf(buf, "%s %s.%s,", s, sp->column->t->base.name, sp->column->base.name);
+			s = GDKstrdup(buf);
+			GDKfree(buf);
+		}
+	}
+	
+	table_name = ((sel_predicate*)list_of_PERPAD->h->data)->column->t->base.name;
+	
+	buf2 = (str)GDKmalloc((strlen(s) + 128)*sizeof(char));
+	sprintf(buf2, "%s FROM %s WHERE ", s, table_name);
+	s = GDKstrdup(buf2);
+	GDKfree(buf2);
+	
+	for (n = list_of_PERPAD->h, i = 0, j = 0; n; n = n->next, i++) 
+	{
+		sel_predicate *sp = n->data;
+		
+		str buf = (str)GDKmalloc(num_sp*128*sizeof(char));
+		
+		switch(sp->cmp_type)
+		{
+			case 0:
+			case 1:
+			case 2:
+			case 3:
+				/* not handled (yet) */
+				printf("ERROR: printing case not handled yet!\n");
+				break;
+			case 4:
+				
+				sprintf(buf, "%s %s.%s = %s", s, sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[0]));
+				break;
+			case 5:
+				/* not handled (yet) */
+				printf("ERROR: printing case not handled yet!\n");
+				break;
+			case 6:
+			case 7:
+				/* not handled (yet) */
+				printf("ERROR: printing case not handled yet!\n");
+				break;
+			case 8:
+				/* not handled (yet) */
+				printf("ERROR: printing case not handled yet!\n");
+				break;
+			case 9:
+				/* not handled (yet) */
+				printf("ERROR: printing case not handled yet!\n");
+				break;
+			case 10:
+			case 11:
+				/* not handled (yet) */
+				printf("ERROR: printing case not handled yet!\n");
+				break;
+			case 12:
+				sprintf(buf, "%s %s.%s > %s AND %s.%s < %s", s, sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[0]), sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[1]));
+				break;
+			case 13:
+				sprintf(buf, "%s %s.%s > %s AND %s.%s <= %s", s, sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[0]), sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[1]));
+				break;
+			case 14:
+				sprintf(buf, "%s %s.%s >= %s AND %s.%s < %s", s, sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[0]), sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[1]));
+				break;
+			case 15:
+				/* TODO: till now we assumed all ranges are 15 */
+				sprintf(buf, "%s %s.%s >= %s AND %s.%s <= %s", s, sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[0]), sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[1]));
+				break;
+		}
+		
+		if(i != num_sp - 1)
+		{
+			s = GDKstrdup(buf);
+			sprintf(buf, "%s AND ", s);
+		}
+		s = GDKstrdup(buf);
+		GDKfree(buf);
+	}
+	
+	printf("subquery: %s\n", s);
+	/*
+	q = "SELECT * FROM %s LEFT OUTER JOIN (%s) AS aa ON ";*/
+	
+	
+}
+
 
 static bit 
 has_actual_data_table(sql_rel *rel)
@@ -5661,8 +6480,40 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 	return rel;
 }
 
+
 sql_rel *
 rel_optimizer(mvc *sql, sql_rel *rel) 
 {
-	return _rel_optimizer(sql, rel, 0);
+	node* n = NULL;
+	list* list_PERPAD = NULL;
+	sel_predicate** sps = NULL;
+	sql_rel *ret = _rel_optimizer(sql, rel, 0);
+	int num_PERPAD = 0, i;
+	int num_pkeys_to_be_enumerated = 0;
+	int* is_pkey_to_be_enumerated;
+	discovered_table_pkeys = list_create(NULL);
+	list_PERPAD = collect_PERPAD(sql, ret);
+	
+	printf("num_discovered_tables: %d\n", list_length(discovered_table_pkeys));
+	for (n = discovered_table_pkeys->h; n; n = n->next) 
+	{
+		table_pkeys *tp = n->data;
+		printf("num_pkey_columns: %d\n", list_length(tp->pkey_column_names));
+	}
+	printf("num_PERPAD: %d\n", num_PERPAD=list_length(list_PERPAD));
+	
+	sps = convert_all_into_in_clause_except_cmp_equal(list_PERPAD);
+	
+	/* enumerate the pkey space into a temp table */
+	is_pkey_to_be_enumerated = enumerate_and_insert_into_temp_table(sql, sps, num_PERPAD);
+	
+	for(i = 0; i < num_PERPAD; i++)
+	{
+		if(is_pkey_to_be_enumerated[i])
+			num_pkeys_to_be_enumerated++;
+	}
+	
+	check_if_required_derived_metadata_is_already_available(list_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
+	
+	return ret;
 }
