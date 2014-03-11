@@ -596,6 +596,18 @@ command minutes(t:zrule) :int
 address MTIMErule_extract_minutes
 comment "extract minutes from rule.";
 
+command timestamp_trunc(t:timestamp, field:str) :timestamp
+address timestamp_trunc
+comment "truncates less significant fields after field.";
+command batmtime.timestamp_trunc(b:bat[:oid,:timestamp], field:str):bat[:oid,:timestamp]
+address timestamp_trunc_bulk;
+
+command timestamp_trunc_after_every(t:timestamp, field:str, after_every:int) :timestamp
+address timestamp_trunc_after_every
+comment "truncates less significant fields after field and after every given value of the field.";
+command batmtime.timestamp_trunc_after_every(b:bat[:oid,:timestamp], field:str, after_every:int):bat[:oid,:timestamp]
+address timestamp_trunc_after_every_bulk;
+
 # @+ Time/date arithmetic
 # We choose to represent intervals of time as numbers of days (as int, a 32-bits integer)
 # and numbers of milliseconds (as lng, a 64-bits integer). Using standard integer types
