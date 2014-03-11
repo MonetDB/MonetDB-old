@@ -1291,7 +1291,7 @@ void check_if_required_derived_metadata_is_already_available(list* list_of_PERPA
 	int i,j;
 	node *n = NULL;
 	int num_sp;
-	str s, table_name, buf2;
+	str s, table_name, buf2, q;
 		
 	if(list_of_PERPAD == NULL || is_pkey_to_be_enumerated == NULL)
 		return;
@@ -1375,7 +1375,6 @@ void check_if_required_derived_metadata_is_already_available(list* list_of_PERPA
 				sprintf(buf, "%s %s.%s >= %s AND %s.%s < %s", s, sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[0]), sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[1]));
 				break;
 			case 15:
-				/* TODO: till now we assumed all ranges are 15 */
 				sprintf(buf, "%s %s.%s >= %s AND %s.%s <= %s", s, sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[0]), sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[1]));
 				break;
 		}
@@ -1390,8 +1389,8 @@ void check_if_required_derived_metadata_is_already_available(list* list_of_PERPA
 	}
 	
 	printf("subquery: %s\n", s);
-	/*
-	q = "SELECT * FROM %s LEFT OUTER JOIN (%s) AS aa ON ";*/
+	
+	q = "SELECT * FROM %s LEFT OUTER JOIN (%s) AS aa ON ";
 	
 	
 }
