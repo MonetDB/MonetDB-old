@@ -20,3 +20,8 @@ create function str_to_date(s string, format string) returns date
 
 create function date_to_str(d date, format string) returns string
 	external name mtime."date_to_str";
+
+create function date_trunc( t timestamp, field string ) returns timestamp
+	external name mtime.timestamp_trunc;
+create function date_trunc_after_every( t timestamp, field string, after_every integer ) returns timestamp
+	external name mtime.timestamp_trunc_after_every;

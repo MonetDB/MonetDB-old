@@ -114,3 +114,8 @@ create function dayofmonth( date ) returns integer
 	external name mtime.dayofmonth;
 create function week( date ) returns integer
 	external name mtime.weekofyear;
+
+create function date_trunc( field string, ts timestamp ) returns timestamp
+	external name mtime.timestamp_trunc;
+create function date_trunc_after_every( field string, after_every integer, ts timestamp ) returns timestamp
+	external name mtime.timestamp_trunc_after_every;
