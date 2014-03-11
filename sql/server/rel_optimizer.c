@@ -1292,6 +1292,8 @@ void check_if_required_derived_metadata_is_already_available(list* list_of_PERPA
 	node *n = NULL;
 	int num_sp;
 	str s, table_name, buf2, q;
+	char temp_column_name = 97;
+	str temp_table_name = "tt";
 		
 	if(list_of_PERPAD == NULL || is_pkey_to_be_enumerated == NULL)
 		return;
@@ -1390,8 +1392,35 @@ void check_if_required_derived_metadata_is_already_available(list* list_of_PERPA
 	
 	printf("subquery: %s\n", s);
 	
+	
+	/* form the query */
 	q = "SELECT * FROM %s LEFT OUTER JOIN (%s) AS aa ON ";
 	
+	for (n = list_of_PERPAD->h, i = 0, j = 0; n; n = n->next, i++) 
+	{
+		sel_predicate *sp = n->data;
+		
+		if(is_pkey_to_be_enumerated[i])
+		{
+			str buf = (str)GDKmalloc((BUFSIZ + num_pkeys_to_be_enumerated * 128)*sizeof(char));
+			j++;
+			if(j == num_pkeys_to_be_enumerated)
+				sprintf(buf, "%s %s.%c = aa.%s;\n", q, temp_table_name, temp_column_name, sp->column->base.name);
+			else
+				sprintf(buf, "%s %s.%c = aa.%s AND ", q, temp_table_name, temp_column_name, sp->column->base.name);
+			q = GDKstrdup(buf);
+			GDKfree(buf);
+			temp_column_name++;
+			
+		}
+	}
+	
+	buf2 = (str)GDKmalloc((strlen(q) + 128 + strlen(s))*sizeof(char));
+	sprintf(buf2, q, temp_table_name, s);
+	q = GDKstrdup(buf2);
+	GDKfree(buf2);
+	
+	printf("query: %s\n", q);
 	
 }
 
