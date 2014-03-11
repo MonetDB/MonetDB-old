@@ -66,3 +66,6 @@ FROM mseed.files AS f
 CREATE FUNCTION dumpcache()
 RETURNS STRING EXTERNAL NAME recycle.dumpcache;
 
+
+
+
