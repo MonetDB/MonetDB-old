@@ -80,7 +80,7 @@ MRqueueCreate(int sz)
 	mrqlast = 0;
 	/* create a worker thread for each core as specified as system parameter */
 	for (i = 0; i < GDKnr_threads; i++)
-		MT_create_thread(&tid, MRworker, (void *) 0, MT_THR_DETACHED);
+		 MT_create_thread(&tid, MRworker, (void *) 0, MT_THR_DETACHED);
 	MT_lock_unset(&mrqlock, "MRqueueCreate");
 }
 
