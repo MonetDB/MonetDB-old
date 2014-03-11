@@ -258,6 +258,9 @@ mtime_export int tzone_fromstr(str buf, int *len, tzone **d);
 mtime_export str MTIMEstrptime(date *d, str *s, str *format);
 mtime_export str MTIMEstrftime(str *s, date *d, str *format);
 
+mtime_export str timestamp_trunc(timestamp *ret, timestamp *t, str *field);
+mtime_export str timestamp_trunc_after_every(timestamp *ret, timestamp *t, str *field, int *after_every);
+
 mtime_export str MTIMEdate_extract_year_bulk(int *ret, int *bid);
 
 mtime_export str MTIMEdate_extract_month_bulk(int *ret, int *bid);
@@ -273,6 +276,9 @@ mtime_export str MTIMEdaytime_extract_seconds_bulk(int *ret, int *bid);
 mtime_export str MTIMEdaytime_extract_sql_seconds_bulk(int *ret, int *bid);
 
 mtime_export str MTIMEdaytime_extract_milliseconds_bulk(int *ret, int *bid);
+
+mtime_export str timestamp_trunc_bulk(int *ret, int *bid, str *field);
+mtime_export str timestamp_trunc_after_every_bulk(int *ret, int *bid, str *field, int *after_every);
 
 mtime_export int TYPE_date;
 mtime_export int TYPE_daytime;

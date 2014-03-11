@@ -3276,3 +3276,149 @@ MTIMEstrftime(str *s, date *d, str *format)
 	throw(MAL, "mtime.str_to_date", "strptime support missing");
 #endif
 }
+
+str
+timestamp_trunc(timestamp *ret, timestamp *t, str *field)
+{
+	int a = 1;
+	return timestamp_trunc_after_every(ret, t, field, &a);
+}
+
+str
+timestamp_trunc_after_every(timestamp *ret, timestamp *t, str *field, int *after_every)
+{
+	int msec, sec, min, hour, day, month, year;
+	
+	date days;
+	daytime msecs;
+	str e;
+	
+	if ((e = timestamp_extract_date(&days, t, &tzone_local)) != MAL_SUCCEED)
+		return e;
+	if ((e = timestamp_extract_daytime(&msecs, t, &tzone_local)) != MAL_SUCCEED)
+		return e;
+	
+	// resolve date and daytime into its components
+	fromdate(days, &day, &month, &year);
+	fromtime(msecs, &hour, &min, &sec, &msec);
+	
+	
+	// do the truncation on the required components
+	if(strcmp(*field, "second") == 0)
+	{
+		sec = (sec / *after_every) * *after_every;
+		msec = 0;
+	}
+	else if(strcmp(*field, "minute") == 0)
+	{
+		min = (min / *after_every) * *after_every;
+		sec = 0;
+		msec = 0;
+	}
+	else if(strcmp(*field, "hour") == 0)
+	{
+		hour = (hour / *after_every) * *after_every;
+		min = 0;
+		sec = 0;
+		msec = 0;
+	}
+	else if(strcmp(*field, "day") == 0)
+	{
+		day = (day / *after_every) * *after_every;
+		if(day == 0)
+			day += 1;
+		hour = 0;
+		min = 0;
+		sec = 0;
+		msec = 0;
+	}
+	else if(strcmp(*field, "month") == 0)
+	{
+		month = (month / *after_every) * *after_every;
+		if(month == 0)
+			month += 1;
+		day = 1;
+		hour = 0;
+		min = 0;
+		sec = 0;
+		msec = 0;
+	}
+	else if(strcmp(*field, "year") == 0)
+	{
+		year = (year / *after_every) * *after_every;
+		if(year == 0)
+			year += 1;
+		month = 1;
+		day = 1;
+		hour = 0;
+		min = 0;
+		sec = 0;
+		msec = 0;
+	}
+	
+	// construct new date and daytime
+	if ((e = MTIMEdate_create(&days, &year, &month, &day)) != MAL_SUCCEED)
+		return e;
+	if ((e = daytime_create(&msecs, &hour, &min, &sec, &msec)) != MAL_SUCCEED)
+		return e;
+	
+	// combine new date and daytime into timestamp
+	if ((e = MTIMEtimestamp_create_default(ret, &days, &msecs)) != MAL_SUCCEED)
+		return e;
+	
+	return MAL_SUCCEED;
+}
+
+str
+timestamp_trunc_bulk(int *ret, int *bid, str *field)
+{
+	int a = 1;
+	return timestamp_trunc_after_every_bulk(ret, bid, field, &a);
+}
+
+str
+timestamp_trunc_after_every_bulk(int *ret, int *bid, str *field, int *after_every)
+{
+	BAT *b, *bn;
+	timestamp res;
+	timestamp *t;
+	BUN p, q;
+	BATiter bi;
+	
+	if ((b = BATdescriptor(*bid)) == NULL)
+		throw(MAL, "batmtime.timestamp_trunc_after_every", "Cannot access descriptor");
+	
+	bn = BATnew(TYPE_void, TYPE_timestamp, BATcount(b));
+	if (bn == NULL)
+		throw(MAL, "batmtime.timestamp_trunc_after_every", "memory allocation failure");
+	BATseqbase(bn, b->H->seq);
+	
+	bi = bat_iterator(b);
+	BATloop(b, p, q) {
+		t = (timestamp *) BUNtail(bi, p);
+		timestamp_trunc_after_every(&res, t, field, after_every);
+		if (BUNappend(bn, &res, FALSE) == NULL) {
+			BBPunfix(bn->batCacheid);
+			throw(MAL, "batmtime.timestamp_trunc_after_every", "inserting value failed");
+		}
+	}
+	
+	if (b->htype != bn->htype) {
+		BAT *r = VIEWcreate(b,bn);
+		
+		BBPreleaseref(bn->batCacheid);
+		bn = r;
+	}
+	
+	bn->H->nonil = b->H->nonil;
+	bn->hsorted = b->hsorted;
+	bn->hrevsorted = b->hrevsorted;
+	BATkey(bn, BAThkey(b));
+	bn->tsorted = b->tsorted;
+	bn->trevsorted = b->trevsorted;
+	bn->T->nonil = b->T->nonil;
+	
+	BBPkeepref(*ret = bn->batCacheid);
+	BBPunfix(b->batCacheid);
+	return MAL_SUCCEED;
+}
