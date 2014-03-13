@@ -1182,12 +1182,14 @@ int* enumerate_and_insert_into_temp_table(mvc *sql, sel_predicate** sps, int num
 	/* TODO: how long will this temp table stay? There might be a new query trying to recreate it. */
 	if(SQLstatementIntern(cntxt,&q,"pmv.create_temp_table",TRUE,FALSE)!= MAL_SUCCEED)
 	{/* insert into query not succeeded, what to do */
+		printf("***query didnt work: %s\n", q);
 		return NULL;
 	}
 	
 	if(mvc_commit(sql, 0, NULL) < 0)
 	{/* committing failed */
 // 		throw(MAL,"pmv.create_temp_table", "committing failed\n");
+		printf("***commit didnt work: %s\n", q);
 		return NULL;
 	}
 	
@@ -1224,6 +1226,7 @@ int* enumerate_and_insert_into_temp_table(mvc *sql, sel_predicate** sps, int num
 	
 	if(SQLstatementIntern(cntxt,&s,"pmv.insert_into_temp_table",TRUE,FALSE)!= MAL_SUCCEED)
 	{/* insert into query not succeeded, what to do */
+		printf("***query didnt work: %s\n", q);
 		return NULL;
 	}
 	
@@ -1291,7 +1294,7 @@ void check_if_required_derived_metadata_is_already_available(mvc* sql, list* lis
 	int i,j;
 	node *n = NULL;
 	int num_sp;
-	str s, table_name, buf2, q;
+	str s, table_name, buf2, q, schema_name;
 	char temp_column_name = 97;
 	str temp_table_name = "tt";
 	Client cntxt;
@@ -1312,18 +1315,19 @@ void check_if_required_derived_metadata_is_already_available(mvc* sql, list* lis
 			str buf = (str)GDKmalloc(num_sp*64*sizeof(char));
 			j++;
 			if(j == num_pkeys_to_be_enumerated)
-				sprintf(buf, "%s %s.%s", s, sp->column->t->base.name, sp->column->base.name);
+				sprintf(buf, "%s %s", s, sp->column->base.name);
 			else
-				sprintf(buf, "%s %s.%s,", s, sp->column->t->base.name, sp->column->base.name);
+				sprintf(buf, "%s %s,", s, sp->column->base.name);
 			s = GDKstrdup(buf);
 			GDKfree(buf);
 		}
 	}
 	
 	table_name = ((sel_predicate*)list_of_PERPAD->h->data)->column->t->base.name;
+	schema_name = ((sel_predicate*)list_of_PERPAD->h->data)->column->t->s->base.name;
 	
 	buf2 = (str)GDKmalloc((strlen(s) + 128)*sizeof(char));
-	sprintf(buf2, "%s FROM %s WHERE ", s, table_name);
+	sprintf(buf2, "%s FROM %s.%s WHERE ", s, schema_name, table_name);
 	s = GDKstrdup(buf2);
 	GDKfree(buf2);
 	
@@ -1344,7 +1348,7 @@ void check_if_required_derived_metadata_is_already_available(mvc* sql, list* lis
 				break;
 			case 4:
 				
-				sprintf(buf, "%s %s.%s = %s", s, sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[0]));
+				sprintf(buf, "%s %s = %s", s, sp->column->base.name, VAL2str(sp->values[0]));
 				break;
 			case 5:
 				/* not handled (yet) */
@@ -1369,16 +1373,16 @@ void check_if_required_derived_metadata_is_already_available(mvc* sql, list* lis
 				printf("ERROR: printing case not handled yet!\n");
 				break;
 			case 12:
-				sprintf(buf, "%s %s.%s > %s AND %s.%s < %s", s, sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[0]), sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[1]));
+				sprintf(buf, "%s %s > %s AND %s < %s", s, sp->column->base.name, VAL2str(sp->values[0]), sp->column->base.name, VAL2str(sp->values[1]));
 				break;
 			case 13:
-				sprintf(buf, "%s %s.%s > %s AND %s.%s <= %s", s, sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[0]), sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[1]));
+				sprintf(buf, "%s %s > %s AND %s <= %s", s, sp->column->base.name, VAL2str(sp->values[0]), sp->column->base.name, VAL2str(sp->values[1]));
 				break;
 			case 14:
-				sprintf(buf, "%s %s.%s >= %s AND %s.%s < %s", s, sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[0]), sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[1]));
+				sprintf(buf, "%s %s >= %s AND %s < %s", s, sp->column->base.name, VAL2str(sp->values[0]), sp->column->base.name, VAL2str(sp->values[1]));
 				break;
 			case 15:
-				sprintf(buf, "%s %s.%s >= %s AND %s.%s <= %s", s, sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[0]), sp->column->t->base.name, sp->column->base.name, VAL2str(sp->values[1]));
+				sprintf(buf, "%s %s >= %s AND %s <= %s", s, sp->column->base.name, VAL2str(sp->values[0]), sp->column->base.name, VAL2str(sp->values[1]));
 				break;
 		}
 		
@@ -1429,12 +1433,14 @@ void check_if_required_derived_metadata_is_already_available(mvc* sql, list* lis
 	/* TODO: how long will this temp table stay? There might be a new query trying to recreate it. */
 	if(SQLstatementIntern(cntxt,&q,"pmv.left_outer_join",TRUE,FALSE)!= MAL_SUCCEED)
 	{/* insert into query not succeeded, what to do */
+		printf("***query didnt work: %s\n", q);
 		return;
 	}
 	
 	if(mvc_commit(sql, 0, NULL) < 0)
 	{/* committing failed */
 		// 		throw(MAL,"pmv.create_temp_table", "committing failed\n");
+		printf("***commit didnt work: %s\n", q);
 		return;
 	}
 	
