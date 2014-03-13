@@ -127,6 +127,7 @@ typedef struct mvc {
 	struct tms times;
 #endif	
 	lng Tparse;
+	sht q_in_q;	/* set if one user query is running another query */
 } mvc;
 
 extern int mvc_init(int debug, store_type store, int ro, int su, backend_stack stk);

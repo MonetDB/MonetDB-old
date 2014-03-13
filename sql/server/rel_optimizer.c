@@ -6536,36 +6536,45 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 sql_rel *
 rel_optimizer(mvc *sql, sql_rel *rel) 
 {
-	node* n = NULL;
-	list* list_PERPAD = NULL;
-	sel_predicate** sps = NULL;
 	sql_rel *ret = _rel_optimizer(sql, rel, 0);
-	int num_PERPAD = 0, i;
-	int num_pkeys_to_be_enumerated = 0;
-	int* is_pkey_to_be_enumerated;
-	discovered_table_pkeys = list_create(NULL);
-	list_PERPAD = collect_PERPAD(sql, ret);
 	
-	printf("num_discovered_tables: %d\n", list_length(discovered_table_pkeys));
-	for (n = discovered_table_pkeys->h; n; n = n->next) 
+	if(!sql->q_in_q)
 	{
-		table_pkeys *tp = n->data;
-		printf("num_pkey_columns: %d\n", list_length(tp->pkey_column_names));
+		node* n = NULL;
+		list* list_PERPAD = NULL;
+		sel_predicate** sps = NULL;
+		int num_PERPAD = 0, i;
+		int num_pkeys_to_be_enumerated = 0;
+		int* is_pkey_to_be_enumerated;
+		discovered_table_pkeys = list_create(NULL);
+		
+		sql->q_in_q = 1;
+		
+		list_PERPAD = collect_PERPAD(sql, ret);
+		
+		printf("num_discovered_tables: %d\n", list_length(discovered_table_pkeys));
+		for (n = discovered_table_pkeys->h; n; n = n->next) 
+		{
+			table_pkeys *tp = n->data;
+			printf("num_pkey_columns: %d\n", list_length(tp->pkey_column_names));
+		}
+		printf("num_PERPAD: %d\n", num_PERPAD=list_length(list_PERPAD));
+		
+		sps = convert_all_into_in_clause_except_cmp_equal(list_PERPAD);
+		
+		/* enumerate the pkey space into a temp table */
+		is_pkey_to_be_enumerated = enumerate_and_insert_into_temp_table(sql, sps, num_PERPAD);
+		
+		for(i = 0; i < num_PERPAD; i++)
+		{
+			if(is_pkey_to_be_enumerated[i])
+				num_pkeys_to_be_enumerated++;
+		}
+		
+		check_if_required_derived_metadata_is_already_available(sql, list_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
+		
+		sql->q_in_q = 0;
 	}
-	printf("num_PERPAD: %d\n", num_PERPAD=list_length(list_PERPAD));
-	
-	sps = convert_all_into_in_clause_except_cmp_equal(list_PERPAD);
-	
-	/* enumerate the pkey space into a temp table */
-	is_pkey_to_be_enumerated = enumerate_and_insert_into_temp_table(sql, sps, num_PERPAD);
-	
-	for(i = 0; i < num_PERPAD; i++)
-	{
-		if(is_pkey_to_be_enumerated[i])
-			num_pkeys_to_be_enumerated++;
-	}
-	
-	check_if_required_derived_metadata_is_already_available(sql, list_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
 	
 	return ret;
 }
