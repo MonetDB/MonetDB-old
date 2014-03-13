@@ -1133,7 +1133,8 @@ int* enumerate_and_insert_into_temp_table(mvc *sql, sel_predicate** sps, int num
 	int *is_pkey_to_be_enumerated = (int*) GDKmalloc(num_PERPAD * sizeof(int));
 	char temp_column_name = 97;
 	str temp_table_name = "tt";
-	str s, q;
+	str temp_table_name_res = "tt_res";
+	str s, q, buf2, q2;
 	str* enumerated_pkeys = NULL;
 	int num_enumerated_pkeys;
 	int enum_char_length = 0;
@@ -1154,8 +1155,7 @@ int* enumerate_and_insert_into_temp_table(mvc *sql, sel_predicate** sps, int num
 			is_pkey_to_be_enumerated[i] = 0;
 	}
 	
-	s = (str)GDKmalloc(512*sizeof(char));
-	sprintf(s, "CREATE TEMP TABLE %s (", temp_table_name);
+	s = "CREATE TEMP TABLE %s (";
 	j = 0;
 	for(i = 0; i < num_PERPAD; i++)
 	{
@@ -1172,15 +1172,30 @@ int* enumerate_and_insert_into_temp_table(mvc *sql, sel_predicate** sps, int num
 			j++;
 		}
 	}
-	q = (str)GDKmalloc(512*sizeof(char));
-	sprintf(q, "%s%s", s, ") ON COMMIT PRESERVE ROWS;\n");
 	
-	printf("q: %s", q);
+	buf2 = (str)GDKmalloc(BUFSIZ*sizeof(char));
+	sprintf(buf2, "%s%s", s, ") ON COMMIT PRESERVE ROWS;\n");
+	
+	q = (str)GDKmalloc(BUFSIZ*sizeof(char));
+	sprintf(q, buf2, temp_table_name);
+	
+	q2 = (str)GDKmalloc(BUFSIZ*sizeof(char));
+	sprintf(q2, buf2, temp_table_name_res);
+	
+	printf("q1: %s", q);
+	printf("q2: %s", q2);
 	
 	cntxt = MCgetClient(sql->clientid);
 	
 	/* TODO: how long will this temp table stay? There might be a new query trying to recreate it. */
 	if(SQLstatementIntern(cntxt,&q,"pmv.create_temp_table",TRUE,FALSE)!= MAL_SUCCEED)
+	{/* insert into query not succeeded, what to do */
+		printf("***query didnt work: %s\n", q);
+		return NULL;
+	}
+	
+	/* TODO: how long will this temp table stay? There might be a new query trying to recreate it. */
+	if(SQLstatementIntern(cntxt,&q2,"pmv.create_temp_table_res",TRUE,FALSE)!= MAL_SUCCEED)
 	{/* insert into query not succeeded, what to do */
 		printf("***query didnt work: %s\n", q);
 		return NULL;
@@ -1285,7 +1300,8 @@ str VAL2str(ValRecord* valp)
 }
 
 /* form and run this kind of query:
- SELECT * FROM tt LEFT OUTER JOIN (SELECT d_st FROM days WHERE d_st >= '2013-01-08' AND d_st <= '2013-01-22') AS dd ON tt.d = dd.d_st;*
+ * 
+ INSERT INTO tt_res SELECT * FROM tt LEFT OUTER JOIN (SELECT d_st FROM days WHERE d_st >= '2013-01-08' AND d_st <= '2013-01-22') AS dd ON tt.d = dd.d_st;*
  */
 void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, list* list_of_PERPAD, int* is_pkey_to_be_enumerated, int num_pkeys_to_be_enumerated)
 {
