@@ -20,19 +20,17 @@
 #ifndef _RDFONTOLOGY_H_
 #define _RDFONTOLOGY_H_
 
-typedef struct OntClass {
-	oid 	ocId; 		/*class Id */
-	oid	subclassof;
-	oid* 	lstProp;
-	int	numProp;
-	int 	numAllocation;
-} OntClass; 
+#define NUMSC_PER_ONTCLASS 4
 
-typedef struct OntClassset{
-	OntClass* items;
-	int numClassadded;
-	int numAllocation;
-} OntClassset; 
+typedef struct OntClass {
+	oid 	cOid; 		/*class Oid*/
+	int*	scIdxes;	/*Idx of super classes*/
+	int	numsc; 		/*Number of super classes*/
+	int 	numAllocation;
+	int	hierDepth;	/*Depth of the ontology class in the hierarchy*/
+	//oid* 	lstProp;
+	//int	numProp;
+} OntClass; 
 
 rdf_export str
 RDFOntologyParser(int *ret, str *location, str *schema);

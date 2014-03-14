@@ -2074,11 +2074,14 @@ void removeDuplicatedCandidates(CSlabel *label) {
 #if USE_TABLE_NAME
 /* For one CS: Choose the best table name out of all collected candidates (ontology, type, fk). */
 static
-void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, TypeStat* typeStat, int typeStatCount, oid** result, int* resultCount, IncidentFKs* links, oid** ontmetadata, int ontmetadataCount) {
+void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, TypeStat* typeStat, int typeStatCount, oid** result, int* resultCount, IncidentFKs* links, oid** ontmetadata, int ontmetadataCount, BAT *ontmetaBat, OntClass *ontclassSet) {
 	int		i, j, k;
 	oid		*tmpList;
 	int		tmpListCount;
 	char		nameFound = 0;
+
+	BUN		ontClassPos; 	//Position of ontology in the ontmetaBat
+	oid		typeOid; 	
 
 	// --- ONTOLOGY ---
 	// add all ontology candidates to list of candidates
@@ -2170,6 +2173,23 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	tmpListCount = 0;
 	for (i = 0; i < typeAttributesCount; ++i) {
 		if (typeAttributesHistogramCount[csIdx][i] == 0) continue;
+		/*   //TODO: Uncomment this path
+		for (j = 0; j < typeAttributesHistogramCount[csIdx][i]; j++){
+			str typelabel; 
+			typeOid = typeAttributesHistogram[csIdx][i][j].value;
+			printf("FreqCS %d : Type[%d][%d][oid] = " BUNFMT, csIdx, i,j, typeOid);
+			ontClassPos = BUNfnd(BATmirror(ontmetaBat), &typeOid); 
+			if (ontClassPos != BUN_NONE){
+				takeOid(typeOid,&typelabel);
+				assert(ontclassSet[ontClassPos].cOid == typeOid); 
+				printf(" --> class %s | Index = %d |Specific level: %d \n", typelabel, (int)ontClassPos, ontclassSet[ontClassPos].hierDepth);
+				GDKfree(typelabel);
+			}
+			else{
+				printf(" --> No class \n");	
+			}
+		}
+		*/
 		if (typeAttributesHistogram[csIdx][i][0].percent < TYPE_FREQ_THRESHOLD) continue; // sorted
 		tmpList = (oid *) realloc(tmpList, sizeof(oid) * (tmpListCount + 1));
 		if (!tmpList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
@@ -2303,14 +2323,14 @@ CSlabel* initLabels(CSset *freqCSset) {
 #if USE_TABLE_NAME
 /* Creates the final result of the labeling: table name and attribute names. */
 static
-void getAllLabels(CSlabel* labels, CSset* freqCSset,  int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, TypeStat* typeStat, int typeStatCount, oid** result, int* resultCount, IncidentFKs* links, oid** ontmetadata, int ontmetadataCount) {
+void getAllLabels(CSlabel* labels, CSset* freqCSset,  int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, TypeStat* typeStat, int typeStatCount, oid** result, int* resultCount, IncidentFKs* links, oid** ontmetadata, int ontmetadataCount, BAT *ontmetaBat, OntClass *ontclassSet) {
 	int		i, j;
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS cs = (CS) freqCSset->items[i];
 
 		// get table name
-		getTableName(&labels[i], i,  typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeStat, typeStatCount, result, resultCount, links, ontmetadata, ontmetadataCount);
+		getTableName(&labels[i], i,  typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeStat, typeStatCount, result, resultCount, links, ontmetadata, ontmetadataCount, ontmetaBat, ontclassSet);
 
 		// copy attribute oids (names)
 		labels[i].numProp = cs.numProp;
@@ -2636,7 +2656,7 @@ void freeOntologyLookupResult(oid** ontologyLookupResult, int csCount) {
 }
 
 /* Creates labels for all CS (without a parent). */
-CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, int *csIdFreqIdxMap, oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount, OntoUsageNode** ontoUsageTree) {
+CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, int *csIdFreqIdxMap, oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount, OntoUsageNode** ontoUsageTree, BAT *ontmetaBat, OntClass *ontclassSet) {
 #if USE_TYPE_NAMES
 	char*		typeAttributes[] = {
 				"<http://ogp.me/ns#type>",
@@ -2713,7 +2733,7 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 	// Assigning Names
 	labels = initLabels(freqCSset);
 #if USE_TABLE_NAME
-	getAllLabels(labels, freqCSset, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeStat, typeStatCount, ontologyLookupResult, ontologyLookupResultCount, links, ontmetadata, ontmetadataCount);
+	getAllLabels(labels, freqCSset, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeStat, typeStatCount, ontologyLookupResult, ontologyLookupResultCount, links, ontmetadata, ontmetadataCount, ontmetaBat, ontclassSet);
 	if (typeStatCount > 0) free(typeStat);
 #endif
 

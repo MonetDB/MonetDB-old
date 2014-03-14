@@ -33,6 +33,7 @@
 #include <trie/trie.h>
 #include <string.h>
 #include "rdfminheap.h"
+#include "rdfontologyload.h"
 
 #define SHOWPROPERTYNAME 1
 
@@ -6570,6 +6571,8 @@ oid	**ontattributes = NULL;
 int	ontattributesCount = 0;
 oid	**ontmetadata = NULL;
 int	ontmetadataCount = 0;
+BAT	*ontmetaBat = NULL;
+OntClass  *ontclassSet = NULL; 
 
 /* Extract CS from SPO triples table */
 str
@@ -6734,7 +6737,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	printf("Using ontologies with %d ontattributesCount and %d ontmetadataCount \n",ontattributesCount,ontmetadataCount);
 	
-	(*labels) = createLabels(freqCSset, csrelSet, freqCSset->numCSadded, sbat, si, pi, oi, *subjCSMap, csIdFreqIdxMap, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &ontoUsageTree);
+	(*labels) = createLabels(freqCSset, csrelSet, freqCSset->numCSadded, sbat, si, pi, oi, *subjCSMap, csIdFreqIdxMap, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &ontoUsageTree, ontmetaBat, ontclassSet);
 	
 	curT = clock(); 
 	printf("Done labeling!!! Took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
@@ -6743,6 +6746,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	#if NO_OUTPUTFILE == 0
 	printFreqCSSet(freqCSset, csBats->freqBat, mbat, 1, *freqThreshold, *labels); 
 	#endif
+	
+	return "Error"; 
 
 	/* Get the number of indirect refs in order to detect dimension table */
 	refCount = (int *) malloc(sizeof(int) * (freqCSset->numCSadded));

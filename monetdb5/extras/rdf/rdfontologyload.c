@@ -134,45 +134,6 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 	return; 
 }
 
-
-/*
-static 
-OntClass* creatOC(oid ocId, oid subClassofId, int numP, oid* buff)
-{
-	OntClass *oc = (OntClass*)malloc(sizeof(OntClass)); 
-	oc->lstProp =  (oid*) malloc(sizeof(oid) * numP);
-	
-	if (oc->lstProp == NULL){
-		printf("Malloc failed. at %d", numP);
-		exit(-1); 
-	}
-
-	copyOidSet(oc->lstProp, buff, numP); 
-	oc->ocId = ocId;
-	oc->subclassof = subClassofId; 
-	oc->numProp = numP; 
-	oc->numAllocation = numP; 
-	return oc; 
-}
-
-str
-RDFOntologyRead(int *ret, bat *ontcBatid, bat *ontaBatid, OntClassset* ontclassset){
-	BAT* ontcBat; 	// BAT for ontology classes 
-	BAT* ontaBat; 	// BAT for ontology 
-	if ((ontcBat = BATdescriptor(*ontcBatid)) == NULL) {
-		throw(MAL, "rdf.RDFOntologyParser", RUNTIME_OBJECT_MISSING);
-	}
-
-	if ((ontaBat = BATdescriptor(*ontaBatid)) == NULL) {
-		BBPreleaseref(ontcBat->batCacheid);
-		throw(MAL, "rdf.RDFOntologyParser", RUNTIME_OBJECT_MISSING);
-	}
-
-	*ret = 1; 
-	return MAL_SUCCEED; 
-}
-
-*/
 str
 RDFOntologyParser(int *xret, str *location, str *schema){
 
@@ -268,6 +229,144 @@ extern oid **ontattributes;
 extern int ontattributesCount;
 extern oid **ontmetadata;
 extern int ontmetadataCount;
+extern BAT *ontmetaBat; 	//To lookup which ontology class based on the class oid
+extern OntClass *ontclassSet; 	//Store the class Idx & superClass Idxes
+
+static 
+int getDepth(int Idx, OntClass *tmpontclassSet){
+	int maxDepth = 0;
+	int i; 
+	int tmpDepth = 0;
+
+	if (tmpontclassSet[Idx].hierDepth != -1) return tmpontclassSet[Idx].hierDepth;	//Computed already
+
+	if (tmpontclassSet[Idx].numsc == 0) {
+		tmpontclassSet[Idx].hierDepth = 0;		//There is no super class for this class
+		return 0; 
+	}else{
+		for (i = 0; i < tmpontclassSet[Idx].numsc; i++){
+			tmpDepth = 1 + getDepth(tmpontclassSet[Idx].scIdxes[i],tmpontclassSet);
+			if (tmpDepth > maxDepth) maxDepth = tmpDepth; 
+		}
+
+		return maxDepth;
+	}
+
+	return maxDepth; 
+}
+
+static 
+str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount){
+
+	int 	i; 
+	oid	classOid; //The class Oid comes from 
+	oid	scOid; 
+	int 	classIdx; 
+	int 	scIdx; 
+
+	BUN     tmpBun = BUN_NONE;
+	int	numClass;
+	BATiter ontmetaBati; 
+	BUN	p,q;
+	oid	*tmpOid;
+	int*	_tmpIdxes; 
+	OntClass *tmpontclassSet = NULL;
+	//Read all ontmetadata and store them in the ontmetaBat
+	
+	ontmetaBat = BATnew(TYPE_void, TYPE_oid, ontmetadataCount);
+	BATseqbase(ontmetaBat, 0);
+	(void)BATprepareHash(BATmirror(ontmetaBat));
+	if (!(ontmetaBat->T->hash)){
+		throw(RDF, "buildOntologyClassesInfo", "Cannot allocate the hash for Bat");
+	}
+	for (i = 0; i < ontmetadataCount; i++){
+		classOid = ontmetadat[0][i];
+		assert(classOid != BUN_NONE); 
+
+		tmpBun = BUNfnd(BATmirror(ontmetaBat),&classOid);
+		if (tmpBun == BUN_NONE){	//If it is a new class
+			if (BUNappend(ontmetaBat,&classOid, TRUE) == NULL)    
+				throw(RDF, "buildOntologyClassesInfo", "Cannot insert to ontmetaBat");
+		} 
+
+		scOid = ontmetadat[1][i];
+
+		if (scOid != BUN_NONE){	//The superClass oid is there
+			tmpBun = BUNfnd(BATmirror(ontmetaBat),&scOid);	
+			if (tmpBun == BUN_NONE){	//If it is a new class
+				if (BUNappend(ontmetaBat, &scOid, TRUE) == NULL)    
+					throw(RDF, "buildOntologyClassesInfo", "Cannot insert to ontmetaBat");
+			} 
+		}
+	}
+
+	numClass = BATcount(ontmetaBat);	
+	printf("Number of ontology classes added: %d\n", numClass);
+	
+
+	// Add metadata  and hierarchy information
+	tmpontclassSet = (OntClass *) malloc(sizeof(OntClass) * numClass);
+	ontmetaBati = bat_iterator(ontmetaBat);
+	i = 0;
+
+	(void) tmpOid;
+	(void) q;
+	(void) p;
+	(void) ontmetaBati;
+	
+
+	BATloop(ontmetaBat, p, q){
+		tmpOid = (oid *) BUNtloc(ontmetaBati,p);
+		
+		tmpontclassSet[i].cOid = *tmpOid;
+
+		//Init other info
+		tmpontclassSet[i].scIdxes = (int *) malloc(sizeof(int) * NUMSC_PER_ONTCLASS);
+		tmpontclassSet[i].numsc = 0;
+		tmpontclassSet[i].numAllocation = NUMSC_PER_ONTCLASS;
+		tmpontclassSet[i].hierDepth = -1;
+
+		i++;
+	}
+	
+
+	//Add sc
+	for (i = 0; i < ontmetadataCount; i++){
+		//Get index
+		classOid = ontmetadat[0][i];
+		scOid = ontmetadat[1][i];
+		tmpBun = BUNfnd(BATmirror(ontmetaBat), &classOid);
+		assert(tmpBun != BUN_NONE);
+
+		classIdx = (int) (tmpBun); 
+
+		if (scOid == BUN_NONE) continue; 
+		else{
+			tmpBun = BUNfnd(BATmirror(ontmetaBat), &scOid);
+			assert(tmpBun != BUN_NONE);
+			scIdx = (int) (tmpBun); 
+
+			//Add scIdx to tmpontclassSet[classIdx]
+			if (tmpontclassSet[classIdx].numsc == tmpontclassSet[classIdx].numAllocation){
+				tmpontclassSet[classIdx].numAllocation += NUMSC_PER_ONTCLASS;
+				_tmpIdxes = realloc(tmpontclassSet[classIdx].scIdxes, sizeof(int) * tmpontclassSet[classIdx].numAllocation);
+				if (!_tmpIdxes) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+
+				tmpontclassSet[classIdx].scIdxes = (int*)_tmpIdxes;
+			}
+			tmpontclassSet[classIdx].scIdxes[tmpontclassSet[classIdx].numsc] = scIdx;
+			tmpontclassSet[classIdx].numsc++;
+		}
+	}
+
+	//Get the hierarchy depth information 
+	for (i = 0; i < numClass; i++){
+		tmpontclassSet[i].hierDepth = getDepth(i,tmpontclassSet);
+	}
+
+	ontclassSet = tmpontclassSet;
+	return MAL_SUCCEED; 
+}
 
 str
 RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msuperid){
@@ -324,6 +423,7 @@ RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msup
 	ontattributes[0] = malloc(sizeof(str) * auriCount); // uri
 	ontattributes[1] = malloc(sizeof(str) * auriCount); // attr
 	if (!ontattributes[0] || !ontattributes[1]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+
 
 	BATloop(auri, p, q){
 		str auristr = (str) BUNtail(aurii, bun + i);
@@ -405,6 +505,8 @@ RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msup
 		GDKfree(muristr2);
 		GDKfree(msuperstr2);
 	}
+
+	buildOntologyClassesInfo(ontmetadata, ontmetadataCount);
 
 	BBPreclaim(auri);
 	BBPreclaim(aattr);

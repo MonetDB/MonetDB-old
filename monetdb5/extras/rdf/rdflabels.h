@@ -21,6 +21,7 @@
 #define _RDFLABELS_H_
 
 #include "rdfschema.h"
+#include "rdfontologyload.h"
 
 // Counts the occurances of type attribute values
 typedef struct TypeAttributesFreq {
@@ -107,7 +108,8 @@ rdf_export void
 getStringBetweenQuotes(str* out, str in);
 
 rdf_export CSlabel*
-createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, int *csIdFreqIdxMap, oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount, OntoUsageNode** ontoUsageTree);
+createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, int *csIdFreqIdxMap, oid** ontattributes, int ontattributesCount, oid** ontmetadata, 
+		int ontmetadataCount, OntoUsageNode** ontoUsageTree, BAT *ontmetaBat, OntClass *ontclassSet);
 
 rdf_export void
 exportLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, int freqThreshold, int* mTblIdxFreqIdxMapping,int* mfreqIdxTblIdxMapping,int numTables);
