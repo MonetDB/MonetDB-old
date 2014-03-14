@@ -2080,8 +2080,10 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	int		tmpListCount;
 	char		nameFound = 0;
 
-	BUN		ontClassPos; 	//Position of ontology in the ontmetaBat
-	oid		typeOid; 	
+
+	(void) ontmetaBat;
+	(void) ontclassSet;
+
 
 	// --- ONTOLOGY ---
 	// add all ontology candidates to list of candidates
@@ -2176,6 +2178,9 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		/*   //TODO: Uncomment this path
 		for (j = 0; j < typeAttributesHistogramCount[csIdx][i]; j++){
 			str typelabel; 
+			BUN		ontClassPos; 	//Position of ontology in the ontmetaBat
+			oid		typeOid; 	
+
 			typeOid = typeAttributesHistogram[csIdx][i][j].value;
 			printf("FreqCS %d : Type[%d][%d][oid] = " BUNFMT, csIdx, i,j, typeOid);
 			ontClassPos = BUNfnd(BATmirror(ontmetaBat), &typeOid); 
