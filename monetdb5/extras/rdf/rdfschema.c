@@ -6747,7 +6747,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printFreqCSSet(freqCSset, csBats->freqBat, mbat, 1, *freqThreshold, *labels); 
 	#endif
 	
-	return "Error"; 
+	//return "Error"; 
 
 	/* Get the number of indirect refs in order to detect dimension table */
 	refCount = (int *) malloc(sizeof(int) * (freqCSset->numCSadded));
