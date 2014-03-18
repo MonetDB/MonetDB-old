@@ -1,0 +1,14 @@
+http://xmlns.com/foaf/0.1/Agent|Agent|NULL
+http://xmlns.com/foaf/0.1/Document|Document|NULL
+http://xmlns.com/foaf/0.1/Group|Group|http://xmlns.com/foaf/0.1/Agent
+http://xmlns.com/foaf/0.1/Image|Image|http://xmlns.com/foaf/0.1/Document
+http://xmlns.com/foaf/0.1/LabelProperty|Label Property|NULL
+http://xmlns.com/foaf/0.1/OnlineAccount|Online Account|http://www.w3.org/2002/07/owl#Thing
+http://xmlns.com/foaf/0.1/OnlineChatAccount|Online Chat Account|http://xmlns.com/foaf/0.1/OnlineAccount
+http://xmlns.com/foaf/0.1/OnlineEcommerceAccount|Online E-commerce Account|http://xmlns.com/foaf/0.1/OnlineAccount
+http://xmlns.com/foaf/0.1/OnlineGamingAccount|Online Gaming Account|http://xmlns.com/foaf/0.1/OnlineAccount
+http://xmlns.com/foaf/0.1/Organization|Organization|http://xmlns.com/foaf/0.1/Agent
+http://xmlns.com/foaf/0.1/Person|Person|http://www.w3.org/2003/01/geo/wgs84_pos#SpatialThing
+http://xmlns.com/foaf/0.1/Person|Person|http://xmlns.com/foaf/0.1/Agent
+http://xmlns.com/foaf/0.1/PersonalProfileDocument|PersonalProfileDocument|http://xmlns.com/foaf/0.1/Document
+http://xmlns.com/foaf/0.1/Project|Project|NULL

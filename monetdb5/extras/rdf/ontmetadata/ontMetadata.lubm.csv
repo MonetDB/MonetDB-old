@@ -1,0 +1,45 @@
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#AdministrativeStaff|administrative staff worker|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Employee
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Article|article|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Publication
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#AssistantProfessor|assistant professor|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Professor
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#AssociateProfessor|associate professor|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Professor
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Book|book|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Publication
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Chair|chair|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Professor
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#ClericalStaff|clerical staff worker|http://swat.cse.lehigh.edu/onto/univ-bench.owl#AdministrativeStaff
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#College|school|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Organization
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#ConferencePaper|conference paper|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Article
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Course|teaching course|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Work
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Dean|dean|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Professor
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Department|university department|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Organization
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Director|director|NULL
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Employee|Employee|NULL
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Faculty|faculty member|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Employee
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#FullProfessor|full professor|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Professor
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#GraduateCourse|Graduate Level Courses|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Course
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#GraduateStudent|graduate student|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Person
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#GraduateStudent|graduate student|nodeID://b10079
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Institute|institute|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Organization
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#JournalArticle|journal article|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Article
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Lecturer|lecturer|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Faculty
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Manual|manual|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Publication
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Organization|organization|NULL
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Person|person|NULL
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#PostDoc|post doctorate|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Faculty
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Professor|professor|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Faculty
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Program|program|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Organization
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Publication|publication|NULL
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Research|research work|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Work
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#ResearchAssistant|university research assistant|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Person
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#ResearchAssistant|university research assistant|nodeID://b10080
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#ResearchGroup|research group|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Organization
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Schedule|schedule|NULL
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Software|software program|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Publication
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Specification|published specification|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Publication
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Student|student|NULL
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#SystemsStaff|systems staff worker|http://swat.cse.lehigh.edu/onto/univ-bench.owl#AdministrativeStaff
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#TeachingAssistant|university teaching assistant|NULL
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#TechnicalReport|technical report|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Article
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#UndergraduateStudent|undergraduate student|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Student
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#University|university|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Organization
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#UnofficialPublication|unnoficial publication|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Publication
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#VisitingProfessor|visiting professor|http://swat.cse.lehigh.edu/onto/univ-bench.owl#Professor
+http://swat.cse.lehigh.edu/onto/univ-bench.owl#Work|Work|NULL

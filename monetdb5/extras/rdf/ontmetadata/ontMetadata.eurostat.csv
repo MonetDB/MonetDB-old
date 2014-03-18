@@ -1,0 +1,4 @@
+http://ec.europa.eu/eurostat/ramon/ontologies/geographic.rdf#Country|Country code (Eurostat)|http://ec.europa.eu/eurostat/ramon/ontologies/geographic.rdf#Region
+http://ec.europa.eu/eurostat/ramon/ontologies/geographic.rdf#LAURegion|LAU Region|http://ec.europa.eu/eurostat/ramon/ontologies/geographic.rdf#Region
+http://ec.europa.eu/eurostat/ramon/ontologies/geographic.rdf#NUTSRegion|NUTS Region|http://ec.europa.eu/eurostat/ramon/ontologies/geographic.rdf#Region
+http://ec.europa.eu/eurostat/ramon/ontologies/geographic.rdf#Region|Geographical region|NULL
