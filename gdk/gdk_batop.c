@@ -398,7 +398,7 @@ BATins(BAT *b, BAT *n, bit force)
 				BATiter ni = bat_iterator(n);
 
 				BATloop(n, p, q) {
-					bunfastins_nocheck(b, r, NULL, BUNtail(ni, p), 0, Tsize(b));
+					bunfastapp_nocheck(b, r, BUNtail(ni, p), Tsize(b));
 					r++;
 				}
 			}
@@ -601,7 +601,7 @@ BATappend(BAT *b, BAT *n, bit force)
 				BATiter ni = bat_iterator(n);
 
 				BATloop(n, p, q) {
-					bunfastins_nocheck(b, r, NULL, BUNtail(ni, p), 0, Tsize(b));
+					bunfastapp_nocheck(b, r, BUNtail(ni, p), Tsize(b));
 					r++;
 				}
 			}
@@ -843,7 +843,7 @@ BATslice(BAT *b, BUN l, BUN h)
 			BATsetcount(bn, h - l);
 		} else if (BAThdense(b) && b->ttype) {
 			for (; p < q; p++) {
-				bunfastins(bn, NULL, BUNtail(bi, p));
+				bunfastapp(bn, BUNtail(bi, p));
 			}
 		} else if (b->htype != b->ttype || b->htype != TYPE_void) {
 			for (; p < q; p++) {
@@ -1088,6 +1088,13 @@ BATorder_internal(BAT *b, int stable, int reverse, int copy, const char *func)
 
 	return b;
 }
+
+#undef BATorder
+#undef BATorder_rev
+#undef BATsort
+#undef BATsort_rev
+#undef BATssort
+#undef BATssort_rev
 
 BAT *
 BATorder(BAT *b)
@@ -1679,7 +1686,8 @@ BATmark_grp(BAT *b, BAT *g, oid *s)
 	if (gc)
 		BBPreclaim(gc);
 	return bn;
-      bunins_failed:
+  bunins_failed:
+  hashfnd_failed:
 	if (gc)
 		BBPreclaim(gc);
 	if (bn)

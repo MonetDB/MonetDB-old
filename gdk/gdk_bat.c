@@ -90,9 +90,8 @@ BATcreatedesc(int ht, int tt, int heapnames)
 	if (bs == NULL)
 		return NULL;
 	HEADLESSDEBUG {
-		if ( ht != TYPE_void && ht != TYPE_oid)
-			fprintf(stderr, "#headless violation in BATcreatedesc %d\n", ht);
-
+		if (ht != TYPE_void && ht != TYPE_oid)
+			fprintf(stderr, "#headless violation in BATcreatedesc for bat[:%s,:%s]\n", ATOMname(ht), ATOMname(tt));
 	}
 	/*
 	 * assert needed in the kernel to get symbol eprintf resolved.
@@ -566,13 +565,13 @@ BATclear(BAT *b, int force)
 				HEAPfree(&hh);
 			return NULL;
 		}
-		assert(b->H->vheap == NULL || b->H->vheap->parentid == ABS(b->batCacheid));
+		assert(b->H->vheap == NULL || b->H->vheap->parentid == abs(b->batCacheid));
 		if (b->H->vheap && b->H->vheap->free > 0) {
 			hh.parentid = b->H->vheap->parentid;
 			HEAPfree(b->H->vheap);
 			*b->H->vheap = hh;
 		}
-		assert(b->T->vheap == NULL || b->T->vheap->parentid == ABS(b->batCacheid));
+		assert(b->T->vheap == NULL || b->T->vheap->parentid == abs(b->batCacheid));
 		if (b->T->vheap && b->T->vheap->free > 0) {
 			th.parentid = b->T->vheap->parentid;
 			HEAPfree(b->T->vheap);
@@ -1735,6 +1734,20 @@ void_replace_bat(BAT *b, BAT *u, bit force)
  * known and a hash index is available, one should use the inline
  * functions to speed-up processing.
  */
+static BUN
+slowfnd(BAT *b, const void *v)
+{
+	BATiter bi = bat_iterator(b);
+	BUN p, q;
+	int (*cmp)(const void *, const void *) = BATatoms[b->htype].atomCmp;
+
+	BATloop(b, p, q) {
+		if ((*cmp)(v, BUNhead(bi, p)) == 0)
+			return p;
+	}
+	return BUN_NONE;
+}
+
 BUN
 BUNfnd(BAT *b, const void *v)
 {
@@ -1774,6 +1787,9 @@ BUNfnd(BAT *b, const void *v)
 		HASHfnd(r, bi, v);
 	}
 	return r;
+  hashfnd_failed:
+	/* can't build hash table, search the slow way */
+	return slowfnd(b, v);
 }
 
 #define usemirror()						\
@@ -1903,11 +1919,11 @@ BUNlocate(BAT *b, const void *x, const void *y)
 				v = BATmirror(v);
 			}
 			if (v->H->hash) {
-				MT_lock_set(&GDKhashLock(ABS(b->batCacheid)), "BUNlocate");
+				MT_lock_set(&GDKhashLock(abs(b->batCacheid)), "BUNlocate");
 				if (b->H->hash == NULL) {	/* give it to the parent */
 					b->H->hash = v->H->hash;
 				}
-				MT_lock_unset(&GDKhashLock(ABS(b->batCacheid)), "BUNlocate");
+				MT_lock_unset(&GDKhashLock(abs(b->batCacheid)), "BUNlocate");
 			}
 			BBPreclaim(v);
 			v = NULL;
@@ -2671,7 +2687,7 @@ BATmode(BAT *b, int mode)
 	BATcheck(b, "BATmode");
 
 	if (mode != b->batPersistence) {
-		bat bid = ABS(b->batCacheid);
+		bat bid = abs(b->batCacheid);
 
 		if (mode == PERSISTENT) {
 			check_type(b->htype);
