@@ -916,7 +916,7 @@ list* collect_PERPAD(mvc *sql, sql_rel *rel)
 lng get_enum_step_length(sql_column* c)
 {
 	if(strcmp(c->t->base.name, "windowmetadata") == 0 && strcmp(c->base.name, "window_start_ts") == 0)
-		return 86400000;
+		return 3600000;
 	else return 0;
 }
 
@@ -1004,15 +1004,15 @@ sel_predicate** convert_all_into_in_clause_except_cmp_equal(list *list_of_PERPAD
 						timestamp *next = (timestamp*) GDKmalloc(sizeof(timestamp));
 						lng range_diff = 0;
 						int j;
-						str str_day = "day";
+						str str_time_unit = "hour";
 						
 						MTIMEtimestamp_fromstr(tl, &(sp->values[0]->val.sval));
 						MTIMEtimestamp_fromstr(th, &(sp->values[1]->val.sval));
 						step_length = get_enum_step_length(sp->column); /* TODO: window_unit should somehow have an effect here */
 						
 						/* ceiling tl, floor th */
-						timestamp_trunc(tr_tl, tl, &str_day); /* TODO: "str" should be specified somehow differently */
-						timestamp_trunc(tr_th, th, &str_day); /* TODO: "str" should be specified somehow differently */
+						timestamp_trunc(tr_tl, tl, &str_time_unit); /* TODO: "str" should be specified somehow differently */
+						timestamp_trunc(tr_th, th, &str_time_unit); /* TODO: "str" should be specified somehow differently */
 						if(tr_tl->days == tl->days && tr_tl->msecs == tl->msecs)
 							tl = tr_tl;
 						else
