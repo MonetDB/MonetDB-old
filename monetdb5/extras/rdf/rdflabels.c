@@ -851,19 +851,89 @@ int compareTypeAttributesFreqs (const void * a, const void * b) {
 #endif
 
 #if USE_TYPE_NAMES
+/* Analyze hierarchy in a list of type values, add all leaf values to the histogram. Values that are not present in the hierarchy tree built from the ontologies are NOT added to the histogram. */
+static
+void insertLeafsIntoTypeAttributesHistogram(oid* typeList, int typeListLength, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, int csFreqIdx, int type, BAT *ontmetaBat, OntClass *ontclassSet) {
+	int		i, j, k;
+	int		fit;
+	char		*leaf; // flag whether a type value in 'typeList' is a leaf (1) or not (0)
+	BUN		pos;
+	OntClass	hierarchy;
+
+	// start with: every type value is a leaf
+	leaf = GDKmalloc(sizeof(char) * typeListLength);
+	for (i = 0; i < typeListLength; ++i) leaf[i] = 1;
+
+	// analyze hierarchy
+	for (i = 0; i < typeListLength; ++i) {
+		if (!leaf[i]) continue;
+		pos = BUNfnd(BATmirror(ontmetaBat), &typeList[i]);
+		if (pos == BUN_NONE) {
+			// no ontology information for this type value, therefore it is not added to the hierarchy
+			leaf[i] = 0;
+			continue;
+		}
+
+		// get hierarchy of this type value
+		hierarchy = ontclassSet[pos];
+
+		// loop over superclasses, set leaf=0
+		for (j = 0; j < hierarchy.numsc; ++j) {
+			for (k = 0; k < typeListLength; ++k) {
+				if (i == k) continue;
+				if (ontclassSet[hierarchy.scIdxes[j]].cOid == typeList[k]) {
+					// found superclass at position 'k'
+					leaf[k] = 0;
+				}
+			}
+		}
+	}
+
+	// add all leafs to the histogram
+	for (i = 0; i < typeListLength; ++i) {
+		if (!leaf[i]) continue;
+		fit = 0;
+		for (j = 0; j < typeAttributesHistogramCount[csFreqIdx][type]; ++j) {
+			if (typeAttributesHistogram[csFreqIdx][type][j].value == typeList[i]) {
+				// bucket exists
+				typeAttributesHistogram[csFreqIdx][type][j].freq += 1;
+				fit = 1;
+				break;
+			}
+		}
+		if (!fit) {
+			// bucket does not exist
+			// realloc
+			typeAttributesHistogramCount[csFreqIdx][type] += 1;
+			typeAttributesHistogram[csFreqIdx][type] = (TypeAttributesFreq *) realloc(typeAttributesHistogram[csFreqIdx][type], sizeof(TypeAttributesFreq) * typeAttributesHistogramCount[csFreqIdx][type]);
+			if (!typeAttributesHistogram[csFreqIdx][type]) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+
+			// insert value
+			typeAttributesHistogram[csFreqIdx][type][typeAttributesHistogramCount[csFreqIdx][type] - 1].value = typeList[i];
+			typeAttributesHistogram[csFreqIdx][type][typeAttributesHistogramCount[csFreqIdx][type] - 1].freq = 1;
+		}
+	}
+
+	GDKfree(leaf);
+}
+
 /* Loop through all subjects to collect frequency statistics for type attribute values. */
 static
-void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, CSset *freqCSset, int *csIdFreqIdxMap, int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, char** typeAttributes) {
+void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, CSset *freqCSset, int *csIdFreqIdxMap, int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, char** typeAttributes, BAT *ontmetaBat, OntClass *ontclassSet) {
 	// looping, extracting
 	BUN		p, q;
 	oid 		*sbt, *obt, *pbt;
 	char 		objType;
 	oid 		objOid;
 	int		csFreqIdx;
+	oid		curS; // last subject
+	int		curT; // last type (index in 'typeAttributes' array)
+	oid		*typeValues; // list of type values per subject and type
+	int		typeValuesSize;
+	int		typeValuesMaxSize = 10;
 
 	// histogram
 	int		i, j, k;
-	int		fit;
 
 	oid 		*typeAttributesOids = malloc(sizeof(oid) * typeAttributesCount);
 
@@ -878,6 +948,11 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 		TKNZRappend(&typeAttributesOids[i], &typeAttributes[i]);
 	}
 
+	curS = BUN_NONE;
+	curT = -1;
+	typeValues = GDKmalloc(sizeof(oid) * typeValuesMaxSize);
+	if (!typeValues) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+	typeValuesSize = 0;
 	BATloop(sbat, p, q) {
 		// Get data
 		sbt = (oid *) BUNtloc(si, p);
@@ -907,31 +982,35 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 					objOid = objOid - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the real objOid from Map or Tokenizer */
 				}
 
-				// add object to histogram
-				fit = 0;
-				for (j = 0; j < typeAttributesHistogramCount[csFreqIdx][i]; ++j) {
-					if (typeAttributesHistogram[csFreqIdx][i][j].value == objOid) {
-						// bucket exists
-						typeAttributesHistogram[csFreqIdx][i][j].freq += 1;
-						fit = 1;
-						break;
+				// if finished looping over one subject or type, the list of type values is analyzed and added to the histogram
+				if (curS != *sbt || curT != i) {
+					if (curS == BUN_NONE || typeValuesSize == 0) {
+						// nothing to add to histogram
+					} else {
+						// analyze values and add to histogram
+						insertLeafsIntoTypeAttributesHistogram(typeValues, typeValuesSize, typeAttributesHistogram, typeAttributesHistogramCount, csFreqIdx, curT, ontmetaBat, ontclassSet);
+						typeValuesSize = 0; // reset
 					}
+					curS = *sbt;
+					curT = i;
 				}
-				if (!fit) {
-					// bucket does not exist
-					// realloc
-					typeAttributesHistogramCount[csFreqIdx][i] += 1;
-					typeAttributesHistogram[csFreqIdx][i] = (TypeAttributesFreq *) realloc(typeAttributesHistogram[csFreqIdx][i], sizeof(TypeAttributesFreq) * typeAttributesHistogramCount[csFreqIdx][i]);
-					if (!typeAttributesHistogram[csFreqIdx][i]) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-
-					// insert value
-					typeAttributesHistogram[csFreqIdx][i][typeAttributesHistogramCount[csFreqIdx][i] - 1].value = objOid;
-					typeAttributesHistogram[csFreqIdx][i][typeAttributesHistogramCount[csFreqIdx][i] - 1].freq = 1;
+				// add value to list of type values
+				if (typeValuesSize == typeValuesMaxSize) {
+					// resize
+					typeValuesMaxSize *= 2;
+					typeValues = GDKrealloc(typeValues, sizeof(oid) * typeValuesMaxSize);
+					if (!typeValues) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 				}
+				typeValues[typeValuesSize++] = *obt;
 				break;
 			}
 		}
 	}
+
+	// analyze and add last set of typeValues
+	if (curS != BUN_NONE && typeValuesSize != 0) insertLeafsIntoTypeAttributesHistogram(typeValues, typeValuesSize, typeAttributesHistogram, typeAttributesHistogramCount, csFreqIdx, curT, ontmetaBat, ontclassSet);
+
+	GDKfree(typeValues);
 
 	// sort descending by frequency
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
@@ -1094,7 +1173,7 @@ int compareOntologyCandidates (const void * a, const void * b) {
 #if USE_ONTOLOGY_NAMES
 /* For one CS: Calculate the ontology classes that are similar (tfidf) to the list of attributes. */
 static
-oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount, int *resultCount, oid **listOids, int *listCount, int listNum, PropStat *propStat, float *totaltfidfsPerOntology) {
+oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount, int *resultCount, oid **listOids, int *listCount, int listNum, PropStat *propStat) {
 	int		i, j, k, l;
 	oid		*result = NULL;
 
@@ -1147,6 +1226,7 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 			BUN p, bun;
 			p = listOids[i][j];
 			bun = BUNfnd(BATmirror(propStat->pBat), (ptr) &p);
+			if (bun == BUN_NONE) continue; // property does not belong to an ontology class and therefore has no tfidfs score
 			for (k = 0; k < candidatesCount[j]; ++k) { // for each candidate
 				// search for this class
 				int found = 0;
@@ -1169,21 +1249,6 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 				}
 			}
 		}
-		
-		//[DUC --- add the total tfidf score for a ontology class]  //TODO: Compute before, not here
-		for (l = 0; l < num; ++l){
-			for (j = 0; j < ontmetadataCount; ++j) {
-				oid auri = ontmetadata[0][j];
-				//printf("auri = " BUNFMT "\n", auri);
-				if (auri == classStat[l].ontoClass){
-					//printf("Classstat %d (uri: "BUNFMT ") - Set totaltfidf with ontology %dth: %f \n", l, auri, j, totaltfidfsPerOntology[j]); 
-					classStat[l].totaltfidfs = totaltfidfsPerOntology[j]; 
-					break; 
-				}
-			}
-		}
-		//[ ... DUC]
-
 
 		// calculate optimal tfidf score (all properties) & normalize tfidf sums
 		totalTfidfs = 0.0;
@@ -1194,11 +1259,7 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 			totalTfidfs += (propStat->tfidfs[bun] * propStat->tfidfs[bun]);
 		}
 		for (j = 0; j < num; ++j) {
-			//classStat[j].tfidfs /= totalTfidfs;  //[DUC--modify]
-			//printf("original classStat[j].tfidfs = %f \n", classStat[j].tfidfs);
-			classStat[j].tfidfs = classStat[j].tfidfs / (sqrt(totalTfidfs)*sqrt(classStat[j].totaltfidfs));
-			//printf("totalTfidfs = %f    || classStat[j].totaltfidfs =  %f || classStat[j].tfidfs = %f \n",totalTfidfs,classStat[j].totaltfidfs,classStat[j].tfidfs);
-			
+			classStat[j].tfidfs /= totalTfidfs;
 		}
 
 		// sort by tfidf desc
@@ -1408,8 +1469,6 @@ static
 void createOntologyLookupResult(oid** result, CSset* freqCSset, int* resultCount, oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount) {
 	int		i, j;
 	PropStat	*propStat;
-	float*		totaltfidfsPerOntology; 	//[DUC]
-	oid		lastUri; 
 
 	propStat = initPropStat();
 
@@ -1417,34 +1476,6 @@ void createOntologyLookupResult(oid** result, CSset* freqCSset, int* resultCount
 	// Not the properties from freqCS
 	//createPropStatistics(propStat, freqCSset->numCSadded, freqCSset);
 	createPropStatistics(propStat, ontattributes, ontattributesCount);
-	
-
-	lastUri = BUN_NONE; 
-	totaltfidfsPerOntology = (float*) malloc(sizeof(float) * ontmetadataCount);
-	//printf("Init tfidf for all %d ontologies \n",ontmetadataCount );
-	for (i = 0; i < ontmetadataCount; ++i) {
-		oid auri = ontmetadata[0][i];
-
-		if (auri == lastUri){ 
-			//printf("Duplication at %d value " BUNFMT "\n", i, auri); 
-			continue; 
-		}
-		else lastUri = auri; 
-		totaltfidfsPerOntology[i] = 0; 
-
-		for (j = 0; j < ontattributesCount; j++){
-			oid tmpuri = ontattributes[0][j];
-			oid aattr = ontattributes[1][j];
-			if (auri == tmpuri){
-				BUN bun = BUNfnd(BATmirror(propStat->pBat), (ptr) &aattr);
-				if (bun == BUN_NONE) printf("[Debug] This cannot happen \n");
-				else
-					totaltfidfsPerOntology[i] += (propStat->tfidfs[bun] * propStat->tfidfs[bun]);
-			}	
-		}
-		//printf("Computed totaltfidfsPerOntology of ontology %d: %f (uri = "BUNFMT")\n",i, totaltfidfsPerOntology[i],auri);
-	}
-	//... [DUC]
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS		cs;
@@ -1475,7 +1506,7 @@ void createOntologyLookupResult(oid** result, CSset* freqCSset, int* resultCount
 
 		// get class names
 		resultCount[i] = 0;
-		result[i] = getOntologyCandidates(ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &(resultCount[i]), propOntologiesOids, propOntologiesCount, ontologyCount, propStat,totaltfidfsPerOntology);
+		result[i] = getOntologyCandidates(ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &(resultCount[i]), propOntologiesOids, propOntologiesCount, ontologyCount, propStat);
 
 		for (j = 0; j < ontologyCount; ++j) {
 			free(propOntologies[j]);
@@ -1486,7 +1517,6 @@ void createOntologyLookupResult(oid** result, CSset* freqCSset, int* resultCount
 		free(propOntologiesCount);
 	}
 	freePropStat(propStat);
-	free(totaltfidfsPerOntology);
 }
 #endif
 
@@ -2703,7 +2733,7 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 	typeAttributesHistogramCount = initTypeAttributesHistogramCount(typeAttributesCount, freqCSset->numCSadded);
 	typeAttributesHistogram = initTypeAttributesHistogram(typeAttributesCount, freqCSset->numCSadded);
 #if USE_TYPE_NAMES
-	createTypeAttributesHistogram(sbat, si, pi, oi, subjCSMap, freqCSset, csIdFreqIdxMap, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeAttributes);
+	createTypeAttributesHistogram(sbat, si, pi, oi, subjCSMap, freqCSset, csIdFreqIdxMap, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeAttributes, ontmetaBat, ontclassSet);
 	typeStat = getTypeStats(&typeStatCount, freqCSset->numCSadded, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount);
 #else
 	(void) sbat;
