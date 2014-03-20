@@ -72,6 +72,10 @@ int* enumerate_and_insert_into_temp_table(mvc *sql, sel_predicate** sps, int num
 str SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output);
 str VAL2str(ValRecord* valp);
 void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, list* list_of_PERPAD, int* is_pkey_to_be_enumerated, int num_pkeys_to_be_enumerated);
+void compute_and_insert_unavailable_required_derived_metadata(mvc* sql, sel_predicate** sps, int num_PERPAD, int* is_pkey_to_be_enumerated, int num_pkeys_to_be_enumerated);
+str* get_pkey_bound_to_dataview(str schema_name, str dmdt_name);
+str form_pkey_select_str(sel_predicate** sps, int num_PERPAD, str* pkey_bound_to_dataview, str* select_str_per_pkey);
+str get_non_pkey_select_str(str schema_name, str dmdt_name);
 
 list *discovered_table_pkeys;
 
@@ -1314,6 +1318,7 @@ void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, lis
 	char temp_column_name;
 	char temp_column_name_start = 97;
 	str temp_table_name = "tt";
+	str temp_table_name_res = "tt_res";
 	Client cntxt;
 		
 	if(list_of_PERPAD == NULL || is_pkey_to_be_enumerated == NULL)
@@ -1416,7 +1421,7 @@ void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, lis
 	
 	
 	/* form the query */
-	q = "SELECT ";
+	q = "INSERT INTO %s SELECT ";
 	
 	temp_column_name = temp_column_name_start;
 	for (n = list_of_PERPAD->h, i = 0, j = 0; n; n = n->next, i++) 
@@ -1463,7 +1468,7 @@ void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, lis
 	}
 	
 	buf2 = (str)GDKmalloc((strlen(q) + 128 + strlen(s))*sizeof(char));
-	sprintf(buf2, q, temp_table_name, s);
+	sprintf(buf2, q, temp_table_name_res, temp_table_name, s);
 	q = GDKstrdup(buf2);
 	GDKfree(buf2);
 	
@@ -1488,6 +1493,228 @@ void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, lis
 	
 	GDKfree(s);
 	GDKfree(q);
+}
+
+str* get_pkey_bound_to_dataview(str schema_name, str dmdt_name)
+{
+	str* ret = (str*)GDKmalloc(4*sizeof(str));
+	ret[0] = "station";
+	ret[1] = "channel";
+	ret[2] = NULL;
+	ret[3] = "1";
+	
+	if(strcmp(schema_name, "mseed") == 0 && strcmp(dmdt_name, "windowmetadata") == 0)
+		return ret;
+	return NULL;
+}
+
+str form_pkey_select_str(sel_predicate** sps, int num_PERPAD, str* pkey_bound_to_dataview, str* select_str_per_pkey)
+{
+	str s = "";
+	int i;
+	str time_pkey_id = "1";
+	for(i = 0; i < num_PERPAD; i++)
+	{
+		str buf = (str)GDKmalloc(BUFSIZ*sizeof(char));
+		if(pkey_bound_to_dataview[i] == NULL || strcmp(pkey_bound_to_dataview[i], time_pkey_id) == 0)
+		{
+			if(i == num_PERPAD - 1)
+				sprintf(buf, "%s%s AS %s", s, select_str_per_pkey[i], sps[i]->column->base.name);
+			else
+				sprintf(buf, "%s%s AS %s, ", s, select_str_per_pkey[i], sps[i]->column->base.name);
+			
+		}
+		else
+		{
+			if(i == num_PERPAD - 1)
+				sprintf(buf, "%s%s", s, select_str_per_pkey[i]);
+			else
+				sprintf(buf, "%s%s, ", s, select_str_per_pkey[i]);
+		}
+		s = GDKstrdup(buf);
+		GDKfree(buf);
+	}
+	
+	return s;
+}
+
+str get_non_pkey_select_str(str schema_name, str dmdt_name)
+{
+	if(strcmp(schema_name, "mseed") == 0 && strcmp(dmdt_name, "windowmetadata") == 0)
+		return "MIN(sample_value) AS min_val, MAX(sample_value) AS max_val, AVG(sample_value) AS avg_val, stddev_samp(sample_value) AS std_dev";
+	else
+		return NULL;
+}
+
+/* Form such a query and run:
+ INSERT INTO mseed.windowmetadata
+ SELECT station, channel, 3600 AS unit, t.a AS start_ts, MIN(sample_value) AS min_val, MAX(sample_value) AS max_val, AVG(sample_value) AS avg_val, stddev_samp(sample_value) AS std_dev
+ FROM mseed.dataview AS v, tt_res AS t
+ WHERE station = 'HGN' AND channel = 'BHZ' AND start_time < t.a + INTERVAL '1' HOUR AND end_time > t.a AND sys.date_trunc(sample_time, 'hour') = t.a
+ GROUP BY station, channel, unit, start_ts;
+ */
+void compute_and_insert_unavailable_required_derived_metadata(mvc* sql, sel_predicate** sps, int num_PERPAD, int* is_pkey_to_be_enumerated, int num_pkeys_to_be_enumerated)
+{
+	// str q = "INSERT INTO mseed.windowmetadata SELECT station, channel, 3600 AS unit, t.a AS start_ts, MIN(sample_value) AS min_val, MAX(sample_value) AS max_val, AVG(sample_value) AS avg_val, stddev_samp(sample_value) AS std_dev FROM mseed.dataview, tt_res AS t WHERE station = 'HGN' AND channel = 'BHZ' AND start_time < t.a + INTERVAL '1' HOUR AND end_time > t.a AND sys.date_trunc(sample_time, 'hour') = t.a GROUP BY station, channel, unit, start_ts;";
+	
+	str* pkey_predicates_equal_to;
+	str* select_str_per_pkey;
+	str* pkey_bound_to_dataview;
+	char temp_column_name;
+	char temp_column_name_start = 97;
+	str temp_table_name_res = "tt_res";
+	str time_pkey_id = "1";
+	int isnt_time_pkey = 1;
+	int idx_time_pkey = -1;
+	str s, r, q, u, buf2, schema_name, dmdt_name, pkey_select_str, non_pkey_select_str, from_join_temp_table_str, start_ts_str, interval_str, date_trunc_str, non_time_pkey_predicates_str, group_by_str;
+	int i;
+	
+	if(num_PERPAD == 0 || sps == NULL || is_pkey_to_be_enumerated == NULL)
+		return;
+	
+	u = "INSERT INTO %s.%s SELECT %s, %s FROM mseed.dataview%sWHERE start_time < %s + INTERVAL %s AND end_time > %s AND sys.date_trunc(sample_time, \'%s\') = %s %s GROUP BY %s;";
+	
+	if(num_pkeys_to_be_enumerated == 0)
+	{
+		from_join_temp_table_str = " ";
+	}
+	else
+	{
+		/* add the temp table that contains results to from clause */
+		str buf = (str)GDKmalloc(BUFSIZ*sizeof(char));
+		sprintf(buf, ", %s AS t ", temp_table_name_res);
+		from_join_temp_table_str = GDKstrdup(buf);
+		GDKfree(buf);
+	}
+	
+	schema_name = sps[0]->column->t->s->base.name;
+	dmdt_name = sps[0]->column->t->base.name;
+	
+	pkey_predicates_equal_to = (str*)GDKmalloc(num_PERPAD*sizeof(str));
+	select_str_per_pkey = (str*)GDKmalloc(num_PERPAD*sizeof(str));
+	pkey_bound_to_dataview = get_pkey_bound_to_dataview(schema_name, dmdt_name);
+	
+	temp_column_name = temp_column_name_start;
+	for(i = 0; i < num_PERPAD; i++)
+	{ /* ASSUMPTION: bound pkey is never a time_pkey */
+		if(pkey_bound_to_dataview[i] == NULL || (isnt_time_pkey = strcmp(pkey_bound_to_dataview[i], time_pkey_id)) == 0)
+		{/* no bound to dataview */
+			if(is_pkey_to_be_enumerated[i])
+			{
+				str buf = (str)GDKmalloc(BUFSIZ*sizeof(char));
+				sprintf(buf, "t.%c", temp_column_name);
+				select_str_per_pkey[i] = GDKstrdup(buf);
+				GDKfree(buf);
+				temp_column_name++;
+				if(isnt_time_pkey == 0)
+					idx_time_pkey = i;
+			}
+			else
+			{
+				if(isnt_time_pkey == 0)
+				{
+					str buf = (str)GDKmalloc(BUFSIZ*sizeof(char));
+					sprintf(buf, "TIMESTAMP %s", VAL2str(sps[i]->values[0]));
+					select_str_per_pkey[i] = GDKstrdup(buf);
+					GDKfree(buf);
+					idx_time_pkey = i;
+				}
+				else
+					select_str_per_pkey[i] = GDKstrdup(VAL2str(sps[i]->values[0]));
+			}
+			pkey_predicates_equal_to[i] = NULL;
+			isnt_time_pkey = 1;
+		}
+		else
+		{/* bound to dataview */
+			select_str_per_pkey[i] = pkey_bound_to_dataview[i];
+			
+			if(is_pkey_to_be_enumerated[i])
+			{
+				
+				str buf = (str)GDKmalloc(BUFSIZ*sizeof(char));
+				sprintf(buf, "t.%c", temp_column_name);
+				pkey_predicates_equal_to[i] = GDKstrdup(buf);
+				GDKfree(buf);
+				temp_column_name++;
+			}
+			else
+			{
+				pkey_predicates_equal_to[i] = GDKstrdup(VAL2str(sps[i]->values[0]));
+			}
+		}
+		
+	}
+	
+	/* preparing the non_time_pkey_predicates_str */
+	s = "";
+	for(i = 0; i < num_PERPAD; i++)
+	{
+		if(pkey_predicates_equal_to[i])
+		{
+			str buf = (str)GDKmalloc(BUFSIZ*sizeof(char));
+			sprintf(buf, "%sAND %s = %s ", s, pkey_bound_to_dataview[i], pkey_predicates_equal_to[i]);
+			s = GDKstrdup(buf);
+			GDKfree(buf);
+		}
+	}
+	
+	/* preparing the group_by_str */
+	r = "";
+	for(i = 0; i < num_PERPAD; i++)
+	{
+		str buf = (str)GDKmalloc(BUFSIZ*sizeof(char));
+		
+		if(pkey_bound_to_dataview[i] == NULL || strcmp(pkey_bound_to_dataview[i], time_pkey_id) == 0)
+		{ /* no bound to dataview */
+			if(i == num_PERPAD - 1)
+				sprintf(buf, "%s%s", r, sps[i]->column->base.name);
+			else
+				sprintf(buf, "%s%s, ", r, sps[i]->column->base.name);
+		}
+		else
+		{
+			if(i == num_PERPAD - 1)
+				sprintf(buf, "%s%s", r, pkey_bound_to_dataview[i]);
+			else
+				sprintf(buf, "%s%s, ", r, pkey_bound_to_dataview[i]);
+		}
+		
+		r = GDKstrdup(buf);
+		GDKfree(buf);
+	}
+	
+// 	u = "INSERT INTO %s.%s SELECT %s, %s FROM mseed.dataview%sWHERE start_time < %s + INTERVAL %s AND end_time > %s AND sys.date_trunc(sample_time, \'%s\') = %s %s GROUP BY %s;";
+	
+	schema_name = schema_name;
+	dmdt_name = dmdt_name;
+	pkey_select_str = form_pkey_select_str(sps, num_PERPAD, pkey_bound_to_dataview, select_str_per_pkey);
+	non_pkey_select_str = get_non_pkey_select_str(schema_name, dmdt_name);
+	from_join_temp_table_str = from_join_temp_table_str;
+	if(idx_time_pkey >= 0)
+		start_ts_str = select_str_per_pkey[idx_time_pkey];
+	else
+	{
+		printf("***no time_pkey!: %s\n", u);
+		return;
+	}
+	
+	/* TODO: somehow window_unit has to have an effect here */
+	interval_str = "\'1\' HOUR";
+	date_trunc_str = "hour";
+	
+	non_time_pkey_predicates_str = s;
+	group_by_str = r;
+	
+	buf2 = (str)GDKmalloc(num_PERPAD*BUFSIZ*sizeof(char));
+	sprintf(buf2, u, schema_name, dmdt_name, pkey_select_str, non_pkey_select_str, from_join_temp_table_str, start_ts_str, interval_str, start_ts_str, date_trunc_str, start_ts_str, non_time_pkey_predicates_str, group_by_str);
+	q = GDKstrdup(buf2);
+	GDKfree(buf2);
+	
+	printf("q: %s\n", q);
+	
+	sql = sql;
+
 }
 
 
@@ -6614,6 +6841,8 @@ rel_optimizer(mvc *sql, sql_rel *rel)
 		}
 		
 		find_out_pkey_space_for_unavailable_required_derived_metadata(sql, list_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
+		
+		compute_and_insert_unavailable_required_derived_metadata(sql, sps, num_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
 		
 		sql->q_in_q = 0;
 	}
