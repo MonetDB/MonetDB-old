@@ -1497,11 +1497,10 @@ void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, lis
 
 str* get_pkey_bound_to_dataview(str schema_name, str dmdt_name)
 {
-	str* ret = (str*)GDKmalloc(4*sizeof(str));
+	str* ret = (str*)GDKmalloc(3*sizeof(str));
 	ret[0] = "station";
 	ret[1] = "channel";
-	ret[2] = NULL;
-	ret[3] = "1";
+	ret[2] = "1";
 	
 	if(strcmp(schema_name, "mseed") == 0 && strcmp(dmdt_name, "windowmetadata") == 0)
 		return ret;
@@ -1568,6 +1567,8 @@ void compute_and_insert_unavailable_required_derived_metadata(mvc* sql, sel_pred
 	int idx_time_pkey = -1;
 	str s, r, q, u, buf2, schema_name, dmdt_name, pkey_select_str, non_pkey_select_str, from_join_temp_table_str, start_ts_str, interval_str, date_trunc_str, non_time_pkey_predicates_str, group_by_str;
 	int i;
+	Client cntxt;
+	str msg;
 	
 	if(num_PERPAD == 0 || sps == NULL || is_pkey_to_be_enumerated == NULL)
 		return;
@@ -1713,7 +1714,23 @@ void compute_and_insert_unavailable_required_derived_metadata(mvc* sql, sel_pred
 	
 	printf("q: %s\n", q);
 	
-	sql = sql;
+	cntxt = MCgetClient(sql->clientid);
+	
+	/* TODO: how long will this temp table stay? There might be a new query trying to recreate it. */
+	if((msg = SQLstatementIntern(cntxt,&q,"pmv.insert_unavailable",TRUE,FALSE)) != MAL_SUCCEED)
+	{/* insert into query not succeeded, what to do */
+		printf("***query didnt work, %s: %s\n", msg, q);
+		return;
+	}
+	
+	if(mvc_commit(sql, 0, NULL) < 0)
+	{/* committing failed */
+		// 		throw(MAL,"pmv.create_temp_table", "committing failed\n");
+		printf("***commit didnt work: %s\n", q);
+		return;
+	}
+	
+	GDKfree(q);
 
 }
 
