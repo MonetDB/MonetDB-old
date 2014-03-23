@@ -194,7 +194,7 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			p->argc == 6 &&
 			p->retc == 1 &&
 			strcmp(getVarConstant(mb, getArg(p, 2)).val.sval, *schema_name) == 0 &&
-			strstr(getVarConstant(mb, getArg(p, 3)).val.sval, data_table_identifier) != NULL)
+			strcmp(getVarConstant(mb, getArg(p, 3)).val.sval, data_table_identifier) == 0)
 		{
 			int which_mount = 0;
 			int which_column = 0;
