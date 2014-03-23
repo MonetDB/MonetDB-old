@@ -161,7 +161,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 			p->argc == 6 &&
 			p->retc == 1 &&
 			strcmp(getVarConstant(mb, getArg(p, 2)).val.sval, sys_schema_name) != 0 &&
-			strstr(getVarConstant(mb, getArg(p, 3)).val.sval, data_table_identifier) == NULL &&
+			strcmp(getVarConstant(mb, getArg(p, 3)).val.sval, data_table_identifier) != 0 &&
 			strcmp(getVarConstant(mb, getArg(p, 4)).val.sval, file_identifier_str) == 0 &&
 			getVarConstant(mb, getArg(p, 5)).val.ival == 0 &&
 			state < 3)
@@ -222,7 +222,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 			p->argc == 6 &&
 			p->retc == 1 &&
 			strcmp(getVarConstant(mb, getArg(p, 2)).val.sval, getVarConstant(mb, getArg(old[i1], 2)).val.sval) == 0 &&
-			strstr(getVarConstant(mb, getArg(p, 3)).val.sval, data_table_identifier) != NULL &&
+			strcmp(getVarConstant(mb, getArg(p, 3)).val.sval, data_table_identifier) == 0 &&
 			getVarConstant(mb, getArg(p, 5)).val.ival == 0)
 		{
 
@@ -513,7 +513,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 			p->argc == 4 &&
 			p->retc == 1 &&
 			strcmp(getVarConstant(mb, getArg(p, 2)).val.sval, getVarConstant(mb, getArg(old[i1], 2)).val.sval) == 0 &&
-			strstr(getVarConstant(mb, getArg(p, 3)).val.sval, data_table_identifier) != NULL)
+			strcmp(getVarConstant(mb, getArg(p, 3)).val.sval, data_table_identifier)  == 0)
 		{
 			last_data_tid_return_var_id = getArg(p, 0);
 			removeInstruction(mb, p);
@@ -526,7 +526,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 			p->argc == 7 &&
 			p->retc == 2 &&
 			strcmp(getVarConstant(mb, getArg(p, 3)).val.sval, getVarConstant(mb, getArg(old[i1], 2)).val.sval) == 0 &&
-			strstr(getVarConstant(mb, getArg(p, 4)).val.sval, data_table_identifier) != NULL &&
+			strcmp(getVarConstant(mb, getArg(p, 4)).val.sval, data_table_identifier) == 0 &&
 			getVarConstant(mb, getArg(p, 6)).val.ival == 2)
 		{
 			last_update_bind_second_return_var_id = getArg(p, 1);
@@ -540,7 +540,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 			p->argc == 6 &&
 			p->retc == 1 &&
 			strcmp(getVarConstant(mb, getArg(p, 2)).val.sval, getVarConstant(mb, getArg(old[i1], 2)).val.sval) == 0 &&
-			strstr(getVarConstant(mb, getArg(p, 3)).val.sval, data_table_identifier) != NULL &&
+			strcmp(getVarConstant(mb, getArg(p, 3)).val.sval, data_table_identifier) == 0 &&
 			getVarConstant(mb, getArg(p, 5)).val.ival == 1)
 		{
 			last_insert_bind_return_var_id = getArg(p, 0);
