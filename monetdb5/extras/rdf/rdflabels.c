@@ -967,9 +967,7 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 		// check if property (*pbt) is a type
 		for (i = 0; i < typeAttributesCount; ++i) {
 			if (*pbt == typeAttributesOids[i]) {
-
 				// prop is a type!
-				csFreqIdx = csIdFreqIdxMap[subjCSMap[*sbt]];
 
 				// get object
 				obt = (oid *) BUNtloc(oi, p);
@@ -988,6 +986,7 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 						// nothing to add to histogram
 					} else {
 						// analyze values and add to histogram
+						csFreqIdx = csIdFreqIdxMap[subjCSMap[curS]]; // get csFreqIdx of last subject
 						insertLeafsIntoTypeAttributesHistogram(typeValues, typeValuesSize, typeAttributesHistogram, typeAttributesHistogramCount, csFreqIdx, curT, ontmetaBat, ontclassSet);
 						typeValuesSize = 0; // reset
 					}
@@ -1008,7 +1007,10 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 	}
 
 	// analyze and add last set of typeValues
-	if (curS != BUN_NONE && typeValuesSize != 0) insertLeafsIntoTypeAttributesHistogram(typeValues, typeValuesSize, typeAttributesHistogram, typeAttributesHistogramCount, csFreqIdx, curT, ontmetaBat, ontclassSet);
+	if (curS != BUN_NONE && typeValuesSize != 0) {
+		csFreqIdx = csIdFreqIdxMap[subjCSMap[curS]]; // get csFreqIdx of last subject
+		insertLeafsIntoTypeAttributesHistogram(typeValues, typeValuesSize, typeAttributesHistogram, typeAttributesHistogramCount, csFreqIdx, curT, ontmetaBat, ontclassSet);
+	}
 
 	GDKfree(typeValues);
 
