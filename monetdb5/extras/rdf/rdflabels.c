@@ -851,47 +851,17 @@ int compareTypeAttributesFreqs (const void * a, const void * b) {
 #endif
 
 #if USE_TYPE_NAMES
-/* Analyze hierarchy in a list of type values, add all leaf values to the histogram. Values that are not present in the hierarchy tree built from the ontologies are NOT added to the histogram. */
+/* Add type values to the histogram. Values that are not present in the hierarchy tree built from the ontologies are NOT added to the histogram. */
 static
-void insertLeafsIntoTypeAttributesHistogram(oid* typeList, int typeListLength, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, int csFreqIdx, int type, BAT *ontmetaBat, OntClass *ontclassSet) {
-	int		i, j, k;
+void insertValuesIntoTypeAttributesHistogram(oid* typeList, int typeListLength, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, int csFreqIdx, int type, BAT *ontmetaBat) {
+	int		i, j;
 	int		fit;
-	char		*leaf; // flag whether a type value in 'typeList' is a leaf (1) or not (0)
-	BUN		pos;
-	OntClass	hierarchy;
 
-	// start with: every type value is a leaf
-	leaf = GDKmalloc(sizeof(char) * typeListLength);
-	for (i = 0; i < typeListLength; ++i) leaf[i] = 1;
-
-	// analyze hierarchy
 	for (i = 0; i < typeListLength; ++i) {
-		if (!leaf[i]) continue;
-		pos = BUNfnd(BATmirror(ontmetaBat), &typeList[i]);
-		if (pos == BUN_NONE) {
-			// no ontology information for this type value, therefore it is not added to the hierarchy
-			leaf[i] = 0;
-			continue;
-		}
+		BUN pos = BUNfnd(BATmirror(ontmetaBat), &typeList[i]);
+		if (pos == BUN_NONE) continue; // no ontology information, ignore
 
-		// get hierarchy of this type value
-		hierarchy = ontclassSet[pos];
-
-		// loop over superclasses, set leaf=0
-		for (j = 0; j < hierarchy.numsc; ++j) {
-			for (k = 0; k < typeListLength; ++k) {
-				if (i == k) continue;
-				if (ontclassSet[hierarchy.scIdxes[j]].cOid == typeList[k]) {
-					// found superclass at position 'k'
-					leaf[k] = 0;
-				}
-			}
-		}
-	}
-
-	// add all leafs to the histogram
-	for (i = 0; i < typeListLength; ++i) {
-		if (!leaf[i]) continue;
+		// add to histogram
 		fit = 0;
 		for (j = 0; j < typeAttributesHistogramCount[csFreqIdx][type]; ++j) {
 			if (typeAttributesHistogram[csFreqIdx][type][j].value == typeList[i]) {
@@ -913,13 +883,11 @@ void insertLeafsIntoTypeAttributesHistogram(oid* typeList, int typeListLength, T
 			typeAttributesHistogram[csFreqIdx][type][typeAttributesHistogramCount[csFreqIdx][type] - 1].freq = 1;
 		}
 	}
-
-	GDKfree(leaf);
 }
 
 /* Loop through all subjects to collect frequency statistics for type attribute values. */
 static
-void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, CSset *freqCSset, int *csIdFreqIdxMap, int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, char** typeAttributes, BAT *ontmetaBat, OntClass *ontclassSet) {
+void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, CSset *freqCSset, int *csIdFreqIdxMap, int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, char** typeAttributes, BAT *ontmetaBat) {
 	// looping, extracting
 	BUN		p, q;
 	oid 		*sbt, *obt, *pbt;
@@ -967,9 +935,7 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 		// check if property (*pbt) is a type
 		for (i = 0; i < typeAttributesCount; ++i) {
 			if (*pbt == typeAttributesOids[i]) {
-
 				// prop is a type!
-				csFreqIdx = csIdFreqIdxMap[subjCSMap[*sbt]];
 
 				// get object
 				obt = (oid *) BUNtloc(oi, p);
@@ -988,7 +954,8 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 						// nothing to add to histogram
 					} else {
 						// analyze values and add to histogram
-						insertLeafsIntoTypeAttributesHistogram(typeValues, typeValuesSize, typeAttributesHistogram, typeAttributesHistogramCount, csFreqIdx, curT, ontmetaBat, ontclassSet);
+						csFreqIdx = csIdFreqIdxMap[subjCSMap[curS]]; // get csFreqIdx of last subject
+						insertValuesIntoTypeAttributesHistogram(typeValues, typeValuesSize, typeAttributesHistogram, typeAttributesHistogramCount, csFreqIdx, curT, ontmetaBat);
 						typeValuesSize = 0; // reset
 					}
 					curS = *sbt;
@@ -1008,7 +975,10 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 	}
 
 	// analyze and add last set of typeValues
-	if (curS != BUN_NONE && typeValuesSize != 0) insertLeafsIntoTypeAttributesHistogram(typeValues, typeValuesSize, typeAttributesHistogram, typeAttributesHistogramCount, csFreqIdx, curT, ontmetaBat, ontclassSet);
+	if (curS != BUN_NONE && typeValuesSize != 0) {
+		csFreqIdx = csIdFreqIdxMap[subjCSMap[curS]]; // get csFreqIdx of last subject
+		insertValuesIntoTypeAttributesHistogram(typeValues, typeValuesSize, typeAttributesHistogram, typeAttributesHistogramCount, csFreqIdx, curT, ontmetaBat);
+	}
 
 	GDKfree(typeValues);
 
@@ -1022,14 +992,10 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 	// assign percentage
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		for (j = 0; j < typeAttributesCount; ++j) {
-			int sum = 0;
-			// get total count of values
-			for (k = 0; k < typeAttributesHistogramCount[i][j]; ++k) {
-				sum += typeAttributesHistogram[i][j][k].freq;
-			}
 			// assign percentage values for every value
 			for (k = 0; k < typeAttributesHistogramCount[i][j]; ++k) {
-				typeAttributesHistogram[i][j][k].percent = (int) (100.0 * typeAttributesHistogram[i][j][k].freq / sum + 0.5);
+				typeAttributesHistogram[i][j][k].percent = (int) (100.0 * typeAttributesHistogram[i][j][k].freq / freqCSset->items[i].support + 0.5);
+
 			}
 		}
 	}
@@ -2109,10 +2075,11 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	oid		*tmpList;
 	int		tmpListCount;
 	char		nameFound = 0;
+	oid		maxDepthOid;
+	int		maxFreq;
 
 
 	(void) ontmetaBat;
-	(void) ontclassSet;
 
 
 	// --- ONTOLOGY ---
@@ -2228,7 +2195,28 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		if (typeAttributesHistogram[csIdx][i][0].percent < TYPE_FREQ_THRESHOLD) continue; // sorted
 		tmpList = (oid *) realloc(tmpList, sizeof(oid) * (tmpListCount + 1));
 		if (!tmpList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-		tmpList[tmpListCount] = typeAttributesHistogram[csIdx][i][0].value;
+
+		// of all values that are >= TYPE_FREQ_THRESHOLD, choose the value with the highest hierarchy level ("deepest" value)
+		maxDepthOid = typeAttributesHistogram[csIdx][i][0].value;
+		maxFreq = typeAttributesHistogram[csIdx][i][0].freq;
+		for (j = 1; j < typeAttributesHistogramCount[csIdx][i]; ++j) {
+			int depth, maxDepth;
+			int freq;
+			if (typeAttributesHistogram[csIdx][i][j].percent < TYPE_FREQ_THRESHOLD) break;
+			depth = ontclassSet[BUNfnd(BATmirror(ontmetaBat), &typeAttributesHistogram[csIdx][i][j].value)].hierDepth;
+			maxDepth = ontclassSet[BUNfnd(BATmirror(ontmetaBat), &maxDepthOid)].hierDepth;;
+			freq = typeAttributesHistogram[csIdx][i][j].freq;
+			if (depth > maxDepth) {
+				// choose value with higher hierarchy level
+				maxDepthOid = typeAttributesHistogram[csIdx][i][j].value;
+				maxFreq = freq;
+			} else if (depth == maxDepth && freq > maxFreq) {
+				// if both values are on the same level, choose the value with higher frequency
+				maxDepthOid = typeAttributesHistogram[csIdx][i][j].value;
+				maxFreq = freq;
+			}
+		}
+		tmpList[tmpListCount] = maxDepthOid;
 		tmpListCount += 1;
 	}
 
@@ -2736,7 +2724,7 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 	typeAttributesHistogramCount = initTypeAttributesHistogramCount(typeAttributesCount, freqCSset->numCSadded);
 	typeAttributesHistogram = initTypeAttributesHistogram(typeAttributesCount, freqCSset->numCSadded);
 #if USE_TYPE_NAMES
-	createTypeAttributesHistogram(sbat, si, pi, oi, subjCSMap, freqCSset, csIdFreqIdxMap, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeAttributes, ontmetaBat, ontclassSet);
+	createTypeAttributesHistogram(sbat, si, pi, oi, subjCSMap, freqCSset, csIdFreqIdxMap, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeAttributes, ontmetaBat);
 	typeStat = getTypeStats(&typeStatCount, freqCSset->numCSadded, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount);
 #else
 	(void) sbat;
