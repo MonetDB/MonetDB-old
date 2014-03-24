@@ -56,6 +56,9 @@ typedef enum {
 	DIMENSIONCS
 } CStype; 
 
+
+#define EXTRAINFO_FROM_RDFTYPE 1 	//Using rdf:type value which is an ontology class as an extra info
+
 typedef struct {
 	BAT*	hsKeyBat; 
 	BAT* 	hsValueBat; 
@@ -63,6 +66,10 @@ typedef struct {
 	BAT* 	coverageBat;	/* Store the exact number of triples coverred by each CS */
 	BAT* 	pOffsetBat; 	/* BAT storing the offset for set of properties, refer to fullPBat */
 	BAT* 	fullPBat;    	/* Stores all set of properties */	
+	//#if EXTRAINFO_FROM_RDFTYPE
+	BAT* 	typeOffsetBat;	
+	BAT*	fullTypeBat;	/* Stores the type values of each CS */
+	//#endif
 } CSBats; 	// BATs for storing all information about CSs
 
 typedef struct Postinglist{
@@ -163,6 +170,11 @@ typedef struct CS
 	char	type; 
 	int 	support; 
 	int	coverage; 
+
+	#if EXTRAINFO_FROM_RDFTYPE
+	oid*	typevalues;
+	int	numTypeValues; 
+	#endif
 
 	//For mergeCS
 	int* 	lstConsistsOf; 	//The list of indexes of freqCS	

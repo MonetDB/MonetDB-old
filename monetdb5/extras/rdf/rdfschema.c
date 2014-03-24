@@ -1253,6 +1253,10 @@ void freeCSset(CSset *csSet){
 			free(csSet->items[i].lstPropSupport);
 		#endif
 		free(csSet->items[i].lstConsistsOf);
+		#if EXTRAINFO_FROM_RDFTYPE
+		if (csSet->items[i].typevalues != NULL) 
+			free(csSet->items[i].typevalues); 
+		#endif
 	}
 
 	#if STOREFULLCS
@@ -1274,6 +1278,9 @@ void freemergeCSset(mergeCSset *csSet){
 	for(i = 0; i < csSet->nummergeCSadded; i ++){
 		free(csSet->items[i].lstProp);
 		free(csSet->items[i].lstConsistsOf);
+		#if EXTRAINFO_FROM_RDFTYPE
+
+		#endif
 	}
 	free(csSet->items);
 	free(csSet);	
@@ -1363,6 +1370,10 @@ CS* creatCS(oid csId, int freqIdx, int numP, oid* buff, char type,  int parentfr
 	cs->numConsistsOf = 1;
 	cs->lstConsistsOf = (int *) malloc(sizeof(int)); 
 	cs->lstConsistsOf[0]= freqIdx; 
+	#if EXTRAINFO_FROM_RDFTYPE
+	cs->typevalues = NULL; 
+	cs->numTypeValues = 0;
+	#endif
 
 	#if STORE_PERFORMANCE_METRIC_INFO
 	cs->numInRef = 0;
@@ -1456,6 +1467,10 @@ CS* mergeTwoCSs(CS cs1, CS cs2, int freqIdx1, int freqIdx2, oid mergeCSId){
 
 	mergecs->lstConsistsOf[0] = freqIdx1;  
 	mergecs->lstConsistsOf[1] = freqIdx2; 
+	#if EXTRAINFO_FROM_RDFTYPE
+	mergecs->typevalues = NULL; 
+	mergecs->numTypeValues = 0;
+	#endif
 	
 	mergecs->lstProp = (oid*) malloc(sizeof(oid) * (cs1.numProp + cs2.numProp));  // will be redundant
 
@@ -1504,6 +1519,11 @@ void mergeACStoExistingmergeCS(CS cs, int freqIdx , CS *mergecs){
 	//mergecs->lstConsistsOf[mergecs->numConsistsOf] = cs.csId; 
 	mergecs->lstConsistsOf[mergecs->numConsistsOf] = freqIdx; 
 	mergecs->numConsistsOf++;
+	
+	#if EXTRAINFO_FROM_RDFTYPE
+	mergecs->typevalues = NULL; 
+	mergecs->numTypeValues = 0;
+	#endif
 
 	oldlstProp = malloc (sizeof(oid) * (mergecs->numProp)); 
 	memcpy(oldlstProp, mergecs->lstProp, (mergecs->numProp) * sizeof(oid));
@@ -1589,6 +1609,11 @@ void mergeTwomergeCS(CS *mergecs1, CS *mergecs2, int parentFreqIdx){
 	#if STORE_PERFORMANCE_METRIC_INFO
 	mergecs1->numInRef += mergecs2->numInRef;
 	mergecs1->numFill += mergecs2->numFill;
+	#endif
+
+	#if EXTRAINFO_FROM_RDFTYPE
+	mergecs1->typevalues = NULL; 
+	mergecs1->numTypeValues = 0;
 	#endif
 
 	// Remove mergecs2
@@ -2129,7 +2154,7 @@ str printsubsetFromCSset(CSset *freqCSset, BAT* subsetIdxBat, int num, int* merg
  * Rely on djb2 http://www.cse.yorku.ca/~oz/hash.html
  *
  */
-static oid RDF_hash_oidlist(oid* key, int num){
+static oid RDF_hash_oidlist(oid* key, int num, int numTypeValues, oid* rdftypeOntologyValues){
 	//unsigned int hashCode = 5381u; 
 	oid  hashCode = 5381u;
 	int i; 
@@ -2138,64 +2163,83 @@ static oid RDF_hash_oidlist(oid* key, int num){
 		hashCode = ((hashCode << 5) + hashCode) + key[i];
 	}
 	
+	for (i = 0; i < numTypeValues; i++){		//If no type attribute is used, numTypeValues = 0
+		hashCode = ((hashCode << 5) + hashCode) + rdftypeOntologyValues[i];
+	}
 	// return 0x7fffffff & hashCode 
 	return hashCode;
 }
 
 static 
 void appendArrayToBat(BAT *b, BUN* inArray, int num){
-	//int i; 
-	BUN r = BUNlast(b);
-	if (r + num > b->batCapacity){
-		BATextend(b, b->batCapacity + smallbatsz); 
+	if (num > 0){
+		BUN r = BUNlast(b);
+		if (r + num > b->batCapacity){
+			BATextend(b, b->batCapacity + smallbatsz); 
+		}
+		memcpy(Tloc(b, BUNlast(b)), inArray, sizeof(BUN) * num); 
+		BATsetcount(b, (BUN) (b->batCount + num)); 
 	}
-	//for (i = 0; i < num; i++){
-	memcpy(Tloc(b, BUNlast(b)), inArray, sizeof(BUN) * num); 
-	//}
-	BATsetcount(b, (BUN) (b->batCount + num)); 
-	
 }
 
 static 
-char checkCSduplication(BAT* hsKeyBat, BAT* pOffsetBat, BAT* fullPBat, BUN cskey, oid* key, int numK, oid *csId){
-	oid *offset; 
-	oid *offset2; 
+char checkCSduplication(CSBats *csBats, BUN cskey, oid* key, int numK, int numTypeValues, oid* rdftypeOntologyValues, oid *csId){
+	oid *offset, *offsetT; 
+	oid *offset2, *offsetT2; 
 	int numP; 
+	int numT; 	//number of type values
 	int i; 
-	BUN *existvalue; 
+	BUN *existvalue, *existTvalue; 
 	BUN pos; 
 	char isDuplication = 0; 
 
-	BATiter bi = bat_iterator(BATmirror(hsKeyBat));
+	BATiter bi = bat_iterator(BATmirror(csBats->hsKeyBat));
 			
-	HASHloop(bi, hsKeyBat->T->hash, pos, (ptr) &cskey){
+	HASHloop(bi, csBats->hsKeyBat->T->hash, pos, (ptr) &cskey){
 		//printf("  pos: " BUNFMT, pos);
 
-		offset = (oid *) Tloc(pOffsetBat, pos); 
-		if ((pos + 1) < pOffsetBat->batCount){
-			offset2 = (oid *)Tloc(pOffsetBat, pos + 1);
+		//Get number of properties
+		offset = (oid *) Tloc(csBats->pOffsetBat, pos); 
+		if ((pos + 1) < csBats->pOffsetBat->batCount){
+			offset2 = (oid *)Tloc(csBats->pOffsetBat, pos + 1);
 			numP = *offset2 - *offset;
 		}
 		else{
-			numP = BUNlast(fullPBat) - *offset;
+			numP = BUNlast(csBats->fullPBat) - *offset;
 		}
 
+		//Get number of type values
+		offsetT = (oid *) Tloc(csBats->typeOffsetBat, pos); 
+		if ((pos + 1) < csBats->typeOffsetBat->batCount){
+			offsetT2 = (oid *)Tloc(csBats->typeOffsetBat, pos + 1);
+			numT = *offsetT2 - *offsetT;
+		}
+		else{
+			numT = BUNlast(csBats->fullTypeBat) - *offsetT;
+		}
 
 		// Check each value
-		if (numK != numP) {
+		if (numK != numP || numT != numTypeValues) {
 			continue; 
 		}
 		else{
 			isDuplication = 1; 
-			existvalue = (oid *)Tloc(fullPBat, *offset);	
+			existvalue = (oid *)Tloc(csBats->fullPBat, *offset);	
 			for (i = 0; i < numP; i++){
-				//if (key[i] != (int)*existvalue++) {
 				if (key[i] != existvalue[i]) {
 					isDuplication = 0;
 					break; 
 				}	
 			}
 
+			existTvalue = (oid *)Tloc(csBats->fullTypeBat, *offsetT);	
+			for (i = 0; i < numT; i++){
+				if (rdftypeOntologyValues[i] != existTvalue[i]) {
+					isDuplication = 0;
+					break; 
+				}	
+			}
+			
 
 			//Everything match
 			if (isDuplication == 1){
@@ -2204,6 +2248,8 @@ char checkCSduplication(BAT* hsKeyBat, BAT* pOffsetBat, BAT* fullPBat, BUN cskey
 				return 1; 
 			}
 		}
+
+			
 		
 		
 	}
@@ -2350,10 +2396,10 @@ void addaProp(PropStat* propStat, oid prop, int csIdx, int invertIdx){
 
 
 static 
-void addNewCS(CSBats *csBats, PropStat* fullPropStat, BUN* csKey, oid* key, oid *csoid, int num, int numTriples){
+void addNewCS(CSBats *csBats, PropStat* fullPropStat, BUN* csKey, oid* key, oid *csoid, int num, int numTriples, int numTypeValues, oid* rdftypeOntologyValues){
 	int freq = 1; 
 	int coverage = numTriples; 
-	BUN	offset; 
+	BUN	offset, typeOffset; 
 	#if FULL_PROP_STAT
 	int	i; 
 	#endif
@@ -2371,6 +2417,10 @@ void addNewCS(CSBats *csBats, PropStat* fullPropStat, BUN* csKey, oid* key, oid 
 	/* Add list of p to fullPBat and pOffsetBat*/
 	BUNappend(csBats->pOffsetBat, &offset , TRUE);
 	appendArrayToBat(csBats->fullPBat, key, num);
+
+	typeOffset = BUNlast(csBats->fullTypeBat);
+	BUNappend(csBats->typeOffsetBat, &typeOffset , TRUE);
+	appendArrayToBat(csBats->fullTypeBat, rdftypeOntologyValues, numTypeValues);
 
 	#if FULL_PROP_STAT == 1		// add property to fullPropStat
 	for (i = 0; i < num; i++){
@@ -2394,11 +2444,11 @@ void addNewCS(CSBats *csBats, PropStat* fullPropStat, BUN* csKey, oid* key, oid 
  * */
 #if STOREFULLCS
 static 
-oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples,  
+oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples, int numTypeValues, oid* rdftypeOntologyValues, 
 		oid *csoid, char isStoreFreqCS, int freqThreshold, CSset *freqCSset, oid subjectId, oid* buffObjs, PropStat *fullPropStat)
 #else
 static 
-oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples, 
+oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples, int numTypeValues, oid* rdftypeOntologyValues,
 		oid *csoid, char isStoreFreqCS, int freqThreshold, CSset *freqCSset, PropStat *fullPropStat)
 #endif	
 {
@@ -2410,11 +2460,15 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples,
 	oid	csId; 		/* Id of the characteristic set */
 	char	isDuplicate = 0; 
 
-	csKey = RDF_hash_oidlist(key, num);
+	csKey = RDF_hash_oidlist(key, num, numTypeValues, rdftypeOntologyValues);
 	bun = BUNfnd(BATmirror(csBats->hsKeyBat),(ptr) &csKey);
 	if (bun == BUN_NONE) {
 		csId = *csoid; 
-		addNewCS(csBats, fullPropStat, &csKey, key, csoid, num, numTriples);
+		addNewCS(csBats, fullPropStat, &csKey, key, csoid, num, numTriples, numTypeValues, rdftypeOntologyValues);
+
+		if (csId == 309){
+			printf("Extra info is "BUNFMT "\n", rdftypeOntologyValues[0]);
+		}
 		
 		//Handle the case when freqThreshold == 1 
 		if (isStoreFreqCS ==1 && freqThreshold == 1){
@@ -2430,13 +2484,13 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples,
 	else{
 		//printf("Same HashKey: ");	
 		/* Check whether it is really an duplication (same hashvalue but different list of */
-		isDuplicate = checkCSduplication(csBats->hsKeyBat, csBats->pOffsetBat, csBats->fullPBat, csKey, key, num, &csId);
+		isDuplicate = checkCSduplication(csBats, csKey, key, num, numTypeValues, rdftypeOntologyValues, &csId);
 
 		if (isDuplicate == 0) {
 			//printf(" No duplication (new CS) \n");	
 			// New CS
 			csId = *csoid;
-			addNewCS(csBats, fullPropStat, &csKey, key, csoid, num, numTriples);
+			addNewCS(csBats, fullPropStat, &csKey, key, csoid, num, numTriples, numTypeValues, rdftypeOntologyValues);
 			
 			//Handle the case when freqThreshold == 1 
 			if (isStoreFreqCS ==1 && freqThreshold == 1){
@@ -4242,6 +4296,21 @@ CSBats* initCSBats(void){
 	if (csBats->fullPBat == NULL) {
 		return NULL; 
 	}
+
+	//#if EXTRAINFO_FROM_RDFTYPE
+
+	csBats->typeOffsetBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+	
+	if (csBats->typeOffsetBat == NULL) {
+		return NULL; 
+	}
+	csBats->fullTypeBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+	
+	if (csBats->fullTypeBat == NULL) {
+		return NULL; 
+	}
+	//#endif
+
 	csBats->freqBat = BATnew(TYPE_void, TYPE_int, smallbatsz);
 	
 	if (csBats->freqBat == NULL) {
@@ -4253,6 +4322,7 @@ CSBats* initCSBats(void){
 	if (csBats->coverageBat == NULL) {
 		return NULL; 
 	}
+
 
 	return csBats; 
 }
@@ -4267,7 +4337,10 @@ void freeCSBats(CSBats *csBats){
 	BBPreclaim(csBats->coverageBat); 
 	BBPreclaim(csBats->pOffsetBat); 
 	BBPreclaim(csBats->fullPBat); 
-
+	#if EXTRAINFO_FROM_RDFTYPE
+	BBPreclaim(csBats->typeOffsetBat); 
+	BBPreclaim(csBats->fullTypeBat); 
+	#endif
 	free(csBats);
 
 }
@@ -4358,6 +4431,85 @@ BAT* generateTablesForEvaluating(CSset *freqCSset, int numTbl, int* mergeCSFreqC
 }
 #endif
 
+
+// for storing ontology data
+oid	**ontattributes = NULL;
+int	ontattributesCount = 0;
+oid	**ontmetadata = NULL;
+int	ontmetadataCount = 0;
+BAT	*ontmetaBat = NULL;
+OntClass  *ontclassSet = NULL; 
+
+
+static 
+BAT* buildTypeOidBat(void){
+	int ret; 
+	char*   schema = "rdf";
+	BAT*	typeBat;
+	oid	tmpAttributeOid; 
+	int	i; 
+
+	typeBat = BATnew(TYPE_void, TYPE_oid, typeAttributesCount + 1);
+	
+	if (typeBat == NULL){
+		printf("In rdfschema.c/buildTypeOidBat: Cannot create new bat\n");
+		return NULL;
+	}	
+	(void)BATprepareHash(BATmirror(typeBat));
+	
+	if (!(typeBat->T->hash)){
+		printf("rdfschema.c/buildTypeOidBat: Cannot allocate the hash for Bat \n");
+		return NULL; 
+	}
+
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		printf("rdfschema.c/buildTypeOidBat: Could not open the tokenizer\n");
+		return NULL; 
+	}
+
+	for (i = 0; i < typeAttributesCount; ++i) {
+		TKNZRappend(&tmpAttributeOid, &typeAttributes[i]);
+		BUNappend(typeBat, &tmpAttributeOid, TRUE);
+	}
+
+
+	TKNZRclose(&ret);
+
+	return typeBat; 
+}
+
+#if EXTRAINFO_FROM_RDFTYPE
+//Check whether a prop is a rdf:type prop
+static 
+char isTypeAttribute(oid propId, BAT* typeBat){
+	BUN	bun; 
+
+	bun = BUNfnd(BATmirror(typeBat), &propId);
+ 	if (bun == BUN_NONE){
+		return 0; 
+	}
+	else
+		return 1; 
+}
+
+//Get the specific level of an object value 
+//in ontology class hierarchy
+//-1: Not an ontology class
+//Higher number --> more specific
+
+static
+int getOntologySpecificLevel(oid valueOid){	
+	BUN ontClassPos; 	//index of the ontology class in the ontmetaBat
+
+	ontClassPos = BUNfnd(BATmirror(ontmetaBat), &valueOid);
+	if (ontClassPos == BUN_NONE) 		//Not an ontology class
+		return -1;
+	else
+		return ontclassSet[ontClassPos].hierDepth;
+}
+#endif
+
+
 #if STOREFULLCS
 static 
 str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, CSset *freqCSset, int *freqThreshold, CSBats* csBats, oid *subjCSMap, oid *maxCSoid, int *maxNumProp, int *maxNumPwithDup){
@@ -4384,8 +4536,23 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 	oid* 	_tmpObjs; 
 	#endif
 
-	PropStat *fullPropStat; 	
+	//Only keep the most specific ontology-based rdftype value 
+	int	maxNumOntology = 20;		
+	oid*	rdftypeOntologyValues = NULL; 
+	int	numTypeValues = 0;
+	#if EXTRAINFO_FROM_RDFTYPE
+	int	tmpMaxSpecificLevel = 0; 
+	int	tmpSpecificLevel = 0; 
+	#endif
 
+	PropStat *fullPropStat; 	
+	BAT	*typeBat;	//BAT contains oids of type attributes retrieved from tokenizer
+
+	typeBat = buildTypeOidBat();
+
+	printf("Number of attributes inserted into BAT: " BUNFMT "\n", BATcount(typeBat));
+	rdftypeOntologyValues = (oid*)malloc(sizeof(oid) * maxNumOntology);
+	
 	fullPropStat = initPropStat();
 	
 	buff = (oid *) malloc (sizeof(oid) * INIT_PROPERTY_NUM);
@@ -4403,9 +4570,9 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 		if (*sbt != curS){
 			if (p != 0){	/* Not the first S */
 				#if STOREFULLCS
-				returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs, fullPropStat); 
+				returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, numTypeValues, rdftypeOntologyValues, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs, fullPropStat); 
 				#else
-				returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, &CSoid, 1, *freqThreshold, freqCSset, fullPropStat); 
+				returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, numTypeValues, rdftypeOntologyValues, &CSoid, 1, *freqThreshold, freqCSset, fullPropStat); 
 				#endif
 
 				subjCSMap[curS] = returnCSid; 			
@@ -4423,6 +4590,12 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 			curP = BUN_NONE;
 			numP = 0;
 			numPwithDup = 0; 
+
+			numTypeValues = 0;
+			#if EXTRAINFO_FROM_RDFTYPE
+			tmpMaxSpecificLevel = 0;
+			tmpSpecificLevel = 0;
+			#endif
 		}
 				
 		pbt = (oid *) BUNtloc(pi, p); 
@@ -4448,6 +4621,18 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 		
 		}
 
+		#if EXTRAINFO_FROM_RDFTYPE
+		if (isTypeAttribute(*pbt, typeBat)){ //Check type attributes
+			obt = (oid *) BUNtloc(oi, p);
+			tmpSpecificLevel = getOntologySpecificLevel(*obt);
+			if (tmpSpecificLevel > tmpMaxSpecificLevel){	
+				//only keep the most specific one
+				rdftypeOntologyValues[0] = *obt;
+				tmpMaxSpecificLevel = tmpSpecificLevel;
+				numTypeValues = 1;
+			}
+		}
+		#endif
 		
 		if (curP != *pbt){	/* Multi values property */		
 			buff[numP] = *pbt; 
@@ -4459,16 +4644,17 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 			curP = *pbt; 
 
 		}
-
+	
 		numPwithDup++;
+
 		
 	}
 	
 	/*put the last CS */
 	#if STOREFULLCS
-	returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs, fullPropStat); 
+	returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, numTypeValues, rdftypeOntologyValues, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs, fullPropStat); 
 	#else
-	returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, &CSoid, 1, *freqThreshold, freqCSset, fullPropStat ); 
+	returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, numTypeValues, rdftypeOntologyValues, &CSoid, 1, *freqThreshold, freqCSset, fullPropStat ); 
 	#endif
 	
 	subjCSMap[curS] = returnCSid; 			
@@ -6566,13 +6752,8 @@ void computeMetricsQ(CSset *freqCSset){
 
 }
 #endif
-// for storing ontology data
-oid	**ontattributes = NULL;
-int	ontattributesCount = 0;
-oid	**ontmetadata = NULL;
-int	ontmetadataCount = 0;
-BAT	*ontmetaBat = NULL;
-OntClass  *ontclassSet = NULL; 
+
+
 
 /* Extract CS from SPO triples table */
 str
@@ -6607,6 +6788,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	int 		tmpNumRel = 0;
 	CSrel		*tmpCSrelToMergeCS = NULL; 
 	float		*curIRScores = NULL; 
+
+	//printf("Number of type attributes is: %d \n",typeAttributesCount);
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);

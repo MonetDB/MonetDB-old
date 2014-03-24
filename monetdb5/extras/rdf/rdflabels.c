@@ -2690,29 +2690,32 @@ void freeOntologyLookupResult(oid** ontologyLookupResult, int csCount) {
 	free(ontologyLookupResult);
 }
 
+#if USE_TYPE_NAMES
+char*		typeAttributes[] = {
+			"<http://ogp.me/ns#type>",
+			"<https://ogp.me/ns#type>",
+			"<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>",
+			"<http://purl.org/dc/elements/1.1/type>",
+			"<http://mixi-platform.com/ns#type>",
+			"<http://ogp.me/ns/fb#type>",
+			"<http://opengraph.org/schema/type>",
+			"<http://opengraphprotocol.org/schema/type>",
+			"<http://purl.org/dc/terms/type>",
+			"<http://purl.org/goodrelations/v1#typeOfGood>",
+			"<http://search.yahoo.com/searchmonkey/media/type>",
+			"<https://opengraphprotocol.org/schema/type>",
+			"<https://search.yahoo.com/searchmonkey/media/type>",
+			"<http://www.w3.org/1999/xhtmltype>",
+			"<http://dbpedia.org/ontology/longtype>",
+			"<http://dbpedia.org/ontology/type>",
+			"<http://dbpedia.org/ontology/typeOfElectrification>"}; // <...> necessary to get the correct oids
+
+int			typeAttributesCount = 17;
+#endif
+
 /* Creates labels for all CS (without a parent). */
 CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, int *csIdFreqIdxMap, oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount, OntoUsageNode** ontoUsageTree, BAT *ontmetaBat, OntClass *ontclassSet) {
-#if USE_TYPE_NAMES
-	char*		typeAttributes[] = {
-				"<http://ogp.me/ns#type>",
-				"<https://ogp.me/ns#type>",
-				"<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>",
-				"<http://purl.org/dc/elements/1.1/type>",
-				"<http://mixi-platform.com/ns#type>",
-				"<http://ogp.me/ns/fb#type>",
-				"<http://opengraph.org/schema/type>",
-				"<http://opengraphprotocol.org/schema/type>",
-				"<http://purl.org/dc/terms/type>",
-				"<http://purl.org/goodrelations/v1#typeOfGood>",
-				"<http://search.yahoo.com/searchmonkey/media/type>",
-				"<https://opengraphprotocol.org/schema/type>",
-				"<https://search.yahoo.com/searchmonkey/media/type>",
-				"<http://www.w3.org/1999/xhtmltype>",
-				"<http://dbpedia.org/ontology/longtype>",
-				"<http://dbpedia.org/ontology/type>",
-				"<http://dbpedia.org/ontology/typeOfElectrification>"}; // <...> necessary to get the correct oids
-#endif
-	int			typeAttributesCount = 17;
+
 	int			**typeAttributesHistogramCount;
 	TypeAttributesFreq	***typeAttributesHistogram;
 	TypeStat		*typeStat = NULL;

@@ -127,4 +127,9 @@ freeOntoUsageTree(OntoUsageNode* tree);
 rdf_export void
 printListOntology(void);
 
+#if USE_TYPE_NAMES
+extern char*	typeAttributes[];
+extern int typeAttributesCount; 
+#endif
+
 #endif /* _RDFLABELS_H_ */
