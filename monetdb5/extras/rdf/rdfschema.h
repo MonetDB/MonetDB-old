@@ -122,6 +122,7 @@ typedef struct PropStat {
 					the freqIdx of merged CS from previous rule. */
 
 #define OUTPUT_FREQID_PER_LABEL 1 	/* This is for evaluating the results of merging using S1. TODO: Set it to 0 for default*/
+#define	MERGING_CONSIDER_NAMEORIGINALITY 0	/*Merging in rule S1, considering where the name comes from (e.g., from Ontology, from rdf:type, or from FK) */	 
 
 #define IS_MULVALUE_THRESHOLD  1.1	/* The ratio betweeen (the number of triple coverred by Prop P) / (number of Non-NULL object values for P)
 					   If this ratio is ~1, only use single value column for that prop

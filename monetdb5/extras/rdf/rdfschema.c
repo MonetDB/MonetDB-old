@@ -1842,11 +1842,11 @@ int* mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId,int 
 
 #if NO_OUTPUTFILE == 0
 static 
-str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofile, int freqThreshold, CSlabel* labels){
+str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, char isWriteTofile, int freqThreshold, CSlabel* labels, int mergingstep){
 
-	int 	i; 
-	int 	j; 
-	int 	*freq; 
+	int 	i,j; 
+	int 	mergeCSid, tmpParentFreqId; 
+	int 	freq; 
 	FILE 	*fout; 
 	char 	filename[100];
 	char 	tmpStr[20];
@@ -1872,13 +1872,14 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 	
 	mapi = bat_iterator(mapbat); 
 #endif	
-
+	mergeCSid = -1;
 	if (isWriteTofile == 0){
 		for (i = 0; i < freqCSset->numCSadded; i++){
 			CS cs = (CS)freqCSset->items[i];
-			freq  = (int *) Tloc(freqBat, cs.csId);
+			if (cs.parentFreqIdx != -1) continue;
+			freq = cs.support; 
 
-			printf("CS " BUNFMT " (Freq: %d) | Parent " BUNFMT " \n", cs.csId, *freq, freqCSset->items[cs.parentFreqIdx].csId);
+			printf("CS " BUNFMT " (Freq: %d) | Parent " BUNFMT " \n", cs.csId, freq, freqCSset->items[cs.parentFreqIdx].csId);
 			for (j = 0; j < cs.numProp; j++){
 				printf("  P:" BUNFMT " --> \n", cs.lstProp[j]);	
 			}	
@@ -1888,7 +1889,7 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 	else{
 	
 		strcpy(filename, "freqCSFullInfo");
-		sprintf(tmpStr, "%d", freqThreshold);
+		sprintf(tmpStr, "%d_%d", freqThreshold,mergingstep);
 		strcat(filename, tmpStr);
 		strcat(filename, ".txt");
 
@@ -1896,33 +1897,66 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 
 		for (i = 0; i < freqCSset->numCSadded; i++){
 			CS cs = (CS)freqCSset->items[i];
-			freq  = (int *) Tloc(freqBat, cs.csId);
-			if (cs.type != MAXCS) assert(*freq == cs.support);
+			if (cs.parentFreqIdx != -1) continue; 
+			mergeCSid++;	
+			freq = cs.support; 
 
 			#if STOREFULLCS	
-			if (cs.subject != BUN_NONE){
-				takeOid(cs.subject, &subStr);
+			if (i < freqCSset->numOrigFreqCS){
+				if (cs.subject != BUN_NONE){
+					takeOid(cs.subject, &subStr);
+
+					if (labels[i].name == BUN_NONE) {
+						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, "DUMMY", freq, subStr, cs.parentFreqIdx);
+					} else {
+						str labelStr;
+						takeOid(labels[i].name, &labelStr);
+						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, labelStr, freq, subStr, cs.parentFreqIdx);
+						GDKfree(labelStr); 
+					}
+
+					GDKfree(subStr);
+				}
+				else{
+					if (labels[i].name == BUN_NONE) {
+						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | FreqParentIdx %d \n", cs.csId, i, "DUMMY", freq, cs.parentFreqIdx);
+					} else {
+						str labelStr;
+						takeOid(labels[i].name, &labelStr);
+						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | FreqParentIdx %d \n", cs.csId, i, labelStr, freq, cs.parentFreqIdx);
+						GDKfree(labelStr);
+					}
+				}
+			}
+			else {
 
 				if (labels[i].name == BUN_NONE) {
-					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, "DUMMY", *freq, subStr, cs.parentFreqIdx);
+					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: <Not available>  | FreqParentIdx %d \n", cs.csId, i, "DUMMY", freq, cs.parentFreqIdx);
 				} else {
 					str labelStr;
 					takeOid(labels[i].name, &labelStr);
-					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, labelStr, *freq, subStr, cs.parentFreqIdx);
+					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: <Not available>  | FreqParentIdx %d \n", cs.csId, i, labelStr, freq, cs.parentFreqIdx);
 					GDKfree(labelStr); 
 				}
 
-				GDKfree(subStr);
-			}
-			else{
-				if (labels[i].name == BUN_NONE) {
-					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | FreqParentIdx %d \n", cs.csId, i, "DUMMY", *freq, cs.parentFreqIdx);
-				} else {
-					str labelStr;
-					takeOid(labels[i].name, &labelStr);
-					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | FreqParentIdx %d \n", cs.csId, i, labelStr, *freq, cs.parentFreqIdx);
-					GDKfree(labelStr);
+
+				fprintf(fout, "MergeCS %d (Number of parent: %d | FreqId list: ) \n",mergeCSid, cs.numConsistsOf);
+				for (j = 0; j < cs.numConsistsOf; j++){
+					tmpParentFreqId = cs.lstConsistsOf[j];
+					fprintf(fout, " %d [F:%d]",tmpParentFreqId, freqCSset->items[tmpParentFreqId].support);
+					if (labels[tmpParentFreqId].name == BUN_NONE) fprintf(fout, "[DUMMY]  ");
+					else{
+						str labelStr = NULL;
+						str labelShortStr = NULL; 
+						takeOid(labels[tmpParentFreqId].name, &labelStr);
+						getPropNameShort(&labelShortStr,labelStr);
+						fprintf(fout, "[%s]  ",labelShortStr);
+						GDKfree(labelShortStr);
+						GDKfree(labelStr);
+					}
+
 				}
+				fprintf(fout, "\n");
 			}
 			#endif	
 
@@ -1935,6 +1969,10 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 				
 				#if STOREFULLCS
 				// Get object value
+				if (i >= freqCSset->numOrigFreqCS){
+					fprintf(fout, " <No Object value>  \n");
+					continue; 
+				}
 				if (cs.lstObj != NULL){
 					objOid = cs.lstObj[j]; 
 
@@ -1955,6 +1993,9 @@ str printFreqCSSet(CSset *freqCSset, BAT *freqBat, BAT *mapbat, char isWriteTofi
 					if (objType == URI || objType == BLANKNODE){
 						GDKfree(objStr);
 					}
+				}
+				else{
+					fprintf(fout, " <No Object value>  \n");
 				}
 				#endif
 
@@ -2466,10 +2507,6 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples, int numTypeV
 		csId = *csoid; 
 		addNewCS(csBats, fullPropStat, &csKey, key, csoid, num, numTriples, numTypeValues, rdftypeOntologyValues);
 
-		if (csId == 309){
-			printf("Extra info is "BUNFMT "\n", rdftypeOntologyValues[0]);
-		}
-		
 		//Handle the case when freqThreshold == 1 
 		if (isStoreFreqCS ==1 && freqThreshold == 1){
 			#if STOREFULLCS
@@ -3412,6 +3449,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 			}
 			#else
 
+			#if MERGING_CONSIDER_NAMEORIGINALITY 	
 			//For ontology name
 			tmpCount = 0; 
 			for (k = 0; k < labelStat->lstCount[i]; k++){
@@ -3499,12 +3537,42 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 					tmpCount++;
 				}
 			}
+
+			#if OUTPUT_FREQID_PER_LABEL
+			fprintf(fout, " %d freqCS merged as having same name by FK. MergedCS has %d prop. \n", tmpCount, freqCSset->items[freqCSset->numCSadded -1].numProp);
+			#endif
+
+			#else	//MERGING_CONSIDER_NAMEORIGINALITY == 0
+
+			tmpCount = 0;
+			for (k = 0; k < labelStat->lstCount[i]; k++){
+				freqId1 = labelStat->freqIdList[i][k];
+				cs1 = &(freqCSset->items[freqId1]);
+				#if     NOT_MERGE_DIMENSIONCS
+				if (cs1->type == DIMENSIONCS) continue;
+				#endif
+				tmpCount++;
+				break; 
+			}
+			for (j = k+1; j < labelStat->lstCount[i]; j++){
+				freqId2 = labelStat->freqIdList[i][j];
+				cs2 = &(freqCSset->items[freqId2]);
+				#if	NOT_MERGE_DIMENSIONCS
+				if (cs2->type == DIMENSIONCS) continue; 
+				#endif
+				doMerge(freqCSset, S1, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name);
+				tmpCount++;
+			}
+
+			#if OUTPUT_FREQID_PER_LABEL
+			fprintf(fout, " %d freqCS merged as having same name (by Ontology, Type, FK). MergedCS has %d prop. \n", tmpCount, freqCSset->items[freqCSset->numCSadded -1].numProp);
+			#endif
+			
+			#endif
+
 			#endif /* USE_MULTIWAY_MERGING */
 
 			#if OUTPUT_FREQID_PER_LABEL
-
-			fprintf(fout, " %d freqCS merged as having same name by FK. MergedCS has %d prop. \n", tmpCount, freqCSset->items[freqCSset->numCSadded -1].numProp);
-			
 			takeOid(*name, &tmpLabel); 
 			#if USE_SHORT_NAMES
 			getPropNameShort(&canStrShort, tmpLabel);
@@ -6927,7 +6995,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	tmpLastT = curT;
 	
 	#if NO_OUTPUTFILE == 0
-	printFreqCSSet(freqCSset, csBats->freqBat, mbat, 1, *freqThreshold, *labels); 
+	printMergedFreqCSSet(freqCSset, mbat, 1, *freqThreshold, *labels, 0); 
 	#endif
 	
 	//return "Error"; 
@@ -6998,6 +7066,10 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printf("Merging with S1 took %f. (Number of mergeCS: %d | NumconsistOf: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS, countNumberConsistOfCS(freqCSset));
 	printf("Number of added CS after S1: %d \n", freqCSset->numCSadded);
 
+	#if NO_OUTPUTFILE == 0
+	printMergedFreqCSSet(freqCSset, mbat, 1, *freqThreshold, *labels, 1); 
+	#endif
+
 	#if STORE_PERFORMANCE_METRIC_INFO	
 	computeMetricsQ(freqCSset);
 	#endif
@@ -7007,6 +7079,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
 	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
 
+	if (0){
 	/*S4: Merge two CS's having the subset-superset relationship */
 	mergeCSbyS4(freqCSset, labels, mergeCSFreqCSMap,curNumMergeCS, ontmetadata, ontmetadataCount); 
 
@@ -7018,9 +7091,9 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	#if STORE_PERFORMANCE_METRIC_INFO	
 	computeMetricsQ(freqCSset);
 	#endif
-
-	tmpLastT = curT; 		
 	
+	tmpLastT = curT; 		
+	}
 	/* ---------- S6 ------- */
 	free(mergeCSFreqCSMap);
 	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
@@ -7028,7 +7101,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 
 	/* S6: Merged CS referred from the same CS via the same property */
-	if (1){
+	if (0){
 	tmpCSrelToMergeCS = generateCsRelToMergeFreqSet(csrelSet, freqCSset);
 	tmpNumRel = freqCSset->numCSadded; 
 
@@ -7059,6 +7132,9 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	curT = clock(); 
 	printf ("Merging with S3, S5 took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);	
+	#if NO_OUTPUTFILE == 0
+	printMergedFreqCSSet(freqCSset, mbat, 1, *freqThreshold, *labels, 5); 
+	#endif
 
 	#if STORE_PERFORMANCE_METRIC_INFO	
 	computeMetricsQ(freqCSset);
