@@ -134,10 +134,11 @@ typedef struct PropStat {
 /* ---- For detecting dimension table */
 #define	NUM_ITERATION_FOR_IR 	3	/* Number of iteration for indirect referrences to a CS (table) */
 
-#define IR_DIMENSION_THRESHOLD_PERCENTAGE	0.02	/* Score of indirect references that the CS can be considered as a dimension CS
-							   IR_DIMENSION_THRESHOLD_PERCENTAGE * totalFrequency
-							   Number of IR references should be several times larger than the CS frequenc
-							*/
+#define IR_DIMENSION_THRESHOLD_PERCENTAGE     0.10
+//#define IR_DIMENSION_THRESHOLD_PERCENTAGE	0.02	//  Score of indirect references that the CS can be considered as a dimension CS 
+							//   IR_DIMENSION_THRESHOLD_PERCENTAGE * totalFrequency 
+							//   Number of IR references should be several times larger than the CS frequency 
+							
 //#define IR_DIMENSION_THRESHOLD_PERCENTAGE	0.2	//Value 0.2 is for example data only
 
 #define NOT_MERGE_DIMENSIONCS	1		/* Default: 1, 0: Is for example data */
