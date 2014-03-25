@@ -93,6 +93,7 @@ typedef struct PropStat {
 #define INIT_PROP_NUM	10
 #define INIT_CS_PER_PROP 10
 #define	USINGTFIDF	1
+#define COMBINE_S2_S4	0
 
 #define STOREFULLCS     1       /* Store full instance of a CS including the a subject and list of predicates, objects. 
                                   Only use this for finding the name of the table corresponding to that CS */
@@ -236,10 +237,10 @@ typedef struct SubCSSet{
 #define SIM_THRESHOLD 0.6
 #define SIM_TFIDF_THRESHOLD 0.55
 #define IMPORTANCE_THRESHOLD 0.01
-#define MIN_PERCETAGE_S6 5	// Merge all CS refered by more than 1/MIN_PERCETAGE_S6 percent of a CS via one property
-#define MIN_FROMTABLE_SIZE_S6 100  // The minimum size of the "from" table in S6. Meaning that 
+#define MIN_PERCETAGE_S5 5	// Merge all CS refered by more than 1/MIN_PERCETAGE_S6 percent of a CS via one property
+#define MIN_FROMTABLE_SIZE_S5 100  // The minimum size of the "from" table in S6. Meaning that 
 				    // the CS's to-be-merged in this rule must cover > MIN_FROMTABLE_SIZE_S6 / MIN_PERCETAGE_S6 triples
-//#define MIN_FROMTABLE_SIZE_S6 1		/* For example data */
+//#define MIN_FROMTABLE_SIZE_S5 1		/* For example data */
 #define MINIMUM_TABLE_SIZE 10000   //The minimum number of triples coverred by a table (i.e., a final CS) 
 //#define MINIMUM_TABLE_SIZE 1   // For example dataset only 
 #define HIGH_REFER_THRESHOLD 5
