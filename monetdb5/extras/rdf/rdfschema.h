@@ -235,7 +235,8 @@ typedef struct SubCSSet{
 //#define INIT_NUM_CS 9999 // workaround
 #define INIT_NUM_CS 1000 // workaround
 #define SIM_THRESHOLD 0.6
-#define SIM_TFIDF_THRESHOLD 0.55
+//#define SIM_TFIDF_THRESHOLD 0.55
+#define SIM_TFIDF_THRESHOLD 0.75
 #define IMPORTANCE_THRESHOLD 0.01
 #define MIN_PERCETAGE_S5 5	// Merge all CS refered by more than 1/MIN_PERCETAGE_S6 percent of a CS via one property
 #define MIN_FROMTABLE_SIZE_S5 100  // The minimum size of the "from" table in S6. Meaning that 

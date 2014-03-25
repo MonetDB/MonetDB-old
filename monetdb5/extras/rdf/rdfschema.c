@@ -3799,9 +3799,11 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 	}
 
 	*/
-
+	
+	if (0){
 	if ((freqId1 > numOrigFreqCS -1) || (freqId2 > numOrigFreqCS -1))
 		return 0;
+	}
 
 	for (i = 0; i < minCount; i++){
 		if (labels[freqId1].hierarchy[hCount1-1-i] != labels[freqId2].hierarchy[hCount2-1-i])
@@ -3821,6 +3823,7 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 			}
 			level++;
 		}
+		
 		/*
 		printf("The common ancestor of freqCS %d ("BUNFMT") and freqCS %d ("BUNFMT") is: "BUNFMT" --- %f \n", freqId1, labels[freqId1].name, freqId2, labels[freqId2].name, tmpNode->uri, tmpNode->percentage);
 
@@ -3830,8 +3833,8 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 		*/
 
 		if (tmpNode->percentage < IMPORTANCE_THRESHOLD) {
-			printf("Merge two CS's %d (Label: "BUNFMT") and %d (Label: "BUNFMT") using the common ancestor ("BUNFMT") at level %d (score: %f)\n",
-					freqId1, labels[freqId1].name, freqId2, labels[freqId2].name,tmpNode->uri, i,tmpNode->percentage);
+			//printf("Merge two CS's %d (Label: "BUNFMT") and %d (Label: "BUNFMT") using the common ancestor ("BUNFMT") at level %d (score: %f)\n",
+			//		freqId1, labels[freqId1].name, freqId2, labels[freqId2].name,tmpNode->uri, i,tmpNode->percentage);
 
 			(*ancestor) = tmpNode->uri;
 			return 1;
@@ -4070,7 +4073,7 @@ void mergeCSByS2(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 			#if	NOT_MERGE_DIMENSIONCS
 			if (freqCSset->items[freqId2].type == DIMENSIONCS) continue; 
 			#endif
-
+			
 			if (isLabelComparable == 1 && isSemanticSimilar(freqId1, freqId2, (*labels), ontoUsageTree,freqCSset->numOrigFreqCS, &name) == 1){
 				//printf("Same labels between freqCS %d and freqCS %d - Old simscore is %f \n", freqId1, freqId2, simscore);
 				doMerge(freqCSset, S2, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, name);
@@ -4137,6 +4140,7 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 			#else	
 			if (simscore > SIM_THRESHOLD) {
 			#endif		
+				//printf("Merge %d and %d with simscore = %f \n",freqId1, freqId2,simscore);
 				doMerge(freqCSset, S4, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, BUN_NONE);
 			}
 		}
