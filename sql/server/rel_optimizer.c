@@ -6907,7 +6907,7 @@ rel_optimizer(mvc *sql, sql_rel *rel)
 {
 	sql_rel *ret = _rel_optimizer(sql, rel, 0);
 	
-	if(!sql->q_in_q && is_pmv_query(rel))
+	if(!sql->q_in_q && is_pmv_query(rel) && has_actual_data_table(rel))
 	{
 		sql->q_in_q = 1;
 		prepare_pmv(sql, ret);
