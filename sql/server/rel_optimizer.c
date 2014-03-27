@@ -76,6 +76,7 @@ void compute_and_insert_unavailable_required_derived_metadata(mvc* sql, sel_pred
 str* get_pkey_bound_to_dataview(str schema_name, str dmdt_name);
 str form_pkey_select_str(sel_predicate** sps, int num_PERPAD, str* pkey_bound_to_dataview, str* select_str_per_pkey);
 str get_non_pkey_select_str(str schema_name, str dmdt_name);
+void prepare_pmv(mvc* sql, sql_rel* ret);
 
 list *discovered_table_pkeys;
 
@@ -6819,6 +6820,42 @@ _rel_optimizer(mvc *sql, sql_rel *rel, int level)
 }
 
 
+void prepare_pmv(mvc* sql, sql_rel* ret)
+{
+	node* n = NULL;
+	list* list_PERPAD = NULL;
+	sel_predicate** sps = NULL;
+	int num_PERPAD = 0, i;
+	int num_pkeys_to_be_enumerated = 0;
+	int* is_pkey_to_be_enumerated;
+	discovered_table_pkeys = list_create(NULL);
+	
+	list_PERPAD = collect_PERPAD(sql, ret);
+	
+	printf("num_discovered_tables: %d\n", list_length(discovered_table_pkeys));
+	for (n = discovered_table_pkeys->h; n; n = n->next) 
+	{
+		table_pkeys *tp = n->data;
+		printf("num_pkey_columns: %d\n", list_length(tp->pkey_column_names));
+	}
+	printf("num_PERPAD: %d\n", num_PERPAD=list_length(list_PERPAD));
+	
+	sps = convert_all_into_in_clause_except_cmp_equal(list_PERPAD);
+	
+	/* enumerate the pkey space into a temp table */
+	is_pkey_to_be_enumerated = enumerate_and_insert_into_temp_table(sql, sps, num_PERPAD);
+	
+	for(i = 0; i < num_PERPAD; i++)
+	{
+		if(is_pkey_to_be_enumerated[i])
+			num_pkeys_to_be_enumerated++;
+	}
+	
+	find_out_pkey_space_for_unavailable_required_derived_metadata(sql, list_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
+	
+	compute_and_insert_unavailable_required_derived_metadata(sql, sps, num_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
+}
+
 sql_rel *
 rel_optimizer(mvc *sql, sql_rel *rel) 
 {
@@ -6826,41 +6863,8 @@ rel_optimizer(mvc *sql, sql_rel *rel)
 	
 	if(!sql->q_in_q)
 	{
-		node* n = NULL;
-		list* list_PERPAD = NULL;
-		sel_predicate** sps = NULL;
-		int num_PERPAD = 0, i;
-		int num_pkeys_to_be_enumerated = 0;
-		int* is_pkey_to_be_enumerated;
-		discovered_table_pkeys = list_create(NULL);
-		
 		sql->q_in_q = 1;
-		
-		list_PERPAD = collect_PERPAD(sql, ret);
-		
-		printf("num_discovered_tables: %d\n", list_length(discovered_table_pkeys));
-		for (n = discovered_table_pkeys->h; n; n = n->next) 
-		{
-			table_pkeys *tp = n->data;
-			printf("num_pkey_columns: %d\n", list_length(tp->pkey_column_names));
-		}
-		printf("num_PERPAD: %d\n", num_PERPAD=list_length(list_PERPAD));
-		
-		sps = convert_all_into_in_clause_except_cmp_equal(list_PERPAD);
-		
-		/* enumerate the pkey space into a temp table */
-		is_pkey_to_be_enumerated = enumerate_and_insert_into_temp_table(sql, sps, num_PERPAD);
-		
-		for(i = 0; i < num_PERPAD; i++)
-		{
-			if(is_pkey_to_be_enumerated[i])
-				num_pkeys_to_be_enumerated++;
-		}
-		
-		find_out_pkey_space_for_unavailable_required_derived_metadata(sql, list_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
-		
-		compute_and_insert_unavailable_required_derived_metadata(sql, sps, num_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
-		
+		prepare_pmv(sql, ret);
 		sql->q_in_q = 0;
 	}
 	
