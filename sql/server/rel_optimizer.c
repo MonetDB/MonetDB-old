@@ -77,6 +77,7 @@ str* get_pkey_bound_to_dataview(str schema_name, str dmdt_name);
 str form_pkey_select_str(sel_predicate** sps, int num_PERPAD, str* pkey_bound_to_dataview, str* select_str_per_pkey);
 str get_non_pkey_select_str(str schema_name, str dmdt_name);
 void prepare_pmv(mvc* sql, sql_rel* ret);
+bit is_pmv_query(sql_rel *rel);
 
 list *discovered_table_pkeys;
 
@@ -1735,6 +1736,51 @@ void compute_and_insert_unavailable_required_derived_metadata(mvc* sql, sel_pred
 
 }
 
+
+bit is_pmv_query(sql_rel *rel)
+{
+	if(rel == NULL)
+		return FALSE;
+	
+	switch (rel->op) {
+		case op_basetable:
+		case op_table:
+		{
+			sql_table *t;
+			if(rel->l != NULL)
+				t = rel->l;
+			else return FALSE;
+			if(strcmp(t->base.name, "windowmetadata") == 0)
+				return TRUE;
+			else return FALSE;
+		}
+		case op_join: 
+		case op_left: 
+		case op_right: 
+		case op_full: 
+			
+		case op_semi: 
+		case op_anti: 
+			
+		case op_union: 
+		case op_inter: 
+		case op_except: 
+			return (is_pmv_query(rel->l) || is_pmv_query(rel->r));
+		case op_project:
+		case op_select:
+		case op_groupby:
+		case op_topn:
+		case op_sample:
+		case op_ddl:
+			return is_pmv_query(rel->l);
+		case op_insert:
+		case op_update:
+		case op_delete:
+			break;
+	}
+	
+	return FALSE;
+}
 
 static bit 
 has_actual_data_table(sql_rel *rel)
@@ -6861,7 +6907,7 @@ rel_optimizer(mvc *sql, sql_rel *rel)
 {
 	sql_rel *ret = _rel_optimizer(sql, rel, 0);
 	
-	if(!sql->q_in_q)
+	if(!sql->q_in_q && is_pmv_query(rel))
 	{
 		sql->q_in_q = 1;
 		prepare_pmv(sql, ret);
