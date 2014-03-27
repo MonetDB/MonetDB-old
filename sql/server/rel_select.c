@@ -452,7 +452,7 @@ rel_basetable(mvc *sql, sql_table *t, char *atname)
 	rel->op = op_basetable;
 	rel->exps = new_exp_list(sa);
 
-	if(strstr(tname, actual_data_str) != NULL) 
+	if(strcmp(tname, actual_data_str) == 0) 
 	{
 		rel->p = prop_create(sa, PROP_ACTUAL_DATA_NEEDED, rel->p);
 	}
