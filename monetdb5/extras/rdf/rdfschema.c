@@ -121,6 +121,26 @@ static void initcsIdFreqIdxMap(int* inputArr, int num, int defaultValue, CSset *
 
 
 
+str printTKNZStringFromOid(oid id){
+	int ret; 
+	char*   schema = "rdf";
+	str propStr; 
+
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "rdf.rdfschema",
+				"could not open the tokenizer\n");
+	}
+
+	takeOid(id, &propStr);	
+	printf("String for "BUNFMT": %s\n", id, propStr);
+	
+	GDKfree(propStr); 
+	TKNZRclose(&ret);
+
+	return MAL_SUCCEED; 
+}
+
+
 char isCSTable(CS item){
 	if (item.parentFreqIdx != -1) return 0; 
 
@@ -2507,6 +2527,11 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples, int numTypeV
 		csId = *csoid; 
 		addNewCS(csBats, fullPropStat, &csKey, key, csoid, num, numTriples, numTypeValues, rdftypeOntologyValues);
 
+		//if (csId == 73){
+		//	printf("Extra info for cs 73 is: ");
+		//	printTKNZStringFromOid(rdftypeOntologyValues[0]);
+		//}
+
 		//Handle the case when freqThreshold == 1 
 		if (isStoreFreqCS ==1 && freqThreshold == 1){
 			#if STOREFULLCS
@@ -2612,7 +2637,10 @@ static int isSubset(oid* arr1, oid* arr2, int m, int n)
  * See http://disi.unitn.it/~bernardi/Courses/DL/Slides_11_12/measures.pdf
  * tf(t,d): Number of times t occurs in d. --> For a CS, tf(prop, aCS) = 1; 
  * idf(t): The rarity of a term t in the whold document collection
- * idf(t) = log(#totalNumOfCSs / #numberCSs_containing_t +1)
+ * idf(t) = log(#totalNumOfCSs / #numberCSs_containing_t)
+ * Note that, some function may use #numberCSs_containing_t + 1 as it can be division 
+ * by 0 if the term does not appear in any document. However, in our case, 
+ * every prop must appear in at least one CS
  * tf-idf(t,d,D) = tf(t,d) * idf(t,D)
  *
  * Note that: If we use normalize tf by dividing with maximum tf 
@@ -2621,7 +2649,7 @@ static int isSubset(oid* arr1, oid* arr2, int m, int n)
 
 static 
 float tfidfComp(int numContainedCSs, int totalNumCSs){
-	return log((float)totalNumCSs/(1+numContainedCSs)); 
+	return log((float)totalNumCSs/(numContainedCSs)); 
 }
 
 /*
@@ -3014,15 +3042,33 @@ void getPropStatisticsFromMergeCSs(PropStat* propStat,int  curNumMergeCS, oid* m
 
 	for (i = 0; i < propStat->numAdded; i++){
 		propStat->tfidfs[i] = tfidfComp(propStat->freqs[i],curNumMergeCS);
+
 	}
 
 	//BATprint(propStat->pBat); 
 	/*
+	{
+	int ret; 
+	char*   schema = "rdf";
+	str propStr; 
+
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		printf("Fail in opening Tokenizer \n");
+	}
+
 	for (i = 0; i < (int)BATcount(propStat->pBat); i++){
-		printf("Prop %d |||  freq: %d",i, propStat->freqs[i]);
+		oid* propId;
+		propId = (oid *) Tloc(propStat->pBat, i); 
+		takeOid(*propId, &propStr);	
+		printf("Prop %d || Id: " BUNFMT " (%s)|  freq: %d",i, *propId, propStr, propStat->freqs[i]);
 		printf("   tfidf: %f \n",propStat->tfidfs[i] );
+		GDKfree(propStr);
+	}
+
+	TKNZRclose(&ret);
 	}
 	*/
+	
 }
 
 
@@ -3549,7 +3595,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 				freqId1 = labelStat->freqIdList[i][k];
 				cs1 = &(freqCSset->items[freqId1]);
 				#if     NOT_MERGE_DIMENSIONCS
-				if (cs1->type == DIMENSIONCS) continue;
+				if (0) if (cs1->type == DIMENSIONCS) continue;
 				#endif
 				tmpCount++;
 				break; 
@@ -3558,7 +3604,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 				freqId2 = labelStat->freqIdList[i][j];
 				cs2 = &(freqCSset->items[freqId2]);
 				#if	NOT_MERGE_DIMENSIONCS
-				if (cs2->type == DIMENSIONCS) continue; 
+				if (0) if (cs2->type == DIMENSIONCS) continue; 
 				#endif
 				doMerge(freqCSset, S1, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name);
 				tmpCount++;
@@ -3728,26 +3774,7 @@ void mergeMaxFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 
 }
 
-/*
-static 
-str printTKNZStringFromOid(oid id){
-	int ret; 
-	char*   schema = "rdf";
-	str propStr; 
 
-	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
-		throw(RDF, "rdf.rdfschema",
-				"could not open the tokenizer\n");
-	}
-
-	takeOid(id, &propStr);	
-	printf("String for "BUNFMT": %s\n", id, propStr);
-
-	TKNZRclose(&ret);
-
-	return MAL_SUCCEED; 
-}
-*/
 
 static
 char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode *tree, int numOrigFreqCS, oid *ancestor){	/*Rule S1 S2 S3*/
@@ -3967,7 +3994,7 @@ void mergeCSByS2S4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, in
 			#else	
 			if (simscore > SIM_THRESHOLD) {
 			#endif		
-				//printf("S3S5: merge freqCS %d and freqCS %d (sim: %f)\n", freqId1, freqId2,simscore);
+				//printf("S4: merge freqCS %d and freqCS %d (sim: %f)\n", freqId1, freqId2,simscore);
 				//Check whether these CS's belong to any mergeCS
 				if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx == -1){	/* New merge */
 					mergecs = mergeTwoCSs(*cs1,*cs2, freqId1,freqId2, *mergecsId);
@@ -4095,15 +4122,20 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 	PropStat	*propStat; 	/* Store statistics about properties */
 	TFIDFInfo	*tfidfInfos;
 	
+	/*
+	int ret; 
+	char*   schema = "rdf";
+	str freqCSname1, freqCSname2; 
 
-	
+	TKNZRopen (NULL, &schema);
+	*/
+
 	(void) labels;
 
 	propStat = initPropStat();
 	getPropStatisticsFromMergeCSs(propStat, curNumMergeCS, mergeCSFreqCSMap, freqCSset); /*TODO: Get PropStat from MaxCSs or From mergedCS only*/
 	tfidfInfos = (TFIDFInfo*)malloc(sizeof(TFIDFInfo) * curNumMergeCS); 
 	initTFIDFInfos(tfidfInfos, curNumMergeCS, mergeCSFreqCSMap, freqCSset, propStat); 
-
 
 	for (i = 0; i < curNumMergeCS; i++){		
 		freqId1 = mergeCSFreqCSMap[i];
@@ -4120,6 +4152,8 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 			#if	NOT_MERGE_DIMENSIONCS
 			if (cs2->type == DIMENSIONCS) continue; 
 			#endif
+			
+			if (cs1->parentFreqIdx != -1 && cs1->parentFreqIdx == cs2->parentFreqIdx) continue; //They have already been merged
 
 			if(USINGTFIDF == 0){
 				simscore = similarityScore(cs1->lstProp, cs2->lstProp,
@@ -4139,13 +4173,21 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 			if (simscore > SIM_TFIDF_THRESHOLD){
 			#else	
 			if (simscore > SIM_THRESHOLD) {
-			#endif		
-				//printf("Merge %d and %d with simscore = %f \n",freqId1, freqId2,simscore);
+			#endif	
+				/*
+				takeOid((*labels)[freqId1].name, &freqCSname1);	
+				takeOid((*labels)[freqId2].name, &freqCSname2);	
+				printf("Merge %d (%s) and %d (%s) with simscore = %f \n",freqId1, freqCSname1, freqId2, freqCSname2, simscore);
+				GDKfree(freqCSname1);
+				GDKfree(freqCSname2);
+				*/
 				doMerge(freqCSset, S4, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, BUN_NONE);
 			}
 		}
 	}
 
+
+	//TKNZRclose(&ret);
 
 	freePropStat(propStat);
 	freeTFIDFInfo(tfidfInfos, curNumMergeCS);

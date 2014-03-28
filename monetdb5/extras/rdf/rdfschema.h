@@ -456,5 +456,8 @@ createTreeForCSset(CSset *freqCSset);
 rdf_export char
 isCSTable(CS item); 
 
+rdf_export str
+printTKNZStringFromOid(oid id);
+
 
 #endif /* _RDFSCHEMA_H_ */

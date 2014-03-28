@@ -1472,6 +1472,7 @@ void createOntologyLookupResult(oid** result, CSset* freqCSset, int* resultCount
 
 		// get class names
 		resultCount[i] = 0;
+		
 		result[i] = getOntologyCandidates(ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &(resultCount[i]), propOntologiesOids, propOntologiesCount, ontologyCount, propStat);
 
 		for (j = 0; j < ontologyCount; ++j) {
@@ -2082,6 +2083,110 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	(void) ontmetaBat;
 
 
+	// --- TYPE ---
+	// get most frequent type value per type attribute
+	tmpList = NULL;
+	tmpListCount = 0;
+	for (i = 0; i < typeAttributesCount; ++i) {
+		if (typeAttributesHistogramCount[csIdx][i] == 0) continue;
+		/*   //TODO: Uncomment this path
+		for (j = 0; j < typeAttributesHistogramCount[csIdx][i]; j++){
+			str typelabel; 
+			BUN		ontClassPos; 	//Position of ontology in the ontmetaBat
+			oid		typeOid; 	
+
+			typeOid = typeAttributesHistogram[csIdx][i][j].value;
+			printf("FreqCS %d : Type[%d][%d][oid] = " BUNFMT, csIdx, i,j, typeOid);
+			ontClassPos = BUNfnd(BATmirror(ontmetaBat), &typeOid); 
+			if (ontClassPos != BUN_NONE){
+				takeOid(typeOid,&typelabel);
+				assert(ontclassSet[ontClassPos].cOid == typeOid); 
+				printf(" --> class %s | Index = %d |Specific level: %d \n", typelabel, (int)ontClassPos, ontclassSet[ontClassPos].hierDepth);
+				GDKfree(typelabel);
+			}
+			else{
+				printf(" --> No class \n");	
+			}
+		}
+		*/
+		if (typeAttributesHistogram[csIdx][i][0].percent < TYPE_FREQ_THRESHOLD) continue; // sorted
+		tmpList = (oid *) realloc(tmpList, sizeof(oid) * (tmpListCount + 1));
+		if (!tmpList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+
+		// of all values that are >= TYPE_FREQ_THRESHOLD, choose the value with the highest hierarchy level ("deepest" value)
+		maxDepthOid = typeAttributesHistogram[csIdx][i][0].value;
+		maxFreq = typeAttributesHistogram[csIdx][i][0].freq;
+		for (j = 1; j < typeAttributesHistogramCount[csIdx][i]; ++j) {
+			int depth, maxDepth;
+			int freq;
+			if (typeAttributesHistogram[csIdx][i][j].percent < TYPE_FREQ_THRESHOLD) break;
+			depth = ontclassSet[BUNfnd(BATmirror(ontmetaBat), &typeAttributesHistogram[csIdx][i][j].value)].hierDepth;
+			maxDepth = ontclassSet[BUNfnd(BATmirror(ontmetaBat), &maxDepthOid)].hierDepth;
+			freq = typeAttributesHistogram[csIdx][i][j].freq;
+			if (depth > maxDepth) {
+				// choose value with higher hierarchy level
+				maxDepthOid = typeAttributesHistogram[csIdx][i][j].value;
+				maxFreq = freq;
+			} else if (depth == maxDepth && freq > maxFreq) {
+				// if both values are on the same level, choose the value with higher frequency
+				maxDepthOid = typeAttributesHistogram[csIdx][i][j].value;
+				maxFreq = freq;
+			}
+		}
+		tmpList[tmpListCount] = maxDepthOid;
+		tmpListCount += 1;
+	}
+
+	// add all most frequent type values to list of candidates
+	if (tmpListCount >= 1) {
+		int counter = 0;
+		label->candidatesType = tmpListCount;
+		label->candidates = GDKrealloc(label->candidates, sizeof(oid) * (label->candidatesCount + tmpListCount));
+		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+		for (i = 0; i < typeStatCount; ++i) {
+			for (j = 0; j < tmpListCount; ++j) {
+				if (typeStat[i].value == tmpList[j]) {
+					label->candidates[label->candidatesCount + counter] = tmpList[j];
+					counter++;
+				}
+			}
+		}
+		assert(counter == tmpListCount);
+		label->candidatesCount += tmpListCount;
+	}
+
+	if (!nameFound) {
+		// one type attribute --> use most frequent one
+		if (tmpListCount == 1) {
+			// only one type attribute, use most frequent value (sorted)
+			label->name = tmpList[0];
+			nameFound = 1;
+			#if INFO_WHERE_NAME_FROM
+			label->isType = 1; 
+			#endif
+
+		}
+	}
+
+	if (!nameFound) {
+		// multiple type attributes --> use the one with fewest occurances in other CS's
+		if (tmpListCount > 1) {
+			for (i = 0; i < typeStatCount && !nameFound; ++i) {
+				for (j = 0; j < tmpListCount && !nameFound; ++j) {
+					if (typeStat[i].value == tmpList[j]) {
+						label->name = tmpList[j];
+						nameFound = 1;
+
+						#if INFO_WHERE_NAME_FROM
+						label->isType = 1; 
+						#endif
+					}
+				}
+			}
+		}
+	}
+
+
 	// --- ONTOLOGY ---
 	// add all ontology candidates to list of candidates
 	if (resultCount[csIdx] >= 1) {
@@ -2095,6 +2200,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	}
 
 	// one ontology class --> use it
+	if (!nameFound){
 	if (resultCount[csIdx] == 1) {
 		label->name = result[csIdx][0];
 		label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
@@ -2102,6 +2208,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		#if INFO_WHERE_NAME_FROM
 		label->isOntology = 1; 
 		#endif
+	}
 	}
 
 	if (!nameFound) {
@@ -2166,108 +2273,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		}
 	}
 
-	// --- TYPE ---
-	// get most frequent type value per type attribute
-	tmpList = NULL;
-	tmpListCount = 0;
-	for (i = 0; i < typeAttributesCount; ++i) {
-		if (typeAttributesHistogramCount[csIdx][i] == 0) continue;
-		/*   //TODO: Uncomment this path
-		for (j = 0; j < typeAttributesHistogramCount[csIdx][i]; j++){
-			str typelabel; 
-			BUN		ontClassPos; 	//Position of ontology in the ontmetaBat
-			oid		typeOid; 	
 
-			typeOid = typeAttributesHistogram[csIdx][i][j].value;
-			printf("FreqCS %d : Type[%d][%d][oid] = " BUNFMT, csIdx, i,j, typeOid);
-			ontClassPos = BUNfnd(BATmirror(ontmetaBat), &typeOid); 
-			if (ontClassPos != BUN_NONE){
-				takeOid(typeOid,&typelabel);
-				assert(ontclassSet[ontClassPos].cOid == typeOid); 
-				printf(" --> class %s | Index = %d |Specific level: %d \n", typelabel, (int)ontClassPos, ontclassSet[ontClassPos].hierDepth);
-				GDKfree(typelabel);
-			}
-			else{
-				printf(" --> No class \n");	
-			}
-		}
-		*/
-		if (typeAttributesHistogram[csIdx][i][0].percent < TYPE_FREQ_THRESHOLD) continue; // sorted
-		tmpList = (oid *) realloc(tmpList, sizeof(oid) * (tmpListCount + 1));
-		if (!tmpList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-
-		// of all values that are >= TYPE_FREQ_THRESHOLD, choose the value with the highest hierarchy level ("deepest" value)
-		maxDepthOid = typeAttributesHistogram[csIdx][i][0].value;
-		maxFreq = typeAttributesHistogram[csIdx][i][0].freq;
-		for (j = 1; j < typeAttributesHistogramCount[csIdx][i]; ++j) {
-			int depth, maxDepth;
-			int freq;
-			if (typeAttributesHistogram[csIdx][i][j].percent < TYPE_FREQ_THRESHOLD) break;
-			depth = ontclassSet[BUNfnd(BATmirror(ontmetaBat), &typeAttributesHistogram[csIdx][i][j].value)].hierDepth;
-			maxDepth = ontclassSet[BUNfnd(BATmirror(ontmetaBat), &maxDepthOid)].hierDepth;;
-			freq = typeAttributesHistogram[csIdx][i][j].freq;
-			if (depth > maxDepth) {
-				// choose value with higher hierarchy level
-				maxDepthOid = typeAttributesHistogram[csIdx][i][j].value;
-				maxFreq = freq;
-			} else if (depth == maxDepth && freq > maxFreq) {
-				// if both values are on the same level, choose the value with higher frequency
-				maxDepthOid = typeAttributesHistogram[csIdx][i][j].value;
-				maxFreq = freq;
-			}
-		}
-		tmpList[tmpListCount] = maxDepthOid;
-		tmpListCount += 1;
-	}
-
-	// add all most frequent type values to list of candidates
-	if (tmpListCount >= 1) {
-		int counter = 0;
-		label->candidatesType = tmpListCount;
-		label->candidates = GDKrealloc(label->candidates, sizeof(oid) * (label->candidatesCount + tmpListCount));
-		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-		for (i = 0; i < typeStatCount; ++i) {
-			for (j = 0; j < tmpListCount; ++j) {
-				if (typeStat[i].value == tmpList[j]) {
-					label->candidates[label->candidatesCount + counter] = tmpList[j];
-					counter++;
-				}
-			}
-		}
-		assert(counter == tmpListCount);
-		label->candidatesCount += tmpListCount;
-	}
-
-	if (!nameFound) {
-		// one type attribute --> use most frequent one
-		if (tmpListCount == 1) {
-			// only one type attribute, use most frequent value (sorted)
-			label->name = tmpList[0];
-			nameFound = 1;
-			#if INFO_WHERE_NAME_FROM
-			label->isType = 1; 
-			#endif
-
-		}
-	}
-
-	if (!nameFound) {
-		// multiple type attributes --> use the one with fewest occurances in other CS's
-		if (tmpListCount > 1) {
-			for (i = 0; i < typeStatCount && !nameFound; ++i) {
-				for (j = 0; j < tmpListCount && !nameFound; ++j) {
-					if (typeStat[i].value == tmpList[j]) {
-						label->name = tmpList[j];
-						nameFound = 1;
-
-						#if INFO_WHERE_NAME_FROM
-						label->isType = 1; 
-						#endif
-					}
-				}
-			}
-		}
-	}
 
 	// --- FK ---
 	// add top3 fk values to list of candidates

@@ -92,7 +92,8 @@ enum {
 
 #define FK_FREQ_THRESHOLD 25		// X % of the targeted subjects have to be in this table
 #define TYPE_FREQ_THRESHOLD 80		// X % of the type values have to be this value
-#define ONTOLOGY_FREQ_THRESHOLD 0.4	// similarity threshold for tfidf simularity for ontology classes
+//#define ONTOLOGY_FREQ_THRESHOLD 0.4	// similarity threshold for tfidf simularity for ontology classes
+#define ONTOLOGY_FREQ_THRESHOLD 0.8	// similarity threshold for tfidf simularity for ontology classes
 
 #define USE_SHORT_NAMES 1		// use getPropNameShort()
 #define USE_TYPE_NAMES 1		// use type attribute values for labeling
