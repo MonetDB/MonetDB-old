@@ -1307,7 +1307,7 @@ str VAL2str(ValRecord* valp)
 
 /* form and run this kind of query:
  * 
- INSERT INTO tt_res SELECT * FROM tt LEFT OUTER JOIN (SELECT d_st FROM days WHERE d_st >= '2013-01-08' AND d_st <= '2013-01-22') AS dd ON tt.d = dd.d_st;*
+ INSERT INTO tt_res SELECT * FROM (SELECT * FROM tt LEFT OUTER JOIN (SELECT d_st FROM days WHERE d_st >= '2013-01-08' AND d_st <= '2013-01-22') AS dd ON tt.d = dd.d_st) AS ee WHERE ee.d_st IS NULL;
  */
 void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, list* list_of_PERPAD, int* is_pkey_to_be_enumerated, int num_pkeys_to_be_enumerated)
 {
@@ -1316,7 +1316,7 @@ void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, lis
 	int i,j;
 	node *n = NULL;
 	int num_sp;
-	str s, table_name, buf2, q, schema_name, r;
+	str s, table_name, buf2, q, schema_name, r, s2;
 	char temp_column_name;
 	char temp_column_name_start = 97;
 	str temp_table_name = "tt";
@@ -1443,7 +1443,7 @@ void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, lis
 		}
 	}
 	
-	r = "FROM %s LEFT OUTER JOIN (%s) AS aa ON ";
+	r = "FROM (SELECT * FROM %s LEFT OUTER JOIN (%s) AS aa ON ";
 	buf2 = (str)GDKmalloc((strlen(q) + strlen(r))*sizeof(char));
 	sprintf(buf2, "%s%s", q, r);
 	q = GDKstrdup(buf2);
@@ -1459,7 +1459,7 @@ void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, lis
 			str buf = (str)GDKmalloc((BUFSIZ + num_pkeys_to_be_enumerated * 128)*sizeof(char));
 			j++;
 			if(j == num_pkeys_to_be_enumerated)
-				sprintf(buf, "%s %s.%c = aa.%s;\n", q, temp_table_name, temp_column_name, sp->column->base.name);
+				sprintf(buf, "%s %s.%c = aa.%s", q, temp_table_name, temp_column_name, sp->column->base.name);
 			else
 				sprintf(buf, "%s %s.%c = aa.%s AND ", q, temp_table_name, temp_column_name, sp->column->base.name);
 			q = GDKstrdup(buf);
@@ -1468,6 +1468,31 @@ void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, lis
 			
 		}
 	}
+	
+	s2 = ") AS bb WHERE ";
+	buf2 = (str)GDKmalloc((strlen(q) + strlen(s2))*sizeof(char));
+	sprintf(buf2, "%s%s", q, s2);
+	q = GDKstrdup(buf2);
+	GDKfree(buf2);
+	
+	for (n = list_of_PERPAD->h, i = 0, j = 0; n; n = n->next, i++) 
+	{
+		sel_predicate *sp = n->data;
+		
+		if(is_pkey_to_be_enumerated[i])
+		{
+			str buf = (str)GDKmalloc((BUFSIZ + num_pkeys_to_be_enumerated * 128)*sizeof(char));
+			j++;
+			if(j == num_pkeys_to_be_enumerated)
+				sprintf(buf, "%s bb.%s IS NULL;\n", q, sp->column->base.name);
+			else
+				sprintf(buf, "%s bb.%s IS NULL AND ", q, sp->column->base.name);
+			q = GDKstrdup(buf);
+			GDKfree(buf);
+			
+		}
+	}
+	
 	
 	buf2 = (str)GDKmalloc((strlen(q) + 128 + strlen(s))*sizeof(char));
 	sprintf(buf2, q, temp_table_name_res, temp_table_name, s);
