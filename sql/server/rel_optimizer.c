@@ -79,6 +79,7 @@ str get_non_pkey_select_str(str schema_name, str dmdt_name);
 void prepare_pmv(mvc* sql, sql_rel* ret);
 bit is_pmv_query(sql_rel *rel);
 void clean_up_temps(mvc* sql);
+bit is_pmv(sql_table* t);
 
 list *discovered_table_pkeys;
 
@@ -681,6 +682,17 @@ list* extract_column_names_from_list_of_columns(list* list_of_sql_kc)
 	return list_of_str;
 }
 
+/* TODO: need a better measure to recognize pmv.
+ */
+bit is_pmv(sql_table* t)
+{
+	if(strcmp(t->base.name, "windowmetadata") == 0)
+		return TRUE;
+	else return FALSE;
+}
+
+
+
 
 list* collect_PERPAD(mvc *sql, sql_rel *rel)
 {
@@ -768,9 +780,8 @@ list* collect_PERPAD(mvc *sql, sql_rel *rel)
 						if(find_prop(el->p, PROP_HASHCOL))
 						{
 							sql_ukey *su = (sql_ukey*) ((prop*)el->p)->value;
-							if(!is_table_in_list_table_pkeys(discovered_table_pkeys, c->t))
+							if(is_pmv(c->t) && !is_table_in_list_table_pkeys(discovered_table_pkeys, c->t))
 							{
-								// TODO: add the table only if it is a partially materialized view
 								table_pkeys *tp = (table_pkeys*) GDKmalloc(sizeof(table_pkeys));
 								tp->table_name = GDKstrdup(c->t->base.name);
 								tp->pkey_column_names = extract_column_names_from_list_of_columns(su->k.columns);
