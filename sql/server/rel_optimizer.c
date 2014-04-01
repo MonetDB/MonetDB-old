@@ -692,8 +692,6 @@ list* collect_PERPAD(mvc *sql, sql_rel *rel)
 	if(rel == NULL)
 		return NULL;
 	
-	printf("=====enter: collect_PERPAD\n");
-	
 	switch (rel->op) 
 	{
 		case op_basetable:
@@ -721,7 +719,6 @@ list* collect_PERPAD(mvc *sql, sql_rel *rel)
 		case op_project:
 			return collect_PERPAD(sql, rel->l);
 		case op_select:
-			printf("op_select!\n");
 			if(rel->exps == NULL)
 				break;
 			
@@ -735,7 +732,7 @@ list* collect_PERPAD(mvc *sql, sql_rel *rel)
 			{
 				sql_exp *e = n->data;
 			
-				printf("i: %d\n", i);
+				printf("i: %d. predicate\n", i);
 				if(e == NULL)
 					continue;
 				
@@ -766,7 +763,7 @@ list* collect_PERPAD(mvc *sql, sql_rel *rel)
 						c = exp_find_column(rel, el, -1);
 						if(c == NULL)
 							continue;
-						printf("column: %s & table: %s & er_type: %d & atom: %s & atom_r: %s\n", c->base.name, c->t->base.name, er->type, er->name, er->rname);
+						printf("column: %s & table: %s & er_type: %d\n", c->base.name, c->t->base.name, er->type);
 						
 						if(find_prop(el->p, PROP_HASHCOL))
 						{
@@ -6950,6 +6947,7 @@ void prepare_pmv(mvc* sql, sql_rel* ret)
 	int* is_pkey_to_be_enumerated;
 	discovered_table_pkeys = list_create(NULL);
 	
+	printf("Collecting PERPAD... \n");
 	/* find out the PrEdicates Referring to Primary key Attributes of Derived metadata table (PERPAD) of the query */
 	list_PERPAD = collect_PERPAD(sql, ret);
 	
@@ -6967,6 +6965,7 @@ void prepare_pmv(mvc* sql, sql_rel* ret)
 	/* enumerate the pkey space into a temp table */
 	is_pkey_to_be_enumerated = enumerate_and_insert_into_temp_table(sql, sps, num_PERPAD);
 	
+	/* how many of the pkeys are without an equality predicate? */
 	for(i = 0; i < num_PERPAD; i++)
 	{
 		if(is_pkey_to_be_enumerated[i])
