@@ -6950,6 +6950,7 @@ void prepare_pmv(mvc* sql, sql_rel* ret)
 	int* is_pkey_to_be_enumerated;
 	discovered_table_pkeys = list_create(NULL);
 	
+	/* find out the PrEdicates Referring to Primary key Attributes of Derived metadata table (PERPAD) of the query */
 	list_PERPAD = collect_PERPAD(sql, ret);
 	
 	printf("num_discovered_tables: %d\n", list_length(discovered_table_pkeys));
@@ -6960,6 +6961,7 @@ void prepare_pmv(mvc* sql, sql_rel* ret)
 	}
 	printf("num_PERPAD: %d\n", num_PERPAD=list_length(list_PERPAD));
 	
+	/* convert all PERPAD into IN clauses except if they are equality.*/
 	sps = convert_all_into_in_clause_except_cmp_equal(list_PERPAD);
 	
 	/* enumerate the pkey space into a temp table */
@@ -6971,10 +6973,13 @@ void prepare_pmv(mvc* sql, sql_rel* ret)
 			num_pkeys_to_be_enumerated++;
 	}
 	
+	/* find out the required mEtadata to be Derived -- the unavailables */
 	find_out_pkey_space_for_unavailable_required_derived_metadata(sql, list_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
 	
+	/* derive the unavailables and insert into DMdT */
 	compute_and_insert_unavailable_required_derived_metadata(sql, sps, num_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
 	
+	/* remove temp tables */
 	clean_up_temps(sql);
 	
 }
