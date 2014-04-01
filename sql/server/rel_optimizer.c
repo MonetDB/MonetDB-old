@@ -78,6 +78,7 @@ str form_pkey_select_str(sel_predicate** sps, int num_PERPAD, str* pkey_bound_to
 str get_non_pkey_select_str(str schema_name, str dmdt_name);
 void prepare_pmv(mvc* sql, sql_rel* ret);
 bit is_pmv_query(sql_rel *rel);
+void clean_up_temps(mvc* sql);
 
 list *discovered_table_pkeys;
 
@@ -1759,6 +1760,54 @@ void compute_and_insert_unavailable_required_derived_metadata(mvc* sql, sel_pred
 	
 	GDKfree(q);
 
+}
+
+
+void clean_up_temps(mvc* sql)
+{
+	str temp_table_name = "tt";
+	str temp_table_name_res = "tt_res";
+	str s, q, s2, q2, msg;
+	Client cntxt;
+	
+	/* DROP temp tables */
+	s = "DROP TABLE %s;";
+	q = "DROP TABLE %s;";
+	
+	s2 = (str)GDKmalloc(BUFSIZ*sizeof(char));
+	sprintf(s2, s, temp_table_name);
+	s = GDKstrdup(s2);
+	GDKfree(s2);
+	
+	q2 = (str)GDKmalloc(BUFSIZ*sizeof(char));
+	sprintf(q2, q, temp_table_name_res);
+	q = GDKstrdup(q2);
+	GDKfree(q2);
+	
+	cntxt = MCgetClient(sql->clientid);
+	
+	if((msg = SQLstatementIntern(cntxt,&s,"pmv.drop_temp",TRUE,FALSE)) != MAL_SUCCEED)
+	{/* drop temp table not succeeded. What to do? */
+		printf("***query didnt work, %s: %s\n", msg, s);
+		return;
+	}
+	
+	if((msg = SQLstatementIntern(cntxt,&q,"pmv.drop_temp_res",TRUE,FALSE)) != MAL_SUCCEED)
+	{/* drop temp table not succeeded. What to do? */
+		printf("***query didnt work, %s: %s\n", msg, q);
+		return;
+	}
+	
+	if(mvc_commit(sql, 0, NULL) < 0)
+	{/* committing failed */
+		// 		throw(MAL,"pmv.create_temp_table", "committing failed\n");
+		printf("***commit didnt work: %s OR %s\n", s, q);
+		return;
+	}
+	
+	GDKfree(s);
+	GDKfree(q);
+	
 }
 
 
@@ -6925,6 +6974,9 @@ void prepare_pmv(mvc* sql, sql_rel* ret)
 	find_out_pkey_space_for_unavailable_required_derived_metadata(sql, list_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
 	
 	compute_and_insert_unavailable_required_derived_metadata(sql, sps, num_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
+	
+	clean_up_temps(sql);
+	
 }
 
 sql_rel *
