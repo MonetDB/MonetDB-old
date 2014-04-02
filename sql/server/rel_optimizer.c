@@ -1202,14 +1202,12 @@ int* enumerate_and_insert_into_temp_table(mvc *sql, sel_predicate** sps, int num
 	
 	cntxt = MCgetClient(sql->clientid);
 	
-	/* TODO: how long will this temp table stay? There might be a new query trying to recreate it. */
 	if(SQLstatementIntern(cntxt,&q,"pmv.create_temp_table",TRUE,FALSE)!= MAL_SUCCEED)
 	{/* insert into query not succeeded, what to do */
 		printf("***query didnt work: %s\n", q);
 		return NULL;
 	}
 	
-	/* TODO: how long will this temp table stay? There might be a new query trying to recreate it. */
 	if(SQLstatementIntern(cntxt,&q2,"pmv.create_temp_table_res",TRUE,FALSE)!= MAL_SUCCEED)
 	{/* insert into query not succeeded, what to do */
 		printf("***query didnt work: %s\n", q);
@@ -1513,7 +1511,6 @@ void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, lis
 	
 	cntxt = MCgetClient(sql->clientid);
 	
-	/* TODO: how long will this temp table stay? There might be a new query trying to recreate it. */
 	if(SQLstatementIntern(cntxt,&q,"pmv.left_outer_join",TRUE,FALSE)!= MAL_SUCCEED)
 	{/* insert into query not succeeded, what to do */
 		printf("***query didnt work: %s\n", q);
@@ -1752,7 +1749,6 @@ void compute_and_insert_unavailable_required_derived_metadata(mvc* sql, sel_pred
 	
 	cntxt = MCgetClient(sql->clientid);
 	
-	/* TODO: how long will this temp table stay? There might be a new query trying to recreate it. */
 	if((msg = SQLstatementIntern(cntxt,&q,"pmv.insert_unavailable",TRUE,FALSE)) != MAL_SUCCEED)
 	{/* insert into query not succeeded, what to do */
 		printf("***query didnt work, %s: %s\n", msg, q);
