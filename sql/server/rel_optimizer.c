@@ -71,7 +71,7 @@ int enumerate_pkey_space(str** ret, sel_predicate** sps, int sps_enum_start, int
 int* enumerate_and_insert_into_temp_table(mvc *sql, sel_predicate** sps, int num_PERPAD);
 str SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output);
 str VAL2str(ValRecord* valp);
-void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, list* list_of_PERPAD, int* is_pkey_to_be_enumerated, int num_pkeys_to_be_enumerated);
+int find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, list* list_of_PERPAD, int* is_pkey_to_be_enumerated, int num_pkeys_to_be_enumerated);
 void compute_and_insert_unavailable_required_derived_metadata(mvc* sql, sel_predicate** sps, int num_PERPAD, int* is_pkey_to_be_enumerated, int num_pkeys_to_be_enumerated);
 str* get_pkey_bound_to_dataview(str schema_name, str dmdt_name);
 str form_pkey_select_str(sel_predicate** sps, int num_PERPAD, str* pkey_bound_to_dataview, str* select_str_per_pkey);
@@ -1175,6 +1175,9 @@ int* enumerate_and_insert_into_temp_table(mvc *sql, sel_predicate** sps, int num
 			is_pkey_to_be_enumerated[i] = 0;
 	}
 	
+	if(num_pkeys_to_be_enumerated == 0)
+		return is_pkey_to_be_enumerated;
+	
 	s = "CREATE TEMP TABLE %s (";
 	j = 0;
 	temp_column_name = temp_column_name_start;
@@ -1323,38 +1326,43 @@ str VAL2str(ValRecord* valp)
  * 
  INSERT INTO tt_res SELECT * FROM (SELECT * FROM tt LEFT OUTER JOIN (SELECT d_st FROM days WHERE d_st >= '2013-01-08' AND d_st <= '2013-01-22') AS dd ON tt.d = dd.d_st) AS ee WHERE ee.d_st IS NULL;
  */
-void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, list* list_of_PERPAD, int* is_pkey_to_be_enumerated, int num_pkeys_to_be_enumerated)
+int find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, list* list_of_PERPAD, int* is_pkey_to_be_enumerated, int num_pkeys_to_be_enumerated)
 {
 	/* Form the sub-query. That has the PERPAD, but like in the original query */
 	
 	int i,j;
 	node *n = NULL;
 	int num_sp;
-	str s, table_name, buf2, q, schema_name, r, s2;
+	str s, table_name, buf2, q, schema_name, r, s2, dq;
 	char temp_column_name;
 	Client cntxt;
 		
 	if(list_of_PERPAD == NULL || is_pkey_to_be_enumerated == NULL)
-		return;
+		return 1;
 	
 	num_sp = list_length(list_of_PERPAD);
 	
-	s = "SELECT ";
-	
-	for (n = list_of_PERPAD->h, i = 0, j = 0; n; n = n->next, i++) 
+	if(num_pkeys_to_be_enumerated == 0)  // point query
+		s = "SELECT COUNT(*) INTO is_there";
+	else
 	{
-		sel_predicate *sp = n->data;
+		s = "SELECT ";
 		
-		if(is_pkey_to_be_enumerated[i])
+		for (n = list_of_PERPAD->h, i = 0, j = 0; n; n = n->next, i++) 
 		{
-			str buf = (str)GDKmalloc(num_sp*64*sizeof(char));
-			j++;
-			if(j == num_pkeys_to_be_enumerated)
-				sprintf(buf, "%s %s", s, sp->column->base.name);
-			else
-				sprintf(buf, "%s %s,", s, sp->column->base.name);
-			s = GDKstrdup(buf);
-			GDKfree(buf);
+			sel_predicate *sp = n->data;
+			
+			if(is_pkey_to_be_enumerated[i])
+			{
+				str buf = (str)GDKmalloc(num_sp*64*sizeof(char));
+				j++;
+				if(j == num_pkeys_to_be_enumerated)
+					sprintf(buf, "%s %s", s, sp->column->base.name);
+				else
+					sprintf(buf, "%s %s,", s, sp->column->base.name);
+				s = GDKstrdup(buf);
+				GDKfree(buf);
+			}
 		}
 	}
 	
@@ -1430,7 +1438,52 @@ void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, lis
 		GDKfree(buf);
 	}
 	
+	if(num_pkeys_to_be_enumerated == 0)
+	{
+		str buf = (str)GDKmalloc(num_sp*128*sizeof(char));
+		sprintf(buf, "%s;\n", s);
+		s = GDKstrdup(buf);
+		GDKfree(buf);
+	}
+	
 	printf("subquery: %s\n", s);
+	
+	cntxt = MCgetClient(sql->clientid);
+	
+	if(num_pkeys_to_be_enumerated == 0)
+	{
+		ValRecord *v;
+		v = stack_get_var(sql, "is_there");
+		
+		if(v == NULL)
+		{
+			dq = "DECLARE is_there INTEGER;\n";
+			
+			if(SQLstatementIntern(cntxt,&dq,"pmv.declare_count_var",TRUE,FALSE)!= MAL_SUCCEED)
+			{/* insert into query not succeeded, what to do */
+				printf("***query didnt work: %s\n", dq);
+				return 1;
+			}
+		}
+		
+		if(SQLstatementIntern(cntxt,&s,"pmv.point_query_check",TRUE,FALSE)!= MAL_SUCCEED)
+		{/* insert into query not succeeded, what to do */
+			printf("***query didnt work: %s\n", s);
+			return 1;
+		}
+		
+		v = stack_get_var(sql, "is_there");
+		
+		GDKfree(s);
+		
+		if(v->val.ival > 0)
+			return 0;
+		else if(v->val.ival == 0)
+			return 1;
+		
+		printf("*** point_query_check went wrong!!\n");
+		return 1;
+	}
 	
 	
 	/* form the query */
@@ -1513,23 +1566,22 @@ void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, lis
 	printf("query: %s\n", q);
 	
 	
-	cntxt = MCgetClient(sql->clientid);
-	
 	if(SQLstatementIntern(cntxt,&q,"pmv.left_outer_join",TRUE,FALSE)!= MAL_SUCCEED)
 	{/* insert into query not succeeded, what to do */
 		printf("***query didnt work: %s\n", q);
-		return;
+		return 1;
 	}
 	
 	if(mvc_commit(sql, 0, NULL) < 0)
 	{/* committing failed */
 		// 		throw(MAL,"pmv.create_temp_table", "committing failed\n");
 		printf("***commit didnt work: %s\n", q);
-		return;
+		return 1;
 	}
 	
 	GDKfree(s);
 	GDKfree(q);
+	return 1;
 }
 
 str* get_pkey_bound_to_dataview(str schema_name, str dmdt_name)
@@ -6951,7 +7003,7 @@ void prepare_pmv(mvc* sql, sql_rel* ret)
 	node* n = NULL;
 	list* list_PERPAD = NULL;
 	sel_predicate** sps = NULL;
-	int num_PERPAD = 0, i;
+	int num_PERPAD = 0, i, is_further_derivation_needed = 0;
 	int num_pkeys_to_be_enumerated = 0;
 	int* is_pkey_to_be_enumerated;
 	discovered_table_pkeys = list_create(NULL);
@@ -6982,13 +7034,15 @@ void prepare_pmv(mvc* sql, sql_rel* ret)
 	}
 	
 	/* find out the required mEtadata to be Derived -- the unavailables */
-	find_out_pkey_space_for_unavailable_required_derived_metadata(sql, list_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
+	is_further_derivation_needed = find_out_pkey_space_for_unavailable_required_derived_metadata(sql, list_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
 	
 	/* derive the unavailables and insert into DMdT */
-	compute_and_insert_unavailable_required_derived_metadata(sql, sps, num_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
+	if(is_further_derivation_needed)
+		compute_and_insert_unavailable_required_derived_metadata(sql, sps, num_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
 	
 	/* remove temp tables */
-	clean_up_temps(sql);
+	if(is_further_derivation_needed)
+		clean_up_temps(sql);
 	
 }
 
