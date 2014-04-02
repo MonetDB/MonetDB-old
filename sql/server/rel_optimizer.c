@@ -1823,7 +1823,7 @@ bit is_pmv_query(sql_rel *rel)
 			if(rel->l != NULL)
 				t = rel->l;
 			else return FALSE;
-			if(strcmp(t->base.name, "windowmetadata") == 0)
+			if(is_pmv(t))
 				return TRUE;
 			else return FALSE;
 		}
