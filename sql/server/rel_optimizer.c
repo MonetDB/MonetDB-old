@@ -82,6 +82,9 @@ void clean_up_temps(mvc* sql);
 bit is_pmv(sql_table* t);
 
 list *discovered_table_pkeys;
+static char temp_column_name_start = 97;
+static str temp_table_name = "tt";
+static str temp_table_name_res = "tt_res";
 
 /* The important task of the relational optimizer is to optimize the
    join order. 
@@ -1146,9 +1149,7 @@ int* enumerate_and_insert_into_temp_table(mvc *sql, sel_predicate** sps, int num
 	
 	int i, j, num_pkeys_to_be_enumerated = 0;
 	int *is_pkey_to_be_enumerated = (int*) GDKmalloc(num_PERPAD * sizeof(int));
-	char temp_column_name = 97;
-	str temp_table_name = "tt";
-	str temp_table_name_res = "tt_res";
+	char temp_column_name;
 	str s, q, buf2, q2;
 	str* enumerated_pkeys = NULL;
 	int num_enumerated_pkeys;
@@ -1172,6 +1173,7 @@ int* enumerate_and_insert_into_temp_table(mvc *sql, sel_predicate** sps, int num
 	
 	s = "CREATE TEMP TABLE %s (";
 	j = 0;
+	temp_column_name = temp_column_name_start;
 	for(i = 0; i < num_PERPAD; i++)
 	{
 		if(is_pkey_to_be_enumerated[i])
@@ -1325,9 +1327,6 @@ void find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, lis
 	int num_sp;
 	str s, table_name, buf2, q, schema_name, r, s2;
 	char temp_column_name;
-	char temp_column_name_start = 97;
-	str temp_table_name = "tt";
-	str temp_table_name_res = "tt_res";
 	Client cntxt;
 		
 	if(list_of_PERPAD == NULL || is_pkey_to_be_enumerated == NULL)
@@ -1593,8 +1592,6 @@ void compute_and_insert_unavailable_required_derived_metadata(mvc* sql, sel_pred
 	str* select_str_per_pkey;
 	str* pkey_bound_to_dataview;
 	char temp_column_name;
-	char temp_column_name_start = 97;
-	str temp_table_name_res = "tt_res";
 	str time_pkey_id = "1";
 	int isnt_time_pkey = 1;
 	int idx_time_pkey = -1;
@@ -1769,8 +1766,6 @@ void compute_and_insert_unavailable_required_derived_metadata(mvc* sql, sel_pred
 
 void clean_up_temps(mvc* sql)
 {
-	str temp_table_name = "tt";
-	str temp_table_name_res = "tt_res";
 	str s, q, s2, q2, msg;
 	Client cntxt;
 	
