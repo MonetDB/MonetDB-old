@@ -1056,6 +1056,10 @@ sel_predicate** convert_all_into_in_clause_except_cmp_equal(list *list_of_PERPAD
 						}
 						assert(current->days == th->days && current->msecs == th->msecs);
 						
+						GDKfree(th);
+						GDKfree(current);
+						GDKfree(next);
+						
 						break;
 					}
 					
@@ -1225,6 +1229,7 @@ int* enumerate_and_insert_into_temp_table(mvc *sql, sel_predicate** sps, int num
 	
 	GDKfree(s);
 	GDKfree(q);
+	GDKfree(buf2);
 	
 	/* do the insert into temp table */
 	s = (str)GDKmalloc(512*sizeof(char));
@@ -1760,6 +1765,8 @@ void compute_and_insert_unavailable_required_derived_metadata(mvc* sql, sel_pred
 	}
 	
 	GDKfree(q);
+	GDKfree(pkey_predicates_equal_to);
+	GDKfree(select_str_per_pkey);
 
 }
 
