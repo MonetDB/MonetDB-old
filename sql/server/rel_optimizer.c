@@ -823,7 +823,6 @@ list* collect_PERPAD(mvc *sql, sql_rel *rel)
 										printf("ERROR: can not allocate memory\n");
 									}
 									sp->values = vr;
-									/* TODO: check if ef is always the upper boundary of the range */
 									sp->values[1] = &(a->data);
 									printf("atom2sql: %s\n", atom2sql(a));
 								}
