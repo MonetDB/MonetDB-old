@@ -653,6 +653,22 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 			
 			actions += 2;
 		}
+		else if((state == 3) &&
+			getModuleId(p) == sqlRef &&
+			getFunctionId(p) == deltaRef &&
+			p->argc == 5 &&
+			p->retc == 1 &&
+			last_bind_return_var_id == getArg(p, 1))
+		{
+			r = newInstruction(mb, ASSIGNsymbol);
+			r = pushReturn(mb, r, getArg(p, 0));
+			r = pushArgument(mb, r, last_bind_return_var_id);
+			
+			insertInstruction(mb, r, i+1);
+			removeInstruction(mb, p);
+			
+			actions += 2;
+		}
 		else if((state == 3) && 
 			getModuleId(p) == sqlRef &&
 			getFunctionId(p) == subdeltaRef &&
