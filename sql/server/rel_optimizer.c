@@ -7041,7 +7041,7 @@ void prepare_pmv(mvc* sql, sql_rel* ret)
 		compute_and_insert_unavailable_required_derived_metadata(sql, sps, num_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
 	
 	/* remove temp tables */
-	if(is_further_derivation_needed)
+	if(num_pkeys_to_be_enumerated > 0)
 		clean_up_temps(sql);
 	
 }
