@@ -1478,7 +1478,11 @@ CS* mergeTwoCSs(CS cs1, CS cs2, int freqIdx1, int freqIdx2, oid mergeCSId){
 	int numCombineP = 0; 
 
 	CS *mergecs = (CS*) malloc (sizeof (CS)); 
-	mergecs->type = (char)MERGECS; 
+	if (cs1.type == DIMENSIONCS && cs2.type == DIMENSIONCS)
+		 mergecs->type = DIMENSIONCS; 
+	else
+		mergecs->type = (char)MERGECS; 
+
 	mergecs->numConsistsOf = 2; 
 	mergecs->lstConsistsOf = (int*) malloc(sizeof(int) * 2);
 
@@ -2527,7 +2531,7 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples, int numTypeV
 		csId = *csoid; 
 		addNewCS(csBats, fullPropStat, &csKey, key, csoid, num, numTriples, numTypeValues, rdftypeOntologyValues);
 
-		//if (csId == 73){
+		//if (csId == 2){
 		//	printf("Extra info for cs 73 is: ");
 		//	printTKNZStringFromOid(rdftypeOntologyValues[0]);
 		//}
@@ -3471,6 +3475,10 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 	(void) name; 
 	(void) ontmetadata;
 	(void) ontmetadataCount;
+	#if     !NOT_MERGE_DIMENSIONCS_IN_S1
+	(void) cs1;
+	(void) cs2;
+	#endif
 	labelStat = initLabelStat(); 
 	buildLabelStat(labelStat, (*labels), freqCSset, TOPK);
 	printf("Num FreqCSadded before using S1 = %d \n", freqCSset->numCSadded);
@@ -3502,7 +3510,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 				freqId1 = labelStat->freqIdList[i][k];
 				if ((*labels)[freqId1].isOntology == 1) {
 					cs1 = &(freqCSset->items[freqId1]);
-					#if     NOT_MERGE_DIMENSIONCS
+					#if     NOT_MERGE_DIMENSIONCS_IN_S1
 					if (cs1->type == DIMENSIONCS) continue;
 					#endif
 					tmpCount++;
@@ -3512,7 +3520,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 			for (j = k+1; j < labelStat->lstCount[i]; j++){
 				freqId2 = labelStat->freqIdList[i][j];
 				cs2 = &(freqCSset->items[freqId2]);
-				#if	NOT_MERGE_DIMENSIONCS
+				#if	NOT_MERGE_DIMENSIONCS_IN_S1
 				if (cs2->type == DIMENSIONCS) 
 					continue; 
 				#endif
@@ -3533,7 +3541,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 				freqId1 = labelStat->freqIdList[i][k];
 				if ((*labels)[freqId1].isType == 1) {
 					cs1 = &(freqCSset->items[freqId1]);
-					#if     NOT_MERGE_DIMENSIONCS
+					#if     NOT_MERGE_DIMENSIONCS_IN_S1
 					if (cs1->type == DIMENSIONCS) continue;
 					#endif
 					tmpCount++;
@@ -3543,7 +3551,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 			for (j = k+1; j < labelStat->lstCount[i]; j++){
 				freqId2 = labelStat->freqIdList[i][j];
 				cs2 = &(freqCSset->items[freqId2]);
-				#if	NOT_MERGE_DIMENSIONCS
+				#if	NOT_MERGE_DIMENSIONCS_IN_S1
 				if (cs2->type == DIMENSIONCS) continue; 
 				#endif
 				if ((*labels)[freqId2].isType == 1){
@@ -3563,7 +3571,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 				freqId1 = labelStat->freqIdList[i][k];
 				if ((*labels)[freqId1].isFK == 1) {
 					cs1 = &(freqCSset->items[freqId1]);
-					#if     NOT_MERGE_DIMENSIONCS
+					#if     NOT_MERGE_DIMENSIONCS_IN_S1
 					if (cs1->type == DIMENSIONCS) continue;
 					#endif
 					tmpCount++;
@@ -3573,7 +3581,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 			for (j = k+1; j < labelStat->lstCount[i]; j++){
 				freqId2 = labelStat->freqIdList[i][j];
 				cs2 = &(freqCSset->items[freqId2]);
-				#if	NOT_MERGE_DIMENSIONCS
+				#if	NOT_MERGE_DIMENSIONCS_IN_S1
 				if (cs2->type == DIMENSIONCS) continue; 
 				#endif
 				if ((*labels)[freqId2].isFK == 1){
@@ -3594,8 +3602,8 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 			for (k = 0; k < labelStat->lstCount[i]; k++){
 				freqId1 = labelStat->freqIdList[i][k];
 				cs1 = &(freqCSset->items[freqId1]);
-				#if     NOT_MERGE_DIMENSIONCS
-				if (0) if (cs1->type == DIMENSIONCS) continue;
+				#if     NOT_MERGE_DIMENSIONCS_IN_S1
+				if (cs1->type == DIMENSIONCS) continue;
 				#endif
 				tmpCount++;
 				break; 
@@ -3603,8 +3611,8 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 			for (j = k+1; j < labelStat->lstCount[i]; j++){
 				freqId2 = labelStat->freqIdList[i][j];
 				cs2 = &(freqCSset->items[freqId2]);
-				#if	NOT_MERGE_DIMENSIONCS
-				if (0) if (cs2->type == DIMENSIONCS) continue; 
+				#if	NOT_MERGE_DIMENSIONCS_IN_S1
+				if (cs2->type == DIMENSIONCS) continue; 
 				#endif
 				doMerge(freqCSset, S1, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name);
 				tmpCount++;
@@ -4175,11 +4183,22 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 			if (simscore > SIM_THRESHOLD) {
 			#endif	
 				/*
-				takeOid((*labels)[freqId1].name, &freqCSname1);	
-				takeOid((*labels)[freqId2].name, &freqCSname2);	
-				printf("Merge %d (%s) and %d (%s) with simscore = %f \n",freqId1, freqCSname1, freqId2, freqCSname2, simscore);
-				GDKfree(freqCSname1);
-				GDKfree(freqCSname2);
+                               if ((*labels)[freqId1].name != BUN_NONE){
+					takeOid((*labels)[freqId1].name, &freqCSname1);
+					printf("Merge %d (%s) and ",freqId1, freqCSname1);
+					GDKfree(freqCSname1);
+				}
+				else{
+					printf("Merge %d (DUMMY) and ",freqId1);
+				}
+				if ((*labels)[freqId2].name != BUN_NONE){
+					takeOid((*labels)[freqId2].name, &freqCSname2);
+					printf(" %d (%s) with simscore = %f \n",freqId2, freqCSname2, simscore);
+					GDKfree(freqCSname2);
+				}
+				else{
+					printf(" %d (DUMMY) with simscore = %f \n",freqId2, simscore);
+				}
 				*/
 				doMerge(freqCSset, S4, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, BUN_NONE);
 			}

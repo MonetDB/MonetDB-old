@@ -101,6 +101,7 @@ enum {
 #define USE_ONTOLOGY_NAMES 1		// use ontology classes for labeling
 #define USE_TABLE_NAME 1		// calculate and store the final labels
 #define SHOW_CANDIDATES 0		// inserts a row in UML diagrams to show all candidate names
+#define	ONLY_USE_ONTOLOGYBASED_TYPE 0
 
 rdf_export void
 getPropNameShort(char** name, char* propStr);

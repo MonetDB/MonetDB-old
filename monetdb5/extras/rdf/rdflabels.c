@@ -856,11 +856,13 @@ static
 void insertValuesIntoTypeAttributesHistogram(oid* typeList, int typeListLength, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, int csFreqIdx, int type, BAT *ontmetaBat) {
 	int		i, j;
 	int		fit;
+	(void) ontmetaBat;
 
 	for (i = 0; i < typeListLength; ++i) {
+		#if ONLY_USE_ONTOLOGYBASED_TYPE
 		BUN pos = BUNfnd(BATmirror(ontmetaBat), &typeList[i]);
 		if (pos == BUN_NONE) continue; // no ontology information, ignore
-
+		#endif
 		// add to histogram
 		fit = 0;
 		for (j = 0; j < typeAttributesHistogramCount[csFreqIdx][type]; ++j) {
@@ -2079,7 +2081,11 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	oid		maxDepthOid;
 	int		maxFreq;
 
-
+	//for choosing the right type values
+	BUN		ontClassPos;
+	oid		typeOid;
+	int 		depth, maxDepth;
+	int 		freq;
 	(void) ontmetaBat;
 
 
@@ -2087,6 +2093,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	// get most frequent type value per type attribute
 	tmpList = NULL;
 	tmpListCount = 0;
+
 	for (i = 0; i < typeAttributesCount; ++i) {
 		if (typeAttributesHistogramCount[csIdx][i] == 0) continue;
 		/*   //TODO: Uncomment this path
@@ -2109,6 +2116,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			}
 		}
 		*/
+		
 		if (typeAttributesHistogram[csIdx][i][0].percent < TYPE_FREQ_THRESHOLD) continue; // sorted
 		tmpList = (oid *) realloc(tmpList, sizeof(oid) * (tmpListCount + 1));
 		if (!tmpList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
@@ -2116,23 +2124,40 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		// of all values that are >= TYPE_FREQ_THRESHOLD, choose the value with the highest hierarchy level ("deepest" value)
 		maxDepthOid = typeAttributesHistogram[csIdx][i][0].value;
 		maxFreq = typeAttributesHistogram[csIdx][i][0].freq;
+		ontClassPos = BUNfnd(BATmirror(ontmetaBat), &maxDepthOid);
+		if ( ontClassPos != BUN_NONE){
+			maxDepth = ontclassSet[ontClassPos].hierDepth;
+		}	
+		else{
+			maxDepth = -1;
+		}
+
+
 		for (j = 1; j < typeAttributesHistogramCount[csIdx][i]; ++j) {
-			int depth, maxDepth;
-			int freq;
+
 			if (typeAttributesHistogram[csIdx][i][j].percent < TYPE_FREQ_THRESHOLD) break;
-			depth = ontclassSet[BUNfnd(BATmirror(ontmetaBat), &typeAttributesHistogram[csIdx][i][j].value)].hierDepth;
-			maxDepth = ontclassSet[BUNfnd(BATmirror(ontmetaBat), &maxDepthOid)].hierDepth;
-			freq = typeAttributesHistogram[csIdx][i][j].freq;
-			if (depth > maxDepth) {
-				// choose value with higher hierarchy level
-				maxDepthOid = typeAttributesHistogram[csIdx][i][j].value;
-				maxFreq = freq;
-			} else if (depth == maxDepth && freq > maxFreq) {
-				// if both values are on the same level, choose the value with higher frequency
-				maxDepthOid = typeAttributesHistogram[csIdx][i][j].value;
-				maxFreq = freq;
+			
+			typeOid = typeAttributesHistogram[csIdx][i][j].value;
+			ontClassPos = BUNfnd(BATmirror(ontmetaBat), &typeOid);
+			if (ontClassPos != BUN_NONE){
+				depth = ontclassSet[ontClassPos].hierDepth;
+				freq = typeAttributesHistogram[csIdx][i][j].freq;
+
+				if (depth > maxDepth) {
+					// choose value with higher hierarchy level
+					maxDepthOid = typeAttributesHistogram[csIdx][i][j].value;
+					maxFreq = freq;
+					maxDepth = depth;
+				} else if (depth == maxDepth && freq > maxFreq) {
+					// if both values are on the same level, choose the value with higher frequency
+					maxDepthOid = typeAttributesHistogram[csIdx][i][j].value;
+					maxFreq = freq;
+				}
 			}
 		}
+
+		//
+
 		tmpList[tmpListCount] = maxDepthOid;
 		tmpListCount += 1;
 	}
@@ -2185,8 +2210,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			}
 		}
 	}
-
-
+		
 	// --- ONTOLOGY ---
 	// add all ontology candidates to list of candidates
 	if (resultCount[csIdx] >= 1) {

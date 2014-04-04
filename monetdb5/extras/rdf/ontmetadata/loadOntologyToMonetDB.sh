@@ -77,6 +77,19 @@ sed -i "s:AttFile:${PWD}/ontAttribute.foaf.csv:g" loadtmp.sql
 
 mclient < loadtmp.sql
 
+#bsbm
+NUMMETADATA=`cat ontMetadata.bsbm.csv | wc -l`
+NUMATTRIBUTES=`cat ontAttribute.bsbm.csv | wc -l`
+
+cp loadOntologySAMPLE.sql loadtmp.sql
+sed -i "s:NUMMETADATA:$NUMMETADATA:g" loadtmp.sql
+sed -i "s:NUMATTRIBUTES:$NUMATTRIBUTES:g" loadtmp.sql
+sed -i "s:MetaFile:${PWD}/ontMetadata.bsbm.csv:g" loadtmp.sql
+sed -i "s:AttFile:${PWD}/ontAttribute.bsbm.csv:g" loadtmp.sql
+
+
+mclient < loadtmp.sql
+
 #List of possible ontologies
 NUMONT=`cat ontList.csv | wc -l`
 

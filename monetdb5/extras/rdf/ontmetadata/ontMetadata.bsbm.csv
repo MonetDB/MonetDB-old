@@ -1,0 +1,10 @@
+http://www4.wiwiss.fu-berlin.de/bizer/bsbm/v01/vocabulary/ProductFeature|ProductFeature|http://www.w3.org/2002/07/owl#Thing
+http://www4.wiwiss.fu-berlin.de/bizer/bsbm/v01/vocabulary/ProductType|ProductType|http://www.w3.org/2002/07/owl#Thing
+http://www4.wiwiss.fu-berlin.de/bizer/bsbm/v01/vocabulary/Producer|Producer|http://www.w3.org/2002/07/owl#Thing
+http://www4.wiwiss.fu-berlin.de/bizer/bsbm/v01/vocabulary/Product|Product|http://www.w3.org/2002/07/owl#Thing
+http://www4.wiwiss.fu-berlin.de/bizer/bsbm/v01/vocabulary/ProductTypeProduct|ProductTypeProduct|http://www.w3.org/2002/07/owl#Thing
+http://www4.wiwiss.fu-berlin.de/bizer/bsbm/v01/vocabulary/ProductFeatureProduct|ProductFeatureProduct|http://www.w3.org/2002/07/owl#Thing
+http://www4.wiwiss.fu-berlin.de/bizer/bsbm/v01/vocabulary/Vendor|Vendor|http://www.w3.org/2002/07/owl#Thing
+http://www4.wiwiss.fu-berlin.de/bizer/bsbm/v01/vocabulary/Offer|Offer|http://www.w3.org/2002/07/owl#Thing
+http://www4.wiwiss.fu-berlin.de/bizer/bsbm/v01/vocabulary/Person|Person|http://www.w3.org/2002/07/owl#Thing
+http://www4.wiwiss.fu-berlin.de/bizer/bsbm/v01/vocabulary/Review|Review|http://www.w3.org/2002/07/owl#Thing
