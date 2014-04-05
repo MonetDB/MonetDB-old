@@ -2116,7 +2116,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			}
 		}
 		*/
-		
+
 		if (typeAttributesHistogram[csIdx][i][0].percent < TYPE_FREQ_THRESHOLD) continue; // sorted
 		tmpList = (oid *) realloc(tmpList, sizeof(oid) * (tmpListCount + 1));
 		if (!tmpList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
@@ -2322,6 +2322,27 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			#endif
 		}
 	}
+	
+	//if no name is found, check again the typecount to assign a name
+	#if USE_BEST_TYPEVALUE_INSTEADOF_DUMMY
+	if (!nameFound){
+		for (i = 0; i < typeAttributesCount; ++i){
+			if (typeAttributesHistogramCount[csIdx][i] == 0) continue;
+			//printf("Current candidate count = %d",label->candidatesCount);
+			label->candidatesType = 1;
+			label->candidates = GDKrealloc(label->candidates, sizeof(oid));
+			label->candidatesCount = 1;
+			label->name = typeAttributesHistogram[csIdx][i][0].value;
+			label->candidates[0] = typeAttributesHistogram[csIdx][i][0].value;
+			nameFound = 1;
+			#if INFO_WHERE_NAME_FROM
+			label->isType = 1; 
+			#endif
+
+			break; 
+		}
+	}
+	#endif
 
 	// --- NOTHING ---
 	if (label->candidatesCount == 0) {
