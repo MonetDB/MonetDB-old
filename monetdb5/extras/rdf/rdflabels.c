@@ -2086,15 +2086,18 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	oid		typeOid;
 	int 		depth, maxDepth;
 	int 		freq;
+	
+	char		foundOntologyTypeValue = 0; 	
+	oid		choosenOntologyTypeValue = BUN_NONE;
+
 	(void) ontmetaBat;
-
-
 	// --- TYPE ---
 	// get most frequent type value per type attribute
 	tmpList = NULL;
 	tmpListCount = 0;
 
 	for (i = 0; i < typeAttributesCount; ++i) {
+		foundOntologyTypeValue = 0;
 		if (typeAttributesHistogramCount[csIdx][i] == 0) continue;
 		/*   //TODO: Uncomment this path
 		for (j = 0; j < typeAttributesHistogramCount[csIdx][i]; j++){
@@ -2140,6 +2143,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			typeOid = typeAttributesHistogram[csIdx][i][j].value;
 			ontClassPos = BUNfnd(BATmirror(ontmetaBat), &typeOid);
 			if (ontClassPos != BUN_NONE){
+				foundOntologyTypeValue = 1;
 				depth = ontclassSet[ontClassPos].hierDepth;
 				freq = typeAttributesHistogram[csIdx][i][j].freq;
 
@@ -2156,10 +2160,12 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			}
 		}
 
-		//
-
 		tmpList[tmpListCount] = maxDepthOid;
 		tmpListCount += 1;
+
+		if (foundOntologyTypeValue){
+			choosenOntologyTypeValue = maxDepthOid;
+		}
 	}
 
 	// add all most frequent type values to list of candidates
@@ -2190,6 +2196,18 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			label->isType = 1; 
 			#endif
 
+		}
+	}
+
+	//If there is any ontology-based type value, use it for the name
+	if (!nameFound){
+		if (choosenOntologyTypeValue != BUN_NONE){
+			label->name = choosenOntologyTypeValue;
+			nameFound = 1;
+			
+			#if INFO_WHERE_NAME_FROM
+			label->isType = 1; 
+			#endif
 		}
 	}
 
