@@ -589,6 +589,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg;
 	BAT	*sbat, *pbat, *obat, *mbat; 
 	BAT	*tmpbat; 
+	BATiter	mapi; 
 	clock_t tmpbeginT, tmpendT, beginT, endT;
 
 	beginT = clock();
@@ -623,6 +624,8 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		//free(cstablestat);
 		return MAL_SUCCEED; 
 	}
+	
+	mapi = bat_iterator(mbat); 	
 	
 	tmpbeginT = clock();
 	cstables = (sql_table **)malloc(sizeof(sql_table*) * cstablestat->numTables);
@@ -693,7 +696,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		//printf("creating table %d \n", i);
 
 		sprintf(tmpstr, "%d",i);
-		getTblName(&baseTblName, cstablestat->lstcstable[i].tblname); 
+		getTblName(&baseTblName, cstablestat->lstcstable[i].tblname, mapi, mbat); 
 		sprintf(tmptbname, "%s", baseTblName);
 		strcat(tmptbname,tmpstr);
 		printf("Table %d:||  %s ||\n",i, tmptbname);
@@ -745,7 +748,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if (cstablestat->lstcstableEx[i].numCol != 0){	
 
 			sprintf(tmpstr, "ex%d",i);
-			getTblName(&baseTblName, cstablestat->lstcstable[i].tblname); 
+			getTblName(&baseTblName, cstablestat->lstcstable[i].tblname, mapi, mbat); 
 			sprintf(tmptbnameex, "%s", baseTblName);
 			strcat(tmptbnameex,tmpstr);
 			printf("TableEx %d: || %s || \n",i, tmptbnameex);

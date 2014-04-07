@@ -120,6 +120,13 @@ static void initcsIdFreqIdxMap(int* inputArr, int num, int defaultValue, CSset *
 }
 
 
+char
+getObjType(oid objOid){
+	char objType = (char) (objOid >> (sizeof(BUN)*8 - 4))  &  7 ;
+
+	return objType; 
+
+}
 
 str printTKNZStringFromOid(oid id){
 	int ret; 
@@ -138,6 +145,50 @@ str printTKNZStringFromOid(oid id){
 	TKNZRclose(&ret);
 
 	return MAL_SUCCEED; 
+}
+
+//Get the string for 
+static
+char getStringName(oid objOid, str *objStr, BATiter mapi, BAT *mapbat, char isTblName){
+	
+	char 	objType = getObjType(objOid); 
+	oid	realObjOid; 
+	BUN	bun;
+	int 	i = 0;
+
+	if (objType == URI || objType == BLANKNODE){
+		realObjOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
+		takeOid(realObjOid, objStr); 
+	}
+	else{
+		str tmpObjStr;
+		str s;
+		int len; 
+		realObjOid = objOid - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the real objOid from Map or Tokenizer */ 
+		bun = BUNfirst(mapbat);
+		tmpObjStr = (str) BUNtail(mapi, bun + realObjOid); 
+		
+		*objStr = GDKstrdup(tmpObjStr);
+			
+		if (isTblName){
+			s = *objStr;
+			len = strlen(s);
+			//Replace all non-alphabet character by XXX
+			for (i = 0; i < len; i++)
+			{	
+				//printf("i = %d: %c \n",i, s[i]);
+				if (!isalpha(*s)){
+					*s = 'X';
+				}
+				s++;
+				
+			}
+		}
+
+	}
+
+	
+	return objType;
 }
 
 
@@ -620,13 +671,7 @@ void printSubCSInformation(SubCSSet *subcsset, BAT* freqBat, int num, char isWri
 #endif /*NO_OUTPUTFILE*/
 #endif  /* NEEDSUBCS */
 
-char
-getObjType(oid objOid){
-	char objType = (char) (objOid >> (sizeof(BUN)*8 - 4))  &  7 ;
 
-	return objType; 
-
-}
 
 
 
@@ -1881,8 +1926,6 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, char isWriteTofile, int 
 	str	subStr; 
 	str	objStr; 
 	oid 	objOid; 
-	char 	objType; 
-	BUN	bun; 
 	#endif
 	int	ret; 
 	char*   schema = "rdf";
@@ -1929,12 +1972,12 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, char isWriteTofile, int 
 			if (i < freqCSset->numOrigFreqCS){
 				if (cs.subject != BUN_NONE){
 					takeOid(cs.subject, &subStr);
-
 					if (labels[i].name == BUN_NONE) {
 						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, "DUMMY", freq, subStr, cs.parentFreqIdx);
 					} else {
 						str labelStr;
-						takeOid(labels[i].name, &labelStr);
+						//takeOid(labels[i].name, &labelStr);
+						getStringName(labels[i].name, &labelStr, mapi, mapbat, 1);
 						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, labelStr, freq, subStr, cs.parentFreqIdx);
 						GDKfree(labelStr); 
 					}
@@ -1946,7 +1989,8 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, char isWriteTofile, int 
 						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | FreqParentIdx %d \n", cs.csId, i, "DUMMY", freq, cs.parentFreqIdx);
 					} else {
 						str labelStr;
-						takeOid(labels[i].name, &labelStr);
+						//takeOid(labels[i].name, &labelStr);
+						getStringName(labels[i].name, &labelStr, mapi, mapbat, 1);
 						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | FreqParentIdx %d \n", cs.csId, i, labelStr, freq, cs.parentFreqIdx);
 						GDKfree(labelStr);
 					}
@@ -1958,7 +2002,8 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, char isWriteTofile, int 
 					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: <Not available>  | FreqParentIdx %d \n", cs.csId, i, "DUMMY", freq, cs.parentFreqIdx);
 				} else {
 					str labelStr;
-					takeOid(labels[i].name, &labelStr);
+					//takeOid(labels[i].name, &labelStr);
+					getStringName(labels[i].name, &labelStr, mapi, mapbat, 1);	
 					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: <Not available>  | FreqParentIdx %d \n", cs.csId, i, labelStr, freq, cs.parentFreqIdx);
 					GDKfree(labelStr); 
 				}
@@ -1972,7 +2017,8 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, char isWriteTofile, int 
 					else{
 						str labelStr = NULL;
 						str labelShortStr = NULL; 
-						takeOid(labels[tmpParentFreqId].name, &labelStr);
+						//takeOid(labels[tmpParentFreqId].name, &labelStr);
+						getStringName(labels[tmpParentFreqId].name, &labelStr, mapi, mapbat, 1);
 						getPropNameShort(&labelShortStr,labelStr);
 						fprintf(fout, "[%s]  ",labelShortStr);
 						GDKfree(labelShortStr);
@@ -1999,24 +2045,9 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, char isWriteTofile, int 
 				}
 				if (cs.lstObj != NULL){
 					objOid = cs.lstObj[j]; 
-
-					objType = getObjType(objOid); 
-
-					if (objType == URI || objType == BLANKNODE){
-						objOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
-						takeOid(objOid, &objStr); 
-					}
-					else{
-						objOid = objOid - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the real objOid from Map or Tokenizer */ 
-						bun = BUNfirst(mapbat);
-						objStr = (str) BUNtail(mapi, bun + objOid); 
-					}
-
+					getStringName(objOid, &objStr, mapi, mapbat, 0);
 					fprintf(fout, "  O: %s \n", objStr);
-
-					if (objType == URI || objType == BLANKNODE){
-						GDKfree(objStr);
-					}
+					GDKfree(objStr);
 				}
 				else{
 					fprintf(fout, " <No Object value>  \n");
@@ -2140,7 +2171,7 @@ str printmergeCSSet(CSset *freqCSset, int freqThreshold){
 
 #if NO_OUTPUTFILE == 0 
 static 
-str printsubsetFromCSset(CSset *freqCSset, BAT* subsetIdxBat, int num, int* mergeCSFreqCSMap, CSlabel *label, int sampleVersion){
+str printsubsetFromCSset(CSset *freqCSset, BAT* subsetIdxBat, BAT *mbat, int num, int* mergeCSFreqCSMap, CSlabel *label, int sampleVersion){
 
 	int 	i,j; 
 	FILE 	*fout; 
@@ -2155,8 +2186,9 @@ str printsubsetFromCSset(CSset *freqCSset, BAT* subsetIdxBat, int num, int* merg
 	CS	cs; 
 	int	tmpNumcand;
 	str	canStr; 
+	BATiter mapi;
 
-
+	mapi = bat_iterator(mbat);
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
 		throw(RDF, "rdf.rdfschema",
 				"could not open the tokenizer\n");
@@ -2184,7 +2216,9 @@ str printsubsetFromCSset(CSset *freqCSset, BAT* subsetIdxBat, int num, int* merg
 #if USE_SHORT_NAMES
 				str canStrShort = NULL;
 #endif
-				takeOid(label[freqIdx].candidates[j], &canStr); 
+				//takeOid(label[freqIdx].candidates[j], &canStr); 
+				getStringName(label[freqIdx].candidates[j], &canStr, mapi, mbat, 1);
+				
 #if USE_SHORT_NAMES
 				getPropNameShort(&canStrShort, canStr);
 				fprintf(fout," %s  ::: ",  canStrShort);
@@ -3445,7 +3479,7 @@ void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *merge
 }
 
 static
-str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** ontmetadata, int ontmetadataCount){
+str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** ontmetadata, int ontmetadataCount,bat *mapbatid){
 	int 		i; 
 
 	#if !USE_MULTIWAY_MERGING
@@ -3467,6 +3501,8 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 	char*   	schema = "rdf";
 	int		ret = 0;
 	str		tmpLabel; 
+	BAT		*mbat = NULL; 
+	BATiter		mapi; 
 	
 	#if USE_SHORT_NAMES
 	str canStrShort = NULL;
@@ -3479,11 +3515,18 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 	(void) cs1;
 	(void) cs2;
 	#endif
+	(void) mapbatid; 
+	
 	labelStat = initLabelStat(); 
 	buildLabelStat(labelStat, (*labels), freqCSset, TOPK);
 	printf("Num FreqCSadded before using S1 = %d \n", freqCSset->numCSadded);
 
 	#if OUTPUT_FREQID_PER_LABEL
+
+	if ((mbat = BATdescriptor(*mapbatid)) == NULL) {
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+	mapi = bat_iterator(mbat); 
 
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
 		throw(RDF, "rdf.rdfschema",
@@ -3627,7 +3670,9 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 			#endif /* USE_MULTIWAY_MERGING */
 
 			#if OUTPUT_FREQID_PER_LABEL
-			takeOid(*name, &tmpLabel); 
+			//takeOid(*name, &tmpLabel); 
+			getStringName(*name, &tmpLabel, mapi, mbat, 1);
+			
 			#if USE_SHORT_NAMES
 			getPropNameShort(&canStrShort, tmpLabel);
 			fprintf(fout,"Label %d:  %s \n", i, canStrShort);
@@ -5659,7 +5704,7 @@ void getTblName(char *name, oid nameId){
 }
 */
 
-void getTblName(str *name, oid nameId){
+void getTblName(str *name, oid nameId, BATiter mapi, BAT *mbat){
 	str canStr = NULL; 
 	str canStrShort = NULL;
 	char    *pch;
@@ -5668,7 +5713,8 @@ void getTblName(str *name, oid nameId){
 	int	i; 
 
 	if (nameId != BUN_NONE){
-		takeOid(nameId, &canStr);
+		//takeOid(nameId, &canStr);
+		getStringName(nameId, &canStr, mapi, mbat, 1);
 		getPropNameShort(&canStrShort, canStr);
 
 		if (strstr (canStrShort,".") != NULL || 
@@ -5788,7 +5834,8 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 #if USE_SHORT_NAMES
 				str canStrShort = NULL;
 #endif
-				takeOid(sample.candidates[j], &canStr); 
+				//takeOid(sample.candidates[j], &canStr); 
+				getStringName(sample.candidates[j], &canStr, mapi, mbat, 1);			
 #if USE_SHORT_NAMES
 				getPropNameShort(&canStrShort, canStr);
 				fprintf(fout,";%s",  canStrShort);
@@ -5805,7 +5852,8 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 
 		if (sample.name != BUN_NONE){
 			str canStrShort = NULL;
-			takeOid(sample.name, &canStr);
+			//takeOid(sample.name, &canStr);
+			getStringName(sample.name, &canStr, mapi, mbat, 1);
 			getPropNameShort(&canStrShort, canStr);
 
 			if (strstr (canStrShort,".") != NULL || 
@@ -5971,7 +6019,9 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 
 		if (sample.name != BUN_NONE){
 			str canStrShort = NULL;
-			takeOid(sample.name, &canStr);
+			//takeOid(sample.name, &canStr);
+			getStringName(sample.name, &canStr, mapi, mbat, 1); 
+
 			getPropNameShort(&canStrShort, canStr);
 
 			if (strstr (canStrShort,".") != NULL || 
@@ -6011,7 +6061,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 
 #if NO_OUTPUTFILE == 0
 static 
-str printFullSampleData(CSSampleExtend *csSampleEx, int num){
+str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat){
 
 	int 	i,j, k; 
 	FILE 	*fout, *fouttb, *foutis; 
@@ -6038,13 +6088,14 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num){
 	char 	isLocality = 0;
 	BAT	*tmpBat = NULL; 
 	BATiter	tmpi; 
+	BATiter mapi;
 #if USE_SHORT_NAMES
 	str	propStrShort = NULL;
 	char 	*pch; 
 #endif
 
 
-
+	mapi = bat_iterator(mbat);
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
 		throw(RDF, "rdf.rdfschema",
 				"could not open the tokenizer\n");
@@ -6073,7 +6124,8 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num){
 #if USE_SHORT_NAMES
 				str canStrShort = NULL;
 #endif
-				takeOid(sample.candidates[j], &canStr); 
+				//takeOid(sample.candidates[j], &canStr); 
+				getStringName(sample.candidates[j], &canStr, mapi, mbat, 1);
 #if USE_SHORT_NAMES
 				getPropNameShort(&canStrShort, canStr);
 				fprintf(fout,";%s",  canStrShort);
@@ -6090,7 +6142,8 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num){
 
 		if (sample.name != BUN_NONE){
 			str canStrShort = NULL;
-			takeOid(sample.name, &canStr);
+			//takeOid(sample.name, &canStr);
+			getStringName(sample.name, &canStr, mapi, mbat, 1);
 			getPropNameShort(&canStrShort, canStr);
 
 			if (strstr (canStrShort,".") != NULL || 
@@ -6284,7 +6337,8 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num){
 
 		if (sample.name != BUN_NONE){
 			str canStrShort = NULL;
-			takeOid(sample.name, &canStr);
+			//takeOid(sample.name, &canStr);
+			getStringName(sample.name, &canStr, mapi, mbat, 1); 
 			getPropNameShort(&canStrShort, canStr);
 
 			if (strstr (canStrShort,".") != NULL || 
@@ -6781,7 +6835,7 @@ str getSampleData(int *ret, bat *mapbatid, int numTables, CSset* freqCSset, BAT 
 	printf("Select sample instances for %d tables \n", numSampleTbl);
 	initSampleData(csSample, outputBat, freqCSset, mTblIdxFreqIdxMapping, labels);
 	RDFExtractSampleData(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, maxNumPwithDup, csSample, outputBat, numSampleTbl);
-	printsubsetFromCSset(freqCSset, outputBat, numSampleTbl, mTblIdxFreqIdxMapping, labels, sampleVersion);
+	printsubsetFromCSset(freqCSset, outputBat, mbat, numSampleTbl, mTblIdxFreqIdxMapping, labels, sampleVersion);
 	printSampleData(csSample, freqCSset, mbat, numSampleTbl, sampleVersion);
 	freeSampleData(csSample, numSampleTbl);
 	BBPreclaim(outputBat);
@@ -6793,15 +6847,22 @@ str getSampleData(int *ret, bat *mapbatid, int numTables, CSset* freqCSset, BAT 
 
 #if NO_OUTPUTFILE == 0
 static
-str getFullSampleData(CStableStat* cstablestat, CSPropTypes *csPropTypes, int *mTblIdxFreqIdxMapping, CSlabel *labels, int numTables,  bat *lmapbatid, bat *rmapbatid, CSset *freqCSset){
+str getFullSampleData(CStableStat* cstablestat, CSPropTypes *csPropTypes, int *mTblIdxFreqIdxMapping, CSlabel *labels, int numTables,  bat *lmapbatid, bat *rmapbatid, CSset *freqCSset, bat *mapbatid){
+
 	CSSampleExtend *csSampleEx;
+	BAT *mbat = NULL; 
+
+	if ((mbat = BATdescriptor(*mapbatid)) == NULL) {
+		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
+	}
 	csSampleEx = (CSSampleExtend *)malloc(sizeof(CSSampleExtend) * numTables);
 	
 	initFullSampleData(csSampleEx, mTblIdxFreqIdxMapping, labels, cstablestat, csPropTypes, freqCSset, numTables, lmapbatid, rmapbatid);
 
-	printFullSampleData(csSampleEx, numTables);
+	printFullSampleData(csSampleEx, numTables, mbat);
 	
 	freeSampleExData(csSampleEx, numTables);
+	BBPunfix(mbat->batCacheid);
 
 	return MAL_SUCCEED; 
 }
@@ -6810,7 +6871,7 @@ str getFullSampleData(CStableStat* cstablestat, CSPropTypes *csPropTypes, int *m
 
 #if NO_OUTPUTFILE == 0 
 static
-str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int numTables, int freqThreshold){
+str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int numTables, int freqThreshold, bat *mapbatid){
 
 	int 		i,j; 
 	int		tmpNumDefaultCol; 
@@ -6822,6 +6883,8 @@ str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int 
 	str		propStr; 
 	int 		numNoNameTable = 0;
 	char*		schema = "rdf";
+	BATiter		mapi;
+	BAT		*mbat = NULL;  
 
 	printf("Summarizing the final table information \n"); 
 	// allocate memory space for cstablestat
@@ -6831,7 +6894,11 @@ str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int 
 	strcat(filename, ".txt");
 
 	fout = fopen(filename,"wt"); 
-
+	
+	if ((mbat = BATdescriptor(*mapbatid)) == NULL) {
+		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
+	}
+	mapi = bat_iterator(mbat); 
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
 		throw(RDF, "rdf.rdfschema",
 				"could not open the tokenizer\n");
@@ -6842,7 +6909,8 @@ str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int 
 		
 		if (cstablestat->lstcstable[i].tblname != BUN_NONE){
 			str subjStrShort = NULL;
-			takeOid(cstablestat->lstcstable[i].tblname, &subjStr);
+			//takeOid(cstablestat->lstcstable[i].tblname, &subjStr);
+			getStringName(cstablestat->lstcstable[i].tblname, &subjStr, mapi, mbat, 1); 
 			getPropNameShort(&subjStrShort, subjStr);
 		
 			fprintf(fout, "Table %d (Name: %s | NumCols: %d)\n", i, subjStrShort, tmpNumDefaultCol);
@@ -6882,8 +6950,8 @@ str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int 
 	printf(" Number of no-name table: %d | (Total: %d)\n",numNoNameTable,numTables);
 
 	fclose(fout); 
-
-
+	
+	BBPunfix(mbat->batCacheid);
 	TKNZRclose(&ret);
 
 	return MAL_SUCCEED; 
@@ -7230,7 +7298,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	/* ---------- S1 ------- */
 	mergecsId = *maxCSoid + 1; 
 
-	mergeMaxFreqCSByS1(freqCSset, labels, &mergecsId, ontmetadata, ontmetadataCount); /*S1: Merge all freqCS's sharing top-3 candidates */
+	mergeMaxFreqCSByS1(freqCSset, labels, &mergecsId, ontmetadata, ontmetadataCount, mapbatid); /*S1: Merge all freqCS's sharing top-3 candidates */
 	
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 
@@ -8654,6 +8722,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	csTblIdxMapping = (int *) malloc (sizeof (int) * (maxCSoid + 1)); 
 	initIntArray(csTblIdxMapping, (maxCSoid + 1), -1);
 
+
 	mfreqIdxTblIdxMapping = (int *) malloc (sizeof (int) * freqCSset->numCSadded); 
 	initIntArray(mfreqIdxTblIdxMapping , freqCSset->numCSadded, -1);
 
@@ -8742,7 +8811,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	
 
 	#if NO_OUTPUTFILE == 0 
-	printFinalStructure(cstablestat, csPropTypes, numTables,*freqThreshold);
+	printFinalStructure(cstablestat, csPropTypes, numTables,*freqThreshold, mapbatid);
 	#endif
 
 	if (*mode == EXPLOREONLY){
@@ -8882,7 +8951,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	#endif
 	
 	#if NO_OUTPUTFILE == 0
-	getFullSampleData(cstablestat, csPropTypes, mTblIdxFreqIdxMapping, labels, numTables, &lmap->batCacheid, &rmap->batCacheid, freqCSset);
+	getFullSampleData(cstablestat, csPropTypes, mTblIdxFreqIdxMapping, labels, numTables, &lmap->batCacheid, &rmap->batCacheid, freqCSset, mapbatid);
 	#endif	
 		
 	freeCSrelSet(csRelMergeFreqSet,freqCSset->numCSadded);
