@@ -3300,6 +3300,11 @@ LabelStat* initLabelStat(void){
 #if USE_ALTERNATIVE_NAME 
 static
 oid getMostSuitableName(CSlabel *labels, int freqIdx, int candIdx){
+	#if USE_NAME_INSTEADOF_CANDIDATE_IN_S1
+		(void) candIdx;
+
+		return labels[freqIdx].name; 
+	#else
 	oid candidate; 
 	int i; 
 	candidate = labels[freqIdx].candidates[candIdx];
@@ -3322,6 +3327,7 @@ oid getMostSuitableName(CSlabel *labels, int freqIdx, int candIdx){
 		
 	//No choice			
 	return candidate; 
+	#endif
 
 }
 #endif

@@ -99,7 +99,8 @@ RDFpartialjoin (bat *res, bat *lmap, bat *rmap, bat *input);
 #define INFO_WHERE_NAME_FROM 1
 #define TOP_GENERAL_NAME 2	//Level of hierrachy in which a name is considered to be a general name
 				//For example, PERSON, THING is at level 1	
-#define	USE_ALTERNATIVE_NAME 0	//Use different but may be better name for a general name
+#define	USE_ALTERNATIVE_NAME 1	//Use different but may be better name for a general name
+#define USE_NAME_INSTEADOF_CANDIDATE_IN_S1 1	//Use name instead of candidate for merging CS's in S1
 
 // Final data structure that stores the labels for tables and attributes
 typedef struct CSlabel {
