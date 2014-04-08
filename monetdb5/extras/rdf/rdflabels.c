@@ -1385,12 +1385,14 @@ void createPropStatistics(PropStat* propStat, int numMaxCSs, CSset* freqCSset) {
 static
 void createPropStatistics(PropStat* propStat, oid** ontattributes, int ontattributesCount) {
 	int		i;
+	int		numProps = 0;
 
 	for (i = 0; i < ontattributesCount; ++i) {
 		oid attr = ontattributes[1][i];
 		// add prop to propStat
 		BUN	bun = BUNfnd(BATmirror(propStat->pBat), (ptr) &attr);
 		if (bun == BUN_NONE) {
+			numProps++;
 			if (propStat->pBat->T->hash && BATcount(propStat->pBat) > 4 * propStat->pBat->T->hash->mask) {
 				HASHdestroy(propStat->pBat);
 				BAThash(BATmirror(propStat->pBat), 2*BATcount(propStat->pBat));
@@ -1413,7 +1415,7 @@ void createPropStatistics(PropStat* propStat, oid** ontattributes, int ontattrib
 	}
 
 	for (i = 0; i < propStat->numAdded; ++i) {
-		propStat->tfidfs[i] = log(((float)ontattributesCount) / (1 + propStat->freqs[i]));
+		propStat->tfidfs[i] = log(((float)numProps) / (1 + propStat->freqs[i]));
 	}
 }
 
