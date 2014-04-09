@@ -835,9 +835,53 @@ list* collect_PERPAD(mvc *sql, sql_rel *rel)
 							if(er->type == e_convert)
 								er = er->l;
 							
-							
-							
-							if (is_atom(er->type) && (a = exp_value(er, sql->args, sql->argc)) != NULL) 
+							if(e->flag == 8 || e->flag == 9) // IN & NOT IN
+							{
+								list* erl = (list*) e->r;
+								node *ern = NULL;
+								int k;
+								ValRecord** vr = NULL;
+								atom *ra;
+								
+								sp->cmp_type = e->flag;
+								sp->num_values = list_length(erl);
+								
+								if(sp->num_values <= 0)
+								{
+									printf("ERROR: No value in IN/NOT_IN clause\n");
+								}
+								
+								printf("num_values in IN/NOT_IN clause: %d\n", sp->num_values);
+								
+								vr = (ValRecord**) GDKrealloc(sp->values, sp->num_values*sizeof(ValRecord*));
+								if(vr == NULL)
+								{
+									printf("ERROR: can not reallocate memory\n");
+								}
+								sp->values = vr;
+								
+								for (ern = erl->h, k = 0; ern; ern = ern->next, k++) 
+								{
+									sql_exp *ere = ern->data;
+									
+									if(ere->type == e_convert)
+										ere = ere->l;
+									
+									if (is_atom(ere->type) && (ra = exp_value(ere, sql->args, sql->argc)) != NULL)
+									{
+										if(ra->isnull)
+											printf("ERROR: value in IN/NOT_IN clause given as NULL\n");
+										
+										sp->values[k] = &(ra->data);
+										printf("atom2sql: %s\n", atom2sql(ra));
+									}
+									else
+									{
+										printf("ERROR: NOT atom or NO value in atom!\n");
+									}
+								}
+							}
+							else if (is_atom(er->type) && (a = exp_value(er, sql->args, sql->argc)) != NULL) 
 							{
 								
 								if(a->isnull)
@@ -863,7 +907,7 @@ list* collect_PERPAD(mvc *sql, sql_rel *rel)
 									case 8:
 									case 9:
 										/* TODO: handle IN and NOT IN */
-										printf("ERROR: case not handled yet!\n");
+										printf("ERROR: Right side of expression cannot be an atom in this case!\n");
 										break;
 									case 10:
 									case 11:
@@ -1386,9 +1430,10 @@ int find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, list
 	
 	for (n = list_of_PERPAD->h, i = 0, j = 0; n; n = n->next, i++) 
 	{
+		int k;
 		sel_predicate *sp = n->data;
 		
-		str buf = (str)GDKmalloc(num_sp*128*sizeof(char));
+		str buf = (str)GDKmalloc((BUFSIZ + num_sp*128)*sizeof(char));
 		
 		switch(sp->cmp_type)
 		{
@@ -1413,8 +1458,18 @@ int find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, list
 				printf("ERROR: printing case not handled yet!\n");
 				break;
 			case 8:
-				/* not handled (yet) */
-				printf("ERROR: printing case not handled yet!\n");
+				sprintf(buf, "%s %s IN (", s, sp->column->base.name);
+				
+				for(k = 0; k < sp->num_values; k++)
+				{
+					s = GDKstrdup(buf);
+					GDKfree(buf);
+					buf = (str)GDKmalloc(((BUFSIZ + num_sp*128) + sp->num_values*32)*sizeof(char));
+					if(k == sp->num_values - 1)
+						sprintf(buf, "%s %s)", s, VAL2str(sp->values[k]));
+					else
+						sprintf(buf, "%s %s,", s, VAL2str(sp->values[k]));
+				}
 				break;
 			case 9:
 				/* not handled (yet) */
