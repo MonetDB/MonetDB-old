@@ -45,7 +45,7 @@ typedef struct table_pkeys
 
 typedef struct sel_predicate
 {
-	sht cmp_type; // cmp_gt = 0, cmp_gte = 1, cmp_lte = 2, cmp_lt = 3, cmp_equal = 4, cmp_notequal = 5, cmp_filter = 6, cmp_or = 7, cmp_in = 8, cmp_notin = 9, cmp_all = 10, cmp_project = 11  (up to here taken from sql/rel.txt), cmp_range = 12, 13, 14, 15 (both not equal, first not equal second equal, first equal second not equal, both equal, respectively).
+	sht cmp_type; // cmp_gt = 0, cmp_gte = 1, cmp_lte = 2, cmp_lt = 3, cmp_equal = 4, cmp_notequal = 5, cmp_filter = 6, cmp_or = 7, cmp_in = 8, cmp_notin = 9, cmp_all = 10, cmp_project = 11  (up to here taken from sql/rel.txt), cmp_range = 12, 13, 14, 15 (both not equal, first equal second not equal, first not equal second equal, both equal, respectively. The direction is from lower boundary to upper boundary).
 	sql_column* column; // column of the selection predicate
 	ValRecord** values; // array of values (valrecord pointers) compared. Could be of different cardinality. E.g. 1 if cmp_equal, 2 if cmp_range, anything if cmp_in, etc.
 	int num_values; // length of the values array.
@@ -814,8 +814,8 @@ list* collect_PERPAD(mvc *sql, sql_rel *rel)
 									if(a->isnull)
 										printf("ERROR: range boundary is given as NULL\n");
 									
-									/* TODO: how to understand which type of range it is */
-									sp->cmp_type = 15;
+									sp->cmp_type = 12 + e->flag;
+									printf("range type: %d\n", sp->cmp_type);
 									sp->num_values = 2;
 									vr = (ValRecord**) GDKrealloc(sp->values, 2*sizeof(ValRecord*));
 									if(vr == NULL)
