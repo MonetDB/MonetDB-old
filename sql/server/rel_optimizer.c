@@ -1019,6 +1019,7 @@ sel_predicate** convert_all_into_in_clause_except_cmp_equal(list *list_of_PERPAD
 						int j;
 						str str_time_unit = "hour";
 						
+						/* convert from str to timestamp */
 						MTIMEtimestamp_fromstr(tl, &(sp->values[0]->val.sval));
 						MTIMEtimestamp_fromstr(th, &(sp->values[1]->val.sval));
 						step_length = get_enum_step_length(sp->column); /* TODO: window_unit should somehow have an effect here */
@@ -1027,10 +1028,20 @@ sel_predicate** convert_all_into_in_clause_except_cmp_equal(list *list_of_PERPAD
 						timestamp_trunc(tr_tl, tl, &str_time_unit); /* TODO: "str" should be specified somehow differently */
 						timestamp_trunc(tr_th, th, &str_time_unit); /* TODO: "str" should be specified somehow differently */
 						if(tr_tl->days == tl->days && tr_tl->msecs == tl->msecs)
-							tl = tr_tl;
+						{
+							if(sp->cmp_type == 12 || sp->cmp_type == 14)
+								MTIMEtimestamp_add(tl, tr_tl, &step_length);
+						}
 						else
 							MTIMEtimestamp_add(tl, tr_tl, &step_length);
-						th = tr_th;
+						
+						if(tr_th->days == th->days && tr_th->msecs == th->msecs)
+						{
+							if(sp->cmp_type == 12 || sp->cmp_type == 13)
+								MTIMEtimestamp_sub_msec_interval_lng_wrap(th, tr_th, &step_length);
+						}
+						else
+							th = tr_th;
 						
 						MTIMEtimestamp_diff(&range_diff, th, tl);
 						sps[i]->num_values = (range_diff / step_length) + 1;
