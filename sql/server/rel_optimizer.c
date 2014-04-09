@@ -1028,6 +1028,7 @@ sel_predicate** convert_all_into_in_clause_except_cmp_equal(list *list_of_PERPAD
 				printf("ERROR: conversion case not handled yet!\n");
 				break;
 			case 8:
+			case 9:
 				/* already in clause */
 				sps[i]->cmp_type = sp->cmp_type;
 				sps[i]->column = sp->column;
@@ -1035,10 +1036,7 @@ sel_predicate** convert_all_into_in_clause_except_cmp_equal(list *list_of_PERPAD
 				sps[i]->num_values = sp->num_values;
 				
 				break;
-			case 9:
-				/* not handled (yet) */
-				printf("ERROR: conversion case not handled yet!\n");
-				break;
+			
 			case 10:
 			case 11:
 				/* not handled (yet) */
@@ -1472,8 +1470,18 @@ int find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, list
 				}
 				break;
 			case 9:
-				/* not handled (yet) */
-				printf("ERROR: printing case not handled yet!\n");
+				sprintf(buf, "%s %s NOT IN (", s, sp->column->base.name);
+				
+				for(k = 0; k < sp->num_values; k++)
+				{
+					s = GDKstrdup(buf);
+					GDKfree(buf);
+					buf = (str)GDKmalloc(((BUFSIZ + num_sp*128) + sp->num_values*32)*sizeof(char));
+					if(k == sp->num_values - 1)
+						sprintf(buf, "%s %s)", s, VAL2str(sp->values[k]));
+					else
+						sprintf(buf, "%s %s,", s, VAL2str(sp->values[k]));
+				}
 				break;
 			case 10:
 			case 11:
