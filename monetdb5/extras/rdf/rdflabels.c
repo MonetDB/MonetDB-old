@@ -2076,7 +2076,7 @@ void removeDuplicatedCandidates(CSlabel *label) {
 /* For one CS: Choose the best table name out of all collected candidates (ontology, type, fk). */
 static
 void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, TypeStat* typeStat, int typeStatCount, oid** result, int* resultCount, IncidentFKs* links, oid** ontmetadata, int ontmetadataCount, BAT *ontmetaBat, OntClass *ontclassSet) {
-	int		i, j, k;
+	int		i, j;
 	oid		*tmpList;
 	int		tmpListCount;
 	char		nameFound = 0;
@@ -2243,78 +2243,14 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		label->candidatesCount += resultCount[csIdx];
 	}
 
-	// one ontology class --> use it
-	if (!nameFound){
-	if (resultCount[csIdx] == 1) {
+	// chose first ontology candidate as label
+	if (!nameFound && resultCount[csIdx] >= 1){
 		label->name = result[csIdx][0];
 		label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 		nameFound = 1;
 		#if INFO_WHERE_NAME_FROM
 		label->isOntology = 1; 
 		#endif
-	}
-	}
-
-	if (!nameFound) {
-		// multiple ontology classes --> intersect with types
-		if (resultCount[csIdx] > 1) {
-			tmpList = NULL;
-			tmpListCount = 0;
-			// search for type values
-			for (i = 0; i < typeAttributesCount; ++i) {
-				for (j = 0; j < typeAttributesHistogramCount[csIdx][i]; ++j) {
-					if (typeAttributesHistogram[csIdx][i][j].percent < TYPE_FREQ_THRESHOLD) break; // sorted
-
-					// intersect type with ontology classes
-					for (k = 0; k < resultCount[csIdx]; ++k) {
-						if (result[csIdx][k] == typeAttributesHistogram[csIdx][i][j].value) {
-							// found, copy ontology class to tmpList
-							tmpList = (oid *) realloc(tmpList, sizeof(oid) * (tmpListCount + 1));
-							if (!tmpList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-							tmpList[tmpListCount] = result[csIdx][k];
-							tmpListCount += 1;
-						}
-					}
-				}
-			}
-
-			// only one left --> use it
-			if (tmpListCount == 1) {
-				label->name = tmpList[0];
-				label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
-				free(tmpList);
-				nameFound = 1;
-				#if INFO_WHERE_NAME_FROM
-				label->isOntology = 1; 
-				#endif
-			}
-
-			if (!nameFound) {
-				// multiple left --> use the class that covers most attributes, most popular ontology, ...
-				if (tmpListCount > 1) {
-					label->name = tmpList[0]; // sorted
-					label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
-					free(tmpList);
-					nameFound = 1;
-					
-					#if INFO_WHERE_NAME_FROM
-					label->isOntology = 1; 
-					#endif
-				}
-			}
-
-			if (!nameFound) {
-				// empty intersection -> use the class that covers most attributes, most popular ontology, ..
-				label->name = result[csIdx][0]; // sorted
-				label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
-				free(tmpList);
-				nameFound = 1;
-
-				#if INFO_WHERE_NAME_FROM
-				label->isOntology = 1; 
-				#endif
-			}
-		}
 	}
 
 
