@@ -575,6 +575,31 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 		}
 		else if((state == 2 || state == 3) &&
 			getModuleId(p) == algebraRef &&
+			getFunctionId(p) == subselectRef &&
+			p->argc == 8 &&
+			p->retc == 1 &&
+			getArg(p, 2) == last_data_tid_return_var_id)
+		{
+			last_subselect_return_var_id = getArg(p, 0);
+			
+			r = newInstruction(mb, ASSIGNsymbol);
+			setModuleId(r, algebraRef);
+			setFunctionId(r, subselectRef);
+			r = pushReturn(mb, r, getArg(p, 0));
+			r = pushArgument(mb, r, getArg(p, 1));
+			r = pushArgument(mb, r, getArg(p, 3));
+			r = pushArgument(mb, r, getArg(p, 4));
+			r = pushArgument(mb, r, getArg(p, 5));
+			r = pushArgument(mb, r, getArg(p, 6));
+			r = pushArgument(mb, r, getArg(p, 7));
+			
+			insertInstruction(mb, r, i+1);
+			removeInstruction(mb, p);
+			
+			actions += 2;
+		}
+		else if((state == 2 || state == 3) &&
+			getModuleId(p) == algebraRef &&
 			getFunctionId(p) == thetasubselectRef &&
 			p->argc == 5 &&
 			p->retc == 1 &&
