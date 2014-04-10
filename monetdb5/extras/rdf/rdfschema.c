@@ -173,12 +173,12 @@ char getStringName(oid objOid, str *objStr, BATiter mapi, BAT *mapbat, char isTb
 		if (isTblName){
 			s = *objStr;
 			len = strlen(s);
-			//Replace all non-alphabet character by XXX
+			//Replace all non-alphabet character by ___
 			for (i = 0; i < len; i++)
 			{	
 				//printf("i = %d: %c \n",i, s[i]);
 				if (!isalpha(*s)){
-					*s = 'X';
+					*s = '_';
 				}
 				s++;
 				
@@ -1978,7 +1978,7 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, char isWriteTofile, int 
 						str labelStr;
 						//takeOid(labels[i].name, &labelStr);
 						getStringName(labels[i].name, &labelStr, mapi, mapbat, 1);
-						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, labelStr, freq, subStr, cs.parentFreqIdx);
+						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) (NameFreq: %d --> %.2f percent) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, labelStr, freq, labels[i].nameFreq, (float) labels[i].nameFreq/freq * 100, subStr, cs.parentFreqIdx);
 						GDKfree(labelStr); 
 					}
 
@@ -1991,7 +1991,7 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, char isWriteTofile, int 
 						str labelStr;
 						//takeOid(labels[i].name, &labelStr);
 						getStringName(labels[i].name, &labelStr, mapi, mapbat, 1);
-						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | FreqParentIdx %d \n", cs.csId, i, labelStr, freq, cs.parentFreqIdx);
+						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) (NameFreq: %d --> %.2f percent) | FreqParentIdx %d \n", cs.csId, i, labelStr, freq, labels[i].nameFreq, (float) labels[i].nameFreq/freq * 100, cs.parentFreqIdx);
 						GDKfree(labelStr);
 					}
 				}

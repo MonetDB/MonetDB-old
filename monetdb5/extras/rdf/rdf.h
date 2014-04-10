@@ -97,6 +97,8 @@ RDFpartialjoin (bat *res, bat *lmap, bat *rmap, bat *input);
 #define N_GRAPH_BAT (MAP_LEX+1)
 
 #define INFO_WHERE_NAME_FROM 1
+#define INFO_NAME_FREQUENCY 1	//Store the frequency of the name or its ontology TF-IDF score
+				//This is used for analyzing the result
 #define TOP_GENERAL_NAME 2	//Level of hierrachy in which a name is considered to be a general name
 				//For example, PERSON, THING is at level 1	
 #define	USE_ALTERNATIVE_NAME 1	//Use different but may be better name for a general name
@@ -120,6 +122,11 @@ typedef struct CSlabel {
 	char		isType; 	// First name is decided based on Type
 	char		isFK; 	
 	#endif
+	#if	INFO_NAME_FREQUENCY
+	int		nameFreq;		//Name frequency
+	float		ontologySimScore; 	//ontology similarity score
+	#endif 	
+	
 } CSlabel;
 
 #endif /* _RDF_H_ */

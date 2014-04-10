@@ -1,0 +1,15 @@
+http://rdf.data-vocabulary.org/#Address|NULL|http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource
+http://rdf.data-vocabulary.org/#Breadcrumb|NULL|http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource
+http://rdf.data-vocabulary.org/#Offer|NULL|http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource
+http://rdf.data-vocabulary.org/#OfferAggregate|NULL|http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource
+http://rdf.data-vocabulary.org/#Organization|NULL|http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource
+http://rdf.data-vocabulary.org/#Person|NULL|http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource
+http://rdf.data-vocabulary.org/#Product|NULL|http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource
+http://rdf.data-vocabulary.org/#Rating|NULL|http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource
+http://rdf.data-vocabulary.org/#Recipe|NULL|http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource
+http://rdf.data-vocabulary.org/#Review|NULL|http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource
+http://rdf.data-vocabulary.org/#Review-aggregate|NULL|http://rdf.data-vocabulary.org/#Review
+http://rdf.data-vocabulary.org/#ingredient|NULL|http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource
+http://rdf.data-vocabulary.org/#instructions|NULL|http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource
+http://rdf.data-vocabulary.org/#nutrition|NULL|http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource
+http://rdf.data-vocabulary.org/#timeRange|NULL|http://www.w3.org/1999/02/22-rdf-syntax-ns#Resource

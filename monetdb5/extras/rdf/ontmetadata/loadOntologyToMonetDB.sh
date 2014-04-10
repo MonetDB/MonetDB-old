@@ -90,6 +90,32 @@ sed -i "s:AttFile:${PWD}/ontAttribute.bsbm.csv:g" loadtmp.sql
 
 mclient < loadtmp.sql
 
+#rdfvocabulary
+NUMMETADATA=`cat ontMetadata.rdfvocabulary.csv | wc -l`
+NUMATTRIBUTES=`cat ontAttribute.rdfvocabulary.csv | wc -l`
+
+cp loadOntologySAMPLE.sql loadtmp.sql
+sed -i "s:NUMMETADATA:$NUMMETADATA:g" loadtmp.sql
+sed -i "s:NUMATTRIBUTES:$NUMATTRIBUTES:g" loadtmp.sql
+sed -i "s:MetaFile:${PWD}/ontMetadata.rdfvocabulary.csv:g" loadtmp.sql
+sed -i "s:AttFile:${PWD}/ontAttribute.rdfvocabulary.csv:g" loadtmp.sql
+
+
+mclient < loadtmp.sql
+
+#Open Graph Protocol (ogp)
+NUMMETADATA=`cat ontMetadata.ogp.csv | wc -l`
+NUMATTRIBUTES=`cat ontAttribute.ogp.csv | wc -l`
+
+cp loadOntologySAMPLE.sql loadtmp.sql
+sed -i "s:NUMMETADATA:$NUMMETADATA:g" loadtmp.sql
+sed -i "s:NUMATTRIBUTES:$NUMATTRIBUTES:g" loadtmp.sql
+sed -i "s:MetaFile:${PWD}/ontMetadata.ogp.csv:g" loadtmp.sql
+sed -i "s:AttFile:${PWD}/ontAttribute.ogp.csv:g" loadtmp.sql
+
+
+mclient < loadtmp.sql
+
 #List of possible ontologies
 NUMONT=`cat ontList.csv | wc -l`
 

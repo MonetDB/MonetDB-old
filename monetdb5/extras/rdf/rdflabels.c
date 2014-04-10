@@ -2089,12 +2089,17 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	
 	char		foundOntologyTypeValue = 0; 	
 	oid		choosenOntologyTypeValue = BUN_NONE;
+	int		choosenFreq = 0;
 
 	(void) ontmetaBat;
 	// --- TYPE ---
 	// get most frequent type value per type attribute
 	tmpList = NULL;
 	tmpListCount = 0;
+	#if INFO_NAME_FREQUENCY
+	label->nameFreq = 0;
+	label->ontologySimScore = 0.0;
+	#endif
 
 	for (i = 0; i < typeAttributesCount; ++i) {
 		foundOntologyTypeValue = 0;
@@ -2157,6 +2162,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 					maxDepthOid = typeAttributesHistogram[csIdx][i][j].value;
 					maxFreq = freq;
 				}
+
 			}
 		}
 
@@ -2165,6 +2171,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 
 		if (foundOntologyTypeValue){
 			choosenOntologyTypeValue = maxDepthOid;
+			choosenFreq = maxFreq;
 		}
 	}
 
@@ -2196,6 +2203,10 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			label->isType = 1; 
 			#endif
 
+			#if INFO_NAME_FREQUENCY
+			label->nameFreq = maxFreq;
+			label->ontologySimScore = 0.0;
+			#endif
 		}
 	}
 
@@ -2207,6 +2218,11 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			
 			#if INFO_WHERE_NAME_FROM
 			label->isType = 1; 
+			#endif
+			
+			#if INFO_NAME_FREQUENCY
+			label->nameFreq = choosenFreq;
+			label->ontologySimScore = 0.0;
 			#endif
 		}
 	}
@@ -2222,6 +2238,11 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 
 						#if INFO_WHERE_NAME_FROM
 						label->isType = 1; 
+						#endif
+						
+						#if INFO_NAME_FREQUENCY
+						label->nameFreq = maxFreq;	//This is not really true. The name freq can be smaller
+						label->ontologySimScore = 0.0;
 						#endif
 					}
 				}
@@ -2338,6 +2359,11 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			#if INFO_WHERE_NAME_FROM
 			label->isFK = 1; 
 			#endif
+			
+			#if INFO_NAME_FREQUENCY
+			label->nameFreq = links[csIdx].fks[0].freq;
+			label->ontologySimScore = 0.0;
+			#endif
 		}
 	}
 	
@@ -2357,6 +2383,10 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			label->isType = 1; 
 			#endif
 
+			#if INFO_NAME_FREQUENCY
+			label->nameFreq = typeAttributesHistogram[csIdx][i][0].percent;
+			label->ontologySimScore = 0.0;
+			#endif
 			break; 
 		}
 	}
@@ -2765,9 +2795,10 @@ char*		typeAttributes[] = {
 			"<http://www.w3.org/1999/xhtmltype>",
 			"<http://dbpedia.org/ontology/longtype>",
 			"<http://dbpedia.org/ontology/type>",
-			"<http://dbpedia.org/ontology/typeOfElectrification>"}; // <...> necessary to get the correct oids
+			"<http://dbpedia.org/ontology/typeOfElectrification>",
+			"<http://dbpedia.org/property/type>"}; // <...> necessary to get the correct oids
 
-int			typeAttributesCount = 17;
+int			typeAttributesCount = 18;
 #endif
 
 /* Creates labels for all CS (without a parent). */
