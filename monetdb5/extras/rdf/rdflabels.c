@@ -1385,12 +1385,14 @@ void createPropStatistics(PropStat* propStat, int numMaxCSs, CSset* freqCSset) {
 static
 void createPropStatistics(PropStat* propStat, oid** ontattributes, int ontattributesCount) {
 	int		i;
+	int		numProps = 0;
 
 	for (i = 0; i < ontattributesCount; ++i) {
 		oid attr = ontattributes[1][i];
 		// add prop to propStat
 		BUN	bun = BUNfnd(BATmirror(propStat->pBat), (ptr) &attr);
 		if (bun == BUN_NONE) {
+			numProps++;
 			if (propStat->pBat->T->hash && BATcount(propStat->pBat) > 4 * propStat->pBat->T->hash->mask) {
 				HASHdestroy(propStat->pBat);
 				BAThash(BATmirror(propStat->pBat), 2*BATcount(propStat->pBat));
@@ -1413,7 +1415,7 @@ void createPropStatistics(PropStat* propStat, oid** ontattributes, int ontattrib
 	}
 
 	for (i = 0; i < propStat->numAdded; ++i) {
-		propStat->tfidfs[i] = log(((float)ontattributesCount) / (1 + propStat->freqs[i]));
+		propStat->tfidfs[i] = log(((float)numProps) / (1 + propStat->freqs[i]));
 	}
 }
 
@@ -2014,7 +2016,7 @@ oid* getOntoHierarchy(oid ontology, int* hierarchyCount, oid** ontmetadata, int 
 static
 void removeDuplicatedCandidates(CSlabel *label) {
 	int i, j;
-	int cNew = label->candidatesNew, cOnto = label->candidatesOntology, cType = label->candidatesType, cFK = label->candidatesFK;
+	int cNew = label->candidatesNew, cType = label->candidatesType, cOnto = label->candidatesOntology, cFK = label->candidatesFK;
 
 	if (label->candidatesCount < 2) return; // no duplicates
 
@@ -2026,8 +2028,8 @@ void removeDuplicatedCandidates(CSlabel *label) {
 			// find out which category (new, onto, type, fk) we are in
 			int *cPtr = NULL;
 			if (j < label->candidatesNew) cPtr = &cNew;
-			else if (j < label->candidatesNew + label->candidatesOntology) cPtr = &cOnto;
-			else if (j < label->candidatesNew + label->candidatesOntology + label->candidatesType) cPtr = &cType;
+			else if (j < label->candidatesNew + label->candidatesType) cPtr = &cType;
+			else if (j < label->candidatesNew + label->candidatesType + label->candidatesOntology) cPtr = &cOnto;
 			else cPtr = &cFK;
 
 			if (label->candidates[i] == label->candidates[j] || label->candidates[j] == BUN_NONE) {
@@ -2045,8 +2047,8 @@ void removeDuplicatedCandidates(CSlabel *label) {
 		// update counts
 		label->candidatesCount -= moveLeft;
 		label->candidatesNew = cNew;
-		label->candidatesOntology = cOnto;
 		label->candidatesType = cType;
+		label->candidatesOntology = cOnto;
 		label->candidatesFK = cFK;
 	}
 
@@ -2060,10 +2062,10 @@ void removeDuplicatedCandidates(CSlabel *label) {
 		// update value in category;
 		if (label->candidatesNew > 0) {
 			label->candidatesNew--;
-		} else if (label->candidatesOntology > 0) {
-			label->candidatesOntology--;
 		} else if (label->candidatesType > 0) {
 			label->candidatesType--;
+		} else if (label->candidatesOntology > 0) {
+			label->candidatesOntology--;
 		} else {
 			label->candidatesFK--;
 		}
@@ -2074,7 +2076,7 @@ void removeDuplicatedCandidates(CSlabel *label) {
 /* For one CS: Choose the best table name out of all collected candidates (ontology, type, fk). */
 static
 void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, TypeStat* typeStat, int typeStatCount, oid** result, int* resultCount, IncidentFKs* links, oid** ontmetadata, int ontmetadataCount, BAT *ontmetaBat, OntClass *ontclassSet) {
-	int		i, j, k;
+	int		i, j;
 	oid		*tmpList;
 	int		tmpListCount;
 	char		nameFound = 0;
@@ -2262,78 +2264,14 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		label->candidatesCount += resultCount[csIdx];
 	}
 
-	// one ontology class --> use it
-	if (!nameFound){
-	if (resultCount[csIdx] == 1) {
+	// chose first ontology candidate as label
+	if (!nameFound && resultCount[csIdx] >= 1){
 		label->name = result[csIdx][0];
 		label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 		nameFound = 1;
 		#if INFO_WHERE_NAME_FROM
 		label->isOntology = 1; 
 		#endif
-	}
-	}
-
-	if (!nameFound) {
-		// multiple ontology classes --> intersect with types
-		if (resultCount[csIdx] > 1) {
-			tmpList = NULL;
-			tmpListCount = 0;
-			// search for type values
-			for (i = 0; i < typeAttributesCount; ++i) {
-				for (j = 0; j < typeAttributesHistogramCount[csIdx][i]; ++j) {
-					if (typeAttributesHistogram[csIdx][i][j].percent < TYPE_FREQ_THRESHOLD) break; // sorted
-
-					// intersect type with ontology classes
-					for (k = 0; k < resultCount[csIdx]; ++k) {
-						if (result[csIdx][k] == typeAttributesHistogram[csIdx][i][j].value) {
-							// found, copy ontology class to tmpList
-							tmpList = (oid *) realloc(tmpList, sizeof(oid) * (tmpListCount + 1));
-							if (!tmpList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-							tmpList[tmpListCount] = result[csIdx][k];
-							tmpListCount += 1;
-						}
-					}
-				}
-			}
-
-			// only one left --> use it
-			if (tmpListCount == 1) {
-				label->name = tmpList[0];
-				label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
-				free(tmpList);
-				nameFound = 1;
-				#if INFO_WHERE_NAME_FROM
-				label->isOntology = 1; 
-				#endif
-			}
-
-			if (!nameFound) {
-				// multiple left --> use the class that covers most attributes, most popular ontology, ...
-				if (tmpListCount > 1) {
-					label->name = tmpList[0]; // sorted
-					label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
-					free(tmpList);
-					nameFound = 1;
-					
-					#if INFO_WHERE_NAME_FROM
-					label->isOntology = 1; 
-					#endif
-				}
-			}
-
-			if (!nameFound) {
-				// empty intersection -> use the class that covers most attributes, most popular ontology, ..
-				label->name = result[csIdx][0]; // sorted
-				label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
-				free(tmpList);
-				nameFound = 1;
-
-				#if INFO_WHERE_NAME_FROM
-				label->isOntology = 1; 
-				#endif
-			}
-		}
 	}
 
 
@@ -2426,8 +2364,8 @@ CSlabel* initLabels(CSset *freqCSset) {
 		labels[i].candidates = NULL;
 		labels[i].candidatesCount = 0;
 		labels[i].candidatesNew = 0;
-		labels[i].candidatesOntology = 0;
 		labels[i].candidatesType = 0;
+		labels[i].candidatesOntology = 0;
 		labels[i].candidatesFK = 0;
 		labels[i].hierarchy = NULL;
 		labels[i].hierarchyCount = 0;
@@ -2883,7 +2821,7 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
  * Result: <common name> <ontology candidates CS1> <ontology candidates CS2> <type candidates CS1> <type candidates CS2> <FK candidates CS1> <FK candidates CS2>
  */
 static
-oid* mergeCandidates(int *candidatesCount, int *candidatesNew, int *candidatesOntology, int *candidatesType, int *candidatesFK, CSlabel cs1, CSlabel cs2, oid commonName) {
+oid* mergeCandidates(int *candidatesCount, int *candidatesNew, int *candidatesType, int *candidatesOntology, int *candidatesFK, CSlabel cs1, CSlabel cs2, oid commonName) {
 	oid	*candidates;
 	int	counter = 0;
 	int	i;
@@ -2905,38 +2843,38 @@ oid* mergeCandidates(int *candidatesCount, int *candidatesNew, int *candidatesOn
 	}
 	(*candidatesNew) = counter;
 
-	// copy "ontology"
-	for (i = 0; i < cs1.candidatesOntology; ++i) {
+	// copy "type"
+	for (i = 0; i < cs1.candidatesType; ++i) {
 		candidates[counter] = cs1.candidates[cs1.candidatesNew + i];
 		counter++;
 	}
-	for (i = 0; i < cs2.candidatesOntology; ++i) {
+	for (i = 0; i < cs2.candidatesType; ++i) {
 		candidates[counter] = cs2.candidates[cs2.candidatesNew + i];
 		counter++;
 	}
-	(*candidatesOntology) = counter - (*candidatesNew);
+	(*candidatesType) = counter - (*candidatesNew);
 
-	// copy "type"
-	for (i = 0; i < cs1.candidatesType; ++i) {
-		candidates[counter] = cs1.candidates[cs1.candidatesNew + cs1.candidatesOntology + i];
+	// copy "ontology"
+	for (i = 0; i < cs1.candidatesOntology; ++i) {
+		candidates[counter] = cs1.candidates[cs1.candidatesNew + cs1.candidatesType + i];
 		counter++;
 	}
-	for (i = 0; i < cs2.candidatesType; ++i) {
-		candidates[counter] = cs2.candidates[cs2.candidatesNew + cs2.candidatesOntology + i];
+	for (i = 0; i < cs2.candidatesOntology; ++i) {
+		candidates[counter] = cs2.candidates[cs2.candidatesNew + cs2.candidatesType + i];
 		counter++;
 	}
-	(*candidatesType) = counter - (*candidatesNew) - (*candidatesOntology);
+	(*candidatesOntology) = counter - (*candidatesNew) - (*candidatesType);
 
 	// copy "fk"
 	for (i = 0; i < cs1.candidatesFK; ++i) {
-		candidates[counter] = cs1.candidates[cs1.candidatesNew + cs1.candidatesOntology + cs1.candidatesType + i];
+		candidates[counter] = cs1.candidates[cs1.candidatesNew + cs1.candidatesType + cs1.candidatesOntology + i];
 		counter++;
 	}
 	for (i = 0; i < cs2.candidatesFK; ++i) {
-		candidates[counter] = cs2.candidates[cs2.candidatesNew + cs2.candidatesOntology + cs2.candidatesType + i];
+		candidates[counter] = cs2.candidates[cs2.candidatesNew + cs2.candidatesType + cs2.candidatesOntology + i];
 		counter++;
 	}
-	(*candidatesFK) = counter - (*candidatesNew) - (*candidatesOntology) - (*candidatesType);
+	(*candidatesFK) = counter - (*candidatesNew) - (*candidatesType) - (*candidatesOntology);
 
 	return candidates;
 }
@@ -2951,12 +2889,13 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 	CSlabel		big, small;
 	CSlabel		*label;
 	CS		cs;	
-	#if     USE_MULTIWAY_MERGING
+/*	#if     USE_MULTIWAY_MERGING
+	// multiway merging cannot be used here, see below
 	int		tmpMaxCoverage; 
 	int		tmpFreqId;
-	#endif
+	#endif */
 	oid		*mergedCandidates = NULL;
-	int		candidatesCount, candidatesNew, candidatesOntology, candidatesType, candidatesFK;
+	int		candidatesCount, candidatesNew, candidatesType, candidatesOntology, candidatesFK;
 
 	(void) lstFreqId;
 	(void) numIds;
@@ -2969,8 +2908,8 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		(*labels)[mergeCSFreqId].candidates = NULL;
 		(*labels)[mergeCSFreqId].candidatesCount = 0;
 		(*labels)[mergeCSFreqId].candidatesNew = 0;
-		(*labels)[mergeCSFreqId].candidatesOntology = 0;
 		(*labels)[mergeCSFreqId].candidatesType = 0;
+		(*labels)[mergeCSFreqId].candidatesOntology = 0;
 		(*labels)[mergeCSFreqId].candidatesFK = 0;
 		(*labels)[mergeCSFreqId].hierarchy = NULL;
 		(*labels)[mergeCSFreqId].hierarchyCount = 0;
@@ -3003,13 +2942,13 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 
 		#else
 		// candidates
-		mergedCandidates = mergeCandidates(&candidatesCount, &candidatesNew, &candidatesOntology, &candidatesType, &candidatesFK, (*labels)[freqCS1], (*labels)[freqCS2], label->name);
+		mergedCandidates = mergeCandidates(&candidatesCount, &candidatesNew, &candidatesType, &candidatesOntology, &candidatesFK, (*labels)[freqCS1], (*labels)[freqCS2], label->name);
 		GDKfree(label->candidates);
 		label->candidates = mergedCandidates; // TODO check access outside function
 		label->candidatesCount = candidatesCount;
 		label->candidatesNew = candidatesNew;
-		label->candidatesOntology = candidatesOntology;
 		label->candidatesType = candidatesType;
+		label->candidatesOntology = candidatesOntology;
 		label->candidatesFK = candidatesFK;
 		removeDuplicatedCandidates(label);
 		if (label->name == BUN_NONE && label->candidates[0] != BUN_NONE) {
@@ -3051,13 +2990,13 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		label->name = name;
 
 		// candidates
-		mergedCandidates = mergeCandidates(&candidatesCount, &candidatesNew, &candidatesOntology, &candidatesType, &candidatesFK, (*labels)[freqCS1], (*labels)[freqCS2], label->name);
+		mergedCandidates = mergeCandidates(&candidatesCount, &candidatesNew, &candidatesType, &candidatesOntology, &candidatesFK, (*labels)[freqCS1], (*labels)[freqCS2], label->name);
 		GDKfree(label->candidates);
 		label->candidates = mergedCandidates; // TODO check access outside function
 		label->candidatesCount = candidatesCount;
 		label->candidatesNew = candidatesNew;
-		label->candidatesOntology = candidatesOntology;
 		label->candidatesType = candidatesType;
+		label->candidatesOntology = candidatesOntology;
 		label->candidatesFK = candidatesFK;
 		removeDuplicatedCandidates(label);
 		if (label->name == BUN_NONE && label->candidates[0] != BUN_NONE) {
@@ -3086,13 +3025,13 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		// subset-superset relation
 
 		// candidates
-		mergedCandidates = mergeCandidates(&candidatesCount, &candidatesNew, &candidatesOntology, &candidatesType, &candidatesFK, (*labels)[freqCS1], (*labels)[freqCS2], label->name); // freqCS1 is superCS, freqCS2 is subCS
+		mergedCandidates = mergeCandidates(&candidatesCount, &candidatesNew, &candidatesType, &candidatesOntology, &candidatesFK, (*labels)[freqCS1], (*labels)[freqCS2], label->name); // freqCS1 is superCS, freqCS2 is subCS
 		GDKfree(label->candidates);
 		label->candidates = mergedCandidates; // TODO check access outside function
 		label->candidatesCount = candidatesCount;
 		label->candidatesNew = candidatesNew;
-		label->candidatesOntology = candidatesOntology;
 		label->candidatesType = candidatesType;
+		label->candidatesOntology = candidatesOntology;
 		label->candidatesFK = candidatesFK;
 		removeDuplicatedCandidates(label);
 		if (label->name == BUN_NONE && label->candidates[0] != BUN_NONE) {
@@ -3106,7 +3045,8 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 
 		case S4: // FALLTHROUGH
 		case S5:
-		#if	USE_MULTIWAY_MERGING
+/*		#if	USE_MULTIWAY_MERGING
+		// multiwaymerging cannot be used because 'small' is not set, but needed for mergeCandidates()
 		tmpMaxCoverage = 0; 
 		tmpFreqId = 0;
 		for (i = 0; i < numIds; i++){
@@ -3115,9 +3055,9 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 				tmpMaxCoverage = freqCSset->items[lstFreqId[i]].coverage;
 			}
 		}
-		big = &(*labels)[tmpFreqId];
+		big = (*labels)[tmpFreqId];
 
-		#else
+		#else */
 		// use label of biggest CS (higher coverage value)
 		if (freqCSset->items[freqCS1].coverage > freqCSset->items[freqCS2].coverage) {
 			big = (*labels)[freqCS1];
@@ -3126,17 +3066,17 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 			big = (*labels)[freqCS2];
 			small = (*labels)[freqCS1];
 		}
-		#endif
+//		#endif
 		label->name = big.name;
 
 		// candidates
-		mergedCandidates = mergeCandidates(&candidatesCount, &candidatesNew, &candidatesOntology, &candidatesType, &candidatesFK, big, small, label->name);
+		mergedCandidates = mergeCandidates(&candidatesCount, &candidatesNew, &candidatesType, &candidatesOntology, &candidatesFK, big, small, label->name);
 		GDKfree(label->candidates);
 		label->candidates = mergedCandidates; // TODO check access outside function
 		label->candidatesCount = candidatesCount;
 		label->candidatesNew = candidatesNew;
-		label->candidatesOntology = candidatesOntology;
 		label->candidatesType = candidatesType;
+		label->candidatesOntology = candidatesOntology;
 		label->candidatesFK = candidatesFK;
 		removeDuplicatedCandidates(label);
 		if (label->name == BUN_NONE && label->candidates[0] != BUN_NONE) {

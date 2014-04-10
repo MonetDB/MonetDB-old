@@ -3486,12 +3486,13 @@ void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *merge
 
 static
 str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** ontmetadata, int ontmetadataCount,bat *mapbatid){
-	int 		i; 
+	int 		i, j; 
+	CS		*cs1, *cs2;
 
 	#if !USE_MULTIWAY_MERGING
-	int		j, k;
+	int		k;
 	int 		freqId1, freqId2;
-	CS		*cs1, *cs2;
+	int		tmpCount; 
 	#else
 	int		*lstDistinctFreqId = NULL;		
 	int		numDistinct = 0;
@@ -3500,7 +3501,6 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 	#endif
 	LabelStat	*labelStat = NULL; 
 	oid		*name;
-	int		tmpCount; 
 
 	#if OUTPUT_FREQID_PER_LABEL
 	FILE    	*fout;
@@ -3721,6 +3721,7 @@ void mergeMaxFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 	#if 		!USE_MULTIWAY_MERGING
 	int 		freqId1, freqId2;
 	CS		*cs1, *cs2;
+	int		startIdx = 0; 
 	#else
 	int		*lstDistinctFreqId = NULL;		
 	int		numDistinct = 0;
@@ -3735,7 +3736,6 @@ void mergeMaxFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 	#endif
 	int		maxNumPropInMergeCS =0;
 	//int 		numCombinedP = 0; 
-	int		startIdx = 0; 
 	
 	printf("Start merging CS by using S5[From FK] \n");
 	
