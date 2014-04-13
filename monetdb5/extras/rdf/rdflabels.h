@@ -61,7 +61,8 @@ typedef struct IncidentFKs {
 typedef struct ClassStat {
 	oid		ontoClass;	// URI of the ontology class
 	float		tfidfs;		// summarized tfidf score of all properties that accur in the ontology class
-	float		totaltfidfs; 	// The total tfidf score for all properties of this ontology class
+	float		totaltfidfs; 	// The total tfidf score for all properties of this ontology classa
+	int		numMatchedProp; // Number of matched prop in a ontology class
 } ClassStat;
 
 // Statistics for a type attribute value

@@ -1134,6 +1134,11 @@ int compareOntologyCandidates (const void * a, const void * b) {
 
 	if (f1 > f2) return -1;
 	if (f2 > f1) return 1;
+	
+	//f1 = f2
+	if ((*(ClassStat*)a).numMatchedProp > (*(ClassStat*)b).numMatchedProp) return -1;
+	if ((*(ClassStat*)a).numMatchedProp < (*(ClassStat*)b).numMatchedProp) return 1;
+
 	return 0; // sort descending
 }
 #endif
@@ -1141,10 +1146,11 @@ int compareOntologyCandidates (const void * a, const void * b) {
 #if USE_ONTOLOGY_NAMES
 /* For one CS: Calculate the ontology classes that are similar (tfidf) to the list of attributes. */
 static
-oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount, int *resultCount, oid **listOids, int *listCount, int listNum, PropStat *propStat) {
+oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount, int *resultCount, int** resultMatchedProp, oid **listOids, int *listCount, int listNum, PropStat *propStat, int freqId) {
 	int		i, j, k, l;
 	oid		*result = NULL;
-
+	
+	if (freqId == 9) printf("listNum = %d\n",listNum);
 	for (i = 0; i < listNum; ++i) {
 		int		filledListsCount = 0;
 		oid		**candidates = NULL;
@@ -1202,6 +1208,7 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 					if (candidates[j][k] == classStat[l].ontoClass) {
 						// add tdidf^2 to sum
 						classStat[l].tfidfs += (propStat->tfidfs[bun] * propStat->tfidfs[bun]);
+						classStat[l].numMatchedProp++;
 						found = 1;
 						break;
 					}
@@ -1212,6 +1219,7 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 					if (!classStat) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 					classStat[num].ontoClass = candidates[j][k]; // pointer, no copy
 					classStat[num].totaltfidfs = 0.0;
+					classStat[num].numMatchedProp = 1;
 					classStat[num].tfidfs = (propStat->tfidfs[bun] * propStat->tfidfs[bun]);
 					num += 1;
 				}
@@ -1236,7 +1244,7 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 		// remove subclass if superclass is in list
 		for (k = 0; k < num; ++k) {
 			int found = 0;
-			//printf("    TFIDF score at %d is: %f  \n",k, classStat[k].tfidfs);
+			if (freqId == 9) printf("   TFIDF score at %d ("BUNFMT") is: %f | Number of matched Prop %d \n",k, classStat[k].ontoClass, classStat[k].tfidfs,classStat[k].numMatchedProp);
 			if (classStat[k].tfidfs < ONTOLOGY_FREQ_THRESHOLD) break; // values not frequent enough (list is sorted by tfidfs)
 			for (j = 0; j < ontmetadataCount && (found == 0); ++j) {
 				oid muri = ontmetadata[0][j];
@@ -1247,6 +1255,10 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 						result = realloc(result, sizeof(oid) * ((*resultCount) + 1));
 						if (!result) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 						result[*resultCount] = muri;
+							
+						resultMatchedProp[freqId] = realloc(resultMatchedProp[freqId], sizeof(int) * ((*resultCount) + 1));
+						resultMatchedProp[freqId][*resultCount] = classStat[k].numMatchedProp;
+
 						*resultCount += 1;
 						found = 1;
 						break;
@@ -1267,6 +1279,10 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 				result = realloc(result, sizeof(oid) * ((*resultCount) + 1));
 				if (!result) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 				result[*resultCount] = classStat[k].ontoClass;
+
+				resultMatchedProp[freqId] = realloc(resultMatchedProp[freqId], sizeof(int) * ((*resultCount) + 1));
+				resultMatchedProp[freqId][*resultCount] = classStat[k].numMatchedProp;
+
 				*resultCount += 1;
 				break;
 			}
@@ -1309,6 +1325,19 @@ oid** initOntologyLookupResult(int csCount) {
 		result[i] = NULL;
 	}
 	return result;
+}
+
+static
+int** initOntologyLookupResultMatchedProp(int csCount) {
+	int		**resultMatchedProp; // resultMatchedProp[cs][index] Number of props matched between a CS and an ontology class
+	int i;
+
+	resultMatchedProp = (int **) malloc(sizeof(int *) * csCount);
+	if (!resultMatchedProp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+	for (i = 0; i < csCount; ++i) {
+		resultMatchedProp[i] = NULL;
+	}
+	return resultMatchedProp;
 }
 
 #if USE_ONTOLOGY_NAMES
@@ -1436,7 +1465,7 @@ void freePropStat(PropStat *propStat) {
 #if USE_ONTOLOGY_NAMES
 /* For all CS: Calculate the ontology classes that are similar (tfidf) to the list of attributes. */
 static
-void createOntologyLookupResult(oid** result, CSset* freqCSset, int* resultCount, oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount) {
+void createOntologyLookupResult(oid** result, int** resultMatchedProp, CSset* freqCSset, int* resultCount, oid** ontattributes, int ontattributesCount, oid** ontmetadata, int ontmetadataCount) {
 	int		i, j;
 	PropStat	*propStat;
 
@@ -1466,18 +1495,28 @@ void createOntologyLookupResult(oid** result, CSset* freqCSset, int* resultCount
 
 		propOntologies = findOntologies(cs, propOntologiesCount, &propOntologiesOids);
 
-		/*
+ 		if (i == 9){
 		printf("Prop ontologies count. \n");
 		for (j = 0; j < ontologyCount; ++j) {
 			if (propOntologiesCount[j] > 0)
 				printf("    %d props in ontology %d \n ", propOntologiesCount[j], j);
 		}
-		*/
+		
+		}	
 
 		// get class names
 		resultCount[i] = 0;
 		
-		result[i] = getOntologyCandidates(ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &(resultCount[i]), propOntologiesOids, propOntologiesCount, ontologyCount, propStat);
+		result[i] = getOntologyCandidates(ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &(resultCount[i]), resultMatchedProp, propOntologiesOids, propOntologiesCount, ontologyCount, propStat, i);
+
+		if (i == 9){
+			printf("Ontology candidates \n");
+			for (j = 0; j < resultCount[i]; j++){
+				printf(BUNFMT " (Num prop matched %d \n", result[i][j], resultMatchedProp[i][j]);
+			}
+			//exit(-1);
+		}	
+		
 
 		for (j = 0; j < ontologyCount; ++j) {
 			free(propOntologies[j]);
@@ -2075,7 +2114,7 @@ void removeDuplicatedCandidates(CSlabel *label) {
 #if USE_TABLE_NAME
 /* For one CS: Choose the best table name out of all collected candidates (ontology, type, fk). */
 static
-void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, TypeStat* typeStat, int typeStatCount, oid** result, int* resultCount, IncidentFKs* links, oid** ontmetadata, int ontmetadataCount, BAT *ontmetaBat, OntClass *ontclassSet) {
+void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, TypeStat* typeStat, int typeStatCount, oid** result,int** resultMatchedProp, int* resultCount, IncidentFKs* links, oid** ontmetadata, int ontmetadataCount, BAT *ontmetaBat, OntClass *ontclassSet) {
 	int		i, j;
 	oid		*tmpList;
 	int		tmpListCount;
@@ -2092,6 +2131,8 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	char		foundOntologyTypeValue = 0; 	
 	oid		choosenOntologyTypeValue = BUN_NONE;
 	int		choosenFreq = 0;
+
+	int		bestOntCandIdx = -1;
 
 	(void) ontmetaBat;
 	// --- TYPE ---
@@ -2254,19 +2295,29 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		
 	// --- ONTOLOGY ---
 	// add all ontology candidates to list of candidates
+	// Find the best candidate by looking at the number of matched prop
+	// between the CS and the ontology candidate
+	// 
 	if (resultCount[csIdx] >= 1) {
+		int maxNumMatchedProp = -1;
+		bestOntCandIdx = 0;
 		label->candidatesOntology = resultCount[csIdx];
 		label->candidates = GDKrealloc(label->candidates, sizeof(oid) * (label->candidatesCount + resultCount[csIdx]));
 		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 		for (i = 0; i < resultCount[csIdx]; ++i) {
 			label->candidates[label->candidatesCount + i] = result[csIdx][i];
+			if (resultMatchedProp[csIdx][i] > maxNumMatchedProp){
+				maxNumMatchedProp = resultMatchedProp[csIdx][i];
+				bestOntCandIdx = i;
+			}
 		}
 		label->candidatesCount += resultCount[csIdx];
 	}
 
-	// chose first ontology candidate as label
+	// chose the best ontology candidate based on number of matched props as label 
+	// TODO: Improve this score a bit, by choosing the higher tfidf score, than number of matched prop
 	if (!nameFound && resultCount[csIdx] >= 1){
-		label->name = result[csIdx][0];
+		label->name = result[csIdx][bestOntCandIdx];
 		label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 		nameFound = 1;
 		#if INFO_WHERE_NAME_FROM
@@ -2383,14 +2434,14 @@ CSlabel* initLabels(CSset *freqCSset) {
 #if USE_TABLE_NAME
 /* Creates the final result of the labeling: table name and attribute names. */
 static
-void getAllLabels(CSlabel* labels, CSset* freqCSset,  int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, TypeStat* typeStat, int typeStatCount, oid** result, int* resultCount, IncidentFKs* links, oid** ontmetadata, int ontmetadataCount, BAT *ontmetaBat, OntClass *ontclassSet) {
+void getAllLabels(CSlabel* labels, CSset* freqCSset,  int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, TypeStat* typeStat, int typeStatCount, oid** result, int** resultMatchedProp, int* resultCount, IncidentFKs* links, oid** ontmetadata, int ontmetadataCount, BAT *ontmetaBat, OntClass *ontclassSet) {
 	int		i, j;
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS cs = (CS) freqCSset->items[i];
 
 		// get table name
-		getTableName(&labels[i], i,  typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeStat, typeStatCount, result, resultCount, links, ontmetadata, ontmetadataCount, ontmetaBat, ontclassSet);
+		getTableName(&labels[i], i,  typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeStat, typeStatCount, result, resultMatchedProp, resultCount, links, ontmetadata, ontmetadataCount, ontmetaBat, ontclassSet);
 
 		// copy attribute oids (names)
 		labels[i].numProp = cs.numProp;
@@ -2705,14 +2756,17 @@ void freeLinks(IncidentFKs* links, int csCount) {
 //}
 
 static
-void freeOntologyLookupResult(oid** ontologyLookupResult, int csCount) {
+void freeOntologyLookupResult(oid** ontologyLookupResult, int** ontologyLookupResutMatchedProp, int csCount) {
 	int		i;
 
 	for (i = 0; i < csCount; ++i) {
 		if (ontologyLookupResult[i])
 			free(ontologyLookupResult[i]);
+		if (ontologyLookupResutMatchedProp[i])
+			free(ontologyLookupResutMatchedProp[i]);
 	}
 	free(ontologyLookupResult);
+	free(ontologyLookupResutMatchedProp);
 }
 
 #if USE_TYPE_NAMES
@@ -2750,6 +2804,8 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 	Relation		***relationMetadata;
 	oid			**ontologyLookupResult;
 	int			*ontologyLookupResultCount;
+	int			**ontologyLookupResutMatchedProp;
+
 	IncidentFKs		*links;
 	CSlabel			*labels;
 
@@ -2784,8 +2840,9 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 	// Ontologies
 	ontologyLookupResultCount = initOntologyLookupResultCount(freqCSset->numCSadded);
 	ontologyLookupResult = initOntologyLookupResult(freqCSset->numCSadded);
+	ontologyLookupResutMatchedProp = initOntologyLookupResultMatchedProp(freqCSset->numCSadded);
 #if USE_ONTOLOGY_NAMES
-	createOntologyLookupResult(ontologyLookupResult, freqCSset, ontologyLookupResultCount, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount);
+	createOntologyLookupResult(ontologyLookupResult, ontologyLookupResutMatchedProp, freqCSset, ontologyLookupResultCount, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount);
 	// TODO ont-data have to be freed on shutdown of the database
 	// freeOntattributes(ontattributes);
 	// freeOntmetadata(ontmetadata);
@@ -2797,7 +2854,7 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 	// Assigning Names
 	labels = initLabels(freqCSset);
 #if USE_TABLE_NAME
-	getAllLabels(labels, freqCSset, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeStat, typeStatCount, ontologyLookupResult, ontologyLookupResultCount, links, ontmetadata, ontmetadataCount, ontmetaBat, ontclassSet);
+	getAllLabels(labels, freqCSset, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeStat, typeStatCount, ontologyLookupResult, ontologyLookupResutMatchedProp, ontologyLookupResultCount, links, ontmetadata, ontmetadataCount, ontmetaBat, ontclassSet);
 	if (typeStatCount > 0) free(typeStat);
 #endif
 
@@ -2805,7 +2862,7 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 	createOntoUsageTree(ontoUsageTree, freqCSset, ontmetadata, ontmetadataCount, ontologyLookupResult, ontologyLookupResultCount, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount);
 
 	free(ontologyLookupResultCount);
-	freeOntologyLookupResult(ontologyLookupResult, freqCSset->numCSadded);
+	freeOntologyLookupResult(ontologyLookupResult, ontologyLookupResutMatchedProp, freqCSset->numCSadded);
 	freeTypeAttributesHistogram(typeAttributesHistogram, freqCSset->numCSadded, typeAttributesCount);
 	freeTypeAttributesHistogramCount(typeAttributesHistogramCount, freqCSset->numCSadded);
 	freeLinks(links, freqCSset->numCSadded);
