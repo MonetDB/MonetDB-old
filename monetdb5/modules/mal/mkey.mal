@@ -70,3 +70,8 @@ address MKEYbulk_rotate_xor_hash
 comment "pre:  h and b should be synced on head
          post: [:xor=]([:rotate=](h, nbits), [hash](b))";
 
+module batmkey;
+
+command hash( b:bat[:oid,:any_1] ) :bat[:oid,:wrd]
+address MKEYbathash
+comment "calculate a hash value";
