@@ -242,7 +242,7 @@ MKEYrotate_xor_hash(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	wrd *dst = (wrd*) getArgReference(stk,p,0);
 	wrd *h = (wrd*) getArgReference(stk,p,1);
 	int *rotate = (int*) getArgReference(stk,p,2);
-	int tpe = getArgType(mb,p,3);
+	int tpe = ATOMstorage(getArgType(mb,p,3));
 	ptr *pval = (ptr) getArgReference(stk,p,3);
 	int lbit = *rotate;
 	int rbit = (sizeof(wrd)*8) - *rotate;
