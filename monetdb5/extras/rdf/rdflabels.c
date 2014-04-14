@@ -1413,7 +1413,7 @@ void createPropStatistics(PropStat* propStat, int numMaxCSs, CSset* freqCSset) {
 */
 //[DUC] Create propstat for ontology only 
 static
-void createPropStatistics(PropStat* propStat, oid** ontattributes, int ontattributesCount) {
+void createPropStatistics(PropStat* propStat, oid** ontattributes, int ontattributesCount, int ontmetadataCount) {
 	int		i;
 	int		numProps = 0;
 
@@ -1445,7 +1445,7 @@ void createPropStatistics(PropStat* propStat, oid** ontattributes, int ontattrib
 	}
 
 	for (i = 0; i < propStat->numAdded; ++i) {
-		propStat->tfidfs[i] = log(((float)numProps) / (1 + propStat->freqs[i]));
+		propStat->tfidfs[i] = log(((float)ontmetadataCount) / (1 + propStat->freqs[i]));
 	}
 }
 
@@ -1475,7 +1475,7 @@ void createOntologyLookupResult(oid** result, int** resultMatchedProp, CSset* fr
 	//[DUC] Change the function for getting propStat. Use ontattributes for the propStat. 
 	// Not the properties from freqCS
 	//createPropStatistics(propStat, freqCSset->numCSadded, freqCSset);
-	createPropStatistics(propStat, ontattributes, ontattributesCount);
+	createPropStatistics(propStat, ontattributes, ontattributesCount, ontmetadataCount);
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS		cs;
