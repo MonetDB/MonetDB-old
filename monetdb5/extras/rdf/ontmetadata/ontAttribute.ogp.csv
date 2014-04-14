@@ -48,9 +48,10 @@ http://ogp.me/ns#Company|http://ogp.me/ns#video
 http://ogp.me/ns#Company|http://ogp.me/ns/fb#admins
 http://ogp.me/ns#Company|http://ogp.me/ns/fb#app_id
 http://ogp.me/ns#Company|http://ogp.me/ns/fb#profile_id
-http://ogp.me/ns#Game|http://ogp.me/ns/fb#admins
-http://ogp.me/ns#Game|http://ogp.me/ns/fb#app_id
-http://ogp.me/ns#Game|http://ogp.me/ns/fb#profile_id
+http://ogp.me/ns#FB_OGPObject|http://ogp.me/ns/fb#admins
+http://ogp.me/ns#FB_OGPObject|http://ogp.me/ns/fb#app_id
+http://ogp.me/ns#FB_OGPObject|http://ogp.me/ns/fb#profile_id
+http://ogp.me/ns#FB_OGPObject|http://ogp.me/ns/fb#page_id
 http://ogp.me/ns#Game|http://ogp.me/ns/Game#points
 http://ogp.me/ns#Game|http://ogp.me/ns/Game#secret
 http://ogp.me/ns#Product|http://ogp.me/ns/Product#age_group
@@ -95,3 +96,9 @@ http://ogp.me/ns#Website|http://ogp.me/ns#video
 http://ogp.me/ns#Website|http://ogp.me/ns/fb#admins
 http://ogp.me/ns#Website|http://ogp.me/ns/fb#app_id
 http://ogp.me/ns#Website|http://ogp.me/ns/fb#profile_id
+http://ogp.mc/ns#Website|http://ogp.mc/ns#description
+http://ogp.mc/ns#Website|http://ogp.mc/ns#image
+http://ogp.mc/ns#Website|http://ogp.mc/ns#site_name
+http://ogp.mc/ns#Website|http://ogp.mc/ns#title
+http://ogp.mc/ns#Website|http://ogp.mc/ns#type
+http://ogp.mc/ns#Website|http://ogp.mc/ns#url

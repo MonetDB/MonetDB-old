@@ -116,6 +116,32 @@ sed -i "s:AttFile:${PWD}/ontAttribute.ogp.csv:g" loadtmp.sql
 
 mclient < loadtmp.sql
 
+#opengraphschema
+NUMMETADATA=`cat ontMetadata.opengraphschema.csv | wc -l`
+NUMATTRIBUTES=`cat ontAttribute.opengraphschema.csv | wc -l`
+
+cp loadOntologySAMPLE.sql loadtmp.sql
+sed -i "s:NUMMETADATA:$NUMMETADATA:g" loadtmp.sql
+sed -i "s:NUMATTRIBUTES:$NUMATTRIBUTES:g" loadtmp.sql
+sed -i "s:MetaFile:${PWD}/ontMetadata.opengraphschema.csv:g" loadtmp.sql
+sed -i "s:AttFile:${PWD}/ontAttribute.opengraphschema.csv:g" loadtmp.sql
+
+
+mclient < loadtmp.sql
+
+#Dublin core
+NUMMETADATA=`cat ontMetadata.dc.csv | wc -l`
+NUMATTRIBUTES=`cat ontAttribute.dc.csv | wc -l`
+
+cp loadOntologySAMPLE.sql loadtmp.sql
+sed -i "s:NUMMETADATA:$NUMMETADATA:g" loadtmp.sql
+sed -i "s:NUMATTRIBUTES:$NUMATTRIBUTES:g" loadtmp.sql
+sed -i "s:MetaFile:${PWD}/ontMetadata.dc.csv:g" loadtmp.sql
+sed -i "s:AttFile:${PWD}/ontAttribute.dc.csv:g" loadtmp.sql
+
+
+mclient < loadtmp.sql
+
 #List of possible ontologies
 NUMONT=`cat ontList.csv | wc -l`
 

@@ -25,7 +25,7 @@
 #include <math.h>
 
 // list of known ontologies
-int ontologyCount = 73;
+int ontologyCount = 74;
 ontology ontologies[] = {
 {{"<http:", "www.facebook.com", "2008"}, 3},
 {{"<http:", "facebook.com", "2008"}, 3},
@@ -39,6 +39,7 @@ ontology ontologies[] = {
 {{"<http:", "www.purl.org", "stuff"}, 3},
 {{"<http:", "ogp.me", "ns"}, 3},
 {{"<https:", "ogp.me", "ns"}, 3},
+{{"<http:", "ogp.mc", "ns"}, 3},
 {{"<http:", "www.w3.org", "1999", "02", "22-rdf-syntax-ns"}, 5}, // rdf
 {{"<http:", "www.w3.org", "2000", "01", "rdf-schema"}, 5}, // rdfs
 {{"<http:", "www.w3.org", "2004", "02", "skos", "core"}, 6}, // skos (Simple Knowledge Organization System)
@@ -1150,7 +1151,7 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 	int		i, j, k, l;
 	oid		*result = NULL;
 	
-	if (freqId == 9) printf("listNum = %d\n",listNum);
+	//if (freqId == 161) printf("listNum = %d\n",listNum);
 	for (i = 0; i < listNum; ++i) {
 		int		filledListsCount = 0;
 		oid		**candidates = NULL;
@@ -1244,7 +1245,7 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 		// remove subclass if superclass is in list
 		for (k = 0; k < num; ++k) {
 			int found = 0;
-			if (freqId == 9) printf("   TFIDF score at %d ("BUNFMT") is: %f | Number of matched Prop %d \n",k, classStat[k].ontoClass, classStat[k].tfidfs,classStat[k].numMatchedProp);
+			//if (freqId == 161) printf("   TFIDF score at %d ("BUNFMT") is: %f | Number of matched Prop %d \n",k, classStat[k].ontoClass, classStat[k].tfidfs,classStat[k].numMatchedProp);
 			if (classStat[k].tfidfs < ONTOLOGY_FREQ_THRESHOLD) break; // values not frequent enough (list is sorted by tfidfs)
 			for (j = 0; j < ontmetadataCount && (found == 0); ++j) {
 				oid muri = ontmetadata[0][j];
@@ -1495,28 +1496,31 @@ void createOntologyLookupResult(oid** result, int** resultMatchedProp, CSset* fr
 
 		propOntologies = findOntologies(cs, propOntologiesCount, &propOntologiesOids);
 
- 		if (i == 9){
+		/*	
+ 		if (i == 161){
 		printf("Prop ontologies count. \n");
 		for (j = 0; j < ontologyCount; ++j) {
 			if (propOntologiesCount[j] > 0)
 				printf("    %d props in ontology %d \n ", propOntologiesCount[j], j);
 		}
 		
-		}	
+		}
+		*/
 
 		// get class names
 		resultCount[i] = 0;
 		
 		result[i] = getOntologyCandidates(ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &(resultCount[i]), resultMatchedProp, propOntologiesOids, propOntologiesCount, ontologyCount, propStat, i);
 
-		if (i == 9){
+		/*
+		if (i == 161){
 			printf("Ontology candidates \n");
 			for (j = 0; j < resultCount[i]; j++){
 				printf(BUNFMT " (Num prop matched %d \n", result[i][j], resultMatchedProp[i][j]);
 			}
 			//exit(-1);
 		}	
-		
+		*/
 
 		for (j = 0; j < ontologyCount; ++j) {
 			free(propOntologies[j]);
@@ -2113,6 +2117,11 @@ void removeDuplicatedCandidates(CSlabel *label) {
 
 #if USE_TABLE_NAME
 /* For one CS: Choose the best table name out of all collected candidates (ontology, type, fk). */
+/**
+ * The priority is:
+ * Ontology-based type values >  Ontology-based name > Type value > FK name > Non frequent type value
+ * 
+ */
 static
 void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, TypeStat* typeStat, int typeStatCount, oid** result,int** resultMatchedProp, int* resultCount, IncidentFKs* links, oid** ontmetadata, int ontmetadataCount, BAT *ontmetaBat, OntClass *ontclassSet) {
 	int		i, j;
@@ -2313,10 +2322,15 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		}
 		label->candidatesCount += resultCount[csIdx];
 	}
-
+	
+	// If the name found previously (based on the type values) is not 
+	// an ontology-based value (e.g., simply a string), we will choose the ontology name for 
+	// the CS's name. 
+	
 	// chose the best ontology candidate based on number of matched props as label 
 	// TODO: Improve this score a bit, by choosing the higher tfidf score, than number of matched prop
-	if (!nameFound && resultCount[csIdx] >= 1){
+	
+	if (choosenOntologyTypeValue == BUN_NONE && resultCount[csIdx] >= 1){
 		label->name = result[csIdx][bestOntCandIdx];
 		label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 		nameFound = 1;
@@ -2324,7 +2338,6 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		label->isOntology = 1; 
 		#endif
 	}
-
 
 
 	// --- FK ---

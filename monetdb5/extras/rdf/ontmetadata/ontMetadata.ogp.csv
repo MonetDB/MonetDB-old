@@ -34,8 +34,10 @@ http://ogp.me/ns#Product|product|http://ogp.me/ns#Products_and_Entertainment
 http://ogp.me/ns#Song|song|http://ogp.me/ns#Products_and_Entertainment
 http://ogp.me/ns#Movie|movie|http://ogp.me/ns#Products_and_Entertainment
 http://ogp.me/ns#Tv_show|tv_show|http://ogp.me/ns#Products_and_Entertainment
+http://ogp.me/ns#FB_OGPObject|Facebook OGP Object|http://ogp.me/ns#Websites
 http://ogp.me/ns#Blog|blog|http://ogp.me/ns#Websites
 http://ogp.me/ns#Website|website|http://ogp.me/ns#Websites
 http://ogp.me/ns#Article|article|http://ogp.me/ns#Website
 http://ogp.me/ns#Blog|blog|http://ogp.me/ns#Website
 http://ogp.me/ns#Company|company|http://ogp.me/ns#Website
+http://ogp.mc/ns#Website|Website|http://ogp.mc/ns#Websites
