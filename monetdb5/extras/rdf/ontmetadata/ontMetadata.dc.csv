@@ -1,0 +1,35 @@
+http://purl.org/dc/dcmitype/Collection|Collection|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/dcmitype/Dataset|Dataset|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/dcmitype/Event|Event|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/dcmitype/Image|Image|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/dcmitype/InteractiveResource|Interactive Resource|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/dcmitype/MovingImage|Moving Image|http://purl.org/dc/dcmitype/Image
+http://purl.org/dc/dcmitype/PhysicalObject|Physical Object|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/dcmitype/Service|Service|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/dcmitype/Software|Software|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/dcmitype/Sound|Sound|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/dcmitype/StillImage|Still Image|http://purl.org/dc/dcmitype/Image
+http://purl.org/dc/dcmitype/Text|Text|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/terms/Agent|Agent|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/terms/AgentClass|Agent Class|http://www.w3.org/2000/01/rdf-schema#Class
+http://purl.org/dc/terms/BibliographicResource|Bibliographic Resource|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/terms/FileFormat|File Format|http://purl.org/dc/terms/MediaType
+http://purl.org/dc/terms/Frequency|Frequency|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/terms/Jurisdiction|Jurisdiction|http://purl.org/dc/terms/LocationPeriodOrJurisdiction
+http://purl.org/dc/terms/LicenseDocument|License Document|http://purl.org/dc/terms/RightsStatement
+http://purl.org/dc/terms/LinguisticSystem|Linguistic System|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/terms/Location|Location|http://purl.org/dc/terms/LocationPeriodOrJurisdiction
+http://purl.org/dc/terms/LocationPeriodOrJurisdiction|Location, Period, or Jurisdiction|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/terms/MediaType|Media Type|http://purl.org/dc/terms/MediaTypeOrExtent
+http://purl.org/dc/terms/MediaTypeOrExtent|Media Type or Extent|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/terms/MethodOfAccrual|Method of Accrual|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/terms/MethodOfInstruction|Method of Instruction|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/terms/PeriodOfTime|Period of Time|http://purl.org/dc/terms/LocationPeriodOrJurisdiction
+http://purl.org/dc/terms/PhysicalMedium|Physical Medium|http://purl.org/dc/terms/MediaType
+http://purl.org/dc/terms/PhysicalResource|Physical Resource|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/terms/Policy|Policy|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/terms/ProvenanceStatement|Provenance Statement|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/terms/RightsStatement|Rights Statement|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/terms/SizeOrDuration|Size or Duration|http://purl.org/dc/terms/MediaTypeOrExtent
+http://purl.org/dc/terms/Standard|Standard|http://www.w3.org/2000/01/rdf-schema#Resource
+http://purl.org/dc/dcam/VocabularyEncodingScheme|Vocabulary Encoding Scheme|http://www.w3.org/2000/01/rdf-schema#Resource
