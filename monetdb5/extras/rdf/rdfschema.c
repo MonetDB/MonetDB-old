@@ -5995,7 +5995,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 #endif
 			GDKfree(subjStr); 
 			
-			for (j = 0; j < sample.numProp; j++){
+			for (j = 0; j < numPropsInSampleTable; j++){
 				int index = j;
 				if (sampleVersion > 1){		//Do not consider infreq Prop 
 					index = propOrder[index]; // apply mapping to change order of properties
