@@ -238,10 +238,15 @@ typedef struct SubCSSet{
 #define SIM_THRESHOLD 0.6
 //#define SIM_TFIDF_THRESHOLD 0.55
 #define SIM_TFIDF_THRESHOLD 0.75
-#define IMPORTANCE_THRESHOLD 0.01
+#define IMPORTANCE_THRESHOLD 0.01 //This is used when merging CS's by common ancestor
+#define COMMON_ANCESTOR_LOWEST_SPECIFIC_LEVEL 2 
+
 #define MIN_PERCETAGE_S5 5	// Merge all CS refered by more than 1/MIN_PERCETAGE_S6 percent of a CS via one property
 #define MIN_FROMTABLE_SIZE_S5 100  // The minimum size of the "from" table in S6. Meaning that 
 				    // the CS's to-be-merged in this rule must cover > MIN_FROMTABLE_SIZE_S6 / MIN_PERCETAGE_S6 triples
+#define MIN_TO_PERCETAGE_S5 10	// Threshold for the number of instances in the target CS refered by the property
+				// Number of references > (Frequency of referredCS / MIN_TO_PERCETAGE_S5)
+
 //#define MIN_FROMTABLE_SIZE_S5 1		/* For example data */
 #define MINIMUM_TABLE_SIZE 10000   //The minimum number of triples coverred by a table (i.e., a final CS) 
 //#define MINIMUM_TABLE_SIZE 1   // For example dataset only 

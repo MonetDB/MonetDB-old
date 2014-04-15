@@ -3242,7 +3242,9 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 	int propIdx; 
 	int refIdx; 
 	int freq; 
-
+	int referredFreqId;
+	int freqOfReferredCS; 
+	
 	csRelSum->origFreqIdx = freqId;
 	csRelSum->numProp = freqCSset->items[freqId].numProp;
 	copyOidSet(csRelSum->lstPropId, freqCSset->items[freqId].lstProp, csRelSum->numProp);
@@ -3253,7 +3255,10 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 
 	for (i = 0; i < csRel.numRef; i++){
 		freq = freqCSset->items[csRel.origFreqIdx].support; 
-		if (freq > MIN_FROMTABLE_SIZE_S5 && freq < csRel.lstCnt[i] * MIN_PERCETAGE_S5){			
+		referredFreqId = csRel.lstRefFreqIdx[i];
+		freqOfReferredCS = freqCSset->items[referredFreqId].support;
+		if (freq > MIN_FROMTABLE_SIZE_S5 && freq < csRel.lstCnt[i] * MIN_PERCETAGE_S5 
+		    && freqOfReferredCS < csRel.lstCnt[i] * MIN_TO_PERCETAGE_S5){			
 			propIdx = 0;
 			while (csRelSum->lstPropId[propIdx] != csRel.lstPropId[i])
 				propIdx++;
@@ -3262,6 +3267,17 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 			refIdx = csRelSum->numPropRef[propIdx];
 			csRelSum->freqIdList[propIdx][refIdx] = csRel.lstRefFreqIdx[i]; 
 			csRelSum->numPropRef[propIdx]++;
+			/*
+			if (csRelSum->numPropRef[propIdx] >  1){
+				int j;
+				int toFreqId; 
+				for (j = 0; j < csRelSum->numPropRef[propIdx]; j++){
+					toFreqId = csRelSum->freqIdList[propIdx][j];
+					printf(" FreqCS %d (freq: %d) ", toFreqId,freqCSset->items[toFreqId].support);
+				}
+				printf("Will be merged with S5: Refer from freqCS %d (freq:%d) with prop "BUNFMT" --> numRef = %d \n", freqId,freq, csRelSum->lstPropId[propIdx],csRel.lstCnt[i]);
+			}
+			*/	
 		}
 	}
 
@@ -3802,7 +3818,7 @@ void mergeMaxFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 						#if	NOT_MERGE_DIMENSIONCS
 						if (cs2->type == DIMENSIONCS) continue; 
 						#endif
-
+						
 						doMerge(freqCSset, S5, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, BUN_NONE);
 
 					}
@@ -3828,7 +3844,7 @@ void mergeMaxFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 
 
 static
-char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode *tree, int numOrigFreqCS, oid *ancestor){	/*Rule S1 S2 S3*/
+char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode *tree, int numOrigFreqCS, oid *ancestor, BAT *ontmetaBat, OntClass *ontclassSet){	/*Rule S1 S2 S3*/
 	int i, j; 
 	//int commonHierarchy = -1;
 	int minCount = 0; 
@@ -3902,6 +3918,7 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 			level++;
 		}
 		
+		
 		/*
 		printf("The common ancestor of freqCS %d ("BUNFMT") and freqCS %d ("BUNFMT") is: "BUNFMT" --- %f \n", freqId1, labels[freqId1].name, freqId2, labels[freqId2].name, tmpNode->uri, tmpNode->percentage);
 
@@ -3909,13 +3926,26 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 		printTKNZStringFromOid(labels[freqId2].name);
 		printTKNZStringFromOid(tmpNode->uri);
 		*/
+		
 
 		if (tmpNode->percentage < IMPORTANCE_THRESHOLD) {
 			//printf("Merge two CS's %d (Label: "BUNFMT") and %d (Label: "BUNFMT") using the common ancestor ("BUNFMT") at level %d (score: %f)\n",
 			//		freqId1, labels[freqId1].name, freqId2, labels[freqId2].name,tmpNode->uri, i,tmpNode->percentage);
-
-			(*ancestor) = tmpNode->uri;
-			return 1;
+			oid classOid;
+			BUN ontClassPos;
+			classOid = tmpNode->uri;
+			ontClassPos = BUNfnd(BATmirror(ontmetaBat), &classOid); 
+			assert(ontClassPos != BUN_NONE);	
+			/*
+			if (ontClassPos != BUN_NONE){
+				printf(" Specific level: %d \n", ontclassSet[ontClassPos].hierDepth);
+			}
+			*/
+			
+			if (ontclassSet[ontClassPos].hierDepth >= COMMON_ANCESTOR_LOWEST_SPECIFIC_LEVEL){
+				(*ancestor) = tmpNode->uri;
+				return 1;
+			}
 		}
 
 	}
@@ -4123,7 +4153,7 @@ void mergeCSByS2S4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, in
 #endif //COMBINE_S2_S4
 
 static
-void mergeCSByS2(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId,OntoUsageNode *ontoUsageTree, oid **ontmetadata, int ontmetadataCount){
+void mergeCSByS2(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId,OntoUsageNode *ontoUsageTree, oid **ontmetadata, int ontmetadataCount, BAT *ontmetaBat, OntClass *ontclassSet){
 	int 		i, j; 
 	int 		freqId1, freqId2; 
 
@@ -4152,7 +4182,7 @@ void mergeCSByS2(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 			if (freqCSset->items[freqId2].type == DIMENSIONCS) continue; 
 			#endif
 			
-			if (isLabelComparable == 1 && isSemanticSimilar(freqId1, freqId2, (*labels), ontoUsageTree,freqCSset->numOrigFreqCS, &name) == 1){
+			if (isLabelComparable == 1 && isSemanticSimilar(freqId1, freqId2, (*labels), ontoUsageTree,freqCSset->numOrigFreqCS, &name, ontmetaBat, ontclassSet) == 1){
 				//printf("Same labels between freqCS %d and freqCS %d - Old simscore is %f \n", freqId1, freqId2, simscore);
 				doMerge(freqCSset, S2, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, name);
 			}
@@ -7363,7 +7393,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 
 	/* S5: Merged CS referred from the same CS via the same property */
-	if (0){
+	if (1){
 	tmpCSrelToMergeCS = generateCsRelToMergeFreqSet(csrelSet, freqCSset);
 	tmpNumRel = freqCSset->numCSadded; 
 
@@ -7377,6 +7407,10 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	curT = clock(); 
 	printf("Merging with S5 took %f. (Number of mergeCS: %d | NumconsistOf: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS, countNumberConsistOfCS(freqCSset));
 
+	#if NO_OUTPUTFILE == 0
+	printMergedFreqCSSet(freqCSset, mbat, 1, *freqThreshold, *labels, 3); 
+	#endif
+
 	#if STORE_PERFORMANCE_METRIC_INFO	
 	computeMetricsQ(freqCSset);
 	#endif
@@ -7388,7 +7422,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
 	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
 
-	mergeCSByS2(freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS, &mergecsId, ontoUsageTree, ontmetadata, ontmetadataCount);
+	mergeCSByS2(freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS, &mergecsId, ontoUsageTree, ontmetadata, ontmetadataCount, ontmetaBat, ontclassSet);
 
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	curT = clock(); 
