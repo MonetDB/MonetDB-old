@@ -691,6 +691,8 @@ bit is_pmv(sql_table* t)
 {
 	if(strcmp(t->base.name, "windowmetadata") == 0)
 		return TRUE;
+	if(strcmp(t->base.name, "psdmetadata") == 0)
+		return TRUE;
 	else return FALSE;
 }
 
@@ -973,6 +975,8 @@ list* collect_PERPAD(mvc *sql, sql_rel *rel)
 lng get_enum_step_length(sql_column* c)
 {
 	if(strcmp(c->t->base.name, "windowmetadata") == 0 && strcmp(c->base.name, "window_start_ts") == 0)
+		return 3600000;
+	else if(strcmp(c->t->base.name, "psdmetadata") == 0 && strcmp(c->base.name, "psd_start_ts") == 0)
 		return 3600000;
 	else return 0;
 }
@@ -1659,13 +1663,27 @@ int find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, list
 
 str* get_pkey_bound_to_dataview(str schema_name, str dmdt_name)
 {
-	str* ret = (str*)GDKmalloc(3*sizeof(str));
-	ret[0] = "station";
-	ret[1] = "channel";
-	ret[2] = "1";
+	str* ret;
 	
 	if(strcmp(schema_name, "mseed") == 0 && strcmp(dmdt_name, "windowmetadata") == 0)
+	{
+		ret = (str*)GDKmalloc(3*sizeof(str));
+		ret[0] = "station";
+		ret[1] = "channel";
+		ret[2] = "1";
 		return ret;
+	}
+	if(strcmp(schema_name, "mseed") == 0 && strcmp(dmdt_name, "psdmetadata") == 0)
+	{
+		ret = (str*)GDKmalloc(6*sizeof(str));
+		ret[0] = "network";
+		ret[1] = "station";
+		ret[2] = "location";
+		ret[3] = "channel";
+		ret[4] = "1";
+		ret[5] = NULL;
+		return ret;
+	}
 	return NULL;
 }
 
@@ -1703,6 +1721,8 @@ str get_non_pkey_select_str(str schema_name, str dmdt_name)
 {
 	if(strcmp(schema_name, "mseed") == 0 && strcmp(dmdt_name, "windowmetadata") == 0)
 		return "MIN(sample_value) AS min_val, MAX(sample_value) AS max_val, AVG(sample_value) AS avg_val, SUM(sample_value) AS sum_val";
+	if(strcmp(schema_name, "mseed") == 0 && strcmp(dmdt_name, "psdmetadata") == 0)
+		return "AVG(sample_value) AS psd_value";
 	else
 		return NULL;
 }
