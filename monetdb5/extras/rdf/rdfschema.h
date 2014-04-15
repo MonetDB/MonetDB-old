@@ -396,7 +396,7 @@ typedef struct CSPropTypes {
 
 #define NUM_SAMPLETABLE 20
 #define	NUM_SAMPLE_INSTANCE 10
-#define NUM_SAMPLE_CANDIDATE 3
+#define NUM_SAMPLE_CANDIDATE 999 // print all candidates
 #define SAMPLE_FILTER_THRESHOLD 10  // SAMPLE_FILTER_THRESHOLD/ 100	
 #define GETSAMPLE_BEFOREMERGING 1  // Get the sample data before merging CS's
 #define NUM_PROPS_IN_SAMPLE_DATA 8 // how many properties should be printed (including subject column)
