@@ -761,14 +761,6 @@ char isInfrequentProp(PropTypes pt, CS cs){
 
 #if NO_OUTPUTFILE == 0 
 static
-char isInfrequentSampleProp(CS freqCS, int propIdx){
-	if (freqCS.lstPropSupport[propIdx] * 100 < freqCS.support * SAMPLE_FILTER_THRESHOLD) return 1; 
-	else return 0;
-}
-#endif
-
-#if NO_OUTPUTFILE == 0 
-static
 char isInfrequentSampleCol(CS freqCS, PropTypes pt){
 	if (pt.propFreq * 100 <  freqCS.support * SAMPLE_FILTER_THRESHOLD) return 1;
 	else return 0; 
@@ -5784,6 +5776,8 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 	char*   schema = "rdf";
 	CSSample	sample; 
 	CS		freqCS; 
+	int*	propOrder;
+	int	numPropsInSampleTable;
 	char	objType = 0; 
 	str	objStr; 	
 	oid	objOid = BUN_NONE; 
@@ -5833,7 +5827,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 	for (i = 0; i < num; i++){
 		sample = csSample[i];
 		freqCS = freqCSset->items[sample.freqIdx];
-		fprintf(fout,"Sample table %d Candidates: ", i);
+		fprintf(fout,"Table %d\n", i);
 		for (j = 0; j < (int)sample.candidateCount; j++){
 			//fprintf(fout,"  "  BUNFMT,sample.candidates[j]);
 			if (sample.candidates[j] != BUN_NONE){
@@ -5844,10 +5838,12 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 				getStringName(sample.candidates[j], &canStr, mapi, mbat, 1);			
 #if USE_SHORT_NAMES
 				getPropNameShort(&canStrShort, canStr);
-				fprintf(fout,";%s",  canStrShort);
+				if (j+1 == (int)sample.candidateCount) fprintf(fout, "%s",  canStrShort);
+				else fprintf(fout, "%s;", canStrShort);
 				GDKfree(canStrShort);
 #else
-				fprintf(fout,";%s",  canStr);
+				if (j+1 == (int)sample.candidateCount) fprintf(fout, "%s",  canStr);
+				else fprintf(fout, "%s;", canStr);
 #endif
 				GDKfree(canStr); 
 			
@@ -5882,6 +5878,35 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 		else 
 			fprintf(fouttb,"CREATE TABLE tbSample%d \n (\n", i);
 
+		//Number of tuples
+		fprintf(fout, "%d\n", freqCS.support);
+
+		// Compute property order (descending by support) and number of properties that are printed
+		if (sampleVersion > 1) {
+			numPropsInSampleTable = (sample.numProp>NUM_PROPS_IN_SAMPLE_DATA)?NUM_PROPS_IN_SAMPLE_DATA:sample.numProp;
+			propOrder = GDKmalloc(sizeof(int) * sample.numProp);
+			for (j = 0; j < sample.numProp; ++j) {
+				propOrder[j] = j;
+			}
+
+			// insertion sort
+			// do not sort "Subject" (first property), it should remain at the first position
+			for (j = 2; j < sample.numProp; ++j) {
+				int tmpPos = propOrder[j];
+				int tmpVal = freqCS.lstPropSupport[tmpPos];
+				int k = j - 1;
+				while (k >= 1 && freqCS.lstPropSupport[propOrder[k]] < tmpVal) { // sort descending
+					propOrder[k + 1] = propOrder[k];
+					k--;
+				}
+				propOrder[k + 1] = tmpPos;
+			}
+
+		} else {
+			numPropsInSampleTable = sample.numProp; // all properties, no change in order because freqCS.lstPropSupport[] is not yet available
+		}
+
+
 		//List of columns
 		fprintf(fout,"Subject");
 		fprintf(fouttb,"SubjectCol string");
@@ -5891,14 +5916,15 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 		isDescription = 0; 
 		isImage = 0;
 		isSite = 0; 
-		for (j = 0; j < sample.numProp; j++){
+		for (j = 0; j < numPropsInSampleTable; j++){
+			int index = j;
 			if (sampleVersion > 1){		//Do not consider infreq Prop 
-				if (isInfrequentSampleProp(freqCS, j)) continue; 
+				index = propOrder[index]; // apply mapping to change order of properties
 			}
 #if USE_SHORT_NAMES
 			propStrShort = NULL;
 #endif
-			takeOid(sample.lstProp[j], &propStr);	
+			takeOid(sample.lstProp[index], &propStr);	
 #if USE_SHORT_NAMES
 			getPropNameShort(&propStrShort, propStr);
 			fprintf(fout,";%s", propStrShort);
@@ -5929,7 +5955,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 					strcmp(propStrShort,"fax_number") == 0 ||
 					strcmp(propStrShort,"app_id") == 0 
 					)
-				fprintf(fouttb,",\n%s_%d string",propStrShort,j);
+				fprintf(fouttb,",\n%s_%d string",propStrShort,index);
 			else
 				fprintf(fouttb,",\n%s string",propStrShort);
 
@@ -5951,19 +5977,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 		}
 		fprintf(fout, "\n");
 		fprintf(fouttb, "\n); \n \n");
-		
-		//List of support
-		for (j = 0; j < sample.numProp; j++){
-			if (sampleVersion > 1){		//Do not consider infreq Prop 
-				if (isInfrequentSampleProp(freqCS, j)) continue; 
-				fprintf(fout,";%d", freqCS.lstPropSupport[j]);
-			}
-			else{
-				fprintf(fout,";%d", freqCS.support);
-			}
-		}
-		fprintf(fout, "\n");
-		
+
 		fprintf(foutis, "echo \"");
 		//All the instances 
 		for (k = 0; k < sample.numInstances; k++){
@@ -5982,10 +5996,11 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 			GDKfree(subjStr); 
 			
 			for (j = 0; j < sample.numProp; j++){
+				int index = j;
 				if (sampleVersion > 1){		//Do not consider infreq Prop 
-					if (isInfrequentSampleProp(freqCS, j)) continue; 
+					index = propOrder[index]; // apply mapping to change order of properties
 				}
-				objOid = sample.lstObj[j][k];
+				objOid = sample.lstObj[index][k];
 				if (objOid == BUN_NONE){
 					fprintf(fout,";NULL");
 					fprintf(foutis,"|NULL");
@@ -6054,6 +6069,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 		}
 
 			
+		if (sampleVersion > 1) GDKfree(propOrder);
 	}
 
 	fclose(fout);

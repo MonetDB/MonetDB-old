@@ -399,6 +399,7 @@ typedef struct CSPropTypes {
 #define NUM_SAMPLE_CANDIDATE 3
 #define SAMPLE_FILTER_THRESHOLD 10  // SAMPLE_FILTER_THRESHOLD/ 100	
 #define GETSAMPLE_BEFOREMERGING 1  // Get the sample data before merging CS's
+#define NUM_PROPS_IN_SAMPLE_DATA 8 // how many properties should be printed (including subject column)
 
 typedef struct CSSample{
 	int	freqIdx;
