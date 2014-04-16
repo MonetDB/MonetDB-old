@@ -246,6 +246,8 @@ typedef struct SubCSSet{
 				    // the CS's to-be-merged in this rule must cover > MIN_FROMTABLE_SIZE_S6 / MIN_PERCETAGE_S6 triples
 #define MIN_TO_PERCETAGE_S5 10	// Threshold for the number of instances in the target CS refered by the property
 				// Number of references > (Frequency of referredCS / MIN_TO_PERCETAGE_S5)
+#define MIN_TFIDF_PROP_S5 3	// The prop for FK in S5 must not be a common prop, it should be a discriminating one
+				// This is for preventing the case of webpageID link in dbpedia 
 
 //#define MIN_FROMTABLE_SIZE_S5 1		/* For example data */
 #define MINIMUM_TABLE_SIZE 10000   //The minimum number of triples coverred by a table (i.e., a final CS) 

@@ -3237,13 +3237,15 @@ void freeCSrelSum(int maxNumProp, CSrelSum *csRelSum){
 }
 
 static 
-void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRelSum){
+void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRelSum, PropStat *propStat){
 	int i; 
 	int propIdx; 
 	int refIdx; 
 	int freq; 
 	int referredFreqId;
 	int freqOfReferredCS; 
+	oid p; 
+	BUN bun = BUN_NONE;
 	
 	csRelSum->origFreqIdx = freqId;
 	csRelSum->numProp = freqCSset->items[freqId].numProp;
@@ -3259,25 +3261,33 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 		freqOfReferredCS = freqCSset->items[referredFreqId].support;
 		if (freq > MIN_FROMTABLE_SIZE_S5 && freq < csRel.lstCnt[i] * MIN_PERCETAGE_S5 
 		    && freqOfReferredCS < csRel.lstCnt[i] * MIN_TO_PERCETAGE_S5){			
-			propIdx = 0;
-			while (csRelSum->lstPropId[propIdx] != csRel.lstPropId[i])
-				propIdx++;
-		
-			//Add to this prop
-			refIdx = csRelSum->numPropRef[propIdx];
-			csRelSum->freqIdList[propIdx][refIdx] = csRel.lstRefFreqIdx[i]; 
-			csRelSum->numPropRef[propIdx]++;
-			/*
-			if (csRelSum->numPropRef[propIdx] >  1){
-				int j;
-				int toFreqId; 
-				for (j = 0; j < csRelSum->numPropRef[propIdx]; j++){
-					toFreqId = csRelSum->freqIdList[propIdx][j];
-					printf(" FreqCS %d (freq: %d) ", toFreqId,freqCSset->items[toFreqId].support);
+			
+			p = csRel.lstPropId[i]; 
+			bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &p);
+			assert(bun != BUN_NONE);
+			printf("Prop " BUNFMT "Prop TFIDF score in S5 is %f \n",p, propStat->tfidfs[bun]); 
+			if (propStat->tfidfs[bun] > MIN_TFIDF_PROP_S5){
+
+				propIdx = 0;
+				while (csRelSum->lstPropId[propIdx] != csRel.lstPropId[i])
+					propIdx++;
+			
+				//Add to this prop
+				refIdx = csRelSum->numPropRef[propIdx];
+				csRelSum->freqIdList[propIdx][refIdx] = csRel.lstRefFreqIdx[i]; 
+				csRelSum->numPropRef[propIdx]++;
+				
+				if (csRelSum->numPropRef[propIdx] >  1){
+					int j;
+					int toFreqId; 
+					printf("Prop TFIDF score in S5 is %f \n",propStat->tfidfs[bun]); 
+					for (j = 0; j < csRelSum->numPropRef[propIdx]; j++){
+						toFreqId = csRelSum->freqIdList[propIdx][j];
+						printf(" FreqCS %d (freq: %d | coverage: %d) ", toFreqId,freqCSset->items[toFreqId].support, freqCSset->items[toFreqId].coverage);
+					}
+					printf("Will be merged with S5: Refer from freqCS %d (freq:%d | cov: %d) with prop "BUNFMT" --> numRef = %d \n", freqId,freq, freqCSset->items[freqId].coverage, csRelSum->lstPropId[propIdx],csRel.lstCnt[i]);
 				}
-				printf("Will be merged with S5: Refer from freqCS %d (freq:%d) with prop "BUNFMT" --> numRef = %d \n", freqId,freq, csRelSum->lstPropId[propIdx],csRel.lstCnt[i]);
 			}
-			*/	
 		}
 	}
 
@@ -3744,7 +3754,11 @@ void mergeMaxFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 	#endif
 	int		maxNumPropInMergeCS =0;
 	//int 		numCombinedP = 0; 
-	
+	PropStat 	*propStat;	//This is for checking whether the prop of the FK is common prop or not
+
+	propStat = initPropStat();
+	getPropStatisticsFromMergeCSs(propStat, curNumMergeCS, mergeCSFreqCSMap, freqCSset);
+
 	printf("Start merging CS by using S5[From FK] \n");
 	
 	#if NO_OUTPUTFILE == 0
@@ -3769,7 +3783,7 @@ void mergeMaxFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 	for (i = 0; i < curNumMergeCS; i++){
 		freqId = mergeCSFreqCSMap[i];
 		if (csrelMergeFreqSet[freqId].numRef != 0){
-			generatecsRelSum(csrelMergeFreqSet[freqId], freqId, freqCSset, csRelSum);
+			generatecsRelSum(csrelMergeFreqSet[freqId], freqId, freqCSset, csRelSum,propStat);
 			/* Check the number of */
 			#if NO_OUTPUTFILE == 0
 			fprintf(fout, "csRelSum " BUNFMT " (support: %d, coverage %d ): ",csRelSum->origFreqIdx, freqCSset->items[freqId].support, freqCSset->items[freqId].coverage);
@@ -3839,6 +3853,7 @@ void mergeMaxFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 
 	freeCSrelSum(maxNumPropInMergeCS, csRelSum);
 
+	freePropStat(propStat);
 }
 
 
