@@ -5793,7 +5793,7 @@ void getTblName(str *name, oid nameId, BATiter mapi, BAT *mbat){
 
 #if NO_OUTPUTFILE == 0 
 static 
-str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, int sampleVersion){
+str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, int sampleVersion, PropStat *propStat){
 
 	int 	i,j, k; 
 	FILE 	*fout, *fouttb, *foutis; 
@@ -5807,6 +5807,8 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 	CSSample	sample; 
 	CS		freqCS; 
 	int*	propOrder;
+	int*	propOrderTfidf;
+	float*	tfidfValues;
 	int	numPropsInSampleTable;
 	char	objType = 0; 
 	str	objStr; 	
@@ -5913,14 +5915,19 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 
 		// Compute property order (descending by support) and number of properties that are printed
 		if (sampleVersion > 1) {
-			numPropsInSampleTable = (sample.numProp>NUM_PROPS_IN_SAMPLE_DATA)?NUM_PROPS_IN_SAMPLE_DATA:sample.numProp;
+			int found = 0;
+			numPropsInSampleTable = (sample.numProp>(1+NUM_PROP_SUPPORT_SAMPLE+NUM_PROP_TFIDF_SAMPLE))?(1+NUM_PROP_SUPPORT_SAMPLE+NUM_PROP_TFIDF_SAMPLE):sample.numProp;
 			propOrder = GDKmalloc(sizeof(int) * sample.numProp);
+			propOrderTfidf = GDKmalloc(sizeof(int) * sample.numProp);
+			tfidfValues = GDKmalloc(sizeof(float) * sample.numProp);
 			for (j = 0; j < sample.numProp; ++j) {
 				propOrder[j] = j;
+				propOrderTfidf[j] = j;
 			}
 
-			// insertion sort
-			// do not sort "Subject" (first property), it should remain at the first position
+			// To get the top <NUM_PROP_SUPPORT_SAMPLE> properties, sort all properties descending by support.
+			// The "subject" column remains at the first position regardless of its support.
+			// Sort using insertion sort.
 			for (j = 2; j < sample.numProp; ++j) {
 				int tmpPos = propOrder[j];
 				int tmpVal = freqCS.lstPropSupport[tmpPos];
@@ -5932,6 +5939,51 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 				propOrder[k + 1] = tmpPos;
 			}
 
+			// To get the top <NUM_PROP_TFIDF_SAMPLE> properties, sort all properties descending by tf-idf score.
+			for (j = 1; j < sample.numProp; ++j) {
+				float tfidf;
+				BUN bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &sample.lstProp[j]);
+				if (bun == BUN_NONE) {
+					printf("Error: property not found\n");
+				} else {
+					tfidf = propStat->tfidfs[bun];
+				}
+				tfidfValues[j] = tfidf;
+			}
+
+			// Sort using insertion sort. Ignore "subject" column
+			for (j = 2; j < sample.numProp; ++j) {
+				int tmpPos = propOrderTfidf[j];
+				float tmpVal = tfidfValues[tmpPos];
+				int k = j - 1;
+				while (k >= 1 && tfidfValues[propOrderTfidf[k]] < tmpVal) { // sort descending
+					propOrderTfidf[k + 1] = propOrderTfidf[k];
+					k--;
+				}
+				propOrderTfidf[k + 1] = tmpPos;
+			}
+
+			// Add <NUM_PROP_TFIDF_SAMPLE> properties to propOrder that have a high tfidf score but are not yet in the top 1+NUM_PROP_TFIDF_SAMPLE values of propOrder
+			for (j = 1; j < sample.numProp; ++j) {
+				int prop, foundProp, bound;
+				if (found == NUM_PROP_TFIDF_SAMPLE) break;
+				prop = propOrderTfidf[j];
+				// check if prop is already choosen
+				foundProp = 0;
+				bound = (1+NUM_PROP_SUPPORT_SAMPLE)>sample.numProp?sample.numProp:(1+NUM_PROP_SUPPORT_SAMPLE); //minimum
+				for (k = 1; k < bound; ++k) {
+					if (propOrder[k] == prop) {
+						foundProp = 1;
+						break;
+					}
+				}
+				if (!foundProp) {
+					// add prop to propOrder
+					// overwriting values is okay because the original values at position >= (1+NUM_PROP_SUPPORT_SAMPLE) in propOrder are not needed anymore
+					propOrder[1+NUM_PROP_SUPPORT_SAMPLE+found] = prop;
+					found++;
+				}
+			}
 		} else {
 			numPropsInSampleTable = sample.numProp; // all properties, no change in order because freqCS.lstPropSupport[] is not yet available
 		}
@@ -6025,7 +6077,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 #endif
 			GDKfree(subjStr); 
 			
-			for (j = 0; j < sample.numProp; j++){
+			for (j = 0; j < numPropsInSampleTable; j++){
 				int index = j;
 				if (sampleVersion > 1){		//Do not consider infreq Prop 
 					index = propOrder[index]; // apply mapping to change order of properties
@@ -6099,7 +6151,11 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 		}
 
 			
-		if (sampleVersion > 1) GDKfree(propOrder);
+		if (sampleVersion > 1) {
+			GDKfree(propOrder);
+			GDKfree(propOrderTfidf);
+			GDKfree(tfidfValues);
+		}
 	}
 
 	fclose(fout);
@@ -6867,7 +6923,7 @@ void printFKMultiplicityFromCSPropTypes(CSPropTypes* csPropTypes, int numMergedC
 #if NO_OUTPUTFILE == 0 
 static 
 str getSampleData(int *ret, bat *mapbatid, int numTables, CSset* freqCSset, BAT *sbat, BATiter si, BATiter pi, BATiter oi, int* mTblIdxFreqIdxMapping, 
-		CSlabel* labels, int* csTblIdxMapping, int maxNumPwithDup, oid* subjCSMap, int sampleVersion){
+		CSlabel* labels, int* csTblIdxMapping, int maxNumPwithDup, oid* subjCSMap, int sampleVersion, PropStat *propStat){
 
 	BAT		*outputBat = NULL, *mbat = NULL;
 	CSSample 	*csSample; 
@@ -6888,7 +6944,7 @@ str getSampleData(int *ret, bat *mapbatid, int numTables, CSset* freqCSset, BAT 
 	initSampleData(csSample, outputBat, freqCSset, mTblIdxFreqIdxMapping, labels);
 	RDFExtractSampleData(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, maxNumPwithDup, csSample, outputBat, numSampleTbl);
 	printsubsetFromCSset(freqCSset, outputBat, mbat, numSampleTbl, mTblIdxFreqIdxMapping, labels, sampleVersion);
-	printSampleData(csSample, freqCSset, mbat, numSampleTbl, sampleVersion);
+	printSampleData(csSample, freqCSset, mbat, numSampleTbl, sampleVersion, propStat);
 	freeSampleData(csSample, numSampleTbl);
 	BBPreclaim(outputBat);
 	BBPunfix(mbat->batCacheid);
@@ -7331,7 +7387,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	#if NO_OUTPUTFILE == 0 
 	getSampleData(ret, mapbatid, numTables, freqCSset, sbat, si, pi, oi, 
-			mTblIdxFreqIdxMapping, *labels, csTblIdxMapping, *maxNumPwithDup, *subjCSMap, 1); 
+			mTblIdxFreqIdxMapping, *labels, csTblIdxMapping, *maxNumPwithDup, *subjCSMap, 1, 0); // last parameter (propStat) is null, but is not used when sampleVersion==1
 	#endif
 
 
@@ -8862,7 +8918,17 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	/* Extract sample data for the evaluation */
 
 	#if NO_OUTPUTFILE == 0 
-	getSampleData(ret, mapbatid, numTables, freqCSset, sbat, si, pi, oi, mTblIdxFreqIdxMapping, labels, csTblIdxMapping, maxNumPwithDup, subjCSMap, 2); 
+	{
+	int curNumMergeCS = countNumberMergeCS(freqCSset);
+	oid* mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
+	PropStat *propStat2;
+        initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
+	propStat2 = initPropStat();
+	getPropStatisticsFromMergeCSs(propStat2, curNumMergeCS, mergeCSFreqCSMap, freqCSset);
+	getSampleData(ret, mapbatid, numTables, freqCSset, sbat, si, pi, oi, mTblIdxFreqIdxMapping, labels, csTblIdxMapping, maxNumPwithDup, subjCSMap, 2, propStat2);
+	freePropStat(propStat2);
+	free(mergeCSFreqCSMap);
+	}
 	#endif
 	
 
