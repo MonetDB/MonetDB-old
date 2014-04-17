@@ -6501,7 +6501,7 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 				if (tmpBat->ttype == TYPE_oid){	//URI or BLANK NODE  or MVCol
 					objOid = (oid *) BUNtail(tmpi, k);
 					if (*objOid == oid_nil){
-						fprintf(fout,";NULL");
+						fprintf(fout,"|NULL");
 						fprintf(foutis,"|NULL");
 					}
 					else{
