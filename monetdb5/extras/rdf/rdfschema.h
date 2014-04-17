@@ -250,7 +250,7 @@ typedef struct SubCSSet{
 				// This is for preventing the case of webpageID link in dbpedia 
 
 //#define MIN_FROMTABLE_SIZE_S5 1		/* For example data */
-#define MINIMUM_TABLE_SIZE 10   //The minimum number of triples coverred by a table (i.e., a final CS) 
+#define MINIMUM_TABLE_SIZE 10000   //The minimum number of triples coverred by a table (i.e., a final CS) 
 //#define MINIMUM_TABLE_SIZE 1   // For example dataset only 
 #define HIGH_REFER_THRESHOLD 5
 

@@ -3265,7 +3265,7 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 			p = csRel.lstPropId[i]; 
 			bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &p);
 			assert(bun != BUN_NONE);
-			printf("Prop " BUNFMT "Prop TFIDF score in S5 is %f \n",p, propStat->tfidfs[bun]); 
+			//printf("Prop " BUNFMT "Prop TFIDF score in S5 is %f \n",p, propStat->tfidfs[bun]); 
 			if (propStat->tfidfs[bun] > MIN_TFIDF_PROP_S5){
 
 				propIdx = 0;
@@ -3277,6 +3277,7 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 				csRelSum->freqIdList[propIdx][refIdx] = csRel.lstRefFreqIdx[i]; 
 				csRelSum->numPropRef[propIdx]++;
 				
+				/*
 				if (csRelSum->numPropRef[propIdx] >  1){
 					int j;
 					int toFreqId; 
@@ -3287,6 +3288,7 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 					}
 					printf("Will be merged with S5: Refer from freqCS %d (freq:%d | cov: %d) with prop "BUNFMT" --> numRef = %d \n", freqId,freq, freqCSset->items[freqId].coverage, csRelSum->lstPropId[propIdx],csRel.lstCnt[i]);
 				}
+				*/
 			}
 		}
 	}
