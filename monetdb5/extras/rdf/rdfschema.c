@@ -6260,6 +6260,7 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 
 	for (i = 0; i < num; i++){
 		sample = csSampleEx[i];
+		if ((int)sample.candidateCount == 1 && sample.candidates[0] == BUN_NONE) continue; // do not print tables withoud candidates
 		freqCS = freqCSset->items[sample.freqIdx];
 		fprintf(fout,"Table %d, %d tuples\n", i, freqCS.support);
 		fprintf(foutrand,"Table %d, %d tuples\n", i, freqCS.support);
