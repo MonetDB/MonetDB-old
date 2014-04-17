@@ -6196,7 +6196,7 @@ static
 str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat *propStat, CSset *freqCSset){
 
 	int 	i,j, k; 
-	FILE 	*fout, *foutsol, *fouttb, *foutis; 
+	FILE 	*fout, *foutrand, *foutsol, *fouttb, *foutis; 
 	char 	filename[100], filename4[100], filename2[100], filename3[100];
 	int 	ret;
 
@@ -6254,13 +6254,15 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 	
 	fout = fopen(filename,"wt"); 
 	foutsol = fopen(filename4,"wt");
+	foutrand = fopen("sampleDataFullRandom.txt","wt");
 	fouttb = fopen(filename2,"wt");
 	foutis = fopen(filename3,"wt");
 
 	for (i = 0; i < num; i++){
 		sample = csSampleEx[i];
 		freqCS = freqCSset->items[sample.freqIdx];
-		fprintf(fout,"Table %d\n", i);
+		fprintf(fout,"Table %d, %d tuples\n", i, freqCS.support);
+		fprintf(foutrand,"Table %d, %d tuples\n", i, freqCS.support);
 		fprintf(foutsol, "Table %d\n", i);
 		for (j = 0; j < (int)sample.candidateCount; j++){
 			//fprintf(fout,"  "  BUNFMT,sample.candidates[j]);
@@ -6272,12 +6274,12 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 				getStringName(sample.candidates[j], &canStr, mapi, mbat, 1);
 #if USE_SHORT_NAMES
 				getPropNameShort(&canStrShort, canStr);
-				if (j+1 == (int)sample.candidateCount) fprintf(fout, "%s",  canStrShort);
-				else fprintf(fout, "%s;", canStrShort);
+				if (j+1 == (int)sample.candidateCount) fprintf(foutrand, "%s",  canStrShort);
+				else fprintf(foutrand, "%s|", canStrShort);
 				GDKfree(canStrShort);
 #else
-				if (j+1 == (int)sample.candidateCount) fprintf(fout, "%s",  canStr);
-				else fprintf(fout, "%s;", canStr);
+				if (j+1 == (int)sample.candidateCount) fprintf(foutrand, "%s",  canStr);
+				else fprintf(foutrand, "%s|", canStr);
 
 #endif
 				GDKfree(canStr); 
@@ -6292,18 +6294,18 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 #if USE_SHORT_NAMES
 				getPropNameShort(&canStrShort, canStr);
 				if (j+1 == (int)sample.candidateCount) fprintf(foutsol, "%s (%s)",  canStrShort, canStr);
-				else fprintf(foutsol, "%s (%s);", canStrShort, canStr);
+				else fprintf(foutsol, "%s (%s)|", canStrShort, canStr);
 				GDKfree(canStrShort);
 #else
 				if (j+1 == (int)sample.candidateCount) fprintf(foutsol, "%s",  canStr);
-				else fprintf(foutsol, "%s;", canStr);
+				else fprintf(foutsol, "%s|", canStr);
 
 #endif
 				GDKfree(canStr); 
 			
 			}
 		}
-		fprintf(fout, "\n");
+		fprintf(foutrand, "\n");
 		fprintf(foutsol, "\n");
 
 		// print origin of candidates for solutions file
@@ -6334,9 +6336,6 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 		}
 		else 
 			fprintf(fouttb,"CREATE TABLE tbSample%d \n (\n", i);
-
-		//Number of tuples
-		fprintf(fout, "%d\n", freqCS.support);
 
 		// Compute property order (descending by support) and number of properties that are printed
 		found = 0;
@@ -6426,7 +6425,7 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 			takeOid(sample.lstProp[index], &propStr);	
 #if USE_SHORT_NAMES
 			getPropNameShort(&propStrShort, propStr);
-			fprintf(fout,";%s", propStrShort);
+			fprintf(fout,"|%s", propStrShort);
 
 			pch = strstr (propStrShort,"-");
 			if (pch != NULL) *pch = '\0';	//Remove - characters from prop  //WEBCRAWL specific problem
@@ -6507,14 +6506,14 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 					}
 					else{
 						if (sample.lstIsMVCol[j] == 1){	//
-							fprintf(fout,";<"BUNFMT">",*objOid);
+							fprintf(fout,"|<"BUNFMT">",*objOid);
 						}
 						else{
 							str objStrShort = NULL;
 							takeOid(*objOid, &objStr);
 							getPropNameShort(&objStrShort, objStr);
 
-							fprintf(fout,";<%s>", objStrShort);
+							fprintf(fout,"|<%s>", objStrShort);
 							fprintf(foutis,"|<%s>", objStrShort);
 							GDKfree(objStrShort);
 							GDKfree(objStr);
@@ -6526,11 +6525,11 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 				else if (tmpBat->ttype == TYPE_flt){
 					objFlt = (float *) BUNtail(tmpi, k); 
 					if (*objFlt == flt_nil){
-						fprintf(fout,";NULL");
+						fprintf(fout,"|NULL");
 						fprintf(foutis,"|NULL");
 					} 
 					else{
-						fprintf(fout,";%f", *objFlt);
+						fprintf(fout,"|%f", *objFlt);
 						fprintf(foutis,"|%f", *objFlt);
 
 					}
@@ -6538,11 +6537,11 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 				else if (tmpBat->ttype == TYPE_int){
 					objInt = (int *) BUNtail(tmpi, k);
 					if (*objInt == int_nil){
-						fprintf(fout,";NULL");
+						fprintf(fout,"|NULL");
 						fprintf(foutis,"|NULL");
 					}
 					else{
-						fprintf(fout,";%d", *objInt);
+						fprintf(fout,"|%d", *objInt);
 						fprintf(foutis,"|%d", *objInt);
 					}
 				
@@ -6551,11 +6550,11 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 					objStr = NULL; 
 					objStr = BUNtail(tmpi, k);
 					if (strcmp(objStr, str_nil) == 0){
-						fprintf(fout,";NULL");
+						fprintf(fout,"|NULL");
 						fprintf(foutis,"|NULL");
 					}
 					else{
-						fprintf(fout,";%s", objStr);
+						fprintf(fout,"|%s", objStr);
 						fprintf(foutis,"| %s", objStr);
 					}
 				}
@@ -6572,6 +6571,7 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 
 		fprintf(fout, "\n");
 		fprintf(foutsol, "\n");
+		fprintf(foutrand, "\n");
 		fprintf(foutis, "\" > tmp.txt \n \n");
 
 		if (sample.name != BUN_NONE){
@@ -6608,6 +6608,7 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 
 	fclose(fout);
 	fclose(foutsol);
+	fclose(foutrand);
 	fclose(fouttb); 
 	fclose(foutis); 
 	
