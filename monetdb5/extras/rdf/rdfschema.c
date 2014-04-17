@@ -6024,7 +6024,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 		isSite = 0; 
 		for (j = 0; j < numPropsInSampleTable; j++){
 			int index = j;
-			if (sampleVersion > 1){		//Do not consider infreq Prop 
+			if (sampleVersion > 1){
 				index = propOrder[index]; // apply mapping to change order of properties
 			}
 #if USE_SHORT_NAMES
@@ -6103,7 +6103,7 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 			
 			for (j = 0; j < numPropsInSampleTable; j++){
 				int index = j;
-				if (sampleVersion > 1){		//Do not consider infreq Prop 
+				if (sampleVersion > 1){
 					index = propOrder[index]; // apply mapping to change order of properties
 				}
 				objOid = sample.lstObj[index][k];
@@ -6480,18 +6480,9 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 		fprintf(foutis, "echo \"");
 		//All the instances 
 		for (k = 0; k < sample.numInstances; k++){
-#if USE_SHORT_NAMES
-			str subjStrShort = NULL;
-#endif
 			takeOid(sample.lstSubjOid[k], &subjStr); 
-#if USE_SHORT_NAMES
-			getPropNameShort(&subjStrShort, subjStr);
-			fprintf(fout,"<%s>", subjStrShort);
-			fprintf(foutis,"<%s>", subjStrShort);
-			GDKfree(subjStrShort);
-#else
+			fprintf(foutis,"<%s>", subjStr);
 			fprintf(fout,"%s", subjStr);
-#endif
 			GDKfree(subjStr); 
 			
 			for (j = 0; j < numPropsInSampleTable; j++){
