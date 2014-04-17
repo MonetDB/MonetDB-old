@@ -73,7 +73,7 @@ str SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output);
 str VAL2str(ValRecord* valp);
 int find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, list* list_of_PERPAD, int* is_pkey_to_be_enumerated, int num_pkeys_to_be_enumerated);
 void compute_and_insert_unavailable_required_derived_metadata(mvc* sql, sel_predicate** sps, int num_PERPAD, int* is_pkey_to_be_enumerated, int num_pkeys_to_be_enumerated);
-str* get_pkey_bound_to_dataview(str schema_name, str dmdt_name);
+str* get_pkey_bound_to_dataview(str schema_name, str dmdt_name, sel_predicate** sps, int num_PERPAD);
 str form_pkey_select_str(sel_predicate** sps, int num_PERPAD, str* pkey_bound_to_dataview, str* select_str_per_pkey);
 str get_non_pkey_select_str(str schema_name, str dmdt_name);
 void prepare_pmv(mvc* sql, sql_rel* ret);
@@ -1661,27 +1661,47 @@ int find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, list
 	return 1;
 }
 
-str* get_pkey_bound_to_dataview(str schema_name, str dmdt_name)
+str* get_pkey_bound_to_dataview(str schema_name, str dmdt_name, sel_predicate** sps, int num_PERPAD)
 {
 	str* ret;
+	int i;
 	
 	if(strcmp(schema_name, "mseed") == 0 && strcmp(dmdt_name, "windowmetadata") == 0)
 	{
 		ret = (str*)GDKmalloc(3*sizeof(str));
-		ret[0] = "station";
-		ret[1] = "channel";
-		ret[2] = "1";
+		for(i = 0; i < num_PERPAD; i++)
+		{
+			if(strcmp(sps[i]->column->base.name, "window_station") == 0)
+				ret[i] = "station";
+			else if(strcmp(sps[i]->column->base.name, "window_channel") == 0)
+				ret[i] = "channel";
+			else if(strcmp(sps[i]->column->base.name, "window_start_ts") == 0)
+				ret[i] = "1";
+			else if(strcmp(sps[i]->column->base.name, "window_unit") == 0)
+				ret[i] = NULL;
+			else ret[i] = NULL;
+		}
 		return ret;
 	}
 	if(strcmp(schema_name, "mseed") == 0 && strcmp(dmdt_name, "psdmetadata") == 0)
 	{
-		ret = (str*)GDKmalloc(6*sizeof(str));
-		ret[0] = "network";
-		ret[1] = "station";
-		ret[2] = "location";
-		ret[3] = "channel";
-		ret[4] = "1";
-		ret[5] = NULL;
+		ret = (str*)GDKmalloc(5*sizeof(str));
+		for(i = 0; i < num_PERPAD; i++)
+		{
+			if(strcmp(sps[i]->column->base.name, "psd_network") == 0)
+				ret[i] = "network";
+			else if(strcmp(sps[i]->column->base.name, "psd_station") == 0)
+				ret[i] = "station";
+			else if(strcmp(sps[i]->column->base.name, "psd_location") == 0)
+				ret[i] = "location";
+			else if(strcmp(sps[i]->column->base.name, "psd_channel") == 0)
+				ret[i] = "channel";
+			else if(strcmp(sps[i]->column->base.name, "psd_start_ts") == 0)
+				ret[i] = "1";
+			else if(strcmp(sps[i]->column->base.name, "psd_freq") == 0)
+				ret[i] = NULL;
+			else ret[i] = NULL;
+		}
 		return ret;
 	}
 	return NULL;
@@ -1773,7 +1793,7 @@ void compute_and_insert_unavailable_required_derived_metadata(mvc* sql, sel_pred
 	
 	pkey_predicates_equal_to = (str*)GDKmalloc(num_PERPAD*sizeof(str));
 	select_str_per_pkey = (str*)GDKmalloc(num_PERPAD*sizeof(str));
-	pkey_bound_to_dataview = get_pkey_bound_to_dataview(schema_name, dmdt_name);
+	pkey_bound_to_dataview = get_pkey_bound_to_dataview(schema_name, dmdt_name, sps, num_PERPAD);
 	
 	temp_column_name = temp_column_name_start;
 	for(i = 0; i < num_PERPAD; i++)
@@ -1824,7 +1844,6 @@ void compute_and_insert_unavailable_required_derived_metadata(mvc* sql, sel_pred
 				pkey_predicates_equal_to[i] = GDKstrdup(VAL2str(sps[i]->values[0]));
 			}
 		}
-		
 	}
 	
 	/* preparing the non_time_pkey_predicates_str */
