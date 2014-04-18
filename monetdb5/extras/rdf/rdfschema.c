@@ -2718,7 +2718,7 @@ float similarityScore(oid* arr1, oid* arr2, int m, int n, int *numCombineP){
 /*Using cosine similarity score with vector of tf-idfs for properties in each CS */
 static 
 float similarityScoreTFIDF(oid* arr1, oid* arr2, int m, int n, int *numCombineP, 
-		TFIDFInfo *tfidfInfos, int mergeCSId1, int mergeCSId2){
+		TFIDFInfo *tfidfInfos, int mergeCSId1, int mergeCSId2, char *existDiscriminatingProp){
 	
 	int i = 0, j = 0;
 	int numOverlap = 0; 
@@ -2734,6 +2734,8 @@ float similarityScoreTFIDF(oid* arr1, oid* arr2, int m, int n, int *numCombineP,
 		}
 		else if( arr1[j] == arr2[i] )
 		{
+			if (tfidfInfos[mergeCSId1].lsttfidfs[j] > MIN_TFIDF_PROP_S4) *existDiscriminatingProp = 1;
+
 			sumXY += tfidfInfos[mergeCSId1].lsttfidfs[j] * tfidfInfos[mergeCSId1].lsttfidfs[j];
 			j++;
 			i++;
@@ -4016,160 +4018,6 @@ void freeTFIDFInfo(TFIDFInfo *tfidfInfos, int curNumMergeCS){
 	free(tfidfInfos);
 }
 
-#if COMBINE_S2_S4
-static
-void mergeCSByS2S4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId,OntoUsageNode *ontoUsageTree, oid **ontmetadata, int ontmetadataCount){
-	int 		i, j, k; 
-	int 		freqId1, freqId2; 
-	float 		simscore = 0.0; 
-	CS     		*mergecs;
-	int		existMergecsId; 
-	int 		numCombineP = 0; 
-	CS		*cs1, *cs2;
-	CS		*existmergecs, *mergecs1, *mergecs2; 
-
-	PropStat	*propStat; 	/* Store statistics about properties */
-	char		isLabelComparable = 0; 
-	char		isSameLabel = 0; 
-	oid		name;		/* Name of the common ancestor */
-	TFIDFInfo	*tfidfInfos;
-	
-	(void) labels;
-	(void) isLabelComparable;
-
-
-	propStat = initPropStat();
-	getPropStatisticsFromMergeCSs(propStat, curNumMergeCS, mergeCSFreqCSMap, freqCSset); /*TODO: Get PropStat from MaxCSs or From mergedCS only*/
-	tfidfInfos = (TFIDFInfo*)malloc(sizeof(TFIDFInfo) * curNumMergeCS); 
-	initTFIDFInfos(tfidfInfos, curNumMergeCS, mergeCSFreqCSMap, freqCSset, propStat); 
-
-
-	for (i = 0; i < curNumMergeCS; i++){		
-		freqId1 = mergeCSFreqCSMap[i];
-		//printf("Label of %d CS is %s \n", freqId1, (*labels)[freqId1].name);
-		isLabelComparable = 0; 
-		if ((*labels)[freqId1].name != BUN_NONE) isLabelComparable = 1; // no "DUMMY"
-
-				
-		#if	NOT_MERGE_DIMENSIONCS
-		if (freqCSset->items[freqId1].type == DIMENSIONCS) continue; 
-		#endif
-	 	for (j = (i+1); j < curNumMergeCS; j++){
-			cs1 = (CS*) &(freqCSset->items[freqId1]);
-
-			freqId2 = mergeCSFreqCSMap[j];
-			cs2 = (CS*) &(freqCSset->items[freqId2]);
-			#if	NOT_MERGE_DIMENSIONCS
-			if (cs2->type == DIMENSIONCS) continue; 
-			#endif
-			isSameLabel = 0; 
-
-			#if	USE_LABEL_FOR_MERGING
-			if (isLabelComparable == 1 && isSemanticSimilar(freqId1, freqId2, (*labels), ontoUsageTree,freqCSset->numOrigFreqCS, &name) == 1){
-				//printf("Same labels between freqCS %d and freqCS %d - Old simscore is %f \n", freqId1, freqId2, simscore);
-				isSameLabel = 1;
-				simscore = 1; 
-			}
-			#endif
-
-			if (isSameLabel == 0){
-				if(USINGTFIDF == 0){
-					simscore = similarityScore(cs1->lstProp, cs2->lstProp,
-						cs1->numProp,cs2->numProp,&numCombineP);
-
-					//printf("simscore Jaccard = %f \n", simscore);
-				}
-				else{
-					simscore = similarityScoreTFIDF(cs1->lstProp, cs2->lstProp,
-						cs1->numProp,cs2->numProp,&numCombineP, tfidfInfos, i, j);
-					//printf("         Cosine = %f \n", simscore);
-					
-				}
-			}
-			
-			//simscore = 0.0;
-			#if	USINGTFIDF	
-			if (simscore > SIM_TFIDF_THRESHOLD){
-			#else	
-			if (simscore > SIM_THRESHOLD) {
-			#endif		
-				//printf("S4: merge freqCS %d and freqCS %d (sim: %f)\n", freqId1, freqId2,simscore);
-				//Check whether these CS's belong to any mergeCS
-				if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx == -1){	/* New merge */
-					mergecs = mergeTwoCSs(*cs1,*cs2, freqId1,freqId2, *mergecsId);
-					//addmergeCStoSet(mergecsSet, *mergecs);
-					cs1->parentFreqIdx = freqCSset->numCSadded;
-					cs2->parentFreqIdx = freqCSset->numCSadded;
-					addCStoSet(freqCSset,*mergecs);
-					if (isSameLabel) {
-						// rule S2
-						updateLabel(S2, freqCSset, labels, 1, freqCSset->numCSadded - 1, freqId1, freqId2, name, ontmetadata, ontmetadataCount, NULL, -1);
-					} else {
-						// rule S4
-						updateLabel(S4, freqCSset, labels, 1, freqCSset->numCSadded - 1, freqId1, freqId2, BUN_NONE, ontmetadata, ontmetadataCount, NULL, -1);
-					}
-					free(mergecs);
-
-					mergecsId[0]++;
-
-
-				}
-				else if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx != -1){
-					existMergecsId = cs2->parentFreqIdx;
-					existmergecs = (CS*) &(freqCSset->items[existMergecsId]);
-					mergeACStoExistingmergeCS(*cs1,freqId1, existmergecs);
-					cs1->parentFreqIdx = existMergecsId; 
-					if (isSameLabel) {
-						// rule S2
-						updateLabel(S2, freqCSset, labels, 0, existMergecsId, freqId1, freqId2, name, ontmetadata, ontmetadataCount, NULL, -1);
-					} else {
-						// rule S4
-						updateLabel(S4, freqCSset, labels, 0, existMergecsId, freqId1, freqId2, BUN_NONE, ontmetadata, ontmetadataCount, NULL, -1);
-					}
-				}
-				
-				else if (cs1->parentFreqIdx != -1 && cs2->parentFreqIdx == -1){
-					existMergecsId = cs1->parentFreqIdx;
-					existmergecs = (CS*)&(freqCSset->items[existMergecsId]);
-					mergeACStoExistingmergeCS(*cs2,freqId2, existmergecs);
-					cs2->parentFreqIdx = existMergecsId; 
-					if (isSameLabel) {
-						// rule S2
-						updateLabel(S2, freqCSset, labels, 0, existMergecsId, freqId1, freqId2, name, ontmetadata, ontmetadataCount, NULL, -1);
-					} else {
-						// rule S4
-						updateLabel(S4, freqCSset, labels, 0, existMergecsId, freqId1, freqId2, BUN_NONE, ontmetadata, ontmetadataCount, NULL, -1);
-					}
-				}
-				else if (cs1->parentFreqIdx != cs2->parentFreqIdx){
-					mergecs1 = (CS*)&(freqCSset->items[cs1->parentFreqIdx]);
-					mergecs2 = (CS*)&(freqCSset->items[cs2->parentFreqIdx]);
-					
-					mergeTwomergeCS(mergecs1, mergecs2, cs1->parentFreqIdx);
-
-					//Re-map for all maxCS in mergecs2
-					for (k = 0; k < mergecs2->numConsistsOf; k++){
-						freqCSset->items[mergecs2->lstConsistsOf[k]].parentFreqIdx = cs1->parentFreqIdx;
-					}
-					if (isSameLabel) {
-						// rule S2
-						updateLabel(S2, freqCSset, labels, 0, cs1->parentFreqIdx, freqId1, freqId2, name, ontmetadata, ontmetadataCount, NULL, -1);
-					} else {
-						// rule S4
-						updateLabel(S4, freqCSset, labels, 0, cs1->parentFreqIdx, freqId1, freqId2, BUN_NONE, ontmetadata, ontmetadataCount, NULL, -1);
-					}
-				}
-			}
-		}
-	}
-
-
-	freePropStat(propStat);
-	freeTFIDFInfo(tfidfInfos, curNumMergeCS);
-
-}
-#endif //COMBINE_S2_S4
-
 static
 void mergeCSByS2(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId,OntoUsageNode *ontoUsageTree, oid **ontmetadata, int ontmetadataCount, BAT *ontmetaBat, OntClass *ontclassSet){
 	int 		i, j; 
@@ -4223,6 +4071,8 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 	PropStat	*propStat; 	/* Store statistics about properties */
 	TFIDFInfo	*tfidfInfos;
 	
+	char		existDiscriminatingProp = 0; 
+
 	/*
 	int ret; 
 	char*   schema = "rdf";
@@ -4255,6 +4105,8 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 			#endif
 			
 			if (cs1->parentFreqIdx != -1 && cs1->parentFreqIdx == cs2->parentFreqIdx) continue; //They have already been merged
+			
+			existDiscriminatingProp = 0;
 
 			if(USINGTFIDF == 0){
 				simscore = similarityScore(cs1->lstProp, cs2->lstProp,
@@ -4264,20 +4116,19 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 			}
 			else{
 				simscore = similarityScoreTFIDF(cs1->lstProp, cs2->lstProp,
-					cs1->numProp,cs2->numProp,&numCombineP, tfidfInfos, i, j);
+					cs1->numProp,cs2->numProp,&numCombineP, tfidfInfos, i, j, &existDiscriminatingProp);
 				//printf("         Cosine = %f \n", simscore);
 				
 			}
 			
 			//simscore = 0.0;
 			#if	USINGTFIDF	
-			if (simscore > SIM_TFIDF_THRESHOLD){
+			if (simscore > SIM_TFIDF_THRESHOLD && existDiscriminatingProp){
 			#else	
 			if (simscore > SIM_THRESHOLD) {
 			#endif	
-				//printf("   Similarity score (%d and %d) cosine = %f \n", freqId1,freqId2,simscore);
-				/*
-                               if ((*labels)[freqId1].name != BUN_NONE){
+			 	/*
+                               	if ((*labels)[freqId1].name != BUN_NONE){
 					takeOid((*labels)[freqId1].name, &freqCSname1);
 					printf("Merge %d (%s) and ",freqId1, freqCSname1);
 					GDKfree(freqCSname1);

@@ -248,6 +248,9 @@ typedef struct SubCSSet{
 				// Number of references > (Frequency of referredCS / MIN_TO_PERCETAGE_S5)
 #define MIN_TFIDF_PROP_S5 3	// The prop for FK in S5 must not be a common prop, it should be a discriminating one
 				// This is for preventing the case of webpageID link in dbpedia 
+#define MIN_TFIDF_PROP_S4 3.5	//  When we merge two CS's based on the tf-idf/consine similarity score, we want 
+				// to make sure that we do not merge two CS's that may have same set of really common properties
+				// such as type, description. They should have at least one discriminating prop in common. 
 
 //#define MIN_FROMTABLE_SIZE_S5 1		/* For example data */
 #define MINIMUM_TABLE_SIZE 10000   //The minimum number of triples coverred by a table (i.e., a final CS) 
