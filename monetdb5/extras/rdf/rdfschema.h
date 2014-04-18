@@ -238,7 +238,7 @@ typedef struct SubCSSet{
 #define SIM_THRESHOLD 0.6
 //#define SIM_TFIDF_THRESHOLD 0.55
 #define SIM_TFIDF_THRESHOLD 0.75
-#define IMPORTANCE_THRESHOLD 0.01 //This is used when merging CS's by common ancestor
+#define IMPORTANCE_THRESHOLD 0.001 //This is used when merging CS's by common ancestor
 #define COMMON_ANCESTOR_LOWEST_SPECIFIC_LEVEL 2 
 
 #define MIN_PERCETAGE_S5 5	// Merge all CS refered by more than 1/MIN_PERCETAGE_S6 percent of a CS via one property

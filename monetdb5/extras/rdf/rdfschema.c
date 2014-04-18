@@ -3868,6 +3868,7 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 	int hCount1, hCount2; 
 	int level; 
 	OntoUsageNode *tmpNode; 
+		
 	/*
 	int k1, k2; 
 	if (labels[freqId1].name == labels[freqId2].name)
@@ -3887,7 +3888,7 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 		}
 	}
 	*/
-
+	
 	// Check for the most common ancestor
 	hCount1 = labels[freqId1].hierarchyCount;
 	hCount2 = labels[freqId2].hierarchyCount;
@@ -3899,17 +3900,17 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 	printf("Finding common ancestor for %d and %d \n", freqId1, freqId2 );
 	printf("FreqCS1: ");
 	for (i = 0; i < hCount1; i++){
-		printf("  %s", labels[freqId1].hierarchy[hCount1-1-i]);
+		printf(" " BUNFMT, labels[freqId1].hierarchy[hCount1-1-i]);
 	}
 	printf(" \n ");
 	printf("FreqCS2: ");
 	for (i = 0; i < hCount2; i++){
-		printf("  %s", labels[freqId2].hierarchy[hCount2-1-i]);
+		printf(" " BUNFMT, labels[freqId2].hierarchy[hCount2-1-i]);
 	}
 	printf(" \n ");
 	}
-
 	*/
+
 	
 	if (0){
 	if ((freqId1 > numOrigFreqCS -1) || (freqId2 > numOrigFreqCS -1))
@@ -3951,8 +3952,10 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 			oid classOid;
 			BUN ontClassPos;
 			classOid = tmpNode->uri;
+
 			ontClassPos = BUNfnd(BATmirror(ontmetaBat), &classOid); 
 			assert(ontClassPos != BUN_NONE);	
+			
 			/*
 			if (ontClassPos != BUN_NONE){
 				printf(" Specific level: %d \n", ontclassSet[ontClassPos].hierDepth);
@@ -4030,8 +4033,6 @@ void mergeCSByS2S4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, in
 	char		isSameLabel = 0; 
 	oid		name;		/* Name of the common ancestor */
 	TFIDFInfo	*tfidfInfos;
-	
-
 	
 	(void) labels;
 	(void) isLabelComparable;
@@ -4193,12 +4194,14 @@ void mergeCSByS2(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 		#if	NOT_MERGE_DIMENSIONCS
 		if (freqCSset->items[freqId1].type == DIMENSIONCS) continue; 
 		#endif
+
+		if ((*labels)[freqId1].hierarchyCount < 1) continue; 
+
 	 	for (j = (i+1); j < curNumMergeCS; j++){
 			freqId2 = mergeCSFreqCSMap[j];
 			#if	NOT_MERGE_DIMENSIONCS
 			if (freqCSset->items[freqId2].type == DIMENSIONCS) continue; 
 			#endif
-			
 			if (isLabelComparable == 1 && isSemanticSimilar(freqId1, freqId2, (*labels), ontoUsageTree,freqCSset->numOrigFreqCS, &name, ontmetaBat, ontclassSet) == 1){
 				//printf("Same labels between freqCS %d and freqCS %d - Old simscore is %f \n", freqId1, freqId2, simscore);
 				doMerge(freqCSset, S2, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, name);
@@ -4272,6 +4275,7 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 			#else	
 			if (simscore > SIM_THRESHOLD) {
 			#endif	
+				//printf("   Similarity score (%d and %d) cosine = %f \n", freqId1,freqId2,simscore);
 				/*
                                if ((*labels)[freqId1].name != BUN_NONE){
 					takeOid((*labels)[freqId1].name, &freqCSname1);
@@ -7526,7 +7530,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	printf("Before using rules: Number of freqCS is: %d \n",curNumMergeCS);
-
 	
 	/* ---------- S1 ------- */
 	mergecsId = *maxCSoid + 1; 
@@ -7572,7 +7575,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
 	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
 	
-
 	/* S5: Merged CS referred from the same CS via the same property */
 	if (1){
 	tmpCSrelToMergeCS = generateCsRelToMergeFreqSet(csrelSet, freqCSset);

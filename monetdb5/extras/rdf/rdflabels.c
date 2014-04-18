@@ -2186,6 +2186,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		maxFreq = typeAttributesHistogram[csIdx][i][0].freq;
 		ontClassPos = BUNfnd(BATmirror(ontmetaBat), &maxDepthOid);
 		if ( ontClassPos != BUN_NONE){
+			foundOntologyTypeValue = 1;
 			maxDepth = ontclassSet[ontClassPos].hierDepth;
 		}	
 		else{
@@ -2332,7 +2333,6 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	
 	if (choosenOntologyTypeValue == BUN_NONE && resultCount[csIdx] >= 1){
 		label->name = result[csIdx][bestOntCandIdx];
-		label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 		nameFound = 1;
 		#if INFO_WHERE_NAME_FROM
 		label->isOntology = 1; 
@@ -2369,6 +2369,16 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 		}
 	}
 	
+	
+	//Add hierarchy information for ontology-based name
+	if (nameFound){
+		ontClassPos = BUNfnd(BATmirror(ontmetaBat), &(label->name));
+		if ( ontClassPos != BUN_NONE){
+			label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
+		}
+	}
+
+
 	//if no name is found, check again the typecount to assign a name
 	#if USE_BEST_TYPEVALUE_INSTEADOF_DUMMY
 	if (!nameFound){
@@ -2610,11 +2620,10 @@ void printTree(OntoUsageNode* tree, int level) {
 }
 
 static
-void createOntoUsageTree(OntoUsageNode** tree, CSset* freqCSset, oid** ontmetadata, int ontmetadataCount, oid** result, int* resultCount, int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount) {
-	int 		i, j, k, l;
-	oid		*tmpList;
-	int		tmpListCount;
+void createOntoUsageTree(OntoUsageNode** tree, CSset* freqCSset, oid** ontmetadata, int ontmetadataCount, BAT *ontmetaBat,CSlabel* labels) {
+	int 		i;
 	int 		numTuples = 0;
+	BUN		pos; 
 
 	// init tree with an artifical root node
 	(*tree) = (OntoUsageNode *) malloc(sizeof(OntoUsageNode));
@@ -2633,46 +2642,12 @@ void createOntoUsageTree(OntoUsageNode** tree, CSset* freqCSset, oid** ontmetada
 		int		hierarchyCount = 0;
 		oid*		hierarchy;
 
-		// get ontology
-		// copied from getTableName
-		if (resultCount[i] == 0) {
-			// no hierarchy --> ignore
-			continue;
-		} else if (resultCount[i] == 1) {
-			// one ontology class --> use it
-			uri = result[i][0];
-		} else {
-			// multiple ontology classes --> intersect with types
-			tmpList = NULL;
-			tmpListCount = 0;
-			// search for type values
-			for (l = 0; l < typeAttributesCount; ++l) {
-				for (j = 0; j < typeAttributesHistogramCount[i][l]; ++j) {
-					if (typeAttributesHistogram[i][l][j].percent < TYPE_FREQ_THRESHOLD) break; // sorted
-					// intersect type with ontology classes
-					for (k = 0; k < resultCount[i]; ++k) {
-						if (result[i][k] == typeAttributesHistogram[i][l][j].value) {
-							// found, copy ontology class to tmpList
-							tmpList = (oid *) realloc(tmpList, sizeof(oid) * (tmpListCount + 1));
-							if (!tmpList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-							tmpList[tmpListCount] = result[i][k];
-							tmpListCount += 1;
-						}
-					}
-				}
-			}
-			if (tmpListCount == 1) {
-				// only one left --> use it
-				uri = tmpList[0];
-			} else if (tmpListCount > 1) {
-				// multiple left --> use the class that covers most attributes, most popular ontology, ...
-				uri = tmpList[0]; // sorted
-			} else {
-				// empty intersection -> use the class that covers most attributes, most popular ontology, ..
-				uri = result[i][0]; // sorted
-			}
-			free(tmpList);
-		}
+		uri = labels[i].name; 	
+		if (uri == BUN_NONE) continue; 	//No name freqCS
+	
+		//Check if the name is ontology name	
+             	pos = BUNfnd(BATmirror(ontmetaBat), &uri);
+	        if (pos == BUN_NONE) continue; // no ontology information, ignore
 
 		// get ontology hierarchy
 		hierarchy = getOntoHierarchy(uri, &hierarchyCount, ontmetadata, ontmetadataCount);
@@ -2872,7 +2847,7 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 #endif
 
 	// Collect ontology statistics (tree)
-	createOntoUsageTree(ontoUsageTree, freqCSset, ontmetadata, ontmetadataCount, ontologyLookupResult, ontologyLookupResultCount, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount);
+	createOntoUsageTree(ontoUsageTree, freqCSset, ontmetadata, ontmetadataCount, ontmetaBat, labels);
 
 	free(ontologyLookupResultCount);
 	freeOntologyLookupResult(ontologyLookupResult, ontologyLookupResutMatchedProp, freqCSset->numCSadded);
