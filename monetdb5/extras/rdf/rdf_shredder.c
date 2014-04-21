@@ -326,22 +326,28 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 			ptrEndOnt = NULL;
 			ptrEndOnt = strrchr((str)predicateStr, '#');
 			if (ptrEndOnt == NULL) ptrEndOnt = strrchr((str)predicateStr, '/');
-			if (ptrEndOnt == NULL) 
+			if (ptrEndOnt == NULL) {
 				raptor_exception(pdata, "Could not get the ontology");
+			}
+			
+			if (ptrEndOnt != NULL){
+				ontlen = (int) (ptrEndOnt - (str)predicateStr);
 
-			ontlen = (int) (ptrEndOnt - (str)predicateStr);
+				ontpart = substring((char*)predicateStr, 1, ontlen); 
+				//printf("Ontpart of %s is %s \n", (str)predicateStr, (str)ontpart);
+				(void) ontpart; 
 
-			ontpart = substring((char*)predicateStr, 1, ontlen); 
-			//printf("Ontpart of %s is %s \n", (str)predicateStr, (str)ontpart);
-			(void) ontpart; 
-
-			//Check whether ontpart appear in the ontBat
-			bunOnt = BUNfnd(BATmirror(pdata->ontBat),(ptr) (str)ontpart);	
-			if (bunOnt == BUN_NONE){
-				pdata->numNonOnt++;
+				//Check whether ontpart appear in the ontBat
+				bunOnt = BUNfnd(BATmirror(pdata->ontBat),(ptr) (str)ontpart);	
+				if (bunOnt == BUN_NONE){
+					pdata->numNonOnt++;
+				}
+				else{
+					pdata->numOntInstances[(int)bunOnt]++;
+				}
 			}
 			else{
-				pdata->numOntInstances[(int)bunOnt]++;
+				pdata->numNonOnt++;
 			}
 			#endif
 
