@@ -554,6 +554,58 @@ takeOid(oid id, str *val)
 	return MAL_SUCCEED;
 }
 
+//This function is for the URI from RDF triple
+//URI in RDF triple commonly does not have / at the end 
+//<http://aaa.com/bbb/c/d>
+//
+
+str
+takeOid2(oid id, str *val)
+{
+	int i, depth;
+	str parts[MAX_TKNZR_DEPTH];
+	size_t lngth = 0;
+	str s;
+	BATiter biidx; //Iterator for index bat
+
+	if (id >= BATcount(tokenBAT[INDEX].val)) {
+		throw(MAL, "tokenizer.takeOid2", OPERATION_FAILED " illegal oid");
+	}
+
+	id = *(oid *) Tloc(tokenBAT[INDEX].val, id);
+
+	depth = GET_d(id);
+	id = GET_h(id);
+
+	for (i = depth - 1; i >= 0; i--) {
+		BATiter bi = bat_iterator(tokenBAT[i].val);
+		biidx = bat_iterator(tokenBAT[i].idx);
+		parts[i] = (str) BUNtail(bi, id);
+		id = *(oid *) BUNtail(biidx, id);
+		lngth += strlen(parts[i]);
+	}
+
+	*val = (str) GDKmalloc(lngth+depth);
+	if( *val == NULL)
+		throw(MAL, "tokenizer.takeOid2", MAL_MALLOC_FAIL);
+	s = *val;
+
+	for (i = 0; i < (depth-1); i++) {
+		strcpy(s, parts[i]);
+		s += strlen(parts[i]);
+		*s++ = '/';
+	}
+	
+	if (depth > 0){
+		strcpy(s, parts[depth-1]);
+		s += strlen(parts[depth-1]);
+	}
+
+	*s = '\0';
+
+	return MAL_SUCCEED;
+}
+
 str
 TKNZRtakeOid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {

@@ -44,5 +44,6 @@ tokenizer_export str TKNZRgetIndex         (int *r);
 tokenizer_export str TKNZRgetCount         (int *r);
 tokenizer_export str TKNZRgetCardinality   (int *r);
 tokenizer_export str takeOid	 	   (oid id, str *val); 			
+tokenizer_export str takeOid2	 	   (oid id, str *val); 				
 
 #endif /* _TKNZR_H */

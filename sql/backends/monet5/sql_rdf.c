@@ -121,7 +121,7 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	tmpbeginT = clock(); 
 	if (ontbat == NULL){
-		printf("There is column ontlist/mont \n"); 
+		printf("There is no column ontlist/mont \n"); 
 		rethrow("sql.rdfShred", msg, RDFParser(b, location, name, schema, NULL));
 	}
 	else{
@@ -592,6 +592,8 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BATiter	mapi; 
 	clock_t tmpbeginT, tmpendT, beginT, endT;
 
+	BAT *ontbat = NULL;
+
 	beginT = clock();
 	
 	rethrow("sql.rdfShred", msg, getSQLContext(cntxt, mb, &m, NULL));
@@ -606,10 +608,20 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	cstablestat = (CStableStat *) malloc (sizeof (CStableStat));
 	
+	ontbat = mvc_bind(m, "sys", "ontlist", "mont",0);
+
 	tmpbeginT = clock();
 
-	rethrow("sql.rdfreorganize", msg, RDFreorganize(&ret, cstablestat, &sbat->batCacheid, &pbat->batCacheid, 
-				&obat->batCacheid, &mbat->batCacheid, threshold, mode));
+	if (ontbat == NULL){
+		printf("[PROBLEM] There is no column ontlist/mont \n"); 
+		throw(SQL, "sql.rdfreorganize", "Colunm ontlist/mont is missing");
+	}
+	else{
+		rethrow("sql.rdfreorganize", msg, RDFreorganize(&ret, cstablestat, &sbat->batCacheid, &pbat->batCacheid, 
+				&obat->batCacheid, &mbat->batCacheid, &ontbat->batCacheid, threshold, mode));
+
+		BBPunfix(ontbat->batCacheid);
+	}
 
 	tmpendT = clock(); 
 	printf ("Sql.mx: Reorganizing process process took %f seconds.\n", ((float)(tmpendT - tmpbeginT))/CLOCKS_PER_SEC);

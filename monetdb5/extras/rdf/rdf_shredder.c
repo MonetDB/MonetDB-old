@@ -345,6 +345,8 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 				else{
 					pdata->numOntInstances[(int)bunOnt]++;
 				}
+
+				GDKfree(ontpart); 
 			}
 			else{
 				pdata->numNonOnt++;

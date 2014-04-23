@@ -1903,7 +1903,70 @@ int* mergeMultiCS(CSset *freqCSset, int *lstFreqId, int num, oid *mergecsId,int 
 
 #if NO_OUTPUTFILE == 0
 static 
-str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, char isWriteTofile, int freqThreshold, CSlabel* labels, int mergingstep){
+int getOntologyIndex(BAT *ontbat, oid prop){
+	str 	propStr; 
+	char 	*ontpart;		
+	char 	*ptrEndOnt;
+	int	ontlen; 
+	BUN	bunOnt; 
+
+	takeOid2(prop, &propStr);
+
+	ptrEndOnt = NULL;
+	ptrEndOnt = strrchr((str)propStr, '#');
+	if (ptrEndOnt == NULL) ptrEndOnt = strrchr((str)propStr, '/');
+	
+	if (ptrEndOnt != NULL){
+		ontlen = (int) (ptrEndOnt - (str)propStr);
+
+		ontpart = substring((char*)propStr, 1, ontlen); 
+
+		//Check whether ontpart appear in the ontBat
+		bunOnt = BUNfnd(BATmirror(ontbat),(ptr) (str)ontpart);	
+		if (bunOnt == BUN_NONE){
+			//printf("Non-ontology string: %s \n",propStr);
+			GDKfree(ontpart);
+			GDKfree(propStr);
+			return -1;
+		}
+		else{
+			GDKfree(ontpart);
+			GDKfree(propStr);
+			return (int)bunOnt; 
+		}
+	}
+	else{
+		GDKfree(propStr);
+		return -1; 
+	}
+}
+
+static
+int getNumOntology(CS cs, BAT *ontbat, int *buffOntologyNums, int numOnt){
+	int i; 
+	int idx; 
+	int numOntology = 0; 
+	//Reset buffOntologyNums
+	for (i = 0; i < (numOnt+1); i++){
+		buffOntologyNums[i] = 0; 
+	}
+	for (i = 0; i < cs.numProp; i++){
+		idx = getOntologyIndex(ontbat, cs.lstProp[i]); 
+		if (idx != -1)
+			buffOntologyNums[idx]++;
+		else
+			buffOntologyNums[numOnt]++;
+	}
+	
+	for (i = 0; i < (numOnt+1); i++){
+		if (buffOntologyNums[i] != 0)  numOntology++;	
+	}
+	
+	return numOntology;
+}
+
+static 
+str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, BAT *ontbat, char isWriteTofile, int freqThreshold, CSlabel* labels, int mergingstep){
 
 	int 	i,j; 
 	int 	mergeCSid, tmpParentFreqId; 
@@ -1911,6 +1974,12 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, char isWriteTofile, int 
 	FILE 	*fout; 
 	char 	filename[100];
 	char 	tmpStr[20];
+
+	int	*buffOntologyNums; 	//Number of instances in each ontology 
+	int	numOnt; 		//Number of ontology
+	int	tmpNumOnt = 0; 
+	int	totalNumOntology = 0; 
+	int	numFreqCSWithNonOntProp = 0;
 
 #if SHOWPROPERTYNAME
 	str 	propStr; 
@@ -1931,6 +2000,13 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, char isWriteTofile, int 
 	
 	mapi = bat_iterator(mapbat); 
 #endif	
+
+	numOnt = BATcount(ontbat); 
+	buffOntologyNums = GDKmalloc(sizeof(int) * (numOnt+1));  //The last index stores number of non-ontology instances
+	for (i = 0; i < (numOnt+1); i++){
+		buffOntologyNums[i] = 0;
+	}
+
 	mergeCSid = -1;
 	if (isWriteTofile == 0){
 		for (i = 0; i < freqCSset->numCSadded; i++){
@@ -1959,6 +2035,11 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, char isWriteTofile, int 
 			if (cs.parentFreqIdx != -1) continue; 
 			mergeCSid++;	
 			freq = cs.support; 
+
+			//Get ontology stat
+			tmpNumOnt = getNumOntology(cs, ontbat, buffOntologyNums, numOnt); 
+			totalNumOntology += tmpNumOnt;
+			if (buffOntologyNums[numOnt] != 0) numFreqCSWithNonOntProp++;
 
 			#if STOREFULLCS	
 			if (i < freqCSset->numOrigFreqCS){
@@ -2021,6 +2102,8 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, char isWriteTofile, int 
 				fprintf(fout, "\n");
 			}
 			#endif	
+			
+			fprintf(fout, "Number of ontologies: %d (Number non-ontology props: %d \n",tmpNumOnt, buffOntologyNums[numOnt]);
 
 			for (j = 0; j < cs.numProp; j++){
 				takeOid(cs.lstProp[j], &propStr);
@@ -2054,9 +2137,15 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, char isWriteTofile, int 
 		fclose(fout);
 	}
 	
+	GDKfree(buffOntologyNums);
+	
+	printf("Total number of ontologies: %d (%d mergeCS) --> Average: %f ontologies/freqCS \n",totalNumOntology, mergeCSid+1, (float)totalNumOntology/(mergeCSid+1));
+	printf("Number of frequent CS's having non-ontology props: %d \n", numFreqCSWithNonOntProp);
+
 #if SHOWPROPERTYNAME
 	TKNZRclose(&ret);
 #endif
+	
 	return MAL_SUCCEED;
 }
 #endif
@@ -7153,9 +7242,10 @@ void computeMetricsQ(CSset *freqCSset){
 
 /* Extract CS from SPO triples table */
 str
-RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, void *_freqCSset, oid **subjCSMap, oid *maxCSoid, int *maxNumPwithDup, CSlabel** labels, CSrel **csRelMergeFreqSet){
+RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, bat *ontbatid, int *freqThreshold, void *_freqCSset, oid **subjCSMap, oid *maxCSoid, int *maxNumPwithDup, CSlabel** labels, CSrel **csRelMergeFreqSet){
 
 	BAT 		*sbat = NULL, *pbat = NULL, *obat = NULL, *mbat = NULL; 
+	BAT		*ontbat;  //Contain list of ontologies	
 	BATiter 	si, pi, oi; 	/*iterator for BAT of s,p,o columns in spo table */
 
 	CSBats		*csBats; 
@@ -7208,6 +7298,14 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 		BBPreleaseref(sbat->batCacheid);
 		BBPreleaseref(pbat->batCacheid);
 		BBPreleaseref(obat->batCacheid);
+		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
+	}
+
+	if ((ontbat = BATdescriptor(*ontbatid)) == NULL) {
+		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
+	}
+	(void)BATprepareHash(BATmirror(ontbat));
+	if (!(ontbat->T->hash)){
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
 
@@ -7323,7 +7421,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	tmpLastT = curT;
 	
 	#if NO_OUTPUTFILE == 0
-	printMergedFreqCSSet(freqCSset, mbat, 1, *freqThreshold, *labels, 0); 
+	printMergedFreqCSSet(freqCSset, mbat, ontbat,1, *freqThreshold, *labels, 0); 
 	#endif
 	
 	//return "Error"; 
@@ -7394,7 +7492,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printf("Number of added CS after S1: %d \n", freqCSset->numCSadded);
 
 	#if NO_OUTPUTFILE == 0
-	printMergedFreqCSSet(freqCSset, mbat, 1, *freqThreshold, *labels, 1); 
+	printMergedFreqCSSet(freqCSset, mbat, ontbat, 1, *freqThreshold, *labels, 1); 
 	#endif
 
 	#if STORE_PERFORMANCE_METRIC_INFO	
@@ -7442,7 +7540,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printf("Merging with S5 took %f. (Number of mergeCS: %d | NumconsistOf: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS, countNumberConsistOfCS(freqCSset));
 
 	#if NO_OUTPUTFILE == 0
-	printMergedFreqCSSet(freqCSset, mbat, 1, *freqThreshold, *labels, 3); 
+	printMergedFreqCSSet(freqCSset, mbat, ontbat, 1, *freqThreshold, *labels, 3); 
 	#endif
 
 	#if STORE_PERFORMANCE_METRIC_INFO	
@@ -7463,7 +7561,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printf ("Merging with S2 took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);	
 
 	#if NO_OUTPUTFILE == 0
-	printMergedFreqCSSet(freqCSset, mbat, 1, *freqThreshold, *labels, 4); 
+	printMergedFreqCSSet(freqCSset, mbat, ontbat, 1, *freqThreshold, *labels, 4); 
 	#endif
 
 	#if STORE_PERFORMANCE_METRIC_INFO	
@@ -7486,7 +7584,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printf ("Merging with S4 took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);	
 
 	#if NO_OUTPUTFILE == 0
-	printMergedFreqCSSet(freqCSset, mbat, 1, *freqThreshold, *labels, 5); 
+	printMergedFreqCSSet(freqCSset, mbat,ontbat, 1, *freqThreshold, *labels, 5); 
 	#endif
 
 	#if STORE_PERFORMANCE_METRIC_INFO	
@@ -7522,6 +7620,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	BBPunfix(pbat->batCacheid); 
 	BBPunfix(obat->batCacheid);
 	BBPunfix(mbat->batCacheid);
+	BBPunfix(ontbat->batCacheid);
 
 	freeOntoUsageTree(ontoUsageTree);
 	
@@ -8755,7 +8854,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 }
 
 str
-RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, int *freqThreshold, int *mode){
+RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, bat *ontbatid, int *freqThreshold, int *mode){
 
 	CSset		*freqCSset; 	/* Set of frequent CSs */
 	oid		*subjCSMap = NULL;  	/* Store the corresponding CS Id for each subject */
@@ -8798,7 +8897,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	//if (1) printListOntology();
 
-	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid, &maxNumPwithDup, &labels, &csRelMergeFreqSet) != MAL_SUCCEED){
+	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, ontbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid, &maxNumPwithDup, &labels, &csRelMergeFreqSet) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in extracting CSs");
 	}
 	
