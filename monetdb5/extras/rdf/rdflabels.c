@@ -2928,7 +2928,7 @@ oid* mergeCandidates(int *candidatesCount, int *candidatesNew, int *candidatesTy
  * If no MERGECS is created (subset-superset relation), mergeCSFreqId contains the Id of the superset class.
  * For S1 and S2, parameter 'name' is used to avoid recomputation of CS names
  */
-str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, int mergeCSFreqId, int freqCS1, int freqCS2, oid name, oid **ontmetadata, int ontmetadataCount, int *lstFreqId, int numIds){
+str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, int mergeCSFreqId, int freqCS1, int freqCS2, oid name, int isType, int isOntology, int isFK, oid **ontmetadata, int ontmetadataCount, int *lstFreqId, int numIds){
 	int		i;
 	int		freqCS1Counter;
 	CSlabel		big, small;
@@ -2944,6 +2944,12 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 
 	(void) lstFreqId;
 	(void) numIds;
+
+	#if	! INFO_WHERE_NAME_FROM
+	(void) isType;
+	(void) isOntology;
+	(void) isFK;
+	#endif
 
 	if (newCS) {
 		// realloc labels
@@ -2979,6 +2985,11 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		case S1: // was: (S1 or S2), now combined
 		// use common name
 		label->name = name;
+		#if	INFO_WHERE_NAME_FROM
+		label->isType = isType;
+		label->isOntology = isOntology;
+		label->isFK = isFK;
+		#endif
 
 		#if     USE_MULTIWAY_MERGING
 		(void)ontmetadata;
@@ -2996,9 +3007,6 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		label->candidatesOntology = candidatesOntology;
 		label->candidatesFK = candidatesFK;
 		removeDuplicatedCandidates(label);
-		if (label->name == BUN_NONE && label->candidates[0] != BUN_NONE) {
-			label->name = label->candidates[0];
-		}
 
 		// hierarchy
 		if ((*labels)[freqCS1].name == label->name) {
@@ -3033,6 +3041,11 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		case S2:
 		// use common ancestor
 		label->name = name;
+		#if	INFO_WHERE_NAME_FROM
+		label->isType = isType;
+		label->isOntology = isOntology;
+		label->isFK = isFK;
+		#endif
 
 		// candidates
 		mergedCandidates = mergeCandidates(&candidatesCount, &candidatesNew, &candidatesType, &candidatesOntology, &candidatesFK, (*labels)[freqCS1], (*labels)[freqCS2], label->name);
@@ -3044,9 +3057,6 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		label->candidatesOntology = candidatesOntology;
 		label->candidatesFK = candidatesFK;
 		removeDuplicatedCandidates(label);
-		if (label->name == BUN_NONE && label->candidates[0] != BUN_NONE) {
-			label->name = label->candidates[0];
-		}
 
 		// hierarchy
 		freqCS1Counter = (*labels)[freqCS1].hierarchyCount - 1;
@@ -3080,8 +3090,14 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		label->candidatesFK = candidatesFK;
 		removeDuplicatedCandidates(label);
 		if (label->name == BUN_NONE && label->candidates[0] != BUN_NONE) {
+			// superCS had no name before, but subCS adds candidates
 			label->name = label->candidates[0];
-		}
+			#if	INFO_WHERE_NAME_FROM
+			label->isType = (*labels)[freqCS2].isType;
+			label->isOntology = (*labels)[freqCS2].isOntology;
+			label->isFK = (*labels)[freqCS2].isFK;
+			#endif
+		} // else: old name and isType/isOntology/isFK remain valid
 
 		// hierarchy already set
 		// properties already set
@@ -3113,6 +3129,11 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		}
 //		#endif
 		label->name = big.name;
+		#if	INFO_WHERE_NAME_FROM
+		label->isType = big.isType;
+		label->isOntology = big.isOntology;
+		label->isFK = big.isFK;
+		#endif
 
 		// candidates
 		mergedCandidates = mergeCandidates(&candidatesCount, &candidatesNew, &candidatesType, &candidatesOntology, &candidatesFK, big, small, label->name);
@@ -3125,7 +3146,13 @@ str updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, i
 		label->candidatesFK = candidatesFK;
 		removeDuplicatedCandidates(label);
 		if (label->name == BUN_NONE && label->candidates[0] != BUN_NONE) {
+			// no name yet, use name of small table
 			label->name = label->candidates[0];
+			#if	INFO_WHERE_NAME_FROM
+			label->isType = small.isType;
+			label->isOntology = small.isOntology;
+			label->isFK = small.isFK;
+			#endif
 		}
 
 		// hierarchy

@@ -2945,7 +2945,7 @@ void mergeCSbyS3(CSset *freqCSset, CSlabel** labels, oid *mergeCSFreqCSMap, int 
 					if (isSubset(freqCSset->items[freqId2].lstProp, freqCSset->items[freqId1].lstProp, numP2,numP1) == 1) { 
 						/* CSj is a superset of CSi */
 						freqCSset->items[freqId1].parentFreqIdx = freqId2; 
-						updateLabel(S3, freqCSset, labels, 0, freqId2, freqId1, freqId2, BUN_NONE, ontmetadata, ontmetadataCount, NULL, -1);
+						updateLabel(S3, freqCSset, labels, 0, freqId2, freqId1, freqId2, BUN_NONE, 0, 0, 0, ontmetadata, ontmetadataCount, NULL, -1); // name, isType, isOntology, isFK are not used for case CS
 						break; 
 					}
 				}
@@ -2954,7 +2954,7 @@ void mergeCSbyS3(CSset *freqCSset, CSlabel** labels, oid *mergeCSFreqCSMap, int 
 							numP1,numP2) == 1) { 
 						/* CSj is a subset of CSi */
 						freqCSset->items[freqId2].parentFreqIdx = freqId1; 
-						updateLabel(S3, freqCSset, labels, 0, freqId1, freqId1, freqId2, BUN_NONE, ontmetadata, ontmetadataCount, NULL, -1);
+						updateLabel(S3, freqCSset, labels, 0, freqId1, freqId1, freqId2, BUN_NONE, 0, 0, 0, ontmetadata, ontmetadataCount, NULL, -1); // name, isType, isOntology, isFK are not used for case CS
 					}		
 				
 				}
@@ -3558,7 +3558,7 @@ void freeLabelStat(LabelStat *labelStat){
 }
 
 static 
-void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *mergecsId, CSlabel** labels, oid** ontmetadata, int ontmetadataCount, oid name){
+void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *mergecsId, CSlabel** labels, oid** ontmetadata, int ontmetadataCount, oid name, int isType, int isOntology, int isFK){
 	CS 	*mergecs; 
 	int		existMergecsId; 
 	CS		*existmergecs, *mergecs1, *mergecs2; 
@@ -3574,7 +3574,7 @@ void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *merge
 		cs1->parentFreqIdx = freqCSset->numCSadded;
 		cs2->parentFreqIdx = freqCSset->numCSadded;
 		addCStoSet(freqCSset,*mergecs);
-		updateLabel(ruleNum, freqCSset, labels, 1, freqCSset->numCSadded - 1, freqId1, freqId2, name, ontmetadata, ontmetadataCount, NULL, -1);
+		updateLabel(ruleNum, freqCSset, labels, 1, freqCSset->numCSadded - 1, freqId1, freqId2, name, isType, isOntology, isFK, ontmetadata, ontmetadataCount, NULL, -1);
 		free(mergecs);
 		
 		mergecsId[0]++;
@@ -3584,7 +3584,7 @@ void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *merge
 		existmergecs = &(freqCSset->items[existMergecsId]);
 		mergeACStoExistingmergeCS(*cs1,freqId1, existmergecs);
 		cs1->parentFreqIdx = existMergecsId; 
-		updateLabel(ruleNum, freqCSset, labels, 0, existMergecsId, freqId1, freqId2, name, ontmetadata, ontmetadataCount, NULL, -1);
+		updateLabel(ruleNum, freqCSset, labels, 0, existMergecsId, freqId1, freqId2, name, isType, isOntology, isFK, ontmetadata, ontmetadataCount, NULL, -1);
 	}
 	
 	else if (cs1->parentFreqIdx != -1 && cs2->parentFreqIdx == -1){
@@ -3592,7 +3592,7 @@ void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *merge
 		existmergecs = &(freqCSset->items[existMergecsId]);
 		mergeACStoExistingmergeCS(*cs2,freqId2, existmergecs);
 		cs2->parentFreqIdx = existMergecsId; 
-		updateLabel(ruleNum, freqCSset, labels, 0, existMergecsId, freqId1, freqId2, name, ontmetadata, ontmetadataCount, NULL, -1);
+		updateLabel(ruleNum, freqCSset, labels, 0, existMergecsId, freqId1, freqId2, name, isType, isOntology, isFK, ontmetadata, ontmetadataCount, NULL, -1);
 	}
 	else if (cs1->parentFreqIdx != cs2->parentFreqIdx){
 		mergecs1 = &(freqCSset->items[cs1->parentFreqIdx]);
@@ -3604,7 +3604,7 @@ void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *merge
 		for (k = 0; k < mergecs2->numConsistsOf; k++){
 			freqCSset->items[mergecs2->lstConsistsOf[k]].parentFreqIdx = cs1->parentFreqIdx;
 		}
-		updateLabel(ruleNum, freqCSset, labels, 0, cs1->parentFreqIdx, freqId1, freqId2, name, ontmetadata, ontmetadataCount, NULL, -1);
+		updateLabel(ruleNum, freqCSset, labels, 0, cs1->parentFreqIdx, freqId1, freqId2, name, isType, isOntology, isFK, ontmetadata, ontmetadataCount, NULL, -1);
 	}
 
 }
@@ -3673,7 +3673,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 			#if USE_MULTIWAY_MERGING	
 			lstDistinctFreqId = mergeMultiCS(freqCSset,  labelStat->freqIdList[i], labelStat->lstCount[i], mergecsId, &numDistinct, &isNew, &mergeFreqIdx); 
 			if (lstDistinctFreqId != NULL){
-				updateLabel(S1, freqCSset, labels, isNew, mergeFreqIdx, -1, -1, *name, ontmetadata, ontmetadataCount, lstDistinctFreqId, numDistinct);
+				updateLabel(S1, freqCSset, labels, isNew, mergeFreqIdx, -1, -1, *name, labelStat->freqIdList[i][0].isType, labelStat->freqIdList[i][0].isOntology, labelStat->freqIdList[i][0].isFK, ontmetadata, ontmetadataCount, lstDistinctFreqId, numDistinct); // use isType/isOntology/isFK information from first CS with that label
 			}
 			#else
 
@@ -3700,7 +3700,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 				#endif
 				if ((*labels)[freqId2].isOntology == 1){
 					//printf("Merge FreqCS %d and FreqCS %d by Ontology name \n", freqId1, freqId2);
-					doMerge(freqCSset, S1, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name);
+					doMerge(freqCSset, S1, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name, 0, 1, 0); // isOntology
 					//printf("Number of added cs in freqCS: %d \n", freqCSset->numCSadded); 
 					tmpCount++;
 				}
@@ -3730,7 +3730,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 				#endif
 				if ((*labels)[freqId2].isType == 1){
 					//printf("Merge FreqCS %d and FreqCS %d by Type name \n", freqId1, freqId2);
-					doMerge(freqCSset, S1, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name);
+					doMerge(freqCSset, S1, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name, 1, 0, 0); // isType
 					//printf("Number of added cs in freqCS: %d \n", freqCSset->numCSadded); 				
 					tmpCount++;
 				}
@@ -3760,7 +3760,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 				#endif
 				if ((*labels)[freqId2].isFK == 1){
 					//printf("Merge FreqCS %d and FreqCS %d by FK name \n", freqId1, freqId2);
-					doMerge(freqCSset, S1, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name);
+					doMerge(freqCSset, S1, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name, 0, 0, 1); // isFK
 					//printf("Number of added cs in freqCS: %d \n", freqCSset->numCSadded); 					
 					tmpCount++;
 				}
@@ -3783,12 +3783,22 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 				break; 
 			}
 			for (j = k+1; j < labelStat->lstCount[i]; j++){
+				int isType = 0, isOntology = 0, isFK = 0;
 				freqId2 = labelStat->freqIdList[i][j];
 				cs2 = &(freqCSset->items[freqId2]);
 				#if	NOT_MERGE_DIMENSIONCS_IN_S1
 				if (cs2->type == DIMENSIONCS) continue; 
 				#endif
-				doMerge(freqCSset, S1, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name);
+				#if	INFO_WHERE_NAME_FROM
+				if ((*labels)[freqId1].isType == 1 || (*labels)[freqId2].isType == 1) {
+					isType = 1;
+				} else if ((*labels)[freqId1].isOntology == 1 || (*labels)[freqId2].isOntology == 1) {
+					isOntology = 1;
+				} else if ((*labels)[freqId1].isFK == 1 || (*labels)[freqId2].isFK == 1) {
+					isFK = 1;
+				}
+				#endif
+				doMerge(freqCSset, S1, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name, isType, isOntology, isFK);
 				tmpCount++;
 			}
 
@@ -3913,7 +3923,7 @@ void mergeMaxFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 					lstDistinctFreqId = mergeMultiCS(freqCSset, csRelSum->freqIdList[j],csRelSum->numPropRef[j], mergecsId, &numDistinct, &isNew, &mergeFreqIdx); 
 					
 					if (lstDistinctFreqId != NULL){
-						updateLabel(S5, freqCSset, labels, isNew, mergeFreqIdx, -1, -1, BUN_NONE, ontmetadata, ontmetadataCount, lstDistinctFreqId, numDistinct);
+						updateLabel(S5, freqCSset, labels, isNew, mergeFreqIdx, -1, -1, BUN_NONE, 0, 0, 0, ontmetadata, ontmetadataCount, lstDistinctFreqId, numDistinct); // name, isType, isOntology, isFK are not used for case S5
 					}
 					#else
 
@@ -3940,7 +3950,7 @@ void mergeMaxFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 						if (cs2->type == DIMENSIONCS) continue; 
 						#endif
 						
-						doMerge(freqCSset, S5, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, BUN_NONE);
+						doMerge(freqCSset, S5, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, BUN_NONE, 0, 0, 0); // no name known
 
 					}
 
@@ -4155,7 +4165,7 @@ void mergeCSByS2(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 			#endif
 			if (isLabelComparable == 1 && isSemanticSimilar(freqId1, freqId2, (*labels), ontoUsageTree,freqCSset->numOrigFreqCS, &name, ontmetaBat, ontclassSet) == 1){
 				//printf("Same labels between freqCS %d and freqCS %d - Old simscore is %f \n", freqId1, freqId2, simscore);
-				doMerge(freqCSset, S2, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, name);
+				doMerge(freqCSset, S2, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, name, 0, 1, 0); // isOntology because of the common ancestor name that was found in isSemanticSimilar
 			}
 
 		}
@@ -4248,7 +4258,7 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 					printf(" %d (DUMMY) with simscore = %f \n",freqId2, simscore);
 				}
 				*/
-				doMerge(freqCSset, S4, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, BUN_NONE);
+				doMerge(freqCSset, S4, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, BUN_NONE, 0, 0, 0); // no name known
 			}
 		}
 	}
