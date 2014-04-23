@@ -9192,6 +9192,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	printf("Return value from RDFdistTriplesToCSs is %s \n", returnStr);
 	if (returnStr != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in distributing triples to BATs using CSs");		
+	}
 		
 	curT = clock(); 
 	printf ("RDFdistTriplesToCSs process took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
@@ -9200,7 +9201,6 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	#if NO_OUTPUTFILE == 0
 	printFKMultiplicityFromCSPropTypes(csPropTypes, numTables, freqCSset, *freqThreshold);
 	#endif
-	}
 	
 	#if NO_OUTPUTFILE == 0
 	{
