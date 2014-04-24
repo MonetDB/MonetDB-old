@@ -979,6 +979,8 @@ lng get_enum_step_length(sql_column* c)
 		return 3600000;
 	else if(strcmp(c->t->base.name, "psdmetadata") == 0 && strcmp(c->base.name, "psd_start_ts") == 0)
 		return 3600000;
+	else if(strcmp(c->t->base.name, "psdmetadata") == 0 && strcmp(c->base.name, "psd_freq") == 0)
+		return 1;
 	else return 0;
 }
 
@@ -1143,6 +1145,39 @@ sel_predicate** convert_all_into_in_clause_except_cmp_equal(list *list_of_PERPAD
 						break;
 					}
 					
+					case TYPE_int:
+					{
+						int il, ih, range_diff, current, j;
+						il = sp->values[0]->val.ival;
+						ih = sp->values[1]->val.ival;
+						
+						step_length = get_enum_step_length(sp->column);
+						
+						if(sp->cmp_type == 12 || sp->cmp_type == 14)
+							il += step_length;
+						
+						if(sp->cmp_type == 12 || sp->cmp_type == 13)
+							ih -= step_length;
+						
+						range_diff = ih - il;
+						sps[i]->num_values = (range_diff / step_length) + 1;
+						sps[i]->values = (ValRecord**) GDKmalloc(sps[i]->num_values * sizeof(ValRecord*));
+						
+						sps[i]->column = sp->column;
+						sps[i]->cmp_type = 8; /* cmp_in */
+						
+						current = il;
+						for(j = 0; j < sps[i]->num_values; j++)
+						{
+							sps[i]->values[j] = (ValRecord*) GDKmalloc(sizeof(ValRecord));
+							sps[i]->values[j]->vtype = TYPE_int;
+							sps[i]->values[j]->val.ival = current;
+							current += step_length;
+						}
+						
+						assert(current == ih + step_length);
+					}
+					
 					default:
 						printf("ERROR: range for this type is not possible or not handled (yet)!\n");
 						break;
@@ -1209,9 +1244,34 @@ int enumerate_pkey_space(str** ret, sel_predicate** sps, int sps_enum_start, int
 					}
 				}
 				
-				
+				break;
 			}
-			break;
+			
+			case TYPE_int:
+			{
+				int i, j;
+				for(i = 0; i < sps[sps_enum_start]->num_values; i++)
+				{
+					for(j = 0; j < num_already_enumerated; j++)
+					{
+						str buf = (str)GDKmalloc(512*sizeof(char));
+						if(already_enumerated)
+						{
+							sprintf(buf, "%d, %s", sps[sps_enum_start]->values[i]->val.ival, already_enumerated[j]);
+						}
+						else
+						{
+							sprintf(buf, "%d", sps[sps_enum_start]->values[i]->val.ival);
+						}
+						ret[0][i * num_already_enumerated + j] = GDKstrdup(buf);
+						GDKfree(buf);
+					}
+				}
+				
+				break;
+			}
+			
+			
 			default:
 				printf("ERROR: enumerating pkey space: range for this type is not possible or not handled (yet)!\n");
 				break;
