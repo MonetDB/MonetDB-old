@@ -1164,7 +1164,7 @@ int enumerate_pkey_space(str** ret, sel_predicate** sps, int sps_enum_start, int
 		if(num_PERPAD == sps_enum_start + 1)
 		{
 			ret[0] = NULL;
-			return 0;
+			return 1;
 		}
 		else
 			return enumerate_pkey_space(ret, sps, sps_enum_start+1, num_PERPAD, is_pkey_to_be_enumerated);
