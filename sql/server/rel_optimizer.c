@@ -66,6 +66,7 @@ int is_column_of_table_in_list_table_pkeys(list *l, sql_table* st, sql_column* c
 list* extract_column_names_from_list_of_columns(list* list_of_columns);
 list* collect_PERPAD(mvc *sql, sql_rel *rel);
 lng get_enum_step_length(sql_column* c);
+list* reorder_PERPAD(list* list_PERPAD, list* pkey_column_names);
 sel_predicate** convert_all_into_in_clause_except_cmp_equal(list *list_of_PERPAD);
 int enumerate_pkey_space(str** ret, sel_predicate** sps, int sps_enum_start, int num_PERPAD, int* is_pkey_to_be_enumerated);
 int* enumerate_and_insert_into_temp_table(mvc *sql, sel_predicate** sps, int num_PERPAD);
@@ -979,6 +980,29 @@ lng get_enum_step_length(sql_column* c)
 	else if(strcmp(c->t->base.name, "psdmetadata") == 0 && strcmp(c->base.name, "psd_start_ts") == 0)
 		return 3600000;
 	else return 0;
+}
+
+list* reorder_PERPAD(list* list_PERPAD, list* pkey_column_names)
+{
+	node *n = NULL, *o = NULL;
+	list* res = list_create(NULL);
+	
+	for (n = pkey_column_names->h; n; n = n->next) 
+	{
+		str cn = n->data;
+		for (o = list_PERPAD->h; o; o = o->next) 
+		{
+			sel_predicate *sp = o->data;
+			
+			if(strcmp(cn, sp->column->base.name) == 0)
+			{
+				res = list_append(res, sp);
+				break;
+			}
+		}
+	}
+	
+	return res;
 }
 
 sel_predicate** convert_all_into_in_clause_except_cmp_equal(list *list_of_PERPAD)
@@ -7178,6 +7202,8 @@ void prepare_pmv(mvc* sql, sql_rel* ret)
 	{
 		table_pkeys *tp = n->data;
 		printf("num_pkey_columns: %d\n", list_length(tp->pkey_column_names));
+		/* TODO: Assumed to have one pmv refered in a query */
+		list_PERPAD = reorder_PERPAD(list_PERPAD, tp->pkey_column_names);
 	}
 	printf("num_PERPAD: %d\n", num_PERPAD=list_length(list_PERPAD));
 	
