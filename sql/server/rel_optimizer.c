@@ -1520,10 +1520,10 @@ int find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, list
 				sprintf(buf, "%s %s > %s AND %s < %s", s, sp->column->base.name, VAL2str(sp->values[0]), sp->column->base.name, VAL2str(sp->values[1]));
 				break;
 			case 13:
-				sprintf(buf, "%s %s > %s AND %s <= %s", s, sp->column->base.name, VAL2str(sp->values[0]), sp->column->base.name, VAL2str(sp->values[1]));
+				sprintf(buf, "%s %s >= %s AND %s < %s", s, sp->column->base.name, VAL2str(sp->values[0]), sp->column->base.name, VAL2str(sp->values[1]));
 				break;
 			case 14:
-				sprintf(buf, "%s %s >= %s AND %s < %s", s, sp->column->base.name, VAL2str(sp->values[0]), sp->column->base.name, VAL2str(sp->values[1]));
+				sprintf(buf, "%s %s > %s AND %s <= %s", s, sp->column->base.name, VAL2str(sp->values[0]), sp->column->base.name, VAL2str(sp->values[1]));
 				break;
 			case 15:
 				sprintf(buf, "%s %s >= %s AND %s <= %s", s, sp->column->base.name, VAL2str(sp->values[0]), sp->column->base.name, VAL2str(sp->values[1]));
