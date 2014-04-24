@@ -1942,7 +1942,7 @@ int getOntologyIndex(BAT *ontbat, oid prop){
 }
 
 static
-int getNumOntology(CS cs, BAT *ontbat, int *buffOntologyNums, int numOnt){
+int getNumOntology(oid* lstProp, int numProp, BAT *ontbat, int *buffOntologyNums, int numOnt){
 	int i; 
 	int idx; 
 	int numOntology = 0; 
@@ -1950,8 +1950,8 @@ int getNumOntology(CS cs, BAT *ontbat, int *buffOntologyNums, int numOnt){
 	for (i = 0; i < (numOnt+1); i++){
 		buffOntologyNums[i] = 0; 
 	}
-	for (i = 0; i < cs.numProp; i++){
-		idx = getOntologyIndex(ontbat, cs.lstProp[i]); 
+	for (i = 0; i < numProp; i++){
+		idx = getOntologyIndex(ontbat, lstProp[i]); 
 		if (idx != -1)
 			buffOntologyNums[idx]++;
 		else
@@ -2037,7 +2037,7 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, BAT *ontbat, char isWrit
 			freq = cs.support; 
 
 			//Get ontology stat
-			tmpNumOnt = getNumOntology(cs, ontbat, buffOntologyNums, numOnt); 
+			tmpNumOnt = getNumOntology(cs.lstProp,cs.numProp, ontbat, buffOntologyNums, numOnt); 
 			totalNumOntology += tmpNumOnt;
 			if (buffOntologyNums[numOnt] != 0) numFreqCSWithNonOntProp++;
 
@@ -2625,11 +2625,13 @@ void addNewCS(CSBats *csBats, PropStat* fullPropStat, BUN* csKey, oid* key, oid 
 #if STOREFULLCS
 static 
 oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples, int numTypeValues, oid* rdftypeOntologyValues, 
-		oid *csoid, char isStoreFreqCS, int freqThreshold, CSset *freqCSset, oid subjectId, oid* buffObjs, PropStat *fullPropStat)
+		oid *csoid, char isStoreFreqCS, int freqThreshold, CSset *freqCSset, oid subjectId, oid* buffObjs, PropStat *fullPropStat,
+		BAT *ontbat, int *buffOntologyNums, int *totalNumOntology, int numOnt)
 #else
 static 
 oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples, int numTypeValues, oid* rdftypeOntologyValues,
-		oid *csoid, char isStoreFreqCS, int freqThreshold, CSset *freqCSset, PropStat *fullPropStat)
+		oid *csoid, char isStoreFreqCS, int freqThreshold, CSset *freqCSset, PropStat *fullPropStat,
+		BAT *ontbat, int *buffOntologyNums, int *totalNumOntology, int numOnt)
 #endif	
 {
 	BUN 	csKey; 
@@ -2640,12 +2642,20 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples, int numTypeV
 	oid	csId; 		/* Id of the characteristic set */
 	char	isDuplicate = 0; 
 
+	(void) ontbat;
+	(void) buffOntologyNums;
+	(void) totalNumOntology;
+	(void) numOnt;
+
 	csKey = RDF_hash_oidlist(key, num, numTypeValues, rdftypeOntologyValues);
 	bun = BUNfnd(BATmirror(csBats->hsKeyBat),(ptr) &csKey);
 	if (bun == BUN_NONE) {
 		csId = *csoid; 
 		addNewCS(csBats, fullPropStat, &csKey, key, csoid, num, numTriples, numTypeValues, rdftypeOntologyValues);
-
+	
+		#if NO_OUTPUTFILE == 0
+		*totalNumOntology = (*totalNumOntology) + getNumOntology(key, num, ontbat, buffOntologyNums, numOnt);
+		#endif
 		//if (csId == 2){
 		//	printf("Extra info for cs 73 is: ");
 		//	printTKNZStringFromOid(rdftypeOntologyValues[0]);
@@ -2672,6 +2682,10 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples, int numTypeV
 			// New CS
 			csId = *csoid;
 			addNewCS(csBats, fullPropStat, &csKey, key, csoid, num, numTriples, numTypeValues, rdftypeOntologyValues);
+			
+			#if NO_OUTPUTFILE == 0
+			*totalNumOntology = (*totalNumOntology) + getNumOntology(key, num, ontbat, buffOntologyNums, numOnt);
+			#endif
 			
 			//Handle the case when freqThreshold == 1 
 			if (isStoreFreqCS ==1 && freqThreshold == 1){
@@ -4786,10 +4800,10 @@ int getOntologySpecificLevel(oid valueOid){
 
 #if STOREFULLCS
 static 
-str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, CSset *freqCSset, int *freqThreshold, CSBats* csBats, oid *subjCSMap, oid *maxCSoid, int *maxNumProp, int *maxNumPwithDup){
+str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, BAT *ontbat, CSset *freqCSset, int *freqThreshold, CSBats* csBats, oid *subjCSMap, oid *maxCSoid, int *maxNumProp, int *maxNumPwithDup){
 #else
 static 
-str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset, int *freqThreshold, CSBats* csBats, oid *subjCSMap, oid *maxCSoid, int *maxNumProp, int *maxNumPwithDup){
+str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSset *freqCSset, int *freqThreshold, CSBats* csBats, oid *subjCSMap, oid *maxCSoid, int *maxNumProp, int *maxNumPwithDup){
 #endif
 
 	BUN 	p, q; 
@@ -4818,9 +4832,15 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 	int	tmpMaxSpecificLevel = 0; 
 	int	tmpSpecificLevel = 0; 
 	#endif
-
+	
+	int 	*buffOntologyNums = NULL;	//Number of instances in each ontology	
+	int	numOnt = 0; 			//Number of ontology
+	int     totalNumOntology = 0;		
+	
 	PropStat *fullPropStat; 	
 	BAT	*typeBat;	//BAT contains oids of type attributes retrieved from tokenizer
+
+
 
 	typeBat = buildTypeOidBat();
 
@@ -4837,6 +4857,24 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 	numP = 0;
 	curP = BUN_NONE; 
 	curS = 0; 
+	
+	#if NO_OUTPUTFILE == 0
+	{
+	int i;
+	char* schema = "rdf";
+
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "rdf.rdfschema",
+				"could not open the tokenizer\n");
+	}
+
+	numOnt = BATcount(ontbat); 
+	buffOntologyNums = GDKmalloc(sizeof(int) * (numOnt+1));  //The last index stores number of non-ontology instances
+	for (i = 0; i < (numOnt+1); i++){
+		buffOntologyNums[i] = 0;
+	}
+	}
+	#endif
 
 	printf("freqThreshold = %d \n", *freqThreshold);	
 	BATloop(sbat, p, q){
@@ -4844,9 +4882,9 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 		if (*sbt != curS){
 			if (p != 0){	/* Not the first S */
 				#if STOREFULLCS
-				returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, numTypeValues, rdftypeOntologyValues, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs, fullPropStat); 
+				returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, numTypeValues, rdftypeOntologyValues, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs, fullPropStat, ontbat, buffOntologyNums, &totalNumOntology,numOnt); 
 				#else
-				returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, numTypeValues, rdftypeOntologyValues, &CSoid, 1, *freqThreshold, freqCSset, fullPropStat); 
+				returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, numTypeValues, rdftypeOntologyValues, &CSoid, 1, *freqThreshold, freqCSset, fullPropStat, ontbat, buffOntologyNums, &totalNumOntology,numOnt); 
 				#endif
 
 				subjCSMap[curS] = returnCSid; 			
@@ -4926,9 +4964,9 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 	
 	/*put the last CS */
 	#if STOREFULLCS
-	returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, numTypeValues, rdftypeOntologyValues, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs, fullPropStat); 
+	returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, numTypeValues, rdftypeOntologyValues, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs, fullPropStat, ontbat, buffOntologyNums, &totalNumOntology,numOnt); 
 	#else
-	returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, numTypeValues, rdftypeOntologyValues, &CSoid, 1, *freqThreshold, freqCSset, fullPropStat ); 
+	returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, numTypeValues, rdftypeOntologyValues, &CSoid, 1, *freqThreshold, freqCSset, fullPropStat, ontbat, buffOntologyNums, &totalNumOntology,numOnt); 
 	#endif
 	
 	subjCSMap[curS] = returnCSid; 			
@@ -4946,6 +4984,12 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, CSset *freqCSset,
 	free (buff); 
 	#if STOREFULLCS
 	free (buffObjs); 
+	#endif
+	
+	#if NO_OUTPUTFILE == 0
+	printf("Total number of ontologies in explored CSs: %d (/ "BUNFMT" CSs) --> %f per CS\n",totalNumOntology,CSoid, (float) totalNumOntology/CSoid);
+	GDKfree(buffOntologyNums);
+	TKNZRclose(ret);
 	#endif
 
 	#if FULL_PROP_STAT
@@ -7334,9 +7378,9 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	*maxNumPwithDup	 = 0;
 	//Phase 1: Assign an ID for each CS
 	#if STOREFULLCS
-	RDFassignCSId(ret, sbat, si, pi, oi, freqCSset, freqThreshold, csBats, *subjCSMap, maxCSoid, &maxNumProp, maxNumPwithDup);
+	RDFassignCSId(ret, sbat, si, pi, oi, ontbat, freqCSset, freqThreshold, csBats, *subjCSMap, maxCSoid, &maxNumProp, maxNumPwithDup);
 	#else
-	RDFassignCSId(ret, sbat, si, pi, freqCSset, freqThreshold, csBats, *subjCSMap, maxCSoid, &maxNumProp, maxNumPwithDup);
+	RDFassignCSId(ret, sbat, si, pi, ontbat,freqCSset, freqThreshold, csBats, *subjCSMap, maxCSoid, &maxNumProp, maxNumPwithDup);
 	#endif
 		
 	curT = clock(); 
