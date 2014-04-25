@@ -5009,6 +5009,7 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 	#endif	
 
 	freePropStat(fullPropStat); 
+	free(rdftypeOntologyValues);
 
 	*ret = 1; 
 
@@ -5473,6 +5474,137 @@ str getOrigObt(oid *obt, oid *origObt, BAT *lmap, BAT *rmap){
 #endif
 
 #if NO_OUTPUTFILE == 0
+static
+char getObjTypeFromBATtype(int battype){
+	
+	switch (battype)						  
+	{
+		case TYPE_oid:
+			return URI;
+			break;
+		case TYPE_str:
+			return STRING; 
+			break;
+		case TYPE_int:
+			return INTEGER;
+			break;
+		case TYPE_flt:
+			return FLOAT;
+			break;
+		default:
+			return 100;
+	}
+}
+
+static
+int getObjValueFromMVBat(ValPtr returnValue, ValPtr castedValue, BUN pos, ObjectType objType, BAT *tmpBat, BAT *lmap, BAT *rmap){
+	str	tmpStr; 
+	str	inputStr; 
+	float	*realFloat; 
+	int	*realInt; 
+	oid	*tmpUriOid; 
+	oid	realUriOid = BUN_NONE;
+	BATiter	tmpi; 
+
+	tmpi = bat_iterator(tmpBat);
+
+	switch (objType)
+	{
+		case STRING:
+			//printf("A String object value: %s \n",objStr);
+			tmpStr = BUNtail(tmpi, pos); 
+			if (strcmp(tmpStr,str_nil) != 0){
+				inputStr = GDKmalloc(sizeof(char) * strlen(tmpStr) + 1); 
+				memcpy(inputStr, tmpStr, sizeof(char) * strlen(tmpStr) + 1);
+
+				VALset(returnValue, TYPE_str, inputStr);
+				if (rdfcast(objType, STRING, returnValue, castedValue) != 1){
+					printf("Everything should be able to cast to String \n");
+				}
+
+				return 1;
+			}
+			else{
+				return 0;
+			}
+			break; 
+		case DATETIME:
+			//printf("A Datetime object value: %s \n",objStr);
+			tmpStr = BUNtail(tmpi, pos);
+			if (strcmp(tmpStr,str_nil) != 0){
+				inputStr = GDKmalloc(sizeof(char) * strlen(tmpStr) + 1);
+				memcpy(inputStr, tmpStr, sizeof(char) * strlen(tmpStr) + 1);
+				VALset(returnValue, TYPE_str, inputStr);
+				if (rdfcast(objType, STRING, returnValue, castedValue) != 1){
+					printf("Everything should be able to cast to String \n");
+				}
+
+				return 1;
+			}
+			else{
+				return 0; 
+			}
+			break; 
+		case INTEGER:
+			realInt = (int *) BUNtail(tmpi, pos);
+			if (*realInt != int_nil){
+				VALset(returnValue, TYPE_int, realInt);
+				if (rdfcast(objType, STRING, returnValue, castedValue) != 1){
+					printf("Everything should be able to cast to String \n");
+				}
+				return 1;
+			}
+			else{
+				return 0;
+			}
+			break; 
+		case FLOAT:
+			//printf("Full object value: %s \n",objStr);
+			realFloat = (float *)BUNtail(tmpi, pos);
+			if (*realFloat != flt_nil){
+				VALset(returnValue, TYPE_flt, realFloat);
+				if (rdfcast(objType, STRING, returnValue, castedValue) != 1){
+					printf("Everything should be able to cast to String \n");
+				}
+
+				return 1; 
+			}
+			else{
+				return 0; 
+			}
+			break; 
+		default: //URI or BLANK NODE		
+			tmpUriOid = (oid *)BUNtail(tmpi, pos);
+			if (*tmpUriOid != oid_nil){
+				str tmpUriStr; 
+				str tmpShortUriStr; 
+				if (getOrigObt(tmpUriOid, &realUriOid, lmap, rmap) != MAL_SUCCEED){
+					printf("[ERROR] Problem in getting the orignal obt \n");
+					return -1;
+				}
+				
+				takeOid(realUriOid,&tmpUriStr);
+				getPropNameShort(&tmpShortUriStr, tmpUriStr);
+
+				VALset(returnValue,TYPE_str, tmpShortUriStr);
+				if (rdfcast(STRING, STRING, returnValue, castedValue) != 1){
+					printf("Everything should be able to cast to String \n");
+				}
+
+				//GDKfree(tmpShortUriStr);
+				GDKfree(tmpUriStr);
+
+				return 1; 
+			}
+			else{
+				return 0; 
+			}
+	}
+
+
+
+}
+
 static 
 str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, CSlabel *label, CStableStat* cstablestat, CSPropTypes *csPropTypes, CSset *freqCSset, int numTables,  bat *lmapbatid, bat *rmapbatid){
 	int 	i, j, k; 
@@ -5482,7 +5614,14 @@ str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, C
 	int 	randValue = 0; 
 	int	ranPosition = 0; 	//random position of the instance in a table
 	int	tmpNumCols; 
-	int 	colIdx; 
+	int 	colIdx;
+	int	mvColIdx; 
+	int	tmpNumMVCols;
+	char	tmpObjType; 
+	ValRecord       vrRealObjValue;
+	ValRecord       vrCastedObjValue;
+	BUN	tmpPos = BUN_NONE;
+
 	BAT     *tmpbat = NULL;
 	BATiter tmpi; 
 	BAT	*cursamplebat = NULL; 
@@ -5490,6 +5629,17 @@ str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, C
 	oid	tmpSoid = BUN_NONE, origSoid = BUN_NONE;  
 	oid	origOid = BUN_NONE; 
 	BAT	*lmap = NULL, *rmap = NULL; 
+	BAT     *tmpmvBat = NULL;       // Multi-values BAT
+	BAT	*tmpmvKeyBat = NULL;	// KeyBat in MV table
+	oid	mvRefOid;
+	oid	*tmpmvRefOid = NULL;
+	char*   schema = "rdf";
+	int	ret = 0;
+
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "rdf.rdfschema",
+				"could not open the tokenizer\n");
+	}
 
 	if ((lmap = BATdescriptor(*lmapbatid)) == NULL) {
 		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
@@ -5548,7 +5698,19 @@ str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, C
 			csSampleEx[i].lstProp[colIdx] = csPropTypes[i].lstPropTypes[j].prop;
 			csSampleEx[i].lstPropSupport[colIdx] = csPropTypes[i].lstPropTypes[j].propFreq;
 			
-			csSampleEx[i].colBats[colIdx] = BATnew(TYPE_void, cstablestat->lstcstable[i].colBats[colIdx]->ttype , NUM_SAMPLE_INSTANCE + 1);
+			//Mark whther this col is a MV col
+			csSampleEx[i].lstIsMVCol[colIdx] = csPropTypes[i].lstPropTypes[j].isMVProp;
+			
+			//if this is a multivalue column, set the data type to string, combine all the values 
+			//into a single value as a list
+			
+			if (csPropTypes[i].lstPropTypes[j].isMVProp){
+				csSampleEx[i].colBats[colIdx] = BATnew(TYPE_void, TYPE_str , NUM_SAMPLE_INSTANCE + 1);
+			} 
+			else{
+				csSampleEx[i].colBats[colIdx] = BATnew(TYPE_void, cstablestat->lstcstable[i].colBats[colIdx]->ttype , NUM_SAMPLE_INSTANCE + 1);
+			}
+
 
 			//Mark whether this col is infrequent sample cols
 			if ( isInfrequentSampleCol(freqCSset->items[freqId], csPropTypes[i].lstPropTypes[j])){
@@ -5557,10 +5719,7 @@ str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, C
 			else
 				csSampleEx[i].lstIsInfrequentProp[colIdx] = 0;
 
-			//Mark whther this col is a MV col
-			csSampleEx[i].lstIsMVCol[colIdx] = csPropTypes[i].lstPropTypes[j].isMVProp;
-			
-			//if this is a multivalue column, get the data type of the first column
+
 
 		}
 		assert(colIdx == (tmpNumCols - 1)); 
@@ -5587,7 +5746,79 @@ str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, C
 				tmpbat = cstablestat->lstcstable[i].colBats[j]; 	
 				tmpi = bat_iterator(tmpbat);
 
-				if (tmpbat->ttype == TYPE_oid && csSampleEx[i].lstIsMVCol[j] == 0){
+				if (csSampleEx[i].lstIsMVCol[j] == 1){ //Multi-value colum
+					str 	tmpMVSampleStr = NULL; 	//sample string for MV values
+					str	s; 
+
+					int	curStrLen =0; 
+					int	tmpStrLen =0; 
+					oid *tmpOid = (oid *) BUNtail(tmpi, ranPosition);
+					//tmpOid refer to the keyBat of the mv bats
+
+					//Get the range of multi-values in keyBat
+					tmpmvKeyBat = cstablestat->lstcstable[i].lstMVTables[j].keyBat; 
+					
+					mvRefOid = *tmpOid;
+					tmpmvRefOid = (oid *) Tloc(tmpmvKeyBat, mvRefOid);
+					assert(tmpmvRefOid != NULL);
+					
+					//printf("First position for multivalues in keybat %d \n", (int) (*tmpmvRefOid));
+
+					tmpNumMVCols = cstablestat->lstcstable[i].lstMVTables[j].numCol;
+					//printf("Table %d colum %d is a mv col with %d types \n",i,j,tmpNumMVCols);
+					
+					tmpPos = *tmpOid;
+					while (*tmpmvRefOid == mvRefOid){
+						//Concat the data from each column
+						for (mvColIdx =0; mvColIdx < tmpNumMVCols; mvColIdx++){
+							tmpmvBat = cstablestat->lstcstable[i].lstMVTables[j].mvBats[mvColIdx];
+							tmpObjType = getObjTypeFromBATtype(tmpmvBat->ttype); 
+							if (getObjValueFromMVBat(&vrRealObjValue, &vrCastedObjValue, tmpPos, tmpObjType, tmpmvBat, lmap, rmap) == 1){
+								//printf("Casted value at mvBat %d is %s \n",mvColIdx,vrCastedObjValue.val.sval);
+								tmpStrLen = strlen(vrCastedObjValue.val.sval);
+								if (tmpMVSampleStr == NULL){ 
+									tmpMVSampleStr = (str) GDKmalloc(tmpStrLen + 1);
+									s = tmpMVSampleStr;
+								}else{
+									tmpMVSampleStr = (str) GDKrealloc(tmpMVSampleStr, curStrLen + tmpStrLen + 2);
+									s = tmpMVSampleStr;
+									s += curStrLen;
+								}
+								
+								strcpy(s, vrCastedObjValue.val.sval);
+								s += tmpStrLen;
+								*s++ = ';';
+								*s = '\0';
+
+								curStrLen = strlen(tmpMVSampleStr);
+								//printf("Current tmpMVSampleStr String %s --> curLen = %d \n",tmpMVSampleStr, curStrLen);
+
+								VALclear(&vrCastedObjValue);
+								VALclear(&vrRealObjValue);
+							}
+						}
+						
+
+						//Get next 
+						tmpPos++;
+						if (tmpPos == BATcount(tmpmvKeyBat)) break; 
+
+						tmpmvRefOid = (oid *) Tloc(tmpmvKeyBat, tmpPos);
+					}	
+
+					if (tmpMVSampleStr != NULL){
+						tmpMVSampleStr = (str) GDKrealloc(tmpMVSampleStr, curStrLen + 1);
+						tmpMVSampleStr[curStrLen] = '\0';
+					}
+
+					//printf("Final MV string : %s \n",tmpMVSampleStr);
+					if (tmpMVSampleStr != NULL) 
+						BUNappend(cursamplebat, tmpMVSampleStr, TRUE);
+					else
+						BUNappend(cursamplebat, ATOMnilptr(TYPE_str), TRUE);
+
+				}
+				else if (tmpbat->ttype == TYPE_oid){
 					//Get the original object oid
 					oid *tmpOid = (oid *) BUNtail(tmpi, ranPosition);
 					if(*tmpOid != oid_nil){
@@ -5619,7 +5850,8 @@ str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, C
 			*/
 		
 	}
-
+	
+	TKNZRclose(&ret);
 	BBPunfix(lmap->batCacheid);
 	BBPunfix(rmap->batCacheid);
 
@@ -6573,26 +6805,19 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 						fprintf(foutis,"|NULL");
 					}
 					else{
-						if (sample.lstIsMVCol[j] == 1){	//
-							fprintf(fout,"|<"BUNFMT">",*objOid);
+						str objStrShort = NULL;
+						takeOid(*objOid, &objStr);
+						getPropNameShort(&objStrShort, objStr);
+
+						if (isTypeProp[index]) {
+							// type props are printed without <...>
+							fprintf(fout,"|%s", objStrShort);
+						} else {
+							fprintf(fout,"|<%s>", objStrShort);
 						}
-						else{
-							str objStrShort = NULL;
-							takeOid(*objOid, &objStr);
-							getPropNameShort(&objStrShort, objStr);
-
-							if (isTypeProp[index]) {
-								// type props are printed without <...>
-								fprintf(fout,"|%s", objStrShort);
-							} else {
-								fprintf(fout,"|<%s>", objStrShort);
-							}
-							fprintf(foutis,"|<%s>", objStrShort);
-							GDKfree(objStrShort);
-							GDKfree(objStr);
-
-
-						}
+						fprintf(foutis,"|<%s>", objStrShort);
+						GDKfree(objStrShort);
+						GDKfree(objStr);
 					}
 				}
 				else if (tmpBat->ttype == TYPE_flt){
@@ -6619,7 +6844,7 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 					}
 				
 				}
-				else{ //tmpBat->ttype == TYPE_str
+				else{ //tmpBat->ttype == TYPE_str, MV column also has string type (concate list of values)
 					objStr = NULL; 
 					objStr = BUNtail(tmpi, k);
 					if (strcmp(objStr, str_nil) == 0){

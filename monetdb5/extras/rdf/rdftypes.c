@@ -284,6 +284,11 @@ char rdfcast(ObjectType srcT, ObjectType dstT, ValPtr srcPtr, ValPtr dstPtr){
 					dstPtr->len = srcPtr->len; 
 					dstPtr->val.sval = GDKstrdup(srcPtr->val.sval);
 					return 1; 
+				case STRING:	
+					dstPtr->vtype = TYPE_str; 
+					dstPtr->len = srcPtr->len; 
+					dstPtr->val.sval = GDKstrdup(srcPtr->val.sval);
+					return 1; 
 				default: 
 					return 0; 
 			}
