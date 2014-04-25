@@ -6190,8 +6190,43 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 #endif
 
 #if NO_OUTPUTFILE == 0
+static
+void printPropertyWithMarkers(FILE *fout, str propStr, CSSampleExtend *csSampleEx, CSPropTypes *csPropTypes, int tblId, int propId, BATiter mapi, BAT *mbat) {
+	// print property string
+	fprintf(fout, "%s", propStr);
+
+	// add star (*) if multi-valued
+	if (csSampleEx[tblId].lstIsMVCol[propId]) {
+		fprintf(fout, "*");
+	}
+
+	// add reference (->) if FK
+	if (csPropTypes[tblId].lstPropTypes[propId].isFKProp == 1) {
+		str nameStr;
+		int refTblId = csPropTypes[tblId].lstPropTypes[propId].refTblId;
+		if (csSampleEx[refTblId].candidatesOrdered[0] != BUN_NONE) { // table name (= best candidate) available
+#if USE_SHORT_NAMES
+			str nameStrShort;
+#endif
+			getStringName(csSampleEx[tblId].candidatesOrdered[0], &nameStr, mapi, mbat, 1);
+#if USE_SHORT_NAMES
+			getPropNameShort(&nameStrShort, nameStr);
+			fprintf(fout, "->%s", nameStrShort);
+			GDKfree(nameStrShort);
+#else
+			fprintf(fout, "->%s", nameStr);
+#endif
+			GDKfree(nameStr);
+		} else { // no table name
+			fprintf(fout, "->Table%d", refTblId);
+		}
+	}
+}
+#endif
+
+#if NO_OUTPUTFILE == 0
 static 
-str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat *propStat, CSset *freqCSset){
+str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat *propStat, CSset *freqCSset, CSPropTypes *csPropTypes){
 
 	int 	i,j, k; 
 	FILE 	*fout, *foutrand, *foutsol, *fouttb, *foutis; 
@@ -6230,13 +6265,24 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 	int	found = 0;
 	CS	freqCS;
 
+	oid	*typeAttributesOids;
+	char	*isTypeProp; // 1 if property is in typeAttributes[]
 
-	mapi = bat_iterator(mbat);
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
 		throw(RDF, "rdf.rdfschema",
 				"could not open the tokenizer\n");
 	}
 	
+	// get oids for typeAttributes[]
+	typeAttributesOids = GDKmalloc(sizeof(oid) * typeAttributesCount);
+	if (!typeAttributesOids){
+		fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+	}
+	for (i = 0; i < typeAttributesCount; ++i) {
+		TKNZRappend(&typeAttributesOids[i], &typeAttributes[i]);
+	}
+
+	mapi = bat_iterator(mbat);
 
 	strcpy(filename, "sampleDataFull");
 	strcat(filename, ".txt");
@@ -6336,6 +6382,24 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 		else 
 			fprintf(fouttb,"CREATE TABLE tbSample%d \n (\n", i);
 
+		// mark type columns, because their sample data is represented without <...>
+		isTypeProp = GDKmalloc(sizeof(char) * sample.numProp);
+		if (!isTypeProp){
+			fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+		}
+		for (j = 0; j < sample.numProp; ++j) {
+			isTypeProp[j] = 0;
+		}
+		for (j = 0; j < sample.numProp; ++j) {
+			for (k = 0; k < typeAttributesCount; ++k) {
+				if (sample.lstProp[j] == typeAttributesOids[k]) {
+					// found a type property
+					isTypeProp[j] = 1;
+					break;
+				}
+			}
+		}
+
 		// Compute property order (descending by support) and number of properties that are printed
 		found = 0;
 		numPropsInSampleTable = (sample.numProp>(1+NUM_PROP_SUPPORT_SAMPLE+NUM_PROP_TFIDF_SAMPLE))?(1+NUM_PROP_SUPPORT_SAMPLE+NUM_PROP_TFIDF_SAMPLE):sample.numProp;
@@ -6424,7 +6488,8 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 			takeOid(sample.lstProp[index], &propStr);	
 #if USE_SHORT_NAMES
 			getPropNameShort(&propStrShort, propStr);
-			fprintf(fout,"|%s", propStrShort);
+			fprintf(fout,"|");
+			printPropertyWithMarkers(fout, propStrShort, csSampleEx, csPropTypes, i, index, mapi, mbat);
 
 			pch = strstr (propStrShort,"-");
 			if (pch != NULL) *pch = '\0';	//Remove - characters from prop  //WEBCRAWL specific problem
@@ -6468,7 +6533,8 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 
 			GDKfree(propStrShort);
 #else
-			fprintf(fout,";%s", propStr);
+			fprintf(fout, "|");
+			printPropertyWithMarkers(fout, propStr, csSampleEx, csPropTypes, i, index, mapi, mbat);
 #endif
 			GDKfree(propStr);
 		}
@@ -6503,7 +6569,12 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 							takeOid(*objOid, &objStr);
 							getPropNameShort(&objStrShort, objStr);
 
-							fprintf(fout,"|<%s>", objStrShort);
+							if (isTypeProp[index]) {
+								// type props are printed without <...>
+								fprintf(fout,"|%s", objStrShort);
+							} else {
+								fprintf(fout,"|<%s>", objStrShort);
+							}
 							fprintf(foutis,"|<%s>", objStrShort);
 							GDKfree(objStrShort);
 							GDKfree(objStr);
@@ -6544,8 +6615,11 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 						fprintf(foutis,"|NULL");
 					}
 					else{
-						fprintf(fout,"|%s", objStr);
+						str objStrShort;
+						getStringBetweenQuotes(&objStrShort, objStr); // remove quotes and language tags
+						fprintf(fout,"|%s", objStrShort);
 						fprintf(foutis,"| %s", objStr);
+						GDKfree(objStrShort);
 					}
 				}
 
@@ -6595,6 +6669,8 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 
 			
 	}
+
+	GDKfree(typeAttributesOids);
 
 	fclose(fout);
 	fclose(foutsol);
@@ -7090,7 +7166,7 @@ str getFullSampleData(CStableStat* cstablestat, CSPropTypes *csPropTypes, int *m
 	
 	initFullSampleData(csSampleEx, mTblIdxFreqIdxMapping, labels, cstablestat, csPropTypes, freqCSset, numTables, lmapbatid, rmapbatid);
 
-	printFullSampleData(csSampleEx, numTables, mbat, propStat, freqCSset);
+	printFullSampleData(csSampleEx, numTables, mbat, propStat, freqCSset, csPropTypes);
 	
 	freeSampleExData(csSampleEx, numTables);
 	BBPunfix(mbat->batCacheid);
