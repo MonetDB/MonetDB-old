@@ -1176,6 +1176,8 @@ sel_predicate** convert_all_into_in_clause_except_cmp_equal(list *list_of_PERPAD
 						}
 						
 						assert(current == ih + step_length);
+						
+						break;
 					}
 					
 					default:
