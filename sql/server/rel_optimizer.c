@@ -1744,6 +1744,45 @@ int find_out_pkey_space_for_unavailable_required_derived_metadata(mvc* sql, list
 	
 	GDKfree(s);
 	GDKfree(q);
+	
+	/* Now check if tt_res is empty. If yes, then no further derivation is needed. So, return 1; */
+	{
+		ValRecord *v;
+		v = stack_get_var(sql, "tt_res_count");
+		buf2 = (str)GDKmalloc(BUFSIZ*sizeof(char));
+		
+		sprintf(buf2, "SELECT COUNT(*) INTO tt_res_count FROM %s;\n", temp_table_name_res);
+		s = GDKstrdup(buf2);
+		GDKfree(buf2);
+		
+		if(v == NULL)
+		{
+			dq = "DECLARE tt_res_count INTEGER;\n";
+			
+			if(SQLstatementIntern(cntxt,&dq,"pmv.declare_tt_res_count_var",TRUE,FALSE)!= MAL_SUCCEED)
+			{/* insert into query not succeeded, what to do */
+				printf("***query didnt work: %s\n", dq);
+				return 1;
+			}
+		}
+		
+		if(SQLstatementIntern(cntxt,&s,"pmv.tt_res_emptiness_check",TRUE,FALSE)!= MAL_SUCCEED)
+		{/* insert into query not succeeded, what to do */
+			printf("***query didnt work: %s\n", s);
+			return 1;
+		}
+		
+		v = stack_get_var(sql, "tt_res_count");
+		
+		if(v->val.ival > 0)
+			return 1;
+		else if(v->val.ival == 0)
+			return 0;
+		
+		printf("*** tt_res_emptiness_check went wrong!!\n");
+		return 1;
+	}
+	
 	return 1;
 }
 
@@ -7284,6 +7323,8 @@ void prepare_pmv(mvc* sql, sql_rel* ret)
 	
 	/* find out the required mEtadata to be Derived -- the unavailables */
 	is_further_derivation_needed = find_out_pkey_space_for_unavailable_required_derived_metadata(sql, list_PERPAD, is_pkey_to_be_enumerated, num_pkeys_to_be_enumerated);
+	
+	
 	
 	/* derive the unavailables and insert into DMdT */
 	if(is_further_derivation_needed)
