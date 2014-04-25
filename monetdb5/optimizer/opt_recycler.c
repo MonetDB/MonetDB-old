@@ -177,6 +177,18 @@ OPTrecyclerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			continue;
 		}
 
+		if (getFunctionId(p) == mountRef) {
+			recycled[getArg(p, 0)] = 1;
+			p->recycle = recycleMaxInterest;
+			marks++;
+			
+			if(!preluded) {
+				/* create a handle for recycler */
+				(void) newFcnCall(mb, "recycle", "prelude");
+				preluded = 1;
+			}
+		}
+		
 		/* don't change instructions in update statements */
 		if (updstmt) {
 			pushInstruction(mb, p);
@@ -196,17 +208,6 @@ OPTrecyclerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 // 			marks++;
 // 		}
 		
-		if (getFunctionId(p) == mountRef) {
-			recycled[getArg(p, 0)] = 1;
-			p->recycle = recycleMaxInterest;
-			marks++;
-			
-			if(!preluded) {
-				/* create a handle for recycler */
-				(void) newFcnCall(mb, "recycle", "prelude");
-				preluded = 1;
-			}
-		}
 		/* During base table recycling skip marking instructions other than octopus.bind */
 		if (baseTableMode) {
 			pushInstruction(mb, p);
