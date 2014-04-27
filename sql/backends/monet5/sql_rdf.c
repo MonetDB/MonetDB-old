@@ -734,6 +734,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 			mvc_create_column(m, cstables[i], tmpcolname,  &tpes[tmpbat->ttype]);
 			
+			GDKfree(baseColName);
 			//For multi-values table
 			tmpNumMVCols = cstablestat->lstcstable[i].lstMVTables[j].numCol;
 			if (tmpNumMVCols != 0){
@@ -803,6 +804,8 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
                 	store_funcs.append_col(m->session->tr,
 					mvc_bind_column(m, cstables[i],tmpcolname ), 
 					tmpbat, TYPE_bat);
+
+			GDKfree(baseColName);
 			//For multi-values table
 			tmpNumMVCols = cstablestat->lstcstable[i].lstMVTables[j].numCol;
 			if (tmpNumMVCols != 0){
