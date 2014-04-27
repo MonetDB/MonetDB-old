@@ -4095,7 +4095,7 @@ void initTFIDFInfos(TFIDFInfo *tfidfInfos, int curNumMergeCS, oid* mergeCSFreqCS
 	int	freqId; 
 	CS	*cs; 	
 	oid	p; 
-	float 	tfidfV; 
+	float 	tfidfV = 0.0; 
 	float	sum; 
 	BUN	bun = BUN_NONE; 
 	for (i = 0; i < curNumMergeCS; i++){
@@ -6430,7 +6430,7 @@ int* createPropertyOrder(int *numPropsInSampleTable, int **remainingProperties, 
 
 	// create tfidfValues
 	for (i = 0; i < sample.numProp; ++i) {
-		float tfidf;
+		float tfidf = 0.0;
 		BUN bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &sample.lstProp[i]);
 		if (bun == BUN_NONE) {
 			printf("Error: property not found\n");

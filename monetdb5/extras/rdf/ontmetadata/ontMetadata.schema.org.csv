@@ -1,0 +1,1850 @@
+http://schema.org/APIReference|API Reference|http://schema.org/Article
+http://schema.org/APIReference|API Reference|http://schema.org/CreativeWork
+http://schema.org/APIReference|API Reference|http://schema.org/TechArticle
+http://schema.org/APIReference|API Reference|http://schema.org/Thing
+http://schema.org/AboutPage|About Page|http://schema.org/CreativeWork
+http://schema.org/AboutPage|About Page|http://schema.org/Thing
+http://schema.org/AboutPage|About Page|http://schema.org/WebPage
+http://schema.org/AcceptAction|Accept Action|http://schema.org/Action
+http://schema.org/AcceptAction|Accept Action|http://schema.org/AllocateAction
+http://schema.org/AcceptAction|Accept Action|http://schema.org/OrganizeAction
+http://schema.org/AcceptAction|Accept Action|http://schema.org/Thing
+http://schema.org/AccountingService|Accounting Service|http://schema.org/FinancialService
+http://schema.org/AccountingService|Accounting Service|http://schema.org/LocalBusiness
+http://schema.org/AccountingService|Accounting Service|http://schema.org/Organization
+http://schema.org/AccountingService|Accounting Service|http://schema.org/Place
+http://schema.org/AccountingService|Accounting Service|http://schema.org/ProfessionalService
+http://schema.org/AccountingService|Accounting Service|http://schema.org/Thing
+http://schema.org/AchieveAction|Achieve Action|http://schema.org/Action
+http://schema.org/AchieveAction|Achieve Action|http://schema.org/Thing
+http://schema.org/Action|Action|http://schema.org/Thing
+http://schema.org/AddAction|Add Action|http://schema.org/Action
+http://schema.org/AddAction|Add Action|http://schema.org/Thing
+http://schema.org/AddAction|Add Action|http://schema.org/UpdateAction
+http://schema.org/AdministrativeArea|Administrative Area|http://schema.org/Place
+http://schema.org/AdministrativeArea|Administrative Area|http://schema.org/Thing
+http://schema.org/AdultEntertainment|Adult Entertainment|http://schema.org/EntertainmentBusiness
+http://schema.org/AdultEntertainment|Adult Entertainment|http://schema.org/LocalBusiness
+http://schema.org/AdultEntertainment|Adult Entertainment|http://schema.org/Organization
+http://schema.org/AdultEntertainment|Adult Entertainment|http://schema.org/Place
+http://schema.org/AdultEntertainment|Adult Entertainment|http://schema.org/Thing
+http://schema.org/AggregateOffer|Aggregate Offer|http://schema.org/Intangible
+http://schema.org/AggregateOffer|Aggregate Offer|http://schema.org/Offer
+http://schema.org/AggregateOffer|Aggregate Offer|http://schema.org/Thing
+http://schema.org/AggregateRating|Aggregate Rating|http://schema.org/Intangible
+http://schema.org/AggregateRating|Aggregate Rating|http://schema.org/Rating
+http://schema.org/AggregateRating|Aggregate Rating|http://schema.org/Thing
+http://schema.org/AgreeAction|Agree Action|http://schema.org/Action
+http://schema.org/AgreeAction|Agree Action|http://schema.org/AssessAction
+http://schema.org/AgreeAction|Agree Action|http://schema.org/ReactAction
+http://schema.org/AgreeAction|Agree Action|http://schema.org/Thing
+http://schema.org/Airport|Airport|http://schema.org/CivicStructure
+http://schema.org/Airport|Airport|http://schema.org/Place
+http://schema.org/Airport|Airport|http://schema.org/Thing
+http://schema.org/AlignmentObject|Alignment Object|http://schema.org/Intangible
+http://schema.org/AlignmentObject|Alignment Object|http://schema.org/Thing
+http://schema.org/AllocateAction|Allocate Action|http://schema.org/Action
+http://schema.org/AllocateAction|Allocate Action|http://schema.org/OrganizeAction
+http://schema.org/AllocateAction|Allocate Action|http://schema.org/Thing
+http://schema.org/AmusementPark|Amusement Park|http://schema.org/EntertainmentBusiness
+http://schema.org/AmusementPark|Amusement Park|http://schema.org/LocalBusiness
+http://schema.org/AmusementPark|Amusement Park|http://schema.org/Organization
+http://schema.org/AmusementPark|Amusement Park|http://schema.org/Place
+http://schema.org/AmusementPark|Amusement Park|http://schema.org/Thing
+http://schema.org/AnatomicalStructure|Anatomical Structure|http://schema.org/MedicalEntity
+http://schema.org/AnatomicalStructure|Anatomical Structure|http://schema.org/Thing
+http://schema.org/AnatomicalSystem|Anatomical System|http://schema.org/MedicalEntity
+http://schema.org/AnatomicalSystem|Anatomical System|http://schema.org/Thing
+http://schema.org/AnimalShelter|Animal Shelter|http://schema.org/LocalBusiness
+http://schema.org/AnimalShelter|Animal Shelter|http://schema.org/Organization
+http://schema.org/AnimalShelter|Animal Shelter|http://schema.org/Place
+http://schema.org/AnimalShelter|Animal Shelter|http://schema.org/Thing
+http://schema.org/ApartmentComplex|Apartment Complex|http://schema.org/Place
+http://schema.org/ApartmentComplex|Apartment Complex|http://schema.org/Residence
+http://schema.org/ApartmentComplex|Apartment Complex|http://schema.org/Thing
+http://schema.org/AppendAction|Append Action|http://schema.org/Action
+http://schema.org/AppendAction|Append Action|http://schema.org/AddAction
+http://schema.org/AppendAction|Append Action|http://schema.org/InsertAction
+http://schema.org/AppendAction|Append Action|http://schema.org/Thing
+http://schema.org/AppendAction|Append Action|http://schema.org/UpdateAction
+http://schema.org/ApplyAction|Apply Action|http://schema.org/Action
+http://schema.org/ApplyAction|Apply Action|http://schema.org/OrganizeAction
+http://schema.org/ApplyAction|Apply Action|http://schema.org/Thing
+http://schema.org/ApprovedIndication|Approved Indication|http://schema.org/MedicalEntity
+http://schema.org/ApprovedIndication|Approved Indication|http://schema.org/MedicalIndication
+http://schema.org/ApprovedIndication|Approved Indication|http://schema.org/Thing
+http://schema.org/Aquarium|Aquarium|http://schema.org/CivicStructure
+http://schema.org/Aquarium|Aquarium|http://schema.org/Place
+http://schema.org/Aquarium|Aquarium|http://schema.org/Thing
+http://schema.org/ArriveAction|Arrive Action|http://schema.org/Action
+http://schema.org/ArriveAction|Arrive Action|http://schema.org/MoveAction
+http://schema.org/ArriveAction|Arrive Action|http://schema.org/Thing
+http://schema.org/ArtGallery|Art Gallery|http://schema.org/EntertainmentBusiness
+http://schema.org/ArtGallery|Art Gallery|http://schema.org/LocalBusiness
+http://schema.org/ArtGallery|Art Gallery|http://schema.org/Organization
+http://schema.org/ArtGallery|Art Gallery|http://schema.org/Place
+http://schema.org/ArtGallery|Art Gallery|http://schema.org/Thing
+http://schema.org/Artery|Artery|http://schema.org/AnatomicalStructure
+http://schema.org/Artery|Artery|http://schema.org/MedicalEntity
+http://schema.org/Artery|Artery|http://schema.org/Thing
+http://schema.org/Artery|Artery|http://schema.org/Vessel
+http://schema.org/Article|Article|http://schema.org/CreativeWork
+http://schema.org/Article|Article|http://schema.org/Thing
+http://schema.org/AskAction|Ask Action|http://schema.org/Action
+http://schema.org/AskAction|Ask Action|http://schema.org/CommunicateAction
+http://schema.org/AskAction|Ask Action|http://schema.org/InteractAction
+http://schema.org/AskAction|Ask Action|http://schema.org/Thing
+http://schema.org/AssessAction|Assess Action|http://schema.org/Action
+http://schema.org/AssessAction|Assess Action|http://schema.org/Thing
+http://schema.org/AssignAction|Assign Action|http://schema.org/Action
+http://schema.org/AssignAction|Assign Action|http://schema.org/AllocateAction
+http://schema.org/AssignAction|Assign Action|http://schema.org/OrganizeAction
+http://schema.org/AssignAction|Assign Action|http://schema.org/Thing
+http://schema.org/Attorney|Attorney|http://schema.org/LocalBusiness
+http://schema.org/Attorney|Attorney|http://schema.org/Organization
+http://schema.org/Attorney|Attorney|http://schema.org/Place
+http://schema.org/Attorney|Attorney|http://schema.org/ProfessionalService
+http://schema.org/Attorney|Attorney|http://schema.org/Thing
+http://schema.org/Audience|Audience|http://schema.org/Intangible
+http://schema.org/Audience|Audience|http://schema.org/Thing
+http://schema.org/AudioObject|Audio Object|http://schema.org/CreativeWork
+http://schema.org/AudioObject|Audio Object|http://schema.org/MediaObject
+http://schema.org/AudioObject|Audio Object|http://schema.org/Thing
+http://schema.org/AuthorizeAction|Authorize Action|http://schema.org/Action
+http://schema.org/AuthorizeAction|Authorize Action|http://schema.org/AllocateAction
+http://schema.org/AuthorizeAction|Authorize Action|http://schema.org/OrganizeAction
+http://schema.org/AuthorizeAction|Authorize Action|http://schema.org/Thing
+http://schema.org/AutoBodyShop|Auto Body Shop|http://schema.org/AutomotiveBusiness
+http://schema.org/AutoBodyShop|Auto Body Shop|http://schema.org/LocalBusiness
+http://schema.org/AutoBodyShop|Auto Body Shop|http://schema.org/Organization
+http://schema.org/AutoBodyShop|Auto Body Shop|http://schema.org/Place
+http://schema.org/AutoBodyShop|Auto Body Shop|http://schema.org/Thing
+http://schema.org/AutoDealer|Auto Dealer|http://schema.org/AutomotiveBusiness
+http://schema.org/AutoDealer|Auto Dealer|http://schema.org/LocalBusiness
+http://schema.org/AutoDealer|Auto Dealer|http://schema.org/Organization
+http://schema.org/AutoDealer|Auto Dealer|http://schema.org/Place
+http://schema.org/AutoDealer|Auto Dealer|http://schema.org/Thing
+http://schema.org/AutoPartsStore|Auto Parts Store|http://schema.org/AutomotiveBusiness
+http://schema.org/AutoPartsStore|Auto Parts Store|http://schema.org/LocalBusiness
+http://schema.org/AutoPartsStore|Auto Parts Store|http://schema.org/Organization
+http://schema.org/AutoPartsStore|Auto Parts Store|http://schema.org/Place
+http://schema.org/AutoPartsStore|Auto Parts Store|http://schema.org/Store
+http://schema.org/AutoPartsStore|Auto Parts Store|http://schema.org/Thing
+http://schema.org/AutoRental|Auto Rental|http://schema.org/AutomotiveBusiness
+http://schema.org/AutoRental|Auto Rental|http://schema.org/LocalBusiness
+http://schema.org/AutoRental|Auto Rental|http://schema.org/Organization
+http://schema.org/AutoRental|Auto Rental|http://schema.org/Place
+http://schema.org/AutoRental|Auto Rental|http://schema.org/Thing
+http://schema.org/AutoRepair|Auto Repair|http://schema.org/AutomotiveBusiness
+http://schema.org/AutoRepair|Auto Repair|http://schema.org/LocalBusiness
+http://schema.org/AutoRepair|Auto Repair|http://schema.org/Organization
+http://schema.org/AutoRepair|Auto Repair|http://schema.org/Place
+http://schema.org/AutoRepair|Auto Repair|http://schema.org/Thing
+http://schema.org/AutoWash|Auto Wash|http://schema.org/AutomotiveBusiness
+http://schema.org/AutoWash|Auto Wash|http://schema.org/LocalBusiness
+http://schema.org/AutoWash|Auto Wash|http://schema.org/Organization
+http://schema.org/AutoWash|Auto Wash|http://schema.org/Place
+http://schema.org/AutoWash|Auto Wash|http://schema.org/Thing
+http://schema.org/AutomatedTeller|Automated Teller|http://schema.org/FinancialService
+http://schema.org/AutomatedTeller|Automated Teller|http://schema.org/LocalBusiness
+http://schema.org/AutomatedTeller|Automated Teller|http://schema.org/Organization
+http://schema.org/AutomatedTeller|Automated Teller|http://schema.org/Place
+http://schema.org/AutomatedTeller|Automated Teller|http://schema.org/Thing
+http://schema.org/AutomotiveBusiness|Automotive Business|http://schema.org/LocalBusiness
+http://schema.org/AutomotiveBusiness|Automotive Business|http://schema.org/Organization
+http://schema.org/AutomotiveBusiness|Automotive Business|http://schema.org/Place
+http://schema.org/AutomotiveBusiness|Automotive Business|http://schema.org/Thing
+http://schema.org/Bakery|Bakery|http://schema.org/FoodEstablishment
+http://schema.org/Bakery|Bakery|http://schema.org/LocalBusiness
+http://schema.org/Bakery|Bakery|http://schema.org/Organization
+http://schema.org/Bakery|Bakery|http://schema.org/Place
+http://schema.org/Bakery|Bakery|http://schema.org/Thing
+http://schema.org/BankOrCreditUnion|Bank or Credit Union|http://schema.org/FinancialService
+http://schema.org/BankOrCreditUnion|Bank or Credit Union|http://schema.org/LocalBusiness
+http://schema.org/BankOrCreditUnion|Bank or Credit Union|http://schema.org/Organization
+http://schema.org/BankOrCreditUnion|Bank or Credit Union|http://schema.org/Place
+http://schema.org/BankOrCreditUnion|Bank or Credit Union|http://schema.org/Thing
+http://schema.org/BarOrPub|Bar or Pub|http://schema.org/FoodEstablishment
+http://schema.org/BarOrPub|Bar or Pub|http://schema.org/LocalBusiness
+http://schema.org/BarOrPub|Bar or Pub|http://schema.org/Organization
+http://schema.org/BarOrPub|Bar or Pub|http://schema.org/Place
+http://schema.org/BarOrPub|Bar or Pub|http://schema.org/Thing
+http://schema.org/Beach|Beach|http://schema.org/CivicStructure
+http://schema.org/Beach|Beach|http://schema.org/Place
+http://schema.org/Beach|Beach|http://schema.org/Thing
+http://schema.org/BeautySalon|Beauty Salon|http://schema.org/HealthAndBeautyBusiness
+http://schema.org/BeautySalon|Beauty Salon|http://schema.org/LocalBusiness
+http://schema.org/BeautySalon|Beauty Salon|http://schema.org/Organization
+http://schema.org/BeautySalon|Beauty Salon|http://schema.org/Place
+http://schema.org/BeautySalon|Beauty Salon|http://schema.org/Thing
+http://schema.org/BedAndBreakfast|Bed And Breakfast|http://schema.org/LocalBusiness
+http://schema.org/BedAndBreakfast|Bed And Breakfast|http://schema.org/LodgingBusiness
+http://schema.org/BedAndBreakfast|Bed And Breakfast|http://schema.org/Organization
+http://schema.org/BedAndBreakfast|Bed And Breakfast|http://schema.org/Place
+http://schema.org/BedAndBreakfast|Bed And Breakfast|http://schema.org/Thing
+http://schema.org/BefriendAction|Befriend Action|http://schema.org/Action
+http://schema.org/BefriendAction|Befriend Action|http://schema.org/InteractAction
+http://schema.org/BefriendAction|Befriend Action|http://schema.org/Thing
+http://schema.org/BikeStore|Bike Store|http://schema.org/LocalBusiness
+http://schema.org/BikeStore|Bike Store|http://schema.org/Organization
+http://schema.org/BikeStore|Bike Store|http://schema.org/Place
+http://schema.org/BikeStore|Bike Store|http://schema.org/Store
+http://schema.org/BikeStore|Bike Store|http://schema.org/Thing
+http://schema.org/Blog|Blog|http://schema.org/CreativeWork
+http://schema.org/Blog|Blog|http://schema.org/Thing
+http://schema.org/BlogPosting|Blog Posting|http://schema.org/Article
+http://schema.org/BlogPosting|Blog Posting|http://schema.org/CreativeWork
+http://schema.org/BlogPosting|Blog Posting|http://schema.org/Thing
+http://schema.org/BloodTest|Blood Test|http://schema.org/MedicalEntity
+http://schema.org/BloodTest|Blood Test|http://schema.org/MedicalTest
+http://schema.org/BloodTest|Blood Test|http://schema.org/Thing
+http://schema.org/BodyOfWater|Body of Water|http://schema.org/Landform
+http://schema.org/BodyOfWater|Body of Water|http://schema.org/Place
+http://schema.org/BodyOfWater|Body of Water|http://schema.org/Thing
+http://schema.org/Bone|Bone|http://schema.org/AnatomicalStructure
+http://schema.org/Bone|Bone|http://schema.org/MedicalEntity
+http://schema.org/Bone|Bone|http://schema.org/Thing
+http://schema.org/Book|Book|http://schema.org/CreativeWork
+http://schema.org/Book|Book|http://schema.org/Thing
+http://schema.org/BookFormatType|Book Format Type|http://schema.org/Enumeration
+http://schema.org/BookFormatType|Book Format Type|http://schema.org/Intangible
+http://schema.org/BookFormatType|Book Format Type|http://schema.org/Thing
+http://schema.org/BookStore|Book Store|http://schema.org/LocalBusiness
+http://schema.org/BookStore|Book Store|http://schema.org/Organization
+http://schema.org/BookStore|Book Store|http://schema.org/Place
+http://schema.org/BookStore|Book Store|http://schema.org/Store
+http://schema.org/BookStore|Book Store|http://schema.org/Thing
+http://schema.org/BookmarkAction|Bookmark Action|http://schema.org/Action
+http://schema.org/BookmarkAction|Bookmark Action|http://schema.org/OrganizeAction
+http://schema.org/BookmarkAction|Bookmark Action|http://schema.org/Thing
+http://schema.org/BorrowAction|Borrow Action|http://schema.org/Action
+http://schema.org/BorrowAction|Borrow Action|http://schema.org/Thing
+http://schema.org/BorrowAction|Borrow Action|http://schema.org/TransferAction
+http://schema.org/BowlingAlley|Bowling Alley|http://schema.org/LocalBusiness
+http://schema.org/BowlingAlley|Bowling Alley|http://schema.org/Organization
+http://schema.org/BowlingAlley|Bowling Alley|http://schema.org/Place
+http://schema.org/BowlingAlley|Bowling Alley|http://schema.org/SportsActivityLocation
+http://schema.org/BowlingAlley|Bowling Alley|http://schema.org/Thing
+http://schema.org/BrainStructure|Brain Structure|http://schema.org/AnatomicalStructure
+http://schema.org/BrainStructure|Brain Structure|http://schema.org/MedicalEntity
+http://schema.org/BrainStructure|Brain Structure|http://schema.org/Thing
+http://schema.org/Brand|Brand|http://schema.org/Intangible
+http://schema.org/Brand|Brand|http://schema.org/Thing
+http://schema.org/Brewery|Brewery|http://schema.org/FoodEstablishment
+http://schema.org/Brewery|Brewery|http://schema.org/LocalBusiness
+http://schema.org/Brewery|Brewery|http://schema.org/Organization
+http://schema.org/Brewery|Brewery|http://schema.org/Place
+http://schema.org/Brewery|Brewery|http://schema.org/Thing
+http://schema.org/BroadcastEvent|Broadcast Event|http://schema.org/Event
+http://schema.org/BroadcastEvent|Broadcast Event|http://schema.org/PublicationEvent
+http://schema.org/BroadcastEvent|Broadcast Event|http://schema.org/Thing
+http://schema.org/BroadcastService|Broadcast Service|http://schema.org/Thing
+http://schema.org/BuddhistTemple|Buddhist Temple|http://schema.org/CivicStructure
+http://schema.org/BuddhistTemple|Buddhist Temple|http://schema.org/Place
+http://schema.org/BuddhistTemple|Buddhist Temple|http://schema.org/PlaceOfWorship
+http://schema.org/BuddhistTemple|Buddhist Temple|http://schema.org/Thing
+http://schema.org/BusStation|Bus Station|http://schema.org/CivicStructure
+http://schema.org/BusStation|Bus Station|http://schema.org/Place
+http://schema.org/BusStation|Bus Station|http://schema.org/Thing
+http://schema.org/BusStop|Bus Stop|http://schema.org/CivicStructure
+http://schema.org/BusStop|Bus Stop|http://schema.org/Place
+http://schema.org/BusStop|Bus Stop|http://schema.org/Thing
+http://schema.org/BusinessAudience|Business Audience|http://schema.org/Audience
+http://schema.org/BusinessAudience|Business Audience|http://schema.org/Intangible
+http://schema.org/BusinessAudience|Business Audience|http://schema.org/Thing
+http://schema.org/BusinessEntityType|Business Entity Type|http://schema.org/Enumeration
+http://schema.org/BusinessEntityType|Business Entity Type|http://schema.org/Intangible
+http://schema.org/BusinessEntityType|Business Entity Type|http://schema.org/Thing
+http://schema.org/BusinessEvent|Business Event|http://schema.org/Event
+http://schema.org/BusinessEvent|Business Event|http://schema.org/Thing
+http://schema.org/BusinessFunction|Business Function|http://schema.org/Enumeration
+http://schema.org/BusinessFunction|Business Function|http://schema.org/Intangible
+http://schema.org/BusinessFunction|Business Function|http://schema.org/Thing
+http://schema.org/BuyAction|Buy Action|http://schema.org/Action
+http://schema.org/BuyAction|Buy Action|http://schema.org/Thing
+http://schema.org/BuyAction|Buy Action|http://schema.org/TradeAction
+http://schema.org/CafeOrCoffeeShop|Cafe or Coffee Shop|http://schema.org/FoodEstablishment
+http://schema.org/CafeOrCoffeeShop|Cafe or Coffee Shop|http://schema.org/LocalBusiness
+http://schema.org/CafeOrCoffeeShop|Cafe or Coffee Shop|http://schema.org/Organization
+http://schema.org/CafeOrCoffeeShop|Cafe or Coffee Shop|http://schema.org/Place
+http://schema.org/CafeOrCoffeeShop|Cafe or Coffee Shop|http://schema.org/Thing
+http://schema.org/Campground|Campground|http://schema.org/CivicStructure
+http://schema.org/Campground|Campground|http://schema.org/Place
+http://schema.org/Campground|Campground|http://schema.org/Thing
+http://schema.org/Canal|Canal|http://schema.org/BodyOfWater
+http://schema.org/Canal|Canal|http://schema.org/Landform
+http://schema.org/Canal|Canal|http://schema.org/Place
+http://schema.org/Canal|Canal|http://schema.org/Thing
+http://schema.org/CancelAction|Cancel Action|http://schema.org/Action
+http://schema.org/CancelAction|Cancel Action|http://schema.org/OrganizeAction
+http://schema.org/CancelAction|Cancel Action|http://schema.org/PlanAction
+http://schema.org/CancelAction|Cancel Action|http://schema.org/Thing
+http://schema.org/Casino|Casino|http://schema.org/EntertainmentBusiness
+http://schema.org/Casino|Casino|http://schema.org/LocalBusiness
+http://schema.org/Casino|Casino|http://schema.org/Organization
+http://schema.org/Casino|Casino|http://schema.org/Place
+http://schema.org/Casino|Casino|http://schema.org/Thing
+http://schema.org/CatholicChurch|Catholic Church|http://schema.org/CivicStructure
+http://schema.org/CatholicChurch|Catholic Church|http://schema.org/Place
+http://schema.org/CatholicChurch|Catholic Church|http://schema.org/PlaceOfWorship
+http://schema.org/CatholicChurch|Catholic Church|http://schema.org/Thing
+http://schema.org/Cemetery|Cemetery|http://schema.org/CivicStructure
+http://schema.org/Cemetery|Cemetery|http://schema.org/Place
+http://schema.org/Cemetery|Cemetery|http://schema.org/Thing
+http://schema.org/CheckAction|Check Action|http://schema.org/Action
+http://schema.org/CheckAction|Check Action|http://schema.org/FindAction
+http://schema.org/CheckAction|Check Action|http://schema.org/Thing
+http://schema.org/CheckInAction|Check in Action|http://schema.org/Action
+http://schema.org/CheckInAction|Check in Action|http://schema.org/CommunicateAction
+http://schema.org/CheckInAction|Check in Action|http://schema.org/InteractAction
+http://schema.org/CheckInAction|Check in Action|http://schema.org/Thing
+http://schema.org/CheckOutAction|Check Out Action|http://schema.org/Action
+http://schema.org/CheckOutAction|Check Out Action|http://schema.org/CommunicateAction
+http://schema.org/CheckOutAction|Check Out Action|http://schema.org/InteractAction
+http://schema.org/CheckOutAction|Check Out Action|http://schema.org/Thing
+http://schema.org/CheckoutPage|Checkout Page|http://schema.org/CreativeWork
+http://schema.org/CheckoutPage|Checkout Page|http://schema.org/Thing
+http://schema.org/CheckoutPage|Checkout Page|http://schema.org/WebPage
+http://schema.org/ChildCare|Child Care|http://schema.org/LocalBusiness
+http://schema.org/ChildCare|Child Care|http://schema.org/Organization
+http://schema.org/ChildCare|Child Care|http://schema.org/Place
+http://schema.org/ChildCare|Child Care|http://schema.org/Thing
+http://schema.org/ChildrensEvent|Childrens Event|http://schema.org/Event
+http://schema.org/ChildrensEvent|Childrens Event|http://schema.org/Thing
+http://schema.org/ChooseAction|Choose Action|http://schema.org/Action
+http://schema.org/ChooseAction|Choose Action|http://schema.org/AssessAction
+http://schema.org/ChooseAction|Choose Action|http://schema.org/Thing
+http://schema.org/Church|Church|http://schema.org/CivicStructure
+http://schema.org/Church|Church|http://schema.org/Place
+http://schema.org/Church|Church|http://schema.org/PlaceOfWorship
+http://schema.org/Church|Church|http://schema.org/Thing
+http://schema.org/City|City|http://schema.org/AdministrativeArea
+http://schema.org/City|City|http://schema.org/Place
+http://schema.org/City|City|http://schema.org/Thing
+http://schema.org/CityHall|City Hall|http://schema.org/CivicStructure
+http://schema.org/CityHall|City Hall|http://schema.org/GovernmentBuilding
+http://schema.org/CityHall|City Hall|http://schema.org/Place
+http://schema.org/CityHall|City Hall|http://schema.org/Thing
+http://schema.org/CivicStructure|Civic Structure|http://schema.org/Place
+http://schema.org/CivicStructure|Civic Structure|http://schema.org/Thing
+http://schema.org/Class|Class|http://schema.org/Thing
+http://schema.org/Clip|Clip|http://schema.org/CreativeWork
+http://schema.org/Clip|Clip|http://schema.org/Thing
+http://schema.org/ClothingStore|Clothing Store|http://schema.org/LocalBusiness
+http://schema.org/ClothingStore|Clothing Store|http://schema.org/Organization
+http://schema.org/ClothingStore|Clothing Store|http://schema.org/Place
+http://schema.org/ClothingStore|Clothing Store|http://schema.org/Store
+http://schema.org/ClothingStore|Clothing Store|http://schema.org/Thing
+http://schema.org/Code|Code|http://schema.org/CreativeWork
+http://schema.org/Code|Code|http://schema.org/Thing
+http://schema.org/CollectionPage|Collection Page|http://schema.org/CreativeWork
+http://schema.org/CollectionPage|Collection Page|http://schema.org/Thing
+http://schema.org/CollectionPage|Collection Page|http://schema.org/WebPage
+http://schema.org/CollegeOrUniversity|College or University|http://schema.org/EducationalOrganization
+http://schema.org/CollegeOrUniversity|College or University|http://schema.org/Organization
+http://schema.org/CollegeOrUniversity|College or University|http://schema.org/Thing
+http://schema.org/ComedyClub|Comedy Club|http://schema.org/EntertainmentBusiness
+http://schema.org/ComedyClub|Comedy Club|http://schema.org/LocalBusiness
+http://schema.org/ComedyClub|Comedy Club|http://schema.org/Organization
+http://schema.org/ComedyClub|Comedy Club|http://schema.org/Place
+http://schema.org/ComedyClub|Comedy Club|http://schema.org/Thing
+http://schema.org/ComedyEvent|Comedy Event|http://schema.org/Event
+http://schema.org/ComedyEvent|Comedy Event|http://schema.org/Thing
+http://schema.org/Comment|Comment|http://schema.org/CreativeWork
+http://schema.org/Comment|Comment|http://schema.org/Thing
+http://schema.org/CommentAction|Comment Action|http://schema.org/Action
+http://schema.org/CommentAction|Comment Action|http://schema.org/CommunicateAction
+http://schema.org/CommentAction|Comment Action|http://schema.org/InteractAction
+http://schema.org/CommentAction|Comment Action|http://schema.org/Thing
+http://schema.org/CommunicateAction|Communicate Action|http://schema.org/Action
+http://schema.org/CommunicateAction|Communicate Action|http://schema.org/InteractAction
+http://schema.org/CommunicateAction|Communicate Action|http://schema.org/Thing
+http://schema.org/ComputerStore|Computer Store|http://schema.org/LocalBusiness
+http://schema.org/ComputerStore|Computer Store|http://schema.org/Organization
+http://schema.org/ComputerStore|Computer Store|http://schema.org/Place
+http://schema.org/ComputerStore|Computer Store|http://schema.org/Store
+http://schema.org/ComputerStore|Computer Store|http://schema.org/Thing
+http://schema.org/ConfirmAction|Confirm Action|http://schema.org/Action
+http://schema.org/ConfirmAction|Confirm Action|http://schema.org/CommunicateAction
+http://schema.org/ConfirmAction|Confirm Action|http://schema.org/InformAction
+http://schema.org/ConfirmAction|Confirm Action|http://schema.org/InteractAction
+http://schema.org/ConfirmAction|Confirm Action|http://schema.org/Thing
+http://schema.org/ConsumeAction|Consume Action|http://schema.org/Action
+http://schema.org/ConsumeAction|Consume Action|http://schema.org/Thing
+http://schema.org/ContactPage|Contact Page|http://schema.org/CreativeWork
+http://schema.org/ContactPage|Contact Page|http://schema.org/Thing
+http://schema.org/ContactPage|Contact Page|http://schema.org/WebPage
+http://schema.org/ContactPoint|Contact Point|http://schema.org/Intangible
+http://schema.org/ContactPoint|Contact Point|http://schema.org/StructuredValue
+http://schema.org/ContactPoint|Contact Point|http://schema.org/Thing
+http://schema.org/ContactPointOption|Contact Point Option|http://schema.org/Enumeration
+http://schema.org/ContactPointOption|Contact Point Option|http://schema.org/Intangible
+http://schema.org/ContactPointOption|Contact Point Option|http://schema.org/Thing
+http://schema.org/Continent|Continent|http://schema.org/Landform
+http://schema.org/Continent|Continent|http://schema.org/Place
+http://schema.org/Continent|Continent|http://schema.org/Thing
+http://schema.org/ConvenienceStore|Convenience Store|http://schema.org/LocalBusiness
+http://schema.org/ConvenienceStore|Convenience Store|http://schema.org/Organization
+http://schema.org/ConvenienceStore|Convenience Store|http://schema.org/Place
+http://schema.org/ConvenienceStore|Convenience Store|http://schema.org/Store
+http://schema.org/ConvenienceStore|Convenience Store|http://schema.org/Thing
+http://schema.org/CookAction|Cook Action|http://schema.org/Action
+http://schema.org/CookAction|Cook Action|http://schema.org/CreateAction
+http://schema.org/CookAction|Cook Action|http://schema.org/Thing
+http://schema.org/Corporation|Corporation|http://schema.org/Organization
+http://schema.org/Corporation|Corporation|http://schema.org/Thing
+http://schema.org/Country|Country|http://schema.org/AdministrativeArea
+http://schema.org/Country|Country|http://schema.org/Place
+http://schema.org/Country|Country|http://schema.org/Thing
+http://schema.org/Courthouse|Courthouse|http://schema.org/CivicStructure
+http://schema.org/Courthouse|Courthouse|http://schema.org/GovernmentBuilding
+http://schema.org/Courthouse|Courthouse|http://schema.org/Place
+http://schema.org/Courthouse|Courthouse|http://schema.org/Thing
+http://schema.org/CreateAction|Create Action|http://schema.org/Action
+http://schema.org/CreateAction|Create Action|http://schema.org/Thing
+http://schema.org/CreativeWork|Creative Work|http://schema.org/Thing
+http://schema.org/CreditCard|Credit Card|http://schema.org/Enumeration
+http://schema.org/CreditCard|Credit Card|http://schema.org/Intangible
+http://schema.org/CreditCard|Credit Card|http://schema.org/PaymentMethod
+http://schema.org/CreditCard|Credit Card|http://schema.org/Thing
+http://schema.org/Crematorium|Crematorium|http://schema.org/CivicStructure
+http://schema.org/Crematorium|Crematorium|http://schema.org/Place
+http://schema.org/Crematorium|Crematorium|http://schema.org/Thing
+http://schema.org/DDxElement|D Dx Element|http://schema.org/MedicalEntity
+http://schema.org/DDxElement|D Dx Element|http://schema.org/MedicalIntangible
+http://schema.org/DDxElement|D Dx Element|http://schema.org/Thing
+http://schema.org/DanceEvent|Dance Event|http://schema.org/Event
+http://schema.org/DanceEvent|Dance Event|http://schema.org/Thing
+http://schema.org/DanceGroup|Dance Group|http://schema.org/Organization
+http://schema.org/DanceGroup|Dance Group|http://schema.org/PerformingGroup
+http://schema.org/DanceGroup|Dance Group|http://schema.org/Thing
+http://schema.org/DataCatalog|Data Catalog|http://schema.org/CreativeWork
+http://schema.org/DataCatalog|Data Catalog|http://schema.org/Thing
+http://schema.org/DataDownload|Data Download|http://schema.org/CreativeWork
+http://schema.org/DataDownload|Data Download|http://schema.org/MediaObject
+http://schema.org/DataDownload|Data Download|http://schema.org/Thing
+http://schema.org/Dataset|Dataset|http://schema.org/CreativeWork
+http://schema.org/Dataset|Dataset|http://schema.org/Thing
+http://schema.org/DayOfWeek|Day of Week|http://schema.org/Enumeration
+http://schema.org/DayOfWeek|Day of Week|http://schema.org/Intangible
+http://schema.org/DayOfWeek|Day of Week|http://schema.org/Thing
+http://schema.org/DaySpa|Day Spa|http://schema.org/HealthAndBeautyBusiness
+http://schema.org/DaySpa|Day Spa|http://schema.org/LocalBusiness
+http://schema.org/DaySpa|Day Spa|http://schema.org/Organization
+http://schema.org/DaySpa|Day Spa|http://schema.org/Place
+http://schema.org/DaySpa|Day Spa|http://schema.org/Thing
+http://schema.org/DefenceEstablishment|Defence Establishment|http://schema.org/CivicStructure
+http://schema.org/DefenceEstablishment|Defence Establishment|http://schema.org/GovernmentBuilding
+http://schema.org/DefenceEstablishment|Defence Establishment|http://schema.org/Place
+http://schema.org/DefenceEstablishment|Defence Establishment|http://schema.org/Thing
+http://schema.org/DeleteAction|Delete Action|http://schema.org/Action
+http://schema.org/DeleteAction|Delete Action|http://schema.org/Thing
+http://schema.org/DeleteAction|Delete Action|http://schema.org/UpdateAction
+http://schema.org/DeliveryChargeSpecification|Delivery Charge Specification|http://schema.org/Intangible
+http://schema.org/DeliveryChargeSpecification|Delivery Charge Specification|http://schema.org/PriceSpecification
+http://schema.org/DeliveryChargeSpecification|Delivery Charge Specification|http://schema.org/StructuredValue
+http://schema.org/DeliveryChargeSpecification|Delivery Charge Specification|http://schema.org/Thing
+http://schema.org/DeliveryEvent|Delivery Event|http://schema.org/Event
+http://schema.org/DeliveryEvent|Delivery Event|http://schema.org/Thing
+http://schema.org/DeliveryMethod|Delivery Method|http://schema.org/Enumeration
+http://schema.org/DeliveryMethod|Delivery Method|http://schema.org/Intangible
+http://schema.org/DeliveryMethod|Delivery Method|http://schema.org/Thing
+http://schema.org/Demand|Demand|http://schema.org/Intangible
+http://schema.org/Demand|Demand|http://schema.org/Thing
+http://schema.org/Dentist|Dentist|http://schema.org/LocalBusiness
+http://schema.org/Dentist|Dentist|http://schema.org/MedicalOrganization
+http://schema.org/Dentist|Dentist|http://schema.org/Organization
+http://schema.org/Dentist|Dentist|http://schema.org/Place
+http://schema.org/Dentist|Dentist|http://schema.org/ProfessionalService
+http://schema.org/Dentist|Dentist|http://schema.org/Thing
+http://schema.org/DepartAction|Depart Action|http://schema.org/Action
+http://schema.org/DepartAction|Depart Action|http://schema.org/MoveAction
+http://schema.org/DepartAction|Depart Action|http://schema.org/Thing
+http://schema.org/DepartmentStore|Department Store|http://schema.org/LocalBusiness
+http://schema.org/DepartmentStore|Department Store|http://schema.org/Organization
+http://schema.org/DepartmentStore|Department Store|http://schema.org/Place
+http://schema.org/DepartmentStore|Department Store|http://schema.org/Store
+http://schema.org/DepartmentStore|Department Store|http://schema.org/Thing
+http://schema.org/DiagnosticLab|Diagnostic Lab|http://schema.org/LocalBusiness
+http://schema.org/DiagnosticLab|Diagnostic Lab|http://schema.org/MedicalOrganization
+http://schema.org/DiagnosticLab|Diagnostic Lab|http://schema.org/Organization
+http://schema.org/DiagnosticLab|Diagnostic Lab|http://schema.org/Place
+http://schema.org/DiagnosticLab|Diagnostic Lab|http://schema.org/Thing
+http://schema.org/DiagnosticProcedure|Diagnostic Procedure|http://schema.org/MedicalEntity
+http://schema.org/DiagnosticProcedure|Diagnostic Procedure|http://schema.org/MedicalProcedure
+http://schema.org/DiagnosticProcedure|Diagnostic Procedure|http://schema.org/MedicalTest
+http://schema.org/DiagnosticProcedure|Diagnostic Procedure|http://schema.org/Thing
+http://schema.org/Diet|Diet|http://schema.org/CreativeWork
+http://schema.org/Diet|Diet|http://schema.org/LifestyleModification
+http://schema.org/Diet|Diet|http://schema.org/MedicalEntity
+http://schema.org/Diet|Diet|http://schema.org/MedicalTherapy
+http://schema.org/Diet|Diet|http://schema.org/Thing
+http://schema.org/DietarySupplement|Dietary Supplement|http://schema.org/MedicalEntity
+http://schema.org/DietarySupplement|Dietary Supplement|http://schema.org/MedicalTherapy
+http://schema.org/DietarySupplement|Dietary Supplement|http://schema.org/Thing
+http://schema.org/DisagreeAction|Disagree Action|http://schema.org/Action
+http://schema.org/DisagreeAction|Disagree Action|http://schema.org/AssessAction
+http://schema.org/DisagreeAction|Disagree Action|http://schema.org/ReactAction
+http://schema.org/DisagreeAction|Disagree Action|http://schema.org/Thing
+http://schema.org/DiscoverAction|Discover Action|http://schema.org/Action
+http://schema.org/DiscoverAction|Discover Action|http://schema.org/FindAction
+http://schema.org/DiscoverAction|Discover Action|http://schema.org/Thing
+http://schema.org/DislikeAction|Dislike Action|http://schema.org/Action
+http://schema.org/DislikeAction|Dislike Action|http://schema.org/AssessAction
+http://schema.org/DislikeAction|Dislike Action|http://schema.org/ReactAction
+http://schema.org/DislikeAction|Dislike Action|http://schema.org/Thing
+http://schema.org/Distance|Distance|http://schema.org/Intangible
+http://schema.org/Distance|Distance|http://schema.org/Quantity
+http://schema.org/Distance|Distance|http://schema.org/Thing
+http://schema.org/DonateAction|Donate Action|http://schema.org/Action
+http://schema.org/DonateAction|Donate Action|http://schema.org/Thing
+http://schema.org/DonateAction|Donate Action|http://schema.org/TradeAction
+http://schema.org/DoseSchedule|Dose Schedule|http://schema.org/MedicalEntity
+http://schema.org/DoseSchedule|Dose Schedule|http://schema.org/MedicalIntangible
+http://schema.org/DoseSchedule|Dose Schedule|http://schema.org/Thing
+http://schema.org/DownloadAction|Download Action|http://schema.org/Action
+http://schema.org/DownloadAction|Download Action|http://schema.org/Thing
+http://schema.org/DownloadAction|Download Action|http://schema.org/TransferAction
+http://schema.org/DrawAction|Draw Action|http://schema.org/Action
+http://schema.org/DrawAction|Draw Action|http://schema.org/CreateAction
+http://schema.org/DrawAction|Draw Action|http://schema.org/Thing
+http://schema.org/DrinkAction|Drink Action|http://schema.org/Action
+http://schema.org/DrinkAction|Drink Action|http://schema.org/ConsumeAction
+http://schema.org/DrinkAction|Drink Action|http://schema.org/Thing
+http://schema.org/Drug|Drug|http://schema.org/MedicalEntity
+http://schema.org/Drug|Drug|http://schema.org/MedicalTherapy
+http://schema.org/Drug|Drug|http://schema.org/Thing
+http://schema.org/DrugClass|Drug Class|http://schema.org/MedicalEntity
+http://schema.org/DrugClass|Drug Class|http://schema.org/MedicalTherapy
+http://schema.org/DrugClass|Drug Class|http://schema.org/Thing
+http://schema.org/DrugCost|Drug Cost|http://schema.org/MedicalEntity
+http://schema.org/DrugCost|Drug Cost|http://schema.org/MedicalIntangible
+http://schema.org/DrugCost|Drug Cost|http://schema.org/Thing
+http://schema.org/DrugCostCategory|Drug Cost Category|http://schema.org/MedicalEntity
+http://schema.org/DrugCostCategory|Drug Cost Category|http://schema.org/MedicalEnumeration
+http://schema.org/DrugCostCategory|Drug Cost Category|http://schema.org/MedicalIntangible
+http://schema.org/DrugCostCategory|Drug Cost Category|http://schema.org/Thing
+http://schema.org/DrugLegalStatus|Drug Legal Status|http://schema.org/MedicalEntity
+http://schema.org/DrugLegalStatus|Drug Legal Status|http://schema.org/MedicalIntangible
+http://schema.org/DrugLegalStatus|Drug Legal Status|http://schema.org/Thing
+http://schema.org/DrugPregnancyCategory|Drug Pregnancy Category|http://schema.org/MedicalEntity
+http://schema.org/DrugPregnancyCategory|Drug Pregnancy Category|http://schema.org/MedicalEnumeration
+http://schema.org/DrugPregnancyCategory|Drug Pregnancy Category|http://schema.org/MedicalIntangible
+http://schema.org/DrugPregnancyCategory|Drug Pregnancy Category|http://schema.org/Thing
+http://schema.org/DrugPrescriptionStatus|Drug Prescription Status|http://schema.org/MedicalEntity
+http://schema.org/DrugPrescriptionStatus|Drug Prescription Status|http://schema.org/MedicalEnumeration
+http://schema.org/DrugPrescriptionStatus|Drug Prescription Status|http://schema.org/MedicalIntangible
+http://schema.org/DrugPrescriptionStatus|Drug Prescription Status|http://schema.org/Thing
+http://schema.org/DrugStrength|Drug Strength|http://schema.org/MedicalEntity
+http://schema.org/DrugStrength|Drug Strength|http://schema.org/MedicalIntangible
+http://schema.org/DrugStrength|Drug Strength|http://schema.org/Thing
+http://schema.org/DryCleaningOrLaundry|Dry Cleaning or Laundry|http://schema.org/LocalBusiness
+http://schema.org/DryCleaningOrLaundry|Dry Cleaning or Laundry|http://schema.org/Organization
+http://schema.org/DryCleaningOrLaundry|Dry Cleaning or Laundry|http://schema.org/Place
+http://schema.org/DryCleaningOrLaundry|Dry Cleaning or Laundry|http://schema.org/Thing
+http://schema.org/Duration|Duration|http://schema.org/Intangible
+http://schema.org/Duration|Duration|http://schema.org/Quantity
+http://schema.org/Duration|Duration|http://schema.org/Thing
+http://schema.org/EatAction|Eat Action|http://schema.org/Action
+http://schema.org/EatAction|Eat Action|http://schema.org/ConsumeAction
+http://schema.org/EatAction|Eat Action|http://schema.org/Thing
+http://schema.org/EducationEvent|Education Event|http://schema.org/Event
+http://schema.org/EducationEvent|Education Event|http://schema.org/Thing
+http://schema.org/EducationalAudience|Educational Audience|http://schema.org/Audience
+http://schema.org/EducationalAudience|Educational Audience|http://schema.org/Intangible
+http://schema.org/EducationalAudience|Educational Audience|http://schema.org/Thing
+http://schema.org/EducationalOrganization|Educational Organization|http://schema.org/Organization
+http://schema.org/EducationalOrganization|Educational Organization|http://schema.org/Thing
+http://schema.org/Electrician|Electrician|http://schema.org/HomeAndConstructionBusiness
+http://schema.org/Electrician|Electrician|http://schema.org/LocalBusiness
+http://schema.org/Electrician|Electrician|http://schema.org/Organization
+http://schema.org/Electrician|Electrician|http://schema.org/Place
+http://schema.org/Electrician|Electrician|http://schema.org/ProfessionalService
+http://schema.org/Electrician|Electrician|http://schema.org/Thing
+http://schema.org/ElectronicsStore|Electronics Store|http://schema.org/LocalBusiness
+http://schema.org/ElectronicsStore|Electronics Store|http://schema.org/Organization
+http://schema.org/ElectronicsStore|Electronics Store|http://schema.org/Place
+http://schema.org/ElectronicsStore|Electronics Store|http://schema.org/Store
+http://schema.org/ElectronicsStore|Electronics Store|http://schema.org/Thing
+http://schema.org/ElementarySchool|Elementary School|http://schema.org/EducationalOrganization
+http://schema.org/ElementarySchool|Elementary School|http://schema.org/Organization
+http://schema.org/ElementarySchool|Elementary School|http://schema.org/Thing
+http://schema.org/Embassy|Embassy|http://schema.org/CivicStructure
+http://schema.org/Embassy|Embassy|http://schema.org/GovernmentBuilding
+http://schema.org/Embassy|Embassy|http://schema.org/Place
+http://schema.org/Embassy|Embassy|http://schema.org/Thing
+http://schema.org/EmergencyService|Emergency Service|http://schema.org/LocalBusiness
+http://schema.org/EmergencyService|Emergency Service|http://schema.org/Organization
+http://schema.org/EmergencyService|Emergency Service|http://schema.org/Place
+http://schema.org/EmergencyService|Emergency Service|http://schema.org/Thing
+http://schema.org/EmploymentAgency|Employment Agency|http://schema.org/LocalBusiness
+http://schema.org/EmploymentAgency|Employment Agency|http://schema.org/Organization
+http://schema.org/EmploymentAgency|Employment Agency|http://schema.org/Place
+http://schema.org/EmploymentAgency|Employment Agency|http://schema.org/Thing
+http://schema.org/EndorseAction|Endorse Action|http://schema.org/Action
+http://schema.org/EndorseAction|Endorse Action|http://schema.org/AssessAction
+http://schema.org/EndorseAction|Endorse Action|http://schema.org/ReactAction
+http://schema.org/EndorseAction|Endorse Action|http://schema.org/Thing
+http://schema.org/Energy|Energy|http://schema.org/Intangible
+http://schema.org/Energy|Energy|http://schema.org/Quantity
+http://schema.org/Energy|Energy|http://schema.org/Thing
+http://schema.org/EntertainmentBusiness|Entertainment Business|http://schema.org/LocalBusiness
+http://schema.org/EntertainmentBusiness|Entertainment Business|http://schema.org/Organization
+http://schema.org/EntertainmentBusiness|Entertainment Business|http://schema.org/Place
+http://schema.org/EntertainmentBusiness|Entertainment Business|http://schema.org/Thing
+http://schema.org/Enumeration|Enumeration|http://schema.org/Intangible
+http://schema.org/Enumeration|Enumeration|http://schema.org/Thing
+http://schema.org/Episode|Episode|http://schema.org/CreativeWork
+http://schema.org/Episode|Episode|http://schema.org/Thing
+http://schema.org/Event|Event|http://schema.org/Thing
+http://schema.org/EventStatusType|Event Status Type|http://schema.org/Enumeration
+http://schema.org/EventStatusType|Event Status Type|http://schema.org/Intangible
+http://schema.org/EventStatusType|Event Status Type|http://schema.org/Thing
+http://schema.org/EventVenue|Event Venue|http://schema.org/CivicStructure
+http://schema.org/EventVenue|Event Venue|http://schema.org/Place
+http://schema.org/EventVenue|Event Venue|http://schema.org/Thing
+http://schema.org/ExerciseAction|Exercise Action|http://schema.org/Action
+http://schema.org/ExerciseAction|Exercise Action|http://schema.org/PlayAction
+http://schema.org/ExerciseAction|Exercise Action|http://schema.org/Thing
+http://schema.org/ExerciseGym|Exercise Gym|http://schema.org/LocalBusiness
+http://schema.org/ExerciseGym|Exercise Gym|http://schema.org/Organization
+http://schema.org/ExerciseGym|Exercise Gym|http://schema.org/Place
+http://schema.org/ExerciseGym|Exercise Gym|http://schema.org/SportsActivityLocation
+http://schema.org/ExerciseGym|Exercise Gym|http://schema.org/Thing
+http://schema.org/ExercisePlan|Exercise Plan|http://schema.org/CreativeWork
+http://schema.org/ExercisePlan|Exercise Plan|http://schema.org/LifestyleModification
+http://schema.org/ExercisePlan|Exercise Plan|http://schema.org/MedicalEntity
+http://schema.org/ExercisePlan|Exercise Plan|http://schema.org/MedicalTherapy
+http://schema.org/ExercisePlan|Exercise Plan|http://schema.org/PhysicalActivity
+http://schema.org/ExercisePlan|Exercise Plan|http://schema.org/Thing
+http://schema.org/FastFoodRestaurant|Fast Food Restaurant|http://schema.org/FoodEstablishment
+http://schema.org/FastFoodRestaurant|Fast Food Restaurant|http://schema.org/LocalBusiness
+http://schema.org/FastFoodRestaurant|Fast Food Restaurant|http://schema.org/Organization
+http://schema.org/FastFoodRestaurant|Fast Food Restaurant|http://schema.org/Place
+http://schema.org/FastFoodRestaurant|Fast Food Restaurant|http://schema.org/Thing
+http://schema.org/Festival|Festival|http://schema.org/Event
+http://schema.org/Festival|Festival|http://schema.org/Thing
+http://schema.org/FilmAction|Film Action|http://schema.org/Action
+http://schema.org/FilmAction|Film Action|http://schema.org/CreateAction
+http://schema.org/FilmAction|Film Action|http://schema.org/Thing
+http://schema.org/FinancialService|Financial Service|http://schema.org/LocalBusiness
+http://schema.org/FinancialService|Financial Service|http://schema.org/Organization
+http://schema.org/FinancialService|Financial Service|http://schema.org/Place
+http://schema.org/FinancialService|Financial Service|http://schema.org/Thing
+http://schema.org/FindAction|Find Action|http://schema.org/Action
+http://schema.org/FindAction|Find Action|http://schema.org/Thing
+http://schema.org/FireStation|Fire Station|http://schema.org/CivicStructure
+http://schema.org/FireStation|Fire Station|http://schema.org/EmergencyService
+http://schema.org/FireStation|Fire Station|http://schema.org/LocalBusiness
+http://schema.org/FireStation|Fire Station|http://schema.org/Organization
+http://schema.org/FireStation|Fire Station|http://schema.org/Place
+http://schema.org/FireStation|Fire Station|http://schema.org/Thing
+http://schema.org/Florist|Florist|http://schema.org/LocalBusiness
+http://schema.org/Florist|Florist|http://schema.org/Organization
+http://schema.org/Florist|Florist|http://schema.org/Place
+http://schema.org/Florist|Florist|http://schema.org/Store
+http://schema.org/Florist|Florist|http://schema.org/Thing
+http://schema.org/FollowAction|Follow Action|http://schema.org/Action
+http://schema.org/FollowAction|Follow Action|http://schema.org/InteractAction
+http://schema.org/FollowAction|Follow Action|http://schema.org/Thing
+http://schema.org/FoodEstablishment|Food Establishment|http://schema.org/LocalBusiness
+http://schema.org/FoodEstablishment|Food Establishment|http://schema.org/Organization
+http://schema.org/FoodEstablishment|Food Establishment|http://schema.org/Place
+http://schema.org/FoodEstablishment|Food Establishment|http://schema.org/Thing
+http://schema.org/FoodEvent|Food Event|http://schema.org/Event
+http://schema.org/FoodEvent|Food Event|http://schema.org/Thing
+http://schema.org/FurnitureStore|Furniture Store|http://schema.org/LocalBusiness
+http://schema.org/FurnitureStore|Furniture Store|http://schema.org/Organization
+http://schema.org/FurnitureStore|Furniture Store|http://schema.org/Place
+http://schema.org/FurnitureStore|Furniture Store|http://schema.org/Store
+http://schema.org/FurnitureStore|Furniture Store|http://schema.org/Thing
+http://schema.org/GardenStore|Garden Store|http://schema.org/LocalBusiness
+http://schema.org/GardenStore|Garden Store|http://schema.org/Organization
+http://schema.org/GardenStore|Garden Store|http://schema.org/Place
+http://schema.org/GardenStore|Garden Store|http://schema.org/Store
+http://schema.org/GardenStore|Garden Store|http://schema.org/Thing
+http://schema.org/GasStation|Gas Station|http://schema.org/AutomotiveBusiness
+http://schema.org/GasStation|Gas Station|http://schema.org/LocalBusiness
+http://schema.org/GasStation|Gas Station|http://schema.org/Organization
+http://schema.org/GasStation|Gas Station|http://schema.org/Place
+http://schema.org/GasStation|Gas Station|http://schema.org/Thing
+http://schema.org/GatedResidenceCommunity|Gated Residence Community|http://schema.org/Place
+http://schema.org/GatedResidenceCommunity|Gated Residence Community|http://schema.org/Residence
+http://schema.org/GatedResidenceCommunity|Gated Residence Community|http://schema.org/Thing
+http://schema.org/GeneralContractor|General Contractor|http://schema.org/HomeAndConstructionBusiness
+http://schema.org/GeneralContractor|General Contractor|http://schema.org/LocalBusiness
+http://schema.org/GeneralContractor|General Contractor|http://schema.org/Organization
+http://schema.org/GeneralContractor|General Contractor|http://schema.org/Place
+http://schema.org/GeneralContractor|General Contractor|http://schema.org/ProfessionalService
+http://schema.org/GeneralContractor|General Contractor|http://schema.org/Thing
+http://schema.org/GeoCoordinates|Geo Coordinates|http://schema.org/Intangible
+http://schema.org/GeoCoordinates|Geo Coordinates|http://schema.org/StructuredValue
+http://schema.org/GeoCoordinates|Geo Coordinates|http://schema.org/Thing
+http://schema.org/GeoShape|Geo Shape|http://schema.org/Intangible
+http://schema.org/GeoShape|Geo Shape|http://schema.org/StructuredValue
+http://schema.org/GeoShape|Geo Shape|http://schema.org/Thing
+http://schema.org/GiveAction|Give Action|http://schema.org/Action
+http://schema.org/GiveAction|Give Action|http://schema.org/Thing
+http://schema.org/GiveAction|Give Action|http://schema.org/TransferAction
+http://schema.org/GolfCourse|Golf Course|http://schema.org/LocalBusiness
+http://schema.org/GolfCourse|Golf Course|http://schema.org/Organization
+http://schema.org/GolfCourse|Golf Course|http://schema.org/Place
+http://schema.org/GolfCourse|Golf Course|http://schema.org/SportsActivityLocation
+http://schema.org/GolfCourse|Golf Course|http://schema.org/Thing
+http://schema.org/GovernmentBuilding|Government Building|http://schema.org/CivicStructure
+http://schema.org/GovernmentBuilding|Government Building|http://schema.org/Place
+http://schema.org/GovernmentBuilding|Government Building|http://schema.org/Thing
+http://schema.org/GovernmentOffice|Government Office|http://schema.org/LocalBusiness
+http://schema.org/GovernmentOffice|Government Office|http://schema.org/Organization
+http://schema.org/GovernmentOffice|Government Office|http://schema.org/Place
+http://schema.org/GovernmentOffice|Government Office|http://schema.org/Thing
+http://schema.org/GovernmentOrganization|Government Organization|http://schema.org/Organization
+http://schema.org/GovernmentOrganization|Government Organization|http://schema.org/Thing
+http://schema.org/GovernmentPermit|Government Permit|http://schema.org/Intangible
+http://schema.org/GovernmentPermit|Government Permit|http://schema.org/Permit
+http://schema.org/GovernmentPermit|Government Permit|http://schema.org/Thing
+http://schema.org/GovernmentService|Government Service|http://schema.org/Intangible
+http://schema.org/GovernmentService|Government Service|http://schema.org/Service
+http://schema.org/GovernmentService|Government Service|http://schema.org/Thing
+http://schema.org/GroceryStore|Grocery Store|http://schema.org/LocalBusiness
+http://schema.org/GroceryStore|Grocery Store|http://schema.org/Organization
+http://schema.org/GroceryStore|Grocery Store|http://schema.org/Place
+http://schema.org/GroceryStore|Grocery Store|http://schema.org/Store
+http://schema.org/GroceryStore|Grocery Store|http://schema.org/Thing
+http://schema.org/HVACBusiness|HVAC Business|http://schema.org/HomeAndConstructionBusiness
+http://schema.org/HVACBusiness|HVAC Business|http://schema.org/LocalBusiness
+http://schema.org/HVACBusiness|HVAC Business|http://schema.org/Organization
+http://schema.org/HVACBusiness|HVAC Business|http://schema.org/Place
+http://schema.org/HVACBusiness|HVAC Business|http://schema.org/Thing
+http://schema.org/HairSalon|Hair Salon|http://schema.org/HealthAndBeautyBusiness
+http://schema.org/HairSalon|Hair Salon|http://schema.org/LocalBusiness
+http://schema.org/HairSalon|Hair Salon|http://schema.org/Organization
+http://schema.org/HairSalon|Hair Salon|http://schema.org/Place
+http://schema.org/HairSalon|Hair Salon|http://schema.org/Thing
+http://schema.org/HardwareStore|Hardware Store|http://schema.org/LocalBusiness
+http://schema.org/HardwareStore|Hardware Store|http://schema.org/Organization
+http://schema.org/HardwareStore|Hardware Store|http://schema.org/Place
+http://schema.org/HardwareStore|Hardware Store|http://schema.org/Store
+http://schema.org/HardwareStore|Hardware Store|http://schema.org/Thing
+http://schema.org/HealthAndBeautyBusiness|Health And Beauty Business|http://schema.org/LocalBusiness
+http://schema.org/HealthAndBeautyBusiness|Health And Beauty Business|http://schema.org/Organization
+http://schema.org/HealthAndBeautyBusiness|Health And Beauty Business|http://schema.org/Place
+http://schema.org/HealthAndBeautyBusiness|Health And Beauty Business|http://schema.org/Thing
+http://schema.org/HealthClub|Health Club|http://schema.org/HealthAndBeautyBusiness
+http://schema.org/HealthClub|Health Club|http://schema.org/LocalBusiness
+http://schema.org/HealthClub|Health Club|http://schema.org/Organization
+http://schema.org/HealthClub|Health Club|http://schema.org/Place
+http://schema.org/HealthClub|Health Club|http://schema.org/SportsActivityLocation
+http://schema.org/HealthClub|Health Club|http://schema.org/Thing
+http://schema.org/HighSchool|High School|http://schema.org/EducationalOrganization
+http://schema.org/HighSchool|High School|http://schema.org/Organization
+http://schema.org/HighSchool|High School|http://schema.org/Thing
+http://schema.org/HinduTemple|Hindu Temple|http://schema.org/CivicStructure
+http://schema.org/HinduTemple|Hindu Temple|http://schema.org/Place
+http://schema.org/HinduTemple|Hindu Temple|http://schema.org/PlaceOfWorship
+http://schema.org/HinduTemple|Hindu Temple|http://schema.org/Thing
+http://schema.org/HobbyShop|Hobby Shop|http://schema.org/LocalBusiness
+http://schema.org/HobbyShop|Hobby Shop|http://schema.org/Organization
+http://schema.org/HobbyShop|Hobby Shop|http://schema.org/Place
+http://schema.org/HobbyShop|Hobby Shop|http://schema.org/Store
+http://schema.org/HobbyShop|Hobby Shop|http://schema.org/Thing
+http://schema.org/HomeAndConstructionBusiness|Home And Construction Business|http://schema.org/LocalBusiness
+http://schema.org/HomeAndConstructionBusiness|Home And Construction Business|http://schema.org/Organization
+http://schema.org/HomeAndConstructionBusiness|Home And Construction Business|http://schema.org/Place
+http://schema.org/HomeAndConstructionBusiness|Home And Construction Business|http://schema.org/Thing
+http://schema.org/HomeGoodsStore|Home Goods Store|http://schema.org/LocalBusiness
+http://schema.org/HomeGoodsStore|Home Goods Store|http://schema.org/Organization
+http://schema.org/HomeGoodsStore|Home Goods Store|http://schema.org/Place
+http://schema.org/HomeGoodsStore|Home Goods Store|http://schema.org/Store
+http://schema.org/HomeGoodsStore|Home Goods Store|http://schema.org/Thing
+http://schema.org/Hospital|Hospital|http://schema.org/CivicStructure
+http://schema.org/Hospital|Hospital|http://schema.org/EmergencyService
+http://schema.org/Hospital|Hospital|http://schema.org/LocalBusiness
+http://schema.org/Hospital|Hospital|http://schema.org/MedicalOrganization
+http://schema.org/Hospital|Hospital|http://schema.org/Organization
+http://schema.org/Hospital|Hospital|http://schema.org/Place
+http://schema.org/Hospital|Hospital|http://schema.org/Thing
+http://schema.org/Hostel|Hostel|http://schema.org/LocalBusiness
+http://schema.org/Hostel|Hostel|http://schema.org/LodgingBusiness
+http://schema.org/Hostel|Hostel|http://schema.org/Organization
+http://schema.org/Hostel|Hostel|http://schema.org/Place
+http://schema.org/Hostel|Hostel|http://schema.org/Thing
+http://schema.org/Hotel|Hotel|http://schema.org/LocalBusiness
+http://schema.org/Hotel|Hotel|http://schema.org/LodgingBusiness
+http://schema.org/Hotel|Hotel|http://schema.org/Organization
+http://schema.org/Hotel|Hotel|http://schema.org/Place
+http://schema.org/Hotel|Hotel|http://schema.org/Thing
+http://schema.org/HousePainter|House Painter|http://schema.org/HomeAndConstructionBusiness
+http://schema.org/HousePainter|House Painter|http://schema.org/LocalBusiness
+http://schema.org/HousePainter|House Painter|http://schema.org/Organization
+http://schema.org/HousePainter|House Painter|http://schema.org/Place
+http://schema.org/HousePainter|House Painter|http://schema.org/ProfessionalService
+http://schema.org/HousePainter|House Painter|http://schema.org/Thing
+http://schema.org/IceCreamShop|Ice Cream Shop|http://schema.org/FoodEstablishment
+http://schema.org/IceCreamShop|Ice Cream Shop|http://schema.org/LocalBusiness
+http://schema.org/IceCreamShop|Ice Cream Shop|http://schema.org/Organization
+http://schema.org/IceCreamShop|Ice Cream Shop|http://schema.org/Place
+http://schema.org/IceCreamShop|Ice Cream Shop|http://schema.org/Thing
+http://schema.org/IgnoreAction|Ignore Action|http://schema.org/Action
+http://schema.org/IgnoreAction|Ignore Action|http://schema.org/AssessAction
+http://schema.org/IgnoreAction|Ignore Action|http://schema.org/Thing
+http://schema.org/ImageGallery|Image Gallery|http://schema.org/CollectionPage
+http://schema.org/ImageGallery|Image Gallery|http://schema.org/CreativeWork
+http://schema.org/ImageGallery|Image Gallery|http://schema.org/Thing
+http://schema.org/ImageGallery|Image Gallery|http://schema.org/WebPage
+http://schema.org/ImageObject|Image Object|http://schema.org/CreativeWork
+http://schema.org/ImageObject|Image Object|http://schema.org/MediaObject
+http://schema.org/ImageObject|Image Object|http://schema.org/Thing
+http://schema.org/ImagingTest|Imaging Test|http://schema.org/MedicalEntity
+http://schema.org/ImagingTest|Imaging Test|http://schema.org/MedicalTest
+http://schema.org/ImagingTest|Imaging Test|http://schema.org/Thing
+http://schema.org/IndividualProduct|Individual Product|http://schema.org/Product
+http://schema.org/IndividualProduct|Individual Product|http://schema.org/Thing
+http://schema.org/InfectiousAgentClass|Infectious Agent Class|http://schema.org/MedicalEntity
+http://schema.org/InfectiousAgentClass|Infectious Agent Class|http://schema.org/MedicalEnumeration
+http://schema.org/InfectiousAgentClass|Infectious Agent Class|http://schema.org/MedicalIntangible
+http://schema.org/InfectiousAgentClass|Infectious Agent Class|http://schema.org/Thing
+http://schema.org/InfectiousDisease|Infectious Disease|http://schema.org/MedicalCondition
+http://schema.org/InfectiousDisease|Infectious Disease|http://schema.org/MedicalEntity
+http://schema.org/InfectiousDisease|Infectious Disease|http://schema.org/Thing
+http://schema.org/InformAction|Inform Action|http://schema.org/Action
+http://schema.org/InformAction|Inform Action|http://schema.org/CommunicateAction
+http://schema.org/InformAction|Inform Action|http://schema.org/InteractAction
+http://schema.org/InformAction|Inform Action|http://schema.org/Thing
+http://schema.org/InsertAction|Insert Action|http://schema.org/Action
+http://schema.org/InsertAction|Insert Action|http://schema.org/AddAction
+http://schema.org/InsertAction|Insert Action|http://schema.org/Thing
+http://schema.org/InsertAction|Insert Action|http://schema.org/UpdateAction
+http://schema.org/InstallAction|Install Action|http://schema.org/Action
+http://schema.org/InstallAction|Install Action|http://schema.org/ConsumeAction
+http://schema.org/InstallAction|Install Action|http://schema.org/Thing
+http://schema.org/InsuranceAgency|Insurance Agency|http://schema.org/FinancialService
+http://schema.org/InsuranceAgency|Insurance Agency|http://schema.org/LocalBusiness
+http://schema.org/InsuranceAgency|Insurance Agency|http://schema.org/Organization
+http://schema.org/InsuranceAgency|Insurance Agency|http://schema.org/Place
+http://schema.org/InsuranceAgency|Insurance Agency|http://schema.org/Thing
+http://schema.org/Intangible|Intangible|http://schema.org/Thing
+http://schema.org/InteractAction|Interact Action|http://schema.org/Action
+http://schema.org/InteractAction|Interact Action|http://schema.org/Thing
+http://schema.org/InternetCafe|Internet Cafe|http://schema.org/LocalBusiness
+http://schema.org/InternetCafe|Internet Cafe|http://schema.org/Organization
+http://schema.org/InternetCafe|Internet Cafe|http://schema.org/Place
+http://schema.org/InternetCafe|Internet Cafe|http://schema.org/Thing
+http://schema.org/InviteAction|Invite Action|http://schema.org/Action
+http://schema.org/InviteAction|Invite Action|http://schema.org/CommunicateAction
+http://schema.org/InviteAction|Invite Action|http://schema.org/InteractAction
+http://schema.org/InviteAction|Invite Action|http://schema.org/Thing
+http://schema.org/ItemAvailability|Item Availability|http://schema.org/Enumeration
+http://schema.org/ItemAvailability|Item Availability|http://schema.org/Intangible
+http://schema.org/ItemAvailability|Item Availability|http://schema.org/Thing
+http://schema.org/ItemList|Item List|http://schema.org/CreativeWork
+http://schema.org/ItemList|Item List|http://schema.org/Thing
+http://schema.org/ItemPage|Item Page|http://schema.org/CreativeWork
+http://schema.org/ItemPage|Item Page|http://schema.org/Thing
+http://schema.org/ItemPage|Item Page|http://schema.org/WebPage
+http://schema.org/JewelryStore|Jewelry Store|http://schema.org/LocalBusiness
+http://schema.org/JewelryStore|Jewelry Store|http://schema.org/Organization
+http://schema.org/JewelryStore|Jewelry Store|http://schema.org/Place
+http://schema.org/JewelryStore|Jewelry Store|http://schema.org/Store
+http://schema.org/JewelryStore|Jewelry Store|http://schema.org/Thing
+http://schema.org/JobPosting|Job Posting|http://schema.org/Intangible
+http://schema.org/JobPosting|Job Posting|http://schema.org/Thing
+http://schema.org/JoinAction|Join Action|http://schema.org/Action
+http://schema.org/JoinAction|Join Action|http://schema.org/InteractAction
+http://schema.org/JoinAction|Join Action|http://schema.org/Thing
+http://schema.org/Joint|Joint|http://schema.org/AnatomicalStructure
+http://schema.org/Joint|Joint|http://schema.org/MedicalEntity
+http://schema.org/Joint|Joint|http://schema.org/Thing
+http://schema.org/LakeBodyOfWater|Lake Body of Water|http://schema.org/BodyOfWater
+http://schema.org/LakeBodyOfWater|Lake Body of Water|http://schema.org/Landform
+http://schema.org/LakeBodyOfWater|Lake Body of Water|http://schema.org/Place
+http://schema.org/LakeBodyOfWater|Lake Body of Water|http://schema.org/Thing
+http://schema.org/Landform|Landform|http://schema.org/Place
+http://schema.org/Landform|Landform|http://schema.org/Thing
+http://schema.org/LandmarksOrHistoricalBuildings|Landmarks or Historical Buildings|http://schema.org/Place
+http://schema.org/LandmarksOrHistoricalBuildings|Landmarks or Historical Buildings|http://schema.org/Thing
+http://schema.org/Language|Language|http://schema.org/Intangible
+http://schema.org/Language|Language|http://schema.org/Thing
+http://schema.org/LeaveAction|Leave Action|http://schema.org/Action
+http://schema.org/LeaveAction|Leave Action|http://schema.org/InteractAction
+http://schema.org/LeaveAction|Leave Action|http://schema.org/Thing
+http://schema.org/LegislativeBuilding|Legislative Building|http://schema.org/CivicStructure
+http://schema.org/LegislativeBuilding|Legislative Building|http://schema.org/GovernmentBuilding
+http://schema.org/LegislativeBuilding|Legislative Building|http://schema.org/Place
+http://schema.org/LegislativeBuilding|Legislative Building|http://schema.org/Thing
+http://schema.org/LendAction|Lend Action|http://schema.org/Action
+http://schema.org/LendAction|Lend Action|http://schema.org/Thing
+http://schema.org/LendAction|Lend Action|http://schema.org/TransferAction
+http://schema.org/Library|Library|http://schema.org/LocalBusiness
+http://schema.org/Library|Library|http://schema.org/Organization
+http://schema.org/Library|Library|http://schema.org/Place
+http://schema.org/Library|Library|http://schema.org/Thing
+http://schema.org/LifestyleModification|Lifestyle Modification|http://schema.org/MedicalEntity
+http://schema.org/LifestyleModification|Lifestyle Modification|http://schema.org/MedicalTherapy
+http://schema.org/LifestyleModification|Lifestyle Modification|http://schema.org/Thing
+http://schema.org/Ligament|Ligament|http://schema.org/AnatomicalStructure
+http://schema.org/Ligament|Ligament|http://schema.org/MedicalEntity
+http://schema.org/Ligament|Ligament|http://schema.org/Thing
+http://schema.org/LikeAction|Like Action|http://schema.org/Action
+http://schema.org/LikeAction|Like Action|http://schema.org/AssessAction
+http://schema.org/LikeAction|Like Action|http://schema.org/ReactAction
+http://schema.org/LikeAction|Like Action|http://schema.org/Thing
+http://schema.org/LiquorStore|Liquor Store|http://schema.org/LocalBusiness
+http://schema.org/LiquorStore|Liquor Store|http://schema.org/Organization
+http://schema.org/LiquorStore|Liquor Store|http://schema.org/Place
+http://schema.org/LiquorStore|Liquor Store|http://schema.org/Store
+http://schema.org/LiquorStore|Liquor Store|http://schema.org/Thing
+http://schema.org/ListenAction|Listen Action|http://schema.org/Action
+http://schema.org/ListenAction|Listen Action|http://schema.org/ConsumeAction
+http://schema.org/ListenAction|Listen Action|http://schema.org/Thing
+http://schema.org/LiteraryEvent|Literary Event|http://schema.org/Event
+http://schema.org/LiteraryEvent|Literary Event|http://schema.org/Thing
+http://schema.org/LocalBusiness|Local Business|http://schema.org/Organization
+http://schema.org/LocalBusiness|Local Business|http://schema.org/Place
+http://schema.org/LocalBusiness|Local Business|http://schema.org/Thing
+http://schema.org/LockerDelivery|Locker Delivery|http://schema.org/DeliveryMethod
+http://schema.org/LockerDelivery|Locker Delivery|http://schema.org/Enumeration
+http://schema.org/LockerDelivery|Locker Delivery|http://schema.org/Intangible
+http://schema.org/LockerDelivery|Locker Delivery|http://schema.org/Thing
+http://schema.org/Locksmith|Locksmith|http://schema.org/HomeAndConstructionBusiness
+http://schema.org/Locksmith|Locksmith|http://schema.org/LocalBusiness
+http://schema.org/Locksmith|Locksmith|http://schema.org/Organization
+http://schema.org/Locksmith|Locksmith|http://schema.org/Place
+http://schema.org/Locksmith|Locksmith|http://schema.org/ProfessionalService
+http://schema.org/Locksmith|Locksmith|http://schema.org/Thing
+http://schema.org/LodgingBusiness|Lodging Business|http://schema.org/LocalBusiness
+http://schema.org/LodgingBusiness|Lodging Business|http://schema.org/Organization
+http://schema.org/LodgingBusiness|Lodging Business|http://schema.org/Place
+http://schema.org/LodgingBusiness|Lodging Business|http://schema.org/Thing
+http://schema.org/LoseAction|Lose Action|http://schema.org/AchieveAction
+http://schema.org/LoseAction|Lose Action|http://schema.org/Action
+http://schema.org/LoseAction|Lose Action|http://schema.org/Thing
+http://schema.org/LymphaticVessel|Lymphatic Vessel|http://schema.org/AnatomicalStructure
+http://schema.org/LymphaticVessel|Lymphatic Vessel|http://schema.org/MedicalEntity
+http://schema.org/LymphaticVessel|Lymphatic Vessel|http://schema.org/Thing
+http://schema.org/LymphaticVessel|Lymphatic Vessel|http://schema.org/Vessel
+http://schema.org/Map|Map|http://schema.org/CreativeWork
+http://schema.org/Map|Map|http://schema.org/Thing
+http://schema.org/MarryAction|Marry Action|http://schema.org/Action
+http://schema.org/MarryAction|Marry Action|http://schema.org/InteractAction
+http://schema.org/MarryAction|Marry Action|http://schema.org/Thing
+http://schema.org/Mass|Mass|http://schema.org/Intangible
+http://schema.org/Mass|Mass|http://schema.org/Quantity
+http://schema.org/Mass|Mass|http://schema.org/Thing
+http://schema.org/MaximumDoseSchedule|Maximum Dose Schedule|http://schema.org/DoseSchedule
+http://schema.org/MaximumDoseSchedule|Maximum Dose Schedule|http://schema.org/MedicalEntity
+http://schema.org/MaximumDoseSchedule|Maximum Dose Schedule|http://schema.org/MedicalIntangible
+http://schema.org/MaximumDoseSchedule|Maximum Dose Schedule|http://schema.org/Thing
+http://schema.org/MediaObject|Media Object|http://schema.org/CreativeWork
+http://schema.org/MediaObject|Media Object|http://schema.org/Thing
+http://schema.org/MedicalAudience|Medical Audience|http://schema.org/Audience
+http://schema.org/MedicalAudience|Medical Audience|http://schema.org/Intangible
+http://schema.org/MedicalAudience|Medical Audience|http://schema.org/MedicalEntity
+http://schema.org/MedicalAudience|Medical Audience|http://schema.org/MedicalEnumeration
+http://schema.org/MedicalAudience|Medical Audience|http://schema.org/MedicalIntangible
+http://schema.org/MedicalAudience|Medical Audience|http://schema.org/PeopleAudience
+http://schema.org/MedicalAudience|Medical Audience|http://schema.org/Thing
+http://schema.org/MedicalCause|Medical Cause|http://schema.org/MedicalEntity
+http://schema.org/MedicalCause|Medical Cause|http://schema.org/Thing
+http://schema.org/MedicalClinic|Medical Clinic|http://schema.org/LocalBusiness
+http://schema.org/MedicalClinic|Medical Clinic|http://schema.org/MedicalOrganization
+http://schema.org/MedicalClinic|Medical Clinic|http://schema.org/Organization
+http://schema.org/MedicalClinic|Medical Clinic|http://schema.org/Place
+http://schema.org/MedicalClinic|Medical Clinic|http://schema.org/Thing
+http://schema.org/MedicalCode|Medical Code|http://schema.org/MedicalEntity
+http://schema.org/MedicalCode|Medical Code|http://schema.org/MedicalIntangible
+http://schema.org/MedicalCode|Medical Code|http://schema.org/Thing
+http://schema.org/MedicalCondition|Medical Condition|http://schema.org/MedicalEntity
+http://schema.org/MedicalCondition|Medical Condition|http://schema.org/Thing
+http://schema.org/MedicalConditionStage|Medical Condition Stage|http://schema.org/MedicalEntity
+http://schema.org/MedicalConditionStage|Medical Condition Stage|http://schema.org/MedicalIntangible
+http://schema.org/MedicalConditionStage|Medical Condition Stage|http://schema.org/Thing
+http://schema.org/MedicalContraindication|Medical Contraindication|http://schema.org/MedicalEntity
+http://schema.org/MedicalContraindication|Medical Contraindication|http://schema.org/Thing
+http://schema.org/MedicalDevice|Medical Device|http://schema.org/MedicalEntity
+http://schema.org/MedicalDevice|Medical Device|http://schema.org/Thing
+http://schema.org/MedicalDevicePurpose|Medical Device Purpose|http://schema.org/MedicalEntity
+http://schema.org/MedicalDevicePurpose|Medical Device Purpose|http://schema.org/MedicalEnumeration
+http://schema.org/MedicalDevicePurpose|Medical Device Purpose|http://schema.org/MedicalIntangible
+http://schema.org/MedicalDevicePurpose|Medical Device Purpose|http://schema.org/Thing
+http://schema.org/MedicalEntity|Medical Entity|http://schema.org/Thing
+http://schema.org/MedicalEnumeration|Medical Enumeration|http://schema.org/MedicalEntity
+http://schema.org/MedicalEnumeration|Medical Enumeration|http://schema.org/MedicalIntangible
+http://schema.org/MedicalEnumeration|Medical Enumeration|http://schema.org/Thing
+http://schema.org/MedicalEvidenceLevel|Medical Evidence Level|http://schema.org/MedicalEntity
+http://schema.org/MedicalEvidenceLevel|Medical Evidence Level|http://schema.org/MedicalEnumeration
+http://schema.org/MedicalEvidenceLevel|Medical Evidence Level|http://schema.org/MedicalIntangible
+http://schema.org/MedicalEvidenceLevel|Medical Evidence Level|http://schema.org/Thing
+http://schema.org/MedicalGuideline|Medical Guideline|http://schema.org/MedicalEntity
+http://schema.org/MedicalGuideline|Medical Guideline|http://schema.org/Thing
+http://schema.org/MedicalGuidelineContraindication|Medical Guideline Contraindication|http://schema.org/MedicalEntity
+http://schema.org/MedicalGuidelineContraindication|Medical Guideline Contraindication|http://schema.org/MedicalGuideline
+http://schema.org/MedicalGuidelineContraindication|Medical Guideline Contraindication|http://schema.org/Thing
+http://schema.org/MedicalGuidelineRecommendation|Medical Guideline Recommendation|http://schema.org/MedicalEntity
+http://schema.org/MedicalGuidelineRecommendation|Medical Guideline Recommendation|http://schema.org/MedicalGuideline
+http://schema.org/MedicalGuidelineRecommendation|Medical Guideline Recommendation|http://schema.org/Thing
+http://schema.org/MedicalImagingTechnique|Medical Imaging Technique|http://schema.org/MedicalEntity
+http://schema.org/MedicalImagingTechnique|Medical Imaging Technique|http://schema.org/MedicalEnumeration
+http://schema.org/MedicalImagingTechnique|Medical Imaging Technique|http://schema.org/MedicalIntangible
+http://schema.org/MedicalImagingTechnique|Medical Imaging Technique|http://schema.org/Thing
+http://schema.org/MedicalIndication|Medical Indication|http://schema.org/MedicalEntity
+http://schema.org/MedicalIndication|Medical Indication|http://schema.org/Thing
+http://schema.org/MedicalIntangible|Medical Intangible|http://schema.org/MedicalEntity
+http://schema.org/MedicalIntangible|Medical Intangible|http://schema.org/Thing
+http://schema.org/MedicalObservationalStudy|Medical Observational Study|http://schema.org/MedicalEntity
+http://schema.org/MedicalObservationalStudy|Medical Observational Study|http://schema.org/MedicalStudy
+http://schema.org/MedicalObservationalStudy|Medical Observational Study|http://schema.org/Thing
+http://schema.org/MedicalObservationalStudyDesign|Medical Observational Study Design|http://schema.org/MedicalEntity
+http://schema.org/MedicalObservationalStudyDesign|Medical Observational Study Design|http://schema.org/MedicalEnumeration
+http://schema.org/MedicalObservationalStudyDesign|Medical Observational Study Design|http://schema.org/MedicalIntangible
+http://schema.org/MedicalObservationalStudyDesign|Medical Observational Study Design|http://schema.org/Thing
+http://schema.org/MedicalOrganization|Medical Organization|http://schema.org/LocalBusiness
+http://schema.org/MedicalOrganization|Medical Organization|http://schema.org/Organization
+http://schema.org/MedicalOrganization|Medical Organization|http://schema.org/Place
+http://schema.org/MedicalOrganization|Medical Organization|http://schema.org/Thing
+http://schema.org/MedicalProcedure|Medical Procedure|http://schema.org/MedicalEntity
+http://schema.org/MedicalProcedure|Medical Procedure|http://schema.org/Thing
+http://schema.org/MedicalProcedureType|Medical Procedure Type|http://schema.org/MedicalEntity
+http://schema.org/MedicalProcedureType|Medical Procedure Type|http://schema.org/MedicalEnumeration
+http://schema.org/MedicalProcedureType|Medical Procedure Type|http://schema.org/MedicalIntangible
+http://schema.org/MedicalProcedureType|Medical Procedure Type|http://schema.org/Thing
+http://schema.org/MedicalRiskCalculator|Medical Risk Calculator|http://schema.org/MedicalEntity
+http://schema.org/MedicalRiskCalculator|Medical Risk Calculator|http://schema.org/MedicalRiskEstimator
+http://schema.org/MedicalRiskCalculator|Medical Risk Calculator|http://schema.org/Thing
+http://schema.org/MedicalRiskEstimator|Medical Risk Estimator|http://schema.org/MedicalEntity
+http://schema.org/MedicalRiskEstimator|Medical Risk Estimator|http://schema.org/Thing
+http://schema.org/MedicalRiskFactor|Medical Risk Factor|http://schema.org/MedicalEntity
+http://schema.org/MedicalRiskFactor|Medical Risk Factor|http://schema.org/Thing
+http://schema.org/MedicalRiskScore|Medical Risk Score|http://schema.org/MedicalEntity
+http://schema.org/MedicalRiskScore|Medical Risk Score|http://schema.org/MedicalRiskEstimator
+http://schema.org/MedicalRiskScore|Medical Risk Score|http://schema.org/Thing
+http://schema.org/MedicalScholarlyArticle|Medical Scholarly Article|http://schema.org/Article
+http://schema.org/MedicalScholarlyArticle|Medical Scholarly Article|http://schema.org/CreativeWork
+http://schema.org/MedicalScholarlyArticle|Medical Scholarly Article|http://schema.org/ScholarlyArticle
+http://schema.org/MedicalScholarlyArticle|Medical Scholarly Article|http://schema.org/Thing
+http://schema.org/MedicalSign|Medical Sign|http://schema.org/MedicalEntity
+http://schema.org/MedicalSign|Medical Sign|http://schema.org/MedicalSignOrSymptom
+http://schema.org/MedicalSign|Medical Sign|http://schema.org/Thing
+http://schema.org/MedicalSignOrSymptom|Medical Sign or Symptom|http://schema.org/MedicalEntity
+http://schema.org/MedicalSignOrSymptom|Medical Sign or Symptom|http://schema.org/Thing
+http://schema.org/MedicalSpecialty|Medical Specialty|http://schema.org/Enumeration
+http://schema.org/MedicalSpecialty|Medical Specialty|http://schema.org/Intangible
+http://schema.org/MedicalSpecialty|Medical Specialty|http://schema.org/MedicalEntity
+http://schema.org/MedicalSpecialty|Medical Specialty|http://schema.org/MedicalEnumeration
+http://schema.org/MedicalSpecialty|Medical Specialty|http://schema.org/MedicalIntangible
+http://schema.org/MedicalSpecialty|Medical Specialty|http://schema.org/Specialty
+http://schema.org/MedicalSpecialty|Medical Specialty|http://schema.org/Thing
+http://schema.org/MedicalStudy|Medical Study|http://schema.org/MedicalEntity
+http://schema.org/MedicalStudy|Medical Study|http://schema.org/Thing
+http://schema.org/MedicalStudyStatus|Medical Study Status|http://schema.org/MedicalEntity
+http://schema.org/MedicalStudyStatus|Medical Study Status|http://schema.org/MedicalEnumeration
+http://schema.org/MedicalStudyStatus|Medical Study Status|http://schema.org/MedicalIntangible
+http://schema.org/MedicalStudyStatus|Medical Study Status|http://schema.org/Thing
+http://schema.org/MedicalSymptom|Medical Symptom|http://schema.org/MedicalEntity
+http://schema.org/MedicalSymptom|Medical Symptom|http://schema.org/MedicalSignOrSymptom
+http://schema.org/MedicalSymptom|Medical Symptom|http://schema.org/Thing
+http://schema.org/MedicalTest|Medical Test|http://schema.org/MedicalEntity
+http://schema.org/MedicalTest|Medical Test|http://schema.org/Thing
+http://schema.org/MedicalTestPanel|Medical Test Panel|http://schema.org/MedicalEntity
+http://schema.org/MedicalTestPanel|Medical Test Panel|http://schema.org/MedicalTest
+http://schema.org/MedicalTestPanel|Medical Test Panel|http://schema.org/Thing
+http://schema.org/MedicalTherapy|Medical Therapy|http://schema.org/MedicalEntity
+http://schema.org/MedicalTherapy|Medical Therapy|http://schema.org/Thing
+http://schema.org/MedicalTrial|Medical Trial|http://schema.org/MedicalEntity
+http://schema.org/MedicalTrial|Medical Trial|http://schema.org/MedicalStudy
+http://schema.org/MedicalTrial|Medical Trial|http://schema.org/Thing
+http://schema.org/MedicalTrialDesign|Medical Trial Design|http://schema.org/MedicalEntity
+http://schema.org/MedicalTrialDesign|Medical Trial Design|http://schema.org/MedicalEnumeration
+http://schema.org/MedicalTrialDesign|Medical Trial Design|http://schema.org/MedicalIntangible
+http://schema.org/MedicalTrialDesign|Medical Trial Design|http://schema.org/Thing
+http://schema.org/MedicalWebPage|Medical Web Page|http://schema.org/CreativeWork
+http://schema.org/MedicalWebPage|Medical Web Page|http://schema.org/Thing
+http://schema.org/MedicalWebPage|Medical Web Page|http://schema.org/WebPage
+http://schema.org/MedicineSystem|Medicine System|http://schema.org/MedicalEntity
+http://schema.org/MedicineSystem|Medicine System|http://schema.org/MedicalEnumeration
+http://schema.org/MedicineSystem|Medicine System|http://schema.org/MedicalIntangible
+http://schema.org/MedicineSystem|Medicine System|http://schema.org/Thing
+http://schema.org/MensClothingStore|Mens Clothing Store|http://schema.org/LocalBusiness
+http://schema.org/MensClothingStore|Mens Clothing Store|http://schema.org/Organization
+http://schema.org/MensClothingStore|Mens Clothing Store|http://schema.org/Place
+http://schema.org/MensClothingStore|Mens Clothing Store|http://schema.org/Store
+http://schema.org/MensClothingStore|Mens Clothing Store|http://schema.org/Thing
+http://schema.org/MiddleSchool|Middle School|http://schema.org/EducationalOrganization
+http://schema.org/MiddleSchool|Middle School|http://schema.org/Organization
+http://schema.org/MiddleSchool|Middle School|http://schema.org/Thing
+http://schema.org/MobileApplication|Mobile Application|http://schema.org/CreativeWork
+http://schema.org/MobileApplication|Mobile Application|http://schema.org/SoftwareApplication
+http://schema.org/MobileApplication|Mobile Application|http://schema.org/Thing
+http://schema.org/MobilePhoneStore|Mobile Phone Store|http://schema.org/LocalBusiness
+http://schema.org/MobilePhoneStore|Mobile Phone Store|http://schema.org/Organization
+http://schema.org/MobilePhoneStore|Mobile Phone Store|http://schema.org/Place
+http://schema.org/MobilePhoneStore|Mobile Phone Store|http://schema.org/Store
+http://schema.org/MobilePhoneStore|Mobile Phone Store|http://schema.org/Thing
+http://schema.org/Mosque|Mosque|http://schema.org/CivicStructure
+http://schema.org/Mosque|Mosque|http://schema.org/Place
+http://schema.org/Mosque|Mosque|http://schema.org/PlaceOfWorship
+http://schema.org/Mosque|Mosque|http://schema.org/Thing
+http://schema.org/Motel|Motel|http://schema.org/LocalBusiness
+http://schema.org/Motel|Motel|http://schema.org/LodgingBusiness
+http://schema.org/Motel|Motel|http://schema.org/Organization
+http://schema.org/Motel|Motel|http://schema.org/Place
+http://schema.org/Motel|Motel|http://schema.org/Thing
+http://schema.org/MotorcycleDealer|Motorcycle Dealer|http://schema.org/AutomotiveBusiness
+http://schema.org/MotorcycleDealer|Motorcycle Dealer|http://schema.org/LocalBusiness
+http://schema.org/MotorcycleDealer|Motorcycle Dealer|http://schema.org/Organization
+http://schema.org/MotorcycleDealer|Motorcycle Dealer|http://schema.org/Place
+http://schema.org/MotorcycleDealer|Motorcycle Dealer|http://schema.org/Thing
+http://schema.org/MotorcycleRepair|Motorcycle Repair|http://schema.org/AutomotiveBusiness
+http://schema.org/MotorcycleRepair|Motorcycle Repair|http://schema.org/LocalBusiness
+http://schema.org/MotorcycleRepair|Motorcycle Repair|http://schema.org/Organization
+http://schema.org/MotorcycleRepair|Motorcycle Repair|http://schema.org/Place
+http://schema.org/MotorcycleRepair|Motorcycle Repair|http://schema.org/Thing
+http://schema.org/Mountain|Mountain|http://schema.org/Landform
+http://schema.org/Mountain|Mountain|http://schema.org/Place
+http://schema.org/Mountain|Mountain|http://schema.org/Thing
+http://schema.org/MoveAction|Move Action|http://schema.org/Action
+http://schema.org/MoveAction|Move Action|http://schema.org/Thing
+http://schema.org/Movie|Movie|http://schema.org/CreativeWork
+http://schema.org/Movie|Movie|http://schema.org/Thing
+http://schema.org/MovieRentalStore|Movie Rental Store|http://schema.org/LocalBusiness
+http://schema.org/MovieRentalStore|Movie Rental Store|http://schema.org/Organization
+http://schema.org/MovieRentalStore|Movie Rental Store|http://schema.org/Place
+http://schema.org/MovieRentalStore|Movie Rental Store|http://schema.org/Store
+http://schema.org/MovieRentalStore|Movie Rental Store|http://schema.org/Thing
+http://schema.org/MovieTheater|Movie Theater|http://schema.org/CivicStructure
+http://schema.org/MovieTheater|Movie Theater|http://schema.org/EntertainmentBusiness
+http://schema.org/MovieTheater|Movie Theater|http://schema.org/LocalBusiness
+http://schema.org/MovieTheater|Movie Theater|http://schema.org/Organization
+http://schema.org/MovieTheater|Movie Theater|http://schema.org/Place
+http://schema.org/MovieTheater|Movie Theater|http://schema.org/Thing
+http://schema.org/MovingCompany|Moving Company|http://schema.org/HomeAndConstructionBusiness
+http://schema.org/MovingCompany|Moving Company|http://schema.org/LocalBusiness
+http://schema.org/MovingCompany|Moving Company|http://schema.org/Organization
+http://schema.org/MovingCompany|Moving Company|http://schema.org/Place
+http://schema.org/MovingCompany|Moving Company|http://schema.org/Thing
+http://schema.org/Muscle|Muscle|http://schema.org/AnatomicalStructure
+http://schema.org/Muscle|Muscle|http://schema.org/MedicalEntity
+http://schema.org/Muscle|Muscle|http://schema.org/Thing
+http://schema.org/Museum|Museum|http://schema.org/CivicStructure
+http://schema.org/Museum|Museum|http://schema.org/Place
+http://schema.org/Museum|Museum|http://schema.org/Thing
+http://schema.org/MusicAlbum|Music Album|http://schema.org/CreativeWork
+http://schema.org/MusicAlbum|Music Album|http://schema.org/MusicPlaylist
+http://schema.org/MusicAlbum|Music Album|http://schema.org/Thing
+http://schema.org/MusicEvent|Music Event|http://schema.org/Event
+http://schema.org/MusicEvent|Music Event|http://schema.org/Thing
+http://schema.org/MusicGroup|Music Group|http://schema.org/Organization
+http://schema.org/MusicGroup|Music Group|http://schema.org/PerformingGroup
+http://schema.org/MusicGroup|Music Group|http://schema.org/Thing
+http://schema.org/MusicPlaylist|Music Playlist|http://schema.org/CreativeWork
+http://schema.org/MusicPlaylist|Music Playlist|http://schema.org/Thing
+http://schema.org/MusicRecording|Music Recording|http://schema.org/CreativeWork
+http://schema.org/MusicRecording|Music Recording|http://schema.org/Thing
+http://schema.org/MusicStore|Music Store|http://schema.org/LocalBusiness
+http://schema.org/MusicStore|Music Store|http://schema.org/Organization
+http://schema.org/MusicStore|Music Store|http://schema.org/Place
+http://schema.org/MusicStore|Music Store|http://schema.org/Store
+http://schema.org/MusicStore|Music Store|http://schema.org/Thing
+http://schema.org/MusicVenue|Music Venue|http://schema.org/CivicStructure
+http://schema.org/MusicVenue|Music Venue|http://schema.org/Place
+http://schema.org/MusicVenue|Music Venue|http://schema.org/Thing
+http://schema.org/MusicVideoObject|Music Video Object|http://schema.org/CreativeWork
+http://schema.org/MusicVideoObject|Music Video Object|http://schema.org/MediaObject
+http://schema.org/MusicVideoObject|Music Video Object|http://schema.org/Thing
+http://schema.org/NGO|NGO|http://schema.org/Organization
+http://schema.org/NGO|NGO|http://schema.org/Thing
+http://schema.org/NailSalon|Nail Salon|http://schema.org/HealthAndBeautyBusiness
+http://schema.org/NailSalon|Nail Salon|http://schema.org/LocalBusiness
+http://schema.org/NailSalon|Nail Salon|http://schema.org/Organization
+http://schema.org/NailSalon|Nail Salon|http://schema.org/Place
+http://schema.org/NailSalon|Nail Salon|http://schema.org/Thing
+http://schema.org/Nerve|Nerve|http://schema.org/AnatomicalStructure
+http://schema.org/Nerve|Nerve|http://schema.org/MedicalEntity
+http://schema.org/Nerve|Nerve|http://schema.org/Thing
+http://schema.org/NewsArticle|News Article|http://schema.org/Article
+http://schema.org/NewsArticle|News Article|http://schema.org/CreativeWork
+http://schema.org/NewsArticle|News Article|http://schema.org/Thing
+http://schema.org/NightClub|Night Club|http://schema.org/EntertainmentBusiness
+http://schema.org/NightClub|Night Club|http://schema.org/LocalBusiness
+http://schema.org/NightClub|Night Club|http://schema.org/Organization
+http://schema.org/NightClub|Night Club|http://schema.org/Place
+http://schema.org/NightClub|Night Club|http://schema.org/Thing
+http://schema.org/Notary|Notary|http://schema.org/LocalBusiness
+http://schema.org/Notary|Notary|http://schema.org/Organization
+http://schema.org/Notary|Notary|http://schema.org/Place
+http://schema.org/Notary|Notary|http://schema.org/ProfessionalService
+http://schema.org/Notary|Notary|http://schema.org/Thing
+http://schema.org/NutritionInformation|Nutrition Information|http://schema.org/Intangible
+http://schema.org/NutritionInformation|Nutrition Information|http://schema.org/StructuredValue
+http://schema.org/NutritionInformation|Nutrition Information|http://schema.org/Thing
+http://schema.org/OceanBodyOfWater|Ocean Body of Water|http://schema.org/BodyOfWater
+http://schema.org/OceanBodyOfWater|Ocean Body of Water|http://schema.org/Landform
+http://schema.org/OceanBodyOfWater|Ocean Body of Water|http://schema.org/Place
+http://schema.org/OceanBodyOfWater|Ocean Body of Water|http://schema.org/Thing
+http://schema.org/Offer|Offer|http://schema.org/Intangible
+http://schema.org/Offer|Offer|http://schema.org/Thing
+http://schema.org/OfferItemCondition|Offer Item Condition|http://schema.org/Enumeration
+http://schema.org/OfferItemCondition|Offer Item Condition|http://schema.org/Intangible
+http://schema.org/OfferItemCondition|Offer Item Condition|http://schema.org/Thing
+http://schema.org/OfficeEquipmentStore|Office Equipment Store|http://schema.org/LocalBusiness
+http://schema.org/OfficeEquipmentStore|Office Equipment Store|http://schema.org/Organization
+http://schema.org/OfficeEquipmentStore|Office Equipment Store|http://schema.org/Place
+http://schema.org/OfficeEquipmentStore|Office Equipment Store|http://schema.org/Store
+http://schema.org/OfficeEquipmentStore|Office Equipment Store|http://schema.org/Thing
+http://schema.org/OnDemandEvent|On Demand Event|http://schema.org/Event
+http://schema.org/OnDemandEvent|On Demand Event|http://schema.org/PublicationEvent
+http://schema.org/OnDemandEvent|On Demand Event|http://schema.org/Thing
+http://schema.org/OnSitePickup|On Site Pickup|http://schema.org/DeliveryMethod
+http://schema.org/OnSitePickup|On Site Pickup|http://schema.org/Enumeration
+http://schema.org/OnSitePickup|On Site Pickup|http://schema.org/Intangible
+http://schema.org/OnSitePickup|On Site Pickup|http://schema.org/Thing
+http://schema.org/OpeningHoursSpecification|Opening Hours Specification|http://schema.org/Intangible
+http://schema.org/OpeningHoursSpecification|Opening Hours Specification|http://schema.org/StructuredValue
+http://schema.org/OpeningHoursSpecification|Opening Hours Specification|http://schema.org/Thing
+http://schema.org/Optician|Optician|http://schema.org/LocalBusiness
+http://schema.org/Optician|Optician|http://schema.org/MedicalOrganization
+http://schema.org/Optician|Optician|http://schema.org/Organization
+http://schema.org/Optician|Optician|http://schema.org/Place
+http://schema.org/Optician|Optician|http://schema.org/Thing
+http://schema.org/Order|Order|http://schema.org/Intangible
+http://schema.org/Order|Order|http://schema.org/Thing
+http://schema.org/OrderAction|Order Action|http://schema.org/Action
+http://schema.org/OrderAction|Order Action|http://schema.org/Thing
+http://schema.org/OrderAction|Order Action|http://schema.org/TradeAction
+http://schema.org/OrderStatus|Order Status|http://schema.org/Enumeration
+http://schema.org/OrderStatus|Order Status|http://schema.org/Intangible
+http://schema.org/OrderStatus|Order Status|http://schema.org/Thing
+http://schema.org/Organization|Organization|http://schema.org/Thing
+http://schema.org/OrganizeAction|Organize Action|http://schema.org/Action
+http://schema.org/OrganizeAction|Organize Action|http://schema.org/Thing
+http://schema.org/OutletStore|Outlet Store|http://schema.org/LocalBusiness
+http://schema.org/OutletStore|Outlet Store|http://schema.org/Organization
+http://schema.org/OutletStore|Outlet Store|http://schema.org/Place
+http://schema.org/OutletStore|Outlet Store|http://schema.org/Store
+http://schema.org/OutletStore|Outlet Store|http://schema.org/Thing
+http://schema.org/OwnershipInfo|Ownership Info|http://schema.org/Intangible
+http://schema.org/OwnershipInfo|Ownership Info|http://schema.org/StructuredValue
+http://schema.org/OwnershipInfo|Ownership Info|http://schema.org/Thing
+http://schema.org/PaintAction|Paint Action|http://schema.org/Action
+http://schema.org/PaintAction|Paint Action|http://schema.org/CreateAction
+http://schema.org/PaintAction|Paint Action|http://schema.org/Thing
+http://schema.org/Painting|Painting|http://schema.org/CreativeWork
+http://schema.org/Painting|Painting|http://schema.org/Thing
+http://schema.org/PalliativeProcedure|Palliative Procedure|http://schema.org/MedicalEntity
+http://schema.org/PalliativeProcedure|Palliative Procedure|http://schema.org/MedicalProcedure
+http://schema.org/PalliativeProcedure|Palliative Procedure|http://schema.org/MedicalTherapy
+http://schema.org/PalliativeProcedure|Palliative Procedure|http://schema.org/Thing
+http://schema.org/ParcelDelivery|Parcel Delivery|http://schema.org/Intangible
+http://schema.org/ParcelDelivery|Parcel Delivery|http://schema.org/Thing
+http://schema.org/ParcelService|Parcel Service|http://schema.org/DeliveryMethod
+http://schema.org/ParcelService|Parcel Service|http://schema.org/Enumeration
+http://schema.org/ParcelService|Parcel Service|http://schema.org/Intangible
+http://schema.org/ParcelService|Parcel Service|http://schema.org/Thing
+http://schema.org/ParentAudience|Parent Audience|http://schema.org/Audience
+http://schema.org/ParentAudience|Parent Audience|http://schema.org/Intangible
+http://schema.org/ParentAudience|Parent Audience|http://schema.org/PeopleAudience
+http://schema.org/ParentAudience|Parent Audience|http://schema.org/Thing
+http://schema.org/Park|Park|http://schema.org/CivicStructure
+http://schema.org/Park|Park|http://schema.org/Place
+http://schema.org/Park|Park|http://schema.org/Thing
+http://schema.org/ParkingFacility|Parking Facility|http://schema.org/CivicStructure
+http://schema.org/ParkingFacility|Parking Facility|http://schema.org/Place
+http://schema.org/ParkingFacility|Parking Facility|http://schema.org/Thing
+http://schema.org/PathologyTest|Pathology Test|http://schema.org/MedicalEntity
+http://schema.org/PathologyTest|Pathology Test|http://schema.org/MedicalTest
+http://schema.org/PathologyTest|Pathology Test|http://schema.org/Thing
+http://schema.org/PawnShop|Pawn Shop|http://schema.org/LocalBusiness
+http://schema.org/PawnShop|Pawn Shop|http://schema.org/Organization
+http://schema.org/PawnShop|Pawn Shop|http://schema.org/Place
+http://schema.org/PawnShop|Pawn Shop|http://schema.org/Store
+http://schema.org/PawnShop|Pawn Shop|http://schema.org/Thing
+http://schema.org/PayAction|Pay Action|http://schema.org/Action
+http://schema.org/PayAction|Pay Action|http://schema.org/Thing
+http://schema.org/PayAction|Pay Action|http://schema.org/TradeAction
+http://schema.org/PaymentChargeSpecification|Payment Charge Specification|http://schema.org/Intangible
+http://schema.org/PaymentChargeSpecification|Payment Charge Specification|http://schema.org/PriceSpecification
+http://schema.org/PaymentChargeSpecification|Payment Charge Specification|http://schema.org/StructuredValue
+http://schema.org/PaymentChargeSpecification|Payment Charge Specification|http://schema.org/Thing
+http://schema.org/PaymentMethod|Payment Method|http://schema.org/Enumeration
+http://schema.org/PaymentMethod|Payment Method|http://schema.org/Intangible
+http://schema.org/PaymentMethod|Payment Method|http://schema.org/Thing
+http://schema.org/PeopleAudience|People Audience|http://schema.org/Audience
+http://schema.org/PeopleAudience|People Audience|http://schema.org/Intangible
+http://schema.org/PeopleAudience|People Audience|http://schema.org/Thing
+http://schema.org/PerformAction|Perform Action|http://schema.org/Action
+http://schema.org/PerformAction|Perform Action|http://schema.org/PlayAction
+http://schema.org/PerformAction|Perform Action|http://schema.org/Thing
+http://schema.org/PerformingArtsTheater|Performing Arts Theater|http://schema.org/CivicStructure
+http://schema.org/PerformingArtsTheater|Performing Arts Theater|http://schema.org/Place
+http://schema.org/PerformingArtsTheater|Performing Arts Theater|http://schema.org/Thing
+http://schema.org/PerformingGroup|Performing Group|http://schema.org/Organization
+http://schema.org/PerformingGroup|Performing Group|http://schema.org/Thing
+http://schema.org/Permit|Permit|http://schema.org/Intangible
+http://schema.org/Permit|Permit|http://schema.org/Thing
+http://schema.org/Person|Person|http://schema.org/Thing
+http://schema.org/PetStore|Pet Store|http://schema.org/LocalBusiness
+http://schema.org/PetStore|Pet Store|http://schema.org/Organization
+http://schema.org/PetStore|Pet Store|http://schema.org/Place
+http://schema.org/PetStore|Pet Store|http://schema.org/Store
+http://schema.org/PetStore|Pet Store|http://schema.org/Thing
+http://schema.org/Pharmacy|Pharmacy|http://schema.org/LocalBusiness
+http://schema.org/Pharmacy|Pharmacy|http://schema.org/MedicalOrganization
+http://schema.org/Pharmacy|Pharmacy|http://schema.org/Organization
+http://schema.org/Pharmacy|Pharmacy|http://schema.org/Place
+http://schema.org/Pharmacy|Pharmacy|http://schema.org/Thing
+http://schema.org/Photograph|Photograph|http://schema.org/CreativeWork
+http://schema.org/Photograph|Photograph|http://schema.org/Thing
+http://schema.org/PhotographAction|Photograph Action|http://schema.org/Action
+http://schema.org/PhotographAction|Photograph Action|http://schema.org/CreateAction
+http://schema.org/PhotographAction|Photograph Action|http://schema.org/Thing
+http://schema.org/PhysicalActivity|Physical Activity|http://schema.org/LifestyleModification
+http://schema.org/PhysicalActivity|Physical Activity|http://schema.org/MedicalEntity
+http://schema.org/PhysicalActivity|Physical Activity|http://schema.org/MedicalTherapy
+http://schema.org/PhysicalActivity|Physical Activity|http://schema.org/Thing
+http://schema.org/PhysicalActivityCategory|Physical Activity Category|http://schema.org/MedicalEntity
+http://schema.org/PhysicalActivityCategory|Physical Activity Category|http://schema.org/MedicalEnumeration
+http://schema.org/PhysicalActivityCategory|Physical Activity Category|http://schema.org/MedicalIntangible
+http://schema.org/PhysicalActivityCategory|Physical Activity Category|http://schema.org/Thing
+http://schema.org/PhysicalExam|Physical Exam|http://schema.org/MedicalEntity
+http://schema.org/PhysicalExam|Physical Exam|http://schema.org/MedicalEnumeration
+http://schema.org/PhysicalExam|Physical Exam|http://schema.org/MedicalIntangible
+http://schema.org/PhysicalExam|Physical Exam|http://schema.org/Thing
+http://schema.org/PhysicalTherapy|Physical Therapy|http://schema.org/MedicalEntity
+http://schema.org/PhysicalTherapy|Physical Therapy|http://schema.org/MedicalTherapy
+http://schema.org/PhysicalTherapy|Physical Therapy|http://schema.org/Thing
+http://schema.org/Physician|Physician|http://schema.org/LocalBusiness
+http://schema.org/Physician|Physician|http://schema.org/MedicalOrganization
+http://schema.org/Physician|Physician|http://schema.org/Organization
+http://schema.org/Physician|Physician|http://schema.org/Place
+http://schema.org/Physician|Physician|http://schema.org/Thing
+http://schema.org/Place|Place|http://schema.org/Thing
+http://schema.org/PlaceOfWorship|Place of Worship|http://schema.org/CivicStructure
+http://schema.org/PlaceOfWorship|Place of Worship|http://schema.org/Place
+http://schema.org/PlaceOfWorship|Place of Worship|http://schema.org/Thing
+http://schema.org/PlanAction|Plan Action|http://schema.org/Action
+http://schema.org/PlanAction|Plan Action|http://schema.org/OrganizeAction
+http://schema.org/PlanAction|Plan Action|http://schema.org/Thing
+http://schema.org/PlayAction|Play Action|http://schema.org/Action
+http://schema.org/PlayAction|Play Action|http://schema.org/Thing
+http://schema.org/Playground|Playground|http://schema.org/CivicStructure
+http://schema.org/Playground|Playground|http://schema.org/Place
+http://schema.org/Playground|Playground|http://schema.org/Thing
+http://schema.org/Plumber|Plumber|http://schema.org/HomeAndConstructionBusiness
+http://schema.org/Plumber|Plumber|http://schema.org/LocalBusiness
+http://schema.org/Plumber|Plumber|http://schema.org/Organization
+http://schema.org/Plumber|Plumber|http://schema.org/Place
+http://schema.org/Plumber|Plumber|http://schema.org/ProfessionalService
+http://schema.org/Plumber|Plumber|http://schema.org/Thing
+http://schema.org/PoliceStation|Police Station|http://schema.org/CivicStructure
+http://schema.org/PoliceStation|Police Station|http://schema.org/EmergencyService
+http://schema.org/PoliceStation|Police Station|http://schema.org/LocalBusiness
+http://schema.org/PoliceStation|Police Station|http://schema.org/Organization
+http://schema.org/PoliceStation|Police Station|http://schema.org/Place
+http://schema.org/PoliceStation|Police Station|http://schema.org/Thing
+http://schema.org/Pond|Pond|http://schema.org/BodyOfWater
+http://schema.org/Pond|Pond|http://schema.org/Landform
+http://schema.org/Pond|Pond|http://schema.org/Place
+http://schema.org/Pond|Pond|http://schema.org/Thing
+http://schema.org/PostOffice|Post Office|http://schema.org/GovernmentOffice
+http://schema.org/PostOffice|Post Office|http://schema.org/LocalBusiness
+http://schema.org/PostOffice|Post Office|http://schema.org/Organization
+http://schema.org/PostOffice|Post Office|http://schema.org/Place
+http://schema.org/PostOffice|Post Office|http://schema.org/Thing
+http://schema.org/PostalAddress|Postal Address|http://schema.org/ContactPoint
+http://schema.org/PostalAddress|Postal Address|http://schema.org/Intangible
+http://schema.org/PostalAddress|Postal Address|http://schema.org/StructuredValue
+http://schema.org/PostalAddress|Postal Address|http://schema.org/Thing
+http://schema.org/PrependAction|Prepend Action|http://schema.org/Action
+http://schema.org/PrependAction|Prepend Action|http://schema.org/AddAction
+http://schema.org/PrependAction|Prepend Action|http://schema.org/InsertAction
+http://schema.org/PrependAction|Prepend Action|http://schema.org/Thing
+http://schema.org/PrependAction|Prepend Action|http://schema.org/UpdateAction
+http://schema.org/Preschool|Preschool|http://schema.org/EducationalOrganization
+http://schema.org/Preschool|Preschool|http://schema.org/Organization
+http://schema.org/Preschool|Preschool|http://schema.org/Thing
+http://schema.org/PreventionIndication|Prevention Indication|http://schema.org/MedicalEntity
+http://schema.org/PreventionIndication|Prevention Indication|http://schema.org/MedicalIndication
+http://schema.org/PreventionIndication|Prevention Indication|http://schema.org/Thing
+http://schema.org/PriceSpecification|Price Specification|http://schema.org/Intangible
+http://schema.org/PriceSpecification|Price Specification|http://schema.org/StructuredValue
+http://schema.org/PriceSpecification|Price Specification|http://schema.org/Thing
+http://schema.org/Product|Product|http://schema.org/Thing
+http://schema.org/ProductModel|Product Model|http://schema.org/Product
+http://schema.org/ProductModel|Product Model|http://schema.org/Thing
+http://schema.org/ProfessionalService|Professional Service|http://schema.org/LocalBusiness
+http://schema.org/ProfessionalService|Professional Service|http://schema.org/Organization
+http://schema.org/ProfessionalService|Professional Service|http://schema.org/Place
+http://schema.org/ProfessionalService|Professional Service|http://schema.org/Thing
+http://schema.org/ProfilePage|Profile Page|http://schema.org/CreativeWork
+http://schema.org/ProfilePage|Profile Page|http://schema.org/Thing
+http://schema.org/ProfilePage|Profile Page|http://schema.org/WebPage
+http://schema.org/Property|Property|http://schema.org/Thing
+http://schema.org/PsychologicalTreatment|Psychological Treatment|http://schema.org/MedicalEntity
+http://schema.org/PsychologicalTreatment|Psychological Treatment|http://schema.org/MedicalTherapy
+http://schema.org/PsychologicalTreatment|Psychological Treatment|http://schema.org/Thing
+http://schema.org/PublicSwimmingPool|Public Swimming Pool|http://schema.org/LocalBusiness
+http://schema.org/PublicSwimmingPool|Public Swimming Pool|http://schema.org/Organization
+http://schema.org/PublicSwimmingPool|Public Swimming Pool|http://schema.org/Place
+http://schema.org/PublicSwimmingPool|Public Swimming Pool|http://schema.org/SportsActivityLocation
+http://schema.org/PublicSwimmingPool|Public Swimming Pool|http://schema.org/Thing
+http://schema.org/PublicationEvent|Publication Event|http://schema.org/Event
+http://schema.org/PublicationEvent|Publication Event|http://schema.org/Thing
+http://schema.org/QualitativeValue|Qualitative Value|http://schema.org/Enumeration
+http://schema.org/QualitativeValue|Qualitative Value|http://schema.org/Intangible
+http://schema.org/QualitativeValue|Qualitative Value|http://schema.org/Thing
+http://schema.org/QuantitativeValue|Quantitative Value|http://schema.org/Intangible
+http://schema.org/QuantitativeValue|Quantitative Value|http://schema.org/StructuredValue
+http://schema.org/QuantitativeValue|Quantitative Value|http://schema.org/Thing
+http://schema.org/Quantity|Quantity|http://schema.org/Intangible
+http://schema.org/Quantity|Quantity|http://schema.org/Thing
+http://schema.org/QuoteAction|Quote Action|http://schema.org/Action
+http://schema.org/QuoteAction|Quote Action|http://schema.org/Thing
+http://schema.org/QuoteAction|Quote Action|http://schema.org/TradeAction
+http://schema.org/RVPark|RV Park|http://schema.org/CivicStructure
+http://schema.org/RVPark|RV Park|http://schema.org/Place
+http://schema.org/RVPark|RV Park|http://schema.org/Thing
+http://schema.org/RadiationTherapy|Radiation Therapy|http://schema.org/MedicalEntity
+http://schema.org/RadiationTherapy|Radiation Therapy|http://schema.org/MedicalTherapy
+http://schema.org/RadiationTherapy|Radiation Therapy|http://schema.org/Thing
+http://schema.org/RadioClip|Radio Clip|http://schema.org/Clip
+http://schema.org/RadioClip|Radio Clip|http://schema.org/CreativeWork
+http://schema.org/RadioClip|Radio Clip|http://schema.org/Thing
+http://schema.org/RadioEpisode|Radio Episode|http://schema.org/CreativeWork
+http://schema.org/RadioEpisode|Radio Episode|http://schema.org/Episode
+http://schema.org/RadioEpisode|Radio Episode|http://schema.org/Thing
+http://schema.org/RadioSeason|Radio Season|http://schema.org/CreativeWork
+http://schema.org/RadioSeason|Radio Season|http://schema.org/Season
+http://schema.org/RadioSeason|Radio Season|http://schema.org/Thing
+http://schema.org/RadioSeries|Radio Series|http://schema.org/CreativeWork
+http://schema.org/RadioSeries|Radio Series|http://schema.org/Series
+http://schema.org/RadioSeries|Radio Series|http://schema.org/Thing
+http://schema.org/RadioStation|Radio Station|http://schema.org/LocalBusiness
+http://schema.org/RadioStation|Radio Station|http://schema.org/Organization
+http://schema.org/RadioStation|Radio Station|http://schema.org/Place
+http://schema.org/RadioStation|Radio Station|http://schema.org/Thing
+http://schema.org/Rating|Rating|http://schema.org/Intangible
+http://schema.org/Rating|Rating|http://schema.org/Thing
+http://schema.org/ReactAction|React Action|http://schema.org/Action
+http://schema.org/ReactAction|React Action|http://schema.org/AssessAction
+http://schema.org/ReactAction|React Action|http://schema.org/Thing
+http://schema.org/ReadAction|Read Action|http://schema.org/Action
+http://schema.org/ReadAction|Read Action|http://schema.org/ConsumeAction
+http://schema.org/ReadAction|Read Action|http://schema.org/Thing
+http://schema.org/RealEstateAgent|Real Estate Agent|http://schema.org/LocalBusiness
+http://schema.org/RealEstateAgent|Real Estate Agent|http://schema.org/Organization
+http://schema.org/RealEstateAgent|Real Estate Agent|http://schema.org/Place
+http://schema.org/RealEstateAgent|Real Estate Agent|http://schema.org/Thing
+http://schema.org/ReceiveAction|Receive Action|http://schema.org/Action
+http://schema.org/ReceiveAction|Receive Action|http://schema.org/Thing
+http://schema.org/ReceiveAction|Receive Action|http://schema.org/TransferAction
+http://schema.org/Recipe|Recipe|http://schema.org/CreativeWork
+http://schema.org/Recipe|Recipe|http://schema.org/Thing
+http://schema.org/RecommendedDoseSchedule|Recommended Dose Schedule|http://schema.org/DoseSchedule
+http://schema.org/RecommendedDoseSchedule|Recommended Dose Schedule|http://schema.org/MedicalEntity
+http://schema.org/RecommendedDoseSchedule|Recommended Dose Schedule|http://schema.org/MedicalIntangible
+http://schema.org/RecommendedDoseSchedule|Recommended Dose Schedule|http://schema.org/Thing
+http://schema.org/RecyclingCenter|Recycling Center|http://schema.org/LocalBusiness
+http://schema.org/RecyclingCenter|Recycling Center|http://schema.org/Organization
+http://schema.org/RecyclingCenter|Recycling Center|http://schema.org/Place
+http://schema.org/RecyclingCenter|Recycling Center|http://schema.org/Thing
+http://schema.org/RegisterAction|Register Action|http://schema.org/Action
+http://schema.org/RegisterAction|Register Action|http://schema.org/InteractAction
+http://schema.org/RegisterAction|Register Action|http://schema.org/Thing
+http://schema.org/RejectAction|Reject Action|http://schema.org/Action
+http://schema.org/RejectAction|Reject Action|http://schema.org/AllocateAction
+http://schema.org/RejectAction|Reject Action|http://schema.org/OrganizeAction
+http://schema.org/RejectAction|Reject Action|http://schema.org/Thing
+http://schema.org/RentAction|Rent Action|http://schema.org/Action
+http://schema.org/RentAction|Rent Action|http://schema.org/Thing
+http://schema.org/RentAction|Rent Action|http://schema.org/TradeAction
+http://schema.org/ReplaceAction|Replace Action|http://schema.org/Action
+http://schema.org/ReplaceAction|Replace Action|http://schema.org/Thing
+http://schema.org/ReplaceAction|Replace Action|http://schema.org/UpdateAction
+http://schema.org/ReplyAction|Reply Action|http://schema.org/Action
+http://schema.org/ReplyAction|Reply Action|http://schema.org/CommunicateAction
+http://schema.org/ReplyAction|Reply Action|http://schema.org/InteractAction
+http://schema.org/ReplyAction|Reply Action|http://schema.org/Thing
+http://schema.org/ReportedDoseSchedule|Reported Dose Schedule|http://schema.org/DoseSchedule
+http://schema.org/ReportedDoseSchedule|Reported Dose Schedule|http://schema.org/MedicalEntity
+http://schema.org/ReportedDoseSchedule|Reported Dose Schedule|http://schema.org/MedicalIntangible
+http://schema.org/ReportedDoseSchedule|Reported Dose Schedule|http://schema.org/Thing
+http://schema.org/ReserveAction|Reserve Action|http://schema.org/Action
+http://schema.org/ReserveAction|Reserve Action|http://schema.org/OrganizeAction
+http://schema.org/ReserveAction|Reserve Action|http://schema.org/PlanAction
+http://schema.org/ReserveAction|Reserve Action|http://schema.org/Thing
+http://schema.org/Reservoir|Reservoir|http://schema.org/BodyOfWater
+http://schema.org/Reservoir|Reservoir|http://schema.org/Landform
+http://schema.org/Reservoir|Reservoir|http://schema.org/Place
+http://schema.org/Reservoir|Reservoir|http://schema.org/Thing
+http://schema.org/Residence|Residence|http://schema.org/Place
+http://schema.org/Residence|Residence|http://schema.org/Thing
+http://schema.org/Restaurant|Restaurant|http://schema.org/FoodEstablishment
+http://schema.org/Restaurant|Restaurant|http://schema.org/LocalBusiness
+http://schema.org/Restaurant|Restaurant|http://schema.org/Organization
+http://schema.org/Restaurant|Restaurant|http://schema.org/Place
+http://schema.org/Restaurant|Restaurant|http://schema.org/Thing
+http://schema.org/ReturnAction|Return Action|http://schema.org/Action
+http://schema.org/ReturnAction|Return Action|http://schema.org/Thing
+http://schema.org/ReturnAction|Return Action|http://schema.org/TransferAction
+http://schema.org/Review|Review|http://schema.org/CreativeWork
+http://schema.org/Review|Review|http://schema.org/Thing
+http://schema.org/ReviewAction|Review Action|http://schema.org/Action
+http://schema.org/ReviewAction|Review Action|http://schema.org/AssessAction
+http://schema.org/ReviewAction|Review Action|http://schema.org/Thing
+http://schema.org/RiverBodyOfWater|River Body of Water|http://schema.org/BodyOfWater
+http://schema.org/RiverBodyOfWater|River Body of Water|http://schema.org/Landform
+http://schema.org/RiverBodyOfWater|River Body of Water|http://schema.org/Place
+http://schema.org/RiverBodyOfWater|River Body of Water|http://schema.org/Thing
+http://schema.org/RoofingContractor|Roofing Contractor|http://schema.org/HomeAndConstructionBusiness
+http://schema.org/RoofingContractor|Roofing Contractor|http://schema.org/LocalBusiness
+http://schema.org/RoofingContractor|Roofing Contractor|http://schema.org/Organization
+http://schema.org/RoofingContractor|Roofing Contractor|http://schema.org/Place
+http://schema.org/RoofingContractor|Roofing Contractor|http://schema.org/ProfessionalService
+http://schema.org/RoofingContractor|Roofing Contractor|http://schema.org/Thing
+http://schema.org/RsvpAction|Rsvp Action|http://schema.org/Action
+http://schema.org/RsvpAction|Rsvp Action|http://schema.org/CommunicateAction
+http://schema.org/RsvpAction|Rsvp Action|http://schema.org/InformAction
+http://schema.org/RsvpAction|Rsvp Action|http://schema.org/InteractAction
+http://schema.org/RsvpAction|Rsvp Action|http://schema.org/Thing
+http://schema.org/SaleEvent|Sale Event|http://schema.org/Event
+http://schema.org/SaleEvent|Sale Event|http://schema.org/Thing
+http://schema.org/ScheduleAction|Schedule Action|http://schema.org/Action
+http://schema.org/ScheduleAction|Schedule Action|http://schema.org/OrganizeAction
+http://schema.org/ScheduleAction|Schedule Action|http://schema.org/PlanAction
+http://schema.org/ScheduleAction|Schedule Action|http://schema.org/Thing
+http://schema.org/ScholarlyArticle|Scholarly Article|http://schema.org/Article
+http://schema.org/ScholarlyArticle|Scholarly Article|http://schema.org/CreativeWork
+http://schema.org/ScholarlyArticle|Scholarly Article|http://schema.org/Thing
+http://schema.org/School|School|http://schema.org/EducationalOrganization
+http://schema.org/School|School|http://schema.org/Organization
+http://schema.org/School|School|http://schema.org/Thing
+http://schema.org/Sculpture|Sculpture|http://schema.org/CreativeWork
+http://schema.org/Sculpture|Sculpture|http://schema.org/Thing
+http://schema.org/SeaBodyOfWater|Sea Body of Water|http://schema.org/BodyOfWater
+http://schema.org/SeaBodyOfWater|Sea Body of Water|http://schema.org/Landform
+http://schema.org/SeaBodyOfWater|Sea Body of Water|http://schema.org/Place
+http://schema.org/SeaBodyOfWater|Sea Body of Water|http://schema.org/Thing
+http://schema.org/SearchAction|Search Action|http://schema.org/Action
+http://schema.org/SearchAction|Search Action|http://schema.org/Thing
+http://schema.org/SearchResultsPage|Search Results Page|http://schema.org/CreativeWork
+http://schema.org/SearchResultsPage|Search Results Page|http://schema.org/Thing
+http://schema.org/SearchResultsPage|Search Results Page|http://schema.org/WebPage
+http://schema.org/Season|Season|http://schema.org/CreativeWork
+http://schema.org/Season|Season|http://schema.org/Thing
+http://schema.org/SelfStorage|Self Storage|http://schema.org/LocalBusiness
+http://schema.org/SelfStorage|Self Storage|http://schema.org/Organization
+http://schema.org/SelfStorage|Self Storage|http://schema.org/Place
+http://schema.org/SelfStorage|Self Storage|http://schema.org/Thing
+http://schema.org/SellAction|Sell Action|http://schema.org/Action
+http://schema.org/SellAction|Sell Action|http://schema.org/Thing
+http://schema.org/SellAction|Sell Action|http://schema.org/TradeAction
+http://schema.org/SendAction|Send Action|http://schema.org/Action
+http://schema.org/SendAction|Send Action|http://schema.org/Thing
+http://schema.org/SendAction|Send Action|http://schema.org/TransferAction
+http://schema.org/Series|Series|http://schema.org/CreativeWork
+http://schema.org/Series|Series|http://schema.org/Thing
+http://schema.org/Service|Service|http://schema.org/Intangible
+http://schema.org/Service|Service|http://schema.org/Thing
+http://schema.org/ServiceChannel|Service Channel|http://schema.org/Intangible
+http://schema.org/ServiceChannel|Service Channel|http://schema.org/Thing
+http://schema.org/ShareAction|Share Action|http://schema.org/Action
+http://schema.org/ShareAction|Share Action|http://schema.org/CommunicateAction
+http://schema.org/ShareAction|Share Action|http://schema.org/InteractAction
+http://schema.org/ShareAction|Share Action|http://schema.org/Thing
+http://schema.org/ShoeStore|Shoe Store|http://schema.org/LocalBusiness
+http://schema.org/ShoeStore|Shoe Store|http://schema.org/Organization
+http://schema.org/ShoeStore|Shoe Store|http://schema.org/Place
+http://schema.org/ShoeStore|Shoe Store|http://schema.org/Store
+http://schema.org/ShoeStore|Shoe Store|http://schema.org/Thing
+http://schema.org/ShoppingCenter|Shopping Center|http://schema.org/LocalBusiness
+http://schema.org/ShoppingCenter|Shopping Center|http://schema.org/Organization
+http://schema.org/ShoppingCenter|Shopping Center|http://schema.org/Place
+http://schema.org/ShoppingCenter|Shopping Center|http://schema.org/Thing
+http://schema.org/SingleFamilyResidence|Single Family Residence|http://schema.org/Place
+http://schema.org/SingleFamilyResidence|Single Family Residence|http://schema.org/Residence
+http://schema.org/SingleFamilyResidence|Single Family Residence|http://schema.org/Thing
+http://schema.org/SiteNavigationElement|Site Navigation Element|http://schema.org/CreativeWork
+http://schema.org/SiteNavigationElement|Site Navigation Element|http://schema.org/Thing
+http://schema.org/SiteNavigationElement|Site Navigation Element|http://schema.org/WebPageElement
+http://schema.org/SkiResort|Ski Resort|http://schema.org/LocalBusiness
+http://schema.org/SkiResort|Ski Resort|http://schema.org/Organization
+http://schema.org/SkiResort|Ski Resort|http://schema.org/Place
+http://schema.org/SkiResort|Ski Resort|http://schema.org/SportsActivityLocation
+http://schema.org/SkiResort|Ski Resort|http://schema.org/Thing
+http://schema.org/SocialEvent|Social Event|http://schema.org/Event
+http://schema.org/SocialEvent|Social Event|http://schema.org/Thing
+http://schema.org/SoftwareApplication|Software Application|http://schema.org/CreativeWork
+http://schema.org/SoftwareApplication|Software Application|http://schema.org/Thing
+http://schema.org/SomeProducts|Some Products|http://schema.org/Product
+http://schema.org/SomeProducts|Some Products|http://schema.org/Thing
+http://schema.org/Specialty|Specialty|http://schema.org/Enumeration
+http://schema.org/Specialty|Specialty|http://schema.org/Intangible
+http://schema.org/Specialty|Specialty|http://schema.org/Thing
+http://schema.org/SportingGoodsStore|Sporting Goods Store|http://schema.org/LocalBusiness
+http://schema.org/SportingGoodsStore|Sporting Goods Store|http://schema.org/Organization
+http://schema.org/SportingGoodsStore|Sporting Goods Store|http://schema.org/Place
+http://schema.org/SportingGoodsStore|Sporting Goods Store|http://schema.org/Store
+http://schema.org/SportingGoodsStore|Sporting Goods Store|http://schema.org/Thing
+http://schema.org/SportsActivityLocation|Sports Activity Location|http://schema.org/LocalBusiness
+http://schema.org/SportsActivityLocation|Sports Activity Location|http://schema.org/Organization
+http://schema.org/SportsActivityLocation|Sports Activity Location|http://schema.org/Place
+http://schema.org/SportsActivityLocation|Sports Activity Location|http://schema.org/Thing
+http://schema.org/SportsClub|Sports Club|http://schema.org/LocalBusiness
+http://schema.org/SportsClub|Sports Club|http://schema.org/Organization
+http://schema.org/SportsClub|Sports Club|http://schema.org/Place
+http://schema.org/SportsClub|Sports Club|http://schema.org/SportsActivityLocation
+http://schema.org/SportsClub|Sports Club|http://schema.org/Thing
+http://schema.org/SportsEvent|Sports Event|http://schema.org/Event
+http://schema.org/SportsEvent|Sports Event|http://schema.org/Thing
+http://schema.org/SportsTeam|Sports Team|http://schema.org/Organization
+http://schema.org/SportsTeam|Sports Team|http://schema.org/Thing
+http://schema.org/StadiumOrArena|Stadium or Arena|http://schema.org/CivicStructure
+http://schema.org/StadiumOrArena|Stadium or Arena|http://schema.org/LocalBusiness
+http://schema.org/StadiumOrArena|Stadium or Arena|http://schema.org/Organization
+http://schema.org/StadiumOrArena|Stadium or Arena|http://schema.org/Place
+http://schema.org/StadiumOrArena|Stadium or Arena|http://schema.org/SportsActivityLocation
+http://schema.org/StadiumOrArena|Stadium or Arena|http://schema.org/Thing
+http://schema.org/State|State|http://schema.org/AdministrativeArea
+http://schema.org/State|State|http://schema.org/Place
+http://schema.org/State|State|http://schema.org/Thing
+http://schema.org/Store|Store|http://schema.org/LocalBusiness
+http://schema.org/Store|Store|http://schema.org/Organization
+http://schema.org/Store|Store|http://schema.org/Place
+http://schema.org/Store|Store|http://schema.org/Thing
+http://schema.org/StructuredValue|Structured Value|http://schema.org/Intangible
+http://schema.org/StructuredValue|Structured Value|http://schema.org/Thing
+http://schema.org/SubscribeAction|Subscribe Action|http://schema.org/Action
+http://schema.org/SubscribeAction|Subscribe Action|http://schema.org/InteractAction
+http://schema.org/SubscribeAction|Subscribe Action|http://schema.org/Thing
+http://schema.org/SubwayStation|Subway Station|http://schema.org/CivicStructure
+http://schema.org/SubwayStation|Subway Station|http://schema.org/Place
+http://schema.org/SubwayStation|Subway Station|http://schema.org/Thing
+http://schema.org/SuperficialAnatomy|Superficial Anatomy|http://schema.org/MedicalEntity
+http://schema.org/SuperficialAnatomy|Superficial Anatomy|http://schema.org/Thing
+http://schema.org/Synagogue|Synagogue|http://schema.org/CivicStructure
+http://schema.org/Synagogue|Synagogue|http://schema.org/Place
+http://schema.org/Synagogue|Synagogue|http://schema.org/PlaceOfWorship
+http://schema.org/Synagogue|Synagogue|http://schema.org/Thing
+http://schema.org/TVClip|TV Clip|http://schema.org/Clip
+http://schema.org/TVClip|TV Clip|http://schema.org/CreativeWork
+http://schema.org/TVClip|TV Clip|http://schema.org/Thing
+http://schema.org/TVEpisode|TV Episode|http://schema.org/CreativeWork
+http://schema.org/TVEpisode|TV Episode|http://schema.org/Episode
+http://schema.org/TVEpisode|TV Episode|http://schema.org/Thing
+http://schema.org/TVSeason|TV Season|http://schema.org/CreativeWork
+http://schema.org/TVSeason|TV Season|http://schema.org/Season
+http://schema.org/TVSeason|TV Season|http://schema.org/Thing
+http://schema.org/TVSeries|TV Series|http://schema.org/CreativeWork
+http://schema.org/TVSeries|TV Series|http://schema.org/Series
+http://schema.org/TVSeries|TV Series|http://schema.org/Thing
+http://schema.org/Table|Table|http://schema.org/CreativeWork
+http://schema.org/Table|Table|http://schema.org/Thing
+http://schema.org/Table|Table|http://schema.org/WebPageElement
+http://schema.org/TakeAction|Take Action|http://schema.org/Action
+http://schema.org/TakeAction|Take Action|http://schema.org/Thing
+http://schema.org/TakeAction|Take Action|http://schema.org/TransferAction
+http://schema.org/TattooParlor|Tattoo Parlor|http://schema.org/HealthAndBeautyBusiness
+http://schema.org/TattooParlor|Tattoo Parlor|http://schema.org/LocalBusiness
+http://schema.org/TattooParlor|Tattoo Parlor|http://schema.org/Organization
+http://schema.org/TattooParlor|Tattoo Parlor|http://schema.org/Place
+http://schema.org/TattooParlor|Tattoo Parlor|http://schema.org/Thing
+http://schema.org/TaxiStand|Taxi Stand|http://schema.org/CivicStructure
+http://schema.org/TaxiStand|Taxi Stand|http://schema.org/Place
+http://schema.org/TaxiStand|Taxi Stand|http://schema.org/Thing
+http://schema.org/TechArticle|Tech Article|http://schema.org/Article
+http://schema.org/TechArticle|Tech Article|http://schema.org/CreativeWork
+http://schema.org/TechArticle|Tech Article|http://schema.org/Thing
+http://schema.org/TelevisionStation|Television Station|http://schema.org/LocalBusiness
+http://schema.org/TelevisionStation|Television Station|http://schema.org/Organization
+http://schema.org/TelevisionStation|Television Station|http://schema.org/Place
+http://schema.org/TelevisionStation|Television Station|http://schema.org/Thing
+http://schema.org/TennisComplex|Tennis Complex|http://schema.org/LocalBusiness
+http://schema.org/TennisComplex|Tennis Complex|http://schema.org/Organization
+http://schema.org/TennisComplex|Tennis Complex|http://schema.org/Place
+http://schema.org/TennisComplex|Tennis Complex|http://schema.org/SportsActivityLocation
+http://schema.org/TennisComplex|Tennis Complex|http://schema.org/Thing
+http://schema.org/TheaterEvent|Theater Event|http://schema.org/Event
+http://schema.org/TheaterEvent|Theater Event|http://schema.org/Thing
+http://schema.org/TheaterGroup|Theater Group|http://schema.org/Organization
+http://schema.org/TheaterGroup|Theater Group|http://schema.org/PerformingGroup
+http://schema.org/TheaterGroup|Theater Group|http://schema.org/Thing
+http://schema.org/TherapeuticProcedure|Therapeutic Procedure|http://schema.org/MedicalEntity
+http://schema.org/TherapeuticProcedure|Therapeutic Procedure|http://schema.org/MedicalProcedure
+http://schema.org/TherapeuticProcedure|Therapeutic Procedure|http://schema.org/MedicalTherapy
+http://schema.org/TherapeuticProcedure|Therapeutic Procedure|http://schema.org/Thing
+http://schema.org/TieAction|Tie Action|http://schema.org/AchieveAction
+http://schema.org/TieAction|Tie Action|http://schema.org/Action
+http://schema.org/TieAction|Tie Action|http://schema.org/Thing
+http://schema.org/TipAction|Tip Action|http://schema.org/Action
+http://schema.org/TipAction|Tip Action|http://schema.org/Thing
+http://schema.org/TipAction|Tip Action|http://schema.org/TradeAction
+http://schema.org/TireShop|Tire Shop|http://schema.org/LocalBusiness
+http://schema.org/TireShop|Tire Shop|http://schema.org/Organization
+http://schema.org/TireShop|Tire Shop|http://schema.org/Place
+http://schema.org/TireShop|Tire Shop|http://schema.org/Store
+http://schema.org/TireShop|Tire Shop|http://schema.org/Thing
+http://schema.org/TouristAttraction|Tourist Attraction|http://schema.org/Place
+http://schema.org/TouristAttraction|Tourist Attraction|http://schema.org/Thing
+http://schema.org/TouristInformationCenter|Tourist Information Center|http://schema.org/LocalBusiness
+http://schema.org/TouristInformationCenter|Tourist Information Center|http://schema.org/Organization
+http://schema.org/TouristInformationCenter|Tourist Information Center|http://schema.org/Place
+http://schema.org/TouristInformationCenter|Tourist Information Center|http://schema.org/Thing
+http://schema.org/ToyStore|Toy Store|http://schema.org/LocalBusiness
+http://schema.org/ToyStore|Toy Store|http://schema.org/Organization
+http://schema.org/ToyStore|Toy Store|http://schema.org/Place
+http://schema.org/ToyStore|Toy Store|http://schema.org/Store
+http://schema.org/ToyStore|Toy Store|http://schema.org/Thing
+http://schema.org/TrackAction|Track Action|http://schema.org/Action
+http://schema.org/TrackAction|Track Action|http://schema.org/FindAction
+http://schema.org/TrackAction|Track Action|http://schema.org/Thing
+http://schema.org/TradeAction|Trade Action|http://schema.org/Action
+http://schema.org/TradeAction|Trade Action|http://schema.org/Thing
+http://schema.org/TrainStation|Train Station|http://schema.org/CivicStructure
+http://schema.org/TrainStation|Train Station|http://schema.org/Place
+http://schema.org/TrainStation|Train Station|http://schema.org/Thing
+http://schema.org/TransferAction|Transfer Action|http://schema.org/Action
+http://schema.org/TransferAction|Transfer Action|http://schema.org/Thing
+http://schema.org/TravelAction|Travel Action|http://schema.org/Action
+http://schema.org/TravelAction|Travel Action|http://schema.org/MoveAction
+http://schema.org/TravelAction|Travel Action|http://schema.org/Thing
+http://schema.org/TravelAgency|Travel Agency|http://schema.org/LocalBusiness
+http://schema.org/TravelAgency|Travel Agency|http://schema.org/Organization
+http://schema.org/TravelAgency|Travel Agency|http://schema.org/Place
+http://schema.org/TravelAgency|Travel Agency|http://schema.org/Thing
+http://schema.org/TreatmentIndication|Treatment Indication|http://schema.org/MedicalEntity
+http://schema.org/TreatmentIndication|Treatment Indication|http://schema.org/MedicalIndication
+http://schema.org/TreatmentIndication|Treatment Indication|http://schema.org/Thing
+http://schema.org/TypeAndQuantityNode|Type And Quantity Node|http://schema.org/Intangible
+http://schema.org/TypeAndQuantityNode|Type And Quantity Node|http://schema.org/StructuredValue
+http://schema.org/TypeAndQuantityNode|Type And Quantity Node|http://schema.org/Thing
+http://schema.org/UnRegisterAction|Un Register Action|http://schema.org/Action
+http://schema.org/UnRegisterAction|Un Register Action|http://schema.org/InteractAction
+http://schema.org/UnRegisterAction|Un Register Action|http://schema.org/Thing
+http://schema.org/UnitPriceSpecification|Unit Price Specification|http://schema.org/Intangible
+http://schema.org/UnitPriceSpecification|Unit Price Specification|http://schema.org/PriceSpecification
+http://schema.org/UnitPriceSpecification|Unit Price Specification|http://schema.org/StructuredValue
+http://schema.org/UnitPriceSpecification|Unit Price Specification|http://schema.org/Thing
+http://schema.org/UpdateAction|Update Action|http://schema.org/Action
+http://schema.org/UpdateAction|Update Action|http://schema.org/Thing
+http://schema.org/UseAction|Use Action|http://schema.org/Action
+http://schema.org/UseAction|Use Action|http://schema.org/ConsumeAction
+http://schema.org/UseAction|Use Action|http://schema.org/Thing
+http://schema.org/UserBlocks|User Blocks|http://schema.org/Event
+http://schema.org/UserBlocks|User Blocks|http://schema.org/Thing
+http://schema.org/UserBlocks|User Blocks|http://schema.org/UserInteraction
+http://schema.org/UserCheckins|User Checkins|http://schema.org/Event
+http://schema.org/UserCheckins|User Checkins|http://schema.org/Thing
+http://schema.org/UserCheckins|User Checkins|http://schema.org/UserInteraction
+http://schema.org/UserComments|User Comments|http://schema.org/Event
+http://schema.org/UserComments|User Comments|http://schema.org/Thing
+http://schema.org/UserComments|User Comments|http://schema.org/UserInteraction
+http://schema.org/UserDownloads|User Downloads|http://schema.org/Event
+http://schema.org/UserDownloads|User Downloads|http://schema.org/Thing
+http://schema.org/UserDownloads|User Downloads|http://schema.org/UserInteraction
+http://schema.org/UserInteraction|User Interaction|http://schema.org/Event
+http://schema.org/UserInteraction|User Interaction|http://schema.org/Thing
+http://schema.org/UserLikes|User Likes|http://schema.org/Event
+http://schema.org/UserLikes|User Likes|http://schema.org/Thing
+http://schema.org/UserLikes|User Likes|http://schema.org/UserInteraction
+http://schema.org/UserPageVisits|User Page Visits|http://schema.org/Event
+http://schema.org/UserPageVisits|User Page Visits|http://schema.org/Thing
+http://schema.org/UserPageVisits|User Page Visits|http://schema.org/UserInteraction
+http://schema.org/UserPlays|User Plays|http://schema.org/Event
+http://schema.org/UserPlays|User Plays|http://schema.org/Thing
+http://schema.org/UserPlays|User Plays|http://schema.org/UserInteraction
+http://schema.org/UserPlusOnes|User Plus Ones|http://schema.org/Event
+http://schema.org/UserPlusOnes|User Plus Ones|http://schema.org/Thing
+http://schema.org/UserPlusOnes|User Plus Ones|http://schema.org/UserInteraction
+http://schema.org/UserTweets|User Tweets|http://schema.org/Event
+http://schema.org/UserTweets|User Tweets|http://schema.org/Thing
+http://schema.org/UserTweets|User Tweets|http://schema.org/UserInteraction
+http://schema.org/Vein|Vein|http://schema.org/AnatomicalStructure
+http://schema.org/Vein|Vein|http://schema.org/MedicalEntity
+http://schema.org/Vein|Vein|http://schema.org/Thing
+http://schema.org/Vein|Vein|http://schema.org/Vessel
+http://schema.org/Vessel|Vessel|http://schema.org/AnatomicalStructure
+http://schema.org/Vessel|Vessel|http://schema.org/MedicalEntity
+http://schema.org/Vessel|Vessel|http://schema.org/Thing
+http://schema.org/VeterinaryCare|Veterinary Care|http://schema.org/LocalBusiness
+http://schema.org/VeterinaryCare|Veterinary Care|http://schema.org/MedicalOrganization
+http://schema.org/VeterinaryCare|Veterinary Care|http://schema.org/Organization
+http://schema.org/VeterinaryCare|Veterinary Care|http://schema.org/Place
+http://schema.org/VeterinaryCare|Veterinary Care|http://schema.org/Thing
+http://schema.org/VideoGallery|Video Gallery|http://schema.org/CollectionPage
+http://schema.org/VideoGallery|Video Gallery|http://schema.org/CreativeWork
+http://schema.org/VideoGallery|Video Gallery|http://schema.org/Thing
+http://schema.org/VideoGallery|Video Gallery|http://schema.org/WebPage
+http://schema.org/VideoObject|Video Object|http://schema.org/CreativeWork
+http://schema.org/VideoObject|Video Object|http://schema.org/MediaObject
+http://schema.org/VideoObject|Video Object|http://schema.org/Thing
+http://schema.org/ViewAction|View Action|http://schema.org/Action
+http://schema.org/ViewAction|View Action|http://schema.org/ConsumeAction
+http://schema.org/ViewAction|View Action|http://schema.org/Thing
+http://schema.org/VisualArtsEvent|Visual Arts Event|http://schema.org/Event
+http://schema.org/VisualArtsEvent|Visual Arts Event|http://schema.org/Thing
+http://schema.org/Volcano|Volcano|http://schema.org/Landform
+http://schema.org/Volcano|Volcano|http://schema.org/Place
+http://schema.org/Volcano|Volcano|http://schema.org/Thing
+http://schema.org/VoteAction|Vote Action|http://schema.org/Action
+http://schema.org/VoteAction|Vote Action|http://schema.org/AssessAction
+http://schema.org/VoteAction|Vote Action|http://schema.org/ChooseAction
+http://schema.org/VoteAction|Vote Action|http://schema.org/Thing
+http://schema.org/WPAdBlock|WP Ad Block|http://schema.org/CreativeWork
+http://schema.org/WPAdBlock|WP Ad Block|http://schema.org/Thing
+http://schema.org/WPAdBlock|WP Ad Block|http://schema.org/WebPageElement
+http://schema.org/WPFooter|WP Footer|http://schema.org/CreativeWork
+http://schema.org/WPFooter|WP Footer|http://schema.org/Thing
+http://schema.org/WPFooter|WP Footer|http://schema.org/WebPageElement
+http://schema.org/WPHeader|WP Header|http://schema.org/CreativeWork
+http://schema.org/WPHeader|WP Header|http://schema.org/Thing
+http://schema.org/WPHeader|WP Header|http://schema.org/WebPageElement
+http://schema.org/WPSideBar|WP Side Bar|http://schema.org/CreativeWork
+http://schema.org/WPSideBar|WP Side Bar|http://schema.org/Thing
+http://schema.org/WPSideBar|WP Side Bar|http://schema.org/WebPageElement
+http://schema.org/WantAction|Want Action|http://schema.org/Action
+http://schema.org/WantAction|Want Action|http://schema.org/AssessAction
+http://schema.org/WantAction|Want Action|http://schema.org/ReactAction
+http://schema.org/WantAction|Want Action|http://schema.org/Thing
+http://schema.org/WarrantyPromise|Warranty Promise|http://schema.org/Intangible
+http://schema.org/WarrantyPromise|Warranty Promise|http://schema.org/StructuredValue
+http://schema.org/WarrantyPromise|Warranty Promise|http://schema.org/Thing
+http://schema.org/WarrantyScope|Warranty Scope|http://schema.org/Enumeration
+http://schema.org/WarrantyScope|Warranty Scope|http://schema.org/Intangible
+http://schema.org/WarrantyScope|Warranty Scope|http://schema.org/Thing
+http://schema.org/WatchAction|Watch Action|http://schema.org/Action
+http://schema.org/WatchAction|Watch Action|http://schema.org/ConsumeAction
+http://schema.org/WatchAction|Watch Action|http://schema.org/Thing
+http://schema.org/Waterfall|Waterfall|http://schema.org/BodyOfWater
+http://schema.org/Waterfall|Waterfall|http://schema.org/Landform
+http://schema.org/Waterfall|Waterfall|http://schema.org/Place
+http://schema.org/Waterfall|Waterfall|http://schema.org/Thing
+http://schema.org/WearAction|Wear Action|http://schema.org/Action
+http://schema.org/WearAction|Wear Action|http://schema.org/ConsumeAction
+http://schema.org/WearAction|Wear Action|http://schema.org/Thing
+http://schema.org/WearAction|Wear Action|http://schema.org/UseAction
+http://schema.org/WebApplication|Web Application|http://schema.org/CreativeWork
+http://schema.org/WebApplication|Web Application|http://schema.org/SoftwareApplication
+http://schema.org/WebApplication|Web Application|http://schema.org/Thing
+http://schema.org/WebPage|Web Page|http://schema.org/CreativeWork
+http://schema.org/WebPage|Web Page|http://schema.org/Thing
+http://schema.org/WebPageElement|Web Page Element|http://schema.org/CreativeWork
+http://schema.org/WebPageElement|Web Page Element|http://schema.org/Thing
+http://schema.org/WholesaleStore|Wholesale Store|http://schema.org/LocalBusiness
+http://schema.org/WholesaleStore|Wholesale Store|http://schema.org/Organization
+http://schema.org/WholesaleStore|Wholesale Store|http://schema.org/Place
+http://schema.org/WholesaleStore|Wholesale Store|http://schema.org/Store
+http://schema.org/WholesaleStore|Wholesale Store|http://schema.org/Thing
+http://schema.org/WinAction|Win Action|http://schema.org/AchieveAction
+http://schema.org/WinAction|Win Action|http://schema.org/Action
+http://schema.org/WinAction|Win Action|http://schema.org/Thing
+http://schema.org/Winery|Winery|http://schema.org/FoodEstablishment
+http://schema.org/Winery|Winery|http://schema.org/LocalBusiness
+http://schema.org/Winery|Winery|http://schema.org/Organization
+http://schema.org/Winery|Winery|http://schema.org/Place
+http://schema.org/Winery|Winery|http://schema.org/Thing
+http://schema.org/WriteAction|Write Action|http://schema.org/Action
+http://schema.org/WriteAction|Write Action|http://schema.org/CreateAction
+http://schema.org/WriteAction|Write Action|http://schema.org/Thing
+http://schema.org/Zoo|Zoo|http://schema.org/CivicStructure
+http://schema.org/Zoo|Zoo|http://schema.org/Place
+http://schema.org/Zoo|Zoo|http://schema.org/Thing
