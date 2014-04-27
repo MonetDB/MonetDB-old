@@ -142,6 +142,19 @@ sed -i "s:AttFile:${PWD}/ontAttribute.dc.csv:g" loadtmp.sql
 
 mclient < loadtmp.sql
 
+#schema.org
+NUMMETADATA=`cat ontMetadata.schema.org.csv | wc -l`
+NUMATTRIBUTES=`cat ontAttribute.schema.org.csv | wc -l`
+
+cp loadOntologySAMPLE.sql loadtmp.sql
+sed -i "s:NUMMETADATA:$NUMMETADATA:g" loadtmp.sql
+sed -i "s:NUMATTRIBUTES:$NUMATTRIBUTES:g" loadtmp.sql
+sed -i "s:MetaFile:${PWD}/ontMetadata.schema.org.csv:g" loadtmp.sql
+sed -i "s:AttFile:${PWD}/ontAttribute.schema.org.csv:g" loadtmp.sql
+
+
+mclient < loadtmp.sql
+
 #List of possible ontologies
 NUMONT=`cat ontList.csv | wc -l`
 
