@@ -565,6 +565,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	char	tmpstr[20]; 
 	char	tmptbnameex[100];
 	//char	tmpviewname[100]; 
+	str	baseColName;
 	char	tmpcolname[100]; 
 	//char	viewcommand[500];
 	sql_subtype tpe; 	
@@ -723,7 +724,11 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
 
 			//TODO: Use propertyId from Propstat
-			sprintf(tmpcolname, "col"BUNFMT,(cstablestat->lstcstable[i].lstProp[j]));
+			sprintf(tmpstr, "%d",j);
+			getTblName(&baseColName, cstablestat->lstcstable[i].lstProp[j], mapi, mbat);
+			sprintf(tmpcolname, "%s", baseColName);
+			strcat(tmpcolname,tmpstr); 
+			//sprintf(tmpcolname, "col"BUNFMT,(cstablestat->lstcstable[i].lstProp[j]));
 
 			tmpbat = cstablestat->lstcstable[i].colBats[j];
 
@@ -785,7 +790,11 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
 
 			//TODO: Use propertyId from Propstat
-			sprintf(tmpcolname, "col"BUNFMT,(cstablestat->lstcstable[i].lstProp[j]));
+			sprintf(tmpstr, "%d",j);
+			getTblName(&baseColName, cstablestat->lstcstable[i].lstProp[j], mapi, mbat);
+			sprintf(tmpcolname, "%s", baseColName);
+			strcat(tmpcolname,tmpstr); 
+			//sprintf(tmpcolname, "col"BUNFMT,(cstablestat->lstcstable[i].lstProp[j]));
 
 			tmpbat = cstablestat->lstcstable[i].colBats[j];
 

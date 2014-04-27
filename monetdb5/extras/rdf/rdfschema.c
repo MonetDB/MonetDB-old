@@ -6019,16 +6019,22 @@ void getTblName(str *name, oid nameId, BATiter mapi, BAT *mbat){
 			s = *name; 
 			strcpy(s,canStrShort);
 
-			//Convert to lower case
 			for (i = 0; i < lngth; i++){
+				//Convert to lower case
+				/*
 				if (s[i] >= 65 && s[i] <= 90){
 					s[i] = s[i] | 32;
-				} 
+				}
+				*/
+
+				//Replace all non-alphabet character by ___
+				if (!isalpha(s[i])){
+					s[i] = '_';
+				}
 			}
 			s += lngth;
 			*s = '\0';
 		}
-
 
 		GDKfree(canStr);
 
