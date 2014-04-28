@@ -5514,9 +5514,12 @@ int getObjValueFromMVBat(ValPtr returnValue, ValPtr castedValue, BUN pos, Object
 			//printf("A String object value: %s \n",objStr);
 			tmpStr = BUNtail(tmpi, pos); 
 			if (strcmp(tmpStr,str_nil) != 0){
-				inputStr = GDKmalloc(sizeof(char) * strlen(tmpStr) + 1); 
-				memcpy(inputStr, tmpStr, sizeof(char) * strlen(tmpStr) + 1);
-
+				// remove quotes and language tags
+				str tmpStrShort;
+				getStringBetweenQuotes(&tmpStrShort, tmpStr);
+				inputStr = GDKmalloc(sizeof(char) * strlen(tmpStrShort) + 1); 
+				memcpy(inputStr, tmpStrShort, sizeof(char) * strlen(tmpStrShort) + 1);
+				GDKfree(tmpStrShort);
 				VALset(returnValue, TYPE_str, inputStr);
 				if (rdfcast(objType, STRING, returnValue, castedValue) != 1){
 					printf("Everything should be able to cast to String \n");
@@ -5532,8 +5535,12 @@ int getObjValueFromMVBat(ValPtr returnValue, ValPtr castedValue, BUN pos, Object
 			//printf("A Datetime object value: %s \n",objStr);
 			tmpStr = BUNtail(tmpi, pos);
 			if (strcmp(tmpStr,str_nil) != 0){
-				inputStr = GDKmalloc(sizeof(char) * strlen(tmpStr) + 1);
-				memcpy(inputStr, tmpStr, sizeof(char) * strlen(tmpStr) + 1);
+				// remove quotes and language tags
+				str tmpStrShort;
+				getStringBetweenQuotes(&tmpStrShort, tmpStr);
+				inputStr = GDKmalloc(sizeof(char) * strlen(tmpStrShort) + 1);
+				memcpy(inputStr, tmpStrShort, sizeof(char) * strlen(tmpStrShort) + 1);
+				GDKfree(tmpStrShort);
 				VALset(returnValue, TYPE_str, inputStr);
 				if (rdfcast(objType, STRING, returnValue, castedValue) != 1){
 					printf("Everything should be able to cast to String \n");
