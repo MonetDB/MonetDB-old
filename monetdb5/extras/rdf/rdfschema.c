@@ -6736,6 +6736,9 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 				GDKfree(propStr);
 			}
 			fprintf(fout, "\n");
+		} else {
+			// we have to print an empty row to ensure that all tables have the same height, this simplifies the survey layouting in a spreadsheet programm
+			fprintf(fout, "\n");
 		}
 
 		//List of columns
