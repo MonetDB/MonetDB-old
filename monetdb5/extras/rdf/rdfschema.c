@@ -6381,7 +6381,7 @@ void printPropertyWithMarkers(FILE *fout, str propStr, CSSampleExtend *csSampleE
 #if NO_OUTPUTFILE == 0
 // Compute property order and number of properties that are printed, and the list of remaining properties that is printed without sample data
 static
-int* createPropertyOrder(int *numPropsInSampleTable, int **remainingProperties, CSset *freqCSset, CSSampleExtend *csSampleEx, int tblId, CSPropTypes *csPropTypes, PropStat *propStat) {
+int* createPropertyOrder(int *numPropsInSampleTable, int **remainingProperties, CSset *freqCSset, CSSampleExtend *csSampleEx, int tblId, CSPropTypes *csPropTypes, PropStat *propStat, char* isTypeProp) {
 	int		i;
 	CSSampleExtend	sample;
 	CSPropTypes	csPropType;
@@ -6466,11 +6466,21 @@ int* createPropertyOrder(int *numPropsInSampleTable, int **remainingProperties, 
 	}
 
 	// now add properties to propOrder array
+	// add all type properties
+	for (i = 0; i < sample.numProp; ++i) {
+		if (propsAdded >= (*numPropsInSampleTable)) break; // enough properties found
+		if (isTypeProp[i]) { // do not use 'index' because the isTypeProp array uses the old order of properties
+			propOrder[propsAdded] = i;
+			isAdded[i] = 1;
+			propsAdded++;
+		}
+	}
+
 	// first round: properties with isFilled=1 and isTextDate=1, ordered by tfidfValues descending
 	for (i = 0; i < sample.numProp; ++i) {
 		int index = propOrderTfidf[i];
 		if (propsAdded >= (*numPropsInSampleTable)) break; // enough properties found
-		if (isFilled[index] && isTextDate[index]) {
+		if (isFilled[index] && isTextDate[index] && !isAdded[index]) {
 			// add
 			propOrder[propsAdded] = index;
 			isAdded[index] = 1;
@@ -6702,7 +6712,7 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 		// order properties and get list of "remaining" properties that will be printed without sample data
 		remainingProperties = NULL;
 		numPropsInSampleTable = 0;
-		propOrder = createPropertyOrder(&numPropsInSampleTable, &remainingProperties, freqCSset, csSampleEx, i, csPropTypes, propStat);
+		propOrder = createPropertyOrder(&numPropsInSampleTable, &remainingProperties, freqCSset, csSampleEx, i, csPropTypes, propStat, isTypeProp);
 
 		// print list of columns that did not make it to propOrder and are therefore printed without sample data
 		if (sample.numProp > numPropsInSampleTable) {
