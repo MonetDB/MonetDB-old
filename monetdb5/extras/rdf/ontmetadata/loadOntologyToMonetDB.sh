@@ -155,6 +155,19 @@ sed -i "s:AttFile:${PWD}/ontAttribute.schema.org.csv:g" loadtmp.sql
 
 mclient < loadtmp.sql
 
+#dbpediaUmbel: Link between Dbpedia and Umbel
+NUMMETADATA=`cat ontMetadata.dbpediaUmbel.csv | wc -l`
+NUMATTRIBUTES=`cat ontAttribute.dbpediaUmbel.csv | wc -l`
+
+cp loadOntologySAMPLE.sql loadtmp.sql
+sed -i "s:NUMMETADATA:$NUMMETADATA:g" loadtmp.sql
+sed -i "s:NUMATTRIBUTES:$NUMATTRIBUTES:g" loadtmp.sql
+sed -i "s:MetaFile:${PWD}/ontMetadata.dbpediaUmbel.csv:g" loadtmp.sql
+sed -i "s:AttFile:${PWD}/ontAttribute.dbpediaUmbel.csv:g" loadtmp.sql
+
+
+mclient < loadtmp.sql
+
 #List of possible ontologies
 NUMONT=`cat ontList.csv | wc -l`
 
