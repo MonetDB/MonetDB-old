@@ -6582,12 +6582,11 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 #if NO_OUTPUTFILE == 0
 static
 void printPropertyWithMarkers(FILE *fout, str propStr, CSSampleExtend *csSampleEx, CSPropTypes *csPropTypes, int tblId, int propId, BATiter mapi, BAT *mbat) {
-	CSSampleExtend	sample = csSampleEx[tblId];
 	// print property string
 	fprintf(fout, "%s", propStr);
 
 	// add star (*) if multi-valued
-	if (sample.lstIsMVCol[propId]) {
+	if (csSampleEx[tblId].lstIsMVCol[propId]) {
 		fprintf(fout, "*");
 	}
 
@@ -6599,7 +6598,7 @@ void printPropertyWithMarkers(FILE *fout, str propStr, CSSampleExtend *csSampleE
 #if USE_SHORT_NAMES
 			str nameStrShort;
 #endif
-			getStringName(sample.candidatesOrdered[0], &nameStr, mapi, mbat, 1);
+			getStringName(csSampleEx[refTblId].candidatesOrdered[0], &nameStr, mapi, mbat, 1);
 #if USE_SHORT_NAMES
 			getPropNameShort(&nameStrShort, nameStr);
 			fprintf(fout, "->%s", nameStrShort);
