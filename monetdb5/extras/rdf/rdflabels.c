@@ -495,7 +495,7 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		str labelStr, tmpStr;
 
-		if (!isCSTable(freqCSset->items[i])) continue; // ignore
+		if (!isCSTable(freqCSset->items[i],labels[i].name)) continue; // ignore
 
 		if (labels[i].name == BUN_NONE) {
 			fprintf(fout, "CREATE TABLE %s_"BUNFMT" (\nsubject VARCHAR(10) PRIMARY KEY,\n", "DUMMY", freqCSset->items[i].csId); // TODO underscores?
@@ -568,7 +568,7 @@ void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relation
 
 	// add foreign key columns and add foreign keys
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (!isCSTable(freqCSset->items[i])) continue; // ignore
+		if (!isCSTable(freqCSset->items[i],labels[i].name)) continue; // ignore
 
 		for (j = 0; j < labels[i].numProp; ++j) {
 			str propStr, tmpStr2;
@@ -700,7 +700,7 @@ void createSQLMetadata(CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, CSlabe
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS cs = (CS) freqCSset->items[i];
 
-		if (!isCSTable(cs)) continue; // ignore
+		if (!isCSTable(cs, labels[i].name)) continue; // ignore
 		if (csRelBetweenMergeFreqSet[i].numRef == 0) continue; 
 
 		for (j = 0; j < cs.numProp; ++j) { // propNo in CS order
@@ -717,7 +717,7 @@ void createSQLMetadata(CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, CSlabe
 					int toId = csRelBetweenMergeFreqSet[i].lstRefFreqIdx[k];
 					if (toId == -1) continue; // ignore
 					if (i == toId) continue; // ignore self references
-					if (!isCSTable(freqCSset->items[toId])) continue; 
+					if (!isCSTable(freqCSset->items[toId], labels[toId].name)) continue; 
 					if ((int) (100.0 * csRelBetweenMergeFreqSet[i].lstCnt[k] / sum + 0.5) < FK_FREQ_THRESHOLD) continue; // foreign key is not frequent enough
 					tblfrom = mfreqIdxTblIdxMapping[i]; 
 					tblto = mfreqIdxTblIdxMapping[toId];
@@ -741,7 +741,7 @@ void createSQLMetadata(CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, CSlabe
 	// print id -> table name
 	fout = fopen("tableIdFreq.csv", "wt");
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (!isCSTable(freqCSset->items[i])) continue; // ignore
+		if (!isCSTable(freqCSset->items[i], labels[i].name)) continue; // ignore
 
 		if (labels[i].name == BUN_NONE) {
 			fprintf(fout, "%d,\"%s_"BUNFMT"\",%d\n", i, "DUMMY", freqCSset->items[i].csId, freqCSset->items[i].support); // TODO underscores?
@@ -806,7 +806,7 @@ void printTxt(CSset* freqCSset, CSlabel* labels, int freqThreshold) {
 		str labelStrShort = NULL;
 #endif
 
-		if (!isCSTable(freqCSset->items[i])) continue; // ignore
+		if (!isCSTable(freqCSset->items[i], labels[i].name)) continue; // ignore
 
 		if (labels[i].name == BUN_NONE) {
 			fprintf(fout, "%s (CS "BUNFMT"): ", "DUMMY", freqCSset->items[i].csId);
@@ -1848,7 +1848,7 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 	// find biggest and smallest table
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS cs = (CS) freqCSset->items[i];
-		if (!isCSTable(cs)) continue; // ignore
+		if (!isCSTable(cs,labels[i].name)) continue; // ignore
 
 		// first values
 		if (smallest == -1) smallest = i;
@@ -1868,7 +1868,7 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 #endif
 
 		CS cs = (CS) freqCSset->items[i];
-		if (!isCSTable(cs)) continue; // ignore
+		if (!isCSTable(cs, labels[i].name)) continue; // ignore
 
 		// print header
 		width = (int) ((300 + 300 * (log10(freqCSset->items[i].coverage) - log10(freqCSset->items[smallest].coverage)) / (log10(freqCSset->items[biggest].coverage) - log10(freqCSset->items[smallest].coverage))) + 0.5); // width between 300 and 600 px, using logarithm
@@ -1951,7 +1951,7 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS cs = (CS) freqCSset->items[i];
-		if (!isCSTable(cs)) continue; // ignore
+		if (!isCSTable(cs, labels[i].name)) continue; // ignore
 
 		for (j = 0; j < cs.numProp; ++j) {
 			str	tmpStr;
@@ -2123,7 +2123,7 @@ void removeDuplicatedCandidates(CSlabel *label) {
  * 
  */
 static
-void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, TypeStat* typeStat, int typeStatCount, oid** result,int** resultMatchedProp, int* resultCount, IncidentFKs* links, oid** ontmetadata, int ontmetadataCount, BAT *ontmetaBat, OntClass *ontclassSet) {
+void getTableName(CSlabel* label, CSset* freqCSset, int csIdx,  int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, TypeStat* typeStat, int typeStatCount, oid** result,int** resultMatchedProp, int* resultCount, IncidentFKs* links, oid** ontmetadata, int ontmetadataCount, BAT *ontmetaBat, OntClass *ontclassSet) {
 	int		i, j;
 	oid		*tmpList;
 	int		tmpListCount;
@@ -2346,29 +2346,34 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	// --- FK ---
 	// add top3 fk values to list of candidates
 	if (links[csIdx].num > 0) {
-		label->candidatesFK = MIN(3, links[csIdx].num);
-		label->candidates = GDKrealloc(label->candidates, sizeof(oid) * (label->candidatesCount + MIN(3, links[csIdx].num)));
-		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-		for (i = 0; i < MIN(3, links[csIdx].num); ++i) {
-			label->candidates[label->candidatesCount + i] = links[csIdx].fks[0].prop;
+		//Only add the FK name, if its number of references is large enought
+		if ((links[csIdx].fks[0].freq * 100) > (FK_MIN_REFER_PERCENTAGE * freqCSset->items[csIdx].support)){
+			label->candidatesFK = MIN(3, links[csIdx].num);
+			label->candidates = GDKrealloc(label->candidates, sizeof(oid) * (label->candidatesCount + MIN(3, links[csIdx].num)));
+			if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+			for (i = 0; i < MIN(3, links[csIdx].num); ++i) {
+				label->candidates[label->candidatesCount + i] = links[csIdx].fks[0].prop;
+			}
+			label->candidatesCount += MIN(3, links[csIdx].num);
 		}
-		label->candidatesCount += MIN(3, links[csIdx].num);
 	}
 
 	if (!nameFound) {
 		// incident foreign keys --> use the one with the most occurances (num and freq)
 		if (links[csIdx].num > 0) {
-			label->name = links[csIdx].fks[0].prop; // sorted
-			nameFound = 1;
+			if ((links[csIdx].fks[0].freq * 100) > (FK_MIN_REFER_PERCENTAGE * freqCSset->items[csIdx].support)){
+				label->name = links[csIdx].fks[0].prop; // sorted
+				nameFound = 1;
 
-			#if INFO_WHERE_NAME_FROM
-			label->isFK = 1; 
-			#endif
-			
-			#if INFO_NAME_FREQUENCY
-			label->nameFreq = links[csIdx].fks[0].freq;
-			label->ontologySimScore = 0.0;
-			#endif
+				#if INFO_WHERE_NAME_FROM
+				label->isFK = 1; 
+				#endif
+				
+				#if INFO_NAME_FREQUENCY
+				label->nameFreq = links[csIdx].fks[0].freq;
+				label->ontologySimScore = 0.0;
+				#endif
+			}
 		}
 	}
 	
@@ -2467,7 +2472,7 @@ void getAllLabels(CSlabel* labels, CSset* freqCSset,  int typeAttributesCount, T
 		CS cs = (CS) freqCSset->items[i];
 
 		// get table name
-		getTableName(&labels[i], i,  typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeStat, typeStatCount, result, resultMatchedProp, resultCount, links, ontmetadata, ontmetadataCount, ontmetaBat, ontclassSet);
+		getTableName(&labels[i], freqCSset, i,  typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeStat, typeStatCount, result, resultMatchedProp, resultCount, links, ontmetadata, ontmetadataCount, ontmetaBat, ontclassSet);
 
 		// copy attribute oids (names)
 		labels[i].numProp = cs.numProp;

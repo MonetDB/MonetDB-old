@@ -192,14 +192,19 @@ char getStringName(oid objOid, str *objStr, BATiter mapi, BAT *mapbat, char isTb
 }
 
 
-char isCSTable(CS item){
+char isCSTable(CS item, oid name){
 	if (item.parentFreqIdx != -1) return 0; 
 
 	if (item.type == DIMENSIONCS) return 1; 
 
 	#if REMOVE_SMALL_TABLE
 	if (item.coverage < MINIMUM_TABLE_SIZE) return 0;
-	#endif
+	
+	//More strict with table which does not have name
+	if ((name == BUN_NONE) && item.support < MINIMUM_TABLE_SIZE) return 0; 
+	#endif	
+	
+	
 
 	return 1; 
 }
@@ -682,14 +687,14 @@ void printSubCSInformation(SubCSSet *subcsset, BAT* freqBat, int num, char isWri
  * 
  * */
 static 
-void initCSPropTypes(CSPropTypes* csPropTypes, CSset* freqCSset, int numMergedCS){
+void initCSPropTypes(CSPropTypes* csPropTypes, CSset* freqCSset, int numMergedCS, CSlabel *labels){
 	int numFreqCS = freqCSset->numCSadded;
 	int i, j, k ;
 	int id; 
 	
 	id = 0; 
 	for (i = 0; i < numFreqCS; i++){
-		if ( isCSTable(freqCSset->items[i])  ){   // Only use the maximum or merge CS		
+		if ( isCSTable(freqCSset->items[i], labels[i].name)){   // Only use the maximum or merge CS		
 			csPropTypes[id].freqCSId = i; 
 			csPropTypes[id].numProp = freqCSset->items[i].numProp;
 			csPropTypes[id].numInfreqProp = 0; 
@@ -2046,12 +2051,12 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, BAT *ontbat, char isWrit
 				if (cs.subject != BUN_NONE){
 					takeOid(cs.subject, &subStr);
 					if (labels[i].name == BUN_NONE) {
-						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, "DUMMY", freq, subStr, cs.parentFreqIdx);
+						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d | Coverage: %d) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, "DUMMY", freq, cs.coverage, subStr, cs.parentFreqIdx);
 					} else {
 						str labelStr;
 						//takeOid(labels[i].name, &labelStr);
 						getStringName(labels[i].name, &labelStr, mapi, mapbat, 1);
-						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) (NameFreq: %d --> %.2f percent) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, labelStr, freq, labels[i].nameFreq, (float) labels[i].nameFreq/freq * 100, subStr, cs.parentFreqIdx);
+						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d | Coverage: %d) (NameFreq: %d --> %.2f percent) | Subject: %s  | FreqParentIdx %d \n", cs.csId, i, labelStr, freq, cs.coverage,labels[i].nameFreq, (float) labels[i].nameFreq/freq * 100, subStr, cs.parentFreqIdx);
 						GDKfree(labelStr); 
 					}
 
@@ -2059,12 +2064,12 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, BAT *ontbat, char isWrit
 				}
 				else{
 					if (labels[i].name == BUN_NONE) {
-						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | FreqParentIdx %d \n", cs.csId, i, "DUMMY", freq, cs.parentFreqIdx);
+						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d | Coverage: %d) | FreqParentIdx %d \n", cs.csId, i, "DUMMY", freq, cs.coverage,cs.parentFreqIdx);
 					} else {
 						str labelStr;
 						//takeOid(labels[i].name, &labelStr);
 						getStringName(labels[i].name, &labelStr, mapi, mapbat, 1);
-						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) (NameFreq: %d --> %.2f percent) | FreqParentIdx %d \n", cs.csId, i, labelStr, freq, labels[i].nameFreq, (float) labels[i].nameFreq/freq * 100, cs.parentFreqIdx);
+						fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d | Coverage: %d) (NameFreq: %d --> %.2f percent) | FreqParentIdx %d \n", cs.csId, i, labelStr, freq, cs.coverage,labels[i].nameFreq, (float) labels[i].nameFreq/freq * 100, cs.parentFreqIdx);
 						GDKfree(labelStr);
 					}
 				}
@@ -2072,12 +2077,12 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, BAT *ontbat, char isWrit
 			else {
 
 				if (labels[i].name == BUN_NONE) {
-					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: <Not available>  | FreqParentIdx %d \n", cs.csId, i, "DUMMY", freq, cs.parentFreqIdx);
+					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d | Coverage: %d) | Subject: <Not available>  | FreqParentIdx %d \n", cs.csId, i, "DUMMY", freq, cs.coverage,cs.parentFreqIdx);
 				} else {
 					str labelStr;
 					//takeOid(labels[i].name, &labelStr);
 					getStringName(labels[i].name, &labelStr, mapi, mapbat, 1);	
-					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d) | Subject: <Not available>  | FreqParentIdx %d \n", cs.csId, i, labelStr, freq, cs.parentFreqIdx);
+					fprintf(fout,"CS " BUNFMT " - FreqId %d - Name: %s  (Freq: %d | Coverage: %d) | Subject: <Not available>  | FreqParentIdx %d \n", cs.csId, i, labelStr, freq, cs.coverage,cs.parentFreqIdx);
 					GDKfree(labelStr); 
 				}
 
@@ -4387,7 +4392,7 @@ static void getStatisticCSsBySupports(BAT *pOffsetBat, BAT *freqBat, BAT *covera
 #endif
 
 #if NO_OUTPUTFILE == 0
-static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold, int numTables, int* mergeCSFreqCSMap, CSPropTypes* csPropTypes){
+static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold, int numTables, int* mergeCSFreqCSMap, CSPropTypes* csPropTypes, CSlabel *labels){
 
 	//int 	*csPropNum; 
 	//int	*csFreq; 
@@ -4416,7 +4421,7 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 
 	for (i = 0; i < numTables; i++){
 		freqId = mergeCSFreqCSMap[i]; 
-		if (isCSTable(freqCSset->items[freqId])){		// Check whether it is a maximumCS
+		if (isCSTable(freqCSset->items[freqId],labels[freqId].name)){		// Check whether it is a maximumCS
 			// Output the result 
 			fprintf(fout, BUNFMT " %d  %d  %d\n", freqCSset->items[freqId].csId, freqCSset->items[freqId].numProp,freqCSset->items[freqId].support, freqCSset->items[freqId].coverage); 
 			if (freqCSset->items[freqId].coverage > maxNumtriple) maxNumtriple = freqCSset->items[freqId].coverage;
@@ -4444,7 +4449,7 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 	}
 	for (i = 0; i < numTables; i++){
 		freqId = mergeCSFreqCSMap[i]; 
-		if (isCSTable(freqCSset->items[freqId])){		// Check whether it is a maximumCS
+		if (isCSTable(freqCSset->items[freqId], labels[freqId].name)){		// Check whether it is a maximumCS
 			// Output the result 
 			tmpNumProp = freqCSset->items[freqId].numProp;	
 			for (k = 1; k < 10; k++) {
@@ -4490,7 +4495,7 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 
 	for (i = 0; i < numTables; i++){
 		freqId = mergeCSFreqCSMap[i]; 
-		if (isCSTable(freqCSset->items[freqId])){		// Check whether it is a maximumCS
+		if (isCSTable(freqCSset->items[freqId],labels[freqId].name)){		// Check whether it is a maximumCS
 			// Output the result 
 			if (freqCSset->items[freqId].coverage > maxNumtriple) maxNumtriple = freqCSset->items[freqId].coverage;
 			if (freqCSset->items[freqId].coverage < minNumtriple) minNumtriple = freqCSset->items[freqId].coverage;
@@ -7299,7 +7304,7 @@ CSrel* generateCsRelBetweenMergeFreqSet(CSrel *csrelFreqSet, CSset *freqCSset){
 /* Refine the relationship between mergeCS in order to create FK relationship between tables */
 
 static
-CSrel* getFKBetweenTableSet(CSrel *csrelFreqSet, CSset *freqCSset, CSPropTypes* csPropTypes, int* mfreqIdxTblIdxMapping, int numTables){
+CSrel* getFKBetweenTableSet(CSrel *csrelFreqSet, CSset *freqCSset, CSPropTypes* csPropTypes, int* mfreqIdxTblIdxMapping, int numTables, CSlabel *labels){
 	int 	i,j;
 	int 	from, to;
 	int	toFreqId; 
@@ -7315,7 +7320,7 @@ CSrel* getFKBetweenTableSet(CSrel *csrelFreqSet, CSset *freqCSset, CSPropTypes* 
 	for (i = 0; i < numRel; ++i) {
 		if (csrelFreqSet[i].numRef == 0) continue; // ignore CS without relations
 		assert(freqCSset->items[i].parentFreqIdx == -1);
-		if (!isCSTable(freqCSset->items[i])) continue; 
+		if (!isCSTable(freqCSset->items[i], labels[i].name)) continue; 
 		rel = csrelFreqSet[i];
 		from = mfreqIdxTblIdxMapping[i];
 		assert(from < numTables);
@@ -7324,7 +7329,7 @@ CSrel* getFKBetweenTableSet(CSrel *csrelFreqSet, CSset *freqCSset, CSPropTypes* 
 		for (j = 0; j < rel.numRef; ++j) {
 			toFreqId = rel.lstRefFreqIdx[j];
 			assert(freqCSset->items[toFreqId].parentFreqIdx == -1);
-			if (!isCSTable(freqCSset->items[toFreqId])) continue; 
+			if (!isCSTable(freqCSset->items[toFreqId], labels[toFreqId].name)) continue; 
 			// add relation to new data structure
 
 			//Compare with prop coverage from csproptype	
@@ -7763,7 +7768,7 @@ str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int 
 #endif
 
 static
-void initCSTableIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping, int *numTables){
+void initCSTableIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping, int *numTables, CSlabel *labels){
 
 int 		i, k; 
 CS 		cs;
@@ -7771,7 +7776,7 @@ CS 		cs;
 
 	k = 0; 
 	for (i = 0; i < freqCSset->numCSadded; i++){
-		if (isCSTable(freqCSset->items[i])){	// Only use the not-removed maximum or merge CS  
+		if (isCSTable(freqCSset->items[i], labels[i].name)){	// Only use the not-removed maximum or merge CS  
 			mfreqIdxTblIdxMapping[i] = k; 
 			mTblIdxFreqIdxMapping[k] = i; 
 			k++; 
@@ -8087,7 +8092,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	//Mapping from from CSId to TableIdx 
 	printf("Init CS tableIdxMapping \n");
-	initCSTableIdxMapping(freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping, &numTables);
+	initCSTableIdxMapping(freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping, &numTables, *labels);
 
 
 	#if NO_OUTPUTFILE == 0 
@@ -9547,7 +9552,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	//Mapping from from CSId to TableIdx 
 	printf("Init CS tableIdxMapping \n");
-	initCSTableIdxMapping(freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping, &numTables);
+	initCSTableIdxMapping(freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping, &numTables, labels);
 
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
@@ -9571,7 +9576,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	/* Get possible types of each property in a table (i.e., mergedCS) */
 	csPropTypes = (CSPropTypes*)GDKmalloc(sizeof(CSPropTypes) * numTables); 
-	initCSPropTypes(csPropTypes, freqCSset, numTables);
+	initCSPropTypes(csPropTypes, freqCSset, numTables, labels);
 	
 	printf("Extract CSPropTypes \n");
 	RDFExtractCSPropTypes(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, csPropTypes, maxNumPwithDup);
@@ -9606,7 +9611,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	tmpLastT = curT; 		
 	
 
-	csRelFinalFKs = getFKBetweenTableSet(csRelMergeFreqSet, freqCSset, csPropTypes,mfreqIdxTblIdxMapping,numTables);
+	csRelFinalFKs = getFKBetweenTableSet(csRelMergeFreqSet, freqCSset, csPropTypes,mfreqIdxTblIdxMapping,numTables, labels);
 	#if NO_OUTPUTFILE == 0
 	printFKs(csRelFinalFKs, *freqThreshold, numTables, csPropTypes); 
 	#endif
@@ -9616,7 +9621,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	
 	// Summarize the statistics
 	#if NO_OUTPUTFILE == 0
-	getStatisticFinalCSs(freqCSset, sbat, *freqThreshold, numTables, mTblIdxFreqIdxMapping, csPropTypes);
+	getStatisticFinalCSs(freqCSset, sbat, *freqThreshold, numTables, mTblIdxFreqIdxMapping, csPropTypes, labels);
 	#endif	
 
 	/* Extract sample data for the evaluation */

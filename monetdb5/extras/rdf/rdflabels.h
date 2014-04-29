@@ -92,6 +92,7 @@ enum {
 } RULE; 
 
 #define FK_FREQ_THRESHOLD 25		// X % of the targeted subjects have to be in this table
+#define FK_MIN_REFER_PERCENTAGE 25	// To be consider as the name of a CS, the FK have to point to at least FK_MIN_REFER_PERCENTAGE of all CS's instances 
 #define TYPE_FREQ_THRESHOLD 80		// X % of the type values have to be this value
 #define GOOD_TYPE_FREQ_THRESHOLD 95	// If a type appears really frequent in that CS, it should be choosen
 //#define ONTOLOGY_FREQ_THRESHOLD 0.4	// similarity threshold for tfidf simularity for ontology classes

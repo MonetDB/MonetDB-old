@@ -471,7 +471,7 @@ rdf_export void
 createTreeForCSset(CSset *freqCSset);
 
 rdf_export char
-isCSTable(CS item); 
+isCSTable(CS item, oid name); 
 
 rdf_export str
 printTKNZStringFromOid(oid id);
