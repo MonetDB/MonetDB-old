@@ -2142,6 +2142,7 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	int		choosenFreq = 0;
 
 	int		bestOntCandIdx = -1;
+	int		isGoodTypeExist = 0; 
 
 	(void) ontmetaBat;
 	// --- TYPE ---
@@ -2176,8 +2177,10 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 			}
 		}
 		*/
-
+		
 		if (typeAttributesHistogram[csIdx][i][0].percent < TYPE_FREQ_THRESHOLD) continue; // sorted
+		if (typeAttributesHistogram[csIdx][i][0].percent > GOOD_TYPE_FREQ_THRESHOLD) isGoodTypeExist = 1;
+
 		tmpList = (oid *) realloc(tmpList, sizeof(oid) * (tmpListCount + 1));
 		if (!tmpList) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 
@@ -2325,13 +2328,13 @@ void getTableName(CSlabel* label, int csIdx,  int typeAttributesCount, TypeAttri
 	}
 	
 	// If the name found previously (based on the type values) is not 
-	// an ontology-based value (e.g., simply a string), we will choose the ontology name for 
-	// the CS's name. 
+	// an ontology-based value (e.g., simply a string), and not a really good (so frequent) type value 
+	// we will choose the ontology name for the CS's name. 
 	
 	// chose the best ontology candidate based on number of matched props as label 
 	// TODO: Improve this score a bit, by choosing the higher tfidf score, than number of matched prop
 	
-	if (choosenOntologyTypeValue == BUN_NONE && resultCount[csIdx] >= 1){
+	if (choosenOntologyTypeValue == BUN_NONE && isGoodTypeExist == 0 && resultCount[csIdx] >= 1){
 		label->name = result[csIdx][bestOntCandIdx];
 		nameFound = 1;
 		#if INFO_WHERE_NAME_FROM
