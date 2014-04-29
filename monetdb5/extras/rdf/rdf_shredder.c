@@ -170,7 +170,9 @@ rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType obj
 			raptor_parser_parse_abort (pdata->rparser);
 		}
 	} else {
-		*bun = (b)->hseqbase + *bun;
+		//printf("Existing value at "BUNFMT " with objType = %d seqbase is " BUNFMT "\n", *bun, objType, (b)->hseqbase);
+		*bun += RDF_MIN_LITERAL;
+		*bun |= (BUN)objType << (sizeof(BUN)*8 - 4);
 	}
 
 }
@@ -387,9 +389,11 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 			ObjectType objType = STRING;
 			objStr = raptor_term_to_string(triple->object);
 			objType = getObjectType(objStr, &realNumValue);
-			
+
 			rdf_BUNappend_unq_ForObj(pdata, graph[MAP_LEX], (str)objStr, objType, &bun);	
 			rdf_BUNappend(pdata, graph[O_sort], &bun); 
+
+			//printf("Object string is %s --> object type is %d (oid = " BUNFMT " \n",objStr,objType, bun);
 
 			bun = BUN_NONE;
 			free(objStr);
@@ -480,6 +484,7 @@ parserData_create (str location, BAT** graph, bat *ontbatid)
 	}
 	/* MAP_LEX must have the key property */
 	BATseqbase(pdata->graph[MAP_LEX], RDF_MIN_LITERAL);
+	//printf("SEQBASE is "BUNFMT "\n",(pdata->graph[MAP_LEX])->hseqbase);
 	pdata->graph[MAP_LEX]->tkey = BOUND2BTRUE;
 	pdata->graph[MAP_LEX]->T->nokey[0] = 0;
 	pdata->graph[MAP_LEX]->T->nokey[1] = 0;

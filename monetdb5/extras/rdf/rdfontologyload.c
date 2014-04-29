@@ -254,12 +254,18 @@ int getDepth(int Idx, OntClass *tmpontclassSet){
 
 	return maxDepth; 
 }
+static
+int compareProp (const void * a, const void * b)
+{
+	  return ( *(oid*)a - *(oid*)b );
+}
 
 static 
-str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount){
+str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontattributes, int ontattributesCount){
 
 	int 	i; 
 	oid	classOid; //The class Oid comes from 
+	oid 	curClassOid = BUN_NONE;
 	oid	scOid; 
 	int 	classIdx; 
 	int 	scIdx; 
@@ -271,6 +277,12 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount){
 	oid	*tmpOid;
 	int*	_tmpIdxes; 
 	OntClass *tmpontclassSet = NULL;
+
+	int	tmpNumProp = 0; 
+	oid*	buffProps = NULL;
+	int 	maxNumPropPerOntology = 1000; 
+
+
 	//Read all ontmetadata and store them in the ontmetaBat
 	
 	ontmetaBat = BATnew(TYPE_void, TYPE_oid, ontmetadataCount);
@@ -325,6 +337,8 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount){
 		tmpontclassSet[i].numsc = 0;
 		tmpontclassSet[i].numAllocation = NUMSC_PER_ONTCLASS;
 		tmpontclassSet[i].hierDepth = -1;
+		tmpontclassSet[i].numProp = 0;
+		tmpontclassSet[i].lstProp = NULL; 
 
 		i++;
 	}
@@ -364,7 +378,49 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount){
 		tmpontclassSet[i].hierDepth = getDepth(i,tmpontclassSet);
 	}
 
+
+	//Build attributes list
+	buffProps = (oid*)malloc(sizeof(oid) * maxNumPropPerOntology);
+	curClassOid = ontattributes[0][0];
+	tmpNumProp = 0;
+	for (i = 0; i < ontattributesCount; i++){
+		classOid = ontattributes[0][i];
+		if (classOid != curClassOid){
+
+			tmpBun = BUNfnd(BATmirror(ontmetaBat), &curClassOid);
+			assert(tmpBun != BUN_NONE); 
+			classIdx = (int) (tmpBun);
+			tmpontclassSet[classIdx].lstProp = (oid*)malloc(sizeof(oid) * tmpNumProp);
+			memcpy(tmpontclassSet[classIdx].lstProp, buffProps, tmpNumProp * sizeof(oid));
+			tmpontclassSet[classIdx].numProp = tmpNumProp;
+			//Sort the set of prop
+			qsort(tmpontclassSet[classIdx].lstProp, tmpNumProp, sizeof(oid), compareProp);
+
+
+			//Add list of attributes
+			tmpNumProp = 0;
+			curClassOid = classOid;
+		}
+		
+		buffProps[tmpNumProp] = ontattributes[1][i];
+		tmpNumProp++;
+
+	}
+	
+	//Last one
+	tmpBun = BUNfnd(BATmirror(ontmetaBat), &curClassOid);
+	assert(tmpBun != BUN_NONE); 
+	classIdx = (int) (tmpBun);
+	tmpontclassSet[classIdx].lstProp = (oid*)malloc(sizeof(oid) * tmpNumProp);
+	memcpy(tmpontclassSet[classIdx].lstProp, buffProps, tmpNumProp * sizeof(oid));
+	tmpontclassSet[classIdx].numProp = tmpNumProp;
+	qsort(tmpontclassSet[classIdx].lstProp, tmpNumProp, sizeof(oid), compareProp);
+
+	
+	free(buffProps);
+
 	ontclassSet = tmpontclassSet;
+
 	return MAL_SUCCEED; 
 }
 
@@ -420,8 +476,8 @@ RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msup
 
 	ontattributes = (oid**) malloc(sizeof(oid *) * 2);
 	if (!ontattributes) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-	ontattributes[0] = malloc(sizeof(str) * auriCount); // uri
-	ontattributes[1] = malloc(sizeof(str) * auriCount); // attr
+	ontattributes[0] = malloc(sizeof(oid) * auriCount); // uri
+	ontattributes[1] = malloc(sizeof(oid) * auriCount); // attr
 	if (!ontattributes[0] || !ontattributes[1]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 
 
@@ -506,7 +562,7 @@ RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msup
 		GDKfree(msuperstr2);
 	}
 
-	buildOntologyClassesInfo(ontmetadata, ontmetadataCount);
+	buildOntologyClassesInfo(ontmetadata, ontmetadataCount, ontattributes, ontattributesCount);
 
 	BBPreclaim(auri);
 	BBPreclaim(aattr);

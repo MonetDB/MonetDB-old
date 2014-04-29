@@ -4796,14 +4796,203 @@ char isTypeAttribute(oid propId, BAT* typeBat){
 //Higher number --> more specific
 
 static
-int getOntologySpecificLevel(oid valueOid){	
-	BUN ontClassPos; 	//index of the ontology class in the ontmetaBat
+int getOntologySpecificLevel(oid valueOid, BUN *ontClassPos){	
 
-	ontClassPos = BUNfnd(BATmirror(ontmetaBat), &valueOid);
-	if (ontClassPos == BUN_NONE) 		//Not an ontology class
+	*ontClassPos = BUNfnd(BATmirror(ontmetaBat), &valueOid);
+	if (*ontClassPos == BUN_NONE) 		//Not an ontology class
 		return -1;
 	else
-		return ontclassSet[ontClassPos].hierDepth;
+		return ontclassSet[*ontClassPos].hierDepth;
+}
+
+static
+PropStat* getPropStatisticsByOntologyClass(int numClass, OntClass *ontClassSet){
+
+	int i, j; 
+
+	PropStat* propStat; 
+	
+	propStat = initPropStat(); 
+
+	for (i = 0; i < numClass; i++){
+		for (j = 0; j < ontClassSet[i].numProp; j++){
+			addaProp(propStat, ontClassSet[i].lstProp[j], i, j);
+		}
+
+		if (ontClassSet[i].numProp > propStat->maxNumPPerCS)
+			propStat->maxNumPPerCS = ontClassSet[i].numProp;
+	}
+
+	for (i = 0; i < propStat->numAdded; i++){
+		propStat->tfidfs[i] = tfidfComp(propStat->freqs[i],numClass);
+	}
+
+
+	return propStat; 
+}
+
+static
+void initTFIDFInfosForOntologyClass(TFIDFInfo *tfidfInfos, int numClass, OntClass *ontClassSet, PropStat *propStat){
+	int 	i, j; 
+	oid	p; 
+	float 	tfidfV = 0.0; 
+	float	sum; 
+	BUN	bun = BUN_NONE; 
+	for (i = 0; i < numClass; i++){
+		tfidfInfos[i].freqId = i; 
+		tfidfInfos[i].lsttfidfs = (float*)malloc(sizeof(float) * (ontClassSet[i].numProp)); 
+		sum = 0.0; 
+		for (j = 0; j < ontClassSet[i].numProp; j++){
+			p = ontClassSet[i].lstProp[j]; 
+			bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &p);
+			if (bun == BUN_NONE) {
+				printf("This prop must be there!!!!\n");
+			}
+			else{
+				tfidfV = propStat->tfidfs[bun]; 
+				sum +=  tfidfV*tfidfV;	
+				tfidfInfos[i].lsttfidfs[j] = tfidfV; 
+			}
+
+		}
+		//assert(sum > 0); 
+		tfidfInfos[i].totalTFIDF = sqrt(sum); 
+	}
+}
+
+
+// Compute the similarity score
+// between a CS and an ontology class.
+// It is not really TFIDF/cosin
+// This is for the purpose of choosing the ontology name among 
+// all the type values that can be best matched 
+// for a CS. 
+// We compute the TF-IDF score for each prop, then
+// the similarity between the CS and an ontology name
+// = Sum all TF-IDF scores of all common prop.
+static 
+float similarityScoreWithOntologyClass(oid* arr1, oid* arr2, int m, int n, 
+		TFIDFInfo *tfidfInfos, int ontClassIdx, int *numOverlap){
+	
+	int i = 0, j = 0;
+	int numCommon = 0; 
+	float sumXY = 0.0;
+
+	i = 0;
+	j = 0;
+	while( i < n && j < m )
+	{
+		if( arr1[j] < arr2[i] ){
+			j++;
+
+		}
+		else if( arr1[j] == arr2[i] )
+		{
+
+			sumXY += tfidfInfos[ontClassIdx].lsttfidfs[j] * tfidfInfos[ontClassIdx].lsttfidfs[j];
+			j++;
+			i++;
+			numCommon++;
+
+		}
+		else if( arr1[j] > arr2[i] )
+			i++;
+	}
+	
+	*numOverlap = numCommon;
+	if (sumXY == 0) return 0; 
+
+	return  ((float) sumXY);
+}
+	
+static
+void getBestRdfTypeValue(oid *buff, int numP, oid *rdftypeOntologyValues, char *rdftypeSelectedValues, char *rdftypeSpecificLevels, BUN *rdftypeOntClassPos, int *numTypeValues, int maxSpecificLevel, TFIDFInfo *tfidfInfos){
+	int i, j, k;
+	int tmpPos;
+	int tmpscPos = -1; 	//position of super class
+	int numRemainValues = *numTypeValues; 
+	float tmpSim = 0.0;
+	float maxSim = 0.0;
+	int	tmpNumOverlap = 0;
+	oid	choosenTypeValue = BUN_NONE; 
+	oid	mostSpecificValue = BUN_NONE;
+
+	(void) rdftypeOntologyValues;
+
+	//Step 1: Prune the candidates
+	for (i = 0; i < *numTypeValues; i++){
+		
+		/*
+		if (isShow){
+			printf("Ontology value: "BUNFMT " Level: %d \n", rdftypeOntologyValues[i], rdftypeSpecificLevels[i]);
+		}
+		*/
+		if (rdftypeSelectedValues[i] == 0) continue; 
+		
+		//Do not check non-specific type
+		if (rdftypeSpecificLevels[i] < (maxSpecificLevel - 1)){	
+			rdftypeSelectedValues[i] = 0;
+			numRemainValues--;
+			continue; 
+		}
+
+		//Do not check keep a super-class if its subclass is there
+		tmpPos = (int) rdftypeOntClassPos[i];
+		for (j = 0; j < ontclassSet[tmpPos].numsc; j++){
+			tmpscPos = ontclassSet[tmpPos].scIdxes[j]; 
+			//Go through and de-select all superclass
+			for (k = 0; k < *numTypeValues; k++){
+				if (tmpscPos == (int)rdftypeOntClassPos[k] && rdftypeSelectedValues[k] == 1){
+					rdftypeSelectedValues[k] = 0;
+					numRemainValues--;
+				}
+			}
+		}
+	}
+	
+	assert(numRemainValues > 0);
+
+	//Step 2: Select the best one based on ontology class and specific level
+	//if (isShow) printf("numRemainValues = %d \n",numRemainValues);
+
+	if (numRemainValues > 1){
+		//Compare the list of props with each ontology class
+		for (i = 0; i < *numTypeValues; i++){
+			if (rdftypeSelectedValues[i] == 0) continue;
+
+			tmpPos = (int) rdftypeOntClassPos[i];
+			tmpSim = similarityScoreWithOntologyClass(ontclassSet[tmpPos].lstProp, buff, ontclassSet[tmpPos].numProp,numP, tfidfInfos, tmpPos, &tmpNumOverlap);
+			//if (isShow) printf("Sim with " BUNFMT " is %f \n",rdftypeOntologyValues[i],tmpSim);
+			if (tmpSim > maxSim){
+				choosenTypeValue = rdftypeOntologyValues[i];
+				maxSim = tmpSim;
+				//printf("It happens and the maxSim = %f \n",maxSim);
+			}
+			
+			if (rdftypeSpecificLevels[i] == maxSpecificLevel){
+				mostSpecificValue = rdftypeOntologyValues[i];
+			}
+		}
+
+		if (choosenTypeValue == BUN_NONE){ //There is no overlapping prop, then choose the most specific one
+			choosenTypeValue = mostSpecificValue;	
+		}
+	}
+	else{
+		for (i = 0; i < *numTypeValues; i++){
+			if (rdftypeSelectedValues[i] == 0) continue;
+			choosenTypeValue = rdftypeOntologyValues[i];
+		}
+	}
+	
+	assert(choosenTypeValue != BUN_NONE);
+
+	//if (isShow) printf("Choosen value = "BUNFMT"\n", choosenTypeValue);
+
+	//Only choose one value:
+	*numTypeValues = 1;
+	rdftypeOntologyValues[0] = choosenTypeValue;
+
 }
 #endif
 
@@ -4837,10 +5026,18 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 	//Only keep the most specific ontology-based rdftype value 
 	int	maxNumOntology = 20;		
 	oid*	rdftypeOntologyValues = NULL; 
+	char*   rdftypeSelectedValues = NULL; //Store which value is selected
+	char* 	rdftypeSpecificLevels = NULL; //Store specific level for each value
+	BUN*	rdftypeOntClassPos = NULL; //Position in the ontology class		     
+
 	int	numTypeValues = 0;
 	#if EXTRAINFO_FROM_RDFTYPE
 	int	tmpMaxSpecificLevel = 0; 
 	int	tmpSpecificLevel = 0; 
+	BUN	tmpOntClassPos = BUN_NONE;  //index of the ontology class in the ontmetaBat
+	PropStat        *ontPropStat = NULL;
+	int		numOntClass = 0; 
+	TFIDFInfo	*tfidfInfos = NULL;
 	#endif
 	
 	int 	*buffOntologyNums = NULL;	//Number of instances in each ontology	
@@ -4851,12 +5048,23 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 	BAT	*typeBat;	//BAT contains oids of type attributes retrieved from tokenizer
 
 
+	#if EXTRAINFO_FROM_RDFTYPE
+	numOntClass = BATcount(ontmetaBat);
+	ontPropStat = initPropStat();
+	ontPropStat = getPropStatisticsByOntologyClass(numOntClass, ontclassSet);
+	tfidfInfos = (TFIDFInfo*)malloc(sizeof(TFIDFInfo) * numOntClass);
+	initTFIDFInfosForOntologyClass(tfidfInfos, numOntClass, ontclassSet, ontPropStat);
+	#endif
+
 
 	typeBat = buildTypeOidBat();
 
 	printf("Number of attributes inserted into BAT: " BUNFMT "\n", BATcount(typeBat));
 	rdftypeOntologyValues = (oid*)malloc(sizeof(oid) * maxNumOntology);
-	
+	rdftypeSelectedValues = (char*)malloc(sizeof(char) * maxNumOntology);
+	rdftypeSpecificLevels = (char*)malloc(sizeof(char) * maxNumOntology);
+	rdftypeOntClassPos = (BUN *) malloc(sizeof(BUN) * maxNumOntology);
+		
 	fullPropStat = initPropStat();
 	
 	buff = (oid *) malloc (sizeof(oid) * INIT_PROPERTY_NUM);
@@ -4891,6 +5099,11 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 		sbt = (oid *) BUNtloc(si, p);		
 		if (*sbt != curS){
 			if (p != 0){	/* Not the first S */
+				#if EXTRAINFO_FROM_RDFTYPE
+				if (numTypeValues > 1){
+					getBestRdfTypeValue(buff, numP, rdftypeOntologyValues, rdftypeSelectedValues, rdftypeSpecificLevels, rdftypeOntClassPos, &numTypeValues, tmpMaxSpecificLevel, tfidfInfos);
+				}
+				#endif
 				#if STOREFULLCS
 				returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, numTypeValues, rdftypeOntologyValues, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs, fullPropStat, ontbat, buffOntologyNums, &totalNumOntology,numOnt); 
 				#else
@@ -4946,13 +5159,26 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 		#if EXTRAINFO_FROM_RDFTYPE
 		if (isTypeAttribute(*pbt, typeBat)){ //Check type attributes
 			obt = (oid *) BUNtloc(oi, p);
-			tmpSpecificLevel = getOntologySpecificLevel(*obt);
-			if (tmpSpecificLevel > tmpMaxSpecificLevel){	
-				//only keep the most specific one
-				rdftypeOntologyValues[0] = *obt;
-				tmpMaxSpecificLevel = tmpSpecificLevel;
-				numTypeValues = 1;
+			tmpSpecificLevel = getOntologySpecificLevel(*obt, &tmpOntClassPos);
+
+			if (tmpOntClassPos != BUN_NONE){
+
+				rdftypeSpecificLevels[numTypeValues] = tmpSpecificLevel;
+				rdftypeOntClassPos[numTypeValues] = tmpOntClassPos;		
+				rdftypeOntologyValues[numTypeValues] = *obt;
+				rdftypeSelectedValues[numTypeValues] = 1;
+				numTypeValues++;
+
+				if (tmpSpecificLevel > tmpMaxSpecificLevel){	
+					tmpMaxSpecificLevel = tmpSpecificLevel;
+					/*
+					//only keep the most specific one
+					rdftypeOntologyValues[0] = *obt;
+					numTypeValues = 1;
+					*/
+				}
 			}
+
 		}
 		#endif
 		
@@ -4972,6 +5198,10 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 		
 	}
 	
+	#if EXTRAINFO_FROM_RDFTYPE
+	if (numTypeValues > 1)
+		getBestRdfTypeValue(buff, numP, rdftypeOntologyValues, rdftypeSelectedValues, rdftypeSpecificLevels, rdftypeOntClassPos, &numTypeValues, tmpMaxSpecificLevel, tfidfInfos);
+	#endif	
 	/*put the last CS */
 	#if STOREFULLCS
 	returnCSid = putaCStoHash(csBats, buff, numP, numPwithDup, numTypeValues, rdftypeOntologyValues, &CSoid, 1, *freqThreshold, freqCSset, curS, buffObjs, fullPropStat, ontbat, buffOntologyNums, &totalNumOntology,numOnt); 
@@ -5007,9 +5237,16 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 	printPropStat(fullPropStat,1);
 	#endif
 	#endif	
-
+	
+	#if EXTRAINFO_FROM_RDFTYPE
+	freePropStat(ontPropStat);
+	freeTFIDFInfo(tfidfInfos, numOntClass);
+	#endif
 	freePropStat(fullPropStat); 
 	free(rdftypeOntologyValues);
+	free(rdftypeSelectedValues);
+	free(rdftypeSpecificLevels);
+	free(rdftypeOntClassPos);
 
 	*ret = 1; 
 

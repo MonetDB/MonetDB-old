@@ -28,8 +28,8 @@ typedef struct OntClass {
 	int	numsc; 		/*Number of super classes*/
 	int 	numAllocation;
 	int	hierDepth;	/*Depth of the ontology class in the hierarchy*/
-	//oid* 	lstProp;
-	//int	numProp;
+	oid* 	lstProp;
+	int	numProp;
 } OntClass; 
 
 rdf_export str
