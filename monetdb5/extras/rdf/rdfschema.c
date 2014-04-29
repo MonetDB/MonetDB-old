@@ -6848,12 +6848,13 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 	fouttb = fopen(filename2,"wt");
 	foutis = fopen(filename3,"wt");
 
+	fprintf(foutrand, "Table|Name|Rating\n");
 	for (i = 0; i < num; i++){
 		sample = csSampleEx[i];
 		if ((int)sample.candidateCount == 1 && sample.candidates[0] == BUN_NONE) continue; // do not print tables withoud candidates
 		freqCS = freqCSset->items[sample.freqIdx];
 		fprintf(fout,"Table %d, %d tuples\n", i, freqCS.support);
-		fprintf(foutrand,"Table %d, %d tuples\n", i, freqCS.support);
+		fprintf(foutrand,"Table %d, %d tuples", i, freqCS.support);
 		fprintf(foutsol, "Table %d\n", i);
 		for (j = 0; j < (int)sample.candidateCount; j++){
 			//fprintf(fout,"  "  BUNFMT,sample.candidates[j]);
@@ -6865,12 +6866,10 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 				getStringName(sample.candidates[j], &canStr, mapi, mbat, 1);
 #if USE_SHORT_NAMES
 				getPropNameShort(&canStrShort, canStr);
-				if (j+1 == (int)sample.candidateCount) fprintf(foutrand, "%s",  canStrShort);
-				else fprintf(foutrand, "%s|", canStrShort);
+				fprintf(foutrand, "|%s\n",  canStrShort);
 				GDKfree(canStrShort);
 #else
-				if (j+1 == (int)sample.candidateCount) fprintf(foutrand, "%s",  canStr);
-				else fprintf(foutrand, "%s|", canStr);
+				fprintf(foutrand, "%s",  canStr);
 
 #endif
 				GDKfree(canStr); 
@@ -6896,11 +6895,10 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 			
 			}
 		}
-		fprintf(foutrand, "\n");
 		fprintf(foutsol, "\n");
 
 		// print origin of candidates for solutions file
-		fprintf(foutsol, "New: %d, Type %d, Ontology %d, FK %d\n", sample.candidatesNew, sample.candidatesType, sample.candidatesOntology, sample.candidatesFK);
+		fprintf(foutsol, "New %d, Type %d, Ontology %d, FK %d\n", sample.candidatesNew, sample.candidatesType, sample.candidatesOntology, sample.candidatesFK);
 		
 		if (sample.name != BUN_NONE){
 			str canStrShort = NULL;
@@ -7136,7 +7134,6 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 
 		fprintf(fout, "\n");
 		fprintf(foutsol, "\n");
-		fprintf(foutrand, "\n");
 		fprintf(foutis, "\" > tmp.txt \n \n");
 
 		if (sample.name != BUN_NONE){
