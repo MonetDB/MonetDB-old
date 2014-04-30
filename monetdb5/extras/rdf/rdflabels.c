@@ -2310,22 +2310,6 @@ void getTableName(CSlabel* label, CSset* freqCSset, int csIdx,  int typeAttribut
 	// add all ontology candidates to list of candidates
 	// Find the best candidate by looking at the number of matched prop
 	// between the CS and the ontology candidate
-	// 
-	if (resultCount[csIdx] >= 1) {
-		int maxNumMatchedProp = -1;
-		bestOntCandIdx = 0;
-		label->candidatesOntology = resultCount[csIdx];
-		label->candidates = GDKrealloc(label->candidates, sizeof(oid) * (label->candidatesCount + resultCount[csIdx]));
-		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-		for (i = 0; i < resultCount[csIdx]; ++i) {
-			label->candidates[label->candidatesCount + i] = result[csIdx][i];
-			if (resultMatchedProp[csIdx][i] > maxNumMatchedProp){
-				maxNumMatchedProp = resultMatchedProp[csIdx][i];
-				bestOntCandIdx = i;
-			}
-		}
-		label->candidatesCount += resultCount[csIdx];
-	}
 	
 	// If the name found previously (based on the type values) is not 
 	// an ontology-based value (e.g., simply a string), and not a really good (so frequent) type value 
@@ -2340,6 +2324,23 @@ void getTableName(CSlabel* label, CSset* freqCSset, int csIdx,  int typeAttribut
 		#if INFO_WHERE_NAME_FROM
 		label->isOntology = 1; 
 		#endif
+		
+		// Only put ontology-based class to the candidate if it is choosen as the class name
+		{
+		int maxNumMatchedProp = -1;
+		bestOntCandIdx = 0;
+		label->candidatesOntology = resultCount[csIdx];
+		label->candidates = GDKrealloc(label->candidates, sizeof(oid) * (label->candidatesCount + resultCount[csIdx]));
+		if (!label->candidates) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+		for (i = 0; i < resultCount[csIdx]; ++i) {
+			label->candidates[label->candidatesCount + i] = result[csIdx][i];
+			if (resultMatchedProp[csIdx][i] > maxNumMatchedProp){
+				maxNumMatchedProp = resultMatchedProp[csIdx][i];
+				bestOntCandIdx = i;
+			}
+		}
+		label->candidatesCount += resultCount[csIdx];
+		}
 	}
 
 

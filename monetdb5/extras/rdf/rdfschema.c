@@ -7768,7 +7768,7 @@ str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int 
 #endif
 
 static
-void initCSTableIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping, int *numTables, CSlabel *labels){
+void initCSTableIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* csFreqCSMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping, int *numTables, CSlabel *labels){
 
 int 		i, k; 
 CS 		cs;
@@ -7789,6 +7789,7 @@ CS 		cs;
 	
 	for (i = 0; i < freqCSset->numOrigFreqCS; i++){
 		cs = (CS)freqCSset->items[i];
+		csFreqCSMapping[cs.csId] = i; 
 		tmpParentidx = cs.parentFreqIdx;
 		
 		if (tmpParentidx == -1){	// maximumCS 
@@ -8078,11 +8079,15 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	{
 	int numTables = 0; 
-	int *csTblIdxMapping, *mfreqIdxTblIdxMapping, *mTblIdxFreqIdxMapping;
+	int *csTblIdxMapping, *mfreqIdxTblIdxMapping, *mTblIdxFreqIdxMapping, *csFreqCSMapping;
 	
 
 	csTblIdxMapping = (int *) malloc (sizeof (int) * (*maxCSoid + 1)); 
 	initIntArray(csTblIdxMapping, (*maxCSoid + 1), -1);
+
+	csFreqCSMapping = (int *) malloc (sizeof (int) * (*maxCSoid + 1));
+	initIntArray(csFreqCSMapping, (*maxCSoid + 1), -1);
+
 
 	mfreqIdxTblIdxMapping = (int *) malloc (sizeof (int) * freqCSset->numCSadded); 
 	initIntArray(mfreqIdxTblIdxMapping , freqCSset->numCSadded, -1);
@@ -8092,7 +8097,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	//Mapping from from CSId to TableIdx 
 	printf("Init CS tableIdxMapping \n");
-	initCSTableIdxMapping(freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping, &numTables, *labels);
+	initCSTableIdxMapping(freqCSset, csTblIdxMapping, csFreqCSMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping, &numTables, *labels);
 
 
 	#if NO_OUTPUTFILE == 0 
@@ -9500,12 +9505,17 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	oid		*lastSubjId; 	/* Store the last subject Id in each freqCS */
 	//oid		*lastSubjIdEx; 	/* Store the last subject Id (of not-default type) in each freqCS */
 	int		tblIdx; 
+	#if REMOVE_LOTSOFNULL_SUBJECT
+	int		freqIdx;		
+	int		numSubjRemoved = 0;
+	#endif
 	oid		lastS;
 	oid		l,r; 
 	bat		oNewBatid, pNewBatid; 
 	int		*csTblIdxMapping;	/* Store the mapping from a CS id to an index of a maxCS or mergeCS in freqCSset. */
 	int		*mfreqIdxTblIdxMapping;  /* Store the mapping from the idx of a max/merge freqCS to the table Idx */
 	int		*mTblIdxFreqIdxMapping;  /* Invert of mfreqIdxTblIdxMapping */
+	int		*csFreqCSMapping = NULL; 
 	int		numTables = 0; 
 	PropStat	*propStat; 
 	int		numdistinctMCS = 0; 
@@ -9542,7 +9552,9 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	csTblIdxMapping = (int *) malloc (sizeof (int) * (maxCSoid + 1)); 
 	initIntArray(csTblIdxMapping, (maxCSoid + 1), -1);
-
+	
+	csFreqCSMapping = (int *) malloc (sizeof (int) * (maxCSoid + 1));
+	initIntArray(csFreqCSMapping, (maxCSoid + 1), -1);
 
 	mfreqIdxTblIdxMapping = (int *) malloc (sizeof (int) * freqCSset->numCSadded); 
 	initIntArray(mfreqIdxTblIdxMapping , freqCSset->numCSadded, -1);
@@ -9552,7 +9564,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	//Mapping from from CSId to TableIdx 
 	printf("Init CS tableIdxMapping \n");
-	initCSTableIdxMapping(freqCSset, csTblIdxMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping, &numTables, labels);
+	initCSTableIdxMapping(freqCSset, csTblIdxMapping, csFreqCSMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping, &numTables, labels);
 
 
 	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
@@ -9642,6 +9654,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 		freeCSset(freqCSset); 
 		free(subjCSMap);
 		free(csTblIdxMapping);
+		free(csFreqCSMapping);
 		free(mfreqIdxTblIdxMapping);
 		free(mTblIdxFreqIdxMapping);
 		freeCSPropTypes(csPropTypes,numTables);
@@ -9684,9 +9697,17 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	BATloop(sbat, p, q){
 		sbt = (oid *) BUNtloc(si, p);
 		tblIdx = csTblIdxMapping[subjCSMap[*sbt]];
-	
-		if (tblIdx != -1){
 
+		#if REMOVE_LOTSOFNULL_SUBJECT
+		freqIdx = csFreqCSMapping[subjCSMap[*sbt]];
+		if (freqCSset->items[freqIdx].numProp < cstablestat->lstcstable[tblIdx].numCol * LOTSOFNULL_SUBJECT_THRESHOLD){
+			tblIdx = -1;
+			numSubjRemoved++;
+		}
+		#endif			
+
+		if (tblIdx != -1){
+			
 			if (lastS != *sbt){	//new subject
 				lastS = *sbt; 
 				
@@ -9715,7 +9736,9 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 		
 	}
 
-
+        #if REMOVE_LOTSOFNULL_SUBJECT
+	printf("Number of subject removed is: %d \n", numSubjRemoved);
+	#endif
 	//BATprint(VIEWcreate(BATmirror(lmap),rmap)); 
 	
 	origobat = getOriginalUriOBat(obat); 	//Return obat without type-specific information for URI & BLANKNODE
@@ -9791,6 +9814,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	freeCSset(freqCSset); 
 	free(subjCSMap); 
 	free(csTblIdxMapping);
+	free(csFreqCSMapping);
 	free(mfreqIdxTblIdxMapping);
 	free(mTblIdxFreqIdxMapping);
 	free(lastSubjId);
