@@ -261,7 +261,7 @@ typedef struct SubCSSet{
 //#define	INFREQ_PROP_THRESHOLD	0.2 	//For Testing
 #define REMOVE_INFREQ_PROP	1
 #define REMOVE_LOTSOFNULL_SUBJECT	1
-#define	LOTSOFNULL_SUBJECT_THRESHOLD	0.2
+#define	LOTSOFNULL_SUBJECT_THRESHOLD	0.1
 
 #define	MIN_FK_FREQUENCY 	0.1	// The frequency of a FK should be > MIN_FK_FREQUENCY * The frequency of a mergedCS (or the number of tuples in one table)	
 #define MIN_FK_PROPCOVERAGE	0.9	// The FK needs to happen in MIN_FK_PROPCOVERAGE of all instances of the particular property

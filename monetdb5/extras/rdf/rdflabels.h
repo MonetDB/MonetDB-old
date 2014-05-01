@@ -105,7 +105,8 @@ enum {
 #define USE_TABLE_NAME 1		// calculate and store the final labels
 #define SHOW_CANDIDATES 0		// inserts a row in UML diagrams to show all candidate names
 #define	ONLY_USE_ONTOLOGYBASED_TYPE 0
-#define USE_BEST_TYPEVALUE_INSTEADOF_DUMMY 1 //Use the most frequent type value instead of a dummy for the label name	
+#define USE_BEST_TYPEVALUE_INSTEADOF_DUMMY 1  //Use the most frequent type value instead of a dummy for the label name	
+#define MIN_POSSIBLE_TYPE_FREQ_THRESHOLD  20  //However, that type must still appears in more than a minimum threshold
 
 rdf_export void
 getPropNameShort(char** name, char* propStr);

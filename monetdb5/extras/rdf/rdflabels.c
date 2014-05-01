@@ -2319,12 +2319,7 @@ void getTableName(CSlabel* label, CSset* freqCSset, int csIdx,  int typeAttribut
 	// TODO: Improve this score a bit, by choosing the higher tfidf score, than number of matched prop
 	
 	if (choosenOntologyTypeValue == BUN_NONE && isGoodTypeExist == 0 && resultCount[csIdx] >= 1){
-		label->name = result[csIdx][bestOntCandIdx];
-		nameFound = 1;
-		#if INFO_WHERE_NAME_FROM
-		label->isOntology = 1; 
-		#endif
-		
+
 		// Only put ontology-based class to the candidate if it is choosen as the class name
 		{
 		int maxNumMatchedProp = -1;
@@ -2341,6 +2336,14 @@ void getTableName(CSlabel* label, CSset* freqCSset, int csIdx,  int typeAttribut
 		}
 		label->candidatesCount += resultCount[csIdx];
 		}
+		
+
+		label->name = result[csIdx][bestOntCandIdx];
+		nameFound = 1;
+		#if INFO_WHERE_NAME_FROM
+		label->isOntology = 1; 
+		#endif
+		
 	}
 
 
@@ -2387,12 +2390,14 @@ void getTableName(CSlabel* label, CSset* freqCSset, int csIdx,  int typeAttribut
 		}
 	}
 
-
 	//if no name is found, check again the typecount to assign a name
 	#if USE_BEST_TYPEVALUE_INSTEADOF_DUMMY
 	if (!nameFound){
 		for (i = 0; i < typeAttributesCount; ++i){
 			if (typeAttributesHistogramCount[csIdx][i] == 0) continue;
+			
+			if (typeAttributesHistogram[csIdx][i][0].percent < MIN_POSSIBLE_TYPE_FREQ_THRESHOLD) continue; 
+
 			//printf("Current candidate count = %d",label->candidatesCount);
 			label->candidatesType = 1;
 			label->candidates = GDKrealloc(label->candidates, sizeof(oid));
