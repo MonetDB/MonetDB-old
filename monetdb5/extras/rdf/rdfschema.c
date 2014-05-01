@@ -6002,59 +6002,66 @@ str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, C
 					int	curStrLen =0; 
 					int	tmpStrLen =0; 
 					oid *tmpOid = (oid *) BUNtail(tmpi, ranPosition);
-					//tmpOid refer to the keyBat of the mv bats
+					if (*tmpOid != oid_nil){
 
-					//Get the range of multi-values in keyBat
-					tmpmvKeyBat = cstablestat->lstcstable[i].lstMVTables[j].keyBat; 
-					
-					mvRefOid = *tmpOid;
-					tmpmvRefOid = (oid *) Tloc(tmpmvKeyBat, mvRefOid);
-					assert(tmpmvRefOid != NULL);
-					
-					//printf("First position for multivalues in keybat %d \n", (int) (*tmpmvRefOid));
+						//tmpOid refer to the keyBat of the mv bats
 
-					tmpNumMVCols = cstablestat->lstcstable[i].lstMVTables[j].numCol;
-					//printf("Table %d colum %d is a mv col with %d types \n",i,j,tmpNumMVCols);
-					
-					tmpPos = *tmpOid;
-					while (*tmpmvRefOid == mvRefOid){
-						//Concat the data from each column
-						for (mvColIdx =0; mvColIdx < tmpNumMVCols; mvColIdx++){
-							tmpmvBat = cstablestat->lstcstable[i].lstMVTables[j].mvBats[mvColIdx];
-							tmpObjType = getObjTypeFromBATtype(tmpmvBat->ttype); 
-							if (getObjValueFromMVBat(&vrRealObjValue, &vrCastedObjValue, tmpPos, tmpObjType, tmpmvBat, lmap, rmap) == 1){
-								//printf("Casted value at mvBat %d is %s \n",mvColIdx,vrCastedObjValue.val.sval);
-								tmpStrLen = strlen(vrCastedObjValue.val.sval);
-								if (tmpMVSampleStr == NULL){ 
-									tmpMVSampleStr = (str) GDKmalloc(tmpStrLen + 1);
-									s = tmpMVSampleStr;
-								}else{
-									tmpMVSampleStr = (str) GDKrealloc(tmpMVSampleStr, curStrLen + tmpStrLen + 2);
-									s = tmpMVSampleStr;
-									s += curStrLen;
-								}
-								
-								strcpy(s, vrCastedObjValue.val.sval);
-								s += tmpStrLen;
-								*s++ = ';';
-								*s = '\0';
-
-								curStrLen = strlen(tmpMVSampleStr);
-								//printf("Current tmpMVSampleStr String %s --> curLen = %d \n",tmpMVSampleStr, curStrLen);
-
-								VALclear(&vrCastedObjValue);
-								VALclear(&vrRealObjValue);
-							}
-						}
+						//Get the range of multi-values in keyBat
+						tmpmvKeyBat = cstablestat->lstcstable[i].lstMVTables[j].keyBat; 
 						
+						mvRefOid = *tmpOid;
+						tmpmvRefOid = (oid *) Tloc(tmpmvKeyBat, mvRefOid);
+						assert(tmpmvRefOid != NULL);
+						
+						//printf("First position for multivalues in keybat %d \n", (int) (*tmpmvRefOid));
 
-						//Get next 
-						tmpPos++;
-						if (tmpPos == BATcount(tmpmvKeyBat)) break; 
+						tmpNumMVCols = cstablestat->lstcstable[i].lstMVTables[j].numCol;
+						//printf("Table %d colum %d is a mv col with %d types \n",i,j,tmpNumMVCols);
+						
+						tmpPos = *tmpOid;
+						while (*tmpmvRefOid == mvRefOid){
+							//Concat the data from each column
+							for (mvColIdx =0; mvColIdx < tmpNumMVCols; mvColIdx++){
+								tmpmvBat = cstablestat->lstcstable[i].lstMVTables[j].mvBats[mvColIdx];
+								tmpObjType = getObjTypeFromBATtype(tmpmvBat->ttype); 
+								if (getObjValueFromMVBat(&vrRealObjValue, &vrCastedObjValue, tmpPos, tmpObjType, tmpmvBat, lmap, rmap) == 1){
+									//printf("Casted value at mvBat %d is %s \n",mvColIdx,vrCastedObjValue.val.sval);
+									tmpStrLen = strlen(vrCastedObjValue.val.sval);
+									if (tmpMVSampleStr == NULL){ 
+										tmpMVSampleStr = (str) GDKmalloc(tmpStrLen + 1);
+										s = tmpMVSampleStr;
+									}else{
+										tmpMVSampleStr = (str) GDKrealloc(tmpMVSampleStr, curStrLen + tmpStrLen + 2);
+										s = tmpMVSampleStr;
+										s += curStrLen;
+									}
+									
+									strcpy(s, vrCastedObjValue.val.sval);
+									s += tmpStrLen;
+									*s++ = ';';
+									*s = '\0';
 
-						tmpmvRefOid = (oid *) Tloc(tmpmvKeyBat, tmpPos);
-					}	
+									curStrLen = strlen(tmpMVSampleStr);
+									//printf("Current tmpMVSampleStr String %s --> curLen = %d \n",tmpMVSampleStr, curStrLen);
 
+									VALclear(&vrCastedObjValue);
+									VALclear(&vrRealObjValue);
+								}
+							}
+							
+
+							//Get next 
+							tmpPos++;
+							if (tmpPos == BATcount(tmpmvKeyBat)) break; 
+
+							tmpmvRefOid = (oid *) Tloc(tmpmvKeyBat, tmpPos);
+						}
+
+					}
+					//else{
+						//printf("[Null] There is no set of multiple values for this subject");
+					
+					//}
 					if (tmpMVSampleStr != NULL){
 						tmpMVSampleStr = (str) GDKrealloc(tmpMVSampleStr, curStrLen + 1);
 						tmpMVSampleStr[curStrLen] = '\0';
@@ -8898,7 +8905,7 @@ void getRealValue(ValPtr returnValue, oid objOid, ObjectType objType, BATiter ma
 	}while (0)
 
 
-str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *mbatid, bat *lmapbatid, bat *rmapbatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId){
+str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *mbatid, bat *lmapbatid, bat *rmapbatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId, char *isLotsNullSubj){
 	
 	BAT *sbat = NULL, *pbat = NULL, *obat = NULL, *mbat = NULL, *lmap = NULL, *rmap = NULL; 
 	BATiter si,pi,oi, mi; 
@@ -8922,6 +8929,8 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	int	lasttblIdx = -1; 
 	int	lastColIdx = -1; 
 	int	lastPropIdx = -1; 
+	int	numEmptyBat = 0; 
+
 	char	isSetLasttblIdx = 0;
 	ObjectType	objType, defaultType; 
 	char	tmpTableType = 0;
@@ -8953,6 +8962,8 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	BUN	tmpFKRefBun = BUN_NONE; 
 	char	isFKCol = 0; 
 	#endif
+
+	(void) isLotsNullSubj;
 
 	maxOrigPbt = ((oid)1 << (sizeof(BUN)*8 - NBITS_FOR_CSID)) - 1; 
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
@@ -9031,11 +9042,20 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		//printf("  --> Tbl: %d  tmpSoid: " BUNFMT " | Last SubjId " BUNFMT "\n", tblIdx,tmpSoid, lastSubjId[tblIdx]);
 
 
-		if (tblIdx == -1){	// This is for irregular triples, put them to pso table
-			insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
-			//printf(" ==> To PSO \n");
-			isFKCol = 0;
-			continue; 
+		if (tblIdx == -1){	
+			#if REMOVE_LOTSOFNULL_SUBJECT
+			if (isLotsNullSubj[*sbt] == 0){
+				// This is for irregular triples, put them to pso table
+				insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
+				//printf(" ==> To PSO \n");
+				isFKCol = 0;
+				continue; 
+			}
+			#else
+				insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
+				isFKCol = 0;
+				continue;
+			#endif
 		}
 
 		if (*pbt != lastP){
@@ -9068,9 +9088,17 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 
 		}
 
+		#if REMOVE_LOTSOFNULL_SUBJECT
+		if (tblIdx == -1 && isLotsNullSubj[*sbt]){	
+			// A lots-of-null subject
+			insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
+
+			continue; 
+		}
+		#endif
+
 		objType = getObjType(*obt); 
 		assert (objType != BLANKNODE);
-
 
 		tmpPropIdx = tmpTblIdxPropIdxMap[tblIdx]; 
 		//printf(" PropIdx = %d \n", tmpPropIdx);
@@ -9153,7 +9181,9 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			#endif
 			isSetLasttblIdx = 1; 
 		}
-
+		
+	
+			
 		/* New column. Finish with lastTblIdx and lastColIdx. Note: This lastColIdx is
 		 * the position of the prop in a final CS. Not the exact colIdx in MAINTBL or TYPETBL
 		 * */
@@ -9246,6 +9276,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			#endif
 			#if COUNT_DISTINCT_REFERRED_S
 			if (isFKCol){
+				assert(tmpFKHashBat != NULL); 
 				tmpFKRefBun = BUNfnd(BATmirror(tmpFKHashBat),(ptr) obt);
 				if (tmpFKRefBun == BUN_NONE){
 
@@ -9264,8 +9295,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			}
 			#endif
 		}
-
-
+			
 		if (istmpMVProp == 1){	// This is a multi-valued prop
 			//printf("Multi values prop \n"); 
 			if (*sbt != lastS){ 	
@@ -9452,13 +9482,24 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		throw(RDF, "rdf.RDFdistTriplesToCSs", "Problem in filling missing values all");			
 	}
 
-	
+	numEmptyBat = 0;
 	// Keep the batCacheId
 	for (i = 0; i < cstablestat->numTables; i++){
 		//printf("----- Table %d ------ \n",i );
 		for (j = 0; j < cstablestat->numPropPerTable[i];j++){
 			//printf("Column %d \n", j);
 			cstablestat->lstbatid[i][j] = cstablestat->lstcstable[i].colBats[j]->batCacheid; 
+			tmpBat = cstablestat->lstcstable[i].colBats[j];
+			if (BATcount(tmpBat) == 0) {
+				printf("Empty Bats at table %d column %d \n",i,j);
+				numEmptyBat++;
+				fillMissingvalues(tmpBat, (int)BATcount(tmpBat), (int)lastSubjId[i]);
+			}
+			if (j > 0) 
+				if (BATcount(cstablestat->lstcstable[i].colBats[j]) > 0 &&
+				    BATcount(cstablestat->lstcstable[i].colBats[j-1]) > 0){			
+					assert(BATcount(cstablestat->lstcstable[i].colBats[j]) == BATcount(cstablestat->lstcstable[i].colBats[j-1]));
+				}
 			//BATprint(cstablestat->lstcstable[i].colBats[j]);
 			if (csPropTypes[i].lstPropTypes[j].isMVProp){
 				//printf("MV Columns: \n");
@@ -9475,6 +9516,9 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	*ret = 1; 
 
 	printf(" ... Done \n");
+	printf("Number of full empty bats %d \n",numEmptyBat);
+
+	printf("Number of triples in PSO table is "BUNFMT"\n", BATcount(cstablestat->pbat));
 	
 	BBPunfix(sbat->batCacheid);
 	BBPunfix(pbat->batCacheid);
@@ -9509,6 +9553,8 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	int		freqIdx;		
 	int		numSubjRemoved = 0;
 	#endif
+	char		*isLotsNullSubj = NULL; 
+
 	oid		lastS;
 	oid		l,r; 
 	bat		oNewBatid, pNewBatid; 
@@ -9692,17 +9738,33 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	lastSubjId = (oid *) malloc (sizeof(oid) * cstablestat->numTables); 
 	initArray(lastSubjId, cstablestat->numTables, -1); 
 	
-	printf("Re-assigning Subject oids ... ");
+	#if REMOVE_LOTSOFNULL_SUBJECT
+	//TODO: Find the better way than using isLotsNullSubj array to keep
+	//the status of subject
+	isLotsNullSubj = (char *) malloc(sizeof(char) * BATcount(sbat) + 1);
+	initCharArray(isLotsNullSubj, BATcount(sbat) + 1,0);
+	#else
+	(void) isLotsNullSubj;
+	#endif
+
+	printf("Re-assigning Subject oids ... \n");
 	lastS = -1; 
 	BATloop(sbat, p, q){
 		sbt = (oid *) BUNtloc(si, p);
 		tblIdx = csTblIdxMapping[subjCSMap[*sbt]];
-
+		
 		#if REMOVE_LOTSOFNULL_SUBJECT
-		freqIdx = csFreqCSMapping[subjCSMap[*sbt]];
-		if (freqCSset->items[freqIdx].numProp < cstablestat->lstcstable[tblIdx].numCol * LOTSOFNULL_SUBJECT_THRESHOLD){
-			tblIdx = -1;
-			numSubjRemoved++;
+		//TODO: If the subject is the target 
+		// of an FK prop, do not remove that subject. This is hard to check.
+		//
+		if (tblIdx != -1){
+			freqIdx = csFreqCSMapping[subjCSMap[*sbt]];
+			if (freqCSset->items[freqIdx].numProp < cstablestat->lstcstable[tblIdx].numCol * LOTSOFNULL_SUBJECT_THRESHOLD){
+				//printf("Subject " BUNFMT " is removed from table %d with %d cols \n",*sbt,tblIdx, cstablestat->lstcstable[tblIdx].numCol);
+				isLotsNullSubj[*sbt] = 1;
+				tblIdx = -1;
+				numSubjRemoved++;
+			}
 		}
 		#endif			
 
@@ -9779,7 +9841,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	printf (" Prepare and create sub-sorted PSO took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
 	returnStr = RDFdistTriplesToCSs(ret, &sNewBat->batCacheid, &pNewBat->batCacheid, &oNewBat->batCacheid, mapbatid, 
-			&lmap->batCacheid, &rmap->batCacheid, propStat, cstablestat, csPropTypes, lastSubjId);
+			&lmap->batCacheid, &rmap->batCacheid, propStat, cstablestat, csPropTypes, lastSubjId, isLotsNullSubj);
 	printf("Return value from RDFdistTriplesToCSs is %s \n", returnStr);
 	if (returnStr != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in distributing triples to BATs using CSs");		
@@ -9806,7 +9868,9 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	free(mergeCSFreqCSMap);
 	}
 	#endif	
-		
+	#if REMOVE_LOTSOFNULL_SUBJECT	
+	free(isLotsNullSubj);
+	#endif
 	freeCSrelSet(csRelMergeFreqSet,freqCSset->numCSadded);
 	freeCSrelSet(csRelFinalFKs, numTables); 
 	freeCSPropTypes(csPropTypes,numTables);
