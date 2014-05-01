@@ -5946,7 +5946,9 @@ str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, C
 			colIdx++;
 			csSampleEx[i].lstProp[colIdx] = csPropTypes[i].lstPropTypes[j].prop;
 			csSampleEx[i].lstPropSupport[colIdx] = csPropTypes[i].lstPropTypes[j].propFreq;
-			
+
+			if (csPropTypes[i].lstPropTypes[j].propFreq == 0) printf("[Verify] Empty Bat at table %d col %d  Prop "BUNFMT "\n",i,colIdx,csPropTypes[i].lstPropTypes[j].prop);
+		
 			//Mark whther this col is a MV col
 			csSampleEx[i].lstIsMVCol[colIdx] = csPropTypes[i].lstPropTypes[j].isMVProp;
 			
@@ -8888,7 +8890,34 @@ void getRealValue(ValPtr returnValue, oid objOid, ObjectType objType, BATiter ma
 	}
 
 }
+static
+void updatePropTypeForRemovedTriple(CSPropTypes *csPropTypes, int* tmpTblIdxPropIdxMap, int tblIdx, oid *subjCSMap, int* csTblIdxMapping, oid sbt, oid pbt, oid *lastRemovedProp, oid* lastRemovedSubj, char isMultiToSingleProp){
+	int tmptblIdx, tmpPropIdx;
 
+	if (tblIdx == -1)
+		tmptblIdx = csTblIdxMapping[subjCSMap[sbt]];
+	else 
+		tmptblIdx = tblIdx;
+
+	tmpPropIdx = tmpTblIdxPropIdxMap[tmptblIdx];
+	//if (tmptblIdx == 3 && tmpPropIdx == 51) printf("Removing <p> <s> : " BUNFMT "  |   " BUNFMT "\n",pbt,sbt);
+	//Update PropTypes
+	if (isMultiToSingleProp){
+		csPropTypes[tmptblIdx].lstPropTypes[tmpPropIdx].propCover--;
+		return; 
+	}
+
+	if (pbt != *lastRemovedProp || sbt != *lastRemovedSubj){
+		csPropTypes[tmptblIdx].lstPropTypes[tmpPropIdx].propCover--;
+		csPropTypes[tmptblIdx].lstPropTypes[tmpPropIdx].propFreq--;
+
+		*lastRemovedProp = pbt;
+		*lastRemovedSubj = sbt; 
+	} 
+	else{	//Multivalue
+		csPropTypes[tmptblIdx].lstPropTypes[tmpPropIdx].propCover--;
+	}
+}
 
 //Macro for inserting to PSO
 #define insToPSO(pb, sb, ob, pbt, sbt, obt)	\
@@ -8905,7 +8934,7 @@ void getRealValue(ValPtr returnValue, oid objOid, ObjectType objType, BATiter ma
 	}while (0)
 
 
-str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *mbatid, bat *lmapbatid, bat *rmapbatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId, char *isLotsNullSubj){
+str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *mbatid, bat *lmapbatid, bat *rmapbatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId, char *isLotsNullSubj, oid *subjCSMap, int* csTblIdxMapping){
 	
 	BAT *sbat = NULL, *pbat = NULL, *obat = NULL, *mbat = NULL, *lmap = NULL, *rmap = NULL; 
 	BATiter si,pi,oi, mi; 
@@ -8961,7 +8990,10 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	int	initHashBatgz = 0; 
 	BUN	tmpFKRefBun = BUN_NONE; 
 	char	isFKCol = 0; 
-	#endif
+	#endif	
+
+	oid	lastRemovedSubj = BUN_NONE; 
+	oid	lastRemovedProp = BUN_NONE; 
 
 	(void) isLotsNullSubj;
 
@@ -9092,6 +9124,9 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		if (tblIdx == -1 && isLotsNullSubj[*sbt]){	
 			// A lots-of-null subject
 			insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
+			
+			//Update propTypes
+			updatePropTypeForRemovedTriple(csPropTypes, tmpTblIdxPropIdxMap, tblIdx, subjCSMap, csTblIdxMapping, *sbt, *pbt, &lastRemovedProp, &lastRemovedSubj,0);
 
 			continue; 
 		}
@@ -9112,6 +9147,10 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			if (objType != URI){ //Must be a dirty one --> put to pso
 				//printf("Dirty FK at tbl %d | propId " BUNFMT " \n", tblIdx, *pbt);
 				insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
+
+				//Update propTypes
+				updatePropTypeForRemovedTriple(csPropTypes, tmpTblIdxPropIdxMap,tblIdx, subjCSMap, csTblIdxMapping, *sbt, *pbt, &lastRemovedProp, &lastRemovedSubj,0);
+
 				continue; 
 			}
 			else{ //  
@@ -9119,6 +9158,10 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				if (tmpOidTblIdx != csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblId){
 					//printf("Dirty FK at tbl %d | propId " BUNFMT " \n", tblIdx, *pbt);
 					insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
+
+					//Update propTypes
+					updatePropTypeForRemovedTriple(csPropTypes, tmpTblIdxPropIdxMap,tblIdx, subjCSMap, csTblIdxMapping, *sbt, *pbt, &lastRemovedProp, &lastRemovedSubj,0);
+
 					continue; 
 				}
 			}
@@ -9391,6 +9434,10 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			else{	// This is an extra object value
 				insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
 				//printf(" Extra object value ==> To PSO \n");
+
+				//Update propTypes
+				updatePropTypeForRemovedTriple(csPropTypes, tmpTblIdxPropIdxMap, tblIdx,subjCSMap, csTblIdxMapping, *sbt, *pbt, &lastRemovedProp, &lastRemovedSubj,1);
+
 				continue; 
 			}
 		}
@@ -9402,6 +9449,10 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		if (tmpTableType == PSOTBL){			//For infrequent type ---> go to PSO
 			insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
 			//printf(" ==> To PSO \n");
+
+			//Update propTypes
+			updatePropTypeForRemovedTriple(csPropTypes, tmpTblIdxPropIdxMap, tblIdx,subjCSMap, csTblIdxMapping, *sbt, *pbt, &lastRemovedProp, &lastRemovedSubj,0);
+
 			continue; 
 		}
 
@@ -9841,7 +9892,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	printf (" Prepare and create sub-sorted PSO took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
 	returnStr = RDFdistTriplesToCSs(ret, &sNewBat->batCacheid, &pNewBat->batCacheid, &oNewBat->batCacheid, mapbatid, 
-			&lmap->batCacheid, &rmap->batCacheid, propStat, cstablestat, csPropTypes, lastSubjId, isLotsNullSubj);
+			&lmap->batCacheid, &rmap->batCacheid, propStat, cstablestat, csPropTypes, lastSubjId, isLotsNullSubj, subjCSMap, csTblIdxMapping);
 	printf("Return value from RDFdistTriplesToCSs is %s \n", returnStr);
 	if (returnStr != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in distributing triples to BATs using CSs");		
