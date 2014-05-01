@@ -257,7 +257,9 @@ typedef struct SubCSSet{
 //#define MINIMUM_TABLE_SIZE 1   // For example dataset only 
 #define HIGH_REFER_THRESHOLD 5
 
-#define	INFREQ_PROP_THRESHOLD	0.01
+//#define	INFREQ_PROP_THRESHOLD	0.01
+#define       INFREQ_PROP_THRESHOLD   0.05
+
 //#define	INFREQ_PROP_THRESHOLD	0.2 	//For Testing
 #define REMOVE_INFREQ_PROP	1
 #define REMOVE_LOTSOFNULL_SUBJECT	1
