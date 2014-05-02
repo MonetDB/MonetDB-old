@@ -6595,7 +6595,9 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 
 #if NO_OUTPUTFILE == 0
 static
-void printPropertyWithMarkers(FILE *fout, str propStr, CSSampleExtend *csSampleEx, CSPropTypes *csPropTypes, int tblId, int propId, BATiter mapi, BAT *mbat) {
+void printPropertyWithMarkers(FILE *fout, str propStr, CSSampleExtend *csSampleEx, CSPropTypes *csPropTypes, int tblId, int propId, oid prop, BATiter mapi, BAT *mbat) {
+	int origPropIdx = -1; 	//Index of prop in the freqCS which is used by PropTypes
+	int i; 
 	// print property string
 	fprintf(fout, "%s", propStr);
 
@@ -6603,11 +6605,19 @@ void printPropertyWithMarkers(FILE *fout, str propStr, CSSampleExtend *csSampleE
 	if (csSampleEx[tblId].lstIsMVCol[propId]) {
 		fprintf(fout, "*");
 	}
-
+	
+	for (i = 0; i < csPropTypes[tblId].numProp; i++){
+		if (csPropTypes[tblId].lstPropTypes[i].prop == prop){
+			origPropIdx = i;
+			break;
+		}
+		
+	}
+	assert(origPropIdx != -1);
 	// add reference (->) if FK
-	if (csPropTypes[tblId].lstPropTypes[propId].isFKProp == 1) {
+	if (csPropTypes[tblId].lstPropTypes[origPropIdx].isFKProp == 1) {
 		str nameStr;
-		int refTblId = csPropTypes[tblId].lstPropTypes[propId].refTblId;
+		int refTblId = csPropTypes[tblId].lstPropTypes[origPropIdx].refTblId;
 		if (csSampleEx[refTblId].candidatesOrdered[0] != BUN_NONE) { // table name (= best candidate) available
 #if USE_SHORT_NAMES
 			str nameStrShort;
@@ -6975,11 +6985,11 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 #if USE_SHORT_NAMES
 				getPropNameShort(&propStrShort, propStr);
 				if (j != 0) fprintf(fout, ", "); // separator
-				printPropertyWithMarkers(fout, propStrShort, csSampleEx, csPropTypes, i, index, mapi, mbat);
+				printPropertyWithMarkers(fout, propStrShort, csSampleEx, csPropTypes, i, index, sample.lstProp[index], mapi, mbat);
 				GDKfree(propStrShort);
 #else
 				if (j != 0) fprintf(fout, ", "); // separator
-				printPropertyWithMarkers(fout, propStr, csSampleEx, csPropTypes, i, index, mapi, mbat);
+				printPropertyWithMarkers(fout, propStr, csSampleEx, csPropTypes, i, index, sample.lstProp[index], mapi, mbat);
 #endif
 				GDKfree(propStr);
 			}
@@ -7007,7 +7017,7 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 #if USE_SHORT_NAMES
 			getPropNameShort(&propStrShort, propStr);
 			fprintf(fout,"|");
-			printPropertyWithMarkers(fout, propStrShort, csSampleEx, csPropTypes, i, index, mapi, mbat);
+			printPropertyWithMarkers(fout, propStrShort, csSampleEx, csPropTypes, i, index, sample.lstProp[index], mapi, mbat);
 
 			pch = strstr (propStrShort,"-");
 			if (pch != NULL) *pch = '\0';	//Remove - characters from prop  //WEBCRAWL specific problem
@@ -7052,7 +7062,7 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 			GDKfree(propStrShort);
 #else
 			fprintf(fout, "|");
-			printPropertyWithMarkers(fout, propStr, csSampleEx, csPropTypes, i, index, mapi, mbat);
+			printPropertyWithMarkers(fout, propStr, csSampleEx, csPropTypes, i, index, sample.lstProp[index], mapi, mbat);
 #endif
 			GDKfree(propStr);
 		}
