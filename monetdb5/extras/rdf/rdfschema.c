@@ -7888,6 +7888,115 @@ void computeMetricsQ(CSset *freqCSset){
 	free(weight); 
 
 }
+
+
+//Compute the metric for table after removing infrequent props
+static
+void computeMetricsQForRefinedTable(CSset *freqCSset,CSPropTypes *csPropTypes,int *mfreqIdxTblIdxMapping, int *mTblIdxFreqIdxMapping, int numTables){
+	float* fillRatio;
+	float* refRatio;
+	float* weight;
+	CS cs;	
+	int	totalCov = 0; 
+	float	Q = 0.0;
+	int	i,j;
+	int 	tmpFinalFreqIdx, tmpTblIdx, tmpPropIdx;
+	int	tmpNumFreqProps;
+	int	*numRefinedFills = NULL;
+	int 	*numRefinedSupport = NULL;
+
+	fillRatio = (float*)malloc(sizeof(float) * numTables);
+	refRatio = (float*)malloc(sizeof(float) * numTables);
+	weight = (float*)malloc(sizeof(float) * numTables);
+		
+	numRefinedFills = (int*)malloc(sizeof(int) * numTables);
+	numRefinedSupport = (int*)malloc(sizeof(int) * numTables);
+	//At the beginning
+	for (i = 0; i < numTables; i ++){
+		numRefinedFills[i] = freqCSset->items[mTblIdxFreqIdxMapping[i]].numFill;
+		numRefinedSupport[i] =  freqCSset->items[mTblIdxFreqIdxMapping[i]].support; 
+	}
+	
+	//Removing LOTSOFNULL_SUBJECT_THRESHOLD	
+	//Check which freqCS having small number of prop
+	//--> they will be removed from the final table.
+	for (i = 0; i < freqCSset->numOrigFreqCS; i++){
+		tmpFinalFreqIdx = i;
+		while (freqCSset->items[tmpFinalFreqIdx].parentFreqIdx != -1){
+			tmpFinalFreqIdx = freqCSset->items[tmpFinalFreqIdx].parentFreqIdx;
+		}
+		
+		if (mfreqIdxTblIdxMapping[tmpFinalFreqIdx] == -1) continue; //This mergedCS does not become the final table, because of e.g.,small size
+
+		tmpTblIdx = mfreqIdxTblIdxMapping[tmpFinalFreqIdx];
+		tmpNumFreqProps = csPropTypes[tmpTblIdx].numProp - csPropTypes[tmpTblIdx].numInfreqProp;
+
+		if (freqCSset->items[i].numProp < tmpNumFreqProps * LOTSOFNULL_SUBJECT_THRESHOLD){
+			int tmpNumFreqProp = freqCSset->items[i].numProp;	//Init
+			//This CS will be removed
+
+			//Check number of InfreqProp exist in that CS
+			//Since they will finally be removed by removing Infrequent Prop from final tabl
+			//the reducing of numofFill caused by these props will not be counted 
+			//when removing this freqCS i.
+			tmpPropIdx = 0;
+			for (j = 0; j < freqCSset->items[i].numProp; j++){
+				oid checkProp = freqCSset->items[i].lstProp[j];
+				//Check if prop j is a infrquent prop
+				while (tmpPropIdx < csPropTypes[tmpTblIdx].numProp && csPropTypes[tmpTblIdx].lstPropTypes[tmpPropIdx].prop != checkProp){
+					tmpPropIdx++;
+				}
+
+				if (tmpPropIdx == csPropTypes[tmpTblIdx].numProp) break; //No more check
+				
+				//if found the index of the prop, check if it is infrequent
+				if ( isInfrequentProp(csPropTypes[tmpTblIdx].lstPropTypes[tmpPropIdx], freqCSset->items[tmpFinalFreqIdx])){
+					tmpNumFreqProp--;
+				}
+				
+			}
+			
+			numRefinedSupport[tmpTblIdx] = numRefinedSupport[tmpTblIdx] - freqCSset->items[i].support; 
+			numRefinedFills[tmpTblIdx] = numRefinedFills[tmpTblIdx] - (freqCSset->items[i].support * tmpNumFreqProp);		
+				
+
+		}
+	}
+	
+	for (i = 0; i < numTables; i++){
+		tmpFinalFreqIdx = mTblIdxFreqIdxMapping[i];
+		cs = freqCSset->items[tmpFinalFreqIdx];
+		
+		//Reduce the number of fill when removing infrequent props
+		for (j = 0; j < csPropTypes[i].numProp; j++){
+			if ( isInfrequentProp(csPropTypes[i].lstPropTypes[j], cs)){
+				numRefinedFills[i] = numRefinedFills[i] - csPropTypes[i].lstPropTypes[j].propFreq;
+			}
+		}
+		tmpNumFreqProps = csPropTypes[i].numProp - csPropTypes[i].numInfreqProp;
+		assert(tmpNumFreqProps > 0);
+		assert( numRefinedSupport[i] > 0); 
+		fillRatio[i] = (float) numRefinedFills[i] /((float)tmpNumFreqProps * numRefinedSupport[i]);
+		assert( fillRatio[i] > 0);
+		refRatio[i] = (float) cs.numInRef / freqCSset->totalInRef;
+		weight[i] = (float) cs.coverage * ( fillRatio[i] + refRatio[i]); 
+		totalCov += cs.coverage;
+			
+		Q += weight[i];
+	}
+	printf("Refined Table: Performance metric Q = (weighting %f)/(totalCov %d * numTbl %d) \n", Q,totalCov, numTables);
+
+	Q = Q/((float)totalCov * numTables);
+
+	printf("==> Performance metric Q = %f \n", Q);
+
+	free(fillRatio); 
+	free(refRatio); 
+	free(weight); 
+	free(numRefinedFills);
+	free(numRefinedSupport);
+
+}
 #endif
 
 
@@ -9752,6 +9861,10 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	#if NO_OUTPUTFILE == 0 
 	printFinalStructure(cstablestat, csPropTypes, numTables,*freqThreshold, mapbatid);
+	#endif
+	
+	#if STORE_PERFORMANCE_METRIC_INFO
+	computeMetricsQForRefinedTable(freqCSset, csPropTypes,mfreqIdxTblIdxMapping,mTblIdxFreqIdxMapping,numTables);
 	#endif
 
 	if (*mode == EXPLOREONLY){
