@@ -3237,12 +3237,9 @@ PropStat* getPropStatisticsByTable(int numTables, int* mTblIdxFreqIdxMapping, CS
 			propStat->maxNumPPerCS = cs.numProp;
 	}
 
-	/* Do not calculate the TFIDF score. May need in the future  
-	 *  
 	for (i = 0; i < propStat->numAdded; i++){
-		propStat->tfidfs[i] = tfidfComp(propStat->freqs[i],numMaxCSs);
+		propStat->tfidfs[i] = tfidfComp(propStat->freqs[i],numTables);
 	}
-	*/
 
 	*numdistinctMCS = k; 
 
@@ -5260,7 +5257,6 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 
 	return MAL_SUCCEED; 
 }
-
 
 static 
 str RDFgetRefCounts(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, int maxNumProp, BUN maxSoid, int *refCount){
@@ -7904,6 +7900,18 @@ void computeMetricsQForRefinedTable(CSset *freqCSset,CSPropTypes *csPropTypes,in
 	int	tmpNumFreqProps;
 	int	*numRefinedFills = NULL;
 	int 	*numRefinedSupport = NULL;
+	#if NO_OUTPUTFILE == 0	
+	PropStat *propStat = NULL; 	
+	int	numdistinctMCS = 0;
+	int 	numSubjWithoutDiscProp = 0;
+	int	numTriplesWihtoutDiscProp = 0;
+	char 	isContainedDiscProp = 0;
+	oid	p;
+	oid	*pbt;	
+	BUN	bun;
+	FILE	*fout; 
+	char	filename[100];
+	#endif
 
 	fillRatio = (float*)malloc(sizeof(float) * numTables);
 	refRatio = (float*)malloc(sizeof(float) * numTables);
@@ -7917,6 +7925,25 @@ void computeMetricsQForRefinedTable(CSset *freqCSset,CSPropTypes *csPropTypes,in
 		numRefinedSupport[i] =  freqCSset->items[mTblIdxFreqIdxMapping[i]].support; 
 	}
 	
+	
+	#if NO_OUTPUTFILE == 0
+	
+	propStat = getPropStatisticsByTable(numTables, mTblIdxFreqIdxMapping, freqCSset,  &numdistinctMCS);
+	//Print the TF-IDF score of each prop in each table
+	
+	strcpy(filename,"propStatWithFinalSchema.txt");
+	fout = fopen(filename,"wt"); 
+	fprintf(fout, "PropertyOid #ofCSs tfidfscore");	
+	for (i = 0; i < propStat->numAdded; i++){
+		pbt = (oid *) Tloc(propStat->pBat, i);
+		fprintf(fout, BUNFMT "	%d	%f \n", *pbt, propStat->plCSidx[i].numAdded,propStat->tfidfs[i]);
+	}
+	fclose(fout);
+	#endif
+
+	
+
+
 	//Removing LOTSOFNULL_SUBJECT_THRESHOLD	
 	//Check which freqCS having small number of prop
 	//--> they will be removed from the final table.
@@ -7961,7 +7988,38 @@ void computeMetricsQForRefinedTable(CSset *freqCSset,CSPropTypes *csPropTypes,in
 				
 
 		}
+		
+		#if NO_OUTPUTFILE == 0
+		//Get the number of subject having no discriminating props in final Table
+		cs = freqCSset->items[i];
+		
+		isContainedDiscProp = 0;
+		for (j = 0; j < cs.numProp; j++){
+			p = cs.lstProp[j]; 
+			bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &p);
+			if (bun == BUN_NONE) {
+				printf("FreqCS: %d, prop "BUNFMT" --> This prop must be in propStat!!!!\n",i,p);
+			}
+			else{
+				 if (propStat->tfidfs[bun] > MIN_TFIDF_PROP_FINALTABLE)	{
+					isContainedDiscProp = 1;
+					break;
+				}
+			}
+		}
+		if (isContainedDiscProp == 0){	//There is no discriminating prop in this CS	
+			numSubjWithoutDiscProp += cs.support;
+			numTriplesWihtoutDiscProp += cs.coverage;
+		}
+	
+
+		#endif
 	}
+	
+	#if NO_OUTPUTFILE == 0
+	printf("Number of Subject having no discriminating props is: %d\n",numSubjWithoutDiscProp);
+	printf(" ==> Removing these subject will remove %d triples \n",numTriplesWihtoutDiscProp);
+	#endif	
 	
 	for (i = 0; i < numTables; i++){
 		tmpFinalFreqIdx = mTblIdxFreqIdxMapping[i];
@@ -7995,6 +8053,9 @@ void computeMetricsQForRefinedTable(CSset *freqCSset,CSPropTypes *csPropTypes,in
 	free(weight); 
 	free(numRefinedFills);
 	free(numRefinedSupport);
+	#if NO_OUTPUTFILE == 0
+	freePropStat(propStat);
+	#endif
 
 }
 #endif

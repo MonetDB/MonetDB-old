@@ -251,6 +251,7 @@ typedef struct SubCSSet{
 #define MIN_TFIDF_PROP_S4 3.5	//  When we merge two CS's based on the tf-idf/consine similarity score, we want 
 				// to make sure that we do not merge two CS's that may have same set of really common properties
 				// such as type, description. They should have at least one discriminating prop in common. 
+#define MIN_TFIDF_PROP_FINALTABLE 2.5 //Discriminating prop is prop that appears in less than 10% of the table	
 
 //#define MIN_FROMTABLE_SIZE_S5 1		/* For example data */
 #define MINIMUM_TABLE_SIZE 10000   //The minimum number of triples coverred by a table (i.e., a final CS) 
@@ -264,6 +265,7 @@ typedef struct SubCSSet{
 #define REMOVE_INFREQ_PROP	1
 #define REMOVE_LOTSOFNULL_SUBJECT	1
 #define	LOTSOFNULL_SUBJECT_THRESHOLD	0.1
+#define DETECT_INCORRECT_TYPE_SUBJECT	1	//Detect subjects that are assigned wrong type 
 
 #define	MIN_FK_FREQUENCY 	0.1	// The frequency of a FK should be > MIN_FK_FREQUENCY * The frequency of a mergedCS (or the number of tuples in one table)	
 #define MIN_FK_PROPCOVERAGE	0.9	// The FK needs to happen in MIN_FK_PROPCOVERAGE of all instances of the particular property
