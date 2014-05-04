@@ -933,7 +933,7 @@ void printCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSse
 
 	/* Print cspropTypes */
 	for (i = 0; i < numMergedCS; i++){
-		fprintf(fout, "MergedCS %d (Freq: %d): \n", i, freqCSset->items[csPropTypes[i].freqCSId].support);
+		fprintf(fout, "MergedCS %d (Freq: %d ) \n", i, freqCSset->items[csPropTypes[i].freqCSId].support);
 		tmpIsMVCS = 0;
 		tmpIsMVCSFilter = 0; 
 		for(j = 0; j < csPropTypes[i].numProp; j++){
@@ -2153,7 +2153,82 @@ str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, BAT *ontbat, char isWrit
 	
 	return MAL_SUCCEED;
 }
-#endif
+
+
+//Do not remove infrequent prop form final table
+static 
+str printFinalTableWithPropSupport(CSPropTypes* csPropTypes, int numTables, CSset *freqCSset, bat *mapbatid, int freqThreshold, CSlabel* labels){
+
+	int 	i,j; 
+	int 	freq; 
+	int	freqId; 
+	FILE 	*fout; 
+	char 	filename[100];
+	char 	tmpStr[20];
+	BAT	*mapbat = NULL; 
+	BATiter mapi; 
+	str 	propStr; 
+	int	ret; 
+	char*   schema = "rdf";
+	CS 	cs;
+	
+	(void) mapi;
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "rdf.rdfschema",
+				"could not open the tokenizer\n");
+	}
+	
+	if ((mapbat = BATdescriptor(*mapbatid)) == NULL) {
+		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
+	}
+	mapi = bat_iterator(mapbat); 
+	
+	strcpy(filename, "finalfreqCSFullInfoWithPropSupport");
+	sprintf(tmpStr, "%d", freqThreshold);
+	strcat(filename, tmpStr);
+	strcat(filename, ".txt");
+
+	fout = fopen(filename,"wt"); 
+
+	for (i = 0; i < numTables; i++){
+		freqId = csPropTypes[i].freqCSId;
+		cs = (CS)freqCSset->items[freqId];
+		freq = cs.support; 
+
+		if (labels[freqId].name == BUN_NONE) {
+			fprintf(fout,"Table %d - FreqId %d - Name: %s  (Freq: %d | Coverage: %d) \n", i, freqId, "DUMMY", freq, cs.coverage);
+		} else {
+			str labelStr;
+			
+			getStringName(labels[freqId].name, &labelStr, mapi, mapbat, 1);	
+			fprintf(fout,"Table %d - FreqId %d - Name: %s  (Freq: %d | Coverage: %d) \n", i, freqId, labelStr, freq, cs.coverage);
+			GDKfree(labelStr); 
+		}
+
+
+		for (j = 0; j < cs.numProp; j++){
+			takeOid(cs.lstProp[j], &propStr);
+			//fprintf(fout, "  P:" BUNFMT " --> ", cs.lstProp[j]);	
+			fprintf(fout, "  P(" BUNFMT ") %s | PropFreq: %d ", cs.lstProp[j],propStr, csPropTypes[i].lstPropTypes[j].propFreq);	
+			if (csPropTypes[i].lstPropTypes[j].propFreq < STRANGE_PROP_FREQUENCY){
+				fprintf(fout, " [REALLY INFREQUENT PROP] ");
+			}
+			GDKfree(propStr);
+			fprintf(fout, "\n");
+
+		}	
+		fprintf(fout, "\n");
+	}
+
+	fclose(fout);
+
+	BBPunfix(mapbat->batCacheid);
+	TKNZRclose(&ret);
+	
+	return MAL_SUCCEED;
+}
+
+#endif /*  NO_OUTPUTFILE == 0 */
 
 /*
 static 
@@ -3459,6 +3534,165 @@ oid getMostSuitableName(CSlabel *labels, int freqIdx, int candIdx){
 }
 #endif
 
+#if DETECT_INCORRECT_TYPE_SUBJECT
+
+#if USING_FINALTABLE
+static
+void buildLabelStatForTable(LabelStat *labelStat, int numTables, CStableStat* cstablestat){
+	int 	i; 
+	BUN 	bun; 
+	int 	*_tmp; 
+	int	numDummy = 0;
+	oid	name; 
+	int	tblIdx = -1;
+
+	//Preparation
+	for (i = 0; i  < numTables; i++){
+		if ( cstablestat->lstcstable[i].tblname != BUN_NONE){
+			name = cstablestat->lstcstable[i].tblname;
+			bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr) &name);
+			if (bun == BUN_NONE) {
+				//New string
+				if (labelStat->labelBat->T->hash && BATcount(labelStat->labelBat) > 4 * labelStat->labelBat->T->hash->mask) {
+					HASHdestroy(labelStat->labelBat);
+					BAThash(BATmirror(labelStat->labelBat), 2*BATcount(labelStat->labelBat));
+				}
+
+				labelStat->labelBat = BUNappend(labelStat->labelBat, (ptr) &name, TRUE);
+						
+				if(labelStat->numLabeladded == labelStat->numAllocation) 
+				{ 
+					labelStat->numAllocation += INIT_DISTINCT_LABEL; 
+					
+					_tmp = realloc(labelStat->lstCount, (labelStat->numAllocation * sizeof(int)));
+				
+					if (!_tmp){
+						fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+					}
+					labelStat->lstCount = (int*)_tmp;
+				}
+				labelStat->lstCount[labelStat->numLabeladded] = 1; 
+				labelStat->numLabeladded++;
+			}
+			else{
+				labelStat->lstCount[bun]++;
+			}
+		}
+		else
+			numDummy++;
+	}
+	
+	printf("Collect label stat for final table: Total number of distinct labels %d \n", labelStat->numLabeladded);
+	printf("Number of DUMMY freqCS: %d \n",numDummy);
+
+	//Build list of freqId corresponding to each label
+	labelStat->freqIdList = (int**) malloc(sizeof(int*) * labelStat->numLabeladded);
+	for (i =0; i < labelStat->numLabeladded; i++){
+		labelStat->freqIdList[i] = (int*)malloc(sizeof(int) * labelStat->lstCount[i]);
+		//reset the lstCount
+		labelStat->lstCount[i] = 0;
+	}
+	
+	for (i = 0; i  < numTables; i++){
+		name = cstablestat->lstcstable[i].tblname;
+		if (name != BUN_NONE){
+			bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr) &name);
+			if (bun == BUN_NONE) {
+				fprintf(stderr, "[Error] All the name should be stored already!\n");
+			}
+			else{
+				tblIdx = labelStat->lstCount[bun];
+				labelStat->freqIdList[bun][tblIdx] = i; 
+				labelStat->lstCount[bun]++;
+			}
+		}
+	}
+
+}
+
+#else /* USING_FINALTABLE = 0*/
+
+static
+void buildLabelStatForFinalMergeCS(LabelStat *labelStat, CSset *freqCSset, CSlabel *labels){
+	int 	i; 
+	BUN 	bun; 
+	int 	*_tmp; 
+	int	numDummy = 0;
+	oid	name; 
+	int	freqIdx = -1;
+
+	//Preparation
+	for (i = 0; i  < freqCSset->numCSadded; i++){
+		if (freqCSset->items[i].parentFreqIdx != -1) continue; 
+
+		if ( labels[i].name != BUN_NONE){
+			name = labels[i].name;
+			bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr) &name);
+			if (bun == BUN_NONE) {
+				//New string
+				if (labelStat->labelBat->T->hash && BATcount(labelStat->labelBat) > 4 * labelStat->labelBat->T->hash->mask) {
+					HASHdestroy(labelStat->labelBat);
+					BAThash(BATmirror(labelStat->labelBat), 2*BATcount(labelStat->labelBat));
+				}
+
+				labelStat->labelBat = BUNappend(labelStat->labelBat, (ptr) &name, TRUE);
+						
+				if(labelStat->numLabeladded == labelStat->numAllocation) 
+				{ 
+					labelStat->numAllocation += INIT_DISTINCT_LABEL; 
+					
+					_tmp = realloc(labelStat->lstCount, (labelStat->numAllocation * sizeof(int)));
+				
+					if (!_tmp){
+						fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+					}
+					labelStat->lstCount = (int*)_tmp;
+				}
+				labelStat->lstCount[labelStat->numLabeladded] = 1; 
+				labelStat->numLabeladded++;
+			}
+			else{
+				labelStat->lstCount[bun]++;
+			}
+		}
+		else
+			numDummy++;
+	}
+	
+	printf("Collect label stat for final mergeCS: Total number of distinct labels %d \n", labelStat->numLabeladded);
+	printf("Number of DUMMY freqCS: %d \n",numDummy);
+
+	//Build list of freqId corresponding to each label
+	labelStat->freqIdList = (int**) malloc(sizeof(int*) * labelStat->numLabeladded);
+	for (i =0; i < labelStat->numLabeladded; i++){
+		labelStat->freqIdList[i] = (int*)malloc(sizeof(int) * labelStat->lstCount[i]);
+		//reset the lstCount
+		labelStat->lstCount[i] = 0;
+	}
+	
+
+	for (i = 0; i  < freqCSset->numCSadded; i++){
+		if (freqCSset->items[i].parentFreqIdx != -1) continue; 
+
+		name = labels[i].name;
+		if (name != BUN_NONE){
+			bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr) &name);
+			if (bun == BUN_NONE) {
+				fprintf(stderr, "[Error] All the name should be stored already!\n");
+			}
+			else{
+				freqIdx = labelStat->lstCount[bun];
+				labelStat->freqIdList[bun][freqIdx] = i; 
+				labelStat->lstCount[bun]++;
+			}
+		}
+	}
+
+}
+#endif
+
+#endif
+
 static
 void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset, int k){
 	int 	i,j; 
@@ -3545,6 +3779,7 @@ void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset, int
 	}
 
 }
+
 static 
 void freeLabelStat(LabelStat *labelStat){
 	int i; 
@@ -5257,6 +5492,219 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 
 	return MAL_SUCCEED; 
 }
+
+#if DETECT_INCORRECT_TYPE_SUBJECT
+
+static 
+str RDFcheckWrongTypeSubject(BAT *sbat, BATiter si, BATiter pi, BATiter oi, CSset *freqCSset, int maxNumPwithDup, int numTables, int *mTblIdxFreqIdxMapping, LabelStat *labelStat, oid *subjCSMap, int *csFreqCSMapping){
+
+	BUN 	p, q; 
+	oid 	*sbt, *pbt, *obt; 
+	oid 	curS; 		/* current Subject oid */
+	oid 	curP; 		/* current Property oid */
+	int 	numP; 		/* Number of properties for current S */
+	int 	numPwithDup = 0; 
+	oid*	buff; 	 
+
+	//Only keep the most specific ontology-based rdftype value 
+	int	maxNumOntology = 20;		
+	oid*	rdftypeOntologyValues = NULL; 
+	char*   rdftypeSelectedValues = NULL; //Store which value is selected
+	char* 	rdftypeSpecificLevels = NULL; //Store specific level for each value
+	BUN*	rdftypeOntClassPos = NULL; //Position in the ontology class		     
+
+	int	numTypeValues = 0;
+	#if EXTRAINFO_FROM_RDFTYPE
+	int	tmpMaxSpecificLevel = 0; 
+	int	tmpSpecificLevel = 0; 
+	BUN	tmpOntClassPos = BUN_NONE;  //index of the ontology class in the ontmetaBat
+	PropStat        *ontPropStat = NULL;
+	int		numOntClass = 0; 
+	TFIDFInfo	*tfidfInfos = NULL;
+	#endif
+	PropStat 	*propStat = NULL; //Store the propStat for the prop of the freqCS
+					//corresponding to the final table
+	char		isFoundWrongTypeSubj = 0;
+	char		isExist = 0;
+	CS		*cs; 	
+	int		tmpfreqIdx = -1; 
+
+	BAT	*typeBat;	//BAT contains oids of type attributes retrieved from tokenizer
+	oid	markedName = BUN_NONE;  
+	int	i,j;
+	BUN	bun, bunprop; 
+	oid	prop;
+
+	(void) mTblIdxFreqIdxMapping;
+	(void) numTables;
+
+	#if EXTRAINFO_FROM_RDFTYPE
+	numOntClass = BATcount(ontmetaBat);
+	ontPropStat = initPropStat();
+	ontPropStat = getPropStatisticsByOntologyClass(numOntClass, ontclassSet);
+	tfidfInfos = (TFIDFInfo*)malloc(sizeof(TFIDFInfo) * numOntClass);
+	initTFIDFInfosForOntologyClass(tfidfInfos, numOntClass, ontclassSet, ontPropStat);
+	#endif
+
+
+	typeBat = buildTypeOidBat();
+
+	printf("Number of attributes inserted into BAT: " BUNFMT "\n", BATcount(typeBat));
+	rdftypeOntologyValues = (oid*)malloc(sizeof(oid) * maxNumOntology);
+	rdftypeSelectedValues = (char*)malloc(sizeof(char) * maxNumOntology);
+	rdftypeSpecificLevels = (char*)malloc(sizeof(char) * maxNumOntology);
+	rdftypeOntClassPos = (BUN *) malloc(sizeof(BUN) * maxNumOntology);
+		
+	buff = (oid *) malloc (sizeof(oid) * (maxNumPwithDup + 1));
+
+	numP = 0;
+	curP = BUN_NONE; 
+	curS = 0; 
+	
+	#if USING_FINALTABLE
+	{
+	int	numdistinctMCS = 0;
+	propStat =  getPropStatisticsByTable(numTables, mTblIdxFreqIdxMapping, freqCSset,  &numdistinctMCS);
+	}
+	#else
+	{
+	int curNumMergeCS = countNumberMergeCS(freqCSset);
+	oid* mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
+        initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
+	propStat = initPropStat();
+	getPropStatisticsFromMergeCSs(propStat, curNumMergeCS, mergeCSFreqCSMap, freqCSset);
+	}
+	#endif
+
+	BATloop(sbat, p, q){
+		sbt = (oid *) BUNtloc(si, p);		
+		if (*sbt != curS){
+			if (p != 0){	/* Not the first S */
+				if (numTypeValues > 1){
+					getBestRdfTypeValue(buff, numP, rdftypeOntologyValues, rdftypeSelectedValues, rdftypeSpecificLevels, rdftypeOntClassPos, &numTypeValues, tmpMaxSpecificLevel, tfidfInfos);
+					
+					//Only check for subject that have type value
+					markedName = rdftypeOntologyValues[0];
+					bun = BUNfnd(labelStat->labelBat, &markedName); 
+					if (bun != BUN_NONE){	//There is table to compare			
+						int freqId = csFreqCSMapping[subjCSMap[curS]];
+						if (freqId == -1) {
+							printf("An infrequent CS subject "BUNFMT" marked with type "BUNFMT"\n",curS, markedName);
+						}
+						isFoundWrongTypeSubj = 0;
+						for (i = 0; i < numP; i++){
+							//Check each prop
+							isExist = 0;
+							prop = buff[i];
+							bunprop = BUNfnd(BATmirror(propStat->pBat),(ptr) &prop);
+							if (bunprop == BUN_NONE){
+								printf("Subj "BUNFMT" of type "BUNFMT" has an prop "BUNFMT" not in any final table \n", 
+																curS,markedName, prop);
+								isFoundWrongTypeSubj = 1;
+							}
+							else{ 
+								if (propStat->tfidfs[bunprop] > MIN_TFIDF_PROP_FINALTABLE){ //A discriminate prop
+								//if (propStat->tfidfs[bunprop] > 0){ //A discriminate prop
+									//check if any table has this prop
+									for (i = 0; i < labelStat->lstCount[bun]; i++){
+										//Check table i
+										#if USING_FINALTABLE
+										tmpfreqIdx = mTblIdxFreqIdxMapping[labelStat->freqIdList[bun][i]];
+										#else	
+										tmpfreqIdx = labelStat->freqIdList[bun][i];
+										#endif
+										cs = (CS*) &(freqCSset->items[tmpfreqIdx]);
+										for (j = 0; j < cs->numProp; j++){
+											if (cs->lstProp[j] == prop){
+												isExist = 1; 
+											}
+											if (cs->lstProp[j] > prop) break; //don't need to check after
+										}
+										if (isExist == 1) break; 
+									}
+									if (isExist == 0){
+										printf("Subj "BUNFMT" of type "BUNFMT" has an prop "BUNFMT" not belong to table of the same typee \n", curS,markedName, prop);	
+										isFoundWrongTypeSubj = 1;
+									}
+									
+								}
+									
+							}
+							if (isFoundWrongTypeSubj) break;
+						}
+					}
+
+				}
+				 
+			}
+			curS = *sbt; 
+			curP = BUN_NONE;
+			numP = 0;
+			numPwithDup = 0; 
+
+			numTypeValues = 0;
+			#if EXTRAINFO_FROM_RDFTYPE
+			tmpMaxSpecificLevel = 0;
+			tmpSpecificLevel = 0;
+			#endif
+		}
+				
+		pbt = (oid *) BUNtloc(pi, p); 
+
+		#if EXTRAINFO_FROM_RDFTYPE
+		if (isTypeAttribute(*pbt, typeBat)){ //Check type attributes
+			obt = (oid *) BUNtloc(oi, p);
+			tmpSpecificLevel = getOntologySpecificLevel(*obt, &tmpOntClassPos);
+
+			if (tmpOntClassPos != BUN_NONE){
+
+				rdftypeSpecificLevels[numTypeValues] = tmpSpecificLevel;
+				rdftypeOntClassPos[numTypeValues] = tmpOntClassPos;		
+				rdftypeOntologyValues[numTypeValues] = *obt;
+				rdftypeSelectedValues[numTypeValues] = 1;
+				numTypeValues++;
+
+				if (tmpSpecificLevel > tmpMaxSpecificLevel){	
+					tmpMaxSpecificLevel = tmpSpecificLevel;
+				}
+			}
+
+		}
+		#endif
+		
+		if (curP != *pbt){	/* Multi values property */		
+			buff[numP] = *pbt; 
+			numP++; 
+			curP = *pbt; 
+		}
+		numPwithDup++;
+	}
+	
+	#if EXTRAINFO_FROM_RDFTYPE
+	if (numTypeValues > 1)
+		getBestRdfTypeValue(buff, numP, rdftypeOntologyValues, rdftypeSelectedValues, rdftypeSpecificLevels, rdftypeOntClassPos, &numTypeValues, tmpMaxSpecificLevel, tfidfInfos);
+	#endif	
+	/*put the last CS */
+	//TODO: Check the last subject, copy from above
+	
+	//printf("subjCSMap[" BUNFMT "]=" BUNFMT " (CSoid = " BUNFMT ") \n", curS, returnCSid, CSoid);
+
+	free (buff); 
+	
+	#if EXTRAINFO_FROM_RDFTYPE
+	freePropStat(ontPropStat);
+	freeTFIDFInfo(tfidfInfos, numOntClass);
+	#endif
+	freePropStat(propStat);
+	free(rdftypeOntologyValues);
+	free(rdftypeSelectedValues);
+	free(rdftypeSpecificLevels);
+	free(rdftypeOntClassPos);
+
+	return MAL_SUCCEED; 
+}
+
+#endif
 
 static 
 str RDFgetRefCounts(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid *subjCSMap, int maxNumProp, BUN maxSoid, int *refCount){
@@ -9881,6 +10329,9 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	#if COLORINGPROP
 	/* Update list of support for properties in freqCSset */
 	updatePropSupport(csPropTypes, numTables, freqCSset);
+	#if NO_OUTPUTFILE == 0
+	printFinalTableWithPropSupport(csPropTypes, numTables, freqCSset, mapbatid, *freqThreshold, labels);
+	#endif
 	#endif
 
 	curT = clock(); 
@@ -9922,6 +10373,31 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 
 	#if NO_OUTPUTFILE == 0 
 	printFinalStructure(cstablestat, csPropTypes, numTables,*freqThreshold, mapbatid);
+	#endif
+	
+	#if DETECT_INCORRECT_TYPE_SUBJECT
+	{
+	LabelStat *labelStat;
+	BAT       *ontbat;
+
+	if ((ontbat = BATdescriptor(*ontbatid)) == NULL) {
+		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
+	}
+	(void)BATprepareHash(BATmirror(ontbat));
+	if (!(ontbat->T->hash)){
+		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
+	}
+
+	labelStat = initLabelStat();
+	#if USING_FINALTABLE
+	buildLabelStatForTable(labelStat, numTables, cstablestat);
+	#else
+	buildLabelStatForFinalMergeCS(labelStat, freqCSset, labels); 	
+	#endif
+
+	RDFcheckWrongTypeSubject(sbat, si, pi, oi, freqCSset, maxNumPwithDup, numTables, mTblIdxFreqIdxMapping, labelStat, subjCSMap, csFreqCSMapping);
+	freeLabelStat(labelStat);
+	}
 	#endif
 	
 	#if STORE_PERFORMANCE_METRIC_INFO
@@ -9995,7 +10471,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 		if (tblIdx != -1){
 			freqIdx = csFreqCSMapping[subjCSMap[*sbt]];
 			if (freqCSset->items[freqIdx].numProp < cstablestat->lstcstable[tblIdx].numCol * LOTSOFNULL_SUBJECT_THRESHOLD){
-				//printf("Subject " BUNFMT " is removed from table %d with %d cols \n",*sbt,tblIdx, cstablestat->lstcstable[tblIdx].numCol);
+				printf("Subject " BUNFMT " is removed from table %d with %d cols \n",*sbt,tblIdx, cstablestat->lstcstable[tblIdx].numCol);
 				isLotsNullSubj[*sbt] = 1;
 				tblIdx = -1;
 				numSubjRemoved++;

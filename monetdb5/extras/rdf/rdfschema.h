@@ -265,7 +265,12 @@ typedef struct SubCSSet{
 #define REMOVE_INFREQ_PROP	1
 #define REMOVE_LOTSOFNULL_SUBJECT	1
 #define	LOTSOFNULL_SUBJECT_THRESHOLD	0.1
-#define DETECT_INCORRECT_TYPE_SUBJECT	1	//Detect subjects that are assigned wrong type 
+
+#define DETECT_INCORRECT_TYPE_SUBJECT	1	//Detect subjects that are assigned wrong type. (Default value 0)
+#define USING_FINALTABLE		0	//Using the final table for collecting label stat or using set of 
+						//final merged CS. The set of merged CS will be larged as it may
+						//contain small table
+#define STRANGE_PROP_FREQUENCY	10		//If the prop appears in less than 3 instances, it may be the black sheep
 
 #define	MIN_FK_FREQUENCY 	0.1	// The frequency of a FK should be > MIN_FK_FREQUENCY * The frequency of a mergedCS (or the number of tuples in one table)	
 #define MIN_FK_PROPCOVERAGE	0.9	// The FK needs to happen in MIN_FK_PROPCOVERAGE of all instances of the particular property
