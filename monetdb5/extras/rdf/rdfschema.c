@@ -5589,7 +5589,7 @@ str RDFcheckWrongTypeSubject(BAT *sbat, BATiter si, BATiter pi, BATiter oi, CSse
 	assert(*maxSoid != BUN_NONE); 
 
 	subjTypeMap = (oid *) malloc (sizeof(oid) * ((*maxSoid) + 1)); 
-	initArray(subjCSMap, (*maxSoid) + 1, BUN_NONE);
+	initArray(subjTypeMap, (*maxSoid) + 1, BUN_NONE);
 
 	BATloop(sbat, p, q){
 		sbt = (oid *) BUNtloc(si, p);		
