@@ -2970,12 +2970,68 @@ void updateParentIdxAll(CSset *freqCSset){
 	}
 }
 
+#if USE_LABEL_FINDING_MAXCS
+/*
+ *  * Return 1 if there is semantic evidence against merging the two CS's, this is the case iff the two CS's have a hierarchy and their common ancestor is too generic (support above IMPORTANCE_THRESHOLD).
+ *   */
+static
+char isEvidenceAgainstMerging(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode *tree) {
+	int i, j;
+	int level;
+	OntoUsageNode *tmpNode;
+
+	// Get common ancestor
+	int hCount1 = labels[freqId1].hierarchyCount;
+	int hCount2 = labels[freqId2].hierarchyCount;
+	int minCount = (hCount1 > hCount2)?hCount2:hCount1;
+
+	if (minCount == 0) {
+		// at least one CS does not have a hierarchy --> no semantic information --> no semantic evidence against merging
+		return 0;
+	}
+
+	// get level where the hierarchies differ
+ 	for (i = 0; i < minCount; i++){
+		if (labels[freqId1].hierarchy[hCount1-1-i] != labels[freqId2].hierarchy[hCount2-1-i]) break;
+	}
+
+	if (i == 0) {
+		// not even the top level of the hierarchy is the same --> there is semantic evidence against merging the two CS's
+		return 1;
+	} else if (i == minCount) {
+		// same name --> no semantic evidence against merging
+		return 0;
+	}
+
+	// get the common ancestor at level i
+ 	level = 0;
+	tmpNode = tree;
+	while(level < i){
+		for (j = 0; j < tmpNode->numChildren; j++) {
+			if (tmpNode->lstChildren[j]->uri == labels[freqId1].hierarchy[hCount1-1-level]){
+				tmpNode = tmpNode->lstChildren[j];
+				break;
+			}
+		}
+		level++;
+	}
+
+	if (tmpNode->percentage >= IMPORTANCE_THRESHOLD) {
+		// have common ancestor but it is too generic --> there is semantic evidence against merging the two CS's
+ 		return 1;
+	} else {
+		// common ancestor is specific --> no semantic evidence against merging
+		return 0;
+	}
+}
+#endif
+
 /*
  * Get the maximum frequent CSs from a CSset
  * Here maximum frequent CS is a CS that there exist no other CS which contains that CS
  * */
 static 
-void mergeCSbyS3(CSset *freqCSset, CSlabel** labels, oid *mergeCSFreqCSMap, int curNumMergeCS, oid **ontmetadata, int ontmetadataCount){
+void mergeCSbyS3(CSset *freqCSset, CSlabel** labels, oid *mergeCSFreqCSMap, int curNumMergeCS, oid **ontmetadata, int ontmetadataCount, OntoUsageNode *tree){
 
 	int 	numMergeCS = curNumMergeCS; 
 	int 	i, j; 
@@ -2983,13 +3039,12 @@ void mergeCSbyS3(CSset *freqCSset, CSlabel** labels, oid *mergeCSFreqCSMap, int 
 
 	int 	tmpParentIdx; 
 	int	freqId1, freqId2; 
-	#if USE_LABEL_FINDING_MAXCS
-	char	isLabelComparable = 0;
-	#endif
-	char	isDiffLabel = 0;
 	int	numP1, numP2; 
 	CS	*mergecs1, *mergecs2; 
-	(void) labels;
+
+#if !USE_LABEL_FINDING_MAXCS
+	(void) tree;
+#endif
 
 	printf("Retrieving maximum frequent CSs: \n");
 
@@ -3000,44 +3055,35 @@ void mergeCSbyS3(CSset *freqCSset, CSlabel** labels, oid *mergeCSFreqCSMap, int 
 		if (freqCSset->items[freqId1].type == DIMENSIONCS) continue; 
 		#endif
 
-		#if USE_LABEL_FINDING_MAXCS
-		isLabelComparable = 0;
-		if ((*labels)[i].name != BUN_NONE) isLabelComparable = 1; // no "DUMMY"
-		#endif
-
 		for (j = (i+1); j < numMergeCS; j++){
 			freqId2 = mergeCSFreqCSMap[j];
 			#if	NOT_MERGE_DIMENSIONCS
 			if (freqCSset->items[freqId2].type == DIMENSIONCS) continue; 
 			#endif
 
-			isDiffLabel = 0; 
-			#if USE_LABEL_FINDING_MAXCS
-			if (isLabelComparable == 0 || strcmp((*labels)[freqId1].name, (*labels)[freqId2].name) != 0) {
-				isDiffLabel = 1; 
+			numP2 = freqCSset->items[freqId2].numProp;
+			numP1 = freqCSset->items[freqId1].numProp;
+			if (numP2 > numP1 && (numP2-numP1)< MAX_SUB_SUPER_NUMPROP_DIF){
+				if (isSubset(freqCSset->items[freqId2].lstProp, freqCSset->items[freqId1].lstProp, numP2,numP1) == 1) { 
+					/* CSj is a superset of CSi */
+#if USE_LABEL_FINDING_MAXCS
+					if (isEvidenceAgainstMerging(freqId1, freqId2, *labels, tree)) continue;
+#endif
+					freqCSset->items[freqId1].parentFreqIdx = freqId2; 
+					updateLabel(S3, freqCSset, labels, 0, freqId2, freqId1, freqId2, BUN_NONE, 0, 0, 0, ontmetadata, ontmetadataCount, NULL, -1); // name, isType, isOntology, isFK are not used for case CS
+					break; 
+				}
 			}
-			#endif
-
-			if (isDiffLabel == 0){
-				numP2 = freqCSset->items[freqId2].numProp;
-				numP1 = freqCSset->items[freqId1].numProp;
-				if (numP2 > numP1 && (numP2-numP1)< MAX_SUB_SUPER_NUMPROP_DIF){
-					if (isSubset(freqCSset->items[freqId2].lstProp, freqCSset->items[freqId1].lstProp, numP2,numP1) == 1) { 
-						/* CSj is a superset of CSi */
-						freqCSset->items[freqId1].parentFreqIdx = freqId2; 
-						updateLabel(S3, freqCSset, labels, 0, freqId2, freqId1, freqId2, BUN_NONE, 0, 0, 0, ontmetadata, ontmetadataCount, NULL, -1); // name, isType, isOntology, isFK are not used for case CS
-						break; 
-					}
-				}
-				else if (numP2 < numP1 && (numP1-numP2)< MAX_SUB_SUPER_NUMPROP_DIF){
-					if (isSubset(freqCSset->items[freqId1].lstProp, freqCSset->items[freqId2].lstProp,  
-							numP1,numP2) == 1) { 
-						/* CSj is a subset of CSi */
-						freqCSset->items[freqId2].parentFreqIdx = freqId1; 
-						updateLabel(S3, freqCSset, labels, 0, freqId1, freqId1, freqId2, BUN_NONE, 0, 0, 0, ontmetadata, ontmetadataCount, NULL, -1); // name, isType, isOntology, isFK are not used for case CS
-					}		
-				
-				}
+			else if (numP2 < numP1 && (numP1-numP2)< MAX_SUB_SUPER_NUMPROP_DIF){
+				if (isSubset(freqCSset->items[freqId1].lstProp, freqCSset->items[freqId2].lstProp,  
+						numP1,numP2) == 1) { 
+					/* CSj is a subset of CSi */
+#if USE_LABEL_FINDING_MAXCS
+					if (isEvidenceAgainstMerging(freqId1, freqId2, *labels, tree)) continue;
+#endif
+					freqCSset->items[freqId2].parentFreqIdx = freqId1; 
+					updateLabel(S3, freqCSset, labels, 0, freqId1, freqId1, freqId2, BUN_NONE, 0, 0, 0, ontmetadata, ontmetadataCount, NULL, -1); // name, isType, isOntology, isFK are not used for case CS
+				}		
 			}
 
 			//Do not need to consider the case that the numProps are the same
@@ -8856,12 +8902,12 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	if (0){
 	/*S3: Merge two CS's having the subset-superset relationship */
-	mergeCSbyS3(freqCSset, labels, mergeCSFreqCSMap,curNumMergeCS, ontmetadata, ontmetadataCount); 
+	mergeCSbyS3(freqCSset, labels, mergeCSFreqCSMap,curNumMergeCS, ontmetadata, ontmetadataCount, ontoUsageTree); 
 
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	curT = clock(); 
-	printf("Merging with S4 took %f. (Number of mergeCS: %d | NumconsistOf: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS, countNumberConsistOfCS(freqCSset));
-	printf("Number of added CS after S4: %d \n", freqCSset->numCSadded);
+	printf("Merging with S3 took %f. (Number of mergeCS: %d | NumconsistOf: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS, countNumberConsistOfCS(freqCSset));
+	printf("Number of added CS after S3: %d \n", freqCSset->numCSadded);
 	
 	#if STORE_PERFORMANCE_METRIC_INFO	
 	computeMetricsQ(freqCSset);

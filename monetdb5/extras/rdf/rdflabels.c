@@ -2621,16 +2621,43 @@ void addToOntoUsageTree(OntoUsageNode* tree, oid* hierarchy, int hierarchyCount,
 }
 
 static
-void printTree(OntoUsageNode* tree, int level) {
+void printTreePrivate(OntoUsageNode* tree, int level, FILE* fout) {
 	int i;
-	str uriStr;
+	str uriStr, uriStrShort;
 
-	takeOid(tree->uri, &uriStr);
-	printf("Level %d URI %s Count %d Sum %d Percent %.1f\n", level, uriStr, tree->numOccurances, tree->numOccurancesSum, tree->percentage * 100);
-
-	for (i = 0; i < tree->numChildren; ++i) {
-		printTree(tree->lstChildren[i], level+1);
+	if (tree->parent) {
+		takeOid(tree->uri, &uriStr);
+		getPropNameShort(&uriStrShort, uriStr);
+		fprintf(fout, BUNFMT" [label = \"%s (%.1f%%)\"];\n", tree->uri, uriStrShort, tree->percentage * 100);
+		fprintf(fout, BUNFMT"--"BUNFMT";\n", tree->uri, tree->parent->uri);
+		GDKfree(uriStrShort);
+		GDKfree(uriStr);
+	} else {
+		// artifical root, has no name
+		fprintf(fout, BUNFMT" [label = \"ROOT (%.1f%%)\"];\n", tree->uri, tree->percentage * 100);
 	}
+	for (i = 0; i < tree->numChildren; ++i) {
+		printTreePrivate(tree->lstChildren[i], level+1, fout);
+	}
+}
+
+/*
+ * Print ontology tree to file, dot code
+ */
+static
+void printTree(OntoUsageNode* tree) {
+	FILE *fout = fopen("ontoUsageTree.txt", "wt");
+
+	// header
+	fprintf(fout, "graph g {\n");
+	fprintf(fout, "graph [ratio = \"compress\", rankdir = \"RL\"];\n");
+	fprintf(fout, "node [shape = \"box\"];\n\n");
+	// body
+	printTreePrivate(tree, 0, fout);
+	// footer
+
+	fprintf(fout, "}\n");
+	fclose(fout);
 }
 
 static
@@ -2679,7 +2706,7 @@ void createOntoUsageTree(OntoUsageNode** tree, CSset* freqCSset, oid** ontmetada
 	// print
 	if(0){
 	printf("Ontology tree:\n");
-	printTree(*tree, 0);
+	printTree(*tree);
 	}
 }
 
