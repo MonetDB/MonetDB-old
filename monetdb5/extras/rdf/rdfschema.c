@@ -4469,6 +4469,8 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 	
 	char		existDiscriminatingProp = 0; 
 
+	int		oldNumCSadded = 0;
+	(void) oldNumCSadded;
 	/*
 	int ret; 
 	char*   schema = "rdf";
@@ -4476,6 +4478,9 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 
 	TKNZRopen (NULL, &schema);
 	*/
+	#if UPDATE_NAME_BASEDON_POPULARTABLE
+	oldNumCSadded = freqCSset->numCSadded;
+	#endif
 
 	(void) labels;
 
@@ -4545,7 +4550,53 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 			}
 		}
 	}
+	#if UPDATE_NAME_BASEDON_POPULARTABLE
+	{
+	int	tmpSubFreqId = -1;
+	int	tmpFreqIdwithMaxSupport = -1;
+	int	tmpmaxSupport = 0;
+	int	k; 
+	oid	oldName; 
+	oid 	newName;
+	for (i = oldNumCSadded; i < freqCSset->numCSadded; i++){
+		freqId1 = i;
+		cs1 = (CS*) &(freqCSset->items[freqId1]);
+		oldName = (*labels)[freqId1].name;
 
+		if (cs1->parentFreqIdx == -1 && oldName != BUN_NONE){
+			tmpmaxSupport = 0; 
+			newName = BUN_NONE; 
+			for (j = 0; j < cs1->numConsistsOf; j++){
+                        	tmpSubFreqId  = cs1->lstConsistsOf[j];
+				if (freqCSset->items[tmpSubFreqId].support > tmpmaxSupport){
+					tmpFreqIdwithMaxSupport = tmpSubFreqId;	
+					tmpmaxSupport = freqCSset->items[tmpSubFreqId].support;	
+				}
+			}
+			
+			newName = (*labels)[tmpFreqIdwithMaxSupport].name;
+			if (newName != BUN_NONE && newName != oldName){
+				//update label
+				(*labels)[freqId1].name = newName;
+				//update candidates
+				assert(oldName == (*labels)[freqId1].candidates[0]);
+				for (k = 1; k < (*labels)[freqId1].candidatesCount; k++){
+					//If newName is already in the candidates, swap the first candidate with this
+					if ((*labels)[freqId1].candidates[k] == newName){	
+						(*labels)[freqId1].candidates[k] = oldName; 
+						(*labels)[freqId1].candidates[0] = newName;
+						break;
+					}	
+				}
+				//If no candidate has the new Name
+				if ((*labels)[freqId1].candidates[0] != newName){
+					(*labels)[freqId1].candidates[0] = newName;
+				}
+			}
+		}
+	}
+	}
+	#endif
 
 	//TKNZRclose(&ret);
 
@@ -5088,6 +5139,33 @@ int getOntologySpecificLevel(oid valueOid, BUN *ontClassPos){
 		return ontclassSet[*ontClassPos].hierDepth;
 }
 
+static
+char isSupSuperOntology(oid value1, oid value2){
+	BUN ontclasspos1 = BUN_NONE;
+	BUN ontclasspos2 = BUN_NONE;
+	int tmpscPos = -1;
+	int j;
+	
+	ontclasspos1 = BUNfnd(BATmirror(ontmetaBat), &value1);
+	ontclasspos2 = BUNfnd(BATmirror(ontmetaBat), &value2);
+
+	if (ontclasspos1 == BUN_NONE || ontclasspos2 == BUN_NONE) return 0;
+	
+	//check the superclass for value 1
+	for (j = 0; j < ontclassSet[ontclasspos1].numsc; j++){
+		tmpscPos = ontclassSet[ontclasspos1].scIdxes[j]; 
+		if (tmpscPos == (int)ontclasspos2) return 1;
+	}
+	
+	//check the superclass for value 2
+	for (j = 0; j < ontclassSet[ontclasspos2].numsc; j++){
+		tmpscPos = ontclassSet[ontclasspos2].scIdxes[j]; 
+		if (tmpscPos == (int)ontclasspos1) return 1;
+	}
+
+	return 0;
+}
+	
 static
 PropStat* getPropStatisticsByOntologyClass(int numClass, OntClass *ontClassSet){
 
@@ -5790,12 +5868,18 @@ str RDFcheckWrongTypeSubject(BAT *sbat, BATiter si, BATiter pi, BATiter oi, CSse
 						takeOid(redirectS, &redirectSstr);
 						takeOid(subjTypeMap[*sbt], &curStype);
 						takeOid(subjTypeMap[redirectS],&redirecttype);
-						printf("Subject %s [Type: %s] redirects to %s [Type: %s] \n",
+						printf("Subject %s [Type: %s] redirects to %s [Type: %s]",
 								curSstr,curStype,redirectSstr,redirecttype);
 						GDKfree(curSstr);
 						GDKfree(redirectSstr);
 						GDKfree(curStype);
 						GDKfree(redirecttype);
+						
+						if (isSupSuperOntology(subjTypeMap[*sbt],subjTypeMap[redirectS]) == 0){
+							printf (" [NOT IN SAME HIERARCHY] \n");
+						} else {
+							printf ("\n");
+						}
 					}
 				
 				}

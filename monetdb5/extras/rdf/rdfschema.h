@@ -253,6 +253,8 @@ typedef struct SubCSSet{
 				// such as type, description. They should have at least one discriminating prop in common. 
 #define MIN_TFIDF_PROP_FINALTABLE 2.5 //Discriminating prop is prop that appears in less than 10% of the table	
 
+#define UPDATE_NAME_BASEDON_POPULARTABLE 1//Update table name from merging multiple freqCS by using the most popular one
+
 //#define MIN_FROMTABLE_SIZE_S5 1		/* For example data */
 #define MINIMUM_TABLE_SIZE 10000   //The minimum number of triples coverred by a table (i.e., a final CS) 
 //#define MINIMUM_TABLE_SIZE 1   // For example dataset only 
