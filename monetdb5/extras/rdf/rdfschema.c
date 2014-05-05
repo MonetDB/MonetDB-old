@@ -5475,6 +5475,7 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 	#endif
 	#endif	
 	
+	BBPreclaim(typeBat);
 	#if EXTRAINFO_FROM_RDFTYPE
 	freePropStat(ontPropStat);
 	freeTFIDFInfo(tfidfInfos, numOntClass);
@@ -5501,6 +5502,7 @@ str RDFcheckWrongTypeSubject(BAT *sbat, BATiter si, BATiter pi, BATiter oi, CSse
 	BUN 	p, q; 
 	oid 	*sbt, *pbt, *obt; 
 	oid 	curS; 		/* current Subject oid */
+	oid	redirectS; 	/* Subject that are redirected from the curS*/
 	oid 	curP; 		/* current Property oid */
 	int 	numP; 		/* Number of properties for current S */
 	int 	numPwithDup = 0; 
@@ -5535,8 +5537,14 @@ str RDFcheckWrongTypeSubject(BAT *sbat, BATiter si, BATiter pi, BATiter oi, CSse
 	BUN	bun, bunprop; 
 	oid	prop;
 
+	oid	*subjTypeMap = NULL; 
+	oid	*maxSoid;
+
+
 	(void) mTblIdxFreqIdxMapping;
 	(void) numTables;
+
+
 
 	#if EXTRAINFO_FROM_RDFTYPE
 	numOntClass = BATcount(ontmetaBat);
@@ -5576,6 +5584,13 @@ str RDFcheckWrongTypeSubject(BAT *sbat, BATiter si, BATiter pi, BATiter oi, CSse
 	}
 	#endif
 
+	maxSoid = (BUN *) Tloc(sbat, BUNlast(sbat) - 1);
+
+	assert(*maxSoid != BUN_NONE); 
+
+	subjTypeMap = (oid *) malloc (sizeof(oid) * ((*maxSoid) + 1)); 
+	initArray(subjCSMap, (*maxSoid) + 1, BUN_NONE);
+
 	BATloop(sbat, p, q){
 		sbt = (oid *) BUNtloc(si, p);		
 		if (*sbt != curS){
@@ -5585,6 +5600,10 @@ str RDFcheckWrongTypeSubject(BAT *sbat, BATiter si, BATiter pi, BATiter oi, CSse
 					
 					//Only check for subject that have type value
 					markedName = rdftypeOntologyValues[0];
+
+					assert(markedName != BUN_NONE);
+					subjTypeMap[curS] = markedName;
+
 					bun = BUNfnd(labelStat->labelBat, &markedName); 
 					if (bun != BUN_NONE){	//There is table to compare			
 						int freqId = csFreqCSMapping[subjCSMap[curS]];
@@ -5687,10 +5706,64 @@ str RDFcheckWrongTypeSubject(BAT *sbat, BATiter si, BATiter pi, BATiter oi, CSse
 	/*put the last CS */
 	//TODO: Check the last subject, copy from above
 	
-	//printf("subjCSMap[" BUNFMT "]=" BUNFMT " (CSoid = " BUNFMT ") \n", curS, returnCSid, CSoid);
+	
+	//Run again and check if a subj and it pageRedirect has the same type
+	{
+	char*   schema = "rdf";
+	int	ret = 0;
+	oid redirectAttributeOid = BUN_NONE; 
+	char* redirectAttributes = "<http://dbpedia.org/ontology/wikiPageRedirects>";
+	
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "rdf.rdfschema",
+				"could not open the tokenizer\n");
+	}
+
+	TKNZRappend(&redirectAttributeOid,&redirectAttributes);
+
+	assert(redirectAttributeOid != BUN_NONE);
+
+	printf("<http://dbpedia.org/ontology/wikiPageRedirects> id is "BUNFMT"\n",redirectAttributeOid);
+
+	BATloop(sbat, p, q){
+		sbt = (oid *) BUNtloc(si, p);		
+					//Only check for subject that have type value
+		pbt = (oid *) BUNtloc(pi, p); 
+
+		if (*pbt == redirectAttributeOid && subjTypeMap[*sbt] != BUN_NONE){ //Check redirect value
+			obt = (oid *) BUNtloc(oi, p);
+			redirectS = *obt; 
+			if (redirectS < *maxSoid){
+				if (subjTypeMap[redirectS] != BUN_NONE){
+					if (subjTypeMap[*sbt] != subjTypeMap[redirectS]){
+						str curSstr; 
+						str redirectSstr; 
+						str curStype;
+						str redirecttype;
+						takeOid(*sbt, &curSstr);
+						takeOid(redirectS, &redirectSstr);
+						takeOid(subjTypeMap[*sbt], &curStype);
+						takeOid(subjTypeMap[redirectS],&redirecttype);
+						printf("Subject %s [Type: %s] redirects to %s [Type: %s] \n",
+								curSstr,curStype,redirectSstr,redirecttype);
+						GDKfree(curSstr);
+						GDKfree(redirectSstr);
+						GDKfree(curStype);
+						GDKfree(redirecttype);
+					}
+				
+				}
+			}
+		}
+	}
+
+	TKNZRclose(&ret);	
+	}
 
 	free (buff); 
 	
+	free(subjTypeMap);
+
 	#if EXTRAINFO_FROM_RDFTYPE
 	freePropStat(ontPropStat);
 	freeTFIDFInfo(tfidfInfos, numOntClass);
@@ -5700,6 +5773,9 @@ str RDFcheckWrongTypeSubject(BAT *sbat, BATiter si, BATiter pi, BATiter oi, CSse
 	free(rdftypeSelectedValues);
 	free(rdftypeSpecificLevels);
 	free(rdftypeOntClassPos);
+
+	BBPreclaim(typeBat);
+	
 
 	return MAL_SUCCEED; 
 }
@@ -10388,7 +10464,10 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
 
+
+
 	labelStat = initLabelStat();
+
 	#if USING_FINALTABLE
 	buildLabelStatForTable(labelStat, numTables, cstablestat);
 	#else
@@ -10471,7 +10550,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 		if (tblIdx != -1){
 			freqIdx = csFreqCSMapping[subjCSMap[*sbt]];
 			if (freqCSset->items[freqIdx].numProp < cstablestat->lstcstable[tblIdx].numCol * LOTSOFNULL_SUBJECT_THRESHOLD){
-				printf("Subject " BUNFMT " is removed from table %d with %d cols \n",*sbt,tblIdx, cstablestat->lstcstable[tblIdx].numCol);
+				//printf("Subject " BUNFMT " is removed from table %d with %d cols \n",*sbt,tblIdx, cstablestat->lstcstable[tblIdx].numCol);
 				isLotsNullSubj[*sbt] = 1;
 				tblIdx = -1;
 				numSubjRemoved++;
