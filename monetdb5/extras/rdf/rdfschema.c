@@ -198,6 +198,8 @@ char isCSTable(CS item, oid name){
 	if (item.type == DIMENSIONCS) return 1; 
 
 	#if REMOVE_SMALL_TABLE
+	if (item.support > acceptableTableSize) return 1;
+
 	if (item.coverage < MINIMUM_TABLE_SIZE) return 0;
 	
 	//More strict with table which does not have name
@@ -744,6 +746,66 @@ void initCSPropTypes(CSPropTypes* csPropTypes, CSset* freqCSset, int numMergedCS
 
 	//return csPropTypes;
 }
+
+#if COUNT_NUMTYPES_PERPROP
+
+static 
+void initCSPropTypesForBasicFreqCS(CSPropTypes* csPropTypes, CSset* freqCSset, int numMergedCS){
+	int numFreqCS = freqCSset->numCSadded;
+	int i, j, k ;
+	int id; 
+	
+	id = 0; 
+	for (i = 0; i < numFreqCS; i++){
+		csPropTypes[id].freqCSId = i; 
+		csPropTypes[id].numProp = freqCSset->items[i].numProp;
+		csPropTypes[id].numInfreqProp = 0; 
+		csPropTypes[id].numNonDefTypes = 0;
+		csPropTypes[id].lstPropTypes = (PropTypes*) GDKmalloc(sizeof(PropTypes) * csPropTypes[id].numProp);
+		for (j = 0; j < csPropTypes[id].numProp; j++){
+			csPropTypes[id].lstPropTypes[j].prop = freqCSset->items[i].lstProp[j]; 
+			#if STAT_ANALYZE
+			csPropTypes[id].lstPropTypes[j].numNull = 0;
+			csPropTypes[id].lstPropTypes[j].numMVType = 0;
+			csPropTypes[id].lstPropTypes[j].numSingleType = 0;		
+			#endif
+			csPropTypes[id].lstPropTypes[j].propFreq = 0; 
+			csPropTypes[id].lstPropTypes[j].propCover = 0; 
+			csPropTypes[id].lstPropTypes[j].numType = MULTIVALUES + 1;
+			csPropTypes[id].lstPropTypes[j].defaultType = STRING; 
+			csPropTypes[id].lstPropTypes[j].isMVProp = 0; 
+			csPropTypes[id].lstPropTypes[j].isPKProp = 0; 
+			csPropTypes[id].lstPropTypes[j].numMvTypes = 0; 
+			csPropTypes[id].lstPropTypes[j].defColIdx = -1; 
+			csPropTypes[id].lstPropTypes[j].isFKProp = 0;
+			csPropTypes[id].lstPropTypes[j].refTblId = -1; 
+			csPropTypes[id].lstPropTypes[j].refTblSupport = 0;
+			csPropTypes[id].lstPropTypes[j].numReferring = 0;
+			csPropTypes[id].lstPropTypes[j].numDisRefValues = 0;
+			csPropTypes[id].lstPropTypes[j].isDirtyFKProp = 0; 
+			csPropTypes[id].lstPropTypes[j].lstTypes = (char*)GDKmalloc(sizeof(char) * csPropTypes[id].lstPropTypes[j].numType);
+			csPropTypes[id].lstPropTypes[j].lstFreq = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
+			csPropTypes[id].lstPropTypes[j].lstFreqWithMV = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
+			csPropTypes[id].lstPropTypes[j].colIdxes = (int*)GDKmalloc(sizeof(int) * csPropTypes[id].lstPropTypes[j].numType);
+			csPropTypes[id].lstPropTypes[j].TableTypes = (char*)GDKmalloc(sizeof(char) * csPropTypes[id].lstPropTypes[j].numType);
+
+			for (k = 0; k < csPropTypes[id].lstPropTypes[j].numType; k++){
+				csPropTypes[id].lstPropTypes[j].lstFreq[k] = 0; 
+				csPropTypes[id].lstPropTypes[j].lstFreqWithMV[k] = 0; 
+				csPropTypes[id].lstPropTypes[j].TableTypes[k] = 0; 
+				csPropTypes[id].lstPropTypes[j].colIdxes[k] = -1; 
+			}
+
+		}
+
+		id++;
+	}
+
+	assert(id == numMergedCS);
+
+	//return csPropTypes;
+}
+#endif
 
 static 
 char isMultiValueCol(PropTypes pt){
@@ -5071,7 +5133,8 @@ oid	**ontmetadata = NULL;
 int	ontmetadataCount = 0;
 BAT	*ontmetaBat = NULL;
 OntClass  *ontclassSet = NULL; 
-
+int	totalNumberOfTriples = 0;
+int	acceptableTableSize = 0;
 
 static 
 BAT* buildTypeOidBat(void){
@@ -5139,6 +5202,7 @@ int getOntologySpecificLevel(oid valueOid, BUN *ontClassPos){
 		return ontclassSet[*ontClassPos].hierDepth;
 }
 
+#if DETECT_INCORRECT_TYPE_SUBJECT
 static
 char isSupSuperOntology(oid value1, oid value2){
 	BUN ontclasspos1 = BUN_NONE;
@@ -5165,6 +5229,7 @@ char isSupSuperOntology(oid value1, oid value2){
 
 	return 0;
 }
+#endif
 	
 static
 PropStat* getPropStatisticsByOntologyClass(int numClass, OntClass *ontClassSet){
@@ -6250,6 +6315,41 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 	return MAL_SUCCEED; 
 }
 
+static 
+void printNumTypePerProp(CSPropTypes* csPropTypes, int numCS, CSset *freqCSset){
+	
+	int 	i,j,k; 
+	CS	cs;
+	int	tmpNumType = 0; 
+	int	tmpSumNumType = 0; 	
+	int	totalNumProp = 0; 
+	int	totalNumTypes = 0; 
+
+	FILE	*fout;
+	fout = fopen("csPropTypeBasicCS.txt","wt");
+	fprintf(fout, "#FreqCSId	#NumProp #NumTypes #AvgNumType/Prop \n");
+	for (i = 0; i < numCS; i++){
+	 	cs = freqCSset->items[i];
+		tmpSumNumType = 0; 
+		for (j = 0; j < cs.numProp; j++){
+				tmpNumType = 0;
+				for (k = 0; k < MULTIVALUES; k++){
+					if (csPropTypes[i].lstPropTypes[j].lstFreqWithMV[k] > 0){
+						tmpNumType++;
+					}
+				}
+				tmpSumNumType += tmpNumType;
+		}
+
+		fprintf(fout, "%d	%d	%d	%.2f \n",i,cs.numProp,tmpSumNumType, (float) tmpSumNumType/cs.numProp);
+		totalNumProp += cs.numProp;
+		totalNumTypes += tmpSumNumType;
+	}
+
+	printf("Average number of types per prop in freqCS: %f \n", (float)totalNumTypes/totalNumProp);
+
+	fclose(fout); 
+}
 
 #if NO_OUTPUTFILE == 0 
 static 
@@ -8802,8 +8902,9 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	*subjCSMap = (oid *) malloc (sizeof(oid) * ((*maxSoid) + 1)); 
 	initArray(*subjCSMap, (*maxSoid) + 1, BUN_NONE);
 
-
-	
+	totalNumberOfTriples = 	BATcount(sbat); 
+	acceptableTableSize = totalNumberOfTriples / 2000;
+	printf("Acceptable table size = %d \n", acceptableTableSize);
 	
 	tmpLastT = clock();
 
@@ -8885,6 +8986,20 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 	/*get the statistic */
 	//getTopFreqCSs(csMap,*freqThreshold);
+	#if COUNT_NUMTYPES_PERPROP
+	{
+	
+	/* Get possible types of each property in a table (i.e., mergedCS) */
+	CSPropTypes *csPropTypes = (CSPropTypes*)GDKmalloc(sizeof(CSPropTypes) * (freqCSset->numCSadded)); 
+	initCSPropTypesForBasicFreqCS(csPropTypes, freqCSset, freqCSset->numCSadded);
+	
+	printf("Extract CSPropTypes from basic CS's \n");
+	RDFExtractCSPropTypes(ret, sbat, si, pi, oi, *subjCSMap, csIdFreqIdxMap, csPropTypes, *maxNumPwithDup);
+	printNumTypePerProp(csPropTypes, freqCSset->numCSadded, freqCSset);
+
+	freeCSPropTypes(csPropTypes, freqCSset->numCSadded);
+	}
+	#endif
 
 	// Create label per freqCS
 

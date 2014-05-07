@@ -152,8 +152,12 @@ typedef struct PropStat {
 
 #define STORE_PERFORMANCE_METRIC_INFO	1
 
-#define NO_OUTPUTFILE	0		/*Do not write the output to any file */
+#define NO_OUTPUTFILE	1		/*Do not write the output to any file */
 
+extern int totalNumberOfTriples; 
+extern int acceptableTableSize;
+
+#define	COUNT_NUMTYPES_PERPROP 1
 
 typedef struct CS
 {
@@ -268,7 +272,7 @@ typedef struct SubCSSet{
 #define REMOVE_LOTSOFNULL_SUBJECT	1
 #define	LOTSOFNULL_SUBJECT_THRESHOLD	0.1
 
-#define DETECT_INCORRECT_TYPE_SUBJECT	1	//Detect subjects that are assigned wrong type. (Default value 0)
+#define DETECT_INCORRECT_TYPE_SUBJECT	0	//Detect subjects that are assigned wrong type. (Default value 0)
 #define USING_FINALTABLE		0	//Using the final table for collecting label stat or using set of 
 						//final merged CS. The set of merged CS will be larged as it may
 						//contain small table
