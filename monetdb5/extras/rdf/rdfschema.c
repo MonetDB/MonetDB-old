@@ -6324,13 +6324,21 @@ void printNumTypePerProp(CSPropTypes* csPropTypes, int numCS, CSset *freqCSset){
 	int	tmpSumNumType = 0; 	
 	int	totalNumProp = 0; 
 	int	totalNumTypes = 0; 
-
+	int	numMultiTypeProp = 0;
+	int	tmpnumMultiTypeProp = 0;
+	int	numPropByNumType[MULTIVALUES];
 	FILE	*fout;
+
+
+	for (k = 0; k < MULTIVALUES; k++){
+		numPropByNumType[k] = 0;
+	}
 	fout = fopen("csPropTypeBasicCS.txt","wt");
-	fprintf(fout, "#FreqCSId	#NumProp #NumTypes #AvgNumType/Prop \n");
+	fprintf(fout, "#FreqCSId	#NumProp #NumTypes #AvgNumType/Prop  #MultiTypeProp \n");
 	for (i = 0; i < numCS; i++){
 	 	cs = freqCSset->items[i];
 		tmpSumNumType = 0; 
+		tmpnumMultiTypeProp = 0;
 		for (j = 0; j < cs.numProp; j++){
 				tmpNumType = 0;
 				for (k = 0; k < MULTIVALUES; k++){
@@ -6339,14 +6347,21 @@ void printNumTypePerProp(CSPropTypes* csPropTypes, int numCS, CSset *freqCSset){
 					}
 				}
 				tmpSumNumType += tmpNumType;
+				numPropByNumType[tmpNumType]++; 
+				if (tmpNumType > 1) tmpnumMultiTypeProp++;
 		}
-
-		fprintf(fout, "%d	%d	%d	%.2f \n",i,cs.numProp,tmpSumNumType, (float) tmpSumNumType/cs.numProp);
+		
+		fprintf(fout, "%d	%d	%d	%.2f	%d \n",i,cs.numProp,tmpSumNumType, (float) tmpSumNumType/cs.numProp,tmpnumMultiTypeProp);
 		totalNumProp += cs.numProp;
 		totalNumTypes += tmpSumNumType;
+		numMultiTypeProp += tmpnumMultiTypeProp;
 	}
 
 	printf("Average number of types per prop in freqCS: %f \n", (float)totalNumTypes/totalNumProp);
+	printf("Number of multi-types prop %d \n",numMultiTypeProp);
+	for (k = 0; k < MULTIVALUES; k++){
+		printf("Number prop with %d types: %d \n",k, numPropByNumType[k]);
+	}
 
 	fclose(fout); 
 }
