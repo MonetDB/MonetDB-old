@@ -3585,6 +3585,7 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 
 }
 
+#if USE_LABEL_FOR_MERGING
 static
 LabelStat* initLabelStat(void){
 	LabelStat *labelStat = (LabelStat*) malloc(sizeof(LabelStat)); 
@@ -3603,10 +3604,12 @@ LabelStat* initLabelStat(void){
 
 	return labelStat; 
 }
+#endif
 
 /*
  * 
  * */
+#if USE_LABEL_FOR_MERGING
 #if USE_ALTERNATIVE_NAME 
 static
 oid getMostSuitableName(CSlabel *labels, int freqIdx, int candIdx){
@@ -3640,6 +3643,7 @@ oid getMostSuitableName(CSlabel *labels, int freqIdx, int candIdx){
 	#endif
 
 }
+#endif
 #endif
 
 #if DETECT_INCORRECT_TYPE_SUBJECT
@@ -3801,6 +3805,7 @@ void buildLabelStatForFinalMergeCS(LabelStat *labelStat, CSset *freqCSset, CSlab
 
 #endif
 
+#if USE_LABEL_FOR_MERGING
 static
 void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset, int k){
 	int 	i,j; 
@@ -3887,7 +3892,9 @@ void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset, int
 	}
 
 }
+#endif
 
+#if USE_LABEL_FOR_MERGING
 static 
 void freeLabelStat(LabelStat *labelStat){
 	int i; 
@@ -3901,6 +3908,7 @@ void freeLabelStat(LabelStat *labelStat){
 	BBPreclaim(labelStat->labelBat);
 	free(labelStat);
 }
+#endif
 
 static 
 void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *mergecsId, CSlabel** labels, oid** ontmetadata, int ontmetadataCount, oid name, int isType, int isOntology, int isFK){
@@ -3954,6 +3962,7 @@ void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *merge
 
 }
 
+#if USE_LABEL_FOR_MERGING
 static
 str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** ontmetadata, int ontmetadataCount,bat *mapbatid){
 	int 		i, j; 
@@ -4188,6 +4197,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 
 	return MAL_SUCCEED; 
 }
+#endif
 
 static
 void mergeMaxFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId, oid** ontmetadata, int ontmetadataCount){
@@ -4319,7 +4329,7 @@ void mergeMaxFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 }
 
 
-
+#if USE_LABEL_FOR_MERGING
 static
 char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode *tree, int numOrigFreqCS, oid *ancestor, BAT *ontmetaBat, OntClass *ontclassSet){	/*Rule S1 S2 S3*/
 	int i, j; 
@@ -4433,6 +4443,7 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 
 	return 0;
 }
+#endif
 
 static
 void initTFIDFInfos(TFIDFInfo *tfidfInfos, int curNumMergeCS, oid* mergeCSFreqCSMap, CSset *freqCSset, PropStat *propStat){
@@ -4476,6 +4487,7 @@ void freeTFIDFInfo(TFIDFInfo *tfidfInfos, int curNumMergeCS){
 	free(tfidfInfos);
 }
 
+#if USE_LABEL_FOR_MERGING
 static
 void mergeCSByS2(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId,OntoUsageNode *ontoUsageTree, oid **ontmetadata, int ontmetadataCount, BAT *ontmetaBat, OntClass *ontclassSet){
 	int 		i, j; 
@@ -4517,6 +4529,7 @@ void mergeCSByS2(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 	}
 
 }
+#endif
 
 static
 void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId,oid **ontmetadata, int ontmetadataCount){
@@ -9090,6 +9103,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	printf("Before using rules: Number of freqCS is: %d \n",curNumMergeCS);
 	
+#if USE_LABEL_FOR_MERGING
 	/* ---------- S1 ------- */
 	mergecsId = *maxCSoid + 1; 
 
@@ -9109,6 +9123,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	computeMetricsQ(freqCSset);
 	#endif
 	tmpLastT = curT;
+#endif
 	
 	/* ---------- S3 ------- */
 	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
@@ -9159,6 +9174,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	tmpLastT = curT; 		
 	
+#if USE_LABEL_FOR_MERGING
 	//S2: Common ancestor
 	free(mergeCSFreqCSMap);
 	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
@@ -9179,6 +9195,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	#endif
 
 	tmpLastT = curT; 		
+#endif
 
 
 	//S4: TF/IDF similarity
