@@ -132,7 +132,7 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 	int last_update_bind_second_return_var_id = -1;
 	int last_subdelta_return_var_id = -1;
 	
-	int var_sql_mvc;
+	int var_sql_mvc = 0;
 	int barrier_to_defend_against_dataflow = 0;
 
 	stk = stk; //to escape 'unused' parameter error.

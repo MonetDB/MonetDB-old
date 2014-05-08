@@ -127,6 +127,8 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	printf("files of interest: %d\n", num_fl);
 	
+	num_fi = num_fi;
+	
 	/* check for logical error */
 	assert(num_fi == num_fl);
 	
