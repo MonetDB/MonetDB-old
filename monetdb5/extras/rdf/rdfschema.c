@@ -742,7 +742,11 @@ void initCSPropTypes(CSPropTypes* csPropTypes, CSset* freqCSset, int numMergedCS
 		}
 	}
 
+#ifndef NDEBUG
 	assert(id == numMergedCS);
+#else
+	(void) numMergedCS;		
+#endif
 
 	//return csPropTypes;
 }
@@ -801,7 +805,12 @@ void initCSPropTypesForBasicFreqCS(CSPropTypes* csPropTypes, CSset* freqCSset, i
 		id++;
 	}
 
+#ifndef NDEBUG
 	assert(id == numMergedCS);
+#else
+	(void) numMergedCS;		
+#endif
+
 	//return csPropTypes;
 }
 #endif
