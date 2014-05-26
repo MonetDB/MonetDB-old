@@ -802,7 +802,6 @@ void initCSPropTypesForBasicFreqCS(CSPropTypes* csPropTypes, CSset* freqCSset, i
 	}
 
 	assert(id == numMergedCS);
-
 	//return csPropTypes;
 }
 #endif
@@ -3585,6 +3584,7 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 
 }
 
+#if USE_LABEL_FOR_MERGING
 static
 LabelStat* initLabelStat(void){
 	LabelStat *labelStat = (LabelStat*) malloc(sizeof(LabelStat)); 
@@ -3603,10 +3603,12 @@ LabelStat* initLabelStat(void){
 
 	return labelStat; 
 }
+#endif
 
 /*
  * 
  * */
+#if USE_LABEL_FOR_MERGING
 #if USE_ALTERNATIVE_NAME 
 static
 oid getMostSuitableName(CSlabel *labels, int freqIdx, int candIdx){
@@ -3640,6 +3642,7 @@ oid getMostSuitableName(CSlabel *labels, int freqIdx, int candIdx){
 	#endif
 
 }
+#endif
 #endif
 
 #if DETECT_INCORRECT_TYPE_SUBJECT
@@ -3801,6 +3804,7 @@ void buildLabelStatForFinalMergeCS(LabelStat *labelStat, CSset *freqCSset, CSlab
 
 #endif
 
+#if USE_LABEL_FOR_MERGING
 static
 void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset, int k){
 	int 	i,j; 
@@ -3887,7 +3891,9 @@ void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset, int
 	}
 
 }
+#endif
 
+#if USE_LABEL_FOR_MERGING
 static 
 void freeLabelStat(LabelStat *labelStat){
 	int i; 
@@ -3901,6 +3907,7 @@ void freeLabelStat(LabelStat *labelStat){
 	BBPreclaim(labelStat->labelBat);
 	free(labelStat);
 }
+#endif
 
 static 
 void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *mergecsId, CSlabel** labels, oid** ontmetadata, int ontmetadataCount, oid name, int isType, int isOntology, int isFK){
@@ -3954,6 +3961,7 @@ void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *merge
 
 }
 
+#if USE_LABEL_FOR_MERGING
 static
 str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** ontmetadata, int ontmetadataCount,bat *mapbatid){
 	int 		i, j; 
@@ -4188,6 +4196,7 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 
 	return MAL_SUCCEED; 
 }
+#endif
 
 static
 void mergeMaxFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId, oid** ontmetadata, int ontmetadataCount){
@@ -4319,7 +4328,7 @@ void mergeMaxFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** la
 }
 
 
-
+#if USE_LABEL_FOR_MERGING
 static
 char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode *tree, int numOrigFreqCS, oid *ancestor, BAT *ontmetaBat, OntClass *ontclassSet){	/*Rule S1 S2 S3*/
 	int i, j; 
@@ -4433,6 +4442,7 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 
 	return 0;
 }
+#endif
 
 static
 void initTFIDFInfos(TFIDFInfo *tfidfInfos, int curNumMergeCS, oid* mergeCSFreqCSMap, CSset *freqCSset, PropStat *propStat){
@@ -4476,6 +4486,7 @@ void freeTFIDFInfo(TFIDFInfo *tfidfInfos, int curNumMergeCS){
 	free(tfidfInfos);
 }
 
+#if USE_LABEL_FOR_MERGING
 static
 void mergeCSByS2(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId,OntoUsageNode *ontoUsageTree, oid **ontmetadata, int ontmetadataCount, BAT *ontmetaBat, OntClass *ontclassSet){
 	int 		i, j; 
@@ -4517,6 +4528,7 @@ void mergeCSByS2(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 	}
 
 }
+#endif
 
 static
 void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId,oid **ontmetadata, int ontmetadataCount){
@@ -5330,6 +5342,39 @@ float similarityScoreWithOntologyClass(oid* arr1, oid* arr2, int m, int n,
 
 	return  ((float) sumXY);
 }
+
+#if COUNT_PERCENTAGE_ONTO_PROP_USED
+
+static 
+void countNumOverlapProp(oid* arr1, oid* arr2, int m, int n, 
+		int *numOverlap){
+	
+	int i = 0, j = 0;
+	int numCommon = 0; 
+
+	i = 0;
+	j = 0;
+	while( i < n && j < m )
+	{
+		if( arr1[j] < arr2[i] ){
+			j++;
+
+		}
+		else if( arr1[j] == arr2[i] )
+		{
+			j++;
+			i++;
+			numCommon++;
+
+		}
+		else if( arr1[j] > arr2[i] )
+			i++;
+	}
+	
+	*numOverlap = numCommon;
+
+}
+#endif
 	
 static
 void getBestRdfTypeValue(oid *buff, int numP, oid *rdftypeOntologyValues, char *rdftypeSelectedValues, char *rdftypeSpecificLevels, BUN *rdftypeOntClassPos, int *numTypeValues, int maxSpecificLevel, TFIDFInfo *tfidfInfos){
@@ -8478,6 +8523,13 @@ str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int 
 	char*		schema = "rdf";
 	BATiter		mapi;
 	BAT		*mbat = NULL;  
+	#if COUNT_PERCENTAGE_ONTO_PROP_USED
+	int		numOntologyName = 0; 
+	int		numOntologyProp = 0;
+	int		numOntologyPropUsed = 0;
+	int		tmpNumOverlap = 0;
+	BUN		tmpPos = BUN_NONE; 
+	#endif
 
 	printf("Summarizing the final table information \n"); 
 	// allocate memory space for cstablestat
@@ -8499,14 +8551,31 @@ str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int 
 	for (i = 0; i < numTables; i++){
 
 		tmpNumDefaultCol = csPropTypes[i].numProp -  csPropTypes[i].numInfreqProp;
+		assert(tmpNumDefaultCol ==  cstablestat->lstcstable[i].numCol);
 		
 		if (cstablestat->lstcstable[i].tblname != BUN_NONE){
 			str subjStrShort = NULL;
 			//takeOid(cstablestat->lstcstable[i].tblname, &subjStr);
 			getStringName(cstablestat->lstcstable[i].tblname, &subjStr, mapi, mbat, 1); 
 			getPropNameShort(&subjStrShort, subjStr);
-		
+			#if COUNT_PERCENTAGE_ONTO_PROP_USED
+			tmpNumOverlap = 0;
+			tmpPos = BUNfnd(BATmirror(ontmetaBat), &cstablestat->lstcstable[i].tblname);
+			if (tmpPos != BUN_NONE){
+				if (ontclassSet[tmpPos].numProp != 0){	//otherwise, we do not have the information for this ontology class
+					countNumOverlapProp(ontclassSet[tmpPos].lstProp, cstablestat->lstcstable[i].lstProp , 
+								ontclassSet[tmpPos].numProp,tmpNumDefaultCol, &tmpNumOverlap);		
+
+					numOntologyPropUsed += tmpNumOverlap;
+					numOntologyName += 1;
+					numOntologyProp += ontclassSet[tmpPos].numProp;
+				}
+				
+			}
+			fprintf(fout, "Table %d (Name: %s | NumCols: %d | (Num onto prop. used: %d)\n", i, subjStrShort, tmpNumDefaultCol,tmpNumOverlap);			
+			#else
 			fprintf(fout, "Table %d (Name: %s | NumCols: %d)\n", i, subjStrShort, tmpNumDefaultCol);
+			#endif
 
 			GDKfree(subjStrShort);
 			GDKfree(subjStr);
@@ -8541,6 +8610,14 @@ str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int 
 	}
 	
 	printf(" Number of no-name table: %d | (Total: %d)\n",numNoNameTable,numTables);
+	#if COUNT_PERCENTAGE_ONTO_PROP_USED
+	if (numOntologyProp != 0){
+		printf(" Percentage of ontology prop. used is %f (in %d ontology names used) \n", (float) numOntologyPropUsed/numOntologyProp,numOntologyName);
+	}
+	else{
+		printf(" Percentage of ontology prop. used: There is no ontology attributes for this dataset \n");
+	}
+	#endif
 
 	fclose(fout); 
 	
@@ -9090,6 +9167,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	printf("Before using rules: Number of freqCS is: %d \n",curNumMergeCS);
 	
+#if USE_LABEL_FOR_MERGING
 	/* ---------- S1 ------- */
 	mergecsId = *maxCSoid + 1; 
 
@@ -9109,6 +9187,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	computeMetricsQ(freqCSset);
 	#endif
 	tmpLastT = curT;
+#endif
 	
 	/* ---------- S3 ------- */
 	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
@@ -9159,6 +9238,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	tmpLastT = curT; 		
 	
+#if USE_LABEL_FOR_MERGING
 	//S2: Common ancestor
 	free(mergeCSFreqCSMap);
 	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
@@ -9179,6 +9259,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	#endif
 
 	tmpLastT = curT; 		
+#endif
 
 
 	//S4: TF/IDF similarity
