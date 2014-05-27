@@ -3972,7 +3972,7 @@ void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *merge
 
 #if USE_LABEL_FOR_MERGING
 static
-str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** ontmetadata, int ontmetadataCount,bat *mapbatid){
+str mergeFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** ontmetadata, int ontmetadataCount,bat *mapbatid){
 	int 		i, j; 
 	CS		*cs1, *cs2;
 
@@ -3988,6 +3988,10 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 	#endif
 	LabelStat	*labelStat = NULL; 
 	oid		*name;
+
+	#if ONLY_MERGE_ONTOLOGYBASEDNAME_CS_S1
+	ObjectType	objType; 	
+	#endif
 
 	#if OUTPUT_FREQID_PER_LABEL
 	FILE    	*fout;
@@ -4030,6 +4034,10 @@ str mergeMaxFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid**
 	#endif
 	for (i = 0; i < labelStat->numLabeladded; i++){
 		name = (oid*) Tloc(labelStat->labelBat, i);
+		#if ONLY_MERGE_ONTOLOGYBASEDNAME_CS_S1
+		objType = getObjType(*name); 
+		if (objType != URI) continue; 
+		#endif
 		if (labelStat->lstCount[i] > 1){
 			/*TODO: Multi-way merge */
 			#if USE_MULTIWAY_MERGING	
@@ -9180,7 +9188,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	/* ---------- S1 ------- */
 	mergecsId = *maxCSoid + 1; 
 
-	mergeMaxFreqCSByS1(freqCSset, labels, &mergecsId, ontmetadata, ontmetadataCount, mapbatid); /*S1: Merge all freqCS's sharing top-3 candidates */
+	mergeFreqCSByS1(freqCSset, labels, &mergecsId, ontmetadata, ontmetadataCount, mapbatid); /*S1: Merge all freqCS's sharing top-3 candidates */
 	
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 
