@@ -9625,7 +9625,7 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 					//cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[0] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
 					cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[0] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], csPropTypes[i].lstPropTypes[j].propCover + 1);
 					for (k = 0; k < MULTIVALUES; k++){
-						if (k != csPropTypes[i].lstPropTypes[j].defaultType && csPropTypes[i].lstPropTypes[j].TableTypes[k] == MVTBL){
+						if (k != (int) csPropTypes[i].lstPropTypes[j].defaultType && csPropTypes[i].lstPropTypes[j].TableTypes[k] == MVTBL){
 							mvColIdx++;
 							cstablestat->lstcstable[i].lstMVTables[colIdx].colTypes[mvColIdx] = (ObjectType)k;
 							//cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[mvColIdx] = BATnew(TYPE_void, mapObjBATtypes[k], smallbatsz);
