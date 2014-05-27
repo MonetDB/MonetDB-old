@@ -316,7 +316,8 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 			unsigned char* predicateStr;
 			predicateStr = raptor_term_to_string(triple->predicate);
 			#if CHECK_NUM_DBPONTOLOGY
-			if ( (pos = strstr((str)predicateStr , "http://dbpedia.org/ontology")) != NULL){
+			pos = strstr((str)predicateStr , "http://dbpedia.org/ontology");
+			if ( pos != NULL){
 				pdata->numOntologyTriples++;
 			}
 

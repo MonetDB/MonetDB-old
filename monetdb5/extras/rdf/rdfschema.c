@@ -120,9 +120,9 @@ static void initcsIdFreqIdxMap(int* inputArr, int num, int defaultValue, CSset *
 }
 
 
-char
+ObjectType
 getObjType(oid objOid){
-	char objType = (char) (objOid >> (sizeof(BUN)*8 - 4))  &  7 ;
+	ObjectType objType = (ObjectType) ((objOid >> (sizeof(BUN)*8 - 4))  &  7) ;
 
 	return objType; 
 
@@ -151,7 +151,7 @@ str printTKNZStringFromOid(oid id){
 static
 char getStringName(oid objOid, str *objStr, BATiter mapi, BAT *mapbat, char isTblName){
 	
-	char 	objType = getObjType(objOid); 
+	ObjectType	objType = getObjType(objOid); 
 	oid	realObjOid; 
 	BUN	bun;
 	int 	i = 0;
@@ -895,7 +895,7 @@ void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freq
 				}
 
 				/* One type is set to be the default type (in the mv table) */
-				csPropTypes[i].lstPropTypes[j].defaultType = defaultIdx;
+				csPropTypes[i].lstPropTypes[j].defaultType = (ObjectType)defaultIdx;
 				csPropTypes[i].lstPropTypes[j].colIdxes[defaultIdx] = 0; 	//The default type is the first col in the MV table
 				csPropTypes[i].lstPropTypes[j].TableTypes[defaultIdx] = MVTBL;
 				
@@ -939,7 +939,7 @@ void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freq
 				/* One type is set to be the default type (in the main table) */
 				csPropTypes[i].lstPropTypes[j].TableTypes[defaultIdx] = MAINTBL; 
 				csPropTypes[i].lstPropTypes[j].colIdxes[defaultIdx] = curDefaultColIdx;
-				csPropTypes[i].lstPropTypes[j].defaultType = defaultIdx; 
+				csPropTypes[i].lstPropTypes[j].defaultType = (ObjectType)defaultIdx; 
 				
 				//Multi-valued prop go to PSO
 				csPropTypes[i].lstPropTypes[j].TableTypes[MULTIVALUES] = PSOTBL;
@@ -1018,7 +1018,7 @@ void printCSPropTypes(CSPropTypes* csPropTypes, int numMergedCS, CSset* freqCSse
 			}
 
 			fprintf(fout, "  P " BUNFMT "(%d | freq: %d | cov:%d | Null: %d | Single: %d | Multi: %d) \n", 
-					csPropTypes[i].lstPropTypes[j].prop, csPropTypes[i].lstPropTypes[j].defaultType,
+					csPropTypes[i].lstPropTypes[j].prop, (int) (csPropTypes[i].lstPropTypes[j].defaultType),
 					csPropTypes[i].lstPropTypes[j].propFreq, csPropTypes[i].lstPropTypes[j].propCover,
 					csPropTypes[i].lstPropTypes[j].numNull, csPropTypes[i].lstPropTypes[j].numSingleType, csPropTypes[i].lstPropTypes[j].numMVType);
 			fprintf(fout, "         ");
@@ -6041,7 +6041,7 @@ str RDFgetRefCounts(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid
 	int 		numP; 		/* Number of properties for current S */
 	oid*		buff; 	 
 
-	char 		objType;
+	ObjectType	objType;
 	oid		realObjOid; 	
 
 	buff = (oid *) malloc (sizeof(oid) * maxNumProp);
@@ -6103,7 +6103,7 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 	oid 		curS; 		/* current Subject oid */
 	//oid 		CSoid = 0; 	/* Characteristic set oid */
 	int 		numPwithDup;	/* Number of properties for current S */
-	char 		objType;
+	ObjectType	objType;
 	#if NEEDSUBCS
 	oid 		returnSubCSid; 
 	#endif
@@ -6286,7 +6286,7 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 	//oid 		CSoid = 0; 	/* Characteristic set oid */
 	int 		numPwithDup;	/* Number of properties for current S */
 	int*		buffCoverage;	/* Number of triples coverage by each property. For deciding on MULTI-VALUED P */
-	char 		objType;
+	ObjectType	objType;
 	char* 		buffTypes; 
 	int		**buffTypesCoverMV; /*Store the types of each value in a multi-value prop */		
 	oid*		buffP;
@@ -6505,7 +6505,7 @@ str getOrigObt(oid *obt, oid *origObt, BAT *lmap, BAT *rmap){
 	BUN pos; 
 	oid *tmp; 
 	oid	tmporigOid = BUN_NONE; 
-	char objType; 
+	ObjectType objType; 
 	BUN	maxObjectURIOid =  ((oid)1 << (sizeof(BUN)*8 - NBITS_FOR_CSID - 1)) - 1; //Base on getTblIdxFromS
 
 	objType = getObjType(*obt); 
@@ -6845,7 +6845,7 @@ str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, C
 							for (mvColIdx =0; mvColIdx < tmpNumMVCols; mvColIdx++){
 								tmpmvBat = cstablestat->lstcstable[i].lstMVTables[j].mvBats[mvColIdx];
 								tmpObjType = getObjTypeFromBATtype(tmpmvBat->ttype); 
-								if (getObjValueFromMVBat(&vrRealObjValue, &vrCastedObjValue, tmpPos, tmpObjType, tmpmvBat, lmap, rmap) == 1){
+								if (getObjValueFromMVBat(&vrRealObjValue, &vrCastedObjValue, tmpPos, (ObjectType)tmpObjType, tmpmvBat, lmap, rmap) == 1){
 									//printf("Casted value at mvBat %d is %s \n",mvColIdx,vrCastedObjValue.val.sval);
 									tmpStrLen = strlen(vrCastedObjValue.val.sval);
 									if (tmpMVSampleStr == NULL){ 
@@ -7006,7 +7006,7 @@ static
 void getObjStr(BAT *mapbat, BATiter mapi, oid objOid, str *objStr, char *retObjType){
 	BUN bun; 
 
-	char objType = getObjType(objOid); 
+	ObjectType objType = getObjType(objOid); 
 
 	if (objType == URI || objType == BLANKNODE){
 		objOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
@@ -9424,7 +9424,7 @@ BAT* getOriginalUriOBat(BAT *obat){
 	BATiter	oi; 
 	BUN	p,q; 
 	oid 	*obt; 
-	char	objType; 
+	ObjectType objType; 
 
 	origobat = BATcopy(obat,  obat->htype, obat->ttype, TRUE);
 	oi = bat_iterator(origobat); 
@@ -9627,7 +9627,7 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 					for (k = 0; k < MULTIVALUES; k++){
 						if (k != csPropTypes[i].lstPropTypes[j].defaultType && csPropTypes[i].lstPropTypes[j].TableTypes[k] == MVTBL){
 							mvColIdx++;
-							cstablestat->lstcstable[i].lstMVTables[colIdx].colTypes[mvColIdx] = k;
+							cstablestat->lstcstable[i].lstMVTables[colIdx].colTypes[mvColIdx] = (ObjectType)k;
 							//cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[mvColIdx] = BATnew(TYPE_void, mapObjBATtypes[k], smallbatsz);
 							cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[mvColIdx] = BATnew(TYPE_void, mapObjBATtypes[k],csPropTypes[i].lstPropTypes[j].propCover + 1);
 						}	
@@ -9649,7 +9649,7 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 					//cstablestat->lstcstableEx[i].colBats[colExIdx] = BATnew(TYPE_void, mapObjBATtypes[t], smallbatsz);
 					cstablestat->lstcstableEx[i].colBats[colExIdx] = BATnew(TYPE_void, mapObjBATtypes[t], freqCSset->items[csPropTypes[i].freqCSId].support + 1);
 					//Set mainTblColIdx for ex-table
-					cstablestat->lstcstableEx[i].colTypes[colExIdx] = t; 
+					cstablestat->lstcstableEx[i].colTypes[colExIdx] = (ObjectType)t; 
 					cstablestat->lstcstableEx[i].mainTblColIdx[colExIdx] = colIdx; 
 					colExIdx++;
 

@@ -403,7 +403,7 @@ typedef struct PropTypes{
 	int*	colIdxes; 	/* colIdxes for each type */
 	int	defColIdx; 	/* Column index in the main table */
 	char*	TableTypes;
-	char	defaultType; 
+	ObjectType	defaultType; 
 	char	isMVProp; 	/* = 1 if this prop is a multi-valued prop*/
 	char	isPKProp; 	/* = 1 if all the values in this columns is unique */
 	char	numMvTypes; 	/* Number of extype BAT for this MV col */
@@ -477,7 +477,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 rdf_export void
 getTblName(str *name, oid nameId,BATiter mapi, BAT *mbat);
 
-rdf_export char 
+rdf_export ObjectType
 getObjType(oid objOid);		/* Return the type of the object value from obj oid*/
 
 rdf_export void
