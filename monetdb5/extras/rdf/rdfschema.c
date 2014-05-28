@@ -37,6 +37,17 @@
 
 #define SHOWPROPERTYNAME 1
 
+
+// for storing ontology data
+oid	**ontattributes = NULL;
+int	ontattributesCount = 0;
+oid	**ontmetadata = NULL;
+int	ontmetadataCount = 0;
+BAT	*ontmetaBat = NULL;
+OntClass  *ontclassSet = NULL; 
+int	totalNumberOfTriples = 0;
+int	acceptableTableSize = 0;
+
 str
 RDFSchemaExplore(int *ret, str *tbname, str *clname)
 {
@@ -3970,6 +3981,17 @@ void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *merge
 
 }
 
+
+#if ONLY_MERGE_ONTOLOGYBASEDNAME_CS_S1
+static 
+char isOntologyName(oid valueOid){
+	BUN ontClassPos = BUN_NONE; 
+	ontClassPos = BUNfnd(BATmirror(ontmetaBat), &valueOid);
+	if (ontClassPos == BUN_NONE) return 0; 
+	else return 1; 
+}
+#endif
+
 #if USE_LABEL_FOR_MERGING
 static
 str mergeFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** ontmetadata, int ontmetadataCount,bat *mapbatid){
@@ -3989,8 +4011,12 @@ str mergeFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** on
 	LabelStat	*labelStat = NULL; 
 	oid		*name;
 
-	#if ONLY_MERGE_ONTOLOGYBASEDNAME_CS_S1
+	#if ONLY_MERGE_URINAME_CS_S1
 	ObjectType	objType; 	
+	#endif
+
+	#if ONLY_MERGE_ONTOLOGYBASEDNAME_CS_S1
+	char		isOntName = 0; 
 	#endif
 
 	#if OUTPUT_FREQID_PER_LABEL
@@ -4035,6 +4061,13 @@ str mergeFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** on
 	for (i = 0; i < labelStat->numLabeladded; i++){
 		name = (oid*) Tloc(labelStat->labelBat, i);
 		#if ONLY_MERGE_ONTOLOGYBASEDNAME_CS_S1
+		isOntName = isOntologyName(*name);
+		if (isOntName != 1){ 
+			printf("Name "BUNFMT" is not an ontology name \n", *name);
+			continue; 
+		}
+		#endif
+		#if ONLY_MERGE_URINAME_CS_S1
 		objType = getObjType(*name); 
 		if (objType != URI) continue; 
 		#endif
@@ -5155,15 +5188,7 @@ BAT* generateTablesForEvaluating(CSset *freqCSset, int numTbl, int* mergeCSFreqC
 #endif
 
 
-// for storing ontology data
-oid	**ontattributes = NULL;
-int	ontattributesCount = 0;
-oid	**ontmetadata = NULL;
-int	ontmetadataCount = 0;
-BAT	*ontmetaBat = NULL;
-OntClass  *ontclassSet = NULL; 
-int	totalNumberOfTriples = 0;
-int	acceptableTableSize = 0;
+
 
 static 
 BAT* buildTypeOidBat(void){
@@ -5202,6 +5227,9 @@ BAT* buildTypeOidBat(void){
 	return typeBat; 
 }
 
+
+
+
 #if EXTRAINFO_FROM_RDFTYPE
 //Check whether a prop is a rdf:type prop
 static 
@@ -5220,6 +5248,8 @@ char isTypeAttribute(oid propId, BAT* typeBat){
 //in ontology class hierarchy
 //-1: Not an ontology class
 //Higher number --> more specific
+
+
 
 static
 int getOntologySpecificLevel(oid valueOid, BUN *ontClassPos){	
