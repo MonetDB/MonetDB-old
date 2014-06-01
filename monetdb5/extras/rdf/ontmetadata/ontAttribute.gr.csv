@@ -1,280 +1,280 @@
-http://purl.org/goodrelations/v1#Brand|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#Brand|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#category
-http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#hasBrand
-http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#hasDUNS
-http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#hasGlobalLocationNumber
-http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#hasISICv4
-http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#hasNAICS
-http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#hasPOS
-http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#legalName
-http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#offers
-http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#owns
-http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#seeks
-http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#taxID
-http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#vatID
-http://purl.org/goodrelations/v1#BusinessEntityType|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#BusinessEntityType|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#BusinessFunction|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#BusinessFunction|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#DayOfWeek|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#DayOfWeek|http://purl.org/goodrelations/v1#hasNext
-http://purl.org/goodrelations/v1#DayOfWeek|http://purl.org/goodrelations/v1#hasPrevious
-http://purl.org/goodrelations/v1#DayOfWeek|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#appliesToDeliveryMethod
-http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#eligibleRegions
-http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#eligibleTransactionVolume
-http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#hasCurrency
-http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#hasCurrencyValue
-http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#hasEligibleQuantity
-http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#hasMaxCurrencyValue
-http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#hasMinCurrencyValue
-http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#validFrom
-http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#validThrough
-http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#valueAddedTaxIncluded
-http://purl.org/goodrelations/v1#DeliveryMethod|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#DeliveryMethod|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#DeliveryModeParcelService|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#DeliveryModeParcelService|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#category
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#color
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#condition
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#datatypeProductOrServiceProperty
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#depth
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#hasBrand
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#hasEAN_UCC-13
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#hasGTIN-14
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#hasGTIN-8
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#hasMPN
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#hasMakeAndModel
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#hasManufacturer
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#hasStockKeepingUnit
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#height
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#isAccessoryOrSparePartFor
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#isConsumableFor
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#isSimilarTo
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#qualitativeProductOrServiceProperty
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#quantitativeProductOrServiceProperty
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#serialNumber
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#weight
-http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#width
-http://purl.org/goodrelations/v1#License|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#License|http://purl.org/goodrelations/v1#eligibleDuration
-http://purl.org/goodrelations/v1#License|http://purl.org/goodrelations/v1#eligibleRegions
-http://purl.org/goodrelations/v1#License|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#License|http://purl.org/goodrelations/v1#validFrom
-http://purl.org/goodrelations/v1#License|http://purl.org/goodrelations/v1#validThrough
-http://purl.org/goodrelations/v1#Location|http://purl.org/goodrelations/v1#category
-http://purl.org/goodrelations/v1#Location|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#Location|http://purl.org/goodrelations/v1#hasGlobalLocationNumber
-http://purl.org/goodrelations/v1#Location|http://purl.org/goodrelations/v1#hasISICv4
-http://purl.org/goodrelations/v1#Location|http://purl.org/goodrelations/v1#hasOpeningHoursSpecification
-http://purl.org/goodrelations/v1#Location|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#acceptedPaymentMethods
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#addOn
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#advanceBookingRequirement
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#availabilityEnds
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#availabilityStarts
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#availableAtOrFrom
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#availableDeliveryMethods
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#category
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#condition
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#deliveryLeadTime
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#eligibleCustomerTypes
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#eligibleDuration
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#eligibleRegions
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#eligibleTransactionVolume
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasBusinessFunction
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasEAN_UCC-13
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasEligibleQuantity
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasGTIN-14
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasGTIN-8
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasInventoryLevel
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasMPN
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasPriceSpecification
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasStockKeepingUnit
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasWarrantyPromise
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#includes
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#includesObject
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#serialNumber
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#validFrom
-http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#validThrough
-http://purl.org/goodrelations/v1#OpeningHoursSpecification|http://purl.org/goodrelations/v1#closes
-http://purl.org/goodrelations/v1#OpeningHoursSpecification|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#OpeningHoursSpecification|http://purl.org/goodrelations/v1#hasOpeningHoursDayOfWeek
-http://purl.org/goodrelations/v1#OpeningHoursSpecification|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#OpeningHoursSpecification|http://purl.org/goodrelations/v1#opens
-http://purl.org/goodrelations/v1#OpeningHoursSpecification|http://purl.org/goodrelations/v1#validFrom
-http://purl.org/goodrelations/v1#OpeningHoursSpecification|http://purl.org/goodrelations/v1#validThrough
-http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#appliesToPaymentMethod
-http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#eligibleTransactionVolume
-http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#hasCurrency
-http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#hasCurrencyValue
-http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#hasEligibleQuantity
-http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#hasMaxCurrencyValue
-http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#hasMinCurrencyValue
-http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#validFrom
-http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#validThrough
-http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#valueAddedTaxIncluded
-http://purl.org/goodrelations/v1#PaymentMethod|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#PaymentMethod|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#PaymentMethodCreditCard|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#PaymentMethodCreditCard|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#eligibleTransactionVolume
-http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#hasCurrency
-http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#hasCurrencyValue
-http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#hasEligibleQuantity
-http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#hasMaxCurrencyValue
-http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#hasMinCurrencyValue
-http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#validFrom
-http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#validThrough
-http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#valueAddedTaxIncluded
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#category
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#color
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#condition
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#datatypeProductOrServiceProperty
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#depth
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#hasBrand
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#hasEAN_UCC-13
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#hasGTIN-14
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#hasGTIN-8
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#hasMPN
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#hasManufacturer
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#hasStockKeepingUnit
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#height
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#isAccessoryOrSparePartFor
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#isConsumableFor
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#isSimilarTo
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#qualitativeProductOrServiceProperty
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#quantitativeProductOrServiceProperty
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#weight
-http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#width
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#category
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#color
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#condition
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#datatypeProductOrServiceProperty
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#depth
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#hasBrand
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#hasEAN_UCC-13
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#hasGTIN-14
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#hasGTIN-8
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#hasMPN
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#hasMakeAndModel
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#hasManufacturer
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#hasStockKeepingUnit
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#height
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#isAccessoryOrSparePartFor
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#isConsumableFor
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#isSimilarTo
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#isVariantOf
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#predecessorOf
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#qualitativeProductOrServiceProperty
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#quantitativeProductOrServiceProperty
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#serialNumber
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#successorOf
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#weight
-http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#width
-http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#equal
-http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#greater
-http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#greaterOrEqual
-http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#lesser
-http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#lesserOrEqual
-http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#nonEqual
-http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#valueReference
-http://purl.org/goodrelations/v1#QuantitativeValue|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#QuantitativeValue|http://purl.org/goodrelations/v1#hasMaxValue
-http://purl.org/goodrelations/v1#QuantitativeValue|http://purl.org/goodrelations/v1#hasMinValue
-http://purl.org/goodrelations/v1#QuantitativeValue|http://purl.org/goodrelations/v1#hasUnitOfMeasurement
-http://purl.org/goodrelations/v1#QuantitativeValue|http://purl.org/goodrelations/v1#hasValue
-http://purl.org/goodrelations/v1#QuantitativeValue|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#QuantitativeValue|http://purl.org/goodrelations/v1#valueReference
-http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#hasMaxValue
-http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#hasMaxValueFloat
-http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#hasMinValue
-http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#hasMinValueFloat
-http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#hasUnitOfMeasurement
-http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#hasValue
-http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#hasValueFloat
-http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#valueReference
-http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#hasMaxValue
-http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#hasMaxValueInteger
-http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#hasMinValue
-http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#hasMinValueInteger
-http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#hasUnitOfMeasurement
-http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#hasValue
-http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#hasValueInteger
-http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#valueReference
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#category
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#color
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#condition
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#datatypeProductOrServiceProperty
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#depth
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasBrand
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasEAN_UCC-13
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasGTIN-14
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasGTIN-8
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasInventoryLevel
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasMPN
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasMakeAndModel
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasManufacturer
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasStockKeepingUnit
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#height
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#isAccessoryOrSparePartFor
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#isConsumableFor
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#isSimilarTo
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#qualitativeProductOrServiceProperty
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#quantitativeProductOrServiceProperty
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#serialNumber
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#weight
-http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#width
-http://purl.org/goodrelations/v1#TypeAndQuantityNode|http://purl.org/goodrelations/v1#amountOfThisGood
-http://purl.org/goodrelations/v1#TypeAndQuantityNode|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#TypeAndQuantityNode|http://purl.org/goodrelations/v1#hasBusinessFunction
-http://purl.org/goodrelations/v1#TypeAndQuantityNode|http://purl.org/goodrelations/v1#hasUnitOfMeasurement
-http://purl.org/goodrelations/v1#TypeAndQuantityNode|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#TypeAndQuantityNode|http://purl.org/goodrelations/v1#typeOfGood
-http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#billingIncrement
-http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#eligibleTransactionVolume
-http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#hasCurrency
-http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#hasCurrencyValue
-http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#hasEligibleQuantity
-http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#hasMaxCurrencyValue
-http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#hasMinCurrencyValue
-http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#hasUnitOfMeasurement
-http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#isListPrice
-http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#priceType
-http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#validFrom
-http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#validThrough
-http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#valueAddedTaxIncluded
-http://purl.org/goodrelations/v1#WarrantyPromise|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#WarrantyPromise|http://purl.org/goodrelations/v1#durationOfWarrantyInMonths
-http://purl.org/goodrelations/v1#WarrantyPromise|http://purl.org/goodrelations/v1#hasWarrantyScope
-http://purl.org/goodrelations/v1#WarrantyPromise|http://purl.org/goodrelations/v1#name
-http://purl.org/goodrelations/v1#WarrantyScope|http://purl.org/goodrelations/v1#description
-http://purl.org/goodrelations/v1#WarrantyScope|http://purl.org/goodrelations/v1#name
+http://purl.org/goodrelations/v1#Brand|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#Brand|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#category|category (0..*)
+http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#hasBrand|has brand (0..*)
+http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#hasDUNS|has DUNS (0..1)
+http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#hasGlobalLocationNumber|has Global Location Number (0..1)
+http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#hasISICv4|has ISIC v4 (0..*)
+http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#hasNAICS|has NAICS (0..*)
+http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#hasPOS|has POS (0..*)
+http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#legalName|legal name (0..1)
+http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#offers|offers (0..*)
+http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#owns|owns (0..*)
+http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#seeks|seeks (0..*)
+http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#taxID|Tax ID (0..1)
+http://purl.org/goodrelations/v1#BusinessEntity|http://purl.org/goodrelations/v1#vatID|VAT ID (0..1)
+http://purl.org/goodrelations/v1#BusinessEntityType|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#BusinessEntityType|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#BusinessFunction|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#BusinessFunction|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#DayOfWeek|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#DayOfWeek|http://purl.org/goodrelations/v1#hasNext|has next (0..1)
+http://purl.org/goodrelations/v1#DayOfWeek|http://purl.org/goodrelations/v1#hasPrevious|has previous (0..1)
+http://purl.org/goodrelations/v1#DayOfWeek|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#appliesToDeliveryMethod|applies to delivery method (0..*)
+http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#eligibleRegions|eligible regions (0..*)
+http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#eligibleTransactionVolume|eligible transaction volume (0..1)
+http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#hasCurrency|has currency (1..1)
+http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#hasCurrencyValue|has currency value (0..1)
+http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#hasEligibleQuantity|has eligible quantity (0..1)
+http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#hasMaxCurrencyValue|has max currency value (1..1)
+http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#hasMinCurrencyValue|has min currency value (1..1)
+http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#validFrom|valid from (0..1)
+http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#validThrough|valid through (0..1)
+http://purl.org/goodrelations/v1#DeliveryChargeSpecification|http://purl.org/goodrelations/v1#valueAddedTaxIncluded|value added tax included (0..1)
+http://purl.org/goodrelations/v1#DeliveryMethod|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#DeliveryMethod|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#DeliveryModeParcelService|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#DeliveryModeParcelService|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#category|category (0..*)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#color|color (0..1)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#condition|condition (0..1)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#datatypeProductOrServiceProperty|datatype product or service property (0..*)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#depth|depth (0..1)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#hasBrand|has brand (0..*)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#hasEAN_UCC-13|has EAN/UCC-13 (0..*)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#hasGTIN-14|has GTIN-14 (0..*)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#hasGTIN-8|has GTIN-8 (0..*)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#hasMPN|has MPN (0..*)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#hasMakeAndModel|has make and model (0..1)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#hasManufacturer|has manufacturer (0..1)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#hasStockKeepingUnit|has Stock Keeping Unit (0..*)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#height|height (0..1)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#isAccessoryOrSparePartFor|is accessory or spare part for (0..*)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#isConsumableFor|is consumable for (0..*)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#isSimilarTo|is similar to (0..*)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#qualitativeProductOrServiceProperty|qualitative product or service property (0..*)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#quantitativeProductOrServiceProperty|quantitative product or service property (0..*)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#serialNumber|serial number (0..*)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#weight|weight (0..1)
+http://purl.org/goodrelations/v1#Individual|http://purl.org/goodrelations/v1#width|width (0..1)
+http://purl.org/goodrelations/v1#License|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#License|http://purl.org/goodrelations/v1#eligibleDuration|eligible duration (0..1)
+http://purl.org/goodrelations/v1#License|http://purl.org/goodrelations/v1#eligibleRegions|eligible regions (0..*)
+http://purl.org/goodrelations/v1#License|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#License|http://purl.org/goodrelations/v1#validFrom|valid from (0..1)
+http://purl.org/goodrelations/v1#License|http://purl.org/goodrelations/v1#validThrough|valid through (0..1)
+http://purl.org/goodrelations/v1#Location|http://purl.org/goodrelations/v1#category|category (0..*)
+http://purl.org/goodrelations/v1#Location|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#Location|http://purl.org/goodrelations/v1#hasGlobalLocationNumber|has Global Location Number (0..1)
+http://purl.org/goodrelations/v1#Location|http://purl.org/goodrelations/v1#hasISICv4|has ISIC v4 (0..*)
+http://purl.org/goodrelations/v1#Location|http://purl.org/goodrelations/v1#hasOpeningHoursSpecification|has opening hours specification (0..*)
+http://purl.org/goodrelations/v1#Location|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#acceptedPaymentMethods|accepted payment methods (0..*)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#addOn|add-on (0..*)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#advanceBookingRequirement|advance booking requirement (0..1)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#availabilityEnds|availability ends (0..1)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#availabilityStarts|availability starts (0..1)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#availableAtOrFrom|available at or from (0..*)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#availableDeliveryMethods|available delivery methods (0..*)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#category|category (0..*)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#condition|condition (0..1)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#deliveryLeadTime|delivery lead time (0..1)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#eligibleCustomerTypes|eligible customer types (0..*)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#eligibleDuration|eligible duration (0..1)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#eligibleRegions|eligible regions (0..*)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#eligibleTransactionVolume|eligible transaction volume (0..1)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasBusinessFunction|has business function (1..*)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasEAN_UCC-13|has EAN/UCC-13 (0..*)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasEligibleQuantity|has eligible quantity (0..1)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasGTIN-14|has GTIN-14 (0..*)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasGTIN-8|has GTIN-8 (0..*)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasInventoryLevel|has inventory level (0..1)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasMPN|has MPN (0..*)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasPriceSpecification|has price specification (0..*)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasStockKeepingUnit|has Stock Keeping Unit (0..*)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#hasWarrantyPromise|has warranty promise (0..*)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#includes|includes (0..1)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#includesObject|includes object (0..*)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#serialNumber|serial number (0..*)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#validFrom|valid from (0..1)
+http://purl.org/goodrelations/v1#Offering|http://purl.org/goodrelations/v1#validThrough|valid through (0..1)
+http://purl.org/goodrelations/v1#OpeningHoursSpecification|http://purl.org/goodrelations/v1#closes|closes (1..1)
+http://purl.org/goodrelations/v1#OpeningHoursSpecification|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#OpeningHoursSpecification|http://purl.org/goodrelations/v1#hasOpeningHoursDayOfWeek|has opening hours day of week (1..*)
+http://purl.org/goodrelations/v1#OpeningHoursSpecification|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#OpeningHoursSpecification|http://purl.org/goodrelations/v1#opens|opens (1..1)
+http://purl.org/goodrelations/v1#OpeningHoursSpecification|http://purl.org/goodrelations/v1#validFrom|valid from (0..1)
+http://purl.org/goodrelations/v1#OpeningHoursSpecification|http://purl.org/goodrelations/v1#validThrough|valid through (0..1)
+http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#appliesToPaymentMethod|applies to payment method (1..*)
+http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#eligibleTransactionVolume|eligible transaction volume (0..1)
+http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#hasCurrency|has currency (1..1)
+http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#hasCurrencyValue|has currency value (0..1)
+http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#hasEligibleQuantity|has eligible quantity (0..1)
+http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#hasMaxCurrencyValue|has max currency value (1..1)
+http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#hasMinCurrencyValue|has min currency value (1..1)
+http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#validFrom|valid from (0..1)
+http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#validThrough|valid through (0..1)
+http://purl.org/goodrelations/v1#PaymentChargeSpecification|http://purl.org/goodrelations/v1#valueAddedTaxIncluded|value added tax included (0..1)
+http://purl.org/goodrelations/v1#PaymentMethod|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#PaymentMethod|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#PaymentMethodCreditCard|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#PaymentMethodCreditCard|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#eligibleTransactionVolume|eligible transaction volume (0..1)
+http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#hasCurrency|has currency (1..1)
+http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#hasCurrencyValue|has currency value (0..1)
+http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#hasEligibleQuantity|has eligible quantity (0..1)
+http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#hasMaxCurrencyValue|has max currency value (1..1)
+http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#hasMinCurrencyValue|has min currency value (1..1)
+http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#validFrom|valid from (0..1)
+http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#validThrough|valid through (0..1)
+http://purl.org/goodrelations/v1#PriceSpecification|http://purl.org/goodrelations/v1#valueAddedTaxIncluded|value added tax included (0..1)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#category|category (0..*)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#color|color (0..1)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#condition|condition (0..1)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#datatypeProductOrServiceProperty|datatype product or service property (0..*)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#depth|depth (0..1)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#hasBrand|has brand (0..*)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#hasEAN_UCC-13|has EAN/UCC-13 (0..*)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#hasGTIN-14|has GTIN-14 (0..*)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#hasGTIN-8|has GTIN-8 (0..*)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#hasMPN|has MPN (0..*)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#hasManufacturer|has manufacturer (0..1)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#hasStockKeepingUnit|has Stock Keeping Unit (0..*)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#height|height (0..1)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#isAccessoryOrSparePartFor|is accessory or spare part for (0..*)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#isConsumableFor|is consumable for (0..*)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#isSimilarTo|is similar to (0..*)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#qualitativeProductOrServiceProperty|qualitative product or service property (0..*)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#quantitativeProductOrServiceProperty|quantitative product or service property (0..*)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#weight|weight (0..1)
+http://purl.org/goodrelations/v1#ProductOrService|http://purl.org/goodrelations/v1#width|width (0..1)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#category|category (0..*)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#color|color (0..1)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#condition|condition (0..1)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#datatypeProductOrServiceProperty|datatype product or service property (0..*)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#depth|depth (0..1)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#hasBrand|has brand (0..*)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#hasEAN_UCC-13|has EAN/UCC-13 (0..*)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#hasGTIN-14|has GTIN-14 (0..*)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#hasGTIN-8|has GTIN-8 (0..*)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#hasMPN|has MPN (0..*)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#hasMakeAndModel|has make and model (0..1)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#hasManufacturer|has manufacturer (0..1)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#hasStockKeepingUnit|has Stock Keeping Unit (0..*)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#height|height (0..1)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#isAccessoryOrSparePartFor|is accessory or spare part for (0..*)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#isConsumableFor|is consumable for (0..*)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#isSimilarTo|is similar to (0..*)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#isVariantOf|is variant of (0..1)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#predecessorOf|predecessor of (0..*)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#qualitativeProductOrServiceProperty|qualitative product or service property (0..*)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#quantitativeProductOrServiceProperty|quantitative product or service property (0..*)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#serialNumber|serial number (0..*)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#successorOf|successor of (0..*)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#weight|weight (0..1)
+http://purl.org/goodrelations/v1#ProductOrServiceModel|http://purl.org/goodrelations/v1#width|width (0..1)
+http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#equal|equal (0..*)
+http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#greater|greater (0..*)
+http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#greaterOrEqual|greater or equal (0..*)
+http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#lesser|lesser (0..*)
+http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#lesserOrEqual|lesser or equal (0..*)
+http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#nonEqual|non equal (0..*)
+http://purl.org/goodrelations/v1#QualitativeValue|http://purl.org/goodrelations/v1#valueReference|value reference (0..*)
+http://purl.org/goodrelations/v1#QuantitativeValue|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#QuantitativeValue|http://purl.org/goodrelations/v1#hasMaxValue|has max value (0..1)
+http://purl.org/goodrelations/v1#QuantitativeValue|http://purl.org/goodrelations/v1#hasMinValue|has min value (0..1)
+http://purl.org/goodrelations/v1#QuantitativeValue|http://purl.org/goodrelations/v1#hasUnitOfMeasurement|has unit of measurement (1..1)
+http://purl.org/goodrelations/v1#QuantitativeValue|http://purl.org/goodrelations/v1#hasValue|has value (0..1)
+http://purl.org/goodrelations/v1#QuantitativeValue|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#QuantitativeValue|http://purl.org/goodrelations/v1#valueReference|value reference (0..*)
+http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#hasMaxValue|has max value (0..1)
+http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#hasMaxValueFloat|has max value float (1..1)
+http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#hasMinValue|has min value (0..1)
+http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#hasMinValueFloat|has min value float (1..1)
+http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#hasUnitOfMeasurement|has unit of measurement (1..1)
+http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#hasValue|has value (0..1)
+http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#hasValueFloat|has value float (0..1)
+http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#QuantitativeValueFloat|http://purl.org/goodrelations/v1#valueReference|value reference (0..*)
+http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#hasMaxValue|has max value (0..1)
+http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#hasMaxValueInteger|has max value integer (1..1)
+http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#hasMinValue|has min value (0..1)
+http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#hasMinValueInteger|has min value integer (1..1)
+http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#hasUnitOfMeasurement|has unit of measurement (1..1)
+http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#hasValue|has value (0..1)
+http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#hasValueInteger|has value integer (0..1)
+http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#QuantitativeValueInteger|http://purl.org/goodrelations/v1#valueReference|value reference (0..*)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#category|category (0..*)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#color|color (0..1)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#condition|condition (0..1)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#datatypeProductOrServiceProperty|datatype product or service property (0..*)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#depth|depth (0..1)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasBrand|has brand (0..*)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasEAN_UCC-13|has EAN/UCC-13 (0..*)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasGTIN-14|has GTIN-14 (0..*)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasGTIN-8|has GTIN-8 (0..*)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasInventoryLevel|has inventory level (0..1)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasMPN|has MPN (0..*)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasMakeAndModel|has make and model (0..1)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasManufacturer|has manufacturer (0..1)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#hasStockKeepingUnit|has Stock Keeping Unit (0..*)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#height|height (0..1)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#isAccessoryOrSparePartFor|is accessory or spare part for (0..*)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#isConsumableFor|is consumable for (0..*)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#isSimilarTo|is similar to (0..*)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#qualitativeProductOrServiceProperty|qualitative product or service property (0..*)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#quantitativeProductOrServiceProperty|quantitative product or service property (0..*)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#serialNumber|serial number (0..*)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#weight|weight (0..1)
+http://purl.org/goodrelations/v1#SomeItems|http://purl.org/goodrelations/v1#width|width (0..1)
+http://purl.org/goodrelations/v1#TypeAndQuantityNode|http://purl.org/goodrelations/v1#amountOfThisGood|amount of this good (1..1)
+http://purl.org/goodrelations/v1#TypeAndQuantityNode|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#TypeAndQuantityNode|http://purl.org/goodrelations/v1#hasBusinessFunction|has business function (1..*)
+http://purl.org/goodrelations/v1#TypeAndQuantityNode|http://purl.org/goodrelations/v1#hasUnitOfMeasurement|has unit of measurement (1..1)
+http://purl.org/goodrelations/v1#TypeAndQuantityNode|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#TypeAndQuantityNode|http://purl.org/goodrelations/v1#typeOfGood|type of good (1..1)
+http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#billingIncrement|billing increment (0..1)
+http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#eligibleTransactionVolume|eligible transaction volume (0..1)
+http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#hasCurrency|has currency (1..1)
+http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#hasCurrencyValue|has currency value (0..1)
+http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#hasEligibleQuantity|has eligible quantity (0..1)
+http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#hasMaxCurrencyValue|has max currency value (1..1)
+http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#hasMinCurrencyValue|has min currency value (1..1)
+http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#hasUnitOfMeasurement|has unit of measurement (1..1)
+http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#isListPrice|is list price (DEPRECATED)
+http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#priceType|price type (0..1)
+http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#validFrom|valid from (0..1)
+http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#validThrough|valid through (0..1)
+http://purl.org/goodrelations/v1#UnitPriceSpecification|http://purl.org/goodrelations/v1#valueAddedTaxIncluded|value added tax included (0..1)
+http://purl.org/goodrelations/v1#WarrantyPromise|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#WarrantyPromise|http://purl.org/goodrelations/v1#durationOfWarrantyInMonths|duration of warranty in months (0..1)
+http://purl.org/goodrelations/v1#WarrantyPromise|http://purl.org/goodrelations/v1#hasWarrantyScope|has warranty scope (0..1)
+http://purl.org/goodrelations/v1#WarrantyPromise|http://purl.org/goodrelations/v1#name|name (0..1)
+http://purl.org/goodrelations/v1#WarrantyScope|http://purl.org/goodrelations/v1#description|description (0..1)
+http://purl.org/goodrelations/v1#WarrantyScope|http://purl.org/goodrelations/v1#name|name (0..1)

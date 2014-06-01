@@ -7,7 +7,8 @@ create table OntMetadata(
 
 create table OntAttributes(
 	mURI string, 
-	mAttr string
+	mAttr string,
+	mAttrLabel string
 );
 
 create table OntList(
