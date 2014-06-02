@@ -112,6 +112,7 @@ typedef struct PropStat {
 			// for collecting the statistical information (For reporting/writing)
 #define GETSUBCS_FORALL 1 //Get subCS info for all CS, not only frequent one
 
+#define USE_ONTLABEL_FOR_NAME	1	// If the ontology label of a class is available, use it for the name
 #define USE_LABEL_FINDING_MAXCS	0 	// Use the labels received from labeling process for finding maxCS 
 #define USE_LABEL_FOR_MERGING	1 	// Use the labels received from labeling process for finding mergeCS
 #define TOPK 1			//Check top 3 candidate

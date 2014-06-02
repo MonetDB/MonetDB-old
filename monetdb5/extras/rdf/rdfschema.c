@@ -158,6 +158,15 @@ str printTKNZStringFromOid(oid id){
 	return MAL_SUCCEED; 
 }
 
+
+static 
+char isOntologyName(oid valueOid, BUN *ontClassPos){
+	*ontClassPos = BUN_NONE; 
+	*ontClassPos = BUNfnd(BATmirror(ontmetaBat), &valueOid);
+	if (*ontClassPos == BUN_NONE) return 0; 
+	else return 1; 
+}
+
 //Get the string for 
 static
 char getStringName(oid objOid, str *objStr, BATiter mapi, BAT *mapbat, char isTblName){
@@ -166,38 +175,57 @@ char getStringName(oid objOid, str *objStr, BATiter mapi, BAT *mapbat, char isTb
 	oid	realObjOid; 
 	BUN	bun;
 	int 	i = 0;
+	char	hasOntologyLabel = 0; 
 
-	if (objType == URI || objType == BLANKNODE){
-		realObjOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
-		takeOid(realObjOid, objStr); 
-	}
-	else{
-		str tmpObjStr;
-		str s;
-		int len; 
-		realObjOid = objOid - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the real objOid from Map or Tokenizer */ 
-		bun = BUNfirst(mapbat);
-		tmpObjStr = (str) BUNtail(mapi, bun + realObjOid); 
-		
-		*objStr = GDKstrdup(tmpObjStr);
-			
-		if (isTblName){
-			s = *objStr;
-			len = strlen(s);
-			//Replace all non-alphabet character by ___
-			for (i = 0; i < len; i++)
-			{	
-				//printf("i = %d: %c \n",i, s[i]);
-				if (!isalpha(*s)){
-					*s = '_';
-				}
-				s++;
-				
-			}
+	#if USE_ONTLABEL_FOR_NAME
+	if (isTblName){
+		char 	isOntName = 0; 
+		BUN	tmpontClassPos = BUN_NONE; 
+
+		isOntName = isOntologyName(objOid, &tmpontClassPos);	
+
+		if (isOntName == 1){
+			//Check if label is availabel 
+			if (ontclassSet[tmpontClassPos].label != NULL){	//Use this label
+				*objStr =  GDKstrdup(ontclassSet[tmpontClassPos].label);
+				hasOntologyLabel = 1; 
+			} 
 		}
-
 	}
+	#endif
 
+	if (hasOntologyLabel == 0){
+		if (objType == URI || objType == BLANKNODE){
+			realObjOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
+			takeOid(realObjOid, objStr); 
+		}
+		else{
+			str tmpObjStr;
+			str s;
+			int len; 
+			realObjOid = objOid - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the real objOid from Map or Tokenizer */ 
+			bun = BUNfirst(mapbat);
+			tmpObjStr = (str) BUNtail(mapi, bun + realObjOid); 
+			
+			*objStr = GDKstrdup(tmpObjStr);
+					
+			if (isTblName){
+				s = *objStr;
+				len = strlen(s);
+				//Replace all non-alphabet character by ___
+				for (i = 0; i < len; i++)
+				{	
+					//printf("i = %d: %c \n",i, s[i]);
+					if (!isalpha(*s)){
+						*s = '_';
+					}
+					s++;
+					
+				}
+			}
+
+		}
+	}
 	
 	return objType;
 }
@@ -3982,15 +4010,7 @@ void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *merge
 }
 
 
-#if ONLY_MERGE_ONTOLOGYBASEDNAME_CS_S1
-static 
-char isOntologyName(oid valueOid){
-	BUN ontClassPos = BUN_NONE; 
-	ontClassPos = BUNfnd(BATmirror(ontmetaBat), &valueOid);
-	if (ontClassPos == BUN_NONE) return 0; 
-	else return 1; 
-}
-#endif
+
 
 #if USE_LABEL_FOR_MERGING
 static
@@ -4017,6 +4037,7 @@ str mergeFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** on
 
 	#if ONLY_MERGE_ONTOLOGYBASEDNAME_CS_S1
 	char		isOntName = 0; 
+	BUN		tmpontClassPos = BUN_NONE; 
 	#endif
 
 	#if OUTPUT_FREQID_PER_LABEL
@@ -4061,8 +4082,9 @@ str mergeFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** on
 	for (i = 0; i < labelStat->numLabeladded; i++){
 		name = (oid*) Tloc(labelStat->labelBat, i);
 		#if ONLY_MERGE_ONTOLOGYBASEDNAME_CS_S1
-		isOntName = isOntologyName(*name);
-		if (isOntName != 1){ 
+		tmpontClassPos = BUN_NONE; 
+		isOntName = isOntologyName(*name, &tmpontClassPos);
+		if (isOntName != 1 || tmpontClassPos == BUN_NONE){ 
 			printf("Name "BUNFMT" is not an ontology name \n", *name);
 			continue; 
 		}

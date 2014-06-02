@@ -24,6 +24,7 @@
 
 typedef struct OntClass {
 	oid 	cOid; 		/*class Oid*/
+	char*	label; 		/*ontology label (if available) */
 	int*	scIdxes;	/*Idx of super classes*/
 	int	numsc; 		/*Number of super classes*/
 	int 	numAllocation;
@@ -36,7 +37,7 @@ rdf_export str
 RDFOntologyParser(int *ret, str *location, str *schema);
 
 rdf_export str
-RDFloadsqlontologies(int *ret, bat *auri, bat *aattr, bat *muri, bat *msuper);
+RDFloadsqlontologies(int *ret, bat *auri, bat *aattr, bat *muri, bat *msuper, bat *mlabel);
 
 /*
 rdf_export str

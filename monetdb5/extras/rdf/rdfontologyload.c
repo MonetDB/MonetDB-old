@@ -261,7 +261,7 @@ int compareProp (const void * a, const void * b)
 }
 
 static 
-str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontattributes, int ontattributesCount){
+str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontattributes, int ontattributesCount, str *tmpOntLabels){
 
 	int 	i; 
 	oid	classOid; //The class Oid comes from 
@@ -281,7 +281,7 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontat
 	int	tmpNumProp = 0; 
 	oid*	buffProps = NULL;
 	int 	maxNumPropPerOntology = 1000; 
-
+	str	*tmpLabelsShortlist = NULL; 
 
 	//Read all ontmetadata and store them in the ontmetaBat
 	
@@ -291,6 +291,11 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontat
 	if (!(ontmetaBat->T->hash)){
 		throw(RDF, "buildOntologyClassesInfo", "Cannot allocate the hash for Bat");
 	}
+	
+	tmpLabelsShortlist = (str *) malloc(sizeof(str) * ontmetadataCount);
+	for (i = 0; i < ontmetadataCount; i++) tmpLabelsShortlist[i] = NULL; 
+
+	classIdx = 0;
 	for (i = 0; i < ontmetadataCount; i++){
 		classOid = ontmetadat[0][i];
 		assert(classOid != BUN_NONE); 
@@ -299,8 +304,20 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontat
 		if (tmpBun == BUN_NONE){	//If it is a new class
 			if (BUNappend(ontmetaBat,&classOid, TRUE) == NULL)    
 				throw(RDF, "buildOntologyClassesInfo", "Cannot insert to ontmetaBat");
-		} 
 
+			if (tmpOntLabels[i] != NULL){
+				tmpLabelsShortlist[classIdx] = GDKstrdup(tmpOntLabels[i]);
+			}
+			else
+				tmpLabelsShortlist[classIdx] = NULL; 	
+
+			classIdx++;
+		} 
+	
+	}
+
+	//Also add super class to list of ontology classes
+	for (i = 0; i < ontmetadataCount; i++){
 		scOid = ontmetadat[1][i];
 
 		if (scOid != BUN_NONE){	//The superClass oid is there
@@ -308,6 +325,9 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontat
 			if (tmpBun == BUN_NONE){	//If it is a new class
 				if (BUNappend(ontmetaBat, &scOid, TRUE) == NULL)    
 					throw(RDF, "buildOntologyClassesInfo", "Cannot insert to ontmetaBat");
+				
+				tmpLabelsShortlist[classIdx] = NULL;
+				classIdx++;
 			} 
 		}
 	}
@@ -332,6 +352,11 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontat
 		
 		tmpontclassSet[i].cOid = *tmpOid;
 
+		if (tmpLabelsShortlist[i] != NULL)
+			tmpontclassSet[i].label = GDKstrdup(tmpLabelsShortlist[i]);
+		else
+			tmpontclassSet[i].label = NULL; 
+
 		//Init other info
 		tmpontclassSet[i].scIdxes = (int *) malloc(sizeof(int) * NUMSC_PER_ONTCLASS);
 		tmpontclassSet[i].numsc = 0;
@@ -343,6 +368,13 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontat
 		i++;
 	}
 	
+	//Free 
+	for (i = 0; i < numClass; i++){
+		if (tmpLabelsShortlist[i] != NULL) 
+			GDKfree(tmpLabelsShortlist[i]);
+	}
+	free(tmpLabelsShortlist);
+
 
 	//Add sc
 	for (i = 0; i < ontmetadataCount; i++){
@@ -425,14 +457,15 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontat
 }
 
 str
-RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msuperid){
+RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msuperid, bat *mlabelid){
 	BUN			p, q;
-	BAT			*auri = NULL, *aattr = NULL, *muri = NULL, *msuper = NULL;
-	BATiter			aurii, aattri, murii, msuperi;
-	BUN			bun, bun2, bun3, bun4;
+	BAT			*auri = NULL, *aattr = NULL, *muri = NULL, *msuper = NULL, *mlabel = NULL;
+	BATiter			aurii, aattri, murii, msuperi, mlabeli;
+	BUN			bun, bun2, bun3, bun4, bun5;
 	BUN			auriCount, muriCount;
 	int			i;
 	str			schema = "rdf";
+	str			*tmpOntLabels = NULL; 	//Set of ontology labels
 
 	TKNZRopen (NULL, &schema);
 
@@ -462,10 +495,19 @@ RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msup
 		throw(MAL, "rdf.RDFloadsqlontologies", RUNTIME_OBJECT_MISSING);
 	}
 
+	if ((mlabel = BATdescriptor(*mlabelid)) == NULL) {
+		BBPreleaseref(auri->batCacheid);
+		BBPreleaseref(aattr->batCacheid);
+		BBPreleaseref(muri->batCacheid);
+		BBPreleaseref(msuper->batCacheid);
+		throw(MAL, "rdf.RDFloadsqlontologies", RUNTIME_OBJECT_MISSING);
+	}
+
 	aurii = bat_iterator(auri);
 	aattri = bat_iterator(aattr);
 	murii = bat_iterator(muri);
 	msuperi = bat_iterator(msuper);
+	mlabeli = bat_iterator(mlabel); 
 
 	// load ontattributes
 	i = 0;
@@ -517,18 +559,23 @@ RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msup
 	i = 0;
 	bun3 = BUNfirst(muri);
 	bun4 = BUNfirst(msuper);
-
+	bun5 = BUNfirst(mlabel);
+	
 	muriCount = BATcount(muri);
 
 	ontmetadata = (oid**) malloc(sizeof(oid *) * 2);
 	if (!ontmetadata) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-	ontmetadata[0] = malloc(sizeof(str) * muriCount); // uri
-	ontmetadata[1] = malloc(sizeof(str) * muriCount); // superclass
+	ontmetadata[0] = malloc(sizeof(oid) * muriCount); // uri
+	ontmetadata[1] = malloc(sizeof(oid) * muriCount); // superclass
 	if (!ontmetadata[0] || !ontmetadata[1]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+
+	tmpOntLabels = (str*)malloc(sizeof(str) * muriCount); //labels of ontology classes  
+	if (!tmpOntLabels) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 
 	BATloop(muri, p, q){
 		str muristr = (str) BUNtail(murii, bun3 + i);
 		str msuperstr = (str) BUNtail(msuperi, bun4 + i);
+		str mlabelstr = (str) BUNtail(mlabeli, bun5 + i);
 
 		oid murioid, msuperoid;
 
@@ -554,6 +601,14 @@ RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msup
 		} else {
 			ontmetadata[1][ontmetadataCount] = msuperoid;
 		}
+
+		if (strcmp(mlabelstr, "\x80") == 0) {
+			tmpOntLabels[ontmetadataCount] = NULL;
+		} else {
+			tmpOntLabels[ontmetadataCount] = GDKstrdup(mlabelstr);
+		}
+		 
+
 		ontmetadataCount += 1;
 
 		++i;
@@ -562,8 +617,14 @@ RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msup
 		GDKfree(msuperstr2);
 	}
 
-	buildOntologyClassesInfo(ontmetadata, ontmetadataCount, ontattributes, ontattributesCount);
+	buildOntologyClassesInfo(ontmetadata, ontmetadataCount, ontattributes, ontattributesCount, tmpOntLabels);
 
+	for (i = 0; i < ontmetadataCount; i++){
+		if (tmpOntLabels[i] != NULL) 
+			GDKfree(tmpOntLabels[i]);
+	}
+	free(tmpOntLabels);
+	
 	BBPreclaim(auri);
 	BBPreclaim(aattr);
 	BBPreclaim(muri);
