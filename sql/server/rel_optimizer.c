@@ -82,6 +82,8 @@ bit is_pmv_query(sql_rel *rel);
 void clean_up_temps(mvc* sql);
 bit is_pmv(sql_table* t);
 
+str getPipeDefinition(str name);
+
 list *discovered_table_pkeys;
 static char temp_column_name_start = 97;
 static str temp_table_name = "tt";
@@ -7341,11 +7343,16 @@ rel_optimizer(mvc *sql, sql_rel *rel)
 {
 	sql_rel *ret = _rel_optimizer(sql, rel, 0);
 	
-	if(!sql->q_in_q && is_pmv_query(rel) && has_actual_data_table(rel))
+	str pipe_name = stack_get_string(sql, "optimizer");
+	str pipe_def = getPipeDefinition(pipe_name);
+	if(strstr(pipe_def, "DVframework") != NULL)
 	{
-		sql->q_in_q = 1;
-		prepare_pmv(sql, ret);
-		sql->q_in_q = 0;
+		if(!sql->q_in_q && is_pmv_query(rel) && has_actual_data_table(rel))
+		{
+			sql->q_in_q = 1;
+			prepare_pmv(sql, ret);
+			sql->q_in_q = 0;
+		}
 	}
 	
 	return ret;
