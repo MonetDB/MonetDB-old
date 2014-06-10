@@ -119,7 +119,7 @@ createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BATiter si, 
 		int ontmetadataCount, OntoUsageNode** ontoUsageTree, BAT *ontmetaBat, OntClass *ontclassSet);
 
 rdf_export void
-exportLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, int freqThreshold, BATiter mapi, BAT *mbat);
+exportLabels(CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, int freqThreshold, BATiter mapi, BAT *mbat, CStableStat* cstablestat, CSPropTypes *csPropTypes, int numTables, int* mTblIdxFreqIdxMapping, int* csTblIdxMapping);
 
 rdf_export str
 updateLabel(int ruleNumber, CSset *freqCSset, CSlabel **labels, int newCS, int mergeCSFreqId, int freqCS1, int freqCS2, oid name, int isType, int isOnto, int isFK, oid **ontmetadata, int ontmetadataCount, int *lstFreqId, int numIds);

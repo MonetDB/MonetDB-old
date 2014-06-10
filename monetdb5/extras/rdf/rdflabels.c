@@ -1158,12 +1158,14 @@ void createOntologyLookupResult(oid** result, int** resultMatchedProp, CSset* fr
  * Call GraphViz to create the graphic: "dot -Tpdf -O UMLxxx.dot" to create "UMLxxx.dot.pdf"
  */
 static
-void printUML2(CSset *freqCSset, CSlabel* labels, int freqThreshold, CSrel *csRelMergeFreqSet, BATiter mapi, BAT *mbat) {
-	int 		i, j;
+void printUML2(CStableStat *cstablestat, CSPropTypes* csPropTypes, int freqThreshold, CSrel *csRelMergeFreqSet, BATiter mapi, BAT *mbat, int numTables, int* mTblIdxFreqIdxMapping, int* csTblIdxMapping, CSset* freqCSset) {
+	int 		i, j, k;
 	FILE 		*fout;
 	char 		filename[20], tmp[10];
 
 	int		smallest = -1, biggest = -1;
+
+	(void) csTblIdxMapping;
 
 	strcpy(filename, "UML");
 	sprintf(tmp, "%d", freqThreshold);
@@ -1178,38 +1180,37 @@ void printUML2(CSset *freqCSset, CSlabel* labels, int freqThreshold, CSrel *csRe
 	fprintf(fout, "node [shape=\"none\"];\n\n");
 
 	// find biggest and smallest table
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		CS cs = (CS) freqCSset->items[i];
-		if (!isCSTable(cs,labels[i].name)) continue; // ignore
+	for (i = 0; i < numTables; ++i) {
+		int csIdx = mTblIdxFreqIdxMapping[i];
 
 		// set first values
-		if (smallest == -1) smallest = i;
-		if (biggest == -1) biggest = i;
+		if (smallest == -1) smallest = csIdx;
+		if (biggest == -1) biggest = csIdx;
 
-		if (cs.coverage < freqCSset->items[smallest].coverage) smallest = i;
-		if (cs.coverage > freqCSset->items[biggest].coverage) biggest = i;
+		if (freqCSset->items[csIdx].coverage < freqCSset->items[smallest].coverage) smallest = csIdx;
+		if (freqCSset->items[csIdx].coverage > freqCSset->items[biggest].coverage) biggest = csIdx;
 	}
 
 	// for each table
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
+	for (i = 0; i < numTables; ++i) {
+		int csIdx = mTblIdxFreqIdxMapping[i];
 		int width;
 		str labelStrEscaped = NULL;
 
-		CS cs = (CS) freqCSset->items[i];
-		if (!isCSTable(cs, labels[i].name)) continue; // ignore
+		if(!isCSTable(freqCSset->items[csIdx], cstablestat->lstcstable[i].tblname)) continue; // ignore small tables
 
 		// print table header
 		// set table width between 300 (smallest coverage) and 600 (biggest coverage) px, using log10 logarithm
-		width = (int) ((300 + 300 * (log10(freqCSset->items[i].coverage) - log10(freqCSset->items[smallest].coverage)) / (log10(freqCSset->items[biggest].coverage) - log10(freqCSset->items[smallest].coverage))) + 0.5);
-		fprintf(fout, "\"" BUNFMT "\" [\n", cs.csId);
+		width = (int) ((300 + 300 * (log10(freqCSset->items[csIdx].coverage) - log10(freqCSset->items[smallest].coverage)) / (log10(freqCSset->items[biggest].coverage) - log10(freqCSset->items[smallest].coverage))) + 0.5);
+		fprintf(fout, "\"%d\" [\n", csIdx);
 		fprintf(fout, "label = <<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\">\n");
 
-		getTblName(&labelStrEscaped, labels[i].name, mapi, mbat);
-		fprintf(fout, "<TR><TD WIDTH=\"%d\"><B>%s (#triples: %d, #tuples: %d)</B></TD></TR>\n", width, labelStrEscaped, cs.coverage, cs.support);
+		getTblName(&labelStrEscaped, cstablestat->lstcstable[i].tblname, mapi, mbat);
+		fprintf(fout, "<TR><TD WIDTH=\"%d\"><B>%s (#triples: %d, #tuples: %d)</B></TD></TR>\n", width, labelStrEscaped, freqCSset->items[csIdx].coverage, freqCSset->items[csIdx].support);
 		GDKfree(labelStrEscaped);
 
 		// print columns
-		for (j = 0; j < cs.numProp; ++j) {
+		for (j = 0; j < csPropTypes[i].numProp; ++j) {
 			str		propStr;
 			str		tmpStr;
 			char    *propStrEscaped = NULL;
@@ -1218,16 +1219,20 @@ void printUML2(CSset *freqCSset, CSlabel* labels, int freqThreshold, CSrel *csRe
 #endif
 			str color;
 
-			takeOid(cs.lstProp[j], &tmpStr);
+#if REMOVE_INFREQ_PROP
+			if (csPropTypes[i].lstPropTypes[j].defColIdx == -1) continue; // ignore infrequent props
+#endif
+
+			takeOid(freqCSset->items[csIdx].lstProp[j], &tmpStr);
 
 			// assign color (the more tuples the property occurs in, the darker)
-			if ((1.0 * cs.lstPropSupport[j])/cs.support > 0.8) {
+			if ((1.0 * freqCSset->items[csIdx].lstPropSupport[j])/freqCSset->items[csIdx].support > 0.8) {
 				color = "#5555FF";
-			} else if ((1.0 * cs.lstPropSupport[j])/cs.support > 0.6) {
+			} else if ((1.0 * freqCSset->items[csIdx].lstPropSupport[j])/freqCSset->items[csIdx].support > 0.6) {
 				color = "#7777FF";
-			} else if ((1.0 * cs.lstPropSupport[j])/cs.support > 0.4) {
+			} else if ((1.0 * freqCSset->items[csIdx].lstPropSupport[j])/freqCSset->items[csIdx].support > 0.4) {
 				color = "#9999FF";
-			} else if ((1.0 * cs.lstPropSupport[j])/cs.support > 0.2) {
+			} else if ((1.0 * freqCSset->items[csIdx].lstPropSupport[j])/freqCSset->items[csIdx].support > 0.2) {
 				color = "#BBBBFF";
 			} else {
 				color = "#DDDDFF";
@@ -1241,10 +1246,10 @@ void printUML2(CSset *freqCSset, CSlabel* labels, int freqThreshold, CSrel *csRe
 			escapeURI(propStrEscaped);
 #if USE_SHORT_NAMES
 			getPropNameShort(&propStrShort, propStr);
-			fprintf(fout, "<TR><TD BGCOLOR=\"%s\" PORT=\"%s\">%s (%d%%)</TD></TR>\n", color, propStrEscaped, propStrShort, (100 * cs.lstPropSupport[j])/cs.support);
+			fprintf(fout, "<TR><TD BGCOLOR=\"%s\" PORT=\"%s\">%s (%d%%)</TD></TR>\n", color, propStrEscaped, propStrShort, (100 * freqCSset->items[csIdx].lstPropSupport[j])/freqCSset->items[csIdx].support);
 			GDKfree(propStrShort);
 #else
-			fprintf(fout, "<TR><TD BGCOLOR=\"%s\" PORT=\"%s\">%s (%d%%)</TD></TR>\n", color, propStrEscaped, propStrEscaped, (100 * cs.lstPropSupport[j])/cs.support);
+			fprintf(fout, "<TR><TD BGCOLOR=\"%s\" PORT=\"%s\">%s (%d%%)</TD></TR>\n", color, propStrEscaped, propStrEscaped, (100 * freqCSset->items[csIdx].lstPropSupport[j])/freqCSset->items[csIdx].support);
 #endif
 
 			GDKfree(propStr);
@@ -1257,9 +1262,13 @@ void printUML2(CSset *freqCSset, CSlabel* labels, int freqThreshold, CSrel *csRe
 	}
 
 	// for each foreign key relationship
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		int from = i;
+	for (i = 0; i < numTables; ++i) {
+		int csIdx = mTblIdxFreqIdxMapping[i];
+		int from = csIdx;
 		CSrel rel = csRelMergeFreqSet[from];
+
+		if(!isCSTable(freqCSset->items[csIdx], cstablestat->lstcstable[i].tblname)) continue; // ignore small tables
+
 		if (!isCSTable(freqCSset->items[from], 0)) continue;
 		for (j = 0; j < rel.numRef; ++j) {
 			int to = rel.lstRefFreqIdx[j];
@@ -1271,8 +1280,15 @@ void printUML2(CSset *freqCSset, CSlabel* labels, int freqThreshold, CSrel *csRe
 			char *propStrShort = NULL;
 #endif
 
-			if (!isCSTable(freqCSset->items[to], 0)) continue;
+			if (!isCSTable(freqCSset->items[to], cstablestat->lstcstable[csTblIdxMapping[to]].tblname)) continue; // ignore small tables
 			if (rel.lstCnt[j] < freqCSset->items[to].support * MIN_FK_FREQUENCY) continue;
+
+#if REMOVE_INFREQ_PROP
+			// find prop
+			k = 0;
+			while (freqCSset->items[csIdx].lstProp[k] != prop) ++k;
+                        if (csPropTypes[i].lstPropTypes[k].defColIdx == -1) continue; // ignore infrequent props
+#endif
 
 			takeOid(prop, &tmpStr);
 
@@ -1285,10 +1301,10 @@ void printUML2(CSset *freqCSset, CSlabel* labels, int freqThreshold, CSrel *csRe
 
 #if USE_SHORT_NAMES
 			getPropNameShort(&propStrShort, propStr);
-			fprintf(fout, "\""BUNFMT"\":\"%s\" -> \""BUNFMT"\" [label=\"%s\"];\n", freqCSset->items[from].csId, propStrEscaped, freqCSset->items[to].csId, propStrShort); // print foreign keys to dot file
+			fprintf(fout, "\"%d\":\"%s\" -> \"%d\" [label=\"%s\"];\n", from, propStrEscaped, to, propStrShort); // print foreign keys to dot file
 			GDKfree(propStrShort);
 #else
-			fprintf(fout, "\""BUNFMT"\":\"%s\" -> \""BUNFMT"\" [label=\"%s\"];\n", freqCSset->items[from].csId, propStrEscaped, freqCSset->items[to].csId, propStrEscaped); // print foreign keys to dot file
+			fprintf(fout, "\"%d\":\"%s\" -> \"%d\" [label=\"%s\"];\n", from, propStrEscaped, to, propStrEscaped); // print foreign keys to dot file
 #endif
 
 			GDKfree(propStr);
@@ -2530,7 +2546,7 @@ void freeLabels(CSlabel* labels, CSset* freqCSset) {
 	GDKfree(labels);
 }
 
-void exportLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelMergeFreqSet, int freqThreshold, BATiter mapi, BAT *mbat) {
+void exportLabels(CSset* freqCSset, CSrel* csRelMergeFreqSet, int freqThreshold, BATiter mapi, BAT *mbat, CStableStat* cstablestat, CSPropTypes *csPropTypes, int numTables, int* mTblIdxFreqIdxMapping, int* csTblIdxMapping) {
 	int			**relationMetadataCount;
 	Relation		***relationMetadata;
 
@@ -2549,7 +2565,7 @@ void exportLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelMergeFreqSet, i
 	
 	// Print and Export
 	printf("exportLabels: printUML \n"); 
-	printUML2(freqCSset, labels, freqThreshold, csRelMergeFreqSet, mapi, mbat);
+	printUML2(cstablestat, csPropTypes, freqThreshold, csRelMergeFreqSet, mapi, mbat, numTables, mTblIdxFreqIdxMapping, csTblIdxMapping, freqCSset);
 	printf("exportLabels: Done \n"); 
 	freeRelationMetadata(relationMetadata, freqCSset);
 	freeRelationMetadataCount(relationMetadataCount, freqCSset->numCSadded);
