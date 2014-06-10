@@ -286,7 +286,7 @@ typedef struct SubCSSet{
 #define	MIN_FK_FREQUENCY 	0.1	// The frequency of a FK should be > MIN_FK_FREQUENCY * The frequency of a mergedCS (or the number of tuples in one table)	
 #define MIN_FK_PROPCOVERAGE	0.9	// The FK needs to happen in MIN_FK_PROPCOVERAGE of all instances of the particular property
 
-#define EXPORT_LABEL		0	/* Export labels: TODO:   */
+#define EXPORT_LABEL		1	/* Export labels: TODO:   */
 
 
 #define DETECT_PKCOL		1	/* Detect whether a col can be a primary key col while reorganizing triples table*/

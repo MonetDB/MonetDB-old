@@ -4666,9 +4666,6 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 			else{
 				simscore = similarityScoreTFIDF(cs1->lstProp, cs2->lstProp,
 					cs1->numProp,cs2->numProp,&numCombineP, tfidfInfos, i, j, &existDiscriminatingProp);
-				if (simscore > 0.2){
-					printf("  Similarity score between %d and %d is cosine = %f \n", freqId1, freqId2, simscore);
-				}		
 				
 			}
 			
@@ -10711,8 +10708,8 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	CSset		*freqCSset; 	/* Set of frequent CSs */
 	oid		*subjCSMap = NULL;  	/* Store the corresponding CS Id for each subject */
 	oid 		maxCSoid = 0; 
-	BAT		*sbat = NULL, *obat = NULL, *pbat = NULL;
-	BATiter		si,pi,oi; 
+	BAT		*sbat = NULL, *obat = NULL, *pbat = NULL, *mbat = NULL;
+	BATiter		si,pi,oi,mi; 
 	BUN		p,q; 
 	BAT		*sNewBat, *lmap, *rmap, *oNewBat, *origobat, *pNewBat; 
 	BUN		newId; 
@@ -10798,10 +10795,17 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 		BBPreleaseref(obat->batCacheid);
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
 	}
+	if ((mbat = BATdescriptor(*mapbatid)) == NULL) {
+		BBPreleaseref(sbat->batCacheid);
+		BBPreleaseref(obat->batCacheid);
+		BBPreleaseref(pbat->batCacheid);
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
 
 	si = bat_iterator(sbat); 
 	pi = bat_iterator(pbat); 
 	oi = bat_iterator(obat); 
+	mi = bat_iterator(mbat);
 
 	/* Get possible types of each property in a table (i.e., mergedCS) */
 	csPropTypes = (CSPropTypes*)GDKmalloc(sizeof(CSPropTypes) * numTables); 
@@ -10830,19 +10834,6 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	printf (" Preparing process took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
 
-	// print labels
-	printf("Start exporting labels \n"); 
-	
-	#if EXPORT_LABEL
-	exportLabels(labels, freqCSset, csRelMergeFreqSet, *freqThreshold, mTblIdxFreqIdxMapping, mfreqIdxTblIdxMapping, numTables);
-	#endif
-
-
-	curT = clock(); 
-	printf (" Export label process took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
-	tmpLastT = curT; 		
-	
-
 	csRelFinalFKs = getFKBetweenTableSet(csRelMergeFreqSet, freqCSset, csPropTypes,mfreqIdxTblIdxMapping,numTables, labels);
 	#if NO_OUTPUTFILE == 0
 	printFKs(csRelFinalFKs, *freqThreshold, numTables, csPropTypes); 
@@ -10862,6 +10853,16 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	getSampleData(ret, mapbatid, numTables, freqCSset, sbat, si, pi, oi, mTblIdxFreqIdxMapping, labels, csTblIdxMapping, maxNumPwithDup, subjCSMap, 2);
 	#endif
 	
+	// print labels
+	printf("Start exporting labels \n"); 
+	
+	#if EXPORT_LABEL
+	exportLabels(labels, freqCSset, csRelMergeFreqSet, *freqThreshold, mi, mbat);
+	#endif
+
+	curT = clock(); 
+	printf (" Export label process took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
 
 	#if NO_OUTPUTFILE == 0 
 	printFinalStructure(cstablestat, csPropTypes, numTables,*freqThreshold, mapbatid);
@@ -11102,6 +11103,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	BBPreclaim(oNewBat); 
 	BBPunfix(pbat->batCacheid); 
 	BBPreclaim(pNewBat); 
+	BBPunfix(mbat->batCacheid);
 
 	return MAL_SUCCEED; 
 }

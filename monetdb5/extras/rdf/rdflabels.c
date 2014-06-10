@@ -432,18 +432,6 @@ void escapeURI(char* s) {
 	}
 }
 
-/* Modifies the parameter! */
-/* Replaces colons, quotes, spaces, and dashes with underscores. All lowercase. */
-static
-void escapeURIforSQL(char* s) {
-	int i;
-
-	for (i = 0; i < (int) strlen(s); ++i) {
-		if (s[i] == ':' || s[i] == '"' || s[i] == ' ' || s[i] == '-' || s[i] == '<' || s[i] == '>' || s[i] == '/' || s[i] == '(' || s[i] == ')' || s[i] == '.' || s[i] == '%') s[i] = '_';
-		s[i] = tolower(s[i]);
-	}
-}
-
 void
 getStringBetweenQuotes(str* out, str in) {
 	int open = -1, close = -1;
@@ -472,376 +460,6 @@ getStringBetweenQuotes(str* out, str in) {
 		strncpy((*out), in, strlen(in));
 		(*out)[strlen(in)] = '\0';
 	}
-}
-
-/* Create SQL CREATE TABLE statements including foreign keys. */
-static
-void convertToSQL(CSset *freqCSset, Relation*** relationMetadata, int** relationMetadataCount, CSlabel* labels, int freqThreshold) {
-	// file i/o
-	FILE		*fout;
-	char		filename[20], tmp[10];
-
-	// looping
-	int		i, j, k;
-
-	strcpy(filename, "CS");
-	sprintf(tmp, "%d", freqThreshold);
-	strcat(filename, tmp);
-	strcat(filename, ".sql");
-
-	fout = fopen(filename, "wt");
-
-	// create statement for every table
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		str labelStr, tmpStr;
-
-		if (!isCSTable(freqCSset->items[i],labels[i].name)) continue; // ignore
-
-		if (labels[i].name == BUN_NONE) {
-			fprintf(fout, "CREATE TABLE %s_"BUNFMT" (\nsubject VARCHAR(10) PRIMARY KEY,\n", "DUMMY", freqCSset->items[i].csId); // TODO underscores?
-		} else {
-#if USE_SHORT_NAMES
-			str labelStrShort = NULL;
-#endif
-			takeOid(labels[i].name, &labelStr);
-#if USE_SHORT_NAMES
-			getPropNameShort(&labelStrShort, labelStr);
-			tmpStr = (str) malloc(sizeof(char) * (strlen(labelStrShort) + 1));
-			if (!tmpStr) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			strcpy(tmpStr, labelStrShort);
-			escapeURIforSQL(tmpStr);
-			fprintf(fout, "CREATE TABLE %s_"BUNFMT" (\nsubject VARCHAR(10) PRIMARY KEY,\n", tmpStr, freqCSset->items[i].csId); // TODO underscores?
-			free(tmpStr);
-			GDKfree(labelStrShort);
-			GDKfree(labelStr);
-#else
-			tmpStr = (str) malloc(sizeof(char) * (strlen(labelStr) + 1));
-			if (!tmpStr) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			strcpy(tmpStr, labelStr);
-			escapeURIforSQL(tmpStr);
-			fprintf(fout, "CREATE TABLE %s_"BUNFMT" (\nsubject VARCHAR(10) PRIMARY KEY,\n", tmpStr, freqCSset->items[i].csId); // TODO underscores?
-			free(tmpStr);
-			GDKfree(labelStr);
-#endif
-		}
-		for (j = 0; j < labels[i].numProp; ++j) {
-			str propStr, tmpStr2;
-#if USE_SHORT_NAMES
-			str propStrShort = NULL;
-#endif
-			takeOid(labels[i].lstProp[j], &propStr);
-
-#if USE_SHORT_NAMES
-			getPropNameShort(&propStrShort, propStr);
-			tmpStr2 = (char *) malloc(sizeof(char) * (strlen(propStrShort) + 1));
-			if (!tmpStr2) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			strcpy(tmpStr2, propStrShort);
-			escapeURIforSQL(tmpStr2);
-
-			if (j + 1 < labels[i].numProp) {
-				fprintf(fout, "%s_%d BOOLEAN,\n", tmpStr2, j);
-			} else {
-				// last column
-				fprintf(fout, "%s_%d BOOLEAN\n", tmpStr2, j);
-			}
-			free(tmpStr2);
-			GDKfree(propStrShort);
-			GDKfree(propStr); 
-#else
-			tmpStr2 = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
-			if (!tmpStr2) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			strcpy(tmpStr2, propStr);
-			escapeURIforSQL(tmpStr2);
-
-			if (j + 1 < labels[i].numProp) {
-				fprintf(fout, "%s_%d BOOLEAN,\n", tmpStr2, j);
-			} else {
-				// last column
-				fprintf(fout, "%s_%d BOOLEAN\n", tmpStr2, j);
-			}
-			free(tmpStr2);
-			GDKfree(propStr); 
-#endif
-		}
-		fprintf(fout, ");\n\n");
-	}
-
-	// add foreign key columns and add foreign keys
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (!isCSTable(freqCSset->items[i],labels[i].name)) continue; // ignore
-
-		for (j = 0; j < labels[i].numProp; ++j) {
-			str propStr, tmpStr2;
-#if USE_SHORT_NAMES
-			str propStrShort = NULL;
-#endif
-			int refCounter = 0;
-
-			takeOid(labels[i].lstProp[j], &propStr);
-#if USE_SHORT_NAMES
-			getPropNameShort(&propStrShort, propStr);
-			tmpStr2 = (str) malloc(sizeof(char) * (strlen(propStrShort) + 1));
-			if (!tmpStr2) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			strcpy(tmpStr2, propStrShort);
-			escapeURIforSQL(tmpStr2);
-			GDKfree(propStrShort);
-			GDKfree(propStr);
-#else
-			tmpStr2 = (str) malloc(sizeof(char) * (strlen(propStr) + 1));
-			if (!tmpStr2) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			strcpy(tmpStr2, propStr);
-			escapeURIforSQL(tmpStr2);
-			GDKfree(propStr);
-#endif
-
-			for (k = 0; k < relationMetadataCount[i][j]; ++k) {
-				int from, to;
-				str tmpStrFrom, tmpStrTo;
-
-
-
-				if (relationMetadata[i][j][k].percent < FK_FREQ_THRESHOLD) continue; // foreign key is not frequent enough
-
-				from = relationMetadata[i][j][k].from;
-				to = relationMetadata[i][j][k].to;
-
-				// get "from" and "to" table names
-				if (labels[from].name == BUN_NONE) {
-					tmpStrFrom = (str) malloc(sizeof(char) * 6);
-					if (!tmpStrFrom) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-					strcpy(tmpStrFrom, "DUMMY");
-				} else {
-					str labelStrFrom;
-#if USE_SHORT_NAMES
-					str labelStrFromShort;
-#endif
-					takeOid(labels[from].name, &labelStrFrom);
-#if USE_SHORT_NAMES
-					getPropNameShort(&labelStrFromShort, labelStrFrom);
-					tmpStrFrom = (str) malloc(sizeof(char) * (strlen(labelStrFromShort) + 1));
-					if (!tmpStrFrom) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-					strcpy(tmpStrFrom, labelStrFromShort);
-					escapeURIforSQL(tmpStrFrom);
-					GDKfree(labelStrFromShort);
-					GDKfree(labelStrFrom);
-#else
-					tmpStrFrom = (str) malloc(sizeof(char) * (strlen(labelStrFrom) + 1));
-					if (!tmpStrFrom) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-					strcpy(tmpStrFrom, labelStrFrom);
-					escapeURIforSQL(tmpStrFrom);
-					GDKfree(labelStrFrom);
-#endif
-				}
-
-				if (labels[to].name == BUN_NONE) {
-					tmpStrTo = (str) malloc(sizeof(char) * 6);
-					if (!tmpStrTo) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-					strcpy(tmpStrTo, "DUMMY");
-				} else {
-					str labelStrTo;
-#if USE_SHORT_NAMES
-					str labelStrToShort;
-#endif
-					takeOid(labels[to].name, &labelStrTo);
-#if USE_SHORT_NAMES
-					getPropNameShort(&labelStrToShort, labelStrTo);
-					tmpStrTo = (str) malloc(sizeof(char) * (strlen(labelStrToShort) + 1));
-					if (!tmpStrTo) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-					strcpy(tmpStrTo, labelStrToShort);
-					escapeURIforSQL(tmpStrTo);
-					GDKfree(labelStrToShort);
-					GDKfree(labelStrTo);
-#else
-					tmpStrTo = (str) malloc(sizeof(char) * (strlen(labelStrTo) + 1));
-					if (!tmpStrTo) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-					strcpy(tmpStrTo, labelStrTo);
-					escapeURIforSQL(tmpStrTo);
-					GDKfree(labelStrTo);
-#endif
-				}
-
-				fprintf(fout, "ALTER TABLE %s_"BUNFMT" ADD COLUMN %s_%d_%d VARCHAR(10);\n", tmpStrFrom, freqCSset->items[from].csId, tmpStr2, j, refCounter);
-				fprintf(fout, "ALTER TABLE %s_"BUNFMT" ADD FOREIGN KEY (%s_%d_%d) REFERENCES %s_"BUNFMT"(subject);\n\n", tmpStrFrom, freqCSset->items[from].csId, tmpStr2, j, refCounter, tmpStrTo, freqCSset->items[to].csId);
-				refCounter += 1;
-				free(tmpStrFrom);
-				free(tmpStrTo);
-			}
-			free(tmpStr2);
-		}
-	}
-
-	fclose(fout);
-}
-
-static
-void createSQLMetadata(CSset* freqCSset, CSrel* csRelBetweenMergeFreqSet, CSlabel* labels, int*  mTblIdxFreqIdxMapping,int* mfreqIdxTblIdxMapping,int numTables) {
-	int	**matrix = NULL; // matrix[from][to] frequency
-	int	i, j, k;
-	FILE	*fout;
-	int	tblfrom, tblto;
-
-	(void) mTblIdxFreqIdxMapping; 
-	(void) mfreqIdxTblIdxMapping; 
-	(void) numTables; 
-	// init
-	matrix = (int **) malloc(sizeof(int *) * numTables);
-	if (!matrix) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-
- 	for (i = 0; i < numTables; ++i) {
-		matrix[i] = (int *) malloc(sizeof(int) * numTables);
-		if (!matrix) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-
-		for (j = 0; j < numTables; ++j) {
-			matrix[i][j] = 0;
-		}
-	}
-
-	// set values
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		CS cs = (CS) freqCSset->items[i];
-
-		if (!isCSTable(cs, labels[i].name)) continue; // ignore
-		if (csRelBetweenMergeFreqSet[i].numRef == 0) continue; 
-
-		for (j = 0; j < cs.numProp; ++j) { // propNo in CS order
-			// check foreign key frequency
-			int sum = 0;
-			for (k = 0; k < csRelBetweenMergeFreqSet[i].numRef; ++k) {
-				if (csRelBetweenMergeFreqSet[i].lstPropId[k] == cs.lstProp[j]) {
-					sum += csRelBetweenMergeFreqSet[i].lstCnt[k];
-				}
-			}
-
-			for (k = 0; k < csRelBetweenMergeFreqSet[i].numRef; ++k) { // propNo in CSrel
-				if (csRelBetweenMergeFreqSet[i].lstPropId[k] == cs.lstProp[j]) {
-					int toId = csRelBetweenMergeFreqSet[i].lstRefFreqIdx[k];
-					if (toId == -1) continue; // ignore
-					if (i == toId) continue; // ignore self references
-					if (!isCSTable(freqCSset->items[toId], labels[toId].name)) continue; 
-					if ((int) (100.0 * csRelBetweenMergeFreqSet[i].lstCnt[k] / sum + 0.5) < FK_FREQ_THRESHOLD) continue; // foreign key is not frequent enough
-					tblfrom = mfreqIdxTblIdxMapping[i]; 
-					tblto = mfreqIdxTblIdxMapping[toId];
-					matrix[tblfrom][tblto] += csRelBetweenMergeFreqSet[i].lstCnt[k]; // multiple links from 'i' to 'toId'? add the frequencies
-				}
-			}
-		}
-	}
-
-	// store matrix as csv
-	fout = fopen("adjacencyList.csv", "wt");
-	for (i = 0; i < numTables; ++i) {
-		for (j = 0; j < numTables; ++j) {
-			if (matrix[i][j]) {
-				fprintf(fout, "%d,%d,%d\n", mTblIdxFreqIdxMapping[i], mTblIdxFreqIdxMapping[j], matrix[i][j]);
-			}
-		}
-	}
-	fclose(fout);
-
-	// print id -> table name
-	fout = fopen("tableIdFreq.csv", "wt");
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		if (!isCSTable(freqCSset->items[i], labels[i].name)) continue; // ignore
-
-		if (labels[i].name == BUN_NONE) {
-			fprintf(fout, "%d,\"%s_"BUNFMT"\",%d\n", i, "DUMMY", freqCSset->items[i].csId, freqCSset->items[i].support); // TODO underscores?
-		} else {
-			str labelStr, tmpStr;
-#if USE_SHORT_NAMES
-			str labelStrShort;
-#endif
-
-			takeOid(labels[i].name, &labelStr);
-
-#if USE_SHORT_NAMES
-			getPropNameShort(&labelStrShort, labelStr);
-			tmpStr = (str) GDKmalloc(sizeof(char) * (strlen(labelStrShort) + 1));
-			if (!tmpStr) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			strcpy(tmpStr, labelStrShort);
-			escapeURIforSQL(tmpStr);
-			GDKfree(labelStrShort);
-			GDKfree(labelStr); 
-#else
-			tmpStr = (str) GDKmalloc(sizeof(char) * (strlen(labelStr) + 1));
-			if (!tmpStr) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			strcpy(tmpStr, labelStr);
-			escapeURIforSQL(tmpStr);
-#endif
-
-			fprintf(fout, "%d,\"%s_"BUNFMT"\",%d\n", i, tmpStr, freqCSset->items[i].csId, freqCSset->items[i].support); // TODO underscores?
-			GDKfree(tmpStr);
-		}
-	}
-	fclose(fout);
-
-	fout = fopen("CSmetadata.sql", "wt");
-	fprintf(fout, "CREATE TABLE table_id_freq (id INTEGER, name VARCHAR(100), frequency INTEGER);\n");
-	fprintf(fout, "CREATE TABLE adjacency_list (from_id INTEGER, to_id INTEGER, frequency INTEGER);\n");
-	fprintf(fout, "COPY INTO table_id_freq from '/export/scratch2/linnea/dbfarm/test/tableIdFreq.csv' USING DELIMITERS ',','\\n','\"';\n");
-	fprintf(fout, "COPY INTO adjacency_list from '/export/scratch2/linnea/dbfarm/test/adjacencyList.csv' USING DELIMITERS ',','\\n','\"';");
-	fclose(fout);
-
-	for (i = 0; i < numTables; ++i) {
-		free(matrix[i]);
-	}
-	free(matrix);
-}
-
-/* Simple representation of the final labels for tables and attributes. */
-static
-void printTxt(CSset* freqCSset, CSlabel* labels, int freqThreshold) {
-	FILE 		*fout;
-	char		filename[20], tmp[10];
-	int		i, j;
-
-	strcpy(filename, "labels");
-	sprintf(tmp, "%d", freqThreshold);
-	strcat(filename, tmp);
-	strcat(filename, ".txt");
-
-	fout = fopen(filename, "wt");
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		str labelStr;
-#if USE_SHORT_NAMES
-		str labelStrShort = NULL;
-#endif
-
-		if (!isCSTable(freqCSset->items[i], labels[i].name)) continue; // ignore
-
-		if (labels[i].name == BUN_NONE) {
-			fprintf(fout, "%s (CS "BUNFMT"): ", "DUMMY", freqCSset->items[i].csId);
-		} else {
-			takeOid(labels[i].name, &labelStr);
-#if USE_SHORT_NAMES
-			getPropNameShort(&labelStrShort, labelStr);
-			fprintf(fout, "%s (CS "BUNFMT"): ", labelStrShort, freqCSset->items[i].csId);
-			GDKfree(labelStrShort);
-			GDKfree(labelStr);
-#else
-			fprintf(fout, "%s (CS "BUNFMT"): ", labelStr, freqCSset->items[i].csId);
-			GDKfree(labelStr);
-#endif
-		}
-		for (j = 0; j < labels[i].numProp; ++j) {
-			str propStr;
-#if USE_SHORT_NAMES
-			str propStrShort = NULL;
-#endif
-			takeOid(labels[i].lstProp[j], &propStr);
-#if USE_SHORT_NAMES
-			getPropNameShort(&propStrShort, propStr);
-			if (j + 1 < labels[i].numProp) fprintf(fout, "%s, ", propStrShort);
-			else fprintf(fout, "%s\n", propStrShort);
-			GDKfree(propStrShort);
-			GDKfree(propStr);
-#else
-			if (j + 1 < labels[i].numProp) fprintf(fout, "%s, ", propStr);
-			else fprintf(fout, "%s\n", propStr);
-			GDKfree(propStr);
-#endif
-		}
-	}
-	fclose(fout);
 }
 
 #if USE_TYPE_NAMES
@@ -1534,306 +1152,20 @@ void createOntologyLookupResult(oid** result, int** resultMatchedProp, CSset* fr
 }
 #endif
 
-/* Print the dot code to draw an UML-like diagram. Call:   dot -Tpdf -O <filename>   to create <filename>.pdf */
 /*
+ * Graphical UML-like schema representation.
+ * Table width encodes table coverage (wider = more coverage), column colors encode column support (darker = more filled)
+ * Call GraphViz to create the graphic: "dot -Tpdf -O UMLxxx.dot" to create "UMLxxx.dot.pdf"
+ */
 static
-void printUML(CSset *freqCSset, int typeAttributesCount, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, str** result, int* resultCount, IncidentFKs* links, CSlabel* labels, Relation*** relationMetadata, int** relationMetadataCount, int freqThreshold) {
-	str		propStr, tmpStr;
-
-#if SHOW_CANDIDATES
-	char*           resultStr = NULL;
-	unsigned int    resultStrSize = 100;
-	int		found;
-#endif
-
-	int 		i, j, k;
-	FILE 		*fout;
-	char 		filename[20], tmp[10];
-
-	strcpy(filename, "CSmax");
-	sprintf(tmp, "%d", freqThreshold);
-	strcat(filename, tmp);
-	strcat(filename, ".dot");
-
-	fout = fopen(filename, "wt");
-
-	// header
-	fprintf(fout, "digraph g {\n");
-	fprintf(fout, "graph[ratio=\"compress\"];\n");
-	fprintf(fout, "node [shape=\"none\"];\n\n");
-	fprintf(fout, "legend [label = <<TABLE BGCOLOR=\"lightgray\" BORDER=\"1\" CELLBORDER=\"0\" CELLSPACING=\"0\"><TR><TD><B>Colors:</B></TD></TR>\n");
-	fprintf(fout, "<TR><TD><FONT COLOR=\"red\"><B>Ontology Classes</B></FONT></TD></TR>\n");
-	fprintf(fout, "<TR><TD><FONT COLOR=\"blue\"><B>Type Values</B></FONT></TD></TR>\n");
-	fprintf(fout, "<TR><TD><FONT COLOR=\"green\"><B>Foreign Keys</B></FONT></TD></TR>\n");
-	fprintf(fout, "</TABLE>>];\n\n");
-
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		CS cs = (CS) freqCSset->items[i];
-
-#if SHOW_CANDIDATES
-		// DATA SOURCES
-		resultStr = (char *) malloc(sizeof(char) * resultStrSize);
-		if (!resultStr) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-		strcpy(resultStr, "\0");
-#endif
-
-#if SHOW_CANDIDATES
-		// ontologies (red)
-		if (resultCount[i] > 0) {
-			// resize resultStr ?
-			while (strlen(resultStr) + strlen("<FONT color=\"red\">") + 1 > resultStrSize) { // + 1 for \0
-				resultStrSize *= 2;
-				resultStr = realloc(resultStr, sizeof(char) * resultStrSize);
-				if (!resultStr) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-			}
-			strcat(resultStr, "<FONT color=\"red\">");
-			for (j = 0; j < resultCount[i]; ++j) {
-#if USE_SHORT_NAMES
-				char *resultShort = NULL;
-				getPropNameShort(&resultShort, result[i][j]);
-				// resize resultStr ?
-				while (strlen(resultStr) + strlen(resultShort) + 1 > resultStrSize) { // + 1 for \0
-					resultStrSize *= 2;
-					resultStr = realloc(resultStr, sizeof(char) * resultStrSize);
-					if (!resultStr) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-				}
-				strcat(resultStr, resultShort);
-#else
-				// resize resultStr ?
-				while (strlen(resultStr) + strlen(result[i][j]) + 1 > resultStrSize) { // + 1 for \0
-					resultStrSize *= 2;
-					resultStr = realloc(resultStr, sizeof(char) * resultStrSize);
-					if (!resultStr) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-				}
-				strcat(resultStr, result[i][j]);
-#endif
-				// resize resultStr ?
-				while (strlen(resultStr) + strlen(", ") + 1 > resultStrSize) { // + 1 for \0
-					resultStrSize *= 2;
-					resultStr = realloc(resultStr, sizeof(char) * resultStrSize);
-					if (!resultStr) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-				}
-				strcat(resultStr, ", ");
-			}
-			// resize resultStr ?
-			while (strlen(resultStr) + strlen("</FONT>") + 1 > resultStrSize) { // + 1 for \0
-				resultStrSize *= 2;
-				resultStr = realloc(resultStr, sizeof(char) * resultStrSize);
-				if (!resultStr) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-			}
-			strcat(resultStr, "</FONT>");
-		}
-
-		// types (blue)
-		found = 0;
-		for (j = 0; j < typeAttributesCount; ++j) {
-			for (k = 0; k < typeAttributesHistogramCount[i][j]; ++k) {
-#if USE_SHORT_NAMES
-				char *resultShort = NULL;
-#endif
-				if (typeAttributesHistogram[i][j][k].percent < TYPE_FREQ_THRESHOLD) break;
-				if (found == 0) {
-					// first value found
-					found = 1;
-					// resize resultStr ?
-					while (strlen(resultStr) + strlen("<FONT color=\"blue\">") + 1 > resultStrSize) { // + 1 for \0
-						resultStrSize *= 2;
-						resultStr = realloc(resultStr, sizeof(char) * resultStrSize);
-						if (!resultStr) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-					}
-					strcat(resultStr, "<FONT color=\"blue\">");
-				}
-#if USE_SHORT_NAMES
-				getPropNameShort(&resultShort, typeAttributesHistogram[i][j][k].value);
-				// resize resultStr ?
-				while (strlen(resultStr) + strlen(resultShort) + 1 > resultStrSize) { // + 1 for \0
-					resultStrSize *= 2;
-					resultStr = realloc(resultStr, sizeof(char) * resultStrSize);
-					if (!resultStr) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-				}
-				strcat(resultStr, resultShort);
-#else
-				// resize resultStr ?
-				while (strlen(resultStr) + strlen(typeAttributesHistogram[i][j][k].value) + 1 > resultStrSize) { // + 1 for \0
-					resultStrSize *= 2;
-					resultStr = realloc(resultStr, sizeof(char) * resultStrSize);
-					if (!resultStr) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-				}
-				strcat(resultStr, typeAttributesHistogram[i][j][k].value);
-#endif
-				// resize resultStr ?
-				while (strlen(resultStr) + strlen(", ") + 1 > resultStrSize) { // + 1 for \0
-					resultStrSize *= 2;
-					resultStr = realloc(resultStr, sizeof(char) * resultStrSize);
-					if (!resultStr) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-				}
-				strcat(resultStr, ", ");
-			}
-		}
-		if (found == 1) {
-			// there was a type value
-			// resize resultStr ?
-			while (strlen(resultStr) + strlen("</FONT>") + 1 > resultStrSize) { // + 1 for \0
-				resultStrSize *= 2;
-				resultStr = realloc(resultStr, sizeof(char) * resultStrSize);
-				if (!resultStr) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-			}
-			strcat(resultStr, "</FONT>");
-		}
-
-		// incoming fks (green)
-		if (links[i].num > 0) {
-			// resize resultStr ?
-			while (strlen(resultStr) + strlen("<FONT color=\"green\">") + 1 > resultStrSize) { // + 1 for \0
-				resultStrSize *= 2;
-				resultStr = realloc(resultStr, sizeof(char) * resultStrSize);
-				if (!resultStr) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-			}
-			strcat(resultStr, "<FONT color=\"green\">");
-			for (j = 0; j < links[i].num; ++j) {
-				char *temp = NULL;
-#if USE_SHORT_NAMES
-				char *resultShort = NULL;
-#endif
-
-				takeOid(links[i].fks[j].prop, &tmpStr);
-				propStr = removeBrackets(tmpStr);
-#if USE_SHORT_NAMES
-				getPropNameShort(&resultShort, propStr);
-				temp = (char *) malloc(sizeof(char) * (strlen(resultShort) + 3));
-				if (!temp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-				sprintf(temp, "%s, ", resultShort);
-#else
-				temp = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
-				if (!temp) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-				sprintf(temp, "%s, ", propStr);
-#endif
-
-				// resize resultStr ?
-				while (strlen(resultStr) + strlen(temp) + 1 > resultStrSize) { // + 1 for \0
-					resultStrSize *= 2;
-					resultStr = realloc(resultStr, sizeof(char) * resultStrSize);
-					if (!resultStr) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-				}
-				strcat(resultStr, temp);
-				free(temp);
-			}
-			// resize resultStr ?
-			while (strlen(resultStr) + strlen("</FONT>") + 1 > resultStrSize) { // + 1 for \0
-				resultStrSize *= 2;
-				resultStr = realloc(resultStr, sizeof(char) * resultStrSize);
-				if (!resultStr) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-			}
-			strcat(resultStr, "</FONT>");
-		}
-
-		if (strlen(resultStr) > 0) {
-			// remove last comma
-			strcpy((resultStr + (strlen(resultStr) - 9)), "</FONT>");
-		} else {
-			strcpy(resultStr, "---");
-		}
-#else
-		(void) typeAttributesCount;
-		(void) typeAttributesHistogram;
-		(void) typeAttributesHistogramCount;
-		(void) result;
-		(void) resultCount;
-		(void) links;
-#endif
-
-		// print header
-		fprintf(fout, "\"" BUNFMT "\" [\n", cs.csId);
-		fprintf(fout, "label = <<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\">\n");
-		fprintf(fout, "<TR><TD><B>%s (CS "BUNFMT", Freq: %d)</B></TD></TR>\n", labels[i].name, cs.csId, cs.support);
-#if SHOW_CANDIDATES
-		fprintf(fout, "<TR><TD><B>%s</B></TD></TR>\n", resultStr);
-		free(resultStr);
-#endif
-
-		for (j = 0; j < cs.numProp; ++j) {
-			char    *propStrEscaped = NULL;
-#if USE_SHORT_NAMES
-			char    *propStrShort = NULL;
-#endif
-
-			takeOid(cs.lstProp[j], &tmpStr);
-
-			// copy propStr to propStrEscaped because .dot-PORTs cannot contain colons and quotes
-			propStr = removeBrackets(tmpStr);
-			propStrEscaped = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
-			if (!propStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			memcpy(propStrEscaped, propStr, (strlen(propStr) + 1));
-			escapeURI(propStrEscaped);
-#if USE_SHORT_NAMES
-			getPropNameShort(&propStrShort, propStr);
-#endif
-
-			// if it is a type, include top-3 values
-#if USE_SHORT_NAMES
-			fprintf(fout, "<TR><TD PORT=\"%s\">%s</TD></TR>\n", propStrEscaped, propStrShort);
-#else
-			fprintf(fout, "<TR><TD PORT=\"%s\">%s</TD></TR>\n", propStrEscaped, propStr);
-#endif
-			free(propStrEscaped);
-
-		}
-		fprintf(fout, "</TABLE>>\n");
-		fprintf(fout, "];\n\n");
-	}
-
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		CS cs = (CS) freqCSset->items[i];
-		for (j = 0; j < cs.numProp; ++j) {
-			char    *propStrEscaped = NULL;
-#if USE_SHORT_NAMES
-			char    *propStrShort = NULL;
-#endif
-
-			takeOid(cs.lstProp[j], &tmpStr);
-
-			// copy propStr to propStrEscaped because .dot-PORTs cannot contain colons and quotes
-			propStr = removeBrackets(tmpStr);
-			propStrEscaped = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
-			if (!propStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			memcpy(propStrEscaped, propStr, (strlen(propStr) + 1));
-			escapeURI(propStrEscaped);
-#if USE_SHORT_NAMES
-			getPropNameShort(&propStrShort, propStr);
-#endif
-
-			for (k = 0; k < relationMetadataCount[i][j]; ++k) {
-
-				if (relationMetadata[i][j][k].percent >= FK_FREQ_THRESHOLD) {
-					// target of links is frequent enough, not an outlier
-					int from = relationMetadata[i][j][k].from;
-					int to = relationMetadata[i][j][k].to;
-#if USE_SHORT_NAMES
-					fprintf(fout, "\""BUNFMT"\":\"%s\" -> \""BUNFMT"\" [label=\"%s\"];\n", freqCSset->items[from].csId, propStrEscaped, freqCSset->items[to].csId, propStrShort); // print foreign keys to dot file
-#else
-					fprintf(fout, "\""BUNFMT"\":\"%s\" -> \""BUNFMT"\" [label=\"%s\"];\n", freqCSset->items[from].csId, propStrEscaped, freqCSset->items[to].csId, propStr); // print foreign keys to dot file
-#endif
-				}
-			}
-			free(propStrEscaped);
-		}
-	}
-
-	fprintf(fout, "}\n"); // footer
-
-	fclose(fout);
-}
-*/
-
-static
-void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, int** relationMetadataCount, int freqThreshold) {
-	int 		i, j, k;
+void printUML2(CSset *freqCSset, CSlabel* labels, int freqThreshold, CSrel *csRelMergeFreqSet, BATiter mapi, BAT *mbat) {
+	int 		i, j;
 	FILE 		*fout;
 	char 		filename[20], tmp[10];
 
 	int		smallest = -1, biggest = -1;
 
-	strcpy(filename, "CS2max");
+	strcpy(filename, "UML");
 	sprintf(tmp, "%d", freqThreshold);
 	strcat(filename, tmp);
 	strcat(filename, ".dot");
@@ -1850,7 +1182,7 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 		CS cs = (CS) freqCSset->items[i];
 		if (!isCSTable(cs,labels[i].name)) continue; // ignore
 
-		// first values
+		// set first values
 		if (smallest == -1) smallest = i;
 		if (biggest == -1) biggest = i;
 
@@ -1858,50 +1190,25 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 		if (cs.coverage > freqCSset->items[biggest].coverage) biggest = i;
 	}
 
+	// for each table
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		int width;
-		str labelStr;
-		str tmpStr;
 		str labelStrEscaped = NULL;
-#if USE_SHORT_NAMES
-		str labelStrShort = NULL;
-#endif
 
 		CS cs = (CS) freqCSset->items[i];
 		if (!isCSTable(cs, labels[i].name)) continue; // ignore
 
-		// print header
-		width = (int) ((300 + 300 * (log10(freqCSset->items[i].coverage) - log10(freqCSset->items[smallest].coverage)) / (log10(freqCSset->items[biggest].coverage) - log10(freqCSset->items[smallest].coverage))) + 0.5); // width between 300 and 600 px, using logarithm
+		// print table header
+		// set table width between 300 (smallest coverage) and 600 (biggest coverage) px, using log10 logarithm
+		width = (int) ((300 + 300 * (log10(freqCSset->items[i].coverage) - log10(freqCSset->items[smallest].coverage)) / (log10(freqCSset->items[biggest].coverage) - log10(freqCSset->items[smallest].coverage))) + 0.5);
 		fprintf(fout, "\"" BUNFMT "\" [\n", cs.csId);
 		fprintf(fout, "label = <<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\">\n");
 
-		if (labels[i].name == BUN_NONE) {
-			labelStrEscaped = (str) GDKmalloc(sizeof(char) * 6);
-			if (!labelStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			strcpy(labelStrEscaped, "DUMMY");
-		} else {
-			takeOid(labels[i].name, &tmpStr);
-			labelStr = removeBrackets(tmpStr);
-#if USE_SHORT_NAMES
-			getPropNameShort(&labelStrShort, labelStr);
-			labelStrEscaped = (str) GDKmalloc(sizeof(char) * (strlen(labelStrShort) + 1));
-			if (!labelStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			memcpy(labelStrEscaped, labelStrShort, (strlen(labelStrShort) + 1));
-			escapeURI(labelStrEscaped);
-			GDKfree(labelStrShort);
-#else
-			labelStrEscaped = (str) GDKmalloc(sizeof(char) * (strlen(labelStr) + 1));
-			if (!labelStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			memcpy(labelStrEscaped, labelStr, (strlen(labelStr) + 1));
-			escapeURI(labelStrEscaped);
-#endif
-			GDKfree(tmpStr);
-			GDKfree(labelStr);
-		}
-
-		fprintf(fout, "<TR><TD WIDTH=\"%d\"><B>%s (#triples: %d)</B></TD></TR>\n", width, labelStrEscaped, cs.coverage);
+		getTblName(&labelStrEscaped, labels[i].name, mapi, mbat);
+		fprintf(fout, "<TR><TD WIDTH=\"%d\"><B>%s (#triples: %d, #tuples: %d)</B></TD></TR>\n", width, labelStrEscaped, cs.coverage, cs.support);
 		GDKfree(labelStrEscaped);
 
+		// print columns
 		for (j = 0; j < cs.numProp; ++j) {
 			str		propStr;
 			str		tmpStr;
@@ -1913,7 +1220,7 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 
 			takeOid(cs.lstProp[j], &tmpStr);
 
-			// assign color (the more tuples the property occurs in, the darker
+			// assign color (the more tuples the property occurs in, the darker)
 			if ((1.0 * cs.lstPropSupport[j])/cs.support > 0.8) {
 				color = "#5555FF";
 			} else if ((1.0 * cs.lstPropSupport[j])/cs.support > 0.6) {
@@ -1926,7 +1233,7 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 				color = "#DDDDFF";
 			}
 
-			// copy propStr to propStrEscaped because .dot-PORTs cannot contain colons and quotes
+			// escape column names
 			propStr = removeBrackets(tmpStr);
 			propStrEscaped = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
 			if (!propStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
@@ -1949,21 +1256,27 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 		fprintf(fout, "];\n\n");
 	}
 
+	// for each foreign key relationship
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		CS cs = (CS) freqCSset->items[i];
-		if (!isCSTable(cs, labels[i].name)) continue; // ignore
-
-		for (j = 0; j < cs.numProp; ++j) {
-			str	tmpStr;
-			str	propStr;
-			char    *propStrEscaped = NULL;
+		int from = i;
+		CSrel rel = csRelMergeFreqSet[from];
+		if (!isCSTable(freqCSset->items[from], 0)) continue;
+		for (j = 0; j < rel.numRef; ++j) {
+			int to = rel.lstRefFreqIdx[j];
+			oid prop = rel.lstPropId[j];
+			str tmpStr;
+			str propStr;
+			char *propStrEscaped = NULL;
 #if USE_SHORT_NAMES
-			char    *propStrShort = NULL;
+			char *propStrShort = NULL;
 #endif
 
-			takeOid(cs.lstProp[j], &tmpStr);
+			if (!isCSTable(freqCSset->items[to], 0)) continue;
+			if (rel.lstCnt[j] < freqCSset->items[to].support * MIN_FK_FREQUENCY) continue;
 
-			// copy propStr to propStrEscaped because .dot-PORTs cannot contain colons and quotes
+			takeOid(prop, &tmpStr);
+
+			// escape column names
 			propStr = removeBrackets(tmpStr);
 			propStrEscaped = (char *) malloc(sizeof(char) * (strlen(propStr) + 1));
 			if (!propStrEscaped) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
@@ -1972,26 +1285,10 @@ void printUML2(CSset *freqCSset, CSlabel* labels, Relation*** relationMetadata, 
 
 #if USE_SHORT_NAMES
 			getPropNameShort(&propStrShort, propStr);
-			for (k = 0; k < relationMetadataCount[i][j]; ++k) {
-
-				if (relationMetadata[i][j][k].percent >= FK_FREQ_THRESHOLD) {
-					// target of links is frequent enough, not an outlier
-					int from = relationMetadata[i][j][k].from;
-					int to = relationMetadata[i][j][k].to;
-					fprintf(fout, "\""BUNFMT"\":\"%s\" -> \""BUNFMT"\" [label=\"%s\"];\n", freqCSset->items[from].csId, propStrEscaped, freqCSset->items[to].csId, propStrShort); // print foreign keys to dot file
-				}
-			}
+			fprintf(fout, "\""BUNFMT"\":\"%s\" -> \""BUNFMT"\" [label=\"%s\"];\n", freqCSset->items[from].csId, propStrEscaped, freqCSset->items[to].csId, propStrShort); // print foreign keys to dot file
 			GDKfree(propStrShort);
 #else
-			for (k = 0; k < relationMetadataCount[i][j]; ++k) {
-
-				if (relationMetadata[i][j][k].percent >= FK_FREQ_THRESHOLD) {
-					// target of links is frequent enough, not an outlier
-					int from = relationMetadata[i][j][k].from;
-					int to = relationMetadata[i][j][k].to;
-					fprintf(fout, "\""BUNFMT"\":\"%s\" -> \""BUNFMT"\" [label=\"%s\"];\n", freqCSset->items[from].csId, propStrEscaped, freqCSset->items[to].csId, propStrEscaped); // print foreign keys to dot file
-				}
-			}
+			fprintf(fout, "\""BUNFMT"\":\"%s\" -> \""BUNFMT"\" [label=\"%s\"];\n", freqCSset->items[from].csId, propStrEscaped, freqCSset->items[to].csId, propStrEscaped); // print foreign keys to dot file
 #endif
 
 			GDKfree(propStr);
@@ -3233,7 +2530,7 @@ void freeLabels(CSlabel* labels, CSset* freqCSset) {
 	GDKfree(labels);
 }
 
-void exportLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelMergeFreqSet, int freqThreshold, int*  mTblIdxFreqIdxMapping, int* mfreqIdxTblIdxMapping, int numTables) {
+void exportLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelMergeFreqSet, int freqThreshold, BATiter mapi, BAT *mbat) {
 	int			**relationMetadataCount;
 	Relation		***relationMetadata;
 
@@ -3252,10 +2549,7 @@ void exportLabels(CSlabel* labels, CSset* freqCSset, CSrel* csRelMergeFreqSet, i
 	
 	// Print and Export
 	printf("exportLabels: printUML \n"); 
-	printUML2(freqCSset, labels, relationMetadata, relationMetadataCount, freqThreshold);
-	convertToSQL(freqCSset, relationMetadata, relationMetadataCount, labels, freqThreshold);
-	createSQLMetadata(freqCSset, csRelMergeFreqSet, labels,  mTblIdxFreqIdxMapping, mfreqIdxTblIdxMapping, numTables);
-	printTxt(freqCSset, labels, freqThreshold);
+	printUML2(freqCSset, labels, freqThreshold, csRelMergeFreqSet, mapi, mbat);
 	printf("exportLabels: Done \n"); 
 	freeRelationMetadata(relationMetadata, freqCSset);
 	freeRelationMetadataCount(relationMetadataCount, freqCSset->numCSadded);
