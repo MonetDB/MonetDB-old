@@ -158,7 +158,7 @@ str printTKNZStringFromOid(oid id){
 	return MAL_SUCCEED; 
 }
 
-
+#if USE_ONTLABEL_FOR_NAME
 static 
 char isOntologyName(oid valueOid, BUN *ontClassPos){
 	*ontClassPos = BUN_NONE; 
@@ -166,6 +166,7 @@ char isOntologyName(oid valueOid, BUN *ontClassPos){
 	if (*ontClassPos == BUN_NONE) return 0; 
 	else return 1; 
 }
+#endif
 
 //Get the string for 
 static
