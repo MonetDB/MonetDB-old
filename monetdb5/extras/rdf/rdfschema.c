@@ -4614,7 +4614,9 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 	TFIDFInfo	*tfidfInfos;
 	
 	char		existDiscriminatingProp = 0; 
+	#if ONLY_MERGE_ONTOLOGYBASEDNAME_CS_S1
 	char 		isSameLabel = 0; 
+	#endif
 
 	int		oldNumCSadded = 0;
 	(void) oldNumCSadded;
@@ -4655,7 +4657,6 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 			if (cs1->parentFreqIdx != -1 && cs1->parentFreqIdx == cs2->parentFreqIdx) continue; //They have already been merged
 			
 			existDiscriminatingProp = 0;
-			isSameLabel = 0;
 
 			if(USINGTFIDF == 0){
 				simscore = similarityScore(cs1->lstProp, cs2->lstProp,
@@ -4671,9 +4672,14 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 			
 			//simscore = 0.0;
 			#if	USINGTFIDF	
-			if ((*labels)[freqId1].name == (*labels)[freqId2].name) isSameLabel = 1;
+			  #if ONLY_MERGE_ONTOLOGYBASEDNAME_CS_S1
+			  isSameLabel = 0;
+			  if ((*labels)[freqId1].name == (*labels)[freqId2].name) isSameLabel = 1;
 
-			if (simscore > SIM_TFIDF_THRESHOLD && (existDiscriminatingProp || isSameLabel)){
+			  if (simscore > SIM_TFIDF_THRESHOLD && (existDiscriminatingProp || isSameLabel)){
+			  #else	
+			  if (simscore > SIM_TFIDF_THRESHOLD && existDiscriminatingProp){	  
+			  #endif
 			#else	
 			if (simscore > SIM_THRESHOLD) {
 			#endif	

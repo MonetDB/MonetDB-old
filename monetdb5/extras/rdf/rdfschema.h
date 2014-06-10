@@ -145,7 +145,7 @@ typedef struct PropStat {
 
 #define NOT_MERGE_DIMENSIONCS	1		/* Default: 1, 0: Is for example data */
 #define NOT_MERGE_DIMENSIONCS_IN_S1 0		/* Whether we should merge dimension CSs in S1 */
-#define	ONLY_MERGE_ONTOLOGYBASEDNAME_CS_S1 1	/* Only merge CS's whose name comes from an ontology class*/
+#define	ONLY_MERGE_ONTOLOGYBASEDNAME_CS_S1 0	/* Only merge CS's whose name comes from an ontology class*/
 #define	ONLY_MERGE_URINAME_CS_S1 0		/* Only merge CS's whose name is an URI */
 
 #define FILTER_INFREQ_FK_FOR_IR	1		/* We filter out all the dirty references from a CS */
