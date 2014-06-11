@@ -10864,7 +10864,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	printf("Start exporting labels \n"); 
 	
 	#if EXPORT_LABEL
-	exportLabels(freqCSset, csRelMergeFreqSet, *freqThreshold, mi, mbat, cstablestat, csPropTypes, numTables, mTblIdxFreqIdxMapping, csTblIdxMapping);
+	exportLabels(freqCSset, csRelFinalFKs, *freqThreshold, mi, mbat, cstablestat, csPropTypes, numTables, mTblIdxFreqIdxMapping, csTblIdxMapping);
 	#endif
 
 	curT = clock(); 

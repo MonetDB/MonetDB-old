@@ -305,66 +305,6 @@ Relation*** initRelationMetadata(int** relationMetadataCount, CSrel* csrelSet, i
 	return relationMetadata;
 }
 
-/* Calculate frequency per foreign key relationship. */
-static
-Relation*** initRelationMetadata2(int** relationMetadataCount, CSrel* csRelBetweenMergeFreqSet, CSset* freqCSset) {
-	int		i, j, k;
-	Relation***	relationMetadata;
-
-	relationMetadata = (Relation ***) malloc(sizeof(Relation **) * freqCSset->numCSadded);
-	if (!relationMetadata) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-	for (i = 0; i < freqCSset->numCSadded; ++i) { // CS
-		CS cs;
-		if (i == -1) continue; // ignore
-		cs = (CS) freqCSset->items[i];
-		relationMetadata[i] = (Relation **) malloc (sizeof(Relation *) * cs.numProp);
-		if (!relationMetadata[i]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-		for (j = 0; j < cs.numProp; ++j) { // propNo in CS order
-			int sum = 0;
-			relationMetadataCount[i][j] = 0;
-			relationMetadata[i][j] = NULL;
-			for (k = 0; k < csRelBetweenMergeFreqSet[i].numRef; ++k) { // propNo in CSrel
-
-				if (csRelBetweenMergeFreqSet[i].lstPropId[k] == cs.lstProp[j]) {
-					int toId = csRelBetweenMergeFreqSet[i].lstRefFreqIdx[k];
-					if (toId == -1) continue; // ignore
-					relationMetadataCount[i][j] += 1;
-
-					// alloc/realloc
-					if (relationMetadataCount[i][j] == 1) {
-						// alloc
-						relationMetadata[i][j] = (Relation *) malloc (sizeof(Relation));
-						if (!relationMetadata[i][j]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-						relationMetadata[i][j][0].to = toId;
-						relationMetadata[i][j][0].from = i;
-						relationMetadata[i][j][0].freq = csRelBetweenMergeFreqSet[i].lstCnt[k];
-						relationMetadata[i][j][0].percent = -1;
-					} else {
-						// realloc
-						relationMetadata[i][j] = (Relation *) realloc(relationMetadata[i][j], sizeof(Relation) * relationMetadataCount[i][j]);
-						if (!relationMetadata[i][j]) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-						relationMetadata[i][j][relationMetadataCount[i][j] - 1].to = toId;
-						relationMetadata[i][j][relationMetadataCount[i][j] - 1].from = i;
-						relationMetadata[i][j][relationMetadataCount[i][j] - 1].freq = csRelBetweenMergeFreqSet[i].lstCnt[k];
-						relationMetadata[i][j][relationMetadataCount[i][j] - 1].percent = -1;
-					}
-				}
-			}
-
-			// get total count of values
-			for (k = 0; k < relationMetadataCount[i][j]; ++k) {
-				sum += relationMetadata[i][j][k].freq;
-			}
-			// assign percentage values for every value
-			for (k = 0; k < relationMetadataCount[i][j]; ++k) {
-				relationMetadata[i][j][k].percent = (int) (100.0 * relationMetadata[i][j][k].freq / sum + 0.5);
-			}
-		}
-	}
-
-	return relationMetadata;
-}
-
 static
 IncidentFKs* initLinks(int csCount) {
 	int		i;
@@ -1158,7 +1098,7 @@ void createOntologyLookupResult(oid** result, int** resultMatchedProp, CSset* fr
  * Call GraphViz to create the graphic: "dot -Tpdf -O UMLxxx.dot" to create "UMLxxx.dot.pdf"
  */
 static
-void printUML2(CStableStat *cstablestat, CSPropTypes* csPropTypes, int freqThreshold, CSrel *csRelMergeFreqSet, BATiter mapi, BAT *mbat, int numTables, int* mTblIdxFreqIdxMapping, int* csTblIdxMapping, CSset* freqCSset) {
+void printUML2(CStableStat *cstablestat, CSPropTypes* csPropTypes, int freqThreshold, CSrel *csRelFinalFKs, BATiter mapi, BAT *mbat, int numTables, int* mTblIdxFreqIdxMapping, int* csTblIdxMapping, CSset* freqCSset) {
 	int 		i, j, k;
 	FILE 		*fout;
 	char 		filename[20], tmp[10];
@@ -1202,7 +1142,7 @@ void printUML2(CStableStat *cstablestat, CSPropTypes* csPropTypes, int freqThres
 		// print table header
 		// set table width between 300 (smallest coverage) and 600 (biggest coverage) px, using log10 logarithm
 		width = (int) ((300 + 300 * (log10(freqCSset->items[csIdx].coverage) - log10(freqCSset->items[smallest].coverage)) / (log10(freqCSset->items[biggest].coverage) - log10(freqCSset->items[smallest].coverage))) + 0.5);
-		fprintf(fout, "\"%d\" [\n", csIdx);
+		fprintf(fout, "\"%d\" [\n", i);
 		fprintf(fout, "label = <<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\">\n");
 
 		getTblName(&labelStrEscaped, cstablestat->lstcstable[i].tblname, mapi, mbat);
@@ -1263,13 +1203,9 @@ void printUML2(CStableStat *cstablestat, CSPropTypes* csPropTypes, int freqThres
 
 	// for each foreign key relationship
 	for (i = 0; i < numTables; ++i) {
-		int csIdx = mTblIdxFreqIdxMapping[i];
-		int from = csIdx;
-		CSrel rel = csRelMergeFreqSet[from];
+		int from = i;
+		CSrel rel = csRelFinalFKs[from];
 
-		if(!isCSTable(freqCSset->items[csIdx], cstablestat->lstcstable[i].tblname)) continue; // ignore small tables
-
-		if (!isCSTable(freqCSset->items[from], 0)) continue;
 		for (j = 0; j < rel.numRef; ++j) {
 			int to = rel.lstRefFreqIdx[j];
 			oid prop = rel.lstPropId[j];
@@ -1280,14 +1216,11 @@ void printUML2(CStableStat *cstablestat, CSPropTypes* csPropTypes, int freqThres
 			char *propStrShort = NULL;
 #endif
 
-			if (!isCSTable(freqCSset->items[to], cstablestat->lstcstable[csTblIdxMapping[to]].tblname)) continue; // ignore small tables
-			if (rel.lstCnt[j] < freqCSset->items[to].support * MIN_FK_FREQUENCY) continue;
-
 #if REMOVE_INFREQ_PROP
 			// find prop
 			k = 0;
-			while (freqCSset->items[csIdx].lstProp[k] != prop) ++k;
-                        if (csPropTypes[i].lstPropTypes[k].defColIdx == -1) continue; // ignore infrequent props
+			while (freqCSset->items[mTblIdxFreqIdxMapping[from]].lstProp[k] != prop) ++k;
+			if (csPropTypes[from].lstPropTypes[k].defColIdx == -1) continue; // ignore infrequent props
 #endif
 
 			takeOid(prop, &tmpStr);
@@ -2546,29 +2479,18 @@ void freeLabels(CSlabel* labels, CSset* freqCSset) {
 	GDKfree(labels);
 }
 
-void exportLabels(CSset* freqCSset, CSrel* csRelMergeFreqSet, int freqThreshold, BATiter mapi, BAT *mbat, CStableStat* cstablestat, CSPropTypes *csPropTypes, int numTables, int* mTblIdxFreqIdxMapping, int* csTblIdxMapping) {
-	int			**relationMetadataCount;
-	Relation		***relationMetadata;
-
-
+void exportLabels(CSset* freqCSset, CSrel* csRelFinalFKs, int freqThreshold, BATiter mapi, BAT *mbat, CStableStat* cstablestat, CSPropTypes *csPropTypes, int numTables, int* mTblIdxFreqIdxMapping, int* csTblIdxMapping) {
 	str             schema = "rdf";
 	int             ret;
 	
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
 		fprintf(stderr, "ERROR: Couldn't open tokenizer!\n");
 	}
-	// FK
-	printf("exportLabels: initRelationMetadataCount \n"); 
-	relationMetadataCount = initRelationMetadataCount(freqCSset);
-	printf("exportLabels: initRelationMetadata2 \n"); 
-	relationMetadata = initRelationMetadata2(relationMetadataCount, csRelMergeFreqSet, freqCSset);
-	
+
 	// Print and Export
 	printf("exportLabels: printUML \n"); 
-	printUML2(cstablestat, csPropTypes, freqThreshold, csRelMergeFreqSet, mapi, mbat, numTables, mTblIdxFreqIdxMapping, csTblIdxMapping, freqCSset);
+	printUML2(cstablestat, csPropTypes, freqThreshold, csRelFinalFKs, mapi, mbat, numTables, mTblIdxFreqIdxMapping, csTblIdxMapping, freqCSset);
 	printf("exportLabels: Done \n"); 
-	freeRelationMetadata(relationMetadata, freqCSset);
-	freeRelationMetadataCount(relationMetadataCount, freqCSset->numCSadded);
 
 	TKNZRclose(&ret);
 }
