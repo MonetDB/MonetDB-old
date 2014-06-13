@@ -226,7 +226,7 @@ comment "Retrieve the subset using a cracker
 
 # new multi-threaded versions
 
-command select(b:bat[:oid,:@2],l:@2,h:@2, nthreads:int):bat[:oid,:@2]
+command select(b:bat[:oid,:@2],l:@2,h:@2, nthreads:int, vector_elements:int):bat[:oid,:@2]
 address CRKselect_@2_MT
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview;
@@ -235,7 +235,7 @@ comment "Retrieve the subset using a cracker
         nthreads <  0    ->  1st (inferior) version of new multi-threaded implementation,
         nthreads >  0    ->  2nd (superior) version of new multi-threaded implementation.";
 
-command select(b:bat[:oid,:@2],l:@2, nthreads:int):bat[:oid,:@2]
+command select(b:bat[:oid,:@2],l:@2, nthreads:int, vector_elements:int):bat[:oid,:@2]
 address CRKselectValue_@2_MT
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview;
@@ -244,7 +244,7 @@ comment "Retrieve the subset using a cracker
         nthreads <  0    ->  1st (inferior) version of new multi-threaded implementation,
         nthreads >  0    ->  2nd (superior) version of new multi-threaded implementation.";
 
-command select(b:bat[:oid,:@2],l:@2,h:@2,li:bit,hi:bit, nthreads:int):bat[:oid,:@2]
+command select(b:bat[:oid,:@2],l:@2,h:@2,li:bit,hi:bit, nthreads:int, vector_elements:int):bat[:oid,:@2]
 address CRKselectBounds_@2_MT
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview;
@@ -253,7 +253,7 @@ comment "Retrieve the subset using a cracker
         nthreads <  0    ->  1st (inferior) version of new multi-threaded implementation,
         nthreads >  0    ->  2nd (superior) version of new multi-threaded implementation.";
 
-command uselect(b:bat[:any_1,:@2],l:@2,h:@2, nthreads:int):bat[:any_1,:void]
+command uselect(b:bat[:any_1,:@2],l:@2,h:@2, nthreads:int, vector_elements:int):bat[:any_1,:void]
 address CRKuselect_@2_MT
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview;
@@ -262,7 +262,7 @@ comment "Retrieve the subset using a cracker
         nthreads <  0    ->  1st (inferior) version of new multi-threaded implementation,
         nthreads >  0    ->  2nd (superior) version of new multi-threaded implementation.";
 
-command uselect(b:bat[:any_1,:@2],l:@2, nthreads:int):bat[:any_1,:void]
+command uselect(b:bat[:any_1,:@2],l:@2, nthreads:int, vector_elements:int):bat[:any_1,:void]
 address CRKuselectValue_@2_MT
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview;
@@ -271,7 +271,7 @@ comment "Retrieve the subset using a cracker
         nthreads <  0    ->  1st (inferior) version of new multi-threaded implementation,
         nthreads >  0    ->  2nd (superior) version of new multi-threaded implementation.";
 
-command uselect(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit, nthreads:int):bat[:any_1,:void]
+command uselect(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit, nthreads:int, vector_elements:int):bat[:any_1,:void]
 address CRKuselectBounds_@2_MT
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview;
@@ -280,7 +280,7 @@ comment "Retrieve the subset using a cracker
         nthreads <  0    ->  1st (inferior) version of new multi-threaded implementation,
         nthreads >  0    ->  2nd (superior) version of new multi-threaded implementation.";
 
-command thetauselect(b:bat[:any_1,:@2],v:@2,op:str, nthreads:int):bat[:any_1,:void]
+command thetauselect(b:bat[:any_1,:@2],v:@2,op:str, nthreads:int, vector_elements:int):bat[:any_1,:void]
 address CRKthetauselect_@2_MT
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview;
@@ -289,7 +289,7 @@ comment "Retrieve the subset using a cracker
         nthreads <  0    ->  1st (inferior) version of new multi-threaded implementation,
         nthreads >  0    ->  2nd (superior) version of new multi-threaded implementation.";
 
-command thetaselect(b:bat[:any_1,:@2],v:@2,op:str, nthreads:int):bat[:any_1,:@2]
+command thetaselect(b:bat[:any_1,:@2],v:@2,op:str, nthreads:int, vector_elements:int):bat[:any_1,:@2]
 address CRKthetaselect_@2_MT
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview;
@@ -352,7 +352,7 @@ comment "Retrieve the subset using a cracker
 
 # new multi-threaded stochastic versions
 
-command selectst(b:bat[:oid,:@2],l:@2,h:@2, nthreads:int):bat[:oid,:@2]
+command selectst(b:bat[:oid,:@2],l:@2,h:@2, nthreads:int, vector_elements:int):bat[:oid,:@2]
 address CRKselectst_@2_MT
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview;
@@ -361,7 +361,7 @@ comment "Retrieve the subset using a cracker
         nthreads <  0    ->  1st (inferior) version of new multi-threaded implementation,
         nthreads >  0    ->  2nd (superior) version of new multi-threaded implementation.";
 
-command selectst(b:bat[:oid,:@2],l:@2, nthreads:int):bat[:oid,:@2]
+command selectst(b:bat[:oid,:@2],l:@2, nthreads:int, vector_elements:int):bat[:oid,:@2]
 address CRKselectstValue_@2_MT
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview;
@@ -370,7 +370,7 @@ comment "Retrieve the subset using a cracker
         nthreads <  0    ->  1st (inferior) version of new multi-threaded implementation,
         nthreads >  0    ->  2nd (superior) version of new multi-threaded implementation.";
 
-command selectst(b:bat[:oid,:@2],l:@2,h:@2,li:bit,hi:bit, nthreads:int):bat[:oid,:@2]
+command selectst(b:bat[:oid,:@2],l:@2,h:@2,li:bit,hi:bit, nthreads:int, vector_elements:int):bat[:oid,:@2]
 address CRKselectstBounds_@2_MT
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview;
@@ -379,7 +379,7 @@ comment "Retrieve the subset using a cracker
         nthreads <  0    ->  1st (inferior) version of new multi-threaded implementation,
         nthreads >  0    ->  2nd (superior) version of new multi-threaded implementation.";
 
-command uselectst(b:bat[:any_1,:@2],l:@2,h:@2, nthreads:int):bat[:any_1,:void]
+command uselectst(b:bat[:any_1,:@2],l:@2,h:@2, nthreads:int, vector_elements:int):bat[:any_1,:void]
 address CRKuselectst_@2_MT
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview;
@@ -388,7 +388,7 @@ comment "Retrieve the subset using a cracker
         nthreads <  0    ->  1st (inferior) version of new multi-threaded implementation,
         nthreads >  0    ->  2nd (superior) version of new multi-threaded implementation.";
 
-command uselectst(b:bat[:any_1,:@2],l:@2, nthreads:int):bat[:any_1,:void]
+command uselectst(b:bat[:any_1,:@2],l:@2, nthreads:int, vector_elements:int):bat[:any_1,:void]
 address CRKuselectstValue_@2_MT
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview;
@@ -397,7 +397,7 @@ comment "Retrieve the subset using a cracker
         nthreads <  0    ->  1st (inferior) version of new multi-threaded implementation,
         nthreads >  0    ->  2nd (superior) version of new multi-threaded implementation.";
 
-command uselectst(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit, nthreads:int):bat[:any_1,:void]
+command uselectst(b:bat[:any_1,:@2],l:@2,h:@2,li:bit,hi:bit, nthreads:int, vector_elements:int):bat[:any_1,:void]
 address CRKuselectstBounds_@2_MT
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview;
@@ -406,7 +406,7 @@ comment "Retrieve the subset using a cracker
         nthreads <  0    ->  1st (inferior) version of new multi-threaded implementation,
         nthreads >  0    ->  2nd (superior) version of new multi-threaded implementation.";
 
-command thetauselectst(b:bat[:any_1,:@2],v:@2,op:str, nthreads:int):bat[:any_1,:void]
+command thetauselectst(b:bat[:any_1,:@2],v:@2,op:str, nthreads:int, vector_elements:int):bat[:any_1,:void]
 address CRKthetauselectst_@2_MT
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview;
@@ -415,7 +415,7 @@ comment "Retrieve the subset using a cracker
         nthreads <  0    ->  1st (inferior) version of new multi-threaded implementation,
         nthreads >  0    ->  2nd (superior) version of new multi-threaded implementation.";
 
-command thetaselectst(b:bat[:any_1,:@2],v:@2,op:str, nthreads:int):bat[:any_1,:@2]
+command thetaselectst(b:bat[:any_1,:@2],v:@2,op:str, nthreads:int, vector_elements:int):bat[:any_1,:@2]
 address CRKthetaselectst_@2_MT
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview;
