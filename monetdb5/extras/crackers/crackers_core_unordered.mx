@@ -923,7 +923,7 @@ static str CRKvectorized_x_@2_@1 (
 	BUN last_left = first_left + ml - 1, first_right = last_right + 1 - mr;
 	BUN valueCount = ( (ml && mr && last_left + 1 < first_right) ?  ml + mr : last_right - first_left + 1 );
 	const BUN vectorCount = valueCount/vector_elements;
-	const BUN remaining_elements = valueCount % (vector_elements*sizeof(@1));
+	const BUN remaining_elements = valueCount % vector_elements;
 	BUN lowerReadCursor = first_left, upperReadCursor = last_right - remaining_elements + 1;
 	BUN lowerWriteCursor = first_left, upperWriteCursor = last_right - remaining_elements;
 	BUN vectorI = 0, vectorR = 3, skip, skip_left, skip_right;
@@ -1324,7 +1324,6 @@ str
 CRKcrackUnorderedZero_@2_@1( BAT *b, @1 mval, BUN first, BUN last, oid *pos, int nthreads, int vector_elements){
 	str msg = MAL_SUCCEED;
 	int selectivity = 50;
-	int elements_per_vector = vector_elements/sizeof(@1);
 
 	assert(b);
 	assert(last >= first);
@@ -1358,11 +1357,11 @@ CRKcrackUnorderedZero_@2_@1( BAT *b, @1 mval, BUN first, BUN last, oid *pos, int
 		} else
 		if (nthreads < 0) {
 			/* new multi-threaded crack code; Alternative 1 */
-			msg = CRKvectorized_MT_@2_@1(b, first, last, mval, pos, -nthreads, 1, selectivity, elements_per_vector);
+			msg = CRKvectorized_MT_@2_@1(b, first, last, mval, pos, -nthreads, 1, selectivity, vector_elements);
 		} else
 		if (nthreads > 0) {
 			/* new multi-threaded crack code; Alternative 2 */
-			msg = CRKvectorized_MT_@2_@1(b, first, last, mval, pos, nthreads, 2, selectivity, elements_per_vector);
+			msg = CRKvectorized_MT_@2_@1(b, first, last, mval, pos, nthreads, 2, selectivity, vector_elements);
 		} 
 
 	}
