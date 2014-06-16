@@ -1132,6 +1132,10 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, const BUN first, const BUN last
 		/* automatic setting */
 		nthreads = GDKnr_threads;
 	}
+        if ((BUN) nthreads > n / 1000) {
+                /* more threads / smaller slices does not make sense */
+                nthreads = (int) (n / 1000) + 1;
+        }
 	mm = (n / nthreads);
         if (alt == 1) {
 		ml = 0;
