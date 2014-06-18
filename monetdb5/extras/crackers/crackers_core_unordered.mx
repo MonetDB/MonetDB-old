@@ -923,9 +923,8 @@ static str CRKvectorized_x_@2_@1 (
 	BUN last_left = first_left + ml - 1, first_right = last_right + 1 - mr;
 	BUN valueCount = ( (ml && mr && last_left + 1 < first_right) ?  ml + mr : last_right - first_left + 1 );
 	const BUN vectorCount = valueCount/vector_elements;
-	const BUN remaining_elements = valueCount % vector_elements;
-	BUN lowerReadCursor = first_left, upperReadCursor = last_right - remaining_elements + 1;
-	BUN lowerWriteCursor = first_left, upperWriteCursor = last_right - remaining_elements;
+	BUN lowerReadCursor = first_left, upperReadCursor = last_right + 1;
+	BUN lowerWriteCursor = first_left, upperWriteCursor = last_right;
 	BUN vectorI = 0, vectorR = 3, skip, skip_left, skip_right;
 	cursorDeltas deltas;
 	BAT *localBuffer = BATnew(TYPE_oid, TYPE_@1, vector_elements*3);
@@ -933,12 +932,11 @@ static str CRKvectorized_x_@2_@1 (
 	@1  *src_t = (@1 *) Tloc(buffer, BUNfirst(buffer));
 	oid *src_h_local = (oid*) Hloc(localBuffer, BUNfirst(localBuffer));
 	@1  *src_t_local = (@1 *) Tloc(localBuffer, BUNfirst(localBuffer));
-	first_right = last_right - remaining_elements + 1 - mr;
 
 	assert(buffer || localBuffer);
 	assert(pos_r);
-	//assert(valueCount%(2*vector_elements) == 0);
-	//assert(!(ml && mr && last_left + 1 < first_right) || (ml%(2*vector_elements) == 0 && mr%(2*vector_elements) == 0));
+	assert(valueCount%(2*vector_elements) == 0);
+	assert(!(ml && mr && last_left + 1 < first_right) || (ml%(2*vector_elements) == 0 && mr%(2*vector_elements) == 0));
 
         memcpy(src_h_local, src_h + first_left, sizeof(oid)*2*vector_elements);
         memcpy(src_h_local + 2*vector_elements, src_h + upperReadCursor-vector_elements, sizeof(oid)*2*vector_elements);
@@ -1046,52 +1044,6 @@ static str CRKvectorized_x_@2_@1 (
 	assert (vectorR == vectorCount);
 	//assert(lowerReadCursor == upperReadCursor || (lowerReadCursor == first_right && upperReadCursor == last_left + 1));
 
-	if(remaining_elements > 0)
-	{
-		BUN qualifying_elements = 0;
-		BUN lowerCursor = last_right - remaining_elements + 1, upperCursor = last_right;
-		oid *tmp_h = GDKmalloc(remaining_elements * sizeof(oid));
-		@1 *tmp_t = GDKmalloc(remaining_elements * sizeof(@1 ));
-
-		while (src_t[lowerCursor] @7 pivot)
-		{
-			lowerCursor++;
-			qualifying_elements++;
-		}
-		while (src_t[upperCursor] @8 pivot)
-			upperCursor--;
-
-		while (lowerCursor < upperCursor) {
-			if (src_t[lowerCursor] @8 pivot && src_t[upperCursor] @7 pivot) {
-				@1 tmp = src_t[lowerCursor];
-				oid tmp_oid = src_h[lowerCursor];
-				src_t[lowerCursor] = src_t[upperCursor];
-				src_t[upperCursor] = tmp;
-				src_h[lowerCursor] = src_h[upperCursor];
-				src_h[upperCursor] = tmp_oid;
-				lowerCursor++;
-				upperCursor--;
-				qualifying_elements++;
-			} else if (src_t[lowerCursor] @7 pivot) {
-				lowerCursor++;
-				qualifying_elements++;
-			} else if (src_t[upperCursor] @8 pivot) {
-				upperCursor--;
-			}
-		}
-		if (lowerCursor == upperCursor && src_t[lowerCursor] @7 pivot)
-			qualifying_elements += 1;
-
-		memcpy(tmp_h, src_h + lowerWriteCursor, sizeof(oid)*qualifying_elements);
-		memcpy(src_h + lowerWriteCursor, src_h + (last_right - remaining_elements + 1), sizeof(oid)*qualifying_elements);
-		memcpy(src_h + (last_right - remaining_elements + 1), tmp_h, sizeof(oid)*qualifying_elements);
-		memcpy(tmp_t, src_t + lowerWriteCursor, sizeof(@1)*qualifying_elements);
-		memcpy(src_t + lowerWriteCursor, src_t + (last_right - remaining_elements + 1), sizeof(@1)*qualifying_elements);
-		memcpy(src_t + (last_right - remaining_elements + 1), tmp_t, sizeof(@1)*qualifying_elements);
-		lowerWriteCursor = lowerWriteCursor + qualifying_elements;
-	}
-
-
 	*pos_r = lowerWriteCursor;
 
 	return MAL_SUCCEED;
@@ -1114,7 +1066,7 @@ cracking_MT_vectorized_crackThread_@2_@1 ( void *arg_p )
 	return NULL;
 }
 
-static str CRKvectorized_MT_@2_@1 (const BAT *b, const BUN first, const BUN last, const @1 pivot, oid *pos, int nthreads, int alt, const @1 pivot_P, int vector_elements)
+static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 pivot, oid *pos, int nthreads, int alt, const @1 pivot_P, int vector_elements)
 {
         BUN n = last - first + 1; /* total # tuples / values */
         BUN ml;                   /* # tuples / values in left slice */
@@ -1126,6 +1078,7 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, const BUN first, const BUN last
         int i, j;
 	oid *src_h = (oid*) Hloc(b, BUNfirst(b)), *tmp_h;
 	@1  *src_t = (@1 *) Tloc(b, BUNfirst(b)), *tmp_t;
+	BUN remaining_elements = 0;
 
 	/* adjust nthreads */
 	if (nthreads == 0) {
@@ -1136,7 +1089,13 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, const BUN first, const BUN last
                 /* more threads / smaller slices does not make sense */
                 nthreads = (int) (n / 1000) + 1;
         }
+
 	mm = (n / nthreads);
+	remaining_elements = (mm % (2 * vector_elements)) * nthreads;
+	mm = (n - remaining_elements) / nthreads;
+	remaining_elements += ((n - remaining_elements) % nthreads);
+	last -= remaining_elements;
+	mm -= ((n - remaining_elements) % nthreads);
         if (alt == 1) {
 		ml = 0;
 		mr = 0;
@@ -1314,6 +1273,55 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, const BUN first, const BUN last
         assert(f != BUN_NONE);
 	assert((f == last + 1 && src_t[f-1] @7 pivot) || src_t[f]   @8 pivot);
 	assert((f == first    && src_t[f]   @8 pivot) || src_t[f-1] @7 pivot);
+
+	if(remaining_elements > 0)
+	{
+		BUN qualifying_elements = 0;
+		BUN lowerCursor = last + 1, upperCursor = last + remaining_elements;
+		oid *tmp_head = GDKmalloc(remaining_elements * sizeof(oid));
+		@1 *tmp_tail = GDKmalloc(remaining_elements * sizeof(@1 ));
+
+		while (src_t[lowerCursor] @7 pivot)
+		{
+			lowerCursor++;
+			qualifying_elements++;
+		}
+		while (src_t[upperCursor] @8 pivot)
+			upperCursor--;
+
+		while (lowerCursor < upperCursor) {
+			if (src_t[lowerCursor] @8 pivot && src_t[upperCursor] @7 pivot) {
+				@1 tmp = src_t[lowerCursor];
+				oid tmp_oid = src_h[lowerCursor];
+				src_t[lowerCursor] = src_t[upperCursor];
+				src_t[upperCursor] = tmp;
+				src_h[lowerCursor] = src_h[upperCursor];
+				src_h[upperCursor] = tmp_oid;
+				lowerCursor++;
+				upperCursor--;
+				qualifying_elements++;
+			} else if (src_t[lowerCursor] @7 pivot) {
+				lowerCursor++;
+				qualifying_elements++;
+			} else if (src_t[upperCursor] @8 pivot) {
+				upperCursor--;
+			}
+		}
+		if (lowerCursor == upperCursor && src_t[lowerCursor] @7 pivot)
+			qualifying_elements += 1;
+		
+		memcpy(tmp_head, src_h + f, sizeof(oid)*qualifying_elements);
+		memcpy(src_h +  f, src_h + last + 1, sizeof(oid)*qualifying_elements);
+		memcpy(src_h + last + 1, tmp_head, sizeof(oid)*qualifying_elements);
+		memcpy(tmp_tail, src_t + f, sizeof(@1)*qualifying_elements);
+		memcpy(src_t + f, src_t + last + 1, sizeof(@1)*qualifying_elements);
+		memcpy(src_t + last + 1, tmp_tail, sizeof(@1)*qualifying_elements);			
+		
+		f += qualifying_elements;
+		GDKfree(tmp_head);
+		GDKfree(tmp_tail);
+	}
+
         *pos = (BUN) (f == 0 ? 0 : f - 1);
 
 	GDKfree(tmp_h);
