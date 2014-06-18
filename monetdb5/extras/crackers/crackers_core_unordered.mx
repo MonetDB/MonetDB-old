@@ -1102,8 +1102,6 @@ static str CRKvectorized_x_@2_@1 (
 	lowerReadCursor += 2*vector_elements;
 	upperReadCursor -= vector_elements;
 
-	fprintf(stderr, "vectorR=%d, vectorCount=%d\n",(int)vectorR, (int)vectorCount);
-
 	if (ml && mr && last_left + 1 < first_right) {
 		/* we have two disjoint half-pieces */
 		for (; vectorI < vectorCount; vectorI++)	{
@@ -1198,7 +1196,6 @@ static str CRKvectorized_x_@2_@1 (
 		}
 	}
 
-	fprintf(stderr, "vectorR=%d, vectorCount=%d\n",(int)vectorR, (int)vectorCount);
 	assert (vectorR == vectorCount);
 	//assert(lowerReadCursor == upperReadCursor || (lowerReadCursor == first_right && upperReadCursor == last_left + 1));
 
