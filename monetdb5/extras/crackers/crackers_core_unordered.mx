@@ -1270,9 +1270,6 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
                         }*/
                 }
         }
-        assert(f != BUN_NONE);
-	assert((f == last + 1 && src_t[f-1] @7 pivot) || src_t[f]   @8 pivot);
-	assert((f == first    && src_t[f]   @8 pivot) || src_t[f-1] @7 pivot);
 
 	if(remaining_elements > 0)
 	{
@@ -1280,6 +1277,11 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 		BUN lowerCursor = last + 1, upperCursor = last + remaining_elements;
 		oid *tmp_head = GDKmalloc(remaining_elements * sizeof(oid));
 		@1 *tmp_tail = GDKmalloc(remaining_elements * sizeof(@1 ));
+
+	        if (f == BUN_NONE) /*if there are not qualifying tuples*/
+	        {
+        	        f = first;
+        	}
 
 		while (src_t[lowerCursor] @7 pivot)
 		{
@@ -1309,18 +1311,24 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 		}
 		if (lowerCursor == upperCursor && src_t[lowerCursor] @7 pivot)
 			qualifying_elements += 1;
-		
-		memcpy(tmp_head, src_h + f, sizeof(oid)*qualifying_elements);
-		memcpy(src_h +  f, src_h + last + 1, sizeof(oid)*qualifying_elements);
-		memcpy(src_h + last + 1, tmp_head, sizeof(oid)*qualifying_elements);
-		memcpy(tmp_tail, src_t + f, sizeof(@1)*qualifying_elements);
-		memcpy(src_t + f, src_t + last + 1, sizeof(@1)*qualifying_elements);
-		memcpy(src_t + last + 1, tmp_tail, sizeof(@1)*qualifying_elements);			
-		
+
+		if (qualifying_elements > 0)
+		{
+			memcpy(tmp_head, src_h + f, sizeof(oid)*qualifying_elements);
+			memcpy(src_h +  f, src_h + last + 1, sizeof(oid)*qualifying_elements);
+			memcpy(src_h + last + 1, tmp_head, sizeof(oid)*qualifying_elements);
+			memcpy(tmp_tail, src_t + f, sizeof(@1)*qualifying_elements);
+			memcpy(src_t + f, src_t + last + 1, sizeof(@1)*qualifying_elements);
+			memcpy(src_t + last + 1, tmp_tail, sizeof(@1)*qualifying_elements);			
+		}
 		f += qualifying_elements;
 		GDKfree(tmp_head);
 		GDKfree(tmp_tail);
 	}
+
+        assert(f != BUN_NONE);
+	assert((f == last + 1 && src_t[f-1] @7 pivot) || src_t[f]   @8 pivot);
+	assert((f == first    && src_t[f]   @8 pivot) || src_t[f-1] @7 pivot);
 
         *pos = (BUN) (f == 0 ? 0 : f - 1);
 
