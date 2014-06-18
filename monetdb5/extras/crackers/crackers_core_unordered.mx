@@ -500,6 +500,156 @@ CRKcrackUnorderedZero_@2_@1_STxx ( const BAT *b, const @1 mval, const BUN first,
 	return MAL_SUCCEED;
 }
 
+/* revised single-threaded crack code */
+static str
+CRKcrackUnorderedZero_@2_@1_STxxx ( const BAT *b, const @1 mval, const BUN first, const BUN last, const BUN ml, const BUN mr, BUN *pos_r
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+                                 , const char *secs
+ #endif
+                                )
+{
+	BUN p = first, q = last, pp = p + ml - 1, qq = q + 1 - mr;
+	oid *src_h;
+	@1  *src_t;
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	lng t_0, t_1;
+
+	fprintf(stderr,
+		"CRKcrackUnorderedZero_@2_@1_STxx ( %d, "LLFMT", "BUNFMT", "BUNFMT", "BUNFMT", "BUNFMT", "BUNFMT" ) ...\n",
+		b->batCacheid, (lng) mval, first, pp, qq, last, m);
+	t_0 = GDKusec();
+ #endif
+
+	assert(b);
+	assert(pos_r);
+
+	/* input (source) arrays */
+	src_h = (oid*) Hloc(b, BUNfirst(b));
+	src_t = (@1 *) Tloc(b, BUNfirst(b));
+
+	if (ml && mr && pp + 1 < qq) {
+		/* crack disjoint left- & right-half of piece / slice */
+		while (p <= pp && q >= qq) {
+			/* skip over smaller values from beginning */
+			while (p <= pp && src_t[p] @7 mval)
+				p++;
+			if (p > pp) {
+				/* exhausted left half, skip to right one */
+				p = qq;
+				break; /* not really required */
+			}
+			else {
+				/* skip over larger values from end */
+				while (q >= qq && src_t[q] @8 mval)
+					q--;
+				if (q < qq) {
+					/* exhausted right half, skip to left one */
+					q = pp;
+					break; /* not really required */
+				} else {
+					/* swap values */
+					const oid h = src_h[p];
+					const @1  t = src_t[p];
+					src_h[p] = src_h[q];
+					src_t[p] = src_t[q];
+					src_h[q] = h;
+					src_t[q] = t;
+					p++;
+					q--;
+					if (p > pp) {
+						/* exhausted left half, skip to right one */
+						p = qq;
+					}
+					if (q < qq) {
+						/* exhausted left half, skip to right one */
+						q = pp;
+					}
+					if (p > pp || q < qq) {
+						break; /* not really required */
+					}
+				}
+			}
+		}
+	}
+
+	/* crack (remaining) consequtive piece / slice */
+	if (!(ml && mr && pp + 1 < qq) || p >= qq || q <= pp) {
+		while (p < q) {
+			/* skip over smaller values from beginning */
+			while (p < q && src_t[p] @7 mval) {
+				p++;
+			}
+			/* skip over larger values from end */
+			while (p < q && src_t[q] @8 mval) {
+				q--;
+			}
+			if (p < q)
+			{
+			/* swap values */
+				const oid h = src_h[p];
+				const @1  t = src_t[p];
+				src_h[p] = src_h[q];
+				src_t[p] = src_t[q];
+				src_h[q] = h;
+				src_t[q] = t;
+				p++;
+				q--;
+			}
+		}
+	}
+
+	/* return pivot position, i.e., first(!) pos in right(!) piece */
+	assert(p >= first && p <= last);
+	if (ml && mr && pp + 1 < qq) {
+		if (p <= pp + 1) {
+			assert(p == first || src_t[p-1] @7 mval);
+			while (p <= pp && src_t[p] @7 mval)
+				p++;
+			if (p == pp + 1)
+				p = qq;
+		}
+		if (p >= qq) {
+			assert((p == qq && src_t[pp] @7 mval) || (p > qq && src_t[p-1] @7 mval));
+			while (p <= last && src_t[p] @7 mval)
+				p++;
+		}
+	} else {
+		assert(p == first || src_t[p-1] @7 mval);
+		while (p <= last && src_t[p] @7 mval)
+			p++;
+	}
+
+	assert(p >= first && p <= last + 1);
+	assert(p == first || (ml && mr && pp + 1 < qq && p == qq && src_t[pp] @7 mval) || (!(ml && mr && pp + 1 < qq && p == qq) && src_t[p-1] @7 mval));
+	assert(p == last + 1 || src_t[p] @8 mval);
+#ifndef NDEBUG
+	for (q = first; q < p; q++) {
+		if (ml && mr && pp + 1 < qq && q == pp + 1) {
+			q = qq;
+			if (q >= p)
+				break;
+		}
+		if (!(src_t[q] @7 mval))
+			fprintf(stderr,"a "BUNFMT": %d !@7 %d\n",q,(int)src_t[q],(int)mval);
+	}
+	for (q = p; q <= last; q++) {
+		if (ml && mr && pp + 1 < qq && q == pp + 1)
+			q = qq;
+		if (!(src_t[q] @8 mval))
+			fprintf(stderr,"b "BUNFMT": %d !@8 %d\n",q,(int)src_t[q],(int)mval);
+	}
+#endif
+	*pos_r = p;
+
+ #ifdef CRACK_MUTLI_THREAD_DEBUG
+	t_1 = GDKusec();
+	fprintf(stderr,
+		"CRKcrackUnorderedZero_@2_@1_STxx ( %d, "LLFMT", "BUNFMT", "BUNFMT", "BUNFMT", "BUNFMT", "BUNFMT" ) -> "BUNFMT" : %.6f %s\n",
+		b->batCacheid, (lng) mval, first, pp, qq, last, m, *pos_r, (dbl) (t_1 - t_0) / 1000000.0, secs);
+ #endif
+
+	return MAL_SUCCEED;
+}
 
 static str
 CRKcrackUnorderedZero_@2_@1_STx ( const BAT *b, const @1 mval, const BUN first, const BUN last, const BUN m, oid *pos
@@ -938,6 +1088,12 @@ static str CRKvectorized_x_@2_@1 (
 	assert(valueCount%(2*vector_elements) == 0);
 	assert(!(ml && mr && last_left + 1 < first_right) || (ml%(2*vector_elements) == 0 && mr%(2*vector_elements) == 0));
 
+	if(2*vectorR > vectorCount)
+	{
+		CRKcrackUnorderedZero_@2_@1_STxxx (buffer, pivot, first_left, last_right, ml, mr, pos_r);
+		return MAL_SUCCEED;
+	}
+
         memcpy(src_h_local, src_h + first_left, sizeof(oid)*2*vector_elements);
         memcpy(src_h_local + 2*vector_elements, src_h + upperReadCursor-vector_elements, sizeof(oid)*2*vector_elements);
         memcpy(src_t_local, src_t + first_left, sizeof(@1)*2*vector_elements);
@@ -946,7 +1102,7 @@ static str CRKvectorized_x_@2_@1 (
 	lowerReadCursor += 2*vector_elements;
 	upperReadCursor -= vector_elements;
 
-
+	fprintf(stderr, "vectorR=%d, vectorCount=%d\n",(int)vectorR, (int)vectorCount);
 
 	if (ml && mr && last_left + 1 < first_right) {
 		/* we have two disjoint half-pieces */
@@ -1041,6 +1197,8 @@ static str CRKvectorized_x_@2_@1 (
 			vectorR++;
 		}
 	}
+
+	fprintf(stderr, "vectorR=%d, vectorCount=%d\n",(int)vectorR, (int)vectorCount);
 	assert (vectorR == vectorCount);
 	//assert(lowerReadCursor == upperReadCursor || (lowerReadCursor == first_right && upperReadCursor == last_left + 1));
 
@@ -1327,8 +1485,8 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 	}
 
         assert(f != BUN_NONE);
-	assert((f == last + 1 && src_t[f-1] @7 pivot) || src_t[f]   @8 pivot);
-	assert((f == first    && src_t[f]   @8 pivot) || src_t[f-1] @7 pivot);
+	//assert((f == last + 1 && src_t[f-1] @7 pivot) || src_t[f]   @8 pivot);
+	//assert((f == first    && src_t[f]   @8 pivot) || src_t[f-1] @7 pivot);
 
         *pos = (BUN) (f == 0 ? 0 : f - 1);
 
