@@ -328,18 +328,24 @@ changeWeight_3(FrequencyNode* node,int N,int L1)
 str
 CRKrandomCrack(int *ret)
 {
-	int bid=0, change_bat=0, i=0, cracks=0;
+	int bid=0, change_bat=0, i=0, cracks=0, nthreads = int_nil, vector_elements = int_nil;
 	FrequencyNode* max_node;
 	bit inclusive=TRUE;
 	FrequencyNode *fs = getFrequencyStruct('A');	
         char *p = getenv("CRACKS");
+        char *p1 = getenv("NTHREADS");
+	char *p2 = getenv("VECTORELEMENTS");
 
-        if (p == NULL){
-                fprintf(stderr, "Error randomCrack: environment variable (CRACKS) is missing.\n");
+        if (p == NULL || p1 == NULL || p2 == NULL){
+                fprintf(stderr, "Error randomCrack: environment variable is missing.\n");
                 exit(1);
         }
         else
-                cracks=atoi(p);
+	{
+                cracks = atoi(p);
+		nthreads = atoi(p1);
+		vector_elements = atoi(p2);
+	}
 
 	(void) ret;
 	MT_lock_set(&frequencylock, "getFrequencyStruct");
@@ -350,7 +356,7 @@ CRKrandomCrack(int *ret)
 		bid=max_node->bid;
                 for (i=0; i<cracks; i++)
                 {
-			change_bat = CRKrandomholpl_int(&bid,&inclusive);
+			change_bat = CRKrandomholpl_int_MT(&bid,&inclusive, nthreads, vector_elements);
 			if (change_bat == -1)
 			{
 				/*MT_lock_set(&frequencylock, "getFrequencyStruct");
@@ -359,7 +365,7 @@ CRKrandomCrack(int *ret)
 				if(max_node!=NULL && max_node->weight > 0)
 				{
 					bid=max_node->bid;
-					(void) CRKrandomholpl_int(&bid,&inclusive);
+					(void) CRKrandomholpl_int(&bid,&inclusive, nthreads, vector_elements);
 				}*/
 				fprintf(stderr,"Exception in randomholpl.\n");
 			}
