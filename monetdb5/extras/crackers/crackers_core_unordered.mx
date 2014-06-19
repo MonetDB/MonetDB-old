@@ -1077,13 +1077,12 @@ static str CRKvectorized_x_@2_@1 (
 	BUN lowerWriteCursor = first_left, upperWriteCursor = last_right;
 	BUN vectorI = 0, vectorR = 3, skip, skip_left, skip_right;
 	cursorDeltas deltas;
-	BAT *localBuffer = BATnew(TYPE_oid, TYPE_@1, vector_elements*3);
 	oid *src_h = (oid*) Hloc(buffer, BUNfirst(buffer));
 	@1  *src_t = (@1 *) Tloc(buffer, BUNfirst(buffer));
-	oid *src_h_local = (oid*) Hloc(localBuffer, BUNfirst(localBuffer));
-	@1  *src_t_local = (@1 *) Tloc(localBuffer, BUNfirst(localBuffer));
+	oid *src_h_local = (oid*) GDKmalloc(vector_elements * 3 * sizeof(oid));
+	@1  *src_t_local = (@1 *) GDKmalloc(vector_elements * 3 * sizeof(@1));
 
-	assert(buffer || localBuffer);
+	assert(buffer || src_h_local || src_t_local);
 	assert(pos_r);
 	assert(valueCount%(2*vector_elements) == 0);
 	assert(!(ml && mr && last_left + 1 < first_right) || (ml%(2*vector_elements) == 0 && mr%(2*vector_elements) == 0));
@@ -1091,6 +1090,10 @@ static str CRKvectorized_x_@2_@1 (
 	if(2*vectorR > vectorCount)
 	{
 		CRKcrackUnorderedZero_@2_@1_STxxx (buffer, pivot, first_left, last_right, ml, mr, pos_r);
+
+		GDKfree(src_h_local);
+		GDKfree(src_t_local);
+
 		return MAL_SUCCEED;
 	}
 
@@ -1201,6 +1204,9 @@ static str CRKvectorized_x_@2_@1 (
 
 	*pos_r = lowerWriteCursor;
 
+	GDKfree(src_h_local);
+	GDKfree(src_t_local);
+	
 	return MAL_SUCCEED;
 }
 
