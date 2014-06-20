@@ -1097,9 +1097,9 @@ static str CRKvectorized_x_@2_@1 (
 	}
 
         memcpy(src_h_local, src_h + first_left, sizeof(oid)*2*vector_elements);
-        memcpy(src_h_local + 2*vector_elements, src_h + upperReadCursor-vector_elements, sizeof(oid)*2*vector_elements);
+        memcpy(src_h_local + 2*vector_elements, src_h + upperReadCursor-vector_elements, sizeof(oid)*vector_elements);
         memcpy(src_t_local, src_t + first_left, sizeof(@1)*2*vector_elements);
-        memcpy(src_t_local + 2*vector_elements, src_t + upperReadCursor-vector_elements, sizeof(@1)*2*vector_elements);
+        memcpy(src_t_local + 2*vector_elements, src_t + upperReadCursor-vector_elements, sizeof(@1)*vector_elements);
 
 	lowerReadCursor += 2*vector_elements;
 	upperReadCursor -= vector_elements;
