@@ -1082,19 +1082,18 @@ static str CRKvectorized_x_@2_@1 (
 	oid *src_h_local = (oid*) GDKmalloc(vector_elements * 3 * sizeof(oid));
 	@1  *src_t_local = (@1 *) GDKmalloc(vector_elements * 3 * sizeof(@1));
 
-	assert(buffer || src_h_local || src_t_local);
+	assert(buffer && src_h_local && src_t_local);
 	assert(pos_r);
 	assert(valueCount%(2*vector_elements) == 0);
 	assert(!(ml && mr && last_left + 1 < first_right) || (ml%(2*vector_elements) == 0 && mr%(2*vector_elements) == 0));
 
 	if(2*vectorR > vectorCount)
 	{
-		CRKcrackUnorderedZero_@2_@1_STxxx (buffer, pivot, first_left, last_right, ml, mr, pos_r);
-
 		GDKfree(src_h_local);
 		GDKfree(src_t_local);
-
-		return MAL_SUCCEED;
+		src_t_local = NULL;
+		src_h_local = NULL;
+		return CRKcrackUnorderedZero_@2_@1_STxxx (buffer, pivot, first_left, last_right, ml, mr, pos_r);
 	}
 
         memcpy(src_h_local, src_h + first_left, sizeof(oid)*2*vector_elements);
@@ -1206,7 +1205,7 @@ static str CRKvectorized_x_@2_@1 (
 
 	GDKfree(src_h_local);
 	GDKfree(src_t_local);
-	
+
 	return MAL_SUCCEED;
 }
 
@@ -1438,6 +1437,7 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 		BUN lowerCursor = last + 1, upperCursor = last + remaining_elements;
 		oid *tmp_head = GDKmalloc(remaining_elements * sizeof(oid));
 		@1 *tmp_tail = GDKmalloc(remaining_elements * sizeof(@1 ));
+		assert (tmp_head && tmp_tail);
 
 	        if (f == BUN_NONE) /*if there are not qualifying tuples*/
 	        {
