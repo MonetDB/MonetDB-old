@@ -135,7 +135,8 @@ typedef struct PropStat {
 
 /* ---- For detecting dimension table */
 #define	NUM_ITERATION_FOR_IR 	3	/* Number of iteration for indirect referrences to a CS (table) */
-
+#define ONLY_SMALLTBL_DIMENSIONTBL 1 	/* Only small tables are considered to be dimension table 
+					Small table is the one that have support < MINIMUM_TABLE_SIZE */
 #define IR_DIMENSION_THRESHOLD_PERCENTAGE     0.10
 //#define IR_DIMENSION_THRESHOLD_PERCENTAGE	0.02	//  Score of indirect references that the CS can be considered as a dimension CS 
 							//   IR_DIMENSION_THRESHOLD_PERCENTAGE * totalFrequency 

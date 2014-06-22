@@ -542,7 +542,7 @@ void getIRNums(CSrel *csrelSet, CSset *freqCSset, int num,  int* refCount, float
 		for (i = 0; i < num; i++){
 			lastIRScores[i] = curIRScores[i]; 
 		}
-
+	
 		/*
 		printf(" ======== After %d iteration \n", k); 
 		for (i = 0; i < num; i++){
@@ -573,9 +573,12 @@ void updateFreqCStype(CSset *freqCSset, int num,  float *curIRScores, int *refCo
 
 	printf("List of dimension tables: \n");
 	for (i = 0; i < num; i++){
+		#if ONLY_SMALLTBL_DIMENSIONTBL
+		if (freqCSset->items[i].support > MINIMUM_TABLE_SIZE) continue; 
+		#endif
 		if (refCount[i] < freqCSset->items[i].support) continue; 
 		if (curIRScores[i] < threshold) continue; 
-
+		
 		freqCSset->items[i].type = DIMENSIONCS;
 		//printf("A dimension CS with IR score = %f \n", curIRScores[i]);
 		printf(" %d  ", i);
@@ -1630,7 +1633,7 @@ CS* mergeTwoCSs(CS cs1, CS cs2, int freqIdx1, int freqIdx2, oid mergeCSId){
 	int numCombineP = 0; 
 
 	CS *mergecs = (CS*) malloc (sizeof (CS)); 
-	if (cs1.type == DIMENSIONCS && cs2.type == DIMENSIONCS)
+	if (cs1.type == DIMENSIONCS || cs2.type == DIMENSIONCS)
 		 mergecs->type = DIMENSIONCS; 
 	else
 		mergecs->type = (char)MERGECS; 
