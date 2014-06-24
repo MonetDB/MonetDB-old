@@ -83,6 +83,7 @@ crackers_export str CRKthetauselect_@1_MT(int *vid, int *bid, @1 *val, str *op, 
 #include "monetdb_config.h"
 #include "crackers.h"
 
+#define dt(a,b) (b.tv_sec - a.tv_sec + (b.tv_usec - a.tv_usec) * 1e-6)
 /*#define CRACK_DEBUG 1*/
 
 /* Local support functions and macros */
@@ -941,7 +942,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 		if ( bo->htype == TYPE_void)
 			b = BATmaterializeh(b);
                 gettimeofday(&tv1_copy, 0);
-                fprintf(ofp_copy,"%9.6lf\n",dt(tv0_copy,tv1_copy));
+                fprintf(ofp_copy,"%d\n",(int)dt(tv0_copy,tv1_copy)*1000000);
 
 		b->hsorted = FALSE;
 		b->hrevsorted = FALSE;
