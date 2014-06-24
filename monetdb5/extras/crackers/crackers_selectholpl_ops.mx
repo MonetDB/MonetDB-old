@@ -1367,13 +1367,13 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 	gettimeofday(&tv0,0);
 	
 	outputFilename1 = getenv("HOLOUTPUT_PIECES");
-	outputFilename2 = getenv("COPY_TIME");
+	outputFilename2 = getenv("HOLISTIC_COPY_TIME");
 	if (outputFilename1 == NULL){
   		fprintf(stderr, "Error: HOLOUTPUT_PIECES\n");
   		exit(1);
 	}
 	if (outputFilename2 == NULL){
-  		fprintf(stderr, "Error: COPY_TIME\n");
+  		fprintf(stderr, "Error: HOLISTIC_COPY_TIME\n");
   		exit(1);
 	}
 

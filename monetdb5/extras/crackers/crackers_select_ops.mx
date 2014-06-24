@@ -895,17 +895,22 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 	bit HBound,foundHgh=0;
 	int gapH = 1;
 	int pieces=0;
-	FILE *ofp;
-	char *outputFilename1;
-
+	struct timeval tv0_copy, tv1_copy;
+	FILE *ofp,*ofp_copy;
+	char *outputFilename1, *outputFilename2;
 
 	//gettimeofday(&tv0,0);
 	
 	outputFilename1 = getenv("CRACKING_PIECES");
+        outputFilename2 = getenv("CRACKING_COPY_TIME");
 	if (outputFilename1 == NULL){
   		fprintf(stderr, "Error: CRACKING_PIECES\n");
   		exit(1);
 	}
+        if (outputFilename2 == NULL){
+                fprintf(stderr, "Error: CRACKING_COPY_TIME\n");
+                exit(1);
+        }
 
 	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
@@ -913,7 +918,6 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
   		exit(1);
 	}
 
-	
 	if (*inclusiveHgh == TRUE) HBound = FALSE;
 	else	HBound = TRUE; 				
 
@@ -925,9 +929,20 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 	if (m == -1){
 		if ((bo = BATdescriptor(*bid)) == NULL)
 			throw(MAL, "crackers.crackRange", "Cannot access descriptor");
+
+		ofp_copy = fopen(outputFilename2,"a");
+                if (ofp_copy == NULL) {
+                        fprintf(stderr, "Can't open output file!\n");
+                        exit(1);
+                }
+
+                gettimeofday(&tv0_copy, 0);
 		b = BATcopy(bo, bo->htype, bo->ttype, TRUE);
 		if ( bo->htype == TYPE_void)
 			b = BATmaterializeh(b);
+                gettimeofday(&tv1_copy, 0);
+                fprintf(ofp_copy,"%9.6lf\n",dt(tv0_copy,tv1_copy));
+
 		b->hsorted = FALSE;
 		b->hrevsorted = FALSE;
 		b->tsorted = FALSE;
@@ -951,6 +966,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 		pieces=pieces+2;
 		fprintf(ofp,"%d \t %d\n",*bid,pieces);
 		fclose(ofp);
+		fclose(ofp_copy);
 		BBPincref(b->batCacheid,TRUE);
 		BBPunfix(bo->batCacheid);
 		goto createView;
