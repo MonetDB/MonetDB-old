@@ -1348,15 +1348,15 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 	pthread_rwlock_t *plock=0;
 	BUN idxFirst = BUN_NONE;
 	int incr_pieces=0;
-	struct timeval tv0, tv1;
+	struct timeval tv0, tv1, tv0_copy, tv1_copy;
         double wt=0, ct=0;
 	int L1=0;
 	int mod_bid=0;
 	int countBatElements=0;
 	FrequencyNode* FN;
 	FrequencyNode *FrequencyStructA = getFrequencyStruct('A');
-	FILE *ofp;
-	char *outputFilename1;
+	FILE *ofp, *ofp_copy;
+	char *outputFilename1, *outputFilename2;
         //long long counters[2];
  	//int PAPI_events[] = {
         //      PAPI_L2_DCA,
@@ -1367,12 +1367,18 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 	gettimeofday(&tv0,0);
 	
 	outputFilename1 = getenv("HOLOUTPUT_PIECES");
+	outputFilename2 = getenv("COPY_TIME");
 	if (outputFilename1 == NULL){
   		fprintf(stderr, "Error: HOLOUTPUT_PIECES\n");
   		exit(1);
 	}
+	if (outputFilename2 == NULL){
+  		fprintf(stderr, "Error: COPY_TIME\n");
+  		exit(1);
+	}
 
 	ofp = fopen(outputFilename1,"a");
+
 	if (ofp == NULL) {
   		fprintf(stderr, "Can't open output file!\n");
   		exit(1);
@@ -1397,9 +1403,21 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 	if (m == -1){
 		if ((bo = BATdescriptor(*bid)) == NULL)
 			throw(MAL, "crackers.crackRange", "Cannot access descriptor");
+
+		ofp_copy = fopen(outputFilename2,"a");
+	
+		if (ofp_copy == NULL) {
+  			fprintf(stderr, "Can't open output file!\n");
+  			exit(1);
+		}
+
+		gettimeofday(&tv0_copy, 0);
 		b = BATcopy(bo, bo->htype, bo->ttype, TRUE);
 		if ( bo->htype == TYPE_void)
 			b = BATmaterializeh(b);
+		gettimeofday(&tv1_copy, 0);
+		fprintf(ofp_copy,"%9.6lf\n",dt(tv0_copy,tv1_copy));
+
 		b->hsorted = FALSE;
 		b->tsorted = FALSE;
 		b->hdense = FALSE;
@@ -1440,6 +1458,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 		//fprintf(ofp,"User_Query \t 0 \t Bat_id= \t %d \t Pieces= \t %d \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Thread_id= \t" SZFMT "\t L2_DCA= \t %lld \t L2_DCM \t %lld\n",FN->bid,FN->c,wt,ct,MT_getpid(),counters[0],counters[1]);
 		fprintf(ofp,"User_Query \t 0 \t Bat_id= \t %d \t Pieces= \t %d \t Wait_time\t %9.6lf \t Selection_time\t %9.6lf \t Thread_id= \t" SZFMT "\n",FN->bid,FN->c,wt,ct,MT_getpid());
 		fclose(ofp);
+		fclose(ofp_copy);
 		MT_lock_unset(&frequencylock, "getFrequencyStruct");
 
 		BBPincref(b->batCacheid,TRUE);
