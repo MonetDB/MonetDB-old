@@ -1445,36 +1445,31 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
         	        f = first;
         	}
 
-		while (src_t[lowerCursor] @7 pivot)
+		while (lowerCursor < upperCursor)
 		{
-			lowerCursor++;
-			qualifying_elements++;
-		}
-		while (src_t[upperCursor] @8 pivot)
-			upperCursor--;
+			while (lowerCursor < upperCursor && src_t[lowerCursor] @7 pivot)
+			{
+				lowerCursor++;
+				qualifying_elements++;
+			}
 
-		while (lowerCursor < upperCursor) {
-			if (src_t[lowerCursor] @8 pivot && src_t[upperCursor] @7 pivot) {
+			while (lowerCursor < upperCursor && src_t[upperCursor] @8 pivot)
+				upperCursor--;
+			
+			if (lowerCursor < upperCursor) {
 				@1 tmp = src_t[lowerCursor];
 				oid tmp_oid = src_h[lowerCursor];
 				src_t[lowerCursor] = src_t[upperCursor];
-				src_t[upperCursor] = tmp;
 				src_h[lowerCursor] = src_h[upperCursor];
+				src_t[upperCursor] = tmp;
 				src_h[upperCursor] = tmp_oid;
 				lowerCursor++;
 				upperCursor--;
 				qualifying_elements++;
-			} else if (src_t[lowerCursor] @7 pivot) {
-				lowerCursor++;
-				qualifying_elements++;
-			} else if (src_t[upperCursor] @8 pivot) {
-				upperCursor--;
-			}
+			} 
 		}
 		if (lowerCursor == upperCursor && src_t[lowerCursor] @7 pivot)
 			qualifying_elements += 1;
-
-		fprintf(stderr,"f= " BUNFMT " last= " BUNFMT " last_vector_pos-f= " BUNFMT " last_vector_pos= " BUNFMT " qualifying_tuples= " BUNFMT "\n",f,last,last_vector_pos-f,last_vector_pos,qualifying_elements);
 
 		if (qualifying_elements > 0)
 		{
