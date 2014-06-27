@@ -1426,9 +1426,9 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
                         if (f == BUN_NONE) {
                                 f = l;
                         } 
-			else {
+			/*else {
                                 assert(f == l);
-                        }
+                        }*/
                 }
         }
 
