@@ -1478,7 +1478,7 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 
 		if (qualifying_elements > 0)
 		{
-			if(qualifying_elements >= (last_vector_pos - f + 1))
+			if(qualifying_elements <= (last_vector_pos - f + 1))
 			{
 				memcpy(tmp_head, src_h + f, sizeof(oid)*qualifying_elements);
 				memcpy(src_h +  f, src_h + last_vector_pos + 1, sizeof(oid)*qualifying_elements);
