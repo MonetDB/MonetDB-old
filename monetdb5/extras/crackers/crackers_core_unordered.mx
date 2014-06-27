@@ -1233,6 +1233,7 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
         BUN mr;                   /* # tuples / values in right slice */
         BUN mm;                   /* # tuples / values in tmp arrays */
         BUN f, l;                 /* first / last BUN per slice */
+	BUN last_vector_pos = last;	  /* position of the last element in the last vector*/
 	pthread_t *c_Thread;      /* threads array */
         c_Thread_t *c_Thread_arg; /* thread arguments array */
         int i, j;
@@ -1254,7 +1255,7 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 	remaining_elements = (mm % (2 * vector_elements)) * nthreads;
 	mm = (n - remaining_elements) / nthreads;
 	remaining_elements += ((n - remaining_elements) % nthreads);
-	last -= remaining_elements;
+	last_vector_pos -= remaining_elements;
 	mm -= ((n - remaining_elements) % nthreads);
         if (alt == 1) {
 		ml = 0;
@@ -1295,14 +1296,14 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
                         c_Thread_arg[i].b       = b;
                         c_Thread_arg[i].mval    = &pivot;
                         c_Thread_arg[i].first   = f;
-                        c_Thread_arg[i].last    = (i < nthreads - 1) ? l : last;
+                        c_Thread_arg[i].last    = (i < nthreads - 1) ? l : last_vector_pos;
                         c_Thread_arg[i].ml      = 0;
                         c_Thread_arg[i].mr      = 0;
 			c_Thread_arg[i].vector_elements = vector_elements;
                 }
         } else /* alt == 2 */ {
                 /* Alternative 2: nthreads-1 threads crack two disjoint half-slices (from either end of the input piece), each - last thread cracks center consecutive slice */
-                for (i = 0, f = first, l = last; i < nthreads; i++, f += ml, l -= mr) {
+                for (i = 0, f = first, l = last_vector_pos; i < nthreads; i++, f += ml, l -= mr) {
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 			c_Thread_arg[i].id      = i;
  #endif
@@ -1361,7 +1362,7 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 			assert(c_Thread_arg[i].first < c_Thread_arg[i].last);
 			assert(c_Thread_arg[i].last /*+ 1*/ < c_Thread_arg[j].first);
 			assert(c_Thread_arg[j].first < c_Thread_arg[j].last);
-			assert(c_Thread_arg[j].last <= last);
+			assert(c_Thread_arg[j].last <= last_vector_pos);
 			if (c_Thread_arg[i].pos_r < c_Thread_arg[j].first) {
 				c_Thread_arg[j].pos_r = c_Thread_arg[j].first;
 			} else {
@@ -1390,7 +1391,7 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 				const BUN sj = c_Thread_arg[j].pos_r - c_Thread_arg[j].first;
 				const BUN sk = si > sj ? sj : si;
 				const BUN st = sk * sizeof(@1);
-				const BUN stp = sk * sizeof(BUN);
+				const BUN stp = sk * sizeof(oid);
 				const BUN pi = c_Thread_arg[i].pos_r;
 				const BUN pj = c_Thread_arg[j].pos_r - sk;
 
@@ -1420,21 +1421,21 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
         f = BUN_NONE;
         for (i = 0, j = alt * nthreads - alt; i <= j; j--) {
                 l = c_Thread_arg[j].pos_r;
-		if (l == last + 1 || (l <= last && src_t[l] @8 pivot && (l == first || src_t[l - 1] @7 pivot)))
+		if (l == last_vector_pos + 1 || (l <= last_vector_pos && src_t[l] @8 pivot && (l == first || src_t[l - 1] @7 pivot)))
 		{
                         if (f == BUN_NONE) {
                                 f = l;
                         } 
-			/*else {
+			else {
                                 assert(f == l);
-                        }*/
+                        }
                 }
         }
 
 	if(remaining_elements > 0)
 	{
 		BUN qualifying_elements = 0;
-		BUN lowerCursor = last + 1, upperCursor = last + remaining_elements;
+		BUN lowerCursor = last_vector_pos + 1, upperCursor = last;
 		oid *tmp_head = GDKmalloc(remaining_elements * sizeof(oid));
 		@1 *tmp_tail = GDKmalloc(remaining_elements * sizeof(@1 ));
 		assert (tmp_head && tmp_tail);
@@ -1476,11 +1477,11 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 		if (qualifying_elements > 0)
 		{
 			memcpy(tmp_head, src_h + f, sizeof(oid)*qualifying_elements);
-			memcpy(src_h +  f, src_h + last + 1, sizeof(oid)*qualifying_elements);
-			memcpy(src_h + last + 1, tmp_head, sizeof(oid)*qualifying_elements);
+			memcpy(src_h +  f, src_h + last_vector_pos + 1, sizeof(oid)*qualifying_elements);
+			memcpy(src_h + last_vector_pos + 1, tmp_head, sizeof(oid)*qualifying_elements);
 			memcpy(tmp_tail, src_t + f, sizeof(@1)*qualifying_elements);
-			memcpy(src_t + f, src_t + last + 1, sizeof(@1)*qualifying_elements);
-			memcpy(src_t + last + 1, tmp_tail, sizeof(@1)*qualifying_elements);			
+			memcpy(src_t + f, src_t + last_vector_pos + 1, sizeof(@1)*qualifying_elements);
+			memcpy(src_t + last_vector_pos + 1, tmp_tail, sizeof(@1)*qualifying_elements);			
 		}
 		f += qualifying_elements;
 		GDKfree(tmp_head);
@@ -1488,8 +1489,8 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 	}
 
         assert(f != BUN_NONE);
-	//assert((f == last + 1 && src_t[f-1] @7 pivot) || src_t[f]   @8 pivot);
-	//assert((f == first    && src_t[f]   @8 pivot) || src_t[f-1] @7 pivot);
+	assert((f == last + 1 && src_t[f-1] @7 pivot) || src_t[f]   @8 pivot);
+	assert((f == first    && src_t[f]   @8 pivot) || src_t[f-1] @7 pivot);
 
         *pos = (BUN) (f == 0 ? 0 : f - 1);
 
