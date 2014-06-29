@@ -131,7 +131,7 @@ CRKselectValue_@1(int *vid, int *bid, @1 *value){
 str
 CRKselectValue_@1_MT(int *vid, int *bid, @1 *value, const int *nthreads, const int *vector_elements){
 	bit inclusive = TRUE;
-	return CRKuselectBounds_@1_MT(vid, bid, value, value, &inclusive, &inclusive, nthreads, vector_elements);
+	return CRKselectBounds_@1_MT(vid, bid, value, value, &inclusive, &inclusive, nthreads, vector_elements);
 }
 
 str
