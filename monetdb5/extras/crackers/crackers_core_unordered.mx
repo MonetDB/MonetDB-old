@@ -1130,7 +1130,7 @@ static str CRKvectorized_x_@2_@1 (
 				deltas = performCrackOnVectors_left_right_@2_@1(src_t_local+(vectorI%3)*vector_elements, src_t + lowerWriteCursor, src_t + upperWriteCursor, pivot, src_h_local+(vectorI%3)*vector_elements, src_h + lowerWriteCursor, src_h + upperWriteCursor, (BUN) last_left - lowerWriteCursor + 1, (BUN) first_right - upperWriteCursor - 1, skip, vector_elements);
 			} else
 			if (lowerWriteCursor <= last_left && lowerWriteCursor > last_left - vector_elements + 1) {
-				deltas = performCrackOnVectors_left_@2_@1(src_t_local+(vectorI%3)*vector_elements, src_t + lowerWriteCursor, src_t + upperWriteCursor, pivot, src_h_local+(vectorI%3)*vector_elements, src_h + lowerWriteCursor, src_h + upperWriteCursor, (BUN) last_left - lowerWriteCursor - 1, skip, vector_elements);
+				deltas = performCrackOnVectors_left_@2_@1(src_t_local+(vectorI%3)*vector_elements, src_t + lowerWriteCursor, src_t + upperWriteCursor, pivot, src_h_local+(vectorI%3)*vector_elements, src_h + lowerWriteCursor, src_h + upperWriteCursor, (BUN) last_left - lowerWriteCursor + 1, skip, vector_elements);
 			} else
 			if (upperWriteCursor >= first_right && upperWriteCursor < first_right + vector_elements - 1) {
 				deltas = performCrackOnVectors_right_@2_@1(src_t_local+(vectorI%3)*vector_elements, src_t + lowerWriteCursor, src_t + upperWriteCursor, pivot, src_h_local+(vectorI%3)*vector_elements, src_h + lowerWriteCursor, src_h + upperWriteCursor, (BUN) first_right - upperWriteCursor - 1, skip, vector_elements);
