@@ -1426,9 +1426,9 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
                         if (f == BUN_NONE) {
                                 f = l;
                         } 
-			/*else {
+			else {
                                 assert(f == l);
-                        }*/
+                        }
                 }
         }
 
@@ -1439,11 +1439,6 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 		oid *tmp_head = GDKmalloc(remaining_elements * sizeof(oid));
 		@1 *tmp_tail = GDKmalloc(remaining_elements * sizeof(@1 ));
 		assert (tmp_head && tmp_tail);
-
-	        if (f == BUN_NONE) /*if there are not qualifying tuples*/
-	        {
-        	        f = first;
-        	}
 
 		while (lowerCursor < upperCursor)
 		{
@@ -1473,6 +1468,11 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 
 		if (qualifying_elements > 0)
 		{
+
+	        	if (f == last_vector_pos + 1) /*if there are not qualifying tuples*/
+	        	{
+        	 	       f = first;
+        		}
 			if(qualifying_elements <= (last_vector_pos - f + 1))
 			{
 				memcpy(tmp_head, src_h + f, sizeof(oid)*qualifying_elements);
@@ -1491,9 +1491,12 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 				memcpy(tmp_tail, src_t + f, sizeof(@1)*copied_elements);
 				memcpy(src_t + f, src_t + last_vector_pos + 1 + qualifying_elements - copied_elements, sizeof(@1)*copied_elements);
 				memcpy(src_t + last_vector_pos + 1 + qualifying_elements - copied_elements, tmp_tail, sizeof(@1)*copied_elements);
-			}			
+			}
+			f += qualifying_elements;			
 		}
-		f += qualifying_elements;
+		else if (f == last_vector_pos + 1)
+			f += remaining_elements;
+
 		GDKfree(tmp_head);
 		GDKfree(tmp_tail);
 	}
