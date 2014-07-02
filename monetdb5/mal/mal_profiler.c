@@ -1358,7 +1358,6 @@ void HeartbeatCPUload(void *arg)
 	int n=0;  /*number of idle cores*/
 	double N=0;  /*number of busy cores*/
 	//FILE *ofp;
-        //char *outputFilename1 = "/scratch/petraki/experiments/multiple_clients_cputhreshold/breakdown1/load.txt";
        //char *outputFilename1 = "/scratch/petraki/experiments/motivation/time_workers/time.txt";
        //struct timeval t0,t1;
        //double elapsedTime;
@@ -1396,14 +1395,14 @@ void HeartbeatCPUload(void *arg)
                                         //fprintf(ofp,"%lf %d\n",elapsedTime,n);
                                 }
 				/*following 5 lines: experiment multicore_cracking*/
-				//n = 16 - N; 
-				//if(n>0 && max_threads<n)
-				//      MRschedule(max_threads, NULL, IdleFunc);
+				//N = (int) (load * 32) / 100.0;
+				//n = 32 - N; 
+				//if(n>0 && max_threads<n && max_threads-1>0)
+				//      MRschedule(max_threads-1, NULL, IdleFunc);
 			        //else if (n>0 && max_threads>=n)
 	                        //      MRschedule(n, NULL, IdleFunc);
 
 				(void) getCPULoad(cpuload);
-				//fprintf(ofp,"%f\t%d\n",load,n);
 				MT_sleep_ms(1000);
 			}
 			else
