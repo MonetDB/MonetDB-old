@@ -61,12 +61,27 @@ char* substring(char *string, int position, int length)
 	return pointer;
 }
 
+
+/* 
+	This function returns 1 if architecture 
+	is little endian, 0 in case of big endian.
+*/
+
+int is_little_endian(void)
+{
+	unsigned int x = 1;
+	char *c = (char*) &x;
+	return (int)*c;
+}
+
 char isInt(char *input, int len){
 	
 	int 	i = 0;
 	//int	len = strlen(input);
 	//printf("... Checking value %s with len %d \n", input, len);
-	if (input[0] != '-' && isdigit(input[0]) == 0)
+	if (len > 11) return 0;
+
+	if (input[0] != '-' && input[0] != '+' && isdigit(input[0]) == 0)
 		return 0; 	
 
 	for(i = 1; i < len; i++)
@@ -76,6 +91,37 @@ char isInt(char *input, int len){
 			break;
 		}
 	}
+	//printf("i is %d \n",i);
+	if(i == len)
+		return 1;
+	else
+		return 0;
+}
+
+
+char isDouble(char *input, int len){
+	
+	int 	i = 0;
+	int	numE = 0; 	//number of E's
+	//int	len = strlen(input);
+	//printf("... Checking value %s with len %d \n", input, len);
+	if (input[0] != '-' && input[0] != '+' && isdigit(input[0]) == 0)
+		return 0; 	
+
+	for(i = 1; i < len; i++)
+	{
+		if(isdigit(input[i]) == 0 && input[i] != '.' 
+		   && input[i] != 'e' && input[i] != 'E' 
+		   && input[i] != '-' && input[i] != '+'){ // May also check ispunct(string[i]) != 0 
+			//printf("NOT A DIGIT \n");
+			break;
+		}
+		if (input[i] == 'e' || input[i] == 'E')
+			numE++;
+	}
+
+	if (numE > 1) return 0; 
+
 	//printf("i is %d \n",i);
 	if(i == len)
 		return 1;
@@ -105,9 +151,9 @@ int getIntFromRDFString(str input){
 	return ret; 
 }
 
-float getFloatFromRDFString(str input){
+double getDoubleFromRDFString(str input){
 	int i; 
-	float ret; 
+	double ret; 
 	char *tmpStr; 
 
 	assert(input[0] == '\"');
@@ -141,12 +187,12 @@ str getDateTimeFromRDFString(str input){
 }
 
 static 
-char rdfcastToIntFromFloat(ValPtr srcPtr, ValPtr dstPtr){
-	float srcflt; 
+char rdfcastToIntFromDouble(ValPtr srcPtr, ValPtr dstPtr){
+	double srcdbl; 
 	int  dstint; 
-	srcflt =  srcPtr->val.fval;
-	dstint = (int) srcflt; 
-	if (dstint == srcflt){
+	srcdbl =  srcPtr->val.dval;
+	dstint = (int) srcdbl; 
+	if (dstint == srcdbl){
 		VALset(dstPtr,TYPE_int, &dstint);		
 		return 1; 		
 	}
@@ -196,12 +242,12 @@ char rdfcastToIntFromString(ValPtr srcPtr, ValPtr dstPtr){
 
 
 static 
-char rdfcastToFloatFromString(ValPtr srcPtr, ValPtr dstPtr){
+char rdfcastToDoubleFromString(ValPtr srcPtr, ValPtr dstPtr){
 	int i; 
 	int	numdot = 0; 
-	float dstflt; 
+	double dstdbl; 
 	char *tmpStr; 
-	int const MAX_FLOAT_LEN = 23; 
+	int const MAX_DOUBLE_LEN = 23; 
 	char *input = srcPtr->val.sval; 
 	
 	assert(input[0] == '\"');
@@ -229,24 +275,24 @@ char rdfcastToFloatFromString(ValPtr srcPtr, ValPtr dstPtr){
 	
 	if (numdot > 1)	return 0; 
 
-	if (i > (MAX_FLOAT_LEN + 1)) return 0;
+	if (i > (MAX_DOUBLE_LEN + 1)) return 0;
 
 	tmpStr = substring(input, 2, i - 1);
-	dstflt = atof(tmpStr);
-	//printf("Float: Input after extraction %s ==> %f \n", tmpStr, dstflt);	
+	dstdbl = atof(tmpStr);
+	//printf("Float: Input after extraction %s ==> %f \n", tmpStr, dstdbl);	
 	GDKfree(tmpStr); 
-	VALset(dstPtr,TYPE_flt, &dstflt);
+	VALset(dstPtr,TYPE_dbl, &dstdbl);
 	return 1; 
 }
 
 /**
  * Castable Table
- * 	src:	URI	STRING	DATETIME	FLOAT	INT
+ * 	src:	URI	STRING	DATETIME	DOUBLE	INT
  * dst: 	
  * URI				
  * STRING		Y	Y		Y	Y	
  * DATETIME			
- * FLOAT		V				Y
+ * DOUBLE		V				Y
  * INT			V			V	
  *
  * Y: Castable
@@ -273,10 +319,10 @@ char rdfcast(ObjectType srcT, ObjectType dstT, ValPtr srcPtr, ValPtr dstPtr){
 					dstPtr->vtype = TYPE_str;
 					//printf("Cast a int value %d to string value %s  len = %d \n", srcPtr->val.ival, dstPtr->val.sval, dstPtr->len); 
 					return 1; 
-				case FLOAT: 					
+				case DOUBLE: 					
 					dstPtr->val.sval = NULL;
-					(*BATatoms[TYPE_flt].atomToStr)(&dstPtr->val.sval,
-							&dstPtr->len, &srcPtr->val.fval);
+					(*BATatoms[TYPE_dbl].atomToStr)(&dstPtr->val.sval,
+							&dstPtr->len, &srcPtr->val.dval);
 					dstPtr->vtype = TYPE_str;
 					return 1; 
 				case DATETIME: 
@@ -294,22 +340,22 @@ char rdfcast(ObjectType srcT, ObjectType dstT, ValPtr srcPtr, ValPtr dstPtr){
 			}
 		case DATETIME: 
 			return 0; 
-		case FLOAT: 
+		case DOUBLE: 
 			switch(srcT){
 				case INTEGER: 
-					dstPtr->vtype = TYPE_flt; 
-					dstPtr->val.fval = (float) srcPtr->val.ival;
+					dstPtr->vtype = TYPE_dbl; 
+					dstPtr->val.dval = (double) srcPtr->val.ival;
 					return 1; 
 				case STRING: 
-					return rdfcastToFloatFromString(srcPtr, dstPtr);
+					return rdfcastToDoubleFromString(srcPtr, dstPtr);
 				default: 
 					return 0; 
 			}
 
 		case INTEGER: 
 			switch(srcT){
-				case FLOAT: 
-					return rdfcastToIntFromFloat(srcPtr, dstPtr); 
+				case DOUBLE: 
+					return rdfcastToIntFromDouble(srcPtr, dstPtr); 
 				case STRING: 
 					return rdfcastToIntFromString(srcPtr, dstPtr); 	
 				default: 
@@ -322,6 +368,76 @@ char rdfcast(ObjectType srcT, ObjectType dstT, ValPtr srcPtr, ValPtr dstPtr){
 }
 
 
+void 
+encodeValueInOid(ValPtr vrPtrRealValue, ObjectType objType, BUN* bun){
+
+	int positiveInt = 0; 
+
+	*bun = 0; 
+
+	/* Add the type here by changing 3 bits at position 60, 61, 62 of oid */
+	*bun |= (BUN)objType << (sizeof(BUN)*8 - 4);
+	
+	switch(objType){
+		case INTEGER: 
+			if (vrPtrRealValue->val.ival < 0){
+				positiveInt = (-1) * vrPtrRealValue->val.ival;				
+				*bun |= (BUN) 1 << (sizeof(BUN)*8 - 5);	
+			}
+			else {
+				positiveInt = vrPtrRealValue->val.ival;
+			}
+
+			*bun |= (BUN) positiveInt;
+			break;
+
+		case DOUBLE:
+			{
+			double tmp = vrPtrRealValue->val.dval;
+			BUN *tmpoid = (BUN *) & tmp;
+			*tmpoid = *tmpoid >> 4;
+			*bun |= *tmpoid; 
+			}
+			break;
+		case DATETIME: 
+			break;
+		default:
+			return; 
+
+	}
+}
+
+
+void 
+decodeValueFromOid(BUN bun, ObjectType objType, ValPtr vrPtrRealValue){
+	BUN realval = 0; 
+	int sign = 0; 
+	int ival = 0; 
+	double *realdbl = NULL; 
+	
+	//printf("Decode value from oid: "BUNFMT "\n",bun);
+	switch(objType){
+		case INTEGER: 
+			sign = (int)((bun >> (sizeof(BUN)*8 - 5)) & 0x01);	//Get the sign bit
+			//printf("Sign bit from "BUNFMT " is %d \n",bun, sign);
+			realval = bun & (~((BUN) 0x1F << (sizeof(BUN)*8 - 5)));	//Get the real value 
+			if (sign == 1) ival = 0 - realval ; 
+			else	ival = realval; 
+			VALset(vrPtrRealValue,TYPE_int, &ival);
+			break;	
+		case DOUBLE:
+			realval = bun << 4; 
+			realdbl = (double *) &realval;
+			VALset(vrPtrRealValue,TYPE_dbl, realdbl);
+			break;
+		case DATETIME: 
+			break; 
+		default:
+			printf("The objecttype %d cannot be handled\n",objType);
+			break; 
+	
+	}
+}
 
 
 /*

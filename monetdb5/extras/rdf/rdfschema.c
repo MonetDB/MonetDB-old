@@ -6622,11 +6622,12 @@ char getObjTypeFromBATtype(int battype){
 		case TYPE_int:
 			return INTEGER;
 			break;
-		case TYPE_flt:
-			return FLOAT;
+		case TYPE_dbl:
+			return DOUBLE;
 			break;
 		default:
 			return 100;
+			break; 
 	}
 }
 
@@ -6634,7 +6635,7 @@ static
 int getObjValueFromMVBat(ValPtr returnValue, ValPtr castedValue, BUN pos, ObjectType objType, BAT *tmpBat, BAT *lmap, BAT *rmap){
 	str	tmpStr; 
 	str	inputStr; 
-	float	*realFloat; 
+	double	*realDbl; 
 	int	*realInt; 
 	oid	*tmpUriOid; 
 	oid	realUriOid = BUN_NONE;
@@ -6699,11 +6700,11 @@ int getObjValueFromMVBat(ValPtr returnValue, ValPtr castedValue, BUN pos, Object
 				return 0;
 			}
 			break; 
-		case FLOAT:
+		case DOUBLE:
 			//printf("Full object value: %s \n",objStr);
-			realFloat = (float *)BUNtail(tmpi, pos);
-			if (*realFloat != flt_nil){
-				VALset(returnValue, TYPE_flt, realFloat);
+			realDbl = (double *)BUNtail(tmpi, pos);
+			if (*realDbl != dbl_nil){
+				VALset(returnValue, TYPE_dbl, realDbl);
 				if (rdfcast(objType, STRING, returnValue, castedValue) != 1){
 					printf("Everything should be able to cast to String \n");
 				}
@@ -6740,6 +6741,8 @@ int getObjValueFromMVBat(ValPtr returnValue, ValPtr castedValue, BUN pos, Object
 			else{
 				return 0; 
 			}
+
+			break; 
 	}
 
 
@@ -7701,7 +7704,7 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 	CSSampleExtend	sample; 
 	str	objStr; 	
 	oid	*objOid = NULL; 
-	float	*objFlt = NULL; 
+	double	*objDbl = NULL; 
 	int	*objInt = NULL; 
 	str	canStr; 
 	char	isTitle = 0; 
@@ -7996,15 +7999,15 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 						GDKfree(objStr);
 					}
 				}
-				else if (tmpBat->ttype == TYPE_flt){
-					objFlt = (float *) BUNtail(tmpi, k); 
-					if (*objFlt == flt_nil){
+				else if (tmpBat->ttype == TYPE_dbl){
+					objDbl = (double *) BUNtail(tmpi, k); 
+					if (*objDbl == dbl_nil){
 						fprintf(fout,"|NULL");
 						fprintf(foutis,"|NULL");
 					} 
 					else{
-						fprintf(fout,"|%f", *objFlt);
-						fprintf(foutis,"|%f", *objFlt);
+						fprintf(fout,"|%f", *objDbl);
+						fprintf(foutis,"|%f", *objDbl);
 
 					}
 				}
@@ -9620,7 +9623,7 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 	mapObjBATtypes[URI] = TYPE_oid; 
 	mapObjBATtypes[DATETIME] = TYPE_str;
 	mapObjBATtypes[INTEGER] = TYPE_int; 
-	mapObjBATtypes[FLOAT] = TYPE_flt; 
+	mapObjBATtypes[DOUBLE] = TYPE_dbl; 
 	mapObjBATtypes[STRING] = TYPE_str; 
 	mapObjBATtypes[BLANKNODE] = TYPE_oid;
 	mapObjBATtypes[MULTIVALUES] = TYPE_oid;
@@ -9964,7 +9967,7 @@ void getRealValue(ValPtr returnValue, oid objOid, ObjectType objType, BATiter ma
 	str	tmpStr; 
 	BUN	bun; 	
 	BUN	maxObjectURIOid =  ((oid)1 << (sizeof(BUN)*8 - NBITS_FOR_CSID - 1)) - 1; //Base on getTblIdxFromS
-	float	realFloat; 
+	float	realDbl; 
 	int	realInt; 
 	oid	realUri;
 
@@ -10006,17 +10009,19 @@ void getRealValue(ValPtr returnValue, oid objOid, ObjectType objType, BATiter ma
 			realInt = getIntFromRDFString(objStr);
 			VALset(returnValue,TYPE_int, &realInt);
 			break; 
-		case FLOAT:
+		case DOUBLE:
 			//printf("Full object value: %s \n",objStr);
-			realFloat = getFloatFromRDFString(objStr);
-			VALset(returnValue,TYPE_flt, &realFloat);
+			realDbl = getDoubleFromRDFString(objStr);
+			VALset(returnValue,TYPE_dbl, &realDbl);
 			break; 
 		default: //URI or BLANK NODE		
 			realUri = objOid;
 			VALset(returnValue,TYPE_oid, &realUri);
+			break; 
 	}
 
 }
+
 static
 void updatePropTypeForRemovedTriple(CSPropTypes *csPropTypes, int* tmpTblIdxPropIdxMap, int tblIdx, oid *subjCSMap, int* csTblIdxMapping, oid sbt, oid pbt, oid *lastRemovedProp, oid* lastRemovedSubj, char isMultiToSingleProp){
 	int tmptblIdx, tmpPropIdx;

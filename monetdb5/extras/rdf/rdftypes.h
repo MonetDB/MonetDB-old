@@ -39,7 +39,7 @@ typedef enum {
 	URI,		
 	DATETIME, 
 	INTEGER,
-	FLOAT,	
+	DOUBLE,	
 	STRING,
 	BLANKNODE,
 	MULTIVALUES		// For the multi-value property 
@@ -48,19 +48,31 @@ typedef enum {
 rdf_export char* 
 substring(char *string, int position, int length);
 
+rdf_export int
+is_little_endian(void);
+
 rdf_export char 
 isInt(char *input, int len);
+
+rdf_export char 
+isDouble(char *input, int len);
 
 rdf_export int
 getIntFromRDFString(str input); 
 
-rdf_export float
-getFloatFromRDFString(str input); 
+rdf_export double
+getDoubleFromRDFString(str input); 
 
 rdf_export str
 getDateTimeFromRDFString(str input); 
 
 rdf_export char 
 rdfcast(ObjectType srcT, ObjectType dstT, ValPtr srcPtr, ValPtr dstPrt); 
+
+rdf_export void
+encodeValueInOid(ValPtr vrPtrRealValue, ObjectType objType, BUN* bun);
+
+rdf_export void
+decodeValueFromOid(BUN bun, ObjectType objType, ValPtr vrPtrRealValue);
 
 #endif /* _RDFTYPES_H_ */

@@ -29,8 +29,8 @@
 
 #include <raptor2.h>
 
-#define CHECK_NUM_DBPONTOLOGY   1       /* Check how many rdf triples use dbpontology */
-#define BUILD_ONTOLOGIES_HISTO	1	/* Check how much percentage each ontology has in the dataset */
+#define CHECK_NUM_DBPONTOLOGY   0       /* Check how many rdf triples use dbpontology */
+#define BUILD_ONTOLOGIES_HISTO	0	/* Check how much percentage each ontology has in the dataset */
 
 typedef struct parserData {
 	                              /**PROPERTIES             */

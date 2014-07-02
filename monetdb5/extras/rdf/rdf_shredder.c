@@ -177,6 +177,7 @@ rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType obj
 
 }
 
+
 /*
 * Get the specific type of the object value in an RDF triple
 * The URI object can be recoginized by raptor parser. 
@@ -186,7 +187,7 @@ rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType obj
 */
 
 static ObjectType 
-getObjectType(unsigned char* objStr, BUN *realNumValue){
+getObjectType_and_Value(unsigned char* objStr, ValPtr vrPtrRealValue){
 	ObjectType obType = STRING; 
 	unsigned char* endpart;
 	char* valuepart; 
@@ -194,7 +195,9 @@ getObjectType(unsigned char* objStr, BUN *realNumValue){
 	int	len = 0; 
 	int	subLen = 0; 
 
-	*realNumValue = BUN_NONE; 
+        double  realDbl;
+        int     realInt;
+
 	len = strlen((str)objStr);
 
 	if (len > 20){
@@ -206,13 +209,15 @@ getObjectType(unsigned char* objStr, BUN *realNumValue){
 			/* printf("%s: DateTime \n", objStr); */
 		}
 		else if ((pos = strstr((str) endpart, "XMLSchema#int>")) != NULL || (pos = strstr((str)endpart, "XMLSchema#integer>")) != NULL){
+			//TODO: Consider nonNegativeInteger
 			obType = INTEGER;
 			subLen = (int) (pos - (str)objStr - 28);
 			valuepart = substring((char*)objStr, 2 , subLen); 
 			/* printf("%s: Integer \n. Length of value %d ==> value %s \n", objStr, (int) (pos - (str)objStr - 28), valuepart); */
 			if (isInt(valuepart, subLen) == 1){	/* Check whether the real value is an integer */
-				*realNumValue = (BUN) atoi(valuepart); 
-				/* printf("Real value is: " BUNFMT " \n", *realNumValue); */
+				realInt = (BUN) atoi(valuepart); 
+				VALset(vrPtrRealValue,TYPE_int, &realInt);
+				printf("Real int value is: %d \n", vrPtrRealValue->val.ival);
 			}
 			else 
 				obType = STRING;	
@@ -223,8 +228,16 @@ getObjectType(unsigned char* objStr, BUN *realNumValue){
 		else if ((pos = strstr((str) endpart, "XMLSchema#float>")) != NULL 
 				|| (pos = strstr((str) endpart, "XMLSchema#double>")) != NULL  
 				|| (pos = strstr((str) endpart, "XMLSchema#decimal>")) != NULL){
-			obType = FLOAT;
-			/* printf("%s: Float \n", objStr); */
+			obType = DOUBLE;
+			subLen = (int) (pos - (str)objStr - 28);
+			valuepart = substring((char*)objStr, 2 , subLen);
+			if (isDouble(valuepart, subLen) == 1){
+				realDbl = atof(valuepart);
+				VALset(vrPtrRealValue,TYPE_dbl, &realDbl);
+				printf("Real double value is: %.10f \n", vrPtrRealValue->val.dval);
+			}
+			else
+				obType = STRING;
 		}
 		else {
 			obType = STRING;
@@ -280,7 +293,7 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 #endif
 	parserData *pdata = ((parserData *) user_data);
 	BUN bun = BUN_NONE;
-	BUN realNumValue = BUN_NONE; 
+	ValRecord vrRealValue; 
 
 	BAT **graph = pdata->graph;
 
@@ -389,10 +402,29 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 			unsigned char* objStr;
 			ObjectType objType = STRING;
 			objStr = raptor_term_to_string(triple->object);
-			objType = getObjectType(objStr, &realNumValue);
+			objType = getObjectType_and_Value(objStr, &vrRealValue);
 
-			rdf_BUNappend_unq_ForObj(pdata, graph[MAP_LEX], (str)objStr, objType, &bun);	
+			if (objType == STRING){
+				rdf_BUNappend_unq_ForObj(pdata, graph[MAP_LEX], (str)objStr, objType, &bun);	
+			}
+			else{	//For handling dateTime, Integer, Float values
+				encodeValueInOid(&vrRealValue, objType, &bun);
+			}
+
 			rdf_BUNappend(pdata, graph[O_sort], &bun); 
+
+			VALclear(&vrRealValue);
+			
+			/*
+			if (objType == INTEGER){
+				decodeValueFromOid(bun, objType, &vrRealValue);
+				printf("Decoded integer value is: %d \n", vrRealValue.val.ival);
+			}
+			if (objType == DOUBLE){
+				decodeValueFromOid(bun, objType, &vrRealValue);
+				printf("Decoded double value is: %.10f \n", vrRealValue.val.dval);
+			}
+			*/
 
 			//printf("Object string is %s --> object type is %d (oid = " BUNFMT " \n",objStr,objType, bun);
 
