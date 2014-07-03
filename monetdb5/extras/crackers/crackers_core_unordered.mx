@@ -1466,7 +1466,12 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 		if (lowerCursor == upperCursor && src_t[lowerCursor] @7 pivot)
 			qualifying_elements += 1;
 
-		if (qualifying_elements > 0)
+
+                if ((qualifying_elements == remaining_elements && f == last_vector_pos + 1) || (qualifying_elements == 0 && f == last_vector_pos + 1))
+                {
+                        f += remaining_elements;
+                }
+		else if (qualifying_elements > 0 && qualifying_elements != remaining_elements)
 		{
 
 	        	if (f == last_vector_pos + 1) /*if there are not qualifying tuples*/
@@ -1494,8 +1499,6 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 			}
 			f += qualifying_elements;			
 		}
-		else if (f == last_vector_pos + 1)
-			f += remaining_elements;
 
 		GDKfree(tmp_head);
 		GDKfree(tmp_tail);
