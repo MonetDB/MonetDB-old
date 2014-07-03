@@ -367,11 +367,63 @@ char rdfcast(ObjectType srcT, ObjectType dstT, ValPtr srcPtr, ValPtr dstPtr){
 	}	
 }
 
+int convertDateTimeStringToTimeT(char *sDateTime, int len, time_t *t){
+	
+	/*
+	char* testDate[] = {
+		"2001-10-26",
+		"2001-10-26Z",
+		"0001-10-26-02:00",
+		"2001-10-26+02:00",
+		"-2001-10-26",
+		//"-20000-04-01",  	//Even this is valid xsd:date, we do not handle now
+		"2001-10-26T21:32:52",
+		"2001-10-26T21:32:52+02:00",
+		"2001-10-26T19:32:52Z",
+		"2001-10-26T19:32:52+00:00",
+		"-2001-10-26T21:32:52"
+		//"2001-10-26T21:32:52.12679"	//Even this is valid xsd:dateTime, we do not handle now
+	};
+	*/
+	
+	struct tm tm1 = {0};  
+
+	char* acceptFormat[] = {
+		"%F",		
+		"-%F",
+		"%FZ",
+		"%F%z",
+		"%FT%T",
+		"%FT%TZ",
+		"-%FT%T",
+		"%FT%T%z",
+	};
+
+	int numAcceptFormat = 8;
+	int j = 0; 	
+
+	if (len > 21) j = 7;
+	else if (len > 19) j = 5;
+	else if (len > 12) j = 3;
+	else if (len > 10) j = 1;
+	
+	for (; j < numAcceptFormat; j++){
+		if ((strptime(sDateTime, acceptFormat[j], &tm1)) != NULL){		
+			*t = mktime(&tm1);
+			return 1; 
+		}
+	}
+	
+	if (j == numAcceptFormat) printf("The %s is not a valid datetime string\n", sDateTime);
+	
+	return 0; 
+}
 
 void 
 encodeValueInOid(ValPtr vrPtrRealValue, ObjectType objType, BUN* bun){
 
 	int positiveInt = 0; 
+	long positiveLng = 0; 
 
 	*bun = 0; 
 
@@ -384,9 +436,9 @@ encodeValueInOid(ValPtr vrPtrRealValue, ObjectType objType, BUN* bun){
 				positiveInt = (-1) * vrPtrRealValue->val.ival;				
 				*bun |= (BUN) 1 << (sizeof(BUN)*8 - 5);	
 			}
-			else {
+			else 
 				positiveInt = vrPtrRealValue->val.ival;
-			}
+			
 
 			*bun |= (BUN) positiveInt;
 			break;
@@ -400,6 +452,16 @@ encodeValueInOid(ValPtr vrPtrRealValue, ObjectType objType, BUN* bun){
 			}
 			break;
 		case DATETIME: 
+			//Consider it is as long value.
+			if (vrPtrRealValue->val.lval < 0){
+				positiveLng = (-1) * vrPtrRealValue->val.lval;
+				*bun |= (BUN) 1 << (sizeof(BUN)*8 - 5);
+			}
+			else
+				positiveLng = vrPtrRealValue->val.lval;
+
+			*bun |= (BUN) positiveLng;
+
 			break;
 		default:
 			return; 
@@ -413,6 +475,7 @@ decodeValueFromOid(BUN bun, ObjectType objType, ValPtr vrPtrRealValue){
 	BUN realval = 0; 
 	int sign = 0; 
 	int ival = 0; 
+	long lval = 0;
 	double *realdbl = NULL; 
 	
 	//printf("Decode value from oid: "BUNFMT "\n",bun);
@@ -431,6 +494,11 @@ decodeValueFromOid(BUN bun, ObjectType objType, ValPtr vrPtrRealValue){
 			VALset(vrPtrRealValue,TYPE_dbl, realdbl);
 			break;
 		case DATETIME: 
+			sign = (int)((bun >> (sizeof(BUN)*8 - 5)) & 0x01);      //Get the sign bit
+			realval = bun & (~((BUN) 0x1F << (sizeof(BUN)*8 - 5))); //Get the real value
+			if (sign == 1) lval = 0 - realval ;
+			else   lval = realval;
+			VALset(vrPtrRealValue,TYPE_lng, &lval);
 			break; 
 		default:
 			printf("The objecttype %d cannot be handled\n",objType);

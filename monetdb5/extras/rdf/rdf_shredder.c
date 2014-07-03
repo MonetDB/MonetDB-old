@@ -197,6 +197,8 @@ getObjectType_and_Value(unsigned char* objStr, ValPtr vrPtrRealValue){
 
         double  realDbl;
         int     realInt;
+	time_t  nTime; 
+	long	realLng; 
 
 	len = strlen((str)objStr);
 
@@ -206,7 +208,21 @@ getObjectType_and_Value(unsigned char* objStr, ValPtr vrPtrRealValue){
 
 		if ( (pos = strstr((str)endpart , "XMLSchema#date>")) != NULL || (pos = strstr((str)endpart, "XMLSchema#dateTime>")) != NULL ){
 			obType = DATETIME;
-			/* printf("%s: DateTime \n", objStr); */
+			
+			subLen = (int) (pos - (str)objStr - 28);
+			valuepart = substring((char*)objStr, 2 , subLen); 
+
+			if (convertDateTimeStringToTimeT(valuepart, subLen,&nTime) == 1){
+				//store numeric datetime value in long value
+				realLng = nTime; 
+				VALset(vrPtrRealValue,TYPE_lng, &realLng);
+				//printf("Real numeric value of datetime %s is: %lld [vs %ld] \n", valuepart, vrPtrRealValue->val.lval,nTime);
+			}
+			else 
+				obType = STRING;	
+
+			GDKfree(valuepart);
+
 		}
 		else if ((pos = strstr((str) endpart, "XMLSchema#int>")) != NULL || (pos = strstr((str)endpart, "XMLSchema#integer>")) != NULL){
 			//TODO: Consider nonNegativeInteger
@@ -238,6 +254,8 @@ getObjectType_and_Value(unsigned char* objStr, ValPtr vrPtrRealValue){
 			}
 			else
 				obType = STRING;
+
+			GDKfree(valuepart);
 		}
 		else {
 			obType = STRING;
@@ -423,6 +441,16 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 			if (objType == DOUBLE){
 				decodeValueFromOid(bun, objType, &vrRealValue);
 				printf("Decoded double value is: %.10f \n", vrRealValue.val.dval);
+			}
+
+			if (objType == DATETIME){
+				time_t t; 
+				struct tm *timeinfo;
+				decodeValueFromOid(bun, objType, &vrRealValue);
+				printf("Decoded numeric datetime value is: %lld \n", vrRealValue.val.lval);
+				t = (time_t) vrRealValue.val.lval;
+				timeinfo = localtime(&t);
+				printf ( "Current local time and date: %s", asctime (timeinfo) );
 			}
 			*/
 

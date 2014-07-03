@@ -75,4 +75,7 @@ encodeValueInOid(ValPtr vrPtrRealValue, ObjectType objType, BUN* bun);
 rdf_export void
 decodeValueFromOid(BUN bun, ObjectType objType, ValPtr vrPtrRealValue);
 
+rdf_export int 
+convertDateTimeStringToTimeT(char *sDateTime, int len, time_t *t);
+
 #endif /* _RDFTYPES_H_ */
