@@ -1474,30 +1474,33 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 		else if (qualifying_elements > 0 && qualifying_elements != remaining_elements)
 		{
 
-	        	if (f == last_vector_pos + 1) /*if there are not qualifying tuples*/
+	        	if (f == last_vector_pos + 1) /*if all vectorized tuples are qualifying*/
 	        	{
-        	 	       f = first;
+        	 	       f += qualifying_elements;
         		}
-			if(qualifying_elements <= (last_vector_pos - f + 1))
-			{
-				memcpy(tmp_head, src_h + f, sizeof(oid)*qualifying_elements);
-				memcpy(src_h +  f, src_h + last_vector_pos + 1, sizeof(oid)*qualifying_elements);
-				memcpy(src_h + last_vector_pos + 1, tmp_head, sizeof(oid)*qualifying_elements);
-				memcpy(tmp_tail, src_t + f, sizeof(@1)*qualifying_elements);
-				memcpy(src_t + f, src_t + last_vector_pos + 1, sizeof(@1)*qualifying_elements);
-				memcpy(src_t + last_vector_pos + 1, tmp_tail, sizeof(@1)*qualifying_elements);
-			}
 			else
 			{
-				BUN copied_elements = last_vector_pos - f + 1;
-				memcpy(tmp_head, src_h + f, sizeof(oid)*copied_elements);
-				memcpy(src_h +  f, src_h + last_vector_pos + 1 + qualifying_elements - copied_elements, sizeof(oid)*copied_elements);
-				memcpy(src_h + last_vector_pos + 1 + qualifying_elements - copied_elements, tmp_head, sizeof(oid)*copied_elements);
-				memcpy(tmp_tail, src_t + f, sizeof(@1)*copied_elements);
-				memcpy(src_t + f, src_t + last_vector_pos + 1 + qualifying_elements - copied_elements, sizeof(@1)*copied_elements);
-				memcpy(src_t + last_vector_pos + 1 + qualifying_elements - copied_elements, tmp_tail, sizeof(@1)*copied_elements);
-			}
-			f += qualifying_elements;			
+				if(qualifying_elements <= (last_vector_pos - f + 1))
+				{
+					memcpy(tmp_head, src_h + f, sizeof(oid)*qualifying_elements);
+					memcpy(src_h +  f, src_h + last_vector_pos + 1, sizeof(oid)*qualifying_elements);
+					memcpy(src_h + last_vector_pos + 1, tmp_head, sizeof(oid)*qualifying_elements);
+					memcpy(tmp_tail, src_t + f, sizeof(@1)*qualifying_elements);
+					memcpy(src_t + f, src_t + last_vector_pos + 1, sizeof(@1)*qualifying_elements);
+					memcpy(src_t + last_vector_pos + 1, tmp_tail, sizeof(@1)*qualifying_elements);
+				}
+				else
+				{
+					BUN copied_elements = last_vector_pos - f + 1;
+					memcpy(tmp_head, src_h + f, sizeof(oid)*copied_elements);
+					memcpy(src_h +  f, src_h + last_vector_pos + 1 + qualifying_elements - copied_elements, sizeof(oid)*copied_elements);
+					memcpy(src_h + last_vector_pos + 1 + qualifying_elements - copied_elements, tmp_head, sizeof(oid)*copied_elements);
+					memcpy(tmp_tail, src_t + f, sizeof(@1)*copied_elements);
+					memcpy(src_t + f, src_t + last_vector_pos + 1 + qualifying_elements - copied_elements, sizeof(@1)*copied_elements);
+					memcpy(src_t + last_vector_pos + 1 + qualifying_elements - copied_elements, tmp_tail, sizeof(@1)*copied_elements);
+				}
+				f += qualifying_elements;	
+			}		
 		}
 
 		GDKfree(tmp_head);
