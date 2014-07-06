@@ -1471,7 +1471,7 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
                 {
                         f += remaining_elements;
                 }
-		else if (qualifying_elements > 0 && qualifying_elements != remaining_elements)
+		else if (qualifying_elements > 0)
 		{
 
 	        	if (f == last_vector_pos + 1) /*if all vectorized tuples are qualifying*/
