@@ -479,13 +479,13 @@ GetHgh_@1(@1  x, bit inclusive, struct Node * current, BAT *b, BUN base, oid *p1
 		{
 			*p1=previous;
 			*p2 = *(oid*)Hloc(b, cur);
-			return 0;
+			return 1;
 		}
 		if(inclusive == TRUE && current->inclusive == TRUE)
 		{
 			*p1 = *(oid*)Hloc(b, cur);
                 	*p2 = next;
-			return 0;
+			return 1;
 		}
 	}
 
