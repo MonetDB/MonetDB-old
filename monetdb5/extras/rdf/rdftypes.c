@@ -367,6 +367,21 @@ char rdfcast(ObjectType srcT, ObjectType dstT, ValPtr srcPtr, ValPtr dstPtr){
 	}	
 }
 
+/*
+ * Convert struct tm to time_t, keeping the time_zone information
+ */
+
+static
+time_t tm2time(const struct tm *src)
+{
+	struct tm tmp;
+
+	tmp = *src;
+
+	return timegm(&tmp) - src->tm_gmtoff;
+}
+
+
 int convertDateTimeStringToTimeT(char *sDateTime, int len, time_t *t){
 	
 	/*
@@ -409,7 +424,7 @@ int convertDateTimeStringToTimeT(char *sDateTime, int len, time_t *t){
 	
 	for (; j < numAcceptFormat; j++){
 		if ((strptime(sDateTime, acceptFormat[j], &tm1)) != NULL){		
-			*t = mktime(&tm1);
+			*t = tm2time(&tm1);
 			return 1; 
 		}
 	}
@@ -418,6 +433,11 @@ int convertDateTimeStringToTimeT(char *sDateTime, int len, time_t *t){
 	
 	return 0; 
 }
+
+//TODO: For Datetime, we may use function in mtime in order to directly convert datetime string
+//to mtime timestamp. Then, encode the timestamp in the oid, in which, 1 bit for sign of date, 27 bits for days value, 
+//32 bits for msecs. (We can also use 28bits for msecs, and 32 bits for date). 
+//However, we need to verify that mtime accepts rdf datetime format
 
 void 
 encodeValueInOid(ValPtr vrPtrRealValue, ObjectType objType, BUN* bun){
@@ -507,6 +527,23 @@ decodeValueFromOid(BUN bun, ObjectType objType, ValPtr vrPtrRealValue){
 	}
 }
 
+/*
+ * Convert value from tm format to timestamp of monet mtime
+ * */
+void convertTMtimeToMTime(time_t t, timestamp *ts){
+	struct tm *timeinfo;
+	char buf[128], *s1 = buf;
+	*s1 = 0;
+
+	timeinfo = gmtime(&t);
+	//printf ( "Current local time and date: %s", asctime (timeinfo) );
+
+	//Reformat the datetime string
+	sprintf(s1, "%d-%02d-%02dT%d:%d:%d", timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday,
+			timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+
+	MTIMEtimestamp_fromstr(ts, (const char* const*) &s1);
+}
 
 /*
 static

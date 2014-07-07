@@ -211,8 +211,11 @@ getObjectType_and_Value(unsigned char* objStr, ValPtr vrPtrRealValue){
 			
 			subLen = (int) (pos - (str)objStr - 28);
 			valuepart = substring((char*)objStr, 2 , subLen); 
-
+			
 			if (convertDateTimeStringToTimeT(valuepart, subLen,&nTime) == 1){
+
+				//
+				//
 				//store numeric datetime value in long value
 				realLng = nTime; 
 				VALset(vrPtrRealValue,TYPE_lng, &realLng);
@@ -442,18 +445,22 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 				decodeValueFromOid(bun, objType, &vrRealValue);
 				printf("Decoded double value is: %.10f \n", vrRealValue.val.dval);
 			}
-
+			
 			if (objType == DATETIME){
 				time_t t; 
-				struct tm *timeinfo;
 				decodeValueFromOid(bun, objType, &vrRealValue);
 				printf("Decoded numeric datetime value is: %lld \n", vrRealValue.val.lval);
 				t = (time_t) vrRealValue.val.lval;
-				timeinfo = localtime(&t);
-				printf ( "Current local time and date: %s", asctime (timeinfo) );
+				
+				//Check using mtime
+				{
+				timestamp ts; 
+				convertTMtimeToMTime(t, &ts);
+				printf("Day times is %d (seconds) \n",ts.msecs);
+				printf("Date is %d (days) \n", ts.days);
+				}
 			}
 			*/
-
 			//printf("Object string is %s --> object type is %d (oid = " BUNFMT " \n",objStr,objType, bun);
 
 			bun = BUN_NONE;

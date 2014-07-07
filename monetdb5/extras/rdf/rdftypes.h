@@ -24,6 +24,8 @@
 #ifndef _RDFTYPES_H_
 #define _RDFTYPES_H_
 
+#include <mtime.h>
+
 #ifdef WIN32
 #ifndef LIBRDF
 #define rdf_export extern __declspec(dllimport)
@@ -77,5 +79,8 @@ decodeValueFromOid(BUN bun, ObjectType objType, ValPtr vrPtrRealValue);
 
 rdf_export int 
 convertDateTimeStringToTimeT(char *sDateTime, int len, time_t *t);
+
+rdf_export void
+convertTMtimeToMTime(time_t t, timestamp *ts);
 
 #endif /* _RDFTYPES_H_ */
