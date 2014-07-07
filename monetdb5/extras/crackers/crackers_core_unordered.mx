@@ -471,7 +471,7 @@ CRKcrackUnorderedZero_@2_@1_STxx ( const BAT *b, const @1 mval, const BUN first,
 	assert(p >= first && p <= last + 1);
 	assert(p == first || (m && pp + 1 < qq && p == qq && src_t[pp] @7 mval) || (!(m && pp + 1 < qq && p == qq) && src_t[p-1] @7 mval));
 	assert(p == last + 1 || src_t[p] @8 mval);
-#ifndef NDEBUG
+#ifdef NDEBUG
 	for (q = first; q < p; q++) {
 		if (m && pp + 1 < qq && q == pp + 1) {
 			q = qq;
@@ -622,7 +622,10 @@ CRKcrackUnorderedZero_@2_@1_STxxx ( const BAT *b, const @1 mval, const BUN first
 	assert(p >= first && p <= last + 1);
 	assert(p == first || (ml && mr && pp + 1 < qq && p == qq && src_t[pp] @7 mval) || (!(ml && mr && pp + 1 < qq && p == qq) && src_t[p-1] @7 mval));
 	assert(p == last + 1 || src_t[p] @8 mval);
-#ifndef NDEBUG
+
+#ifdef NDEBUG
+	BUN i_res = 0;	
+
 	for (q = first; q < p; q++) {
 		if (ml && mr && pp + 1 < qq && q == pp + 1) {
 			q = qq;
@@ -638,7 +641,15 @@ CRKcrackUnorderedZero_@2_@1_STxxx ( const BAT *b, const @1 mval, const BUN first
 		if (!(src_t[q] @8 mval))
 			fprintf(stderr,"b "BUNFMT": %d !@8 %d\n",q,(int)src_t[q],(int)mval);
 	}
+	
+        for(i_res=first; i_res<=last; i_res++)
+        {
+                assert((i_res<p && src_t[i_res] @7 mval) || (i_res>=p && src_t[i_res] @8 mval));
+                if(ml!=0 && mr!=0 && (i_res)==(first+ml-1))
+                        i_res=last+1-mr;
+        }
 #endif
+
 	*pos_r = p;
 
  #ifdef CRACK_MUTLI_THREAD_DEBUG
@@ -961,7 +972,7 @@ CRKcrackUnorderedZero_@2_@1_MT ( const BAT *b, const @1 mval, const BUN first, c
 	assert(f != BUN_NONE);
 	assert((f == last + 1 && src_t[f-1] @7 mval) || src_t[f]   @8 mval);
 	assert((f == first    && src_t[f]   @8 mval) || src_t[f-1] @7 mval);
-#ifndef NDEBUG
+#ifdef NDEBUG
 	for (l = first; l < f; l++)
 		if (!(src_t[l] @7 mval))
 			fprintf(stderr,"c "BUNFMT": %d !@7 %d\n",l,(int)src_t[l],(int)mval);
@@ -1201,6 +1212,41 @@ static str CRKvectorized_x_@2_@1 (
 	assert (vectorR == vectorCount);
 	//assert(lowerReadCursor == upperReadCursor || (lowerReadCursor == first_right && upperReadCursor == last_left + 1));
 
+
+#ifdef NDEBUG
+	BUN lwc = (BUN) lowerWriteCursor;
+	BUN uwc = (BUN) upperWriteCursor;
+	BUN fl = (BUN) first_left;
+	BUN ll = (BUN) last_left;
+	BUN fr = (BUN) first_right;
+	BUN lr = (BUN) last_right;
+	BUN i_res = 0;
+
+	assert(lwc >= fl);
+	assert(lwc <= lr + 1);
+	assert((fl == 0 && uwc >= fl) || (fl !=0 && uwc >= fl - 1));
+	assert(uwc <= lr);
+	assert(lwc > uwc);
+	assert(uwc == fl - 1 || src_t[uwc] @7  pivot);
+	assert(lwc == lr + 1 || src_t[lwc] @8 pivot);
+	if (ml && mr && ll + 1 < fr) {
+		if (lwc <= ll || uwc >= fr) {
+			assert(lwc == uwc + 1);
+		} else {
+			assert(lwc == fr && uwc == ll);
+		}
+	} else {
+		assert(lwc == uwc + 1);
+	}
+
+	/*for(i_res=first; i_res<=last; i_res++)
+	{
+		assert((i_res<p && src_t[i_res] @7 pivot) || (i_res>=p && src_t[i_res] @8 pivot));
+		if(ml!=0 && mr!=0 && (i_res)==(first+ml-1))
+			i_res=last+1-mr;
+	}*/
+#endif
+
 	*pos_r = lowerWriteCursor;
 
 	GDKfree(src_h_local);
@@ -1257,6 +1303,7 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 	remaining_elements += ((n - remaining_elements) % nthreads);
 	last_vector_pos -= remaining_elements;
 	mm -= ((n - remaining_elements) % nthreads);
+	assert((last-first+1) != (last_vector_pos-first+remaining_elements));
         if (alt == 1) {
 		ml = 0;
 		mr = 0;
@@ -1432,6 +1479,12 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
                 }
         }
 
+#ifdef NDEBUG
+	BUN i_res = 0;
+        for(i_res=first;i_res<=last_vector_pos;i_res++)
+                assert((i_res<f && src_t[i_res] @7 pivot) || (i_res>=f && src_t[i_res] @8 pivot));
+#endif
+
 	if(remaining_elements > 0)
 	{
 		BUN qualifying_elements = 0;
@@ -1465,6 +1518,13 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 		}
 		if (lowerCursor == upperCursor && src_t[lowerCursor] @7 pivot)
 			qualifying_elements += 1;
+
+#ifdef NDEBUG
+		BUN i_res = 0;
+                for(i_res=last_vector_pos+1;i_res<=last;i_res++)
+                        assert((i_res<=last_vector_pos+qualifying_elements && src_t[i_res] @7 pivot) || (i_res>last_vector_pos+qualifying_elements && src_t[i_res] @8 pivot));
+
+#endif
 
 
                 if ((qualifying_elements == remaining_elements && f == last_vector_pos + 1) || (qualifying_elements == 0 && f == last_vector_pos + 1))
@@ -1510,6 +1570,12 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
         assert(f != BUN_NONE);
 	assert((f == last + 1 && src_t[f-1] @7 pivot) || src_t[f]   @8 pivot);
 	assert((f == first    && src_t[f]   @8 pivot) || src_t[f-1] @7 pivot);
+
+#ifdef NDEBUG
+	BUN i_res = 0;
+        for(i_res=first;i_res<=last;i_res++)
+                assert((i_res<f && src_t[i_res] @7 pivot) || (i_res>=f && src_t[i_res] @8 pivot));
+#endif
 
         *pos = (BUN) (f == 0 ? 0 : f - 1);
 
