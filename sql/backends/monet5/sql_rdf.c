@@ -690,6 +690,8 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	sql_find_subtype(&tpes[TYPE_flt], "real", 23, 0);
 	//printf("Tpes %d Type name is: %s \n", TYPE_flt, tpes[TYPE_flt].type->sqlname);
+	
+	sql_find_subtype(&tpes[TYPE_timestamp],"timestamp",128,0);
 
 	/*
 	sql_find_subtype(&tpe, "float", 0 , 0);

@@ -83,4 +83,7 @@ convertDateTimeStringToTimeT(char *sDateTime, int len, time_t *t);
 rdf_export void
 convertTMtimeToMTime(time_t t, timestamp *ts);
 
+rdf_export void
+getStringFormatValueFromOid(BUN bun, ObjectType objType, str *obj);
+
 #endif /* _RDFTYPES_H_ */

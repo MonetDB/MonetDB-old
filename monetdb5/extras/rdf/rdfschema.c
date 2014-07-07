@@ -34,6 +34,7 @@
 #include <string.h>
 #include "rdfminheap.h"
 #include "rdfontologyload.h"
+#include <mtime.h>
 
 #define SHOWPROPERTYNAME 1
 
@@ -200,7 +201,7 @@ char getStringName(oid objOid, str *objStr, BATiter mapi, BAT *mapbat, char isTb
 			realObjOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
 			takeOid(realObjOid, objStr); 
 		}
-		else{
+		else if (objType == STRING){
 			str tmpObjStr;
 			str s;
 			int len; 
@@ -225,6 +226,9 @@ char getStringName(oid objOid, str *objStr, BATiter mapi, BAT *mapbat, char isTb
 				}
 			}
 
+		}
+		else{
+			getStringFormatValueFromOid(objOid, objType, objStr);	
 		}
 	}
 	
@@ -6640,6 +6644,7 @@ int getObjValueFromMVBat(ValPtr returnValue, ValPtr castedValue, BUN pos, Object
 	oid	*tmpUriOid; 
 	oid	realUriOid = BUN_NONE;
 	BATiter	tmpi; 
+	timestamp *ts; 
 
 	tmpi = bat_iterator(tmpBat);
 
@@ -6668,18 +6673,16 @@ int getObjValueFromMVBat(ValPtr returnValue, ValPtr castedValue, BUN pos, Object
 			break; 
 		case DATETIME:
 			//printf("A Datetime object value: %s \n",objStr);
-			tmpStr = BUNtail(tmpi, pos);
-			if (strcmp(tmpStr,str_nil) != 0){
-				// remove quotes and language tags
-				str tmpStrShort;
-				getStringBetweenQuotes(&tmpStrShort, tmpStr);
-				inputStr = GDKmalloc(sizeof(char) * strlen(tmpStrShort) + 1);
-				memcpy(inputStr, tmpStrShort, sizeof(char) * strlen(tmpStrShort) + 1);
-				GDKfree(tmpStrShort);
-				VALset(returnValue, TYPE_str, inputStr);
-				if (rdfcast(objType, STRING, returnValue, castedValue) != 1){
-					printf("Everything should be able to cast to String \n");
-				}
+			ts = (timestamp *) BUNtail(tmpi, pos);
+			if (!ts_isnil(*ts)){
+			        int lenbuf = 128;
+			        char buf[128], *s1 = buf;
+			        *s1 = 0;
+
+				timestamp_tostr(&s1, &lenbuf, (const timestamp *)ts);
+				inputStr = GDKmalloc(sizeof(char) * strlen(s1) + 1);
+				memcpy(inputStr, s1, sizeof(char) * strlen(s1) + 1);
+				VALset(castedValue, TYPE_str, inputStr);
 
 				return 1;
 			}
@@ -7078,8 +7081,10 @@ void addSampleInstance(oid subj, oid *buffO, oid* buffP, int numP, int sampleIdx
 
 
 #if NO_OUTPUTFILE == 0 
+/*
 static 
 void getObjStr(BAT *mapbat, BATiter mapi, oid objOid, str *objStr, char *retObjType){
+
 	BUN bun; 
 
 	ObjectType objType = getObjType(objOid); 
@@ -7089,7 +7094,7 @@ void getObjStr(BAT *mapbat, BATiter mapi, oid objOid, str *objStr, char *retObjT
 		takeOid(objOid, objStr); 
 	}
 	else{
-		objOid = objOid - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the real objOid from Map or Tokenizer */ 
+		objOid = objOid - (objType*2 + 1) *  RDF_MIN_LITERAL;   // Get the real objOid from Map or Tokenizer  
 		bun = BUNfirst(mapbat);
 		*objStr = (str) BUNtail(mapi, bun + objOid); 
 	}
@@ -7097,6 +7102,7 @@ void getObjStr(BAT *mapbat, BATiter mapi, oid objOid, str *objStr, char *retObjT
 	*retObjType = objType; 
 
 }
+*/
 #endif
 
 //Assume Tokenizer is openned 
@@ -7417,7 +7423,8 @@ str printSampleData(CSSample *csSample, CSset *freqCSset, BAT *mbat, int num, in
 				}
 				else{
 					objStr = NULL;
-					getObjStr(mbat, mapi, objOid, &objStr, &objType);
+					//getObjStr(mbat, mapi, objOid, &objStr, &objType);
+					getStringName(objOid, &objStr, mapi, mbat, 0);
 					if (objType == URI || objType == BLANKNODE){
 #if USE_SHORT_NAMES
 						str objStrShort = NULL;
@@ -9621,7 +9628,7 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 
 	mapObjBATtypes = (char*) malloc(sizeof(char) * (MULTIVALUES + 1)); 
 	mapObjBATtypes[URI] = TYPE_oid; 
-	mapObjBATtypes[DATETIME] = TYPE_str;
+	mapObjBATtypes[DATETIME] = TYPE_timestamp;
 	mapObjBATtypes[INTEGER] = TYPE_int; 
 	mapObjBATtypes[DOUBLE] = TYPE_dbl; 
 	mapObjBATtypes[STRING] = TYPE_str; 
@@ -9959,17 +9966,28 @@ str fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, i
 	return MAL_SUCCEED; 
 }
 
+/*
+ * Extend VALget for handling DATETIME 
+ */
+static 
+void * VALgetExtend(ValPtr v, ObjectType objType, timestamp *ts){
+	if (objType == DATETIME){
+		convertTMtimeToMTime((time_t) v->val.lval, ts);
+		return (void *) ts;
+	} 
+	else{
+		return VALget(v);
+	}
+
+}
 
 static
 void getRealValue(ValPtr returnValue, oid objOid, ObjectType objType, BATiter mapi, BAT *mapbat){
 	str 	objStr; 
-	str	datetimeStr; 
 	str	tmpStr; 
 	BUN	bun; 	
 	BUN	maxObjectURIOid =  ((oid)1 << (sizeof(BUN)*8 - NBITS_FOR_CSID - 1)) - 1; //Base on getTblIdxFromS
-	float	realDbl; 
-	int	realInt; 
-	oid	realUri;
+	oid     realUri;
 
 	//printf("objOid = " BUNFMT " \n",objOid);
 	if (objType == URI || objType == BLANKNODE){
@@ -9979,47 +9997,28 @@ void getRealValue(ValPtr returnValue, oid objOid, ObjectType objType, BATiter ma
 			//takeOid(objOid, &objStr); 		//TODO: Do we need to get URI string???
 			//printf("From tokenizer URI object value: "BUNFMT " (str: %s) \n", objOid, objStr);
 		}
+		
+		realUri = objOid;
+		VALset(returnValue,TYPE_oid, &realUri);
+
 		//else, this object value refers to a subject oid
 		//IDEA: Modify the function for calculating new subject Id:
 		//==> subjectID = TBLID ... tmpSoid .... 	      
 	}
-	else{
+	else if (objType == STRING){
 		objOid = objOid - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the real objOid from Map or Tokenizer */ 
 		bun = BUNfirst(mapbat);
 		objStr = (str) BUNtail(mapi, bun + objOid); 
-		//printf("From mapbat BATcount= "BUNFMT" at position " BUNFMT ": %s \n", BATcount(mapbat),  bun + objOid,objStr);
-	}
 		
+		tmpStr = GDKmalloc(sizeof(char) * strlen(objStr) + 1);
+		memcpy(tmpStr, objStr, sizeof(char) * strlen(objStr) + 1);
+		VALset(returnValue, TYPE_str, tmpStr);
 
-	switch (objType)
-	{
-		case STRING:
-			//printf("A String object value: %s \n",objStr);
-			tmpStr = GDKmalloc(sizeof(char) * strlen(objStr) + 1); 
-			memcpy(tmpStr, objStr, sizeof(char) * strlen(objStr) + 1);
-			VALset(returnValue, TYPE_str, tmpStr);
-			break; 
-		case DATETIME:
-			//printf("A Datetime object value: %s \n",objStr);
-			datetimeStr = getDateTimeFromRDFString(objStr);
-			VALset(returnValue, TYPE_str, datetimeStr);
-			break; 
-		case INTEGER:
-			//printf("Full object value: %s \n",objStr);
-			realInt = getIntFromRDFString(objStr);
-			VALset(returnValue,TYPE_int, &realInt);
-			break; 
-		case DOUBLE:
-			//printf("Full object value: %s \n",objStr);
-			realDbl = getDoubleFromRDFString(objStr);
-			VALset(returnValue,TYPE_dbl, &realDbl);
-			break; 
-		default: //URI or BLANK NODE		
-			realUri = objOid;
-			VALset(returnValue,TYPE_oid, &realUri);
-			break; 
+		//printf("From mapbat BATcount= "BUNFMT" at position " BUNFMT ": %s \n", BATcount(mapbat),  bun + objOid,objStr);
+	} 
+	else{	//DATETIME, INTEGER, DOUBLE  
+		decodeValueFromOid(objOid, objType, returnValue);
 	}
-
 }
 
 static
@@ -10110,6 +10109,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	//void* 	realObjValue = NULL;
 	ValRecord	vrRealObjValue;
 	ValRecord	vrCastedObjValue; 
+	timestamp	ts; 
 	#if	DETECT_PKCOL
 	BAT	*tmpHashBat = NULL; 
 	char	isCheckDone = 0; 
@@ -10488,7 +10488,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				//BATprint(tmpmvBat);
 				if (i == tmpMVColIdx){	
 					// TODO: If i != 0, try to cast to default value		
-					if (BUNfastins(tmpmvBat, ATOMnilptr(TYPE_void), VALget(&vrRealObjValue)) == NULL){
+					if (BUNfastins(tmpmvBat, ATOMnilptr(TYPE_void), VALgetExtend(&vrRealObjValue,objType, &ts)) == NULL){
 						throw(RDF, "rdf.RDFdistTriplesToCSs", " Error in Bunfastins ");
 					} 
 				}
@@ -10496,7 +10496,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 					if (i == 0){	//The deafult type column
 						//Check whether we can cast the value to the default type value
 						if (rdfcast(objType, defaultType, &vrRealObjValue, &vrCastedObjValue) == 1){
-							if (BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),VALget(&vrCastedObjValue)) == NULL){ 
+							if (BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),VALgetExtend(&vrCastedObjValue, defaultType, &ts)) == NULL){ 
 								throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins ");
 							} 	
 							VALclear(&vrCastedObjValue);
@@ -10612,7 +10612,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			tmpBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
 			if (rdfcast(objType, defaultType, &vrRealObjValue, &vrCastedObjValue) == 1){
 				//printf("Casted a value (type: %d) to tables %d col %d (type: %d)  \n", objType, tblIdx,tmpColIdx,defaultType);
-				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), VALget(&vrCastedObjValue)) == NULL){
+				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), VALgetExtend(&vrCastedObjValue, defaultType,&ts)) == NULL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
 				} 
 	
@@ -10626,7 +10626,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 
 		}
 		
-		if (BUNfastins(curBat, ATOMnilptr(TYPE_void), VALget(&vrRealObjValue)) == NULL){
+		if (BUNfastins(curBat, ATOMnilptr(TYPE_void), VALgetExtend(&vrRealObjValue, objType,&ts)) == NULL){
 			throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
 		} 
 		

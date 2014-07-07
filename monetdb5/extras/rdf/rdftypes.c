@@ -325,10 +325,26 @@ char rdfcast(ObjectType srcT, ObjectType dstT, ValPtr srcPtr, ValPtr dstPtr){
 							&dstPtr->len, &srcPtr->val.dval);
 					dstPtr->vtype = TYPE_str;
 					return 1; 
-				case DATETIME: 
+				case DATETIME: 	//Datetime in long value of tm struct
+					{	
+					struct tm *timeinfo;
+					char buf[128], *s1 = buf;
+					time_t t = (time_t) srcPtr->val.lval;
+					timeinfo = gmtime(&t);
+
+					*s1 = 0;
+					if (timeinfo->tm_hour == 0 && timeinfo->tm_min == 0 && timeinfo->tm_sec == 0){
+						sprintf(s1, "%d-%02d-%02d", timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday);
+					}
+					else{
+						sprintf(s1, "%d-%02d-%02dT%d:%d:%d", timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday,
+							timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+					}
+
 					dstPtr->vtype = TYPE_str; 
 					dstPtr->len = srcPtr->len; 
-					dstPtr->val.sval = GDKstrdup(srcPtr->val.sval);
+					dstPtr->val.sval = GDKstrdup(s1);
+					}
 					return 1; 
 				case STRING:	
 					dstPtr->vtype = TYPE_str; 
@@ -527,8 +543,25 @@ decodeValueFromOid(BUN bun, ObjectType objType, ValPtr vrPtrRealValue){
 	}
 }
 
+
+void 
+getStringFormatValueFromOid(BUN bun, ObjectType objType, str *obj){
+        ValRecord       vrRealObjValue;
+        ValRecord       vrCastedObjValue;
+
+	decodeValueFromOid(bun, objType, &vrRealObjValue);
+
+	if (rdfcast(objType, STRING, &vrRealObjValue, &vrCastedObjValue) != 1){
+		printf("Every values should be able to be casted to String \n");
+	}
+
+	*obj = GDKstrdup(vrCastedObjValue.val.sval);
+}
+
+	
 /*
  * Convert value from tm format to timestamp of monet mtime
+ * Only convert when storing in monetdb BAT for datetime
  * */
 void convertTMtimeToMTime(time_t t, timestamp *ts){
 	struct tm *timeinfo;
