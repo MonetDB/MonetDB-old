@@ -6615,6 +6615,10 @@ str getOrigObt(oid *obt, oid *origObt, BAT *lmap, BAT *rmap){
 static
 char getObjTypeFromBATtype(int battype){
 	
+	if (battype == TYPE_timestamp){	//This type is not constant
+		return DATETIME; 
+	}
+
 	switch (battype)						  
 	{
 		case TYPE_oid:
@@ -7713,6 +7717,7 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 	oid	*objOid = NULL; 
 	double	*objDbl = NULL; 
 	int	*objInt = NULL; 
+	timestamp *objTs = NULL;
 	str	canStr; 
 	char	isTitle = 0; 
 	char	isUrl = 0;
@@ -8029,6 +8034,23 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 						fprintf(foutis,"|%d", *objInt);
 					}
 				
+				}
+				else if (tmpBat->ttype == TYPE_timestamp){	//Datetime
+					objTs = (timestamp *) BUNtail(tmpi, k);
+					if (ts_isnil(*objTs)){
+						fprintf(fout,"|NULL");
+						fprintf(foutis,"|NULL");
+					}
+					else{	//get datetime string from timestamp
+						char buff[64], *s1 = buff; 
+						int len = 64; 
+						*s1 = 0; 
+
+						timestamp_tostr(&s1,&len,objTs);
+						fprintf(fout,"|%s", s1);
+						fprintf(foutis,"| %s", s1);
+					}
+
 				}
 				else{ //tmpBat->ttype == TYPE_str, MV column also has string type (concate list of values)
 					objStr = NULL; 
