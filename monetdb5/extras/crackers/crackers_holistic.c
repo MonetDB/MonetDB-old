@@ -328,15 +328,17 @@ changeWeight_3(FrequencyNode* node,int N,int L1)
 str
 CRKrandomCrack(int *ret)
 {
-	int bid=0, change_bat=0, i=0, cracks=0, nthreads = int_nil, vector_elements = int_nil;
+	int bid=0, change_bat=0, i=0, cracks=0, nthreads = int_nil, vector_elements = int_nil, random = 0;
 	FrequencyNode* max_node;
 	bit inclusive=TRUE;
 	FrequencyNode *fs = getFrequencyStruct('A');	
         char *p = getenv("CRACKS");
         char *p1 = getenv("NTHREADS");
 	char *p2 = getenv("VECTORELEMENTS");
+	char *p3 = getenv("HOLSTRATEGY");
 
-        if (p == NULL || p1 == NULL || p2 == NULL){
+
+        if (p == NULL || p1 == NULL || p2 == NULL || p3 == NULL){
                 fprintf(stderr, "Error randomCrack: environment variable is missing.\n");
                 exit(1);
         }
@@ -345,11 +347,15 @@ CRKrandomCrack(int *ret)
                 cracks = atoi(p);
 		nthreads = atoi(p1);
 		vector_elements = atoi(p2);
+		random = atoi(p3);
 	}
 
 	(void) ret;
 	MT_lock_set(&frequencylock, "getFrequencyStruct");
-	max_node=findMax(fs);
+	if(random != 0)
+		max_node=findMax(fs);
+	else
+		max_node=pickRandom(fs);
 	MT_lock_unset(&frequencylock, "getFrequencyStruct");
 	if(max_node!=NULL && max_node->weight > 0)
 	{
