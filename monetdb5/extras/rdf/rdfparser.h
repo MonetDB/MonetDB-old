@@ -28,9 +28,11 @@
 #define _RDF_PARSER_H_
 
 #include <raptor2.h>
+#include <rdftypes.h>
 
 #define CHECK_NUM_DBPONTOLOGY   0       /* Check how many rdf triples use dbpontology */
 #define BUILD_ONTOLOGIES_HISTO	0	/* Check how much percentage each ontology has in the dataset */
+#define CHECK_NUM_VALUES_PER_TYPE 1	/* default 0*/
 
 typedef struct parserData {
 	                              /**PROPERTIES             */
@@ -60,6 +62,9 @@ typedef struct parserData {
 #if CHECK_NUM_DBPONTOLOGY
 	int numOntologyTriples; 
 #endif
+#if 	CHECK_NUM_VALUES_PER_TYPE
+	int numValuesPertype[MULTIVALUES];
+#endif	
 	
 } parserData;
 

@@ -236,7 +236,7 @@ getObjectType_and_Value(unsigned char* objStr, ValPtr vrPtrRealValue){
 			if (isInt(valuepart, subLen) == 1){	/* Check whether the real value is an integer */
 				realInt = (BUN) atoi(valuepart); 
 				VALset(vrPtrRealValue,TYPE_int, &realInt);
-				printf("Real int value is: %d \n", vrPtrRealValue->val.ival);
+				//printf("Real int value is: %d \n", vrPtrRealValue->val.ival);
 			}
 			else 
 				obType = STRING;	
@@ -253,7 +253,7 @@ getObjectType_and_Value(unsigned char* objStr, ValPtr vrPtrRealValue){
 			if (isDouble(valuepart, subLen) == 1){
 				realDbl = atof(valuepart);
 				VALset(vrPtrRealValue,TYPE_dbl, &realDbl);
-				printf("Real double value is: %.10f \n", vrPtrRealValue->val.dval);
+				//printf("Real double value is: %.10f \n", vrPtrRealValue->val.dval);
 			}
 			else
 				obType = STRING;
@@ -406,7 +406,9 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 			//rdf_insert(pdata, graph[MAP_LEX], (str) objStr, &bun);
 			rdf_tknzr_insert((str) objStr, &bun);
 			rdf_BUNappend(pdata, graph[O_sort], &bun); 
-
+#if 	CHECK_NUM_VALUES_PER_TYPE
+			pdata->numValuesPertype[URI]++;
+#endif 			
 			bun = BUN_NONE;
 			free(objStr);
 		} else if (triple->object->type == RAPTOR_TERM_TYPE_BLANK) {
@@ -416,6 +418,9 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 			rdf_BUNappend_BlankNode_Obj(pdata, graph[O_sort], &bun); 
 			//rdf_BUNappend(pdata, graph[O_sort], &bun); 
 
+#if 	CHECK_NUM_VALUES_PER_TYPE
+			pdata->numValuesPertype[BLANKNODE]++;
+#endif 			
 			bun = BUN_NONE;
 			free(objStr);
 		
@@ -432,6 +437,9 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 				encodeValueInOid(&vrRealValue, objType, &bun);
 			}
 
+#if 	CHECK_NUM_VALUES_PER_TYPE
+			pdata->numValuesPertype[objType]++;
+#endif 			
 			rdf_BUNappend(pdata, graph[O_sort], &bun); 
 
 			VALclear(&vrRealValue);
@@ -585,7 +593,11 @@ parserData_create (str location, BAT** graph, bat *ontbatid)
 		pdata->numNonOnt = 0;
 	}
 	#endif
-
+#if     CHECK_NUM_VALUES_PER_TYPE
+	for (i = 0; i < MULTIVALUES; i++){
+		pdata->numValuesPertype[i] = 0;
+	}
+#endif	
 	return pdata;
 }
 
@@ -989,6 +1001,13 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema, bat *ontbati
 	#if	BUILD_ONTOLOGIES_HISTO
 	printHistogram(pdata);
 	#endif
+#if 	CHECK_NUM_VALUES_PER_TYPE
+	printf("Number of URI %d \n", pdata->numValuesPertype[URI]);
+	printf("Number of DATETIME %d \n", pdata->numValuesPertype[DATETIME]);
+	printf("Number of INTEGER %d \n", pdata->numValuesPertype[INTEGER]);
+	printf("Number of DOUBLE %d \n", pdata->numValuesPertype[DOUBLE]);
+	printf("Number of BLANKNODE %d \n", pdata->numValuesPertype[BLANKNODE]);
+#endif 			
 	/* post processing step */
 	tmpbeginT = clock();
 	ret = post_processing(pdata);
