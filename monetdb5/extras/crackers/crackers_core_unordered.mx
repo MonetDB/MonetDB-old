@@ -1689,6 +1689,8 @@ static str CRKscan_x_@2_@1 (
 		WriteCursor += isLessThan;
 	}
 
+	assert(WriteCursor <= last-first+1);
+
 	BATsetcount(outputbuffer,WriteCursor);
 
 	BATseqbase(outputbuffer,0);
@@ -1731,7 +1733,6 @@ static str CRKscan_MT_@2_@1 (const BAT *b, BAT *ob, BUN first, BUN last, const @
                 /* more threads / smaller slices does not make sense */
                 nthreads = (int) (n / 1000) + 1;
         }
-
 
 	mm = (n / nthreads);
 
