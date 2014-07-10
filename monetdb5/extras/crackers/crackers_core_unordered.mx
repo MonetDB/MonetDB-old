@@ -98,6 +98,7 @@ All Rights Reserved.
 @= CoreUnorderedFunctions_decl
 crackers_export str CRKcrackUnorderedZero_@1 (int *res, int *bid, @1 *mid, int nthreads, int vector_elements);
 crackers_export str CRKcrackUnorderedThree_@1 (int *res, int *bid, @1 *low, @1 *hgh);
+crackers_export str CRKparallelscan_@1 (int *res, int *bid, int *bid_out, @1 *mid, int nthreads);
 @
  * @- Signatures shared within the crackers module/library
 @= operations
@@ -110,6 +111,7 @@ crackers_export str CRKcrackUnorderedThree_@1 (int *res, int *bid, @1 *low, @1 *
 @
 @= crackInTwoUnorderedPieces_decl
 str CRKcrackUnorderedZero_@2_@1( BAT *b, @1 mval, oid first, oid last, oid *pos, int nthreads, int vector_elements);
+str CRKparallelscan_@2_@1( BAT *b, BAT *ob, @1 mval, oid first, oid last, int nthreads);
 @
 @= crackInThreeUnorderedPieces_decl
 str CRKcrackUnorderedThree_@2_@3_@1( BAT *b, @1 low, @1 hgh, oid first, oid last, oid *posl, oid *posh);
@@ -174,6 +176,15 @@ typedef struct {
 } c_Thread_t;
 
 typedef struct {
+	const BAT *b;      /* BAT to be scanned */
+	BAT *ob;      /* outputBAT */
+	const void *mval;  /* pivot value */
+	BUN first;         /* offset of first value in slice */
+	BUN last;          /* offset of last value in slice */
+	const char *msg;   /* error message */
+} s_Thread_t;
+
+typedef struct {
 	BUN left, right;
 } cursorDeltas;
 
@@ -224,6 +235,23 @@ CRKcrackUnorderedThree_@1 (int *res, int *bid, @1 *low, @1 *hgh){
                 throw(MAL, "crackers.crack_threeUnordered", "Need more clever mapping ");
 	*/
         msg = CRKcrackUnorderedThree_LO_RE_@1( b, *low, *hgh, 0, BATcount(b)-1,&posl, &posh);
+
+        BBPkeepref(b->batCacheid);
+        *res = *bid;
+        return msg;
+}
+str
+CRKparallelscan_@1 (int *res, int *bid, int *bid_out, @1 *mid, int nthreads){
+        BAT *b, *ob;
+        str msg;
+
+        if ((b = BATdescriptor(*bid)) == NULL)
+                throw(MAL, "crackers.parallelscan", "Cannot access descriptor");
+
+        if ((ob = BATdescriptor(*bid_out)) == NULL)
+                throw(MAL, "crackers.parallelscan", "Cannot access descriptor");
+
+        msg = CRKparallelscan_LE_@1( b, ob, *mid,(BUN) 0, BATcount(b)-1, nthreads);
 
         BBPkeepref(b->batCacheid);
         *res = *bid;
@@ -1635,6 +1663,140 @@ CRKcrackUnorderedZero_@2_@1( BAT *b, @1 mval, BUN first, BUN last, oid *pos, int
 	else {
 		throw(MAL, "crackers.select", "CRKcrackUnorderedZero_@2_@1(): Illegal combination of threads and vector_elements: %d", nthreads);
 	}
+
+	return msg;
+}
+
+static str CRKscan_x_@2_@1 (
+	/* input */
+	const BAT* buffer,      /* attribute (array) */
+	BAT* outputbuffer, /*output (array)*/
+	const @1 pivot, /* pivot value for attribute*/
+	BUN first,  /* first position of to-be-cracked piece */
+	BUN last  /* last position of to-be-cracked piece */
+) {
+	BUN ReadCursor = first;
+	BUN WriteCursor = 0;
+	BUN  isLessThan;
+	@1  *src_t = (@1 *) Tloc(buffer, BUNfirst(buffer));
+	@1  *src_t_output = (@1 *) Tloc(outputbuffer, BUNfirst(outputbuffer));
+
+	assert(buffer && outputbuffer && src_t && src_t_output);
+
+	for (ReadCursor = first; ReadCursor <= last; ReadCursor++){
+		src_t_output[WriteCursor] = src_t[ReadCursor];
+		isLessThan = (src_t[ReadCursor] @7 pivot);
+		WriteCursor += isLessThan;
+	}
+
+	BATsetcount(outputbuffer,WriteCursor);
+
+	BATseqbase(outputbuffer,0);
+	outputbuffer->tsorted = FALSE;
+	outputbuffer->trevsorted = FALSE;
+	outputbuffer->tdense = FALSE;
+	outputbuffer->T->nonil = TRUE;
+	outputbuffer->T->nil = FALSE;
+
+	return MAL_SUCCEED;
+}
+/* crackThread for new multi-threaded crack code */
+static void*
+scan_MT_crackThread_@2_@1 ( void *arg_p )
+{
+	s_Thread_t *arg = (s_Thread_t*) arg_p;
+	@1 mval = * (@1*) arg->mval;
+	
+	/* call actual cracking routine for this slice */
+	arg->msg = CRKscan_x_@2_@1 ( arg->b, arg->ob, mval, arg->first, arg->last);
+
+	pthread_exit(NULL);
+	return NULL;
+}
+static str CRKscan_MT_@2_@1 (const BAT *b, BAT *ob, BUN first, BUN last, const @1 pivot, int nthreads)
+{
+        BUN n = last - first + 1; /* total # tuples / values */
+        BUN mm;                   /* # tuples / values in tmp arrays */
+        BUN f, l;                 /* first / last BUN per slice */
+	pthread_t *s_Thread;      /* threads array */
+        s_Thread_t *s_Thread_arg; /* thread arguments array */
+        int i;
+
+	/* adjust nthreads */
+	if (nthreads == 0) {
+		/* automatic setting */
+		nthreads = GDKnr_threads;
+	}
+        if ((BUN) nthreads > n / 10) {
+                /* more threads / smaller slices does not make sense */
+                nthreads = (int) (n / 1000) + 1;
+        }
+
+
+	mm = (n / nthreads);
+
+	s_Thread = GDKmalloc (nthreads * sizeof(pthread_t));
+        s_Thread_arg  = GDKmalloc(nthreads * sizeof(s_Thread_t));
+	if (!s_Thread || !s_Thread_arg) {
+		if (s_Thread)
+			GDKfree(s_Thread);
+		if (s_Thread_arg)
+			GDKfree(s_Thread_arg);
+		throw (MAL, "crackers.parallelscan", "CRKscan_MT_@2_@1(): GDKmalloc() failed.");
+	}
+
+        /* initialize crackThread arguments */
+        /* Alternative 1: each thread cracks one consecutive slice */
+        for (i = 0, f = first, l = f + mm - 1; i < nthreads; i++, f += mm, l += mm) {
+                s_Thread_arg[i].b       = b;
+                s_Thread_arg[i].mval    = &pivot;
+                s_Thread_arg[i].first   = f;
+                s_Thread_arg[i].last    = (i < nthreads - 1) ? l : last;
+                s_Thread_arg[i].ob      = (i == 0) ? ob : BATnew(TYPE_void, b->ttype,s_Thread_arg[i].last-s_Thread_arg[i].first+1);
+        }
+       
+	/* spawn crackThreads */
+	for (i = 0; i < nthreads; i++) {
+		if (pthread_create(&s_Thread[i], NULL, scan_MT_crackThread_@2_@1, &s_Thread_arg[i])) {
+			GDKfree(s_Thread);
+			GDKfree(s_Thread_arg);
+			throw (MAL, "crackers.select", "CRKscan_MT_@2_@1(): Failed spaning crackThread %d.", i);
+		}
+	}
+	/* join crackThreads */
+	for (i = 0; i < nthreads; i++) {
+		if (pthread_join(s_Thread[i], NULL)) {
+			GDKfree(s_Thread);
+			GDKfree(s_Thread_arg);
+			throw (MAL, "crackers.select", "CRKscan_MT_@2_@1(): Failed joining crackThread %d.", i);
+		 }
+	}
+	/* check for & report failing crackThreads */
+	for (i = 0; i < nthreads; i++) {
+		if (s_Thread_arg[i].msg != MAL_SUCCEED) {
+			GDKfree(s_Thread);
+			GDKfree(s_Thread_arg);
+			throw (MAL, "crackers.select", "CRKscan_MT_@2_@1(): crackThread %d failed with '%s'.", i, s_Thread_arg[i].msg);
+		 }
+	}
+
+	/*merge phase*/
+	i=1;
+	while (i < nthreads) {
+		ob = BATappend(ob, s_Thread_arg[i].ob, FALSE);
+		i++;
+	}
+
+	return MAL_SUCCEED;
+}
+/* parallel scan implementation dispatcher */
+str
+CRKparallelscan_@2_@1( BAT *b, BAT *ob, @1 mval, BUN first, BUN last, int nthreads){
+	str msg = MAL_SUCCEED;
+	assert(b && ob);
+	assert(last >= first);
+
+	msg = CRKscan_MT_@2_@1(b, ob, first, last, mval, nthreads);
 
 	return msg;
 }

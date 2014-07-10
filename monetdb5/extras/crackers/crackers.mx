@@ -124,7 +124,6 @@ All Rights Reserved.
 @:@1(@2,flt)@
 @:@1(@2,dbl)@
 @:@1(@2,date)@
-@:@1(@2,lng)@
 @
 @= TypeSwitch_2
 @:TypeSwitch_temp2(@1,int)@
@@ -308,6 +307,13 @@ address CRKparalleluselectBounds_@2
 comment "Retrieve the subset using a cracker
         index producing preferably a BATview.";
 
+#parallel scan operators
+
+command pselect(b:bat[:oid,:@2],l:@2,h:@2, nthreads:int):bat[:oid,:@2]
+address CRKparallelscanselect_@2_MT
+comment "Retrieve qualifying tuples with parallel scan.";
+
+# stochastic operators
 
 command selectst(b:bat[:oid,:@2],l:@2,h:@2):bat[:oid,:@2]
 address CRKselectst_@2
@@ -922,6 +928,11 @@ address CRKcrackUnorderedThree_@2
 comment "Break a BAT into three pieces with
 	 tail<=low, low<tail<=hgh, tail>hgh,
 	 respectively.";
+
+command parallelscan (b:bat[:oid,:@2], mid:@2, nthreads:int) :bat[:oid,:@2]
+address CRKparallelscan_@2
+comment "Scan a BAT using multiple threads";
+
 @
 @= Validate
 @:crack_validate(@2,Ordered,; maintaining the head-oid order within each piece)@

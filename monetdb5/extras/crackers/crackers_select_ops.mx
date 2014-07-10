@@ -72,6 +72,7 @@ crackers_export str CRKselect_@1_MT(int *vid, int *bid, @1 *low, @1 *hgh, const 
 crackers_export str CRKuselect_@1_MT(int *vid, int *bid, @1 *low, @1 *hgh, const int *nthreads, const int *vector_elements);
 crackers_export str CRKthetaselect_@1_MT(int *vid, int *bid, @1 *val, str *op, const int *nthreads, const int *vector_elements);
 crackers_export str CRKthetauselect_@1_MT(int *vid, int *bid, @1 *val, str *op, const int *nthreads, const int *vector_elements);
+crackers_export str CRKparallelscanselect_@1_MT(int *vid, int *bid, @1 *low, @1 *hgh, const int *nthreads);
 @
 @c
 /*
@@ -215,6 +216,15 @@ CRKthetauselect_@1_MT(int *vid, int *bid, @1 *val, str *OP, const int *nthreads,
 	}
 
 	return CRKuselectBounds_@1_MT(vid, bid, low, high, &lin, &rin, nthreads, vector_elements);
+}
+str
+CRKparallelscanselect_@1_MT(int *vid, int *bid, @1 *low, @1 *hgh, const int *nthreads){
+	bit inclusiveHgh = TRUE;
+
+	if (!@2_EQ(low,ATOMnilptr(TYPE_@1),@3@1))
+		throw(MAL, "crackers.ParallelScanSelect", "Not implemented");
+
+	return CRKRangeParallelScan_@1(vid, bid, hgh, &inclusiveHgh, *nthreads);
 }
 
 @
@@ -1122,6 +1132,30 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 		vl = cl1;
 		
 	@:CreateResult()@
+	return MAL_SUCCEED;
+}
+static str
+CRKRangeParallelScan_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, int nthreads){
+	BAT *b, *ob;
+	(void)*vid;
+
+	if ((b = BATdescriptor(*bid)) == NULL)
+		throw(MAL, "crackers.ParallelScanRange", "Cannot access descriptor");
+
+	ob = BATnew(TYPE_void, b->ttype,BATcount(b));
+	assert(ob);
+
+	if (*inclusiveHgh == TRUE)
+		CRKparallelscan_LE_@1(b, ob, *hgh, (BUN) 0, BATcount(b)-1, nthreads);
+	else
+		CRKparallelscan_RE_@1(b, ob, *hgh, (BUN) 0, BATcount(b)-1, nthreads);
+
+
+	BBPunfix(b->batCacheid);
+
+	*vid = ob->batCacheid;
+	BBPkeepref(*vid);
+
 	return MAL_SUCCEED;
 }
 @
