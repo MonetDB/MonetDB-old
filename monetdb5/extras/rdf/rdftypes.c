@@ -325,21 +325,15 @@ char rdfcast(ObjectType srcT, ObjectType dstT, ValPtr srcPtr, ValPtr dstPtr){
 							&dstPtr->len, &srcPtr->val.dval);
 					dstPtr->vtype = TYPE_str;
 					return 1; 
-				case DATETIME: 	//Datetime in long value of tm struct
+				case DATETIME: 	//Datetime in encoded long value of timestamp
 					{	
-					struct tm *timeinfo;
-					char buf[128], *s1 = buf;
-					time_t t = (time_t) srcPtr->val.lval;
-					timeinfo = gmtime(&t);
-
+					char buf[64], *s1 = buf;
+					int len = 64; 
+					timestamp ts; 
+					convert_encodedLng_toTimestamp(srcPtr->val.lval, &ts);
+					
 					*s1 = 0;
-					if (timeinfo->tm_hour == 0 && timeinfo->tm_min == 0 && timeinfo->tm_sec == 0){
-						sprintf(s1, "%d-%02d-%02d", timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday);
-					}
-					else{
-						sprintf(s1, "%d-%02d-%02dT%d:%d:%d", timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday,
-							timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
-					}
+					timestamp_tostr(&s1,&len,&ts);
 
 					dstPtr->vtype = TYPE_str; 
 					dstPtr->len = srcPtr->len; 
@@ -397,8 +391,11 @@ time_t tm2time(const struct tm *src)
 	return timegm(&tmp) - src->tm_gmtoff;
 }
 
+/*
+ * Using strptime
+ * */
 
-int convertDateTimeStringToTimeT(char *sDateTime, int len, time_t *t){
+int convertDateTimeToTimeT(char *sDateTime, int len, time_t *t){
 	
 	/*
 	char* testDate[] = {
@@ -450,6 +447,62 @@ int convertDateTimeStringToTimeT(char *sDateTime, int len, time_t *t){
 	return 0; 
 }
 
+/*
+ * Using/extending monetdb mtime functions
+ * */
+
+int convertDateTimeToLong(char *sDateTime, long *t){
+	timestamp ts; 
+	//tzone *tz;
+	int len; 
+	long encodeLng = 0; 
+	int positiveDate = 0;
+	int sign = 0;
+	
+	char *p = NULL; 
+
+	//printf("Checking datetime %s \n", sDateTime);
+	
+	//Remove the ending 'Z' from the string
+	p = strchr(sDateTime, 'Z');
+	
+	len = (int) strlen(sDateTime);
+	if (p != NULL) {
+		if (p == (sDateTime + len - 1))
+			*p = '\0';
+	}
+
+	MTIMEtimestamp_fromstr(&ts, (const char* const*) &sDateTime);
+
+	if (ts_isnil(ts) && len != 3){
+		printf("The %s is not a valid datetime string\n", sDateTime);	
+		return 0; 
+	}
+
+	//Encoding timestamp to long. 
+	//First 4 bits are not used, 5th bits for sign of number of days value 
+	//(1, if the number of days is negative)
+	//27 bits for days, 32 bits for msecs
+	if (ts.days < 0){
+		positiveDate = 0 - ts.days;
+		sign = 1; 
+	} else {
+		positiveDate = ts.days;
+		sign = 0;
+	}
+
+	encodeLng |= (long) positiveDate;
+	encodeLng = encodeLng << (sizeof(ts.msecs) * 8); //Move 32 bits
+	encodeLng |= (long)sign << (sizeof(long) * 8 - 5);	//Set the sign bit
+	encodeLng = encodeLng | (long) ts.msecs;	//Set 32 bits for msecs
+	
+	*t = encodeLng; 
+
+	//printf("Encode days %d and msecs %d to long %ld \n",ts.days, ts.msecs, *t);
+	
+	return 1;
+}
+
 //TODO: For Datetime, we may use function in mtime in order to directly convert datetime string
 //to mtime timestamp. Then, encode the timestamp in the oid, in which, 1 bit for sign of date, 27 bits for days value, 
 //32 bits for msecs. (We can also use 28bits for msecs, and 32 bits for date). 
@@ -469,7 +522,7 @@ encodeValueInOid(ValPtr vrPtrRealValue, ObjectType objType, BUN* bun){
 	switch(objType){
 		case INTEGER: 
 			if (vrPtrRealValue->val.ival < 0){
-				positiveInt = (-1) * vrPtrRealValue->val.ival;				
+				positiveInt = 0 - vrPtrRealValue->val.ival;				
 				*bun |= (BUN) 1 << (sizeof(BUN)*8 - 5);	
 			}
 			else 
@@ -488,13 +541,10 @@ encodeValueInOid(ValPtr vrPtrRealValue, ObjectType objType, BUN* bun){
 			}
 			break;
 		case DATETIME: 
-			//Consider it is as long value.
-			if (vrPtrRealValue->val.lval < 0){
-				positiveLng = (-1) * vrPtrRealValue->val.lval;
-				*bun |= (BUN) 1 << (sizeof(BUN)*8 - 5);
-			}
-			else
-				positiveLng = vrPtrRealValue->val.lval;
+			//Consider it is as long value
+			//No sign bit needed for this encoded long
+			assert (vrPtrRealValue->val.lval >= 0);
+			positiveLng = vrPtrRealValue->val.lval;
 
 			*bun |= (BUN) positiveLng;
 
@@ -530,10 +580,7 @@ decodeValueFromOid(BUN bun, ObjectType objType, ValPtr vrPtrRealValue){
 			VALset(vrPtrRealValue,TYPE_dbl, realdbl);
 			break;
 		case DATETIME: 
-			sign = (int)((bun >> (sizeof(BUN)*8 - 5)) & 0x01);      //Get the sign bit
-			realval = bun & (~((BUN) 0x1F << (sizeof(BUN)*8 - 5))); //Get the real value
-			if (sign == 1) lval = 0 - realval ;
-			else   lval = realval;
+			lval = bun & (~((BUN) 0x0F << (sizeof(BUN)*8 - 4))); //Get the real value by setting all first 4 bits to 0s
 			VALset(vrPtrRealValue,TYPE_lng, &lval);
 			break; 
 		default:
@@ -576,6 +623,26 @@ void convertTMtimeToMTime(time_t t, timestamp *ts){
 			timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 
 	MTIMEtimestamp_fromstr(ts, (const char* const*) &s1);
+}
+
+
+/*
+ * Convert value from tm format to timestamp of monet mtime
+ * Only convert when storing in monetdb BAT for datetime
+ * */
+void convert_encodedLng_toTimestamp(long t, timestamp *ts){
+	int sign = 0; 
+	int daypart = 0; 
+	int msecpart = 0;
+
+	sign = (int)((t >> (sizeof(BUN)*8 - 5)) & 0x01);      //Get the sign bit
+	daypart = (int) (t >> (sizeof(int) * 8) );		      //Get 32 msb from t
+	daypart = daypart & 0x07FFFFFF;			      //Clear first 5 bits to get real posi. value
+	if (sign == 1) daypart = 0 - daypart; 
+	msecpart = (int) (t & 0x00000000FFFFFFFF);
+
+	ts->days = daypart;
+	ts->msecs = msecpart; 
 }
 
 /*

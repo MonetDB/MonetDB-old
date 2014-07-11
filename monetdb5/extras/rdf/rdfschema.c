@@ -9994,7 +9994,7 @@ str fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, i
 static 
 void * VALgetExtend(ValPtr v, ObjectType objType, timestamp *ts){
 	if (objType == DATETIME){
-		convertTMtimeToMTime((time_t) v->val.lval, ts);
+		convert_encodedLng_toTimestamp(v->val.lval, ts);
 		return (void *) ts;
 	} 
 	else{
