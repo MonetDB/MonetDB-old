@@ -1124,10 +1124,11 @@ static str CRKvectorized_x_@2_@1 (
 
 	assert(buffer && src_h_local && src_t_local);
 	assert(pos_r);
+	assert(valueCount != 0 );
 	//assert(valueCount%(2*vector_elements) == 0);
-	assert(!(ml && mr && last_left + 1 < first_right) || (ml%(2*vector_elements) == 0 && mr%(2*vector_elements) == 0));
+	//assert(!(ml && mr && last_left + 1 < first_right) || (ml%(2*vector_elements) == 0 && mr%(2*vector_elements) == 0));
 
-	if(vectorR + 1 > vectorCount || (!ml && !mr && (valueCount%(2*vector_elements) != 0)))
+	if(vectorR + 1 > vectorCount || (!ml && !mr && (valueCount%(2*vector_elements) != 0)) || ml%(2*vector_elements) != 0 || mr%(2*vector_elements) != 0)
 	{
 		GDKfree(src_h_local);
 		GDKfree(src_t_local);
