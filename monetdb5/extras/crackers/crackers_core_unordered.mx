@@ -157,6 +157,7 @@ str CRKcrackUnorderedThreeSideways_@3_@4_@1_str( BAT *b, @1 low, @1 hgh, oid fir
 #include "crackers.h"
 #include<math.h>
 //#define CRACK_MUTLI_THREAD_DEBUG
+//#define NDEBUG
 
 /* argument struct for countThread & crackThread functions */
 typedef struct {
@@ -1692,7 +1693,6 @@ static str CRKscan_x_@2_@1 (
 	assert(WriteCursor <= last-first+1);
 
 	BATsetcount(outputbuffer,WriteCursor);
-
 	BATseqbase(outputbuffer,0);
 	outputbuffer->tsorted = FALSE;
 	outputbuffer->trevsorted = FALSE;
@@ -1785,9 +1785,24 @@ static str CRKscan_MT_@2_@1 (const BAT *b, BAT *ob, BUN first, BUN last, const @
 	i=1;
 	while (i < nthreads) {
 		ob = BATappend(ob, s_Thread_arg[i].ob, FALSE);
+		BBPunfix(s_Thread_arg[i].ob->batCacheid);
 		i++;
 	}
 
+#ifdef NDEBUG
+	@1  *src_t_b = (@1 *) Tloc(b, BUNfirst(b));
+	@1  *src_t_ob = (@1 *) Tloc(ob, BUNfirst(ob));
+	BUN readb=first, readob=0;
+
+	for (readb = first; readb <= last; readb++){
+		if(src_t_b[readb] @7 pivot)
+		{
+			assert(src_t_b[readb]==src_t_ob[readob]);
+			readob++;
+		}
+	}
+
+#endif
 	return MAL_SUCCEED;
 }
 /* parallel scan implementation dispatcher */
