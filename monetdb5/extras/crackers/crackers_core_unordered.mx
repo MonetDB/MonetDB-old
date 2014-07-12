@@ -1331,7 +1331,7 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 		mr = 0;
 	} else /* alt == 2 */ {
 		ml = (BUN) round(((double) (mm * pivot_P) / 100.0) / (2*vector_elements)) * 2*vector_elements;
-		mr = mm - ml;
+		mr = (BUN) round((mm - ml) / (2*vector_elements)) * 2*vector_elements;
 		if (ml == 0 || mr == 0) {
 			alt = 1;
 			ml = 0;
@@ -1464,9 +1464,9 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 				const BUN pi = c_Thread_arg[i].pos_r;
 				const BUN pj = c_Thread_arg[j].pos_r - sk;
 
-				assert(si <= mm);
-				assert(sj <= mm);
-                                memcpy(tmp_t, &src_t[pi], st);
+				assert((ml && mr && si <= ml+mr) || (!c_Thread_arg[i].ml && !c_Thread_arg[i].mr && si <= (c_Thread_arg[i].last - c_Thread_arg[i].first + 1)));
+                                assert((ml && mr && sj <= ml+mr) || (!c_Thread_arg[j].ml && !c_Thread_arg[j].mr && sj <= (c_Thread_arg[j].last - c_Thread_arg[j].first + 1)));
+				memcpy(tmp_t, &src_t[pi], st);
                                 memcpy(&src_t[pi], &src_t[pj], st);
                                 memcpy(&src_t[pj], tmp_t, st);
 
