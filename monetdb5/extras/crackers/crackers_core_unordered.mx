@@ -643,7 +643,7 @@ CRKcrackUnorderedZero_@2_@1_STxxx ( const BAT *b, const @1 mval, const BUN first
 			assert((p == qq && src_t[pp] @7 mval) || (p > qq && src_t[p-1] @7 mval));
 			while (p <= last && src_t[p] @7 mval)
 				p++;
-		}
+		}	
 	} else {
 		assert(p == first || src_t[p-1] @7 mval);
 		while (p <= last && src_t[p] @7 mval)
@@ -655,7 +655,7 @@ CRKcrackUnorderedZero_@2_@1_STxxx ( const BAT *b, const @1 mval, const BUN first
 	assert(p == last + 1 || src_t[p] @8 mval);
 
 #ifdef NDEBUG
-	BUN i_res = 0;	
+	BUN i_res = 0;
 
 	for (q = first; q < p; q++) {
 		if (ml && mr && pp + 1 < qq && q == pp + 1) {
@@ -1123,12 +1123,15 @@ static str CRKvectorized_x_@2_@1 (
 	@1  *src_t = (@1 *) Tloc(buffer, BUNfirst(buffer));
 	oid *src_h_local = (oid*) GDKmalloc(vector_elements * 3 * sizeof(oid));
 	@1  *src_t_local = (@1 *) GDKmalloc(vector_elements * 3 * sizeof(@1));
+#ifdef NDEBUG
+        BUN lwc, uwc, fl, ll, fr, lr, i_res=0;
+#endif
 
 	assert(buffer && src_h_local && src_t_local);
 	assert(pos_r);
 	assert(valueCount != 0 );
 	//assert(valueCount%(2*vector_elements) == 0);
-	//assert(!(ml && mr && last_left + 1 < first_right) || (ml%(2*vector_elements) == 0 && mr%(2*vector_elements) == 0));
+	assert(!(ml && mr && last_left + 1 < first_right) || (ml%(2*vector_elements) == 0 && mr%(2*vector_elements) == 0));
 
 	if(vectorR + 1 > vectorCount || (!ml && !mr && (valueCount%(2*vector_elements) != 0)) || ml%(2*vector_elements) != 0 || mr%(2*vector_elements) != 0)
 	{
@@ -1246,13 +1249,12 @@ static str CRKvectorized_x_@2_@1 (
 
 
 #ifdef NDEBUG
-	BUN lwc = (BUN) lowerWriteCursor;
-	BUN uwc = (BUN) upperWriteCursor;
-	BUN fl = (BUN) first_left;
-	BUN ll = (BUN) last_left;
-	BUN fr = (BUN) first_right;
-	BUN lr = (BUN) last_right;
-	BUN i_res = 0;
+	lwc = (BUN) lowerWriteCursor;
+	uwc = (BUN) upperWriteCursor;
+	fl = (BUN) first_left;
+	ll = (BUN) last_left;
+	fr = (BUN) first_right;
+	lr = (BUN) last_right;
 
 	assert(lwc >= fl);
 	assert(lwc <= lr + 1);
@@ -1271,13 +1273,14 @@ static str CRKvectorized_x_@2_@1 (
 		assert(lwc == uwc + 1);
 	}
 
-	/*for(i_res=first; i_res<=last; i_res++)
+	for(i_res=first_left; i_res<=last_right; i_res++)
 	{
-		assert((i_res<p && src_t[i_res] @7 pivot) || (i_res>=p && src_t[i_res] @8 pivot));
-		if(ml!=0 && mr!=0 && (i_res)==(first+ml-1))
-			i_res=last+1-mr;
-	}*/
+		assert((i_res<lowerWriteCursor && src_t[i_res] @7 pivot) || (i_res>=lowerWriteCursor && src_t[i_res] @8 pivot));
+		if(ml!=0 && mr!=0 && (i_res)==(first_left+ml-1))
+			i_res=last_right+1-mr;
+	}
 #endif
+	assert(lowerWriteCursor>=first_left && lowerWriteCursor<=last_right+1);
 
 	*pos_r = lowerWriteCursor;
 
@@ -1316,7 +1319,9 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
         int i, j;
 	oid *src_h = (oid*) Hloc(b, BUNfirst(b)), *tmp_h;
 	@1  *src_t = (@1 *) Tloc(b, BUNfirst(b)), *tmp_t;
-
+#ifdef NDEBUG
+        BUN i_res = 0;
+#endif
 	/* adjust nthreads */
 	if (nthreads == 0) {
 		/* automatic setting */
@@ -1466,8 +1471,8 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 				const BUN pi = c_Thread_arg[i].pos_r;
 				const BUN pj = c_Thread_arg[j].pos_r - sk;
 
-				assert((ml && mr && si <= ml+mr) || (!c_Thread_arg[i].ml && !c_Thread_arg[i].mr && si <= (c_Thread_arg[i].last - c_Thread_arg[i].first + 1)));
-                                assert((ml && mr && sj <= ml+mr) || (!c_Thread_arg[j].ml && !c_Thread_arg[j].mr && sj <= (c_Thread_arg[j].last - c_Thread_arg[j].first + 1)));
+				assert((ml || mr && si <= ml+mr) || (!c_Thread_arg[i].ml && !c_Thread_arg[i].mr && si <= (c_Thread_arg[i].last - c_Thread_arg[i].first + 1)));
+                                assert((ml || mr && sj <= ml+mr) || (!c_Thread_arg[j].ml && !c_Thread_arg[j].mr && sj <= (c_Thread_arg[j].last - c_Thread_arg[j].first + 1)));
 				memcpy(tmp_t, &src_t[pi], st);
                                 memcpy(&src_t[pi], &src_t[pj], st);
                                 memcpy(&src_t[pj], tmp_t, st);
@@ -1508,7 +1513,6 @@ static str CRKvectorized_MT_@2_@1 (const BAT *b, BUN first, BUN last, const @1 p
 	assert((f == first    && src_t[f]   @8 pivot) || src_t[f-1] @7 pivot);
 
 #ifdef NDEBUG
-	BUN i_res = 0;
         for(i_res = first; i_res <= last; i_res++)
                 assert((i_res < f && src_t[i_res] @7 pivot) || (i_res >= f && src_t[i_res] @8 pivot));
 #endif
