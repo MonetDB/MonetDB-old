@@ -542,6 +542,10 @@ CRKcrackUnorderedZero_@2_@1_STxxx ( const BAT *b, const @1 mval, const BUN first
 	BUN p = first, q = last, pp = p + ml - 1, qq = q + 1 - mr;
 	oid *src_h;
 	@1  *src_t;
+#ifdef NDEBUG
+        BUN i_res = 0;
+#endif
+
  #ifdef CRACK_MUTLI_THREAD_DEBUG
 	lng t_0, t_1;
 
@@ -655,8 +659,6 @@ CRKcrackUnorderedZero_@2_@1_STxxx ( const BAT *b, const @1 mval, const BUN first
 	assert(p == last + 1 || src_t[p] @8 mval);
 
 #ifdef NDEBUG
-	BUN i_res = 0;
-
 	for (q = first; q < p; q++) {
 		if (ml && mr && pp + 1 < qq && q == pp + 1) {
 			q = qq;
