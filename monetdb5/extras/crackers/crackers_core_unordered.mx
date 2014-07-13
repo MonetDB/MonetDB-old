@@ -158,6 +158,8 @@ str CRKcrackUnorderedThreeSideways_@3_@4_@1_str( BAT *b, @1 low, @1 hgh, oid fir
 #include<math.h>
 //#define CRACK_MUTLI_THREAD_DEBUG
 //#define NDEBUG
+//#define SDEBUG
+#define SCAN_BREAKDOWN
 
 /* argument struct for countThread & crackThread functions */
 typedef struct {
@@ -1628,6 +1630,18 @@ static str CRKscan_MT_@2_@1 (const BAT *b, BAT *ob, BUN first, BUN last, const @
 	pthread_t *s_Thread;      /* threads array */
         s_Thread_t *s_Thread_arg; /* thread arguments array */
         int i;
+#ifdef SCAN_BREAKDOWN
+        FILE *ofp;
+        char *outputFilename1 = "/scratch/petraki/experiments_sigmod_2014/parallel_scan_analysis/parallelscan_breakdown.txt";
+        struct timeval t0,t1;
+        double elapsedTimeScan,elapsedTimeMerge;
+        ofp = fopen(outputFilename1,"a");
+        if (ofp == NULL) {
+                fprintf(stderr, "Can't open output file!\n");
+                exit(1);
+        }
+        gettimeofday(&t0, NULL);
+#endif
 
 	/* adjust nthreads */
 	if (nthreads == 0) {
@@ -1685,7 +1699,12 @@ static str CRKscan_MT_@2_@1 (const BAT *b, BAT *ob, BUN first, BUN last, const @
 			throw (MAL, "crackers.select", "CRKscan_MT_@2_@1(): crackThread %d failed with '%s'.", i, s_Thread_arg[i].msg);
 		 }
 	}
-
+#ifdef SCAN_BREAKDOWN
+        gettimeofday(&t1, NULL);
+        elapsedTimeScan = (t1.tv_sec - t0.tv_sec) * 1000.0;      // sec to ms
+        elapsedTimeScan += (t1.tv_usec - t0.tv_usec) / 1000.0;
+        gettimeofday(&t0, NULL);
+#endif
 	/*merge phase*/
 	i=1;
 	while (i < nthreads) {
@@ -1693,8 +1712,15 @@ static str CRKscan_MT_@2_@1 (const BAT *b, BAT *ob, BUN first, BUN last, const @
 		BBPunfix(s_Thread_arg[i].ob->batCacheid);
 		i++;
 	}
+#ifdef SCAN_BREAKDOWN
+        gettimeofday(&t1, NULL);
+        elapsedTimeMerge = (t1.tv_sec - t0.tv_sec) * 1000.0;      // sec to ms
+        elapsedTimeMerge += (t1.tv_usec - t0.tv_usec) / 1000.0;
+        fprintf(ofp,"%lf\t%lf\n",elapsedTimeScan,elapsedTimeMerge);
+        fclose(ofp);
+#endif
 
-#ifdef NDEBUG
+#ifdef SDEBUG
 	@1  *src_t_b = (@1 *) Tloc(b, BUNfirst(b));
 	@1  *src_t_ob = (@1 *) Tloc(ob, BUNfirst(ob));
 	BUN readb=first, readob=0;
