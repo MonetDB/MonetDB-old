@@ -452,9 +452,9 @@ int convertDateTimeToTimeT(char *sDateTime, int len, time_t *t){
  * */
 
 int convertDateTimeToLong(char *sDateTime, long *t){
-	timestamp ts; 
+	timestamp *ts = NULL; 
 	//tzone *tz;
-	int len; 
+	int len, pos = 0; 
 	long encodeLng = 0; 
 	int positiveDate = 0;
 	int sign = 0;
@@ -472,33 +472,54 @@ int convertDateTimeToLong(char *sDateTime, long *t){
 			*p = '\0';
 	}
 
+	/* Old way of computation 
 	MTIMEtimestamp_fromstr(&ts, (const char* const*) &sDateTime);
-
+	
 	if (ts_isnil(ts) && len != 3){
 		printf("The %s is not a valid datetime string\n", sDateTime);	
 		return 0; 
+	}
+	*/
+	
+	//Same way as ql/backends/monet5/sql.c
+	
+	ts = (timestamp *) GDKmalloc(sizeof(timestamp)); 
+
+	if (!sDateTime || strcmp(str_nil, sDateTime) == 0) {
+		ts = timestamp_nil;
+		return 0;
+	}
+	pos = timestamp_fromstr((const char*) sDateTime, &len, &ts);
+	if (!pos){
+		printf("The %s is not a valid datetime string (pos = %d)\n", sDateTime, pos);	
+		return 0; 
+	}
+	if (ts_isnil(*ts) && len != 3){		//not a nil
+		printf("The %s is not a valid datetime string (pos = %d)\n", sDateTime, pos);
+		return 0;
 	}
 
 	//Encoding timestamp to long. 
 	//First 4 bits are not used, 5th bits for sign of number of days value 
 	//(1, if the number of days is negative)
 	//27 bits for days, 32 bits for msecs
-	if (ts.days < 0){
-		positiveDate = 0 - ts.days;
+	if (ts->days < 0){
+		positiveDate = 0 - ts->days;
 		sign = 1; 
 	} else {
-		positiveDate = ts.days;
+		positiveDate = ts->days;
 		sign = 0;
 	}
-
+	
 	encodeLng |= (long) positiveDate;
-	encodeLng = encodeLng << (sizeof(ts.msecs) * 8); //Move 32 bits
+	encodeLng = encodeLng << (sizeof(ts->msecs) * 8); //Move 32 bits
 	encodeLng |= (long)sign << (sizeof(long) * 8 - 5);	//Set the sign bit
-	encodeLng = encodeLng | (long) ts.msecs;	//Set 32 bits for msecs
+	encodeLng = encodeLng | (long) ts->msecs;	//Set 32 bits for msecs
 	
 	*t = encodeLng; 
 
-	//printf("Encode days %d and msecs %d to long %ld \n",ts.days, ts.msecs, *t);
+	//printf("Encode string %s with days %d and msecs %d to long %ld \n",sDateTime, ts->days, ts->msecs, *t);
+	if (ts) GDKfree(ts); 
 	
 	return 1;
 }
