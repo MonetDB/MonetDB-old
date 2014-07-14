@@ -112,7 +112,7 @@ typedef struct PropStat {
 			// for collecting the statistical information (For reporting/writing)
 #define GETSUBCS_FORALL 1 //Get subCS info for all CS, not only frequent one
 
-#define USE_ONTLABEL_FOR_NAME	0	// If the ontology label of a class is available, use it for the name
+#define USE_ONTLABEL_FOR_NAME	1	// If the ontology label of a class is available, use it for the name
 #define USE_LABEL_FINDING_MAXCS	0 	// Use the labels received from labeling process for finding maxCS 
 #define USE_LABEL_FOR_MERGING	1 	// Use the labels received from labeling process for finding mergeCS
 #define TOPK 1			//Check top 3 candidate
@@ -146,7 +146,7 @@ typedef struct PropStat {
 
 #define NOT_MERGE_DIMENSIONCS	1		/* Default: 1, 0: Is for example data */
 #define NOT_MERGE_DIMENSIONCS_IN_S1 0		/* Whether we should merge dimension CSs in S1 */
-#define	ONLY_MERGE_ONTOLOGYBASEDNAME_CS_S1 0	/* Only merge CS's whose name comes from an ontology class*/
+#define	ONLY_MERGE_ONTOLOGYBASEDNAME_CS_S1 1	/* Only merge CS's whose name comes from an ontology class*/
 #define	ONLY_MERGE_URINAME_CS_S1 0		/* Only merge CS's whose name is an URI */
 
 #define FILTER_INFREQ_FK_FOR_IR	1		/* We filter out all the dirty references from a CS */
