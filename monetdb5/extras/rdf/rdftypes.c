@@ -492,10 +492,12 @@ int convertDateTimeToLong(char *sDateTime, long *t){
 	pos = timestamp_fromstr((const char*) sDateTime, &len, &ts);
 	if (!pos){
 		printf("The %s is not a valid datetime string (pos = %d)\n", sDateTime, pos);	
+		if (ts) GDKfree(ts);
 		return 0; 
 	}
 	if (ts_isnil(*ts) && len != 3){		//not a nil
 		printf("The %s is not a valid datetime string (pos = %d)\n", sDateTime, pos);
+		if (ts) GDKfree(ts);	
 		return 0;
 	}
 
