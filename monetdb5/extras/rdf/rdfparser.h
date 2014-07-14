@@ -32,7 +32,7 @@
 
 #define CHECK_NUM_DBPONTOLOGY   0       /* Check how many rdf triples use dbpontology */
 #define BUILD_ONTOLOGIES_HISTO	0	/* Check how much percentage each ontology has in the dataset */
-#define CHECK_NUM_VALUES_PER_TYPE 1	/* default 0*/
+#define CHECK_NUM_VALUES_PER_TYPE 0	/* default 0*/
 
 typedef struct parserData {
 	                              /**PROPERTIES             */
