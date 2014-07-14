@@ -86,13 +86,14 @@ static oid RDF_hash_Tyleslist(char* types, int num){
 	return hashCode;
 }
 
+#endif /* if NEEDSUBCS */
+
 static void initCharArray(char* inputArr, int num, char defaultValue){
 	int i; 
 	for (i = 0; i < num; i++){
 		inputArr[i] = defaultValue;
 	}
 }
-#endif /* if NEEDSUBCS */
 /*
 static void printArray(oid* inputArr, int num){
 	int i; 
@@ -261,7 +262,7 @@ void addCStoSet(CSset *csSet, CS item)
 	void *_tmp; 
 	if(csSet->numCSadded == csSet->numAllocation) 
 	{ 
-		csSet->numAllocation += INIT_NUM_CS; 
+		csSet->numAllocation *= 2; 
 		
 		_tmp = realloc(csSet->items, (csSet->numAllocation * sizeof(CS)));
 	
@@ -343,7 +344,8 @@ void addReltoCSRel(oid origFreqIdx, oid refFreqIdx, oid propId, CSrel *csrel, ch
 	
 		if(csrel->numRef == csrel->numAllocation) 
 		{ 
-			csrel->numAllocation += INIT_NUM_CSREL; 
+			//csrel->numAllocation += INIT_NUM_CSREL; 
+			csrel->numAllocation = csrel->numAllocation * 2;
 			
 			_tmp = realloc(csrel->lstRefFreqIdx, (csrel->numAllocation * sizeof(oid)));
 			_tmp1 = realloc(csrel->lstPropId, (csrel->numAllocation * sizeof(oid)));
@@ -4093,7 +4095,7 @@ str mergeFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** on
 		tmpontClassPos = BUN_NONE; 
 		isOntName = isOntologyName(*name, &tmpontClassPos);
 		if (isOntName != 1 || tmpontClassPos == BUN_NONE){ 
-			printf("Name "BUNFMT" is not an ontology name \n", *name);
+			//printf("Name "BUNFMT" is not an ontology name \n", *name);
 			continue; 
 		}
 		#endif
