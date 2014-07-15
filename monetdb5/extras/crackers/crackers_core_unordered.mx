@@ -1595,7 +1595,6 @@ static str CRKscan_x_@2_@1 (
 	lng t0, t1;
 	BUN ReadCursor = first;
 	BUN WriteCursor = 0;
-	BUN  isLessThan;
 	@1  *src_t = (@1 *) Tloc(buffer, BUNfirst(buffer));
 	@1  *src_t_output = (@1 *) Tloc(outputbuffer, BUNfirst(outputbuffer));
 
@@ -1604,8 +1603,7 @@ static str CRKscan_x_@2_@1 (
 	t0 = GDKusec();
 	for (ReadCursor = first; ReadCursor <= last; ReadCursor++){
 		src_t_output[WriteCursor] = src_t[ReadCursor];
-		isLessThan = (src_t[ReadCursor] @7 pivot);
-		WriteCursor += isLessThan;
+		WriteCursor += (src_t[ReadCursor] @7 pivot);
 	}
 	t1 = GDKusec();
 	*ta = (t1 - t0) / 1000.0;

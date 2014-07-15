@@ -1145,11 +1145,13 @@ CRKRangeParallelScan_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, int nthr
 	ob = BATnew(TYPE_void, b->ttype,BATcount(b));
 	assert(ob);
 
-	if (*inclusiveHgh == TRUE)
-		CRKparallelscan_LE_@1(b, ob, *hgh, (BUN) 0, BATcount(b)-1, nthreads);
-	else
-		CRKparallelscan_RE_@1(b, ob, *hgh, (BUN) 0, BATcount(b)-1, nthreads);
-
+	if(BATcount(b) > 0)
+	{
+		if (*inclusiveHgh == TRUE)
+			CRKparallelscan_LE_@1(b, ob, *hgh, (BUN) 0, BATcount(b)-1, nthreads);
+		else
+			CRKparallelscan_RE_@1(b, ob, *hgh, (BUN) 0, BATcount(b)-1, nthreads);
+	}
 
 	BBPunfix(b->batCacheid);
 
