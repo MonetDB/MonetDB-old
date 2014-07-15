@@ -201,8 +201,11 @@ getObjectType_and_Value(unsigned char* objStr, ValPtr vrPtrRealValue){
 	long	realLng; 
 
 	len = strlen((str)objStr);
-
-	if (len > 20){
+	if (len > 100 || len <= 20){
+		//String is too long for any kind of data or there is no XMLschema
+		obType = STRING; 
+	}
+	else{ //(len > 20)
 		endpart = objStr + (len - 19);   /* XMLSchema#dateTime> */
 		/* printf("Original: %s  --> substring: %s \n", (str)objStr, (str)endpart); */
 
@@ -265,8 +268,6 @@ getObjectType_and_Value(unsigned char* objStr, ValPtr vrPtrRealValue){
 			/* printf("%s: String \n", objStr); */
 		}
 	}
-	else	// There is no XMLschema
-		obType = STRING; 
 
 	return obType; 
 }
