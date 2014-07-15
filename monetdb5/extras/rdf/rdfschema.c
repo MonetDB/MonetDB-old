@@ -6170,15 +6170,14 @@ str RDFgetRefCounts(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid
 
 #if NEEDSUBCS
 static 
-str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,  
+str RDFrelationships(int *ret, BAT *sbat, BAT *pbat, BAT *obat, 
 		oid *subjCSMap, oid *subjSubCSMap, SubCSSet *csSubCSSet, CSrel *csrelSet, BUN maxSoid, int maxNumPwithDup,int *csIdFreqIdxMap){
 #else
 static
-str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
+str RDFrelationships(int *ret, BAT *sbat, BAT *pbat, BAT *obat,
 		oid *subjCSMap, CSrel *csrelSet, BUN maxSoid, int maxNumPwithDup,int *csIdFreqIdxMap){
 #endif	
-	BUN	 	p, q; 
-	oid 		*sbt = 0, *obt, *pbt;
+	oid 		sbt = 0, obt, pbt;
 	oid 		curS; 		/* current Subject oid */
 	//oid 		CSoid = 0; 	/* Characteristic set oid */
 	int 		numPwithDup;	/* Number of properties for current S */
@@ -6191,8 +6190,9 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 	char 		isBlankNode; 
 	oid		curP;
 	int		from, to; 
-
-
+	
+	oid		*sbatCursor = NULL, *pbatCursor = NULL, *obatCursor = NULL; 
+	int		p, first, last;
 
 	if (BATcount(sbat) == 0) {
 		throw(RDF, "rdf.RDFrelationships", "sbat must not be empty");
@@ -6206,13 +6206,20 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 	curS = 0; 
 	curP = BUN_NONE; 
 
-	BATloop(sbat, p, q){
-		sbt = (oid *) BUNtloc(si, p);		
-		from = csIdFreqIdxMap[subjCSMap[*sbt]];
+	sbatCursor = (oid *) Tloc(sbat, BUNfirst(sbat));
+	pbatCursor = (oid *) Tloc(pbat, BUNfirst(pbat));
+	obatCursor = (oid *) Tloc(obat, BUNfirst(obat));
+
+	first = 0; 
+	last = BATcount(sbat) -1; 
+	
+	for (p = first; p <= last; p++){
+		sbt = sbatCursor[p];		
+		from = csIdFreqIdxMap[subjCSMap[sbt]];
 		#if GETSUBCS_FORALL == 0
 		if ( from == -1) continue; /* Do not consider infrequentCS */
 		#endif
-		if (*sbt != curS){
+		if (sbt != curS){
 			#if NEEDSUBCS
 			if (p != 0){	/* Not the first S */
 				returnSubCSid = addSubCS(buffTypes, numPwithDup, subjCSMap[curS], csSubCSSet);
@@ -6222,32 +6229,32 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 
 			}
 			#endif
-			curS = *sbt; 
+			curS = sbt; 
 			numPwithDup = 0;
 			curP = BUN_NONE; 
 		}
 				
-		pbt = (oid *) BUNtloc(pi, p);
+		pbt = pbatCursor[p];
 
-		obt = (oid *) BUNtloc(oi, p); 
+		obt = obatCursor[p]; 
 		/* Check type of object */
-		objType = getObjType(*obt);
+		objType = getObjType(obt);
 
 		/* Look at the referenced CS Id using subjCSMap */
 		isBlankNode = 0;
 		//if (objType == URI || objType == BLANKNODE){
 		if ((objType == URI || objType == BLANKNODE) && from != -1){
-			realObjOid = (*obt) - ((oid) objType << (sizeof(BUN)*8 - 4));
+			realObjOid = (obt) - ((oid) objType << (sizeof(BUN)*8 - 4));
 
 			/* Only consider references to freqCS */	
 			if (realObjOid <= maxSoid && subjCSMap[realObjOid] != BUN_NONE && csIdFreqIdxMap[subjCSMap[realObjOid]] != -1){
 				to = csIdFreqIdxMap[subjCSMap[realObjOid]];
 				if (objType == BLANKNODE) isBlankNode = 1;
-				addReltoCSRel(from, to, *pbt, &csrelSet[from], isBlankNode);
+				addReltoCSRel(from, to, pbt, &csrelSet[from], isBlankNode);
 			}
 		}
 
-		if (curP == *pbt){
+		if (curP == pbt){
 			#if USE_MULTIPLICITY == 1	
 			// Update the object type for this P as MULTIVALUES	
 			buffTypes[numPwithDup-1] = MULTIVALUES; 
@@ -6259,14 +6266,14 @@ str RDFrelationships(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,
 		else{			
 			buffTypes[numPwithDup] = objType; 
 			numPwithDup++; 
-			curP = *pbt; 
+			curP = pbt; 
 		}
 	}
 	
 	#if NEEDSUBCS
 	/* Check for the last CS */
-	returnSubCSid = addSubCS(buffTypes, numPwithDup, subjCSMap[*sbt], csSubCSSet);
-	subjSubCSMap[*sbt] = returnSubCSid; 
+	returnSubCSid = addSubCS(buffTypes, numPwithDup, subjCSMap[sbt], csSubCSSet);
+	subjSubCSMap[sbt] = returnSubCSid; 
 	#endif
 
 	free (buffTypes); 
@@ -6356,11 +6363,10 @@ str addHighRefCSsToFreqCS(BAT *pOffsetBat, BAT *freqBat, BAT *coverageBat, BAT *
 
 
 static 
-str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi,  
+str RDFExtractCSPropTypes(int *ret, BAT *sbat, BAT *pbat, BAT *obat,  
 		oid *subjCSMap, int* csTblIdxMapping, CSPropTypes* csPropTypes, int maxNumPwithDup){
 
-	BUN	 	p, q; 
-	oid 		*sbt = 0, *obt, *pbt;
+	oid 		sbt , obt, pbt;
 	oid 		curS; 		/* current Subject oid */
 	//oid 		CSoid = 0; 	/* Characteristic set oid */
 	int 		numPwithDup;	/* Number of properties for current S */
@@ -6370,7 +6376,10 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 	int		**buffTypesCoverMV; /*Store the types of each value in a multi-value prop */		
 	oid*		buffP;
 	oid		curP; 
-	int 		i;
+	int 		i, p;
+
+	oid		*sbatCursor = NULL, *pbatCursor = NULL, *obatCursor = NULL; 
+	int		first, last;
 
 	buffTypes = (char *) malloc(sizeof(char) * (maxNumPwithDup + 1)); 
 	buffTypesCoverMV = (int **)malloc(sizeof(int*) * (maxNumPwithDup + 1));
@@ -6384,28 +6393,36 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 	curS = 0; 
 	curP = BUN_NONE; 
 
-	BATloop(sbat, p, q){
-		sbt = (oid *) BUNtloc(si, p);		
-		if (*sbt != curS){
+	sbatCursor = (oid *) Tloc(sbat, BUNfirst(sbat));
+	pbatCursor = (oid *) Tloc(pbat, BUNfirst(pbat));
+	obatCursor = (oid *) Tloc(obat, BUNfirst(obat));
+
+	first = 0; 
+	last = BATcount(sbat) -1; 
+	
+	for (p = first; p <= last; p++){
+		sbt = sbatCursor[p];
+		
+		if (sbt != curS){
 			if (p != 0){	/* Not the first S */
 				addPropTypes(buffTypes, buffP, numPwithDup, buffCoverage, buffTypesCoverMV, subjCSMap[curS], csTblIdxMapping, csPropTypes);
 			}
-			curS = *sbt; 
+			curS = sbt; 
 			numPwithDup = 0;
 			curP = BUN_NONE; 
 		}
 				
-		obt = (oid *) BUNtloc(oi, p); 
+		obt = obatCursor[p];
 		/* Check type of object */
-		objType = getObjType(*obt);	/* Get two bits 63th, 62nd from object oid */
+		objType = getObjType(obt);	/* Get two bits 63th, 62nd from object oid */
 		
 		if (objType == BLANKNODE){	//BLANKNODE object values will be stored in the same column with URI object values	
 			objType = URI; 
 		}
 
-		pbt = (oid *) BUNtloc(pi, p);
+		pbt = pbatCursor[p];
 
-		if (curP == *pbt){
+		if (curP == pbt){
 			#if USE_MULTIPLICITY == 1	
 			// Update the object type for this P as MULTIVALUES	
 			buffTypes[numPwithDup-1] = MULTIVALUES; 
@@ -6422,10 +6439,10 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter o
 			}
 			buffTypesCoverMV[numPwithDup][(int)objType] = 1;
 			buffTypes[numPwithDup] = objType; 
-			buffP[numPwithDup] = *pbt;
+			buffP[numPwithDup] = pbt;
 			buffCoverage[numPwithDup] = 1; 
 			numPwithDup++; 
-			curP = *pbt; 
+			curP = pbt; 
 		}
 
 
@@ -9167,9 +9184,9 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	csSubCSSet = initCS_SubCSSets(*maxCSoid +1); 
 
-	RDFrelationships(ret, sbat, si, pi, oi, *subjCSMap, subjSubCSMap, csSubCSSet, csrelSet, *maxSoid, *maxNumPwithDup, csIdFreqIdxMap);
+	RDFrelationships(ret, sbat, pbat, obat, *subjCSMap, subjSubCSMap, csSubCSSet, csrelSet, *maxSoid, *maxNumPwithDup, csIdFreqIdxMap);
 	#else
-	RDFrelationships(ret, sbat, si, pi, oi, *subjCSMap, csrelSet, *maxSoid, *maxNumPwithDup, csIdFreqIdxMap);
+	RDFrelationships(ret, sbat, pbat, obat, *subjCSMap, csrelSet, *maxSoid, *maxNumPwithDup, csIdFreqIdxMap);
 	#endif
 
 	curT = clock(); 
@@ -9202,7 +9219,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	initCSPropTypesForBasicFreqCS(csPropTypes, freqCSset, freqCSset->numCSadded);
 	
 	printf("Extract CSPropTypes from basic CS's \n");
-	RDFExtractCSPropTypes(ret, sbat, si, pi, oi, *subjCSMap, csIdFreqIdxMap, csPropTypes, *maxNumPwithDup);
+	RDFExtractCSPropTypes(ret, sbat, pbat, obat, *subjCSMap, csIdFreqIdxMap, csPropTypes, *maxNumPwithDup);
 	printNumTypePerProp(csPropTypes, freqCSset->numCSadded, freqCSset);
 
 	freeCSPropTypes(csPropTypes, freqCSset->numCSadded);
@@ -10851,7 +10868,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	initCSPropTypes(csPropTypes, freqCSset, numTables, labels);
 	
 	printf("Extract CSPropTypes \n");
-	RDFExtractCSPropTypes(ret, sbat, si, pi, oi, subjCSMap, csTblIdxMapping, csPropTypes, maxNumPwithDup);
+	RDFExtractCSPropTypes(ret, sbat, pbat, obat,  subjCSMap, csTblIdxMapping, csPropTypes, maxNumPwithDup);
 	genCSPropTypesColIdx(csPropTypes, numTables, freqCSset);
 
 	#if NO_OUTPUTFILE == 0
