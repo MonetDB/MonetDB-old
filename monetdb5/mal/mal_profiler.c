@@ -1357,10 +1357,10 @@ void HeartbeatCPUload(void *arg)
 	float load;
 	int n=0;  /*number of idle cores*/
 	double N=0;  /*number of busy cores*/
-	//FILE *ofp;
-       //char *outputFilename1 = "/scratch/petraki/experiments/motivation/time_workers/time.txt";
-       //struct timeval t0,t1;
-       //double elapsedTime;
+	FILE *ofp;
+        char *outputFilename1 = "/scratch/petraki/experiments_sigmod_2014/vectorized_parallel_cracking_analysis/threads_vectorsize/columns_10/holistic/time.txt";
+        struct timeval t0,t1;
+        double elapsedTime;
 	void (*IdleFunc)(void *) = arg;
 
 
@@ -1372,35 +1372,49 @@ void HeartbeatCPUload(void *arg)
 		threshold = atoi(p);
 		max_threads=atoi(cores);
 	}
-	/*ofp = fopen(outputFilename1,"a");
+	ofp = fopen(outputFilename1,"a");
         if (ofp == NULL) {
-                fprintf(stderr, "Can't open output file!\n");
+                fprintf(stderr, "Can't open output file time.txt!\n");
                 exit(1);
-        }*/
+        }
 
 	if (max_threads > 0){
 		while(1){
 			(void) getCPULoad(cpuload);
 			load = corestat[256].load;
 			if ( load >= 0 && load <= 100.0 && load <= threshold){
-				N = (int) (load * max_threads) / 100.0;
-				n = max_threads - N;
-                                if(n>0)
-                                {
+				//N = (int) (load * max_threads) / 100.0;
+				//n = max_threads - N;
+                                //if(n>0)
+                                //{
                                         //gettimeofday(&t0, NULL);
-                                        MRschedule(n, NULL, IdleFunc);
+                                        //MRschedule(n, NULL, IdleFunc);
                                         //gettimeofday(&t1, NULL);
                                         //elapsedTime = (t1.tv_sec - t0.tv_sec) * 1000.0;      // sec to ms
                                         //elapsedTime += (t1.tv_usec - t0.tv_usec) / 1000.0;
                                         //fprintf(ofp,"%lf %d\n",elapsedTime,n);
-                                }
+                                //}
 				/*following 5 lines: experiment multicore_cracking*/
-				//N = (int) (load * 32) / 100.0;
-				//n = 32 - N; 
-				//if(n>0 && max_threads<n && max_threads-1>0)
-				//      MRschedule(max_threads-1, NULL, IdleFunc);
-			        //else if (n>0 && max_threads>=n)
-	                        //      MRschedule(n, NULL, IdleFunc);
+				N = (int) (load * 32) / 100.0;
+				n = 32 - N; 
+				if(n>0 && max_threads<n && max_threads-1>0)
+				{
+					gettimeofday(&t0, NULL);
+				        MRschedule(max_threads-1, NULL, IdleFunc);
+                                	gettimeofday(&t1, NULL);
+                                	elapsedTime = (t1.tv_sec - t0.tv_sec) * 1000.0;      // sec to ms
+                                	elapsedTime += (t1.tv_usec - t0.tv_usec) / 1000.0;
+                                	fprintf(ofp,"%lf %d\n",elapsedTime,max_threads-1);
+				}
+			        else if (n>0 && max_threads>=n)
+				{
+					gettimeofday(&t0, NULL);
+	                                MRschedule(n, NULL, IdleFunc);
+					gettimeofday(&t1, NULL);
+                                	elapsedTime = (t1.tv_sec - t0.tv_sec) * 1000.0;      // sec to ms
+                                	elapsedTime += (t1.tv_usec - t0.tv_usec) / 1000.0;
+ 					fprintf(ofp,"%lf %d\n",elapsedTime,n);
+				}
 
 				(void) getCPULoad(cpuload);
 				MT_sleep_ms(1000);
