@@ -185,6 +185,8 @@ typedef struct {
 	BUN first;         /* offset of first value in slice */
 	BUN last;          /* offset of last value in slice */
 	const char *msg;   /* error message */
+	double ta;
+	double tb;
 } s_Thread_t;
 
 typedef struct {
@@ -1126,7 +1128,7 @@ static str CRKvectorized_x_@2_@1 (
 	oid *src_h_local = (oid*) GDKmalloc(vector_elements * 3 * sizeof(oid));
 	@1  *src_t_local = (@1 *) GDKmalloc(vector_elements * 3 * sizeof(@1));
 #ifdef NDEBUG
-        BUN lwc, uwc, fl, ll, fr, lr, i_res=0;
+        BUN lwc, uwc, ll, fr, i_res=0;
 #endif
 
 	assert(buffer && src_h_local && src_t_local);
@@ -1253,18 +1255,18 @@ static str CRKvectorized_x_@2_@1 (
 #ifdef NDEBUG
 	lwc = (BUN) lowerWriteCursor;
 	uwc = (BUN) upperWriteCursor;
-	fl = (BUN) first_left;
+	//fl = (BUN) first_left;
 	ll = (BUN) last_left;
 	fr = (BUN) first_right;
-	lr = (BUN) last_right;
+	//lr = (BUN) last_right;
 
-	assert(lwc >= fl);
-	assert(lwc <= lr + 1);
-	assert((fl == 0 && uwc >= fl) || (fl !=0 && uwc >= fl - 1));
-	assert(uwc <= lr);
+	assert(lwc >= first_left);
+	assert(lwc <= last_right + 1);
+	assert((first_left == 0 && uwc >= first_left) || (first_left !=0 && uwc >= first_left - 1));
+	assert(uwc <= last_right);
 	assert(lwc > uwc);
-	assert(uwc == fl - 1 || src_t[uwc] @7  pivot);
-	assert(lwc == lr + 1 || src_t[lwc] @8 pivot);
+	assert(uwc == first_left - 1 || src_t[uwc] @7  pivot);
+	assert(lwc == last_right + 1 || src_t[lwc] @8 pivot);
 	if (ml && mr && ll + 1 < fr) {
 		if (lwc <= ll || uwc >= fr) {
 			assert(lwc == uwc + 1);
@@ -1587,8 +1589,10 @@ static str CRKscan_x_@2_@1 (
 	BAT* outputbuffer, /*output (array)*/
 	const @1 pivot, /* pivot value for attribute*/
 	BUN first,  /* first position of to-be-cracked piece */
-	BUN last  /* last position of to-be-cracked piece */
+	BUN last,  /* last position of to-be-cracked piece */
+	double *ta
 ) {
+	lng t0, t1;
 	BUN ReadCursor = first;
 	BUN WriteCursor = 0;
 	BUN  isLessThan;
@@ -1597,11 +1601,14 @@ static str CRKscan_x_@2_@1 (
 
 	assert(buffer && outputbuffer && src_t && src_t_output);
 
+	t0 = GDKusec();
 	for (ReadCursor = first; ReadCursor <= last; ReadCursor++){
 		src_t_output[WriteCursor] = src_t[ReadCursor];
 		isLessThan = (src_t[ReadCursor] @7 pivot);
 		WriteCursor += isLessThan;
 	}
+	t1 = GDKusec();
+	*ta = (t1 - t0) / 1000.0;
 
 	assert(WriteCursor <= last-first+1);
 
@@ -1619,11 +1626,17 @@ static str CRKscan_x_@2_@1 (
 static void*
 scan_MT_crackThread_@2_@1 ( void *arg_p )
 {
+	lng t0, t1;
+	double ta;
 	s_Thread_t *arg = (s_Thread_t*) arg_p;
 	@1 mval = * (@1*) arg->mval;
 	
+	t0 = GDKusec();
 	/* call actual cracking routine for this slice */
-	arg->msg = CRKscan_x_@2_@1 ( arg->b, arg->ob, mval, arg->first, arg->last);
+	arg->msg = CRKscan_x_@2_@1 ( arg->b, arg->ob, mval, arg->first, arg->last, &ta);
+	t1 = GDKusec();
+	arg->tb = (t1 - t0) / 1000.0;
+	arg->ta = ta;
 
 	pthread_exit(NULL);
 	return NULL;
@@ -1638,15 +1651,15 @@ static str CRKscan_MT_@2_@1 (const BAT *b, BAT *ob, BUN first, BUN last, const @
         int i;
 #ifdef SCAN_BREAKDOWN
         FILE *ofp;
-        char *outputFilename1 = "/scratch/petraki/experiments_sigmod_2014/parallel_scan_analysis/parallelscan_breakdown.txt";
-        struct timeval t0,t1;
+        char *outputFilename1 = "/export/scratch2/petraki/experiments_sigmod_2014/parallel_scan_analysis/parallelscan_breakdown.txt";
+        lng t0, t1;
         double elapsedTimeScan,elapsedTimeMerge;
         ofp = fopen(outputFilename1,"a");
         if (ofp == NULL) {
                 fprintf(stderr, "Can't open output file!\n");
                 exit(1);
         }
-        gettimeofday(&t0, NULL);
+        t0 = GDKusec();
 #endif
 
 	/* adjust nthreads */
@@ -1706,10 +1719,9 @@ static str CRKscan_MT_@2_@1 (const BAT *b, BAT *ob, BUN first, BUN last, const @
 		 }
 	}
 #ifdef SCAN_BREAKDOWN
-        gettimeofday(&t1, NULL);
-        elapsedTimeScan = (t1.tv_sec - t0.tv_sec) * 1000.0;      // sec to ms
-        elapsedTimeScan += (t1.tv_usec - t0.tv_usec) / 1000.0;
-        gettimeofday(&t0, NULL);
+        t1 = GDKusec();
+        elapsedTimeScan = (t1 - t0) / 1000.0;      // usec to ms
+        t0 = GDKusec();
 #endif
 	/*merge phase*/
 	i=1;
@@ -1719,10 +1731,9 @@ static str CRKscan_MT_@2_@1 (const BAT *b, BAT *ob, BUN first, BUN last, const @
 		i++;
 	}
 #ifdef SCAN_BREAKDOWN
-        gettimeofday(&t1, NULL);
-        elapsedTimeMerge = (t1.tv_sec - t0.tv_sec) * 1000.0;      // sec to ms
-        elapsedTimeMerge += (t1.tv_usec - t0.tv_usec) / 1000.0;
-        fprintf(ofp,"%lf\t%lf\n",elapsedTimeScan,elapsedTimeMerge);
+        t1 = GDKusec();
+        elapsedTimeMerge = (t1 - t0) / 1000.0;      // usec to ms
+        fprintf(ofp,"%lf\t%lf\t"BUNFMT"\t"BUNFMT"\t%lf\t%lf\n",elapsedTimeScan,elapsedTimeMerge,BATcount(b),BATcount(ob),s_Thread_arg[0].ta,s_Thread_arg[0].tb);
         fclose(ofp);
 #endif
 
