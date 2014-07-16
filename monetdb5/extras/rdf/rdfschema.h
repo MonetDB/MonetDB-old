@@ -329,6 +329,25 @@ typedef struct CSrel{
 	int  	numAllocation; 
 } CSrel;
 
+#define NUMTHEAD_CSREL	4
+typedef struct csRelThreadArg {
+	int	tid; 
+	int	first; 
+	int 	last; 
+	BAT   	*sbat;
+	BAT 	*pbat; 
+	BAT 	*obat;
+	oid 	*subjCSMap; 
+	#if NEEDSUBCS	
+	oid 	*subjSubCSMap;
+	SubCSSet *csSubCSSet;
+	#endif
+	CSrel 	*csrelSet;
+	BUN 	maxSoid;	
+	int 	maxNumPwithDup;
+	int 	*csIdFreqIdxMap;
+} csRelThreadArg; 
+
 typedef struct CSrelSum{
 	oid     origFreqIdx;
 	int	numProp;		

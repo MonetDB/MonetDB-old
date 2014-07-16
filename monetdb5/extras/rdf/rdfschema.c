@@ -6168,18 +6168,21 @@ str RDFgetRefCounts(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, oid
 	return MAL_SUCCEED; 
 }
 
+
+pthread_mutex_t lock;
+
 #if NEEDSUBCS
 static 
-str RDFrelationships(int *ret, BAT *sbat, BAT *pbat, BAT *obat, 
+str addRels_from_a_partition(int first, int last, BAT *sbat, BAT *pbat, BAT *obat, 
 		oid *subjCSMap, oid *subjSubCSMap, SubCSSet *csSubCSSet, CSrel *csrelSet, BUN maxSoid, int maxNumPwithDup,int *csIdFreqIdxMap){
 #else
 static
-str RDFrelationships(int *ret, BAT *sbat, BAT *pbat, BAT *obat,
+str addRels_from_a_partition(int first, int last, BAT *sbat, BAT *pbat, BAT *obat,
 		oid *subjCSMap, CSrel *csrelSet, BUN maxSoid, int maxNumPwithDup,int *csIdFreqIdxMap){
 #endif	
+	
 	oid 		sbt = 0, obt, pbt;
 	oid 		curS; 		/* current Subject oid */
-	//oid 		CSoid = 0; 	/* Characteristic set oid */
 	int 		numPwithDup;	/* Number of properties for current S */
 	ObjectType	objType;
 	#if NEEDSUBCS
@@ -6192,13 +6195,8 @@ str RDFrelationships(int *ret, BAT *sbat, BAT *pbat, BAT *obat,
 	int		from, to; 
 	
 	oid		*sbatCursor = NULL, *pbatCursor = NULL, *obatCursor = NULL; 
-	int		p, first, last;
+	int		p;
 
-	if (BATcount(sbat) == 0) {
-		throw(RDF, "rdf.RDFrelationships", "sbat must not be empty");
-		/* otherwise, variable sbt is not initialized and thus
-		 * cannot be dereferenced after the BATloop below */
-	}
 
 	buffTypes = (char *) malloc(sizeof(char) * (maxNumPwithDup + 1)); 
 
@@ -6210,9 +6208,7 @@ str RDFrelationships(int *ret, BAT *sbat, BAT *pbat, BAT *obat,
 	pbatCursor = (oid *) Tloc(pbat, BUNfirst(pbat));
 	obatCursor = (oid *) Tloc(obat, BUNfirst(obat));
 
-	first = 0; 
-	last = BATcount(sbat) -1; 
-	
+
 	for (p = first; p <= last; p++){
 		sbt = sbatCursor[p];		
 		from = csIdFreqIdxMap[subjCSMap[sbt]];
@@ -6250,7 +6246,10 @@ str RDFrelationships(int *ret, BAT *sbat, BAT *pbat, BAT *obat,
 			if (realObjOid <= maxSoid && subjCSMap[realObjOid] != BUN_NONE && csIdFreqIdxMap[subjCSMap[realObjOid]] != -1){
 				to = csIdFreqIdxMap[subjCSMap[realObjOid]];
 				if (objType == BLANKNODE) isBlankNode = 1;
+
+				pthread_mutex_lock(&lock);
 				addReltoCSRel(from, to, pbt, &csrelSet[from], isBlankNode);
+				pthread_mutex_unlock(&lock);
 			}
 		}
 
@@ -6277,6 +6276,113 @@ str RDFrelationships(int *ret, BAT *sbat, BAT *pbat, BAT *obat,
 	#endif
 
 	free (buffTypes); 
+
+	return MAL_SUCCEED; 
+}
+
+static void*
+addRels_Thread(void *arg_p){
+	
+	csRelThreadArg *arg = (csRelThreadArg*) arg_p;
+	
+	printf("Start thread %d \n", arg->tid);
+
+	#if NEEDSUBCS
+	addRels_from_a_partition(arg->first, arg->last, arg->sbat, arg->pbat, arg->obat, arg->subjCSMap, arg->subjSubCSMap, arg->csSubCSSet, arg->csrelSet, arg->maxSoid, arg->maxNumPwithDup, arg->csIdFreqIdxMap);
+	#else
+	addRels_from_a_partition(arg->first, arg->last, arg->sbat, arg->pbat, arg->obat, arg->subjCSMap, arg->csrelSet, arg->maxSoid, arg->maxNumPwithDup, arg->csIdFreqIdxMap);
+	#endif
+
+	pthread_exit(NULL);
+}
+
+#if NEEDSUBCS
+static 
+str RDFrelationships(int *ret, BAT *sbat, BAT *pbat, BAT *obat, 
+		oid *subjCSMap, oid *subjSubCSMap, SubCSSet *csSubCSSet, CSrel *csrelSet, BUN maxSoid, int maxNumPwithDup,int *csIdFreqIdxMap){
+#else
+static
+str RDFrelationships(int *ret, BAT *sbat, BAT *pbat, BAT *obat,
+		oid *subjCSMap, CSrel *csrelSet, BUN maxSoid, int maxNumPwithDup,int *csIdFreqIdxMap){
+#endif	
+	
+	int 		i, first, last; 
+	oid 		*sbatCursor = NULL; 
+	csRelThreadArg 	*threadArgs = NULL;
+	pthread_t 	*threads = NULL; 
+	int 		nthreads = NUMTHEAD_CSREL;
+	int		ntp = 0; 	//Number of triples per partition
+	int		tmplast =0; 
+
+	
+	if (pthread_mutex_init(&lock, NULL) != 0)
+	{
+		throw (MAL, "rdf.RDFrelationships", "Failed to create threads mutex");
+	}
+
+	if (BATcount(sbat) == 0) {
+		throw(RDF, "rdf.RDFrelationships", "sbat must not be empty");
+		/* otherwise, variable sbt is not initialized and thus
+		 * cannot be dereferenced after the BATloop below */
+	}
+
+	first = 0; 
+	last = BATcount(sbat) -1; 
+	ntp = (last + 1)/nthreads;
+	
+	printf("Number of triples per partition %d\n", ntp);
+
+	sbatCursor = (oid *) Tloc(sbat, BUNfirst(sbat)); 
+	threadArgs = (csRelThreadArg *) GDKmalloc(sizeof(csRelThreadArg) * nthreads);
+	threads = (pthread_t *) GDKmalloc(sizeof(pthread_t) * nthreads);
+	
+	for (i = 0; i < nthreads; i++){
+		threadArgs[i].tid = i; 
+		threadArgs[i].first = (i == 0) ? first:(threadArgs[i-1].last + 1);
+		tmplast = (i == (nthreads - 1))?last: (ntp * (i + 1));
+		//Go to all the triples of the current subjects
+		while ((i < (nthreads - 1)) 
+			&& (sbatCursor[tmplast] == sbatCursor[tmplast+1])){
+			tmplast++;
+		}
+		threadArgs[i].last = tmplast;
+
+		threadArgs[i].sbat = sbat;
+		threadArgs[i].pbat = pbat;
+		threadArgs[i].obat = obat;
+		threadArgs[i].subjCSMap = subjCSMap;
+		#if NEEDSUBCS
+		threadArgs[i].subjSubCSMap = subjSubCSMap;
+		threadArgs[i].csSubCSSet = csSubCSSet;
+		#endif
+		threadArgs[i].csrelSet = csrelSet;
+		threadArgs[i].maxSoid = maxSoid;
+		threadArgs[i].maxNumPwithDup = maxNumPwithDup;
+		threadArgs[i].csIdFreqIdxMap = csIdFreqIdxMap;
+			
+	}
+
+	//addRels_from_a_partition(first, last, sbat, pbat, obat, subjCSMap, csrelSet, maxSoid, maxNumPwithDup, csIdFreqIdxMap);
+	
+	for (i = 0; i < nthreads; i++) {
+		 if (pthread_create(&threads[i], NULL, addRels_Thread, &threadArgs[i])) {
+			GDKfree(threadArgs);
+			GDKfree(threads);
+			throw (MAL, "rdf.RDFrelationships", "Failed to creat threads %d",i);
+		 }
+	}
+
+	for (i = 0; i < nthreads; i++) {
+		if (pthread_join(threads[i], NULL)) {
+			GDKfree(threadArgs);
+			GDKfree(threads);
+			throw (MAL, "rdf.RDFrelationships", "Failed to join threads %d",i);
+		}
+	}
+	
+	pthread_mutex_destroy(&lock);
+	GDKfree(threadArgs);
+	GDKfree(threads);
 
 	*ret = 1; 
 
