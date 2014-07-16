@@ -332,6 +332,7 @@ typedef struct CSrel{
 #define NUMTHEAD_CSREL	4
 typedef struct csRelThreadArg {
 	int	tid; 
+	int	nthreads; 
 	int	first; 
 	int 	last; 
 	BAT   	*sbat;
