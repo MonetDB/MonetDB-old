@@ -5556,16 +5556,11 @@ void getBestRdfTypeValue(oid *buff, int numP, oid *rdftypeOntologyValues, char *
 #endif
 
 
-#if STOREFULLCS
 static 
-str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi, BAT *ontbat, CSset *freqCSset, int *freqThreshold, CSBats* csBats, oid *subjCSMap, oid *maxCSoid, int *maxNumProp, int *maxNumPwithDup){
-#else
-static 
-str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSset *freqCSset, int *freqThreshold, CSBats* csBats, oid *subjCSMap, oid *maxCSoid, int *maxNumProp, int *maxNumPwithDup){
-#endif
+str RDFassignCSId(int *ret, BAT *sbat, BAT *pbat, BAT *obat, BAT *ontbat, CSset *freqCSset, int *freqThreshold, CSBats* csBats, oid *subjCSMap, oid *maxCSoid, int *maxNumProp, int *maxNumPwithDup){
 
-	BUN 	p, q; 
-	oid 	*sbt, *pbt; 
+	int 	p; 
+	oid 	sbt, pbt; 
 	oid 	curS; 		/* current Subject oid */
 	oid 	curP; 		/* current Property oid */
 	oid 	CSoid = 0; 	/* Characteristic set oid */
@@ -5575,9 +5570,9 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 	oid*	_tmp;
 	int 	INIT_PROPERTY_NUM = 100; 
 	oid 	returnCSid; 
+	oid	obt; 
 
 	#if STOREFULLCS
-	oid	*obt; 
 	oid* 	buffObjs;
 	oid* 	_tmpObjs; 
 	#endif
@@ -5605,6 +5600,10 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 	
 	PropStat *fullPropStat; 	
 	BAT	*typeBat;	//BAT contains oids of type attributes retrieved from tokenizer
+
+	oid	*sbatCursor = NULL, *pbatCursor = NULL, *obatCursor = NULL;
+	int	first, last;
+
 
 
 	#if EXTRAINFO_FROM_RDFTYPE
@@ -5654,9 +5653,17 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 	#endif
 
 	printf("freqThreshold = %d \n", *freqThreshold);	
-	BATloop(sbat, p, q){
-		sbt = (oid *) BUNtloc(si, p);		
-		if (*sbt != curS){
+	
+	sbatCursor = (oid *) Tloc(sbat, BUNfirst(sbat));
+	pbatCursor = (oid *) Tloc(pbat, BUNfirst(pbat));
+	obatCursor = (oid *) Tloc(obat, BUNfirst(obat));
+
+	first = 0; 
+	last = BATcount(sbat) -1; 
+	
+	for (p = first; p <= last; p++){
+		sbt = sbatCursor[p];
+		if (sbt != curS){
 			if (p != 0){	/* Not the first S */
 				#if EXTRAINFO_FROM_RDFTYPE
 				if (numTypeValues > 1){
@@ -5680,7 +5687,7 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 					*maxCSoid = returnCSid; 
 				 
 			}
-			curS = *sbt; 
+			curS = sbt; 
 			curP = BUN_NONE;
 			numP = 0;
 			numPwithDup = 0; 
@@ -5692,7 +5699,7 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 			#endif
 		}
 				
-		pbt = (oid *) BUNtloc(pi, p); 
+		pbt = pbatCursor[p];
 
 		if (INIT_PROPERTY_NUM <= numP){
 			//throw(MAL, "rdf.RDFextractCS", "# of properties is greater than INIT_PROPERTY_NUM");
@@ -5716,15 +5723,15 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 		}
 
 		#if EXTRAINFO_FROM_RDFTYPE
-		if (isTypeAttribute(*pbt, typeBat)){ //Check type attributes
-			obt = (oid *) BUNtloc(oi, p);
-			tmpSpecificLevel = getOntologySpecificLevel(*obt, &tmpOntClassPos);
+		if (isTypeAttribute(pbt, typeBat)){ //Check type attributes
+			obt = obatCursor[p];
+			tmpSpecificLevel = getOntologySpecificLevel(obt, &tmpOntClassPos);
 
 			if (tmpOntClassPos != BUN_NONE){
 
 				rdftypeSpecificLevels[numTypeValues] = tmpSpecificLevel;
 				rdftypeOntClassPos[numTypeValues] = tmpOntClassPos;		
-				rdftypeOntologyValues[numTypeValues] = *obt;
+				rdftypeOntologyValues[numTypeValues] = obt;
 				rdftypeSelectedValues[numTypeValues] = 1;
 				numTypeValues++;
 
@@ -5732,7 +5739,7 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 					tmpMaxSpecificLevel = tmpSpecificLevel;
 					/*
 					//only keep the most specific one
-					rdftypeOntologyValues[0] = *obt;
+					rdftypeOntologyValues[0] = obt;
 					numTypeValues = 1;
 					*/
 				}
@@ -5741,14 +5748,14 @@ str RDFassignCSId(int *ret, BAT *sbat, BATiter si, BATiter pi, BAT *ontbat, CSse
 		}
 		#endif
 		
-		if (curP != *pbt){	/* Multi values property */		
-			buff[numP] = *pbt; 
+		if (curP != pbt){	/* Multi values property */		
+			buff[numP] = pbt; 
 			#if STOREFULLCS
-			obt = (oid *) BUNtloc(oi, p); 
-			buffObjs[numP] = *obt; 
+			obt = obatCursor[p];
+			buffObjs[numP] = obt; 
 			#endif
 			numP++; 
-			curP = *pbt; 
+			curP = pbt; 
 
 		}
 	
@@ -6219,7 +6226,10 @@ str addRels_from_a_partition(int tid, int nthreads, int first, int last, BAT *sb
 		#if GETSUBCS_FORALL == 0
 		if ( from == -1) continue; /* Do not consider infrequentCS */
 		#endif
+
+		#if USEMULTITHREAD
 		if (from % nthreads != tid) continue; 
+		#endif
 
 		if (sbt != curS){
 			#if NEEDSUBCS
@@ -6286,6 +6296,8 @@ str addRels_from_a_partition(int tid, int nthreads, int first, int last, BAT *sb
 	return MAL_SUCCEED; 
 }
 
+#if USEMULTITHREAD
+
 static void*
 addRels_Thread(void *arg_p){
 	
@@ -6301,6 +6313,7 @@ addRels_Thread(void *arg_p){
 
 	pthread_exit(NULL);
 }
+#endif
 
 #if NEEDSUBCS
 static 
@@ -6312,6 +6325,7 @@ str RDFrelationships(int *ret, BAT *sbat, BAT *pbat, BAT *obat,
 		oid *subjCSMap, CSrel *csrelSet, BUN maxSoid, int maxNumPwithDup,int *csIdFreqIdxMap, int numFreqCS){
 #endif	
 	
+	#if USEMULTITHREAD
 	int 		i, first, last; 
 	//oid 		*sbatCursor = NULL; 
 	csRelThreadArg 	*threadArgs = NULL;
@@ -6320,7 +6334,6 @@ str RDFrelationships(int *ret, BAT *sbat, BAT *pbat, BAT *obat,
 	int		ntp = 0; 	//Number of triples per partition
 	//int		tmplast =0; 
 	
-	
 
 	/*
 	if (pthread_mutex_init(&lock, NULL) != 0)
@@ -6328,12 +6341,6 @@ str RDFrelationships(int *ret, BAT *sbat, BAT *pbat, BAT *obat,
 		throw (MAL, "rdf.RDFrelationships", "Failed to create threads mutex");
 	}
 	*/
-
-	if (BATcount(sbat) == 0) {
-		throw(RDF, "rdf.RDFrelationships", "sbat must not be empty");
-		/* otherwise, variable sbt is not initialized and thus
-		 * cannot be dereferenced after the BATloop below */
-	}
 
 	if (numFreqCS < 100){		//Don't use multi thread with small number of cs rels
 		nthreads = 1;
@@ -6381,8 +6388,6 @@ str RDFrelationships(int *ret, BAT *sbat, BAT *pbat, BAT *obat,
 			
 	}
 
-	
-	//addRels_from_a_partition(0, nthreads, first, last, sbat, pbat, obat, subjCSMap, csrelSet, maxSoid, maxNumPwithDup, csIdFreqIdxMap);
 
 	for (i = 0; i < nthreads; i++) {
 		 if (pthread_create(&threads[i], NULL, addRels_Thread, &threadArgs[i])) {
@@ -6403,6 +6408,17 @@ str RDFrelationships(int *ret, BAT *sbat, BAT *pbat, BAT *obat,
 	//pthread_mutex_destroy(&lock);
 	GDKfree(threadArgs);
 	GDKfree(threads);
+
+	#else 	//NOT USEMULTITHREAD
+
+	(void) numFreqCS;
+	#if NEEDSUBCS
+	addRels_from_a_partition(0, 1, 0, BATcount(sbat) - 1, sbat, pbat, obat, subjCSMap, subjSubCSMap, csSubCSSet, csrelSet, maxSoid, maxNumPwithDup, csIdFreqIdxMap);
+	#else
+	addRels_from_a_partition(0, 1, 0, BATcount(sbat) - 1, sbat, pbat, obat, subjCSMap, csrelSet, maxSoid, maxNumPwithDup, csIdFreqIdxMap);
+	#endif
+
+	#endif 	/* USEMULTITHREAD */
 
 	*ret = 1; 
 
@@ -9261,11 +9277,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	*maxNumPwithDup	 = 0;
 	//Phase 1: Assign an ID for each CS
-	#if STOREFULLCS
-	RDFassignCSId(ret, sbat, si, pi, oi, ontbat, freqCSset, freqThreshold, csBats, *subjCSMap, maxCSoid, &maxNumProp, maxNumPwithDup);
-	#else
-	RDFassignCSId(ret, sbat, si, pi, ontbat,freqCSset, freqThreshold, csBats, *subjCSMap, maxCSoid, &maxNumProp, maxNumPwithDup);
-	#endif
+	RDFassignCSId(ret, sbat, pbat, obat, ontbat,freqCSset, freqThreshold, csBats, *subjCSMap, maxCSoid, &maxNumProp, maxNumPwithDup);
 		
 	curT = clock(); 
 	printf (" ----- Exploring all CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);

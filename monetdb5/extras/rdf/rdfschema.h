@@ -330,6 +330,7 @@ typedef struct CSrel{
 } CSrel;
 
 #define NUMTHEAD_CSREL	4
+#define USEMULTITHREAD 0
 typedef struct csRelThreadArg {
 	int	tid; 
 	int	nthreads; 
