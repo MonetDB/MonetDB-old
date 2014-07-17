@@ -616,16 +616,13 @@ TypeStat* getTypeStats(int* typeStatCount, int csCount, int typeAttributesCount,
 #if USE_ONTOLOGY_NAMES
 /* Group the attributes by the ontologies they belong to. */
 static
-str** findOntologies(CS cs, int *propOntologiesCount, oid*** propOntologiesOids) {
+str findOntologies(CS cs, int *propOntologiesCount, oid*** propOntologiesOids) {
 	int		i, j, k;
-	str		**propOntologies = NULL;
 
-	propOntologies = (str **) malloc(sizeof(str *) * ontologyCount);
 	(*propOntologiesOids) = (oid **) malloc(sizeof(str *) * ontologyCount);
-	if (!propOntologies || !(*propOntologiesOids)) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+	if (!(*propOntologiesOids)) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 
 	for (i = 0; i < ontologyCount; ++i) {
-		propOntologies[i] = NULL;
 		(*propOntologiesOids)[i] = NULL;
 	}
 
@@ -636,6 +633,7 @@ str** findOntologies(CS cs, int *propOntologiesCount, oid*** propOntologiesOids)
 			char		**tokenizedUri = NULL;
 			char		*token;			// token, modified during tokenization
 			char		*uri;			// uri, modified during tokenization
+
 			str		tmpStr;
 
 			takeOid(cs.lstProp[j], &tmpStr);
@@ -665,10 +663,9 @@ str** findOntologies(CS cs, int *propOntologiesCount, oid*** propOntologiesOids)
 				}
 				if (fit) {
 					// found matching ontology, store property
-					propOntologies[i] = realloc(propOntologies[i], sizeof(str) * (propOntologiesCount[i] + 1));
 					(*propOntologiesOids)[i] = realloc((*propOntologiesOids)[i], sizeof(str) * (propOntologiesCount[i] + 1));
-					if (!propOntologies[i] || !(*propOntologiesOids)[i]) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-					propOntologies[i][propOntologiesCount[i]] = tmpStr;
+					if (!(*propOntologiesOids)[i]) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+
 					(*propOntologiesOids)[i][propOntologiesCount[i]] = cs.lstProp[j];
 					propOntologiesCount[i] += 1;
 				}
@@ -681,7 +678,8 @@ str** findOntologies(CS cs, int *propOntologiesCount, oid*** propOntologiesOids)
 			GDKfree(tmpStr);
 		}
 	}
-	return propOntologies;
+
+	return MAL_SUCCEED; 
 }
 #endif
 
@@ -1037,7 +1035,6 @@ void createOntologyLookupResult(oid** result, int** resultMatchedProp, CSset* fr
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		CS		cs;
-		str		**propOntologies = NULL;
 		oid		**propOntologiesOids = NULL;
 		int		*propOntologiesCount = NULL;
 
@@ -1052,7 +1049,7 @@ void createOntologyLookupResult(oid** result, int** resultMatchedProp, CSset* fr
 		
 		//printf("Get ontology for FreqId %d. Orignal numProp = %d \n", i, cs.numProp);
 
-		propOntologies = findOntologies(cs, propOntologiesCount, &propOntologiesOids);
+		findOntologies(cs, propOntologiesCount, &propOntologiesOids);
 
 		/*	
  		if (i == 161){
@@ -1081,10 +1078,8 @@ void createOntologyLookupResult(oid** result, int** resultMatchedProp, CSset* fr
 		*/
 
 		for (j = 0; j < ontologyCount; ++j) {
-			free(propOntologies[j]);
 			free(propOntologiesOids[j]);
 		}
-		free(propOntologies);
 		free(propOntologiesOids);
 		free(propOntologiesCount);
 	}
@@ -2083,10 +2078,14 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 
 	IncidentFKs		*links;
 	CSlabel			*labels;
+        clock_t  	  	curT;
+        clock_t         	tmpLastT;
+
 
 	str		schema = "rdf";
 	int		ret;
 
+	tmpLastT = clock();
 	TKNZRopen (NULL, &schema);
 
 	// Type
@@ -2104,6 +2103,10 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 	(void) csIdFreqIdxMap;
 #endif
 
+	curT = clock(); 
+	printf (" Labeling: Collecting type attributes histogram took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
+
 	// Relation (FK)
 	relationMetadataCount = initRelationMetadataCount(freqCSset);
 	relationMetadata = initRelationMetadata(relationMetadataCount, csrelSet, num, freqCSset);
@@ -2111,6 +2114,10 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 #if USE_FK_NAMES
 	createLinks(freqCSset, relationMetadata, relationMetadataCount, links);
 #endif
+
+	curT = clock(); 
+	printf (" Labeling: Collecting relationship metatdata count took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
 
 	// Ontologies
 	ontologyLookupResultCount = initOntologyLookupResultCount(freqCSset->numCSadded);
@@ -2126,10 +2133,19 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 	(void) ontattributes;
 #endif
 
+	curT = clock(); 
+	printf (" Labeling: Collecting ontology lookup results took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
+
 	// Assigning Names
 	labels = initLabels(freqCSset);
 #if USE_TABLE_NAME
 	getAllLabels(labels, freqCSset, typeAttributesCount, typeAttributesHistogram, typeAttributesHistogramCount, typeStat, typeStatCount, ontologyLookupResult, ontologyLookupResutMatchedProp, ontologyLookupResultCount, links, ontmetadata, ontmetadataCount, ontmetaBat, ontclassSet);
+
+	curT = clock(); 
+	printf (" Labeling: Get all labels took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
+
 	if (typeStatCount > 0) free(typeStat);
 #endif
 

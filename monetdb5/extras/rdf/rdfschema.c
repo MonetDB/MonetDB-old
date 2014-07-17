@@ -9361,6 +9361,10 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printNumTypePerProp(csPropTypes, freqCSset->numCSadded, freqCSset);
 
 	freeCSPropTypes(csPropTypes, freqCSset->numCSadded);
+	
+	curT = clock(); 
+	printf (" Took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT; 		
 	}
 	#endif
 
@@ -9461,10 +9465,10 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 #endif
 	
 	/* ---------- S3 ------- */
+	if (0){
 	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
 	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
 
-	if (0){
 	/*S3: Merge two CS's having the subset-superset relationship */
 	mergeCSbyS3(freqCSset, labels, mergeCSFreqCSMap,curNumMergeCS, ontmetadata, ontmetadataCount, ontoUsageTree); 
 
@@ -9478,9 +9482,10 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	#endif
 	
 	tmpLastT = curT; 		
-	}
-	/* ---------- S5 ------- */
 	free(mergeCSFreqCSMap);
+	}
+
+	/* ---------- S5 ------- */
 	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
 	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
 	
