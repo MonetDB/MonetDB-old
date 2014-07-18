@@ -761,6 +761,9 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 			if (bun == BUN_NONE) continue; 
 			else{
 				candidates[k] = malloc(sizeof(oid) * (propStat->plCSidx[bun].numAdded));
+				for (j = 0; j < propStat->plCSidx[bun].numAdded; j++){
+					candidates[k][j] = propStat->plCSidx[bun].lstOnt[j];
+				}
 				candidatesCount[k] = propStat->plCSidx[bun].numAdded;
 				filledListsCount = 1; 
 
