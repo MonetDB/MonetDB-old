@@ -7347,7 +7347,8 @@ rel_optimizer(mvc *sql, sql_rel *rel)
 	str pipe_def = getPipeDefinition(pipe_name);
 	if(strstr(pipe_def, "DVframework") != NULL)
 	{
-		if(!sql->q_in_q && is_pmv_query(rel) && has_actual_data_table(rel))
+		/*if(!sql->q_in_q && is_pmv_query(rel) && has_actual_data_table(rel))*/
+		if(!sql->q_in_q && is_pmv_query(rel))
 		{
 			sql->q_in_q = 1;
 			prepare_pmv(sql, ret);
