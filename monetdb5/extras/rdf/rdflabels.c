@@ -619,40 +619,41 @@ static
 str findOntologies(CS cs, int *propOntologiesCount, oid*** propOntologiesOids) {
 	int		i, j, k;
 
-	(*propOntologiesOids) = (oid **) malloc(sizeof(str *) * ontologyCount);
+	(*propOntologiesOids) = (oid **) malloc(sizeof(oid *) * ontologyCount);
 	if (!(*propOntologiesOids)) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 
 	for (i = 0; i < ontologyCount; ++i) {
 		(*propOntologiesOids)[i] = NULL;
 	}
 
-	for (i = 0; i < ontologyCount; ++i) {
-		for (j = 0; j < cs.numProp; ++j) {
-			int		fit;
-			int		length = 0;
-			char		**tokenizedUri = NULL;
-			char		*token;			// token, modified during tokenization
-			char		*uri;			// uri, modified during tokenization
 
-			str		tmpStr;
+	for (j = 0; j < cs.numProp; ++j) {
+		int		fit;
+		int		length = 0;
+		char		**tokenizedUri = NULL;
+		char		*token;			// token, modified during tokenization
+		char		*uri;			// uri, modified during tokenization
 
-			takeOid(cs.lstProp[j], &tmpStr);
-			uri = (char *) malloc(sizeof(char) * (strlen(tmpStr) + 1));
-			if (!uri) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-			strcpy(uri, tmpStr);
+		str		tmpStr;
 
-			// tokenize uri
-			token = strtok(uri, "/#");
-			while (token != NULL) {
-				tokenizedUri = realloc(tokenizedUri, sizeof(char*) * ++length);
-				if (!tokenizedUri) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
-				tokenizedUri[length -1] = (char *) malloc(sizeof(char *) * (strlen(token) + 1));
-				if (!tokenizedUri[length - 1]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-				strcpy(tokenizedUri[length - 1], token);
-				token = strtok(NULL, "/#");
-			}
-			free(uri);
+		takeOid(cs.lstProp[j], &tmpStr);
+		uri = (char *) malloc(sizeof(char) * (strlen(tmpStr) + 1));
+		if (!uri) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+		strcpy(uri, tmpStr);
 
+		// tokenize uri
+		token = strtok(uri, "/#");
+		while (token != NULL) {
+			tokenizedUri = realloc(tokenizedUri, sizeof(char*) * ++length);
+			if (!tokenizedUri) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
+			tokenizedUri[length -1] = (char *) malloc(sizeof(char *) * (strlen(token) + 1));
+			if (!tokenizedUri[length - 1]) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+			strcpy(tokenizedUri[length - 1], token);
+			token = strtok(NULL, "/#");
+		}
+		free(uri);
+
+		for (i = 0; i < ontologyCount; ++i) {
 			// check for match with ontology
 			if (length > ontologies[i].length) {
 				fit = 1;
@@ -663,20 +664,21 @@ str findOntologies(CS cs, int *propOntologiesCount, oid*** propOntologiesOids) {
 				}
 				if (fit) {
 					// found matching ontology, store property
-					(*propOntologiesOids)[i] = realloc((*propOntologiesOids)[i], sizeof(str) * (propOntologiesCount[i] + 1));
+					(*propOntologiesOids)[i] = realloc((*propOntologiesOids)[i], sizeof(oid) * (propOntologiesCount[i] + 1));
 					if (!(*propOntologiesOids)[i]) fprintf(stderr, "ERROR: Couldn't realloc memory!\n");
 
 					(*propOntologiesOids)[i][propOntologiesCount[i]] = cs.lstProp[j];
 					propOntologiesCount[i] += 1;
 				}
 			}
-			for (k = 0; k < length; ++k) {
-				free(tokenizedUri[k]);
-			}
-			free(tokenizedUri);
-
-			GDKfree(tmpStr);
 		}
+
+		for (k = 0; k < length; ++k) {
+			free(tokenizedUri[k]);
+		}
+		free(tokenizedUri);
+
+		GDKfree(tmpStr);
 	}
 
 	return MAL_SUCCEED; 
@@ -1041,7 +1043,7 @@ void createOntologyLookupResult(oid** result, int** resultMatchedProp, CSset* fr
 		cs = (CS) freqCSset->items[i];
 
 		// order properties by ontologies
-		propOntologiesCount = (int *) malloc(sizeof(int) * ontologyCount);
+		propOntologiesCount = (int *) malloc(sizeof(int) * ontologyCount);	//ontologyCount = 74
 		if (!propOntologiesCount) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
 		for (j = 0; j < ontologyCount; ++j) {
 			propOntologiesCount[j] = 0;
@@ -1051,31 +1053,10 @@ void createOntologyLookupResult(oid** result, int** resultMatchedProp, CSset* fr
 
 		findOntologies(cs, propOntologiesCount, &propOntologiesOids);
 
-		/*	
- 		if (i == 161){
-		printf("Prop ontologies count. \n");
-		for (j = 0; j < ontologyCount; ++j) {
-			if (propOntologiesCount[j] > 0)
-				printf("    %d props in ontology %d \n ", propOntologiesCount[j], j);
-		}
-		
-		}
-		*/
-
 		// get class names
 		resultCount[i] = 0;
 		
 		result[i] = getOntologyCandidates(ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &(resultCount[i]), resultMatchedProp, propOntologiesOids, propOntologiesCount, ontologyCount, propStat, i);
-
-		/*
-		if (i == 161){
-			printf("Ontology candidates \n");
-			for (j = 0; j < resultCount[i]; j++){
-				printf(BUNFMT " (Num prop matched %d \n", result[i][j], resultMatchedProp[i][j]);
-			}
-			//exit(-1);
-		}	
-		*/
 
 		for (j = 0; j < ontologyCount; ++j) {
 			free(propOntologiesOids[j]);
