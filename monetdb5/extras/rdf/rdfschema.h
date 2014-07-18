@@ -75,6 +75,7 @@ typedef struct {
 typedef struct Postinglist{
 	int*	lstIdx; 	/* List of CS containing the property */
 	int*	lstInvertIdx; 	/* List of property's index in each CS */
+	oid*	lstOnt;		/* List of ontology */
 	int	numAdded;
 	int	numAllocation; 
 } Postinglist; 

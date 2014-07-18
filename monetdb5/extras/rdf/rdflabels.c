@@ -652,7 +652,10 @@ str findOntologies(CS cs, int *propOntologiesCount, oid*** propOntologiesOids) {
 			token = strtok(NULL, "/#");
 		}
 		free(uri);
-
+			
+		//DUC: TODO: Do not need to tokenize the URI.
+		//Use BAT with hash table to check the available of that URI 
+		
 		for (i = 0; i < ontologyCount; ++i) {
 			// check for match with ontology
 			if (length > ontologies[i].length) {
@@ -710,7 +713,11 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 	oid		*result = NULL;
 	
 	//if (freqId == 161) printf("listNum = %d\n",listNum);
-	for (i = 0; i < listNum; ++i) {
+	//Go through each ontology
+	//listNum = 74
+	//listCount[i] is the number props of this CS that appears in ontology i
+	
+	for (i = 0; i < listNum; ++i) {			//listNum = 74 
 		int		filledListsCount = 0;
 		oid		**candidates = NULL;
 		int		*candidatesCount = NULL;
@@ -728,7 +735,8 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 			candidatesCount[j] = 0;
 		}
 		//printf("Number of attribute in corresponding ontology is: %d \n", ontattributesCount);
-		for (j = 0; j < ontattributesCount; ++j) {
+		/*
+		for (j = 0; j < ontattributesCount; ++j) {		//ontattributesCount = 70024
 			oid auri = ontattributes[0][j];
 			oid aattr = ontattributes[1][j];
 
@@ -741,6 +749,21 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 					candidatesCount[k] += 1;
 					if (candidatesCount[k] == 1) filledListsCount += 1; // new list
 				}
+			}
+		}
+		*/
+		(void) ontattributes;
+		(void) ontattributesCount;
+		for (k = 0; k < listCount[i]; ++k) {
+			BUN p, bun; 
+			p = listOids[i][k];
+			bun = BUNfnd(BATmirror(propStat->pBat), (ptr) &p);
+			if (bun == BUN_NONE) continue; 
+			else{
+				candidates[k] = malloc(sizeof(oid) * (propStat->plCSidx[bun].numAdded));
+				candidatesCount[k] = propStat->plCSidx[bun].numAdded;
+				filledListsCount = 1; 
+
 			}
 		}
 
@@ -921,6 +944,8 @@ PropStat* initPropStat(void) {
 
 	propStat->tfidfs = (float*) malloc(sizeof(float) * INIT_PROP_NUM);
 	if (!propStat->tfidfs) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+	
+	propStat->plCSidx = (Postinglist*) malloc(sizeof(Postinglist) * INIT_PROP_NUM);
 
 	propStat->numAdded = 0;
 	propStat->numAllocation = INIT_PROP_NUM;
@@ -930,45 +955,6 @@ PropStat* initPropStat(void) {
 #endif
 
 #if USE_ONTOLOGY_NAMES
-/* Copied from Duc's code. */
-/*
-static
-void createPropStatistics(PropStat* propStat, int numMaxCSs, CSset* freqCSset) {
-	int		i, j;
-
-	for (i = 0; i < freqCSset->numCSadded; ++i) {
-		CS cs = (CS)freqCSset->items[i];
-		for (j = 0; j < cs.numProp; ++j) {
-			// add prop to propStat
-			BUN	bun = BUNfnd(BATmirror(propStat->pBat), (ptr) &cs.lstProp[j]);
-			if (bun == BUN_NONE) {
-				   if (propStat->pBat->T->hash && BATcount(propStat->pBat) > 4 * propStat->pBat->T->hash->mask) {
-					HASHdestroy(propStat->pBat);
-					BAThash(BATmirror(propStat->pBat), 2*BATcount(propStat->pBat));
-				}
-
-				propStat->pBat = BUNappend(propStat->pBat, &cs.lstProp[j], TRUE);
-
-				if (propStat->numAdded == propStat->numAllocation) {
-					propStat->numAllocation += INIT_PROP_NUM;
-
-					propStat->freqs = realloc(propStat->freqs, ((propStat->numAllocation) * sizeof(int)));
-					propStat->tfidfs = realloc(propStat->tfidfs, ((propStat->numAllocation) * sizeof(float)));
-					if (!propStat->freqs || !propStat->tfidfs) {fprintf(stderr, "ERROR: Couldn't realloc memory!\n");}
-				}
-				propStat->freqs[propStat->numAdded] = 1;
-				propStat->numAdded++;
-			} else {
-				propStat->freqs[bun]++;
-			}
-		}
-	}
-
-	for (i = 0; i < propStat->numAdded; ++i) {
-		propStat->tfidfs[i] = log(((float)numMaxCSs) / (1 + propStat->freqs[i]));
-	}
-}
-*/
 //[DUC] Create propstat for ontology only 
 static
 void createPropStatistics(PropStat* propStat, oid** ontattributes, int ontattributesCount, int ontmetadataCount) {
@@ -977,6 +963,7 @@ void createPropStatistics(PropStat* propStat, oid** ontattributes, int ontattrib
 
 	for (i = 0; i < ontattributesCount; ++i) {
 		oid attr = ontattributes[1][i];
+		oid uri = ontattributes[0][i];
 		// add prop to propStat
 		BUN	bun = BUNfnd(BATmirror(propStat->pBat), (ptr) &attr);
 		if (bun == BUN_NONE) {
@@ -993,12 +980,27 @@ void createPropStatistics(PropStat* propStat, oid** ontattributes, int ontattrib
 
 				propStat->freqs = realloc(propStat->freqs, ((propStat->numAllocation) * sizeof(int)));
 				propStat->tfidfs = realloc(propStat->tfidfs, ((propStat->numAllocation) * sizeof(float)));
-				if (!propStat->freqs || !propStat->tfidfs) {fprintf(stderr, "ERROR: Couldn't realloc memory!\n");}
+				propStat->plCSidx = realloc(propStat->plCSidx, ((propStat->numAllocation) * sizeof(Postinglist)));
+				if (!propStat->freqs || !propStat->tfidfs || !propStat->plCSidx) {fprintf(stderr, "ERROR: Couldn't realloc memory!\n");}
+
 			}
 			propStat->freqs[propStat->numAdded] = 1;
+
+			//Store the list of ontology URI for each prop
+			propStat->plCSidx[propStat->numAdded].lstOnt = (oid *) malloc(sizeof(oid) * INIT_CS_PER_PROP);
+			propStat->plCSidx[propStat->numAdded].lstOnt[0] = uri;
+			propStat->plCSidx[propStat->numAdded].numAdded = 1;
+			propStat->plCSidx[propStat->numAdded].numAllocation = INIT_CS_PER_PROP;
+
 			propStat->numAdded++;
 		} else {
 			propStat->freqs[bun]++;
+			if (propStat->plCSidx[bun].numAdded == propStat->plCSidx[bun].numAllocation){
+				propStat->plCSidx[bun].numAllocation += INIT_CS_PER_PROP;
+				propStat->plCSidx[bun].lstOnt = realloc(propStat->plCSidx[bun].lstOnt, ((propStat->plCSidx[bun].numAllocation) * sizeof(oid)));
+			}
+			propStat->plCSidx[bun].lstOnt[propStat->plCSidx[bun].numAdded] = uri;
+			propStat->plCSidx[bun].numAdded++;
 		}
 	}
 
@@ -1013,9 +1015,16 @@ void createPropStatistics(PropStat* propStat, oid** ontattributes, int ontattrib
 #if USE_ONTOLOGY_NAMES
 static
 void freePropStat(PropStat *propStat) {
+	int i; 
 	BBPreclaim(propStat->pBat);
 	free(propStat->freqs);
 	free(propStat->tfidfs);
+	for (i = 0; i < propStat->numAdded; i++){
+		free(propStat->plCSidx[i].lstOnt);
+	}
+	
+	free(propStat->plCSidx);
+
 
 	free(propStat);
 }
@@ -1032,7 +1041,6 @@ void createOntologyLookupResult(oid** result, int** resultMatchedProp, CSset* fr
 
 	//[DUC] Change the function for getting propStat. Use ontattributes for the propStat. 
 	// Not the properties from freqCS
-	//createPropStatistics(propStat, freqCSset->numCSadded, freqCSset);
 	createPropStatistics(propStat, ontattributes, ontattributesCount, ontmetadataCount);
 
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
