@@ -1124,6 +1124,10 @@ sel_predicate** convert_all_into_in_clause_except_cmp_equal(list *list_of_PERPAD
 						sps[i]->column = sp->column;
 						sps[i]->cmp_type = 8; /* cmp_in */
 						
+						
+						if(sps[i]->num_values < 1)
+							break;
+						
 						*next = *tl;
 						for(j = 0; j < sps[i]->num_values; j++)
 						{
@@ -1167,6 +1171,9 @@ sel_predicate** convert_all_into_in_clause_except_cmp_equal(list *list_of_PERPAD
 						
 						sps[i]->column = sp->column;
 						sps[i]->cmp_type = 8; /* cmp_in */
+						
+						if(sps[i]->num_values < 1)
+							break;
 						
 						current = il;
 						for(j = 0; j < sps[i]->num_values; j++)
@@ -7312,6 +7319,13 @@ void prepare_pmv(mvc* sql, sql_rel* ret)
 	
 	/* convert all PERPAD into IN clauses except if they are equality.*/
 	sps = convert_all_into_in_clause_except_cmp_equal(list_PERPAD);
+	
+	/* if ranges or in clauses have no value within */
+	for(i = 0; i < num_PERPAD; i++)
+	{
+		if(sps[i]->num_values < 1)
+			return;
+	}
 	
 	/* enumerate the pkey space into a temp table */
 	is_pkey_to_be_enumerated = enumerate_and_insert_into_temp_table(sql, sps, num_PERPAD);
