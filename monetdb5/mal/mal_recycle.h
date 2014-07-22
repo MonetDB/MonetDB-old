@@ -40,9 +40,9 @@
 #define RU 1024 /* recycle unit in bytes */
 #define GIGA (lng)(1024*1024*1024)
 
-#define HARDLIMIT_VAR 100000		/* maximum variables to watch */
-#define HARDLIMIT_STMT 20000		/* roughly 5/line needed */
-#define HARDLIMIT_MEM 8 * (GIGA/RU)     /* avoid memory overflow */
+#define HARDLIMIT_VAR 200000		/* maximum variables to watch */
+#define HARDLIMIT_STMT 40000		/* roughly 5/line needed */
+#define HARDLIMIT_MEM 216 * (GIGA/RU)     /* avoid memory overflow */
 
 mal_export int admissionPolicy;
 #define ADM_NONE	0
