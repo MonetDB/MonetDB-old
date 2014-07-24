@@ -7133,8 +7133,10 @@ str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, C
 					}
 
 					//printf("Final MV string : %s \n",tmpMVSampleStr);
-					if (tmpMVSampleStr != NULL) 
+					if (tmpMVSampleStr != NULL){
 						BUNappend(cursamplebat, tmpMVSampleStr, TRUE);
+						GDKfree(tmpMVSampleStr);
+					}
 					else
 						BUNappend(cursamplebat, ATOMnilptr(TYPE_str), TRUE);
 
@@ -8274,6 +8276,7 @@ str printFullSampleData(CSSampleExtend *csSampleEx, int num, BAT *mbat, PropStat
 		}
 
 			
+		GDKfree(isTypeProp);
 	}
 
 	GDKfree(typeAttributesOids);
@@ -9434,6 +9437,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	free(csTblIdxMapping);
 	free(mfreqIdxTblIdxMapping);
 	free(mTblIdxFreqIdxMapping);
+	free(csFreqCSMapping);
 
 	}
 

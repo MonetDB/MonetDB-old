@@ -626,6 +626,9 @@ getStringFormatValueFromOid(BUN bun, ObjectType objType, str *obj){
 	}
 
 	*obj = GDKstrdup(vrCastedObjValue.val.sval);
+	
+	VALclear(&vrRealObjValue);
+	VALclear(&vrCastedObjValue);
 }
 
 	
