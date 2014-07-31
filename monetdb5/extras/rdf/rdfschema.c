@@ -35,6 +35,7 @@
 #include "rdfminheap.h"
 #include "rdfontologyload.h"
 #include <mtime.h>
+#include <rdfgraph.h>
 
 #define SHOWPROPERTYNAME 1
 
@@ -548,34 +549,27 @@ void getIRNums(CSrel *csrelSet, CSset *freqCSset, int num,  int* refCount, float
 		for (i = 0; i < num; i++){
 			lastIRScores[i] = curIRScores[i]; 
 		}
-	
 		/*
 		printf(" ======== After %d iteration \n", k); 
 		for (i = 0; i < num; i++){
-			printf("IR score[%d] is %f \n", i, curIRScores[i]);
+			printf("IR score[%d] is %f (support: %d)\n", i, curIRScores[i],freqCSset->items[i].support);
 		}
 		*/
 	}
-	
-
 
 	free(lastIRScores);
 }
 
 
 static 
-void updateFreqCStype(CSset *freqCSset, int num,  float *curIRScores, int *refCount){
+void updateFreqCStype(CSset *freqCSset, int num,  float *curIRScores, int *refCount, int nIterIR){
 
 	int 	i; 
 	int	numDimensionCS = 0; 
-	int 	totalSupport = 0; 	/* Total CS frequency */
-	float	threshold  = 0.0; 
-	
-	for (i = 0; i < num; i++){	
-		totalSupport += freqCSset->items[i].support; 
-	}
-	threshold = (float)totalSupport * IR_DIMENSION_THRESHOLD_PERCENTAGE; 
-	printf("Total support %d --> Threshold for dimension table is: %f \n", totalSupport, threshold);
+	int	threshold = 0; 
+	int 	ratio; 
+
+	ratio = pow(IR_DIMENSION_FACTOR, nIterIR);
 
 	printf("List of dimension tables: \n");
 	for (i = 0; i < num; i++){
@@ -583,11 +577,12 @@ void updateFreqCStype(CSset *freqCSset, int num,  float *curIRScores, int *refCo
 		if (freqCSset->items[i].support > MINIMUM_TABLE_SIZE) continue; 
 		#endif
 		if (refCount[i] < freqCSset->items[i].support) continue; 
+		threshold = freqCSset->items[i].support * ratio;
 		if (curIRScores[i] < threshold) continue; 
 		
 		freqCSset->items[i].type = DIMENSIONCS;
 		//printf("A dimension CS with IR score = %f \n", curIRScores[i]);
-		printf(" %d  ", i);
+		printf(" %d  (Ratio %.2f)", i, (float) curIRScores[i]/freqCSset->items[i].support);
 		numDimensionCS++;
 	}
 	
@@ -4281,7 +4276,7 @@ str mergeFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** on
 #endif
 
 static
-void mergeMaxFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId, oid** ontmetadata, int ontmetadataCount){
+void mergeFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId, oid** ontmetadata, int ontmetadataCount){
 	int 		i; 
 	int 		freqId;
 	//int 		relId; 
@@ -9220,6 +9215,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	int 		tmpNumRel = 0;
 	CSrel		*tmpCSrelToMergeCS = NULL; 
 	float		*curIRScores = NULL; 
+	
+	int		nIterIR = 3; 	//number of iteration for detecting dimension table with PR algorithm
 
 	//printf("Number of type attributes is: %d \n",typeAttributesCount);
 
@@ -9388,14 +9385,19 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	//return "Error"; 
 
 	/* Get the number of indirect refs in order to detect dimension table */
+	
+	//nIterIR = getDiameter(3, freqCSset->numCSadded,csrelSet);
+	nIterIR = getDiameterExact(freqCSset->numCSadded,csrelSet);
+	if (nIterIR > MAX_ITERATION_NO) nIterIR = MAX_ITERATION_NO;
+
 	refCount = (int *) malloc(sizeof(int) * (freqCSset->numCSadded));
 	curIRScores = (float *) malloc(sizeof(float) * (freqCSset->numCSadded));
 	
 	initIntArray(refCount, freqCSset->numCSadded, 0); 
 
 	getOrigRefCount(csrelSet, freqCSset, freqCSset->numCSadded, refCount);  
-	getIRNums(csrelSet, freqCSset, freqCSset->numCSadded, refCount, curIRScores, NUM_ITERATION_FOR_IR);  
-	updateFreqCStype(freqCSset, freqCSset->numCSadded, curIRScores, refCount);
+	getIRNums(csrelSet, freqCSset, freqCSset->numCSadded, refCount, curIRScores, nIterIR);  
+	updateFreqCStype(freqCSset, freqCSset->numCSadded, curIRScores, refCount, nIterIR);
 
 	free(refCount); 
 	free(curIRScores);
@@ -9498,8 +9500,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	tmpCSrelToMergeCS = generateCsRelToMergeFreqSet(csrelSet, freqCSset);
 	tmpNumRel = freqCSset->numCSadded; 
 
-	mergeMaxFreqCSByS5(tmpCSrelToMergeCS, freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS,  &mergecsId, ontmetadata, ontmetadataCount);
-	//printf("DISABLE S5 (For Testing) \n"); 
+	mergeFreqCSByS5(tmpCSrelToMergeCS, freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS,  &mergecsId, ontmetadata, ontmetadataCount);
 
 	freeCSrelSet(tmpCSrelToMergeCS,tmpNumRel);
 	}

@@ -32,7 +32,7 @@ lib__rdf = {
 	#MODULE
 	NOINST
 	#DIR = libdir/monetdb5
-	SOURCES = rdf.h rdftypes.h rdfschema.h rdfminheap.h rdfminheap.c rdflabels.h rdfretrieval.h rdfparser.h rdftypes.c rdfparser.c rdfontologyload.h rdfontologyload.c rdf_shredder.c rdfalgebra.c rdfschema.c rdflabels.c rdfretrieval.c  
+	SOURCES = rdf.h rdftypes.h rdfschema.h rdfgraph.h rdfgraph.c rdfminheap.h rdfminheap.c rdflabels.h rdfretrieval.h rdfparser.h rdftypes.c rdfparser.c rdfontologyload.h rdfontologyload.c rdf_shredder.c rdfalgebra.c rdfschema.c rdflabels.c rdfretrieval.c  
 
 	#SEP = _
 	# LIBS =  ./hashmap/librdfhash 	
