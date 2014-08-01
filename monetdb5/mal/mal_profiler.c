@@ -1379,7 +1379,7 @@ void HeartbeatCPUload(void *arg)
         }
 
 	if (max_threads > 0){
-		while(1){
+		while(threshold>0){
 			(void) getCPULoad(cpuload);
 			load = corestat[256].load;
 			if ( load >= 0 && load <= 100.0){
