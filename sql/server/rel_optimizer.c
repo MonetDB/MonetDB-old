@@ -88,6 +88,7 @@ list *discovered_table_pkeys;
 static char temp_column_name_start = 97;
 static str temp_table_name = "tt";
 static str temp_table_name_res = "tt_res";
+static int dvf_mode = 0;
 
 /* The important task of the relational optimizer is to optimize the
    join order. 
@@ -2220,9 +2221,9 @@ order_join_expressions(sql_allocator *sa, list *dje, list *rels)
 				keys[i] += list_length(l->exps)*10;
 			if (r && is_select(r->op) && r->exps)
 				keys[i] += list_length(r->exps)*10;
-			if(has_actual_data_table(l))
+			if(dvf_mode == 1 && has_actual_data_table(l))
 				keys[i] += -10000;
-			if(has_actual_data_table(r))
+			if(dvf_mode == 1 && has_actual_data_table(r))
 				keys[i] += -10000;
 		}
 		pos[i] = i;
@@ -7361,6 +7362,7 @@ rel_optimizer(mvc *sql, sql_rel *rel)
 	str pipe_def = getPipeDefinition(pipe_name);
 	if(strstr(pipe_def, "DVframework") != NULL)
 	{
+		dvf_mode = 1;
 		/*if(!sql->q_in_q && is_pmv_query(rel) && has_actual_data_table(rel))*/
 		if(!sql->q_in_q && is_pmv_query(rel))
 		{
