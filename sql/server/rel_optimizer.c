@@ -1395,7 +1395,7 @@ int* enumerate_and_insert_into_temp_table(mvc *sql, sel_predicate** sps, int num
 	
 	assert(num_enumerated_pkeys > 0 && enumerated_pkeys != NULL); //otherwise the query is not healthy.
 	
-	enum_char_length = num_enumerated_pkeys * (strlen(enumerated_pkeys[0]) + 4) + strlen(s);
+	enum_char_length = num_enumerated_pkeys * (strlen(enumerated_pkeys[0]) + 4) + strlen(s) + 800000;
 	
 	for(i = 0; i < num_enumerated_pkeys; i++)
 	{
