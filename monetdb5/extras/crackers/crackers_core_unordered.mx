@@ -1772,13 +1772,17 @@ static str CRKcopy_x_@2_@1 (
 ) {
 	@1  *src_t_crackerbat = (@1 *) Tloc(crackerbat, BUNfirst(crackerbat));
 	@1  *src_t_basebat = (@1 *) Tloc(basebat, BUNfirst(basebat));
-	oid  *src_h_crackerbat = (oid *) Hloc(crackerbat, BUNfirst(crackerbat));
-	oid  *src_h_basebat = (oid *) Hloc(basebat, BUNfirst(basebat));
 	const BUN n = last - first + 1;
 	const BUN snt = n * sizeof(@1);
-	const BUN snh = n * sizeof(oid);
+	BUN i;
+	oid h = crackerbat->hseqbase + first;
+	oid *x = (oid *) crackerbat->H->heap.base + first;
 
-	memcpy(&src_h_crackerbat[first], &src_h_basebat[first], snh);
+	/*materialize head*/
+	for (i=first; i <= last; i++)
+		*x++ = h++;
+	
+	/*copy data (tail) from base bat to cracker bat*/
 	memcpy(&src_t_crackerbat[first], &src_t_basebat[first], snt);
 
 	return MAL_SUCCEED;

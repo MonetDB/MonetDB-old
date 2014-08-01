@@ -1412,25 +1412,21 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 		}
 
 		gettimeofday(&tv0_copy, 0);
-		//b = BATcopy(bo, bo->htype, bo->ttype, TRUE);
-		//if ( bo->htype == TYPE_void)
-		//	b = BATmaterializeh(b);
 		b=BATnew(TYPE_oid, bo->ttype,BATcount(bo));
-		BATkey(BATmirror(b),FALSE);
-                BATsetcount(b,BATcount(bo));
-		CRKparallelcopy_LE_@1(b, bo, (BUN) 0, BATcount(bo)-1, nthreads);
-		gettimeofday(&tv1_copy, 0);
-		fprintf(ofp_copy,"%d\n",(int)dt(tv0_copy,tv1_copy)*1000000);
-
 		b->hsorted = FALSE;
 		b->tsorted = FALSE;
 		b->hdense = FALSE;
 		b->tdense = FALSE;
+		CRKparallelcopy_LE_@1(b, bo, (BUN) 0, BATcount(bo)-1, nthreads);
+		BATkey(BATmirror(b),FALSE);
+                BATsetcount(b,BATcount(bo));
 		b->batRestricted= BAT_READ;
 		BATmode(b,PERSISTENT);
 		bo->batRestricted= BAT_READ;
-
 		BBPincref(*bid, TRUE);
+		gettimeofday(&tv1_copy, 0);
+		fprintf(ofp_copy,"%d\n",(int)dt(tv0_copy,tv1_copy)*1000000);
+
 		m = newCrackerIndex_@1(*bid,b->batCacheid);
 
 		if ((c = BATdescriptor(CrackerIndex[m].cid)) == NULL)
