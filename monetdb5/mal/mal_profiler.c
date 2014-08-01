@@ -1382,40 +1382,18 @@ void HeartbeatCPUload(void *arg)
 		while(1){
 			(void) getCPULoad(cpuload);
 			load = corestat[256].load;
-			if ( load >= 0 && load <= 100.0 && load <= threshold){
-				//N = (int) (load * max_threads) / 100.0;
-				//n = max_threads - N;
-                                //if(n>0)
-                                //{
-                                        //gettimeofday(&t0, NULL);
-                                        //MRschedule(n, NULL, IdleFunc);
-                                        //gettimeofday(&t1, NULL);
-                                        //elapsedTime = (t1.tv_sec - t0.tv_sec) * 1000.0;      // sec to ms
-                                        //elapsedTime += (t1.tv_usec - t0.tv_usec) / 1000.0;
-                                        //fprintf(ofp,"%lf %d\n",elapsedTime,n);
-                                //}
-				/*following 5 lines: experiment multicore_cracking*/
+			if ( load >= 0 && load <= 100.0){
 				N = (int) (load * 32) / 100.0;
 				n = 32 - N; 
-				if(n>0 && max_threads<n && max_threads-1>0)
+				if(n>0 && max_threads<=n)
 				{
 					gettimeofday(&t0, NULL);
-				        MRschedule(max_threads-1, NULL, IdleFunc);
+				        MRschedule(max_threads, NULL, IdleFunc);
                                 	gettimeofday(&t1, NULL);
                                 	elapsedTime = (t1.tv_sec - t0.tv_sec) * 1000.0;      // sec to ms
                                 	elapsedTime += (t1.tv_usec - t0.tv_usec) / 1000.0;
-                                	fprintf(ofp,"%lf %d\n",elapsedTime,max_threads-1);
+                                	fprintf(ofp,"%lf %d\n",elapsedTime,max_threads);
 				}
-			        else if (n>0 && max_threads>=n)
-				{
-					gettimeofday(&t0, NULL);
-	                                MRschedule(n, NULL, IdleFunc);
-					gettimeofday(&t1, NULL);
-                                	elapsedTime = (t1.tv_sec - t0.tv_sec) * 1000.0;      // sec to ms
-                                	elapsedTime += (t1.tv_usec - t0.tv_usec) / 1000.0;
- 					fprintf(ofp,"%lf %d\n",elapsedTime,n);
-				}
-
 				(void) getCPULoad(cpuload);
 				MT_sleep_ms(1000);
 			}
@@ -1423,7 +1401,7 @@ void HeartbeatCPUload(void *arg)
                                 MT_sleep_ms(1000);
 		}
 	}
-	//fclose(ofp);
+	fclose(ofp);
 }
 
 // Give users the option to check for the system total load between two heart beats
