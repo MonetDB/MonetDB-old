@@ -1778,8 +1778,8 @@ static str CRKcopy_x_@2_@1 (
 	const BUN snt = n * sizeof(@1);
 	const BUN snh = n * sizeof(oid);
 
-	memcpy(&src_h_crackerbat[first], &src_h_basebat[first], snt);
-	memcpy(&src_t_crackerbat[first], &src_t_basebat[first], snh);
+	memcpy(&src_h_crackerbat[first], &src_h_basebat[first], snh);
+	memcpy(&src_t_crackerbat[first], &src_t_basebat[first], snt);
 
 	return MAL_SUCCEED;
 }
