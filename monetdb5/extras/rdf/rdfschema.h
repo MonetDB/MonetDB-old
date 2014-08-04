@@ -142,7 +142,7 @@ typedef struct PropStat {
 //#define IR_DIMENSION_THRESHOLD_PERCENTAGE	0.02	//  Score of indirect references that the CS can be considered as a dimension CS 
 							//   IR_DIMENSION_THRESHOLD_PERCENTAGE * totalFrequency 
 							//   Number of IR references should be several times larger than the CS frequency 
-#define	IR_DIMENSION_FACTOR	100	//A table is a dimension table if the # of references to it is an order of magnitude (IR_DIMENSION_FACTOR) compared to # of its tuples   
+#define	IR_DIMENSION_FACTOR	1000	//A table is a dimension table if the # of references to it is an order of magnitude (IR_DIMENSION_FACTOR) compared to # of its tuples   
 					//
 #define MAX_ITERATION_NO	6	//Max number of iteration run
 							
@@ -221,20 +221,6 @@ typedef struct SubCS {
 	int	numSubTypes; 
 	char	isdefault; 
 } SubCS; 
-
-/*
-typedef struct mergeCS {	// CS formed by merging CS id1 and CS id2	
-	oid* 	lstConsistsOf; 	
-	int	numConsistsOf; 
-	oid*	lstProp; 
-	int	numProp; 
-	int 	support;
-	int	coverage;
-	char 	isRemove;
-
-} mergeCS; 
-
-*/
 
 #define INIT_NUM_SUBCS 4
 

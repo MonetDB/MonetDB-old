@@ -3603,7 +3603,7 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 		freq = freqCSset->items[csRel.origFreqIdx].support; 
 		referredFreqId = csRel.lstRefFreqIdx[i];
 		freqOfReferredCS = freqCSset->items[referredFreqId].support;
-		if (freq > MIN_FROMTABLE_SIZE_S5 && (((float)freq * INFREQ_TYPE_THRESHOLD) < csRel.lstCnt[i]))   
+		if (freq > MIN_FROMTABLE_SIZE_S5 && (((float)freq * INFREQ_TYPE_THRESHOLD) < csRel.lstCnt[i])   
 		    && freqOfReferredCS < csRel.lstCnt[i] * MIN_TO_PERCETAGE_S5){			
 			
 			p = csRel.lstPropId[i]; 
