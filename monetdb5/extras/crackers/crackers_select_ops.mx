@@ -300,7 +300,22 @@ CRKparallelscanselect_@1_MT(int *vid, int *bid, @1 *low, @1 *hgh, const int *nth
 		gapH = -1;
 		/*vh--;*/
 	}
+@
+@= crkTwoRTreeCopy
+        /*CRACK in two pieces cl2-ch2 using <incHgh bound*/
+        if (*inclusiveHgh == TRUE)
+                CRKcrackUnorderedTwoCopy@2_LE_@1(bo,*hgh, cl2, ch2,&vh, b);
+        else
+                CRKcrackUnorderedTwoCopy@2_RE_@1(bo,*hgh, cl2, ch2,&vh, b);
 
+        if (vh < cl2)
+                /*then the left piece is empty*/
+                gapH = -1;
+        if (vh > ch2){
+                /*then the right piece is empty*/
+                gapH = -1;
+                /*vh--;*/
+        }
 @
 @= CreateResult
 createView:
@@ -964,6 +979,10 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 		BATmode(b,PERSISTENT);
 		bo->batRestricted= BAT_READ;
 
+		//CRKparallelcopy_LE_@1(b, bo, (BUN) 0, BATcount(bo)-1, nthreads);
+		//BATkey(BATmirror(b),FALSE);
+                //BATsetcount(b,BATcount(bo));
+
 		m = newCrackerIndex_@1(*bid,b->batCacheid);
 
 		if ((c = BATdescriptor(CrackerIndex[m].cid)) == NULL)
@@ -972,6 +991,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 		cl2 = BUNfirst(b);
 		ch2 = BUNlast(b)-(oid)1;
 		@:crkTwoRTree(@1)@
+		//@:crkTwoRTreeCopy(@1)@
 		if (gapH>0) addCrackerIndex_@1(m,hgh,HBound,vh,c);
 		vl = BUNfirst(b);
 		pieces=pieces+2;

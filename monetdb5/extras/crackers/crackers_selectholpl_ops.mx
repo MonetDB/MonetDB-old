@@ -449,6 +449,22 @@ CRKrandomholpl_@1_MT(int *bid, bit *inclusiveHgh, int nthreads, int vector_eleme
 		/*vh--;*/
 	}
 @
+@= crkTwoRTreeCopy
+        /*CRACK in two pieces cl2-ch2 using <incHgh bound*/
+        if (*inclusiveHgh == TRUE)
+                CRKcrackUnorderedTwoCopy@2_LE_@1(bo,*hgh, cl2, ch2,&vh, b);
+        else
+                CRKcrackUnorderedTwoCopy@2_RE_@1(bo,*hgh, cl2, ch2,&vh, b);
+
+        if (vh < cl2)
+                /*then the left piece is empty*/
+                gapH = -1;
+        if (vh > ch2){
+                /*then the right piece is empty*/
+                gapH = -1;
+                /*vh--;*/
+        }
+@
 @= CreateResult
 createView:
 	assert(0);
@@ -1412,20 +1428,24 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 		}
 
 		gettimeofday(&tv0_copy, 0);
-		b=BATnew(TYPE_oid, bo->ttype,BATcount(bo));
+                b = BATcopy(bo, bo->htype, bo->ttype, TRUE);
+                if ( bo->htype == TYPE_void)
+                        b = BATmaterializeh(b);
+		//b=BATnew(TYPE_oid, bo->ttype,BATcount(bo));
+		gettimeofday(&tv1_copy, 0);
+		fprintf(ofp_copy,"%d\n",(int)dt(tv0_copy,tv1_copy)*1000000);
+
 		b->hsorted = FALSE;
 		b->tsorted = FALSE;
 		b->hdense = FALSE;
 		b->tdense = FALSE;
-		CRKparallelcopy_LE_@1(b, bo, (BUN) 0, BATcount(bo)-1, nthreads);
-		BATkey(BATmirror(b),FALSE);
-                BATsetcount(b,BATcount(bo));
 		b->batRestricted= BAT_READ;
 		BATmode(b,PERSISTENT);
 		bo->batRestricted= BAT_READ;
-		BBPincref(*bid, TRUE);
-		gettimeofday(&tv1_copy, 0);
-		fprintf(ofp_copy,"%d\n",(int)dt(tv0_copy,tv1_copy)*1000000);
+
+		//CRKparallelcopy_LE_@1(b, bo, (BUN) 0, BATcount(bo)-1, nthreads);
+		//BATkey(BATmirror(b),FALSE);
+                //BATsetcount(b,BATcount(bo));
 
 		m = newCrackerIndex_@1(*bid,b->batCacheid);
 
@@ -1435,6 +1455,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 		cl2 = BUNfirst(b);
 		ch2 = BUNlast(b)-(oid)1;
 		@:crkTwoRTree(@1)@
+		//@:crkTwoRTreeCopy(@1)@
 		if (gapH>0)
 		{
 			addCrackerIndex_@1(m,hgh,HBound,vh,c);

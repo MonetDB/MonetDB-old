@@ -111,6 +111,7 @@ crackers_export str CRKparallelscan_@1 (int *res, int *bid, int *bid_out, @1 *mi
 @
 @= crackInTwoUnorderedPieces_decl
 str CRKcrackUnorderedZero_@2_@1( BAT *b, @1 mval, oid first, oid last, oid *pos, int nthreads, int vector_elements);
+str CRKcrackUnorderedTwoCopy_@2_@1( BAT *b, @1 pivot, BUN first, BUN last, BUN *pos, BAT *bc);
 str CRKparallelscan_@2_@1( BAT *b, BAT *ob, @1 mval, oid first, oid last, int nthreads);
 str CRKparallelcopy_@2_@1( BAT *b, BAT *ob, oid first, oid last, int nthreads);
 @
@@ -1877,7 +1878,32 @@ CRKparallelcopy_@2_@1( BAT *b, BAT *ob, BUN first, BUN last, int nthreads){
 
 	return msg;
 }
+str
+CRKcrackUnorderedTwoCopy_@2_@1( BAT *b, @1 pivot, BUN first, BUN last, BUN *pos, BAT *bc)
+{
+        @1  *src_t_basebat = (@1*)Tloc(b, BUNfirst(b));
+        @1  *src_t_crackerbat = (@1*)Tloc(bc, BUNfirst(bc));
+        oid *src_h_crackerbat = (oid *) Hloc(bc,BUNfirst(bc));
+        oid hf = b->hseqbase + first;
+        oid hl =  b->hseqbase + last;
+        BUN i, j[2] = {first, last}, kt[2] = {1,-1}, kh[2] = {-1,1};
+        oid h[2] = {hl, hf};
 
+        for(i = first; i <= last; i++)
+        {
+                bit x = src_t_basebat[i] @8 pivot;
+                src_t_crackerbat[j[x]] = src_t_basebat[i];
+                src_h_crackerbat[j[x]] = h[x];
+                j[x] += kt[x];
+                h[x] += kh[x];
+        }
+
+        assert(j[0] > first);
+
+        *pos = j[0];
+
+        return MAL_SUCCEED;
+}
 @
 @= crackInThreeUnorderedPieces_impl
 str
