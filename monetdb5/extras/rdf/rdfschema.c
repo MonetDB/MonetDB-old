@@ -3088,7 +3088,7 @@ void updateParentIdxAll(CSset *freqCSset){
 
 #if USE_LABEL_FINDING_MAXCS
 /*
- *  * Return 1 if there is semantic evidence against merging the two CS's, this is the case iff the two CS's have a hierarchy and their common ancestor is too generic (support above IMPORTANCE_THRESHOLD).
+ *  * Return 1 if there is semantic evidence against merging the two CS's, this is the case iff the two CS's have a hierarchy and their common ancestor is too generic (support above generalityThreshold).
  *   */
 static
 char isEvidenceAgainstMerging(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode *tree) {
@@ -3132,7 +3132,7 @@ char isEvidenceAgainstMerging(int freqId1, int freqId2, CSlabel* labels, OntoUsa
 		level++;
 	}
 
-	if (tmpNode->percentage >= IMPORTANCE_THRESHOLD) {
+	if (tmpNode->percentage >= generalityThreshold) {
 		// have common ancestor but it is too generic --> there is semantic evidence against merging the two CS's
  		return 1;
 	} else {
@@ -4494,7 +4494,7 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 		*/
 		
 
-		if (tmpNode->percentage < IMPORTANCE_THRESHOLD) {
+		if (tmpNode->percentage < generalityThreshold) {
 			//printf("Merge two CS's %d (Label: "BUNFMT") and %d (Label: "BUNFMT") using the common ancestor ("BUNFMT") at level %d (score: %f)\n",
 			//		freqId1, labels[freqId1].name, freqId2, labels[freqId2].name,tmpNode->uri, i,tmpNode->percentage);
 			oid classOid;
@@ -8972,6 +8972,7 @@ void computeMetricsQ(CSset *freqCSset){
 	int tblIdx = -1;
 	CS cs;	
 	int	totalCov = 0; 
+	float	totalPrecision = 0.0; 
 	float	Q = 0.0;
 	int	i;
 	int curNumMergeCS = countNumberMergeCS(freqCSset);
@@ -8990,11 +8991,14 @@ void computeMetricsQ(CSset *freqCSset){
 			weight[tblIdx] = (float) cs.coverage * ( fillRatio[tblIdx] + refRatio[tblIdx]); 
 			//weight[tblIdx] = (float) cs.coverage * ( fillRatio[tblIdx]);  //If do not consider reference ratio
 			totalCov += cs.coverage;
+			totalPrecision += fillRatio[tblIdx];
 			
 			Q += weight[tblIdx];
 		}
 	}
 	printf("Performance metric Q = (weighting %f)/(totalCov %d * numTbl %d) \n", Q,totalCov, curNumMergeCS);
+	printf("Average precision = %f\n",(float)totalPrecision/curNumMergeCS);
+	//printf("Average precision = %f\n",(float)totalPrecision/totalCov);
 
 	Q = Q/((float)totalCov * curNumMergeCS);
 

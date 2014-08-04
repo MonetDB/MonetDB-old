@@ -29,6 +29,8 @@
 
 int dimensionFactor; 
 float ontologySimThreshold; 
+int upperboundNumTables;
+float generalityThreshold; 
 
 void createDefaultParamsFile(void){
 	
@@ -37,7 +39,8 @@ void createDefaultParamsFile(void){
 	paramFile = fopen("params.ini", "wt");
 	
 	fprintf(paramFile, "dimensionFactor 3\n");
-	fprintf(paramFile, "ontologySimThreshold 0.8\n");
+	fprintf(paramFile, "ontologySimThreshold 0.75\n");
+	fprintf(paramFile, "upperboundNumTables 1000");
 
 	fclose(paramFile); 
 }
@@ -64,7 +67,21 @@ void readParamsInput(void){
 				ontologySimThreshold = atof(value);
 				printf("ontologySimThreshold = %f\n",ontologySimThreshold);
 			}
+			else if (strcmp(variable, "upperboundNumTables") == 0){
+				upperboundNumTables = atoi(value);
+				printf("upperboundNumTables = %d\n", upperboundNumTables);
+			}
 		}
 	}
+
+	
+	if (upperboundNumTables != 0){
+		generalityThreshold = (float) 1 / (float)upperboundNumTables; 
+		printf("generalityThreshold = %f\n",generalityThreshold);
+	}
+	else{ //default
+		generalityThreshold = 0.001; 
+	}
+
 
 }
