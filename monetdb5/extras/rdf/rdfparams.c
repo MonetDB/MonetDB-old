@@ -48,6 +48,11 @@ void readParamsInput(void){
 	char value[80];
 
 	pf = fopen("params.ini","r");
+	
+	if (pf == NULL){
+		printf("No input parameter file found!");
+		return; 
+	}
 
 	while (!feof(pf)){
 		if(fscanf(pf, "%s %s", variable, value) == 2){
