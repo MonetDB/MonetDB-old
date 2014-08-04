@@ -830,7 +830,7 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 		for (k = 0; k < num; ++k) {
 			int found = 0;
 			//if (freqId == 161) printf("   TFIDF score at %d ("BUNFMT") is: %f | Number of matched Prop %d \n",k, classStat[k].ontoClass, classStat[k].tfidfs,classStat[k].numMatchedProp);
-			if (classStat[k].tfidfs < ONTOLOGY_FREQ_THRESHOLD) break; // values not frequent enough (list is sorted by tfidfs)
+			if (classStat[k].tfidfs < SIM_TFIDF_THRESHOLD) break; // values not frequent enough (list is sorted by tfidfs)
 			for (j = 0; j < ontmetadataCount && (found == 0); ++j) {
 				oid muri = ontmetadata[0][j];
 				oid msuper = ontmetadata[1][j];

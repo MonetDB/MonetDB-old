@@ -36,6 +36,7 @@
 #include "rdfontologyload.h"
 #include <mtime.h>
 #include <rdfgraph.h>
+#include <rdfparams.h>
 
 #define SHOWPROPERTYNAME 1
 
@@ -569,7 +570,8 @@ void updateFreqCStype(CSset *freqCSset, int num,  float *curIRScores, int *refCo
 	int	threshold = 0; 
 	int 	ratio; 
 
-	ratio = pow(IR_DIMENSION_FACTOR, nIterIR);
+	//ratio = pow(IR_DIMENSION_FACTOR, nIterIR);
+	ratio = IR_DIMENSION_FACTOR;
 
 	printf("List of dimension tables: \n");
 	for (i = 0; i < num; i++){
@@ -9385,7 +9387,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	//return "Error"; 
 
 	/* Get the number of indirect refs in order to detect dimension table */
-	
+	if(0)	{
 	//nIterIR = getDiameter(3, freqCSset->numCSadded,csrelSet);
 	nIterIR = getDiameterExact(freqCSset->numCSadded,csrelSet);
 	if (nIterIR > MAX_ITERATION_NO) nIterIR = MAX_ITERATION_NO;
@@ -9401,10 +9403,11 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	free(refCount); 
 	free(curIRScores);
-
+	
 	curT = clock(); 
 	printf("Get number of indirect referrences to detect dimension tables !!! Took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT;
+	}
 	/*------------------------------------*/	
 
 	{
@@ -9587,6 +9590,28 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	getStatisticCSsBySupports(csBats->pOffsetBat, csBats->freqBat, csBats->coverageBat, csBats->fullPBat, 1, *freqThreshold);
 	#endif
 
+	/* Get the number of indirect refs in order to detect dimension table */
+	if(1)	{
+	//nIterIR = getDiameter(3, freqCSset->numCSadded,*csRelMergeFreqSet);
+	nIterIR = getDiameterExact(freqCSset->numCSadded,*csRelMergeFreqSet);
+	if (nIterIR > MAX_ITERATION_NO) nIterIR = MAX_ITERATION_NO;
+
+	refCount = (int *) malloc(sizeof(int) * (freqCSset->numCSadded));
+	curIRScores = (float *) malloc(sizeof(float) * (freqCSset->numCSadded));
+	
+	initIntArray(refCount, freqCSset->numCSadded, 0); 
+
+	getOrigRefCount(*csRelMergeFreqSet, freqCSset, freqCSset->numCSadded, refCount);  
+	getIRNums(*csRelMergeFreqSet, freqCSset, freqCSset->numCSadded, refCount, curIRScores, nIterIR);  
+	updateFreqCStype(freqCSset, freqCSset->numCSadded, curIRScores, refCount, nIterIR);
+
+	free(refCount); 
+	free(curIRScores);
+	
+	curT = clock(); 
+	printf("Get number of indirect referrences to detect dimension tables !!! Took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	tmpLastT = curT;
+	}
 
 	BBPunfix(sbat->batCacheid); 
 	BBPunfix(pbat->batCacheid); 
@@ -10956,12 +10981,15 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	freqCSset = initCSset();
 
 	//if (1) printListOntology();
+	readParamsInput();
+
+	
 
 	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, ontbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid, &maxNumPwithDup, &labels, &csRelMergeFreqSet) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in extracting CSs");
 	}
 	
-
+	
 	curT = clock(); 
 	printf (" Total schema extraction process took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		

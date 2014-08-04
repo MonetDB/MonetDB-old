@@ -34,6 +34,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <ctype.h>
+#include <rdfparams.h>
 
 typedef struct graphBATdef {
 	graphBATType batType;    /* BAT type             */
@@ -1014,6 +1015,10 @@ RDFParser (BAT **graph, str *location, str *graphname, str *schema, bat *ontbati
 	}
 	tmpendT = clock();
 	printf ("Post processing took %f seconds.\n", ((float)(tmpendT - tmpbeginT))/CLOCKS_PER_SEC);
+
+	//Create default paramters file 
+	createDefaultParamsFile();
+
 	freeParserData(pdata);
 	return MAL_SUCCEED;
 }
