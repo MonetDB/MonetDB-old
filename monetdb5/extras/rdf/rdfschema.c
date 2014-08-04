@@ -563,7 +563,7 @@ void getIRNums(CSrel *csrelSet, CSset *freqCSset, int num,  int* refCount, float
 
 
 static 
-void updateFreqCStype(CSset *freqCSset, int num,  float *curIRScores, int *refCount, int nIterIR){
+void updateFreqCStype(CSset *freqCSset, int num,  float *curIRScores, int *refCount){
 
 	int 	i; 
 	int	numDimensionCS = 0; 
@@ -9399,7 +9399,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	getOrigRefCount(csrelSet, freqCSset, freqCSset->numCSadded, refCount);  
 	getIRNums(csrelSet, freqCSset, freqCSset->numCSadded, refCount, curIRScores, nIterIR);  
-	updateFreqCStype(freqCSset, freqCSset->numCSadded, curIRScores, refCount, nIterIR);
+	updateFreqCStype(freqCSset, freqCSset->numCSadded, curIRScores, refCount);
 
 	free(refCount); 
 	free(curIRScores);
@@ -9603,7 +9603,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	getOrigRefCount(*csRelMergeFreqSet, freqCSset, freqCSset->numCSadded, refCount);  
 	getIRNums(*csRelMergeFreqSet, freqCSset, freqCSset->numCSadded, refCount, curIRScores, nIterIR);  
-	updateFreqCStype(freqCSset, freqCSset->numCSadded, curIRScores, refCount, nIterIR);
+	updateFreqCStype(freqCSset, freqCSset->numCSadded, curIRScores, refCount);
 
 	free(refCount); 
 	free(curIRScores);
