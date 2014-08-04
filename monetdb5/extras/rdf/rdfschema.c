@@ -503,7 +503,7 @@ void getOrigRefCount(CSrel *csrelSet, CSset *freqCSset, int num,  int* refCount)
 			for (j = 0; j < csrelSet[i].numRef; j++){
 				freqId = csrelSet[i].lstRefFreqIdx[j]; 
 				#if FILTER_INFREQ_FK_FOR_IR
-				if (csrelSet[i].lstCnt[j] < FILTER_THRESHOLD_FK_FOR_IR * freqCSset->items[freqId].support) continue; 
+				if (csrelSet[i].lstCnt[j] < INFREQ_TYPE_THRESHOLD * freqCSset->items[freqId].support) continue; 
 				#endif
 				//Do not count the self-reference
 				if (freqId != i) refCount[freqId] += csrelSet[i].lstCnt[j];
@@ -536,7 +536,7 @@ void getIRNums(CSrel *csrelSet, CSset *freqCSset, int num,  int* refCount, float
 				for (j = 0; j < csrelSet[i].numRef; j++){
 					freqId = csrelSet[i].lstRefFreqIdx[j]; 
 					#if FILTER_INFREQ_FK_FOR_IR
-					if (csrelSet[i].lstCnt[j] < FILTER_THRESHOLD_FK_FOR_IR * freqCSset->items[freqId].support) continue; 
+					if (csrelSet[i].lstCnt[j] < INFREQ_TYPE_THRESHOLD * freqCSset->items[freqId].support) continue; 
 					#endif
 					if (freqId != i){	//Do not count the self-reference
 						//curIRScores[freqId] += (lastIRScores[i] * (float)csrelSet[i].lstCnt[j]/(float)refCount[freqId]) +  csrelSet[i].lstCnt[j];
@@ -867,7 +867,7 @@ char isMultiValueCol(PropTypes pt){
 
 	tmpRatio = ((double)pt.propCover / (pt.numSingleType + pt.numMVType));
 	//printf("NumMVType = %d  | Ratio %f \n", pt.numMVType, tmpRatio);
-	if ((pt.numMVType > 0) && (tmpRatio > IS_MULVALUE_THRESHOLD)){
+	if ((pt.numMVType > 0) && (tmpRatio > (1 + INFREQ_TYPE_THRESHOLD))){
 		return 1; 
 	}
 	else return 0; 
@@ -3603,7 +3603,7 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 		freq = freqCSset->items[csRel.origFreqIdx].support; 
 		referredFreqId = csRel.lstRefFreqIdx[i];
 		freqOfReferredCS = freqCSset->items[referredFreqId].support;
-		if (freq > MIN_FROMTABLE_SIZE_S5 && freq < csRel.lstCnt[i] * MIN_PERCETAGE_S5 
+		if (freq > MIN_FROMTABLE_SIZE_S5 && (((float)freq * INFREQ_TYPE_THRESHOLD) < csRel.lstCnt[i]))   
 		    && freqOfReferredCS < csRel.lstCnt[i] * MIN_TO_PERCETAGE_S5){			
 			
 			p = csRel.lstPropId[i]; 
@@ -8437,7 +8437,7 @@ CSrel* getFKBetweenTableSet(CSrel *csrelFreqSet, CSset *freqCSset, CSPropTypes* 
 			// add relation to new data structure
 
 			//Compare with prop coverage from csproptype	
-			if (rel.lstCnt[j]  < freqCSset->items[toFreqId].support * MIN_FK_FREQUENCY)	continue; 
+			if (rel.lstCnt[j]  < freqCSset->items[toFreqId].support * INFREQ_TYPE_THRESHOLD)	continue; 
 
 			to = mfreqIdxTblIdxMapping[toFreqId]; 
 			assert(to != -1); 
@@ -8455,7 +8455,7 @@ CSrel* getFKBetweenTableSet(CSrel *csrelFreqSet, CSset *freqCSset, CSPropTypes* 
 			//Filtering: For big size table, if large number of prop's instances need to refer to a certain table
 			// else, all instances of that prop must refer to the certain table
 			if (freqCSset->items[i].coverage > MINIMUM_TABLE_SIZE){
-				if (csPropTypes[from].lstPropTypes[propIdx].propCover * MIN_FK_PROPCOVERAGE > rel.lstCnt[j]) continue; 
+				if (csPropTypes[from].lstPropTypes[propIdx].propCover * (1 - INFREQ_TYPE_THRESHOLD) > rel.lstCnt[j]) continue; 
 				else if (csPropTypes[from].lstPropTypes[propIdx].propCover == rel.lstCnt[j])
 					csPropTypes[from].lstPropTypes[propIdx].isDirtyFKProp = 0;
 				else

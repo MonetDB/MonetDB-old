@@ -127,10 +127,10 @@ typedef struct PropStat {
 #define OUTPUT_FREQID_PER_LABEL 1 	/* This is for evaluating the results of merging using S1. TODO: Set it to 0 for default*/
 #define	MERGING_CONSIDER_NAMEORIGINALITY 0	/*Merging in rule S1, considering where the name comes from (e.g., from Ontology, from rdf:type, or from FK) */	 
 
-#define IS_MULVALUE_THRESHOLD  1.1	/* The ratio betweeen (the number of triple coverred by Prop P) / (number of Non-NULL object values for P)
-					   If this ratio is ~1, only use single value column for that prop
-					*/
-#define INFREQ_TYPE_THRESHOLD  0.01	/* Threshold that a type is consider as an infrequent type */
+//#define IS_MULVALUE_THRESHOLD  1.1	//The ratio betweeen (the number of triple coverred by Prop P) / (number of Non-NULL object values for P)
+					//   If this ratio is ~1, only use single value column for that prop
+					// Replaced by ( 1 + INFREQ_TYPE_THRESHOLD) as multi-prop can be considered as the type of the props
+#define INFREQ_TYPE_THRESHOLD  0.1	/* Threshold that a type is consider as an infrequent type */
 
 
 
@@ -154,7 +154,8 @@ typedef struct PropStat {
 #define	ONLY_MERGE_URINAME_CS_S1 0		/* Only merge CS's whose name is an URI */
 
 #define FILTER_INFREQ_FK_FOR_IR	1		/* We filter out all the dirty references from a CS */
-#define FILTER_THRESHOLD_FK_FOR_IR	0.1	/* The FK that their frequency < FILTER_THRESHOLD_FK_FOR_IR * FreqCS's frequency */ 	
+//#define FILTER_THRESHOLD_FK_FOR_IR	0.1	/* The FK that their frequency < FILTER_THRESHOLD_FK_FOR_IR * FreqCS's frequency */ 	
+//						//Replaced by INFREQ_TYPE_THRESHOLD as a reference can be considered as a type of the object value
 
 /*------------------------------------*/
 
@@ -245,14 +246,15 @@ typedef struct SubCSSet{
 	int 	numAllocation; 
 } SubCSSet;
 
-//#define INIT_NUM_CS 9999 // workaround
-#define INIT_NUM_CS 1000 // workaround
+#define INIT_NUM_CS 1000 
 #define SIM_THRESHOLD 0.6
 #define SIM_TFIDF_THRESHOLD 0.75
 #define IMPORTANCE_THRESHOLD 0.001 //This is used when merging CS's by common ancestor
 #define COMMON_ANCESTOR_LOWEST_SPECIFIC_LEVEL 2 
 
-#define MIN_PERCETAGE_S5 5	// Merge all CS refered by more than 1/MIN_PERCETAGE_S6 percent of a CS via one property
+//#define MIN_PERCETAGE_S5 5	// Merge all CS refered by more than 1/MIN_PERCETAGE_S6 percent of a CS via one property
+				// Replaced by using INFREQ_TYPE_THRESHOLD
+				//
 #define MIN_FROMTABLE_SIZE_S5 100  // The minimum size of the "from" table in S6. Meaning that 
 				    // the CS's to-be-merged in this rule must cover > MIN_FROMTABLE_SIZE_S6 / MIN_PERCETAGE_S6 triples
 #define MIN_TO_PERCETAGE_S5 10	// Threshold for the number of instances in the target CS refered by the property
@@ -271,10 +273,8 @@ typedef struct SubCSSet{
 //#define MINIMUM_TABLE_SIZE 1   // For example dataset only 
 #define HIGH_REFER_THRESHOLD 5
 
-//#define	INFREQ_PROP_THRESHOLD	0.01
 #define       INFREQ_PROP_THRESHOLD   0.05
 
-//#define	INFREQ_PROP_THRESHOLD	0.2 	//For Testing
 #define REMOVE_INFREQ_PROP	1
 #define REMOVE_LOTSOFNULL_SUBJECT	1
 #define	LOTSOFNULL_SUBJECT_THRESHOLD	0.1
@@ -287,8 +287,10 @@ typedef struct SubCSSet{
 						//contain small table
 #define STRANGE_PROP_FREQUENCY	10		//If the prop appears in less than 3 instances, it may be the black sheep
 
-#define	MIN_FK_FREQUENCY 	0.1	// The frequency of a FK should be > MIN_FK_FREQUENCY * The frequency of a mergedCS (or the number of tuples in one table)	
-#define MIN_FK_PROPCOVERAGE	0.9	// The FK needs to happen in MIN_FK_PROPCOVERAGE of all instances of the particular property
+//#define	MIN_FK_FREQUENCY 	0.1	// The frequency of a FK should be > MIN_FK_FREQUENCY * The frequency of a mergedCS (or the number of tuples in one table)	
+						// Replaced by INFREQ_TYPE_THRESHOLD
+//#define MIN_FK_PROPCOVERAGE	0.9	// The FK needs to happen in MIN_FK_PROPCOVERAGE of all instances of the particular property
+						// Replaced by (1 - INFREQ_TYPE_THRESHOLD)
 
 #define EXPORT_LABEL		1	/* Export labels: TODO:   */
 
