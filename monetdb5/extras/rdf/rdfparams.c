@@ -28,9 +28,9 @@
 #include <string.h>
 
 int dimensionFactor; 
-float ontologySimThreshold; 
 int upperboundNumTables;
 float generalityThreshold; 
+float simTfidfThreshold;
 
 void createDefaultParamsFile(void){
 	
@@ -38,9 +38,9 @@ void createDefaultParamsFile(void){
 	
 	paramFile = fopen("params.ini", "wt");
 	
-	fprintf(paramFile, "dimensionFactor 3\n");
-	fprintf(paramFile, "ontologySimThreshold 0.75\n");
+	fprintf(paramFile, "dimensionFactor 1000\n");
 	fprintf(paramFile, "upperboundNumTables 1000");
+	fprintf(paramFile, "simTfidfThreshold 0.75");
 
 	fclose(paramFile); 
 }
@@ -63,13 +63,13 @@ void readParamsInput(void){
 				dimensionFactor = atoi(value);
 				printf("dimensionFactor = %d\n",dimensionFactor);
 			}
-			else if (strcmp(variable, "ontologySimThreshold") == 0){
-				ontologySimThreshold = atof(value);
-				printf("ontologySimThreshold = %f\n",ontologySimThreshold);
-			}
 			else if (strcmp(variable, "upperboundNumTables") == 0){
 				upperboundNumTables = atoi(value);
 				printf("upperboundNumTables = %d\n", upperboundNumTables);
+			}
+			else if (strcmp(variable, "simTfidfThreshold") == 0){
+				simTfidfThreshold = atof(value);
+				printf("simTfidfThreshold = %f\n", simTfidfThreshold);
 			}
 		}
 	}

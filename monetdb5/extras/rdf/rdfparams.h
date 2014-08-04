@@ -32,9 +32,9 @@
 
 
 extern int dimensionFactor; 
-extern float ontologySimThreshold;
 extern int upperboundNumTables; 
 extern float generalityThreshold;
+extern float simTfidfThreshold;
 
 rdf_export void
 createDefaultParamsFile(void);

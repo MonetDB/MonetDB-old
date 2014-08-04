@@ -4683,9 +4683,9 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 			  isSameLabel = 0;
 			  if ((*labels)[freqId1].name == (*labels)[freqId2].name) isSameLabel = 1;
 
-			  if (simscore > SIM_TFIDF_THRESHOLD && (existDiscriminatingProp || isSameLabel)){
+			  if (simscore > simTfidfThreshold && (existDiscriminatingProp || isSameLabel)){
 			  #else	
-			  if (simscore > SIM_TFIDF_THRESHOLD && existDiscriminatingProp){	  
+			  if (simscore > simTfidfThreshold && existDiscriminatingProp){	  
 			  #endif
 			#else	
 			if (simscore > SIM_THRESHOLD) {

@@ -234,7 +234,7 @@ typedef struct SubCSSet{
 
 #define INIT_NUM_CS 1000 
 #define SIM_THRESHOLD 0.6
-#define SIM_TFIDF_THRESHOLD 0.75
+//#define SIM_TFIDF_THRESHOLD 0.75	//Replaced by simTfidfThreshold
 //#define IMPORTANCE_THRESHOLD 0.001 //This is used when merging CS's by common ancestor
 					// Replace by generalityThreshold = 1/(upperboundNumTables)
 #define COMMON_ANCESTOR_LOWEST_SPECIFIC_LEVEL 2 
