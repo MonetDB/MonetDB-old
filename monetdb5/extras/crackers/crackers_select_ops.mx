@@ -991,7 +991,6 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 		cl2 = BUNfirst(b);
 		ch2 = BUNlast(b)-(oid)1;
 		@:crkTwoRTree(@1)@
-		//@:crkTwoRTreeCopy(@1)@
 		if (gapH>0) addCrackerIndex_@1(m,hgh,HBound,vh,c);
 		vl = BUNfirst(b);
 		pieces=pieces+2;
