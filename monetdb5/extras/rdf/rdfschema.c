@@ -8973,8 +8973,8 @@ void computeMetricsQ(CSset *freqCSset){
 	CS cs;	
 	int	totalCov = 0; 
 	float	totalPrecision = 0.0; 
-	int	overalFill = 0; 
-	int 	overalMaxFill = 0;
+	long	overalFill = 0; 
+	long 	overalMaxFill = 0;
 
 	float	Q = 0.0;
 	int	i;
@@ -8997,13 +8997,15 @@ void computeMetricsQ(CSset *freqCSset){
 			totalPrecision += fillRatio[tblIdx];
 			overalFill += cs.numFill;
 			overalMaxFill += cs.numProp *  cs.support;
+
+			if ((cs.numProp *  cs.support) > 1000000) printf("FreqCS %d has %d prop and support %d (Fill Ratio %f )\n",i,cs.numProp,cs.support,fillRatio[tblIdx]);
 			
 			Q += weight[tblIdx];
 		}
 	}
 	printf("Performance metric Q = (weighting %f)/(totalCov %d * numTbl %d) \n", Q,totalCov, curNumMergeCS);
 	printf("Average precision = %f\n",(float)totalPrecision/curNumMergeCS);
-	printf("Overall precision = %f\n", (float) overalFill/overalMaxFill);
+	printf("Overall precision = %f (overfill %ld / overalMaxFill %ld)\n", (float) overalFill/overalMaxFill, overalFill, overalMaxFill);
 	//printf("Average precision = %f\n",(float)totalPrecision/totalCov);
 
 	Q = Q/((float)totalCov * curNumMergeCS);
@@ -9043,6 +9045,10 @@ void computeMetricsQForRefinedTable(CSset *freqCSset,CSPropTypes *csPropTypes,in
 	FILE	*fout; 
 	char	filename[100];
 	#endif
+
+	float	totalPrecision = 0.0; 
+	long	overalFill = 0; 
+	long 	overalMaxFill = 0;
 
 	fillRatio = (float*)malloc(sizeof(float) * numTables);
 	refRatio = (float*)malloc(sizeof(float) * numTables);
@@ -9171,9 +9177,15 @@ void computeMetricsQForRefinedTable(CSset *freqCSset,CSPropTypes *csPropTypes,in
 		weight[i] = (float) cs.coverage * ( fillRatio[i] + refRatio[i]); 
 		totalCov += cs.coverage;
 			
+		totalPrecision += fillRatio[i];
+		overalFill += numRefinedFills[i];
+		overalMaxFill += tmpNumFreqProps * numRefinedSupport[i];
+
 		Q += weight[i];
 	}
 	printf("Refined Table: Performance metric Q = (weighting %f)/(totalCov %d * numTbl %d) \n", Q,totalCov, numTables);
+	printf("Average precision = %f\n",(float)totalPrecision/numTables);
+	printf("Overall precision = %f (overfill %ld / overalMaxFill %ld)\n", (float) overalFill/overalMaxFill, overalFill, overalMaxFill);
 
 	Q = Q/((float)totalCov * numTables);
 
