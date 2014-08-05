@@ -8973,6 +8973,9 @@ void computeMetricsQ(CSset *freqCSset){
 	CS cs;	
 	int	totalCov = 0; 
 	float	totalPrecision = 0.0; 
+	int	overalFill = 0; 
+	int 	overalMaxFill = 0;
+
 	float	Q = 0.0;
 	int	i;
 	int curNumMergeCS = countNumberMergeCS(freqCSset);
@@ -8992,12 +8995,15 @@ void computeMetricsQ(CSset *freqCSset){
 			//weight[tblIdx] = (float) cs.coverage * ( fillRatio[tblIdx]);  //If do not consider reference ratio
 			totalCov += cs.coverage;
 			totalPrecision += fillRatio[tblIdx];
+			overalFill += cs.numFill;
+			overalMaxFill += cs.numProp *  cs.support;
 			
 			Q += weight[tblIdx];
 		}
 	}
 	printf("Performance metric Q = (weighting %f)/(totalCov %d * numTbl %d) \n", Q,totalCov, curNumMergeCS);
 	printf("Average precision = %f\n",(float)totalPrecision/curNumMergeCS);
+	printf("Overall precision = %f\n", (float) overalFill/overalMaxFill);
 	//printf("Average precision = %f\n",(float)totalPrecision/totalCov);
 
 	Q = Q/((float)totalCov * curNumMergeCS);
