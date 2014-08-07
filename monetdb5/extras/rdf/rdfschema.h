@@ -115,7 +115,6 @@ typedef struct PropStat {
 
 #define USE_ONTLABEL_FOR_NAME	1	// If the ontology label of a class is available, use it for the name
 #define USE_LABEL_FINDING_MAXCS	0 	// Use the labels received from labeling process for finding maxCS 
-#define USE_LABEL_FOR_MERGING	1 	// Use the labels received from labeling process for finding mergeCS
 #define TOPK 1			//Check top 3 candidate
 #define MAX_SUB_SUPER_NUMPROP_DIF 3
 #define USE_MULTIWAY_MERGING	0
@@ -125,7 +124,7 @@ typedef struct PropStat {
 					the freqIdx of merged CS from previous rule. */
 
 #define OUTPUT_FREQID_PER_LABEL 1 	/* This is for evaluating the results of merging using S1. TODO: Set it to 0 for default*/
-#define	MERGING_CONSIDER_NAMEORIGINALITY 0	/*Merging in rule S1, considering where the name comes from (e.g., from Ontology, from rdf:type, or from FK) */	 
+//#define	MERGING_CONSIDER_NAMEORIGINALITY 0	/*Merging in rule S1, considering where the name comes from (e.g., from Ontology, from rdf:type, or from FK) */	 
 
 //#define IS_MULVALUE_THRESHOLD  1.1	//The ratio betweeen (the number of triple coverred by Prop P) / (number of Non-NULL object values for P)
 					//   If this ratio is ~1, only use single value column for that prop

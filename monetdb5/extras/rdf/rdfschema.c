@@ -3682,7 +3682,6 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 
 }
 
-#if USE_LABEL_FOR_MERGING
 static
 LabelStat* initLabelStat(void){
 	LabelStat *labelStat = (LabelStat*) malloc(sizeof(LabelStat)); 
@@ -3701,12 +3700,10 @@ LabelStat* initLabelStat(void){
 
 	return labelStat; 
 }
-#endif
 
 /*
  * 
  * */
-#if USE_LABEL_FOR_MERGING
 #if USE_ALTERNATIVE_NAME 
 static
 oid getMostSuitableName(CSlabel *labels, int freqIdx, int candIdx){
@@ -3740,7 +3737,6 @@ oid getMostSuitableName(CSlabel *labels, int freqIdx, int candIdx){
 	#endif
 
 }
-#endif
 #endif
 
 #if DETECT_INCORRECT_TYPE_SUBJECT
@@ -3902,7 +3898,6 @@ void buildLabelStatForFinalMergeCS(LabelStat *labelStat, CSset *freqCSset, CSlab
 
 #endif
 
-#if USE_LABEL_FOR_MERGING
 static
 void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset, int k){
 	int 	i,j; 
@@ -3989,9 +3984,7 @@ void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset, int
 	}
 
 }
-#endif
 
-#if USE_LABEL_FOR_MERGING
 static 
 void freeLabelStat(LabelStat *labelStat){
 	int i; 
@@ -4005,7 +3998,6 @@ void freeLabelStat(LabelStat *labelStat){
 	BBPreclaim(labelStat->labelBat);
 	free(labelStat);
 }
-#endif
 
 static
 char isSignificationPrecisionDrop(CS *cs1, CS *cs2){
@@ -4026,13 +4018,21 @@ char isSignificationPrecisionDrop(CS *cs1, CS *cs2){
 
 	estimatedFillRatio = (float) newFill / (float) (newSupport * numCombineP);
 
-	if ((minFillRatio / estimatedFillRatio) > 2) return 1; 
+	if ((minFillRatio / estimatedFillRatio) > 5) return 1; 
 
 	return 0;
-	
-
 }
 
+static
+char isNoCommonProp(CS *cs1, CS *cs2){
+	int numCombineP = 0;
+	
+	getNumCombinedP(cs1->lstProp, cs2->lstProp, cs1->numProp, cs2->numProp, &numCombineP);
+	
+	if (numCombineP == (cs1->numProp + cs2->numProp)) return 1; 
+
+	return 0;
+}
 static 
 void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *mergecsId, CSlabel** labels, oid** ontmetadata, int ontmetadataCount, oid name, int isType, int isOntology, int isFK){
 	CS 	*mergecs; 
@@ -4043,11 +4043,18 @@ void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *merge
 
 	cs1 = &(freqCSset->items[freqId1]);
 	cs2 = &(freqCSset->items[freqId2]);
+	
 
-	if (isSignificationPrecisionDrop(cs1, cs2)){
-		printf("Merging freqCS %d and %d may significantly drop precision\n", freqId1, freqId2);
-		return;
-	}	
+	if (0){
+		if (isSignificationPrecisionDrop(cs1, cs2)){
+			printf("Merging freqCS %d and %d may significantly drop precision\n", freqId1, freqId2);
+			return;
+		}
+		if (isNoCommonProp(cs1, cs2)){
+			printf("FreqCS %d and %d have no prop in common--> no merging\n", freqId1, freqId2);
+			return;
+		}
+	}
 
 	//Check whether these CS's belong to any mergeCS
 	if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx == -1){	/* New merge */
@@ -4094,7 +4101,6 @@ void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *merge
 
 
 
-#if USE_LABEL_FOR_MERGING
 static
 str mergeFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** ontmetadata, int ontmetadataCount,bat *mapbatid){
 	int 		i, j; 
@@ -4184,101 +4190,6 @@ str mergeFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** on
 			}
 			#else
 
-			#if MERGING_CONSIDER_NAMEORIGINALITY 	
-			//For ontology name
-			tmpCount = 0; 
-			for (k = 0; k < labelStat->lstCount[i]; k++){
-				freqId1 = labelStat->freqIdList[i][k];
-				if ((*labels)[freqId1].isOntology == 1) {
-					cs1 = &(freqCSset->items[freqId1]);
-					#if     NOT_MERGE_DIMENSIONCS_IN_S1
-					if (cs1->type == DIMENSIONCS) continue;
-					#endif
-					tmpCount++;
-					break; 
-				}
-			}
-			for (j = k+1; j < labelStat->lstCount[i]; j++){
-				freqId2 = labelStat->freqIdList[i][j];
-				cs2 = &(freqCSset->items[freqId2]);
-				#if	NOT_MERGE_DIMENSIONCS_IN_S1
-				if (cs2->type == DIMENSIONCS) 
-					continue; 
-				#endif
-				if ((*labels)[freqId2].isOntology == 1){
-					//printf("Merge FreqCS %d and FreqCS %d by Ontology name \n", freqId1, freqId2);
-					doMerge(freqCSset, S1, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name, 0, 1, 0); // isOntology
-					//printf("Number of added cs in freqCS: %d \n", freqCSset->numCSadded); 
-					tmpCount++;
-				}
-			}
-			#if OUTPUT_FREQID_PER_LABEL
-			fprintf(fout, " %d freqCS merged as having same name by Ontology. MergedCS has %d prop. \n", tmpCount, freqCSset->items[freqCSset->numCSadded -1].numProp);
-			#endif
-
-			//For Type
-			tmpCount = 0;
-			for (k = 0; k < labelStat->lstCount[i]; k++){
-				freqId1 = labelStat->freqIdList[i][k];
-				if ((*labels)[freqId1].isType == 1) {
-					cs1 = &(freqCSset->items[freqId1]);
-					#if     NOT_MERGE_DIMENSIONCS_IN_S1
-					if (cs1->type == DIMENSIONCS) continue;
-					#endif
-					tmpCount++;
-					break; 
-				}
-			}
-			for (j = k+1; j < labelStat->lstCount[i]; j++){
-				freqId2 = labelStat->freqIdList[i][j];
-				cs2 = &(freqCSset->items[freqId2]);
-				#if	NOT_MERGE_DIMENSIONCS_IN_S1
-				if (cs2->type == DIMENSIONCS) continue; 
-				#endif
-				if ((*labels)[freqId2].isType == 1){
-					//printf("Merge FreqCS %d and FreqCS %d by Type name \n", freqId1, freqId2);
-					doMerge(freqCSset, S1, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name, 1, 0, 0); // isType
-					//printf("Number of added cs in freqCS: %d \n", freqCSset->numCSadded); 				
-					tmpCount++;
-				}
-			}
-			#if OUTPUT_FREQID_PER_LABEL
-			fprintf(fout, " %d freqCS merged as having same name by TYPE. MergedCS has %d prop. \n", tmpCount, freqCSset->items[freqCSset->numCSadded -1].numProp);
-			#endif
-
-			//For FK
-			tmpCount = 0;
-			for (k = 0; k < labelStat->lstCount[i]; k++){
-				freqId1 = labelStat->freqIdList[i][k];
-				if ((*labels)[freqId1].isFK == 1) {
-					cs1 = &(freqCSset->items[freqId1]);
-					#if     NOT_MERGE_DIMENSIONCS_IN_S1
-					if (cs1->type == DIMENSIONCS) continue;
-					#endif
-					tmpCount++;
-					break; 
-				}
-			}
-			for (j = k+1; j < labelStat->lstCount[i]; j++){
-				freqId2 = labelStat->freqIdList[i][j];
-				cs2 = &(freqCSset->items[freqId2]);
-				#if	NOT_MERGE_DIMENSIONCS_IN_S1
-				if (cs2->type == DIMENSIONCS) continue; 
-				#endif
-				if ((*labels)[freqId2].isFK == 1){
-					//printf("Merge FreqCS %d and FreqCS %d by FK name \n", freqId1, freqId2);
-					doMerge(freqCSset, S1, freqId1, freqId2, mergecsId, labels, ontmetadata, ontmetadataCount, *name, 0, 0, 1); // isFK
-					//printf("Number of added cs in freqCS: %d \n", freqCSset->numCSadded); 					
-					tmpCount++;
-				}
-			}
-
-			#if OUTPUT_FREQID_PER_LABEL
-			fprintf(fout, " %d freqCS merged as having same name by FK. MergedCS has %d prop. \n", tmpCount, freqCSset->items[freqCSset->numCSadded -1].numProp);
-			#endif
-
-			#else	//MERGING_CONSIDER_NAMEORIGINALITY == 0
-
 			tmpCount = 0;
 			for (k = 0; k < labelStat->lstCount[i]; k++){
 				freqId1 = labelStat->freqIdList[i][k];
@@ -4313,8 +4224,6 @@ str mergeFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** on
 			fprintf(fout, " %d freqCS merged as having same name (by Ontology, Type, FK). MergedCS has %d prop. \n", tmpCount, freqCSset->items[freqCSset->numCSadded -1].numProp);
 			#endif
 			
-			#endif
-
 			#endif /* USE_MULTIWAY_MERGING */
 
 			#if OUTPUT_FREQID_PER_LABEL
@@ -4350,7 +4259,6 @@ str mergeFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** on
 
 	return MAL_SUCCEED; 
 }
-#endif
 
 static
 void mergeFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId, oid** ontmetadata, int ontmetadataCount){
@@ -4482,7 +4390,6 @@ void mergeFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** label
 }
 
 
-#if USE_LABEL_FOR_MERGING
 static
 char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode *tree, int numOrigFreqCS, oid *ancestor, BAT *ontmetaBat, OntClass *ontclassSet){	/*Rule S1 S2 S3*/
 	int i, j; 
@@ -4492,48 +4399,10 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 	int level; 
 	OntoUsageNode *tmpNode; 
 		
-	/*
-	int k1, k2; 
-	if (labels[freqId1].name == labels[freqId2].name)
-		return 1;
-	else{ 
-		k1 =  (labels[freqId1].candidatesCount < TOPK)?labels[freqId1].candidatesCount:TOPK;
-		k2 =  (labels[freqId2].candidatesCount < TOPK)?labels[freqId2].candidatesCount:TOPK;	
-
-		for (i = 0; i < k1; i++){
-			for (j = 0; j < k2; j++){
-				if (labels[freqId1].candidates[i] == labels[freqId2].candidates[j])
-				{
-					(*ancestor) = labels[freqId1].candidates[i];
-					return 1; 
-				}
-			}
-		}
-	}
-	*/
-	
 	// Check for the most common ancestor
 	hCount1 = labels[freqId1].hierarchyCount;
 	hCount2 = labels[freqId2].hierarchyCount;
 	minCount = (hCount1 > hCount2)?hCount2:hCount1;
-	
-	/*
-	if (minCount > 0){
-	printf("minCount = %d \n", minCount);
-	printf("Finding common ancestor for %d and %d \n", freqId1, freqId2 );
-	printf("FreqCS1: ");
-	for (i = 0; i < hCount1; i++){
-		printf(" " BUNFMT, labels[freqId1].hierarchy[hCount1-1-i]);
-	}
-	printf(" \n ");
-	printf("FreqCS2: ");
-	for (i = 0; i < hCount2; i++){
-		printf(" " BUNFMT, labels[freqId2].hierarchy[hCount2-1-i]);
-	}
-	printf(" \n ");
-	}
-	*/
-
 	
 	if (0){
 	if ((freqId1 > numOrigFreqCS -1) || (freqId2 > numOrigFreqCS -1))
@@ -4560,15 +4429,6 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 		}
 		
 		
-		/*
-		printf("The common ancestor of freqCS %d ("BUNFMT") and freqCS %d ("BUNFMT") is: "BUNFMT" --- %f \n", freqId1, labels[freqId1].name, freqId2, labels[freqId2].name, tmpNode->uri, tmpNode->percentage);
-
-		printTKNZStringFromOid(labels[freqId1].name);
-		printTKNZStringFromOid(labels[freqId2].name);
-		printTKNZStringFromOid(tmpNode->uri);
-		*/
-		
-
 		if (tmpNode->percentage < generalityThreshold) {
 			//printf("Merge two CS's %d (Label: "BUNFMT") and %d (Label: "BUNFMT") using the common ancestor ("BUNFMT") at level %d (score: %f)\n",
 			//		freqId1, labels[freqId1].name, freqId2, labels[freqId2].name,tmpNode->uri, i,tmpNode->percentage);
@@ -4596,7 +4456,6 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 
 	return 0;
 }
-#endif
 
 static
 void initTFIDFInfos(TFIDFInfo *tfidfInfos, int curNumMergeCS, oid* mergeCSFreqCSMap, CSset *freqCSset, PropStat *propStat){
@@ -4640,7 +4499,6 @@ void freeTFIDFInfo(TFIDFInfo *tfidfInfos, int curNumMergeCS){
 	free(tfidfInfos);
 }
 
-#if USE_LABEL_FOR_MERGING
 static
 void mergeCSByS2(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId,OntoUsageNode *ontoUsageTree, oid **ontmetadata, int ontmetadataCount, BAT *ontmetaBat, OntClass *ontclassSet){
 	int 		i, j; 
@@ -4682,7 +4540,6 @@ void mergeCSByS2(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 	}
 
 }
-#endif
 
 static
 void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int curNumMergeCS, oid *mergecsId,oid **ontmetadata, int ontmetadataCount){
@@ -9073,7 +8930,7 @@ void computeMetricsQ(CSset *freqCSset){
 			overalFill += cs.numFill;
 			overalMaxFill += cs.numProp *  cs.support;
 
-			if ((cs.numProp *  cs.support) > 1000000) printf("FreqCS %d has %d prop and support %d (Fill Ratio %f )\n",i,cs.numProp,cs.support,fillRatio[tblIdx]);
+			//if ((cs.numProp *  cs.support) > 1000000) printf("FreqCS %d has %d prop and support %d (Fill Ratio %f )\n",i,cs.numProp,cs.support,fillRatio[tblIdx]);
 			
 			Q += weight[tblIdx];
 		}
@@ -9481,33 +9338,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printMergedFreqCSSet(freqCSset, mbat, ontbat,1, *freqThreshold, *labels, 0); 
 	#endif
 	
-	//return "Error"; 
-
-	/* Get the number of indirect refs in order to detect dimension table */
-	if(0)	{
-	//nIterIR = getDiameter(3, freqCSset->numCSadded,csrelSet);
-	nIterIR = getDiameterExact(freqCSset->numCSadded,csrelSet);
-	if (nIterIR > MAX_ITERATION_NO) nIterIR = MAX_ITERATION_NO;
-
-	refCount = (int *) malloc(sizeof(int) * (freqCSset->numCSadded));
-	curIRScores = (float *) malloc(sizeof(float) * (freqCSset->numCSadded));
 	
-	initIntArray(refCount, freqCSset->numCSadded, 0); 
-
-	getOrigRefCount(csrelSet, freqCSset, freqCSset->numCSadded, refCount);  
-	getIRNums(csrelSet, freqCSset, freqCSset->numCSadded, refCount, curIRScores, nIterIR);  
-	updateFreqCStype(freqCSset, freqCSset->numCSadded, curIRScores, refCount);
-
-	free(refCount); 
-	free(curIRScores);
-	
-	curT = clock(); 
-	printf("Get number of indirect referrences to detect dimension tables !!! Took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
-	tmpLastT = curT;
-	}
-	/*------------------------------------*/	
-
-	{
+	{ //Get SAMPLE DATA
 	int numTables = 0; 
 	int *csTblIdxMapping, *mfreqIdxTblIdxMapping, *mTblIdxFreqIdxMapping, *csFreqCSMapping;
 	
@@ -9548,7 +9380,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	printf("Before using rules: Number of freqCS is: %d \n",curNumMergeCS);
 	
-#if USE_LABEL_FOR_MERGING
 	/* ---------- S1 ------- */
 	mergecsId = *maxCSoid + 1; 
 
@@ -9568,7 +9399,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	computeMetricsQ(freqCSset);
 	#endif
 	tmpLastT = curT;
-#endif
 	
 	/* ---------- S3 ------- */
 	if (0){
@@ -9619,7 +9449,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	tmpLastT = curT; 		
 	
-#if USE_LABEL_FOR_MERGING
 	//S2: Common ancestor
 	free(mergeCSFreqCSMap);
 	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
@@ -9640,7 +9469,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	#endif
 
 	tmpLastT = curT; 		
-#endif
 
 
 	//S4: TF/IDF similarity
