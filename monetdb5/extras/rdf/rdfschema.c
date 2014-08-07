@@ -1561,6 +1561,49 @@ CS* creatCS(oid csId, int freqIdx, int numP, oid* buff, char type,  int parentfr
 	return cs; 
 }
 
+
+static 
+void getNumCombinedP(oid* arr1, oid* arr2, int m, int n, int *numCombineP){
+	
+	int i = 0, j = 0;
+	int pos = 0;
+
+	while( j < m && i < n )
+	{
+		if( arr1[j] < arr2[i] ){
+			pos++;
+			j++;
+		}
+		else if( arr1[j] == arr2[i] )
+		{
+			pos++;
+			j++;
+			i++;
+		}
+		else if( arr1[j] > arr2[i] ){
+			pos++;
+			i++;
+		}
+	}
+	if (j == m && i < n){
+		while (i < n){
+			pos++;
+			i++;
+		}		
+	} 
+
+	if (j < m && i == n){
+		while (j < m){
+			pos++;
+			j++;
+		}		
+	} 
+	
+	*numCombineP = pos; 
+
+		
+}
+
 static 
 void mergeOidSets(oid* arr1, oid* arr2, oid* mergeArr, int m, int n, int *numCombineP){
 	
@@ -3964,6 +4007,32 @@ void freeLabelStat(LabelStat *labelStat){
 }
 #endif
 
+static
+char isSignificationPrecisionDrop(CS *cs1, CS *cs2){
+	int newSupport = 0;
+	int newFill = 0; 
+	float fillRatio1, fillRatio2, minFillRatio; 
+	float estimatedFillRatio = 0.0;
+	int numCombineP = 0;
+	
+	newSupport = cs1->support + cs2->support;
+	newFill = cs1->numFill + cs2->numFill; 
+	
+	getNumCombinedP(cs1->lstProp, cs2->lstProp, cs1->numProp, cs2->numProp, &numCombineP);
+
+	fillRatio1 = (float) cs1->numFill / (float) (cs1->numProp * cs1->support); 
+	fillRatio2 = (float) cs2->numFill / (float) (cs2->numProp * cs2->support); 
+	minFillRatio = (fillRatio1 > fillRatio2) ? fillRatio2 : fillRatio1;
+
+	estimatedFillRatio = (float) newFill / (float) (newSupport * numCombineP);
+
+	if ((minFillRatio / estimatedFillRatio) > 2) return 1; 
+
+	return 0;
+	
+
+}
+
 static 
 void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *mergecsId, CSlabel** labels, oid** ontmetadata, int ontmetadataCount, oid name, int isType, int isOntology, int isFK){
 	CS 	*mergecs; 
@@ -3974,6 +4043,12 @@ void doMerge(CSset *freqCSset, int ruleNum, int freqId1, int freqId2, oid *merge
 
 	cs1 = &(freqCSset->items[freqId1]);
 	cs2 = &(freqCSset->items[freqId2]);
+
+	if (isSignificationPrecisionDrop(cs1, cs2)){
+		printf("Merging freqCS %d and %d may significantly drop precision\n", freqId1, freqId2);
+		return;
+	}	
+
 	//Check whether these CS's belong to any mergeCS
 	if (cs1->parentFreqIdx == -1 && cs2->parentFreqIdx == -1){	/* New merge */
 		mergecs = mergeTwoCSs(*cs1,*cs2, freqId1,freqId2, *mergecsId);
