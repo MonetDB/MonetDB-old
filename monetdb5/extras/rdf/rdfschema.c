@@ -9444,6 +9444,7 @@ CSset* copyCSset(CSset *srcCSset){
 	csSet->numAllocation = srcCSset->numAllocation;
 
 	csSet->numCSadded = srcCSset->numCSadded;
+	csSet->numOrigFreqCS = srcCSset->numOrigFreqCS;
 	
 	//copy each value
 	
@@ -9675,11 +9676,24 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 	printf("#SimThreshold	#avgPrecision	#OvrallPrecision	#numTable \n");
 	for ( i = 0; i < numRun; i++){
+		float trendRatio = 1.0;
 		printf("%f	%f	%f	%d\n",0.5 + i * 0.05,pscores[i].avgPrec, pscores[i].overallPrec, pscores[i].nTable);
+
+		//Find the turning point
+		if (i > 0 && i < (numRun - 1)){
+			trendRatio = (float)(pscores[i].overallPrec - pscores[i-1].overallPrec)/(pscores[i+1].overallPrec - pscores[i].overallPrec);
+			printf("Turning %f \n",trendRatio);
+			if (trendRatio > 2) {
+				simTfidfThreshold = 0.5 + i * 0.05;
+			} 
+		}
+
+
 	}
 	free(pscores); 
 	}
-
+	
+	printf("The final simTfidfThreshold is %f\n",simTfidfThreshold);
 	// Create label per freqCS
 
 	printf("Using ontologies with %d ontattributesCount and %d ontmetadataCount \n",ontattributesCount,ontmetadataCount);
