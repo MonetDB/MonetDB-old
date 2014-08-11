@@ -8911,6 +8911,7 @@ Pscore computeMetricsQ(CSset *freqCSset){
 
 	float	Q = 0.0;
 	int	i;
+	int	numExpFinalTbl = 0;	//Expected number of table after removing small table
 	Pscore  pscore; 
 
 	int curNumMergeCS = countNumberMergeCS(freqCSset);
@@ -8937,6 +8938,7 @@ Pscore computeMetricsQ(CSset *freqCSset){
 			
 			Q += weight[tblIdx];
 		}
+		if (isCSTable(freqCSset->items[i], 1)) numExpFinalTbl++;
 	}
 	printf("Performance metric Q = (weighting %f)/(totalCov %d * numTbl %d) \n", Q,totalCov, curNumMergeCS);
 	printf("Average precision = %f\n",(float)totalPrecision/curNumMergeCS);
@@ -8952,6 +8954,7 @@ Pscore computeMetricsQ(CSset *freqCSset){
 	pscore.Qscore = Q;
 	//pscore.Cscore = 
 	pscore.nTable = curNumMergeCS;
+	pscore.nFinalTable = numExpFinalTbl;
 
 	free(fillRatio); 
 	free(refRatio); 
@@ -9468,22 +9471,36 @@ CSset* copyCSset(CSset *srcCSset){
 static
 void setFinalsimTfidfThreshold(Pscore *pscores, int numRun){
 	int i; 
+	float cumgap;
+	float totalgap; 
 
-	printf("#SimThreshold	#avgPrecision	#OvrallPrecision	#numTable \n");
+
+	printf("SimThreshold|avgPrecision|OvrallPrecision|numTable|FinalTable\n");
 	for ( i = 0; i < numRun; i++){
-		printf("%f	%f	%f	%d\n",0.5 + i * 0.05,pscores[i].avgPrec, pscores[i].overallPrec, pscores[i].nTable);
+		printf("%f|%f|%f|%d|%d\n",0.5 + i * 0.05,pscores[i].avgPrec, pscores[i].overallPrec, pscores[i].nTable,pscores[i].nFinalTable);
 	}
 	
+	totalgap = pscores[numRun-1].overallPrec - pscores[0].overallPrec;
 	for ( i = 0; i < numRun; i++){	
+		/*
+		float curgap;
 		float trendRatio = 1.0;
 		//Find the turning point
 		if (i > 0 && i < (numRun - 1)){
+			curgap = pscores[i].overallPrec - pscores[i-1].overallPrec;
+			cumgap = pscores[numRun].overallPrec - pscores[i].overallPrec;
 			trendRatio = (float)(pscores[i].overallPrec - pscores[i-1].overallPrec)/(pscores[i+1].overallPrec - pscores[i].overallPrec);
 			printf("Turning %f \n",trendRatio);
-			if (trendRatio > 2) {
+			if (trendRatio > 2 && curgap > cumgap && pscores[i].nFinalTable < upperboundNumTables) {
 				simTfidfThreshold = 0.5 + i * 0.05;
 				break; 
 			} 
+		}
+		*/
+		cumgap = pscores[i].overallPrec - pscores[0].overallPrec;
+		if (cumgap > 0.9 * totalgap){
+			simTfidfThreshold = 0.5 + i * 0.05;
+			break;
 		}
 	}
 }

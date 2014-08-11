@@ -444,7 +444,8 @@ typedef struct Pscore{		//Performance score
 	float overallPrec; 	//overall precision
 	float Qscore; 		//metric score Q
 	float Cscore; 		//metric score C
-	int nTable;		//number of tables
+	int   nTable;		//number of tables
+	int   nFinalTable; 	//Expected number of final table after removing e.g., small size table	
 } Pscore; 
 
 #define NUM_SAMPLETABLE 20
