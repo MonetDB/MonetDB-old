@@ -9465,6 +9465,30 @@ CSset* copyCSset(CSset *srcCSset){
 
 }
 
+static
+void setFinalsimTfidfThreshold(Pscore *pscores, int numRun){
+	int i; 
+
+	printf("#SimThreshold	#avgPrecision	#OvrallPrecision	#numTable \n");
+	for ( i = 0; i < numRun; i++){
+		printf("%f	%f	%f	%d\n",0.5 + i * 0.05,pscores[i].avgPrec, pscores[i].overallPrec, pscores[i].nTable);
+	}
+	
+	for ( i = 0; i < numRun; i++){	
+		float trendRatio = 1.0;
+		//Find the turning point
+		if (i > 0 && i < (numRun - 1)){
+			trendRatio = (float)(pscores[i].overallPrec - pscores[i-1].overallPrec)/(pscores[i+1].overallPrec - pscores[i].overallPrec);
+			printf("Turning %f \n",trendRatio);
+			if (trendRatio > 2) {
+				simTfidfThreshold = 0.5 + i * 0.05;
+				break; 
+			} 
+		}
+	}
+}
+
+
 /* Extract CS from SPO triples table */
 str
 RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, bat *ontbatid, int *freqThreshold, void *_freqCSset, oid **subjCSMap, oid *maxCSoid, int *maxNumPwithDup, CSlabel** labels, CSrel **csRelMergeFreqSet){
@@ -9674,22 +9698,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 		}
 	}
 	
-	printf("#SimThreshold	#avgPrecision	#OvrallPrecision	#numTable \n");
-	for ( i = 0; i < numRun; i++){
-		float trendRatio = 1.0;
-		printf("%f	%f	%f	%d\n",0.5 + i * 0.05,pscores[i].avgPrec, pscores[i].overallPrec, pscores[i].nTable);
-
-		//Find the turning point
-		if (i > 0 && i < (numRun - 1)){
-			trendRatio = (float)(pscores[i].overallPrec - pscores[i-1].overallPrec)/(pscores[i+1].overallPrec - pscores[i].overallPrec);
-			printf("Turning %f \n",trendRatio);
-			if (trendRatio > 2) {
-				simTfidfThreshold = 0.5 + i * 0.05;
-			} 
-		}
-
-
-	}
+	setFinalsimTfidfThreshold(pscores, numRun); 
+	
 	free(pscores); 
 	}
 	
