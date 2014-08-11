@@ -63,6 +63,10 @@ static void copyOidSet(oid* dest, oid* orig, int len){
 	memcpy(dest, orig, len * sizeof(oid));
 }
 
+static void copyIntSet(int* dest, int* orig, int len){
+	memcpy(dest, orig, len * sizeof(int));
+}
+
 
 #if NEEDSUBCS
 static void copyTypesSet(char* dest, char* orig, int len){
@@ -3281,9 +3285,6 @@ void mergeCSbyS3(CSset *freqCSset, CSlabel** labels, oid *mergeCSFreqCSMap, int 
 		}
 
 	}
-
-	
-
 }
 
 static int 
@@ -8897,7 +8898,7 @@ void setInitialMetricsInfo(int* refCount, CSset *freqCSset){
 }
 
 static
-void computeMetricsQ(CSset *freqCSset){
+Pscore computeMetricsQ(CSset *freqCSset){
 	float* fillRatio;
 	float* refRatio;
 	float* weight;
@@ -8910,6 +8911,8 @@ void computeMetricsQ(CSset *freqCSset){
 
 	float	Q = 0.0;
 	int	i;
+	Pscore  pscore; 
+
 	int curNumMergeCS = countNumberMergeCS(freqCSset);
 
 	fillRatio = (float*)malloc(sizeof(float) * curNumMergeCS);
@@ -8944,10 +8947,17 @@ void computeMetricsQ(CSset *freqCSset){
 
 	printf("==> Performance metric Q = %f \n", Q);
 
+	pscore.avgPrec = (float)totalPrecision/curNumMergeCS; 
+	pscore.overallPrec = (float) overalFill/overalMaxFill;
+	pscore.Qscore = Q;
+	//pscore.Cscore = 
+	pscore.nTable = curNumMergeCS;
+
 	free(fillRatio); 
 	free(refRatio); 
 	free(weight); 
-
+	
+	return pscore;
 }
 
 
@@ -9135,7 +9145,324 @@ void computeMetricsQForRefinedTable(CSset *freqCSset,CSPropTypes *csPropTypes,in
 }
 #endif
 
+static 
+void getSampleBeforeMerging(int *ret, CSset *freqCSset, CSlabel* labels, BAT *sbat, BATiter si, BATiter pi, BATiter oi,  bat *mapbatid, oid maxCSoid, oid *subjCSMap, int maxNumPwithDup){
 
+	 //Get SAMPLE DATA
+	int numTables = 0; 
+	int *csTblIdxMapping, *mfreqIdxTblIdxMapping, *mTblIdxFreqIdxMapping, *csFreqCSMapping;
+	
+
+	csTblIdxMapping = (int *) malloc (sizeof (int) * (maxCSoid + 1)); 
+	initIntArray(csTblIdxMapping, (maxCSoid + 1), -1);
+
+	csFreqCSMapping = (int *) malloc (sizeof (int) * (maxCSoid + 1));
+	initIntArray(csFreqCSMapping, (maxCSoid + 1), -1);
+
+
+	mfreqIdxTblIdxMapping = (int *) malloc (sizeof (int) * freqCSset->numCSadded); 
+	initIntArray(mfreqIdxTblIdxMapping , freqCSset->numCSadded, -1);
+
+	mTblIdxFreqIdxMapping = (int *) malloc (sizeof (int) * freqCSset->numCSadded);  // TODO: little bit reduntdant space
+	initIntArray(mTblIdxFreqIdxMapping , freqCSset->numCSadded, -1);
+
+	//Mapping from from CSId to TableIdx 
+	printf("Init CS tableIdxMapping \n");
+	initCSTableIdxMapping(freqCSset, csTblIdxMapping, csFreqCSMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping, &numTables, labels);
+
+
+	#if NO_OUTPUTFILE == 0 
+	getSampleData(ret, mapbatid, numTables, freqCSset, sbat, si, pi, oi, 
+			mTblIdxFreqIdxMapping, labels, csTblIdxMapping, maxNumPwithDup, subjCSMap, 1);
+	#endif
+
+
+	free(csTblIdxMapping);
+	free(mfreqIdxTblIdxMapping);
+	free(mTblIdxFreqIdxMapping);
+	free(csFreqCSMapping);
+
+	
+}
+
+
+static
+void RDFmergingTrial(CSset *freqCSset, CSrel *csrelSet, CSlabel** labels, oid maxCSoid, bat *mapbatid, OntoUsageNode *ontoUsageTree, float simTfidfThreshold, Pscore *pscore){
+
+	oid		*mergeCSFreqCSMap; 
+	int		curNumMergeCS = 0; 
+	oid		mergecsId = 0; 
+	int 		tmpNumRel = 0;
+	CSrel		*tmpCSrelToMergeCS = NULL; 
+	clock_t 	curT;
+	clock_t		tmpLastT; 
+
+	tmpLastT = clock(); 
+	curNumMergeCS = countNumberMergeCS(freqCSset);
+	printf("Before using rules: Number of freqCS is: %d \n",curNumMergeCS);
+	
+	/* ---------- S1 ------- */
+	mergecsId = maxCSoid + 1; 
+
+	mergeFreqCSByS1(freqCSset, labels, &mergecsId, ontmetadata, ontmetadataCount, mapbatid); /*S1: Merge all freqCS's sharing top-3 candidates */
+	
+	curNumMergeCS = countNumberMergeCS(freqCSset);
+	printf("S1: Number of mergeCS: %d \n", curNumMergeCS);
+
+	#if STORE_PERFORMANCE_METRIC_INFO	
+	//computeMetricsQ(freqCSset);
+	#endif
+	
+	/* ---------- S5 ------- */
+	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
+	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
+	
+	/* S5: Merged CS referred from the same CS via the same property */
+	tmpCSrelToMergeCS = generateCsRelToMergeFreqSet(csrelSet, freqCSset);
+	tmpNumRel = freqCSset->numCSadded; 
+
+	mergeFreqCSByS5(tmpCSrelToMergeCS, freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS,  &mergecsId, ontmetadata, ontmetadataCount);
+	
+	freeCSrelSet(tmpCSrelToMergeCS,tmpNumRel);
+
+	curNumMergeCS = countNumberMergeCS(freqCSset);
+	printf("S5: Number of mergeCS: %d \n", curNumMergeCS);
+	#if STORE_PERFORMANCE_METRIC_INFO	
+	//computeMetricsQ(freqCSset);
+	#endif
+
+	//S2: Common ancestor
+	free(mergeCSFreqCSMap);
+	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
+	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
+
+	mergeCSByS2(freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS, &mergecsId, ontoUsageTree, ontmetadata, ontmetadataCount, ontmetaBat, ontclassSet);
+
+	curNumMergeCS = countNumberMergeCS(freqCSset);
+	printf("S2: Number of mergeCS: %d \n", curNumMergeCS);
+
+	#if STORE_PERFORMANCE_METRIC_INFO	
+	//computeMetricsQ(freqCSset);
+	#endif
+
+	//S4: TF/IDF similarity
+	free(mergeCSFreqCSMap);
+	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
+	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
+
+	mergeCSByS4(freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS, &mergecsId, ontmetadata, ontmetadataCount);
+	free(mergeCSFreqCSMap);
+
+	curNumMergeCS = countNumberMergeCS(freqCSset);
+	printf("S4: Number of mergeCS: %d \n", curNumMergeCS);
+
+	#if STORE_PERFORMANCE_METRIC_INFO	
+	printf("Metric scores for %f\n",simTfidfThreshold);
+	*pscore = computeMetricsQ(freqCSset);
+	#endif
+
+	curT  = clock(); 
+	printf ("Trial merging took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);	
+
+}
+
+static
+void RDFmerging(CSset *freqCSset, CSrel *csrelSet, CSlabel** labels, oid maxCSoid,BAT *mbat, BAT *ontbat, bat *mapbatid, int freqThreshold, OntoUsageNode *ontoUsageTree){
+
+	oid		*mergeCSFreqCSMap; 
+	int		curNumMergeCS = 0; 
+	oid		mergecsId = 0; 
+	int 		tmpNumRel = 0;
+	CSrel		*tmpCSrelToMergeCS = NULL; 
+	clock_t 	curT;
+	clock_t		tmpLastT; 
+
+	tmpLastT = clock(); 
+	curNumMergeCS = countNumberMergeCS(freqCSset);
+	printf("Before using rules: Number of freqCS is: %d \n",curNumMergeCS);
+	
+	/* ---------- S1 ------- */
+	mergecsId = maxCSoid + 1; 
+
+	mergeFreqCSByS1(freqCSset, labels, &mergecsId, ontmetadata, ontmetadataCount, mapbatid); /*S1: Merge all freqCS's sharing top-3 candidates */
+	
+	curNumMergeCS = countNumberMergeCS(freqCSset);
+
+	curT = clock(); 
+	printf("Merging with S1 took %f. (Number of mergeCS: %d | NumconsistOf: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS, countNumberConsistOfCS(freqCSset));
+	printf("Number of added CS after S1: %d \n", freqCSset->numCSadded);
+
+	#if NO_OUTPUTFILE == 0
+	printMergedFreqCSSet(freqCSset, mbat, ontbat, 1, freqThreshold, *labels, 1); 
+	#endif
+
+	#if STORE_PERFORMANCE_METRIC_INFO	
+	computeMetricsQ(freqCSset);
+	#endif
+	tmpLastT = curT;
+	
+	/* ---- S3 --- */
+	//Merge two CS's having the subset-superset relationship 
+	if (0){
+		mergeCSbyS3(freqCSset, labels, mergeCSFreqCSMap,curNumMergeCS, ontmetadata, ontmetadataCount, ontoUsageTree);
+	}
+
+	/* ---------- S5 ------- */
+	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
+	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
+	
+	/* S5: Merged CS referred from the same CS via the same property */
+	tmpCSrelToMergeCS = generateCsRelToMergeFreqSet(csrelSet, freqCSset);
+	tmpNumRel = freqCSset->numCSadded; 
+
+	mergeFreqCSByS5(tmpCSrelToMergeCS, freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS,  &mergecsId, ontmetadata, ontmetadataCount);
+
+	freeCSrelSet(tmpCSrelToMergeCS,tmpNumRel);
+
+	curNumMergeCS = countNumberMergeCS(freqCSset);
+	curT = clock(); 
+	printf("Merging with S5 took %f. (Number of mergeCS: %d | NumconsistOf: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS, countNumberConsistOfCS(freqCSset));
+
+	#if NO_OUTPUTFILE == 0
+	printMergedFreqCSSet(freqCSset, mbat, ontbat, 1, freqThreshold, *labels, 3); 
+	#endif
+
+	#if STORE_PERFORMANCE_METRIC_INFO	
+	computeMetricsQ(freqCSset);
+	#endif
+
+	tmpLastT = curT; 		
+	
+	//S2: Common ancestor
+	free(mergeCSFreqCSMap);
+	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
+	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
+
+	mergeCSByS2(freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS, &mergecsId, ontoUsageTree, ontmetadata, ontmetadataCount, ontmetaBat, ontclassSet);
+
+	curNumMergeCS = countNumberMergeCS(freqCSset);
+	curT = clock(); 
+	printf ("Merging with S2 took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);	
+
+	#if NO_OUTPUTFILE == 0
+	printMergedFreqCSSet(freqCSset, mbat, ontbat, 1, freqThreshold, *labels, 4); 
+	#endif
+
+	#if STORE_PERFORMANCE_METRIC_INFO	
+	computeMetricsQ(freqCSset);
+	#endif
+
+	tmpLastT = curT; 		
+
+
+	//S4: TF/IDF similarity
+	free(mergeCSFreqCSMap);
+	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
+	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
+
+	mergeCSByS4(freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS, &mergecsId, ontmetadata, ontmetadataCount);
+	free(mergeCSFreqCSMap);
+
+	curNumMergeCS = countNumberMergeCS(freqCSset);
+	curT = clock(); 
+	printf ("Merging with S4 took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);	
+
+	#if NO_OUTPUTFILE == 0
+	printMergedFreqCSSet(freqCSset, mbat,ontbat, 1, freqThreshold, *labels, 5); 
+	#endif
+
+	#if STORE_PERFORMANCE_METRIC_INFO	
+	computeMetricsQ(freqCSset);
+	#endif
+
+
+}
+
+static
+CS* copyCS(CS *srcCS){
+	
+	CS *cs = (CS*)malloc(sizeof(CS)); 
+
+	cs->numProp = srcCS->numProp; 
+	cs->lstProp =  (oid*) malloc(sizeof(oid) * srcCS->numProp);
+
+	copyOidSet(cs->lstProp, srcCS->lstProp, cs->numProp); 
+
+	#if COLORINGPROP
+	if (srcCS->lstPropSupport != NULL){
+		cs->lstPropSupport =  (int*) malloc(sizeof(int) * cs->numProp);
+		copyIntSet(cs->lstPropSupport,srcCS->lstPropSupport,cs->numProp);
+	}
+	else
+		cs->lstPropSupport = NULL; 
+	#endif
+
+	cs->csId = srcCS->csId;
+	cs->numAllocation = srcCS->numAllocation; 
+
+	/*By default, this CS is not known to be a subset of any other CS*/
+	#if STOREFULLCS
+	cs->subject = srcCS->subject; 
+	if (cs->subject != BUN_NONE){
+		cs->lstObj =  (oid*) malloc(sizeof(oid) * cs->numProp);
+		copyOidSet(cs->lstObj, srcCS->lstObj, cs->numProp); 
+	}
+	else
+		cs->lstObj = NULL; 
+	#endif
+
+	cs->type = srcCS->type; 
+
+	// This value is set for the 
+	cs->parentFreqIdx = srcCS->parentFreqIdx; 
+	cs->support = srcCS->support;
+	cs->coverage = srcCS->coverage; 
+
+	// For using in the merging process
+	cs->numConsistsOf = srcCS->numConsistsOf;
+	cs->lstConsistsOf = (int *) malloc(sizeof(int) * cs->numConsistsOf); 
+	copyIntSet(cs->lstConsistsOf,srcCS->lstConsistsOf,cs->numConsistsOf);
+
+	#if EXTRAINFO_FROM_RDFTYPE
+	cs->typevalues = NULL; 
+	cs->numTypeValues = 0;
+	#endif
+
+	#if STORE_PERFORMANCE_METRIC_INFO
+	cs->numInRef = srcCS->numInRef;
+	cs->numFill = srcCS->numFill;
+	#endif
+
+	return cs; 
+}
+
+static
+CSset* copyCSset(CSset *srcCSset){
+	int i; 
+	CSset *csSet = (CSset*) malloc(sizeof(CSset));
+	csSet->items = (CS*) malloc(sizeof(CS) * srcCSset->numAllocation);
+	csSet->numAllocation = srcCSset->numAllocation;
+
+	csSet->numCSadded = srcCSset->numCSadded;
+	
+	//copy each value
+	
+	for (i = 0; i < srcCSset->numCSadded; i++){
+		CS  *srccs = NULL;
+		CS *tmpcs = NULL;
+	        srccs = &(srcCSset->items[i]);
+		tmpcs =	copyCS(srccs); 
+
+		csSet->items[i] = *tmpcs; 
+	}
+
+	#if STORE_PERFORMANCE_METRIC_INFO
+	csSet->totalInRef = srcCSset->totalInRef;
+	#endif
+	return csSet;
+
+
+}
 
 /* Extract CS from SPO triples table */
 str
@@ -9160,16 +9487,12 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	int 		*refCount; 	/* Count the number of references to each CS */
 
 	int*		csIdFreqIdxMap; /* Map a CSId to a freqIdx. Should be removed in the future .... */
-	oid		mergecsId = 0; 
 
-	oid		*mergeCSFreqCSMap; 
 	CSset		*freqCSset; 
 	clock_t 	curT;
 	clock_t		tmpLastT; 
 	OntoUsageNode	*ontoUsageTree = NULL;
-	int		curNumMergeCS = 0; 
-	int 		tmpNumRel = 0;
-	CSrel		*tmpCSrelToMergeCS = NULL; 
+
 	float		*curIRScores = NULL; 
 	
 	int		nIterIR = 3; 	//number of iteration for detecting dimension table with PR algorithm
@@ -9324,6 +9647,39 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	}
 	#endif
 
+	/*Run merging for few times to get good parameters*/
+	{
+	int i = 0; 
+	int numRun = 10; 
+	Pscore   *pscores = NULL;
+	pscores = (Pscore *) malloc (sizeof(Pscore) * numRun); 
+
+	for ( i = 0; i < numRun; i++){
+		simTfidfThreshold = 0.5 + i * 0.05;	
+		{
+		CSlabel 	*tmplabels = NULL; 
+		OntoUsageNode	*tmpontoUsageTree = NULL;
+		CSset	*tmpFreqCSset = NULL; 
+		
+		tmpFreqCSset = copyCSset(freqCSset); 
+		tmplabels = createLabels(tmpFreqCSset, csrelSet, tmpFreqCSset->numCSadded, sbat, si, pi, oi, *subjCSMap, csIdFreqIdxMap, ontattributes, ontattributesCount, ontmetadata, ontmetadataCount, &tmpontoUsageTree, ontmetaBat, ontclassSet);
+
+		RDFmergingTrial(tmpFreqCSset,csrelSet, &tmplabels, *maxCSoid, mapbatid, tmpontoUsageTree,simTfidfThreshold,&(pscores[i])); 
+	
+		freeOntoUsageTree(tmpontoUsageTree);
+		freeLabels(tmplabels, tmpFreqCSset);
+		freeCSset(tmpFreqCSset);
+		
+		}
+	}
+	
+	printf("#SimThreshold	#avgPrecision	#OvrallPrecision	#numTable \n");
+	for ( i = 0; i < numRun; i++){
+		printf("%f	%f	%f	%d\n",0.5 + i * 0.05,pscores[i].avgPrec, pscores[i].overallPrec, pscores[i].nTable);
+	}
+	free(pscores); 
+	}
+
 	// Create label per freqCS
 
 	printf("Using ontologies with %d ontattributesCount and %d ontmetadataCount \n",ontattributesCount,ontmetadataCount);
@@ -9338,158 +9694,9 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printMergedFreqCSSet(freqCSset, mbat, ontbat,1, *freqThreshold, *labels, 0); 
 	#endif
 	
-	
-	{ //Get SAMPLE DATA
-	int numTables = 0; 
-	int *csTblIdxMapping, *mfreqIdxTblIdxMapping, *mTblIdxFreqIdxMapping, *csFreqCSMapping;
-	
+	if (0) getSampleBeforeMerging(ret, freqCSset, *labels, sbat, si, pi, oi, mapbatid, *maxCSoid, *subjCSMap, *maxNumPwithDup);
 
-	csTblIdxMapping = (int *) malloc (sizeof (int) * (*maxCSoid + 1)); 
-	initIntArray(csTblIdxMapping, (*maxCSoid + 1), -1);
-
-	csFreqCSMapping = (int *) malloc (sizeof (int) * (*maxCSoid + 1));
-	initIntArray(csFreqCSMapping, (*maxCSoid + 1), -1);
-
-
-	mfreqIdxTblIdxMapping = (int *) malloc (sizeof (int) * freqCSset->numCSadded); 
-	initIntArray(mfreqIdxTblIdxMapping , freqCSset->numCSadded, -1);
-
-	mTblIdxFreqIdxMapping = (int *) malloc (sizeof (int) * freqCSset->numCSadded);  // TODO: little bit reduntdant space
-	initIntArray(mTblIdxFreqIdxMapping , freqCSset->numCSadded, -1);
-
-	//Mapping from from CSId to TableIdx 
-	printf("Init CS tableIdxMapping \n");
-	initCSTableIdxMapping(freqCSset, csTblIdxMapping, csFreqCSMapping, mfreqIdxTblIdxMapping, mTblIdxFreqIdxMapping, &numTables, *labels);
-
-
-	#if NO_OUTPUTFILE == 0 
-	getSampleData(ret, mapbatid, numTables, freqCSset, sbat, si, pi, oi, 
-			mTblIdxFreqIdxMapping, *labels, csTblIdxMapping, *maxNumPwithDup, *subjCSMap, 1);
-	#endif
-
-
-	free(csTblIdxMapping);
-	free(mfreqIdxTblIdxMapping);
-	free(mTblIdxFreqIdxMapping);
-	free(csFreqCSMapping);
-
-	}
-
-	/*------------------------------------*/
-	
-	curNumMergeCS = countNumberMergeCS(freqCSset);
-	printf("Before using rules: Number of freqCS is: %d \n",curNumMergeCS);
-	
-	/* ---------- S1 ------- */
-	mergecsId = *maxCSoid + 1; 
-
-	mergeFreqCSByS1(freqCSset, labels, &mergecsId, ontmetadata, ontmetadataCount, mapbatid); /*S1: Merge all freqCS's sharing top-3 candidates */
-	
-	curNumMergeCS = countNumberMergeCS(freqCSset);
-
-	curT = clock(); 
-	printf("Merging with S1 took %f. (Number of mergeCS: %d | NumconsistOf: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS, countNumberConsistOfCS(freqCSset));
-	printf("Number of added CS after S1: %d \n", freqCSset->numCSadded);
-
-	#if NO_OUTPUTFILE == 0
-	printMergedFreqCSSet(freqCSset, mbat, ontbat, 1, *freqThreshold, *labels, 1); 
-	#endif
-
-	#if STORE_PERFORMANCE_METRIC_INFO	
-	computeMetricsQ(freqCSset);
-	#endif
-	tmpLastT = curT;
-	
-	/* ---------- S3 ------- */
-	if (0){
-	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
-	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
-
-	/*S3: Merge two CS's having the subset-superset relationship */
-	mergeCSbyS3(freqCSset, labels, mergeCSFreqCSMap,curNumMergeCS, ontmetadata, ontmetadataCount, ontoUsageTree); 
-
-	curNumMergeCS = countNumberMergeCS(freqCSset);
-	curT = clock(); 
-	printf("Merging with S3 took %f. (Number of mergeCS: %d | NumconsistOf: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS, countNumberConsistOfCS(freqCSset));
-	printf("Number of added CS after S3: %d \n", freqCSset->numCSadded);
-	
-	#if STORE_PERFORMANCE_METRIC_INFO	
-	computeMetricsQ(freqCSset);
-	#endif
-	
-	tmpLastT = curT; 		
-	free(mergeCSFreqCSMap);
-	}
-
-	/* ---------- S5 ------- */
-	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
-	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
-	
-	/* S5: Merged CS referred from the same CS via the same property */
-	if (1){
-	tmpCSrelToMergeCS = generateCsRelToMergeFreqSet(csrelSet, freqCSset);
-	tmpNumRel = freqCSset->numCSadded; 
-
-	mergeFreqCSByS5(tmpCSrelToMergeCS, freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS,  &mergecsId, ontmetadata, ontmetadataCount);
-
-	freeCSrelSet(tmpCSrelToMergeCS,tmpNumRel);
-	}
-
-	curNumMergeCS = countNumberMergeCS(freqCSset);
-	curT = clock(); 
-	printf("Merging with S5 took %f. (Number of mergeCS: %d | NumconsistOf: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS, countNumberConsistOfCS(freqCSset));
-
-	#if NO_OUTPUTFILE == 0
-	printMergedFreqCSSet(freqCSset, mbat, ontbat, 1, *freqThreshold, *labels, 3); 
-	#endif
-
-	#if STORE_PERFORMANCE_METRIC_INFO	
-	computeMetricsQ(freqCSset);
-	#endif
-
-	tmpLastT = curT; 		
-	
-	//S2: Common ancestor
-	free(mergeCSFreqCSMap);
-	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
-	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
-
-	mergeCSByS2(freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS, &mergecsId, ontoUsageTree, ontmetadata, ontmetadataCount, ontmetaBat, ontclassSet);
-
-	curNumMergeCS = countNumberMergeCS(freqCSset);
-	curT = clock(); 
-	printf ("Merging with S2 took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);	
-
-	#if NO_OUTPUTFILE == 0
-	printMergedFreqCSSet(freqCSset, mbat, ontbat, 1, *freqThreshold, *labels, 4); 
-	#endif
-
-	#if STORE_PERFORMANCE_METRIC_INFO	
-	computeMetricsQ(freqCSset);
-	#endif
-
-	tmpLastT = curT; 		
-
-
-	//S4: TF/IDF similarity
-	free(mergeCSFreqCSMap);
-	mergeCSFreqCSMap = (oid*) malloc(sizeof(oid) * curNumMergeCS);
-	initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
-
-	mergeCSByS4(freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS, &mergecsId, ontmetadata, ontmetadataCount);
-	free(mergeCSFreqCSMap);
-
-	curNumMergeCS = countNumberMergeCS(freqCSset);
-	curT = clock(); 
-	printf ("Merging with S4 took %f. (Number of mergeCS: %d) \n",((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS);	
-
-	#if NO_OUTPUTFILE == 0
-	printMergedFreqCSSet(freqCSset, mbat,ontbat, 1, *freqThreshold, *labels, 5); 
-	#endif
-
-	#if STORE_PERFORMANCE_METRIC_INFO	
-	computeMetricsQ(freqCSset);
-	#endif
+	RDFmerging(freqCSset,csrelSet, labels, *maxCSoid, mbat, ontbat, mapbatid, *freqThreshold, ontoUsageTree); 
 
 	tmpLastT = curT; 		
 
@@ -10894,9 +11101,6 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	CSrel		*csRelMergeFreqSet = NULL;
 	CSrel		*csRelFinalFKs = NULL;   	//Store foreign key relationships 
 
-	//int 		curNumMergeCS;
-	//oid		*mergeCSFreqCSMap;
-	
 	clock_t 	curT;
 	clock_t		tmpLastT; 
 	

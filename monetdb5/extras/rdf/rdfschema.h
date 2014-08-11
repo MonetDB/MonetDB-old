@@ -439,6 +439,14 @@ typedef struct CSPropTypes {
 	PropTypes*	lstPropTypes; 
 } CSPropTypes; 
 
+typedef struct Pscore{		//Performance score
+	float avgPrec; 		//average precision
+	float overallPrec; 	//overall precision
+	float Qscore; 		//metric score Q
+	float Cscore; 		//metric score C
+	int nTable;		//number of tables
+} Pscore; 
+
 #define NUM_SAMPLETABLE 20
 #define	NUM_SAMPLE_INSTANCE 10
 #define NUM_SAMPLE_CANDIDATE 3
