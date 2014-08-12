@@ -9475,9 +9475,9 @@ void setFinalsimTfidfThreshold(Pscore *pscores, int numRun){
 	float totalgap; 
 
 
-	printf("SimThreshold|avgPrecision|OvrallPrecision|numTable|FinalTable\n");
+	printf("SimThreshold|avgPrecision|OvrallPrecision|Qscore|numTable|FinalTable\n");
 	for ( i = 0; i < numRun; i++){
-		printf("%f|%f|%f|%d|%d\n",0.5 + i * 0.05,pscores[i].avgPrec, pscores[i].overallPrec, pscores[i].nTable,pscores[i].nFinalTable);
+		printf("%f|%f|%f|%f|%d|%d\n",0.5 + i * 0.05,pscores[i].avgPrec, pscores[i].overallPrec, pscores[i].Qscore, pscores[i].nTable,pscores[i].nFinalTable);
 	}
 	
 	totalgap = pscores[numRun-1].overallPrec - pscores[0].overallPrec;
