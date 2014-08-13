@@ -325,7 +325,7 @@ char rdfcast(ObjectType srcT, ObjectType dstT, ValPtr srcPtr, ValPtr dstPtr){
 							&dstPtr->len, &srcPtr->val.dval);
 					dstPtr->vtype = TYPE_str;
 					return 1; 
-				case DATETIME: 	//Datetime in encoded long value of timestamp
+				case DATETIME: 	//Datetime in encoded lng value of timestamp
 					{	
 					char buf[64], *s1 = buf;
 					int len = 64; 
@@ -451,11 +451,11 @@ int convertDateTimeToTimeT(char *sDateTime, int len, time_t *t){
  * Using/extending monetdb mtime functions
  * */
 
-int convertDateTimeToLong(char *sDateTime, long *t){
+int convertDateTimeToLong(char *sDateTime, lng *t){
 	timestamp *ts = NULL; 
 	//tzone *tz;
 	int len, pos = 0; 
-	long encodeLng = 0; 
+	lng encodeLng = 0; 
 	int positiveDate = 0;
 	int sign = 0;
 	
@@ -501,7 +501,7 @@ int convertDateTimeToLong(char *sDateTime, long *t){
 		return 0;
 	}
 
-	//Encoding timestamp to long. 
+	//Encoding timestamp to lng. 
 	//First 4 bits are not used, 5th bits for sign of number of days value 
 	//(1, if the number of days is negative)
 	//27 bits for days, 32 bits for msecs
@@ -513,14 +513,14 @@ int convertDateTimeToLong(char *sDateTime, long *t){
 		sign = 0;
 	}
 	
-	encodeLng |= (long) positiveDate;
+	encodeLng |= (lng) positiveDate;
 	encodeLng = encodeLng << (sizeof(ts->msecs) * 8); //Move 32 bits
-	encodeLng |= (long)sign << (sizeof(long) * 8 - 5);	//Set the sign bit
-	encodeLng = encodeLng | (long) ts->msecs;	//Set 32 bits for msecs
+	encodeLng |= (lng)sign << (sizeof(lng) * 8 - 5);	//Set the sign bit
+	encodeLng = encodeLng | (lng) ts->msecs;	//Set 32 bits for msecs
 	
 	*t = encodeLng; 
 
-	//printf("Encode string %s with days %d and msecs %d to long %ld \n",sDateTime, ts->days, ts->msecs, *t);
+	//printf("Encode string %s with days %d and msecs %d to lng %ld \n",sDateTime, ts->days, ts->msecs, *t);
 	if (ts) GDKfree(ts); 
 	
 	return 1;
@@ -535,7 +535,7 @@ void
 encodeValueInOid(ValPtr vrPtrRealValue, ObjectType objType, BUN* bun){
 
 	int positiveInt = 0; 
-	long positiveLng = 0; 
+	lng positiveLng = 0; 
 
 	*bun = 0; 
 
@@ -564,8 +564,8 @@ encodeValueInOid(ValPtr vrPtrRealValue, ObjectType objType, BUN* bun){
 			}
 			break;
 		case DATETIME: 
-			//Consider it is as long value
-			//No sign bit needed for this encoded long
+			//Consider it is as lng value
+			//No sign bit needed for this encoded lng
 			assert (vrPtrRealValue->val.lval >= 0);
 			positiveLng = vrPtrRealValue->val.lval;
 
@@ -584,7 +584,7 @@ decodeValueFromOid(BUN bun, ObjectType objType, ValPtr vrPtrRealValue){
 	BUN realval = 0; 
 	int sign = 0; 
 	int ival = 0; 
-	long lval = 0;
+	lng lval = 0;
 	double *realdbl = NULL; 
 	
 	//printf("Decode value from oid: "BUNFMT "\n",bun);
@@ -656,7 +656,7 @@ void convertTMtimeToMTime(time_t t, timestamp *ts){
  * Convert value from tm format to timestamp of monet mtime
  * Only convert when storing in monetdb BAT for datetime
  * */
-void convert_encodedLng_toTimestamp(long t, timestamp *ts){
+void convert_encodedLng_toTimestamp(lng t, timestamp *ts){
 	int sign = 0; 
 	int daypart = 0; 
 	int msecpart = 0;
