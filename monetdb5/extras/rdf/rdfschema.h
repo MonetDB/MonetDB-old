@@ -445,6 +445,9 @@ typedef struct Pscore{		//Performance score
 	float Qscore; 		//metric score Q
 	float Cscore; 		//metric score C
 	int   nTable;		//number of tables
+	float avgPrecFinal; 	//Avg precision of expected final tables (after removing small size table)
+	float overallPrecFinal; //of expected final tables (after removing small size table)
+	float QscoreFinal; 	//of expected final tables (after removing small size table)
 	int   nFinalTable; 	//Expected number of final table after removing e.g., small size table	
 } Pscore; 
 

@@ -8904,10 +8904,17 @@ Pscore computeMetricsQ(CSset *freqCSset){
 	float* weight;
 	int tblIdx = -1;
 	CS cs;	
+
 	int	totalCov = 0; 
 	float	totalPrecision = 0.0; 
-	long	overalFill = 0; 
-	long 	overalMaxFill = 0;
+	lng	overalFill = 0; 
+	lng 	overalMaxFill = 0;
+
+	int	totalExpFinalCov = 0; 
+	float	totalExpFinalPrecision = 0.0; 
+	lng	overalExpFinalFill = 0; 
+	lng 	overalExpFinalMaxFill = 0;
+	float	expFinalQ = 0.0; 
 
 	float	Q = 0.0;
 	int	i;
@@ -8937,17 +8944,27 @@ Pscore computeMetricsQ(CSset *freqCSset){
 			//if ((cs.numProp *  cs.support) > 1000000) printf("FreqCS %d has %d prop and support %d (Fill Ratio %f )\n",i,cs.numProp,cs.support,fillRatio[tblIdx]);
 			
 			Q += weight[tblIdx];
+
+			if (isCSTable(freqCSset->items[i], 1)){ 
+				totalExpFinalCov += cs.coverage;
+				totalExpFinalPrecision += fillRatio[tblIdx];
+				overalExpFinalFill += cs.numFill;
+				overalExpFinalMaxFill += cs.numProp *  cs.support;
+				expFinalQ += weight[tblIdx];
+				numExpFinalTbl++;
+			}
 		}
-		if (isCSTable(freqCSset->items[i], 1)) numExpFinalTbl++;
 	}
 	printf("Performance metric Q = (weighting %f)/(totalCov %d * numTbl %d) \n", Q,totalCov, curNumMergeCS);
 	printf("Average precision = %f\n",(float)totalPrecision/curNumMergeCS);
-	printf("Overall precision = %f (overfill %ld / overalMaxFill %ld)\n", (float) overalFill/overalMaxFill, overalFill, overalMaxFill);
+	printf("Overall precision = %f (overfill %lld / overalMaxFill %lld)\n", (float) overalFill/overalMaxFill, overalFill, overalMaxFill);
 	//printf("Average precision = %f\n",(float)totalPrecision/totalCov);
 
 	Q = Q/((float)totalCov * curNumMergeCS);
 
 	printf("==> Performance metric Q = %f \n", Q);
+
+	expFinalQ = expFinalQ/((float)totalExpFinalCov * numExpFinalTbl);
 
 	pscore.avgPrec = (float)totalPrecision/curNumMergeCS; 
 	pscore.overallPrec = (float) overalFill/overalMaxFill;
@@ -8955,6 +8972,9 @@ Pscore computeMetricsQ(CSset *freqCSset){
 	//pscore.Cscore = 
 	pscore.nTable = curNumMergeCS;
 	pscore.nFinalTable = numExpFinalTbl;
+	pscore.avgPrecFinal = (float)totalExpFinalPrecision/numExpFinalTbl;
+	pscore.overallPrecFinal = (float) overalExpFinalFill/overalExpFinalMaxFill;
+	pscore.QscoreFinal = expFinalQ;
 
 	free(fillRatio); 
 	free(refRatio); 
@@ -8992,8 +9012,8 @@ void computeMetricsQForRefinedTable(CSset *freqCSset,CSPropTypes *csPropTypes,in
 	#endif
 
 	float	totalPrecision = 0.0; 
-	long	overalFill = 0; 
-	long 	overalMaxFill = 0;
+	lng	overalFill = 0; 
+	lng 	overalMaxFill = 0;
 
 	fillRatio = (float*)malloc(sizeof(float) * numTables);
 	refRatio = (float*)malloc(sizeof(float) * numTables);
@@ -9130,7 +9150,7 @@ void computeMetricsQForRefinedTable(CSset *freqCSset,CSPropTypes *csPropTypes,in
 	}
 	printf("Refined Table: Performance metric Q = (weighting %f)/(totalCov %d * numTbl %d) \n", Q,totalCov, numTables);
 	printf("Average precision = %f\n",(float)totalPrecision/numTables);
-	printf("Overall precision = %f (overfill %ld / overalMaxFill %ld)\n", (float) overalFill/overalMaxFill, overalFill, overalMaxFill);
+	printf("Overall precision = %f (overfill %lld / overalMaxFill %lld)\n", (float) overalFill/overalMaxFill, overalFill, overalMaxFill);
 
 	Q = Q/((float)totalCov * numTables);
 
@@ -9475,18 +9495,21 @@ void setFinalsimTfidfThreshold(Pscore *pscores, int numRun){
 	float totalgap; 
 
 
-	printf("SimThreshold|avgPrecision|OvrallPrecision|Qscore|numTable|FinalTable|precRatio|finalTblRatio|tblRatio\n");
+	printf("SimThreshold|avgPrecision|OvrallPrecision|Qscore|numTable|avgPrecisionFinal|OvrallPrecisionFinal|QscoreFinal|FinalTable|precRatio|tblRatio|precFinalRatio|finalTblRatio\n");
 	for ( i = 0; i < numRun; i++){
 		float numFinTblRatio = 1.0;
 		float numTblRatio = 1.0;
 		float precRatio = 1.0; 
+		float precRatioFinal = 1.0;
 		if (i > 0 && i < (numRun - 1)){
 			numFinTblRatio = (float)(pscores[i+1].nFinalTable - pscores[i].nFinalTable)/(pscores[i].nFinalTable - pscores[i-1].nFinalTable);
 			numTblRatio  = (float)(pscores[i+1].nTable - pscores[i].nTable)/(pscores[i].nTable - pscores[i-1].nTable);
 			precRatio = (float)(pscores[i].overallPrec - pscores[i-1].overallPrec)/(pscores[i+1].overallPrec - pscores[i].overallPrec);
+			precRatioFinal = (float)(pscores[i].overallPrecFinal - pscores[i-1].overallPrecFinal)/(pscores[i+1].overallPrecFinal - pscores[i].overallPrecFinal);
 		}
-		printf("%f|%f|%f|%f|%d|%d|%f|%f|%f\n",0.5 + i * 0.05,pscores[i].avgPrec, 
-				pscores[i].overallPrec, pscores[i].Qscore, pscores[i].nTable,pscores[i].nFinalTable,precRatio,numFinTblRatio,numTblRatio);
+		printf("%f|%f|%f|%f|%d|%f|%f|%f|%d|%f|%f|%f|%f\n",0.5 + i * 0.05,pscores[i].avgPrec, pscores[i].overallPrec, pscores[i].Qscore, pscores[i].nTable,
+								     pscores[i].avgPrecFinal, pscores[i].overallPrecFinal, pscores[i].QscoreFinal, pscores[i].nFinalTable,
+								     precRatio,numTblRatio, precRatioFinal, numFinTblRatio);
 	}
 	
 	totalgap = pscores[numRun-1].overallPrec - pscores[0].overallPrec;
