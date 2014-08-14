@@ -81,13 +81,13 @@ rdf_export int
 convertDateTimeToTimeT(char *sDateTime, int len, time_t *t);
 
 rdf_export int
-convertDateTimeToLong(char *sDateTime, long *t);
+convertDateTimeToLong(char *sDateTime, lng *t);
 
 rdf_export void
 convertTMtimeToMTime(time_t t, timestamp *ts);
 
 rdf_export void 
-convert_encodedLng_toTimestamp(long t, timestamp *ts);
+convert_encodedLng_toTimestamp(lng t, timestamp *ts);
 
 rdf_export void
 getStringFormatValueFromOid(BUN bun, ObjectType objType, str *obj);

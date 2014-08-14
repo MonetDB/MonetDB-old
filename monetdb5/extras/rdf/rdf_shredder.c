@@ -198,8 +198,8 @@ getObjectType_and_Value(unsigned char* objStr, ValPtr vrPtrRealValue){
 
         double  realDbl;
         int     realInt;
-	long 	nTime; 
-	long	realLng; 
+	lng 	nTime; 
+	lng	realLng; 
 
 	len = strlen((str)objStr);
 	if (len > 100 || len <= 20){
