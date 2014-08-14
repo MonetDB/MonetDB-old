@@ -9475,9 +9475,18 @@ void setFinalsimTfidfThreshold(Pscore *pscores, int numRun){
 	float totalgap; 
 
 
-	printf("SimThreshold|avgPrecision|OvrallPrecision|Qscore|numTable|FinalTable\n");
+	printf("SimThreshold|avgPrecision|OvrallPrecision|Qscore|numTable|FinalTable|precRatio|finalTblRatio|tblRatio\n");
 	for ( i = 0; i < numRun; i++){
-		printf("%f|%f|%f|%f|%d|%d\n",0.5 + i * 0.05,pscores[i].avgPrec, pscores[i].overallPrec, pscores[i].Qscore, pscores[i].nTable,pscores[i].nFinalTable);
+		float numFinTblRatio = 1.0;
+		float numTblRatio = 1.0;
+		float precRatio = 1.0; 
+		if (i > 0 && i < (numRun - 1)){
+			numFinTblRatio = (float)(pscores[i+1].nFinalTable - pscores[i].nFinalTable)/(pscores[i].nFinalTable - pscores[i-1].nFinalTable);
+			numTblRatio  = (float)(pscores[i+1].nTable - pscores[i].nTable)/(pscores[i].nTable - pscores[i-1].nTable);
+			precRatio = (float)(pscores[i].overallPrec - pscores[i-1].overallPrec)/(pscores[i+1].overallPrec - pscores[i].overallPrec);
+		}
+		printf("%f|%f|%f|%f|%d|%d|%f|%f|%f\n",0.5 + i * 0.05,pscores[i].avgPrec, 
+				pscores[i].overallPrec, pscores[i].Qscore, pscores[i].nTable,pscores[i].nFinalTable,precRatio,numFinTblRatio,numTblRatio);
 	}
 	
 	totalgap = pscores[numRun-1].overallPrec - pscores[0].overallPrec;
