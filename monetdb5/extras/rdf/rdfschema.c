@@ -8927,7 +8927,7 @@ Pscore computeMetricsQ(CSset *freqCSset){
 			tblIdx++;	
 			fillRatio[tblIdx] = (float) cs.numFill /((float)cs.numProp *  cs.support);
 			refRatio[tblIdx] = (float) cs.numInRef / freqCSset->totalInRef;
-			weight[tblIdx] = (float) cs.coverage * ( fillRatio[tblIdx] + refRatio[tblIdx]); 
+			weight[tblIdx] = (float) cs.coverage * fillRatio[tblIdx] + refRatio[tblIdx]; 
 			//weight[tblIdx] = (float) cs.coverage * ( fillRatio[tblIdx]);  //If do not consider reference ratio
 			totalCov += cs.coverage;
 			totalPrecision += fillRatio[tblIdx];
