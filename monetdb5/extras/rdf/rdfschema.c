@@ -9491,8 +9491,6 @@ CSset* copyCSset(CSset *srcCSset){
 static
 void setFinalsimTfidfThreshold(Pscore *pscores, int numRun){
 	int i; 
-	float cumgap;
-	float totalgap; 
 
 
 	printf("SimThreshold|avgPrecision|OvrallPrecision|Qscore|numTable|avgPrecisionFinal|OvrallPrecisionFinal|QscoreFinal|FinalTable|precRatio|tblRatio|precFinalRatio|finalTblRatio\n");
@@ -9512,28 +9510,67 @@ void setFinalsimTfidfThreshold(Pscore *pscores, int numRun){
 								     precRatio,numTblRatio, precRatioFinal, numFinTblRatio);
 	}
 	
+	//Method 1: Get the point where the precision show a long tail of 10% in the graph
+	/*
+	{
+	float cumgap;
+	float totalgap; 
 	totalgap = pscores[numRun-1].overallPrec - pscores[0].overallPrec;
 	for ( i = 0; i < numRun; i++){	
-		/*
-		float curgap;
-		float trendRatio = 1.0;
-		//Find the turning point
-		if (i > 0 && i < (numRun - 1)){
-			curgap = pscores[i].overallPrec - pscores[i-1].overallPrec;
-			cumgap = pscores[numRun].overallPrec - pscores[i].overallPrec;
-			trendRatio = (float)(pscores[i].overallPrec - pscores[i-1].overallPrec)/(pscores[i+1].overallPrec - pscores[i].overallPrec);
-			printf("Turning %f \n",trendRatio);
-			if (trendRatio > 2 && curgap > cumgap && pscores[i].nFinalTable < upperboundNumTables) {
-				simTfidfThreshold = 0.5 + i * 0.05;
-				break; 
-			} 
-		}
-		*/
 		cumgap = pscores[i].overallPrec - pscores[0].overallPrec;
 		if (cumgap > 0.9 * totalgap){
 			simTfidfThreshold = 0.5 + i * 0.05;
 			break;
 		}
+	}
+	}
+	*/
+
+	//Method 2: Get the derivation for the normalized number of tables and the precision and 
+	//then, find the intersecting point of them
+	{
+	float *numTableNormalized = NULL; 
+	float *precisionNormalize = NULL; 
+	float *precisionDelta = NULL; 
+	float *nTblDelta = NULL; 
+	int intersectingPoint = 1;
+	if (pscores[numRun-1].nTable == pscores[0].nTable  || pscores[numRun-1].overallPrec == pscores[0].overallPrec){
+		printf("Merging with different threshold doesnot show any different");
+		simTfidfThreshold = 0.5 + (numRun - 1) * 0.05;
+		return; 
+	}
+
+	numTableNormalized = (float*)malloc(sizeof(float) * numRun); 
+	precisionNormalize = (float*)malloc(sizeof(float) * numRun); 
+	precisionDelta = (float*)malloc(sizeof(float) * numRun); 
+	nTblDelta = (float*)malloc(sizeof(float) * numRun);  
+
+	//Normalize precision and number of tables
+	for ( i = 0; i < numRun; i++){
+		precisionNormalize[i] = (float)(pscores[i].overallPrec - pscores[0].overallPrec)/(pscores[numRun-1].overallPrec - pscores[0].overallPrec);		
+		numTableNormalized[i] = (float)(pscores[i].nTable - pscores[0].nTable )/(pscores[numRun-1].nTable  - pscores[0].nTable );		
+	}
+	//Get derivations
+	precisionDelta[0] = 0;
+	nTblDelta[0] = 0;
+	for ( i = 1; i < numRun; i++){
+		precisionDelta[i] = precisionNormalize[i] - precisionNormalize[i-1];
+		nTblDelta[i] = numTableNormalized[i] - numTableNormalized[i-1];
+		//Find insterection point
+		if (precisionDelta[i] == nTblDelta[i])  intersectingPoint = i; 
+		else{
+			if ((precisionDelta[i] - nTblDelta[i])*(precisionDelta[i-1] - nTblDelta[i-1]) < 0){
+				intersectingPoint = i;	
+			}
+		}
+
+	}
+	simTfidfThreshold = 0.5 + intersectingPoint * 0.05;
+
+	free(numTableNormalized);	
+	free(precisionNormalize);
+	free(nTblDelta); 
+	free(precisionDelta); 
 	}
 }
 
