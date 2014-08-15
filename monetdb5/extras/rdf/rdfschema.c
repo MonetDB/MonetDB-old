@@ -9546,16 +9546,22 @@ void setFinalsimTfidfThreshold(Pscore *pscores, int numRun){
 	nTblDelta = (float*)malloc(sizeof(float) * numRun);  
 
 	//Normalize precision and number of tables
+	printf("numRun|normalizedPrecision|normalizedTbl\n");
 	for ( i = 0; i < numRun; i++){
 		precisionNormalize[i] = (float)(pscores[i].overallPrec - pscores[0].overallPrec)/(pscores[numRun-1].overallPrec - pscores[0].overallPrec);		
 		numTableNormalized[i] = (float)(pscores[i].nTable - pscores[0].nTable )/(pscores[numRun-1].nTable  - pscores[0].nTable );		
+		printf("%d|%f|%f\n",i,precisionNormalize[i],numTableNormalized[i]);
 	}
+	
 	//Get derivations
+	printf("numRun|precisionDelta|nTblDelta\n");
 	precisionDelta[0] = 0;
 	nTblDelta[0] = 0;
+	printf("0|0|0\n");
 	for ( i = 1; i < numRun; i++){
 		precisionDelta[i] = precisionNormalize[i] - precisionNormalize[i-1];
 		nTblDelta[i] = numTableNormalized[i] - numTableNormalized[i-1];
+		printf("%d|%f|%f\n",i,precisionDelta[i],nTblDelta[i]);
 		//Find insterection point
 		if (precisionDelta[i] == nTblDelta[i])  intersectingPoint = i; 
 		else{
