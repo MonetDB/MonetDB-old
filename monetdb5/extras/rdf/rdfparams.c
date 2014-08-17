@@ -39,7 +39,7 @@ void createDefaultParamsFile(void){
 	paramFile = fopen("params.ini", "wt");
 	
 	fprintf(paramFile, "dimensionFactor 1000\n");
-	fprintf(paramFile, "upperboundNumTables 1000");
+	fprintf(paramFile, "upperboundNumTables 1000\n");
 	fprintf(paramFile, "simTfidfThreshold 0.75");
 
 	fclose(paramFile); 

@@ -244,6 +244,7 @@ char getStringName(oid objOid, str *objStr, BATiter mapi, BAT *mapbat, char isTb
 
 
 char isCSTable(CS item, oid name){
+	(void) name; 
 	if (item.parentFreqIdx != -1) return 0; 
 
 	if (item.type == DIMENSIONCS) return 1; 
@@ -251,13 +252,11 @@ char isCSTable(CS item, oid name){
 	#if REMOVE_SMALL_TABLE
 	if (item.support > acceptableTableSize) return 1;
 
-	if (item.coverage < MINIMUM_TABLE_SIZE) return 0;
-	
+	//if (item.coverage < MINIMUM_TABLE_SIZE) return 0;
 	//More strict with table which does not have name
-	if ((name == BUN_NONE) && item.support < MINIMUM_TABLE_SIZE) return 0; 
+	//if ((name == BUN_NONE) && item.support < MINIMUM_TABLE_SIZE) return 0; 
+	if (item.support < MINIMUM_TABLE_SIZE) return 0; 
 	#endif	
-	
-	
 
 	return 1; 
 }

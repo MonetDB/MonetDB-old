@@ -258,7 +258,7 @@ typedef struct SubCSSet{
 #define UPDATE_NAME_BASEDON_POPULARTABLE 1//Update table name from merging multiple freqCS by using the most popular one
 
 //#define MIN_FROMTABLE_SIZE_S5 1		/* For example data */
-#define MINIMUM_TABLE_SIZE 10000   //The minimum number of triples coverred by a table (i.e., a final CS) 
+#define MINIMUM_TABLE_SIZE 1000   //The minimum number of triples coverred by a table (i.e., a final CS) 
 //#define MINIMUM_TABLE_SIZE 1   // For example dataset only 
 #define HIGH_REFER_THRESHOLD 5
 
