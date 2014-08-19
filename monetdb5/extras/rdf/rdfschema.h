@@ -128,8 +128,8 @@ typedef struct PropStat {
 
 //#define IS_MULVALUE_THRESHOLD  1.1	//The ratio betweeen (the number of triple coverred by Prop P) / (number of Non-NULL object values for P)
 					//   If this ratio is ~1, only use single value column for that prop
-					// Replaced by ( 1 + INFREQ_TYPE_THRESHOLD) as multi-prop can be considered as the type of the props
-#define INFREQ_TYPE_THRESHOLD  0.1	/* Threshold that a type is consider as an infrequent type */
+					// Replaced by ( 1 + //INFREQ_TYPE_THRESHOLD) as multi-prop can be considered as the type of the props
+//#define INFREQ_TYPE_THRESHOLD  0.1	/* Threshold that a type is consider as an infrequent type */
 
 
 
@@ -258,7 +258,8 @@ typedef struct SubCSSet{
 #define UPDATE_NAME_BASEDON_POPULARTABLE 1//Update table name from merging multiple freqCS by using the most popular one
 
 //#define MIN_FROMTABLE_SIZE_S5 1		/* For example data */
-#define MINIMUM_TABLE_SIZE 1000   //The minimum number of triples coverred by a table (i.e., a final CS) 
+//#define MINIMUM_TABLE_SIZE 1000   //The minimum number of triples coverred by a table (i.e., a final CS)
+//				    //Use the variable minTableSize read from param.ini
 //#define MINIMUM_TABLE_SIZE 1   // For example dataset only 
 #define HIGH_REFER_THRESHOLD 5
 

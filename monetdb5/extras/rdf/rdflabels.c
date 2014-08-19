@@ -2097,7 +2097,7 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 #endif
 
 	curT = clock(); 
-	printf (" Labeling: Collecting type attributes histogram took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	//printf (" Labeling: Collecting type attributes histogram took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
 
 	// Relation (FK)
@@ -2109,7 +2109,7 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 #endif
 
 	curT = clock(); 
-	printf (" Labeling: Collecting relationship metatdata count took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	//printf (" Labeling: Collecting relationship metatdata count took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
 
 	// Ontologies
@@ -2127,7 +2127,7 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 #endif
 
 	curT = clock(); 
-	printf (" Labeling: Collecting ontology lookup results took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
+	//printf (" Labeling: Collecting ontology lookup results took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
 
 	// Assigning Names

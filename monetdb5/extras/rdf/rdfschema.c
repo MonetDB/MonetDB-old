@@ -252,10 +252,10 @@ char isCSTable(CS item, oid name){
 	#if REMOVE_SMALL_TABLE
 	if (item.support > acceptableTableSize) return 1;
 
-	//if (item.coverage < MINIMUM_TABLE_SIZE) return 0;
+	//if (item.coverage < minTableSize) return 0;
 	//More strict with table which does not have name
-	//if ((name == BUN_NONE) && item.support < MINIMUM_TABLE_SIZE) return 0; 
-	if (item.support < MINIMUM_TABLE_SIZE) return 0; 
+	//if ((name == BUN_NONE) && item.support < minTableSize) return 0; 
+	if (item.support < minTableSize) return 0; 
 	#endif	
 
 	return 1; 
@@ -506,7 +506,7 @@ void getOrigRefCount(CSrel *csrelSet, CSset *freqCSset, int num,  int* refCount)
 			for (j = 0; j < csrelSet[i].numRef; j++){
 				freqId = csrelSet[i].lstRefFreqIdx[j]; 
 				#if FILTER_INFREQ_FK_FOR_IR
-				if (csrelSet[i].lstCnt[j] < INFREQ_TYPE_THRESHOLD * freqCSset->items[freqId].support) continue; 
+				if (csrelSet[i].lstCnt[j] < infreqTypeThreshold * freqCSset->items[freqId].support) continue; 
 				#endif
 				//Do not count the self-reference
 				if (freqId != i) refCount[freqId] += csrelSet[i].lstCnt[j];
@@ -539,7 +539,7 @@ void getIRNums(CSrel *csrelSet, CSset *freqCSset, int num,  int* refCount, float
 				for (j = 0; j < csrelSet[i].numRef; j++){
 					freqId = csrelSet[i].lstRefFreqIdx[j]; 
 					#if FILTER_INFREQ_FK_FOR_IR
-					if (csrelSet[i].lstCnt[j] < INFREQ_TYPE_THRESHOLD * freqCSset->items[freqId].support) continue; 
+					if (csrelSet[i].lstCnt[j] < infreqTypeThreshold * freqCSset->items[freqId].support) continue; 
 					#endif
 					if (freqId != i){	//Do not count the self-reference
 						//curIRScores[freqId] += (lastIRScores[i] * (float)csrelSet[i].lstCnt[j]/(float)refCount[freqId]) +  csrelSet[i].lstCnt[j];
@@ -579,7 +579,7 @@ void updateFreqCStype(CSset *freqCSset, int num,  float *curIRScores, int *refCo
 	printf("List of dimension tables: \n");
 	for (i = 0; i < num; i++){
 		#if ONLY_SMALLTBL_DIMENSIONTBL
-		if (freqCSset->items[i].support > MINIMUM_TABLE_SIZE) continue; 
+		if (freqCSset->items[i].support > minTableSize) continue; 
 		#endif
 		if (refCount[i] < freqCSset->items[i].support) continue; 
 		threshold = freqCSset->items[i].support * ratio;
@@ -870,7 +870,7 @@ char isMultiValueCol(PropTypes pt){
 
 	tmpRatio = ((double)pt.propCover / (pt.numSingleType + pt.numMVType));
 	//printf("NumMVType = %d  | Ratio %f \n", pt.numMVType, tmpRatio);
-	if ((pt.numMVType > 0) && (tmpRatio > (1 + INFREQ_TYPE_THRESHOLD))){
+	if ((pt.numMVType > 0) && (tmpRatio > (1 + infreqTypeThreshold))){
 		return 1; 
 	}
 	else return 0; 
@@ -878,7 +878,7 @@ char isMultiValueCol(PropTypes pt){
 
 static
 char isInfrequentProp(PropTypes pt, CS cs){
-	if (pt.propFreq < cs.support * INFREQ_PROP_THRESHOLD) return 1; 
+	if (pt.propFreq < cs.support * infreqPropThreshold) return 1; 
 	else return 0;
 
 }
@@ -978,7 +978,7 @@ void genCSPropTypesColIdx(CSPropTypes* csPropTypes, int numMergedCS, CSset* freq
 						defaultIdx = k; 	
 					}
 					//TODO: Check the case of single value col has a property with multi-valued objects
-					if (csPropTypes[i].lstPropTypes[j].lstFreq[k] < csPropTypes[i].lstPropTypes[j].propFreq * INFREQ_TYPE_THRESHOLD){
+					if (csPropTypes[i].lstPropTypes[j].lstFreq[k] < csPropTypes[i].lstPropTypes[j].propFreq * infreqTypeThreshold){
 						//non-frequent type goes to PSO
 						csPropTypes[i].lstPropTypes[j].TableTypes[k] = PSOTBL; 
 					}
@@ -1403,7 +1403,7 @@ int countNumberMergeCS(CSset *csSet){
 		}
 	}
 
-	printf("Max number of prop among %d merged CS is: %d \n", num, maxNumProp);
+	//printf("Max number of prop among %d merged CS is: %d \n", num, maxNumProp);
 
 	return num; 
 
@@ -3646,7 +3646,7 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 		freq = freqCSset->items[csRel.origFreqIdx].support; 
 		referredFreqId = csRel.lstRefFreqIdx[i];
 		freqOfReferredCS = freqCSset->items[referredFreqId].support;
-		if (freq > MIN_FROMTABLE_SIZE_S5 && (((float)freq * INFREQ_TYPE_THRESHOLD) < csRel.lstCnt[i])   
+		if (freq > MIN_FROMTABLE_SIZE_S5 && (((float)freq * infreqTypeThreshold) < csRel.lstCnt[i])   
 		    && freqOfReferredCS < csRel.lstCnt[i] * MIN_TO_PERCETAGE_S5){			
 			
 			p = csRel.lstPropId[i]; 
@@ -3787,8 +3787,8 @@ void buildLabelStatForTable(LabelStat *labelStat, int numTables, CStableStat* cs
 			numDummy++;
 	}
 	
-	printf("Collect label stat for final table: Total number of distinct labels %d \n", labelStat->numLabeladded);
-	printf("Number of DUMMY freqCS: %d \n",numDummy);
+	//printf("Collect label stat for final table: Total number of distinct labels %d \n", labelStat->numLabeladded);
+	//printf("Number of DUMMY freqCS: %d \n",numDummy);
 
 	//Build list of freqId corresponding to each label
 	labelStat->freqIdList = (int**) malloc(sizeof(int*) * labelStat->numLabeladded);
@@ -3864,8 +3864,8 @@ void buildLabelStatForFinalMergeCS(LabelStat *labelStat, CSset *freqCSset, CSlab
 			numDummy++;
 	}
 	
-	printf("Collect label stat for final mergeCS: Total number of distinct labels %d \n", labelStat->numLabeladded);
-	printf("Number of DUMMY freqCS: %d \n",numDummy);
+	//printf("Collect label stat for final mergeCS: Total number of distinct labels %d \n", labelStat->numLabeladded);
+	//printf("Number of DUMMY freqCS: %d \n",numDummy);
 
 	//Build list of freqId corresponding to each label
 	labelStat->freqIdList = (int**) malloc(sizeof(int*) * labelStat->numLabeladded);
@@ -3951,8 +3951,8 @@ void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset, int
 			numDummy++;
 	}
 	
-	printf("Total number of distinct labels in Top%d is %d \n", k, labelStat->numLabeladded);
-	printf("Number of DUMMY freqCS: %d \n",numDummy);
+	//printf("Total number of distinct labels in Top%d is %d \n", k, labelStat->numLabeladded);
+	//printf("Number of DUMMY freqCS: %d \n",numDummy);
 	//Build list of FreqCS
 	labelStat->freqIdList = (int**) malloc(sizeof(int*) * labelStat->numLabeladded);
 	for (i =0; i < labelStat->numLabeladded; i++){
@@ -4292,7 +4292,7 @@ void mergeFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** label
 	propStat = initPropStat();
 	getPropStatisticsFromMergeCSs(propStat, curNumMergeCS, mergeCSFreqCSMap, freqCSset);
 
-	printf("Start merging CS by using S5[From FK] \n");
+	//printf("Start merging CS by using S5[From FK] \n");
 	
 	#if NO_OUTPUTFILE == 0
 	strcpy(filename, "csRelSum.txt");
@@ -4308,8 +4308,8 @@ void mergeFreqCSByS5(CSrel *csrelMergeFreqSet, CSset *freqCSset, CSlabel** label
 		if (freqCSset->items[freqId].numProp > maxNumPropInMergeCS)
 			maxNumPropInMergeCS = freqCSset->items[freqId].numProp;
 	}
-	printf("maxNumRefPerCS = %d \n", maxNumRefPerCS);
-	printf("max number of prop in mergeCS: %d \n", maxNumPropInMergeCS);
+	//printf("maxNumRefPerCS = %d \n", maxNumRefPerCS);
+	//printf("max number of prop in mergeCS: %d \n", maxNumPropInMergeCS);
 
 	csRelSum = initCSrelSum(maxNumPropInMergeCS,maxNumRefPerCS);
 	
@@ -4618,6 +4618,7 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 			  if (simscore > simTfidfThreshold && (existDiscriminatingProp || isSameLabel)){
 			  #else	
 			  if (simscore > simTfidfThreshold && existDiscriminatingProp){	  
+			  //if (simscore > simTfidfThreshold){	  
 			  #endif
 			#else	
 			if (simscore > SIM_THRESHOLD) {
@@ -4886,7 +4887,7 @@ static void getStatisticFinalCSs(CSset *freqCSset, BAT *sbat, int freqThreshold,
 				}
 
 				for (k = 1; k < 10; k++) {
-					if ((csPropTypes[i].lstPropTypes[j].propFreq * k)  < freqCSset->items[freqId].support * INFREQ_PROP_THRESHOLD){
+					if ((csPropTypes[i].lstPropTypes[j].propFreq * k)  < freqCSset->items[freqId].support * infreqPropThreshold){
 						totalCoverage10[k] = totalCoverage10[k] - csPropTypes[i].lstPropTypes[j].propCover;
 						tmpNumProp10[k]--; 
 					};
@@ -8369,7 +8370,7 @@ CSrel* getFKBetweenTableSet(CSrel *csrelFreqSet, CSset *freqCSset, CSPropTypes* 
 			// add relation to new data structure
 
 			//Compare with prop coverage from csproptype	
-			if (rel.lstCnt[j]  < freqCSset->items[toFreqId].support * INFREQ_TYPE_THRESHOLD)	continue; 
+			if (rel.lstCnt[j]  < freqCSset->items[toFreqId].support * infreqTypeThreshold)	continue; 
 
 			to = mfreqIdxTblIdxMapping[toFreqId]; 
 			assert(to != -1); 
@@ -8386,8 +8387,8 @@ CSrel* getFKBetweenTableSet(CSrel *csrelFreqSet, CSset *freqCSset, CSPropTypes* 
 
 			//Filtering: For big size table, if large number of prop's instances need to refer to a certain table
 			// else, all instances of that prop must refer to the certain table
-			if (freqCSset->items[i].coverage > MINIMUM_TABLE_SIZE){
-				if (csPropTypes[from].lstPropTypes[propIdx].propCover * (1 - INFREQ_TYPE_THRESHOLD) > rel.lstCnt[j]) continue; 
+			if (freqCSset->items[i].coverage > minTableSize){
+				if (csPropTypes[from].lstPropTypes[propIdx].propCover * (1 - infreqTypeThreshold) > rel.lstCnt[j]) continue; 
 				else if (csPropTypes[from].lstPropTypes[propIdx].propCover == rel.lstCnt[j])
 					csPropTypes[from].lstPropTypes[propIdx].isDirtyFKProp = 0;
 				else
@@ -8955,8 +8956,8 @@ Pscore computeMetricsQ(CSset *freqCSset){
 		}
 	}
 	printf("Performance metric Q = (weighting %f)/(totalCov %d * numTbl %d) \n", Q,totalCov, curNumMergeCS);
-	printf("Average precision = %f\n",(float)totalPrecision/curNumMergeCS);
-	printf("Overall precision = %f (overfill %lld / overalMaxFill %lld)\n", (float) overalFill/overalMaxFill, overalFill, overalMaxFill);
+	//printf("Average precision = %f\n",(float)totalPrecision/curNumMergeCS);
+	//printf("Overall precision = %f (overfill %lld / overalMaxFill %lld)\n", (float) overalFill/overalMaxFill, overalFill, overalMaxFill);
 	//printf("Average precision = %f\n",(float)totalPrecision/totalCov);
 
 	Q = Q/((float)totalCov * curNumMergeCS);
@@ -9221,7 +9222,7 @@ void RDFmergingTrial(CSset *freqCSset, CSrel *csrelSet, CSlabel** labels, oid ma
 
 	tmpLastT = clock(); 
 	curNumMergeCS = countNumberMergeCS(freqCSset);
-	printf("Before using rules: Number of freqCS is: %d \n",curNumMergeCS);
+	//printf("Before using rules: Number of freqCS is: %d \n",curNumMergeCS);
 	
 	/* ---------- S1 ------- */
 	mergecsId = maxCSoid + 1; 
@@ -9229,7 +9230,7 @@ void RDFmergingTrial(CSset *freqCSset, CSrel *csrelSet, CSlabel** labels, oid ma
 	mergeFreqCSByS1(freqCSset, labels, &mergecsId, ontmetadata, ontmetadataCount, mapbatid); /*S1: Merge all freqCS's sharing top-3 candidates */
 	
 	curNumMergeCS = countNumberMergeCS(freqCSset);
-	printf("S1: Number of mergeCS: %d \n", curNumMergeCS);
+	//printf("S1: Number of mergeCS: %d \n", curNumMergeCS);
 
 	#if STORE_PERFORMANCE_METRIC_INFO	
 	//computeMetricsQ(freqCSset);
@@ -9248,7 +9249,7 @@ void RDFmergingTrial(CSset *freqCSset, CSrel *csrelSet, CSlabel** labels, oid ma
 	freeCSrelSet(tmpCSrelToMergeCS,tmpNumRel);
 
 	curNumMergeCS = countNumberMergeCS(freqCSset);
-	printf("S5: Number of mergeCS: %d \n", curNumMergeCS);
+	//printf("S5: Number of mergeCS: %d \n", curNumMergeCS);
 	#if STORE_PERFORMANCE_METRIC_INFO	
 	//computeMetricsQ(freqCSset);
 	#endif
@@ -9261,7 +9262,7 @@ void RDFmergingTrial(CSset *freqCSset, CSrel *csrelSet, CSlabel** labels, oid ma
 	mergeCSByS2(freqCSset, labels, mergeCSFreqCSMap, curNumMergeCS, &mergecsId, ontoUsageTree, ontmetadata, ontmetadataCount, ontmetaBat, ontclassSet);
 
 	curNumMergeCS = countNumberMergeCS(freqCSset);
-	printf("S2: Number of mergeCS: %d \n", curNumMergeCS);
+	//printf("S2: Number of mergeCS: %d \n", curNumMergeCS);
 
 	#if STORE_PERFORMANCE_METRIC_INFO	
 	//computeMetricsQ(freqCSset);
@@ -9276,7 +9277,7 @@ void RDFmergingTrial(CSset *freqCSset, CSrel *csrelSet, CSlabel** labels, oid ma
 	free(mergeCSFreqCSMap);
 
 	curNumMergeCS = countNumberMergeCS(freqCSset);
-	printf("S4: Number of mergeCS: %d \n", curNumMergeCS);
+	//printf("S4: Number of mergeCS: %d \n", curNumMergeCS);
 
 	#if STORE_PERFORMANCE_METRIC_INFO	
 	printf("Metric scores for %f\n",simTfidfThreshold);
@@ -9772,6 +9773,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 
 	for ( i = 0; i < numRun; i++){
 		simTfidfThreshold = 0.5 + i * 0.05;	
+		printf("---- Trial with simTfidfThreshold=%f----\n",simTfidfThreshold);
 		{
 		CSlabel 	*tmplabels = NULL; 
 		OntoUsageNode	*tmpontoUsageTree = NULL;

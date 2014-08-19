@@ -31,6 +31,10 @@ int dimensionFactor;
 int upperboundNumTables;
 float generalityThreshold; 
 float simTfidfThreshold;
+int minTableSize;
+float infreqTypeThreshold;
+float infreqPropThreshold;
+
 
 void createDefaultParamsFile(void){
 	
@@ -40,8 +44,10 @@ void createDefaultParamsFile(void){
 	
 	fprintf(paramFile, "dimensionFactor 1000\n");
 	fprintf(paramFile, "upperboundNumTables 1000\n");
-	fprintf(paramFile, "simTfidfThreshold 0.75");
-
+	//fprintf(paramFile, "simTfidfThreshold 0.75");
+	fprintf(paramFile, "minTableSize 1000\n");
+	fprintf(paramFile, "infreqTypeThreshold 0.1\n");
+	fprintf(paramFile, "infreqPropThreshold 0.05\n");
 	fclose(paramFile); 
 }
 
@@ -70,6 +76,18 @@ void readParamsInput(void){
 			else if (strcmp(variable, "simTfidfThreshold") == 0){
 				simTfidfThreshold = atof(value);
 				printf("simTfidfThreshold = %f\n", simTfidfThreshold);
+			}
+			else if (strcmp(variable, "minTableSize") == 0){
+				minTableSize = atoi(value);
+				printf("minTableSize = %d\n", minTableSize);
+			}
+			else if (strcmp(variable, "infreqTypeThreshold") == 0){
+				infreqTypeThreshold= atof(value);
+				printf("infreqTypeThreshold= %f\n", infreqTypeThreshold);
+			}
+			else if (strcmp(variable, "infreqPropThreshold") == 0){
+				infreqPropThreshold= atof(value);
+				printf("infreqPropThreshold= %f\n", infreqPropThreshold);
 			}
 		}
 	}

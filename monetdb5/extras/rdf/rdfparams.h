@@ -35,6 +35,9 @@ extern int dimensionFactor;
 extern int upperboundNumTables; 
 extern float generalityThreshold;
 extern float simTfidfThreshold;
+extern int minTableSize; 
+extern float infreqTypeThreshold; 
+extern float infreqPropThreshold; 
 
 rdf_export void
 createDefaultParamsFile(void);
