@@ -542,6 +542,80 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif /* HAVE_RAPTOR */
 }
 
+static
+void getTblSQLname(char *tmptbname, int tblIdx, int isExTbl, CStableStat *cstablestat, BATiter mapi, BAT *mbat){
+	str	baseTblName;
+	char	tmpstr[20]; 
+
+	if (isExTbl ==0) 
+		sprintf(tmpstr, "%d",tblIdx);
+	else //isExTbl == 1
+		sprintf(tmpstr, "ex%d",tblIdx);
+
+	getTblName(&baseTblName, cstablestat->lstcstable[tblIdx].tblname, mapi, mbat); 
+	sprintf(tmptbname, "%s", baseTblName);
+	strcat(tmptbname,tmpstr);
+
+	GDKfree(baseTblName);
+}
+
+//If colType == -1, ==> default col
+//If not, it is a ex-type column
+static
+void getColSQLname(char *tmpcolname, int tblIdx, int colIdx, int colType, CStableStat *cstablestat, BATiter mapi, BAT *mbat){
+	str baseColName;
+	char    tmpstr[20];
+
+	if (colType == -1) sprintf(tmpstr, "%d",colIdx);
+	else 
+		sprintf(tmpstr, "%dtype%d",colIdx, colType); 
+	getTblName(&baseColName, cstablestat->lstcstable[tblIdx].lstProp[colIdx], mapi, mbat);
+	sprintf(tmpcolname, "%s", baseColName);
+	strcat(tmpcolname,tmpstr); 
+
+
+	GDKfree(baseColName);
+}
+
+static
+void getMvTblSQLname(char *tmpmvtbname, int tblIdx, int colIdx, CStableStat *cstablestat, BATiter mapi, BAT *mbat){
+	str baseTblName;
+	str baseColName; 
+
+	getTblName(&baseTblName, cstablestat->lstcstable[tblIdx].tblname, mapi, mbat);
+	getTblName(&baseColName, cstablestat->lstcstable[tblIdx].lstProp[colIdx], mapi, mbat);
+
+	sprintf(tmpmvtbname, "mv%s%d_%s%d", baseTblName, tblIdx, baseColName, colIdx);
+
+	GDKfree(baseTblName);
+	GDKfree(baseColName);
+}
+
+/*
+static
+addFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes){
+	FILE            *fout;
+	char            filename[100];
+	int		i;
+	char		fromTbl[100]; 
+	char		fromTblCol[100]; 
+	char		toTbl[100];
+	char		toTblCol[100]; 
+	int		refTblId; 
+
+	strcpy(filename, "fkCreate.sql");
+	fout = fopen(filename, "wt");
+	for (i = 0; i < cstablestat->numTables; i++){
+		for(j = 0; j < csPropTypes[i].numProp; j++){
+			if (csPropTypes[i].lstPropTypes[j].isFKProp == 1){
+				refTblId = csPropTypes[i].lstPropTypes[j].refTblId;					
+			}
+		}
+	}
+	fclose(fout); 	
+
+}
+*/
 
 /* Re-organize triple table by using clustering storage
  * CALL rdf_reorganize('schema','tablename', 1);
@@ -560,13 +634,12 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_schema *sch; 
 	int ret = 0; 
 	CStableStat *cstablestat; 
-	str	baseTblName;
 	char	tmptbname[100]; 
-	char	tmpstr[20]; 
+	char	tmpmvtbname[100];
 	char	tmptbnameex[100];
 	//char	tmpviewname[100]; 
-	str	baseColName;
 	char	tmpcolname[100]; 
+	char	tmpmvcolname[100];
 	//char	viewcommand[500];
 	sql_subtype tpe; 	
 	sql_subtype tpes[50];
@@ -710,50 +783,46 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for (i = 0; i < cstablestat->numTables; i++){
 		//printf("creating table %d \n", i);
 
-		sprintf(tmpstr, "%d",i);
-		getTblName(&baseTblName, cstablestat->lstcstable[i].tblname, mapi, mbat); 
-		sprintf(tmptbname, "%s", baseTblName);
-		strcat(tmptbname,tmpstr);
+		getTblSQLname(tmptbname, i, 0, cstablestat, mapi, mbat);
 		printf("Table %d:||  %s ||\n",i, tmptbname);
 
 		cstables[i] = mvc_create_table(m, sch, tmptbname, tt_table, 0,
 				   SQL_PERSIST, 0, 3);
-		GDKfree(baseTblName);
 		totalNoTablesCreated++;
 		//Multivalues tables for each column
 		csmvtables[i] = (sql_table **)malloc(sizeof(sql_table*) * cstablestat->numPropPerTable[i]);
 		
+		#if APPENDSUBJECTCOLUMN
+		mvc_create_column(m, cstables[i], "subject",  &tpes[TYPE_oid]);
+		#endif
 		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
 
 			//TODO: Use propertyId from Propstat
-			sprintf(tmpstr, "%d",j);
-			getTblName(&baseColName, cstablestat->lstcstable[i].lstProp[j], mapi, mbat);
-			sprintf(tmpcolname, "%s", baseColName);
-			strcat(tmpcolname,tmpstr); 
-			//sprintf(tmpcolname, "col"BUNFMT,(cstablestat->lstcstable[i].lstProp[j]));
+			getColSQLname(tmpcolname, i, j, -1, cstablestat, mapi, mbat);
+
 
 			tmpbat = cstablestat->lstcstable[i].colBats[j];
 
 			mvc_create_column(m, cstables[i], tmpcolname,  &tpes[tmpbat->ttype]);
 			
-			GDKfree(baseColName);
 			//For multi-values table
 			tmpNumMVCols = cstablestat->lstcstable[i].lstMVTables[j].numCol;
 			if (tmpNumMVCols != 0){
-				sprintf(tmptbname, "mvtable%dp%d",i,j);
-				csmvtables[i][j] = mvc_create_table(m, sch, tmptbname, tt_table, 0, SQL_PERSIST, 0, 3); 
+				getMvTblSQLname(tmpmvtbname, i, j, cstablestat, mapi, mbat);
+				csmvtables[i][j] = mvc_create_table(m, sch, tmpmvtbname, tt_table, 0, SQL_PERSIST, 0, 3); 
 				totalNoTablesCreated++;
 
 				//One column for key
-				sprintf(tmpcolname, "mvCol%dt%dpKey",i,j);
+				sprintf(tmpcolname, "mvKey");
 				tmpbat = cstablestat->lstcstable[i].lstMVTables[j].keyBat;
 				mvc_create_column(m, csmvtables[i][j], tmpcolname,  &tpes[tmpbat->ttype]);
 
 				//Value columns 
 				for (k = 0; k < tmpNumMVCols; k++){
-					sprintf(tmpcolname, "mvCol%dt%dp%dc",i,j,k);
+					getColSQLname(tmpmvcolname, i, j, k, cstablestat, mapi, mbat);
+
 					tmpbat = cstablestat->lstcstable[i].lstMVTables[j].mvBats[k];
-					mvc_create_column(m, csmvtables[i][j], tmpcolname,  &tpes[tmpbat->ttype]);
+					mvc_create_column(m, csmvtables[i][j], tmpmvcolname,  &tpes[tmpbat->ttype]);
 				}
 
 			}
@@ -767,20 +836,17 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		// Add non-default type table
 		if (cstablestat->lstcstableEx[i].numCol != 0){	
 
-			sprintf(tmpstr, "ex%d",i);
-			getTblName(&baseTblName, cstablestat->lstcstable[i].tblname, mapi, mbat); 
-			sprintf(tmptbnameex, "%s", baseTblName);
-			strcat(tmptbnameex,tmpstr);
+			getTblSQLname(tmptbnameex, i, 1, cstablestat, mapi, mbat);
 			printf("TableEx %d: || %s || \n",i, tmptbnameex);
 
 			cstablesEx[i] = mvc_create_table(m, sch, tmptbnameex, tt_table, 0,
 					   SQL_PERSIST, 0, 3);
-			GDKfree(baseTblName);
 			totalNoTablesCreated++;
 			totalNoExTables++;
 			for (j = 0; j < cstablestat->lstcstableEx[i].numCol; j++){
 				//TODO: Use propertyId from Propstat
-				sprintf(tmpcolname, "colex%dtype%d",cstablestat->lstcstableEx[i].mainTblColIdx[j], (int)(cstablestat->lstcstableEx[i].colTypes[j]));
+				getColSQLname(tmpcolname, i, cstablestat->lstcstableEx[i].mainTblColIdx[j], (int)(cstablestat->lstcstableEx[i].colTypes[j]), cstablestat, mapi, mbat);
+
 				tmpbat = cstablestat->lstcstableEx[i].colBats[j];
 				mvc_create_column(m, cstablesEx[i], tmpcolname,  &tpes[tmpbat->ttype]);				
 			}
@@ -789,15 +855,19 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 		#endif
 
-
+		#if APPENDSUBJECTCOLUMN
+		{
+			BAT* subjBat = createEncodedSubjBat(i,BATcount(cstablestat->lstcstable[i].colBats[0]));
+                	store_funcs.append_col(m->session->tr,
+					mvc_bind_column(m, cstables[i],"subject"), 
+					subjBat, TYPE_bat);
+			BBPreclaim(subjBat);
+		}
+		#endif
 		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
 
 			//TODO: Use propertyId from Propstat
-			sprintf(tmpstr, "%d",j);
-			getTblName(&baseColName, cstablestat->lstcstable[i].lstProp[j], mapi, mbat);
-			sprintf(tmpcolname, "%s", baseColName);
-			strcat(tmpcolname,tmpstr); 
-			//sprintf(tmpcolname, "col"BUNFMT,(cstablestat->lstcstable[i].lstProp[j]));
+			getColSQLname(tmpcolname, i, j, -1, cstablestat, mapi, mbat);
 
 			tmpbat = cstablestat->lstcstable[i].colBats[j];
 
@@ -807,14 +877,12 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					mvc_bind_column(m, cstables[i],tmpcolname ), 
 					tmpbat, TYPE_bat);
 
-			GDKfree(baseColName);
 			//For multi-values table
 			tmpNumMVCols = cstablestat->lstcstable[i].lstMVTables[j].numCol;
 			if (tmpNumMVCols != 0){
-				sprintf(tmptbname, "mvtable%dp%d",i,j);
 
 				//One column for key
-				sprintf(tmpcolname, "mvCol%dt%dpKey",i,j);
+				sprintf(tmpcolname, "mvKey");
 				tmpbat = cstablestat->lstcstable[i].lstMVTables[j].keyBat;
 				store_funcs.append_col(m->session->tr,
 					mvc_bind_column(m, csmvtables[i][j],tmpcolname), 
@@ -822,14 +890,15 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 				//Value columns
 				for (k = 0; k < tmpNumMVCols; k++){
-					sprintf(tmpcolname, "mvCol%dt%dp%dc",i,j,k);
-					
+
+					getColSQLname(tmpmvcolname, i, j, k, cstablestat, mapi, mbat);
+
 					tmpbat = cstablestat->lstcstable[i].lstMVTables[j].mvBats[k];
 					
 					//printf("MVColumn %d: \n",k); 
 					//BATprint(tmpbat);
                 			store_funcs.append_col(m->session->tr,
-						mvc_bind_column(m, csmvtables[i][j],tmpcolname), 
+						mvc_bind_column(m, csmvtables[i][j],tmpmvcolname), 
 						tmpbat, TYPE_bat);
 				}
 			}
@@ -843,7 +912,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if (cstablestat->lstcstableEx[i].numCol != 0){	
 			for (j = 0; j < cstablestat->lstcstableEx[i].numCol; j++){
 				//TODO: Use propertyId from Propstat
-				sprintf(tmpcolname, "colex%dtype%d",cstablestat->lstcstableEx[i].mainTblColIdx[j], (int)cstablestat->lstcstableEx[i].colTypes[j]);
+				getColSQLname(tmpcolname, i, cstablestat->lstcstableEx[i].mainTblColIdx[j], (int)(cstablestat->lstcstableEx[i].colTypes[j]), cstablestat, mapi, mbat);
 
 				tmpbat = cstablestat->lstcstableEx[i].colBats[j];
 				

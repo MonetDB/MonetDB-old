@@ -3951,8 +3951,8 @@ void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset, int
 			numDummy++;
 	}
 	
-	//printf("Total number of distinct labels in Top%d is %d \n", k, labelStat->numLabeladded);
-	//printf("Number of DUMMY freqCS: %d \n",numDummy);
+	printf("Total number of distinct labels in Top%d is %d \n", k, labelStat->numLabeladded);
+	printf("Number of DUMMY freqCS: %d \n",numDummy);
 	//Build list of FreqCS
 	labelStat->freqIdList = (int**) malloc(sizeof(int*) * labelStat->numLabeladded);
 	for (i =0; i < labelStat->numLabeladded; i++){
@@ -6701,6 +6701,27 @@ str getOrigObt(oid *obt, oid *origObt, BAT *lmap, BAT *rmap){
 	return MAL_SUCCEED; 
 }
 #endif
+
+static
+oid getFirstEncodedSubjId(int tblIdx){
+	
+	return (BUN)(tblIdx + 1) << (sizeof(BUN)*8 - NBITS_FOR_CSID);
+}
+
+//Encoded subject BAT contains 
+//sequential numbers from getFirstEncodedSubjId()
+//to getFirstEncodedSubjId() + numberofelements 
+
+BAT* createEncodedSubjBat(int tblIdx, int num){
+	BAT* subjBat = NULL; 
+	
+	subjBat = BATnew(TYPE_void, TYPE_void , num + 1);
+	BATsetcount(subjBat,num);
+	BATseqbase(subjBat, 0);
+	BATseqbase(BATmirror(subjBat), getFirstEncodedSubjId(tblIdx));
+
+	return subjBat; 
+}
 
 #if NO_OUTPUTFILE == 0
 static

@@ -46,7 +46,7 @@ void createDefaultParamsFile(void){
 	fprintf(paramFile, "upperboundNumTables 1000\n");
 	//fprintf(paramFile, "simTfidfThreshold 0.75");
 	fprintf(paramFile, "minTableSize 1000\n");
-	fprintf(paramFile, "infreqTypeThreshold 0.1\n");
+	fprintf(paramFile, "infreqTypeThreshold 0.05\n");
 	fprintf(paramFile, "infreqPropThreshold 0.05\n");
 	fclose(paramFile); 
 }

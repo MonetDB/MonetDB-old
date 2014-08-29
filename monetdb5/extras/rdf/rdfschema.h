@@ -294,6 +294,10 @@ typedef struct SubCSSet{
 
 #define REMOVE_SMALL_TABLE	1	/* Remove SMALL but NOT dimension table*/
 
+#define APPENDSUBJECTCOLUMN	1	// The subject column actually doesn't need to be included into the relational table
+					// However, for creating the foreign key relationship, we add this column and 
+					// markt it as a primary key
+
 
 typedef struct CSset{
 	CS* items;
@@ -526,6 +530,10 @@ isCSTable(CS item, oid name);
 
 rdf_export str
 printTKNZStringFromOid(oid id);
+
+rdf_export BAT*
+createEncodedSubjBat(int tblIdx, int num);
+
 
 
 #endif /* _RDFSCHEMA_H_ */
