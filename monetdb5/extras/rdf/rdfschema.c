@@ -1236,7 +1236,6 @@ void addPropTypes(char *buffTypes, oid* buffP, int numP, int* buffCover, int **b
 	//printf("\n");
 }
 
-static
 void freeCSPropTypes(CSPropTypes* csPropTypes, int numCS){
 	int i,j; 
 
@@ -11202,7 +11201,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 }
 
 str
-RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, bat *ontbatid, int *freqThreshold, int *mode){
+RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, bat *ontbatid, int *freqThreshold, int *mode){
 
 	CSset		*freqCSset; 	/* Set of frequent CSs */
 	oid		*subjCSMap = NULL;  	/* Store the corresponding CS Id for each subject */
@@ -11234,7 +11233,6 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	int		numdistinctMCS = 0; 
 	int		maxNumPwithDup = 0;
 	//CStableStat	*cstablestat;
-	CSPropTypes	*csPropTypes; 
 	CSlabel		*labels;
 	CSrel		*csRelMergeFreqSet = NULL;
 	CSrel		*csRelFinalFKs = NULL;   	//Store foreign key relationships 
@@ -11307,25 +11305,25 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	mi = bat_iterator(mbat);
 
 	/* Get possible types of each property in a table (i.e., mergedCS) */
-	csPropTypes = (CSPropTypes*)GDKmalloc(sizeof(CSPropTypes) * numTables); 
-	initCSPropTypes(csPropTypes, freqCSset, numTables, labels);
+	*csPropTypes = (CSPropTypes*)GDKmalloc(sizeof(CSPropTypes) * numTables); 
+	initCSPropTypes(*csPropTypes, freqCSset, numTables, labels);
 	
 	printf("Extract CSPropTypes \n");
-	RDFExtractCSPropTypes(ret, sbat, pbat, obat,  subjCSMap, csTblIdxMapping, csPropTypes, maxNumPwithDup);
-	genCSPropTypesColIdx(csPropTypes, numTables, freqCSset);
+	RDFExtractCSPropTypes(ret, sbat, pbat, obat,  subjCSMap, csTblIdxMapping, *csPropTypes, maxNumPwithDup);
+	genCSPropTypesColIdx(*csPropTypes, numTables, freqCSset);
 
 	#if NO_OUTPUTFILE == 0
-	printCSPropTypes(csPropTypes, numTables, freqCSset, *freqThreshold);
+	printCSPropTypes(*csPropTypes, numTables, freqCSset, *freqThreshold);
 	//Collecting the statistic
 	printf("Get table statistics by CSPropTypes \n");
-	getTableStatisticViaCSPropTypes(csPropTypes, numTables, freqCSset, *freqThreshold);
+	getTableStatisticViaCSPropTypes(*csPropTypes, numTables, freqCSset, *freqThreshold);
 	#endif
 	
 	#if COLORINGPROP
 	/* Update list of support for properties in freqCSset */
-	updatePropSupport(csPropTypes, numTables, freqCSset);
+	updatePropSupport(*csPropTypes, numTables, freqCSset);
 	#if NO_OUTPUTFILE == 0
-	printFinalTableWithPropSupport(csPropTypes, numTables, freqCSset, mapbatid, *freqThreshold, labels);
+	printFinalTableWithPropSupport(*csPropTypes, numTables, freqCSset, mapbatid, *freqThreshold, labels);
 	#endif
 	#endif
 
@@ -11333,17 +11331,17 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	printf (" Preparing process took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
 
-	csRelFinalFKs = getFKBetweenTableSet(csRelMergeFreqSet, freqCSset, csPropTypes,mfreqIdxTblIdxMapping,numTables, labels);
+	csRelFinalFKs = getFKBetweenTableSet(csRelMergeFreqSet, freqCSset, *csPropTypes,mfreqIdxTblIdxMapping,numTables, labels);
 	#if NO_OUTPUTFILE == 0
-	printFKs(csRelFinalFKs, *freqThreshold, numTables, csPropTypes); 
+	printFKs(csRelFinalFKs, *freqThreshold, numTables, *csPropTypes); 
 	#endif
 
 	// Init CStableStat
-	initCStables(cstablestat, freqCSset, csPropTypes, numTables, labels, mTblIdxFreqIdxMapping);
+	initCStables(cstablestat, freqCSset, *csPropTypes, numTables, labels, mTblIdxFreqIdxMapping);
 	
 	// Summarize the statistics
 	#if NO_OUTPUTFILE == 0
-	getStatisticFinalCSs(freqCSset, sbat, *freqThreshold, numTables, mTblIdxFreqIdxMapping, csPropTypes, labels);
+	getStatisticFinalCSs(freqCSset, sbat, *freqThreshold, numTables, mTblIdxFreqIdxMapping, *csPropTypes, labels);
 	#endif	
 
 	/* Extract sample data for the evaluation */
@@ -11356,7 +11354,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	printf("Start exporting labels \n"); 
 	
 	#if EXPORT_LABEL
-	exportLabels(freqCSset, csRelFinalFKs, *freqThreshold, mi, mbat, cstablestat, csPropTypes, numTables, mTblIdxFreqIdxMapping, csTblIdxMapping);
+	exportLabels(freqCSset, csRelFinalFKs, *freqThreshold, mi, mbat, cstablestat, *csPropTypes, numTables, mTblIdxFreqIdxMapping, csTblIdxMapping);
 	#endif
 
 	curT = clock(); 
@@ -11364,7 +11362,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	tmpLastT = curT; 		
 
 	#if NO_OUTPUTFILE == 0 
-	printFinalStructure(cstablestat, csPropTypes, numTables,*freqThreshold, mapbatid);
+	printFinalStructure(cstablestat, *csPropTypes, numTables,*freqThreshold, mapbatid);
 	#endif
 	
 	#if DETECT_INCORRECT_TYPE_SUBJECT
@@ -11396,7 +11394,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	#endif
 	
 	#if STORE_PERFORMANCE_METRIC_INFO
-	computeMetricsQForRefinedTable(freqCSset, csPropTypes,mfreqIdxTblIdxMapping,mTblIdxFreqIdxMapping,numTables);
+	computeMetricsQForRefinedTable(freqCSset, *csPropTypes,mfreqIdxTblIdxMapping,mTblIdxFreqIdxMapping,numTables);
 	#endif
 
 	if (*mode == EXPLOREONLY){
@@ -11409,7 +11407,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 		free(csFreqCSMapping);
 		free(mfreqIdxTblIdxMapping);
 		free(mTblIdxFreqIdxMapping);
-		freeCSPropTypes(csPropTypes,numTables);
+		//freeCSPropTypes(*csPropTypes,numTables);
 		freeCSrelSet(csRelFinalFKs, numTables);
 		printf("Finish & Exit exploring step! \n"); 
 		
@@ -11547,7 +11545,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	printf (" Prepare and create sub-sorted PSO took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
 	returnStr = RDFdistTriplesToCSs(ret, &sNewBat->batCacheid, &pNewBat->batCacheid, &oNewBat->batCacheid, mapbatid, 
-			&lmap->batCacheid, &rmap->batCacheid, propStat, cstablestat, csPropTypes, lastSubjId, isLotsNullSubj, subjCSMap, csTblIdxMapping);
+			&lmap->batCacheid, &rmap->batCacheid, propStat, cstablestat, *csPropTypes, lastSubjId, isLotsNullSubj, subjCSMap, csTblIdxMapping);
 	printf("Return value from RDFdistTriplesToCSs is %s \n", returnStr);
 	if (returnStr != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in distributing triples to BATs using CSs");		
@@ -11558,7 +11556,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	tmpLastT = curT; 		
 	
 	#if NO_OUTPUTFILE == 0
-	printFKMultiplicityFromCSPropTypes(csPropTypes, numTables, freqCSset, *freqThreshold);
+	printFKMultiplicityFromCSPropTypes(*csPropTypes, numTables, freqCSset, *freqThreshold);
 	#endif
 	
 	#if NO_OUTPUTFILE == 0
@@ -11569,7 +11567,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
         initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
 	propStat2 = initPropStat();
 	getPropStatisticsFromMergeCSs(propStat2, curNumMergeCS, mergeCSFreqCSMap, freqCSset);
-	getFullSampleData(cstablestat, csPropTypes, mTblIdxFreqIdxMapping, labels, numTables, &lmap->batCacheid, &rmap->batCacheid, freqCSset, mapbatid, propStat2);
+	getFullSampleData(cstablestat, *csPropTypes, mTblIdxFreqIdxMapping, labels, numTables, &lmap->batCacheid, &rmap->batCacheid, freqCSset, mapbatid, propStat2);
 	freePropStat(propStat2);
 	free(mergeCSFreqCSMap);
 	}
@@ -11579,7 +11577,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat 
 	#endif
 	freeCSrelSet(csRelMergeFreqSet,freqCSset->numCSadded);
 	freeCSrelSet(csRelFinalFKs, numTables); 
-	freeCSPropTypes(csPropTypes,numTables);
+	//freeCSPropTypes(*csPropTypes,numTables);
 	freeLabels(labels, freqCSset);
 	freeCSset(freqCSset); 
 	free(subjCSMap); 

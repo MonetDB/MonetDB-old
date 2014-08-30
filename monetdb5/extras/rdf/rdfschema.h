@@ -508,7 +508,7 @@ rdf_export str
 RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, bat *ontbatid, int *freqThreshold, void *freqCSset, oid **subjCSMap, oid *maxCSoid, int *maxNumPwithDup, CSlabel** labels, CSrel **csRelBetweenMergeFreqSet);
 
 rdf_export str
-RDFreorganize(int *ret, CStableStat *cstablestat, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, bat *ontbatid, int *freqThreshold, int *mode);
+RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, bat *ontbatid, int *freqThreshold, int *mode);
 
 rdf_export void
 getTblName(str *name, oid nameId,BATiter mapi, BAT *mbat);
@@ -518,6 +518,9 @@ getObjType(oid objOid);		/* Return the type of the object value from obj oid*/
 
 rdf_export void
 freeCStableStat(CStableStat *cstablestat); 
+
+rdf_export void
+freeCSPropTypes(CSPropTypes* csPropTypes, int numCS);
 
 rdf_export void
 printPropStat(PropStat *propstat, int isPrintToFile); 

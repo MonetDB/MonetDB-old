@@ -591,16 +591,17 @@ void getMvTblSQLname(char *tmpmvtbname, int tblIdx, int colIdx, CStableStat *cst
 	GDKfree(baseColName);
 }
 
-/*
 static
-addFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes){
+void addFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes, str schema, BATiter mapi, BAT *mbat){
 	FILE            *fout;
 	char            filename[100];
-	int		i;
+	int		i, j;
 	char		fromTbl[100]; 
 	char		fromTblCol[100]; 
 	char		toTbl[100];
 	char		toTblCol[100]; 
+	char		mvTbl[100]; 
+	char		mvCol[100];
 	int		refTblId; 
 
 	strcpy(filename, "fkCreate.sql");
@@ -608,14 +609,34 @@ addFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes){
 	for (i = 0; i < cstablestat->numTables; i++){
 		for(j = 0; j < csPropTypes[i].numProp; j++){
 			if (csPropTypes[i].lstPropTypes[j].isFKProp == 1){
-				refTblId = csPropTypes[i].lstPropTypes[j].refTblId;					
+				getTblSQLname(fromTbl, i, 0, cstablestat, mapi, mbat);
+				refTblId = csPropTypes[i].lstPropTypes[j].refTblId;
+				getTblSQLname(toTbl, refTblId, 0, cstablestat, mapi, mbat);
+
+				if (cstablestat->lstcstable[i].lstMVTables[j].numCol == 0){
+					getColSQLname(fromTblCol, i, j, -1, cstablestat, mapi, mbat);
+
+					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD PRIMARY KEY (subject);\n",schema,toTbl);
+					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD FOREIGN KEY (\"%s\") REFERENCES %s.\"%s\" (subject);\n\n", schema, fromTbl, fromTblCol, schema, toTbl);
+
+				}
+				else{	//This is a MV col
+					getMvTblSQLname(mvTbl, i, j, cstablestat, mapi, mbat);
+					getColSQLname(fromTblCol, i, j, -1, cstablestat, mapi, mbat);
+					getColSQLname(mvCol, i, j, 0, cstablestat, mapi, mbat); //Use the first column of MVtable
+					
+					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD PRIMARY KEY (subject);\n",schema, toTbl);
+					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD PRIMARY KEY (\"%s\");\n",schema, fromTbl,fromTblCol);
+					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD FOREIGN KEY (mvKey) REFERENCES %s.\"%s\" (\"%s\");\n",schema, mvTbl, schema, fromTbl,fromTblCol);
+					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD FOREIGN KEY (\"%s\") REFERENCES %s.\"%s\" (\"%s\");\n\n",schema, mvTbl, mvCol, schema, toTbl, toTblCol);
+					
+				}
 			}
 		}
 	}
 	fclose(fout); 	
 
 }
-*/
 
 /* Re-organize triple table by using clustering storage
  * CALL rdf_reorganize('schema','tablename', 1);
@@ -634,6 +655,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_schema *sch; 
 	int ret = 0; 
 	CStableStat *cstablestat; 
+	CSPropTypes     *csPropTypes;
 	char	tmptbname[100]; 
 	char	tmpmvtbname[100];
 	char	tmptbnameex[100];
@@ -691,7 +713,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(SQL, "sql.rdfreorganize", "Colunm ontlist/mont is missing");
 	}
 	else{
-		rethrow("sql.rdfreorganize", msg, RDFreorganize(&ret, cstablestat, &sbat->batCacheid, &pbat->batCacheid, 
+		rethrow("sql.rdfreorganize", msg, RDFreorganize(&ret, cstablestat, &csPropTypes, &sbat->batCacheid, &pbat->batCacheid, 
 				&obat->batCacheid, &mbat->batCacheid, &ontbat->batCacheid, threshold, mode));
 
 		BBPunfix(ontbat->batCacheid);
@@ -706,6 +728,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		BBPunfix(pbat->batCacheid);
 		BBPunfix(obat->batCacheid); 
 		BBPunfix(mbat->batCacheid);
+		freeCSPropTypes(csPropTypes,cstablestat->numTables);
 		freeCStableStat(cstablestat); 
 		//free(cstablestat);
 		return MAL_SUCCEED; 
@@ -947,6 +970,10 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	printf("Number of default-type columns: %d \n ", totalNumDefCols);
 	printf("Number of non-default-type columns: %d  (%f ex-types per prop) \n ", totalNumNonDefCols, (float)totalNumNonDefCols/totalNumDefCols);
 
+	printf("Generating script for FK creation ...");
+	addFKs(cstablestat, csPropTypes, *schema, mapi, mbat);
+	printf("done\n");
+
 	TKNZRclose(&ret);
 
 	BBPunfix(sbat->batCacheid); 
@@ -958,6 +985,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	free(csmvtables);
 
+	freeCSPropTypes(csPropTypes,cstablestat->numTables);
 	freeCStableStat(cstablestat); 
 	free(cstables);
 	free(cstablesEx); 
