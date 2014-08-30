@@ -599,36 +599,38 @@ void addFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes, str schema, BATi
 	char		fromTbl[100]; 
 	char		fromTblCol[100]; 
 	char		toTbl[100];
-	char		toTblCol[100]; 
 	char		mvTbl[100]; 
 	char		mvCol[100];
 	int		refTblId; 
+	int		tblColIdx; 
 
 	strcpy(filename, "fkCreate.sql");
 	fout = fopen(filename, "wt");
 	for (i = 0; i < cstablestat->numTables; i++){
 		for(j = 0; j < csPropTypes[i].numProp; j++){
+			if (csPropTypes[i].lstPropTypes[j].defColIdx == -1)	continue;
 			if (csPropTypes[i].lstPropTypes[j].isFKProp == 1){
+				tblColIdx = csPropTypes[i].lstPropTypes[j].defColIdx; 
 				getTblSQLname(fromTbl, i, 0, cstablestat, mapi, mbat);
 				refTblId = csPropTypes[i].lstPropTypes[j].refTblId;
 				getTblSQLname(toTbl, refTblId, 0, cstablestat, mapi, mbat);
 
-				if (cstablestat->lstcstable[i].lstMVTables[j].numCol == 0){
-					getColSQLname(fromTblCol, i, j, -1, cstablestat, mapi, mbat);
+				if (cstablestat->lstcstable[i].lstMVTables[tblColIdx].numCol == 0){
+					getColSQLname(fromTblCol, i, tblColIdx, -1, cstablestat, mapi, mbat);
 
 					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD PRIMARY KEY (subject);\n",schema,toTbl);
 					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD FOREIGN KEY (\"%s\") REFERENCES %s.\"%s\" (subject);\n\n", schema, fromTbl, fromTblCol, schema, toTbl);
 
 				}
 				else{	//This is a MV col
-					getMvTblSQLname(mvTbl, i, j, cstablestat, mapi, mbat);
-					getColSQLname(fromTblCol, i, j, -1, cstablestat, mapi, mbat);
-					getColSQLname(mvCol, i, j, 0, cstablestat, mapi, mbat); //Use the first column of MVtable
+					getMvTblSQLname(mvTbl, i, tblColIdx, cstablestat, mapi, mbat);
+					getColSQLname(fromTblCol, i, tblColIdx, -1, cstablestat, mapi, mbat);
+					getColSQLname(mvCol, i, tblColIdx, 0, cstablestat, mapi, mbat); //Use the first column of MVtable
 					
 					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD PRIMARY KEY (subject);\n",schema, toTbl);
 					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD PRIMARY KEY (\"%s\");\n",schema, fromTbl,fromTblCol);
 					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD FOREIGN KEY (mvKey) REFERENCES %s.\"%s\" (\"%s\");\n",schema, mvTbl, schema, fromTbl,fromTblCol);
-					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD FOREIGN KEY (\"%s\") REFERENCES %s.\"%s\" (\"%s\");\n\n",schema, mvTbl, mvCol, schema, toTbl, toTblCol);
+					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD FOREIGN KEY (\"%s\") REFERENCES %s.\"%s\" (subject);\n\n",schema, mvTbl, mvCol, schema, toTbl);
 					
 				}
 			}
