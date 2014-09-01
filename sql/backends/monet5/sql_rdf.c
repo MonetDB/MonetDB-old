@@ -627,9 +627,12 @@ void addFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes, str schema, BATi
 					getColSQLname(fromTblCol, i, tblColIdx, -1, cstablestat, mapi, mbat);
 					getColSQLname(mvCol, i, tblColIdx, 0, cstablestat, mapi, mbat); //Use the first column of MVtable
 					
-					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD PRIMARY KEY (subject);\n",schema, toTbl);
+					if (0){		//Do not create the FK from MVtable to the original table
+							//Since that column in original table may contains lots of NULL value
 					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD PRIMARY KEY (\"%s\");\n",schema, fromTbl,fromTblCol);
 					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD FOREIGN KEY (mvKey) REFERENCES %s.\"%s\" (\"%s\");\n",schema, mvTbl, schema, fromTbl,fromTblCol);
+					}
+					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD PRIMARY KEY (subject);\n",schema, toTbl);
 					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD FOREIGN KEY (\"%s\") REFERENCES %s.\"%s\" (subject);\n\n",schema, mvTbl, mvCol, schema, toTbl);
 					
 				}
@@ -638,6 +641,21 @@ void addFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes, str schema, BATi
 	}
 	fclose(fout); 	
 
+}
+
+static
+int isRightPropBAT(BAT *b){
+	
+	if (b->trevsorted == 1){ 
+		printf("Prop of the BAT is violated\n"); 
+		return 0; 
+	}
+	if (b->tsorted == 1){
+		printf("Prop of the BAT is violated\n"); 
+		return 0; 
+	}
+	
+	return 1; 
 }
 
 /* Re-organize triple table by using clustering storage
@@ -827,6 +845,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 
 			tmpbat = cstablestat->lstcstable[i].colBats[j];
+			isRightPropBAT(tmpbat);
 
 			mvc_create_column(m, cstables[i], tmpcolname,  &tpes[tmpbat->ttype]);
 			
@@ -840,6 +859,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				//One column for key
 				sprintf(tmpcolname, "mvKey");
 				tmpbat = cstablestat->lstcstable[i].lstMVTables[j].keyBat;
+				isRightPropBAT(tmpbat);
 				mvc_create_column(m, csmvtables[i][j], tmpcolname,  &tpes[tmpbat->ttype]);
 
 				//Value columns 
@@ -847,6 +867,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					getColSQLname(tmpmvcolname, i, j, k, cstablestat, mapi, mbat);
 
 					tmpbat = cstablestat->lstcstable[i].lstMVTables[j].mvBats[k];
+					isRightPropBAT(tmpbat);
 					mvc_create_column(m, csmvtables[i][j], tmpmvcolname,  &tpes[tmpbat->ttype]);
 				}
 
@@ -873,6 +894,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				getColSQLname(tmpcolname, i, cstablestat->lstcstableEx[i].mainTblColIdx[j], (int)(cstablestat->lstcstableEx[i].colTypes[j]), cstablestat, mapi, mbat);
 
 				tmpbat = cstablestat->lstcstableEx[i].colBats[j];
+				isRightPropBAT(tmpbat);
 				mvc_create_column(m, cstablesEx[i], tmpcolname,  &tpes[tmpbat->ttype]);				
 			}
 			totalNumNonDefCols += cstablestat->lstcstableEx[i].numCol;
@@ -895,7 +917,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			getColSQLname(tmpcolname, i, j, -1, cstablestat, mapi, mbat);
 
 			tmpbat = cstablestat->lstcstable[i].colBats[j];
-
+			isRightPropBAT(tmpbat);
 			//printf("Column %d: \n",j); 
 			//BATprint(tmpbat);
                 	store_funcs.append_col(m->session->tr,
@@ -909,6 +931,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				//One column for key
 				sprintf(tmpcolname, "mvKey");
 				tmpbat = cstablestat->lstcstable[i].lstMVTables[j].keyBat;
+				isRightPropBAT(tmpbat);
 				store_funcs.append_col(m->session->tr,
 					mvc_bind_column(m, csmvtables[i][j],tmpcolname), 
 					tmpbat, TYPE_bat);
@@ -919,7 +942,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 					getColSQLname(tmpmvcolname, i, j, k, cstablestat, mapi, mbat);
 
 					tmpbat = cstablestat->lstcstable[i].lstMVTables[j].mvBats[k];
-					
+					isRightPropBAT(tmpbat);
 					//printf("MVColumn %d: \n",k); 
 					//BATprint(tmpbat);
                 			store_funcs.append_col(m->session->tr,
@@ -940,7 +963,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				getColSQLname(tmpcolname, i, cstablestat->lstcstableEx[i].mainTblColIdx[j], (int)(cstablestat->lstcstableEx[i].colTypes[j]), cstablestat, mapi, mbat);
 
 				tmpbat = cstablestat->lstcstableEx[i].colBats[j];
-				
+				isRightPropBAT(tmpbat);
 				//printf("ColumnEx %d: \n",j); 
 				//BATprint(tmpbat);
 				store_funcs.append_col(m->session->tr,

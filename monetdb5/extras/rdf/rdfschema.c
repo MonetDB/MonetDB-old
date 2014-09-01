@@ -6719,6 +6719,12 @@ BAT* createEncodedSubjBat(int tblIdx, int num){
 	BATseqbase(subjBat, 0);
 	BATseqbase(BATmirror(subjBat), getFirstEncodedSubjId(tblIdx));
 
+	subjBat->T->nonil = 1;
+	subjBat->tkey = 0;
+	subjBat->tsorted = 1;
+	subjBat->trevsorted = 0;
+	subjBat->tdense = 1;
+
 	return subjBat; 
 }
 
@@ -10099,6 +10105,18 @@ str triplesubsort(BAT **sbat, BAT **pbat, BAT **obat){
 	return MAL_SUCCEED; 
 }
 
+static 
+BAT* BATnewPropSet(int ht, int tt, BUN cap){
+	BAT	*tmpBat = NULL; 	
+	tmpBat = BATnew(ht, tt, cap); 
+	tmpBat->T->nil = 0;
+	tmpBat->T->nonil = 0;
+	tmpBat->tkey = 0;
+	tmpBat->tsorted = 0;
+	tmpBat->trevsorted = 0;
+	tmpBat->tdense = 0;
+	return tmpBat;
+}
 static
 void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPropTypes, int numTables, CSlabel *labels, int *mTblIdxFreqIdxMapping){
 
@@ -10124,9 +10142,9 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 	cstablestat->lstbatid = (bat**) malloc(sizeof (bat*) * numTables); 
 	cstablestat->numPropPerTable = (int*) malloc(sizeof (int) * numTables); 
 
-	cstablestat->pbat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
-	cstablestat->sbat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
-	cstablestat->obat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+	cstablestat->pbat = BATnewPropSet(TYPE_void, TYPE_oid, smallbatsz);
+	cstablestat->sbat = BATnewPropSet(TYPE_void, TYPE_oid, smallbatsz);
+	cstablestat->obat = BATnewPropSet(TYPE_void, TYPE_oid, smallbatsz);
 	BATseqbase(cstablestat->pbat, 0);
 	BATseqbase(cstablestat->sbat, 0);
 	BATseqbase(cstablestat->obat, 0);
@@ -10171,14 +10189,14 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 			cstablestat->lstcstable[i].lstProp[colIdx] = freqCSset->items[csPropTypes[i].freqCSId].lstProp[j];
 
 			if (csPropTypes[i].lstPropTypes[j].isMVProp == 0){
-				//cstablestat->lstcstable[i].colBats[colIdx] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
-				cstablestat->lstcstable[i].colBats[colIdx] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], freqCSset->items[csPropTypes[i].freqCSId].support + 1);
+				//cstablestat->lstcstable[i].colBats[colIdx] = BATnewPropSet(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
+				cstablestat->lstcstable[i].colBats[colIdx] = BATnewPropSet(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], freqCSset->items[csPropTypes[i].freqCSId].support + 1);
 				cstablestat->lstcstable[i].lstMVTables[colIdx].numCol = 0; 	//There is no MV Tbl for this prop
 				//TODO: use exact size for each BAT
 			}
 			else{
-				//cstablestat->lstcstable[i].colBats[colIdx] = BATnew(TYPE_void, TYPE_oid, smallbatsz);
-				cstablestat->lstcstable[i].colBats[colIdx] = BATnew(TYPE_void, TYPE_oid, freqCSset->items[csPropTypes[i].freqCSId].support + 1);
+				//cstablestat->lstcstable[i].colBats[colIdx] = BATnewPropSet(TYPE_void, TYPE_oid, smallbatsz);
+				cstablestat->lstcstable[i].colBats[colIdx] = BATnewPropSet(TYPE_void, TYPE_oid, freqCSset->items[csPropTypes[i].freqCSId].support + 1);
 				BATseqbase(cstablestat->lstcstable[i].colBats[colIdx], 0);	
 				cstablestat->lstcstable[i].lstMVTables[colIdx].numCol = csPropTypes[i].lstPropTypes[j].numMvTypes;
 				if (cstablestat->lstcstable[i].lstMVTables[colIdx].numCol != 0){
@@ -10188,20 +10206,20 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 					mvColIdx = 0;	//Go through all types
 					cstablestat->lstcstable[i].lstMVTables[colIdx].colTypes[0] = csPropTypes[i].lstPropTypes[j].defaultType; //Default type for this MV col
 					//Init the first col (default type) in MV Table
-					//cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[0] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
-					cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[0] = BATnew(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], csPropTypes[i].lstPropTypes[j].propCover + 1);
+					//cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[0] = BATnewPropSet(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], smallbatsz);
+					cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[0] = BATnewPropSet(TYPE_void, mapObjBATtypes[(int)csPropTypes[i].lstPropTypes[j].defaultType], csPropTypes[i].lstPropTypes[j].propCover + 1);
 					for (k = 0; k < MULTIVALUES; k++){
 						if (k != (int) csPropTypes[i].lstPropTypes[j].defaultType && csPropTypes[i].lstPropTypes[j].TableTypes[k] == MVTBL){
 							mvColIdx++;
 							cstablestat->lstcstable[i].lstMVTables[colIdx].colTypes[mvColIdx] = (ObjectType)k;
-							//cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[mvColIdx] = BATnew(TYPE_void, mapObjBATtypes[k], smallbatsz);
-							cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[mvColIdx] = BATnew(TYPE_void, mapObjBATtypes[k],csPropTypes[i].lstPropTypes[j].propCover + 1);
+							//cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[mvColIdx] = BATnewPropSet(TYPE_void, mapObjBATtypes[k], smallbatsz);
+							cstablestat->lstcstable[i].lstMVTables[colIdx].mvBats[mvColIdx] = BATnewPropSet(TYPE_void, mapObjBATtypes[k],csPropTypes[i].lstPropTypes[j].propCover + 1);
 						}	
 					}
 
 					//Add a bat for storing FK to the main table
-					//cstablestat->lstcstable[i].lstMVTables[colIdx].keyBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
-					cstablestat->lstcstable[i].lstMVTables[colIdx].keyBat = BATnew(TYPE_void, TYPE_oid, csPropTypes[i].lstPropTypes[j].propCover + 1);
+					//cstablestat->lstcstable[i].lstMVTables[colIdx].keyBat = BATnewPropSet(TYPE_void, TYPE_oid, smallbatsz);
+					cstablestat->lstcstable[i].lstMVTables[colIdx].keyBat = BATnewPropSet(TYPE_void, TYPE_oid, csPropTypes[i].lstPropTypes[j].propCover + 1);
 				}
 
 				//BATseqbase(cstablestat->lstcstable[i].mvExBats[colIdx], 0);
@@ -10212,8 +10230,8 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 			#if CSTYPE_TABLE == 1
 			for (t = 0; t < csPropTypes[i].lstPropTypes[j].numType; t++){
 				if ( csPropTypes[i].lstPropTypes[j].TableTypes[t] == TYPETBL){
-					//cstablestat->lstcstableEx[i].colBats[colExIdx] = BATnew(TYPE_void, mapObjBATtypes[t], smallbatsz);
-					cstablestat->lstcstableEx[i].colBats[colExIdx] = BATnew(TYPE_void, mapObjBATtypes[t], freqCSset->items[csPropTypes[i].freqCSId].support + 1);
+					//cstablestat->lstcstableEx[i].colBats[colExIdx] = BATnewPropSet(TYPE_void, mapObjBATtypes[t], smallbatsz);
+					cstablestat->lstcstableEx[i].colBats[colExIdx] = BATnewPropSet(TYPE_void, mapObjBATtypes[t], freqCSset->items[csPropTypes[i].freqCSId].support + 1);
 					//Set mainTblColIdx for ex-table
 					cstablestat->lstcstableEx[i].colTypes[colExIdx] = (ObjectType)t; 
 					cstablestat->lstcstableEx[i].mainTblColIdx[colExIdx] = colIdx; 
@@ -10351,7 +10369,6 @@ str fillMissingvalues(BAT* curBat, int from, int to){
 	//printf("Fill from  %d to %d \n", from, to);
 	if (curBat != NULL){
 		for(k = from -1; k < to; k++){
-			//BUNappend(curBat, ATOMnilptr(curBat->ttype), TRUE);
 			if (BUNfastins(curBat, ATOMnilptr(TYPE_void), ATOMnilptr(curBat->ttype))== NULL){
 				throw(RDF, "fillMissingvalues", "[Debug] Problem in inserting value");
 			}
@@ -10405,7 +10422,12 @@ str fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, i
 	//Fill all missing values from From to To
 	for(k = from; k < to; k++){
 		//printf("Append null to main table: Col: %d \n", colIdx);
-		BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
+		//BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
+		
+		if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), ATOMnilptr(tmpBat->ttype)) == NULL){
+			throw(RDF, "fillMissingvaluesByNils", "[Debug0] Problem in inserting value");
+		}
+		
 	}
 
 	//"Append null to not to-be-inserted col in main table: Col: %d \n", colIdx

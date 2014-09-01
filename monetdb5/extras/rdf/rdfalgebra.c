@@ -136,6 +136,7 @@ RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 	BATsubouterjoin(&result1, &result2, input, left, NULL, NULL, 0, BUN_NONE); 
 	
 	result = BATproject(result2, right); 
+	result->T->nil = 0; 
 
 	BBPreleaseref(left->batCacheid);
 	BBPreleaseref(right->batCacheid);
