@@ -89,9 +89,12 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(MAL, "optimizer.multiplex", "Iterator BAT type is missing");
 
 	OPTDEBUGmultiplex {
+		char *tpenme;
 		mnstr_printf(cntxt->fdout,"#calling the optimize multiplex script routine\n");
 		printFunction(cntxt->fdout,mb, 0, LIST_MAL_ALL );
-		mnstr_printf(cntxt->fdout,"#multiplex against operator %d %s\n",iter, getTypeName(getVarType(mb,iter)));
+		tpenme = getTypeName(getVarType(mb,iter));
+		mnstr_printf(cntxt->fdout,"#multiplex against operator %d %s\n",iter, tpenme);
+		GDKfree(tpenme);
 		printInstruction(cntxt->fdout,mb, 0, pci,LIST_MAL_ALL);
 	}
 	/*
@@ -109,7 +112,7 @@ OPTexpandMultiplex(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 									  getHeadType(getVarType(mb,iter))));
 	q = newFcnCall(mb, batRef, reverseRef);
 	getArg(q, 0) = x;
-	q = pushArgument(mb, q, iter);
+	(void) pushArgument(mb, q, iter);
 
 	/* resB := new(refBat) */
 	q = newFcnCall(mb, batRef, newRef);
@@ -258,5 +261,6 @@ OPTmultiplexImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	if (mb->errors){
 		/* rollback */
 	}
+	GDKfree(msg);
 	return mb->errors? 0: actions;
 }

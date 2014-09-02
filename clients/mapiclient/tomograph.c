@@ -58,12 +58,10 @@
 
 /* #define FOOTPRINT */
 #ifdef FOOTPRINT
-#define COUNTERSDEFAULT "ISTestMmrw"
+#define COUNTERSDEFAULT "ISTestMmrwn"
 #else
-#define COUNTERSDEFAULT "ISTestmrw"
+#define COUNTERSDEFAULT "ISTestmrwn"
 #endif
-
-/* #define _DEBUG_TOMOGRAPH_*/
 
 static struct {
 	char tag;
@@ -110,7 +108,8 @@ profileCounter[] = {
 #ifdef FOOTPRINT
 	/*  5  */ { 'M', "footprint", "footprint", 0 },
 #endif
-	/*  6  */ { 0, 0, 0, 0 }
+	/*  6  */ { 'n', "numa", "numa", 0 },
+	/*  7  */ { 0, 0, 0, 0 }
 };
 
 typedef struct _wthread {
@@ -156,6 +155,57 @@ static int atlaspage = 0;
 static FILE *gnudata;
 
 static int capturing=0;
+
+#define MAXTHREADS 1048
+#define MAXBOX 32678	 /* should be > MAXTHREADS */
+
+static int crossings[MAXTHREADS][MAXTHREADS];
+static int target[MAXTHREADS];
+static int source[MAXTHREADS];
+
+static void
+showNumaHeatmap(void){
+	int i,j =0;
+	int max= 0;
+	FILE *f;
+
+	
+	f= fopen("tomograph_heatmap.csv","a");
+	if( f == NULL){
+		fprintf(stderr,"Can not create tomograph_heatmap.csv\n");
+		return;
+	}
+	for( i=0; i< MAXTHREADS; i++){
+		if( target[i])
+		for(j=MAXTHREADS-1; j>0 && crossings[i][j]; j--)
+			;
+		if (j > max) max =j;
+	}
+	for( i=0; i< max; i++)
+	if( target[i] && source[i] ){
+		for(j=0; j< max; j++)
+		if( target[j] && source[j])
+			fprintf(stderr,"%d\t", crossings[i][j]);
+		fprintf(stderr,"\n");
+	}
+/*
+	for( i=0; i< max; i++)
+	if( target[i] || source[i])
+		fprintf(stderr,"%d\t",target[i]);
+	fprintf(stderr,"\n");
+	for( i=0; i< max; i++)
+	if( target[i] || source[i])
+		fprintf(stderr,"%d\t",source[i]);
+	fprintf(stderr,"\n");
+*/
+
+	for( i=0; i< MAXTHREADS; i++){
+		for(j=0; j< MAXTHREADS; j++)
+			crossings[i][j]=0;
+		target[i]=0;
+		source[i]=0;
+	}
+}
 
 static void
 usage(void)
@@ -293,8 +343,6 @@ stop_disconnect:
 	}
 }
 
-#define MAXTHREADS 2048
-#define MAXBOX 32678	 /* should be > MAXTHREADS */
 
 #define START 1
 #define DONE 2
@@ -302,6 +350,8 @@ stop_disconnect:
 #define PING 4
 #define WAIT 5
 #define GCOLLECT 6
+
+static char *statenames[]= {"","start","done","action","ping","wait","gccollect"};
 
 typedef struct BOX {
 	int row;
@@ -314,6 +364,7 @@ typedef struct BOX {
 	lng reads, writes;
 	char *stmt;
 	char *fcn;
+	char *numa;
 	int state;
 } Box;
 
@@ -618,7 +669,7 @@ fixed_colors[] = {
 };
 /* initial mod.fcn list for adaptive colormap */
 Color
-base_colors[] = {
+base_colors[NUM_COLORS] = {
 	/* reserve (base_)colors[0] for generic "*.*" */
 /* 99999 */	{ 0, 0, "*", "*", 0 },
 /* arbitrarily ordered by descending frequency in TPCH SF-100 with 32 threads */
@@ -769,7 +820,7 @@ initcolors(FILE *map)
 
 	if (map) {
 		/* read the color map */
-		while (fscanf(map,"%s\t%s\t%s\n", buf[0],buf[1],buf[2])== 3 && i< NUM_COLORS) {
+		while (fscanf(map,"%127s\t%127s\t%127s\n", buf[0],buf[1],buf[2])== 3 && i< NUM_COLORS) {
 			colors[i].mod = strdup(buf[0]);
 			colors[i].fcn = strdup(buf[1]);
 			colors[i].freq = 0;
@@ -832,6 +883,10 @@ dumpboxes(void)
 		snprintf(buf, BUFSIZ, "%s_cpu.dat", filename);
 		fcpu = fopen(buf, "w");
 	}
+	if( fcpu == NULL){
+		fprintf(stderr,"Can not create/open the trace file\n");
+		return;
+	}
 
 	for (i = 0; i < topbox; i++)
 		if (box[i].clkend && box[i].fcn) {
@@ -852,7 +907,7 @@ dumpboxes(void)
 						s++;
 					fprintf(fcpu, "0 ");
 					while (s) {
-						s = strchr(s + 1, (int) ' ');
+						s = strchr(s + 1, ' ');
 						while (s && isspace((int) *s))
 							s++;
 						if (s)
@@ -1005,8 +1060,18 @@ showio(void)
 	fprintf(gnudata, "unset ylabel\n");
 	fprintf(gnudata, "set y2tics in (0, "LLFMT".0) nomirror\n", max / beat);
 	fprintf(gnudata, "set y2label \"IO per ms\"\n");
+#ifdef GNUPLOT_463_BUG_ON_FEDORA_20
+/* this is the original version, but on Fedora 20 with
+ * gnuplot-4.6.3-6.fc20.x86_64 it produces a red background on most of
+ * the page */
 	fprintf(gnudata, "plot \"%s.dat\" using 1:(($4+$5)/%d.0) title \"reads\" with boxes fs solid linecolor rgb \"gray\" ,\\\n", (tracefile ? "scratch" : filename), beat);
 	fprintf(gnudata, "\"%s.dat\" using 1:($5/%d.0) title \"writes\" with boxes fs solid linecolor rgb \"red\"  \n", (tracefile ? "scratch" : filename), beat);
+#else
+/* this is a slightly modified version that produces decent results on
+ * all platforms */
+	fprintf(gnudata, "plot \"%s.dat\" using 1:(($4+$5)/%d.0) title \"reads\" with impulses linecolor rgb \"gray\" ,\\\n", (tracefile ? "scratch" : filename), beat);
+	fprintf(gnudata, "\"%s.dat\" using 1:($5/%d.0) title \"writes\" with impulses linecolor rgb \"red\"  \n", (tracefile ? "scratch" : filename), beat);
+#endif
 	fprintf(gnudata, "unset y2label\n");
 	fprintf(gnudata, "unset y2tics\n");
 	fprintf(gnudata, "unset y2range\n");
@@ -1092,7 +1157,10 @@ showcolormap(char *filename, int all)
 	if (all) {
 		snprintf(buf, BUFSIZ, "%s.gpl", filename);
 		f = fopen(buf, "w");
-		assert(f);
+		if (f == NULL) {
+			fprintf(stderr, "Creating file %s.gpl failed\n", filename);
+			exit(1);
+		}
 		fprintf(f, "set terminal pdfcairo noenhanced color solid size 8.3, 11.7\n");
 		fprintf(f, "set output \"%s.pdf\"\n", filename);
 		fprintf(f, "set size 1,1\n");
@@ -1223,6 +1291,10 @@ showcolormap(char *filename, int all)
 	fprintf(f, "\" at %d,%d\n",
 		(int) (0.2 * w), h - 35);
 	fprintf(f, "plot 0 notitle with lines linecolor rgb \"white\"\n");
+	if (all) {
+		assert(f != gnudata);
+		fclose(f);
+	}
 }
 
 static void
@@ -1231,9 +1303,9 @@ updmap(int idx)
 	char *mod, *fcn, buf[BUFSIZ], *call = buf;
 	int i, fnd = 0;
 
-	strcpy(buf, box[idx].fcn);
+	snprintf(buf, sizeof(buf), "%s", box[idx].fcn);
 	mod = call;
-	fcn = strchr(call, (int) '.');
+	fcn = strchr(call, '.');
 	if (fcn) {
 		*fcn = 0;
 		fcn++;
@@ -1282,7 +1354,10 @@ keepdata(char *filename)
 		return;
 	snprintf(buf, BUFSIZ, "%s.trace", filename);
 	f = fopen(buf, "w");
-	assert(f);
+	if (f == NULL) {
+		fprintf(stderr, "Creating file %s.trace failed\n", filename);
+		exit(1);
+	}
 
 	for (i = 0; i < topbox; i++)
 		if (box[i].clkend && box[i].fcn) {
@@ -1331,6 +1406,11 @@ scandata(char *filename)
 		}
 		if (box[i].thread < 0 || box[i].clkstart < 0 || box[i].clkend < 0 || box[i].ticks < 0 || box[i].memstart < 0 || box[i].memend < 0 || box[i].state < 0 || box[i].reads < 0 || box[i].writes < 0) {
 			fprintf(stderr, "scandata: sscanf() read negative value(s) from\n'%s'\n", line);
+			continue; /* don't trust values */
+		}
+		if (box[i].thread >= MAXTHREADS) {
+			fprintf(stderr, "scandata: sscanf() read too large value(s) from\n'%s'\n", line);
+			continue; /* don't trust values */
 		}
 		box[i].fcn = strdup(buf);
 		box[i].stmt = strdup(buf);
@@ -1369,8 +1449,8 @@ gnuplotheader(char *filename)
 	fprintf(gnudata, "set tics front\n");
 	tm = time(0);
 	date = ctime(&tm);
-	if (strchr(date, (int) '\n'))
-		*strchr(date, (int) '\n') = 0;
+	if (strchr(date, '\n'))
+		*strchr(date, '\n') = 0;
 	for (c = title; c && *c; c++)
 		if (*c == '_')
 			*c = '-';
@@ -1399,7 +1479,8 @@ static void createTomogram(void)
 		printf("ERROR in creation of %s\n", buf);
 		exit(-1);
 	}
-	*strchr(buf, (int) '.') = 0;
+	if( strchr(buf,'.'))
+		*strchr(buf, '.') = 0;
 	gnuplotheader(buf);
 	dumpboxes();
 	showio();
@@ -1518,6 +1599,7 @@ static void createTomogram(void)
 			}
 
 
+
 	fprintf(gnudata, "plot 0 notitle with lines\n");
 	fprintf(gnudata, "unset for[i=%d:%d] object i\n", prevobject, object - 1);
 	prevobject = object - 1;
@@ -1526,6 +1608,7 @@ static void createTomogram(void)
 	keepdata(filename);
 	(void) fclose(gnudata);
 	gnudata = 0;
+	showNumaHeatmap();
 
 	// show follow up action only once
 	if (atlas && atlaspage == atlas-1) {
@@ -1546,6 +1629,23 @@ static void createTomogram(void)
 	}
 }
 
+/* The intra-thread flow is collected for later presentation */
+
+
+static void
+updateNumaHeatmap(int thread, char *numa){
+	char *c;
+	int t;
+	for( c= numa; *c && *c == '@';){
+		c++;
+		t =atoi(c);
+		crossings[thread][t]++;
+		target[thread]++;
+		source[t]++;
+		while(*c && *c !='@') c++;
+	}
+}
+
 /* the main issue to deal with in the analysis is
  * that the tomograph start can appear while the
  * system is already processing. This leads to
@@ -1556,19 +1656,23 @@ static void createTomogram(void)
  */
 
 static void
-update(int state, int thread, lng clkticks, lng ticks, lng memory, lng footprint, lng reads, lng writes, char *fcn, char *stmt)
+update(int state, int thread, lng clkticks, lng ticks, lng memory, char *numa, lng footprint, lng reads, lng writes, char *fcn, char *stmt)
 {
 	int idx;
 	Box b;
 	char *s;
 
+	if (debug)
+		fprintf(stderr, "Update %s batch %d input %s %s" LLFMT" %s\n",(state>=0?statenames[state]:"unknown"),batch, (fcn?fcn:"(null)"),currentfunction,starttime,numa);
 	/* ignore the flow of control statements 'function' and 'end' */
-	if (fcn && strncmp(fcn, "end ", 4) == 0) {
+	if (fcn && strncmp(fcn, "end ", 4) == 0)
 		return;
-	}
+
 	if (starttime == 0) {
 		/* ignore all instructions up to the first function call, unless input comes from a file */
-		if (inputfile == NULL && (state >= PING || fcn == 0 || strncmp(fcn, "function", 8))) {
+		if (inputfile == NULL && (state >= PING || fcn == 0 )) {
+			if (debug)
+				fprintf(stderr, "Skip %s input %s\n",(state>=0?statenames[state]:"unknown"),fcn);
 			return;
 		}
 		if (debug)
@@ -1588,11 +1692,12 @@ update(int state, int thread, lng clkticks, lng ticks, lng memory, lng footprint
 		return;
 	}
 	if (state == DONE && fcn && strncmp(fcn, "function", 8) == 0) {
+		if(debug)
+			fprintf(stderr, "Leave function \"%s\" capture \"%s\"?\n", (currentfunction?currentfunction:""), fcn+9);
 		if (currentfunction && strcmp(currentfunction, fcn+9) == 0) {
 			capturing--;
-#ifdef _DEBUG_TOMOGRAPH_
-			fprintf(stderr, "Leave function %s capture %d\n", currentfunction, capturing);
-#endif
+			if(debug)
+				fprintf(stderr, "Leave function %s capture %d\n", currentfunction, capturing);
 			free(currentfunction);
 			currentfunction = 0;
 		} else
@@ -1611,10 +1716,9 @@ update(int state, int thread, lng clkticks, lng ticks, lng memory, lng footprint
 		return;
 	}
 
-	if (state == DONE && strncmp(fcn, "profiler.tomograph", 18) == 0) {
-#ifdef _DEBUG_TOMOGRAPH_
-		fprintf(stderr, "Profiler.tomograph ends %d\n", batch);
-#endif
+	if (state == DONE && fcn && strncmp(fcn, "profiler.tomograph", 18) == 0) {
+		if( debug)
+			fprintf(stderr, "Profiler.tomograph ends %d\n", batch);
 		deactivateBeat();
 		createTomogram();
 		totalclkticks = 0; /* number of clock ticks reported */
@@ -1653,7 +1757,7 @@ update(int state, int thread, lng clkticks, lng ticks, lng memory, lng footprint
 		box[idx].footstart = box[idx].footend = footprint;
 		box[idx].reads = reads;
 		box[idx].writes = writes;
-		s = strchr(stmt, (int) ']');
+		s = strchr(stmt, ']');
 		if (s)
 			*s = 0;
 		box[idx].stmt = stmt;
@@ -1670,22 +1774,22 @@ update(int state, int thread, lng clkticks, lng ticks, lng memory, lng footprint
 	idx = threads[thread];
 	/* start of instruction box */
 	if (state == START && thread < MAXTHREADS) {
-#ifdef _DEBUG_TOMOGRAPH_
-		fprintf(stderr, "Start box %s thread %d idx %d box %d\n", currentfunction, thread,idx,topbox);
-#endif
+		if(debug)
+			fprintf(stderr, "Start box %s thread %d idx %d box %d\n", currentfunction, thread,idx,topbox);
 		box[idx].state = state;
 		box[idx].thread = thread;
 		box[idx].clkstart = clkticks;
 		box[idx].memstart = memory;
+		box[idx].numa = numa;
+		updateNumaHeatmap(thread, numa);
 		box[idx].footstart = footprint;
 		box[idx].stmt = stmt;
 		box[idx].fcn = fcn ? strdup(fcn) : "";
 	}
 	/* end the instruction box */
 	if (state == DONE && thread < MAXTHREADS && fcn && box[idx].fcn && strcmp(fcn, box[idx].fcn) == 0) {
-#ifdef _DEBUG_TOMOGRAPH_
-		fprintf(stderr, "End box %s thread %d idx %d box %d\n", currentfunction, thread,idx,topbox);
-#endif
+		if( debug)
+			fprintf(stderr, "End box %s thread %d idx %d box %d\n", currentfunction, thread,idx,topbox);
 		lastclk[thread] = clkticks;
 		box[idx].clkend = clkticks;
 		box[idx].memend = memory;
@@ -1724,14 +1828,14 @@ static int
 parser(char *row)
 {
 #ifdef HAVE_STRPTIME
-	char *c, *cc;
+	char *c, *cc, *v;
 	struct tm stm;
 	lng clkticks = 0;
 	int thread = 0;
 	lng ticks = 0;
 	lng memory = 0; /* in MB*/
 	lng footprint = 0; /* in MB*/
-	char *fcn = 0, *stmt = 0;
+	char *fcn = 0, *stmt = 0, *numa=0;
 	int state = 0;
 	lng reads= 0, writes= 0;
 
@@ -1741,7 +1845,7 @@ parser(char *row)
 	if ((cc= strrchr(row,']')) == 0 || *(cc+1) !=0)
 		return -1;
 
-	c = strchr(row, (int) '"');
+	c = strchr(row, '"');
 	if (c == 0)
 		return -2;
 	if (strncmp(c + 1, "start", 5) == 0) {
@@ -1761,17 +1865,17 @@ parser(char *row)
 		c += 9;
 	} else {
 		state = 0;
-		c = strchr(c + 1, (int) '"');
+		c = strchr(c + 1, '"');
 		if (c == 0)
 			return -2;
 	}
 
-	c = strchr(c + 1, (int) '"');
+	c = strchr(c + 1, '"');
 	if (c) {
 		/* convert time to epoch in seconds*/
 		memset(&stm, 0, sizeof(struct tm));
 		c = strptime(c + 1, "%H:%M:%S", &stm);
-		clkticks = (((lng) (stm.tm_hour * 60) + stm.tm_min) * 60 + stm.tm_sec) * 1000000;
+		clkticks = (((lng) stm.tm_hour * 60 + stm.tm_min) * 60 + stm.tm_sec) * 1000000;
 		if (c == 0)
 			return -11;
 		if (*c == '.') {
@@ -1781,50 +1885,69 @@ parser(char *row)
 			assert(usec >= 0 && usec < 1000000);
 			clkticks += usec;
 		}
-		c = strchr(c + 1, (int) '"');
+		c = strchr(c + 1, '"');
 		if (clkticks < 0) {
 			fprintf(stderr, "parser: read negative value "LLFMT" from\n'%s'\n", clkticks, row);
 		}
 	} else
 		return -3;
 
-	c = strchr(c + 1, (int) ',');
+	c = strchr(c + 1, ',');
 	if (c == 0)
 		return -4;
 	thread = atoi(c + 1);
-	c = strchr(c + 1, (int) ',');
+
+	c = strchr(c + 1, ',');
 	if (c == 0)
 		return -5;
 	ticks = strtoll(c + 1, NULL, 10);
-	c = strchr(c + 1, (int) ',');
+
+	c = strchr(c + 1, ',');
 	if (c == 0)
 		return -6;
 	memory = strtoll(c + 1, NULL, 10);
-	c = strchr(c + 1, (int) ',');
+	c = strchr(c + 1, ',');
 	if (c == 0)
 		return -8;
+
+	for(; *c && *c !='"'; c++) ;
+	numa = c+1;
+	for(c++; *c && *c !='"'; c++)
+		;
+	if (*c == 0)
+		return -1;
+	*c = 0;
+	numa= strdup(numa);
+	*c = '"';
+	c = strchr(c + 1, ',');
 
 #ifdef FOOTPRINT
 	footprint = strtoll(c + 1, NULL, 10);
 	if (debug && state < PING)
 		fprintf(stderr, "%s\n", row);
-	c = strchr(c + 1, (int) ',');
+	c = strchr(c + 1, ',');
 	if (c == 0 && state >= PING)
 		goto wrapup;
 #endif
 
 	reads = strtoll(c + 1, NULL, 10);
-	c = strchr(c + 1, (int) ',');
-	if (c == 0)
+	c = strchr(c + 1, ',');
+	if (c == 0) {
+		free(numa);
 		return -8;
+	}
 	writes = strtoll(c + 1, NULL, 10);
 
 	/* check basic validity */
-	if ((cc= strrchr(row,']')) == 0 || *(cc+1) !=0)
+	if ((cc= strrchr(row,']')) == 0 || *(cc+1) !=0) {
+		free(numa);
 		return -1;
-	c = strchr(c + 1, (int) ',');
-	if (c == 0)
+	}
+	c = strchr(c + 1, ',');
+	if (c == 0) {
+		free(numa);
 		return -9;
+	}
 	c++;
 	fcn = c;
 	stmt = strdup(fcn);
@@ -1835,23 +1958,28 @@ parser(char *row)
 		/* find genuine function calls */
 		while (isspace((int) *fcn) && *fcn)
 			fcn++;
-		if (strchr(fcn, (int) '.') == 0)
+		if (strchr(fcn, '.') == 0) {
+			free(stmt);
+			free(numa);
 			return -10;
+		}
 	} else {
-		fcn = strchr(fcn, (int) '"');
+		fcn = strchr(fcn, '"');
 		if (fcn) {
 			fcn++;
-			*strchr(fcn, (int) '"') = 0;
+			v=  strchr(fcn+1,'"');
+			if ( v ) *v = 0;
 		}
 	}
 
-	if (fcn && strchr(fcn, (int) '('))
-		*strchr(fcn, (int) '(') = 0;
+	if (fcn && (v=strchr(fcn, '(')))
+		*v = 0;
 
 #ifdef FOOTPRINT
 wrapup:
 #endif
-	update(state, thread, clkticks, ticks, memory, footprint, reads, writes, fcn, stmt);
+	update(state, thread, clkticks, ticks, memory, numa, footprint, reads, writes, fcn, stmt);
+	free(numa);
 #else
 	(void) row;
 #endif
@@ -1872,6 +2000,8 @@ processFile(char *fname)
 	s = open_rastream(fname);
 	if (s == NULL || mnstr_errnr(s)) {
 		fprintf(stderr,"ERROR Can not access '%s'\n",fname);
+		if (s)
+			mnstr_destroy(s);
 		return;
 	}
 	len = 0;
@@ -1894,7 +2024,7 @@ processFile(char *fname)
 		} else
 			len = 0;
 	}
-	mnstr_close(s);
+	close_stream(s);
 }
 
 static void
@@ -2005,13 +2135,11 @@ doProfile(void *d)
 	}
 	if (wthr->tid > 0) {
 		snprintf(id, 10, "[%d] ", wthr->tid);
-#ifdef _DEBUG_TOMOGRAPH_
-		printf("-- connection with server %s is %s\n", wthr->uri ? wthr->uri : host, id);
-#endif
+		if( debug)
+			fprintf(stderr,"-- connection with server %s is %s\n", wthr->uri ? wthr->uri : host, id);
 	} else {
-#ifdef _DEBUG_TOMOGRAPH_
-		printf("-- connection with server %s\n", wthr->uri ? wthr->uri : host);
-#endif
+		if(debug)
+			fprintf(stderr,"-- connection with server %s\n", wthr->uri ? wthr->uri : host);
 	}
 
 	/* set counters */
@@ -2028,9 +2156,8 @@ doProfile(void *d)
 			snprintf(buf, BUFSIZ, "profiler.activate(\"%s\");",
 				profileCounter[i].ptag);
 			doQ(buf);
-#ifdef _DEBUG_TOMOGRAPH_
-			printf("-- %s%s\n", id, buf);
-#endif
+			if( debug)
+				printf("-- %s%s\n", id, buf);
 		}
 		x = profileCounter[i].ptag;
 	}
@@ -2056,9 +2183,8 @@ doProfile(void *d)
 	doQ("profiler.setNone();");
 
 	if (wthr->argc == 0) {
-#ifdef _DEBUG_TOMOGRAPH_
-		printf("-- %sprofiler.setAll();\n", id);
-#endif
+		if( debug)
+			fprintf(stderr,"-- %sprofiler.setAll();\n", id);
 		doQ("profiler.setAll();");
 	} else {
 		for (a = 0; a < wthr->argc; a++) {
@@ -2078,16 +2204,14 @@ doProfile(void *d)
 				mod = "*";
 			}
 			snprintf(buf, BUFSIZ, "profiler.setFilter(\"%s\",\"%s\");", mod, fcn);
-#ifdef _DEBUG_TOMOGRAPH_
-			printf("-- %s%s\n", id, buf);
-#endif
+			if( debug)
+				fprintf(stderr,"-- %s%s\n", id, buf);
 			doQ(buf);
 			free(arg);
 		}
 	}
-#ifdef _DEBUG_TOMOGRAPH_
-	printf("-- %sprofiler.start();\n", id);
-#endif
+	if( debug)
+		fprintf(stderr,"-- %sprofiler.start();\n", id);
 	activateBeat();
 	doQ("profiler.start();");
 	fflush(NULL);
@@ -2127,6 +2251,10 @@ stop_cleanup:
 	doQ("profiler.stop();");
 	doQ("profiler.closeStream();");
 stop_disconnect:
+	if (dbhsql) {
+		mapi_disconnect(dbhsql);
+		mapi_destroy(dbhsql);
+	}
 	if (wthr->dbh) {
 		mapi_disconnect(wthr->dbh);
 		mapi_destroy(wthr->dbh);
@@ -2253,19 +2381,20 @@ main(int argc, char **argv)
 			char *s;
 			if (optarg == 0)
 				break;
-			startrange = strtoll(optarg, NULL, 10);
-			if (strchr(optarg, (int) '-'))
-				endrange = strtoll(strchr(optarg, (int) '-') + 1, NULL, 10);
+			startrange = strtoll(optarg, &s, 10);
+			if (*s == '-')
+				endrange = strtoll(s + 1, &s, 10);
 			else
 				endrange = startrange + 1000;
-			s = strchr(optarg, (int) 'm');
-			if (s && *(s + 1) == 's') {
+			if (s[0] == 'm' && s[1] == 's') {
 				startrange *= 1000;
 				endrange *= 1000;
-			} else { /* seconds */
-				s = strchr(optarg, (int) 's');
+			} else if (s[0] == 's') {
 				startrange *= 1000000;
 				endrange *= 1000000;
+			} else {
+				usage();
+				exit(-1);
 			}
 			break;
 		}

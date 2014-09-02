@@ -141,8 +141,14 @@ SQLConnect_(ODBCDbc *dbc,
 	/* convert input string parameters to normal null terminated C strings */
 	fixODBCstring(ServerName, NameLength1, SQLSMALLINT,
 		      addDbcError, dbc, return SQL_ERROR);
-	if (NameLength1 > 0)
+	if (NameLength1 > 0) {
 		dsn = dupODBCstring(ServerName, (size_t) NameLength1);
+		if (dsn == NULL) {
+			/* Memory allocation error */
+			addDbcError(dbc, "HY001", NULL, 0);
+			return SQL_ERROR;
+		}
+	}
 
 	if (dsn && *dsn)
 		n = SQLGetPrivateProfileString(dsn, "uid", "monetdb",
@@ -267,7 +273,7 @@ SQLConnect_(ODBCDbc *dbc,
 		    (dbc->major == 11 && dbc->minor >= 5))
 			mapi_set_size_header(mid, 1);
 		/* set timeout after we're connected */
-		mapi_timeout(mid, dbc->sql_attr_connection_timeout);
+		mapi_timeout(mid, dbc->sql_attr_connection_timeout * 1000);
 	}
 
 	return rc;

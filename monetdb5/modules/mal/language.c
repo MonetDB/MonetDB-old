@@ -65,6 +65,15 @@ MALassertLng(int *ret, lng *val, str *msg){
 		throw(MAL, "mal.assert", "%s", *msg);
 	return MAL_SUCCEED;
 }
+#ifdef HAVE_HGE
+str
+MALassertHge(int *ret, hge *val, str *msg){
+	(void) ret;
+	if( *val == 0 || *val == hge_nil)
+		throw(MAL, "mal.assert", "%s", *msg);
+	return MAL_SUCCEED;
+}
+#endif
 str
 MALassertSht(int *ret, sht *val, str *msg){
 	(void) ret;
@@ -141,11 +150,12 @@ str
 MALstartDataflow( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int *ret = (int*) getArgReference(stk,pci,0);
+	int pc = getPC(mb,pci);
 
-	if ( getPC(mb, pci) > pci->jump)
+	if ( pc <0 || pc > pci->jump)
 		throw(MAL,"language.dataflow","Illegal statement range");
 	*ret = 0;	/* continue at end of block */
-	return runMALdataflow(cntxt, mb, getPC(mb,pci), pci->jump, stk);
+	return runMALdataflow(cntxt, mb, pc, pci->jump, stk);
 }
 
 /*

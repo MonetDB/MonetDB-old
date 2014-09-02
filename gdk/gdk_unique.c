@@ -53,16 +53,22 @@ BATsubunique(BAT *b, BAT *s)
 	BATiter bi;
 	int (*cmp)(const void *, const void *);
 
+	BATcheck(b, "BATsubunique");
 	if (b->tkey || BATcount(b) <= 1 || BATtdense(b)) {
 		/* trivial: already unique */
 		if (s) {
 			/* we can return a slice of the candidate list */
 			oid lo = b->hseqbase;
 			oid hi = lo + BATcount(b);
-			return BATsubselect(s, NULL, &lo, &hi, 1, 0, 0);
+			b = BATsubselect(s, NULL, &lo, &hi, 1, 0, 0);
+			if (b == NULL)
+				return NULL;
+			bn = BATproject(b, s);
+			BBPunfix(b->batCacheid);
+			return virtualize(bn);
 		}
 		/* we can return all values */
-		bn = BATnew(TYPE_void, TYPE_void, BATcount(b));
+		bn = BATnew(TYPE_void, TYPE_void, BATcount(b), TRANSIENT);
 		if (bn == NULL)
 			return NULL;
 		BATsetcount(bn, BATcount(b));
@@ -75,7 +81,7 @@ BATsubunique(BAT *b, BAT *s)
 
 	if (start == end) {
 		/* trivial: empty result */
-		bn = BATnew(TYPE_void, TYPE_void, 0);
+		bn = BATnew(TYPE_void, TYPE_void, 0, TRANSIENT);
 		if (bn == NULL)
 			return NULL;
 		BATsetcount(bn, 0);
@@ -87,7 +93,7 @@ BATsubunique(BAT *b, BAT *s)
 	if ((b->tsorted && b->trevsorted) ||
 	    (b->ttype == TYPE_void && b->tseqbase == oid_nil)) {
 		/* trivial: all values are the same */
-		bn = BATnew(TYPE_void, TYPE_void, 1);
+		bn = BATnew(TYPE_void, TYPE_void, 1, TRANSIENT);
 		if (bn == NULL)
 			return NULL;
 		BATsetcount(bn, 1);
@@ -96,9 +102,26 @@ BATsubunique(BAT *b, BAT *s)
 		return bn;
 	}
 
+	if (cand && BATcount(b) > 16 * BATcount(s)) {
+		BAT *nb, *r, *nr;
+
+		nb = BATproject(s, b);
+		if (nb == NULL)
+			return NULL;
+		r = BATsubunique(nb, NULL);
+		if (r == NULL) {
+			BBPunfix(nb->batCacheid);
+			return NULL;
+		}
+		nr = BATproject(r, s);
+		BBPunfix(nb->batCacheid);
+		BBPunfix(r->batCacheid);
+		return virtualize(nr);
+	}
+
 	assert(b->ttype != TYPE_void);
 
-	bn = BATnew(TYPE_void, TYPE_oid, 1024);
+	bn = BATnew(TYPE_void, TYPE_oid, 1024, TRANSIENT);
 	if (bn == NULL)
 		return NULL;
 	BATseqbase(bn, 0);
@@ -247,7 +270,7 @@ BATsubunique(BAT *b, BAT *s)
 				GDKfree(ext);
 			hp = NULL;
 			ext = NULL;
-			GDKerror("BATgroup: cannot allocate hash table\n");
+			GDKerror("BATsubunique: cannot allocate hash table\n");
 			goto bunins_failed;
 		}
 		for (;;) {
@@ -293,7 +316,7 @@ BATsubunique(BAT *b, BAT *s)
 	bn->tkey = 1;
 	bn->T->nil = 0;
 	bn->T->nonil = 1;
-	return bn;
+	return virtualize(bn);
 
   bunins_failed:
 	if (seen)

@@ -491,9 +491,9 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 
 /* creates a BAT for the triple table */
 static BAT*
-create_BAT(int ht, int tt, int size)
+create_BAT(int tt, int size)
 {
-	BAT *b = BATnew(ht, tt, size);
+	BAT *b = BATnew(TYPE_void, tt, size, TRANSIENT);
 	if (b == NULL) {
 		return b;
 	}
@@ -540,7 +540,6 @@ parserData_create (str location, BAT** graph, bat *ontbatid)
 	 */
 	for (i = 0; i <= O_sort; i++) {
 		pdata->graph[i] = create_BAT (
-				graphdef[i].headType,
 				graphdef[i].tailType,
 				batsz);                       /* DOTO: estimate size */
 		if (pdata->graph[i] == NULL) {
@@ -550,7 +549,6 @@ parserData_create (str location, BAT** graph, bat *ontbatid)
 
 	/* create the MAP_LEX BAT */
 	pdata->graph[MAP_LEX] = create_BAT (
-			graphdef[MAP_LEX].headType,
 			graphdef[MAP_LEX].tailType,
 			batsz);                           /* DOTO: estimate size */
 	if (pdata->graph[MAP_LEX] == NULL) {

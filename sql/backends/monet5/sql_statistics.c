@@ -60,8 +60,13 @@ sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	query = (char *) GDKzalloc(8192);
 	maxval = (char *) GDKzalloc(8192);
 	minval = (char *) GDKzalloc(8192);
-	if (!(dquery && query && maxval && minval))
+	if (!(dquery && query && maxval && minval)) {
+		GDKfree(dquery);
+		GDKfree(query);
+		GDKfree(maxval);
+		GDKfree(minval);
 		throw(SQL, "analyze", MAL_MALLOC_FAIL);
+	}
 
 	switch (argc) {
 	case 4:
@@ -103,50 +108,62 @@ sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 						if (samplesize > 0) {
 							bsample = BATsample(bn, (BUN) 25000);
 						} else
-							bsample = bn;
-						br = BATsubselect(bsample, NULL, ATOMnilptr(bn->ttype), ATOMnilptr(bn->ttype), 0, 0, 0);
+							bsample = NULL;
+						br = BATsubselect(bn, bsample, ATOMnilptr(bn->ttype), NULL, 0, 0, 0);
 						nils = BATcount(br);
 						BBPunfix(br->batCacheid);
 						if (bn->tkey)
 							uniq = sz;
 						else {
-							br = BATkunique(BATmirror(bsample));
-							uniq = BATcount(br);
-							BBPunfix(br->batCacheid);
+							BAT *en;
+							if (bsample)
+								br = BATproject(bsample, bn);
+							else
+								br = bn;
+							if (br && (en = BATsubunique(br, NULL)) != NULL) {
+								uniq = BATcount(en);
+								BBPunfix(en->batCacheid);
+							} else
+								uniq = 0;
+							if (bsample && br)
+								BBPunfix(br->batCacheid);
 						}
-						if (samplesize > 0) {
+						if( bsample)
 							BBPunfix(bsample->batCacheid);
-						}
 						sorted = BATtordered(bn);
 
 						// Gather the min/max value for builtin types
-#define minmax(TYPE,FMT) \
+#define minmax(TYPE,FMT,CAST) \
 {\
 	TYPE *val=0;\
 	val= BATmax(bn,0);\
 	if ( ATOMcmp(bn->ttype,val, ATOMnil(bn->ttype))== 0)\
 		snprintf(maxval,8192,"nil");\
-	else snprintf(maxval,8192,FMT,*val);\
+	else snprintf(maxval,8192,FMT,CAST *val);\
 	GDKfree(val);\
 	val= BATmin(bn,0);\
 	if ( ATOMcmp(bn->ttype,val, ATOMnil(bn->ttype))== 0)\
 		snprintf(minval,8192,"nil");\
-	else snprintf(minval,8192,FMT,*val);\
+	else snprintf(minval,8192,FMT,CAST *val);\
 	GDKfree(val);\
 	break;\
 }
 						width = bn->T->width;
 						switch (bn->ttype) {
 						case TYPE_sht:
-							minmax(sht, "%d");
+							minmax(sht, "%d",);
 						case TYPE_int:
-							minmax(int, "%d");
+							minmax(int, "%d",);
 						case TYPE_lng:
-							minmax(lng, LLFMT);
+							minmax(lng, LLFMT,);
+#ifdef HAVE_HGE
+						case TYPE_hge:
+							minmax(hge, "%.40g", (dbl));
+#endif
 						case TYPE_flt:
-							minmax(flt, "%f");
+							minmax(flt, "%f",);
 						case TYPE_dbl:
-							minmax(dbl, "%f");
+							minmax(dbl, "%f",);
 						case TYPE_str:
 						{
 							BUN p, q;
@@ -160,6 +177,7 @@ sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 							if (sz)
 								width = (int) (sum / sz);
 						}
+							/* fall through */
 
 						default:
 							snprintf(maxval, 8192, "nil");

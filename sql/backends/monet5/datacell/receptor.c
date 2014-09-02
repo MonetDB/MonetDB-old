@@ -150,7 +150,7 @@ RCreceptorStartInternal(int *ret, str *tbl, str *host, int *port, int mode, int 
 		fmt[j].extra = fmt + j;
 		fmt[j].len = fmt[j].nillen =
 						 ATOMlen(fmt[j].adt, ATOMnilptr(fmt[j].adt));
-		fmt[j].data = GDKmalloc(fmt[j].len);
+		fmt[j].data = GDKzalloc(fmt[j].len);
 		fmt[j].nullstr = "";
 		j++;
 	}
@@ -159,7 +159,7 @@ RCreceptorStartInternal(int *ret, str *tbl, str *host, int *port, int mode, int 
 #ifdef _DEBUG_RECEPTOR_
 	mnstr_printf(RCout, "#Instantiate a new receptor %d fields\n", j);
 #endif
-	if (MT_create_thread(&rc->pid, (void (*)(void *))RCstartThread, rc, MT_THR_DETACHED) != 0)
+	if (MT_create_thread(&rc->pid, (void (*)(void *))RCstartThread, rc, MT_THR_JOINABLE) != 0)
 		throw(MAL, "receptor.start", "Receptor '%s' initiation failed", rc->name);
 	(void) ret;
 	return MAL_SUCCEED;
@@ -247,7 +247,7 @@ str RCreceptorStop(int *ret, str *nme)
 	rc->status = BSKTINIT;
 	if (rc->lck)
 		BSKTunlock(&rc->lck, &rc->name);
-	MT_join_thread(rc->pid);
+	rc->status = BSKTSTOP;
 	return MAL_SUCCEED;
 }
 
@@ -639,7 +639,7 @@ parse:
 							/* only keep the last errorenous event for analysis */
 							if (rcError)
 								GDKfree(rcError);
-							rcError = (char *) GDKmalloc(k = strlen(line) + 100);
+							rcError = (char *) GDKzalloc(k = strlen(line) + 100);
 							if (rcError)
 								snprintf(rcError, k, "newline missing:%s", line);
 							rcErrorEvent = cnt;
@@ -657,7 +657,7 @@ parse:
 							/* only keep the last errorenous event for analysis */
 							if (rcError)
 								GDKfree(rcError);
-							rcError = (char *) GDKmalloc(k = strlen(line) + 100);
+							rcError = (char *) GDKzalloc(k = strlen(line) + 100);
 							if (rcError)
 								snprintf(rcError, k, "parsing error:%s", line);
 							rcErrorEvent = cnt;
@@ -855,11 +855,12 @@ RCstartThread(Receptor rc)
 			if (rc->error) {
 				mnstr_printf(RCout, "Receptor listen fails: %s\n", rc->error);
 				rc->status = BSKTERROR;
+				break;
 			}
 #ifdef _DEBUG_RECEPTOR_
 			mnstr_printf(RCout, "#Receptor connection request received \n");
 #endif
-			if (MT_create_thread(&rc->pid, (void (*)(void *))RCbody, rc, MT_THR_DETACHED) != 0) {
+			if (MT_create_thread(&rc->pid, (void (*)(void *))RCbody, rc, MT_THR_JOINABLE) != 0) {
 				shutdown(rc->newsockfd, SHUT_RDWR);
 				close(rc->newsockfd);
 				GDKfree(rc);
@@ -874,7 +875,9 @@ RCstartThread(Receptor rc)
 			RCbody(rc);
 		}
 	}
+	socket_close(rc->newsockfd);
 	shutdown(rc->sockfd, SHUT_RDWR);
+	MT_join_thread(rc->pid);
 	return MAL_SUCCEED;
 }
 
@@ -903,44 +906,44 @@ RCtable(int *nameId, int *hostId, int *portId, int *protocolId, int *modeId, int
 	BAT *protocol = NULL, *mode = NULL, *status = NULL, *port = NULL, *host = NULL;
 	Receptor rc = rcAnchor;
 
-	name = BATnew(TYPE_void, TYPE_str, BATTINY);
+	name = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
 	if (name == 0)
 		goto wrapup;
 	BATseqbase(name, 0);
-	host = BATnew(TYPE_void, TYPE_str, BATTINY);
+	host = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
 	if (host == 0)
 		goto wrapup;
 	BATseqbase(host, 0);
-	port = BATnew(TYPE_void, TYPE_int, BATTINY);
+	port = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
 	if (port == 0)
 		goto wrapup;
 	BATseqbase(port, 0);
-	protocol = BATnew(TYPE_void, TYPE_str, BATTINY);
+	protocol = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
 	if (protocol == 0)
 		goto wrapup;
 	BATseqbase(protocol, 0);
-	mode = BATnew(TYPE_void, TYPE_str, BATTINY);
+	mode = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
 	if (mode == 0)
 		goto wrapup;
 	BATseqbase(mode, 0);
 
-	seen = BATnew(TYPE_void, TYPE_timestamp, BATTINY);
+	seen = BATnew(TYPE_void, TYPE_timestamp, BATTINY, TRANSIENT);
 	if (seen == 0)
 		goto wrapup;
 	BATseqbase(seen, 0);
-	cycles = BATnew(TYPE_void, TYPE_int, BATTINY);
+	cycles = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
 	if (cycles == 0)
 		goto wrapup;
 	BATseqbase(cycles, 0);
-	pending = BATnew(TYPE_void, TYPE_int, BATTINY);
+	pending = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
 	if (pending == 0)
 		goto wrapup;
 	BATseqbase(pending, 0);
-	received = BATnew(TYPE_void, TYPE_int, BATTINY);
+	received = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
 	if (received == 0)
 		goto wrapup;
 	BATseqbase(received, 0);
-	status = BATnew(TYPE_void, TYPE_str, BATTINY);
+	status = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
 	if (status == 0)
 		goto wrapup;
 	BATseqbase(status, 0);

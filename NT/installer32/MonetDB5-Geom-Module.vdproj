@@ -94,11 +94,6 @@
             "ComponentsUrl" = "8:"
                 "Items"
                 {
-                    "{EDC2488A-8267-493A-A98E-7D9C3B36CDF3}:Microsoft.Windows.Installer.2.0"
-                    {
-                    "Name" = "8:Windows Installer 2.0"
-                    "ProductCode" = "8:Microsoft.Windows.Installer.2.0"
-                    }
                 }
             }
         }
@@ -231,7 +226,7 @@
             }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_6C07D912740F414490DD35D5A179D268"
             {
-            "SourcePath" = "8:C:\\Libraries\\geos-3.3.0.win32-vs10\\bin\\geos_c.dll"
+            "SourcePath" = "8:C:\\Libraries\\geos-3.4.2.win32\\bin\\geos_c.dll"
             "TargetName" = "8:geos_c.dll"
             "Tag" = "8:"
             "Folder" = "8:_4D9CE65EDD774551869CFD46B59B4F9E"
@@ -428,11 +423,12 @@
         "ProductCode" = "8:{66BABD32-D69D-4A89-A7F3-2655D4CD0641}"
         "PackageCode" = "8:{D9B2D386-1461-43BC-9A63-93F1BA0D7921}"
         "UpgradeCode" = "8:{92C89C36-0E86-45E1-B3D8-0D6C91108F30}"
+        "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:11.18.0"
+        "ProductVersion" = "8:11.20.0"
         "Manufacturer" = "8:MonetDB"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:http://www.monetdb.org/"

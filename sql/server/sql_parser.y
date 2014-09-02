@@ -60,6 +60,12 @@
 #define FALSE 0
 #define TRUE 1
 
+#ifdef HAVE_HGE
+#define MAX_DEC_DIGITS 38
+#else
+#define MAX_DEC_DIGITS 18
+#endif
+
 %}
 /* KNOWN NOT DONE OF sql'99
  *
@@ -73,7 +79,7 @@
 %lex-param { void *m }
 
 /* reentrant parser */
-%pure_parser
+%pure-parser
 %union {
 	int		i_val,bval;
 	wrd		w_val;
@@ -311,6 +317,7 @@ int yydebug=1;
 	column_ref
 	atom_commalist
 	value_commalist
+	pred_exp_list
 	row_commalist
 	qname
 	qfunc
@@ -461,6 +468,7 @@ int yydebug=1;
 	tz
 
 %right <sval> STRING
+%right <sval> X_BODY
 
 /* sql prefixes to avoid name clashes on various architectures */
 %token <sval>
@@ -469,7 +477,7 @@ int yydebug=1;
 	GLOBAL CAST CONVERT
 	CHARACTER VARYING LARGE OBJECT VARCHAR CLOB sqlTEXT BINARY sqlBLOB
 	sqlDECIMAL sqlFLOAT
-	TINYINT SMALLINT BIGINT sqlINTEGER
+	TINYINT SMALLINT BIGINT HUGEINT sqlINTEGER
 	sqlDOUBLE sqlREAL PRECISION PARTIAL SIMPLE ACTION CASCADE RESTRICT
 	BOOL_FALSE BOOL_TRUE
 	CURRENT_DATE CURRENT_TIMESTAMP CURRENT_TIME LOCALTIMESTAMP LOCALTIME
@@ -559,6 +567,7 @@ SQLCODE SQLERROR UNDER WHENEVER
 %token AS TRIGGER OF BEFORE AFTER ROW STATEMENT sqlNEW OLD EACH REFERENCING
 %token OVER PARTITION CURRENT EXCLUDE FOLLOWING PRECEDING OTHERS TIES RANGE UNBOUNDED
 
+%token X_BODY 
 %%
 
 sqlstmt:
@@ -1778,6 +1787,7 @@ func_def:
 				append_list(f, $11);
 				append_list(f, NULL);
 				append_int(f, F_FUNC);
+				append_int(f, FUNC_LANG_MAL);
 			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
  |  create FUNCTION qname
 	'(' opt_paramlist ')'
@@ -1787,10 +1797,36 @@ func_def:
 				append_list(f, $3);
 				append_list(f, $5);
 				append_symbol(f, $8);
-				append_string(f, NULL);
+				append_list(f, NULL);
 				append_list(f, $9);
 				append_int(f, F_FUNC);
+				append_int(f, FUNC_LANG_SQL);
 			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
+  | create FUNCTION qname
+	'(' opt_paramlist ')'
+    RETURNS func_data_type
+    LANGUAGE IDENT X_BODY { 
+			int lang = 0;
+			dlist *f = L();
+			char l = *$10;
+
+			if (l == 'R' || l == 'r')
+				lang = FUNC_LANG_R;
+			else if (l == 'C' || l == 'c')
+				lang = FUNC_LANG_C;
+			else if (l == 'J' || l == 'j')
+				lang = FUNC_LANG_J;
+			else
+				yyerror(m, sql_message("Language name R, C, or J(avascript):expected, received '%c'", l));
+
+			append_list(f, $3);
+			append_list(f, $5);
+			append_symbol(f, $8);
+			append_list(f, NULL); 
+			append_list(f, append_string(L(), $11));
+			append_int(f, F_FUNC);
+			append_int(f, lang);
+			$$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
   | create FILTER FUNCTION qname
 	'(' opt_paramlist ')'
     EXTERNAL sqlNAME external_function_name 	
@@ -1802,6 +1838,7 @@ func_def:
 				append_list(f, $10);
 				append_list(f, NULL);
 				append_int(f, F_FILT);
+				append_int(f, FUNC_LANG_MAL);
 			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
   | create AGGREGATE qname
 	'(' opt_paramlist ')'
@@ -1814,7 +1851,33 @@ func_def:
 				append_list(f, $11);
 				append_list(f, NULL);
 				append_int(f, F_AGGR);
+				append_int(f, FUNC_LANG_MAL);
 			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
+  | create AGGREGATE qname
+	'(' opt_paramlist ')'
+    RETURNS func_data_type
+    LANGUAGE IDENT X_BODY { 
+			int lang = 0;
+			dlist *f = L();
+			char l = *$10;
+
+			if (l == 'R' || l == 'r')
+				lang = FUNC_LANG_R;
+			else if (l == 'C' || l == 'c')
+				lang = FUNC_LANG_C;
+			else if (l == 'J' || l == 'j')
+				lang = FUNC_LANG_J;
+			else
+				yyerror(m, sql_message("Language name R, C, or J(avascript):expected, received '%c'", l));
+
+			append_list(f, $3);
+			append_list(f, $5);
+			append_symbol(f, $8);
+			append_list(f, NULL);
+			append_list(f, append_string(L(), $11));
+			append_int(f, F_AGGR);
+			append_int(f, lang);
+			$$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
  | /* proc ie no result */
     create PROCEDURE qname
 	'(' opt_paramlist ')'
@@ -1826,6 +1889,7 @@ func_def:
 				append_list(f, $9);
 				append_list(f, NULL);
 				append_int(f, F_PROC);
+				append_int(f, FUNC_LANG_MAL);
 			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
   | create PROCEDURE qname
 	'(' opt_paramlist ')'
@@ -1834,9 +1898,10 @@ func_def:
 				append_list(f, $3);
 				append_list(f, $5);
 				append_symbol(f, NULL); /* no result */
-				append_string(f, NULL); /* no mil-impl */
+				append_list(f, NULL); 
 				append_list(f, $7);
 				append_int(f, F_PROC);
+				append_int(f, FUNC_LANG_SQL);
 			  $$ = _symbol_create_list( SQL_CREATE_FUNC, f ); }
  ;
 
@@ -2503,7 +2568,11 @@ opt_using:
 opt_nr:
     /* empty */			{ $$ = NULL; }
  |  poslng RECORDS		{ $$ = append_lng(append_lng(L(), $1), 0); }
- |  poslng OFFSET poslng RECORDS	{ $$ = append_lng(append_lng(L(), $1), $3); }
+ |  OFFSET poslng 		{ $$ = append_lng(append_lng(L(), -1), $2); }
+ |  poslng OFFSET poslng RECORDS	
+				{ $$ = append_lng(append_lng(L(), $1), $3); }
+ |  poslng RECORDS OFFSET poslng	
+				{ $$ = append_lng(append_lng(L(), $1), $4); }
  ;
 
 opt_null_string:
@@ -3090,7 +3159,7 @@ opt_limit:
     /* empty */ 	{ $$ = NULL; }
  |  LIMIT nonzerowrd	{ 
 		  	  sql_subtype *t = sql_bind_localtype("wrd");
-			  $$ = _newAtomNode( atom_int(SA, t, (lng)$2)); 
+			  $$ = _newAtomNode( atom_int(SA, t, $2)); 
 			}
  |  LIMIT param		{ $$ = $2; }
  ;
@@ -3099,7 +3168,7 @@ opt_offset:
 	/* empty */	{ $$ = NULL; }
  |  OFFSET poswrd	{ 
 		  	  sql_subtype *t = sql_bind_localtype("wrd");
-			  $$ = _newAtomNode( atom_int(SA, t, (lng)$2)); 
+			  $$ = _newAtomNode( atom_int(SA, t, $2)); 
 			}
  |  OFFSET param	{ $$ = $2; }
  ;
@@ -3108,7 +3177,7 @@ opt_sample:
 	/* empty */	{ $$ = NULL; }
  |  SAMPLE poswrd	{
 		  	  sql_subtype *t = sql_bind_localtype("wrd");
-			  $$ = _newAtomNode( atom_int(SA, t, (lng)$2));
+			  $$ = _newAtomNode( atom_int(SA, t, $2));
 			}
  |  SAMPLE INTNUM	{
 		  	  sql_subtype *t = sql_bind_localtype("dbl");
@@ -3261,6 +3330,23 @@ in_predicate:
 		  append_symbol(l, $1);
 		  append_list(l, $4);
 		  $$ = _symbol_create_list(SQL_IN, l ); }
+ |  '(' pred_exp_list ')' NOT sqlIN '(' value_commalist ')'
+		{ dlist *l = L();
+		  append_list(l, $2);
+		  append_list(l, $7);
+		  $$ = _symbol_create_list(SQL_NOT_IN, l ); }
+ |  '(' pred_exp_list ')' sqlIN '(' value_commalist ')'
+		{ dlist *l = L();
+		  append_list(l, $2);
+		  append_list(l, $6);
+		  $$ = _symbol_create_list(SQL_IN, l ); }
+ ;
+
+pred_exp_list:
+    pred_exp
+			{ $$ = append_symbol( L(), $1);}
+ |  pred_exp_list ',' pred_exp
+			{ $$ = append_symbol( $1, $3); }
  ;
 
 all_or_any_predicate:
@@ -3992,6 +4078,10 @@ literal:
 		  	sql_find_subtype(&t, "int", 32, 0);
 		  else if ( i > 10 && i <= 18)
 		  	sql_find_subtype(&t, "bigint", 64, 0);
+#ifdef HAVE_HGE
+		  else if ( i > 18 && i <= 34)
+		  	sql_find_subtype(&t, "hugeint", 128, 0);
+#endif
 		  else
 			err = 1;
 		  
@@ -4038,13 +4128,25 @@ literal:
 		  }
 		}
  |  sqlINT
-		{ int digits = _strlen($1), err = 0, len = sizeof(lng);
+		{ int digits = _strlen($1), err = 0;
+#ifdef HAVE_HGE
+		  hge value, *p = &value;
+		  int len = sizeof(hge);
+#else
 		  lng value, *p = &value;
+		  int len = sizeof(lng);
+#endif
 		  sql_subtype t;
 
+#ifdef HAVE_HGE
+		  hgeFromStr($1, &len, &p);
+		  if (value == hge_nil)
+		  	err = 2;
+#else
 		  lngFromStr($1, &len, &p);
 		  if (value == lng_nil)
 		  	err = 2;
+#endif
 
 		  /* find the most suitable data type for the given number */
 		  if (!err) {
@@ -4057,6 +4159,10 @@ literal:
 		  	  sql_find_subtype(&t, "int", bits, 0 );
 		    else if ((value > GDK_lng_min && value <= GDK_lng_max))
 		  	  sql_find_subtype(&t, "bigint", bits, 0 );
+#ifdef HAVE_HGE
+		    else if ((value > GDK_hge_min && value <= GDK_hge_max))
+		  	  sql_find_subtype(&t, "hugeint", bits, 0 );
+#endif
 		    else
 			  err = 1;
 		  }
@@ -4081,9 +4187,13 @@ literal:
 
 		  if (digits <= 0)
 			digits = 1;
-		  if (digits <= 18) {
+		  if (digits <= MAX_DEC_DIGITS) {
 		  	double val = strtod($1,NULL);
+#ifdef HAVE_HGE
+		  	hge value = decimal_from_str(s);
+#else
 		  	lng value = decimal_from_str(s);
+#endif
 
 		  	if (*s == '+' || *s == '-')
 				digits --;
@@ -4249,10 +4359,18 @@ literal:
 		{ sql_subtype t;
 		  sql_find_subtype(&t, "boolean", 0, 0 );
 		  $$ = _newAtomNode( atom_bool(SA, &t, FALSE)); }
+ |  NOT BOOL_FALSE
+		{ sql_subtype t;
+		  sql_find_subtype(&t, "boolean", 0, 0 );
+		  $$ = _newAtomNode( atom_bool(SA, &t, TRUE)); }
  |  BOOL_TRUE
 		{ sql_subtype t;
 		  sql_find_subtype(&t, "boolean", 0, 0 );
 		  $$ = _newAtomNode( atom_bool(SA, &t, TRUE)); }
+ |  NOT BOOL_TRUE
+		{ sql_subtype t;
+		  sql_find_subtype(&t, "boolean", 0, 0 );
+		  $$ = _newAtomNode( atom_bool(SA, &t, FALSE)); }
  ;
 
 interval_expression:
@@ -4529,12 +4647,13 @@ data_type:
  |  SMALLINT		{ sql_find_subtype(&$$, "smallint", 0, 0); }
  |  sqlINTEGER		{ sql_find_subtype(&$$, "int", 0, 0); }
  |  BIGINT		{ sql_find_subtype(&$$, "bigint", 0, 0); }
+ |  HUGEINT		{ sql_find_subtype(&$$, "hugeint", 0, 0); }
 
- |  sqlDECIMAL		{ sql_find_subtype(&$$, "decimal", 1, 0); }
+ |  sqlDECIMAL		{ sql_find_subtype(&$$, "decimal", 18, 3); }
  |  sqlDECIMAL '(' nonzero ')'
 			{ 
 			  int d = $3;
-			  if (d > 18) {
+			  if (d > MAX_DEC_DIGITS) {
 				char *msg = sql_message("\b22003!decimal of %d digits are not supported", d);
 				yyerror(m, msg);
 				_DELETE(msg);
@@ -4548,12 +4667,12 @@ data_type:
 			{ 
 			  int d = $3;
 			  int s = $5;
-			  if (s > d || d > 18) {
+			  if (s > d || d > MAX_DEC_DIGITS) {
 				char *msg = NULL;
 				if (s > d)
 					msg = sql_message("\b22003!scale (%d) should be less or equal to the precision (%d)", s, d);
 				else
-					msg = sql_message("\b22003!decimal(%d,%d) isn't supported because P=%d > 18", d, s, d);
+					msg = sql_message("\b22003!decimal(%d,%d) isn't supported because P=%d > %d", d, s, d, MAX_DEC_DIGITS);
 				yyerror(m, msg);
 				_DELETE(msg);
 				$$.type = NULL;
@@ -5533,9 +5652,20 @@ int sqlerror(mvc * c, const char *err)
 		sqlstate = "";
 		err++;
 	}
-	(void)sql_error( c, 4,
-		 "!%s%s in: \"%s\"\n",
-		 sqlstate, err, QUERY(c->scanner));
+	if (c->scanner.errstr) {
+		if (c->scanner.errstr[0] == '!')
+			(void)sql_error(c, 4,
+					"!%s%s: %s\n",
+					sqlstate, err, c->scanner.errstr + 1);
+		else
+			(void)sql_error(c, 4,
+					"!%s%s: %s in \"%.80s\"\n",
+					sqlstate, err, c->scanner.errstr,
+					QUERY(c->scanner));
+	} else
+		(void)sql_error(c, 4,
+				"!%s%s in: \"%.80s\"\n",
+				sqlstate, err, QUERY(c->scanner));
 	return 1;
 }
 

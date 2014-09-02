@@ -63,7 +63,7 @@ static OntBATdef ontBatdef[N_ONTOLOGY_BAT]= {
 static BAT*
 create_OntologyBAT(int ht, int tt, int size)
 {
-	BAT *b = BATnew(ht, tt, size);
+	BAT *b = BATnew(ht, tt, size, TRANSIENT);
 	if (b == NULL) {
 		return b;
 	}
@@ -285,7 +285,7 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontat
 
 	//Read all ontmetadata and store them in the ontmetaBat
 	
-	ontmetaBat = BATnew(TYPE_void, TYPE_oid, ontmetadataCount);
+	ontmetaBat = BATnew(TYPE_void, TYPE_oid, ontmetadataCount, TRANSIENT);
 	BATseqbase(ontmetaBat, 0);
 	(void)BATprepareHash(BATmirror(ontmetaBat));
 	if (!(ontmetaBat->T->hash)){

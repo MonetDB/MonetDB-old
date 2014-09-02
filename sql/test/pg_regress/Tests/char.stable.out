@@ -34,7 +34,12 @@ Ready.
 #--
 #-- fixed-length by value
 #-- internally passed by value if <= 4 bytes in storage
-#SELECT char 'c' = char 'c' AS true;
+#SELECT cast('c' as char) = cast('c' as char) AS "true";
+% .L # table_name
+% true # name
+% boolean # type
+% 5 # length
+[ true ]
 #--
 #-- Build a table for testing
 #--
@@ -139,6 +144,8 @@ Ready.
 [ "",	"a"	]
 [ "",	"ab"	]
 [ "",	"abcd"	]
+
+= ! above output needs to be verified (with expected output in sql/test/pg_regress/expected/char.out) ! =
 
 # 22:08:26 >  
 # 22:08:26 >  Done.

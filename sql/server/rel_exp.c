@@ -219,17 +219,36 @@ exp_atom_lng(sql_allocator *sa, lng i)
 {
 	sql_subtype it; 
 
+#ifdef HAVE_HGE
+	sql_find_subtype(&it, "bigint", 18, 0);
+#else
 	sql_find_subtype(&it, "bigint", 19, 0);
-	return exp_atom(sa, atom_int(sa, &it, (lng)i ));
+#endif
+	return exp_atom(sa, atom_int(sa, &it, i ));
 }
+
+#ifdef HAVE_HGE
+sql_exp *
+exp_atom_hge(sql_allocator *sa, hge i) 
+{
+	sql_subtype it; 
+
+	sql_find_subtype(&it, "hugeint", 39, 0);
+	return exp_atom(sa, atom_int(sa, &it, i ));
+}
+#endif
 
 sql_exp *
 exp_atom_wrd(sql_allocator *sa, wrd w) 
 {
 	sql_subtype it; 
 
+#ifdef HAVE_HGE
+	sql_find_subtype(&it, "wrd", 18, 0);
+#else
 	sql_find_subtype(&it, "wrd", 19, 0);
-	return exp_atom(sa, atom_int(sa, &it, (lng)w ));
+#endif
+	return exp_atom(sa, atom_int(sa, &it, w ));
 }
 
 sql_exp *
@@ -630,11 +649,23 @@ exp_match( sql_exp *e1, sql_exp *e2)
 	if (exp_cmp(e1, e2) == 0)
 		return 1;
 	if (e1->type == e2->type && e1->type == e_column) {
-		if (!e1->name || !e2->name || strcmp(e1->name, e2->name) != 0)
+		if (e1->l != e2->l && (!e1->l || !e2->l || strcmp(e1->l, e2->l) != 0)) 
 			return 0;
-		if (!e1->l || !e2->l || strcmp(e1->l, e2->l) != 0)
+		if (!e1->r || !e2->r || strcmp(e1->r, e2->r) != 0)
 			return 0;
-		/* e1->r */
+		return 1;
+	}
+	return 0;
+}
+
+int 
+exp_refers( sql_exp *c, sql_exp *p)
+{
+	if (c->type == e_column) {
+		if (!p->name || !c->r || strcmp(p->name, c->r) != 0)
+			return 0;
+		if (!c->l || (p->rname && strcmp(p->rname, c->l) != 0) || (!p->rname && strcmp(p->l, c->l) != 0))
+			return 0;
 		return 1;
 	}
 	return 0;
@@ -739,6 +770,24 @@ exp_match_list( list *l, list *r)
 	return match;
 }
 
+static int 
+exps_equal( list *l, list *r)
+{
+	node *n, *m;
+
+	if (!l || !r)
+		return l == r;
+	if (list_length(l) != list_length(r))
+		return 0;
+	for (n = l->h, m = r->h; n && m; n = n->next, m = m->next) {
+		sql_exp *le = n->data, *re = m->data;
+
+		if (!exp_match_exp(le,re))
+			return 0;
+	}
+	return 1;
+}
+
 int 
 exp_match_exp( sql_exp *e1, sql_exp *e2)
 {
@@ -770,15 +819,15 @@ exp_match_exp( sql_exp *e1, sql_exp *e2)
 			break;
 		case e_aggr:
 			if (!subaggr_cmp(e1->f, e2->f) && /* equal aggregation*/
-			    exp_match_list(e1->l, e2->l) && 
+			    exps_equal(e1->l, e2->l) && 
 			    e1->flag == e2->flag)
 				return 1;
 			break;
 		case e_func:
 			if (!subfunc_cmp(e1->f, e2->f) && /* equal functions */
-			    exp_match_list(e1->l, e2->l) &&
+			    exps_equal(e1->l, e2->l) &&
 			    /* optional order by expressions */
-			    exp_match_list(e1->r, e2->r))
+			    exps_equal(e1->r, e2->r))
 				return 1;
 			break;
 		case e_atom:
@@ -905,6 +954,19 @@ rel_has_exp(sql_rel *rel, sql_exp *e)
 	return -1;
 }
 
+int
+rel_has_exps(sql_rel *rel, list *exps)
+{
+	node *n;
+
+	if (!exps)
+		return -1;
+	for (n = exps->h; n; n = n->next)
+		if (rel_has_exp(rel, n->data) >= 0)
+			return 0;
+	return -1;
+}
+
 sql_rel *
 find_rel(list *rels, sql_exp *e)
 {
@@ -983,6 +1045,8 @@ rel_find_exp_( sql_rel *rel, sql_exp *e)
 {
 	sql_exp *ne = NULL;
 
+	if (!rel)
+		return NULL;
 	switch(e->type) {
 	case e_column:
 		if (rel->exps && (is_project(rel->op) || is_base(rel->op))) {
@@ -1021,7 +1085,8 @@ sql_exp *
 rel_find_exp( sql_rel *rel, sql_exp *e)
 {
 	sql_exp *ne = rel_find_exp_(rel, e);
-	if (!ne) {
+
+	if (rel && !ne) {
 		switch(rel->op) {
 		case op_left:
 		case op_right:
@@ -1156,6 +1221,33 @@ exp_has_func( sql_exp *e )
 	case e_column:
 	case e_psm:
 		return 0;
+	}
+	return 0;
+}
+
+int
+exp_unsafe( sql_exp *e) 
+{
+	if (!e)
+		return 0;
+
+	if (e->type != e_func && e->type != e_convert)
+		return 0;
+
+	if (e->type == e_func && e->card == CARD_AGGR)
+		return 1;
+	if (e->type == e_convert && e->l)
+		return exp_unsafe(e->l);
+	if (e->type == e_func && e->l) {
+		list *args = e->l;
+		node *n;
+
+		for(n = args->h; n; n = n->next) {
+			sql_exp *e = n->data;
+
+			if (exp_unsafe(e))
+				return 1;			
+		}
 	}
 	return 0;
 }
@@ -1417,8 +1509,12 @@ list *
 exps_copy( sql_allocator *sa, list *exps)
 {
 	node *n;
-	list *nl = new_exp_list(sa);
+	list *nl;
 
+	if (!exps)
+		return exps;
+
+	nl = new_exp_list(sa);
 	for(n = exps->h; n; n = n->next) {
 		sql_exp *arg = n->data;
 
@@ -1504,7 +1600,9 @@ exp_copy( sql_allocator *sa, sql_exp * e)
 			ne = exp_set(sa, e->name, exp_copy(sa, e->l), GET_PSM_LEVEL(e->flag));
 		break;
 	}
-	if (ne && e->p)
+	if (!ne)
+		return ne;
+	if (e->p)
 		ne->p = prop_copy(sa, e->p);
 	if (e->name)
 		exp_setname(sa, ne, exp_find_rel_name(e), exp_name(e));

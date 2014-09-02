@@ -46,7 +46,7 @@ QOT_create(str hnme, str tnme, int tt)
 	if (b)
 		return b;
 
-	b = BATnew(TYPE_void, tt, 256);
+	b = BATnew(TYPE_void, tt, 256, PERSISTENT);
 	if (b == NULL)
 		return NULL;
 
@@ -58,7 +58,7 @@ QOT_create(str hnme, str tnme, int tt)
 
 static void QOTstatisticsInit(void){
 	oid o=0;
-	int i;
+	int i,j;
 
 	if (qotStat[QOTnames]) return;
 #ifdef NEED_MT_LOCK_INIT
@@ -78,11 +78,8 @@ static void QOTstatisticsInit(void){
 	/* recover from errors */
 	for ( i=0; i<4; i++)
 	if ( qotStat[i] == NULL){
-		for (i= 0; i<4; i++){
-			if (qotStat[i] )
-				BBPclear(qotStat[i]->batCacheid);
-				qotStat[i] = NULL;
-		}
+		for (j= 0; j < i; j++)
+			BBPclear(qotStat[j]->batCacheid);
 		MT_lock_unset(&qotlock, "QOT statistics");
 		return;
 	}

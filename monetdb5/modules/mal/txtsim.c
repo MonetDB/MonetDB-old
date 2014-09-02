@@ -286,8 +286,14 @@ stringdiff_impl(int *res, str *s1, str *s2)
 	str r = MAL_SUCCEED;
 	char *S1 = NULL, *S2 = NULL;
 
-	soundex_impl(&S1, s1);
-	soundex_impl(&S2, s2);
+	r = soundex_impl(&S1, s1);
+	if( r != MAL_SUCCEED)
+		return r;
+	r = soundex_impl(&S2, s2);
+	if( r != MAL_SUCCEED){
+		GDKfree(S1);
+		return r;
+	}
 	r = levenshteinbasic_impl(res, &S1, &S2);
 	GDKfree(S1);
 	GDKfree(S2);
@@ -908,8 +914,8 @@ CMDqgramselfjoin(BAT **res, BAT **res2, BAT *qgram, BAT *id, BAT *pos, BAT *len,
 	ERRORcheck((Tsize(pos) != ATOMsize(pos->ttype)), "CMDqgramselfjoin: pos is not a true void bat");
 	ERRORcheck((Tsize(len) != ATOMsize(len->ttype)), "CMDqgramselfjoin: len is not a true void bat");
 
-	*res = bn = BATnew(TYPE_void, TYPE_int, n);
-	*res2 = bn2 = BATnew(TYPE_void, TYPE_int, n);
+	*res = bn = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
+	*res2 = bn2 = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
 	if (bn == NULL || bn2 == NULL){
 		if (bn) BBPreclaim(bn);
 		if (bn2) BBPreclaim(bn2);
@@ -974,7 +980,7 @@ CMDstr2qgrams(int *ret, str *val)
 	strcpy(s, "##");
 	strcpy(s + 2, *val);
 	strcpy(s + len - 3, "$$");
-	bn = BATnew(TYPE_void, TYPE_str, (BUN) strlen(*val));
+	bn = BATnew(TYPE_void, TYPE_str, (BUN) strlen(*val), TRANSIENT);
 	if (bn == NULL) {
 		GDKfree(s);
 		throw(MAL, "txtsim.str2qgram", MAL_MALLOC_FAIL);

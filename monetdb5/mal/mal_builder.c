@@ -36,8 +36,17 @@ newAssignment(MalBlkPtr mb)
 {
 	InstrPtr q = newInstruction(mb,ASSIGNsymbol);
 
-	getArg(q,0)= newTmpVariable(mb,TYPE_any);
+	if (q == NULL)
+		return NULL;
+	if ((getArg(q,0)= newTmpVariable(mb,TYPE_any)) < 0) {
+		freeInstruction(q);
+		return NULL;
+	}
 	pushInstruction(mb, q);
+	if (mb->errors) {
+		freeInstruction(q);
+		return NULL;
+	}
 	return q;
 }
 
@@ -46,10 +55,20 @@ newStmt(MalBlkPtr mb, char *module, char *name)
 {
 	InstrPtr q = newInstruction(mb,ASSIGNsymbol);
 
-	setModuleId(q, (module) ? putName(module, strlen(module)) : NULL);
-	setFunctionId(q, (name) ? putName(name, strlen(name)) : NULL);
+	if (q == NULL)
+		return NULL;
+	setModuleId(q, putName(module, strlen(module)));
+	setFunctionId(q, putName(name, strlen(name)));
 	setDestVar(q, newTmpVariable(mb, TYPE_any));
+	if (getDestVar(q) < 0) {
+		freeInstruction(q);
+		return NULL;
+	}
 	pushInstruction(mb, q);
+	if (mb->errors) {
+		freeInstruction(q);
+		return NULL;
+	}
 	return q;
 }
 
@@ -58,10 +77,20 @@ newStmt1(MalBlkPtr mb, str module, char *name)
 {
 	InstrPtr q = newInstruction(mb,ASSIGNsymbol);
 
-	setModuleId(q, module);
-	setFunctionId(q, (name) ? putName(name, strlen(name)) : NULL);
+	if (q == NULL)
+		return NULL;
+	setModuleId(q, putName(module, strlen(module)));
+	setFunctionId(q, putName(name, strlen(name)));
 	setDestVar(q, newTmpVariable(mb, TYPE_any));
+	if (getDestVar(q) < 0) {
+		freeInstruction(q);
+		return NULL;
+	}
 	pushInstruction(mb, q);
+	if (mb->errors) {
+		freeInstruction(q);
+		return NULL;
+	}
 	return q;
 }
 
@@ -70,10 +99,20 @@ newStmt2(MalBlkPtr mb, str module, char *name)
 {
 	InstrPtr q = newInstruction(mb,ASSIGNsymbol);
 
-	setModuleId(q, module);
-	setFunctionId(q, name);
+	if (q == NULL)
+		return NULL;
+	setModuleId(q, putName(module, strlen(module)));
+	setFunctionId(q, putName(name, strlen(name)));
 	setDestVar(q, newTmpVariable(mb, TYPE_any));
+	if (getDestVar(q) < 0) {
+		freeInstruction(q);
+		return NULL;
+	}
 	pushInstruction(mb, q);
+	if (mb->errors) {
+		freeInstruction(q);
+		return NULL;
+	}
 	return q;
 }
 
@@ -82,8 +121,17 @@ newReturnStmt(MalBlkPtr mb)
 {
 	InstrPtr q = newInstruction(mb,ASSIGNsymbol);
 
-	getArg(q,0)= newTmpVariable(mb,TYPE_any);
+	if (q == NULL)
+		return NULL;
+	if ((getArg(q,0)= newTmpVariable(mb,TYPE_any)) < 0) {
+		freeInstruction(q);
+		return NULL;
+	}
 	pushInstruction(mb, q);
+	if (mb->errors) {
+		freeInstruction(q);
+		return NULL;
+	}
 	q->barrier= RETURNsymbol;
 	return q;
 }
@@ -93,6 +141,8 @@ newFcnCall(MalBlkPtr mb, char *mod, char *fcn)
 {
 	InstrPtr q = newAssignment(mb);
 
+	if (q == NULL)
+		return NULL;
 	setModuleId(q, putName(mod, strlen(mod)));
 	setFunctionId(q, putName(fcn, strlen(fcn)));
 	return q;
@@ -104,13 +154,22 @@ newComment(MalBlkPtr mb, const char *val)
 	InstrPtr q = newInstruction(NULL,REMsymbol);
 	ValRecord cst;
 
+	if (q == NULL)
+		return NULL;
 	cst.vtype= TYPE_str;
-	cst.val.sval= GDKstrdup(val);
+	if ((cst.val.sval= GDKstrdup(val)) == NULL) {
+		freeInstruction(q);
+		return NULL;
+	}
 	cst.len= (int) strlen(cst.val.sval);
 	getArg(q,0) = defConstant(mb,TYPE_str,&cst);
 	clrVarConstant(mb,getArg(q,0));
 	setVarDisabled(mb,getArg(q,0));
 	pushInstruction(mb, q);
+	if (mb->errors) {
+		freeInstruction(q);
+		return NULL;
+	}
 	return q;
 }
 
@@ -120,9 +179,14 @@ newCatchStmt(MalBlkPtr mb, str nme)
 	InstrPtr q = newAssignment(mb);
 	int i= findVariable(mb,nme);
 
+	if (q == NULL)
+		return NULL;
 	q->barrier = CATCHsymbol;
 	if ( i< 0) {
-		getArg(q,0)= newVariable(mb, GDKstrdup(nme),TYPE_str);
+		if ((getArg(q,0)= newVariable(mb, GDKstrdup(nme),TYPE_str)) < 0) {
+			freeInstruction(q);
+			return NULL;
+		}
 		setVarUDFtype(mb,getArg(q,0));
 	} else getArg(q,0) = i;
 	return q;
@@ -133,10 +197,16 @@ newRaiseStmt(MalBlkPtr mb, str nme)
 	InstrPtr q = newAssignment(mb);
 	int i= findVariable(mb,nme);
 
+	if (q == NULL)
+		return NULL;
 	q->barrier = RAISEsymbol;
-	if ( i< 0)
-		getArg(q,0)= newVariable(mb, GDKstrdup(nme),TYPE_str);
-	else getArg(q,0) = i;
+	if ( i< 0) {
+		if ((getArg(q,0)= newVariable(mb, GDKstrdup(nme),TYPE_str)) < 0) {
+			freeInstruction(q);
+			return NULL;
+		}
+	} else
+		getArg(q,0) = i;
 	return q;
 }
 
@@ -146,10 +216,16 @@ newExitStmt(MalBlkPtr mb, str nme)
 	InstrPtr q = newAssignment(mb);
 	int i= findVariable(mb,nme);
 
+	if (q == NULL)
+		return NULL;
 	q->barrier = EXITsymbol;
-	if ( i< 0)
-		getArg(q,0)= newVariable(mb, GDKstrdup(nme),TYPE_str);
-	else getArg(q,0) = i;
+	if ( i< 0) {
+		if ((getArg(q,0)= newVariable(mb, GDKstrdup(nme),TYPE_str)) < 0) {
+			freeInstruction(q);
+			return NULL;
+		}
+	} else
+		getArg(q,0) = i;
 	return q;
 }
 
@@ -159,8 +235,11 @@ pushInt(MalBlkPtr mb, InstrPtr q, int val)
 	int _t;
 	ValRecord cst;
 
+	if (q == NULL)
+		return NULL;
 	cst.vtype= TYPE_int;
 	cst.val.ival= val;
+	cst.len = 0;
 	_t = defConstant(mb, TYPE_int,&cst);
 	return pushArgument(mb, q, _t);
 }
@@ -171,8 +250,11 @@ pushWrd(MalBlkPtr mb, InstrPtr q, wrd val)
 	int _t;
 	ValRecord cst;
 
+	if (q == NULL)
+		return NULL;
 	cst.vtype= TYPE_wrd;
 	cst.val.wval= val;
+	cst.len = 0;
 	_t = defConstant(mb, TYPE_wrd,&cst);
 	return pushArgument(mb, q, _t);
 }
@@ -183,8 +265,11 @@ pushBte(MalBlkPtr mb, InstrPtr q, bte val)
 	int _t;
 	ValRecord cst;
 
+	if (q == NULL)
+		return NULL;
 	cst.vtype= TYPE_bte;
 	cst.val.btval= val;
+	cst.len = 0;
 	_t = defConstant(mb, TYPE_bte,&cst);
 	return pushArgument(mb, q, _t);
 }
@@ -195,8 +280,11 @@ pushOid(MalBlkPtr mb, InstrPtr q, oid val)
 	int _t;
 	ValRecord cst;
 
+	if (q == NULL)
+		return NULL;
 	cst.vtype= TYPE_oid;
 	cst.val.oval= val;
+	cst.len = 0;
 	_t = defConstant(mb,TYPE_oid,&cst);
 	return pushArgument(mb, q, _t);
 }
@@ -207,8 +295,11 @@ pushVoid(MalBlkPtr mb, InstrPtr q)
 	int _t;
 	ValRecord cst;
 
+	if (q == NULL)
+		return NULL;
 	cst.vtype= TYPE_void;
 	cst.val.oval= oid_nil;
+	cst.len = 0;
 	_t = defConstant(mb,TYPE_void,&cst);
 	return pushArgument(mb, q, _t);
 }
@@ -219,8 +310,11 @@ pushLng(MalBlkPtr mb, InstrPtr q, lng val)
 	int _t;
 	ValRecord cst;
 
+	if (q == NULL)
+		return NULL;
 	cst.vtype= TYPE_lng;
 	cst.val.lval= val;
+	cst.len = 0;
 	_t = defConstant(mb,TYPE_lng,&cst);
 	return pushArgument(mb, q, _t);
 }
@@ -237,14 +331,31 @@ pushSht(MalBlkPtr mb, InstrPtr q, sht val)
 	return pushArgument(mb, q, _t);
 }
 
+#ifdef HAVE_HGE
+InstrPtr
+pushHge(MalBlkPtr mb, InstrPtr q, hge val)
+{
+	int _t;
+	ValRecord cst;
+
+	cst.vtype= TYPE_hge;
+	cst.val.hval= val;
+	_t = defConstant(mb,TYPE_hge,&cst);
+	return pushArgument(mb, q, _t);
+}
+#endif
+
 InstrPtr
 pushDbl(MalBlkPtr mb, InstrPtr q, dbl val)
 {
 	int _t;
 	ValRecord cst;
 
+	if (q == NULL)
+		return NULL;
 	cst.vtype= TYPE_dbl;
 	cst.val.dval= val;
+	cst.len = 0;
 	_t = defConstant(mb,TYPE_dbl,&cst);
 	return pushArgument(mb, q, _t);
 }
@@ -255,8 +366,11 @@ pushFlt(MalBlkPtr mb, InstrPtr q, flt val)
 	int _t;
 	ValRecord cst;
 
+	if (q == NULL)
+		return NULL;
 	cst.vtype= TYPE_flt;
 	cst.val.fval= val;
+	cst.len = 0;
 	_t = defConstant(mb,TYPE_flt,&cst);
 	return pushArgument(mb, q, _t);
 }
@@ -267,8 +381,13 @@ pushStr(MalBlkPtr mb, InstrPtr q, const char *Val)
 	int _t;
 	ValRecord cst;
 
+	if (q == NULL)
+		return NULL;
 	cst.vtype= TYPE_str;
-	cst.val.sval= GDKstrdup(Val);
+	if ((cst.val.sval= GDKstrdup(Val)) == NULL) {
+		freeInstruction(q);
+		return NULL;
+	}
 	cst.len= (int) strlen(cst.val.sval);
 	_t = defConstant(mb,TYPE_str,&cst);
 	return pushArgument(mb, q, _t);
@@ -280,8 +399,11 @@ pushBit(MalBlkPtr mb, InstrPtr q, bit val)
 	int _t;
 	ValRecord cst;
 
+	if (q == NULL)
+		return NULL;
 	cst.vtype= TYPE_bit;
 	cst.val.btval= val;
+	cst.len = 0;
 	_t = defConstant(mb,TYPE_bit,&cst);
 
 	return pushArgument(mb, q, _t);
@@ -293,6 +415,9 @@ pushNil(MalBlkPtr mb, InstrPtr q, int tpe)
 	int _t;
 	ValRecord cst;
 
+	if (q == NULL)
+		return NULL;
+	cst.len = 0;
 	if( !isaBatType(tpe) && tpe != TYPE_bat ) {
 		assert(tpe < MAXATOMS);	/* in particular, tpe!=TYPE_any */
 		if (!tpe) {
@@ -322,11 +447,21 @@ pushNilType(MalBlkPtr mb, InstrPtr q, char *tpe)
 {
 	int _t,idx;
 	ValRecord cst;
+	str msg;
 
+	if (q == NULL)
+		return NULL;
 	idx= getTypeIndex(tpe, -1, TYPE_any);
+	if( idx < 0 || idx >= GDKatomcnt || idx >= MAXATOMS)
+		return NULL;
 	cst.vtype=TYPE_void;
 	cst.val.oval= oid_nil;
-	convertConstant(idx, &cst);
+	cst.len = 0;
+	msg = convertConstant(idx, &cst);
+	if (msg != MAL_SUCCEED) {
+		GDKfree(msg);
+		return NULL;
+	}
 	_t = defConstant(mb,idx,&cst);
 	setVarUDFtype(mb,_t);
 
@@ -337,10 +472,18 @@ pushType(MalBlkPtr mb, InstrPtr q, int tpe)
 {
 	int _t;
 	ValRecord cst;
+	str msg;
 
+	if (q == NULL)
+		return NULL;
 	cst.vtype=TYPE_void;
 	cst.val.oval= oid_nil;
-	convertConstant(tpe, &cst);
+	cst.len = 0;
+	msg = convertConstant(tpe, &cst);
+	if (msg != MAL_SUCCEED) {
+		GDKfree(msg);
+		return NULL;
+	}
 	_t = defConstant(mb,tpe,&cst);
 	setVarUDFtype(mb,_t);
 
@@ -352,10 +495,18 @@ pushZero(MalBlkPtr mb, InstrPtr q, int tpe)
 {
 	int _t;
 	ValRecord cst;
+	str msg;
 
+	if (q == NULL)
+		return NULL;
 	cst.vtype=TYPE_int;
 	cst.val.ival= 0;
-	convertConstant(tpe, &cst);
+	cst.len = 0;
+	msg = convertConstant(tpe, &cst);
+	if (msg != MAL_SUCCEED) {
+		GDKfree(msg);
+		return NULL;
+	}
 	_t = defConstant(mb,tpe,&cst);
 
 	return pushArgument(mb, q, _t);
@@ -364,6 +515,8 @@ pushZero(MalBlkPtr mb, InstrPtr q, int tpe)
 InstrPtr
 pushEmptyBAT(MalBlkPtr mb, InstrPtr q, int tpe)
 {
+	if (q == NULL)
+		return NULL;
 	getModuleId(q) = getName("bat",3);
 	getFunctionId(q) = getName("new",3);
 
@@ -378,8 +531,10 @@ pushValue(MalBlkPtr mb, InstrPtr q, ValPtr vr)
 {
 	int _t;
 	ValRecord cst;
-	VALcopy(&cst, vr);
 
+	if (q == NULL)
+		return NULL;
+	VALcopy(&cst, vr);
 	_t = defConstant(mb,cst.vtype,&cst);
 	return pushArgument(mb, q, _t);
 }

@@ -147,6 +147,9 @@ typedef enum comp_type {
 	cmp_equal_nil = 14 		/* special case equi join, with nil = nil */
 } comp_type;
 
+/* for ranges we keep the requirment for symmetric */
+#define CMP_SYMMETRIC 8
+
 #define is_theta_exp(e) ((e) == cmp_gt || (e) == cmp_gte || (e) == cmp_lte ||\
 		         (e) == cmp_lt || (e) == cmp_equal || (e) == cmp_notequal)
 
@@ -285,6 +288,15 @@ typedef struct sql_arg {
 #define IS_FILT(f) (f->type == F_FILT)
 #define IS_UNION(f) (f->type == F_UNION)
 
+#define FUNC_LANG_INT 0	/* internal */
+#define FUNC_LANG_MAL 1 /* create sql external mod.func */
+#define FUNC_LANG_SQL 2 /* create ... sql function/procedure */
+#define FUNC_LANG_R   3 /* create .. language R */
+#define FUNC_LANG_C   4
+#define FUNC_LANG_J   5
+
+#define LANG_EXT(l)  (l>FUNC_LANG_SQL)
+
 typedef struct sql_func {
 	sql_base base;
 
@@ -298,6 +310,7 @@ typedef struct sql_func {
 			   1 sql 
 			   2 sql instantiated proc 
 			*/
+	int lang;
 	char *query;	/* sql code */
 	bit side_effect;
 	bit varres;	/* variable output result */
@@ -547,6 +560,7 @@ extern sql_type *sql_trans_bind_type(sql_trans *tr, sql_schema *s, char *name);
 extern sql_func *find_sql_func(sql_schema * s, char *tname);
 extern list *find_all_sql_func(sql_schema * s, char *tname, int type);
 extern sql_func *sql_trans_bind_func(sql_trans *tr, char *name);
+extern sql_func *sql_trans_find_func(sql_trans *tr, int id);
 extern node *find_sql_func_node(sql_schema *s, int id);
 
 #endif /* SQL_CATALOG_H */

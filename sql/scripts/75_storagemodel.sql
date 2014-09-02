@@ -49,10 +49,6 @@ create table sys.storagemodelinput(
 	"reference" boolean,-- used as foreign key reference
 	"sorted" boolean 	-- if set there is no need for an index
 );
-update sys._tables
-	set system = true
-	where name = 'storagemodelinput'
-		and schema_id = (select id from sys.schemas where name = 'sys');
 -- this table can be adjusted to reflect the anticipated final database size
 
 -- The model input can be derived from the current database using
@@ -95,6 +91,7 @@ begin
 	when nme = 'smallint' then return 2 * i;
 	when nme = 'int'	 then return 4 * i;
 	when nme = 'bigint'	 then return 8 * i;
+	when nme = 'hugeint'	 then return 16 * i;
 	when nme = 'timestamp' then return 8 * i;
 	when  nme = 'varchar' then
 		case
@@ -136,6 +133,7 @@ begin
 		or nme = 'smallint'
 		or nme = 'int'	
 		or nme = 'bigint'	
+		or nme = 'hugeint'	
 		or nme = 'decimal'	
 		or nme = 'date'
 		or nme = 'timestamp'
@@ -181,8 +179,3 @@ as select "schema","table",max(count) as "count",
 	sum(imprints) as imprints,
 	sum(case when sorted = false then 8 * count else 0 end) as auxillary
 from sys.storagemodel() group by "schema","table";
-
-update sys._tables
-	set system = true
-	where name in ('tablestoragemodel', 'storagemodel', 'storage')
-		and schema_id = (select id from sys.schemas where name = 'sys');

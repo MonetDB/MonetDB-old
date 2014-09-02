@@ -385,7 +385,11 @@ static void ctl_handle_client(
 							int setlen = 0;
 							char *sadbfarm;
 
-							msab_getDBfarm(&sadbfarm);
+							if ((err = msab_getDBfarm(&sadbfarm)) != NULL) {
+								Mfprintf(_mero_ctlerr, "%s: internal error: %s\n",
+										 origin, err);
+								exit(0);
+							}
 							snprintf(buf2, sizeof(buf2), "%s/%s", sadbfarm, q);
 							free(sadbfarm);
 							setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_dbpath", buf2);
@@ -418,11 +422,11 @@ static void ctl_handle_client(
 							}
 							GDKinit(set, setlen);
 							vaultkey = buf2;
-							AUTHunlockVault(&vaultkey);
-							err = AUTHinitTables(&p);
-							if (err != NULL) {
+							if ((err = AUTHunlockVault(&vaultkey)) != NULL ||
+								(err = AUTHinitTables(&p)) != NULL) {
 								Mfprintf(_mero_ctlerr, "%s: could not setup "
 										"database '%s': %s\n", origin, q, err);
+								GDKfree(err);
 							} else {
 								/* don't start locked */
 								unlink(".maintenance");
@@ -641,6 +645,7 @@ static void ctl_handle_client(
 				}
 
 				val = strchr(p, '=');
+				assert(val != NULL); /* see above */
 				*val++ = '\0';
 				if (*val == '\0')
 					val = NULL;
@@ -828,7 +833,8 @@ static void ctl_handle_client(
 					/* set uri */
 					setURI(stats);
 					/* currently never fails (just crashes) */
-					msab_serialise(&sdb, stats);
+					if ((e = msab_serialise(&sdb, stats)) != NULL)
+						break;
 					stats->uri = NULL;
 					len = snprintf(buf2, sizeof(buf2), "%s\n", sdb);
 					if (fout == NULL) {
@@ -837,6 +843,16 @@ static void ctl_handle_client(
 						mnstr_printf(fout, "=%s", buf2);
 					}
 					free(sdb);
+				}
+				if (e != NULL) {
+					len = snprintf(buf2, sizeof(buf2),
+							"internal error, please review the logs\n");
+					send_client("!");
+					Mfprintf(_mero_ctlerr, "%s: status: msab_getStatus: "
+							"%s\n", origin, e);
+					msab_freeStatus(&topdb);
+					freeErr(e);
+					break;
 				}
 
 				if (fout != NULL)

@@ -83,11 +83,15 @@ monet5_freestack(int clientid, backend_stack stk)
 static void
 monet5_freecode(int clientid, backend_code code, backend_stack stk, int nr, char *name)
 {
+	str msg;
+
 	(void) code;
 	(void) stk;
 	(void) nr;
 	(void) clientid;
-	SQLCacheRemove(MCgetClient(clientid), name);
+	msg = SQLCacheRemove(MCgetClient(clientid), name);
+	if (msg)
+		GDKfree(msg);	/* do something with error? */
 
 #ifdef _SQL_SCENARIO_DEBUG
 	mnstr_printf(GDKout, "#monet5_free:%d\n", nr);
@@ -196,7 +200,7 @@ MT_Id sqllogthread, minmaxthread;
 static str
 SQLinit(void)
 {
-	char *debug_str = GDKgetenv("sql_debug");
+	char *debug_str = GDKgetenv("sql_debug"), *msg = MAL_SUCCEED;
 	int readonly = GDKgetenv_isyes("gdk_readonly");
 	int single_user = GDKgetenv_isyes("gdk_single_user");
 	const char *gmt = "GMT";
@@ -219,7 +223,9 @@ SQLinit(void)
 	be_funcs.fresolve_function = &monet5_resolve_function;
 	monet5_user_init(&be_funcs);
 
-	MTIMEtimezone(&tz, &gmt);
+	msg = MTIMEtimezone(&tz, &gmt);
+	if (msg)
+		return msg;
 	(void) tz;
 	if (debug_str)
 		SQLdebug = strtol(debug_str, NULL, 10);
@@ -367,6 +373,9 @@ sql_update_feb2013(Client c)
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_samp(val SMALLINT) returns DOUBLE external name \"aggr\".\"stdev\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_samp(val INTEGER) returns DOUBLE external name \"aggr\".\"stdev\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_samp(val BIGINT) returns DOUBLE external name \"aggr\".\"stdev\";\n");
+#ifdef HAVE_HGE
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_samp(val HUGEINT) returns DOUBLE external name \"aggr\".\"stdev\";\n");
+#endif
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_samp(val REAL) returns DOUBLE external name \"aggr\".\"stdev\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_samp(val DOUBLE) returns DOUBLE external name \"aggr\".\"stdev\";\n");
 
@@ -378,6 +387,9 @@ sql_update_feb2013(Client c)
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_pop(val SMALLINT) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_pop(val INTEGER) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_pop(val BIGINT) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
+#ifdef HAVE_HGE
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_pop(val HUGEINT) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
+#endif
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_pop(val REAL) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_pop(val DOUBLE) returns DOUBLE external name \"aggr\".\"stdevp\";\n");
 
@@ -389,6 +401,9 @@ sql_update_feb2013(Client c)
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_samp(val SMALLINT) returns DOUBLE external name \"aggr\".\"variance\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_samp(val INTEGER) returns DOUBLE external name \"aggr\".\"variance\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_samp(val BIGINT) returns DOUBLE external name \"aggr\".\"variance\";\n");
+#ifdef HAVE_HGE
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_samp(val HUGEINT) returns DOUBLE external name \"aggr\".\"variance\";\n");
+#endif
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_samp(val REAL) returns DOUBLE external name \"aggr\".\"variance\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_samp(val DOUBLE) returns DOUBLE external name \"aggr\".\"variance\";\n");
 
@@ -400,6 +415,9 @@ sql_update_feb2013(Client c)
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_pop(val SMALLINT) returns DOUBLE external name \"aggr\".\"variancep\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_pop(val INTEGER) returns DOUBLE external name \"aggr\".\"variancep\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_pop(val BIGINT) returns DOUBLE external name \"aggr\".\"variancep\";\n");
+#ifdef HAVE_HGE
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_pop(val HUGEINT) returns DOUBLE external name \"aggr\".\"variancep\";\n");
+#endif
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_pop(val REAL) returns DOUBLE external name \"aggr\".\"variancep\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.var_pop(val DOUBLE) returns DOUBLE external name \"aggr\".\"variancep\";\n");
 
@@ -569,8 +587,8 @@ update sys._tables\n\
 static str
 sql_update_feb2013_sp3(Client c)
 {
-	char *buf = GDKmalloc(4096), *err = NULL;
 	size_t bufsize = 4096, pos = 0;
+	char *buf = GDKmalloc(bufsize), *err = NULL;
 
 	/* aggregates on type WRD */
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate sys.stddev_samp(val WRD) returns DOUBLE external name \"aggr\".\"stdev\";\n");
@@ -592,14 +610,6 @@ sql_update_feb2013_sp3(Client c)
 	return err;		/* usually MAL_SUCCEED */
 }
 
-/*
- * TODO
- * 	rewrite agrs table, ie add vararg and inout columns
- * 	update all table functions, ie make them type F_UNION
- *	update columns view, ie change storage_type-int into storage - varchar
- *	remove table return types (#..), ie tt_generated from _tables
- *	drop declared schema.
- */
 static str
 sql_update_jan2014(Client c)
 {
@@ -751,6 +761,9 @@ external name sql.sysmon_stop;\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val INTEGER, q DOUBLE) returns INTEGER external name \"aggr\".\"quantile\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val WRD, q DOUBLE) returns WRD external name \"aggr\".\"quantile\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val BIGINT, q DOUBLE) returns BIGINT external name \"aggr\".\"quantile\";\n");
+#ifdef HAVE_HGE
+	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val HUGEINT, q DOUBLE) returns HUGEINT external name \"aggr\".\"quantile\";\n");
+#endif
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val DECIMAL, q DOUBLE) returns DECIMAL external name \"aggr\".\"quantile\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val REAL, q DOUBLE) returns REAL external name \"aggr\".\"quantile\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create aggregate quantile(val DOUBLE, q DOUBLE) returns DOUBLE external name \"aggr\".\"quantile\";\n");
@@ -839,33 +852,137 @@ external name sql.analyze;\n");
 }
 
 static str
-sql_update_default(Client c)
+sql_update_oct2014(Client c)
 {
-	size_t bufsize = 8192, pos = 0;
+	size_t bufsize = 8192*2, pos = 0;
 	char *buf = GDKmalloc(bufsize), *err = NULL;
-	ValRecord *schvar = stack_get_var(((backend *) c->sqlcontext)->mvc, "current_schema");
+	mvc *sql = ((backend*) c->sqlcontext)->mvc;
+	ValRecord *schvar = stack_get_var(sql, "current_schema");
 	char *schema = NULL;
-	char *fullname;
-	FILE *fp;
+	sql_table *t;
+	sql_schema *s;
 
 	if (schvar)
 		schema = strdup(schvar->val.sval);
 
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
 
+	/* cleanup columns of dropped views */
+	pos += snprintf(buf + pos, bufsize - pos, "delete from _columns where table_id not in (select id from _tables);\n");
+
+	/* add new columns */
+	pos += snprintf(buf + pos, bufsize - pos, "insert into _columns values( (select max(id)+1 from _columns), 'system', 'boolean', 1, 0, (select _tables.id from _tables join schemas on _tables.schema_id=schemas.id where schemas.name='sys' and _tables.name='schemas'), NULL, true, 4, NULL);\n");
+	pos += snprintf(buf + pos, bufsize - pos, "insert into _columns values( (select max(id)+1 from _columns), 'varres', 'boolean', 1, 0, (select _tables.id from _tables join schemas on _tables.schema_id=schemas.id where schemas.name='sys' and _tables.name='functions'), NULL, true, 7, NULL);\n");
+	pos += snprintf(buf + pos, bufsize - pos, "insert into _columns values( (select max(id)+1 from _columns), 'vararg', 'boolean', 1, 0, (select _tables.id from _tables join schemas on _tables.schema_id=schemas.id where schemas.name='sys' and _tables.name='functions'), NULL, true, 8, NULL);\n");
+	pos += snprintf(buf + pos, bufsize - pos, "insert into _columns values( (select max(id)+1 from _columns), 'inout', 'tinyint', 8, 0, (select _tables.id from _tables join schemas on _tables.schema_id=schemas.id where schemas.name='sys' and _tables.name='args'), NULL, true, 6, NULL);\n");
+	pos += snprintf(buf + pos, bufsize - pos, "insert into _columns values( (select max(id)+1 from _columns), 'language', 'int', 32, 0, (select _tables.id from _tables join schemas on _tables.schema_id=schemas.id where schemas.name='sys' and _tables.name='functions'), NULL, true, 9, NULL);\n");
+	pos += snprintf(buf + pos, bufsize - pos, "delete from _columns where table_id in (select _tables.id from _tables join schemas on _tables.schema_id=schemas.id where schemas.name='sys' and _tables.name='functions') and name='sql';\n");
+
+	/* correct column numbers */
+	pos += snprintf(buf + pos, bufsize - pos, "update _columns set number='9' where name = 'schema_id' and table_id in (select _tables.id from _tables join schemas on _tables.schema_id=schemas.id where schemas.name='sys' and _tables.name='functions');\n");
+	pos += snprintf(buf + pos, bufsize - pos, "update _columns set number='7' where name = 'number' and table_id in (select _tables.id from _tables join schemas on _tables.schema_id=schemas.id where schemas.name='sys' and _tables.name='args');\n");
+	pos += snprintf(buf + pos, bufsize - pos, "update _columns set number='4' where name = 'language' and table_id in (select _tables.id from _tables join schemas on _tables.schema_id=schemas.id where schemas.name='sys' and _tables.name='functions');\n");
+
+ 	/* remove table return types (#..), ie tt_generated from
+	 * _tables/_columns */
+	pos += snprintf(buf + pos, bufsize - pos, "delete from _columns where table_id in (select id from _tables where name like '#%%');\n");
+	pos += snprintf(buf + pos, bufsize - pos, "delete from _tables where name like '#%%';\n");
+
+	/* all UNION functions need to be drop and recreated */
+	pos += snprintf(buf + pos, bufsize - pos, "create table upgradeOct2014 as (select * from functions where type = 5 and language <> 0) with data;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create table upgradeOct2014_changes (c bigint);\n");
+
+	pos += snprintf(buf + pos, bufsize - pos, "create function drop_func_upgrade_oct2014( id integer ) returns int external name sql.drop_func_upgrade_oct2014;\n"); 
+	pos += snprintf(buf + pos, bufsize - pos, "insert into upgradeOct2014_changes select drop_func_upgrade_oct2014(id) from upgradeOct2014;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop function drop_func_upgrade_oct2014;\n");
+
+	pos += snprintf(buf + pos, bufsize - pos, "create function create_func_upgrade_oct2014( f string ) returns int external name sql.create_func_upgrade_oct2014;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "insert into upgradeOct2014_changes select create_func_upgrade_oct2014(func) from upgradeOct2014;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop function create_func_upgrade_oct2014;\n");
+
+	pos += snprintf(buf + pos, bufsize - pos, "drop table upgradeOct2014_changes;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "drop table upgradeOct2014;\n");
+
 	/* change in 25_debug.sql */
 	pos += snprintf(buf + pos, bufsize - pos, "drop function sys.bbp;\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create function sys.bbp() returns table (id int, name string, htype string, ttype string, count BIGINT, refcnt int, lrefcnt int, location string, heat int, dirty string, status string, kind string) external name bbp.get;\n");
 
 	/* new file 40_json.sql */
-	snprintf(buf + pos, bufsize - pos, "createdb%c40_json", DIR_SEP);
-	if ((fullname = MSP_locate_sqlscript(buf + pos, 1)) != NULL) {
-		if ((fp = fopen(fullname, "r")) != NULL) {
-			pos += fread(buf + pos, 1, bufsize - pos, fp);
-			fclose(fp);
-		}
-		GDKfree(fullname);
-	}
+	pos += snprintf(buf + pos, bufsize - pos, "\
+create schema json;\n\
+\n\
+create type json external name json;\n\
+\n\
+create function json.filter(js json, pathexpr string)\n\
+returns json external name json.filter;\n\
+\n\
+create function json.filter(js json, name tinyint)\n\
+returns json external name json.filter;\n\
+\n\
+create function json.filter(js json, name integer)\n\
+returns json external name json.filter;\n\
+\n\
+create function json.filter(js json, name bigint)\n\
+returns json external name json.filter;\n\
+\n\
+create function json.text(js json, e string)\n\
+returns string external name json.text;\n\
+\n\
+create function json.number(js json)\n\
+returns float external name json.number;\n\
+\n\
+create function json.\"integer\"(js json)\n\
+returns bigint external name json.\"integer\";\n\
+\n\
+create function json.isvalid(js string)\n\
+returns bool external name json.isvalid;\n\
+\n\
+create function json.isobject(js string)\n\
+returns bool external name json.isobject;\n\
+\n\
+create function json.isarray(js string)\n\
+returns bool external name json.isarray;\n\
+\n\
+create function json.isvalid(js json)\n\
+returns bool external name json.isvalid;\n\
+\n\
+create function json.isobject(js json)\n\
+returns bool external name json.isobject;\n\
+\n\
+create function json.isarray(js json)\n\
+returns bool external name json.isarray;\n\
+\n\
+create function json.length(js json)\n\
+returns integer external name json.length;\n\
+\n\
+create function json.keyarray(js json)\n\
+returns json external name json.keyarray;\n\
+\n\
+create function json.valuearray(js json)\n\
+returns  json external name json.valuearray;\n\
+\n\
+create function json.text(js json)\n\
+returns string external name json.text;\n\
+create function json.text(js string)\n\
+returns string external name json.text;\n\
+create function json.text(js int)\n\
+returns string external name json.text;\n\
+\n\
+\n\
+create aggregate json.output(js json)\n\
+returns string external name json.output;\n\
+\n\
+create aggregate json.tojsonarray( x string ) returns string external name aggr.jsonaggr;\n\
+create aggregate json.tojsonarray( x double ) returns string external name aggr.jsonaggr;\n");
+
+	pos += snprintf(buf + pos, bufsize - pos,
+			"update sys.schemas set system = true where name = 'json';\n");
+	pos += snprintf(buf + pos, bufsize - pos,
+			"insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('filter', 'text', 'number', 'integer', 'isvalid', 'isobject', 'isarray', 'length', 'keyarray', 'valuearray') and f.type = %d and f.schema_id = s.id and s.name = 'json');\n",
+			F_FUNC);
+	pos += snprintf(buf + pos, bufsize - pos,
+			"insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('output', 'tojsonarray') and f.type = %d and f.schema_id = s.id and s.name = 'json');\n",
+			F_AGGR);
 
 	/* new file 41_jsonstore.sql */
 	pos += snprintf(buf + pos, bufsize - pos, "create function sys.md5(v string) returns string external name clients.md5sum;\n");
@@ -875,16 +992,14 @@ sql_update_default(Client c)
 	pos += snprintf(buf + pos, bufsize - pos, "create function sys.uuid() returns uuid external name uuid.\"new\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create function sys.isaUUID(u uuid) returns uuid external name uuid.\"isaUUID\";\n");
 
-	pos += snprintf(buf + pos, bufsize - pos,
-			"insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('isauuid', 'md5', 'uuid') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n",
-			F_FUNC);
-
-	if (schema) {
-		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
-		free(schema);
-	}
-
 	/* change to 75_storage functions */
+	s = mvc_bind_schema(sql, "sys");
+	if (s && (t = mvc_bind_table(sql, s, "storage")) != NULL)
+		t->system = 0;
+	if (s && (t = mvc_bind_table(sql, s, "storagemodel")) != NULL)
+		t->system = 0;
+	if (s && (t = mvc_bind_table(sql, s, "tablestoragemodel")) != NULL)
+		t->system = 0;
 	pos += snprintf(buf + pos, bufsize - pos, "update sys._tables set system = false where name in ('storage','storagemodel','tablestoragemodel') and schema_id = (select id from sys.schemas where name = 'sys');\n");
 	pos += snprintf(buf + pos, bufsize - pos, "drop view sys.storage;\n");
 	pos += snprintf(buf + pos, bufsize - pos, "drop function sys.storage();\n");
@@ -894,6 +1009,11 @@ sql_update_default(Client c)
 
 	pos += snprintf(buf + pos, bufsize - pos, "create function sys.storage() returns table (\"schema\" string, \"table\" string, \"column\" string, \"type\" string, location string, \"count\" bigint, typewidth int, columnsize bigint, heapsize bigint, hashes bigint, imprints bigint, sorted boolean) external name sql.storage;\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create view sys.storage as select * from sys.storage();\n");
+
+
+	pos += snprintf(buf + pos, bufsize - pos, "create function sys.hashsize(b boolean, i bigint) returns bigint begin if  b = true then return 8 * i; end if; return 0; end;");
+
+	pos += snprintf(buf + pos, bufsize - pos, "create function sys.imprintsize(i bigint, nme string) returns bigint begin if nme = 'boolean' or nme = 'tinyint' or nme = 'smallint' or nme = 'int'	or nme = 'bigint'	or nme = 'decimal'	or nme = 'date' or nme = 'timestamp' or nme = 'real' or nme = 'double' then return cast( i * 0.12 as bigint); end if ; return 0; end;");
 
 	pos += snprintf(buf + pos, bufsize - pos, "create function sys.storagemodel() returns table ("
 "    \"schema\" string, \"table\" string, \"column\" string, \"type\" string, \"count\" bigint,"
@@ -906,7 +1026,7 @@ sql_update_default(Client c)
 "		I.sorted"
 "		from sys.storagemodelinput I;"
 "	end;\n");
-	pos += snprintf(buf + pos, bufsize - pos, 
+	pos += snprintf(buf + pos, bufsize - pos,
 "create view sys.tablestoragemodel"
 " as select \"schema\",\"table\",max(count) as \"count\","
 "    sum(columnsize) as columnsize,"
@@ -914,9 +1034,63 @@ sql_update_default(Client c)
 "    sum(hashes) as hashes,"
 "    sum(imprints) as imprints,"
 "    sum(case when sorted = false then 8 * count else 0 end) as auxillary"
-"from sys.storagemodel() group by \"schema\",\"table\";\n");
+" from sys.storagemodel() group by \"schema\",\"table\";\n");
 	pos += snprintf(buf + pos, bufsize - pos, "create view sys.storagemodel as select * from sys.storagemodel();\n");
 	pos += snprintf(buf + pos, bufsize - pos, "update sys._tables set system = true where name in ('storage','storagemodel','tablestoragemodel') and schema_id = (select id from sys.schemas where name = 'sys');\n");
+
+	/* new file 90_generator.sql */
+	pos += snprintf(buf+pos, bufsize - pos, "create function sys.generate_series(first tinyint, last tinyint)\n"
+		"returns table (value tinyint)\n"
+		"external name generator.series;\n"
+		"\n"
+		"create function sys.generate_series(first tinyint, last tinyint, stepsize tinyint)\n"
+		"returns table (value tinyint)\n"
+		"external name generator.series;\n"
+		"\n"
+		"create function sys.generate_series(first int, last int)\n"
+		"returns table (value int)\n"
+		"external name generator.series;\n"
+		"\n"
+		"create function sys.generate_series(first int, last int, stepsize int)\n"
+		"returns table (value int)\n"
+		"external name generator.series;\n"
+		"\n"
+		"create function sys.generate_series(first bigint, last bigint)\n"
+		"returns table (value bigint)\n"
+		"external name generator.series;\n"
+		"\n"
+		"create function sys.generate_series(first bigint, last bigint, stepsize bigint)\n"
+		"returns table (value bigint)\n"
+		"external name generator.series;\n"
+		"\n"
+		"create function sys.generate_series(first real, last real, stepsize real)\n"
+		"returns table (value real)\n"
+		"external name generator.series;\n"
+		"\n"
+		"create function sys.generate_series(first double, last double, stepsize double)\n"
+		"returns table (value double)\n"
+		"external name generator.series;\n"
+		"\n"
+		"create function sys.generate_series(first decimal(10,2), last decimal(10,2), stepsize decimal(10,2))\n"
+		"returns table (value decimal(10,2))\n"
+		"external name generator.series;\n"
+		"\n"
+		"create function sys.generate_series(first timestamp, last timestamp, stepsize interval second)\n"
+		"returns table (value timestamp)\n"
+    		"external name generator.series;\n");
+
+	pos += snprintf(buf + pos, bufsize - pos,
+			"insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('hashsize', 'imprintsize', 'isauuid', 'md5', 'uuid') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n",
+			F_FUNC);
+
+	pos += snprintf(buf + pos, bufsize - pos,
+			"insert into sys.systemfunctions (select f.id from sys.functions f, sys.schemas s where f.name in ('bbp', 'db_users', 'env', 'generate_series', 'storage', 'storagemodel', 'var') and f.type = %d and f.schema_id = s.id and s.name = 'sys');\n",
+			F_UNION);
+
+	if (schema) {
+		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
+		free(schema);
+	}
 
 	assert(pos < bufsize);
 
@@ -1024,10 +1198,17 @@ SQLinitClient(Client c)
 					filename = p + 1;
 
 				if (fd) {
-					bfd = bstream_create(fd, 128 * BLOCK);
-					if (bfd && bstream_next(bfd) >= 0)
-						msg = SQLstatementIntern(c, &bfd->buf, "sql.init", TRUE, FALSE);
-					bstream_destroy(bfd);
+					size_t sz;
+					sz = getFileSize(fd);
+					if (sz > (size_t) 1 << 29) {
+						mnstr_destroy(fd);
+						msg = createException(MAL, "createdb", "file %s too large to process", filename);
+					} else {
+						bfd = bstream_create(fd, sz == 0 ? (size_t) (128 * BLOCK) : sz);
+						if (bfd && bstream_next(bfd) >= 0)
+							msg = SQLstatementIntern(c, &bfd->buf, "sql.init", TRUE, FALSE);
+						bstream_destroy(bfd);
+					}
 					if (m->sa)
 						sa_destroy(m->sa);
 					m->sa = NULL;
@@ -1084,7 +1265,7 @@ SQLinitClient(Client c)
 		 * update */
 		sql_find_subtype(&tp, "clob", 0, 0);
 		if (!sql_bind_func(m->sa, mvc_bind_schema(m, "sys"), "md5", &tp, NULL, F_FUNC)) {
-			if ((err = sql_update_default(c)) !=NULL) {
+			if ((err = sql_update_oct2014(c)) !=NULL) {
 				fprintf(stderr, "!%s\n", err);
 				GDKfree(err);
 			}
@@ -1155,7 +1336,7 @@ static void
 SQLtrans(mvc *m)
 {
 	m->caching = m->cache;
-	if (m && !m->session->active)
+	if (!m->session->active)
 		mvc_trans(m);
 }
 
@@ -1200,13 +1381,15 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 		msg = SQLinitEnvironment(c);
 		sql = (backend *) c->sqlcontext;
 	}
-	if (msg)
+	if (msg){
+		GDKfree(msg);
 		throw(SQL, "SQLstatement", "Catalogue not available");
+	}
 
 	initSQLreferences();
 	m = sql->mvc;
 	ac = m->session->auto_commit;
-	o = NEW(mvc);
+	o = MNEW(mvc);
 	if (!o)
 		throw(SQL, "SQLstatement", "Out of memory");
 	*o = *m;
@@ -1278,7 +1461,7 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 		 * to the next statement (if any).
 		 * Now is the time to also perform the semantic analysis,
 		 * optimize and produce code.
-		 * We don;t search the cache for a previous incarnation yet.
+		 * We don't search the cache for a previous incarnation yet.
 		 */
 		MSinitClientPrg(c, "user", nme);
 		oldvtop = c->curprg->def->vtop;
@@ -1417,6 +1600,7 @@ SQLinclude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg = MAL_SUCCEED, fullname;
 	str *expr;
 	mvc *m;
+	size_t sz;
 
 	fullname = MSP_locate_sqlscript(*name, 0);
 	if (fullname == NULL)
@@ -1426,9 +1610,16 @@ SQLinclude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		mnstr_destroy(fd);
 		throw(MAL, "sql.include", "could not open file: %s\n", *name);
 	}
-	bfd = bstream_create(fd, 128 * BLOCK);
-	if (bstream_next(bfd) < 0)
+	sz = getFileSize(fd);
+	if (sz > (size_t) 1 << 29) {
+		mnstr_destroy(fd);
+		throw(MAL, "sql.include", "file %s too large to process", fullname);
+	}
+	bfd = bstream_create(fd, sz == 0 ? (size_t) (128 * BLOCK) : sz);
+	if (bstream_next(bfd) < 0) {
+		bstream_destroy(bfd);
 		throw(MAL, "sql.include", "could not read %s\n", *name);
+	}
 
 	expr = &bfd->buf;
 	msg = SQLstatementIntern(cntxt, expr, "sql.include", TRUE, FALSE);
@@ -1827,7 +2018,7 @@ SQLparser(Client c)
 			int commit;
 			v = (int) strtol(in->buf + in->pos + 12, NULL, 10);
 			commit = (!m->session->auto_commit && v);
-			m->session->auto_commit = (v) ? 1 : 0;
+			m->session->auto_commit = (v) != 0;
 			m->session->ac_on_commit = m->session->auto_commit;
 			if (m->session->active) {
 				if (commit && mvc_commit(m, 0, NULL) < 0) {
@@ -2133,7 +2324,7 @@ SQLengineIntern(Client c, backend *be)
 			printFunction(c->fdout, ((Symbol) (be->q->code))->def, 0, LIST_MAL_STMT | LIST_MAL_UDF | LIST_MAPI);
 		else if (be->q)
 			msg = createException(PARSE, "SQLparser", "%s", (*m->errstr) ? m->errstr : "39000!program contains errors");
-		else if (c->curprg && c->curprg->def)
+		else if (c->curprg->def)
 			printFunction(c->fdout, c->curprg->def, 0, LIST_MAL_STMT | LIST_MAL_UDF | LIST_MAPI);
 		goto cleanup_engine;
 	}
@@ -2142,7 +2333,7 @@ SQLengineIntern(Client c, backend *be)
 			showFlowGraph(((Symbol) (be->q->code))->def, 0, "stdout-mapi");
 		else if (be->q)
 			msg = createException(PARSE, "SQLparser", "%s", (*m->errstr) ? m->errstr : "39000!program contains errors");
-		else if (c->curprg && c->curprg->def)
+		else if (c->curprg->def)
 			showFlowGraph(c->curprg->def, 0, "stdout-mapi");
 		goto cleanup_engine;
 	}
@@ -2177,7 +2368,7 @@ SQLengineIntern(Client c, backend *be)
 		msg = (str) runMAL(c, c->curprg->def, 0, 0);
 	}
 
-      cleanup_engine:
+cleanup_engine:
 	if (m->type == Q_SCHEMA)
 		qc_clean(m->qc);
 	if (msg) {
@@ -2188,7 +2379,9 @@ SQLengineIntern(Client c, backend *be)
 			be->language = oldlang;
 			assert(c->glb == 0 || c->glb == oldglb);	/* detect leak */
 			c->glb = oldglb;
-			return SQLrecompile(c, be);
+			if ( msg)
+				GDKfree(msg);
+			return SQLrecompile(c, be); // retry compilation
 		} else {
 			/* don't print exception decoration, just the message */
 			char *n = NULL;
@@ -2210,7 +2403,7 @@ SQLengineIntern(Client c, backend *be)
 	if (m->type != Q_SCHEMA && be->q && msg) {
 		qc_delete(m->qc, be->q);
 	} else if (m->type != Q_SCHEMA && be->q && mb && varGetProp(mb, getArg(p = getInstrPtr(mb, 0), 0), runonceProp)) {
-		SQLCacheRemove(c, getFunctionId(p));
+		msg = SQLCacheRemove(c, getFunctionId(p));
 		qc_delete(be->mvc->qc, be->q);
 		///* this should invalidate any match */
 		//be->q->key= -1;
@@ -2238,8 +2431,11 @@ SQLrecompile(Client c, backend *be)
 	mvc *m = be->mvc;
 	int oldvtop = c->curprg->def->vtop;
 	int oldstop = c->curprg->def->stop;
+	str msg;
 
-	SQLCacheRemove(c, be->q->name);
+	msg = SQLCacheRemove(c, be->q->name);
+	if( msg )
+		GDKfree(msg);
 	s = sql_relation2stmt(m, be->q->rel);
 	be->q->code = (backend_code) backend_dumpproc(be, c, be->q, s);
 	be->q->stk = 0;
@@ -2345,6 +2541,34 @@ SQLassertLng(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	return MAL_SUCCEED;
 }
+
+#ifdef HAVE_HGE
+str
+SQLassertHge(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+	hge *flg = (hge*) getArgReference(stk,pci, 1);
+	str *msg = (str*) getArgReference(stk,pci, 2);
+	(void) cntxt;
+	(void)mb;
+	if (*flg){
+		const char *sqlstate = "M0M29!";
+		/* mdbDump(mb,stk,pci);*/
+		if (strlen(*msg) > 6 && (*msg)[5] == '!' &&
+		    (('0' <= (*msg)[0] && (*msg)[0] <= '9') ||
+		     ('A' <= (*msg)[0] && (*msg)[0] <= 'Z')) &&
+		    (('0' <= (*msg)[1] && (*msg)[1] <= '9') ||
+		     ('A' <= (*msg)[1] && (*msg)[1] <= 'Z')) &&
+		    (('0' <= (*msg)[2] && (*msg)[2] <= '9') ||
+		     ('A' <= (*msg)[2] && (*msg)[2] <= 'Z')) &&
+		    (('0' <= (*msg)[3] && (*msg)[3] <= '9') ||
+		     ('A' <= (*msg)[3] && (*msg)[3] <= 'Z')) &&
+		    (('0' <= (*msg)[4] && (*msg)[4] <= '9') ||
+		     ('A' <= (*msg)[4] && (*msg)[4] <= 'Z')))
+			sqlstate = "";
+		throw(SQL, "assert", "%s%s", sqlstate, *msg);
+	}
+	return MAL_SUCCEED;
+}
+#endif
 
 str
 SQLCacheRemove(Client c, str nme)

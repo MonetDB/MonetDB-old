@@ -54,7 +54,6 @@ mal_mapi_export str SERVERlisten_usock(int *ret, str *usock);
 mal_mapi_export str SERVERstop(int *ret);
 mal_mapi_export str SERVERsuspend(int *ret);
 mal_mapi_export str SERVERresume(int *ret);
-mal_mapi_export void SERVERexit(void);
 
 mal_mapi_export str SERVERconnect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc);
 mal_mapi_export str SERVERdisconnectWithAlias(int *ret, str *db_alias);
@@ -82,6 +81,9 @@ mal_mapi_export str SERVERfetch_all_rows(lng *ret, int *idx);
 mal_mapi_export str SERVERfetch_field_str(str *ret, int *idx, int *fnr);
 mal_mapi_export str SERVERfetch_field_int(int *ret, int *idx, int *fnr);
 mal_mapi_export str SERVERfetch_field_lng(lng *ret, int *idx, int *fnr);
+#ifdef HAVE_HGE
+mal_mapi_export str SERVERfetch_field_hge(hge *ret, int *idx, int *fnr);
+#endif
 mal_mapi_export str SERVERfetch_field_sht(sht *ret, int *idx, int *fnr);
 mal_mapi_export str SERVERfetch_field_void(oid *ret, int *idx, int *fnr);
 mal_mapi_export str SERVERfetch_field_oid(oid *ret, int *idx, int *fnr);

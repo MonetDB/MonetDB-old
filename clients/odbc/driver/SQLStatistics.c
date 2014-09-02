@@ -142,39 +142,52 @@ SQLStatistics_(ODBCStmt *stmt,
 			cat = ODBCParseOA("e", "value",
 					  (const char *) CatalogName,
 					  (size_t) NameLength1);
+			if (cat == NULL)
+				goto nomem;
 		}
 		if (NameLength2 > 0) {
 			sch = ODBCParseOA("s", "name",
 					  (const char *) SchemaName,
 					  (size_t) NameLength2);
+			if (sch == NULL)
+				goto nomem;
 		}
 		if (NameLength3 > 0) {
 			tab = ODBCParseOA("t", "name",
 					  (const char *) TableName,
 					  (size_t) NameLength3);
+			if (tab == NULL)
+				goto nomem;
 		}
 	} else {
 		if (NameLength1 > 0) {
 			cat = ODBCParseID("e", "value",
 					  (const char *) CatalogName,
 					  (size_t) NameLength1);
+			if (cat == NULL)
+				goto nomem;
 		}
 		if (NameLength2 > 0) {
 			sch = ODBCParseID("s", "name",
 					  (const char *) SchemaName,
 					  (size_t) NameLength2);
+			if (sch == NULL)
+				goto nomem;
 		}
 		if (NameLength3 > 0) {
 			tab = ODBCParseID("t", "name",
 					  (const char *) TableName,
 					  (size_t) NameLength3);
+			if (tab == NULL)
+				goto nomem;
 		}
 	}
 
 	/* construct the query now */
 	query = malloc(1200 + (cat ? strlen(cat) : 0) +
 		       (sch ? strlen(sch) : 0) + (tab ? strlen(tab) : 0));
-	assert(query);
+	if (query == NULL)
+		goto nomem;
 	query_end = query;
 
 	/* SQLStatistics returns a table with the following columns:
@@ -194,32 +207,35 @@ SQLStatistics_(ODBCStmt *stmt,
 	 */
 	/* TODO: finish the SQL query */
 	sprintf(query_end,
-		"select "
-		"e.\"value\" as table_cat, "
-		"s.\"name\" as table_schem, "
-		"t.\"name\" as table_name, "
-		"case when k.\"name\" is null then cast(1 as smallint) "
-		"else cast(0 as smallint) end as non_unique, "
-		"cast(null as varchar(1)) as index_qualifier, "
-		"i.\"name\" as index_name, "
-		"case i.\"type\" when 0 then cast(%d as smallint) "
-		"else cast(%d as smallint) end as type, "
-		"cast(kc.\"nr\" as smallint) as ordinal_position, "
-		"c.\"name\" as column_name, "
-		"cast(null as char(1)) as asc_or_desc, "
-		"cast(null as integer) as cardinality, "
-		"cast(null as integer) as pages, "
-		"cast(null as varchar(1)) as filter_condition "
-		"from sys.\"idxs\" i, sys.\"schemas\" s, sys.\"tables\" t, "
-		"sys.\"columns\" c,  sys.\"objects\" kc, sys.\"keys\" k, "
-		"sys.\"env\"() e "
-		"where i.\"table_id\" = t.\"id\" and "
-		"t.\"schema_id\" = s.\"id\" and "
-		"i.\"id\" = kc.\"id\" and "
-		"t.\"id\" = c.\"table_id\" and "
-		"kc.\"name\" = c.\"name\" and "
-		"(k.\"type\" is null or k.\"type\" = 1) and "
-		"e.\"name\" = 'gdk_dbname'",
+		"select e.value as table_cat, "
+		       "s.name as table_schem, "
+		       "t.name as table_name, "
+		       "case when k.name is null then cast(1 as smallint) "
+		            "else cast(0 as smallint) end as non_unique, "
+		       "cast(null as varchar(1)) as index_qualifier, "
+		       "i.name as index_name, "
+		       "case i.type when 0 then cast(%d as smallint) "
+		                   "else cast(%d as smallint) end as type, "
+		       "cast(kc.nr as smallint) as ordinal_position, "
+		       "c.name as column_name, "
+		       "cast(null as char(1)) as asc_or_desc, "
+		       "cast(null as integer) as cardinality, "
+		       "cast(null as integer) as pages, "
+		       "cast(null as varchar(1)) as filter_condition "
+		"from sys.idxs i, "
+		     "sys.schemas s, "
+		     "sys.tables t, "
+		     "sys.columns c, "
+		     "sys.objects kc, "
+		     "sys.keys k, "
+		     "sys.env() e "
+		"where i.table_id = t.id and "
+		      "t.schema_id = s.id and "
+		      "i.id = kc.id and "
+		      "t.id = c.table_id and "
+		      "kc.name = c.name and "
+		      "(k.type is null or k.type = 1) and "
+		      "e.name = 'gdk_dbname'",
 		SQL_INDEX_HASHED, SQL_INDEX_OTHER);
 	assert(strlen(query) < 1000);
 	query_end += strlen(query_end);
@@ -258,6 +274,18 @@ SQLStatistics_(ODBCStmt *stmt,
 	free(query);
 
 	return rc;
+
+  nomem:
+	/* note that query must be NULL when we get here */
+	if (cat)
+		free(cat);
+	if (sch)
+		free(sch);
+	if (tab)
+		free(tab);
+	/* Memory allocation error */
+	addStmtError(stmt, "HY001", NULL, 0);
+	return SQL_ERROR;
 }
 
 SQLRETURN SQL_API

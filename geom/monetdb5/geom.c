@@ -157,11 +157,24 @@ mbrFROMSTR(char *src, int *len, mbr **atom)
 	int nil = 0;
 	int nchars = 0;	/* The number of characters parsed; the return value. */
 	GEOSGeom geosMbr = NULL; /* The geometry object that is parsed from the src string. */
+	double xmin = 0, ymin = 0, xmax = 0, ymax = 0;
+	char *c;
 
 	if (strcmp(src, str_nil) == 0)
 		nil = 1;
 
-	if (!nil && (geosMbr = GEOSGeomFromWKT(src)) == NULL)
+	if (!nil && strstr(src,"BOX") ==  src && (c = strstr(src,"(")) != NULL) {
+		/* Parse the mbr */
+		if ((c - src) != 3 && (c - src) != 4) {
+			GDKerror("ParseException: Expected a string like 'BOX(0 0,1 1)' or 'BOX (0 0,1 1)'\n");
+			return 0;
+		}
+
+		if (sscanf(c,"(%lf %lf,%lf %lf)", &xmin, &ymin, &xmax, &ymax) != 4) {
+			GDKerror("ParseException: Not enough coordinates.\n");
+			return 0;
+		}
+	} else if (!nil && (geosMbr = GEOSGeomFromWKT(src)) == NULL)
 		return 0;
 
 	if (*len < (int) sizeof(mbr)) {
@@ -172,6 +185,19 @@ mbrFROMSTR(char *src, int *len, mbr **atom)
 	if (nil) {
 		nchars = 3;
 		**atom = *mbrNULL();
+	} else if (geosMbr == NULL) {
+		size_t l;
+		assert(GDK_flt_min <= xmin && xmin <= GDK_flt_max);
+		assert(GDK_flt_min <= xmax && xmax <= GDK_flt_max);
+		assert(GDK_flt_min <= ymin && ymin <= GDK_flt_max);
+		assert(GDK_flt_min <= ymax && ymax <= GDK_flt_max);
+		(*atom)->xmin = (float) xmin;
+		(*atom)->ymin = (float) ymin;
+		(*atom)->xmax = (float) xmax;
+		(*atom)->ymax = (float) ymax;
+		l = strlen(src);
+		assert(l <= GDK_int_max);
+		nchars = (int) l;
 	} else if (getMbrGeos(*atom, geosMbr)) {
 		size_t l = strlen(src);
 		assert(l <= GDK_int_max);
@@ -231,12 +257,12 @@ mbrCOMP(mbr *l, mbr *r)
 	/* simple lexicographical ordering on (x,y) */
 	int res;
 	if (l->xmin == r->xmin)
-		res = (l->ymin < r->ymin) ? -1 : (l->ymin == r->ymin) ? 0 : 1;
+		res = (l->ymin < r->ymin) ? -1 : (l->ymin != r->ymin);
 	else
 		res = (l->xmin < r->xmin) ? -1 : 1;
 	if (res == 0) {
 		if (l->xmax == r->xmax)
-			res = (l->ymax < r->ymax) ? -1 : (l->ymax == r->ymax) ? 0 : 1;
+			res = (l->ymax < r->ymax) ? -1 : (l->ymax != r->ymax);
 		else
 			res = (l->xmax < r->xmax) ? -1 : 1;
 	}
@@ -556,7 +582,7 @@ wkbREAD(wkb *a, stream *s, size_t cnt)
 
 	(void) cnt;
 	assert(cnt == 1);
-	if (!mnstr_readInt(s, &len))
+	if (mnstr_readInt(s, &len) != 1)
 		return NULL;
 	if ((a = GDKmalloc(wkb_size(len))) == NULL)
 		return NULL;
@@ -765,7 +791,7 @@ wkbcreatepoint_bat(int *out, int *ix, int *iy)
 		throw(MAL, "geom.point", "both arguments must have dense and aligned heads");
 	}
 
-	if ((bo = BATnew(TYPE_void, ATOMindex("wkb"), BATcount(bx))) == NULL) {
+	if ((bo = BATnew(TYPE_void, ATOMindex("wkb"), BATcount(bx), TRANSIENT)) == NULL) {
 		BBPreleaseref(bx->batCacheid);
 		BBPreleaseref(by->batCacheid);
 		throw(MAL, "geom.point", MAL_MALLOC_FAIL);
@@ -777,10 +803,13 @@ wkbcreatepoint_bat(int *out, int *ix, int *iy)
 	for (i = 0; i < BATcount(bx); i++) {
 		str err = NULL;
 		if ((err = wkbcreatepoint(&p, &x[i], &y[i])) != MAL_SUCCEED) {
+			str msg;
 			BBPreleaseref(bx->batCacheid);
 			BBPreleaseref(by->batCacheid);
 			BBPreleaseref(bo->batCacheid);
-			throw(MAL, "geom.point", "%s", err);
+			msg = createException(MAL, "geom.point", "%s", err);
+			GDKfree(err);
+			return msg;
 		}
 		BUNappend(bo,p,TRUE);
 		GDKfree(p);

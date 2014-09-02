@@ -648,8 +648,10 @@ rel_update_join_idx(mvc *sql, sql_idx *i, sql_rel *updates)
 			rnll_exps = rnl;
 		    }
 		}
-		if (rel_convert_types(sql, &rtc, &upd, 1, type_equal) < 0) 
+		if (rel_convert_types(sql, &rtc, &upd, 1, type_equal) < 0) {
+			list_destroy(join_exps);
 			return NULL;
+		}
 		je = exp_compare(sql->sa, rtc, upd, cmp_equal);
 		append(join_exps, je);
 	}
@@ -758,11 +760,12 @@ rel_update(mvc *sql, sql_rel *t, sql_rel *uprel, sql_exp **updates, list *exps)
 	sql_table *tab = get_table(t);
 	node *m;
 
+	if (tab)
 	for (m = tab->columns.set->h; m; m = m->next) {
 		sql_column *c = m->data;
 		sql_exp *v = updates[c->colnr];
 
-		if (tab && tab->idxs.set && !v) 
+		if (tab->idxs.set && !v) 
 			v = exp_column(sql->sa, tab->base.name, c->base.name, &c->type, CARD_MULTI, c->null, 0);
 		if (v)
 			rel_project_add_exp(sql, uprel, v);
@@ -828,7 +831,7 @@ update_table(mvc *sql, dlist *qname, dlist *assignmentlist, symbol *opt_where)
 	} else {
 		sql_exp *e = NULL, **updates;
 		sql_rel *r = NULL;
-		list *exps = new_exp_list(sql->sa);
+		list *exps;
 		dnode *n;
 
 		if (t && !isTempTable(t) && STORE_READONLY)
@@ -859,6 +862,7 @@ update_table(mvc *sql, dlist *qname, dlist *assignmentlist, symbol *opt_where)
 	
 		/* first create the project */
 		e = exp_column(sql->sa, rel_name(r), TID, sql_bind_localtype("oid"), CARD_MULTI, 0, 1);
+		exps = new_exp_list(sql->sa);
 		append(exps, e);
 		updates = table_update_array(sql, t);
 		for (n = assignmentlist->h; n; n = n->next) {
@@ -1062,9 +1066,11 @@ rel_import(mvc *sql, sql_table *t, char *tsep, char *rsep, char *ssep, char *ns,
 	sql_subtype tpe;
 	sql_exp *import;
 	sql_schema *sys = mvc_bind_schema(sql, "sys");
-	int len = 7 + (filename?1:0);
+	int len = 7 + (filename != NULL);
 	sql_subfunc *f = sql_find_func(sql->sa, sys, "copyfrom", len, F_UNION); 
 	
+	if (!f) /* we do expect copyfrom to be there */
+		return NULL;
 	f->res = table_column_types(sql->sa, t);
  	sql_find_subtype(&tpe, "varchar", 0, 0);
 	args = append( append( append( append( append( append( new_exp_list(sql->sa), 
@@ -1090,7 +1096,7 @@ rel_import(mvc *sql, sql_table *t, char *tsep, char *rsep, char *ssep, char *ns,
 		sql_column *c = n->data;
 		append(exps, exp_column(sql->sa, t->base.name, c->base.name, &c->type, CARD_MULTI, c->null, 0));
 	}
-	res = rel_table_func(sql->sa, NULL, import, exps);
+	res = rel_table_func(sql->sa, NULL, import, exps, 1);
 	return res;
 }
 
@@ -1262,7 +1268,7 @@ bincopyfrom(mvc *sql, dlist *qname, dlist *files, int constraint)
 		sql_column *c = n->data;
 		append(exps, exp_column(sql->sa, t->base.name, c->base.name, &c->type, CARD_MULTI, c->null, 0));
 	}
-	res = rel_table_func(sql->sa, NULL, import, exps);
+	res = rel_table_func(sql->sa, NULL, import, exps, 1);
 	res = rel_insert_table(sql, t, t->base.name, res);
 	if (res && !constraint)
 		res->flag |= UPD_NO_CONSTRAINT;

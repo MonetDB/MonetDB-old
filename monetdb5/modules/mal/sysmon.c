@@ -43,17 +43,18 @@ SYSMONqueue(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int i, prog;
 	str usr;
 	timestamp ts, tsn;
-	
+	str msg;
+
 	(void) cntxt;
 	(void) mb;
-	tag = BATnew(TYPE_void, TYPE_lng, 256);
-	user = BATnew(TYPE_void, TYPE_str, 256);
-	started = BATnew(TYPE_void, TYPE_lng, 256);
-	estimate = BATnew(TYPE_void, TYPE_lng, 256);
-	progress = BATnew(TYPE_void, TYPE_int, 256);
-	activity = BATnew(TYPE_void, TYPE_str, 256);
-	oids = BATnew(TYPE_void, TYPE_oid, 256);
-	query = BATnew(TYPE_void, TYPE_str, 256);
+	tag = BATnew(TYPE_void, TYPE_lng, 256, TRANSIENT);
+	user = BATnew(TYPE_void, TYPE_str, 256, TRANSIENT);
+	started = BATnew(TYPE_void, TYPE_lng, 256, TRANSIENT);
+	estimate = BATnew(TYPE_void, TYPE_lng, 256, TRANSIENT);
+	progress = BATnew(TYPE_void, TYPE_int, 256, TRANSIENT);
+	activity = BATnew(TYPE_void, TYPE_str, 256, TRANSIENT);
+	oids = BATnew(TYPE_void, TYPE_oid, 256, TRANSIENT);
+	query = BATnew(TYPE_void, TYPE_str, 256, TRANSIENT);
 	if ( tag == NULL || query == NULL || started == NULL || estimate == NULL || progress == NULL || activity == NULL || oids == NULL){
 		if (tag) BBPreleaseref(tag->batCacheid);
 		if (user) BBPreleaseref(user->batCacheid);
@@ -108,16 +109,24 @@ SYSMONqueue(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 		/* convert number of seconds into a timestamp */
 		now = QRYqueue[i].start * 1000;
-		(void) MTIMEunix_epoch(&ts);
-		(void) MTIMEtimestamp_add(&tsn, &ts, &now);
+		msg = MTIMEunix_epoch(&ts);
+		if (msg)
+			goto bailout;
+		msg = MTIMEtimestamp_add(&tsn, &ts, &now);
+		if (msg)
+			goto bailout;
 		BUNappend(started, &tsn, FALSE);
 
 		if ( QRYqueue[i].mb->runtime == 0)
 			BUNappend(estimate, timestamp_nil, FALSE);
 		else{
 			now = (QRYqueue[i].start * 1000 + QRYqueue[i].mb->runtime);
-			(void) MTIMEunix_epoch(&ts);
-			(void) MTIMEtimestamp_add(&tsn, &ts, &now);
+			msg = MTIMEunix_epoch(&ts);
+			if (msg)
+				goto bailout;
+			msg = MTIMEtimestamp_add(&tsn, &ts, &now);
+			if (msg)
+				goto bailout;
 			BUNappend(estimate, &tsn, FALSE);
 		}
 		BUNappend(oids, &QRYqueue[i].mb->tag, FALSE);
@@ -133,6 +142,18 @@ SYSMONqueue(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BBPkeepref( *o =oids->batCacheid);
 	BBPkeepref( *q =query->batCacheid);
 	return MAL_SUCCEED;
+
+  bailout:
+	MT_lock_unset(&mal_delayLock, "sysmon");
+	BBPreleaseref(tag->batCacheid);
+	BBPreleaseref(user->batCacheid);
+	BBPreleaseref(query->batCacheid);
+	BBPreleaseref(activity->batCacheid);
+	BBPreleaseref(started->batCacheid);
+	BBPreleaseref(estimate->batCacheid);
+	BBPreleaseref(progress->batCacheid);
+	BBPreleaseref(oids->batCacheid);
+	return msg;
 }
 
 str
@@ -145,7 +166,16 @@ SYSMONpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	switch( getArgType(mb,pci,1)){
 	case TYPE_sht: tag = *(sht*) getArgReference(stk,pci,1); break;
 	case TYPE_int: tag = *(int*) getArgReference(stk,pci,1); break;
-	case TYPE_lng: tag = *(lng*) getArgReference(stk,pci,1); 
+	case TYPE_lng: tag = *(lng*) getArgReference(stk,pci,1); break;
+#ifdef HAVE_HGE
+	case TYPE_hge:
+		/* Does this happen?
+		 * If so, what do we have TODO ? */
+		throw(MAL, "SYSMONpause", "type hge not handled, yet");
+		break;
+#endif
+	default:
+		assert(0);
 	}
 	MT_lock_set(&mal_delayLock, "sysmon");
 	for ( i = 0; QRYqueue[i].tag; i++)
@@ -167,7 +197,16 @@ SYSMONresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	switch( getArgType(mb,pci,1)){
 	case TYPE_sht: tag = *(sht*) getArgReference(stk,pci,1); break;
 	case TYPE_int: tag = *(int*) getArgReference(stk,pci,1); break;
-	case TYPE_lng: tag = *(lng*) getArgReference(stk,pci,1); 
+	case TYPE_lng: tag = *(lng*) getArgReference(stk,pci,1); break;
+#ifdef HAVE_HGE
+	case TYPE_hge:
+		/* Does this happen?
+		 * If so, what do we have TODO ? */
+		throw(MAL, "SYSMONresume", "type hge not handled, yet");
+		break;
+#endif
+	default:
+		assert(0);
 	}
 	MT_lock_set(&mal_delayLock, "sysmon");
 	for ( i = 0; QRYqueue[i].tag; i++)
@@ -189,7 +228,16 @@ SYSMONstop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	switch( getArgType(mb,pci,1)){
 	case TYPE_sht: tag = *(sht*) getArgReference(stk,pci,1); break;
 	case TYPE_int: tag = *(int*) getArgReference(stk,pci,1); break;
-	case TYPE_lng: tag = *(lng*) getArgReference(stk,pci,1); 
+	case TYPE_lng: tag = *(lng*) getArgReference(stk,pci,1); break;
+#ifdef HAVE_HGE
+	case TYPE_hge:
+		/* Does this happen?
+		 * If so, what do we have TODO ? */
+		throw(MAL, "SYSMONstop", "type hge not handled, yet");
+		break;
+#endif
+	default:
+		assert(0);
 	}
 	MT_lock_set(&mal_delayLock, "sysmon");
 	for ( i = 0; QRYqueue[i].tag; i++)

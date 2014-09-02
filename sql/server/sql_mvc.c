@@ -38,7 +38,7 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 	int first = 0;
 	char *logdir = "sql_logs";
 
-	mvc_debug = debug;
+	mvc_debug = debug&4;
 	if (mvc_debug)
 		fprintf(stderr, "#mvc_init logdir %s\n", logdir);
 	keyword_init();
@@ -65,7 +65,7 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 		s = m->session->schema = mvc_bind_schema(m, "sys");
 		assert(m->session->schema != NULL);
 
-		if (catalog_version) {
+		if (!first) {
 			t = mvc_bind_table(m, s, "tables");
 			mvc_drop_table(m, s, t, 0);
 			t = mvc_bind_table(m, s, "columns");
@@ -83,7 +83,7 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 		mvc_create_column_(m, t, "readonly", "boolean", 1);
 		mvc_create_column_(m, t, "temporary", "smallint", 16);
 
-		if (catalog_version) {
+		if (!first) {
 			int pub = ROLE_PUBLIC;
 			int p = PRIV_SELECT;
 			int zero = 0;
@@ -103,15 +103,13 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 		mvc_create_column_(m, t, "number", "int", 32);
 		mvc_create_column_(m, t, "storage", "varchar", 2048);
 
-		if (catalog_version) {
+		if (!first) {
 			int pub = ROLE_PUBLIC;
 			int p = PRIV_SELECT;
 			int zero = 0;
 			sql_table *privs = find_sql_table(s, "privileges");
 			table_funcs.table_insert(m->session->tr, privs, &t->base.id, &pub, &p, &zero, &zero);
-		}
-
-		if (!catalog_version) {
+		} else { 
 			sql_create_env(m, s);
 			sql_create_privileges(m, s);
 		}
@@ -241,11 +239,6 @@ build up the hash (not copyied in the trans dup)) */
 	}
 	cur -> parent = tr;
 	tr = cur;
-	if (ok != SQL_OK) {
-		(void)sql_error(m, 010, "40000!COMMIT: transaction is aborted, will ROLLBACK instead");
-		mvc_rollback(m, chain, name);
-		return -1;
-	}
 
 	store_lock();
 	/* if there is nothing to commit reuse the current transaction */
@@ -366,6 +359,9 @@ mvc_release(mvc *m, char *name)
 
 	if (mvc_debug)
 		fprintf(stderr, "#mvc_release %s\n", (name) ? name : "");
+
+	if (!name)
+		mvc_rollback(m, 0, name);
 
 	while (tr && (!tr->name || strcmp(tr->name, name) != 0))
 		tr = tr->parent;
@@ -639,7 +635,7 @@ mvc_bind_table(mvc *m, sql_schema *s, char *tname)
 	if (!t)
 		return NULL;
 	if (mvc_debug)
-		fprintf(stderr, "#mvc_bind_table %s.%s\n", s->base.name, tname);
+		fprintf(stderr, "#mvc_bind_table %s.%s\n", s ? s->base.name : "<noschema>", tname);
 
 	return t;
 }
@@ -784,17 +780,17 @@ mvc_create_type(mvc *sql, sql_schema * s, char *name, int digits, int scale, int
 }
 
 sql_func *
-mvc_create_func(mvc *sql, sql_allocator *sa, sql_schema * s, char *name, list *args, list *res, int type, char *mod, char *impl, char *query, bit varres, bit vararg)
+mvc_create_func(mvc *sql, sql_allocator *sa, sql_schema * s, char *name, list *args, list *res, int type, int lang, char *mod, char *impl, char *query, bit varres, bit vararg)
 {
 	sql_func *f = NULL;
 
 	if (mvc_debug)
 		fprintf(stderr, "#mvc_create_func %s\n", name);
 	if (sa) {
-		f = create_sql_func(sa, name, args, res, type, mod, impl, query, varres, vararg);
+		f = create_sql_func(sa, name, args, res, type, lang, mod, impl, query, varres, vararg);
 		f->s = s;
 	} else 
-		f = sql_trans_create_func(sql->session->tr, s, name, args, res, type, mod, impl, query, varres, vararg);
+		f = sql_trans_create_func(sql->session->tr, s, name, args, res, type, lang, mod, impl, query, varres, vararg);
 	return f;
 }
 
@@ -1247,7 +1243,7 @@ stack_set(mvc *sql, int var, char *name, sql_subtype *type, sql_rel *rel, sql_ta
 	v->type.type = NULL;
 	if (type) {
 		int tpe = type->type->localtype;
-		VALinit(&sql->vars[var].value, tpe, ATOMnil(tpe));
+		VALinit(&sql->vars[var].value, tpe, ATOMnilptr(tpe));
 		v->type = *type;
 	}
 	if (name)
@@ -1334,7 +1330,7 @@ stack_pop_frame(mvc *sql)
 		_DELETE(v->name);
 		VALclear(&v->value);
 		v->value.vtype = 0;
-		if (v->t) 
+		if (v->t && v->view) 
 			table_destroy(v->t);
 		else if (v->rel)
 			rel_destroy(v->rel);
@@ -1486,11 +1482,19 @@ stack_get_string(mvc *sql, char *name)
 }
 
 void
+#ifdef HAVE_HGE
+stack_set_number(mvc *sql, char *name, hge val)
+#else
 stack_set_number(mvc *sql, char *name, lng val)
+#endif
 {
 	ValRecord *v = stack_get_var(sql, name);
 
 	if (v != NULL) {
+#ifdef HAVE_HGE
+		if (v->vtype == TYPE_hge) 
+			v->val.hval = val;
+#endif
 		if (v->vtype == TYPE_lng) 
 			v->val.lval = val;
 		if (v->vtype == TYPE_int) 
@@ -1508,10 +1512,18 @@ stack_set_number(mvc *sql, char *name, lng val)
 	}
 }
 
+#ifdef HAVE_HGE
+hge
+#else
 lng
+#endif
 val_get_number(ValRecord *v) 
 {
 	if (v != NULL) {
+#ifdef HAVE_HGE
+		if (v->vtype == TYPE_hge) 
+			return v->val.hval;
+#endif
 		if (v->vtype == TYPE_lng) 
 			return v->val.lval;
 		if (v->vtype == TYPE_int) 
@@ -1528,7 +1540,11 @@ val_get_number(ValRecord *v)
 	return 0;
 }
 
+#ifdef HAVE_HGE
+hge
+#else
 lng
+#endif
 stack_get_number(mvc *sql, char *name)
 {
 	ValRecord *v = stack_get_var(sql, name);

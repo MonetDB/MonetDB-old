@@ -25,6 +25,13 @@
 
 #include "gdk_system_private.h"
 
+enum heaptype {
+	offheap,
+	varheap,
+	hashheap,
+	imprintsheap
+};
+
 /*
  * The different parts of which a BAT consists are physically stored
  * next to each other in the BATstore type.
@@ -55,9 +62,9 @@ str ATOMunknown_name(int a)
 	__attribute__((__visibility__("hidden")));
 int BATcheckmodes(BAT *b, int persistent)
 	__attribute__((__visibility__("hidden")));
-BAT *BATclone(BAT *b, BUN capacity)
+BAT *BATclone(BAT *b, BUN capacity, int role)
 	__attribute__((__visibility__("hidden")));
-BATstore *BATcreatedesc(int ht, int tt, int heapnames)
+BATstore *BATcreatedesc(int ht, int tt, int heapnames, int role)
 	__attribute__((__visibility__("hidden")));
 void BATdestroy(BATstore *bs)
 	__attribute__((__visibility__("hidden")));
@@ -72,8 +79,6 @@ void BATinit_idents(BAT *bn)
 BAT *BATload_intern(bat bid, int lock)
 	__attribute__((__visibility__("hidden")));
 BAT *BATmaterializet(BAT *b)
-	__attribute__((__visibility__("hidden")));
-void BATpropagate(BAT *dst, BAT *src, int idx)
 	__attribute__((__visibility__("hidden")));
 str BATrename(BAT *b, const char *nme)
 	__attribute__((__visibility__("hidden")));
@@ -92,6 +97,8 @@ void BBPinit(void)
 	__attribute__((__visibility__("hidden")));
 bat BBPinsert(BATstore *bs)
 	__attribute__((__visibility__("hidden")));
+int BBPselectfarm(int role, int type, enum heaptype hptype)
+	__attribute__((__visibility__("hidden")));
 void BBPtrim(size_t delta)
 	__attribute__((__visibility__("hidden")));
 void BBPunshare(bat b)
@@ -100,34 +107,34 @@ void GDKclrerr(void)
 	__attribute__((__visibility__("hidden")));
 int GDKextend(const char *fn, size_t size)
 	__attribute__((__visibility__("hidden")));
-int GDKextendf(int fd, size_t size)
+int GDKextendf(int fd, size_t size, const char *fn)
 	__attribute__((__visibility__("hidden")));
-int GDKfdlocate(const char *nme, const char *mode, const char *ext)
+int GDKfdlocate(int farmid, const char *nme, const char *mode, const char *ext)
 	__attribute__((__visibility__("hidden")));
-FILE *GDKfilelocate(const char *nme, const char *mode, const char *ext)
+FILE *GDKfilelocate(int farmid, const char *nme, const char *mode, const char *ext)
 	__attribute__((__visibility__("hidden")));
-char *GDKload(const char *nme, const char *ext, size_t size, size_t *maxsize, storage_t mode)
+char *GDKload(int farmid, const char *nme, const char *ext, size_t size, size_t *maxsize, storage_t mode)
 	__attribute__((__visibility__("hidden")));
 void GDKlog(_In_z_ _Printf_format_string_ const char *format, ...)
 	__attribute__((__format__(__printf__, 1, 2)))
 	__attribute__((__visibility__("hidden")));
 void *GDKmallocmax(size_t size, size_t *maxsize, int emergency)
 	__attribute__((__visibility__("hidden")));
-int GDKmove(const char *dir1, const char *nme1, const char *ext1, const char *dir2, const char *nme2, const char *ext2)
+int GDKmove(int farmid, const char *dir1, const char *nme1, const char *ext1, const char *dir2, const char *nme2, const char *ext2)
 	__attribute__((__visibility__("hidden")));
 int GDKmunmap(void *addr, size_t len)
 	__attribute__((__visibility__("hidden")));
 void *GDKreallocmax(void *pold, size_t size, size_t *maxsize, int emergency)
 	__attribute__((__visibility__("hidden")));
-int GDKremovedir(const char *nme)
+int GDKremovedir(int farmid, const char *nme)
 	__attribute__((__visibility__("hidden")));
-int GDKsave(const char *nme, const char *ext, void *buf, size_t size, storage_t mode)
+int GDKsave(int farmid, const char *nme, const char *ext, void *buf, size_t size, storage_t mode)
 	__attribute__((__visibility__("hidden")));
 int GDKssort_rev(void *h, void *t, const void *base, size_t n, int hs, int ts, int tpe)
 	__attribute__((__visibility__("hidden")));
 int GDKssort(void *h, void *t, const void *base, size_t n, int hs, int ts, int tpe)
 	__attribute__((__visibility__("hidden")));
-int GDKunlink(const char *dir, const char *nme, const char *extension)
+int GDKunlink(int farmid, const char *dir, const char *nme, const char *extension)
 	__attribute__((__visibility__("hidden")));
 int HASHgonebad(BAT *b, const void *v)
 	__attribute__((__visibility__("hidden")));
@@ -151,7 +158,18 @@ int HEAPshrink(Heap *h, size_t size)
 	__attribute__((__visibility__("hidden")));
 int HEAPwarm(Heap *h)
 	__attribute__((__visibility__("hidden")));
+void IMPSdestroy(BAT *b)
+	__attribute__((__visibility__("hidden")));
+int IMPSgetbin(int tpe, bte bits, char *bins, const void *v)
+	__attribute__((__visibility__("hidden")));
+#ifndef NDEBUG
+void IMPSprint(BAT *b)
+	__attribute__((__visibility__("hidden")));
+#endif
 oid MAXoid(BAT *i)
+	__attribute__((__visibility__("hidden")));
+void MT_global_exit(int status)
+	__attribute__((__noreturn__))
 	__attribute__((__visibility__("hidden")));
 void MT_init_posix(void)
 	__attribute__((__visibility__("hidden")));
@@ -179,12 +197,8 @@ void VIEWdestroy(BAT *b)
 	__attribute__((__visibility__("hidden")));
 BAT *VIEWreset(BAT *b)
 	__attribute__((__visibility__("hidden")));
-int IMPSgetbin(int tpe, bte bits, char *bins, const void *v)
+BAT *virtualize(BAT *bn)
 	__attribute__((__visibility__("hidden")));
-#ifndef NDEBUG
-void IMPSprint(BAT *b)
-	__attribute__((__visibility__("hidden")));
-#endif
 
 #define BBP_BATMASK	511
 #define BBP_THREADMASK	63
@@ -196,12 +210,13 @@ struct PROPrec {
 };
 
 struct Imprints {
-	bte bits;        /* how many bits in imprints */
-	Heap *bins;      /* ranges of bins */
-	Heap *imps;      /* heap of imprints */
-	BUN impcnt;      /* counter for imprints*/
-	Heap *dict;      /* cache dictionary for compressing imprints */
-	BUN dictcnt;     /* counter for cache dictionary */
+	bte bits;		/* how many bits in imprints */
+	Heap *imprints;
+	void *bins;		/* pointer into imprints heap */
+	void *imps;		/* pointer into imprints heap */
+	void *dict;		/* pointer into imprints heap */
+	BUN impcnt;		/* counter for imprints*/
+	BUN dictcnt;		/* counter for cache dictionary */
 };
 
 typedef struct {
@@ -217,6 +232,13 @@ typedef struct {
 } bbplock_t;
 
 typedef char long_str[IDLENGTH];	/* standard GDK static string */
+
+#define MAXFARMS       32
+
+extern struct BBPfarm_t {
+	unsigned int roles;	/* bitmask of allowed roles */
+	const char *dirname;	/* farm directory */
+} BBPfarms[MAXFARMS];
 
 extern int BBP_dirty;	/* BBP table dirty? */
 extern batlock_t GDKbatLock[BBP_BATMASK + 1];
@@ -256,6 +278,9 @@ extern MT_Lock MT_system_lock;
 #define SORTloop_sht(b, p, q, tl, th)	SORTloop_TYPE(b, p, q, tl, th, sht)
 #define SORTloop_int(b, p, q, tl, th)	SORTloop_TYPE(b, p, q, tl, th, int)
 #define SORTloop_lng(b, p, q, tl, th)	SORTloop_TYPE(b, p, q, tl, th, lng)
+#ifdef HAVE_HGE
+#define SORTloop_hge(b, p, q, tl, th)	SORTloop_TYPE(b, p, q, tl, th, hge)
+#endif
 #define SORTloop_flt(b, p, q, tl, th)	SORTloop_TYPE(b, p, q, tl, th, flt)
 #define SORTloop_dbl(b, p, q, tl, th)	SORTloop_TYPE(b, p, q, tl, th, dbl)
 #define SORTloop_oid(b, p, q, tl, th)	SORTloop_TYPE(b, p, q, tl, th, oid)
@@ -273,7 +298,7 @@ extern MT_Lock MT_system_lock;
 
 #define SORTloop_bit(b,p,q,tl,th) SORTloop_bte(b,p,q,tl,th)
 
-#if !defined(NDEBUG) && !defined(__clang_analyzer__)
+#if !defined(NDEBUG) && !defined(STATIC_CODE_ANALYSIS)
 /* see comment in gdk.h */
 #ifdef __GNUC__
 #define GDKmallocmax(s,ps,e)						\

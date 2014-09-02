@@ -299,6 +299,7 @@ DFLOWworker(void *T)
 	str error = 0;
 	int i,last;
 	Client cntxt;
+	InstrPtr p;
 
 	thr = THRnew("DFLOWworker");
 
@@ -365,6 +366,10 @@ DFLOWworker(void *T)
 			/* release the memory claim */
 			MALadmission(-fe->argclaim, -fe->hotclaim);
 #endif
+			/* update the numa information. keep the thread-id producing the value */
+			p= getInstrPtr(flow->mb,fe->pc);
+			for( i = 0; i < p->argc; i++)
+				flow->mb->var[getArg(p,i)]->worker = thr->tid;
 
 			MT_lock_set(&flow->flowlock, "DFLOWworker");
 			fe->state = DFLOWwrapup;

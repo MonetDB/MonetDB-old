@@ -74,8 +74,15 @@ BATlocation(str *fnme, int *bid)
 	if (b == NULL || (!b->T->heap.filename && !b->H->heap.filename))
 		return 0;
 
-	snprintf(path, BUFSIZ, "%s%c", GDKgetenv("gdk_dbpath"), DIR_SEP);
-	GDKfilepath(path + strlen(path), BATDIR, (b->T->heap.filename ? b->T->heap.filename : b->H->heap.filename), 0);
+	s = GDKfilepath(b->T->heap.farmid, BATDIR,
+			(b->T->heap.filename ? b->T->heap.filename : b->H->heap.filename), 0);
+	if (!MT_path_absolute(s)) {
+		snprintf(path, BUFSIZ, "%s%c%s", GDKgetenv("gdk_dbpath"),
+			 DIR_SEP, s);
+	} else {
+		snprintf(path, sizeof(path), "%s", s);
+	}
+	GDKfree(s);
 	s = strrchr(path, '.');
 	if (s)
 		*s = 0;
@@ -90,6 +97,7 @@ SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
 	int oldtop, i, actions = 0, size = 0;
 	lng clk = GDKusec();
 	sql_trans *tr = m->session->tr;
+	str msg;
 
 	old = mb->stmt;
 	oldtop = mb->stop;
@@ -187,7 +195,9 @@ SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
 		}
 	}
 	GDKfree(old);
-	optimizerCheck(cntxt, mb, "optimizer.SQLgetstatistics", actions, GDKusec() - clk, 0);
+	msg = optimizerCheck(cntxt, mb, "optimizer.SQLgetstatistics", actions, GDKusec() - clk, 0);
+	if (msg)		/* what to do with an error? */
+		GDKfree(msg);
 }
 
 str
@@ -207,11 +217,14 @@ addOptimizers(Client c, MalBlkPtr mb, char *pipe)
 	int i;
 	InstrPtr q;
 	backend *be;
+	str msg;
 
 	be = (backend *) c->sqlcontext;
 	assert(be && be->mvc);	/* SQL clients should always have their state set */
 
-	addOptimizerPipe(c, mb, pipe ? pipe : "default_pipe");
+	msg = addOptimizerPipe(c, mb, pipe ? pipe : "default_pipe");
+	if (msg)
+		GDKfree(msg);	/* what to do with an error? */
 	/* point queries do not require mitosis and dataflow */
 	if (be->mvc->point_query)
 		for (i = mb->stop - 1; i > 0; i--) {
@@ -255,8 +268,11 @@ addQueryToCache(Client c)
 
 		if (c->listing)
 			printFunction(c->fdout, mb, 0, c->listing);
-		if (m->debug)
-			runMALDebugger(c, c->curprg);
+		if (m->debug) {
+			msg = runMALDebugger(c, c->curprg);
+			if (msg != MAL_SUCCEED)
+				GDKfree(msg); /* ignore error */
+		}
 		return;
 	}
 	addOptimizers(c, mb, pipe);
@@ -267,6 +283,7 @@ addQueryToCache(Client c)
 	msg = optimizeMALBlock(c, mb);
 	if (msg != MAL_SUCCEED) {
 		showScriptException(c->fdout, mb, 0, MAL, "%s", msg);
+		GDKfree(msg);
 		return;
 	}
 

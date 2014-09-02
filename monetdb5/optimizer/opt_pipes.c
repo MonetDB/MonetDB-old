@@ -60,6 +60,7 @@ static struct PIPELINES {
 	 "optimizer.remap();"
 	 "optimizer.deadcode();"
 	 "optimizer.multiplex();"
+	 "optimizer.generator();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The default pipe line contains as of Feb2010
@@ -93,6 +94,7 @@ static struct PIPELINES {
 	 "optimizer.dataflow();"
 	 "optimizer.querylog();"
 	 "optimizer.multiplex();"
+	 "optimizer.generator();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The no_mitosis pipe line is (and should be kept!) identical to the
@@ -126,6 +128,7 @@ static struct PIPELINES {
 	 "optimizer.dataflow();"
 	 "optimizer.querylog();"
 	 "optimizer.multiplex();"
+	 "optimizer.generator();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The sequential pipe line is (and should be kept!) identical to the
@@ -158,6 +161,7 @@ static struct PIPELINES {
 	 "optimizer.matpack();"
 	 "optimizer.querylog();"
 	 "optimizer.multiplex();"
+	 "optimizer.generator();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* Experimental pipelines stressing various components under
@@ -187,6 +191,7 @@ static struct PIPELINES {
 	 "optimizer.recycler();"
 	 "optimizer.querylog();"
 	 "optimizer.multiplex();"
+	 "optimizer.generator();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /*
@@ -215,6 +220,7 @@ static struct PIPELINES {
 	 "optimizer.dataflow();"
 	 "optimizer.querylog();"
 	 "optimizer.multiplex();"
+	 "optimizer.generator();"
 	 "optimizer.garbageCollector();",
 	 "experimental", "OPToctopus", NULL, 1},
 /*
@@ -241,6 +247,7 @@ static struct PIPELINES {
 	 "optimizer.dataflow();"
 	 "optimizer.querylog();"
 	 "optimizer.multiplex();"
+	 "optimizer.generator();"
 	 "optimizer.garbageCollector();",
 	 "experimental", NULL, NULL, 1},
 #endif
@@ -339,17 +346,17 @@ getPipeCatalog(int *nme, int *def, int *stat)
 	BAT *b, *bn, *bs;
 	int i;
 
-	b = BATnew(TYPE_void, TYPE_str, 20);
+	b = BATnew(TYPE_void, TYPE_str, 20, TRANSIENT);
 	if (b == NULL)
 		throw(MAL, "optimizer.getpipeDefinition", MAL_MALLOC_FAIL);
 
-	bn = BATnew(TYPE_void, TYPE_str, 20);
+	bn = BATnew(TYPE_void, TYPE_str, 20, TRANSIENT);
 	if (bn == NULL) {
 		BBPreleaseref(b->batCacheid);
 		throw(MAL, "optimizer.getpipeDefinition", MAL_MALLOC_FAIL);
 	}
 
-	bs = BATnew(TYPE_void, TYPE_str, 20);
+	bs = BATnew(TYPE_void, TYPE_str, 20, TRANSIENT);
 	if (bs == NULL) {
 		BBPreleaseref(b->batCacheid);
 		BBPreleaseref(bn->batCacheid);

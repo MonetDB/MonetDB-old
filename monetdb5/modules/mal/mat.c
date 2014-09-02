@@ -113,7 +113,7 @@ MATpackInternal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		return MAL_SUCCEED;
 	}
 
-	bn = BATnew(TYPE_void, tt, cap);
+	bn = BATnew(TYPE_void, tt, cap, TRANSIENT);
 	if (bn == NULL)
 		throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
 
@@ -156,7 +156,7 @@ MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	if ( getArgType(mb,p,2) == TYPE_int){
 		/* first step, estimate with some slack */
 		pieces = stk->stk[getArg(p,2)].val.ival;
-		bn = BATnew(TYPE_void, b->ttype?b->ttype:TYPE_oid, (BUN)(1.2 * BATcount(b) * pieces));
+		bn = BATnew(TYPE_void, b->ttype?b->ttype:TYPE_oid, (BUN)(1.2 * BATcount(b) * pieces), TRANSIENT);
 		if (bn == NULL)
 			throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
 		/* allocate enough space for the strings */
@@ -185,7 +185,8 @@ MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		assert(!b->H->nil || !b->H->nonil);
 		assert(!b->T->nil || !b->T->nonil);
 		BBPkeepref(*ret = b->batCacheid);
-		BBPreleaseref(bb->batCacheid);
+		if( bb) 
+			BBPreleaseref(bb->batCacheid);
 	}
 	return MAL_SUCCEED;
 }
@@ -265,9 +266,13 @@ MATpackSliceInternal(MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			 */
 			if (lst <= cap + c) {
 				b = BATdescriptor(bid);
-				bn = BATslice(b, fst - cap, lst - cap);
-				BBPunfix(b->batCacheid);
-				BBPkeepref(*ret = bn->batCacheid);
+				if( b){
+					bn = BATslice(b, fst - cap, lst - cap);
+					BBPunfix(b->batCacheid);
+					BBPkeepref(*ret = bn->batCacheid);
+				} else
+					throw(MAL, "mat.packSlice", RUNTIME_OBJECT_MISSING);
+
 				return MAL_SUCCEED;
 			}
 			if (fst < cap + c) {
@@ -289,7 +294,7 @@ MATpackSliceInternal(MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	cnt = MIN(cnt, cap);
 
 	assert(ht== TYPE_void);
-	bn = BATnew(TYPE_void, tt, cnt);
+	bn = BATnew(TYPE_void, tt, cnt, TRANSIENT);
 	if (bn == NULL)
 		throw(MAL, "mat.packSlice", MAL_MALLOC_FAIL);
 	/* must set seqbase or else BATins will not materialize column */
@@ -333,7 +338,7 @@ MATpack2Internal(MalStkPtr stk, InstrPtr p)
 	b= BATdescriptor(stk->stk[getArg(p,1)].val.ival);
 	if( b == NULL)
 		throw(MAL, "mat.pack", RUNTIME_OBJECT_MISSING);
-	bn = BATcopy(b, b->htype, b->ttype, TRUE);
+	bn = BATcopy(b, b->htype, b->ttype, TRUE, TRANSIENT);
 	BBPunfix(b->batCacheid);
 	if( bn == NULL)
 		throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
@@ -348,6 +353,8 @@ MATpack2Internal(MalStkPtr stk, InstrPtr p)
 		BBPunfix(b->batCacheid);
 	}
 	bn = BATextend(bn, cap);
+	if( bn == NULL)
+		throw(MAL, "mat.pack", RUNTIME_OBJECT_MISSING);
 	for( i = 2; i < p->argc; i++){
 		b= BATdescriptor(stk->stk[getArg(p,i)].val.ival);
 		if( b == NULL){
@@ -420,9 +427,14 @@ MATmergepack(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		}
 	}
 
-	bn = BATnew(TYPE_void, TYPE_oid, cap);
-	if (bn == NULL)
+	bn = BATnew(TYPE_void, TYPE_oid, cap, TRANSIENT);
+	if (bn == NULL){
+		GDKfree(bats);
+		GDKfree(o_src);
+		GDKfree(o_end);
 		throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
+	}
+
 	if ( cap == 0){
 		BATseqbase(bn, 0);
 		BATseqbase(BATmirror(bn), 0);
@@ -482,7 +494,7 @@ MATpackValues(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	(void) cntxt;
 	type = getArgType(mb,p,first);
-	bn = BATnew(TYPE_void, type, p->argc);
+	bn = BATnew(TYPE_void, type, p->argc, TRANSIENT);
 	if( bn == NULL)
 		throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
 
@@ -535,7 +547,7 @@ MATproject_any( BAT *map, BAT **bats, int len )
 	BUN *batsT;
 	bte *mapT;
 
-	res = BATnew(TYPE_void, bats[0]->ttype, cnt);
+	res = BATnew(TYPE_void, bats[0]->ttype, cnt, TRANSIENT);
 	batsT = (BUN*)GDKmalloc(sizeof(BUN) * len);
 	bats_i = (BATiter*)GDKmalloc(sizeof(BATiter) * len);
 	if (res == NULL || batsT == NULL || bats_i == NULL) {
@@ -570,7 +582,7 @@ MATproject_bte( BAT *map, BAT **bats, int len, int ttpe )
 	bte *resT, **batsT;
 	bte *mapT;
 
-	res = BATnew(TYPE_void, ttpe, cnt);
+	res = BATnew(TYPE_void, ttpe, cnt, TRANSIENT);
 	batsT = (bte**)GDKmalloc(sizeof(bte*) * len);
 	if (res == NULL || batsT == NULL) {
 		if (res)
@@ -601,7 +613,7 @@ MATproject_sht( BAT *map, BAT **bats, int len, int ttpe )
 	sht *resT, **batsT;
 	bte *mapT;
 
-	res = BATnew(TYPE_void, ttpe, cnt);
+	res = BATnew(TYPE_void, ttpe, cnt, TRANSIENT);
 	batsT = (sht**)GDKmalloc(sizeof(sht*) * len);
 	if (res == NULL || batsT == NULL) {
 		if (res)
@@ -632,7 +644,7 @@ MATproject_int( BAT *map, BAT **bats, int len, int ttpe )
 	int *resT, **batsT;
 	bte *mapT;
 
-	res = BATnew(TYPE_void, ttpe, cnt);
+	res = BATnew(TYPE_void, ttpe, cnt, TRANSIENT);
 	batsT = (int**)GDKmalloc(sizeof(int*) * len);
 	if (res == NULL || batsT == NULL) {
 		if (res)
@@ -663,7 +675,7 @@ MATproject_lng( BAT *map, BAT **bats, int len, int ttpe )
 	lng *resT, **batsT;
 	bte *mapT;
 
-	res = BATnew(TYPE_void, ttpe, cnt);
+	res = BATnew(TYPE_void, ttpe, cnt, TRANSIENT);
 	batsT = (lng**)GDKmalloc(sizeof(lng*) * len);
 	if (res == NULL || batsT == NULL) {
 		if (res)
@@ -684,6 +696,39 @@ MATproject_lng( BAT *map, BAT **bats, int len, int ttpe )
 	GDKfree(batsT);
 	return res;
 }
+
+#ifdef HAVE_HGE
+static BAT *
+MATproject_hge( BAT *map, BAT **bats, int len, int ttpe )
+{
+	BAT *res;
+	int i;
+	BUN j, cnt = BATcount(map);
+	hge *resT, **batsT;
+	bte *mapT;
+
+	res = BATnew(TYPE_void, ttpe, cnt, TRANSIENT);
+	batsT = (hge**)GDKmalloc(sizeof(hge*) * len);
+	if (res == NULL || batsT == NULL) {
+		if (res)
+			BBPreclaim(res);
+		if (batsT)
+			GDKfree(batsT);
+		return NULL;
+	}
+	BATseqbase(res, map->hseqbase);
+	resT = (hge*)Tloc(res, 0);
+	mapT = (bte*)Tloc(map, 0);
+	for (i=0; i<len; i++)
+		batsT[i] = (hge*)Tloc(bats[i], 0);
+	for (j=0; j<cnt; j++)
+		resT[j] = *batsT[mapT[j]]++;
+	BATsetcount(res, j);
+	res->hrevsorted = j <= 1;
+	GDKfree(batsT);
+	return res;
+}
+#endif
 
 /*
  *  Mitosis-pieces are usually slices (views) of a base table/BAT.
@@ -733,6 +778,11 @@ MATproject_var( BAT *map, BAT **bats, int len )
 		case sizeof(lng):
 			res = MATproject_lng(map, bats, len, TYPE_lng);
 			break;
+#ifdef HAVE_HGE
+		case sizeof(hge):
+			res = MATproject_hge(map, bats, len, TYPE_hge);
+			break;
+#endif
 		default:
 			/* can (should) not happen */
 			assert(0);
@@ -746,9 +796,8 @@ MATproject_var( BAT *map, BAT **bats, int len )
 			res->T->shift = bats[j]->T->shift;
 			BBPshare(bats[j]->T->vheap->parentid);
 		}
-	} else {
+	} else
 		res = MATproject_any( map, bats, len );
-	}
 	return res;
 }
 
@@ -780,12 +829,18 @@ MATproject_( BAT *map, BAT **bats, int len )
 		res = MATproject_int(map, bats, len, bats[0]->ttype);
 	} else if (ATOMsize(bats[0]->ttype) == sizeof(lng)) {
 		res = MATproject_lng(map, bats, len, bats[0]->ttype);
+#ifdef HAVE_HGE
+	} else if (ATOMsize(bats[0]->ttype) == sizeof(hge)) {
+		res = MATproject_hge(map, bats, len, bats[0]->ttype);
+#endif
 	} else {
 		res = MATproject_any(map, bats, len);
 	}
-	res->tsorted = 0;
-	res->trevsorted = 0;
-	res->T->nonil = MATnonil(bats, len);
+	if(res){
+		res->tsorted = 0;
+		res->trevsorted = 0;
+		res->T->nonil = MATnonil(bats, len);
+	}
 	return res;
 }
 
@@ -801,6 +856,8 @@ MATproject(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int i, len = pci->argc-2, sorted = 1;
 
 	(void) cntxt; (void) mb; (void) stk; 
+	if( bats == NULL)
+		throw(SQL, "mat.project",MAL_MALLOC_FAIL);
 	map = BATdescriptor(map_id);
 	if (!map)
 		goto error;
@@ -844,8 +901,10 @@ MATsortloop_rev( bte *map_res, BAT *i1, bte *map_i1, BUN cnt_i1, BAT *i2, bte ma
 	BATiter bi_i1 = bat_iterator(i1); 
 	BATiter bi_i2 = bat_iterator(i2);
 	int (*cmp) (const void *, const void *) = BATatoms[i1->ttype].atomCmp;
-	BAT *res = BATnew(TYPE_void, i1->ttype, cnt_i1 + cnt_i2);
+	BAT *res = BATnew(TYPE_void, i1->ttype, cnt_i1 + cnt_i2, TRANSIENT);
 
+	if (res == NULL)
+		return NULL;
 	BATseqbase(res, 0);
 	if (map_i1 == NULL) {
 		/* map_i1 = 0 */
@@ -902,8 +961,10 @@ MATsortloop_( bte *map_res, BAT *i1, bte *map_i1, BUN cnt_i1, BAT *i2, bte map_i
 	BATiter bi_i1 = bat_iterator(i1); 
 	BATiter bi_i2 = bat_iterator(i2);
 	int (*cmp) (const void *, const void *) = BATatoms[i1->ttype].atomCmp;
-	BAT *res = BATnew(TYPE_void, i1->ttype, cnt_i1 + cnt_i2);
+	BAT *res = BATnew(TYPE_void, i1->ttype, cnt_i1 + cnt_i2, TRANSIENT);
 
+	if (res == NULL)
+		return NULL;
 	BATseqbase(res, 0);
 	if (map_i1 == NULL) {
 		/* map_i1 = 0 */
@@ -958,7 +1019,9 @@ MATsort_any( BAT **map, BAT **bats, int len, BUN cnt, int rev )
 	BUN len1, len2;
 	bte *map_in = NULL;
 
-	*map = BATnew(TYPE_void, TYPE_bte, cnt);
+	*map = BATnew(TYPE_void, TYPE_bte, cnt, TRANSIENT);
+	if (*map == NULL)
+		return NULL;
 	BATseqbase(*map, 0);
 	mapT = (bte*)Tloc(*map, 0);
 	/* merge */
@@ -980,6 +1043,8 @@ MATsort_any( BAT **map, BAT **bats, int len, BUN cnt, int rev )
 		}
 		if (i != 1)
 			BBPunfix(in->batCacheid);
+		if (res == NULL)
+			return NULL;
 		in = res;
 		map_in = mapT+cnt-len1-len2;
 		len1 += len2;
@@ -1344,8 +1409,14 @@ MATsort_lng( BAT **map, BAT **bats, int len, BUN cnt, int rev )
 	BUN len1, len2;
 	bte *map_in = NULL;
 
-	res = BATnew(TYPE_void, bats[0]->ttype, cnt);
-	*map = BATnew(TYPE_void, TYPE_bte, cnt);
+	res = BATnew(TYPE_void, bats[0]->ttype, cnt, TRANSIENT);
+	*map = BATnew(TYPE_void, TYPE_bte, cnt, TRANSIENT);
+	if (res == NULL || *map == NULL) {
+		BBPreclaim(res);
+		BBPreclaim(*map);
+		*map = NULL;
+		return NULL;
+	}
 	BATseqbase(res, 0);
 	BATseqbase(*map, 0);
 	resT = (lng*)Tloc(res, 0);
@@ -1382,6 +1453,145 @@ MATsort_lng( BAT **map, BAT **bats, int len, BUN cnt, int rev )
 	GDKfree(batsT);
 	return res;
 }
+
+#ifdef HAVE_HGE
+static int
+MATsortloop_hge_rev( hge *val_res, bte *map_res, hge *val_i1, bte *map_i1, BUN cnt_i1, hge *val_i2, bte map_i2, BUN cnt_i2 ) {
+
+	hge *end_i1 = val_i1 + cnt_i1;
+	hge *end_i2 = val_i2 + cnt_i2;
+
+	if (map_i1 == NULL) {
+		/* map_i1 = 0 */
+		while ( val_i1 < end_i1 && val_i2 < end_i2) {
+			if (*val_i1 >= *val_i2) {
+				*val_res++ = *val_i1++;
+				*map_res++ = 0;
+			} else if (*val_i1 < *val_i2) {
+				*val_res++ = *val_i2++;
+				*map_res++ = map_i2;
+			}
+		}
+		while ( val_i1 < end_i1 ) {
+			*val_res++ = *val_i1++;
+			*map_res++ = 0;
+		}
+	} else {
+		while ( val_i1 < end_i1 && val_i2 < end_i2) {
+			if (*val_i1 >= *val_i2) {
+				*val_res++ = *val_i1++;
+				*map_res++ = *map_i1++;
+			} else if (*val_i1 < *val_i2) {
+				*val_res++ = *val_i2++;
+				*map_res++ = map_i2;
+			}
+		}
+		while ( val_i1 < end_i1 ) {
+			*val_res++ = *val_i1++;
+			*map_res++ = *map_i1++;
+		}
+	}
+	while ( val_i2 < end_i2 ) {
+		*val_res++ = *val_i2++;
+		*map_res++ = map_i2;
+	}
+	return 0;
+}
+
+static int
+MATsortloop_hge_( hge *val_res, bte *map_res, hge *val_i1, bte *map_i1, BUN cnt_i1, hge *val_i2, bte map_i2, BUN cnt_i2 ) {
+
+	hge *end_i1 = val_i1 + cnt_i1;
+	hge *end_i2 = val_i2 + cnt_i2;
+
+	if (map_i1 == NULL) {
+		/* map_i1 = 0 */
+		while ( val_i1 < end_i1 && val_i2 < end_i2) {
+			if (*val_i1 <= *val_i2) {
+				*val_res++ = *val_i1++;
+				*map_res++ = 0;
+			} else if (*val_i1 > *val_i2) {
+				*val_res++ = *val_i2++;
+				*map_res++ = map_i2;
+			}
+		}
+		while ( val_i1 < end_i1 ) {
+			*val_res++ = *val_i1++;
+			*map_res++ = 0;
+		}
+	} else {
+		while ( val_i1 < end_i1 && val_i2 < end_i2) {
+			if (*val_i1 <= *val_i2) {
+				*val_res++ = *val_i1++;
+				*map_res++ = *map_i1++;
+			} else if (*val_i1 > *val_i2) {
+				*val_res++ = *val_i2++;
+				*map_res++ = map_i2;
+			}
+		}
+		while ( val_i1 < end_i1 ) {
+			*val_res++ = *val_i1++;
+			*map_res++ = *map_i1++;
+		}
+	}
+	while ( val_i2 < end_i2 ) {
+		*val_res++ = *val_i2++;
+		*map_res++ = map_i2;
+	}
+	return 0;
+}
+
+/* multi-bat sort primitives */
+static BAT *
+MATsort_hge( BAT **map, BAT **bats, int len, BUN cnt, int rev )
+{
+	BAT *res;
+	int i;
+	hge *resT, **batsT, *in;
+	bte *mapT;
+	BUN len1, len2;
+	bte *map_in = NULL;
+
+	res = BATnew(TYPE_void, bats[0]->ttype, cnt, TRANSIENT);
+	*map = BATnew(TYPE_void, TYPE_bte, cnt, TRANSIENT);
+	BATseqbase(res, 0);
+	BATseqbase(*map, 0);
+	resT = (hge*)Tloc(res, 0);
+	mapT = (bte*)Tloc(*map, 0);
+	batsT = (hge**)GDKmalloc(sizeof(hge*) * len);
+	for (i=0; i<len; i++)
+		batsT[i] = (hge*)Tloc(bats[i], 0);
+	/* merge */
+	in = batsT[0];
+	len1 = BATcount(bats[0]);
+	map_in = NULL;
+	/* TODO: change into a tree version */
+	for (i=1; i<len; i++) {
+		len2 = BATcount(bats[i]);
+		if (rev) {
+			MATsortloop_hge_rev( resT+cnt-len1-len2,
+					mapT+cnt-len1-len2,
+				        in, map_in, len1,
+					batsT[i], i, len2);
+		} else {
+			MATsortloop_hge_( resT+cnt-len1-len2,
+					mapT+cnt-len1-len2,
+				        in, map_in, len1,
+					batsT[i], i, len2);
+		}
+		in = resT+cnt-len1-len2;
+		map_in = mapT+cnt-len1-len2;
+		len1 += len2;
+	}
+	BATsetcount(res, len1);
+	BATsetcount(*map, len1);
+	res->hrevsorted = len1 <= 1;
+	(*map)->hrevsorted = len1 <= 1;
+	GDKfree(batsT);
+	return res;
+}
+#endif
+
 static BAT *
 MATsort_int( BAT **map, BAT **bats, int len, BUN cnt, int rev )
 {
@@ -1392,8 +1602,14 @@ MATsort_int( BAT **map, BAT **bats, int len, BUN cnt, int rev )
 	BUN len1, len2;
 	bte *map_in = NULL;
 
-	res = BATnew(TYPE_void, bats[0]->ttype, cnt);
-	*map = BATnew(TYPE_void, TYPE_bte, cnt);
+	res = BATnew(TYPE_void, bats[0]->ttype, cnt, TRANSIENT);
+	*map = BATnew(TYPE_void, TYPE_bte, cnt, TRANSIENT);
+	if (res == NULL || *map == NULL) {
+		BBPreclaim(res);
+		BBPreclaim(*map);
+		*map = NULL;
+		return NULL;
+	}
 	BATseqbase(res, 0);
 	BATseqbase(*map, 0);
 	resT = (int*)Tloc(res, 0);
@@ -1440,8 +1656,14 @@ MATsort_sht( BAT **map, BAT **bats, int len, BUN cnt, int rev )
 	BUN len1, len2;
 	bte *map_in = NULL;
 
-	res = BATnew(TYPE_void, bats[0]->ttype, cnt);
-	*map = BATnew(TYPE_void, TYPE_bte, cnt);
+	res = BATnew(TYPE_void, bats[0]->ttype, cnt, TRANSIENT);
+	*map = BATnew(TYPE_void, TYPE_bte, cnt, TRANSIENT);
+	if (res == NULL || *map == NULL) {
+		BBPreclaim(res);
+		BBPreclaim(*map);
+		*map = NULL;
+		return NULL;
+	}
 	BATseqbase(res, 0);
 	BATseqbase(*map, 0);
 	resT = (sht*)Tloc(res, 0);
@@ -1488,8 +1710,14 @@ MATsort_bte( BAT **map, BAT **bats, int len, BUN cnt, int rev )
 	BUN len1, len2;
 	bte *map_in = NULL;
 
-	res = BATnew(TYPE_void, bats[0]->ttype, cnt);
-	*map = BATnew(TYPE_void, TYPE_bte, cnt);
+	res = BATnew(TYPE_void, bats[0]->ttype, cnt, TRANSIENT);
+	*map = BATnew(TYPE_void, TYPE_bte, cnt, TRANSIENT);
+	if (res == NULL || *map == NULL) {
+		BBPreclaim(res);
+		BBPreclaim(*map);
+		*map = NULL;
+		return NULL;
+	}
 	BATseqbase(res, 0);
 	BATseqbase(*map, 0);
 	resT = (bte*)Tloc(res, 0);
@@ -1539,6 +1767,8 @@ MATsort(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int rev)
 	int i, len = pci->argc-2;
 
 	(void) cntxt; (void) mb; (void) stk; 
+	if( bats == NULL)
+		throw(SQL, "mat.sortTail",MAL_MALLOC_FAIL);
 	for (i=2; i<pci->argc; i++) {
 		bat id = *(bat*) getArgReference(stk,pci,i);
 		bats[i-2] = BATdescriptor(id);
@@ -1559,6 +1789,10 @@ MATsort(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int rev)
 		res = MATsort_int(&map, bats, len, pcnt, rev);
 	} else if (ATOMsize(bats[0]->ttype) == sizeof(lng)) {
 		res = MATsort_lng(&map, bats, len, pcnt, rev);
+#ifdef HAVE_HGE
+	} else if (ATOMsize(bats[0]->ttype) == sizeof(hge)) {
+		res = MATsort_hge(&map, bats, len, pcnt, rev);
+#endif
 	} else {
 		res = MATsort_any(&map, bats, len, pcnt, rev);
 	}
@@ -1573,10 +1807,8 @@ MATsort(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int rev)
 		}
 	}
 error:
-	if (bats) {
-		for (i=0; i<len && bats[i]; i++)
-			BBPunfix(bats[i]->batCacheid);
-	}
+	for (i=0; i<len && bats[i]; i++)
+		BBPunfix(bats[i]->batCacheid);
 	GDKfree(bats);
 	if (map && res) {
 		map->tsorted = 0;

@@ -352,9 +352,14 @@ mdbLocateMalBlk(Client cntxt, MalBlkPtr mb, str b, stream *out)
 	/* start with function in context */
 	if (*b == '[') {
 		idx = atoi(b + 1);
+		if( idx < 0)
+			return NULL;
 		return getMalBlkHistory(mb, idx);
 	} else if (isdigit((int) *b)) {
-		return getMalBlkHistory(mb, atoi(b));
+		idx = atoi(b);
+		if( idx < 0)
+			return NULL;
+		return getMalBlkHistory(mb, idx);
 	} else if (*b != 0) {
 		char *fcnname = strchr(b, '.');
 		Symbol fsym;
@@ -364,6 +369,8 @@ mdbLocateMalBlk(Client cntxt, MalBlkPtr mb, str b, stream *out)
 		if ((h = strchr(fcnname + 1, '['))) {
 			*h = 0;
 			idx = atoi(h + 1);
+			if( idx < 0)
+				return NULL;
 		}
 		fsym = findSymbolInModule(findModule(cntxt->nspace, putName(b, strlen(b))), fcnname + 1);
 		*fcnname = '.';
@@ -743,16 +750,13 @@ retryRead:
 				/* optional file */
 				skipBlanc(cntxt, b);
 				if (*b == 0) {
-					strcpy(fname, monet_cwd);
-					strcat(fname, name);
+					snprintf(fname, sizeof(fname), "%s%s", monet_cwd, name);
 				} else if (*b != '/') {
-					strcpy(fname, monet_cwd);
-					strcat(fname, name);
+					snprintf(fname, sizeof(fname), "%s%s", monet_cwd, name);
 				} else if (b[strlen(b) - 1] == '/') {
-					strcpy(fname, b);
-					strcat(fname, name + 1);
+					snprintf(fname, sizeof(fname), "%s%s", b, name + 1);
 				} else
-					strcat(fname, b);
+					snprintf(fname, sizeof(fname), "%s", b);
 
 				showFlowGraph(mdot, 0, fname);
 				mnstr_printf(out, "#dot file '%s' created\n", fname);
@@ -823,12 +827,17 @@ retryRead:
 			/* search the symbol */
 			i = findVariable(mb, b);
 			if (i < 0) {
+				// deal with temporary
+				if( *b == 'X' ) b++;
+				i = findVariable(mb, b);
+			}
+			if (i < 0) {
 				i = BBPindex(b);
 				if (i != 0) {
 					printBATelm(out, i, size, first);
 				} else {
 					i = atoi(b);
-					if (i || *b == '0')
+					if (i>-0 || *b == '0')
 						printStackElm(out, mb, stk->stk + i, i, size, first);
 					else
 						mnstr_printf(out, "%s Symbol not found\n", "#mdb ");
@@ -940,10 +949,9 @@ partial:
 			continue;
 		}
 		case '?':
-			if (!isspace((int) b[1])) {
+			if (!isspace((int) b[1]))
 				showHelp(cntxt->nspace, b + 1, out);
-				continue;
-			}
+			continue;
 		case 'h':
 			if (strncmp("help", b, 2) == 0)
 				mdbHelp(out);
@@ -980,6 +988,8 @@ mdbDump(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int i = getPC(mb, pci);
 	mnstr_printf(cntxt->fdout, "!MDB dump of instruction %d\n", i);
+	if( i < 0)
+		return;
 	printFunction(cntxt->fdout, mb, stk, LIST_MAL_ALL);
 	mdbBacktrace(cntxt, stk, i);
 	printStack(cntxt->fdout, mb, stk);
@@ -1027,6 +1037,7 @@ mdbSanityCheck(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int pc)
 					stk->cmd = 'n';
 				}
 				GDKfree(nme);
+				GDKfree(nmeOnStk);
 			}
 		}
 	}
@@ -1205,8 +1216,7 @@ str
 runMALDebugger(Client cntxt, Symbol s)
 {
 	cntxt->itrace = 'n';
-	runMAL(cntxt, s->def, 0, 0);
-	return MAL_SUCCEED;
+	return runMAL(cntxt, s->def, 0, 0);
 }
 
 /* Utilities
@@ -1303,7 +1313,6 @@ printStackElm(stream *f, MalBlkPtr mb, ValPtr v, int index, BUN cnt, BUN first)
 		int i = v->val.ival;
 		BAT *b = BBPquickdesc(abs(i), TRUE);
 
-		b = BBPquickdesc(abs(i), TRUE);
 		if (i < 0)
 			b = BATmirror(b);
 		if (b) {
@@ -1353,9 +1362,10 @@ printStackElm(stream *f, MalBlkPtr mb, ValPtr v, int index, BUN cnt, BUN first)
 
 		if (bs == NULL)
 			mnstr_printf(f, "Failed to take chunk\n");
-		else
+		else{
 			BATmultiprintf(f, 2, &bs, TRUE, 0, TRUE);
-		BBPunfix(bs->batCacheid);
+			BBPunfix(bs->batCacheid);
+		}
 
 		BBPunfix(b->batCacheid);
 	}

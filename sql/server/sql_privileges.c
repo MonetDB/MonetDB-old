@@ -87,12 +87,14 @@ sql_grant_table_privs( mvc *sql, char *grantee, int privs, char *sname, char *tn
 		return sql_message("42S02!GRANT no such table '%s'", tname);
 
 	allowed = schema_privs(grantor, t->s);
-	if (!allowed)
-		allowed = sql_grantable(sql, grantor, t->base.id, all, 0);
 
-	if (!allowed) 
-		return sql_message("0L000!GRANT: grantor '%s' is not allowed to grant privileges for table '%s'", stack_get_string(sql,"current_user"), tname);
+	if (!cname) {
+		if (!allowed)
+			allowed = sql_grantable(sql, grantor, t->base.id, all, 0);
 
+		if (!allowed) 
+			return sql_message("0L000!GRANT: grantor '%s' is not allowed to grant privileges for table '%s'", stack_get_string(sql,"current_user"), tname);
+	}
 	if (cname) { 
 		c = mvc_bind_column(sql, t, cname);
 		if (!c) 
@@ -250,13 +252,13 @@ sql_grant_role(mvc *m, str grantee, str auth /*, grantor?, admin? */ )
 
 	rid = table_funcs.column_find_row(m->session->tr, auths_name, grantee, NULL);
 	if (rid == oid_nil)
-		return sql_message("M1M05!GRANT: cannot grant ROLE '%s' to ROLE '%s'", grantee, auth );
+		return sql_message("M1M05!GRANT: cannot grant ROLE '%s' to ROLE '%s'", auth, grantee);
 	grantee_id = table_funcs.column_find_value(m->session->tr, auths_id, rid);
 
 	rid = table_funcs.column_find_row(m->session->tr, auths_name, auth, NULL);
 	if (rid == oid_nil) {
 		_DELETE(grantee_id);
-		return sql_message("M1M05!GRANT: cannot grant ROLE '%s' to ROLE '%s'", grantee, auth );
+		return sql_message("M1M05!GRANT: cannot grant ROLE '%s' to ROLE '%s'", auth, grantee);
 	}
 	auth_id = table_funcs.column_find_value(m->session->tr, auths_id, rid);
 

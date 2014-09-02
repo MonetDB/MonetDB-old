@@ -78,42 +78,58 @@ SQLColumnPrivileges_(ODBCStmt *stmt,
 			cat = ODBCParseOA("e", "value",
 					  (const char *) CatalogName,
 					  (size_t) NameLength1);
+			if (cat == NULL)
+				goto nomem;
 		}
 		if (NameLength2 > 0) {
 			sch = ODBCParseOA("s", "name",
 					  (const char *) SchemaName,
 					  (size_t) NameLength2);
+			if (sch == NULL)
+				goto nomem;
 		}
 		if (NameLength3 > 0) {
 			tab = ODBCParseOA("t", "name",
 					  (const char *) TableName,
 					  (size_t) NameLength3);
+			if (tab == NULL)
+				goto nomem;
 		}
 		if (NameLength4 > 0) {
 			col = ODBCParsePV("c", "name",
 					  (const char *) ColumnName,
 					  (size_t) NameLength4);
+			if (col == NULL)
+				goto nomem;
 		}
 	} else {
 		if (NameLength1 > 0) {
 			cat = ODBCParseID("e", "value",
 					  (const char *) CatalogName,
 					  (size_t) NameLength1);
+			if (cat == NULL)
+				goto nomem;
 		}
 		if (NameLength2 > 0) {
 			sch = ODBCParseID("s", "name",
 					  (const char *) SchemaName,
 					  (size_t) NameLength2);
+			if (sch == NULL)
+				goto nomem;
 		}
 		if (NameLength3 > 0) {
 			tab = ODBCParseID("t", "name",
 					  (const char *) TableName,
 					  (size_t) NameLength3);
+			if (tab == NULL)
+				goto nomem;
 		}
 		if (NameLength4 > 0) {
 			col = ODBCParseID("c", "name",
 					  (const char *) ColumnName,
 					  (size_t) NameLength4);
+			if (col == NULL)
+				goto nomem;
 		}
 	}
 
@@ -121,6 +137,8 @@ SQLColumnPrivileges_(ODBCStmt *stmt,
 	query = malloc(1200 + (cat ? strlen(cat) : 0) +
 		       (sch ? strlen(sch) : 0) + (tab ? strlen(tab) : 0) +
 		       (col ? strlen(col) : 0));
+	if (query == NULL)
+		goto nomem;
 	query_end = query;
 
 	/* SQLColumnPrivileges returns a table with the following columns:
@@ -135,44 +153,44 @@ SQLColumnPrivileges_(ODBCStmt *stmt,
 	 */
 
 	strcpy(query_end,
-	       "select \"e\".\"value\" as \"table_cat\","
-	       " \"s\".\"name\" as \"table_schem\","
-	       " \"t\".\"name\" as \"table_name\","
-	       " \"c\".\"name\" as \"column_name\","
-	       " case \"a\".\"id\""
-	       "      when \"s\".\"owner\" then '_SYSTEM'"
-	       "      else \"g\".\"name\""
-	       "      end as \"grantor\","
-	       " case \"a\".\"name\""
-	       "      when 'public' then 'PUBLIC'"
-	       "      else \"a\".\"name\""
-	       "      end as \"grantee\","
-	       " case \"p\".\"privileges\""
-	       "      when 1 then 'SELECT'"
-	       "      when 2 then 'UPDATE'"
-	       "      when 4 then 'INSERT'"
-	       "      when 8 then 'DELETE'"
-	       "      when 16 then 'EXECUTE'"
-	       "      when 32 then 'GRANT'"
-	       "      end as \"privilege\","
-	       " case \"p\".\"grantable\""
-	       "      when 1 then 'YES'"
-	       "      when 0 then 'NO'"
-	       "      end as \"is_grantable\" "
-	       "from \"sys\".\"schemas\" \"s\","
-	       " \"sys\".\"_tables\" \"t\","
-	       " \"sys\".\"_columns\" \"c\","
-	       " \"sys\".\"auths\" \"a\","
-	       " \"sys\".\"privileges\" \"p\","
-	       " \"sys\".\"auths\" \"g\","
-	       " \"sys\".\"env\"() \"e\" "
-	       "where \"p\".\"obj_id\" = \"c\".\"id\" and"
-	       " \"c\".\"table_id\" = \"t\".\"id\" and"
-	       " \"p\".\"auth_id\" = \"a\".\"id\" and"
-	       " \"t\".\"schema_id\" = \"s\".\"id\" and"
-	       " \"t\".\"system\" = false and"
-	       " \"p\".\"grantor\" = \"g\".\"id\" and"
-	       " \"e\".\"name\" = 'gdk_dbname'");
+	       "select e.value as table_cat, "
+		      "s.name as table_schem, "
+		      "t.name as table_name, "
+		      "c.name as column_name, "
+		      "case a.id "
+			   "when s.owner then '_SYSTEM' "
+			   "else g.name "
+			   "end as grantor, "
+		      "case a.name "
+			   "when 'public' then 'PUBLIC' "
+			   "else a.name "
+			   "end as grantee, "
+		      "case p.privileges "
+			   "when 1 then 'SELECT' "
+			   "when 2 then 'UPDATE' "
+			   "when 4 then 'INSERT' "
+			   "when 8 then 'DELETE' "
+			   "when 16 then 'EXECUTE' "
+			   "when 32 then 'GRANT' "
+			   "end as privilege, "
+		      "case p.grantable "
+			   "when 1 then 'YES' "
+			   "when 0 then 'NO' "
+			   "end as is_grantable  "
+	       "from sys.schemas s, "
+		    "sys._tables t, "
+		    "sys._columns c, "
+		    "sys.auths a, "
+		    "sys.privileges p, "
+		    "sys.auths g, "
+		    "sys.env() e  "
+	       "where p.obj_id = c.id and "
+		     "c.table_id = t.id and "
+		     "p.auth_id = a.id and "
+		     "t.schema_id = s.id and "
+		     "t.system = false and "
+		     "p.grantor = g.id and "
+		     "e.name = 'gdk_dbname'");
 	assert(strlen(query) < 1100);
 	query_end += strlen(query_end);
 
@@ -208,12 +226,26 @@ SQLColumnPrivileges_(ODBCStmt *stmt,
 	query_end += strlen(query_end);
 
 	/* query the MonetDB data dictionary tables */
-        rc = SQLExecDirect_(stmt, (SQLCHAR *) query,
+	rc = SQLExecDirect_(stmt, (SQLCHAR *) query,
 			    (SQLINTEGER) (query_end - query));
 
 	free(query);
 
 	return rc;
+
+  nomem:
+	/* note that query must be NULL when we get here */
+	if (cat)
+		free(cat);
+	if (sch)
+		free(sch);
+	if (tab)
+		free(tab);
+	if (col)
+		free(col);
+	/* Memory allocation error */
+	addStmtError(stmt, "HY001", NULL, 0);
+	return SQL_ERROR;
 }
 
 SQLRETURN SQL_API

@@ -31,9 +31,6 @@
  * SQLProcedures()
  * CLI Compliance: ODBC (Microsoft)
  *
- * Note: this function is not implemented (it only sets an error),
- * because MonetDB SQL frontend does not support stored procedures.
- *
  * Author: Martin van Dinther, Sjoerd Mullender
  * Date  : 30 aug 2002
  *
@@ -91,57 +88,75 @@ SQLProcedures_(ODBCStmt *stmt,
 			cat = ODBCParseOA("e", "value",
 					  (const char *) CatalogName,
 					  (size_t) NameLength1);
+			if (cat == NULL)
+				goto nomem;
 		}
 		if (NameLength2 > 0) {
 			sch = ODBCParsePV("s", "name",
 					  (const char *) SchemaName,
 					  (size_t) NameLength2);
+			if (sch == NULL)
+				goto nomem;
 		}
 		if (NameLength3 > 0) {
 			pro = ODBCParsePV("p", "name",
 					  (const char *) ProcName,
 					  (size_t) NameLength3);
+			if (pro == NULL)
+				goto nomem;
 		}
 	} else {
 		if (NameLength1 > 0) {
 			cat = ODBCParseID("e", "value",
 					  (const char *) CatalogName,
 					  (size_t) NameLength1);
+			if (cat == NULL)
+				goto nomem;
 		}
 		if (NameLength2 > 0) {
 			sch = ODBCParseID("s", "name",
 					  (const char *) SchemaName,
 					  (size_t) NameLength2);
+			if (sch == NULL)
+				goto nomem;
 		}
 		if (NameLength3 > 0) {
 			pro = ODBCParseID("p", "name",
 					  (const char *) ProcName,
 					  (size_t) NameLength3);
+			if (pro == NULL)
+				goto nomem;
 		}
 	}
 
 	query = malloc(1000 + (cat ? strlen(cat) : 0) +
 		       (sch ? strlen(sch) : 0) + (pro ? strlen(pro) : 0));
-	assert(query);
+	if (query == NULL)
+		goto nomem;
 	query_end = query;
 
+/* see sql_catalog.h */
+#define F_FUNC 1
+#define F_PROC 2
+#define F_UNION 5
 	snprintf(query_end, 1000,
-		 "select \"e\".\"value\" as \"procedure_cat\","
-		 "       \"s\".\"name\" as \"procedure_schem\","
-		 "       \"p\".\"name\" as \"procedure_name\","
-		 "       0 as \"num_input_params\","
-		 "       0 as \"num_output_params\","
-		 "       0 as \"num_result_sets\","
-		 "       cast('' as varchar(1)) as \"remarks\","
-		 "       cast(case when \"a\".\"name\" is null then %d else %d end as smallint) as \"procedure_type\""
-		 "from \"sys\".\"schemas\" as \"s\","
-		 "     \"sys\".\"env\"() as \"e\","
-		 "     \"sys\".\"functions\" as \"p\" left outer join \"sys\".\"args\" as \"a\""
-		 "             on \"p\".\"id\" = \"a\".\"func_id\" and \"a\".\"name\" = 'result'"
-		 "where \"p\".\"schema_id\" = \"s\".\"id\" and"
-		 "      \"p\".\"sql\" = true and"
-		 "      \"e\".\"name\" = 'gdk_dbname'",
-		 SQL_PT_PROCEDURE, SQL_PT_FUNCTION);
+		 "select e.value as procedure_cat, "
+			"s.name as procedure_schem, "
+			"p.name as procedure_name, "
+			"0 as num_input_params, "
+			"0 as num_output_params, "
+			"0 as num_result_sets, "
+			"cast('' as varchar(1)) as remarks, "
+			"cast(case when p.type = %d then %d else %d end as smallint) as procedure_type "
+		 "from sys.schemas as s, "
+		      "sys.env() as e, "
+		      "sys.functions as p "
+		 "where p.schema_id = s.id and "
+		       "p.sql = true and "
+		       "p.type in (%d, %d, %d) and "
+		       "e.name = 'gdk_dbname'",
+		 F_PROC, SQL_PT_PROCEDURE, SQL_PT_FUNCTION,
+		 F_FUNC, F_PROC, F_UNION);
 	assert(strlen(query) < 800);
 	query_end += strlen(query_end);
 
@@ -167,7 +182,7 @@ SQLProcedures_(ODBCStmt *stmt,
 
 	/* add the ordering */
 	strcpy(query_end,
-	       " order by \"procedure_cat\", \"procedure_schem\", \"procedure_name\"");
+	       " order by procedure_cat, procedure_schem, procedure_name");
 	query_end += strlen(query_end);
 
 	/* query the MonetDB data dictionary tables */
@@ -177,6 +192,18 @@ SQLProcedures_(ODBCStmt *stmt,
 	free(query);
 
 	return rc;
+
+  nomem:
+	/* note that query must be NULL when we get here */
+	if (cat)
+		free(cat);
+	if (sch)
+		free(sch);
+	if (pro)
+		free(pro);
+	/* Memory allocation error */
+	addStmtError(stmt, "HY001", NULL, 0);
+	return SQL_ERROR;
 }
 
 SQLRETURN SQL_API

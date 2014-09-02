@@ -51,6 +51,7 @@
 #include "opt_evaluate.h"
 #include "opt_factorize.h"
 #include "opt_garbageCollector.h"
+#include "opt_generator.h"
 #include "opt_groups.h"
 #include "opt_inline.h"
 #include "opt_joinpath.h"
@@ -92,6 +93,7 @@ struct{
 	{"evaluate", &OPTevaluateImplementation},
 	{"factorize", &OPTfactorizeImplementation},
 	{"garbageCollector", &OPTgarbageCollectorImplementation},
+	{"generator", &OPTgeneratorImplementation},
 	{"groups", &OPTgroupsImplementation},
 	{"inline", &OPTinlineImplementation},
 	{"joinPath", &OPTjoinPathImplementation},
@@ -125,9 +127,12 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	lng t,clk= GDKusec();
 	int i, actions = 0;
 	char optimizer[256];
-	InstrPtr q= copyInstruction(p);
+	InstrPtr q;
 
+	if( p == NULL)
+		throw(MAL, "opt_wrapper", "missing optimizer statement");
 	snprintf(optimizer,256,"%s", fcnnme = getFunctionId(p));
+	q= copyInstruction(p);
 	OPTIMIZERDEBUG 
 		mnstr_printf(cntxt->fdout,"=APPLY OPTIMIZER %s\n",fcnnme);
 	if( p && p->argc > 1 ){
@@ -135,8 +140,10 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 			getArgType(mb,p,2) != TYPE_str ||
 			!isVarConstant(mb,getArg(p,1)) ||
 			!isVarConstant(mb,getArg(p,2))
-		) 
+			) {
+			freeInstruction(q);
 			throw(MAL, optimizer, ILLARG_CONSTANTS);
+		}
 
 		if( stk != 0){
 			modnme= *(str*)getArgReference(stk,p,1);
@@ -149,6 +156,7 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 		s= findSymbol(cntxt->nspace, putName(modnme,strlen(modnme)),putName(fcnnme,strlen(fcnnme)));
 
 		if( s == NULL) {
+			freeInstruction(q);
 			throw(MAL, optimizer, RUNTIME_OBJECT_UNDEFINED ":%s.%s", modnme, fcnnme);
 		}
 		mb = s->def;
@@ -169,6 +177,7 @@ str OPTwrapper (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 		break;	
 	}
 	if ( codes[i].nme == 0){
+		freeInstruction(q);
 		throw(MAL, optimizer, RUNTIME_OBJECT_UNDEFINED ":%s.%s", modnme, fcnnme);
 	}
 

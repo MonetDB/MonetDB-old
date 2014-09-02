@@ -54,6 +54,9 @@ extern sql_exp * exp_atom(sql_allocator *sa, atom *a);
 extern sql_exp * exp_atom_bool(sql_allocator *sa, int b); 
 extern sql_exp * exp_atom_int(sql_allocator *sa, int i);
 extern sql_exp * exp_atom_lng(sql_allocator *sa, lng l);
+#ifdef HAVE_HGE
+extern sql_exp * exp_atom_hge(sql_allocator *sa, hge l);
+#endif
 extern sql_exp * exp_atom_wrd(sql_allocator *sa, wrd w);
 extern sql_exp * exp_atom_flt(sql_allocator *sa, flt f);
 extern sql_exp * exp_atom_dbl(sql_allocator *sa, dbl d);
@@ -101,6 +104,7 @@ extern char *exp_find_rel_name(sql_exp *e);
 extern sql_exp *rel_find_exp( sql_rel *rel, sql_exp *e);
 
 extern int exp_cmp( sql_exp *e1, sql_exp *e2);
+extern int exp_refers( sql_exp *c, sql_exp *p);
 extern int exp_match( sql_exp *e1, sql_exp *e2);
 extern int exp_match_exp( sql_exp *e1, sql_exp *e2);
 /* match just the column (cmp equality) expressions */
@@ -113,8 +117,13 @@ extern int exp_is_join_exp(sql_exp *e);
 extern int exp_is_atom(sql_exp *e);
 extern int exps_are_atoms(list *exps);
 extern int exp_has_func(sql_exp *e);
+extern int exp_unsafe(sql_exp *e);
 
+/* returns 0 when the relation contain the passed expression else < 0 */
 extern int rel_has_exp(sql_rel *rel, sql_exp *e);
+/* return 0 when the relation contain atleast one of the passed expressions else < 0 */
+extern int rel_has_exps(sql_rel *rel, list *e);
+
 extern sql_rel *find_rel(list *rels, sql_exp *e);
 extern sql_rel *find_one_rel(list *rels, sql_exp *e);
 
@@ -129,5 +138,6 @@ extern int exps_intern(list *exps);
 
 extern char *compare_func( comp_type t );
 extern int is_identity( sql_exp *e, sql_rel *r);
+
 
 #endif /* _REL_EXP_H_ */

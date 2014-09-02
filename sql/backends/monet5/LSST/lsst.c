@@ -409,7 +409,7 @@ str qserv_ptInSphPoly(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for (i = 3; i <pci->argc; ++i) 
 		nv[i-3] =  *(dbl*) getArgReference(stk,pci,i);
 	_qserv_computeEdges(edges,nv, nedges);
-	
+	GDKfree(nv);
 
 	/* Transform input position from spherical coordinates
 	   to a unit cartesian vector. */
@@ -478,7 +478,7 @@ LSSTxmatch(int *lres, int *rres, int *lid, int *rid, int *delta)
 	r= (lng*) Tloc(br, BUNfirst(br));
 	rend= (lng*) Tloc(br, BUNlast(br));
 
-	xl = BATnew(TYPE_void, TYPE_oid, MIN(BATcount(bl), BATcount(br)));
+	xl = BATnew(TYPE_void, TYPE_oid, MIN(BATcount(bl), BATcount(br)), TRANSIENT);
 	if ( xl == NULL){
 		BBPreleaseref(*lid);
 		BBPreleaseref(*rid);
@@ -491,7 +491,7 @@ LSSTxmatch(int *lres, int *rres, int *lid, int *rid, int *delta)
 	xl->T->nonil = 1;
 	xl->H->nonil = 1;
 
-	xr = BATnew(TYPE_void, TYPE_oid, MIN(BATcount(bl), BATcount(br)));
+	xr = BATnew(TYPE_void, TYPE_oid, MIN(BATcount(bl), BATcount(br)), TRANSIENT);
 	if ( xr == NULL){
 		BBPreleaseref(*lid);
 		BBPreleaseref(*rid);

@@ -93,7 +93,7 @@ update_bat( sql_bat *bat, BAT *rids, BAT *updates, int isnew)
 		if (bat->ubid) {
 			u = temp_descriptor(bat->ubid);
 		} else {
-			u = bat_new(TYPE_oid, b->ttype, 1);
+			u = bat_new(TYPE_oid, b->ttype, 1, PERSISTENT);
 			bat->ubid = temp_create(u);
 		}
 		r = BATkdiff(old, u); /* don't keep already updated values */ 
@@ -124,7 +124,7 @@ update_val( sql_bat *bat, oid rid, void *upd, int isnew)
 		if (bat->ubid) {
 			u = temp_descriptor(bat->ubid);
 		} else {
-			u = bat_new(TYPE_oid, b->ttype, 1);
+			u = bat_new(TYPE_oid, b->ttype, 1, PERSISTENT);
 			bat->ubid = temp_create(u);
 		}
 		if (BUNfnd(u, (ptr)&rid) == BUN_NONE) {
@@ -395,7 +395,7 @@ create_col(sql_trans *tr, sql_column *c)
 		if (!bat)
  			bat = c->data = ZNEW(sql_bat);
 		if (!bat->bid) {
-			BAT *b = bat_new(TYPE_void, type, c->t->sz);
+			BAT *b = bat_new(TYPE_void, type, c->t->sz, PERSISTENT);
 			if (!b) 
 				return LOG_ERR;
 			bat->bid = temp_create(b);
@@ -445,7 +445,7 @@ create_idx(sql_trans *tr, sql_idx *ni)
 		assert(active_store_type == store_su);
 		return new_persistent_bat( tr, ni->data);
 	} else if (!bat->bid) {
-		BAT *b = bat_new(TYPE_void, type, ni->t->sz);
+		BAT *b = bat_new(TYPE_void, type, ni->t->sz, PERSISTENT);
 		if (!b) 
 			return LOG_ERR;
 		bat->bid = temp_create(b);
@@ -491,7 +491,7 @@ create_del(sql_trans *tr, sql_table *t)
 		bat->cnt = BATcount(b);
 		bat_destroy(b);
 	} else if (!bat->bid) {
-		b = bat_new(TYPE_void, TYPE_oid, t->sz);
+		b = bat_new(TYPE_void, TYPE_oid, t->sz, PERSISTENT);
 		bat_set_access(b, BAT_READ);
 		bat->bid = temp_create(b);
 		bat_destroy(b);
@@ -938,7 +938,7 @@ su_storage_init( store_functions *sf)
 	sf->count_del = (count_del_fptr)&count_del;
 	sf->count_col = (count_col_fptr)&count_col;
 	sf->count_idx = (count_idx_fptr)&count_idx;
-	sf->sorted_col = (sorted_col_fptr)&sorted_col;
+	sf->sorted_col = (prop_col_fptr)&sorted_col;
 
 	sf->create_col = (create_col_fptr)&create_col;
 	sf->create_idx = (create_idx_fptr)&create_idx;
@@ -990,7 +990,7 @@ ro_storage_init( store_functions *sf)
 	sf->count_del = (count_del_fptr)&count_del;
 	sf->count_col = (count_col_fptr)&count_col;
 	sf->count_idx = (count_idx_fptr)&count_idx;
-	sf->sorted_col = (sorted_col_fptr)&sorted_col;
+	sf->sorted_col = (prop_col_fptr)&sorted_col;
 
 	sf->create_col = (create_col_fptr)&create_col;
 	sf->create_idx = (create_idx_fptr)&create_idx;

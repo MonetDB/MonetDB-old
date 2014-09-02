@@ -18,33 +18,11 @@
  */
 
 /*
- * @' The contents of this file are subject to the MonetDB Public License
- * @' Version 1.1 (the "License"); you may not use this file except in
- * @' compliance with the License. You may obtain a copy of the License at
- * @' http://www.monetdb.org/Legal/MonetDBLicense
- * @'
- * @' Software distributed under the License is distributed on an "AS IS"
- * @' basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * @' License for the specific language governing rights and limitations
- * @' under the License.
- * @'
- * @' The Original Code is the MonetDB Database System.
- * @'
- * @' The Initial Developer of the Original Code is CWI.
- * @' Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * @' Copyright August 2008-2014 MonetDB B.V.
- * @' All Rights Reserved.
+ * Authors: M. Ivanova, M. Kersten, N. Nes
  *
- * @a M. Ivanova, M. Kersten, N. Nes
- * @f fits
- * @- This module contains primitives for accessing data in FITS file format.
- *
- * @-
+ * This module contains primitives for accessing data in FITS file format.
  */
-/*
- * @-
- *
- */
+
 #include "monetdb_config.h"
 #include <glob.h>
 
@@ -227,7 +205,8 @@ str FITSexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	_Bool boolvalue, *readboolrows;
 	struct list * set;
 
-	msg = getSQLContext(cntxt, mb, &m, NULL);
+	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
+		return msg;
 	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
 		return msg;
 
@@ -584,7 +563,7 @@ str FITSdir(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 		s = stmt;
 
-		while ((ep = readdir(dp)) != NULL) {
+		while ((ep = readdir(dp)) != NULL && !msg) {
 			snprintf(fname, BUFSIZ, "%s%s", dir, ep->d_name);
 			status = 0;
 			fits_open_file(&fptr, fname, READONLY, &status);
@@ -595,7 +574,7 @@ str FITSdir(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			}
 		}
 		(void)closedir(dp);
-	}else
+	} else
 		msg = createException(MAL, "listdir", "Couldn't open the directory");
 
 	return msg;
@@ -621,7 +600,7 @@ str FITSdirpat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/*	mnstr_printf(GDKout,"#fulldir: %s \nSize: %lu\n",fulldirectory, globbuf.gl_pathc);*/
 
 	if (globbuf.gl_pathc == 0)
-		msg = createException(MAL, "listdir", "Couldn't open the directory or there are no files that match the pattern");
+		throw(MAL, "listdir", "Couldn't open the directory or there are no files that match the pattern");
 
 	for (j = 0; j < globbuf.gl_pathc; j++) {
 		char stmt[BUFSIZ];
@@ -635,6 +614,7 @@ str FITSdirpat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			snprintf(stmt, BUFSIZ, ATTACHDIR, fname);
 			msg = SQLstatementIntern(cntxt, &s, "fits.listofdirpat", TRUE, FALSE);
 			fits_close_file(fptr, &status);
+			break;
 		}
 	}
 
@@ -680,7 +660,8 @@ str FITSattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	char xtensionname[BUFSIZ] = "", stilversion[BUFSIZ] = "";
 	char stilclass[BUFSIZ] = "", tdate[BUFSIZ] = "", orig[BUFSIZ] = "", comm[BUFSIZ] = "";
 
-	msg = getSQLContext(cntxt, mb, &m, NULL);
+	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
+		return msg;
 	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
 		return msg;
 
@@ -850,7 +831,8 @@ str FITSloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	char keywrd[80], **cname, nm[FLEN_VALUE];
 	ptr nilptr;
 
-	msg = getSQLContext(cntxt, mb, &m, NULL);
+	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
+		return msg;
 	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
 		return msg;
 	sch = mvc_bind_schema(m, "sys");
@@ -916,7 +898,7 @@ str FITSloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			snprintf(nm, FLEN_VALUE, "column_%d", j);
 			status = 0;
 		}
-		cname[j - 1] = GDKstrdup(toLower(nm));
+		cname[j - 1] = toLower(nm);
 		fits_get_coltype(fptr, j, &tpcode[j - 1], &rep[j - 1], &wid[j - 1], &status);
 		fits2subtype(&tpe, tpcode[j - 1], rep[j - 1], wid[j - 1]);
 
@@ -932,10 +914,10 @@ str FITSloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		BAT *tmp = NULL;
 		int time0 = GDKms();
 		mtype = fits2mtype(tpcode[j - 1]);
-		nilptr = ATOMnil(mtype);
+		nilptr = ATOMnilptr(mtype);
 		col = mvc_bind_column(m, tbl, cname[j - 1]);
 
-		tmp = BATnew(TYPE_void, mtype, rows);
+		tmp = BATnew(TYPE_void, mtype, rows, TRANSIENT);
 		if ( tmp == NULL){
 			GDKfree(tpcode);
 			GDKfree(rep);

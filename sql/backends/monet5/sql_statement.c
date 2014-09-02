@@ -122,7 +122,6 @@ st_type2string(st_type type)
 
 		ST(group);
 
-		ST(unique);
 		ST(convert);
 		ST(Nop);
 		ST(func);
@@ -325,7 +324,6 @@ stmt_deps(list *dep_list, stmt *s, int depend_type, int dir)
 			case st_join:
 			case st_join2:
 			case st_joinN:
-			case st_unique:
 			case st_append:
 			case st_rs_column:
 
@@ -753,31 +751,31 @@ stmt_result(sql_allocator *sa, stmt *s, int nr)
 
 /* limit maybe atom nil */
 stmt *
-stmt_limit(sql_allocator *sa, stmt *s, stmt *offset, stmt *limit, int direction)
+stmt_limit(sql_allocator *sa, stmt *c, stmt *offset, stmt *limit, int direction)
 {
 	stmt *ns = stmt_create(sa, st_limit);
 
-	ns->op1 = s;
+	ns->op1 = c;
 	ns->op2 = offset;
 	ns->op3 = limit;
-	ns->nrcols = s->nrcols;
-	ns->key = s->key;
-	ns->aggr = s->aggr;
+	ns->nrcols = c->nrcols;
+	ns->key = c->key;
+	ns->aggr = c->aggr;
 	ns->flag = direction;
 	return ns;
 }
 
 stmt *
-stmt_limit2(sql_allocator *sa, stmt *a, stmt *b, stmt *offset, stmt *limit, int direction)
+stmt_limit2(sql_allocator *sa, stmt *c, stmt *piv, stmt *gid, stmt *offset, stmt *limit, int direction)
 {
 	stmt *ns = stmt_create(sa, st_limit2);
 
-	ns->op1 = stmt_list(sa, list_append(list_append(sa_list(sa), b), a));
+	ns->op1 = stmt_list(sa, list_append(list_append(list_append(sa_list(sa), c), piv), gid));
 	ns->op2 = offset;
 	ns->op3 = limit;
-	ns->nrcols = b->nrcols;
-	ns->key = b->key;
-	ns->aggr = b->aggr;
+	ns->nrcols = piv->nrcols;
+	ns->key = piv->key;
+	ns->aggr = piv->aggr;
 	ns->flag = direction;
 	return ns;
 }
@@ -821,21 +819,6 @@ stmt_reorder(sql_allocator *sa, stmt *s, int direction, stmt *orderby_ids, stmt 
 	ns->flag = direction;
 	ns->nrcols = s->nrcols;
 	ns->key = s->key;
-	ns->aggr = s->aggr;
-	return ns;
-}
-
-stmt *
-stmt_unique(sql_allocator *sa, stmt *s, stmt *g, stmt *e, stmt *c)
-{
-	stmt *ns = stmt_create(sa, st_unique);
-
-	ns->op1 = s;
-	ns->op2 = g;
-	ns->op3 = e;
-	ns->op4.stval = c;
-	ns->nrcols = s->nrcols;
-	ns->key = 1;
 	ns->aggr = s->aggr;
 	return ns;
 }
@@ -1299,7 +1282,6 @@ tail_type(stmt *st)
 	case st_tinter:
 	case st_diff:
 	case st_union:
-	case st_unique:
 	case st_append:
 	case st_alias:
 	case st_gen_group:
@@ -1317,11 +1299,13 @@ tail_type(stmt *st)
 		} else if (st->op4.idxval->type == join_idx) {
 			return sql_bind_localtype("oid");
 		}
+		/* fall through */
 	case st_join:
 	case st_join2:
 	case st_joinN:
 		if (st->flag == cmp_project || st->flag == cmp_reorder_project)
 			return tail_type(st->op2);
+		/* fall through */
 	case st_mark:
 	case st_reorder:
 	case st_group:
@@ -1463,7 +1447,6 @@ _column_name(sql_allocator *sa, stmt *st)
 	case st_tinter:
 	case st_diff:
 	case st_union:
-	case st_unique:
 	case st_convert:
 		return column_name(sa, st->op1);
 	case st_Nop:
@@ -1483,6 +1466,7 @@ _column_name(sql_allocator *sa, stmt *st)
 	case st_atom:
 		if (st->op4.aval->data.vtype == TYPE_str)
 			return atom2string(sa, st->op4.aval);
+		/* fall through */
 	case st_var:
 	case st_temp:
 	case st_single:
@@ -1493,6 +1477,7 @@ _column_name(sql_allocator *sa, stmt *st)
 	case st_list:
 		if (list_length(st->op4.lval))
 			return column_name(sa, st->op4.lval->h->data);
+		/* fall through */
 	case st_rs_column:
 		return NULL;
 	default:
@@ -1539,7 +1524,6 @@ _table_name(sql_allocator *sa, stmt *st)
 	case st_diff:
 	case st_union:
 	case st_aggr:
-	case st_unique:
 		return table_name(sa, st->op1);
 
 	case st_table_clear:
@@ -1599,7 +1583,6 @@ schema_name(sql_allocator *sa, stmt *st)
 	case st_tinter:
 	case st_diff:
 	case st_union:
-	case st_unique:
 	case st_convert:
 	case st_Nop:
 	case st_aggr:
@@ -1715,6 +1698,9 @@ const_column(sql_allocator *sa, stmt *val)
 	s->op1 = val;
 	s->op4.typeval = *ct;
 	s->nrcols = 1;
+
+	s->tname = val->tname;
+	s->cname = val->cname;
 	return s;
 }
 
@@ -1750,14 +1736,15 @@ stack_push_children(sql_stack *stk, stmt *s)
 		stack_push_list(stk, s->op4.lval);
 		break;
 	default:
-		if ((s->type == st_uselect2 || s->type == st_unique || s->type == st_group) && s->op4.stval)
+		if ((s->type == st_uselect2 || s->type == st_group) && s->op4.stval)
 			stack_push_stmt(stk, s->op4.stval, 1);
-		if (s->op3)
-			stack_push_stmt(stk, s->op3, 1);
-		if (s->op3)
-			stack_push_stmt(stk, s->op3, 1);
-		if (s->op2)
+		if (s->op2) {
+			if (s->op3)
+				stack_push_stmt(stk, s->op3, 1);
+			if (s->op3)
+				stack_push_stmt(stk, s->op3, 1);
 			stack_push_stmt(stk, s->op2, 1);
+		}
 		if (s->op1)
 			stack_push_stmt(stk, s->op1, 1);
 	}

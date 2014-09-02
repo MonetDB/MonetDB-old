@@ -218,10 +218,11 @@ HASHcollisions(BAT *b, Hash *h)
 {
 	lng cnt, entries = 0, max = 0;
 	double total = 0;
-	BUN p, i, j, nil = HASHnil(h);
+	BUN p, i, j, nil;
 
 	if (b == 0 || h == 0)
 		return;
+	nil = HASHnil(h);
 	for (i = 0, j = h->mask; i <= j; i++)
 		if ((p = HASHget(h, i)) != nil) {
 			entries++;
@@ -252,6 +253,7 @@ BAThash(BAT *b, BUN masksize)
 		bat p = VIEWhparent(b);
 		o = b;
 		b = BATdescriptor(p);
+		assert(b != NULL);
 		if (!ALIGNsynced(o, b) || BUNfirst(o) != BUNfirst(b)) {
 			BBPunfix(b->batCacheid);
 			b = o;
@@ -329,6 +331,7 @@ BAThash(BAT *b, BUN masksize)
 				sprintf(hp->filename, "%s.%chash", nme, b->batCacheid > 0 ? 'h' : 't');
 			if (hp == NULL ||
 			    hp->filename == NULL ||
+			    (hp->farmid = BBPselectfarm(TRANSIENT, b->htype, hashheap)) < 0 ||
 			    (h = HASHnew(hp, ATOMtype(b->htype), BATcapacity(b), mask)) == NULL) {
 
 				MT_lock_unset(&GDKhashLock(abs(b->batCacheid)), "BAThash");
@@ -366,6 +369,11 @@ BAThash(BAT *b, BUN masksize)
 #endif
 				starthash(lng);
 				break;
+#ifdef HAVE_HGE
+			case TYPE_hge:
+				starthash(hge);
+				break;
+#endif
 			default:
 				for (; r < p; r++) {
 					ptr v = BUNhead(bi, r);
@@ -410,6 +418,11 @@ BAThash(BAT *b, BUN masksize)
 #endif
 			finishhash(lng);
 			break;
+#ifdef HAVE_HGE
+		case TYPE_hge:
+			finishhash(hge);
+			break;
+#endif
 		default:
 			for (; p < q; p++) {
 				ptr v = BUNhead(bi, p);
@@ -452,6 +465,10 @@ HASHprobe(Hash *h, const void *v)
 	case TYPE_dbl:
 	case TYPE_lng:
 		return hash_lng(h, v);
+#ifdef HAVE_HGE
+	case TYPE_hge:
+		return hash_hge(h, v);
+#endif
 	default:
 		return hash_any(h, v);
 	}
@@ -581,7 +598,8 @@ SORTfndwhich(BAT *b, const void *v, enum find_which which)
 
 	if (BATtdense(b)) {
 		/* no need for binary search on dense column */
-		if (*(const oid *) v < b->tseqbase)
+		if (*(const oid *) v < b->tseqbase ||
+		    *(const oid *) v == oid_nil)
 			return which == FIND_ANY ? BUN_NONE : lo;
 		if (*(const oid *) v >= b->tseqbase + BATcount(b))
 			return which == FIND_ANY ? BUN_NONE : hi;
@@ -639,6 +657,11 @@ SORTfndwhich(BAT *b, const void *v, enum find_which which)
 		case TYPE_lng:
 			SORTfndloop(lng, simple_CMP, BUNtloc);
 			break;
+#ifdef HAVE_HGE
+		case TYPE_hge:
+			SORTfndloop(hge, simple_CMP, BUNtloc);
+			break;
+#endif
 		case TYPE_flt:
 			SORTfndloop(flt, simple_CMP, BUNtloc);
 			break;
@@ -666,6 +689,11 @@ SORTfndwhich(BAT *b, const void *v, enum find_which which)
 		case TYPE_lng:
 			SORTfndloop(lng, -simple_CMP, BUNtloc);
 			break;
+#ifdef HAVE_HGE
+		case TYPE_hge:
+			SORTfndloop(hge, -simple_CMP, BUNtloc);
+			break;
+#endif
 		case TYPE_flt:
 			SORTfndloop(flt, -simple_CMP, BUNtloc);
 			break;

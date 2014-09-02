@@ -2691,7 +2691,7 @@ void testBatHash(void){
 	oid	key[7] = {3,5,6,3,5,7,5};
 	oid 	csKey; 
 
-	testBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+	testBat = BATnew(TYPE_void, TYPE_oid, smallbatsz, TRANSIENT);
 		
 	for (i = 0; i < 7; i++){
 		csKey = key[i]; 
@@ -3407,7 +3407,7 @@ static
 PropStat* initPropStat(void){
 
 	PropStat *propStat = (PropStat *) malloc(sizeof(PropStat));
-	propStat->pBat = BATnew(TYPE_void, TYPE_oid, INIT_PROP_NUM);
+	propStat->pBat = BATnew(TYPE_void, TYPE_oid, INIT_PROP_NUM, TRANSIENT);
 
 	BATseqbase(propStat->pBat, 0);
 	
@@ -3684,7 +3684,7 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 static
 LabelStat* initLabelStat(void){
 	LabelStat *labelStat = (LabelStat*) malloc(sizeof(LabelStat)); 
-	labelStat->labelBat = BATnew(TYPE_void, TYPE_oid, INIT_DISTINCT_LABEL);	
+	labelStat->labelBat = BATnew(TYPE_void, TYPE_oid, INIT_DISTINCT_LABEL, TRANSIENT);	
 	if (labelStat->labelBat == NULL){
 		return NULL; 
 	}
@@ -4994,7 +4994,7 @@ static
 CSBats* initCSBats(void){
 
 	CSBats *csBats = (CSBats *) malloc(sizeof(CSBats));
-	csBats->hsKeyBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+	csBats->hsKeyBat = BATnew(TYPE_void, TYPE_oid, smallbatsz, TRANSIENT);
 
 	BATseqbase(csBats->hsKeyBat, 0);
 	
@@ -5007,17 +5007,17 @@ CSBats* initCSBats(void){
 		return NULL;
 	}
 
-	csBats->hsValueBat = BATnew(TYPE_void, TYPE_int, smallbatsz);
+	csBats->hsValueBat = BATnew(TYPE_void, TYPE_int, smallbatsz, TRANSIENT);
 
 	if (csBats->hsValueBat == NULL) {
 		return NULL; 
 	}
-	csBats->pOffsetBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+	csBats->pOffsetBat = BATnew(TYPE_void, TYPE_oid, smallbatsz, TRANSIENT);
 	
 	if (csBats->pOffsetBat == NULL) {
 		return NULL; 
 	}
-	csBats->fullPBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+	csBats->fullPBat = BATnew(TYPE_void, TYPE_oid, smallbatsz, TRANSIENT);
 	
 	if (csBats->fullPBat == NULL) {
 		return NULL; 
@@ -5025,25 +5025,25 @@ CSBats* initCSBats(void){
 
 	//#if EXTRAINFO_FROM_RDFTYPE
 
-	csBats->typeOffsetBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+	csBats->typeOffsetBat = BATnew(TYPE_void, TYPE_oid, smallbatsz, TRANSIENT);
 	
 	if (csBats->typeOffsetBat == NULL) {
 		return NULL; 
 	}
-	csBats->fullTypeBat = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+	csBats->fullTypeBat = BATnew(TYPE_void, TYPE_oid, smallbatsz, TRANSIENT);
 	
 	if (csBats->fullTypeBat == NULL) {
 		return NULL; 
 	}
 	//#endif
 
-	csBats->freqBat = BATnew(TYPE_void, TYPE_int, smallbatsz);
+	csBats->freqBat = BATnew(TYPE_void, TYPE_int, smallbatsz, TRANSIENT);
 	
 	if (csBats->freqBat == NULL) {
 		return NULL; 
 	}
 
-	csBats->coverageBat = BATnew(TYPE_void, TYPE_int, smallbatsz);
+	csBats->coverageBat = BATnew(TYPE_void, TYPE_int, smallbatsz, TRANSIENT);
 	
 	if (csBats->coverageBat == NULL) {
 		return NULL; 
@@ -5088,7 +5088,7 @@ BAT* generateTablesForEvaluating(CSset *freqCSset, int numTbl, int* mergeCSFreqC
 	int	numLoop; 
 
 	cumDist = (int*)malloc(sizeof(int) * curNumMergeCS);
-	outputBat = BATnew(TYPE_void, TYPE_int, numTbl);
+	outputBat = BATnew(TYPE_void, TYPE_int, numTbl, TRANSIENT);
 	if (outputBat == NULL){
 		return NULL; 
 	}
@@ -5168,7 +5168,7 @@ BAT* buildTypeOidBat(void){
 	oid	tmpAttributeOid; 
 	int	i; 
 
-	typeBat = BATnew(TYPE_void, TYPE_oid, typeAttributesCount + 1);
+	typeBat = BATnew(TYPE_void, TYPE_oid, typeAttributesCount + 1, TRANSIENT);
 	
 	if (typeBat == NULL){
 		printf("In rdfschema.c/buildTypeOidBat: Cannot create new bat\n");
@@ -6714,7 +6714,7 @@ oid getFirstEncodedSubjId(int tblIdx){
 BAT* createEncodedSubjBat(int tblIdx, int num){
 	BAT* subjBat = NULL; 
 	
-	subjBat = BATnew(TYPE_void, TYPE_void , num + 1);
+	subjBat = BATnew(TYPE_void, TYPE_void , num + 1, TRANSIENT);
 	BATsetcount(subjBat,num);
 	BATseqbase(subjBat, 0);
 	BATseqbase(BATmirror(subjBat), getFirstEncodedSubjId(tblIdx));
@@ -6975,10 +6975,10 @@ str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, C
 			//into a single value as a list
 			
 			if (csPropTypes[i].lstPropTypes[j].isMVProp){
-				csSampleEx[i].colBats[colIdx] = BATnew(TYPE_void, TYPE_str , NUM_SAMPLE_INSTANCE + 1);
+				csSampleEx[i].colBats[colIdx] = BATnew(TYPE_void, TYPE_str , NUM_SAMPLE_INSTANCE + 1, TRANSIENT);
 			} 
 			else{
-				csSampleEx[i].colBats[colIdx] = BATnew(TYPE_void, cstablestat->lstcstable[i].colBats[colIdx]->ttype , NUM_SAMPLE_INSTANCE + 1);
+				csSampleEx[i].colBats[colIdx] = BATnew(TYPE_void, cstablestat->lstcstable[i].colBats[colIdx]->ttype , NUM_SAMPLE_INSTANCE + 1, TRANSIENT);
 			}
 
 
@@ -9998,7 +9998,7 @@ BAT* getOriginalUriOBat(BAT *obat){
 	oid 	*obt; 
 	ObjectType objType; 
 
-	origobat = BATcopy(obat,  obat->htype, obat->ttype, TRUE);
+	origobat = BATcopy(obat,  obat->htype, obat->ttype, TRUE, TRANSIENT);
 	oi = bat_iterator(origobat); 
 	
 	BATloop(origobat, p, q){
@@ -10108,7 +10108,7 @@ str triplesubsort(BAT **sbat, BAT **pbat, BAT **obat){
 static 
 BAT* BATnewPropSet(int ht, int tt, BUN cap){
 	BAT	*tmpBat = NULL; 	
-	tmpBat = BATnew(ht, tt, cap); 
+	tmpBat = BATnew(ht, tt, cap, TRANSIENT); 
 	tmpBat->T->nil = 0;
 	tmpBat->T->nonil = 0;
 	tmpBat->tkey = 0;
@@ -10325,7 +10325,7 @@ creatPBats(BAT** setofBats, Postinglist ptl, int HeadType, int TailType){
 	numbat = ptl.numAdded; 
 
 	for (i = 0; i < numbat; i++){ 
-		setofBats[ptl.lstIdx[i]] = BATnew(HeadType, TailType, smallbatsz);	
+		setofBats[ptl.lstIdx[i]] = BATnew(HeadType, TailType, smallbatsz, TRANSIENT);	
 		// only create BAT for few 
 	}
 
@@ -10824,7 +10824,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			cstablestat->lastInsertedS[tblIdx][tmpColIdx] = BUN_NONE;
 			#if     DETECT_PKCOL
 			if (isPossiblePK){
-				tmpHashBat = BATnew(TYPE_void, TYPE_oid, lastSubjId[tblIdx] + 1);
+				tmpHashBat = BATnew(TYPE_void, TYPE_oid, lastSubjId[tblIdx] + 1, TRANSIENT);
 				
 				if (tmpHashBat == NULL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot create new tmpHashBat");
@@ -10844,7 +10844,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			#if COUNT_DISTINCT_REFERRED_S
 			if (isFKCol){
 				initHashBatgz = (csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblSupport > smallHashBatsz)?smallHashBatsz:csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblSupport;
-				tmpFKHashBat = BATnew(TYPE_void, TYPE_oid, initHashBatgz + 1);
+				tmpFKHashBat = BATnew(TYPE_void, TYPE_oid, initHashBatgz + 1, TRANSIENT);
 
 				if (tmpFKHashBat == NULL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot create new tmpFKHashBat");
@@ -10885,7 +10885,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			}
 			if (isFKCol){
 				initHashBatgz = (csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblSupport > smallHashBatsz)?smallHashBatsz:csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblSupport;
-				tmpFKHashBat = BATnew(TYPE_void, TYPE_oid, initHashBatgz + 1);
+				tmpFKHashBat = BATnew(TYPE_void, TYPE_oid, initHashBatgz + 1, TRANSIENT);
 
 				if (tmpFKHashBat == NULL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot create new tmpFKHashBat");
@@ -10913,7 +10913,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 					BBPreclaim(tmpHashBat); 
 					tmpHashBat = NULL; 
 				}
-				tmpHashBat = BATnew(TYPE_void, TYPE_oid, lastSubjId[tblIdx] + 1);
+				tmpHashBat = BATnew(TYPE_void, TYPE_oid, lastSubjId[tblIdx] + 1, TRANSIENT);
 
 				if (tmpHashBat == NULL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot create new tmpHashBat");
@@ -11439,13 +11439,13 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 
 
 
-	sNewBat = BATnew(TYPE_void, TYPE_oid, BATcount(sbat));
+	sNewBat = BATnew(TYPE_void, TYPE_oid, BATcount(sbat), TRANSIENT);
 	if (sNewBat== NULL) {
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
 	}
 	BATseqbase(sNewBat, 0);
 	
-	lmap = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+	lmap = BATnew(TYPE_void, TYPE_oid, smallbatsz, TRANSIENT);
 
 	if (lmap == NULL) {
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
@@ -11454,7 +11454,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 
 	BATseqbase(lmap, 0);
 	
-	rmap = BATnew(TYPE_void, TYPE_oid, smallbatsz);
+	rmap = BATnew(TYPE_void, TYPE_oid, smallbatsz, TRANSIENT);
 	if (rmap == NULL) {
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
 	}

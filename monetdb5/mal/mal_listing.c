@@ -499,11 +499,14 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 							snprintf(ct, 1024+strlen(cv), "=%s", cv);
 						else
 							snprintf(ct, 1024+strlen(cv), "=\"%s\"", cv);
-					} else
-					if ( strcmp(cv,"nil") == 0)
-						snprintf(ct, 1024+strlen(cv), "=%s:%s", cv, getTypeName(getColumnType(getArgType(mb,p,i))));
-					else
-						snprintf(ct, 1024+strlen(cv), "=\"%s\":%s", cv, getTypeName(getColumnType(getArgType(mb,p,i))));
+					} else {
+						char *tpe = getTypeName(getColumnType(getArgType(mb,p,i)));
+						if ( strcmp(cv,"nil") == 0)
+							snprintf(ct, 1024+strlen(cv), "=%s:%s", cv, tpe);
+						else
+							snprintf(ct, 1024+strlen(cv), "=\"%s\":%s", cv, tpe);
+						GDKfree(tpe);
+					}
 					if( cv) GDKfree(cv);
 					cv= ct;
 				} else
@@ -525,11 +528,14 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 							snprintf(ct, 1024+strlen(cv), "%s", cv);
 						else
 							snprintf(ct, 1024+strlen(cv), "\"%s\"", cv);
-					} else
-					if ( strcmp(cv,"nil") == 0)
-						snprintf(ct, 1024+strlen(cv), "%s:%s", cv, getTypeName(getColumnType(getArgType(mb,p,i))));
-					else
-						snprintf(ct, 1024+strlen(cv), "\"%s\":%s", cv, getTypeName(getColumnType(getArgType(mb,p,i))));
+					} else {
+						char *tpe = getTypeName(getColumnType(getArgType(mb,p,i)));
+						if ( strcmp(cv,"nil") == 0)
+							snprintf(ct, 1024+strlen(cv), "%s:%s", cv, tpe);
+						else
+							snprintf(ct, 1024+strlen(cv), "\"%s\":%s", cv, tpe);
+						GDKfree(tpe);
+					}
 					if( cv) GDKfree(cv);
 					cv= ct;
 				} else
@@ -644,7 +650,7 @@ mal2str(MalBlkPtr mb, int flg, int first, int last)
 	len = GDKmalloc(sizeof(int) * mb->stop);
 
 	if( txt == NULL || len == NULL){
-		GDKerror("mal2str"MAL_MALLOC_FAIL);
+		GDKerror("mal2str: " MAL_MALLOC_FAIL);
 		if( txt ) GDKfree(txt);
 		if( len ) GDKfree(len);
 		return NULL;
@@ -656,18 +662,19 @@ mal2str(MalBlkPtr mb, int flg, int first, int last)
 	}
 	ps = GDKmalloc(totlen + mb->stop + 1);
 	if( ps == NULL)
-		GDKerror("mal2str"MAL_MALLOC_FAIL);
+		GDKerror("mal2str: " MAL_MALLOC_FAIL);
 
 	totlen = 0;
-	for (i = first; i < last; i++) 
-	if( txt[i]){
-		if( ps){
-			strncpy(ps + totlen, txt[i], len[i]);
-			ps[totlen + len[i]] = '\n';
-			ps[totlen + len[i] + 1] = 0;
-			totlen += len[i] + 1;
+	for (i = first; i < last; i++) {
+		if( txt[i]){
+			if( ps){
+				strncpy(ps + totlen, txt[i], len[i]);
+				ps[totlen + len[i]] = '\n';
+				ps[totlen + len[i] + 1] = 0;
+				totlen += len[i] + 1;
+			}
+			GDKfree(txt[i]);
 		}
-		GDKfree(txt[i]);
 	}
 	GDKfree(len);
 	GDKfree(txt);

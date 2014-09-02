@@ -95,7 +95,6 @@ typedef enum stmt_type {
 	st_delete,
 
 	st_group,
-	st_unique,
 	st_convert,
 	st_Nop,
 	st_func,
@@ -225,10 +224,16 @@ extern stmt *stmt_reverse(sql_allocator *sa, stmt *s);
 extern stmt *stmt_mirror(sql_allocator *sa, stmt *s);
 extern stmt *stmt_result(sql_allocator *sa, stmt *s, int nr);
 
-#define LIMIT_DIRECTION(dir,order,before_project) \
-		(dir<<2)+(before_project<<1)+(order)
+/* 
+ * distinct: compute topn on unique groups
+ * dir:      direction of the ordering, ie 1 Ascending, 0 decending
+ * last:     intermediate step or last step 
+ * order:    is order important or not (firstn vs slice)
+ */ 
+#define LIMIT_FLAG(distinct,dir,last,order) \
+		((distinct<<3)+(dir<<2)+(last<<1)+(order))
 extern stmt *stmt_limit(sql_allocator *sa, stmt *s, stmt *offset, stmt *limit, int direction);
-extern stmt *stmt_limit2(sql_allocator *sa, stmt *s, stmt *sb, stmt *offset, stmt *limit, int direction);
+extern stmt *stmt_limit2(sql_allocator *sa, stmt *s, stmt *piv, stmt *gid, stmt *offset, stmt *limit, int direction);
 extern stmt *stmt_sample(sql_allocator *sa, stmt *s, stmt *sample);
 extern stmt *stmt_order(sql_allocator *sa, stmt *s, int direction);
 extern stmt *stmt_reorder(sql_allocator *sa, stmt *s, int direction, stmt *orderby_ids, stmt *orderby_grp);
@@ -239,7 +244,6 @@ extern stmt *stmt_binop(sql_allocator *sa, stmt *op1, stmt *op2, sql_subfunc *op
 extern stmt *stmt_Nop(sql_allocator *sa, stmt *ops, sql_subfunc *op);
 extern stmt *stmt_func(sql_allocator *sa, stmt *ops, char *name, sql_rel *imp);
 extern stmt *stmt_aggr(sql_allocator *sa, stmt *op1, stmt *grp, stmt *ext, sql_subaggr *op, int reduce, int no_nil);
-extern stmt *stmt_unique(sql_allocator *sa, stmt *s, stmt *grp, stmt *ext, stmt *cnt);
 
 extern stmt *stmt_alias(sql_allocator *sa, stmt *op1, char *tname, char *name);
 

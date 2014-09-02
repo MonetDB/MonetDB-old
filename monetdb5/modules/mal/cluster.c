@@ -166,6 +166,25 @@ CLUSTER_key_lng( BAT *map, BAT *b)
 	}
 }
 
+#ifdef HAVE_HGE
+static void
+CLUSTER_key_hge( BAT *map, BAT *b)
+{
+	hge *bt, *be;
+	oid *o;
+
+	assert(BUNfirst(map) == 0);
+	assert(BUNfirst(b) == 0);
+	o = (oid*)Tloc(map, 0);
+	bt = (hge*)Tloc(b, 0);
+	be = bt + BATcount(b);
+	for ( ; bt < be; bt++){
+		BUN h = hash_hge(b->T->hash,bt);
+		*o++= h;
+	}
+}
+#endif
+
 static void
 CLUSTER_key_flt( BAT *map, BAT *b)
 {
@@ -280,7 +299,7 @@ CLUSTER_key( bat *M, bat *B){
 		throw(MAL, "cluster.key", INTERNAL_BAT_ACCESS);
 	(void) BATprepareHash(BATmirror(b)); /* only produce the hash structure! */
 
-	if ((map = BATnew(TYPE_void, TYPE_oid, BATcount(b)+1)) == NULL) {
+	if ((map = BATnew(TYPE_void, TYPE_oid, BATcount(b)+1, TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		throw(MAL, "cluster.key", MAL_MALLOC_FAIL);
 	}
@@ -299,6 +318,9 @@ CLUSTER_key( bat *M, bat *B){
 		case TYPE_wrd: CLUSTER_key_wrd(map,b); break;
 		case TYPE_int: CLUSTER_key_int(map,b); break;
 		case TYPE_lng: CLUSTER_key_lng(map,b); break;
+#ifdef HAVE_HGE
+		case TYPE_hge: CLUSTER_key_hge(map,b); break;
+#endif
 		case TYPE_flt: CLUSTER_key_flt(map,b); break;
 		case TYPE_dbl: CLUSTER_key_dbl(map,b); break;
 		case TYPE_str: CLUSTER_key_str(map,b); break;
@@ -339,7 +361,7 @@ CLUSTER_map(bat *RB, bat *B)
 	if ( (b = BATdescriptor(*B)) == NULL)
 		throw(MAL, "cluster.new", INTERNAL_BAT_ACCESS);
 
-	if ((map = BATnew(TYPE_void, TYPE_oid, BATcount(b)+1)) == NULL) {
+	if ((map = BATnew(TYPE_void, TYPE_oid, BATcount(b)+1, TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
 	}
@@ -442,7 +464,9 @@ CLUSTER_apply(bat *bid, BAT *b, BAT *cmap)
 {
 	BAT *nb;
 	assert(b->htype==TYPE_void);
-	nb= BATnew(TYPE_void, b->ttype, BATcapacity(b));
+	nb= BATnew(TYPE_void, b->ttype, BATcapacity(b), TRANSIENT);
+	if (nb == NULL)
+		throw(MAL, "CLUSTER_apply", MAL_MALLOC_FAIL);
 	BATseqbase(nb,0);
 	nb->hrevsorted = 0;
 	nb->tsorted= FALSE;
@@ -461,6 +485,9 @@ CLUSTER_apply(bat *bid, BAT *b, BAT *cmap)
 	case TYPE_wrd: CLUSTER_column_wrd(nb, b, cmap);break;
 	case TYPE_int: CLUSTER_column_int(nb, b, cmap);break;
 	case TYPE_lng: CLUSTER_column_lng(nb, b, cmap);break;
+#ifdef HAVE_HGE
+	case TYPE_hge: CLUSTER_column_hge(nb, b, cmap);break;
+#endif
 	case TYPE_flt: CLUSTER_column_flt(nb, b, cmap);break;
 	case TYPE_dbl: CLUSTER_column_dbl(nb, b, cmap);break;
 */
@@ -500,7 +527,7 @@ CLUSTER_table( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	BAT *map,*b;
 	int *res, hid, mid, *bid,i;
-	str msg;
+	str msg= MAL_SUCCEED;
 	(void) cntxt;
 	(void) mb;
 
@@ -525,7 +552,7 @@ CLUSTER_table( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		BBPunfix(b->batCacheid);
 	}
 	*res= mid;
-	return MAL_SUCCEED;
+	return msg;
 }
 
 
@@ -552,7 +579,7 @@ CLS_create_bte( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	if ((b = BATdescriptor(*B)) == NULL)
 		throw(MAL, "cluster.new", INTERNAL_BAT_ACCESS);
 
-	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1)) == NULL) {
+	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1, TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
 	}
@@ -588,7 +615,7 @@ CLS_create_bte( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	}
 	
 	/* time to create the cluster map */
-	if ((cmap = BATnew(TYPE_void, TYPE_wrd, BATcount(b))) == NULL) {
+	if ((cmap = BATnew(TYPE_void, TYPE_wrd, BATcount(b), TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		BBPunfix(psum->batCacheid);
 		GDKfree(pos);
@@ -612,8 +639,8 @@ CLS_create_bte( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	BBPunfix(*B);
 	BBPkeepref(*rpsum = psum->batCacheid);
 	BBPkeepref(*rcmap = cmap->batCacheid);
-	psum = BATsetaccess(psum, BAT_READ);
-	cmap = BATsetaccess(cmap, BAT_READ);
+	BATsetaccess(psum, BAT_READ);
+	BATsetaccess(cmap, BAT_READ);
 	return MAL_SUCCEED;
 }
 
@@ -637,7 +664,7 @@ CLS_create_sht( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	if ((b = BATdescriptor(*B)) == NULL)
 		throw(MAL, "cluster.new", INTERNAL_BAT_ACCESS);
 
-	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1)) == NULL) {
+	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1, TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
 	}
@@ -673,7 +700,7 @@ CLS_create_sht( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	}
 	
 	/* time to create the cluster map */
-	if ((cmap = BATnew(TYPE_void, TYPE_wrd, BATcount(b))) == NULL) {
+	if ((cmap = BATnew(TYPE_void, TYPE_wrd, BATcount(b), TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		BBPunfix(psum->batCacheid);
 		GDKfree(pos);
@@ -697,8 +724,8 @@ CLS_create_sht( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	BBPunfix(*B);
 	BBPkeepref(*rpsum = psum->batCacheid);
 	BBPkeepref(*rcmap = cmap->batCacheid);
-	psum = BATsetaccess(psum, BAT_READ);
-	cmap = BATsetaccess(cmap, BAT_READ);
+	BATsetaccess(psum, BAT_READ);
+	BATsetaccess(cmap, BAT_READ);
 	return MAL_SUCCEED;
 }
 
@@ -722,7 +749,7 @@ CLS_create_int( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	if ((b = BATdescriptor(*B)) == NULL)
 		throw(MAL, "cluster.new", INTERNAL_BAT_ACCESS);
 
-	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1)) == NULL) {
+	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1, TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
 	}
@@ -758,7 +785,7 @@ CLS_create_int( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	}
 	
 	/* time to create the cluster map */
-	if ((cmap = BATnew(TYPE_void, TYPE_wrd, BATcount(b))) == NULL) {
+	if ((cmap = BATnew(TYPE_void, TYPE_wrd, BATcount(b), TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		BBPunfix(psum->batCacheid);
 		GDKfree(pos);
@@ -782,8 +809,8 @@ CLS_create_int( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	BBPunfix(*B);
 	BBPkeepref(*rpsum = psum->batCacheid);
 	BBPkeepref(*rcmap = cmap->batCacheid);
-	psum = BATsetaccess(psum, BAT_READ);
-	cmap = BATsetaccess(cmap, BAT_READ);
+	BATsetaccess(psum, BAT_READ);
+	BATsetaccess(cmap, BAT_READ);
 	return MAL_SUCCEED;
 }
 
@@ -807,7 +834,7 @@ CLS_create_wrd( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	if ((b = BATdescriptor(*B)) == NULL)
 		throw(MAL, "cluster.new", INTERNAL_BAT_ACCESS);
 
-	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1)) == NULL) {
+	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1, TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
 	}
@@ -843,7 +870,7 @@ CLS_create_wrd( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	}
 	
 	/* time to create the cluster map */
-	if ((cmap = BATnew(TYPE_void, TYPE_wrd, BATcount(b))) == NULL) {
+	if ((cmap = BATnew(TYPE_void, TYPE_wrd, BATcount(b), TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		BBPunfix(psum->batCacheid);
 		GDKfree(pos);
@@ -867,8 +894,8 @@ CLS_create_wrd( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	BBPunfix(*B);
 	BBPkeepref(*rpsum = psum->batCacheid);
 	BBPkeepref(*rcmap = cmap->batCacheid);
-	psum = BATsetaccess(psum, BAT_READ);
-	cmap = BATsetaccess(cmap, BAT_READ);
+	BATsetaccess(psum, BAT_READ);
+	BATsetaccess(cmap, BAT_READ);
 	return MAL_SUCCEED;
 }
 
@@ -892,7 +919,7 @@ CLS_create_lng( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	if ((b = BATdescriptor(*B)) == NULL)
 		throw(MAL, "cluster.new", INTERNAL_BAT_ACCESS);
 
-	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1)) == NULL) {
+	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1, TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
 	}
@@ -928,7 +955,7 @@ CLS_create_lng( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	}
 	
 	/* time to create the cluster map */
-	if ((cmap = BATnew(TYPE_void, TYPE_wrd, BATcount(b))) == NULL) {
+	if ((cmap = BATnew(TYPE_void, TYPE_wrd, BATcount(b), TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		BBPunfix(psum->batCacheid);
 		GDKfree(pos);
@@ -952,10 +979,92 @@ CLS_create_lng( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	BBPunfix(*B);
 	BBPkeepref(*rpsum = psum->batCacheid);
 	BBPkeepref(*rcmap = cmap->batCacheid);
+	BATsetaccess(psum, BAT_READ);
+	BATsetaccess(cmap, BAT_READ);
+	return MAL_SUCCEED;
+}
+
+#ifdef HAVE_HGE
+str
+CLS_create_hge( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int *offset)
+{
+	BAT *psum, *cmap, *b;
+	int i, mask = 0, off = *offset;
+	unsigned int bits = *Bits;
+	hge *bt, *be; 
+	wrd *cnt, *pos, sum, *m;
+
+	if (off < 0)
+		off = 0;
+	if (bits >= sizeof(int)*8)
+		throw(MAL, "cluster.new", TOO_MANY_BITS);
+
+	if ((bits) != 0)
+		bits--;
+	mask = (1<<bits) - 1;
+	if ((b = BATdescriptor(*B)) == NULL)
+		throw(MAL, "cluster.new", INTERNAL_BAT_ACCESS);
+
+	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1, TRANSIENT)) == NULL) {
+		BBPunfix(*B);
+		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
+	}
+	BATsetcount(psum, mask+1);
+	BATseqbase(psum,0);
+	psum->tsorted= TRUE;
+	psum->trevsorted= FALSE;
+	psum->tdense= FALSE;
+	cnt = (wrd*)Tloc(psum, BUNfirst(psum));
+	for (i=0 ; i <= mask; i++)
+		cnt[i] = 0;
+
+	bt = (hge*)Tloc(b, BUNfirst(b));
+	be = bt + BATcount(b);
+	/* First make a histogram */
+	for ( ; bt < be; bt++) {
+		int h = (((int)(*bt)) >> off) & mask;
+		cnt[h]++;
+	}
+
+	/* convert histogram into prefix sum */
+	pos = (wrd*)GDKzalloc(sizeof(wrd) * (mask+1)); 
+	for (sum = 0, i=0 ; i <= mask; i++) {
+		wrd psum = sum;
+
+		sum += cnt[i];
+		pos[i] = cnt[i] = psum;
+	}
+	
+	/* time to create the cluster map */
+	if ((cmap = BATnew(TYPE_void, TYPE_wrd, BATcount(b), TRANSIENT)) == NULL) {
+		BBPunfix(*B);
+		BBPunfix(psum->batCacheid);
+		GDKfree(pos);
+		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
+	}
+	BATsetcount(cmap, BATcount(b));
+	BATseqbase(cmap, b->H->seq);
+	cmap->tsorted= FALSE;
+	cmap->trevsorted= FALSE;
+	cmap->tdense= FALSE;
+	m = (wrd*)Tloc(cmap, BUNfirst(cmap));
+
+	bt = (hge*)Tloc(b, BUNfirst(b));
+	be = bt + BATcount(b);
+	for ( ; bt < be; ) {
+		int h = (((int)(*bt++)) >> off) & mask;
+		*m++ = pos[h]++;
+	}
+
+	GDKfree(pos);
+	BBPunfix(*B);
+	BBPkeepref(*rpsum = psum->batCacheid);
+	BBPkeepref(*rcmap = cmap->batCacheid);
 	psum = BATsetaccess(psum, BAT_READ);
 	cmap = BATsetaccess(cmap, BAT_READ);
 	return MAL_SUCCEED;
 }
+#endif
 
 str
 CLS_create_dbl( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int *offset)
@@ -977,7 +1086,7 @@ CLS_create_dbl( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	if ((b = BATdescriptor(*B)) == NULL)
 		throw(MAL, "cluster.new", INTERNAL_BAT_ACCESS);
 
-	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1)) == NULL) {
+	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1, TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
 	}
@@ -1013,7 +1122,7 @@ CLS_create_dbl( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	}
 	
 	/* time to create the cluster map */
-	if ((cmap = BATnew(TYPE_void, TYPE_wrd, BATcount(b))) == NULL) {
+	if ((cmap = BATnew(TYPE_void, TYPE_wrd, BATcount(b), TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		BBPunfix(psum->batCacheid);
 		GDKfree(pos);
@@ -1037,8 +1146,8 @@ CLS_create_dbl( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	BBPunfix(*B);
 	BBPkeepref(*rpsum = psum->batCacheid);
 	BBPkeepref(*rcmap = cmap->batCacheid);
-	psum = BATsetaccess(psum, BAT_READ);
-	cmap = BATsetaccess(cmap, BAT_READ);
+	BATsetaccess(psum, BAT_READ);
+	BATsetaccess(cmap, BAT_READ);
 	return MAL_SUCCEED;
 }
 str
@@ -1061,7 +1170,7 @@ CLS_create_flt( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	if ((b = BATdescriptor(*B)) == NULL)
 		throw(MAL, "cluster.new", INTERNAL_BAT_ACCESS);
 
-	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1)) == NULL) {
+	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1, TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
 	}
@@ -1097,7 +1206,7 @@ CLS_create_flt( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	}
 	
 	/* time to create the cluster map */
-	if ((cmap = BATnew(TYPE_void, TYPE_wrd, BATcount(b))) == NULL) {
+	if ((cmap = BATnew(TYPE_void, TYPE_wrd, BATcount(b), TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		BBPunfix(psum->batCacheid);
 		GDKfree(pos);
@@ -1121,8 +1230,8 @@ CLS_create_flt( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int
 	BBPunfix(*B);
 	BBPkeepref(*rpsum = psum->batCacheid);
 	BBPkeepref(*rcmap = cmap->batCacheid);
-	psum = BATsetaccess(psum, BAT_READ);
-	cmap = BATsetaccess(cmap, BAT_READ);
+	BATsetaccess(psum, BAT_READ);
+	BATsetaccess(cmap, BAT_READ);
 	return MAL_SUCCEED;
 }
 
@@ -1146,7 +1255,7 @@ CLS_create2_bte( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 	if ((b = BATdescriptor(*B)) == NULL)
 		throw(MAL, "cluster.new", INTERNAL_BAT_ACCESS);
 
-	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1)) == NULL) {
+	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1, TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
 	}
@@ -1167,7 +1276,7 @@ CLS_create2_bte( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 		bte *mb, *m, h;
 
 		/* time to create the cluster map */
-		if ((cmap = BATnew((!*order)?TYPE_void:TYPE_oid, TYPE_bte, BATcount(b))) == NULL) {
+		if ((cmap = BATnew((!*order)?TYPE_void:TYPE_oid, TYPE_bte, BATcount(b), TRANSIENT)) == NULL) {
 			BBPunfix(*B);
 			BBPunfix(psum->batCacheid);
 			throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
@@ -1212,7 +1321,7 @@ CLS_create2_bte( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 		bte *m;
 
 		/* time to create the cluster map */
-		if ((cmap = BATnew(TYPE_void, TYPE_bte, BATcount(b))) == NULL) {
+		if ((cmap = BATnew(TYPE_void, TYPE_bte, BATcount(b), TRANSIENT)) == NULL) {
 			BBPunfix(*B);
 			BBPunfix(psum->batCacheid);
 			throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
@@ -1242,8 +1351,8 @@ CLS_create2_bte( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 	BBPunfix(*B);
 	BBPkeepref(*rpsum = psum->batCacheid);
 	BBPkeepref(*rcmap = cmap->batCacheid);
-	psum = BATsetaccess(psum, BAT_READ);
-	cmap = BATsetaccess(cmap, BAT_READ);
+	BATsetaccess(psum, BAT_READ);
+	BATsetaccess(cmap, BAT_READ);
 	return MAL_SUCCEED;
 }
 
@@ -1267,7 +1376,7 @@ CLS_create2_sht( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 	if ((b = BATdescriptor(*B)) == NULL)
 		throw(MAL, "cluster.new", INTERNAL_BAT_ACCESS);
 
-	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1)) == NULL) {
+	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1, TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
 	}
@@ -1288,7 +1397,7 @@ CLS_create2_sht( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 		bte *mb, *m, h;
 
 		/* time to create the cluster map */
-		if ((cmap = BATnew((!*order)?TYPE_void:TYPE_oid, TYPE_bte, BATcount(b))) == NULL) {
+		if ((cmap = BATnew((!*order)?TYPE_void:TYPE_oid, TYPE_bte, BATcount(b), TRANSIENT)) == NULL) {
 			BBPunfix(*B);
 			BBPunfix(psum->batCacheid);
 			throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
@@ -1333,7 +1442,7 @@ CLS_create2_sht( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 		bte *m;
 
 		/* time to create the cluster map */
-		if ((cmap = BATnew(TYPE_void, TYPE_bte, BATcount(b))) == NULL) {
+		if ((cmap = BATnew(TYPE_void, TYPE_bte, BATcount(b), TRANSIENT)) == NULL) {
 			BBPunfix(*B);
 			BBPunfix(psum->batCacheid);
 			throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
@@ -1363,8 +1472,8 @@ CLS_create2_sht( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 	BBPunfix(*B);
 	BBPkeepref(*rpsum = psum->batCacheid);
 	BBPkeepref(*rcmap = cmap->batCacheid);
-	psum = BATsetaccess(psum, BAT_READ);
-	cmap = BATsetaccess(cmap, BAT_READ);
+	BATsetaccess(psum, BAT_READ);
+	BATsetaccess(cmap, BAT_READ);
 	return MAL_SUCCEED;
 }
 
@@ -1388,7 +1497,7 @@ CLS_create2_int( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 	if ((b = BATdescriptor(*B)) == NULL)
 		throw(MAL, "cluster.new", INTERNAL_BAT_ACCESS);
 
-	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1)) == NULL) {
+	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1, TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
 	}
@@ -1409,7 +1518,7 @@ CLS_create2_int( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 		bte *mb, *m, h;
 
 		/* time to create the cluster map */
-		if ((cmap = BATnew((!*order)?TYPE_void:TYPE_oid, TYPE_bte, BATcount(b))) == NULL) {
+		if ((cmap = BATnew((!*order)?TYPE_void:TYPE_oid, TYPE_bte, BATcount(b), TRANSIENT)) == NULL) {
 			BBPunfix(*B);
 			BBPunfix(psum->batCacheid);
 			throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
@@ -1454,7 +1563,7 @@ CLS_create2_int( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 		bte *m;
 
 		/* time to create the cluster map */
-		if ((cmap = BATnew(TYPE_void, TYPE_bte, BATcount(b))) == NULL) {
+		if ((cmap = BATnew(TYPE_void, TYPE_bte, BATcount(b), TRANSIENT)) == NULL) {
 			BBPunfix(*B);
 			BBPunfix(psum->batCacheid);
 			throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
@@ -1484,8 +1593,8 @@ CLS_create2_int( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 	BBPunfix(*B);
 	BBPkeepref(*rpsum = psum->batCacheid);
 	BBPkeepref(*rcmap = cmap->batCacheid);
-	psum = BATsetaccess(psum, BAT_READ);
-	cmap = BATsetaccess(cmap, BAT_READ);
+	BATsetaccess(psum, BAT_READ);
+	BATsetaccess(cmap, BAT_READ);
 	return MAL_SUCCEED;
 }
 
@@ -1509,7 +1618,7 @@ CLS_create2_wrd( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 	if ((b = BATdescriptor(*B)) == NULL)
 		throw(MAL, "cluster.new", INTERNAL_BAT_ACCESS);
 
-	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1)) == NULL) {
+	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1, TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
 	}
@@ -1530,7 +1639,7 @@ CLS_create2_wrd( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 		bte *mb, *m, h;
 
 		/* time to create the cluster map */
-		if ((cmap = BATnew((!*order)?TYPE_void:TYPE_oid, TYPE_bte, BATcount(b))) == NULL) {
+		if ((cmap = BATnew((!*order)?TYPE_void:TYPE_oid, TYPE_bte, BATcount(b), TRANSIENT)) == NULL) {
 			BBPunfix(*B);
 			BBPunfix(psum->batCacheid);
 			throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
@@ -1575,7 +1684,7 @@ CLS_create2_wrd( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 		bte *m;
 
 		/* time to create the cluster map */
-		if ((cmap = BATnew(TYPE_void, TYPE_bte, BATcount(b))) == NULL) {
+		if ((cmap = BATnew(TYPE_void, TYPE_bte, BATcount(b), TRANSIENT)) == NULL) {
 			BBPunfix(*B);
 			BBPunfix(psum->batCacheid);
 			throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
@@ -1605,8 +1714,8 @@ CLS_create2_wrd( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 	BBPunfix(*B);
 	BBPkeepref(*rpsum = psum->batCacheid);
 	BBPkeepref(*rcmap = cmap->batCacheid);
-	psum = BATsetaccess(psum, BAT_READ);
-	cmap = BATsetaccess(cmap, BAT_READ);
+	BATsetaccess(psum, BAT_READ);
+	BATsetaccess(cmap, BAT_READ);
 	return MAL_SUCCEED;
 }
 
@@ -1630,7 +1739,7 @@ CLS_create2_lng( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 	if ((b = BATdescriptor(*B)) == NULL)
 		throw(MAL, "cluster.new", INTERNAL_BAT_ACCESS);
 
-	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1)) == NULL) {
+	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1, TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
 	}
@@ -1651,7 +1760,7 @@ CLS_create2_lng( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 		bte *mb, *m, h;
 
 		/* time to create the cluster map */
-		if ((cmap = BATnew((!*order)?TYPE_void:TYPE_oid, TYPE_bte, BATcount(b))) == NULL) {
+		if ((cmap = BATnew((!*order)?TYPE_void:TYPE_oid, TYPE_bte, BATcount(b), TRANSIENT)) == NULL) {
 			BBPunfix(*B);
 			BBPunfix(psum->batCacheid);
 			throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
@@ -1696,7 +1805,129 @@ CLS_create2_lng( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 		bte *m;
 
 		/* time to create the cluster map */
-		if ((cmap = BATnew(TYPE_void, TYPE_bte, BATcount(b))) == NULL) {
+		if ((cmap = BATnew(TYPE_void, TYPE_bte, BATcount(b), TRANSIENT)) == NULL) {
+			BBPunfix(*B);
+			BBPunfix(psum->batCacheid);
+			throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
+		}
+		BATsetcount(cmap, BATcount(b));
+		BATseqbase(cmap, b->H->seq);
+		cmap->tsorted = FALSE;
+		cmap->trevsorted = FALSE;
+		cmap->tdense = FALSE;
+		m = (bte*)Tloc(cmap, BUNfirst(cmap));
+
+		for ( ; bt < be; bt++) {
+			int h = (((int)(*bt)) >> off) & mask;
+			cnt[h]++;
+			*m++ = h;
+		}
+	}
+
+	/* convert histogram into prefix sum */
+	for (sum = 0, i=0 ; i <= mask; i++) {
+		wrd psum = sum;
+
+		sum += cnt[i];
+		cnt[i] = psum;
+	}
+	
+	BBPunfix(*B);
+	BBPkeepref(*rpsum = psum->batCacheid);
+	BBPkeepref(*rcmap = cmap->batCacheid);
+	BATsetaccess(psum, BAT_READ);
+	BATsetaccess(cmap, BAT_READ);
+	return MAL_SUCCEED;
+}
+
+#ifdef HAVE_HGE
+str
+CLS_create2_hge( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int *offset, bit *order)
+{
+	BAT *psum, *cmap, *b;
+	int i, mask = 0, off = *offset;
+	unsigned int bits = *Bits;
+	hge *bt, *be, *bs; 
+	wrd *cnt, sum;
+
+	if (off < 0)
+		off = 0;
+	if (bits >= sizeof(int)*8)
+		throw(MAL, "cluster.new", TOO_MANY_BITS);
+
+	if ((bits) != 0)
+		bits--;
+	mask = (1<<bits) - 1;
+	if ((b = BATdescriptor(*B)) == NULL)
+		throw(MAL, "cluster.new", INTERNAL_BAT_ACCESS);
+
+	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1, TRANSIENT)) == NULL) {
+		BBPunfix(*B);
+		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
+	}
+	BATsetcount(psum, mask+1);
+	BATseqbase(psum,0);
+	psum->tsorted= TRUE;
+	psum->trevsorted= FALSE;
+	psum->tdense= FALSE;
+	cnt = (wrd*)Tloc(psum, BUNfirst(psum));
+	for (i=0 ; i <= mask; i++)
+		cnt[i] = 0;
+
+	bs = bt = (hge*)Tloc(b, BUNfirst(b));
+	be = bt + BATcount(b);
+
+	/* Make a histogram and fill the cluster map */
+	if (b->tsorted) {
+		bte *mb, *m, h;
+
+		/* time to create the cluster map */
+		if ((cmap = BATnew((!*order)?TYPE_void:TYPE_oid, TYPE_bte, BATcount(b), TRANSIENT)) == NULL) {
+			BBPunfix(*B);
+			BBPunfix(psum->batCacheid);
+			throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
+		}
+		BATseqbase(cmap, b->H->seq);
+		cmap->tdense = FALSE;
+		mb = m = (bte*)Tloc(cmap, BUNfirst(cmap));
+
+		if (!*order) {
+			cmap->tsorted = FALSE;
+			cmap->trevsorted = FALSE;
+			for ( ; bt < be; bt++) {
+				int h = (((int)(*bt)) >> off) & mask;
+			   	*m++ = h;
+				cnt[h]++;
+			}
+		} else { /* try an optimized distribution, 1/Nth in each part */
+			oid *o, base;
+			lng sz = 0, parts = mask+1, psz = BATcount(b)/parts;
+			hge prev = *bt - 1;
+			h = -1;
+
+			cmap->hdense= FALSE;
+			base = b->hseqbase;
+			o = (oid*)Hloc(cmap, BUNfirst(cmap));
+			for ( ; bt < be; bt++, sz++) {
+				if (prev != *bt && sz >= (h+1)*psz && h < (parts-1)) {
+					h++;
+					assert(base + bt - bs >= 0);
+					assert(base + bt - bs <= (ptrdiff_t) GDK_oid_max);
+					*o++ = (oid) (base + bt - bs);
+			   		*m++ = h;
+				}
+				cnt[h]++;
+				prev = *bt;
+			}
+		}
+		assert(m - mb >= 0);
+		assert((lng) (m - mb) <= (lng) BUN_MAX);
+		BATsetcount(cmap, (BUN) (m - mb));
+	} else {
+		bte *m;
+
+		/* time to create the cluster map */
+		if ((cmap = BATnew(TYPE_void, TYPE_bte, BATcount(b), TRANSIENT)) == NULL) {
 			BBPunfix(*B);
 			BBPunfix(psum->batCacheid);
 			throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
@@ -1730,6 +1961,7 @@ CLS_create2_lng( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 	cmap = BATsetaccess(cmap, BAT_READ);
 	return MAL_SUCCEED;
 }
+#endif
 
 str
 CLS_create2_flt( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned int *offset, bit *order)
@@ -1751,7 +1983,7 @@ CLS_create2_flt( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 	if ((b = BATdescriptor(*B)) == NULL)
 		throw(MAL, "cluster.new", INTERNAL_BAT_ACCESS);
 
-	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1)) == NULL) {
+	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1, TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
 	}
@@ -1772,7 +2004,7 @@ CLS_create2_flt( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 		bte *mb, *m, h;
 
 		/* time to create the cluster map */
-		if ((cmap = BATnew((!*order)?TYPE_void:TYPE_oid, TYPE_bte, BATcount(b))) == NULL) {
+		if ((cmap = BATnew((!*order)?TYPE_void:TYPE_oid, TYPE_bte, BATcount(b), TRANSIENT)) == NULL) {
 			BBPunfix(*B);
 			BBPunfix(psum->batCacheid);
 			throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
@@ -1817,7 +2049,7 @@ CLS_create2_flt( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 		bte *m;
 
 		/* time to create the cluster map */
-		if ((cmap = BATnew(TYPE_void, TYPE_bte, BATcount(b))) == NULL) {
+		if ((cmap = BATnew(TYPE_void, TYPE_bte, BATcount(b), TRANSIENT)) == NULL) {
 			BBPunfix(*B);
 			BBPunfix(psum->batCacheid);
 			throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
@@ -1847,8 +2079,8 @@ CLS_create2_flt( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 	BBPunfix(*B);
 	BBPkeepref(*rpsum = psum->batCacheid);
 	BBPkeepref(*rcmap = cmap->batCacheid);
-	psum = BATsetaccess(psum, BAT_READ);
-	cmap = BATsetaccess(cmap, BAT_READ);
+	BATsetaccess(psum, BAT_READ);
+	BATsetaccess(cmap, BAT_READ);
 	return MAL_SUCCEED;
 }
 
@@ -1872,7 +2104,7 @@ CLS_create2_dbl( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 	if ((b = BATdescriptor(*B)) == NULL)
 		throw(MAL, "cluster.new", INTERNAL_BAT_ACCESS);
 
-	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1)) == NULL) {
+	if ((psum = BATnew(TYPE_void, TYPE_wrd, mask+1, TRANSIENT)) == NULL) {
 		BBPunfix(*B);
 		throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
 	}
@@ -1893,7 +2125,7 @@ CLS_create2_dbl( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 		bte *mb, *m, h;
 
 		/* time to create the cluster map */
-		if ((cmap = BATnew((!*order)?TYPE_void:TYPE_oid, TYPE_bte, BATcount(b))) == NULL) {
+		if ((cmap = BATnew((!*order)?TYPE_void:TYPE_oid, TYPE_bte, BATcount(b), TRANSIENT)) == NULL) {
 			BBPunfix(*B);
 			BBPunfix(psum->batCacheid);
 			throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
@@ -1938,7 +2170,7 @@ CLS_create2_dbl( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 		bte *m;
 
 		/* time to create the cluster map */
-		if ((cmap = BATnew(TYPE_void, TYPE_bte, BATcount(b))) == NULL) {
+		if ((cmap = BATnew(TYPE_void, TYPE_bte, BATcount(b), TRANSIENT)) == NULL) {
 			BBPunfix(*B);
 			BBPunfix(psum->batCacheid);
 			throw(MAL, "cluster.new", MAL_MALLOC_FAIL);
@@ -1968,8 +2200,8 @@ CLS_create2_dbl( bat *rpsum, bat *rcmap, bat *B, unsigned int *Bits, unsigned in
 	BBPunfix(*B);
 	BBPkeepref(*rpsum = psum->batCacheid);
 	BBPkeepref(*rcmap = cmap->batCacheid);
-	psum = BATsetaccess(psum, BAT_READ);
-	cmap = BATsetaccess(cmap, BAT_READ);
+	BATsetaccess(psum, BAT_READ);
+	BATsetaccess(cmap, BAT_READ);
 	return MAL_SUCCEED;
 }
 
@@ -1988,7 +2220,7 @@ CLS_map_bte(BAT *rb, BAT *cmap, BAT *b)
 	BBPunfix(cmap->batCacheid);
 	BBPunfix(b->batCacheid);
 	BBPkeepref(rb->batCacheid);
-	rb = BATsetaccess(rb, BAT_READ);
+	BATsetaccess(rb, BAT_READ);
 	return MAL_SUCCEED;
 }
 
@@ -2007,7 +2239,7 @@ CLS_map_sht(BAT *rb, BAT *cmap, BAT *b)
 	BBPunfix(cmap->batCacheid);
 	BBPunfix(b->batCacheid);
 	BBPkeepref(rb->batCacheid);
-	rb = BATsetaccess(rb, BAT_READ);
+	BATsetaccess(rb, BAT_READ);
 	return MAL_SUCCEED;
 }
 
@@ -2026,7 +2258,7 @@ CLS_map_int(BAT *rb, BAT *cmap, BAT *b)
 	BBPunfix(cmap->batCacheid);
 	BBPunfix(b->batCacheid);
 	BBPkeepref(rb->batCacheid);
-	rb = BATsetaccess(rb, BAT_READ);
+	BATsetaccess(rb, BAT_READ);
 	return MAL_SUCCEED;
 }
 
@@ -2045,9 +2277,30 @@ CLS_map_lng(BAT *rb, BAT *cmap, BAT *b)
 	BBPunfix(cmap->batCacheid);
 	BBPunfix(b->batCacheid);
 	BBPkeepref(rb->batCacheid);
+	BATsetaccess(rb, BAT_READ);
+	return MAL_SUCCEED;
+}
+
+#ifdef HAVE_HGE
+static str  
+CLS_map_hge(BAT *rb, BAT *cmap, BAT *b)
+{
+	wrd *m;
+	hge *r, *bt, *be;
+
+	r = (hge*)Tloc(rb, BUNfirst(rb));
+	m = (wrd*)Tloc(cmap, BUNfirst(cmap));
+	bt = (hge*)Tloc(b, BUNfirst(b));
+	be = bt + BATcount(b);
+	for ( ; bt < be; ) 
+		r[*m++] = *bt++;
+	BBPunfix(cmap->batCacheid);
+	BBPunfix(b->batCacheid);
+	BBPkeepref(rb->batCacheid);
 	rb = BATsetaccess(rb, BAT_READ);
 	return MAL_SUCCEED;
 }
+#endif
 
 
 static str  
@@ -2066,7 +2319,7 @@ CLS_map2_bte (BAT *rb, wrd *psum, BAT *cmap, BAT *b)
 	BBPunfix(cmap->batCacheid);
 	BBPunfix(b->batCacheid);
 	BBPkeepref(rb->batCacheid);
-	rb = BATsetaccess(rb, BAT_READ);
+	BATsetaccess(rb, BAT_READ);
 	return MAL_SUCCEED;
 }
 
@@ -2086,7 +2339,7 @@ CLS_map2_sht(BAT *rb, wrd *psum, BAT *cmap, BAT *b)
 	BBPunfix(cmap->batCacheid);
 	BBPunfix(b->batCacheid);
 	BBPkeepref(rb->batCacheid);
-	rb = BATsetaccess(rb, BAT_READ);
+	BATsetaccess(rb, BAT_READ);
 	return MAL_SUCCEED;
 }
 
@@ -2106,7 +2359,7 @@ CLS_map2_int(BAT *rb, wrd *psum, BAT *cmap, BAT *b)
 	BBPunfix(cmap->batCacheid);
 	BBPunfix(b->batCacheid);
 	BBPkeepref(rb->batCacheid);
-	rb = BATsetaccess(rb, BAT_READ);
+	BATsetaccess(rb, BAT_READ);
 	return MAL_SUCCEED;
 }
 
@@ -2126,9 +2379,31 @@ CLS_map2_lng(BAT *rb, wrd *psum, BAT *cmap, BAT *b)
 	BBPunfix(cmap->batCacheid);
 	BBPunfix(b->batCacheid);
 	BBPkeepref(rb->batCacheid);
+	BATsetaccess(rb, BAT_READ);
+	return MAL_SUCCEED;
+}
+
+#ifdef HAVE_HGE
+static str  
+CLS_map2_hge(BAT *rb, wrd *psum, BAT *cmap, BAT *b)
+{
+	bte *m;
+	hge *r, *bt, *be;
+
+	r = (hge*)Tloc(rb, BUNfirst(rb));
+	m = (bte*)Tloc(cmap, BUNfirst(cmap));
+	bt = (hge*)Tloc(b, BUNfirst(b));
+	be = bt + BATcount(b);
+	for ( ; bt < be; ) 
+		r[psum[*m++]++] = *bt++;
+	GDKfree(psum);
+	BBPunfix(cmap->batCacheid);
+	BBPunfix(b->batCacheid);
+	BBPkeepref(rb->batCacheid);
 	rb = BATsetaccess(rb, BAT_READ);
 	return MAL_SUCCEED;
 }
+#endif
 
 
 str  
@@ -2152,7 +2427,7 @@ CLS_map(bat *RB, bat *CMAP, bat *B)
 			throw(MAL, "cluster.map", OPERATION_FAILED " Counts of operands do not match");
 	}
 
-	if ((rb = BATnew(TYPE_void, b->ttype, BATcount(b))) == NULL) {
+	if ((rb = BATnew(TYPE_void, b->ttype, BATcount(b), TRANSIENT)) == NULL) {
 		BBPunfix(*CMAP);
 		BBPunfix(*B);
 		throw(MAL, "cluster.map", MAL_MALLOC_FAIL);
@@ -2189,6 +2464,10 @@ CLS_map(bat *RB, bat *CMAP, bat *B)
 	case TYPE_dbl:
 	case TYPE_lng:
 			return CLS_map_lng(rb, cmap, b);
+#ifdef HAVE_HGE
+	case TYPE_hge:
+			return CLS_map_hge(rb, cmap, b);
+#endif
 	default:
 		break;
 	}
@@ -2256,7 +2535,7 @@ CLS_map2(bat *RB, bat *PSUM, bat *CMAP, bat *B)
 	}
 
 	psumcp = (wrd*)GDKmalloc(BATcount(psum) * sizeof(wrd));
-	if ( psumcp == NULL || (rb = BATnew(TYPE_void, ATOMtype(b->ttype), BATcount(b))) == NULL) {
+	if ( psumcp == NULL || (rb = BATnew(TYPE_void, ATOMtype(b->ttype), BATcount(b), TRANSIENT)) == NULL) {
 		if (psumcp != NULL) {
 			GDKfree(psumcp);
 		}
@@ -2300,6 +2579,10 @@ CLS_map2(bat *RB, bat *PSUM, bat *CMAP, bat *B)
 	case TYPE_dbl:
 	case TYPE_lng:
 			return CLS_map2_lng(rb, psumcp, cmap, b);
+#ifdef HAVE_HGE
+	case TYPE_hge:
+			return CLS_map2_hge(rb, psumcp, cmap, b);
+#endif
 	default:
 		break;
 	}

@@ -677,7 +677,7 @@ rel_create_function(sql_allocator *sa, char *sname, sql_func *f)
 }
 
 static sql_rel *
-rel_create_func(mvc *sql, dlist *qname, dlist *params, symbol *res, dlist *ext_name, dlist *body, int type)
+rel_create_func(mvc *sql, dlist *qname, dlist *params, symbol *res, dlist *ext_name, dlist *body, int type, int lang)
 {
 	char *fname = qname_table(qname);
 	char *sname = qname_schema(qname);
@@ -728,11 +728,14 @@ rel_create_func(mvc *sql, dlist *qname, dlist *params, symbol *res, dlist *ext_n
 			}
 			(void)sql_error(sql, 02, "CREATE %s%s: name '%s' (%s) already in use", KF, F, fname, arg_list);
 			_DELETE(arg_list);
+			list_destroy(type_list);
 			return NULL;
 		} else {
+			list_destroy(type_list);
 			return sql_error(sql, 02, "CREATE %s%s: name '%s' already in use", KF, F, fname);
 		}
 	} else {
+		list_destroy(type_list);
 		if (create && !schema_privs(sql->role_id, s)) {
 			return sql_error(sql, 02, "CREATE %s%s: insufficient privileges "
 					"for user '%s' in schema '%s'", KF, F,
@@ -744,7 +747,6 @@ rel_create_func(mvc *sql, dlist *qname, dlist *params, symbol *res, dlist *ext_n
 		 	if (params) {
 				for (n = params->h; n; n = n->next) {
 					dnode *an = n->data.lval->h;
-		
 					sql_add_param(sql, an->data.sval, &an->next->data.typeval);
 				}
 				l = sql->params;
@@ -765,14 +767,31 @@ rel_create_func(mvc *sql, dlist *qname, dlist *params, symbol *res, dlist *ext_n
 					return sql_error(sql, 01,
 							"CREATE %s%s: failed to get restype", KF, F);
 			}
-
-		 	if (body) {		/* sql func */
+			if (body && lang > FUNC_LANG_SQL) {
+				char *lang_body = body->h->data.sval;
+				char *mod = 	(lang == FUNC_LANG_R)?"rapi":
+						(lang == FUNC_LANG_C)?"capi":
+						(lang == FUNC_LANG_J)?"japi":"unknown";
+				sql->params = NULL;
+				if (create) {
+					f = mvc_create_func(sql, sql->sa, s, fname, l, restype, type, lang,  mod, fname, lang_body, FALSE, vararg);
+				} else if (!sf) {
+					return sql_error(sql, 01, "CREATE %s%s: R function %s.%s not bound", KF, F, s->base.name, fname );
+				} else {
+					sql_func *f = sf->func;
+					f->mod = _STRDUP("rapi");
+					f->imp = _STRDUP("eval");
+					if (res && restype)
+						f->res = restype;
+					f->sql = 0; /* native */
+					f->lang = FUNC_LANG_INT;
+				}
+			} else if (body) {
 				sql_arg *ra = (restype && !is_table)?restype->h->data:NULL;
 				list *b = NULL;
 				sql_schema *old_schema = cur_schema(sql);
 	
-				if (s)
-					sql->session->schema = s;
+				sql->session->schema = s;
 				b = sequential_block(sql, (ra)?&ra->type:NULL, ra?NULL:restype, body, NULL, is_func);
 				sql->session->schema = old_schema;
 				sql->params = NULL;
@@ -793,15 +812,17 @@ rel_create_func(mvc *sql, dlist *qname, dlist *params, symbol *res, dlist *ext_n
 				if (instantiate || deps) {
 					return rel_psm_block(sql->sa, b);
 				} else if (create) {
-					f = mvc_create_func(sql, sql->sa, s, fname, l, restype, type, "user", q, q, FALSE, vararg);
+					f = mvc_create_func(sql, sql->sa, s, fname, l, restype, type, lang, "user", q, q, FALSE, vararg);
 				}
 			} else {
 				char *fmod = qname_module(ext_name);
 				char *fnme = qname_fname(ext_name);
 
+				if (!fmod || !fnme)
+					return NULL;
 				sql->params = NULL;
 				if (create) {
-					f = mvc_create_func(sql, sql->sa, s, fname, l, restype, type, fmod, fnme, q, FALSE, vararg);
+					f = mvc_create_func(sql, sql->sa, s, fname, l, restype, type, lang, fmod, fnme, q, FALSE, vararg);
 				} else if (!sf) {
 					return sql_error(sql, 01, "CREATE %s%s: external name %s.%s not bound (%s,%s)", KF, F, fmod, fnme, s->base.name, fname );
 				} else {
@@ -809,6 +830,7 @@ rel_create_func(mvc *sql, dlist *qname, dlist *params, symbol *res, dlist *ext_n
 					f->mod = _STRDUP(fmod);
 					f->imp = _STRDUP(fnme);
 					f->sql = 0; /* native */
+					f->lang = FUNC_LANG_INT;
 				}
 			}
 		}
@@ -906,9 +928,11 @@ rel_drop_func(mvc *sql, dlist *qname, dlist *typelist, int drop_action, int type
 					}
 				}
 				list_destroy(list_func);
+				list_destroy(type_list);
 				return sql_error(sql, 02, "DROP %s%s: no such %s%s '%s' (%s)", KF, F, kf, f, name, arg_list);
 			}
 			list_destroy(list_func);
+			list_destroy(type_list);
 			return sql_error(sql, 02, "DROP %s%s: no such %s%s '%s' ()", KF, F, kf, f, name);
 
 		} else {
@@ -916,13 +940,13 @@ rel_drop_func(mvc *sql, dlist *qname, dlist *typelist, int drop_action, int type
 		}
 	} else if (((is_func && type != F_FILT) && !func->res) || 
 		   (!is_func && func->res)) {
-		if (list_func)
-			list_destroy(list_func);
+		list_destroy(list_func);
+		list_destroy(type_list);
 		return sql_error(sql, 02, "DROP %s%s: cannot drop %s '%s'", KF, F, is_func?"procedure":"function", name);
 	}
 
-	if (list_func)
-		list_destroy(list_func);
+	list_destroy(list_func);
+	list_destroy(type_list);
 	return rel_drop_function(sql->sa, s->base.name, name, func->base.id, type, drop_action);
 }
 
@@ -1095,7 +1119,8 @@ psm_analyze(mvc *sql, dlist *qname, dlist *columns, symbol *sample )
 		sql_subtype *tpe = sql_bind_localtype("lng");
 
        		sample_exp = rel_value_exp( sql, NULL, sample, 0, ek);
-		sample_exp = rel_check_type(sql, tpe, sample_exp, type_cast); 
+		if (sample_exp)
+			sample_exp = rel_check_type(sql, tpe, sample_exp, type_cast); 
 	}
 	if (qname) {
 		if (qname->h->next)
@@ -1169,8 +1194,9 @@ rel_psm(mvc *sql, symbol *s)
 	{
 		dlist *l = s->data.lval;
 		int type = l->h->next->next->next->next->next->data.i_val;
+		int lang = l->h->next->next->next->next->next->next->data.i_val;
 
-		ret = rel_create_func(sql, l->h->data.lval, l->h->next->data.lval, l->h->next->next->data.sym, l->h->next->next->next->data.lval, l->h->next->next->next->next->data.lval, type);
+		ret = rel_create_func(sql, l->h->data.lval, l->h->next->data.lval, l->h->next->next->data.sym, l->h->next->next->next->data.lval, l->h->next->next->next->next->data.lval, type, lang);
 		sql->type = Q_SCHEMA;
 	} 	break;
 	case SQL_DROP_FUNC:

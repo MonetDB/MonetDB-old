@@ -437,6 +437,7 @@ printStatus(sabdb *stats, int mode, int dbwidth, int uriwidth)
 			case SABdbStarting:
 				snprintf(buf, sizeof(buf), "starting ");
 				off = sizeof("starting ") - 1;
+				/* fall through */
 			case SABdbRunning:
 				t = localtime(&uplog.laststart);
 				strftime(buf + off, sizeof(buf) - off,
@@ -634,11 +635,10 @@ simple_command(int argc, char *argv[], char *merocmd, char *successmsg, char glo
 			if (argv[i] != NULL) {
 				/* maintain input order */
 				if (orig == NULL) {
-					stats = orig = malloc(sizeof(sabdb));
+					stats = orig = calloc(1, sizeof(sabdb));
 				} else {
-					stats = stats->next = malloc(sizeof(sabdb));
+					stats = stats->next = calloc(1, sizeof(sabdb));
 				}
-				memset(stats, 0, sizeof(sabdb));
 				stats->dbname = strdup(argv[i]);
 			}
 		}
@@ -1221,7 +1221,7 @@ command_get(int argc, char *argv[])
 	char *property = NULL;
 	char propall = 0;
 	char vbuf[512];
-	char *buf;
+	char *buf = 0;
 	char *e;
 	int i;
 	sabdb *orig, *stats;
@@ -1303,13 +1303,14 @@ command_get(int argc, char *argv[])
 		fprintf(stderr, "get: %s\n", e);
 		free(e);
 		exit(2);
-	} else if (strncmp(buf, "OK\n", 3) != 0) {
+	} else if ( buf && strncmp(buf, "OK\n", 3) != 0) {
 		fprintf(stderr, "get: %s\n", buf);
 		free(buf);
 		exit(1);
 	}
 	readPropsBuf(defprops, buf + 3);
-	free(buf);
+	if( buf) 
+		free(buf);
 
 	if (twidth > 0) {
 		/* name = 15 */
@@ -1490,11 +1491,10 @@ command_create(int argc, char *argv[])
 		if (argv[i] != NULL) {
 			/* maintain input order */
 			if (orig == NULL) {
-				stats = orig = malloc(sizeof(sabdb));
+				stats = orig = calloc(1, sizeof(sabdb));
 			} else {
-				stats = stats->next = malloc(sizeof(sabdb));
+				stats = stats->next = calloc(1, sizeof(sabdb));
 			}
-			memset(stats, 0, sizeof(sabdb));
 			stats->dbname = strdup(argv[i]);
 		}
 	}

@@ -1,5 +1,5 @@
 %define name MonetDB
-%define version 11.18.0
+%define version 11.20.0
 %{!?buildno: %define buildno %(date +%Y%m%d)}
 
 # groups of related archs
@@ -18,22 +18,68 @@
 
 %define release %{buildno}%{?dist}%{?oidsuf}
 
+# On RedHat Enterprise Linux and derivatives, if the Extra Packages
+# for Enterprise Linux (EPEL) repository is available, you can define
+# the _with_epel macro.  When using mock to build the RPMs, this can
+# be done using the --with=epel option to mock.
+# If the EPEL repository is availabe, or if building for Fedora, all
+# optional sub packages can be built.  We indicate that here by
+# setting the macro fedpkgs to 1.  If the EPEL repository is not
+# available and we are not building for Fedora, we set fedpkgs to 0.
+%if %{?rhel:1}%{!?rhel:0}
+# RedHat Enterprise Linux (or CentOS or Scientific Linux)
+%if %{?_with_epel:1}%{!?_with_epel:0}
+# EPEL is enabled through the command line
+%define fedpkgs 1
+%else
+# EPEL is not enabled
+%define fedpkgs 0
+%endif
+%else
+# Not RHEL (so presumably Fedora)
+%define fedpkgs 1
+%endif
+
 # On Fedora, the geos library is available, and so we can require it
 # and build the geom modules.  On RedHat Enterprise Linux and
 # derivatives (CentOS, Scientific Linux), the geos library is not
 # available.  However, the geos library is available in the Extra
-# Packages for Enterprise Linux (EPEL).  If the _with_epel macro is
-# set, we assume that EPEL is available, and so we enable building the
-# geom modules.  The _with_epel macro can be set when using mock by
-# passing it the flag --with epel.
-%if %{?rhel:1}%{!?rhel:0}
-%if %{?_with_epel:1}%{!?_with_epel:0}
-# RedHat Enterprise Linux and derivatives with EPEL enabled
+# Packages for Enterprise Linux (EPEL).  In other words, we can check
+# the fedpkgs macro (see above).
+%if %{fedpkgs}
 %define with_geos 1
 %endif
-%else
-# Fedora
-%define with_geos 1
+
+%if %{?rhel:0}%{!?rhel:1}
+# If the _without_samtools macro is set, the MonetDB-bam-MonetDB5 RPM
+# will be created.  The macro can be set when using mock by passing it
+# the flag --without=samtools.
+# Note that the samtools-devel RPM is not available on RedHat
+# Enterprise Linux and derivatives, even with EPEL availabe.
+# (Actually, at the moment of writing, samtools-devel is available in
+# EPEL for RHEL 6, but not for RHEL 7.  We don't make the distinction
+# here and just not build the MonetDB-bam-MonetDB5 RPM.)
+%if %{?_without_samtools:0}%{!?_without_samtools:1}
+%define with_samtools 1
+%endif
+%endif
+
+%if %{fedpkgs}
+# If the _without_rintegration macro is not set, the MonetDB-R RPM
+# will be created.  The macro can be set when using mock by passing it
+# the flag --without=rintegration.
+%if %{?_without_rintegration:0}%{!?_without_rintegration:1}
+%define with_rintegration 1
+%endif
+%endif
+
+%if %{fedpkgs}
+# If the _with_fits macro is set, the MonetDB-cfitsio RPM will be
+# created.  The macro can be set when using mock by passing it the
+# flag --with=fits.
+%if %{?_with_fits:1}%{!?_with_fits:0}
+%define with_fits 1
+%endif
 %endif
 
 Name: %{name}
@@ -45,17 +91,21 @@ Vendor: MonetDB BV <info@monetdb.org>
 Group: Applications/Databases
 License: MPL - http://www.monetdb.org/Legal/MonetDBLicense
 URL: http://www.monetdb.org/
-Source: http://dev.monetdb.org/downloads/sources/Jan2014-SP1/%{name}-%{version}.tar.bz2
+Source: http://dev.monetdb.org/downloads/sources/Jan2014-SP3/%{name}-%{version}.tar.bz2
 
 BuildRequires: bison
 BuildRequires: bzip2-devel
-# BuildRequires: cfitsio-devel
-BuildRequires: flex
+%if %{?with_fits:1}%{!?with_fits:0}
+BuildRequires: cfitsio-devel
+%endif
 %if %{?with_geos:1}%{!?with_geos:0}
-BuildRequires: geos-devel >= 2.2.0
+BuildRequires: geos-devel >= 3.0.0
 %endif
 BuildRequires: gsl-devel
+BuildRequires: libatomic_ops-devel
 BuildRequires: libcurl-devel
+# BuildRequires: libmicrohttpd-devel
+# BuildRequires: libsphinxclient-devel
 BuildRequires: libuuid-devel
 BuildRequires: libxml2-devel
 BuildRequires: openssl-devel
@@ -77,7 +127,14 @@ BuildRequires: rubygems
 BuildRequires: rubygems-devel
 %endif
 BuildRequires: unixODBC-devel
+# BuildRequires: uriparser-devel
 BuildRequires: zlib-devel
+%if %{?with_samtools:1}%{!?with_samtools:0}
+BuildRequires: samtools-devel
+%endif
+%if %{?with_rintegration:1}%{!?with_rintegration:0}
+BuildRequires: R-core-devel
+%endif
 
 # need to define python_sitelib on RHEL 5 and older
 # no need to define python3_sitelib: it's defined by python3-devel
@@ -449,28 +506,76 @@ numerical analysis (gsl).
 %{_libdir}/monetdb5/gsl.mal
 %{_libdir}/monetdb5/lib_gsl.so
 
-%package jaql
-Summary: MonetDB5 JAQL
+%if %{?with_samtools:1}%{!?with_samtools:0}
+%package bam-MonetDB5
+Summary: MonetDB5 SQL interface to the bam library
 Group: Applications/Databases
 Requires: MonetDB5-server = %{version}-%{release}
 
-%description jaql
+%description bam-MonetDB5
 MonetDB is a database management system that is developed from a
 main-memory perspective with use of a fully decomposed storage model,
 automatic index management, extensibility of data types and search
 accelerators.  It also has an SQL frontend.
 
-This package contains the JAQL extension for MonetDB.  JAQL is a
-query language for JavaScript Object Notation (JSON).
+This package contains the interface to load and query BAM (binary
+version of Sequence Alignment/Map) data.
 
-%files jaql
+%files bam-MonetDB5
 %defattr(-,root,root)
-%{_libdir}/monetdb5/autoload/*_jaql.mal
-%{_libdir}/monetdb5/jaql*.mal
-%{_libdir}/monetdb5/json.mal
-%{_libdir}/monetdb5/json_util.mal
-%{_libdir}/monetdb5/lib_jaql.so
-%{_libdir}/monetdb5/lib_json_jaql.so
+%{_libdir}/monetdb5/autoload/*_bam.mal
+%{_libdir}/monetdb5/createdb/*_bam.sql
+%{_libdir}/monetdb5/bam.mal
+%{_libdir}/monetdb5/lib_bam.so
+%endif
+
+%if %{?with_rintegration:1}%{!?with_rintegration:0}
+%package R
+Summary: Integration of MonetDB and R, allowing use of R from within SQL
+Group: Applications/Databases
+Requires: MonetDB-SQL-server5 = %{version}-%{release}
+
+%description R
+MonetDB is a database management system that is developed from a
+main-memory perspective with use of a fully decomposed storage model,
+automatic index management, extensibility of data types and search
+accelerators.  It also has an SQL frontend.
+
+This package contains the interface to use the R language from within
+SQL queries.
+
+NOTE: INSTALLING THIS PACKAGE OPENS UP SECURITY ISSUES.  If you don't
+know how this package affects the security of your system, do not
+install it.
+
+%files R
+%defattr(-,root,root)
+%{_libdir}/monetdb5/rapi.*
+%{_libdir}/monetdb5/autoload/*_rapi.mal
+%{_libdir}/monetdb5/lib_rapi.so
+%endif
+
+%if %{?with_fits:1}%{!?with_fits:0}
+%package cfitsio
+Summary: MonetDB: Add on module that provides support for FITS files
+Group: Applications/Databases
+Requires: MonetDB-SQL-server5 = %{version}-%{release}
+
+%description cfitsio
+MonetDB is a database management system that is developed from a
+main-memory perspective with use of a fully decomposed storage model,
+automatic index management, extensibility of data types and search
+accelerators.  It also has an SQL frontend.
+
+This package contains a module for accessing data in the FITS file
+format.
+
+%files cfitsio
+%defattr(-,root,root)
+%{_libdir}/monetdb5/fits.mal
+%{_libdir}/monetdb5/autoload/*_fits.mal
+%{_libdir}/monetdb5/lib_fits.so
+%endif
 
 %package -n MonetDB5-server
 Summary: MonetDB - Monet Database Management System
@@ -517,29 +622,49 @@ fi
 %{_libdir}/libmonetdb5.so.*
 %dir %{_libdir}/monetdb5
 %dir %{_libdir}/monetdb5/autoload
+%if %{?with_fits:1}%{!?with_fits:0}
+%exclude %{_libdir}/monetdb5/fits.mal
+%endif
 %if %{?with_geos:1}%{!?with_geos:0}
 %exclude %{_libdir}/monetdb5/geom.mal
 %endif
 %exclude %{_libdir}/monetdb5/gsl.mal
+%if %{?with_rintegration:1}%{!?with_rintegration:0}
+%exclude %{_libdir}/monetdb5/rapi.mal
+%endif
 # %exclude %{_libdir}/monetdb5/rdf.mal
 %exclude %{_libdir}/monetdb5/sql.mal
-%exclude %{_libdir}/monetdb5/jaql*.mal
-%exclude %{_libdir}/monetdb5/json.mal
-%exclude %{_libdir}/monetdb5/json_util.mal
 %{_libdir}/monetdb5/*.mal
-# %{_libdir}/monetdb5/autoload/*_fits.mal
-%{_libdir}/monetdb5/autoload/*_lsst.mal
-%{_libdir}/monetdb5/autoload/*_opt_sql_append.mal
-%{_libdir}/monetdb5/autoload/*_udf.mal
-%{_libdir}/monetdb5/autoload/*_vault.mal
+%if %{?with_fits:1}%{!?with_fits:0}
+%exclude %{_libdir}/monetdb5/autoload/*_fits.mal
+%endif
+%if %{?with_geos:1}%{!?with_geos:0}
+%exclude %{_libdir}/monetdb5/autoload/*_geom.mal
+%endif
+%exclude %{_libdir}/monetdb5/autoload/*_gsl.mal
+%if %{?with_rintegration:1}%{!?with_rintegration:0}
+%exclude %{_libdir}/monetdb5/autoload/*_rapi.mal
+%endif
+# %exclude %{_libdir}/monetdb5/autoload/*_rdf.mal
+%exclude %{_libdir}/monetdb5/autoload/*_sql.mal
+%{_libdir}/monetdb5/autoload/*.mal
+%if %{?with_fits:1}%{!?with_fits:0}
+%exclude %{_libdir}/monetdb5/lib_fits.so
+%endif
 %if %{?with_geos:1}%{!?with_geos:0}
 %exclude %{_libdir}/monetdb5/lib_geom.so
 %endif
 %exclude %{_libdir}/monetdb5/lib_gsl.so
+%if %{?with_rintegration:1}%{!?with_rintegration:0}
+%exclude %{_libdir}/monetdb5/lib_rapi.so
+%endif
+%if %{?with_samtools:1}%{!?with_samtools:0}
+%exclude %{_libdir}/monetdb5/bam.mal
+%exclude %{_libdir}/monetdb5/autoload/*_bam.mal
+%exclude %{_libdir}/monetdb5/lib_bam.so
+%endif
 # %exclude %{_libdir}/monetdb5/lib_rdf.so
 %exclude %{_libdir}/monetdb5/lib_sql.so
-%exclude %{_libdir}/monetdb5/lib_jaql.so
-%exclude %{_libdir}/monetdb5/lib_json_jaql.so
 %{_libdir}/monetdb5/*.so
 %doc %{_mandir}/man1/mserver5.1.gz
 
@@ -588,9 +713,9 @@ used from the MAL level.
 Summary: MonetDB5 SQL server modules
 Group: Applications/Databases
 Requires: MonetDB5-server = %{version}-%{release}
-%if %{?rhel:0}%{!?rhel:1}
-# for systemd-tmpfiles
-Requires: systemd-units
+%if %{?rhel:0}%{!?rhel:1} || 0%{?rhel} >= 7
+# RHEL >= 7, and all current Fedora
+Requires: %{_bindir}/systemd-tmpfiles
 %endif
 Obsoletes: MonetDB-SQL-devel
 Obsoletes: %{name}-SQL
@@ -604,7 +729,7 @@ accelerators.  It also has an SQL frontend.
 This package contains the SQL frontend for MonetDB.  If you want to
 use SQL with MonetDB, you will need to install this package.
 
-%if %{?rhel:0}%{!?rhel:1}
+%if %{?rhel:0}%{!?rhel:1} || 0%{?rhel} >= 7
 %post SQL-server5
 systemd-tmpfiles --create %{_sysconfdir}/tmpfiles.d/monetdbd.conf
 %endif
@@ -614,16 +739,16 @@ systemd-tmpfiles --create %{_sysconfdir}/tmpfiles.d/monetdbd.conf
 %{_bindir}/monetdb
 %{_bindir}/monetdbd
 %dir %attr(775,monetdb,monetdb) %{_localstatedir}/log/monetdb
-%if %{?rhel:0}%{!?rhel:1}
-# Fedora 15 and newer
+%if %{?rhel:0}%{!?rhel:1} || 0%{?rhel} >= 7
+# RHEL >= 7, and all current Fedora
 %{_sysconfdir}/tmpfiles.d/monetdbd.conf
 %else
-# RedHat Enterprise Linux
+# RedHat Enterprise Linux < 7
 %dir %attr(775,monetdb,monetdb) %{_localstatedir}/run/monetdb
 %exclude %{_sysconfdir}/tmpfiles.d/monetdbd.conf
 %endif
 %config(noreplace) %{_localstatedir}/monetdb5/dbfarm/.merovingian_properties
-%{_libdir}/monetdb5/autoload/*_sql.mal
+%{_libdir}/monetdb5/autoload/*_sql*.mal
 %{_libdir}/monetdb5/lib_sql.so
 %{_libdir}/monetdb5/*.sql
 %dir %{_libdir}/monetdb5/createdb
@@ -631,6 +756,9 @@ systemd-tmpfiles --create %{_sysconfdir}/tmpfiles.d/monetdbd.conf
 %exclude %{_libdir}/monetdb5/createdb/*_geom.sql
 %endif
 %exclude %{_libdir}/monetdb5/createdb/*_gsl.sql
+%if %{?with_samtools:1}%{!?with_samtools:0}
+%exclude %{_libdir}/monetdb5/createdb/*_bam.sql
+%endif
 # %exclude %{_libdir}/monetdb5/createdb/*_rdf.sql
 %{_libdir}/monetdb5/createdb/*
 %{_libdir}/monetdb5/sql*.mal
@@ -758,20 +886,22 @@ developer, but if you do want to test, this is the package you need.
 	--enable-datacell=no \
 	--enable-debug=no \
 	--enable-developer=no \
-	--enable-fits=no \
+	--enable-fits=%{?with_fits:yes}%{!?with_fits:no} \
 	--enable-gdk=yes \
 	--enable-geom=%{?with_geos:yes}%{!?with_geos:no} \
 	--enable-gsl=yes \
 	--enable-instrument=no \
-	--enable-jaql=yes \
 	--enable-jdbc=no \
+	--enable-jsonstore=no \
 	--enable-merocontrol=no \
+	--enable-microhttpd=no \
 	--enable-monetdb5=yes \
 	--enable-odbc=yes \
 	--enable-oid32=%{?oid32:yes}%{!?oid32:no} \
 	--enable-optimize=yes \
 	--enable-profile=no \
 	--enable-rdf=no \
+	--enable-rintegration=%{?with_rintegration:yes}%{!?with_rintegration:no} \
 	--enable-sql=yes \
 	--enable-strict=no \
 	--enable-testing=yes \
@@ -789,6 +919,7 @@ developer, but if you do want to test, this is the package you need.
 	--with-readline=yes \
 	--with-rubygem=%{?rhel:no}%{!?rhel:yes} \
 	--with-rubygem-dir=%{?rhel:no}%{!?rhel:"%{gem_dir}"} \
+	--with-samtools=%{?with_samtools:yes}%{!?with_samtools:no} \
 	--with-sphinxclient=no \
 	--with-unixodbc=yes \
 	--with-valgrind=no \
@@ -829,6 +960,67 @@ mv $RPM_BUILD_ROOT%{_datadir}/doc/MonetDB-SQL-%{version} $RPM_BUILD_ROOT%{_datad
 rm -fr $RPM_BUILD_ROOT
 
 %changelog
+* Fri Jul 25 2014 Sjoerd Mullender <sjoerd@acm.org> - 11.17.21-20140725
+- Rebuilt.
+- BZ#3519: Uppercase TRUE/FALSE strings cannot be converted to boolean
+  values
+
+* Tue Jul 22 2014 Sjoerd Mullender <sjoerd@acm.org> - 11.17.19-20140722
+- Rebuilt.
+- BZ#3487: dead link to "Professional services"
+- BZ#3500: MonetDB driver wants an empty string for SQLTables and
+  SQLColumns API calls, where other drivers expect NULL
+- BZ#3514: mserver5 crash due (assertion failure in gdk_select.c)
+- BZ#3515: mserver5 crash due (assertion failure in gdk_bat.c)
+
+* Tue Jun  3 2014 Sjoerd Mullender <sjoerd@acm.org> - 11.17.19-20140722
+- buildtools: Fix configure to continue without Python if the python binary is
+  too old.  This instead of always aborting configure if python happens
+  to be too old.
+
+* Wed May 14 2014 Sjoerd Mullender <sjoerd@acm.org> - 11.17.17-20140514
+- Rebuilt.
+- BZ#3482: Crossproduct error
+
+* Thu May 08 2014 Sjoerd Mullender <sjoerd@acm.org> - 11.17.15-20140508
+- Rebuilt.
+- BZ#3424: numeric values at the front of strings determines whether
+  CAST works successfully
+- BZ#3439: Python driver drops milliseconds from timestamps
+- BZ#3446: SET READ ONLY forgets previous changes
+- BZ#3455: String columns unusable from 64-bit .NET via ODBC
+- BZ#3456: Insert fails
+- BZ#3457: When kernel of remote client crashes, the connection remains
+  established on server side
+- BZ#3458: mserver5 crash on SQL: SELECT COUNT(*) FROM SYS.TABLES HAVING
+  COUNT(*) > 0
+- BZ#3461: mserver5 crash on SQL: SELECT * FROM SYS.ARGS WHERE FUNC_ID
+  NOT IN (SELECT ID FROM SYS.FUNCTIONS) OR FUNC_ID NOT IN (SELECT *
+  FROM SYS.FUNCTIONS)
+- BZ#3462: Invalid SQL (IN with subquery which returns multiple columns)
+  is accepted
+- BZ#3463: Crash on SELECT with SERIAL aggregation and GROUP BY column
+  alias's
+- BZ#3468: Local temporary table persists across sessions
+- BZ#3469: Absolute network paths considered invalid for COPY INTO
+  ... FROM statement.
+- BZ#3473: Various memory leaks in SQL compilation
+- BZ#3477: ODBC driver raises "unexpected end of input" for prepared
+  string parameter from .NET application
+- BZ#3481: Cannot run multiple COPY INTO statements in one 's'-command
+
+* Wed Apr 30 2014 Sjoerd Mullender <sjoerd@acm.org> - 11.17.15-20140508
+- buildtools: Lots of minor fixes were made for potential defects found by Coverity
+  Scan.
+
+* Tue Apr  1 2014 Sjoerd Mullender <sjoerd@acm.org> - 11.17.15-20140508
+- clients: ODBC: Implemented {call procedure-name(...)} escape.  The version
+  {?=call ...} is not implemented.
+
+* Mon Mar 24 2014 Sjoerd Mullender <sjoerd@acm.org> - 11.17.15-20140508
+- buildtools: On Windows we now build the geom module against version 3.4.2 of the
+  geos library.
+
 * Thu Mar 06 2014 Sjoerd Mullender <sjoerd@acm.org> - 11.17.13-20140306
 - Rebuilt.
 - BZ#3452: ODBC driver build fails on Mac OS X due to a conflicting

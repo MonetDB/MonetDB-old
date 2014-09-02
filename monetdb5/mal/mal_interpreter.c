@@ -55,6 +55,9 @@ ptr getArgReference(MalStkPtr stk, InstrPtr pci, int k)
 	case TYPE_flt:  return (ptr) &v->val.fval;
 	case TYPE_dbl:  return (ptr) &v->val.dval;
 	case TYPE_lng:  return (ptr) &v->val.lval;
+#ifdef HAVE_HGE
+	case TYPE_hge:  return (ptr) &v->val.hval;
+#endif
 	case TYPE_str:  return (ptr) &v->val.sval;
 	default:        return (ptr) &v->val.pval;
 	}
@@ -353,15 +356,12 @@ str runMAL(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr env)
 		stk->blk = mb;
 		stk->cmd = cntxt->itrace;    /* set debug mode */
 		/*safeguardStack*/
-		if (env) {
+		if( env){
 			stk->stkdepth = stk->stksize + env->stkdepth;
 			stk->calldepth = env->calldepth + 1;
 			stk->up = env;
 			if (stk->calldepth > 256)
 				throw(MAL, "mal.interpreter", MAL_CALLDEPTH_FAIL);
-			if ((unsigned)stk->stkdepth > THREAD_STACK_SIZE / sizeof(mb->var[0]) / 4 && THRhighwater())
-				/* we are running low on stack space */
-				throw(MAL, "mal.interpreter", MAL_STACK_FAIL);
 		}
 		/*
 		 * An optimization is to copy all constant variables used in
@@ -479,7 +479,7 @@ callMAL(Client cntxt, MalBlkPtr mb, MalStkPtr *env, ValPtr argv[], char debug)
 	}
 	MT_sema_up(&mal_parallelism,"callMAL");
 	cntxt->active = FALSE;
-	if (cntxt->qtimeout && GDKusec()- mb->starttime > cntxt->qtimeout)
+	if ( ret == MAL_SUCCEED && cntxt->qtimeout && GDKusec()- mb->starttime > cntxt->qtimeout)
 		throw(MAL, "mal.interpreter", RUNTIME_QRY_TIMEOUT);
 	return ret;
 }
@@ -533,10 +533,13 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 	/* also produce event record for start of function */
 	if ( startpc == 1 ){
 		runtimeProfileInit(cntxt, mb, stk);
-		runtimeProfileBegin(cntxt, mb, stk, NULL, &runtimeProfileFunction);
+		runtimeProfileBegin(cntxt, mb, stk, getInstrPtr(mb,0), &runtimeProfileFunction);
 		mb->starttime = GDKusec();
-		if (cntxt->stimeout && cntxt->session && GDKusec()- cntxt->session > cntxt->stimeout)
+		if (cntxt->stimeout && cntxt->session && GDKusec()- cntxt->session > cntxt->stimeout) {
+			if ( backup != backups) GDKfree(backup);
+			if ( garbage != garbages) GDKfree(garbage);
 			throw(MAL, "mal.interpreter", RUNTIME_SESSION_TIMEOUT);
+		}
 	} 
 	stkpc = startpc;
 	exceptionVar = -1;
@@ -977,6 +980,12 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 				if (v->val.lval == lng_nil)
 					stkpc = pci->jump;
 				break;
+#ifdef HAVE_HGE
+			case TYPE_hge:
+				if (v->val.hval == hge_nil)
+					stkpc = pci->jump;
+				break;
+#endif
 			case TYPE_flt:
 				if (v->val.fval == flt_nil)
 					stkpc = pci->jump;
@@ -1049,6 +1058,14 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 				else
 					stkpc++;
 				break;
+#ifdef HAVE_HGE
+			case TYPE_hge:
+				if (v->val.hval != hge_nil)
+					stkpc = pci->jump;
+				else
+					stkpc++;
+				break;
+#endif
 			case TYPE_flt:
 				if (v->val.fval != flt_nil)
 					stkpc = pci->jump;
@@ -1158,7 +1175,8 @@ str runMALsequence(Client cntxt, MalBlkPtr mb, int startpc,
 			stkpc++;
 		}
 		if (cntxt->qtimeout && GDKusec()- mb->starttime > cntxt->qtimeout){
-			ret= createException(MAL, "mal.interpreter", RUNTIME_QRY_TIMEOUT);
+			if (ret == MAL_SUCCEED)
+				ret= createException(MAL, "mal.interpreter", RUNTIME_QRY_TIMEOUT);
 			stkpc= mb->stop;
 		}
 	}
@@ -1205,6 +1223,8 @@ safeguardStack(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (stk->stkdepth > depth * mb->vtop && THRhighwater()) {
 		throw(MAL, "mal.interpreter", MAL_STACK_FAIL);
 	}
+	if (stk->calldepth > 256)
+		throw(MAL, "mal.interpreter", MAL_CALLDEPTH_FAIL);
 	return MAL_SUCCEED;
 }
 
@@ -1379,7 +1399,7 @@ void garbageElement(Client cntxt, ValPtr v)
 		if (!BBP_lrefs(bid))
 			return;
 		BBPdecref(bid, TRUE);
-	} else if (0 < v->vtype && v->vtype < TYPE_any && ATOMextern(v->vtype)) {
+	} else if (0 < v->vtype && v->vtype < MAXATOMS && ATOMextern(v->vtype)) {
 		if (v->val.pval)
 			GDKfree(v->val.pval);
 		v->val.pval = 0;
@@ -1428,7 +1448,7 @@ void garbageCollector(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int flag)
 }
 
 /*
- * Sometimes it helps to release a BAT when it won;t be used anymore.
+ * Sometimes it helps to release a BAT when it won't be used anymore.
  * In this case, we have to assure that all references are cleared
  * as well. The routine below performs this action in the local
  * stack frame and its parents only.
@@ -1437,6 +1457,8 @@ void releaseBAT(MalBlkPtr mb, MalStkPtr stk, int bid)
 {
 	int k;
 
+	if( stk == 0)
+		return;
 	do {
 		for (k = 0; k < mb->vtop; k++)
 			if (stk->stk[k].vtype == TYPE_bat && abs(stk->stk[k].val.bval) == bid) {

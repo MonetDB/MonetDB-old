@@ -1,6 +1,7 @@
 append_dense_tail
 bat_replace
 bat_insert
+between
 binsemijoin2
 casts
 cross
@@ -15,3 +16,4 @@ void
 scanselect
 selecttst
 subgroup
+firstn

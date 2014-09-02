@@ -42,9 +42,9 @@
 /* introduce gradually the column type macros, sharing the
  * representation with BAT type
  */
-#define newColumn(Var,Type,Tag, ...) \
-	Var = BATnew(TYPE_void, Type,0); \
-	if ( Var == NULL) { __VA_ARGS__ ;throw(MAL,Tag,MAL_MALLOC_FAIL);}\
+#define newColumn(Var,Type,Tag, ...)									\
+	Var = BATnew(TYPE_void, Type, 0, TRANSIENT);						\
+	if ( Var == NULL) { __VA_ARGS__ ;throw(MAL,Tag,MAL_MALLOC_FAIL);}	\
 	BATseqbase(Var,0);
 
 #define newColumnType(T)  (1<<16 | (T & 0377) )
@@ -93,7 +93,7 @@ mal_export malType reverseBatType(malType v);
 mal_export malType malAnyBatType(malType t1, malType t2);
 #define idcmp(n, m)	strcmp(n, m)
 mal_export str newTmpName(char tag, int i);
-mal_export int isTmpName(str n);
+mal_export int isTmpName(const char *n);
 mal_export int isTypeName(str n);
 mal_export int isIdentifier(str s);
 mal_export int findGDKtype(int type);	/* used in src/mal/mal_interpreter.c */

@@ -112,7 +112,6 @@ extern char *ODBCutf82wchar(const SQLCHAR *s, SQLINTEGER length, SQLWCHAR *buf, 
 		(s) = (t *) ODBCwchar2utf8((ws), (wsl), &e);		\
 		if (e) {						\
 			/* General error */				\
-			assert((s) == NULL);				\
 			errfunc((hdl),					\
 				strcmp(e, "Memory allocation error") == 0 ? \
 					"HY001" : "HY000", e, 0);	\

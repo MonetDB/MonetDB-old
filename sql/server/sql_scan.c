@@ -101,6 +101,9 @@ scanner_init_keywords(void)
 	keywords_insert("INT", sqlINTEGER);
 	keywords_insert("MEDIUMINT", sqlINTEGER);
 	keywords_insert("BIGINT", BIGINT);
+#ifdef HAVE_HGE
+	keywords_insert("HUGEINT", HUGEINT);
+#endif
 	keywords_insert("DEC", sqlDECIMAL);
 	keywords_insert("DECIMAL", sqlDECIMAL);
 	keywords_insert("NUMERIC", sqlDECIMAL);
@@ -512,8 +515,11 @@ scanner_getc(struct scanner *lc)
 	int c;
 	int n, m, mask;
 
-	if (scanner_read_more(lc, 1) == EOF)
+	if (scanner_read_more(lc, 1) == EOF) {
+		lc->errstr = "end of input stream";
 		return EOF;
+	}
+	lc->errstr = NULL;
 
 	s = (unsigned char *) b->buf + b->pos + lc->yycur++;
 	if (((c = *s) & 0x80) == 0) {
@@ -527,6 +533,7 @@ scanner_getc(struct scanner *lc)
 		/* incorrect UTF-8 sequence */
 		/* n==0: c == 10xxxxxx */
 		/* n>=6: c == 1111111x */
+		lc->errstr = "!invalid start of UTF-8 sequence";
 		goto error;
 	}
 
@@ -542,12 +549,14 @@ scanner_getc(struct scanner *lc)
 		if (((m = *s++) & 0xC0) != 0x80) {
 			/* incorrect UTF-8 sequence: byte is not 10xxxxxx */
 			/* this includes end-of-string (m == 0) */
+			lc->errstr = "!invalid continuation in UTF-8 sequence";
 			goto error;
 		}
 		c |= m & 0x3F;
 	}
 	if ((c & mask) == 0) {
 		/* incorrect UTF-8 sequence: not shortest possible */
+		lc->errstr = "!not shortest possible UTF-8 sequence";
 		goto error;
 	}
 
@@ -613,6 +622,53 @@ scanner_string(mvc *c, int quote)
 		}
 		lc->yycur--;	/* go back to current (possibly invalid) char */
 		/* long utf8, if correct isn't the quote */
+		if (!cur) {
+			if (lc->rs->len >= lc->rs->pos + lc->yycur + 1) {
+				(void) sql_error(c, 2, "NULL byte in string");
+				return LEX_ERROR;
+			}
+			cur = scanner_read_more(lc, 1);
+		} else {
+			cur = scanner_getc(lc);
+		}
+	}
+	(void) sql_error(c, 2, "unexpected end of input");
+	return LEX_ERROR;
+}
+
+/* scan a structure {blah} into a string. We only count the matching {}
+ * unless escaped. We do not consider embeddings in string literals yet
+ */
+
+static int
+scanner_body(mvc *c)
+{
+	struct scanner *lc = &c->scanner;
+	bstream *rs = lc->rs;
+	int cur = (int) 'x';
+	int blk = 1;
+	int escape = 0;
+
+	lc->started = 1;
+	assert(rs->buf[(int)rs->pos + lc->yycur-1] == '{');
+	while (cur != EOF) {
+		unsigned int pos = (int)rs->pos + lc->yycur;
+
+		while ((((cur = rs->buf[pos++]) & 0x80) == 0) && cur && (blk || escape)) {
+			if (cur != '\\')
+				escape = 0;
+			else
+				escape = !escape;
+			blk += cur =='{';
+			blk -= cur =='}';
+		}
+		lc->yycur = pos - (int)rs->pos;
+		assert(pos <= rs->len + 1);
+		if (blk == 0 && !escape){
+			lc->yycur--;	/* go back to current (possibly invalid) char */
+			return scanner_token(lc, X_BODY);
+		}
+		lc->yycur--;	/* go back to current (possibly invalid) char */
 		if (!cur) {
 			if (lc->rs->len >= lc->rs->pos + lc->yycur + 1) {
 				(void) sql_error(c, 2, "NULL byte in string");
@@ -780,6 +836,8 @@ int scanner_symbol(mvc * c, int cur)
 		if (next == '*') {
 			lc->started = started;
 			cur = skip_c_comment(lc);
+			if (cur < 0)
+				return EOF;
 			return tokenize(c, cur);
 		} else {
 			utf8_putchar(lc, next); 
@@ -803,6 +861,8 @@ int scanner_symbol(mvc * c, int cur)
 	case '\'':
 	case '"':
 		return scanner_string(c, cur);
+	case '{':
+		return scanner_body(c);
 	case '-':
 		lc->started = 1;
 		next = scanner_getc(lc);
@@ -955,7 +1015,7 @@ static inline int
 sql_get_next_token(YYSTYPE *yylval, void *parm) {
 	mvc *c = (mvc*)parm;
 	struct scanner *lc = &c->scanner;
-	int token = 0;
+	int token = 0, cur = 0;
 
 	if (lc->rs->buf == NULL) /* malloc failure */
 		return EOF;
@@ -974,7 +1034,10 @@ sql_get_next_token(YYSTYPE *yylval, void *parm) {
 	
 	lc->yysval = lc->yycur;
 	lc->yylast = lc->yyval;
-	token = tokenize(c, scanner_getc(lc));
+	cur = scanner_getc(lc);
+	if (cur < 0)
+		return EOF;
+	token = tokenize(c, cur);
 
 	yylval->sval = (lc->rs->buf + (int)lc->rs->pos + lc->yysval);
 

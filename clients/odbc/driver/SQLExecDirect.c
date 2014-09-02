@@ -93,12 +93,13 @@ ODBCExecDirect(ODBCStmt *stmt, SQLCHAR *StatementText, SQLINTEGER TextLength)
 		return SQL_ERROR;
 	}
 
-	/* TODO: convert ODBC escape sequences ( {d 'value'} or {t
-	 * 'value'} or {ts 'value'} or {escape 'e-char'} or {oj
-	 * outer-join} or {fn scalar-function} etc. ) to MonetDB SQL
-	 * syntax */
 	query = ODBCTranslateSQL(stmt->Dbc, StatementText, (size_t) TextLength,
 				 stmt->noScan);
+	if (query == NULL) {
+		/* Memory allocation error */
+		addStmtError(stmt, "HY001", NULL, 0);
+		return SQL_ERROR;
+	}
 
 	ODBCResetStmt(stmt);
 

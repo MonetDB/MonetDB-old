@@ -369,7 +369,6 @@ int
 cstToken(Client cntxt, ValPtr cst)
 {
 	int i = 0;
-	lng l;
 	int hex = 0;
 	str s = CURRENT(cntxt);
 
@@ -466,7 +465,7 @@ cstToken(Client cntxt, ValPtr cst)
 		}
 		if (*s == '@') {
 			int len = (int) sizeof(lng);
-			lng *pval = &l;
+			lng l, *pval = &l;
 			lngFromStr(CURRENT(cntxt), &len, &pval);
 			if (l == lng_nil || l < 0
 #if SIZEOF_OID < SIZEOF_LNG
@@ -517,14 +516,58 @@ cstToken(Client cntxt, ValPtr cst)
 			}
 			return i;
 		}
+#ifdef HAVE_HGE
+		if (*s == 'H' && cst->vtype == TYPE_int) {
+			int len = i;
+			hge *pval = 0;
+			cst->vtype = TYPE_hge;
+			i++;
+			s++;
+			if (*s == 'H') {
+				i++;
+				s++;
+			}
+			hgeFromStr(CURRENT(cntxt), &len, &pval);
+			if (pval) {
+				cst->val.hval = *pval;
+				GDKfree(pval);
+			} else
+				cst->val.hval = 0;
+			return i;
+		}
+#endif
 handleInts:
-		if (cst->vtype == TYPE_int || cst->vtype == TYPE_lng) {
+		assert(cst->vtype != TYPE_lng);
+#ifdef HAVE_HGE
+		assert(cst->vtype != TYPE_hge);
+#endif
+		if (cst->vtype == TYPE_int) {
+#ifdef HAVE_HGE
+			int len = (int) sizeof(hge);
+			hge l, *pval = &l;
+			if (hgeFromStr(CURRENT(cntxt), &len, &pval) <= 0 || l == hge_nil)
+				l = hge_nil;
+
+			if ((hge) GDK_int_min < l && l <= (hge) GDK_int_max) {
+				cst->vtype = TYPE_int;
+				cst->val.ival = (int) l;
+			} else
+			if ((hge) GDK_lng_min < l && l <= (hge) GDK_lng_max) {
+				cst->vtype = TYPE_lng;
+				cst->val.lval = (lng) l;
+			} else {
+				cst->vtype = TYPE_hge;
+				cst->val.hval = l;
+				if (l == hge_nil)
+					showException(cntxt->fdout, SYNTAX, "convertConstant", "integer parse error");
+			}
+#else
 			int len = (int) sizeof(lng);
-			lng *pval = &l;
-			if (lngFromStr(CURRENT(cntxt), &len, &pval) <= 0 || l == lng_nil) 
+			lng l, *pval = &l;
+			if (lngFromStr(CURRENT(cntxt), &len, &pval) <= 0 || l == lng_nil)
 				l = lng_nil;
-			
-			if (INT_MIN < l && l <= INT_MAX) {
+
+			if ((lng) GDK_int_min < l && l <= (lng) GDK_int_max) {
 				cst->vtype = TYPE_int;
 				cst->val.ival = (int) l;
 			} else {
@@ -533,6 +576,7 @@ handleInts:
 				if (l == lng_nil)
 					showException(cntxt->fdout, SYNTAX, "convertConstant", "integer parse error");
 			}
+#endif
 		}
 		return i;
 
@@ -797,9 +841,10 @@ propList(Client cntxt, int arg)
 				advance(cntxt, i);
 				if (currChar(cntxt) == ':') {
 					tpe = simpleTypeId(cntxt);
-					if (tpe != TYPE_any)
-						convertConstant(tpe, &cst);
-					else
+					if (tpe >=0 && tpe != TYPE_any){
+						str msg =convertConstant(tpe, &cst);
+						if( msg) GDKfree(msg);
+					} else
 						parseError(cntxt, "simple type expected\n");
 				}
 				varSetProperty(curBlk, arg, pname, opname, &cst);
@@ -818,7 +863,7 @@ propList(Client cntxt, int arg)
 static InstrPtr
 binding(Client cntxt, MalBlkPtr curBlk, InstrPtr curInstr, int flag)
 {
-	int l, varid;
+	int l, varid = -1;
 	malType type;
 
 	l = idLength(cntxt);
@@ -826,6 +871,8 @@ binding(Client cntxt, MalBlkPtr curBlk, InstrPtr curInstr, int flag)
 		varid = findVariableLength(curBlk, CURRENT(cntxt), l);
 		if (varid < 0) {
 			varid = newVariable(curBlk, idCopy(cntxt, l), TYPE_any);
+			if ( varid < 0)
+				return curInstr;
 			type = typeElm(cntxt, TYPE_any);
 			if (isPolymorphic(type))
 				setPolymorphic(curInstr, type, TRUE);
@@ -848,15 +895,18 @@ binding(Client cntxt, MalBlkPtr curBlk, InstrPtr curInstr, int flag)
 	} else if (currChar(cntxt) == ':') {
 		type = typeElm(cntxt, TYPE_any);
 		varid = newTmpVariable(curBlk, type);
+		if ( varid < 0)
+			return curInstr;
 		if ( isPolymorphic(type))
 			setPolymorphic(curInstr, type, TRUE);
 		setVarType(curBlk, varid, type);
 		propList(cntxt, varid);
 	} else {
-		varid = -1;
 		parseError(cntxt, "argument expected\n");
+		return curInstr;
 	}
-	curInstr = pushArgument(curBlk, curInstr, varid);
+	if( varid >=0)
+		curInstr = pushArgument(curBlk, curInstr, varid);
 	return curInstr;
 }
 
@@ -919,6 +969,8 @@ term(Client cntxt, MalBlkPtr curBlk, InstrPtr *curInstr, int ret)
 		if ((idx = findVariableLength(curBlk, CURRENT(cntxt), i)) == -1) {
 			v = idCopy(cntxt, i);
 			idx = newVariable(curBlk, v, TYPE_any);
+			if( idx <0)
+				return 0;
 			propList(cntxt, idx);
 		} else {
 			advance(cntxt, i);
@@ -981,9 +1033,11 @@ parseLibrary(Client cntxt)
 	} else
 		libnme = putName(nxt, l);
 	s = loadLibrary(libnme, TRUE);
-	libnme = putName(nxt, l);
-	if (s)
+	(void) putName(nxt, l);
+	if (s){
 		mnstr_printf(cntxt->fdout, "#WARNING: %s\n", s);
+		GDKfree(s);
+	}
 	advance(cntxt, l);
 	return "";
 }
@@ -1526,8 +1580,8 @@ parseEnd(Client cntxt)
 	if ((varid = findVariableLength(curBlk, CURRENT(cntxt), l)) == -1) { \
 		arg = idCopy(cntxt, l);	 \
 		varid = newVariable(curBlk, arg, TYPE_any);	\
-	} \
-	else \
+		assert(varid >=  0);\
+	} else \
 		advance(cntxt, l);
 
 /* The parameter of parseArguments is the return value of the enclosing function. */
@@ -1618,7 +1672,7 @@ parseAssign(Client cntxt, int cntrl)
 		if (l == 0 || i) {
 			/* we haven't seen a target variable */
 			/* flow of control statements may end here. */
-			/* shouldn;t allow for nameless controls todo*/
+			/* shouldn't allow for nameless controls todo*/
 			if (i && cst.vtype == TYPE_str)
 				GDKfree(cst.val.sval);
 			if (cntrl == LEAVEsymbol || cntrl == REDOsymbol ||
@@ -1873,7 +1927,7 @@ parseMAL(Client cntxt, Symbol curPrg)
  * Comment lines produced by Mx, i.e. #line directives are not saved.
  * The deadcode optimizer removes all comment information.
  */
-				curInstr = newInstruction(NULL, REMsymbol);
+				curInstr = newInstruction(curBlk, REMsymbol);
 				cst.vtype = TYPE_str;
 				cst.len = (int) strlen(start);
 				cst.val.sval = GDKstrdup(start);

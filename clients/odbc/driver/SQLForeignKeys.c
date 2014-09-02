@@ -94,62 +94,86 @@ SQLForeignKeys_(ODBCStmt *stmt,
 			pcat = ODBCParseOA("e", "value",
 					   (const char *) PKCatalogName,
 					   (size_t) NameLength1);
+			if (pcat == NULL)
+				goto nomem;
 		}
 		if (NameLength2 > 0) {
 			psch = ODBCParseOA("pks", "name",
 					   (const char *) PKSchemaName,
 					   (size_t) NameLength2);
+			if (psch == NULL)
+				goto nomem;
 		}
 		if (NameLength3 > 0) {
 			ptab = ODBCParseOA("pkt", "name",
 					   (const char *) PKTableName,
 					   (size_t) NameLength3);
+			if (ptab == NULL)
+				goto nomem;
 		}
 		if (NameLength4 > 0) {
 			fcat = ODBCParseOA("e", "value",
 					   (const char *) FKCatalogName,
 					   (size_t) NameLength4);
+			if (fcat == NULL)
+				goto nomem;
 		}
 		if (NameLength5 > 0) {
 			fsch = ODBCParseOA("fks", "name",
 					   (const char *) FKSchemaName,
 					   (size_t) NameLength5);
+			if (fsch == NULL)
+				goto nomem;
 		}
 		if (NameLength6 > 0) {
 			ftab = ODBCParseOA("fkt", "name",
 					   (const char *) FKTableName,
 					   (size_t) NameLength6);
+			if (ftab == NULL)
+				goto nomem;
 		}
 	} else {
 		if (NameLength1 > 0) {
 			pcat = ODBCParseID("e", "value",
 					   (const char *) PKCatalogName,
 					   (size_t) NameLength1);
+			if (pcat == NULL)
+				goto nomem;
 		}
 		if (NameLength2 > 0) {
 			psch = ODBCParseID("pks", "name",
 					   (const char *) PKSchemaName,
 					   (size_t) NameLength2);
+			if (psch == NULL)
+				goto nomem;
 		}
 		if (NameLength3 > 0) {
 			ptab = ODBCParseID("pkt", "name",
 					   (const char *) PKTableName,
 					   (size_t) NameLength3);
+			if (ptab == NULL)
+				goto nomem;
 		}
 		if (NameLength4 > 0) {
 			fcat = ODBCParseID("e", "value",
 					   (const char *) FKCatalogName,
 					   (size_t) NameLength4);
+			if (fcat == NULL)
+				goto nomem;
 		}
 		if (NameLength5 > 0) {
 			fsch = ODBCParseID("fks", "name",
 					   (const char *) FKSchemaName,
 					   (size_t) NameLength5);
+			if (fsch == NULL)
+				goto nomem;
 		}
 		if (NameLength6 > 0) {
 			ftab = ODBCParseID("fkt", "name",
 					   (const char *) FKTableName,
 					   (size_t) NameLength6);
+			if (ftab == NULL)
+				goto nomem;
 		}
 	}
 
@@ -159,7 +183,8 @@ SQLForeignKeys_(ODBCStmt *stmt,
 		       (psch ? strlen(psch) : 0) + (ptab ? strlen(ptab) : 0) +
 		       (fcat ? strlen(fcat) : 0) + (fsch ? strlen(fsch) : 0) +
 		       (ftab ? strlen(ftab) : 0));
-	assert(query);
+	if (query == NULL)
+		goto nomem;
 	query_end = query;
 
 	/* SQLForeignKeys returns a table with the following columns:
@@ -180,35 +205,34 @@ SQLForeignKeys_(ODBCStmt *stmt,
 	 */
 
 	sprintf(query_end,
-		"select "
-		"e.\"value\" as pktable_cat, "
-		"pks.\"name\" as pktable_schem, "
-		"pkt.\"name\" as pktable_name, "
-		"pkkc.\"name\" as pkcolumn_name, "
-		"e.\"value\" as fktable_cat, "
-		"fks.\"name\" as fktable_schem, "
-		"fkt.\"name\" as fktable_name, "
-		"fkkc.\"name\" as fkcolumn_name, "
-		"cast(fkkc.\"nr\" + 1 as smallint) as key_seq, "
-		"cast(%d as smallint) as update_rule, "
-		"cast(%d as smallint) as delete_rule, "
-		"fkk.\"name\" as fk_name, "
-		"pkk.\"name\" as pk_name, "
-		"cast(%d as smallint) as deferrability "
-		"from sys.\"schemas\" fks, sys.\"tables\" fkt, "
-		"sys.\"objects\" fkkc, sys.\"keys\" as fkk, "
-		"sys.\"schemas\" pks, sys.\"tables\" pkt, "
-		"sys.\"objects\" pkkc, sys.\"keys\" as pkk, "
-		"sys.\"env\"() e "
-		"where fkt.\"id\" = fkk.\"table_id\" and "
-		"pkt.\"id\" = pkk.\"table_id\" and "
-		"fkk.\"id\" = fkkc.\"id\" and "
-		"pkk.\"id\" = pkkc.\"id\" and "
-		"fks.\"id\" = fkt.\"schema_id\" and "
-		"pks.\"id\" = pkt.\"schema_id\" and "
-		"fkk.\"rkey\" = pkk.\"id\" and "
-		"fkkc.\"nr\" = pkkc.\"nr\" and "
-		"e.\"name\" = 'gdk_dbname'",
+		"select e.value as pktable_cat, "
+		       "pks.name as pktable_schem, "
+		       "pkt.name as pktable_name, "
+		       "pkkc.name as pkcolumn_name, "
+		       "e.value as fktable_cat, "
+		       "fks.name as fktable_schem, "
+		       "fkt.name as fktable_name, "
+		       "fkkc.name as fkcolumn_name, "
+		       "cast(fkkc.nr + 1 as smallint) as key_seq, "
+		       "cast(%d as smallint) as update_rule, "
+		       "cast(%d as smallint) as delete_rule, "
+		       "fkk.name as fk_name, "
+		       "pkk.name as pk_name, "
+		       "cast(%d as smallint) as deferrability "
+		"from sys.schemas fks, sys.tables fkt, "
+		     "sys.objects fkkc, sys.keys as fkk, "
+		     "sys.schemas pks, sys.tables pkt, "
+		     "sys.objects pkkc, sys.keys as pkk, "
+		     "sys.env() e "
+		"where fkt.id = fkk.table_id and "
+		      "pkt.id = pkk.table_id and "
+		      "fkk.id = fkkc.id and "
+		      "pkk.id = pkkc.id and "
+		      "fks.id = fkt.schema_id and "
+		      "pks.id = pkt.schema_id and "
+		      "fkk.rkey = pkk.id and "
+		      "fkkc.nr = pkkc.nr and "
+		      "e.name = 'gdk_dbname'",
 		SQL_NO_ACTION, SQL_NO_ACTION, SQL_NOT_DEFERRABLE);
 	assert(strlen(query) < 1100);
 	query_end += strlen(query_end);
@@ -268,6 +292,25 @@ SQLForeignKeys_(ODBCStmt *stmt,
 	free(query);
 
 	return rc;
+
+  nomem:
+	if (pcat)
+		free(pcat);
+	if (psch)
+		free(psch);
+	if (ptab)
+		free(ptab);
+	if (fcat)
+		free(fcat);
+	if (fsch)
+		free(fsch);
+	if (ftab)
+		free(ftab);
+	if (query)
+		free(query);
+	/* Memory allocation error */
+	addStmtError(stmt, "HY001", NULL, 0);
+	return SQL_ERROR;
 }
 
 SQLRETURN SQL_API

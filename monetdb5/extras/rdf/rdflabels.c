@@ -930,7 +930,7 @@ int** initOntologyLookupResultMatchedProp(int csCount) {
 static
 PropStat* initPropStat(void) {
 	PropStat *propStat = (PropStat *) malloc(sizeof(PropStat));
-	propStat->pBat = BATnew(TYPE_void, TYPE_oid, INIT_PROP_NUM);
+	propStat->pBat = BATnew(TYPE_void, TYPE_oid, INIT_PROP_NUM, TRANSIENT);
 
 	BATseqbase(propStat->pBat, 0);
 

@@ -472,8 +472,9 @@ PNcontroller(void *dummy)
 	lng t, analysis, now;
 	char buf[BUFSIZ], *modnme, *fcnnme;
 
-	cntxt = mal_clients; /* run as admin */
-	SQLinitEnvironment(cntxt);
+	cntxt = mal_clients; /* run as admin in SQL mode*/
+	 if( strcmp(cntxt->scenario, "sql") )
+		SQLinitEnvironment(cntxt);
 	/* At this point we know what is the total number of factories.
 	 * The most extremely case is when ALL factories are enable to fire
 	 * so the maximum space we could ever need is = #factories (=pnettop)*/
@@ -632,7 +633,7 @@ str PNstartThread(int *ret)
 	PNdump(&s);
 #endif
 
-	if (status== BSKTINIT && MT_create_thread(&pid, PNcontroller, &s, MT_THR_DETACHED) != 0)
+	if (status== BSKTINIT && MT_create_thread(&pid, PNcontroller, &s, MT_THR_JOINABLE) != 0)
 		throw(MAL, "petrinet.startThread", "Process creation failed");
 
 	(void) ret;
@@ -666,35 +667,35 @@ PNtable(int *nameId, int *statusId, int *seenId, int *cyclesId, int *eventsId, i
 	BAT *name = NULL, *def = NULL, *status = NULL, *seen = NULL, *cycles = NULL, *events = NULL, *time = NULL, *error = NULL;
 	int i;
 
-	name = BATnew(TYPE_void, TYPE_str, BATTINY);
+	name = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
 	if (name == 0)
 		goto wrapup;
 	BATseqbase(name, 0);
-	def = BATnew(TYPE_void, TYPE_str, BATTINY);
+	def = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
 	if (def == 0)
 		goto wrapup;
 	BATseqbase(def, 0);
-	status = BATnew(TYPE_void, TYPE_str, BATTINY);
+	status = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
 	if (status == 0)
 		goto wrapup;
 	BATseqbase(status, 0);
-	seen = BATnew(TYPE_void, TYPE_timestamp, BATTINY);
+	seen = BATnew(TYPE_void, TYPE_timestamp, BATTINY, TRANSIENT);
 	if (seen == 0)
 		goto wrapup;
 	BATseqbase(seen, 0);
-	cycles = BATnew(TYPE_void, TYPE_int, BATTINY);
+	cycles = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
 	if (cycles == 0)
 		goto wrapup;
 	BATseqbase(cycles, 0);
-	events = BATnew(TYPE_void, TYPE_int, BATTINY);
+	events = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
 	if (events == 0)
 		goto wrapup;
 	BATseqbase(events, 0);
-	time = BATnew(TYPE_void, TYPE_lng, BATTINY);
+	time = BATnew(TYPE_void, TYPE_lng, BATTINY, TRANSIENT);
 	if (time == 0)
 		goto wrapup;
 	BATseqbase(time, 0);
-	error = BATnew(TYPE_void, TYPE_str, BATTINY);
+	error = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
 	if (error == 0)
 		goto wrapup;
 	BATseqbase(error, 0);

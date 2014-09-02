@@ -126,7 +126,7 @@ EMemitterStartInternal(int *ret, str *tbl, str *host, int *port, int mode, int p
 			throw(MAL, "receptor.new", "Could not access descriptor");
 		}
 
-		em->table.format[j].c = BATcopy(b, b->htype, b->ttype, FALSE);
+		em->table.format[j].c = BATcopy(b, b->htype, b->ttype, FALSE, TRANSIENT);
 		em->table.format[j].ci = bat_iterator(em->table.format[j].c);
 		em->table.format[j].name = baskets[idx].cols[i];
 		em->table.format[j].sep = ",";
@@ -151,7 +151,7 @@ EMemitterStartInternal(int *ret, str *tbl, str *host, int *port, int mode, int p
 #ifdef _DEBUG_EMITTER_
 	mnstr_printf(EMout, "#Instantiate a new emitter %d fields\n", i);
 #endif
-	if (MT_create_thread(&em->pid, (void (*)(void *))EMstartThread, em, MT_THR_DETACHED) != 0)
+	if (MT_create_thread(&em->pid, (void (*)(void *))EMstartThread, em, MT_THR_JOINABLE) != 0)
 		throw(MAL, "emitter.start", "Emitter '%s' initiation failed",em->name);
 	return MAL_SUCCEED;
 }
@@ -327,7 +327,7 @@ bodyRestart:
 			if (em->table.format[k].c)
 				BBPunfix(em->table.format[k].c->batCacheid);
 			b = baskets[em->bskt].primary[k];
-			em->table.format[k].c = BATcopy(b, b->htype, b->ttype, TRUE);
+			em->table.format[k].c = BATcopy(b, b->htype, b->ttype, TRUE,TRANSIENT);
 			em->table.format[k].ci = bat_iterator(b);
 			BATclear(b, FALSE);
 		}
@@ -407,9 +407,10 @@ EMstartThread(Emitter em)
 			if (em->error) {
 				em->status = BSKTERROR;
 				mnstr_printf(EMout, "#Emitter listen fails: %s\n", em->error);
+				break;
 			}
 
-			if (MT_create_thread(&em->pid, (void (*)(void *))EMbody, em, MT_THR_DETACHED) != 0) {
+			if (MT_create_thread(&em->pid, (void (*)(void *))EMbody, em, MT_THR_JOINABLE) != 0) {
 				close_stream(em->emitter);
 				throw(MAL, "emitter.start", "Process '%s' creation failed",em->name);
 			}
@@ -419,7 +420,9 @@ EMstartThread(Emitter em)
 			EMbody(em);
 		}
 	}
-	shutdown(em->newsockfd, SHUT_RDWR);
+	socket_close(em->newsockfd);
+	shutdown(em->sockfd, SHUT_RDWR);
+	MT_join_thread(em->pid);
 	return MAL_SUCCEED;
 }
 
@@ -446,44 +449,44 @@ EMtable(int *nameId, int *hostId, int *portId, int *protocolId, int *modeId, int
 	BAT *protocol = NULL, *mode = NULL, *status = NULL, *port = NULL, *host = NULL;
 	Emitter em = emAnchor;
 
-	name = BATnew(TYPE_void, TYPE_str, BATTINY);
+	name = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
 	if (name == 0)
 		goto wrapup;
 	BATseqbase(name, 0);
-	host = BATnew(TYPE_void, TYPE_str, BATTINY);
+	host = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
 	if (host == 0)
 		goto wrapup;
 	BATseqbase(host, 0);
-	port = BATnew(TYPE_void, TYPE_int, BATTINY);
+	port = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
 	if (port == 0)
 		goto wrapup;
 	BATseqbase(port, 0);
-	protocol = BATnew(TYPE_void, TYPE_str, BATTINY);
+	protocol = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
 	if (protocol == 0)
 		goto wrapup;
 	BATseqbase(protocol, 0);
-	mode = BATnew(TYPE_void, TYPE_str, BATTINY);
+	mode = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
 	if (mode == 0)
 		goto wrapup;
 	BATseqbase(mode, 0);
 
-	seen = BATnew(TYPE_void, TYPE_timestamp, BATTINY);
+	seen = BATnew(TYPE_void, TYPE_timestamp, BATTINY, TRANSIENT);
 	if (seen == 0)
 		goto wrapup;
 	BATseqbase(seen, 0);
-	cycles = BATnew(TYPE_void, TYPE_int, BATTINY);
+	cycles = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
 	if (cycles == 0)
 		goto wrapup;
 	BATseqbase(cycles, 0);
-	pending = BATnew(TYPE_void, TYPE_int, BATTINY);
+	pending = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
 	if (pending == 0)
 		goto wrapup;
 	BATseqbase(pending, 0);
-	sent = BATnew(TYPE_void, TYPE_int, BATTINY);
+	sent = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
 	if (sent == 0)
 		goto wrapup;
 	BATseqbase(sent, 0);
-	status = BATnew(TYPE_void, TYPE_str, BATTINY);
+	status = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
 	if (status == 0)
 		goto wrapup;
 	BATseqbase(status, 0);

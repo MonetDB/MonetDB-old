@@ -47,7 +47,11 @@ FUN(,TP1,_2_,TP2) (TP2 *res, TP1 *v)
 	}
 
 	/* see if the number fits in the data type */
-	if ((lng) (TP2) val > (lng) GDKmin(TP2) && val > (lng) GDKmin(TP2) && val <= (lng) GDKmax(TP2)) {
+	if (val > (lng) GDKmin(TP2)
+#if TPE(TP2) != TYPE_wrd || SIZEOF_LNG != SIZEOF_WRD
+	    && val <= (lng) GDKmax(TP2)
+#endif
+		) {
 		*res = (TP2) val;
 		return (MAL_SUCCEED);
 	} else {
@@ -67,7 +71,7 @@ FUN(bat,TP1,_2_,TP2) (int *res, int *bid)
 	if ((b = BATdescriptor(*bid)) == NULL) {
 		throw(SQL, "batcalc."STRNG(FUN(,TP1,_2_,TP2)), "Cannot access descriptor");
 	}
-	bn = BATnew(TYPE_void, TPE(TP2), BATcount(b));
+	bn = BATnew(TYPE_void, TPE(TP2), BATcount(b), TRANSIENT);
 	if (bn == NULL) {
 		BBPreleaseref(b->batCacheid);
 		throw(SQL, "sql."STRNG(FUN(,TP1,_2_,TP2)), MAL_MALLOC_FAIL);
@@ -82,7 +86,11 @@ FUN(bat,TP1,_2_,TP2) (int *res, int *bid)
 		for (; p < q; p++, o++) {
 			val = *p;
 			/* see if the number fits in the data type */
-			if ((lng) (TP2) val > (lng) GDKmin(TP2) && val > (lng) GDKmin(TP2) && val <= (lng) GDKmax(TP2)) {
+			if (val > (lng) GDKmin(TP2)
+#if TPE(TP2) != TYPE_wrd || SIZEOF_LNG != SIZEOF_WRD
+			    && val <= (lng) GDKmax(TP2)
+#endif
+				) {
 				*o = (TP2) val;
 			} else {
 				msg = createException(SQL, "convert", "22003!value (" LLFMT ") exceeds limits of type "STRNG(TP2), val);
@@ -97,7 +105,11 @@ FUN(bat,TP1,_2_,TP2) (int *res, int *bid)
 			} else {
 				val = *p;
 				/* see if the number fits in the data type */
-				if ((lng) (TP2) val > (lng) GDKmin(TP2) && val > (lng) GDKmin(TP2) && val <= (lng) GDKmax(TP2)) {
+				if (val > (lng) GDKmin(TP2)
+#if TPE(TP2) != TYPE_wrd || SIZEOF_LNG != SIZEOF_WRD
+				    && val <= (lng) GDKmax(TP2)
+#endif
+					) {
 					*o = (TP2) val;
 				} else {
 					msg = createException(SQL, "convert", "22003!value (" LLFMT ") exceeds limits of type "STRNG(TP2), val);
@@ -143,7 +155,11 @@ FUN(,TP1,_dec2_,TP2) (TP2 *res, int *s1, TP1 *v)
 	if (scale)
 		val = (val + h * scales[scale - 1]) / scales[scale];
 	/* see if the number fits in the data type */
-	if (val > GDKmin(TP2) && val <= GDKmax(TP2)) {
+	if (val > (lng) GDKmin(TP2)
+#if TPE(TP2) != TYPE_wrd || SIZEOF_LNG != SIZEOF_WRD
+	    && val <= GDKmax(TP2)
+#endif
+		) {
 		*res = (TP2) val;
 		return MAL_SUCCEED;
 	} else {
@@ -179,7 +195,11 @@ FUN(,TP1,_dec2dec_,TP2) (TP2 *res, int *S1, TP1 *v, int *d2, int *S2)
 		val = (val + h * scales[s1 - s2 - 1]) / scales[s1 - s2];
 
 	/* see if the number fits in the data type */
-	if (val > GDKmin(TP2) && val <= GDKmax(TP2)) {
+	if (val > (lng) GDKmin(TP2)
+#if TPE(TP2) != TYPE_wrd || SIZEOF_LNG != SIZEOF_WRD
+	    && val <= GDKmax(TP2)
+#endif
+		) {
 		*res = (TP2) val;
 		return MAL_SUCCEED;
 	} else {
@@ -207,7 +227,7 @@ FUN(bat,TP1,_dec2_,TP2) (int *res, int *s1, int *bid)
 	if ((b = BATdescriptor(*bid)) == NULL) {
 		throw(SQL, "batcalc."STRNG(FUN(,TP1,_dec2_,TP2)), "Cannot access descriptor");
 	}
-	bn = BATnew(TYPE_void, TPE(TP2), BATcount(b));
+	bn = BATnew(TYPE_void, TPE(TP2), BATcount(b), TRANSIENT);
 	if (bn == NULL) {
 		BBPreleaseref(b->batCacheid);
 		throw(SQL, "sql."STRNG(FUN(dec,TP1,_2_,TP2)), MAL_MALLOC_FAIL);
@@ -226,7 +246,11 @@ FUN(bat,TP1,_dec2_,TP2) (int *res, int *s1, int *bid)
 			else
 				val = (TP1) (*p);
 			/* see if the number fits in the data type */
-			if (val > GDKmin(TP2) && val <= GDKmax(TP2))
+			if (val > (lng) GDKmin(TP2)
+#if TPE(TP2) != TYPE_wrd || SIZEOF_LNG != SIZEOF_WRD
+			    && val <= GDKmax(TP2)
+#endif
+				)
 				*o = (TP2) val;
 			else {
 				BBPreleaseref(b->batCacheid);
@@ -245,7 +269,11 @@ FUN(bat,TP1,_dec2_,TP2) (int *res, int *s1, int *bid)
 				else
 					val = (TP1) (*p);
 				/* see if the number fits in the data type */
-				if (val > GDKmin(TP2) && val <= GDKmax(TP2))
+				if (val > (lng) GDKmin(TP2)
+#if TPE(TP2) != TYPE_wrd || SIZEOF_LNG != SIZEOF_WRD
+				    && val <= GDKmax(TP2)
+#endif
+					)
 					*o = (TP2) val;
 				else {
 					BBPreleaseref(b->batCacheid);
@@ -289,7 +317,7 @@ FUN(bat,TP1,_dec2dec_,TP2) (int *res, int *S1, int *bid, int *d2, int *S2)
 		throw(SQL, "batcalc."STRNG(FUN(,TP1,_dec2dec_,TP2)), "Cannot access descriptor");
 	}
 	bi = bat_iterator(b);
-	dst = BATnew(b->htype, TPE(TP2), BATcount(b));
+	dst = BATnew(b->htype, TPE(TP2), BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPreleaseref(b->batCacheid);
 		throw(SQL, "sql."STRNG(FUN(,TP1,_dec2dec_,TP2)), MAL_MALLOC_FAIL);
@@ -320,7 +348,7 @@ FUN(bat,TP1,_num2dec_,TP2) (int *res, int *bid, int *d2, int *s2)
 		throw(SQL, "batcalc."STRNG(FUN(,TP1,_num2dec_,TP2)), "Cannot access descriptor");
 	}
 	bi = bat_iterator(b);
-	dst = BATnew(b->htype, TPE(TP2), BATcount(b));
+	dst = BATnew(b->htype, TPE(TP2), BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPreleaseref(b->batCacheid);
 		throw(SQL, "sql."STRNG(FUN(,TP1,_num2dec_,TP2)), MAL_MALLOC_FAIL);

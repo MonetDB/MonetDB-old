@@ -44,24 +44,56 @@
 #include <fcntl.h>
 #endif
 
-void
-GDKfilepath(str path, const char *dir, const char *name, const char *ext)
+/* GDKfilepath returns a newly allocated string containing the path
+ * name of a database farm.
+ * The arguments are the farmID or -1, the name of a subdirectory
+ * within the farm (i.e., something like BATDIR or BAKDIR -- see
+ * gdk.h) or NULL, the name of a BAT (i.e. the name that is store in
+ * BBP.dir -- something like 07/714), and finally the file extension.
+ *
+ * If farmid is >= 0, GDKfilepath returns the complete path to the
+ * specified farm concatenated with the other arguments with
+ * appropriate separators.  If farmid is -1, it returns the
+ * concatenation of its other arguments (in this case, the result
+ * cannot be used to access a file directly -- the farm needs to be
+ * prepended in some other place). */
+char *
+GDKfilepath(int farmid, const char *dir, const char *name, const char *ext)
 {
-	*path = 0;
-	if (dir && *dir && *name != DIR_SEP) {
-		strcpy(path, dir);
-		path += strlen(dir);
-		if (path[-1] != DIR_SEP) {
-			*path++ = DIR_SEP;
-			*path = 0;
-		}
+	char sep[2];
+	size_t pathlen;
+	char *path;
+
+	assert(dir == NULL || *dir != DIR_SEP);
+	assert(farmid == -1 ||
+	       (farmid >= 0 && farmid < MAXFARMS && BBPfarms[farmid].dirname));
+	if (MT_path_absolute(name))
+		return NULL;
+	if (dir && *dir == DIR_SEP)
+		dir++;
+	if (dir == NULL || dir[0] == 0 || dir[strlen(dir) - 1] == DIR_SEP) {
+		sep[0] = 0;
+	} else {
+		sep[0] = DIR_SEP;
+		sep[1] = 0;
 	}
-	strcpy(path, name);
-	if (ext) {
-		path += strlen(name);
-		*path++ = '.';
-		strcpy(path, ext);
+	pathlen = (farmid == -1 ? 0 : strlen(BBPfarms[farmid].dirname) + 1) +
+		(dir ? strlen(dir) : 0) + strlen(sep) + strlen(name) +
+		(ext ? strlen(ext) + 1 : 0) + 1;
+	path = GDKmalloc(pathlen);
+	if (path == NULL)
+		return NULL;
+	if (farmid == -1) {
+		snprintf(path, pathlen, "%s%s%s%s%s",
+			 dir ? dir : "", sep, name,
+			 ext ? "." : "", ext ? ext : "");
+	} else {
+		snprintf(path, pathlen, "%s%c%s%s%s%s%s",
+			 BBPfarms[farmid].dirname, DIR_SEP,
+			 dir ? dir : "", sep, name,
+			 ext ? "." : "", ext ? ext : "");
 	}
+	return path;
 }
 
 int
@@ -100,10 +132,10 @@ GDKcreatedir(const char *dir)
 }
 
 int
-GDKremovedir(const char *dirname)
+GDKremovedir(int farmid, const char *dirname)
 {
 	DIR *dirp = opendir(dirname);
-	char path[PATHLENGTH];
+	char *path;
 	struct dirent *dent;
 	int ret;
 
@@ -115,9 +147,10 @@ GDKremovedir(const char *dirname)
 		if ((dent->d_name[0] == '.') && ((dent->d_name[1] == 0) || (dent->d_name[1] == '.' && dent->d_name[2] == 0))) {
 			continue;
 		}
-		GDKfilepath(path, dirname, dent->d_name, NULL);
+		path = GDKfilepath(farmid, dirname, dent->d_name, NULL);
 		ret = unlink(path);
 		IODEBUG THRprintf(GDKstdout, "#unlink %s = %d\n", path, ret);
+		GDKfree(path);
 	}
 	closedir(dirp);
 	ret = rmdir(dirname);
@@ -129,20 +162,20 @@ GDKremovedir(const char *dirname)
 	return ret;
 }
 
-#define _FUNBUF         0x040000
-#define _FWRTHR         0x080000
-#define _FRDSEQ         0x100000
+#define _FUNBUF		0x040000
+#define _FWRTHR		0x080000
+#define _FRDSEQ		0x100000
 
 int
-GDKfdlocate(const char *nme, const char *mode, const char *extension)
+GDKfdlocate(int farmid, const char *nme, const char *mode, const char *extension)
 {
-	char path[PATHLENGTH];
+	char *path;
 	int fd, flags = 0;
 
 	if ((nme == NULL) || (*nme == 0)) {
 		return 0;
 	}
-	GDKfilepath(path, BATDIR, nme, extension);
+	path = GDKfilepath(farmid, BATDIR, nme, extension);
 
 	if (*mode == 'm') {	/* file open for mmap? */
 		mode++;
@@ -169,13 +202,14 @@ GDKfdlocate(const char *nme, const char *mode, const char *extension)
 			fd = open(path, flags, MONETDB_MODE);
 		}
 	}
+	GDKfree(path);
 	return fd;
 }
 
 FILE *
-GDKfilelocate(const char *nme, const char *mode, const char *extension)
+GDKfilelocate(int farmid, const char *nme, const char *mode, const char *extension)
 {
-	int fd = GDKfdlocate(nme, mode, extension);
+	int fd = GDKfdlocate(farmid, nme, mode, extension);
 
 	if (*mode == 'm')
 		mode++;
@@ -187,18 +221,20 @@ GDKfilelocate(const char *nme, const char *mode, const char *extension)
  * Unlink the file.
  */
 int
-GDKunlink(const char *dir, const char *nme, const char *ext)
+GDKunlink(int farmid, const char *dir, const char *nme, const char *ext)
 {
-	char path[PATHLENGTH];
-
 	if (nme && *nme) {
-		GDKfilepath(path, dir, nme, ext);
+		char *path;
+
+		path = GDKfilepath(farmid, dir, nme, ext);
 		/* if file already doesn't exist, we don't care */
 		if (unlink(path) == -1 && errno != ENOENT) {
 			GDKsyserror("GDKunlink(%s)\n", path);
 			IODEBUG THRprintf(GDKstdout, "#unlink %s = -1\n", path);
+			GDKfree(path);
 			return -1;
 		}
+		GDKfree(path);
 		return 0;
 	}
 	return -1;
@@ -208,10 +244,10 @@ GDKunlink(const char *dir, const char *nme, const char *ext)
  * A move routine is overloaded to deal with extensions.
  */
 int
-GDKmove(const char *dir1, const char *nme1, const char *ext1, const char *dir2, const char *nme2, const char *ext2)
+GDKmove(int farmid, const char *dir1, const char *nme1, const char *ext1, const char *dir2, const char *nme2, const char *ext2)
 {
-	char path1[PATHLENGTH];
-	char path2[PATHLENGTH];
+	char *path1;
+	char *path2;
 	int ret, t0 = 0;
 
 	IODEBUG t0 = GDKms();
@@ -219,49 +255,60 @@ GDKmove(const char *dir1, const char *nme1, const char *ext1, const char *dir2, 
 	if ((nme1 == NULL) || (*nme1 == 0)) {
 		return -1;
 	}
-	GDKfilepath(path1, dir1, nme1, ext1);
-	GDKfilepath(path2, dir2, nme2, ext2);
+	path1 = GDKfilepath(farmid, dir1, nme1, ext1);
+	path2 = GDKfilepath(farmid, dir2, nme2, ext2);
 	ret = rename(path1, path2);
 
 	IODEBUG THRprintf(GDKstdout, "#move %s %s = %d (%dms)\n", path1, path2, ret, GDKms() - t0);
 
+	GDKfree(path1);
+	GDKfree(path2);
 	return ret;
 }
 
 int
-GDKextendf(int fd, size_t size)
+GDKextendf(int fd, size_t size, const char *fn)
 {
 	struct stat stb;
+	int rt = 0;
+	int t0 = 0;
 
 	if (fstat(fd, &stb) < 0) {
 		/* shouldn't happen */
 		return -1;
 	}
 	/* if necessary, extend the underlying file */
+	IODEBUG t0 = GDKms();
 	if (stb.st_size < (off_t) size) {
-#ifdef WIN32
-		return -(_chsize_s(fd, (__int64) size) != 0);
-#else
-		return ftruncate(fd, (off_t) size);
+#ifdef HAVE_POSIX_FALLOCATE
+		/* posix_fallocate returns error number on failure,
+		 * not -1 :-( */
+		if ((rt = posix_fallocate(fd, 0, (off_t) size)) == EINVAL)
+			/* on Solaris/OpenIndiana, this may mean that
+			 * the underlying file system doesn't support
+			 * the operation, so just resize the file */
 #endif
+		rt = ftruncate(fd, (off_t) size);
 	}
-	return 0;
+	IODEBUG fprintf(stderr, "#GDKextend %s " SZFMT " -> " SZFMT " %dms%s\n",
+			fn, (size_t) stb.st_size, size,
+			GDKms() - t0, rt < 0 ? " (failed)" : "");
+	/* return 0 or -1 (posix_fallocate returns != 0 on failure) */
+	return -(rt != 0);
 }
 
 int
 GDKextend(const char *fn, size_t size)
 {
-	int t0 = 0;
-	int rt = -1, fd;
-
-	IODEBUG t0 = GDKms();
-	rt = -1;
-	if ((fd = open(fn, O_RDWR)) >= 0) {
-		rt = GDKextendf(fd, size);
+	int fd, rt = -1, flags = O_RDWR;
+#ifdef WIN32
+	/* On Windows, open() fails if the file is bigger than 2^32 bytes without O_BINARY. */
+	flags |= O_BINARY;
+#endif
+	if ((fd = open(fn, flags)) >= 0) {
+		rt = GDKextendf(fd, size, fn);
 		close(fd);
 	}
-	IODEBUG fprintf(stderr, "#GDKextend %s " SZFMT " %dms%s\n", fn, size,
-			GDKms() - t0, rt < 0 ? " (failed)" : "");
 	return rt;
 }
 
@@ -276,7 +323,7 @@ GDKextend(const char *fn, size_t size)
  * The primary concern here is to handle STORE_MMAP and STORE_MEM.
  */
 int
-GDKsave(const char *nme, const char *ext, void *buf, size_t size, storage_t mode)
+GDKsave(int farmid, const char *nme, const char *ext, void *buf, size_t size, storage_t mode)
 {
 	int err = 0;
 
@@ -296,7 +343,7 @@ GDKsave(const char *nme, const char *ext, void *buf, size_t size, storage_t mode
 	} else {
 		int fd;
 
-		if ((fd = GDKfdlocate(nme, "wb", ext)) >= 0) {
+		if ((fd = GDKfdlocate(farmid, nme, "wb", ext)) >= 0) {
 			/* write() on 64-bits Redhat for IA64 returns
 			 * 32-bits signed result (= OS BUG)! write()
 			 * on Windows only takes unsigned int as
@@ -342,7 +389,7 @@ GDKsave(const char *nme, const char *ext, void *buf, size_t size, storage_t mode
 				err = -1;
 			}
 			err |= close(fd);
-			if (err && GDKunlink(BATDIR, nme, ext)) {
+			if (err && GDKunlink(farmid, BATDIR, nme, ext)) {
 				/* do not tolerate corrupt heap images
 				 * (BBPrecover on restart will kill
 				 * them) */
@@ -368,7 +415,7 @@ GDKsave(const char *nme, const char *ext, void *buf, size_t size, storage_t mode
  * *maxsize -- (in/out) how much to allocate / how much was allocated
  */
 char *
-GDKload(const char *nme, const char *ext, size_t size, size_t *maxsize, storage_t mode)
+GDKload(int farmid, const char *nme, const char *ext, size_t size, size_t *maxsize, storage_t mode)
 {
 	char *ret = NULL;
 
@@ -377,7 +424,7 @@ GDKload(const char *nme, const char *ext, size_t size, size_t *maxsize, storage_
 		THRprintf(GDKstdout, "#GDKload: name=%s, ext=%s, mode %d\n", nme, ext ? ext : "", (int) mode);
 	}
 	if (mode == STORE_MEM) {
-		int fd = GDKfdlocate(nme, "rb", ext);
+		int fd = GDKfdlocate(farmid, nme, "rb", ext);
 
 		if (fd >= 0) {
 			char *dst = ret = GDKmalloc(*maxsize);
@@ -412,15 +459,15 @@ GDKload(const char *nme, const char *ext, size_t size, size_t *maxsize, storage_
 			GDKsyserror("GDKload: cannot open: name=%s, ext=%s\n", nme, ext ? ext : "");
 		}
 	} else {
-		char path[PATHLENGTH];
+		char *path;
 
 		/* round up to multiple of GDK_mmap_pagesize with a
 		 * minimum of one */
 		size = (*maxsize + GDK_mmap_pagesize - 1) & ~(GDK_mmap_pagesize - 1);
 		if (size == 0)
 			size = GDK_mmap_pagesize;
-		GDKfilepath(path, BATDIR, nme, ext);
-		if (GDKextend(path, size) == 0) {
+		path = GDKfilepath(farmid, BATDIR, nme, ext);
+		if (path != NULL && GDKextend(path, size) == 0) {
 			int mod = MMAP_READ | MMAP_WRITE | MMAP_SEQUENTIAL | MMAP_SYNC;
 
 			if (mode == STORE_PRIV)
@@ -432,6 +479,7 @@ GDKload(const char *nme, const char *ext, size_t size, size_t *maxsize, storage_
 			}
 			IODEBUG THRprintf(GDKstdout, "#mmap(NULL, 0, maxsize " SZFMT ", mod %d, path %s, 0) = " PTRFMT "\n", size, mod, path, PTRFMTCAST(void *)ret);
 		}
+		GDKfree(path);
 	}
 	return ret;
 }
@@ -686,14 +734,20 @@ BATload_intern(bat i, int lock)
 		}
 		if (b->batCapacity != (b->T->heap.size >> b->T->shift)) {
 			BUN cap = b->batCapacity;
+			int h;
 			if (cap < (b->T->heap.size >> b->T->shift)) {
 				cap = (BUN) (b->T->heap.size >> b->T->shift);
 				HEAPDEBUG fprintf(stderr, "#HEAPextend in BATload_inter %s " SZFMT " " SZFMT "\n", b->H->heap.filename, b->H->heap.size, headsize(b, cap));
-				HEAPextend(&b->H->heap, headsize(b, cap), b->batRestricted == BAT_READ);
+				h = HEAPextend(&b->H->heap, headsize(b, cap), b->batRestricted == BAT_READ);
 				b->batCapacity = cap;
 			} else {
 				HEAPDEBUG fprintf(stderr, "#HEAPextend in BATload_intern %s " SZFMT " " SZFMT "\n", b->T->heap.filename, b->T->heap.size, tailsize(b, cap));
-				HEAPextend(&b->T->heap, tailsize(b, cap), b->batRestricted == BAT_READ);
+				h = HEAPextend(&b->T->heap, tailsize(b, cap), b->batRestricted == BAT_READ);
+			}
+			if (h < 0) {
+				HEAPfree(&b->H->heap);
+				HEAPfree(&b->T->heap);
+				return NULL;
 			}
 		}
 	} else {
@@ -979,6 +1033,7 @@ BATmultiprintf(stream *s, int argc, BAT *argv[], int printhead, int order, int p
 	ret = BATprintcols(s, argc + printhead, bats + !printhead);
 	for (i = 0; i <= argc; i++)
 		BBPunfix(bats[i]->batCacheid);
+	GDKfree(bats);
 	return ret;
 
   bailout:
@@ -986,5 +1041,6 @@ BATmultiprintf(stream *s, int argc, BAT *argv[], int printhead, int order, int p
 		if (bats[i])
 			BBPunfix(bats[i]->batCacheid);
 	}
+	GDKfree(bats);
 	return GDK_FAIL;
 }

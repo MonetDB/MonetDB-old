@@ -457,6 +457,7 @@ BATappend(BAT *b, BAT *n, bit force)
 	if (b == NULL || n == NULL || (sz = BATcount(n)) == 0) {
 		return b;
 	}
+	assert(!isVIEW(b));
 	if (b->htype != TYPE_void && b->htype != TYPE_oid) {
 		GDKerror("BATappend: input must be (V)OID headed\n");
 		return NULL;
@@ -781,6 +782,7 @@ BATreplace(BAT *b, BAT *n, bit force)
  *
  * NOTE new semantics, the selected range is excluding the high value.
  */
+#undef BATslice
 BAT *
 BATslice(BAT *b, BUN l, BUN h)
 {
@@ -824,7 +826,7 @@ BATslice(BAT *b, BUN l, BUN h)
 		BUN p = l;
 		BUN q = h;
 
-		bn = BATnew((BAThdense(b)?TYPE_void:b->htype), b->ttype, h - l);
+		bn = BATnew((BAThdense(b)?TYPE_void:b->htype), b->ttype, h - l, TRANSIENT);
 		if (bn == NULL) {
 			return bn;
 		}
@@ -906,73 +908,6 @@ BATslice(BAT *b, BUN l, BUN h)
 }
 
 /*
- * Top-N selection
- *
- * The top-N elements can be easily obtained by trimming the
- * space. The auxiliary index structures are removed.  For
- * non-variable size BATs it merely requires adjustment of the free
- * space labels. Other BATs require a loop through the tuples to be
- * deleted. [todo]
- */
-int
-BATtopN(BAT *b, BUN topN)
-{
-	BATcheck(b, "BATtopN");
-	if (topN > BATcount(b)) {
-		GDKerror("BATtopN: not enough tuples in target\n");
-	} else if (b->H->varsized || b->T->varsized) {
-		HASHremove(b);
-		while (BATcount(b) > topN)
-			BUNdelete(b, BUNlast(b), FALSE);
-	} else {
-		HASHremove(b);
-		BATsetcount(b, topN);
-	}
-	IMPSdestroy(b);
-	/* we no longer know if there are NILs */
-	b->H->nil = b->htype == TYPE_void && b->hseqbase == oid_nil && topN >= 1;
-	b->T->nil = b->ttype == TYPE_void && b->tseqbase == oid_nil && topN >= 1;
-	return 0;
-}
-
-/*
- * The baseline algorithm for fragment location is a two-phase
- * process.  First we search on the 1st dimension and collect the
- * qualifying BUNs in a marking on the stack. In the second phase, the
- * tail is analyzed for all items already marked and qualifying
- * associations are copied into the result.  An index is exploited
- * when possible.
- */
-#define restrict1(cmptype, TYPE, BUNhead)				\
-	do {								\
-		if (BAThordered(b)) {					\
-			BUN p1, p2;					\
-									\
-			b = BATmirror(b);				\
-			SORTloop(b, p1, p2, hl, hh) {			\
-				*m++ = p1;				\
-			}						\
-			b = BATmirror(b);				\
-		} else {						\
-			int lval = !cmptype##_EQ(ATOMnilptr(t), hl, TYPE); \
-			int hval = !cmptype##_EQ(ATOMnilptr(t), hh, TYPE); \
-									\
-			if (hval && lval && cmptype##_GT(hl,hh,TYPE)) {	\
-				GDKerror("BATrestrict: illegal head range.\n");	\
-			} else {					\
-				BATiter bi = bat_iterator(b);		\
-									\
-				BATloop(b, p, l) {			\
-					if ((!lval || cmptype##_LE(hl, BUNhead(bi, p), TYPE)) && \
-					    (!hval || cmptype##_LE(BUNhead(bi, p), hh, TYPE))) { \
-						*m++ = p;		\
-					}				\
-				}					\
-			}						\
-		}							\
-	} while (0)
-
-/*
  *  BAT Sorting
  * BATsort returns a sorted copy. BATorder sorts the BAT itself.
  */
@@ -1039,12 +974,12 @@ BATorder_internal(BAT *b, int stable, int reverse, int copy, const char *func)
 	if (reverse ? b->hrevsorted : b->hsorted) {
 		/* b is already ordered as desired, hence we return b
 		 * as is */
-		return copy ? BATcopy(b, b->htype, b->ttype, FALSE) : b;
+		return copy ? BATcopy(b, b->htype, b->ttype, FALSE, TRANSIENT) : b;
 	}
 	if (copy) {
 		/* now make a writable copy that we're going to sort
 		 * materialize any VOID columns while we're at it */
-		b = BATcopy(b, BAThtype(b), BATttype(b), TRUE);
+		b = BATcopy(b, BAThtype(b), BATttype(b), TRUE, TRANSIENT);
 	} else if (b->ttype == TYPE_void && b->tseqbase != oid_nil) {
 		/* materialize void-tail in-place */
 		/* note, we don't need to materialize the head column:
@@ -1215,7 +1150,7 @@ BATsubsort(BAT **sorted, BAT **order, BAT **groups,
 			*sorted = bn;
 		}
 		if (order) {
-			on = BATnew(TYPE_void, TYPE_void, BATcount(b));
+			on = BATnew(TYPE_void, TYPE_void, BATcount(b), TRANSIENT);
 			if (on == NULL)
 				goto error;
 			BATsetcount(on, BATcount(b));
@@ -1226,7 +1161,7 @@ BATsubsort(BAT **sorted, BAT **order, BAT **groups,
 		if (groups) {
 			if (BATtkey(b)) {
 				/* singleton groups */
-				gn = BATnew(TYPE_void, TYPE_void, BATcount(b));
+				gn = BATnew(TYPE_void, TYPE_void, BATcount(b), TRANSIENT);
 				if (gn == NULL)
 					goto error;
 				BATsetcount(gn, BATcount(b));
@@ -1236,7 +1171,7 @@ BATsubsort(BAT **sorted, BAT **order, BAT **groups,
 				const oid *o = 0;
 				assert(BATcount(b) == 1 ||
 				       (BATtordered(b) && BATtrevordered(b)));
-				gn = BATconstant(TYPE_oid, &o, BATcount(b));
+				gn = BATconstant(TYPE_oid, &o, BATcount(b), TRANSIENT);
 				if (gn == NULL)
 					goto error;
 			}
@@ -1250,12 +1185,12 @@ BATsubsort(BAT **sorted, BAT **order, BAT **groups,
 		if (bn == NULL)
 			goto error;
 		if (bn->ttype == TYPE_void || isVIEW(bn)) {
-			b = BATcopy(bn, TYPE_void, ATOMtype(bn->ttype), TRUE);
+			b = BATcopy(bn, TYPE_void, ATOMtype(bn->ttype), TRUE, TRANSIENT);
 			BBPunfix(bn->batCacheid);
 			bn = b;
 		}
 	} else {
-		bn = BATcopy(b, TYPE_void, b->ttype, TRUE);
+		bn = BATcopy(b, TYPE_void, b->ttype, TRUE, TRANSIENT);
 	}
 	if (bn == NULL)
 		goto error;
@@ -1267,12 +1202,13 @@ BATsubsort(BAT **sorted, BAT **order, BAT **groups,
 			 * below in the case g is "key" */
 			on = BATcopy(o, TYPE_void, TYPE_oid,
 				     g == NULL ||
-				     !(g->tkey || g->ttype == TYPE_void));
+				     !(g->tkey || g->ttype == TYPE_void),
+				     TRANSIENT);
 			if (on == NULL)
 				goto error;
 		} else {
 			/* create new order */
-			on = BATnew(TYPE_void, TYPE_oid, BATcount(bn));
+			on = BATnew(TYPE_void, TYPE_oid, BATcount(bn), TRANSIENT);
 			if (on == NULL)
 				goto error;
 			grps = (oid *) Tloc(on, BUNfirst(on));
@@ -1467,17 +1403,11 @@ BATmark(BAT *b, oid oid_base)
 		if (BAThrestricted(b) != BAT_READ) {
 			BAT *v = bn;
 
-			bn = BATcopy(v, v->htype, v->ttype, TRUE);
+			bn = BATcopy(v, v->htype, v->ttype, TRUE, TRANSIENT);
 			BBPreclaim(v);
 		}
 	}
 	return bn;
-}
-
-static void
-BATsetprop_wrd(BAT *b, int idx, wrd val)
-{
-	BATsetprop(b, idx, TYPE_wrd, &val);
 }
 
 #define mark_grp_init(BUNfnd)				\
@@ -1599,7 +1529,7 @@ BATmark_grp(BAT *b, BAT *g, oid *s)
 			BUN p, q, r;
 
 			if (BAThdense(g)) {
-				gc = BATnew(TYPE_void, TYPE_oid, BATcount(g));
+				gc = BATnew(TYPE_void, TYPE_oid, BATcount(g), TRANSIENT);
 				if (gc == NULL)
 					return NULL;
 				r = BUNfirst(gc);
@@ -1609,7 +1539,7 @@ BATmark_grp(BAT *b, BAT *g, oid *s)
 			} else {
 				BATiter gi = bat_iterator(g);
 
-				gc = BATnew(TYPE_oid, TYPE_oid, BATcount(g));
+				gc = BATnew(TYPE_oid, TYPE_oid, BATcount(g), TRANSIENT);
 				if (gc == NULL)
 					return NULL;
 				r = BUNfirst(gc);
@@ -1630,12 +1560,12 @@ BATmark_grp(BAT *b, BAT *g, oid *s)
 			gc->H->nonil = g->H->nonil;
 			gc->T->nonil = 1;
 		} else {
-			gc = BATcopy(g, g->htype, g->ttype, TRUE);
+			gc = BATcopy(g, g->htype, g->ttype, TRUE, TRANSIENT);
 			if (gc == NULL)
 				return NULL;
 		}
 	}
-	bn = BATnew(b->htype, TYPE_oid, BATcount(b));
+	bn = BATnew(b->htype, TYPE_oid, BATcount(b), TRANSIENT);
 	if (bn == NULL) {
 		if (gc)
 			BBPreclaim(gc);
@@ -1698,7 +1628,7 @@ BATmark_grp(BAT *b, BAT *g, oid *s)
 /* return a new BAT of length n with a dense head and the constant v
  * in the tail */
 BAT *
-BATconstant(int tailtype, const void *v, BUN n)
+BATconstant(int tailtype, const void *v, BUN n, int role)
 {
 	BAT *bn;
 	void *p;
@@ -1706,7 +1636,7 @@ BATconstant(int tailtype, const void *v, BUN n)
 
 	if (v == NULL)
 		return NULL;
-	bn = BATnew(TYPE_void, tailtype, n);
+	bn = BATnew(TYPE_void, tailtype, n, role);
 	if (bn == NULL)
 		return NULL;
 	p = Tloc(bn, bn->batFirst);
@@ -1740,6 +1670,13 @@ BATconstant(int tailtype, const void *v, BUN n)
 			((lng *) p)[i] = *(lng *) v;
 		bn->T->nil = n >= 1 && (ATOMstorage(tailtype) == TYPE_lng ? *(lng *) v == lng_nil : *(dbl *) v == dbl_nil);
 		break;
+#ifdef HAVE_HGE
+	case TYPE_hge:
+		for (i = 0; i < n; i++)
+			((hge *) p)[i] = *(hge *) v;
+		bn->T->nil = n >= 1 && *(hge *) v == hge_nil;
+		break;
+#endif
 	default:
 		bn->T->nil = n >= 1 && ATOMcmp(tailtype, v, ATOMnilptr(tailtype)) == 0;
 		for (i = BUNfirst(bn), n += i; i < n; i++)
@@ -1763,12 +1700,12 @@ BATconstant(int tailtype, const void *v, BUN n)
 /* return a new bat which is aligned with b and with the constant v in
  * the tail */
 BAT *
-BATconst(BAT *b, int tailtype, const void *v)
+BATconst(BAT *b, int tailtype, const void *v, int role)
 {
 	BAT *bn;
 
 	BATcheck(b, "BATconst");
-	bn = BATconstant(tailtype, v, BATcount(b));
+	bn = BATconstant(tailtype, v, BATcount(b), role);
 	if (bn == NULL)
 		return NULL;
 	if (b->H->type != bn->H->type) {
@@ -1809,7 +1746,6 @@ BATconst(BAT *b, int tailtype, const void *v)
  * is a nil value present by mis-using the highest bits of both
  * GDK_AGGR_SIZE and GDK_AGGR_CARD.
  */
-#define GDK_NIL_BIT 0x80000000	/* (1 << 31) */
 
 void
 PROPdestroy(PROPrec *p)
@@ -1857,193 +1793,6 @@ BATsetprop(BAT *b, int idx, int type, void *v)
 	}
 }
 
-void
-BATpropagate(BAT *dst, BAT *src, int idx)
-{
-	PROPrec *p = BATgetprop(src, idx);
-
-	if (p)
-		BATsetprop(dst, idx, p->v.vtype, VALget(&p->v));
-}
-
-
-/*
- * The BAThistogram function calculates the frequency distribution of
- * the tail values in its operand bat. Notice, that updates on the
- * result do not affect the delta administration.
- * Construction of a histogram over a string (or complex object) can
- * be sped up using the reference information in the BUN and bulk
- * copying the heap.
- *
- * There are separate versions for each type, and for each a hash- and
- * a merge-algorithms.
- */
-#define histoloop_sorted(BUNtail, cmpfnc, TYPE)			\
-	do {							\
-		const void *prev = BUNtail(bi, BUNfirst(b));	\
-								\
-		BATloop(b, p, q) {				\
-			v = BUNtail(bi, p);			\
-			if (cmpfnc(v, prev, TYPE) == 0) {	\
-				yy++;				\
-			} else {				\
-				bunfastins(bn, prev, &yy);	\
-				yy = 1;				\
-			}					\
-			prev = v;				\
-		}						\
-		bunfastins(bn, prev, &yy);			\
-	} while (0)
-
-#define histoloop_merge(BUNtail, HASHloop)				\
-	do {								\
-		BATiter bni = bat_iterator(bn);				\
-									\
-		BATloop(b, p, q) {					\
-			v = BUNtail(bi, p);				\
-			if (BATprepareHash(bn))				\
-				goto bunins_failed;			\
-			HASHloop(bni, bn->H->hash, r, v)		\
-				break;					\
-			if (r == BUN_NONE) {				\
-				/* not found */				\
-				if (BUNins(bn, v, &yy, FALSE) == NULL)	\
-					goto bunins_failed;		\
-				r = BUNlast(bn) - 1;			\
-			}						\
-			(* (int *) BUNtloc(bni, r))++;			\
-		}							\
-		HASHdestroy(bn);					\
-		IMPSdestroy(bn);					\
-	} while (0)
-
-BAT *
-BAThistogram(BAT *b)
-{
-	BAT *bn;
-	BUN r;
-	int yy = 0, tt = 0;
-	BUN p, q;
-	BATiter bi = bat_iterator(b);
-	int tricky;
-	const void *v;
-
-	BATcheck(b, "BAThistogram");
-
-	if (b->talign == 0) {
-		b->talign = OIDnew(1);
-	}
-
-	if (b->tkey || BATcount(b) <= 1) {
-		yy = 1;
-		return BATconst(BATmirror(b), TYPE_int, &yy);
-	}
-
-	tricky = (b->ttype == TYPE_str && strElimDoubles(b->T->vheap));
-	bn = BATnew(tricky ? (b->T->width == 1 ? TYPE_bte : (b->T->width == 2 ? TYPE_sht : (b->T->width == 4 ? TYPE_int : TYPE_lng))) : b->ttype, TYPE_int, 200);
-	if (bn == NULL)
-		return bn;
-
-	if (BATtordered(b) || BATtrevordered(b)) {
-		/* the important information here is that equal values
-		 * are consecutive; we don't care about sortedness as
-		 * such */
-		switch (ATOMstorage(bn->htype)) {
-		case TYPE_bte:
-			histoloop_sorted(BUNtloc, simple_CMP, bte);
-			break;
-		case TYPE_sht:
-			histoloop_sorted(BUNtloc, simple_CMP, sht);
-			break;
-		case TYPE_int:
-		case TYPE_flt:
-			histoloop_sorted(BUNtloc, simple_CMP, int);
-			break;
-		case TYPE_lng:
-		case TYPE_dbl:
-			histoloop_sorted(BUNtloc, simple_CMP, lng);
-			break;
-		default:
-			tt = bn->htype;
-			if (bn->hvarsized)
-				histoloop_sorted(BUNtvar, atom_CMP, tt);
-			else
-				histoloop_sorted(BUNtloc, atom_CMP, tt);
-			break;
-		}
-	} else {
-		switch (ATOMstorage(bn->htype)) {
-		case TYPE_bte:
-			histoloop_merge(BUNtloc, HASHloop_bte);
-			break;
-		case TYPE_sht:
-			histoloop_merge(BUNtloc, HASHloop_sht);
-			break;
-		case TYPE_int:
-		case TYPE_flt:
-			histoloop_merge(BUNtloc, HASHloop_int);
-			break;
-		case TYPE_lng:
-		case TYPE_dbl:
-			histoloop_merge(BUNtloc, HASHloop_lng);
-			break;
-		default:
-			if (bn->hvarsized)
-				histoloop_merge(BUNtvar, HASHloopvar);
-			else
-				histoloop_merge(BUNtloc, HASHlooploc);
-			break;
-		}
-	}
-
-	/*
-	 * And now correct the interpretation of the values
-	 * encountered by bulk copying the heap as well
-	 */
-	if (tricky) {
-		bn->H->vheap = (Heap *) GDKzalloc(sizeof(Heap));
-		if (bn->H->vheap == NULL)
-			goto bunins_failed;
-		bn->H->vheap->parentid = bn->batCacheid;
-		if (b->T->vheap->filename) {
-			char *nme = BBP_physical(bn->batCacheid);
-
-			bn->H->vheap->filename = (str) GDKmalloc(strlen(nme) + 12);
-			if (bn->H->vheap->filename == NULL)
-				goto bunins_failed;
-			GDKfilepath(bn->H->vheap->filename, NULL, nme, "hheap");
-		}
-		if (HEAPcopy(bn->H->vheap, b->T->vheap) < 0)
-			goto bunins_failed;
-		bn->htype = b->ttype;
-		bn->hvarsized = 1;
-		bn->H->width = b->T->width;
-		bn->H->shift = b->T->shift;
-	}
-
-	bn->hsorted = BATcount(bn) <= 1 || BATtordered(b);
-	bn->hrevsorted = BATcount(bn) <= 1 || BATtrevordered(b);
-	bn->tsorted = BATcount(bn) <= 1;
-	bn->trevsorted = BATcount(bn) <= 1;
-	bn->halign = NOID_AGGR(b->talign);
-	if (BATcount(bn) == BATcount(b))
-		ALIGNsetH(bn, BATmirror(b));
-	BATkey(bn, TRUE);
-	BATkey(BATmirror(bn), BATcount(bn) < 2);
-	bn->H->nonil = b->T->nonil;
-	if (b->ttype == TYPE_bit) {
-		BATiter bni = bat_iterator(bn);
-		bit trueval = TRUE;
-		BUN p = BUNfnd(bn, &trueval);
-
-		BATsetprop_wrd(b, GDK_AGGR_SIZE, (p != BUN_NONE) ? *(int *) BUNtloc(bni, p) : 0);
-	}
-	BATsetprop_wrd(b, GDK_AGGR_CARD, (wrd) BATcount(bn));
-	return bn;
-      bunins_failed:
-	BBPreclaim(bn);
-	return NULL;
-}
 
 /*
  * The BATcount_no_nil function counts all BUN in a BAT that have a
@@ -2089,6 +1838,12 @@ BATcount_no_nil(BAT *b)
 		for (i = 0; i < n; i++)
 			cnt += ((const lng *) p)[i] != lng_nil;
 		break;
+#ifdef HAVE_HGE
+	case TYPE_hge:
+		for (i = 0; i < n; i++)
+			cnt += ((const hge *) p)[i] != hge_nil;
+		break;
+#endif
 	case TYPE_flt:
 		for (i = 0; i < n; i++)
 			cnt += ((const flt *) p)[i] != flt_nil;
@@ -2142,6 +1897,21 @@ BATcount_no_nil(BAT *b)
 	return cnt;
 }
 
+static BAT *
+newdensecand(oid first, oid last)
+{
+	BAT *bn;
+
+	if ((bn = BATnew(TYPE_void, TYPE_void, 0, TRANSIENT)) == NULL)
+		return NULL;
+	if (last < first)
+		first = last = 0; /* empty range */
+	BATsetcount(bn, last - first + 1);
+	BATseqbase(bn, 0);
+	BATseqbase(BATmirror(bn), first);
+	return bn;
+}
+
 /* merge two candidate lists and produce a new one
  *
  * candidate lists are VOID-headed BATs with an OID tail which is
@@ -2171,11 +1941,11 @@ BATmergecand(BAT *a, BAT *b)
 	assert(b->T->nonil);
 
 	/* we can return a if b is empty (and v.v.) */
-	if ( BATcount(a) == 0){
-		return BATcopy(b, b->htype, b->ttype, 0);
+	if (BATcount(a) == 0) {
+		return BATcopy(b, b->htype, b->ttype, 0, TRANSIENT);
 	}
-	if ( BATcount(b) == 0){
-		return BATcopy(a, a->htype, a->ttype, 0);
+	if (BATcount(b) == 0) {
+		return BATcopy(a, a->htype, a->ttype, 0, TRANSIENT);
 	}
 	/* we can return a if a fully covers b (and v.v) */
 	ai = bat_iterator(a);
@@ -2186,14 +1956,27 @@ BATmergecand(BAT *a, BAT *b)
 	bl = *(oid*) BUNtail(bi, BUNlast(b) - 1);
 	ad = (af + BATcount(a) - 1 == al); /* i.e., dense */
 	bd = (bf + BATcount(b) - 1 == bl); /* i.e., dense */
+	if (ad && bd) {
+		/* both are dense */
+		if (af <= bf && bf <= al + 1) {
+			/* partial overlap starting with a, or b is
+			 * smack bang after a */
+			return newdensecand(af, al < bl ? bl : al);
+		}
+		if (bf <= af && af <= bl + 1) {
+			/* partial overlap starting with b, or a is
+			 * smack bang after b */
+			return newdensecand(bf, al < bl ? bl : al);
+		}
+	}
 	if (ad && af <= bf && al >= bl) {
-		return BATcopy(a, a->htype, a->ttype,0);
+		return newdensecand(af, al);
 	}
 	if (bd && bf <= af && bl >= al) {
-		return BATcopy(b, b->htype, b->ttype,0);
+		return newdensecand(bf, bl);
 	}
 
-	bn = BATnew(TYPE_void, TYPE_oid, BATcount(a) + BATcount(b));
+	bn = BATnew(TYPE_void, TYPE_oid, BATcount(a) + BATcount(b), TRANSIENT);
 	if (bn == NULL)
 		return NULL;
 	p = (oid *) Tloc(bn, BUNfirst(bn));
@@ -2255,12 +2038,12 @@ BATmergecand(BAT *a, BAT *b)
 	/* properties */
 	BATsetcount(bn, (BUN) (p - (oid *) Tloc(bn, BUNfirst(bn))));
 	BATseqbase(bn, 0);
-	bn->trevsorted = 0;
+	bn->trevsorted = BATcount(bn) <= 1;
 	bn->tsorted = 1;
 	bn->tkey = 1;
 	bn->T->nil = 0;
 	bn->T->nonil = 1;
-	return bn;
+	return virtualize(bn);
 }
 
 /* intersect two candidate lists and produce a new one
@@ -2273,7 +2056,9 @@ BATintersectcand(BAT *a, BAT *b)
 {
 	BAT *bn;
 	const oid *ap, *bp, *ape, *bpe;
-	oid *p, i;
+	oid *p;
+	oid af, al, bf, bl;
+	BATiter ai, bi;
 
 	BATcheck(a, "BATintersectcand");
 	BATcheck(b, "BATintersectcand");
@@ -2289,31 +2074,22 @@ BATintersectcand(BAT *a, BAT *b)
 	assert(b->T->nonil);
 
 	if (BATcount(a) == 0 || BATcount(b) == 0) {
-		bn = BATnew(TYPE_void, TYPE_void, 0);
-		BATseqbase(bn, 0);
-		BATseqbase(BATmirror(bn), 0);
-		return bn;
+		return newdensecand(0, 0);
 	}
 
-	if (a->ttype == TYPE_void && b->ttype == TYPE_void) {
+	ai = bat_iterator(a);
+	bi = bat_iterator(b);
+	af = *(oid*) BUNtail(ai, BUNfirst(a));
+	bf = *(oid*) BUNtail(bi, BUNfirst(b));
+	al = *(oid*) BUNtail(ai, BUNlast(a) - 1);
+	bl = *(oid*) BUNtail(bi, BUNlast(b) - 1);
+
+	if ((af + BATcount(a) - 1 == al) && (bf + BATcount(b) - 1 == bl)) {
 		/* both lists are VOID */
-		bn = BATnew(TYPE_void, TYPE_void, 0);
-		if (bn == NULL)
-			return NULL;
-		i = MAX(a->tseqbase, b->tseqbase);
-		if (a->tseqbase + BATcount(a) <= b->tseqbase ||
-		    b->tseqbase + BATcount(b) <= a->tseqbase) {
-			/* no overlap */
-			BATsetcount(bn, 0);
-		} else {
-			BATsetcount(bn, MIN(a->tseqbase + BATcount(a) - i,
-					    b->tseqbase + BATcount(b) - i));
-		}
-		BATseqbase(BATmirror(bn), i);
-		return bn;
+		return newdensecand(MAX(af, bf), MIN(al, bl));
 	}
 
-	bn = BATnew(TYPE_void, TYPE_oid, MIN(BATcount(a), BATcount(b)));
+	bn = BATnew(TYPE_void, TYPE_oid, MIN(BATcount(a), BATcount(b)), TRANSIENT);
 	if (bn == NULL)
 		return NULL;
 	p = (oid *) Tloc(bn, BUNfirst(bn));
@@ -2352,10 +2128,10 @@ BATintersectcand(BAT *a, BAT *b)
 	/* properties */
 	BATsetcount(bn, (BUN) (p - (oid *) Tloc(bn, BUNfirst(bn))));
 	BATseqbase(bn, 0);
-	bn->trevsorted = 0;
+	bn->trevsorted = BATcount(bn) <= 1;
 	bn->tsorted = 1;
 	bn->tkey = 1;
 	bn->T->nil = 0;
 	bn->T->nonil = 1;
-	return bn;
+	return virtualize(bn);
 }

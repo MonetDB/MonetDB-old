@@ -62,7 +62,9 @@
 #endif
 
 static int malloc_init = 1;
+#ifdef HAVE_CONSOLE
 static int monet_daemon;
+#endif
 
 /* NEEDED? */
 #if defined(_MSC_VER) && defined(__cplusplus)
@@ -84,6 +86,7 @@ usage(char *prog, int xit)
 {
 	fprintf(stderr, "Usage: %s [options] [scripts]\n", prog);
 	fprintf(stderr, "    --dbpath=<directory>      Specify database location\n");
+	fprintf(stderr, "    --dbextra=<directory>     Directory for transient BATs\n");
 	fprintf(stderr, "    --dbinit=<stmt>           Execute statement at startup\n");
 	fprintf(stderr, "    --config=<config_file>    Use config_file to read options from\n");
 	fprintf(stderr, "    --daemon=yes|no           Do not read commands from standard input [no]\n");
@@ -133,6 +136,7 @@ monet_hello(void)
 	}
 
 	printf("# MonetDB 5 server v" VERSION);
+	/* coverity[pointless_string_compare] */
 	if (strcmp(MONETDB_RELEASE, "unreleased") == 0)
 		printf("\n# This is an unreleased version");
 	else
@@ -140,8 +144,14 @@ monet_hello(void)
 	printf("\n# Serving database '%s', using %d thread%s\n",
 			GDKgetenv("gdk_dbname"),
 			GDKnr_threads, (GDKnr_threads != 1) ? "s" : "");
-	printf("# Compiled for %s/" SZFMT "bit with " SZFMT "bit OIDs %s linked\n",
-			HOST, sizeof(ptr) * 8, sizeof(oid) * 8, linkinfo);
+	printf("# Compiled for %s/" SZFMT "bit with " SZFMT "bit OIDs %s%s linked\n",
+			HOST, sizeof(ptr) * 8, sizeof(oid) * 8,
+#ifdef HAVE_HGE
+			"and 128bit integers ",
+#else
+			"",
+#endif
+			linkinfo);
 	printf("# Found %.3f %ciB available main-memory.\n",
 			sz_mem_h, qc[qi]);
 #ifdef MONET_GLOBAL_DEBUG
@@ -212,11 +222,13 @@ main(int argc, char **av)
 	char *modpath = NULL;
 	char *binpath = NULL;
 	str *monet_script;
+	char *dbextra = NULL;
 
 	static struct option long_options[] = {
 		{ "config", 1, 0, 'c' },
 		{ "dbpath", 1, 0, 0 },
-		{ "dbinit", 1, 0, 0 },
+		{ "dbextra", 1, 0, 0 },
+		{ "dbinit", 1, 0, 0 } ,
 		{ "daemon", 1, 0, 0 },
 		{ "debug", 2, 0, 'd' },
 		{ "help", 0, 0, '?' },
@@ -299,6 +311,13 @@ main(int argc, char **av)
 				setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_dbpath", optarg);
 				break;
 			}
+			if (strcmp(long_options[option_index].name, "dbextra") == 0) {
+				if (dbextra)
+					fprintf(stderr, "#warning: ignoring multiple --dbextra arguments\n");
+				else
+					dbextra = optarg;
+				break;
+			}
 			if (strcmp(long_options[option_index].name, "dbinit") == 0) {
 				if (dbinit)
 					fprintf(stderr, "#warning: ignoring multiple --dbinit argument\n");
@@ -376,6 +395,7 @@ main(int argc, char **av)
 			usage(prog, -1);
 		/* not reached */
 		case 'c':
+			/* coverity[var_deref_model] */
 			setlen = mo_add_option(&set, setlen, opt_cmdline, "config", optarg);
 			break;
 		case 'd':
@@ -396,6 +416,7 @@ main(int argc, char **av)
 			break;
 		case 's': {
 			/* should add option to a list */
+			/* coverity[var_deref_model] */
 			char *tmp = strchr(optarg, '=');
 
 			if (tmp) {
@@ -445,6 +466,12 @@ main(int argc, char **av)
 		}
 	}
 
+	if (dbextra) {
+		BBPaddfarm(".", 1 << PERSISTENT);
+		BBPaddfarm(dbextra, 1 << TRANSIENT);
+	} else {
+		BBPaddfarm(".", (1 << PERSISTENT) | (1 << TRANSIENT));
+	}
 	if (monet_init(set, setlen) == 0) {
 		mo_free_options(set, setlen);
 		return 0;

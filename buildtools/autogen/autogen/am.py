@@ -817,6 +817,12 @@ def am_library(fd, var, libmap, am):
                 deps.append(target)
     fd.write(nsrcs + "\n")
     fd.write(srcs + "\n")
+    if 'XDEPS' in libmap:
+        fd.write(fullpref + '_DEPENDENCIES =')
+        for dep in libmap['XDEPS']:
+            fd.write(' ')
+            fd.write(dep)
+        fd.write('\n')
 
     if deps:
         fd.write(am_additional_deps(libname, sep, "LIB", deps, am, pref))
@@ -1046,7 +1052,7 @@ def am_ant(fd, var, ant, am):
     if "COND" in ant:
         fd.write("\nif " + ant["COND"][0] +"\n\n")
 
-    fd.write("\n%s_ant_target:\n\t\"$(ANT)\" -f \"`$(anttranslatepath) $(srcdir)/build.xml`\" -Dbuilddir=\"`$(anttranslatepath) $(PWD)/%s`\" -Djardir=\"`$(anttranslatepath) $(PWD)`\" -Dbasedir=\"`$(anttranslatepath) $(srcdir)`\" %s\n" % (target, target, target))
+    fd.write("\n%s_ant_target:\n\t\"$(ANT)\" -f \"`$(anttranslatepath) $(srcdir)/build.xml`\" -Dbuilddir=\"`$(anttranslatepath) $(PWD)`/%s\" -Djardir=\"`$(anttranslatepath) $(PWD)`\" -Dbasedir=\"`$(anttranslatepath) $(srcdir)`\" %s\n" % (target, target, target))
 
     for file in ant['FILES']:
         sfile = file.replace(".", "_")

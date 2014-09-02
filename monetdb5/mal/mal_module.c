@@ -397,7 +397,7 @@ char **getHelp(Module m, str inputpat, int completion)
 	Symbol s;
 	size_t len1 = 0,len2 = 0;
 	int fnd=0;
-	char *t, **msg, buf[1024];
+	char *t, **msg, buf[1024]={0};
 	int top=0, i,j,k, sig = 0, doc = 0;
 	int maxhelp= MAXHELP;
 
@@ -629,12 +629,20 @@ showHelp(Module m, str txt, stream *fs){
 	char **msg = getHelp(m,txt,TRUE);
 	if( msg == NULL)
 		return;
-	for(i=0; msg[i]; i++)
+	for(i=0; msg[i]; i++) {
 		mnstr_printf(fs,"%s\n",msg[i]);
+		GDKfree(msg[i]);
+	}
+	GDKfree(msg);
 	if( i == 0){
 		msg = getHelp(m,txt,0);
-		for(i=0; msg[i]; i++)
-			mnstr_printf(fs,"%s\n",msg[i]);
+		if (msg) {
+			for(i=0; msg[i]; i++) {
+				mnstr_printf(fs,"%s\n",msg[i]);
+				GDKfree(msg[i]);
+			}
+			GDKfree(msg);
+		}
 	}
 }
 /*

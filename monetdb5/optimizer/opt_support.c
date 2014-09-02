@@ -128,6 +128,7 @@
 #include "mal_listing.h"
 #include "mal_debugger.h"
 #include "opt_multiplex.h"
+#include "optimizer_private.h"
 #include "manifold.h"
 
 /*
@@ -158,6 +159,7 @@ struct OPTcatalog {
 {"evaluate",	0,	0,	0,	DEBUG_OPT_EVALUATE},
 {"factorize",	0,	0,	0,	DEBUG_OPT_FACTORIZE},
 {"garbage",		0,	0,	0,	DEBUG_OPT_GARBAGE},
+{"generator",	0,	0,	0,	DEBUG_OPT_GENERATOR},
 {"history",		0,	0,	0,	DEBUG_OPT_HISTORY},
 {"inline",		0,	0,	0,	DEBUG_OPT_INLINE},
 {"joinPath",	0,	0,	0,	DEBUG_OPT_JOINPATH},
@@ -271,10 +273,9 @@ optimizeMALBlock(Client cntxt, MalBlkPtr mb)
 
 	/* assume the type and flow have been checked already */
 	/* SQL functions intended to be inlined should not be optimized */
-	if ( varGetProp( mb, getArg(getInstrPtr(mb,0),0), inlineProp ) != NULL &&
-		 varGetProp( mb, getArg(getInstrPtr(mb,0),0), sqlfunctionProp ) != NULL
-	)
-        return 0;
+	if (varGetProp( mb, getArg(getInstrPtr(mb,0),0), inlineProp ) != NULL &&
+	    varGetProp( mb, getArg(getInstrPtr(mb,0),0), sqlfunctionProp ) != NULL)
+        	return 0;
 
 
 	do {
@@ -286,7 +287,7 @@ optimizeMALBlock(Client cntxt, MalBlkPtr mb)
 			p = getInstrPtr(mb, pc);
 			if (getModuleId(p) == optimizerRef && p->fcn && p->token != REMsymbol) {
 				/* all optimizers should behave like patterns */
-				/* However, we don;t have a stack now */
+				/* However, we don't have a stack now */
 				qot++;
 				msg = (str) (*p->fcn) (cntxt, mb, 0, p);
 				if (msg) {
@@ -840,13 +841,11 @@ int isAllScalar(MalBlkPtr mb, InstrPtr p)
 int isMapOp(InstrPtr p){
 	return	getModuleId(p) &&
 		((getModuleId(p) == malRef && getFunctionId(p) == multiplexRef) ||
-		(getModuleId(p)== batcalcRef && getFunctionId(p) != mark_grpRef && getFunctionId(p) != rank_grpRef) ||
-		(getModuleId(p)== batmtimeRef) ||
-		(getModuleId(p)== batstrRef) ||
-		(getModuleId(p)== batmmathRef) ||
-		(getModuleId(p)== batxmlRef) ||
-		(strcmp(getModuleId(p),"batsql") == 0) ||
-		(getModuleId(p)== mkeyRef));
+		 (getModuleId(p) == malRef && getFunctionId(p) == manifoldRef) ||
+		 (getModuleId(p) == batcalcRef && getFunctionId(p) != mark_grpRef && getFunctionId(p) != rank_grpRef) ||
+		 (getModuleId(p) != batcalcRef && getModuleId(p) != batRef && strncmp(getModuleId(p), "bat", 3) == 0) ||
+		 (getModuleId(p) == mkeyRef)) &&
+		 getModuleId(p) != rapiRef;
 }
 
 int isLikeOp(InstrPtr p){
@@ -858,11 +857,8 @@ int isLikeOp(InstrPtr p){
 }
 
 int isTopn(InstrPtr p){
-	return ((getModuleId(p) == pqueueRef &&
-		(getFunctionId(p) == topn_minRef ||
-		 getFunctionId(p) == topn_maxRef ||
-		 getFunctionId(p) == utopn_minRef ||
-		 getFunctionId(p) == utopn_maxRef)) || isSlice(p));
+	return ((getModuleId(p) == algebraRef && getFunctionId(p) == firstnRef) ||
+			isSlice(p));
 }
 
 int isSlice(InstrPtr p){
@@ -884,7 +880,8 @@ int isDiffOp(InstrPtr p){
 
 int isMatJoinOp(InstrPtr p){
 	return (getModuleId(p) == algebraRef &&
-                (getFunctionId(p) == joinRef ||
+                (getFunctionId(p) == crossRef ||
+                 getFunctionId(p) == joinRef ||
                  getFunctionId(p) == antijoinRef || /* is not mat save */
                  getFunctionId(p) == thetajoinRef ||
                  getFunctionId(p) == bandjoinRef)
@@ -932,11 +929,7 @@ int isFragmentGroup(InstrPtr p){
 			))  ||
 			(getModuleId(p)== algebraRef && (
 				getFunctionId(p)== projectRef ||
-				getFunctionId(p)== selectRef ||
-				getFunctionId(p)== selectNotNilRef ||
-				getFunctionId(p)== uselectRef ||
-				getFunctionId(p)== antiuselectRef ||
-				getFunctionId(p)== thetauselectRef 
+				getFunctionId(p)== selectNotNilRef
 			))  ||
 			isSubSelect(p) ||
 			(getModuleId(p)== batRef && (
