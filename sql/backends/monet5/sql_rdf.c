@@ -592,7 +592,7 @@ void getMvTblSQLname(char *tmpmvtbname, int tblIdx, int colIdx, CStableStat *cst
 }
 
 static
-void addFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes, str schema, BATiter mapi, BAT *mbat){
+void addPKandFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes, str schema, BATiter mapi, BAT *mbat){
 	FILE            *fout;
 	char            filename[100];
 	int		i, j;
@@ -606,6 +606,14 @@ void addFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes, str schema, BATi
 
 	strcpy(filename, "fkCreate.sql");
 	fout = fopen(filename, "wt");
+
+	//Add PKs to all subject columns
+	for (i = 0; i < cstablestat->numTables; i++){
+		getTblSQLname(toTbl, i, 0, cstablestat, mapi, mbat);
+		fprintf(fout, "ALTER TABLE %s.\"%s\" ADD PRIMARY KEY (subject);\n",schema,toTbl);
+	}
+
+
 	for (i = 0; i < cstablestat->numTables; i++){
 		for(j = 0; j < csPropTypes[i].numProp; j++){
 			if (csPropTypes[i].lstPropTypes[j].defColIdx == -1)	continue;
@@ -618,7 +626,6 @@ void addFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes, str schema, BATi
 				if (cstablestat->lstcstable[i].lstMVTables[tblColIdx].numCol == 0){
 					getColSQLname(fromTblCol, i, tblColIdx, -1, cstablestat, mapi, mbat);
 
-					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD PRIMARY KEY (subject);\n",schema,toTbl);
 					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD FOREIGN KEY (\"%s\") REFERENCES %s.\"%s\" (subject);\n\n", schema, fromTbl, fromTblCol, schema, toTbl);
 
 				}
@@ -632,7 +639,6 @@ void addFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes, str schema, BATi
 					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD PRIMARY KEY (\"%s\");\n",schema, fromTbl,fromTblCol);
 					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD FOREIGN KEY (mvKey) REFERENCES %s.\"%s\" (\"%s\");\n",schema, mvTbl, schema, fromTbl,fromTblCol);
 					}
-					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD PRIMARY KEY (subject);\n",schema, toTbl);
 					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD FOREIGN KEY (\"%s\") REFERENCES %s.\"%s\" (subject);\n\n",schema, mvTbl, mvCol, schema, toTbl);
 					
 				}
@@ -996,7 +1002,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	printf("Number of non-default-type columns: %d  (%f ex-types per prop) \n ", totalNumNonDefCols, (float)totalNumNonDefCols/totalNumDefCols);
 
 	printf("Generating script for FK creation ...");
-	addFKs(cstablestat, csPropTypes, *schema, mapi, mbat);
+	addPKandFKs(cstablestat, csPropTypes, *schema, mapi, mbat);
 	printf("done\n");
 
 	TKNZRclose(&ret);
