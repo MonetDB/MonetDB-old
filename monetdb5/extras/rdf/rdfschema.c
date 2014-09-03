@@ -8862,6 +8862,27 @@ str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int 
 }
 #endif
 
+
+static
+str getRefTables(CSPropTypes *csPropTypes, int numTables, char* isRefTables){
+	int i, j; 
+	for (i = 0; i < numTables; i++){
+
+		for(j = 0; j < csPropTypes[i].numProp; j++){
+			#if     REMOVE_INFREQ_PROP
+			if (csPropTypes[i].lstPropTypes[j].defColIdx == -1)     continue;  //Infrequent prop
+			#endif
+			if (csPropTypes[i].lstPropTypes[j].isFKProp == 1 && csPropTypes[i].lstPropTypes[j].isDirtyFKProp == 0){
+				isRefTables[csPropTypes[i].lstPropTypes[j].refTblId] = 1;
+			}
+
+		}
+	}
+	
+	return MAL_SUCCEED; 
+}
+
+
 static
 void initCSTableIdxMapping(CSset* freqCSset, int* csTblIdxMapping, int* csFreqCSMapping, int* mfreqIdxTblIdxMapping, int* mTblIdxFreqIdxMapping, int *numTables, CSlabel *labels){
 
@@ -9821,7 +9842,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 	free(pscores); 
 	}
-	
+
 	printf("The final simTfidfThreshold is %f\n",simTfidfThreshold);
 	// Create label per freqCS
 
@@ -11240,6 +11261,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 	#if REMOVE_LOTSOFNULL_SUBJECT
 	int		freqIdx;		
 	int		numSubjRemoved = 0;
+	char		*isRefTables = NULL;
 	#endif
 	char		*isLotsNullSubj = NULL; 
 
@@ -11467,8 +11489,18 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 	#if REMOVE_LOTSOFNULL_SUBJECT
 	//TODO: Find the better way than using isLotsNullSubj array to keep
 	//the status of subject
+	//
+	//If the to-be-removed subject is referred to by an FK, it will make the
+	//FK violated. Hence, either the FK should be set isDirty or the subject of
+	//non-dirty FK is not removed. We follow the latter approach: Do not remove
+	//the subject if it is referred to by a NON-dirty FK. (Dirty FK will be re-checked, thus, 
+	//the triples refers to removed subjects will go to PSO).
+	//
+	isRefTables = (char *)malloc(sizeof(char) * cstablestat->numTables);
 	isLotsNullSubj = (char *) malloc(sizeof(char) * BATcount(sbat) + 1);
 	initCharArray(isLotsNullSubj, BATcount(sbat) + 1,0);
+	initCharArray(isRefTables, cstablestat->numTables, 0); 
+	getRefTables(*csPropTypes, cstablestat->numTables, isRefTables);
 	#else
 	(void) isLotsNullSubj;
 	#endif
@@ -11483,7 +11515,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 		//TODO: If the subject is the target 
 		// of an FK prop, do not remove that subject. This is hard to check.
 		//
-		if (tblIdx != -1){
+		if (tblIdx != -1 && isRefTables[tblIdx] != 1){
 			freqIdx = csFreqCSMapping[subjCSMap[*sbt]];
 			if (freqCSset->items[freqIdx].numProp < cstablestat->lstcstable[tblIdx].numCol * LOTSOFNULL_SUBJECT_THRESHOLD){
 				//printf("Subject " BUNFMT " is removed from table %d with %d cols \n",*sbt,tblIdx, cstablestat->lstcstable[tblIdx].numCol);
