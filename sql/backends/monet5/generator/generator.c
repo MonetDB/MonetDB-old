@@ -36,8 +36,8 @@
 #define VLTnoop(TPE)\
 		{	TPE s;\
 			s = pci->argc == 3 ? 1: *(TPE*) getArgReference(stk,pci, 3);\
-			if( s == 0) zeroerror++;\
-			if( s == TPE##_nil) nullerr++;\
+			zeroerror = (s == 0);\
+			nullerr = (s == TPE##_nil);\
 		}
 str
 VLTgenerator_noop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
@@ -56,12 +56,11 @@ VLTgenerator_noop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	case TYPE_flt: VLTnoop(flt); break;
 	case TYPE_dbl: VLTnoop(dbl); break;
 	default:
-	{	timestamp s;
 		if (tpe == TYPE_timestamp){
-			s = *(timestamp*) getArgReference(stk,pci, 3);
-			if( timestamp_isnil(s)) nullerr++;
+			/* with timestamp, step is of SQL type "interval seconds",
+			 * i.e., MAL / C type "lng" */
+			 VLTnoop(lng);
 		} else throw(MAL,"generator.noop","unknown data type %d", getArgType(mb,pci,1));
-	}
 	}
 	if( zeroerror)
 		throw(MAL,"generator.noop","zero step size not allowed");
