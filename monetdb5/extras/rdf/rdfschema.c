@@ -9812,6 +9812,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	#endif
 
 	/*Run merging for few times to get good parameters*/
+	if(0)
 	{
 	int i = 0; 
 	int numRun = 10; 
@@ -9842,7 +9843,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 	free(pscores); 
 	}
-
+	
+	simTfidfThreshold = 0.65;
 	printf("The final simTfidfThreshold is %f\n",simTfidfThreshold);
 	// Create label per freqCS
 

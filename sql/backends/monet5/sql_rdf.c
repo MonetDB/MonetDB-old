@@ -593,7 +593,7 @@ void getMvTblSQLname(char *tmpmvtbname, int tblIdx, int colIdx, CStableStat *cst
 
 static
 void addPKandFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes, str schema, BATiter mapi, BAT *mbat){
-	FILE            *fout;
+	FILE            *fout, *foutPK, *foutMV;
 	char            filename[100];
 	int		i, j;
 	char		fromTbl[100]; 
@@ -606,13 +606,27 @@ void addPKandFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes, str schema,
 
 	strcpy(filename, "fkCreate.sql");
 	fout = fopen(filename, "wt");
+	foutPK = fopen("pkCreate.sql","wt");
+	foutMV = fopen("mvRefCreate.sql","wt"); 
 
-	//Add PKs to all subject columns
 	for (i = 0; i < cstablestat->numTables; i++){
-		getTblSQLname(toTbl, i, 0, cstablestat, mapi, mbat);
-		fprintf(fout, "ALTER TABLE %s.\"%s\" ADD PRIMARY KEY (subject);\n",schema,toTbl);
-	}
 
+		//Add PKs to all subject columns
+		getTblSQLname(fromTbl, i, 0, cstablestat, mapi, mbat);
+		fprintf(foutPK, "ALTER TABLE %s.\"%s\" ADD PRIMARY KEY (subject);\n",schema,fromTbl);
+	
+		//Add unique key constraint and FKs between MVTable and its corresponding column
+		//in the default table
+		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
+			if (cstablestat->lstcstable[i].lstMVTables[j].numCol != 0){	//MVColumn
+				getColSQLname(fromTblCol, i, j, -1, cstablestat, mapi, mbat);
+				getMvTblSQLname(mvTbl, i, j, cstablestat, mapi, mbat);
+				fprintf(foutMV, "ALTER TABLE %s.\"%s\" ADD UNIQUE (\"%s\");\n",schema,fromTbl,fromTblCol);		
+				fprintf(foutMV, "ALTER TABLE %s.\"%s\" ADD FOREIGN KEY (\"mvKey\") REFERENCES %s.\"%s\" (\"%s\");\n",schema, mvTbl, schema, fromTbl,fromTblCol);
+			
+			}
+		}
+	}
 
 	for (i = 0; i < cstablestat->numTables; i++){
 		for(j = 0; j < csPropTypes[i].numProp; j++){
@@ -646,6 +660,8 @@ void addPKandFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes, str schema,
 		}
 	}
 	fclose(fout); 	
+	fclose(foutPK); 
+	fclose(foutMV); 
 
 }
 
