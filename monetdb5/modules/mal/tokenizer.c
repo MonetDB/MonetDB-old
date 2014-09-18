@@ -206,7 +206,7 @@ TKNZRclose(int *r)
  * strings to be broken are properly ended with either 0 or nl, not
  * both.  It seems 0 can be assumed.
  */
-static int
+int
 TKNZRtokenize(str in, str *parts, char tkn)
 {
 	char *s, *t;

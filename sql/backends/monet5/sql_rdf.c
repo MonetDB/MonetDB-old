@@ -40,6 +40,7 @@
 # include <rdf.h>
 # include <rdfschema.h>
 #include <rdfretrieval.h>
+#include <rdfscan.h>
 #endif
 #include "mal_instruction.h"
 
@@ -1051,6 +1052,23 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif /* HAVE_RAPTOR */	
 }
 
+str 
+SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+	str msg; 
+	int ret; 
+	mvc *m = NULL; 
+
+	str *params = (str *)getArgReference(stk,pci,1);	
+	str *schema = (str *)getArgReference(stk,pci,2);	
+
+	rethrow("sql.rdfShred", msg, getSQLContext(cntxt, mb, &m, NULL));
+
+	rethrow("sql.rdfScan", msg, RDFscan(*params, *schema));
+	
+	(void) ret; 
+
+	return MAL_SUCCEED; 
+}
 
 str
 SQLrdfRetrieveSubschema(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)

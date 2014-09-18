@@ -43,3 +43,6 @@ create procedure rdf_loadOntology(location string, sch string)
 
 create procedure rdf_reorganize(sch string, tbname string, threshold int, expmode int)
 	external name sql.rdfreorganize; 
+
+create procedure rdf_scan(query string, sch string)	
+	external name sql.rdfscan;

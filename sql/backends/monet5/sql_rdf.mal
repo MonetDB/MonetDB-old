@@ -33,3 +33,7 @@ pattern rdfretrievesubschema (oldschema:str, count:int, keyword:str)
 address SQLrdfRetrieveSubschema
 comment "Procedure that creates a new schema containing views. 
 The views link to the base schema. Wrapper around retrieval() in rdfretrieval.c."
+
+pattern rdfscan(query:str, schema:str)
+address SQLrdfScan
+comment "RDF scan operator"
