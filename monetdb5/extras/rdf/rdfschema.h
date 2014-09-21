@@ -298,6 +298,9 @@ typedef struct SubCSSet{
 					// However, for creating the foreign key relationship, we add this column and 
 					// markt it as a primary key
 
+#define BUILDTOKENZIER_TO_MAPID	1	/* Build the BAT storing the mapping between the
+					original tokenizer oid of a URI and converted oid */
+
 
 typedef struct CSset{
 	CS* items;

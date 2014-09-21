@@ -458,6 +458,26 @@ TKNZRdepositFile(int *r, str *fnme)
 
 str
 TKNZRlocate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{	
+	str ret; 
+	oid id; 
+	(void) cntxt;
+	(void) mb;
+
+	if (TRANS == NULL)
+		throw(MAL, "tokenizer", "no tokenizer store open");
+
+	ret = TKNRstringToOid(&id, (str *) getArgReference(stk, pci, 1));
+	if (ret == MAL_SUCCEED) {
+		VALset(getArgReference(stk, pci, 0), TYPE_oid, &id);
+	}
+	return MAL_SUCCEED;
+}
+
+/*
+ * This is similar to the  TKNRlocate function */
+
+str TKNRstringToOid(oid *id, str *s)
 {
 	oid pos;
 	str url;
@@ -466,19 +486,11 @@ TKNZRlocate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BUN p;
 	oid prv = 0;
 	oid comp;
-	(void) cntxt;
-	(void) mb;
 
-	if (TRANS == NULL)
-		throw(MAL, "tokenizer", "no tokenizer store open");
 
-	url = (str) GDKmalloc(sizeof(char) *
-			(strlen(*(str *) getArgReference(stk, pci, 1)) + 1));
-	if (url == NULL) {
-		throw(MAL, "tokenizer.locate", MAL_MALLOC_FAIL);
+	if ((url = GDKstrdup(*s)) == NULL) {
+		throw(MAL, "tokenizer.append", OPERATION_FAILED MAL_MALLOC_FAIL);
 	}
-	strcpy(url, *(str *) getArgReference(stk, pci, 1));
-
 
 	depth = TKNZRtokenize(url, parts, '/');
 
@@ -509,11 +521,11 @@ TKNZRlocate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 	}
 
-	VALset(getArgReference(stk, pci, 0), TYPE_oid, &pos);
+	*id = pos;
+
 	GDKfree(url);
 	return MAL_SUCCEED;
 }
-
 str
 takeOid(oid id, str *val)
 {
@@ -651,6 +663,7 @@ TKNZRgetLevel(int *r, int *level)
 	return MAL_SUCCEED;
 }
 
+
 str
 TKNZRgetCount(int *r)
 {
@@ -675,7 +688,20 @@ TKNZRgetCount(int *r)
 	BBPkeepref(*r);
 	return MAL_SUCCEED;
 }
+/*
+ * Get total number of the strings in the tokenizer
+ * */
 
+str
+TKNZRgetTotalCount(int *r){
+
+	if (TRANS == NULL)
+		throw(MAL, "tokenizer", "no tokenizer store open");
+
+	*r = BATcount(tokenBAT[INDEX].val); 
+
+	return MAL_SUCCEED; 
+}
 str
 TKNZRgetCardinality(int *r)
 {

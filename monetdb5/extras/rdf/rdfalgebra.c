@@ -137,6 +137,7 @@ RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 	
 	result = BATproject(result2, right); 
 	result->T->nil = 0; 
+	
 
 	BBPreleaseref(left->batCacheid);
 	BBPreleaseref(right->batCacheid);

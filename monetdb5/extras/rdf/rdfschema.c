@@ -37,6 +37,7 @@
 #include <mtime.h>
 #include <rdfgraph.h>
 #include <rdfparams.h>
+#include "bat5.h"
 
 #define SHOWPROPERTYNAME 1
 
@@ -11243,6 +11244,74 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	return MAL_SUCCEED; 
 }
 
+#if BUILDTOKENZIER_TO_MAPID 
+/*
+ * Since the of s,p,o oids are converted to table-based oids,
+ * a bat that maps original tokenizer oids to the converted oid
+ * need to be built. Then, when it comes a string, it can first look
+ * at the tokenizer for its original oid. After that, it can
+ * use this TKNZRMappingBat for receiving the converted Id. 
+ * 
+ * Input String --> Original TKNZR oid --> New Oid (TKNRZ_to_new_MapBAT)
+ * New oid --> Original TKNZR oid --> Input String (New_to_TKNZR_MapBat)
+ * */
+static 
+str buildTKNZRMappingBat(BAT *lmap, BAT *rmap){
+
+	BAT	*tmpBat = NULL; 
+	char*   schema = "rdf";
+	int 	ret; 
+	int	num = 0; 
+	bat	mapBatId; 
+	BAT	*mapBat; 	
+	str	batname = NULL; 
+
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "rdf.rdfschema",
+				"could not open the tokenizer\n");
+	}
+	
+	TKNZRgetTotalCount(&num);
+	//create a tmpBat from 0 to number of TKNZR items
+	tmpBat = BATnew(TYPE_void, TYPE_oid , num + 1, TRANSIENT);
+	BATsetcount(tmpBat,num);
+	BATseqbase(tmpBat, 0);
+	BATseqbase(BATmirror(tmpBat), 0);
+
+	tmpBat->T->nonil = 1;
+	tmpBat->tkey = 1;
+	tmpBat->tsorted = 1;
+	tmpBat->trevsorted = 0;
+	tmpBat->tdense = 1;
+
+
+	if (RDFpartialjoin(&mapBatId, &lmap->batCacheid, &rmap->batCacheid, &tmpBat->batCacheid) != MAL_SUCCEED){
+		throw(RDF, "rdf.RDFreorganize", "Problem in using RDFpartialjoin for tokenizer map bat");
+	}
+
+	if ((mapBat = BATdescriptor(mapBatId)) == NULL) {
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+	
+	batname = (str) GDKmalloc(50 * sizeof(char));
+	snprintf(batname, 50, "tknzr_to_map");
+
+	if (BKCsetName(&ret, (int *) &(mapBat->batCacheid), (str *) &batname) != MAL_SUCCEED)
+		throw(MAL, "tokenizer.open", OPERATION_FAILED);
+	/*
+	if (BKCsetPersistent(&ret, (int *) &(mapBat->batCacheid) != MAL_SUCCEED)
+		throw(MAL, "tokenizer.open", OPERATION_FAILED);
+		*/
+
+	GDKfree(batname);
+
+	TKNZRclose(&ret);
+	
+	return MAL_SUCCEED; 
+}
+
+#endif /* BUILDTOKENZIER_TO_MAPID*/
+
 str
 RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, bat *ontbatid, int *freqThreshold, int *mode){
 
@@ -11561,6 +11630,10 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 	#endif
 	//BATprint(VIEWcreate(BATmirror(lmap),rmap)); 
 	
+	#if BUILDTOKENZIER_TO_MAPID
+	buildTKNZRMappingBat(lmap, rmap); 
+	#endif
+	
 	origobat = getOriginalUriOBat(obat); 	//Return obat without type-specific information for URI & BLANKNODE
 						//This is to get the same oid as the subject oid for a same URI, BLANKNODE
 						//--> There will be no BLANKNODE indication in this obat object oid. 
@@ -11582,6 +11655,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 	else
 		throw(RDF, "rdf.RDFreorganize", "Problem in using RDFpartialjoin for obat");
 
+	
 	printf("Done! \n");
 	printf("Sort triple table according to P, S, O order ... ");
 	if (triplesubsort(&pNewBat, &sNewBat, &oNewBat) != MAL_SUCCEED){
