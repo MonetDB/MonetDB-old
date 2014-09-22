@@ -11231,7 +11231,10 @@ str buildTKNZRMappingBat(BAT *lmap, BAT *rmap){
 	int 	ret; 
 	int	num = 0; 
 	bat	mapBatId; 
-	BAT	*tmpmapBat = NULL, *pMapBat = NULL; 	
+	BAT	*tmpmapBat = NULL, *pMapBat = NULL, 
+		*tmplmapBat = NULL, *tmprmapBat = NULL, 	
+		*plmapBat = NULL, *prmapBat = NULL; 	
+	
 	str	bname = NULL, bnamelBat = NULL, bnamerBat = NULL; 
 	bat	*lstCommits = NULL; 
 
@@ -11291,12 +11294,34 @@ str buildTKNZRMappingBat(BAT *lmap, BAT *rmap){
 		throw(MAL, "tokenizer.open", OPERATION_FAILED);
 
 	BATmode(pMapBat, PERSISTENT); 
+
+	/*Make persistent bats for mappingId_to_tokenizerId lmap->rmap */
+	tmplmapBat = BATcopy(rmap, rmap->htype, rmap->ttype, TRUE, TRANSIENT); 
+	tmprmapBat = BATcopy(lmap, lmap->htype, lmap->ttype, TRUE, TRANSIENT); 
+	RDFbisubsort(&tmplmapBat, &tmprmapBat); 
+
+	plmapBat = BATcopy(tmplmapBat, tmplmapBat->htype, tmplmapBat->ttype, TRUE, PERSISTENT);
+	prmapBat = BATcopy(tmprmapBat, tmprmapBat->htype, tmprmapBat->ttype, TRUE, PERSISTENT);
+
+	if (BKCsetName(&ret, (int *) &(plmapBat->batCacheid), (str *) &bnamelBat) != MAL_SUCCEED)
+		throw(MAL, "tokenizer.open", OPERATION_FAILED);
 	
-	lstCommits = GDKmalloc(sizeof(bat) * 2); 
+	if (BKCsetPersistent(&ret, (int *) &(plmapBat->batCacheid)) != MAL_SUCCEED)
+		throw(MAL, "tokenizer.open", OPERATION_FAILED);
+
+	if (BKCsetName(&ret, (int *) &(prmapBat->batCacheid), (str *) &bnamerBat) != MAL_SUCCEED)
+		throw(MAL, "tokenizer.open", OPERATION_FAILED);
+	
+	if (BKCsetPersistent(&ret, (int *) &(prmapBat->batCacheid)) != MAL_SUCCEED)
+		throw(MAL, "tokenizer.open", OPERATION_FAILED);
+
+	lstCommits = GDKmalloc(sizeof(bat) * 4); 
 	lstCommits[0] = 0;
 	lstCommits[1] = pMapBat->batCacheid;
+	lstCommits[2] = plmapBat->batCacheid;
+	lstCommits[3] = prmapBat->batCacheid;
 
-	TMsubcommit_list(lstCommits,2);
+	TMsubcommit_list(lstCommits,4);
 
 	GDKfree(lstCommits);
 
