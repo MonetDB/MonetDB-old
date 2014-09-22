@@ -167,6 +167,70 @@ RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 	return MAL_SUCCEED; 
 }
 
+str RDFtriplesubsort(BAT **sbat, BAT **pbat, BAT **obat){
+
+	BAT *o1,*o2,*o3;
+	BAT *g1,*g2,*g3;
+	BAT *S = NULL, *P = NULL, *O = NULL;
+
+	S = *sbat;
+	P = *pbat;
+	O = *obat;
+	/* order SPO/SOP */
+	if (BATsubsort(sbat, &o1, &g1, S, NULL, NULL, 0, 0) == GDK_FAIL){
+		if (S != NULL) BBPreclaim(S);
+		throw(RDF, "rdf.triplesubsort", "Fail in sorting for S");
+	}
+
+	if (BATsubsort(pbat, &o2, &g2, P, o1, g1, 0, 0) == GDK_FAIL){
+		BBPreclaim(S);
+		if (P != NULL) BBPreclaim(P);
+		throw(RDF, "rdf.triplesubsort", "Fail in sub-sorting for P");
+	}
+	if (BATsubsort(obat, &o3, &g3, O, o2, g2, 0, 0) == GDK_FAIL){
+		BBPreclaim(S);
+		BBPreclaim(P);
+		if (O != NULL) BBPreclaim(O);
+		throw(RDF, "rdf.triplesubsort", "Fail in sub-sorting for O");
+	}	
+
+	BBPunfix(o2->batCacheid);
+	BBPunfix(g2->batCacheid);
+	BBPunfix(o3->batCacheid);
+	BBPunfix(g3->batCacheid);
+
+	return MAL_SUCCEED; 
+}
+
+/*
+ * Sort left bat and re-order right bat according to the lef bat
+ * */
+str RDFbisubsort(BAT **lbat, BAT **rbat){
+
+	BAT *o1,*o2;
+	BAT *g1,*g2;
+	BAT *L = NULL, *R = NULL;
+
+	L = *lbat;
+	R = *rbat;
+	if (BATsubsort(lbat, &o1, &g1, L, NULL, NULL, 0, 0) == GDK_FAIL){
+		if (L != NULL) BBPreclaim(L);
+		throw(RDF, "rdf.triplesubsort", "Fail in sorting for L");
+	}
+
+	if (BATsubsort(rbat, &o2, &g2, R, o1, g1, 0, 0) == GDK_FAIL){
+		BBPreclaim(L);
+		if (R != NULL) BBPreclaim(R);
+		throw(RDF, "rdf.triplesubsort", "Fail in sub-sorting for R");
+	}
+
+	BBPunfix(o1->batCacheid);
+	BBPunfix(g1->batCacheid);
+	BBPunfix(o2->batCacheid);
+	BBPunfix(g2->batCacheid);
+
+	return MAL_SUCCEED; 
+}
 
 str
 TKNZRrdf2str(bat *res, bat *bid, bat *map)

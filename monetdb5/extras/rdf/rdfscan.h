@@ -31,11 +31,13 @@
 
 typedef struct RdfScanParams {
 	char	schema[20]; 
-	char** 	lstRPs; 	/* List of required params */	
-	char**	lstLow;	/* Low bound of RP*/
-	char**	lstHi; 	/* High bound of RP*/
+	char	**lstRPstr; 	/* List of required params (string format) */	
+	oid	*lstRP; 	/* List of required params' oids */
+	char	**lstLow;	/* Low bound of RP*/
+	char	**lstHi; 	/* High bound of RP*/
 	int	numRP; 	/* Number of required params */
-	char** 	lstOPs;	/* List of optional params */
+	char	**lstOPstr;	/* List of optional params (string format) */
+	oid	*lstOP; 	/* List of optional params' oids */
 	int	numOP;
 	
 } RdfScanParams; 

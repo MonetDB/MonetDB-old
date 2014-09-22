@@ -37,18 +37,21 @@
 #define MAX_PARAMS_NO	20
 
 static 
-void queryParser(RdfScanParams *rsParam, str query, str schema){
+str queryParser(RdfScanParams *rsParam, str query, str schema){
 
 	int paramNo; 
 	str parts[MAX_PARAMS_NO]; 
 	int i = 0, j; 
-	int numRP = 0; 
-	int numOP = 0; 
-	int opIdx;
-	int rpIdx;
+	int numRP = 0, numOP = 0; 
+	int opIdx, rpIdx;
+	int ret; 
 	
 	(void) schema; 
 
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "rdf.rdfschema", "could not open the tokenizer\n");
+	}
+	
 	paramNo = TKNZRtokenize(query, parts, '|');
 	
 	printf("Number of params from query %s is: %d \n", query, paramNo);
@@ -68,19 +71,19 @@ void queryParser(RdfScanParams *rsParam, str query, str schema){
 	printf("Number of RPs is %d \n", numRP);
 
 	rsParam->numRP = numRP; 
-	rsParam->lstRPs = (char **)GDKmalloc(sizeof(char*) * rsParam->numRP); 
+	rsParam->lstRPstr = (char **)GDKmalloc(sizeof(char*) * rsParam->numRP); 
 	rsParam->lstLow = (char **)GDKmalloc(sizeof(char*) * rsParam->numRP); 
 	rsParam->lstHi = (char **)GDKmalloc(sizeof(char*) * rsParam->numRP); 
 
 	rsParam->numOP = numOP;
-	rsParam->lstOPs = (char **)GDKmalloc(sizeof(char*) * rsParam->numOP); 
+	rsParam->lstOPstr = (char **)GDKmalloc(sizeof(char*) * rsParam->numOP); 
 	
 	opIdx = 0;
 	rpIdx = 0; 
 	for (i = 0; i < paramNo; i++){
 		if (parts[i][0] == '?'){	//optional param
 			parts[i]++;			
-			rsParam->lstOPs[opIdx] = GDKstrdup(parts[i]);
+			rsParam->lstOPstr[opIdx] = GDKstrdup(parts[i]);
 			opIdx++;
 		}
 		else{
@@ -113,11 +116,16 @@ void queryParser(RdfScanParams *rsParam, str query, str schema){
 				}
 			}
 			
-			rsParam->lstRPs[rpIdx] = GDKstrdup(parts[i]);
+			rsParam->lstRPstr[rpIdx] = GDKstrdup(parts[i]);
 
 			rpIdx++;
 		}
 	}
+
+
+	TKNZRclose(&ret);
+
+	return MAL_SUCCEED; 
 }
 
 static
@@ -125,12 +133,12 @@ void printParams(RdfScanParams *rsParam){
 	int i; 
 
 	for (i = 0; i < rsParam->numRP; i++){
-		printf("RP[%d] = %s\n", i, rsParam->lstRPs[i]); 
+		printf("RP[%d] = %s\n", i, rsParam->lstRPstr[i]); 
 		if (rsParam->lstLow[i] != NULL) printf("   Low %s\n",rsParam->lstLow[i]);
 		if (rsParam->lstHi[i] != NULL) printf("   Hi %s\n",rsParam->lstHi[i]);
 	}
 	for (i = 0; i < rsParam->numOP; i++){
-		printf("OP[%d] = %s\n", i, rsParam->lstOPs[i]);
+		printf("OP[%d] = %s\n", i, rsParam->lstOPstr[i]);
 	}	
 	
 }
@@ -139,18 +147,18 @@ static
 void freeParams(RdfScanParams *rsParam){
 	int i; 
 	for (i = 0; i < rsParam->numRP; i++){
-		GDKfree(rsParam->lstRPs[i]);
+		GDKfree(rsParam->lstRPstr[i]);
 		if (rsParam->lstLow[i] != NULL) GDKfree(rsParam->lstLow[i]);
 		if (rsParam->lstHi[i] != NULL) GDKfree(rsParam->lstHi[i]);
 	}
-	GDKfree(rsParam->lstRPs);
+	GDKfree(rsParam->lstRPstr);
 	GDKfree(rsParam->lstLow);
 	GDKfree(rsParam->lstHi); 
 
 	for (i = 0; i < rsParam->numOP; i++){
-		GDKfree(rsParam->lstOPs[i]);
+		GDKfree(rsParam->lstOPstr[i]);
 	}
-	GDKfree(rsParam->lstOPs);
+	GDKfree(rsParam->lstOPstr);
 
 	GDKfree(rsParam); 
 

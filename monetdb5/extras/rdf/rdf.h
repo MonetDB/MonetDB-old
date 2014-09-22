@@ -58,6 +58,12 @@ TKNZRrdf2str (bat *res, bat *bid, bat *map);
 rdf_export str
 RDFpartialjoin (bat *res, bat *lmap, bat *rmap, bat *input); 
 
+rdf_export str
+RDFtriplesubsort(BAT **sbat, BAT **pbat, BAT **obat); 
+
+rdf_export str
+RDFbisubsort(BAT **lbat, BAT **rbat); 
+
 #define RDF_MIN_LITERAL (((oid) 1) << ((sizeof(oid)==8)?59:27))
 
 

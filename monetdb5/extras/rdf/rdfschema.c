@@ -10091,41 +10091,6 @@ str getOrigPbt(oid *pbt, oid *origPbt, BAT *lmap, BAT *rmap){
 	return MAL_SUCCEED; 
 }
 
-static
-str triplesubsort(BAT **sbat, BAT **pbat, BAT **obat){
-
-	BAT *o1,*o2,*o3;
-	BAT *g1,*g2,*g3;
-	BAT *S = NULL, *P = NULL, *O = NULL;
-
-	S = *sbat;
-	P = *pbat;
-	O = *obat;
-	/* order SPO/SOP */
-	if (BATsubsort(sbat, &o1, &g1, S, NULL, NULL, 0, 0) == GDK_FAIL){
-		if (S != NULL) BBPreclaim(S);
-		throw(RDF, "rdf.triplesubsort", "Fail in sorting for S");
-	}
-
-	if (BATsubsort(pbat, &o2, &g2, P, o1, g1, 0, 0) == GDK_FAIL){
-		BBPreclaim(S);
-		if (P != NULL) BBPreclaim(P);
-		throw(RDF, "rdf.triplesubsort", "Fail in sub-sorting for P");
-	}
-	if (BATsubsort(obat, &o3, &g3, O, o2, g2, 0, 0) == GDK_FAIL){
-		BBPreclaim(S);
-		BBPreclaim(P);
-		if (O != NULL) BBPreclaim(O);
-		throw(RDF, "rdf.triplesubsort", "Fail in sub-sorting for O");
-	}	
-
-	BBPunfix(o2->batCacheid);
-	BBPunfix(g2->batCacheid);
-	BBPunfix(o3->batCacheid);
-	BBPunfix(g3->batCacheid);
-
-	return MAL_SUCCEED; 
-}
 
 static 
 BAT* BATnewPropSet(int ht, int tt, BUN cap){
@@ -11254,6 +11219,9 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
  * 
  * Input String --> Original TKNZR oid --> New Oid (TKNRZ_to_new_MapBAT)
  * New oid --> Original TKNZR oid --> Input String (New_to_TKNZR_MapBat)
+ * 
+ * To convert from mapId to tknz Id, we use the lmap, rmap bats. 
+ *
  * */
 static 
 str buildTKNZRMappingBat(BAT *lmap, BAT *rmap){
@@ -11263,9 +11231,30 @@ str buildTKNZRMappingBat(BAT *lmap, BAT *rmap){
 	int 	ret; 
 	int	num = 0; 
 	bat	mapBatId; 
-	BAT	*mapBat; 	
-	str	batname = NULL; 
+	BAT	*tmpmapBat = NULL, *pMapBat = NULL; 	
+	str	bname = NULL, bnamelBat = NULL, bnamerBat = NULL; 
+	bat	*lstCommits = NULL; 
 
+	/* Check if the bat has already built */
+	bname = (str) GDKmalloc(50 * sizeof(char));
+	snprintf(bname, 50, "tknzr_to_map");
+
+	bnamelBat = (str) GDKmalloc(50 * sizeof(char));
+	snprintf(bnamelBat, 50, "map_to_tknz_left");
+
+	bnamerBat = (str) GDKmalloc(50 * sizeof(char));
+	snprintf(bnamerBat, 50, "map_to_tknz_right");
+
+
+	mapBatId = BBPindex(bname); 
+	if (mapBatId != 0){
+		printf("The tokenizer-mapping-bat %s has been built \n", bname); 
+		GDKfree(bname);
+		return MAL_SUCCEED;
+	}
+
+	printf("No tokenizer-mapping-bat %s has been built yet\n",bname);
+	
 	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
 		throw(RDF, "rdf.rdfschema",
 				"could not open the tokenizer\n");
@@ -11289,23 +11278,35 @@ str buildTKNZRMappingBat(BAT *lmap, BAT *rmap){
 		throw(RDF, "rdf.RDFreorganize", "Problem in using RDFpartialjoin for tokenizer map bat");
 	}
 
-	if ((mapBat = BATdescriptor(mapBatId)) == NULL) {
+	if ((tmpmapBat = BATdescriptor(mapBatId)) == NULL) {
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
 	}
+
+	pMapBat = BATcopy(tmpmapBat, tmpmapBat->htype, tmpmapBat->ttype, TRUE, PERSISTENT);
 	
-	batname = (str) GDKmalloc(50 * sizeof(char));
-	snprintf(batname, 50, "tknzr_to_map");
-
-	if (BKCsetName(&ret, (int *) &(mapBat->batCacheid), (str *) &batname) != MAL_SUCCEED)
+	if (BKCsetName(&ret, (int *) &(pMapBat->batCacheid), (str *) &bname) != MAL_SUCCEED)
 		throw(MAL, "tokenizer.open", OPERATION_FAILED);
-	/*
-	if (BKCsetPersistent(&ret, (int *) &(mapBat->batCacheid) != MAL_SUCCEED)
+	
+	if (BKCsetPersistent(&ret, (int *) &(pMapBat->batCacheid)) != MAL_SUCCEED)
 		throw(MAL, "tokenizer.open", OPERATION_FAILED);
-		*/
 
-	GDKfree(batname);
+	BATmode(pMapBat, PERSISTENT); 
+	
+	lstCommits = GDKmalloc(sizeof(bat) * 2); 
+	lstCommits[0] = 0;
+	lstCommits[1] = pMapBat->batCacheid;
+
+	TMsubcommit_list(lstCommits,2);
+
+	GDKfree(lstCommits);
+
+	BBPunfix(tmpmapBat->batCacheid); 
+	BBPunfix(pMapBat->batCacheid); 
+
+	GDKfree(bname);
 
 	TKNZRclose(&ret);
+
 	
 	return MAL_SUCCEED; 
 }
@@ -11658,7 +11659,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 	
 	printf("Done! \n");
 	printf("Sort triple table according to P, S, O order ... ");
-	if (triplesubsort(&pNewBat, &sNewBat, &oNewBat) != MAL_SUCCEED){
+	if (RDFtriplesubsort(&pNewBat, &sNewBat, &oNewBat) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in sorting PSO");	
 	}	
 	printf("Done  \n");
