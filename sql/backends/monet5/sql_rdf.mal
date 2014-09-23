@@ -37,3 +37,7 @@ The views link to the base schema. Wrapper around retrieval() in rdfretrieval.c.
 pattern rdfscan(query:str, schema:str)
 address SQLrdfScan
 comment "RDF scan operator"
+
+pattern rdfidtostr(id:oid)
+address	SQLrdfidtostr
+comment "Convert from oid to string"

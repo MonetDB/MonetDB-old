@@ -1052,6 +1052,57 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif /* HAVE_RAPTOR */	
 }
 
+str
+SQLrdfidtostr(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+	str msg; 
+	mvc *m = NULL; 
+	BAT *lmapBat = NULL, *rmapBat = NULL; 
+	bat lmapBatId, rmapBatId;
+	str bnamelBat = "map_to_tknz_left";
+	str bnamerBat = "map_to_tknz_right";
+	BUN pos; 
+	oid *origId; 
+	oid *id = (oid *)getArgReference(stk,pci,1);
+	str *s; 
+
+	rethrow("sql.rdfidtostr", msg, getSQLContext(cntxt, mb, &m, NULL));
+	
+	lmapBatId = BBPindex(bnamelBat);
+	rmapBatId = BBPindex(bnamerBat);
+
+	if (lmapBatId == 0 || rmapBatId == 0){
+		throw(SQL, "sql.SQLrdfidtostr", "The lmap/rmap Bats should be built already");
+	}
+	
+	if ((lmapBat= BATdescriptor(lmapBatId)) == NULL) {
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+
+	if ((rmapBat= BATdescriptor(rmapBatId)) == NULL) {
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+
+	pos = BUNfnd(BATmirror(lmapBat),id);
+	if (pos == BUN_NONE)	//this id is not converted to a new id
+		origId = id; 
+	else
+		origId = (oid *) Tloc(rmapBat, pos);
+	
+	VALset(getArgReference(stk, pci, 1), TYPE_oid, origId);
+
+	/*First convert the id to the original tokenizer odi */
+	rethrow("sql.rdfidtostr", msg, TKNZRtakeOid(cntxt,mb,stk,pci));
+	
+	s = (str *) getArgReference(stk, pci, 0);
+	
+	if (msg == MAL_SUCCEED){
+		//throw(SQL, "sql.rdfidtostr", "String for "BUNFMT" is %s\n",*id, *s);
+		return sql_message("Literal value: %s\n", *s); 
+	}
+	
+	return msg; 
+}
+
 str 
 SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	str msg; 
@@ -1061,10 +1112,10 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	str *params = (str *)getArgReference(stk,pci,1);	
 	str *schema = (str *)getArgReference(stk,pci,2);	
 
-	rethrow("sql.rdfShred", msg, getSQLContext(cntxt, mb, &m, NULL));
+	rethrow("sql.rdfScan", msg, getSQLContext(cntxt, mb, &m, NULL));
 
 	rethrow("sql.rdfScan", msg, RDFscan(*params, *schema));
-	
+
 	(void) ret; 
 
 	return MAL_SUCCEED; 

@@ -540,6 +540,4 @@ printTKNZStringFromOid(oid id);
 rdf_export BAT*
 createEncodedSubjBat(int tblIdx, int num);
 
-
-
 #endif /* _RDFSCHEMA_H_ */

@@ -11303,6 +11303,10 @@ str buildTKNZRMappingBat(BAT *lmap, BAT *rmap){
 	plmapBat = BATcopy(tmplmapBat, tmplmapBat->htype, tmplmapBat->ttype, TRUE, PERSISTENT);
 	prmapBat = BATcopy(tmprmapBat, tmprmapBat->htype, tmprmapBat->ttype, TRUE, PERSISTENT);
 
+	plmapBat->tkey = 1; 
+	plmapBat->tsorted = 1; 
+
+
 	if (BKCsetName(&ret, (int *) &(plmapBat->batCacheid), (str *) &bnamelBat) != MAL_SUCCEED)
 		throw(MAL, "tokenizer.open", OPERATION_FAILED);
 	

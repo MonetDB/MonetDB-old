@@ -46,3 +46,6 @@ create procedure rdf_reorganize(sch string, tbname string, threshold int, expmod
 
 create procedure rdf_scan(query string, sch string)	
 	external name sql.rdfscan;
+
+create procedure rdf_idtostr(id oid)
+	external name sql.rdfidtostr;
