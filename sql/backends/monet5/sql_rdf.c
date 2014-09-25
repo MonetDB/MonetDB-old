@@ -681,6 +681,61 @@ int isRightPropBAT(BAT *b){
 	return 1; 
 }
 
+/*
+ * Order the property by their support
+ * for each table
+ * */
+static
+int** createColumnOrder(CStableStat* cstablestat, CSPropTypes *csPropTypes){
+	int i, j, k; 
+	int num = cstablestat->numTables;
+	int **colOrder;
+	int tblColIdx; 
+	
+	colOrder = (int **)GDKmalloc(sizeof(int*) * num);
+	for (i = 0; i < num; i++){
+		int* tmpPropFreqs; 
+		tmpPropFreqs = (int *) GDKmalloc(sizeof(int) * cstablestat->numPropPerTable[i]);
+		colOrder[i] = (int *) GDKmalloc(sizeof(int) * cstablestat->numPropPerTable[i]); 
+		
+		for (j = 0; j < cstablestat->numPropPerTable[i]; j ++){
+			colOrder[i][j] = j; 
+		}
+
+		//Store the frequencies of table columns to tmp arrays
+		for (j = 0; j < csPropTypes[i].numProp; j++){
+			tblColIdx = csPropTypes[i].lstPropTypes[j].defColIdx;
+			if (tblColIdx == -1) continue; 
+			assert(tblColIdx < cstablestat->numPropPerTable[i]);
+			tmpPropFreqs[tblColIdx] = csPropTypes[i].lstPropTypes[j].propFreq; 		
+		}
+
+
+		//Do insertion sort the the property ascending according to their support	
+		for (j = 1; j < cstablestat->numPropPerTable[i]; j ++){
+			int tmpPos = colOrder[i][j]; 
+			int tmpFreq = tmpPropFreqs[tmpPos];
+			k = j; 
+			while (k > 0 && tmpFreq > tmpPropFreqs[colOrder[i][k-1]]){
+				colOrder[i][k] = colOrder[i][k-1]; 					
+				k--;
+			}
+			colOrder[i][k] = tmpPos;
+		}
+	}
+	
+	return colOrder; 	
+}
+
+static
+void freeColOrder(int **colOrder, CStableStat* cstablestat){
+	int i; 
+	for (i = 0; i < cstablestat->numTables; i++){
+		GDKfree(colOrder[i]);	
+	}
+	GDKfree(colOrder);
+} 
+
 /* Re-organize triple table by using clustering storage
  * CALL rdf_reorganize('schema','tablename', 1);
  * e.g., rdf_reorganize('rdf','spo0');
@@ -716,7 +771,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_table	**viewcstables; 
 	#endif
 	sql_table 	*psotbl;
-	int 	i, j, k; 
+	int 	i, j, k, colId; 
 	int	tmpNumMVCols = 0;
 	int	nonullmvtables = 0;
 	int	totalNoTablesCreated = 0;
@@ -732,6 +787,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	clock_t tmpbeginT, tmpendT, beginT, endT;
 
 	BAT *ontbat = NULL;
+	int **colOrder = NULL; 
 
 	beginT = clock();
 	
@@ -846,6 +902,10 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(RDF, "SQLrdfreorganize","could not open the tokenizer\n");
 	}
 	}
+
+	//Re-order the columns 
+	colOrder = createColumnOrder(cstablestat, csPropTypes);
+
 	for (i = 0; i < cstablestat->numTables; i++){
 		//printf("creating table %d \n", i);
 
@@ -861,7 +921,9 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		#if APPENDSUBJECTCOLUMN
 		mvc_create_column(m, cstables[i], "subject",  &tpes[TYPE_oid]);
 		#endif
-		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
+		for (colId = 0; colId < cstablestat->numPropPerTable[i]; colId++){
+			j = colOrder[i][colId]; 
+		//for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
 
 			//TODO: Use propertyId from Propstat
 			getColSQLname(tmpcolname, i, j, -1, cstablestat, mapi, mbat);
@@ -934,7 +996,9 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			BBPreclaim(subjBat);
 		}
 		#endif
-		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
+		for (colId = 0; colId < cstablestat->numPropPerTable[i]; colId++){
+			j = colOrder[i][colId]; 
+		//for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
 
 			//TODO: Use propertyId from Propstat
 			getColSQLname(tmpcolname, i, j, -1, cstablestat, mapi, mbat);
@@ -1032,7 +1096,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		free(csmvtables[i]);
 	}
 	free(csmvtables);
-
+	freeColOrder(colOrder, cstablestat);
 	freeCSPropTypes(csPropTypes,cstablestat->numTables);
 	freeCStableStat(cstablestat); 
 	free(cstables);
