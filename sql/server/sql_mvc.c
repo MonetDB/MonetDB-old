@@ -252,7 +252,7 @@ build up the hash (not copied in the trans dup)) */
 		return 0;
 	}
 
-	/* validation phase 
+	/*
 	while (tr->schema_updates && store_nr_active > 1) {
 		store_unlock();
 		MT_sleep_ms(100);
@@ -265,6 +265,7 @@ build up the hash (not copied in the trans dup)) */
 		store_lock();
 	}
 	 * */
+	/* validation phase */
 	if (sql_trans_validate(tr)) {
 		if ((ok = sql_trans_commit(tr)) != SQL_OK) {
 			char *msg = sql_message("40000!COMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
