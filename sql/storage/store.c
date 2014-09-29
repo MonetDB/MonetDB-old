@@ -3236,14 +3236,49 @@ sql_trans_commit(sql_trans *tr)
 	/* write phase */
 	if (bs_debug)
 		fprintf(stderr, "#forwarding changes %d,%d %d,%d\n", gtrans->stime, tr->stime, gtrans->wstime, tr->wstime);
+
+	/* do a pre-commit first, writing the changes to the write-ahead log and rollingforward the transaction */
+	ok = sql_trans_precommit(tr);
+	if (ok == LOG_OK) {
+		/* write the changes in the persistent store */
+		ok = sql_trans_persistcommit(tr);
+	}
+	if (bs_debug)
+		fprintf(stderr, "#done forwarding changes %d,%d\n", gtrans->stime, gtrans->wstime);
+	return (ok==LOG_OK)?SQL_OK:SQL_ERR;
+}
+
+int
+sql_trans_precommit(sql_trans *tr)
+{
+	int ok = LOG_OK;
+
 	/* snap shots should be saved first */
 	if (tr->parent == gtrans) {
+		if (bs_debug) {
+			fprintf(stderr, "#writing changes to WAL %d,%d %d,%d\n", gtrans->stime, tr->stime, gtrans->wstime, tr->wstime);
+		}
 		ok = rollforward_trans(tr, R_SNAPSHOT);
 
-		if (ok == LOG_OK) 
+		if (ok == LOG_OK)
 			ok = logger_funcs.log_tstart();
-		if (ok == LOG_OK) 
+		if (ok == LOG_OK)
 			ok = rollforward_trans(tr, R_LOG);
+		return ok;
+	}
+	return (ok==LOG_OK)?SQL_OK:SQL_ERR;
+}
+
+int
+sql_trans_persistcommit(sql_trans *tr)
+{
+	int ok = LOG_OK;
+
+	if (bs_debug) {
+			fprintf(stderr, "#writing changes to persistent store %d,%d\n", gtrans->stime, gtrans->wstime);
+	}
+
+	if (ok == LOG_OK) {
 		if (ok == LOG_OK && prev_oid != store_oid)
 			ok = logger_funcs.log_sequence(OBJ_SID, store_oid);
 		prev_oid = store_oid;
@@ -3256,11 +3291,8 @@ sql_trans_commit(sql_trans *tr)
 		   of failure, the log will be replayed. */
 		ok = rollforward_trans(tr, R_APPLY);
 	}
-	if (bs_debug)
-		fprintf(stderr, "#done forwarding changes %d,%d\n", gtrans->stime, gtrans->wstime);
 	return (ok==LOG_OK)?SQL_OK:SQL_ERR;
 }
-
 
 static void
 sql_trans_drop_all_dependencies(sql_trans *tr, sql_schema *s, int id, short type)

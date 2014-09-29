@@ -304,6 +304,8 @@ extern sql_trans *sql_trans_create(backend_stack stk, sql_trans *parent, char *n
 extern sql_trans *sql_trans_destroy(sql_trans *tr);
 extern int sql_trans_validate(sql_trans *tr);
 extern int sql_trans_commit(sql_trans *tr);
+extern int sql_trans_precommit(sql_trans *tr);
+extern int sql_trans_persistcommit(sql_trans *tr);
 
 extern sql_type *sql_trans_create_type(sql_trans *tr, sql_schema * s, char *sqlname, int digits, int scale, int radix, char *impl);
 
