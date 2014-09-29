@@ -19,7 +19,6 @@
 
 package nl.cwi.monetdb.jdbc;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Savepoint;
 
@@ -33,9 +32,9 @@ import java.sql.Savepoint;
  * 
  */
 public class MonetTwoStageCommit {
-	Connection connection;
+	private final MonetConnection connection;
 	
-	MonetTwoStageCommit(Connection connection) {
+	MonetTwoStageCommit(MonetConnection connection) {
 		this.connection = connection;
 	}
 	
@@ -46,13 +45,13 @@ public class MonetTwoStageCommit {
 			throw new SQLException("Cannot execute preCommit - autocommit enabled", "3B000");
 		}
 		savepoint = connection.setSavepoint(name);
-		// TODO execute precommit
+		connection.sendControlCommand("pre_commit");
 		
 		return savepoint;
 	}
 	
 	public void persistCommit(Savepoint savepoint) throws SQLException {
-		// TODO execute persistCommit
+		connection.sendControlCommand("presist_commit");
 		connection.releaseSavepoint(savepoint);
 		return;
 	}
