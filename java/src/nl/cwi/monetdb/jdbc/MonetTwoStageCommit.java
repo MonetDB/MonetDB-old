@@ -45,13 +45,13 @@ public class MonetTwoStageCommit {
 			throw new SQLException("Cannot execute preCommit - autocommit enabled", "3B000");
 		}
 		savepoint = connection.setSavepoint(name);
-		connection.sendControlCommand("pre_commit");
+		connection.sendIndependentCommand("pre_commit");
 		
 		return savepoint;
 	}
 	
 	public void persistCommit(Savepoint savepoint) throws SQLException {
-		connection.sendControlCommand("presist_commit");
+		connection.sendIndependentCommand("presist_commit");
 		connection.releaseSavepoint(savepoint);
 		return;
 	}
