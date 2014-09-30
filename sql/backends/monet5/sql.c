@@ -356,6 +356,40 @@ SQLabort(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
+SQLprecommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	return MAL_SUCCEED;
+}
+
+str
+SQLpersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	return MAL_SUCCEED;
+}
+
+str
+SQLcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	int ret;
+	mvc *sql = NULL;
+	str msg;
+	(void) stk;
+	(void) pci;
+
+	if ((msg = getSQLContext(cntxt, mb, &sql, NULL)) != NULL)
+		return msg;
+	if ((msg = checkSQLContext(cntxt)) != NULL)
+		return msg;
+
+	if (sql->session->auto_commit != 0)
+		throw(SQL, "sql.trans", "2DM30!COMMIT: not allowed in auto commit mode");
+	ret = mvc_commit(sql, 0, 0);
+	if (ret < 0)
+		throw(SQL, "sql.trans", "2D000!COMMIT: failed");
+	return msg;
+}
+
+str
 SQLshutdown_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str answ = *(str *) getArgReference(stk, pci, 0);
