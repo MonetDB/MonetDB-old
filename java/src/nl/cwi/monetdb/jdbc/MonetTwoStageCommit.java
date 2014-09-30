@@ -25,7 +25,7 @@ import java.sql.Savepoint;
 /**
  * Support for two-stage commit. Pre-commit first writes the transaction only to the write-ahead log.
  * The following persist call writes the data to the persistent store.
- * Since the two-stage commit relies on {@link nl.cwi.monetdb.jdbc.MonetSavepoint Savepoints},
+ * Since the two-stage commit relies on {@link nl.cwi.monetdb.jdbc.MonetSavepoint savepoints},
  * make sure {@link nl.cwi.monetdb.jdbc.MonetConnection#setAutoCommit(boolean autoCommit) autocommit} is disabled.
  * 
  * @author dnedev <Dimitar.Nedev@MonetDBSolutions.com>
@@ -38,6 +38,15 @@ public class MonetTwoStageCommit {
 		this.connection = connection;
 	}
 	
+	/**
+	 * Pre-commits the transaction, storing it in the write-ahead log and
+	 * creates a {@link nl.cwi.monetdb.jdbc.MonetSavepoint savepoint}.
+	 * This method should be used only when auto-commit mode has been disabled.
+	 * 
+	 * @param name A name for the savepoint
+	 * @return The newly created savepoint object
+	 * @throws SQLException
+	 */
 	public Savepoint preCommit(String name) throws SQLException {
 		Savepoint savepoint;
 		
@@ -50,13 +59,28 @@ public class MonetTwoStageCommit {
 		return savepoint;
 	}
 	
+	/**
+	 * Persists a given {@link nl.cwi.monetdb.jdbc.MonetSavepoint savepoint},
+	 * writing transaction to the persistent database store.
+	 * Following that the savepoint is released.
+	 * 
+	 * @param savepoint The savepoint which to persists
+	 * @throws SQLException
+	 */
 	public void persistCommit(Savepoint savepoint) throws SQLException {
 		connection.sendIndependentCommand("presist_commit");
 		connection.releaseSavepoint(savepoint);
 		return;
 	}
 	
+	/**
+	 * Rolls-back a given savepoint.
+	 * 
+	 * @param savepoint The savepoint which to rollback
+	 * @throws SQLException
+	 */
 	public void rollbackCommit(Savepoint savepoint) throws SQLException {
+		// TODO Do we need to rollback the transaction otherwise?
 		connection.rollback(savepoint);
 		return;
 	}
