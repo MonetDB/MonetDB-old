@@ -192,16 +192,15 @@ mvc_trans(mvc *m)
 }
 
 int
-mvc_commit(mvc *m, int chain, char *name)
-{
-	sql_trans *cur, *tr = m->session->tr;
+mvc_commit_prepare(mvc *m, int chain, char *name, sql_trans *tr) {
+	sql_trans *cur = m->session->tr;
 	int ok = SQL_OK;//, wait = 0;
 
 	assert(tr);
 	assert(m->session->active);	/* only commit an active transaction */
 	
 	if (mvc_debug)
-		fprintf(stderr, "#mvc_commit %s\n", (name) ? name : "");
+		fprintf(stderr, "#mvc_commit_prepare %s\n", (name) ? name : "");
 
 	if (m->session->status < 0) {
 		(void)sql_error(m, 010, "40000!COMMIT: transaction is aborted, will ROLLBACK instead");
@@ -223,7 +222,7 @@ build up the hash (not copied in the trans dup)) */
 			qc_clean(m->qc);
 		m->session->schema = find_sql_schema(m->session->tr, m->session->schema_name);
 		if (mvc_debug)
-			fprintf(stderr, "#mvc_commit %s done\n", name);
+			fprintf(stderr, "#mvc_commit_prepare %s done\n", name);
 		return 0;
 	}
 
@@ -247,7 +246,7 @@ build up the hash (not copied in the trans dup)) */
 			sql_trans_end(m->session);
 		m->type = Q_TRANS;
 		if (mvc_debug)
-			fprintf(stderr, "#mvc_commit %s done\n", (name) ? name : "");
+			fprintf(stderr, "#mvc_commit_prepare %s done\n", (name) ? name : "");
 		store_unlock();
 		return 0;
 	}
@@ -265,8 +264,32 @@ build up the hash (not copied in the trans dup)) */
 		store_lock();
 	}
 	 * */
-	/* validation phase */
+	return ok;
+}
+
+void
+mvc_commit_finish(mvc *m, int chain, char *name) {
+	sql_trans_end(m->session);
+	if (chain)
+		sql_trans_begin(m->session);
+	store_unlock();
+	m->type = Q_TRANS;
+	if (mvc_debug)
+		fprintf(stderr, "#mvc_commit_finish %s done\n", (name) ? name : "");
+}
+
+int
+mvc_commit(mvc *m, int chain, char *name)
+{
+	sql_trans *tr = m->session->tr;
+	int ok = SQL_OK;//, wait = 0;
+
+	if ((ok = mvc_commit_prepare(m, chain, name, tr)) != SQL_OK) {
+		return 0;
+	}
+
 	if (sql_trans_validate(tr)) {
+		/* execute commit */
 		if ((ok = sql_trans_commit(tr)) != SQL_OK) {
 			char *msg = sql_message("40000!COMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
 			GDKfatal("%s", msg);
@@ -278,13 +301,49 @@ build up the hash (not copied in the trans dup)) */
 		mvc_rollback(m, chain, name);
 		return -1;
 	}
-	sql_trans_end(m->session);
-	if (chain) 
-		sql_trans_begin(m->session);
-	store_unlock();
-	m->type = Q_TRANS;
-	if (mvc_debug)
-		fprintf(stderr, "#mvc_commit %s done\n", (name) ? name : "");
+
+	mvc_commit_finish(m, chain, name);
+
+	return ok;
+}
+
+sql_trans *
+mvc_precommit(mvc *m, int chain, char *name) {
+	sql_trans *tr = m->session->tr;
+	int ok = SQL_OK;//, wait = 0;
+
+	if ((ok = mvc_commit_prepare(m, chain, name, tr)) != SQL_OK) {
+		return 0;
+	}
+
+	if (sql_trans_validate(tr)) {
+		if ((ok = sql_trans_precommit(tr)) != SQL_OK) {
+			char *msg = sql_message("40000!COMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
+			GDKfatal("%s", msg);
+			_DELETE(msg);
+		}
+	} else {
+		store_unlock();
+		(void)sql_error(m, 010, "40000!COMMIT: transaction is aborted because of concurrency conflicts, will ROLLBACK instead");
+		mvc_rollback(m, chain, name);
+		return NULL;
+	}
+
+	return tr;
+}
+
+int
+mvc_persistcommit(mvc *m, int chain, char *name, sql_trans *tr) {
+	int ok = SQL_OK;//, wait = 0;
+
+	if ((ok = sql_trans_persistcommit(tr)) != SQL_OK) {
+		char *msg = sql_message("40000!COMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
+		GDKfatal("%s", msg);
+		_DELETE(msg);
+	}
+
+	mvc_commit_finish(m, chain, name);
+
 	return ok;
 }
 

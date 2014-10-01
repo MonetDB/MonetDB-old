@@ -358,12 +358,34 @@ SQLabort(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 SQLprecommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	mvc *sql = NULL;
+	str msg;
+	sql_trans *tr = NULL;
+	(void) stk;
+	(void) pci;
+
+	if ((msg = getSQLContext(cntxt, mb, &sql, NULL)) != NULL)
+		return msg;
+	if ((msg = checkSQLContext(cntxt)) != NULL)
+		return msg;
+
+	if (sql->session->auto_commit != 0)
+		throw(SQL, "sql.trans", "2DM30!COMMIT: not allowed in auto commit mode");
+	tr = mvc_precommit(sql, 0, 0);
+
+	if (tr == NULL) {
+		throw(SQL, "sql.trans", "2D000!COMMIT: failed");
+	}
 	return MAL_SUCCEED;
 }
 
 str
 SQLpersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
 	return MAL_SUCCEED;
 }
 
