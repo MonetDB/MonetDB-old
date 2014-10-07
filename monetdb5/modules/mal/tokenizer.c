@@ -463,9 +463,10 @@ TKNZRlocate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	oid id; 
 	(void) cntxt;
 	(void) mb;
-
-	if (TRANS == NULL)
+	
+	if (TRANS == NULL){
 		throw(MAL, "tokenizer", "no tokenizer store open");
+	}
 
 	ret = TKNRstringToOid(&id, (str *) getArgReference(stk, pci, 1));
 	if (ret == MAL_SUCCEED) {

@@ -1167,6 +1167,57 @@ SQLrdfidtostr(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	return msg; 
 }
 
+
+str
+SQLrdfstrtoid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+	str msg; 
+	mvc *m = NULL; 
+	BAT *mapBat = NULL; 
+	bat mapBatId;
+	str bnameBat = "tknzr_to_map";
+	oid *origId = NULL; 
+	oid *id = NULL; 
+	str *s = (str *)getArgReference(stk,pci,1);
+
+	printf("Get the encoded id for the string %s\n", *s); 
+
+	rethrow("sql.rdfstrtoid", msg, getSQLContext(cntxt, mb, &m, NULL));
+
+	printf("Get the context done\n"); 
+
+	mapBatId = BBPindex(bnameBat);
+
+	if ((mapBat= BATdescriptor(mapBatId)) == NULL) {
+		throw(MAL, "SQLrdfstrtoid", RUNTIME_OBJECT_MISSING);
+	}
+	
+	VALset(getArgReference(stk, pci, 1), TYPE_str, *s);
+
+	rethrow("sql.rdfstrtoid", msg, TKNZRlocate(cntxt,mb,stk,pci));
+
+	if (msg != MAL_SUCCEED){
+		return sql_message("Problem in locating string: %s\n", msg);		
+	}
+
+	origId = (oid *) getArgReference(stk, pci, 0);
+	
+	if (*origId == oid_nil){
+		return sql_message("This string is not stored");
+	} else
+		printf("origId = "BUNFMT"\n", *origId); 
+
+
+	id = (oid *) Tloc(mapBat, *origId); 
+
+	printf("id = "BUNFMT"\n", *id); 
+
+	if (id != NULL){
+		return sql_message("ID: "BUNFMT"\n", *id); 
+	}
+	
+	return msg; 
+}
+
 str 
 SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	str msg; 

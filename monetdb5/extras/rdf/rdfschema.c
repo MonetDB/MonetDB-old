@@ -11265,7 +11265,7 @@ str buildTKNZRMappingBat(BAT *lmap, BAT *rmap){
 	
 	TKNZRgetTotalCount(&num);
 	//create a tmpBat from 0 to number of TKNZR items
-	tmpBat = BATnew(TYPE_void, TYPE_oid , num + 1, TRANSIENT);
+	tmpBat = BATnew(TYPE_void, TYPE_void , num + 1, TRANSIENT);
 	BATsetcount(tmpBat,num);
 	BATseqbase(tmpBat, 0);
 	BATseqbase(BATmirror(tmpBat), 0);
@@ -11276,7 +11276,6 @@ str buildTKNZRMappingBat(BAT *lmap, BAT *rmap){
 	tmpBat->trevsorted = 0;
 	tmpBat->tdense = 1;
 
-
 	if (RDFpartialjoin(&mapBatId, &lmap->batCacheid, &rmap->batCacheid, &tmpBat->batCacheid) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in using RDFpartialjoin for tokenizer map bat");
 	}
@@ -11286,7 +11285,7 @@ str buildTKNZRMappingBat(BAT *lmap, BAT *rmap){
 	}
 
 	pMapBat = BATcopy(tmpmapBat, tmpmapBat->htype, tmpmapBat->ttype, TRUE, PERSISTENT);
-	
+
 	if (BKCsetName(&ret, (int *) &(pMapBat->batCacheid), (str *) &bname) != MAL_SUCCEED)
 		throw(MAL, "tokenizer.open", OPERATION_FAILED);
 	

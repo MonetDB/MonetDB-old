@@ -148,7 +148,7 @@ RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 	BATloop(result, p, q){
 		rbt = (oid *) BUNtloc(resulti, p); 
 		if (*rbt == oid_nil){
-			ibt = (oid *) BUNtloc(inputi, p); 
+			ibt = (oid *) BUNtail(inputi, p); 
 			*rbt = *ibt; 
 		}
 	}

@@ -41,3 +41,7 @@ comment "RDF scan operator"
 pattern rdfidtostr(id:oid)
 address	SQLrdfidtostr
 comment "Convert from oid to string"
+
+pattern rdfstrtoid(urlstr:str)
+address	SQLrdfstrtoid
+comment "Convert from string to encoded id"

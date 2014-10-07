@@ -49,3 +49,7 @@ create procedure rdf_scan(query string, sch string)
 
 create procedure rdf_idtostr(id oid)
 	external name sql.rdfidtostr;
+	
+create procedure rdf_strtoid(urlstr string)
+	external name sql.rdfstrtoid;
+	
