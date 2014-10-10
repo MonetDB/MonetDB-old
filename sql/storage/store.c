@@ -3257,6 +3257,7 @@ sql_trans_precommit(sql_trans *tr)
 {
 	int ok = LOG_OK;
 
+	store_lock();
 	/* snap shots should be saved first */
 	if (tr->parent == gtrans) {
 		if (bs_debug) {
