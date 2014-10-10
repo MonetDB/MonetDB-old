@@ -338,7 +338,8 @@ mvc_precommit(mvc *m, int chain, char *name) {
 }
 
 int
-mvc_persistcommit(mvc *m, int chain, char *name, sql_trans *tr) {
+mvc_persistcommit(mvc *m, int chain, char *name) {
+	sql_trans *tr = m->session->tr;
 	int ok = SQL_OK;//, wait = 0;
 
 	store_lock();

@@ -156,7 +156,7 @@ extern int mvc_commit_prepare(mvc *m, int chain, char *name, sql_trans *tr);
 extern void mvc_commit_finish(mvc *m, int chain, char *name);
 extern int mvc_commit(mvc *c, int chain, char *name);
 extern sql_trans *mvc_precommit(mvc *m, int chain, char *name);
-extern int mvc_persistcommit(mvc *m, int chain, char *name, sql_trans *tr);
+extern int mvc_persistcommit(mvc *m, int chain, char *name);
 extern int mvc_rollback(mvc *c, int chain, char *name);
 extern int mvc_release(mvc *c, char *name);
 
