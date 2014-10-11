@@ -320,6 +320,7 @@ mvc_precommit(mvc *m, int chain, char *name) {
 	}
 
 	if (sql_trans_validate(tr)) {
+		// pre-commit the transaction
 		if ((ok = sql_trans_precommit(tr)) != SQL_OK) {
 			store_unlock();
 			char *msg = sql_message("40000!PRECOMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
@@ -332,7 +333,7 @@ mvc_precommit(mvc *m, int chain, char *name) {
 		mvc_rollback(m, chain, name);
 		return NULL;
 	}
-
+	// yes, unlock the store, mvc_persistcommit will lock it again before processing
 	store_unlock();
 	return tr;
 }
@@ -354,13 +355,15 @@ mvc_persistcommit(mvc *m, int chain, char *name) {
 			return -1;
 		}
 	}
+	// set it
 	tr = m->session->tr;
+	// persist it
 	if ((ok = sql_trans_persistcommit(tr)) != SQL_OK) {
 		char *msg = sql_message("40000!PERSISTCOMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
 		GDKfatal("%s", msg);
 		_DELETE(msg);
 	}
-
+	// clean up
 	mvc_commit_finish(m, chain, name);
 
 	return ok;
