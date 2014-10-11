@@ -92,6 +92,10 @@ sed -r \
 	-e 's/TRIM(BOTH * FROM *)/TRIM(replace(\2,\1,' '))/Ig' \
 	-e 's/\bcidr,/inet,/Ig' \
 	-e 's/\bcidr(*)/cast(\1 as inet)/Ig' \
+	-e 's/\bdouble '64'/cast('64' as double)/Ig' \
+	-e 's/\bdouble '144'/cast('144' as double)/Ig' \
+	-e 's/\bdouble '0.5'/cast('0.5' as double)/Ig' \
+	-e 's/\bdouble '27'/cast('27' as double)/Ig' \
 	-e 's/\bnumeric '10'/cast('10.0' as numeric(2,0))/Ig' \
 	-e 's/\btext 'text'/cast('text' as text)/Ig' \
 	-e 's/\bchar(20) 'characters'/cast('characters' as char(20))/Ig' \
@@ -107,6 +111,7 @@ sed -r \
 	-e 's/VACUUM ANALYZE *;/call vacuum('sys', '\1'); call analyze('sys', '\1');/Ig' \
 	-e 's/VACUUM FULL *;/call vacuum('sys', '\1');/Ig' \
 	-e 's/VACUUM *;/call vacuum('sys', '\1');/Ig' \
+	-e 's/alter table only\b/alter table \/* only *\/ /Ig' \
 	-e 's/alter table * alter column * set storage external;/\/* alter table \1 alter column \2 set storage external; *\//Ig' \
 	-e 's/SET datestyle TO *;/\/* SET datestyle TO \1; *\//Ig' \
 	-e 's/SET geqo TO *;/\/* SET geqo TO \1; *\//Ig' \
