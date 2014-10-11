@@ -54,7 +54,7 @@ public class MonetTwoStageCommit {
 			throw new SQLException("Cannot execute preCommit - autocommit enabled", "3B000");
 		}
 		savepoint = connection.setSavepoint(name);
-		connection.sendIndependentCommand("pre_commit");
+		connection.sendIndependentCommand("precommit()");
 		
 		return savepoint;
 	}
@@ -68,7 +68,7 @@ public class MonetTwoStageCommit {
 	 * @throws SQLException
 	 */
 	public void persistCommit(Savepoint savepoint) throws SQLException {
-		connection.sendIndependentCommand("presist_commit");
+		connection.sendIndependentCommand("presistcommit()");
 		connection.releaseSavepoint(savepoint);
 		return;
 	}
@@ -80,7 +80,7 @@ public class MonetTwoStageCommit {
 	 * @throws SQLException
 	 */
 	public void rollbackCommit(Savepoint savepoint) throws SQLException {
-		// TODO Do we need to rollback the transaction otherwise?
+		// no need to do anything else, rollback bring the store back to the previous commited transaction
 		connection.rollback(savepoint);
 		return;
 	}
