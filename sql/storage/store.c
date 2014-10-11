@@ -3235,67 +3235,67 @@ catalog_corrupt( sql_trans *tr )
 int
 sql_trans_commit(sql_trans *tr)
 {
-	int ok = LOG_OK;
+	int result = LOG_OK;
 
 	/* write phase */
 	if (bs_debug)
 		fprintf(stderr, "#forwarding changes %d,%d %d,%d\n", gtrans->stime, tr->stime, gtrans->wstime, tr->wstime);
 
 	/* do a pre-commit first, writing the changes to the write-ahead log and rollingforward the transaction */
-	ok = sql_trans_precommit(tr);
-	if (ok == LOG_OK) {
+	result = sql_trans_precommit(tr);
+	if (result == LOG_OK) {
 		/* write the changes in the persistent store */
-		ok = sql_trans_persistcommit(tr);
+		result = sql_trans_persistcommit(tr);
 	}
 	if (bs_debug)
 		fprintf(stderr, "#done forwarding changes %d,%d\n", gtrans->stime, gtrans->wstime);
-	return (ok==LOG_OK)?SQL_OK:SQL_ERR;
+	return (result==LOG_OK)?SQL_OK:SQL_ERR;
 }
 
 int
 sql_trans_precommit(sql_trans *tr)
 {
-	int ok = LOG_OK;
+	int result = LOG_OK;
 
 	/* snap shots should be saved first */
 	if (tr->parent == gtrans) {
 		if (bs_debug) {
 			fprintf(stderr, "#writing changes to WAL %d,%d %d,%d\n", gtrans->stime, tr->stime, gtrans->wstime, tr->wstime);
 		}
-		ok = rollforward_trans(tr, R_SNAPSHOT);
+		result = rollforward_trans(tr, R_SNAPSHOT);
 
-		if (ok == LOG_OK)
-			ok = logger_funcs.log_tstart();
-		if (ok == LOG_OK)
-			ok = rollforward_trans(tr, R_LOG);
-		return ok;
+		if (result == LOG_OK)
+			result = logger_funcs.log_tstart();
+		if (result == LOG_OK)
+			result = rollforward_trans(tr, R_LOG);
+		return result;
 	}
-	return (ok==LOG_OK)?SQL_OK:SQL_ERR;
+	return (result==LOG_OK)?SQL_OK:SQL_ERR;
 }
 
 int
 sql_trans_persistcommit(sql_trans *tr)
 {
-	int ok = LOG_OK;
+	int result = LOG_OK;
 
 	if (bs_debug) {
 			fprintf(stderr, "#writing changes to persistent store %d,%d\n", gtrans->stime, gtrans->wstime);
 	}
 
-	if (ok == LOG_OK) {
-		if (ok == LOG_OK && prev_oid != store_oid)
-			ok = logger_funcs.log_sequence(OBJ_SID, store_oid);
+	if (result == LOG_OK) {
+		if (result == LOG_OK && prev_oid != store_oid)
+			result = logger_funcs.log_sequence(OBJ_SID, store_oid);
 		prev_oid = store_oid;
-		if (ok == LOG_OK)
-			ok = logger_funcs.log_tend();
+		if (result == LOG_OK)
+			result = logger_funcs.log_tend();
 		tr->schema_number = store_schema_number();
 	}
-	if (ok == LOG_OK) {
+	if (result == LOG_OK) {
 		/* It is save to rollforward the changes now. In case 
 		   of failure, the log will be replayed. */
-		ok = rollforward_trans(tr, R_APPLY);
+		result = rollforward_trans(tr, R_APPLY);
 	}
-	return (ok==LOG_OK)?SQL_OK:SQL_ERR;
+	return (result==LOG_OK)?SQL_OK:SQL_ERR;
 }
 
 static void

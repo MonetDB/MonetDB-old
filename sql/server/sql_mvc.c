@@ -194,7 +194,7 @@ mvc_trans(mvc *m)
 int
 mvc_commit_prepare(mvc *m, int chain, char *name, sql_trans *tr) {
 	sql_trans *cur = m->session->tr;
-	int ok = SQL_OK;//, wait = 0;
+	int result = SQL_OK;//, wait = 0;
 
 	assert(tr);
 	assert(m->session->active);	/* only commit an active transaction */
@@ -231,7 +231,7 @@ build up the hash (not copied in the trans dup)) */
 	tr = tr->parent;
 	if (tr->parent) {
 		store_lock();
-		while (tr->parent != NULL && ok == SQL_OK) {
+		while (tr->parent != NULL && result == SQL_OK) {
 			tr = sql_trans_destroy(tr);
 		}
 		store_unlock();
@@ -264,7 +264,7 @@ build up the hash (not copied in the trans dup)) */
 		store_lock();
 	}
 	 * */
-	return ok;
+	return result;
 }
 
 void
@@ -282,16 +282,16 @@ int
 mvc_commit(mvc *m, int chain, char *name)
 {
 	sql_trans *tr = m->session->tr;
-	int ok = SQL_OK;//, wait = 0;
+	int result = SQL_OK;//, wait = 0;
 
-	if ((ok = mvc_commit_prepare(m, chain, name, tr)) != SQL_OK) {
+	if ((result = mvc_commit_prepare(m, chain, name, tr)) != SQL_OK) {
 		store_unlock();
 		return 0;
 	}
 
 	if (sql_trans_validate(tr)) {
 		/* execute commit */
-		if ((ok = sql_trans_commit(tr)) != SQL_OK) {
+		if ((result = sql_trans_commit(tr)) != SQL_OK) {
 			store_unlock();
 			char *msg = sql_message("40000!COMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
 			GDKfatal("%s", msg);
@@ -306,22 +306,22 @@ mvc_commit(mvc *m, int chain, char *name)
 
 	mvc_commit_finish(m, chain, name);
 
-	return ok;
+	return result;
 }
 
 sql_trans *
 mvc_precommit(mvc *m, int chain, char *name) {
 	sql_trans *tr = m->session->tr;
-	int ok = SQL_OK;//, wait = 0;
+	int result = SQL_OK;//, wait = 0;
 
-	if ((ok = mvc_commit_prepare(m, chain, name, tr)) != SQL_OK) {
+	if ((result = mvc_commit_prepare(m, chain, name, tr)) != SQL_OK) {
 		store_unlock();
 		return 0;
 	}
 
 	if (sql_trans_validate(tr)) {
 		// pre-commit the transaction
-		if ((ok = sql_trans_precommit(tr)) != SQL_OK) {
+		if ((result = sql_trans_precommit(tr)) != SQL_OK) {
 			store_unlock();
 			char *msg = sql_message("40000!PRECOMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
 			GDKfatal("%s", msg);
@@ -358,7 +358,7 @@ mvc_persistcommit(mvc *m, int chain, char *name) {
 	// set it
 	tr = m->session->tr;
 	// persist it
-	if ((ok = sql_trans_persistcommit(tr)) != SQL_OK) {
+	if ((result = sql_trans_persistcommit(tr)) != SQL_OK) {
 		char *msg = sql_message("40000!PERSISTCOMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
 		GDKfatal("%s", msg);
 		_DELETE(msg);
@@ -366,7 +366,7 @@ mvc_persistcommit(mvc *m, int chain, char *name) {
 	// clean up
 	mvc_commit_finish(m, chain, name);
 
-	return ok;
+	return result;
 }
 
 int
