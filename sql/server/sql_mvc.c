@@ -322,13 +322,13 @@ mvc_precommit(mvc *m, int chain, char *name) {
 	if (sql_trans_validate(tr)) {
 		if ((ok = sql_trans_precommit(tr)) != SQL_OK) {
 			store_unlock();
-			char *msg = sql_message("40000!COMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
+			char *msg = sql_message("40000!PRECOMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
 			GDKfatal("%s", msg);
 			_DELETE(msg);
 		}
 	} else {
 		store_unlock();
-		(void)sql_error(m, 010, "40000!COMMIT: transaction is aborted because of concurrency conflicts, will ROLLBACK instead");
+		(void)sql_error(m, 010, "40000!PRECOMMIT: transaction is aborted because of concurrency conflicts, will ROLLBACK instead");
 		mvc_rollback(m, chain, name);
 		return NULL;
 	}
@@ -348,7 +348,7 @@ mvc_persistcommit(mvc *m, int chain, char *name) {
 		while (tr && (!tr->name || strcmp(tr->name, name) != 0))
 			tr = tr->parent;
 		if (!tr) {
-			(void)sql_error(m, 010, "COMMIT: transaction commit failed, no such savepoint: '%s'", name);
+			(void)sql_error(m, 010, "PERSISTCOMMIT: transaction commit failed, no such savepoint: '%s'", name);
 			m->session->status = -1;
 			store_unlock();
 			return -1;
@@ -356,7 +356,7 @@ mvc_persistcommit(mvc *m, int chain, char *name) {
 	}
 	tr = m->session->tr;
 	if ((ok = sql_trans_persistcommit(tr)) != SQL_OK) {
-		char *msg = sql_message("40000!COMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
+		char *msg = sql_message("40000!PERSISTCOMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
 		GDKfatal("%s", msg);
 		_DELETE(msg);
 	}
