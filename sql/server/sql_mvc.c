@@ -343,6 +343,18 @@ mvc_persistcommit(mvc *m, int chain, char *name) {
 	int ok = SQL_OK;//, wait = 0;
 
 	store_lock();
+	// find the transaction
+	if (name && name[0] != '\0') {
+		while (tr && (!tr->name || strcmp(tr->name, name) != 0))
+			tr = tr->parent;
+		if (!tr) {
+			(void)sql_error(m, 010, "COMMIT: transaction commit failed, no such savepoint: '%s'", name);
+			m->session->status = -1;
+			store_unlock();
+			return -1;
+		}
+	}
+	tr = m->session->tr;
 	if ((ok = sql_trans_persistcommit(tr)) != SQL_OK) {
 		char *msg = sql_message("40000!COMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
 		GDKfatal("%s", msg);
