@@ -10292,6 +10292,13 @@ void freeCStableStat(CStableStat* cstablestat){
 	BBPunfix(cstablestat->pbat->batCacheid); 
 	BBPunfix(cstablestat->sbat->batCacheid); 
 	BBPunfix(cstablestat->obat->batCacheid); 
+#if TRIPLEBASED_TABLE
+	BBPunfix(cstablestat->resbat->batCacheid); 
+	BBPunfix(cstablestat->repbat->batCacheid); 
+	BBPunfix(cstablestat->reobat->batCacheid); 
+#endif
+
+
 	free(cstablestat->lstbatid); 
 	free(cstablestat->lastInsertedS); 
 	free(cstablestat->lstcstable); 
@@ -11691,6 +11698,17 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 		throw(RDF, "rdf.RDFreorganize", "Problem in sorting PSO");	
 	}	
 	printf("Done  \n");
+
+	#if TRIPLEBASED_TABLE
+	printf("Build triple-based relational BATs .."); 
+	cstablestat->resbat = BATcopy(sNewBat, sNewBat->htype, sNewBat->ttype, TRUE, TRANSIENT);	
+	cstablestat->repbat = BATcopy(pNewBat, pNewBat->htype, pNewBat->ttype, TRUE, TRANSIENT);	
+	cstablestat->reobat = BATcopy(oNewBat, oNewBat->htype, oNewBat->ttype, TRUE, TRANSIENT);	
+	if (RDFtriplesubsort(&cstablestat->resbat, &cstablestat->repbat, &cstablestat->reobat) != MAL_SUCCEED){
+		throw(RDF, "rdf.RDFreorganize", "Problem in sorting reorganized SPO");
+	}
+	printf("Done\n");
+	#endif
 
 	//BATprint(pNewBat);
 	//BATprint(sNewBat);

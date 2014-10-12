@@ -771,6 +771,9 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_table	**viewcstables; 
 	#endif
 	sql_table 	*psotbl;
+	#if TRIPLEBASED_TABLE	
+	sql_table	*respotbl; 	/*reorganized spo table*/
+	#endif
 	int 	i, j, k, colId; 
 	int	tmpNumMVCols = 0;
 	int	nonullmvtables = 0;
@@ -822,7 +825,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	printf ("Sql.mx: Reorganizing process process took %f seconds.\n", ((float)(tmpendT - tmpbeginT))/CLOCKS_PER_SEC);
 
 	//if (*mode == EXPLOREONLY){
-	if (*mode < 3){
+	if (*mode < BUILDTABLE){
 		BBPunfix(sbat->batCacheid); 
 		BBPunfix(pbat->batCacheid);
 		BBPunfix(obat->batCacheid); 
@@ -855,7 +858,6 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	mvc_create_column(m, psotbl, "s",  &tpe);
 	mvc_create_column(m, psotbl, "o",  &tpe);
 
-
 	store_funcs.append_col(m->session->tr,
 			mvc_bind_column(m, psotbl,"p" ), 
 			cstablestat->pbat, TYPE_bat);
@@ -866,6 +868,28 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			mvc_bind_column(m, psotbl,"o" ), 
 			cstablestat->obat, TYPE_bat);
 	// Add regular triple to cstables and cstablesEx
+	
+	#if TRIPLEBASED_TABLE
+	printf("Create triple-based relational table ..."); 
+	respotbl = mvc_create_table(m, sch, "triples", tt_table, 0,
+			                                   SQL_PERSIST, 0, 3);
+	totalNoTablesCreated++;
+	mvc_create_column(m, respotbl, "s",  &tpe);
+	mvc_create_column(m, respotbl, "p",  &tpe);
+	mvc_create_column(m, respotbl, "o",  &tpe);
+
+	store_funcs.append_col(m->session->tr,
+			mvc_bind_column(m, respotbl,"s" ), 
+			cstablestat->resbat, TYPE_bat);
+	store_funcs.append_col(m->session->tr,
+			mvc_bind_column(m, respotbl,"p" ), 
+			cstablestat->repbat, TYPE_bat);
+	store_funcs.append_col(m->session->tr,
+			mvc_bind_column(m, respotbl,"o" ), 
+			cstablestat->reobat, TYPE_bat);
+	printf("Done\n");
+
+	#endif
 
 	printf("Starting creating SQL Table -- \n");
 	

@@ -37,7 +37,8 @@ struct CSmergeRel; // forward declaration
 
 typedef enum{
 	EXPLOREONLY, 
-	REORGANIZE
+	REORGANIZEONLY,
+	BUILDTABLE
 } ExpMode; 
 
 typedef enum{
@@ -396,6 +397,7 @@ typedef struct CStableEx {		/* For non-default-type columns*/
 	oid		tblname; 	/* Label of the table */
 } CStableEx; 
 
+#define TRIPLEBASED_TABLE 1
 
 typedef struct CStableStat {
 	bat**   	lstbatid;
@@ -412,6 +414,11 @@ typedef struct CStableStat {
 	BAT*		pbat; 
 	BAT*		sbat; 
 	BAT*		obat; 
+#if TRIPLEBASED_TABLE
+	BAT*		resbat; /* Re-organized sbat */
+	BAT*		repbat; /* Re-organized pbat */
+	BAT*		reobat; /* Re-organized obat */
+#endif	
 } CStableStat; 
 
 typedef struct PropTypes{
