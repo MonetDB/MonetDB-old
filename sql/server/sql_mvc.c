@@ -309,7 +309,7 @@ mvc_commit(mvc *m, int chain, const char *name)
 	return result;
 }
 
-sql_trans *
+int
 mvc_precommit(mvc *m, int chain, const char *name) {
 	sql_trans *tr = m->session->tr;
 	int result = SQL_OK;//, wait = 0;
@@ -331,11 +331,11 @@ mvc_precommit(mvc *m, int chain, const char *name) {
 		store_unlock();
 		(void)sql_error(m, 010, "40000!PRECOMMIT: transaction is aborted because of concurrency conflicts, will ROLLBACK instead");
 		mvc_rollback(m, chain, name);
-		return NULL;
+		return -1;
 	}
 	// yes, unlock the store, mvc_persistcommit will lock it again before processing
 	store_unlock();
-	return tr;
+	return result;
 }
 
 int
