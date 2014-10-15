@@ -292,8 +292,9 @@ mvc_commit(mvc *m, int chain, const char *name)
 	if (sql_trans_validate(tr)) {
 		/* execute commit */
 		if ((result = sql_trans_commit(tr)) != SQL_OK) {
+			char *msg;
 			store_unlock();
-			char *msg = sql_message("40000!COMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
+			msg = sql_message("40000!COMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
 			GDKfatal("%s", msg);
 			_DELETE(msg);
 		}
@@ -322,8 +323,9 @@ mvc_precommit(mvc *m, int chain, const char *name) {
 	if (sql_trans_validate(tr)) {
 		// pre-commit the transaction
 		if ((result = sql_trans_precommit(tr)) != SQL_OK) {
+			char *msg;
 			store_unlock();
-			char *msg = sql_message("40000!PRECOMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
+			msg = sql_message("40000!PRECOMMIT: transaction commit failed (perhaps your disk is full?) exiting (kernel error: %s)", GDKerrbuf);
 			GDKfatal("%s", msg);
 			_DELETE(msg);
 		}
