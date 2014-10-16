@@ -1140,6 +1140,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif /* HAVE_RAPTOR */	
 }
 
+#if 0
 str
 SQLrdfidtostr(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	str msg; 
@@ -1190,8 +1191,47 @@ SQLrdfidtostr(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	
 	return msg; 
 }
+#endif
 
+str
+SQLrdfidtostr(str *ret, oid *id){
+	str msg; 
+	BAT *lmapBat = NULL, *rmapBat = NULL; 
+	bat lmapBatId, rmapBatId;
+	str bnamelBat = "map_to_tknz_left";
+	str bnamerBat = "map_to_tknz_right";
+	BUN pos; 
+	oid *origId; 
 
+	lmapBatId = BBPindex(bnamelBat);
+	rmapBatId = BBPindex(bnamerBat);
+
+	if (lmapBatId == 0 || rmapBatId == 0){
+		throw(SQL, "sql.SQLrdfidtostr", "The lmap/rmap Bats should be built already");
+	}
+	
+	if ((lmapBat= BATdescriptor(lmapBatId)) == NULL) {
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+
+	if ((rmapBat= BATdescriptor(rmapBatId)) == NULL) {
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+
+	pos = BUNfnd(BATmirror(lmapBat),id);
+	if (pos == BUN_NONE)	//this id is not converted to a new id
+		origId = id; 
+	else
+		origId = (oid *) Tloc(rmapBat, pos);
+	
+	rethrow("SQLrdfidtostr", msg, takeOid(*origId, ret));
+
+	//printf("String for "BUNFMT" is: %s \n",*id, *ret); 
+
+	return msg; 
+}
+
+#if 0
 str
 SQLrdfstrtoid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	str msg; 
@@ -1241,6 +1281,47 @@ SQLrdfstrtoid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	
 	return msg; 
 }
+#endif
+
+str
+SQLrdfstrtoid(oid *ret, str *s){
+	str msg; 
+	BAT *mapBat = NULL; 
+	bat mapBatId;
+	str bnameBat = "tknzr_to_map";
+	oid origId; 
+	oid *id; 
+
+	//printf("Get the encoded id for the string %s\n", *s); 
+
+	mapBatId = BBPindex(bnameBat);
+
+	if ((mapBat= BATdescriptor(mapBatId)) == NULL) {
+		throw(MAL, "SQLrdfstrtoid", RUNTIME_OBJECT_MISSING);
+	}
+	
+	rethrow("sql.rdfstrtoid", msg, TKNRstringToOid(&origId, s));
+
+	if (msg != MAL_SUCCEED){
+		throw(SQL, "SQLrdfstrtoid", "Problem in locating string: %s\n", msg);
+	}
+
+	if (origId == oid_nil){
+		throw(SQL, "SQLrdfstrtoid","String %s is not stored", *s); 
+	}
+
+	id = (oid *) Tloc(mapBat, origId); 
+
+	if (id == NULL){
+		*ret = BUN_NONE; 
+		throw(SQL, "SQLrdfstrtoid","No Id found for string %s", *s); 
+	}
+	else
+		*ret = *id; 
+	
+	return msg; 
+}
+
 
 str 
 SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){

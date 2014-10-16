@@ -488,6 +488,9 @@ str TKNRstringToOid(oid *id, str *s)
 	oid prv = 0;
 	oid comp;
 
+	if (TRANS == NULL){
+		throw(MAL, "tokenizer", "no tokenizer store open");
+	}
 
 	if ((url = GDKstrdup(*s)) == NULL) {
 		throw(MAL, "tokenizer.append", OPERATION_FAILED MAL_MALLOC_FAIL);
@@ -535,6 +538,10 @@ takeOid(oid id, str *val)
 	size_t lngth = 0;
 	str s;
 	BATiter biidx; /* Iterator for index bat */
+
+	if (TRANS == NULL) {
+		throw(MAL, "tokenizer", "no tokenizer store open");
+	}
 
 	if (id >= BATcount(tokenBAT[INDEX].val)) {
 		throw(MAL, "tokenizer.takeOid", OPERATION_FAILED " illegal oid");

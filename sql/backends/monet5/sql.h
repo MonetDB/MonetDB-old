@@ -148,8 +148,8 @@ sql5_export str SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 sql5_export str SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLrdfRetrieveSubschema(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-sql5_export str SQLrdfidtostr(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-sql5_export str SQLrdfstrtoid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str SQLrdfidtostr(str *ret, oid *id);
+sql5_export str SQLrdfstrtoid(oid *ret, str *s);
 sql5_export str SQLoptimizersUpdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str month_interval_str(int *ret, str *s, int *ek, int *sk);
 sql5_export str second_interval_str(lng *res, str *s, int *ek, int *sk);
