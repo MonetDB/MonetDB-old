@@ -32,22 +32,17 @@ import java.sql.Savepoint;
  * 
  */
 public class MonetTwoStageCommit {
-	private final MonetConnection connection;
-	
-	MonetTwoStageCommit(MonetConnection connection) {
-		this.connection = connection;
-	}
-	
 	/**
 	 * Pre-commits the transaction, storing it in the write-ahead log and
 	 * creates a {@link nl.cwi.monetdb.jdbc.MonetSavepoint savepoint}.
 	 * This method should be used only when auto-commit mode has been disabled.
 	 * 
 	 * @param name A name for the savepoint
+	 * @param connection The JDBC connection to the database
 	 * @return The newly created savepoint object
 	 * @throws SQLException
 	 */
-	public Savepoint preCommit(String name) throws SQLException {
+	public Savepoint preCommit(String name, MonetConnection connection) throws SQLException {
 		Savepoint savepoint;
 		
 		if (connection.getAutoCommit()) {
@@ -65,9 +60,10 @@ public class MonetTwoStageCommit {
 	 * Following that the savepoint is released.
 	 * 
 	 * @param savepoint The savepoint which to persists
+	 * @param connection The JDBC connection to the database
 	 * @throws SQLException
 	 */
-	public void persistCommit(Savepoint savepoint) throws SQLException {
+	public void persistCommit(Savepoint savepoint, MonetConnection connection) throws SQLException {
 		connection.sendIndependentCommand("presistcommit()");
 		connection.releaseSavepoint(savepoint);
 		return;
@@ -77,9 +73,10 @@ public class MonetTwoStageCommit {
 	 * Rolls-back a given savepoint.
 	 * 
 	 * @param savepoint The savepoint which to rollback
+	 * @param connection The JDBC connection to the database
 	 * @throws SQLException
 	 */
-	public void rollbackCommit(Savepoint savepoint) throws SQLException {
+	public void rollbackCommit(Savepoint savepoint, MonetConnection connection) throws SQLException {
 		// no need to do anything else, rollback bring the store back to the previous commited transaction
 		connection.rollback(savepoint);
 		return;
