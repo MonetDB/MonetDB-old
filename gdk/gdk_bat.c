@@ -152,20 +152,20 @@ BATcreatedesc(int ht, int tt, int heapnames, int role)
 		const char *nme = BBP_physical(bn->batCacheid);
 
 		if (ht) {
-			bn->H->heap.filename = GDKfilepath(-1, NULL, nme, "head");
+			bn->H->heap.filename = GDKfilepath(NOFARM, NULL, nme, "head");
 			if (bn->H->heap.filename == NULL)
 				goto bailout;
 		}
 
 		if (tt) {
-			bn->T->heap.filename = GDKfilepath(-1, NULL, nme, "tail");
+			bn->T->heap.filename = GDKfilepath(NOFARM, NULL, nme, "tail");
 			if (bn->T->heap.filename == NULL)
 				goto bailout;
 		}
 
 		if (ATOMneedheap(ht)) {
 			if ((bn->H->vheap = (Heap *) GDKzalloc(sizeof(Heap))) == NULL ||
-			    (bn->H->vheap->filename = GDKfilepath(-1, NULL, nme, "hheap")) == NULL)
+			    (bn->H->vheap->filename = GDKfilepath(NOFARM, NULL, nme, "hheap")) == NULL)
 				goto bailout;
 			bn->H->vheap->parentid = bn->batCacheid;
 			bn->H->vheap->farmid = BBPselectfarm(role, bn->htype, varheap);
@@ -173,7 +173,7 @@ BATcreatedesc(int ht, int tt, int heapnames, int role)
 
 		if (ATOMneedheap(tt)) {
 			if ((bn->T->vheap = (Heap *) GDKzalloc(sizeof(Heap))) == NULL ||
-			    (bn->T->vheap->filename = GDKfilepath(-1, NULL, nme, "theap")) == NULL)
+			    (bn->T->vheap->filename = GDKfilepath(NOFARM, NULL, nme, "theap")) == NULL)
 				goto bailout;
 			bn->T->vheap->parentid = bn->batCacheid;
 			bn->T->vheap->farmid = BBPselectfarm(role, bn->ttype, varheap);
@@ -183,15 +183,15 @@ BATcreatedesc(int ht, int tt, int heapnames, int role)
 	return bs;
       bailout:
 	if (ht)
-		HEAPfree(&bn->H->heap);
+		HEAPfree(&bn->H->heap, 1);
 	if (tt)
-		HEAPfree(&bn->T->heap);
+		HEAPfree(&bn->T->heap, 1);
 	if (bn->H->vheap) {
-		HEAPfree(bn->H->vheap);
+		HEAPfree(bn->H->vheap, 1);
 		GDKfree(bn->H->vheap);
 	}
 	if (bn->T->vheap) {
-		HEAPfree(bn->T->vheap);
+		HEAPfree(bn->T->vheap, 1);
 		GDKfree(bn->T->vheap);
 	}
 	GDKfree(bs);
@@ -265,15 +265,15 @@ BATnewstorage(int ht, int tt, BUN cap, int role)
 	}
 	if (tt && HEAPalloc(&bn->T->heap, cap, bn->T->width) < 0) {
 		if (ht)
-			HEAPfree(&bn->H->heap);
+			HEAPfree(&bn->H->heap, 1);
 		return NULL;
 	}
 
 	if (ATOMheap(ht, bn->H->vheap, cap) < 0) {
 		if (ht)
-			HEAPfree(&bn->H->heap);
+			HEAPfree(&bn->H->heap, 1);
 		if (tt)
-			HEAPfree(&bn->T->heap);
+			HEAPfree(&bn->T->heap, 1);
 		GDKfree(bn->H->vheap);
 		if (bn->T->vheap)
 			GDKfree(bn->T->vheap);
@@ -281,11 +281,11 @@ BATnewstorage(int ht, int tt, BUN cap, int role)
 	}
 	if (ATOMheap(tt, bn->T->vheap, cap) < 0) {
 		if (ht)
-			HEAPfree(&bn->H->heap);
+			HEAPfree(&bn->H->heap, 1);
 		if (tt)
-			HEAPfree(&bn->T->heap);
+			HEAPfree(&bn->T->heap, 1);
 		if (bn->H->vheap) {
-			HEAPfree(bn->H->vheap);
+			HEAPfree(bn->H->vheap, 1);
 			GDKfree(bn->H->vheap);
 		}
 		GDKfree(bn->T->vheap);
@@ -352,9 +352,9 @@ BATattach(int tt, const char *heapfile, int role)
 	path = GDKfilepath(bn->T->heap.farmid, BATDIR, bn->T->heap.filename, "new");
 	GDKcreatedir(path);
 	if (rename(heapfile, path) < 0) {
-		GDKfree(path);
 		GDKsyserror("BATattach: cannot rename heapfile\n");
-		HEAPfree(&bn->T->heap);
+		GDKfree(path);
+		HEAPfree(&bn->T->heap, 1);
 		GDKfree(bs);
 		return NULL;
 	}
@@ -373,29 +373,12 @@ BATattach(int tt, const char *heapfile, int role)
 	bn->T->heap.size = (size_t) st.st_size;
 	bn->T->heap.newstorage = bn->T->heap.storage = (bn->T->heap.size < GDK_mmap_minsize) ? STORE_MEM : STORE_MMAP;
 	if (HEAPload(&bn->T->heap, BBP_physical(bn->batCacheid), "tail", TRUE) < 0) {
-		HEAPfree(&bn->T->heap);
+		HEAPfree(&bn->T->heap, 1);
 		GDKfree(bs);
 		return NULL;
 	}
 	BBPcacheit(bs, 1);
 	return bn;
-}
-
-/*
- * The routine BATclone creates a bat with the same types as b.
- */
-BAT *
-BATclone(BAT *b, BUN cap, int role)
-{
-	BAT *c = BATnew(b->htype, b->ttype, cap, role);
-
-	if (c) {
-		if (c->htype == TYPE_void && b->hseqbase != oid_nil)
-			BATseqbase(c, b->hseqbase);
-		if (c->ttype == TYPE_void && b->tseqbase != oid_nil)
-			BATseqbase(BATmirror(c), b->tseqbase);
-	}
-	return c;
 }
 
 /*
@@ -577,20 +560,20 @@ BATclear(BAT *b, int force)
 			if (b->T->vheap->free > 0 &&
 			    ATOMheap(b->ttype, &th, cap) < 0) {
 				if (b->H->vheap && b->H->vheap->free > 0)
-					HEAPfree(&hh);
+					HEAPfree(&hh, 1);
 				return NULL;
 			}
 		}
 		assert(b->H->vheap == NULL || b->H->vheap->parentid == abs(b->batCacheid));
 		if (b->H->vheap && b->H->vheap->free > 0) {
 			hh.parentid = b->H->vheap->parentid;
-			HEAPfree(b->H->vheap);
+			HEAPfree(b->H->vheap, 0);
 			*b->H->vheap = hh;
 		}
 		assert(b->T->vheap == NULL || b->T->vheap->parentid == abs(b->batCacheid));
 		if (b->T->vheap && b->T->vheap->free > 0) {
 			th.parentid = b->T->vheap->parentid;
-			HEAPfree(b->T->vheap);
+			HEAPfree(b->T->vheap, 0);
 			*b->T->vheap = th;
 		}
 	} else {
@@ -618,6 +601,8 @@ BATclear(BAT *b, int force)
 	else
 		b->batFirst = b->batInserted;
 	BATsetcount(b,0);
+	BATseqbase(b, 0);
+	BATseqbase(BATmirror(b), 0);
 	b->batDirty = TRUE;
 	BATsettrivprop(b);
 	return b;
@@ -647,20 +632,20 @@ BATfree(BAT *b)
 	HASHdestroy(b);
 	IMPSdestroy(b);
 	if (b->htype)
-		HEAPfree(&b->H->heap);
+		HEAPfree(&b->H->heap, 0);
 	else
 		assert(!b->H->heap.base);
 	if (b->ttype)
-		HEAPfree(&b->T->heap);
+		HEAPfree(&b->T->heap, 0);
 	else
 		assert(!b->T->heap.base);
 	if (b->H->vheap) {
 		assert(b->H->vheap->parentid == b->batCacheid);
-		HEAPfree(b->H->vheap);
+		HEAPfree(b->H->vheap, 0);
 	}
 	if (b->T->vheap) {
 		assert(b->T->vheap->parentid == b->batCacheid);
-		HEAPfree(b->T->vheap);
+		HEAPfree(b->T->vheap, 0);
 	}
 
 	b = BBP_cache(-b->batCacheid);
@@ -730,20 +715,20 @@ heapcopy(BAT *bn, char *ext, Heap *dst, Heap *src)
 	if (src->filename && src->newstorage != STORE_MEM) {
 		const char *nme = BBP_physical(bn->batCacheid);
 
-		if ((dst->filename = GDKfilepath(-1, NULL, nme, ext)) == NULL)
+		if ((dst->filename = GDKfilepath(NOFARM, NULL, nme, ext)) == NULL)
 			return -1;
 	}
 	return HEAPcopy(dst, src);
 }
 
 static void
-heapfree(Heap *dst, Heap *src)
+heapmove(Heap *dst, Heap *src)
 {
 	if (src->filename == NULL) {
 		src->filename = dst->filename;
 		dst->filename = NULL;
 	}
-	HEAPfree(dst);
+	HEAPfree(dst, 0);
 	*dst = *src;
 }
 
@@ -887,23 +872,23 @@ BATcopy(BAT *b, int ht, int tt, int writable, int role)
 			    (b->ttype && heapcopy(bn, "tail", &bthp, &b->T->heap) < 0) ||
 			    (bn->H->vheap && heapcopy(bn, "hheap", &hhp, b->H->vheap) < 0) ||
 			    (bn->T->vheap && heapcopy(bn, "theap", &thp, b->T->vheap) < 0)) {
-				HEAPfree(&thp);
-				HEAPfree(&hhp);
-				HEAPfree(&bthp);
-				HEAPfree(&bhhp);
+				HEAPfree(&thp, 1);
+				HEAPfree(&hhp, 1);
+				HEAPfree(&bthp, 1);
+				HEAPfree(&bhhp, 1);
 				BBPreclaim(bn);
 				return NULL;
 			}
 			/* succeeded; replace dummy small heaps by the
 			 * real ones */
-			heapfree(&bn->H->heap, &bhhp);
-			heapfree(&bn->T->heap, &bthp);
+			heapmove(&bn->H->heap, &bhhp);
+			heapmove(&bn->T->heap, &bthp);
 			hhp.parentid = bn->batCacheid;
 			thp.parentid = bn->batCacheid;
 			if (bn->H->vheap)
-				heapfree(bn->H->vheap, &hhp);
+				heapmove(bn->H->vheap, &hhp);
 			if (bn->T->vheap)
-				heapfree(bn->T->vheap, &thp);
+				heapmove(bn->T->vheap, &thp);
 
 			/* make sure we use the correct capacity */
 			hcap = (BUN) (bn->htype ? bn->H->heap.size >> bn->H->shift : 0);
@@ -967,35 +952,35 @@ BATcopy(BAT *b, int ht, int tt, int writable, int role)
 	if (ATOMtype(ht) == ATOMtype(b->htype)) {
 		ALIGNsetH(bn, b);
 	} else if (ATOMtype(ATOMstorage(ht)) == ATOMtype(ATOMstorage(b->htype))) {
-		bn->hsorted = b->hsorted || (cnt <= 1 && BATatoms[b->htype].linear);
-		bn->hrevsorted = b->hrevsorted || (cnt <= 1 && BATatoms[b->htype].linear);
+		bn->hsorted = b->hsorted;
+		bn->hrevsorted = b->hrevsorted;
 		bn->hdense = b->hdense && ATOMtype(bn->htype) == TYPE_oid;
 		if (b->hkey)
 			BATkey(bn, TRUE);
 		bn->H->nonil = b->H->nonil;
 	} else {
-		bn->hsorted = bn->hrevsorted = (cnt <= 1 && BATatoms[b->htype].linear);
+		bn->hsorted = bn->hrevsorted = 0; /* set based on count later */
 		bn->hdense = bn->H->nonil = 0;
 	}
 	if (ATOMtype(tt) == ATOMtype(b->ttype)) {
 		ALIGNsetT(bn, b);
 	} else if (ATOMtype(ATOMstorage(tt)) == ATOMtype(ATOMstorage(b->ttype))) {
-		bn->tsorted = b->tsorted || (cnt <= 1 && BATatoms[b->ttype].linear);
-		bn->trevsorted = b->trevsorted || (cnt <= 1 && BATatoms[b->ttype].linear);
+		bn->tsorted = b->tsorted;
+		bn->trevsorted = b->trevsorted;
 		bn->tdense = b->tdense && ATOMtype(bn->ttype) == TYPE_oid;
 		if (b->tkey)
 			BATkey(BATmirror(bn), TRUE);
 		bn->T->nonil = b->T->nonil;
 	} else {
-		bn->tsorted = bn->trevsorted = (cnt <= 1 && BATatoms[b->ttype].linear);
+		bn->tsorted = bn->trevsorted = 0; /* set based on count later */
 		bn->tdense = bn->T->nonil = 0;
 	}
 	if (BATcount(bn) <= 1) {
-		bn->hsorted = 1;
-		bn->hrevsorted = 1;
+		bn->hsorted = BATatoms[b->htype].linear;
+		bn->hrevsorted = BATatoms[b->htype].linear;
 		bn->hkey = 1;
-		bn->tsorted = 1;
-		bn->trevsorted = 1;
+		bn->tsorted = BATatoms[b->ttype].linear;
+		bn->trevsorted = BATatoms[b->ttype].linear;
 		bn->tkey = 1;
 	}
 	if (writable != TRUE)
@@ -2139,6 +2124,10 @@ BATsetcount(BAT *b, BUN cnt)
 	b->T->heap.free = tailsize(b, BUNfirst(b) + cnt);
 	if (b->H->type == TYPE_void && b->T->type == TYPE_void)
 		b->batCapacity = cnt;
+	if (cnt <= 1) {
+		b->hsorted = b->hrevsorted = BATatoms[b->htype].linear != 0;
+		b->tsorted = b->trevsorted = BATatoms[b->ttype].linear != 0;
+	}
 	assert(b->batCapacity >= cnt);
 }
 
@@ -2797,8 +2786,7 @@ BATmode(BAT *b, int mode)
 
 /* BATassertProps checks whether properties are set correctly.  Under
  * no circumstances will it change any properties.  Note that the
- * "set" property is not checked.  Also note that the "nil" property
- * is not actually used anywhere, but it is checked. */
+ * "nil" property is not actually used anywhere, but it is checked. */
 
 #ifdef NDEBUG
 /* assertions are disabled, turn failing tests into a message */
@@ -2820,6 +2808,8 @@ BATassertHeadProps(BAT *b)
 	assert(b->htype >= TYPE_void);
 	assert(b->htype < GDKatomcnt);
 	assert(b->htype != TYPE_bat);
+	/* if BOUND2BTRUE is set, then so must the low order bit */
+	assert(!(b->hkey & BOUND2BTRUE) || (b->hkey & 1)); /* hkey != 2 */
 	assert(isVIEW(b) ||
 	       b->htype == TYPE_void ||
 	       BBPfarms[b->H->heap.farmid].roles & (1 << b->batRole));
@@ -2986,10 +2976,7 @@ BATassertHeadProps(BAT *b)
 				if (cmp == 0)
 					seennil = 1;
 			}
-			if (hp->storage == STORE_MEM)
-				HEAPfree(hp);
-			else
-				HEAPdelete(hp, nme, ext);
+			HEAPfree(hp, 1);
 			GDKfree(hp);
 			GDKfree(hs);
 			GDKfree(ext);
@@ -3242,10 +3229,7 @@ BATderiveHeadProps(BAT *b, int expensive)
 		}
 	}
 	if (hs) {
-		if (hp->storage == STORE_MEM)
-			HEAPfree(hp);
-		else
-			HEAPdelete(hp, nme, ext);
+		HEAPfree(hp, 1);
 		GDKfree(hp);
 		GDKfree(hs);
 		GDKfree(ext);

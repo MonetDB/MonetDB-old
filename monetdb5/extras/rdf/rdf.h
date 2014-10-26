@@ -50,10 +50,10 @@ RDFParser(BAT **graph, str *location, str *graphname, str *schemam, bat *ontbati
 rdf_export str 
 RDFleftfetchjoin_sortedestimate(int *result, int *lid, int *rid, lng *estimate);
 rdf_export str 
-RDFleftfetchjoin_sorted(int *result, int* lid, int *rid);
+RDFleftfetchjoin_sorted(bat *result, const bat* lid, const bat *rid);
 
 rdf_export str 
-TKNZRrdf2str (bat *res, bat *bid, bat *map);
+TKNZRrdf2str (bat *res, const bat *bid, const bat *map);
 
 rdf_export str
 RDFpartialjoin (bat *res, bat *lmap, bat *rmap, bat *input); 

@@ -26,7 +26,7 @@
 #include "tokenizer.h"
 
 str
-RDFleftfetchjoin_sorted(bat *result, bat *lid, bat *rid)
+RDFleftfetchjoin_sorted(bat *result, const bat *lid, const bat *rid)
 {
 	BAT *left, *right, *bn = NULL;
 
@@ -233,7 +233,7 @@ str RDFbisubsort(BAT **lbat, BAT **rbat){
 }
 
 str
-TKNZRrdf2str(bat *res, bat *bid, bat *map)
+TKNZRrdf2str(bat *res, const bat *bid, const bat *map)
 {
 	BAT *r, *b, *m;
 	BATiter bi, mi;

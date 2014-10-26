@@ -2789,10 +2789,6 @@ command algebra.bandjoin(outer:bat[:oid,:any_2],inner:bat[:oid,:any_2],minus:any
 address ALGbandjoin2;
 comment This is a join() for which the predicate is that two BUNs match		if the left-tail value is within the range [right-head - minus,		right-head + plus], depending on (l_in/h_in), the bounds		are included. Works only for the builtin numerical types,		and their derivates.
 
-command algebra.crossproduct(left:bat[:any_1,:any_2],right:bat[:any_3,:any_4]):bat[:any_1,:any_4] 
-address ALGcross;
-comment Returns the cross product
-
 command algebra.crossproduct(left:bat[:oid,:any_1],right:bat[:oid,:any_2]) (l:bat[:oid,:oid],r:bat[:oid,:oid]) 
 address ALGcrossproduct2;
 comment Returns 2 columns with all BUNs, consisting of the head-oids	  from 'left' and 'right' for which there are BUNs in 'left'	  and 'right' with equal tails
@@ -2853,6 +2849,10 @@ command algebra.ilikesubselect(s:bat[:oid,:str],pat:bat[:oid,:str],esc:str) (l:b
 address PCREilike_join_pcre;
 function algebra.ilikesubselect(b:bat[:oid,:str],cand:bat[:oid,:oid],pat:str,esc:str,anti:bit):bat[:oid,:oid];
 function algebra.ilikesubselect(b:bat[:oid,:str],pat:str,esc:str,anti:bit):bat[:oid,:oid];
+command algebra.ilike(s:str,pat:str):bit 
+address PCREilike2;
+command algebra.ilike(s:str,pat:str,esc:str):bit 
+address PCREilike3;
 command algebra.indexjoin(left:bat[:any_1,:any_2],right:bat[:any_2,:any_3]):bat[:any_1,:any_3] 
 address ALGindexjoin;
 comment Hook directly into the index implementation of the join.
@@ -2916,6 +2916,10 @@ command algebra.likesubselect(b:bat[:oid,:str],pat:str,esc:str,caseignore:bit,an
 address PCRElikesubselect1;
 comment Select all head values for which the tail value is "like"	the given (SQL-style) pattern.	Input is a dense-headed BAT, output is a dense-headed BAT with in	the tail the head value of the input BAT for which the	relationship holds.  The output BAT is sorted on the tail value.
 
+command algebra.like(s:str,pat:str):bit 
+address PCRElike2;
+command algebra.like(s:str,pat:str,esc:str):bit 
+address PCRElike3;
 command algebra.leftfetchjoin(left:bat[:oid,:oid],right:bat[:oid,:any_3]):bat[:oid,:any_3] 
 address ALGleftfetchjoin;
 comment Hook directly into the left fetch join implementation.
@@ -2928,10 +2932,6 @@ command algebra.like(b:bat[:oid,:str],substr:str):bat[:oid,:str]
 address ALGlike;
 comment Selects all elements that have 'substr' as in the tail.
 
-command algebra.materialize(b:bat[:oid,:any_1]):bat[:oid,:any_1] 
-address ALGmaterialize;
-comment Materialize the void column
-
 command algebra.mark_grp(b:bat[:any_1,:oid],g:bat[:oid,:any_2],s:oid):bat[:any_1,:oid] 
 address ALGmark_grp_2;
 comment "grouped mark": Produces a new BAT with per group a locally unique dense ascending sequense of OIDs in the tail. The tail of the first BAT (b) identifies the group that each BUN of b belongs to. The second BAT (g) represents the group extent, i.e., the head is the unique list of group IDs from b's tail. The third argument (s) gives the base value for the new OID sequence of each group.
@@ -2939,18 +2939,6 @@ comment "grouped mark": Produces a new BAT with per group a locally unique dense
 command algebra.mark_grp(b:bat[:any_1,:oid],g:bat[:oid,:oid]):bat[:any_1,:oid] 
 address ALGmark_grp_1;
 comment "grouped mark": Produces a new BAT with per group a locally unique dense ascending sequence of OIDs in the tail. The tail of the first BAT (b) identifies the group that each BUN of b belongs to. The second BAT (g) represents the group extent, i.e., the head is the unique list of group IDs from b's tail. The tail of g gives for each group the base value for the new OID sequence.
-
-command algebra.markH(b:bat[:any_1,:any_2],nr_parts:int,part_nr:int):bat[:oid,:any_2] 
-address ALGhmarkp;
-comment Produces a BAT with fresh unique dense sequense of OIDs in	the head that starts at base (i.e. [base,..base+b.count()-1] ).	The base is uniquely defined by the part_nr (ie we set the highest	bits based on the part_nr/nr_parts) 
-
-command algebra.markH(b:bat[:any_1,:any_2],base:oid):bat[:oid,:any_2] 
-address ALGmarkHead;
-comment Produces a new BAT with fresh unique dense sequense of OIDs in		the head that starts at base (i.e. [base,..base+b.count()-1] ).
-
-command algebra.markH(b:bat[:any_1,:any_2]):bat[:oid,:any_2] 
-address ALGmarkHead_default;
-comment Produces a BAT with fresh OIDs in the head starting at 0@0.
 
 command algebra.markT(b:bat[:any_1,:any_2],nr_parts:int,part_nr:int):bat[:any_1,:oid] 
 address ALGtmarkp;
@@ -2964,6 +2952,14 @@ command algebra.markT(b:bat[:any_1,:any_2],base:oid):bat[:any_1,:oid]
 address ALGtmark;
 comment Produces a BAT with fresh unique dense sequense of OIDs in		the tail that starts at base (i.e. [base,..base+b.count()-1] ).
 
+command algebra.not_ilike(s:str,pat:str):bit 
+address PCREnotilike2;
+command algebra.not_ilike(s:str,pat:str,esc:str):bit 
+address PCREnotilike3;
+command algebra.not_like(s:str,pat:str):bit 
+address PCREnotlike2;
+command algebra.not_like(s:str,pat:str,esc:str):bit 
+address PCREnotlike3;
 command algebra.outerjoin(outer:bat[:any_1,:any_2],inner:bat[:any_2,:any_3],estimate:lng):bat[:any_1,:any_3] 
 address ALGouterjoinestimate;
 command algebra.outerjoin(outer:bat[:any_1,:oid],inner:bat[:oid,:any_3]):bat[:any_1,:any_3] 
@@ -3006,6 +3002,15 @@ pattern algebra.semijoinPath(l:bat[:any,:any]...):bat[:any,:any]
 address ALGjoinPath;
 comment Routine to handle join paths.  The type analysis is rather tricky.
 
+command algebra.subrangejoin(l:bat[:oid,:any_1],r1:bat[:oid,:any_1],r2:bat[:oid,:any_1],sl:bat[:oid,:oid],sr:bat[:oid,:oid],li:bit,hi:bit,estimate:lng) (X_9:bat[:oid,:oid],X_10:bat[:oid,:oid]) 
+address ALGsubrangejoin;
+comment Range join: values in l and r1/r2 match if r1 <[=] l <[=] r2
+
+command algebra.subbandjoin(l:bat[:oid,:any_1],r:bat[:oid,:any_1],sl:bat[:oid,:oid],sr:bat[:oid,:oid],c1:any_1,c2:any_1,li:bit,hi:bit,estimate:lng) (X_10:bat[:oid,:oid],X_11:bat[:oid,:oid]) 
+address ALGsubbandjoin;
+comment Band join: values in l and r match if r - c1 <[=] l <[=] r + c2
+
+function algebra.subantijoin(l:bat[:oid,:any_1],r:bat[:oid,:any_1],sl:bat[:oid,:oid],sr:bat[:oid,:oid],nil_matches:bit,estimate:lng) (X_7:bat[:oid,:oid],X_8:bat[:oid,:oid]);
 command algebra.subthetajoin(l:bat[:oid,:any_1],r:bat[:oid,:any_1],sl:bat[:oid,:oid],sr:bat[:oid,:oid],op:int,nil_matches:bit,estimate:lng) (X_8:bat[:oid,:oid],X_9:bat[:oid,:oid]) 
 address ALGsubthetajoin;
 comment Theta join with candidate lists
@@ -3312,6 +3317,22 @@ command batsql.round(v:bat[:oid,:bte],d:int,s:int,r:bte):bat[:oid,:bte]
 address bte_bat_round_wrap;
 comment round off the decimal v(d,s) to r digits behind the dot (if r < 0, before the dot)
 
+command batalgebra.ilike(s:bat[:oid,:str],pat:str):bat[:oid,:bit] 
+address BATPCREilike2;
+command batalgebra.ilike(s:bat[:oid,:str],pat:str,esc:str):bat[:oid,:bit] 
+address BATPCREilike;
+command batalgebra.like(s:bat[:oid,:str],pat:str):bat[:oid,:bit] 
+address BATPCRElike2;
+command batalgebra.like(s:bat[:oid,:str],pat:str,esc:str):bat[:oid,:bit] 
+address BATPCRElike;
+command batalgebra.not_ilike(s:bat[:oid,:str],pat:str):bat[:oid,:bit] 
+address BATPCREnotliike2;
+command batalgebra.not_ilike(s:bat[:oid,:str],pat:str,esc:str):bat[:oid,:bit] 
+address BATPCREnotilike;
+command batalgebra.not_like(s:bat[:oid,:str],pat:str):bat[:oid,:bit] 
+address BATPCREnotlike2;
+command batalgebra.not_like(s:bat[:oid,:str],pat:str,esc:str):bat[:oid,:bit] 
+address BATPCREnotlike;
 command batcolor.blue(c:bat[:oid,:color]):bat[:oid,:int] 
 address CLRbatBlue;
 comment Extracts blue component from a color atom
@@ -27344,11 +27365,11 @@ command batcalc.bte(v:bat[:oid,:str],digits:int):bat[:oid,:bte]
 address batstr_2num_bte;
 comment cast to bte and check for overflow
 
-command batcalc.bte(v:bat[:oid,:void],digits:int,scale:int):bat[:oid,:bte] 
+command batcalc.bte(v:bat[:oid,:oid],digits:int,scale:int):bat[:oid,:bte] 
 address batnil_2dec_bte;
 comment cast to dec(bte) and check for overflow
 
-command batcalc.bte(v:bat[:oid,:void],digits:int):bat[:oid,:bte] 
+command batcalc.bte(v:bat[:oid,:oid],digits:int):bat[:oid,:bte] 
 address batnil_2num_bte;
 comment cast to bte and check for overflow
 
@@ -27512,19 +27533,19 @@ pattern batcalc.bte(b:bat[:oid,:bit]):bat[:oid,:bte]
 address CMDconvertsignal_bte;
 comment cast from bit to bte, signal error on overflow
 
-pattern batcalc.bte_noerror(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:bte] 
+pattern batcalc.bte_noerror(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:bte] 
 address CMDconvert_bte;
 comment cast from void to bte with candidates list
 
-pattern batcalc.bte_noerror(b:bat[:oid,:void]):bat[:oid,:bte] 
+pattern batcalc.bte_noerror(b:bat[:oid,:oid]):bat[:oid,:bte] 
 address CMDconvert_bte;
 comment cast from void to bte
 
-pattern batcalc.bte(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:bte] 
+pattern batcalc.bte(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:bte] 
 address CMDconvertsignal_bte;
 comment cast from void to bte with candidates list, signal error on overflow
 
-pattern batcalc.bte(b:bat[:oid,:void]):bat[:oid,:bte] 
+pattern batcalc.bte(b:bat[:oid,:oid]):bat[:oid,:bte] 
 address CMDconvertsignal_bte;
 comment cast from void to bte, signal error on overflow
 
@@ -27688,19 +27709,19 @@ pattern batcalc.bit(b:bat[:oid,:bit]):bat[:oid,:bit]
 address CMDconvertsignal_bit;
 comment cast from bit to bit, signal error on overflow
 
-pattern batcalc.bit_noerror(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:bit] 
+pattern batcalc.bit_noerror(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:bit] 
 address CMDconvert_bit;
 comment cast from void to bit with candidates list
 
-pattern batcalc.bit_noerror(b:bat[:oid,:void]):bat[:oid,:bit] 
+pattern batcalc.bit_noerror(b:bat[:oid,:oid]):bat[:oid,:bit] 
 address CMDconvert_bit;
 comment cast from void to bit
 
-pattern batcalc.bit(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:bit] 
+pattern batcalc.bit(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:bit] 
 address CMDconvertsignal_bit;
 comment cast from void to bit with candidates list, signal error on overflow
 
-pattern batcalc.bit(b:bat[:oid,:void]):bat[:oid,:bit] 
+pattern batcalc.bit(b:bat[:oid,:oid]):bat[:oid,:bit] 
 address CMDconvertsignal_bit;
 comment cast from void to bit, signal error on overflow
 
@@ -29519,7 +29540,7 @@ command batcalc.date(v:bat[:oid,:str]):bat[:oid,:date]
 address batstr_2_date;
 comment cast to date
 
-command batcalc.date(v:bat[:oid,:void]):bat[:oid,:date] 
+command batcalc.date(v:bat[:oid,:oid]):bat[:oid,:date] 
 address batnil_2_date;
 comment cast to date
 
@@ -29535,11 +29556,11 @@ command batcalc.daytime(v:bat[:oid,:str]):bat[:oid,:daytime]
 address batstr_2_daytime;
 comment Cast to daytime
 
-command batcalc.daytime(v:bat[:oid,:void],digits:int):bat[:oid,:daytime] 
+command batcalc.daytime(v:bat[:oid,:oid],digits:int):bat[:oid,:daytime] 
 address batnil_2time_daytime;
 comment cast to daytime and check for overflow
 
-command batcalc.daytime(v:bat[:oid,:void]):bat[:oid,:daytime] 
+command batcalc.daytime(v:bat[:oid,:oid]):bat[:oid,:daytime] 
 address batnil_2_daytime;
 comment Cast to daytime
 
@@ -29703,19 +29724,19 @@ pattern batcalc.dbl(b:bat[:oid,:bit]):bat[:oid,:dbl]
 address CMDconvertsignal_dbl;
 comment cast from bit to dbl, signal error on overflow
 
-pattern batcalc.dbl_noerror(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:dbl] 
+pattern batcalc.dbl_noerror(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:dbl] 
 address CMDconvert_dbl;
 comment cast from void to dbl with candidates list
 
-pattern batcalc.dbl_noerror(b:bat[:oid,:void]):bat[:oid,:dbl] 
+pattern batcalc.dbl_noerror(b:bat[:oid,:oid]):bat[:oid,:dbl] 
 address CMDconvert_dbl;
 comment cast from void to dbl
 
-pattern batcalc.dbl(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:dbl] 
+pattern batcalc.dbl(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:dbl] 
 address CMDconvertsignal_dbl;
 comment cast from void to dbl with candidates list, signal error on overflow
 
-pattern batcalc.dbl(b:bat[:oid,:void]):bat[:oid,:dbl] 
+pattern batcalc.dbl(b:bat[:oid,:oid]):bat[:oid,:dbl] 
 address CMDconvertsignal_dbl;
 comment cast from void to dbl, signal error on overflow
 
@@ -31509,19 +31530,19 @@ pattern batcalc.flt(b:bat[:oid,:bit]):bat[:oid,:flt]
 address CMDconvertsignal_flt;
 comment cast from bit to flt, signal error on overflow
 
-pattern batcalc.flt_noerror(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:flt] 
+pattern batcalc.flt_noerror(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:flt] 
 address CMDconvert_flt;
 comment cast from void to flt with candidates list
 
-pattern batcalc.flt_noerror(b:bat[:oid,:void]):bat[:oid,:flt] 
+pattern batcalc.flt_noerror(b:bat[:oid,:oid]):bat[:oid,:flt] 
 address CMDconvert_flt;
 comment cast from void to flt
 
-pattern batcalc.flt(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:flt] 
+pattern batcalc.flt(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:flt] 
 address CMDconvertsignal_flt;
 comment cast from void to flt with candidates list, signal error on overflow
 
-pattern batcalc.flt(b:bat[:oid,:void]):bat[:oid,:flt] 
+pattern batcalc.flt(b:bat[:oid,:oid]):bat[:oid,:flt] 
 address CMDconvertsignal_flt;
 comment cast from void to flt, signal error on overflow
 
@@ -31949,11 +31970,11 @@ command batcalc.int(v:bat[:oid,:str],digits:int):bat[:oid,:int]
 address batstr_2num_int;
 comment cast to int and check for overflow
 
-command batcalc.int(v:bat[:oid,:void],digits:int,scale:int):bat[:oid,:int] 
+command batcalc.int(v:bat[:oid,:oid],digits:int,scale:int):bat[:oid,:int] 
 address batnil_2dec_int;
 comment cast to dec(int) and check for overflow
 
-command batcalc.int(v:bat[:oid,:void],digits:int):bat[:oid,:int] 
+command batcalc.int(v:bat[:oid,:oid],digits:int):bat[:oid,:int] 
 address batnil_2num_int;
 comment cast to int and check for overflow
 
@@ -32149,19 +32170,19 @@ pattern batcalc.int(b:bat[:oid,:bit]):bat[:oid,:int]
 address CMDconvertsignal_int;
 comment cast from bit to int, signal error on overflow
 
-pattern batcalc.int_noerror(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:int] 
+pattern batcalc.int_noerror(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:int] 
 address CMDconvert_int;
 comment cast from void to int with candidates list
 
-pattern batcalc.int_noerror(b:bat[:oid,:void]):bat[:oid,:int] 
+pattern batcalc.int_noerror(b:bat[:oid,:oid]):bat[:oid,:int] 
 address CMDconvert_int;
 comment cast from void to int
 
-pattern batcalc.int(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:int] 
+pattern batcalc.int(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:int] 
 address CMDconvertsignal_int;
 comment cast from void to int with candidates list, signal error on overflow
 
-pattern batcalc.int(b:bat[:oid,:void]):bat[:oid,:int] 
+pattern batcalc.int(b:bat[:oid,:oid]):bat[:oid,:int] 
 address CMDconvertsignal_int;
 comment cast from void to int, signal error on overflow
 
@@ -32445,11 +32466,11 @@ command batcalc.lng(v:bat[:oid,:str],digits:int):bat[:oid,:lng]
 address batstr_2num_lng;
 comment cast to lng and check for overflow
 
-command batcalc.lng(v:bat[:oid,:void],digits:int,scale:int):bat[:oid,:lng] 
+command batcalc.lng(v:bat[:oid,:oid],digits:int,scale:int):bat[:oid,:lng] 
 address batnil_2dec_lng;
 comment cast to dec(lng) and check for overflow
 
-command batcalc.lng(v:bat[:oid,:void],digits:int):bat[:oid,:lng] 
+command batcalc.lng(v:bat[:oid,:oid],digits:int):bat[:oid,:lng] 
 address batnil_2num_lng;
 comment cast to lng and check for overflow
 
@@ -32613,19 +32634,19 @@ pattern batcalc.lng(b:bat[:oid,:bit]):bat[:oid,:lng]
 address CMDconvertsignal_lng;
 comment cast from bit to lng, signal error on overflow
 
-pattern batcalc.lng_noerror(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:lng] 
+pattern batcalc.lng_noerror(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:lng] 
 address CMDconvert_lng;
 comment cast from void to lng with candidates list
 
-pattern batcalc.lng_noerror(b:bat[:oid,:void]):bat[:oid,:lng] 
+pattern batcalc.lng_noerror(b:bat[:oid,:oid]):bat[:oid,:lng] 
 address CMDconvert_lng;
 comment cast from void to lng
 
-pattern batcalc.lng(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:lng] 
+pattern batcalc.lng(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:lng] 
 address CMDconvertsignal_lng;
 comment cast from void to lng with candidates list, signal error on overflow
 
-pattern batcalc.lng(b:bat[:oid,:void]):bat[:oid,:lng] 
+pattern batcalc.lng(b:bat[:oid,:oid]):bat[:oid,:lng] 
 address CMDconvertsignal_lng;
 comment cast from void to lng, signal error on overflow
 
@@ -36800,19 +36821,19 @@ pattern batcalc.oid(b:bat[:oid,:bit]):bat[:oid,:oid]
 address CMDconvertsignal_oid;
 comment cast from bit to oid, signal error on overflow
 
-pattern batcalc.oid_noerror(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:oid] 
+pattern batcalc.oid_noerror(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:oid] 
 address CMDconvert_oid;
 comment cast from void to oid with candidates list
 
-pattern batcalc.oid_noerror(b:bat[:oid,:void]):bat[:oid,:oid] 
+pattern batcalc.oid_noerror(b:bat[:oid,:oid]):bat[:oid,:oid] 
 address CMDconvert_oid;
 comment cast from void to oid
 
-pattern batcalc.oid(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:oid] 
+pattern batcalc.oid(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:oid] 
 address CMDconvertsignal_oid;
 comment cast from void to oid with candidates list, signal error on overflow
 
-pattern batcalc.oid(b:bat[:oid,:void]):bat[:oid,:oid] 
+pattern batcalc.oid(b:bat[:oid,:oid]):bat[:oid,:oid] 
 address CMDconvertsignal_oid;
 comment cast from void to oid, signal error on overflow
 
@@ -37969,11 +37990,11 @@ command batcalc.sht(v:bat[:oid,:str],digits:int):bat[:oid,:sht]
 address batstr_2num_sht;
 comment cast to sht and check for overflow
 
-command batcalc.sht(v:bat[:oid,:void],digits:int,scale:int):bat[:oid,:sht] 
+command batcalc.sht(v:bat[:oid,:oid],digits:int,scale:int):bat[:oid,:sht] 
 address batnil_2dec_sht;
 comment cast to dec(sht) and check for overflow
 
-command batcalc.sht(v:bat[:oid,:void],digits:int):bat[:oid,:sht] 
+command batcalc.sht(v:bat[:oid,:oid],digits:int):bat[:oid,:sht] 
 address batnil_2num_sht;
 comment cast to sht and check for overflow
 
@@ -38137,19 +38158,19 @@ pattern batcalc.str(b:bat[:oid,:bit]):bat[:oid,:str]
 address CMDconvertsignal_str;
 comment cast from bit to str, signal error on overflow
 
-pattern batcalc.str_noerror(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:str] 
+pattern batcalc.str_noerror(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:str] 
 address CMDconvert_str;
 comment cast from void to str with candidates list
 
-pattern batcalc.str_noerror(b:bat[:oid,:void]):bat[:oid,:str] 
+pattern batcalc.str_noerror(b:bat[:oid,:oid]):bat[:oid,:str] 
 address CMDconvert_str;
 comment cast from void to str
 
-pattern batcalc.str(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:str] 
+pattern batcalc.str(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:str] 
 address CMDconvertsignal_str;
 comment cast from void to str with candidates list, signal error on overflow
 
-pattern batcalc.str(b:bat[:oid,:void]):bat[:oid,:str] 
+pattern batcalc.str(b:bat[:oid,:oid]):bat[:oid,:str] 
 address CMDconvertsignal_str;
 comment cast from void to str, signal error on overflow
 
@@ -38313,19 +38334,19 @@ pattern batcalc.sht(b:bat[:oid,:bit]):bat[:oid,:sht]
 address CMDconvertsignal_sht;
 comment cast from bit to sht, signal error on overflow
 
-pattern batcalc.sht_noerror(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:sht] 
+pattern batcalc.sht_noerror(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:sht] 
 address CMDconvert_sht;
 comment cast from void to sht with candidates list
 
-pattern batcalc.sht_noerror(b:bat[:oid,:void]):bat[:oid,:sht] 
+pattern batcalc.sht_noerror(b:bat[:oid,:oid]):bat[:oid,:sht] 
 address CMDconvert_sht;
 comment cast from void to sht
 
-pattern batcalc.sht(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:sht] 
+pattern batcalc.sht(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:sht] 
 address CMDconvertsignal_sht;
 comment cast from void to sht with candidates list, signal error on overflow
 
-pattern batcalc.sht(b:bat[:oid,:void]):bat[:oid,:sht] 
+pattern batcalc.sht(b:bat[:oid,:oid]):bat[:oid,:sht] 
 address CMDconvertsignal_sht;
 comment cast from void to sht, signal error on overflow
 
@@ -39973,11 +39994,11 @@ command batcalc.timestamp(v:bat[:oid,:str]):bat[:oid,:timestamp]
 address batstr_2_timestamp;
 comment Cast to timestamp
 
-command batcalc.timestamp(v:bat[:oid,:void],digits:int):bat[:oid,:timestamp] 
+command batcalc.timestamp(v:bat[:oid,:oid],digits:int):bat[:oid,:timestamp] 
 address batnil_2time_timestamp;
 comment cast to timestamp and check for overflow
 
-command batcalc.timestamp(v:bat[:oid,:void]):bat[:oid,:timestamp] 
+command batcalc.timestamp(v:bat[:oid,:oid]):bat[:oid,:timestamp] 
 address batnil_2_timestamp;
 comment Cast to timestamp
 
@@ -40227,19 +40248,19 @@ pattern batcalc.wrd(b:bat[:oid,:bit]):bat[:oid,:wrd]
 address CMDconvertsignal_wrd;
 comment cast from bit to wrd, signal error on overflow
 
-pattern batcalc.wrd_noerror(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:wrd] 
+pattern batcalc.wrd_noerror(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:wrd] 
 address CMDconvert_wrd;
 comment cast from void to wrd with candidates list
 
-pattern batcalc.wrd_noerror(b:bat[:oid,:void]):bat[:oid,:wrd] 
+pattern batcalc.wrd_noerror(b:bat[:oid,:oid]):bat[:oid,:wrd] 
 address CMDconvert_wrd;
 comment cast from void to wrd
 
-pattern batcalc.wrd(b:bat[:oid,:void],s:bat[:oid,:oid]):bat[:oid,:wrd] 
+pattern batcalc.wrd(b:bat[:oid,:oid],s:bat[:oid,:oid]):bat[:oid,:wrd] 
 address CMDconvertsignal_wrd;
 comment cast from void to wrd with candidates list, signal error on overflow
 
-pattern batcalc.wrd(b:bat[:oid,:void]):bat[:oid,:wrd] 
+pattern batcalc.wrd(b:bat[:oid,:oid]):bat[:oid,:wrd] 
 address CMDconvertsignal_wrd;
 comment cast from void to wrd, signal error on overflow
 
@@ -40629,7 +40650,7 @@ command bat.inplace(o:bat[:any_1,:any_2],d:bat[:any_1,:any_2],force:bit):bat[:an
 address BKCbat_inplace_force;
 comment inplace replace values on the given locations
 
-command bat.inplace(o:bat[:any_1,:any_2],id:any_1,t:any_2,force:bit):bat[:any_1,:any_2] 
+command bat.inplace(o:bat[:any_1,:any_2],id:oid,t:any_2,force:bit):bat[:oid,:any_2] 
 address BKCbun_inplace_force;
 comment inplace replace values on the given locations
 
@@ -40637,7 +40658,7 @@ command bat.inplace(o:bat[:any_1,:any_2],d:bat[:any_1,:any_2]):bat[:any_1,:any_2
 address BKCbat_inplace;
 comment inplace replace values on the given locations
 
-command bat.inplace(o:bat[:any_1,:any_2],id:any_1,t:any_2):bat[:any_1,:any_2] 
+command bat.inplace(o:bat[:any_1,:any_2],id:oid,t:any_2):bat[:oid,:any_2] 
 address BKCbun_inplace;
 comment inplace replace values on the given locations
 
@@ -50842,7 +50863,7 @@ comment The pow(x,y) function  returns the value of x raised to the power of y.
 command mmath.pow(x:flt,y:flt):flt 
 address MATHbinary_POWflt;
 command mmath.rand{unsafe}(v:int):int 
-address MATHrandint;
+address MATHrandintseed;
 comment return a random number
 
 command mmath.rand{unsafe}():int 
@@ -52861,7 +52882,7 @@ command sysmon.stop(id:sht):void
 address SYSMONstop;
 command timezone.#fromstr():timezone 
 address tzone_fromstr;
-command timezone.str():str 
+command timezone.str(z:timezone):str 
 address MTIMEtzone_tostr;
 command timezone.timestamp(secs:int):timestamp 
 address MTIMEtimestamp;

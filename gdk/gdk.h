@@ -534,8 +534,8 @@
  * below.  The global variables should not be modified directly.
  */
 #ifndef TRUE
-#define TRUE		1
-#define FALSE		0
+#define TRUE		true
+#define FALSE		false
 #endif
 #define BOUND2BTRUE	2	/* TRUE, and bound to be so */
 
@@ -809,7 +809,6 @@ typedef struct {
 		wrd wval;
 		flt fval;
 		ptr pval;
-		struct BAT *Bval; /* this field is only used by mel */
 		bat bval;
 		str sval;
 		dbl dval;
@@ -969,9 +968,6 @@ typedef struct {
 /* assert that atom width is power of 2, i.e., width == 1<<shift */
 #define assert_shift_width(shift,width) assert(((shift) == 0 && (width) == 0) || ((unsigned)1<<(shift)) == (unsigned)(width))
 
-#define GDKLIBRARY_PRE_VARWIDTH 061023  /* backward compatible version */
-#define GDKLIBRARY_CHR		061024	/* version that still had chr type */
-#define GDKLIBRARY_SORTED_BYTE	061025	/* version that still had byte-sized sorted flag */
 #define GDKLIBRARY_64_BIT_INT	061026	/* version that had no 128-bit integer option, yet */
 #define GDKLIBRARY		061027
 
@@ -1047,7 +1043,7 @@ typedef int (*GDKfcn) ();
  *  HEAPalloc (Heap *h, size_t nitems, size_t itemsize);
  * @item int
  * @tab
- *  HEAPfree (Heap *h);
+ *  HEAPfree (Heap *h, int remove);
  * @item int
  * @tab
  *  HEAPextend (Heap *h, size_t size, int mayshare);
@@ -1072,7 +1068,6 @@ typedef int (*GDKfcn) ();
  * These routines should be used to alloc free or extend heaps; they
  * isolate you from the different ways heaps can be accessed.
  */
-gdk_export int HEAPfree(Heap *h);
 gdk_export int HEAPextend(Heap *h, size_t size, int mayshare);
 gdk_export size_t HEAPvmsize(Heap *h);
 gdk_export size_t HEAPmemsize(Heap *h);
@@ -1359,6 +1354,12 @@ gdk_export bte ATOMelmshift(int sz);
 		(b)->batCount++;		\
 	} while (0)
 
+#define bunfastapp_nocheck_inc(b, p, t)			\
+	do {						\
+		bunfastapp_nocheck(b, p, t, Tsize(b));	\
+		p++;					\
+	} while (0)
+
 #define bunfastapp(b, t)						\
 	do {								\
 		register BUN _p = BUNlast(b);				\
@@ -1556,9 +1557,6 @@ bat_iterator(BAT *b)
  * to insert BUNs at the end of the BAT, but not to modify anything
  * that already was in there.
  */
-#ifndef BATcount
-gdk_export BUN BATcount(BAT *b);
-#endif
 gdk_export BUN BATcount_no_nil(BAT *b);
 gdk_export void BATsetcapacity(BAT *b, BUN cnt);
 gdk_export void BATsetcount(BAT *b, BUN cnt);
@@ -1618,7 +1616,7 @@ gdk_export int BATgetaccess(BAT *b);
 gdk_export BAT *BATclear(BAT *b, int force);
 gdk_export BAT *BATcopy(BAT *b, int ht, int tt, int writeable, int role);
 gdk_export BAT *BATmark(BAT *b, oid base);
-gdk_export BAT *BATmark_grp(BAT *b, BAT *g, oid *base);
+gdk_export BAT *BATmark_grp(BAT *b, BAT *g, const oid *base);
 
 gdk_export gdk_return BATgroup(BAT **groups, BAT **extents, BAT **histo, BAT *b, BAT *g, BAT *e, BAT *h);
 
@@ -1656,6 +1654,8 @@ gdk_export BAT *BATsave(BAT *b);
 gdk_export int BATmmap(BAT *b, int hb, int tb, int hh, int th, int force);
 gdk_export int BATdelete(BAT *b);
 gdk_export size_t BATmemsize(BAT *b, int dirty);
+
+#define NOFARM (-1) /* indicate to GDKfilepath to create relative path */
 
 gdk_export char *GDKfilepath(int farmid, const char *dir, const char *nme, const char *ext);
 gdk_export int GDKcreatedir(const char *nme);
@@ -2594,7 +2594,8 @@ gdk_export BAT *BATattach(int tt, const char *heapfile, int role);
 #define putenv _putenv
 #endif
 
-/* also see VALget */
+/* Return a pointer to the value contained in V.  Also see VALget
+ * which returns a void *. */
 static inline const void *
 VALptr(const ValRecord *v)
 {
@@ -2918,8 +2919,6 @@ gdk_export BAT *VIEWcreate_(BAT *h, BAT *t, int stable);
 gdk_export BAT *VIEWhead(BAT *b);
 gdk_export BAT *VIEWhead_(BAT *b, int mode);
 gdk_export BAT *VIEWcombine(BAT *b);
-gdk_export BAT *BATmaterialize(BAT *b);
-gdk_export BAT *BATmaterializeh(BAT *b);
 gdk_export void VIEWbounds(BAT *b, BAT *view, BUN l, BUN h);
 
 /* low level functions */
@@ -3346,7 +3345,6 @@ gdk_export BAT *BATsample(BAT *b, BUN n);
 /*
  *
  */
-#define ILLEGALVALUE	((ptr)-1L)
 #define MAXPARAMS	32
 
 #ifndef NDEBUG
@@ -3457,16 +3455,6 @@ gdk_export BAT *BATsample(BAT *b, BUN n);
 			_COL_TYPE(_b->H), _COL_TYPE(_b->T), BATcount(_b), \
 			__func__, __FILE__, __LINE__);			\
 		BATuselect(_b, (h), (t));				\
-	})
-
-#define BATsample(b, n)							\
-	({								\
-		BAT *_b = (b);						\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATsample([%s,%s]#"BUNFMT") %s[%s:%d]\n",	\
-			_COL_TYPE(_b->H), _COL_TYPE(_b->T), BATcount(_b), \
-			__func__, __FILE__, __LINE__);			\
-		BATsample(_b, (n));					\
 	})
 
 #define BATsemijoin(l, r)						\

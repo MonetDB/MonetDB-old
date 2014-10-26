@@ -10136,6 +10136,12 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 	BATseqbase(cstablestat->sbat, 0);
 	BATseqbase(cstablestat->obat, 0);
 
+	#if TRIPLEBASED_TABLE
+	cstablestat->resbat = NULL; 
+	cstablestat->repbat = NULL; 
+	cstablestat->reobat = NULL; 
+	#endif
+
 	cstablestat->lastInsertedS = (oid**) malloc(sizeof(oid*) * numTables);
 	cstablestat->lstcstable = (CStable*) malloc(sizeof(CStable) * numTables); 
 
@@ -10293,9 +10299,9 @@ void freeCStableStat(CStableStat* cstablestat){
 	BBPunfix(cstablestat->sbat->batCacheid); 
 	BBPunfix(cstablestat->obat->batCacheid); 
 #if TRIPLEBASED_TABLE
-	BBPunfix(cstablestat->resbat->batCacheid); 
-	BBPunfix(cstablestat->repbat->batCacheid); 
-	BBPunfix(cstablestat->reobat->batCacheid); 
+	if (cstablestat->resbat != NULL) BBPunfix(cstablestat->resbat->batCacheid); 
+	if (cstablestat->repbat != NULL) BBPunfix(cstablestat->repbat->batCacheid); 
+	if (cstablestat->reobat != NULL) BBPunfix(cstablestat->reobat->batCacheid); 
 #endif
 
 
@@ -11293,7 +11299,7 @@ str buildTKNZRMappingBat(BAT *lmap, BAT *rmap){
 
 	pMapBat = BATcopy(tmpmapBat, tmpmapBat->htype, tmpmapBat->ttype, TRUE, PERSISTENT);
 
-	if (BKCsetName(&ret, (int *) &(pMapBat->batCacheid), (str *) &bname) != MAL_SUCCEED)
+	if (BKCsetName(&ret, (int *) &(pMapBat->batCacheid), (const char*const*) &bname) != MAL_SUCCEED)
 		throw(MAL, "tokenizer.open", OPERATION_FAILED);
 	
 	if (BKCsetPersistent(&ret, (int *) &(pMapBat->batCacheid)) != MAL_SUCCEED)
@@ -11313,13 +11319,13 @@ str buildTKNZRMappingBat(BAT *lmap, BAT *rmap){
 	plmapBat->tsorted = 1; 
 
 
-	if (BKCsetName(&ret, (int *) &(plmapBat->batCacheid), (str *) &bnamelBat) != MAL_SUCCEED)
+	if (BKCsetName(&ret, (int *) &(plmapBat->batCacheid), (const char*const*) &bnamelBat) != MAL_SUCCEED)
 		throw(MAL, "tokenizer.open", OPERATION_FAILED);
 	
 	if (BKCsetPersistent(&ret, (int *) &(plmapBat->batCacheid)) != MAL_SUCCEED)
 		throw(MAL, "tokenizer.open", OPERATION_FAILED);
 
-	if (BKCsetName(&ret, (int *) &(prmapBat->batCacheid), (str *) &bnamerBat) != MAL_SUCCEED)
+	if (BKCsetName(&ret, (int *) &(prmapBat->batCacheid), (const char*const*) &bnamerBat) != MAL_SUCCEED)
 		throw(MAL, "tokenizer.open", OPERATION_FAILED);
 	
 	if (BKCsetPersistent(&ret, (int *) &(prmapBat->batCacheid)) != MAL_SUCCEED)

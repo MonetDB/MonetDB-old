@@ -68,10 +68,6 @@
 #ifdef HAVE_LANGINFO_H
 #include <langinfo.h>
 #endif
-#else
-#ifdef NATIVE_WIN32
-#include <Windows.h>
-#endif
 #endif
 #endif
 
@@ -247,8 +243,8 @@ gettime(void)
 		tb.time -= tbbase.time;
 		return (timertype) tb.time * 1000000 + (timertype) tb.millitm * 1000;
 	}
-#endif
-#endif
+#endif	/* HAVE_FTIME */
+#endif	/* HAVE_GETTIMEOFDAY */
 }
 
 static void
@@ -597,8 +593,9 @@ XMLprdata(const char *val)
 		else if ((*val & 0xFF) < 0x20)	/* control character */
 			mnstr_printf(toConsole_raw, "&#%d;", *val & 0xFF);
 		else if ((*val & 0x80) != 0 /* && encoding != NULL */ ) {
-			int n, m;
-			int c = *val & 0x7F;
+			int n;
+			unsigned int m;
+			unsigned int c = *val & 0x7F;
 
 			for (n = 0, m = 0x40; c & m; n++, m >>= 1)
 				c &= ~m;
@@ -1432,7 +1429,7 @@ SQLrenderer(MapiHdl hdl, char singleinstr)
 }
 
 static void
-setFormatter(char *s)
+setFormatter(const char *s)
 {
 	if (separator)
 		free(separator);
@@ -1451,10 +1448,20 @@ setFormatter(char *s)
 		separator = strdup(",");
 	} else if (strncmp(s, "csv=", 4) == 0) {
 		formatter = CSVformatter;
-		separator = strdup(s + 4);
+		if (s[4] == '"') {
+			separator = strdup(s + 5);
+			if (separator[strlen(separator) - 1] == '"')
+				separator[strlen(separator) - 1] = 0;
+		} else
+			separator = strdup(s + 4);
 	} else if (strncmp(s, "csv+", 4) == 0) {
 		formatter = CSVformatter;
-		separator = strdup(s + 4);
+		if (s[4] == '"') {
+			separator = strdup(s + 5);
+			if (separator[strlen(separator) - 1] == '"')
+				separator[strlen(separator) - 1] = 0;
+		} else
+			separator = strdup(s + 4);
 		csvheader = 1;
 	} else if (strcmp(s, "tab") == 0) {
 		formatter = CSVformatter;

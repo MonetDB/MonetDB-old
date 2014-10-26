@@ -153,25 +153,24 @@ HEAPalloc(Heap *h, size_t nitems, size_t itemsize)
 	return 0;
 }
 
-/*
- * @- HEAPextend
+/* Extend the allocated space of the heap H to be at least SIZE bytes.
+ * If the heap grows beyond a threshold and a filename is known, the
+ * heap is converted from allocated memory to a memory-mapped file.
+ * When switching from allocated to memory mapped, if MAYSHARE is set,
+ * the heap does not have to be copy-on-write.
  *
- * Normally (last case in the below code), we use GDKrealloc, except
- * for the case that the heap extends to a huge size, in which case we
- * open memory mapped file.
+ * The function returns 0 on success, -1 on failure.
  *
- * Observe that we may assume that the BAT is writable here
- * (otherwise, why extend?).
+ * When extending a memory-mapped heap, we use the function MT_mremap
+ * (which see).  When extending an allocated heap, we use GDKrealloc.
+ * If that fails, we switch to memory mapped, even when the size is
+ * below the threshold.
  *
- * For memory mapped files, we may try to extend the file after the
- * end, and also extend the VM space we already have. This may fail,
- * e.g. due to VM fragmentation or no swap space (we map the new
- * segment STORE_PRIV). Also, some OS-es might not support this at all
- * (NOEXTEND_PRIVMAP).
- *
- * The other way is to just save the mmap-ed heap, free it and reload
- * it.
- */
+ * When converting from allocated to memory mapped, we try several
+ * strategies.  First we try to create the memory map, and if that
+ * works, copy the data and free the old memory.  If this fails, we
+ * first write the data to disk, free the memory, and then try to
+ * memory map the saved data. */
 int
 HEAPextend(Heap *h, size_t size, int mayshare)
 {
@@ -265,7 +264,7 @@ HEAPextend(Heap *h, size_t size, int mayshare)
 				if (h->base) {
 					h->newstorage = h->storage = STORE_MMAP;
 					memcpy(h->base, bak.base, bak.free);
-					HEAPfree(&bak);
+					HEAPfree(&bak, 0);
 					return 0;
 				}
 			}
@@ -287,7 +286,7 @@ HEAPextend(Heap *h, size_t size, int mayshare)
 					/* copy data to heap and free
 					 * old memory */
 					memcpy(h->base, bak.base, bak.free);
-					HEAPfree(&bak);
+					HEAPfree(&bak, 0);
 					return 0;
 				}
 				failure = "h->storage == STORE_MEM && can_map && fd >= 0 && HEAPload() < 0";
@@ -298,7 +297,7 @@ HEAPextend(Heap *h, size_t size, int mayshare)
 					goto failed;
 				}
 				/* then free memory */
-				HEAPfree(&bak);
+				HEAPfree(&bak, 0);
 				/* and load heap back in via
 				 * memory-mapped file */
 				if (HEAPload_intern(h, nme, ext, ".tmp", FALSE) >= 0) {
@@ -558,13 +557,10 @@ HEAPcopy(Heap *dst, Heap *src)
 	return -1;
 }
 
-/*
- * @- HEAPfree
- * Is now called even on heaps without memory, just to free the
- * pre-allocated filename.  simple: alloc and copy.
- */
+/* Free the memory associated with the heap H.
+ * Unlinks (removes) the associated file if the remove flag is set. */
 int
-HEAPfree(Heap *h)
+HEAPfree(Heap *h, int remove)
 {
 	if (h->base) {
 		if (h->storage == STORE_MEM) {	/* plain memory */
@@ -584,6 +580,12 @@ HEAPfree(Heap *h)
 					  "size=" SZFMT ") = %d\n",
 					  PTRFMTCAST(void *)h->base,
 					  h->size, ret);
+			if (remove) {
+				char *path = GDKfilepath(h->farmid, BATDIR, h->filename, NULL);
+				if (path && unlink(path) < 0 && errno != ENOENT)
+					perror(path);
+				GDKfree(path);
+			}
 		}
 	}
 	h->base = NULL;
@@ -739,7 +741,7 @@ HEAPdelete(Heap *h, const char *o, const char *ext)
 		return 0;
 	}
 	if (h->base)
-		HEAPfree(h);
+		HEAPfree(h, 0);	/* we will do the unlinking */
 	if (h->copied) {
 		return 0;
 	}
@@ -765,10 +767,7 @@ HEAPwarm(Heap *h)
 }
 
 
-/*
- * @- HEAPvmsize
- * count all memory that takes up address space.
- */
+/* Return the (virtual) size of the heap. */
 size_t
 HEAPvmsize(Heap *h)
 {
@@ -777,11 +776,8 @@ HEAPvmsize(Heap *h)
 	return 0;
 }
 
-/*
- * @- HEAPmemsize
- * count all memory that takes up swap space. We conservatively count
- * STORE_PRIV heaps as fully backed by swap space.
- */
+/* Return the allocated size of the heap, i.e. if the heap is memory
+ * mapped and not copy-on-write (privately mapped), return 0. */
 size_t
 HEAPmemsize(Heap *h)
 {

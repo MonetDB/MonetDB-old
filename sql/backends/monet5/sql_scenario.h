@@ -27,8 +27,8 @@
 
 sql5_export str SQLsession(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLsession2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-sql5_export str SQLprelude(void);
-sql5_export str SQLepilogue(void);
+sql5_export str SQLprelude(void *ret);
+sql5_export str SQLepilogue(void *ret);
 
 sql5_export str SQLexit(Client c);
 sql5_export str SQLexitClient(Client c);
@@ -44,7 +44,7 @@ sql5_export str SQLassertLng(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 sql5_export str SQLassertHge(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 #endif
 
-sql5_export str SQLinitEnvironment(Client cntxt);
+sql5_export str SQLinitEnvironment(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLstatement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output);
 sql5_export str SQLcompile(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

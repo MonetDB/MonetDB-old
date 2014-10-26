@@ -57,9 +57,6 @@
 
 #define YY_parse_LSP_NEEDED	/* needed for bison++ 1.21.11-3 */
 
-#define FALSE 0
-#define TRUE 1
-
 #ifdef HAVE_HGE
 #define MAX_DEC_DIGITS 38
 #else
@@ -319,6 +316,8 @@ int yydebug=1;
 	value_commalist
 	pred_exp_list
 	row_commalist
+	filter_arg_list
+	filter_args
 	qname
 	qfunc
 	qrank
@@ -1070,9 +1069,9 @@ opt_column:
  ;
 
 create_statement:	
-   role_def 
+   create role_def 	{ $$ = $2; }
  | create table_def 	{ $$ = $2; }
- | view_def
+ | create view_def 	{ $$ = $2; }
  | type_def
  | func_def
  | index_def
@@ -1288,18 +1287,18 @@ CREATE [ UNIQUE ] INDEX index_name
 */
 
 role_def:
-    create ROLE ident opt_grantor
+    ROLE ident opt_grantor
 	{ dlist *l = L();
-	  append_string(l, $3);
-	  append_int(l, $4);
+	  append_string(l, $2);
+	  append_int(l, $3);
 	  $$ = _symbol_create_list( SQL_CREATE_ROLE, l ); }
- |  create USER ident WITH opt_encrypted PASSWORD string sqlNAME string SCHEMA ident
+ |  USER ident WITH opt_encrypted PASSWORD string sqlNAME string SCHEMA ident
 	{ dlist *l = L();
-	  append_string(l, $3);
-	  append_string(l, $7);
-	  append_string(l, $9);
-	  append_string(l, $11);
-	  append_int(l, $5);
+	  append_string(l, $2);
+	  append_string(l, $6);
+	  append_string(l, $8);
+	  append_string(l, $10);
+	  append_int(l, $4);
 	  $$ = _symbol_create_list( SQL_CREATE_USER, l ); }
  ;
 
@@ -1734,12 +1733,12 @@ like_table:
  ;
 
 view_def:
-    create VIEW qname opt_column_list AS query_expression opt_with_check_option
+    VIEW qname opt_column_list AS query_expression opt_with_check_option
 	{  dlist *l = L();
+	  append_list(l, $2);
 	  append_list(l, $3);
-	  append_list(l, $4);
-	  append_symbol(l, $6);
-	  append_int(l, $7);
+	  append_symbol(l, $5);
+	  append_int(l, $6);
 	  append_int(l, TRUE);	/* persistent view */
 	  $$ = _symbol_create_list( SQL_CREATE_VIEW, l ); 
 	}
@@ -3371,19 +3370,21 @@ existence_test:
 /*|  NOT EXISTS subquery { $$ = _symbol_create_symbol( SQL_NOT_EXISTS, $3 ); }*/
  ;
 
+filter_arg_list:
+       pred_exp				{ $$ = append_symbol(L(), $1); }
+ |     filter_arg_list ',' pred_exp	{ $$ = append_symbol($1, $3);  }
+ ;
+
+filter_args:
+	'[' filter_arg_list ']' 	{ $$ = $2; }
+ ;
+
 filter_exp:
-    pred_exp FILTER_FUNC pred_exp
+ filter_args qname filter_args
 		{ dlist *l = L();
-		  append_symbol(l, $1);
-		  append_string(l, $2);
-		  append_symbol(l, $3);
-		  $$ = _symbol_create_list(SQL_FILTER, l ); }
- |  pred_exp FILTER_FUNC '(' pred_exp ')'  pred_exp 
-		{ dlist *l = L();
-		  append_symbol(l, $1);
-		  append_string(l, $2);
-		  append_symbol(l, $6);
-		  append_symbol(l, $4);	/* option last */
+		  append_list(l, $1);
+		  append_list(l, $2);
+		  append_list(l, $3);
 		  $$ = _symbol_create_list(SQL_FILTER, l ); }
  ;
 
@@ -4179,7 +4180,7 @@ literal:
 		  }
 		}
  |  INTNUM
-		{ char *s = $1;
+		{ char *s = strip_extra_zeros(sa_strdup(SA, $1));
 		  char *dot = strchr(s, '.');
 		  int digits = _strlen(s) - 1;
 		  int scale = digits - (int) (dot-s);
@@ -4190,9 +4191,9 @@ literal:
 		  if (digits <= MAX_DEC_DIGITS) {
 		  	double val = strtod($1,NULL);
 #ifdef HAVE_HGE
-		  	hge value = decimal_from_str(s);
+		  	hge value = decimal_from_str(s, NULL);
 #else
-		  	lng value = decimal_from_str(s);
+		  	lng value = decimal_from_str(s, NULL);
 #endif
 
 		  	if (*s == '+' || *s == '-')

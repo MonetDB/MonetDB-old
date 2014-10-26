@@ -101,38 +101,40 @@ monet5_freecode(int clientid, backend_code code, backend_stack stk, int nr, char
 str
 SQLsession(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str *ret = (str *) getArgReference(stk, pci, 0);
 	str msg = MAL_SUCCEED;
 
 	(void) mb;
-	if (SQLinitialized == 0 && (msg = SQLprelude()) != MAL_SUCCEED)
+	(void) stk;
+	(void) pci;
+	if (SQLinitialized == 0 && (msg = SQLprelude(NULL)) != MAL_SUCCEED)
 		return msg;
 	msg = setScenario(cntxt, "sql");
-	*ret = 0;
 	return msg;
 }
 
 str
 SQLsession2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str *ret = (str *) getArgReference(stk, pci, 0);
 	str msg = MAL_SUCCEED;
 
 	(void) mb;
-	if (SQLinitialized == 0 && (msg = SQLprelude()) != MAL_SUCCEED)
+	(void) stk;
+	(void) pci;
+	if (SQLinitialized == 0 && (msg = SQLprelude(NULL)) != MAL_SUCCEED)
 		return msg;
 	msg = setScenario(cntxt, "msql");
-	*ret = 0;
 	return msg;
 }
 
 static str SQLinit(void);
 
 str
-SQLprelude(void)
+SQLprelude(void *ret)
 {
 	str tmp;
 	Scenario ms, s = getFreeScenario();
+
+	(void) ret;
 	if (!s)
 		throw(MAL, "sql.start", "out of scenario slots");
 	sqlinit = GDKgetenv("sqlinit");
@@ -178,11 +180,12 @@ SQLprelude(void)
 }
 
 str
-SQLepilogue(void)
+SQLepilogue(void *ret)
 {
 	char *s = "sql", *m = "msql";
 	str res;
 
+	(void) ret;
 	if (SQLinitialized) {
 		mvc_exit();
 		SQLinitialized = FALSE;
@@ -446,8 +449,10 @@ sql_update_feb2013_sp1(Client c)
 	/* sys.stddev functions */
 	pos += snprintf(buf + pos, bufsize - pos, "drop filter function sys.\"like\"(string, string, string);\n");
 	pos += snprintf(buf + pos, bufsize - pos, "drop filter function sys.\"ilike\"(string, string, string);\n");
-	pos += snprintf(buf + pos, bufsize - pos, "create filter function sys.\"like\"(val string, pat string, esc string) external name algebra.likesubselect;\n");
-	pos += snprintf(buf + pos, bufsize - pos, "create filter function sys.\"ilike\"(val string, pat string, esc string) external name algebra.ilikesubselect;\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create filter function sys.\"like\"(val string, pat string, esc string) external name algebra.\"like\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create filter function sys.\"ilike\"(val string, pat string, esc string) external name algebra.\"ilike\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create filter function sys.\"like\"(val string, pat string) external name algebra.\"like\";\n");
+	pos += snprintf(buf + pos, bufsize - pos, "create filter function sys.\"ilike\"(val string, pat string) external name algebra.\"ilike\";\n");
 
 	pos += snprintf(buf + pos, bufsize - pos, "drop function sys.storage;\n");
 
@@ -871,10 +876,15 @@ sql_update_oct2014(Client c)
 	pos += snprintf(buf + pos, bufsize - pos, "delete from _columns where table_id not in (select id from _tables);\n");
 
 	/* add new columns */
+	store_next_oid(); /* reserve id for max(id)+1 */
 	pos += snprintf(buf + pos, bufsize - pos, "insert into _columns values( (select max(id)+1 from _columns), 'system', 'boolean', 1, 0, (select _tables.id from _tables join schemas on _tables.schema_id=schemas.id where schemas.name='sys' and _tables.name='schemas'), NULL, true, 4, NULL);\n");
+	store_next_oid();
 	pos += snprintf(buf + pos, bufsize - pos, "insert into _columns values( (select max(id)+1 from _columns), 'varres', 'boolean', 1, 0, (select _tables.id from _tables join schemas on _tables.schema_id=schemas.id where schemas.name='sys' and _tables.name='functions'), NULL, true, 7, NULL);\n");
+	store_next_oid();
 	pos += snprintf(buf + pos, bufsize - pos, "insert into _columns values( (select max(id)+1 from _columns), 'vararg', 'boolean', 1, 0, (select _tables.id from _tables join schemas on _tables.schema_id=schemas.id where schemas.name='sys' and _tables.name='functions'), NULL, true, 8, NULL);\n");
+	store_next_oid();
 	pos += snprintf(buf + pos, bufsize - pos, "insert into _columns values( (select max(id)+1 from _columns), 'inout', 'tinyint', 8, 0, (select _tables.id from _tables join schemas on _tables.schema_id=schemas.id where schemas.name='sys' and _tables.name='args'), NULL, true, 6, NULL);\n");
+	store_next_oid();
 	pos += snprintf(buf + pos, bufsize - pos, "insert into _columns values( (select max(id)+1 from _columns), 'language', 'int', 32, 0, (select _tables.id from _tables join schemas on _tables.schema_id=schemas.id where schemas.name='sys' and _tables.name='functions'), NULL, true, 9, NULL);\n");
 	pos += snprintf(buf + pos, bufsize - pos, "delete from _columns where table_id in (select _tables.id from _tables join schemas on _tables.schema_id=schemas.id where schemas.name='sys' and _tables.name='functions') and name='sql';\n");
 
@@ -1099,6 +1109,22 @@ create aggregate json.tojsonarray( x double ) returns string external name aggr.
 	GDKfree(buf);
 	return err;		/* usually MAL_SUCCEED */
 }
+static str
+sql_update_feb2015(Client c)
+{
+	size_t bufsize = 8192*2, pos = 0;
+	char *buf = GDKmalloc(bufsize), *err = NULL;
+
+	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
+	pos += snprintf(buf+pos, bufsize - pos, "create function epoch(t int) returns timestamp external name timestamp.epoch;\n");
+	pos += snprintf(buf+pos, bufsize - pos, "create function epoch(t timestamp) returns int external name timestamp.epoch;\n");
+	pos += snprintf(buf+pos, bufsize - pos, "create function epoch(t bigint) returns timestamp external name calc.timestamp;\n");
+
+	printf("Running database upgrade commands:\n%s\n", buf);
+	err = SQLstatementIntern(c, &buf, "update", 1, 0);
+	GDKfree(buf);
+	return err;		/* usually MAL_SUCCEED */
+}
 
 str
 SQLinitClient(Client c)
@@ -1113,7 +1139,7 @@ SQLinitClient(Client c)
 #ifdef _SQL_SCENARIO_DEBUG
 	mnstr_printf(GDKout, "#SQLinitClient\n");
 #endif
-	if (SQLinitialized == 0 && (msg = SQLprelude()) != MAL_SUCCEED)
+	if (SQLinitialized == 0 && (msg = SQLprelude(NULL)) != MAL_SUCCEED)
 		return msg;
 	/*
 	 * Based on the initialization return value we can prepare a SQLinit
@@ -1270,6 +1296,14 @@ SQLinitClient(Client c)
 				GDKfree(err);
 			}
 		}
+		/* add missing features needed beyond Oct 2014 */
+		sql_find_subtype(&tp, "timestamp", 0, 0);
+		if ( 0 &&  !sql_bind_func(m->sa, mvc_bind_schema(m, "sys"), "epoch", &tp, NULL, F_FUNC) ){
+			if ((err = sql_update_feb2015(c)) !=NULL) {
+				fprintf(stderr, "!%s\n", err);
+				GDKfree(err);
+			}
+		}
 	}
 	fflush(stdout);
 	fflush(stderr);
@@ -1327,8 +1361,11 @@ SQLexitClient(Client c)
  * execution
  */
 str
-SQLinitEnvironment(Client cntxt)
+SQLinitEnvironment(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+	(void) mb;
+	(void) stk;
+	(void) pci;
 	return SQLinitClient(cntxt);
 }
 
@@ -1378,7 +1415,7 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 	mnstr_printf(c->fdout, "#SQLstatement:%s\n", *expr);
 #endif
 	if (!sql) {
-		msg = SQLinitEnvironment(c);
+		msg = SQLinitEnvironment(c, NULL, NULL, NULL);
 		sql = (backend *) c->sqlcontext;
 	}
 	if (msg){
@@ -1560,12 +1597,12 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output)
 str
 SQLstatement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str *expr = (str *) getArgReference(stk, pci, 1);
+	str *expr = getArgReference_str(stk, pci, 1);
 	bit output = TRUE;
 
 	(void) mb;
 	if (pci->argc == 3)
-		output = *(bit *) getArgReference(stk, pci, 2);
+		output = *getArgReference_bit(stk, pci, 2);
 
 	return SQLstatementIntern(cntxt, expr, "SQLstatement", TRUE, output);
 }
@@ -1573,8 +1610,8 @@ SQLstatement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 SQLcompile(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str *ret = (str *) getArgReference(stk, pci, 0);
-	str *expr = (str *) getArgReference(stk, pci, 1);
+	str *ret = getArgReference_str(stk, pci, 0);
+	str *expr = getArgReference_str(stk, pci, 1);
 	str msg;
 
 	(void) mb;
@@ -1596,7 +1633,7 @@ SQLinclude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	stream *fd;
 	bstream *bfd;
-	str *name = (str *) getArgReference(stk, pci, 1);
+	str *name = getArgReference_str(stk, pci, 1);
 	str msg = MAL_SUCCEED, fullname;
 	str *expr;
 	mvc *m;
@@ -1866,8 +1903,6 @@ SQLsetTrace(backend *be, Client c, bit onoff)
 				q = newStmt(mb, profilerRef, "getTrace");
 				q = pushStr(mb, q, s);
 				n = getDestVar(q);
-				q = newStmt(mb, algebraRef, "markH");
-				q = pushArgument(mb, q, n);
 				rs[i] = getDestVar(q);
 				colname[i] = s;
 				/* FIXME: type for name should come from
@@ -2469,8 +2504,8 @@ SQLengine(Client c)
 str
 SQLassert(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	bit *flg = (bit *) getArgReference(stk, pci, 1);
-	str *msg = (str *) getArgReference(stk, pci, 2);
+	bit *flg = getArgReference_bit(stk, pci, 1);
+	str *msg = getArgReference_str(stk, pci, 2);
 	(void) cntxt;
 	(void) mb;
 	if (*flg) {
@@ -2488,8 +2523,8 @@ SQLassert(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 SQLassertInt(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int *flg = (int *) getArgReference(stk, pci, 1);
-	str *msg = (str *) getArgReference(stk, pci, 2);
+	int *flg = getArgReference_int(stk, pci, 1);
+	str *msg = getArgReference_str(stk, pci, 2);
 	(void) cntxt;
 	(void) mb;
 	if (*flg) {
@@ -2507,8 +2542,8 @@ SQLassertInt(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 SQLassertWrd(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	wrd *flg = (wrd *) getArgReference(stk, pci, 1);
-	str *msg = (str *) getArgReference(stk, pci, 2);
+	wrd *flg = getArgReference_wrd(stk, pci, 1);
+	str *msg = getArgReference_str(stk, pci, 2);
 	(void) cntxt;
 	(void) mb;
 	if (*flg) {
@@ -2526,8 +2561,8 @@ SQLassertWrd(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 SQLassertLng(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	lng *flg = (lng *) getArgReference(stk, pci, 1);
-	str *msg = (str *) getArgReference(stk, pci, 2);
+	lng *flg = getArgReference_lng(stk, pci, 1);
+	str *msg = getArgReference_str(stk, pci, 2);
 	(void) cntxt;
 	(void) mb;
 	if (*flg) {
