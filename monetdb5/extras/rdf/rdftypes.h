@@ -36,7 +36,6 @@
 #define rdf_export extern
 #endif
 
-
 typedef enum {
 	URI,		
 	DATETIME, 
@@ -46,6 +45,13 @@ typedef enum {
 	BLANKNODE,
 	MULTIVALUES		// For the multi-value property 
 } ObjectType; 
+
+#define MIN_POSI_INT_OID ((BUN)INTEGER << (sizeof(BUN)*8 - 4))
+#define MAX_POSI_INT_OID (((BUN)((INTEGER << 1) + 1) << (sizeof(BUN)*8 - 5)) - 1)
+
+#define MIN_NEGA_INT_OID ((BUN)((INTEGER << 1) + 1) << (sizeof(BUN)*8 - 5)) 
+#define MAX_NEGA_INT_OID (((BUN)DOUBLE << (sizeof(BUN)*8 - 4)) - 1)
+
 
 rdf_export char* 
 substring(char *string, int position, int length);

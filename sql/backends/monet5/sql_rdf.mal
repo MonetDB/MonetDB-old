@@ -38,12 +38,14 @@ pattern rdfscan(query:str, schema:str)
 address SQLrdfScan
 comment "RDF scan operator"
 
-#pattern rdfidtostr(id:oid)
-command rdfidtostr(id:oid):str
+pattern rdfidtostr(id:oid):str
 address	SQLrdfidtostr
 comment "Convert from oid to string"
 
-#pattern rdfstrtoid(urlstr:str)
+pattern batsql.rdfidtostr(v:bat[:oid,:oid]):bat[:oid, :str]
+address	SQLrdfidtostr_bat
+comment "Convert from oid to string"
+
 command rdfstrtoid(urlstr:str):oid
 address	SQLrdfstrtoid
 comment "Convert from string to encoded id"

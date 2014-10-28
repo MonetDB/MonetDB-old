@@ -874,16 +874,17 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	respotbl = mvc_create_table(m, sch, "triples", tt_table, 0,
 			                                   SQL_PERSIST, 0, 3);
 	totalNoTablesCreated++;
-	mvc_create_column(m, respotbl, "s",  &tpe);
 	mvc_create_column(m, respotbl, "p",  &tpe);
+	mvc_create_column(m, respotbl, "s",  &tpe);
 	mvc_create_column(m, respotbl, "o",  &tpe);
 
-	store_funcs.append_col(m->session->tr,
-			mvc_bind_column(m, respotbl,"s" ), 
-			cstablestat->resbat, TYPE_bat);
+
 	store_funcs.append_col(m->session->tr,
 			mvc_bind_column(m, respotbl,"p" ), 
 			cstablestat->repbat, TYPE_bat);
+	store_funcs.append_col(m->session->tr,
+			mvc_bind_column(m, respotbl,"s" ), 
+			cstablestat->resbat, TYPE_bat);
 	store_funcs.append_col(m->session->tr,
 			mvc_bind_column(m, respotbl,"o" ), 
 			cstablestat->reobat, TYPE_bat);
@@ -1140,58 +1141,183 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif /* HAVE_RAPTOR */	
 }
 
-#if 0
+#if 1
 str
 SQLrdfidtostr(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	str msg; 
 	mvc *m = NULL; 
-	BAT *lmapBat = NULL, *rmapBat = NULL; 
+	BAT *lmapBat = NULL, *rmapBat = NULL, *mBat = NULL; 
 	bat lmapBatId, rmapBatId;
 	str bnamelBat = "map_to_tknz_left";
 	str bnamerBat = "map_to_tknz_right";
+	char *schema = "rdf";
+	sql_schema *sch;
 	BUN pos; 
 	oid *origId; 
+	ObjectType objType; 
 	oid *id = (oid *)getArgReference(stk,pci,1);
-	str *s; 
+	str *ret = (str *) getArgReference(stk, pci, 0); 
 
 	rethrow("sql.rdfidtostr", msg, getSQLContext(cntxt, mb, &m, NULL));
 	
+	objType = getObjType(*id);
+
+	if (objType == STRING){
+		str tmpObjStr;
+		BATiter mapi; 
+		if ((sch = mvc_bind_schema(m, schema)) == NULL)
+			throw(SQL, "sql.rdfShred", "3F000!schema missing");
+
+		mBat = mvc_bind(m, schema, "map0", "lexical",0);
+		mapi = bat_iterator(mBat); 
+
+		pos = (*id) - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the position of the string in the map bat */
+		tmpObjStr = (str) BUNtail(mapi, BUNfirst(mBat) + pos);
+
+		*ret = GDKstrdup(tmpObjStr);
+
+	}
+	else if (objType == URI || objType == BLANKNODE){
+		lmapBatId = BBPindex(bnamelBat);
+		rmapBatId = BBPindex(bnamerBat);
+
+		if (lmapBatId == 0 || rmapBatId == 0){
+			throw(SQL, "sql.SQLrdfidtostr", "The lmap/rmap Bats should be built already");
+		}
+		
+		if ((lmapBat= BATdescriptor(lmapBatId)) == NULL) {
+			throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+		}
+
+		if ((rmapBat= BATdescriptor(rmapBatId)) == NULL) {
+			throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+		}
+
+		pos = BUNfnd(BATmirror(lmapBat),id);
+		if (pos == BUN_NONE)	//this id is not converted to a new id
+			origId = id; 
+		else
+			origId = (oid *) Tloc(rmapBat, pos);
+		
+		/*First convert the id to the original tokenizer odi */
+		rethrow("sql.rdfidtostr", msg, takeOid(*origId, ret));
+	} else {
+		throw(SQL, "sql.SQLrdfidtostr", "This Id cannot convert to str");
+	}
+
+	if (msg != MAL_SUCCEED){
+		throw(SQL, "sql.SQLrdfidtostr", "Problem in retrieving str from oid");
+	}
+
+	return msg; 
+}
+
+
+str
+SQLrdfidtostr_bat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+	str msg; 
+	mvc *m = NULL; 
+	BAT *lmapBat = NULL, *rmapBat = NULL, *mBat = NULL; 
+	bat lmapBatId, rmapBatId;
+	str bnamelBat = "map_to_tknz_left";
+	str bnamerBat = "map_to_tknz_right";
+	char *schema = "rdf";
+	sql_schema *sch;
+	BUN pos; 
+	oid *origId; 
+	ObjectType objType; 
+	str tmpObjStr;
+	BATiter mapi; 
+	BAT *srcBat = NULL, *desBat = NULL; 
+	BATiter srci; 
+	BUN p, q; 
+	bat *srcbid, *desbid; 
+	oid *id; 
+	str s; 
+	srcbid = (bat *)getArgReference(stk,pci,1);
+	desbid = (bat *) getArgReference(stk, pci, 0); 
+
+	rethrow("sql.rdfidtostr", msg, getSQLContext(cntxt, mb, &m, NULL));
+	
+	if ((srcBat = BATdescriptor(*srcbid)) == NULL){
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+	srci = bat_iterator(srcBat); 
+	
+	desBat = BATnew(TYPE_void, TYPE_str, BATcount(srcBat) + 1, TRANSIENT);
+	BATseqbase(desBat, 0);
+	
+	/* Init the BATs for looking up the URIs*/
 	lmapBatId = BBPindex(bnamelBat);
 	rmapBatId = BBPindex(bnamerBat);
 
 	if (lmapBatId == 0 || rmapBatId == 0){
-		throw(SQL, "sql.SQLrdfidtostr", "The lmap/rmap Bats should be built already");
+		throw(SQL, "sqlbat.SQLrdfidtostr_bat", "The lmap/rmap Bats should be built already");
 	}
 	
 	if ((lmapBat= BATdescriptor(lmapBatId)) == NULL) {
-		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+		throw(MAL, "sqlbat.SQLrdfidtostr_bat", RUNTIME_OBJECT_MISSING);
 	}
 
 	if ((rmapBat= BATdescriptor(rmapBatId)) == NULL) {
-		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+		throw(MAL, "sqlbat.SQLrdfidtostr_bat", RUNTIME_OBJECT_MISSING);
 	}
 
-	pos = BUNfnd(BATmirror(lmapBat),id);
-	if (pos == BUN_NONE)	//this id is not converted to a new id
-		origId = id; 
-	else
-		origId = (oid *) Tloc(rmapBat, pos);
-	
-	VALset(getArgReference(stk, pci, 1), TYPE_oid, origId);
+	/* Init the map BAT for looking up the literal values*/
+	if ((sch = mvc_bind_schema(m, schema)) == NULL)
+		throw(SQL, "sql.rdfShred", "3F000!schema missing");
 
-	/*First convert the id to the original tokenizer odi */
-	rethrow("sql.rdfidtostr", msg, TKNZRtakeOid(cntxt,mb,stk,pci));
-	
-	s = (str *) getArgReference(stk, pci, 0);
-	
-	if (msg == MAL_SUCCEED){
-		//throw(SQL, "sql.rdfidtostr", "String for "BUNFMT" is %s\n",*id, *s);
-		return sql_message("Literal value: %s\n", *s); 
+	mBat = mvc_bind(m, schema, "map0", "lexical",0);
+	mapi = bat_iterator(mBat); 
+
+
+	BATloop(srcBat, p, q){
+		id = (oid *)BUNtloc(srci, p);
+
+		objType = getObjType(*id);
+
+		if (objType == STRING){
+
+			pos = (*id) - (objType*2 + 1) *  RDF_MIN_LITERAL;   /* Get the position of the string in the map bat */
+			tmpObjStr = (str) BUNtail(mapi, BUNfirst(mBat) + pos);
+
+			s = GDKstrdup(tmpObjStr);
+		}
+		else if (objType == URI || objType == BLANKNODE){
+
+			pos = BUNfnd(BATmirror(lmapBat),id);
+			if (pos == BUN_NONE)	//this id is not converted to a new id
+				origId = id; 
+			else
+				origId = (oid *) Tloc(rmapBat, pos);
+			
+			/*First convert the id to the original tokenizer odi */
+			rethrow("sql.rdfidtostr", msg, takeOid(*origId, &s));
+		} else {
+			throw(SQL, "sql.SQLrdfidtostr", "This Id cannot convert to str");
+		}
+
+
+		if (msg != MAL_SUCCEED){
+			throw(SQL, "sql.SQLrdfidtostr", "Problem in retrieving str from oid");
+		}
+
+		//Append to desBAT
+		desBat = BUNappend(desBat, s, TRUE);
+
 	}
 	
+	*desbid = desBat->batCacheid;
+	BBPkeepref(*desbid);
+	
+	BBPunfix(lmapBat->batCacheid);
+	BBPunfix(rmapBat->batCacheid);
+	BBPunfix(mBat->batCacheid);
+
 	return msg; 
 }
-#endif
+
+#else
 
 str
 SQLrdfidtostr(str *ret, oid *id){
@@ -1230,6 +1356,7 @@ SQLrdfidtostr(str *ret, oid *id){
 
 	return msg; 
 }
+#endif
 
 #if 0
 str
@@ -1241,13 +1368,10 @@ SQLrdfstrtoid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	str bnameBat = "tknzr_to_map";
 	oid *origId = NULL; 
 	oid *id = NULL; 
+	oid *ret = getArgReference_oid(stk, pci, 0);
 	str *s = (str *)getArgReference(stk,pci,1);
 
-	printf("Get the encoded id for the string %s\n", *s); 
-
 	rethrow("sql.rdfstrtoid", msg, getSQLContext(cntxt, mb, &m, NULL));
-
-	printf("Get the context done\n"); 
 
 	mapBatId = BBPindex(bnameBat);
 
@@ -1260,28 +1384,30 @@ SQLrdfstrtoid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	rethrow("sql.rdfstrtoid", msg, TKNZRlocate(cntxt,mb,stk,pci));
 
 	if (msg != MAL_SUCCEED){
-		return sql_message("Problem in locating string: %s\n", msg);		
+		throw(SQL, "SQLrdfstrtoid", "Problem in locating string: %s\n", msg);
 	}
 
 	origId = (oid *) getArgReference(stk, pci, 0);
 	
 	if (*origId == oid_nil){
-		return sql_message("This string is not stored");
-	} else
-		printf("origId = "BUNFMT"\n", *origId); 
+		throw(SQL, "SQLrdfstrtoid","String %s is not stored", *s);
+	}
 
 
 	id = (oid *) Tloc(mapBat, *origId); 
 
-	printf("id = "BUNFMT"\n", *id); 
-
 	if (id != NULL){
-		return sql_message("ID: "BUNFMT"\n", *id); 
+		*ret = *id; 
+	}else{
+		*ret = BUN_NONE; 
+		throw(SQL, "SQLrdfstrtoid","No Id found for string %s", *s);
 	}
+
 	
 	return msg; 
 }
-#endif
+
+#else
 
 str
 SQLrdfstrtoid(oid *ret, str *s){
@@ -1322,6 +1448,7 @@ SQLrdfstrtoid(oid *ret, str *s){
 	return msg; 
 }
 
+#endif 
 
 str 
 SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){

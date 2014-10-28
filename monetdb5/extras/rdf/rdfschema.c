@@ -11402,8 +11402,11 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 
 	//if (1) printListOntology();
 	readParamsInput();
-
 	
+	printf("Min positive integer-encoded oid is: "BUNFMT"\n", MIN_POSI_INT_OID); 	
+	printf("Max positive integer-encoded oid is: "BUNFMT"\n", MAX_POSI_INT_OID); 	
+	printf("Min negative integer-encoded oid is: "BUNFMT"\n", MIN_NEGA_INT_OID); 	
+	printf("Max negative integer-encoded oid is: "BUNFMT"\n", MAX_NEGA_INT_OID); 	
 
 	if (RDFextractCSwithTypes(ret, sbatid, pbatid, obatid, mapbatid, ontbatid, freqThreshold, freqCSset,&subjCSMap, &maxCSoid, &maxNumPwithDup, &labels, &csRelMergeFreqSet) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in extracting CSs");
@@ -11710,9 +11713,11 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 	cstablestat->resbat = BATcopy(sNewBat, sNewBat->htype, sNewBat->ttype, TRUE, TRANSIENT);	
 	cstablestat->repbat = BATcopy(pNewBat, pNewBat->htype, pNewBat->ttype, TRUE, TRANSIENT);	
 	cstablestat->reobat = BATcopy(oNewBat, oNewBat->htype, oNewBat->ttype, TRUE, TRANSIENT);	
-	if (RDFtriplesubsort(&cstablestat->resbat, &cstablestat->repbat, &cstablestat->reobat) != MAL_SUCCEED){
-		throw(RDF, "rdf.RDFreorganize", "Problem in sorting reorganized SPO");
+	if (RDFtriplesubsort(&cstablestat->repbat, &cstablestat->resbat, &cstablestat->reobat) != MAL_SUCCEED){
+		throw(RDF, "rdf.RDFreorganize", "Problem in sorting reorganized PSO");
 	}
+	//Set the property for the BAT
+	cstablestat->repbat->tsorted = 1;
 	printf("Done\n");
 	#endif
 
