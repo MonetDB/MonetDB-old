@@ -5504,6 +5504,9 @@ str getOntologyContribution(CSset *freqCSset, CSlabel* labels){
 	int i; 
 	int noSubj; 
 	int totalNoSubjWithOnt = 0; 
+	int totalNoSubjWithOverlapP = 0; 
+	int totalNoSubjWithNoP = 0; 
+	int totalOntCSwithNoP = 0; 
 	int totalNoSubj = 0; 
 	float totalContrib = 0.0; 
 	float contrib = 0.0;
@@ -5541,7 +5544,15 @@ str getOntologyContribution(CSset *freqCSset, CSlabel* labels){
 
 				totalNoSubjWithOnt += noSubj;
 				totalContrib += contrib;
-
+					
+				if (numOntProp == 0){
+					totalOntCSwithNoP += 1; 
+					totalNoSubjWithNoP += noSubj; 
+				}
+				else{
+					totalNoSubjWithOverlapP += noSubj; 
+				}
+				
 				//printf("CS %d has %d ontology props (/%d ontology props) \n",i, numOntProp,ontclassSet[tmpPos].numProp);
 			}
 		}
@@ -5549,7 +5560,8 @@ str getOntologyContribution(CSset *freqCSset, CSlabel* labels){
 		totalNoSubj += cs.support;
 	}
 
-	printf("Ontology contribution is: %f  (If normalized by all subjs: %f)\n", (float) totalContrib/totalNoSubjWithOnt, (float)totalContrib/totalNoSubj);
+	printf("Ontology contribution is: %f  (If normalized by all subjs: %f | If only consider subject with overlapping P %f)\n", (float) totalContrib/totalNoSubjWithOnt, (float)totalContrib/totalNoSubj, (float) totalContrib/totalNoSubjWithOverlapP);
+	printf("Number of CS with ontology name but having no prop from that ont class: %d  (%d subjs)\n", totalOntCSwithNoP, totalNoSubjWithNoP);
 
 	return MAL_SUCCEED; 
 }
