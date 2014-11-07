@@ -2132,6 +2132,8 @@ int getNumOntology(oid* lstProp, int numProp, BAT *ontbat, int *buffOntologyNums
 	return numOntology;
 }
 
+
+
 static 
 str printMergedFreqCSSet(CSset *freqCSset, BAT *mapbat, BAT *ontbat, char isWriteTofile, int freqThreshold, CSlabel* labels, int mergingstep){
 
@@ -5485,6 +5487,50 @@ void getBestRdfTypeValue(oid *buff, int numP, oid *rdftypeOntologyValues, char *
 }
 #endif
 
+
+#if COUNT_PERCENTAGE_ONTO_PROP_USED
+/*
+ * If the name of the CS comes from an ontology class, 
+ * ontology contribution for the CS is computed as:
+ * Ratio = (#_prop in the CS belonging to that ontology) / (# props of that ontology) 
+ * Contribution = (Number of subject X Ratio)
+ *
+ * At the end, total 
+ * */
+
+static
+void getOntologyContribution(CSset *freqCSset, CSlabel* labels){
+	
+	int i; 
+	int noSubj; 
+	int totalNoSubj = 0; 
+	float totalContrib = 0.0; 
+	float contrib = 0.0;
+	BUN tmpPos; 
+
+	for (i = 0; i < freqCSset->numCSadded; i++){
+		CS cs = (CS)freqCSset->items[i];
+
+		if (isOntologyName(labels[i].name, &tmpPos)){
+
+			if (cs.parentFreqIdx != -1) continue;
+			noSubj = cs.support;
+			
+			if (ontclassSet[tmpPos].numProp != 0){	//otherwise, we do not have the information for this ontology class
+				int numOntProp = 0;
+				countNumOverlapProp(ontclassSet[tmpPos].lstProp, cs.lstProp, ontclassSet[tmpPos].numProp,cs.numProp, &numOntProp);		
+				contrib = (float) (numOntProp / (float) ontclassSet[tmpPos].numProp) * noSubj; 
+				totalNoSubj += noSubj;
+				totalContrib += contrib;
+
+				//printf("CS %d has %d ontology props (/%d ontology props) \n",i, numOntProp,ontclassSet[tmpPos].numProp);
+			}
+		}
+	}
+
+	printf("Ontology contribution is: %f \n", (float) totalContrib/totalNoSubj);
+}
+#endif 
 
 static 
 str RDFassignCSId(int *ret, BAT *sbat, BAT *pbat, BAT *obat, BAT *ontbat, CSset *freqCSset, int *freqThreshold, CSBats* csBats, oid *subjCSMap, oid *maxCSoid, int *maxNumProp, int *maxNumPwithDup){
@@ -9854,7 +9900,11 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	curT = clock(); 
 	printf("Done labeling!!! Took %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT;
-	
+
+	#if COUNT_PERCENTAGE_ONTO_PROP_USED
+	getOntologyContribution(freqCSset, *labels);
+	#endif
+
 	#if NO_OUTPUTFILE == 0
 	printMergedFreqCSSet(freqCSset, mbat, ontbat,1, *freqThreshold, *labels, 0); 
 	#endif
