@@ -533,6 +533,7 @@ RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msup
 		str auristr2 = (str) GDKmalloc(strlen(auristr) + 3);
 		str aattrstr2 = (str) GDKmalloc(strlen(aattrstr) + 3);
 		if (!auristr2 || !aattrstr2) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+
 		auristr2[0] = '<';
 		strcpy(&(auristr2[1]), auristr);
 		auristr2[strlen(auristr) + 1] = '>';

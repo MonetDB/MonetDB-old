@@ -5499,14 +5499,31 @@ void getBestRdfTypeValue(oid *buff, int numP, oid *rdftypeOntologyValues, char *
  * */
 
 static
-void getOntologyContribution(CSset *freqCSset, CSlabel* labels){
+str getOntologyContribution(CSset *freqCSset, CSlabel* labels){
 	
 	int i; 
 	int noSubj; 
+	int totalNoSubjWithOnt = 0; 
 	int totalNoSubj = 0; 
 	float totalContrib = 0.0; 
 	float contrib = 0.0;
 	BUN tmpPos; 
+	str nullURL2 = "<\x80>"; 	//str_nil
+	str schema = "rdf";
+	int ret; 
+	oid nullURLid; 
+	
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "rdf.rdfschema",
+				"could not open the tokenizer\n");
+	}
+
+	TKNRstringToOid(&nullURLid, &nullURL2); 
+
+	//printf("Null URL Id is: "BUNFMT"\n", nullURLid);
+
+	TKNZRclose(&ret); 
+	
 
 	for (i = 0; i < freqCSset->numCSadded; i++){
 		CS cs = (CS)freqCSset->items[i];
@@ -5516,19 +5533,25 @@ void getOntologyContribution(CSset *freqCSset, CSlabel* labels){
 			if (cs.parentFreqIdx != -1) continue;
 			noSubj = cs.support;
 			
-			if (ontclassSet[tmpPos].numProp != 0){	//otherwise, we do not have the information for this ontology class
+			if (ontclassSet[tmpPos].numProp != 0 && ontclassSet[tmpPos].lstProp[0] != nullURLid){	//otherwise, we do not have the information for this ontology class
 				int numOntProp = 0;
+
 				countNumOverlapProp(ontclassSet[tmpPos].lstProp, cs.lstProp, ontclassSet[tmpPos].numProp,cs.numProp, &numOntProp);		
 				contrib = (float) (numOntProp / (float) ontclassSet[tmpPos].numProp) * noSubj; 
-				totalNoSubj += noSubj;
+
+				totalNoSubjWithOnt += noSubj;
 				totalContrib += contrib;
 
 				//printf("CS %d has %d ontology props (/%d ontology props) \n",i, numOntProp,ontclassSet[tmpPos].numProp);
 			}
 		}
+
+		totalNoSubj += cs.support;
 	}
 
-	printf("Ontology contribution is: %f \n", (float) totalContrib/totalNoSubj);
+	printf("Ontology contribution is: %f  (If normalized by all subjs: %f)\n", (float) totalContrib/totalNoSubjWithOnt, (float)totalContrib/totalNoSubj);
+
+	return MAL_SUCCEED; 
 }
 #endif 
 
