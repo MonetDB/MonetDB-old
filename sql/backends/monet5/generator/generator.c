@@ -218,7 +218,7 @@ findGeneratorDefinition(MalBlkPtr mb, InstrPtr pci, int target)
 
 	for (i = 1; i < mb->stop; i++) {
 		q = getInstrPtr(mb, i);
-		if (q->argv[0] == target && getModuleId(q) == generatorRef && getFunctionId(q) == parametersRef)
+		if (q->argv[0] == target && getModuleId(q) == generatorRef && (getFunctionId(q) == parametersRef || getFunctionId(q) == seriesRef))
 			p = q;
 		if (q == pci)
 			return p;
@@ -904,7 +904,9 @@ str VLTgenerator_join(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	{ bte f,l,s; bte *v; BUN w;
 	f = *getArgReference_bte(stk,p, 1);
 	l = *getArgReference_bte(stk,p, 2);
-	s = *getArgReference_bte(stk,p, 3);
+	if ( p->argc == 3)
+		s = f<l? (bte) 1: (bte)-1;
+	else s = * getArgReference_bte(stk, p, 3);
 	incr = s > 0;
 	if ( s == 0 || (f> l && s>0) || (f<l && s < 0))
 		throw(MAL,"generator.join","Illegal range");
@@ -956,7 +958,167 @@ str VLTgenerator_join(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		BBPkeepref(*getArgReference_bat(stk,pci,0)= bln->batCacheid);
 		BBPkeepref(*getArgReference_bat(stk,pci,1)= brn->batCacheid);
 	}
-	if ( materialized)
+	if ( materialized){
 		BBPreclaim(bl);
+		bl = 0;
+	}
+	if(bl) BBPreleaseref(bl->batCacheid);
+	if(br) BBPreleaseref(br->batCacheid);
+	return msg;
+}
+
+#define VLTrangeExpand() \
+{	limit+= cnt * (limit/(done?done:1)+1);\
+	bln= BATextend(bln, limit);\
+	if( bln == NULL){\
+		BBPreleaseref(blow->batCacheid);\
+		BBPreleaseref(bhgh->batCacheid);\
+		throw(MAL,"generator.rangejoin",MAL_MALLOC_FAIL);\
+	}\
+	brn= BATextend(brn, limit);\
+	if( brn == NULL) {\
+		BBPreleaseref(blow->batCacheid);\
+		BBPreleaseref(bhgh->batCacheid);\
+		throw(MAL,"generator.rangejoin",MAL_MALLOC_FAIL);\
+	}\
+	ol = (oid*) Tloc(bln,BUNfirst(bln)) + c;\
+	or = (oid*) Tloc(brn,BUNfirst(brn)) + c;\
+}
+
+/* The operands of a join operation can either be defined on a generator */
+#define VLTrangejoin(TPE, ABS) \
+{ TPE f,f1,l,s; TPE *vlow,*vhgh; BUN w;\
+	f = *getArgReference_bte(stk,p, 1);\
+	l = *getArgReference_bte(stk,p, 2);\
+	if ( p->argc == 3) \
+		s = f<l? (TPE) 1: (TPE)-1;\
+	else s = * getArgReference_##TPE(stk, p, 3); \
+	incr = s > 0;\
+	if ( s == 0 || (f> l && s>0) || (f<l && s < 0))\
+		throw(MAL,"generator.rangejoin","Illegal range");\
+	vlow = (TPE*) Tloc(blow,BUNfirst(blow));\
+	vhgh = (TPE*) Tloc(bhgh,BUNfirst(bhgh));\
+	for( ; cnt >0; cnt--, done++, o++,vlow++,vhgh++){\
+		f1 = f + floor(ABS(*vlow-f)/ABS(s)) * s;\
+		if ( f1 < *vlow ) f1+= s;\
+		w = (BUN) floor(ABS(f1-f)/ABS(s));\
+		for( ; (f1 > *vlow || (li && f1 == *vlow)) && (f1 < *vhgh || (ri && f1 == *vhgh)); f1 += s, w++){\
+			if(c == limit)\
+				VLTrangeExpand();\
+			*ol++ = (oid) w;\
+			*or++ = o;\
+			c++;\
+		}\
+} }
+
+str VLTgenerator_rangejoin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	BAT  *blow = NULL, *bhgh = NULL, *bln = NULL, *brn= NULL;
+	bit li,ri;
+	BUN limit, cnt, done=0, c =0;
+	oid o= 0, *ol, *or;
+	int tpe, incr=0;
+	InstrPtr p = NULL;
+	str msg = MAL_SUCCEED;
+
+	(void) cntxt;
+	// the left join argument should be a generator
+	p = findGeneratorDefinition(mb,pci,pci->argv[2]);
+	if( p == NULL)
+		throw(MAL,"generator.rangejoin","invalid arguments");
+
+	blow = BATdescriptor(*getArgReference_bat(stk,pci,3));
+	if( blow == NULL)
+		throw(MAL,"generator.rangejoin",RUNTIME_OBJECT_MISSING);
+
+	bhgh = BATdescriptor(*getArgReference_bat(stk,pci,4));
+	if( bhgh == NULL){
+		BBPreleaseref(blow->batCacheid);
+		throw(MAL,"generator.rangejoin",RUNTIME_OBJECT_MISSING);
+	}
+	li = *getArgReference_bit(stk,pci,5);
+	ri = *getArgReference_bit(stk,pci,6);
+
+	cnt = BATcount(blow);
+	limit = 2 * cnt; //top off result before expansion
+	tpe = blow->ttype;
+	o= blow->hseqbase;
+	
+	bln = BATnew(TYPE_void,TYPE_oid, limit, TRANSIENT);
+	brn = BATnew(TYPE_void,TYPE_oid, limit, TRANSIENT);
+	if( bln == NULL || brn == NULL){
+		if(bln) BBPreleaseref(bln->batCacheid);
+		if(brn) BBPreleaseref(brn->batCacheid);
+		if(blow) BBPreleaseref(blow->batCacheid);
+		if(bhgh) BBPreleaseref(bhgh->batCacheid);
+		throw(MAL,"generator.rangejoin",MAL_MALLOC_FAIL);
+	}
+	ol = (oid*) Tloc(bln,BUNfirst(bln));
+	or = (oid*) Tloc(brn,BUNfirst(brn));
+
+	/* The actual join code for generators be injected here */
+	switch(tpe){
+	case TYPE_bte: VLTrangejoin(bte,abs); break; 
+	case TYPE_sht: VLTrangejoin(sht,abs); break;
+	case TYPE_int: VLTrangejoin(int,abs); break;
+	case TYPE_lng: //VLTrangejoin(lng,llabs); break;
+	{ lng f,f1,l,s; lng *vlow,*vhgh; BUN w;
+	f = *getArgReference_lng(stk,p, 1);
+	l = *getArgReference_lng(stk,p, 2);
+	if ( p->argc == 3)
+		s = f<l? (lng) 1: (lng)-1;
+	else s = * getArgReference_sht(stk, p, 3); 
+	incr = s > 0;
+
+	if ( s == 0 || (f> l && s>0) || (f<l && s < 0))
+		throw(MAL,"generator.rangejoin","Illegal range");
+
+	vlow = (lng*) Tloc(blow,BUNfirst(blow));
+	vhgh = (lng*) Tloc(bhgh,BUNfirst(bhgh));
+	for( ; cnt >0; done++,cnt--, o++,vlow++,vhgh++){
+		f1 = f + floor(abs(*vlow-f)/abs(s)) * s;
+		if ( f1 < *vlow ) f1+= s;
+		w = (BUN) floor(abs(f1-f)/abs(s));
+		for( ; (f1 > *vlow || (li && f1 == *vlow)) && (f1 < *vhgh || (ri && f1 == *vhgh)); f1 += s, w++){
+			if(c == limit){
+				limit += 0;
+				VLTrangeExpand();
+			}
+			*ol++ = (oid) w;
+			*or++ = o;
+			c++;
+		}
+	} }
+	break;
+#ifdef HAVE_HGE
+	case TYPE_hge: VLTrangejoin(hge,HGE_ABS); break;
+#endif
+	case TYPE_flt: VLTrangejoin(flt,fabsf); break;
+	case TYPE_dbl: VLTrangejoin(dbl,fabs); break;
+	default:
+		if( tpe == TYPE_timestamp){ 
+			// it is easier to produce the timestamp series
+			// then to estimate the possible index
+			}
+		throw(MAL,"generator.rangejoin","Illegal type");
+	}
+
+	BATsetcount(bln,c);
+	bln->hdense = 1;
+	bln->hseqbase = 0;
+	bln->hkey = 1;
+	bln->tsorted = incr || c <= 1;				\
+	bln->trevsorted = !incr || c <= 1;			\
+	BATderiveProps(bln,0);
+	
+	BATsetcount(brn,c);
+	brn->hdense = 1;
+	brn->hseqbase = 0;
+	brn->hkey = 1;
+	brn->tsorted = incr || c <= 1;				\
+	brn->trevsorted = !incr || c <= 1;			\
+	BATderiveProps(brn,0);
+	BBPkeepref(*getArgReference_bat(stk,pci,0)= bln->batCacheid);
+	BBPkeepref(*getArgReference_bat(stk,pci,1)= brn->batCacheid);
 	return msg;
 }
