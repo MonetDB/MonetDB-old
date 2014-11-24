@@ -66,10 +66,11 @@ pattern abort()
 address SQLabort
 comment "Trigger the abort operation for a MAL block";
 
-address SQLprecommit()
+pattern precommit()
+address SQLprecommit
 comment "Pre-commit changes, writing them only to the WAL.";
-pattern persistcommit(c:any...)
-address SQLpersistcommit()
+pattern persistcommit()
+address SQLpersistcommit
 comment "Persists per-commited changes, writing them to certain BATs.";
 
 pattern catalog(type:int,sname:str,name:str,action:int):void
