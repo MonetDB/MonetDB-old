@@ -9795,7 +9795,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	initArray(*subjCSMap, (*maxSoid) + 1, BUN_NONE);
 
 	totalNumberOfTriples = 	BATcount(sbat); 
-	acceptableTableSize = totalNumberOfTriples / 2000;
+	acceptableTableSize = totalNumberOfTriples / (2 * upperboundNumTables);
 	printf("Acceptable table size = %d \n", acceptableTableSize);
 	
 	tmpLastT = clock();
