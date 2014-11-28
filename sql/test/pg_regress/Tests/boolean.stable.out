@@ -24,8 +24,6 @@ Ready.
 # 17:11:19 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-1142" "--port=38959"
 # 17:11:19 >  
 
-= ! Correct / expected output still needs to be provided / verified / approved ! =
-
 #--
 #-- BOOLEAN
 #--
@@ -242,7 +240,7 @@ Ready.
 #   FROM BOOLTBL1
 #   WHERE f1 = NOT FALSE;
 % .L,	sys.booltbl1 # table_name
-% Not False,	f1 # name
+% "Not False",	f1 # name
 % char,	boolean # type
 % 0,	5 # length
 [ "",	true	]
@@ -253,7 +251,7 @@ Ready.
 #   FROM BOOLTBL1
 #   WHERE NOT FALSE = f1;
 % .L,	sys.booltbl1 # table_name
-% Not False,	f1 # name
+% "Not False",	f1 # name
 % char,	boolean # type
 % 0,	5 # length
 [ "",	true	]
@@ -264,7 +262,7 @@ Ready.
 #   FROM BOOLTBL1
 #   WHERE f1 = (NOT FALSE);
 % .L,	sys.booltbl1 # table_name
-% Not False,	f1 # name
+% "Not False",	f1 # name
 % char,	boolean # type
 % 0,	5 # length
 [ "",	true	]
@@ -283,7 +281,7 @@ Ready.
 #   FROM BOOLTBL1
 #   WHERE f1 = NOT TRUE;
 % .L,	sys.booltbl1 # table_name
-% Not True,	f1 # name
+% "Not True",	f1 # name
 % char,	boolean # type
 % 0,	5 # length
 [ "",	false	]
@@ -291,7 +289,7 @@ Ready.
 #   FROM BOOLTBL1
 #   WHERE NOT TRUE = f1;
 % .L,	sys.booltbl1 # table_name
-% Not True,	f1 # name
+% "Not True",	f1 # name
 % char,	boolean # type
 % 0,	5 # length
 [ "",	false	]
@@ -299,7 +297,7 @@ Ready.
 #   FROM BOOLTBL1
 #   WHERE f1 = (NOT TRUE);
 % .L,	sys.booltbl1 # table_name
-% Not True,	f1 # name
+% "Not True",	f1 # name
 % char,	boolean # type
 % 0,	5 # length
 [ "",	false	]
@@ -314,21 +312,21 @@ Ready.
 #   FROM BOOLTBL2
 #   WHERE f1 = NOT FALSE;
 % .L,	sys.booltbl2 # table_name
-% Not False,	f1 # name
+% "Not False",	f1 # name
 % char,	boolean # type
 % 0,	5 # length
 #SELECT '' AS "Not False", f1
 #   FROM BOOLTBL2
 #   WHERE NOT FALSE = f1;
 % .L,	sys.booltbl2 # table_name
-% Not False,	f1 # name
+% "Not False",	f1 # name
 % char,	boolean # type
 % 0,	5 # length
 #SELECT '' AS "Not False", f1
 #   FROM BOOLTBL2
 #   WHERE f1 = (NOT FALSE);
 % .L,	sys.booltbl2 # table_name
-% Not False,	f1 # name
+% "Not False",	f1 # name
 % char,	boolean # type
 % 0,	5 # length
 #SELECT '' AS "False", f1
@@ -347,7 +345,7 @@ Ready.
 #   FROM BOOLTBL2
 #   WHERE f1 = NOT TRUE;
 % .L,	sys.booltbl2 # table_name
-% Not True,	f1 # name
+% "Not True",	f1 # name
 % char,	boolean # type
 % 0,	5 # length
 [ "",	false	]
@@ -359,7 +357,7 @@ Ready.
 #   FROM BOOLTBL2
 #   WHERE NOT TRUE = f1;
 % .L,	sys.booltbl2 # table_name
-% Not True,	f1 # name
+% "Not True",	f1 # name
 % char,	boolean # type
 % 0,	5 # length
 [ "",	false	]
@@ -371,7 +369,7 @@ Ready.
 #   FROM BOOLTBL2
 #   WHERE f1 = (NOT TRUE);
 % .L,	sys.booltbl2 # table_name
-% Not True,	f1 # name
+% "Not True",	f1 # name
 % char,	boolean # type
 % 0,	5 # length
 [ "",	false	]
@@ -381,8 +379,6 @@ Ready.
 [ "",	false	]
 #DROP TABLE  BOOLTBL1;
 #DROP TABLE  BOOLTBL2;
-
-= ! Correct / expected output still needs to be provided / verified / approved ! =
 
 # 17:11:19 >  
 # 17:11:19 >  "Done."

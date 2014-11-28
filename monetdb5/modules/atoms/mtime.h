@@ -75,15 +75,20 @@ typedef int daytime;
  * @- timestamp
  * Timestamp is implemented as a record that contains a date and a time (GMT).
  */
-typedef struct {
+typedef union {
+	lng alignment;
+	struct {
 #ifndef WORDS_BIGENDIAN
-	daytime msecs;
-	date days;
+		daytime p_msecs;
+		date p_days;
 #else
-	date days;
-	daytime msecs;
+		date p_days;
+		daytime p_msecs;
 #endif
+	} payload;
 } timestamp;
+#define msecs payload.p_msecs
+#define days payload.p_days
 
 /*
  * @- rule
@@ -142,13 +147,10 @@ mtime_export str MTIMEmonth_to_str(str *ret, const int *month);
 mtime_export str MTIMEday_from_str(int *ret, const char * const *day);
 mtime_export str MTIMEday_to_str(str *ret, const int *day);
 mtime_export str MTIMEdate_date(date *d, const date *s);
-mtime_export str MTIMEdate_tostr(str *ret, const date *d);
 mtime_export str MTIMEdate_fromstr(date *ret, const char * const *s);
 mtime_export str MTIMEdate_create(date *ret, const int *year, const int *month, const int *day);
-mtime_export str MTIMEdaytime_tostr(str *ret, const daytime *d);
 mtime_export str MTIMEdaytime_create(daytime *ret, const int *hour, const int *min, const int *sec, const int *msec);
 mtime_export str MTIMEtimestamp_fromstr(timestamp *ret, const char * const *d);
-mtime_export str MTIMEtimestamp_timestamp(timestamp *d, const timestamp *s);
 mtime_export str MTIMEtimestamp_create(timestamp *ret, const date *d, const daytime *t, const tzone *z);
 mtime_export str MTIMEtimestamp_create_default(timestamp *ret, const date *d, const daytime *t);
 mtime_export str MTIMEtimestamp_create_from_date(timestamp *ret, const date *d);
@@ -175,7 +177,7 @@ mtime_export str MTIMEdate_adddays(date *ret, const date *v, const int *delta);
 mtime_export str MTIMEdate_addmonths(date *ret, const date *v, const int *delta);
 mtime_export str MTIMEdate_diff(int *ret, const date *v1, const date *v2);
 mtime_export str MTIMEdate_diff_bulk(bat *ret, const bat *bid1, const bat *bid2);
-mtime_export str MTIMEtimestamp_add(timestamp *ret, const timestamp *v, const lng *msecs);
+mtime_export str MTIMEtimestamp_add(timestamp *ret, const timestamp *v, const lng *msec);
 mtime_export str MTIMEtimestamp_diff(lng *ret, const timestamp *v1, const timestamp *v2);
 mtime_export str MTIMEtimestamp_diff_bulk(bat *ret, const bat *bid1, const bat *bid2);
 mtime_export str MTIMEtimestamp_inside_dst(bit *ret, const timestamp *p, const tzone *z);
@@ -195,17 +197,11 @@ mtime_export str MTIMEsql_hours(int *ret, const lng *t);
 mtime_export str MTIMEsql_minutes(int *ret, const lng *t);
 mtime_export str MTIMEsql_seconds(int *ret, const lng *t);
 
-mtime_export str MTIMEtimestamp_LT(bit *retval, const timestamp *val1, const timestamp *val2);
-mtime_export str MTIMEtimestamp_LE(bit *retval, const timestamp *val1, const timestamp *val2);
-mtime_export str MTIMEtimestamp_GT(bit *retval, const timestamp *val1, const timestamp *val2);
-mtime_export str MTIMEtimestamp_GE(bit *retval, const timestamp *val1, const timestamp *val2);
-mtime_export str MTIMErule_tostr(str *s, const rule *r);
 mtime_export str MTIMErule_fromstr(rule *ret, const char * const *s);
 mtime_export str MTIMErule_create(rule *ret, const int *month, const int *day, const int *weekday, const int *minutes);
 mtime_export str MTIMEtzone_create_dst(tzone *ret, const int *minutes, const rule *start, const rule *end);
 mtime_export str MTIMEtzone_create(tzone *ret, const int *minutes);
 mtime_export str MTIMEtzone_create_lng(tzone *ret, const lng *minutes);
-mtime_export str MTIMEtzone_isnil(bit *retval, const tzone *val);
 mtime_export str MTIMErule_extract_month(int *ret, const rule *r);
 mtime_export str MTIMErule_extract_day(int *ret, const rule *r);
 mtime_export str MTIMErule_extract_weekday(int *ret, const rule *r);
@@ -237,7 +233,7 @@ mtime_export str MTIMEunix_epoch(timestamp *ret);
 mtime_export str MTIMEepoch2int(int *res, const timestamp *ts);
 mtime_export str MTIMEtimestamp(timestamp *ret, const int *sec);
 mtime_export str MTIMEtimestamp_bulk(bat *ret, bat *bid);
-mtime_export str MTIMEtimestamp_lng(timestamp *ret, const lng *msecs);
+mtime_export str MTIMEtimestamp_lng(timestamp *ret, const lng *msec);
 mtime_export str MTIMEtimestamp_lng_bulk(bat *ret, bat *bid);
 mtime_export str MTIMEruleDef0(rule *ret, const int *m, const int *d, const int *w, const int *h, const int *mint);
 mtime_export str MTIMEruleDef1(rule *ret, const int *m, const char * const *dnme, const int *w, const int *h, const int *mint);

@@ -1711,32 +1711,36 @@ BBPcurstamp(void)
 }
 
 /* There are BBP_THREADMASK+1 (64) free lists, and ours (idx) is
- * empty.  Here we find the longest free list, and if it is long
- * enough (> 20 entries) we take one entry from that list.  If the
- * longest list isn't long enough, we create a new entry by either
- * just increasing BBPsize (up to BBPlimit) or extending the BBP
- * (which increases BBPlimit). */
+ * empty.  Here we find a longish free list (at least 20 entries), and
+ * if we can find one, we take one entry from that list.  If no long
+ * enough list can be found, we create a new entry by either just
+ * increasing BBPsize (up to BBPlimit) or extending the BBP (which
+ * increases BBPlimit).  Every time this function is called we start
+ * searching in a following free list (variable "last"). */
 static void
 maybeextend(int idx)
 {
 	int t, m;
 	int n, l;
 	bat i;
+	static int last = 0;
 
 	l = 0;			/* length of longest list */
 	m = 0;			/* index of longest list */
-	/* find longest free list */
-	for (t = 0; t <= BBP_THREADMASK; t++) {
+	/* find a longish free list */
+	for (t = 0; t <= BBP_THREADMASK && l <= 20; t++) {
 		n = 0;
-		for (i = BBP_free(t); i != 0; i = BBP_next(i))
+		for (i = BBP_free((t + last) & BBP_THREADMASK);
+		     i != 0 && n <= 20;
+		     i = BBP_next(i))
 			n++;
 		if (n > l) {
-			m = t;
+			m = (t + last) & BBP_THREADMASK;
 			l = n;
 		}
 	}
 	if (l > 20) {
-		/* longest list is long enough, get an entry from there */
+		/* list is long enough, get an entry from there */
 		i = BBP_free(m);
 		BBP_free(m) = BBP_next(i);
 		BBP_next(i) = 0;
@@ -1749,6 +1753,7 @@ maybeextend(int idx)
 			BBP_free(idx) = (bat) ATOMIC_GET(BBPsize, BBPsizeLock, "BBPinsert") - 1;
 		}
 	}
+	last = (last + 1) & BBP_THREADMASK;
 }
 
 bat
@@ -2113,17 +2118,18 @@ incref(bat i, int logical, int lock)
 			MT_lock_unset(&GDKswapLock(i), "BBPincref");
 		return 0;
 	}
-	/* parent BATs are not relevant for logical refs */
-	hp = logical ? 0 : bs->B.H->heap.parentid;
-	tp = logical ? 0 : bs->B.T->heap.parentid;
-	hvp = logical || bs->B.H->vheap == 0 || bs->B.H->vheap->parentid == i ? 0 : bs->B.H->vheap->parentid;
-	tvp = logical || bs->B.T->vheap == 0 || bs->B.T->vheap->parentid == i ? 0 : bs->B.T->vheap->parentid;
 
 	assert(BBP_refs(i) + BBP_lrefs(i) ||
 	       BBP_status(i) & (BBPDELETED | BBPSWAPPED));
-	if (logical)
+	if (logical) {
+		/* parent BATs are not relevant for logical refs */
+		hp = tp = hvp = tvp = 0;
 		refs = ++BBP_lrefs(i);
-	else {
+	} else {
+		hp = bs->B.H->heap.parentid;
+		tp = bs->B.T->heap.parentid;
+		hvp = bs->B.H->vheap == 0 || bs->B.H->vheap->parentid == i ? 0 : bs->B.H->vheap->parentid;
+		tvp = bs->B.T->vheap == 0 || bs->B.T->vheap->parentid == i ? 0 : bs->B.T->vheap->parentid;
 		refs = ++BBP_refs(i);
 		if (refs == 1 && (hp || tp || hvp || tvp)) {
 			/* If this is a view, we must load the parent
