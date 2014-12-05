@@ -2617,7 +2617,7 @@ char checkCSduplication(CSBats *csBats, BUN cskey, oid* key, int numK, int numTy
 	BUN pos; 
 	char isDuplication = 0; 
 
-	BATiter bi = bat_iterator(BATmirror(csBats->hsKeyBat));
+	BATiter bi = bat_iterator(csBats->hsKeyBat);
 			
 	HASHloop(bi, csBats->hsKeyBat->T->hash, pos, (ptr) &cskey){
 		//printf("  pos: " BUNFMT, pos);
@@ -9803,6 +9803,8 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	*maxNumPwithDup	 = 0;
 	//Phase 1: Assign an ID for each CS
 	RDFassignCSId(ret, sbat, pbat, obat, ontbat,freqCSset, freqThreshold, csBats, *subjCSMap, maxCSoid, &maxNumProp, maxNumPwithDup);
+
+	if (1) throw(RDF, "rdf.AssignCSId", "Stop for profiling");; 
 		
 	curT = clock(); 
 	printf (" ----- Exploring all CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
