@@ -149,7 +149,6 @@ rdf_BUNappend_BlankNode_Obj(parserData* pdata, BAT *b, BUN* bun){
 static void 
 rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType objType, BUN* bun){
 
-	BATprint(b); 	
 	*bun = BUNfnd(b,(ptr) (str)objStr);
 	if (*bun == BUN_NONE) {
 		if (b->T->hash && BATcount(b) > 4 * b->T->hash->mask) {
