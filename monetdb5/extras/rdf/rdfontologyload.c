@@ -287,7 +287,7 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontat
 	
 	ontmetaBat = BATnew(TYPE_void, TYPE_oid, ontmetadataCount, TRANSIENT);
 	BATseqbase(ontmetaBat, 0);
-	(void)BATprepareHash(BATmirror(ontmetaBat));
+	(void)BATprepareHash(ontmetaBat);
 	if (!(ontmetaBat->T->hash)){
 		throw(RDF, "buildOntologyClassesInfo", "Cannot allocate the hash for Bat");
 	}
@@ -300,7 +300,7 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontat
 		classOid = ontmetadat[0][i];
 		assert(classOid != BUN_NONE); 
 
-		tmpBun = BUNfnd(BATmirror(ontmetaBat),&classOid);
+		tmpBun = BUNfnd(ontmetaBat,&classOid);
 		if (tmpBun == BUN_NONE){	//If it is a new class
 			if (BUNappend(ontmetaBat,&classOid, TRUE) == NULL)    
 				throw(RDF, "buildOntologyClassesInfo", "Cannot insert to ontmetaBat");
@@ -321,7 +321,7 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontat
 		scOid = ontmetadat[1][i];
 
 		if (scOid != BUN_NONE){	//The superClass oid is there
-			tmpBun = BUNfnd(BATmirror(ontmetaBat),&scOid);	
+			tmpBun = BUNfnd(ontmetaBat,&scOid);	
 			if (tmpBun == BUN_NONE){	//If it is a new class
 				if (BUNappend(ontmetaBat, &scOid, TRUE) == NULL)    
 					throw(RDF, "buildOntologyClassesInfo", "Cannot insert to ontmetaBat");
@@ -381,14 +381,14 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontat
 		//Get index
 		classOid = ontmetadat[0][i];
 		scOid = ontmetadat[1][i];
-		tmpBun = BUNfnd(BATmirror(ontmetaBat), &classOid);
+		tmpBun = BUNfnd(ontmetaBat, &classOid);
 		assert(tmpBun != BUN_NONE);
 
 		classIdx = (int) (tmpBun); 
 
 		if (scOid == BUN_NONE) continue; 
 		else{
-			tmpBun = BUNfnd(BATmirror(ontmetaBat), &scOid);
+			tmpBun = BUNfnd(ontmetaBat, &scOid);
 			assert(tmpBun != BUN_NONE);
 			scIdx = (int) (tmpBun); 
 
@@ -419,7 +419,7 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontat
 		classOid = ontattributes[0][i];
 		if (classOid != curClassOid){
 
-			tmpBun = BUNfnd(BATmirror(ontmetaBat), &curClassOid);
+			tmpBun = BUNfnd(ontmetaBat, &curClassOid);
 			assert(tmpBun != BUN_NONE); 
 			classIdx = (int) (tmpBun);
 			tmpontclassSet[classIdx].lstProp = (oid*)malloc(sizeof(oid) * tmpNumProp);
@@ -440,7 +440,7 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontat
 	}
 	
 	//Last one
-	tmpBun = BUNfnd(BATmirror(ontmetaBat), &curClassOid);
+	tmpBun = BUNfnd(ontmetaBat, &curClassOid);
 	assert(tmpBun != BUN_NONE); 
 	classIdx = (int) (tmpBun);
 	tmpontclassSet[classIdx].lstProp = (oid*)malloc(sizeof(oid) * tmpNumProp);

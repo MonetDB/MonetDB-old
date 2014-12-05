@@ -150,8 +150,6 @@ static void
 rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType objType, BUN* bun){
 
 	BATprint(b); 	
-	printf("Append %s ...", (str)objStr);
-	printf("Checking existency\n"); 
 	*bun = BUNfnd(b,(ptr) (str)objStr);
 	if (*bun == BUN_NONE) {
 		if (b->T->hash && BATcount(b) > 4 * b->T->hash->mask) {
@@ -174,7 +172,6 @@ rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType obj
 			raptor_parser_parse_abort (pdata->rparser);
 		}
 	} else {
-		printf("Existing value at "BUNFMT " with objType = %d seqbase is " BUNFMT "\n", *bun, objType, (b)->hseqbase);
 		*bun += RDF_MIN_LITERAL;
 		*bun |= (BUN)objType << (sizeof(BUN)*8 - 4);
 	}

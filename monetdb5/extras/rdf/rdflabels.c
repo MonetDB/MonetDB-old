@@ -420,7 +420,7 @@ void insertValuesIntoTypeAttributesHistogram(oid* typeList, int typeListLength, 
 
 	for (i = 0; i < typeListLength; ++i) {
 		#if ONLY_USE_ONTOLOGYBASED_TYPE
-		BUN pos = BUNfnd(BATmirror(ontmetaBat), &typeList[i]);
+		BUN pos = BUNfnd(ontmetaBat, &typeList[i]);
 		if (pos == BUN_NONE) continue; // no ontology information, ignore
 		#endif
 		// add to histogram
@@ -758,7 +758,7 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 		for (k = 0; k < listCount[i]; ++k) {
 			BUN p, bun; 
 			p = listOids[i][k];
-			bun = BUNfnd(BATmirror(propStat->pBat), (ptr) &p);
+			bun = BUNfnd(propStat->pBat, (ptr) &p);
 			if (bun == BUN_NONE) continue; 
 			else{
 				candidates[k] = malloc(sizeof(oid) * (propStat->plCSidx[bun].numAdded));
@@ -785,7 +785,7 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 		for (j = 0; j < listCount[i]; ++j) { // for each list
 			BUN p, bun;
 			p = listOids[i][j];
-			bun = BUNfnd(BATmirror(propStat->pBat), (ptr) &p);
+			bun = BUNfnd(propStat->pBat, (ptr) &p);
 			if (bun == BUN_NONE) continue; // property does not belong to an ontology class and therefore has no tfidfs score
 			for (k = 0; k < candidatesCount[j]; ++k) { // for each candidate
 				// search for this class
@@ -817,7 +817,7 @@ oid* getOntologyCandidates(oid** ontattributes, int ontattributesCount, oid** on
 		for (j = 0; j < listCount[i]; ++j) {
 			BUN bun;
 			if (candidatesCount[j] == 0) continue; // ignore properties without classes (dbpedia-specific issue)
-			bun = BUNfnd(BATmirror(propStat->pBat), (ptr) &listOids[i][j]);
+			bun = BUNfnd(propStat->pBat, (ptr) &listOids[i][j]);
 			totalTfidfs += (propStat->tfidfs[bun] * propStat->tfidfs[bun]);
 		}
 		for (j = 0; j < num; ++j) {
@@ -938,7 +938,7 @@ PropStat* initPropStat(void) {
 		return NULL;
 	}
 
-	(void)BATprepareHash(BATmirror(propStat->pBat));
+	(void)BATprepareHash(propStat->pBat);
 	if (!(propStat->pBat->T->hash)) {
 		return NULL;
 	}
@@ -969,12 +969,12 @@ void createPropStatistics(PropStat* propStat, oid** ontattributes, int ontattrib
 		oid attr = ontattributes[1][i];
 		oid uri = ontattributes[0][i];
 		// add prop to propStat
-		BUN	bun = BUNfnd(BATmirror(propStat->pBat), (ptr) &attr);
+		BUN	bun = BUNfnd(propStat->pBat, (ptr) &attr);
 		if (bun == BUN_NONE) {
 			numProps++;
 			if (propStat->pBat->T->hash && BATcount(propStat->pBat) > 4 * propStat->pBat->T->hash->mask) {
 				HASHdestroy(propStat->pBat);
-				BAThash(BATmirror(propStat->pBat), 2*BATcount(propStat->pBat));
+				BAThash(propStat->pBat, 2*BATcount(propStat->pBat));
 			}
 
 			propStat->pBat = BUNappend(propStat->pBat, &attr, TRUE);
@@ -1399,7 +1399,7 @@ void getTableName(CSlabel* label, CSset* freqCSset, int csIdx,  int typeAttribut
 
 			typeOid = typeAttributesHistogram[csIdx][i][j].value;
 			printf("FreqCS %d : Type[%d][%d][oid] = " BUNFMT, csIdx, i,j, typeOid);
-			ontClassPos = BUNfnd(BATmirror(ontmetaBat), &typeOid); 
+			ontClassPos = BUNfnd(ontmetaBat, &typeOid); 
 			if (ontClassPos != BUN_NONE){
 				takeOid(typeOid,&typelabel);
 				assert(ontclassSet[ontClassPos].cOid == typeOid); 
@@ -1421,7 +1421,7 @@ void getTableName(CSlabel* label, CSset* freqCSset, int csIdx,  int typeAttribut
 		// of all values that are >= TYPE_FREQ_THRESHOLD, choose the value with the highest hierarchy level ("deepest" value)
 		maxDepthOid = typeAttributesHistogram[csIdx][i][0].value;
 		maxFreq = typeAttributesHistogram[csIdx][i][0].freq;
-		ontClassPos = BUNfnd(BATmirror(ontmetaBat), &maxDepthOid);
+		ontClassPos = BUNfnd(ontmetaBat, &maxDepthOid);
 		if ( ontClassPos != BUN_NONE){
 			foundOntologyTypeValue = 1;
 			maxDepth = ontclassSet[ontClassPos].hierDepth;
@@ -1436,7 +1436,7 @@ void getTableName(CSlabel* label, CSset* freqCSset, int csIdx,  int typeAttribut
 			if (typeAttributesHistogram[csIdx][i][j].percent < TYPE_FREQ_THRESHOLD) break;
 			
 			typeOid = typeAttributesHistogram[csIdx][i][j].value;
-			ontClassPos = BUNfnd(BATmirror(ontmetaBat), &typeOid);
+			ontClassPos = BUNfnd(ontmetaBat, &typeOid);
 			if (ontClassPos != BUN_NONE){
 				foundOntologyTypeValue = 1;
 				depth = ontclassSet[ontClassPos].hierDepth;
@@ -1618,7 +1618,7 @@ void getTableName(CSlabel* label, CSset* freqCSset, int csIdx,  int typeAttribut
 	
 	//Add hierarchy information for ontology-based name
 	if (nameFound){
-		ontClassPos = BUNfnd(BATmirror(ontmetaBat), &(label->name));
+		ontClassPos = BUNfnd(ontmetaBat, &(label->name));
 		if ( ontClassPos != BUN_NONE){
 			label->hierarchy = getOntoHierarchy(label->name, &(label->hierarchyCount), ontmetadata, ontmetadataCount);
 		}
@@ -1921,7 +1921,7 @@ void createOntoUsageTree(OntoUsageNode** tree, CSset* freqCSset, oid** ontmetada
 		if (uri == BUN_NONE) continue; 	//No name freqCS
 	
 		//Check if the name is ontology name	
-             	pos = BUNfnd(BATmirror(ontmetaBat), &uri);
+             	pos = BUNfnd(ontmetaBat, &uri);
 	        if (pos == BUN_NONE) continue; // no ontology information, ignore
 
 		// get ontology hierarchy

@@ -171,7 +171,7 @@ str printTKNZStringFromOid(oid id){
 static 
 char isOntologyName(oid valueOid, BUN *ontClassPos){
 	*ontClassPos = BUN_NONE; 
-	*ontClassPos = BUNfnd(BATmirror(ontmetaBat), &valueOid);
+	*ontClassPos = BUNfnd(ontmetaBat, &valueOid);
 	if (*ontClassPos == BUN_NONE) return 0; 
 	else return 1; 
 }
@@ -2089,7 +2089,7 @@ int getOntologyIndex(BAT *ontbat, oid prop){
 		ontpart = substring((char*)propStr, 1, ontlen); 
 
 		//Check whether ontpart appear in the ontBat
-		bunOnt = BUNfnd(BATmirror(ontbat),(ptr) (str)ontpart);	
+		bunOnt = BUNfnd(ontbat,(ptr) (str)ontpart);	
 		if (bunOnt == BUN_NONE){
 			//printf("Non-ontology string: %s \n",propStr);
 			GDKfree(ontpart);
@@ -2698,11 +2698,11 @@ void testBatHash(void){
 		
 	for (i = 0; i < 7; i++){
 		csKey = key[i]; 
-		bun = BUNfnd(BATmirror(testBat),(ptr) &key[i]);
+		bun = BUNfnd(testBat,(ptr) &key[i]);
 		if (bun == BUN_NONE) {
 			if (testBat->T->hash && BATcount(testBat) > 4 * testBat->T->hash->mask) {
 				HASHdestroy(testBat);
-				BAThash(BATmirror(testBat), 2*BATcount(testBat));
+				BAThash(testBat, 2*BATcount(testBat));
 			}
 
 			testBat = BUNappend(testBat, (ptr) &csKey, TRUE);
@@ -2736,11 +2736,11 @@ void addaProp(PropStat* propStat, oid prop, int csIdx, int invertIdx){
 	int* _tmp4; 
 	
 	p = prop; 
-	bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &prop);
+	bun = BUNfnd(propStat->pBat,(ptr) &prop);
 	if (bun == BUN_NONE) {	/* New Prop */
 	       if (propStat->pBat->T->hash && BATcount(propStat->pBat) > 4 * propStat->pBat->T->hash->mask) {
 			HASHdestroy(propStat->pBat);
-			BAThash(BATmirror(propStat->pBat), 2*BATcount(propStat->pBat));
+			BAThash(propStat->pBat, 2*BATcount(propStat->pBat));
 		}
 
 		propStat->pBat = BUNappend(propStat->pBat,&p, TRUE);
@@ -2830,7 +2830,7 @@ void addNewCS(CSBats *csBats, PropStat* fullPropStat, BUN* csKey, oid* key, oid 
 	
 	if (csBats->hsKeyBat->T->hash && BATcount(csBats->hsKeyBat) > 4 * csBats->hsKeyBat->T->hash->mask) {
 		HASHdestroy(csBats->hsKeyBat);
-		BAThash(BATmirror(csBats->hsKeyBat), 2*BATcount(csBats->hsKeyBat));
+		BAThash(csBats->hsKeyBat, 2*BATcount(csBats->hsKeyBat));
 	}
 
 	csBats->hsKeyBat = BUNappend(csBats->hsKeyBat, csKey, TRUE);
@@ -2892,7 +2892,7 @@ oid putaCStoHash(CSBats *csBats, oid* key, int num, int numTriples, int numTypeV
 	(void) numOnt;
 
 	csKey = RDF_hash_oidlist(key, num, numTypeValues, rdftypeOntologyValues);
-	bun = BUNfnd(BATmirror(csBats->hsKeyBat),(ptr) &csKey);
+	bun = BUNfnd(csBats->hsKeyBat,(ptr) &csKey);
 	if (bun == BUN_NONE) {
 		csId = *csoid; 
 		addNewCS(csBats, fullPropStat, &csKey, key, csoid, num, numTriples, numTypeValues, rdftypeOntologyValues);
@@ -3418,7 +3418,7 @@ PropStat* initPropStat(void){
 		return NULL; 
 	}
 
-	(void)BATprepareHash(BATmirror(propStat->pBat));
+	(void)BATprepareHash(propStat->pBat);
 	if (!(propStat->pBat->T->hash)){
 		return NULL;
 	}
@@ -3652,7 +3652,7 @@ void generatecsRelSum(CSrel csRel, int freqId, CSset* freqCSset, CSrelSum *csRel
 		    && freqOfReferredCS < csRel.lstCnt[i] * MIN_TO_PERCETAGE_S5){			
 			
 			p = csRel.lstPropId[i]; 
-			bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &p);
+			bun = BUNfnd(propStat->pBat,(ptr) &p);
 			assert(bun != BUN_NONE);
 			//printf("Prop " BUNFMT "Prop TFIDF score in S5 is %f \n",p, propStat->tfidfs[bun]); 
 			if (propStat->tfidfs[bun] > MIN_TFIDF_PROP_S5){
@@ -3691,7 +3691,7 @@ LabelStat* initLabelStat(void){
 	if (labelStat->labelBat == NULL){
 		return NULL; 
 	}
-	(void)BATprepareHash(BATmirror(labelStat->labelBat));
+	(void)BATprepareHash(labelStat->labelBat);
 	if (!(labelStat->labelBat->T->hash)) 
 		return NULL; 
 	labelStat->lstCount = (int*)malloc(sizeof(int) * INIT_DISTINCT_LABEL);
@@ -3757,12 +3757,12 @@ void buildLabelStatForTable(LabelStat *labelStat, int numTables, CStableStat* cs
 	for (i = 0; i  < numTables; i++){
 		if ( cstablestat->lstcstable[i].tblname != BUN_NONE){
 			name = cstablestat->lstcstable[i].tblname;
-			bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr) &name);
+			bun = BUNfnd(labelStat->labelBat,(ptr) &name);
 			if (bun == BUN_NONE) {
 				//New string
 				if (labelStat->labelBat->T->hash && BATcount(labelStat->labelBat) > 4 * labelStat->labelBat->T->hash->mask) {
 					HASHdestroy(labelStat->labelBat);
-					BAThash(BATmirror(labelStat->labelBat), 2*BATcount(labelStat->labelBat));
+					BAThash(labelStat->labelBat, 2*BATcount(labelStat->labelBat));
 				}
 
 				labelStat->labelBat = BUNappend(labelStat->labelBat, (ptr) &name, TRUE);
@@ -3803,7 +3803,7 @@ void buildLabelStatForTable(LabelStat *labelStat, int numTables, CStableStat* cs
 	for (i = 0; i  < numTables; i++){
 		name = cstablestat->lstcstable[i].tblname;
 		if (name != BUN_NONE){
-			bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr) &name);
+			bun = BUNfnd(labelStat->labelBat,(ptr) &name);
 			if (bun == BUN_NONE) {
 				fprintf(stderr, "[Error] All the name should be stored already!\n");
 			}
@@ -3834,12 +3834,12 @@ void buildLabelStatForFinalMergeCS(LabelStat *labelStat, CSset *freqCSset, CSlab
 
 		if ( labels[i].name != BUN_NONE){
 			name = labels[i].name;
-			bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr) &name);
+			bun = BUNfnd(labelStat->labelBat,(ptr) &name);
 			if (bun == BUN_NONE) {
 				//New string
 				if (labelStat->labelBat->T->hash && BATcount(labelStat->labelBat) > 4 * labelStat->labelBat->T->hash->mask) {
 					HASHdestroy(labelStat->labelBat);
-					BAThash(BATmirror(labelStat->labelBat), 2*BATcount(labelStat->labelBat));
+					BAThash(labelStat->labelBat, 2*BATcount(labelStat->labelBat));
 				}
 
 				labelStat->labelBat = BUNappend(labelStat->labelBat, (ptr) &name, TRUE);
@@ -3883,7 +3883,7 @@ void buildLabelStatForFinalMergeCS(LabelStat *labelStat, CSset *freqCSset, CSlab
 
 		name = labels[i].name;
 		if (name != BUN_NONE){
-			bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr) &name);
+			bun = BUNfnd(labelStat->labelBat,(ptr) &name);
 			if (bun == BUN_NONE) {
 				fprintf(stderr, "[Error] All the name should be stored already!\n");
 			}
@@ -3920,12 +3920,12 @@ void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset, int
 				#else
 				candidate = labels[i].candidates[j];
 				#endif
-				bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr) &candidate);
+				bun = BUNfnd(labelStat->labelBat,(ptr) &candidate);
 				if (bun == BUN_NONE) {
 					/*New string*/
 					if (labelStat->labelBat->T->hash && BATcount(labelStat->labelBat) > 4 * labelStat->labelBat->T->hash->mask) {
 						HASHdestroy(labelStat->labelBat);
-						BAThash(BATmirror(labelStat->labelBat), 2*BATcount(labelStat->labelBat));
+						BAThash(labelStat->labelBat, 2*BATcount(labelStat->labelBat));
 					}
 
 					labelStat->labelBat = BUNappend(labelStat->labelBat, (ptr) &candidate, TRUE);
@@ -3972,7 +3972,7 @@ void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset, int
 				#else
 				candidate = labels[i].candidates[j];
 				#endif
-				bun = BUNfnd(BATmirror(labelStat->labelBat),(ptr) &candidate);
+				bun = BUNfnd(labelStat->labelBat,(ptr) &candidate);
 				if (bun == BUN_NONE) {
 					fprintf(stderr, "All the name should be stored already!\n");
 				}
@@ -4438,7 +4438,7 @@ char isSemanticSimilar(int freqId1, int freqId2, CSlabel* labels, OntoUsageNode 
 			BUN ontClassPos;
 			classOid = tmpNode->uri;
 
-			ontClassPos = BUNfnd(BATmirror(ontmetaBat), &classOid); 
+			ontClassPos = BUNfnd(ontmetaBat, &classOid); 
 			assert(ontClassPos != BUN_NONE);	
 			
 			/*
@@ -4476,7 +4476,7 @@ void initTFIDFInfos(TFIDFInfo *tfidfInfos, int curNumMergeCS, oid* mergeCSFreqCS
 		sum = 0.0; 
 		for (j = 0; j < cs->numProp; j++){
 			p = cs->lstProp[j]; 
-			bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &p);
+			bun = BUNfnd(propStat->pBat,(ptr) &p);
 			if (bun == BUN_NONE) {
 				printf("This prop must be there!!!!\n");
 			}
@@ -5005,7 +5005,7 @@ CSBats* initCSBats(void){
 		return NULL; 
 	}
 
-	(void)BATprepareHash(BATmirror(csBats->hsKeyBat));
+	(void)BATprepareHash(csBats->hsKeyBat);
 	if (!(csBats->hsKeyBat->T->hash)){
 		return NULL;
 	}
@@ -5095,7 +5095,7 @@ BAT* generateTablesForEvaluating(CSset *freqCSset, int numTbl, int* mergeCSFreqC
 	if (outputBat == NULL){
 		return NULL; 
 	}
-	(void)BATprepareHash(BATmirror(outputBat));
+	(void)BATprepareHash(outputBat);
 	if (!(outputBat->T->hash)) 
 		return NULL; 
 
@@ -5138,12 +5138,12 @@ BAT* generateTablesForEvaluating(CSset *freqCSset, int numTbl, int* mergeCSFreqC
 		tmpIdx = maxIdx; 
 
 		//printf("tmpIdx = %d --> FreqCS %d \n",tmpIdx, output[i]);
-		bun = BUNfnd(BATmirror(outputBat),(ptr) &tmpIdx);
+		bun = BUNfnd(outputBat,(ptr) &tmpIdx);
 		if (bun == BUN_NONE) {
 			/*New FreqIdx*/
 			if (outputBat->T->hash && BATcount(outputBat) > 4 * outputBat->T->hash->mask) {
 				HASHdestroy(outputBat);
-				BAThash(BATmirror(outputBat), 2*BATcount(outputBat));
+				BAThash(outputBat, 2*BATcount(outputBat));
 			}
 			outputBat = BUNappend(outputBat, (ptr) &tmpIdx, TRUE);
 			i++;
@@ -5177,7 +5177,7 @@ BAT* buildTypeOidBat(void){
 		printf("In rdfschema.c/buildTypeOidBat: Cannot create new bat\n");
 		return NULL;
 	}	
-	(void)BATprepareHash(BATmirror(typeBat));
+	(void)BATprepareHash(typeBat);
 	
 	if (!(typeBat->T->hash)){
 		printf("rdfschema.c/buildTypeOidBat: Cannot allocate the hash for Bat \n");
@@ -5209,7 +5209,7 @@ static
 char isTypeAttribute(oid propId, BAT* typeBat){
 	BUN	bun; 
 
-	bun = BUNfnd(BATmirror(typeBat), &propId);
+	bun = BUNfnd(typeBat, &propId);
  	if (bun == BUN_NONE){
 		return 0; 
 	}
@@ -5227,7 +5227,7 @@ char isTypeAttribute(oid propId, BAT* typeBat){
 static
 int getOntologySpecificLevel(oid valueOid, BUN *ontClassPos){	
 
-	*ontClassPos = BUNfnd(BATmirror(ontmetaBat), &valueOid);
+	*ontClassPos = BUNfnd(ontmetaBat, &valueOid);
 	if (*ontClassPos == BUN_NONE) 		//Not an ontology class
 		return -1;
 	else
@@ -5242,8 +5242,8 @@ char isSupSuperOntology(oid value1, oid value2){
 	int tmpscPos = -1;
 	int j;
 	
-	ontclasspos1 = BUNfnd(BATmirror(ontmetaBat), &value1);
-	ontclasspos2 = BUNfnd(BATmirror(ontmetaBat), &value2);
+	ontclasspos1 = BUNfnd(ontmetaBat, &value1);
+	ontclasspos2 = BUNfnd(ontmetaBat, &value2);
 
 	if (ontclasspos1 == BUN_NONE || ontclasspos2 == BUN_NONE) return 0;
 	
@@ -5302,7 +5302,7 @@ void initTFIDFInfosForOntologyClass(TFIDFInfo *tfidfInfos, int numClass, OntClas
 		sum = 0.0; 
 		for (j = 0; j < ontClassSet[i].numProp; j++){
 			p = ontClassSet[i].lstProp[j]; 
-			bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &p);
+			bun = BUNfnd(propStat->pBat,(ptr) &p);
 			if (bun == BUN_NONE) {
 				printf("This prop must be there!!!!\n");
 			}
@@ -5955,7 +5955,7 @@ str RDFcheckWrongTypeSubject(BAT *sbat, BATiter si, BATiter pi, BATiter oi, CSse
 							//Check each prop
 							isExist = 0;
 							prop = buff[i];
-							bunprop = BUNfnd(BATmirror(propStat->pBat),(ptr) &prop);
+							bunprop = BUNfnd(propStat->pBat,(ptr) &prop);
 							if (bunprop == BUN_NONE){
 								printf("Subj "BUNFMT" of type "BUNFMT" has an prop "BUNFMT" not in any final table \n", 
 																curS,markedName, prop);
@@ -6735,7 +6735,7 @@ static
 str getOrigSbt(oid *sbt, oid *origSbt, BAT *lmap, BAT *rmap){
 	BUN pos; 
 	oid *tmp; 
-	pos = BUNfnd(BATmirror(rmap),sbt);
+	pos = BUNfnd(rmap,sbt);
 	if (pos == BUN_NONE){
 		throw(RDF, "rdf.RDFdistTriplesToCSs", "This encoded subject must be in rmap");
 	}
@@ -6764,7 +6764,7 @@ str getOrigObt(oid *obt, oid *origObt, BAT *lmap, BAT *rmap){
 	}
 	
 	if (tmporigOid > maxObjectURIOid){
-		pos = BUNfnd(BATmirror(rmap),&tmporigOid);
+		pos = BUNfnd(rmap,&tmporigOid);
 		if (pos == BUN_NONE){
 			throw(RDF, "rdf.RDFdistTriplesToCSs", "This encoded object must be in rmap");
 		}
@@ -7811,7 +7811,7 @@ int* createPropertyOrder(int *numPropsInSampleTable, int **remainingProperties, 
 	// create tfidfValues
 	for (i = 0; i < sample.numProp; ++i) {
 		float tfidf = 0.0;
-		BUN bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &sample.lstProp[i]);
+		BUN bun = BUNfnd(propStat->pBat,(ptr) &sample.lstProp[i]);
 		if (bun == BUN_NONE) {
 			printf("Error: property not found\n");
 		} else {
@@ -8367,7 +8367,7 @@ str RDFExtractSampleData(int *ret, BAT *sbat, BATiter si, BATiter pi, BATiter oi
 				tblIdx = csTblIdxMapping[subjCSMap[curS]];
 				if (tblIdx != -1){
 				
-					sampleIdx = BUNfnd(BATmirror(tblCandBat),(ptr) &tblIdx);
+					sampleIdx = BUNfnd(tblCandBat,(ptr) &tblIdx);
 					if (sampleIdx != BUN_NONE) {
 						assert(!(numP > csSample[sampleIdx].numProp));
 						if (csSample[sampleIdx].numInstances < NUM_SAMPLE_INSTANCE){	
@@ -8876,7 +8876,7 @@ str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int 
 			getPropNameShort(&subjStrShort, subjStr);
 			#if COUNT_PERCENTAGE_ONTO_PROP_USED
 			tmpNumOverlap = 0;
-			tmpPos = BUNfnd(BATmirror(ontmetaBat), &cstablestat->lstcstable[i].tblname);
+			tmpPos = BUNfnd(ontmetaBat, &cstablestat->lstcstable[i].tblname);
 			if (tmpPos != BUN_NONE){
 				if (ontclassSet[tmpPos].numProp != 0){	//otherwise, we do not have the information for this ontology class
 					countNumOverlapProp(ontclassSet[tmpPos].lstProp, cstablestat->lstcstable[i].lstProp , 
@@ -9227,7 +9227,7 @@ void computeMetricsQForRefinedTable(CSset *freqCSset,CSPropTypes *csPropTypes,in
 		isContainedDiscProp = 0;
 		for (j = 0; j < cs.numProp; j++){
 			p = cs.lstProp[j]; 
-			bun = BUNfnd(BATmirror(propStat->pBat),(ptr) &p);
+			bun = BUNfnd(propStat->pBat,(ptr) &p);
 			if (bun == BUN_NONE) {
 				printf("FreqCS: %d, prop "BUNFMT" --> This prop must be in propStat!!!!\n",i,p);
 			}
@@ -9772,7 +9772,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	if ((ontbat = BATdescriptor(*ontbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
-	(void)BATprepareHash(BATmirror(ontbat));
+	(void)BATprepareHash(ontbat);
 	if (!(ontbat->T->hash)){
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
@@ -10162,7 +10162,7 @@ static
 str getOrigPbt(oid *pbt, oid *origPbt, BAT *lmap, BAT *rmap){
 	BUN ppos; 
 	oid *tmp; 
-	ppos = BUNfnd(BATmirror(rmap),pbt);
+	ppos = BUNfnd(rmap,pbt);
 	if (ppos == BUN_NONE){
 		throw(RDF, "rdf.RDFdistTriplesToCSs", "This modified prop must be in rmap");
 	}
@@ -10825,7 +10825,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 
 	
 			//Get number of BATs for this p
-			ppos = BUNfnd(BATmirror(propStat->pBat), &origPbt);
+			ppos = BUNfnd(propStat->pBat, &origPbt);
 			if (ppos == BUN_NONE){
 				throw(RDF, "rdf.RDFdistTriplesToCSs", "This prop must be in propStat bat");
 			}
@@ -10914,7 +10914,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				if (tmpHashBat == NULL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot create new tmpHashBat");
 				}	
-				(void)BATprepareHash(BATmirror(tmpHashBat));
+				(void)BATprepareHash(tmpHashBat);
 				if (!(tmpHashBat->T->hash)){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for Bat");
 				}
@@ -10934,7 +10934,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				if (tmpFKHashBat == NULL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot create new tmpFKHashBat");
 				}	
-				(void)BATprepareHash(BATmirror(tmpFKHashBat));
+				(void)BATprepareHash(tmpFKHashBat);
 				if (!(tmpFKHashBat->T->hash)){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for FK Bat");
 				}
@@ -10975,7 +10975,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				if (tmpFKHashBat == NULL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot create new tmpFKHashBat");
 				}	
-				(void)BATprepareHash(BATmirror(tmpFKHashBat));
+				(void)BATprepareHash(tmpFKHashBat);
 				if (!(tmpFKHashBat->T->hash)){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for FK Bat");
 				}
@@ -11003,7 +11003,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				if (tmpHashBat == NULL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot create new tmpHashBat");
 				}	
-				(void)BATprepareHash(BATmirror(tmpHashBat));
+				(void)BATprepareHash(tmpHashBat);
 				if (!(tmpHashBat->T->hash)){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for Bat");
 				}
@@ -11024,7 +11024,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 
 			#if     DETECT_PKCOL
 			if (isCheckDone == 0 && isPossiblePK){
-				tmpObjBun = BUNfnd(BATmirror(tmpHashBat),(ptr) obt);
+				tmpObjBun = BUNfnd(tmpHashBat,(ptr) obt);
 				if (tmpObjBun == BUN_NONE){
 					if (BUNappend(tmpHashBat,obt, TRUE) == NULL){		//Insert the first value
 						throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot insert to tmpHashBat");
@@ -11042,12 +11042,12 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			#if COUNT_DISTINCT_REFERRED_S
 			if (isFKCol){
 				assert(tmpFKHashBat != NULL); 
-				tmpFKRefBun = BUNfnd(BATmirror(tmpFKHashBat),(ptr) obt);
+				tmpFKRefBun = BUNfnd(tmpFKHashBat,(ptr) obt);
 				if (tmpFKRefBun == BUN_NONE){
 
 				       if (tmpFKHashBat->T->hash && BATcount(tmpFKHashBat) > 4 * tmpFKHashBat->T->hash->mask) {
 						HASHdestroy(tmpFKHashBat);
-						BAThash(BATmirror(tmpFKHashBat), 2*BATcount(tmpFKHashBat));
+						BAThash(tmpFKHashBat, 2*BATcount(tmpFKHashBat));
 
 						if (!(tmpFKHashBat->T->hash)){
 							throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for FK Bat");
@@ -11616,7 +11616,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 	if ((ontbat = BATdescriptor(*ontbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
-	(void)BATprepareHash(BATmirror(ontbat));
+	(void)BATprepareHash(ontbat);
 	if (!(ontbat->T->hash)){
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
@@ -11758,7 +11758,6 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
         #if REMOVE_LOTSOFNULL_SUBJECT
 	printf("Number of subject removed is: %d \n", numSubjRemoved);
 	#endif
-	//BATprint(VIEWcreate(BATmirror(lmap),rmap)); 
 	
 	#if BUILDTOKENZIER_TO_MAPID
 	buildTKNZRMappingBat(lmap, rmap); 
