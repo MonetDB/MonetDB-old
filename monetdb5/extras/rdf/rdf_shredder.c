@@ -84,11 +84,11 @@ static graphBATdef graphdef[N_GRAPH_BAT] = {
 static void 
 rdf_BUNappend_unq(parserData* pdata, BAT *b, void* value, BUN* bun){
 	
-	*bun = BUNfnd(BATmirror(b),(ptr) (str)value);
+	*bun = BUNfnd(b,(ptr) (str)value);
 	if (*bun == BUN_NONE) {
 		if (BATcount(b) > 4 * b->T->hash->mask) {
 			HASHdestroy(b);
-			BAThash(BATmirror(b), 2*BATcount(b));
+			BAThash(b, 2*BATcount(b));
 		}
 		*bun = (BUN) b->batCount;
 		b = BUNappend(b, (ptr) (str)value, TRUE);
@@ -149,11 +149,14 @@ rdf_BUNappend_BlankNode_Obj(parserData* pdata, BAT *b, BUN* bun){
 static void 
 rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType objType, BUN* bun){
 
-	*bun = BUNfnd(BATmirror(b),(ptr) (str)objStr);
+	BATprint(b); 	
+	printf("Append %s ...", (str)objStr);
+	printf("Checking existency\n"); 
+	*bun = BUNfnd(b,(ptr) (str)objStr);
 	if (*bun == BUN_NONE) {
 		if (b->T->hash && BATcount(b) > 4 * b->T->hash->mask) {
 			HASHdestroy(b);
-			BAThash(BATmirror(b), 2*BATcount(b));
+			BAThash(b, 2*BATcount(b));
 		}
 		
 		*bun = (BUN) (RDF_MIN_LITERAL + (b)->batCount);
@@ -171,11 +174,11 @@ rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType obj
 			raptor_parser_parse_abort (pdata->rparser);
 		}
 	} else {
-		//printf("Existing value at "BUNFMT " with objType = %d seqbase is " BUNFMT "\n", *bun, objType, (b)->hseqbase);
+		printf("Existing value at "BUNFMT " with objType = %d seqbase is " BUNFMT "\n", *bun, objType, (b)->hseqbase);
 		*bun += RDF_MIN_LITERAL;
 		*bun |= (BUN)objType << (sizeof(BUN)*8 - 4);
 	}
-
+	
 }
 
 
@@ -338,7 +341,6 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 				|| triple->subject->type == RAPTOR_TERM_TYPE_BLANK) {
 			unsigned char* subjectStr; 
 			subjectStr = raptor_term_to_string(triple->subject);
-			//rdf_insert(pdata, graph[MAP_LEX], (str) subjectStr, &bun);
 			rdf_tknzr_insert((str) subjectStr, &bun);
 			rdf_BUNappend(pdata, graph[S_sort], &bun); 
 				
@@ -377,7 +379,7 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 				(void) ontpart; 
 
 				//Check whether ontpart appear in the ontBat
-				bunOnt = BUNfnd(BATmirror(pdata->ontBat),(ptr) (str)ontpart);	
+				bunOnt = BUNfnd(pdata->ontBat,(ptr) (str)ontpart);	
 				if (bunOnt == BUN_NONE){
 					pdata->numNonOnt++;
 				}
@@ -392,7 +394,6 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 			}
 			#endif
 
-			//rdf_insert(pdata, graph[MAP_LEX], (str) predicateStr, &bun);
 			rdf_tknzr_insert((str) predicateStr, &bun);
 			rdf_BUNappend(pdata, graph[P_sort], &bun); 
 
@@ -405,7 +406,6 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 		if (triple->object->type == RAPTOR_TERM_TYPE_URI) {
 			unsigned char* objStr;
 			objStr = raptor_term_to_string(triple->object);
-			//rdf_insert(pdata, graph[MAP_LEX], (str) objStr, &bun);
 			rdf_tknzr_insert((str) objStr, &bun);
 			rdf_BUNappend(pdata, graph[O_sort], &bun); 
 #if 	CHECK_NUM_VALUES_PER_TYPE
@@ -434,6 +434,7 @@ tripleHandler(void* user_data, const raptor_statement* triple)
 
 			if (objType == STRING){
 				rdf_BUNappend_unq_ForObj(pdata, graph[MAP_LEX], (str)objStr, objType, &bun);	
+
 			}
 			else{	//For handling dateTime, Integer, Float values
 				encodeValueInOid(&vrRealValue, objType, &bun);
@@ -574,7 +575,7 @@ parserData_create (str location, BAT** graph, bat *ontbatid)
 		if ((pdata->ontBat = BATdescriptor(*ontbatid)) == NULL) {
 			return NULL; 
 		}
-		(void)BATprepareHash(BATmirror(pdata->ontBat));
+		(void)BATprepareHash(pdata->ontBat);
 		if (!(pdata->ontBat->T->hash)){
 			return NULL; 
 		}
