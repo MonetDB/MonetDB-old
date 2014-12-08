@@ -1193,7 +1193,7 @@ SQLrdfidtostr(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 			throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
 		}
 
-		pos = BUNfnd(BATmirror(lmapBat),id);
+		pos = BUNfnd(lmapBat,id);
 		if (pos == BUN_NONE)	//this id is not converted to a new id
 			origId = id; 
 		else
@@ -1285,7 +1285,7 @@ SQLrdfidtostr_bat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		}
 		else if (objType == URI || objType == BLANKNODE){
 
-			pos = BUNfnd(BATmirror(lmapBat),id);
+			pos = BUNfnd(lmapBat,id);
 			if (pos == BUN_NONE)	//this id is not converted to a new id
 				origId = id; 
 			else
@@ -1344,7 +1344,7 @@ SQLrdfidtostr(str *ret, oid *id){
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
 	}
 
-	pos = BUNfnd(BATmirror(lmapBat),id);
+	pos = BUNfnd(lmapBat,id);
 	if (pos == BUN_NONE)	//this id is not converted to a new id
 		origId = id; 
 	else

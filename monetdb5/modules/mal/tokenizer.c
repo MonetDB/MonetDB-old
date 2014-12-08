@@ -545,7 +545,7 @@ takeOid(oid id, str *val)
 	}
 
 	if (id >= BATcount(tokenBAT[INDEX].val)) {
-		throw(MAL, "tokenizer.takeOid", OPERATION_FAILED " illegal oid");
+		throw(MAL, "tokenizer.takeOid", OPERATION_FAILED " illegal oid "BUNFMT,id);
 	}
 
 	id = *(oid *) Tloc(tokenBAT[INDEX].val, id);

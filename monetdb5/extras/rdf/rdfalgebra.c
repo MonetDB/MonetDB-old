@@ -77,7 +77,6 @@ RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 	}
 
 	map = VIEWcreate(BATmirror(left), right);
-	//map = BATleftfetchjoin(BATmirror(left), right, BUN_NONE);
 
 	BBPreleaseref(left->batCacheid);
 	BBPreleaseref(right->batCacheid);
@@ -274,7 +273,7 @@ TKNZRrdf2str(bat *res, const bat *bid, const bat *map)
 				BBPunfix(*bid);
 				BBPunfix(*map);
 				BBPunfix(*res);
-				throw(MAL, "rdf.rdf2str", OPERATION_FAILED " illegal oid");
+				throw(MAL, "rdf.rdf2str", OPERATION_FAILED " illegal oid (rdfalgebra.c)");
 			}
 			s = (str) BUNtail(mi, pos);
 		} else {

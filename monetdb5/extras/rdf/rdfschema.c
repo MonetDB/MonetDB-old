@@ -9804,8 +9804,6 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	//Phase 1: Assign an ID for each CS
 	RDFassignCSId(ret, sbat, pbat, obat, ontbat,freqCSset, freqThreshold, csBats, *subjCSMap, maxCSoid, &maxNumProp, maxNumPwithDup);
 
-	if (1) throw(RDF, "rdf.AssignCSId", "Stop for profiling");; 
-		
 	curT = clock(); 
 	printf (" ----- Exploring all CSs took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 		
