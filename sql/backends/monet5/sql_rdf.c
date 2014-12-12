@@ -1160,6 +1160,11 @@ SQLrdfidtostr(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 	rethrow("sql.rdfidtostr", msg, getSQLContext(cntxt, mb, &m, NULL));
 	
+	if (*id == oid_nil){
+		*ret = GDKstrdup(str_nil);
+		return MAL_SUCCEED; 
+	}
+
 	objType = getObjType(*id);
 
 	if (objType == STRING){
@@ -1202,7 +1207,8 @@ SQLrdfidtostr(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		/*First convert the id to the original tokenizer odi */
 		rethrow("sql.rdfidtostr", msg, takeOid(*origId, ret));
 	} else {
-		throw(SQL, "sql.SQLrdfidtostr", "This Id cannot convert to str");
+		//throw(SQL, "sql.SQLrdfidtostr", "This Id cannot convert to str");
+		getStringFormatValueFromOid(*id, objType, ret);  
 	}
 
 	if (msg != MAL_SUCCEED){
@@ -1273,7 +1279,10 @@ SQLrdfidtostr_bat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 	BATloop(srcBat, p, q){
 		id = (oid *)BUNtloc(srci, p);
-
+		if (*id == oid_nil){
+			desBat = BUNappend(desBat, str_nil, TRUE);
+			continue; 
+		}
 		objType = getObjType(*id);
 
 		if (objType == STRING){
@@ -1294,7 +1303,8 @@ SQLrdfidtostr_bat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 			/*First convert the id to the original tokenizer odi */
 			rethrow("sql.rdfidtostr", msg, takeOid(*origId, &s));
 		} else {
-			throw(SQL, "sql.SQLrdfidtostr", "This Id cannot convert to str");
+			//throw(SQL, "sql.SQLrdfidtostr", "This Id cannot convert to str");
+			getStringFormatValueFromOid(*id, objType, &s);  
 		}
 
 
