@@ -7249,3 +7249,62 @@ rel_optimizer(mvc *sql, sql_rel *rel)
 {
 	return _rel_optimizer(sql, rel, 0);
 }
+
+
+static sql_rel *
+_rdf_rel_optimizer(mvc *sql, sql_rel *rel, int level) 
+{
+
+	int changes = 0;
+	global_props gp; 
+
+	memset(&gp, 0, sizeof(global_props));
+	rel_properties(sql, &gp, rel);
+	
+	/* simple merging of projects */
+	if (gp.cnt[op_project] || gp.cnt[op_ddl]) {
+		rel = rewrite(sql, rel, &rel_merge_projects, &changes);
+		if (level <= 0) {
+			rel = rewrite(sql, rel, &rel_case_fixup, &changes);
+			rel = rewrite(sql, rel, &rel_distinct_project2groupby, &changes);
+		}
+	}
+	/* push (simple renaming) projections up */
+	if (gp.cnt[op_project])
+		rel = rewrite(sql, rel, &rel_push_project_up, &changes); 
+
+	/* join's/crossproducts between a relation and a constant (row).
+	 * could be rewritten 
+	 *
+	 * also joins between a relation and a DICT (which isn't used)
+	 * could be removed.
+	 * */
+	if (gp.cnt[op_join] && gp.cnt[op_project])
+		rel = rewrite(sql, rel, &rel_remove_join, &changes); 
+
+	if (gp.cnt[op_project]) 
+		rel = rewrite(sql, rel, &rel_project_cse, &changes);
+
+	
+	if (gp.cnt[op_project])
+		rel = rewrite_topdown(sql, rel, &rel_push_project_down_union, &changes);
+
+	if (changes && level > 10) {
+		assert(0);
+		return rel;
+	}
+
+	if (changes || level == 0)
+		return _rdf_rel_optimizer(sql, rel, ++level);
+
+	/* optimize */
+	return rel;
+
+}
+
+sql_rel *
+rdf_rel_optimizer(mvc *sql, sql_rel *rel)
+{
+	return _rdf_rel_optimizer(sql, rel, 0);
+}
+

@@ -26,13 +26,13 @@ INCLUDES = ../../modules/atoms ../../modules/mal ../../mal \
 
 MTSAFE
 
-SUBDIRS = hashmap trie
+SUBDIRS = hashmap trie common
 
 lib__rdf = {
 	#MODULE
 	NOINST
 	#DIR = libdir/monetdb5
-	SOURCES = rdf.h rdftypes.h rdfparams.h rdfparams.c rdfschema.h rdfgraph.h rdfgraph.c rdfminheap.h rdfminheap.c rdflabels.h rdfretrieval.h rdfparser.h rdftypes.c rdfparser.c rdfontologyload.h rdfontologyload.c rdf_shredder.c rdfalgebra.c rdfschema.c rdflabels.c rdfretrieval.c rdfscan.h rdfscan.c
+	SOURCES = rdf.h rdftypes.h rdfparams.h rdfparams.c rdfschema.h rdfgraph.h rdfgraph.c rdfminheap.h rdfminheap.c rdflabels.h rdfretrieval.h rdfparser.h rdftypes.c rdfparser.c rdfontologyload.h rdfontologyload.c rdf_shredder.c rdfalgebra.c rdfschema.c rdflabels.c rdfretrieval.c rdfscan.h rdfscan.c 
 
 	#SEP = _
 	# LIBS =  ./hashmap/librdfhash 	
@@ -53,5 +53,5 @@ headers_autoload = {
 	SOURCES = 50_rdf.mal
 }
 
-EXTRA_DIST_DIR = hashmap trie
+EXTRA_DIST_DIR = hashmap trie common
 EXTRA_DIST = 50_rdf.mal rdfalgebra.mal rdfschema.mal

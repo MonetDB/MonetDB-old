@@ -45,6 +45,7 @@
 #include "clients.h"
 #ifdef HAVE_RAPTOR
 # include <rdf.h>
+# include <sql_rdf_jgraph.h>
 #endif
 #include "mal_instruction.h"
 
@@ -117,6 +118,8 @@ rel_need_distinct_query(sql_rel *rel)
 	return need_distinct;
 }
 
+
+
 sql_rel *
 sql_symbol2relation(mvc *c, symbol *sym)
 {
@@ -126,7 +129,13 @@ sql_symbol2relation(mvc *c, symbol *sym)
 	if (!r)
 		return NULL;
 	if (r) {
+		rel_print(c,r, 0); 
+		rdf_rel_optimizer(c, r); 
+		rel_print(c,r, 0);
+		buildJoinGraph(c,r,0); 
+
 		r = rel_optimizer(c, r);
+
 		r = rel_distribute(c, r);
 		if (rel_is_point_query(r) || rel_need_distinct_query(r))
 			c->point_query = 1;

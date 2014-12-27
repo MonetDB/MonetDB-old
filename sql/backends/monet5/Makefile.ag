@@ -31,6 +31,7 @@ INCLUDES = ../../include ../../common ../../storage ../../server \
 		   ../../../common/utils \
 		   ../../../gdk \
 		   ../../../monetdb5/extras/rdf \
+		   ../../../monetdb5/extras/rdf/common \
 		   $(READLINE_INCS)
 
 lib__sql = {
@@ -57,7 +58,8 @@ lib__sql = {
 		sql_cast_impl_up_to_flt.h \
 		sql_cast_impl_up_to_int.h \
 		sql_round.c sql_round_impl.h sql_bat2time.c \
-		sql_fround.c sql_fround_impl.h sql_rdf.c
+		sql_fround.c sql_fround_impl.h \
+		sql_rdf.c sql_rdf_jgraph.h sql_rdf_jgraph.c
 	LIBS = ../../server/libsqlserver \
 		   ../../storage/libstore \
 		   ../../storage/bat/libbatstore \
@@ -65,6 +67,7 @@ lib__sql = {
 		   HAVE_RAPTOR?../../../monetdb5/extras/rdf/lib_rdf \
 		   HAVE_RAPTOR?../../../monetdb5/extras/rdf/hashmap/librdfhash \
 		   HAVE_RAPTOR?../../../monetdb5/extras/rdf/trie/librdftrie \
+		   HAVE_RAPTOR?../../../monetdb5/extras/rdf/common/librdfcommon \
 		   ../../../monetdb5/tools/libmonetdb5 \
 		   ../../../gdk/libbat \
 		   ../../../common/stream/libstream \

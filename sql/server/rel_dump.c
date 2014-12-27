@@ -72,9 +72,9 @@ cmp_print(mvc *sql, stream *fout, int cmp)
 	mnstr_printf(fout, " %s ", r);
 }
 
-static void exps_print(mvc *sql, stream *fout, list *exps, int depth, int alias, int brackets);
+void exps_print(mvc *sql, stream *fout, list *exps, int depth, int alias, int brackets);
 
-static void
+void
 exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, int comma, int alias) 
 {
 	(void)sql;
@@ -234,7 +234,7 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, int comma, int alias)
 		mnstr_printf(fout, ", ");
 }
 
-static void
+void
 exps_print(mvc *sql, stream *fout, list *exps, int depth, int alias, int brackets) 
 {
 	node *en;

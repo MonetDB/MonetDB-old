@@ -23,6 +23,7 @@
 #include "rel_semantic.h"
 
 extern sql_rel * rel_optimizer(mvc *sql, sql_rel *rel);
+extern sql_rel * rdf_rel_optimizer(mvc *sql, sql_rel *rel);
 
 extern int exp_joins_rels(sql_exp *e, list *rels);
 

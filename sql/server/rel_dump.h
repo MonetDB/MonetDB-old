@@ -28,4 +28,8 @@ extern const char *op2string(operator_type op);
 
 extern sql_rel *rel_read(mvc *sql, char *ra, int *pos, list *refs);
 
+extern void exps_print(mvc *sql, stream *fout, list *exps, int depth, int alias, int brackets);
+extern void exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, int comma, int alias); 
+
+
 #endif /*_REL_DUMP_H_*/
