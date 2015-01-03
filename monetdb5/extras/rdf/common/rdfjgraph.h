@@ -65,6 +65,7 @@ typedef struct jgnode {
 	void *data; 			//Data stored in each node. 
 					//Currently, it should be sql_rel of op_select or op_basetable
 	int subjgId;
+	int patternId; 			//For star pattern
 } jgnode; 
 
 typedef struct jgraph{

@@ -61,6 +61,7 @@ void addJGnode(int *vid, jgraph *jg, void *data, int subjgId){
 	node->lowlink = -1; 	//for SCC
 	node->data = data; 
 	node->subjgId = subjgId; 
+	node->patternId = -1; 
 
 	
 	jg->lstnodes[jg->nNode] = node; 

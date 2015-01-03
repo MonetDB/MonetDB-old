@@ -213,7 +213,7 @@ void printRel_JGraph(jgraph *jg, mvc *sql){
 	for (i = 0; i  < jg->nNode; i++){
 		tmpnode = jg->lstnodes[i]; 
 		//printf("Node %d: ", i); 
-		sprintf(tmp, "Node %d: ", i); 
+		sprintf(tmp, "Node %d: [Pattern: %d] ", i, tmpnode->patternId); 
 		//mnstr_printf(sql->scanner.ws, "Node %d: ", i); 
 		exps_print_ext(sql, (sql_rel *) tmpnode->data, 0, tmp); 
 		tmpedge = tmpnode->first; 
@@ -591,21 +591,41 @@ void freeMatrix(int num, char **m){
 	free(m); 
 }
 
-/*
-sql_rel* group_star_pattern(){
-
+static 
+void _detect_star_pattern(jgraph *jg, jgnode *node, int pId){
+	//Go through all edges of the node
+	//If the edge has join predicate JP_S
+	//and the to_node does not belong to
+	//any pattern, add to the current pattern
+	jgedge *tmpedge; 
+	tmpedge = node->first; 
+	while (tmpedge != NULL){
+		if (tmpedge->jp == JP_S){
+			jgnode *tonode = jg->lstnodes[tmpedge->to]; 
+			if (tonode->patternId == -1){
+				tonode->patternId = pId; 
+				_detect_star_pattern(jg, tonode, pId); 
+			} 
+		}
+		tmpedge = tmpedge->next; 
+	}
 }
+static
+void detect_star_pattern(jgraph *jg){
+	
+	int i; 
+	int pId = -1; 
+	int num = jg->nNode;
 
-static void
-detect_star_pattern(){
-	First, storing the column notation in the equal join
-	e.g., s or o or p.....
-		
-	Detecting star pattern by BFS through each node, 
-	following its edges having join on s columns
-
+	for (i = 0; i < num; i++){
+		jgnode *node = jg->lstnodes[i]; 
+		if (node->patternId == -1){
+			pId++;
+			node->patternId = pId; 
+			_detect_star_pattern(jg, node, pId); 	
+		}
+	}
 }
-*/
 
 void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 	//rel_print(c, r, 0);
@@ -637,6 +657,8 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 	isConnect = createMatrix(jg->nNode, 0); 
 
 	addJoinEdgesToJG(c, r, depth, jg, 0, &subjgId2, nm, isConnect);
+
+	detect_star_pattern(jg); 
 
 	printRel_JGraph(jg, c); 
 	
