@@ -610,8 +610,79 @@ void _detect_star_pattern(jgraph *jg, jgnode *node, int pId){
 		tmpedge = tmpedge->next; 
 	}
 }
+
+static 	
+sql_rel* _group_star_pattern(jgraph *jg, int *group, int nnode, int pId){
+	sql_rel *rel = NULL; 
+	int i; 
+	
+	(void) jg; 
+
+	printf("Group %d contain: ", pId); 
+	for (i = 0; i < nnode; i++){
+		printf(" %d ", group[i]); 
+	}
+	printf("\n"); 
+
+	return rel; 
+}
+
+static 
+void group_star_pattern(jgraph *jg, int numsp){
+
+	int i; 
+	int** group; //group of nodes in a same pattern
+	int* nnode_per_group; 
+	int* idx; 
+	sql_rel** lstRels; 
+	
+	group = (int **)malloc(sizeof(int*) * numsp); 
+	nnode_per_group = (int *) malloc(sizeof(int) * numsp);
+	idx = (int *) malloc(sizeof(int) * numsp);
+
+	lstRels = (sql_rel**) malloc(sizeof(sql_rel*) * numsp); 
+
+	for (i = 0; i < numsp; i++){
+		nnode_per_group[i] = 0;
+		idx[i] = 0;
+	}
+
+	for (i = 0; i < jg->nNode; i++){
+		jgnode *node = jg->lstnodes[i]; 
+		assert(node->patternId < numsp); 
+		nnode_per_group[node->patternId]++; 	
+	}
+
+	//Init for group
+	for (i = 0; i < numsp; i++){
+		group[i] = (int*) malloc(sizeof(int) * nnode_per_group[i]); 
+	}
+
+	//add nodeIds for each group
+	
+	for (i = 0; i < jg->nNode; i++){
+		jgnode *node = jg->lstnodes[i];
+		int spId = node->patternId; 
+		group[spId][idx[spId]] = node->vid; 
+		idx[spId]++; 
+	}
+
+	//Merge sql_rels in each group into one sql_rel
+	for (i = 0; i < numsp; i++){
+		lstRels[i] = _group_star_pattern(jg, group[i], nnode_per_group[i], i); 
+	}
+
+	//Free
+	for (i = 0; i < numsp; i++){
+		free(group[i]);
+	}
+	free(group); 
+	free(nnode_per_group); 
+	free(idx); 
+}
+
 static
-void detect_star_pattern(jgraph *jg){
+void detect_star_pattern(jgraph *jg, int *numsp){
 	
 	int i; 
 	int pId = -1; 
@@ -625,6 +696,8 @@ void detect_star_pattern(jgraph *jg){
 			_detect_star_pattern(jg, node, pId); 	
 		}
 	}
+
+	*numsp = pId + 1; 
 }
 
 void buildJoinGraph(mvc *c, sql_rel *r, int depth){
@@ -643,6 +716,7 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 	int subjgId2 = -1;
 	char **isConnect; //Matrix storing state whether two nodes are conneccted	
 			  //In case of large sparse graph, this should not be used.
+	int numsp = 0; 	  //Number of star pattern
 
 	(void) c; 
 	(void) r; 
@@ -658,10 +732,11 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 	addJoinEdgesToJG(c, r, depth, jg, 0, &subjgId2, nm, isConnect);
 
-	detect_star_pattern(jg); 
+	detect_star_pattern(jg, &numsp); 
 
 	printRel_JGraph(jg, c); 
 	
+	group_star_pattern(jg, numsp); 
 
 	free_nMap(nm); 
 	freeMatrix(jg->nNode, isConnect); 
