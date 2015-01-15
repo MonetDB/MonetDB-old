@@ -24,8 +24,36 @@
 #include "rdftypes.h"
 #include "rdfschema.h"
 
-typedef struct CSDumpBATs {
+
+typedef enum {
+	csd_tblId,
+	csd_tblname, 
+	csd_csId, 
+	csd_freq,
+	csd_coverage, 
+	csd_pOffset, 
+	csd_fullP, 
+	csd_cOffset,
+	csd_fullC, 
+	csd_cname
+} csdumBatType;
+
+#define N_CSDUM_BAT (csd_cname + 1)
+
+typedef struct csdumBATdef{
+	csdumBatType batType; 
+	str name;
+	int headType; 
+	int tailType; 
+} csdumBATdef; 
+
+typedef struct CSDumpBATs{
+	BAT** dumpBats; 
+} CSDump; 
+/*
+typedef struct CSDumpBATs {	//TODO: Use array of BAT and a new CSDumpBatType struct for simplifying this struct
 	BAT*    tblIdBat;
+	BAT* 	tblnameBat; 	//SQLname of each table
 	BAT* 	csIdBat; 
 	BAT*	freqBat; 
 	BAT*	coverageBat; 
@@ -33,7 +61,9 @@ typedef struct CSDumpBATs {
 	BAT*	fullPBat; 	//Store full list of properties for each CS
 	BAT*	cOffsetBat; 
 	BAT*	fullCBat; 	//Store list of columns in the table
+	BAT* 	cnameBat; 	//SQL name of each column
 } CSDump;
+*/
 
 //The simpleCS is similar to a CS, 
 //but stores less amount of information 
@@ -57,10 +87,10 @@ typedef struct SimpleCSset{
 } SimpleCSset; 
 
 
-extern str 	tblIdBatname, csIdBatname,
+extern str 	tblIdBatname, tblnameBatname, csIdBatname,
 		freqBatname, coverageBatname,
 		pOffsetBatname, fullPBatname,
-		cOffsetBatname, fullCBatname;
+		cOffsetBatname, fullCBatname, cnameBatname;
 
 
 rdf_export 

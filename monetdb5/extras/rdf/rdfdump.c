@@ -31,154 +31,70 @@
 #include "rdfcommon.h"
 
 
-str 	tblIdBatname = "tblIdBat_dump", csIdBatname = "csIdBat_dump",
-	freqBatname = "freqBat_dump", coverageBatname = "coverageBat_dump",
-	pOffsetBatname = "pOffsetBat_dump", fullPBatname = "fullPBat_dump",
-	cOffsetBatname = "cOffsetBat_dump", fullCBatname = "fullCBat_dump";
-
+static csdumBATdef csdumBatdefs[N_CSDUM_BAT] = {
+	{csd_tblId, "tblIdBat_dump", TYPE_void, TYPE_int},
+	{csd_tblname, "tblnameBat_dump", TYPE_void, TYPE_str},
+	{csd_csId, "csIdBat_dump", TYPE_void, TYPE_int},
+	{csd_freq, "freqBat_dump", TYPE_void, TYPE_int},
+	{csd_coverage, "coverageBat_dump", TYPE_void, TYPE_int},
+	{csd_pOffset, "pOffsetBat_dump", TYPE_void, TYPE_oid},
+	{csd_fullP, "fullPBat_dump", TYPE_void, TYPE_oid},
+	{csd_cOffset, "cOffsetBat_dump", TYPE_void, TYPE_oid},
+	{csd_fullC, "fullCBat_dump", TYPE_void, TYPE_oid},
+	{csd_cname, "cnameBat_dump", TYPE_void, TYPE_str}
+};
 
 static 
 str initCSDump(CSDump *csdump, int *already_built){
 	
 	bat 	mapBatId;
 	int 	ret; 
+	int 	i = 0;
 
 	*already_built = 0;
 	
-	mapBatId = BBPindex(tblIdBatname);
+	mapBatId = BBPindex(csdumBatdefs[0].name);
 	if (mapBatId != 0){
 		printf("The dump of CSset has been built \n");
 		*already_built = 1; 
 		return MAL_SUCCEED; 
 	}
 
+	csdump->dumpBats = (BAT **) malloc(sizeof (BAT*) * N_CSDUM_BAT);
+	for (i = 0; i < N_CSDUM_BAT; i++){
 	
-	csdump->tblIdBat = BATnew(TYPE_void, TYPE_int, smallbatsz, PERSISTENT);
+		csdump->dumpBats[i] = BATnew(csdumBatdefs[i].headType, csdumBatdefs[i].tailType 
+					      , smallbatsz, PERSISTENT);
+
+		BATseqbase(csdump->dumpBats[i], 0);
+		
+		if (csdump->dumpBats[i] == NULL) {
+			throw(MAL, "initCSDump", OPERATION_FAILED);
+		}
+
+		if (BKCsetName(&ret, (int *) &(csdump->dumpBats[i]->batCacheid), (const char*const*) &csdumBatdefs[i].name) != MAL_SUCCEED)	
+			throw(MAL, "initCSDump", OPERATION_FAILED);
+		
+		if (BKCsetPersistent(&ret, (int *) &(csdump->dumpBats[i]->batCacheid)) != MAL_SUCCEED)
+			throw(MAL, "initCSDump", OPERATION_FAILED);
 
 
-	BATseqbase(csdump->tblIdBat, 0);
-	
-	if (csdump->tblIdBat == NULL) {
-		throw(MAL, "initCSDump", OPERATION_FAILED);
 	}
-
-	if (BKCsetName(&ret, (int *) &(csdump->tblIdBat->batCacheid), (const char*const*) &tblIdBatname) != MAL_SUCCEED)	
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-	
-	if (BKCsetPersistent(&ret, (int *) &(csdump->tblIdBat->batCacheid)) != MAL_SUCCEED)
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-
-
-
-	csdump->csIdBat = BATnew(TYPE_void, TYPE_int, smallbatsz, PERSISTENT);
-
-	if (csdump->csIdBat == NULL) {
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-	}
-
-	if (BKCsetName(&ret, (int *) &(csdump->csIdBat->batCacheid), (const char*const*) &csIdBatname) != MAL_SUCCEED)
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-	
-	if (BKCsetPersistent(&ret, (int *) &(csdump->csIdBat->batCacheid)) != MAL_SUCCEED)
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-
-
-	csdump->freqBat = BATnew(TYPE_void, TYPE_int, smallbatsz, PERSISTENT);
-
-	if (csdump->freqBat == NULL) {
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-	}
-	
-	if (BKCsetName(&ret, (int *) &(csdump->freqBat->batCacheid), (const char*const*) &freqBatname) != MAL_SUCCEED)
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-	
-	if (BKCsetPersistent(&ret, (int *) &(csdump->freqBat->batCacheid)) != MAL_SUCCEED)
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-
-
-	csdump->coverageBat = BATnew(TYPE_void, TYPE_int, smallbatsz, PERSISTENT);
-	
-	if (csdump->coverageBat == NULL) {
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-	}
-
-	if (BKCsetName(&ret, (int *) &(csdump->coverageBat->batCacheid), (const char*const*) &coverageBatname) != MAL_SUCCEED)
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-	
-	if (BKCsetPersistent(&ret, (int *) &(csdump->coverageBat->batCacheid)) != MAL_SUCCEED)
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-
-
-	csdump->pOffsetBat = BATnew(TYPE_void, TYPE_oid, smallbatsz, PERSISTENT);
-	
-	if (csdump->pOffsetBat == NULL) {
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-	}
-
-	if (BKCsetName(&ret, (int *) &(csdump->pOffsetBat->batCacheid), (const char*const*) &pOffsetBatname) != MAL_SUCCEED)
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-	
-	if (BKCsetPersistent(&ret, (int *) &(csdump->pOffsetBat->batCacheid)) != MAL_SUCCEED)
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-
-
-	csdump->fullPBat = BATnew(TYPE_void, TYPE_oid, smallbatsz, PERSISTENT);
-	
-	if (csdump->fullPBat == NULL) {
-		throw(MAL, "initCSDump", OPERATION_FAILED);	
-	}
-
-	if (BKCsetName(&ret, (int *) &(csdump->fullPBat->batCacheid), (const char*const*) &fullPBatname) != MAL_SUCCEED)
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-	
-	if (BKCsetPersistent(&ret, (int *) &(csdump->fullPBat->batCacheid)) != MAL_SUCCEED)
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-	
-
-	csdump->cOffsetBat = BATnew(TYPE_void, TYPE_oid, smallbatsz, PERSISTENT);
-	
-	if (csdump->cOffsetBat == NULL) {
-		throw(MAL, "initCSDump", OPERATION_FAILED);	
-	}
-
-	if (BKCsetName(&ret, (int *) &(csdump->cOffsetBat->batCacheid), (const char*const*) &cOffsetBatname) != MAL_SUCCEED)
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-	
-	if (BKCsetPersistent(&ret, (int *) &(csdump->cOffsetBat->batCacheid)) != MAL_SUCCEED)
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-
-
-	csdump->fullCBat = BATnew(TYPE_void, TYPE_oid, smallbatsz, PERSISTENT);
-	
-	if (csdump->fullCBat == NULL) {
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-	}
-
-	if (BKCsetName(&ret, (int *) &(csdump->fullCBat->batCacheid), (const char*const*) &fullCBatname) != MAL_SUCCEED)
-		throw(MAL, "initCSDump", OPERATION_FAILED);
-	
-	if (BKCsetPersistent(&ret, (int *) &(csdump->fullCBat->batCacheid)) != MAL_SUCCEED)
-		throw(MAL, "initCSDump", OPERATION_FAILED);
 
 	return MAL_SUCCEED; 
 }
 
 static 
 void commitCSDump(CSDump *csdump){
-
+	int i;
 	bat *lstCommits; 
-	lstCommits = GDKmalloc(sizeof(bat) * 9); 
+	lstCommits = GDKmalloc(sizeof(bat) * (N_CSDUM_BAT+1)); 
 	lstCommits[0] = 0;
-	lstCommits[1] = csdump->tblIdBat->batCacheid;
-	lstCommits[2] = csdump->csIdBat->batCacheid;
-	lstCommits[3] = csdump->freqBat->batCacheid;
-	lstCommits[4] = csdump->coverageBat->batCacheid;
-	lstCommits[5] = csdump->pOffsetBat->batCacheid;
-	lstCommits[6] = csdump->fullPBat->batCacheid;
-	lstCommits[7] = csdump->cOffsetBat->batCacheid;
-	lstCommits[8] = csdump->fullCBat->batCacheid;
+	for (i = 1; i < (N_CSDUM_BAT+1); i++){
+		lstCommits[i] = csdump->dumpBats[i-1]->batCacheid;
+	}
 
-	TMsubcommit_list(lstCommits,9);
+	TMsubcommit_list(lstCommits,(N_CSDUM_BAT+1));
 
 	GDKfree(lstCommits);
 }
@@ -193,24 +109,24 @@ void dumpCS(CSDump *csdump, int _freqId, int _tblId, CS cs, CStable cstbl){
 	freq = cs.support; 
 	cov = cs.coverage; 
 
-	assert(tblId == (int)BATcount(csdump->tblIdBat));
-	BUNappend(csdump->tblIdBat, &tblId, TRUE);
+	assert(tblId == (int)BATcount(csdump->dumpBats[csd_tblId]));
+	BUNappend(csdump->dumpBats[csd_tblId], &tblId, TRUE);
 
-	BUNappend(csdump->csIdBat, &freqId, TRUE);
+	BUNappend(csdump->dumpBats[csd_csId], &freqId, TRUE);
 	
-	BUNappend(csdump->freqBat, &freq, TRUE); 
-	BUNappend(csdump->coverageBat, &cov, TRUE); 
+	BUNappend(csdump->dumpBats[csd_freq], &freq, TRUE); 
+	BUNappend(csdump->dumpBats[csd_coverage], &cov, TRUE); 
 
-	offset = BUNlast(csdump->fullPBat);
+	offset = BUNlast(csdump->dumpBats[csd_fullP]);
 
-	/* Add list of p to fullPBat and pOffsetBat*/
-	BUNappend(csdump->pOffsetBat, &offset , TRUE);
-	appendArrayToBat(csdump->fullPBat, cs.lstProp, cs.numProp);
+	/* Add list of p to fullPBat and dumpBats[csd_pOffset]*/
+	BUNappend(csdump->dumpBats[csd_pOffset], &offset , TRUE);
+	appendArrayToBat(csdump->dumpBats[csd_fullP], cs.lstProp, cs.numProp);
 
-	offsetc = BUNlast(csdump->fullCBat);
-	/* Add list of columns to fullCBat and cOffsetBat*/
-	BUNappend(csdump->cOffsetBat, &offsetc , TRUE);
-	appendArrayToBat(csdump->fullCBat, cstbl.lstProp, cstbl.numCol);
+	offsetc = BUNlast(csdump->dumpBats[csd_fullC]);
+	/* Add list of columns to dumpBats[csd_fullC] and dumpBats[csd_cOffset]*/
+	BUNappend(csdump->dumpBats[csd_cOffset], &offsetc , TRUE);
+	appendArrayToBat(csdump->dumpBats[csd_fullC], cstbl.lstProp, cstbl.numCol);
 
 
 }
@@ -223,6 +139,8 @@ void dumpFreqCSs(CStableStat* cstablestat, CSset *freqCSset){
 	CSDump *csdump = NULL; 
 	
 	csdump = (CSDump *) malloc(sizeof(CSDump));
+	csdump->dumpBats = NULL; 
+
 	initCSDump(csdump, &is_already_built); 
 	if (is_already_built){
 		free(csdump); 
@@ -243,69 +161,36 @@ void dumpFreqCSs(CStableStat* cstablestat, CSset *freqCSset){
 
 static
 str read_BATs_from_dump(CSDump *csdump){
-
-	bat	tblIdBatid, csIdBatid, freqBatid, coverageBatid, pOffsetBatid, 
-		fullPBatid, cOffsetBatid, fullCBatid; 
-
-	tblIdBatid = BBPindex(tblIdBatname);
-	csIdBatid = BBPindex(csIdBatname); 
-	freqBatid = BBPindex(freqBatname); 
-	coverageBatid = BBPindex(coverageBatname); 
-	pOffsetBatid = BBPindex(pOffsetBatname); 
-	fullPBatid = BBPindex(fullPBatname); 
-	cOffsetBatid = BBPindex(cOffsetBatname); 
-	fullCBatid = BBPindex(fullCBatname); 
 	
-	if (tblIdBatid == 0 ||  csIdBatid == 0 || freqBatid == 0 || coverageBatid == 0  || 
- 	    pOffsetBatid == 0 || fullPBatid == 0 || cOffsetBatid == 0 || fullCBatid == 0){
-		throw(MAL, "read_BATs_from_dump", "The dump Bats should be built already");
-	}
-
-	if ((csdump->tblIdBat= BATdescriptor(tblIdBatid)) == NULL) {
-		throw(MAL, "read_BATs_from_dump", RUNTIME_OBJECT_MISSING);
-	}
-
-	if ((csdump->csIdBat= BATdescriptor(csIdBatid)) == NULL) {
-		throw(MAL, "read_BATs_from_dump", RUNTIME_OBJECT_MISSING);
-	}
+	int i; 
 	
-	if ((csdump->freqBat= BATdescriptor(freqBatid)) == NULL) {
-		throw(MAL, "read_BATs_from_dump", RUNTIME_OBJECT_MISSING);
+	csdump->dumpBats = (BAT **) malloc(sizeof(BAT *) * N_CSDUM_BAT); 
+		
+	for (i = 0; i < N_CSDUM_BAT; i++){
+		bat tmpId = BBPindex(csdumBatdefs[i].name);
+
+		if (tmpId == 0) 
+			throw(MAL, "read_BATs_from_dump", "The dump Bats should be built already");
+
+		if ((csdump->dumpBats[i]= BATdescriptor(tmpId)) == NULL) {
+			throw(MAL, "read_BATs_from_dump", RUNTIME_OBJECT_MISSING);
+		}
+
 	}
 
-	if ((csdump->coverageBat= BATdescriptor(coverageBatid)) == NULL) {
-		throw(MAL, "read_BATs_from_dump", RUNTIME_OBJECT_MISSING);
-	}
-	
-	if ((csdump->pOffsetBat= BATdescriptor(pOffsetBatid)) == NULL) {
-		throw(MAL, "read_BATs_from_dump", RUNTIME_OBJECT_MISSING);
-	}
-
-	if ((csdump->fullPBat= BATdescriptor(fullPBatid)) == NULL) {
-		throw(MAL, "read_BATs_from_dump", RUNTIME_OBJECT_MISSING);
-	}
-	
-	if ((csdump->cOffsetBat = BATdescriptor(cOffsetBatid)) == NULL) {
-		throw(MAL, "read_BATs_from_dump", RUNTIME_OBJECT_MISSING);
-	}
-
-	if ((csdump->fullCBat= BATdescriptor(fullCBatid)) == NULL) {
-		throw(MAL, "read_BATs_from_dump", RUNTIME_OBJECT_MISSING);
-	}
-	
 	return MAL_SUCCEED; 
 }
 
 static 
 void freeCSDump(CSDump *csdump){
-	BBPunfix(csdump->tblIdBat->batCacheid); 
-	BBPunfix(csdump->csIdBat->batCacheid); 
-	BBPunfix(csdump->freqBat->batCacheid); 
-	BBPunfix(csdump->coverageBat->batCacheid); 
-	BBPunfix(csdump->pOffsetBat->batCacheid); 
-	BBPunfix(csdump->fullPBat->batCacheid); 
-	BBPunfix(csdump->cOffsetBat->batCacheid); 
-	BBPunfix(csdump->fullCBat->batCacheid); 
+	int i; 
+	if (csdump->dumpBats){
+		for (i = 0; i < N_CSDUM_BAT; i++){
+			if (csdump->dumpBats[i])
+				BBPunfix(csdump->dumpBats[i]->batCacheid);
+		}
+		free(csdump->dumpBats);
+	}
 	
 	free(csdump);
 }
@@ -350,39 +235,39 @@ SimpleCS* read_a_cs_from_csdump(int pos, CSDump *csdump){
 	SimpleCS *cs; 
 
 	
-	tblId = (int *) Tloc(csdump->tblIdBat, pos); 
+	tblId = (int *) Tloc(csdump->dumpBats[csd_tblId], pos); 
 	assert(*tblId == pos); 
 
-	freqId = (int *) Tloc(csdump->csIdBat, pos); 
+	freqId = (int *) Tloc(csdump->dumpBats[csd_csId], pos); 
 
-	freq = (int *) Tloc(csdump->freqBat, pos); 
+	freq = (int *) Tloc(csdump->dumpBats[csd_freq], pos); 
 
-	coverage = (int *) Tloc(csdump->coverageBat, pos); 
+	coverage = (int *) Tloc(csdump->dumpBats[csd_coverage], pos); 
 	
 	//Get number of Properties
-	offsetP = (oid *) Tloc(csdump->pOffsetBat, pos);
+	offsetP = (oid *) Tloc(csdump->dumpBats[csd_pOffset], pos);
 
-	if ((pos + 1) < (int)csdump->pOffsetBat->batCount){
-		offsetP2 = (oid *)Tloc(csdump->pOffsetBat, pos + 1);
+	if ((pos + 1) < (int)csdump->dumpBats[csd_pOffset]->batCount){
+		offsetP2 = (oid *)Tloc(csdump->dumpBats[csd_pOffset], pos + 1);
 		numP = *offsetP2 - *offsetP;
 	}
 	else
-		numP = BUNlast(csdump->fullPBat) - *offsetP;
+		numP = BUNlast(csdump->dumpBats[csd_fullP]) - *offsetP;
 	
-	lstProp = (oid *)Tloc(csdump->fullPBat, *offsetP);	
+	lstProp = (oid *)Tloc(csdump->dumpBats[csd_fullP], *offsetP);	
 
 	//Get number of columns 
 
-	offsetC = (oid *) Tloc(csdump->cOffsetBat, pos);
+	offsetC = (oid *) Tloc(csdump->dumpBats[csd_cOffset], pos);
 
-	if ((pos + 1) < (int)csdump->cOffsetBat->batCount){
-		offsetC2 = (oid *)Tloc(csdump->cOffsetBat, pos + 1);
+	if ((pos + 1) < (int)csdump->dumpBats[csd_cOffset]->batCount){
+		offsetC2 = (oid *)Tloc(csdump->dumpBats[csd_cOffset], pos + 1);
 		numC = *offsetC2 - *offsetC;
 	}
 	else
-		numC = BUNlast(csdump->fullCBat) - *offsetC;
+		numC = BUNlast(csdump->dumpBats[csd_fullC]) - *offsetC;
 
-	lstCol = (oid *)Tloc(csdump->fullCBat, *offsetC);	
+	lstCol = (oid *)Tloc(csdump->dumpBats[csd_fullC], *offsetC);	
 
 	cs = create_simpleCS(*tblId, *freqId, numP, lstProp, numC, lstCol, *freq, *coverage);
 
@@ -441,14 +326,14 @@ SimpleCSset *dumpBat_to_CSset(void){
 
 	CSDump *csdump = (CSDump *) malloc(sizeof(CSDump)); 
 	if (read_BATs_from_dump(csdump) != MAL_SUCCEED){
-		free(csdump); 
+		freeCSDump(csdump); 
 		fprintf(stderr, "Fail while de-serializing data from dumpBat\n");
 	}	
 
 
-	numTbl = BATcount(csdump->tblIdBat); 
+	numTbl = BATcount(csdump->dumpBats[csd_tblId]); 
 
-	//BATprint(csdump->pOffsetBat); 
+	//BATprint(csdump->dumpBats[csd_pOffset]); 
 	//BATprint(csdump->fullPBat); 
 
 	csset = init_simpleCSset(numTbl); 
