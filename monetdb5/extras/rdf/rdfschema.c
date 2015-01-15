@@ -10140,6 +10140,8 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 		cstablestat->lstcstable[i].lstProp = (oid*)malloc(sizeof(oid) * tmpNumDefaultCol);
 		cstablestat->lstcstable[i].colTypes = (ObjectType *)malloc(sizeof(ObjectType) * tmpNumDefaultCol);
 		cstablestat->lstcstable[i].tblname = labels[mTblIdxFreqIdxMapping[i]].name;
+		cstablestat->lstcstable[i].tblsqlname = NULL;
+		 cstablestat->lstcstable[i].colsqlnames = NULL; 
 		#if CSTYPE_TABLE == 1
 		tmpNumExCol = csPropTypes[i].numNonDefTypes; 
 		cstablestat->lastInsertedSEx[i] = (oid*) malloc(sizeof(oid) * tmpNumExCol); 
@@ -10149,7 +10151,7 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 		cstablestat->lstcstableEx[i].mainTblColIdx  = (int*)malloc(sizeof(int) * tmpNumExCol); 
 		cstablestat->lstcstableEx[i].tblname = labels[mTblIdxFreqIdxMapping[i]].name;
 		#endif
-		
+
 		colIdx = -1; 
 		colExIdx = 0; 
 		for(j = 0; j < csPropTypes[i].numProp; j++){
@@ -10255,6 +10257,17 @@ void freeCStableStat(CStableStat* cstablestat){
 				free(cstablestat->lstcstable[i].lstMVTables[j].colTypes);
 				BBPunfix(cstablestat->lstcstable[i].lstMVTables[j].keyBat->batCacheid); 
 			}
+
+		}
+		
+		if (cstablestat->lstcstable[i].tblsqlname) 
+			GDKfree(cstablestat->lstcstable[i].tblsqlname); 
+		if (cstablestat->lstcstable[i].colsqlnames){
+			for (j = 0; j < cstablestat->numPropPerTable[i];j++){
+				if (cstablestat->lstcstable[i].colsqlnames[j])
+					GDKfree(cstablestat->lstcstable[i].colsqlnames[j]);
+			}
+			free(cstablestat->lstcstable[i].colsqlnames);
 		}
 
 		#if CSTYPE_TABLE == 1
