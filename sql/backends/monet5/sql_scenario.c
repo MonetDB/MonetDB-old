@@ -992,9 +992,6 @@ SQLparser(Client c)
 	if (be->language == 'X') {
 		int n = 0, v, off, len;
 		
-		if (strncmp(in->buf + in->pos, "sparql ", 7) == 0){
-			/*[DUC] To implement*/
-		}
 		if (strncmp(in->buf + in->pos, "export ", 7) == 0)
 			n = sscanf(in->buf + in->pos + 7, "%d %d %d", &v, &off, &len);
 
@@ -1126,7 +1123,8 @@ SQLparser(Client c)
 	} else {
 		sql_rel *r = sql_symbol2relation(m, m->sym);
 		stmt *s = sql_relation2stmt(m, r);
-		printf("DUC: ---- Input query -----\n %s \n", sql_escape_str(QUERY(m->scanner))); 
+
+		//if (m->emode == m_sparql) printf("DUC: ---- Input query -----\n %s \n", sql_escape_str(QUERY(m->scanner))); 
 
 		if (s == 0 || (err = mvc_status(m) && m->type != Q_TRANS)) {
 			msg = createException(PARSE, "SQLparser", "%s", m->errstr);

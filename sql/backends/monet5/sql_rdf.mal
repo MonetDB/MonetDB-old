@@ -46,6 +46,14 @@ pattern batsql.rdfidtostr(v:bat[:oid,:oid]):bat[:oid, :str]
 address	SQLrdfidtostr_bat
 comment "Convert from oid to string"
 
+pattern rdfdeserialize()
+address	SQLrdfdeserialize
+comment "Deserialize dump BATs to a SimpleCS set"
+
+pattern rdfprepare()
+address	SQLrdfprepare
+comment "Preparation before executing sparql queries"
+
 command rdfstrtoid(urlstr:str):oid
 address	SQLrdfstrtoid
 comment "Convert from string to encoded id"

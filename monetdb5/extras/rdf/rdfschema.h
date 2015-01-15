@@ -73,6 +73,7 @@ typedef struct {
 	//#endif
 } CSBats; 	// BATs for storing all information about CSs
 
+
 typedef struct Postinglist{
 	int*	lstIdx; 	/* List of CS containing the property */
 	int*	lstInvertIdx; 	/* List of property's index in each CS */
@@ -302,6 +303,8 @@ typedef struct SubCSSet{
 #define BUILDTOKENZIER_TO_MAPID	1	/* Build the BAT storing the mapping between the
 					original tokenizer oid of a URI and converted oid */
 
+#define DUMP_CSSET		1	/* Dump all recognized CSs to BATs*/
+
 
 typedef struct CSset{
 	CS* items;
@@ -403,7 +406,7 @@ typedef struct CStableStat {
 	bat**   	lstbatid;
 	int		numTables;
 	int*		numPropPerTable; 
-	//int* 		freqIdx; 	//Idx of the corresponding freqCS for a table
+	int* 		lstfreqId; 	//Idx of the corresponding freqCS for a table
 	oid**		lastInsertedS;	//Last S for each column
 	//sql_schema*	schema; 	
 	CStable*	lstcstable; 
@@ -546,5 +549,17 @@ printTKNZStringFromOid(oid id);
 
 rdf_export BAT*
 createEncodedSubjBat(int tblIdx, int num);
+
+rdf_export void 
+appendArrayToBat(BAT *b, BUN* inArray, int num);
+
+rdf_export 
+PropStat* initPropStat(void);
+
+rdf_export
+void freePropStat(PropStat *propStat);
+
+rdf_export
+void addaProp(PropStat* propStat, oid prop, int csIdx, int invertIdx);
 
 #endif /* _RDFSCHEMA_H_ */

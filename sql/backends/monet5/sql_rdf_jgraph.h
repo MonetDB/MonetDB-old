@@ -34,11 +34,30 @@
 #define rdf_export extern
 #endif
 
+#define tbl_abstract_name "tblabstract"
+#define subj_col_name "subject"
+#define default_abstbl_col_type "varchar"
+
 /* Map for the name -> node Id */
 typedef struct nMap {
 	BAT *lmap; 
 	BAT *rmap; 
 } nMap; 
+
+/*Star pattern property option */
+typedef enum PropOption{
+	REQUIRED, 
+	OPTIONAL,
+	NAV		
+} sp_po; 		
+
+typedef struct propertyList {
+	int num; 
+	char** lstProps; 
+	oid* lstPropIds; 
+	sp_po *lstPOs; 
+
+} spProps; 		//star pattern property list
 
 rdf_export
 void buildJoinGraph(mvc *c, sql_rel *r, int depth); 

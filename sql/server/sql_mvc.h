@@ -47,6 +47,7 @@
 #define m_execute 	2
 #define m_prepare 	3
 #define m_plan 		4
+#define m_sparql	5
 
 /* special modes for function/procedure and view instantiation and
    dependency generation */

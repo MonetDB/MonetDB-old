@@ -927,38 +927,6 @@ int** initOntologyLookupResultMatchedProp(int csCount) {
 }
 
 #if USE_ONTOLOGY_NAMES
-static
-PropStat* initPropStat(void) {
-	PropStat *propStat = (PropStat *) malloc(sizeof(PropStat));
-	propStat->pBat = BATnew(TYPE_void, TYPE_oid, INIT_PROP_NUM, TRANSIENT);
-
-	BATseqbase(propStat->pBat, 0);
-
-	if (propStat->pBat == NULL) {
-		return NULL;
-	}
-
-	(void)BATprepareHash(propStat->pBat);
-	if (!(propStat->pBat->T->hash)) {
-		return NULL;
-	}
-
-	propStat->freqs = (int*) malloc(sizeof(int) * INIT_PROP_NUM);
-	if (!propStat->freqs) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-
-	propStat->tfidfs = (float*) malloc(sizeof(float) * INIT_PROP_NUM);
-	if (!propStat->tfidfs) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
-	
-	propStat->plCSidx = (Postinglist*) malloc(sizeof(Postinglist) * INIT_PROP_NUM);
-
-	propStat->numAdded = 0;
-	propStat->numAllocation = INIT_PROP_NUM;
-
-	return propStat;
-}
-#endif
-
-#if USE_ONTOLOGY_NAMES
 //[DUC] Create propstat for ontology only 
 static
 void createPropStatistics(PropStat* propStat, oid** ontattributes, int ontattributesCount, int ontmetadataCount) {
@@ -991,6 +959,8 @@ void createPropStatistics(PropStat* propStat, oid** ontattributes, int ontattrib
 			propStat->freqs[propStat->numAdded] = 1;
 
 			//Store the list of ontology URI for each prop
+			propStat->plCSidx[propStat->numAdded].lstIdx = NULL; 
+			propStat->plCSidx[propStat->numAdded].lstInvertIdx = NULL; 
 			propStat->plCSidx[propStat->numAdded].lstOnt = (oid *) malloc(sizeof(oid) * INIT_CS_PER_PROP);
 			propStat->plCSidx[propStat->numAdded].lstOnt[0] = uri;
 			propStat->plCSidx[propStat->numAdded].numAdded = 1;
@@ -1014,24 +984,6 @@ void createPropStatistics(PropStat* propStat, oid** ontattributes, int ontattrib
 }
 
 //... [DUC]
-#endif
-
-#if USE_ONTOLOGY_NAMES
-static
-void freePropStat(PropStat *propStat) {
-	int i; 
-	BBPreclaim(propStat->pBat);
-	free(propStat->freqs);
-	free(propStat->tfidfs);
-	for (i = 0; i < propStat->numAdded; i++){
-		free(propStat->plCSidx[i].lstOnt);
-	}
-	
-	free(propStat->plCSidx);
-
-
-	free(propStat);
-}
 #endif
 
 #if USE_ONTOLOGY_NAMES

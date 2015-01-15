@@ -544,7 +544,7 @@ SQLCODE SQLERROR UNDER WHENEVER
 %token CHECK CONSTRAINT CREATE
 %token TYPE PROCEDURE FUNCTION AGGREGATE RETURNS EXTERNAL sqlNAME DECLARE
 %token CALL LANGUAGE 
-%token ANALYZE SQL_EXPLAIN SQL_PLAN SQL_DEBUG SQL_TRACE SQL_DOT PREPARE EXECUTE
+%token ANALYZE SQL_EXPLAIN SQL_PLAN SQL_SPARQL SQL_DEBUG SQL_TRACE SQL_DOT PREPARE EXECUTE
 %token DEFAULT DISTINCT DROP
 %token FOREIGN
 %token RENAME ENCRYPTED UNENCRYPTED PASSWORD GRANT REVOKE ROLE ADMIN INTO
@@ -597,6 +597,21 @@ sqlstmt:
 			}
  | SQL_PLAN 		{
 		  	  m->emode = m_plan;
+			  m->scanner.as = m->scanner.yycur; 
+			  m->scanner.key = 0;
+			}
+	sql SCOLON 	{
+			  if (m->sym) {
+				append_symbol(m->sym->data.lval, $3);
+				$$ = m->sym;
+			  } else {
+				m->sym = $$ = $3;
+			  }
+			  YYACCEPT;
+			}
+
+ | SQL_SPARQL 		{
+		  	  m->emode = m_sparql;
 			  m->scanner.as = m->scanner.yycur; 
 			  m->scanner.key = 0;
 			}

@@ -47,6 +47,12 @@ create procedure rdf_reorganize(sch string, tbname string, threshold int, expmod
 create procedure rdf_scan(query string, sch string)	
 	external name sql.rdfscan;
 
+create procedure rdf_deserialize()
+	external name sql.rdfdeserialize; 
+
+create procedure rdf_prepare()
+	external name sql.rdfprepare; 
+
 --create procedure rdf_idtostr(id oid)
 --	external name sql.rdfidtostr;
 	
@@ -58,4 +64,3 @@ create function rdf_idtostr(id oid)
 	
 create function rdf_strtoid(urlstr string)
 	returns oid external name sql.rdfstrtoid;
-

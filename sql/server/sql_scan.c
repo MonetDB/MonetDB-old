@@ -290,6 +290,7 @@ scanner_init_keywords(void)
 	keywords_insert("ANALYZE", ANALYZE);
 	keywords_insert("EXPLAIN", SQL_EXPLAIN);
 	keywords_insert("PLAN", SQL_PLAN);
+	keywords_insert("SPARQL", SQL_SPARQL);
 	keywords_insert("DEBUG", SQL_DEBUG);
 	keywords_insert("TRACE", SQL_TRACE);
 	keywords_insert("DOT", SQL_DOT);

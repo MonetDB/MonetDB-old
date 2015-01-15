@@ -129,10 +129,12 @@ sql_symbol2relation(mvc *c, symbol *sym)
 	if (!r)
 		return NULL;
 	if (r) {
-		rel_print(c,r, 0); 
-		rdf_rel_optimizer(c, r); 
-		rel_print(c,r, 0);
-		buildJoinGraph(c,r,0); 
+		if (c->emode == m_sparql){
+			rel_print(c,r, 0); 
+			rdf_rel_optimizer(c, r); 
+			rel_print(c,r, 0);
+			buildJoinGraph(c,r,0); 
+		}
 
 		r = rel_optimizer(c, r);
 
@@ -153,7 +155,10 @@ sql_relation2stmt(mvc *c, sql_rel *r)
 	} else {
 		if (c->emode == m_plan) {
 			rel_print(c, r, 0);
-		} else {
+		} else if (c->emode == m_sparql){
+			printf("Handling sparql query\n"); 
+		}
+		else {
 			s = output_rel_bin(c, r);
 		}
 	}

@@ -34,6 +34,8 @@
 #include <string.h>
 #include "rdfminheap.h"
 #include "rdfontologyload.h"
+#include "rdfdump.h"
+#include "rdfcommon.h"
 #include <mtime.h>
 #include <rdfgraph.h>
 #include <rdfparams.h>
@@ -60,13 +62,7 @@ RDFSchemaExplore(int *ret, str *tbname, str *clname)
 	return MAL_SUCCEED;
 }
 
-static void copyOidSet(oid* dest, oid* orig, int len){
-	memcpy(dest, orig, len * sizeof(oid));
-}
 
-static void copyIntSet(int* dest, int* orig, int len){
-	memcpy(dest, orig, len * sizeof(int));
-}
 
 
 #if NEEDSUBCS
@@ -1566,117 +1562,6 @@ CS* creatCS(oid csId, int freqIdx, int numP, oid* buff, char type,  int parentfr
 
 
 static 
-void getNumCombinedP(oid* arr1, oid* arr2, int m, int n, int *numCombineP){
-	
-	int i = 0, j = 0;
-	int pos = 0;
-
-	while( j < m && i < n )
-	{
-		if( arr1[j] < arr2[i] ){
-			pos++;
-			j++;
-		}
-		else if( arr1[j] == arr2[i] )
-		{
-			pos++;
-			j++;
-			i++;
-		}
-		else if( arr1[j] > arr2[i] ){
-			pos++;
-			i++;
-		}
-	}
-	if (j == m && i < n){
-		while (i < n){
-			pos++;
-			i++;
-		}		
-	} 
-
-	if (j < m && i == n){
-		while (j < m){
-			pos++;
-			j++;
-		}		
-	} 
-	
-	*numCombineP = pos; 
-
-		
-}
-
-static 
-void mergeOidSets(oid* arr1, oid* arr2, oid* mergeArr, int m, int n, int *numCombineP){
-	
-	int i = 0, j = 0;
-	int pos = 0;
-
-	while( j < m && i < n )
-	{
-		if( arr1[j] < arr2[i] ){
-			mergeArr[pos] = arr1[j];
-			pos++;
-			j++;
-		}
-		else if( arr1[j] == arr2[i] )
-		{
-			mergeArr[pos] = arr1[j];	
-			pos++;
-			j++;
-			i++;
-		}
-		else if( arr1[j] > arr2[i] ){
-			mergeArr[pos] = arr2[i];
-			pos++;
-			i++;
-		}
-	}
-	if (j == m && i < n){
-		while (i < n){
-			mergeArr[pos] = arr2[i];
-			pos++;
-			i++;
-		}		
-	} 
-
-	if (j < m && i == n){
-		while (j < m){
-			mergeArr[pos] = arr1[j];
-			pos++;
-			j++;
-		}		
-	} 
-	
-	*numCombineP = pos; 
-	/*
-	printf("pos = %d, numCombineP = %d\n", pos, numCombineP);
-
-	for (i = 0; i < m; i++){
-		printf(BUNFMT " ", arr1[i]);
-	}
-	
-	printf("\n");
-	for (i = 0; i < n; i++){
-		printf(BUNFMT " ", arr2[i]);
-	}
-
-	
-	printf("\n");
-	for (i = 0; i < pos; i++){
-		printf(BUNFMT " ", mergeArr[i]);
-	}
-	
-	printf("\n");
-	*/
-
-		
-}
-
-
-
-static 
 CS* mergeTwoCSs(CS cs1, CS cs2, int freqIdx1, int freqIdx2, oid mergeCSId){
 	
 	int numCombineP = 0; 
@@ -2594,7 +2479,6 @@ static oid RDF_hash_oidlist(oid* key, int num, int numTypeValues, oid* rdftypeOn
 	return hashCode;
 }
 
-static 
 void appendArrayToBat(BAT *b, BUN* inArray, int num){
 	if (num > 0){
 		BUN r = BUNlast(b);
@@ -2725,7 +2609,6 @@ void testBatHash(void){
 }
 */
 
-static 
 void addaProp(PropStat* propStat, oid prop, int csIdx, int invertIdx){
 	BUN	bun; 
 	BUN	p; 
@@ -2776,6 +2659,7 @@ void addaProp(PropStat* propStat, oid prop, int csIdx, int invertIdx){
 
 		propStat->plCSidx[propStat->numAdded].lstIdx = (int *) malloc(sizeof(int) * INIT_CS_PER_PROP);
 		propStat->plCSidx[propStat->numAdded].lstInvertIdx = (int *) malloc(sizeof(int) * INIT_CS_PER_PROP);
+		propStat->plCSidx[propStat->numAdded].lstOnt = NULL; 	//lstOnt only used in labeling
 
 
 		if (propStat->plCSidx[propStat->numAdded].lstIdx  == NULL){
@@ -2859,6 +2743,9 @@ void addNewCS(CSBats *csBats, PropStat* fullPropStat, BUN* csKey, oid* key, oid 
 	BUNappend(csBats->freqBat, &freq, TRUE); 
 	BUNappend(csBats->coverageBat, &coverage, TRUE); 
 }
+
+
+
 /*
  * Put a CS to the hashmap. 
  * While putting CS to the hashmap, update the support (frequency) value 
@@ -3406,7 +3293,6 @@ void createTreeForCSset(CSset *freqCSset){
 	delete_trie(&root);
 }
 
-static 
 PropStat* initPropStat(void){
 
 	PropStat *propStat = (PropStat *) malloc(sizeof(PropStat));
@@ -3428,13 +3314,15 @@ PropStat* initPropStat(void){
 
 	propStat->tfidfs = (float*) malloc(sizeof(float) * INIT_PROP_NUM);
 	if (propStat->tfidfs == NULL) return NULL; 
-	
+
 	propStat->numAdded = 0; 
 	propStat->numAllocation = INIT_PROP_NUM; 
 
 	// For posting list of each prop
 	propStat->plCSidx = (Postinglist*) malloc(sizeof(Postinglist) * INIT_PROP_NUM); 
 	if (propStat->plCSidx  == NULL) return NULL; 
+		
+	
 
 	propStat->maxNumPPerCS = 0; 
 
@@ -3568,15 +3456,18 @@ void printPropStat(PropStat* propStat, int printToFile){
 }
 #endif
 
-static 
 void freePropStat(PropStat *propStat){
 	int i; 
 	BBPreclaim(propStat->pBat); 
 	free(propStat->freqs); 
 	free(propStat->tfidfs); 
 	for (i = 0; i < propStat->numAdded; i++){
-		free(propStat->plCSidx[i].lstIdx);
-		free(propStat->plCSidx[i].lstInvertIdx); 
+		if (propStat->plCSidx[i].lstIdx) 
+			free(propStat->plCSidx[i].lstIdx);
+		if (propStat->plCSidx[i].lstInvertIdx)
+			free(propStat->plCSidx[i].lstInvertIdx); 
+		if (propStat->plCSidx[i].lstOnt)
+			free(propStat->plCSidx[i].lstOnt);
 	}
 	free(propStat->plCSidx); 
 	free(propStat); 
@@ -10212,6 +10103,8 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 	// allocate memory space for cstablestat
 	cstablestat->numTables = numTables; 
 	cstablestat->lstbatid = (bat**) malloc(sizeof (bat*) * numTables); 
+	cstablestat->lstfreqId = (int*) malloc(sizeof (int) * numTables); 
+	initIntArray(cstablestat->lstfreqId, numTables, -1); 
 	cstablestat->numPropPerTable = (int*) malloc(sizeof (int) * numTables); 
 
 	cstablestat->pbat = BATnewPropSet(TYPE_void, TYPE_oid, smallbatsz);
@@ -10239,6 +10132,7 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 		tmpNumDefaultCol = csPropTypes[i].numProp -  csPropTypes[i].numInfreqProp; 
 		cstablestat->numPropPerTable[i] = tmpNumDefaultCol; 
 		cstablestat->lstbatid[i] = (bat*) malloc (sizeof(bat) * tmpNumDefaultCol);  
+		cstablestat->lstfreqId[i] = mTblIdxFreqIdxMapping[i]; 
 		cstablestat->lastInsertedS[i] = (oid*) malloc(sizeof(oid) * tmpNumDefaultCol); 
 		cstablestat->lstcstable[i].numCol = tmpNumDefaultCol;
 		cstablestat->lstcstable[i].colBats = (BAT**)malloc(sizeof(BAT*) * tmpNumDefaultCol); 
@@ -10397,6 +10291,7 @@ void freeCStableStat(CStableStat* cstablestat){
 	free(cstablestat->lastInsertedSEx); 
 	free(cstablestat->lstcstableEx);
 	#endif
+	free(cstablestat->lstfreqId); 
 	free(cstablestat->numPropPerTable);
 	free(cstablestat); 
 }
@@ -11638,6 +11533,10 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 	
 	#if STORE_PERFORMANCE_METRIC_INFO
 	computeMetricsQForRefinedTable(freqCSset, *csPropTypes,mfreqIdxTblIdxMapping,mTblIdxFreqIdxMapping,numTables);
+	#endif
+
+	#if DUMP_CSSET
+	dumpFreqCSs(cstablestat, freqCSset); 
 	#endif
 
 	if (*mode == EXPLOREONLY){

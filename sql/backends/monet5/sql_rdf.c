@@ -36,12 +36,7 @@
 #include <cluster.h>
 #include <opt_pipes.h>
 #include "clients.h"
-#ifdef HAVE_RAPTOR
-# include <rdf.h>
-# include <rdfschema.h>
-#include <rdfretrieval.h>
-#include <rdfscan.h>
-#endif
+#include "sql_rdf.h"
 #include "mal_instruction.h"
 
 /*
@@ -1604,3 +1599,88 @@ SQLrdfRetrieveSubschema(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	throw(SQL, "sql.rdfRetrieveSubschema", "RDF support is missing from MonetDB5");
 #endif /* HAVE_RAPTOR */
 }
+
+static
+void test_intersection(void){
+
+	oid** listoid; 
+	int* listcount; 
+	oid* interlist; 
+	int num = 4; 
+	int internum = 0; 
+	int i;
+	oid list1[6] = {1, 3, 4, 5, 7, 11}; 
+	oid list2[7] = {1, 3, 5, 7, 8, 9, 11};
+	oid list3[10] = {1, 2, 3, 4, 5, 6, 7, 8, 9 ,11};
+	oid list4[5] = {2, 3, 7, 9, 11}; 
+
+	listoid = (oid**)malloc(sizeof(oid*) * num); 
+	listcount = (int *) malloc(sizeof(int) * num); 
+	
+	listoid[0] = list1; 
+	listcount[0] = 6; 
+	listoid[1] = list2;
+	listcount[1] = 7;
+	listoid[2] = list3; 
+	listcount[2] = 10; 
+	listoid[3] = list4;
+	listcount[3] = 5;
+
+	intersect_oidsets(listoid, listcount, num, &interlist, &internum);
+	printf("Intersection list: \n"); 
+	for (i = 0; i < internum; i++){
+		printf(" " BUNFMT, interlist[i]);
+	}
+	printf("\n"); 
+}
+
+SimpleCSset *global_csset = NULL; 
+PropStat *global_p_propstat = NULL; 
+
+str SQLrdfdeserialize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+	
+	SimpleCSset *csset; 
+
+	printf("De-serialize simple CSset from Bats\n"); 
+
+	csset = dumpBat_to_CSset(); 
+		
+	print_simpleCSset(csset); 
+
+	test_intersection(); 
+
+	free_simpleCSset(csset); 
+	
+	(void) cntxt; (void) mb; (void) stk; (void) pci;
+
+	return MAL_SUCCEED; 
+}
+
+/*
+ * Preparation for executing sparql queries
+ * */
+
+str SQLrdfprepare(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+	char *schema = "rdf"; 
+
+	//Open Tokenizer
+	printf("Open tokenizer with schema %s\n", schema); 
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "rdf.rdfschema",
+		"could not open the tokenizer\n");
+	}
+	
+	printf("Build global csset\n");
+	//Build global cs set from persistent BATs
+	global_csset = dumpBat_to_CSset(); 
+
+	//Build propstat for props in final CSs
+	global_p_propstat = getPropStat_P_simpleCSset(global_csset); 
+
+	printf("Done preparation\n"); 
+
+	(void) cntxt; (void) mb; (void) stk; (void) pci;
+			
+	return MAL_SUCCEED;
+}
+
