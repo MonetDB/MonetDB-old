@@ -7204,7 +7204,7 @@ void getObjStr(BAT *mapbat, BATiter mapi, oid objOid, str *objStr, char *retObjT
 //Assume Tokenizer is openned 
 //
 /*
-void getTblName(char *name, oid nameId){
+void getSqlName(char *name, oid nameId){
 	str canStr = NULL; 
 	str canStrShort = NULL;
 	char    *pch;
@@ -7241,7 +7241,7 @@ void getTblName(char *name, oid nameId){
 }
 */
 
-void getTblName(str *name, oid nameId, BATiter mapi, BAT *mbat){
+void getSqlName(str *name, oid nameId, BATiter mapi, BAT *mbat){
 	str canStr = NULL; 
 	str canStrShort = NULL;
 	char    *pch;

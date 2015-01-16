@@ -1085,7 +1085,7 @@ void printUML2(CStableStat *cstablestat, CSPropTypes* csPropTypes, int freqThres
 		fprintf(fout, "\"%d\" [\n", i);
 		fprintf(fout, "label = <<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\">\n");
 
-		getTblName(&labelStrEscaped, cstablestat->lstcstable[i].tblname, mapi, mbat);
+		getSqlName(&labelStrEscaped, cstablestat->lstcstable[i].tblname, mapi, mbat);
 		fprintf(fout, "<TR><TD WIDTH=\"%d\"><B>%s (#triples: %d, #tuples: %d)</B></TD></TR>\n", width, labelStrEscaped, freqCSset->items[csIdx].coverage, freqCSset->items[csIdx].support);
 		GDKfree(labelStrEscaped);
 

@@ -526,7 +526,7 @@ rdf_export str
 RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, bat *ontbatid, int *freqThreshold, int *mode);
 
 rdf_export void
-getTblName(str *name, oid nameId,BATiter mapi, BAT *mbat);
+getSqlName(str *name, oid nameId,BATiter mapi, BAT *mbat);
 
 rdf_export ObjectType
 getObjType(oid objOid);		/* Return the type of the object value from obj oid*/

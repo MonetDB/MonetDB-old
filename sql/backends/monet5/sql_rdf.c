@@ -539,7 +539,7 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 static
-void getTblSQLname(char *tmptbname, int tblIdx, int isExTbl, CStableStat *cstablestat, BATiter mapi, BAT *mbat){
+void getTblSQLname(char *tmptbname, int tblIdx, int isExTbl, oid tblname, BATiter mapi, BAT *mbat){
 	str	baseTblName;
 	char	tmpstr[20]; 
 
@@ -548,7 +548,7 @@ void getTblSQLname(char *tmptbname, int tblIdx, int isExTbl, CStableStat *cstabl
 	else //isExTbl == 1
 		sprintf(tmpstr, "ex%d",tblIdx);
 
-	getTblName(&baseTblName, cstablestat->lstcstable[tblIdx].tblname, mapi, mbat); 
+	getSqlName(&baseTblName, tblname, mapi, mbat); 
 	sprintf(tmptbname, "%s", baseTblName);
 	strcat(tmptbname,tmpstr);
 
@@ -558,14 +558,14 @@ void getTblSQLname(char *tmptbname, int tblIdx, int isExTbl, CStableStat *cstabl
 //If colType == -1, ==> default col
 //If not, it is a ex-type column
 static
-void getColSQLname(char *tmpcolname, int tblIdx, int colIdx, int colType, CStableStat *cstablestat, BATiter mapi, BAT *mbat){
+void getColSQLname(char *tmpcolname, int colIdx, int colType, oid propid, BATiter mapi, BAT *mbat){
 	str baseColName;
 	char    tmpstr[20];
 
 	if (colType == -1) sprintf(tmpstr, "%d",colIdx);
 	else 
 		sprintf(tmpstr, "%dtype%d",colIdx, colType); 
-	getTblName(&baseColName, cstablestat->lstcstable[tblIdx].lstProp[colIdx], mapi, mbat);
+	getSqlName(&baseColName, propid, mapi, mbat);
 	sprintf(tmpcolname, "%s", baseColName);
 	strcat(tmpcolname,tmpstr); 
 
@@ -574,12 +574,12 @@ void getColSQLname(char *tmpcolname, int tblIdx, int colIdx, int colType, CStabl
 }
 
 static
-void getMvTblSQLname(char *tmpmvtbname, int tblIdx, int colIdx, CStableStat *cstablestat, BATiter mapi, BAT *mbat){
+void getMvTblSQLname(char *tmpmvtbname, int tblIdx, int colIdx, oid tblname, oid propid, BATiter mapi, BAT *mbat){
 	str baseTblName;
 	str baseColName; 
 
-	getTblName(&baseTblName, cstablestat->lstcstable[tblIdx].tblname, mapi, mbat);
-	getTblName(&baseColName, cstablestat->lstcstable[tblIdx].lstProp[colIdx], mapi, mbat);
+	getSqlName(&baseTblName, tblname, mapi, mbat);
+	getSqlName(&baseColName, propid, mapi, mbat);
 
 	sprintf(tmpmvtbname, "mv%s%d_%s%d", baseTblName, tblIdx, baseColName, colIdx);
 
@@ -608,15 +608,15 @@ void addPKandFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes, str schema,
 	for (i = 0; i < cstablestat->numTables; i++){
 
 		//Add PKs to all subject columns
-		getTblSQLname(fromTbl, i, 0, cstablestat, mapi, mbat);
+		getTblSQLname(fromTbl, i, 0, cstablestat->lstcstable[i].tblname, mapi, mbat);
 		fprintf(foutPK, "ALTER TABLE %s.\"%s\" ADD PRIMARY KEY (subject);\n",schema,fromTbl);
 	
 		//Add unique key constraint and FKs between MVTable and its corresponding column
 		//in the default table
 		for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
 			if (cstablestat->lstcstable[i].lstMVTables[j].numCol != 0){	//MVColumn
-				getColSQLname(fromTblCol, i, j, -1, cstablestat, mapi, mbat);
-				getMvTblSQLname(mvTbl, i, j, cstablestat, mapi, mbat);
+				getColSQLname(fromTblCol, j, -1, cstablestat->lstcstable[i].lstProp[j], mapi, mbat);
+				getMvTblSQLname(mvTbl, i, j, cstablestat->lstcstable[i].tblname, cstablestat->lstcstable[i].lstProp[j], mapi, mbat);
 				fprintf(foutMV, "ALTER TABLE %s.\"%s\" ADD UNIQUE (\"%s\");\n",schema,fromTbl,fromTblCol);		
 				fprintf(foutMV, "ALTER TABLE %s.\"%s\" ADD FOREIGN KEY (\"mvKey\") REFERENCES %s.\"%s\" (\"%s\");\n",schema, mvTbl, schema, fromTbl,fromTblCol);
 			
@@ -629,20 +629,20 @@ void addPKandFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes, str schema,
 			if (csPropTypes[i].lstPropTypes[j].defColIdx == -1)	continue;
 			if (csPropTypes[i].lstPropTypes[j].isFKProp == 1){
 				tblColIdx = csPropTypes[i].lstPropTypes[j].defColIdx; 
-				getTblSQLname(fromTbl, i, 0, cstablestat, mapi, mbat);
+				getTblSQLname(fromTbl, i, 0, cstablestat->lstcstable[i].tblname, mapi, mbat);
 				refTblId = csPropTypes[i].lstPropTypes[j].refTblId;
-				getTblSQLname(toTbl, refTblId, 0, cstablestat, mapi, mbat);
+				getTblSQLname(toTbl, refTblId, 0, cstablestat->lstcstable[refTblId].tblname, mapi, mbat);
 
 				if (cstablestat->lstcstable[i].lstMVTables[tblColIdx].numCol == 0){
-					getColSQLname(fromTblCol, i, tblColIdx, -1, cstablestat, mapi, mbat);
+					getColSQLname(fromTblCol, tblColIdx, -1, cstablestat->lstcstable[i].lstProp[tblColIdx], mapi, mbat);
 
 					fprintf(fout, "ALTER TABLE %s.\"%s\" ADD FOREIGN KEY (\"%s\") REFERENCES %s.\"%s\" (subject);\n\n", schema, fromTbl, fromTblCol, schema, toTbl);
 
 				}
 				else{	//This is a MV col
-					getMvTblSQLname(mvTbl, i, tblColIdx, cstablestat, mapi, mbat);
-					getColSQLname(fromTblCol, i, tblColIdx, -1, cstablestat, mapi, mbat);
-					getColSQLname(mvCol, i, tblColIdx, 0, cstablestat, mapi, mbat); //Use the first column of MVtable
+					getMvTblSQLname(mvTbl, i, tblColIdx, cstablestat->lstcstable[i].tblname, cstablestat->lstcstable[i].lstProp[tblColIdx], mapi, mbat);
+					getColSQLname(fromTblCol, tblColIdx, -1, cstablestat->lstcstable[i].lstProp[tblColIdx], mapi, mbat);
+					getColSQLname(mvCol, tblColIdx, 0, cstablestat->lstcstable[i].lstProp[tblColIdx], mapi, mbat); //Use the first column of MVtable
 					
 					if (0){		//Do not create the FK from MVtable to the original table
 							//Since that column in original table may contains lots of NULL value
@@ -929,7 +929,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	for (i = 0; i < cstablestat->numTables; i++){
 		//printf("creating table %d \n", i);
 
-		getTblSQLname(tmptbname, i, 0, cstablestat, mapi, mbat);
+		getTblSQLname(tmptbname, i, 0, cstablestat->lstcstable[i].tblname, mapi, mbat);
 		printf("Table %d:||  %s ||\n",i, tmptbname);
 
 		cstables[i] = mvc_create_table(m, sch, tmptbname, tt_table, 0,
@@ -946,7 +946,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		//for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
 
 			//TODO: Use propertyId from Propstat
-			getColSQLname(tmpcolname, i, j, -1, cstablestat, mapi, mbat);
+			getColSQLname(tmpcolname, j, -1, cstablestat->lstcstable[i].lstProp[j], mapi, mbat);
 
 
 			tmpbat = cstablestat->lstcstable[i].colBats[j];
@@ -957,7 +957,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			//For multi-values table
 			tmpNumMVCols = cstablestat->lstcstable[i].lstMVTables[j].numCol;
 			if (tmpNumMVCols != 0){
-				getMvTblSQLname(tmpmvtbname, i, j, cstablestat, mapi, mbat);
+				getMvTblSQLname(tmpmvtbname, i, j, cstablestat->lstcstable[i].tblname, cstablestat->lstcstable[i].lstProp[j], mapi, mbat);
 				csmvtables[i][j] = mvc_create_table(m, sch, tmpmvtbname, tt_table, 0, SQL_PERSIST, 0, 3); 
 				totalNoTablesCreated++;
 
@@ -969,7 +969,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 				//Value columns 
 				for (k = 0; k < tmpNumMVCols; k++){
-					getColSQLname(tmpmvcolname, i, j, k, cstablestat, mapi, mbat);
+					getColSQLname(tmpmvcolname, j, k, cstablestat->lstcstable[i].lstProp[j], mapi, mbat);
 
 					tmpbat = cstablestat->lstcstable[i].lstMVTables[j].mvBats[k];
 					isRightPropBAT(tmpbat);
@@ -987,7 +987,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		// Add non-default type table
 		if (cstablestat->lstcstableEx[i].numCol != 0){	
 
-			getTblSQLname(tmptbnameex, i, 1, cstablestat, mapi, mbat);
+			getTblSQLname(tmptbnameex, i, 1, cstablestat->lstcstable[i].tblname, mapi, mbat);
 			printf("TableEx %d: || %s || \n",i, tmptbnameex);
 
 			cstablesEx[i] = mvc_create_table(m, sch, tmptbnameex, tt_table, 0,
@@ -996,7 +996,9 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			totalNoExTables++;
 			for (j = 0; j < cstablestat->lstcstableEx[i].numCol; j++){
 				//TODO: Use propertyId from Propstat
-				getColSQLname(tmpcolname, i, cstablestat->lstcstableEx[i].mainTblColIdx[j], (int)(cstablestat->lstcstableEx[i].colTypes[j]), cstablestat, mapi, mbat);
+				int tmpcolidx = cstablestat->lstcstableEx[i].mainTblColIdx[j];
+				getColSQLname(tmpcolname, tmpcolidx, (int)(cstablestat->lstcstableEx[i].colTypes[j]), 
+						cstablestat->lstcstable[i].lstProp[tmpcolidx], mapi, mbat);
 
 				tmpbat = cstablestat->lstcstableEx[i].colBats[j];
 				isRightPropBAT(tmpbat);
@@ -1021,7 +1023,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		//for (j = 0; j < cstablestat->numPropPerTable[i]; j++){
 
 			//TODO: Use propertyId from Propstat
-			getColSQLname(tmpcolname, i, j, -1, cstablestat, mapi, mbat);
+			getColSQLname(tmpcolname, j, -1, cstablestat->lstcstable[i].lstProp[j], mapi, mbat);
 
 			tmpbat = cstablestat->lstcstable[i].colBats[j];
 			isRightPropBAT(tmpbat);
@@ -1046,7 +1048,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				//Value columns
 				for (k = 0; k < tmpNumMVCols; k++){
 
-					getColSQLname(tmpmvcolname, i, j, k, cstablestat, mapi, mbat);
+					getColSQLname(tmpmvcolname, j, k, cstablestat->lstcstable[i].lstProp[j], mapi, mbat);
 
 					tmpbat = cstablestat->lstcstable[i].lstMVTables[j].mvBats[k];
 					isRightPropBAT(tmpbat);
@@ -1067,7 +1069,9 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if (cstablestat->lstcstableEx[i].numCol != 0){	
 			for (j = 0; j < cstablestat->lstcstableEx[i].numCol; j++){
 				//TODO: Use propertyId from Propstat
-				getColSQLname(tmpcolname, i, cstablestat->lstcstableEx[i].mainTblColIdx[j], (int)(cstablestat->lstcstableEx[i].colTypes[j]), cstablestat, mapi, mbat);
+				int tmpcolidx = cstablestat->lstcstableEx[i].mainTblColIdx[j];
+				getColSQLname(tmpcolname, tmpcolidx, (int)(cstablestat->lstcstableEx[i].colTypes[j]), 
+						cstablestat->lstcstable[i].lstProp[tmpcolidx], mapi, mbat);
 
 				tmpbat = cstablestat->lstcstableEx[i].colBats[j];
 				isRightPropBAT(tmpbat);
