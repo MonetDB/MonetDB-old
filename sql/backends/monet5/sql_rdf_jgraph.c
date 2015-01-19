@@ -897,22 +897,140 @@ void get_prop_and_exps(mvc *c, sql_rel *r, char **prop, list *trans_exps){
 
 }
 
+
+static
+void tranforms_exps(mvc *c, sql_rel *r, list *trans_exps, int tblId){
+
+	list *tmpexps = NULL; 
+	sql_allocator *sa = c->sa; 
+	char tmpcolname[100]; //TODO: Should we use char[]
+
+
+	assert(r->op == op_select);
+	assert(((sql_rel*)r->l)->op == op_basetable); 
+	
+	printf("Converting op_select in star pattern to sql_rel of abstract table\n"); 
+	//Get the column name by checking exps of r
+	
+	tmpexps = r->exps;
+
+	//First go through all exps to get p --> col name
+	
+	if (tmpexps){
+		node *en;
+		int num_p_cond = 0; 
+	
+		for (en = tmpexps->h; en; en = en->next){
+			sql_exp *tmpexp = (sql_exp *) en->data; 
+			list *lst = NULL; 
+
+			assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
+			
+			//Example: [s12_t0.p = oid[sys.rdf_strtoid(char(67) "<http://www/product>")], s12_t0.o = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
+			assert(((sql_exp *)tmpexp->l)->type == e_column); 
+
+			//Check if the column name is p, then
+			//extract the input property name
+			if (strcmp(((sql_exp *)tmpexp->l)->name, "p") == 0){
+				sql_exp *tmpexp2;
+				node *tmpen; 
+				str s;
+				oid tmpPropId;
+				int colIdx; 
+				
+				num_p_cond++; 
+				assert(((sql_exp *)tmpexp->r)->type == e_convert);
+
+				tmpexp = (sql_exp *) ((sql_exp *)tmpexp->r)->l;
+				assert(tmpexp->type == e_func); 
+
+				lst = tmpexp->l;
+				
+				//There should be only one parameter for the function which is the property name
+				tmpen = lst->h; 
+				tmpexp2 = (sql_exp *) tmpen->data;
+							
+				s = atom2string(c->sa, (atom *) tmpexp2->l); 
+
+				TKNRstringToOid(&tmpPropId, &s);
+
+				colIdx = getColIdx_from_oid(tblId, global_csset, tmpPropId);
+
+				getColSQLname(tmpcolname, colIdx, -1, tmpPropId, global_mapi, global_mbat);
+
+				printf("In transform %s --> corresponding column %s\n", s,  tmpcolname); 
+				
+				//In case the column name is not in the abstract table, add it
+				//add_abstract_column(c, tmpcolname);
+
+			} else{ 
+				continue; 
+			}
+
+
+		}
+
+		assert(num_p_cond == 1 && tmpcolname != NULL); //Verify that there is only one p in this op_select sql_rel 
+	}
+
+	if (tmpexps){
+		node *en;
+		int num_o_cond = 0;
+		int num_s_cond = 0; 
+	
+		for (en = tmpexps->h; en; en = en->next){
+			sql_exp *tmpexp = (sql_exp *) en->data; 
+			sql_exp *e = (sql_exp *)tmpexp->l; 
+
+			assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
+			assert(e->type == e_column); 
+
+			if (strcmp(e->name, "p") == 0){
+				continue; 
+
+			} else if (strcmp(e->name, "o") == 0){
+				sql_exp *m_exp = exp_copy(sa, tmpexp);
+				modify_exp_col(sa, m_exp, tbl_abstract_name, tmpcolname);
+				
+				//append this exp to list
+				append(trans_exps, m_exp);
+				num_o_cond++;
+
+			} else if (strcmp(e->name, "s") == 0){
+				sql_exp *m_exp = exp_copy(sa, tmpexp);
+				modify_exp_col(sa, m_exp, tbl_abstract_name, tmpcolname);
+
+				//append this exp to list
+				append(trans_exps, m_exp);
+				num_s_cond++;
+			} else{ 
+				printf("The exp of other predicates (not s, p, o) is not handled\n"); 
+			}
+
+
+		}
+
+	}
+
+}
+
+
 /*
  * 
  * */
 static 
-void getTblName_from_spprops(str *tblname, spProps *spprops){
+void getTblName_from_spprops(str *tblname, int *rettbId, spProps *spprops){
 
 	oid *lstprop = NULL; 	//list of distinct prop, sorted by prop ids
 	int num; 		//number of of distinct sorted props
-	int i; 
+	int i,j; 
 	int **tmptblId; 	//lists of tables corresonding to each prop
 	int *count; 		//number of tables per prop	
 	int *tblId; 		//list of matching tblId
 	int numtbl = 0; 	
 
 	get_sorted_distinct_set(spprops->lstPropIds, &lstprop, spprops->num, &num);
-		
+	
 	tmptblId = (int **) malloc(sizeof(int *) * num); 
 	count = (int *) malloc(sizeof(int) * num); 
 
@@ -928,7 +1046,24 @@ void getTblName_from_spprops(str *tblname, spProps *spprops){
 
 	printf(" ] --> ");
 	for (i = 0; i < numtbl; i++){
-		printf("  %d ", tblId[i]);  
+		char tblname[100];
+		int tId = tblId[i];
+		oid tblnameoid = global_csset->items[tId]->tblname; 
+
+		*rettbId = tId; 
+
+		getTblSQLname(tblname, i, -1,  tblnameoid, global_mapi, global_mbat);
+
+		printf("  %d [Name of the table  %s]", tId, tblname);  
+
+		//Get the corresponding column names in this table
+		printf("\n--> Corresponding column names: \n");
+		for (j = 0; j < num; j++){
+			char tmpcolname[100];
+			int colIdx = getColIdx_from_oid(tId, global_csset, lstprop[j]);
+			getColSQLname(tmpcolname, colIdx, -1, lstprop[j], global_mapi, global_mbat);
+			printf("Col %d: %s\n",j, tmpcolname);
+		}
 	}
 
 	printf("\n"); 
@@ -944,9 +1079,11 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 	sql_allocator *sa = c->sa;
 	spProps *spprops = NULL; 
 	str tblname; 
+	int tmptbId = -1; 
 
 	list *trans_exps = NULL; //This transformed exps list contain exps list from op_select
 				 //on the object
+	list *trans_exps_real = NULL; 
 	(void) jg; 
 
 	printf("Group %d contain %d nodes: ", pId, nnode); 
@@ -961,6 +1098,7 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 	
 	spprops = init_sp_props(nnode); 	
 	trans_exps = new_exp_list(sa);
+	trans_exps_real = new_exp_list(sa);
 
 	//Convert to sql_rel of abstract table
 	if (is_all_select){
@@ -975,7 +1113,24 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 		
 		sprintf(tmp, "[Pattern: %d] after grouping: ", pId); 
 		exps_print_ext(c, trans_exps, 0, tmp);
+	}
 
+	
+	print_spprops(spprops);
+
+	getTblName_from_spprops(&tblname, &tmptbId, spprops);
+
+	printf("Get real experessions from tableId %d\n", tmptbId);
+
+	if (is_all_select){
+		char tmp[50]; 
+		for (i = 0; i < nnode; i++){
+			sql_rel *tmprel = (sql_rel*) (jg->lstnodes[group[i]]->data);
+			tranforms_exps(c, tmprel, trans_exps_real, tmptbId); 
+		}
+		
+		sprintf(tmp, "[Real Pattern: %d] after grouping: ", pId); 
+		exps_print_ext(c, trans_exps_real, 0, tmp);
 	}
 
 	if (is_all_select){
@@ -993,12 +1148,11 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 			rel_print(c, m_rel, 0); 
 		}
 	}
+
 	//TODO: Handle other cases. By now, we only handle 
 	//the case where each sql_rel is a op_select. 
 	
-	print_spprops(spprops);
 
-	getTblName_from_spprops(&tblname, spprops);
 
 	free_sp_props(spprops);
 	list_destroy(trans_exps);

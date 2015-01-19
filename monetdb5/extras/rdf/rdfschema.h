@@ -389,8 +389,6 @@ typedef struct CStable {
 	int		numCol; 
 	oid* 		lstProp;
 	oid		tblname;	/* Label of the table */
-	str		tblsqlname; 	/* sql names of the table */
-	str		*colsqlnames;   /* column names of the table */
 } CStable; 
 
 

@@ -71,6 +71,7 @@ typedef struct CSDumpBATs {	//TODO: Use array of BAT and a new CSDumpBatType str
 //(after removing infrequent props....)
 typedef struct SimpleDumpCS {	
 	int tblId; 
+	oid tblname; 
 	int freqId; 
 	int numP; 
 	oid *lstProp; 
@@ -85,12 +86,6 @@ typedef struct SimpleCSset{
 	int num; 
 	SimpleCS **items; 
 } SimpleCSset; 
-
-
-extern str 	tblIdBatname, tblnameBatname, csIdBatname,
-		freqBatname, coverageBatname,
-		pOffsetBatname, fullPBatname,
-		cOffsetBatname, fullCBatname, cnameBatname;
 
 
 rdf_export 
@@ -113,5 +108,9 @@ PropStat* getPropStat_C_simpleCSset(SimpleCSset* csset);
 
 rdf_export 
 Postinglist get_p_postingList(PropStat *propStat, oid p);
+
+rdf_export 
+int getColIdx_from_oid(int tblId, SimpleCSset *csset, oid coloid);
+
 
 #endif /* _RDFDUMP_H_ */

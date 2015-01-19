@@ -40,7 +40,16 @@
 //sql5_export str SQLrdfdeserialize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLrdfprepare(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
+sql5_export void getTblSQLname(char *tmptbname, int tblIdx, int isExTbl, oid tblname, BATiter mapi, BAT *mbat);
+sql5_export void getColSQLname(char *tmpcolname, int colIdx, int colType, oid propid, BATiter mapi, BAT *mbat);
+sql5_export void getMvTblSQLname(char *tmpmvtbname, int tblIdx, int colIdx, oid tblname, oid propid, BATiter mapi, BAT *mbat);
+
+
 extern SimpleCSset *global_csset; 
 extern PropStat *global_p_propstat;
+extern PropStat *global_c_propstat;
+extern BAT *global_mbat;
+extern BATiter global_mapi;
+
 
 #endif /*_SQL_RDF_H */

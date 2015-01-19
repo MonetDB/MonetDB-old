@@ -626,10 +626,17 @@ RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msup
 	}
 	free(tmpOntLabels);
 	
+	/*
 	BBPreclaim(auri);
 	BBPreclaim(aattr);
 	BBPreclaim(muri);
 	BBPreclaim(msuper);
+	*/
+	BBPunfix(auri->batCacheid);
+	BBPunfix(aattr->batCacheid);
+	BBPunfix(muri->batCacheid);
+	BBPunfix(msuper->batCacheid);
+	BBPunfix(mlabel->batCacheid);
 
 	TKNZRclose(ret);
 

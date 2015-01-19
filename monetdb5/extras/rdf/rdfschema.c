@@ -10140,8 +10140,6 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 		cstablestat->lstcstable[i].lstProp = (oid*)malloc(sizeof(oid) * tmpNumDefaultCol);
 		cstablestat->lstcstable[i].colTypes = (ObjectType *)malloc(sizeof(ObjectType) * tmpNumDefaultCol);
 		cstablestat->lstcstable[i].tblname = labels[mTblIdxFreqIdxMapping[i]].name;
-		cstablestat->lstcstable[i].tblsqlname = NULL;
-		 cstablestat->lstcstable[i].colsqlnames = NULL; 
 		#if CSTYPE_TABLE == 1
 		tmpNumExCol = csPropTypes[i].numNonDefTypes; 
 		cstablestat->lastInsertedSEx[i] = (oid*) malloc(sizeof(oid) * tmpNumExCol); 
@@ -10260,16 +10258,6 @@ void freeCStableStat(CStableStat* cstablestat){
 
 		}
 		
-		if (cstablestat->lstcstable[i].tblsqlname) 
-			GDKfree(cstablestat->lstcstable[i].tblsqlname); 
-		if (cstablestat->lstcstable[i].colsqlnames){
-			for (j = 0; j < cstablestat->numPropPerTable[i];j++){
-				if (cstablestat->lstcstable[i].colsqlnames[j])
-					GDKfree(cstablestat->lstcstable[i].colsqlnames[j]);
-			}
-			free(cstablestat->lstcstable[i].colsqlnames);
-		}
-
 		#if CSTYPE_TABLE == 1
 		for (j = 0; j < cstablestat->lstcstableEx[i].numCol;j++){
 			BBPunfix(cstablestat->lstcstableEx[i].colBats[j]->batCacheid); 

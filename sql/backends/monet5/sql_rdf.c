@@ -38,6 +38,7 @@
 #include "clients.h"
 #include "sql_rdf.h"
 #include "mal_instruction.h"
+#include "rdfontologyload.h"
 
 /*
  * Shredding RDF documents through SQL
@@ -538,7 +539,6 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #endif /* HAVE_RAPTOR */
 }
 
-static
 void getTblSQLname(char *tmptbname, int tblIdx, int isExTbl, oid tblname, BATiter mapi, BAT *mbat){
 	str	baseTblName;
 	char	tmpstr[20]; 
@@ -557,7 +557,7 @@ void getTblSQLname(char *tmptbname, int tblIdx, int isExTbl, oid tblname, BATite
 
 //If colType == -1, ==> default col
 //If not, it is a ex-type column
-static
+
 void getColSQLname(char *tmpcolname, int colIdx, int colType, oid propid, BATiter mapi, BAT *mbat){
 	str baseColName;
 	char    tmpstr[20];
@@ -573,7 +573,6 @@ void getColSQLname(char *tmpcolname, int colIdx, int colType, oid propid, BATite
 	GDKfree(baseColName);
 }
 
-static
 void getMvTblSQLname(char *tmpmvtbname, int tblIdx, int colIdx, oid tblname, oid propid, BATiter mapi, BAT *mbat){
 	str baseTblName;
 	str baseColName; 
@@ -1638,8 +1637,11 @@ void test_intersection(void){
 	printf("\n"); 
 }
 
-SimpleCSset *global_csset = NULL; 
-PropStat *global_p_propstat = NULL; 
+SimpleCSset 	*global_csset = NULL; 
+PropStat 	*global_p_propstat = NULL; 
+PropStat 	*global_c_propstat = NULL; 
+BAT		*global_mbat = NULL;
+BATiter 	global_mapi; 
 
 str SQLrdfdeserialize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	
@@ -1666,6 +1668,43 @@ str SQLrdfdeserialize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 str SQLrdfprepare(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	char *schema = "rdf"; 
+	char *sschema = "sys";
+	str msg; 
+	mvc *m = NULL;
+	int ret; 
+
+	(void) ret;
+	rethrow("sql.rdfShred", msg, getSQLContext(cntxt, mb, &m, NULL));
+	
+	//Load map bat
+	printf("Load dictionary Bat\n");
+	global_mbat = mvc_bind(m, schema, "map0", "lexical",0);
+	global_mapi = bat_iterator(global_mbat);
+
+	
+	//Load ontologies
+	
+	printf("Load ontologies\n"); 
+	{	
+     		BAT *auri = mvc_bind(m, sschema, "ontattributes","muri",0);
+     		BAT *aattr = mvc_bind(m, sschema, "ontattributes","mattr",0);
+     		BAT *muri = mvc_bind(m, sschema, "ontmetadata","muri",0);
+     		BAT *msuper = mvc_bind(m, sschema, "ontmetadata","msubclassof",0);
+     		BAT *mlabel = mvc_bind(m, sschema, "ontmetadata","mlabel",0);
+
+		RDFloadsqlontologies(&ret, &(auri->batCacheid), 
+				&(aattr->batCacheid),
+				&(muri->batCacheid),
+				&(msuper->batCacheid),
+				&(mlabel->batCacheid));
+
+		BBPreclaim(auri);
+		BBPreclaim(aattr);
+		BBPreclaim(muri);
+		BBPreclaim(msuper);
+		BBPreclaim(mlabel); 
+
+	}
 
 	//Open Tokenizer
 	printf("Open tokenizer with schema %s\n", schema); 
@@ -1680,6 +1719,9 @@ str SQLrdfprepare(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 	//Build propstat for props in final CSs
 	global_p_propstat = getPropStat_P_simpleCSset(global_csset); 
+
+	global_c_propstat = getPropStat_C_simpleCSset(global_csset); 
+
 
 	printf("Done preparation\n"); 
 

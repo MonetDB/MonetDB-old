@@ -33,7 +33,7 @@
 
 static csdumBATdef csdumBatdefs[N_CSDUM_BAT] = {
 	{csd_tblId, "tblIdBat_dump", TYPE_void, TYPE_int},
-	{csd_tblname, "tblnameBat_dump", TYPE_void, TYPE_str},
+	{csd_tblname, "tblnameBat_dump", TYPE_void, TYPE_oid},
 	{csd_csId, "csIdBat_dump", TYPE_void, TYPE_int},
 	{csd_freq, "freqBat_dump", TYPE_void, TYPE_int},
 	{csd_coverage, "coverageBat_dump", TYPE_void, TYPE_int},
@@ -41,7 +41,7 @@ static csdumBATdef csdumBatdefs[N_CSDUM_BAT] = {
 	{csd_fullP, "fullPBat_dump", TYPE_void, TYPE_oid},
 	{csd_cOffset, "cOffsetBat_dump", TYPE_void, TYPE_oid},
 	{csd_fullC, "fullCBat_dump", TYPE_void, TYPE_oid},
-	{csd_cname, "cnameBat_dump", TYPE_void, TYPE_str}
+	{csd_cname, "cIdxBat_dump", TYPE_void, TYPE_int}	//Index of the col in the table
 };
 
 static 
@@ -103,14 +103,18 @@ static
 void dumpCS(CSDump *csdump, int _freqId, int _tblId, CS cs, CStable cstbl){
 	BUN	offset, offsetc; 
 	int tblId, freqId, freq, cov; 
+	oid tblname; 
 	
 	tblId = _tblId; 
 	freqId = _freqId; 
 	freq = cs.support; 
 	cov = cs.coverage; 
+	tblname = cstbl.tblname; 
 
 	assert(tblId == (int)BATcount(csdump->dumpBats[csd_tblId]));
 	BUNappend(csdump->dumpBats[csd_tblId], &tblId, TRUE);
+
+	BUNappend(csdump->dumpBats[csd_tblname], &tblname, TRUE);
 
 	BUNappend(csdump->dumpBats[csd_csId], &freqId, TRUE);
 	
@@ -197,10 +201,11 @@ void freeCSDump(CSDump *csdump){
 
 
 static
-SimpleCS *create_simpleCS(int tblId, int freqId, int numP, oid* lstProp, int numC, oid* lstCol, int sup, int cov){
+SimpleCS *create_simpleCS(int tblId, oid tblname, int freqId, int numP, oid* lstProp, int numC, oid* lstCol, int sup, int cov){
 	SimpleCS *cs;  
 	cs = (SimpleCS *) malloc(sizeof(SimpleCS)); 
 	cs->tblId = tblId; 
+	cs->tblname = tblname;
 	cs->freqId = freqId; 
 	
 	cs->numP = numP; 
@@ -230,6 +235,7 @@ SimpleCS* read_a_cs_from_csdump(int pos, CSDump *csdump){
 	BUN *offsetP, *offsetP2, *offsetC, *offsetC2;
 	int numP, numC; 
 	int *tblId, *freqId, *freq, *coverage;
+	oid *tblname; 
 	oid *lstProp = NULL, *lstCol = NULL; 
 
 	SimpleCS *cs; 
@@ -238,6 +244,8 @@ SimpleCS* read_a_cs_from_csdump(int pos, CSDump *csdump){
 	tblId = (int *) Tloc(csdump->dumpBats[csd_tblId], pos); 
 	assert(*tblId == pos); 
 
+	tblname = (oid *) Tloc(csdump->dumpBats[csd_tblname], pos);
+	
 	freqId = (int *) Tloc(csdump->dumpBats[csd_csId], pos); 
 
 	freq = (int *) Tloc(csdump->dumpBats[csd_freq], pos); 
@@ -269,7 +277,7 @@ SimpleCS* read_a_cs_from_csdump(int pos, CSDump *csdump){
 
 	lstCol = (oid *)Tloc(csdump->dumpBats[csd_fullC], *offsetC);	
 
-	cs = create_simpleCS(*tblId, *freqId, numP, lstProp, numC, lstCol, *freq, *coverage);
+	cs = create_simpleCS(*tblId, *tblname, *freqId, numP, lstProp, numC, lstCol, *freq, *coverage);
 
 	return cs; 
 }
@@ -348,6 +356,20 @@ SimpleCSset *dumpBat_to_CSset(void){
 	return csset; 
 }
 
+int getColIdx_from_oid(int tblId, SimpleCSset *csset, oid coloid){
+	
+	int i = 0; 
+
+	SimpleCS *cs = csset->items[tblId];
+
+	for (i = 0; i < cs->numC; i++){
+		if (cs->lstCol[i] == coloid) return i; 
+	}
+	
+	if (i == cs->numC) return -1; 
+
+	return -1; 
+}
 
 PropStat* getPropStat_P_simpleCSset(SimpleCSset* csset){
 
