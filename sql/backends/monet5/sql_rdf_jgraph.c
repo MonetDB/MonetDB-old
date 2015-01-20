@@ -732,11 +732,12 @@ void free_sp_props(spProps *spprops){
  * ==> column name = product.
  * This column must match with the table/column created from Characteristic Sets.
  * */
-
+/*
 static
 void get_col_name_from_p (char **col, char *p){
 	getPropNameShort(col, p);
 }
+*/
 
 /*
  * Modify the tablename.colname in an
@@ -767,19 +768,16 @@ void modify_exp_col(sql_allocator *sa, sql_exp *m_exp,  char *_rname, char *_nam
 }
 
 /*
- * From op_select sql_rel, get the condition on p and o which 
- * can indicate the column name of the abstract table
- * and the condition on that column
- *
+ * From op_select sql_rel, get the condition on p  
+ * can indicate the column name of the corresponding table
  *
  * */
 static
-void get_prop_and_exps(mvc *c, sql_rel *r, char **prop, list *trans_exps){
+void get_prop_and_exps(mvc *c, sql_rel *r, char **prop){
 	
 	list *tmpexps = NULL; 
 	char select_s = 0, select_p = 0, select_o = 0; 
-	sql_allocator *sa = c->sa; 
-	str col; 
+	//str col; 
 
 	assert(r->op == op_select);
 	assert(((sql_rel*)r->l)->op == op_basetable); 
@@ -801,7 +799,6 @@ void get_prop_and_exps(mvc *c, sql_rel *r, char **prop, list *trans_exps){
 
 	assert(select_s && select_p && select_o);
 	
-	printf("Converting op_select in star pattern to sql_rel of abstract table\n"); 
 	//Get the column name by checking exps of r
 	
 	tmpexps = r->exps;
@@ -841,11 +838,11 @@ void get_prop_and_exps(mvc *c, sql_rel *r, char **prop, list *trans_exps){
 							
 				s = atom2string(c->sa, (atom *) tmpexp2->l); 
 				*prop = GDKstrdup(s); 
-				get_col_name_from_p (&col, s);
-				printf("%s --> corresponding column %s\n", *prop,  col); 
+				//get_col_name_from_p (&col, s);
+				//printf("%s --> corresponding column %s\n", *prop,  col); 
 				
 				//In case the column name is not in the abstract table, add it
-				add_abstract_column(c, col);
+				if (0) add_abstract_column(c, *prop);
 
 			} else{ 
 				continue; 
@@ -854,52 +851,24 @@ void get_prop_and_exps(mvc *c, sql_rel *r, char **prop, list *trans_exps){
 
 		}
 
-		assert(num_p_cond == 1 && col != NULL); //Verify that there is only one p in this op_select sql_rel 
-	}
-	if (tmpexps){
-		node *en;
-		int num_o_cond = 0;
-		int num_s_cond = 0; 
-	
-		for (en = tmpexps->h; en; en = en->next){
-			sql_exp *tmpexp = (sql_exp *) en->data; 
-			sql_exp *e = (sql_exp *)tmpexp->l; 
-
-			assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
-			assert(e->type == e_column); 
-
-			if (strcmp(e->name, "p") == 0){
-				continue; 
-
-			} else if (strcmp(e->name, "o") == 0){
-				sql_exp *m_exp = exp_copy(sa, tmpexp);
-				modify_exp_col(sa, m_exp, tbl_abstract_name, col);
-				
-				//append this exp to list
-				append(trans_exps, m_exp);
-				num_o_cond++;
-
-			} else if (strcmp(e->name, "s") == 0){
-				sql_exp *m_exp = exp_copy(sa, tmpexp);
-				modify_exp_col(sa, m_exp, tbl_abstract_name, col);
-
-				//append this exp to list
-				append(trans_exps, m_exp);
-				num_s_cond++;
-			} else{ 
-				printf("The exp of other predicates (not s, p, o) is not handled\n"); 
-			}
-
-
-		}
-
+		assert(num_p_cond == 1 && (*prop) != NULL); //Verify that there is only one p in this op_select sql_rel 
 	}
 
 }
 
+/*
+ * //Example: [s12_t0.p = oid[sys.rdf_strtoid(char(67) "<http://www/product>")], s12_t0.o = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
+ * */
+/*
+static 
+void get_colname_from_exps(list *tmpexps){
+
+
+}
+*/
 
 static
-void tranforms_exps(mvc *c, sql_rel *r, list *trans_exps, int tblId){
+void tranforms_exps(mvc *c, sql_rel *r, list *trans_exps, int tblId, str tblname){
 
 	list *tmpexps = NULL; 
 	sql_allocator *sa = c->sa; 
@@ -990,7 +959,7 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_exps, int tblId){
 
 			} else if (strcmp(e->name, "o") == 0){
 				sql_exp *m_exp = exp_copy(sa, tmpexp);
-				modify_exp_col(sa, m_exp, tbl_abstract_name, tmpcolname);
+				modify_exp_col(sa, m_exp, tblname, tmpcolname);
 				
 				//append this exp to list
 				append(trans_exps, m_exp);
@@ -998,7 +967,7 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_exps, int tblId){
 
 			} else if (strcmp(e->name, "s") == 0){
 				sql_exp *m_exp = exp_copy(sa, tmpexp);
-				modify_exp_col(sa, m_exp, tbl_abstract_name, tmpcolname);
+				modify_exp_col(sa, m_exp, tblname, tmpcolname);
 
 				//append this exp to list
 				append(trans_exps, m_exp);
@@ -1046,15 +1015,16 @@ void getTblName_from_spprops(str *tblname, int *rettbId, spProps *spprops){
 
 	printf(" ] --> ");
 	for (i = 0; i < numtbl; i++){
-		char tblname[100];
 		int tId = tblId[i];
 		oid tblnameoid = global_csset->items[tId]->tblname; 
 
 		*rettbId = tId; 
+		
+		*tblname = (str) GDKmalloc(sizeof(char) * 100); 
 
-		getTblSQLname(tblname, i, -1,  tblnameoid, global_mapi, global_mbat);
+		getTblSQLname(*tblname, tId, 0,  tblnameoid, global_mapi, global_mbat);
 
-		printf("  %d [Name of the table  %s]", tId, tblname);  
+		printf("  %d [Name of the table  %s]", tId, *tblname);  
 
 		//Get the corresponding column names in this table
 		printf("\n--> Corresponding column names: \n");
@@ -1068,7 +1038,6 @@ void getTblName_from_spprops(str *tblname, int *rettbId, spProps *spprops){
 
 	printf("\n"); 
 
-	(void) tblname; 
 }
 
 static 	
@@ -1081,9 +1050,9 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 	str tblname; 
 	int tmptbId = -1; 
 
-	list *trans_exps = NULL; //This transformed exps list contain exps list from op_select
-				 //on the object
-	list *trans_exps_real = NULL; 
+	//This transformed exps list contain exps list from op_select
+	 //on the object
+	list *trans_exps = NULL; 
 	(void) jg; 
 
 	printf("Group %d contain %d nodes: ", pId, nnode); 
@@ -1098,40 +1067,36 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 	
 	spprops = init_sp_props(nnode); 	
 	trans_exps = new_exp_list(sa);
-	trans_exps_real = new_exp_list(sa);
 
 	//Convert to sql_rel of abstract table
 	if (is_all_select){
-		char tmp[50]; 
 		for (i = 0; i < nnode; i++){
 			str col; 
 			sql_rel *tmprel = (sql_rel*) (jg->lstnodes[group[i]]->data);
-			get_prop_and_exps(c, tmprel, &col, trans_exps); 
+			get_prop_and_exps(c, tmprel, &col); 
 			add_props_to_spprops(spprops, i, NAV, col); 		
 			GDKfree(col); 
 		}
-		
-		sprintf(tmp, "[Pattern: %d] after grouping: ", pId); 
-		exps_print_ext(c, trans_exps, 0, tmp);
 	}
 
-	
 	print_spprops(spprops);
 
 	getTblName_from_spprops(&tblname, &tmptbId, spprops);
 
-	printf("Get real experessions from tableId %d\n", tmptbId);
+	printf("Get real expressions from tableId %d\n", tmptbId);
 
 	if (is_all_select){
 		char tmp[50]; 
 		for (i = 0; i < nnode; i++){
 			sql_rel *tmprel = (sql_rel*) (jg->lstnodes[group[i]]->data);
-			tranforms_exps(c, tmprel, trans_exps_real, tmptbId); 
+			tranforms_exps(c, tmprel, trans_exps, tmptbId, tblname); 
 		}
 		
 		sprintf(tmp, "[Real Pattern: %d] after grouping: ", pId); 
-		exps_print_ext(c, trans_exps_real, 0, tmp);
+		exps_print_ext(c, trans_exps, 0, tmp);
 	}
+
+	GDKfree(tblname); 
 
 	if (is_all_select){
 		sql_rel *m_rel = rel_copy(c->sa, (sql_rel*) (jg->lstnodes[group[0]]->data));
@@ -1152,7 +1117,6 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 	//TODO: Handle other cases. By now, we only handle 
 	//the case where each sql_rel is a op_select. 
 	
-
 
 	free_sp_props(spprops);
 	list_destroy(trans_exps);
