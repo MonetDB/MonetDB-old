@@ -148,6 +148,55 @@ void addRelationsToJG(mvc *sql, sql_rel *rel, int depth, jgraph *jg){
 }
 */
 
+/*
+ * Get the table from rdf schema
+ * */
+
+static
+sql_table* get_rdf_table(mvc *c, char *tblname){
+	sql_table *tbl = NULL; 
+	str schema = "rdf"; 
+	sql_schema *sch = NULL; 
+
+	sch = mvc_bind_schema(c, schema); 
+
+	assert(sch != NULL); 
+
+	tbl = mvc_bind_table(c, sch, tblname); 
+
+	assert (tbl != NULL); 
+
+	return tbl; 
+
+}
+
+
+/*
+ * Get the column of a table from rdf schema
+ * */
+
+static
+sql_column* get_rdf_column(mvc *c, char *tblname, char *cname){
+	sql_table *tbl = NULL; 
+	str schema = "rdf"; 
+	sql_schema *sch = NULL;
+	sql_column *col = NULL;
+
+	sch = mvc_bind_schema(c, schema); 
+
+	assert(sch != NULL); 
+
+	tbl = mvc_bind_table(c, sch, tblname); 
+
+	assert (tbl != NULL); 
+
+	col =  mvc_bind_column(c, tbl, cname);
+
+	assert (col != NULL); 
+
+	return col; 
+
+}
 
 
 static 
@@ -623,6 +672,34 @@ void addJoinEdgesToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg
 
 }
 
+static
+void rewrite_rel_with_sprel(sql_rel *rel, sql_rel *firstsp){
+	//int tmpvid =-1; 
+	
+	if (rel->l){
+		if (((sql_rel*)rel->l)->op == op_join ||
+		    ((sql_rel*)rel->l)->op == op_left ||			
+		    ((sql_rel*)rel->l)->op == op_right ){
+			rel->l = firstsp; 		
+		}
+		else{
+			rewrite_rel_with_sprel(rel->l, firstsp);
+		}
+	}
+	
+
+	if (rel->r){
+		if (((sql_rel*)rel->r)->op == op_join ||
+		    ((sql_rel*)rel->r)->op == op_left ||			
+		    ((sql_rel*)rel->r)->op == op_right ){
+			rel->r = firstsp; 		
+		}
+		else{
+			rewrite_rel_with_sprel(rel->r, firstsp);
+		}
+	}
+}
+
 static 
 char** createMatrix(int num, char initValue){
 	int i, j; 
@@ -747,9 +824,10 @@ void get_col_name_from_p (char **col, char *p){
  * will be convert to tbl1.p = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
  * */
 static
-void modify_exp_col(sql_allocator *sa, sql_exp *m_exp,  char *_rname, char *_name){
+void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, int update_e_convert){
 	sql_exp *e = NULL;
 	sql_exp *ne = NULL;
+	sql_exp *re = NULL; //right expression, should be e_convert
 	
 	str rname = GDKstrdup(_rname); 
 	str name = GDKstrdup(_name);
@@ -760,12 +838,80 @@ void modify_exp_col(sql_allocator *sa, sql_exp *m_exp,  char *_rname, char *_nam
 	e = (sql_exp *)m_exp->l; 
 	assert(e->type == e_column); 
 
- 	ne = exp_column(sa, rname, name, exp_subtype(e), exp_card(e), has_nil(e), 0);
+ 	ne = exp_column(c->sa, rname, name, exp_subtype(e), exp_card(e), has_nil(e), 0);
 
 	m_exp->l = ne; 
-
-	//TODO: Convert subtype to the type of new col
+	
+	if (update_e_convert){
+		//TODO: Convert subtype to the type of new col
+		//sql_subtype *t;
+		sql_column *col = get_rdf_column(c, rname, name);
+		re = (sql_exp *)m_exp->r;
+		assert(re->type == e_convert); 
+		re->tpe = col->type;
+	}
+	
 }
+
+
+/*
+ * //Example: [s12_t0.p = oid[sys.rdf_strtoid(char(67) "<http://www/product>")], s12_t0.o = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
+ * */
+static 
+void get_colname_from_exps(mvc *c, list *tmpexps, char **prop){
+
+
+	node *en;
+	int num_p_cond = 0; 
+
+	assert (tmpexps != NULL);
+	for (en = tmpexps->h; en; en = en->next){
+		sql_exp *tmpexp = (sql_exp *) en->data; 
+		list *lst = NULL; 
+
+		assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
+		
+		//Example: [s12_t0.p = oid[sys.rdf_strtoid(char(67) "<http://www/product>")], s12_t0.o = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
+		assert(((sql_exp *)tmpexp->l)->type == e_column); 
+
+		//Check if the column name is p, then
+		//extract the input property name
+		if (strcmp(((sql_exp *)tmpexp->l)->name, "p") == 0){
+			sql_exp *tmpexp2;
+			node *tmpen; 
+			str s;
+			
+			num_p_cond++; 
+			assert(((sql_exp *)tmpexp->r)->type == e_convert);
+
+			tmpexp = (sql_exp *) ((sql_exp *)tmpexp->r)->l;
+			assert(tmpexp->type == e_func); 
+
+			lst = tmpexp->l;
+			
+			//There should be only one parameter for the function which is the property name
+			tmpen = lst->h; 
+			tmpexp2 = (sql_exp *) tmpen->data;
+						
+			s = atom2string(c->sa, (atom *) tmpexp2->l); 
+			*prop = GDKstrdup(s); 
+			//get_col_name_from_p (&col, s);
+			//printf("%s --> corresponding column %s\n", *prop,  col); 
+			
+			//In case the column name is not in the abstract table, add it
+			if (0) add_abstract_column(c, *prop);
+
+		} else{ 
+			continue; 
+		}
+
+
+	}
+
+	assert(num_p_cond == 1 && (*prop) != NULL); //Verify that there is only one p in this op_select sql_rel 
+
+}
+
 
 /*
  * From op_select sql_rel, get the condition on p  
@@ -800,148 +946,44 @@ void get_prop_and_exps(mvc *c, sql_rel *r, char **prop){
 	assert(select_s && select_p && select_o);
 	
 	//Get the column name by checking exps of r
-	
 	tmpexps = r->exps;
-	//First go through all exps to get p --> col name
-	
-	if (tmpexps){
-		node *en;
-		int num_p_cond = 0; 
-	
-		for (en = tmpexps->h; en; en = en->next){
-			sql_exp *tmpexp = (sql_exp *) en->data; 
-			list *lst = NULL; 
-
-			assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
-			
-			//Example: [s12_t0.p = oid[sys.rdf_strtoid(char(67) "<http://www/product>")], s12_t0.o = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
-			assert(((sql_exp *)tmpexp->l)->type == e_column); 
-
-			//Check if the column name is p, then
-			//extract the input property name
-			if (strcmp(((sql_exp *)tmpexp->l)->name, "p") == 0){
-				sql_exp *tmpexp2;
-				node *tmpen; 
-				str s;
-				
-				num_p_cond++; 
-				assert(((sql_exp *)tmpexp->r)->type == e_convert);
-
-				tmpexp = (sql_exp *) ((sql_exp *)tmpexp->r)->l;
-				assert(tmpexp->type == e_func); 
-
-				lst = tmpexp->l;
-				
-				//There should be only one parameter for the function which is the property name
-				tmpen = lst->h; 
-				tmpexp2 = (sql_exp *) tmpen->data;
-							
-				s = atom2string(c->sa, (atom *) tmpexp2->l); 
-				*prop = GDKstrdup(s); 
-				//get_col_name_from_p (&col, s);
-				//printf("%s --> corresponding column %s\n", *prop,  col); 
-				
-				//In case the column name is not in the abstract table, add it
-				if (0) add_abstract_column(c, *prop);
-
-			} else{ 
-				continue; 
-			}
-
-
-		}
-
-		assert(num_p_cond == 1 && (*prop) != NULL); //Verify that there is only one p in this op_select sql_rel 
-	}
-
+	if (tmpexps)
+		get_colname_from_exps(c, tmpexps, prop); 
 }
 
-/*
- * //Example: [s12_t0.p = oid[sys.rdf_strtoid(char(67) "<http://www/product>")], s12_t0.o = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
- * */
-/*
-static 
-void get_colname_from_exps(list *tmpexps){
-
-
-}
-*/
 
 static
-void tranforms_exps(mvc *c, sql_rel *r, list *trans_exps, int tblId, str tblname){
+void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl_exps, int tblId, str tblname){
 
 	list *tmpexps = NULL; 
+	list *tmp_tbl_exps = NULL; 
 	sql_allocator *sa = c->sa; 
 	char tmpcolname[100]; //TODO: Should we use char[]
-
+	str prop; 
+	oid tmpPropId; 
+	int colIdx; 
+	sql_rel *tbl_rel = NULL;
 
 	assert(r->op == op_select);
 	assert(((sql_rel*)r->l)->op == op_basetable); 
 	
-	printf("Converting op_select in star pattern to sql_rel of abstract table\n"); 
+	printf("Converting op_select in star pattern to sql_rel of corresponding table\n"); 
 	//Get the column name by checking exps of r
 	
 	tmpexps = r->exps;
 
-	//First go through all exps to get p --> col name
+	if (tmpexps) get_colname_from_exps(c, tmpexps, &prop);
+
+	//After having prop, get the corresponding column name
+
+	TKNRstringToOid(&tmpPropId, &prop);
+
+	colIdx = getColIdx_from_oid(tblId, global_csset, tmpPropId);
+
+	getColSQLname(tmpcolname, colIdx, -1, tmpPropId, global_mapi, global_mbat);
+
+	printf("In transform %s --> corresponding column %s\n", prop,  tmpcolname); 
 	
-	if (tmpexps){
-		node *en;
-		int num_p_cond = 0; 
-	
-		for (en = tmpexps->h; en; en = en->next){
-			sql_exp *tmpexp = (sql_exp *) en->data; 
-			list *lst = NULL; 
-
-			assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
-			
-			//Example: [s12_t0.p = oid[sys.rdf_strtoid(char(67) "<http://www/product>")], s12_t0.o = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
-			assert(((sql_exp *)tmpexp->l)->type == e_column); 
-
-			//Check if the column name is p, then
-			//extract the input property name
-			if (strcmp(((sql_exp *)tmpexp->l)->name, "p") == 0){
-				sql_exp *tmpexp2;
-				node *tmpen; 
-				str s;
-				oid tmpPropId;
-				int colIdx; 
-				
-				num_p_cond++; 
-				assert(((sql_exp *)tmpexp->r)->type == e_convert);
-
-				tmpexp = (sql_exp *) ((sql_exp *)tmpexp->r)->l;
-				assert(tmpexp->type == e_func); 
-
-				lst = tmpexp->l;
-				
-				//There should be only one parameter for the function which is the property name
-				tmpen = lst->h; 
-				tmpexp2 = (sql_exp *) tmpen->data;
-							
-				s = atom2string(c->sa, (atom *) tmpexp2->l); 
-
-				TKNRstringToOid(&tmpPropId, &s);
-
-				colIdx = getColIdx_from_oid(tblId, global_csset, tmpPropId);
-
-				getColSQLname(tmpcolname, colIdx, -1, tmpPropId, global_mapi, global_mbat);
-
-				printf("In transform %s --> corresponding column %s\n", s,  tmpcolname); 
-				
-				//In case the column name is not in the abstract table, add it
-				//add_abstract_column(c, tmpcolname);
-
-			} else{ 
-				continue; 
-			}
-
-
-		}
-
-		assert(num_p_cond == 1 && tmpcolname != NULL); //Verify that there is only one p in this op_select sql_rel 
-	}
-
 	if (tmpexps){
 		node *en;
 		int num_o_cond = 0;
@@ -959,18 +1001,18 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_exps, int tblId, str tblname
 
 			} else if (strcmp(e->name, "o") == 0){
 				sql_exp *m_exp = exp_copy(sa, tmpexp);
-				modify_exp_col(sa, m_exp, tblname, tmpcolname);
+				modify_exp_col(c, m_exp, tblname, tmpcolname, 1);
 				
 				//append this exp to list
-				append(trans_exps, m_exp);
+				append(trans_select_exps, m_exp);
 				num_o_cond++;
 
 			} else if (strcmp(e->name, "s") == 0){
 				sql_exp *m_exp = exp_copy(sa, tmpexp);
-				modify_exp_col(sa, m_exp, tblname, tmpcolname);
+				modify_exp_col(c, m_exp, tblname, tmpcolname, 1);
 
 				//append this exp to list
-				append(trans_exps, m_exp);
+				append(trans_select_exps, m_exp);
 				num_s_cond++;
 			} else{ 
 				printf("The exp of other predicates (not s, p, o) is not handled\n"); 
@@ -981,6 +1023,42 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_exps, int tblId, str tblname
 
 	}
 
+
+	/*
+	 * Change the list of column from base table
+	 * */
+	assert (((sql_rel *)r->l)->op == op_basetable);
+	tbl_rel = (sql_rel *)r->l;
+	tmp_tbl_exps = tbl_rel->exps; 
+	
+	if (tmp_tbl_exps){
+		node *en; 
+		for (en = tmp_tbl_exps->h; en; en = en->next){
+			sql_exp *tmpexp = (sql_exp *) en->data;
+			assert(tmpexp->type == e_column); 
+			if (strcmp(tmpexp->name, "o") == 0){
+				//New e with old alias
+				str origcolname = GDKstrdup(tmpcolname);
+				str origtblname = GDKstrdup(tblname);
+				sql_column *tmpcol = get_rdf_column(c, tblname, origcolname);
+				sql_exp *e = exp_alias(sa, tmpexp->rname, tmpexp->name, origtblname, origcolname, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
+
+				printf("tmpcolname in rdf basetable is %s\n", tmpcolname);
+				append(trans_tbl_exps, e); 
+			}
+
+			if (strcmp(tmpexp->name, "s") == 0){
+				//New e with old alias
+				char subj_colname[50] = "subject";
+				str origcolname = GDKstrdup(subj_colname);
+				str origtblname = GDKstrdup(tblname);
+				sql_column *tmpcol = get_rdf_column(c, origtblname, origcolname);
+				sql_exp *e = exp_alias(sa, tmpexp->rname, tmpexp->name, origtblname, origcolname, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
+				append(trans_tbl_exps, e); 
+			}
+
+		}
+	}
 }
 
 
@@ -1040,9 +1118,15 @@ void getTblName_from_spprops(str *tblname, int *rettbId, spProps *spprops){
 
 }
 
+
+/*
+ * Create a select sql_rel from a star pattern
+ * */
+
 static 	
 sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId){
 	sql_rel *rel = NULL; 
+	sql_rel *rel_basetbl = NULL; 
 	int i; 
 	char is_all_select = 1; 
 	sql_allocator *sa = c->sa;
@@ -1052,7 +1136,8 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 
 	//This transformed exps list contain exps list from op_select
 	 //on the object
-	list *trans_exps = NULL; 
+	list *trans_select_exps = NULL; 	//Store the exps in op_select
+	list *trans_table_exps = NULL; 		//Store the list of column for basetable in op_select
 	(void) jg; 
 
 	printf("Group %d contain %d nodes: ", pId, nnode); 
@@ -1066,7 +1151,8 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 	printf("\n"); 
 	
 	spprops = init_sp_props(nnode); 	
-	trans_exps = new_exp_list(sa);
+	trans_select_exps = new_exp_list(sa);
+	trans_table_exps = new_exp_list(sa); 
 
 	//Convert to sql_rel of abstract table
 	if (is_all_select){
@@ -1089,55 +1175,46 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 		char tmp[50]; 
 		for (i = 0; i < nnode; i++){
 			sql_rel *tmprel = (sql_rel*) (jg->lstnodes[group[i]]->data);
-			tranforms_exps(c, tmprel, trans_exps, tmptbId, tblname); 
+			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tmptbId, tblname); 
 		}
 		
 		sprintf(tmp, "[Real Pattern: %d] after grouping: ", pId); 
-		exps_print_ext(c, trans_exps, 0, tmp);
+		exps_print_ext(c, trans_select_exps, 0, tmp);
+		sprintf(tmp, "  Base table expression: \n"); 
+		exps_print_ext(c, trans_table_exps, 0, tmp);	
 	}
 
-	GDKfree(tblname); 
 
-	if (is_all_select){
-		sql_rel *m_rel = rel_copy(c->sa, (sql_rel*) (jg->lstnodes[group[0]]->data));
-		for (i = 1; i < nnode; i++){
-			sql_rel *tmprel = (sql_rel*) (jg->lstnodes[group[i]]->data);
-			list *exps = tmprel->exps; 
-			if (exps){
-				node *en; 
-				//add each exp to the new merged sql_rel 
-				for(en = exps->h; en; en = en->next){
-					rel_select_add_exp(c->sa, m_rel, en->data); 
-				}
-			}
-			rel_print(c, m_rel, 0); 
-		}
-	}
+	rel_basetbl = rel_basetable(c, get_rdf_table(c,tblname), tblname); 
+
+	rel_basetbl->exps = trans_table_exps;
+	
+	rel = rel_select_copy(c->sa, rel_basetbl, trans_select_exps); 
+
+
+	//GDKfree(tblname); 
 
 	//TODO: Handle other cases. By now, we only handle 
 	//the case where each sql_rel is a op_select. 
-	
 
 	free_sp_props(spprops);
-	list_destroy(trans_exps);
+	list_destroy(trans_select_exps);
 
 	return rel; 
 }
 
 static 
-void group_star_pattern(mvc *c, jgraph *jg, int numsp){
+void group_star_pattern(mvc *c, jgraph *jg, int numsp, sql_rel** lstRels){
 
 	int i; 
 	int** group; //group of nodes in a same pattern
 	int* nnode_per_group; 
 	int* idx; 
-	sql_rel** lstRels; 
 	
 	group = (int **)malloc(sizeof(int*) * numsp); 
 	nnode_per_group = (int *) malloc(sizeof(int) * numsp);
 	idx = (int *) malloc(sizeof(int) * numsp);
 
-	lstRels = (sql_rel**) malloc(sizeof(sql_rel*) * numsp); 
 
 	for (i = 0; i < numsp; i++){
 		nnode_per_group[i] = 0;
@@ -1167,7 +1244,11 @@ void group_star_pattern(mvc *c, jgraph *jg, int numsp){
 	//Merge sql_rels in each group into one sql_rel
 	for (i = 0; i < numsp; i++){
 		lstRels[i] = _group_star_pattern(c, jg, group[i], nnode_per_group[i], i); 
+		rel_print(c, lstRels[i], 0); 
 	}
+	
+
+
 
 	//Free
 	for (i = 0; i < numsp; i++){
@@ -1211,13 +1292,18 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 	nMap *nm = NULL; 
 	int subjgId = -1; 
 	int subjgId2 = -1;
-	char **isConnect; //Matrix storing state whether two nodes are conneccted	
-			  //In case of large sparse graph, this should not be used.
-	int numsp = 0; 	  //Number of star pattern
+	char **isConnect; 	//Matrix storing state whether two nodes are conneccted	
+			  	//In case of large sparse graph, this should not be used.
+	int numsp = 0; 	 	//Number of star pattern
+	sql_rel** lstRels; 	//One rel for replacing one star-pattern
+	//sql_rel *frel; 		//final rel
 
 	(void) c; 
 	(void) r; 
 	(void) depth; 
+
+	//frel = rel_copy(c->sa, r); 
+
 	jg = initJGraph(); 
 	
 	addRelationsToJG(c, r, depth, jg, 0, &subjgId); 
@@ -1235,7 +1321,17 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 	create_abstract_table(c);
 	
-	group_star_pattern(c, jg, numsp); 
+	lstRels = (sql_rel**) malloc(sizeof(sql_rel*) * numsp); 
+
+
+	group_star_pattern(c, jg, numsp, lstRels); 
+
+	
+	//Change the pointer pointing to the first join
+	//to the address of the lstRels[0], the rel for the first star-pattern
+	rewrite_rel_with_sprel(r, lstRels[0]); 
+	rel_print(c, r, 0); 
+
 
 	//Check global_csset
 	print_simpleCSset(global_csset);   
@@ -1246,27 +1342,5 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 	freeJGraph(jg); 
 	
-	/*
-	switch (r->op) {
-		case op_join:
-			if (((sql_rel *)r->l)->op == op_select && ((sql_rel *)r->r)->op == op_select){
-				printf("POSSIBLE STAR PATTERN\n");		
-			}
-			else{
-				if (((sql_rel *)r->l)->op != op_select) 
-					buildJoinGraph(c, r->l, depth + 1);
-				if (((sql_rel *)r->r)->op != op_select)
-					buildJoinGraph(c, r->r, depth + 1);
-			}
-		case op_basetable:
-			break; 	//Temporarily do nothign
-		default:
-			if (r->l) 
-				buildJoinGraph(c, r->l, depth+1); 
-			if (r->r)
-				buildJoinGraph(c, r->r, depth+1); 
-			
-	}
-	*/
 }
 

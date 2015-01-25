@@ -134,6 +134,8 @@ sql_symbol2relation(mvc *c, symbol *sym)
 			rdf_rel_optimizer(c, r); 
 			rel_print(c,r, 0);
 			buildJoinGraph(c,r,0); 
+			rel_print(c,r,0); 
+			c->emode = m_normal;
 		}
 
 		r = rel_optimizer(c, r);
