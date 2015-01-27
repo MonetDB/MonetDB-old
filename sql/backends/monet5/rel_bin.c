@@ -117,7 +117,7 @@ list_find_column(sql_allocator *sa, list *l, char *rname, char *name )
 		for (n = l->h; n; n = n->next) {
 			char *rnme = table_name(sa, n->data);
 			char *nme = column_name(sa, n->data);
-
+			printf("rnme and nme are %s and %s vs rname %s name %s\n", rnme, nme, rname, name);
 			if (rnme && strcmp(rnme, rname) == 0 && 
 				    strcmp(nme, name) == 0) {
 				res = n->data;

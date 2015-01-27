@@ -824,13 +824,16 @@ void get_col_name_from_p (char **col, char *p){
  * will be convert to tbl1.p = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
  * */
 static
-void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, int update_e_convert){
+void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, char *_arname, char *_aname, int update_e_convert){
 	sql_exp *e = NULL;
 	sql_exp *ne = NULL;
 	sql_exp *re = NULL; //right expression, should be e_convert
 	
 	str rname = GDKstrdup(_rname); 
 	str name = GDKstrdup(_name);
+	str arname = GDKstrdup(_arname);
+	str aname = GDKstrdup(_aname);
+
 
 	//exp_setname(sa, e, rname, name); 
 	assert(m_exp->type == e_cmp); 
@@ -838,17 +841,26 @@ void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, int upda
 	e = (sql_exp *)m_exp->l; 
 	assert(e->type == e_column); 
 
- 	ne = exp_column(c->sa, rname, name, exp_subtype(e), exp_card(e), has_nil(e), 0);
+ 	ne = exp_column(c->sa, arname, aname, exp_subtype(e), exp_card(e), has_nil(e), 0);
 
 	m_exp->l = ne; 
 	
 	if (update_e_convert){
 		//TODO: Convert subtype to the type of new col
 		//sql_subtype *t;
+		sql_exp *l = NULL;
+		sql_exp *newre = NULL;
 		sql_column *col = get_rdf_column(c, rname, name);
+		sql_subtype totype = col->type;
 		re = (sql_exp *)m_exp->r;
-		assert(re->type == e_convert); 
-		re->tpe = col->type;
+
+		l = exp_copy(c->sa,re->l);
+	
+		assert(re->type == e_convert && l); 
+		
+		newre = exp_convert(c->sa, l, exp_fromtype(re), &totype);
+
+		m_exp->r = newre; 
 	}
 	
 }
@@ -1001,7 +1013,7 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 
 			} else if (strcmp(e->name, "o") == 0){
 				sql_exp *m_exp = exp_copy(sa, tmpexp);
-				modify_exp_col(c, m_exp, tblname, tmpcolname, 1);
+				modify_exp_col(c, m_exp, tblname, tmpcolname, e->rname, e->name, 1);
 				
 				//append this exp to list
 				append(trans_select_exps, m_exp);
@@ -1009,7 +1021,7 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 
 			} else if (strcmp(e->name, "s") == 0){
 				sql_exp *m_exp = exp_copy(sa, tmpexp);
-				modify_exp_col(c, m_exp, tblname, tmpcolname, 1);
+				modify_exp_col(c, m_exp, tblname, tmpcolname, e->rname, e->name, 1);
 
 				//append this exp to list
 				append(trans_select_exps, m_exp);
