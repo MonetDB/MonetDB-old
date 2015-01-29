@@ -133,10 +133,12 @@ sql_symbol2relation(mvc *c, symbol *sym)
 			rel_print(c,r, 0); 
 			rdf_rel_optimizer(c, r); 
 			rel_print(c,r, 0);
+			if (1){
 			buildJoinGraph(c,r,0); 
 			rel_print(c,r,0); 
-			c->emode = m_normal;
+			//c->emode = m_normal;
 			//c->emod = mod_explain;
+			}
 		}
 
 		r = rel_optimizer(c, r);

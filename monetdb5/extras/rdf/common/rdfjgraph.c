@@ -99,6 +99,24 @@ static void adddirectedJGedge(int from, int to, operator_type op, jgraph *jg, vo
 
 }
 
+jgedge* get_edge_jp(jgraph *jg, int from, int to){
+	jgedge *edge = NULL, *nxtedge = NULL, *tmpedge = NULL;
+	jgnode *node = jg->lstnodes[from];
+	
+	nxtedge = node->first; 
+	while (nxtedge != NULL){
+		tmpedge = nxtedge;
+		assert(tmpedge->from == node->vid); 
+		if (tmpedge->to == to){
+			edge = tmpedge;
+			break;
+		}
+		nxtedge = nxtedge->next;
+	}
+
+	return edge; 
+}
+
 static 
 void _update_edge_jp(jgraph *jg, int from, int to, JP jp){
 	jgedge *nxtedge;

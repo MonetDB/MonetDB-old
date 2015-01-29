@@ -90,6 +90,9 @@ rdf_export
 void update_edge_jp(jgraph *jg, int from, int to, JP jp);
 
 rdf_export
+jgedge* get_edge_jp(jgraph *jg, int from, int to);
+
+rdf_export
 void detectSCC(jgraph *jg);
 
 rdf_export

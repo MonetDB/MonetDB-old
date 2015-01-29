@@ -26,6 +26,7 @@
 #include <rel_exp.h>
 #include <sql_rdf.h>
 #include <rdfschema.h>
+#include <sql_rdf_rel.h>
 
 /*
 static
@@ -1141,6 +1142,7 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 	sql_rel *rel_basetbl = NULL; 
 	int i; 
 	char is_all_select = 1; 
+	char is_only_basetable = 1;
 	sql_allocator *sa = c->sa;
 	spProps *spprops = NULL; 
 	str tblname; 
@@ -1159,64 +1161,121 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 		printf(" %d ", group[i]); 
 		rel_print(c, tmprel, 0); 
 		if (tmprel->op != op_select) is_all_select = 0; 	
+		if (tmprel->op != op_basetable) is_only_basetable = 0;
 	}
 	printf("\n"); 
-	
-	spprops = init_sp_props(nnode); 	
-	trans_select_exps = new_exp_list(sa);
-	trans_table_exps = new_exp_list(sa); 
 
+	if (nnode > 1) is_only_basetable = 0;
+	
 	//Convert to sql_rel of abstract table
 	if (is_all_select){
+
+		spprops = init_sp_props(nnode); 	
+		trans_select_exps = new_exp_list(sa);
+		trans_table_exps = new_exp_list(sa); 
+
 		for (i = 0; i < nnode; i++){
 			str col; 
 			sql_rel *tmprel = (sql_rel*) (jg->lstnodes[group[i]]->data);
 			get_prop_and_exps(c, tmprel, &col); 
+			printf("Column %d name is %s\n", i, col);
 			add_props_to_spprops(spprops, i, NAV, col); 		
 			GDKfree(col); 
 		}
-	}
 
-	print_spprops(spprops);
+		print_spprops(spprops);
 
-	getTblName_from_spprops(&tblname, &tmptbId, spprops);
+		getTblName_from_spprops(&tblname, &tmptbId, spprops);
 
-	printf("Get real expressions from tableId %d\n", tmptbId);
+		printf("Get real expressions from tableId %d\n", tmptbId);
 
-	if (is_all_select){
-		char tmp[50]; 
-		for (i = 0; i < nnode; i++){
-			sql_rel *tmprel = (sql_rel*) (jg->lstnodes[group[i]]->data);
-			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tmptbId, tblname); 
+		if (is_all_select){
+			char tmp[50]; 
+			for (i = 0; i < nnode; i++){
+				sql_rel *tmprel = (sql_rel*) (jg->lstnodes[group[i]]->data);
+				tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tmptbId, tblname); 
+			}
+			
+			sprintf(tmp, "[Real Pattern: %d] after grouping: ", pId); 
+			exps_print_ext(c, trans_select_exps, 0, tmp);
+			sprintf(tmp, "  Base table expression: \n"); 
+			exps_print_ext(c, trans_table_exps, 0, tmp);	
 		}
+
+
+		rel_basetbl = rel_basetable(c, get_rdf_table(c,tblname), tblname); 
+
+		rel_basetbl->exps = trans_table_exps;
 		
-		sprintf(tmp, "[Real Pattern: %d] after grouping: ", pId); 
-		exps_print_ext(c, trans_select_exps, 0, tmp);
-		sprintf(tmp, "  Base table expression: \n"); 
-		exps_print_ext(c, trans_table_exps, 0, tmp);	
+		rel = rel_select_copy(c->sa, rel_basetbl, trans_select_exps); 
+
+
+		//GDKfree(tblname); 
+
+		//TODO: Handle other cases. By now, we only handle 
+		//the case where each sql_rel is a op_select. 
+
+		free_sp_props(spprops);
+		list_destroy(trans_select_exps);
 	}
 
-
-	rel_basetbl = rel_basetable(c, get_rdf_table(c,tblname), tblname); 
-
-	rel_basetbl->exps = trans_table_exps;
-	
-	rel = rel_select_copy(c->sa, rel_basetbl, trans_select_exps); 
-
-
-	//GDKfree(tblname); 
-
-	//TODO: Handle other cases. By now, we only handle 
-	//the case where each sql_rel is a op_select. 
-
-	free_sp_props(spprops);
-	list_destroy(trans_select_exps);
+	//Only basetable --> this node has only one pattern from basetable
+	if (is_only_basetable){
+		sql_rel *tmprel = (sql_rel*) (jg->lstnodes[group[0]]->data);
+		rel = rel_copy(c->sa, tmprel);
+	}
 
 	return rel; 
 }
 
+/*
+ * Create edges between star pattern in order to replace
+ * edges connecting each pair of nodes coming from 
+ * different star pattern.
+ * E.g., starpattern0: Node 0, 1
+ *       starpattern1: Node 2, 3, 4
+ *       starpattern2: Node 5,6 
+ * An edge between sp0 and sp1 will be created by combining edge between
+ * 0,2  0,3   0,4    1,2   1,3   1,4. This edge is an join where left is sp0, right is sp1 and
+ * expression is the combination of expression from these edges.
+ * */
+static
+sql_rel *_group_edge_between_star_pattern(mvc *c, jgraph *jg, int pId, int *group1, int nnode1, 
+					int *group2, int nnode2, sql_rel *left, sql_rel *right){
+	int i, j; 
+	sql_rel *rel_edge = NULL;
+	list *sp_edge_exps = NULL;
+
+	assert(left);
+	assert(right); 
+	
+	sp_edge_exps = new_exp_list(c->sa);
+	printf("Create edge between pattern %d and %d\n", pId, (pId + 1)); 
+	for (i = 0; i < nnode1; i++){
+		for (j = 0; j < nnode2; j++){
+			//Get the edge between group1[i], group2[j]
+			char tmp[50];
+			jgedge *edge = get_edge_jp(jg, group1[i], group2[j]);
+			if (edge) {	
+				sql_rel *tmpjoin = (sql_rel*) edge->data; 
+				sprintf(tmp, "Expression of edge [%d,%d] \n", group1[i], group2[j]);
+				exps_print_ext(c, tmpjoin->exps, 0, tmp);
+			} else {
+				printf("No edge between  [%d,%d] \n", group1[i], group2[j]);
+			}
+
+
+		}
+	}
+
+	rel_edge = rdf_rel_join(c->sa, left, right, sp_edge_exps, op_join);
+
+	return rel_edge; 
+}
+
+
 static 
-void group_star_pattern(mvc *c, jgraph *jg, int numsp, sql_rel** lstRels){
+void group_star_pattern(mvc *c, jgraph *jg, int numsp, sql_rel** lstRels, sql_rel** lstEdgeRels){
 
 	int i; 
 	int** group; //group of nodes in a same pattern
@@ -1256,9 +1315,18 @@ void group_star_pattern(mvc *c, jgraph *jg, int numsp, sql_rel** lstRels){
 	//Merge sql_rels in each group into one sql_rel
 	for (i = 0; i < numsp; i++){
 		lstRels[i] = _group_star_pattern(c, jg, group[i], nnode_per_group[i], i); 
-		rel_print(c, lstRels[i], 0); 
+		if (lstRels[i])
+			rel_print(c, lstRels[i], 0); 
+		else{
+			printf("Group pattern %d cannot be converted to select from rel table\n", i); 
+		}
 	}
-	
+
+	for (i = 0; i < (numsp-1); i++){
+		lstEdgeRels[i] = _group_edge_between_star_pattern(c, jg, i, group[i], nnode_per_group[i], 
+								  group[i+1], nnode_per_group[i+1],
+								  lstRels[i], lstRels[i+1]); 
+	}	
 
 
 
@@ -1270,6 +1338,9 @@ void group_star_pattern(mvc *c, jgraph *jg, int numsp, sql_rel** lstRels){
 	free(nnode_per_group); 
 	free(idx); 
 }
+
+
+
 
 static
 void detect_star_pattern(jgraph *jg, int *numsp){
@@ -1308,13 +1379,12 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 			  	//In case of large sparse graph, this should not be used.
 	int numsp = 0; 	 	//Number of star pattern
 	sql_rel** lstRels; 	//One rel for replacing one star-pattern
-	//sql_rel *frel; 		//final rel
+	sql_rel** lstEdgeRels; 	//One rel for replacing edges connecting nodes from 2 star patterns
 
 	(void) c; 
 	(void) r; 
 	(void) depth; 
 
-	//frel = rel_copy(c->sa, r); 
 
 	jg = initJGraph(); 
 	
@@ -1335,13 +1405,19 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 	
 	lstRels = (sql_rel**) malloc(sizeof(sql_rel*) * numsp); 
 
+	lstEdgeRels = (sql_rel**) malloc(sizeof(sql_rel*) * (numsp - 1));
 
-	group_star_pattern(c, jg, numsp, lstRels); 
+	group_star_pattern(c, jg, numsp, lstRels, lstEdgeRels); 
 
 	
 	//Change the pointer pointing to the first join
 	//to the address of the lstRels[0], the rel for the first star-pattern
-	rewrite_rel_with_sprel(r, lstRels[0]); 
+	if (numsp == 1) rewrite_rel_with_sprel(r, lstRels[0]); 
+	
+	if (numsp > 1){
+		//Connect to the first edge between sp0 and sp1
+	}
+
 	rel_print(c, r, 0); 
 
 
