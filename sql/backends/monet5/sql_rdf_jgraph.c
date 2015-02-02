@@ -674,7 +674,7 @@ void addJoinEdgesToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg
 }
 
 static
-void rewrite_rel_with_sprel(sql_rel *rel, sql_rel *firstsp){
+void connect_rel_with_sprel(sql_rel *rel, sql_rel *firstsp){
 	//int tmpvid =-1; 
 	
 	if (rel->l){
@@ -684,7 +684,7 @@ void rewrite_rel_with_sprel(sql_rel *rel, sql_rel *firstsp){
 			rel->l = firstsp; 		
 		}
 		else{
-			rewrite_rel_with_sprel(rel->l, firstsp);
+			connect_rel_with_sprel(rel->l, firstsp);
 		}
 	}
 	
@@ -696,9 +696,30 @@ void rewrite_rel_with_sprel(sql_rel *rel, sql_rel *firstsp){
 			rel->r = firstsp; 		
 		}
 		else{
-			rewrite_rel_with_sprel(rel->r, firstsp);
+			connect_rel_with_sprel(rel->r, firstsp);
 		}
 	}
+}
+
+/**
+ * Use the combined edge betwwen sp to connect them.
+ * Each combined edge is an join. 
+ * Left is the
+ */
+static 
+void connect_sprels(int numsp, sql_rel **lstRels, sql_rel **lstEdgeRels){
+	
+	int i; 
+	
+	assert (numsp > 1); 
+
+	for (i = 0; i < (numsp -2); i++){
+		lstEdgeRels[i]->l = lstRels[i];
+		lstEdgeRels[i]->r = lstEdgeRels[i+1];
+	}
+
+	lstEdgeRels[numsp -2]->l = lstRels[numsp - 2];
+	lstEdgeRels[numsp -2]->r = lstRels[numsp - 1];
 }
 
 static 
@@ -1228,6 +1249,46 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 	return rel; 
 }
 
+static
+void tranforms_join_exps(mvc *c, sql_rel *r, list *sp_edge_exps){
+
+	node *en; 
+	list *tmp_exps = NULL; 
+
+	tmp_exps = r->exps;
+	for (en = tmp_exps->h; en; en = en->next){
+		sql_exp *tmpexp = (sql_exp *) en->data;
+		if(tmpexp->type == e_cmp){
+			//Check and put to the final
+			//experssion list if the exp is not the comparison 
+			//between .s = .s since this compare should belong to the
+			//same graph pattern
+			sql_exp *l; 
+			sql_exp *r; 
+			JP tmpjp; 
+
+			l = tmpexp->l; 
+			r = tmpexp->r; 
+			assert(l->type == e_column);
+			assert(r->type == e_column); 
+
+			get_jp(l->name, r->name, &tmpjp); 
+			
+			if (tmpjp != JP_S){
+				sql_exp *m_exp = exp_copy(c->sa, tmpexp);
+				//append this exp to list
+				append(sp_edge_exps, m_exp);
+			}
+		}
+		else{	// rarely happen, for example, [ tinyint "1" ]
+			sql_exp *m_exp = exp_copy(c->sa, tmpexp);
+			//append this exp to list
+			append(sp_edge_exps, m_exp);
+		}
+	
+	}
+}
+
 /*
  * Create edges between star pattern in order to replace
  * edges connecting each pair of nodes coming from 
@@ -1246,6 +1307,8 @@ sql_rel *_group_edge_between_star_pattern(mvc *c, jgraph *jg, int pId, int *grou
 	sql_rel *rel_edge = NULL;
 	list *sp_edge_exps = NULL;
 
+	operator_type op = op_join;
+
 	assert(left);
 	assert(right); 
 	
@@ -1260,6 +1323,13 @@ sql_rel *_group_edge_between_star_pattern(mvc *c, jgraph *jg, int pId, int *grou
 				sql_rel *tmpjoin = (sql_rel*) edge->data; 
 				sprintf(tmp, "Expression of edge [%d,%d] \n", group1[i], group2[j]);
 				exps_print_ext(c, tmpjoin->exps, 0, tmp);
+				tranforms_join_exps(c, tmpjoin,sp_edge_exps);
+
+				if (tmpjoin->op != op_join) //May be op_left, op_right	
+					op = tmpjoin->op;
+					//TODO: Need to recheck this since not all edges 
+					//between two pattern can be outter joins.
+
 			} else {
 				printf("No edge between  [%d,%d] \n", group1[i], group2[j]);
 			}
@@ -1267,8 +1337,11 @@ sql_rel *_group_edge_between_star_pattern(mvc *c, jgraph *jg, int pId, int *grou
 
 		}
 	}
+	
+	printf("Expression for join between pattern %d and %d\n", pId, (pId + 1));
+	exps_print_ext(c, sp_edge_exps, 0, "Exp:");
 
-	rel_edge = rdf_rel_join(c->sa, left, right, sp_edge_exps, op_join);
+	rel_edge = rdf_rel_join(c->sa, left, right, sp_edge_exps, op);
 
 	return rel_edge; 
 }
@@ -1412,10 +1485,15 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 	
 	//Change the pointer pointing to the first join
 	//to the address of the lstRels[0], the rel for the first star-pattern
-	if (numsp == 1) rewrite_rel_with_sprel(r, lstRels[0]); 
+	if (numsp == 1) connect_rel_with_sprel(r, lstRels[0]); 
 	
 	if (numsp > 1){
 		//Connect to the first edge between sp0 and sp1
+		
+		connect_sprels(numsp, lstRels, lstEdgeRels); 
+		
+					
+		connect_rel_with_sprel(r, lstEdgeRels[0]); 
 	}
 
 	rel_print(c, r, 0); 

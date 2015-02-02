@@ -136,7 +136,7 @@ sql_symbol2relation(mvc *c, symbol *sym)
 			if (1){
 			buildJoinGraph(c,r,0); 
 			rel_print(c,r,0); 
-			//c->emode = m_normal;
+			c->emode = m_normal;
 			//c->emod = mod_explain;
 			}
 		}
@@ -146,6 +146,8 @@ sql_symbol2relation(mvc *c, symbol *sym)
 		r = rel_distribute(c, r);
 		if (rel_is_point_query(r) || rel_need_distinct_query(r))
 			c->point_query = 1;
+
+		rel_print(c,r,0); 
 	}
 	return r;
 }
