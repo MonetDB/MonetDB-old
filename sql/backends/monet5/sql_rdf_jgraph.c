@@ -784,6 +784,7 @@ spProps *init_sp_props(int num){
 		spprops->lstPropIds[i] = BUN_NONE; 
 	}
 	spprops->lstPOs = (sp_po *) GDKmalloc(sizeof(sp_po) * num); 
+	spprops->lstctype = (ctype *) GDKmalloc(sizeof(ctype) * num); 
 
 	return spprops; 
 }
@@ -799,7 +800,9 @@ void add_props_to_spprops(spProps *spprops, int idx, sp_po po, char *col){
 	spprops->lstPropIds[idx] = id;  
 	
 	spprops->lstPOs[idx] = po; 
-
+	
+	//without any information, assuming that the column is single-valued col
+	spprops->lstctype[idx] = CTYPE_SG; 
 }
 
 static
@@ -822,6 +825,7 @@ void free_sp_props(spProps *spprops){
 	GDKfree(spprops->lstProps); 
 	GDKfree(spprops->lstPropIds);
 	GDKfree(spprops->lstPOs); 
+	GDKfree(spprops->lstctype);
 	GDKfree(spprops); 
 }
 
@@ -1100,7 +1104,7 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
  * 
  * */
 static 
-void getTblName_from_spprops(str *tblname, int *rettbId, spProps *spprops){
+void getTblName_from_spprops(str *tblname, int *rettbId, spProps *spprops, int *num_match_tbl){
 
 	oid *lstprop = NULL; 	//list of distinct prop, sorted by prop ids
 	int num; 		//number of of distinct sorted props
@@ -1143,12 +1147,16 @@ void getTblName_from_spprops(str *tblname, int *rettbId, spProps *spprops){
 		for (j = 0; j < num; j++){
 			char tmpcolname[100];
 			int colIdx = getColIdx_from_oid(tId, global_csset, lstprop[j]);
+			int isMVcol = isMVCol(tId, colIdx, global_csset);
 			getColSQLname(tmpcolname, colIdx, -1, lstprop[j], global_mapi, global_mbat);
-			printf("Col %d: %s\n",j, tmpcolname);
+			printf("Col %d: %s (isMV: %d)\n",j, tmpcolname, isMVcol);
+
 		}
 	}
 
 	printf("\n"); 
+
+	*num_match_tbl = numtbl; 
 
 }
 
@@ -1168,6 +1176,7 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 	spProps *spprops = NULL; 
 	str tblname; 
 	int tmptbId = -1; 
+	int num_match_tbl = 0;
 
 	//This transformed exps list contain exps list from op_select
 	 //on the object
@@ -1206,7 +1215,9 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 
 		print_spprops(spprops);
 
-		getTblName_from_spprops(&tblname, &tmptbId, spprops);
+		getTblName_from_spprops(&tblname, &tmptbId, spprops, &num_match_tbl);
+
+		assert(num_match_tbl == 1); 	//TODO: Handle the case of matching multiple table
 
 		printf("Get real expressions from tableId %d\n", tmptbId);
 
@@ -1500,7 +1511,7 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 
 	//Check global_csset
-	print_simpleCSset(global_csset);   
+	//print_simpleCSset(global_csset);   
 
 	free_nMap(nm); 
 	freeMatrix(jg->nNode, isConnect); 

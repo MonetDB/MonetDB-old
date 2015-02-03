@@ -41,6 +41,8 @@ static csdumBATdef csdumBatdefs[N_CSDUM_BAT] = {
 	{csd_fullP, "fullPBat_dump", TYPE_void, TYPE_oid},
 	{csd_cOffset, "cOffsetBat_dump", TYPE_void, TYPE_oid},
 	{csd_fullC, "fullCBat_dump", TYPE_void, TYPE_oid},
+	{csd_isMV, "isMVBat_dump", TYPE_void, TYPE_int},	// 0 indicating single-valued column, otherwise > 0
+								// the value is the number of column in MVtable
 	{csd_cname, "cIdxBat_dump", TYPE_void, TYPE_int}	//Index of the col in the table
 };
 
@@ -104,6 +106,8 @@ void dumpCS(CSDump *csdump, int _freqId, int _tblId, CS cs, CStable cstbl){
 	BUN	offset, offsetc; 
 	int tblId, freqId, freq, cov; 
 	oid tblname; 
+	int *lstIsMV;
+	int i;
 	
 	tblId = _tblId; 
 	freqId = _freqId; 
@@ -131,7 +135,16 @@ void dumpCS(CSDump *csdump, int _freqId, int _tblId, CS cs, CStable cstbl){
 	/* Add list of columns to dumpBats[csd_fullC] and dumpBats[csd_cOffset]*/
 	BUNappend(csdump->dumpBats[csd_cOffset], &offsetc , TRUE);
 	appendArrayToBat(csdump->dumpBats[csd_fullC], cstbl.lstProp, cstbl.numCol);
+	/* Add list of multi-valued indication to csd_isMV bat*/
 
+	lstIsMV = (int *) malloc(sizeof(int) * cstbl.numCol);
+	for (i = 0; i < cstbl.numCol; i++){
+		lstIsMV[i] = cstbl.lstMVTables[i].numCol; 
+	}
+	
+	appendIntArrayToBat(csdump->dumpBats[csd_isMV], lstIsMV, cstbl.numCol);
+
+	free(lstIsMV); 
 
 }
 
@@ -201,7 +214,7 @@ void freeCSDump(CSDump *csdump){
 
 
 static
-SimpleCS *create_simpleCS(int tblId, oid tblname, int freqId, int numP, oid* lstProp, int numC, oid* lstCol, int sup, int cov){
+SimpleCS *create_simpleCS(int tblId, oid tblname, int freqId, int numP, oid* lstProp, int numC, oid* lstCol, int* lstIsMV,  int sup, int cov){
 	SimpleCS *cs;  
 	cs = (SimpleCS *) malloc(sizeof(SimpleCS)); 
 	cs->tblId = tblId; 
@@ -216,6 +229,9 @@ SimpleCS *create_simpleCS(int tblId, oid tblname, int freqId, int numP, oid* lst
 	cs->lstCol = (oid *) malloc(sizeof(oid) * numC);
 	copyOidSet(cs->lstCol, lstCol, numC);
 
+	cs->lstIsMV = (int *) malloc(sizeof(int) * numC); 
+	copyIntSet(cs->lstIsMV, lstIsMV, numC); 
+
 	cs->sup = sup; 
 	cs->cov = cov; 
 
@@ -225,6 +241,7 @@ static
 void free_simpleCS(SimpleCS *cs){
 	if (cs->lstProp) free(cs->lstProp);
 	if (cs->lstCol) free(cs->lstCol); 
+	if (cs->lstIsMV) free(cs->lstIsMV);
 	free(cs); 
 }	
 
@@ -237,6 +254,7 @@ SimpleCS* read_a_cs_from_csdump(int pos, CSDump *csdump){
 	int *tblId, *freqId, *freq, *coverage;
 	oid *tblname; 
 	oid *lstProp = NULL, *lstCol = NULL; 
+	int *lstIsMV = NULL; 
 
 	SimpleCS *cs; 
 
@@ -277,7 +295,9 @@ SimpleCS* read_a_cs_from_csdump(int pos, CSDump *csdump){
 
 	lstCol = (oid *)Tloc(csdump->dumpBats[csd_fullC], *offsetC);	
 
-	cs = create_simpleCS(*tblId, *tblname, *freqId, numP, lstProp, numC, lstCol, *freq, *coverage);
+	lstIsMV = (int *)Tloc(csdump->dumpBats[csd_isMV], *offsetC); 
+
+	cs = create_simpleCS(*tblId, *tblname, *freqId, numP, lstProp, numC, lstCol, lstIsMV, *freq, *coverage);
 
 	return cs; 
 }
@@ -321,7 +341,7 @@ void print_simpleCSset(SimpleCSset *csset){
 
 		printf("              Cols: "); 
 		for (j = 0; j < cs->numC; j++){
-			printf(" " BUNFMT, cs->lstCol[j]); 
+			printf(" " BUNFMT "  (isMV: %d) ", cs->lstCol[j],cs->lstIsMV[j]); 
 		}	
 		printf("\n"); 
 	}
@@ -369,6 +389,10 @@ int getColIdx_from_oid(int tblId, SimpleCSset *csset, oid coloid){
 	if (i == cs->numC) return -1; 
 
 	return -1; 
+}
+
+int isMVCol(int tblId, int colIdx, SimpleCSset *csset){
+	return (csset->items[tblId])->lstIsMV[colIdx]; 
 }
 
 PropStat* getPropStat_P_simpleCSset(SimpleCSset* csset){

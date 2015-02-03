@@ -91,37 +91,7 @@ static oid RDF_hash_Tyleslist(char* types, int num){
 
 #endif /* if NEEDSUBCS */
 
-static void initCharArray(char* inputArr, int num, char defaultValue){
-	int i; 
-	for (i = 0; i < num; i++){
-		inputArr[i] = defaultValue;
-	}
-}
-/*
-static void printArray(oid* inputArr, int num){
-	int i; 
-	printf("Print array \n");
-	for (i = 0; i < num; i++){
-		printf("%d:  " BUNFMT "\n",i, inputArr[i]);
-	}
-	printf("End of array \n ");
-}
-*/
 
-static void initArray(oid* inputArr, int num, oid defaultValue){
-	int i; 
-	for (i = 0; i < num; i++){
-		inputArr[i] = defaultValue;
-	}
-}
-
-
-static void initIntArray(int* inputArr, int num, oid defaultValue){
-	int i; 
-	for (i = 0; i < num; i++){
-		inputArr[i] = defaultValue;
-	}
-}
 
 static void initcsIdFreqIdxMap(int* inputArr, int num, int defaultValue, CSset *freqCSset){
 	int i; 
@@ -2477,17 +2447,6 @@ static oid RDF_hash_oidlist(oid* key, int num, int numTypeValues, oid* rdftypeOn
 	}
 	// return 0x7fffffff & hashCode 
 	return hashCode;
-}
-
-void appendArrayToBat(BAT *b, BUN* inArray, int num){
-	if (num > 0){
-		BUN r = BUNlast(b);
-		if (r + num > b->batCapacity){
-			BATextend(b, b->batCapacity + smallbatsz); 
-		}
-		memcpy(Tloc(b, BUNlast(b)), inArray, sizeof(BUN) * num); 
-		BATsetcount(b, (BUN) (b->batCount + num)); 
-	}
 }
 
 static 
@@ -10192,6 +10151,7 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 					//Add a bat for storing FK to the main table
 					//cstablestat->lstcstable[i].lstMVTables[colIdx].keyBat = BATnewPropSet(TYPE_void, TYPE_oid, smallbatsz);
 					cstablestat->lstcstable[i].lstMVTables[colIdx].keyBat = BATnewPropSet(TYPE_void, TYPE_oid, csPropTypes[i].lstPropTypes[j].propCover + 1);
+					cstablestat->lstcstable[i].lstMVTables[colIdx].subjBat = BATnewPropSet(TYPE_void, TYPE_oid, csPropTypes[i].lstPropTypes[j].propCover + 1);
 				}
 
 				//BATseqbase(cstablestat->lstcstable[i].mvExBats[colIdx], 0);
@@ -10254,6 +10214,7 @@ void freeCStableStat(CStableStat* cstablestat){
 				free(cstablestat->lstcstable[i].lstMVTables[j].mvBats);
 				free(cstablestat->lstcstable[i].lstMVTables[j].colTypes);
 				BBPunfix(cstablestat->lstcstable[i].lstMVTables[j].keyBat->batCacheid); 
+				BBPunfix(cstablestat->lstcstable[i].lstMVTables[j].subjBat->batCacheid); 
 			}
 
 		}
@@ -11026,6 +10987,13 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,ATOMnilptr(TYPE_void),&tmpmvKey) == NULL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
 				} 
+
+				//Insert the current subject oid of the main table to the subject
+				//column of this mvtable
+				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].subjBat,ATOMnilptr(TYPE_void),sbt) == NULL){
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
+				} 
+				
 				tmplastInsertedS = (int)tmpSoid; 
 				
 				lastColIdx = tmpColIdx; 
@@ -11039,6 +11007,13 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,ATOMnilptr(TYPE_void),&tmpmvKey) == NULL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
 				} 
+
+				//Insert the current subject oid of the main table to the subject
+				//column of this mvtable
+				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].subjBat,ATOMnilptr(TYPE_void),sbt) == NULL){
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
+				} 
+				
 			}
 			
 			continue; 

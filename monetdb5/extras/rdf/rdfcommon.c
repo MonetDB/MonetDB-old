@@ -28,6 +28,29 @@ void copyIntSet(int* dest, int* orig, int len){
 	memcpy(dest, orig, len * sizeof(int));
 }
 
+
+void initCharArray(char* inputArr, int num, char defaultValue){
+	int i; 
+	for (i = 0; i < num; i++){
+		inputArr[i] = defaultValue;
+	}
+}
+
+void initArray(oid* inputArr, int num, oid defaultValue){
+	int i; 
+	for (i = 0; i < num; i++){
+		inputArr[i] = defaultValue;
+	}
+}
+
+
+void initIntArray(int* inputArr, int num, oid defaultValue){
+	int i; 
+	for (i = 0; i < num; i++){
+		inputArr[i] = defaultValue;
+	}
+}
+
 void getNumCombinedP(oid* arr1, oid* arr2, int m, int n, int *numCombineP){
 	
 	int i = 0, j = 0;
@@ -277,4 +300,28 @@ void get_sorted_distinct_set(oid* src, oid** des, int numsrc, int *numdesc){
 	
 	free(tmp); 
 	free(tmp2); 
+}
+
+
+void appendArrayToBat(BAT *b, BUN* inArray, int num){
+	if (num > 0){
+		BUN r = BUNlast(b);
+		if (r + num > b->batCapacity){
+			BATextend(b, b->batCapacity + smallbatsz); 
+		}
+		memcpy(Tloc(b, BUNlast(b)), inArray, sizeof(BUN) * num); 
+		BATsetcount(b, (BUN) (b->batCount + num)); 
+	}
+}
+
+
+void appendIntArrayToBat(BAT *b, int* inArray, int num){
+	if (num > 0){
+		BUN r = BUNlast(b);
+		if (r + num > b->batCapacity){
+			BATextend(b, b->batCapacity + smallbatsz); 
+		}
+		memcpy(Tloc(b, BUNlast(b)), inArray, sizeof(int) * num); 
+		BATsetcount(b, (BUN) (b->batCount + num)); 
+	}
 }

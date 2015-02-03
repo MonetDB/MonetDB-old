@@ -35,6 +35,7 @@ typedef enum {
 	csd_fullP, 
 	csd_cOffset,
 	csd_fullC, 
+	csd_isMV,
 	csd_cname
 } csdumBatType;
 
@@ -50,20 +51,6 @@ typedef struct csdumBATdef{
 typedef struct CSDumpBATs{
 	BAT** dumpBats; 
 } CSDump; 
-/*
-typedef struct CSDumpBATs {	//TODO: Use array of BAT and a new CSDumpBatType struct for simplifying this struct
-	BAT*    tblIdBat;
-	BAT* 	tblnameBat; 	//SQLname of each table
-	BAT* 	csIdBat; 
-	BAT*	freqBat; 
-	BAT*	coverageBat; 
-	BAT*	pOffsetBat; 
-	BAT*	fullPBat; 	//Store full list of properties for each CS
-	BAT*	cOffsetBat; 
-	BAT*	fullCBat; 	//Store list of columns in the table
-	BAT* 	cnameBat; 	//SQL name of each column
-} CSDump;
-*/
 
 //The simpleCS is similar to a CS, 
 //but stores less amount of information 
@@ -77,6 +64,7 @@ typedef struct SimpleDumpCS {
 	oid *lstProp; 
 	int numC; 
 	oid *lstCol; 
+	int *lstIsMV; //Whether the column is multi-valued column or not
 	int sup; 
 	int cov; 
 
@@ -111,6 +99,9 @@ Postinglist get_p_postingList(PropStat *propStat, oid p);
 
 rdf_export 
 int getColIdx_from_oid(int tblId, SimpleCSset *csset, oid coloid);
+
+rdf_export
+int isMVCol(int tblId, int colIdx, SimpleCSset *csset);
 
 
 #endif /* _RDFDUMP_H_ */

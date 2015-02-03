@@ -966,6 +966,12 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				isRightPropBAT(tmpbat);
 				mvc_create_column(m, csmvtables[i][j], tmpcolname,  &tpes[tmpbat->ttype]);
 
+				//One column for subj oid
+				sprintf(tmpcolname, "mvsubj");
+				tmpbat = cstablestat->lstcstable[i].lstMVTables[j].subjBat;
+				isRightPropBAT(tmpbat);
+				mvc_create_column(m, csmvtables[i][j], tmpcolname,  &tpes[tmpbat->ttype]);
+
 				//Value columns 
 				for (k = 0; k < tmpNumMVCols; k++){
 					getColSQLname(tmpmvcolname, j, k, cstablestat->lstcstable[i].lstProp[j], mapi, mbat);
@@ -1039,6 +1045,14 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				//One column for key
 				sprintf(tmpcolname, "mvKey");
 				tmpbat = cstablestat->lstcstable[i].lstMVTables[j].keyBat;
+				isRightPropBAT(tmpbat);
+				store_funcs.append_col(m->session->tr,
+					mvc_bind_column(m, csmvtables[i][j],tmpcolname), 
+					tmpbat, TYPE_bat);
+
+				//One column for subj Bat
+				sprintf(tmpcolname, "mvsubj");
+				tmpbat = cstablestat->lstcstable[i].lstMVTables[j].subjBat;
 				isRightPropBAT(tmpbat);
 				store_funcs.append_col(m->session->tr,
 					mvc_bind_column(m, csmvtables[i][j],tmpcolname), 
@@ -1722,6 +1736,7 @@ str SQLrdfprepare(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 	global_c_propstat = getPropStat_C_simpleCSset(global_csset); 
 
+	print_simpleCSset(global_csset);
 
 	printf("Done preparation\n"); 
 

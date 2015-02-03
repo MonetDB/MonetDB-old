@@ -51,12 +51,17 @@ typedef enum PropOption{
 	NAV		
 } sp_po; 		
 
+typedef enum ColumnType {
+	CTYPE_SG,		//single-valued column
+	CTYPE_MV		//multi-valued column
+} ctype; 
+
 typedef struct propertyList {
 	int num; 
 	char** lstProps; 
 	oid* lstPropIds; 
 	sp_po *lstPOs; 
-
+	ctype *lstctype;
 } spProps; 		//star pattern property list
 
 rdf_export

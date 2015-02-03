@@ -28,11 +28,18 @@
 
 rdf_export void copyOidSet(oid* dest, oid* orig, int len); 
 rdf_export void copyIntSet(int* dest, int* orig, int len); 
+rdf_export void initCharArray(char* inputArr, int num, char defaultValue);
+rdf_export void initArray(oid* inputArr, int num, oid defaultValue);
+rdf_export void initIntArray(int* inputArr, int num, oid defaultValue);
+
 rdf_export void getNumCombinedP(oid* arr1, oid* arr2, int m, int n, int *numCombineP);
 rdf_export void mergeOidSets(oid* arr1, oid* arr2, oid* mergeArr, int m, int n, int *numCombineP);
 rdf_export void intersect_oidsets(oid** lists, int* listcount, int num, oid** interlist, int *internum); 
 rdf_export void intersect_intsets(int** lists, int* listcount, int num, int** interlist, int *internum); 
 
 rdf_export void get_sorted_distinct_set(oid* src, oid** des, int numsrc, int *numdesc);
+
+rdf_export void appendArrayToBat(BAT *b, BUN* inArray, int num);
+rdf_export void appendIntArrayToBat(BAT *b, int* inArray, int num);
 
 #endif /* _RDFCOMMON_H_ */
