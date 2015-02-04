@@ -738,10 +738,9 @@ pcre_replace_bat(BAT **res, BAT *origin_strs, const char *pattern, const char *r
 	my_pcre_free(pcre_code);
 	GDKfree(ovector);
 	if (origin_strs->htype == TYPE_void) {
-		*res = BATseqbase(tmpbat, origin_strs->hseqbase);
-	} else {
-		*res = tmpbat;
+		BATseqbase(tmpbat, origin_strs->hseqbase);
 	}
+	*res = tmpbat;
 	return MAL_SUCCEED;
 }
 
@@ -1161,8 +1160,8 @@ BATPCRElike3(bat *ret, const bat *bid, const str *pat, const str *esc, const bit
 			if (*isens)
 				options |= PCRE_CASELESS;
 			if ((re = pcre_compile(ppat, options, &err_p, &errpos, NULL)) == NULL) {
-				BBPreleaseref(strs->batCacheid);
-				BBPreleaseref(r->batCacheid);
+				BBPunfix(strs->batCacheid);
+				BBPunfix(r->batCacheid);
 				res = createException(MAL, "pcre.match", OPERATION_FAILED
 						": compilation of regular expression (%s) failed "
 						"at %d with '%s'", ppat, errpos, err_p);
@@ -1185,8 +1184,8 @@ BATPCRElike3(bat *ret, const bat *bid, const str *pat, const str *esc, const bit
 					else if (pos == -1)
 						br[i] = *not? TRUE: FALSE;
 					else {
-						BBPreleaseref(strs->batCacheid);
-						BBPreleaseref(r->batCacheid);
+						BBPunfix(strs->batCacheid);
+						BBPunfix(r->batCacheid);
 						res = createException(MAL, "pcre.match", OPERATION_FAILED
 											  ": matching of regular expression (%s) failed with %d", ppat, pos);
 						GDKfree(ppat);
@@ -1203,16 +1202,16 @@ BATPCRElike3(bat *ret, const bat *bid, const str *pat, const str *esc, const bit
 		BATkey(BATmirror(r),FALSE);
 		BATseqbase(r, strs->hseqbase);
 
-		if (!(r->batDirty&2)) r = BATsetaccess(r, BAT_READ);
+		if (!(r->batDirty&2)) BATsetaccess(r, BAT_READ);
 
 		if (strs->htype != r->htype) {
 			BAT *v = VIEWcreate(strs, r);
 
-			BBPreleaseref(r->batCacheid);
+			BBPunfix(r->batCacheid);
 			r = v;
 		}
 		BBPkeepref(*ret = r->batCacheid);
-		BBPreleaseref(strs->batCacheid);
+		BBPunfix(strs->batCacheid);
 		GDKfree(ppat);
 	}
 	return res;
@@ -1296,7 +1295,7 @@ PCRElikesubselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, con
 		throw(MAL, "algebra.likeselect", RUNTIME_OBJECT_MISSING);
 	}
 	if (sid && (*sid) != bat_nil && *sid && (s = BATdescriptor(*sid)) == NULL) {
-		BBPreleaseref(b->batCacheid);
+		BBPunfix(b->batCacheid);
 		throw(MAL, "algebra.likeselect", RUNTIME_OBJECT_MISSING);
 	}
 
@@ -1307,9 +1306,9 @@ PCRElikesubselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, con
 	} else {
 		res = sql2pcre(&ppat, *pat, strcmp(*esc, str_nil) != 0 ? *esc : "\\");
 		if (res != MAL_SUCCEED) {
-			BBPreleaseref(b->batCacheid);
+			BBPunfix(b->batCacheid);
 			if (s)
-				BBPreleaseref(s->batCacheid);
+				BBPunfix(s->batCacheid);
 			return res;
 		}
 		if (strcmp(ppat, str_nil) == 0) {
@@ -1338,9 +1337,9 @@ PCRElikesubselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, con
 	} else {
 		res = pcre_likesubselect(&bn, b, s, ppat, *caseignore, *anti);
 	}
-	BBPreleaseref(b->batCacheid);
+	BBPunfix(b->batCacheid);
 	if (s)
-		BBPreleaseref(s->batCacheid);
+		BBPunfix(s->batCacheid);
 	GDKfree(ppat);
 	if (res != MAL_SUCCEED)
 		return res;
@@ -1537,9 +1536,8 @@ pcresubjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 				newcap = BATgrows(r1);
 				BATsetcount(r1, BATcount(r1));
 				BATsetcount(r2, BATcount(r2));
-				r1 = BATextend(r1, newcap);
-				r2 = BATextend(r2, newcap);
-				if (r1 == NULL || r2 == NULL) {
+				if (BATextend(r1, newcap) == GDK_FAIL ||
+					BATextend(r2, newcap) == GDK_FAIL) {
 					msg = createException(MAL, "pcre.join", MAL_MALLOC_FAIL);
 					goto bailout;
 				}
@@ -1662,12 +1660,12 @@ PCREsubjoin(bat *r1, bat *r2, bat lid, bat rid, bat slid, bat srid,
 	*r2 = result2->batCacheid;
 	BBPkeepref(*r1);
 	BBPkeepref(*r2);
-	BBPreleaseref(left->batCacheid);
-	BBPreleaseref(right->batCacheid);
+	BBPunfix(left->batCacheid);
+	BBPunfix(right->batCacheid);
 	if (candleft)
-		BBPreleaseref(candleft->batCacheid);
+		BBPunfix(candleft->batCacheid);
 	if (candright)
-		BBPreleaseref(candright->batCacheid);
+		BBPunfix(candright->batCacheid);
 	return MAL_SUCCEED;
 
   fail:

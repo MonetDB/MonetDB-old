@@ -772,17 +772,12 @@ mvc_import_table(Client cntxt, mvc *m, bstream *bs, char *sname, char *tname, ch
 			if (locked) {
 				BAT *b = store_funcs.bind_col(m->session->tr, col, RDONLY);
 
-				if (sz > (lng) BATTINY)
-					b = BATextend(b, (BUN) sz);
-
-				assert(b != NULL);
-
 				HASHdestroy(b);
 
 				fmt[i].c = b;
 				cnt = BATcount(b);
 				if (sz > 0 && BATcapacity(b) < (BUN) sz) {
-					if ((fmt[i].c = BATextend(fmt[i].c, (BUN) sz)) == NULL) {
+					if (BATextend(fmt[i].c, (BUN) sz) == GDK_FAIL) {
 						for (i--; i >= 0; i--)
 							BBPunfix(fmt[i].c->batCacheid);
 						sql_error(m, 500, "failed to allocate result table sizes ");
@@ -1363,7 +1358,11 @@ export_length(stream *s, int mtype, int eclass, int digits, int scale, int tz, b
 
 	if (mtype == TYPE_oid)
 		incr = 2;
-	mtype = ATOMstorage(mtype);
+	if (mtype != ATOMstorage(mtype) &&
+	    ATOMnilptr(mtype) == ATOMnilptr(ATOMstorage(mtype)) &&
+	    ATOMcompare(mtype) == ATOMcompare(ATOMstorage(mtype)) &&
+	    BATatoms[mtype].atomHash == BATatoms[ATOMstorage(mtype)].atomHash)
+		mtype = ATOMstorage(mtype); /* ATOMbasetype(mtype) */
 	if (mtype == TYPE_str) {
 		if (eclass == EC_CHAR) {
 			ok = mvc_send_int(s, digits);
@@ -1667,7 +1666,7 @@ mvc_export_head(backend *b, stream *s, int res_id, int only_header)
 	for (i = 0; i < t->nr_cols; i++) {
 		res_col *c = t->cols + i;
 
-		if (strchr(c->name, ',') || strchr(c->name, ' ') || strchr(c->name , '\t')) {
+		if (strchr(c->name, ',') || strchr(c->name, ' ') || strchr(c->name , '\t') || strchr(c->name, '#')) {
 			if (mnstr_write(s, "\"", 1, 1) != 1)
 				return -1;
 			if (strchr(c->name, '"')) {
