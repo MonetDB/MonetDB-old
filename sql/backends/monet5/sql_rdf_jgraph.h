@@ -64,6 +64,17 @@ typedef struct propertyList {
 	ctype *lstctype;
 } spProps; 		//star pattern property list
 
+typedef struct mvProp{
+	char *cname; 
+	char *mvtblname;
+	char *atblname;		//alias tbl name (used for joining with base table)
+	char *asubjcolname; 	//alias subject column name (used for joining with base table)
+	sql_rel *mvrel;		//SELECT statement to mvtable
+	//list *mvjoinexps; 	//expression for the join with main table	
+} mvPropRel; 		
+
+
+
 rdf_export
 void buildJoinGraph(mvc *c, sql_rel *r, int depth); 
 

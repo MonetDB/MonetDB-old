@@ -372,7 +372,6 @@ void addRelationsToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg
 			 printf("[select]\n");
 			if (is_basic_pattern(rel)){
 				printf("Found a basic pattern\n");
-				//rel_print(c, rel, 0);
 				addJGnode(&tmpvid, jg, (sql_rel *) rel, *subjgId); 
 			}
 			else{	//This is the connect to a new join sg
@@ -382,7 +381,6 @@ void addRelationsToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg
 		case op_basetable:
 			printf("[Base table]\n");		
 			addJGnode(&tmpvid, jg, (sql_rel *) rel, *subjgId);
-			//rel_print(c, rel, 0);
 			break;
 		default:
 			printf("[%s]\n", op2string(rel->op)); 
@@ -648,7 +646,6 @@ void addJoinEdgesToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg
 		case op_select: 
 			if (is_basic_pattern(rel)){
 				//printf("Found a basic pattern\n");
-				//rel_print(c, rel, 0);
 			}
 			else{	//This is the connect to a new join sg
 
@@ -896,7 +893,7 @@ void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, char *_a
  * //Example: [s12_t0.p = oid[sys.rdf_strtoid(char(67) "<http://www/product>")], s12_t0.o = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
  * */
 static 
-void get_colname_from_exps(mvc *c, list *tmpexps, char **prop){
+void get_predicate_from_exps(mvc *c, list *tmpexps, char **prop){
 
 
 	node *en;
@@ -986,42 +983,29 @@ void get_prop_and_exps(mvc *c, sql_rel *r, char **prop){
 	//Get the column name by checking exps of r
 	tmpexps = r->exps;
 	if (tmpexps)
-		get_colname_from_exps(c, tmpexps, prop); 
+		get_predicate_from_exps(c, tmpexps, prop); 
 }
 
 
 static
-void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl_exps, int tblId, str tblname){
+void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl_exps, str tblname, int colIdx, oid tmpPropId, str *atblname, str *asubjcolname){
 
 	list *tmpexps = NULL; 
 	list *tmp_tbl_exps = NULL; 
 	sql_allocator *sa = c->sa; 
 	char tmpcolname[100]; //TODO: Should we use char[]
-	str prop; 
-	oid tmpPropId; 
-	int colIdx; 
 	sql_rel *tbl_rel = NULL;
-
-	assert(r->op == op_select);
-	assert(((sql_rel*)r->l)->op == op_basetable); 
 	
 	printf("Converting op_select in star pattern to sql_rel of corresponding table\n"); 
 	//Get the column name by checking exps of r
 	
-	tmpexps = r->exps;
-
-	if (tmpexps) get_colname_from_exps(c, tmpexps, &prop);
-
-	//After having prop, get the corresponding column name
-
-	TKNRstringToOid(&tmpPropId, &prop);
-
-	colIdx = getColIdx_from_oid(tblId, global_csset, tmpPropId);
 
 	getColSQLname(tmpcolname, colIdx, -1, tmpPropId, global_mapi, global_mbat);
 
-	printf("In transform %s --> corresponding column %s\n", prop,  tmpcolname); 
+	printf("In transform column %d --> corresponding column %s\n", colIdx,  tmpcolname); 
 	
+	tmpexps = r->exps;
+
 	if (tmpexps){
 		node *en;
 		int num_o_cond = 0;
@@ -1046,8 +1030,9 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 				num_o_cond++;
 
 			} else if (strcmp(e->name, "s") == 0){
+				char subj_colname[50] = "subject";
 				sql_exp *m_exp = exp_copy(sa, tmpexp);
-				modify_exp_col(c, m_exp, tblname, tmpcolname, e->rname, e->name, 1);
+				modify_exp_col(c, m_exp, tblname, subj_colname, e->rname, e->name, 1);
 
 				//append this exp to list
 				append(trans_select_exps, m_exp);
@@ -1092,6 +1077,11 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 				str origtblname = GDKstrdup(tblname);
 				sql_column *tmpcol = get_rdf_column(c, origtblname, origcolname);
 				sql_exp *e = exp_alias(sa, tmpexp->rname, tmpexp->name, origtblname, origcolname, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
+
+				if (*atblname == NULL){
+					*atblname = GDKstrdup(tmpexp->rname);
+					*asubjcolname = GDKstrdup(tmpexp->name);
+				}
 				append(trans_tbl_exps, e); 
 			}
 
@@ -1100,11 +1090,141 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 }
 
 
+static
+void tranforms_mvprop_exps(mvc *c, sql_rel *r, mvPropRel *mvproprel, int tblId, oid tblnameoid, int colIdx, oid tmpPropId, int isMVcol){
+
+	list *tmpexps = NULL; 
+	list *trans_select_exps = NULL; 
+	list *trans_tbl_exps = NULL; 
+	list *tmp_tbl_exps = NULL; 
+	sql_allocator *sa = c->sa; 
+	char tmpmvcolname[100]; //TODO: Should we use char[]
+	sql_rel *tmptbl_rel = NULL, *rel_mv_basetbl = NULL, *rel_mv_select = NULL;
+	char mvtblname[100];
+	
+	printf("Converting op_select in star pattern to sql_rel of corresponding table\n"); 
+	//Get the column name by checking exps of r
+	
+	if (isMVcol > 1){
+		printf("TODO: HANDLE the case of multi-type prop\n");
+	}
+
+	//Default-type column in MV table 
+	getMvTblSQLname(mvtblname, tblId, colIdx, tblnameoid, tmpPropId, global_mapi, global_mbat);
+	getColSQLname(tmpmvcolname, colIdx, 0, tmpPropId, global_mapi, global_mbat);	
+
+	printf("In transform mv col %d --> corresponding column %s\n", colIdx,  tmpmvcolname); 
+	
+	tmpexps = r->exps;
+	
+	//Store column and table names
+	mvproprel->cname = GDKstrdup(tmpmvcolname);
+	mvproprel->mvtblname = GDKstrdup(mvtblname);
+
+
+	if (tmpexps){
+		node *en;
+	
+		trans_select_exps = new_exp_list(c->sa);
+		for (en = tmpexps->h; en; en = en->next){
+			sql_exp *tmpexp = (sql_exp *) en->data; 
+			sql_exp *e = (sql_exp *)tmpexp->l; 
+
+			assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
+			assert(e->type == e_column); 
+
+			if (strcmp(e->name, "p") == 0){
+				continue; 
+
+			} else if (strcmp(e->name, "o") == 0){
+				sql_exp *m_exp = exp_copy(sa, tmpexp);
+				modify_exp_col(c, m_exp, mvtblname, tmpmvcolname, e->rname, e->name, 1);
+				
+				//append this exp to list
+				append(trans_select_exps, m_exp);
+
+			} else if (strcmp(e->name, "s") == 0){
+				char subj_colname[50] = "mvsubj";
+				sql_exp *m_exp = exp_copy(sa, tmpexp);
+				modify_exp_col(c, m_exp, mvtblname, subj_colname, e->rname, e->name, 1);
+
+				//append this exp to list
+				append(trans_select_exps, m_exp);
+			} else{ 
+				printf("The exp of other predicates (not s, p, o) is not handled\n"); 
+			}
+
+
+		}
+
+	}
+
+
+	/*
+	 * Change the list of column from base table
+	 * */
+	assert (((sql_rel *)r->l)->op == op_basetable);
+	tmptbl_rel = (sql_rel *)r->l;
+	tmp_tbl_exps = tmptbl_rel->exps; 
+	
+	if (tmp_tbl_exps){
+		node *en; 
+
+		trans_tbl_exps = new_exp_list(c->sa);
+		for (en = tmp_tbl_exps->h; en; en = en->next){
+			sql_exp *tmpexp = (sql_exp *) en->data;
+			assert(tmpexp->type == e_column); 
+			if (strcmp(tmpexp->name, "o") == 0){
+				//New e with old alias
+				str origcolname = GDKstrdup(tmpmvcolname);
+				str origtblname = GDKstrdup(mvtblname);
+				sql_column *tmpcol = get_rdf_column(c, mvtblname, origcolname);
+				sql_exp *e = exp_alias(sa, tmpexp->rname, tmpexp->name, origtblname, origcolname, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
+
+				printf("tmpmvcolname in rdf basetable is %s\n", tmpmvcolname);
+				append(trans_tbl_exps, e); 
+			}
+
+			if (strcmp(tmpexp->name, "s") == 0){
+				//New e with old alias
+				char subj_colname[50] = "mvsubj";
+				str origcolname = GDKstrdup(subj_colname);
+				str origtblname = GDKstrdup(mvtblname);
+				sql_column *tmpcol = get_rdf_column(c, origtblname, origcolname);
+				sql_exp *e = exp_alias(sa, tmpexp->rname, tmpexp->name, origtblname, origcolname, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
+
+				append(trans_tbl_exps, e); 
+
+				mvproprel->atblname = GDKstrdup(tmpexp->rname);
+				mvproprel->asubjcolname = GDKstrdup(tmpexp->name);
+
+			}
+
+		}
+	}
+
+
+	rel_mv_basetbl = rel_basetable(c, get_rdf_table(c,mvtblname), mvtblname); 
+
+	rel_mv_basetbl->exps = trans_tbl_exps;
+
+	//rel_print(c, rel_mv_basetbl, 0); 
+	
+	rel_mv_select = rel_select_copy(c->sa, rel_mv_basetbl, trans_select_exps); 
+
+	mvproprel->mvrel = rel_mv_select; 	
+	
+	//rel_print(c, mvproprel->mvrel, 0);
+
+	//if (trans_select_exps) list_destroy(trans_select_exps);
+
+}
+
 /*
  * 
  * */
 static 
-void getTblName_from_spprops(str *tblname, int *rettbId, spProps *spprops, int *num_match_tbl){
+void get_matching_tbl_from_spprops(int **rettbId, spProps *spprops, int *num_match_tbl){
 
 	oid *lstprop = NULL; 	//list of distinct prop, sorted by prop ids
 	int num; 		//number of of distinct sorted props
@@ -1113,6 +1233,7 @@ void getTblName_from_spprops(str *tblname, int *rettbId, spProps *spprops, int *
 	int *count; 		//number of tables per prop	
 	int *tblId; 		//list of matching tblId
 	int numtbl = 0; 	
+	str tblname; 
 
 	get_sorted_distinct_set(spprops->lstPropIds, &lstprop, spprops->num, &num);
 	
@@ -1130,17 +1251,20 @@ void getTblName_from_spprops(str *tblname, int *rettbId, spProps *spprops, int *
 	intersect_intsets(tmptblId, count, num, &tblId,  &numtbl);
 
 	printf(" ] --> ");
+
+	*rettbId = (int *) malloc(sizeof(int) * numtbl); 
+
 	for (i = 0; i < numtbl; i++){
 		int tId = tblId[i];
 		oid tblnameoid = global_csset->items[tId]->tblname; 
 
-		*rettbId = tId; 
+		*rettbId[i] = tId; 
 		
-		*tblname = (str) GDKmalloc(sizeof(char) * 100); 
+		tblname = (str) GDKmalloc(sizeof(char) * 100); 
 
-		getTblSQLname(*tblname, tId, 0,  tblnameoid, global_mapi, global_mbat);
+		getTblSQLname(tblname, tId, 0,  tblnameoid, global_mapi, global_mbat);
 
-		printf("  %d [Name of the table  %s]", tId, *tblname);  
+		printf("  %d [Name of the table  %s]", tId, tblname);  
 
 		//Get the corresponding column names in this table
 		printf("\n--> Corresponding column names: \n");
@@ -1161,35 +1285,142 @@ void getTblName_from_spprops(str *tblname, int *rettbId, spProps *spprops, int *
 }
 
 
+static
+mvPropRel* init_mvPropRelSet(int n){
+	int i; 
+	mvPropRel *mvPropRels;
+	mvPropRels = (mvPropRel *) GDKmalloc(sizeof(mvPropRel) * n); 
+	for (i = 0; i < n; i++){
+		mvPropRels[i].cname = NULL;
+		mvPropRels[i].mvtblname = NULL; 
+		mvPropRels[i].mvrel = NULL; 
+		mvPropRels[i].atblname = NULL; 
+		mvPropRels[i].asubjcolname = NULL; 
+		//mvPropRels[i].mvjoinexps = NULL; 
+	}
+
+	return mvPropRels;
+}
+
+static void
+free_mvPropRelSet(mvPropRel *mvPropRels, int n){
+	int i;
+	for (i = 0; i < n; i++){
+		if (mvPropRels[i].cname)
+			GDKfree(mvPropRels[i].cname);
+		if (mvPropRels[i].mvtblname)
+			GDKfree(mvPropRels[i].mvtblname);
+		if (mvPropRels[i].atblname)
+			GDKfree(mvPropRels[i].atblname);
+		if (mvPropRels[i].asubjcolname)
+			GDKfree(mvPropRels[i].asubjcolname);
+		//if (mvPropRels[i].mvjoinexps)
+		//	list_destroy(mvPropRels[i].mvjoinexps);
+	}
+
+	GDKfree(mvPropRels);
+}
+
+
+static
+sql_rel *rel_innerjoin(sql_allocator *sa, sql_rel *l, sql_rel *r, list *exps, operator_type join)
+{
+	sql_rel *rel = rel_create(sa);
+
+	rel->l = l;
+	rel->r = r;
+	rel->op = join;
+	rel->exps = exps;
+	rel->card = CARD_MULTI;
+	rel->nrcols = l->nrcols + r->nrcols;
+	return rel;
+}
+
+static 
+sql_rel *join_two_rels(mvc *c, sql_rel *l, str lrname, str lcolname, sql_rel *r, str rrname, str rcolname){
+	sql_rel *rel = NULL; 
+	sql_exp *tmpexp = NULL; 
+	sql_exp *expcol1 = NULL; 
+	sql_exp *expcol2 = NULL; 
+	list *joinexps = NULL; 
+	sql_subtype tpe; 
+
+	sql_find_subtype(&tpe, "oid", 31, 0);
+
+	//TODO: Check the input params
+	
+	expcol1 = exp_column(c->sa, lrname, lcolname, &tpe , CARD_MULTI, 1, 0);
+	expcol2 = exp_column(c->sa, rrname, rcolname, &tpe , CARD_MULTI, 1, 0);
+
+	tmpexp = exp_compare(c->sa, expcol1, expcol2, cmp_equal);
+
+	joinexps = new_exp_list(c->sa);
+
+	append(joinexps, tmpexp);
+
+	rel = rel_innerjoin(c->sa, l, r, joinexps, op_join);
+	
+	return rel; 
+}
+
+static 
+sql_rel *connect_sp_select_and_mv_prop(mvc *c, sql_rel *rel_wo_mv, mvPropRel *mvPropRels, str tblname, str atblname, str asubjcolname, int nnode){
+	int i; 
+	sql_rel *rel = NULL; 
+	(void) tblname; 
+	for (i = 0; i < nnode; i++){
+		//sql_rel *tmprel = NULL; 
+		if (mvPropRels[i].mvrel != NULL){
+			//str subjcolname = "subject"; 
+			if (rel == NULL){
+				rel = join_two_rels(c, rel_wo_mv, atblname, asubjcolname, mvPropRels[i].mvrel,
+						 mvPropRels[i].atblname,  mvPropRels[i].asubjcolname);
+				//tmprel = rel_copy(c->sa, rel); 
+			}
+			else {
+				
+				rel = join_two_rels(c, rel, atblname, asubjcolname, mvPropRels[i].mvrel, 
+						mvPropRels[i].atblname,  mvPropRels[i].asubjcolname); 
+				//tmprel = rel_copy(c->sa, rel); 
+			}
+		}
+
+	}
+
+	return rel; 
+
+}
+
 /*
  * Create a select sql_rel from a star pattern
  * */
 
 static 	
 sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId){
-	sql_rel *rel = NULL; 
+	sql_rel *rel_wo_mv = NULL, *rel = NULL; 
 	sql_rel *rel_basetbl = NULL; 
-	int i; 
+	int i, tblIdx; 
 	char is_all_select = 1; 
 	char is_only_basetable = 1;
 	sql_allocator *sa = c->sa;
 	spProps *spprops = NULL; 
-	str tblname; 
-	int tmptbId = -1; 
+	int *tmptbId = NULL; 
 	int num_match_tbl = 0;
+	int num_mv_col = 0;
+
 
 	//This transformed exps list contain exps list from op_select
 	 //on the object
-	list *trans_select_exps = NULL; 	//Store the exps in op_select
-	list *trans_table_exps = NULL; 		//Store the list of column for basetable in op_select
+
 	(void) jg; 
 
 	printf("Group %d contain %d nodes: ", pId, nnode); 
 
+	//Check whether all nodes are SELECT nodes 
 	for (i = 0; i < nnode; i++){
 		sql_rel *tmprel = (sql_rel*) (jg->lstnodes[group[i]]->data);
 		printf(" %d ", group[i]); 
-		rel_print(c, tmprel, 0); 
+		//rel_print(c, tmprel, 0); 
 		if (tmprel->op != op_select) is_all_select = 0; 	
 		if (tmprel->op != op_basetable) is_only_basetable = 0;
 	}
@@ -1201,8 +1432,6 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 	if (is_all_select){
 
 		spprops = init_sp_props(nnode); 	
-		trans_select_exps = new_exp_list(sa);
-		trans_table_exps = new_exp_list(sa); 
 
 		for (i = 0; i < nnode; i++){
 			str col; 
@@ -1215,40 +1444,110 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 
 		print_spprops(spprops);
 
-		getTblName_from_spprops(&tblname, &tmptbId, spprops, &num_match_tbl);
+		get_matching_tbl_from_spprops(&tmptbId, spprops, &num_match_tbl);
 
 		assert(num_match_tbl == 1); 	//TODO: Handle the case of matching multiple table
-
-		printf("Get real expressions from tableId %d\n", tmptbId);
-
-		if (is_all_select){
+		printf("Number of matching table is: %d\n", num_match_tbl);
+		
+		for (tblIdx = 0; tblIdx < num_match_tbl; tblIdx++){
+			str tblname; 
+			oid tblnameoid;
+			str atblname = NULL; 		//alias for table of sp
+			str asubjcolname = NULL; 	//alias for subject column of sp table
 			char tmp[50]; 
+			int tId = tmptbId[tblIdx];
+			list *trans_select_exps = NULL; 	//Store the exps in op_select
+			list *trans_table_exps = NULL; 		//Store the list of column for basetable in op_select
+			
+			mvPropRel *mvPropRels = init_mvPropRelSet(nnode); 
+
+			num_mv_col = 0;
+
+			trans_select_exps = new_exp_list(sa);
+			trans_table_exps = new_exp_list(sa); 
+
+			printf("Get real expressions from tableId %d\n", tId);
+
+			tblnameoid = global_csset->items[tId]->tblname;
+
+			tblname = (str) GDKmalloc(sizeof(char) * 100); 
+
+			getTblSQLname(tblname, tId, 0,  tblnameoid, global_mapi, global_mbat);
+
+			printf("  [Name of the table  %s]", tblname);  
+			
+			
 			for (i = 0; i < nnode; i++){
 				sql_rel *tmprel = (sql_rel*) (jg->lstnodes[group[i]]->data);
-				tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tmptbId, tblname); 
+				int colIdx; 
+				int isMVcol = 0; 
+				list *tmpexps = NULL; 
+				str prop; 
+				oid tmpPropId;
+
+				assert(tmprel->op == op_select);
+				assert(((sql_rel*)tmprel->l)->op == op_basetable); 
+
+				tmpexps = tmprel->exps;
+
+				if (tmpexps) get_predicate_from_exps(c, tmpexps, &prop);
+
+				//After having prop, get the corresponding column name
+
+				TKNRstringToOid(&tmpPropId, &prop);
+
+				colIdx = getColIdx_from_oid(tId, global_csset, tmpPropId);
+
+				//Check whether the column is multi-valued prop
+				isMVcol = isMVCol(tId, colIdx, global_csset);
+
+				if (isMVcol == 0)  
+					tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname); 
+				else{
+					printf("Table %d, column %d is multi-valued prop\n", tId, colIdx);
+					assert (mvPropRels[i].mvrel == NULL); 
+					tranforms_mvprop_exps(c, tmprel, &(mvPropRels[i]), tId, tblnameoid, colIdx, tmpPropId, isMVcol);
+					num_mv_col++;
+
+					//rel_print(c, mvPropRels[i].mvrel, 0);
+					//rel_print(c, mvPropRels[i].mvrel, 0);
+					//rel_print(c, mvPropRels[i].mvrel, 0);
+					//rel_print(c, mvPropRels[i].mvrel, 0);
+				}
 			}
 			
 			sprintf(tmp, "[Real Pattern: %d] after grouping: ", pId); 
 			exps_print_ext(c, trans_select_exps, 0, tmp);
 			sprintf(tmp, "  Base table expression: \n"); 
 			exps_print_ext(c, trans_table_exps, 0, tmp);	
+
+
+			rel_basetbl = rel_basetable(c, get_rdf_table(c,tblname), tblname); 
+
+			rel_basetbl->exps = trans_table_exps;
+			
+			rel_wo_mv = rel_select_copy(c->sa, rel_basetbl, trans_select_exps); 
+
+			
+			if (num_mv_col > 0){
+				rel = connect_sp_select_and_mv_prop(c, rel_wo_mv, mvPropRels, tblname, atblname, asubjcolname, nnode); 
+
+			}
+			else{
+				rel = rel_wo_mv; 
+			}
+
+			rel_print(c, rel, 0); 
+			//GDKfree(tblname); 
+
+			//TODO: Handle other cases. By now, we only handle 
+			//the case where each sql_rel is a op_select. 
+
+			free_sp_props(spprops);
+			list_destroy(trans_select_exps);
+
+			if (0) free_mvPropRelSet(mvPropRels, nnode);
 		}
-
-
-		rel_basetbl = rel_basetable(c, get_rdf_table(c,tblname), tblname); 
-
-		rel_basetbl->exps = trans_table_exps;
-		
-		rel = rel_select_copy(c->sa, rel_basetbl, trans_select_exps); 
-
-
-		//GDKfree(tblname); 
-
-		//TODO: Handle other cases. By now, we only handle 
-		//the case where each sql_rel is a op_select. 
-
-		free_sp_props(spprops);
-		list_destroy(trans_select_exps);
 	}
 
 	//Only basetable --> this node has only one pattern from basetable
@@ -1256,7 +1555,7 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 		sql_rel *tmprel = (sql_rel*) (jg->lstnodes[group[0]]->data);
 		rel = rel_copy(c->sa, tmprel);
 	}
-
+	
 	return rel; 
 }
 
@@ -1399,8 +1698,9 @@ void group_star_pattern(mvc *c, jgraph *jg, int numsp, sql_rel** lstRels, sql_re
 	//Merge sql_rels in each group into one sql_rel
 	for (i = 0; i < numsp; i++){
 		lstRels[i] = _group_star_pattern(c, jg, group[i], nnode_per_group[i], i); 
-		if (lstRels[i])
-			rel_print(c, lstRels[i], 0); 
+		if (lstRels[i]){
+			//rel_print(c, lstRels[i], 0); 
+		}
 		else{
 			printf("Group pattern %d cannot be converted to select from rel table\n", i); 
 		}
@@ -1446,7 +1746,6 @@ void detect_star_pattern(jgraph *jg, int *numsp){
 }
 
 void buildJoinGraph(mvc *c, sql_rel *r, int depth){
-	//rel_print(c, r, 0);
 	//Detect join between subject of triple table
 	//
 	// Go from the first sql_rel to the left and right of 
@@ -1507,7 +1806,7 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 		connect_rel_with_sprel(r, lstEdgeRels[0]); 
 	}
 
-	rel_print(c, r, 0); 
+	//rel_print(c, r, 0); 
 
 
 	//Check global_csset
