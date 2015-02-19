@@ -3365,7 +3365,7 @@ sql_trans_persistcommit(sql_trans *tr)
 		   of failure, the log will be replayed. */
 		result = rollforward_trans(tr, R_APPLY);
 	}
-	return (result==LOG_OK)?SQL_OK:SQL_ERR;
+    return result;
 }
 
 static void
