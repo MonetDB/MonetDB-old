@@ -43,8 +43,6 @@
  * head of the plan if the dataflow such permits.
  * If you are not careful, you will end up with
  * the breadth first plan again.
- * This track is abandonded in favor of a combination
- * of octopus and recycler on a single platform.
  *
  * Beware, variables can be assigned a value multiple times.
  * The order this implies should be respected.
@@ -69,7 +67,7 @@ typedef struct{
 	int cnt;
 	int used;
 	int pos,pos2;
-	int stmt[];
+	int stmt[FLEXIBLE_ARRAY_MEMBER];
 } *Node, NodeRecord;
 
 static Node *
@@ -92,7 +90,7 @@ OPTdependencies(Client cntxt, MalBlkPtr mb, int **Ulist)
 	for ( i=0; i< mb->stop; i++){
 		p= getInstrPtr(mb,i);
 		block |= p->barrier != 0;
-		list[i]= (Node) GDKzalloc(sizeof(NodeRecord) + sizeof(int) * p->argc);
+		list[i]= (Node) GDKzalloc(offsetof(NodeRecord, stmt) + sizeof(int) * p->argc);
 		if (list[i] == NULL){
 			for (i--; i>=0; i--)
 				GDKfree(list[i]);
@@ -260,7 +258,7 @@ OPTreorderImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			for(j=i-1; j>=start;j--) {
 				OPTDEBUGreorder if( old[j]){
 					mnstr_printf(cntxt->fdout,"leftover: %d",start+1);
-					printInstruction(cntxt->fdout,mb,0,old[j],LIST_MAL_STMT | LIST_MAPI);
+					printInstruction(cntxt->fdout,mb,0,old[j],LIST_MAL_DEBUG);
 				}
 				OPTbreadthfirst(cntxt, mb, j, i, old, dep, uselist);
 			}

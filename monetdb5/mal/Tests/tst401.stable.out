@@ -17,7 +17,6 @@ stdout of test 'tst401` in directory 'monetdb5/mal` itself:
 # MonetDB/GIS module loaded
 # MonetDB/JAQL module loaded
 # MonetDB/SQL module loaded
-# MonetDB/DataCell loaded
 function user.main():void;
 # testing the simple iterators on builtin types 
 barrier i := 0:flt;
@@ -25,7 +24,7 @@ barrier i := 0:flt;
     v := "do something";
     redo i := iterator.next(1.29999995:flt,2.5:flt);
 exit i;
-end main;
+end user.main;
 [ 0 ]
 [ 1.29999995 ]
 

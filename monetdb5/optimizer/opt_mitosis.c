@@ -19,7 +19,6 @@
 
 #include "monetdb_config.h"
 #include "opt_mitosis.h"
-#include "opt_octopus.h"
 #include "mal_interpreter.h"
 #include <gdk_utils.h>
 
@@ -41,10 +40,22 @@ eligible(MalBlkPtr mb)
 	return 1;
 }
 
+static int
+getVarMergeTableId(MalBlkPtr mb, int v)
+{
+	VarPtr p = varGetProp(mb, v, mtProp);
+
+	if (!p)
+		return -1;
+	if (p->value.vtype == TYPE_int)
+		return p->value.val.ival;
+	return -1;
+}
+
 int
 OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
-	int i, j, limit, slimit, estimate = 0, pieces = 1, mito_parts = 0, mito_size = 0, row_size = 0;
+	int i, j, limit, slimit, estimate = 0, pieces = 1, mito_parts = 0, mito_size = 0, row_size = 0, mt = -1;
 	str schema = 0, table = 0;
 	wrd r = 0, rowcnt = 0;    /* table should be sizeable to consider parallel execution*/
 	InstrPtr q, *old, target = 0;
@@ -117,35 +128,31 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	 * Experience shows that the pieces should not be too small.
 	 * If we should limit to |threads| is still an open issue.
 	 */
-	if ((i = OPTlegAdviceInternal(mb, stk, p)) > 0)
-		pieces = i;
-	else {
-		r = (wrd) (monet_memory / argsize);
-		/* if data exceeds memory size,
-		 * i.e., (rowcnt*argsize > monet_memory),
-		 * i.e., (rowcnt > monet_memory/argsize = r) */
-		if (rowcnt > r && r / threads > 0) {
-			/* create |pieces| > |threads| partitions such that
-			 * |threads| partitions at a time fit in memory,
-			 * i.e., (threads*(rowcnt/pieces) <= r),
-			 * i.e., (rowcnt/pieces <= r/threads),
-			 * i.e., (pieces => rowcnt/(r/threads))
-			 * (assuming that (r > threads*MINPARTCNT)) */
-			pieces = (int) (rowcnt / (r / threads)) + 1;
-		} else if (rowcnt > MINPARTCNT) {
-		/* exploit parallelism, but ensure minimal partition size to
-		 * limit overhead */
-			pieces = (int) MIN((rowcnt / MINPARTCNT), (wrd) threads);
-		}
-		/* when testing, always aim for full parallelism, but avoid
-		 * empty pieces */
-		FORCEMITODEBUG
-		if (pieces < threads)
-			pieces = (int) MIN((wrd) threads, rowcnt);
-		/* prevent plan explosion */
-		if (pieces > MAXSLICES)
-			pieces = MAXSLICES;
+	r = (wrd) (monet_memory / argsize);
+	/* if data exceeds memory size,
+	 * i.e., (rowcnt*argsize > monet_memory),
+	 * i.e., (rowcnt > monet_memory/argsize = r) */
+	if (rowcnt > r && r / threads > 0) {
+		/* create |pieces| > |threads| partitions such that
+		 * |threads| partitions at a time fit in memory,
+		 * i.e., (threads*(rowcnt/pieces) <= r),
+		 * i.e., (rowcnt/pieces <= r/threads),
+		 * i.e., (pieces => rowcnt/(r/threads))
+		 * (assuming that (r > threads*MINPARTCNT)) */
+		pieces = (int) (rowcnt / (r / threads)) + 1;
+	} else if (rowcnt > MINPARTCNT) {
+	/* exploit parallelism, but ensure minimal partition size to
+	 * limit overhead */
+		pieces = (int) MIN((rowcnt / MINPARTCNT), (wrd) threads);
 	}
+	/* when testing, always aim for full parallelism, but avoid
+	 * empty pieces */
+	FORCEMITODEBUG
+	if (pieces < threads)
+		pieces = (int) MIN((wrd) threads, rowcnt);
+	/* prevent plan explosion */
+	if (pieces > MAXSLICES)
+		pieces = MAXSLICES;
 	/* to enable experimentation we introduce the option to set
 	 * the number of parts required and/or the size of each chunk (in K)
 	 */
@@ -175,6 +182,7 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	schema = getVarConstant(mb, getArg(target, 2)).val.sval;
 	table = getVarConstant(mb, getArg(target, 3)).val.sval;
+	mt = getVarMergeTableId(mb, getArg(target, 0));
 	for (i = 0; i < limit; i++) {
 		int upd = 0, qtpe, rtpe = 0, qv, rv;
 		InstrPtr matq, matr = NULL;
@@ -200,8 +208,12 @@ OPTmitosisImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		}
 		if (p->retc == 2)
 			upd = 1;
-		if (strcmp(schema, getVarConstant(mb, getArg(p, 2 + upd)).val.sval) ||
-			strcmp(table, getVarConstant(mb, getArg(p, 3 + upd)).val.sval)) {
+		if (mt < 0 && (strcmp(schema, getVarConstant(mb, getArg(p, 2 + upd)).val.sval) ||
+			       strcmp(table, getVarConstant(mb, getArg(p, 3 + upd)).val.sval))) {
+			pushInstruction(mb, p);
+			continue;
+		}
+		if (mt >= 0 && getVarMergeTableId(mb, getArg(p, 0)) != mt) {
 			pushInstruction(mb, p);
 			continue;
 		}

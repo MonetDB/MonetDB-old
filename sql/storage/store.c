@@ -30,7 +30,7 @@
 #include <bat/bat_logger.h>
 
 /* version 05.21.00 of catalog */
-#define CATALOG_VERSION 52100
+#define CATALOG_VERSION 52200
 int catalog_version = 0;
 
 static MT_Lock bs_lock MT_LOCK_INITIALIZER("bs_lock");
@@ -601,9 +601,8 @@ load_table(sql_trans *tr, sql_schema *s, oid rid)
 	if (isRemote(t))
 		t->persistence = SQL_REMOTE;
 	t->cleared = 0;
-	v = table_funcs.column_find_value(tr, find_sql_column(tables, "readonly"),rid);
-	t->readonly = *(bit *)v;	_DELETE(v);
-	t->readonly |= store_readonly;
+	v = table_funcs.column_find_value(tr, find_sql_column(tables, "access"),rid);
+	t->access = *(sht*)v;	_DELETE(v);
 
 	t->pkey = NULL;
 	t->s = s;
@@ -903,7 +902,7 @@ load_schema(sql_trans *tr, sqlid id, oid rid)
 	    	cs_add(&s->types, load_type(tr, s, rid), TR_OLD);
 	table_funcs.rids_destroy(rs);
 
-	/* second tables (and complex types) */
+	/* second tables */
 	table_schema = find_sql_column(tables, "schema_id");
 	table_id = find_sql_column(tables, "id");
 	rs = table_funcs.rids_select(tr, table_schema, &sid, &sid, table_id, &id, NULL, NULL);
@@ -1005,7 +1004,7 @@ insert_schemas(sql_trans *tr)
 			sql_table *t = m->data;
 			sht ca = t->commit_action;
 
-			table_funcs.table_insert(tr, systable, &t->base.id, t->base.name, &s->base.id, ATOMnilptr(TYPE_str), &t->type, &t->system, &ca, &t->readonly);
+			table_funcs.table_insert(tr, systable, &t->base.id, t->base.name, &s->base.id, ATOMnilptr(TYPE_str), &t->type, &t->system, &ca, &t->access);
 			for (o = t->columns.set->h; o; o = o->next) {
 				sql_column *c = o->data;
 
@@ -1166,7 +1165,7 @@ create_sql_table(sql_allocator *sa, const char *name, sht type, bit system, int 
 	t->persistence = (temp_t)persistence;
 	t->commit_action = (ca_t)commit_action;
 	t->query = NULL;
-	t->readonly = 0;
+	t->access = 0;
 	cs_new(&t->columns, sa, (fdestroy) &column_destroy);
 	cs_new(&t->idxs, sa, (fdestroy) &idx_destroy);
 	cs_new(&t->keys, sa, (fdestroy) &key_destroy);
@@ -1209,7 +1208,7 @@ dup_sql_table(sql_allocator *sa, sql_table *t)
 
 	nt->base.flag = t->base.flag;
 
-	nt->readonly = t->readonly;
+	nt->access = t->access;
 	nt->query = (t->query) ? sa_strdup(sa, t->query) : NULL;
 
 	for (n = t->columns.set->h; n; n = n->next) 
@@ -1415,7 +1414,7 @@ store_init(int debug, store_type store, int readonly, int singleuser, const char
 		bootstrap_create_column(tr, t, "type", "smallint", 16);
 		bootstrap_create_column(tr, t, "system", "boolean", 1);
 		bootstrap_create_column(tr, t, "commit_action", "smallint", 16);
-		bootstrap_create_column(tr, t, "readonly", "boolean", 1);
+		bootstrap_create_column(tr, t, "access", "smallint", 16);
 
 		t = bootstrap_create_table(tr, s, "_columns");
 		bootstrap_create_column(tr, t, "id", "int", 32);
@@ -2090,7 +2089,7 @@ table_dup(sql_trans *tr, int flag, sql_table *ot, sql_schema *s)
 	t->system = ot->system;
 	t->persistence = ot->persistence;
 	t->commit_action = ot->commit_action;
-	t->readonly = ot->readonly;
+	t->access = ot->access;
 	t->query = (ot->query) ? sa_strdup(sa, ot->query) : NULL;
 
 	cs_new(&t->columns, sa, (fdestroy) &column_destroy);
@@ -2817,7 +2816,7 @@ rollforward_update_table(sql_trans *tr, sql_table *ft, sql_table *tt, int mode)
 			ok = store_funcs.update_table(tr, ft, tt);
 			ft->cleared = 0;
 			ft->base.rtime = ft->base.wtime = 0;
-			tt->readonly = ft->readonly;
+			tt->access = ft->access;
 		}
 	}
 	return ok;
@@ -4026,6 +4025,7 @@ sql_trans_del_table(sql_trans *tr, sql_table *mt, sql_table *pt, int drop_action
 	cs_del(&mt->tables, n, pt->base.flag);
 	mt->s->base.wtime = mt->base.wtime = tr->wtime = tr->wstime;
 	table_funcs.table_delete(tr, sysobj, rid);
+	pt->p = NULL;
 	if (drop_action == DROP_CASCADE)
 		sql_trans_drop_table(tr, pt->s, pt->base.id, drop_action);
 	return mt;
@@ -4067,7 +4067,7 @@ sql_trans_create_table(sql_trans *tr, sql_schema *s, const char *name, const cha
 	if (!isDeclaredTable(t))
 		table_funcs.table_insert(tr, systable, &t->base.id, t->base.name, &s->base.id,
 			(t->query) ? t->query : ATOMnilptr(TYPE_str), &t->type,
-			&t->system, &ca, &t->readonly);
+			&t->system, &ca, &t->access);
 
 	t->base.wtime = s->base.wtime = tr->wtime = tr->wstime;
 	if (isGlobal(t)) 
@@ -4311,8 +4311,6 @@ drop_sql_key(sql_table *t, int id, int drop_action)
 	cs_del(&t->keys, n, TR_OLD);
 }
 
-
-
 void
 sql_trans_drop_column(sql_trans *tr, sql_table *t, int id, int drop_action)
 {
@@ -4363,17 +4361,17 @@ sql_trans_alter_null(sql_trans *tr, sql_column *col, int isnull)
 }
 
 sql_table *
-sql_trans_alter_readonly(sql_trans *tr, sql_table *t, bit readonly)
+sql_trans_alter_access(sql_trans *tr, sql_table *t, sht access)
 {
-	if (t->readonly != readonly) {
+	if (t->access != access) {
 		sql_schema *syss = find_sql_schema(tr, isGlobal(t)?"sys":"tmp"); 
 		sql_table *systable = find_sql_table(syss, "_tables");
 		oid rid = table_funcs.column_find_row(tr, find_sql_column(systable, "id"),
 					  &t->base.id, NULL);
 
 		assert(rid != oid_nil);
-		table_funcs.column_update_value(tr, find_sql_column(systable, "readonly"), rid, &readonly);
-		t->readonly = readonly;
+		table_funcs.column_update_value(tr, find_sql_column(systable, "access"), rid, &access);
+		t->access = access;
 		t->base.wtime = t->s->base.wtime = tr->wtime = tr->wstime;
 		if (isGlobal(t)) 
 			tr->schema_updates ++;
@@ -4400,6 +4398,32 @@ sql_trans_alter_default(sql_trans *tr, sql_column *col, char *val)
 		col->def = NULL;
 		if (val)
 			col->def = sa_strdup(tr->sa, val);
+		col->base.wtime = col->t->base.wtime = col->t->s->base.wtime = tr->wtime = tr->wstime;
+		if (isGlobal(col->t)) 
+			tr->schema_updates ++;
+	}
+	return col;
+}
+
+sql_column *
+sql_trans_alter_storage(sql_trans *tr, sql_column *col, char *storage)
+{
+	if (!col->storage_type && !storage)
+		return col;	/* no change */
+
+	if (!col->storage_type || !storage || strcmp(col->storage_type, storage) != 0) {
+		void *p = storage ? storage : ATOMnilptr(TYPE_str);
+		sql_schema *syss = find_sql_schema(tr, isGlobal(col->t)?"sys":"tmp"); 
+		sql_table *syscolumn = find_sql_table(syss, "_columns");
+		sql_column *col_ids = find_sql_column(syscolumn, "id");
+		sql_column *col_dfs = find_sql_column(syscolumn, "storage");
+		oid rid = table_funcs.column_find_row(tr, col_ids, &col->base.id, NULL);
+
+		assert(rid != oid_nil);
+		table_funcs.column_update_value(tr, col_dfs, rid, p);
+		col->storage_type = NULL;
+		if (storage)
+			col->storage_type = sa_strdup(tr->sa, storage);
 		col->base.wtime = col->t->base.wtime = col->t->s->base.wtime = tr->wtime = tr->wstime;
 		if (isGlobal(col->t)) 
 			tr->schema_updates ++;

@@ -59,7 +59,6 @@ str bpmRef;
 str bstreamRef;
 str calcRef;
 str catalogRef;
-str centipedeRef;
 str clear_tableRef;
 str closeRef;
 str columnRef;
@@ -74,10 +73,10 @@ str copy_fromRef;
 str count_no_nilRef;
 str crossRef;
 str createRef;
-str datacellRef;
 str dataflowRef;
 str datacyclotronRef;
 str dblRef;
+str defineRef;
 str deleteRef;
 str depositRef;
 str differenceRef;
@@ -102,7 +101,6 @@ str grabRef;
 str groupRef;
 str subgroupRef;
 str subgroupdoneRef;
-str groupsRef;
 str groupbyRef;
 str hashRef;
 str identityRef;
@@ -168,7 +166,6 @@ str newRef;
 str notRef;
 str nextRef;
 str oidRef;
-str octopusRef;
 str openRef;
 str optimizerRef;
 str parametersRef;
@@ -277,6 +274,7 @@ int tlbProp;
 int tubProp;
 int horiginProp;		/* original oid source */
 int toriginProp;		/* original oid source */
+int mtProp;			
 
 void optimizerInit(void)
 {
@@ -312,7 +310,6 @@ void optimizerInit(void)
 	bstreamRef = putName("bstream",7);
 	calcRef = putName("calc",4);
 	catalogRef = putName("catalog",7);
-	centipedeRef = putName("centipede",9);
 	clear_tableRef = putName("clear_table",11);
 	closeRef = putName("close",5);
 	columnRef = putName("column",6);
@@ -328,10 +325,10 @@ void optimizerInit(void)
 	crossRef = putName("crossproduct",12);
 	createRef = putName("create",6);
 	dateRef = putName("date",4);
-	datacellRef = putName("datacell",8);
 	dataflowRef = putName("dataflow",8);
 	datacyclotronRef = putName("datacyclotron",13);
 	dblRef = putName("dbl",3);
+	defineRef = putName("define",6);
 	deleteRef = putName("delete",6);
 	depositRef = putName("deposit",7);
 	differenceRef= putName("difference",10);
@@ -356,7 +353,6 @@ void optimizerInit(void)
 	groupRef = putName("group",5);
 	subgroupRef = putName("subgroup",8);
 	subgroupdoneRef= putName("subgroupdone",12);
-	groupsRef = putName("groups",6);
 	groupbyRef = putName("groupby",7);
 	hashRef = putName("hash",4);
 	identityRef = putName("identity",8);
@@ -422,7 +418,6 @@ void optimizerInit(void)
 	notRef = putName("not",3);
 	nextRef = putName("next",4);
 	oidRef = putName("oid",3);
-	octopusRef = putName("octopus",7);
 	optimizerRef = putName("optimizer",9);
 	openRef = putName("open",4);
 	parametersRef = putName("parameters",10);
@@ -532,6 +527,7 @@ void optimizerInit(void)
 
 	horiginProp = PropertyIndex("horigin");
 	toriginProp = PropertyIndex("torigin");
+	mtProp = PropertyIndex("mergetable");
 	/*
 	 * @-
 	 * Set the optimizer debugging flag

@@ -57,7 +57,6 @@ opt_export  str bpmRef;
 opt_export  str bstreamRef;
 opt_export  str calcRef;
 opt_export  str catalogRef;
-opt_export  str centipedeRef;
 opt_export  str clear_tableRef;
 opt_export  str closeRef;
 opt_export  str columnRef;
@@ -72,10 +71,10 @@ opt_export  str copy_fromRef;
 opt_export  str count_no_nilRef;
 opt_export  str crossRef;
 opt_export  str createRef;
-opt_export  str datacellRef;
 opt_export  str dataflowRef;
 opt_export  str datacyclotronRef;
 opt_export  str dblRef;
+opt_export  str defineRef;
 opt_export  str deleteRef;
 opt_export  str depositRef;
 opt_export  str differenceRef;
@@ -100,7 +99,6 @@ opt_export  str grabRef;
 opt_export  str groupRef;
 opt_export  str subgroupRef;
 opt_export  str subgroupdoneRef;
-opt_export  str groupsRef;
 opt_export  str groupbyRef;
 opt_export  str hashRef;
 opt_export  str identityRef;
@@ -166,7 +164,6 @@ opt_export  str newRef;
 opt_export  str notRef;
 opt_export  str nextRef;
 opt_export  str oidRef;
-opt_export  str octopusRef;
 opt_export  str openRef;
 opt_export  str optimizerRef;
 opt_export  str parametersRef;
@@ -275,4 +272,5 @@ opt_export int tlbProp;			/* any (tail lower bound) */
 opt_export int tubProp;			/* any (tail upper bound) */
 opt_export int horiginProp;		/* original oid source */
 opt_export int toriginProp;		/* original oid source */
+opt_export int mtProp;			/* enclosing merge table (id) */
 #endif
