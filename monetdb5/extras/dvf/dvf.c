@@ -437,6 +437,13 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 	}
 	
+	mb->profiler = (ProfPtr) GDKrealloc(mb->profiler, (mb->ssize ) * sizeof(ProfRecord));
+	
+	for(; i < mb->stop; i++)
+	{
+		mb->profiler[i].trace = TRUE;
+	}
+	
 	msg = msg;
 	/* run rest of the plan */
 	msg = runMALsequence(cntxt, mb, startpc+1, mb->stop, stk_new, stk_new, mb->stmt[startpc]);
