@@ -51,7 +51,7 @@ jgraph* initJGraph(void){
 	return jg; 
 }
 
-void addJGnode(int *vid, jgraph *jg, void *data, int subjgId){
+void addJGnode(int *vid, jgraph *jg, void *data, int subjgId, JNodeT t){
 
 	jgnode *node = (jgnode *) malloc(sizeof(jgnode)); 
 	node->vid = jg->nNode; 
@@ -62,14 +62,20 @@ void addJGnode(int *vid, jgraph *jg, void *data, int subjgId){
 	node->data = data; 
 	node->subjgId = subjgId; 
 	node->patternId = -1; 
-
+	node->ijpatternId = -1;
+	node->type = t;
 	
 	jg->lstnodes[jg->nNode] = node; 
 	*vid = jg->nNode; 	//return node id; 
 	jg->nNode++;
 }
 
-static void adddirectedJGedge(int from, int to, operator_type op, jgraph *jg, void *data, JP jp){
+void setNodeType(jgnode *node, JNodeT t){
+	node->type = t; 
+}
+
+
+void adddirectedJGedge(int from, int to, operator_type op, jgraph *jg, void *data, JP jp){
 	jgnode *fromnode;
 	jgedge *edge;
 		
@@ -199,7 +205,7 @@ void buildExampleJGraph(void){
 	jgraph *jg = initJGraph(); 
 
 	for (i = 0; i < 5; i++){
-		addJGnode(&tmpid, jg, NULL, 0); 
+		addJGnode(&tmpid, jg, NULL, 0, JN_REQUIRED); 
 	}
 	addJGedge(0, 1, op_join, jg, NULL, JP_NAV); 
 	addJGedge(0, 3, op_join, jg, NULL, JP_NAV); 

@@ -7255,7 +7255,7 @@ static sql_rel *
 _rdf_rel_optimizer(mvc *sql, sql_rel *rel, int level) 
 {
 
-	int changes = 0;
+	int changes = 0, e_changes = 0;
 	global_props gp; 
 
 	memset(&gp, 0, sizeof(global_props));
@@ -7286,6 +7286,15 @@ _rdf_rel_optimizer(mvc *sql, sql_rel *rel, int level)
 		rel = rewrite(sql, rel, &rel_project_cse, &changes);
 
 	
+	if (gp.cnt[op_select]) {
+		/* only once */
+		if (level <= 0)
+			rel = rewrite(sql, rel, &rel_merge_rse, &changes); 
+
+		rel = rewrite_topdown(sql, rel, &rel_push_select_down, &changes); 
+		rel = rewrite(sql, rel, &rel_remove_empty_select, &e_changes); 
+	}
+
 	if (gp.cnt[op_project])
 		rel = rewrite_topdown(sql, rel, &rel_push_project_down_union, &changes);
 

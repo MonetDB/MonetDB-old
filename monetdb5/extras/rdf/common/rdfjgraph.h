@@ -44,6 +44,12 @@ typedef enum JoinPredicate {			//Join predicate
 	JP_O, 
 	JP_SO				//Join on both S and O
 } JP; 
+
+typedef enum JNodeType {
+	JN_REQUIRED, 
+	JN_OPTIONAL			
+} JNodeT; 			
+
 typedef struct jgedge {
 	int from; 	
 	int to; 
@@ -66,6 +72,9 @@ typedef struct jgnode {
 					//Currently, it should be sql_rel of op_select or op_basetable
 	int subjgId;
 	int patternId; 			//For star pattern
+	int ijpatternId; 		//Id of inner join subgraph for nodes connected 
+					//only by inner join in the star pattern
+	JNodeT type;			//This node can be optional, or required in the pattern
 } jgnode; 
 
 typedef struct jgraph{
@@ -81,13 +90,19 @@ rdf_export
 void freeJGraph(jgraph *jg);		//Free join graph
 
 rdf_export
-void addJGnode(int *vid, jgraph *jg, void *data, int subjgId); 
+void addJGnode(int *vid, jgraph *jg, void *data, int subjgId, JNodeT type); 
 
 rdf_export 
 void addJGedge(int from, int to, operator_type op, jgraph *jg, void *data, JP jp);
 
+rdf_export
+void adddirectedJGedge(int from, int to, operator_type op, jgraph *jg, void *data, JP jp);
+
 rdf_export 
 void update_edge_jp(jgraph *jg, int from, int to, JP jp);
+
+rdf_export
+void setNodeType(jgnode *node, JNodeT type); 
 
 rdf_export
 jgedge* get_edge_jp(jgraph *jg, int from, int to);

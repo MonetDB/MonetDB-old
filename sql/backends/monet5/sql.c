@@ -132,15 +132,16 @@ sql_symbol2relation(mvc *c, symbol *sym)
 		if (c->emode == m_sparql){
 			rel_print(c,r, 0); 
 			rdf_rel_optimizer(c, r); 
-			//rel_print(c,r, 0);
+			rel_print(c,r, 0);
 			if (1){
 			buildJoinGraph(c,r,0); 
-			//rel_print(c,r,0); 
+			rel_print(c,r,0); 
 			c->emode = m_normal;
 			//c->emod = mod_explain;
 			}
 		}
 
+		if (1){
 		r = rel_optimizer(c, r);
 
 		r = rel_distribute(c, r);
@@ -148,6 +149,7 @@ sql_symbol2relation(mvc *c, symbol *sym)
 			c->point_query = 1;
 
 		rel_print(c,r,0); 
+		}
 	}
 	return r;
 }

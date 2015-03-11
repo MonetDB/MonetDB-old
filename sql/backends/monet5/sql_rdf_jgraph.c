@@ -321,7 +321,7 @@ void printRel_JGraph(jgraph *jg, mvc *sql){
 	for (i = 0; i  < jg->nNode; i++){
 		tmpnode = jg->lstnodes[i]; 
 		//printf("Node %d: ", i); 
-		sprintf(tmp, "Node %d: [Pattern: %d] ", i, tmpnode->patternId); 
+		sprintf(tmp, "Node %d: [Pattern: %d] [Type: %d] ", i, tmpnode->patternId, tmpnode->type); 
 		//mnstr_printf(sql->scanner.ws, "Node %d: ", i); 
 		exps_print_ext(sql, ((sql_rel *) tmpnode->data)->exps, 0, tmp); 
 		tmpedge = tmpnode->first; 
@@ -352,8 +352,10 @@ void addRelationsToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg
 	int tmpvid =-1; 
 
 	switch (rel->op) {
-		case op_left:
 		case op_right:
+			assert(0);	//This case is not handled yet
+			break;
+		case op_left:
 		case op_join:
 			if (rel->op == op_left || rel->op == op_right) printf("[Outter join]\n");
 			else printf("[join]\n"); 
@@ -372,7 +374,7 @@ void addRelationsToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg
 			 printf("[select]\n");
 			if (is_basic_pattern(rel)){
 				printf("Found a basic pattern\n");
-				addJGnode(&tmpvid, jg, (sql_rel *) rel, *subjgId); 
+				addJGnode(&tmpvid, jg, (sql_rel *) rel, *subjgId, JN_REQUIRED); 
 			}
 			else{	//This is the connect to a new join sg
 				addRelationsToJG(c, rel->l, depth+1, jg, 1, subjgId);
@@ -380,7 +382,7 @@ void addRelationsToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg
 			break; 
 		case op_basetable:
 			printf("[Base table]\n");		
-			addJGnode(&tmpvid, jg, (sql_rel *) rel, *subjgId);
+			addJGnode(&tmpvid, jg, (sql_rel *) rel, *subjgId, JN_REQUIRED);
 			break;
 		default:
 			printf("[%s]\n", op2string(rel->op)); 
@@ -589,7 +591,15 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect){
 					JP tmpjp = JP_NAV; 
 					get_jp(l->name, r->name, &tmpjp); 
 					printf("Join predicate = %d\n", tmpjp); 
-					addJGedge(from, to, rel->op, jg, rel, tmpjp);
+					if (rel->op == op_join) addJGedge(from, to, rel->op, jg, rel, tmpjp);
+					if (rel->op == op_left){ 
+						adddirectedJGedge(from, to, op_left, jg, rel, tmpjp);
+						//adddirectedJGedge(to, from, op_right, jg, rel, tmpjp);
+					}
+					if (rel->op == op_right){ 
+						adddirectedJGedge(from, to, op_right, jg, rel, tmpjp);
+						adddirectedJGedge(to, from, op_left, jg, rel, tmpjp);
+					}
 					isConnect[from][to] = 1;  
 				}
 				else{
@@ -632,8 +642,10 @@ void addJoinEdgesToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg
 	//int tmpvid =-1; 
 
 	switch (rel->op) {
-		case op_left:
 		case op_right:
+			assert(0);	//This case is not handled yet
+			break;
+		case op_left:
 		case op_join:
 			if (new_subjg){ 	//The new subgraph flag is set
 				*subjgId = *subjgId + 1; 
@@ -744,7 +756,7 @@ void freeMatrix(int num, char **m){
 }
 
 static 
-void _detect_star_pattern(jgraph *jg, jgnode *node, int pId){
+void _detect_star_pattern(jgraph *jg, jgnode *node, int pId, int _optm){
 	//Go through all edges of the node
 	//If the edge has join predicate JP_S
 	//and the to_node does not belong to
@@ -753,11 +765,27 @@ void _detect_star_pattern(jgraph *jg, jgnode *node, int pId){
 	tmpedge = node->first; 
 	while (tmpedge != NULL){
 		if (tmpedge->jp == JP_S){
+			int optm = _optm; 
+			int tonode_ijpatternId = node->ijpatternId;
 			jgnode *tonode = jg->lstnodes[tmpedge->to]; 
+
+			if (tmpedge->op == op_left){ //left outer join
+				optm = 1;
+				tonode_ijpatternId++;
+			}
+			else if (tmpedge->op == op_right){
+				assert(0); //Have not handle this case
+			}
+
 			if (tonode->patternId == -1){
 				tonode->patternId = pId; 
-				_detect_star_pattern(jg, tonode, pId); 
-			} 
+				tonode->ijpatternId = tonode_ijpatternId;
+
+				if (optm == 1) setNodeType(tonode, JN_OPTIONAL);
+
+				_detect_star_pattern(jg, tonode, pId, optm); 
+			}
+
 		}
 		tmpedge = tmpedge->next; 
 	}
@@ -1392,21 +1420,183 @@ sql_rel *connect_sp_select_and_mv_prop(mvc *c, sql_rel *rel_wo_mv, mvPropRel *mv
 }
 
 /*
+ * Input: 
+ * - A sub-join graph (jsg) that all nodes are connected by using inner join
+ * - The table (tId) that the node belongs to has been identified 
+ *   (The table corresponding to the star pattern is known)
+ * */
+static
+sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int nnode){
+
+	sql_rel *rel = NULL;
+	str tblname; 
+	oid tblnameoid;
+	str atblname = NULL; 		//alias for table of sp
+	str asubjcolname = NULL; 	//alias for subject column of sp table
+	char tmp[50]; 
+	list *trans_select_exps = NULL; 	//Store the exps in op_select
+	list *trans_table_exps = NULL; 		//Store the list of column for basetable in op_select
+	sql_rel *rel_basetbl = NULL; 
+	sql_rel *rel_wo_mv = NULL;
+	sql_allocator *sa = c->sa;
+	int num_mv_col = 0;
+	int i; 
+
+	mvPropRel *mvPropRels = init_mvPropRelSet(nnode); 
+
+	num_mv_col = 0;
+
+	trans_select_exps = new_exp_list(sa);
+	trans_table_exps = new_exp_list(sa); 
+
+	printf("Get real expressions from tableId %d\n", tId);
+
+	tblnameoid = global_csset->items[tId]->tblname;
+
+	tblname = (str) GDKmalloc(sizeof(char) * 100); 
+
+	getTblSQLname(tblname, tId, 0,  tblnameoid, global_mapi, global_mbat);
+
+	printf("  [Name of the table  %s]", tblname);  
+	
+	
+	for (i = 0; i < nnode; i++){
+		sql_rel *tmprel = (sql_rel*) (jg->lstnodes[jsg[i]]->data);
+		int colIdx; 
+		int isMVcol = 0; 
+		list *tmpexps = NULL; 
+		str prop; 
+		oid tmpPropId;
+
+		assert(tmprel->op == op_select);
+		assert(((sql_rel*)tmprel->l)->op == op_basetable); 
+
+		tmpexps = tmprel->exps;
+
+		if (tmpexps) get_predicate_from_exps(c, tmpexps, &prop);
+
+		//After having prop, get the corresponding column name
+
+		TKNRstringToOid(&tmpPropId, &prop);
+
+		colIdx = getColIdx_from_oid(tId, global_csset, tmpPropId);
+
+		//Check whether the column is multi-valued prop
+		isMVcol = isMVCol(tId, colIdx, global_csset);
+
+		if (isMVcol == 0)  
+			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname); 
+		else{
+			printf("Table %d, column %d is multi-valued prop\n", tId, colIdx);
+			assert (mvPropRels[i].mvrel == NULL); 
+			tranforms_mvprop_exps(c, tmprel, &(mvPropRels[i]), tId, tblnameoid, colIdx, tmpPropId, isMVcol);
+			num_mv_col++;
+
+			//rel_print(c, mvPropRels[i].mvrel, 0);
+			//rel_print(c, mvPropRels[i].mvrel, 0);
+			//rel_print(c, mvPropRels[i].mvrel, 0);
+			//rel_print(c, mvPropRels[i].mvrel, 0);
+		}
+	}
+	
+	sprintf(tmp, "[Real Pattern] after grouping: "); 
+	exps_print_ext(c, trans_select_exps, 0, tmp);
+	sprintf(tmp, "  Base table expression: \n"); 
+	exps_print_ext(c, trans_table_exps, 0, tmp);	
+
+
+	rel_basetbl = rel_basetable(c, get_rdf_table(c,tblname), tblname); 
+
+	rel_basetbl->exps = trans_table_exps;
+	
+	rel_wo_mv = rel_select_copy(c->sa, rel_basetbl, trans_select_exps); 
+
+	
+	if (num_mv_col > 0){
+		rel = connect_sp_select_and_mv_prop(c, rel_wo_mv, mvPropRels, tblname, atblname, asubjcolname, nnode); 
+
+	}
+	else{
+		rel = rel_wo_mv; 
+	}
+
+	rel_print(c, rel, 0); 
+	//GDKfree(tblname); 
+
+	//TODO: Handle other cases. By now, we only handle 
+	//the case where each sql_rel is a op_select. 
+
+	list_destroy(trans_select_exps);
+
+	if (0) free_mvPropRelSet(mvPropRels, nnode);
+
+	return rel; 
+
+}
+
+/*
+ * Get inner-join groups from 
+ * nodes in a star pattern
+ * */
+
+static
+int** get_inner_join_groups_in_sp_group(jgraph *jg, int* group, int nnode, int *nijgroup, int **nnodes_per_ijgroup){
+
+	int max_ijId = 0;	//max inner join pattern Id
+	int **ijgroup;
+	int *idx;
+	int i; 
+
+	for (i = 0; i < nnode; i++){
+		if (max_ijId < (jg->lstnodes[group[i]])->ijpatternId)
+			max_ijId = (jg->lstnodes[group[i]])->ijpatternId;
+	}
+
+	ijgroup = (int **) malloc(sizeof (int *) * (max_ijId + 1));
+	*nnodes_per_ijgroup = (int *) malloc(sizeof(int) * (max_ijId + 1));
+	idx = (int *) malloc(sizeof(int) * (max_ijId + 1));
+	
+	for (i = 0; i < (max_ijId + 1); i++){
+		(*nnodes_per_ijgroup)[i] = 0; 
+		idx[i] = 0;
+
+	}
+
+	for (i = 0; i < nnode; i++){
+		jgnode *node = jg->lstnodes[group[i]];
+		(*nnodes_per_ijgroup)[node->ijpatternId]++;
+
+	}
+	for (i = 0; i < (max_ijId + 1); i++){
+		ijgroup[i] = (int *) malloc(sizeof(int) * (*nnodes_per_ijgroup)[i]); 		
+	}
+
+	for (i = 0; i < nnode; i++){
+		int groupId = (jg->lstnodes[group[i]])->ijpatternId;
+		ijgroup[groupId][idx[groupId]] = group[i];
+		idx[groupId]++;
+	}
+	
+	*nijgroup = (max_ijId + 1); 
+
+	free(idx);
+
+	return ijgroup; 
+}
+
+/*
  * Create a select sql_rel from a star pattern
  * */
 
 static 	
 sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId){
-	sql_rel *rel_wo_mv = NULL, *rel = NULL; 
-	sql_rel *rel_basetbl = NULL; 
-	int i, tblIdx; 
+	sql_rel *rel = NULL; 
+	int i, j, tblIdx; 
 	char is_all_select = 1; 
 	char is_only_basetable = 1;
-	sql_allocator *sa = c->sa;
 	spProps *spprops = NULL; 
 	int *tmptbId = NULL; 
 	int num_match_tbl = 0;
-	int num_mv_col = 0;
 
 
 	//This transformed exps list contain exps list from op_select
@@ -1450,104 +1640,36 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 		printf("Number of matching table is: %d\n", num_match_tbl);
 		
 		for (tblIdx = 0; tblIdx < num_match_tbl; tblIdx++){
-			str tblname; 
-			oid tblnameoid;
-			str atblname = NULL; 		//alias for table of sp
-			str asubjcolname = NULL; 	//alias for subject column of sp table
-			char tmp[50]; 
 			int tId = tmptbId[tblIdx];
-			list *trans_select_exps = NULL; 	//Store the exps in op_select
-			list *trans_table_exps = NULL; 		//Store the list of column for basetable in op_select
-			
-			mvPropRel *mvPropRels = init_mvPropRelSet(nnode); 
+			int *nnodes_per_ijgroup; 
+			int nijgroup = 0;
+			int **ijgroup; 
 
-			num_mv_col = 0;
+			ijgroup = get_inner_join_groups_in_sp_group(jg, group, nnode, &nijgroup, &nnodes_per_ijgroup);				
 
-			trans_select_exps = new_exp_list(sa);
-			trans_table_exps = new_exp_list(sa); 
-
-			printf("Get real expressions from tableId %d\n", tId);
-
-			tblnameoid = global_csset->items[tId]->tblname;
-
-			tblname = (str) GDKmalloc(sizeof(char) * 100); 
-
-			getTblSQLname(tblname, tId, 0,  tblnameoid, global_mapi, global_mbat);
-
-			printf("  [Name of the table  %s]", tblname);  
-			
-			
-			for (i = 0; i < nnode; i++){
-				sql_rel *tmprel = (sql_rel*) (jg->lstnodes[group[i]]->data);
-				int colIdx; 
-				int isMVcol = 0; 
-				list *tmpexps = NULL; 
-				str prop; 
-				oid tmpPropId;
-
-				assert(tmprel->op == op_select);
-				assert(((sql_rel*)tmprel->l)->op == op_basetable); 
-
-				tmpexps = tmprel->exps;
-
-				if (tmpexps) get_predicate_from_exps(c, tmpexps, &prop);
-
-				//After having prop, get the corresponding column name
-
-				TKNRstringToOid(&tmpPropId, &prop);
-
-				colIdx = getColIdx_from_oid(tId, global_csset, tmpPropId);
-
-				//Check whether the column is multi-valued prop
-				isMVcol = isMVCol(tId, colIdx, global_csset);
-
-				if (isMVcol == 0)  
-					tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname); 
-				else{
-					printf("Table %d, column %d is multi-valued prop\n", tId, colIdx);
-					assert (mvPropRels[i].mvrel == NULL); 
-					tranforms_mvprop_exps(c, tmprel, &(mvPropRels[i]), tId, tblnameoid, colIdx, tmpPropId, isMVcol);
-					num_mv_col++;
-
-					//rel_print(c, mvPropRels[i].mvrel, 0);
-					//rel_print(c, mvPropRels[i].mvrel, 0);
-					//rel_print(c, mvPropRels[i].mvrel, 0);
-					//rel_print(c, mvPropRels[i].mvrel, 0);
+			printf("Number of inner join group is: %d\n", nijgroup);
+			for (i = 0; i < nijgroup; i++){
+				printf("Group %d: ", i);
+				for (j = 0; j < nnodes_per_ijgroup[i]; j++){
+					printf(" %d",ijgroup[i][j]);
 				}
-			}
-			
-			sprintf(tmp, "[Real Pattern: %d] after grouping: ", pId); 
-			exps_print_ext(c, trans_select_exps, 0, tmp);
-			sprintf(tmp, "  Base table expression: \n"); 
-			exps_print_ext(c, trans_table_exps, 0, tmp);	
-
-
-			rel_basetbl = rel_basetable(c, get_rdf_table(c,tblname), tblname); 
-
-			rel_basetbl->exps = trans_table_exps;
-			
-			rel_wo_mv = rel_select_copy(c->sa, rel_basetbl, trans_select_exps); 
-
-			
-			if (num_mv_col > 0){
-				rel = connect_sp_select_and_mv_prop(c, rel_wo_mv, mvPropRels, tblname, atblname, asubjcolname, nnode); 
-
-			}
-			else{
-				rel = rel_wo_mv; 
+				printf("\n"); 
+				
 			}
 
-			rel_print(c, rel, 0); 
-			//GDKfree(tblname); 
+			rel = transform_inner_join_subjg (c, jg, tId, group, nnode);
 
-			//TODO: Handle other cases. By now, we only handle 
-			//the case where each sql_rel is a op_select. 
 
-			free_sp_props(spprops);
-			list_destroy(trans_select_exps);
+			//Free
+			for (i = 0; i < nijgroup; i++){
+				free(ijgroup[i]);
+			}
 
-			if (0) free_mvPropRelSet(mvPropRels, nnode);
+			free(ijgroup); 
+			free(nnodes_per_ijgroup);
 		}
+
+		free_sp_props(spprops);
 	}
 
 	//Only basetable --> this node has only one pattern from basetable
@@ -1732,13 +1854,18 @@ void detect_star_pattern(jgraph *jg, int *numsp){
 	int i; 
 	int pId = -1; 
 	int num = jg->nNode;
+	int optionalMode = 0; 	
+	//optinal mode will be turn on 
+	//when there is an outer join edge
 
 	for (i = 0; i < num; i++){
 		jgnode *node = jg->lstnodes[i]; 
 		if (node->patternId == -1){
 			pId++;
 			node->patternId = pId; 
-			_detect_star_pattern(jg, node, pId); 	
+			node->ijpatternId = 0; 
+			optionalMode = 0;
+			_detect_star_pattern(jg, node, pId, optionalMode); 	
 		}
 	}
 

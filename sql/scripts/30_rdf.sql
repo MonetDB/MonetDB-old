@@ -64,3 +64,9 @@ create function rdf_idtostr(id oid)
 	
 create function rdf_strtoid(urlstr string)
 	returns oid external name sql.rdfstrtoid;
+
+create function tkzr_strtoid(urlstr string) 
+	returns oid external name tokenizer.locate;	
+
+create function tkzr_idtostr(id oid) 
+	returns string external name tokenizer.take;	
