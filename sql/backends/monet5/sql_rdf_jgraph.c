@@ -716,7 +716,7 @@ void connect_rel_with_sprel(sql_rel *rel, sql_rel *firstsp){
  * Left is the
  */
 static 
-void connect_sprels(int numsp, sql_rel **lstRels, sql_rel **lstEdgeRels){
+void connect_groups(int numsp, sql_rel **lstRels, sql_rel **lstEdgeRels){
 	
 	int i; 
 	
@@ -1534,6 +1534,110 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 
 }
 
+static
+void tranforms_join_exps(mvc *c, sql_rel *r, list *sp_edge_exps, int is_outer_join){
+
+	node *en; 
+	list *tmp_exps = NULL; 
+
+	tmp_exps = r->exps;
+	for (en = tmp_exps->h; en; en = en->next){
+		sql_exp *tmpexp = (sql_exp *) en->data;
+		if(tmpexp->type == e_cmp){
+			//Check and put to the final
+			//experssion list if the exp is not the comparison 
+			//between .s = .s since this compare should belong to the
+			//same graph pattern
+			sql_exp *l; 
+			sql_exp *r; 
+			JP tmpjp; 
+
+			l = tmpexp->l; 
+			r = tmpexp->r; 
+			assert(l->type == e_column);
+			assert(r->type == e_column); 
+
+			get_jp(l->name, r->name, &tmpjp); 
+			
+			if (tmpjp != JP_S || is_outer_join){
+				sql_exp *m_exp = exp_copy(c->sa, tmpexp);
+				//append this exp to list
+				append(sp_edge_exps, m_exp);
+			}
+		}
+		else{	// rarely happen, for example, [ tinyint "1" ]
+			sql_exp *m_exp = exp_copy(c->sa, tmpexp);
+			//append this exp to list
+			append(sp_edge_exps, m_exp);
+		}
+	
+	}
+}
+
+/*
+ * Create edges between star pattern 
+ * (or between inner join groups) in order to replace
+ * edges connecting each pair of nodes coming from 
+ * different star pattern (or inner join group).
+ * E.g., starpattern0: Node 0, 1
+ *       starpattern1: Node 2, 3, 4
+ *       starpattern2: Node 5,6 
+ * An edge between sp0 and sp1 will be created by combining edge between
+ * 0,2  0,3   0,4    1,2   1,3   1,4. This edge is an join where left is sp0, right is sp1 and
+ * expression is the combination of expression from these edges.
+ * */
+static
+sql_rel *_group_edge_between_two_groups(mvc *c, jgraph *jg, int pId, int *group1, int nnode1, 
+					int *group2, int nnode2, sql_rel *left, sql_rel *right, int force_no_ij){
+	int i, j; 
+	sql_rel *rel_edge = NULL;
+	list *sp_edge_exps = NULL;
+
+	operator_type op = op_join;
+
+	assert(left);
+	assert(right); 
+	
+	sp_edge_exps = new_exp_list(c->sa);
+	printf("Create edge between pattern %d and %d\n", pId, (pId + 1)); 
+	for (i = 0; i < nnode1; i++){
+		for (j = 0; j < nnode2; j++){
+			//Get the edge between group1[i], group2[j]
+			char tmp[50];
+			jgedge *edge = get_edge_jp(jg, group1[i], group2[j]);
+			if (edge) {	
+				sql_rel *tmpjoin = (sql_rel*) edge->data; 
+
+				if (force_no_ij && tmpjoin->op == op_join) assert(0); 
+
+				sprintf(tmp, "Expression of edge [%d,%d] \n", group1[i], group2[j]);
+				exps_print_ext(c, tmpjoin->exps, 0, tmp);
+				if (force_no_ij) tranforms_join_exps(c, tmpjoin,sp_edge_exps, 1);
+				else tranforms_join_exps(c, tmpjoin,sp_edge_exps,0);
+				exps_print_ext(c, sp_edge_exps, 0, "Update expression:");
+
+				if (tmpjoin->op != op_join) //May be op_left, op_right	
+					op = tmpjoin->op;
+					//TODO: Need to recheck this since not all edges 
+					//between two pattern can be outter joins.
+
+			} else {
+				printf("No edge between  [%d,%d] \n", group1[i], group2[j]);
+			}
+
+
+		}
+	}
+	
+	printf("Expression for join between pattern %d and %d\n", pId, (pId + 1));
+	exps_print_ext(c, sp_edge_exps, 0, "Exp:");
+
+	rel_edge = rdf_rel_join(c->sa, left, right, sp_edge_exps, op);
+
+	return rel_edge; 
+}
+
+
 /*
  * Get inner-join groups from 
  * nodes in a star pattern
@@ -1644,10 +1748,13 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 			int *nnodes_per_ijgroup; 
 			int nijgroup = 0;
 			int **ijgroup; 
+			sql_rel **ijrels;    //rel for inner join groups
+			sql_rel **edge_ijrels;  //sql_rel connecting each pair of ijrels
 
 			ijgroup = get_inner_join_groups_in_sp_group(jg, group, nnode, &nijgroup, &nnodes_per_ijgroup);				
 
 			printf("Number of inner join group is: %d\n", nijgroup);
+
 			for (i = 0; i < nijgroup; i++){
 				printf("Group %d: ", i);
 				for (j = 0; j < nnodes_per_ijgroup[i]; j++){
@@ -1657,7 +1764,30 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 				
 			}
 
-			rel = transform_inner_join_subjg (c, jg, tId, group, nnode);
+			ijrels = (sql_rel **) malloc(sizeof(sql_rel*) * nijgroup);
+			edge_ijrels = (sql_rel **) malloc(sizeof(sql_rel*) * (nijgroup - 1));
+			
+			for (i = 0; i < nijgroup; i++){
+				ijrels[i] = transform_inner_join_subjg (c, jg, tId, ijgroup[i], nnodes_per_ijgroup[i]);
+			}
+
+			if (nijgroup > 1){
+				//Connect these ijrels by outer joins
+				for (i = 0; i < (nijgroup - 1); i++){
+					edge_ijrels[i] = _group_edge_between_two_groups(c, jg, i, ijgroup[i], nnodes_per_ijgroup[i], 
+								ijgroup[i+1], nnodes_per_ijgroup[i+1], ijrels[i], ijrels[i+1], 1);
+				}
+				connect_groups(nijgroup, ijrels, edge_ijrels);
+
+				rel = edge_ijrels[0];	
+			}
+			else{	//nijgroup = 1
+				rel = ijrels[0]; 
+			}
+			
+					
+
+			//rel = transform_inner_join_subjg (c, jg, tId, group, nnode);
 
 
 			//Free
@@ -1680,104 +1810,6 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 	
 	return rel; 
 }
-
-static
-void tranforms_join_exps(mvc *c, sql_rel *r, list *sp_edge_exps){
-
-	node *en; 
-	list *tmp_exps = NULL; 
-
-	tmp_exps = r->exps;
-	for (en = tmp_exps->h; en; en = en->next){
-		sql_exp *tmpexp = (sql_exp *) en->data;
-		if(tmpexp->type == e_cmp){
-			//Check and put to the final
-			//experssion list if the exp is not the comparison 
-			//between .s = .s since this compare should belong to the
-			//same graph pattern
-			sql_exp *l; 
-			sql_exp *r; 
-			JP tmpjp; 
-
-			l = tmpexp->l; 
-			r = tmpexp->r; 
-			assert(l->type == e_column);
-			assert(r->type == e_column); 
-
-			get_jp(l->name, r->name, &tmpjp); 
-			
-			if (tmpjp != JP_S){
-				sql_exp *m_exp = exp_copy(c->sa, tmpexp);
-				//append this exp to list
-				append(sp_edge_exps, m_exp);
-			}
-		}
-		else{	// rarely happen, for example, [ tinyint "1" ]
-			sql_exp *m_exp = exp_copy(c->sa, tmpexp);
-			//append this exp to list
-			append(sp_edge_exps, m_exp);
-		}
-	
-	}
-}
-
-/*
- * Create edges between star pattern in order to replace
- * edges connecting each pair of nodes coming from 
- * different star pattern.
- * E.g., starpattern0: Node 0, 1
- *       starpattern1: Node 2, 3, 4
- *       starpattern2: Node 5,6 
- * An edge between sp0 and sp1 will be created by combining edge between
- * 0,2  0,3   0,4    1,2   1,3   1,4. This edge is an join where left is sp0, right is sp1 and
- * expression is the combination of expression from these edges.
- * */
-static
-sql_rel *_group_edge_between_star_pattern(mvc *c, jgraph *jg, int pId, int *group1, int nnode1, 
-					int *group2, int nnode2, sql_rel *left, sql_rel *right){
-	int i, j; 
-	sql_rel *rel_edge = NULL;
-	list *sp_edge_exps = NULL;
-
-	operator_type op = op_join;
-
-	assert(left);
-	assert(right); 
-	
-	sp_edge_exps = new_exp_list(c->sa);
-	printf("Create edge between pattern %d and %d\n", pId, (pId + 1)); 
-	for (i = 0; i < nnode1; i++){
-		for (j = 0; j < nnode2; j++){
-			//Get the edge between group1[i], group2[j]
-			char tmp[50];
-			jgedge *edge = get_edge_jp(jg, group1[i], group2[j]);
-			if (edge) {	
-				sql_rel *tmpjoin = (sql_rel*) edge->data; 
-				sprintf(tmp, "Expression of edge [%d,%d] \n", group1[i], group2[j]);
-				exps_print_ext(c, tmpjoin->exps, 0, tmp);
-				tranforms_join_exps(c, tmpjoin,sp_edge_exps);
-
-				if (tmpjoin->op != op_join) //May be op_left, op_right	
-					op = tmpjoin->op;
-					//TODO: Need to recheck this since not all edges 
-					//between two pattern can be outter joins.
-
-			} else {
-				printf("No edge between  [%d,%d] \n", group1[i], group2[j]);
-			}
-
-
-		}
-	}
-	
-	printf("Expression for join between pattern %d and %d\n", pId, (pId + 1));
-	exps_print_ext(c, sp_edge_exps, 0, "Exp:");
-
-	rel_edge = rdf_rel_join(c->sa, left, right, sp_edge_exps, op);
-
-	return rel_edge; 
-}
-
 
 static 
 void group_star_pattern(mvc *c, jgraph *jg, int numsp, sql_rel** lstRels, sql_rel** lstEdgeRels){
@@ -1829,9 +1861,9 @@ void group_star_pattern(mvc *c, jgraph *jg, int numsp, sql_rel** lstRels, sql_re
 	}
 
 	for (i = 0; i < (numsp-1); i++){
-		lstEdgeRels[i] = _group_edge_between_star_pattern(c, jg, i, group[i], nnode_per_group[i], 
+		lstEdgeRels[i] = _group_edge_between_two_groups(c, jg, i, group[i], nnode_per_group[i], 
 								  group[i+1], nnode_per_group[i+1],
-								  lstRels[i], lstRels[i+1]); 
+								  lstRels[i], lstRels[i+1], 0); 
 	}	
 
 
@@ -1927,7 +1959,7 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 	if (numsp > 1){
 		//Connect to the first edge between sp0 and sp1
 		
-		connect_sprels(numsp, lstRels, lstEdgeRels); 
+		connect_groups(numsp, lstRels, lstEdgeRels); 
 		
 					
 		connect_rel_with_sprel(r, lstEdgeRels[0]); 
