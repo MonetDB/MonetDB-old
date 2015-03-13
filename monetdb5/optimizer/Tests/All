@@ -10,22 +10,16 @@ tst4300
 tst4600
 tst4601
 tst4602
-tst4610
-tst4611
-tst4620
+#tst4610 needs new joinpath 
+#tst4611 ,,
+#tst4620 ,,
 tst4630
-# tst4631 -- uses group.refine
 tst4700
 tst4701
-# tst4730 -- uses group.refine
-tst4800
-tst4801
-tst4820
-tst4900
 
-qep00
-qep01
-qep02
+#qep00 deprecated optimizer
+#qep01 ,,
+#qep02 ,,
 
 cst00
 cst01
@@ -39,23 +33,10 @@ inlineFunction3
 inlineFunction4
 
 reorder00
-# reorder01 -- uses group.new/group.derive
 
-#mapreduce00   has no output, won't run this way
 
-mat00
-mat01
-#mat02
-#mat03
-#mat04
-
-roberto1
-
-rangePush00
-rangePush01
-
-emptyset00
-emptyset01
+#rangePush00 optimizer out of date
+#rangePush01
 
 inline00
 inline01
@@ -74,32 +55,27 @@ inlineCst
 
 mitosis00
 
-joinpath
+manifold2
+
+#joinpath calls for new joinpath optimizer
 leftjoinpath
-groups00
 
 ifthencst
-CXerror1
+#CXerror1 transaction primitives removed
 #the remainder are snippets used in the reference manual
 CMexample
-CRexample
-AEexample
+#CRexample push range optimizer is out of date
 ARexample
 DCexample
 DCexample2
-ESexample
 FTexample
-GCexample
 GCexample01
 CXexample
 JPexample
 Mexample
-SRexample
 
 dataflow
 dataflow3
 dataflow4
 dataflow5
-# common -- uses group.new/group.derive
-common01
 garbage

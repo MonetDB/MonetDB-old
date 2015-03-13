@@ -27,6 +27,9 @@
 #ifdef HAVE_UUID_UUID_H
 # include <uuid/uuid.h>
 #endif
+#ifndef HAVE_UUID
+# include <openssl/rand.h>
+#endif
 
 /**
  * Shallow wrapper around uuid, that comes up with some random pseudo
@@ -47,22 +50,29 @@ generateUUID(void)
 	uuid_unparse(uuid, out);
 #else
 	/* try to do some pseudo interesting stuff, and stash it in the
-	 * format of an UUID to at least return some uniform answer */
+	 * format of a UUID to at least return some uniform answer */
 	char out[37];
-	char *p = out;
+	unsigned char randbuf[16];
 
-	/* generate something like this:
-	 * cefa7a9c-1dd2-11b2-8350-880020adbeef ("%08x-%04x-%04x-%04x-%012x") */
-	p += snprintf(p, 5, "%04x", rand() % 65536);
-	p += snprintf(p, 6, "%04x-", rand() % 65536);
-	p += snprintf(p, 6, "%04x-", rand() % 65536);
-	p += snprintf(p, 6, "%04x-", rand() % 65536);
-	p += snprintf(p, 6, "%04x-", rand() % 65536);
-	p += snprintf(p, 5, "%04x", rand() % 65536);
-	p += snprintf(p, 5, "%04x", rand() % 65536);
-	p += snprintf(p, 5, "%04x", rand() % 65536);
+	if (RAND_bytes(randbuf, 16) >= 0) {
+		snprintf(out, sizeof(out),
+			 "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-"
+			 "%02x%02x%02x%02x%02x%02x",
+			 randbuf[0], randbuf[1], randbuf[2], randbuf[3],
+			 randbuf[4], randbuf[5], randbuf[6], randbuf[7],
+			 randbuf[8], randbuf[9], randbuf[10], randbuf[11],
+			 randbuf[12], randbuf[13], randbuf[14], randbuf[15]);
+	} else {
+		/* generate something like this:
+		 * cefa7a9c-1dd2-11b2-8350-880020adbeef
+		 * ("%08x-%04x-%04x-%04x-%012x") */
+		snprintf(out, sizeof(out),
+			 "%04x%04x-%04x-%04x-%04x-%04x%04x%04x",
+			 rand() % 65536, rand() % 65536,
+			 rand() % 65536, rand() % 65536,
+			 rand() % 65536, rand() % 65536,
+			 rand() % 65536, rand() % 65536);
+	}
 #endif
-	return(strdup(out));
+	return strdup(out);
 }
-
-/* vim:set ts=4 sw=4 noexpandtab: */

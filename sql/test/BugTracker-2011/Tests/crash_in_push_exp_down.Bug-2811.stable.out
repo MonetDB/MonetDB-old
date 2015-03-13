@@ -11,7 +11,7 @@ stdout of test 'crash_in_push_exp_down.Bug-2811` in directory 'sql/test/BugTrack
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.752 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://monetdb.cwi.nl/ for further information
 # Listening for connection requests on mapi:monetdb://alf.ins.cwi.nl:34980/
 # MonetDB/GIS module loaded
@@ -68,9 +68,9 @@ Ready.
 #t0.subj) 
 #INNER JOIN triples h2 ON (h2.pred = 5 AND h2.subj = t0.subj) 
 #INNER JOIN triples h3 ON (h3.pred = 20 AND h3.subj = t0.subj)     
-#INNER JOIN triples
-% .h3,	. # table_name
-% obj,	isnull_not_isnull_value # name
+#INNER JOIN triples i4 ON (i4.pred = 28 AND i4.subj = h2.obj)     
+% .h3,	.L1 # table_name
+% obj,	L1 # name
 % int,	clob # type
 % 1,	0 # length
 #rollback;

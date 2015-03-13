@@ -248,13 +248,15 @@ static disc_message_tap _mero_disc_msg_taps = NULL;
 void
 registerMessageTap(int fd)
 {
-	disc_message_tap h = _mero_disc_msg_taps;
+	disc_message_tap h;
 	/* make sure we never block in the main loop below because we can't
 	 * write to the pipe */
-	fcntl(fd, F_SETFD, O_NONBLOCK);
+	(void) fcntl(fd, F_SETFD, O_NONBLOCK);
 	pthread_mutex_lock(&_mero_remotedb_lock);
+	h = _mero_disc_msg_taps;
 	if (h == NULL) {
 		h = malloc(sizeof(struct _disc_message_tap));
+		_mero_disc_msg_taps = h;
 	} else {
 		for (; h->next != NULL; h = h->next)
 			;
@@ -268,9 +270,9 @@ registerMessageTap(int fd)
 void
 unregisterMessageTap(int fd)
 {
-	disc_message_tap h = _mero_disc_msg_taps;
-	disc_message_tap lasth;
+	disc_message_tap h, lasth;
 	pthread_mutex_lock(&_mero_remotedb_lock);
+	h = _mero_disc_msg_taps;
 	for (lasth = NULL; h != NULL; lasth = h, h = h->next) {
 		if (h->fd == fd) {
 			if (lasth == NULL) {
@@ -294,7 +296,6 @@ discoveryRunner(void *d)
 	socklen_t peer_addr_len;
 	fd_set fds;
 	struct timeval tv;
-	int c;
 	/* avoid first announce, the HELO will cause an announce when it's
 	 * received by ourself */
 	time_t deadline = 1;
@@ -338,6 +339,7 @@ discoveryRunner(void *d)
 				Mfprintf(_mero_discerr, "msab_getStatus error: %s, "
 						"discovery services disabled\n", e);
 				free(e);
+				free(ckv);
 				return;
 			}
 
@@ -367,6 +369,7 @@ discoveryRunner(void *d)
 				snprintf(buf, 512, "ANNC * %s:%u %d",
 						_mero_hostname, (unsigned int)getConfNum(_mero_props, "port"),
 						discttl->ival + 60);
+				/* coverity[string_null] */
 				broadcast(buf);
 			}
 		}
@@ -448,8 +451,9 @@ discoveryRunner(void *d)
 			Mfprintf(_mero_discout, "new neighbour %s (%s)\n", buf + 5, host);
 			/* sleep a random amount of time to avoid an avalanche of
 			 * ANNC messages flooding the network */
-			c = 1 + (int)(2500.0 * (rand() / (RAND_MAX + 1.0)));
-			sleep_ms(c);
+#ifndef STATIC_CODE_ANALYSIS	/* hide rand() from Coverity */
+			sleep_ms(1 + (int)(2500.0 * (rand() / (RAND_MAX + 1.0))));
+#endif
 			/* force an announcement round by dropping the deadline */
 			forceannc = 1;
 			continue;
@@ -508,11 +512,11 @@ discoveryRunner(void *d)
 		Mfprintf(_mero_discerr, "msab_getStatus error: %s, "
 				"discovery services disabled\n", e);
 		free(e);
+		free(ckv);
 		return;
 	}
 
 	/* craft LEAV messages for each db */
-	c = 0;
 	orig = stats;
 	while (stats != NULL) {
 		readProps(ckv, stats->path);
@@ -522,7 +526,6 @@ discoveryRunner(void *d)
 					stats->dbname, _mero_hostname,
 					(unsigned int)getConfNum(_mero_props, "port"));
 			broadcast(buf);
-			c = 1;
 		}
 		freeConfFile(ckv);
 		stats = stats->next;

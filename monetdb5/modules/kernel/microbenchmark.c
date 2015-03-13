@@ -32,19 +32,28 @@
 #include <mal_exception.h>
 #include "microbenchmark.h"
 
+#ifdef STATIC_CODE_ANALYSIS
+#define rand()		0
+#endif
+
 static int
-BATrandom(BAT **bn, oid *base, int *size, int *domain)
+BATrandom(BAT **bn, oid *base, wrd *size, int *domain, int seed)
 {
 	BUN n = (BUN) * size;
 	BAT *b = NULL;
 	BUN p, q;
+
+	if (*size > (wrd)BUN_MAX) {
+		GDKerror("BATrandom: size must not exceed BUN_MAX");
+		return GDK_FAIL;
+	}
 
 	if (*size < 0) {
 		GDKerror("BATrandom: size must not be negative");
 		return GDK_FAIL;
 	}
 
-	b = BATnew(TYPE_void, TYPE_int, n);
+	b = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
 	if (b == NULL)
 		return GDK_FAIL;
 	if (n == 0) {
@@ -63,10 +72,18 @@ BATrandom(BAT **bn, oid *base, int *size, int *domain)
 
 	BATsetcount(b, n);
 	/* create BUNs with random distribution */
+	if (seed != int_nil)
+		srand(seed);
 	if (*domain == int_nil) {
 		BATloop(b, p, q) {
 			*(int *) Tloc(b, p) = rand();
 		}
+#if RAND_MAX < 46340	    /* 46340*46340 = 2147395600 < INT_MAX */
+	} else if (*domain > RAND_MAX + 1) {
+		BATloop(b, p, q) {
+			*(int *) Tloc(b, p) = (rand() * (RAND_MAX + 1) + rand()) % *domain;
+		}
+#endif
 	} else {
 		BATloop(b, p, q) {
 			*(int *) Tloc(b, p) = rand() % *domain;
@@ -87,19 +104,24 @@ BATrandom(BAT **bn, oid *base, int *size, int *domain)
 }
 
 static int
-BATuniform(BAT **bn, oid *base, int *size, int *domain)
+BATuniform(BAT **bn, oid *base, wrd *size, int *domain)
 {
 	BUN n = (BUN) * size, i, r;
 	BAT *b = NULL;
 	BUN firstbun, p, q;
 	int j = 0;
 
+	if (*size > (wrd)BUN_MAX) {
+		GDKerror("BATuniform: size must not exceed BUN_MAX");
+		return GDK_FAIL;
+	}
+
 	if (*size < 0) {
 		GDKerror("BATuniform: size must not be negative");
 		return GDK_FAIL;
 	}
 
-	b = BATnew(TYPE_void, TYPE_int, n);
+	b = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
 	if (b == NULL)
 		return GDK_FAIL;
 	if (n == 0) {
@@ -150,21 +172,31 @@ BATuniform(BAT **bn, oid *base, int *size, int *domain)
 }
 
 static int
-BATskewed(BAT **bn, oid *base, int *size, int *domain, int *skew)
+BATskewed(BAT **bn, oid *base, wrd *size, int *domain, int *skew)
 {
 	BUN n = (BUN) * size, i, r;
 	BAT *b = NULL;
 	BUN firstbun, lastbun, p, q;
 
-	int skewedSize;
+	BUN skewedSize;
 	int skewedDomain;
 
-	if (*size < 0) {
-		GDKerror("BATuniform: size must not be negative");
+	if (*size > (wrd)BUN_MAX) {
+		GDKerror("BATskewed: size must not exceed BUN_MAX = " BUNFMT, BUN_MAX);
 		return GDK_FAIL;
 	}
 
-	b = BATnew(TYPE_void, TYPE_int, n);
+	if (*size < 0) {
+		GDKerror("BATskewed: size must not be negative");
+		return GDK_FAIL;
+	}
+
+	if (*skew > 100 || *skew < 0) {
+		GDKerror("BATskewed: skew must be between 0 and 100");
+		return GDK_FAIL;
+	}
+
+	b = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
 	if (b == NULL)
 		return GDK_FAIL;
 	if (n == 0) {
@@ -184,7 +216,7 @@ BATskewed(BAT **bn, oid *base, int *size, int *domain, int *skew)
 	firstbun = BUNfirst(b);
 	BATsetcount(b, n);
 	/* create BUNs with skewed distribution */
-	skewedSize = ((*skew) * (*size))/100;
+	skewedSize = ((*skew) * n)/100;
 	skewedDomain = ((100-(*skew)) * (*domain))/100;
 
 	lastbun = firstbun + skewedSize;
@@ -230,7 +262,7 @@ BATskewed(BAT **bn, oid *base, int *size, int *domain, int *skew)
 #endif
 
 static int
-BATnormal(BAT **bn, oid *base, int *size, int *domain, int *stddev, int *mean)
+BATnormal(BAT **bn, oid *base, wrd *size, int *domain, int *stddev, int *mean)
 {
 	BUN n = (BUN) * size, i;
 	unsigned int r = (unsigned int) n;
@@ -241,12 +273,17 @@ BATnormal(BAT **bn, oid *base, int *size, int *domain, int *stddev, int *mean)
 	int *itab;
 	flt *ftab, tot = 0.0;
 
+	if (*size > (wrd)BUN_MAX) {
+		GDKerror("BATnormal: size must not exceed BUN_MAX");
+		return GDK_FAIL;
+	}
+
 	if (*size < 0) {
 		GDKerror("BATnormal: size must not be negative");
 		return GDK_FAIL;
 	}
 
-        b = BATnew(TYPE_void, TYPE_int, n);
+	b = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
 	if (b == NULL)
 		return GDK_FAIL;
 	if (n == 0) {
@@ -295,7 +332,7 @@ BATnormal(BAT **bn, oid *base, int *size, int *domain, int *stddev, int *mean)
 
 	/* mix BUNs randomly */
 	for (r = 0, i = 0; i < n; i++) {
-			BUN idx = i + (BUN) ((r += (unsigned int) rand()) % (n - i));
+		BUN idx = i + (BUN) ((r += (unsigned int) rand()) % (n - i));
 		int val;
 
 		p = firstbun + i;
@@ -322,35 +359,41 @@ BATnormal(BAT **bn, oid *base, int *size, int *domain, int *stddev, int *mean)
  */
 
 str
-MBMrandom(int *ret, oid *base, int *size, int *domain){
+MBMrandom(bat *ret, oid *base, wrd *size, int *domain){
+	return MBMrandom_seed ( ret, base, size, domain, &int_nil );
+}
+
+str
+MBMrandom_seed(bat *ret, oid *base, wrd *size, int *domain, const int *seed){
 	BAT *bn = NULL;
 
-	BATrandom(&bn, base, size, domain);
+	BATrandom(&bn, base, size, domain, *seed);
 	if( bn ){
-		if (!(bn->batDirty&2)) bn = BATsetaccess(bn, BAT_READ);
+		if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 		BBPkeepref(*ret= bn->batCacheid);
 	} else throw(MAL, "microbenchmark.random", OPERATION_FAILED);
 	return MAL_SUCCEED;
 }
 
+
 str
-MBMuniform(int *ret, oid *base, int *size, int *domain){
+MBMuniform(bat *ret, oid *base, wrd *size, int *domain){
 	BAT *bn = NULL;
 
 	BATuniform(&bn, base, size, domain);
 	if( bn ){
-		if (!(bn->batDirty&2)) bn = BATsetaccess(bn, BAT_READ);
+		if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 		BBPkeepref(*ret= bn->batCacheid);
 	} else throw(MAL, "microbenchmark.uniform", OPERATION_FAILED);
 	return MAL_SUCCEED;
 }
 
 str
-MBMnormal(int *ret, oid *base, int *size, int *domain, int *stddev, int *mean){
+MBMnormal(bat *ret, oid *base, wrd *size, int *domain, int *stddev, int *mean){
 	BAT *bn = NULL;
 	BATnormal(&bn, base, size, domain, stddev, mean);
 	if( bn ){
-		if (!(bn->batDirty&2)) bn = BATsetaccess(bn, BAT_READ);
+		if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 		BBPkeepref(*ret= bn->batCacheid);
 	} else throw(MAL, "microbenchmark.uniform", OPERATION_FAILED);
 	return MAL_SUCCEED;
@@ -358,7 +401,7 @@ MBMnormal(int *ret, oid *base, int *size, int *domain, int *stddev, int *mean){
 
 
 str
-MBMmix(int *bn, int *batid)
+MBMmix(bat *bn, bat *batid)
 {
 	BUN n, r, i;
 	BUN firstbun, p, q;
@@ -388,12 +431,12 @@ MBMmix(int *bn, int *batid)
 }
 
 str
-MBMskewed(int *ret, oid *base, int *size, int *domain, int *skew){
+MBMskewed(bat *ret, oid *base, wrd *size, int *domain, int *skew){
 	BAT *bn = NULL;
 
 	BATskewed(&bn, base, size, domain, skew);
 	if( bn ){
-		if (!(bn->batDirty&2)) bn = BATsetaccess(bn, BAT_READ);
+		if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 		BBPkeepref(*ret= bn->batCacheid);
 	} else throw(MAL, "microbenchmark,uniform", OPERATION_FAILED);
 	return MAL_SUCCEED;

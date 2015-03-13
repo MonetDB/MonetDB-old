@@ -14,7 +14,7 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2013 MonetDB B.V.
+# Copyright August 2008-2015 MonetDB B.V.
 # All Rights Reserved.
 
 import unittest
@@ -37,6 +37,7 @@ except ImportError:
 import capabilities
 import dbapi20
 import test_pythonize
+import test_monetize
 
 warnings.filterwarnings('error')
 
@@ -45,6 +46,8 @@ TSTDB = os.environ.get('TSTDB', 'demo')
 TSTHOSTNAME = os.environ.get('TSTHOSTNAME', 'localhost')
 TSTUSERNAME = os.environ.get('TSTUSERNAME', 'monetdb')
 TSTPASSWORD = os.environ.get('TSTPASSWORD', 'monetdb')
+TSTHOSTNAME = os.environ.get('MAPIHOST')  # set to this if testing a socket
+
 
 if os.environ.get("TSTDEBUG", "no") == "yes":
     logging.basicConfig(level=logging.DEBUG)
@@ -95,6 +98,7 @@ if __name__ == '__main__':
         Test_Capabilities,
         Test_DBAPI20,
         test_pythonize.TestPythonize,
+        test_monetize.TestMonetize,
     ]
 
     for suite in suites:

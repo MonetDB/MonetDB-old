@@ -75,6 +75,7 @@ prelude(int cnt, bat *subcommit)
 			}
 			if (b) {
 				assert(!isVIEW(b));
+				assert(b->batRole == PERSISTENT);
 				BATcommit(b);
 			}
 		}
@@ -145,8 +146,8 @@ TMcommit(void)
 
 	/* commit with the BBP globally locked */
 	BBPlock("TMcommit");
-	if (prelude(BBPsize, NULL) == 0 && BBPsync(BBPsize, NULL) == 0) {
-		ret = epilogue(BBPsize, NULL);
+	if (prelude(getBBPsize(), NULL) == 0 && BBPsync(getBBPsize(), NULL) == 0) {
+		ret = epilogue(getBBPsize(), NULL);
 	}
 	BBPunlock("TMcommit");
 	return ret;
@@ -247,7 +248,7 @@ TMabort(void)
 	int i;
 
 	BBPlock("TMabort");
-	for (i = 1; i < BBPsize; i++) {
+	for (i = 1; i < getBBPsize(); i++) {
 		if (BBP_status(i) & BBPNEW) {
 			BAT *b = BBPquickdesc(i, FALSE);
 
@@ -259,7 +260,7 @@ TMabort(void)
 			}
 		}
 	}
-	for (i = 1; i < BBPsize; i++) {
+	for (i = 1; i < getBBPsize(); i++) {
 		if (BBP_status(i) & (BBPPERSISTENT | BBPDELETED | BBPSWAPPED)) {
 			BAT *b = BBPquickdesc(i, TRUE);
 

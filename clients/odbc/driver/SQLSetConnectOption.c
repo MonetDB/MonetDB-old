@@ -41,6 +41,15 @@
 #include "ODBCDbc.h"
 #include "ODBCUtil.h"
 
+#ifdef _MSC_VER
+/* can't call them by their real name with Visual Studio 12.0 since we
+ * would then get a warning which we translate to an error during
+ * compilation (also see ODBC.syms) */
+#define SQLSetConnectOption	SQLSetConnectOption_deprecated
+#define SQLSetConnectOptionA	SQLSetConnectOptionA_deprecated
+#define SQLSetConnectOptionW	SQLSetConnectOptionW_deprecated
+#endif
+
 static SQLRETURN
 SQLSetConnectOption_(ODBCDbc *dbc,
 		     SQLUSMALLINT Option,
@@ -59,18 +68,18 @@ SQLSetConnectOption_(ODBCDbc *dbc,
 	case SQL_TXN_ISOLATION:
 		/* 32 bit integer argument */
 		return SQLSetConnectAttr_(dbc, Option,
-					  (SQLPOINTER) (size_t) ValuePtr, 0);
+					  (SQLPOINTER) (uintptr_t) ValuePtr, 0);
 	case SQL_QUIET_MODE:
 		/* 32/64 bit integer argument */
 		return SQLSetConnectAttr_(dbc, Option,
-					  (SQLPOINTER) (size_t) ValuePtr, 0);
+					  (SQLPOINTER) (uintptr_t) ValuePtr, 0);
 
 	case SQL_CURRENT_QUALIFIER:
 	case SQL_OPT_TRACEFILE:
 	case SQL_TRANSLATE_DLL:
 		/* null terminated string argument */
 		return SQLSetConnectAttr_(dbc, Option,
-					  (SQLPOINTER) (size_t) ValuePtr,
+					  (SQLPOINTER) (uintptr_t) ValuePtr,
 					  SQL_NTS);
 
 	default:
@@ -104,7 +113,6 @@ SQLSetConnectOption(SQLHDBC ConnectionHandle,
 	return SQLSetConnectOption_(dbc, Option, ValuePtr);
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLSetConnectOptionA(SQLHDBC ConnectionHandle,
 		     SQLUSMALLINT Option,
@@ -119,7 +127,7 @@ SQLSetConnectOptionW(SQLHDBC ConnectionHandle,
 		     SQLULEN ValuePtr)
 {
 	ODBCDbc *dbc = (ODBCDbc *) ConnectionHandle;
-	SQLPOINTER ptr = (SQLPOINTER) (size_t) ValuePtr;
+	SQLPOINTER ptr = (SQLPOINTER) (uintptr_t) ValuePtr;
 	SQLULEN p;
 	SQLRETURN rc;
 
@@ -138,9 +146,9 @@ SQLSetConnectOptionW(SQLHDBC ConnectionHandle,
 	case SQL_ATTR_CURRENT_CATALOG:
 	case SQL_ATTR_TRACEFILE:
 	case SQL_ATTR_TRANSLATE_LIB:
-		fixWcharIn((SQLPOINTER) (size_t) ValuePtr, SQL_NTS, SQLCHAR,
+		fixWcharIn((SQLPOINTER) (uintptr_t) ValuePtr, SQL_NTS, SQLCHAR,
 			   ptr, addDbcError, dbc, return SQL_ERROR);
-		p = (SQLULEN) (size_t) ptr;
+		p = (SQLULEN) (uintptr_t) ptr;
 		break;
 	default:
 		p = ValuePtr;
@@ -154,4 +162,3 @@ SQLSetConnectOptionW(SQLHDBC ConnectionHandle,
 
 	return rc;
 }
-#endif /* WITH_WCHAR */

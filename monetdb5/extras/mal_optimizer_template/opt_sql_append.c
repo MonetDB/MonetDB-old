@@ -269,7 +269,6 @@ str OPTsql_append(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	lng t,clk= GDKusec();
 	int actions = 0;
 
-	optimizerInit();
 	if( p )
 		removeInstruction(mb, p);
 	OPTDEBUGsql_append mnstr_printf(cntxt->fdout,"=APPLY OPTIMIZER sql_append\n");
@@ -282,8 +281,8 @@ str OPTsql_append(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 			throw(MAL, "optimizer.sql_append", ILLARG_CONSTANTS);
 		}
 		if( stk != 0){
-			modnme= *(str*)getArgReference(stk,p,1);
-			fcnnme= *(str*)getArgReference(stk,p,2);
+			modnme= *getArgReference_str(stk,p,1);
+			fcnnme= *getArgReference_str(stk,p,2);
 		} else {
 			modnme= getArgDefault(mb,p,1);
 			fcnnme= getArgDefault(mb,p,2);
@@ -307,7 +306,7 @@ str OPTsql_append(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	msg= optimizerCheck(cntxt, mb, "optimizer.sql_append", actions, t=(GDKusec() - clk),OPT_CHECK_ALL);
 	OPTDEBUGsql_append {
 		mnstr_printf(cntxt->fdout,"=FINISHED sql_append %d\n",actions);
-		printFunction(cntxt->fdout,mb,0,LIST_MAL_STMT | LIST_MAPI);
+		printFunction(cntxt->fdout,mb,0,LIST_MAL_STMT );
 	}
 	DEBUGoptimizers
 		mnstr_printf(cntxt->fdout,"#opt_reduce: " LLFMT " ms\n",t);

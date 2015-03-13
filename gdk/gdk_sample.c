@@ -18,170 +18,191 @@
  */
 
 /*
- * @a Lefteris Sidirourgos
+ * @a Lefteris Sidirourgos, Hannes Muehleisen
  * @* Low level sample facilities
  *
+ * This sampling implementation generates a sorted set of OIDs by
+ * calling the random number generator, and uses a binary tree to
+ * eliminate duplicates.  The elements of the tree are then used to
+ * create a sorted sample BAT.  This implementation has a logarithmic
+ * complexity that only depends on the sample size.
+ *
+ * There is a pathological case when the sample size is almost the
+ * size of the BAT.  Then, many collisions occur and performance
+ * degrades. To catch this, we switch to antiset semantics when the
+ * sample size is larger than half the BAT size. Then, we generate the
+ * values that should be omitted from the sample.
  */
 
 #include "monetdb_config.h"
 #include "gdk.h"
 #include "gdk_private.h"
 
-#define DRAND ((double)rand()/(double)RAND_MAX)
+#undef BATsample
 
-/*
- * @+ Uniform Sampling.
- *
- * The implementation of the uniform sampling is based on the
- * algorithm A as described in the paper "Faster Methods for Random
- * Sampling" by Jeffrey Scott Vitter. Algorithm A is not the fastest
- * one, but it only makes s calls in function random() and it is
- * simpler than the other more complex and CPU intensive algorithms in
- * the literature.
- *
- * Algorithm A instead of performing one random experiment for each
- * row to decide if it should be included in the sample or not, it
- * skips S rows and includes the S+1 row. The algorithm scans the
- * input relation sequentially and maintains the unique and sort
- * properties. The sample is without replacement.
- */
+#ifdef STATIC_CODE_ANALYSIS
+#define DRAND (0.5)
+#else
+/* the range of rand() is [0..RAND_MAX], i.e. inclusive;
+ * cast first, add later: on Linux RAND_MAX == INT_MAX, so adding 1
+ * will overflow, but INT_MAX does fit in a double */
+#if RAND_MAX < 46340	    /* 46340*46340 = 2147395600 < INT_MAX */
+/* random range is too small, double it */
+#define DRAND ((double)(rand() * (RAND_MAX + 1) + rand()) / ((double) ((RAND_MAX + 1) * (RAND_MAX + 1))))
+#else
+#define DRAND ((double)rand() / ((double)RAND_MAX + 1))
+#endif
+#endif
 
+
+/* this is a straightforward implementation of a binary tree */
+struct oidtreenode {
+	oid o;
+	struct oidtreenode *left;
+	struct oidtreenode *right;
+};
+
+static int
+OIDTreeMaybeInsert(struct oidtreenode *tree, oid o, BUN allocated)
+{
+	struct oidtreenode **nodep;
+
+	if (allocated == 0) {
+		tree->left = tree->right = NULL;
+		tree->o = o;
+		return 1;
+	}
+	nodep = &tree;
+	while (*nodep) {
+		if (o == (*nodep)->o)
+			return 0;
+		if (o < (*nodep)->o)
+			nodep = &(*nodep)->left;
+		else
+			nodep = &(*nodep)->right;
+	}
+	*nodep = &tree[allocated];
+	tree[allocated].left = tree[allocated].right = NULL;
+	tree[allocated].o = o;
+	return 1;
+}
+
+/* inorder traversal, gives us a sorted BAT */
+static void
+OIDTreeToBAT(struct oidtreenode *node, BAT *bat)
+{
+	if (node->left != NULL)
+		OIDTreeToBAT(node->left, bat);
+	((oid *) bat->T->heap.base)[bat->batFirst + bat->batCount++] = node->o;
+	if (node->right != NULL )
+		OIDTreeToBAT(node->right, bat);
+}
+
+/* Antiset traversal, give us all values but the ones in the tree */
+static void
+OIDTreeToBATAntiset(struct oidtreenode *node, BAT *bat, oid start, oid stop)
+{
+	oid noid;
+
+	if (node->left != NULL)
+        	OIDTreeToBATAntiset(node->left, bat, start, node->o);
+	else
+		for (noid = start; noid < node->o; noid++)
+			((oid *) bat->T->heap.base)[bat->batFirst + bat->batCount++] = noid;
+
+        if (node->right != NULL)
+ 		OIDTreeToBATAntiset(node->right, bat, node->o + 1, stop);
+	else
+		for (noid = node->o+1; noid < stop; noid++)
+                        ((oid *) bat->T->heap.base)[bat->batFirst + bat->batCount++] = noid;
+}
+
+/* BATsample implements sampling for void headed BATs */
 BAT *
 BATsample(BAT *b, BUN n)
 {
 	BAT *bn;
-	BUN cnt;
+	BUN cnt, slen;
+	BUN rescnt;
+	struct oidtreenode *tree = NULL;
 
-	BATcheck(b, "BATsample");
-	ERRORcheck(n > BUN_MAX, "BATsample: sample size larger than BUN_MAX\n");
-	ALGODEBUG fprintf(stderr, "#BATsample: sample " BUNFMT " elements.\n", n);
-
-	cnt = BATcount(b);
-	if (cnt <= n) {
-		bn = BATcopy(b, b->htype, b->ttype, TRUE);
-	} else {
-		BUN top = cnt - n;
-		BUN smp = n;
-		BATiter iter = bat_iterator(b);
-		BUN p = BUNfirst(b)-1;
-		bn = BATnew(
-			b->htype==TYPE_void && b->hseqbase!=oid_nil?TYPE_oid:b->htype,
-			b->ttype==TYPE_void && b->tseqbase!=oid_nil?TYPE_oid:b->ttype,
-			n);
-		if (bn == NULL)
-			return NULL;
-		if (n == 0)
-			return bn;
-		while (smp-->1) { /* loop until all but 1 values are sampled */
-			double v = DRAND;
-			double quot = (double)top/(double)cnt;
-			BUN jump = 0;
-			while (quot > v) { /* determine how many positions to jump */
-				jump++;
-				top--;
-				cnt--;
-				quot *= (double)top/(double)cnt;
-			}
-			p += (jump+1);
-			cnt--;
-			bunfastins(bn, BUNhead(iter, p), BUNtail(iter,p));
-		}
-		/* 1 left */
-		p += (BUN) rand() % cnt;
-		bunfastins(bn, BUNhead(iter, p+1), BUNtail(iter,p+1));
-
-		/* property management */
-		bn->hsorted = BAThordered(b);
-		bn->tsorted = BATtordered(b);
-		bn->hrevsorted = BAThrevordered(b);
-		bn->trevsorted = BATtrevordered(b);
-		bn->hdense = FALSE;
-		bn->tdense = FALSE;
-		BATkey(bn, BAThkey(b));
-		BATkey(BATmirror(bn), BATtkey(b));
-		bn->H->seq = b->H->seq;
-		bn->T->seq = b->T->seq;
-		bn->H->nil = b->H->nil;
-		bn->T->nil = b->T->nil;
-		bn->H->nonil = b->H->nonil;
-		bn->T->nonil = b->T->nonil;
-		BATsetcount(bn, n);
-	}
-
-	return bn;
-
-bunins_failed:
-	BBPreclaim(bn);
-	return NULL;
-}
-
-/* BATsample_ implements sampling for void headed BATs */
-BAT *
-BATsample_(BAT *b, BUN n)
-{
-	BAT *bn;
-	BUN cnt;
-
-	BATcheck(b, "BATsample");
+	BATcheck(b, "BATsample", NULL);
 	assert(BAThdense(b));
-	ERRORcheck(n > BUN_MAX, "BATsample: sample size larger than BUN_MAX\n");
-	ALGODEBUG fprintf(stderr, "#BATsample: sample " BUNFMT " elements.\n", n);
+	ERRORcheck(n > BUN_MAX, "BATsample: sample size larger than BUN_MAX\n", NULL);
+	ALGODEBUG
+		fprintf(stderr, "#BATsample: sample " BUNFMT " elements.\n", n);
 
 	cnt = BATcount(b);
 	/* empty sample size */
 	if (n == 0) {
-		bn = BATnew(TYPE_void, TYPE_void, 0);
+		bn = BATnew(TYPE_void, TYPE_void, 0, TRANSIENT);
+		if (bn == NULL) {
+			GDKerror("BATsample: memory allocation error");
+			return NULL;
+		}
 		BATsetcount(bn, 0);
 		BATseqbase(bn, 0);
 		BATseqbase(BATmirror(bn), 0);
 	/* sample size is larger than the input BAT, return all oids */
 	} else if (cnt <= n) {
-		bn = BATnew(TYPE_void, TYPE_void, cnt);
+		bn = BATnew(TYPE_void, TYPE_void, cnt, TRANSIENT);
+		if (bn == NULL) {
+			GDKerror("BATsample: memory allocation error");
+			return NULL;
+		}
 		BATsetcount(bn, cnt);
 		BATseqbase(bn, 0);
 		BATseqbase(BATmirror(bn), b->H->seq);
 	} else {
-		BUN smp = 0;
-		/* we use wrd and not BUN since p may be -1 */
-		wrd top = b->hseqbase + cnt - n;
-		wrd p = ((wrd) b->hseqbase) - 1;
-		oid *o;
-		bn = BATnew(TYPE_void, TYPE_oid, smp);
-		if (bn == NULL) {
+		oid minoid = b->hseqbase;
+		oid maxoid = b->hseqbase + cnt;
+		/* if someone samples more than half of our tree, we
+		 * do the antiset */
+		bit antiset = n > cnt / 2;
+		slen = n;
+		if (antiset)
+			n = cnt - n;
+
+		tree = GDKmalloc(n * sizeof(struct oidtreenode));
+		if (tree == NULL) {
 			GDKerror("#BATsample: memory allocation error");
 			return NULL;
 		}
-		o = (oid *) Tloc(bn, BUNfirst(bn));
-		while (smp < n-1) { /* loop until all but 1 values are sampled */
-			double v = DRAND;
-			double quot = (double)top/(double)cnt;
-			BUN jump = 0;
-			while (quot > v) { /* determine how many positions to jump */
-				jump++;
-				top--;
-				cnt--;
-				quot *= (double)top/(double)cnt;
-			}
-			p += (jump+1);
-			cnt--;
-			o[smp++] = (oid) p;
+		bn = BATnew(TYPE_void, TYPE_oid, slen, TRANSIENT);
+		if (bn == NULL) {
+			GDKfree(tree);
+			GDKerror("#BATsample: memory allocation error");
+			return NULL;
 		}
-		/* 1 left */
-		p += (BUN) rand() % cnt;
-		o[smp] = (oid) p;
+		/* while we do not have enough sample OIDs yet */
+		for (rescnt = 0; rescnt < n; rescnt++) {
+			oid candoid;
+			do {
+				/* generate a new random OID */
+				candoid = (oid) (minoid + DRAND * (maxoid - minoid));
+				/* if that candidate OID was already
+				 * generated, try again */
+			} while (!OIDTreeMaybeInsert(tree, candoid, rescnt));
+		}
+		if (!antiset) {
+			OIDTreeToBAT(tree, bn);
+		} else {
+			OIDTreeToBATAntiset(tree, bn, minoid, maxoid);
+		}
+		GDKfree(tree);
 
-		/* property management */
-		BATsetcount(bn, n);
-		bn->trevsorted = bn->U->count <= 1;
+		BATsetcount(bn, slen);
+		bn->trevsorted = bn->batCount <= 1;
+		bn->tsorted = 1;
 		bn->tkey = 1;
-		bn->tdense = bn->U->count <= 1;
-		if (bn->U->count == 1)
-			bn->tseqbase = * (oid *) Tloc(bn, BUNfirst(bn));
+		bn->tdense = bn->batCount <= 1;
+		if (bn->batCount == 1)
+			bn->tseqbase = *(oid *) Tloc(bn, BUNfirst(bn));
 		bn->hdense = 1;
 		bn->hseqbase = 0;
 		bn->hkey = 1;
-		bn->hrevsorted = bn->U->count <= 1;
+		bn->hrevsorted = bn->batCount <= 1;
+		bn->hsorted = 1;
 	}
-
 	return bn;
 }

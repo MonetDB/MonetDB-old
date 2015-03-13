@@ -26,6 +26,7 @@
 #include "rel_prop.h"
 #include "rel_select.h"
 #include "rel_semantic.h"
+#include "rel_psm.h"
 
 static void
 print_indent(mvc *sql, stream *fout, int depth)
@@ -80,6 +81,28 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, int comma, int alias)
 	if (!e)
 		return;
 	switch(e->type) {
+	case e_psm: {
+		if (e->flag & PSM_SET) {
+			/* todo */
+		} else if (e->flag & PSM_VAR) {
+			/* todo */
+		} else if (e->flag & PSM_RETURN) {
+			mnstr_printf(fout, "return ");
+			exp_print(sql, fout, e->l, depth, 0, 0);
+		} else if (e->flag & PSM_WHILE) {
+			mnstr_printf(fout, "while ");
+			exp_print(sql, fout, e->l, depth, 0, 0);
+			exps_print(sql, fout, e->r, depth, alias, 0);
+		} else if (e->flag & PSM_IF) {
+			mnstr_printf(fout, "if ");
+			exp_print(sql, fout, e->l, depth, 0, 0);
+			exps_print(sql, fout, e->r, depth, alias, 0);
+			if (e->f)
+				exps_print(sql, fout, e->f, depth, alias, 0);
+		} else if (e->flag & PSM_REL) {
+		}
+	 	break;
+	}
 	case e_convert: {
 		char *to_type = sql_subtype_string(&e->tpe);
 		mnstr_printf(fout, "%s[", to_type);
@@ -162,7 +185,7 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, int comma, int alias)
 		} else if (get_cmp(e) == cmp_filter) {
 			sql_subfunc *f = e->f;
 
-			exp_print(sql, fout, e->l, depth+1, 0, 0);
+			exps_print(sql, fout, e->l, depth, alias, 1);
 			if (is_anti(e))
 				mnstr_printf(fout, " !");
 			mnstr_printf(fout, " FILTER %s ", f->func->base.name);
@@ -177,6 +200,8 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, int comma, int alias)
 				mnstr_printf(fout, " ! ");
 			cmp_print(sql, fout, range2rcompare(e->flag) );
 			exp_print(sql, fout, e->f, depth+1, 0, 0);
+			if (e->flag & CMP_SYMMETRIC)
+				mnstr_printf(fout, " SYM ");
 		} else {
 			exp_print(sql, fout, e->l, depth+1, 0, 0);
 			if (is_anti(e))
@@ -241,6 +266,8 @@ op2string(operator_type op)
 		return "project";
 	case op_select: 
 		return "select";
+	case op_apply: 
+		return "apply";
 	case op_join: 
 	case op_left: 
 	case op_right: 
@@ -299,8 +326,11 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs)
 	switch (rel->op) {
 	case op_basetable: {
 		sql_table *t = rel->l;
+		sql_column *c = rel->r;
 		print_indent(sql, fout, depth);
-		if (t->s)
+		if (!t && c) 
+			mnstr_printf(fout, "dict(%s.%s)", c->t->base.name, c->base.name);
+		else if (t->s)
 			mnstr_printf(fout, "%s(%s.%s)", 
 				isStream(t)?"stream":
 				isRemote(t)?"REMOTE":
@@ -318,12 +348,11 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs)
 	case op_table:
 		print_indent(sql, fout, depth);
 		mnstr_printf(fout, "table ");
-		/*
-		if (rel->l)
-			rel_print_(sql, fout, rel->l, depth+1, refs);
-		*/
+
 		if (rel->r)
 			exp_print(sql, fout, rel->r, depth, 1, 0);
+		if (rel->l)
+			rel_print_(sql, fout, rel->l, 0, refs);
 		if (rel->exps) 
 			exps_print(sql, fout, rel->exps, depth, 1, 0);
 		break;
@@ -334,13 +363,14 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs)
 			rel_print_(sql, fout, rel->l, depth+1, refs);
 		if (rel->r)
 			rel_print_(sql, fout, rel->r, depth+1, refs);
-		if (rel->exps) 
+		if (rel->exps && rel->flag == DDL_PSM) 
 			exps_print(sql, fout, rel->exps, depth, 1, 0);
 		break;
 	case op_join: 
 	case op_left: 
 	case op_right: 
 	case op_full: 
+	case op_apply: 
 	case op_semi: 
 	case op_anti: 
 	case op_union: 
@@ -353,6 +383,17 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs)
 			r = "right outer join";
 		else if (rel->op == op_full)
 			r = "full outer join";
+		else if (rel->op == op_apply) {
+			r = "apply";
+			if (rel->flag == APPLY_JOIN)
+				r = "apply join";
+			else if (rel->flag == APPLY_LOJ)
+				r = "apply left outer join";
+			else if (rel->flag == APPLY_EXISTS)
+				r = "apply exists";
+			else if (rel->flag == APPLY_NOTEXISTS)
+				r = "apply not exists";
+		}
 		else if (rel->op == op_semi)
 			r = "semijoin";
 		else if (rel->op == op_anti)
@@ -477,6 +518,7 @@ rel_print_refs(mvc *sql, stream* fout, sql_rel *rel, int depth, list *refs)
 	case op_left: 
 	case op_right: 
 	case op_full: 
+	case op_apply: 
 	case op_semi: 
 	case op_anti: 
 	case op_union: 
@@ -525,9 +567,9 @@ void
 _rel_print(mvc *sql, sql_rel *rel) 
 {
 	list *refs = sa_list(sql->sa);
-	rel_print_refs(sql, THRdata[0], rel, 0, refs);
-	rel_print_(sql, THRdata[0], rel, 0, refs);
-	mnstr_printf(THRdata[0], "\n");
+	rel_print_refs(sql, GDKstdout, rel, 0, refs);
+	rel_print_(sql, GDKstdout, rel, 0, refs);
+	mnstr_printf(GDKstdout, "\n");
 }
 
 void
@@ -730,6 +772,8 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, char *r, int *pos, int grp)
 		old = *e;
 		*e = 0;
 		
+		tname = sa_strdup(sql->sa, tname);
+		cname = sa_strdup(sql->sa, cname);
 		if (lrel) { 
 			exp = rel_bind_column2(sql, lrel, tname, cname, 0);
 			if (!exp && rrel)
@@ -742,18 +786,40 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, char *r, int *pos, int grp)
 	/* atom */
 	case '(': 
 		if (b == (r+*pos)) { /* or */
+			int filter = 0;
 			list *lexps,*rexps;
+			char *fname = NULL;
 		       
 			lexps = read_exps(sql, lrel, rrel, r, pos, '(', 0);
 			skipWS(r, pos);
 			if (strncmp(r+*pos, "or",  strlen("or")) == 0) 
 				(*pos)+= (int) strlen("or");
+			else if (strncmp(r+*pos, "filter",  strlen("filter")) == 0) 
+				filter = 1;
 			else
 				return sql_error(sql, -1, "type: missing 'or'\n");
 			skipWS(r, pos);
+			if (filter) {
+				fname = r+*pos;
+
+				skipIdent(r,pos);
+				e = r+*pos;
+				*e = 0;
+				(*pos)++;
+				skipWS(r,pos);
+			}
+
 			rexps = read_exps(sql, lrel, rrel, r, pos, '(', 0);
+			if (filter) {
+				sql_subfunc *func = sql_find_func(sql->sa, mvc_bind_schema(sql, "sys"), fname, 1+list_length(exps), F_FILT, NULL);
+				if (!func)
+					return sql_error(sql, -1, "filter: missing function '%s'\n", fname);
+					
+				return exp_filter(sql->sa, lexps, rexps, func, 0/* anti*/);
+			}
 			return exp_or(sql->sa, lexps, rexps);
 		}
+		/* fall through */
 	case '[': 
 		old = *e;
 		*e = 0;
@@ -851,6 +917,8 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, char *r, int *pos, int grp)
 			skipWS(r,pos);
 		}
 	}
+	if (!exp)
+		return NULL;
 	/* [ ASC ] */
 	if (strncmp(r+*pos, "ASC",  strlen("ASC")) == 0) {
 		(*pos)+= (int) strlen("NOT");
@@ -968,29 +1036,12 @@ exp_read(mvc *sql, sql_rel *lrel, sql_rel *rrel, char *r, int *pos, int grp)
 	}
 	if (f >= 0) {
 		skipWS(r,pos);
-		if (f == cmp_in || f == cmp_notin || f == cmp_filter) {
-			char *fname = NULL;
+		if (f == cmp_in || f == cmp_notin) {
 	        	list *exps;
 		       
-			if (f == cmp_filter) {
-				fname = r+*pos, e;
-
-				skipIdent(r,pos);
-				e = r+*pos;
-				*e = 0;
-				(*pos)++;
-				skipWS(r,pos);
-			}
 			exps = read_exps(sql, lrel, rrel, r, pos, '(', 0);
 			if (f == cmp_in || f == cmp_notin)
 				return exp_in(sql->sa, exp, exps, f);
-			else {
-				sql_subfunc *func = sql_find_func(sql->sa, mvc_bind_schema(sql, "sys"), fname, 1+list_length(exps), F_FILT);
-				if (!func)
-					return sql_error(sql, -1, "filter: missing function '%s'\n", fname);
-					
-				return exp_filter(sql->sa, exp, exps, func, 0/* anti*/);
-			}
 		} else {
 			sql_exp *e;
 
@@ -1275,11 +1326,13 @@ rel_read(mvc *sql, char *r, int *pos, list *refs)
 			*pos += (int) strlen("union");
 			j = op_union;
 		}
+		/* fall through */
 	case 'i':
 		if (j != op_basetable) {
 			*pos += (int) strlen("intersect");
 			j = op_inter;
 		}
+		/* fall through */
 	case 'e':
 		if (j != op_basetable) {
 			*pos += (int) strlen("except");

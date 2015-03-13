@@ -14,7 +14,7 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2013 MonetDB B.V.
+# Copyright August 2008-2015 MonetDB B.V.
 # All Rights Reserved.
 
 """ Script to test database capabilities and the DB-API interface
@@ -241,7 +241,7 @@ class DatabaseTest(unittest.TestCase):
                  ('col1 TIME',),
                  generator)
 
-    def test_TIME(self):
+    def test_TIMETZ(self):
         ticks = time()
         def generator(row,col):
             return self.db_module.TimeFromTicks(ticks+row*86400-col*1313)
@@ -361,7 +361,7 @@ class DatabaseTest(unittest.TestCase):
         r = self.cursor.fetchone()
         n = r[0]
         self.cursor.arraysize=100000
-        self.cursor.execute('select * from tables, tables')
+        self.cursor.execute('select * from tables, tables t')
         r = self.cursor.fetchall()
         self.assertEqual(len(r), n**2)
 
@@ -373,7 +373,7 @@ class DatabaseTest(unittest.TestCase):
     def test_customtype(self):
         t = ["list", "test"]
         self.assertRaises(ProgrammingError, self.db_module.monetize.convert, t)
-        self.db_module.monetize.mapping[list] = str
+        self.db_module.monetize.mapping_dict[list] = str
         self.assertEqual(self.db_module.monetize.convert(t), "['list', 'test']")
 
     def test_multiple_queries(self):

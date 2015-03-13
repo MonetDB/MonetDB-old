@@ -15,13 +15,13 @@ dnl The Original Code is the MonetDB Database System.
 dnl
 dnl The Initial Developer of the Original Code is CWI.
 dnl Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-dnl Copyright August 2008-2013 MonetDB B.V.
+dnl Copyright August 2008-2015 MonetDB B.V.
 dnl All Rights Reserved.
 
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.60)
-AC_INIT([MonetDB], [11.16.0], [info@monetdb.org], [MonetDB])
+AC_INIT([MonetDB], [11.20.0], [info@monetdb.org], [MonetDB], [http://www.monetdb.org/])
 AC_CONFIG_AUX_DIR([buildtools/conf])
 AC_CONFIG_MACRO_DIR([buildtools/conf])
 AC_CANONICAL_HOST
@@ -36,7 +36,7 @@ HOST=[$target]
 AC_DEFINE_UNQUOTED(HOST, "$HOST", [Host identifier])
 
 if test x"$target_os" = xcygwin; then
-        AC_DEFINE(WIN32, 1, [Define on Microsoft Windows (also under Cygwin)])
+	AC_DEFINE(WIN32, 1, [Define on Microsoft Windows (also under Cygwin)])
 fi
 AM_CONDITIONAL(NOT_WIN32, test x"$target_os" != xcygwin)
 AM_CONDITIONAL(NATIVE_WIN32, false)
@@ -99,20 +99,20 @@ AC_SUBST(Qexec_prefix)
 
 if test -f "$srcdir"/vertoo.data; then
 	dnl  Developers compiling from Mercurial:
-	dnl  default is --enable-strict --enable-assert --enable-debug --disable-optimize
+	dnl  default is --enable-strict --enable-assert --enable-debug --disable-optimize --enable-developer
 	dft_strict=yes
 	dft_assert=yes
 	dft_debug=yes
-	dft_optimi=no
-	dft_develop=yes
+	dft_optimize=no
+	dft_developer=yes
 else
 	dnl  Users compiling from source tarball(s):
-	dnl  default is --disable-strict --disable-assert --disable-debug --disable-optimize
+	dnl  default is --disable-strict --disable-assert --disable-debug --disable-optimize --disable-developer
 	dft_strict=no
 	dft_assert=no
 	dft_debug=no
-	dft_optimi=no
-	dft_develop=no
+	dft_optimize=no
+	dft_developer=no
 fi
 
 dnl small hack to get icc -no-gcc, done here because AC_PROG_CC shouldn't
@@ -129,23 +129,25 @@ case "$CC" in
 	9.*)	CC="$CC -no-gcc";;
 	10.*)	CC="$CC -no-gcc";;
 	11.*)	CC="$CC -no-gcc";;
+	15.*)	CC="$CC -no-gcc";;
+	*)	AC_MSG_WARN([icc ($CC) $icc_ver not handled, yet]);;
 	esac
 	;;
 esac
 
 AC_DEFINE(MONETDB_RELEASE, "unreleased", [Release name or "unreleased"])
 
-dft_gdk=auto
+dft_gdk=yes
 AC_ARG_ENABLE(gdk,
 	AS_HELP_STRING([--enable-gdk],
-		[enable support for GDK (default=auto)]),
+		[enable support for GDK (default=yes)]),
 	enable_gdk=$enableval,
 	enable_gdk=$dft_gdk)
 
-dft_monetdb5=auto
+dft_monetdb5=yes
 AC_ARG_ENABLE(monetdb5,
 	AS_HELP_STRING([--enable-monetdb5],
-		[enable support for MonetDB5 (default=auto)]),
+		[enable support for MonetDB5 (default=yes)]),
 	enable_monetdb5=$enableval,
 	enable_monetdb5=$dft_monetdb5)
 case "$enable_gdk-$enable_monetdb5" in
@@ -158,31 +160,17 @@ no-auto)
 	;;
 esac
 
-dft_rdf=no
-AC_ARG_ENABLE(rdf,
-	AS_HELP_STRING([--enable-rdf],
-		[enable support for RDF [experimental/unsupported] (default=no)]),
-	enable_rdf=$enableval,
-	enable_rdf=$dft_rdf)
-
-dft_datacell=no
-AC_ARG_ENABLE(datacell,
-	AS_HELP_STRING([--enable-datacell],
-		[enable datacell stream components [experimental/unsupported] (default=no)]),
-	enable_datacell=$enableval,
-	enable_datacell=$dft_datacell)
-
 dft_fits=auto
 AC_ARG_ENABLE(fits,
 	AS_HELP_STRING([--enable-fits],
-		[enable support for FITS (default=no)]),
+		[enable support for FITS (default=auto)]),
 	enable_fits=$enableval,
 	enable_fits=$dft_fits)
 
-dft_sql=auto
+dft_sql=yes
 AC_ARG_ENABLE(sql,
 	AS_HELP_STRING([--enable-sql],
-		[enable support for MonetDB/SQL (default=auto)]),
+		[enable support for MonetDB/SQL (default=yes)]),
 	enable_sql=$enableval,
 	enable_sql=$dft_sql)
 case "$enable_monetdb5-$enable_sql" in
@@ -211,21 +199,43 @@ no-auto)
 	;;
 esac
 
-dft_jaql=auto
-AC_ARG_ENABLE(jaql,
-	AS_HELP_STRING([--enable-jaql],
-		[enable support for MonetDB/JAQL (default=auto)]),
-	enable_jaql=$enableval,
-	enable_jaql=$dft_sql)
-case "$enable_monetdb5-$enable_jaql" in
-no-yes)
-	AC_MSG_ERROR([MonetDB/JAQL requires MonetDB5.])
+dft_jsonstore=no
+AC_ARG_ENABLE(jsonstore,
+	AS_HELP_STRING([--enable-jsonstore],
+		[enable support for MonetDB/jsonstore (default=no)]),
+	enable_jsonstore=$enableval,
+	enable_jsonstore=$dft_jsonstore)
+
+dft_microhttpd=$enable_jsonstore
+AC_ARG_ENABLE(microhttpd,
+	AS_HELP_STRING([--enable-microhttpd],
+		[enable support for the builtin MircoHTTPD daemon (default: implied by --enable-jsonstore)]),
+	enable_microhttpd=$enableval,
+	enable_microhttpd=$dft_microhttpd)
+
+case "$enable_jsonstore-$enable_microhttpd" in
+yes-no)
+	AC_MSG_ERROR([jsonstore require microhttpd])
 	;;
-no-auto)
-	enable_jaql=no
-	disable_jaql="(MonetDB/JAQL requires MonetDB5.)"
+auto-no)
+	enable_jsonstore=no
+	disable_jsonstore="(jsonstore requires microhttpd)"
 	;;
 esac
+
+dft_gsl=auto
+AC_ARG_ENABLE(gsl,
+	AS_HELP_STRING([--enable-gsl],
+		[enable support for GSL (default=auto)]),
+	enable_gsl=$enableval,
+	enable_gsl=$dft_gsl)
+
+dft_rintegration=auto
+AC_ARG_ENABLE(rintegration,
+	AS_HELP_STRING([--enable-rintegration],
+		[enable support for R integration into MonetDB (default=auto)]),
+	enable_rintegration=$enableval,
+	enable_rintegration=$dft_rintegration)
 
 dft_odbc=auto
 AC_ARG_ENABLE(odbc,
@@ -245,7 +255,7 @@ AC_ARG_ENABLE(developer,
 	AS_HELP_STRING([--enable-developer],
 		[enable support for MonetDB development (default=yes for development sources)]),
 	enable_developer=$enableval,
-	enable_developer=$dft_develop)
+	enable_developer=$dft_developer)
 
 dnl The console is a direct client hooked onto the kernel with full
 dnl administrative privileges, bypassing any security checks.  It is
@@ -253,32 +263,39 @@ dnl handy only during development.
 dnl We simply can't disable it for now because Testing gets hopelessly
 dnl upset about it, but we can offer to the user to disable it for
 dnl increased security.
-use_console=yes
+dft_console=yes
 AC_ARG_ENABLE(console,
 	AS_HELP_STRING([--enable-console],
 		[enables direct console on the server (involves security risks) (default=yes)]),
-	use_console="$enableval")
-if test x$use_console = xyes ; then
+	enable_console="$enableval",
+	enable_console=$dft_console)
+if test x$enable_console != xno ; then
 	AC_DEFINE([HAVE_CONSOLE], 1, [If the console should be used])
 fi
 
+dft_jdbc=auto
 AC_ARG_ENABLE(jdbc,
 	AS_HELP_STRING([--enable-jdbc], [build the MonetDB JDBC driver]),
 	enable_jdbc="$enableval",
-	enable_jdbc=auto)
+	enable_jdbc=$dft_jdbc)
 case $enable_jdbc in
-	yes|auto) enable_jdbc=$enable_jdbc;;
+	yes|auto) ;;
 	*) enable_jdbc=no;;
 esac
 
+dft_control=auto
 AC_ARG_ENABLE(merocontrol,
 	AS_HELP_STRING([--enable-merocontrol], [build the Merovingian control driver]),
 	enable_control="$enableval",
-	enable_control=auto)
+	enable_control=$dft_control)
 case $enable_control in
-	yes|auto) enable_control=$enable_control;;
+	yes|auto) ;;
 	*) enable_control=no;;
 esac
+
+AC_ARG_ENABLE(static-analysis,
+	AS_HELP_STRING([--enable-static-analysis], [configure for static code analysis (use only if you know what you are doing)]),
+	AC_DEFINE([STATIC_CODE_ANALYSIS], 1, [compiling for static code analysis]))
 
 dnl RIPEMD160 is patent free, academic and European, but unfortunately
 dnl can't use it by default, as that would exclude JDBC usage (Java
@@ -367,29 +384,68 @@ case $host in
 	;;
 esac
 
+dnl  (try to) determine compiler type (gcc, icc, clang) (and version)
+dnl  independent of call ($CC) and result of AC_PROG_CC() ($GCC)
+dnl  (e.g., on OSX, Apple pretends its clang is gcc)
+AC_MSG_CHECKING([compiler type & version])
 gcc_ver=""
 icc_ver=""
-case $GCC-$CC in
-yes-*)	gcc_ver="`$CC -dumpversion 2>/dev/null`";;
--*icc*)	icc_ver="`$CC -dumpversion 2>/dev/null`";;
+CC_ver=""
+CC_version="`$CC --version 2>&1`"
+case "$CC_version" in
+*\(GCC\)*|*Copyright\ \(C\)\ *\ Free\ Software\ Foundation,\ Inc.*)
+	gcc_ver="`$CC -dumpversion 2>/dev/null`"
+	CC_ver="gcc-$gcc_ver"
+	;;
+*\(ICC\)*|*Copyright\ \(C\)\ *\ Intel\ Corporation.\ \ All\ rights\ reserved.*)
+	icc_ver="`$CC -dumpversion 2>/dev/null`"
+	CC_ver="icc-$icc_ver"
+	;;
+*clang*)
+	dnl  `clang -dumpversion` reports the original/old gcc version it is based on
+	gcc_ver="`$CC -v 2>&1 | grep -w '[[Vv]]ersion [[0-9]]\+\.[[0-9]]\+' | sed 's|^.*[[Vv]]ersion \([[0-9]][[0-9]]*\(\.[[0-9]][[0-9]]*\)\(\.[[0-9]][[0-9]]*\)*\).*$|\1|'`"
+	CC_ver="clang-$gcc_ver"
+	;;
+*)
+	CC_V="`$CC -V 2>&1`"
+	case "$CC_V" in
+	*Sun\ Ceres\ C\ *|*Sun\ C\ *)
+		# developer/sunstudioexpress and
+		# developer/sunstudio12u1 respectively
+		CC_ver="suncc-`echo "$CC_version" | sed -n 's/.*Sun Ceres C \(.*\) SunOS.*/\1/p;s/.*Sun C \(.*\) SunOS.*/\1/p'`"
+		CC_version="$CC_V"
+		;;
+	*)
+		AC_MSG_WARN([compiler not recognized:
+`$CC --version` says
+$CC_version
+`$CC -V` says
+$CC_V
+	])
+		;;
+	esac
+	;;
+esac
+AC_MSG_RESULT($CC_ver)
+
+dnl  sanity/consistency check
+case "$GCC!$CC!$CC_ver" in
+yes!*clang*!clang-*)	;;
+yes!*gcc*!clang-*)	;;
+yes!*gcc*!gcc-*)	;;
+!*icc*!icc-*)	;;
+*!*!suncc-*)	;;
+*)	AC_MSG_WARN([compiler potentially not (correctly) recognized:
+GCC=$GCC
+CC=$CC
+CC_ver=$CC_ver
+CC_version=
+$CC_version
+	]);;
 esac
 
-AC_ARG_WITH(bits,
-	AS_HELP_STRING([--with-bits=BITS],
-		[obsolete: specify by setting CC in the environment]),
-	AC_MSG_ERROR([argument --with-bits is obsolete: specify by setting CC in the environment]))
-
 AC_CHECK_SIZEOF(long)
-native_bits=`expr $ac_cv_sizeof_long \* 8`
-bits=$native_bits
-AC_ARG_ENABLE(bits,
-	AS_HELP_STRING([--enable-bits],
-		[obsolete: specify by setting CC in the environment]),
-	if test x$enableval = x$bits; then
-		AC_MSG_WARN([argument --enable-bits is obsolete: specify by setting CC in the environment])
-	else
-		AC_MSG_ERROR([argument --enable-bits is obsolete: specify by setting CC in the environment])
-	fi)
+bits=`expr $ac_cv_sizeof_long \* 8`
 AC_SUBST(bits)
 AM_CONDITIONAL(BITS32, test x"$bits" = x32)
 AM_CONDITIONAL(BITS64, test x"$bits" = x64)
@@ -419,7 +475,7 @@ case "$host_os" in
 	if test -s /etc/os-release; then
 		# this is the new way of getting release information
 		# works for Fedora >= 17, Ubuntu >= 12.04 (Precise Pangolin)
-		LINUX_DIST=`source /etc/os-release; echo ${NAME}:${VERSION_ID}`
+		LINUX_DIST=`source /etc/os-release; echo ${ID}:${VERSION_ID}`
 	elif test -s /etc/fedora-release ; then
 		LINUX_DIST="`cat /etc/fedora-release | head -n1 \
 			| sed 's|^.*\(Fedora\).* release \([[0-9]][[^ \n]]*\)\( .*\)*$|\1:\2|'`" 
@@ -459,7 +515,7 @@ AC_SUBST(LINUX_DIST)
 
 AC_DEFUN([MCHECK_ADD_FLAG],
 [
-    cache_var=AS_TR_SH([m_cv_cc_has_$1])
+	cache_var=AS_TR_SH([m_cv_cc_has_$1])
 	AC_CACHE_CHECK([whether ${CC} supports $1], [${cache_var}],
 	[
 	SAVE_FLAGS="${CFLAGS}"
@@ -544,14 +600,18 @@ yes-*-*)
 	MCHECK_ADD_FLAG([-Wmissing-include-dirs])
 	MCHECK_ADD_FLAG([-Wlogical-op])
 
-	dnl  With clang 2.8 (no other tested) and gcc < 4.5 (tested
-	dnl  3.4.6, 4.2.1, 4.3.2, 4.4.4, 4.4.5, 4.5.1, 4.5.2),
+	dnl  With clang 2.8, 3.3, 5.0 (no other tested) and gcc < 4.5
+	dnl  (tested 3.4.6, 4.2.1, 4.3.2, 4.4.4, 4.4.5, 4.5.1, 4.5.2),
 	dnl  "-Wunreachable-code" triggers numerous "will never be
-	dnl  executed" (at least) in our Mx and stream code, mostly (if
-	dnl  not all) false positives, though; thus, we do not use
-	dnl  "-Wunreachable-code" with clang 2.8 and gcc < 4.5 .
-	case "$CC-$gcc_ver" in
-	*clang*-2.8|*gcc*-[[0-3]].*|*gcc*-4.[[0-4]].*)
+	dnl  executed" (at least) in our stream code, mostly (if
+	dnl  not all) false positives, though, as well as in
+	dnl  YACC/BISON-generated code; thus, we do not use
+	dnl  "-Wunreachable-code" with clang and gcc < 4.5 .
+	dnl  At the same time, Apple deprecated OpenSSL in favour of
+	dnl  their own CommonCrypto API.  We don't mind about that.
+	case "$CC_ver" in
+	clang-*|gcc-[[0-3]].*|gcc-4.[[0-4]].*)
+		MCHECK_ADD_FLAG([-Wno-deprecated-declarations])
 		;;
 	*)
 		MCHECK_ADD_FLAG([-Wunreachable-code])
@@ -588,7 +648,10 @@ yes-*-*)
 	;;
 -*icc*-linux*|-*ecc*-linux*)
 	dnl  Intel ([ie]cc/[ie]cpc on Linux)
- 	LDFLAGS="$LDFLAGS -i_dynamic"
+	case $icc_ver in
+	?.*)	LDFLAGS="$LDFLAGS -i_dynamic";;
+	??.*)	LDFLAGS="$LDFLAGS -shared-intel";;
+	esac
 	dnl  Let warning #140 "too many arguments in function call"
 	dnl  become an error to make configure tests work properly.
 	CFLAGS="$CFLAGS -we140"
@@ -610,6 +673,7 @@ yes-*-*)
 	9.*)	;;
 	10.*)	;;
 	11.*)	;;
+	15.*)	;;
 	*)	CFLAGS="$CFLAGS -ansi";;
 	esac
 	dnl  Be picky; "-Werror" seems to be too rigid for autoconf...
@@ -627,11 +691,12 @@ yes-*-*)
 	dnl  ... however, some things aren't solved, yet:
 	dnl  (for the time being,) we need to disable some warnings (making them remarks doesn't seem to work with -Werror):
 	X_CFLAGS="$X_CFLAGS -wd1418,1419,981,193,1357"
-	dnl ICC 11 warns about non-pointer conversion from "<type>" to
+	dnl ICC 11 & 15 warn about non-pointer conversion from "<type>" to
 	dnl "<smaller>" may lose significant bits, it does however, also for
 	dnl constants like short s = 1234, which is too much
 	case $icc_ver in
 	11.*)       X_CFLAGS="$X_CFLAGS,2259" ;;
+	15.*)       X_CFLAGS="$X_CFLAGS,2259" ;;
 	esac
 	case $icc_ver in
 	8.[[1-9]]*)	X_CFLAGS="$X_CFLAGS,1572" ;;
@@ -742,21 +807,23 @@ AC_ARG_ENABLE(assert,
 AC_ARG_ENABLE(optimize,
 	AS_HELP_STRING([--enable-optimize],
 		[enable extra optimization (default=no)]),
-	enable_optim=$enableval,
-	enable_optim=def_$dft_optimi)
+	enable_optimize=$enableval,
+	enable_optimize=def_$dft_optimize)
 
-need_profiling=no
+need_profile=no
+dft_profile=$need_profile
 AC_ARG_ENABLE(profile,
 	AS_HELP_STRING([--enable-profile], [enable profiling (default=no)]),
-	enable_prof=$enableval,
-	enable_prof=no)
+	enable_profile=$enableval,
+	enable_profile=def_$dft_profile)
 
 need_instrument=no
+dft_instrument=$need_instrument
 AC_ARG_ENABLE(instrument,
 	AS_HELP_STRING([--enable-instrument],
 		[enable instrument (default=no)]),
 	enable_instrument=$enableval,
-	enable_instrument=no)
+	enable_instrument=def_$dft_instrument)
 
 dnl check whether no (explictly chosen) mutual exclusive combinations
 dnl were made, compatability matrix:
@@ -767,7 +834,7 @@ dnl   optimize       X    C    \    X    X
 dnl   profile        C    C    X    \    C
 dnl   instrument     C    C    X    C    \
 
-case "x$enable_debug.$enable_optim.$enable_prof.$enable_instrument" in
+case "x$enable_debug.$enable_optimize.$enable_profile.$enable_instrument" in
 	# find conflicts
 	xyes.yes.*.*)
 		AC_MSG_ERROR([combining --enable-optimize and --enable-debug is not possible])
@@ -781,36 +848,54 @@ case "x$enable_debug.$enable_optim.$enable_prof.$enable_instrument" in
 	# handle defaults after user requests
 	xyes.*.*.*)
 		enable_debug=yes
-		enable_optim=no
-		enable_prof="`echo $enable_prof | sed 's:^def_::'`"
+		if test x$enable_optimize != xno ; then
+			disable_optimize="(as debug is enabled)"
+		fi
+		enable_optimize=no
+		enable_profile="`echo $enable_profile | sed 's:^def_::'`"
 		enable_instrument="`echo $enable_instrument | sed 's:^def_::'`"
 		;;
 	x*.*.yes.*)
 		enable_debug="`echo $enable_debug | sed 's:^def_::'`"
-		enable_optim=no
-		enable_prof=yes
+		if test x$enable_optimize != xno ; then
+			disable_optimize="(as profile is enabled)"
+		fi
+		enable_optimize=no
+		enable_profile=yes
 		enable_instrument="`echo $enable_instrument | sed 's:^def_::'`"
 		;;
 	x*.*.*.yes)
 		enable_debug="`echo $enable_debug | sed 's:^def_::'`"
-		enable_optim=no
-		enable_prof="`echo $enable_prof | sed 's:^def_::'`"
+		if test x$enable_optimize != xno ; then
+			disable_optimize="(as instrument is enabled)"
+		fi
+		enable_optimize=no
+		enable_profile="`echo $enable_profile | sed 's:^def_::'`"
 		enable_instrument=yes
 		;;
 	x*.*no.*.*)
 		enable_debug="`echo $enable_debug | sed 's:^def_::'`"
-		enable_optim=no
-		enable_prof="`echo $enable_prof | sed 's:^def_::'`"
+		enable_optimize=no
+		enable_profile="`echo $enable_profile | sed 's:^def_::'`"
 		enable_instrument="`echo $enable_instrument | sed 's:^def_::'`"
 		;;
 	x*.*yes.*.*) # enable-optimize overrules other defaults
-		enable_optim=yes
+		enable_optimize=yes
+		if test x$enable_debug != xno ; then
+			disable_debug="(as optimize is enabled)"
+		fi
 		enable_debug=no
-		enable_prof=no
+		if test x$enable_profile != xno ; then
+			disable_profile="(as optimize is enabled)"
+		fi
+		enable_profile=no
+		if test x$enable_instrument != xno ; then
+			disable_instrument="(as optimize is enabled)"
+		fi
 		enable_instrument=no
 		;;
 	x*)
-		AC_MSG_WARN([unhandled configuration $enable_debug.$enable_optim.$enable_prof.$enable_instrument, please file a bug on bugs.monetdb.org])
+		AC_MSG_WARN([unhandled configuration $enable_debug.$enable_optimize.$enable_profile.$enable_instrument, please file a bug on bugs.monetdb.org])
 		;;
 esac
 # make defaults real for flags which don't conflict with anything
@@ -862,7 +947,7 @@ fi
 
 
 AC_MSG_CHECKING([for --enable-optimize])
-if test "x$enable_optim" = xyes; then
+if test "x$enable_optimize" = xyes; then
 	origCFLAGS="$CFLAGS"
 	dnl  remove "-g" as some compilers don't like "-g -Ox" combinations
 	dnl  remove "-O2" as we add "-Ox" and some compilers don't like "-Oy -Ox" combinations
@@ -872,12 +957,12 @@ if test "x$enable_optim" = xyes; then
 	JAVACFLAGS="`echo "$JAVACFLAGS" | sed -e 's| -g | |g' -e 's| -g:[[a-z]]* | |g' -e 's|^ ||' -e 's| $||'`"
 	dnl  Optimization flags
 	JAVACFLAGS="$JAVACFLAGS -g:none -O"
-	case "$GCC-$CC" in
-    yes-*clang*)
+	case "$GCC-$CC_ver" in
+	yes-clang-*)
 	  CFLAGS="$CFLAGS -O3 -fomit-frame-pointer -finline-functions"
-      ;;
-    yes-*)
-      dnl -fomit-frame-pointer crashes memprof
+	  ;;
+	yes-*)
+	  dnl -fomit-frame-pointer crashes memprof
 	  # -O1 on gcc enables all slight optimisations:
 	  #   -fauto-inc-dec -fcprop-registers -fdce -fdefer-pop
 	  #   -fdelayed-branch -fdse -fguess-branch-probability
@@ -922,71 +1007,75 @@ if test "x$enable_optim" = xyes; then
 	  # - x86/x64: -fast switch results in json code producing wrong
 	  #   results, or segaults (when used with Mtest)
 	  ;;
-    *)
-      case "$host-$icc_ver" in
-      dnl handle non-Intel compilers ($icc_ver=""), first
-      *solaris*-)      CFLAGS="$CFLAGS -xO5"
-                       ;;
-      *-*-*-)          CFLAGS="$CFLAGS -O2"
-                       ;;
+	*)
+	      case "$host-$icc_ver" in
+	      dnl handle non-Intel compilers ($icc_ver=""), first
+	      *solaris*-)      CFLAGS="$CFLAGS -xO5"
+			       ;;
+	      *-*-*-)          CFLAGS="$CFLAGS -O2"
+			       ;;
 
-      dnl  With icc-8.*, Interprocedural (IP) Optimization does not seem to work with MonetDB:
-      dnl  With "-ipo -ipo_obj", pass-through linker options ("-Wl,...") are not handled correctly,
-      dnl  and with "-ip -ipo_obj", the resulting Mserver segfaults immediately.
-      dnl  Hence, we skip Interprocedural (IP) Optimization with icc-8.*.
-      x86_64-*-*-8.*)  CFLAGS="$CFLAGS -mp1 -O3 -restrict -unroll               -tpp7 -axWP   ";;
-      x86_64-*-*-9.*)  CFLAGS="$CFLAGS -mp1 -O3 -restrict -unroll               -tpp7 -axWP   ";;
+	      dnl  With icc-8.*, Interprocedural (IP) Optimization does not seem to work with MonetDB:
+	      dnl  With "-ipo -ipo_obj", pass-through linker options ("-Wl,...") are not handled correctly,
+	      dnl  and with "-ip -ipo_obj", the resulting Mserver segfaults immediately.
+	      dnl  Hence, we skip Interprocedural (IP) Optimization with icc-8.*.
+	      x86_64-*-*-8.*)  CFLAGS="$CFLAGS -mp1 -O3 -restrict -unroll               -tpp7 -axWP   ";;
+	      x86_64-*-*-9.*)  CFLAGS="$CFLAGS -mp1 -O3 -restrict -unroll               -tpp7 -axWP   ";;
 
-#     x86_64-*-*-10.*) CFLAGS="$CFLAGS -mp1 -O1 -restrict -unroll                     -axWPT  ";; # K.O.!
-#     x86_64-*-*-10.*) CFLAGS="$CFLAGS                                                        ";; # OK.
-#     x86_64-*-*-10.*) CFLAGS="$CFLAGS -mp1                                                   ";; # OK.
-#     x86_64-*-*-10.*) CFLAGS="$CFLAGS      -O1                                               ";; # K.O.!
-#     x86_64-*-*-10.*) CFLAGS="$CFLAGS      -O2                                               ";; # OK.
-      x86_64-*-*-10.*) CFLAGS="$CFLAGS      -O3                                               ";; # OK.
-#     x86_64-*-*-10.*) CFLAGS="$CFLAGS          -restrict                                     ";;
-#     x86_64-*-*-10.*) CFLAGS="$CFLAGS                    -unroll                             ";;
-#     x86_64-*-*-10.*) CFLAGS="$CFLAGS                                                -axWPT  ";;
+	#     x86_64-*-*-10.*) CFLAGS="$CFLAGS -mp1 -O1 -restrict -unroll                     -axWPT  ";; # K.O.!
+	#     x86_64-*-*-10.*) CFLAGS="$CFLAGS                                                        ";; # OK.
+	#     x86_64-*-*-10.*) CFLAGS="$CFLAGS -mp1                                                   ";; # OK.
+	#     x86_64-*-*-10.*) CFLAGS="$CFLAGS      -O1                                               ";; # K.O.!
+	#     x86_64-*-*-10.*) CFLAGS="$CFLAGS      -O2                                               ";; # OK.
+	      x86_64-*-*-10.*) CFLAGS="$CFLAGS      -O3                                               ";; # OK.
+	#     x86_64-*-*-10.*) CFLAGS="$CFLAGS          -restrict                                     ";;
+	#     x86_64-*-*-10.*) CFLAGS="$CFLAGS                    -unroll                             ";;
+	#     x86_64-*-*-10.*) CFLAGS="$CFLAGS                                                -axWPT  ";;
 
-      dnl  We need to use -mp instead of -mp1 as otherwise nextafter() & nextafterf() do not work correctly for 0
-      x86_64-*-*-11.*) CFLAGS="$CFLAGS -mp  -O3 -restrict -unroll                     -axSSE4.2	";; 
+	      dnl  We need to use -mp instead of -mp1 as otherwise nextafter() & nextafterf() do not work correctly for 0
+	      x86_64-*-*-11.*) CFLAGS="$CFLAGS -mp  -O3 -restrict -unroll                     -axSSE4.2	";; 
+	      dnl  -mp does no longer exist with icc 15; using -mieee-fp, instead.
+	      dnl  adding -axSSE4.2 (or even -axCORE-AVX512) results in errors like
+	      dnl  "error: ODBCFetch has been targeted for automatic cpu dispatch" ...
+	      x86_64-*-*-15.*) CFLAGS="$CFLAGS -mieee-fp -O3 -restrict -unroll -no-inline-max-size -no-inline-max-total-size -xHost -xHOST";; 
 
-      i*86-*-*-8.*)    CFLAGS="$CFLAGS -mp1 -O3 -restrict -unroll               -tpp6 -axKWNPB";;
-      i*86-*-*-9.*)    CFLAGS="$CFLAGS -mp1 -O3 -restrict -unroll               -tpp6 -axKWNPB";;
+	      i*86-*-*-8.*)    CFLAGS="$CFLAGS -mp1 -O3 -restrict -unroll               -tpp6 -axKWNPB";;
+	      i*86-*-*-9.*)    CFLAGS="$CFLAGS -mp1 -O3 -restrict -unroll               -tpp6 -axKWNPB";;
 
-#     i*86-*-*-10.*)   CFLAGS="$CFLAGS -mp1 -O1 -restrict -unroll                     -axWPT  ";; # K.O.!
-#     i*86-*-*-10.*)   CFLAGS="$CFLAGS                                                        ";; # OK.
-#     i*86-*-*-10.*)   CFLAGS="$CFLAGS -mp1                                                   ";; # OK.
-#     i*86-*-*-10.*)   CFLAGS="$CFLAGS      -O1                                               ";; # K.O.!
-#     i*86-*-*-10.*)   CFLAGS="$CFLAGS      -O2                                               ";; # OK.
-      i*86-*-*-10.*)   CFLAGS="$CFLAGS      -O3                                               ";; # OK.
-#     i*86-*-*-10.*)   CFLAGS="$CFLAGS          -restrict                                     ";;
-#     i*86-*-*-10.*)   CFLAGS="$CFLAGS                    -unroll                             ";;
-#     i*86-*-*-10.*)   CFLAGS="$CFLAGS                                                -axWPT  ";;
+	#     i*86-*-*-10.*)   CFLAGS="$CFLAGS -mp1 -O1 -restrict -unroll                     -axWPT  ";; # K.O.!
+	#     i*86-*-*-10.*)   CFLAGS="$CFLAGS                                                        ";; # OK.
+	#     i*86-*-*-10.*)   CFLAGS="$CFLAGS -mp1                                                   ";; # OK.
+	#     i*86-*-*-10.*)   CFLAGS="$CFLAGS      -O1                                               ";; # K.O.!
+	#     i*86-*-*-10.*)   CFLAGS="$CFLAGS      -O2                                               ";; # OK.
+	      i*86-*-*-10.*)   CFLAGS="$CFLAGS      -O3                                               ";; # OK.
+	#     i*86-*-*-10.*)   CFLAGS="$CFLAGS          -restrict                                     ";;
+	#     i*86-*-*-10.*)   CFLAGS="$CFLAGS                    -unroll                             ";;
+	#     i*86-*-*-10.*)   CFLAGS="$CFLAGS                                                -axWPT  ";;
 
-      ia64-*-*-8.*)    CFLAGS="$CFLAGS -mp1 -O2 -restrict -unroll               -tpp2 -mcpu=itanium2";;
-      ia64-*-*-9.*)    CFLAGS="$CFLAGS -mp1 -O2 -restrict -unroll               -tpp2 -mcpu=itanium2";;
+	      ia64-*-*-8.*)    CFLAGS="$CFLAGS -mp1 -O2 -restrict -unroll               -tpp2 -mcpu=itanium2";;
+	      ia64-*-*-9.*)    CFLAGS="$CFLAGS -mp1 -O2 -restrict -unroll               -tpp2 -mcpu=itanium2";;
 
-#     ia64-*-*-10.*)   CFLAGS="$CFLAGS -mp1 -O2 -restrict -unroll                     -mcpu=itanium2" # OK.
-      ia64-*-*-10.*)   CFLAGS="$CFLAGS -mp1 -O3 -restrict -unroll                     -mcpu=itanium2"
-#     ia64-*-*-10.*)   CFLAGS="$CFLAGS                                                              "
-#     ia64-*-*-10.*)   CFLAGS="$CFLAGS -mp1                                                         "
-#     ia64-*-*-10.*)   CFLAGS="$CFLAGS      -O1                                                     "
-#     ia64-*-*-10.*)   CFLAGS="$CFLAGS      -O2                                                     "
-#     ia64-*-*-10.*)   CFLAGS="$CFLAGS      -O3                                                     "
-#     ia64-*-*-10.*)   CFLAGS="$CFLAGS          -restrict                                           "
-#     ia64-*-*-10.*)   CFLAGS="$CFLAGS                    -unroll                                   "
-#     ia64-*-*-10.*)   CFLAGS="$CFLAGS                                                -mcpu=itanium2"
-                       ;;
+	#     ia64-*-*-10.*)   CFLAGS="$CFLAGS -mp1 -O2 -restrict -unroll                     -mcpu=itanium2" # OK.
+	      ia64-*-*-10.*)   CFLAGS="$CFLAGS -mp1 -O3 -restrict -unroll                     -mcpu=itanium2"
+	#     ia64-*-*-10.*)   CFLAGS="$CFLAGS                                                              "
+	#     ia64-*-*-10.*)   CFLAGS="$CFLAGS -mp1                                                         "
+	#     ia64-*-*-10.*)   CFLAGS="$CFLAGS      -O1                                                     "
+	#     ia64-*-*-10.*)   CFLAGS="$CFLAGS      -O2                                                     "
+	#     ia64-*-*-10.*)   CFLAGS="$CFLAGS      -O3                                                     "
+	#     ia64-*-*-10.*)   CFLAGS="$CFLAGS          -restrict                                           "
+	#     ia64-*-*-10.*)   CFLAGS="$CFLAGS                    -unroll                                   "
+	#     ia64-*-*-10.*)   CFLAGS="$CFLAGS                                                -mcpu=itanium2"
+			       ;;
 
-      i*86-*-*)        CFLAGS="$CFLAGS -mp1 -O3 -restrict -unroll -ipo -ipo_obj -tpp6 -axiMKW";;
-      ia64-*-*)        CFLAGS="$CFLAGS -mp1 -O2 -restrict -unroll -ipo -ipo_obj -tpp2 -mcpu=itanium2"
-                       dnl  With "-O3", ecc does not seem to produce stable/correct? binaries under Linux64
-                       dnl  (Mserver produces some incorrect BATpropcheck warnings);
-                       dnl  hence, we use only "-O2", here.
-                       ;;
-      esac   
-      ;;
-    esac
+	      i*86-*-*)        CFLAGS="$CFLAGS -mp1 -O3 -restrict -unroll -ipo -ipo_obj -tpp6 -axiMKW";;
+	      ia64-*-*)        CFLAGS="$CFLAGS -mp1 -O2 -restrict -unroll -ipo -ipo_obj -tpp2 -mcpu=itanium2"
+			       dnl  With "-O3", ecc does not seem to produce stable/correct? binaries under Linux64
+			       dnl  (Mserver produces some incorrect BATpropcheck warnings);
+			       dnl  hence, we use only "-O2", here.
+			       ;;
+	      esac   
+	  ;;
+	esac
 	# for stack-traces with assert, we DO want a frame-pointer
 	if test "x$enable_assert" = xyes ; then
 		CFLAGS="`echo $CFLAGS | sed 's:-fomit-frame-pointer::'`"
@@ -1007,16 +1096,21 @@ if test "x$enable_optim" = xyes; then
 	changedCFLAGS="`echo $changedCFLAGS | sed -e 's|^, ||'`"
 	AC_MSG_RESULT([yes: $changedCFLAGS])
 
-	# The default configure invocation when doing an rpmbuild also uses this
-	MCHECK_ADD_FLAG([-Wp,-D_FORTIFY_SOURCE=2])
+	# The default configure invocation when doing an rpmbuild also uses this.
+	# In fact, rpmbuild uses -Wp,-D_FORTIFY_SOURCE=2 (cf. /usr/lib/rpm/redhat/macros),
+	# but clang 3.3 complains about "argument unused during compilation";
+	# hence, we resort to plain "-D_FORTIFY_SOURCE=2", which appears to work fine
+	# also with `make rpm`. Well, worst case is that we miss a check that during
+	# "normal" build, that is then caught by '-Wp,-D_FORTIFY_SOURCE=2' during `make rpm`.
+	MCHECK_ADD_FLAG([-D_FORTIFY_SOURCE=2])
 else
 	AC_MSG_RESULT([no])
 fi
 
 AC_MSG_CHECKING([for --enable-profile])
-if test "x$enable_prof" = xyes; then
+if test "x$enable_profile" = xyes; then
 	AC_DEFINE(PROFILE, 1, [Compiler flag])
-	need_profiling=yes
+	need_profile=yes
 	if test "x$GCC" = xyes; then
 		CFLAGS="$CFLAGS -pg"
 		AC_MSG_RESULT([yes: -pg])
@@ -1026,7 +1120,7 @@ if test "x$enable_prof" = xyes; then
 else
 	AC_MSG_RESULT([no])
 fi
-AM_CONDITIONAL(PROFILING,test "x$need_profiling" = xyes)
+AM_CONDITIONAL(PROFILING,test "x$need_profile" = xyes)
 
 AC_MSG_CHECKING([for --enable-instrument])
 if test "x$enable_instrument" = xyes; then
@@ -1046,10 +1140,13 @@ AC_PATH_PROG(BASH,bash, /usr/bin/bash, $PATH)
 AC_CHECK_PROG(RM,rm,rm -f)
 AC_CHECK_PROG(MV,mv,mv -f)
 AC_PROG_LN_S
+AC_CHECK_PROGS(DIFF,gdiff diff)
+AC_DEFINE_UNQUOTED([DIFF], "$DIFF", [Program to perform diffs])
 
 AC_CHECK_PROGS(RPMBUILD,rpmbuild rpm)
 
-have_perl=auto
+org_have_perl=auto
+have_perl=$org_have_perl
 PERL=perl
 AC_ARG_WITH(perl,
 	AS_HELP_STRING([--with-perl=FILE], [perl is installed as FILE]),
@@ -1071,6 +1168,7 @@ if test "x$have_perl" != xno; then
 				AC_MSG_ERROR([No Perl executable found])
 			fi
 			have_perl=no
+			why_have_perl="(no Perl executable found)"
 		fi
 	fi
 fi
@@ -1088,6 +1186,8 @@ if test "x$have_perl" != xno; then
 				AC_MSG_ERROR([Must specify --with-perl-libdir when cross compiling])
 			fi
 			PERL_LIBDIR=`"$PERL" -MConfig -e '$x=$Config{installvendorarch}; $x =~ s|$Config{vendorprefix}/||; print $x;' 2>/dev/null`
+			# On Darwin this starts with a slash, remove it
+			PERL_LIBDIR="${PERL_LIBDIR#/}"
 			;;
 		no)	;;
 		*)
@@ -1108,9 +1208,11 @@ AC_SUBST(PERL_LIBDIR)
 # check if python2 and python3 exist
 # if python2 or python3 doesn't exist, use python if major matches
 
-have_python2=auto
+org_have_python2=auto
+have_python2=$org_have_python2
 PYTHON2=python2
-have_python3=auto
+org_have_python3=auto
+have_python3=$org_have_python3
 PYTHON3=python3
 
 AC_ARG_WITH(python2,
@@ -1135,24 +1237,21 @@ case "$have_python3" in
 		;;
 esac
 
+dnl Figure out a default for PYTHON2 or PYTHON3
 AC_PATH_PROG(PYTHON,python,no,$PATH)
-PYTHON_MAJ=
+PYTHON_MAJ=unknown
 if test "x$PYTHON" != xno; then
 	AC_MSG_CHECKING([major version of $PYTHON])
 	case "`"$PYTHON" -V 2>&1`" in
-		"Python 2."[[67]]*)  # older Pythons don't get Python3 syntax
+		"Python 2."[[67]]*)
 			PYTHON_MAJ=2
 			;;
 		"Python 3."*)
 			PYTHON_MAJ=3
 			;;
-		*)
-			AC_MSG_ERROR([unknown or unsupported Python version])
-			;;
 	esac
 	AC_MSG_RESULT($PYTHON_MAJ)
 fi
-
 
 if test "x$have_python2" != xno; then
 	if test x$cross_compiling != xyes; then
@@ -1165,7 +1264,21 @@ if test "x$have_python2" != xno; then
 				AC_MSG_ERROR([Python 2 executable not found])
 			else
 				have_python2=no
+				why_have_python2="(Python 2 executable not found)"
 			fi
+		else
+			case "`"$PYTHON2" -V 2>&1`" in
+			"Python 2."[[67]]*)
+				;;
+			*)
+				if test "x$have_python2" = xauto; then
+					have_python2=no
+					why_have_python2="(Python 2 executable too old)"
+				else
+					AC_MSG_ERROR([Python 2 executable too old])
+				fi
+				;;
+			esac
 		fi
 	fi
 fi
@@ -1227,6 +1340,7 @@ if test "x$have_python3" != xno; then
 				AC_MSG_ERROR([Python3 executable not found])
 			else
 				have_python3=no
+				why_have_python3="(Python 3 executable not found)"
 			fi
 		fi
 	fi
@@ -1289,34 +1403,46 @@ if test "x$enable_testing" != xno ; then
 fi
 
 RUBY=ruby
+AC_PATH_PROG(RUBY,$RUBY,no,$PATH)
 have_rubygem_dir=auto
 AC_ARG_WITH(rubygem-dir,
 	AS_HELP_STRING([--with-rubygem-dir=DIR], [Ruby gems are installed in DIR]),
 	have_rubygem_dir="$withval")
 
 case "$have_rubygem_dir" in
-	yes|auto)
-		AC_PATH_PROG(RUBY,$RUBY,no,$PATH)
+	no) ;;
+	*)
 		if test "x$RUBY" = xno; then
 			if test "x$have_rubygem_dir" != xauto; then
-				AC_MSG_ERROR([No Ruby executable found, specify --with-rubygem-dir explicitly])
+				AC_MSG_ERROR([No Ruby executable found])
 			fi
 			have_rubygem_dir=no
 		else
-			AC_MSG_CHECKING([where rubygems are stored])
-			RUBY_DIR=
-			d=`$RUBY -rrbconfig -e "puts Config::CONFIG[['prefix']]" 2>/dev/null`
-			RUBY_DIR=`$RUBY -rrbconfig -e "puts Config::CONFIG[['sitelibdir']]" 2>/dev/null | sed -e "s|^$d/||" -e 's/site_ruby/gems/'`
-			if test x"$RUBY_DIR" = x ; then
-				AC_MSG_ERROR([unable to determine rubygems location])
-			else
-				AC_MSG_RESULT([$RUBY_DIR])
-			fi
+			case "$have_rubygem_dir" in
+				yes|auto)
+					AC_MSG_CHECKING([where rubygems are stored])
+					RUBY_DIR=
+					d=`$RUBY -rrbconfig -e "puts Config::CONFIG[['prefix']]" 2>/dev/null`
+					RUBY_DIR=`$RUBY -rrbconfig -e "puts Config::CONFIG[['sitelibdir']]" 2>/dev/null | sed -e "s|^$d/||" -e 's/site_ruby/gems/'`
+					if test x"$RUBY_DIR" = x ; then
+						if test x"$have_rubygem_dir" != xauto; then
+							AC_MSG_ERROR([unable to determine rubygems location])
+						else
+							AC_MSG_RESULT([unable to determine rubygems location])
+							RUBY=no
+							have_rubygem_dir=no
+						fi
+					else
+						AC_MSG_RESULT([$RUBY_DIR])
+					fi
+					;;
+				*)
+					RUBY_DIR="$have_rubygem_dir"
+					;;
+			esac
 		fi
 		;;
-	no) ;;
 	*)
-		RUBY_DIR="$have_rubygem_dir"
 		;;
 esac
 case "$RUBY_DIR" in
@@ -1329,7 +1455,8 @@ esac
 AC_SUBST(RUBY_DIR)
 
 RUBYGEM=gem
-have_rubygem=auto
+org_have_rubygem=auto
+have_rubygem=$org_have_rubygem
 AC_ARG_WITH(rubygem,
 	AS_HELP_STRING([--with-rubygem=FILE], [ruby gem is installed as FILE]),
 	have_rubygem="$withval")
@@ -1350,12 +1477,12 @@ if test "x$have_rubygem" != xno; then
 			AC_MSG_ERROR([No rubygem executable found])
 		fi
 		have_rubygem=no
+		why_have_rubygem="(no rubygem executable found)"
 	fi
 fi
 AC_SUBST(RUBYGEM)
 AM_CONDITIONAL(HAVE_RUBYGEM, test x"$have_rubygem" != xno -a x"$have_rubygem_dir" != xno)
 
-AM_PROG_LEX
 AC_PROG_YACC
 case "$YACC" in
 	bison*)
@@ -1367,41 +1494,14 @@ case "$YACC" in
 		if test MONETDB_VERSION_TO_NUMBER(echo $BISON_VER) -lt MONETDB_VERSION_TO_NUMBER(echo 2.4.3); then
 			X_CFLAGS="`echo ${X_CFLAGS} | sed -e 's/-Wundef//g'`"
 		fi
-		if test MONETDB_VERSION_TO_NUMBER(echo $BISON_VER) -lt MONETDB_VERSION_TO_NUMBER(echo 2.4); then
-			if test "x$enable_jaql" = xyes; then
-				AC_MSG_ERROR([MonetDB/JAQL requires bison >=2.4])
-			elif test "x$enable_jaql" = xauto; then
-				enable_jaql=no
-				disable_jaql="(MonetDB/JAQL requires bison >= 2.4)"
-			fi
-		fi
 	;;
 	*)
 		if test "x$enable_sql" = xyes; then
 			AC_MSG_ERROR([MonetDB/SQL requires bison])
 		fi
-		if test "x$enable_jaql" = xyes; then
-			AC_MSG_ERROR([MonetDB/JAQL requires bison])
-		fi
 		enable_sql=no
-		enable_jaql=no
 		if test "x$disable_sql" = x; then
 			disable_sql="(MonetDB/SQL requires bison)"
-		fi
-		if test "x$disable_jaql" = x; then
-			disable_jaql="(MonetDB/JAQL requires bison)"
-		fi
-	;;
-esac
-case "$LEX" in
-	flex*) : ;;
-	*)
-		if test "x$enable_jaql" = xyes; then
-			AC_MSG_ERROR([MonetDB/JAQL requires flex])
-		fi
-		enable_jaql=no
-		if test "x$disable_jaql" = x; then
-			disable_jaql="(MonetDB/JAQL requires flex)"
 		fi
 	;;
 esac
@@ -1412,14 +1512,14 @@ AC_MSG_CHECKING([$INSTALL --backup option])
 	inst=`echo $INSTALL | sed 's/ .*//'`
 	if test ! "`file $inst | grep 'shell script' 2>/dev/null`" ; then
 	    echo "" > c 2>/dev/null
-            $INSTALL --backup=nil c d 1>/dev/null 2>/dev/null
-            if test $? -eq 0; then
-                INSTALL_BACKUP="--backup=nil"
-            fi
-            $INSTALL -C --backup=nil c e 1>/dev/null 2>/dev/null
-            if test $? -eq 0; then
-                INSTALL_BACKUP="-C --backup=nil"
-       	    fi
+	    $INSTALL --backup=nil c d 1>/dev/null 2>/dev/null
+	    if test $? -eq 0; then
+	        INSTALL_BACKUP="--backup=nil"
+	    fi
+	    $INSTALL -C --backup=nil c e 1>/dev/null 2>/dev/null
+	    if test $? -eq 0; then
+	        INSTALL_BACKUP="-C --backup=nil"
+	    fi
 	fi
 	rm -f c d e 2>/dev/null
 fi ]
@@ -1517,11 +1617,12 @@ JAVA="java"
 JAVAC="javac"
 JAR="jar"
 JAVADOC="javadoc"
+org_have_java=auto
 AC_ARG_WITH(java,
 	AS_HELP_STRING([--with-java=DIR],
 		[java, javac, jar and javadoc are installed in DIR/bin]),
 	have_java="$withval",
-	have_java=auto)
+	have_java=$org_have_java)
 JPATH=$PATH
 case $have_java in
 yes|no|auto)
@@ -1547,11 +1648,13 @@ if test "x$have_java" != xno; then
 			AC_MSG_ERROR([No javac found])
 		fi
 		have_java=no
+		why_have_java="(no javac found)"
 	elif test "x$JAR" = "x"; then
-		 if test "x$have_java" = xyes; then
+		if test "x$have_java" = xyes; then
 			AC_MSG_ERROR([No jar found])
-		 fi
-		 have_java=no
+		fi
+		have_java=no
+		why_have_java="(no jar found)"
 	else
 		 have_java=yes
 	fi
@@ -1567,6 +1670,7 @@ if test "x$have_java" != xno; then
 	fi
 	if test x"$ANT" = xno; then
 		have_java="no"
+		why_have_java="(no ant found)"
 	fi
 fi
 AC_SUBST(JAVA_VERSION)
@@ -1577,7 +1681,8 @@ AC_SUBST(JAVADOC)
 AC_SUBST(CLASSPATH)
 AC_SUBST(JAVA_HOME)
 
-have_java_jdbc=no
+org_have_java_jdbc=no
+have_java_jdbc=$org_have_java_jdbc
 case $have_java-$enable_jdbc in
 *-no)
 	;;
@@ -1607,7 +1712,8 @@ no-*)
 esac
 AM_CONDITIONAL(HAVE_JAVAJDBC,test x$have_java_jdbc != xno)
 
-have_java_control=no
+org_have_java_control=no
+have_java_control=$org_have_java_control
 case $have_java-$enable_control in
 *-no)
 	;;
@@ -1641,12 +1747,16 @@ AM_CONDITIONAL(HAVE_JAVAMEROCONTROL,test x$have_java_control != xno)
 if test x$have_java_jdbc = xno -a x$have_java_control = xno; then
 	# no point doing anything with Java if all Java packages are disabled
 	have_java=no
+	if test "x$why_have_java" = x ; then
+		why_have_java="(have_java_jdbc = no && have_java_control = no)"
+	fi
 fi
 AM_CONDITIONAL(HAVE_JAVA,test x$have_java != xno)
 
 dnl     checks for libraries
 dnl check for bz2 (de)compression library
-have_bz2=auto
+org_have_bz2=auto
+have_bz2=$org_have_bz2
 BZ_CFLAGS=""
 BZ_LIBS=""
 AC_ARG_WITH(bz2,
@@ -1671,7 +1781,11 @@ if test "x$have_bz2" != xno; then
 	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>
 #include <bzlib.h>]], [[(void)BZ2_bzopen("","");]])],
 		BZ_LIBS="$BZ_LIBS -lbz2",
-		[ if test "x$have_bz2" != xauto; then AC_MSG_ERROR([bz2 library not found]); fi; have_bz2=no ])
+		[ if test "x$have_bz2" != xauto; then
+			AC_MSG_ERROR([bz2 library not found])
+		  fi
+		  have_bz2=no
+		  why_have_bz2="(bz2 library not found)" ])
 	LIBS="$save_LIBS"
 	CPPFLAGS="$save_CPPFLAGS"
 fi
@@ -1715,7 +1829,8 @@ AC_CHECK_FUNC(mallinfo, AC_TRY_COMPILE([$ac_includes_default
 LIBS="$save_LIBS"
 
 dnl libpthread
-have_pthread=auto
+org_have_pthread=auto
+have_pthread=$org_have_pthread
 PTHREAD_LIBS=""
 PTHREAD_INCS=""
 PTHREAD_EXTRA=""
@@ -1754,8 +1869,21 @@ if test "x$have_pthread" != xno; then
 
 	save_LIBS="$LIBS"
 	save_CPPFLAGS="$CPPFLAGS"
-	case $GCC-$have_pthread in
-		yes-auto|yes-yes)
+	case $GCC-$have_pthread-$CC_ver in
+		yes-auto-clang-5.*|yes-yes-clang-5.*|yes-auto-clang-6.*|yes-yes-clang-6.*)
+			# clang 5.*/6.* (Xcode 6.0) does not
+			# seem to have / require -pthread as compiler
+			# option; on Mac OS X Yosamite, "Apple LLVM 
+			# version 6.0 (clang-600.0.51) (based on LLVM 3.5svn)"
+			# complains about "error: argument unused during
+			# compilation: '-pthread'".
+			# However, disabling -pthread completely might be
+			# too redical/harsh; see also
+			# https://www.monetdb.org/pipermail/developers-list/2014-March/004264.html
+			# a better alternative might be required but is
+			# still pending ...
+		;;
+		yes-auto-*|yes-yes-*)
 			# use GCC's knowledge about the target platform, sets flags
 			# for both the preprocessor as well as the linker
 			PTHREAD_INCS="-pthread"
@@ -1769,7 +1897,7 @@ if test "x$have_pthread" != xno; then
 			LIBS="$LIBS $PTHREAD_LIBS"
 			pthread_found=yes
 			AC_SEARCH_LIBS([sem_init], [pthreadGC2 pthreadGC1 pthreadGC pthread],
-				[LIBS="$LIBS $ac_cv_search_sem_init"],
+				[test "$ac_cv_search_sem_init" = "none required" || LIBS="$LIBS $ac_cv_search_sem_init"],
 				[pthread_found=no])
 			if test x"$pthread_found" = xno ; then
 				pthread_found=yes
@@ -1792,6 +1920,7 @@ if test "x$have_pthread" != xno; then
 					AC_MSG_ERROR([pthread library not found])
 				fi
 				have_pthread=no
+				why_have_pthread="(pthread library not found)"
 			fi
 			PTHREAD_LIBS="$LIBS"
 		;;
@@ -1834,7 +1963,8 @@ AC_SUBST(PTHREAD_LIBS)
 AC_SUBST(PTHREAD_INCS)
 
 dnl libreadline
-have_readline=auto
+org_have_readline=auto
+have_readline=$org_have_readline
 READLINE_LIBS=""
 READLINE_INCS=""
 AC_ARG_WITH(readline,
@@ -1866,13 +1996,17 @@ if test "x$have_readline" != xno; then
 					READLINE_LIBS="$READLINE_LIBS -lreadline -lncurses",
 					[ if test "x$have_readline" = xyes; then
 						AC_MSG_ERROR([readline library not found])
-					  fi; have_readline=no ],
+					  fi
+					  have_readline=no
+					  why_have_readline="(readline library not found)" ],
 					-lncurses)],
 				-ltermcap)],
 			),
 		[ if test "x$have_readline" = xyes; then
 			AC_MSG_ERROR([readline header file not found])
-		  fi; have_readline=no ])
+		  fi
+		  have_readline=no
+		  why_have_readline="(readline header file not found)" ])
 fi
 
 if test "x$have_readline" != xno; then
@@ -1884,8 +2018,18 @@ if test "x$have_readline" != xno; then
 #include <readline/readline.h>],[
 	rl_completion_func_t *func = NULL;],
 			[AC_MSG_RESULT([yes])],
-			[ if test "x$have_readline" != xauto; then AC_MSG_ERROR([readline/readline.h does not contain rl_completion_func_t, is it GNU readline?]); else AC_MSG_RESULT([no]); fi; have_readline=no ])],
-		[ if test "x$have_readline" != xauto; then AC_MSG_ERROR([readline library does not contain rl_completion_matches]); fi; have_readline=no ],
+			[ if test "x$have_readline" != xauto; then
+				AC_MSG_ERROR([readline/readline.h does not contain rl_completion_func_t, is it GNU readline?])
+			  else
+				AC_MSG_RESULT([no])
+			  fi
+			  have_readline=no
+			  why_have_readline="(readline/readline.h does not contain rl_completion_func_t, is it GNU readline?)" ])],
+		[ if test "x$have_readline" != xauto; then
+			AC_MSG_ERROR([readline library does not contain rl_completion_matches])
+		  fi
+		  have_readline=no
+		  why_have_readline="(readline library does not contain rl_completion_matches)" ],
 		  $READLINE_LIBS)
 fi
 CPPFLAGS="$save_CPPFLAGS"
@@ -1925,7 +2069,7 @@ dnl OpenSSL library
 dnl required for MonetDB5 (and SQL), optional otherwise
 PKG_CHECK_MODULES([openssl], [openssl],
 	[have_openssl=yes],
-	[have_openssl=no])
+	[have_openssl=no; why_have_openssl="(OpenSSL library not found)"])
 case "$enable_monetdb5-$have_openssl" in
 yes-no)
 	AC_MSG_ERROR([OpenSSL library not found but required for MonetDB5])
@@ -1957,6 +2101,7 @@ auto-no)
 			;;
 		esac
 		have_openssl=no
+		why_have_openssl="(OpenSSL library found but required checksum algorithm not found)"
 	fi
 	;;
 esac
@@ -1968,7 +2113,7 @@ dnl PCRE library
 dnl required for MonetDB5 (and SQL), optional otherwise
 req_pcre_ver='4.5'
 PKG_CHECK_MODULES([pcre], [libpcre >= $req_pcre_ver],
-	[have_pcre=yes], [have_pcre=no])
+	[have_pcre=yes], [have_pcre=no; why_have_pcre="(libpcre >= $req_pcre_ver not found)"])
 if test "x$have_pcre" = xyes; then
 	AC_MSG_CHECKING(whether pcre comes with UTF-8 support)
 	save_LIBS="$LIBS"
@@ -1979,7 +2124,7 @@ if test "x$have_pcre" = xyes; then
 		[[#include <pcre.h>]],
 		[[int rc; pcre_config(PCRE_CONFIG_UTF8, &rc); exit(!rc);]])],
 		AC_MSG_RESULT([yes]),
-		have_pcre=no; AC_MSG_RESULT([no]),
+		have_pcre=no; why_have_pcre="(libpcre found but no UTF-8 support)"; AC_MSG_RESULT([no]),
 		AC_MSG_RESULT([assuming yes]))
 	LIBS="$save_LIBS"
 	CFLAGS="$save_CFLAGS"
@@ -2001,7 +2146,7 @@ auto-no)
 esac
 
 
-PKG_CHECK_MODULES([libxml2], [libxml-2.0], [have_libxml2="yes"], [have_libxml2="no"])
+PKG_CHECK_MODULES([libxml2], [libxml-2.0], [have_libxml2="yes"], [have_libxml2="no"; why_have_libxml2="(libxml2 not found)"])
 case "$enable_monetdb5-$have_libxml2" in
 yes-no)
 	AC_MSG_ERROR([libxml2 library not found but required for MonetDB5])
@@ -2015,33 +2160,22 @@ auto-no)
 esac
 
 
-have_raptor=no
-if test "x$enable_rdf" != xno; then
-	req_raptor_ver='1.4.16'
-	PKG_CHECK_MODULES([raptor], [raptor],
-		[AC_DEFINE(HAVE_RAPTOR, 1, [Define if you have raptor installed])
-		 have_raptor="yes"],
-		[if test "x$enable_rdf" = xyes; then AC_MSG_ERROR([raptor library required for RDF support]); fi
-		 have_raptor="no"; enable_rdf=no; disable_rdf="(raptor library not found)"])
-fi
-AM_CONDITIONAL(HAVE_RAPTOR, test x"$have_raptor" != xno)
-
-AM_CONDITIONAL(ENABLE_DATACELL, test x"$enable_datacell" != xno)
-
-PKG_CHECK_MODULES([curl], [libcurl], [have_curl="yes"], [have_curl="no"])
+PKG_CHECK_MODULES([curl], [libcurl], [have_curl="yes"], [have_curl="no"; why_have_curl="(libcurl not found)"])
 if test x"$have_curl" = x"yes" ; then
 	AC_DEFINE(HAVE_CURL, 1, [Define if you have the cURL library])
 	AC_SUBST(PKG_CURL, libcurl)
 fi
+AM_CONDITIONAL(HAVE_CURL, test x"$have_curl" != xno)
 
-PKG_CHECK_MODULES([zlib], [zlib], [have_zlib="yes"], [have_zlib="no"])
+PKG_CHECK_MODULES([zlib], [zlib], [have_zlib="yes"], [have_zlib="no"; why_have_zlib="(zlib not found)"])
 if test x"$have_zlib" = x"yes" ; then
 	AC_DEFINE(HAVE_LIBZ, 1, [Define if you have the z library])
 	AC_SUBST(PKG_ZLIB, zlib)
 fi
 AM_CONDITIONAL(HAVE_LIBZ, test x"$have_zlib" != xno)
 
-have_valgrind=no
+org_have_valgrind=no
+have_valgrind=$org_have_valgrind
 AC_ARG_WITH(valgrind,
 	AS_HELP_STRING([--with-valgrind],
 		[include valgrind support (default=no)]),
@@ -2053,10 +2187,11 @@ if test "x$have_valgrind" != xno; then
 fi
 
 # check for sphinxclient
-have_sphinxclient="auto"
+org_have_sphinxclient="auto"
+have_sphinxclient=$org_have_sphinxclient
 AC_ARG_WITH(sphinxclient,
     AS_HELP_STRING([--with-sphinxclient=DIR],[sphinxclient library is installed in DIR]),
-    [have_sphinxclient="$withval"], [have_sphinxclient="auto"])
+    [have_sphinxclient="$withval"])
 if test "x$have_sphinxclient" != xno; then
 	case "$have_sphinxclient" in
 	auto|yes)
@@ -2076,14 +2211,51 @@ if test "x$have_sphinxclient" != xno; then
 			AC_DEFINE(HAVE_SPHINXCLIENT, 1, [Define if you have the sphinxclient library])
 			have_sphinxclient=yes
 			SPHINXCLIENT_LIBS="$SPHINXCLIENT_LIBS -lsphinxclient",
-			[ if test "x$have_sphinxclient" != xauto; then AC_MSG_ERROR([-lsphinxclient library not found]); fi; have_sphinxclient=no ]),
-		[ if test "x$have_sphinxclient" != xauto; then AC_MSG_ERROR([sphinxclient.h header not found]); fi; have_sphinxclient=no ])
+			[ if test "x$have_sphinxclient" != xauto; then AC_MSG_ERROR([-lsphinxclient library not found]); fi
+			  have_sphinxclient=no; why_have_sphinxclient="(sphinxclient library not found)" ]),
+		[ if test "x$have_sphinxclient" != xauto; then AC_MSG_ERROR([sphinxclient.h header not found]); fi
+		  have_sphinxclient=no; why_have_sphinxclient="(sphinxclient.h header not found)" ])
 	LDFLAGS="$save_LDFLAGS"
 	CPPFLAGS="$save_CPPFLAGS"
 fi
 AC_SUBST(SPHINXCLIENT_CFLAGS, $SPHINXCLIENT_CFLAGS)
 AC_SUBST(SPHINXCLIENT_LIBS, $SPHINXCLIENT_LIBS)
 AM_CONDITIONAL(HAVE_SPHINXCLIENT, test x"$have_sphinxclient" != xno)
+
+have_libr=no
+if test "x$enable_rintegration" != xno; then
+	case "$enable_rintegration" in
+	yes|auto)
+		XPATH="$PATH"
+		;;
+	/*)
+		XPATH="$enable_rintegration"
+		enable_rintegration=yes
+		;;
+	*)
+		AC_MSG_ERROR([--enable-rintegration value must be yes|no|auto|absolute path of R cmd])
+		;;
+	esac
+   	AC_PATH_PROG(RCMD,R,,$XPATH)
+   	if test "x$RCMD" = x; then
+      		if test "x$enable_rintegration" = xyes; then
+			AC_MSG_ERROR([libR library required for R integration support])
+		else
+			have_libr="no"
+		 	why_have_libr="(libR library not found)"
+			enable_rintegration=no
+			disable_rintegration="(libR library not found)"
+		fi
+	elif RHOME=`$RCMD RHOME` && libr_CFLAGS=`$RCMD CMD config --cppflags` && libr_LIBS=`$RCMD CMD config --ldflags`; then
+		have_libr=yes
+		AC_DEFINE(HAVE_LIBR, 1, [Define if you have libR installed])
+		AC_SUBST(libr_CFLAGS, $libr_CFLAGS)
+		AC_SUBST(libr_LIBS, $libr_LIBS)
+		AC_SUBST(RHOME, $RHOME)
+		AC_DEFINE_UNQUOTED(RHOME, "$RHOME", [The home of R])
+	fi
+fi
+AM_CONDITIONAL(HAVE_LIBR, test x"$have_libr" != xno)
 
 # ODBC, only used by ODBC driver
 if test "x$enable_odbc" != xno; then
@@ -2109,7 +2281,8 @@ if test "x$enable_odbc" != xno; then
 		CPPFLAGS="$CPPFLAGS $ODBC_INCS"
 		AC_CHECK_HEADER(odbcinst.h,
 			AC_DEFINE(HAVE_ODBCINST_H, 1, [Define to 1 if you have the <odbcinst.h> header file.]),
-			[if test "x$have_unixodbc" != xauto; then AC_MSG_ERROR([odbcinst.h not found]); fi; have_unixodbc=no])
+			[if test "x$have_unixodbc" != xauto; then AC_MSG_ERROR([odbcinst.h not found]); fi
+			 have_unixodbc=no; why_have_unixodbc="(odbcinst.h not found)"])
 		CPPFLAGS="$save_CPPFLAGS"
 	fi
 	if test "x$have_unixodbc" != xno; then
@@ -2117,7 +2290,8 @@ if test "x$enable_odbc" != xno; then
 		LIBS="$LIBS $ODBCINST_LIBS"
 		AC_CHECK_LIB(odbcinst,
 			SQLGetPrivateProfileString, :,
-			[if test "x$have_unixodbc" != xauto; then AC_MSG_ERROR([-lodbcinst not found]); fi; have_unixodbc=no])
+			[if test "x$have_unixodbc" != xauto; then AC_MSG_ERROR([-lodbcinst not found]); fi
+			 have_unixodbc=no; why_have_unixodbc="(odbcinst library not found)"])
 		LIBS="$save_LIBS"
 	fi
 	if test "x$have_unixodbc" != xno; then
@@ -2125,7 +2299,8 @@ if test "x$enable_odbc" != xno; then
 		LIBS="$LIBS $ODBC_LIBS"
 		AC_CHECK_LIB(odbc,
 			SQLGetDiagRec, :,
-			[if test "x$have_unixodbc" != xauto; then AC_MSG_ERROR([-lodbc not found]); fi; have_unixodbc=no])
+			[if test "x$have_unixodbc" != xauto; then AC_MSG_ERROR([-lodbc not found]); fi
+			 have_unixodbc=no; why_have_unixodbc="(odbc library not found)"])
 		LIBS="$save_LIBS"
 	fi
 	if test "x$have_unixodbc" != xno; then
@@ -2136,6 +2311,8 @@ if test "x$enable_odbc" != xno; then
 	fi
 	if test "x$have_unixodbc" != xno; then
 		AC_MSG_CHECKING([checking whether SQLColAttribute uses SQLLEN * or SQLPOINTER])
+		save_CPPFLAGS="$CPPFLAGS"
+		CPPFLAGS="$CPPFLAGS $ODBC_INCS"
 		AC_COMPILE_IFELSE([
 			AC_LANG_PROGRAM([[
 				#include <sql.h>
@@ -2152,6 +2329,7 @@ if test "x$enable_odbc" != xno; then
 				[[SQLColAttribute(0,0,0,0,0,0,0);]])],
 			[lenp_or_pointer_t='SQLLEN *'],
 			[lenp_or_pointer_t=SQLPOINTER])
+		CPPFLAGS="$save_CPPFLAGS"
 		AC_MSG_RESULT([using "$lenp_or_pointer_t"])
 		AC_DEFINE_UNQUOTED(LENP_OR_POINTER_T, $lenp_or_pointer_t,
 			[Define as SQLLEN * or SQLPOINTER depending on the include file])
@@ -2170,8 +2348,64 @@ if test "x$enable_odbc" != xno; then
 	esac
 else
 	have_unixodbc=no
+	why_have_unixodbc="(ODBC disabled)"
 fi
 AM_CONDITIONAL(HAVE_ODBC, test x$have_unixodbc != xno)
+
+# samtools, only used by sql
+org_have_samtools="auto"
+have_samtools=$org_have_samtools
+AC_ARG_WITH(samtools,
+	AS_HELP_STRING([--with-samtools=DIR],
+		[samtools (providing bam library) are installed in DIR]),
+	[have_samtools="$withval"])
+if test "x$have_samtools" != xno; then
+	case "$have_samtools" in
+	auto|yes)
+		;;
+	*)
+		SAMTOOLS_CFLAGS="-I$have_samtools/include"
+		SAMTOOLS_LIBS="-L$have_samtools/lib -lbam"
+		;;
+	esac
+
+	save_CPPFLAGS="$CPPFLAGS"
+	save_LDFLAGS="$LDFLAGS"
+	CPPFLAGS="$CPPFLAGS $SAMTOOLS_CFLAGS"
+	LDFLAGS="$LDFLAGS $SAMTOOLS_LIBS"
+
+	AC_CHECK_HEADER(samtools/bam.h,
+		[ why_have_samtools= ],
+		[ why_have_samtools="samtools/bam.h header not found" ])
+	if test -z "$why_have_samtools"; then
+		AC_CHECK_HEADER(samtools/bgzf.h,
+			[ why_have_samtools= ],
+			[ why_have_samtools="samtools/bgzf.h header not found" ])
+	fi
+	if test -z "$why_have_samtools"; then
+		AC_CHECK_LIB(bam, bam_header_read,
+			AC_DEFINE(HAVE_SAMTOOLS, 1, [Define if you have the samtools (providing the bam library)]),
+			[ why_have_samtools="bam library not found" ],
+			[-lm -lpthread -lz])
+	fi
+	if test -n "$why_have_samtools"; then
+		if test "x$have_samtools" != xauto; then
+			AC_MSG_ERROR([$why_have_samtools])
+		fi
+		have_samtools=no
+		why_have_samtools="($why_have_samtools)"
+	fi
+	LDFLAGS="$save_LDFLAGS"
+	CPPFLAGS="$save_CPPFLAGS"
+	if test "x$have_samtools" = "xyes" -o "x$have_samtools" = "xauto"; then
+		SAMTOOLS_CFLAGS=
+		SAMTOOLS_LIBS="-lbam"
+		AC_CHECK_HEADERS([samtools/kstring.h])
+	fi
+fi
+AC_SUBST(SAMTOOLS_CFLAGS, $SAMTOOLS_CFLAGS)
+AC_SUBST(SAMTOOLS_LIBS, $SAMTOOLS_LIBS)
+AM_CONDITIONAL(HAVE_SAMTOOLS, test x"$have_samtools" != xno)
 
 # mseed, only used by sql
 have_mseed="auto"
@@ -2180,29 +2414,29 @@ AC_ARG_WITH(mseed,
     [have_mseed="$withval"], [have_mseed="auto"])
 if test "x$have_mseed" != xno; then
 
-	case "$have_mseed" in
-	auto|yes)
-	    ;;
-	*)
-	    MSEED_CFLAGS="-I$have_mseed/include"
-	    MSEED_LIBS="-L$have_mseed/lib -lmseed"
-	    ;;
-	esac
+        case "$have_mseed" in
+        auto|yes)
+            ;;
+        *)
+            MSEED_CFLAGS="-I$have_mseed/include"
+            MSEED_LIBS="-L$have_mseed/lib -lmseed"
+            ;;
+        esac
 
-	save_CPPFLAGS="$CPPFLAGS"
-	save_LDFLAGS="$LDFLAGS"
-	CPPFLAGS="$CPPFLAGS $MSEED_CFLAGS"
-	LDFLAGS="$LDFLAGS $MSEED_LIBS"
-	AC_CHECK_HEADER(libmseed.h,
-		AC_CHECK_LIB(mseed, msr_init,
-			AC_DEFINE(HAVE_MSEED, 1, [Define if you have the mseed library]),
-			[ if test "x$have_mseed" != xauto; then AC_MSG_ERROR([-lmseed library not found]); fi; have_mseed=no ], "-lm"),
-		[ if test "x$have_mseed" != xauto; then AC_MSG_ERROR([libmseed.h header not found]); fi; have_mseed=no ])
-	LDFLAGS="$save_LDFLAGS"
-	CPPFLAGS="$save_CPPFLAGS"
+        save_CPPFLAGS="$CPPFLAGS"
+        save_LDFLAGS="$LDFLAGS"
+        CPPFLAGS="$CPPFLAGS $MSEED_CFLAGS"
+        LDFLAGS="$LDFLAGS $MSEED_LIBS"
+        AC_CHECK_HEADER(libmseed.h,
+                AC_CHECK_LIB(mseed, msr_init,
+                        AC_DEFINE(HAVE_MSEED, 1, [Define if you have the mseed library]),
+                        [ if test "x$have_mseed" != xauto; then AC_MSG_ERROR([-lmseed library not found]); fi; have_mseed=no ], "-lm"),
+                [ if test "x$have_mseed" != xauto; then AC_MSG_ERROR([libmseed.h header not found]); fi; have_mseed=no ])
+        LDFLAGS="$save_LDFLAGS"
+        CPPFLAGS="$save_CPPFLAGS"
   if test "x$have_mseed" = "xyes" -o "x$have_mseed" = "xauto"; then
-	    MSEED_CFLAGS=
-	    MSEED_LIBS="-lmseed"
+            MSEED_CFLAGS=
+            MSEED_LIBS="-lmseed"
   fi
 fi
 AC_SUBST(MSEED_CFLAGS, $MSEED_CFLAGS)
@@ -2210,7 +2444,8 @@ AC_SUBST(MSEED_LIBS, $MSEED_LIBS)
 AM_CONDITIONAL(HAVE_MSEED, test x"$have_mseed" != xno)
 
 # geos, only used in geom module
-have_geos=auto
+org_have_geos=auto
+have_geos=$org_have_geos
 GEOS_INCS=''
 GEOS_LIBS=''
 AC_ARG_WITH(geos,
@@ -2219,8 +2454,7 @@ AC_ARG_WITH(geos,
 	have_geos="$withval")
 case "$enable_geom" in
 yes|auto)
-	GEOS_VERSION_REQUIRED_MIN=2.2.0
-	dnl GEOS_VERSION_REQUIRED_MAX=3.0.0
+	GEOS_VERSION_REQUIRED_MIN=3.0.0
 	GEOS_CONFIG=''
 	if test "x$have_geos" != xno; then
 		case "$have_geos" in
@@ -2238,6 +2472,7 @@ yes|auto)
 				AC_MSG_ERROR([geos-config not found in $XPATH])
 			else
 				have_geos=no
+				why_have_geos="(geos-config not found)"
 			fi
 		fi
 	fi
@@ -2250,6 +2485,7 @@ yes|auto)
 				AC_MSG_ERROR([geos version $GEOS_VERSION is too old])
 			else
 				have_geos=no
+				why_have_geos="(geos version $GEOS_VERSION is older than required version $GEOS_VERSION_REQUIRED_MIN)"
 			fi
 		fi
 	fi
@@ -2268,7 +2504,7 @@ yes|auto)
 		# no geos, so don't compile geom
 		enable_geom=no
 		if test "x$disable_geom" = x; then
-			disable_geom="(geos library required for geom module)"
+			disable_geom=${why_have_geos:-"(geos library required for geom module)"}
 		fi
 	fi
 	;;
@@ -2276,14 +2512,96 @@ esac
 AC_SUBST(GEOS_INCS)
 AC_SUBST(GEOS_LIBS)
 
-have_cfitsio=no
+org_have_cfitsio=no
+have_cfitsio=$org_have_cfitsio
 if test "x$enable_fits" != xno; then
 	PKG_CHECK_MODULES([cfitsio], [cfitsio],
-		[have_cfitsio=yes; AC_DEFINE(HAVE_CFITSIO, 1, [Define if you have the cfitsio library])],
-		[have_cfitsio=no; if test "x$enable_fits" = xyes; then AC_MSG_ERROR([cfitsio library required for FITS support]); fi;
+		[have_cfitsio=yes; AC_DEFINE(HAVE_FITS, 1, [Define if the fits module is to be enabled])],
+		[have_cfitsio=no; why_have_cfitsio="(cfitsio library not found)"
+		 if test "x$enable_fits" = xyes; then AC_MSG_ERROR([cfitsio library required for FITS support]); fi;
 		 enable_fits=no; disable_fits="(cfitsio library not found)"])
 fi
-AM_CONDITIONAL(HAVE_CFITSIO, test x"$have_cfitsio" != xno)
+AM_CONDITIONAL(HAVE_FITS, test x"$have_cfitsio" != xno)
+
+PKG_CHECK_MODULES([atomic_ops], [atomic_ops], [have_atomic_ops="yes"],
+	[have_atomic_ops="no"; why_have_atomic_ops="(atomic_ops library not found)"])
+if test x"$have_atomic_ops" = x"yes" ; then
+	case $GCC-$CC in
+	-*icc*)
+		# Even with libatomic_ops available, compilation with
+		# atomic_ops enabled fails with Intel's icc (version 11.1);
+		# hence, we refrain from from using atomic_ops with icc.
+		have_atomic_ops="no"
+		why_have_atomic_ops="(atomic_ops do not compile with Intel's icc)"
+		;;
+	*)
+		# On some systems, notably OpenIndiana, atomic_ops may
+		# seem to be installed in that there is a pkg-config
+		# file for it, but that file contains incorrect
+		# information, and can not, in fact, be used.  The
+		# bogus pkg-config file for atomic_ops is part of the
+		# library/gc package.
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS $atomic_ops_CFLAGS"
+		AC_CHECK_HEADERS([atomic_ops.h],[have_atomic_ops=yes],[have_atomic_ops=no why_have_atomic_ops="(atomic_ops was incorrectly installed (happens on at least Solaris/OpenIndiana))"])
+		CFAGS="$save_CFLAGS"
+		if test x"$have_atomic_ops" = x"yes" ; then
+			AC_DEFINE(HAVE_LIBATOMIC_OPS, 1, [Define if you have the libatomic_ops library])
+			CFLAGS="$CFLAGS $atomic_ops_CFLAGS"
+			LIBS="$LIBS $atomic_ops_LIBS"
+		fi
+		;;
+	esac
+fi
+
+dnl MicroHTTPD library
+dnl required for MonetDB5 SQL jsonstore, optional otherwise
+org_have_libmicrohttpd=auto
+have_libmicrohttpd=$org_have_libmicrohttpd
+if test "x$enable_microhttpd" != xno; then
+	PKG_CHECK_MODULES([libmicrohttpd], [libmicrohttpd],
+		[have_libmicrohttpd=yes],
+		[have_libmicrohttpd=no
+		 why_have_libmicrohttpd="(libmicrohttpd not found)"
+		 if test "x$enable_microhttpd" = xyes; then
+			AC_MSG_ERROR([libmicrohttpd not found])
+		 fi
+		 disable_microhttpd=$why_have_libmicrohttpd
+		 enable_microhttpd=no])
+fi
+if test x$enable_microhttpd != xno; then
+	AC_DEFINE(HAVE_MICROHTTPD, 1, [Define if the microhttpd server is to be enabled])
+fi
+
+org_have_liburiparser=auto
+have_liburiparser=$org_have_liburiparser
+if test "x$enable_jsonstore" != xno; then
+	dnl Uriparser library
+	dnl required for MonetDB5 SQL jsonstore, optional otherwise
+	PKG_CHECK_MODULES([liburiparser], [liburiparser],
+		[have_liburiparser=yes],
+		[have_liburiparser=no; disable_jsonstore="(liburiparser not found)"; if test "x$enable_jsonstore" = xyes; then AC_MSG_ERROR([LibUriParser library not found but required for jsonstore]); fi])
+
+	if test "$have_libmicrohttpd-$have_liburiparser" = yes-yes; then
+		AC_DEFINE(HAVE_JSONSTORE, 1, [Define that you want to build the jsonstore library])
+	elif test "x$enable_jsonstore" = xyes; then
+		AC_MSG_ERROR([cannot enable jsonstore $why_have_libmicrohttpd$why_have_liburiparser])
+	else
+		enable_jsonstore=no
+	fi
+fi
+
+dnl Check for gsl library for statistical functions
+org_have_gsl=no
+have_gsl=$org_have_gsl
+if test "x$enable_gsl" != xno; then
+	PKG_CHECK_MODULES([gsl], [gsl],
+		[have_gsl=yes; AC_DEFINE(HAVE_GSL, 1, [Define if you have the gsl library])],
+		[have_gsl=no; why_have_gsl="(gsl library not found)"
+		 if test "x$enable_gsl" = xyes; then AC_MSG_ERROR([gsl library required for GSL support]); fi;
+		 enable_gsl=no; disable_gsl="(gsl library not found)"])
+fi
+AM_CONDITIONAL(HAVE_GSL, test x"$have_gsl" != xno)
 
 dnl     checks for header files
 AC_HEADER_STDBOOL
@@ -2295,6 +2613,7 @@ AC_CHECK_HEADERS([ \
 	dlfcn.h \
 	execinfo.h \
 	fcntl.h \
+	fenv.h \
 	getopt.h \
 	iconv.h \
 	ieeefp.h \
@@ -2354,11 +2673,15 @@ AC_CHECK_HEADERS([sys/sysctl.h], [], [],
 
 
 SOCKET_LIBS=""
-have_setsockopt=no
+org_have_setsockopt=no
+have_setsockopt=$org_have_setsockopt
+org_have_winsock2=no
+have_winsock2=$org_have_winsock2
 
 case "$host_os" in
 	*mingw*)
-		AC_CHECK_HEADERS([winsock2.h],[have_winsock2=yes],[have_winsock2=no])
+		AC_CHECK_HEADERS([winsock2.h],[have_winsock2=yes],
+			[have_winsock2=no; why_have_winsock2="(winsock2.h header not found)"])
 		save_LIBS="$LIBS"
 		LIBS="$LIBS -lws2_32"
 		AC_MSG_CHECKING(for setsockopt in winsock2)
@@ -2382,7 +2705,8 @@ if test "x$have_setsockopt" = xno; then
 	  AC_CHECK_LIB(socket, setsockopt, [ SOCKET_LIBS="-lsocket $SOCKET_LIBS"; have_setsockopt=yes; ]))
 fi
 
-have_getaddrinfo=no
+org_have_getaddrinfo=no
+have_getaddrinfo=$org_have_getaddrinfo
 save_LIBS="$LIBS"
 LIBS="$LIBS $SOCKET_LIBS"
 
@@ -2431,10 +2755,33 @@ AC_TYPE_SSIZE_T
 AC_TYPE_PID_T
 AC_TYPE_OFF_T
 
-AC_CHECK_TYPES([__int64, long long, __int128])
+AC_CHECK_TYPES([__int64, long long])
+
+dft_int128=auto
+AC_ARG_ENABLE(int128,
+	AS_HELP_STRING([--enable-int128],
+		[enable support for 128-bit integers (default=auto)]),
+	enable_int128=$enableval,
+	enable_int128=$dft_int128)
+
+case "$enable_int128" in
+yes|auto)
+	have_hge=no
+	why_have_hge='(no 128-bit integer type found)'
+	AC_CHECK_TYPES([__int128, __int128_t, __uint128_t], [have_hge=yes; why_have_hge=''],
+		[if test x$enable_int128 = xyes; then AC_MSG_ERROR([128-bit integers not supported by platform]); fi])
+	;;
+no)
+	have_hge=no
+	why_have_hge='(128-bit integer support disabled)'
+	;;
+esac
+AM_CONDITIONAL(HAVE_HGE, test "x$have_hge" = xyes)
+
 AC_CHECK_TYPES([ptrdiff_t],,,[#include <stddef.h>
 #include <sys/types.h>])
-AC_CHECK_TYPES(bool)
+dnl check for uintptr_t so that we can compile with rintegration on 32 bit arch
+AC_CHECK_TYPES(uintptr_t)
 
 AC_CHECK_SIZEOF(char)
 AC_CHECK_SIZEOF(short)
@@ -2447,6 +2794,8 @@ AC_CHECK_SIZEOF(ptrdiff_t,,[#include <stddef.h>
 #include <sys/types.h>])
 AC_CHECK_SIZEOF(long long)
 AC_CHECK_SIZEOF(__int64)
+AC_CHECK_SIZEOF(__int128)
+AC_CHECK_SIZEOF(__int128_t)
 AC_C_CHAR_UNSIGNED
 
 case $host_os in
@@ -2466,7 +2815,7 @@ AC_TRY_COMPILE([$ac_includes_default
 AC_TRY_COMPILE([$ac_includes_default
 #include <malloc.h>], [struct mallinfo m = {0};
 /* compilers that don't like <0 comparisons on unsigned data *
- * will fail here (but then not in src/gdk/gdk_utils.mx)     */
+ * will fail here (but then not in src/gdk/gdk_utils.c)     */
 int x = (m.usmblks < 0);], AC_DEFINE(HAVE_SIGNED_MALLINFO, 1, [Define if your mallinfo struct has signed elements])
 ))
 
@@ -2474,54 +2823,25 @@ dnl     checks for structures
 dnl     checks for compiler characteristics
 AC_C_CONST
 AC_C_INLINE
-AC_COMPILE_IFELSE([AC_LANG_SOURCE([int foo(int * restrict p) { return *p; }])],
-	AC_DEFINE(HAVE_RESTRICT, 1,
-		[Define if the compiler supports the restrict keyword]),
-	AC_COMPILE_IFELSE([AC_LANG_SOURCE([int foo(int * __restrict__ p) { return *p; }])],
-		AC_DEFINE(HAVE___RESTRICT__, 1,
-			[Define if the compiler supports the __restrict__ keyword])))
+AC_C_RESTRICT
+AC_C_VOLATILE
+AC_C_FLEXIBLE_ARRAY_MEMBER
 
-dnl Seems like the compiler on SunOS 5.8 cannot cope with the
-dnl __attribute__ specifications that can give compilers additional
-dnl hints about a function (style of variable argument list, functions
-dnl that never return, etc.)
-AC_MSG_CHECKING([if your compiler understands `__attribute__'])
-
-save_CFLAGS="$CFLAGS"
-case "$GCC-$CC-$host_os" in
--*-solaris*)
-	dnl  Sun compiler on Solaris:
-	dnl  treat warnings as errors to fail on
-	dnl  'warning: attribute parameter "printf" is undefined'
-	CFLAGS="$CFLAGS -errwarn=%all"
-	;;
-esac
-
+AC_MSG_CHECKING([if your compiler understands `__hidden'])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <stdlib.h>
 
-static void foo (const char *a, ...)
-	__attribute__ ((format (printf, 1, 2)));
+__hidden void foo (const char *a, ...);
 
-static void foo (const char *a, ...)
+void foo (const char *a, ...)
 	{ (void)a; }
 ]],
 [[ foo ("%s", ""); ]]
 )],
-[AC_DEFINE([HAVE_FUNCTION_ATTRIBUTES], 1,
-  [Does your compiler support function attributes (__attribute__)?])
-AC_MSG_RESULT(yes)],
-AC_MSG_RESULT(no))
-
-CFLAGS="$save_CFLAGS"
-
-AH_VERBATIM([__attribute__],
-[/* If the compiler does not support function attributes via __attribute__,
-   we just define __attribute__(a) to nothing. */
-#ifndef HAVE_FUNCTION_ATTRIBUTES
-#define __attribute__(a)
-#endif
-])
+[AC_MSG_RESULT(yes)],
+[AC_MSG_RESULT(no)
+AC_DEFINE([__hidden], [/* empty */],
+  [Does your compiler support the `__hidden' specifier?])])
 
 dnl     checks for library functions
 case $host in
@@ -2538,20 +2858,21 @@ esac
 AS_IF([test "x${ac_cv_func_fdatasync}" = "xyes"],
   [AC_DEFINE([HAVE_FDATASYNC],[1],[If the system has a working fdatasync])])
 
-AC_FUNC_ALLOCA
 AC_FUNC_FSEEKO
 # NOTE: these functions are in alphabetical order to ease maintenance
 save_LIBS="$LIBS"
 LIBS="$LIBS $MATH_LIBS"
 AC_CHECK_FUNCS([\
 				asctime_r \
+				backtrace \
 				ctime_r \
+				fabsf \
+				fallocate \
 				fcntl \
 				fpclass \
 				fpclassify \
 				fsync \
 				ftime \
-				ftruncate \
 				getexecname \
 				getlogin \
 				getopt \
@@ -2561,14 +2882,18 @@ AC_CHECK_FUNCS([\
 				getuid \
 				isinf \
 				kill \
+				llabs \
 				localtime_r \
 				lockf \
 				madvise \
+				mremap \
+				nextafterf \
 				nl_langinfo \
 				_NSGetExecutablePath \
 				pipe \
 				popen \
 				posix_fadvise \
+				posix_fallocate \
 				posix_madvise \
 				putenv \
 				round \
@@ -2626,118 +2951,14 @@ if test $mn_cv_have__sys_siglist = yes; then
 	AC_DEFINE(HAVE__SYS_SIGLIST, 1, [Define if you have _sys_siglist])
 fi
 
-dnl     checks for system services
-dnl hwcounters
-have_hwcounters=auto
-HWCOUNTERS_LIBS=""
-HWCOUNTERS_INCS=""
-AC_ARG_WITH(hwcounters,
-	AS_HELP_STRING([--with-hwcounters=DIR],
-		[hwcounters library is installed in DIR]),
-	have_hwcounters="$withval")
-case "$have_hwcounters" in
-yes|no|auto)
-	;;
-*)
-	HWCOUNTERS_LIBS="-L$withval/lib"
-	HWCOUNTERS_INCS="-I$withval/include"
-	;;
-esac
-if test "x$have_hwcounters" != xno; then
-	case "$host_os-$host" in
-	linux*-i?86*) HWCOUNTERS_INCS="$HWCOUNTERS_INCS -I/usr/src/linux-`uname -r | sed 's|smp$||'`/include"
-	esac
-	save_CPPFLAGS="$CPPFLAGS"
-	CPPFLAGS="$CPPFLAGS $HWCOUNTERS_INCS"
-	save_LIBS="$LIBS"
-	LIBS="$LIBS $HWCOUNTERS_LIBS"
-	have_hwcounters=no
-	case "$host_os-$host" in
-	linux*-i?86*|linux*-x86_64*)
-		AC_CHECK_HEADERS( libperfctr.h ,
-		 AC_CHECK_LIB( perfctr, vperfctr_open ,
-		  [ HWCOUNTERS_LIBS="$HWCOUNTERS_LIBS -lperfctr"
-			AC_DEFINE(HAVE_LIBPERFCTR, 1, [Define if you have the perfctr library])
-			have_hwcounters=yes
-		  ]
-			 )
-		)
-		if test "x$have_hwcounters" != xyes; then
-				AC_CHECK_HEADERS( libpperf.h,
-			 AC_CHECK_LIB( pperf, start_counters,
-			  [ HWCOUNTERS_LIBS="$HWCOUNTERS_LIBS -lpperf"
-					AC_DEFINE(HAVE_LIBPPERF, 1, [Define if you have the pperf library])
-					have_hwcounters=yes
-			  ]
-			 )
-			)
-		fi
-		;;
-	 linux*-ia64*)
-		AC_CHECK_HEADERS( perfmon/pfmlib.h ,
-		 AC_CHECK_LIB( pfm, pfm_initialize ,
-		  [ HWCOUNTERS_LIBS="$HWCOUNTERS_LIBS -lpfm"
-			AC_DEFINE(HAVE_LIBPFM, 1, [Define if you have the pfm library])
-			have_hwcounters=yes
-		  ]
-			 )
-		)
-		;;
-	 solaris*)
-		AC_CHECK_HEADERS( libcpc.h ,
-		 AC_CHECK_TYPE( cpc_event_t,
-		  AC_CHECK_LIB( cpc, cpc_access ,
-		   [ HWCOUNTERS_LIBS="$HWCOUNTERS_LIBS -lcpc"
-			 AC_DEFINE(HAVE_LIBCPC, 1, [Define if you have the cpc library])
-			 have_hwcounters=yes
-		   ]
-		  )
-		  , , [#include <libcpc.h>]
-		 )
-		)
-		if test "x$have_hwcounters" != xyes; then
-			AC_CHECK_HEADERS( perfmon.h ,
-			 AC_CHECK_LIB( perfmon, clr_pic ,
-			  [ HWCOUNTERS_LIBS="$HWCOUNTERS_LIBS -lperfmon"
-				AC_DEFINE(HAVE_LIBPERFMON, 1, [Define if you have the perfmon library])
-				have_hwcounters=yes
-			  ]
-			 )
-			)
-		fi
-		;;
-	 irix*)
-		AC_CHECK_LIB( perfex, start_counters ,
-		 [ HWCOUNTERS_LIBS="$HWCOUNTERS_LIBS -lperfex"
-		   have_hwcounters=yes
-		 ]
-		)
-		;;
-	esac
-	LIBS="$save_LIBS"
-	CPPFLAGS="$save_CPPFLAGS"
-
-	if test "x$have_hwcounters" != xyes; then
-		HWCOUNTERS_LIBS=""
-		HWCOUNTERS_INCS=""
-	else
-		CFLAGS="$CFLAGS -DHWCOUNTERS -DHW_`uname -s` -DHW_`uname -m`"
-	fi
-fi
-AC_SUBST(HWCOUNTERS_LIBS)
-AC_SUBST(HWCOUNTERS_INCS)
-
 dnl check dependencies (might need more than just SQL)
+if test x"$enable_sql" = xyes && test x"$enable_monetdb5" = x"no" ; then
+	AC_MSG_ERROR([MonetDB/SQL requires MonetDB5${disable_monetdb5:+ $disable_monetdb5}.])
+fi
 if test x"$enable_sql" = xauto && test x"$enable_monetdb5" = x"no" ; then
 	enable_sql=no
 	if test "x$disable_sql" = x; then
 		disable_sql="(MonetDB/SQL requires MonetDB5)"
-	fi
-fi
-if test x"$enable_jaql" = xauto && test x"$enable_monetdb5" = x"no" ; then
-	enable_jaql=no
-	if test "x$disable_jaql" = x; then
-		disable_jaql="(MonetDB/JAQL requires MonetDB5)"
 	fi
 fi
 
@@ -2745,8 +2966,8 @@ dnl     output
 AM_CONDITIONAL(HAVE_GDK, test "x$enable_gdk" = xyes -o "x$enable_gdk" = xauto)
 AM_CONDITIONAL(HAVE_MONETDB5, test "x$enable_monetdb5" = xyes -o "x$enable_monetdb5" = xauto)
 AM_CONDITIONAL(HAVE_SQL, test "x$enable_sql" = xyes -o "x$enable_sql" = xauto)
-AM_CONDITIONAL(HAVE_JAQL, test "x$enable_jaql" = xyes -o "x$enable_jaql" = xauto)
 AM_CONDITIONAL(HAVE_GEOM, test "x$enable_geom" = xyes -o "x$enable_geom" = xauto)
+AM_CONDITIONAL(HAVE_JSONSTORE, test "x$enable_jsonstore" = xyes -o "x$enable_jsonstore" = xauto)
 AM_CONDITIONAL(HAVE_TESTING, test "x$enable_testing" = xyes -o "x$enable_testing" = xauto)
 AM_CONDITIONAL(HAVE_DEVELOPER, test "x$enable_developer" = xyes)
 
@@ -2912,21 +3133,6 @@ AH_TOP([
 #define _SEEN_MONETDB_CONFIG_H 1
 ])
 AH_BOTTOM([
-/* AC_FUNC_ALLOCA autoconf documented code */
-#ifdef HAVE_ALLOCA_H
-# include <alloca.h>
-#elif defined __GNUC__
-# define alloca __builtin_alloca
-#elif defined _AIX
-# define alloca __alloca
-#elif defined _MSC_VER
-# include <malloc.h>
-# define alloca _alloca
-#else
-# include <stddef.h>
-void *alloca(size_t);
-#endif
-
 #ifdef HAVE_SYS_TYPES_H
 # include <sys/types.h>
 #endif
@@ -2935,6 +3141,20 @@ void *alloca(size_t);
 #include <stdlib.h>
 #include <errno.h>
 #include <stdarg.h>		/* va_alist.. */
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+#ifndef HAVE_UINTPTR_T
+typedef size_t uintptr_t;
+#endif
+#ifdef HAVE_STDBOOL_H
+#include <stdbool.h>
+#endif
+#ifndef __bool_true_false_are_defined
+#define true 1
+#define false 0
+#define __bool_true_false_are_defined 1
+#endif
 
 #include <assert.h>
 
@@ -2950,6 +3170,19 @@ typedef __int64 lng;
 #  define SIZEOF_LNG SIZEOF___INT64
 # endif
 #endif
+
+#ifdef HAVE___INT128
+typedef __int128 hge;
+# define HAVE_HGE 1
+# define SIZEOF_HGE SIZEOF___INT128
+#else
+# if defined(HAVE___INT128_T) && defined(HAVE___UINT128_T)
+typedef __int128_t hge;
+#  define HAVE_HGE 1
+#  define SIZEOF_HGE SIZEOF___INT128_T
+# endif
+#endif
+
 
 #ifndef HAVE_PTRDIFF_T
 # if SIZEOF_SIZE_T == SIZEOF_INT
@@ -2997,11 +3230,8 @@ typedef lng ptrdiff_t;
 #define PTRFMT		"%p"
 #define PTRFMTCAST		/* no cast needed */
 #elif defined(_MSC_VER)
-/* On Windows, always use 64 bit integers (even on 32-bit architectures)
- * to not get the warning C4311: 'type cast' : pointer truncation from
- * 'void *' to 'unsigned int' */
-#define PTRFMT		"%I64x"
-#define PTRFMTCAST	(unsigned __int64)
+#define PTRFMT		"%p"
+#define PTRFMTCAST
 #elif SIZEOF_VOID_P == SIZEOF_INT
 #define PTRFMT		"%x"
 #define PTRFMTCAST	(unsigned int)
@@ -3032,6 +3262,7 @@ typedef lng ptrdiff_t;
 #if !defined(_MSC_VER) && !defined(_In_z_)
 # define _In_z_
 # define _Printf_format_string_
+# define __declspec(x)
 #endif
 
 #endif /* _SEEN_MONETDB_CONFIG_H */
@@ -3057,26 +3288,21 @@ echo
 echo
 echo "MonetDB is configured as follows:"
 echo "* Compilation specifics:"
-echo "    Host:       " ${ac_cv_host}
-echo "    Compiler:   " ${CC}
-echo "    CFLAGS:     " ${CFLAGS}
-echo "    X_CFLAGS:   " ${X_CFLAGS}
-echo "    LDFLAGS:    " ${LDFLAGS}
+echo "    Host:     " ${ac_cv_host}
+echo "    Compiler: " ${CC} "("${CC_ver}"; "${CC_version}")"
+echo "    CFLAGS:   " ${CFLAGS}
+echo "    X_CFLAGS: " ${X_CFLAGS}
+echo "    LDFLAGS:  " ${LDFLAGS}
 echo
-echo "* Enabled/disabled components:"
+echo "* Enabled/disabled build options:"
 for comp in \
-	gdk \
-	monetdb5 \
-	sql \
-	jaql \
-	geom \
-	fits \
-	rdf \
-	datacell \
-	odbc \
-	jdbc \
-	control \
-	testing \
+	'strict    ' \
+	'assert    ' \
+	'debug     ' \
+	'optimize  ' \
+	'developer ' \
+	'instrument' \
+	'profile   ' \
 ; do
 	eval "dft=\$dft_$comp"
 	eval "enable=\$enable_$comp"
@@ -3086,11 +3312,89 @@ for comp in \
 		-no-*)	disable="(by command line option)";;
 	esac
 	echo $ECHO_N "    $comp is $ECHO_C"
-	if test "x$enable" = xno ; then echo "${ECHO_T}disabled $disable"; else echo "${ECHO_T}enabled"; fi
+	if test "x$enable" = xno ; then echo "disabled $disable"; else echo "enabled"; fi
 done
 echo
+echo "* Enabled/disabled components:"
+for comp in \
+	'gdk         ' \
+	'monetdb5    ' \
+	'sql         ' \
+	'geom        ' \
+	'console     ' \
+	'gsl         ' \
+	'fits        ' \
+	'jsonstore   ' \
+	'microhttpd  ' \
+	'rintegration' \
+	'odbc        ' \
+	'jdbc        ' \
+	'control     ' \
+	'testing     ' \
+	'developer   ' \
+	'strict      ' \
+	'debug       ' \
+	'assert      ' \
+	'optimize    ' \
+; do
+	eval "dft=\$dft_$comp"
+	eval "enable=\$enable_$comp"
+	eval "disable=\$disable_$comp"
+	case "$disable-$enable-$dft" in
+		-no-no)	disable="(by default)";;
+		-no-*)	disable="(by command line option)";;
+	esac
+	echo $ECHO_N "    $comp is $ECHO_C"
+	if test "x$enable" = xno ; then echo "disabled $disable"; else echo "enabled"; fi
+done
+echo
+echo "* Available features/extensions:"
+for comp in \
+	'atomic_ops   ' \
+	'bz2          ' \
+	'curl         ' \
+	'getaddrinfo  ' \
+	'gsl          ' \
+	'java         ' \
+	'java_control ' \
+	'java_jdbc    ' \
+	'libxml2      ' \
+	'openssl      ' \
+	'pcre         ' \
+	'perl         ' \
+	'pthread      ' \
+	'python2      ' \
+	'python3      ' \
+	'readline     ' \
+	'rubygem      ' \
+	'samtools     ' \
+	'sphinxclient ' \
+	'unixodbc     ' \
+	'valgrind     ' \
+	'zlib         ' \
+; do
+	eval "org=\$org_have_$comp"
+	eval "have=\$have_$comp"
+	eval "why=\$why_have_$comp"
+	case "$why-$have-$org" in
+		-no-no)	why="(by default)";;
+		-no-*)	why="(by command line option)";;
+	esac
+	echo $ECHO_N "    $comp = $ECHO_C"
+	if test "x$have" != xno ; then echo "yes"; else echo "no  $why"; fi
+done
+if test "x$have_hge" = xyes ; then
+	hge_bits='128'
+	hge_digits=' 38'
+else
+	hge_bits=' 64'
+	hge_digits=' 18'
+fi
+echo
 echo "* Important options:"
-echo "    OID size:   " ${oids} bits
+echo "    OID size:              ${oids} bits"
+echo "    largest integer type: ${hge_bits} bits"
+echo "    largest decimal type: ${hge_digits} digits"
 echo
 
 dnl give some hints to the user

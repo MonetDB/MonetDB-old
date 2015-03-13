@@ -31,6 +31,9 @@
 */
 #include "monetdb_config.h"
 #include "optimizer.h"
+#include "mal_debugger.h"
+#include "optimizer_private.h"
+
 /*
  * Upon loading the module it should inspect the scenario table
  * for any unresolved references to the MALoptimizer and set the 
@@ -44,6 +47,7 @@ optimizer_prelude(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	(void) mb;
 	(void) p;
 	updateScenario("mal", "MALoptimizer", (MALfcn) MALoptimizer);
+	optimizerInit();
 	return MAL_SUCCEED;
 }
 
@@ -84,8 +88,8 @@ QOToptimize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	(void) stk;
 	if (stk != 0) {
-		modnme = *(str*) getArgReference(stk, pci, 1);
-		fcnnme = *(str*) getArgReference(stk, pci, 2);
+		modnme = *getArgReference_str(stk, pci, 1);
+		fcnnme = *getArgReference_str(stk, pci, 2);
 	} else {
 		modnme = getArgDefault(mb, pci, 1);
 		fcnnme = getArgDefault(mb, pci, 2);
@@ -108,9 +112,9 @@ QOTshowFlowGraph(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	(void) cntxt;
 	if (stk != 0) {
-		modnme = *(str*) getArgReference(stk, p, 1);
-		fcnnme = *(str*) getArgReference(stk, p, 2);
-		fname = *(str*) getArgReference(stk, p, 3);
+		modnme = *getArgReference_str(stk, p, 1);
+		fcnnme = *getArgReference_str(stk, p, 2);
+		fname = *getArgReference_str(stk, p, 3);
 	} else {
 		modnme = getArgDefault(mb, p, 1);
 		fcnnme = getArgDefault(mb, p, 2);
@@ -137,8 +141,8 @@ QOTshowPlan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	Symbol s = NULL;
 
 	if (stk != 0) {
-		modnme = *(str*) getArgReference(stk, p, 1);
-		fcnnme = *(str*) getArgReference(stk, p, 2);
+		modnme = *getArgReference_str(stk, p, 1);
+		fcnnme = *getArgReference_str(stk, p, 2);
 	} else {
 		modnme = getArgDefault(mb, p, 1);
 		fcnnme = getArgDefault(mb, p, 2);

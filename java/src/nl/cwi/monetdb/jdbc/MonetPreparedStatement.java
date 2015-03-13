@@ -951,14 +951,40 @@ public class MonetPreparedStatement
 	 * The driver converts this to an SQL NUMERIC value when it sends it to the
 	 * database.
 	 *
-	 * @param parameterIndex the first parameter is 1, the second is 2, ...
+	 * @param idx the first parameter is 1, the second is 2, ...
 	 * @param x the parameter value
 	 * @throws SQLException if a database access error occurs
 	 */
-	public void setBigDecimal(int parameterIndex, BigDecimal x)
+	public void setBigDecimal(int idx, BigDecimal x)
 		throws SQLException
 	{
-		setValue(parameterIndex, x.toString());
+		// get array position
+		int i = getParamIdx(idx);
+
+		// We need to shave off enough digits to bring ourselves to an
+		// acceptable precision if we currently have too many digits.
+		int digitsToShave = Math.max(0, x.precision() - digits[i]);
+		int targetScale = Math.min(scale[i], x.scale() - digitsToShave);
+
+		// However, if we need to shave off more digits than we have available
+		// to the right of the decimal point, then this is impossible.
+		if (targetScale < 0)
+			throw new SQLDataException("DECIMAL value exceeds allowed digits/scale: " + x.toPlainString() + " (" + digits[i] + "/" + scale[i] + ")", "22003");
+
+		// Reduction is possible via rounding; do it and we're good to go.
+		x = x.round(new MathContext(targetScale, RoundingMode.HALF_UP));
+
+		// MonetDB doesn't like leading 0's, since it counts them as part of
+		// the precision, so let's strip them off. (But be careful not to do
+		// this to the exact number "0".)  Also strip off trailing
+		// numbers that are inherent to the double representation.
+		String xStr = x.toPlainString();
+		int dot = xStr.indexOf(".");
+		if (dot >= 0)
+			xStr = xStr.substring(0, Math.min(xStr.length(), dot + 1 + scale[i]));
+		while (xStr.startsWith("0") && xStr.length() > 1)
+			xStr = xStr.substring(1);
+		setValue(idx, xStr);
 	}
 
 	/**
@@ -1155,6 +1181,11 @@ public class MonetPreparedStatement
 		int length)
 		throws SQLException
 	{
+		if (reader == null) {
+			setNull(parameterIndex, -1);
+			return;
+		}
+
 		CharBuffer tmp = CharBuffer.allocate(length);
 		try {
 			reader.read(tmp);
@@ -1223,6 +1254,11 @@ public class MonetPreparedStatement
 	 * @throws SQLException if a database access error occurs
 	 */
 	public void setClob(int i, Clob x) throws SQLException {
+		if (x == null) {
+			setNull(i, -1);
+			return;
+		}
+
 		// simply serialise the CLOB into a variable for now... far from
 		// efficient, but might work for a few cases...
 		// be on your marks: we have to cast the length down!
@@ -1240,8 +1276,23 @@ public class MonetPreparedStatement
 	 * @throws SQLFeatureNotSupportedException the JDBC driver does
 	 *         not support this method
 	 */
-	public void setClob(int i, Reader x) throws SQLException {
-		throw new SQLFeatureNotSupportedException("setClob(int, Reader) not supported", "0A000");
+	public void setClob(int i, Reader reader) throws SQLException {
+		if (reader == null) {
+			setNull(i, -1);
+			return;
+		}
+		// Some buffer. Size of 8192 is default for BufferedReader, so...
+		char[] arr = new char[8192];  
+		StringBuffer buf = new StringBuffer();
+		int numChars;
+		try {
+			while ((numChars = reader.read(arr, 0, arr.length)) > 0) {
+				buf.append(arr, 0, numChars);
+			}
+			setString(i, buf.toString());
+		} catch (IOException e) {
+			throw new SQLException(e);
+		}
 	}
 
 	/**
@@ -1262,6 +1313,10 @@ public class MonetPreparedStatement
 	 * @throws SQLException if a database access error occurs
 	 */
 	public void setClob(int i, Reader reader, long length) throws SQLException {
+		if (reader == null || length < 0) {
+			setNull(i, -1);
+			return;
+		}
 		// simply serialise the CLOB into a variable for now... far from
 		// efficient, but might work for a few cases...
 		CharBuffer buf = CharBuffer.allocate((int)length); // have to down cast :(
@@ -1271,6 +1326,8 @@ public class MonetPreparedStatement
 			throw new SQLException("failed to read from stream: " +
 					e.getMessage(), "M1M25");
 		}
+		// We have to rewind the buffer, because otherwise toString() returns "".
+		buf.rewind();
 		setString(i, buf.toString());
 	}
 
@@ -1306,6 +1363,11 @@ public class MonetPreparedStatement
 	public void setDate(int parameterIndex, java.sql.Date x, Calendar cal)
 		throws SQLException
 	{
+		if (x == null) {
+			setNull(parameterIndex, -1);
+			return;
+		}
+
 		if (cal == null) {
 			setValue(parameterIndex, "date '" + x.toString() + "'");
 		} else {
@@ -2098,6 +2160,11 @@ public class MonetPreparedStatement
 	 * @throws SQLException if a database access error occurs
 	 */
 	public void setString(int parameterIndex, String x) throws SQLException {
+		if (x == null) {
+			setNull(parameterIndex, -1);
+			return;
+		}
+
 		setValue(
 			parameterIndex,
 			"'" + x.replaceAll("\\\\", "\\\\\\\\").replaceAll("'", "\\\\'") + "'"
@@ -2150,6 +2217,11 @@ public class MonetPreparedStatement
 	public void setTime(int index, Time x, Calendar cal)
 		throws SQLException
 	{
+		if (x == null) {
+			setNull(index, -1);
+			return;
+		}
+
 		boolean hasTimeZone = monetdbType[getParamIdx(index)].endsWith("tz");
 		if (hasTimeZone) {
 			// timezone shouldn't matter, since the server is timezone
@@ -2205,6 +2277,11 @@ public class MonetPreparedStatement
 	public void setTimestamp(int index, Timestamp x, Calendar cal)
 		throws SQLException
 	{
+		if (x == null) {
+			setNull(index, -1);
+			return;
+		}
+
 		boolean hasTimeZone = monetdbType[getParamIdx(index)].endsWith("tz");
 		if (hasTimeZone) {
 			// timezone shouldn't matter, since the server is timezone

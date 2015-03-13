@@ -16,17 +16,17 @@ function user.main():void;
     bat.append(b,2);
     bat.append(b,5);
     bat.append(b,3);
-    b := algebra.sort(b);
+    b := algebra.subsort(b,false,false);
     mdb.List();
-end main;
+end user.main;
 function user.main():void;              #  0 main:void := user.main() {G}
     b := bat.new(:oid,:int);            #  1 b:bat[:oid,:int] := CMDBATnew(_3:oid, _4:int) {G}
     bat.append(b,2);                    #  2 _5:bat[:oid,:int] := BKCappend_val_wrap(b:bat[:oid,:int], _6:int) {G}
     bat.append(b,5);                    #  3 _7:bat[:oid,:int] := BKCappend_val_wrap(b:bat[:oid,:int], _8:int) {G}
     bat.append(b,3);                    #  4 _9:bat[:oid,:int] := BKCappend_val_wrap(b:bat[:oid,:int], _10:int) {G}
-    b := algebra.sort(b);               #  5 b:bat[:oid,:int] := ALGhsort(b:bat[:oid,:int]) {G}
-    mdb.List();                         #  6 _13:void := MDBlistDetail() 
-end main;	# 7  
+    b := algebra.subsort(b,false,false);#  5 b:bat[:oid,:int] := ALGsubsort11(b:bat[:oid,:int], _11:bit, _11:bit) {G}
+    mdb.List();                         #  6 _14:void := MDBlistDetail() 
+end user.main;                          #  7  
 
 # 22:31:27 >  
 # 22:31:27 >  Done.

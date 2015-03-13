@@ -118,7 +118,6 @@ SQLDataSources(SQLHENV EnvironmentHandle,
 			       Description, BufferLength2, NameLength2);
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLDataSourcesA(SQLHENV EnvironmentHandle,
 		SQLUSMALLINT Direction,
@@ -161,6 +160,15 @@ SQLDataSourcesW(SQLHENV EnvironmentHandle,
 
 	server = malloc(100);
 	descr = malloc(100);
+	if (server == NULL || descr == NULL) {
+		/* Memory allocation error */
+		addEnvError(env, "HY001", NULL, 0);
+		if (server)
+			free(server);
+		if (descr)
+			free(descr);
+		return SQL_ERROR;
+	}
 
 	rc = SQLDataSources_(env, Direction,
 			     server, 100, &length1,
@@ -179,4 +187,3 @@ SQLDataSourcesW(SQLHENV EnvironmentHandle,
 
 	return rc;
 }
-#endif /* WITH_WCHAR */

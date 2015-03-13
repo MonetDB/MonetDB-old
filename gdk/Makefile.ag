@@ -12,7 +12,7 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2013 MonetDB B.V.
+# Copyright August 2008-2015 MonetDB B.V.
 # All Rights Reserved.
 
 MTSAFE
@@ -23,22 +23,24 @@ lib_gdk = {
 	VERSION = $(GDK_VERSION)
 	NAME = bat
 	SOURCES = \
-		gdk.h gdk_atomic.h gdk_batop.c gdk_select.c \
+		gdk.h gdk_cand.h gdk_atomic.h gdk_batop.c \
+		gdk_select.c gdk_select_legacy.c \
 		gdk_search.c gdk_search.h gdk_tm.c \
 		gdk_align.c gdk_bbp.c gdk_bbp.h \
-		gdk_heap.c gdk_setop.mx gdk_utils.c gdk_utils.h \
+		gdk_heap.c gdk_setop.c gdk_utils.c gdk_utils.h \
 		gdk_atoms.c gdk_atoms.h \
 		gdk_qsort.c gdk_qsort_impl.h gdk_ssort.c gdk_ssort_impl.h \
 		gdk_storage.c gdk_bat.c \
-		gdk_delta.c gdk_relop.mx gdk_system.c gdk_value.c \
-		gdk_rangejoin.mx \
+		gdk_delta.c gdk_cross.c gdk_system.c gdk_value.c \
 		gdk_posix.c gdk_logger.c gdk_sample.c \
 		gdk_private.h gdk_delta.h gdk_logger.h gdk_posix.h \
-		gdk_system.h gdk_tm.h gdk_storage.h \
+		gdk_system.h gdk_system_private.h gdk_tm.h gdk_storage.h \
 		gdk_calc.c gdk_calc.h gdk_calc_compare.h gdk_calc_private.h \
 		gdk_aggr.c gdk_group.c gdk_mapreduce.c gdk_mapreduce.h \
 		gdk_imprints.c gdk_imprints.h \
-		gdk_join.c \
+		gdk_join.c gdk_join_legacy.c \
+		gdk_unique.c \
+		gdk_firstn.c \
 		bat.feps bat1.feps bat2.feps \
 		libbat.rc
 	LIBS = ../common/options/libmoptions \
@@ -46,4 +48,27 @@ lib_gdk = {
 		../common/utils/libmutils \
 		$(MATH_LIBS) $(SOCKET_LIBS) $(zlib_LIBS) $(BZ_LIBS) \
 		$(MALLOC_LIBS) $(PTHREAD_LIBS) $(DL_LIBS) $(PSAPILIB) $(KVM_LIBS)
+}
+
+headers_h = {
+	DIR = includedir/monetdb
+	HEADERS = h
+	SOURCES = \
+		gdk.h \
+		gdk_atomic.h \
+		gdk_atoms.h \
+		gdk_bbp.h \
+		gdk_calc.h \
+		gdk_delta.h \
+		gdk_posix.h \
+		gdk_search.h \
+		gdk_system.h \
+		gdk_utils.h
+}
+
+headers_pc = {
+	COND = NOT_WIN32
+	HEADERS = pc
+	DIR = libdir/pkgconfig
+	SOURCES = monetdb-gdk.pc.in
 }

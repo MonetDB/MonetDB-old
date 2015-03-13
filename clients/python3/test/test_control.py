@@ -12,9 +12,10 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2013 MonetDB B.V.
+# Copyright August 2008-2015 MonetDB B.V.
 # All Rights Reserved.
 
+import os
 import unittest
 import logging
 
@@ -33,6 +34,10 @@ from monetdb.exceptions import OperationalError
 
 #logging.basicConfig(level=logging.DEBUG)
 
+MAPIPORT = int(os.environ.get('MAPIPORT', 50000))
+TSTHOSTNAME = os.environ.get('TSTHOSTNAME', 'localhost')
+TSTPASSPHRASE = os.environ.get('TSTPASSPHRASE', 'testdb')
+
 database_prefix = 'controltest_'
 database_name = database_prefix + 'other'
 passphrase = 'testdb'
@@ -43,9 +48,10 @@ def do_without_fail(function):
     except OperationalError:
         pass
 
-class TestManage(unittest.TestCase):
+class TestControl(unittest.TestCase):
     def setUp(self):
-        self.control = Control('localhost', 50000, passphrase)
+        self.control = Control(TSTHOSTNAME, MAPIPORT, TSTPASSPHRASE)
+        #self.control = Control()
         do_without_fail(lambda: self.control.stop(database_name))
         do_without_fail(lambda: self.control.destroy(database_name))
         self.control.create(database_name)

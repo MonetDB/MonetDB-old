@@ -11,7 +11,7 @@ stdout of test 'distinct-order-by-limit.Bug-2691` in directory 'sql/test/BugTrac
 # Compiled for x86_64-pc-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.750 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://monetdb.cwi.nl/ for further information
 # Listening for connection requests on mapi:monetdb://volund.ins.cwi.nl:34497/
 # MonetDB/SQL module v2.40.0 loaded
@@ -29,7 +29,7 @@ Ready.
 #insert into lim_prob values ('mydir1/', 'mytest1'), ('mydir2/', 'mytest3'), ('mydir1/', 'mytest2'), ('mydir1/', 'mytest4'), ('mydir2/', 'mytest1'), ('mydir2/', 'mytest2'), ('mydir1/', 'mytest3');
 [ 7	]
 #select concat("dir", "test") as a from lim_prob order by a limit 10;
-% sys. # table_name
+% sys.L # table_name
 % a # name
 % varchar # type
 % 14 # length
@@ -41,7 +41,7 @@ Ready.
 [ "mydir2/mytest2"	]
 [ "mydir2/mytest3"	]
 #select distinct concat("dir", "test") as a from lim_prob order by a;
-% sys. # table_name
+% sys.L # table_name
 % a # name
 % varchar # type
 % 14 # length
@@ -53,7 +53,7 @@ Ready.
 [ "mydir2/mytest2"	]
 [ "mydir2/mytest3"	]
 #select concat("dir", "test") as a from lim_prob order by a desc limit 10;
-% sys. # table_name
+% sys.L # table_name
 % a # name
 % varchar # type
 % 14 # length
@@ -65,7 +65,7 @@ Ready.
 [ "mydir1/mytest2"	]
 [ "mydir1/mytest1"	]
 #select distinct concat("dir", "test") as a from lim_prob order by a desc;
-% sys. # table_name
+% sys.L # table_name
 % a # name
 % varchar # type
 % 14 # length
@@ -77,7 +77,7 @@ Ready.
 [ "mydir1/mytest2"	]
 [ "mydir1/mytest1"	]
 #select distinct concat("dir", "test") as a from lim_prob order by a desc limit 10;
-% sys. # table_name
+% sys.L # table_name
 % a # name
 % varchar # type
 % 14 # length
@@ -89,7 +89,7 @@ Ready.
 [ "mydir1/mytest2"	]
 [ "mydir1/mytest1"	]
 #select distinct concat("dir", "test") as a from lim_prob order by a limit 10;
-% sys. # table_name
+% sys.L # table_name
 % a # name
 % varchar # type
 % 14 # length

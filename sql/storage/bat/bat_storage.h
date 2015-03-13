@@ -40,6 +40,7 @@ typedef struct sql_dbat {
 	char *dname;		/* name of the persistent deletes bat */
 	int dbid;		/* bat with deletes */
 	size_t cnt;
+	BAT *cached;		/* cached copy, used for schema bats only */
 	int wtime;		/* time stamp */
 	struct sql_dbat *next;	/* possibly older version of the same deletes */
 } sql_dbat;
@@ -47,10 +48,9 @@ typedef struct sql_dbat {
 /* initialize bat storage call back functions interface */
 extern int bat_storage_init( store_functions *sf );
 
-extern int tr_update_delta( sql_trans *tr, sql_delta *obat, sql_delta *cbat, BUN snapshot_minsize);
-extern int tr_update_dbat(sql_trans *tr, sql_dbat *tdb, sql_dbat *fdb, int cleared);
-extern int tr_log_delta( sql_trans *tr, sql_delta *cbat, int cleared);
-extern int tr_log_dbat(sql_trans *tr, sql_dbat *fdb, int cleared);
+extern int dup_bat(sql_trans *tr, sql_table *t, sql_delta *obat, sql_delta *bat, int type, int oc_isnew, int c_isnew);
+extern sql_delta * timestamp_delta( sql_delta *d, int ts);
+extern sql_dbat * timestamp_dbat( sql_dbat *d, int ts);
 
 #endif /*BATSTORAGE_H */
 

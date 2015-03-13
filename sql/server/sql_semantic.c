@@ -57,16 +57,15 @@ sql_add_arg(mvc *sql, atom *v)
 void
 sql_add_param(mvc *sql, char *name, sql_subtype *st)
 {
-	sql_arg *a = SA_NEW(sql->sa, sql_arg);
+	sql_arg *a = SA_ZNEW(sql->sa, sql_arg);
 
-	a->name = NULL;
 	if (name)
 		a->name = sa_strdup(sql->sa, name);
-	if (st)
+	if (st && st->type)
 		a->type = *st;
-	else
-		a->type.type = NULL;
-
+	a->inout = ARG_IN;
+	if (name && strcmp(name, "*") == 0) 
+		a->type = *sql_bind_localtype("int");
 	if (!sql->params)
 		sql->params = sa_list(sql->sa);
 	list_append(sql->params, a);
@@ -98,7 +97,8 @@ sql_bind_paramnr(mvc *sql, int nr)
 		for (n = sql->params->h, i=0; n && i<nr; n = n->next, i++) 
 			;
 
-		return n->data;
+		if (n)
+			return n->data;
 	}
 	return NULL;
 }
@@ -199,7 +199,8 @@ supertype(sql_subtype *super, sql_subtype *r, sql_subtype *i)
 	unsigned int scale = sql_max(i->scale, r->scale);
 
 	*super = *r;
-	if (i->type->base.id >r->type->base.id) {
+	if (i->type->base.id >r->type->base.id || 
+	    (EC_VARCHAR(i->type->eclass) && !EC_VARCHAR(r->type->eclass))) {
 		tpe = i->type->sqlname;
 		radix = i->type->radix;
 	}

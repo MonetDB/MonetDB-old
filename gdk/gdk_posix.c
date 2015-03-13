@@ -27,16 +27,12 @@
  * emulation of Posix functionality on the WIN32 native platform.
  */
 #include "monetdb_config.h"
-#include "gdk.h"        /* includes gdk_posix.h */
+#include "gdk.h"		/* includes gdk_posix.h */
 #include "gdk_private.h"
 #include "mutils.h"
 #include <stdio.h>
 #include <unistd.h>		/* sbrk on Solaris */
 #include <string.h>     /* strncpy */
-
-#ifdef __hpux
-extern char *sbrk(int);
-#endif
 
 #ifdef HAVE_FCNTL_H
 # include <fcntl.h>
@@ -57,18 +53,11 @@ extern char *sbrk(int);
 # include <sys/user.h>
 #endif
 
-#if defined(DEBUG_ALLOC) && SIZEOF_VOID_P > 4
-#undef DEBUG_ALLOC
-#endif
-
-#ifdef WIN32
-int GDK_mem_pagebits = 16;	/* on windows, the mmap addresses can be set by the 64KB */
-#else
-int GDK_mem_pagebits = 14;	/* on linux, 4KB pages can be addressed (but we use 16KB) */
-#endif
-
 #ifndef MAP_NORESERVE
 # define MAP_NORESERVE		MAP_PRIVATE
+#endif
+#if defined(MAP_ANON) && !defined(MAP_ANONYMOUS)
+#define MAP_ANONYMOUS		MAP_ANON
 #endif
 
 #define MMAP_ADVISE		7
@@ -97,9 +86,6 @@ setenv(const char *name, const char *value, int overwrite)
 	return ret;
 }
 #endif
-
-char *MT_heapbase = NULL;
-
 
 /* Crude VM buffer management that keep a list of all memory mapped
  * regions.
@@ -278,7 +264,6 @@ char *MT_heapbase = NULL;
 void
 MT_init_posix(void)
 {
-	MT_heapbase = (char *) sbrk(0);
 }
 
 /* return RSS in bytes */
@@ -360,17 +345,11 @@ MT_getrss(void)
 }
 
 
-char *
-MT_heapcur(void)
-{
-	return (char *) sbrk(0);
-}
-
 void *
 MT_mmap(const char *path, int mode, size_t len)
 {
 	int fd = open(path, O_CREAT | ((mode & MMAP_WRITE) ? O_RDWR : O_RDONLY), MONETDB_MODE);
-	void *ret = (void *) -1L;
+	void *ret = MAP_FAILED;
 
 	if (fd >= 0) {
 		ret = mmap(NULL,
@@ -381,7 +360,7 @@ MT_mmap(const char *path, int mode, size_t len)
 			   0);
 		close(fd);
 	}
-	return ret;
+	return ret == MAP_FAILED ? NULL : ret;
 }
 
 int
@@ -390,25 +369,249 @@ MT_munmap(void *p, size_t len)
 	int ret = munmap(p, len);
 
 #ifdef MMAP_DEBUG
-	mnstr_printf(GDKstdout, "#munmap(" LLFMT "," LLFMT ",%d) = %d\n", (long long) p, (long long) len, ret);
+	fprintf(stderr, "#munmap(" PTRFMT "," SZFMT ") = %d\n", PTRFMTCAST p, len, ret);
 #endif
 	return ret;
 }
 
-int
-MT_msync(void *p, size_t off, size_t len, int mode)
+/* expand or shrink a memory map (ala realloc).
+ * the address returned may be different from the address going in.
+ * in case of failure, the old address is still mapped and NULL is returned.
+ */
+void *
+MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t *new_size)
 {
-	int ret = msync(((char *) p) + off, len,
-			(mode & MMAP_SYNC) ? MS_SYNC :
-			((mode & MMAP_ASYNC) ? MS_ASYNC : MS_INVALIDATE));
+	void *p;
+	int fd = -1;
+	int flags = mode & MMAP_COPY ? MAP_PRIVATE : MAP_SHARED;
+	int prot = PROT_WRITE | PROT_READ;
+
+	/* round up to multiple of page size */
+	*new_size = (*new_size + GDK_mmap_pagesize - 1) & ~(GDK_mmap_pagesize - 1);
+
+	/* doesn't make sense for us to extend read-only memory map */
+	assert(mode & MMAP_WRITABLE);
+
+	if (*new_size < old_size) {
+#ifndef STATIC_CODE_ANALYSIS	/* hide this from static code analyzer */
+		/* shrink */
+		if (munmap((char *) old_address + *new_size,
+			   old_size - *new_size) < 0) {
+			fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): munmap() failed\n", __FILE__, __LINE__, path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
+			return NULL;
+		}
+		if (path && truncate(path, *new_size) < 0)
+			fprintf(stderr, "#MT_mremap(%s): truncate failed\n", path);
+#ifdef MMAP_DEBUG
+		fprintf(stderr, "MT_mremap(%s,"PTRFMT","SZFMT","SZFMT") -> shrinking\n", path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
+#endif
+#endif	/* !STATIC_CODE_ANALYSIS */
+		return old_address;
+	}
+	if (*new_size == old_size) {
+		/* do nothing */
+#ifdef MMAP_DEBUG
+		fprintf(stderr, "MT_mremap(%s,"PTRFMT","SZFMT","SZFMT") -> unchanged\n", path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
+#endif
+		return old_address;
+	}
+
+	if (!(mode & MMAP_COPY) && path != NULL) {
+		/* "normal" memory map */
+
+		if ((fd = open(path, O_RDWR)) < 0) {
+			fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): open() failed\n", __FILE__, __LINE__, path, PTRFMTCAST old_address, old_size, *new_size);
+			return NULL;
+		}
+		if (GDKextendf(fd, *new_size, path) < 0) {
+			close(fd);
+			fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): GDKextendf() failed\n", __FILE__, __LINE__, path, PTRFMTCAST old_address, old_size, *new_size);
+			return NULL;
+		}
+#ifdef HAVE_MREMAP
+		/* on Linux it's easy */
+		p = mremap(old_address, old_size, *new_size, MREMAP_MAYMOVE);
+#else
+		/* try to map extension at end of current map */
+		p = mmap((char *) old_address + old_size, *new_size - old_size,
+			 prot, flags, fd, old_size);
+		/* if it failed, there is no point trying a full mmap:
+		 * that too won't fit */
+		if (p != MAP_FAILED) {
+			if (p == (char *) old_address + old_size) {
+				/* we got the requested address, make
+				 * sure we return the correct (old)
+				 * address */
+				p = old_address;
+			} else {
+				/* we got some other address: discard
+				 * it and make full mmap */
+				munmap(p, *new_size - old_size);
+#ifdef NO_MMAP_ALIASING
+				msync(old_address, old_size, MS_SYNC);
+#endif
+				/* first create full mmap, then, if
+				 * successful, remove old mmap */
+				p = mmap(NULL, *new_size, prot, flags, fd, 0);
+				if (p != MAP_FAILED)
+					munmap(old_address, old_size);
+			}
+		}
+#endif	/* HAVE_MREMAP */
+		close(fd);
+	} else {
+		/* "copy-on-write" or "anonymous" memory map */
+#ifdef MAP_ANONYMOUS
+		flags |= MAP_ANONYMOUS;
+#else
+		if ((fd = open("/dev/zero", O_RDWR)) < 0) {
+			fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): open('/dev/zero') failed\n", __FILE__, __LINE__, path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
+			return NULL;
+		}
+#endif
+		/* try to map an anonymous area as extent to the
+		 * current map */
+		p = mmap((char *) old_address + old_size, *new_size - old_size,
+			 prot, flags, fd, 0);
+		/* no point trying a full map if this didn't work:
+		 * there isn't enough space */
+		if (p != MAP_FAILED) {
+			if (p == (char *) old_address + old_size) {
+				/* we got the requested address, make
+				 * sure we return the correct (old)
+				 * address */
+				p = old_address;
+			} else {
+				/* we got some other address: discard
+				 * it and make full mmap */
+				munmap(p, *new_size - old_size);
+#ifdef HAVE_MREMAP
+				/* first get an area large enough for
+				 * *new_size */
+				p = mmap(NULL, *new_size, prot, flags, fd, 0);
+				if (p != MAP_FAILED) {
+					/* then overlay old mmap over new */
+					void *q;
+
+					q = mremap(old_address, old_size,
+						   old_size,
+						   MREMAP_FIXED | MREMAP_MAYMOVE,
+						   p);
+					assert(q == p || q == MAP_FAILED);
+					if (q == MAP_FAILED) {
+						/* we didn't expect this... */
+						munmap(p, *new_size);
+						p = MAP_FAILED;
+					}
+				}
+#else
+				p = MAP_FAILED;
+				if (path == NULL ||
+				    *new_size <= GDK_mmap_minsize) {
+					/* size not too big yet or
+					 * anonymous, try to make new
+					 * anonymous mmap and copy
+					 * data over */
+					p = mmap(NULL, *new_size, prot, flags,
+						 fd, 0);
+					if (p != MAP_FAILED) {
+						memcpy(p, old_address,
+						       old_size);
+						munmap(old_address, old_size);
+					}
+					/* if it failed, try alternative */
+				}
+				if (p == MAP_FAILED && path != NULL) {
+#ifdef HAVE_POSIX_FALLOCATE
+					int rt;
+#endif
+					/* write data to disk, then
+					 * mmap it to new address */
+					if (fd >= 0)
+						close(fd);
+					p = malloc(strlen(path) + 5);
+					strcat(strcpy(p, path), ".tmp");
+					fd = open(p, O_RDWR | O_CREAT,
+						  MONETDB_MODE);
+					free(p);
+					if (fd < 0) {
+						fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): fd < 0\n", __FILE__, __LINE__, path, PTRFMTCAST old_address, old_size, *new_size);
+						return NULL;
+					}
+					if (write(fd, old_address,
+						  old_size) < 0 ||
+#ifdef HAVE_FALLOCATE
+					    /* prefer Linux-specific
+					     * fallocate over standard
+					     * posix_fallocate, since
+					     * glibc uses a rather
+					     * slow method of
+					     * allocating the file if
+					     * the file system doesn't
+					     * support the operation,
+					     * we just use ftruncate
+					     * in that case */
+					    (fallocate(fd, 0, (off_t) old_size, (off_t) *new_size - (off_t) old_size) < 0 && (errno != EOPNOTSUPP || ftruncate(fd, (off_t) *new_size) < 0))
+#else
+#ifdef HAVE_POSIX_FALLOCATE
+					    /* posix_fallocate returns
+					     * error number on
+					     * failure, not -1, and if
+					     * it returns EINVAL, the
+					     * underlying file system
+					     * may not support the
+					     * operation, so we then
+					     * need to try
+					     * ftruncate */
+					    ((rt = posix_fallocate(fd, (off_t) old_size, (off_t) *new_size - (off_t) old_size)) == EINVAL ? ftruncate(fd, (off_t) *new_size) < 0 : rt != 0)
+#else
+					    ftruncate(fd, (off_t) *new_size) < 0
+#endif
+#endif
+						) {
+						close(fd);
+						fprintf(stderr,
+							"= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): write() or "
+#ifdef HAVE_FALLOCATE
+							"fallocate()"
+#else
+#ifdef HAVE_POSIX_FALLOCATE
+							"posix_fallocate()"
+#else
+							"ftruncate()"
+#endif
+#endif
+							" failed\n", __FILE__, __LINE__, path, PTRFMTCAST old_address, old_size, *new_size);
+						return NULL;
+					}
+					p = mmap(NULL, *new_size, prot, flags,
+						 fd, 0);
+					if (p != MAP_FAILED)
+						munmap(old_address, old_size);
+				}
+#endif	/* HAVE_MREMAP */
+			}
+		}
+		if (fd >= 0)
+			close(fd);
+	}
+#ifdef MMAP_DEBUG
+	fprintf(stderr, "MT_mremap(%s,"PTRFMT","SZFMT","SZFMT") -> "PTRFMT"%s\n", path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size, PTRFMTCAST p, path && mode & MMAP_COPY ? " private" : "");
+#endif
+	if (p == MAP_FAILED)
+		fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): p == MAP_FAILED\n", __FILE__, __LINE__, path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
+	return p == MAP_FAILED ? NULL : p;
+}
+
+int
+MT_msync(void *p, size_t len)
+{
+	int ret = msync(p, len, MS_SYNC);
 
 #ifdef MMAP_DEBUG
-	mnstr_printf(GDKstdout,
-		     "#msync(" LLFMT "," LLFMT ",%s) = %d\n",
-		     (long long) p, (long long) len,
-		     (mode & MMAP_SYNC) ? "MS_SYNC" :
-		     ((mode & MMAP_ASYNC) ? "MS_ASYNC" : "MS_INVALIDATE"),
-		     ret);
+	fprintf(stderr,
+		     "#msync(" PTRFMT "," SZFMT ",MS_SYNC) = %d\n",
+		     PTRFMTCAST p, len, ret);
 #endif
 	return ret;
 }
@@ -455,10 +658,6 @@ mdlopen(const char *library, int mode)
 	return dlopen(NULL, mode);
 }
 
-#ifdef WIN32
-#include <windows.h>
-#endif
-
 #else /* WIN32 native */
 
 #ifndef BUFSIZ
@@ -489,7 +688,6 @@ MT_ignore_exceptions(struct _EXCEPTION_POINTERS *ExceptionInfo)
 void
 MT_init_posix(void)
 {
-	MT_heapbase = 0;
 	SetUnhandledExceptionFilter(MT_ignore_exceptions);
 }
 
@@ -501,12 +699,6 @@ MT_getrss(void)
 	if (GetProcessMemoryInfo(GetCurrentProcess(), &ctr, sizeof(ctr)))
 		return ctr.WorkingSetSize;
 	return 0;
-}
-
-char *
-MT_heapcur(void)
-{
-	return (char *) 0;
 }
 
 /* Windows mmap keeps a global list of base addresses for complex
@@ -554,49 +746,96 @@ MT_mmap(const char *path, int mode, size_t len)
 		(void) SetFileAttributes(path, FILE_ATTRIBUTE_NORMAL);
 		h1 = CreateFile(path, mode0, mode1, &sa, OPEN_ALWAYS, mode2, NULL);
 		if (h1 == INVALID_HANDLE_VALUE) {
+			errno = winerror(GetLastError());
 			GDKsyserror("MT_mmap: CreateFile('%s', %lu, %lu, &sa, %lu, %lu, NULL) failed\n",
 				    path, mode0, mode1, (DWORD) OPEN_ALWAYS, mode2);
-			return (void *) -1;
+			return NULL;
 		}
 	}
 
 	h2 = CreateFileMapping(h1, &sa, mode3, (DWORD) (((__int64) len >> 32) & LL_CONSTANT(0xFFFFFFFF)), (DWORD) (len & LL_CONSTANT(0xFFFFFFFF)), NULL);
 	if (h2 == NULL) {
+		errno = winerror(GetLastError());
 		GDKsyserror("MT_mmap: CreateFileMapping(" PTRFMT ", &sa, %lu, %lu, %lu, NULL) failed\n",
 			    PTRFMTCAST h1, mode3,
 			    (DWORD) (((__int64) len >> 32) & LL_CONSTANT(0xFFFFFFFF)),
 			    (DWORD) (len & LL_CONSTANT(0xFFFFFFFF)));
 		CloseHandle(h1);
-		return (void *) -1;
+		return NULL;
 	}
 	CloseHandle(h1);
 
 	ret = MapViewOfFileEx(h2, mode4, (DWORD) 0, (DWORD) 0, len, NULL);
+	if (ret == NULL)
+		errno = winerror(GetLastError());
 	CloseHandle(h2);
 
-	return ret ? ret : (void *) -1;
+	return ret;
 }
 
 int
 MT_munmap(void *p, size_t dummy)
 {
-	int ret = 0;
+	int ret;
 
 	(void) dummy;
 	/*       Windows' UnmapViewOfFile returns success!=0, error== 0,
 	 * while Unix's   munmap          returns success==0, error==-1. */
-	return -(UnmapViewOfFile(p) == 0);
+	ret = UnmapViewOfFile(p);
+	if (ret == 0) {
+		errno = winerror(GetLastError());
+		return -1;
+	}
+	return 0;
+}
+
+void *
+MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t *new_size)
+{
+	void *p;
+
+	/* doesn't make sense for us to extend read-only memory map */
+	assert(mode & MMAP_WRITABLE);
+
+	/* round up to multiple of page size */
+	*new_size = (*new_size + GDK_mmap_pagesize - 1) & ~(GDK_mmap_pagesize - 1);
+
+	if (old_size >= *new_size) {
+		*new_size = old_size;
+		return old_address;	/* don't bother shrinking */
+	}
+	if (GDKextend(path, *new_size) < 0) {
+		fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): GDKextend() failed\n", __FILE__, __LINE__, path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
+		return NULL;
+	}
+	if (path && !(mode & MMAP_COPY))
+		MT_munmap(old_address, old_size);
+	p = MT_mmap(path, mode, *new_size);
+	if (p != NULL && (path == NULL || (mode & MMAP_COPY))) {
+		memcpy(p, old_address, old_size);
+		MT_munmap(old_address, old_size);
+	}
+#ifdef MMAP_DEBUG
+	fprintf(stderr, "MT_mremap(%s,"PTRFMT","SZFMT","SZFMT") -> "PTRFMT"\n", path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size, PTRFMTCAST p);
+#endif
+	if (p == NULL)
+		fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): p == NULL\n", __FILE__, __LINE__, path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
+	return p;
 }
 
 int
-MT_msync(void *p, size_t off, size_t len, int mode)
+MT_msync(void *p, size_t len)
 {
-	int ret = 0;
+	int ret;
 
-	(void) mode;
-	/*       Windows' UnmapViewOfFile returns success!=0, error== 0,
+	/*       Windows' FlushViewOfFile returns success!=0, error== 0,
 	 * while Unix's   munmap          returns success==0, error==-1. */
-	return -(FlushViewOfFile(((char *) p) + off, len) == 0);
+	ret = FlushViewOfFile(p, len);
+	if (ret == 0) {
+		errno = winerror(GetLastError());
+		return -1;
+	}
+	return 0;
 }
 
 #ifndef _HEAPOK			/* MinGW */
@@ -638,7 +877,7 @@ MT_mallinfo(void)
 	}
 	if (heapstatus == _HEAPBADPTR || heapstatus == _HEAPBADBEGIN || heapstatus == _HEAPBADNODE) {
 
-		mnstr_printf(GDKstdout, "#mallinfo(): heap is corrupt.");
+		fprintf(stderr, "#mallinfo(): heap is corrupt.");
 	}
 	_heapmin();
 	return _ret;
@@ -647,41 +886,14 @@ MT_mallinfo(void)
 int
 MT_path_absolute(const char *pathname)
 {
-	char *drive_end = strchr(pathname, ':');
-	char *path_start = strchr(pathname, '\\');
-
-	if (path_start == NULL) {
-		return 0;
-	}
-	return (path_start == pathname || drive_end == (path_start - 1));
+	/* drive letter, colon, directory separator */
+	return (((('a' <= pathname[0] && pathname[0] <= 'z') ||
+		  ('A' <= pathname[0] && pathname[0] <= 'Z')) &&
+		 pathname[1] == ':' &&
+		 (pathname[2] == '/' || pathname[2] == '\\')) ||
+		(pathname[0] == '\\' && pathname[1] == '\\'));
 }
 
-
-#ifndef HAVE_FTRUNCATE
-int
-ftruncate(int fd, off_t size)
-{
-	HANDLE hfile;
-	unsigned int curpos;
-
-	if (fd < 0)
-		return -1;
-
-	hfile = (HANDLE) _get_osfhandle(fd);
-	curpos = SetFilePointer(hfile, 0, NULL, FILE_CURRENT);
-	if (curpos == 0xFFFFFFFF ||
-	    SetFilePointer(hfile, (LONG) size, NULL, FILE_BEGIN) == 0xFFFFFFFF ||
-	    !SetEndOfFile(hfile)) {
-		int error = GetLastError();
-
-		if (error && error != ERROR_INVALID_HANDLE)
-			SetLastError(ERROR_OPEN_FAILED);	/* enforce EIO */
-		return -1;
-	}
-
-	return 0;
-}
-#endif
 
 #ifndef HAVE_GETTIMEOFDAY
 static int nodays[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
@@ -794,7 +1006,7 @@ win_rmdir(const char *pathname)
 		/* it could be the <expletive deleted> indexing
 		 * service which prevents us from doing what we have a
 		 * right to do, so try again (once) */
-		IODEBUG THRprintf(GDKstdout, "retry rmdir %s\n", pathname);
+		IODEBUG fprintf(stderr, "retry rmdir %s\n", pathname);
 		MT_sleep_ms(100);	/* wait a little */
 		ret = _rmdir(p);
 	}
@@ -819,7 +1031,7 @@ win_unlink(const char *pathname)
 		/* it could be the <expletive deleted> indexing
 		 * service which prevents us from doing what we have a
 		 * right to do, so try again (once) */
-		IODEBUG THRprintf(GDKstdout, "retry unlink %s\n", pathname);
+		IODEBUG fprintf(stderr, "retry unlink %s\n", pathname);
 		MT_sleep_ms(100);	/* wait a little */
 		ret = _unlink(pathname);
 	}
@@ -828,17 +1040,25 @@ win_unlink(const char *pathname)
 
 #undef rename
 int
-win_rename(const char *old, const char *new)
+win_rename(const char *old, const char *dst)
 {
-	int ret = rename(old, new);
+	int ret;
+
+	ret = rename(old, dst);
+	if (ret == 0 || (ret < 0 && errno == ENOENT))
+		return ret;
+	if (ret < 0 && errno == EEXIST) {
+		(void) win_unlink(dst);
+		ret = rename(old, dst);
+	}
 
 	if (ret < 0 && errno != ENOENT) {
 		/* it could be the <expletive deleted> indexing
 		 * service which prevents us from doing what we have a
 		 * right to do, so try again (once) */
-		IODEBUG THRprintf(GDKstdout, "#retry rename %s %s\n", old, new);
+		IODEBUG fprintf(stderr, "#retry rename %s %s\n", old, dst);
 		MT_sleep_ms(100);	/* wait a little */
-		ret = rename(old, new);
+		ret = rename(old, dst);
 	}
 	return ret;
 }
@@ -853,131 +1073,6 @@ win_mkdir(const char *pathname, const int mode)
 	if (p != buf)
 		free(p);
 	return ret;
-}
-
-#if _WIN32_WINNT >= 0x500
-/* NTFS does support symbolic links */
-int
-win_link(const char *oldpath, const char *newpath)
-{
-	return CreateHardLink(newpath, oldpath, NULL) ? -1 : 0;
-}
-#endif
-
-typedef struct {
-	int w;			/* windows version of error */
-	const char *s;		/* text of windows version */
-	int e;			/* errno version of error */
-} win_errmap_t;
-
-#ifndef EBADRQC
-#define EBADRQC 56
-#endif
-#ifndef ENODATA
-#define ENODATA 61
-#endif
-#ifndef ENONET
-#define ENONET 64
-#endif
-#ifndef ENOTUNIQ
-#define ENOTUNIQ 76
-#endif
-#ifndef ECOMM
-#define ECOMM 70
-#endif
-#ifndef ENOLINK
-#define ENOLINK 67
-#endif
-win_errmap_t win_errmap[] = {
-	{ERROR_INVALID_FUNCTION, "ERROR_INVALID_FUNCTION", EBADRQC},
-	{ERROR_FILE_NOT_FOUND, "ERROR_FILE_NOT_FOUND", ENOENT},
-	{ERROR_PATH_NOT_FOUND, "ERROR_PATH_NOT_FOUND", ENOENT},
-	{ERROR_TOO_MANY_OPEN_FILES, "ERROR_TOO_MANY_OPEN_FILES", EMFILE},
-	{ERROR_ACCESS_DENIED, "ERROR_ACCESS_DENIED", EACCES},
-	{ERROR_INVALID_HANDLE, "ERROR_INVALID_HANDLE", EBADF},
-	{ERROR_NOT_ENOUGH_MEMORY, "ERROR_NOT_ENOUGH_MEMORY", ENOMEM},
-	{ERROR_INVALID_DATA, "ERROR_INVALID_DATA", EINVAL},
-	{ERROR_OUTOFMEMORY, "ERROR_OUTOFMEMORY", ENOMEM},
-	{ERROR_INVALID_DRIVE, "ERROR_INVALID_DRIVE", ENODEV},
-	{ERROR_NOT_SAME_DEVICE, "ERROR_NOT_SAME_DEVICE", EXDEV},
-	{ERROR_NO_MORE_FILES, "ERROR_NO_MORE_FILES", ENFILE},
-	{ERROR_WRITE_PROTECT, "ERROR_WRITE_PROTECT", EROFS},
-	{ERROR_BAD_UNIT, "ERROR_BAD_UNIT", ENODEV},
-	{ERROR_SHARING_VIOLATION, "ERROR_SHARING_VIOLATION", EACCES},
-	{ERROR_LOCK_VIOLATION, "ERROR_LOCK_VIOLATION", EACCES},
-	{ERROR_SHARING_BUFFER_EXCEEDED, "ERROR_SHARING_BUFFER_EXCEEDED", ENOLCK},
-	{ERROR_HANDLE_EOF, "ERROR_HANDLE_EOF", ENODATA},
-	{ERROR_HANDLE_DISK_FULL, "ERROR_HANDLE_DISK_FULL", ENOSPC},
-	{ERROR_NOT_SUPPORTED, "ERROR_NOT_SUPPORTED", ENOSYS},
-	{ERROR_REM_NOT_LIST, "ERROR_REM_NOT_LIST", ENONET},
-	{ERROR_DUP_NAME, "ERROR_DUP_NAME", ENOTUNIQ},
-	{ERROR_BAD_NETPATH, "ERROR_BAD_NETPATH", ENXIO},
-	{ERROR_FILE_EXISTS, "ERROR_FILE_EXISTS", EEXIST},
-	{ERROR_CANNOT_MAKE, "ERROR_CANNOT_MAKE", EPERM},
-	{ERROR_INVALID_PARAMETER, "ERROR_INVALID_PARAMETER", EINVAL},
-	{ERROR_NO_PROC_SLOTS, "ERROR_NO_PROC_SLOTS", EAGAIN},
-	{ERROR_BROKEN_PIPE, "ERROR_BROKEN_PIPE", EPIPE},
-	{ERROR_OPEN_FAILED, "ERROR_OPEN_FAILED", EIO},
-	{ERROR_NO_MORE_SEARCH_HANDLES, "ERROR_NO_MORE_SEARCH_HANDLES", ENFILE},
-	{ERROR_CALL_NOT_IMPLEMENTED, "ERROR_CALL_NOT_IMPLEMENTED", ENOSYS},
-	{ERROR_INVALID_NAME, "ERROR_INVALID_NAME", ENOENT},
-	{ERROR_WAIT_NO_CHILDREN, "ERROR_WAIT_NO_CHILDREN", ECHILD},
-	{ERROR_CHILD_NOT_COMPLETE, "ERROR_CHILD_NOT_COMPLETE", EBUSY},
-	{ERROR_DIR_NOT_EMPTY, "ERROR_DIR_NOT_EMPTY", ENOTEMPTY},
-	{ERROR_SIGNAL_REFUSED, "ERROR_SIGNAL_REFUSED", EIO},
-	{ERROR_BAD_PATHNAME, "ERROR_BAD_PATHNAME", EINVAL},
-	{ERROR_SIGNAL_PENDING, "ERROR_SIGNAL_PENDING", EBUSY},
-	{ERROR_MAX_THRDS_REACHED, "ERROR_MAX_THRDS_REACHED", EAGAIN},
-	{ERROR_BUSY, "ERROR_BUSY", EBUSY},
-	{ERROR_ALREADY_EXISTS, "ERROR_ALREADY_EXISTS", EEXIST},
-	{ERROR_NO_SIGNAL_SENT, "ERROR_NO_SIGNAL_SENT", EIO},
-	{ERROR_FILENAME_EXCED_RANGE, "ERROR_FILENAME_EXCED_RANGE", EINVAL},
-	{ERROR_META_EXPANSION_TOO_LONG, "ERROR_META_EXPANSION_TOO_LONG", EINVAL},
-	{ERROR_INVALID_SIGNAL_NUMBER, "ERROR_INVALID_SIGNAL_NUMBER", EINVAL},
-	{ERROR_THREAD_1_INACTIVE, "ERROR_THREAD_1_INACTIVE", EINVAL},
-	{ERROR_BAD_PIPE, "ERROR_BAD_PIPE", EINVAL},
-	{ERROR_PIPE_BUSY, "ERROR_PIPE_BUSY", EBUSY},
-	{ERROR_NO_DATA, "ERROR_NO_DATA", EPIPE},
-	{ERROR_PIPE_NOT_CONNECTED, "ERROR_PIPE_NOT_CONNECTED", ECOMM},
-	{ERROR_MORE_DATA, "ERROR_MORE_DATA", EAGAIN},
-	{ERROR_DIRECTORY, "ERROR_DIRECTORY", EISDIR},
-	{ERROR_PIPE_CONNECTED, "ERROR_PIPE_CONNECTED", EBUSY},
-	{ERROR_PIPE_LISTENING, "ERROR_PIPE_LISTENING", ECOMM},
-	{ERROR_NO_TOKEN, "ERROR_NO_TOKEN", EINVAL},
-	{ERROR_PROCESS_ABORTED, "ERROR_PROCESS_ABORTED", EFAULT},
-	{ERROR_BAD_DEVICE, "ERROR_BAD_DEVICE", ENODEV},
-	{ERROR_BAD_USERNAME, "ERROR_BAD_USERNAME", EINVAL},
-	{ERROR_NOT_CONNECTED, "ERROR_NOT_CONNECTED", ENOLINK},
-	{ERROR_OPEN_FILES, "ERROR_OPEN_FILES", EAGAIN},
-	{ERROR_ACTIVE_CONNECTIONS, "ERROR_ACTIVE_CONNECTIONS", EAGAIN},
-	{ERROR_DEVICE_IN_USE, "ERROR_DEVICE_IN_USE", EAGAIN},
-	{ERROR_INVALID_AT_INTERRUPT_TIME, "ERROR_INVALID_AT_INTERRUPT_TIME", EINTR},
-	{ERROR_IO_DEVICE, "ERROR_IO_DEVICE", EIO},
-};
-
-#define GDK_WIN_ERRNO_TLS 13
-
-int *
-win_errno(void)
-{
-	/* get address of thread-local Posix errno; refresh its value
-	 * from WIN32 error code */
-	int i, err = GetLastError() & 0xff;
-	int *result = TlsGetValue(GDK_WIN_ERRNO_TLS);
-
-	if (result == NULL) {
-		result = (int *) malloc(sizeof(int));
-		*result = 0;
-		TlsSetValue(GDK_WIN_ERRNO_TLS, result);
-	}
-	for (i = 0; win_errmap[i].w != 0; ++i) {
-		if (err == win_errmap[i].w) {
-			*result = win_errmap[i].e;
-			break;
-		}
-	}
-	SetLastError(err);
-	return result;
 }
 #endif
 

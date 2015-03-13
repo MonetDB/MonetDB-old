@@ -66,6 +66,14 @@ lngCmp(const lng *l, const lng *r)
 	return simple_CMP(l, r, lng);
 }
 
+#ifdef HAVE_HGE
+static int
+hgeCmp(const hge *l, const hge *r)
+{
+	return simple_CMP(l, r, hge);
+}
+#endif
+
 static int
 dblCmp(const dbl *l, const dbl *r)
 {
@@ -100,27 +108,18 @@ lngHash(const lng *v)
 	return (BUN) mix_int(((const unsigned int *) v)[0] ^ ((const unsigned int *) v)[1]);
 }
 
+#ifdef HAVE_HGE
+static BUN
+hgeHash(const hge *v)
+{
+	return (BUN) mix_int(((const unsigned int *) v)[0] ^ ((const unsigned int *) v)[1] ^ \
+	                     ((const unsigned int *) v)[2] ^ ((const unsigned int *) v)[3]);
+}
+#endif
+
 /*
  * @+ Standard Atoms
  */
-static inline void
-shtConvert(sht *s)
-{
-	*s = short_int_SWAP(*s);
-}
-
-static inline void
-intConvert(int *s)
-{
-	*s = normal_int_SWAP(*s);
-}
-
-static inline void
-lngConvert(lng *s)
-{
-	*s = long_long_SWAP(*s);
-}
-
 static inline int
 batFix(const bat *b)
 {
@@ -142,11 +141,8 @@ batUnfix(const bat *b)
  * support the BAT administration.
  *
  * A new type is incrementally build using the routine
- * ATOMproperty(id, property, function, value).  The parameter id
- * denotes the type name; an entry is created if the type is so far
- * unknown. The property argument is a string identifying the type
- * description property to be updated. Valid property names are size,
- * tostr, fromstr, put, get, cmp, eq, del, hash, null, new, and heap.
+ * ATOMallocate(id).  The parameter id denotes the type name; an entry
+ * is created if the type is so far unknown.
  *
  * The size describes the amount of space to be reserved in the BUN.
  *
@@ -170,27 +166,12 @@ batUnfix(const bat *b)
  * The incremental atom construction uses hardwired properties.  This
  * should be improved later on.
  */
-static int
-align(int n)
-{
-	if (n == 0)
-		return 0;
-	/* successively check bits from the bottom to see if one is set */
-	if (n & 1)
-		return 1;
-	if (n & 2)
-		return 2;
-	if (n & 4)
-		return 4;
-	return 8;
-}
-
-void
-ATOMproperty(str id, str property, GDKfcn arg, int val)
+int
+ATOMallocate(const char *id)
 {
 	int t;
 
-	MT_lock_set(&GDKthreadLock, "ATOMproperty");
+	MT_lock_set(&GDKthreadLock, "ATOMallocate");
 	t = ATOMindex(id);
 
 	if (t < 0) {
@@ -199,99 +180,22 @@ ATOMproperty(str id, str property, GDKfcn arg, int val)
 			GDKatomcnt++;
 		}
 		if (GDKatomcnt == MAXATOMS)
-			GDKfatal("ATOMproperty: too many types");
+			GDKfatal("ATOMallocate: too many types");
 		if (strlen(id) >= IDLENGTH)
-			GDKfatal("ATOMproperty: name too long");
+			GDKfatal("ATOMallocate: name too long");
 		memset(BATatoms + t, 0, sizeof(atomDesc));
-		strncpy(BATatoms[t].name, id, IDLENGTH);
+		snprintf(BATatoms[t].name, IDLENGTH, "%s", id);
 		BATatoms[t].size = sizeof(int);		/* default */
-		assert_shift_width(ATOMelmshift(BATatoms[t].size), BATatoms[t].size);
 		BATatoms[t].align = sizeof(int);	/* default */
 		BATatoms[t].linear = 1;			/* default */
 		BATatoms[t].storage = t;		/* default */
-		BATatoms[t].deleting = 1;		/* not yet usable */
 	}
-	if (strcmp("size", property) == 0) {
-		if (val) {
-			assert(val <= SHRT_MAX);
-			BATatoms[t].size = val;
-			assert_shift_width(ATOMelmshift(BATatoms[t].size), BATatoms[t].size);
-			BATatoms[t].varsized = 0;
-			BATatoms[t].align = align(val);
-		} else {
-			BATatoms[t].size = sizeof(var_t);
-			assert_shift_width(ATOMelmshift(BATatoms[t].size), BATatoms[t].size);
-			BATatoms[t].varsized = 1;
-			BATatoms[t].align = sizeof(var_t);
-		}
-	} else if (strcmp("linear", property) == 0) {
-		BATatoms[t].linear = val;
-	} else if (strcmp("align", property) == 0) {
-		BATatoms[t].align = val;
-	} else if (strcmp("storage", property) == 0) {
-		BATatoms[t] = BATatoms[val];	/* copy from example */
-		strncpy(BATatoms[t].name, id, IDLENGTH); /* restore name */
-		BATatoms[t].name[IDLENGTH - 1] = 0;
-	} else if (strcmp("fromstr", property) == 0) {
-		BATatoms[t].atomFromStr = (int (*)(const char *, int *, void **)) arg;
-	} else if (strcmp("tostr", property) == 0) {
-		BATatoms[t].atomToStr = (int (*)(char **, int *, const void *)) arg;
-	} else if (strcmp("read", property) == 0) {
-		BATatoms[t].atomRead = (void *(*)(void *, stream *, size_t)) arg;
-	} else if (strcmp("write", property) == 0) {
-		BATatoms[t].atomWrite = (int (*)(const void *, stream *, size_t)) arg;
-	} else if (strcmp("fix", property) == 0) {
-		BATatoms[t].atomFix = (int (*)(const void *)) arg;
-	} else if (strcmp("unfix", property) == 0) {
-		BATatoms[t].atomUnfix = (int (*)(const void *)) arg;
-	} else {
-#define atomset(dst,val) oldval = (ptr) dst; if (val == NULL || dst == val) goto out; dst = val;
-		ptr oldval = NULL;
-
-		if (strcmp("heap", property) == 0) {
-			BATatoms[t].size = sizeof(var_t);
-			assert_shift_width(ATOMelmshift(BATatoms[t].size), BATatoms[t].size);
-			BATatoms[t].varsized = 1;
-			BATatoms[t].align = sizeof(var_t);
-			atomset(BATatoms[t].atomHeap, (void (*)(Heap *, size_t)) arg);
-		} else if (strcmp("heapconvert", property) == 0) {
-			atomset(BATatoms[t].atomHeapConvert, (void (*)(Heap *, int)) arg);
-		} else if (strcmp("check", property) == 0) {
-			atomset(BATatoms[t].atomHeapCheck, (int (*)(Heap *, HeapRepair *)) arg);
-		} else if (strcmp("del", property) == 0) {
-			atomset(BATatoms[t].atomDel, (void (*)(Heap *, var_t *)) arg);
-		} else if (strcmp("convert", property) == 0) {
-			atomset(BATatoms[t].atomConvert, (void (*)(void *, int)) arg);
-		} else if (strcmp("put", property) == 0) {
-			atomset(BATatoms[t].atomPut, (var_t (*)(Heap *, var_t *, const void *)) arg);
-		} else if (strcmp("null", property) == 0) {
-			ptr atmnull = ((ptr (*)(void)) arg) ();
-
-			atomset(BATatoms[t].atomNull, atmnull);
-		}
-		if (oldval)
-			goto out;
-
-		/* these ADT functions *must* be equal for overloaded types */
-		if (strcmp("cmp", property) == 0) {
-			atomset(BATatoms[t].atomCmp, (int (*)(const void *, const void *)) arg);
-		} else if (strcmp("hash", property) == 0) {
-			atomset(BATatoms[t].atomHash, (BUN (*)(const void *)) arg);
-		} else if (strcmp("length", property) == 0) {
-			atomset(BATatoms[t].atomLen, (int (*)(const void *)) arg);
-		}
-		if (BATatoms[t].storage != t)
-			GDKerror("ATOMproperty: %s overload of %s violates "
-				 "inheritance from %s.\n", ATOMname(t),
-				 property, ATOMname(BATatoms[t].storage));
-		BATatoms[t].storage = t;	/* critical redefine: undo remapping */
-	}
-      out:
-	MT_lock_unset(&GDKthreadLock, "ATOMproperty");
+	MT_lock_unset(&GDKthreadLock, "ATOMallocate");
+	return t;
 }
 
 int
-ATOMindex(str nme)
+ATOMindex(const char *nme)
 {
 	int t, j = GDKatomcnt;
 
@@ -337,6 +241,9 @@ const int int_nil = GDK_int_min;
 const flt flt_nil = GDK_flt_min;
 const dbl dbl_nil = GDK_dbl_min;
 const lng lng_nil = GDK_lng_min;
+#ifdef HAVE_HGE
+const hge hge_nil = GDK_hge_min;
+#endif
 const oid oid_nil = (oid) 1 << (sizeof(oid) * 8 - 1);
 const wrd wrd_nil = GDK_wrd_min;
 const char str_nil[2] = { '\200', 0 };
@@ -381,7 +288,7 @@ ATOMheap(int t, Heap *hp, size_t cap)
 int
 ATOMcmp(int t, const void *l, const void *r)
 {
-	switch (ATOMstorage(t)) {
+	switch (ATOMbasetype(t)) {
 	case TYPE_bte:
 		return simple_CMP(l, r, bte);
 	case TYPE_sht:
@@ -392,6 +299,10 @@ ATOMcmp(int t, const void *l, const void *r)
 		return simple_CMP(l, r, flt);
 	case TYPE_lng:
 		return simple_CMP(l, r, lng);
+#ifdef HAVE_HGE
+	case TYPE_hge:
+		return simple_CMP(l, r, hge);
+#endif
 	case TYPE_dbl:
 		return simple_CMP(l, r, dbl);
 	default:
@@ -434,16 +345,14 @@ ATOMformat(int t, const void *p, char **buf)
 {
 	int (*tostr) (str *, int *, const void *);
 
-	if (p && (t >= 0) && (t < GDKatomcnt) && (tostr = BATatoms[t].atomToStr)) {
-		int sz = 0, l = (*tostr) (buf, &sz, p);
-
-		return l;
+	if (p && 0 <= t && t < GDKatomcnt && (tostr = BATatoms[t].atomToStr)) {
+		int sz = 0;
+		return (*tostr) (buf, &sz, p);
 	}
-	*buf = GDKmalloc(4);
+	*buf = GDKstrdup("nil");
 	if (*buf == NULL)
 		return -1;
-	strncpy(*buf, "nil", 4);
-	return 3;
+	return 3;		/* strlen(*buf) */
 }
 
 ptr
@@ -472,16 +381,15 @@ ATOMdup(int t, const void *p)
  * as 'dst' and/or a *len==0 is valid; the conversion function will
  * then alloc some region for you.
  */
-#define atommem(TYPE, size)						\
-	do {								\
-		if (!*dst) {						\
-			*dst = (TYPE *) GDKmalloc(*len = (size));	\
-		} else if (*len < (int) (size)) {			\
-			GDKfree(*dst);					\
-			*dst = (TYPE *) GDKmalloc(*len = (size));	\
-		}							\
-		if (!*dst)						\
-			return -1;					\
+#define atommem(TYPE, size)					\
+	do {							\
+		if (*dst == NULL || *len < (int) (size)) {	\
+			GDKfree(*dst);				\
+			*len = (size);				\
+			*dst = (TYPE *) GDKmalloc(*len);	\
+			if (*dst == NULL)			\
+				return -1;			\
+		}						\
 	} while (0)
 
 #define atomtostr(TYPE, FMT, FMTCAST)			\
@@ -490,8 +398,7 @@ TYPE##ToStr(char **dst, int *len, const TYPE *src)	\
 {							\
 	atommem(char, TYPE##Strlen);			\
 	if (*src == TYPE##_nil) {			\
-		strncpy(*dst, "nil", *len);		\
-		return 3;				\
+		return snprintf(*dst, *len, "nil");	\
 	}						\
 	snprintf(*dst, *len, FMT, FMTCAST *src);	\
 	return (int) strlen(*dst);			\
@@ -505,8 +412,6 @@ TYPE##ToStr(char **dst, int *len, const TYPE *src)	\
 #define base16(x)	(((x) >= 'a' && (x) <= 'f') ? ((x) - 'a' + 10) : ((x) >= 'A' && (x) <= 'F') ? ((x) - 'A' + 10) : (x) - '0')
 #define mult08(x)	((x) << 3)
 #define mult16(x)	((x) << 4)
-#define mult10(x)	((x) + (x) + ((x) << 3))
-#define mult7(x)	(((x) << 3) - (x))
 
 #if 0
 int
@@ -524,8 +429,7 @@ voidToStr(str *dst, int *len, void *src)
 	(void) src;
 
 	atommem(char, 4);
-	strncpy(*dst, "nil", *len);
-	return 3;
+	return snprintf(*dst, *len, "nil");
 }
 #endif
 
@@ -546,6 +450,12 @@ voidWrite(const void *a, stream *s, size_t cnt)
 	return GDK_SUCCEED;
 }
 
+/*
+ * Converts string values such as TRUE/FALSE/true/false etc to 1/0/NULL.
+ * Switched from byte-to-byte compare to library function strncasecmp,
+ * experiments showed that library function is even slightly faster and we
+ * now also support True/False (and trUe/FAlSE should this become a thing).
+ */
 int
 bitFromStr(const char *src, int *len, bit **dst)
 {
@@ -562,17 +472,19 @@ bitFromStr(const char *src, int *len, bit **dst)
 	} else if (*p == '1') {
 		**dst = TRUE;
 		p++;
-	} else if (p[0] == 't' && p[1] == 'r' && p[2] == 'u' && p[3] == 'e') {
+	} else if (strncasecmp(p, "true",  4) == 0) {
 		**dst = TRUE;
 		p += 4;
-	} else if (p[0] == 'f' && p[1] == 'a' && p[2] == 'l' && p[3] == 's' && p[4] == 'e') {
+	} else if (strncasecmp(p, "false", 5) == 0) {
 		**dst = FALSE;
 		p += 5;
-	} else if (p[0] == 'n' && p[1] == 'i' && p[2] == 'l') {
+	} else if (strncasecmp(p, "nil",   3) == 0) {
 		p += 3;
 	} else {
 		p = src;
 	}
+	while (GDKisspace(*p))
+		p++;
 	return (int) (p - src);
 }
 
@@ -581,15 +493,11 @@ bitToStr(char **dst, int *len, const bit *src)
 {
 	atommem(char, 6);
 
-	if (*src == bit_nil) {
-		strncpy(*dst, "nil", *len);
-		return 3;
-	} else if (*src) {
-		strncpy(*dst, "true", *len);
-		return 4;
-	}
-	strncpy(*dst, "false", *len);
-	return 5;
+	if (*src == bit_nil)
+		return snprintf(*dst, *len, "nil");
+	if (*src)
+		return snprintf(*dst, *len, "true");
+	return snprintf(*dst, *len, "false");
 }
 
 static bit *
@@ -651,13 +559,11 @@ batToStr(char **dst, int *len, const bat *src)
 
 	if (b == bat_nil || (s = BBPname(b)) == NULL || *s == 0) {
 		atommem(char, 4);
-		strncpy(*dst, "nil", *len);
-		return 3;
+		return snprintf(*dst, *len, "nil");
 	}
 	i = (int) (strlen(s) + 4);
 	atommem(char, i);
-	snprintf(*dst, *len, "<%s>", s);
-	return (int) strlen(*dst);
+	return snprintf(*dst, *len, "<%s>", s);
 }
 
 static bat *
@@ -686,8 +592,13 @@ numFromStr(const char *src, int *len, void **dst, int tp)
 {
 	const char *p = src;
 	int sz = ATOMsize(tp);
+#ifdef HAVE_HGE
+	hge base = 0;
+	hge maxdiv10 = 0;	/* max value / 10 */
+#else
 	lng base = 0;
 	lng maxdiv10 = 0;	/* max value / 10 */
+#endif
 	int maxmod10 = 7;	/* max value % 10 */
 	int sign = 1;
 
@@ -722,6 +633,12 @@ numFromStr(const char *src, int *len, void **dst, int tp)
 	case 8:
 		maxdiv10 = LL_CONSTANT(922337203685477580)/*7*/;
 		break;
+#ifdef HAVE_HGE
+	case 16:
+		maxdiv10 = GDK_hge_max / 10;
+		//         17014118346046923173168730371588410572/*7*/;
+		break;
+#endif
 	}
 	do {
 		if (base > maxdiv10 ||
@@ -756,7 +673,18 @@ numFromStr(const char *src, int *len, void **dst, int tp)
 			p += 2;
 		break;
 	}
+#ifdef HAVE_HGE
+	case 16: {
+		hge **dsthge = (hge **) dst;
+		**dsthge = (hge) base;
+		if (p[0] == 'L' && p[1] == 'L')
+			p += 2;
+		break;
 	}
+#endif
+	}
+	while (GDKisspace(*p))
+		p++;
 	return (int) (p - src);
 }
 
@@ -784,6 +712,14 @@ lngFromStr(const char *src, int *len, lng **dst)
 	return numFromStr(src, len, (void **) dst, TYPE_lng);
 }
 
+#ifdef HAVE_HGE
+int
+hgeFromStr(const char *src, int *len, hge **dst)
+{
+	return numFromStr(src, len, (void **) dst, TYPE_hge);
+}
+#endif
+
 #define atom_io(TYPE, NAME, CAST)					\
 static TYPE *								\
 TYPE##Read(TYPE *a, stream *s, size_t cnt)				\
@@ -808,8 +744,36 @@ atomtostr(int, "%d", )
 atom_io(int, Int, int)
 
 atomtostr(lng, LLFMT, )
-
 atom_io(lng, Lng, lng)
+
+#ifdef HAVE_HGE
+#ifdef WIN32
+#define HGE_LL018FMT "%018I64d"
+#else
+#define HGE_LL018FMT "%018lld"
+#endif
+#define HGE_LL18DIGITS LL_CONSTANT(1000000000000000000)
+#define HGE_ABS(a) (((a) < 0) ? -(a) : (a))
+int
+hgeToStr(char **dst, int *len, const hge *src)
+{
+	atommem(char, hgeStrlen);
+	if (*src == hge_nil) {
+		strncpy(*dst, "nil", *len);
+		return 3;
+	}
+	if ((hge) GDK_lng_min <= *src && *src <= (hge) GDK_lng_max) {
+		lng s = (lng) *src;
+		return lngToStr(dst, len, &s);
+	} else {
+		hge s = *src / HGE_LL18DIGITS;
+		int l = hgeToStr(dst, len, &s);
+		snprintf(*dst + l, *len - l, HGE_LL018FMT, (lng) HGE_ABS(*src % HGE_LL18DIGITS));
+		return (int) strlen(*dst);
+	}
+}
+atom_io(hge, Hge, hge)
+#endif
 
 int
 ptrFromStr(const char *src, int *len, ptr **dst)
@@ -842,6 +806,8 @@ ptrFromStr(const char *src, int *len, ptr **dst)
 		}
 		**dst = (ptr) base;
 	}
+	while (GDKisspace(*p))
+		p++;
 	return (int) (p - src);
 }
 
@@ -884,12 +850,18 @@ dblFromStr(const char *src, int *len, dbl **dst)
 			**dst = (dbl) d;
 		}
 	}
+	while (GDKisspace(*p))
+		p++;
 	return (int) (p - src);
 }
 
 atomtostr(dbl, "%.17g", (double))
 atom_io(dbl, Lng, lng)
 
+#ifdef _MSC_VER
+/* don't warn about overflow in INFINITY and NAN */
+#pragma warning(disable : 4756)
+#endif
 int
 fltFromStr(const char *src, int *len, flt **dst)
 {
@@ -917,6 +889,8 @@ fltFromStr(const char *src, int *len, flt **dst)
 		errno = 0;
 		f = strtof(src, &pe);
 		p = pe;
+		while (GDKisspace(*p))
+			p++;
 		n = (int) (p - src);
 		if (n == 0 || (errno == ERANGE && (f < -1 || f > 1))
 #ifdef INFINITY
@@ -1055,7 +1029,7 @@ strHeap(Heap *d, size_t cap)
 
 	cap = MAX(cap, BATTINY);
 	size = GDK_STRHASHTABLE * sizeof(stridx_t) + MIN(GDK_ELIMLIMIT, cap * GDK_VARALIGN);
-	if (HEAPalloc(d, size, 1) >= 0) {
+	if (HEAPalloc(d, size, 1) == 0) {
 		d->free = GDK_STRHASHTABLE * sizeof(stridx_t);
 		memset(d->base, 0, d->free);
 		d->hashash = 1;	/* new string heaps get the hash value (and length) stored */
@@ -1076,7 +1050,6 @@ strHash(const char *s)
 	return res;
 }
 
-
 void
 strCleanHash(Heap *h, int rebuild)
 {
@@ -1084,6 +1057,50 @@ strCleanHash(Heap *h, int rebuild)
 	if (!GDK_ELIMDOUBLES(h)) {
 		/* flush hash table for security */
 		memset(h->base, 0, GDK_STRHASHSIZE);
+	} else {
+		/* rebuild hash table for double elimination
+		 *
+		 * If appending strings to the BAT was aborted, if the
+		 * heap was memory mapped, the hash in the string heap
+		 * may well be incorrect.  Therefore we don't trust it
+		 * when we read in a string heap and we rebuild the
+		 * complete table (it is small, so this won't take any
+		 * time at all). */
+		size_t pad, pos;
+		const size_t extralen = h->hashash ? EXTRALEN : 0;
+		stridx_t *bucket;
+		BUN off, strhash;
+		const char *s;
+
+		memset(h->base, 0, GDK_STRHASHSIZE);
+		pos = GDK_STRHASHSIZE;
+		while (pos < h->free) {
+			pad = GDK_VARALIGN - (pos & (GDK_VARALIGN - 1));
+			if (pad < sizeof(stridx_t))
+				pad += GDK_VARALIGN;
+			pos += pad + extralen;
+			s = h->base + pos;
+			if (h->hashash)
+				strhash = ((const BUN *) s)[-1];
+			else
+				GDK_STRHASH(s, strhash);
+			off = strhash & GDK_STRHASHMASK;
+			bucket = ((stridx_t *) h->base) + off;
+			*bucket = (stridx_t) (pos - extralen - sizeof(stridx_t));
+			pos += GDK_STRLEN(s);
+		}
+#ifndef NDEBUG
+		pos = GDK_STRHASHSIZE;
+		while (pos < h->free) {
+			pad = GDK_VARALIGN - (pos & (GDK_VARALIGN - 1));
+			if (pad < sizeof(stridx_t))
+				pad += GDK_VARALIGN;
+			pos += pad + extralen;
+			s = h->base + pos;
+			assert(strLocate(h, s) != 0);
+			pos += GDK_STRLEN(s);
+		}
+#endif
 	}
 }
 
@@ -1092,15 +1109,11 @@ strCleanHash(Heap *h, int rebuild)
  * the location of a string in the heap if it exists. Otherwise it
  * returns zero.
  */
-/* if at least (2*SIZEOF_BUN), also store length (heaps are then
- * incompatible) */
-#define EXTRALEN ((SIZEOF_BUN + GDK_VARALIGN - 1) & ~(GDK_VARALIGN - 1))
-
 var_t
 strLocate(Heap *h, const char *v)
 {
 	stridx_t *ref, *next;
-	size_t extralen = h->hashash ? EXTRALEN : 0;
+	const size_t extralen = h->hashash ? EXTRALEN : 0;
 
 	/* search hash-table, if double-elimination is still in place */
 	BUN off;
@@ -1125,7 +1138,7 @@ strPut(Heap *h, var_t *dst, const char *v)
 	size_t elimbase = GDK_ELIMBASE(h->free);
 	size_t pad = GDK_VARALIGN - (h->free & (GDK_VARALIGN - 1));
 	size_t pos, len = GDK_STRLEN(v);
-	size_t extralen = h->hashash ? EXTRALEN : 0;
+	const size_t extralen = h->hashash ? EXTRALEN : 0;
 	stridx_t *bucket, *ref, *next;
 	BUN off, strhash;
 
@@ -1134,24 +1147,30 @@ strPut(Heap *h, var_t *dst, const char *v)
 	off &= GDK_STRHASHMASK;
 	bucket = ((stridx_t *) h->base) + off;
 
-	/* search hash-table, if double-elimination is still in place */
-	if (elimbase == 0) {	/* small string heap (<64KB) -- fully double eliminated */
-		for (ref = bucket; *ref; ref = next) {	/* search the linked list */
+	/* if double-elimination is still in place, search hash-table */
+	if (elimbase == 0) {
+		/* small string heap (<64KB) -- fully double eliminated */
+		for (ref = bucket; *ref; ref = next) {
+			/* search the linked list */
 			next = (stridx_t *) (h->base + *ref);
-			if (GDK_STRCMP(v, (str) (next + 1) + extralen) == 0) {	/* found */
+			if (GDK_STRCMP(v, (str) (next + 1) + extralen) == 0) {
+				/* found */
 				pos = sizeof(stridx_t) + *ref + extralen;
 				return *dst = (var_t) (pos >> GDK_VARSHIFT);
 			}
 		}
 		/* is there room for the next pointer in the padding space? */
-		if (pad < sizeof(stridx_t))
-			pad += GDK_VARALIGN;	/* if not, pad more */
+		if (pad < sizeof(stridx_t)) {
+			/* if not, pad more */
+			pad += GDK_VARALIGN;
+		}
 	} else if (*bucket) {
 		/* large string heap (>=64KB) --
 		 * opportunistic/probabilistic double elimination */
 		pos = elimbase + *bucket + extralen;
 		if (GDK_STRCMP(v, h->base + pos) == 0) {
-			return *dst = (var_t) (pos >> GDK_VARSHIFT);	/* already in heap; do not insert! */
+			/* already in heap; do not insert! */
+			return *dst = (var_t) (pos >> GDK_VARSHIFT);
 		}
 #if SIZEOF_VAR_T >= SIZEOF_VOID_P /* in fact SIZEOF_VAR_T == SIZEOF_VOID_P */
 		if (extralen == 0)
@@ -1173,7 +1192,10 @@ strPut(Heap *h, var_t *dst, const char *v)
 
 		/* double the heap size until we have enough space */
 		do {
-			newsize <<= 1;
+			if (newsize < 4 * 1024 * 1024)
+				newsize <<= 1;
+			else
+				newsize += 4 * 1024 * 1024;
 		} while (newsize <= h->free + pad + len + extralen);
 
 		assert(newsize);
@@ -1182,13 +1204,8 @@ strPut(Heap *h, var_t *dst, const char *v)
 			GDKerror("strPut: string heaps gets larger than " SZFMT "GB.\n", (((size_t) VAR_MAX) << GDK_VARSHIFT) >> 30);
 			return 0;
 		}
-		if (h->free + pad + len + extralen < h->maxsize) {
-			/* if there is reserved space, first use the
-			 * reserved space */
-			newsize = MIN(newsize, h->maxsize);
-		}
 		HEAPDEBUG fprintf(stderr, "#HEAPextend in strPut %s " SZFMT " " SZFMT "\n", h->filename, h->size, newsize);
-		if (HEAPextend(h, newsize) < 0) {
+		if (HEAPextend(h, newsize, TRUE) < 0) {
 			return 0;
 		}
 #ifndef NDEBUG
@@ -1286,10 +1303,17 @@ GDKstrFromStr(unsigned char *dst, const unsigned char *src, ssize_t len)
 					cur++;
 					c = mult08(c) + base08(*cur);
 					if (num08(cur[1])) {
+						if (c > 037) {
+							/* octal
+							 * escape
+							 * sequence
+							 * out or
+							 * range */
+							return -1;
+						}
 						cur++;
 						c = mult08(c) + base08(*cur);
-						/* if three digits, only look at lower 8 bits */
-						c &= 0377;
+						assert(c >= 0 && c <= 0377);
 					}
 				}
 				break;
@@ -1359,6 +1383,17 @@ GDKstrFromStr(unsigned char *dst, const unsigned char *src, ssize_t len)
 					 * not shortest possible */
 					return -1;
 				}
+				if (utf8char > 0x10FFFF) {
+					/* incorrect UTF-8 sequence:
+					 * value too large */
+					return -1;
+				}
+				if ((utf8char & 0x1FFF800) == 0xD800) {
+					/* incorrect UTF-8 sequence:
+					 * low or high surrogate
+					 * encoded as UTF-8 */
+					return -1;
+				}
 			}
 		} else if (c >= 0x80) {
 			int m;
@@ -1368,10 +1403,10 @@ GDKstrFromStr(unsigned char *dst, const unsigned char *src, ssize_t len)
 				;
 			/* n now is number of 10xxxxxx bytes that
 			 * should follow */
-			if (n == 0 || n >= 6) {
+			if (n == 0 || n >= 4) {
 				/* incorrect UTF-8 sequence */
 				/* n==0: c == 10xxxxxx */
-				/* n>=6: c == 1111111x */
+				/* n>=4: c == 11111xxx */
 				return -1;
 			}
 			mask = utf8chkmsk[n];
@@ -1425,6 +1460,7 @@ strFromStr(const char *src, int *len, char **dst)
 	if (p != NULL && (char *) p != str_nil && *len < l) {
 		GDKfree(p);
 		p = NULL;
+		*dst = NULL;
 	}
 	if (p == NULL || (char *) p == str_nil)
 		if ((p = GDKmalloc(*len = l)) == NULL)
@@ -1448,7 +1484,7 @@ strFromStr(const char *src, int *len, char **dst)
  */
 /*
 #define printable_chr(ch) ((ch)==0 || GDKisgraph((ch)) || GDKisspace((ch)) || \
-		         GDKisspecial((ch)) || GDKisupperl((ch)) || GDKislowerl((ch)))
+			   GDKisspecial((ch)) || GDKisupperl((ch)) || GDKislowerl((ch)))
 */
 /* all but control characters (in range 0 to 31) and DEL */
 #ifdef ASCII_CHR
@@ -1460,15 +1496,18 @@ strFromStr(const char *src, int *len, char **dst)
 #endif
 
 int
-escapedStrlen(const char *src)
+escapedStrlen(const char *src, const char *sep1, const char *sep2, int quote)
 {
 	int end, sz = 0;
+	size_t sep1len, sep2len;
 
+	sep1len = sep1 ? strlen(sep1) : 0;
+	sep2len = sep2 ? strlen(sep2) : 0;
 	for (end = 0; src[end]; end++)
-		if (src[end] == '\t' ||
-		    src[end] == '\n' ||
-		    src[end] == '\\' ||
-		    src[end] == '"') {
+		if (src[end] == '\\' ||
+		    src[end] == quote ||
+		    (sep1len && strncmp(src + end, sep1, sep1len) == 0) ||
+		    (sep2len && strncmp(src + end, sep2, sep2len) == 0)) {
 			sz += 2;
 #ifndef ASCII_CHR
 		} else if (src[end] == (char) '\302' &&
@@ -1492,36 +1531,50 @@ escapedStrlen(const char *src)
 }
 
 int
-escapedStr(char *dst, const char *src, int dstlen)
+escapedStr(char *dst, const char *src, int dstlen, const char *sep1, const char *sep2, int quote)
 {
 	int cur = 0, l = 0;
+	size_t sep1len, sep2len;
 
+	sep1len = sep1 ? strlen(sep1) : 0;
+	sep2len = sep2 ? strlen(sep2) : 0;
 	for (; src[cur] && l < dstlen; cur++)
-		if (src[cur] == '\t') {
-			dst[l++] = '\\';
-			dst[l++] = 't';
-		} else if (src[cur] == '\n') {
-			dst[l++] = '\\';
-			dst[l++] = 'n';
-		} else if (src[cur] == '\\') {
-			dst[l++] = '\\';
-			dst[l++] = '\\';
-		} else if (src[cur] == '"') {
-			dst[l++] = '\\';
-			dst[l++] = '"';
-		} else if (!printable_chr(src[cur])
+		if (!printable_chr(src[cur])
 #ifndef ASCII_CHR
-			   || (src[cur] == '\302' &&
-			       0200 <= (src[cur + 1] & 0377) &&
-			       ((int) src[cur + 1] & 0377) <= 0237)
-			   || (cur > 0 &&
-			       src[cur - 1] == '\302' &&
-			       0200 <= (src[cur] & 0377) &&
-			       (src[cur] & 0377) <= 0237)
+		    || (src[cur] == '\302' &&
+			0200 <= (src[cur + 1] & 0377) &&
+			((int) src[cur + 1] & 0377) <= 0237)
+		    || (cur > 0 &&
+			src[cur - 1] == '\302' &&
+			0200 <= (src[cur] & 0377) &&
+			(src[cur] & 0377) <= 0237)
 #endif
-		    ) {
-			snprintf(dst + l, dstlen - l, "\\%03o", (unsigned char) src[cur]);
-			l += 4;
+			) {
+			dst[l++] = '\\';
+			switch (src[cur]) {
+			case '\t':
+				dst[l++] = 't';
+				break;
+			case '\n':
+				dst[l++] = 'n';
+				break;
+			case '\r':
+				dst[l++] = 'r';
+				break;
+			case '\f':
+				dst[l++] = 'f';
+				break;
+			default:
+				snprintf(dst + l, dstlen - l, "%03o", (unsigned char) src[cur]);
+				l += 3;
+				break;
+			}
+		} else if (src[cur] == '\\' ||
+			   src[cur] == quote ||
+			   (sep1len && strncmp(src + cur, sep1, sep1len) == 0) ||
+			   (sep2len && strncmp(src + cur, sep2, sep2len) == 0)) {
+			dst[l++] = '\\';
+			dst[l++] = src[cur];
 		} else {
 			dst[l++] = src[cur];
 		}
@@ -1538,12 +1591,11 @@ strToStr(char **dst, int *len, const char *src)
 	if (GDK_STRNIL((str) src)) {
 		atommem(char, 4);
 
-		strncpy(*dst, "nil", *len);
-		return 3;
+		return snprintf(*dst, *len, "nil");
 	} else {
-		int sz = escapedStrlen(src);
+		int sz = escapedStrlen(src, NULL, NULL, '"');
 		atommem(char, sz + 3);
-		l = escapedStr((*dst) + 1, src, *len - 1);
+		l = escapedStr((*dst) + 1, src, *len - 1, NULL, NULL, '"');
 		l++;
 		(*dst)[0] = (*dst)[l++] = '"';
 		(*dst)[l] = 0;
@@ -1558,7 +1610,7 @@ strRead(str a, stream *s, size_t cnt)
 
 	(void) cnt;
 	assert(cnt == 1);
-	if (!mnstr_readInt(s, &len))
+	if (mnstr_readInt(s, &len) != 1)
 		return NULL;
 	if ((a = GDKmalloc(len + 1)) == NULL)
 		return NULL;
@@ -1588,21 +1640,16 @@ strWrite(const char *a, stream *s, size_t cnt)
  * The basic type OID represents unique values. Refinements should be
  * considered to link oids in time order.
  *
- * Values start from the "seqbase" (usually 0@@0). A nil seqbase makes
+ * Values start from the "seqbase" (usually 0@0). A nil seqbase makes
  * the entire column nil.  Monet's BUN access methods
  * BUNhead(b,p)/BUNtail(b,p) instantiate a value on-the-fly by looking
  * at the position p in BAT b.
  */
-oid	GDKoid, GDKflushed;
-/*
- * Init the shared array of oid bases.
- */
-int
-OIDinit(void)
-{
-	GDKflushed = GDKoid = 0;
-	return 0;
-}
+static volatile ATOMIC_TYPE GDKoid;
+#ifdef ATOMIC_LOCK
+static MT_Lock GDKoidLock MT_LOCK_INITIALIZER("GDKoidLock");
+#endif
+static oid GDKflushed;		/* protected by MT_system_lock */
 
 /*
  * Make up some new OID for a specified database, based on the current
@@ -1615,29 +1662,41 @@ OIDrand(void)
 }
 
 /*
+ * Init the shared array of oid bases.
+ */
+int
+OIDinit(void)
+{
+#ifdef NEED_MT_LOCK_INIT
+	ATOMIC_INIT(GDKoidLock, "GDKoidLock");
+#endif
+	GDKflushed = 0;
+	GDKoid = OIDrand();
+	assert(oid_nil == * (const oid *) ATOMnilptr(TYPE_oid));
+	assert(wrd_nil == * (const wrd *) ATOMnilptr(TYPE_wrd));
+	return 0;
+}
+
+/*
  * Initialize the current OID number to be starting at 'o'.
  */
 oid
 OIDbase(oid o)
 {
-	MT_lock_set(&MT_system_lock, "OIDbase");
-	GDKoid = o;
-	MT_lock_unset(&MT_system_lock, "OIDbase");
+	ATOMIC_SET(GDKoid, (ATOMIC_TYPE) o, GDKoidLock, "OIDbase");
 	return o;
 }
 
 static oid
 OIDseed(oid o)
 {
-	oid t, p = GDKoid;
+	oid t, p = (oid) ATOMIC_GET(GDKoid, GDKoidLock, "OIDseed");
 
-	MT_lock_set(&MT_system_lock, "OIDseed");
 	t = OIDrand();
 	if (o > t)
 		t = o;
 	if (p >= t)
 		t = p;
-	MT_lock_unset(&MT_system_lock, "OIDseed");
 	return t;
 }
 
@@ -1666,16 +1725,16 @@ OIDread(str s)
  * Write the current sequence of OID seeds to a file in string format.
  */
 int
-OIDwrite(stream *s)
+OIDwrite(FILE *f)
 {
 	int ret = 0;
+	ATOMIC_TYPE o;
 
 	MT_lock_set(&MT_system_lock, "OIDwrite");
-	if (GDKoid) {
-		GDKflushed = GDKoid;
-		ATOMprint(TYPE_oid, &GDKflushed, s);
-		if (mnstr_errnr(s) ||
-		    mnstr_write(s, " ", 1, 1) <= 0)
+	o = ATOMIC_GET(GDKoid, GDKoidLock, "OIDwrite");
+	if (o) {
+		GDKflushed = (oid) o;
+		if (fprintf(f, OIDFMT "@0", GDKflushed) < 0 || ferror(f))
 			ret = -1;
 	}
 	MT_lock_unset(&MT_system_lock, "OIDwrite");
@@ -1685,10 +1744,11 @@ OIDwrite(stream *s)
 int
 OIDdirty(void)
 {
-	if (GDKoid && GDKoid > GDKflushed) {
-		return TRUE;
-	}
-	return FALSE;
+	int ret;
+	MT_lock_set(&MT_system_lock, "OIDdirty");
+	ret = (oid) ATOMIC_GET(GDKoid, GDKoidLock, "OIDdirty") > GDKflushed;
+	MT_lock_unset(&MT_system_lock, "OIDdirty");
+	return ret;
 }
 
 /*
@@ -1697,15 +1757,7 @@ OIDdirty(void)
 oid
 OIDnew(oid inc)
 {
-	oid ret;
-
-	MT_lock_set(&MT_system_lock, "OIDnew");
-	if (!GDKoid)
-		GDKoid = OIDrand();
-	ret = GDKoid;
-	GDKoid += inc;
-	MT_lock_unset(&MT_system_lock, "OIDnew");
-	return ret;
+	return (oid) ATOMIC_ADD(GDKoid, (ATOMIC_TYPE) inc, GDKoidLock, "OIDnew");
 }
 
 /*
@@ -1744,6 +1796,8 @@ OIDfromStr(const char *src, int *len, oid **dst)
 		}
 		p += pos;
 	}
+	while (GDKisspace(*p))
+		p++;
 	return (int) (p - src);
 }
 
@@ -1753,167 +1807,323 @@ OIDtoStr(char **dst, int *len, const oid *src)
 	atommem(char, oidStrlen);
 
 	if (*src == oid_nil) {
-		strncpy(*dst, "nil", *len);
-		return 3;
+		return snprintf(*dst, *len, "nil");
 	}
-	snprintf(*dst, *len, OIDFMT "@0", *src);
-	return (int) strlen(*dst);
+	return snprintf(*dst, *len, OIDFMT "@0", *src);
 }
 
 atomDesc BATatoms[MAXATOMS] = {
-	{"void",
+	{"void",		/* name */
+	 TYPE_void,		/* storage */
+	 1,			/* linear */
+	 0,			/* size */
+	 0,			/* align */
 #if SIZEOF_OID == SIZEOF_INT
-	 TYPE_void, 1, 0, /* sizeof(void) */ 0, 0, 1, (ptr) &oid_nil,
-	 (int (*)(const char *, int *, ptr *)) OIDfromStr, (int (*)(str *, int *, const void *)) OIDtoStr,
-	 (void *(*)(void *, stream *, size_t)) voidRead, (int (*)(const void *, stream *, size_t)) voidWrite,
-	 (int (*)(const void *, const void *)) intCmp,
-	 (BUN (*)(const void *)) intHash, 0,
+	 (ptr) &int_nil,	/* atomNull */
 #else
-	 TYPE_void, 1, 0, /* sizeof(void) */ 0, 0, 1, (ptr) &oid_nil,
-	 (int (*)(const char *, int *, ptr *)) OIDfromStr, (int (*)(str *, int *, const void *)) OIDtoStr,
-	 (void *(*)(void *, stream *, size_t)) voidRead, (int (*)(const void *, stream *, size_t)) voidWrite,
-	 (int (*)(const void *, const void *)) lngCmp,
-	 (BUN (*)(const void *)) lngHash, 0,
+	 (ptr) &lng_nil,	/* atomNull */
 #endif
-	 0, 0,
-	 0, 0,
-	 0, 0,
-	 0, 0},
-	{"bit", TYPE_bte, 1, sizeof(bit), sizeof(bit), 0, 0, (ptr) &bte_nil,
-	 (int (*)(const char *, int *, ptr *)) bitFromStr, (int (*)(str *, int *, const void *)) bitToStr,
-	 (void *(*)(void *, stream *, size_t)) bitRead, (int (*)(const void *, stream *, size_t)) bitWrite,
-	 (int (*)(const void *, const void *)) bteCmp,
-	 (BUN (*)(const void *)) bteHash, 0,
-	 0, 0,
-	 0, 0,
-	 0, 0,
-	 0, 0},
-	{"bte", TYPE_bte, 1, sizeof(bte), sizeof(bte), 0, 0, (ptr) &bte_nil,
-	 (int (*)(const char *, int *, ptr *)) bteFromStr, (int (*)(str *, int *, const void *)) bteToStr,
-	 (void *(*)(void *, stream *, size_t)) bteRead, (int (*)(const void *, stream *, size_t)) bteWrite,
-	 (int (*)(const void *, const void *)) bteCmp,
-	 (BUN (*)(const void *)) bteHash, 0,
-	 0, 0,
-	 0, 0,
-	 0, 0,
-	 0, 0},
-	{"sht", TYPE_sht, 1, sizeof(sht), sizeof(sht), 0, 0, (ptr) &sht_nil,
-	 (int (*)(const char *, int *, ptr *)) shtFromStr, (int (*)(str *, int *, const void *)) shtToStr,
-	 (void *(*)(void *, stream *, size_t)) shtRead, (int (*)(const void *, stream *, size_t)) shtWrite,
-	 (int (*)(const void *, const void *)) shtCmp,
-	 (BUN (*)(const void *)) shtHash, (void (*)(ptr, int)) shtConvert,
-	 0, 0,
-	 0, 0,
-	 0, 0,
-	 0, 0},
-	{"BAT", TYPE_int, 1, sizeof(bat), sizeof(bat), 0, 0, (ptr) &int_nil,
-	 (int (*)(const char *, int *, ptr *)) batFromStr, (int (*)(str *, int *, const void *)) batToStr,
-	 (void *(*)(void *, stream *, size_t)) batRead, (int (*)(const void *, stream *, size_t)) batWrite,
-	 (int (*)(const void *, const void *)) intCmp,
-	 (BUN (*)(const void *)) intHash, (void (*)(ptr, int)) intConvert,
-	 (int (*)(const void *)) batFix, (int (*)(const void *)) batUnfix,
-	 0, 0,
-	 0, 0,
-	 0, 0},
-	{"int", TYPE_int, 1, sizeof(int), sizeof(int), 0, 0, (ptr) &int_nil,
-	 (int (*)(const char *, int *, ptr *)) intFromStr, (int (*)(str *, int *, const void *)) intToStr,
-	 (void *(*)(void *, stream *, size_t)) intRead, (int (*)(const void *, stream *, size_t)) intWrite,
-	 (int (*)(const void *, const void *)) intCmp,
-	 (BUN (*)(const void *)) intHash, (void (*)(ptr, int)) intConvert,
-	 0, 0,
-	 0, 0,
-	 0, 0,
-	 0, 0},
-	{"oid",
+	 (int (*)(const char *, int *, ptr *)) OIDfromStr,    /* atomFromStr */
+	 (int (*)(str *, int *, const void *)) OIDtoStr,      /* atomToStr */
+	 (void *(*)(void *, stream *, size_t)) voidRead,      /* atomRead */
+	 (int (*)(const void *, stream *, size_t)) voidWrite, /* atomWrite */
 #if SIZEOF_OID == SIZEOF_INT
-	 TYPE_int, 1, sizeof(oid), sizeof(oid), 0, 0, (ptr) &oid_nil,
-	 (int (*)(const char *, int *, ptr *)) OIDfromStr, (int (*)(str *, int *, const void *)) OIDtoStr,
-	 (void *(*)(void *, stream *, size_t)) intRead, (int (*)(const void *, stream *, size_t)) intWrite,
-	 (int (*)(const void *, const void *)) intCmp,
-	 (BUN (*)(const void *)) intHash, (void (*)(ptr, int)) intConvert,
+	 (int (*)(const void *, const void *)) intCmp,	      /* atomCmp */
+	 (BUN (*)(const void *)) intHash,		      /* atomHash */
 #else
-	 TYPE_lng, 1, sizeof(oid), sizeof(oid), 0, 0, (ptr) &oid_nil,
-	 (int (*)(const char *, int *, ptr *)) OIDfromStr, (int (*)(str *, int *, const void *)) OIDtoStr,
-	 (void *(*)(void *, stream *, size_t)) lngRead, (int (*)(const void *, stream *, size_t)) lngWrite,
-	 (int (*)(const void *, const void *)) lngCmp,
-	 (BUN (*)(const void *)) lngHash, (void (*)(ptr, int)) lngConvert,
+	 (int (*)(const void *, const void *)) lngCmp,	      /* atomCmp */
+	 (BUN (*)(const void *)) lngHash,		      /* atomHash */
 #endif
-	 0, 0,
-	 0, 0,
-	 0, 0,
-	 0, 0},
-	{"wrd",
+	 0,			/* atomFix */
+	 0,			/* atomUnfix */
+	 0,			/* atomPut */
+	 0,			/* atomDel */
+	 0,			/* atomLen */
+	 0,			/* atomHeap */
+	},
+	{"bit",			/* name */
+	 TYPE_bte,		/* storage */
+	 1,			/* linear */
+	 sizeof(bit),		/* size */
+	 sizeof(bit),		/* align */
+	 (ptr) &bte_nil,	/* atomNull */
+	 (int (*)(const char *, int *, ptr *)) bitFromStr,   /* atomFromStr */
+	 (int (*)(str *, int *, const void *)) bitToStr,     /* atomToStr */
+	 (void *(*)(void *, stream *, size_t)) bitRead,	     /* atomRead */
+	 (int (*)(const void *, stream *, size_t)) bitWrite, /* atomWrite */
+	 (int (*)(const void *, const void *)) bteCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) bteHash,		     /* atomHash */
+	 0,			/* atomFix */
+	 0,			/* atomUnfix */
+	 0,			/* atomPut */
+	 0,			/* atomDel */
+	 0,			/* atomLen */
+	 0,			/* atomHeap */
+	},
+	{"bte",			/* name */
+	 TYPE_bte,		/* storage */
+	 1,			/* linear */
+	 sizeof(bte),		/* size */
+	 sizeof(bte),		/* align */
+	 (ptr) &bte_nil,	/* atomNull */
+	 (int (*)(const char *, int *, ptr *)) bteFromStr,   /* atomFromStr */
+	 (int (*)(str *, int *, const void *)) bteToStr,     /* atomToStr */
+	 (void *(*)(void *, stream *, size_t)) bteRead,	     /* atomRead */
+	 (int (*)(const void *, stream *, size_t)) bteWrite, /* atomWrite */
+	 (int (*)(const void *, const void *)) bteCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) bteHash,		     /* atomHash */
+	 0,			/* atomFix */
+	 0,			/* atomUnfix */
+	 0,			/* atomPut */
+	 0,			/* atomDel */
+	 0,			/* atomLen */
+	 0,			/* atomHeap */
+	},
+	{"sht",			/* name */
+	 TYPE_sht,		/* storage */
+	 1,			/* linear */
+	 sizeof(sht),		/* size */
+	 sizeof(sht),		/* align */
+	 (ptr) &sht_nil,	/* atomNull */
+	 (int (*)(const char *, int *, ptr *)) shtFromStr,   /* atomFromStr */
+	 (int (*)(str *, int *, const void *)) shtToStr,     /* atomToStr */
+	 (void *(*)(void *, stream *, size_t)) shtRead,	     /* atomRead */
+	 (int (*)(const void *, stream *, size_t)) shtWrite, /* atomWrite */
+	 (int (*)(const void *, const void *)) shtCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) shtHash,		     /* atomHash */
+	 0,			/* atomFix */
+	 0,			/* atomUnfix */
+	 0,			/* atomPut */
+	 0,			/* atomDel */
+	 0,			/* atomLen */
+	 0,			/* atomHeap */
+	},
+	{"BAT",			/* name */
+	 TYPE_int,		/* storage */
+	 1,			/* linear */
+	 sizeof(bat),		/* size */
+	 sizeof(bat),		/* align */
+	 (ptr) &int_nil,	/* atomNull */
+	 (int (*)(const char *, int *, ptr *)) batFromStr,   /* atomFromStr */
+	 (int (*)(str *, int *, const void *)) batToStr,     /* atomToStr */
+	 (void *(*)(void *, stream *, size_t)) batRead,	     /* atomRead */
+	 (int (*)(const void *, stream *, size_t)) batWrite, /* atomWrite */
+	 (int (*)(const void *, const void *)) intCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) intHash,		     /* atomHash */
+	 (int (*)(const void *)) batFix,		     /* atomFix */
+	 (int (*)(const void *)) batUnfix,		     /* atomUnfix */
+	 0,			/* atomPut */
+	 0,			/* atomDel */
+	 0,			/* atomLen */
+	 0,			/* atomHeap */
+	},
+	{"int",			/* name */
+	 TYPE_int,		/* storage */
+	 1,			/* linear */
+	 sizeof(int),		/* size */
+	 sizeof(int),		/* align */
+	 (ptr) &int_nil,	/* atomNull */
+	 (int (*)(const char *, int *, ptr *)) intFromStr,   /* atomFromStr */
+	 (int (*)(str *, int *, const void *)) intToStr,     /* atomToStr */
+	 (void *(*)(void *, stream *, size_t)) intRead,	     /* atomRead */
+	 (int (*)(const void *, stream *, size_t)) intWrite, /* atomWrite */
+	 (int (*)(const void *, const void *)) intCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) intHash,		     /* atomHash */
+	 0,			/* atomFix */
+	 0,			/* atomUnfix */
+	 0,			/* atomPut */
+	 0,			/* atomDel */
+	 0,			/* atomLen */
+	 0,			/* atomHeap */
+	},
+	{"oid",			/* name */
+#if SIZEOF_OID == SIZEOF_INT
+	 TYPE_int,		/* storage */
+#else
+	 TYPE_lng,		/* storage */
+#endif
+	 1,			/* linear */
+	 sizeof(oid),		/* size */
+	 sizeof(oid),		/* align */
+#if SIZEOF_OID == SIZEOF_INT
+	 (ptr) &int_nil,	/* atomNull */
+#else
+	 (ptr) &lng_nil,	/* atomNull */
+#endif
+	 (int (*)(const char *, int *, ptr *)) OIDfromStr,   /* atomFromStr */
+	 (int (*)(str *, int *, const void *)) OIDtoStr,     /* atomToStr */
+#if SIZEOF_OID == SIZEOF_INT
+	 (void *(*)(void *, stream *, size_t)) intRead,	     /* atomRead */
+	 (int (*)(const void *, stream *, size_t)) intWrite, /* atomWrite */
+	 (int (*)(const void *, const void *)) intCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) intHash,		     /* atomHash */
+#else
+	 (void *(*)(void *, stream *, size_t)) lngRead,	     /* atomRead */
+	 (int (*)(const void *, stream *, size_t)) lngWrite, /* atomWrite */
+	 (int (*)(const void *, const void *)) lngCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) lngHash,		     /* atomHash */
+#endif
+	 0,			/* atomFix */
+	 0,			/* atomUnfix */
+	 0,			/* atomPut */
+	 0,			/* atomDel */
+	 0,			/* atomLen */
+	 0,			/* atomHeap */
+	},
+	{"wrd",			/* name */
 #if SIZEOF_WRD == SIZEOF_INT
-	 TYPE_int, 1, sizeof(wrd), sizeof(wrd), 0, 0, (ptr) &int_nil,
-	 (int (*)(const char *, int *, ptr *)) intFromStr, (int (*)(str *, int *, const void *)) intToStr,
-	 (void *(*)(void *, stream *, size_t)) intRead, (int (*)(const void *, stream *, size_t)) intWrite,
-	 (int (*)(const void *, const void *)) intCmp,
-	 (BUN (*)(const void *)) intHash, (void (*)(ptr, int)) intConvert,
+	 TYPE_int,		/* storage */
 #else
-	 TYPE_lng, 1, sizeof(wrd), sizeof(wrd), 0, 0, (ptr) &lng_nil,
-	 (int (*)(const char *, int *, ptr *)) lngFromStr, (int (*)(str *, int *, const void *)) lngToStr,
-	 (void *(*)(void *, stream *, size_t)) lngRead, (int (*)(const void *, stream *, size_t)) lngWrite,
-	 (int (*)(const void *, const void *)) lngCmp,
-	 (BUN (*)(const void *)) lngHash, (void (*)(ptr, int)) lngConvert,
+	 TYPE_lng,		/* storage */
 #endif
-	 0, 0,
-	 0, 0,
-	 0, 0,
-	 0, 0},
-	{"ptr",
+	 1,			/* linear */
+	 sizeof(wrd),		/* size */
+	 sizeof(wrd),		/* align */
+#if SIZEOF_WRD == SIZEOF_INT
+	 (ptr) &int_nil,	/* atomNull */
+	 (int (*)(const char *, int *, ptr *)) intFromStr,   /* atomFromStr */
+	 (int (*)(str *, int *, const void *)) intToStr,     /* atomToStr */
+	 (void *(*)(void *, stream *, size_t)) intRead,	     /* atomRead */
+	 (int (*)(const void *, stream *, size_t)) intWrite, /* atomWrite */
+	 (int (*)(const void *, const void *)) intCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) intHash,		     /* atomHash */
+#else
+	 (ptr) &lng_nil,	/* atomNull */
+	 (int (*)(const char *, int *, ptr *)) lngFromStr,   /* atomFromStr */
+	 (int (*)(str *, int *, const void *)) lngToStr,     /* atomToStr */
+	 (void *(*)(void *, stream *, size_t)) lngRead,	     /* atomRead */
+	 (int (*)(const void *, stream *, size_t)) lngWrite, /* atomWrite */
+	 (int (*)(const void *, const void *)) lngCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) lngHash,		     /* atomHash */
+#endif
+	 0,			/* atomFix */
+	 0,			/* atomUnfix */
+	 0,			/* atomPut */
+	 0,			/* atomDel */
+	 0,			/* atomLen */
+	 0,			/* atomHeap */
+	},
+	{"ptr",			/* name */
+	 TYPE_ptr,		/* storage */
+	 1,			/* linear */
+	 sizeof(ptr),		/* size */
+	 sizeof(ptr),		/* align */
+	 (ptr) &ptr_nil,	/* atomNull */
+	 (int (*)(const char *, int *, ptr *)) ptrFromStr,   /* atomFromStr */
+	 (int (*)(str *, int *, const void *)) ptrToStr,     /* atomToStr */
+	 (void *(*)(void *, stream *, size_t)) ptrRead,	     /* atomRead */
+	 (int (*)(const void *, stream *, size_t)) ptrWrite, /* atomWrite */
 #if SIZEOF_VOID_P == SIZEOF_INT
-	 TYPE_ptr, 1, sizeof(ptr), sizeof(ptr), 0, 0, (ptr) &ptr_nil,
-	 (int (*)(const char *, int *, ptr *)) ptrFromStr, (int (*)(str *, int *, const void *)) ptrToStr,
-	 (void *(*)(void *, stream *, size_t)) ptrRead, (int (*)(const void *, stream *, size_t)) ptrWrite,
-	 (int (*)(const void *, const void *)) intCmp,
-	 (BUN (*)(const void *)) intHash, (void (*)(ptr, int)) intConvert,
+	 (int (*)(const void *, const void *)) intCmp,       /* atomCmp */
+	 (BUN (*)(const void *)) intHash,		     /* atomHash */
 #else /* SIZEOF_VOID_P == SIZEOF_LNG */
-	 TYPE_ptr, 1, sizeof(ptr), sizeof(ptr), 0, 0, (ptr) &ptr_nil,
-	 (int (*)(const char *, int *, ptr *)) ptrFromStr, (int (*)(str *, int *, const void *)) ptrToStr,
-	 (void *(*)(void *, stream *, size_t)) ptrRead, (int (*)(const void *, stream *, size_t)) ptrWrite,
-	 (int (*)(const void *, const void *)) lngCmp,
-	 (BUN (*)(const void *)) lngHash, (void (*)(ptr, int)) lngConvert,
+	 (int (*)(const void *, const void *)) lngCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) lngHash,		     /* atomHash */
 #endif
-	 0, 0,
-	 0, 0,
-	 0, 0,
-	 0, 0},
-	{"flt", TYPE_flt, 1, sizeof(flt), sizeof(flt), 0, 0, (ptr) &flt_nil,
-	 (int (*)(const char *, int *, ptr *)) fltFromStr, (int (*)(str *, int *, const void *)) fltToStr,
-	 (void *(*)(void *, stream *, size_t)) fltRead, (int (*)(const void *, stream *, size_t)) fltWrite,
-	 (int (*)(const void *, const void *)) fltCmp,
-	 (BUN (*)(const void *)) intHash, (void (*)(ptr, int)) intConvert,
-	 0, 0,
-	 0, 0,
-	 0, 0,
-	 0, 0},
-	{"dbl", TYPE_dbl, 1, sizeof(dbl), sizeof(dbl), 0, 0, (ptr) &dbl_nil,
-	 (int (*)(const char *, int *, ptr *)) dblFromStr, (int (*)(str *, int *, const void *)) dblToStr,
-	 (void *(*)(void *, stream *, size_t)) dblRead, (int (*)(const void *, stream *, size_t)) dblWrite,
-	 (int (*)(const void *, const void *)) dblCmp,
-	 (BUN (*)(const void *)) lngHash, (void (*)(ptr, int)) lngConvert,
-	 0, 0,
-	 0, 0,
-	 0, 0,
-	 0, 0},
-	{"lng", TYPE_lng, 1, sizeof(lng), sizeof(lng), 0, 0, (ptr) &lng_nil,
-	 (int (*)(const char *, int *, ptr *)) lngFromStr, (int (*)(str *, int *, const void *)) lngToStr,
-	 (void *(*)(void *, stream *, size_t)) lngRead, (int (*)(const void *, stream *, size_t)) lngWrite,
-	 (int (*)(const void *, const void *)) lngCmp,
-	 (BUN (*)(const void *)) lngHash, (void (*)(ptr, int)) lngConvert,
-	 0, 0,
-	 0, 0,
-	 0, 0,
-	 0, 0},
-	{"str", TYPE_str, 1, sizeof(var_t), sizeof(var_t), 0, 1, (ptr) str_nil,
-	 (int (*)(const char *, int *, ptr *)) strFromStr, (int (*)(str *, int *, const void *)) strToStr,
-	 (void *(*)(void *, stream *, size_t)) strRead, (int (*)(const void *, stream *, size_t)) strWrite,
-	 (int (*)(const void *, const void *)) strCmp,
-	 (BUN (*)(const void *)) strHash, 0,
-	 0, 0,
-	 (var_t (*)(Heap *, var_t *, const void *)) strPut, 0,
-	 (int (*)(const void *)) strLen, strHeap,
-	 (void (*)(Heap *, int)) 0, 0},
+	 0,			/* atomFix */
+	 0,			/* atomUnfix */
+	 0,			/* atomPut */
+	 0,			/* atomDel */
+	 0,			/* atomLen */
+	 0,			/* atomHeap */
+	},
+	{"flt",			/* name */
+	 TYPE_flt,		/* storage */
+	 1,			/* linear */
+	 sizeof(flt),		/* size */
+	 sizeof(flt),		/* align */
+	 (ptr) &flt_nil,	/* atomNull */
+	 (int (*)(const char *, int *, ptr *)) fltFromStr,   /* atomFromStr */
+	 (int (*)(str *, int *, const void *)) fltToStr,     /* atomToStr */
+	 (void *(*)(void *, stream *, size_t)) fltRead,	     /* atomRead */
+	 (int (*)(const void *, stream *, size_t)) fltWrite, /* atomWrite */
+	 (int (*)(const void *, const void *)) fltCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) intHash,		     /* atomHash */
+	 0,			/* atomFix */
+	 0,			/* atomUnfix */
+	 0,			/* atomPut */
+	 0,			/* atomDel */
+	 0,			/* atomLen */
+	 0,			/* atomHeap */
+	},
+	{"dbl",			/* name */
+	 TYPE_dbl,		/* storage */
+	 1,			/* linear */
+	 sizeof(dbl),		/* size */
+	 sizeof(dbl),		/* align */
+	 (ptr) &dbl_nil,	/* atomNull */
+	 (int (*)(const char *, int *, ptr *)) dblFromStr,   /* atomFromStr */
+	 (int (*)(str *, int *, const void *)) dblToStr,     /* atomToStr */
+	 (void *(*)(void *, stream *, size_t)) dblRead,	     /* atomRead */
+	 (int (*)(const void *, stream *, size_t)) dblWrite, /* atomWrite */
+	 (int (*)(const void *, const void *)) dblCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) lngHash,		     /* atomHash */
+	 0,			/* atomFix */
+	 0,			/* atomUnfix */
+	 0,			/* atomPut */
+	 0,			/* atomDel */
+	 0,			/* atomLen */
+	 0,			/* atomHeap */
+	},
+	{"lng",			/* name */
+	 TYPE_lng,		/* storage */
+	 1,			/* linear */
+	 sizeof(lng),		/* size */
+	 sizeof(lng),		/* align */
+	 (ptr) &lng_nil,	/* atomNull */
+	 (int (*)(const char *, int *, ptr *)) lngFromStr,   /* atomFromStr */
+	 (int (*)(str *, int *, const void *)) lngToStr,     /* atomToStr */
+	 (void *(*)(void *, stream *, size_t)) lngRead,	     /* atomRead */
+	 (int (*)(const void *, stream *, size_t)) lngWrite, /* atomWrite */
+	 (int (*)(const void *, const void *)) lngCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) lngHash,		     /* atomHash */
+	 0,			/* atomFix */
+	 0,			/* atomUnfix */
+	 0,			/* atomPut */
+	 0,			/* atomDel */
+	 0,			/* atomLen */
+	 0,			/* atomHeap */
+	},
+#ifdef HAVE_HGE
+	{"hge",			/* name */
+	 TYPE_hge,		/* storage */
+	 1,			/* linear */
+	 sizeof(hge),		/* size */
+	 sizeof(hge),		/* align */
+	 (ptr) &hge_nil,	/* atomNull */
+	 (int (*)(const char *, int *, ptr *)) hgeFromStr,   /* atomFromStr */
+	 (int (*)(str *, int *, const void *)) hgeToStr,     /* atomToStr */
+	 (void *(*)(void *, stream *, size_t)) hgeRead,	     /* atomRead */
+	 (int (*)(const void *, stream *, size_t)) hgeWrite, /* atomWrite */
+	 (int (*)(const void *, const void *)) hgeCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) hgeHash,		     /* atomHash */
+	 0,			/* atomFix */
+	 0,			/* atomUnfix */
+	 0,			/* atomPut */
+	 0,			/* atomDel */
+	 0,			/* atomLen */
+	 0,			/* atomHeap */
+	},
+#endif
+	{"str",			/* name */
+	 TYPE_str,		/* storage */
+	 1,			/* linear */
+	 sizeof(var_t),		/* size */
+	 sizeof(var_t),		/* align */
+	 (ptr) str_nil,		/* atomNull */
+	 (int (*)(const char *, int *, ptr *)) strFromStr,   /* atomFromStr */
+	 (int (*)(str *, int *, const void *)) strToStr,     /* atomToStr */
+	 (void *(*)(void *, stream *, size_t)) strRead,	     /* atomRead */
+	 (int (*)(const void *, stream *, size_t)) strWrite, /* atomWrite */
+	 (int (*)(const void *, const void *)) strCmp,	     /* atomCmp */
+	 (BUN (*)(const void *)) strHash,		     /* atomHash */
+	 0,			/* atomFix */
+	 0,			/* atomUnfix */
+	 (var_t (*)(Heap *, var_t *, const void *)) strPut,  /* atomPut */
+	 0,			/* atomDel */
+	 (int (*)(const void *)) strLen,		     /* atomLen */
+	 strHeap,		/* atomHeap */
+	},
 };
 
 int GDKatomcnt = TYPE_str + 1;

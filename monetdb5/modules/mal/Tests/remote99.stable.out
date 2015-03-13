@@ -15,13 +15,12 @@ stdout of test 'remote99` in directory 'monetdb5/modules/mal` itself:
 function user.main():void;
     uri := sabaoth.getLocalConnectionURI();
 # test leakage of connection settings. 
-    db := const.take("dbpath");
 barrier v := 0:lng;
     conn:str  := remote.connect(uri,"monetdb","monetdb");
     remote.disconnect(conn);
     redo v := iterator.next(1:lng,200:lng);
 exit v;
-end main;
+end user.main;
 
 # 20:33:00 >  
 # 20:33:00 >  Done.

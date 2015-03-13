@@ -1,4 +1,3 @@
-
 /*
  * The contents of this file are subject to the MonetDB Public License
  * Version 1.1 (the "License"); you may not use this file except in
@@ -14,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2015 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -78,9 +77,8 @@ hash_del(sql_hash *h, int key, void *value)
 }
 
 unsigned int
-hash_key(char *k)
+hash_key(const char *k)
 {
-	unsigned char *s = (unsigned char*)k;
 	unsigned int h = 0;
 
 	while (*k) {
@@ -89,6 +87,8 @@ hash_key(char *k)
 		h ^= (h >> 6);
 		k++;
 	}
-	h += (unsigned int) (k - (char*)s);
+	h += (h << 3);
+	h ^= (h >> 11);
+	h += (h << 15);
 	return h;
 }

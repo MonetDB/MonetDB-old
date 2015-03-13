@@ -11,7 +11,7 @@ stdout of test 'dbQuery043` in directory 'sql/test/LSST` itself:
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.750 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://monetdb.cwi.nl/ for further information
 # Listening for connection requests on mapi:monetdb://eir.ins.cwi.nl:34860/
 # MonetDB/SQL module v2.41.0 loaded
@@ -33,8 +33,8 @@ Ready.
 #   AND  E2.extendedness < 0.2                       -- is star
 #  AND E1.diaSourceId = S1.movingObjectId
 #  AND E2.diaSourceId = S2.movingObjectId
-#--   AND  spDist(S1.ra, S1.decl, S2.ra, S
-% sys.s1,	sys.s2 # table_name
+#--   AND  spDist(S1.ra, S1.decl, S2.ra, S2.decl) < .05 -- the 5 arcsecond test
+% sys.L,	sys.L # table_name
 % s1,	s2 # name
 % bigint,	bigint # type
 % 1,	1 # length

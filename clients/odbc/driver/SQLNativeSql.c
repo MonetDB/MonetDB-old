@@ -62,8 +62,13 @@ SQLNativeSql_(ODBCDbc *dbc,
 	ODBCLOG("\"%.*s\"\n", (int) TextLength1, (char *) InStatementText);
 #endif
 
-	query = ODBCTranslateSQL(InStatementText, (size_t) TextLength1,
+	query = ODBCTranslateSQL(dbc, InStatementText, (size_t) TextLength1,
 				 SQL_NOSCAN_OFF);
+	if (query == NULL) {
+		/* Memory allocation error */
+		addDbcError(dbc, "HY001", NULL, 0);
+		return SQL_ERROR;
+	}
 	copyString(query, strlen(query), OutStatementText, BufferLength,
 		   TextLength2Ptr, SQLINTEGER, addDbcError, dbc,
 		   free(query); return SQL_ERROR);
@@ -99,7 +104,6 @@ SQLNativeSql(SQLHDBC ConnectionHandle,
 			     TextLength2Ptr);
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLNativeSqlA(SQLHDBC ConnectionHandle,
 	      SQLCHAR *InStatementText,
@@ -148,6 +152,11 @@ SQLNativeSqlW(SQLHDBC ConnectionHandle,
 	clearDbcErrors(dbc);
 	n++;			/* account for NUL byte */
 	sqlout = malloc(n);
+	if (sqlout == NULL) {
+		/* Memory allocation error */
+		addDbcError(dbc, "HY001", NULL, 0);
+		return SQL_ERROR;
+	}
 	rc = SQLNativeSql_(dbc, sqlin, SQL_NTS, sqlout, n, &n);
 	nn = (SQLSMALLINT) n;
 	if (SQL_SUCCEEDED(rc)) {
@@ -158,4 +167,3 @@ SQLNativeSqlW(SQLHDBC ConnectionHandle,
 
 	return rc;
 }
-#endif /* WITH_WCHAR */

@@ -50,11 +50,11 @@ SQLSetConnectAttr_(ODBCDbc *dbc,
 	(void) StringLength;	/* Stefan: unused!? */
 
 	switch (Attribute) {
-	case SQL_ATTR_AUTOCOMMIT:
-		switch ((SQLUINTEGER) (size_t) ValuePtr) {
+	case SQL_ATTR_AUTOCOMMIT:		/* SQLUINTEGER */
+		switch ((SQLUINTEGER) (uintptr_t) ValuePtr) {
 		case SQL_AUTOCOMMIT_ON:
 		case SQL_AUTOCOMMIT_OFF:
-			dbc->sql_attr_autocommit = (SQLUINTEGER) (size_t) ValuePtr;
+			dbc->sql_attr_autocommit = (SQLUINTEGER) (uintptr_t) ValuePtr;
 #ifdef ODBCDEBUG
 			ODBCLOG("SQLSetConnectAttr set autocommit %s\n",
 				dbc->sql_attr_autocommit == SQL_AUTOCOMMIT_ON ? "on" : "off");
@@ -68,11 +68,33 @@ SQLSetConnectAttr_(ODBCDbc *dbc,
 			return SQL_ERROR;
 		}
 		return SQL_SUCCESS;
-	case SQL_ATTR_METADATA_ID:
-		switch ((SQLUINTEGER) (size_t) ValuePtr) {
+	case SQL_ATTR_CURRENT_CATALOG:		/* SQLCHAR* */
+		fixODBCstring(ValuePtr, StringLength, SQLINTEGER,
+			      addDbcError, dbc, return SQL_ERROR);
+		if (dbc->Connected) {
+			/* Driver does not support this functions */
+			addDbcError(dbc, "IM001", NULL, 0);
+			return SQL_ERROR;
+		}
+		if (dbc->dbname)
+			free(dbc->dbname);
+		dbc->dbname = dupODBCstring(ValuePtr, StringLength);
+		if (dbc->dbname == NULL) {
+			/* Memory allocation error */
+			addDbcError(dbc, "HY001", NULL, 0);
+			return SQL_ERROR;
+		}
+		break;
+	case SQL_ATTR_CONNECTION_TIMEOUT:	/* SQLUINTEGER */
+		dbc->sql_attr_connection_timeout = (SQLUINTEGER) (uintptr_t) ValuePtr;
+		if (dbc->mid)
+			mapi_timeout(dbc->mid, dbc->sql_attr_connection_timeout * 1000);
+		break;
+	case SQL_ATTR_METADATA_ID:		/* SQLUINTEGER */
+		switch ((SQLUINTEGER) (uintptr_t) ValuePtr) {
 		case SQL_TRUE:
 		case SQL_FALSE:
-			dbc->sql_attr_metadata_id = (SQLUINTEGER) (size_t) ValuePtr;
+			dbc->sql_attr_metadata_id = (SQLUINTEGER) (uintptr_t) ValuePtr;
 #ifdef ODBCDEBUG
 			ODBCLOG("SQLSetConnectAttr set metadata_id %s\n",
 				dbc->sql_attr_metadata_id == SQL_TRUE ? "true" : "false");
@@ -84,41 +106,43 @@ SQLSetConnectAttr_(ODBCDbc *dbc,
 			return SQL_ERROR;
 		}
 		return SQL_SUCCESS;
-	case SQL_ATTR_CURRENT_CATALOG:
-		fixODBCstring(ValuePtr, StringLength, SQLINTEGER,
-			      addDbcError, dbc, return SQL_ERROR);
-		if (dbc->Connected) {
-			/* Driver does not support this functions */
-			addDbcError(dbc, "IM001", NULL, 0);
-			return SQL_ERROR;
-		}
-		if (dbc->dbname)
-			free(dbc->dbname);
-		dbc->dbname = dupODBCstring(ValuePtr, StringLength);
-		break;
-	case SQL_ATTR_CONNECTION_TIMEOUT:
-		dbc->sql_attr_connection_timeout = (SQLUINTEGER) (size_t) ValuePtr;
-		if (dbc->mid)
-			mapi_timeout(dbc->mid, dbc->sql_attr_connection_timeout);
+	case SQL_ATTR_TXN_ISOLATION:		/* SQLUINTEGER */
+		/* nothing to change, we only do the highest level */
 		break;
 
 		/* TODO: implement connection attribute behavior */
-	case SQL_ATTR_ACCESS_MODE:
-	case SQL_ATTR_ASYNC_ENABLE:
-	case SQL_ATTR_LOGIN_TIMEOUT:
-	case SQL_ATTR_ODBC_CURSORS:
-	case SQL_ATTR_PACKET_SIZE:
-	case SQL_ATTR_QUIET_MODE:
-	case SQL_ATTR_TRACE:
-	case SQL_ATTR_TRACEFILE:
-	case SQL_ATTR_TRANSLATE_LIB:
-	case SQL_ATTR_TRANSLATE_OPTION:
-	case SQL_ATTR_TXN_ISOLATION:
+	case SQL_ATTR_ACCESS_MODE:		/* SQLUINTEGER */
+#ifdef SQL_ATTR_ASYNC_DBC_EVENT
+	case SQL_ATTR_ASYNC_DBC_EVENT:		/* SQLPOINTER */
+#endif
+#ifdef SQL_ATTR_ASYNC_DBC_FUNCTIONS_ENABLE
+	case SQL_ATTR_ASYNC_DBC_FUNCTIONS_ENABLE: /* SQLUINTEGER */
+#endif
+#ifdef SQL_ATTR_ASYNC_DBC_PCALLBACK
+	case SQL_ATTR_ASYNC_DBC_PCALLBACK:	/* SQLPOINTER */
+#endif
+#ifdef SQL_ATTR_ASYNC_DBC_PCONTEXT
+	case SQL_ATTR_ASYNC_DBC_PCONTEXT:	/* SQLPOINTER */
+#endif
+	case SQL_ATTR_ASYNC_ENABLE:		/* SQLULEN */
+#ifdef SQL_ATTR_DBC_INFO_TOKEN
+	case SQL_ATTR_DBC_INFO_TOKEN:		/* SQLPOINTER */
+#endif
+	case SQL_ATTR_ENLIST_IN_DTC:		/* SQLPOINTER */
+	case SQL_ATTR_LOGIN_TIMEOUT:		/* SQLUINTEGER */
+	case SQL_ATTR_ODBC_CURSORS:		/* SQLULEN */
+	case SQL_ATTR_PACKET_SIZE:		/* SQLUINTEGER */
+	case SQL_ATTR_QUIET_MODE:		/* HWND (SQLPOINTER) */
+	case SQL_ATTR_TRACE:			/* SQLUINTEGER */
+	case SQL_ATTR_TRACEFILE:		/* SQLCHAR* */
+	case SQL_ATTR_TRANSLATE_LIB:		/* SQLCHAR* */
+	case SQL_ATTR_TRANSLATE_OPTION:		/* SQLUINTEGER */
 		/* Optional feature not implemented */
 		addDbcError(dbc, "HYC00", NULL, 0);
 		return SQL_ERROR;
-	case SQL_ATTR_AUTO_IPD:	       /* read-only attribute */
-	case SQL_ATTR_CONNECTION_DEAD:
+	case SQL_ATTR_AUTO_IPD:			/* SQLUINTEGER */
+	case SQL_ATTR_CONNECTION_DEAD:		/* SQLUINTEGER */
+		/* read-only attribute */
 	default:
 		/* Invalid attribute/option identifier */
 		addDbcError(dbc, "HY092", NULL, 0);
@@ -151,7 +175,6 @@ SQLSetConnectAttr(SQLHDBC ConnectionHandle,
 				  StringLength);
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLSetConnectAttrA(SQLHDBC ConnectionHandle,
 		   SQLINTEGER Attribute,
@@ -209,4 +232,3 @@ SQLSetConnectAttrW(SQLHDBC ConnectionHandle,
 
 	return rc;
 }
-#endif /* WITH_WCHAR */

@@ -10,7 +10,7 @@ stdout of test 'offset_limited_32bit.SF-2950579` in directory 'sql/test/BugTrack
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.754 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://monetdb.cwi.nl/ for further information
 # Listening for connection requests on mapi:monetdb://alf.ins.cwi.nl:33568/
 # MonetDB/SQL module v2.36.1 loaded
@@ -27,16 +27,16 @@ Ready.
 
 #SELECT * from tables OFFSET 2147483647; -- never finishes
 % .tables,	.tables,	.tables,	.tables,	.tables,	.tables,	.tables,	.tables,	.tables # table_name
-% id,	name,	schema_id,	query,	type,	system,	commit_action,	readonly,	temporary # name
-% int,	varchar,	int,	varchar,	smallint,	boolean,	smallint,	boolean,	tinyint # type
-% 1,	0,	1,	0,	1,	5,	1,	5,	1 # length
+% id,	name,	schema_id,	query,	type,	system,	commit_action,	access,	temporary # name
+% int,	varchar,	int,	varchar,	smallint,	boolean,	smallint,	smallint,	tinyint # type
+% 1,	0,	1,	0,	1,	5,	1,	1,	1 # length
 #SELECT * from tables OFFSET 2147483646; -- returns instantly
 % .tables,	.tables,	.tables,	.tables,	.tables,	.tables,	.tables,	.tables,	.tables # table_name
-% id,	name,	schema_id,	query,	type,	system,	commit_action,	readonly,	temporary # name
-% int,	varchar,	int,	varchar,	smallint,	boolean,	smallint,	boolean,	tinyint # type
-% 1,	0,	1,	0,	1,	5,	1,	5,	1 # length
+% id,	name,	schema_id,	query,	type,	system,	commit_action,	access,	temporary # name
+% int,	varchar,	int,	varchar,	smallint,	boolean,	smallint,	smallint,	tinyint # type
+% 1,	0,	1,	0,	1,	5,	1,	1,	1 # length
 
-# 08:08:12 >  
-# 08:08:12 >  Done.
-# 08:08:12 >  
+# 11:34:25 >  
+# 11:34:25 >  "Done."
+# 11:34:25 >  
 

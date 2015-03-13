@@ -34,10 +34,12 @@ typedef void (*fdestroy) (void *);
 typedef struct list {
 	sql_allocator *sa;
 	sql_hash *ht;
+	MT_Lock ht_lock;	/* latch protecting ht */
 	fdestroy destroy;
 	node *h;
 	node *t;
 	int cnt;
+	int expected_cnt;
 } list;
 
 typedef int (*traverse_func) (void *clientdata, int seqnr, void *data);

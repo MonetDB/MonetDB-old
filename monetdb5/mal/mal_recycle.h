@@ -23,103 +23,36 @@
 #include "mal.h"
 #include "mal_exception.h"
 #include "mal_instruction.h"
+#include "mal_runtime.h"
 #include "mal_client.h"
 
-/*
 #define _DEBUG_RECYCLE_
-#define _DEBUG_RECYCLE_REUSE
 #define _DEBUG_CACHE_
 #define _DEBUG_RESET_
-*/
 
 /*
- * @-
- * We need some hard limits to not run out of datastructure
- * spaces.
+ * We need some hard limits to not run out of datastructure spaces.
  */
-#define RU 1024 /* recycle unit in bytes */
-#define GIGA (lng)(1024*1024*1024)
-
-#define HARDLIMIT_VAR 200000		/* maximum variables to watch */
-#define HARDLIMIT_STMT 40000		/* roughly 5/line needed */
-#define HARDLIMIT_MEM 216 * (GIGA/RU)     /* avoid memory overflow */
-
-mal_export int admissionPolicy;
-#define ADM_NONE	0
-#define ADM_ALL 	1
-#define ADM_CAT	2
-#define ADM_INTEREST	3
-#define ADM_ADAPT	4
+#define HARDLIMIT_STMT 1000 /*5000*/
 
 #define NO_RECYCLING -1
-#define REC_NO_INTEREST 0
-#define REC_MAX_INTEREST 3
-#define REC_MIN_INTEREST 1
-
-mal_export lng recycleTime;
-mal_export lng recycleSearchTime;
-mal_export lng msFindTime;
-mal_export lng msComputeTime;
-/*mal_export lng recycleVolume; */
-
-mal_export int reusePolicy;
-#define REUSE_NONE	0
-#define REUSE_COVER	1
-#define REUSE_EXACT	2
-#define REUSE_MULTI	3
-
-mal_export int rcachePolicy;
-#define RCACHE_ALL		0
-#define RCACHE_LRU		1
-#define RCACHE_BENEFIT 	2
-#define RCACHE_PROFIT 	3
+#define RECYCLING 1
+/*
+ * To avoid a polution of the recycle cache, we do not store any
+ * intruction for which there is no function/command/pattern implementation.
+ */
+#define RECYCLEinterest(p) ( p->recycle == RECYCLING && getFunctionId(p) != NULL)
 
 mal_export int recycleCacheLimit;
-mal_export lng recycleMemory;	/* Units of memory permitted */
-mal_export lng recyclerUsedMemory;
 mal_export MalBlkPtr recycleBlk;
-mal_export double recycleAlpha;
-mal_export int recycleMaxInterest;
-mal_export int monitorRecycler;
-
-/*
- * @- Statistics about query patterns
- */
-typedef struct QRYSTAT {
-	lng recid;	/* unique id given by the recycle optimizer */
-	int calls; 	/* number of calls */
-	int greuse; /* number of global reuse */
-	int lreuse; /* number of local reuse in current execution only */
-	lng dt;		/* data transfer (RU) by this query */
-	lng dtreuse;/* data transfer (RU) that query reuses from others */
-	int *crd;   /* instructions credits */
-	int stop;
-	int wl;		/* waterline of globally reused instructions*/
-	bte *gl;	/* mask for globally reused instructions */
-} QryStat, *QryStatPtr;
-
-typedef struct QRYPATTERN {
-	int cnt; /* number of query patterns */
-	int sz;  /* storage capacity */
-	QryStatPtr *ptrn; /* patterns */
-} QryPat, *QryPatPtr;
-
-
-typedef str (*aggrFun) (ptr, int *);
-
-
-mal_export QryPatPtr recycleQPat;
-mal_export aggrFun minAggr;
-mal_export aggrFun maxAggr;
 
 mal_export void RECYCLEinit(void);
-mal_export int RECYCLEentry(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
-mal_export void RECYCLEexit(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr p, lng ticks);
-mal_export void RECYCLEreset(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
-mal_export void RECYCLEshutdown(Client cntxt);
-mal_export int RECYCLEinterest(InstrPtr p);
-mal_export int RECYCLEnewQryStat(MalBlkPtr mb);
-mal_export void RECYCLEinitQPat(int sz);
-mal_export bte RECYCLEgetQryCat(int qidx);
-mal_export bit isBindInstr(InstrPtr p);
+mal_export lng  RECYCLEentry(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p, RuntimeProfile prof);
+mal_export void RECYCLEexit(Client cntxt,MalBlkPtr mb, MalStkPtr stk, InstrPtr p, RuntimeProfile prof);
+mal_export void RECYCLEdrop(Client cntxt);
+
+mal_export str RECYCLEcolumn(Client cntxt, str sch,str tbl, str col);
+mal_export str RECYCLEresetBAT(Client cntxt, int bid);
+
+mal_export void RECYCLEdump(stream *s);
 #endif

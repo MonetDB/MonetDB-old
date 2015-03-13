@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <sql.h>
 #include <sqlext.h>
 
@@ -126,7 +127,7 @@ main(int argc, char **argv)
 	SQLULEN *processed;
 	SQLUSMALLINT *status;
 	SQLINTEGER offset;
-	long *data_i;
+	int *data_i;
 	char (*data_s)[20];
 	SQLLEN *data_slen;
 	float *data_f;
@@ -151,7 +152,7 @@ main(int argc, char **argv)
 		exit(1);
 	}
 	ret = SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION,
-			    (SQLPOINTER) (size_t) SQL_OV_ODBC3, 0);
+			    (SQLPOINTER) (uintptr_t) SQL_OV_ODBC3, 0);
 	check(ret, SQL_HANDLE_ENV, env, "SQLSetEnvAttr");
 
 	ret = SQLAllocHandle(SQL_HANDLE_DBC, env, &dbc);
@@ -161,7 +162,7 @@ main(int argc, char **argv)
 			 (SQLCHAR *) pass, SQL_NTS);
 	check(ret, SQL_HANDLE_DBC, dbc, "SQLConnect");
 	ret = SQLSetConnectAttr(dbc, SQL_ATTR_AUTOCOMMIT,
-				(SQLPOINTER) (size_t) SQL_AUTOCOMMIT_OFF, 0);
+				(SQLPOINTER) (uintptr_t) SQL_AUTOCOMMIT_OFF, 0);
 	check(ret, SQL_HANDLE_DBC, dbc, "SQLSetConnectAttr");
 
 	ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
@@ -265,7 +266,7 @@ main(int argc, char **argv)
 	check(ret, SQL_HANDLE_STMT, stmt, "SQLBindParameter");
 
 	ret = SQLSetStmtAttr(stmt, SQL_ATTR_PARAM_BIND_TYPE,
-			     (SQLPOINTER) (size_t) sizeof(data[0]), 0);
+			     (SQLPOINTER) (uintptr_t) sizeof(data[0]), 0);
 	check(ret, SQL_HANDLE_STMT, stmt, "SQLSetStmtAttr");
 
 	processed = malloc(NRECORD * sizeof(*processed));
@@ -280,7 +281,7 @@ main(int argc, char **argv)
 
 #if 0				/* doesn't currently work */
 	ret = SQLSetStmtAttr(stmt, SQL_ATTR_PARAMSET_SIZE,
-			     (SQLPOINTER) (size_t) NRECORD, 0);
+			     (SQLPOINTER) (uintptr_t) NRECORD, 0);
 	check(ret, SQL_HANDLE_STMT, stmt, "SQLSetStmtAttr");
 
 	ret = SQLExecute(stmt);
@@ -297,10 +298,10 @@ main(int argc, char **argv)
 #endif
 
 	ret = SQLSetStmtAttr(stmt, SQL_ATTR_ROW_ARRAY_SIZE,
-			     (SQLPOINTER) (size_t) NRECORD2, 0);
+			     (SQLPOINTER) (uintptr_t) NRECORD2, 0);
 	check(ret, SQL_HANDLE_STMT, stmt, "SQLSetStmtAttr");
 	ret = SQLSetStmtAttr(stmt, SQL_ATTR_ROW_BIND_TYPE,
-			     (SQLPOINTER) (size_t) SQL_BIND_BY_COLUMN, 0);
+			     (SQLPOINTER) (uintptr_t) SQL_BIND_BY_COLUMN, 0);
 	check(ret, SQL_HANDLE_STMT, stmt, "SQLSetStmtAttr");
 
 	data_i = malloc(NRECORD * sizeof(*data_i));
@@ -370,7 +371,7 @@ main(int argc, char **argv)
 				data[i].t.hour, data[i].t.minute,
 				data[i].t.second);
 			fprintf(stderr,
-				"%ld %g %s %04d-%02d-%02d %02d:%02d:%02d\n",
+				"%d %g %s %04d-%02d-%02d %02d:%02d:%02d\n",
 				data_i[i], data_f[i], data_s[i],
 				data_d[i].year, data_d[i].month, data_d[i].day,
 				data_t[i].hour, data_t[i].minute,

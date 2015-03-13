@@ -1,10 +1,111 @@
-load
+# IMPORTANT: export environment variable LC_ALL="en_US.UTF-8"  before running these tests.
 
-# these need to go here, later tests depend on their tables to exist
+#ToDo load
+
+# pgregress set; in order as given by
+# http://git.postgresql.org/gitweb/?p=postgresql.git;a=blob_plain;f=src/test/regress/serial_schedule;hb=HEAD
+
+boolean
 char
+#name This is a special PostgresSQL datatype NOT supported in MonetDB.
+# See also: http://www.postgresql.org/docs/9.3/static/datatype-character.html#DATATYPE-CHARACTER-SPECIAL-TABLE
 varchar
 text
-
+int2
+int4
+int8
+oid
+float4
+float8
+# bit NOT supported in MonetDB. BIT is also not standard SQL so exclude this test
+numeric
+strings
 strings_concat
 strings_cast
 strings_like
+
+numerology
+HAVE_GEOM?point
+#HAVE_GEOM?lseg   # lseg is NOT supported in MonetDB. lseg (Line Segment) is also not part of OpenGIS standard so exclude this test
+HAVE_GEOM?box     # box is not supported in MonetDB but it can be replaced with mbr (= minimum bounded rectangle)
+HAVE_GEOM?path    # path is not supported in MonetDB but it can be replaced with linestring
+HAVE_GEOM?polygon
+#HAVE_GEOM?circle # circle is NOT supported in MonetDB. It is also not part of OpenGIS standard so exclude this test
+#HAVE_GEOM?geometry  # tables CIRCLE_TBL and LSEG_TBL do not exist as they have been disabled above. All queries fail
+date
+time
+timetz
+timestamp
+timestamptz
+interval
+# abstime NOT supported ABSTIME, deprecated in Postgresql
+reltime
+# tinterval NOT supported in MonetDB, deprecated in Postgresql and is also not standard SQL so exclude this test
+inet
+comments
+horology
+# oidjoins    # All queries reference pg_catalog.pg_* specific schema and table names which do not exist in MonetDB. skipping this test
+# type_sanity # All queries reference pg_type, pg_proc, pg_class or pg_attribute table names which do not exist in MonetDB. skipping this test
+# opr_sanity  # All queries reference pg_proc, pg_cast, pg_operator, pg_opclass, pg_amop, pg_am, pg_amproc or pg_aggregate table names which do not exist in MonetDB. skipping this test
+insert
+# create_type # pg specific (not SQL compliant) syntax of CREATE TYPE is not supported in MonetDB
+loadwisconsin #[MK] copied from benchmarks
+create_table
+create_misc
+# create_operator # CREATE OPERATOR (and DROP OPERATOR) syntax not supported by MonetDB
+# create_index  # pg specific index syntax (USING btree() or rtree() or hash() and functional or partial indexes) are not supported in MonetDB. skipping this test
+create_view
+select_views
+create_aggregate
+#ToDo triggers
+#ToDo inherit
+vacuum
+#ToDo sanity_check
+#ToDo errors
+#ToDo select
+select_into
+#ToDo select_distinct
+#ToDo select_distinct_on
+#ToDo select_implicit
+#ToDo select_having
+#ToDo subselect
+#ToDo union
+case		#[MK] interactive behavior is inconsistent with script run, see bugreport
+#ToDo join
+#ToDo aggregates
+#ToDo transactions
+random	#[MK] causes an non-displayed error and lost of information in the result
+#portals [MK] MonetDB does not support SQL cursor/fetch operations
+arrays
+#btree_index	[MK]MonetDB does not support construction of btrees
+#hash_index		[MK]MonetDB does not support hash index management by the user
+#ToDo update
+#ToDo namespace
+#ToDo privileges
+#ToDo rules
+#ToDo portals_p2 [MK] MonetDB does not support SQL cursor/fetch operations
+#ToDo foreign_key
+#cluster	[MK]MonetDB does not support clustering of tables
+limit	#[MK] handles
+#ToDo plpgsql
+#ToDo copy2
+#ToDo temp
+#domain [MK] MonetDB does not support type/domain/object system
+#ToDo rangefuncs
+#prepare [MK] seems like a useful feature
+without_oid
+#ToDo conversion
+#truncate [MK] a combination of a DROP TABLE followed by its CREATE table, feature request?
+alter_table
+#ToDo sequence
+#ToDo polymorphism
+#rowtypes [MK] MonetDB does not support object type definitions 
+#ToDo stats
+
+# these four were in a 2005 pgregress set, but are no longer
+# in the 2014 v9.3.4 pgregress set; not sure when/where they
+# should be run; keep them for last for now
+drop
+#ToDo mule_internal
+numeric_big
+#ToDo sql_ascii

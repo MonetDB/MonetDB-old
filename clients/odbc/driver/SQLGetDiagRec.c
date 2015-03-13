@@ -183,7 +183,6 @@ SQLGetDiagRec(SQLSMALLINT HandleType,
 			      TextLengthPtr);
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLGetDiagRecA(SQLSMALLINT HandleType,
 	       SQLHANDLE Handle,
@@ -216,6 +215,7 @@ SQLGetDiagRecW(SQLSMALLINT HandleType,
 {
 	SQLRETURN rc;
 	SQLCHAR state[6];
+	SQLCHAR msg[512];
 	SQLSMALLINT n;
 
 #ifdef ODBCDEBUG
@@ -224,40 +224,29 @@ SQLGetDiagRecW(SQLSMALLINT HandleType,
 		PTRFMTCAST Handle, (int) RecNumber, (int) BufferLength);
 #endif
 
-	/* figure out how much space we need */
+
 	rc = SQLGetDiagRec_(HandleType, Handle, RecNumber, state,
-			    NativeErrorPtr, NULL, 0, &n);
-
-	if (SQL_SUCCEEDED(rc)) {
-		SQLCHAR *msg;
-
-		/* then try for real */
-		msg = (SQLCHAR *) malloc(n + 1);
-		rc = SQLGetDiagRec_(HandleType, Handle, RecNumber, state,
-				    NativeErrorPtr, msg, n + 1, &n);
+			    NativeErrorPtr, msg, (SQLSMALLINT) sizeof(msg), &n);
 #ifdef ODBCDEBUG
-		ODBCLOG("SQLGetDiagRecW: %s\n", (char *) msg);
+	ODBCLOG("SQLGetDiagRecW: %s\n", SQL_SUCCEEDED(rc) ? (char *) msg : rc == SQL_NO_DATA ? "no error" : "failed");
 #endif
 
-		if (SQL_SUCCEEDED(rc)) {
-			char *e = ODBCutf82wchar(state, 5, SQLState, 6, NULL);
+	if (SQL_SUCCEEDED(rc)) {
+		char *e = ODBCutf82wchar(state, 5, SQLState, 6, NULL);
 
-			if (e)
-				rc = SQL_ERROR;
-		}
+		if (e)
+			rc = SQL_ERROR;
+	}
 
-		if (SQL_SUCCEEDED(rc)) {
-			char *e = ODBCutf82wchar(msg, n, MessageText,
-						 BufferLength, &n);
+	if (SQL_SUCCEEDED(rc)) {
+		char *e = ODBCutf82wchar(msg, n, MessageText,
+					 BufferLength, &n);
 
-			if (e)
-				rc = SQL_ERROR;
-			if (TextLengthPtr)
-				*TextLengthPtr = n;
-		}
-		free(msg);
+		if (e)
+			rc = SQL_ERROR;
+		if (TextLengthPtr)
+			*TextLengthPtr = n;
 	}
 
 	return rc;
 }
-#endif /* WITH_WCHAR */

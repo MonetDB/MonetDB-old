@@ -44,11 +44,14 @@ struct scanner {
 	prot mode;		/* which mode (line (1,N), blocked) */
 	char *schema;		/* Keep schema name of create statement, 
 				   needed AUTO_INCREMENT, SERIAL */
+	char *errstr;		/* error message from the bowels of
+				 * the scanner */
 };
 
 #define QUERY(scanner) (scanner.rs->buf+scanner.rs->pos)
 
 extern void scanner_init(struct scanner *s, bstream *rs, stream *ws);
+extern void scanner_reset_key(struct scanner *s);
 extern void scanner_query_processed(struct scanner *s);
 
 extern void scanner_init_keywords(void);

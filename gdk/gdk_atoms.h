@@ -29,22 +29,22 @@
  * code in one CPP macro we use the following #defines for comparing
  * atoms:
  */
-#define simple_CMP(x,y,tpe)     (simple_LT(x,y,tpe)?-1:simple_GT(x,y,tpe))
-#define simple_EQ(x,y,tpe)      ((*(const tpe*) (x)) == (*(const tpe*) (y)))
-#define simple_NE(x,y,tpe,nl)   ((*(const tpe*)(y)) != nl && (*(const tpe*) (x)) != (*(const tpe*) (y)))
-#define simple_LT(x,y,tpe)      ((*(const tpe*) (x))  < (*(const tpe*) (y)))
-#define simple_GT(x,y,tpe)      ((*(const tpe*) (x))  > (*(const tpe*) (y)))
-#define simple_LE(x,y,tpe)      ((*(const tpe*) (x)) <= (*(const tpe*) (y)))
-#define simple_GE(x,y,tpe)      ((*(const tpe*) (x)) >= (*(const tpe*) (y)))
-#define atom_CMP(x,y,id)        (*BATatoms[id].atomCmp)(x,y)
-#define atom_EQ(x,y,id)         ((*BATatoms[id].atomCmp)(x,y) == 0)
-#define atom_NE(x,y,id,nl)      ((*BATatoms[id].atomCmp)(y,BATatoms[id].atomNull) != 0 && (*BATatoms[id].atomCmp)(x,y) != 0)
-#define atom_LT(x,y,id)         ((*BATatoms[id].atomCmp)(x,y) < 0)
-#define atom_GT(x,y,id)         ((*BATatoms[id].atomCmp)(x,y) > 0)
-#define atom_LE(x,y,id)         ((*BATatoms[id].atomCmp)(x,y) <= 0)
-#define atom_GE(x,y,id)         ((*BATatoms[id].atomCmp)(x,y) >= 0)
-#define simple_HASH(v,tpe,dst)  ((dst) *(const tpe *) (v))
-#define atom_HASH(v,id,dst)     ((dst) (*BATatoms[id].atomHash)(v))
+#define simple_CMP(x,y,tpe)	(simple_GT(x,y,tpe) - simple_LT(x,y,tpe))
+#define simple_EQ(x,y,tpe)	((*(const tpe*) (x)) == (*(const tpe*) (y)))
+#define simple_NE(x,y,tpe,nl)	((*(const tpe*)(y)) != nl && (*(const tpe*) (x)) != (*(const tpe*) (y)))
+#define simple_LT(x,y,tpe)	((*(const tpe*) (x))  < (*(const tpe*) (y)))
+#define simple_GT(x,y,tpe)	((*(const tpe*) (x))  > (*(const tpe*) (y)))
+#define simple_LE(x,y,tpe)	((*(const tpe*) (x)) <= (*(const tpe*) (y)))
+#define simple_GE(x,y,tpe)	((*(const tpe*) (x)) >= (*(const tpe*) (y)))
+#define atom_CMP(x,y,id)	(*BATatoms[id].atomCmp)(x,y)
+#define atom_EQ(x,y,id)		((*BATatoms[id].atomCmp)(x,y) == 0)
+#define atom_NE(x,y,id,nl)	((*BATatoms[id].atomCmp)(y,BATatoms[id].atomNull) != 0 && (*BATatoms[id].atomCmp)(x,y) != 0)
+#define atom_LT(x,y,id)		((*BATatoms[id].atomCmp)(x,y) < 0)
+#define atom_GT(x,y,id)		((*BATatoms[id].atomCmp)(x,y) > 0)
+#define atom_LE(x,y,id)		((*BATatoms[id].atomCmp)(x,y) <= 0)
+#define atom_GE(x,y,id)		((*BATatoms[id].atomCmp)(x,y) >= 0)
+#define simple_HASH(v,tpe,dst)	((dst) *(const tpe *) (v))
+#define atom_HASH(v,id,dst)	((dst) (*BATatoms[id].atomHash)(v))
 
 /*
  * @- maximum atomic string lengths
@@ -69,6 +69,9 @@
 #define ptrStrlen	48
 #endif
 #define lngStrlen	48
+#ifdef HAVE_HGE
+#define hgeStrlen	96
+#endif
 #define fltStrlen	48
 #define dblStrlen	96
 
@@ -79,6 +82,10 @@
  * leads to the following type descriptor table.
  */
 
+#ifdef HAVE_HGE
+gdk_export int hgeFromStr(const char *src, int *len, hge **dst);
+gdk_export int hgeToStr(str *dst, int *len, const hge *src);
+#endif
 gdk_export int lngFromStr(const char *src, int *len, lng **dst);
 gdk_export int lngToStr(str *dst, int *len, const lng *src);
 gdk_export int intFromStr(const char *src, int *len, int **dst);
@@ -105,8 +112,8 @@ gdk_export int strToStr(str *dst, int *len, const char *src);
 gdk_export BUN strHash(const char *s);
 gdk_export int strLen(const char *s);
 gdk_export int strNil(const char *s);
-gdk_export int escapedStrlen(const char *src);
-gdk_export int escapedStr(char *dst, const char *src, int dstlen);
+gdk_export int escapedStrlen(const char *src, const char *sep1, const char *sep2, int quote);
+gdk_export int escapedStr(char *dst, const char *src, int dstlen, const char *sep1, const char *sep2, int quote);
 /*
  * @- nil values
  * All types have a single value designated as a NIL value. It
@@ -127,6 +134,11 @@ gdk_export int escapedStr(char *dst, const char *src, int dstlen);
 #define GDK_flt_min (-GDK_flt_max)
 #define GDK_lng_max ((lng) LLONG_MAX)
 #define GDK_lng_min ((lng) LLONG_MIN)
+#ifdef HAVE_HGE
+#define GDK_hge_max ((((hge) 1) << 126) - 1 + \
+                     (((hge) 1) << 126))
+#define GDK_hge_min (((hge) 1) << 127)
+#endif
 #define GDK_dbl_max ((dbl) DBL_MAX)
 #define GDK_dbl_min (-GDK_dbl_max)
 /* GDK_oid_max see below */
@@ -138,6 +150,9 @@ gdk_export const int int_nil;
 gdk_export const flt flt_nil;
 gdk_export const dbl dbl_nil;
 gdk_export const lng lng_nil;
+#ifdef HAVE_HGE
+gdk_export const hge hge_nil;
+#endif
 gdk_export const oid oid_nil;
 gdk_export const wrd wrd_nil;
 gdk_export const char str_nil[2];
@@ -163,7 +178,7 @@ gdk_export const ptr ptr_nil;
 /*
  * @- Derived types
  * In all algorithms across GDK, you will find switches on the types (
- * bte, sht, int, wrd, flt, dbl, lng, str). They respectively
+ * bte, sht, int, wrd, flt, dbl, lng, hge, str). They respectively
  * represent an octet, a 16-bit int, a 32-bit int, a 32-bit float, a
  * 64-bit double, a 64-bit int, and a pointer-sized location of a
  * char-buffer (ended by a zero char).
@@ -178,7 +193,7 @@ gdk_export const ptr ptr_nil;
  * @code{ ptr} types to @code{ lng} instead of @code{ int}.
  *
  * Derived types mimic their fathers in many ways. They inherit the
- * @code{ size}, @code{ varsized}, @code{ linear}, @code{ null} and
+ * @code{ size}, @code{ linear}, @code{ null} and
  * @code{ align} properties of their father.  The same goes for the
  * ADT functions HASH, CMP, PUT, NULL, DEL, LEN, and HEAP. So, a
  * derived type differs in only two ways from its father:
@@ -198,18 +213,14 @@ gdk_export const ptr ptr_nil;
 #define ATOMalign(t)		BATatoms[t].align
 #define ATOMfromstr(t,s,l,src)	BATatoms[t].atomFromStr(src,l,s)
 #define ATOMnilptr(t)		BATatoms[t].atomNull
+#define ATOMcompare(t)		BATatoms[t].atomCmp
 #define ATOMhash(t,src)		BATatoms[t].atomHash(src)
 #define ATOMdel(t,hp,src)	do if (BATatoms[t].atomDel) BATatoms[t].atomDel(hp,src); while (0)
-#define ATOMvarsized(t)		((t != TYPE_void) && BATatoms[t].varsized)
+#define ATOMvarsized(t)		(BATatoms[t].atomPut != NULL)
 #define ATOMlinear(t)		BATatoms[t].linear
 #define ATOMtype(t)		((t == TYPE_void)?TYPE_oid:t)
 #define ATOMfix(t,v)		do if (BATatoms[t].atomFix) BATatoms[t].atomFix(v); while (0)
 #define ATOMunfix(t,v)		do if (BATatoms[t].atomUnfix) BATatoms[t].atomUnfix(v); while (0)
-#define ATOMconvert(t,v,d)	do if (BATatoms[t].atomConvert) BATatoms[t].atomConvert(v,d); while (0)
-#define ATOMheapConvert(t,hp,d)	do if (BATatoms[t].atomHeapConvert) BATatoms[t].atomHeapConvert(hp,d); while (0)
-
-#define CONV_HTON               1
-#define CONV_NTOH               0
 
 /*
  * In case that atoms are added to a bat, their logical reference
@@ -218,77 +229,95 @@ gdk_export const ptr ptr_nil;
  * of BATs but also BATs of ODMG odSet) can never be persistent, as
  * this would make the commit tremendously complicated.
  */
-#define ATOMput(type, heap, dst, src)					\
+#ifdef HAVE_HGE
+#define ATOM_CASE_16_hge						\
+		case 16:						\
+			* (hge *) d_ = * (hge *) s_;			\
+			break
+#else
+#define ATOM_CASE_16_hge
+#endif
+
+#define ATOMputVAR(type, heap, dst, src)				\
+	do {								\
+		assert(BATatoms[type].atomPut != NULL);			\
+		if ((*BATatoms[type].atomPut)(heap, dst, src) == 0)	\
+			goto bunins_failed;				\
+	} while (0)
+#define ATOMputFIX(type, dst, src)					\
 	do {								\
 		int t_ = (type);					\
-		ptr d_ = (ptr) (dst);					\
-		ptr s_ = (ptr) (src);					\
+		void *d_ = (dst);					\
+		const void *s_ = (src);					\
 									\
-		if (BATatoms[t_].atomPut) {				\
-			if ((*BATatoms[t_].atomPut)((heap), (var_t *) d_, s_) == 0) \
-				goto bunins_failed;			\
-		} else {						\
-			ATOMfix(t_, s_);				\
-			switch (BATatoms[t_].size) {			\
-			case 0:		/* void */			\
-				break;					\
-			case 1:						\
-				* (bte *) d_ = * (bte *) s_;		\
-				break;					\
-			case 2:						\
-				* (sht *) d_ = * (sht *) s_;		\
-				break;					\
-			case 4:						\
-				* (int *) d_ = * (int *) s_;		\
-				break;					\
-			case 8:						\
-				* (lng *) d_ = * (lng *) s_;		\
-				break;					\
-			default:					\
-				memcpy(d_, s_, (size_t) BATatoms[t_].size); \
-				break;					\
-			}						\
+		assert(BATatoms[t_].atomPut == NULL);			\
+		ATOMfix(t_, s_);					\
+		switch (BATatoms[t_].size) {				\
+		case 0:		/* void */				\
+			break;						\
+		case 1:							\
+			* (bte *) d_ = * (bte *) s_;			\
+			break;						\
+		case 2:							\
+			* (sht *) d_ = * (sht *) s_;			\
+			break;						\
+		case 4:							\
+			* (int *) d_ = * (int *) s_;			\
+			break;						\
+		case 8:							\
+			* (lng *) d_ = * (lng *) s_;			\
+			break;						\
+		ATOM_CASE_16_hge;					\
+		default:						\
+			memcpy(d_, s_, (size_t) BATatoms[t_].size);	\
+			break;						\
 		}							\
 	} while (0)
 
-#define ATOMreplace(type, heap, dst, src)				\
+#define ATOMreplaceVAR(type, heap, dst, src)				\
 	do {								\
 		int t_ = (type);					\
-		ptr d_ = (ptr) (dst);					\
-		ptr s_ = (ptr) (src);					\
+		var_t *d_ = (var_t *) (dst);				\
+		const void *s_ = (src);					\
+		var_t loc_ = *d_;					\
+		Heap *h_ = (heap);					\
 									\
-		if (BATatoms[t_].atomPut) {				\
-			var_t loc_ = * (var_t *) d_;			\
-			Heap *h_ = (heap);				\
+		assert(BATatoms[t_].atomPut != NULL);			\
+		if ((*BATatoms[t_].atomPut)(h_, &loc_, s_) == 0)	\
+			goto bunins_failed;				\
+		ATOMunfix(t_, d_);					\
+		ATOMdel(t_, h_, d_);					\
+		*d_ = loc_;						\
+		ATOMfix(t_, s_);					\
+	} while (0)
+#define ATOMreplaceFIX(type, dst, src)					\
+	do {								\
+		int t_ = (type);					\
+		void *d_ = (dst);					\
+		const void *s_ = (src);					\
 									\
-			if ((*BATatoms[t_].atomPut)(h_, &loc_, s_) == 0) \
-				goto bunins_failed;			\
-			ATOMunfix(t_, d_);				\
-			ATOMdel(t_, h_, d_);				\
-			* (var_t *) d_ = loc_;				\
-			ATOMfix(t_, s_);				\
-		} else {						\
-			ATOMfix(t_, s_);				\
-			ATOMunfix(t_, d_);				\
-			switch (BATatoms[t_].size) {			\
-			case 0:		/* void */			\
-				break;					\
-			case 1:						\
-				* (bte *) d_ = * (bte *) s_;		\
-				break;					\
-			case 2:						\
-				* (sht *) d_ = * (sht *) s_;		\
-				break;					\
-			case 4:						\
-				* (int *) d_ = * (int *) s_;		\
-				break;					\
-			case 8:						\
-				* (lng *) d_ = * (lng *) s_;		\
-				break;					\
-			default:					\
-				memcpy(d_, s_, (size_t) BATatoms[t_].size); \
-				break;					\
-			}						\
+		assert(BATatoms[t_].atomPut == NULL);			\
+		ATOMfix(t_, s_);					\
+		ATOMunfix(t_, d_);					\
+		switch (BATatoms[t_].size) {				\
+		case 0:	     /* void */					\
+			break;						\
+		case 1:							\
+			* (bte *) d_ = * (bte *) s_;			\
+			break;						\
+		case 2:							\
+			* (sht *) d_ = * (sht *) s_;			\
+			break;						\
+		case 4:							\
+			* (int *) d_ = * (int *) s_;			\
+			break;						\
+		case 8:							\
+			* (lng *) d_ = * (lng *) s_;			\
+			break;						\
+		ATOM_CASE_16_hge;					\
+		default:						\
+			memcpy(d_, s_, (size_t) BATatoms[t_].size);	\
+			break;						\
 		}							\
 	} while (0)
 
@@ -334,9 +363,9 @@ gdk_export const ptr ptr_nil;
 #define GDK_STRNIL(s)    ((s) == NULL || *(char*) (s) == '\200')
 #define GDK_STRLEN(s)    ((GDK_STRNIL(s)?1:strlen(s))+1)
 #define GDK_STRCMP(l,r)  (GDK_STRNIL(l)?(GDK_STRNIL(r)?0:-1):GDK_STRNIL(r)?1: \
-                          (*(const unsigned char*)(l) < *(const unsigned char*)(r))?-1: \
-                          (*(const unsigned char*)(l) > *(const unsigned char*)(r))?1: \
-                          strCmpNoNil((const unsigned char*)(l),(const unsigned char*)(r)))
+			  (*(const unsigned char*)(l) < *(const unsigned char*)(r))?-1: \
+			  (*(const unsigned char*)(l) > *(const unsigned char*)(r))?1: \
+			  strCmpNoNil((const unsigned char*)(l),(const unsigned char*)(r)))
 /*
  * @- Hash Function
  * The string hash function is a very simple hash function that xors

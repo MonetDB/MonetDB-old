@@ -11,7 +11,7 @@ stdout of test 'div_by_zero.Bug-2887` in directory 'sql/test/BugTracker-2011` it
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 3.788 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
 # Listening for connection requests on mapi:monetdb://niels.nesco.mine.nu:32793/
 # MonetDB/GIS module loaded
@@ -28,7 +28,7 @@ Ready.
 #Insert into t2887 values (0);
 [ 1	]
 #select min (case when "c" = 0 then 4 else 3/c end) from t2887;
-% sys. # table_name
+% sys.L1 # table_name
 % L1 # name
 % int # type
 % 1 # length

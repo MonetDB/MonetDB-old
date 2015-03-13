@@ -45,7 +45,6 @@ stderr of test 'crashonschema.Bug-2547` in directory 'sql/test/BugTracker-2010` 
 # config opt 	recycler_pipe = inline,remap,evaluate,costModel,coercions,emptySet,aliases,deadcode,constants,commonTerms,joinPath,deadcode,recycle,reduce,dataflow,history,multiplex,garbageCollector
 # config opt 	cracker_pipe = inline,remap,evaluate,costModel,coercions,emptySet,aliases,selcrack,deadcode,constants,commonTerms,joinPath,deadcode,reduce,dataflow,history,multiplex,garbageCollector
 # config opt 	sidcrack_pipe = inline,remap,evaluate,costModel,coercions,emptySet,aliases,sidcrack,deadcode,constants,commonTerms,joinPath,deadcode,reduce,dataflow,history,multiplex,garbageCollector
-# config opt 	datacell_pipe = inline,remap,evaluate,costModel,coercions,emptySet,aliases,deadcode,constants,commonTerms,joinPath,datacell,deadcode,reduce,dataflow,history,multiplex,garbageCollector
 # config opt 	octopus_pipe = inline,remap,evaluate,costModel,coercions,emptySet,aliases,mitosis,mergetable,deadcode,constants,commonTerms,joinPath,octopus,deadcode,reduce,dataflow,history,multiplex,garbageCollector
 # config opt 	mapreduce_pipe = inline,remap,evaluate,costModel,coercions,emptySet,aliases,mapreduce,mergetable,deadcode,commonTerms,joinPath,reorder,deadcode,reduce,dataflow,history,multiplex,garbageCollector
 # config opt 	datacyclotron_pipe = inline,remap,evaluate,costModel,coercions,emptySet,aliases,datacyclotron,mergetable,deadcode,constants,commonTerms,joinPath,reorder,deadcode,reduce,dataflow,history,replication,multiplex,garbageCollector
@@ -71,20 +70,20 @@ stderr of test 'crashonschema.Bug-2547` in directory 'sql/test/BugTracker-2010` 
 # 18:47:50 >  mclient -lsql -ftest -i -e --host=alf --port=39317 
 # 18:47:50 >  
 
-MAPI  = monetdb@sofia:38256
+MAPI  = (monetdb) /var/tmp/mtest-23209/.s.monetdb.33225
 QUERY = create schema intro2 authorized monetdb;
 ERROR = !syntax error, unexpected IDENT, expecting SCOLON in: "create schema intro2 authorized"
-MAPI  = monetdb@sofia:38256
+MAPI  = (monetdb) /var/tmp/mtest-23209/.s.monetdb.33225
 QUERY = create schema authorized monetdb;
 ERROR = !syntax error, unexpected IDENT, expecting SCOLON in: "create schema authorized monetdb"
-MAPI  = monetdb@sofia:38256
+MAPI  = (monetdb) /var/tmp/mtest-23209/.s.monetdb.33225
 QUERY = drop schema intro2;
 ERROR = !DROP SCHEMA: name intro2 does not exist
-MAPI  = monetdb@sofia:38256
+MAPI  = (monetdb) /var/tmp/mtest-23209/.s.monetdb.33225
 QUERY = create schema intro3 
           grant insert on t2010 to monetdb;
 ERROR = !GRANT Table/Function name t2010 doesn't exist
-MAPI  = monetdb@sofia:38256
+MAPI  = (monetdb) /var/tmp/mtest-23209/.s.monetdb.33225
 QUERY = drop schema intro3;
 ERROR = !DROP SCHEMA: name intro3 does not exist
 

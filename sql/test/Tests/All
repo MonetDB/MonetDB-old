@@ -1,5 +1,7 @@
-HAVE_GEOM?systemfunctions
-!HAVE_GEOM?systemfunctions_nogeom
+HAVE_FITS&HAVE_GEOM&!HAVE_GSL&!HAVE_SAMTOOLS?systemfunctions
+HAVE_FITS&HAVE_GEOM&HAVE_GSL&!HAVE_SAMTOOLS?systemfunctions_gsl
+!HAVE_FITS&HAVE_GEOM&HAVE_GSL&HAVE_SAMTOOLS?systemfunctions_bam
+!HAVE_FITS&!HAVE_GEOM&!HAVE_GSL&!HAVE_SAMTOOLS?systemfunctions_nogeom
 example
 example-queries
 example-drop
@@ -52,7 +54,8 @@ decimal2
 null
 joins
 default
-keys
+!HAVE_SAMTOOLS?keys
+HAVE_SAMTOOLS?keys_bam
 
 like_tests
 
@@ -81,6 +84,7 @@ coalesce
 round
 rank
 function_syntax
+table_function
 procedure_syntax
 order_by_simple_exp
 order_by_complex_exp

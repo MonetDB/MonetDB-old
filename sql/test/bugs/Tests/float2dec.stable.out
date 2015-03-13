@@ -19,8 +19,9 @@ Ready.
 # 13:12:17 >  
 
 [ 1	]
-% sys. # table_name
-% L1 # name
+#select CAST(AVG(col) as decimal(4,2)) from float2dec;
+% sys.L2 # table_name
+% L2 # name
 % decimal # type
 % 6 # length
 [ 74.95	]

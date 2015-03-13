@@ -67,7 +67,7 @@ static char *mero_host = NULL;
 static int mero_port = -1;
 static char *mero_pass = NULL;
 static char monetdb_quiet = 0;
-static int TERMWIDTH = 80;  /* default to classic terminal width */
+static int TERMWIDTH = 0;  /* default to no wrapping */
 
 static void
 command_help(int argc, char *argv[])
@@ -91,7 +91,8 @@ command_help(int argc, char *argv[])
 		printf("  database created with this command makes it available\n");
 		printf("  for use, however in maintenance mode (see monetdb lock).\n");
 		printf("Options:\n");
-		printf("  -m  create a multiplex funnel for pattern.\n");
+		printf("  -m       create a multiplex funnel for pattern.\n");
+		printf("  -p pass  create database with given password for database user.\n");
 	} else if (strcmp(argv[1], "destroy") == 0) {
 		printf("Usage: monetdb destroy [-f] database [database ...]\n");
 		printf("  Removes the given database, including all its data and\n");
@@ -198,7 +199,7 @@ MEROgetStatus(sabdb **ret, char *database)
 	sabdb *w = NULL;
 	size_t swlen = 50;
 	size_t swpos = 0;
-	sabdb **sw = malloc(sizeof(sabdb *) * swlen);
+	sabdb **sw;
 	char *p;
 	char *buf;
 	char *e;
@@ -211,11 +212,13 @@ MEROgetStatus(sabdb **ret, char *database)
 	if (e != NULL)
 		return(e);
 
+	sw = malloc(sizeof(sabdb *) * swlen);
 	orig = NULL;
 	if ((p = strtok(buf, "\n")) != NULL) {
 		if (strcmp(p, "OK") != 0) {
 			p = strdup(p);
 			free(buf);
+			free(sw);
 			return(p);
 		}
 		for (swpos = 0; (p = strtok(NULL, "\n")) != NULL; swpos++) {
@@ -345,6 +348,7 @@ printStatus(sabdb *stats, int mode, int dbwidth, int uriwidth)
 			printf("           ");
 		}
 		printf("  %-*s\n", uriwidth, uri);
+		free(uri);
 	} else if (mode == 2) {
 		/* long mode */
 		char *state;
@@ -437,6 +441,7 @@ printStatus(sabdb *stats, int mode, int dbwidth, int uriwidth)
 			case SABdbStarting:
 				snprintf(buf, sizeof(buf), "starting ");
 				off = sizeof("starting ") - 1;
+				/* fall through */
 			case SABdbRunning:
 				t = localtime(&uplog.laststart);
 				strftime(buf + off, sizeof(buf) - off,
@@ -634,11 +639,10 @@ simple_command(int argc, char *argv[], char *merocmd, char *successmsg, char glo
 			if (argv[i] != NULL) {
 				/* maintain input order */
 				if (orig == NULL) {
-					stats = orig = malloc(sizeof(sabdb));
+					stats = orig = calloc(1, sizeof(sabdb));
 				} else {
-					stats = stats->next = malloc(sizeof(sabdb));
+					stats = stats->next = calloc(1, sizeof(sabdb));
 				}
-				memset(stats, 0, sizeof(sabdb));
 				stats->dbname = strdup(argv[i]);
 			}
 		}
@@ -821,8 +825,8 @@ command_status(int argc, char *argv[])
 		         = 8 chars
 		*/
 
-		len = dbwidth < 4 ? 4 : dbwidth + 2 + 5 + 2 + 8 + 2 + uriwidth;
-		if (len > twidth) {
+		len = (dbwidth < 4 ? 4 : dbwidth) + 2 + 5 + 2 + 8 + 2 + uriwidth;
+		if (twidth > 0 && len > twidth) {
 			if (len - twidth < 10) {
 				uriwidth -= len - twidth;
 				if (dbwidth < 4)
@@ -878,7 +882,7 @@ command_discover(int argc, char *argv[])
 	char *buf;
 	char *p, *q;
 	size_t twidth = TERMWIDTH;
-	char *location;
+	char *location = NULL;
 	char *match = NULL;
 	size_t numlocs = 50;
 	size_t posloc = 0;
@@ -912,7 +916,8 @@ command_discover(int argc, char *argv[])
 			fprintf(stderr, "%s: %s\n", argv[0], p);
 			exit(1);
 		}
-		location = malloc(twidth + 1);
+		if (twidth > 0)
+			location = malloc(twidth + 1);
 		while ((p = strtok(NULL, "\n")) != NULL) {
 			if ((q = strchr(p, '\t')) == NULL) {
 				/* doesn't look correct */
@@ -925,8 +930,12 @@ command_discover(int argc, char *argv[])
 			snprintf(path, sizeof(path), "%s%s", q, p);
 
 			if (match == NULL || glob(match, path)) {
-				/* cut too long location name */
-				abbreviateString(location, path, twidth);
+				if (twidth > 0) {
+					/* cut too long location name */
+					abbreviateString(location, path, twidth);
+				} else {
+					location = path;
+				}
 				/* store what we found */
 				if (posloc == numlocs)
 					locations = realloc(locations,
@@ -936,7 +945,8 @@ command_discover(int argc, char *argv[])
 					loclen = strlen(location);
 			}
 		}
-		free(location);
+		if (twidth > 0)
+			free(location);
 	}
 
 	free(buf);
@@ -1082,7 +1092,7 @@ typedef enum {
 	INHERIT
 } meroset;
 
-static void command_set(int argc, char *argv[], meroset type)
+__declspec(noreturn) static void command_set(int argc, char *argv[], meroset type)
 	__attribute__((__noreturn__));
 
 static void
@@ -1162,6 +1172,11 @@ command_set(int argc, char *argv[], meroset type)
 	msab_freeStatus(&orig);
 	orig = stats;
 
+	if (orig == NULL) {
+		/* error already printed by globMatchDBS */
+		exit(1);
+	}
+
 	/* handle rename separately due to single argument constraint */
 	if (strcmp(property, "name") == 0) {
 		if (type == INHERIT) {
@@ -1190,7 +1205,7 @@ command_set(int argc, char *argv[], meroset type)
 
 	for (stats = orig; stats != NULL; stats = stats->next) {
 		if (type == INHERIT) {
-			strncat(property, "=", sizeof(property));
+			strncat(property, "=", sizeof(property) - strlen(property) - 1);
 			p = property;
 		}
 		out = control_send(&res, mero_host, mero_port,
@@ -1215,12 +1230,12 @@ command_get(int argc, char *argv[])
 	char *property = NULL;
 	char propall = 0;
 	char vbuf[512];
-	char *buf;
+	char *buf = 0;
 	char *e;
 	int i;
 	sabdb *orig, *stats;
 	int twidth = TERMWIDTH;
-	char *source, *value;
+	char *source, *value = NULL;
 	confkeyval *kv;
 	confkeyval *defprops = getDefaultProps();
 	confkeyval *props = getDefaultProps();
@@ -1288,6 +1303,7 @@ command_get(int argc, char *argv[])
 	/* avoid work when there are no results */
 	if (orig == NULL) {
 		free(props);
+		free(defprops);
 		return;
 	}
 
@@ -1297,21 +1313,24 @@ command_get(int argc, char *argv[])
 		fprintf(stderr, "get: %s\n", e);
 		free(e);
 		exit(2);
-	} else if (strncmp(buf, "OK\n", 3) != 0) {
+	} else if ( buf && strncmp(buf, "OK\n", 3) != 0) {
 		fprintf(stderr, "get: %s\n", buf);
 		free(buf);
 		exit(1);
 	}
 	readPropsBuf(defprops, buf + 3);
-	free(buf);
+	if( buf) 
+		free(buf);
 
-	/* name = 15 */
-	/* prop = 8 */
-	/* source = 7 */
-	twidth -= 15 + 2 + 8 + 2 + 7 + 2;
-	if (twidth < 6)
-		twidth = 6;
-	value = malloc(sizeof(char) * twidth + 1);
+	if (twidth > 0) {
+		/* name = 15 */
+		/* prop = 8 */
+		/* source = 7 */
+		twidth -= 15 + 2 + 8 + 2 + 7 + 2;
+		if (twidth < 6)
+			twidth = 6;
+		value = malloc(sizeof(char) * twidth + 1);
+	}
 	stats = orig;
 	while (stats != NULL) {
 		e = control_send(&buf, mero_host, mero_port,
@@ -1379,19 +1398,32 @@ command_get(int argc, char *argv[])
 			/* special virtual case */
 			if (strcmp(p, "name") == 0) {
 				source = "-";
-				abbreviateString(value, stats->dbname, twidth);
+				if (twidth > 0) {
+					abbreviateString(value, stats->dbname, twidth);
+				} else {
+					value = stats->dbname;
+				}
 			} else {
 				kv = findConfKey(props, p);
 				if (kv == NULL)
 					continue;
 				if (kv->val == NULL) {
+					char *y = NULL;
 					kv = findConfKey(defprops, p);
 					source = "default";
-					abbreviateString(value,
-							kv != NULL && kv->val != NULL ? kv->val : "<unknown>", twidth);
+					y = kv != NULL && kv->val != NULL ? kv->val : "<unknown>";
+					if (twidth > 0) {
+						abbreviateString(value, y, twidth);
+					} else {
+						value = y;
+					}
 				} else {
 					source = "local";
-					abbreviateString(value, kv->val, twidth);
+					if (twidth > 0) {
+						abbreviateString(value, kv->val, twidth);
+					} else {
+						value = kv->val;
+					}
 				}
 			}
 
@@ -1403,10 +1435,11 @@ command_get(int argc, char *argv[])
 		stats = stats->next;
 	}
 
-
-	free(value);
+	if (twidth > 0)
+		free(value);
 	msab_freeStatus(&orig);
 	free(props);
+	free(defprops);
 }
 
 static void
@@ -1414,6 +1447,7 @@ command_create(int argc, char *argv[])
 {
 	int i;
 	char *mfunnel = NULL;
+	char *password = NULL;
 	sabdb *orig = NULL;
 	sabdb *stats = NULL;
 
@@ -1443,6 +1477,19 @@ command_create(int argc, char *argv[])
 					command_help(2, &argv[-1]);
 					exit(1);
 				}
+			} else if (argv[i][1] == 'p') {
+				if (argv[i][2] != '\0') {
+					password = &argv[i][2];
+					argv[i] = NULL;
+				} else if (i + 1 < argc && argv[i + 1][0] != '-') {
+					argv[i] = NULL;
+					password = argv[++i];
+					argv[i] = NULL;
+				} else {
+					fprintf(stderr, "create: -p needs an argument\n");
+					command_help(2, &argv[-1]);
+					exit(1);
+				}
 			} else {
 				fprintf(stderr, "create: unknown option: %s\n", argv[i]);
 				command_help(argc + 1, &argv[-1]);
@@ -1455,11 +1502,10 @@ command_create(int argc, char *argv[])
 		if (argv[i] != NULL) {
 			/* maintain input order */
 			if (orig == NULL) {
-				stats = orig = malloc(sizeof(sabdb));
+				stats = orig = calloc(1, sizeof(sabdb));
 			} else {
-				stats = stats->next = malloc(sizeof(sabdb));
+				stats = stats->next = calloc(1, sizeof(sabdb));
 			}
-			memset(stats, 0, sizeof(sabdb));
 			stats->dbname = strdup(argv[i]);
 		}
 	}
@@ -1470,6 +1516,13 @@ command_create(int argc, char *argv[])
 		snprintf(cmd, len, "create mfunnel=%s", mfunnel);
 		simple_argv_cmd(argv[0], orig, cmd, 
 				"created multiplex-funnel in maintenance mode", NULL);
+		free(cmd);
+	} else if (password != NULL) {
+		size_t len = strlen("create password=") + strlen(password) + 1;
+		char *cmd = malloc(len);
+		snprintf(cmd, len, "create password=%s", password);
+		simple_argv_cmd(argv[0], orig, cmd, 
+				"created database with password for monetdb user", NULL);
 		free(cmd);
 	} else {
 		simple_argv_cmd(argv[0], orig, "create", 
@@ -1538,6 +1591,17 @@ command_destroy(int argc, char *argv[])
 			printf("aborted\n");
 			exit(1);
 		}
+	} else {
+		char *ret;
+		char *out;
+		for (stats = orig; stats != NULL; stats = stats->next) {
+			if (stats->state == SABdbRunning) {
+				ret = control_send(&out, mero_host, mero_port,
+						stats->dbname, "stop", 0, mero_pass);
+				if (ret != NULL)
+					free(ret);
+			}
+		}
 	}
 
 	simple_argv_cmd(argv[0], orig, "destroy", "destroyed database", NULL);
@@ -1565,7 +1629,7 @@ main(int argc, char *argv[])
 #ifdef TIOCGWINSZ
 	struct winsize ws;
 
-	if (ioctl(fileno(stdin), TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0)
+	if (ioctl(fileno(stdout), TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0)
 		TERMWIDTH = ws.ws_col;
 #endif
 
@@ -1679,17 +1743,14 @@ main(int argc, char *argv[])
 		 * where we should search, which defaults to '/tmp' */
 		if (mero_host == NULL)
 			mero_host = "/tmp";
-		do {
-			/* first try the port given (or else its default) */
-			snprintf(buf, sizeof(buf), "%s/.s.merovingian.%d",
-					mero_host, mero_port == -1 ? 50000 : mero_port);
-			if (control_ping(buf, -1, NULL) == 0) {
-				mero_host = buf;
-				break;
-			}
-
-			/* if port wasn't given, we can try and search for available
-			 * sockets */
+		/* first try the port given (or else its default) */
+		snprintf(buf, sizeof(buf), "%s/.s.merovingian.%d",
+			 mero_host, mero_port == -1 ? 50000 : mero_port);
+		if (control_ping(buf, -1, NULL) == 0) {
+			mero_host = buf;
+		} else {
+			/* if port wasn't given, we can try and search
+			 * for available sockets */
 			if (mero_port == -1) {
 				DIR *d;
 				struct dirent *e;
@@ -1715,7 +1776,7 @@ main(int argc, char *argv[])
 				}
 				closedir(d);
 			}
-		} while(0);
+		}
 
 		if (mero_host != buf) {
 			fprintf(stderr, "monetdb: cannot find a control socket, use -h and/or -p\n");

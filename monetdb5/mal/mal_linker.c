@@ -18,57 +18,15 @@
  */
 
 /*
- * @a M. Kersten
- * @v 0.0
- * @-
- * @+ Module Loading
- * The server is bootstrapped by processing a MAL script with
- * module definitions or extensions.
- * For each module file encountered, the object library
- * lib_<modulename>.so is searched for in the location identified
- * by monet_mod_path=exec_prefix/lib/MonetDB5:exec_prefix/lib/MonetDB5/lib:exec_prefix/lib/MonetDB5/bin.
- *
- * The corresponding signature are defined
- * in @dots{}/lib(64)/<modulename>.mal.
- * @-
- * The default bootstrap script is called @dots{}/lib/MonetDB5/mal_init.mal
- * and it is designated in the configuration file as the mal_init property.
- * The rationale for this set-up is that database administrators can
- * extend/overload the bootstrap procedure without affecting the
- * software package being distributed.
- * It merely requires a different direction for the mal_init property.
- * The scheme also isolates the functionality embedded in modules from
- * inadvertise use on non-compliant databases.
- * @-
- * Unlike previous versions of MonetDB, modules can not be unloaded.
- * Dynamic libraries are always global and, therefore, it
- * is best to load them as part of the server initialization phase.
- * @-
- * For the time being we assume that all commands are statically linked.
- */
-/*
- * @-
- * The MAL module should be compiled with -rdynamic and -ldl (Linux).
- * This enables loading the routines and finding out the address
- * of a particular routine.
- * The mapping from MAL module.function() identifier to an address is
- * resolved in the function getAddress. Since all modules libraries are loaded
- * completely with GLOBAL visibility, it suffices to provide the internal function
- * name.
- * In case an attempt to link to an address fails,
- * a final attempt is made to locate the *.o file in
- * the current directory.
- *
- * Note, however, that the libraries are reference counted. Although we
- * don't close them until end of session it seems prudent to maintain
- * the consistency of this counter.
- *
+ * (author) M. Kersten
+ * For documentation see website
  */
 #include "monetdb_config.h"
 #include "mal_module.h"
 #include "mal_linker.h"
 #include "mal_function.h"	/* for throw() */
 #include "mal_import.h"		/* for slash_2_dir_sep() */
+#include "mal_private.h"
 
 #include "mutils.h"
 #include <sys/types.h> /* opendir */
@@ -77,9 +35,6 @@
 #endif
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
-#endif
-#ifdef HAVE_SYS_STAT_H
-#include <sys/stat.h>
 #endif
 #include <unistd.h>
 
@@ -101,14 +56,11 @@ static FileRecord filesLoaded[MAXMODULES];
 static int maxfiles = MAXMODULES;
 static int lastfile = 0;
 
-/*
- * @-
- * Search for occurrence of the function in the library identified by the filename.
- */
+/* Search for occurrence of the function in the library identified by the filename.  */
 MALfcn
 getAddress(stream *out, str filename, str modnme, str fcnname, int silent)
 {
-	void *dl = 0;
+	void *dl;
 	MALfcn adr;
 	static int idx=0;
 	static int prev= -1;
@@ -127,7 +79,6 @@ getAddress(stream *out, str filename, str modnme, str fcnname, int silent)
 		}
 	}
 	/*
-	 * @-
 	 * Search for occurrence of the function in any library already loaded.
 	 * This deals with the case that files are linked together to reduce
 	 * the loading time, while the signatures of the functions are still
@@ -142,27 +93,33 @@ getAddress(stream *out, str filename, str modnme, str fcnname, int silent)
 			}
 		}
 	/*
-	 * @-
 	 * Try the program libraries at large or run through all
 	 * loaded files and try to resolve the functionname again.
-	 */
+	 *
+	 * the first argument must be the same as the base name of the
+	 * library that is created in src/tools */
+	dl = mdlopen("libmonetdb5", RTLD_NOW | RTLD_GLOBAL);
 	if (dl == NULL) {
-		/* the first argument must be the same as the base name of the
-		 * library that is created in src/tools */
-		dl = mdlopen("libmonetdb5", RTLD_NOW | RTLD_GLOBAL);
+		/* shouldn't happen, really */
+		if (!silent)
+			showException(out, MAL, "MAL.getAddress",
+						  "address of '%s.%s' not found",
+						  (modnme?modnme:"<unknown>"), fcnname);
+		return NULL;
 	}
-	if( dl != NULL){
-		adr = (MALfcn) dlsym(dl, fcnname);
-		if( adr != NULL)
-			return adr; /* found it */
-	}
+
+	adr = (MALfcn) dlsym(dl, fcnname);
+	dlclose(dl);
+	if( adr != NULL)
+		return adr; /* found it */
+
 	if (!silent)
 		showException(out, MAL,"MAL.getAddress", "address of '%s.%s' not found",
 			(modnme?modnme:"<unknown>"), fcnname);
 	return NULL;
 }
 /*
- * @+ Module file loading
+ * Module file loading
  * The default location to search for the module is in monet_mod_path
  * unless an absolute path is given.
  * Loading further relies on the Linux policy to search for the module
@@ -234,52 +191,39 @@ loadLibrary(str filename, int flag)
 
 	while (*mod_path) {
 		char *p;
-		struct stat stbuf;
 
-		if ((p = strchr(mod_path, PATH_SEP)) != NULL)
-			*p = '\0';
+		for (p = mod_path; *p && *p != PATH_SEP; p++)
+			;
+
 		/* try hardcoded SO_EXT if that is the same for modules */
 #ifdef _AIX
-		snprintf(nme, MAXPATHLEN, "%s%c%s_%s%s(%s_%s.0)",
-				mod_path, DIR_SEP, SO_PREFIX, s, SO_EXT, SO_PREFIX, s);
+		snprintf(nme, MAXPATHLEN, "%.*s%c%s_%s%s(%s_%s.0)",
+				 (int) (p - mod_path),
+				 mod_path, DIR_SEP, SO_PREFIX, s, SO_EXT, SO_PREFIX, s);
 #else
-		snprintf(nme, MAXPATHLEN, "%s%c%s_%s%s",
-				mod_path, DIR_SEP, SO_PREFIX, s, SO_EXT);
+		snprintf(nme, MAXPATHLEN, "%.*s%c%s_%s%s",
+				 (int) (p - mod_path),
+				 mod_path, DIR_SEP, SO_PREFIX, s, SO_EXT);
 #endif
-		if (stat(nme, &stbuf) != 0 || !S_ISREG(stbuf.st_mode))
-			*nme = '\0';
-		if (*nme == '\0' && strcmp(SO_EXT, ".so") != 0) {
+		handle = dlopen(nme, mode);
+		if (handle == NULL && strcmp(SO_EXT, ".so") != 0) {
 			/* try .so */
-			snprintf(nme, MAXPATHLEN, "%s%c%s_%s.so",
-					mod_path, DIR_SEP, SO_PREFIX, s);
-			if (stat(nme, &stbuf) != 0 || !S_ISREG(stbuf.st_mode))
-				*nme = '\0';
+			snprintf(nme, MAXPATHLEN, "%.*s%c%s_%s.so",
+					 (int) (p - mod_path),
+					 mod_path, DIR_SEP, SO_PREFIX, s);
+			handle = dlopen(nme, mode);
 		}
 #ifdef __APPLE__
-		if (*nme == '\0' && strcmp(SO_EXT, ".bundle") != 0) {
+		if (handle == NULL && strcmp(SO_EXT, ".bundle") != 0) {
 			/* try .bundle */
-			snprintf(nme, MAXPATHLEN, "%s%c%s_%s.bundle",
-					mod_path, DIR_SEP, SO_PREFIX, s);
-			if (stat(nme, &stbuf) != 0 || !S_ISREG(stbuf.st_mode))
-				*nme = '\0';
+			snprintf(nme, MAXPATHLEN, "%.*s%c%s_%s.bundle",
+					 (int) (p - mod_path),
+					 mod_path, DIR_SEP, SO_PREFIX, s);
+			handle = dlopen(nme, mode);
 		}
 #endif
 
-		/* restore path */
-		if (p != NULL)
-			*p = PATH_SEP;
-
-		if (*nme != '\0') {
-			handle = dlopen(nme, mode);
-			if (handle != NULL) {
-				break;
-			} else {
-				throw(LOADER, "loadLibrary",
-						"failed to load library: %s", dlerror());
-			}
-		}
-
-		if (p == NULL)
+		if (*p == 0 || handle != NULL)
 			break;
 		mod_path = p + 1;
 	}
@@ -296,7 +240,7 @@ loadLibrary(str filename, int flag)
 		showException(GDKout, MAL,"loadModule", "internal error, too many modules loaded");
 	} else {
 		filesLoaded[lastfile].filename = GDKstrdup(filename);
-		filesLoaded[lastfile].fullname = GDKstrdup(nme);
+		filesLoaded[lastfile].fullname = GDKstrdup(handle ? nme : "");
 		filesLoaded[lastfile].handle = handle;
 		lastfile ++;
 	}
@@ -306,7 +250,6 @@ loadLibrary(str filename, int flag)
 }
 
 /*
- * @-
  * For analysis of memory leaks we should cleanup the libraries before
  * we exit the server. This does not involve the libraries themselves,
  * because they may still be in use.
@@ -327,7 +270,6 @@ unloadLibraries(void)
 	MT_lock_unset(&mal_contextLock, "unloadModule");
 }
 /*
- * @-
  * To speedup restart and to simplify debugging, the MonetDB server can
  * be statically linked with some (or all) of the modules libraries.
  * A complicating factor is then to avoid users to initiate another load
@@ -373,7 +315,7 @@ initLibraries(void)
 }
 
 /*
- * @+ Handling of Module Library Search Path
+ * Handling of Module Library Search Path
  * The plausible locations of the modules can be designated by
  * an environment variable.
  */
@@ -389,7 +331,7 @@ cmpstr(const void *_p1, const void *_p2)
 
 
 #define MAXMULTISCRIPT 48
-static char *
+char *
 locate_file(const char *basename, const char *ext, bit recurse)
 {
 	char *mod_path = GDKgetenv("monet_mod_path");
@@ -448,6 +390,7 @@ locate_file(const char *basename, const char *ext, bit recurse)
 						while (lasts >= 0)
 							GDKfree(strs[lasts--]);
 						GDKfree(fullname);
+						(void)closedir(rdir);
 						return NULL;
 					}
 					sprintf(strs[lasts], "%s%c%s%c", fullname, DIR_SEP, e->d_name, PATH_SEP);
@@ -477,6 +420,10 @@ locate_file(const char *basename, const char *ext, bit recurse)
 		for (c = 0; c < lasts; c++)
 			i += strlen(strs[c]) + 1; /* PATH_SEP or \0 */
 		fullname = GDKrealloc(fullname, i);
+		if( fullname == NULL){
+			GDKerror("locate_file" MAL_MALLOC_FAIL);
+			return NULL;
+		}
 		i = 0;
 		for (c = 0; c < lasts; c++) {
 			if (strstr(fullname, strs[c]) == NULL) {

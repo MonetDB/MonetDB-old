@@ -23,12 +23,21 @@ Ready.
 # 11:55:30 >  Mtimeout -timeout 60 MapiClient -lsql -umonetdb -Pmonetdb --host=localhost --port=35185  < groupby_having_charlength-bug-sf-943566.sql
 # 11:55:30 >  
 
-% sys.s,	sys.,	sys.s # table_name
-% name,	char_length_name,	L1 # name
+# 12:06:13 >  
+# 12:06:13 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-23209" "--port=33225"
+# 12:06:13 >  
+
+#select s.name,char_length(s.name), count(*) from schemas s, tables t
+#	where t.name IN ('args', 'columns', 'functions', 'idxs',
+#		'objects', 'keys', 'modules', 'sequences')
+#	group by s.name having count(*) > char_length(s.name);
+% .s,	.L1,	.L2 # table_name
+% name,	L1,	L2 # name
 % varchar,	int,	wrd # type
-% 3,	1,	2 # length
+% 4,	1,	2 # length
 [ "sys",	3,	10	]
 [ "tmp",	3,	10	]
+[ "json",	4,	10	]
 
 # 12:48:35 >  
 # 12:48:35 >  Done.

@@ -1,3 +1,20 @@
+# The contents of this file are subject to the MonetDB Public License
+# Version 1.1 (the "License"); you may not use this file except in
+# compliance with the License. You may obtain a copy of the License at
+# http://www.monetdb.org/Legal/MonetDBLicense
+#
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+# License for the specific language governing rights and limitations
+# under the License.
+#
+# The Original Code is the MonetDB Database System.
+#
+# The Initial Developer of the Original Code is CWI.
+# Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+# Copyright August 2008-2015 MonetDB B.V.
+# All Rights Reserved.
+
 import subprocess
 import os
 import sys
@@ -274,7 +291,7 @@ def client(lang, args = [], stdin = None, stdout = None, stderr = None,
                 break
         cmd.append('--host=%s' % host)
     if verbose:
-        sys.stdout.write('Executing' + ' '.join(cmd +  args) + '\n')
+        sys.stdout.write('Executing: ' + ' '.join(cmd +  args) + '\n')
         sys.stdout.flush()
     if log:
         prompt = time.strftime('# %H:%M:%S >  ')
@@ -316,7 +333,8 @@ def client(lang, args = [], stdin = None, stdout = None, stderr = None,
 
 def server(args = [], stdin = None, stdout = None, stderr = None,
            mapiport = None, dbname = os.getenv('TSTDB'), dbfarm = None,
-           dbinit = None, bufsize = 0, log = False, notrace = False):
+           dbinit = None, bufsize = 0, log = False, notrace = False,
+           notimeout = False):
     '''Start a server process.'''
     cmd = _server[:]
     if not cmd:
@@ -324,6 +342,8 @@ def server(args = [], stdin = None, stdout = None, stderr = None,
                '--set', 'mapi_open=true',
                '--set', 'gdk_nr_threads=1',
                '--set', 'monet_prompt=']
+    if notimeout and 'Mtimeout' in cmd[0]:
+        del cmd[0:3]            # Mtimeout -timeout 60
     if notrace and '--trace' in cmd:
         cmd.remove('--trace')
     if dbinit is not None:
@@ -359,8 +379,15 @@ def server(args = [], stdin = None, stdout = None, stderr = None,
     if dbpath is not None:
         cmd.append('--dbpath=%s' % dbpath)
     if verbose:
-        sys.stdout.write('Executing' + ' '.join(cmd +  args) + '\n')
+        sys.stdout.write('Executing: ' + ' '.join(cmd +  args) + '\n')
         sys.stdout.flush()
+    for i in range(len(args)):
+        if args[i] == '--set' and i+1 < len(args):
+            s = args[i+1].partition('=')[0]
+            for j in range(len(cmd)):
+                if cmd[j] == '--set' and j+1 < len(cmd) and cmd[j+1].startswith(s + '='):
+                    del cmd[i:i+2]
+                    break
     if log:
         prompt = time.strftime('# %H:%M:%S >  ')
         cmdstr = ' '.join(cmd +  args)

@@ -49,7 +49,7 @@
 #endif
 
 static void
-pseudo(int *ret, int *ret2, BAT *bn, BAT *b) {
+pseudo(bat *ret, bat *ret2, BAT *bn, BAT *b) {
 	BATmode(bn,TRANSIENT);
 	BATmode(b,TRANSIENT);
 	BATfakeCommit(b);
@@ -75,10 +75,10 @@ SYSgetmem_maxsize(lng *num)
 }
 
 str
-SYSsetmem_maxsize(int *ret, lng *num)
+SYSsetmem_maxsize(void *ret, const lng *num)
 {
 	size_t sze = 0;
-	*ret = 0;
+	(void) ret;
 	if (*num < 0)
 		throw(ILLARG, "status.mem_maxsize", "new size must not be < 0");
 #if SIZEOF_SIZE_T == SIZEOF_INT
@@ -88,9 +88,7 @@ SYSsetmem_maxsize(int *ret, lng *num)
 			throw(ILLARG, "status.mem_maxsize", "new size must not be > " LLFMT, size_t_max);
 	}
 #endif
-	if (sze < GDK_mem_bigsize)
-		GDK_mem_bigsize = MAX(32768, sze);
-	GDK_mem_maxsize = MAX(GDK_mem_bigsize, sze);
+	GDK_mem_maxsize = sze;
 	return MAL_SUCCEED;
 }
 
@@ -109,8 +107,9 @@ SYSgetvm_maxsize(lng *num)
 }
 
 str
-SYSsetvm_maxsize(lng *num)
+SYSsetvm_maxsize(void *ret, const lng *num)
 {
+	(void) ret;
 	GDK_vm_maxsize = (size_t) *num;
 	return MAL_SUCCEED;
 }
@@ -135,7 +134,7 @@ static struct tms state;
 #endif
 
 str
-SYScpuStatistics(int *ret, int *ret2)
+SYScpuStatistics(bat *ret, bat *ret2)
 {
 	int i;
 	BAT *b, *bn;
@@ -154,11 +153,11 @@ SYScpuStatistics(int *ret, int *ret2)
 # endif
 #endif
 
-	bn = BATnew(TYPE_void, TYPE_str, 32);
-	b = BATnew(TYPE_void, TYPE_int, 32);
+	bn = BATnew(TYPE_void, TYPE_str, 32, TRANSIENT);
+	b = BATnew(TYPE_void, TYPE_int, 32, TRANSIENT);
 	if (b == 0 || bn == 0){
-		if ( b) BBPreleaseref(b->batCacheid);
-		if ( bn) BBPreleaseref(bn->batCacheid);
+		if ( b) BBPunfix(b->batCacheid);
+		if ( bn) BBPunfix(bn->batCacheid);
 		throw(MAL, "status.cpuStatistics", MAL_MALLOC_FAIL);
 	}
 	BATseqbase(b,0);
@@ -171,44 +170,44 @@ SYScpuStatistics(int *ret, int *ret2)
 	times(&newst);
 	/* store counters, ignore errors */
 	i = (int) (time(0) - clk);
-	bn = BUNappend(bn, "elapsed", FALSE);
-	b = BUNappend(b, &i, FALSE);
+	BUNappend(bn, "elapsed", FALSE);
+	BUNappend(b, &i, FALSE);
 	i = newst.tms_utime * 1000 / HZ;
-	bn = BUNappend(bn, "user", FALSE);
-	b = BUNappend(b, &i, FALSE);
+	BUNappend(bn, "user", FALSE);
+	BUNappend(b, &i, FALSE);
 	i = (newst.tms_utime - state.tms_utime) * 1000 / HZ;
-	bn = BUNappend(bn, "elapuser", FALSE);
-	b = BUNappend(b, &i, FALSE);
+	BUNappend(bn, "elapuser", FALSE);
+	BUNappend(b, &i, FALSE);
 	i = newst.tms_stime * 1000 / HZ;
-	bn = BUNappend(bn, "system", FALSE);
-	b = BUNappend(b, &i, FALSE);
+	BUNappend(bn, "system", FALSE);
+	BUNappend(b, &i, FALSE);
 	i = (newst.tms_stime - state.tms_stime) * 1000 / HZ;
-	bn = BUNappend(bn, "elapsystem", FALSE);
-	b = BUNappend(b, &i, FALSE);
+	BUNappend(bn, "elapsystem", FALSE);
+	BUNappend(b, &i, FALSE);
 
 	state = newst;
 #else
 	i = int_nil;
-	bn = BUNappend(bn, "elapsed", FALSE);
-	b = BUNappend(b, &i, FALSE);
-	bn = BUNappend(bn, "user", FALSE);
-	b = BUNappend(b, &i, FALSE);
-	bn = BUNappend(bn, "elapuser", FALSE);
-	b = BUNappend(b, &i, FALSE);
-	bn = BUNappend(bn, "system", FALSE);
-	b = BUNappend(b, &i, FALSE);
-	bn = BUNappend(bn, "elapsystem", FALSE);
-	b = BUNappend(b, &i, FALSE);
+	BUNappend(bn, "elapsed", FALSE);
+	BUNappend(b, &i, FALSE);
+	BUNappend(bn, "user", FALSE);
+	BUNappend(b, &i, FALSE);
+	BUNappend(bn, "elapuser", FALSE);
+	BUNappend(b, &i, FALSE);
+	BUNappend(bn, "system", FALSE);
+	BUNappend(b, &i, FALSE);
+	BUNappend(bn, "elapsystem", FALSE);
+	BUNappend(b, &i, FALSE);
 #endif
-	if (!(b->batDirty&2)) b = BATsetaccess(b, BAT_READ);
-	if (!(bn->batDirty&2)) bn = BATsetaccess(bn, BAT_READ);
+	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
+	if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 	pseudo(ret,ret2,bn,b);
 	return MAL_SUCCEED;
 }
 
-static char *memincr = NULL;
+static size_t memincr;
 str
-SYSmemStatistics(int *ret, int *ret2)
+SYSmemStatistics(bat *ret, bat *ret2)
 {
 	struct Mallinfo m;
 	BAT *b, *bn;
@@ -216,54 +215,50 @@ SYSmemStatistics(int *ret, int *ret2)
 
 	m = MT_mallinfo();
 
-	bn = BATnew(TYPE_void,TYPE_str, 32);
-	b = BATnew(TYPE_void, TYPE_wrd, 32);
+	bn = BATnew(TYPE_void,TYPE_str, 32, TRANSIENT);
+	b = BATnew(TYPE_void, TYPE_wrd, 32, TRANSIENT);
 	if (b == 0 || bn == 0) {
-		if ( b) BBPreleaseref(b->batCacheid);
-		if ( bn) BBPreleaseref(bn->batCacheid);
+		if ( b) BBPunfix(b->batCacheid);
+		if ( bn) BBPunfix(bn->batCacheid);
 		throw(MAL, "status.memStatistics", MAL_MALLOC_FAIL);
 	}
 	BATseqbase(b,0);
 	BATseqbase(bn,0);
 
 	/* store counters, ignore errors */
-	if (memincr == NULL)
-		memincr = MT_heapbase;
-
-	i = (wrd) (MT_heapcur() - memincr);
-
-	memincr = MT_heapcur();
-	bn = BUNappend(bn, "memincr", FALSE);
-	b = BUNappend(b, &i, FALSE);
+	i = (wrd) (GDKmem_cursize() - memincr);
+	memincr = GDKmem_cursize();
+	BUNappend(bn, "memincr", FALSE);
+	BUNappend(b, &i, FALSE);
 	i = (wrd) m.arena;
-	bn = BUNappend(bn, "arena", FALSE);
-	b = BUNappend(b, &i, FALSE);
+	BUNappend(bn, "arena", FALSE);
+	BUNappend(b, &i, FALSE);
 	i = (wrd) m.ordblks;
-	bn = BUNappend(bn, "ordblks", FALSE);
-	b = BUNappend(b, &i, FALSE);
+	BUNappend(bn, "ordblks", FALSE);
+	BUNappend(b, &i, FALSE);
 	i = (wrd) m.smblks;
-	bn = BUNappend(bn, "smblks", FALSE);
-	b = BUNappend(b, &i, FALSE);
+	BUNappend(bn, "smblks", FALSE);
+	BUNappend(b, &i, FALSE);
 	i = (wrd) m.hblkhd;
-	bn = BUNappend(bn, "hblkhd", FALSE);
-	b = BUNappend(b, &i, FALSE);
+	BUNappend(bn, "hblkhd", FALSE);
+	BUNappend(b, &i, FALSE);
 	i = (wrd) m.hblks;
-	bn = BUNappend(bn, "hblks", FALSE);
-	b = BUNappend(b, &i, FALSE);
+	BUNappend(bn, "hblks", FALSE);
+	BUNappend(b, &i, FALSE);
 	i = (wrd) m.usmblks;
-	bn = BUNappend(bn, "usmblks", FALSE);
-	b = BUNappend(b, &i, FALSE);
+	BUNappend(bn, "usmblks", FALSE);
+	BUNappend(b, &i, FALSE);
 	i = (wrd) m.fsmblks;
-	bn = BUNappend(bn, "fsmblks", FALSE);
-	b = BUNappend(b, &i, FALSE);
+	BUNappend(bn, "fsmblks", FALSE);
+	BUNappend(b, &i, FALSE);
 	i = (wrd) m.uordblks;
-	bn = BUNappend(bn, "uordblks", FALSE);
-	b = BUNappend(b, &i, FALSE);
+	BUNappend(bn, "uordblks", FALSE);
+	BUNappend(b, &i, FALSE);
 	i = (wrd) m.fordblks;
-	bn = BUNappend(bn, "fordblks", FALSE);
-	b = BUNappend(b, &i, FALSE);
-	if (!(b->batDirty&2)) b = BATsetaccess(b, BAT_READ);
-	if (!(bn->batDirty&2)) bn = BATsetaccess(bn, BAT_READ);
+	BUNappend(bn, "fordblks", FALSE);
+	BUNappend(b, &i, FALSE);
+	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
+	if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 	pseudo(ret,ret2,bn,b);
 	return MAL_SUCCEED;
 }
@@ -273,7 +268,8 @@ SYSmemStatistics(int *ret, int *ret2)
 		sz = HEAPmemsize(X2);\
 		if (sz > *minsize) {\
 			sprintf(buf, X4"/%s", s);\
-			BUNins(bn, buf, &sz, FALSE);\
+			BUNappend(bn, buf, FALSE);\
+			BUNappend(b, &sz, FALSE);\
 		}\
 		X3 += sz; tot += sz;\
 	}
@@ -282,40 +278,41 @@ SYSmemStatistics(int *ret, int *ret2)
 		sz = HEAPvmsize(X2);\
 		if (sz > *minsize) {\
 			sprintf(buf, X4"/%s", s);\
-			BUNins(bn, buf, &sz, FALSE);\
+			BUNappend(bn, buf, FALSE);\
+			BUNappend(b, &sz, FALSE);\
 		}\
 		X3 += sz; tot += sz;\
 	}
 
 str
-SYSmem_usage(int *ret, int *ret2, lng *minsize)
+SYSmem_usage(bat *ret, bat *ret2, const lng *minsize)
 {
 	lng hbuns = 0, tbuns = 0, hhsh = 0, thsh = 0, hind = 0, tind = 0, head = 0, tail = 0, tot = 0, n = 0, sz;
-	BAT *bn = BATnew(TYPE_void, TYPE_str, 2 * BBPsize);
-	BAT *b = BATnew(TYPE_void, TYPE_lng, 2 * BBPsize);
+	BAT *bn = BATnew(TYPE_void, TYPE_str, 2 * getBBPsize(), TRANSIENT);
+	BAT *b = BATnew(TYPE_void, TYPE_lng, 2 * getBBPsize(), TRANSIENT);
 	struct Mallinfo m;
 	char buf[1024];
 	bat i;
 
 	if (b == 0 || bn == 0) {
-		if ( b) BBPreleaseref(b->batCacheid);
-		if ( bn) BBPreleaseref(bn->batCacheid);
+		if ( b) BBPunfix(b->batCacheid);
+		if ( bn) BBPunfix(bn->batCacheid);
 		throw(MAL, "status.memUsage", MAL_MALLOC_FAIL);
 	}
 	BATseqbase(b,0);
 	BATseqbase(bn,0);
 	BBPlock("SYSmem_usage");
-	for (i = 1; i < BBPsize; i++) {
-		BAT *b = BBP_cache(i);
+	for (i = 1; i < getBBPsize(); i++) {
+		BAT *c = BBPquickdesc(i,0);
 		str s;
 
-		if (!BBPvalid(i))
+		if( c == NULL  || !BBPvalid(i))
 			continue;
 
 		s = BBPname(i);
 		sz = 0;
 		if (BBP_desc(i))
-			sz += sizeof(BATstore);
+			sz += BATSTORESIZE;
 		if (BBP_logical(i))
 			n += strLen(BBP_logical(i));
 		if (BBP_logical(-i))
@@ -332,15 +329,15 @@ SYSmem_usage(int *ret, int *ret2, lng *minsize)
 		}
 		tot += (lng) sz;
 
-		if (b == NULL || isVIEW(b)) {
+		if (c == NULL || isVIEW(c)) {
 			continue;
 		}
-		heap(1,&b->H->heap,hbuns,"hbuns");
-		heap(1,&b->T->heap,tbuns,"tbuns");
-		heap(b->H->hash,b->H->hash->heap,hhsh,"hhsh");
-		heap(b->T->hash,b->T->hash->heap,thsh,"thsh");
-		heap(b->H->vheap,b->H->vheap,head,"head");
-		heap(b->T->vheap,b->T->vheap,tail,"tail");
+		heap(1,&c->H->heap,hbuns,"hbuns");
+		heap(1,&c->T->heap,tbuns,"tbuns");
+		heap(c->H->hash,c->H->hash->heap,hhsh,"hhsh");
+		heap(c->T->hash,c->T->hash->heap,thsh,"thsh");
+		heap(c->H->vheap,c->H->vheap,head,"head");
+		heap(c->T->vheap,c->T->vheap,tail,"tail");
 	}
 	/* totals per category */
 	BUNappend(bn, "_tot/hbuns", FALSE);
@@ -380,7 +377,7 @@ SYSmem_usage(int *ret, int *ret2, lng *minsize)
 	BUNappend(b, &sz, FALSE);
 
 	/* measure actual heap size, includes wasted fragmented space and anon mmap space used by malloc() */
-	sz = GDKmem_inuse();
+	sz = GDKmem_cursize();
 	BUNappend(bn, "_tot/heap", FALSE);
 	BUNappend(b, &sz, FALSE);
 
@@ -396,10 +393,10 @@ SYSmem_usage(int *ret, int *ret2, lng *minsize)
 	BUNappend(b, &tot, FALSE);
 
 	BBPunlock("SYSmem_usage");
-	if (!(bn->batDirty&2)) bn = BATsetaccess(bn, BAT_READ);
+	if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 	*ret = bn->batCacheid;
 	BBPkeepref(bn->batCacheid);
-	if (!(b->batDirty&2)) b = BATsetaccess(b, BAT_READ);
+	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	*ret2 = b->batCacheid;
 	BBPkeepref(b->batCacheid);
 
@@ -407,40 +404,40 @@ SYSmem_usage(int *ret, int *ret2, lng *minsize)
 }
 
 str
-SYSvm_usage(int *ret, int *ret2, lng *minsize)
+SYSvm_usage(bat *ret, bat *ret2, const lng *minsize)
 {
 	lng hbuns = 0, tbuns = 0, hhsh = 0, thsh = 0, hind = 0, tind = 0, head = 0, tail = 0, tot = 0, sz;
-	BAT *bn = BATnew(TYPE_void, TYPE_str, 2 * BBPsize);
-	BAT *b = BATnew(TYPE_void, TYPE_lng, 2 * BBPsize);
+	BAT *bn = BATnew(TYPE_void, TYPE_str, 2 * getBBPsize(), TRANSIENT);
+	BAT *b = BATnew(TYPE_void, TYPE_lng, 2 * getBBPsize(), TRANSIENT);
 	char buf[1024];
 	bat i;
 
 	if (b == 0 || bn == 0) {
-		if ( b) BBPreleaseref(b->batCacheid);
-		if ( bn) BBPreleaseref(bn->batCacheid);
+		if ( b) BBPunfix(b->batCacheid);
+		if ( bn) BBPunfix(bn->batCacheid);
 		throw(MAL, "status.vmStatistics", MAL_MALLOC_FAIL);
 	}
 	BATseqbase(b,0);
 	BATseqbase(bn,0);
 	BBPlock("SYSvm_usage");
-	for (i = 1; i < BBPsize; i++) {
-		BAT *b;
+	for (i = 1; i < getBBPsize(); i++) {
+		BAT *c;
 		str s;
 
 		if (!BBPvalid(i))
 			continue;
 
 		s = BBPname(i);
- 		b = BBP_cache(i);
-		if (b == NULL || isVIEW(b)) {
+ 		c = BBP_cache(i);
+		if (c == NULL || isVIEW(c)) {
 			continue;
 		}
-		heapvm(1,&b->H->heap,hbuns,"hbuns");
-		heapvm(1,&b->T->heap,tbuns,"tbuns");
-		heapvm(b->H->hash,b->H->hash->heap,hhsh,"hshh");
-		heapvm(b->T->hash,b->T->hash->heap,thsh,"thsh");
-		heapvm(b->H->vheap,b->H->vheap,head,"head");
-		heapvm(b->T->vheap,b->T->vheap,tail,"tail");
+		heapvm(1,&c->H->heap,hbuns,"hcuns");
+		heapvm(1,&c->T->heap,tbuns,"tcuns");
+		heapvm(c->H->hash,c->H->hash->heap,hhsh,"hshh");
+		heapvm(c->T->hash,c->T->hash->heap,thsh,"thsh");
+		heapvm(c->H->vheap,c->H->vheap,head,"head");
+		heapvm(c->T->vheap,c->T->vheap,tail,"tail");
 	}
 	/* totals per category */
 	BUNappend(bn, "_tot/hbuns", FALSE);
@@ -478,10 +475,10 @@ SYSvm_usage(int *ret, int *ret2, lng *minsize)
 	BUNappend(b, &sz, FALSE);
 
 	BBPunlock("SYSvm_usage");
-	if (!(bn->batDirty&2)) bn = BATsetaccess(bn, BAT_READ);
+	if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 	*ret = bn->batCacheid;
 	BBPkeepref(bn->batCacheid);
-	if (!(b->batDirty&2)) b = BATsetaccess(b, BAT_READ);
+	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	*ret2 = b->batCacheid;
 	BBPkeepref(b->batCacheid);
 	return MAL_SUCCEED;
@@ -521,7 +518,7 @@ SYSvm_usage(int *ret, int *ret2, lng *minsize)
  * The BAT grows. It should be compacted.
  */
 str
-SYSioStatistics(int *ret, int *ret2)
+SYSioStatistics(bat *ret, bat *ret2)
 {
 #ifndef NATIVE_WIN32
 	struct rusage ru;
@@ -532,11 +529,11 @@ SYSioStatistics(int *ret, int *ret2)
 #ifndef NATIVE_WIN32
 	getrusage(RUSAGE_SELF, &ru);
 #endif
-	bn = BATnew(TYPE_void, TYPE_str, 32);
-	b = BATnew(TYPE_void, TYPE_int, 32);
+	bn = BATnew(TYPE_void, TYPE_str, 32, TRANSIENT);
+	b = BATnew(TYPE_void, TYPE_int, 32, TRANSIENT);
 	if (b == 0 || bn == 0) {
-		if ( b) BBPreleaseref(b->batCacheid);
-		if ( bn) BBPreleaseref(bn->batCacheid);
+		if ( b) BBPunfix(b->batCacheid);
+		if ( bn) BBPunfix(bn->batCacheid);
 		throw(MAL, "status.ioStatistics", MAL_MALLOC_FAIL);
 	}
 	BATseqbase(b,0);
@@ -588,14 +585,14 @@ SYSioStatistics(int *ret, int *ret2)
 	BUNappend(b, &i, FALSE);
 #endif
 
-	if (!(b->batDirty&2)) b = BATsetaccess(b, BAT_READ);
-	if (!(bn->batDirty&2)) bn = BATsetaccess(bn, BAT_READ);
+	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
+	if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 	pseudo(ret,ret2,bn,b);
 	return MAL_SUCCEED;
 }
 
 str
-SYSgdkEnv(int *ret, int *ret2)
+SYSgdkEnv(bat *ret, bat *ret2)
 {
 	int pbat = 0;
 	int pdisk = 0;
@@ -604,17 +601,17 @@ SYSgdkEnv(int *ret, int *ret2)
 	int tmp = 0, per = 0;
 	BAT *b,*bn;
 
-	bn = BATnew(TYPE_void, TYPE_str, 32);
-	b = BATnew(TYPE_void, TYPE_int, 32);
+	bn = BATnew(TYPE_void, TYPE_str, 32, TRANSIENT);
+	b = BATnew(TYPE_void, TYPE_int, 32, TRANSIENT);
 	if (b == 0 || bn == 0) {
-		if ( b) BBPreleaseref(b->batCacheid);
-		if ( bn) BBPreleaseref(bn->batCacheid);
+		if ( b) BBPunfix(b->batCacheid);
+		if ( bn) BBPunfix(bn->batCacheid);
 		throw(MAL, "status.batStatistics", MAL_MALLOC_FAIL);
 	}
 	BATseqbase(b,0);
 	BATseqbase(bn,0);
 
-	for (i = 1; i < BBPsize; i++) {
+	for (i = 1; i < getBBPsize(); i++) {
 		if (BBPvalid(i)) {
 			pbat++;
 			if (BBP_cache(i)) {
@@ -628,35 +625,35 @@ SYSgdkEnv(int *ret, int *ret2)
 			}
 		}
 	}
-	bn = BUNappend(bn, "bats", FALSE);
-	b = BUNappend(b, &pbat, FALSE);
-	bn = BUNappend(bn, "tmpbats", FALSE);
-	b = BUNappend(b, &tmp, FALSE);
-	bn = BUNappend(bn, "perbats", FALSE);
-	b = BUNappend(b, &per, FALSE);
-	bn = BUNappend(bn, "ondisk", FALSE);
-	b = BUNappend(b, &pdisk, FALSE);
-	bn = BUNappend(bn, "todisk", FALSE);
-	b = BUNappend(b, &BBPout, FALSE);
-	bn = BUNappend(bn, "fromdisk", FALSE);
-	b = BUNappend(b, &BBPin, FALSE);
-	if (!(b->batDirty & 2)) b = BATsetaccess(b, BAT_READ);
-	if (!(bn->batDirty&2)) bn = BATsetaccess(bn, BAT_READ);
+	BUNappend(bn, "bats", FALSE);
+	BUNappend(b, &pbat, FALSE);
+	BUNappend(bn, "tmpbats", FALSE);
+	BUNappend(b, &tmp, FALSE);
+	BUNappend(bn, "perbats", FALSE);
+	BUNappend(b, &per, FALSE);
+	BUNappend(bn, "ondisk", FALSE);
+	BUNappend(b, &pdisk, FALSE);
+	BUNappend(bn, "todisk", FALSE);
+	BUNappend(b, &BBPout, FALSE);
+	BUNappend(bn, "fromdisk", FALSE);
+	BUNappend(b, &BBPin, FALSE);
+	if (!(b->batDirty & 2)) BATsetaccess(b, BAT_READ);
+	if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 	pseudo(ret,ret2, bn,b);
 	return MAL_SUCCEED;
 }
 
 str
-SYSgdkThread(int *ret, int *ret2)
+SYSgdkThread(bat *ret, bat *ret2)
 {
 	BAT *b, *bn;
 	int i;
 
-	bn = BATnew(TYPE_void,TYPE_int, THREADS);
-	b = BATnew(TYPE_void, TYPE_str, THREADS);
+	bn = BATnew(TYPE_void,TYPE_int, THREADS, TRANSIENT);
+	b = BATnew(TYPE_void, TYPE_str, THREADS, TRANSIENT);
 	if (b == 0 || bn == 0) {
-		if ( b) BBPreleaseref(b->batCacheid);
-		if ( bn) BBPreleaseref(bn->batCacheid);
+		if ( b) BBPunfix(b->batCacheid);
+		if ( bn) BBPunfix(bn->batCacheid);
 		throw(MAL, "status.getThreads", MAL_MALLOC_FAIL);
 	}
 	BATseqbase(b,0);
@@ -665,11 +662,11 @@ SYSgdkThread(int *ret, int *ret2)
 	for (i = 0; i < THREADS; i++) {
 		if (GDKthreads[i].pid){
 			BUNappend(bn, &GDKthreads[i].tid, FALSE);
-			BUNappend(b, GDKthreads[i].name, FALSE);
+			BUNappend(b, GDKthreads[i].name? GDKthreads[i].name:"", FALSE);
 		}
 	}
-	if (!(b->batDirty&2)) b = BATsetaccess(b, BAT_READ);
-	if (!(bn->batDirty&2)) bn = BATsetaccess(bn, BAT_READ);
+	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
+	if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
 	pseudo(ret,ret2,bn,b);
 	return MAL_SUCCEED;
 }

@@ -2,7 +2,7 @@
  * The contents of this file are subject to the MonetDB Public License
  * Version 1.1 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdbuorg/Legal/MonetDBtxtLicense
+ * http://www.monetdb.org/Legal/MonetDBLicense
  *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2013 MonetDB B.V.
+ * Copyright August 2008-2015 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -38,16 +38,29 @@
 QueryQueue QRYqueue;
 static int qtop, qsize;
 static int qtag= 1;
+static int calltag =0; // to identify each invocation
 
+
+static void 
+formatVolume(str buf, int len, lng vol){
+	if( vol <1024)
+		snprintf(buf,len,LLFMT,vol);
+	else
+	if( vol <1024*1024)
+		snprintf(buf,len,LLFMT "K",vol/1024);
+	else
+	if( vol <1024* 1024*1024)
+		snprintf(buf,len, LLFMT "M",vol/1024/1024);
+	else
+		snprintf(buf,len, "%6.1fG",vol/1024.0/1024/1024);
+}
 
 static str isaSQLquery(MalBlkPtr mb){
 	int i;
 	InstrPtr p;
 	if (mb)
-	for ( i = mb->stop-1 ; i > 0; i--){
+	for ( i = 0; i< mb->stop; i++){
 		p = getInstrPtr(mb,i);
-		if ( p->token == ENDsymbol)
-			break;
 		if ( getModuleId(p) && idcmp(getModuleId(p), "querylog") == 0 && idcmp(getFunctionId(p),"define")==0)
 			return getVarConstant(mb,getArg(p,1)).val.sval;
 	}
@@ -63,21 +76,23 @@ runtimeProfileInit(Client cntxt, MalBlkPtr mb, MalStkPtr stk)
 	int i;
 	str q;
 
-	if ( malProfileMode )
-		setFilterOnBlock(mb, 0, 0);
-
 	MT_lock_set(&mal_delayLock, "sysmon");
 	if ( QRYqueue == 0)
 		QRYqueue = (QueryQueue) GDKzalloc( sizeof (struct QRYQUEUE) * (qsize= 256));
 	else
 	if ( qtop +1 == qsize )
 		QRYqueue = (QueryQueue) GDKrealloc( QRYqueue, sizeof (struct QRYQUEUE) * (qsize +=256));
+	if ( QRYqueue == NULL){
+		GDKerror("runtimeProfileInit" MAL_MALLOC_FAIL);
+		MT_lock_unset(&mal_delayLock, "sysmon");
+		return;
+	}
 	for( i = 0; i < qtop; i++)
 		if ( QRYqueue[i].mb == mb)
 			break;
 
-	if ( mb->tag == 0)
-		mb->tag = OIDnew(1);
+	if ( stk->tag == 0)
+		stk->tag = calltag++;
 	if ( i == qtop ) {
 		QRYqueue[i].mb = mb;	// for detecting duplicates
 		QRYqueue[i].stk = stk;	// for status pause 'p'/running '0'/ quiting 'q'
@@ -107,7 +122,7 @@ runtimeProfileFinish(Client cntxt, MalBlkPtr mb)
 		QRYqueue[j++] = QRYqueue[i];
 	else  {
 		QRYqueue[i].mb->calls++;
-		QRYqueue[i].mb->runtime += ((lng)time(0) - QRYqueue[i].start) * 1000.0/QRYqueue[i].mb->calls;
+		QRYqueue[i].mb->runtime += (lng) (((lng)time(0) - QRYqueue[i].start) * 1000.0/QRYqueue[i].mb->calls);
 
 		// reset entry
 		if (QRYqueue[i].query)
@@ -125,69 +140,85 @@ runtimeProfileFinish(Client cntxt, MalBlkPtr mb)
 }
 
 void
-runtimeProfileBegin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int stkpc, RuntimeProfile prof, int start)
+finishSessionProfiler(Client cntxt)
 {
-	if ( mb->profiler == NULL)
-		return;
+	int i,j;
+
+	(void) cntxt;
+
+	MT_lock_set(&mal_delayLock, "sysmon");
+	for( i=j=0; i< qtop; i++)
+	if ( QRYqueue[i].cntxt != cntxt)
+		QRYqueue[j++] = QRYqueue[i];
+	else  {
+		//reset entry
+		if (QRYqueue[i].query)
+			GDKfree(QRYqueue[i].query);
+		QRYqueue[i].cntxt = 0;
+		QRYqueue[i].tag = 0;
+		QRYqueue[i].query = 0;
+		QRYqueue[i].status =0;
+		QRYqueue[i].stk =0;
+		QRYqueue[i].mb =0;
+	}
+	qtop = j;
+	MT_lock_unset(&mal_delayLock, "sysmon");
+}
+
+void
+runtimeProfileBegin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, RuntimeProfile prof)
+{
+	int tid = THRgettid();
+
+	/* keep track on the instructions taken in progress */
+	cntxt->active = TRUE;
+	if( tid < THREADS){
+		cntxt->inprogress[tid].mb = mb;
+		cntxt->inprogress[tid].stk = stk;
+		cntxt->inprogress[tid].pci = pci;
+	}
 
 	/* always collect the MAL instruction execution time */
-	prof->stkpc = stkpc;
-	mb->profiler[stkpc].clk = GDKusec();
-
-	if (malProfileMode == 0)
-		return; /* mostly true */
+	prof->ticks = GDKusec();
+	/* emit the instruction upon start as well */
 	
-	if (stk && mb->profiler[stkpc].trace) {
-		gettimeofday(&mb->profiler[stkpc].clock, NULL);
-		/* emit the instruction upon start as well */
-		profilerEvent(cntxt->idx, mb, stk, stkpc, start);
-#ifdef HAVE_TIMES
-		times(&mb->profiler[stkpc].timer);
-#endif
-	}
+	if(malProfileMode > 0)
+		profilerEvent(cntxt->idx, mb, stk, pci, TRUE);
 }
 
 void
 runtimeProfileExit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, RuntimeProfile prof)
 {
-	int i,j,fnd, stkpc;
+	int tid = THRgettid();
 
-	if ( mb->profiler == NULL)
-		return;
+	/* keep track on the instructions in progress*/
+	if ( tid < THREADS) {
+		cntxt->inprogress[tid].mb = 0;
+		cntxt->inprogress[tid].stk =0;
+		cntxt->inprogress[tid].pci = 0;
+	}
 
+	assert(pci);
+	assert(prof);
 	/* always collect the MAL instruction execution time */
-	stkpc= prof->stkpc;
-	mb->profiler[stkpc].ticks = GDKusec() - mb->profiler[stkpc].clk;
+	pci->ticks = GDKusec() - prof->ticks;
+	pci->totticks += pci->ticks;
+	pci->calls++;
 
-	if (malProfileMode == 0)
-		return; /* mostly true */
-
-	if (getProfileCounter(PROFfootprint) && pci){
-		for (i = 0; i < pci->retc; i++)
-			if ( isaBatType(getArgType(mb,pci,i)) && stk->stk[getArg(pci,i)].val.bval){
-				/* avoid simple alias operations */
-				fnd= 0;
-				for ( j= pci->retc; j< pci->argc; j++)
-					if ( isaBatType(getArgType(mb,pci,j)))
-						fnd+= stk->stk[getArg(pci,i)].val.bval == stk->stk[getArg(pci,j)].val.bval;
-				if (fnd == 0 )
-					updateFootPrint(mb,stk,getArg(pci,i));
-			}
+	// it is a potential expensive operation
+	if (pci->recycle){
+		pci->rbytes += getVolume(stk, pci, 0);
+		pci->wbytes += getVolume(stk, pci, 1);
 	}
-
-	if (stk != NULL && stkpc >= 0 && mb->profiler[stkpc].trace ) {
-		gettimeofday(&mb->profiler[stkpc].clock, NULL);
-		mb->profiler[stkpc].calls++;
-		mb->profiler[stkpc].totalticks += mb->profiler[stkpc].ticks;
-		if (pci) {
-			// it is a potential expensive operation
-			if (getProfileCounter(PROFrbytes))
-				mb->profiler[stkpc].rbytes = getVolume(stk, pci, 0);
-			if (getProfileCounter(PROFwbytes))
-				mb->profiler[stkpc].wbytes = getVolume(stk, pci, 1);
-		}
-		profilerEvent(cntxt->idx, mb, stk, stkpc, 0);
+	
+	if(malProfileMode > 0)
+			profilerEvent(cntxt->idx, mb, stk, pci, FALSE);
+	if( malProfileMode < 0){
+		/* delay profiling until you encounter start of MAL function */
+		if( getInstrPtr(mb,0) == pci)
+			malProfileMode = 1;
 	}
+	cntxt->active = FALSE;
 }
 
 /*
@@ -203,11 +234,13 @@ lng getVolume(MalStkPtr stk, InstrPtr pci, int rd)
 	BAT *b;
 	int isview = 0;
 
+	if( stk == NULL)
+		return 0;
 	limit = rd == 0 ? pci->retc : pci->argc;
 	i = rd ? pci->retc : 0;
 
 	if (stk->stk[getArg(pci, 0)].vtype == TYPE_bat) {
-		b = BBPquickdesc(ABS(stk->stk[getArg(pci, 0)].val.bval), TRUE);
+		b = BBPquickdesc(abs(stk->stk[getArg(pci, 0)].val.bval), TRUE);
 		if (b)
 			isview = isVIEW(b);
 	}
@@ -215,7 +248,7 @@ lng getVolume(MalStkPtr stk, InstrPtr pci, int rd)
 		if (stk->stk[getArg(pci, i)].vtype == TYPE_bat) {
 			oid cnt = 0;
 
-			b = BBPquickdesc(ABS(stk->stk[getArg(pci, i)].val.bval), TRUE);
+			b = BBPquickdesc(abs(stk->stk[getArg(pci, i)].val.bval), TRUE);
 			if (b == NULL)
 				continue;
 			cnt = BATcount(b);
@@ -246,7 +279,7 @@ updateFootPrint(MalBlkPtr mb, MalStkPtr stk, int varid)
     BAT *b;
 	BUN cnt;
     lng total = 0;
-	int bid;
+	bat bid;
 
 	if ( !mb || !stk)
 		return ;
@@ -256,14 +289,14 @@ updateFootPrint(MalBlkPtr mb, MalStkPtr stk, int varid)
         if (b == NULL || isVIEW(b) || b->batPersistence == PERSISTENT)
             return;
 		cnt = BATcount(b);
-		if( b->H ) total += heapinfo(&b->H->heap);
-		if( b->H ) total += heapinfo(b->H->vheap);
+		total += heapinfo(&b->H->heap);
+		total += heapinfo(b->H->vheap);
 
-		if ( b->T ) total += heapinfo(&b->T->heap);
-		if ( b->T ) total += heapinfo(b->T->vheap);
-		if ( b->H ) total += hashinfo(b->H->hash);
-		if ( b->T ) total += hashinfo(b->T->hash); 
-		BBPreleaseref(b->batCacheid);
+		total += heapinfo(&b->T->heap);
+		total += heapinfo(b->T->vheap);
+		total += hashinfo(b->H->hash);
+		total += hashinfo(b->T->hash);
+		BBPunfix(b->batCacheid);
 		// no concurrency protection (yet)
 		stk->tmpspace += total/1024/1024; // keep it in MBs
     }

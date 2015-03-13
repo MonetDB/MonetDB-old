@@ -125,9 +125,9 @@ mo_config_file(opt **Set, int setlen, char *file)
 		if (default_set == NULL) {
 			set = NULL;
 			setlen = mo_default_set(&set, 0);
-		}
+		} else
+			setlen = default_setlen;
 		Set = &default_set;
-		setlen = default_setlen;
 	}
 	set = *Set;
 	fd = fopen(file, "r");
@@ -209,9 +209,9 @@ mo_system_config(opt **Set, int setlen)
 			opt *set = NULL;
 
 			setlen = mo_default_set(&set, 0);
-		}
+		} else
+			setlen = default_setlen;
 		Set = &default_set;
-		setlen = default_setlen;
 	}
 	cfg = mo_find_option(*Set, setlen, "config");
 	if (!cfg)
@@ -250,7 +250,17 @@ mo_builtin_settings(opt **Set)
 	i++;
 	set[i].kind = opt_builtin;
 	set[i].name = strdup("gdk_vmtrim");
+	/* default for gdk_vmtrim is
+	 * "yes" on 32 bit architectures and
+	 * "no"  on 64 bit architectures;
+	 * see also GDKinit() in gdk/gdk_utils.c */
+#if SIZEOF_VOID_P == 4
+	/* 32 bit architecture */
 	set[i].value = strdup("yes");
+#else
+	/* 64 bit architecture */
+	set[i].value = strdup("no");
+#endif
 	i++;
 	set[i].kind = opt_builtin;
 	set[i].name = strdup("monet_prompt");
@@ -295,9 +305,9 @@ mo_add_option(opt **Set, int setlen, opt_kind kind, const char *name, const char
 		if (default_set == NULL) {
 			set = NULL;
 			setlen = mo_default_set(&set, 0);
-		}
+		} else
+			setlen = default_setlen;
 		Set = &default_set;
-		setlen = default_setlen;
 	}
 	set = (opt *) realloc(*Set, (setlen + 1) * sizeof(opt));
 	set[setlen].kind = kind;

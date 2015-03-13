@@ -22,7 +22,7 @@
 
 #define BBPLOADED	1	/* set if bat in memory */
 #define BBPSWAPPED	2	/* set if dirty bat is not in memory */
-#define BBPTMP          4	/* set if non-persistent bat has image on disk */
+#define BBPTMP		4	/* set if non-persistent bat has image on disk */
 
 /* These 4 symbols indicate what the persistence state is of a bat.
  * - If the bat was persistent at the last commit (or at startup
@@ -67,10 +67,11 @@
 
 gdk_export int BBPin;		/* BATs swapped into BBP  */
 gdk_export int BBPout;		/* BATs swapped out of BBP */
-gdk_export bat BBPsize;		/* current occupied size of BBP array */
+gdk_export bat getBBPsize(void); /* current occupied size of BBP array */
 
 /* global calls */
 gdk_export int BBPdir(int cnt, bat *subcommit);
+gdk_export void BBPaddfarm(const char *dirname, int rolemask);
 
 /* update interface */
 gdk_export void BBPclear(bat bid);
@@ -86,7 +87,6 @@ gdk_export BAT *BBPdescriptor(bat b);
 gdk_export int BBPsync(int cnt, bat *subcommit);
 gdk_export int BBPincref(bat b, int logical);
 gdk_export void BBPkeepref(bat i);
-gdk_export void BBPreleaseref(bat i);
 gdk_export int BBPdecref(bat b, int logical);
 gdk_export void BBPshare(bat b);
 

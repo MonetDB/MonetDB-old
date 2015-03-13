@@ -10,12 +10,11 @@ stdout of test 'device-self-ref-fk` in directory 'sql/test/BugTracker-2011` itse
 # Compiled for x86_64-pc-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.749 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
 # Listening for connection requests on mapi:monetdb://volund.ins.cwi.nl:33057/
 # MonetDB/GIS module loaded
 # MonetDB/SQL module loaded
-# MonetDB/DataCell module not loaded
 # SQLException:mvc:SQL module not initialized
 
 Ready.
@@ -37,7 +36,6 @@ Ready.
 # loading sql script: 24_zorder.sql
 # loading sql script: 25_debug.sql
 # loading sql script: 40_geom.sql
-# loading sql script: 50_datacell.sql
 # loading sql script: 80_udf.sql
 # loading sql script: 99_system.sql
 

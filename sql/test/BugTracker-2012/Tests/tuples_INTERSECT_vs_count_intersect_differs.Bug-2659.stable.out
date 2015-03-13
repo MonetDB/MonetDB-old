@@ -11,7 +11,7 @@ stdout of test 'tuples_INTERSECT_vs_count_intersect_differs.Bug-2659` in directo
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 15.629 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
 # Listening for connection requests on mapi:monetdb://budapest.ins.cwi.nl:31662/
 # MonetDB/GIS module loaded
@@ -273,7 +273,7 @@ Ready.
 #insert into T values (30,30,30,30,10);
 [ 1	]
 #select * from T intersect select * from T;
-% sys.t,	sys.t,	sys.t,	sys.t,	sys.t # table_name
+% sys.L,	sys.L,	sys.L,	sys.L,	sys.L # table_name
 % a,	b,	c,	d,	e # name
 % int,	int,	int,	int,	int # type
 % 3,	3,	3,	3,	3 # length
@@ -380,7 +380,7 @@ Ready.
 [ 25,	25,	25,	25,	24	]
 [ 30,	30,	30,	30,	10	]
 #select count(*) from (select * from T intersect select * from T ) as cnt;
-% sys.cnt # table_name
+% sys.L1 # table_name
 % L1 # name
 % wrd # type
 % 3 # length

@@ -122,8 +122,8 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	BBPincref(bat_fl, TRUE);
 
-	num_fl = BAT_fl->U->count;
-	num_fi = BAT_fi->U->count;
+	num_fl = BAT_fl->S->count;
+	num_fi = BAT_fi->S->count;
 
 	printf("files of interest: %d\n", num_fl);
 	
@@ -437,12 +437,12 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 	}
 	
-	mb->profiler = (ProfPtr) GDKrealloc(mb->profiler, (mb->ssize ) * sizeof(ProfRecord));
-	
-	for(; i < mb->stop; i++)
-	{
-		mb->profiler[i].trace = TRUE;
-	}
+// 	mb->profiler = (ProfPtr) GDKrealloc(mb->profiler, (mb->ssize ) * sizeof(ProfRecord));
+// 	
+// 	for(; i < mb->stop; i++)
+// 	{
+// 		mb->profiler[i].trace = TRUE;
+// 	}
 	
 	msg = msg;
 	/* run rest of the plan */

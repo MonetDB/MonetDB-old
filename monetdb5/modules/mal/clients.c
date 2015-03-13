@@ -35,6 +35,8 @@
 #include "mal_instruction.h"
 #include "mal_client.h"
 #include "mal_authorize.h"
+#include "mal_private.h"
+#include "mtime.h"
 
 #ifdef HAVE_LIBREADLINE
 #include <readline/readline.h>
@@ -42,7 +44,7 @@
 #endif
 
 static void
-pseudo(int *ret, BAT *b, str X1,str X2) {
+pseudo(bat *ret, BAT *b, str X1,str X2) {
 	char buf[BUFSIZ];
 	snprintf(buf,BUFSIZ,"%s_%s", X1,X2);
 	if (BBPindex(buf) <= 0)
@@ -58,8 +60,8 @@ str
 CLTsetListing(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) mb;
-	*(int*) getArgReference(stk,pci,0) = cntxt->listing;
-	cntxt->listing = *(int*) getArgReference(stk,pci,1);
+	*getArgReference_int(stk,pci,0) = cntxt->listing;
+	cntxt->listing = *getArgReference_int(stk,pci,1);
 	return MAL_SUCCEED;
 }
 
@@ -68,7 +70,7 @@ CLTgetClientId(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) mb;
 	assert(cntxt - mal_clients <= INT_MAX);
-	*(int*) getArgReference(stk,pci,0) = (int) (cntxt - mal_clients);
+	*getArgReference_int(stk,pci,0) = (int) (cntxt - mal_clients);
 	return MAL_SUCCEED;
 }
 
@@ -77,9 +79,9 @@ CLTgetScenario(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) mb;
 	if (cntxt->scenario)
-		*(str *) getArgReference(stk,pci,0) = GDKstrdup(cntxt->scenario);
+		*getArgReference_str(stk,pci,0) = GDKstrdup(cntxt->scenario);
 	else
-		*(str *) getArgReference(stk,pci,0) = GDKstrdup("nil");
+		*getArgReference_str(stk,pci,0) = GDKstrdup("nil");
 	return MAL_SUCCEED;
 }
 
@@ -89,10 +91,10 @@ CLTsetScenario(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg = MAL_SUCCEED;
 
 	(void) mb;
-	msg = setScenario(cntxt, *(str *) getArgReference(stk,pci,1));
-	*(str *) getArgReference(stk,pci,0) = 0;
+	msg = setScenario(cntxt, *getArgReference_str(stk,pci,1));
+	*getArgReference_str(stk,pci,0) = 0;
 	if (msg == NULL)
-		*(str *) getArgReference(stk,pci,0) = GDKstrdup(cntxt->scenario);
+		*getArgReference_str(stk,pci,0) = GDKstrdup(cntxt->scenario);
 	return msg;
 }
 
@@ -137,16 +139,16 @@ CLTtimeConvert(time_t l, char *s){
 str
 CLTInfo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int *ret=  (int *) getArgReference(stk,pci,0);
-	int *ret2=  (int *) getArgReference(stk,pci,0);
-	BAT *b = BATnew(TYPE_void, TYPE_str, 12);
-	BAT *bn = BATnew(TYPE_void, TYPE_str, 12);
+	bat *ret=  getArgReference_bat(stk,pci,0);
+	bat *ret2=  getArgReference_bat(stk,pci,0);
+	BAT *b = BATnew(TYPE_void, TYPE_str, 12, TRANSIENT);
+	BAT *bn = BATnew(TYPE_void, TYPE_str, 12, TRANSIENT);
 	char s[26];
 
 	(void) mb;
 	if (b == 0 || bn == 0){
-		if ( b != 0) BBPreleaseref(b->batCacheid);
-		if ( bn != 0) BBPreleaseref(bn->batCacheid);
+		if ( b != 0) BBPunfix(b->batCacheid);
+		if ( bn != 0) BBPunfix(bn->batCacheid);
 		throw(MAL, "clients.info", MAL_MALLOC_FAIL);
 	}
 
@@ -171,24 +173,23 @@ CLTInfo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	CLTtimeConvert((time_t) cntxt->login,s);
 	BUNappend(b, "login", FALSE);
 	BUNappend(bn, s, FALSE);
-	if (!(b->batDirty&2)) b = BATsetaccess(b, BAT_READ);
+	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	pseudo(ret,b,"client","info");
 	BBPkeepref(*ret2= bn->batCacheid);
 	return MAL_SUCCEED;
 }
 
 str
-CLTLogin(int *nme, int *ret)
+CLTLogin(bat *nme, bat *ret)
 {
-	BAT *b = BATnew(TYPE_void, TYPE_str, 12);
-	BAT *u = BATnew(TYPE_void, TYPE_oid, 12);
+	BAT *b = BATnew(TYPE_void, TYPE_str, 12, TRANSIENT);
+	BAT *u = BATnew(TYPE_void, TYPE_oid, 12, TRANSIENT);
 	int i;
 	char s[26];
 
-	if (b == 0)
-		throw(MAL, "clients.getLogins", MAL_MALLOC_FAIL);
-	if ( u==0){
-		BBPreleaseref(b->batCacheid);
+	if (b == 0 || u == 0) {
+		BBPreclaim(b);
+		BBPreclaim(u);
 		throw(MAL, "clients.getLogins", MAL_MALLOC_FAIL);
 	}
 	BATseqbase(b,0);
@@ -196,23 +197,23 @@ CLTLogin(int *nme, int *ret)
 
 	for (i = 0; i < MAL_MAXCLIENTS; i++) {
 		Client c = mal_clients+i;
-		if (c->mode >= CLAIMED && c->user != oid_nil) {
+		if (c->mode >= RUNCLIENT && c->user != oid_nil) {
 			CLTtimeConvert((time_t) c->login,s);
 			BUNappend(b, s, FALSE);
 			BUNappend(u, &c->user, FALSE);
 		}
 	}
-	if (!(b->batDirty&2)) b = BATsetaccess(b, BAT_READ);
-	if (!(u->batDirty&2)) u = BATsetaccess(u, BAT_READ);
+	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
+	if (!(u->batDirty&2)) BATsetaccess(u, BAT_READ);
 	pseudo(ret,b,"client","login");
 	pseudo(nme,u,"client","name");
 	return MAL_SUCCEED;
 }
 
 str
-CLTLastCommand(int *ret)
+CLTLastCommand(bat *ret)
 {
-	BAT *b = BATnew(TYPE_void, TYPE_str, 12);
+	BAT *b = BATnew(TYPE_void, TYPE_str, 12, TRANSIENT);
 	int i;
 	char s[26];
 
@@ -221,20 +222,20 @@ CLTLastCommand(int *ret)
 	BATseqbase(b,0);
 	for (i = 0; i < MAL_MAXCLIENTS; i++) {
 		Client c = mal_clients+i;
-		if (c->mode >= CLAIMED && c->user != oid_nil) {
+		if (c->mode >= RUNCLIENT && c->user != oid_nil) {
 			CLTtimeConvert((time_t) c->lastcmd,s);
 			BUNappend(b, s, FALSE);
 		}
 	}
-	if (!(b->batDirty&2)) b = BATsetaccess(b, BAT_READ);
+	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	pseudo(ret,b,"client","lastcommand");
 	return MAL_SUCCEED;
 }
 
 str
-CLTActions(int *ret)
+CLTActions(bat *ret)
 {
-	BAT *b = BATnew(TYPE_void, TYPE_int, 12);
+	BAT *b = BATnew(TYPE_void, TYPE_int, 12, TRANSIENT);
 	int i;
 
 	if (b == 0)
@@ -242,18 +243,18 @@ CLTActions(int *ret)
 	BATseqbase(b,0);
 	for (i = 0; i < MAL_MAXCLIENTS; i++) {
 		Client c = mal_clients+i;
-		if (c->mode >= CLAIMED && c->user != oid_nil) {
+		if (c->mode >= RUNCLIENT && c->user != oid_nil) {
 			BUNappend(b, &c->actions, FALSE);
 		}
 	}
-	if (!(b->batDirty&2)) b = BATsetaccess(b, BAT_READ);
+	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	pseudo(ret,b,"client","actions");
 	return MAL_SUCCEED;
 }
 str
-CLTTime(int *ret)
+CLTTime(bat *ret)
 {
-	BAT *b = BATnew(TYPE_void, TYPE_lng, 12);
+	BAT *b = BATnew(TYPE_void, TYPE_lng, 12, TRANSIENT);
 	int i;
 
 	if (b == 0)
@@ -261,11 +262,11 @@ CLTTime(int *ret)
 	BATseqbase(b,0);
 	for (i = 0; i < MAL_MAXCLIENTS; i++) {
 		Client c = mal_clients+i;
-		if (c->mode >= CLAIMED && c->user != oid_nil) {
+		if (c->mode >= RUNCLIENT && c->user != oid_nil) {
 			BUNappend(b, &c->totaltime, FALSE);
 		}
 	}
-	if (!(b->batDirty&2)) b = BATsetaccess(b, BAT_READ);
+	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	pseudo(ret,b,"client","usec");
 	return MAL_SUCCEED;
 }
@@ -274,9 +275,9 @@ CLTTime(int *ret)
  * Produce a list of clients currently logged in
  */
 str
-CLTusers(int *ret)
+CLTusers(bat *ret)
 {
-	BAT *b = BATnew(TYPE_void, TYPE_str, 12);
+	BAT *b = BATnew(TYPE_void, TYPE_str, 12, TRANSIENT);
 	int i;
 
 	if (b == 0)
@@ -284,10 +285,10 @@ CLTusers(int *ret)
 	BATseqbase(b,0);
 	for (i = 0; i < MAL_MAXCLIENTS; i++) {
 		Client c = mal_clients+i;
-		if (c->mode >= CLAIMED && c->user != oid_nil)
+		if (c->mode >= RUNCLIENT && c->user != oid_nil)
 			BUNappend(b, &i, FALSE);
 	}
-	if (!(b->batDirty&2)) b = BATsetaccess(b, BAT_READ);
+	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	pseudo(ret,b,"client","users");
 	return MAL_SUCCEED;
 }
@@ -295,7 +296,7 @@ CLTusers(int *ret)
 str
 CLTsetHistory(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	str* fname = (str *) getArgReference(stk,pci,1);
+	str* fname = getArgReference_str(stk,pci,1);
 	(void) mb;
 
 	if( cntxt->history){
@@ -324,13 +325,13 @@ CLTquit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ( pci->argc==2 && cntxt->idx != 0)
 		throw(MAL, "client.quit", INVCRED_ACCESS_DENIED);
 	if ( pci->argc==2)
-		id = *(int*) getArgReference(stk,pci,1);
+		id = *getArgReference_int(stk,pci,1);
 	else id =cntxt->idx;
 
 	if (id == 0 && cntxt->fdout != GDKout )
 		throw(MAL, "client.quit", INVCRED_ACCESS_DENIED);
 	if ( cntxt->idx == mal_clients[id].idx)
-		mal_clients[id].mode = FINISHING;
+		mal_clients[id].mode = FINISHCLIENT;
 	/* the console should be finished with an exception */
 	if (id == 0)
 		throw(MAL,"client.quit",SERVER_STOPPED);
@@ -340,7 +341,7 @@ CLTquit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 CLTstop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int id=  *(int *) getArgReference(stk,pci,1);
+	int id=  *getArgReference_int(stk,pci,1);
 	(void) mb;
 	if ( cntxt->user == mal_clients[id].user || 
 		mal_clients[0].user == cntxt->user){
@@ -353,27 +354,40 @@ CLTstop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 CLTsuspend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int *id=  (int *) getArgReference(stk,pci,1);
+	int *id=  getArgReference_int(stk,pci,1);
 	(void) cntxt;
 	(void) mb;
     return MCsuspendClient(*id);
 }
 
+//set time out based on seconds
+str
+CLTsetSessionTimeout(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	lng sto;
+	(void) mb;
+	sto=  *getArgReference_lng(stk,pci,1);
+	cntxt->stimeout = sto * 1000 * 1000;
+    return MAL_SUCCEED;
+}
 str
 CLTsetTimeout(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	lng qto=  *(lng *) getArgReference(stk,pci,1);
-	lng sto=  *(lng *) getArgReference(stk,pci,2);
+	lng qto,sto;
 	(void) mb;
-	cntxt->qtimeout = qto;
-	cntxt->stimeout = sto;
+	qto=  *getArgReference_lng(stk,pci,1);
+	cntxt->qtimeout = qto * 1000 * 1000;
+	if ( pci->argc == 3){
+		sto=  *getArgReference_lng(stk,pci,2);
+		cntxt->stimeout = sto * 1000 * 1000;
+	}
     return MAL_SUCCEED;
 }
 str
 CLTgetTimeout(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	lng *qto=  (lng *) getArgReference(stk,pci,0);
-	lng *sto=  (lng *) getArgReference(stk,pci,1);
+	lng *qto=  getArgReference_lng(stk,pci,0);
+	lng *sto=  getArgReference_lng(stk,pci,1);
 	(void) mb;
 	*qto = cntxt->qtimeout;
 	*sto = cntxt->stimeout;
@@ -381,7 +395,7 @@ CLTgetTimeout(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
-CLTwakeup(int *ret, int *id)
+CLTwakeup(void *ret, int *id)
 {
     (void) ret;     /* fool compiler */
     return MCawakeClient(*id);
@@ -440,9 +454,9 @@ str CLTbackendsum(str *ret, str *pw) {
 }
 
 str CLTaddUser(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
-	oid *ret = (oid *)getArgReference(stk, pci, 0);
-	str *usr = (str *)getArgReference(stk, pci, 1);
-	str *pw = (str *)getArgReference(stk, pci, 2);
+	oid *ret = getArgReference_oid(stk, pci, 0);
+	str *usr = getArgReference_str(stk, pci, 1);
+	str *pw = getArgReference_str(stk, pci, 2);
 
 	(void)mb;
 	
@@ -453,21 +467,21 @@ str CLTremoveUser(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	str *usr;
 	(void)mb;
 
-	usr = (str *)getArgReference(stk, pci, 1);
+	usr = getArgReference_str(stk, pci, 1);
 
 	return AUTHremoveUser(&cntxt, usr);
 }
 
 str CLTgetUsername(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
-	str *ret = (str *)getArgReference(stk, pci, 0);
+	str *ret = getArgReference_str(stk, pci, 0);
 	(void)mb;
 
 	return AUTHgetUsername(ret, &cntxt);
 }
 
 str CLTgetPasswordHash(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
-	str *ret = (str *)getArgReference(stk, pci, 0);
-	str *user = (str *)getArgReference(stk, pci, 1);
+	str *ret = getArgReference_str(stk, pci, 0);
+	str *user = getArgReference_str(stk, pci, 1);
 
 	(void)mb;
 
@@ -475,8 +489,8 @@ str CLTgetPasswordHash(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) 
 }
 
 str CLTchangeUsername(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
-	str *old = (str *)getArgReference(stk, pci, 1);
-	str *new = (str *)getArgReference(stk, pci, 2);
+	str *old = getArgReference_str(stk, pci, 1);
+	str *new = getArgReference_str(stk, pci, 2);
 
 	(void)mb;
 
@@ -484,8 +498,8 @@ str CLTchangeUsername(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 }
 
 str CLTchangePassword(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
-	str *old = (str *)getArgReference(stk, pci, 1);
-	str *new = (str *)getArgReference(stk, pci, 2);
+	str *old = getArgReference_str(stk, pci, 1);
+	str *new = getArgReference_str(stk, pci, 2);
 
 	(void)mb;
 
@@ -493,8 +507,8 @@ str CLTchangePassword(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 }
 
 str CLTsetPassword(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
-	str *usr = (str *)getArgReference(stk, pci, 1);
-	str *new = (str *)getArgReference(stk, pci, 2);
+	str *usr = getArgReference_str(stk, pci, 1);
+	str *new = getArgReference_str(stk, pci, 2);
 
 	(void)mb;
 
@@ -502,8 +516,8 @@ str CLTsetPassword(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 }
 
 str CLTcheckPermission(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
-	str *usr = (str *)getArgReference(stk, pci, 1);
-	str *pw = (str *)getArgReference(stk, pci, 2);
+	str *usr = getArgReference_str(stk, pci, 1);
+	str *pw = getArgReference_str(stk, pci, 2);
 	str ch = "";
 	str algo = "SHA1";
 	oid id;
@@ -518,7 +532,7 @@ str CLTcheckPermission(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) 
 }
 
 str CLTgetUsers(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
-	bat *ret = (bat *)getArgReference(stk, pci, 0);
+	bat *ret = getArgReference_bat(stk, pci, 0);
 	BAT *r = NULL;
 	str tmp;
 
@@ -531,8 +545,127 @@ str CLTgetUsers(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	return(MAL_SUCCEED);
 }
 
-str CLTshutdown(int *ret, bit *forced) {
-	(void) ret;
-	(void) forced;
-	throw(MAL,"clients.shutdown", PROGRAM_NYI);
+str
+CLTshutdown(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
+	str *ret  = getArgReference_str(stk,pci,0);
+	int delay = *getArgReference_int(stk,pci,1);
+	bit force = FALSE;
+	int leftover;
+	char buf[1024]={"safe to stop last connection"};
+
+	if ( pci->argc == 3) 
+		force = *getArgReference_bit(stk,pci,2);
+
+	(void) mb;
+	switch( getArgType(mb,pci,1)){
+	case TYPE_bte:
+	case TYPE_sht:
+		delay = *getArgReference_sht(stk,pci,1);
+		break;
+	default:
+		delay = *getArgReference_int(stk,pci,1);
+	}
+
+	if ( cntxt->user != mal_clients[0].user)
+		throw(MAL,"mal.shutdown", "Administrator rights required");
+	MCstopClients(cntxt);
+	do{
+		if ( (leftover = MCactiveClients()) )
+			MT_sleep_ms(1000);
+		delay --;
+	} while (delay > 0 && leftover > 1);
+	if( delay == 0 && leftover > 1)
+		snprintf(buf, 1024,"%d client sessions still running",leftover);
+	*ret = GDKstrdup(buf);
+	if ( force)
+		mal_exit();
+	return MAL_SUCCEED;
+}
+
+str
+CLTsessions(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	BAT *user = NULL, *login = NULL, *stimeout = NULL, *qtimeout = NULL, *last= NULL, *active= NULL;
+	bat *userId = getArgReference_bat(stk,pci,0);
+	bat *loginId = getArgReference_bat(stk,pci,1);
+	bat *stimeoutId = getArgReference_bat(stk,pci,2);
+	bat *lastId = getArgReference_bat(stk,pci,3);
+	bat *qtimeoutId = getArgReference_bat(stk,pci,4);
+	bat *activeId = getArgReference_bat(stk,pci,5);
+    Client c;
+	char usrname[256]= {"monetdb"};
+	timestamp ts, ret;
+	lng clk,timeout;
+	str msg;
+
+	(void) cntxt;
+	(void) mb;
+
+	user = BATnew(TYPE_void, TYPE_str, 0, TRANSIENT);
+	login = BATnew(TYPE_void, TYPE_lng, 0, TRANSIENT);
+	stimeout = BATnew(TYPE_void, TYPE_lng, 0, TRANSIENT);
+	last = BATnew(TYPE_void, TYPE_lng, 0, TRANSIENT);
+	qtimeout = BATnew(TYPE_void, TYPE_lng, 0, TRANSIENT);
+	active = BATnew(TYPE_void, TYPE_bit, 0, TRANSIENT);
+	if ( user == NULL || login == NULL || stimeout == NULL || qtimeout == NULL || active == NULL){
+		if ( user) BBPunfix(user->batCacheid);
+		if ( login) BBPunfix(login->batCacheid);
+		if ( stimeout) BBPunfix(stimeout->batCacheid);
+		if ( qtimeout) BBPunfix(qtimeout->batCacheid);
+		if ( last) BBPunfix(last->batCacheid);
+		if ( active) BBPunfix(active->batCacheid);
+		throw(SQL,"sql.sessions",MAL_MALLOC_FAIL);
+	}
+	BATseqbase(user,0);
+	BATseqbase(login,0);
+	BATseqbase(stimeout,0);
+	BATseqbase(last,0);
+	BATseqbase(qtimeout,0);
+	BATseqbase(active,0);
+	
+    MT_lock_set(&mal_contextLock, "clients.sessions");
+	
+    for (c = mal_clients + (GDKgetenv_isyes("monet_daemon") != 0); c < mal_clients + MAL_MAXCLIENTS; c++) 
+	if (c->mode == RUNCLIENT) {
+		BUNappend(user, &usrname, FALSE);
+		msg = MTIMEunix_epoch(&ts);
+		if (msg)
+			goto bailout;
+		clk = c->login * 1000;
+		msg = MTIMEtimestamp_add(&ret,&ts, &clk);
+		if (msg)
+			goto bailout;
+		BUNappend(login, &ret, FALSE);
+		timeout = c->stimeout / 1000000;
+		BUNappend(stimeout, &timeout, FALSE);
+		msg = MTIMEunix_epoch(&ts);
+		if (msg)
+			goto bailout;
+		clk = c->lastcmd * 1000;
+		msg = MTIMEtimestamp_add(&ret,&ts, &clk);
+		if (msg)
+			goto bailout;
+		BUNappend(last, &ret, FALSE);
+		timeout = c->qtimeout / 1000000;
+		BUNappend(qtimeout, &timeout, FALSE);
+		BUNappend(active, &c->active, FALSE);
+    }
+    MT_lock_unset(&mal_contextLock, "clients.sessions");
+	BBPkeepref(*userId = user->batCacheid);
+	BBPkeepref(*loginId = login->batCacheid);
+	BBPkeepref(*stimeoutId = stimeout->batCacheid);
+	BBPkeepref(*qtimeoutId = qtimeout->batCacheid);
+	BBPkeepref(*lastId = last->batCacheid);
+	BBPkeepref(*activeId = active->batCacheid);
+	return MAL_SUCCEED;
+
+  bailout:
+    MT_lock_unset(&mal_contextLock, "clients.sessions");
+	BBPunfix(user->batCacheid);
+	BBPunfix(login->batCacheid);
+	BBPunfix(stimeout->batCacheid);
+	BBPunfix(qtimeout->batCacheid);
+	BBPunfix(last->batCacheid);
+	BBPunfix(active->batCacheid);
+	return msg;
 }

@@ -11,7 +11,7 @@ stdout of test 'sequence-restart-with-null.Bug-2648` in directory 'sql/test/BugT
 # Compiled for x86_64-pc-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.750 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://monetdb.cwi.nl/ for further information
 # MonetDB/SQL module v11.0.0 loaded
 # MonetDB/GIS module v11.0.0 loaded
@@ -27,14 +27,14 @@ Ready.
 #create sequence testseq_2648 as integer start with 1;
 #create table testtbl_2648 (id integer);
 #select next value for testseq_2648;
-% . # table_name
+% .L # table_name
 % next_value_for_sys # name
 % bigint # type
 % 1 # length
 [ 1	]
 #alter sequence testseq_2648 restart with (select max(id) from testtbl_2648);
 #select next value for testseq_2648;
-% . # table_name
+% .L # table_name
 % next_value_for_sys # name
 % bigint # type
 % 1 # length

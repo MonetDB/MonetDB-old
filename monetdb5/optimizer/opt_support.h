@@ -45,31 +45,26 @@
 #define DEBUG_OPT_ALIASES			3
 #define DEBUG_OPT_REDUCE			4
 #define DEBUG_OPT_COMMONTERMS		5
-#define DEBUG_OPT_COMPRESS			6
 #define DEBUG_OPT_CONSTANTS			7
 #define DEBUG_OPT_COSTMODEL			8
 #define DEBUG_OPT_CRACK				9
-#define DEBUG_OPT_DATACELL			10
 #define DEBUG_OPT_DATACYCLOTRON		11
 #define DEBUG_OPT_DATAFLOW			12
 #define DEBUG_OPT_DEADCODE     		13
-#define DEBUG_OPT_GROUPS			14
 #define DEBUG_OPT_DICTIONARY		15
-#define DEBUG_OPT_EMPTYSET			16
 #define DEBUG_OPT_EVALUATE			17
 #define DEBUG_OPT_FACTORIZE			18
 #define DEBUG_OPT_GARBAGE			19
+#define DEBUG_OPT_GENERATOR			56
 #define DEBUG_OPT_INLINE			20
 #define DEBUG_OPT_JOINPATH			21
 #define DEBUG_OPT_MACRO				23
 #define DEBUG_OPT_MATPACK			53
 #define DEBUG_OPT_MERGETABLE		24
-#define DEBUG_OPT_OCTOPUS			25
 #define DEBUG_OPT_ORIGIN			52
 #define DEBUG_OPT_PARTITIONS		26
 #define DEBUG_OPT_PEEPHOLE			27
 #define DEBUG_OPT_PREJOIN      		28
-#define DEBUG_OPT_PUSHRANGES		29
 #define DEBUG_OPT_QEP				30
 #define DEBUG_OPT_RECYCLE			31
 #define DEBUG_OPT_REMAP       		32
@@ -83,14 +78,12 @@
 #define DEBUG_OPT_MITOSIS			41
 #define DEBUG_OPT_MULTIPLEX			42
 #define DEBUG_OPT_ACCUMULATORS		43
-#define DEBUG_OPT_CLUSTER			44
-#define DEBUG_OPT_MAPREDUCE			45
 #define DEBUG_OPT_SELCRACK			46
 #define DEBUG_OPT_SIDCRACK			47
 #define DEBUG_OPT_TRACE				48
 #define DEBUG_OPT_HEURISTIC			49
-#define DEBUG_OPT_CENTIPEDE			50
 #define DEBUG_OPT_PUSHSELECT		51
+#define DEBUG_OPT_JSON				54
 
 #define DEBUG_OPT(X) ((lng) 1 << (X))
 opt_export lng optDebug;
@@ -112,6 +105,7 @@ opt_export int hasCommonResults(InstrPtr p, InstrPtr q);
 opt_export int isProcedure(MalBlkPtr mb, InstrPtr p);
 opt_export int isUpdateInstruction(InstrPtr p);
 opt_export int hasSideEffects(InstrPtr p, int strict);
+opt_export int mayhaveSideEffects(Client cntxt, MalBlkPtr mb, InstrPtr p, int strict);
 opt_export int isSideEffectFree(MalBlkPtr mb);
 opt_export int isBlocking(InstrPtr p);
 opt_export int isAllScalar(MalBlkPtr mb, InstrPtr p);
@@ -126,9 +120,10 @@ opt_export int isSlice(InstrPtr q);
 opt_export int isOrderby(InstrPtr q);
 opt_export int isDiffOp(InstrPtr q);
 opt_export int isSubSelect(InstrPtr q);
+opt_export int isSubJoin(InstrPtr q);
 opt_export int allTargetsVisible(MalBlkPtr mb, Lifespan span, int pc,int qc);
 opt_export int isOptimizerEnabled(MalBlkPtr mb, str opt);
-opt_export str OPTsetDebugStr(int *ret, str *nme);
+opt_export str OPTsetDebugStr(void *ret, str *nme);
 /*
  * @-
  * The optimizerCheck is defensive. In some cases, e.g. coercion,

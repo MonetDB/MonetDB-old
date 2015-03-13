@@ -47,41 +47,39 @@
 int TYPE_mbr;
 
 geom_export wkb *wkbNULL(void);
-geom_export bat *geom_prelude(void);
-geom_export void geom_epilogue(void);
+geom_export str geom_prelude(void *ret);
+geom_export str geom_epilogue(void *ret);
 geom_export mbr *mbrNULL(void);
-geom_export int mbrFROMSTR(char *src, int *len, mbr **atom);
+geom_export int mbrFROMSTR(const char *src, int *len, mbr **atom);
 geom_export int mbrTOSTR(char **dst, int *len, mbr *atom);
 geom_export BUN mbrHASH(mbr *atom);
 geom_export int mbrCOMP(mbr *l, mbr *r);
 geom_export mbr *mbrREAD(mbr *a, stream *s, size_t cnt);
 geom_export int mbrWRITE(mbr *c, stream *s, size_t cnt);
-geom_export str mbrFromString(mbr **w, str *src);
+geom_export str mbrFromString(mbr **w, const str *src);
 geom_export str mbrFromMBR(mbr **w, mbr **src);
 geom_export int wkbTOSTR(char **dst, int *len, wkb *atom);
-geom_export int wkbFROMSTR(char *src, int *len, wkb **atom);
-geom_export str wkbFromString(wkb **w, str *wkt);
+geom_export int wkbFROMSTR(const char *src, int *len, wkb **atom);
+geom_export str wkbFromString(wkb **w, const str *wkt);
 geom_export str wkbFromWKB(wkb **w, wkb **src);
-geom_export str wkbFromText(wkb **w, str *wkt, int *tpe);
+geom_export str wkbFromText(wkb **w, const str *wkt, const int *tpe);
 geom_export BUN wkbHASH(wkb *w);
 geom_export int wkbCOMP(wkb *l, wkb *r);
 geom_export wkb *wkbNULL(void);
-geom_export str wkbIsnil(bit *r, wkb **v);
 geom_export str wkbAsText(str *r, wkb **w);
 geom_export void wkbDEL(Heap *h, var_t *index);
 geom_export wkb *wkbREAD(wkb *a, stream *s, size_t cnt);
 geom_export int wkbWRITE(wkb *a, stream *s, size_t cnt);
-geom_export void wkbCONVERT(wkb *b, int direction);
 geom_export int wkbLENGTH(wkb *p);
 geom_export void wkbHEAP(Heap *heap, size_t capacity);
 geom_export var_t wkbPUT(Heap *h, var_t *bun, wkb *val);
-geom_export str ordinatesMBR(mbr **res, flt *minX, flt *minY, flt *maxX, flt *maxY);
+geom_export str ordinatesMBR(mbr **res, const flt *minX, const flt *minY, const flt *maxX, const flt *maxY);
 geom_export str wkbMBR(mbr **res, wkb **geom);
 geom_export wkb *geos2wkb(GEOSGeom geosGeometry);
-geom_export str wkbgetcoordX(double *out, wkb **geom);
-geom_export str wkbgetcoordY(double *out, wkb **geom);
-geom_export str wkbcreatepoint(wkb **out, dbl *x, dbl *y);
-geom_export str wkbcreatepoint_bat(int *out, int *x, int *y);
+geom_export str wkbgetcoordX(dbl *out, wkb **geom);
+geom_export str wkbgetcoordY(dbl *out, wkb **geom);
+geom_export str wkbcreatepoint(wkb **out, const dbl *x, const dbl *y);
+geom_export str wkbcreatepoint_bat(bat *out, const bat *x, const bat *y);
 geom_export str mbroverlaps(bit *out, mbr **b1, mbr **b2);
 geom_export str wkbDimension(int *out, wkb **geom);
 geom_export str wkbGeometryTypeId(int *out, wkb **geom);
@@ -99,7 +97,7 @@ geom_export str wkbCrosses(bit *out, wkb **a, wkb **b);
 geom_export str wkbWithin(bit *out, wkb **a, wkb **b);
 geom_export str wkbContains(bit *out, wkb **a, wkb **b);
 geom_export str wkbOverlaps(bit *out, wkb **a, wkb **b);
-geom_export str wkbRelate(bit *out, wkb **a, wkb **b, str *pattern);
+geom_export str wkbRelate(bit *out, wkb **a, wkb **b, const str *pattern);
 geom_export str wkbArea(dbl *out, wkb **a);
 geom_export str wkbLength(dbl *out, wkb **a);
 geom_export str wkbDistance(dbl *out, wkb **a, wkb **b);
@@ -107,20 +105,23 @@ geom_export str wkbIntersection(wkb **out, wkb **a, wkb **b);
 geom_export str wkbUnion(wkb **out, wkb **a, wkb **b);
 geom_export str wkbDifference(wkb **out, wkb **a, wkb **b);
 geom_export str wkbSymDifference(wkb **out, wkb **a, wkb **b);
-geom_export str wkbBuffer(wkb **out, wkb **geom, dbl *distance);
+geom_export str wkbBuffer(wkb **out, wkb **geom, const dbl *distance);
 
-bat *
-geom_prelude(void)
+str
+geom_prelude(void *ret)
 {
+	(void) ret;
 	libgeom_init();
 	TYPE_mbr = malAtomSize(sizeof(mbr), sizeof(oid), "mbr");
-	return NULL;
+	return MAL_SUCCEED;
 }
 
-void
-geom_epilogue(void)
+str
+geom_epilogue(void *ret)
 {
+	(void) ret;
 	libgeom_exit();
+	return MAL_SUCCEED;
 }
 
 /*
@@ -138,31 +139,41 @@ mbr_isnil(mbr *m)
 /* NULL: generic nil mbr. */
 /* returns a pointer to a nil-mbr. */
 
+static mbr mbrNIL = {GDK_flt_min, GDK_flt_min, GDK_flt_min, GDK_flt_min};
+
 mbr *
 mbrNULL(void)
 {
-	static mbr mbrNIL;
-	mbrNIL.xmin = flt_nil;
-	mbrNIL.ymin = flt_nil;
-	mbrNIL.xmax = flt_nil;
-	mbrNIL.ymax = flt_nil;
-	return (&mbrNIL);
+	return &mbrNIL;
 }
 
 /* FROMSTR: parse string to mbr. */
 /* return number of parsed characters. */
 
 int
-mbrFROMSTR(char *src, int *len, mbr **atom)
+mbrFROMSTR(const char *src, int *len, mbr **atom)
 {
 	int nil = 0;
 	int nchars = 0;	/* The number of characters parsed; the return value. */
 	GEOSGeom geosMbr = NULL; /* The geometry object that is parsed from the src string. */
+	double xmin = 0, ymin = 0, xmax = 0, ymax = 0;
+	char *c;
 
 	if (strcmp(src, str_nil) == 0)
 		nil = 1;
 
-	if (!nil && (geosMbr = GEOSGeomFromWKT(src)) == NULL)
+	if (!nil && strstr(src,"BOX") ==  src && (c = strstr(src,"(")) != NULL) {
+		/* Parse the mbr */
+		if ((c - src) != 3 && (c - src) != 4) {
+			GDKerror("ParseException: Expected a string like 'BOX(0 0,1 1)' or 'BOX (0 0,1 1)'\n");
+			return 0;
+		}
+
+		if (sscanf(c,"(%lf %lf,%lf %lf)", &xmin, &ymin, &xmax, &ymax) != 4) {
+			GDKerror("ParseException: Not enough coordinates.\n");
+			return 0;
+		}
+	} else if (!nil && (geosMbr = GEOSGeomFromWKT(src)) == NULL)
 		return 0;
 
 	if (*len < (int) sizeof(mbr)) {
@@ -173,6 +184,19 @@ mbrFROMSTR(char *src, int *len, mbr **atom)
 	if (nil) {
 		nchars = 3;
 		**atom = *mbrNULL();
+	} else if (geosMbr == NULL) {
+		size_t l;
+		assert(GDK_flt_min <= xmin && xmin <= GDK_flt_max);
+		assert(GDK_flt_min <= xmax && xmax <= GDK_flt_max);
+		assert(GDK_flt_min <= ymin && ymin <= GDK_flt_max);
+		assert(GDK_flt_min <= ymax && ymax <= GDK_flt_max);
+		(*atom)->xmin = (float) xmin;
+		(*atom)->ymin = (float) ymin;
+		(*atom)->xmax = (float) xmax;
+		(*atom)->ymax = (float) ymax;
+		l = strlen(src);
+		assert(l <= GDK_int_max);
+		nchars = (int) l;
 	} else if (getMbrGeos(*atom, geosMbr)) {
 		size_t l = strlen(src);
 		assert(l <= GDK_int_max);
@@ -191,14 +215,16 @@ mbrFROMSTR(char *src, int *len, mbr **atom)
 int
 mbrTOSTR(char **dst, int *len, mbr *atom)
 {
-	static char tempWkt[MBR_WKTLEN];
-	size_t dstStrLen = 3;
+	char tempWkt[MBR_WKTLEN];
+	size_t dstStrLen;
 
 	if (!mbr_isnil(atom)) {
-		snprintf(tempWkt, MBR_WKTLEN, "BOX (%f %f, %f %f)",
+		snprintf(tempWkt, MBR_WKTLEN, "\"BOX (%f %f, %f %f)\"",
 			 atom->xmin, atom->ymin, atom->xmax, atom->ymax);
-		dstStrLen = strlen(tempWkt) + 2;
-		assert(dstStrLen < GDK_int_max);
+		dstStrLen = strlen(tempWkt);
+	} else {
+		strcpy(tempWkt, "nil");
+		dstStrLen = 3;
 	}
 
 	if (*len < (int) dstStrLen + 1) {
@@ -208,7 +234,7 @@ mbrTOSTR(char **dst, int *len, mbr *atom)
 	}
 
 	if (dstStrLen > 3)
-		snprintf(*dst, *len, "\"%s\"", tempWkt);
+		snprintf(*dst, *len, "%s", tempWkt);
 	else
 		strcpy(*dst, "nil");
 	return (int) dstStrLen;
@@ -232,12 +258,12 @@ mbrCOMP(mbr *l, mbr *r)
 	/* simple lexicographical ordering on (x,y) */
 	int res;
 	if (l->xmin == r->xmin)
-		res = (l->ymin < r->ymin) ? -1 : (l->ymin == r->ymin) ? 0 : 1;
+		res = (l->ymin < r->ymin) ? -1 : (l->ymin != r->ymin);
 	else
 		res = (l->xmin < r->xmin) ? -1 : 1;
 	if (res == 0) {
 		if (l->xmax == r->xmax)
-			res = (l->ymax < r->ymax) ? -1 : (l->ymax == r->ymax) ? 0 : 1;
+			res = (l->ymax < r->ymax) ? -1 : (l->ymax != r->ymax);
 		else
 			res = (l->xmax < r->xmax) ? -1 : 1;
 	}
@@ -284,7 +310,7 @@ mbrWRITE(mbr *c, stream *s, size_t cnt)
 }
 
 str
-mbrFromString(mbr **w, str *src)
+mbrFromString(mbr **w, const str *src)
 {
 	int len = *w ? (int) sizeof(mbr) : 0;
 	char *errbuf;
@@ -326,8 +352,8 @@ wkb_size(size_t len)
 {
 	if (len == ~(size_t) 0)
 		len = 0;
-	assert(sizeof(wkb) - 1 + len <= VAR_MAX);
-	return (var_t) (sizeof(wkb) - 1 + len);
+	assert(offsetof(wkb, data) + len <= VAR_MAX);
+	return (var_t) (offsetof(wkb, data) + len);
 }
 
 /* TOSTR: print atom in a string. */
@@ -369,7 +395,7 @@ wkbTOSTR(char **dst, int *len, wkb *atom)
 /* return number of parsed characters. */
 
 int
-wkbFROMSTR(char *src, int *len, wkb **atom)
+wkbFROMSTR(const char *src, int *len, wkb **atom)
 {
 	GEOSGeom geosGeometry = NULL;	/* The geometry object that is parsed from the src string. */
 	unsigned char *wkbSer = NULL;	/* The "well known binary" serialization of the geometry object. */
@@ -419,7 +445,7 @@ wkbFROMSTR(char *src, int *len, wkb **atom)
 }
 
 str
-wkbFromString(wkb **w, str *wkt)
+wkbFromString(wkb **w, const str *wkt)
 {
 	int len = 0;
 	char *errbuf;
@@ -458,7 +484,7 @@ wkbFromWKB(wkb **w, wkb **src)
 }
 
 str
-wkbFromText(wkb **w, str *wkt, int *tpe)
+wkbFromText(wkb **w, const str *wkt, const int *tpe)
 {
 	int len = 0, te = *tpe;
 	char *errbuf;
@@ -511,26 +537,18 @@ wkbCOMP(wkb *l, wkb *r)
 	if (len != r->len)
 		return len - r->len;
 
-	if (len == ~(int) 0)
+	if (len == ~0)
 		return (0);
 
 	return memcmp(l->data, r->data, len);
 }
 
+static wkb wkb_nil = {~0};
+
 wkb *
 wkbNULL(void)
 {
-	static wkb nullval;
-
-	nullval.len = ~(int) 0;
-	return (&nullval);
-}
-
-str
-wkbIsnil(bit *r, wkb **v)
-{
-	*r = wkb_isnil(*v);
-	return MAL_SUCCEED;
+	return &wkb_nil;
 }
 
 str
@@ -557,7 +575,7 @@ wkbREAD(wkb *a, stream *s, size_t cnt)
 
 	(void) cnt;
 	assert(cnt == 1);
-	if (!mnstr_readInt(s, &len))
+	if (mnstr_readInt(s, &len) != 1)
 		return NULL;
 	if ((a = GDKmalloc(wkb_size(len))) == NULL)
 		return NULL;
@@ -582,13 +600,6 @@ wkbWRITE(wkb *a, stream *s, size_t cnt)
 	    mnstr_write(s, (char *) a->data, len, 1) < 0)
 		return GDK_FAIL;
 	return GDK_SUCCEED;
-}
-
-void
-wkbCONVERT(wkb *b, int direction)
-{
-	(void) direction;
-	b->len = normal_int_SWAP(b->len);
 }
 
 int
@@ -622,7 +633,7 @@ wkbPUT(Heap *h, var_t *bun, wkb *val)
  */
 
 str
-ordinatesMBR(mbr **res, flt *minX, flt *minY, flt *maxX, flt *maxY)
+ordinatesMBR(mbr **res, const flt *minX, const flt *minY, const flt *maxX, const flt *maxY)
 {
 	if ((*res = (mbr *) GDKmalloc(sizeof(mbr))) == NULL)
 		throw(MAL, "geom.mbr", MAL_MALLOC_FAIL);
@@ -682,7 +693,7 @@ geos2wkb(GEOSGeom geosGeometry)
 }
 
 static str
-wkbgetcoordXY(double *out, wkb **geom,
+wkbgetcoordXY(dbl *out, wkb **geom,
 	      int (*func)(const GEOSCoordSequence *, unsigned int, double *),
 	      const char *name)
 {
@@ -719,19 +730,19 @@ wkbgetcoordXY(double *out, wkb **geom,
 }
 
 str
-wkbgetcoordX(double *out, wkb **geom)
+wkbgetcoordX(dbl *out, wkb **geom)
 {
 	return wkbgetcoordXY(out, geom, GEOSCoordSeq_getX, "geom.X");
 }
 
 str
-wkbgetcoordY(double *out, wkb **geom)
+wkbgetcoordY(dbl *out, wkb **geom)
 {
 	return wkbgetcoordXY(out, geom, GEOSCoordSeq_getY, "geom.Y");
 }
 
 str
-wkbcreatepoint(wkb **out, dbl *x, dbl *y)
+wkbcreatepoint(wkb **out, const dbl *x, const dbl *y)
 {
 	GEOSCoordSeq pnt;
 	if (*x == dbl_nil || *y == dbl_nil) {
@@ -750,76 +761,61 @@ wkbcreatepoint(wkb **out, dbl *x, dbl *y)
 }
 
 str
-wkbcreatepoint_bat(int *out, int *ix, int *iy)
+wkbcreatepoint_bat(bat *out, const bat *ix, const bat *iy)
 {
 	BAT *bo = NULL, *bx = NULL, *by = NULL;
 	dbl *x = NULL, *y = NULL;
-	BUN i, o;
+	BUN i;
 	wkb *p = NULL;
 
 	if ((bx = BATdescriptor(*ix)) == NULL) {
 		throw(MAL, "geom.point", RUNTIME_OBJECT_MISSING);
 	}
 	if ((by = BATdescriptor(*iy)) == NULL) {
-		BBPreleaseref(bx->batCacheid);
+		BBPunfix(bx->batCacheid);
 		throw(MAL, "geom.point", RUNTIME_OBJECT_MISSING);
 	}
-	if (!BAThdense(bx) ||
-	    !BAThdense(by) ||
+	if ( bx->htype != TYPE_void ||
+		 by->htype != TYPE_void ||
 	    bx->hseqbase != by->hseqbase ||
 	    BATcount(bx) != BATcount(by)) {
-		BBPreleaseref(bx->batCacheid);
-		BBPreleaseref(by->batCacheid);
+		BBPunfix(bx->batCacheid);
+		BBPunfix(by->batCacheid);
 		throw(MAL, "geom.point", "both arguments must have dense and aligned heads");
 	}
 
-	if ((bo = BATnew(TYPE_void, ATOMindex("wkb"), BATcount(bx))) == NULL) {
-		BBPreleaseref(bx->batCacheid);
-		BBPreleaseref(by->batCacheid);
+	if ((bo = BATnew(TYPE_void, ATOMindex("wkb"), BATcount(bx), TRANSIENT)) == NULL) {
+		BBPunfix(bx->batCacheid);
+		BBPunfix(by->batCacheid);
 		throw(MAL, "geom.point", MAL_MALLOC_FAIL);
 	}
 	BATseqbase(bo, bx->hseqbase);
-	bo->hdense = TRUE;
-	bo->hsorted = TRUE;
-	bo->H->nonil = TRUE;
-	BATkey(bo, TRUE);
 
 	x = (dbl *) Tloc(bx, BUNfirst(bx));
 	y = (dbl *) Tloc(by, BUNfirst(bx));
-	for (i = 0, o = BUNlast(bo); i < BATcount(bx); i++, o++) {
+	for (i = 0; i < BATcount(bx); i++) {
 		str err = NULL;
 		if ((err = wkbcreatepoint(&p, &x[i], &y[i])) != MAL_SUCCEED) {
-			BBPreleaseref(bx->batCacheid);
-			BBPreleaseref(by->batCacheid);
-			BBPreleaseref(bo->batCacheid);
-			throw(MAL, "geom.point", "%s", err);
+			str msg;
+			BBPunfix(bx->batCacheid);
+			BBPunfix(by->batCacheid);
+			BBPunfix(bo->batCacheid);
+			msg = createException(MAL, "geom.point", "%s", err);
+			GDKfree(err);
+			return msg;
 		}
-		tfastins_nocheck(bo, o, p, Tsize(bo));
+		BUNappend(bo,p,TRUE);
 		GDKfree(p);
 		p = NULL;
 	}
 
 	BATsetcount(bo, BATcount(bx));
-	bo->batDirty = TRUE;
-	bo->tdense = FALSE;
-	bo->tsorted = BATcount(bo) <= 1;
-	bo->trevsorted = BATcount(bo) <= 1;
-	bo->hrevsorted = BATcount(bo) <= 1;
-	bo->T->nonil = (bx->T->nonil && by->T->nonil);
-	BATkey(BATmirror(bo), (bx->tkey && by->tkey));
-
-	BBPreleaseref(bx->batCacheid);
-	BBPreleaseref(by->batCacheid);
+    BATsettrivprop(bo);
+    BATderiveProps(bo,FALSE);
+	BBPunfix(bx->batCacheid);
+	BBPunfix(by->batCacheid);
 	BBPkeepref(*out = bo->batCacheid);
 	return MAL_SUCCEED;
-
-  bunins_failed:
-	if (p)
-		GDKfree(p);
-	BBPreleaseref(bx->batCacheid);
-	BBPreleaseref(by->batCacheid);
-	BBPreleaseref(bo->batCacheid);
-	throw(MAL, "geom.point", "bunins failed");
 }
 
 str
@@ -1048,10 +1044,11 @@ wkbOverlaps(bit *out, wkb **a, wkb **b)
 }
 
 str
-wkbRelate(bit *out, wkb **a, wkb **b, str *pattern)
+wkbRelate(bit *out, wkb **a, wkb **b, const str *pattern)
 {
 	GEOSGeom ga = wkb2geos(*a);
 	GEOSGeom gb = wkb2geos(*b);
+	char res;
 
 	if (!ga && gb) {
 		GEOSGeom_destroy(gb);
@@ -1068,11 +1065,14 @@ wkbRelate(bit *out, wkb **a, wkb **b, str *pattern)
 		return MAL_SUCCEED;
 	}
 
-	*out = GEOSRelatePattern(ga, gb, *pattern);
+	res = GEOSRelatePattern(ga, gb, *pattern);
 
 	GEOSGeom_destroy(ga);
 	GEOSGeom_destroy(gb);
 
+	if (res == 2)
+		throw(MAL, "geom.Relate", GDK_EXCEPTION);
+	*out = (bit) res;
 	return MAL_SUCCEED;
 }
 
@@ -1209,7 +1209,7 @@ wkbSymDifference(wkb **out, wkb **a, wkb **b)
 }
 
 str
-wkbBuffer(wkb **out, wkb **geom, dbl *distance)
+wkbBuffer(wkb **out, wkb **geom, const dbl *distance)
 {
 	GEOSGeom geosGeometry = wkb2geos(*geom);
 

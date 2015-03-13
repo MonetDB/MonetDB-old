@@ -38,7 +38,7 @@
  *
  * A client record is initialized upon acceptance of a connection.  The
  * client runs in his own thread of control until it finds a
- * soft-termination request mode (FINISHING) or its IO file descriptors
+ * soft-termination request mode (FINISHCLIENT) or its IO file descriptors
  * are closed. The latter generates an IO error, which leads to a safe
  * termination.
  *
@@ -50,12 +50,15 @@
  * any interference from parallel actions to obtain client records.
  */
 
+/* (author) M.L. Kersten */
 #include "monetdb_config.h"
 #include "mal_client.h"
 #include "mal_readline.h"
 #include "mal_import.h"
 #include "mal_parser.h"
 #include "mal_namespace.h"
+#include "mal_private.h"
+#include "mal_runtime.h"
 #include <mapi.h> /* for PROMPT1 */
 
 
@@ -89,6 +92,10 @@ MCinit(void)
 		/* console */ 1 +
 		/* client connections */ maxclients;
 	mal_clients = GDKzalloc(sizeof(ClientRec) * MAL_MAXCLIENTS);
+	if( mal_clients == NULL){
+		showException(GDKout, MAL, "MCinit",MAL_MALLOC_FAIL);
+		mal_exit();
+	}
 }
 
 int
@@ -134,14 +141,14 @@ MCnewClient(void)
 {
 	Client c;
 	MT_lock_set(&mal_contextLock, "newClient");
-	if (mal_clients[CONSOLE].user && mal_clients[CONSOLE].mode == FINISHING) {
+	if (mal_clients[CONSOLE].user && mal_clients[CONSOLE].mode == FINISHCLIENT) {
 		/*system shutdown in progress */
 		MT_lock_unset(&mal_contextLock, "newClient");
 		return NULL;
 	}
 	for (c = mal_clients; c < mal_clients + MAL_MAXCLIENTS; c++) {
 		if (c->mode == FREECLIENT) {
-			c->mode = CLAIMED;
+			c->mode = RUNCLIENT;
 			break;
 		}
 	}
@@ -170,17 +177,18 @@ MCnewClient(void)
 Client
 MCgetClient(int id)
 {
-	if (id < 0 || id > MAL_MAXCLIENTS)
+	if (id < 0 || id >= MAL_MAXCLIENTS)
 		return NULL;
 	return mal_clients + id;
 }
 
-static void
+void
 MCexitClient(Client c)
 {
 #ifdef MAL_CLIENT_DEBUG
 	printf("# Exit client %d\n", c->idx);
 #endif
+	finishSessionProfiler(c);
 	MPresetProfiler(c->fdout);
 	if (c->father == NULL) { /* normal client */
 		if (c->fdout && c->fdout != GDKstdout) {
@@ -227,6 +235,8 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 
 	c->father = NULL;
 	c->login = c->lastcmd = time(0);
+	//c->active = 0;
+	c->session = GDKusec();
 	c->qtimeout = 0;
 	c->stimeout = 0;
 	c->stage = 0;
@@ -241,8 +251,7 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 
 	c->actions = 0;
 	c->totaltime = 0;
-	c->rcc = (RecPtr) GDKzalloc(sizeof(RecStat));
-	c->rcc->curQ = -1;
+	/* create a recycler cache */
 	c->exception_buf_initialized = 0;
 	MT_sema_init(&c->s, 0, "Client->s");
 	return c;
@@ -272,8 +281,7 @@ MCinitClientThread(Client c)
 	cname[11] = '\0';
 	t = THRnew(cname);
 	if (t == 0) {
-		showException(c->fdout, MAL, "initClientThread",
-				"Failed to initialize client");
+		showException(c->fdout, MAL, "initClientThread", "Failed to initialize client");
 		MPresetProfiler(c->fdout);
 		return -1;
 	}
@@ -286,7 +294,12 @@ MCinitClientThread(Client c)
 	c->mythread = t;
 	c->errbuf = GDKerrbuf;
 	if (c->errbuf == NULL) {
-		GDKsetbuf(GDKzalloc(GDKMAXERRLEN));
+		char *n = GDKzalloc(GDKMAXERRLEN);
+		if ( n == NULL){
+			showException(GDKout, MAL, "initClientThread", "Failed to initialize client");
+			return -1;
+		}
+		GDKsetbuf(n);
 		c->errbuf = GDKerrbuf;
 	} else
 		c->errbuf[0] = 0;
@@ -343,7 +356,7 @@ void
 freeClient(Client c)
 {
 	Thread t = c->mythread;
-	c->mode = FINISHING;
+	c->mode = FINISHCLIENT;
 
 #ifdef MAL_CLIENT_DEBUG
 	printf("# Free client %d\n", c->idx);
@@ -366,15 +379,12 @@ freeClient(Client c)
 	}
 	c->father = 0;
 	c->login = c->lastcmd = 0;
+	//c->active = 0;
 	c->qtimeout = 0;
 	c->stimeout = 0;
-	if (c->rcc) {
-		GDKfree(c->rcc);
-		c->rcc = NULL;
-	}
 	c->user = oid_nil;
 	c->mythread = 0;
-	c->mode = FREECLIENT;
+	c->mode = MCshutdowninprogress()? BLOCKCLIENT: FREECLIENT;
 	GDKfree(c->glb);
 	c->glb = NULL;
 	if (t)
@@ -393,7 +403,49 @@ freeClient(Client c)
  *
  * Furthermore, once we enter closeClient, the process in which it is
  * raised has already lost its file descriptors.
+ *
+ * When the server is about to shutdown, we should softly terminate
+ * all outstanding session.
  */
+static int shutdowninprogress = 0;
+
+int
+MCshutdowninprogress(void){
+	return shutdowninprogress;
+}
+
+void
+MCstopClients(Client cntxt)
+{
+	Client c = mal_clients;
+
+	MT_lock_set(&mal_contextLock,"stopClients");
+	for(c= mal_clients +1;  c < mal_clients+MAL_MAXCLIENTS; c++)
+	if( cntxt != c){
+		if ( c->mode == RUNCLIENT)
+			c->mode = FINISHCLIENT; 
+		else if (c->mode == FREECLIENT)
+			c->mode = BLOCKCLIENT;
+	}
+	shutdowninprogress =1;
+	MT_lock_unset(&mal_contextLock,"stopClients");
+}
+
+int
+MCactiveClients(void)
+{
+	int freeclient=0, finishing=0, running=0, blocked = 0;
+	Client cntxt = mal_clients;
+
+	for(cntxt= mal_clients+1;  cntxt<mal_clients+MAL_MAXCLIENTS; cntxt++){
+		freeclient += (cntxt->mode == FREECLIENT);
+		finishing += (cntxt->mode == FINISHCLIENT);
+		running += (cntxt->mode == RUNCLIENT);
+		blocked += (cntxt->mode == BLOCKCLIENT);
+	}
+	return finishing+running;
+}
+
 void
 MCcloseClient(Client c)
 {
@@ -407,33 +459,14 @@ MCcloseClient(Client c)
 	}
 
 	/* adm is set to disallow new clients entering */
-	mal_clients[CONSOLE].mode = FINISHING;
+	mal_clients[CONSOLE].mode = FINISHCLIENT;
 	mal_exit();
-}
-
-/*
- * At the end of the server session all remaining structured are
- * explicitly released to simplify detection of memory leakage problems.
- */
-void
-MCcleanupClients(void)
-{
-	Client c;
-	for (c = mal_clients; c < mal_clients + MAL_MAXCLIENTS; c++) {
-		if (c->prompt) {
-			GDKfree(c->prompt);
-			c->prompt = NULL;
-		}
-		c->user = oid_nil;
-		assert(c->bak == NULL);
-		MCexitClient(c);
-	}
 }
 
 str
 MCsuspendClient(int id)
 {
-	if (id < 0 || id > MAL_MAXCLIENTS)
+	if (id < 0 || id >= MAL_MAXCLIENTS)
 		throw(INVCRED, "mal.clients", INVCRED_WRONG_ID);
 	mal_clients[id].itrace = 'S';
 	return MAL_SUCCEED;
@@ -442,26 +475,10 @@ MCsuspendClient(int id)
 str
 MCawakeClient(int id)
 {
-	if (id < 0 || id > MAL_MAXCLIENTS)
+	if (id < 0 || id >= MAL_MAXCLIENTS)
 		throw(INVCRED, "mal.clients", INVCRED_WRONG_ID);
 	mal_clients[id].itrace = 0;
 	return MAL_SUCCEED;
-}
-
-/*
- * In embedded mode there can be at most one console client and one Mapi
- * connection. Moreover, the Mapi connection should disable the
- * administrator console.
- */
-int
-MCcountClients(void)
-{
-	int cnt = 0;
-	Client c;
-	for (c = mal_clients; c < mal_clients + MAL_MAXCLIENTS; c++)
-		if (c->mode != FREECLIENT)
-			cnt++;
-	return cnt;
 }
 
 /*
@@ -525,14 +542,6 @@ MCreadClient(Client c)
 				*(p + 1) = 0;
 			if (p != in->buf + in->len - 1)
 				in->len++;
-		}
-		if (sum == 0 && in->eof && isa_block_stream(in->s)) {
-			/* we hadn't seen the EOF before, so just try again
-			   (this time with prompt) */
-#ifdef MAL_CLIENT_DEBUG
-			printf("# retry stream reading %d %d\n", c->idx, in->eof);
-#endif
-			return MCreadClient(c);
 		}
 #ifdef MAL_CLIENT_DEBUG
 		printf("# simple stream received %d sum " SZFMT "\n", c->idx, sum);

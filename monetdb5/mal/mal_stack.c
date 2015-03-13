@@ -18,9 +18,7 @@
  */
 
 /*
- * @f mal_stack
- * @a M. L. Kersten
- * @-
+ * (author) M. L. Kersten
  * @node Stack Management, The MAL Optimizer, Garbage Collection, The MAL Interpreter
  * @+ MAL runtime stack
  * The runtime context of a MAL procedure is allocated on the runtime stack
@@ -55,7 +53,6 @@
  * ensure we are still within safe bounds.
  */
 /*
- * @-
  * The clearStack operation throws away any space occupied by variables
  * Freeing the stack itself is automatic upon return from the interpreter
  * context. Since the stack is allocated and zeroed on the calling stack,
@@ -72,7 +69,7 @@ newGlobalStack(int size)
 {
 	MalStkPtr s;
 
-	s = (MalStkPtr) GDKzalloc(stackSize(size) + sizeof(MalStack));
+	s = (MalStkPtr) GDKzalloc(stackSize(size) + offsetof(MalStack, stk));
 	if (s == NULL)
 		GDKfatal("newGlobalStack:can not obtain memory\n");
 	s->stksize = size;
@@ -106,6 +103,8 @@ reallocStack(MalStkPtr s, int cnt)
 		return s;
 	k = ((cnt / STACKINCR) + 1) * STACKINCR;
 	s = (MalStkPtr) GDKzalloc(stackSize(k));
+	if (s == NULL)
+		GDKfatal("reallocStack: can not obtain memory\n");
 	memcpy(s, old, stackSize(old->stksize));
 	s->stksize = k;
 	GDKfree(old);
@@ -113,7 +112,6 @@ reallocStack(MalStkPtr s, int cnt)
 }
 
 /*
- * @-
  * When you add a value to the stack, you should ensure that
  * there is space left. It should only be used for global
  * stack frames, because the others are allocated in the

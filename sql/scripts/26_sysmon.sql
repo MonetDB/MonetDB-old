@@ -11,7 +11,8 @@
 -- The Original Code is the MonetDB Database System.
 --
 -- The Initial Developer of the Original Code is CWI.
--- Copyright August 2008-2013 MonetDB B.V.
+-- Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+-- Copyright August 2008-2015 MonetDB B.V.
 -- All Rights Reserved.
 
 -- System monitoring
@@ -31,10 +32,6 @@ returns table(
 external name sql.sysmon_queue;
 
 create view sys.queue as select * from sys.queue();
-update sys._tables
-    set system = true
-    where name = 'queue'
-        and schema_id = (select id from sys.schemas where name = 'sys');
 
 -- operations to manipulate the state of havoc queries
 create procedure sys.pause(tag int)

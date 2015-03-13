@@ -17,6 +17,9 @@
  * All Rights Reserved.
  */
 
+/* (c) M Kersten
+ * This optimizer is deprecated and leaks
+ */
 #include "monetdb_config.h"
 #include "opt_qep.h"
 
@@ -29,58 +32,49 @@ QEPnew(int p, int c){
 	qep->mb= NULL;
 	qep->p = NULL;
 	qep->plimit = p;
-	if( p )
+	if( p ) {
 		qep->parents = (QEP*) GDKzalloc( sizeof(QEP) * p);
+		if( qep->parents == NULL){
+			GDKfree(qep);
+			return NULL;
+		}
+	}
 	qep->climit = c;
-	if( c)
+	if( c){
 		qep->children = (QEP *) GDKzalloc( sizeof(QEP) * c);
+		if( qep->children == NULL){
+			GDKfree(qep);
+			return NULL;
+		}
+	}
 	return qep;
 }
+
 static QEP
 QEPnewNode(MalBlkPtr mb,InstrPtr p){
 	QEP q;
 	q= QEPnew(p->retc,p->argc-p->retc+1);
-	q->mb= mb;
-	q->p = p;
+	if( q){
+		q->mb= mb;
+		q->p = p;
+	}
 	return q;
 }
+
 static QEP
 QEPexpandChildren(QEP qep, int extra){
 	int i;
 	/*extend node */
-	qep->children = (QEP*) GDKrealloc( (char*) qep->children, 
-				sizeof(QEP) * (qep->climit + extra));
+	qep->children = (QEP*) GDKrealloc( (char*) qep->children, sizeof(QEP) * (qep->climit + extra));
+	if( qep->children == NULL)
+		return NULL;
 	for(i=qep->climit;i <qep->climit + extra; i++)
 		qep->children[i]=0;
 	qep->climit = qep->climit + extra;
 	return qep;
 }
 
-#if 0
-static QEP
-QEPfree(QEP qep){
-	GDKfree(qep->children);
-	GDKfree(qep->parents);
-	GDKfree(qep);
-	return NULL;
-}
-#endif
-
 /* Extract a child from the qep, to be inserted somewhere else */
-#if 0
-static QEP
-QEPdelete(QEP qep, int pos){
-	int i;
-	QEP q= NULL;
-
-	for(i=0; i<qep->climit && qep->children[i]; i++){
-		if(pos-- == 0) q = qep->children[i];
-		if( pos <0 ) qep->children[i]= qep->children[i+1];
-		if( i< qep->climit-1) q->children[i]= NULL;
-	}
-	return q;
-}
-#endif
 static QEP
 QEPappend(QEP qep, QEP child){
 	int i;
@@ -94,28 +88,6 @@ QEPappend(QEP qep, QEP child){
 		child->parents[0]= qep;
 	return qep;
 }
-#if 0
-static QEP
-QEPinsert(QEP qep, int pos, QEP child){
-	int i;
-	QEP q= NULL, qn; 
-	for( i=0; i< qep->climit; i++){
-		if( pos-- == 0){
-			q= qep->children[i];
-			qep->children[i]= child;
-			child->parents[0] =qep;
-		}
-		if( pos < 0 && i<qep->climit-1){
-			qn= qep->children[i+1];
-			qep->children[i+1] = q;
-			q= qn;
-		}
-	}
-	if( q != NULL)
-		qep = QEPappend(qep,q);
-	return qep;
-}
-#endif
 /*
  * The core of the work is focused on building the tree using a flow analysis. 
  * Building the tree means that we should not allow the same variable can not be used twice.
@@ -124,7 +96,7 @@ QEPinsert(QEP qep, int pos, QEP child){
 #define TOPNODE 3
 
 static QEP
-QEPbuilt(MalBlkPtr mb){
+QEPbuild(MalBlkPtr mb){
 	QEP qroot= NULL, q= NULL, *vq;
 	InstrPtr p;
 	int i, j, k, *status;
@@ -145,6 +117,8 @@ QEPbuilt(MalBlkPtr mb){
 	for(i=1; i< mb->stop-1; i++){
 		p= getInstrPtr(mb,i);
 		q= QEPnewNode(mb,p);
+		if( q == NULL)
+			continue;
 		for( k=p->retc; k<p->argc; k++) 
 		if( ! isVarConstant(mb, getArg(p,k)) ){
 			status[getArg(p,k)]= LEAFNODE;
@@ -161,6 +135,7 @@ QEPbuilt(MalBlkPtr mb){
 /* We may end up with multiple variables not yet bound to a QEP. */
 
 	qroot= QEPnew(MAXPARENT,mb->stop);
+	if( qroot)
 	for(i=1; i< mb->stop-1; i++){
 		p= getInstrPtr(mb,i);
 	
@@ -175,7 +150,7 @@ QEPbuilt(MalBlkPtr mb){
 			k++;
 			break;
 		}
-		if(k)
+		if(q && k)
 			QEPappend(qroot,q);
 	}
 	GDKfree(vq);
@@ -192,7 +167,7 @@ QEPdump(stream *f, QEP qep, int indent){
 	str s;
 	if( qep->p){
 		for(i=0;i<indent; i++) mnstr_printf(f," ");
-		s= instruction2str(qep->mb, 0,qep->p, LIST_MAL_STMT | LIST_MAPI);
+		s= instruction2str(qep->mb, 0,qep->p, LIST_MAL_DEBUG );
 		mnstr_printf(f,"%s\n",s);
 		GDKfree(s);
 		inc = 4;
@@ -202,6 +177,18 @@ QEPdump(stream *f, QEP qep, int indent){
 		QEPdump(f,qep->children[i], indent+ inc);
 }
 
+static void
+QEPfree(QEP qep)
+{
+	int i;
+	if( qep == 0)
+		return;
+	for(i=0; i< qep->climit; i++)
+	if( qep->children[i])
+		QEPfree(qep->children[i]);
+	GDKfree(qep);
+}
+
 int
 OPTdumpQEPImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	QEP qep;
@@ -209,7 +196,10 @@ OPTdumpQEPImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p){
 	(void) stk;
 	(void) p;
 
-	qep= QEPbuilt(mb);
+	qep= QEPbuild(mb);
+	if(qep == NULL)
+		return 0;
 	QEPdump(cntxt->fdout,qep,0);
+	if(0)QEPfree(qep); // leaves garbage
 	return 1;
 }

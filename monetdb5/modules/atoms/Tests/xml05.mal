@@ -1,15 +1,15 @@
 b:= bat.new(:oid,:str);
-bat.insert(b,0@0,"Mary Ann Walker");
-bat.insert(b,1@0,"Annie Chapman");
+bat.append(b,"Mary Ann Walker");
+bat.append(b,"Annie Chapman");
 h:= bat.new(:oid,:str);
-bat.insert(h,0@0,"brown");
-bat.insert(h,1@0,"curly dark brown");
+bat.append(h,"brown");
+bat.append(h,"curly dark brown");
 
 io.print(b);
 
-bs:= xml.xml(b);
-bc:= xml.element("name",bs);
+bs:= batxml.xml(b);
+bc:= batxml.element("name",bs);
 
-aa:= xml.root(bc,"1.0","no");
-as:= xml.str(aa);
+aa:= batxml.root(bc,"1.0","no");
+as:= batxml.str(aa);
 io.print(as);

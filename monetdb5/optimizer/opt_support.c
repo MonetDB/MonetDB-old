@@ -128,6 +128,8 @@
 #include "mal_listing.h"
 #include "mal_debugger.h"
 #include "opt_multiplex.h"
+#include "optimizer_private.h"
+#include "manifold.h"
 
 /*
  * @-
@@ -141,38 +143,30 @@ struct OPTcatalog {
 	int debug;
 } optcatalog[]= {
 {"accumulators",0,	0,	0,	DEBUG_OPT_ACCUMULATORS},
-{"groups",		0,	0,	0,	DEBUG_OPT_GROUPS},
 {"aliases",		0,	0,	0,	DEBUG_OPT_ALIASES},
-{"cluster",		0,	0,	0,	DEBUG_OPT_CLUSTER},
 {"coercions",	0,	0,	0,	DEBUG_OPT_COERCION},
 {"commonTerms",	0,	0,	0,	DEBUG_OPT_COMMONTERMS},
-{"compress",	0,	0,	0,	DEBUG_OPT_COMPRESS},
 {"constants",	0,	0,	0,	DEBUG_OPT_CONSTANTS},
 {"costModel",	0,	0,	0,	DEBUG_OPT_COSTMODEL},
 {"crack",		0,	0,	0,	DEBUG_OPT_CRACK},
-{"datacell",	0,	0,	0,	DEBUG_OPT_DATACELL},
 {"datacyclotron",0,	0,	0,	DEBUG_OPT_DATACYCLOTRON},
 {"dataflow",	0,	0,	0,	DEBUG_OPT_DATAFLOW},
 {"deadcode",	0,	0,	0,	DEBUG_OPT_DEADCODE},
-{"dictionary",	0,	0,	0,	DEBUG_OPT_DICTIONARY},
-{"emptySet",	0,	0,	0,	DEBUG_OPT_EMPTYSET},
 {"evaluate",	0,	0,	0,	DEBUG_OPT_EVALUATE},
 {"factorize",	0,	0,	0,	DEBUG_OPT_FACTORIZE},
 {"garbage",		0,	0,	0,	DEBUG_OPT_GARBAGE},
+{"generator",	0,	0,	0,	DEBUG_OPT_GENERATOR},
 {"history",		0,	0,	0,	DEBUG_OPT_HISTORY},
 {"inline",		0,	0,	0,	DEBUG_OPT_INLINE},
 {"joinPath",	0,	0,	0,	DEBUG_OPT_JOINPATH},
+{"json",		0,	0,	0,	DEBUG_OPT_JSON},
 {"macro",		0,	0,	0,	DEBUG_OPT_MACRO},
-{"mapreduce",	0,	0,	0,	DEBUG_OPT_MAPREDUCE},
 {"matpack",		0,	0,	0,	DEBUG_OPT_MATPACK},
 {"mergetable",	0,	0,	0,	DEBUG_OPT_MERGETABLE},
 {"mitosis",		0,	0,	0,	DEBUG_OPT_MITOSIS},
 {"multiplex",	0,	0,	0,	DEBUG_OPT_MULTIPLEX},
-{"octopus",		0,	0,	0,	DEBUG_OPT_OCTOPUS},
 {"origin",		0,	0,	0,	DEBUG_OPT_ORIGIN},
 {"peephole",	0,	0,	0,	DEBUG_OPT_PEEPHOLE},
-{"prejoin",		0,	0,	0,	DEBUG_OPT_PREJOIN},
-{"pushranges",	0,	0,	0,	DEBUG_OPT_PUSHRANGES},
 {"recycler",	0,	0,	0,	DEBUG_OPT_RECYCLE},
 {"reduce",		0,	0,	0,	DEBUG_OPT_REDUCE},
 {"remap",		0,	0,	0,	DEBUG_OPT_REMAP},
@@ -182,7 +176,6 @@ struct OPTcatalog {
 {"selcrack",	0,	0,	0,	DEBUG_OPT_SELCRACK},
 {"sidcrack",	0,	0,	0,	DEBUG_OPT_SIDCRACK},
 {"strengthreduction",	0,	0,	0,	DEBUG_OPT_STRENGTHREDUCTION},
-{"centipede",	0,	0,	0,	DEBUG_OPT_CENTIPEDE},
 {"pushselect",	0,	0,	0,	DEBUG_OPT_PUSHSELECT},
 { 0,	0,	0,	0,	0}
 };
@@ -194,7 +187,7 @@ lng optDebug;
  * Front-ends can set a collection of optimizers by name or their pipe alias.
  */
 str
-OPTsetDebugStr(int *ret, str *nme)
+OPTsetDebugStr(void *ret, str *nme)
 {
 	int i;
 	str name= *nme, t, s, env = 0;
@@ -270,13 +263,11 @@ optimizeMALBlock(Client cntxt, MalBlkPtr mb)
 	int cnt = 0;
 	lng clk = GDKusec();
 
-	optimizerInit();
 	/* assume the type and flow have been checked already */
 	/* SQL functions intended to be inlined should not be optimized */
-	if ( varGetProp( mb, getArg(getInstrPtr(mb,0),0), inlineProp ) != NULL &&
-		 varGetProp( mb, getArg(getInstrPtr(mb,0),0), sqlfunctionProp ) != NULL
-	)
-        return 0;
+	if (varGetProp( mb, getArg(getInstrPtr(mb,0),0), inlineProp ) != NULL &&
+	    varGetProp( mb, getArg(getInstrPtr(mb,0),0), sqlfunctionProp ) != NULL)
+        	return 0;
 
 
 	do {
@@ -288,7 +279,7 @@ optimizeMALBlock(Client cntxt, MalBlkPtr mb)
 			p = getInstrPtr(mb, pc);
 			if (getModuleId(p) == optimizerRef && p->fcn && p->token != REMsymbol) {
 				/* all optimizers should behave like patterns */
-				/* However, we don;t have a stack now */
+				/* However, we don't have a stack now */
 				qot++;
 				msg = (str) (*p->fcn) (cntxt, mb, 0, p);
 				if (msg) {
@@ -709,6 +700,9 @@ hasSideEffects(InstrPtr p, int strict)
 	if (getFunctionId(p) == depositRef)
 		return TRUE;
 
+	if (getModuleId(p) == malRef && getFunctionId(p) == multiplexRef)
+		return FALSE;
+
 	if( getModuleId(p) == ioRef ||
 		getModuleId(p) == streamsRef ||
 		getModuleId(p) == bstreamRef ||
@@ -721,7 +715,7 @@ hasSideEffects(InstrPtr p, int strict)
 		getModuleId(p) == semaRef ||
 		getModuleId(p) == recycleRef ||
 		getModuleId(p) == alarmRef)
-			return TRUE;
+		return TRUE;
 
 	if (getModuleId(p) == sqlRef){
 		if (getFunctionId(p) == tidRef) return FALSE;
@@ -762,16 +756,23 @@ hasSideEffects(InstrPtr p, int strict)
 		getModuleId(p) != groupRef )
 		return TRUE;
 
-	if ( getModuleId(p) == octopusRef){
-		if (getFunctionId(p) == bindRef) return FALSE;
-		if (getFunctionId(p) == bindidxRef) return FALSE;
-		if (getFunctionId(p) == binddbatRef) return FALSE;
-		return TRUE;
-	}
 	if ( getModuleId(p) == remoteRef)
+		return TRUE;
+	if ( getModuleId(p) == recycleRef)
 		return TRUE;
 	return FALSE;
 }
+
+int
+mayhaveSideEffects(Client cntxt, MalBlkPtr mb, InstrPtr p, int strict)
+{
+	if (getModuleId(p) != malRef || getFunctionId(p) != multiplexRef) 
+		return hasSideEffects( p, strict);
+	if (MANIFOLDtypecheck(cntxt,mb,p) == NULL)
+		return TRUE;
+	return FALSE;
+}
+
 /*
  * @-
  * Side-effect free functions are crucial for several operators.
@@ -797,10 +798,7 @@ isBlocking(InstrPtr p)
 	if (blockStart(p) || blockExit(p) || blockCntrl(p))
 		return TRUE;
 
-	if ( getFunctionId(p) == sortTailRef ||
-		 getFunctionId(p) == sortHRef ||
-		 getFunctionId(p) == sortHTRef ||
-		 getFunctionId(p) == sortTHRef )
+	if ( getFunctionId(p) == sortRef )
 		return TRUE;
 
 	if( getModuleId(p) == aggrRef ||
@@ -824,15 +822,17 @@ int isAllScalar(MalBlkPtr mb, InstrPtr p)
  * and should be conservative.
  */
 int isMapOp(InstrPtr p){
-	return	(getModuleId(p) == malRef && getFunctionId(p) == multiplexRef) ||
-		(getModuleId(p)== batcalcRef && getFunctionId(p) != mark_grpRef && getFunctionId(p) != rank_grpRef) ||
-		(getModuleId(p)== batmtimeRef) ||
-		(getModuleId(p)== batstrRef) ||
-		(getModuleId(p)== mkeyRef);
+	return	getModuleId(p) &&
+		((getModuleId(p) == malRef && getFunctionId(p) == multiplexRef) ||
+		 (getModuleId(p) == malRef && getFunctionId(p) == manifoldRef) ||
+		 (getModuleId(p) == batcalcRef && getFunctionId(p) != mark_grpRef && getFunctionId(p) != rank_grpRef) ||
+		 (getModuleId(p) != batcalcRef && getModuleId(p) != batRef && strncmp(getModuleId(p), "bat", 3) == 0) ||
+		 (getModuleId(p) == mkeyRef)) &&
+		 getModuleId(p) != rapiRef;
 }
 
 int isLikeOp(InstrPtr p){
-	return	(getModuleId(p) == batstrRef &&
+	return	(getModuleId(p) == batalgebraRef &&
 		(getFunctionId(p) == likeRef || 
 		 getFunctionId(p) == not_likeRef || 
 		 getFunctionId(p) == ilikeRef ||
@@ -840,11 +840,8 @@ int isLikeOp(InstrPtr p){
 }
 
 int isTopn(InstrPtr p){
-	return ((getModuleId(p) == pqueueRef &&
-		(getFunctionId(p) == topn_minRef ||
-		 getFunctionId(p) == topn_maxRef ||
-		 getFunctionId(p) == utopn_minRef ||
-		 getFunctionId(p) == utopn_maxRef)) || isSlice(p));
+	return ((getModuleId(p) == algebraRef && getFunctionId(p) == firstnRef) ||
+			isSlice(p));
 }
 
 int isSlice(InstrPtr p){
@@ -854,8 +851,8 @@ int isSlice(InstrPtr p){
 
 int isOrderby(InstrPtr p){
 	return getModuleId(p) == algebraRef &&
-		(getFunctionId(p) == sortTailRef ||
-		 getFunctionId(p) == sortReverseTailRef);
+		(getFunctionId(p) == sortRef ||
+		 getFunctionId(p) == sortReverseRef);
 }
 
 int isDiffOp(InstrPtr p){
@@ -866,10 +863,13 @@ int isDiffOp(InstrPtr p){
 
 int isMatJoinOp(InstrPtr p){
 	return (getModuleId(p) == algebraRef &&
-                (getFunctionId(p) == joinRef ||
-                 getFunctionId(p) == antijoinRef || /* is not mat save */
-                 getFunctionId(p) == thetajoinRef ||
-                 getFunctionId(p) == bandjoinRef)
+                (getFunctionId(p) == crossRef ||
+                 getFunctionId(p) == joinRef ||
+                 getFunctionId(p) == subjoinRef ||
+                 getFunctionId(p) == subantijoinRef || /* is not mat save */
+                 getFunctionId(p) == subthetajoinRef ||
+                 getFunctionId(p) == subbandjoinRef ||
+                 getFunctionId(p) == subrangejoinRef)
 		);
 }
 
@@ -897,38 +897,36 @@ int isFragmentGroup2(InstrPtr p){
 
 int isSubSelect(InstrPtr p)
 {
-	return (getModuleId(p)== algebraRef && (
-			getFunctionId(p)== subselectRef ||
-			getFunctionId(p)== thetasubselectRef ||
-			getFunctionId(p)== likesubselectRef ||
-			getFunctionId(p)== ilikesubselectRef));
+	char *func = getFunctionId(p);
+	size_t l = func?strlen(func):0;
+	
+	return (l >= 9 && getModuleId(p)== algebraRef && 
+	        strcmp(func+l-9,"subselect") == 0);
+}
+
+int isSubJoin(InstrPtr p)
+{
+	char *func = getFunctionId(p);
+	size_t l = func?strlen(func):0;
+	
+	return (l >= 7 && getModuleId(p)== algebraRef && 
+	        strcmp(func+l-7,"subjoin") == 0);
 }
 
 int isFragmentGroup(InstrPtr p){
 	return
-			(getModuleId(p)== pcreRef && (
-			getFunctionId(p)== likeselectRef ||
-			getFunctionId(p)== likeuselectRef  ||
-			getFunctionId(p)== ilikeselectRef  ||
-			getFunctionId(p)== ilikeuselectRef 
-			))  ||
 			(getModuleId(p)== algebraRef && (
 				getFunctionId(p)== projectRef ||
-				getFunctionId(p)== selectRef ||
-				getFunctionId(p)== selectNotNilRef ||
-				getFunctionId(p)== uselectRef ||
-				getFunctionId(p)== antiuselectRef ||
-				getFunctionId(p)== thetauselectRef 
+				getFunctionId(p)== selectNotNilRef
 			))  ||
 			isSubSelect(p) ||
 			(getModuleId(p)== batRef && (
 				getFunctionId(p)== mirrorRef 
-			)
-		);
+			));
 }
 
 /*
- * Some optimizers are interdependent (e.g. mitosis and octopus), which
+ * Some optimizers are interdependent (e.g. mitosis ), which
  * requires inspection of the pipeline attached to a MAL block.
  */
 int

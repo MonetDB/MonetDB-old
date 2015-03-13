@@ -170,6 +170,11 @@ ALGjoinPathBody(Client cntxt, int top, BAT **joins, int flag)
 	int *postpone= (int*) GDKzalloc(sizeof(int) *top);
 	int postponed=0;
 
+	if(postpone == NULL){
+		GDKerror("joinPathBody" MAL_MALLOC_FAIL);
+		return NULL;
+	}
+
 	/* solve the join by pairing the smallest first */
 	while (top > 1) {
 		j = 0;
@@ -188,7 +193,6 @@ ALGjoinPathBody(Client cntxt, int top, BAT **joins, int flag)
 			}
 		}
 		/*
-		 * @-
 		 * BEWARE. you may not use a size estimation, because it
 		 * may fire a BATproperty check in a few cases.
 		 * In case a join fails, we may try another order first before
@@ -211,12 +215,13 @@ ALGjoinPathBody(Client cntxt, int top, BAT **joins, int flag)
 			b = BATsemijoin(joins[j], joins[j + 1]);
 			break;
 		case 3:
-			b = BATleftfetchjoin(joins[j], joins[j + 1], BATcount(joins[j]));
+			b = BATproject(joins[j], joins[j + 1]);
+			break;
 		}
 		if (b==NULL){
 			if ( postpone[j] && postpone[j+1]){
 				for( --top; top>=0; top--)
-					BBPreleaseref(joins[top]->batCacheid);
+					BBPunfix(joins[top]->batCacheid);
 				GDKfree(postpone);
 				return NULL;
 			}
@@ -227,7 +232,7 @@ ALGjoinPathBody(Client cntxt, int top, BAT **joins, int flag)
 				postponed += postpone[k]== TRUE;
 			if ( postponed == top){
 				for( --top; top>=0; top--)
-					BBPreleaseref(joins[top]->batCacheid);
+					BBPunfix(joins[top]->batCacheid);
 				GDKfree(postpone);
 				return NULL;
 			}
@@ -239,7 +244,7 @@ ALGjoinPathBody(Client cntxt, int top, BAT **joins, int flag)
 			/* reset the postponed joins */
 			for( k=0; k<top; k++)
 				postpone[k]=FALSE;
-			if (!(b->batDirty&2)) b = BATsetaccess(b, BAT_READ);
+			if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 			postponed = 0;
 		}
 		ALGODEBUG{
@@ -253,12 +258,12 @@ ALGjoinPathBody(Client cntxt, int top, BAT **joins, int flag)
 
 		if ( b == 0 ){
 			for( --top; top>=0; top--)
-				BBPreleaseref(joins[top]->batCacheid);
+				BBPunfix(joins[top]->batCacheid);
 			GDKfree(postpone);
 			return 0;
 		}
-		BBPdecref(joins[j]->batCacheid, FALSE);
-		BBPdecref(joins[j+1]->batCacheid, FALSE);
+		BBPunfix(joins[j]->batCacheid);
+		BBPunfix(joins[j+1]->batCacheid);
 		joins[j] = b;
 		top--;
 		for (i = j + 1; i < top; i++)
@@ -266,15 +271,16 @@ ALGjoinPathBody(Client cntxt, int top, BAT **joins, int flag)
 	}
 	GDKfree(postpone);
 	b = joins[0];
-	if (b && !(b->batDirty&2)) b = BATsetaccess(b, BAT_READ);
+	if (b && !(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	return b;
 }
 
 str
 ALGjoinPath(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int i,*bid,top=0;
-	int *r = (int*) getArgReference(stk, pci, 0);
+	int i,top=0;
+	bat *bid;
+	bat *r = getArgReference_bat(stk, pci, 0);
 	BAT *b, **joins = (BAT**)GDKmalloc(pci->argc*sizeof(BAT*)); 
 	int error = 0;
 	str joinPathRef = putName("joinPath",8);
@@ -285,7 +291,7 @@ ALGjoinPath(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(MAL, "algebra.joinPath", MAL_MALLOC_FAIL);
 	(void)mb;
 	for (i = pci->retc; i < pci->argc; i++) {
-		bid = (int *) getArgReference(stk, pci, i);
+		bid = getArgReference_bat(stk, pci, i);
 		b = BATdescriptor(*bid);
 		if (  b && top ) {
 			if ( !(joins[top-1]->ttype == b->htype) &&
@@ -297,9 +303,9 @@ ALGjoinPath(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		}
 		if ( b == NULL) {
 			for( --top; top>=0; top--)
-				BBPreleaseref(joins[top]->batCacheid);
+				BBPunfix(joins[top]->batCacheid);
 			GDKfree(joins);
-			throw(MAL, "algebra.joinPath", error? SEMANTIC_TYPE_MISMATCH: INTERNAL_BAT_ACCESS);
+			throw(MAL, "algebra.joinPath", "%s", error? SEMANTIC_TYPE_MISMATCH: INTERNAL_BAT_ACCESS);
 		}
 		joins[top++] = b;
 	}

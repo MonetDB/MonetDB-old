@@ -22,21 +22,22 @@
 static BUN
 op_typeswitchloop(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 		  const void *rgt, int tp2, int incr2, const char *hp2, int wd2,
-		  TPE *dst, BUN cnt, BUN start, BUN end, const oid *cand,
+		  TPE *restrict dst, BUN cnt, BUN start, BUN end, const oid *restrict cand,
 		  const oid *candend, oid candoff, int nonil, const char *func)
 {
 	BUN nils = 0;
-	BUN i, j, k;
-	const void *nil;
+	BUN i, j, k, loff = 0, roff = 0;
+	const void *restrict nil;
 	int (*atomcmp)(const void *, const void *);
 
 	switch (tp1) {
 	case TYPE_void: {
-		oid v;
+		oid v = oid_nil;
 
 		assert(incr1 == 1);
 		assert(tp2 == TYPE_oid || incr2 == 1); /* if void, incr2==1 */
-		v = * (const oid *) lft;
+		if (lft)
+			v = * (const oid *) lft;
 		CANDLOOP(dst, k, TPE_nil, 0, start);
 		if (v == oid_nil || tp2 == TYPE_void) {
 			TPE res = v == oid_nil || * (const oid *) rgt == oid_nil ?
@@ -81,6 +82,7 @@ op_typeswitchloop(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 	case TYPE_bte:
 		switch (tp2) {
 		case TYPE_bte:
+		btebte:
 			if (nonil)
 				BINARY_3TYPE_FUNC_nonil(bte, bte, TPE, OP);
 			else
@@ -110,6 +112,14 @@ op_typeswitchloop(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 			else
 				BINARY_3TYPE_FUNC(bte, lng, TPE, OP);
 			break;
+#ifdef HAVE_HGE
+		case TYPE_hge:
+			if (nonil)
+				BINARY_3TYPE_FUNC_nonil(bte, hge, TPE, OP);
+			else
+				BINARY_3TYPE_FUNC(bte, hge, TPE, OP);
+			break;
+#endif
 		case TYPE_flt:
 			if (nonil)
 				BINARY_3TYPE_FUNC_nonil(bte, flt, TPE, OP);
@@ -135,6 +145,7 @@ op_typeswitchloop(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 				BINARY_3TYPE_FUNC(sht, bte, TPE, OP);
 			break;
 		case TYPE_sht:
+		shtsht:
 			if (nonil)
 				BINARY_3TYPE_FUNC_nonil(sht, sht, TPE, OP);
 			else
@@ -158,6 +169,14 @@ op_typeswitchloop(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 			else
 				BINARY_3TYPE_FUNC(sht, lng, TPE, OP);
 			break;
+#ifdef HAVE_HGE
+		case TYPE_hge:
+			if (nonil)
+				BINARY_3TYPE_FUNC_nonil(sht, hge, TPE, OP);
+			else
+				BINARY_3TYPE_FUNC(sht, hge, TPE, OP);
+			break;
+#endif
 		case TYPE_flt:
 			if (nonil)
 				BINARY_3TYPE_FUNC_nonil(sht, flt, TPE, OP);
@@ -195,6 +214,7 @@ op_typeswitchloop(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 #if SIZEOF_WRD == SIZEOF_INT
 		case TYPE_wrd:
 #endif
+		intint:
 			if (nonil)
 				BINARY_3TYPE_FUNC_nonil(int, int, TPE, OP);
 			else
@@ -209,6 +229,14 @@ op_typeswitchloop(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 			else
 				BINARY_3TYPE_FUNC(int, lng, TPE, OP);
 			break;
+#ifdef HAVE_HGE
+		case TYPE_hge:
+			if (nonil)
+				BINARY_3TYPE_FUNC_nonil(int, hge, TPE, OP);
+			else
+				BINARY_3TYPE_FUNC(int, hge, TPE, OP);
+			break;
+#endif
 		case TYPE_flt:
 			if (nonil)
 				BINARY_3TYPE_FUNC_nonil(int, flt, TPE, OP);
@@ -255,11 +283,20 @@ op_typeswitchloop(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 #if SIZEOF_WRD == SIZEOF_LNG
 		case TYPE_wrd:
 #endif
+		lnglng:
 			if (nonil)
 				BINARY_3TYPE_FUNC_nonil(lng, lng, TPE, OP);
 			else
 				BINARY_3TYPE_FUNC(lng, lng, TPE, OP);
 			break;
+#ifdef HAVE_HGE
+		case TYPE_hge:
+			if (nonil)
+				BINARY_3TYPE_FUNC_nonil(lng, hge, TPE, OP);
+			else
+				BINARY_3TYPE_FUNC(lng, hge, TPE, OP);
+			break;
+#endif
 		case TYPE_flt:
 			if (nonil)
 				BINARY_3TYPE_FUNC_nonil(lng, flt, TPE, OP);
@@ -276,6 +313,63 @@ op_typeswitchloop(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 			goto unsupported;
 		}
 		break;
+#ifdef HAVE_HGE
+	case TYPE_hge:
+		switch (tp2) {
+		case TYPE_bte:
+			if (nonil)
+				BINARY_3TYPE_FUNC_nonil(hge, bte, TPE, OP);
+			else
+				BINARY_3TYPE_FUNC(hge, bte, TPE, OP);
+			break;
+		case TYPE_sht:
+			if (nonil)
+				BINARY_3TYPE_FUNC_nonil(hge, sht, TPE, OP);
+			else
+				BINARY_3TYPE_FUNC(hge, sht, TPE, OP);
+			break;
+		case TYPE_int:
+#if SIZEOF_WRD == SIZEOF_INT
+		case TYPE_wrd:
+#endif
+			if (nonil)
+				BINARY_3TYPE_FUNC_nonil(hge, int, TPE, OP);
+			else
+				BINARY_3TYPE_FUNC(hge, int, TPE, OP);
+			break;
+		case TYPE_lng:
+#if SIZEOF_WRD == SIZEOF_LNG
+		case TYPE_wrd:
+#endif
+			if (nonil)
+				BINARY_3TYPE_FUNC_nonil(hge, lng, TPE, OP);
+			else
+				BINARY_3TYPE_FUNC(hge, lng, TPE, OP);
+			break;
+		case TYPE_hge:
+		hgehge:
+			if (nonil)
+				BINARY_3TYPE_FUNC_nonil(hge, hge, TPE, OP);
+			else
+				BINARY_3TYPE_FUNC(hge, hge, TPE, OP);
+			break;
+		case TYPE_flt:
+			if (nonil)
+				BINARY_3TYPE_FUNC_nonil(hge, flt, TPE, OP);
+			else
+				BINARY_3TYPE_FUNC(hge, flt, TPE, OP);
+			break;
+		case TYPE_dbl:
+			if (nonil)
+				BINARY_3TYPE_FUNC_nonil(hge, dbl, TPE, OP);
+			else
+				BINARY_3TYPE_FUNC(hge, dbl, TPE, OP);
+			break;
+		default:
+			goto unsupported;
+		}
+		break;
+#endif
 	case TYPE_flt:
 		switch (tp2) {
 		case TYPE_bte:
@@ -308,7 +402,16 @@ op_typeswitchloop(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 			else
 				BINARY_3TYPE_FUNC(flt, lng, TPE, OP);
 			break;
+#ifdef HAVE_HGE
+		case TYPE_hge:
+			if (nonil)
+				BINARY_3TYPE_FUNC_nonil(flt, hge, TPE, OP);
+			else
+				BINARY_3TYPE_FUNC(flt, hge, TPE, OP);
+			break;
+#endif
 		case TYPE_flt:
+		fltflt:
 			if (nonil)
 				BINARY_3TYPE_FUNC_nonil(flt, flt, TPE, OP);
 			else
@@ -356,6 +459,14 @@ op_typeswitchloop(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 			else
 				BINARY_3TYPE_FUNC(dbl, lng, TPE, OP);
 			break;
+#ifdef HAVE_HGE
+		case TYPE_hge:
+			if (nonil)
+				BINARY_3TYPE_FUNC_nonil(dbl, hge, TPE, OP);
+			else
+				BINARY_3TYPE_FUNC(dbl, hge, TPE, OP);
+			break;
+#endif
 		case TYPE_flt:
 			if (nonil)
 				BINARY_3TYPE_FUNC_nonil(dbl, flt, TPE, OP);
@@ -363,6 +474,7 @@ op_typeswitchloop(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 				BINARY_3TYPE_FUNC(dbl, flt, TPE, OP);
 			break;
 		case TYPE_dbl:
+		dbldbl:
 			if (nonil)
 				BINARY_3TYPE_FUNC_nonil(dbl, dbl, TPE, OP);
 			else
@@ -430,14 +542,36 @@ op_typeswitchloop(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 		    !BATatoms[tp1].linear ||
 		    (atomcmp = BATatoms[tp1].atomCmp) == NULL)
 			goto unsupported;
+		/* a bit of a hack: for inherited types, use
+		 * type-expanded version if comparison function is
+		 * equal to the inherited-from comparison function,
+		 * and yes, we jump right into the middle of a switch,
+		 * but that is legal (although not encouraged) C */
+		if (atomcmp == BATatoms[TYPE_bte].atomCmp)
+			goto btebte;
+		if (atomcmp == BATatoms[TYPE_sht].atomCmp)
+			goto shtsht;
+		if (atomcmp == BATatoms[TYPE_int].atomCmp)
+			goto intint;
+		if (atomcmp == BATatoms[TYPE_lng].atomCmp)
+			goto lnglng;
+#ifdef HAVE_HGE
+		if (atomcmp == BATatoms[TYPE_hge].atomCmp)
+			goto hgehge;
+#endif
+		if (atomcmp == BATatoms[TYPE_flt].atomCmp)
+			goto fltflt;
+		if (atomcmp == BATatoms[TYPE_dbl].atomCmp)
+			goto dbldbl;
 		nil = ATOMnilptr(tp1);
 		CANDLOOP(dst, k, TPE_nil, 0, start);
 		for (i = start * incr1, j = start * incr2, k = start;
-		     k < end; i += incr1, j += incr2, k++) {
+		     k < end; i += incr1, j += incr2, k++,
+		     loff+= wd1, roff+= wd2) {
 			const void *p1, *p2;
 			CHECKCAND(dst, k, candoff, TPE_nil);
-			p1 = hp1 ? (const void *) (hp1 + VarHeapVal(lft, i, wd1)) : lft;
-			p2 = hp2 ? (const void *) (hp2 + VarHeapVal(rgt, i, wd2)) : rgt;
+			p1 = hp1 ? (const void *) (hp1 + VarHeapVal(lft, i, wd1)) : (const void *) ((const char *) lft + loff);
+			p2 = hp2 ? (const void *) (hp2 + VarHeapVal(rgt, j, wd2)) : (const void *) ((const char *) rgt + roff);
 			if (p1 == NULL || p2 == NULL ||
 			    (*atomcmp)(p1, nil) == 0 ||
 			    (*atomcmp)(p2, nil) == 0) {
@@ -447,10 +581,6 @@ op_typeswitchloop(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 				int x = (*atomcmp)(p1, p2);
 				dst[k] = OP(x, 0);
 			}
-			if (hp1 == NULL && incr1)
-				lft = (const void *) ((const char *) lft + wd1);
-			if (hp2 == NULL && incr2)
-				rgt = (const void *) ((const char *) rgt + wd2);
 		}
 		CANDLOOP(dst, k, TPE_nil, end, cnt);
 		break;
@@ -467,19 +597,19 @@ op_typeswitchloop(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 static BAT *
 BATcalcop_intern(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 		 const void *rgt, int tp2, int incr2, const char *hp2, int wd2,
-		 BUN cnt, BUN start, BUN end, const oid *cand,
+		 BUN cnt, BUN start, BUN end, const oid *restrict cand,
 		 const oid *candend, oid candoff, int nonil, oid seqbase,
 		 const char *func)
 {
 	BAT *bn;
 	BUN nils = 0;
-	TPE *dst;
+	TPE *restrict dst;
 
-	bn = BATnew(TYPE_void, TYPE_TPE, cnt);
+	bn = BATnew(TYPE_void, TYPE_TPE, cnt, TRANSIENT);
 	if (bn == NULL)
 		return NULL;
 
-	dst = (TPE *) Tloc(bn, bn->U->first);
+	dst = (TPE *) Tloc(bn, bn->batFirst);
 
 	nils = op_typeswitchloop(lft, tp1, incr1, hp1, wd1,
 				 rgt, tp2, incr2, hp2, wd2,
@@ -492,7 +622,7 @@ BATcalcop_intern(const void *lft, int tp1, int incr1, const char *hp1, int wd1,
 	}
 
 	BATsetcount(bn, cnt);
-	bn = BATseqbase(bn, seqbase);
+	BATseqbase(bn, seqbase);
 
 	bn->T->sorted = cnt <= 1 || nils == cnt;
 	bn->T->revsorted = cnt <= 1 || nils == cnt;
@@ -508,10 +638,10 @@ BATcalcop(BAT *b1, BAT *b2, BAT *s)
 {
 	BAT *bn;
 	BUN start, end, cnt;
-	const oid *cand = NULL, *candend = NULL;
+	const oid *restrict cand = NULL, *candend = NULL;
 
-	BATcheck(b1, BATcalcop_name);
-	BATcheck(b2, BATcalcop_name);
+	BATcheck(b1, BATcalcop_name, NULL);
+	BATcheck(b2, BATcalcop_name, NULL);
 
 	if (checkbats(b1, b2, BATcalcop_name) == GDK_FAIL)
 		return NULL;
@@ -526,15 +656,15 @@ BATcalcop(BAT *b1, BAT *b2, BAT *s)
 		else
 			res = OP(b1->T->seq, b2->T->seq);
 
-		bn = BATconstant(TYPE_TPE, &res, cnt);
+		bn = BATconstant(TYPE_TPE, &res, cnt, TRANSIENT);
 		BATseqbase(bn, b1->hseqbase);
 		return bn;
 	}
 
-	bn = BATcalcop_intern(b1->T->type == TYPE_void ? (void *) &b1->T->seq : (void *) Tloc(b1, b1->U->first), b1->T->type, 1,
+	bn = BATcalcop_intern(b1->T->type == TYPE_void ? (void *) &b1->T->seq : (void *) Tloc(b1, b1->batFirst), b1->T->type, 1,
 			      b1->T->vheap ? b1->T->vheap->base : NULL,
 			      b1->T->width,
-			      b2->T->type == TYPE_void ? (void *) &b2->T->seq : (void *) Tloc(b2, b2->U->first), b2->T->type, 1,
+			      b2->T->type == TYPE_void ? (void *) &b2->T->seq : (void *) Tloc(b2, b2->batFirst), b2->T->type, 1,
 			      b2->T->vheap ? b2->T->vheap->base : NULL,
 			      b2->T->width,
 			      cnt, start, end, cand, candend, b1->hseqbase,
@@ -549,16 +679,16 @@ BATcalcopcst(BAT *b, const ValRecord *v, BAT *s)
 {
 	BAT *bn;
 	BUN start, end, cnt;
-	const oid *cand = NULL, *candend = NULL;
+	const oid *restrict cand = NULL, *candend = NULL;
 
-	BATcheck(b, BATcalcopcst_name);
+	BATcheck(b, BATcalcopcst_name, NULL);
 
 	if (checkbats(b, NULL, BATcalcopcst_name) == GDK_FAIL)
 		return NULL;
 
 	CANDINIT(b, s, start, end, cnt, cand, candend);
 
-	bn = BATcalcop_intern(Tloc(b, b->U->first), b->T->type, 1,
+	bn = BATcalcop_intern(Tloc(b, b->batFirst), b->T->type, 1,
 			      b->T->vheap ? b->T->vheap->base : NULL,
 			      b->T->width,
 			      VALptr(v), v->vtype, 0,
@@ -575,9 +705,9 @@ BATcalccstop(const ValRecord *v, BAT *b, BAT *s)
 {
 	BAT *bn;
 	BUN start, end, cnt;
-	const oid *cand = NULL, *candend = NULL;
+	const oid *restrict cand = NULL, *candend = NULL;
 
-	BATcheck(b, BATcalccstop_name);
+	BATcheck(b, BATcalccstop_name, NULL);
 
 	if (checkbats(b, NULL, BATcalccstop_name) == GDK_FAIL)
 		return NULL;
@@ -586,7 +716,7 @@ BATcalccstop(const ValRecord *v, BAT *b, BAT *s)
 
 	bn = BATcalcop_intern(VALptr(v), v->vtype, 0,
 			      NULL, 0,
-			      Tloc(b, b->U->first), b->T->type, 1,
+			      Tloc(b, b->batFirst), b->T->type, 1,
 			      b->T->vheap ? b->T->vheap->base : NULL,
 			      b->T->width,
 			      cnt, start, end, cand, candend, b->hseqbase,

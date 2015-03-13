@@ -11,7 +11,7 @@ stdout of test 'subquery_in_from_clause.Bug-2812` in directory 'sql/test/BugTrac
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.752 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://monetdb.cwi.nl/ for further information
 # Listening for connection requests on mapi:monetdb://alf.ins.cwi.nl:31068/
 # MonetDB/GIS module loaded
@@ -46,7 +46,7 @@ Ready.
 #FROM  (SELECT MAX(price) as MAXPRICE FROM SALESMART) T, SALESMART S
 #WHERE T.MAXPRICE = S.PRICE
 #GROUP BY ITEM, CATEGORY, CITY, REGION, COUNTRY;
-% sys.s,	sys.s,	sys.s,	sys.s,	sys.s,	sys.s # table_name
+% sys.L2,	sys.s,	sys.s,	sys.s,	sys.s,	sys.s # table_name
 % price,	item,	category,	city,	region,	country # name
 % decimal,	varchar,	varchar,	varchar,	varchar,	varchar # type
 % 12,	21,	4,	16,	25,	19 # length
@@ -70,7 +70,7 @@ Ready.
 #FROM  SALESMART S
 #WHERE S.PRICE IN (SELECT MAX(price) as MAXPRICE FROM SALESMART)
 #GROUP BY ITEM, CATEGORY, CITY, REGION, COUNTRY;
-% sys.s,	sys.s,	sys.s,	sys.s,	sys.s,	sys.s # table_name
+% sys.L6,	sys.s,	sys.s,	sys.s,	sys.s,	sys.s # table_name
 % price,	item,	category,	city,	region,	country # name
 % decimal,	varchar,	varchar,	varchar,	varchar,	varchar # type
 % 12,	21,	4,	16,	25,	19 # length

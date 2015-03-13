@@ -89,12 +89,23 @@ SQLPrepare_(ODBCStmt *stmt,
 	 * 'value'} or {ts 'value'} or {escape 'e-char'} or {oj
 	 * outer-join} or {fn scalar-function} etc. ) to MonetDB SQL
 	 * syntax */
-	query = ODBCTranslateSQL(StatementText, (size_t) TextLength,
+	query = ODBCTranslateSQL(stmt->Dbc, StatementText, (size_t) TextLength,
 				 stmt->noScan);
+	if (query == NULL) {
+		/* Memory allocation error */
+		addStmtError(stmt, "HY001", NULL, 0);
+		return SQL_ERROR;
+	}
 #ifdef ODBCDEBUG
 	ODBCLOG("SQLPrepare: \"%s\"\n", query);
 #endif
 	s = malloc(strlen(query) + 9);
+	if (s == NULL) {
+		free(query);
+		/* Memory allocation error */
+		addStmtError(stmt, "HY001", NULL, 0);
+		return SQL_ERROR;
+	}
 	strcat(strcpy(s, "prepare "), query);
 	free(query);
 
@@ -167,8 +178,9 @@ SQLPrepare_(ODBCStmt *stmt,
 			if (rec->sql_desc_schema_name) {
 				/* base table name and base column
 				 * name exist if there is a schema
-				 * name */
-				rec->sql_desc_base_table_name = (SQLCHAR *) strdup((char *) rec->sql_desc_table_name);
+				 * name; the extra check is for static
+				 * code analyzers and robustness */
+				rec->sql_desc_base_table_name = rec->sql_desc_table_name ? (SQLCHAR *) strdup((char *) rec->sql_desc_table_name) : NULL;
 				rec->sql_desc_base_column_name = (SQLCHAR *) strdup((char *) rec->sql_desc_name);
 			} else {
 				rec->sql_desc_base_table_name = NULL;
@@ -263,7 +275,10 @@ SQLPrepare_(ODBCStmt *stmt,
 
 		if (rec->sql_desc_concise_type == SQL_CHAR ||
 		    rec->sql_desc_concise_type == SQL_VARCHAR ||
-		    rec->sql_desc_concise_type == SQL_LONGVARCHAR)
+		    rec->sql_desc_concise_type == SQL_LONGVARCHAR ||
+		    rec->sql_desc_concise_type == SQL_WCHAR ||
+		    rec->sql_desc_concise_type == SQL_WVARCHAR ||
+		    rec->sql_desc_concise_type == SQL_WLONGVARCHAR)
 			rec->sql_desc_case_sensitive = SQL_TRUE;
 		else
 			rec->sql_desc_case_sensitive = SQL_FALSE;
@@ -330,7 +345,6 @@ SQLPrepare(SQLHSTMT StatementHandle,
 			   TextLength);
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLPrepareA(SQLHSTMT StatementHandle,
 	    SQLCHAR *StatementText,
@@ -367,4 +381,3 @@ SQLPrepareW(SQLHSTMT StatementHandle,
 
 	return rc;
 }
-#endif /* WITH_WCHAR */

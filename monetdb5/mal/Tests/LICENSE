@@ -12,7 +12,7 @@
 @'
 @' The Initial Developer of the Original Code is CWI.
 @' Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-@' Copyright August 2008-2013 MonetDB B.V.
+@' Copyright August 2008-2015 MonetDB B.V.
 @' All Rights Reserved.
 
 Tue Aug 26 20:37:05 CEST 2008
@@ -552,9 +552,6 @@ tst308.stable.out
 tst350.mal
 tst350.stable.err
 tst350.stable.out
-tst380.mal
-tst380.stable.err
-tst380.stable.out
 tst4003.mal
 tst400a2.mal
 tst400a.mal

@@ -12,7 +12,7 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2013 MonetDB B.V.
+# Copyright August 2008-2015 MonetDB B.V.
 # All Rights Reserved.
 
 import string
@@ -325,14 +325,10 @@ def msc_dep(fd, tar, deplist, msc):
             if dep != t:
                 fd.write('%s"%s"' % (sep, dep))
                 sep = " "
-                if dep.endswith('.mx') and tar not in msc['BUILT_SOURCES']:
-                    msc['BUILT_SOURCES'].append(tar)
         else:
             print("!WARNING: dropped absolute dependency " + d)
     if sep == " ":
         fd.write("\n")
-        if tf+'.mx.in' in deplist:
-            fd.write('\t$(MX) $(MXFLAGS) -x sh "%s.mx"\n' % tf)
     for x, y in _in:
         # TODO
         # replace this hack by something like configure ...
@@ -820,6 +816,8 @@ def msc_library(fd, var, libmap, msc):
 
     srcs = '%s%s%s_OBJS =' % (pref, sep, libname)
     deps = '%s%s%s_DEPS = $(%s%s%s_OBJS)' % (pref, sep, libname, pref, sep, libname)
+    for dep in libmap.get('XDEPS', []):
+        deps = deps + ' ' + dep
     deffile = ''
     for target in libmap['TARGETS']:
         if target == "@LIBOBJS@":

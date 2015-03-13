@@ -56,7 +56,7 @@ toLower(const char *s)
 {
 	char *r = _STRDUP(s);
 
-	return mkLower(r);
+	return r ? mkLower(r) : NULL;
 }
 
 char *
@@ -64,7 +64,7 @@ toUpper(const char *s)
 {
 	char *r = _STRDUP(s);
 
-	return mkUpper(r);
+	return r ? mkUpper(r) : NULL;
 }
 
 /* concat s1,s2 into a new result string */
@@ -75,11 +75,13 @@ strconcat(const char *s1, const char *s2)
 	size_t l2 = strlen(s2) + 1;
 	char *new_s = NEW_ARRAY(char, l1 + l2);
 
-	for (i = 0; i < l1; i++) {
-		new_s[i] = s1[i];
-	}
-	for (j = 0; j < l2; j++, i++) {
-		new_s[i] = s2[j];
+	if (new_s) {
+		for (i = 0; i < l1; i++) {
+			new_s[i] = s1[i];
+		}
+		for (j = 0; j < l2; j++, i++) {
+			new_s[i] = s2[j];
+		}
 	}
 	return new_s;
 }
@@ -91,13 +93,11 @@ strip_extra_zeros(char *s)
 
 	for (; *s && isspace((int) (unsigned char) *s); s++)
 		;
-	for (; *s && *s == '0'; s++)
-		;
 	res = s;
 	/* find end, and strip extra 0's */
 	for (; *s; s++) ;	
 	s--;
-	for (; *s && *s == '0'; s--)
+	for (; *s && *s == '0' && s[-1] == '0'; s--)
 		;
 	s++;
 	*s = 0;
@@ -147,8 +147,10 @@ sql_strdup(char *s)
 	size_t l = strlen(s);
 	char *r = NEW_ARRAY(char, l);
 
-	memcpy(r, s + 1, l - 2);
-	r[l - 2] = 0;
+	if (r) {
+		memcpy(r, s + 1, l - 2);
+		r[l - 2] = 0;
+	}
 	return r;
 }
 
@@ -159,13 +161,15 @@ sql_escape_str(char *s)
 	char *res, *r = NEW_ARRAY(char, (l * 2) + 1);
 
 	res = r;
-	while (*s) {
-		if (*s == '\'' || *s == '\\') {
-			*r++ = '\\';
+	if (res) {
+		while (*s) {
+			if (*s == '\'' || *s == '\\') {
+				*r++ = '\\';
+			}
+			*r++ = *s++;
 		}
-		*r++ = *s++;
+		*r = '\0';
 	}
-	*r = '\0';
 	return res;
 }
 
@@ -176,13 +180,15 @@ sql_escape_ident(char *s)
 	char *res, *r = NEW_ARRAY(char, (l * 2) + 1);
 
 	res = r;
-	while (*s) {
-		if (*s == '"' || *s == '\\') {
-			*r++ = '\\';
+	if (res) {
+		while (*s) {
+			if (*s == '"' || *s == '\\') {
+				*r++ = '\\';
+			}
+			*r++ = *s++;
 		}
-		*r++ = *s++;
+		*r = '\0';
 	}
-	*r = '\0';
 	return res;
 }
 

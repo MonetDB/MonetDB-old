@@ -15,7 +15,6 @@ stdout of test 'lngssaretruncated` in directory 'monetdb5/tests/BugReports` itse
 # Listening for connection requests on mapi:monetdb://eir.ins.cwi.nl:33397/
 !SyntaxException:convertConstant:integer parse error
 !TypeException:user.main[6]:'calc.:' undefined in: l:any := calc.:(s:str, lng:any)
-!TypeException:user.main[6]:'lng' may not be used before being initialized
 function user.main():void;
 # observed 14-08-2008: the parser already truncates e in the parsed 
 # program, additionally, l is not a lng, but a string. 
@@ -26,7 +25,7 @@ function user.main():void;
     io.print(l);
     e := nil:lng;
     io.print(e);
-end main;
+end user.main;
 
 # 13:47:18 >  
 # 13:47:18 >  Done.

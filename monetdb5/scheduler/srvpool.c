@@ -19,7 +19,7 @@
 
 /*
  * @a M. Kersten
- * The octopus/centipede modules enable compute cloud based processing of SQL queries.
+ * The experimental octopus/centipede modules enabled compute cloud based processing of SQL queries.
  * Their scheduler takes over control of a MAL execution by
  * re-directing requests to multiple sites. If there are no sites known,
  * then the code is executed locally as is.
@@ -100,7 +100,7 @@ str SRVsetServers(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
 	if( getArgType(mb,pci,1) == TYPE_int) {
-		srvbaseline = *(int*) getArgReference(stk,pci,1);
+		srvbaseline = *getArgReference_int(stk,pci,1);
 		if ( srvbaseline <= 0) {
 			srvbaseline = 0 ;
 			throw(MAL,"scheduler.setServers","Illegal number of servers");
@@ -109,7 +109,7 @@ str SRVsetServers(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if( getArgType(mb,pci,1) == TYPE_str) {
 		if ( srvpattern)
 			GDKfree(srvpattern);
-		srvpattern = GDKstrdup(*(str*) getArgReference(stk,pci,1));
+		srvpattern = GDKstrdup(*getArgReference_str(stk,pci,1));
 	}
 	return MAL_SUCCEED;
 }
@@ -187,6 +187,8 @@ SRVPOOLdisconnect(Client cntxt)
 
 	for ( i=0; i< srvtop; i++)
 	if ( servers[i].conn != NULL ) {
+		if( msg) 
+			GDKfree(msg);
 		msg = RMTdisconnect(cntxt,&servers[i].conn);
 		GDKfree(servers[i].conn);
 		servers[i].conn = NULL;
@@ -241,7 +243,7 @@ SRVPOOLconnect(str *c, str *uri)
 
 /* switch local/remote execution */
 str
-SRVPOOLlocal(int *ret, int *flag)
+SRVPOOLlocal(void *ret, bit *flag)
 {
 	(void) ret;
 	localExecution= *flag != 0;
@@ -257,7 +259,7 @@ SRVPOOLdiscover(Client cntxt)
 	BUN p,q;
 	str msg = MAL_SUCCEED, conn, scen = "msql";
 	BATiter bi;
-	int j;
+	int j = -1;
 	char buf[BUFSIZ], *s= buf, *dbname;
 
 
@@ -282,8 +284,8 @@ SRVPOOLdiscover(Client cntxt)
 				str t= (str) BUNtail(bi,p);
 
 				for( j = 0; j < srvtop; j++)
-				if ( strcmp(servers[j].uri, t) == 0) 
-					break;
+					if ( strcmp(servers[j].uri, t) == 0) 
+						break;
 				if ( servers[j].conn == NULL) {
 					j = SRVPOOLnewServer(t); 
 					msg = RMTconnectScen(&conn, &servers[j].uri, &servers[j].usr, &servers[j].pwd, &scen);
@@ -307,7 +309,7 @@ SRVPOOLdiscover(Client cntxt)
 				assert(srvtop <MAXSITES);
 			}
 		}
-		BBPreleaseref(bid);
+		BBPunfix(bid);
 	} 
 	if( msg) {
 		/* ignore merovingian complaints */
@@ -321,22 +323,24 @@ SRVPOOLdiscover(Client cntxt)
 	while (srvtop < srvbaseline) {
 	 	/* there is a last resort, use local execution */
 		/* make sure you have enough connections */
-		SABAOTHgetLocalConnection(&s);
-
-		j = SRVPOOLnewServer(s); /*ref to servers registry*/
-		msg = RMTconnectScen(&conn, &servers[j].uri, &servers[j].usr, &servers[j].pwd, &scen);
-		if ( msg == MAL_SUCCEED )
+		msg = SABAOTHgetLocalConnection(&s);
+		if( msg == MAL_SUCCEED){
+			j = SRVPOOLnewServer(s); /*ref to servers registry*/
+			msg = RMTconnectScen(&conn, &servers[j].uri, &servers[j].usr, &servers[j].pwd, &scen);
+		}
+		if ( j >= 0 && msg == MAL_SUCCEED ) {
 			servers[j].conn = GDKstrdup(conn);
-		else  GDKfree(msg);
 #ifdef DEBUG_RUN_SRVPOOL
-		mnstr_printf(cntxt->fdout,"#Worker site %d connection %s %s\n", j, servers[j].conn, s);
+			mnstr_printf(cntxt->fdout,"#Worker site %d connection %s %s\n", j, servers[j].conn, s);
 #endif
+		} else
+			GDKfree(msg);
 	}
 
 #ifdef DEBUG_RUN_SRVPOOL
 	mnstr_printf(cntxt->fdout,"#Servers available %d\n", srvtop);
 #else
-		(void) cntxt;
+	(void) cntxt;
 #endif
 	return msg;
 }
@@ -396,8 +400,12 @@ SRVPOOLregisterInternal(Client cntxt, str uri, str fname)
 				msg = RMTregisterInternal(cntxt, servers[srv].conn, userRef, fname);
 #ifdef DEBUG_RUN_SRVPOOL
 				if ( msg) {
-					mnstr_printf(cntxt->fdout,"#Failed to register\n");
-					printFunction(cntxt->fdout, findSymbol(cntxt->nspace, userRef,putName(fname,strlen(fname)))->def, 0, LIST_MAL_DEBUG);
+					Symbol sf = findSymbol(cntxt->nspace, userRef,putName(fname,strlen(fname)));
+					if (sf){
+						mnstr_printf(cntxt->fdout,"#Failed to register\n");
+						printFunction(cntxt->fdout, sf->def, 0, LIST_MAL_DEBUG);
+					} else
+						mnstr_printf(cntxt->fdout,"#undefined registration function\n");
 				}
 #endif
 		} else
@@ -418,8 +426,8 @@ str SRVPOOLregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str fname, uri;
 
 	(void) mb;
-	uri = *(str*)getArgReference(stk,pci,1);
-	fname = *(str*)getArgReference(stk,pci,2);
+	uri = *getArgReference_str(stk,pci,1);
+	fname = *getArgReference_str(stk,pci,2);
 
 	return SRVPOOLregisterInternal(cntxt, uri, fname);
 }
@@ -432,7 +440,7 @@ str SRVPOOLregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str
 SRVPOOLscheduler(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int *res = (int*) getArgReference(stk,pci,0);
+	int *res = getArgReference_int(stk,pci,0), pc=0;
 	str msg = MAL_SUCCEED;
 
 	(void) mb;
@@ -446,9 +454,11 @@ SRVPOOLscheduler(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if ( srvtop == 0)
 			SRVPOOLdiscover(cntxt);
 		/* execute block in parallel */
-		if ( getPC(mb, pci) > pci->jump)
+		pc = getPC(mb, pci);
+		if (pc < 0 ||  pc > pci->jump)
 			throw(MAL,"scheduler.srvpool","Illegal statement range");
-		msg = runMALdataflow(cntxt, mb, getPC(mb,pci), pci->jump, stk);
+		if ( pc >= 0)
+			msg = runMALdataflow(cntxt, mb, pc, pci->jump, stk);
 		*res = int_nil;  /* continue at end of block */
 	}
 	return msg;
@@ -458,7 +468,7 @@ str
 SRVPOOLquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int i,j, fnd =0;
-	str plan = *(str*) getArgReference(stk,pci,pci->retc);
+	str plan = *getArgReference_str(stk,pci,pci->retc);
 	str msg = MAL_SUCCEED;
 
 	(void) cntxt;
@@ -480,7 +490,7 @@ SRVPOOLquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				}
 			}
 			if ( SRVPOOLfind(cntxt, j,plan) ){
-				*(str*) getArgReference(stk,pci,i++) = GDKstrdup(servers[j].conn);
+				*getArgReference_str(stk,pci,i++) = GDKstrdup(servers[j].conn);
 #ifdef DEBUG_RUN_SRVPOOL
 				mnstr_printf(cntxt->fdout,"#found %s on server %d\n",plan,j);
 #endif

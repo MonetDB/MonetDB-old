@@ -42,21 +42,22 @@ clients_export str CLTsetListing(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Inst
 clients_export str CLTgetClientId(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 clients_export str CLTgetScenario(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 clients_export str CLTsetScenario(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-clients_export str CLTusers(int *ret);
+clients_export str CLTusers(bat *ret);
 clients_export str CLTsetHistory(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 clients_export str CLTquit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-clients_export str CLTLogin(int *ret, int *nme);
-clients_export str CLTLastCommand(int *ret);
-clients_export str CLTActions(int *ret);
-clients_export str CLTTime(int *ret);
+clients_export str CLTLogin(bat *ret, bat *nme);
+clients_export str CLTLastCommand(bat *ret);
+clients_export str CLTActions(bat *ret);
+clients_export str CLTTime(bat *ret);
 clients_export str CLTInfo(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 clients_export str CLTstop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 clients_export str CLTsuspend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 clients_export str CLTsetTimeout(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+clients_export str CLTsetSessionTimeout(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 clients_export str CLTgetTimeout(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-clients_export str CLTwakeup(int *ret, int *id);
+clients_export str CLTwakeup(void *ret, int *id);
 
-clients_export str CLTshutdown(int *ret, bit *forced);
+clients_export str CLTshutdown(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 clients_export str CLTmd5sum(str *ret, str *pw);
 clients_export str CLTsha1sum(str *ret, str *pw);
 clients_export str CLTripemd160sum(str *ret, str *pw);
@@ -71,4 +72,5 @@ clients_export str CLTchangePassword(Client cntxt, MalBlkPtr mb, MalStkPtr stk, 
 clients_export str CLTsetPassword(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 clients_export str CLTcheckPermission(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 clients_export str CLTgetUsers(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+clients_export str CLTsessions(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 #endif /* _CLIENTS_H */

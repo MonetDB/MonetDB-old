@@ -38,15 +38,23 @@ monet_version(void)
 	cores = MT_check_nr_cores();
 
 	printf("MonetDB 5 server v" VERSION " ");
+	/* coverity[pointless_string_compare] */
 	if (strcmp(MONETDB_RELEASE, "unreleased") != 0)
 		printf("\"%s\" ", MONETDB_RELEASE);
-	printf("(" SZFMT "-bit, " SZFMT "-bit oids)\n",
+	printf("(" SZFMT "-bit, " SZFMT "-bit oids%s)\n",
 			(size_t) (sizeof(ptr) * 8),
-			(size_t) (sizeof(oid) * 8));
+			(size_t) (sizeof(oid) * 8),
+#ifdef HAVE_HGE
+			", 128-bit integers"
+#else
+			""
+#endif
+	);
+	/* coverity[pointless_string_compare] */
 	if (strcmp(MONETDB_RELEASE, "unreleased") == 0)
 		printf("This is an unreleased version\n");
 	printf("Copyright (c) 1993-July 2008 CWI\n"
-			"Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved\n");
+			"Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved\n");
 	printf("Visit http://www.monetdb.org/ for further information\n");
 	printf("Found %.1fGiB available memory, %d available cpu core%s\n",
 			sz_mem_gb, cores, cores != 1 ? "s" : "");

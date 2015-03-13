@@ -10,7 +10,7 @@ stdout of test 'ORDER_BY_over_UNION_EXCEPT_INTERSECT.Bug-2606` in directory 'sql
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.751 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://monetdb.cwi.nl/ for further information
 # Listening for connection requests on mapi:monetdb://rig.ins.cwi.nl:33404/
 # MonetDB/SQL module v2.38.3 loaded
@@ -61,19 +61,23 @@ Ready.
 % .plan # table_name
 % rel # name
 % clob # type
-% 43 # length
+% 45 # length
 project (
 | distinct union (
-| | distinct project (
-| | | table(sys.t2606a) [ t2606a.a ] COUNT 
-| | ) [ t2606a.a ],
-| | distinct project (
-| | | table(sys.t2606b) [ t2606b.a ] COUNT 
-| | ) [ t2606b.a ]
-| ) [ a ]
-) [ a ] [ a ASC ]
+| | group by (
+| | | project (
+| | | | table(sys.t2606a) [ t2606a.a ] COUNT 
+| | | ) [ t2606a.a ]
+| | ) [ t2606a.a ] [ t2606a.a ],
+| | group by (
+| | | project (
+| | | | table(sys.t2606b) [ t2606b.a ] COUNT 
+| | | ) [ t2606b.a ]
+| | ) [ t2606b.a ] [ t2606b.a ]
+| ) [ t2606a.a as L.a ]
+) [ L.a ] [ L.a ASC ]
 #select * from t2606a   union   select * from t2606b   order by a;
-% .t2606a # table_name
+% .L # table_name
 % a # name
 % int # type
 % 2 # length
@@ -90,19 +94,23 @@ project (
 % .plan # table_name
 % rel # name
 % clob # type
-% 43 # length
+% 45 # length
 project (
 | distinct union (
-| | distinct project (
-| | | table(sys.t2606a) [ t2606a.a ] COUNT 
-| | ) [ t2606a.a ],
-| | distinct project (
-| | | table(sys.t2606b) [ t2606b.a ] COUNT 
-| | ) [ t2606b.a ]
-| ) [ a ]
-) [ a ] [ a ASC ]
+| | group by (
+| | | project (
+| | | | table(sys.t2606a) [ t2606a.a ] COUNT 
+| | | ) [ t2606a.a ]
+| | ) [ t2606a.a ] [ t2606a.a ],
+| | group by (
+| | | project (
+| | | | table(sys.t2606b) [ t2606b.a ] COUNT 
+| | | ) [ t2606b.a ]
+| | ) [ t2606b.a ] [ t2606b.a ]
+| ) [ t2606a.a as L.a ]
+) [ L.a ] [ L.a ASC ]
 #( select * from t2606a   union   select * from t2606b ) order by a;
-% .t2606a # table_name
+% .L # table_name
 % a # name
 % int # type
 % 2 # length
@@ -119,19 +127,23 @@ project (
 % .plan # table_name
 % rel # name
 % clob # type
-% 43 # length
+% 45 # length
 project (
 | distinct union (
-| | distinct project (
-| | | table(sys.t2606a) [ t2606a.a ] COUNT 
-| | ) [ t2606a.a ],
-| | distinct project (
-| | | table(sys.t2606b) [ t2606b.a ] COUNT 
-| | ) [ t2606b.a ]
-| ) [ a ]
-) [ a ] [ a ASC ]
+| | group by (
+| | | project (
+| | | | table(sys.t2606a) [ t2606a.a ] COUNT 
+| | | ) [ t2606a.a ]
+| | ) [ t2606a.a ] [ t2606a.a ],
+| | group by (
+| | | project (
+| | | | table(sys.t2606b) [ t2606b.a ] COUNT 
+| | | ) [ t2606b.a ]
+| | ) [ t2606b.a ] [ t2606b.a ]
+| ) [ t2606a.a as L.a ]
+) [ L.a ] [ L.a ASC ]
 #( select * from t2606a ) union ( select * from t2606b ) order by a;
-% .t2606a # table_name
+% .L # table_name
 % a # name
 % int # type
 % 2 # length
@@ -150,17 +162,17 @@ project (
 % clob # type
 % 43 # length
 project (
-| except (
-| | distinct project (
+| distinct except (
+| | project (
 | | | table(sys.t2606a) [ t2606a.a ] COUNT 
 | | ) [ t2606a.a ],
 | | project (
 | | | table(sys.t2606b) [ t2606b.a ] COUNT 
 | | ) [ t2606b.a ]
-| ) [ a ]
-) [ a ] [ a ASC ]
+| ) [ t2606a.a as L.a ]
+) [ L.a ] [ L.a ASC ]
 #select * from t2606a   except   select * from t2606b   order by a;
-% sys.t2606a # table_name
+% sys.L # table_name
 % a # name
 % int # type
 % 2 # length
@@ -173,17 +185,17 @@ project (
 % clob # type
 % 43 # length
 project (
-| except (
-| | distinct project (
+| distinct except (
+| | project (
 | | | table(sys.t2606a) [ t2606a.a ] COUNT 
 | | ) [ t2606a.a ],
 | | project (
 | | | table(sys.t2606b) [ t2606b.a ] COUNT 
 | | ) [ t2606b.a ]
-| ) [ a ]
-) [ a ] [ a ASC ]
+| ) [ t2606a.a as L.a ]
+) [ L.a ] [ L.a ASC ]
 #( select * from t2606a   except   select * from t2606b ) order by a;
-% sys.t2606a # table_name
+% sys.L # table_name
 % a # name
 % int # type
 % 2 # length
@@ -196,17 +208,17 @@ project (
 % clob # type
 % 43 # length
 project (
-| except (
-| | distinct project (
+| distinct except (
+| | project (
 | | | table(sys.t2606a) [ t2606a.a ] COUNT 
 | | ) [ t2606a.a ],
 | | project (
 | | | table(sys.t2606b) [ t2606b.a ] COUNT 
 | | ) [ t2606b.a ]
-| ) [ a ]
-) [ a ] [ a ASC ]
+| ) [ t2606a.a as L.a ]
+) [ L.a ] [ L.a ASC ]
 #( select * from t2606a ) except ( select * from t2606b ) order by a;
-% sys.t2606a # table_name
+% sys.L # table_name
 % a # name
 % int # type
 % 2 # length
@@ -219,17 +231,17 @@ project (
 % clob # type
 % 43 # length
 project (
-| intersect (
-| | distinct project (
+| distinct intersect (
+| | project (
 | | | table(sys.t2606a) [ t2606a.a ] COUNT 
 | | ) [ t2606a.a ],
 | | project (
 | | | table(sys.t2606b) [ t2606b.a ] COUNT 
 | | ) [ t2606b.a ]
-| ) [ a ]
-) [ a ] [ a ASC ]
+| ) [ t2606a.a as L.a ]
+) [ L.a ] [ L.a ASC ]
 #select * from t2606a   intersect   select * from t2606b   order by a;
-% sys.t2606a # table_name
+% sys.L # table_name
 % a # name
 % int # type
 % 2 # length
@@ -242,17 +254,17 @@ project (
 % clob # type
 % 43 # length
 project (
-| intersect (
-| | distinct project (
+| distinct intersect (
+| | project (
 | | | table(sys.t2606a) [ t2606a.a ] COUNT 
 | | ) [ t2606a.a ],
 | | project (
 | | | table(sys.t2606b) [ t2606b.a ] COUNT 
 | | ) [ t2606b.a ]
-| ) [ a ]
-) [ a ] [ a ASC ]
+| ) [ t2606a.a as L.a ]
+) [ L.a ] [ L.a ASC ]
 #( select * from t2606a   intersect   select * from t2606b ) order by a;
-% sys.t2606a # table_name
+% sys.L # table_name
 % a # name
 % int # type
 % 2 # length
@@ -265,17 +277,17 @@ project (
 % clob # type
 % 43 # length
 project (
-| intersect (
-| | distinct project (
+| distinct intersect (
+| | project (
 | | | table(sys.t2606a) [ t2606a.a ] COUNT 
 | | ) [ t2606a.a ],
 | | project (
 | | | table(sys.t2606b) [ t2606b.a ] COUNT 
 | | ) [ t2606b.a ]
-| ) [ a ]
-) [ a ] [ a ASC ]
+| ) [ t2606a.a as L.a ]
+) [ L.a ] [ L.a ASC ]
 #( select * from t2606a ) intersect ( select * from t2606b ) order by a;
-% sys.t2606a # table_name
+% sys.L # table_name
 % a # name
 % int # type
 % 2 # length
@@ -286,16 +298,20 @@ project (
 % .plan # table_name
 % rel # name
 % clob # type
-% 43 # length
+% 45 # length
 project (
 | distinct union (
-| | distinct project (
-| | | table(sys.t2606a) [ t2606a.a ] COUNT 
-| | ) [ t2606a.a ],
-| | distinct project (
-| | | table(sys.t2606b) [ t2606b.a ] COUNT 
-| | ) [ t2606b.a ]
-| ) [ a as t.a ]
+| | group by (
+| | | project (
+| | | | table(sys.t2606a) [ t2606a.a ] COUNT 
+| | | ) [ t2606a.a ]
+| | ) [ t2606a.a ] [ t2606a.a ],
+| | group by (
+| | | project (
+| | | | table(sys.t2606b) [ t2606b.a ] COUNT 
+| | | ) [ t2606b.a ]
+| | ) [ t2606b.a ] [ t2606b.a ]
+| ) [ t2606a.a as t.a ]
 ) [ t.a ] [ t.a ASC ]
 #select * from (select * from t2606a union select * from t2606b) as t order by a;
 % .t # table_name
@@ -317,14 +333,14 @@ project (
 % clob # type
 % 43 # length
 project (
-| except (
-| | distinct project (
+| distinct except (
+| | project (
 | | | table(sys.t2606a) [ t2606a.a ] COUNT 
 | | ) [ t2606a.a ],
 | | project (
 | | | table(sys.t2606b) [ t2606b.a ] COUNT 
 | | ) [ t2606b.a ]
-| ) [ a as t.a ]
+| ) [ t2606a.a as t.a ]
 ) [ t.a ] [ t.a ASC ]
 #select * from (select * from t2606a except select * from t2606b) as t order by a;
 % sys.t # table_name
@@ -340,14 +356,14 @@ project (
 % clob # type
 % 43 # length
 project (
-| intersect (
-| | distinct project (
+| distinct intersect (
+| | project (
 | | | table(sys.t2606a) [ t2606a.a ] COUNT 
 | | ) [ t2606a.a ],
 | | project (
 | | | table(sys.t2606b) [ t2606b.a ] COUNT 
 | | ) [ t2606b.a ]
-| ) [ a as t.a ]
+| ) [ t2606a.a as t.a ]
 ) [ t.a ] [ t.a ASC ]
 #select * from (select * from t2606a intersect select * from t2606b) as t order by a;
 % sys.t # table_name

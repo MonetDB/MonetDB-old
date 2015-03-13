@@ -18,9 +18,8 @@
  */
 
 /*
- * @f mal_sabaoth
- * @a Fabian Groffen
- * @+ Cluster support
+ * (author) Fabian Groffen
+ *  Cluster support
  * The cluster facilitation currently only deals with (de-)registering of
  * services offered by the local server to other servers.
  * The name of this module is inspired by the Armada setting of anchient
@@ -28,12 +27,6 @@
  * Hosts'' in an army setting as found in the Bible's New Testament.  This
  * module allows an army of Mservers to be aware of each other on a local
  * machine and redirect to each other when necessary.
- * @- Implementation
- *
- */
-/*
- * @-
- *
  */
 #include "monetdb_config.h"
 #include "mal_sabaoth.h"
@@ -98,7 +91,7 @@ str SABAOTHgetDBname(str *ret) {
  * exist, it is created.  Multiple invocations of this function for the
  * same language are ignored.
  */
-str SABAOTHmarchScenario(int *ret, str *lang) {
+str SABAOTHmarchScenario(void *ret, str *lang) {
 	str err = msab_marchScenario(*lang);
 	if (err != NULL)
 		excFromMem(MAL, "sabaoth.marchscenario", err);
@@ -111,7 +104,7 @@ str SABAOTHmarchScenario(int *ret, str *lang) {
  * file is empty (before or) after removing the language, the file is
  * removed.
  */
-str SABAOTHretreatScenario(int *ret, str *lang) {
+str SABAOTHretreatScenario(void *ret, str *lang) {
 	str err = msab_retreatScenario(*lang);
 	if (err != NULL)
 		excFromMem(MAL, "sabaoth.retreatscenario", err);
@@ -126,7 +119,7 @@ str SABAOTHretreatScenario(int *ret, str *lang) {
  * to <= 0, this function treats the host argument as UNIX domain
  * socket, in which case host must start with a '/'.
  */
-str SABAOTHmarchConnection(int *ret, str *host, int *port) {
+str SABAOTHmarchConnection(void *ret, str *host, int *port) {
 	str err = msab_marchConnection(*host, *port);
 	if (err != NULL)
 		excFromMem(MAL, "sabaoth.marchconnection", err);

@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <time.h>
@@ -39,6 +40,9 @@
 #include <utils/properties.h>
 #include <utils/database.h>
 #include <utils/control.h>
+
+#include "gdk.h"  /* these three for creation of dbs with password */
+#include "mal_authorize.h"
 
 #include "merovingian.h"
 #include "discoveryrunner.h" /* broadcast, remotedb */
@@ -183,6 +187,38 @@ control_authorise(
 	return 1;
 }
 
+#define send_client(P)								\
+	do {											\
+		if (fout != NULL) {							\
+			mnstr_printf(fout, P "%s", buf2);		\
+			mnstr_flush(fout);						\
+		} else {									\
+			if (send(msgsock, buf2, len, 0) < 0)	\
+				senderror = errno;					\
+		}											\
+	} while (0)
+
+#define send_list()											\
+	do {													\
+		len = snprintf(buf2, sizeof(buf2), "OK\n");			\
+		if (fout == NULL) {									\
+			if (send(msgsock, buf2, strlen(buf2), 0) < 0 ||	\
+				send(msgsock, pbuf, strlen(pbuf), 0) < 0)	\
+				senderror = errno;							\
+		} else {											\
+			char *p, *q = pbuf;								\
+			mnstr_printf(fout, "=OK\n");					\
+			while ((p = strchr(q, '\n')) != NULL) {			\
+				*p++ = '\0';								\
+				mnstr_printf(fout, "=%s\n", q);				\
+				q = p;										\
+			}												\
+			if (*q != '\0')									\
+				mnstr_printf(fout, "=%s\n", q);				\
+			mnstr_flush(fout);								\
+		}													\
+	} while (0)
+
 static void ctl_handle_client(
 		const char *origin,
 		int msgsock,
@@ -201,8 +237,9 @@ static void ctl_handle_client(
 	int pos = 0;
 	size_t len;
 	err e;
+	int senderror = 0;
 
-	while (_mero_keep_listening) {
+	while (_mero_keep_listening && !senderror) {
 		if (pos == 0) {
 			if ((pos = recvWithTimeout(msgsock, fdin, buf, sizeof(buf))) == 0) {
 				/* EOF */
@@ -250,13 +287,6 @@ static void ctl_handle_client(
 		} else {
 			*p++ = '\0';
 			if (strcmp(p, "ping") == 0) {
-#define send_client(P) \
-				if (fout != NULL) { \
-					mnstr_printf(fout, P "%s", buf2); \
-					mnstr_flush(fout); \
-				} else { \
-					send(msgsock, buf2, len, 0); \
-				}
 				len = snprintf(buf2, sizeof(buf2), "OK\n");
 				send_client("=");
 			} else if (strcmp(p, "start") == 0) {
@@ -353,8 +383,15 @@ static void ctl_handle_client(
 							"database is not running: %s\n", q);
 					send_client("!");
 				}
-			} else if (strcmp(p, "create") == 0) {
-				err e = db_create(q);
+			} else if (strcmp(p, "create") == 0 ||
+					strncmp(p, "create password=", strlen("create password=")) == 0) {
+				err e;
+
+				p += strlen("create");
+				if (*p == ' ')
+					p += strlen(" password=");
+
+				e = db_create(q);
 				if (e != NO_ERR) {
 					Mfprintf(_mero_ctlerr, "%s: failed to create "
 							"database '%s': %s\n", origin, q, getErrMsg(e));
@@ -363,6 +400,88 @@ static void ctl_handle_client(
 					send_client("!");
 					free(e);
 				} else {
+					if (*p != '\0') {
+						pid_t child;
+						sigset_t blocksig;
+						/* temporarily block SIGCHLD signals until
+						 * we've waited for the child we're about to
+						 * create. See bug http://bugs.monetdb.org/3603. */
+						sigemptyset(&blocksig);
+						sigaddset(&blocksig, SIGCHLD);
+						pthread_sigmask(SIG_BLOCK, &blocksig, (sigset_t *) 0);
+						if ((child = fork()) == 0) {
+							FILE *secretf;
+							size_t len;
+							char *err;
+							char *vaultkey;
+							opt *set = malloc(sizeof(opt) * 2);
+							int setlen = 0;
+							char *sadbfarm;
+
+							sigemptyset(&blocksig);
+							sigaddset(&blocksig, SIGCHLD);
+							pthread_sigmask(SIG_UNBLOCK, &blocksig, (sigset_t *) 0);
+
+							if ((err = msab_getDBfarm(&sadbfarm)) != NULL) {
+								Mfprintf(_mero_ctlerr, "%s: internal error: %s\n",
+										 origin, err);
+								exit(0);
+							}
+							snprintf(buf2, sizeof(buf2), "%s/%s", sadbfarm, q);
+							free(sadbfarm);
+							setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_dbpath", buf2);
+							setlen = mo_system_config(&set, setlen);
+							/* the child, pollute scope by loading BBP */
+							if (chdir(q) < 0) {
+								/* Fabian says "Ignore the output.
+								 * The idea is that the stuff below
+								 * will also fail, and therefore emit
+								 * some error, but if that happens,
+								 * the world already is in such a bad
+								 * shape that that most likely isn't
+								 * your biggest problem.
+								 * Hence a (void) probably does.
+								 * If not, a fake if.
+								 * (exit(0) should be fine)."
+								 * (https://www.monetdb.org/pipermail/developers-list/2014-February/004238.html)
+								 */
+								Mfprintf(_mero_ctlerr, "%s: could not chdir to "
+									"'%s': %d: %s\n", origin, q, errno, strerror(errno));
+								exit(0);
+							}
+
+							buf2[0] = '\0';
+							if ((secretf = fopen(".vaultkey", "r")) != NULL) {
+								len = fread(buf2, 1, sizeof(buf2), secretf);
+								buf2[len] = '\0';
+								len = strlen(buf2); /* secret can contain null-bytes */
+								fclose(secretf);
+							}
+							GDKinit(set, setlen);
+							vaultkey = buf2;
+							if ((err = AUTHunlockVault(&vaultkey)) != NULL ||
+								(err = AUTHinitTables(&p)) != NULL) {
+								Mfprintf(_mero_ctlerr, "%s: could not setup "
+										"database '%s': %s\n", origin, q, err);
+								GDKfree(err);
+							} else {
+								/* don't start locked */
+								unlink(".maintenance");
+							}
+
+							exit(0); /* return to the parent */
+						} else if (child > 0) {
+							/* wait for the child to finish */
+							waitpid(child, NULL, 0);
+						} else {
+							Mfprintf(_mero_ctlout, "%s: forking failed\n",
+									 origin);
+						}
+						sigemptyset(&blocksig);
+						sigaddset(&blocksig, SIGCHLD);
+						pthread_sigmask(SIG_UNBLOCK, &blocksig, (sigset_t *) 0);
+					}
+
 					Mfprintf(_mero_ctlout, "%s: created database '%s'\n",
 							origin, q);
 					len = snprintf(buf2, sizeof(buf2), "OK\n");
@@ -569,6 +688,7 @@ static void ctl_handle_client(
 				}
 
 				val = strchr(p, '=');
+				assert(val != NULL); /* see above */
 				*val++ = '\0';
 				if (*val == '\0')
 					val = NULL;
@@ -583,6 +703,7 @@ static void ctl_handle_client(
 						Mfprintf(_mero_ctlerr, "%s: set: cannot perform "
 								"client share request: discovery service "
 								"is globally disabled\n", origin);
+						msab_freeStatus(&stats);
 						continue;
 					}
 
@@ -631,23 +752,6 @@ static void ctl_handle_client(
 
 	/* comands below this point are multi line and hence you can't
 	 * combine them, so they disconnect the client afterwards */
-#define send_list() \
-	len = snprintf(buf2, sizeof(buf2), "OK\n"); \
-	if (fout == NULL) { \
-		send(msgsock, buf2, strlen(buf2), 0); \
-		send(msgsock, pbuf, strlen(pbuf), 0); \
-	} else { \
-		char *p, *q = pbuf; \
-		mnstr_printf(fout, "=OK\n"); \
-		while ((p = strchr(q, '\n')) != NULL) { \
-			*p++ = '\0'; \
-			mnstr_printf(fout, "=%s\n", q); \
-			q = p; \
-		} \
-		if (*q != '\0') \
-			mnstr_printf(fout, "=%s\n", q); \
-		mnstr_flush(fout); \
-	}
 
 			} else if (strcmp(p, "version") == 0) {
 				len = snprintf(buf2, sizeof(buf2), "OK\n");
@@ -747,7 +851,8 @@ static void ctl_handle_client(
 
 				len = snprintf(buf2, sizeof(buf2), "OK\n");
 				if (fout == NULL) {
-					send(msgsock, buf2, len, 0);
+					if (send(msgsock, buf2, len, 0) < 0)
+						senderror = errno;
 				} else {
 					mnstr_printf(fout, "=%s", buf2);
 				}
@@ -756,15 +861,27 @@ static void ctl_handle_client(
 					/* set uri */
 					setURI(stats);
 					/* currently never fails (just crashes) */
-					msab_serialise(&sdb, stats);
+					if ((e = msab_serialise(&sdb, stats)) != NULL)
+						break;
 					stats->uri = NULL;
 					len = snprintf(buf2, sizeof(buf2), "%s\n", sdb);
 					if (fout == NULL) {
-						send(msgsock, buf2, len, 0);
+						if (send(msgsock, buf2, len, 0) < 0)
+							senderror = errno;
 					} else {
 						mnstr_printf(fout, "=%s", buf2);
 					}
 					free(sdb);
+				}
+				if (e != NULL) {
+					len = snprintf(buf2, sizeof(buf2),
+							"internal error, please review the logs\n");
+					send_client("!");
+					Mfprintf(_mero_ctlerr, "%s: status: msab_getStatus: "
+							"%s\n", origin, e);
+					msab_freeStatus(&topdb);
+					freeErr(e);
+					break;
 				}
 
 				if (fout != NULL)
@@ -791,18 +908,20 @@ static void ctl_handle_client(
 				/* this never fails */
 				len = snprintf(buf2, sizeof(buf2), "OK\n");
 				if (fout == NULL) {
-					send(msgsock, buf2, len, 0);
+					if (send(msgsock, buf2, len, 0) < 0)
+						senderror = errno;
 				} else {
 					mnstr_printf(fout, "=%s", buf2);
 				}
 
 				rdb = _mero_remotedbs;
-				while (rdb != NULL) {
+				while (rdb != NULL && !senderror) {
 					len = snprintf(buf2, sizeof(buf2), "%s\t%s\n",
 							rdb->fullname,
 							rdb->conn);
 					if (fout == NULL) {
-						send(msgsock, buf2, len, 0);
+						if (send(msgsock, buf2, len, 0) < 0)
+							senderror = errno;
 					} else {
 						mnstr_printf(fout, "=%s", buf2);
 					}
@@ -827,6 +946,9 @@ static void ctl_handle_client(
 			}
 		}
 	}
+	if (senderror)
+		Mfprintf(_mero_ctlerr, "%s: error sending to control "
+				 "channel: %s\n", origin, strerror(senderror));
 }
 
 void
@@ -858,7 +980,7 @@ controlRunner(void *d)
 			/* nothing interesting has happened */
 			continue;
 		}
-		if (retval < 0) {
+		if (retval == -1) {
 			if (_mero_keep_listening == 0)
 				break;
 			continue;
@@ -870,7 +992,7 @@ controlRunner(void *d)
 			continue;
 		}
 
-		if ((msgsock = accept(sock, (SOCKPTR) 0, (socklen_t *) 0)) < 0) {
+		if ((msgsock = accept(sock, (SOCKPTR) 0, (socklen_t *) 0)) == -1) {
 			if (_mero_keep_listening == 0)
 				break;
 			if (errno != EINTR) {

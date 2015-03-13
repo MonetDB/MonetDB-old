@@ -23,7 +23,7 @@
 #include "sql_storage.h"
 #include <gdk_logger.h>
 
-#define bat_set_access(b,access) b->P->restricted = access
+#define bat_set_access(b,access) b->batRestricted = access
 #define bat_clear(b) bat_set_access(b,BAT_WRITE);BATclear(b,TRUE);bat_set_access(b,BAT_READ)
 
 extern BAT *temp_descriptor(log_bid b);
@@ -34,7 +34,7 @@ extern log_bid temp_create(BAT *b);
 extern log_bid temp_copy(log_bid b, int temp);
 
 extern void bat_destroy(BAT *b);
-extern BAT *bat_new(int ht, int tt, BUN size);
+extern BAT *bat_new(int ht, int tt, BUN size, int role);
 
 extern BUN append_inserted(BAT *b, BAT *i );
 extern BUN copy_inserted(BAT *b, BAT *i );

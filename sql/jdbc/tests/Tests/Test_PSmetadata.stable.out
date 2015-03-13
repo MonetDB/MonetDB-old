@@ -10,7 +10,7 @@ stdout of test 'Test_PSmetadata` in directory 'sql/jdbc/tests` itself:
 # Compiled for x86_64-pc-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 15.629 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
 # Listening for connection requests on mapi:monetdb://sofia.ins.cwi.nl:32363/
 # MonetDB/GIS module loaded
@@ -53,7 +53,7 @@ Ready.
 0. false	false
 0. 6 columns:	6
 1.	mTests_sql_jdbc_tests
-	classname     java.lang.Integer
+	classname     java.lang.Short
 	displaysize   8
 	label         intnull
 	name          intnull
@@ -62,7 +62,7 @@ Ready.
 	precision     8
 	scale         0
 	schemaname    
-	tablename     
+	tablename     L
 	autoincrement false
 	casesensitive false
 	currency      false

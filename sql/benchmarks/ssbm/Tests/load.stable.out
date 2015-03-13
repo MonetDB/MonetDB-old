@@ -10,7 +10,7 @@ stdout of test 'load` in directory 'sql/benchmarks/ssbm` itself:
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.749 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://monetdb.cwi.nl/ for further information
 # Listening for connection requests on mapi:monetdb://rig.ins.cwi.nl:37793/
 # MonetDB/SQL module loaded
@@ -36,31 +36,31 @@ Ready.
 [ 60175	]
 #COMMIT;
 #select count(*) from DWDATE;
-% sys.dwdate # table_name
+% sys.L1 # table_name
 % L1 # name
 % wrd # type
 % 4 # length
 [ 2556	]
 #select count(*) from SUPPLIER;
-% sys.supplier # table_name
+% sys.L1 # table_name
 % L1 # name
 % wrd # type
 % 3 # length
 [ 100	]
 #select count(*) from CUSTOMER;
-% sys.customer # table_name
+% sys.L1 # table_name
 % L1 # name
 % wrd # type
 % 3 # length
 [ 300	]
 #select count(*) from PART;
-% sys.part # table_name
+% sys.L1 # table_name
 % L1 # name
 % wrd # type
 % 4 # length
 [ 2000	]
 #select count(*) from LINEORDER;
-% sys.lineorder # table_name
+% sys.L1 # table_name
 % L1 # name
 % wrd # type
 % 5 # length

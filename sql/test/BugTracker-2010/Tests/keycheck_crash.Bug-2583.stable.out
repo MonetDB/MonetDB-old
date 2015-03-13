@@ -10,7 +10,7 @@ stdout of test 'keycheck_crash.Bug-2583` in directory 'sql/test/BugTracker-2010`
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.754 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://monetdb.cwi.nl/ for further information
 # Listening for connection requests on mapi:monetdb://alf.ins.cwi.nl:31811/
 # MonetDB/SQL module v2.38.2 loaded
@@ -23,7 +23,15 @@ Ready.
 # 09:16:38 >  
 
 #SELECT
-% . # table_name
+#        (1) AS "a"
+#FROM
+#        "test"."tbl1"
+#WHERE
+#        "tbl1"."name" =  'some text'  AND
+#        "tbl1"."id1"   = 1  AND NOT
+#        ("tbl1"."id2" =  295)
+#;
+% .L # table_name
 % a # name
 % tinyint # type
 % 1 # length

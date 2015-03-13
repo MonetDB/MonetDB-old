@@ -11,7 +11,7 @@ stdout of test 'CASE_division_exception.Bug-2822` in directory 'sql/test/BugTrac
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.749 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://monetdb.cwi.nl/ for further information
 # Listening for connection requests on mapi:monetdb://rig.ins.cwi.nl:37988/
 # MonetDB/GIS module loaded
@@ -28,8 +28,8 @@ Ready.
 #CREATE TABLE bug_2822 (c INT);
 #INSERT INTO bug_2822 VALUES (0);
 [ 1	]
-#SELECT CASE WHEN (c = 0) THEN 0 ELSE (c / c + 1) END FROM bug_2822;
-% sys. # table_name
+#SELECT CASE WHEN (c = 0) THEN 0 ELSE (c / (c + 1)) END FROM bug_2822;
+% sys.L # table_name
 % ifthenelse_isnull_=_c # name
 % bigint # type
 % 1 # length

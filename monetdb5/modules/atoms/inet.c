@@ -32,7 +32,79 @@
 #include <gdk.h>
 #include "mal.h"
 #include "mal_exception.h"
-#include "inet.h"
+
+/*
+ * @* Implementation Code
+ * The first 4 bytes of the used lng are in use by the four quads of the
+ * IPv4 address, stored in network order.  In the four bytes left,
+ * additional information is stored.
+ * Currently the fifth byte holds the number of bits from the IPv4 address
+ * that should match (ie. /8, /16, /24, /32) also known as subnet mask.
+ * The last byte holds whether inet atom represents the value nil or not.
+ * The value nil is represented as (per byte) 0000 0001.
+ *
+ */
+typedef struct _inet {
+	unsigned char q1;
+	unsigned char q2;
+	unsigned char q3;
+	unsigned char q4;
+	unsigned char mask;
+	unsigned char filler1;
+	unsigned char filler2;
+	unsigned char isnil;
+} inet;
+#ifdef WORDS_BIGENDIAN
+/* HACK ALERT: once upon a time, lng_nil was used as inet_nil, but on
+ * big endian hardware, the byte that is not zero is on the other end;
+ * luckily, a mask of 0 is pretty useless, so we regard 128.0.0.0/0
+ * also as nil */
+#define in_isnil(i) ((((i)->q1 == 0 && (i)->isnil != 0) || ((i)->q1 == 128 && (i)->isnil == 0 && (i)->filler1 == 0 && (i)->filler2 == 0)) && (i)->q2 == 0 && (i)->q3 == 0 && (i)->q4 == 0 && (i)->mask == 0)
+#else
+#define in_isnil(i) ((i)->q1 == 0 && (i)->q2 == 0 && (i)->q3 == 0 && (i)->q4 == 0 && (i)->mask == 0 && (i)->isnil != 0)
+#endif
+#define in_setnil(i) (i)->q1 = (i)->q2 = (i)->q3 = (i)->q4 = (i)->mask = (i)->filler1 = (i)->filler2 = 0; (i)->isnil = 1
+
+#ifdef WIN32
+#if !defined(LIBMAL) && !defined(LIBATOMS) && !defined(LIBKERNEL) && !defined(LIBMAL) && !defined(LIBOPTIMIZER) && !defined(LIBSCHEDULER) && !defined(LIBMONETDB5)
+#define inet_export extern __declspec(dllimport)
+#else
+#define inet_export extern __declspec(dllexport)
+#endif
+#else
+#define inet_export extern
+#endif
+
+inet_export int INETfromString(const char *src, int *len, inet **retval);
+inet_export int INETtoString(str *retval, int *len, const inet *handle);
+inet_export int INETcompare(const inet *l, const inet *r);
+inet_export str INETnew(inet *retval, str *in);
+inet_export str INET_isnil(bit *retval, const inet *val);
+inet_export str INET_comp_EQ(bit *retval, const inet *val1, const inet *val2);
+inet_export str INET_comp_NEQ(bit *retval, const inet *val1, const inet *val2);
+inet_export str INET_comp_LT(bit *retval, const inet *val1, const inet *val2);
+inet_export str INET_comp_GT(bit *retval, const inet *val1, const inet *val2);
+inet_export str INET_comp_LE(bit *retval, const inet *val1, const inet *val2);
+inet_export str INET_comp_GE(bit *retval, const inet *val1, const inet *val2);
+inet_export str INET_comp_CW(bit *retval, const inet *val1, const inet *val2);
+inet_export str INET_comp_CWE(bit *retval, const inet *val1, const inet *val2);
+inet_export str INET_comp_CS(bit *retval, const inet *val1, const inet *val2);
+inet_export str INET_comp_CSE(bit *retval, const inet *val1, const inet *val2);
+inet_export str INETbroadcast(inet *retval, const inet *val);
+inet_export str INEThost(str *retval, const inet *val);
+inet_export str INETmasklen(int *retval, const inet *val);
+inet_export str INETsetmasklen(inet *retval, const inet *val, const int *mask);
+inet_export str INETnetmask(inet *retval, const inet *val);
+inet_export str INEThostmask(inet *retval, const inet *val);
+inet_export str INETnetwork(inet *retval, const inet *val);
+inet_export str INETtext(str *retval, const inet *val);
+inet_export str INETabbrev(str *retval, const inet *val);
+inet_export str INET_inet(inet *d, const inet *s);
+inet_export str INET_fromstr(inet *ret, str *s);
+inet_export inet *INETnull(void);
+
+static inet inet_nil = {0,0,0,0,0,0,0,1};
+
 /**
  * Creates a new inet from the given string.
  * Warning: GDK function, does NOT pass a string by reference, and wants
@@ -40,12 +112,12 @@
  * Returns the number of chars read
  */
 int
-INETfromString(str src, int *len, inet **retval)
+INETfromString(const char *src, int *len, inet **retval)
 {
 	int i, last, type;
-	lng parse;
+	long parse;
 	char *endptr;
-	char sep;
+	char sep = '.';
 
 	last = 0;
 	type = 0;
@@ -69,19 +141,14 @@ INETfromString(str src, int *len, inet **retval)
 	for (i = 0; src[i] != '\0'; i++) {
 		if (src[i] == '.' || src[i] == '/') {
 			sep = src[i];
-			src[i] = '\0';
 			parse = strtol(src + last, &endptr, 10);
-			if (*endptr != '\0') {
-				/* this is for the cat his violin
-				throw(PARSE, "inet.fromStr", "Error while parsing, unexpected string '%s'", endptr);
-				*/
-				goto error;	/* yeah, I know, but I'm just simulating try-catch stuff in C now */
+			if (*endptr != sep || last >= i) {
+				GDKerror("Error while parsing, unexpected string '%s'", endptr);
+				goto error;
 			}
 			if (parse > 255 || parse < 0) {
-				/* this is for the cat his violin
-				throw(PARSE, "inet.fromStr", "Illegal quad value: %d", parse);
-				*/
-				goto error;	/* yeah, I know, but I'm just simulating try-catch stuff in C now */
+				GDKerror("Illegal quad value: %ld", parse);
+				goto error;
 			}
 			switch (type) {
 				case 0:
@@ -123,42 +190,35 @@ INETfromString(str src, int *len, inet **retval)
 	 * the contract is that the caller makes sure the string is
 	 * null-terminated here */
 	parse = strtol(src + last, &endptr, 10);
-	if (*endptr != '\0') {
-		/* this is for the cat his violin
-		throw(PARSE, "inet.fromStr", "Error while parsing, unexpected string '%s'", endptr);
-		*/
-		goto error;	/* yeah, I know, but I'm just simulating try-catch stuff in C now */
+	if (*endptr != '\0' || (sep != '/' && last >= i)) {
+		GDKerror("Error while parsing, unexpected string '%s'", endptr);
+		goto error;
 	}
 	if (type == 3) {
 		if (parse > 255 || parse < 0) {
-			/* this is for the cat his violin
-			throw(PARSE, "inet.fromStr", "Illegal quad value: %d", parse);
-			*/
-			goto error;	/* yeah, I know, but I'm just simulating try-catch stuff in C now */
+			GDKerror("Illegal quad value: %ld", parse);
+			goto error;
 		}
 		(*retval)->q4 = (unsigned char) parse;
 		/* default to an exact match (all bits) */
 		(*retval)->mask = (unsigned char) 32;
 	} else if (type == 4) {
 		if (parse < 0 || parse > 32) {
-			/* this is for the cat his violin
-			throw(PARSE, "inet.fromStr", "Illegal mask value: %d", parse);
-			*/
-			goto error;	/* yeah, I know, but I'm just simulating try-catch stuff in C now */
+			GDKerror("Illegal mask value: %ld", parse);
+			goto error;
 		}
 		(*retval)->mask = (unsigned char) parse;
 	} else {
-		/* this is for the cat his violin
-		   throw(PARSE, "inet.fromStr", "Error while parsing, unexpected string '%s'", endptr);
-		   */
-		goto error;	/* yeah, I know, but I'm just simulating try-catch stuff in C now */
+		GDKerror("Error while parsing, unexpected string '%s'", endptr);
+		goto error;
 	}
 
-	return(i);
+	return (int) (endptr - src);
+
 error: /* catch exception: return NULL */
 	in_setnil(*retval);
 	*len = 0;	/* signal INETnew something went wrong */
-	return(i - 1);
+	return 0;
 }
 /**
  * Returns the string representation of the given inet value.
@@ -166,21 +226,24 @@ error: /* catch exception: return NULL */
  * Returns the length of the string
  */
 int
-INETtoString(str *retval, int *len, inet *handle)
+INETtoString(str *retval, int *len, const inet *handle)
 {
-	inet *value = (inet *)handle;
+	const inet *value = (const inet *)handle;
 
 	if (*len < 19) {
 		if (*retval != NULL)
 			GDKfree(*retval);
-		*retval = GDKmalloc(sizeof(str) * (*len = 19));
+		*retval = GDKmalloc(sizeof(char) * (*len = 19));
 	}
 	if (in_isnil(value)) {
 		*len = snprintf(*retval, *len, "(nil)");
 	} else if (value->mask == 32) {
-		*len = snprintf(*retval, *len, "%d.%d.%d.%d", value->q1, value->q2, value->q3, value->q4);
+		*len = snprintf(*retval, *len, "%d.%d.%d.%d",
+						value->q1, value->q2, value->q3, value->q4);
 	} else {
-		*len = snprintf(*retval, *len, "%d.%d.%d.%d/%d", value->q1, value->q2, value->q3, value->q4, value->mask);
+		*len = snprintf(*retval, *len, "%d.%d.%d.%d/%d",
+						value->q1, value->q2, value->q3, value->q4,
+						value->mask);
 	}
 
 	return(*len);
@@ -196,19 +259,35 @@ INETnew(inet *retval, str *in)
 	int len = sizeof(inet);
 
 	pos = INETfromString(*in, &len, &retval);
-	if (len == 0)
+	if (pos == 0)
 		throw(PARSE, "inet.new", "Error while parsing at char %d", pos + 1);
 
 	return (MAL_SUCCEED);
 }
 
+int
+INETcompare(const inet *l, const inet *r)
+{
+	bit res = 0;
+	if (in_isnil(l))
+		return in_isnil(r) ? 0 : -1;
+	if (in_isnil(r))
+		return 1;
+	INET_comp_EQ(&res, l, r);
+	if (res)
+		return 0;
+	INET_comp_LT(&res, l, r);
+	if (res)
+		return -1;
+	return 1;
+}
 
 /* === Operators === */
 /**
  * Returns whether val represents a nil inet value
  */
 str
-INET_isnil(bit *retval, inet * val)
+INET_isnil(bit *retval, const inet *val)
 {
 	*retval = in_isnil(val);
 
@@ -218,11 +297,13 @@ INET_isnil(bit *retval, inet * val)
  * Returns whether val1 and val2 are equal.
  */
 str
-INET_comp_EQ(bit *retval, inet * val1, inet * val2)
+INET_comp_EQ(bit *retval, const inet *val1, const inet *val2)
 {
 	if (in_isnil(val1) || in_isnil(val2)) {
 		*retval = bit_nil;
-	} else if (val1->q1 == val2->q1 && val1->q2 == val2->q2 && val1->q3 == val2->q3 && val1->q4 == val2->q4 && val1->mask == val2->mask) {
+	} else if (val1->q1 == val2->q1 && val1->q2 == val2->q2 &&
+			   val1->q3 == val2->q3 && val1->q4 == val2->q4 &&
+			   val1->mask == val2->mask) {
 		*retval = 1;
 	} else {
 		*retval = 0;
@@ -234,11 +315,13 @@ INET_comp_EQ(bit *retval, inet * val1, inet * val2)
  * Returns whether val1 and val2 are not equal.
  */
 str
-INET_comp_NEQ(bit *retval, inet * val1, inet * val2)
+INET_comp_NEQ(bit *retval, const inet *val1, const inet *val2)
 {
 	if (in_isnil(val1) || in_isnil(val2)) {
 		*retval = bit_nil;
-	} else if (val1->q1 == val2->q1 && val1->q2 == val2->q2 && val1->q3 == val2->q3 && val1->q4 == val2->q4 && val1->mask == val2->mask) {
+	} else if (val1->q1 == val2->q1 && val1->q2 == val2->q2 &&
+			   val1->q3 == val2->q3 && val1->q4 == val2->q4 &&
+			   val1->mask == val2->mask) {
 		*retval = 0;
 	} else {
 		*retval = 1;
@@ -250,7 +333,7 @@ INET_comp_NEQ(bit *retval, inet * val1, inet * val2)
  * Returns whether val1 is smaller than val2.
  */
 str
-INET_comp_LT(bit *retval, inet * val1, inet * val2)
+INET_comp_LT(bit *retval, const inet *val1, const inet *val2)
 {
 	if (in_isnil(val1) || in_isnil(val2)) {
 		*retval = bit_nil;
@@ -282,7 +365,7 @@ INET_comp_LT(bit *retval, inet * val1, inet * val2)
  * Returns whether val1 is greater than val2.
  */
 str
-INET_comp_GT(bit *retval, inet * val1, inet * val2)
+INET_comp_GT(bit *retval, const inet *val1, const inet *val2)
 {
 	return (INET_comp_LT(retval, val2, val1));
 }
@@ -290,7 +373,7 @@ INET_comp_GT(bit *retval, inet * val1, inet * val2)
  * Returns whether val1 is smaller than or equal to val2.
  */
 str
-INET_comp_LE(bit *retval, inet * val1, inet * val2)
+INET_comp_LE(bit *retval, const inet *val1, const inet *val2)
 {
 	bit ret;
 
@@ -305,7 +388,7 @@ INET_comp_LE(bit *retval, inet * val1, inet * val2)
  * Returns whether val1 is smaller than or equal to val2.
  */
 str
-INET_comp_GE(bit *retval, inet * val1, inet * val2)
+INET_comp_GE(bit *retval, const inet *val1, const inet *val2)
 {
 	bit ret;
 
@@ -322,7 +405,7 @@ INET_comp_GE(bit *retval, inet * val1, inet * val2)
  * Returns whether val1 is contained within val2
  */
 str
-INET_comp_CW(bit *retval, inet * val1, inet * val2)
+INET_comp_CW(bit *retval, const inet *val1, const inet *val2)
 {
 	if (in_isnil(val1) || in_isnil(val2)) {
 		*retval = bit_nil;
@@ -331,27 +414,21 @@ INET_comp_CW(bit *retval, inet * val1, inet * val2)
 		 * be contained within */
 		*retval = 0;
 	} else {
-		int mask;
-		unsigned char m[4] = { 255, 255, 255, 255 };
+		unsigned int mask;
+		unsigned char m[4];
+
+		if (val2->mask > 0)
+			mask = ~0 << (32 - val2->mask);
+		else
+			mask = 0;
+
+		m[0] = (mask >> 24) & 0xFF;
+		m[1] = (mask >> 16) & 0xFF;
+		m[2] = (mask >> 8) & 0xFF;
+		m[3] = mask & 0xFF;
 
 		/* all operations here are done byte based, to avoid byte sex
 		 * problems */
-
-		/* adjust the mask such that it represents a bit string where
-		 * each 1 represents a bit that should match
-		 * this is not much clarifying, I know */
-		mask = 32 - val2->mask;
-		if (mask > 0)
-			m[3] <<= mask;
-		mask -= 8;
-		if (mask > 0)
-			m[2] <<= mask;
-		mask -= 8;
-		if (mask > 0)
-			m[1] <<= mask;
-		mask -= 8;
-		if (mask > 0)
-			m[0] <<= mask;
 
 		/* if you want to see some bytes, remove this comment
 		   fprintf(stderr, "%x %x %x %x => %x %x %x %x  %x %x %x %x\n",
@@ -360,7 +437,10 @@ INET_comp_CW(bit *retval, inet * val1, inet * val2)
 		   val2->q4);
 		 */
 
-		if ((val1->q1 & m[0]) == (val2->q1 & m[0]) && (val1->q2 & m[1]) == (val2->q2 & m[1]) && (val1->q3 & m[2]) == (val2->q3 & m[2]) && (val1->q4 & m[3]) == (val2->q4 & m[3])) {
+		if ((val1->q1 & m[0]) == (val2->q1 & m[0]) &&
+			(val1->q2 & m[1]) == (val2->q2 & m[1]) &&
+			(val1->q3 & m[2]) == (val2->q3 & m[2]) &&
+			(val1->q4 & m[3]) == (val2->q4 & m[3])) {
 			*retval = 1;
 		} else {
 			*retval = 0;
@@ -384,7 +464,7 @@ INET_comp_CW(bit *retval, inet * val1, inet * val2)
  * Returns whether val1 is contained within or equal to val2
  */
 str
-INET_comp_CWE(bit *retval, inet * val1, inet * val2)
+INET_comp_CWE(bit *retval, const inet *val1, const inet *val2)
 {
 	bit ret;
 
@@ -400,7 +480,7 @@ INET_comp_CWE(bit *retval, inet * val1, inet * val2)
  * Returns whether val1 is contains val2
  */
 str
-INET_comp_CS(bit *retval, inet * val1, inet * val2)
+INET_comp_CS(bit *retval, const inet *val1, const inet *val2)
 {
 	/* swap the input arguments and call the contained within function */
 	return (INET_comp_CW(retval, val2, val1));
@@ -409,7 +489,7 @@ INET_comp_CS(bit *retval, inet * val1, inet * val2)
  * Returns whether val1 contains or is equal to val2
  */
 str
-INET_comp_CSE(bit *retval, inet * val1, inet * val2)
+INET_comp_CSE(bit *retval, const inet *val1, const inet *val2)
 {
 	/* swap the input arguments and call the contained within function */
 	return (INET_comp_CWE(retval, val2, val1));
@@ -422,31 +502,23 @@ INET_comp_CSE(bit *retval, inet * val1, inet * val2)
  * If the subnet mask is 32, the given input inet is returned.
  */
 str
-INETbroadcast(inet * retval, inet * val)
+INETbroadcast(inet *retval, const inet *val)
 {
 	*retval = *val;
 	if (!in_isnil(val) && val->mask != 32) {
-		int mask;
-		unsigned char m[4] = { 255, 255, 255, 255 };
+		unsigned int mask;
+		unsigned char m[4];
 
-		/* all operations here are done byte based, to avoid byte sex
-		 * problems */
+		if (val->mask > 0)
+			mask = ~0 << (32 - val->mask);
+		else
+			mask = 0;
 
-		/* adjust the mask such that it represents a bit string where
-		 * each 1 represents a bit that should match
-		 * this is not much clarifying, I know */
-		mask = val->mask;
-		if (mask > 0)
-			m[0] >>= mask;
-		mask -= 8;
-		if (mask > 0)
-			m[1] >>= mask;
-		mask -= 8;
-		if (mask > 0)
-			m[2] >>= mask;
-		mask -= 8;
-		if (mask > 0)
-			m[3] >>= mask;
+		mask = ~mask;			/* invert the mask */
+		m[0] = (mask >> 24) & 0xFF;
+		m[1] = (mask >> 16) & 0xFF;
+		m[2] = (mask >> 8) & 0xFF;
+		m[3] = mask & 0xFF;
 
 		/* if you want to see some bytes, remove this comment
 		   fprintf(stderr, "%x %x %x %x => %x %x %x %x\n",
@@ -475,7 +547,7 @@ INETbroadcast(inet * retval, inet * val)
  * this function never returns the netmask length.
  */
 str
-INEThost(str *retval, inet * val)
+INEThost(str *retval, const inet *val)
 {
 	str ip;
 
@@ -494,7 +566,7 @@ INEThost(str *retval, inet * val)
  * Extract netmask length.
  */
 str
-INETmasklen(int *retval, inet * val)
+INETmasklen(int *retval, const inet *val)
 {
 	if (in_isnil(val)) {
 		*retval = int_nil;
@@ -507,7 +579,7 @@ INETmasklen(int *retval, inet * val)
  * Set netmask length for inet value.
  */
 str
-INETsetmasklen(inet * retval, inet * val, int *mask)
+INETsetmasklen(inet *retval, const inet *val, const int *mask)
 {
 	if (*mask < 0 || *mask > 32)
 		throw(ILLARG, "inet.setmask", "Illegal netmask length value: %d", *mask);
@@ -522,31 +594,22 @@ INETsetmasklen(inet * retval, inet * val, int *mask)
  * Construct netmask for network.
  */
 str
-INETnetmask(inet * retval, inet * val)
+INETnetmask(inet *retval, const inet *val)
 {
 	*retval = *val;
 	if (!in_isnil(val)) {
-		int mask;
-		unsigned char m[4] = { 255, 255, 255, 255 };
+		unsigned int mask;
+		unsigned char m[4];
 
-		/* all operations here are done byte based, to avoid byte sex
-		 * problems */
+		if (val->mask > 0)
+			mask = ~0 << (32 - val->mask);
+		else
+			mask = 0;
 
-		/* adjust the mask such that it represents a bit string where
-		 * each 1 represents a bit that should match
-		 * this is not much clarifying, I know */
-		mask = 32 - val->mask;
-		if (mask > 0)
-			m[3] <<= mask;
-		mask -= 8;
-		if (mask > 0)
-			m[2] <<= mask;
-		mask -= 8;
-		if (mask > 0)
-			m[1] <<= mask;
-		mask -= 8;
-		if (mask > 0)
-			m[0] <<= mask;
+		m[0] = (mask >> 24) & 0xFF;
+		m[1] = (mask >> 16) & 0xFF;
+		m[2] = (mask >> 8) & 0xFF;
+		m[3] = mask & 0xFF;
 
 		retval->q1 = m[0];
 		retval->q2 = m[1];
@@ -566,7 +629,7 @@ INETnetmask(inet * retval, inet * val)
  * Construct host mask for network.
  */
 str
-INEThostmask(inet * retval, inet * val)
+INEThostmask(inet *retval, const inet *val)
 {
 	INETnetmask(retval, val);
 	/* invert the netmask to obtain the host mask */
@@ -592,31 +655,22 @@ INEThostmask(inet * retval, inet * val)
  * not covered by the netmask.
  */
 str
-INETnetwork(inet * retval, inet * val)
+INETnetwork(inet *retval, const inet *val)
 {
 	*retval = *val;
 	if (!in_isnil(val)) {
-		int mask;
-		unsigned char m[4] = { 255, 255, 255, 255 };
+		unsigned int mask;
+		unsigned char m[4];
 
-		/* all operations here are done byte based, to avoid byte sex
-		 * problems */
+		if (val->mask > 0)
+			mask = ~0 << (32 - val->mask);
+		else
+			mask = 0;
 
-		/* adjust the mask such that it represents a bit string where
-		 * each 1 represents a bit that should match
-		 * this is not much clarifying, I know */
-		mask = 32 - val->mask;
-		if (mask > 0)
-			m[3] <<= mask;
-		mask -= 8;
-		if (mask > 0)
-			m[2] <<= mask;
-		mask -= 8;
-		if (mask > 0)
-			m[1] <<= mask;
-		mask -= 8;
-		if (mask > 0)
-			m[0] <<= mask;
+		m[0] = (mask >> 24) & 0xFF;
+		m[1] = (mask >> 16) & 0xFF;
+		m[2] = (mask >> 8) & 0xFF;
+		m[3] = mask & 0xFF;
 
 		retval->q1 &= m[0];
 		retval->q2 &= m[1];
@@ -638,7 +692,7 @@ INETnetwork(inet * retval, inet * val)
  * function, this function always prints the netmask length.
  */
 str
-INETtext(str *retval, inet * val)
+INETtext(str *retval, const inet *val)
 {
 	str ip;
 
@@ -647,7 +701,8 @@ INETtext(str *retval, inet * val)
 	} else {
 		ip = GDKmalloc(sizeof(char) * 19);
 
-		sprintf(ip, "%d.%d.%d.%d/%d", val->q1, val->q2, val->q3, val->q4, val->mask);
+		snprintf(ip, sizeof(char) * 19, "%d.%d.%d.%d/%d",
+				val->q1, val->q2, val->q3, val->q4, val->mask);
 
 		*retval = ip;
 	}
@@ -659,34 +714,31 @@ INETtext(str *retval, inet * val)
  * this function is equal to the function text.
  */
 str
-INETabbrev(str *retval, inet * val)
+INETabbrev(str *retval, const inet *val)
 {
 	str ip;
 
 	if (in_isnil(val)) {
 		*retval = GDKstrdup(str_nil);
 	} else {
-		int mask = 32 - val->mask;
-		unsigned char m[4] = { 255, 255, 255, 255 };
+		unsigned int mask;
+		unsigned char m[4];
 
-		/* Zero all bits that are allowed to be in there according to
-		 * the netmask length.  Afterwards it is easy to see if there
-		 * are bits set to the right of the mask, since then all four
-		 * quads are zero. */
-		mask = val->mask;
-		if (mask > 0)
-			m[0] >>= mask;
-		mask -= 8;
-		if (mask > 0)
-			m[1] >>= mask;
-		mask -= 8;
-		if (mask > 0)
-			m[2] >>= mask;
-		mask -= 8;
-		if (mask > 0)
-			m[3] >>= mask;
+		if (val->mask > 0)
+			mask = ~0 << (32 - val->mask);
+		else
+			mask = 0;
+		mask = ~mask;			/* invert the mask */
 
-		if ((val->q1 & m[0]) != 0 || (val->q2 & m[1]) != 0 || (val->q3 & m[2]) != 0 || (val->q4 & m[3]) != 0) {
+		m[0] = (mask >> 24) & 0xFF;
+		m[1] = (mask >> 16) & 0xFF;
+		m[2] = (mask >> 8) & 0xFF;
+		m[3] = mask & 0xFF;
+
+		if ((val->q1 & m[0]) != 0 ||
+			(val->q2 & m[1]) != 0 ||
+			(val->q3 & m[2]) != 0 ||
+			(val->q4 & m[3]) != 0) {
 			mask = 32;
 		} else {
 			mask = val->mask;
@@ -703,15 +755,18 @@ INETabbrev(str *retval, inet * val)
 		ip = GDKmalloc(sizeof(char) * 19);
 
 		if (mask > 24) {
-			sprintf(ip, "%d.%d.%d.%d/%d", val->q1, val->q2, val->q3, val->q4, val->mask);
+			snprintf(ip, sizeof(char) * 19, "%d.%d.%d.%d/%d",
+					 val->q1, val->q2, val->q3, val->q4, val->mask);
 		} else if (mask > 16) {
-			sprintf(ip, "%d.%d.%d/%d", val->q1, val->q2, val->q3, val->mask);
+			snprintf(ip, sizeof(char) * 19, "%d.%d.%d/%d",
+					 val->q1, val->q2, val->q3, val->mask);
 		} else if (mask > 8) {
-			sprintf(ip, "%d.%d/%d", val->q1, val->q2, val->mask);
+			snprintf(ip, sizeof(char) * 19, "%d.%d/%d",
+					 val->q1, val->q2, val->mask);
 		} else if (mask > 0) {
-			sprintf(ip, "%d/%d", val->q1, val->mask);
+			snprintf(ip, sizeof(char) * 19, "%d/%d", val->q1, val->mask);
 		} else {
-			sprintf(ip, "/0");
+			snprintf(ip, sizeof(char) * 19, "/0");
 		}
 
 		*retval = ip;
@@ -719,7 +774,7 @@ INETabbrev(str *retval, inet * val)
 	return (MAL_SUCCEED);
 }
 str
-INET_inet(inet *d, inet *s)
+INET_inet(inet *d, const inet *s)
 {
 	*d = *s;
 	return MAL_SUCCEED;
@@ -730,4 +785,10 @@ INET_fromstr(inet *ret, str *s)
 	int len = sizeof(inet);
 	INETfromString(*s, &len, &ret);
 	return MAL_SUCCEED;
+}
+
+inet *
+INETnull(void)
+{
+	return &inet_nil;
 }

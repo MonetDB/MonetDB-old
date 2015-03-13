@@ -11,7 +11,7 @@ stdout of test 'opt_sql_append` in directory 'monetdb5/extras/mal_optimizer_temp
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 15.630 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
 # Listening for connection requests on mapi:monetdb://rome.ins.cwi.nl:36275/
 # MonetDB/GIS module loaded
@@ -46,65 +46,68 @@ Ready.
 
 #create table ttt (a int, b int, c int);
 #select optimizer;
-% . # table_name
+% .L # table_name
 % single_value # name
 % varchar # type
 % 12 # length
 [ "default_pipe"	]
 #select def from optimizers() where name = optimizer;
-% . # table_name
+% .L # table_name
 % def # name
 % clob # type
-% 448 # length
-[ "optimizer.inline();optimizer.remap();optimizer.costModel();optimizer.coercions();optimizer.evaluate();optimizer.emptySet();optimizer.aliases();optimizer.pushselect();optimizer.mitosis();optimizer.mergetable();optimizer.deadcode();optimizer.commonTerms();optimizer.joinPath();optimizer.reorder();optimizer.deadcode();optimizer.reduce();optimizer.matpack();optimizer.dataflow();optimizer.querylog();optimizer.multiplex();optimizer.garbageCollector();"	]
-#explain copy into ttt from '/:\tmp/xyz';
+% 449 # length
+[ "optimizer.inline();optimizer.remap();optimizer.costModel();optimizer.coercions();optimizer.evaluate();optimizer.aliases();optimizer.pushselect();optimizer.mitosis();optimizer.mergetable();optimizer.deadcode();optimizer.commonTerms();optimizer.joinPath();optimizer.reorder();optimizer.deadcode();optimizer.reduce();optimizer.matpack();optimizer.dataflow();optimizer.querylog();optimizer.multiplex();optimizer.generator();optimizer.garbageCollector();"	]
+#explain copy into ttt from '/tmp/xyz';
 % .explain # table_name
 % mal # name
 % clob # type
-% 153 # length
-function user.s2_1{autoCommit=true}():void;
-barrier X_32 := language.dataflow();
+% 150 # length
+function user.s4_1{autoCommit=true}():void;
+    X_25:void  := querylog.define("explain copy into ttt from \\'/tmp/xyz\\';","default_pipe",12);
+barrier X_34 := language.dataflow();
     X_2 := sql.mvc();
-    (X_13:bat[:oid,:int] ,X_14:bat[:oid,:int] ,X_15:bat[:oid,:int] ) := sql.copy_from("sys","ttt","|","\\n",nil:str,"null","/:\\tmp/xyz",-1:lng,0:lng,0);
-exit X_32;
-    X_17 := sql.append(X_2,"sys","ttt","a",X_13);
-    X_19 := sql.append(X_17,"sys","ttt","b",X_14);
-    X_23 := sql.append(X_19,"sys","ttt","c",X_15);
-    X_24 := aggr.count(X_15);
-    sql.affectedRows(X_23,X_24,"");
-end s2_1;
-# optimizer.mitosis()
-# optimizer.dataflow()
+    (X_13:bat[:oid,:int] ,X_14:bat[:oid,:int] ,X_15:bat[:oid,:int] ) := sql.copy_from("sys","ttt","|","\\n",nil:str,"null","/tmp/xyz",-1:lng,0:lng,0);
+exit X_34;
+    X_16 := sql.append(X_2,"sys","ttt","a",X_13);
+    X_18 := sql.append(X_16,"sys","ttt","b",X_14);
+    X_20 := sql.append(X_18,"sys","ttt","c",X_15);
+    X_22 := aggr.count(X_15);
+    sql.affectedRows(X_20,X_22,"");
+end user.s4_1;
+#declare opt_pipe_name string;
+#set opt_pipe_name = ( select optimizer );
+#declare opt_pipe_def  string;
+#set opt_pipe_def  = ( select def from optimizers() where name = opt_pipe_name );
+#set optimizer = substring(opt_pipe_def,0,length(opt_pipe_def)-length('optimizer.garbageCollector();')) || 'optimizer.sql_append();optimizer.garbageCollector();';
 #select optimizer;
-% . # table_name
+% .L # table_name
 % single_value # name
 % varchar # type
 % 6 # length
 [ "user_1"	]
 #select def from optimizers() where name = optimizer;
-% . # table_name
+% .L # table_name
 % def # name
 % clob # type
-% 471 # length
-[ "optimizer.inline();optimizer.remap();optimizer.costModel();optimizer.coercions();optimizer.evaluate();optimizer.emptySet();optimizer.aliases();optimizer.pushselect();optimizer.mitosis();optimizer.mergetable();optimizer.deadcode();optimizer.commonTerms();optimizer.joinPath();optimizer.reorder();optimizer.deadcode();optimizer.reduce();optimizer.matpack();optimizer.dataflow();optimizer.querylog();optimizer.multiplex();optimizer.sql_append();optimizer.garbageCollector();"	]
-#explain copy into ttt from '/:\tmp/xyz';
+% 472 # length
+[ "optimizer.inline();optimizer.remap();optimizer.costModel();optimizer.coercions();optimizer.evaluate();optimizer.aliases();optimizer.pushselect();optimizer.mitosis();optimizer.mergetable();optimizer.deadcode();optimizer.commonTerms();optimizer.joinPath();optimizer.reorder();optimizer.deadcode();optimizer.reduce();optimizer.matpack();optimizer.dataflow();optimizer.querylog();optimizer.multiplex();optimizer.generator();optimizer.sql_append();optimizer.garbageCollector();"	]
+#explain copy into ttt from '/tmp/xyz';
 % .explain # table_name
 % mal # name
 % clob # type
-% 153 # length
-function user.s5_1{autoCommit=true}():void;
-barrier X_33 := language.dataflow();
+% 150 # length
+function user.s12_1{autoCommit=true}():void;
+    X_25:void  := querylog.define("explain copy into ttt from \\'/tmp/xyz\\';","user_1",12);
+barrier X_35 := language.dataflow();
     X_2 := sql.mvc();
-    (X_13:bat[:oid,:int] ,X_14:bat[:oid,:int] ,X_15:bat[:oid,:int] ) := sql.copy_from("sys","ttt","|","\\n",nil:str,"null","/:\\tmp/xyz",-1:lng,0:lng,0);
-exit X_33;
-    X_17 := sql.append(X_2,"sys","ttt","a",X_13);
-    X_19 := sql.append(X_17,"sys","ttt","b",X_14);
-    X_24 := aggr.count(X_15);
-    X_23 := sql.append(X_19,"sys","ttt","c",X_15);
-    sql.affectedRows(X_23,X_24,"");
-end s5_1;
-# optimizer.mitosis()
-# optimizer.dataflow()
+    (X_13:bat[:oid,:int] ,X_14:bat[:oid,:int] ,X_15:bat[:oid,:int] ) := sql.copy_from("sys","ttt","|","\\n",nil:str,"null","/tmp/xyz",-1:lng,0:lng,0);
+exit X_35;
+    X_16 := sql.append(X_2,"sys","ttt","a",X_13);
+    X_18 := sql.append(X_16,"sys","ttt","b",X_14);
+    X_22 := aggr.count(X_15);
+    X_20 := sql.append(X_18,"sys","ttt","c",X_15);
+    sql.affectedRows(X_20,X_22,"");
+end user.s12_1;
 #drop table ttt;
 
 # 22:58:58 >  

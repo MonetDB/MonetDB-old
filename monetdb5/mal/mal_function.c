@@ -18,49 +18,8 @@
  */
 
 /*
- * @a M. Kersten
- * @v 0.0
- * @+ Functions
- * MAL comes with a standard functional abstraction scheme.
- * Functions are represented by MAL instruction lists, enclosed
- * by a @sc{function} signature
- * and @sc{end} statement. The @sc{function}
- * signature lists the arguments and their types.
- * The @sc{end} statement marks the end of this sequence.
- * Its argument is the function name.
- *
- * An illustrative example is:
- * @example
- * function user.helloWorld(msg:str):str;
- *     io.print(msg);
- *     msg:= "done";
- *     return msg;
- * end user.helloWorld;
- * @end example
- *
- * The module name 'user' designates the collection to which this function
- * belongs.
- * A missing module name is considered a reference to the current module,
- * i.e. the last module or atom context openend.
- * All user defined functions are assembled in the module @sc{user}
- * by default.
- *
- * The functional abstraction scheme comes with several variations:
- *  @sc{commands}, @sc{patterns}, and @sc{factories}.
- * They are discussed shortly.
- * @menu
- * * Polymorphic Functions ::
- * * C Functions::
- * @end menu
- * @-
- * The information maintained for each MAL function should both
- * be geared towards fast execution and to ease symbolic debugging.
- */
-/*
- * @-
- * The MAL function blocks are constructed incrementally while parsing the source.
- * The function kind determines its semantics. It is taken from the list
- * FUNCTION, FACTORY, COMMAND, and PATTERN.
+ * (author) M. Kersten
+ * For documentation see website
  */
 #include "monetdb_config.h"
 #include "mal_function.h"
@@ -68,6 +27,7 @@
 #include "mal_interpreter.h"	/* for showErrors() */
 #include "mal_listing.h"
 #include "mal_namespace.h"
+#include "mal_private.h"
 
 Symbol newFunction(str mod, str nme,int kind){
 	Symbol s;
@@ -87,17 +47,7 @@ Symbol newFunction(str mod, str nme,int kind){
 	pushInstruction(s->def,p);
 	return s;
 }
-InstrPtr newCall(Module scope, str fcnname, int kind){
-	InstrPtr p;
-	p= newInstruction(NULL,kind);
-	if (p == NULL)
-		return NULL;
-	setModuleScope(p, scope);
-	setFunctionId(p, putName(fcnname,strlen(fcnname)));
-	return p;
-}
 /*
- * @-
  * Optimizers may be interested in the function definition
  * for obtaining properties. Rather than polution of the
  * instruction record with a scope reference, we use a lookup function until it
@@ -109,33 +59,14 @@ Symbol  getFunctionSymbol(Module scope, InstrPtr p){
 
 	for(m= findModule(scope,getModuleId(p)); m; m= m->outer)
 		if(idcmp(m->name, getModuleId(p))==0 ) {
-				s= m->subscope[(int)(getSubScope(getFunctionId(p)))];
-				for(; s; s= s->peer)
-				if( getSignature(s)->fcn == p->fcn) return s;
+			s= m->subscope[(int)(getSubScope(getFunctionId(p)))];
+			for(; s; s= s->peer)
+				if( getSignature(s)->fcn == p->fcn)
+					return s;
 		}
 	return 0;
 }
-/*
- * @- Flow of control
- * The nesting of (BARRIER, CATCH) and EXIT statements with their associated
- * flow of control primitives LEAVE, REDO and RAISE should form a valid
- * hierarchy. Failure to comply is considered a structural error
- * and leads to flagging the function as erroneous.
- *
- * Check barrier should ensure that both exit-points of a block for the
- * variable referenced in 'pp' exists. In addition, we should ensure
- * proper weaveing of the begin-end pairs. This can simply be checked by
- * counting the begin/end pairs. It should balance for every block.
- * A number NIL is interpreted as end of the barrier
- * block.
- *
- * To speed-up interpretation of the control statements, we could also
- * include the program-counter in the instruction record. However, this implies
- * that any subsequent change to a program, i.e. by the optimizers,
- * should be followed by a call to recalculate the PC.
- * For the time being it will be a linear scan.
- *
- */
+
 int getPC(MalBlkPtr mb, InstrPtr p)
 {   int i;
 	for( i=0;i<mb->stop; i++)
@@ -143,7 +74,6 @@ int getPC(MalBlkPtr mb, InstrPtr p)
 	return -1;
 }
 /*
- * @-
  * Checking the control flow structure is done by a single pass over the
  * MAL program after the program has been type-checked.
  * It should inspect all BARRIER and CATCH blocks for proper structure.
@@ -328,7 +258,6 @@ void chkFlow(stream *out, MalBlkPtr mb)
 		mb->flowfixed = fixed; /* we might not have to come back here */
 }
 /*
- * @-
  * A code may contain temporary names for marking barrier blocks.
  * Since they are introduced by the compiler, the parser should locate
  * them itself when encountering the LEAVE,EXIT,REDO.
@@ -353,87 +282,13 @@ int getBarrierEnvelop(MalBlkPtr mb){
 	}
 	return newTmpVariable(mb,TYPE_any);
 }
-/*
- * @-
- * @node Polymorphic Functions, C Functions, MAL Functions, MAL Functions
- * @- Polymorphic Functions
- * Polymorphic functions are characterised by type variables
- * denoted by @sc{:any} and an optional index.
- * Each time a polymorphic MAL function is called, the
- * symbol table is first inspected for the matching strongly typed
- * version.  If it does not exists, a copy of the MAL program
- * is generated, whereafter the type
- * variables are replaced with their concrete types.
- * The new MAL program is immediately type checked and, if
- * no errors occured, added to the symbol table.
- *
- * The generic type variable @sc{:any} designates an unknown type, which may
- * be filled at type resolution time. Unlike indexed polymorphic type
- * arguments, @sc{:any} type arguments match possibly with different
- * concrete types.
- *
- * An example of a parameterised function is shown below:
- * @example
- * function user.helloWorld(msg:any_1):any_1;
- *     io.print(msg);
- *     return user.helloWorld;
- * end helloWorld;
- * @end example
- * The type variables ensure that the return type equals the
- * argument type. Type variables can be used at any place
- * where a type name is permitted.
- * Beware that polymorphic typed variables are propagated
- * throughout the function body. This may invalidate
- * type resolutions decisions taken  earlier (See @ref{MAL Type System}).
- *
- * This version of @sc{helloWorld} can also be used for
- * other arguments types, i.e. @sc{bit,sht,lng,flt,dbl,...}.
- * For example, calling @sc{helloWorld(3.14:flt)} echoes
- * a float value.
- *
- * @node C Functions, MAL Factories, Polymorphic Functions, MAL Functions
- * @- C functions
- * The MAL function body can also be implemented with a C-function.
- * They are introduced to the MAL type checker by providing their
- * signature and an @sc{address} qualifier for linkage.
- *
- * We distinguish both @sc{command} and @sc{pattern} C-function blocks.
- * They differ in the information accessible at run time. The @sc{command}
- * variant calls the underlying C-function, passing pointers to the arguments
- * on the MAL runtime stack. The @sc{pattern} command is passed pointers
- * to the MAL definition block, the runtime stack, and the instruction itself.
- * It can be used to analyse the types of the arguments directly.
- *
- * For example, the definitions below link the kernel routine @sc{BKCinsert_bun}
- * with the function @sc{bat.insert()}.
- * It does not fully specify the result type.
- * The @sc{io.print()} pattern applies to any BAT argument list,
- * provided they match on the head column type.
- * Such a polymorphic type list may only be used in the context of
- * a pattern.
- * @example
- * command bat.insert(b:bat[:any_1,:any_2], ht:any_1, tt:any_2)
- * 	:bat[:any_1,:any_2]
- * address BKCinsert_bun;
- *
- * pattern io.print(b1:bat[:any_1,:any]...):int
- * address IOtable;
- * @end example
- *
- * The internal representation of the MAL functions is rather traditional,
- * using C-structure to collect the necessary information.
- * Moreover, we assume that MAL functions are relatively small, up to
- * a few hundred of instructions. This assumption makes us to rely on
- * linear scans as it comes to locating information of interest.
- *
- * Patterns should not be cloned, because the alternative interpretations
- * are handled by the underlying code fragments.
- */
+
 static void replaceTypeVar(MalBlkPtr mb, InstrPtr p, int v, malType t){
 	int j,i,x,y;
 #ifdef DEBUG_MAL_FCN
-	mnstr_printf(GDKout,"replace type _%d by type %s\n",v,
-		getTypeName(t));
+	char *tpenme = getTypeName(t);
+	mnstr_printf(GDKout,"replace type _%d by type %s\n",v, tpenme);
+	GDKfree(tpenme);
 #endif
 	for(j=0; j<mb->stop; j++){
 	    p= getInstrPtr(mb,j);
@@ -447,9 +302,9 @@ static void replaceTypeVar(MalBlkPtr mb, InstrPtr p, int v, malType t){
 			int head,tail;
 			int hx,tx;
 			head = getHeadType(x);
-			tail = getTailType(x);
+			tail = getColumnType(x);
 			hx = getHeadIndex(x);
-			tx = getTailIndex(x);
+			tx = getColumnIndex(x);
 			if(v && hx == v && head == TYPE_any){
 			    hx =0;
 			    head =t;
@@ -460,21 +315,31 @@ static void replaceTypeVar(MalBlkPtr mb, InstrPtr p, int v, malType t){
 			}
 			y= newBatType(head,tail);
 			setAnyHeadIndex(y,hx);
-			setAnyTailIndex(y,tx);
+			setAnyColumnIndex(y,tx);
 			setArgType(mb,p,i,y);
 #ifdef DEBUG_MAL_FCN
-		mnstr_printf(GDKout," %d replaced %s->%s \n",i,getTypeName(x),getTypeName(y));
+			{
+				char *xnme = getTypeName(x), *ynme = getTypeName(y);
+				mnstr_printf(GDKout," %d replaced %s->%s \n",i,xnme,ynme);
+				GDKfree(xnme);
+				GDKfree(ynme);
+			}
 #endif
 		} else
-		if(getTailIndex(x) == v){
+		if(getColumnIndex(x) == v){
 #ifdef DEBUG_MAL_FCN
-		mnstr_printf(GDKout," replace x= %s polymorphic\n",getTypeName(x));
+			char *xnme = getTypeName(x);
+			mnstr_printf(GDKout," replace x= %s polymorphic\n",xnme);
+			GDKfree(xnme);
 #endif
 			setArgType(mb,p,i,t);
 		}
 #ifdef DEBUG_MAL_FCN
-		else
-		mnstr_printf(GDKout," non x= %s %d\n",getTypeName(x),getTailIndex(x));
+		else {
+			char *xnme = getTypeName(x);
+			mnstr_printf(GDKout," non x= %s %d\n",xnme,getColumnIndex(x));
+			GDKfree(xnme);
+		}
 #endif
 	}
 #ifdef DEBUG_MAL_FCN
@@ -557,14 +422,17 @@ cloneFunction(stream *out, Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 			if (isaBatType(v)) {
 				if (getHeadIndex(v))
 					replaceTypeVar(new->def, pp, getHeadIndex(v), getHeadType(t));
-				if (getTailIndex(v))
-					replaceTypeVar(new->def, pp, getTailIndex(v), getTailType(t));
+				if (getColumnIndex(v))
+					replaceTypeVar(new->def, pp, getColumnIndex(v), getColumnType(t));
 			} else
-				replaceTypeVar(new->def, pp, getTailIndex(v), t);
+				replaceTypeVar(new->def, pp, getColumnIndex(v), t);
 		}
 #ifdef DEBUG_MAL_FCN
-		else
-			mnstr_printf(out,"%d remains %s\n", i, getTypeName(v));
+		else {
+			char *tpenme = getTypeName(v);
+			mnstr_printf(out,"%d remains %s\n", i, tpenme);
+			GDKfree(tpenme);
+		}
 #endif
 	/* include the function at the proper place in the scope */
 	insertSymbolBefore(scope, new, proc);
@@ -604,7 +472,6 @@ cloneFunction(stream *out, Module scope, Symbol proc, MalBlkPtr mb, InstrPtr p)
 }
 
 /*
- * @-
  * For commands we do not have to clone the routine. We merely have to
  * assure that the type-constraints are obeyed. The resulting type
  * is returned.
@@ -621,7 +488,7 @@ listFunction(stream *fd, MalBlkPtr mb, MalStkPtr stk, int flg, int first, int si
 	}
 	first = first<0?0:first;
 	size = size < 0?-size:size;
-	if (flg & LIST_MAPI) {
+	if (flg & LIST_MAL_MAPI) {
 		size_t len = 0;
 		str ps;
 		mnstr_printf(fd, "&1 0 %d 1 %d\n", /* type id rows columns tuples */
@@ -652,42 +519,6 @@ void printFunction(stream *fd, MalBlkPtr mb, MalStkPtr stk, int flg)
 	listFunction(fd,mb,stk,flg,0,mb->stop);
 }
 
-/*
- * @- Lifespan analysis
- * Optimizers may be interested in the characteristic of the
- * barrier blocks for making a decision.
- * The variables have a lifespan in the code blocks, denoted by properties
- * beginLifespan,endLifespan. The beginLifespan denotes the intruction where
- * it receives its first value, the endLifespan the last instruction in which
- * it was used as operand or target.
- *
- * If, however, the last use lies within a BARRIER block and the
- * variable is defined outside the block, we can not be sure
- * about its end of life status, because a block redo may implictly
- * revive it. For these situations we associate the endLifespan with
- * the block exit.
- *
- * In many cases, we have to determine if the lifespan interferes with
- * a optimization decision being prepared.
- * The lifespan is calculated once at the beginning of the optimizer sequence.
- * It should either be maintained to reflect the most accurate situation while
- * optimizing the code base. In particular it means that any move/remove/addition
- * of an instruction calls for either a recalculation or delta propagation.
- * Unclear what will be the best strategy. For the time being we just recalc.
- *
- * Also take care of the nested block structure. Because the span should
- * fall within a single block. This is handled by the chkflow already.
- *
- * The lifespan assumes that any potential conflict of variable
- * declaration within blocks have been detected already by chkDeclarations().
- * A variable may be introduced only once.
- * @-
- * The scope of a variable should respect the guarded blocks.
- * Variables defined outside, can not be freed insight the
- * block, due to possible REDO actions.
- * Variables defined within the block can be finished at
- * any time, but at EXIT at the latest.
- */
 Lifespan
 setLifespan(MalBlkPtr mb)
 {
@@ -696,9 +527,16 @@ setLifespan(MalBlkPtr mb)
 	int *blk;
 	Lifespan span= newLifespan(mb);
 
+	if (span == NULL)
+		return NULL;
 	prop = PropertyIndex("transparent");
 
 	blk= (int *) GDKzalloc(sizeof(int)*mb->vtop);
+	if( blk == NULL){
+		GDKerror("setLifeSpan" MAL_MALLOC_FAIL);
+		GDKfree(span);
+		return NULL;
+	}
 
 	for (pc = 0; pc < mb->stop; pc++) {
 		p = getInstrPtr(mb, pc);
@@ -724,7 +562,6 @@ setLifespan(MalBlkPtr mb)
 				span[v].endLifespan = -1;	/* declared in outer scope*/
 		}
 		/*
-		 * @-
 		 * At a block exit we can finalize all variables defined within that block.
 		 * This does not hold for dataflow blocks. They merely direct the execution
 		 * thread, not the syntactic scope.
@@ -764,10 +601,6 @@ isLoopBarrier(MalBlkPtr mb, int pc){
 	}
 	return 0;
 }
-/*
- * @-
- * Searching the beginning or end of an instruction block.
- */
 int
 getBlockBegin(MalBlkPtr mb,int pc){
 	InstrPtr p;
@@ -806,7 +639,7 @@ getBlockExit(MalBlkPtr mb,int pc){
 	return 0;
 }
 /*
- * @- Garbage collection
+ * Garbage collection
  * Variables are marked with their last line of use. At that point they
  * can be garbage collected by the interpreter. Care should be taken
  * for variables defined within a barrier block, they can be garbage collected
@@ -830,7 +663,7 @@ malGarbageCollector(MalBlkPtr mb)
 	GDKfree(span);
 }
 /*
- * @- Variable declaration
+ * Variable declaration
  * Variables are implicitly declared upon first use.
  * This feature may become a source of runtime errors and
  * complicates the analyse during optimization.
@@ -886,7 +719,6 @@ void chkDeclarations(stream *out, MalBlkPtr mb){
 			setVarUsed(mb,l);
 			if( decl[l] == 0){
 				/*
-				 * @-
 				 * The problem created here is that only variables are
 				 * recognized that are declared through instructions.
 				 * For interactive code, and code that is based on a global
@@ -966,7 +798,6 @@ void chkDeclarations(stream *out, MalBlkPtr mb){
 				mnstr_printf(out,"leave block %d at top %d\n",blks[top], top);
 #endif
 				/*
-				 * @-
 				 * At the end of the block we should reset the status of all variables
 				 * defined within the block. For, the block could have been skipped
 				 * leading to uninitialized variables.
@@ -1175,14 +1006,11 @@ showFlowGraph(MalBlkPtr mb, MalStkPtr stk, str fname)
 			oline = line;
 		}
 		free(buf);
-		if (idcmp(fname, "stethoscope") != 0) {
-			mnstr_close(f);
-			buffer_destroy(bufstr);
-		} else MT_sleep_ms(4000); /* delay for stethoscope */
 	} else if (f != GDKout) {
-		if (idcmp(fname, "stethoscope") != 0) 
-			mnstr_close(f);
-		else MT_sleep_ms(4000); /* delay for stethoscope */
+		if (!stethoscope ) {
+			MT_sleep_ms(4000); /* delay for stethoscope */
+			close_stream(f);
+		}
 	}
 }
 

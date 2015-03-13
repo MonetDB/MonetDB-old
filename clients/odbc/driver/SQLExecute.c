@@ -47,14 +47,14 @@ static struct msql_types {
 	{"bigint", SQL_BIGINT},
 	{"blob", SQL_LONGVARBINARY},
 	{"boolean", SQL_BIT},
-	{"char", SQL_CHAR},
-	{"clob", SQL_LONGVARCHAR},
+	{"char", SQL_WCHAR},
+	{"clob", SQL_WLONGVARCHAR},
 	{"date", SQL_TYPE_DATE},
 	{"decimal", SQL_DECIMAL},
 	{"double", SQL_DOUBLE},
 	{"int", SQL_INTEGER},
 	{"month_interval", SQL_INTERVAL_MONTH},
-	{"oid", SQL_GUID},
+	{"oid", SQL_BIGINT},
 	{"real", SQL_REAL},
 	{"sec_interval", SQL_INTERVAL_SECOND},
 	{"smallint", SQL_SMALLINT},
@@ -65,7 +65,8 @@ static struct msql_types {
 	{"timestamptz", SQL_TYPE_TIMESTAMP},
 	{"tinyint", SQL_TINYINT},
 /* 	{"ubyte", SQL_TINYINT}, */
-	{"varchar", SQL_VARCHAR},
+	{"uuid", SQL_GUID},
+	{"varchar", SQL_WVARCHAR},
 	{"wrd", SQL_BIGINT},
 	{0, 0},			/* sentinel */
 };
@@ -215,9 +216,13 @@ ODBCInitResult(ODBCStmt *stmt)
 			if (rec->sql_desc_label)
 				free(rec->sql_desc_label);
 			rec->sql_desc_label = (SQLCHAR *) strdup(s);
+			if (rec->sql_desc_label == NULL)
+				goto nomem;
 			if (rec->sql_desc_name)
 				free(rec->sql_desc_name);
 			rec->sql_desc_name = (SQLCHAR *) strdup(s);
+			if (rec->sql_desc_name == NULL)
+				goto nomem;
 		} else {
 			rec->sql_desc_unnamed = SQL_UNNAMED;
 			rec->sql_desc_label = NULL;
@@ -233,6 +238,8 @@ ODBCInitResult(ODBCStmt *stmt)
 		if (rec->sql_desc_type_name)
 			free(rec->sql_desc_type_name);
 		rec->sql_desc_type_name = (SQLCHAR *) strdup(s);
+		if (rec->sql_desc_type_name == NULL)
+			goto nomem;
 		concise_type = ODBCConciseType(s);
 		if (concise_type == SQL_INTERVAL_MONTH) {
 			switch (mapi_get_digits(hdl, i)) {
@@ -290,19 +297,27 @@ ODBCInitResult(ODBCStmt *stmt)
 		rec->sql_desc_concise_type = tp->concise_type;
 		rec->sql_desc_type = tp->type;
 		rec->sql_desc_datetime_interval_code = tp->code;
-		if (tp->precision != UNAFFECTED)
-			rec->sql_desc_precision = tp->precision;
+		if (concise_type == SQL_DECIMAL) {
+			rec->sql_desc_precision = mapi_get_digits(hdl, i);
+			rec->sql_desc_scale = mapi_get_scale(hdl, i);
+		} else {
+			if (tp->precision != UNAFFECTED)
+				rec->sql_desc_precision = tp->precision;
+			if (tp->scale != UNAFFECTED)
+				rec->sql_desc_scale = tp->scale;
+		}
 		if (tp->datetime_interval_precision != UNAFFECTED)
 			rec->sql_desc_datetime_interval_precision = tp->datetime_interval_precision;
-		if (tp->scale != UNAFFECTED)
-			rec->sql_desc_scale = tp->scale;
 		rec->sql_desc_fixed_prec_scale = tp->fixed;
 		rec->sql_desc_num_prec_radix = tp->radix;
 		rec->sql_desc_unsigned = tp->radix == 0 ? SQL_TRUE : SQL_FALSE;
 
 		if (rec->sql_desc_concise_type == SQL_CHAR ||
 		    rec->sql_desc_concise_type == SQL_VARCHAR ||
-		    rec->sql_desc_concise_type == SQL_LONGVARCHAR)
+		    rec->sql_desc_concise_type == SQL_LONGVARCHAR ||
+		    rec->sql_desc_concise_type == SQL_WCHAR ||
+		    rec->sql_desc_concise_type == SQL_WVARCHAR ||
+		    rec->sql_desc_concise_type == SQL_WLONGVARCHAR)
 			rec->sql_desc_case_sensitive = SQL_TRUE;
 		else
 			rec->sql_desc_case_sensitive = SQL_FALSE;
@@ -316,7 +331,11 @@ ODBCInitResult(ODBCStmt *stmt)
 				if (rec->sql_desc_schema_name)
 					free(rec->sql_desc_schema_name);
 				rec->sql_desc_schema_name = (SQLCHAR *) dupODBCstring((SQLCHAR *) s, p - s);
+				if (rec->sql_desc_schema_name == NULL)
+					goto nomem;
 				rec->sql_desc_table_name = (SQLCHAR *) strdup(p + 1);
+				if (rec->sql_desc_table_name == NULL)
+					goto nomem;
 				if (p != s) {
 					/* base table name and base
 					 * column name exist if there
@@ -324,11 +343,18 @@ ODBCInitResult(ODBCStmt *stmt)
 					if (rec->sql_desc_base_table_name)
 						free(rec->sql_desc_base_table_name);
 					rec->sql_desc_base_table_name = (SQLCHAR *) strdup(p + 1);
-					if (rec->sql_desc_name)
+					if (rec->sql_desc_base_table_name == NULL)
+						goto nomem;
+					if (rec->sql_desc_name) {
 						rec->sql_desc_base_column_name = (SQLCHAR *) strdup((char *) rec->sql_desc_name);
+						if (rec->sql_desc_base_column_name == NULL)
+							goto nomem;
+					}
 				}
 			} else {
 				rec->sql_desc_table_name = (SQLCHAR *) strdup(s);
+				if (rec->sql_desc_table_name == NULL)
+					goto nomem;
 			}
 		}
 
@@ -337,8 +363,14 @@ ODBCInitResult(ODBCStmt *stmt)
 			rec->sql_desc_length = mapi_get_len(hdl, i);
 
 		rec->sql_desc_local_type_name = NULL;
-		if (rec->sql_desc_catalog_name == NULL)
-			rec->sql_desc_catalog_name = stmt->Dbc->dbname ? (SQLCHAR *) strdup(stmt->Dbc->dbname) : NULL;
+		if (rec->sql_desc_catalog_name == NULL) {
+			if (stmt->Dbc->dbname) {
+				rec->sql_desc_catalog_name = (SQLCHAR *) strdup(stmt->Dbc->dbname);
+				if (rec->sql_desc_catalog_name == NULL)
+					goto nomem;
+			} else
+				rec->sql_desc_catalog_name = NULL;
+		}
 		rec->sql_desc_literal_prefix = NULL;
 		rec->sql_desc_literal_suffix = NULL;
 
@@ -363,6 +395,11 @@ ODBCInitResult(ODBCStmt *stmt)
 	}
 
 	return stmt->Error ? SQL_SUCCESS_WITH_INFO : SQL_SUCCESS;
+
+  nomem:
+	/* Memory allocation error */
+	addStmtError(stmt, "HY001", NULL, 0);
+	return SQL_ERROR;
 }
 
 SQLRETURN
@@ -376,7 +413,7 @@ SQLExecute_(ODBCStmt *stmt)
 	size_t querypos;
 	int i;
 	ODBCDesc *desc;
-	SQLINTEGER offset;
+	SQLLEN offset;
 
 	/* check statement cursor state, query should be prepared */
 	if (stmt->State == INITED ||
@@ -412,6 +449,11 @@ SQLExecute_(ODBCStmt *stmt)
 
 	querylen = 1024;
 	query = malloc(querylen); /* XXX allocate space for parameters */
+	if (query == NULL) {
+		/* Memory allocation error */
+		addStmtError(stmt, "HY001", NULL, 0);
+		return SQL_ERROR;
+	}
 	snprintf(query, querylen, "execute %d (", stmt->queryid);
 	querypos = strlen(query);
 	/* XXX fill in parameter values */

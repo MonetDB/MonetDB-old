@@ -11,7 +11,7 @@ stdout of test 'median.Bug-3096` in directory 'sql/test/VOC` itself:
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 3.778 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
 # Listening for connection requests on mapi:monetdb://niels.nesco.mine.nu:31863/
 # MonetDB/GIS module loaded
@@ -40,16 +40,16 @@ Ready.
 #	"departure_date"    date,
 #	"departure_harbour" varchar(30),
 #select median(departure_date) - min(departure_date) from voyages;
-% sys. # table_name
+% sys.L2 # table_name
 % sql_sub_L1 # name
-% int # type
-% 11 # length
+% month_interval # type
+% 0 # length
 [ NULL	]
 #select max(departure_date) - min(departure_date) from voyages;
-% sys. # table_name
+% sys.L2 # table_name
 % sql_sub_L1 # name
-% int # type
-% 11 # length
+% month_interval # type
+% 0 # length
 [ NULL	]
 #drop table voyages;
 

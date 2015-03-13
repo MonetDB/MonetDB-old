@@ -36,7 +36,7 @@ struct DIR {
 	char *dir_name;
 	int just_opened;
 	HANDLE find_file_handle;
-	char *find_file_data;
+	void *find_file_data;
 };
 
 typedef struct DIR DIR;
@@ -45,6 +45,7 @@ struct dirent {
 	int d_namelen;
 };
 
+mutils_export int winerror(int);
 mutils_export DIR *opendir(const char *dirname);
 mutils_export struct dirent *readdir(DIR *dir);
 mutils_export void rewinddir(DIR *dir);

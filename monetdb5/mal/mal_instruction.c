@@ -18,7 +18,8 @@
  */
 
 /*
- *  Author M. Kersten
+ * (author)  Author M. Kersten
+ * For documentation see website
  */
 #include "monetdb_config.h"
 #include "mal_instruction.h"
@@ -44,6 +45,10 @@ newSymbol(str nme, int kind)
 	cur->kind = kind;
 	cur->peer = NULL;
 	cur->def = newMalBlk(MAXVARS, STMT_INCREMENT);
+	if ( cur->def == NULL){
+		GDKfree(cur);
+		return NULL;
+	}
 	return cur;
 }
 
@@ -76,6 +81,7 @@ int
 newMalBlkStmt(MalBlkPtr mb, int maxstmts)
 {
 	InstrPtr *p;
+	static lng recycleSeq=0;
 
 	p = (InstrPtr *) GDKzalloc(sizeof(InstrPtr) * maxstmts);
 	if (p == NULL) {
@@ -85,8 +91,7 @@ newMalBlkStmt(MalBlkPtr mb, int maxstmts)
 	mb->stmt = p;
 	mb->stop = 0;
 	mb->ssize = maxstmts;
-    if (mb->profiler)
-        mb->profiler = (ProfPtr) GDKrealloc(mb->profiler, (mb->ssize ) * sizeof(ProfRecord));
+	mb->recid = recycleSeq++;
 	return 0;
 }
 
@@ -97,9 +102,11 @@ newMalBlk(int maxvars, int maxstmts)
 	VarPtr *v;
 
 	/* each MAL instruction implies at least on variable */
-	if ( maxvars < maxstmts)
+	// TODO: this check/assignment makes little sense
+	/*
+	if (maxvars < maxstmts)
 		maxvars = maxvars;
-
+	*/
 	v = (VarPtr *) GDKzalloc(sizeof(VarPtr) * maxvars);
 	if (v == NULL) {
 		GDKerror("newMalBlk:" MAL_MALLOC_FAIL);
@@ -107,6 +114,7 @@ newMalBlk(int maxvars, int maxstmts)
 	}
 	mb = (MalBlkPtr) GDKmalloc(sizeof(MalBlkRecord));
 	if (mb == NULL) {
+		GDKfree(v);
 		GDKerror("newMalBlk:" MAL_MALLOC_FAIL);
 		return NULL;
 	}
@@ -125,7 +133,6 @@ newMalBlk(int maxvars, int maxstmts)
 	mb->maxarg = MAXARG;		/* the minimum for each instruction */
 	mb->typefixed = 0;
 	mb->flowfixed = 0;
-	mb->profiler = NULL;
 	mb->ptop = mb->psize = 0;
 	mb->prps = NULL;
 	mb->replica = NULL;
@@ -135,8 +142,13 @@ newMalBlk(int maxvars, int maxstmts)
 	mb->runtime = 0;
 	mb->calls = 0;
 	mb->optimize = 0;
-	if (newMalBlkStmt(mb, maxstmts) < 0)
+	mb->stmt = NULL;
+	if (newMalBlkStmt(mb, maxstmts) < 0) {
+		GDKfree(mb->var);
+		GDKfree(mb->stmt);
+		GDKfree(mb);
 		return NULL;
+	}
 	return mb;
 }
 
@@ -152,23 +164,20 @@ resizeMalBlk(MalBlkPtr mb, int maxstmt, int maxvar)
 
 	mb->stmt = (InstrPtr *) GDKrealloc(mb->stmt, maxstmt * sizeof(InstrPtr));
 	if ( mb->stmt == NULL)
-		GDKerror("resizeMalBlk:" MAL_MALLOC_FAIL);
+		goto wrapup;
 	for ( i = mb->ssize; i < maxstmt; i++)
 		mb->stmt[i] = 0;
 	mb->ssize = maxstmt;
 
 	mb->var = (VarPtr*) GDKrealloc(mb->var, maxvar * sizeof (VarPtr));
 	if ( mb->var == NULL)
-		GDKerror("resizeMalBlk:" MAL_MALLOC_FAIL);
+		goto wrapup;
 	for( i = mb->vsize; i < maxvar; i++)
 		mb->var[i] = 0;
 	mb->vsize = maxvar;
-
-	if ( mb->profiler){
-		mb->profiler = (ProfRecord *) GDKrealloc(mb->profiler, maxstmt * sizeof(ProfRecord));
-		if (mb->profiler == NULL)
-			GDKerror("resizeMalBlk:" MAL_MALLOC_FAIL);
-	}
+	return;
+wrapup:
+	GDKerror("resizeMalBlk:" MAL_MALLOC_FAIL);
 }
 /* The resetMalBlk code removes instructions, but without freeing the
  * space. This way the structure is prepared for re-use */
@@ -215,9 +224,6 @@ freeMalBlk(MalBlkPtr mb)
 	if (mb->help)
 		GDKfree(mb->help);
 	mb->help = 0;
-	if (mb->profiler)
-		GDKfree(mb->profiler);
-	mb->profiler = NULL;
 	GDKfree(mb);
 }
 
@@ -250,7 +256,12 @@ copyMalBlk(MalBlkPtr old)
 
 	mb->vtop = 0;
 	for (i = 0; i < old->vtop; i++) {
-		copyVariable(mb, getVar(old, i));
+		if( copyVariable(mb, getVar(old, i)) == -1){
+			GDKfree(mb->var);
+			GDKfree(mb);
+			GDKerror("copyVariable" MAL_MALLOC_FAIL);
+			return NULL;
+		}
 		mb->vtop++;
 	}
 
@@ -283,15 +294,16 @@ copyMalBlk(MalBlkPtr old)
 	mb->optimize = old->optimize;
 	mb->replica = old->replica;
 	mb->maxarg = old->maxarg;
-	mb->profiler = NULL;
 
 	mb->ptop = mb->psize = 0;
 	mb->prps = NULL;
 	if (old->prps) {
 		mb->prps = (MalProp *) GDKzalloc(old->psize * sizeof(MalProp));
+		if( mb->prps == NULL)
+			GDKerror("copyMAL block, allocation of property table failed");
 		mb->psize = old->psize;
 		mb->ptop = old->ptop;
-		for (i = 0; i < old->ptop; i++)
+		for (i = 0; i < old->ptop && mb->prps; i++)
 			mb->prps[i] = old->prps[i];
 	}
 	return mb;
@@ -378,8 +390,10 @@ trimexpand(MalBlkPtr mb, int varsize, int stmtsize)
 		return;
 	len = sizeof(InstrPtr) * (mb->ssize + stmtsize);
 	stmt = (InstrPtr *) GDKzalloc(len);
-	if (stmt == NULL)
+	if (stmt == NULL){
+		GDKfree(v);
 		return;
+	}
 
 	memcpy((str) v, (str) mb->var, sizeof(ValPtr) * mb->vtop);
 
@@ -402,10 +416,6 @@ trimexpand(MalBlkPtr mb, int varsize, int stmtsize)
 	mb->stmt = stmt;
 
 	mb->ssize = mb->ssize + stmtsize;
-	if (mb->profiler) {
-		GDKfree(mb->profiler);
-		mb->profiler = 0;
-	}
 }
 
 void
@@ -464,7 +474,7 @@ newInstruction(MalBlkPtr mb, int kind)
 		mb->stmt[mb->stop] = NULL;
 	}
 	if (p == NULL) {
-		p = GDKzalloc(MAXARG * sizeof(p->argv[0]) + sizeof(InstrRecord));
+		p = GDKzalloc(MAXARG * sizeof(p->argv[0]) + offsetof(InstrRecord, argv));
 		if (p == NULL)
 			return NULL;
 		p->maxarg = MAXARG;
@@ -508,10 +518,12 @@ InstrPtr
 copyInstruction(InstrPtr p)
 {
 	InstrPtr new;
-	new = (InstrPtr) GDKmalloc(sizeof(InstrRecord) + p->maxarg * sizeof(p->maxarg));
-	assert(new);
-	if (new)
-		oldmoveInstruction(new, p);
+	new = (InstrPtr) GDKmalloc(offsetof(InstrRecord, argv) + p->maxarg * sizeof(p->maxarg));
+	if( new == NULL) {
+		GDKerror("copyInstruction:failed to allocated space");
+		return new;
+	}
+	oldmoveInstruction(new, p);
 	return new;
 }
 
@@ -530,7 +542,7 @@ void
 clrInstruction(InstrPtr p)
 {
 	clrFunction(p);
-	memset((char *) p, 0, sizeof(InstrRecord) + p->maxarg * sizeof(p->argv[0]));
+	memset((char *) p, 0, offsetof(InstrRecord, argv) + p->maxarg * sizeof(p->argv[0]));
 }
 
 void
@@ -547,7 +559,7 @@ oldmoveInstruction(InstrPtr new, InstrPtr p)
 {
 	int space;
 
-	space = sizeof(InstrRecord) + p->maxarg * sizeof(p->argv[0]);
+	space = offsetof(InstrRecord, argv) + p->maxarg * sizeof(p->argv[0]);
 	memcpy((char *) new, (char *) p, space);
 	setFunctionId(new, getFunctionId(p));
 	setModuleId(new, getModuleId(p));
@@ -569,11 +581,8 @@ removeInstruction(MalBlkPtr mb, InstrPtr p)
 	if (i == mb->stop)
 		return;
 
-	for (; i < mb->stop - 1; i++) {
+	for (; i < mb->stop - 1; i++) 
 		mb->stmt[i] = mb->stmt[i + 1];
-		if (mb->profiler)
-			mb->profiler[i] = mb->profiler[i + 1];
-	}
 	mb->stmt[i] = 0;
 	mb->stop--;
 	assert(i == mb->stop);
@@ -708,10 +717,12 @@ getRefName(MalBlkPtr mb, int i)
 }
 
 int
-findVariable(MalBlkPtr mb, str name)
+findVariable(MalBlkPtr mb, const char *name)
 {
 	int i;
 
+	if (name == NULL)
+		return -1;
 	if (isTmpName(name)) {
 		int j;
 		i = atol(name + (*name == TMPMARKER ? 1 : 2));
@@ -723,8 +734,6 @@ findVariable(MalBlkPtr mb, str name)
 				return j;
 		return -1;
 	}
-	if (name == NULL)
-		return -1;
 	for (i = mb->vtop - 1; i >= 0; i--)
 		if (!isTmpVar(mb, i) && idcmp(name, getVarName(mb, i)) == 0)
 			return i;
@@ -890,7 +899,7 @@ makeVarSpace(MalBlkPtr mb)
 {
 	if (mb->vtop >= mb->vsize) {
 		VarPtr *new;
-		int s = mb->vtop + MAXVARS;
+		int s = mb->vsize * 2;
 
 		new = (VarPtr *) GDKzalloc(s * sizeof(VarPtr));
 		if (new == NULL) {
@@ -907,6 +916,7 @@ makeVarSpace(MalBlkPtr mb)
 	return 0;
 }
 
+/* swallows name argument */
 int
 newVariable(MalBlkPtr mb, str name, malType type)
 {
@@ -914,8 +924,10 @@ newVariable(MalBlkPtr mb, str name, malType type)
 
 	if (name == NULL)
 		return -1;
-	if (makeVarSpace(mb))
+	if (makeVarSpace(mb)) {
+		GDKfree(name);
 		return -1;
+	}
 	if (isTmpName(name)) {
 		int i = atol(name + (*name == TMPMARKER ? 1 : 2));
 
@@ -929,8 +941,14 @@ newVariable(MalBlkPtr mb, str name, malType type)
 		}
 	}
 	n = mb->vtop;
-	if (getVar(mb, n) == NULL)
-		getVar(mb, n) = (VarPtr) GDKzalloc(sizeof(VarRecord) + MAXARG * sizeof(int));
+	if (getVar(mb, n) == NULL){
+		getVar(mb, n) = (VarPtr) GDKzalloc(offsetof(VarRecord, prps) + MAXARG * sizeof(int));
+		if ( getVar(mb,n) == NULL) {
+			GDKerror("newVariable:" MAL_MALLOC_FAIL);
+			GDKfree(name);
+			return -1;
+		}
+	}
 	mb->var[n]->name = name;
 	mb->var[n]->propc = 0;
 	mb->var[n]->maxprop = MAXARG;
@@ -958,6 +976,8 @@ cloneVariable(MalBlkPtr tm, MalBlkPtr mb, int x)
 		res = newTmpVariable(tm, getVarType(mb, x));
 	else
 		res = newVariable(tm, GDKstrdup(getVarName(mb, x)), getVarType(mb, x));
+	if (res < 0)
+		return res;
 	if (isVarFixed(mb, x))
 		setVarFixed(tm, res);
 	if (isVarUsed(mb, x))
@@ -985,9 +1005,12 @@ renameVariable(MalBlkPtr mb, int id, str pattern, int newid)
 	if (v->name)
 		GDKfree(v->name);
 	nme= GDKmalloc(SMALLBUFSIZ);
-	snprintf(nme,SMALLBUFSIZ,pattern,newid);
-	v->name = nme;
-	v->tmpindex = 0;
+	if( nme) {
+		snprintf(nme,SMALLBUFSIZ,pattern,newid);
+		v->name = nme;
+		v->tmpindex = 0;
+	} else
+		GDKerror("renameVariable" MAL_MALLOC_FAIL);
 }
 
 int
@@ -998,8 +1021,13 @@ newTmpVariable(MalBlkPtr mb, malType type)
 	if ( makeVarSpace(mb))
 		return -1;
 	n = mb->vtop;
-	if (getVar(mb, n) == NULL)
-		getVar(mb, n) = (VarPtr) GDKzalloc(sizeof(VarRecord) + MAXARG * sizeof(int));
+	if (getVar(mb, n) == NULL) {
+		getVar(mb, n) = (VarPtr) GDKzalloc(offsetof(VarRecord, prps) + MAXARG * sizeof(int));
+		if (getVar(mb,n) == NULL){
+			GDKerror("newTmpVariable" MAL_MALLOC_FAIL);
+			return -1;
+		}
+	}
 	getVarTmp(mb, n) = n;
 	setVarType(mb, n, type);
 	mb->var[n]->propc = 0;
@@ -1053,7 +1081,11 @@ copyProperties(MalBlkPtr mb, int src, int dst)
     v = mb->var[src];
     w = mb->var[dst];
     if ( w->maxprop < v->maxprop){
-        w = (VarPtr) GDKrealloc(w, sizeof(VarRecord) + v->maxprop * sizeof(int));
+        w = (VarPtr) GDKrealloc(w, offsetof(VarRecord, prps) + v->maxprop * sizeof(int));
+		if ( w == NULL){
+			GDKerror("copyProperties" MAL_MALLOC_FAIL);
+			return;
+		}
         mb->var[dst] = w;
         w->maxprop = v->maxprop;
     }
@@ -1062,14 +1094,16 @@ copyProperties(MalBlkPtr mb, int src, int dst)
         w->prps[i] = v->prps[i];
 }
 
-void
+int
 copyVariable(MalBlkPtr dst, VarPtr v)
 {
 	int i;
 	VarPtr w;
 
 	assert(v->propc <= v->maxprop);
-	w = (VarPtr) GDKzalloc(sizeof(VarRecord) + v->maxprop * sizeof(int));
+	w = (VarPtr) GDKzalloc(offsetof(VarRecord, prps) + v->maxprop * sizeof(int));
+	if( w == NULL)
+		return -1;
 	w->name = v->name ? GDKstrdup(v->name) : 0;
 	w->type = v->type;
 	w->flags = v->flags;
@@ -1081,6 +1115,7 @@ copyVariable(MalBlkPtr dst, VarPtr v)
 
 	VALcopy(&w->value, &v->value);
 	dst->var[dst->vtop] = w;
+	return 0;
 }
 
 /* Beware, removing a variable calls for a re-numbering of the
@@ -1209,13 +1244,17 @@ trimMalVariables_(MalBlkPtr mb, bit *used, MalStkPtr glb)
 }
 
 void
-trimMalVariables(MalBlkPtr mb)
+trimMalVariables(MalBlkPtr mb, MalStkPtr stk)
 {
 	bit *used;
 	int i, j;
 	InstrPtr q;
 
 	used = (bit *) GDKzalloc(mb->vtop);
+	if( used == NULL){
+		GDKerror("trimMalVariables" MAL_MALLOC_FAIL);
+		return;
+	}
 
 	/* build the use table */
 	for (i = 0; i < mb->stop; i++) {
@@ -1228,7 +1267,7 @@ trimMalVariables(MalBlkPtr mb)
 		if (mb->prps[i].var)
 			used[mb->prps[i].var] = 1;
 	}
-	trimMalVariables_(mb, used, 0);
+	trimMalVariables_(mb, used, stk);
 	GDKfree(used);
 }
 
@@ -1267,6 +1306,8 @@ trimMalVariables(MalBlkPtr mb)
 str
 convertConstant(int type, ValPtr vr)
 {
+	if( type > GDKatomcnt )
+		throw(SYNTAX, "convertConstant", "type index out of bound");
 	if (vr->vtype == type)
 		return MAL_SUCCEED;
 	if (vr->vtype == TYPE_str) {
@@ -1274,8 +1315,7 @@ convertConstant(int type, ValPtr vr)
 		ptr d = NULL;
 		char *s = vr->val.sval;
 
-		ATOMfromstr(type, &d, &ll, vr->val.sval);
-		if (d == NULL) {
+		if (ATOMfromstr(type, &d, &ll, vr->val.sval) < 0 || d == NULL) {
 			VALinit(vr, type, ATOMnilptr(type));
 			throw(SYNTAX, "convertConstant", "parse error in '%s'", s);
 		}
@@ -1294,7 +1334,7 @@ convertConstant(int type, ValPtr vr)
 	if (type == TYPE_bat || isaBatType(type)) {
 		/* BAT variables can only be set to nil */
 		vr->vtype = type;
-		vr->val.bval = 0;
+		vr->val.bval = bat_nil;
 		return MAL_SUCCEED;
 	}
 	switch (ATOMstorage(type)) {
@@ -1319,8 +1359,10 @@ convertConstant(int type, ValPtr vr)
 	case TYPE_dbl:
 	case TYPE_wrd:
 	case TYPE_lng:
-		VALconvert(type, vr);
-		if (vr->vtype != type)
+#ifdef HAVE_HGE
+	case TYPE_hge:
+#endif
+		if (VALconvert(type, vr) == NULL)
 			throw(SYNTAX, "convertConstant", "coercion failed");
 		return MAL_SUCCEED;
 	case TYPE_str:
@@ -1346,7 +1388,7 @@ convertConstant(int type, ValPtr vr)
 	case TYPE_bat:
 		/* BAT variables can only be set to nil */
 		vr->vtype = type;
-		vr->val.bval = 0;
+		vr->val.bval = bat_nil;
 		return MAL_SUCCEED;
 	case TYPE_ptr:
 		/* all coercions should be avoided to protect against memory probing */
@@ -1413,8 +1455,7 @@ convertConstant(int type, ValPtr vr)
 			/* dump the non-string atom as string in w */
 			ATOMformat(vr->vtype, VALptr(vr), &w);
 			/* and try to parse it from string as the desired type */
-			ATOMfromstr(type, &d, &ll, w);
-			if (d == 0) {
+			if (ATOMfromstr(type, &d, &ll, w) < 0 || d == 0) {
 				VALinit(vr, type, ATOMnilptr(type));
 				GDKfree(w);
 				throw(SYNTAX, "convertConstant", "conversion error");
@@ -1425,8 +1466,7 @@ convertConstant(int type, ValPtr vr)
 				GDKfree(d);
 			GDKfree(w);
 		} else {				/* what we're converting from is a string */
-			ATOMfromstr(type, &d, &ll, vr->val.sval);
-			if (d == NULL) {
+			if (ATOMfromstr(type, &d, &ll, vr->val.sval) < 0 || d == NULL) {
 				VALinit(vr, type, ATOMnilptr(type));
 				throw(SYNTAX, "convertConstant", "conversion error");
 			}
@@ -1484,7 +1524,7 @@ defConstant(MalBlkPtr mb, int type, ValPtr cst)
 
 	if (isaBatType(type) && cst->vtype == TYPE_void) {
 		cst->vtype = TYPE_bat;
-		cst->val.bval = 0;
+		cst->val.bval = bat_nil;
 	} else if (cst->vtype != type && !isaBatType(type) && !isPolyType(type)) {
 		ValRecord vr = *cst;
 		int otype = cst->vtype;
@@ -1516,7 +1556,7 @@ defConstant(MalBlkPtr mb, int type, ValPtr cst)
 	k = newTmpVariable(mb, type);
 	setVarConstant(mb, k);
 	setVarFixed(mb, k);
-	if (type >= 0 && type < TYPE_any && ATOMextern(type))
+	if (type >= 0 && type < GDKatomcnt && ATOMextern(type))
 		setVarCleanup(mb, k);
 	else
 		clrVarCleanup(mb, k);
@@ -1533,20 +1573,18 @@ defConstant(MalBlkPtr mb, int type, ValPtr cst)
 InstrPtr
 pushArgument(MalBlkPtr mb, InstrPtr p, int varid)
 {
+	if (p == NULL)
+		return NULL;
+	if (varid < 0) {
+		freeInstruction(p);
+		return NULL;
+	}
 	assert(varid >= 0);
 	if (p->argc + 1 == p->maxarg) {
 		InstrPtr pn;
 		int pc = 0, pclimit;
-		int space = p->maxarg * sizeof(p->argv[0]) + sizeof(InstrRecord);
-		pn = GDKmalloc(space + MAXARG * sizeof(p->maxarg));
-		if (pn == NULL) {
-			/* this is almost deadly, we abort by not extending the
-			 * instruction, which leads to detection of errors later
-			 * in the pipeline. */
-			return p;
-		}
-		memcpy((char *) pn, (char *) p, space);
-		pn->maxarg += MAXARG;
+		int space = p->maxarg * sizeof(p->argv[0]) + offsetof(InstrRecord, argv);
+
 		/* instructions are either created in isolation or are stored
 		 * on the program instruction stack already. In the latter
 		 * case, we may have to adjust their reference. It does not
@@ -1562,15 +1600,25 @@ pushArgument(MalBlkPtr mb, InstrPtr p, int varid)
 		pclimit = mb->stop - 8;
 		pclimit = pclimit < 0 ? 0 : pclimit;
 		for (pc = mb->stop - 1; pc >= pclimit; pc--)
-			if (mb->stmt[pc] == p) {
-				mb->stmt[pc] = pn;
+			if (mb->stmt[pc] == p) 
 				break;
-			}
+
+		pn = GDKmalloc(space + MAXARG * sizeof(p->maxarg));
+		if (pn == NULL) {
+			freeInstruction(p);
+			return NULL;
+		}
+		memcpy((char *) pn, (char *) p, space);
+		GDKfree(p);
+		pn->maxarg += MAXARG;
 		/* we have to keep track on the maximal arguments/block
 		 * because it is needed by the interpreter */
 		if (mb->maxarg < pn->maxarg)
 			mb->maxarg = pn->maxarg;
-		GDKfree(p);
+		if( pc >= pclimit)
+			mb->stmt[pc] = pn;
+		//else 
+			// Keep it referenced from the block, assert(0);
 		p = pn;
 	}
 	p->argv[p->argc++] = varid;
@@ -1582,7 +1630,11 @@ setArgument(MalBlkPtr mb, InstrPtr p, int idx, int varid)
 {
 	int i;
 
+	if (p == NULL)
+		return NULL;
 	p = pushArgument(mb, p, varid);	/* make space */
+	if (p == NULL)
+		return NULL;
 	for (i = p->argc - 1; i > idx; i--)
 		getArg(p, i) = getArg(p, i - 1);
 	getArg(p, i) = varid;
@@ -1596,7 +1648,8 @@ pushReturn(MalBlkPtr mb, InstrPtr p, int varid)
 		p->argv[0] = varid;
 		return p;
 	}
-	p = setArgument(mb, p, p->retc, varid);
+	if ((p = setArgument(mb, p, p->retc, varid)) == NULL)
+		return NULL;
 	p->retc++;
 	return p;
 }
@@ -1606,15 +1659,23 @@ pushReturn(MalBlkPtr mb, InstrPtr p, int varid)
  * pushArgument, but it is more efficient in searching and collecting
  * the information.
  * TODO */
+/* swallows name argument */
 InstrPtr
 pushArgumentId(MalBlkPtr mb, InstrPtr p, str name)
 {
 	int v;
 
+	if (p == NULL) {
+		GDKfree(name);
+		return NULL;
+	}
 	v = findVariable(mb, name);
-	if (v < 0)
-		v = newVariable(mb, name, getTypeIndex(name, -1, TYPE_any));
-	else
+	if (v < 0) {
+		if ((v = newVariable(mb, name, getTypeIndex(name, -1, TYPE_any))) < 0) {
+			freeInstruction(p);
+			return NULL;
+		}
+	} else
 		GDKfree(name);
 	return pushArgument(mb, p, v);
 }
@@ -1721,9 +1782,9 @@ setPolymorphic(InstrPtr p, int tpe, int force)
 		else if (getHeadType(tpe) == TYPE_any)
 			c1 = 1;
 	}
-	if (getTailIndex(tpe) > 0)
-		c2 = getTailIndex(tpe);
-	else if (getTailType(tpe) == TYPE_any)
+	if (getColumnIndex(tpe) > 0)
+		c2 = getColumnIndex(tpe);
+	else if (getColumnType(tpe) == TYPE_any)
 		c2 = 1;
 	c1 = c1 > c2 ? c1 : c2;
 	if (c1 > 0 && c1 >= p->polymorphic)
@@ -1738,6 +1799,9 @@ pushInstruction(MalBlkPtr mb, InstrPtr p)
 {
 	int i;
 
+	if (p == NULL)
+		return;
+
 	i = mb->stop;
 	if (i + 1 >= mb->ssize) {
 		int space = (mb->ssize + STMT_INCREMENT) * sizeof(InstrPtr);
@@ -1749,27 +1813,12 @@ pushInstruction(MalBlkPtr mb, InstrPtr p)
 			return;
 		}
 		memcpy(newblk, mb->stmt, mb->ssize * sizeof(InstrPtr));
-
-		/* also extend the storage space for the profiler */
-		/* left to the environment */
-		if (mb->profiler) {
-			ProfPtr old = mb->profiler;
-			int osize = mb->ssize;
-			mb->profiler = (ProfPtr) GDKzalloc((mb->ssize + STMT_INCREMENT) * sizeof(ProfRecord));
-			assert(mb->profiler);
-			memcpy((char *) mb->profiler, (char *) old, sizeof(ProfRecord) * osize);
-			GDKfree(old);
-		}
 		mb->ssize += STMT_INCREMENT;
 		GDKfree(mb->stmt);
 		mb->stmt = newblk;
 	}
 	/* If the destination variable has not been set, introduce a
 	 * temporary variable to hold the result instead. */
-/*
-	if (p->argv[0] < 0)
-		p->argv[0] = newTmpVariable(mb, TYPE_any);
-*/
 	assert(p->argc == 0 || p->argv[0] >= 0);
 	if (mb->stmt[i]) {
 		/* if( getModuleId(mb->stmt[i] ) )
@@ -1826,8 +1875,8 @@ varSetProp(MalBlkPtr mb, int var, int prop, int op, ValPtr cst)
 		}
 	}
 	if (propid < 0 && (propid = newProperty(mb)) < 0) {
-		showScriptException(GDKout, mb, 0, MAL, "varSetProp: no storage left\n");
-		assert(0);
+		GDKerror("varSetProp"MAL_MALLOC_FAIL);
+		return;
 	}
 
 	mb->prps[propid].var = 0;
@@ -1843,8 +1892,13 @@ varSetProp(MalBlkPtr mb, int var, int prop, int op, ValPtr cst)
 	assert(v->propc <= v->maxprop);
 	if (!reset) {
 		if (v->propc == v->maxprop) {
-			size = sizeof(VarRecord) + v->maxprop * sizeof(int);
+			size = offsetof(VarRecord, prps) + v->maxprop * sizeof(int);
 			vnew = (VarPtr) GDKzalloc(size + MAXARG * sizeof(int));
+			if( vnew == NULL){
+				GDKerror("varSetProp"MAL_MALLOC_FAIL);
+				GDKfree(v);
+				return;
+			}
 			memcpy((char *) vnew, (char *) v, size);
 			vnew->maxprop += MAXARG;
 			mb->var[var] = vnew;
@@ -1882,6 +1936,12 @@ varGetPropStr(MalBlkPtr mb, int var)
 
 			ATOMformat(v->type, VALptr(&v->value), &t);
 			switch (v->type) {
+#ifdef HAVE_HGE
+			case TYPE_hge:
+				assert(0);
+				sprintf(s, "%s%s%s:hge", nme, op, t);
+				break;
+#endif
 			case TYPE_oid:
 				sprintf(s, "%s%s%s:oid", nme, op, t);
 				break;

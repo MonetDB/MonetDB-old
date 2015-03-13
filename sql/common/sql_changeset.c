@@ -39,10 +39,14 @@ cs_new(changeset * cs, sql_allocator *sa, fdestroy destroy)
 void
 cs_destroy(changeset * cs)
 {
-	if (cs->set)
+	if (cs->set) {
 		list_destroy(cs->set);
-	if (cs->dset)
+		cs->set = NULL;
+	}
+	if (cs->dset) {
 		list_destroy(cs->dset);
+		cs->dset = NULL;
+	}
 }
 
 void
@@ -53,23 +57,17 @@ cs_add(changeset * cs, void *elm, int flag)
 	list_append(cs->set, elm);
 	if (flag == TR_NEW && !cs->nelm)
 		cs->nelm = cs->set->t;
-	if (cs->set->ht)
-		hash_add(cs->set->ht, base_key(elm), elm);
 }
 
 void
 cs_add_before(changeset * cs, node *n, void *elm)
 {
 	list_append_before(cs->set, n, elm);
-	if (cs->set->ht)
-		hash_add(cs->set->ht, base_key(elm), elm);
 }
 
 void
 cs_del(changeset * cs, node *elm, int flag)
 {
-	void *val = elm->data;
-
 	if (flag == TR_NEW) {	/* remove just added */
 		if (cs->nelm == elm)
 			cs->nelm = elm->next;
@@ -79,8 +77,6 @@ cs_del(changeset * cs, node *elm, int flag)
 			cs->dset = list_new(cs->sa, cs->destroy);
 		list_move_data(cs->set, cs->dset, elm->data);
 	}
-	if (cs->set->ht) 
-		hash_del(cs->set->ht, base_key(val), val);
 }
 
 int
@@ -101,4 +97,14 @@ node *
 cs_last_node(changeset * cs)
 {
 	return cs->set->t;
+}
+
+void 
+cs_remove_node(changeset * cs, node *n)
+{
+	node *nxt = n->next;
+
+	list_remove_node(cs->set, n);
+	if (cs->nelm == n)
+		cs->nelm = nxt;
 }

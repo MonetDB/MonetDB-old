@@ -1,3 +1,20 @@
+# The contents of this file are subject to the MonetDB Public License
+# Version 1.1 (the "License"); you may not use this file except in
+# compliance with the License. You may obtain a copy of the License at
+# http://www.monetdb.org/Legal/MonetDBLicense
+#
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+# License for the specific language governing rights and limitations
+# under the License.
+#
+# The Original Code is the MonetDB Database System.
+#
+# The Initial Developer of the Original Code is CWI.
+# Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+# Copyright August 2008-2015 MonetDB B.V.
+# All Rights Reserved.
+
 module str;
 
 command str(s:str):str
@@ -74,20 +91,29 @@ command rtrim( s:str ) :str
 address STRRtrim
 comment "Strip whitespaces from end of a string.";
 
-command calc.max(s:str, t:str):str
-address STRmax
-comment "Select the maximum string in lexicographic order";
-command calc.max_no_nil(s:str, t:str):str
-address STRmax_no_nil
-comment "Select the maximum string in lexicographic order, ignoring nils";
-command calc.min(s:str, t:str):str
-address STRmin
-comment "Select the minimum string in lexicographic order";
-command calc.min_no_nil(s:str, t:str):str
-address STRmin_no_nil
-comment "Select the minimum string in lexicographic order, ignoring nils";
+command trim( s:str, s2:str ) :str
+address STRStrip2
+comment "Remove the longest string containing only characters from the second string around the first string.";
+command ltrim( s:str, s2:str ) :str
+address STRLtrim2
+comment "Remove the longest string containing only characters from the second string from the start of the first string.";
+command rtrim( s:str, s2:str ) :str
+address STRRtrim2
+comment "Remove the longest string containing only characters from the second string from the end of the first string.";
 
-module str;
+command lpad( s:str, len:int ) :str
+address STRLpad
+comment "Fill up a string to the given length prepending the whitespace character.";
+command rpad( s:str, len:int ) :str
+address STRRpad
+comment "Fill up a string to the given length appending the whitespace character.";
+
+command lpad( s:str, len:int, s2:str ) :str
+address STRLpad2
+comment "Fill up the first string to the given length prepending characters of the second string.";
+command rpad( s:str, len:int, s2:str ) :str
+address STRRpad2
+comment "Fill up the first string to the given length appending characters of the second string.";
 
 command substitute(s:str,src:str,dst:str,rep:bit) :str
 address STRSubstitute

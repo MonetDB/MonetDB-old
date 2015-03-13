@@ -44,15 +44,6 @@
 
 #include "monetdb_config.h"
 
-#ifdef WIN32
-#include <windows.h>
-/* indicate to sqltypes.h that windows.h has already been included and
-   that it doesn't have to define Windows constants */
-#ifndef ALREADY_HAVE_WINDOWS_TYPE
-#define ALREADY_HAVE_WINDOWS_TYPE 1
-#endif
-#endif
-
 /**** Define the ODBC Version this ODBC driver complies with ****/
 #define ODBCVER 0x0352		/* Important: this must be defined before include of sqlext.h */
 
@@ -62,7 +53,6 @@
 #define MONETDB_PRODUCT_NAME "MonetDB ODBC driver"
 #define MONETDB_SERVER_NAME  "MonetDB"
 
-#define WITH_WCHAR	1
 #define ODBCDEBUG	1
 
 #ifdef WIN32

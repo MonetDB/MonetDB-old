@@ -28,6 +28,7 @@
 #define tr_readonly	1
 #define tr_writable	2
 #define tr_serializable 4
+#define tr_append 	8
 
 #define ACT_NO_ACTION 0
 #define ACT_CASCADE 1
@@ -92,7 +93,9 @@
 
 #define RDONLY 0
 #define RD_INS 1
-#define RD_UPD 2
+#define RD_UPD_ID 2
+#define RD_UPD_VAL 3
+#define QUICK  4
 
 #define FRAME_ROWS  0 
 #define FRAME_RANGE 1
@@ -138,12 +141,16 @@ typedef enum comp_type {
 	cmp_in = 8,
 	cmp_notin = 9,
 
-	/* cmp_all and cmp_project are only used within stmt (not sql_exp) */
-	cmp_all = 10,		/* special case for crossproducts */
-	cmp_project = 11,	/* special case for projection joins */
+	/* The followin cmp_* are only used within stmt (not sql_exp) */
+	cmp_all = 10,			/* special case for crossproducts */
+	cmp_project = 11,		/* special case for projection joins */
 	cmp_reorder_project = 12,	/* special case for (reordering) projection joins */
-	cmp_joined = 13 	/* special case already joined */
+	cmp_joined = 13, 		/* special case already joined */
+	cmp_equal_nil = 14 		/* special case equi join, with nil = nil */
 } comp_type;
+
+/* for ranges we keep the requirment for symmetric */
+#define CMP_SYMMETRIC 8
 
 #define is_theta_exp(e) ((e) == cmp_gt || (e) == cmp_gte || (e) == cmp_lte ||\
 		         (e) == cmp_lt || (e) == cmp_equal || (e) == cmp_notequal)
@@ -169,8 +176,8 @@ typedef struct sql_base {
 	char *name;
 } sql_base;
 
-extern void base_init(sql_allocator *sa, sql_base * b, sqlid id, int flag, char *name);
-extern void base_set_name(sql_base * b, char *name);
+extern void base_init(sql_allocator *sa, sql_base * b, sqlid id, int flag, const char *name);
+extern void base_set_name(sql_base * b, const char *name);
 extern void base_destroy(sql_base * b);
 
 typedef struct changeset {
@@ -187,10 +194,11 @@ extern void cs_add(changeset * cs, void *elm, int flag);
 extern void cs_add_before(changeset * cs, node *n, void *elm);
 extern void cs_del(changeset * cs, node *elm, int flag);
 extern int cs_size(changeset * cs);
-extern node *cs_find_name(changeset * cs, char *name);
+extern node *cs_find_name(changeset * cs, const char *name);
 extern node *cs_find_id(changeset * cs, int id);
 extern node *cs_first_node(changeset * cs);
 extern node *cs_last_node(changeset * cs);
+extern void cs_remove_node(changeset * cs, node *n);
 
 typedef void *backend_code;
 typedef size_t backend_stack;
@@ -218,7 +226,8 @@ typedef struct sql_schema {
 	sql_base base;
 	int auth_id;
 	int owner;
-	// TODO? int type;		/* persistent, session local, transaction local */
+	bit system;		/* system or user schema */
+	// TODO? int type;	/* persistent, session local, transaction local */
 
 	changeset tables;
 	changeset types;
@@ -250,12 +259,13 @@ typedef struct sql_alias {
 	char *alias;
 } sql_alias;
 
+#define ARG_IN 1
+#define ARG_OUT 0
+
 typedef struct sql_subtype {
 	sql_type *type;
 	unsigned int digits;
 	unsigned int scale;
-
-	struct sql_table *comp_type;	
 } sql_subtype;
 
 /* sql_func need type transform rules types are equal if underlying
@@ -265,6 +275,7 @@ typedef struct sql_subtype {
 
 typedef struct sql_arg {
 	char *name;
+	bte inout;
 	sql_subtype type;
 } sql_arg;
 
@@ -280,6 +291,15 @@ typedef struct sql_arg {
 #define IS_FILT(f) (f->type == F_FILT)
 #define IS_UNION(f) (f->type == F_UNION)
 
+#define FUNC_LANG_INT 0	/* internal */
+#define FUNC_LANG_MAL 1 /* create sql external mod.func */
+#define FUNC_LANG_SQL 2 /* create ... sql function/procedure */
+#define FUNC_LANG_R   3 /* create .. language R */
+#define FUNC_LANG_C   4
+#define FUNC_LANG_J   5
+
+#define LANG_EXT(l)  (l>FUNC_LANG_SQL)
+
 typedef struct sql_func {
 	sql_base base;
 
@@ -287,14 +307,17 @@ typedef struct sql_func {
 	char *mod;
 	int type;
 	list *ops;	/* param list */
-	sql_subtype res;
+	list *res;	/* list of results */
 	int nr;
 	int sql;	/* 0 native implementation
 			   1 sql 
 			   2 sql instantiated proc 
 			*/
+	int lang;
 	char *query;	/* sql code */
-	int side_effect;
+	bit side_effect;
+	bit varres;	/* variable output result */
+	bit vararg;	/* variable input arguments */
 	int fix_scale;
 			/*
 	   		   SCALE_NOFIX/SCALE_NONE => nothing
@@ -313,12 +336,12 @@ typedef struct sql_func {
 
 typedef struct sql_subfunc {
 	sql_func *func;
-	sql_subtype res;
+	list *res;
 } sql_subfunc;
 
 typedef struct sql_subaggr {
 	sql_func *aggr;
-	sql_subtype res;
+	list *res;
 } sql_subaggr;
 
 typedef enum key_type {
@@ -422,6 +445,7 @@ typedef struct sql_column {
 	int drop_action;	/* only used for alter statements */
 	char *storage_type;
 	int sorted;		/* for DECLARED (dupped tables) we keep order info */
+	size_t dcount;
 
 	struct sql_table *t;
 	void *data;
@@ -430,7 +454,6 @@ typedef struct sql_column {
 typedef enum table_types {
 	tt_table = 0, 		/* table */
 	tt_view = 1, 		/* view */
-	tt_generated = 2,	/* generated (functions can be sql or c-code) */
 	tt_merge_table = 3,	/* multiple tables form one table */
 	tt_stream = 4,		/* stream */
 	tt_remote = 5,		/* stored on a remote server */
@@ -439,25 +462,24 @@ typedef enum table_types {
 
 #define isTable(x) 	  (x->type==tt_table)
 #define isView(x)  	  (x->type==tt_view)
-#define isGenerated(x)    (x->type==tt_generated)
 #define isMergeTable(x)   (x->type==tt_merge_table)
 #define isStream(x)  	  (x->type==tt_stream)
 #define isRemote(x)  	  (x->type==tt_remote)
 #define isReplicaTable(x) (x->type==tt_replica_table)
 #define isKindOfTable(x)  (isTable(x) || isMergeTable(x) || isRemote(x) || isReplicaTable(x))
 
+#define TABLE_WRITABLE	0
+#define TABLE_READONLY	1
+#define TABLE_APPENDONLY	2
+
 typedef struct sql_table {
 	sql_base base;
-	sht type;		/* table, view or generated */
+	sht type;		/* table, view, etc */
+	sht access;		/* writable, readonly, appendonly */
 	bit system;		/* system or user table */
 	temp_t persistence;	/* persistent, global or local temporary */
 	ca_t commit_action;  	/* on commit action */
-	bit readonly;	
-	char *query;		/* views and generated may require some query 
-
-				   A generated without a query is simply 
-					a type definition
-				*/
+	char *query;		/* views may require some query */
 	int  sz;
 
 	sql_ukey *pkey;
@@ -471,7 +493,7 @@ typedef struct sql_table {
 	int cleared;		/* cleared in the current transaction */
 	void *data;
 	struct sql_schema *s;
-	struct sql_table *p;
+	struct sql_table *p;	/* The table is part of this merge table */
 } sql_table;
 
 typedef struct res_col {
@@ -520,32 +542,33 @@ extern void key_destroy(sql_key *k);
 extern void idx_destroy(sql_idx * i);
 
 extern int base_key(sql_base *b);
-extern node *list_find_name(list *l, char *name);
+extern node *list_find_name(list *l, const char *name);
 extern node *list_find_id(list *l, int id);
 extern node *list_find_base_id(list *l, int id);
 
-extern sql_key *find_sql_key(sql_table *t, char *kname);
+extern sql_key *find_sql_key(sql_table *t, const char *kname);
 
-extern sql_idx *find_sql_idx(sql_table *t, char *kname);
+extern sql_idx *find_sql_idx(sql_table *t, const char *kname);
 
-extern sql_column *find_sql_column(sql_table *t, char *cname);
+extern sql_column *find_sql_column(sql_table *t, const char *cname);
 
-extern sql_table *find_sql_table(sql_schema *s, char *tname);
+extern sql_table *find_sql_table(sql_schema *s, const char *tname);
 extern sql_table *find_sql_table_id(sql_schema *s, int id);
 extern node *find_sql_table_node(sql_schema *s, int id);
 
-extern sql_sequence *find_sql_sequence(sql_schema *s, char *sname);
+extern sql_sequence *find_sql_sequence(sql_schema *s, const char *sname);
 
-extern sql_schema *find_sql_schema(sql_trans *t, char *sname);
+extern sql_schema *find_sql_schema(sql_trans *t, const char *sname);
 extern sql_schema *find_sql_schema_id(sql_trans *t, int id);
 extern node *find_sql_schema_node(sql_trans *t, int id);
 
-extern sql_type *find_sql_type(sql_schema * s, char *tname);
-extern sql_type *sql_trans_bind_type(sql_trans *tr, sql_schema *s, char *name);
+extern sql_type *find_sql_type(sql_schema * s, const char *tname);
+extern sql_type *sql_trans_bind_type(sql_trans *tr, sql_schema *s, const char *name);
 
-extern sql_func *find_sql_func(sql_schema * s, char *tname);
-extern list *find_all_sql_func(sql_schema * s, char *tname, int type);
-extern sql_func *sql_trans_bind_func(sql_trans *tr, char *name);
+extern sql_func *find_sql_func(sql_schema * s, const char *tname);
+extern list *find_all_sql_func(sql_schema * s, const char *tname, int type);
+extern sql_func *sql_trans_bind_func(sql_trans *tr, const char *name);
+extern sql_func *sql_trans_find_func(sql_trans *tr, int id);
 extern node *find_sql_func_node(sql_schema *s, int id);
 
 #endif /* SQL_CATALOG_H */

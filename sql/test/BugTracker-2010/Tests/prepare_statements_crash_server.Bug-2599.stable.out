@@ -10,7 +10,7 @@ stdout of test 'prepare_statements_crash_server.Bug-2599` in directory 'sql/test
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.751 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://monetdb.cwi.nl/ for further information
 # Listening for connection requests on mapi:monetdb://rig.ins.cwi.nl:35649/
 # MonetDB/SQL module v2.38.3 loaded
@@ -27,37 +27,37 @@ Ready.
 % .prepare,	.prepare,	.prepare,	.prepare,	.prepare,	.prepare # table_name
 % type,	digits,	scale,	schema,	table,	column # name
 % varchar,	int,	int,	str,	str,	str # type
-% 7,	2,	1,	0,	6,	1 # length
+% 6,	3,	1,	0,	6,	1 # length
 [ "int",	32,	0,	"",	"t_2599",	"a"	]
 [ "int",	32,	0,	"",	"t_2599",	"b"	]
-[ "tinyint",	8,	0,	NULL,	NULL,	NULL	]
+[ "bigint",	64,	0,	NULL,	NULL,	NULL	]
 #prepare select * from t_2599 where a>2*?+1;
 #prepare select * from t_2599 where a>2*?+1;
 % .prepare,	.prepare,	.prepare,	.prepare,	.prepare,	.prepare # table_name
 % type,	digits,	scale,	schema,	table,	column # name
 % varchar,	int,	int,	str,	str,	str # type
-% 7,	2,	1,	0,	6,	1 # length
+% 6,	3,	1,	0,	6,	1 # length
 [ "int",	32,	0,	"",	"t_2599",	"a"	]
 [ "int",	32,	0,	"",	"t_2599",	"b"	]
-[ "tinyint",	8,	0,	NULL,	NULL,	NULL	]
+[ "bigint",	64,	0,	NULL,	NULL,	NULL	]
 #prepare select * from t_2599 where a>?+1;
 #prepare select * from t_2599 where a>?+1;
 % .prepare,	.prepare,	.prepare,	.prepare,	.prepare,	.prepare # table_name
 % type,	digits,	scale,	schema,	table,	column # name
 % varchar,	int,	int,	str,	str,	str # type
-% 7,	2,	1,	0,	6,	1 # length
+% 6,	3,	1,	0,	6,	1 # length
 [ "int",	32,	0,	"",	"t_2599",	"a"	]
 [ "int",	32,	0,	"",	"t_2599",	"b"	]
-[ "tinyint",	8,	0,	NULL,	NULL,	NULL	]
+[ "bigint",	64,	0,	NULL,	NULL,	NULL	]
 #prepare select * from t_2599 where a>1+?*2;
 #prepare select * from t_2599 where a>1+?*2;
 % .prepare,	.prepare,	.prepare,	.prepare,	.prepare,	.prepare # table_name
 % type,	digits,	scale,	schema,	table,	column # name
 % varchar,	int,	int,	str,	str,	str # type
-% 7,	2,	1,	0,	6,	1 # length
+% 6,	3,	1,	0,	6,	1 # length
 [ "int",	32,	0,	"",	"t_2599",	"a"	]
 [ "int",	32,	0,	"",	"t_2599",	"b"	]
-[ "tinyint",	8,	0,	NULL,	NULL,	NULL	]
+[ "bigint",	64,	0,	NULL,	NULL,	NULL	]
 #drop table t_2599;
 
 # 12:42:06 >  

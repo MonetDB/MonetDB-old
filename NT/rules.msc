@@ -14,10 +14,10 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2013 MonetDB B.V.
+# Copyright August 2008-2015 MonetDB B.V.
 # All Rights Reserved.
 
-VERSION=11.16.0
+VERSION=11.20.0
 #       ^^^^^^
 # Maintained via vertoo. Please don't modify by hand!
 # Contact MonetDB-developers@lists.sourceforge.net for details and/or assistance.
@@ -40,10 +40,12 @@ bits=32
 !IF $(bits) == 32
 !IFNDEF BITS32
 BITS32=True
+BITSMCHN=X86
 !ENDIF
 !ELSEIF $(bits) == 64
 !IFNDEF BITS64
 BITS64=True
+BITSMCHN=X64
 !ENDIF
 !ENDIF
 
@@ -57,6 +59,10 @@ DEBUGLIB=
 # force W_CFLAGS off in debug builds: using icc, you get way more
 # warnings about casts which results in the code being uncompilable
 W_CFLAGS =
+!ENDIF
+!IFDEF ENABLE_STRICT
+# strict mode: treat warnings as errors
+W_CFLAGS = -WX
 !ENDIF
 
 # This is the location of pthreads for Win32, 
@@ -133,6 +139,13 @@ LTLIBICONV = "$(LIBICONV)\lib\iconv$(DEBUGLIB).lib"
 ICONV_CFLAGS = -DHAVE_ICONV "-I$(LIBICONV)\include"
 !ENDIF
 
+!IFDEF HAVE_ATOMIC_OPS
+!IFNDEF LIBATOMIC_OPS
+LIBATOMIC_OPS = C:\atomic_ops-7.2
+!ENDIF
+ATOMIC_OPS_CFLAGS = -DHAVE_LIBATOMIC_OPS "-I$(LIBATOMIC_OPS)"
+!endif
+
 !IFDEF HAVE_LIBZ
 # This is the location of the ZLIB library
 !IFNDEF LIBZLIB
@@ -175,6 +188,27 @@ GEOS_INCS = -I$(LIBGEOS)\include
 RUBY_DIR = lib\ruby\gems\1.9.1
 !ENDIF
 
+!IFDEF HAVE_LIBR
+# This is the location of the R library
+libr_LIBDEP = R.lib
+!IFNDEF LIBR
+LIBR = c:\Program Files\R\R-3.1.0
+!ENDIF
+!IFDEF BITS32
+RDLL=bin\i386\R.dll
+!ELSE
+RDLL=bin\x64\R.dll
+!ENDIF
+libr_DLL=$(LIBR)\$(RDLL)
+libr_LIBS = $(libr_LIBDEP)
+libr_CFLAGS = -DHAVE_LIBR "-I$(LIBR)\include"
+
+# generate R.lib from R.dll, needed for linking
+R.lib: "$(libr_DLL)"
+	dumpbin /exports "$(libr_DLL)" | python "$(TOPDIR)\..\NT\makelibdef.py" > R.def
+	lib /machine:$(BITSMCHN) /def:R.def /out:R.lib
+!ENDIF
+
 # some programs we use, probably no need to edit
 
 # install python, flex and bison on your systems
@@ -198,12 +232,12 @@ CONFIGURE_PY = "$(TOPDIR)\..\NT\winconfig.py"
 WINCONFIG_INCS = "-I$(TOPDIR)\..\buildtools\conf"
 
 !IFDEF DEBUG
-COMPILERFLAGS = -GF -W3 $(W_CFLAGS) -wd4273 -wd4102 -MDd -nologo -Od -D_DEBUG -RTC1 -Zi
+COMPILERFLAGS = -GF -W3 $(W_CFLAGS) -MDd -nologo -Od -D_DEBUG -RTC1 -Zi -Oi
 !ELSE
 # add -Zi flag (implies -debug, not -D_DEBUG) to get symbol info in .pdb files
-COMPILERFLAGS = -GF -W3 $(W_CFLAGS) -wd4273 -wd4102 -MD -nologo -Ox -Zi
+COMPILERFLAGS = -GF -W3 $(W_CFLAGS) -MD -nologo -Ox -Zi -Oi
 !ENDIF
-CFLAGS = $(COMPILERFLAGS)  -I. -I$(TOPDIR) $(LIBC_INCS) $(INCLUDES) $(WINCONFIG_INCS) $(ICONV_CFLAGS)
+CFLAGS = $(COMPILERFLAGS)  -I. -I$(TOPDIR) $(LIBC_INCS) $(INCLUDES) $(WINCONFIG_INCS) $(ICONV_CFLAGS) $(ATOMIC_OPS_CFLAGS)
 
 # No general LDFLAGS needed
 INSTALL = copy
@@ -235,7 +269,6 @@ LIBC_INCS = $(PTHREAD_INCS)
 MATH_LIBS =
 SOCKET_LIBS = wsock32.lib Ws2_32.lib
 
-MX=$(TOPDIR)\buildtools\Mx\Mx.exe
 CP=copy
 MV=copy
 DEL=del
@@ -279,25 +312,15 @@ create_winconfig_conds_new_py:
 !ELSE
 	$(ECHO) CROSS_COMPILING_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ENDIF
-!IFDEF DOCTOOLS
-	$(ECHO) DOCTOOLS_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
+!IFDEF HAVE_FITS
+	$(ECHO) HAVE_FITS_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ELSE
-	$(ECHO) DOCTOOLS_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
+	$(ECHO) HAVE_FITS_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ENDIF
-!IFDEF ENABLE_CRACKERS
-	$(ECHO) ENABLE_CRACKERS_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
+!IFDEF HAVE_CURL
+	$(ECHO) HAVE_CURL_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ELSE
-	$(ECHO) ENABLE_CRACKERS_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
-!ENDIF
-!IFDEF ENABLE_DATACELL
-	$(ECHO) ENABLE_DATACELL_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
-!ELSE
-	$(ECHO) ENABLE_DATACELL_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
-!ENDIF
-!IFDEF HAVE_CFITSIO
-	$(ECHO) HAVE_CFITSIO_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
-!ELSE
-	$(ECHO) HAVE_CFITSIO_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
+	$(ECHO) HAVE_CURL_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ENDIF
 !IFDEF HAVE_DEVELOPER
 	$(ECHO) HAVE_DEVELOPER_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
@@ -313,6 +336,16 @@ create_winconfig_conds_new_py:
 	$(ECHO) HAVE_GEOM_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ELSE
 	$(ECHO) HAVE_GEOM_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
+!ENDIF
+!IFDEF HAVE_GSL
+	$(ECHO) HAVE_GSL_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
+!ELSE
+	$(ECHO) HAVE_GSL_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
+!ENDIF
+!IFDEF HAVE_HGE
+	$(ECHO) HAVE_HGE_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
+!ELSE
+	$(ECHO) HAVE_HGE_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ENDIF
 !IFDEF HAVE_JAVA
 	$(ECHO) HAVE_JAVA_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
@@ -336,6 +369,11 @@ create_winconfig_conds_new_py:
 !ELSE
 	$(ECHO) HAVE_LIBBZ2_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ENDIF
+!IFDEF HAVE_LIBR
+	$(ECHO) HAVE_LIBR_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
+!ELSE
+	$(ECHO) HAVE_LIBR_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
+!ENDIF
 !IFDEF HAVE_LIBZ
 	$(ECHO) HAVE_LIBZ_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ELSE
@@ -345,11 +383,6 @@ create_winconfig_conds_new_py:
 	$(ECHO) HAVE_MONETDB5_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ELSE
 	$(ECHO) HAVE_MONETDB5_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
-!ENDIF
-!IFDEF HAVE_MSEED
-	$(ECHO) HAVE_MSEED_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
-!ELSE
-	$(ECHO) HAVE_MSEED_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ENDIF
 !IFDEF HAVE_ODBC
 	$(ECHO) HAVE_ODBC_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
@@ -381,15 +414,15 @@ create_winconfig_conds_new_py:
 !ELSE
 	$(ECHO) HAVE_PYTHON3_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ENDIF
-!IFDEF HAVE_RAPTOR
-	$(ECHO) HAVE_RAPTOR_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
-!ELSE
-	$(ECHO) HAVE_RAPTOR_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
-!ENDIF
 !IFDEF HAVE_RUBYGEM
 	$(ECHO) HAVE_RUBYGEM_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ELSE
 	$(ECHO) HAVE_RUBYGEM_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
+!ENDIF
+!IFDEF HAVE_SAMTOOLS
+	$(ECHO) HAVE_SAMTOOLS_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
+!ELSE
+	$(ECHO) HAVE_SAMTOOLS_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ENDIF
 !IFDEF HAVE_SPHINXCLIENT
 	$(ECHO) HAVE_SPHINXCLIENT_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
@@ -401,10 +434,10 @@ create_winconfig_conds_new_py:
 !ELSE
 	$(ECHO) HAVE_SQL_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ENDIF
-!IFDEF HAVE_JAQL
-	$(ECHO) HAVE_JAQL_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
+!IFDEF HAVE_JSONSTORE
+	$(ECHO) HAVE_JSONSTORE_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ELSE
-	$(ECHO) HAVE_JAQL_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
+	$(ECHO) HAVE_JSONSTORE_FALSE='' >> "$(TOPDIR)\winconfig_conds_new.py"
 !ENDIF
 !IFDEF HAVE_TESTING
 	$(ECHO) HAVE_TESTING_FALSE='#' >> "$(TOPDIR)\winconfig_conds_new.py"
@@ -487,40 +520,6 @@ CFLAGS = $(CFLAGS) -DMONET_OID32
 
 CONFIG_H = monetdb_config.h
 
-{$(srcdir)}.mx.h:
-	$(MX) $(MXFLAGS) -l -x h $<
-
-.mx.h:
-	$(MX) $(MXFLAGS) -l -x h $<
-
-{$(srcdir)}.mx.c:
-	$(MX) $(MXFLAGS) -x c $<
-
-.mx.c:
-	$(MX) $(MXFLAGS) -x c $<
-
-{$(srcdir)}.mx.mal:
-	$(MX) $(MXFLAGS) -l -x mal $<
-	if not exist .libs $(MKDIR) .libs
-	$(INSTALL) $@ .libs\$@
-
-.mx.mal:
-	$(MX) $(MXFLAGS) -l -x mal $<
-	if not exist .libs $(MKDIR) .libs
-	$(INSTALL) $@ .libs\$@
-
-{$(srcdir)}.mx.sql:
-	$(MX) $(MXFLAGS) -l -x sql $<
-
-.mx.sql:
-	$(MX) $(MXFLAGS) -l -x sql $<
-
-{$(srcdir)}.mx.y:
-	$(MX) $(MXFLAGS) -x y $<
-
-.mx.y:
-	$(MX) $(MXFLAGS) -x y $<
-
 {$(srcdir)}.c.obj:
 	$(CC) $(CFLAGS) -c $<
 
@@ -535,4 +534,4 @@ CONFIG_H = monetdb_config.h
 	echo EXPORTS > $@
 	type $< >> $@
 
-.SUFFIXES: .mx .syms .def
+.SUFFIXES: .syms .def

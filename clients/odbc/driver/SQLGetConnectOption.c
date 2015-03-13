@@ -37,24 +37,41 @@
 #include "ODBCDbc.h"
 #include "ODBCUtil.h"
 
+#ifdef _MSC_VER
+/* can't call them by their real name with Visual Studio 12.0 since we
+ * would then get a warning which we translate to an error during
+ * compilation (also see ODBC.syms) */
+#define SQLGetConnectOption	SQLGetConnectOption_deprecated
+#define SQLGetConnectOptionA	SQLGetConnectOptionA_deprecated
+#define SQLGetConnectOptionW	SQLGetConnectOptionW_deprecated
+#endif
+
 static SQLRETURN
 SQLGetConnectOption_(ODBCDbc *dbc,
 		     SQLUSMALLINT Option,
 		     SQLPOINTER ValuePtr)
 {
+	SQLLEN v;
+	SQLRETURN r;
+
 	/* use mapping as described in ODBC 3 SDK Help file */
 	switch (Option) {
 		/* connection attributes (ODBC 1 and 2 only) */
 	case SQL_ACCESS_MODE:
 	case SQL_AUTOCOMMIT:
 	case SQL_LOGIN_TIMEOUT:
-	case SQL_ODBC_CURSORS:
 	case SQL_OPT_TRACE:
 	case SQL_PACKET_SIZE:
 	case SQL_TRANSLATE_OPTION:
 	case SQL_TXN_ISOLATION:
 		/* 32 bit integer argument */
 		return SQLGetConnectAttr_(dbc, Option, ValuePtr, 0, NULL);
+	case SQL_ODBC_CURSORS:
+		/* 32 bit integer argument, but SQLGetConnectAttr returns 64 */
+		r = SQLGetConnectAttr_(dbc, Option, &v, 0, NULL);
+		if (SQL_SUCCEEDED(r))
+			* (SQLUINTEGER *) ValuePtr = (SQLUINTEGER) v;
+		return r;
 	case SQL_QUIET_MODE:
 		/* 32/64 bit integer argument */
 		return SQLGetConnectAttr_(dbc, Option, ValuePtr, 0, NULL);
@@ -92,7 +109,6 @@ SQLGetConnectOption(SQLHDBC ConnectionHandle,
 	return SQLGetConnectOption_(dbc, Option, ValuePtr);
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLGetConnectOptionA(SQLHDBC ConnectionHandle,
 		     SQLUSMALLINT Option,
@@ -126,6 +142,11 @@ SQLGetConnectOptionW(SQLHDBC ConnectionHandle,
 	case SQL_OPT_TRACEFILE:
 	case SQL_TRANSLATE_DLL:
 		ptr = (SQLPOINTER) malloc(SQL_MAX_OPTION_STRING_LENGTH);
+		if (ptr == NULL) {
+			/* Memory allocation error */
+			addDbcError(dbc, "HY001", NULL, 0);
+			return SQL_ERROR;
+		}
 		break;
 	default:
 		ptr = ValuePtr;
@@ -148,4 +169,3 @@ SQLGetConnectOptionW(SQLHDBC ConnectionHandle,
 
 	return rc;
 }
-#endif /* WITH_WCHAR */

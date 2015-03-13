@@ -36,20 +36,20 @@ str MiniseedMount(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	cntxt = cntxt; /* to escape 'unused' parameter error. */
 	mb = mb; /* to escape 'unused' parameter error. */
 
-	bfile = BATnew(TYPE_void, TYPE_int, 0); /* create empty BAT for ret0. */
+	bfile = BATnew(TYPE_void, TYPE_int, 0, PERSISTENT); /* create empty BAT for ret0. */
 	if ( bfile == NULL)
 		throw(MAL,"miniseed.mount",MAL_MALLOC_FAIL);
 	BATseqbase(bfile, 0);
-	bseqno = BATnew(TYPE_void, TYPE_int, 0); /* create empty BAT for ret1. */
+	bseqno = BATnew(TYPE_void, TYPE_int, 0, PERSISTENT); /* create empty BAT for ret1. */
 	if ( bseqno == NULL)
 		throw(MAL,"miniseed.mount",MAL_MALLOC_FAIL);
 	BATseqbase(bseqno, 0);
 
-	btime = BATnew(TYPE_void, TYPE_timestamp, 0); /* create empty BAT for ret2. */
+	btime = BATnew(TYPE_void, TYPE_timestamp, 0, PERSISTENT); /* create empty BAT for ret2. */
 	if ( btime == NULL)
 		throw(MAL,"miniseed.mount",MAL_MALLOC_FAIL);
 	BATseqbase(btime, 0);
-	bdata = BATnew(TYPE_void, TYPE_int, 0); /* create empty BAT for ret3. */
+	bdata = BATnew(TYPE_void, TYPE_int, 0, PERSISTENT); /* create empty BAT for ret3. */
 	if ( bdata == NULL)
 		throw(MAL,"miniseed.mount",MAL_MALLOC_FAIL);
 	BATseqbase(bdata, 0);
@@ -57,13 +57,13 @@ str MiniseedMount(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if(bfile == NULL || bseqno == NULL || btime == NULL || bdata == NULL) /* exception handling. */
 	{
 		if(bfile)
-			BBPreleaseref(bfile->batCacheid);
+			BBPdecref(bfile->batCacheid, TRUE);
 		if(bseqno)
-			BBPreleaseref(bseqno->batCacheid);
+			BBPdecref(bseqno->batCacheid, TRUE);
 		if(btime)
-			BBPreleaseref(btime->batCacheid);
+			BBPdecref(btime->batCacheid, TRUE);
 		if(bdata)
-			BBPreleaseref(bdata->batCacheid);
+			BBPdecref(bdata->batCacheid, TRUE);
 		throw(MAL,"miniseed.mount", MAL_MALLOC_FAIL);
 	}
 
@@ -157,20 +157,20 @@ str MiniseedMountSegmentMode(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 	cntxt = cntxt; /* to escape 'unused' parameter error. */
 	mb = mb; /* to escape 'unused' parameter error. */
 	
-	bfile = BATnew(TYPE_void, TYPE_int, 0); /* create empty BAT for ret0. */
+	bfile = BATnew(TYPE_void, TYPE_int, 0, PERSISTENT); /* create empty BAT for ret0. */
 	if ( bfile == NULL)
 		throw(MAL,"miniseed.mount",MAL_MALLOC_FAIL);
 	BATseqbase(bfile, 0);
-	bsegid = BATnew(TYPE_void, TYPE_int, 0); /* create empty BAT for ret1. */
+	bsegid = BATnew(TYPE_void, TYPE_int, 0, PERSISTENT); /* create empty BAT for ret1. */
 	if ( bsegid == NULL)
 		throw(MAL,"miniseed.mount",MAL_MALLOC_FAIL);
 	BATseqbase(bsegid, 0);
 	
-	btime = BATnew(TYPE_void, TYPE_timestamp, 0); /* create empty BAT for ret2. */
+	btime = BATnew(TYPE_void, TYPE_timestamp, 0, PERSISTENT); /* create empty BAT for ret2. */
 	if ( btime == NULL)
 		throw(MAL,"miniseed.mount",MAL_MALLOC_FAIL);
 	BATseqbase(btime, 0);
-	bvalue = BATnew(TYPE_void, TYPE_int, 0); /* create empty BAT for ret3. */
+	bvalue = BATnew(TYPE_void, TYPE_int, 0, PERSISTENT); /* create empty BAT for ret3. */
 	if ( bvalue == NULL)
 		throw(MAL,"miniseed.mount",MAL_MALLOC_FAIL);
 	BATseqbase(bvalue, 0);
@@ -178,13 +178,13 @@ str MiniseedMountSegmentMode(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 	if(bfile == NULL || bsegid == NULL || btime == NULL || bvalue == NULL) /* exception handling. */
 	{
 		if(bfile)
-			BBPreleaseref(bfile->batCacheid);
+			BBPdecref(bfile->batCacheid, TRUE);
 		if(bsegid)
-			BBPreleaseref(bsegid->batCacheid);
+			BBPdecref(bsegid->batCacheid, TRUE);
 		if(btime)
-			BBPreleaseref(btime->batCacheid);
+			BBPdecref(btime->batCacheid, TRUE);
 		if(bvalue)
-			BBPreleaseref(bvalue->batCacheid);
+			BBPdecref(bvalue->batCacheid, TRUE);
 		throw(MAL,"miniseed.mount", MAL_MALLOC_FAIL);
 	}
 	

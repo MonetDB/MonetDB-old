@@ -265,6 +265,10 @@ column_constraint_type(mvc *sql, char *name, symbol *s, sql_schema *ss, sql_tabl
 {
 	int res = SQL_ERR;
 
+	if (!ss && (s->token != SQL_NULL && s->token != SQL_NOT_NULL)) {
+		(void) sql_error(sql, 02, "42000!CONSTRAINT: constraints on declared tables are not supported\n");
+		return res;
+	}
 	switch (s->token) {
 	case SQL_UNIQUE:
 	case SQL_PRIMARY_KEY: {
@@ -331,7 +335,7 @@ column_constraint_type(mvc *sql, char *name, symbol *s, sql_schema *ss, sql_tabl
 	} 	break;
 	case SQL_NOT_NULL:
 	case SQL_NULL: {
-		int null = (s->token == SQL_NOT_NULL) ? 0 : 1;
+		int null = (s->token != SQL_NOT_NULL);
 
 		mvc_null(sql, cs, null);
 		res = SQL_OK;
@@ -399,7 +403,7 @@ column_option(
 	} 	break;
 	case SQL_NOT_NULL:
 	case SQL_NULL: {
-		int null = (s->token == SQL_NOT_NULL) ? 0 : 1;
+		int null = (s->token != SQL_NOT_NULL);
 
 		mvc_null(sql, cs, null);
 		res = SQL_OK;
@@ -592,9 +596,6 @@ create_column(mvc *sql, symbol *s, sql_schema *ss, sql_table *t, int alter)
 		if (column_options(sql, opt_list, ss, t, cs) == SQL_ERR)
 			return SQL_ERR;
 	}
-
-	if (res == SQL_ERR) 
-		sql_error(sql, 02, "42000!CREATE: column type or name");
 	return res;
 }
 
@@ -603,7 +604,7 @@ table_element(mvc *sql, symbol *s, sql_schema *ss, sql_table *t, int alter)
 {
 	int res = SQL_OK;
 
-	if (alter && (isView(t) || ((isMergeTable(t) || isReplicaTable(t)) && s->token != SQL_TABLE && s->token != SQL_DROP_TABLE) || (isTable(t) && (s->token == SQL_TABLE || s->token == SQL_DROP_TABLE)) )){
+	if (alter && (isView(t) || ((isMergeTable(t) || isReplicaTable(t)) && (s->token != SQL_TABLE && s->token != SQL_DROP_TABLE && cs_size(&t->tables)>0)) || (isTable(t) && (s->token == SQL_TABLE || s->token == SQL_DROP_TABLE)) )){
 		char *msg = "";
 
 		switch (s->token) {
@@ -621,6 +622,9 @@ table_element(mvc *sql, symbol *s, sql_schema *ss, sql_table *t, int alter)
 		case SQL_NOT_NULL:
 		case SQL_NULL:
 			msg = "set column options for"; 
+			break;
+		case SQL_STORAGE:
+			msg = "set column storage for"; 
 			break;
 		case SQL_DROP_DEFAULT:
 			msg = "drop default column option from"; 
@@ -686,13 +690,27 @@ table_element(mvc *sql, symbol *s, sql_schema *ss, sql_table *t, int alter)
 		_DELETE(r);
 	}
 	break;
+	case SQL_STORAGE:
+	{
+		dlist *l = s->data.lval;
+		char *cname = l->h->data.sval;
+		char *storage_type = l->h->next->data.sval;
+		sql_column *c = mvc_bind_column(sql, t, cname);
+
+		if (!c) {
+			sql_error(sql, 02, "42S22!ALTER TABLE: no such column '%s'\n", cname);
+			return SQL_ERR;
+		}
+		mvc_storage(sql, c, storage_type);
+	}
+	break;
 	case SQL_NOT_NULL:
 	case SQL_NULL:
 	{
 		dnode *n = s->data.lval->h;
 		char *cname = n->data.sval;
 		sql_column *c = mvc_bind_column(sql, t, cname);
-		int null = (s->token == SQL_NOT_NULL) ? 0 : 1;
+		int null = (s->token != SQL_NOT_NULL);
 
 		if (!c) {
 			sql_error(sql, 02, "42S22!ALTER TABLE: no such column '%s'\n", cname);
@@ -811,6 +829,8 @@ rel_create_table(mvc *sql, sql_schema *ss, int temp, char *sname, char *name, sy
 	if (temp != SQL_DECLARED_TABLE) {
 		if (temp != SQL_PERSIST && tt == tt_table) {
 			s = mvc_bind_schema(sql, "tmp");
+			if (temp == SQL_LOCAL_TEMP && sname && strcmp(sname, s->base.name) != 0)
+				return sql_error(sql, 02, "3F000!CREATE TABLE: local tempory tables should be stored in the '%s' schema", s->base.name);
 		} else if (s == NULL) {
 			s = ss;
 		}
@@ -855,7 +875,7 @@ rel_create_table(mvc *sql, sql_schema *ss, int temp, char *sname, char *name, sy
 			return NULL;
 
 		/* create table */
-		if (create && (t = mvc_create_table_as_subquery( sql, sq, s, name, column_spec, temp, commit_action)) == NULL) { 
+		if ((t = mvc_create_table_as_subquery( sql, sq, s, name, column_spec, temp, commit_action)) == NULL) { 
 			rel_destroy(sq);
 			return NULL;
 		}
@@ -926,6 +946,10 @@ rel_create_view(mvc *sql, sql_schema *ss, dlist *qname, dlist *column_spec, symb
 		t = mvc_bind_table(sql, s, name);
 		if (!persistent && column_spec) 
 			sq = view_rename_columns( sql, name, sq, column_spec);
+		if (sq->op == op_project && sq->l && sq->exps && sq->card == CARD_AGGR) {
+			exps_setcard(sq->exps, CARD_MULTI);
+			sq->card = CARD_MULTI;
+		}
 		return sq;
 	}
 	return NULL;
@@ -1000,6 +1024,9 @@ rel_create_schema(mvc *sql, dlist *auth_name, dlist *schema_elements)
 		sql_error(sql, 02, "42000!CREATE SCHEMA: insufficient privileges for user '%s'", stack_get_string(sql, "current_user"));
 		return NULL;
 	}
+	if (!name) 
+		name = auth;
+	assert(name);
 	if (mvc_bind_schema(sql, name)) {
 		sql_error(sql, 02, "3F000!CREATE SCHEMA: name '%s' already in use", name);
 		return NULL;
@@ -1009,9 +1036,7 @@ rel_create_schema(mvc *sql, dlist *auth_name, dlist *schema_elements)
 		sql_schema *ss = SA_ZNEW(sql->sa, sql_schema);
 		sql_rel *ret;
 
-		ret = rel_schema(sql->sa, DDL_CREATE_SCHEMA, 
-			   dlist_get_schema_name(auth_name),
-			   schema_auth(auth_name), 0);
+		ret = rel_schema(sql->sa, DDL_CREATE_SCHEMA, name, auth, 0);
 
 		ss->base.name = name;
 		ss->auth_id = auth_id;
@@ -1046,6 +1071,42 @@ get_schema_name( mvc *sql, char *sname, char *tname)
 	return sname;
 }
 
+static int
+rel_check_tables(mvc *sql, sql_table *nt, sql_table *nnt)
+{
+	node *n, *m;
+
+	if (cs_size(&nt->columns) != cs_size(&nnt->columns)) {
+		(void) sql_error(sql, 02, "3F000!ALTER MERGE TABLE: to be added table doesn't match MERGE TABLE definition");
+		return -1;
+	}
+	for (n = nt->columns.set->h, m = nnt->columns.set->h; n && m; n = n->next, m = m->next) {
+		sql_column *nc = n->data;
+		sql_column *mc = m->data;
+
+		if (subtype_cmp(&nc->type, &mc->type) != 0) {
+			(void) sql_error(sql, 02, "3F000!ALTER MERGE TABLE: to be added table column type doesn't match MERGE TABLE definition");
+			return -2;
+		}
+	}
+	if (cs_size(&nt->idxs) != cs_size(&nnt->idxs)) {
+		(void) sql_error(sql, 02, "3F000!ALTER MERGE TABLE: to be added table index doesn't match MERGE TABLE definition");
+		return -1;
+	}
+	if (cs_size(&nt->idxs))
+	for (n = nt->idxs.set->h, m = nnt->idxs.set->h; n && m; n = n->next, m = m->next) {
+		sql_idx *ni = n->data;
+		sql_idx *mi = m->data;
+
+		/* todo check def */
+		if (ni->type != mi->type) {
+			(void) sql_error(sql, 02, "3F000!ALTER MERGE TABLE: to be added table index type doesn't match MERGE TABLE definition");
+			return -2;
+		}
+	}
+	return 0;
+}
+
 static sql_rel *
 rel_alter_table(mvc *sql, dlist *qname, symbol *te)
 {
@@ -1062,13 +1123,16 @@ rel_alter_table(mvc *sql, dlist *qname, symbol *te)
 		s = cur_schema(sql);
 
 	if ((t = mvc_bind_table(sql, s, tname)) == NULL) {
-		return sql_error(sql, 02, "42S02!ALTER TABLE: no such table '%s'", tname);
+		if (mvc_bind_table(sql, mvc_bind_schema(sql, "tmp"), tname) != NULL) 
+			return sql_error(sql, 02, "42S02!ALTER TABLE: not supported on TEMPORARY table '%s'", tname);
+		return sql_error(sql, 02, "42S02!ALTER TABLE: no such table '%s' in schema '%s'", tname, s->base.name);
 	} else {
 		node *n;
 		sql_rel *res = NULL, *r;
 		sql_table *nt = dup_sql_table(sql->sa, t);
 		sql_exp ** updates, *e;
 
+		assert(te);
 		if (nt && te && te->token == SQL_DROP_CONSTRAINT) {
 			dlist *l = te->data.lval;
 			char *kname = l->h->data.sval;
@@ -1078,27 +1142,48 @@ rel_alter_table(mvc *sql, dlist *qname, symbol *te)
 			return rel_schema(sql->sa, DDL_DROP_CONSTRAINT, sname, kname, drop_action);
 		}
 
+		if (t->persistence != SQL_DECLARED_TABLE)
+			sname = s->base.name;
+
+		/* read only or read write */
+		if (nt && te && te->token == SQL_ALTER_TABLE) {
+			int state = te->data.i_val;
+
+			if (t->s && !nt->s)
+				nt->s = t->s;
+
+			if (nt->type == tt_merge_table)
+				return sql_error(sql, 02, "42S02!ALTER TABLE: read only MERGE TABLES are not supported");
+
+			if (state == tr_readonly) {
+				nt = mvc_access(sql, nt, TABLE_READONLY);
+			} else if (state == tr_append) {
+				nt = mvc_access(sql, nt, TABLE_APPENDONLY);
+			} else {
+				nt = mvc_access(sql, nt, TABLE_WRITABLE);
+			}
+			return rel_table(sql, DDL_ALTER_TABLE, sname, nt, 0);
+		}
+
 		if (!nt || (te && table_element(sql, te, s, nt, 1) == SQL_ERR)) 
 			return NULL;
-
-		if (t->persistence != SQL_DECLARED_TABLE && s)
-			sname = s->base.name;
 
 		if (t->s && !nt->s)
 			nt->s = t->s;
 
-		if (!te) /* Set Read only */
-			nt = mvc_readonly(sql, nt, 1);
 		res = rel_table(sql, DDL_ALTER_TABLE, sname, nt, 0);
-		if (!te) /* Set Read only */
-			return res;
+
 		/* table add table */
 		if (te->token == SQL_TABLE) {
 			char *ntname = te->data.lval->h->data.sval;
 			sql_table *nnt = mvc_bind_table(sql, s, ntname);
 
-			if (nnt)
+			/* check tables */
+			if (nnt) {
+				if (rel_check_tables(sql, t, nnt) < 0)
+					return NULL;
 				cs_add(&nt->tables, nnt, TR_NEW); 
+			}
 		}
 		/* table drop table */
 		if (te->token == SQL_DROP_TABLE) {
@@ -1113,6 +1198,9 @@ rel_alter_table(mvc *sql, dlist *qname, symbol *te)
 				cs_del(&nt->tables, n, ntt->base.flag); 
 			}
 		}
+
+		if (!isTable(nt))
+			return res;
 
 		/* new columns need update with default values */
 		updates = table_update_array(sql, nt);
@@ -1468,36 +1556,55 @@ rel_revoke_privs(mvc *sql, sql_schema *cur, dlist *privs, dlist *grantees, int g
 
 /* iname, itype, sname.tname (col1 .. coln) */
 static sql_rel *
-rel_create_index(mvc *sql, sql_schema *ss, char *iname, int itype, dlist *qname, dlist *column_list)
+rel_create_index(mvc *sql, char *iname, idx_type itype, dlist *qname, dlist *column_list)
 {
-	sql_allocator *sa = sql->sa;
-	sql_rel *rel = rel_create(sa);
-	list *exps = new_exp_list(sa);
-	char *tname = qname_table(qname);
+	sql_schema *s = NULL;
+	sql_table *t, *nt;
+	sql_rel *r, *res;
+	sql_exp ** updates, *e;
+	sql_idx *i;
+	dnode *n;
 	char *sname = qname_schema(qname);
-	dnode *n = column_list->h;
-
-	if (!sname && ss)
-		sname = ss->base.name;
-
-	append(exps, exp_atom_clob(sa, iname));
-	append(exps, exp_atom_int(sa, itype));
-	append(exps, exp_atom_clob(sa, sname));
-	append(exps, exp_atom_clob(sa, tname));
-
-	for (; n; n = n->next) {
-		char *cname = n->data.sval;
-
-		append(exps, exp_atom_clob(sa, cname));
+	char *tname = qname_table(qname);
+	       
+	if (sname && !(s = mvc_bind_schema(sql, sname))) 
+		return sql_error(sql, 02, "3F000!CREATE INDEX: no such schema '%s'", sname);
+	if (!s) 
+		s = cur_schema(sql);
+	i = mvc_bind_idx(sql, s, iname);
+	if (i) 
+		return sql_error(sql, 02, "42S11!CREATE INDEX: name '%s' already in use", iname);
+	t = mvc_bind_table(sql, s, tname);
+	if (!t) {
+		return sql_error(sql, 02, "42S02!CREATE INDEX: no such table '%s'", tname);
+	} else if (isView(t)) {
+		return sql_error(sql, 02, "42S02!CREATE INDEX: cannot create index on view '%s'", tname);
 	}
-	rel->l = NULL;
-	rel->r = NULL;
-	rel->op = op_ddl;
-	rel->flag = DDL_CREATE_INDEX;
-	rel->exps = exps;
-	rel->card = 0;
-	rel->nrcols = 0;
-	return rel;
+	sname = get_schema_name( sql, sname, tname);
+	nt = dup_sql_table(sql->sa, t);
+
+	if (t->persistence != SQL_DECLARED_TABLE)
+		sname = s->base.name;
+	if (t->s && !nt->s)
+		nt->s = t->s;
+
+	/* add index here */
+	i = mvc_create_idx(sql, nt, iname, itype);
+	for (n = column_list->h; n; n = n->next) {
+		sql_column *c = mvc_bind_column(sql, nt, n->data.sval);
+
+		if (!c) 
+			return sql_error(sql, 02, "42S22!CREATE INDEX: no such column '%s'", n->data.sval);
+		mvc_create_ic(sql, i, c);
+	}
+
+	/* new columns need update with default values */
+	updates = table_update_array(sql, nt); 
+	e = exp_column(sql->sa, nt->base.name, "%TID%", sql_bind_localtype("oid"), CARD_MULTI, 0, 1);
+	res = rel_table(sql, DDL_ALTER_TABLE, sname, nt, 0);
+	r = rel_project(sql->sa, res, append(new_exp_list(sql->sa),e));
+	res = rel_update(sql, res, r, updates, NULL); 
+	return res;
 }
 
 static sql_rel *
@@ -1614,7 +1721,7 @@ rel_schemas(mvc *sql, symbol *s)
 		dlist *l = s->data.lval;
 
 		ret = rel_alter_table(sql, 
-			l->h->data.lval,	/* table name */
+			l->h->data.lval,      /* table name */
 		  	l->h->next->data.sym);/* table element */
 	} 	break;
 	case SQL_GRANT_ROLES:
@@ -1681,7 +1788,7 @@ rel_schemas(mvc *sql, symbol *s)
 		dlist *l = s->data.lval;
 
 		assert(l->h->next->type == type_int);
-		ret = rel_create_index(sql, cur_schema(sql), l->h->data.sval, l->h->next->data.i_val, l->h->next->next->data.lval, l->h->next->next->next->data.lval);
+		ret = rel_create_index(sql, l->h->data.sval, (idx_type) l->h->next->data.i_val, l->h->next->next->data.lval, l->h->next->next->next->data.lval);
 	} 	break;
 	case SQL_DROP_INDEX: {
 		dlist *l = s->data.lval;

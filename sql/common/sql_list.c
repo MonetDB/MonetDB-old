@@ -24,7 +24,7 @@
 static node *
 node_create(sql_allocator *sa, void *data)
 {
-	node *n = (sa)?SA_NEW(sa, node):NEW(node);
+	node *n = (sa)?SA_NEW(sa, node):MNEW(node);
 
 	n->next = NULL;
 	n->data = data;
@@ -34,13 +34,15 @@ node_create(sql_allocator *sa, void *data)
 list *
 list_create(fdestroy destroy)
 {
-	list *l = NEW(list);
+	list *l = MNEW(list);
 
 	l->sa = NULL;
 	l->destroy = destroy;
 	l->h = l->t = NULL;
 	l->cnt = 0;
+	l->expected_cnt = 0;
 	l->ht = NULL;
+	MT_lock_init(&l->ht_lock, "sa_ht_lock");
 	return l;
 }
 
@@ -54,6 +56,7 @@ sa_list(sql_allocator *sa)
 	l->h = l->t = NULL;
 	l->cnt = 0;
 	l->ht = NULL;
+	MT_lock_init(&l->ht_lock, "sa_ht_lock");
 	return l;
 }
 
@@ -67,6 +70,7 @@ list_new(sql_allocator *sa, fdestroy destroy)
 	l->h = l->t = NULL;
 	l->cnt = 0;
 	l->ht = NULL;
+	MT_lock_init(&l->ht_lock, "sa_ht_lock");
 	return l;
 }
 
@@ -92,8 +96,10 @@ list_empty(list *l)
 static void
 node_destroy(list *l, node *n)
 {
-	if (n->data && l->destroy)
+	if (n->data && l->destroy) {
 		l->destroy(n->data);
+		n->data = NULL;
+	}
 	if (!l->sa)
 		_DELETE(n);
 }
@@ -104,11 +110,15 @@ list_destroy(list *l)
 	if (l) {
 		node *n = l->h;
 
-		while (n && (l->destroy|| !l->sa)) {
-			node *t = n;
+		MT_lock_destroy(&l->ht_lock);
+		l->h = NULL;
+		if (l->destroy || l->sa == NULL) {
+			while (n) {
+				node *t = n;
 
-			n = n->next;
-			node_destroy(l, t);
+				n = t->next;
+				node_destroy(l, t);
+			}
 		}
 		if (!l->sa)
 			_DELETE(l);
@@ -135,11 +145,13 @@ list_append(list *l, void *data)
 	}
 	l->t = n;
 	l->cnt++;
+	MT_lock_set(&l->ht_lock, "list_append");
 	if (l->ht) {
 		int key = l->ht->key(data);
 	
 		hash_add(l->ht, key, data);
 	}
+	MT_lock_unset(&l->ht_lock, "list_append");
 	return l;
 }
 
@@ -158,11 +170,13 @@ list_append_before(list *l, node *m, void *data)
 		p->next = n;
 	}
 	l->cnt++;
+	MT_lock_set(&l->ht_lock, "list_append_before");
 	if (l->ht) {
 		int key = l->ht->key(data);
 	
 		hash_add(l->ht, key, data);
 	}
+	MT_lock_unset(&l->ht_lock, "list_append_before");
 	return l;
 }
 
@@ -177,11 +191,13 @@ list_prepend(list *l, void *data)
 	n->next = l->h;
 	l->h = n;
 	l->cnt++;
+	MT_lock_set(&l->ht_lock, "list_prepend");
 	if (l->ht) {
 		int key = l->ht->key(data);
 	
 		hash_add(l->ht, key, data);
 	}
+	MT_lock_unset(&l->ht_lock, "list_prepend");
 	return l;
 }
 
@@ -192,7 +208,7 @@ hash_delete(sql_hash *h, void *data)
 	sql_hash_e *e, *p = h->buckets[key&(h->size-1)];
 	
 	e = p;
-	for (; p->value != data ; p = p->chain) 
+	for (;  p && p->value != data ; p = p->chain) 
 		e = p;
 	if (p && p->value == data) {
 		if (p == e)
@@ -214,15 +230,17 @@ list_remove_node(list *l, node *n)
 	if (p == n) {
 		l->h = n->next;
 		p = NULL;
-	} else {
+	} else if ( p != NULL)  {
 		p->next = n->next;
 	}
 	if (n == l->t)
 		l->t = p;
 	node_destroy(l, n);
 	l->cnt--;
+	MT_lock_set(&l->ht_lock, "list_remove_node");
 	if (l->ht && data)
 		hash_delete(l->ht, data);
+	MT_lock_unset(&l->ht_lock, "list_remove_node");
 	return p;
 }
 
@@ -234,8 +252,10 @@ list_remove_data(list *s, void *data)
 	/* maybe use compare func */
 	for (n = s->h; n; n = n->next) {
 		if (n->data == data) {
+			MT_lock_set(&s->ht_lock, "list_remove_data");
 			if (s->ht && n->data)
 				hash_delete(s->ht, n->data);
+			MT_lock_unset(&s->ht_lock, "list_remove_data");
 			n->data = NULL;
 			list_remove_node(s, n);
 			break;
@@ -250,8 +270,10 @@ list_move_data(list *s, list *d, void *data)
 
 	for (n = s->h; n; n = n->next) {
 		if (n->data == data) {
+			MT_lock_set(&s->ht_lock, "list_move_data");
 			if (s->ht && n->data)
 				hash_delete(s->ht, n->data);
+			MT_lock_unset(&s->ht_lock, "list_move_data");
 			n->data = NULL;	/* make sure data isn't destroyed */
 			list_remove_node(s, n);
 			break;

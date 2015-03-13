@@ -129,6 +129,8 @@ levenshtein_impl(int *result, str *S, str *T, int *insdel_cost, int *replace_cos
 	}
 	sz = (n + 1) * (m + 1) * sizeof(int);
 	d = (int *) GDKmalloc(sz);
+	if ( d == NULL)
+		throw(MAL,"levenshtein", MAL_MALLOC_FAIL);
 
 	/* Step 2 */
 	for (i = 0; i <= n; i++) {
@@ -269,6 +271,8 @@ soundex_impl(str *res, str *Name)
 	RETURN_NIL_IF(strNil(*Name), TYPE_str);
 
 	*res = (str) GDKmalloc(sizeof(char) * (SoundexLen + 1));
+	if( *res == NULL)
+		throw(MAL,"soundex", MAL_MALLOC_FAIL);
 
 	/* calculate Key for Name */
 	soundex_code(*Name, *res);
@@ -282,8 +286,14 @@ stringdiff_impl(int *res, str *s1, str *s2)
 	str r = MAL_SUCCEED;
 	char *S1 = NULL, *S2 = NULL;
 
-	soundex_impl(&S1, s1);
-	soundex_impl(&S2, s2);
+	r = soundex_impl(&S1, s1);
+	if( r != MAL_SUCCEED)
+		return r;
+	r = soundex_impl(&S2, s2);
+	if( r != MAL_SUCCEED){
+		GDKfree(S1);
+		return r;
+	}
 	r = levenshteinbasic_impl(res, &S1, &S2);
 	GDKfree(S1);
 	GDKfree(S2);
@@ -875,40 +885,88 @@ fstrcmp0_impl(dbl *ret, str *string1, str *string2)
 /* ============ Q-GRAM SELF JOIN ============== */
 
 str
-CMDqgramselfjoin(BAT **res, BAT **res2, BAT *qgram, BAT *id, BAT *pos, BAT *len, flt *c, int *k)
+CMDqgramselfjoin(bat *res1, bat *res2, bat *qid, bat *bid, bat *pid, bat *lid, flt *c, int *k)
 {
-	BUN n = BATcount(qgram);
+	BAT *qgram, *id, *pos, *len;
+	BUN n;
 	BUN i, j;
 	BAT *bn, *bn2;
+	oid *qbuf;
+	int *ibuf;
+	int *pbuf;
+	int *lbuf;
 
-	oid *qbuf = (oid *) Tloc(qgram, BUNfirst(qgram));
-	int *ibuf = (int *) Tloc(id, BUNfirst(id));
-	int *pbuf = (int *) Tloc(pos, BUNfirst(pos));
-	int *lbuf = (int *) Tloc(len, BUNfirst(len));
+	qgram = BATdescriptor(*qid);
+	id = BATdescriptor(*bid);
+	pos = BATdescriptor(*pid);
+	len = BATdescriptor(*lid);
+	if (qgram == NULL || id == NULL || pos == NULL || len == NULL) {
+		if (qgram)
+			BBPunfix(qgram->batCacheid);
+		if (id)
+			BBPunfix(id->batCacheid);
+		if (pos)
+			BBPunfix(pos->batCacheid);
+		if (len)
+			BBPunfix(len->batCacheid);
+		throw(MAL, "txtsim.qgramselfjoin", RUNTIME_OBJECT_MISSING);
+	}
 
-	ERRORcheck((qgram->ttype != TYPE_oid), "CMDqgramselfjoin: tail of BAT qgram must be oid.\n");
-	ERRORcheck((id->ttype != TYPE_int), "CMDqgramselfjoin: tail of BAT id must be int.\n");
-	ERRORcheck((pos->ttype != TYPE_int), "CMDqgramselfjoin: tail of BAT pos must be int.\n");
-	ERRORcheck((len->ttype != TYPE_int), "CMDqgramselfjoin: tail of BAT len must be int.\n");
+	if (qgram->ttype != TYPE_oid)
+		throw(MAL, "tstsim.qgramselfjoin",
+			  SEMANTIC_TYPE_MISMATCH ": tail of BAT qgram must be oid");
+	if (id->ttype != TYPE_int)
+		throw(MAL, "tstsim.qgramselfjoin",
+			  SEMANTIC_TYPE_MISMATCH ": tail of BAT id must be int");
+	if (pos->ttype != TYPE_int)
+		throw(MAL, "tstsim.qgramselfjoin",
+			  SEMANTIC_TYPE_MISMATCH ": tail of BAT pos must be int");
+	if (len->ttype != TYPE_int)
+		throw(MAL, "tstsim.qgramselfjoin",
+			  SEMANTIC_TYPE_MISMATCH ": tail of BAT len must be int");
 
-	/* ERRORcheck( (BATcount(qgram)>1 && !BATtordered(qgram)), "CMDqgramselfjoin: tail of qgram must be sorted.\n"); */
+	n = BATcount(qgram);
+	qbuf = (oid *) Tloc(qgram, BUNfirst(qgram));
+	ibuf = (int *) Tloc(id, BUNfirst(id));
+	pbuf = (int *) Tloc(pos, BUNfirst(pos));
+	lbuf = (int *) Tloc(len, BUNfirst(len));
 
-	ERRORcheck((ALIGNsynced(qgram, id) == 0), "CMDqgramselfjoin: qgram and id are not synced");
+	/* if (BATcount(qgram)>1 && !BATtordered(qgram)) throw(MAL, "tstsim.qgramselfjoin", SEMANTIC_TYPE_MISMATCH); */
 
-	ERRORcheck((ALIGNsynced(qgram, pos) == 0), "CMDqgramselfjoin: qgram and pos are not synced");
-	ERRORcheck((ALIGNsynced(qgram, len) == 0), "CMDqgramselfjoin: qgram and len are not synced");
+	if (!ALIGNsynced(qgram, id))
+		throw(MAL, "tstsim.qgramselfjoin",
+			  SEMANTIC_TYPE_MISMATCH ": qgram and id are not synced");
 
-	ERRORcheck((Tsize(qgram) != ATOMsize(qgram->ttype)), "CMDqgramselfjoin: qgram is not a true void bat");
-	ERRORcheck((Tsize(id) != ATOMsize(id->ttype)), "CMDqgramselfjoin: id is not a true void bat");
+	if (!ALIGNsynced(qgram, pos))
+		throw(MAL, "tstsim.qgramselfjoin",
+			  SEMANTIC_TYPE_MISMATCH ": qgram and pos are not synced");
+	if (!ALIGNsynced(qgram, len))
+		throw(MAL, "tstsim.qgramselfjoin",
+			  SEMANTIC_TYPE_MISMATCH ": qgram and len are not synced");
 
-	ERRORcheck((Tsize(pos) != ATOMsize(pos->ttype)), "CMDqgramselfjoin: pos is not a true void bat");
-	ERRORcheck((Tsize(len) != ATOMsize(len->ttype)), "CMDqgramselfjoin: len is not a true void bat");
+	if (Tsize(qgram) != ATOMsize(qgram->ttype))
+		throw(MAL, "tstsim.qgramselfjoin",
+			  SEMANTIC_TYPE_MISMATCH ": qgram is not a true void bat");
+	if (Tsize(id) != ATOMsize(id->ttype))
+		throw(MAL, "tstsim.qgramselfjoin",
+			  SEMANTIC_TYPE_MISMATCH ": id is not a true void bat");
 
-	*res = bn = BATnew(TYPE_void, TYPE_int, n);
-	*res2 = bn2 = BATnew(TYPE_void, TYPE_int, n);
+	if (Tsize(pos) != ATOMsize(pos->ttype))
+		throw(MAL, "tstsim.qgramselfjoin",
+			  SEMANTIC_TYPE_MISMATCH ": pos is not a true void bat");
+	if (Tsize(len) != ATOMsize(len->ttype))
+		throw(MAL, "tstsim.qgramselfjoin",
+			  SEMANTIC_TYPE_MISMATCH ": len is not a true void bat");
+
+	bn = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
+	bn2 = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
 	if (bn == NULL || bn2 == NULL){
 		if (bn) BBPreclaim(bn);
 		if (bn2) BBPreclaim(bn2);
+		BBPunfix(qgram->batCacheid);
+		BBPunfix(id->batCacheid);
+		BBPunfix(pos->batCacheid);
+		BBPunfix(len->batCacheid);
 		throw(MAL, "txtsim.qgramselfjoin", MAL_MALLOC_FAIL);
 	}
 
@@ -928,6 +986,14 @@ CMDqgramselfjoin(BAT **res, BAT **res2, BAT *qgram, BAT *id, BAT *pos, BAT *len,
 	bn2->hsorted = bn2->tsorted = 0;
 	bn2->hrevsorted = bn2->trevsorted = 0;
 	bn2->H->nonil = bn2->T->nonil = 0;
+
+	BBPunfix(qgram->batCacheid);
+	BBPunfix(id->batCacheid);
+	BBPunfix(pos->batCacheid);
+	BBPunfix(len->batCacheid);
+
+	BBPkeepref(*res1 = bn->batCacheid);
+	BBPkeepref(*res2 = bn2->batCacheid);
 
 	return MAL_SUCCEED;
 }
@@ -958,7 +1024,7 @@ utf8strncpy(char *buf, size_t bufsize, const char *src, size_t utf8len)
 }
 
 str
-CMDstr2qgrams(int *ret, str *val)
+CMDstr2qgrams(bat *ret, str *val)
 {
 	BAT *bn;
 	size_t i, len = strlen(*val) + 5;
@@ -970,7 +1036,7 @@ CMDstr2qgrams(int *ret, str *val)
 	strcpy(s, "##");
 	strcpy(s + 2, *val);
 	strcpy(s + len - 3, "$$");
-	bn = BATnew(TYPE_void, TYPE_str, (BUN) strlen(*val));
+	bn = BATnew(TYPE_void, TYPE_str, (BUN) strlen(*val), TRANSIENT);
 	if (bn == NULL) {
 		GDKfree(s);
 		throw(MAL, "txtsim.str2qgram", MAL_MALLOC_FAIL);

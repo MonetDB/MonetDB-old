@@ -14,13 +14,13 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2013 MonetDB B.V.
+# Copyright August 2008-2015 MonetDB B.V.
 # All Rights Reserved.
 
 import monetdb.sql
 import sys
 
-dbh = monetdb.sql.Connection(port=int(sys.argv[1]),database=sys.argv[2],autocommit=True)
+dbh = monetdb.sql.Connection(port=int(sys.argv[1]),database=sys.argv[2],hostname=sys.argv[3],autocommit=True)
 
 cursor = dbh.cursor();
 cursor.execute('select 1;')

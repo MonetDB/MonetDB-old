@@ -12,7 +12,7 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2013 MonetDB B.V.
+# Copyright August 2008-2015 MonetDB B.V.
 # All Rights Reserved.
 
 """
@@ -28,6 +28,7 @@ DECIMAL = 'decimal'                # (P,S)
 SMALLINT = 'smallint'              # 16 bit integer
 INT = 'int'                        # 32 bit integer
 BIGINT = 'bigint'                  # 64 bit integer
+HUGEINT = 'hugeint'                # 128 bit integer
 SERIAL = 'serial'                  # special 64 bit integer sequence generator
 REAL = 'real'                      # 32 bit floating point
 DOUBLE = 'double'                  # 64 bit floating point

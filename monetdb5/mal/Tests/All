@@ -14,12 +14,10 @@ tst013
 tst014
 tst015
 tst016
-tst017
 tst018
 tst019
 tst020
 tst021
-tst023
 tst024
 tst025
 tst026
@@ -55,6 +53,7 @@ tst055
 tst056
 tst057
 tst058
+tst059
 tst060
 tst061
 tst070
@@ -67,10 +66,8 @@ tst100
 tst1000
 tst1002
 tst1004
-tst1005
 tst101
 tst1012
-tst1014
 tst102
 tst103
 tst104
@@ -133,18 +130,17 @@ tst253
 tst255
 tst2550
 tst256
-tst2560
-tst260
 tst2570
 # tst265 -- windowsum and slidingsum have been removed
-tst267
-tst270
+# opens /tmp/MonetEvents, i.e. not on Windows:
 tst272
-tst273
-tst274
-tst275
+#tst273
+#tst274
+# opens /tmp/MonetEvents, i.e. not on Windows:
+NOT_WIN32?tst275
 tst277
 tst280
+tst281
 tst292
 tst285
 tst300
@@ -160,28 +156,17 @@ tst3050
 tst3060
 tst307
 tst308
-#tst350
-#tst380
 tst400
 tst401
 tst500
 tst501
-tst550
 tst560
-tst600
-tst601
-tst605
-tst606
-tst607
-tst610
 tst611
-tst612
 tst620
 tst660
 tst661
 tst662
 tst670
-tst680
 tst700
 tst710
 tst750
@@ -191,7 +176,6 @@ tst770
 tst780
 tst802
 tst804
-#tst805 invalid, no BAT columns
 tst810
 tst819
 tst820
@@ -199,8 +183,8 @@ tst830
 tst840
 tst850
 tst866
-tst867
 tst870
+tst880
 tst890
 tst900
 tst901
@@ -219,16 +203,10 @@ tst960
 
 #tests for garbage collection of strings
 tst920
-#
-# Microbenchmarks
-tst400a
-#tst400bHuge
-#tst400cHuge
 tst400d
 tst400e
 tst901a
 tst901b
-#
 
 recycle00
 recycle01
@@ -236,16 +214,12 @@ recycle02
 recycle03
 recycle04
 recycle05
-recycle06
 recycle07
 recycle08
 recycle10
 recycle11
 recycle12
-recycle13
-venks
 
-saveload
 parseErrors
 
 dataflow01

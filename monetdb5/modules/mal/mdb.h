@@ -1,24 +1,24 @@
 /*
- *The contents of this file are subject to the MonetDB Public License
- *Version 1.1 (the "License"); you may not use this file except in
- *compliance with the License. You may obtain a copy of the License at
- *http://www.monetdb.org/Legal/MonetDBLicense
+ * The contents of this file are subject to the MonetDB Public License
+ * Version 1.1 (the "License"); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.monetdb.org/Legal/MonetDBLicense
  *
- *Software distributed under the License is distributed on an "AS IS"
- *basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- *License for the specific language governing rights and limitations
- *under the License.
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+ * License for the specific language governing rights and limitations
+ * under the License.
  *
- *The Original Code is the MonetDB Database System.
+ * The Original Code is the MonetDB Database System.
  *
- *The Initial Developer of the Original Code is CWI.
- *Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- *Copyright August 2008-2013 MonetDB B.V.
- *All Rights Reserved.
-*/
+ * The Initial Developer of the Original Code is CWI.
+ * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+ * Copyright August 2008-2015 MonetDB B.V.
+ * All Rights Reserved.
+ */
+
 #ifndef _MDB_H
 #define _MDB_H
-#include "monetdb_config.h"
 #include "gdk.h"
 #include "mutils.h"
 #include <stdarg.h>
@@ -49,7 +49,7 @@ mdb_export str MDBstart(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 mdb_export str MDBstartFactory(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 mdb_export str MDBstop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 mdb_export str MDBinspect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
-mdb_export str CMDmodules(int *bid);
+mdb_export str CMDmodules(bat *bid);
 mdb_export str MDBsetTrace(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 mdb_export str MDBsetVarTrace(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 mdb_export str MDBgetDebug(int *ret);
@@ -76,5 +76,6 @@ mdb_export str MDBgetDefinition(Client cntxt, MalBlkPtr m, MalStkPtr stk, InstrP
 mdb_export str MDBgrapTrappedProcess(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mdb_export str MDBtrapFunction(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 mdb_export str MDBdump(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+
 mdb_export str MDBdummy(int *ret);
 #endif /* _MDB_H */

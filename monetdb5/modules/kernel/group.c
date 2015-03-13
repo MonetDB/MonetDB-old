@@ -20,12 +20,11 @@
 #include "monetdb_config.h"
 #include "mal.h"
 #include "mal_exception.h"
-#include "mal_atom.h"
 #include "group.h"
 #include "algebra.h"
 
 str
-GRPsubgroup4(bat *ngid, bat *next, bat *nhis, bat *bid, bat *gid, bat *eid, bat *hid)
+GRPsubgroup4(bat *ngid, bat *next, bat *nhis, const bat *bid, const bat *gid, const bat *eid, const bat *hid)
 {
 	BAT *b, *g, *e, *h, *gn, *en, *hn;
 	gdk_return r;
@@ -39,11 +38,11 @@ GRPsubgroup4(bat *ngid, bat *next, bat *nhis, bat *bid, bat *gid, bat *eid, bat 
 		(eid != NULL && e == NULL) ||
 		(hid != NULL && h == NULL)) {
 		if (g)
-			BBPreleaseref(g->batCacheid);
+			BBPunfix(g->batCacheid);
 		if (e)
-			BBPreleaseref(e->batCacheid);
+			BBPunfix(e->batCacheid);
 		if (h)
-			BBPreleaseref(h->batCacheid);
+			BBPunfix(h->batCacheid);
 		throw(MAL, "group.subgroup", RUNTIME_OBJECT_MISSING);
 	}
 	if ((r = BATgroup(&gn, &en, &hn, b, g, e, h)) == GDK_SUCCEED) {
@@ -54,24 +53,24 @@ GRPsubgroup4(bat *ngid, bat *next, bat *nhis, bat *bid, bat *gid, bat *eid, bat 
 		BBPkeepref(*next);
 		BBPkeepref(*nhis);
 	}
-	BBPreleaseref(b->batCacheid);
+	BBPunfix(b->batCacheid);
 	if (g)
-		BBPreleaseref(g->batCacheid);
+		BBPunfix(g->batCacheid);
 	if (e)
-		BBPreleaseref(e->batCacheid);
+		BBPunfix(e->batCacheid);
 	if (h)
-		BBPreleaseref(h->batCacheid);
+		BBPunfix(h->batCacheid);
 	return r == GDK_SUCCEED ? MAL_SUCCEED : createException(MAL, "group.subgroup", GDK_EXCEPTION);
 }
 
 str
-GRPsubgroup2(bat *ngid, bat *next, bat *nhis, bat *bid, bat *gid)
+GRPsubgroup2(bat *ngid, bat *next, bat *nhis, const bat *bid, const bat *gid)
 {
 	return GRPsubgroup4(ngid, next, nhis, bid, gid, NULL, NULL);
 }
 
 str
-GRPsubgroup1(bat *ngid, bat *next, bat *nhis, bat *bid)
+GRPsubgroup1(bat *ngid, bat *next, bat *nhis, const bat *bid)
 {
 	return GRPsubgroup4(ngid, next, nhis, bid, NULL, NULL, NULL);
 }

@@ -56,7 +56,7 @@ peeringServerThread(void *d)
 	 *   situation):
 	 * > proxy
 	 * < proxy myhost:myport
-	 *   for full connectable networks, were masquerading is not
+	 *   for full connectable networks, where masquerading is not
 	 *   necessary on any side and all hosts from the one network
 	 *   directly connect any of the hosts from the other network:
 	 * > direct
@@ -66,7 +66,9 @@ peeringServerThread(void *d)
 	 * disconnected by either party (typically a shutdown). */
 
 	masquerade = NULL;
-	len = read(s, data, sizeof(data));
+	len = read(s, data, sizeof(data) - 1);
+	if (len >= 0)
+		data[len] = 0;
 	if (len > 0 && strncmp(data, "tunnel ", 7) == 0) {
 		/* tunnel mode */
 		masquerade = strdup(data + 7);
@@ -75,6 +77,8 @@ peeringServerThread(void *d)
 				(unsigned int)getConfNum(_mero_props, "port"));
 		if (write(s, data, strlen(data)) == -1) {
 			close(s);
+			if (masquerade)
+				free(masquerade);
 			return;
 		}
 	} else if (len > 0 && strcmp(data, "proxy") == 0) {
@@ -96,6 +100,7 @@ peeringServerThread(void *d)
 	} else {
 		/* invalid, abort here */
 		snprintf(data, sizeof(data), "invalid request\n");
+		/* coverity[string_null] */
 		if (write(s, data, strlen(data)) == -1) {
 			/* next thing we do is closing anyway, so just keep this
 			 * condition to keep fortification warnings off */
@@ -107,6 +112,8 @@ peeringServerThread(void *d)
 	if (pipe(discreader) == -1) {
 		/* bla error */
 		close(s);
+		if (masquerade)
+			free(masquerade);
 		return;
 	}
 	registerMessageTap(discreader[0]);
@@ -146,6 +153,8 @@ peeringServerThread(void *d)
 	close(discreader[0]);
 	close(discreader[1]);
 	close(s);
+	if (masquerade)
+		free(masquerade);
 }
 
 /* vim:set ts=4 sw=4 noexpandtab: */

@@ -41,6 +41,7 @@
  */
 #include "monetdb_config.h"
 #include "gdk_system.h"
+#include "gdk_system_private.h"
 
 #ifdef TIME_WITH_SYS_TIME
 # include <sys/time.h>
@@ -71,10 +72,10 @@ MT_Lock MT_system_lock MT_LOCK_INITIALIZER("MT_system_lock");
 ATOMIC_TYPE volatile GDKlockcnt;
 ATOMIC_TYPE volatile GDKlockcontentioncnt;
 ATOMIC_TYPE volatile GDKlocksleepcnt;
-MT_Lock * volatile GDKlocklist;
+MT_Lock * volatile GDKlocklist = 0;
+ATOMIC_FLAG volatile GDKlocklistlock = ATOMIC_FLAG_INIT;
 
-/* merge sort of linked list
- * these two functions are nearly identical */
+/* merge sort of linked list */
 static MT_Lock *
 sortlocklist(MT_Lock *l)
 {
@@ -137,19 +138,26 @@ GDKlockstatistics(int what)
 {
 	MT_Lock *l;
 
+	if (ATOMIC_TAS(GDKlocklistlock, dummy, "") != 0) {
+		fprintf(stderr, "#WARNING: GDKlocklistlock is set, so cannot access lock list\n");
+		return;
+	}
 	GDKlocklist = sortlocklist(GDKlocklist);
+	fprintf(stderr, "# lock name\tcount\tcontention\tsleep\tlocked\t(un)locker\n");
 	for (l = GDKlocklist; l; l = l->next)
 		if (what == 0 ||
 		    (what == 1 && l->count) ||
 		    (what == 2 && l->contention) ||
 		    (what == 3 && l->lock))
-			fprintf(stderr, "#lock %-18s\t" SZFMT "\t" SZFMT "\t" SZFMT "%s\n",
+			fprintf(stderr, "# %-18s\t" SZFMT "\t" SZFMT "\t" SZFMT "\t%s\t%s\n",
 				l->name ? l->name : "unknown",
 				l->count, l->contention, l->sleep,
-				what != 3 && l->lock ? "\tlocked" : "");
+				l->lock ? "locked" : "",
+				l->locker ? l->locker : "");
 	fprintf(stderr, "#total lock count " SZFMT "\n", (size_t) GDKlockcnt);
 	fprintf(stderr, "#lock contention  " SZFMT "\n", (size_t) GDKlockcontentioncnt);
 	fprintf(stderr, "#lock sleep count " SZFMT "\n", (size_t) GDKlocksleepcnt);
+	ATOMIC_CLEAR(GDKlocklistlock, dummy, "");
 }
 #endif
 
@@ -214,7 +222,7 @@ MT_locktrace_end()
 			int idx = MT_locktrace_hash(MT_locktrace_nme[i]);
 
 			if (my_cnt[idx])
-				printf("%s " ULLFMT "\n", MT_locktrace_nme[i], my_cnt[idx]);
+				fprintf(stderr, "%s " ULLFMT "\n", MT_locktrace_nme[i], my_cnt[idx]);
 			my_cnt[idx] = 0;
 		}
 	MT_locktrace = 0;
@@ -465,6 +473,31 @@ static struct posthread {
 } *posthreads = NULL;
 static pthread_mutex_t posthread_lock = PTHREAD_MUTEX_INITIALIZER;
 
+static struct posthread *
+find_posthread_locked(pthread_t tid)
+{
+	struct posthread *p;
+
+	for (p = posthreads; p; p = p->next)
+		if (p->tid == tid)
+			return p;
+	return NULL;
+}
+
+#ifndef NDEBUG
+/* only used in an assert */
+static struct posthread *
+find_posthread(pthread_t tid)
+{
+	struct posthread *p;
+
+	pthread_mutex_lock(&posthread_lock);
+	p = find_posthread_locked(tid);
+	pthread_mutex_unlock(&posthread_lock);
+	return p;
+}
+#endif
+
 static void
 MT_thread_sigmask(sigset_t * new_mask, sigset_t * orig_mask)
 {
@@ -475,49 +508,64 @@ MT_thread_sigmask(sigset_t * new_mask, sigset_t * orig_mask)
 #endif
 
 static void
-rm_posthread(struct posthread *p)
+rm_posthread_locked(struct posthread *p)
 {
 	struct posthread **pp;
 
-	pthread_mutex_lock(&posthread_lock);
 	for (pp = &posthreads; *pp && *pp != p; pp = &(*pp)->next)
 		;
 	if (*pp)
 		*pp = p->next;
+}
+
+static void
+rm_posthread(struct posthread *p)
+{
+	pthread_mutex_lock(&posthread_lock);
+	rm_posthread_locked(p);
 	pthread_mutex_unlock(&posthread_lock);
-	free(p);
 }
 
 static void
 thread_starter(void *arg)
 {
 	struct posthread *p = (struct posthread *) arg;
+	pthread_t tid = p->tid;
 
 	(*p->func)(p->arg);
-	p->exited = 1;
+	pthread_mutex_lock(&posthread_lock);
+	/* *p may have been freed by join_threads, so try to find it
+         * again before using it */
+	if ((p = find_posthread_locked(tid)) != NULL)
+		p->exited = 1;
+	pthread_mutex_unlock(&posthread_lock);
 }
 
 static void
 join_threads(void)
 {
-	struct posthread *p;
+	struct posthread *p, *n = NULL;
 	int waited;
+	pthread_t tid;
 
+	pthread_mutex_lock(&posthread_lock);
 	do {
 		waited = 0;
-		pthread_mutex_lock(&posthread_lock);
-		for (p = posthreads; p; p = p->next) {
+		for (p = posthreads; p; p = n) {
+			n = p->next;
 			if (p->exited) {
+				tid = p->tid;
+				rm_posthread_locked(p);
+				free(p);
 				pthread_mutex_unlock(&posthread_lock);
-				pthread_join(p->tid, NULL);
-				rm_posthread(p);
+				pthread_join(tid, NULL);
 				pthread_mutex_lock(&posthread_lock);
 				waited = 1;
 				break;
 			}
 		}
-		pthread_mutex_unlock(&posthread_lock);
 	} while (waited);
+	pthread_mutex_unlock(&posthread_lock);
 }
 
 int
@@ -544,8 +592,8 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d)
 		p->func = f;
 		p->arg = arg;
 		p->exited = 0;
-		p->next = posthreads;
 		pthread_mutex_lock(&posthread_lock);
+		p->next = posthreads;
 		posthreads = p;
 		f = thread_starter;
 		pthread_mutex_unlock(&posthread_lock);
@@ -558,12 +606,13 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d)
 	ret = pthread_create(newtp, &attr, (void *(*)(void *)) f, arg);
 	if (ret == 0) {
 #ifdef PTW32
-		*t = (MT_Id) (((size_t) newt.p) + 1);	/* use pthread-id + 1 */
+		*t = (MT_Id) (((size_t) newtp->p) + 1);	/* use pthread-id + 1 */
 #else
-		*t = (MT_Id) (((size_t) newt) + 1);	/* use pthread-id + 1 */
+		*t = (MT_Id) (((size_t) *newtp) + 1);	/* use pthread-id + 1 */
 #endif
 	} else if (p) {
 		rm_posthread(p);
+		free(p);
 	}
 #ifdef HAVE_PTHREAD_SIGMASK
 	MT_thread_sigmask(&orig_mask, NULL);
@@ -571,26 +620,16 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d)
 	return ret;
 }
 
-static struct posthread *
-find_posthread(pthread_t tid)
-{
-	struct posthread *p;
-
-	pthread_mutex_lock(&posthread_lock);
-	for (p = posthreads; p; p = p->next)
-		if (p->tid == tid)
-			break;
-	pthread_mutex_unlock(&posthread_lock);
-	return p;
-}
-
 void
 MT_exiting_thread(void)
 {
 	struct posthread *p;
+	pthread_t tid = pthread_self();
 
-	if ((p = find_posthread(pthread_self())) != NULL)
+	pthread_mutex_lock(&posthread_lock);
+	if ((p = find_posthread_locked(tid)) != NULL)
 		p->exited = 1;
+	pthread_mutex_unlock(&posthread_lock);
 }
 
 void

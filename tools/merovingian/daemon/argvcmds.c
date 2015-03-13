@@ -55,7 +55,7 @@ command_help(int argc, char *argv[])
 	} else if (strcmp(argv[1], "start") == 0) {
 		printf("usage: monetdbd start [-n] <dbfarm>\n");
 		printf("  Starts the monetdbd deamon for the given dbfarm.\n");
-		printf("  When -n is given, monetdbd will not fork into the background.");
+		printf("  When -n is given, monetdbd will not fork into the background.\n");
 	} else if (strcmp(argv[1], "stop") == 0) {
 		printf("usage: monetdbd stop <dbfarm>\n");
 		printf("  Stops a running monetdbd deamon for the given dbfarm.\n");
@@ -89,7 +89,6 @@ command_create(int argc, char *argv[])
 	char path[2048];
 	char *p;
 	char *dbfarm;
-	struct stat sb;
 	confkeyval phrase[2];
 
 	if (argc != 2) {
@@ -100,25 +99,23 @@ command_create(int argc, char *argv[])
 	dbfarm = argv[1];
 
 	/* check if dbfarm actually exists */
-	if (stat(dbfarm, &sb) == -1) {
-		strncpy(path, dbfarm, sizeof(path) - 1);
-		path[sizeof(path) - 1] = '\0';
-		p = path;
-		/* try to create the dbfarm */
-		while ((p = strchr(p + 1, '/')) != NULL) {
-			*p = '\0';
-			if (stat(path, &sb) == -1 && mkdir(path, 0755)) {
-				fprintf(stderr, "unable to create directory '%s': %s\n",
-						path, strerror(errno));
-				return(1);
-			}
-			*p = '/';
-		}
-		if (mkdir(path, 0755)) {
-			fprintf(stderr, "unable to create directory '%s': %s\n",
-					path, strerror(errno));
+	strncpy(path, dbfarm, sizeof(path) - 1);
+	path[sizeof(path) - 1] = '\0';
+	p = path;
+	while ((p = strchr(p + 1, '/')) != NULL) {
+		*p = '\0';
+		if (mkdir(path, 0755) == -1 && errno != EEXIST) {
+			fprintf(stderr,
+				"unable to create directory '%s': %s\n",
+				path, strerror(errno));
 			return(1);
 		}
+		*p = '/';
+	}
+	if (mkdir(dbfarm, 0755) == -1 && errno != EEXIST) {
+		fprintf(stderr, "unable to create directory '%s': %s\n",
+			dbfarm, strerror(errno));
+		return(1);
 	}
 
 	phrase[0].key = NULL;
@@ -200,14 +197,18 @@ command_get(confkeyval *ckv, int argc, char *argv[])
 			FILE *pf;
 			char *pfile = getConfVal(ckv, "pidfile");
 
-			if (pfile != NULL && (pf = fopen(pfile, "r")) != NULL &&
-					fgets(buf, sizeof(buf), pf) != NULL)
-			{
-				meropid = atoi(buf);
+			if (pfile != NULL && (pf = fopen(pfile, "r")) != NULL) {
+				if (fgets(buf, sizeof(buf), pf) != NULL) {
+					meropid = atoi(buf);
+				}
+				fclose(pf);
 			}
 		} else {
-			if (ret >= 0)
-				close(ret); /* release a possible lock */
+			if (ret >= 0) {
+				/* release a possible lock */
+				MT_lockf(".merovingian_lock", F_ULOCK, 4, 1);
+				close(ret);
+			}
 			meropid = 0;
 		}
 	}
@@ -410,6 +411,7 @@ command_set(confkeyval *ckv, int argc, char *argv[])
 		if (dohash == 1) {
 			p = mcrypt_BackendSum(p, strlen(p));
 			snprintf(h, sizeof(h), "{%s}%s", MONETDB5_PASSWDHASH, p);
+			free(p);
 			p = h;
 		}
 	}
@@ -433,20 +435,18 @@ command_set(confkeyval *ckv, int argc, char *argv[])
 		return(1);
 	}
 
-	if ((pfile = fopen(property, "r")) != NULL &&
-			fgets(buf, sizeof(buf), pfile) != NULL)
-	{
-		meropid = atoi(buf);
-		if (meropid != 0) {
-			if (kill(meropid, SIGHUP) == -1) {
-				fprintf(stderr, "sending SIGHUP to monetdbd[%d] failed: %s\n",
-						(int)meropid, strerror(errno));
-				return(1);
-			}
+	if ((pfile = fopen(property, "r")) != NULL) {
+		if (fgets(buf, sizeof(buf), pfile) != NULL &&
+			(meropid = atoi(buf)) != 0 &&
+			kill(meropid, SIGHUP) == -1)
+		{
+			fprintf(stderr, "sending SIGHUP to monetdbd[%d] failed: %s\n",
+					(int)meropid, strerror(errno));
+			fclose(pfile);
+			return(1);
 		}
-	}
-	if (pfile != NULL)
 		fclose(pfile);
+	}
 
 	return(0);
 }
@@ -492,6 +492,7 @@ command_stop(confkeyval *ckv, int argc, char *argv[])
 	if (fgets(buf, sizeof(buf), pfile) == NULL) {
 		fprintf(stderr, "unable to read from %s: %s\n",
 				pidfilename, strerror(errno));
+		fclose(pfile);
 		return(1);
 	}
 	fclose(pfile);

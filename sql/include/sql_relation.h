@@ -62,6 +62,12 @@ typedef struct expression {
 #define EXP_DISTINCT	1
 #define NO_NIL		2
 #define TOPN_INCLUDING	4
+
+#define APPLY_JOIN 	8
+#define APPLY_LOJ 	16
+#define APPLY_EXISTS	32
+#define APPLY_NOTEXISTS	64
+
 /* ASCENDING > 15 else we have problems with cmp types */
 #define ASCENDING	16
 #define CMPMASK		(ASCENDING-1)
@@ -70,8 +76,9 @@ typedef struct expression {
 #define HAS_NO_NIL	64
 #define EXP_INTERN	128
 
-#define UPD_COMP	1
-#define UPD_LOCKED	2
+#define UPD_COMP		1
+#define UPD_LOCKED		2
+#define UPD_NO_CONSTRAINT	4
  
 /* todo make enum */
 #define DDL_OUTPUT	1
@@ -100,7 +107,6 @@ typedef struct expression {
 #define DDL_CREATE_TYPE 30 
 #define DDL_DROP_TYPE   31 
 
-#define DDL_CREATE_INDEX  32
 #define DDL_DROP_INDEX    33
 
 #define DDL_CREATE_FUNCTION 41 
@@ -119,7 +125,7 @@ typedef struct expression {
 #define DDL_CREATE_ROLE 59
 #define DDL_DROP_ROLE 	60
 
-#define MAXOPS 20
+#define MAXOPS 21
 
 typedef enum operator_type {
 	op_basetable = 0,
@@ -133,6 +139,7 @@ typedef enum operator_type {
 	op_full,
 	op_semi,
 	op_anti,
+	op_apply,
 	op_union,
 	op_inter,
 	op_except,
@@ -148,6 +155,8 @@ typedef enum operator_type {
 	(et == e_atom)
 #define is_func(et) \
 	(et == e_func)
+#define is_map_op(et) \
+	(et == e_func || et == e_convert)
 #define is_column(et) \
 	(et != e_cmp)
 #define is_rank_op(e) \
@@ -172,6 +181,8 @@ typedef enum operator_type {
 	(op == op_join || is_outerjoin(op))
 #define is_semi(op) \
 	(op == op_semi || op == op_anti)
+#define is_apply(op) \
+	(op == op_apply)
 #define is_select(op) \
 	(op == op_select)
 #define is_set(op) \
@@ -237,6 +248,8 @@ typedef enum operator_type {
 	(rel->processed)
 #define set_processed(rel) \
 	rel->processed = 1
+#define reset_processed(rel) \
+	rel->processed = 0
 #define is_subquery(rel) \
 	(rel->subquery)
 #define set_subquery(rel) \

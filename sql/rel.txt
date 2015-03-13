@@ -40,6 +40,12 @@ SEMI/ANTI
 	-> l		is left relation
 	-> r		is rigth relation
 
+APPLY
+	(card MULTI)
+	-> exps		are the bind variables (from the outer, correlated in the subquery)
+	-> l		is outer relation
+	-> r		is subquery relation
+
 UNION|EXCEPT|INTERSECT 
 	(card ATOM, AGGR or MULTI (same card as lower relation))
 	-> exps 	is list of projection expressions
@@ -100,7 +106,7 @@ e_convert
 
 e_cmp
 	-> l	left sub expression
-	-> r	right sub expression (f second arg for range expressions)
+	-> r	right sub expression (f second arg (->f) for range expressions)
 	-> flag compare type		
 		(       cmp_gt = 0,
         		cmp_gte = 1,
@@ -129,7 +135,7 @@ for aggr
 e_column
 	-> rname alias for the relation (i.e., alias of ->l, used by higher expressions)
 	-> name alias for the expression (i.e., alias of ->r, used by higher expressions)
-		l,r names of refered expression
+		l,r names of referred expression
 	-> l 	optional relation name 
 	-> r	expression name
 	-> type 

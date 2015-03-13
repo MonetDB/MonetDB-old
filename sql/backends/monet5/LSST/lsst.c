@@ -368,20 +368,21 @@ static void _qserv_computeEdges( double *edges, double *verts, int nv)
   * @li vertices lie in counter-clockwise order when viewed from a position
   * @li outside the unit sphere and inside the half-space containing them.
   */
-str qserv_ptInSphPoly(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+str qserv_ptInSphPoly(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int *ret = (int*) getArgReference(stk,pci,0);
-	dbl ra = *(dbl*) getArgReference(stk,pci,1);
-	dbl dec = *(dbl*) getArgReference(stk,pci,2);
+	int *ret = getArgReference_int(stk,pci,0);
+	dbl ra = *getArgReference_dbl(stk,pci,1);
+	dbl dec = *getArgReference_dbl(stk,pci,2);
 
 	double x, y, z, w;
 	dbl *edges, *nv;
 	int i, nedges= (pci->argc-3)/2;
 
 	(void) mb;
+	(void) cntxt;
 	/* If any input is null, the result is 0. */
 	for (i = 1; i <pci->argc; ++i) {
-		if ( *(dbl*) getArgReference(stk,pci,i) == dbl_nil){
+		if ( *getArgReference_dbl(stk,pci,i) == dbl_nil){
 			*ret = int_nil;
 			return MAL_SUCCEED;
 		}
@@ -407,9 +408,9 @@ str qserv_ptInSphPoly(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(MAL,"lsst.ptInSPhPoly",MAL_MALLOC_FAIL);
 	}
 	for (i = 3; i <pci->argc; ++i) 
-		nv[i-3] =  *(dbl*) getArgReference(stk,pci,i);
+		nv[i-3] =  *getArgReference_dbl(stk,pci,i);
 	_qserv_computeEdges(edges,nv, nedges);
-	
+	GDKfree(nv);
 
 	/* Transform input position from spherical coordinates
 	   to a unit cartesian vector. */
@@ -439,68 +440,205 @@ str qserv_ptInSphPoly(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
  * The delta indicates the number of triangulat divisions should be ignored.
  * For delta =0 the pairs match when their HtmID is equal
  * for delta =1 the pairs match if their HtmID shifted 2 bits match and so on.
- * Ideally the two columns are sorted upfront.
+ * The two columns should be sorted upfront.
 */
 
-str
-LSSTxmatch(int *lres, int *rres, int *lid, int *rid, int *delta)
+static str
+LSSTxmatch_intern(bat *lres, bat *rres, bat *lid, bat *rid, int *delta)
 {
-    	BAT *j, *L, *R, *bl, *br;
+	BAT *xl, *xr, *bl, *br;
 	lng *l, *r;
 	lng lhtm, rhtm;
 	lng *lend, *rend;
 	int shift;
-	oid lo = 0, ro=0;
+	oid lo, ro;
 
 	if( *delta < 0 || *delta >31)
          	throw(MAL, "algebra.xmatch", "delta not in 0--31");
 	shift = 2 * *delta; 
 
-    	if( (bl= BATdescriptor(*lid)) == NULL )
-        	throw(MAL, "algebra.xmatch", RUNTIME_OBJECT_MISSING);
- 
-    	if( (br= BATdescriptor(*rid)) == NULL )
-         	throw(MAL, "algebra.xmatch", RUNTIME_OBJECT_MISSING);
+	if( (bl= BATdescriptor(*lid)) == NULL )
+		throw(MAL, "algebra.xmatch", RUNTIME_OBJECT_MISSING);
+	if( !bl->tsorted){
+		BBPunfix(*lid);
+		throw(MAL, "algebra.xmatch", "sorted input required");
+	}
+
+	if( (br= BATdescriptor(*rid)) == NULL ){
+		BBPunfix(*lid);
+		throw(MAL, "algebra.xmatch", RUNTIME_OBJECT_MISSING);
+	}
+	if( !br->tsorted){
+		BBPunfix(*lid);
+		BBPunfix(*rid);
+		throw(MAL, "algebra.xmatch", "sorted input required");
+	}
 
 	l= (lng*) Tloc(bl, BUNfirst(bl));
 	lend= (lng*) Tloc(bl, BUNlast(bl));
-	r= (lng*) Tloc(br, BUNfirst(br));
 	rend= (lng*) Tloc(br, BUNlast(br));
 
-	j = BATnew(TYPE_oid, TYPE_oid, MIN(BATcount(bl), BATcount(br)));
-	if ( j == NULL)
-        	throw(MAL, "algebra.xmatch", MAL_MALLOC_FAIL);
-    	j->hsorted = j->tsorted = 0;
-    	j->hrevsorted = j->trevsorted = 0;
-	j->T->nonil = 1;
-	j->H->nonil = 1;
+	xl = BATnew(TYPE_void, TYPE_oid, MIN(BATcount(bl), BATcount(br)), TRANSIENT);
+	if ( xl == NULL){
+		BBPunfix(*lid);
+		BBPunfix(*rid);
+		throw(MAL, "algebra.xmatch", MAL_MALLOC_FAIL);
+	}
+	BATseqbase(xl,0);
+	xl->hsorted = 1;
+	xl->tsorted = 0;
+	xl->trevsorted = 0;
+	xl->T->nonil = 1;
+	xl->H->nonil = 1;
 
-	for(; l < lend; lo++, l++) 
-		if ( *l != lng_nil) {
+	xr = BATnew(TYPE_void, TYPE_oid, MIN(BATcount(bl), BATcount(br)), TRANSIENT);
+	if ( xr == NULL){
+		BBPunfix(*lid);
+		BBPunfix(*rid);
+		BBPunfix(xl->batCacheid);
+		throw(MAL, "algebra.xmatch", MAL_MALLOC_FAIL);
+	}
+	BATseqbase(xr,0);
+	xr->hsorted = 1;
+	xr->tsorted = 0;
+	xr->trevsorted = 0;
+	xr->T->nonil = 1;
+	xr->H->nonil = 1;
+
+	for (lo = xl->hseqbase; l < lend; lo++, l++) {
+		if (*l != lng_nil) {
 			lhtm = *l >> shift;
-        for(; r < rend; ro++, r++)
-		if ( *r != lng_nil) {
-			rhtm = *r >> shift;
-			if ( lhtm == rhtm){
-				/* match */
-				BUNins(j,&lo,&ro, FALSE);
-			} else if ( lhtm < rhtm ) {
-				lhtm = lhtm << shift;
-				for ( ; *l < lhtm && l < lend; lo++, l++)
-						;
-				lhtm = lhtm >> shift;
-			} else {
-				rhtm = rhtm << shift;
-				for ( ; *r < rhtm && r < rend; ro++, r++)
-					;
-				rhtm = rhtm >> shift;
+			r= (lng*) Tloc(br, BUNfirst(br));
+			ro = br->hseqbase;
+			for(; r < rend; ro++, r++) {
+				if (*r != lng_nil) {
+					rhtm = *r >> shift;
+					if (lhtm == rhtm){
+						/* match */
+						BUNappend(xl, &lo, FALSE);
+						BUNappend(xr, &ro, FALSE);
+					} else if (lhtm < rhtm) {
+						lhtm = lhtm << shift;
+						while (*l < lhtm && l < lend) {
+							lo++;
+							l++;
+						}
+						lhtm = lhtm >> shift;
+					} else {
+						rhtm = rhtm << shift;
+						while (*r < rhtm && r < rend) {
+							ro++;
+							r++;
+						}
+						rhtm = rhtm >> shift;
+					}
+				}
 			}
 		}
 	}
-	L = BATmirror(BATmark(j,0));
-	R = BATmirror(BATmark(BATmirror(j),0));
-	BBPunfix(j->batCacheid);
-	BBPkeepref(*lres = L->batCacheid);
-	BBPkeepref(*rres = R->batCacheid);
+	BBPunfix(*lid);
+	BBPunfix(*rid);
+	BBPkeepref(*lres = xl->batCacheid);
+	BBPkeepref(*rres = xr->batCacheid);
+	return MAL_SUCCEED;
+}
+
+str
+LSSTxmatchsubjoin(bat *lres, bat *rres, bat *lid, bat *rid, int *delta, bat *sl, bat *sr, bit *nil_matches, lng *estimate)
+{
+	(void)sl;
+	(void)sr;
+	(void)nil_matches;
+	(void)estimate;
+	return LSSTxmatch_intern(lres, rres, lid, rid, delta);
+}
+
+str
+LSSTxmatch(bit *res, lng *l, lng *r, int *delta)
+{
+	int shift;
+
+	if (*delta < 0 || *delta > 31)
+         	throw(MAL, "lsst.xmatch", "delta not in 0--31");
+	shift = 2 * *delta;
+
+	*res = *l != lng_nil && *r != lng_nil && (*l >> shift) == (*r >> shift);
+	return MAL_SUCCEED;
+}
+
+str
+LSSTxmatchsubselect(bat *res, bat *bid, bat *sid, lng *r, int *delta, bit *anti)
+{
+	int shift;
+	BAT *b, *s = NULL, *bn;
+	const lng *l;
+	lng lhtm, rhtm;
+
+	if (*delta < 0 || *delta > 31)
+         	throw(MAL, "lsst.xmatch", "delta not in 0--31");
+	shift = 2 * *delta;
+
+	if ((b = BATdescriptor(*bid)) == NULL)
+		throw(MAL, "algebra.xmatch", RUNTIME_OBJECT_MISSING);
+	assert(b->ttype == TYPE_lng);
+	assert(BAThdense(b));
+	if (sid && *sid && (s = BATdescriptor(*sid)) == NULL) {
+		BBPunfix(b->batCacheid);
+		throw(MAL, "algebra.xmatch", RUNTIME_OBJECT_MISSING);
+	}
+	if ((bn = BATnew(TYPE_void, TYPE_oid, 0, TRANSIENT)) == NULL) {
+		BBPunfix(b->batCacheid);
+		if (s)
+			BBPunfix(s->batCacheid);
+		throw(MAL, "algebra.xmatch", MAL_MALLOC_FAIL);
+	}
+	BATseqbase(bn, 0);
+	if (*r == lng_nil) {
+		BBPunfix(b->batCacheid);
+		if (s)
+			BBPunfix(s->batCacheid);
+		BBPkeepref(*res = bn->batCacheid);
+		return MAL_SUCCEED;
+	}
+	rhtm = *r >> shift;
+	l = (const lng *) Tloc(b, BUNfirst(b));
+	if (s && !BATtdense(s)) {
+		const oid *sval = (const oid *) Tloc(s, BUNfirst(s));
+		oid o;
+		BUN i, scnt = BATcount(s);
+
+		for (i = 0; i < scnt && sval[i] < b->hseqbase; i++)
+			;
+		for (; i < scnt; i++) {
+			o = sval[i];
+			if (o >= b->hseqbase + BATcount(b))
+				break;
+			lhtm = l[o - b->hseqbase];
+			if (lhtm != lng_nil)
+				if (((lhtm >> shift) == rhtm) != *anti)
+					BUNappend(bn, &o, FALSE);
+		}
+	} else {
+		oid o = b->hseqbase;
+		oid e = o + BATcount(b);
+
+		if (s) {
+			if (s->tseqbase > o)
+				o = s->tseqbase;
+			if (s->tseqbase + BATcount(s) < e)
+				e = s->tseqbase + BATcount(s);
+		}
+		while (o < e) {
+			lhtm = l[o - b->hseqbase];
+			if (lhtm != lng_nil)
+				if (((lhtm >> shift) == rhtm) != *anti)
+					BUNappend(bn, &o, FALSE);
+			o++;
+		}
+	}
+	BBPunfix(b->batCacheid);
+	if (s)
+		BBPunfix(s->batCacheid);
+	BBPkeepref(*res = bn->batCacheid);
 	return MAL_SUCCEED;
 }

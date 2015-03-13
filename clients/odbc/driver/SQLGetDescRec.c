@@ -136,7 +136,6 @@ SQLGetDescRec(SQLHDESC DescriptorHandle,
 			      NullablePtr);
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLGetDescRecA(SQLHDESC DescriptorHandle,
 	       SQLSMALLINT RecNumber,
@@ -195,6 +194,11 @@ SQLGetDescRecW(SQLHDESC DescriptorHandle,
 
 	/* get the data */
 	name = (SQLCHAR *) malloc(n + 1);
+	if (name == NULL) {
+		/* Memory allocation error */
+		addDescError(desc, "HY001", NULL, 0);
+		return SQL_ERROR;
+	}
 	rc = SQLGetDescRec_(desc, RecNumber, name, n + 1, &n, TypePtr,
 			    SubTypePtr, LengthPtr, PrecisionPtr, ScalePtr,
 			    NullablePtr);
@@ -211,4 +215,3 @@ SQLGetDescRecW(SQLHDESC DescriptorHandle,
 
 	return rc;
 }
-#endif /* WITH_WCHAR */

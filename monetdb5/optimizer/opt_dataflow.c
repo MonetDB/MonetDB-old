@@ -24,6 +24,7 @@
 #include "opt_dataflow.h"
 #include "mal_instruction.h"
 #include "mal_interpreter.h"
+#include "manifold.h"
 
 /*
  * dataflow processing incurs overhead and is only
@@ -35,15 +36,16 @@
  * garbage collected outside the parallel block.
  */
 
-#define isSimple(p) (getModuleId(p) == calcRef || getModuleId(p) == mtimeRef || getModuleId(p) == strRef || getModuleId(p)== mmathRef || \
-	 p->token == ENDsymbol || getFunctionId(p) == multiplexRef || blockCntrl(p) || blockStart(p) || blockExit(p))
 static int
 simpleFlow(InstrPtr *old, int start, int last)
 {
 	int i, j, k, simple = TRUE;
 	InstrPtr p = NULL, q;
 
-	/* skip simple first */
+	/* ignore trivial blocks */
+	if ( last - start == 1)
+		return TRUE;
+	/* skip sequence of simple arithmetic first */
 	for( ; simple && start < last; start++)  
 	if ( old[start] ) {
 		p= old[start];
@@ -54,7 +56,7 @@ simpleFlow(InstrPtr *old, int start, int last)
 		q= old[i];
 		simple = getModuleId(q) == calcRef || getModuleId(q) == mtimeRef || getModuleId(q) == strRef || getModuleId(q)== mmathRef;
 		if( !simple)  {
-			simple = FALSE;
+			/* if not arithmetic than we should consume the previous result directly */
 			for( j= q->retc; j < q->argc; j++)
 				for( k =0; k < p->retc; k++)
 					if( getArg(p,k) == getArg(q,j))
@@ -64,10 +66,10 @@ simpleFlow(InstrPtr *old, int start, int last)
 		}
 		p = q;
 	}
-	return 1;
+	return simple;
 }
 
-/* optimizers may remove the dataflow hints first */
+/* optimizers may remove the dataflow and language.pass hints first */
 void removeDataflow(MalBlkPtr mb)
 {
 	int i, k, flowblock=0, limit;
@@ -76,12 +78,20 @@ void removeDataflow(MalBlkPtr mb)
 	char *delete= (char*) GDKzalloc(mb->stop);
 	char *used= (char*) GDKzalloc(mb->vtop);
 
-	if ( delete == 0 || init == 0 || used == 0)
+	if ( delete == 0 || init == 0 || used == 0){
+		if( delete) GDKfree(delete);
+		if( used) GDKfree(used);
+		if( init) GDKfree(init);
 		return;
+	}
 	old = mb->stmt;
 	limit = mb->stop;
-	if ( newMalBlkStmt(mb, mb->ssize) <0 )
+	if ( newMalBlkStmt(mb, mb->ssize) <0 ){
+		GDKfree(delete);
+		GDKfree(used);
+		GDKfree(init);
 		return;
+	}
 	/* remove the inlined dataflow barriers */
 	for (i = 1; i<limit; i++) {
 		p = old[i];
@@ -101,6 +111,10 @@ void removeDataflow(MalBlkPtr mb)
 				flowblock = 0;
 				delete[i] = 1;
 			}
+		} else 
+		if ( getModuleId(p) == languageRef &&
+			 getFunctionId(p) == passRef){
+			delete[i] =1;
 		} else {
 			/* remember first initialization */
 			for ( k = p->retc; k < p->argc; k++)
@@ -112,7 +126,7 @@ void removeDataflow(MalBlkPtr mb)
 		}
 	}
 	/* remove the superflous variable initializations */
-	/* when there are no auxillary barrier blocks */
+	/* when there are no auxiliary barrier blocks */
 	for (i = 0; i<limit; i++) 
 		if ( delete[i] == 0 )
 			pushInstruction(mb,old[i]);
@@ -156,8 +170,13 @@ dflowAssignConflict(InstrPtr p, int pc, int *assigned, int *eolife)
 
 /* a limited set of MAL instructions may appear in the dataflow block*/
 static int
-dflowConflict(InstrPtr p) {
-	if ( p->token == ENDsymbol || getFunctionId(p) == multiplexRef || blockCntrl(p) || blockStart(p) || blockExit(p))	
+dataflowConflict(Client cntxt, MalBlkPtr mb,InstrPtr p) 
+{
+	if (p->token == ENDsymbol || 
+	    (getFunctionId(p) == multiplexRef &&
+		 getModuleId(p) == malRef &&
+	     MANIFOLDtypecheck(cntxt,mb,p) == NULL) || 
+	    blockCntrl(p) || blockStart(p) || blockExit(p))
 		return TRUE;
 	switch(p->token){
 	case ASSIGNsymbol:
@@ -165,7 +184,7 @@ dflowConflict(InstrPtr p) {
 	case CMDcall:
 	case FACcall:
 	case FCNcall:
-		return (	hasSideEffects(p,FALSE) || isUnsafeFunction(p) );
+		return (hasSideEffects(p,FALSE) || isUnsafeFunction(p) );
 	}
 	return TRUE;
 }
@@ -177,7 +196,7 @@ dflowGarbagesink(MalBlkPtr mb, int var, InstrPtr *sink, int top){
 	r = newInstruction(NULL,ASSIGNsymbol);
 	getModuleId(r) = languageRef;
 	getFunctionId(r) = passRef;
-	getArg(r,0) = newTmpVariable(mb,getVarType(mb,var));
+	getArg(r,0) = newTmpVariable(mb,TYPE_void);
 	r= pushArgument(mb,r, var);
 	sink[top++] = r;
 	return top;
@@ -206,7 +225,7 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		return 0;
 	OPTDEBUGdataflow{
 		mnstr_printf(cntxt->fdout,"#dataflow input\n");
-		printFunction(cntxt->fdout, mb, 0, LIST_MAL_STMT);
+		printFunction(cntxt->fdout, mb, 0, LIST_MAL_ALL);
 	}
 
 	vlimit = mb->vsize;
@@ -228,8 +247,14 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		for (j = 0; j < p->argc; j++)
 			eolife[getArg(p,j)]= i;
 	}
+	//OPTDEBUGdataflow{
+		//for(i= 0;  i < mb->vtop; i++)
+			//mnstr_printf(cntxt->fdout,"#eolife %d -> %d\n",i, eolife[i]);
+	//}
 
-	if ( newMalBlkStmt(mb, mb->ssize+mb->vtop) <0 )
+	// make sure we have space for the language.pass operation
+	// for all variables within the barrier
+	if ( newMalBlkStmt(mb, mb->ssize) <0 )
 		goto wrapup;
 	
 	pushInstruction(mb,old[0]);
@@ -240,7 +265,11 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		assert(p);
 		conflict = 0;
 
-		if ( dflowConflict(p) || (conflict = dflowAssignConflict(p,i,assigned,eolife)) )  {
+		if ( dataflowConflict(cntxt,mb,p) || (conflict = dflowAssignConflict(p,i,assigned,eolife)) )  {
+			OPTDEBUGdataflow{
+				mnstr_printf(cntxt->fdout,"#conflict %d dataflow %d dflowAssignConflict %d\n",i, dataflowConflict(cntxt,mb,p),dflowAssignConflict(p,i,assigned,eolife));
+				printInstruction(cntxt->fdout, mb, 0, p, LIST_MAL_STMT);
+			}
 			/* close previous flow block */
 			if ( !(simple = simpleFlow(old,start,i))){
 				for( j=start ; j<i; j++){

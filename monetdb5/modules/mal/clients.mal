@@ -1,3 +1,20 @@
+# The contents of this file are subject to the MonetDB Public License
+# Version 1.1 (the "License"); you may not use this file except in
+# compliance with the License. You may obtain a copy of the License at
+# http://www.monetdb.org/Legal/MonetDBLicense
+#
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+# License for the specific language governing rights and limitations
+# under the License.
+#
+# The Original Code is the MonetDB Database System.
+#
+# The Initial Developer of the Original Code is CWI.
+# Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+# Copyright August 2008-2015 MonetDB B.V.
+# All Rights Reserved.
+
 module clients;
 
 pattern setListing(flag:int):int
@@ -35,8 +52,6 @@ address CLTquit
 comment "Terminate the session for a single client using a soft error.
 It is the privilige of the console user.";
 
-# @-
-# Administrator operations
 command getLogins( )(user:bat[:oid,:oid],start:bat[:oid,:str] )
 address CLTLogin
 comment "Pseudo bat of client id and login time.";
@@ -71,9 +86,17 @@ command wakeup(id:int):void
 address CLTwakeup
 comment "Wakeup a client process";
 
+pattern setsession(n:lng):void
+address CLTsetSessionTimeout
+comment "Abort a session after  n seconds.";
+
+pattern settimeout(n:lng):void
+address CLTsetTimeout
+comment "Abort a query after  n seconds.";
+
 pattern setTimeout(q:lng,s:lng):void
 address CLTsetTimeout
-comment "Abort a query after q milliseconds (q=0 means run undisturbed).
+comment "Abort a query after q seconds (q=0 means run undisturbed).
 The session timeout aborts the connection after spending too
 many seconds on query processing.";
 
@@ -83,16 +106,13 @@ comment "A query is aborted after q milliseconds (q=0 means run undisturbed).
 The session timeout aborts the connection after spending too
 many seconds on query processing.";
 
-command shutdown(forced:bit):void
+pattern shutdown(delay:int):str
+address CLTshutdown;
+pattern shutdown(delay:int, forced:bit):str
 address CLTshutdown
-comment "Close all client connections. If forced=false the
-clients are moved into FINISHING mode, which means that
-the process stops at the next cycle of the scenario.
-If forced=true all client processes are immediately killed";
+comment "Close all other client connections. Return if it succeeds.
+If forced is set then always stop the system the hard way";
 
-# @+ User administration
-# These commands (except changePassword, changeUsername and
-# checkPermission) can only be executed by the administrator.
 command md5sum(pw:str):str
 address CLTmd5sum
 comment "Return hex string representation of the MD5 hash of the given string";

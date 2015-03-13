@@ -11,7 +11,7 @@ stdout of test 'exists-select.Bug-2933` in directory 'sql/test/BugTracker-2011` 
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 15.662 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
 # Listening for connection requests on mapi:monetdb://madrid.ins.cwi.nl:39212/
 # MonetDB/GIS module loaded
@@ -61,8 +61,8 @@ Ready.
 #  EXISTS (SELECT pre FROM _rank2933 AS ancestor WHERE
 #    ancestor.pre < _rank1.pre AND _rank1.pre < ancestor.post AND
 #    ancestor.pre < _rank2.pre AND _rank2.pre < ancestor.post);
-% sys._rank1 # table_name
-% L3 # name
+% sys.L1 # table_name
+% L1 # name
 % wrd # type
 % 1 # length
 [ 2	]
@@ -77,15 +77,33 @@ Ready.
 #    ancestor.pre < _rank1.pre AND _rank1.pre < ancestor.post 
 #  INTERSECT SELECT pre FROM _rank2933 AS ancestor WHERE
 #    ancestor.pre < _rank2.pre AND _rank2.pre < ancestor.post);
-% sys._rank1 # table_name
-% L5 # name
+% sys.L1 # table_name
+% L1 # name
 % wrd # type
 % 1 # length
 [ 2	]
 #DROP TABLE _rank2933;
-#SELECT 123 AS dummy1 FROM tables n WHERE EXISTS ( SELECT 456 AS dummy2 FROM
-#	(SELECT * FROM columns) nnn WHERE n.id > 0 );
-% . # table_name
+#create table tbls (id int);
+#insert into tbls values (42);
+[ 1	]
+#insert into tbls select * from tbls;
+[ 1	]
+#insert into tbls select * from tbls;
+[ 2	]
+#insert into tbls select * from tbls;
+[ 4	]
+#create table clmns (id int);
+#insert into clmns values (42);
+[ 1	]
+#insert into clmns select * from clmns;
+[ 1	]
+#insert into clmns select * from clmns;
+[ 2	]
+#insert into clmns select * from clmns;
+[ 4	]
+#SELECT 123 AS dummy1 FROM tbls n WHERE EXISTS ( SELECT 456 AS dummy2 FROM
+#	(SELECT * FROM clmns) nnn WHERE n.id > 0 );
+% .L # table_name
 % dummy1 # name
 % tinyint # type
 % 3 # length
@@ -97,40 +115,8 @@ Ready.
 [ 123	]
 [ 123	]
 [ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
-[ 123	]
+#drop table clmns;
+#drop table tbls;
 
 # 17:14:07 >  
 # 17:14:07 >  "Done."

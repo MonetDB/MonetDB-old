@@ -12,12 +12,11 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2013 MonetDB B.V.
+# Copyright August 2008-2015 MonetDB B.V.
 # All Rights Reserved.
 
-# @f mal_init
-# @a Martin Kersten
-# @* Mal Startup file
+# (c) Martin Kersten
+# MAL Startup file
 # Upon starting the Monet/MAL server we need to initialize the symbol table.
 # This encompasses loading the signatures of several key modules.
 # They are listed below.
@@ -36,66 +35,58 @@
 #
 # The order of the includes defines the dependencies.
 include mdb;
-include unix;
-include lock;
-include sema;
 include alarm;
 include mmath;
 include streams;
-# @-
 # The kernel stuff to make it work
 include bat5;
 include batExtensions;
 include algebra;
-include calc;
+#include calc; --- moved to autoload/01_calc
 include status;
+include groupby;
 include group;
 include aggr;
-include array;
-include pqueue;
 include mkey;
 
-# @-
 # Atom extensions
 include blob;
 include color;
 include str;
 include url;
+include uuid;
+include mcurl;
+include json;
+include json_util;
 include mtime;
 include inet;
 include identifier;
 include xml;
 include batxml;
 
-# @-
 # The hardwired multiplex extensions
 include batmmath;
-include batcalc;
+#include batcalc; -- moved to autoload/01_batcalc
 include batmtime;
 include batstr;
 include batcolor;
 
-# @-
 # MAL related extensions
 include sabaoth;
 include pcre;
 include clients;
 include bbp;
-include const;
-include box;
 include mal_io;
+include manifold;
 include factories;
 include recycle;
 include remote;
-include trader; # experimental
 
 include mat; 	# experimental
 # include histogram; 	# experimental
 include inspect;
 include manual;
 include language;
-include constraints; # experimental
-include mal_mapi;
 
 include profiler;
 include querylog;
@@ -105,22 +96,19 @@ include sample;
 include optimizer;
 
 include iterator;
-include cluster;
 include txtsim;
 include tokenizer;
 include zorder;
 
-# @-
-# library logger;
 # include logger;
-include transaction;
+# include transaction; no direct access anymore to avoid SQL interference
 
-# @-
 # scheduler components
 include run_isolate;
 include run_memo;
-include run_octopus;
 include srvpool;
+
+include mal_mapi;
 
 # Any extensions (MAL scripts) that should be automatically loaded upon
 # startup can be placed in the autoload directory.  One typically finds

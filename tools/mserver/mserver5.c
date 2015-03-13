@@ -62,7 +62,9 @@
 #endif
 
 static int malloc_init = 1;
+#ifdef HAVE_CONSOLE
 static int monet_daemon;
+#endif
 
 /* NEEDED? */
 #if defined(_MSC_VER) && defined(__cplusplus)
@@ -72,18 +74,19 @@ mserver_abort()
 {
 	fprintf(stderr, "\n! mserver_abort() was called by terminate(). !\n");
 	fflush(stderr);
-	MT_global_exit(0);
+	exit(0);
 }
 #endif
 
-static void usage(char *prog, int xit)
-__attribute__((__noreturn__));
+__declspec(noreturn) static void usage(char *prog, int xit)
+	__attribute__((__noreturn__));
 
 static void
 usage(char *prog, int xit)
 {
 	fprintf(stderr, "Usage: %s [options] [scripts]\n", prog);
 	fprintf(stderr, "    --dbpath=<directory>      Specify database location\n");
+	fprintf(stderr, "    --dbextra=<directory>     Directory for transient BATs\n");
 	fprintf(stderr, "    --dbinit=<stmt>           Execute statement at startup\n");
 	fprintf(stderr, "    --config=<config_file>    Use config_file to read options from\n");
 	fprintf(stderr, "    --daemon=yes|no           Do not read commands from standard input [no]\n");
@@ -102,13 +105,11 @@ usage(char *prog, int xit)
 	fprintf(stderr, "     --transactions\n");
 	fprintf(stderr, "     --modules\n");
 	fprintf(stderr, "     --algorithms\n");
-#if 0
-	fprintf(stderr, "     --xproperties\n");
-#endif
 	fprintf(stderr, "     --performance\n");
 	fprintf(stderr, "     --optimizers\n");
 	fprintf(stderr, "     --trace[=<stethoscope flags>]\n");
 	fprintf(stderr, "     --forcemito\n");
+	fprintf(stderr, "     --recycler\n");
 	fprintf(stderr, "     --debug=<bitmask>\n");
 
 	exit(xit);
@@ -135,6 +136,7 @@ monet_hello(void)
 	}
 
 	printf("# MonetDB 5 server v" VERSION);
+	/* coverity[pointless_string_compare] */
 	if (strcmp(MONETDB_RELEASE, "unreleased") == 0)
 		printf("\n# This is an unreleased version");
 	else
@@ -142,8 +144,14 @@ monet_hello(void)
 	printf("\n# Serving database '%s', using %d thread%s\n",
 			GDKgetenv("gdk_dbname"),
 			GDKnr_threads, (GDKnr_threads != 1) ? "s" : "");
-	printf("# Compiled for %s/" SZFMT "bit with " SZFMT "bit OIDs %s linked\n",
-			HOST, sizeof(ptr) * 8, sizeof(oid) * 8, linkinfo);
+	printf("# Compiled for %s/" SZFMT "bit with " SZFMT "bit OIDs %s%s linked\n",
+			HOST, sizeof(ptr) * 8, sizeof(oid) * 8,
+#ifdef HAVE_HGE
+			"and 128bit integers ",
+#else
+			"",
+#endif
+			linkinfo);
 	printf("# Found %.3f %ciB available main-memory.\n",
 			sz_mem_h, qc[qi]);
 #ifdef MONET_GLOBAL_DEBUG
@@ -151,7 +159,7 @@ monet_hello(void)
 	printf("# Module path:%s\n", GDKgetenv("monet_mod_path"));
 #endif
 	printf("# Copyright (c) 1993-July 2008 CWI.\n");
-	printf("# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved\n");
+	printf("# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved\n");
 	printf("# Visit http://www.monetdb.org/ for further information\n");
 }
 
@@ -214,11 +222,13 @@ main(int argc, char **av)
 	char *modpath = NULL;
 	char *binpath = NULL;
 	str *monet_script;
+	char *dbextra = NULL;
 
 	static struct option long_options[] = {
 		{ "config", 1, 0, 'c' },
 		{ "dbpath", 1, 0, 0 },
-		{ "dbinit", 1, 0, 0 },
+		{ "dbextra", 1, 0, 0 },
+		{ "dbinit", 1, 0, 0 } ,
 		{ "daemon", 1, 0, 0 },
 		{ "debug", 2, 0, 'd' },
 		{ "help", 0, 0, '?' },
@@ -236,10 +246,8 @@ main(int argc, char **av)
 		{ "algorithms", 0, 0, 0 },
 		{ "optimizers", 0, 0, 0 },
 		{ "performance", 0, 0, 0 },
-#if 0
-		{ "xproperties", 0, 0, 0 },
-#endif
 		{ "forcemito", 0, 0, 0 },
+		{ "recycler", 0, 0, 0 },
 		{ "heaps", 0, 0, 0 },
 		{ 0, 0, 0, 0 }
 	};
@@ -303,6 +311,13 @@ main(int argc, char **av)
 				setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_dbpath", optarg);
 				break;
 			}
+			if (strcmp(long_options[option_index].name, "dbextra") == 0) {
+				if (dbextra)
+					fprintf(stderr, "#warning: ignoring multiple --dbextra arguments\n");
+				else
+					dbextra = optarg;
+				break;
+			}
 			if (strcmp(long_options[option_index].name, "dbinit") == 0) {
 				if (dbinit)
 					fprintf(stderr, "#warning: ignoring multiple --dbinit argument\n");
@@ -337,14 +352,12 @@ main(int argc, char **av)
 				grpdebug |= GRPoptimizers;
 				break;
 			}
-#if 0
-			if (strcmp(long_options[option_index].name, "xproperties") == 0) {
-				grpdebug |= GRPxproperties;
-				break;
-			}
-#endif
 			if (strcmp(long_options[option_index].name, "forcemito") == 0) {
 				grpdebug |= GRPforcemito;
+				break;
+			}
+			if (strcmp(long_options[option_index].name, "recycler") == 0) {
+				grpdebug |= GRPrecycler;
 				break;
 			}
 			if (strcmp(long_options[option_index].name, "performance") == 0) {
@@ -382,11 +395,18 @@ main(int argc, char **av)
 			usage(prog, -1);
 		/* not reached */
 		case 'c':
+			/* coverity[var_deref_model] */
 			setlen = mo_add_option(&set, setlen, opt_cmdline, "config", optarg);
 			break;
 		case 'd':
 			if (optarg) {
-				debug |= strtol(optarg, NULL, 10);
+				char *endarg;
+				debug |= strtol(optarg, &endarg, 10);
+				if (*endarg != '\0') {
+					fprintf(stderr, "ERROR: wrong format for --debug=%s\n",
+							optarg);
+					usage(prog, -1);
+				}
 			} else {
 				debug |= 1;
 			}
@@ -396,6 +416,7 @@ main(int argc, char **av)
 			break;
 		case 's': {
 			/* should add option to a list */
+			/* coverity[var_deref_model] */
 			char *tmp = strchr(optarg, '=');
 
 			if (tmp) {
@@ -424,13 +445,14 @@ main(int argc, char **av)
 		usage(prog, -1);
 
 	if (debug || grpdebug) {
-		long_str buf;
+		char buf[16];
+		char wasdebug = debug != 0;
 
-		if (debug)
-			mo_print_options(set, setlen);
 		debug |= grpdebug;  /* add the algorithm tracers */
-		snprintf(buf, sizeof(long_str) - 1, "%d", debug);
+		snprintf(buf, sizeof(buf) - 1, "%d", debug);
 		setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_debug", buf);
+		if (wasdebug)
+			mo_print_options(set, setlen);
 	}
 
 	monet_script = (str *) malloc(sizeof(str) * (argc + 1));
@@ -444,6 +466,12 @@ main(int argc, char **av)
 		}
 	}
 
+	if (dbextra) {
+		BBPaddfarm(".", 1 << PERSISTENT);
+		BBPaddfarm(dbextra, 1 << TRANSIENT);
+	} else {
+		BBPaddfarm(".", (1 << PERSISTENT) | (1 << TRANSIENT));
+	}
 	if (monet_init(set, setlen) == 0) {
 		mo_free_options(set, setlen);
 		return 0;
@@ -582,7 +610,7 @@ main(int argc, char **av)
 		}
 	}
 	/* make sure the authorisation BATs are loaded */
-	if ((err = AUTHinitTables()) != MAL_SUCCEED) {
+	if ((err = AUTHinitTables(NULL)) != MAL_SUCCEED) {
 		/* don't show this as a crash */
 		msab_registerStop();
 		GDKfatal("%s", err);

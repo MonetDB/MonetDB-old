@@ -11,7 +11,7 @@ stdout of test 'polymorphism` in directory 'sql/test/bugs` itself:
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 3.778 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
 # Listening for connection requests on mapi:monetdb://niels.nesco.mine.nu:33115/
 # Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-18423/.s.monetdb.33115
@@ -47,8 +47,8 @@ Ready.
 #	l_dec decimal(7,2)
 #);
 #select bwdecompose(l_int,24), bwdecompose(l_dat,24), bwdecompose(l_dec,24) from bwd;
-% sys.,	sys.,	sys. # table_name
-% bwdecompose_l_int,	bwdecompose_l_dat,	bwdecompose_l_dec # name
+% sys.L1,	sys.L2,	sys.L2 # table_name
+% L1,	L2,	bwdecompose_l_dec # name
 % varchar,	varchar,	varchar # type
 % 0,	0,	0 # length
 #rollback;

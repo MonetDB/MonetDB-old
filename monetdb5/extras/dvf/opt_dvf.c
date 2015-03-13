@@ -772,7 +772,7 @@ str OPTdvfIterative(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	msg= optimizerCheck(cntxt, mb, "optimizer.DVframework", actions, t=(GDKusec() - clk),OPT_CHECK_ALL);
 	OPTDEBUGdvf {
 		mnstr_printf(cntxt->fdout,"=FINISHED opt_dvf %d\n",actions);
-		printFunction(cntxt->fdout,mb,0,LIST_MAL_STMT | LIST_MAPI);
+		printFunction(cntxt->fdout,mb,0,LIST_MAL_STMT | LIST_MAL_MAPI);
 	}
 	DEBUGoptimizers
 	mnstr_printf(cntxt->fdout,"#opt_dvf: " LLFMT " ms\n",t);
@@ -800,7 +800,7 @@ str OPTdvfSemiparallel(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	msg= optimizerCheck(cntxt, mb, "optimizer.DVframework", actions, t=(GDKusec() - clk),OPT_CHECK_ALL);
 	OPTDEBUGdvf {
 		mnstr_printf(cntxt->fdout,"=FINISHED opt_dvf %d\n",actions);
-		printFunction(cntxt->fdout,mb,0,LIST_MAL_STMT | LIST_MAPI);
+		printFunction(cntxt->fdout,mb,0,LIST_MAL_STMT | LIST_MAL_MAPI);
 	}
 	DEBUGoptimizers
 	mnstr_printf(cntxt->fdout,"#opt_dvf: " LLFMT " ms\n",t);
@@ -828,7 +828,7 @@ str OPTdvfParallel(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	msg= optimizerCheck(cntxt, mb, "optimizer.DVframework", actions, t=(GDKusec() - clk),OPT_CHECK_ALL);
 	OPTDEBUGdvf {
 		mnstr_printf(cntxt->fdout,"=FINISHED opt_dvf %d\n",actions);
-		printFunction(cntxt->fdout,mb,0,LIST_MAL_STMT | LIST_MAPI);
+		printFunction(cntxt->fdout,mb,0,LIST_MAL_STMT | LIST_MAL_MAPI);
 	}
 	DEBUGoptimizers
 	mnstr_printf(cntxt->fdout,"#opt_dvf: " LLFMT " ms\n",t);

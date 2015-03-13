@@ -13,7 +13,7 @@ stdout of test 'bat_insert` in directory 'monetdb5/tests/gdkTests` itself:
 # dbname:mTests_tests_gdkTests
 # Visit http://monetdb.cwi.nl/ for further information
 # Listening for connection requests on mapi:monetdb://eir.ins.cwi.nl:30579/
-function user.check_cap(b:bat[:any_1,:any_2]):void;
+function user.check_cap(b:bat[:oid,:any_2]):void;
     inserted := aggr.count(b);
     d := bat.getDelta(b);
     d1 := aggr.count(d);
@@ -27,7 +27,7 @@ exit errors;
 end check_cap;
 function user.main():void;
     o := nil:oid;
-    b := bat.new(:oid,:oid);
+    b := bat.new_persistent(:oid,:oid);
     bat.setName(b,"b");
     bat.setPersistent(b,true);
     cap := bat.getCapacity(b);
@@ -37,13 +37,13 @@ function user.main():void;
     i := calc.*(ci,3);
 barrier go := calc.>(i,0);
     o := calc.oid(i);
-    bat.insert(b,o,o);
+    bat.append(b,o);
     i := calc.-(i,1);
     redo go := calc.>(i,0);
 exit go;
     transaction.commit();
     i := calc.*(ci,2);
-barrier go := calc.>(i,0);
+barrier go := calc.>=(i,0);
     o := calc.oid(i);
     bat.delete(b,o);
     i := calc.-(i,1);
@@ -53,7 +53,7 @@ exit go;
     i := calc.*(ci,2);
 barrier go := calc.>(i,0);
     o := calc.oid(i);
-    bat.insert(c,o,o);
+    bat.append(c,o);
     i := calc.-(i,1);
     redo go := calc.>(i,0);
 exit go;

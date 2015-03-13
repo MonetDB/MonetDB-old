@@ -10,7 +10,7 @@ stdout of test 'predicate_in_select.Bug-2535` in directory 'sql/test/BugTracker-
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.751 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://monetdb.cwi.nl/ for further information
 # Listening for connection requests on mapi:monetdb://rig.ins.cwi.nl:39893/
 # MonetDB/SQL module v2.38.3 loaded
@@ -24,13 +24,13 @@ Ready.
 # 09:50:32 >  
 
 #select (select count(*) from _tables) > 5;
-% sys. # table_name
+% sys.L1 # table_name
 % >_L1 # name
 % boolean # type
 % 5 # length
 [ true	]
 #select 5 < (select count(*) from _tables);
-% . # table_name
+% .L1 # table_name
 % <_single_value # name
 % boolean # type
 % 5 # length

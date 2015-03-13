@@ -26,34 +26,39 @@
  * The Monet interface supports two timer commands: @emph{ alarm} and @emph{ sleep}.
  * Their argument is the number of seconds to wait before the timer goes off.
  * The @emph{ sleep} command blocks till the alarm goes off.
- * The @emph{ alarm} command continues directly, executes off a MIL
+ * The @emph{ alarm} command continues directly, executes off a 
  * string when it goes off.
  * The parameterless routines @emph{ time} and @emph{ ctime} provide access to
  * the cpu clock.They return an integer and string, respectively.
  */
 #include "monetdb_config.h"
-#include "alarm.h"
+#include "mal.h"
+#include <signal.h>
 #include <time.h>
 
 #ifdef WIN32
-#if !defined(LIBMAL) && !defined(LIBATOMS) && !defined(LIBKERNEL) && !defined(LIBMAL) && !defined(LIBOPTIMIZER) && !defined(LIBSCHEDULER) && !defined(LIBMONETDB5)
-#define alarm_export extern __declspec(dllimport)
-#else
 #define alarm_export extern __declspec(dllexport)
-#endif
 #else
 #define alarm_export extern
 #endif
 
-alarm_export str ALARMprelude(void);
-alarm_export str ALARMepilogue(void);
+alarm_export str ALARMprelude(void *ret);
+alarm_export str ALARMepilogue(void *ret);
 alarm_export str ALARMusec(lng *ret);
-alarm_export str ALARMsleep(int *res, int *secs);
-alarm_export str ALARMsetalarm(int *res, int *secs, str *action);
-alarm_export str ALARMtimers(int *res);
+alarm_export str ALARMsleep(void *res, int *secs);
+alarm_export str ALARMsetalarm(void *res, int *secs, str *action);
+alarm_export str ALARMtimers(bat *res, bat *actions);
 alarm_export str ALARMctime(str *res);
 alarm_export str ALARMepoch(int *res);
 alarm_export str ALARMtime(int *res);
+
+#define MAXtimer                200
+
+typedef struct {
+	str action;		/* action (as a string) */
+	MT_Sema sema;		/* barrier */
+	time_t alarm_time;	/* time when the alarm goes off */
+} monet_timer_t;
 
 static monet_timer_t timer[MAXtimer];
 static int timerTop = 0;
@@ -77,9 +82,8 @@ CLKsignal(int nr)
 
 	(void) nr;
 
-	if (signal(SIGALRM, CLKsignal) == SIG_ERR) {
+	if (signal(SIGALRM, CLKsignal) == SIG_ERR) 
 		GDKsyserror("CLKsignal: call failed\n");
-	}
 
 	if (timerTop == 0) {
 		return;
@@ -105,8 +109,9 @@ CLKsignal(int nr)
 
 
 str
-ALARMprelude(void)
+ALARMprelude(void *ret)
 {
+	(void) ret;
 #ifdef SIGALRM
 	(void) signal(SIGALRM, (void (*)()) CLKsignal);
 #endif
@@ -114,10 +119,11 @@ ALARMprelude(void)
 }
 
 str
-ALARMepilogue(void)
+ALARMepilogue(void *ret)
 {
 	int k;
 
+	(void) ret;
 #if (defined(SIGALRM) && defined(SIG_IGN))
 /* HACK to pacify compiler */
 #if (defined(__INTEL_COMPILER) && (SIZEOF_VOID_P > SIZEOF_INT))
@@ -141,7 +147,7 @@ ALARMusec(lng *ret)
 }
 
 str
-ALARMsleep(int *res, int *secs)
+ALARMsleep(void *res, int *secs)
 {
 	(void) res;		/* fool compilers */
 	if (*secs < 0)
@@ -162,7 +168,7 @@ ALARMsleep(int *res, int *secs)
 }
 
 str
-ALARMsetalarm(int *res, int *secs, str *action)
+ALARMsetalarm(void *res, int *secs, str *action)
 {
 	(void) res;
 	(void) secs;
@@ -171,9 +177,10 @@ ALARMsetalarm(int *res, int *secs, str *action)
 }
 
 str
-ALARMtimers(int *res)
+ALARMtimers(bat *res, bat *actions)
 {
 	(void) res;		/* fool compiler */
+	(void) actions;		/* fool compiler */
 	throw(MAL, "alarm.timers", PROGRAM_NYI);
 }
 
@@ -181,19 +188,17 @@ str
 ALARMctime(str *res)
 {
 	time_t t = time(0);
-	char *base, *c;
+	char *base;
 
 #ifdef HAVE_CTIME_R3
 	char buf[26];
 
-	ctime_r(&t, buf, sizeof(buf));
-	base = buf;
+	base = ctime_r(&t, buf, sizeof(buf));
 #else
 #ifdef HAVE_CTIME_R
 	char buf[26];
 
-	ctime_r(&t, buf);
-	base = buf;
+	base = ctime_r(&t, buf);
 #else
 	base = ctime(&t);
 #endif
@@ -202,9 +207,7 @@ ALARMctime(str *res)
 		/* very unlikely to happen... */
 		throw(MAL, "alarm.ctime", "failed to format time");
 
-	c = strchr(base, '\n');
-	if (c)
-		*c = 0;
+	base[24] = 0;				/* squash final newline */
 	*res = GDKstrdup(base);
 	return MAL_SUCCEED;
 }

@@ -10,7 +10,7 @@ stdout of test '06` in directory 'sql/benchmarks/ssbm` itself:
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.749 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://monetdb.cwi.nl/ for further information
 # Listening for connection requests on mapi:monetdb://rig.ins.cwi.nl:37793/
 # MonetDB/SQL module loaded
@@ -34,7 +34,7 @@ Ready.
 #		and s_region = 'EUROPE'
 #	group by d_year, p_brand1
 #	order by d_year, p_brand1;
-% sys.lineorder,	sys.dwdate,	sys.part # table_name
+% sys.L1,	sys.dwdate,	sys.part # table_name
 % L1,	d_year,	p_brand1 # name
 % bigint,	int,	clob # type
 % 8,	4,	9 # length

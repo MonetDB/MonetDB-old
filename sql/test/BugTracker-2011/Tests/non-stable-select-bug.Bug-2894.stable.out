@@ -11,7 +11,7 @@ stdout of test 'non-stable-select-bug.Bug-2894` in directory 'sql/test/BugTracke
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.749 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
 # Listening for connection requests on mapi:monetdb://ottar.ins.cwi.nl:31974/
 # MonetDB/GIS module loaded
@@ -49,7 +49,7 @@ Ready.
 #insert into table2894 values (1,1.0),(2,2.0),(3,3.0),(4,4.0);
 [ 4	]
 #select i,1/(i-1) from table2894 where i > 1;
-% sys.table2894,	. # table_name
+% sys.table2894,	.L # table_name
 % i,	sql_div_single_value # name
 % int,	bigint # type
 % 1,	1 # length
@@ -57,7 +57,7 @@ Ready.
 [ 3,	0	]
 [ 4,	0	]
 #select i,1/(i-1.0) from table2894 where i > 1;
-% sys.table2894,	. # table_name
+% sys.table2894,	.L # table_name
 % i,	sql_div_single_value # name
 % int,	decimal # type
 % 1,	21 # length
@@ -65,7 +65,7 @@ Ready.
 [ 3,	0.500	]
 [ 4,	0.333	]
 #select i,1/(i-1) from table2894 where i > 1;
-% sys.table2894,	. # table_name
+% sys.table2894,	.L # table_name
 % i,	sql_div_single_value # name
 % int,	bigint # type
 % 1,	1 # length

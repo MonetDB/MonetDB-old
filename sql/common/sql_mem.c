@@ -54,7 +54,7 @@ sql_ref_dec(sql_ref *r)
 
 sql_allocator *sa_create(void)
 {
-	sql_allocator *sa = NEW(sql_allocator);
+	sql_allocator *sa = MNEW(sql_allocator);
 	
 	sa->size = 64;
 	sa->nr = 1;
@@ -78,6 +78,7 @@ sql_allocator *sa_reset( sql_allocator *sa )
 	}
 	sa->nr = 1;
 	sa->used = 0;
+	sa->usedmem = SA_BLOCK;
 	return sa;
 }
 

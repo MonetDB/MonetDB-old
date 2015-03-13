@@ -20,14 +20,16 @@ Ready.
 
 [ 1	]
 [ 1	]
-% sys. # table_name
-% x # name
+#select cast(x as integer) from t2;
+% sys.L1 # table_name
+% L1 # name
 % int # type
 % 1 # length
 [ 1	]
 [ 2	]
-% . # table_name
-% single_value # name
+#select cast('1' as integer);
+% .L1 # table_name
+% L1 # name
 % int # type
 % 1 # length
 [ 1	]

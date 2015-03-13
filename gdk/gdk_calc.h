@@ -26,7 +26,12 @@ gdk_export BAT *BATcalcdecr(BAT *b, BAT *s, int abort_on_error);
 gdk_export BAT *BATcalciszero(BAT *b, BAT *s);
 gdk_export BAT *BATcalcsign(BAT *b, BAT *s);
 gdk_export BAT *BATcalcisnil(BAT *b, BAT *s);
+gdk_export BAT *BATcalcisnotnil(BAT *b, BAT *s);
 gdk_export BAT *BATcalcnot(BAT *b, BAT *s);
+gdk_export BAT *BATcalcmin(BAT *b1, BAT *b2, BAT *s);
+gdk_export BAT *BATcalcmin_no_nil(BAT *b1, BAT *b2, BAT *s);
+gdk_export BAT *BATcalcmax(BAT *b1, BAT *b2, BAT *s);
+gdk_export BAT *BATcalcmax_no_nil(BAT *b1, BAT *b2, BAT *s);
 gdk_export BAT *BATcalcadd(BAT *b1, BAT *b2, BAT *s, int tp, int abort_on_error);
 gdk_export BAT *BATcalcaddcst(BAT *b, const ValRecord *v, BAT *s, int tp, int abort_on_error);
 gdk_export BAT *BATcalccstadd(const ValRecord *v, BAT *b, BAT *s, int tp, int abort_on_error);
@@ -78,11 +83,11 @@ gdk_export BAT *BATcalccstne(const ValRecord *v, BAT *b, BAT *s);
 gdk_export BAT *BATcalccmp(BAT *b1, BAT *b2, BAT *s);
 gdk_export BAT *BATcalccmpcst(BAT *b, const ValRecord *v, BAT *s);
 gdk_export BAT *BATcalccstcmp(const ValRecord *v, BAT *b, BAT *s);
-gdk_export BAT *BATcalcbetween(BAT *b, BAT *lo, BAT *hi, BAT *s);
-gdk_export BAT *BATcalcbetweencstcst(BAT *b, const ValRecord *lo, const ValRecord *hi, BAT *s);
-gdk_export BAT *BATcalcbetweenbatcst(BAT *b, BAT *lo, const ValRecord *hi, BAT *s);
-gdk_export BAT *BATcalcbetweencstbat(BAT *b, const ValRecord *lo, BAT *hi, BAT *s);
-gdk_export int VARcalcbetween(ValPtr ret, const ValRecord *v, const ValRecord *lo, const ValRecord *hi);
+gdk_export BAT *BATcalcbetween(BAT *b, BAT *lo, BAT *hi, BAT *s, int sym);
+gdk_export BAT *BATcalcbetweencstcst(BAT *b, const ValRecord *lo, const ValRecord *hi, BAT *s, int sym);
+gdk_export BAT *BATcalcbetweenbatcst(BAT *b, BAT *lo, const ValRecord *hi, BAT *s, int sym);
+gdk_export BAT *BATcalcbetweencstbat(BAT *b, const ValRecord *lo, BAT *hi, BAT *s, int sym);
+gdk_export int VARcalcbetween(ValPtr ret, const ValRecord *v, const ValRecord *lo, const ValRecord *hi, int sym);
 gdk_export BAT *BATcalcifthenelse(BAT *b, BAT *b1, BAT *b2);
 gdk_export BAT *BATcalcifthenelsecst(BAT *b, BAT *b1, const ValRecord *c2);
 gdk_export BAT *BATcalcifthencstelse(BAT *b, const ValRecord *c1, BAT *b2);
@@ -126,15 +131,19 @@ gdk_export BAT *BATgroupsize(BAT *b, BAT *g, BAT *e, BAT *s, int tp, int skip_ni
 gdk_export BAT *BATgroupmin(BAT *b, BAT *g, BAT *e, BAT *s, int tp, int skip_nils, int abort_on_error);
 gdk_export BAT *BATgroupmax(BAT *b, BAT *g, BAT *e, BAT *s, int tp, int skip_nils, int abort_on_error);
 gdk_export BAT *BATgroupmedian(BAT *b, BAT *g, BAT *e, BAT *s, int tp, int skip_nils, int abort_on_error);
+gdk_export BAT *BATgroupquantile(BAT *b, BAT *g, BAT *e, BAT *s, int tp, double quantile, int skip_nils, int abort_on_error);
+
 /* helper function for grouped aggregates */
 gdk_export const char *BATgroupaggrinit(
-	const BAT *b, const BAT *g, const BAT *e, const BAT *s,
+	BAT *b, BAT *g, BAT *e, BAT *s,
 	/* outputs: */
 	oid *minp, oid *maxp, BUN *ngrpp, BUN *startp, BUN *endp, BUN *cntp,
 	const oid **candp, const oid **candendp);
 
 gdk_export gdk_return BATsum(void *res, int tp, BAT *b, BAT *s, int skip_nils, int abort_on_error, int nil_if_empty);
 gdk_export gdk_return BATprod(void *res, int tp, BAT *b, BAT *s, int skip_nils, int abort_on_error, int nil_if_empty);
+gdk_export void *BATmax(BAT *b, void *aggr);
+gdk_export void *BATmin(BAT *b, void *aggr);
 
 gdk_export dbl BATcalcstdev_population(dbl *avgp, BAT *b);
 gdk_export dbl BATcalcstdev_sample(dbl *avgp, BAT *b);

@@ -163,7 +163,6 @@ SQLDescribeCol(SQLHSTMT StatementHandle,
 			       NullablePtr);
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLDescribeColA(SQLHSTMT StatementHandle,
 		SQLUSMALLINT ColumnNumber,
@@ -219,6 +218,11 @@ SQLDescribeColW(SQLHSTMT StatementHandle,
 	clearStmtErrors(stmt);
 	n++;			/* account for NUL byte */
 	colname = malloc(n);
+	if (colname == NULL) {
+		/* Memory allocation error */
+		addStmtError(stmt, "HY001", NULL, 0);
+		return SQL_ERROR;
+	}
 	rc = SQLDescribeCol_(stmt,
 			     ColumnNumber,
 			     colname,
@@ -236,4 +240,3 @@ SQLDescribeColW(SQLHSTMT StatementHandle,
 
 	return rc;
 }
-#endif /* WITH_WCHAR */

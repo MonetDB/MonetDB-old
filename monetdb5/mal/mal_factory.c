@@ -18,245 +18,18 @@
  */
 
 /*
- * @a M. Kersten
- * @v 0.0
- * @+ Factories
- * A convenient programming construct is the co-routine, which
- * is specified as an ordinary function, but maintains its
- * own state between calls, and permits re-entry other than
- * by the first statement.
- *
- * The random generator example is used to illustrate its definition and use.
- * @example
- * factory random(seed:int,limit:int):int;
- *     rnd:=seed;
- *     lim:= limit;
- * barrier lim;
- *     leave lim:= lim-1;
- *     rnd:= rnd*125;
- *     yield rnd:= rnd % 32676;
- *     redo lim;
- * exit lim;
- * end random;
- * @end example
- *
- * The first time this factory is called, a @emph{plant}
- * is created in the local system to handle the requests.
- * The plant contains the stack frame and synchronizes access.
- *
- * In this case it initializes the generator.
- * The random number is generated and @sc{yield}  as
- * a result of the call. The factory plant is then put to sleep.
- * The second call received by the factory wakes it up at the
- * point where it went to sleep. In this case it will
- * find a @sc{redo} statement and produces the next random number.
- * Note that also in this case a seed and limit value are
- * expected, but they are ignored in the body.
- * This factory can be called upon to generate at most 'limit'
- * random numbers using the 'seed' to initialize the generator.
- * Thereafter it is being removed, i.e. reset to the original state.
- *
- * A cooperative group of factories can be readily constructed.
- * For example, assume we would like the
- * random factories to respond to both @sc{random(seed,limit)}
- * and @sc{random()}. This can be defined as follows:
- * @example
- * factory random(seed:int,limit:int):int;
- *     rnd:=seed;
- *     lim:= limit;
- * barrier lim;
- *     leave lim:= lim-1;
- *     rnd:= rnd*125;
- *     yield rnd:= rnd % 32676;
- *     redo lim;
- * exit lim;
- * end random;
- *
- * factory random():int;
- * barrier forever:=true;
- *     yield random(0,0);
- *     redo forever;
- * exit forever;
- * end random;
- * @end example
- *
- * @- Factory Ownership
- * For simple cases, e.g. implementation of a random function,
- * it suffices to ensure that the state is secured between calls.
- * But, in a database context there are multiple clients
- * active. This means we have to be more precise on the relationship
- * between a co-routine and the client for which it works.
- *
- * The co-routine concept researched in Monet 5 is the notion of a 'factory',
- * which consists of 'factory plants' at possibly different locations and
- * with different policies to handle requests.
- * Factory management is limited to its owner, which is derived from the module
- * in which it is placed. By default Admin is the owner of all modules.
- *
- * The factory produces elements for multiple clients.
- * Sharing the factory state or even remote processing is
- * up to the factory owner.
- * They are set through properties for the factory plant.
- *
- * The default policy is to instantiate one shared
- * plant for each factory. If necessary, the factory
- * can keep track of a client list to differentiate
- * the states.
- * A possible implementation would be:
- * @example
- * factory random(seed:int,clientid:int):int;
- *     clt:= bat.new(:int,:int);
- *     bat.insert(clt,clientid,seed);
- * barrier always:=true;
- *     rnd:= algebra.find(clt,clientid);
- * catch   rnd; #failed to find client
- *     bat.insert(clt,clientid,seed);
- *     rnd:= algebra.find(clt,clientid);
- * exit    rnd;
- *     rnd:= rnd * 125;
- *     rnd:= rnd % 32676;
- *     algebra.replace(clt,clientid,rnd);
- *     yield rnd;
- *     redo always;
- * exit always;
- * end random;
- * @end example
- *
- * The operators to built client aware factories are,
- * @sc{factories.getCaller()}, which returns a client
- * index, @sc{factories.getModule()} and @sc{factories.getFunction()},
- * which returns the identity of scope enclosed.
- *
- * To illustrate, the client specific random generator
- * can be shielded using the factory:
- * @example
- * factory random(seed:int):int;
- * barrier always:=true;
- *     clientid:= factories.getCaller();
- *     yield user.random(seed, clientid);
- *     redo always;
- * exit always;
- * end random;
- * @end example
- *
- * @- Complex Factories
- * The factory scheme can be used to model
- * a volcano-style query processor. Each node in the query
- * tree is an iterator that calls upon the operands to produce
- * a chunk, which are combined into a new  chunk for consumption
- * of the parent. The prototypical join(R,S) query illustrates it.
- * The plan does not test for all boundary conditions, it merely
- * implements a nested loop. The end of a sequence is identified
- * by a NIL chunk.
- *
- * @example
- * factory query();
- *     Left:= sql.bind("relationA");
- *     Right:= sql.bind("relationB");
- *     rc:= sql.joinStep(Left,Right);
- * barrier rc!= nil;
- *     io.print(rc);
- *     rc:= sql.joinStep(Left,Right);
- *     redo rc!= nil;
- * exit rc;
- * end query;
- *
- * #nested loop join
- * factory sql.joinStep(Left:bat[:any,:any],Right:bat[:any,:any]):bat[:any,:any];
- *     lc:= bat.chunkStep(Left);
- * barrier outer:= lc != nil;
- *     rc:= bat.chunkStep(Right);
- *     barrier inner:= rc != nil;
- *         chunk:= algebra.join(lc,rc);
- *         yield chunk;
- *         rc:= bat.chunkStep(Right);
- *         redo inner:= rc != nil;
- *     exit inner;
- *     lc:= bat.chunkStep(Left);
- *     redo outer:= lc != nil;
- * exit outer;
- *     # we have seen everything
- *     return nil;
- * end joinStep;
- *
- * #factory for left branch
- * factory chunkStepL(L:bat[:any,:any]):bat[:any,:any];
- *     i:= 0;
- *     j:= 20;
- *     cnt:= algebra.count(L);
- * barrier outer:= j<cnt;
- *     chunk:= algebra.slice(L,i,j);
- *     i:= j;
- *     j:= i+ 20;
- *     yield chunk;
- *     redo loop:= j<cnt;
- * exit outer;
- *     # send last portion
- *     chunk:= algebra.slice(L,i,cnt);
- *     yielD chunk;
- *     return nil;
- * end chunkStep;
- *
- * #factory for right leg
- * factory chunkStepR(L:bat[:any,:any]):bat[:any,:any];
- * @end example
- *
- * So far we haven't re-used the pattern that both legs are
- * identical. This could be modeled by a generic chunk factory.
- * Choosing a new factory for each query steps reduces the
- * administrative overhead.
- *
- * @- Materialized Views
- * An area where factories might be useful are support
- * for materialized views, i.e. the result of a query
- * is retained for ease of access.
- * A simple strategy is to prepare the result once
- * and return it on each successive call.
- * Provided the arguments have not been changed.
- * For example:
- *
- * @example
- * factory view1(l:int, h:int):bat[:oid,:str];
- *     a:bat[:oid,:int]:= bbp.bind("emp","age");
- *     b:bat[:oid,:str]:= bbp.bind("emp","name");
- * barrier always := true;
- *     lOld := l;
- *     hOld := h;
- *     c := algebra.select(a,l,h);
- *     d := algebra.semijoin(b,c);
- * barrier available := true;
- *     yield d;
- *     leave available := calc.!=(lOld,l);
- *     leave available := calc.!=(hOld,h);
- *     redo available := true;
- * exit available;
- *     redo always;
- * exit always;
- * end view1;
- * @end example
- *
- * The code should be extended to also check validity of the BATs.
- * It requires a check against the last transaction identifier known.
- *
- * The Factory concept is still rather experimental and many
- * questions should be considered, e.g.
- * What is the lifetime of a factory? Does it persists after
- * all clients has disappeared?
- * What additional control do you need? Can you throw an
- * exception to a Factory?
- *
- */
-/*
- * @-
- * The initial implementation is geared at a central
- * factory plant manager, which is called to forward
- * any factory call to their proper destination.
- *
- * The factory plants are collected in a global,
- * limited table for now.
+ * (author) M. Kersten
+ * For documentation see website
  */
 #include "monetdb_config.h"
 #include "mal_factory.h"
+#include "mal_instruction.h"
+#include "mal_interpreter.h"
+#include "mal_function.h"
+#include "mal_exception.h"
+#include "mal_session.h"
+#include "mal_debugger.h"
+#include "mal_private.h"
 
 typedef struct {
 	int id;			/* unique plant number */
@@ -280,10 +53,6 @@ static int plantId = 1;
 
 mal_export Plant newPlant(MalBlkPtr mb);
 
-int
-factoryHasFreeSpace(void){
-	return lastPlant <MAXPLANTS-1;
-}
 static int
 findPlant(MalBlkPtr mb){
 	int i;
@@ -292,6 +61,7 @@ findPlant(MalBlkPtr mb){
 		return i;
 	return -1;
 }
+
 str
 runFactory(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr stk, InstrPtr pci)
 {
@@ -333,7 +103,6 @@ runFactory(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr stk, InstrP
 			throw(MAL, "factory.new", MAL_MALLOC_FAIL);
 	}
 	/*
-	 * @-
 	 * We have found a factory to process the request.
 	 * Let's call it as a synchronous action, without concern on parallelism.
 	 */
@@ -352,7 +121,7 @@ runFactory(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr stk, InstrP
 	   of the factory */
 	i = psig->retc;
 	for (k = pci->retc; i < pci->argc; i++, k++) {
-		lhs = getArgReference(pl->stk,psig,k);
+		lhs = &pl->stk->stk[psig->argv[k]];
 		/* variable arguments ? */
 		if (k == psig->argc - 1)
 			k--;
@@ -391,7 +160,6 @@ runFactory(Client cntxt, MalBlkPtr mb, MalBlkPtr mbcaller, MalStkPtr stk, InstrP
 	return msg;
 }
 /*
- * @-
  * The shortcut operator for factory calls assumes that the user is
  * not interested in the results produced.
  */
@@ -437,12 +205,11 @@ callFactory(Client cntxt, MalBlkPtr mb, ValPtr argv[], char flag){
 	} else  {
 		pl= plants+i;
 		/*
-		 * @-
 		 * When you re-enter the factory the old arguments should be
 		 * released to make room for the new ones.
 		 */
 		for (i = psig->retc; i < psig->argc; i++) {
-			lhs = getArgReference(pl->stk,psig,i);
+			lhs = &pl->stk->stk[psig->argv[i]];
 			if( lhs->vtype == TYPE_bat )
 				BBPdecref(lhs->val.bval, TRUE);
 		}
@@ -450,7 +217,7 @@ callFactory(Client cntxt, MalBlkPtr mb, ValPtr argv[], char flag){
 	/* copy the calling arguments onto the stack of the factory */
 	i = psig->retc;
 	for (i = psig->retc; i < psig->argc; i++) {
-		lhs = getArgReference(pl->stk,psig,i);
+		lhs = &pl->stk->stk[psig->argv[i]];
 		VALcopy(lhs, argv[i]);
 		if( lhs->vtype == TYPE_bat )
 			BBPincref(lhs->val.bval, TRUE);
@@ -459,12 +226,11 @@ callFactory(Client cntxt, MalBlkPtr mb, ValPtr argv[], char flag){
 	/* garbage collect the string arguments, these positions
 	   will simply be overwritten the next time.
 	for (i = psig->retc; i < psig->argc; i++)
-		garbageElement(lhs = getArgReference(pl->stk,psig,i));
+		garbageElement(lhs = &pl->stk->stk[psig->argv[i]]);
 	*/
 	return ret;
 }
 /*
- * @-
  * A new plant is constructed. The properties of the factory
  * should be known upon compile time. They are retrieved from
  * the signature of the factory definition.
@@ -479,8 +245,10 @@ newPlant(MalBlkPtr mb)
 	for (p = plants; p < plim && p->factory; p++)
 		;
 	stk = newGlobalStack(mb->vsize);
-	if (lastPlant == MAXPLANTS || stk == NULL)
+	if (lastPlant == MAXPLANTS || stk == NULL){
+		if( stk) GDKfree(stk);
 		return 0;
+	}
 	if (p == plim)
 		lastPlant++;
 	p->factory = mb;
@@ -494,7 +262,6 @@ newPlant(MalBlkPtr mb)
 }
 
 /*
- * @-
  * Upon reaching the yield operator, the factory is
  * suspended until the next request arrives.
  * The information in the target list should be delivered
@@ -547,7 +314,6 @@ yieldFactory(MalBlkPtr mb, InstrPtr p, int pc)
 }
 
 /*
- * @-
  * A return from a factory body implies removal of
  * all state information.
  * This code should also prepare for handling factories
@@ -615,16 +381,3 @@ shutdownFactoryByName(Client cntxt, Module m, str nme){
 		}
 	return MAL_SUCCEED;
 }
-str
-finishFactory(Client cntxt, MalBlkPtr mb, InstrPtr pp, int pc)
-{
-	(void) pp;
-	(void) pc;
-	return shutdownFactory(cntxt, mb);
-}
-
-/*
- * @- Enquiry operations.
- * All access to the plant administration is organized here.
- */
-

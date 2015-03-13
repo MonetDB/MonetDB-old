@@ -20,7 +20,6 @@
 #ifndef _OPT_JOINPATH_
 #define _OPT_JOINPATH_
 
-#include "monetdb_config.h"
 #include "mal_client.h"
 #include "mal_interpreter.h"
 

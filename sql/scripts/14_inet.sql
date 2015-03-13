@@ -11,7 +11,8 @@
 -- The Original Code is the MonetDB Database System.
 --
 -- The Initial Developer of the Original Code is CWI.
--- Copyright August 2008-2013 MonetDB B.V.
+-- Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+-- Copyright August 2008-2015 MonetDB B.V.
 -- All Rights Reserved.
 
 CREATE TYPE inet EXTERNAL NAME inet;
@@ -34,3 +35,13 @@ CREATE FUNCTION "text" (p inet) RETURNS clob
 	EXTERNAL NAME inet."text";
 CREATE FUNCTION "abbrev" (p inet) RETURNS clob
 	EXTERNAL NAME inet."abbrev";
+
+CREATE FUNCTION "left_shift"(i1 inet, i2 inet) RETURNS boolean
+	EXTERNAL NAME inet."<<";
+CREATE FUNCTION "right_shift"(i1 inet, i2 inet) RETURNS boolean
+	EXTERNAL NAME inet.">>";
+
+CREATE FUNCTION "left_shift_assign"(i1 inet, i2 inet) RETURNS boolean
+	EXTERNAL NAME inet."<<=";
+CREATE FUNCTION "right_shift_assign"(i1 inet, i2 inet) RETURNS boolean
+	EXTERNAL NAME inet.">>=";

@@ -56,7 +56,10 @@
 #define MAX_TKNZR_DEPTH 256
 #define INDEX MAX_TKNZR_DEPTH
 static int tokenDepth = 0;
-static BAT *tokenBAT[MAX_TKNZR_DEPTH + 1];
+struct {
+	BAT *idx, *val; 
+} tokenBAT[MAX_TKNZR_DEPTH + 1];
+
 static BAT *TRANS = NULL;   /* the catalog of tokenizers */
 static char name[128];
 
@@ -70,16 +73,17 @@ static char name[128];
 #define GET_d(x) ((sht) ((x) & 255))
 #define GET_h(x) ((x) >> 8)
 
-static int prvlocate(BAT* b, oid *prv, str part)
+static int prvlocate(BAT* b, BAT* bidx, oid *prv, str part)
 {
-	BAT *m = BATmirror(b);
-	BATiter mi = bat_iterator(m);
+	BATiter bi = bat_iterator(b);
+	BATiter biidx = bat_iterator(bidx);
+
 	BUN p;
-	if (m->H->hash == NULL)
-		BAThash(m, 2 * BATcount(m));
-	HASHloop_str(mi, m->H->hash, p, part)
+	if (b->T->hash == NULL)
+		BAThash(b, 2 * BATcount(b));
+	HASHloop_str(bi, b->T->hash, p, part)
 	{
-		if (*((oid *) BUNtail(mi, p)) == *prv) {
+		if (*((oid *) BUNtail(biidx, p)) == *prv) {
 			*prv = (oid) p;
 			return TRUE;
 		}
@@ -88,9 +92,10 @@ static int prvlocate(BAT* b, oid *prv, str part)
 }
 
 str
-TKNZRopen(int *ret, str *in)
+TKNZRopen(void *ret, str *in)
 {
-	int depth, r;
+	int depth;
+	bat r;
 	bat idx;
 	str batname = NULL;
 	BAT *b;
@@ -107,11 +112,12 @@ TKNZRopen(int *ret, str *in)
 	}
 
 	for (depth = 0; depth < MAX_TKNZR_DEPTH; depth++) {
-		tokenBAT[depth] = 0;
+		tokenBAT[depth].idx = 0;
+		tokenBAT[depth].val = 0;
 	}
 	tokenDepth = 0;
 
-	TRANS = BATnew(TYPE_void, TYPE_str, MAX_TKNZR_DEPTH + 1);
+	TRANS = BATnew(TYPE_void, TYPE_str, MAX_TKNZR_DEPTH + 1, TRANSIENT);
 	if (TRANS == NULL) {
 		MT_lock_unset(&mal_contextLock, "tokenizer");
 		throw(MAL, "tokenizer.open", MAL_MALLOC_FAIL);
@@ -122,23 +128,27 @@ TKNZRopen(int *ret, str *in)
 
 	snprintf(name, 128, "%s", *in);
 	batname = (str) GDKmalloc(134 * sizeof(char));
+	if( batname == NULL)
+		throw(MAL, "tokenizer.open", MAL_MALLOC_FAIL);
+	
 	snprintf(batname, 134, "%s_index", name);
 	idx = BBPindex(batname);
 
 	if (idx == 0) { /* new tokenizer */
-		b = BATnew(TYPE_void, TYPE_oid, 1024);
+		b = BATnew(TYPE_void, TYPE_oid, 1024, PERSISTENT);
 		if (b == NULL)
 			throw(MAL, "tokenizer.open", MAL_MALLOC_FAIL);
 		BATkey(b, FALSE);
 		BATseqbase(b, 0);
-		tokenBAT[INDEX] = b;
-		if (BKCsetName(&r, (int *) &(b->batCacheid), (str *) &batname) != MAL_SUCCEED)
+		tokenBAT[INDEX].val = b;
+		if (BKCsetName(&r, &b->batCacheid, (const char*const*) &batname) != MAL_SUCCEED)
 			throw(MAL, "tokenizer.open", OPERATION_FAILED);
-		if (BKCsetPersistent(&r, (int *) &(b->batCacheid)) != MAL_SUCCEED)
+		if (BKCsetPersistent(&r, &b->batCacheid) != MAL_SUCCEED)
 			throw(MAL, "tokenizer.open", OPERATION_FAILED);
 		BUNappend(TRANS, batname, FALSE);
 	} else { /* existing tokenizer */
-		tokenBAT[INDEX] = BATdescriptor(idx);
+		tokenBAT[INDEX].val = BATdescriptor(idx);
+
 		BUNappend(TRANS, batname, FALSE);
 
 		for (depth = 0; depth < MAX_TKNZR_DEPTH; depth++) {
@@ -146,8 +156,17 @@ TKNZRopen(int *ret, str *in)
 			idx = BBPindex(batname);
 			if (idx == 0)
 				break;
-			tokenBAT[depth] = BATdescriptor(idx);
+			tokenBAT[depth].val = BATdescriptor(idx);
 			BUNappend(TRANS, batname, FALSE);
+
+			/* For idx BATs */
+			snprintf(batname, 132, "%s_idx_%d", name, depth);
+			idx = BBPindex(batname); 
+			if (idx == 0)
+                        	break;
+			tokenBAT[depth].idx = BATdescriptor(idx);
+			BUNappend(TRANS, batname, FALSE);
+
 		}
 		tokenDepth = depth;
 	}
@@ -157,7 +176,7 @@ TKNZRopen(int *ret, str *in)
 }
 
 str
-TKNZRclose(int *r)
+TKNZRclose(void *r)
 {
 	int i;
 	(void) r;
@@ -168,10 +187,10 @@ TKNZRclose(int *r)
 	TMsubcommit(TRANS);
 
 	for (i = 0; i < tokenDepth; i++) {
-		BBPunfix(tokenBAT[i]->batCacheid);
+		BBPunfix(tokenBAT[i].idx->batCacheid);
+		BBPunfix(tokenBAT[i].val->batCacheid);
 	}
-	BBPunfix(tokenBAT[INDEX]->batCacheid);
-
+	BBPunfix(tokenBAT[INDEX].val->batCacheid);
 	tokenDepth = 0;
 
 	BBPreclaim(TRANS);
@@ -213,8 +232,11 @@ TKNZRappend(oid *pos, str *s)
 	str url;
 	str batname;
 	str parts[MAX_TKNZR_DEPTH];
-	int i, new, r, depth;
-	BAT *b;
+	str msg;
+	int i, new, depth;
+	bat r;
+	BAT *bVal;
+	BAT *bIdx; 
 	BUN p;
 	BUN idx = 0;
 	oid prv = 0;
@@ -224,8 +246,7 @@ TKNZRappend(oid *pos, str *s)
 		throw(MAL, "tokenizer", "no tokenizer store open");
 
 	if ((url = GDKstrdup(*s)) == NULL) {
-		throw(MAL, "tokenizer.append",
-				OPERATION_FAILED "could not allocate memory");
+		throw(MAL, "tokenizer.append", OPERATION_FAILED MAL_MALLOC_FAIL);
 	}
 
 	depth = TKNZRtokenize(url, parts, '/');
@@ -240,44 +261,74 @@ TKNZRappend(oid *pos, str *s)
 		throw(MAL, "tokenizer",
 				ILLEGAL_ARGUMENT "input string breaks to too many parts");
 	}
-	if (depth > tokenDepth || tokenBAT[0] == NULL) {
+	if (depth > tokenDepth || tokenBAT[0].val == NULL) {
 		new = tokenDepth;
 		for (i = tokenDepth; i < depth; i++) {
-			/* make new bat */
-			batname = (str) GDKmalloc(128 * sizeof(char));
+			/* make new bat for value */
+			batname = (str) GDKmalloc(132 * sizeof(char));
 			snprintf(batname, 128, "%s_%d", name, i);
-			b = BATnew(TYPE_oid, TYPE_str, 1024);
-			if (b == NULL) {
+			bVal = BATnew(TYPE_void, TYPE_str, 1024, PERSISTENT);
+			if (bVal == NULL) {
 				GDKfree(batname);
 				GDKfree(url);
 				throw(MAL, "tokenizer.append", MAL_MALLOC_FAIL);
 			}
-			BATkey(b, FALSE);
-			tokenBAT[i] = b;
+			BATkey(bVal, FALSE);
+			BATseqbase(bVal, 0);
+			
+			tokenBAT[i].val = bVal;
 
-			if (BKCsetName(&r, (int *) &(b->batCacheid), (str *) &batname)
+			if (BKCsetName(&r, &bVal->batCacheid, (const char*const*) &batname)
 				!= MAL_SUCCEED) {
 				GDKfree(batname);
 				GDKfree(url);
 				throw(MAL, "tokenizer.open", OPERATION_FAILED);
 			}
-			if (BKCsetPersistent(&r, (int *) &(b->batCacheid))
+			if (BKCsetPersistent(&r, &bVal->batCacheid)
 				!= MAL_SUCCEED) {
 				GDKfree(batname);
 				GDKfree(url);
 				throw(MAL, "tokenizer.open", OPERATION_FAILED);
 			}
 			BUNappend(TRANS, batname, FALSE);
+
+			/* make new bat for index */
+			snprintf(batname, 132, "%s_idx_%d", name, i);
+			bIdx = BATnew(TYPE_void, TYPE_oid, 1024, PERSISTENT);
+			if (bIdx == NULL) {
+				GDKfree(batname);
+				GDKfree(url);
+				throw(MAL, "tokenizer.append", MAL_MALLOC_FAIL);
+			}
+			BATkey(bIdx, FALSE);
+			BATseqbase(bIdx, 0);
+			
+			tokenBAT[i].idx = bIdx;
+
+			if ((msg = BKCsetName(&r, &bIdx->batCacheid, (const char*const*) &batname)) != MAL_SUCCEED) {
+				GDKfree(batname);
+				GDKfree(url);
+				return msg;
+			}
+			if ( (msg=BKCsetPersistent(&r, &bIdx->batCacheid)) != MAL_SUCCEED) {
+				GDKfree(batname);
+				GDKfree(url);
+				return msg;
+			}
+			BUNappend(TRANS, batname, FALSE);
+
+
 			GDKfree(batname);
 		}
 		tokenDepth = depth;
 	}
+
 	/* findcommn */
-	p = BUNfnd(BATmirror(tokenBAT[0]), parts[0]);
+	p = BUNfnd(tokenBAT[0].val, parts[0]);
 	if (p != BUN_NONE) {
 		prv = (oid) p;
 		for (i = 1; i < new; i++) {
-			if (!prvlocate(tokenBAT[i], &prv, parts[i]))
+			if (!prvlocate(tokenBAT[i].val, tokenBAT[i].idx, &prv, parts[i]))
 				break;
 		}
 	} else {
@@ -286,9 +337,10 @@ TKNZRappend(oid *pos, str *s)
 
 	if (i == depth) {
 		comp = COMP(prv, depth);
-		*pos = BUNfnd(BATmirror(tokenBAT[INDEX]), (ptr) & comp);
+		*pos = BUNfnd(tokenBAT[INDEX].val, (ptr) & comp);
 		if (*pos != BUN_NONE) {
 			/* the string is already there */
+			/* printf("The string %s is already there",url); */
 			GDKfree(url);
 			return MAL_SUCCEED;
 		}
@@ -296,42 +348,48 @@ TKNZRappend(oid *pos, str *s)
 
 	/* insremainder */
 	for (; i < depth; i++) {
-		idx = BATcount(tokenBAT[i]);
+		idx = BATcount(tokenBAT[i].val);
 		if (idx > MAX_h) {
 			GDKfree(url);
 			throw(MAL, "tokenizer.append",
 					OPERATION_FAILED " no more free oid's");
 		}
-		tokenBAT[i] = BUNins(tokenBAT[i], (ptr) & prv, parts[i], FALSE);
-		if (tokenBAT[i] == NULL) {
+		if (BUNappend(tokenBAT[i].val, parts[i], TRUE) == GDK_FAIL) {
 			GDKfree(url);
 			throw(MAL, "tokenizer.append",
 					OPERATION_FAILED " could not append");
 		}
-		if (tokenBAT[i]->T->hash == NULL ||
-			BATcount(tokenBAT[i]) > 4 * tokenBAT[i]->T->hash->mask) {
-			HASHdestroy(tokenBAT[i]);
-			BAThash(BATmirror(tokenBAT[i]), 2 * BATcount(tokenBAT[i]));
+		if (tokenBAT[i].val->T->hash == NULL ||
+			BATcount(tokenBAT[i].val) > 4 * tokenBAT[i].val->T->hash->mask) {
+			HASHdestroy(tokenBAT[i].val);
+			BAThash(tokenBAT[i].val, 2 * BATcount(tokenBAT[i].val));
 		}
+
+		if (BUNappend(tokenBAT[i].idx, (ptr) & prv, TRUE) == GDK_FAIL) {
+			GDKfree(url);
+			throw(MAL, "tokenizer.append",
+					OPERATION_FAILED " could not append");
+		}
+
 		prv = (oid) idx;
 	}
 
-	*pos = (oid) BATcount(tokenBAT[INDEX]);
+	*pos = (oid) BATcount(tokenBAT[INDEX].val);
 	comp = COMP(prv, depth);
-	BUNappend(tokenBAT[INDEX], (ptr) & comp, TRUE);
-	if (tokenBAT[INDEX]->T->hash == NULL ||
-		BATcount(tokenBAT[INDEX]) > 4 * tokenBAT[INDEX]->T->hash->mask) {
-		HASHdestroy(tokenBAT[INDEX]);
-		BAThash(BATmirror(tokenBAT[INDEX]), 2 * BATcount(tokenBAT[INDEX]));
+	BUNappend(tokenBAT[INDEX].val, (ptr) & comp, TRUE);
+	if (tokenBAT[INDEX].val->T->hash == NULL ||
+		BATcount(tokenBAT[INDEX].val) > 4 * tokenBAT[INDEX].val->T->hash->mask) {
+		HASHdestroy(tokenBAT[INDEX].val);
+		BAThash(tokenBAT[INDEX].val, 2 * BATcount(tokenBAT[INDEX].val));
 	}
 
 	GDKfree(url);
 	return MAL_SUCCEED;
 }
 
-#define SIZE 1 * 1024 * 1024
+#define SIZE (1 * 1024 * 1024)
 str
-TKNZRdepositFile(int *r, str *fnme)
+TKNZRdepositFile(void *r, str *fnme)
 {
 	stream *fs;
 	bstream *bs;
@@ -339,6 +397,7 @@ TKNZRdepositFile(int *r, str *fnme)
 	int len = 0;
 	char buf[PATHLENGTH];
 	oid pos;
+	str msg= MAL_SUCCEED;
 
 	if (TRANS == NULL)
 		throw(MAL, "tokenizer", "no tokenizer store open");
@@ -377,7 +436,13 @@ TKNZRdepositFile(int *r, str *fnme)
 			}
 			/* found a string to be processed */
 			*t = 0;
-			TKNZRappend(&pos, &s);
+			msg = TKNZRappend(&pos, &s);
+			if (msg ) {
+				bstream_destroy(bs);
+				mnstr_close(fs);
+				mnstr_destroy(fs);
+				return msg;
+			}
 			*t = '\n';
 			s = t + 1;
 			t = s;
@@ -407,11 +472,11 @@ TKNZRlocate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(MAL, "tokenizer", "no tokenizer store open");
 
 	url = (str) GDKmalloc(sizeof(char) *
-			(strlen(*(str *) getArgReference(stk, pci, 1)) + 1));
+			(strlen(*getArgReference_str(stk, pci, 1)) + 1));
 	if (url == NULL) {
-		throw(MAL, "tokenizer.locate", OPERATION_FAILED "memory allocation");
+		throw(MAL, "tokenizer.locate", MAL_MALLOC_FAIL);
 	}
-	strcpy(url, *(str *) getArgReference(stk, pci, 1));
+	strcpy(url, *getArgReference_str(stk, pci, 1));
 
 
 	depth = TKNZRtokenize(url, parts, '/');
@@ -425,25 +490,25 @@ TKNZRlocate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	} else if (depth > tokenDepth) {
 		pos = oid_nil;
 	} else {
-		p = BUNfnd(BATmirror(tokenBAT[0]), parts[0]);
+		p = BUNfnd(tokenBAT[0].val, parts[0]);
 		if (p != BUN_NONE) {
 			prv = (oid) p;
 			for (i = 1; i < depth; i++) {
-				if (!prvlocate(tokenBAT[i], (ptr) & prv, parts[i]))
+				if (!prvlocate(tokenBAT[i].val, tokenBAT[i].idx, (ptr) & prv, parts[i]))
 					break;
 			}
 			if (i < depth) {
 				pos = oid_nil;
 			} else {
 				comp = COMP(prv, i);
-				pos = BUNfnd(BATmirror(tokenBAT[INDEX]), (ptr) & comp);
+				pos = BUNfnd(tokenBAT[INDEX].val, (ptr) & comp);
 			}
 		} else {
 			pos = oid_nil;
 		}
 	}
 
-	VALset(getArgReference(stk, pci, 0), TYPE_oid, &pos);
+	VALset(&stk->stk[pci->argv[0]], TYPE_oid, &pos);
 	GDKfree(url);
 	return MAL_SUCCEED;
 }
@@ -455,24 +520,28 @@ takeOid(oid id, str *val)
 	str parts[MAX_TKNZR_DEPTH];
 	size_t lngth = 0;
 	str s;
+	BATiter biidx; /* Iterator for index bat */
 
-	if (id >= BATcount(tokenBAT[INDEX])) {
+	if (id >= BATcount(tokenBAT[INDEX].val)) {
 		throw(MAL, "tokenizer.takeOid", OPERATION_FAILED " illegal oid");
 	}
 
-	id = *(oid *) Tloc(tokenBAT[INDEX], id);
+	id = *(oid *) Tloc(tokenBAT[INDEX].val, id);
 
 	depth = GET_d(id);
 	id = GET_h(id);
 
 	for (i = depth - 1; i >= 0; i--) {
-		BATiter bi = bat_iterator(tokenBAT[i]);
+		BATiter bi = bat_iterator(tokenBAT[i].val);
+		biidx = bat_iterator(tokenBAT[i].idx);
 		parts[i] = (str) BUNtail(bi, id);
-		id = *(oid *) BUNhead(bi, id);
+		id = *(oid *) BUNtail(biidx, id);
 		lngth += strlen(parts[i]);
 	}
 
 	*val = (str) GDKmalloc(lngth+depth+1);
+	if( *val == NULL)
+		throw(MAL, "tokenizer.takeOid", MAL_MALLOC_FAIL);
 	s = *val;
 
 	for (i = 0; i < depth; i++) {
@@ -496,38 +565,41 @@ TKNZRtakeOid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (TRANS == NULL) {
 		throw(MAL, "tokenizer", "no tokenizer store open");
 	}
-	id = *(oid *) getArgReference(stk, pci, 1);
+	id = *getArgReference_oid(stk, pci, 1);
 	ret = takeOid(id, &val);
 	if (ret == MAL_SUCCEED) {
-		VALset(getArgReference(stk, pci, 0), TYPE_str, val);
+		VALset(&stk->stk[pci->argv[0]], TYPE_str, val);
 	}
 	return ret;
 }
 
 str
-TKNZRgetIndex(int *r)
+TKNZRgetIndex(bat *r)
 {
 	if (TRANS == NULL)
 		throw(MAL, "tokenizer", "no tokenizer store open");
-	*r = tokenBAT[INDEX]->batCacheid;
+	*r = tokenBAT[INDEX].val->batCacheid;
 	BBPincref(*r, TRUE);
 	return MAL_SUCCEED;
 }
 
 str
-TKNZRgetLevel(int *r, int *level)
+TKNZRgetLevel(bat *r, int *level)
 {
+	BAT* view;
 	if (TRANS == NULL)
 		throw(MAL, "tokenizer", "no tokenizer store open");
 	if (*level < 0 || *level >= tokenDepth)
 		throw(MAL, "tokenizer.getLevel", OPERATION_FAILED " illegal level");
-	*r = tokenBAT[*level]->batCacheid;
+	view = VIEWcreate(BATmirror(tokenBAT[*level].idx),tokenBAT[*level].val);
+	*r = view->batCacheid;
+
 	BBPincref(*r, TRUE);
 	return MAL_SUCCEED;
 }
 
 str
-TKNZRgetCount(int *r)
+TKNZRgetCount(bat *r)
 {
 	BAT *b;
 	int i;
@@ -535,12 +607,12 @@ TKNZRgetCount(int *r)
 
 	if (TRANS == NULL)
 		throw(MAL, "tokenizer", "no tokenizer store open");
-	b = BATnew(TYPE_void, TYPE_wrd, tokenDepth + 1);
+	b = BATnew(TYPE_void, TYPE_wrd, tokenDepth + 1, TRANSIENT);
 	if (b == NULL)
 		throw(MAL, "tokenizer.getCount", MAL_MALLOC_FAIL);
 	BATseqbase(b, 0);
 	for (i = 0; i < tokenDepth; i++) {
-		cnt = (wrd) BATcount(tokenBAT[i]);
+		cnt = (wrd) BATcount(tokenBAT[i].val);
 		BUNappend(b, &cnt, FALSE);
 	}
 	b->hdense = TRUE;
@@ -552,22 +624,25 @@ TKNZRgetCount(int *r)
 }
 
 str
-TKNZRgetCardinality(int *r)
+TKNZRgetCardinality(bat *r)
 {
-	BAT *b, *bn;
+	BAT *b, *en;
 	int i;
 	wrd cnt;
 
 	if (TRANS == NULL)
 		throw(MAL, "tokenizer", "no tokenizer store open");
-	b = BATnew(TYPE_void, TYPE_wrd, tokenDepth + 1);
+	b = BATnew(TYPE_void, TYPE_wrd, tokenDepth + 1, TRANSIENT);
 	if (b == NULL)
 		throw(MAL, "tokenizer.getCardinality", MAL_MALLOC_FAIL);
 	BATseqbase(b, 0);
 	for (i = 0; i < tokenDepth; i++) {
-		bn = (BAT *) BATkunique(BATmirror(tokenBAT[i]));
-		cnt = (wrd) BATcount(bn);
-		BBPunfix(bn->batCacheid);
+		if ((en = BATsubunique(tokenBAT[i].val, NULL)) == NULL) {
+			BBPreclaim(b);
+			throw(MAL, "tokenizer.getCardinality", GDK_EXCEPTION);
+		}
+		cnt = (wrd) BATcount(en);
+		BBPunfix(en->batCacheid);
 		BUNappend(b, &cnt, FALSE);
 	}
 

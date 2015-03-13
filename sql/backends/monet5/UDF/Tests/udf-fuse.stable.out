@@ -11,7 +11,7 @@ stdout of test 'udf-fuse` in directory 'sql/backends/monet5/UDF` itself:
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 15.630 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
 # Listening for connection requests on mapi:monetdb://rome.ins.cwi.nl:31089/
 # MonetDB/GIS module loaded
@@ -27,15 +27,14 @@ Ready.
 % .explain # table_name
 % mal # name
 % clob # type
-% 72 # length
-function user.s0_1{autoCommit=true}(A0:bte,A1:bte):void;
+% 83 # length
+function user.s2_1{autoCommit=true}(A0:bte,A1:bte):void;
+    X_14:void  := querylog.define("explain select fuse(1,2);","sequential_pipe",5);
     X_4 := udf.fuse(A0,A1);
-    sql.exportValue(1,".","fuse_single_value","smallint",16,0,6,X_4,"");
-end s0_1;
-# optimizer.mitosis()
-# optimizer.dataflow()
+    sql.exportValue(1,".L","fuse_single_value","smallint",16,0,7,X_4,"");
+end user.s2_1;
 #select fuse(1,2);
-% . # table_name
+% .L # table_name
 % fuse_single_value # name
 % smallint # type
 % 3 # length
@@ -44,13 +43,14 @@ end s0_1;
 % .explain # table_name
 % mal # name
 % clob # type
-% 67 # length
-function user.s1_1{autoCommit=true}(A0:sht,A1:sht):void;
+% 89 # length
+function user.s3_1{autoCommit=true}(A0:sht,A1:sht):void;
+    X_14:void  := querylog.define("explain select fuse(1000,2000);","sequential_pipe",5);
     X_4 := udf.fuse(A0,A1);
-    sql.exportValue(1,".","fuse_single_value","int",32,0,6,X_4,"");
-end s1_1;
+    sql.exportValue(1,".L","fuse_single_value","int",32,0,7,X_4,"");
+end user.s3_1;
 #select fuse(1000,2000);
-% . # table_name
+% .L # table_name
 % fuse_single_value # name
 % int # type
 % 8 # length
@@ -59,13 +59,14 @@ end s1_1;
 % .explain # table_name
 % mal # name
 % clob # type
-% 73 # length
-function user.s2_1{autoCommit=true}(A0:int,A1:int):void;
+% 95 # length
+function user.s4_1{autoCommit=true}(A0:int,A1:int):void;
+    X_14:void  := querylog.define("explain select fuse(1000000,2000000);","sequential_pipe",5);
     X_4 := udf.fuse(A0,A1);
-    sql.exportValue(1,".","fuse_single_value","bigint",64,0,6,X_4,"");
-end s2_1;
+    sql.exportValue(1,".L","fuse_single_value","bigint",64,0,7,X_4,"");
+end user.s4_1;
 #select fuse(1000000,2000000);
-% . # table_name
+% .L # table_name
 % fuse_single_value # name
 % bigint # type
 % 16 # length
@@ -92,76 +93,79 @@ end s2_1;
 % .explain # table_name
 % mal # name
 % clob # type
-% 75 # length
-function user.s5_1{autoCommit=true}():void;
+% 98 # length
+function user.s8_1{autoCommit=true}():void;
+    X_32:void  := querylog.define("explain select fuse(a,b) from udf_fuse;","sequential_pipe",20);
     X_2 := sql.mvc();
     X_3:bat[:oid,:oid]  := sql.tid(X_2,"sys","udf_fuse");
-    X_6 := sql.bind(X_2,"sys","udf_fuse","a",0);
+    X_6:bat[:oid,:bte]  := sql.bind(X_2,"sys","udf_fuse","a",0);
     (X_9,r1_9) := sql.bind(X_2,"sys","udf_fuse","a",2);
-    X_12 := sql.bind(X_2,"sys","udf_fuse","a",1);
+    X_12:bat[:oid,:bte]  := sql.bind(X_2,"sys","udf_fuse","a",1);
     X_14 := sql.delta(X_6,X_9,r1_9,X_12);
     X_15 := algebra.leftfetchjoin(X_3,X_14);
-    X_16 := sql.bind(X_2,"sys","udf_fuse","b",0);
-    (X_18,r1_20) := sql.bind(X_2,"sys","udf_fuse","b",2);
-    X_20 := sql.bind(X_2,"sys","udf_fuse","b",1);
-    X_21 := sql.delta(X_16,X_18,r1_20,X_20);
+    X_16:bat[:oid,:bte]  := sql.bind(X_2,"sys","udf_fuse","b",0);
+    (X_18,r1_18) := sql.bind(X_2,"sys","udf_fuse","b",2);
+    X_20:bat[:oid,:bte]  := sql.bind(X_2,"sys","udf_fuse","b",1);
+    X_21 := sql.delta(X_16,X_18,r1_18,X_20);
     X_22 := algebra.leftfetchjoin(X_3,X_21);
     X_23:bat[:oid,:sht]  := batudf.fuse(X_15,X_22);
-    X_25 := sql.resultSet(1,1,X_23);
-    sql.rsColumn(X_25,"sys.","fuse_a","smallint",16,0,X_23);
+    X_24 := sql.resultSet(1,1,X_23);
+    sql.rsColumn(X_24,"sys.L","fuse_a","smallint",16,0,X_23);
     X_30 := io.stdout();
-    sql.exportResult(X_30,X_25);
-end s5_1;
+    sql.exportResult(X_30,X_24);
+end user.s8_1;
 #explain select fuse(c,d) from udf_fuse;
 % .explain # table_name
 % mal # name
 % clob # type
-% 75 # length
-function user.s6_1{autoCommit=true}():void;
+% 98 # length
+function user.s9_1{autoCommit=true}():void;
+    X_32:void  := querylog.define("explain select fuse(c,d) from udf_fuse;","sequential_pipe",20);
     X_2 := sql.mvc();
     X_3:bat[:oid,:oid]  := sql.tid(X_2,"sys","udf_fuse");
-    X_6 := sql.bind(X_2,"sys","udf_fuse","c",0);
+    X_6:bat[:oid,:sht]  := sql.bind(X_2,"sys","udf_fuse","c",0);
     (X_9,r1_9) := sql.bind(X_2,"sys","udf_fuse","c",2);
-    X_12 := sql.bind(X_2,"sys","udf_fuse","c",1);
+    X_12:bat[:oid,:sht]  := sql.bind(X_2,"sys","udf_fuse","c",1);
     X_14 := sql.delta(X_6,X_9,r1_9,X_12);
     X_15 := algebra.leftfetchjoin(X_3,X_14);
-    X_16 := sql.bind(X_2,"sys","udf_fuse","d",0);
-    (X_18,r1_20) := sql.bind(X_2,"sys","udf_fuse","d",2);
-    X_20 := sql.bind(X_2,"sys","udf_fuse","d",1);
-    X_21 := sql.delta(X_16,X_18,r1_20,X_20);
+    X_16:bat[:oid,:sht]  := sql.bind(X_2,"sys","udf_fuse","d",0);
+    (X_18,r1_18) := sql.bind(X_2,"sys","udf_fuse","d",2);
+    X_20:bat[:oid,:sht]  := sql.bind(X_2,"sys","udf_fuse","d",1);
+    X_21 := sql.delta(X_16,X_18,r1_18,X_20);
     X_22 := algebra.leftfetchjoin(X_3,X_21);
     X_23:bat[:oid,:int]  := batudf.fuse(X_15,X_22);
-    X_25 := sql.resultSet(1,1,X_23);
-    sql.rsColumn(X_25,"sys.","fuse_c","int",32,0,X_23);
+    X_24 := sql.resultSet(1,1,X_23);
+    sql.rsColumn(X_24,"sys.L","fuse_c","int",32,0,X_23);
     X_30 := io.stdout();
-    sql.exportResult(X_30,X_25);
-end s6_1;
+    sql.exportResult(X_30,X_24);
+end user.s9_1;
 #explain select fuse(e,f) from udf_fuse;
 % .explain # table_name
 % mal # name
 % clob # type
-% 75 # length
-function user.s7_1{autoCommit=true}():void;
+% 98 # length
+function user.s10_1{autoCommit=true}():void;
+    X_32:void  := querylog.define("explain select fuse(e,f) from udf_fuse;","sequential_pipe",20);
     X_2 := sql.mvc();
     X_3:bat[:oid,:oid]  := sql.tid(X_2,"sys","udf_fuse");
-    X_6 := sql.bind(X_2,"sys","udf_fuse","e",0);
+    X_6:bat[:oid,:int]  := sql.bind(X_2,"sys","udf_fuse","e",0);
     (X_9,r1_9) := sql.bind(X_2,"sys","udf_fuse","e",2);
-    X_12 := sql.bind(X_2,"sys","udf_fuse","e",1);
+    X_12:bat[:oid,:int]  := sql.bind(X_2,"sys","udf_fuse","e",1);
     X_14 := sql.delta(X_6,X_9,r1_9,X_12);
     X_15 := algebra.leftfetchjoin(X_3,X_14);
-    X_16 := sql.bind(X_2,"sys","udf_fuse","f",0);
-    (X_18,r1_20) := sql.bind(X_2,"sys","udf_fuse","f",2);
-    X_20 := sql.bind(X_2,"sys","udf_fuse","f",1);
-    X_21 := sql.delta(X_16,X_18,r1_20,X_20);
+    X_16:bat[:oid,:int]  := sql.bind(X_2,"sys","udf_fuse","f",0);
+    (X_18,r1_18) := sql.bind(X_2,"sys","udf_fuse","f",2);
+    X_20:bat[:oid,:int]  := sql.bind(X_2,"sys","udf_fuse","f",1);
+    X_21 := sql.delta(X_16,X_18,r1_18,X_20);
     X_22 := algebra.leftfetchjoin(X_3,X_21);
     X_23:bat[:oid,:lng]  := batudf.fuse(X_15,X_22);
-    X_25 := sql.resultSet(1,1,X_23);
-    sql.rsColumn(X_25,"sys.","fuse_e","bigint",64,0,X_23);
+    X_24 := sql.resultSet(1,1,X_23);
+    sql.rsColumn(X_24,"sys.L","fuse_e","bigint",64,0,X_23);
     X_30 := io.stdout();
-    sql.exportResult(X_30,X_25);
-end s7_1;
+    sql.exportResult(X_30,X_24);
+end user.s10_1;
 #select fuse(a,b) from udf_fuse;
-% sys. # table_name
+% sys.L # table_name
 % fuse_a # name
 % smallint # type
 % 4 # length
@@ -170,7 +174,7 @@ end s7_1;
 [ 1286	]
 [ 1800	]
 #select fuse(c,d) from udf_fuse;
-% sys. # table_name
+% sys.L # table_name
 % fuse_c # name
 % int # type
 % 9 # length
@@ -179,7 +183,7 @@ end s7_1;
 [ 327686000	]
 [ 458760000	]
 #select fuse(e,f) from udf_fuse;
-% sys. # table_name
+% sys.L # table_name
 % fuse_e # name
 % bigint # type
 % 17 # length

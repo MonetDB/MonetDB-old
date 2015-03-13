@@ -18,7 +18,7 @@
  */
 
 /*
- * M. Kersten
+ * (author) M. Kersten
 */
 
 #include "monetdb_config.h"
@@ -281,7 +281,6 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 	int i, tab = 4;
 	str base, s, t;
 	size_t len=  (mb->stop < 1000? 1000: mb->stop) * 128 /* max realistic line length estimate */;
-	int low, high;
 	char nmebuf[PATHLENGTH];
 	str pstring = NULL;
 	str cv = NULL;
@@ -362,13 +361,13 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 			if (flg & LIST_MAL_STMT) {
 				snprintf(t,(len-(t-base)),"%s%s", (*getArgName(mb,p,i) == TMPMARKER?"X":""), getArgName(mb, p, i));
 				advance(t,base,len);
-				if ( flg & LIST_MAL_TYPE ){
+				if ( flg & LIST_MAL_TYPE  || flg == LIST_MAL_CALL){
 					str tpe = getTypeName(getVarType(mb, getArg(p, i)));
 					snprintf(t,(len-(t-base)), ":%s ", tpe);
 					GDKfree(tpe);
 					advance(t,base,len);
 				} else
-					if ( flg & (LIST_MAL_UDF | LIST_MAL_STMT | LIST_MAL_VALUE)  && i < p->retc) {
+				if ( flg & (LIST_MAL_UDF | LIST_MAL_STMT | LIST_MAL_VALUE)  ) {
 					if ( isVarUDFtype(mb, getArg(p, i))) {
 						str tpe = getTypeName(getVarType(mb, getArg(p, i)));
 						snprintf(t,(len-(t-base)), ":%s ", tpe);
@@ -392,11 +391,15 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 				VALformat(&cv, &stk->stk[getArg(p, i)]);
 				if ( cv && strlen(cv) > len - (t - s)) {
 					char *ns = (char *) GDKmalloc(len = strlen(cv) + len + 5);
-					*t = 0;
-					strcpy(ns, s);
-					t = ns + (t - s);
-					GDKfree(s);
-					s = ns;
+					if ( ns == NULL){
+						GDKerror(MAL_MALLOC_FAIL);
+					} else {
+						*t = 0;
+						strcpy(ns, s);
+						t = ns + (t - s);
+						GDKfree(s);
+						s = ns;
+					}
 				}
 				if ( cv && strcmp(cv,"nil") ){
 					strcat(t, "=");
@@ -404,8 +407,8 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 					advance(t,base,len);
 					if (cv)
 						GDKfree(cv);
-					if ( ABS(stk->stk[getArg(p,i)].val.ival) ){
-						d= BBPquickdesc(ABS(stk->stk[getArg(p,i)].val.ival),TRUE);
+					if ( abs(stk->stk[getArg(p,i)].val.ival) ){
+						d= BBPquickdesc(abs(stk->stk[getArg(p,i)].val.ival),TRUE);
 						if( d){
 							snprintf(t,(len-(t-base)),"[" BUNFMT "]", BATcount(d));
 							advance(t,base,len);
@@ -429,7 +432,7 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 		*t = 0;
 		break;
 	case ENDsymbol:
-		snprintf(t,(len-(t-base)), "end %s", getFunctionId(getInstrPtr(mb, 0)));
+		snprintf(t,(len-(t-base)), "end %s.%s", getModuleId(getInstrPtr(mb,0)), getFunctionId(getInstrPtr(mb, 0)));
 		advance(t,base,len);
 		break;
 	case COMMANDsymbol:
@@ -453,8 +456,6 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 		snprintf(t,  (len-(t-base))," unknown symbol ?%d? ", p->token);
 	}
 	advance(t,base,len);
-	low = p->retc;
-	high = p->argc;
 	if (getModuleId(p))
 		snprintf(t,  (len-(t-base)),"%s.", getModuleId(p));
 	advance(t,base,len);
@@ -464,57 +465,74 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 		snprintf(t, (len-(t-base)), "(");
 	advance(t,base,len);
 
-	for (i = low; i < high; i++) {
+	for (i = p->retc; i < p->argc; i++) {
 		advance(t,base,len);
-		if (i >low){
+		if (i > p->retc){
 			snprintf(t, (len-(t-base)), ",");
 			advance(t,base,len);
 		}
-		if (i + 1 == high && p->varargs & VARARGS) {
+		if (i + 1 == p->argc && p->varargs & VARARGS) {
 			snprintf(t, (len-(t-base)), "...");
 			advance(t,base,len);
 			break;
 		}
 		/* show the value if availabe */
-		if ( (isVarConstant(mb, getArg(p, i)) || stk) && !isVarTypedef(mb,getArg(p,i)) ){
+		if ( (isVarConstant(mb, getArg(p, i)) || stk) && !isVarTypedef(mb,getArg(p,i))  ){
 
 			if (stk && flg & LIST_MAL_VALUE){
 				if ( !isVarConstant(mb, getArg(p,i)) && flg & LIST_MAL_ARG)
 					snprintf(t,(len-(t-base)),"%s%s", (*getArgName(mb,p,i)== TMPMARKER?"X":""), getArgName(mb, p, i));
 				advance(t,base,len);
-				if( getTailType(getArgType(mb,p,i)) > TYPE_str )
+				if( getColumnType(getArgType(mb,p,i)) > TYPE_str )
 				{ 	char *ct;
 					VALformat(&cv, &stk->stk[getArg(p, i)]);
 					ct= (char*) GDKmalloc(1024+strlen(cv));
+					if ( ct == NULL){
+						GDKerror("instruction2str"MAL_MALLOC_FAIL);
+						break;
+					}
 					if (isVarUDFtype(mb, getArg(p, i)) ) {
 						if ( strcmp(cv,"nil") == 0)
 							snprintf(ct, 1024+strlen(cv), "=%s", cv);
 						else
 							snprintf(ct, 1024+strlen(cv), "=\"%s\"", cv);
-					} else
-					if ( strcmp(cv,"nil") == 0)
-						snprintf(ct, 1024+strlen(cv), "=%s:%s", cv, getTypeName(getTailType(getArgType(mb,p,i))));
-					else
-						snprintf(ct, 1024+strlen(cv), "=\"%s\":%s", cv, getTypeName(getTailType(getArgType(mb,p,i))));
+					} else {
+						char *tpe = getTypeName(getColumnType(getArgType(mb,p,i)));
+						if ( strcmp(cv,"nil") == 0)
+							snprintf(ct, 1024+strlen(cv), "=%s:%s", cv, tpe);
+						else
+							snprintf(ct, 1024+strlen(cv), "=\"%s\":%s", cv, tpe);
+						GDKfree(tpe);
+					}
 					if( cv) GDKfree(cv);
 					cv= ct;
 				} else
 					VALformat(&cv, &stk->stk[getArg(p, i)]);
 			} else {
-				if( getTailType(getArgType(mb,p,i)) > TYPE_str )
+				if ( p->recycle && flg & LIST_MAL_ARG)
+					snprintf(t,(len-(t-base)),"%s%s=", (*getArgName(mb,p,i)== TMPMARKER?"X":""), getArgName(mb, p, i));
+				advance(t,base,len);
+				if( getColumnType(getArgType(mb,p,i)) > TYPE_str )
 				{ char *ct=cv;
 					VALformat(&cv, &getVar(mb, getArg(p, i))->value);
 					ct= (char*) GDKmalloc(1024+strlen(cv));
+					if ( ct == NULL){
+						GDKerror("instruction2str"MAL_MALLOC_FAIL);
+						break;
+					}
 					if (isVarUDFtype(mb, getArg(p, i)) ) {
 						if ( strcmp(cv,"nil") == 0)
 							snprintf(ct, 1024+strlen(cv), "%s", cv);
 						else
 							snprintf(ct, 1024+strlen(cv), "\"%s\"", cv);
-					} else
-					if ( strcmp(cv,"nil") == 0)
-						snprintf(ct, 1024+strlen(cv), "%s:%s", cv, getTypeName(getTailType(getArgType(mb,p,i))));
-					else
-						snprintf(ct, 1024+strlen(cv), "\"%s\":%s", cv, getTypeName(getTailType(getArgType(mb,p,i))));
+					} else {
+						char *tpe = getTypeName(getColumnType(getArgType(mb,p,i)));
+						if ( strcmp(cv,"nil") == 0)
+							snprintf(ct, 1024+strlen(cv), "%s:%s", cv, tpe);
+						else
+							snprintf(ct, 1024+strlen(cv), "\"%s\":%s", cv, tpe);
+						GDKfree(tpe);
+					}
 					if( cv) GDKfree(cv);
 					cv= ct;
 				} else
@@ -522,6 +540,10 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 			}
 			if ( cv && strlen(cv) > len - (t - s)) {
 				char *ns = (char *) GDKmalloc(len = strlen(cv) + len + 5);
+				if ( ns == NULL){
+					GDKerror("instruction2str"MAL_MALLOC_FAIL);
+					return s;
+				}
 
 				*t = 0;
 				strcpy(ns, s);
@@ -536,8 +558,8 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 			}
 			
 			advance(t,base,len);
-			if ( (cv && strlen(cv)==0) || isVarUDFtype(mb, getArg(p, i)) ||
-				isAmbiguousType(getArgType(mb,p,i)) ){
+			if ( ( (cv && strlen(cv)==0) || isVarUDFtype(mb, getArg(p, i)) ||
+				isAmbiguousType(getArgType(mb,p,i)) ) && flg != LIST_MAL_CALL){
 				str tpe = getTypeName(getVarType(mb, getArg(p, i)));
 				snprintf(t,(len-(t-base)), ":%s", tpe);
 				GDKfree(tpe);
@@ -548,9 +570,9 @@ instruction2str(MalBlkPtr mb, MalStkPtr stk,  InstrPtr p, int flg)
 			if( flg & LIST_MAL_VALUE && isaBatType(getVarType(mb,getArg(p,i)) ) ){
 				BAT *d = 0;
 				if (stk && stk->stk[getArg(p,i)].vtype== TYPE_bat){
-					d= BBPquickdesc(ABS(stk->stk[getArg(p,i)].val.ival),TRUE);
+					d= BBPquickdesc(abs(stk->stk[getArg(p,i)].val.ival),TRUE);
 				} else
-					d= BBPquickdesc(ABS(getVarConstant(mb,getArg(p,i)).val.ival),TRUE);
+					d= BBPquickdesc(abs(getVarConstant(mb,getArg(p,i)).val.ival),TRUE);
 				if( d){
 					snprintf(t,(len-(t-base)),"[" BUNFMT "]", BATcount(d));
 					advance(t,base,len);
@@ -623,20 +645,33 @@ mal2str(MalBlkPtr mb, int flg, int first, int last)
 
 	txt = GDKmalloc(sizeof(str) * mb->stop);
 	len = GDKmalloc(sizeof(int) * mb->stop);
+
+	if( txt == NULL || len == NULL){
+		GDKerror("mal2str: " MAL_MALLOC_FAIL);
+		if( txt ) GDKfree(txt);
+		if( len ) GDKfree(len);
+		return NULL;
+	}
 	for (i = first; i < last; i++) {
 		txt[i] = instruction2str(mb, 0, getInstrPtr(mb, i), flg);
 		if ( txt[i])
 			totlen += len[i] = (int)strlen(txt[i]);
 	}
 	ps = GDKmalloc(totlen + mb->stop + 1);
+	if( ps == NULL)
+		GDKerror("mal2str: " MAL_MALLOC_FAIL);
+
 	totlen = 0;
-	for (i = first; i < last; i++) 
-	if( txt[i]){
-		strncpy(ps + totlen, txt[i], len[i]);
-		ps[totlen + len[i]] = '\n';
-		ps[totlen + len[i] + 1] = 0;
-		totlen += len[i] + 1;
-		GDKfree(txt[i]);
+	for (i = first; i < last; i++) {
+		if( txt[i]){
+			if( ps){
+				strncpy(ps + totlen, txt[i], len[i]);
+				ps[totlen + len[i]] = '\n';
+				ps[totlen + len[i] + 1] = 0;
+				totlen += len[i] + 1;
+			}
+			GDKfree(txt[i]);
+		}
 	}
 	GDKfree(len);
 	GDKfree(txt);
@@ -658,7 +693,7 @@ promptInstruction(stream *fd, MalBlkPtr mb, MalStkPtr stk, InstrPtr p, int flg)
 	ps = instruction2str(mb, stk, p, flg);
 	/* ps[strlen(ps)-1] = 0; remove '\n' */
 	if ( ps ){
-		mnstr_printf(fd, "%s%s", (flg & LIST_MAPI ? "=" : ""), ps);
+		mnstr_printf(fd, "%s%s", (flg & LIST_MAL_MAPI ? "=" : ""), ps);
 		GDKfree(ps);
 	}
 }
@@ -681,10 +716,12 @@ printSignature(stream *fd, Symbol s, int flg)
 		return;
 	}
 	txt = GDKzalloc(MAXLISTING); /* some slack for large blocks */
-	p = getSignature(s);
-	(void) fcnDefinition(s->def, p, txt, flg, txt, MAXLISTING);
-	mnstr_printf(fd, "%s\n", txt);
-	GDKfree(txt);
+	if( txt){
+		p = getSignature(s);
+		(void) fcnDefinition(s->def, p, txt, flg, txt, MAXLISTING);
+		mnstr_printf(fd, "%s\n", txt);
+		GDKfree(txt);
+	} else GDKerror("printSignature"MAL_MALLOC_FAIL);
 }
 
 /*

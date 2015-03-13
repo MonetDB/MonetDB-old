@@ -1,26 +1,43 @@
+# The contents of this file are subject to the MonetDB Public License
+# Version 1.1 (the "License"); you may not use this file except in
+# compliance with the License. You may obtain a copy of the License at
+# http://www.monetdb.org/Legal/MonetDBLicense
+#
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+# License for the specific language governing rights and limitations
+# under the License.
+#
+# The Original Code is the MonetDB Database System.
+#
+# The Initial Developer of the Original Code is CWI.
+# Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
+# Copyright August 2008-2015 MonetDB B.V.
+# All Rights Reserved.
+
 module sysmon;
 
-command pause(id:sht)
+pattern pause(id:sht)
 address SYSMONpause;
-command pause(id:int)
+pattern pause(id:int)
 address SYSMONpause;
-command pause(id:lng)
+pattern pause(id:lng)
 address SYSMONpause
 comment "Temporary suspend a single query";
 
-command resume(id:sht)
+pattern resume(id:sht)
 address SYSMONresume;
-command resume(id:int)
+pattern resume(id:int)
 address SYSMONresume;
-command resume(id:lng)
+pattern resume(id:lng)
 address SYSMONresume
 comment "Resume processing ";
 
-command stop(id:sht)
+pattern stop(id:sht)
 address SYSMONstop;
-command stop(id:int)
+pattern stop(id:int)
 address SYSMONstop;
-command stop(id:lng)
+pattern stop(id:lng)
 address SYSMONstop
 comment "Stop a single query a.s.a.p.";
 

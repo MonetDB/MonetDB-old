@@ -93,9 +93,8 @@
 #include "gdk_private.h"
 
 static int
-HASHwidth(BUN hashsize){
-	if (hashsize <= (BUN) BUN1_NONE)
-		return BUN1;
+HASHwidth(BUN hashsize)
+{
 	if (hashsize <= (BUN) BUN2_NONE)
 		return BUN2;
 #if SIZEOF_BUN <= 4
@@ -122,9 +121,13 @@ HASHmask(BUN cnt)
 static void
 HASHclear(Hash *h)
 {
-	BUN i, j, nil = (BUN) HASHnil(h);
-	for (i = 0, j = h->mask; i <= j; i++) 
-		(void) HASHput(h,i,nil);
+	/* since BUN2_NONE, BUN4_NONE, BUN8_NONE
+	 * are all equal to -1 (~0), i.e., have all bits set,
+	 * we can use a simple memset() to clear the Hash,
+	 * rather than iteratively assigning individual
+	 * BUNi_NONE values in a for-loop
+	 */
+	memset(h->Hash, 0xFF, (h->mask + 1) * h->width);
 }
 
 Hash *
@@ -143,9 +146,6 @@ HASHnew(Heap *hp, int tpe, BUN size, BUN mask)
 	h->mask = mask - 1;
 	h->width = width;
 	switch (width) {
-	case BUN1:
-		h->nil = (BUN) BUN1_NONE;
-		break;
 	case BUN2:
 		h->nil = (BUN) BUN2_NONE;
 		break;
@@ -165,52 +165,55 @@ HASHnew(Heap *hp, int tpe, BUN size, BUN mask)
 	h->type = tpe;
 	h->heap = hp;
 	HASHclear(h);		/* zero the mask */
-	ALGODEBUG fprintf(stderr, "#HASHnew: create hash(size " BUNFMT ", mask " BUNFMT ",width %d, nil "BUNFMT ", total "BUNFMT " bytes);\n", size, mask, width, h->nil, (size+mask) * width);
+	ALGODEBUG fprintf(stderr, "#HASHnew: create hash(size " BUNFMT ", mask " BUNFMT ",width %d, nil " BUNFMT ", total " BUNFMT " bytes);\n", size, mask, width, h->nil, (size + mask) * width);
 	return h;
 }
 
 #define starthash(TYPE)							\
 	do {								\
-		TYPE *v = (TYPE*)BUNhloc(bi, 0);			\
+		TYPE *v = (TYPE *) BUNtloc(bi, 0);			\
 		for (; r < p; r++) {					\
-			BUN c = (BUN) hash_##TYPE(h, v+r);			\
+			BUN c = (BUN) hash_##TYPE(h, v+r);		\
 									\
-			if ( HASHget(h,c) == HASHnil(h) && nslots-- == 0)	\
+			if (HASHget(h, c) == HASHnil(h) && nslots-- == 0) \
 				break; /* mask too full */		\
-			HASHputlink(h, r, HASHget(h,c));	\
-			HASHput(h, c, r);	\
+			HASHputlink(h, r, HASHget(h, c));		\
+			HASHput(h, c, r);				\
 		}							\
 	} while (0)
-#define finishhash(TYPE)				\
-	do {						\
-		TYPE *v = (TYPE*)BUNhloc(bi, 0);	\
-		for (; p < q; p++) {			\
-			BUN c = (BUN) hash_##TYPE(h, v+p);	\
-							\
-			HASHputlink(h,p, HASHget(h,c));\
-			HASHput(h,c,p);\
-		}					\
+#define finishhash(TYPE)					\
+	do {							\
+		TYPE *v = (TYPE *) BUNtloc(bi, 0);		\
+		for (; p < q; p++) {				\
+			BUN c = (BUN) hash_##TYPE(h, v + p);	\
+								\
+			HASHputlink(h, p, HASHget(h, c));	\
+			HASHput(h, c, p);			\
+		}						\
 	} while (0)
 
 /* collect HASH statistics for analysis */
-static void HASHcollisions(BAT *b, Hash *h)
+static void
+HASHcollisions(BAT *b, Hash *h)
 {
-	lng cnt, entries=0, max =0;
-	double total=0;
-	BUN p, i, j, nil = HASHnil(h);
-	
-	if ( b == 0 || h == 0 )
+	lng cnt, entries = 0, max = 0;
+	double total = 0;
+	BUN p, i, j, nil;
+
+	if (b == 0 || h == 0)
 		return;
-	for (i = 0, j = h->mask; i <= j; i++) 
-	if ( (p = HASHget(h,i)) != nil){
-		entries++;
-		cnt = 0;
-		for ( ; p != nil; p = HASHgetlink(h,p))
-			cnt++;
-		if ( cnt > max ) max = cnt;
-		total += cnt;
-	}
-	fprintf(stderr, "#BAThash: statistics (" BUNFMT ", entries " LLFMT", mask " BUNFMT", max " LLFMT ", avg %2.6f);\n", BATcount(b), entries, h->mask, max, total/entries);
+	nil = HASHnil(h);
+	for (i = 0, j = h->mask; i <= j; i++)
+		if ((p = HASHget(h, i)) != nil) {
+			entries++;
+			cnt = 0;
+			for (; p != nil; p = HASHgetlink(h, p))
+				cnt++;
+			if (cnt > max)
+				max = cnt;
+			total += cnt;
+		}
+	fprintf(stderr, "#BAThash: statistics (" BUNFMT ", entries " LLFMT ", mask " BUNFMT ", max " LLFMT ", avg %2.6f);\n", BATcount(b), entries, h->mask, max, total / entries);
 }
 
 /*
@@ -218,27 +221,28 @@ static void HASHcollisions(BAT *b, Hash *h)
  * Its argument is the element type and the maximum number of BUNs be
  * stored under the hash function.
  */
-BAT *
+gdk_return
 BAThash(BAT *b, BUN masksize)
 {
 	BAT *o = NULL;
-	lng t0,t1;
-	(void) t0; 
+	lng t0 = 0, t1 = 0;
+	(void) t0;
 	(void) t1;
 
-	if (VIEWhparent(b)) {
-		bat p = VIEWhparent(b);
+	if (VIEWtparent(b)) {
+		bat p = -VIEWtparent(b);
 		o = b;
 		b = BATdescriptor(p);
+		assert(b != NULL);
 		if (!ALIGNsynced(o, b) || BUNfirst(o) != BUNfirst(b)) {
 			BBPunfix(b->batCacheid);
 			b = o;
 			o = NULL;
 		}
 	}
-	MT_lock_set(&GDKhashLock(ABS(b->batCacheid)), "BAThash");
-	if (b->H->hash == NULL) {
-		unsigned int tpe = ATOMstorage(b->htype);
+	MT_lock_set(&GDKhashLock(abs(b->batCacheid)), "BAThash");
+	if (b->T->hash == NULL) {
+		unsigned int tpe = ATOMbasetype(b->ttype);
 		BUN cnt = BATcount(b);
 		BUN mask;
 		BUN p = BUNfirst(b), q = BUNlast(b), r;
@@ -253,11 +257,11 @@ BAThash(BAT *b, BUN masksize)
 		if (!cnt)
 			cnt = BATcapacity(b);
 
-		if (b->htype == TYPE_void) {
-			if (b->hseqbase == oid_nil) {
-				MT_lock_unset(&GDKhashLock(ABS(b->batCacheid)), "BAThash");
+		if (b->ttype == TYPE_void) {
+			if (b->tseqbase == oid_nil) {
+				MT_lock_unset(&GDKhashLock(abs(b->batCacheid)), "BAThash");
 				ALGODEBUG fprintf(stderr, "#BAThash: cannot create hash-table on void-NIL column.\n");
-				return NULL;
+				return GDK_FAIL;
 			}
 			ALGODEBUG fprintf(stderr, "#BAThash: creating hash-table on void column..\n");
 
@@ -267,11 +271,11 @@ BAThash(BAT *b, BUN masksize)
 		 * scheme */
 		if (masksize > 0) {
 			mask = HASHmask(masksize);
-		} else if (ATOMsize(ATOMstorage(tpe)) == 1) {
+		} else if (ATOMsize(tpe) == 1) {
 			mask = (1 << 8);
-		} else if (ATOMsize(ATOMstorage(tpe)) == 2) {
+		} else if (ATOMsize(tpe) == 2) {
 			mask = (1 << 12);
-		} else if (b->hkey) {
+		} else if (b->tkey) {
 			mask = HASHmask(cnt);
 		} else {
 			/* dynamic hash: we start with
@@ -293,7 +297,7 @@ BAThash(BAT *b, BUN masksize)
 
 			r = BUNfirst(b);
 			if (hp) {
-				HEAPfree(hp);
+				HEAPfree(hp, 1);
 				GDKfree(hp);
 			}
 			if (h) {
@@ -304,17 +308,18 @@ BAThash(BAT *b, BUN masksize)
 			hp = (Heap *) GDKzalloc(sizeof(Heap));
 			if (hp &&
 			    (hp->filename = GDKmalloc(strlen(nme) + 12)) != NULL)
-				sprintf(hp->filename, "%s.%chash", nme, b->batCacheid > 0 ? 'h' : 't');
+				sprintf(hp->filename, "%s.%chash", nme, b->batCacheid > 0 ? 't' : 'h');
 			if (hp == NULL ||
 			    hp->filename == NULL ||
-			    (h = HASHnew(hp, ATOMtype(b->htype), BATcapacity(b), mask)) == NULL) {
+			    (hp->farmid = BBPselectfarm(TRANSIENT, b->ttype, hashheap)) < 0 ||
+			    (h = HASHnew(hp, ATOMtype(b->ttype), BATcapacity(b), mask)) == NULL) {
 
-				MT_lock_unset(&GDKhashLock(ABS(b->batCacheid)), "BAThash");
+				MT_lock_unset(&GDKhashLock(abs(b->batCacheid)), "BAThash");
 				if (hp != NULL) {
 					GDKfree(hp->filename);
 					GDKfree(hp);
 				}
-				return NULL;
+				return GDK_FAIL;
 			}
 
 			switch (tpe) {
@@ -326,22 +331,39 @@ BAThash(BAT *b, BUN masksize)
 				break;
 			case TYPE_int:
 			case TYPE_flt:
+#if SIZEOF_OID == SIZEOF_INT
+			case TYPE_oid:
+#endif
+#if SIZEOF_WRD == SIZEOF_INT
+			case TYPE_wrd:
+#endif
 				starthash(int);
 				break;
 			case TYPE_dbl:
 			case TYPE_lng:
+#if SIZEOF_OID == SIZEOF_LNG
+			case TYPE_oid:
+#endif
+#if SIZEOF_WRD == SIZEOF_LNG
+			case TYPE_wrd:
+#endif
 				starthash(lng);
 				break;
+#ifdef HAVE_HGE
+			case TYPE_hge:
+				starthash(hge);
+				break;
+#endif
 			default:
 				for (; r < p; r++) {
-					ptr v = BUNhead(bi, r);
-					BUN c = (BUN) heap_hash_any(b->H->vheap, h, v);
+					ptr v = BUNtail(bi, r);
+					BUN c = (BUN) heap_hash_any(b->T->vheap, h, v);
 
-					if ( HASHget(h,c) == HASHnil(h) &&
+					if (HASHget(h, c) == HASHnil(h) &&
 					    nslots-- == 0)
 						break;	/* mask too full */
-					HASHputlink(h,r, HASHget(h,c));
-					HASHput(h,c, r);
+					HASHputlink(h, r, HASHget(h, c));
+					HASHput(h, c, r);
 				}
 				break;
 			}
@@ -358,35 +380,50 @@ BAThash(BAT *b, BUN masksize)
 			break;
 		case TYPE_int:
 		case TYPE_flt:
+#if SIZEOF_OID == SIZEOF_INT
+		case TYPE_oid:
+#endif
+#if SIZEOF_WRD == SIZEOF_INT
+		case TYPE_wrd:
+#endif
 			finishhash(int);
 			break;
 		case TYPE_dbl:
 		case TYPE_lng:
+#if SIZEOF_OID == SIZEOF_LNG
+		case TYPE_oid:
+#endif
+#if SIZEOF_WRD == SIZEOF_LNG
+		case TYPE_wrd:
+#endif
 			finishhash(lng);
 			break;
+#ifdef HAVE_HGE
+		case TYPE_hge:
+			finishhash(hge);
+			break;
+#endif
 		default:
 			for (; p < q; p++) {
-				ptr v = BUNhead(bi, p);
-				BUN c = (BUN) heap_hash_any(b->H->vheap, h, v);
+				ptr v = BUNtail(bi, p);
+				BUN c = (BUN) heap_hash_any(b->T->vheap, h, v);
 
-				HASHputlink(h,p, HASHget(h,c));
-				HASHput(h,c,p);
+				HASHputlink(h, p, HASHget(h, c));
+				HASHput(h, c, p);
 			}
 			break;
 		}
-		b->H->hash = h;
+		b->T->hash = h;
 		t1 = GDKusec();
-		ALGODEBUG 
-				fprintf(stderr, "#BAThash: hash construction "LLFMT" usec\n", t1-t0);
-		ALGODEBUG HASHcollisions(b,b->H->hash);
+		ALGODEBUG fprintf(stderr, "#BAThash: hash construction " LLFMT " usec\n", t1 - t0);
+		ALGODEBUG HASHcollisions(b, b->T->hash);
 	}
-	MT_lock_unset(&GDKhashLock(ABS(b->batCacheid)), "BAThash");
+	MT_lock_unset(&GDKhashLock(abs(b->batCacheid)), "BAThash");
 	if (o != NULL) {
-		o->H->hash = b->H->hash;
+		o->T->hash = b->T->hash;
 		BBPunfix(b->batCacheid);
-		b = o;
 	}
-	return b;
+	return GDK_SUCCEED;
 }
 
 /*
@@ -396,7 +433,7 @@ BAThash(BAT *b, BUN masksize)
 BUN
 HASHprobe(Hash *h, const void *v)
 {
-	switch (ATOMstorage(h->type)) {
+	switch (ATOMbasetype(h->type)) {
 	case TYPE_bte:
 		return hash_bte(h, v);
 	case TYPE_sht:
@@ -407,6 +444,10 @@ HASHprobe(Hash *h, const void *v)
 	case TYPE_dbl:
 	case TYPE_lng:
 		return hash_lng(h, v);
+#ifdef HAVE_HGE
+	case TYPE_hge:
+		return hash_hge(h, v);
+#endif
 	default:
 		return hash_any(h, v);
 	}
@@ -416,32 +457,33 @@ BUN
 HASHlist(Hash *h, BUN i)
 {
 	BUN c = 1;
- 	BUN j = HASHget(h,i), nil= HASHnil(h); 
+	BUN j = HASHget(h, i), nil = HASHnil(h);
 
-	if ( j == nil) return 1;
-	while ((j = HASHgetlink(h,i)) != nil) { c++; i = j; }
+	if (j == nil)
+		return 1;
+	while ((j = HASHgetlink(h, i)) != nil) {
+		c++;
+		i = j;
+	}
 	return c;
 }
 
 void
 HASHremove(BAT *b)
 {
-	if (b && b->H->hash) {
-		bat p = VIEWhparent(b);
+	if (b && b->T->hash) {
+		bat p = -VIEWtparent(b);
 		BAT *hp = NULL;
 
 		if (p)
 			hp = BBP_cache(p);
 
-		if ((!hp || b->H->hash != hp->H->hash) && b->H->hash != (Hash *) -1) {
-			if (b->H->hash->heap->storage != STORE_MEM)
-				HEAPdelete(b->H->hash->heap, BBP_physical(b->batCacheid), (b->batCacheid > 0) ? "hhash" : "thash");
-			else
-				HEAPfree(b->H->hash->heap);
-			GDKfree(b->H->hash->heap);
-			GDKfree(b->H->hash);
+		if ((!hp || b->T->hash != hp->T->hash) && b->T->hash != (Hash *) -1) {
+			HEAPfree(b->T->hash->heap, 1);
+			GDKfree(b->T->hash->heap);
+			GDKfree(b->T->hash);
 		}
-		b->H->hash = NULL;
+		b->T->hash = NULL;
 	}
 }
 
@@ -459,7 +501,7 @@ HASHdestroy(BAT *b)
 int
 HASHgonebad(BAT *b, const void *v)
 {
-	Hash *h = b->H->hash;
+	Hash *h = b->T->hash;
 	BATiter bi = bat_iterator(b);
 	BUN cnt, hit;
 
@@ -467,10 +509,10 @@ HASHgonebad(BAT *b, const void *v)
 		return 1;	/* no hash is bad hash? */
 
 	if (h->mask * 2 < BATcount(b)) {
-		int (*cmp) (const void *, const void *) = BATatoms[b->htype].atomCmp;
-		BUN i = HASHget(h, (BUN)HASHprobe(h, v)), nil= HASHnil(h);
-		for (cnt = hit = 1; i != nil; i = HASHgetlink(h,i), cnt++)
-			hit += ((*cmp) (v, BUNhead(bi, (BUN)i)) == 0);
+		int (*cmp) (const void *, const void *) = BATatoms[b->ttype].atomCmp;
+		BUN i = HASHget(h, (BUN) HASHprobe(h, v)), nil = HASHnil(h);
+		for (cnt = hit = 1; i != nil; i = HASHgetlink(h, i), cnt++)
+			hit += ((*cmp) (v, BUNtail(bi, (BUN) i)) == 0);
 
 		if (cnt / hit > 4)
 			return 1;	/* linked list too long */
@@ -508,31 +550,60 @@ HASHgonebad(BAT *b, const void *v)
 		}							\
 	} while (0)
 
+enum find_which {
+	FIND_FIRST,
+	FIND_ANY,
+	FIND_LAST
+};
+
 static BUN
-SORTfndwhich(BAT *b, const void *v, int which)
+SORTfndwhich(BAT *b, const void *v, enum find_which which)
 {
-	BUN lo = BUNfirst(b), hi = BUNlast(b), mid;
-	int cmp = 1;
-	BUN cur = BUN_NONE;
-	BATiter bi = bat_iterator(b);
+	BUN lo, hi, mid;
+	int cmp;
+	BUN cur;
+	BATiter bi;
 	BUN diff, end;
+	int tp;
 
 	if (b == NULL || (!b->tsorted && !b->trevsorted))
 		return BUN_NONE;
 
+	lo = BUNfirst(b);
+	hi = BUNlast(b);
+
 	if (BATtdense(b)) {
 		/* no need for binary search on dense column */
-		if (* (const oid *) v < b->tseqbase)
-			return which == 0 ? BUN_NONE : lo;
-		if (* (const oid *) v >= b->tseqbase + BATcount(b))
-			return which == 0 ? BUN_NONE : hi;
-		cur = (BUN) (* (const oid *) v - b->tseqbase) + lo;
-		if (which > 0)
-			cur++;
-		return cur;
+		if (*(const oid *) v < b->tseqbase ||
+		    *(const oid *) v == oid_nil)
+			return which == FIND_ANY ? BUN_NONE : lo;
+		if (*(const oid *) v >= b->tseqbase + BATcount(b))
+			return which == FIND_ANY ? BUN_NONE : hi;
+		cur = (BUN) (*(const oid *) v - b->tseqbase) + lo;
+		return cur + (which == FIND_LAST);
 	}
+	if (b->ttype == TYPE_void) {
+		assert(b->tseqbase == oid_nil);
+		switch (which) {
+		case FIND_FIRST:
+			if (*(const oid *) v == oid_nil)
+				return lo;
+		case FIND_LAST:
+			return hi;
+		default:
+			if (lo < hi && *(const oid *) v == oid_nil)
+				return lo;
+			return BUN_NONE;
+		}
+	}
+	cmp = 1;
+	cur = BUN_NONE;
+	bi = bat_iterator(b);
+	/* only use storage type if comparison functions are equal */
+	tp = ATOMbasetype(b->ttype);
 
-	if (which < 0) {
+	switch (which) {
+	case FIND_FIRST:
 		end = lo;
 		if (lo >= hi || (b->tsorted ? atom_GE(BUNtail(bi, lo), v, b->ttype) : atom_LE(BUNtail(bi, lo), v, b->ttype))) {
 			/* shortcut: if BAT is empty or first (and
@@ -540,7 +611,8 @@ SORTfndwhich(BAT *b, const void *v, int which)
 			 * or <= v (if revsorted), we're done */
 			return lo;
 		}
-	} else if (which > 0) {
+		break;
+	case FIND_LAST:
 		end = hi;
 		if (lo >= hi || (b->tsorted ? atom_LE(BUNtail(bi, hi - 1), v, b->ttype) : atom_GE(BUNtail(bi, hi - 1), v, b->ttype))) {
 			/* shortcut: if BAT is empty or first (and
@@ -548,16 +620,18 @@ SORTfndwhich(BAT *b, const void *v, int which)
 			 * or >= v (if revsorted), we're done */
 			return hi;
 		}
-	} else {
+		break;
+	default: /* case FIND_ANY -- stupid compiler */
 		end = 0;	/* not used in this case */
 		if (lo >= hi) {
 			/* empty BAT: value not found */
 			return BUN_NONE;
 		}
+		break;
 	}
 
 	if (b->tsorted) {
-		switch (ATOMstorage(b->ttype)) {
+		switch (tp) {
 		case TYPE_bte:
 			SORTfndloop(bte, simple_CMP, BUNtloc);
 			break;
@@ -570,6 +644,11 @@ SORTfndwhich(BAT *b, const void *v, int which)
 		case TYPE_lng:
 			SORTfndloop(lng, simple_CMP, BUNtloc);
 			break;
+#ifdef HAVE_HGE
+		case TYPE_hge:
+			SORTfndloop(hge, simple_CMP, BUNtloc);
+			break;
+#endif
 		case TYPE_flt:
 			SORTfndloop(flt, simple_CMP, BUNtloc);
 			break;
@@ -584,7 +663,7 @@ SORTfndwhich(BAT *b, const void *v, int which)
 			break;
 		}
 	} else {
-		switch (ATOMstorage(b->ttype)) {
+		switch (tp) {
 		case TYPE_bte:
 			SORTfndloop(bte, -simple_CMP, BUNtloc);
 			break;
@@ -597,6 +676,11 @@ SORTfndwhich(BAT *b, const void *v, int which)
 		case TYPE_lng:
 			SORTfndloop(lng, -simple_CMP, BUNtloc);
 			break;
+#ifdef HAVE_HGE
+		case TYPE_hge:
+			SORTfndloop(hge, -simple_CMP, BUNtloc);
+			break;
+#endif
 		case TYPE_flt:
 			SORTfndloop(flt, -simple_CMP, BUNtloc);
 			break;
@@ -612,7 +696,8 @@ SORTfndwhich(BAT *b, const void *v, int which)
 		}
 	}
 
-	if (which < 0) {
+	switch (which) {
+	case FIND_FIRST:
 		if (cmp == 0 && b->tkey == 0) {
 			/* shift over multiple equals */
 			for (diff = cur - end; diff; diff >>= 1) {
@@ -621,7 +706,8 @@ SORTfndwhich(BAT *b, const void *v, int which)
 					cur -= diff;
 			}
 		}
-	} else if (which > 0) {
+		break;
+	case FIND_LAST:
 		if (cmp == 0 && b->tkey == 0) {
 			/* shift over multiple equals */
 			for (diff = (end - cur) >> 1; diff; diff >>= 1) {
@@ -630,32 +716,40 @@ SORTfndwhich(BAT *b, const void *v, int which)
 					cur += diff;
 			}
 		}
-		if (cmp == 0)
-			cur++;
-	} else {
+		cur += (cmp == 0);
+		break;
+	default: /* case FIND_ANY -- stupid compiler */
 		if (cmp) {
 			/* not found */
 			cur = BUN_NONE;
 		}
+		break;
 	}
 	return cur;
 }
 
+/* Return the BUN of any tail value in b that is equal to v; if no
+ * match is found, return BUN_NONE.  b must be sorted (reverse of
+ * forward). */
 BUN
 SORTfnd(BAT *b, const void *v)
 {
-	/* works on HEAD column! */
-	return SORTfndwhich(BATmirror(b), v, 0);
+	return SORTfndwhich(b, v, FIND_ANY);
 }
 
+/* Return the BUN of the first (lowest numbered) tail value that is
+ * equal to v; if no match is found, return the BUN of the next higher
+ * value in b.  b must be sorted (reverse of forward). */
 BUN
 SORTfndfirst(BAT *b, const void *v)
 {
-	return SORTfndwhich(b, v, -1);
+	return SORTfndwhich(b, v, FIND_FIRST);
 }
 
+/* Return the BUN of the first (lowest numbered) tail value beyond v.
+ * b must be sorted (reverse of forward). */
 BUN
 SORTfndlast(BAT *b, const void *v)
 {
-	return SORTfndwhich(b, v, 1);
+	return SORTfndwhich(b, v, FIND_LAST);
 }

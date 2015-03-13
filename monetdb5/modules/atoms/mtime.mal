@@ -12,9 +12,8 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2013 MonetDB B.V.
+# Copyright August 2008-2015 MonetDB B.V.
 # All Rights Reserved.
-
 
 # @+ Date atom
 # Monet atoms can have multiple @emph{parse formats}. One of these formats is
@@ -44,7 +43,7 @@
 # and the lexicographical string ordering of this representation respects the
 # actual date ordering.
 #
-# Other print formats can be achieved by writing a customized MIL procedure
+# Other print formats can be achieved by writing a customized procedure
 # that extracts year, month and day from a date as integers and formats those
 # in a string.
 atom date :int;
@@ -99,21 +98,6 @@ comment "Equality of two dates";
 pattern calc.>=(v:date,w:date):bit
 address CMDvarGE
 comment "Equality of two dates";
-pattern calc.isnil(v:date):bit
-address CMDvarISNIL
-comment "Nil test for date value";
-pattern calc.min(v:date,w:date):date
-address CALCmin
-comment "Minimum test for date value";
-pattern calc.max(v:date,w:date):date
-address CALCmax
-comment "Maximum test for date value";
-pattern calc.min_no_nil(v:date,w:date):date
-address CALCmin_no_nil
-comment "Minimum test for date value";
-pattern calc.max_no_nil(v:date,w:date):date
-address CALCmax_no_nil
-comment "Maximum test for date value";
 
 
 
@@ -180,21 +164,6 @@ comment "Equality of two daytimes";
 pattern calc.>=(v:daytime,w:daytime):bit
 address CMDvarGE
 comment "Equality of two daytimes";
-pattern calc.isnil(v:daytime):bit
-address CMDvarISNIL
-comment "Nil test for daytime value";
-pattern calc.min(v:daytime,w:daytime):daytime
-address CALCmin
-comment "Minimum test for daytime value";
-pattern calc.max(v:daytime,w:daytime):daytime
-address CALCmax
-comment "Maximum test for daytime value";
-pattern calc.min_no_nil(v:daytime,w:daytime):daytime
-address CALCmin_no_nil
-comment "Minimum test for daytime value";
-pattern calc.max_no_nil(v:daytime,w:daytime):daytime
-address CALCmax_no_nil
-comment "Maximum test for daytime value";
 
 
 
@@ -232,13 +201,18 @@ command unix_epoch{unsafe}():timestamp
 address MTIMEunix_epoch
 comment "The Unix epoch time (00:00:00 UTC on January 1, 1970)";
 command epoch{unsafe}():timestamp
-address MTIMEepoch
+address MTIMEcurrent_timestamp
 comment "unix-time (epoch) support: seconds since the Unix epoch";
+
 command epoch(t:timestamp):int
 address MTIMEepoch2int
 comment "unix-time (epoch) support: seconds since epoch";
+
 command epoch(t:int):timestamp
 address MTIMEtimestamp
+comment "convert seconds since epoch into a timestamp";
+command epoch(t:lng):timestamp
+address MTIMEtimestamplng
 comment "convert seconds since epoch into a timestamp";
 
 
@@ -283,21 +257,6 @@ comment "Equality of two timestamps";
 pattern calc.>=(v:timestamp,w:timestamp):bit
 address CMDvarGE
 comment "Equality of two timestamps";
-pattern calc.isnil(v:timestamp):bit
-address CMDvarISNIL
-comment "Nil test for timestamp value";
-pattern calc.min(v:timestamp,w:timestamp):timestamp
-address CALCmin
-comment "Minimum test for timestamp value";
-pattern calc.max(v:timestamp,w:timestamp):timestamp
-address CALCmax
-comment "Maximum test for timestamp value";
-pattern calc.min_no_nil(v:timestamp,w:timestamp):timestamp
-address CALCmin_no_nil
-comment "Minimum test for timestamp value";
-pattern calc.max_no_nil(v:timestamp,w:timestamp):timestamp
-address CALCmax_no_nil
-comment "Maximum test for timestamp value";
 
 
 
@@ -352,7 +311,7 @@ command fromstr():timezone
 address tzone_fromstr;
 command tostr():str
 address tzone_tostr;
-command str():str
+command str(z:timezone):str
 address MTIMEtzone_tostr;
 command timestamp(s:str):timestamp
 address MTIMEtimestamp_fromstr;
@@ -398,9 +357,19 @@ address MTIMEtimestamp_add;
 command timestamp_sub_month_interval(t:timestamp,s:int):timestamp
 address MTIMEtimestamp_sub_month_interval_wrap
 comment "Subtract months from a timestamp";
+
+command timestamp_sub_month_interval(t:timestamp,s:lng):timestamp
+address MTIMEtimestamp_sub_month_interval_lng_wrap
+comment "Subtract months from a timestamp";
+
 command timestamp_add_month_interval(t:timestamp,s:int):timestamp
 address MTIMEtimestamp_add_month_interval_wrap
 comment "Add months to a timestamp";
+
+command timestamp_add_month_interval(t:timestamp,s:lng):timestamp
+address MTIMEtimestamp_add_month_interval_lng_wrap
+comment "Add months to a timestamp";
+
 command timestamp(t:timestamp):timestamp
 address MTIMEtimestamp2timestamp;
 
@@ -411,9 +380,17 @@ command time_add_msec_interval(t:daytime,ms:lng):daytime
 address MTIMEtime_add_msec_interval_wrap
 comment "Add seconds to a time";
 
+command diff(val1:daytime, val2:daytime) :lng
+address MTIMEdaytime_diff
+comment "returns the number of msec between 'val1' and 'val2'.";
+
 command date_add_month_interval(t:date,s:int):date
 address MTIMEdate_addmonths
 comment "Add months to a date";
+
+command date_sub_month_interval(t:date,s:int):date
+address MTIMEdate_submonths
+comment "Subtract months from a date";
 
 # @-
 # #command int(d:date):int = MTIMEdate_2int;
@@ -487,7 +464,7 @@ command timezone(s:int):timezone
 address MTIMEtzone_create
 comment "Convert the int to a timezone.";
 command timezone(s:lng):timezone
-address MTIMEtzone_create
+address MTIMEtzone_create_lng
 comment "Convert the int to a timezone.";
 command timezone(mi:int,s:zrule,erule:zrule):timezone
 address MTIMEtzone_create_dst
@@ -616,7 +593,6 @@ address timestamp_trunc_after_every_bulk;
 #
 # Arithmetic overflow returns the nil atom (no error messages). For all commands in
 # this modules it holds that if one of the parameters is nil, the result is also nil
-# (nil has the don't know semantics in MIL).
 command addyears(value:date, years:int) :date
 address MTIMEdate_addyears
 comment "returns the date after a number
@@ -644,7 +620,7 @@ comment "Returns the week number in the year.";
 command dayofweek(d:date) :int
 address MTIMEdate_extract_dayofweek
 comment "Returns the current day of the week
-	where 1=sunday, .., 7=saturday";
+	where 1=monday, .., 7=sunday";
 
 command add(v:timestamp, msecs:lng) :timestamp
 address MTIMEtimestamp_add
@@ -687,15 +663,6 @@ command time_synonyms(allow:bit)
 address MTIMEsynonyms
 comment "Allow synonyms for the parse format of
 	date/timestamp.";
-
-command olddate (format:str) :date
-address MTIMEolddate
-comment "create a date from the old instant
-	format.";
-command oldduration(format:str) :int
-address MTIMEoldduration
-comment "parse the old duration format and
-	return an (estimated) number of days.";
 
 command str_to_date(s:str, format:str) :date
 address MTIMEstrptime
@@ -793,3 +760,20 @@ command daytime(s:str):daytime address MTIMEdaytime_fromstr;
 command daytime(d:daytime):daytime address MTIMEdaytime2daytime;
 command daytime(s:lng):daytime address MTIMEsecs2daytime;
 command daytime(t:timestamp) :daytime address MTIMEtimestamp_extract_daytime_default;
+
+module batcalc;
+
+command date(t:bat[:oid,:timestamp]) :bat[:oid,:date]
+address MTIMEtimestamp_extract_date_default_bulk;
+
+command timestamp(d:bat[:oid,:date]) :bat[:oid,:timestamp]
+address MTIMEtimestamp_create_from_date_bulk;
+command timestamp(secs:bat[:oid,:int]) :bat[:oid,:timestamp]
+address MTIMEtimestamp_bulk;
+command timestamp(msecs:bat[:oid,:lng]) :bat[:oid,:timestamp]
+address MTIMEtimestamp_lng_bulk;
+
+command daytime(s:bat[:oid,:lng]) :bat[:oid,:daytime]
+address MTIMEsecs2daytime_bulk;
+command daytime(t:bat[:oid,:timestamp]) :bat[:oid,:daytime]
+address MTIMEtimestamp_extract_daytime_default_bulk;

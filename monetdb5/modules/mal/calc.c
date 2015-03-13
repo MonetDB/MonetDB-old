@@ -24,11 +24,7 @@
 #include "mal_interpreter.h"
 
 #ifdef WIN32
-#if !defined(LIBMAL) && !defined(LIBATOMS) && !defined(LIBKERNEL) && !defined(LIBMAL) && !defined(LIBOPTIMIZER) && !defined(LIBSCHEDULER) && !defined(LIBMONETDB5)
-#define calc_export extern __declspec(dllimport)
-#else
 #define calc_export extern __declspec(dllexport)
-#endif
 #else
 #define calc_export extern
 #endif
@@ -119,7 +115,7 @@ CMDvarADDstr(str *ret, str *s1, str *s2)
 		*ret= GDKstrdup(str_nil);
 		return MAL_SUCCEED;
 	}
-	s = GDKmalloc((l1 = strlen(*s1)) + strlen(*s2) + 1);
+	s = GDKzalloc((l1 = strlen(*s1)) + strlen(*s2) + 1);
 	if (s == NULL)
 		return mythrow(MAL, "calc.+", MAL_MALLOC_FAIL);
 	strcpy(s, *s1);
@@ -417,7 +413,20 @@ CMDvarBETWEEN(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) cntxt;
 	(void) mb;
 
-	if (VARcalcbetween(&stk->stk[getArg(pci, 0)], &stk->stk[getArg(pci, 1)], &stk->stk[getArg(pci, 2)], &stk->stk[getArg(pci, 3)]) == GDK_FAIL)
+	if (VARcalcbetween(&stk->stk[getArg(pci, 0)], &stk->stk[getArg(pci, 1)], &stk->stk[getArg(pci, 2)], &stk->stk[getArg(pci, 3)], 0) == GDK_FAIL)
+		return mythrow(MAL, "calc.between", OPERATION_FAILED);
+	return MAL_SUCCEED;
+}
+
+calc_export str CMDvarBETWEENsymmetric(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+
+str
+CMDvarBETWEENsymmetric(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	(void) mb;
+
+	if (VARcalcbetween(&stk->stk[getArg(pci, 0)], &stk->stk[getArg(pci, 1)], &stk->stk[getArg(pci, 2)], &stk->stk[getArg(pci, 3)], 1) == GDK_FAIL)
 		return mythrow(MAL, "calc.between", OPERATION_FAILED);
 	return MAL_SUCCEED;
 }
@@ -622,35 +631,19 @@ CMDsetoid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	(void) cntxt;
 	(void) mb;
 
-	switch (ATOMstorage(getArgType(mb, pci, 1))) {
+	switch (getArgType(mb, pci, 1)) {
 	case TYPE_int:
-		OIDbase((oid) * (int *) getArgReference(stk, pci, 1));
+		OIDbase((oid) * getArgReference_int(stk, pci, 1));
+		break;
+	case TYPE_oid:
+		OIDbase(*getArgReference_oid(stk, pci, 1));
 		break;
 	case TYPE_lng:
-		OIDbase((oid) * (lng *) getArgReference(stk, pci, 1));
+		OIDbase((oid) * getArgReference_lng(stk, pci, 1));
 		break;
 	default:
 		return mythrow(MAL, "calc.setoid", ILLEGAL_ARGUMENT);
 	}
-	return MAL_SUCCEED;
-}
-
-calc_export str CALCbat2batid(int *ret, bat *bid);
-
-str
-CALCbat2batid(bat *ret, bat *bid)
-{
-	BAT *b;
-
-	if (*bid == bat_nil) {
-		*ret = bat_nil;
-		return MAL_SUCCEED;
-	}
-	b = BATdescriptor(*bid);
-	if (b == 0)
-		return mythrow(MAL, "calc.getBAT", RUNTIME_OBJECT_MISSING);
-	*ret = b->batCacheid;
-	BBPkeepref(b->batCacheid);
 	return MAL_SUCCEED;
 }
 
@@ -661,7 +654,7 @@ CALCswitchbit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	ptr p;
 	ptr retval = getArgReference(stk, pci, 0);
-	bit b = *(bit *) getArgReference(stk, pci, 1);
+	bit b = *getArgReference_bit(stk, pci, 1);
 	int t1 = getArgType(mb, pci, 2);
 	int t2 = getArgType(mb, pci, 3);
 
@@ -702,11 +695,15 @@ CALCmin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (t != getArgType(mb, pci, 2))
 		return mythrow(MAL, "calc.min", SEMANTIC_TYPE_MISMATCH);
 	nil = ATOMnilptr(t);
+	if (t >= TYPE_str && ATOMstorage(t) >= TYPE_str) {
+		p1 = *(ptr *)p1;
+		p2 = *(ptr *)p2;
+	}
 	if (ATOMcmp(t, p1, nil) == 0 || ATOMcmp(t, p2, nil) == 0)
 		p1 = nil;
 	else if (ATOMcmp(t, p1, p2) > 0)
 		p1 = p2;
-	memcpy(getArgReference(stk, pci, 0), p1, ATOMsize(t));
+	VALinit(&stk->stk[getArg(pci, 0)], t, p1);
 	return MAL_SUCCEED;
 }
 
@@ -724,10 +721,14 @@ CALCmin_no_nil(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (t != getArgType(mb, pci, 2))
 		return mythrow(MAL, "calc.min", SEMANTIC_TYPE_MISMATCH);
 	nil = ATOMnilptr(t);
+	if (t >= TYPE_str && ATOMstorage(t) >= TYPE_str) {
+		p1 = *(ptr *)p1;
+		p2 = *(ptr *)p2;
+	}
 	if (ATOMcmp(t, p1, nil) == 0 ||
 		(ATOMcmp(t, p2, nil) != 0 && ATOMcmp(t, p1, p2) > 0))
 		p1 = p2;
-	memcpy(getArgReference(stk, pci, 0), p1, ATOMsize(t));
+	VALinit(&stk->stk[getArg(pci, 0)], t, p1);
 	return MAL_SUCCEED;
 }
 
@@ -745,11 +746,15 @@ CALCmax(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (t != getArgType(mb, pci, 2))
 		return mythrow(MAL, "calc.max", SEMANTIC_TYPE_MISMATCH);
 	nil = ATOMnilptr(t);
+	if (t >= TYPE_str && ATOMstorage(t) >= TYPE_str) {
+		p1 = *(ptr *)p1;
+		p2 = *(ptr *)p2;
+	}
 	if (ATOMcmp(t, p1, nil) == 0 || ATOMcmp(t, p2, nil) == 0)
 		p1 = nil;
 	else if (ATOMcmp(t, p1, p2) < 0)
 		p1 = p2;
-	memcpy(getArgReference(stk, pci, 0), p1, ATOMsize(t));
+	VALinit(&stk->stk[getArg(pci, 0)], t, p1);
 	return MAL_SUCCEED;
 }
 
@@ -767,10 +772,14 @@ CALCmax_no_nil(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (t != getArgType(mb, pci, 2))
 		return mythrow(MAL, "calc.max", SEMANTIC_TYPE_MISMATCH);
 	nil = ATOMnilptr(t);
+	if (t >= TYPE_str && ATOMstorage(t) >= TYPE_str) {
+		p1 = *(ptr *)p1;
+		p2 = *(ptr *)p2;
+	}
 	if (ATOMcmp(t, p1, nil) == 0 ||
 		(ATOMcmp(t, p2, nil) != 0 && ATOMcmp(t, p1, p2) < 0))
 		p1 = p2;
-	memcpy(getArgReference(stk, pci, 0), p1, ATOMsize(t));
+	VALinit(&stk->stk[getArg(pci, 0)], t, p1);
 	return MAL_SUCCEED;
 }
 
@@ -780,7 +789,7 @@ CMDBATsumprod(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci,
 			  const char *func)
 {
 	ValPtr ret = &stk->stk[getArg(pci, 0)];
-	bat bid = * (bat *) getArgReference(stk, pci, 1);
+	bat bid = * getArgReference_bat(stk, pci, 1);
 	BAT *b;
 	BAT *s = NULL;
 	int nil_if_empty = 1;
@@ -791,17 +800,17 @@ CMDBATsumprod(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci,
 	if (pci->argc >= 3) {
 		if (getArgType(mb, pci, 2) == TYPE_bit) {
 			assert(pci->argc == 3);
-			nil_if_empty = * (bit *) getArgReference(stk, pci, 2);
+			nil_if_empty = * getArgReference_bit(stk, pci, 2);
 		} else {
-			bat sid = * (bat *) getArgReference(stk, pci, 2);
+			bat sid = * getArgReference_bat(stk, pci, 2);
 			if ((s = BATdescriptor(sid)) == NULL) {
-				BBPreleaseref(b->batCacheid);
+				BBPunfix(b->batCacheid);
 				throw(MAL, func, RUNTIME_OBJECT_MISSING);
 			}
 			if (pci->argc >= 4) {
 				assert(pci->argc == 4);
 				assert(getArgType(mb, pci, 3) == TYPE_bit);
-				nil_if_empty = * (bit *) getArgReference(stk, pci, 3);
+				nil_if_empty = * getArgReference_bit(stk, pci, 3);
 			}
 		}
 	}
@@ -809,14 +818,14 @@ CMDBATsumprod(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci,
 		/* XXX backward compatibility code: ignore non-dense head, but
 		 * only if no candidate list */
 		s = BATmirror(BATmark(BATmirror(b), 0));
-		BBPreleaseref(b->batCacheid);
+		BBPunfix(b->batCacheid);
 		b = s;
 		s = NULL;
 	}
 	r = (*sumprod)(VALget(ret), ret->vtype, b, s, 1, 1, nil_if_empty);
-	BBPreleaseref(b->batCacheid);
+	BBPunfix(b->batCacheid);
 	if (s)
-		BBPreleaseref(s->batCacheid);
+		BBPunfix(s->batCacheid);
 	if (r == GDK_FAIL)
 		return mythrow(MAL, func, OPERATION_FAILED);
 	return MAL_SUCCEED;

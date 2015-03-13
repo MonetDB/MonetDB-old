@@ -193,16 +193,16 @@ function user.main():void;
 #var rule_may := mtime.rule("MAY 26@01:15"); 
     rule_jun := mtime.rule("2nd TUE from end of june@01:15");
 #var rule_jun := mtime.rule("2nd TUE from end of june@01:15"); 
-    rule_jul := mtime.rule(7,1,1,75);
-#var rule_jul := mtime.rule(7,1,1,75); 
-    rule_aug := mtime.rule(8,-1,1,75);
-#var rule_aug := mtime.rule(8,-1,1,75); 
-    rule_sep := mtime.rule(9,-10,3,75);
-#var rule_sep := mtime.rule(9,-10,3,75); 
+    rule_jul := mtime.rule(7,1,7,75);
+#var rule_jul := mtime.rule(7,1,7,75); 
+    rule_aug := mtime.rule(8,-1,7,75);
+#var rule_aug := mtime.rule(8,-1,7,75); 
+    rule_sep := mtime.rule(9,-10,2,75);
+#var rule_sep := mtime.rule(9,-10,2,75); 
     rule_oct := mtime.rule(10,31,0,75);
 #var rule_oct := mtime.rule(10,31,0,75); 
-    rule_nov := mtime.rule(11,-10,-4,75);
-#var rule_nov := mtime.rule(11,-10,-4,75); 
+    rule_nov := mtime.rule(11,-10,-3,75);
+#var rule_nov := mtime.rule(11,-10,-3,75); 
 ## nil rules 
     rule_dec := mtime.rule(12,-31,0,75);
 #var rule_dec := mtime.rule(12,-31,0,75); 
@@ -249,27 +249,21 @@ function user.main():void;
     tzone_15 := mtime.timezone(rc_a,rule_apr,rule_nov);
 #var tzone_15 := mtime.timezone(24*60, rule_apr, rule_nov); 
     tzone_bat := bat.new(:oid,:timezone);
-#var tzone_bat := bat.new(oid,tzone); 
-    bat.insert(tzone_bat,0@0,tzone_00);
-    bat.insert(tzone_bat,1@0,tzone_01);
-    bat.insert(tzone_bat,2@0,tzone_02);
-#tzone_bat.bat.insert(0@0, tzone_00).insert(1@0, tzone_01).insert(2@0, tzone_02); 
-    bat.insert(tzone_bat,3@0,tzone_03);
-    bat.insert(tzone_bat,4@0,tzone_04);
-    bat.insert(tzone_bat,5@0,tzone_05);
-#tzone_bat.bat.insert(3@0, tzone_03).insert(4@0, tzone_04).insert(5@0, tzone_05); 
-    bat.insert(tzone_bat,6@0,tzone_06);
-    bat.insert(tzone_bat,7@0,tzone_07);
-    bat.insert(tzone_bat,8@0,tzone_08);
-#tzone_bat.bat.insert(6@0, tzone_06).insert(7@0, tzone_07).insert(8@0, tzone_08); 
-    bat.insert(tzone_bat,9@0,tzone_09);
-    bat.insert(tzone_bat,10@0,tzone_10);
-    bat.insert(tzone_bat,11@0,tzone_11);
-#tzone_bat.bat.insert(9@0, tzone_09).insert(10@0, tzone_10).insert(11@0, tzone_11); 
-    bat.insert(tzone_bat,12@0,tzone_12);
-    bat.insert(tzone_bat,13@0,tzone_13);
-    bat.insert(tzone_bat,15@0,tzone_15);
-#tzone_bat.bat.insert(12@0, tzone_12).insert(13@0, tzone_13).insert(15@0, tzone_15); 
+    bat.append(tzone_bat,tzone_00);
+    bat.append(tzone_bat,tzone_01);
+    bat.append(tzone_bat,tzone_02);
+    bat.append(tzone_bat,tzone_03);
+    bat.append(tzone_bat,tzone_04);
+    bat.append(tzone_bat,tzone_05);
+    bat.append(tzone_bat,tzone_06);
+    bat.append(tzone_bat,tzone_07);
+    bat.append(tzone_bat,tzone_08);
+    bat.append(tzone_bat,tzone_09);
+    bat.append(tzone_bat,tzone_10);
+    bat.append(tzone_bat,tzone_11);
+    bat.append(tzone_bat,tzone_12);
+    bat.append(tzone_bat,tzone_13);
+    bat.append(tzone_bat,tzone_15);
 ## test the operations on tzones 
     bat.setName(tzone_bat,"timezone");
 #io.print(tzone_bat); 
@@ -283,42 +277,18 @@ function user.main():void;
     io.print("tzone_bat");
     io.print(tzone_bat);
 #io.print(tzone_bat.bat.setColumn("tzone")); 
-    X_179 := bat.reverse(tzone_bat);
-    X_181 := bat.new(nil:oid,nil:int);
-barrier (X_185,X_186) := iterator.new(tzone_bat);
-    X_188 := mtime.minutes(X_186);
-    X_189 := algebra.fetch(X_179,X_185);
-    bat.insert(X_181,X_189,X_188);
-    redo (X_185,X_186) := iterator.next(tzone_bat);
-exit (X_185,X_186);
-    kd_a:bat[:oid,:int]  := X_181;
+    kd_a:bat[:oid,:int]  := mal.manifold("mtime","minutes",tzone_bat);
     bat.setColumn(kd_a,"minutes");
 #io.print([minutes](tzone_bat).bat.setColumn("minutes"), 
-    X_195 := bat.reverse(tzone_bat);
-    X_197 := bat.new(nil:oid,nil:zrule);
-barrier (X_200,X_201) := iterator.new(tzone_bat);
-    X_203 := mtime.start_dst(X_201);
-    X_204 := algebra.fetch(X_195,X_200);
-    bat.insert(X_197,X_204,X_203);
-    redo (X_200,X_201) := iterator.next(tzone_bat);
-exit (X_200,X_201);
-    md_a:bat[:oid,:zrule]  := X_197;
+    md_a:bat[:oid,:zrule]  := mal.manifold("mtime","start_dst",tzone_bat);
     bat.setColumn(md_a,"start_dst");
 #      [start_dst](tzone_bat).bat.setColumn("start_dst"), 
-    X_210 := bat.reverse(tzone_bat);
-    X_212 := bat.new(nil:oid,nil:zrule);
-barrier (X_214,X_215) := iterator.new(tzone_bat);
-    X_217 := mtime.end_dst(X_215);
-    X_218 := algebra.fetch(X_210,X_214);
-    bat.insert(X_212,X_218,X_217);
-    redo (X_214,X_215) := iterator.next(tzone_bat);
-exit (X_214,X_215);
-    od_a:bat[:oid,:zrule]  := X_212;
+    od_a:bat[:oid,:zrule]  := mal.manifold("mtime","end_dst",tzone_bat);
     bat.setColumn(od_a,"end_dst");
     io.print("print(kd_a,md_a,od_a)");
     qd_a := io.print(kd_a,md_a,od_a);
 #      [end_dst](tzone_bat).bat.setColumn("end_dst")); 
-end main;
+end user.main;
 [ "tzone_bat" ]
 #-----------------------------------------------------------------------------------------------------------------#
 # h	t													  # name
@@ -338,7 +308,7 @@ end main;
 [ 11@0,	  GMT+23:59												  ]
 [ 12@0,	  GMT+01:00												  ]
 [ 13@0,	  nil													  ]
-[ 15@0,	  nil													  ]
+[ 14@0,	nil  ]
 [ "print(kd_a,md_a,od_a)" ]
 #-------------------------------------------------------------------------------------------------------------------------#
 # h	minutes		start_dst					end_dst						  # name
@@ -358,7 +328,7 @@ end main;
 [ 11@0,	  1439,		  nil,						  nil						  ]
 [ 12@0,	  60,		  nil,						  nil						  ]
 [ 13@0,	  nil,		  nil,						  nil						  ]
-[ 15@0,	  nil,		  nil,						  nil						  ]
+[ 14@0,	nil,	nil,	nil  ]
 
 # 07:59:02 >  
 # 07:59:02 >  Done.

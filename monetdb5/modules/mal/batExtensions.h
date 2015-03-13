@@ -20,7 +20,6 @@
 #ifndef _BAT_EXTENSIONS_
 #define _BAT_EXTENSIONS_
 
-#include "monetdb_config.h"
 #include "mal_client.h"
 #include "mal_interpreter.h"
 #include "bat5.h"
@@ -36,12 +35,14 @@
 #define be_export extern
 #endif
 
-be_export str CMDBATclone(Client cntxt, MalBlkPtr m, MalStkPtr s, InstrPtr p);
 be_export str CMDBATnew(Client cntxt, MalBlkPtr m, MalStkPtr s, InstrPtr p);
+be_export str CMDBATnew_persistent(Client cntxt, MalBlkPtr m, MalStkPtr s, InstrPtr p);
 be_export str CMDBATnewDerived(Client cntxt, MalBlkPtr m, MalStkPtr s, InstrPtr p);
-be_export str CMDBATderivedByName(int *ret, str *nme);
-be_export str CMDBATnewint(Client cntxt, MalBlkPtr m, MalStkPtr s, InstrPtr p);
-be_export str CMDbatpartition(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-be_export str CMDbatpartition2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+be_export str CMDBATderivedByName(bat *ret, str *nme);
+be_export str CMDBATsingle(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+be_export str CMDBATpartition(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+be_export str CMDBATpartition2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+be_export str CMDBATimprints(void *ret, bat *bid);
+be_export str CMDBATimprintsize(lng *ret, bat *bid);
 
 #endif /* _BAT_EXTENSIONS_ */

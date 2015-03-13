@@ -64,75 +64,50 @@ mvc_debug_on(mvc *m, int flg)
 }
 
 str
-sql_update_var(mvc *m, char *name)
+sql_update_var(mvc *m, char *name, char *sval, lng sgn)
 {
-	lng sgn;
 	if (strcmp(name, "debug") == 0) {
-		sgn = stack_get_number(m, "debug");
 		assert((lng) GDK_int_min <= sgn && sgn <= (lng) GDK_int_max);
 		m->debug = (int) sgn;
 	} else if (strcmp(name, "current_schema") == 0) {
-		char *schema = stack_get_string(m, "current_schema");
-
-		if (!mvc_set_schema(m, schema)) {
-			return sql_message( "Schema (%s) missing\n", schema);
+		if (!mvc_set_schema(m, sval)) {
+			return sql_message( "Schema (%s) missing\n", sval);
 		}
 	} else if (strcmp(name, "current_role") == 0) {
-		char *role = stack_get_string(m, "current_role");
-
-		if (!mvc_set_role(m, role)) {
-			return sql_message( "Role (%s) missing\n", role);
+		if (!mvc_set_role(m, sval)) {
+			return sql_message( "Role (%s) missing\n", sval);
 		}
 	} else if (strcmp(name, "current_timezone") == 0) {
-		sgn = stack_get_number(m, "current_timezone");
 		assert((lng) GDK_int_min <= sgn && sgn <= (lng) GDK_int_max);
 		m->timezone = (int) sgn;
 	} else if (strcmp(name, "cache") == 0) {
-		sgn = stack_get_number(m, "cache");
 		assert((lng) GDK_int_min <= sgn && sgn <= (lng) GDK_int_max);
 		m->cache = (int) sgn;
 	} else if (strcmp(name, "history") == 0) {
-		sgn = stack_get_number(m, "history");
 		assert((lng) GDK_int_min <= sgn && sgn <= (lng) GDK_int_max);
-		m->history = (int) (sgn)?1:0;
+		m->history = (sgn != 0);
 	} 
 	return NULL;
 }
 
-
 int
 sql_create_env(mvc *m, sql_schema *s)
 {
-	list *l;
-	/* here we create a new table-type */
-	sql_subtype tpe;
-	sql_table *
+	list *res, *ops;
 
-	t = mvc_create_generated(m, s, "#env", NULL, 1);
-	mvc_create_column_(m, t, "name", "varchar", 1024);
-	mvc_create_column_(m, t, "value", "varchar", 2048);
-
-	sql_find_subtype(&tpe, "table", 0, 0);
-	tpe.comp_type = t;
-	tpe.digits = t->base.id; /* pass the table through digits */
+	res = sa_list(m->sa);
+	list_append(res, sql_create_arg(m->sa, "name", sql_bind_subtype(m->sa, "varchar", 1024, 0), ARG_OUT));  
+	list_append(res, sql_create_arg(m->sa, "value", sql_bind_subtype(m->sa, "varchar", 2048, 0), ARG_OUT));  
 
 	/* add function */
-	l = sa_list(m->sa);
-	mvc_create_func(m, NULL, s, "env", l, &tpe, F_FUNC, "sql", "sql_environment", "CREATE FUNCTION env () RETURNS TABLE( name varchar(1024), value varchar(2048)) EXTERNAL NAME sql.sql_environment;");
-	if (m->sa == NULL)
-		_DELETE(l);
+	ops = sa_list(m->sa);
+	mvc_create_func(m, NULL, s, "env", ops, res, F_UNION,  FUNC_LANG_SQL, "sql", "sql_environment", "CREATE FUNCTION env () RETURNS TABLE( name varchar(1024), value varchar(2048)) EXTERNAL NAME sql.sql_environment;", FALSE, FALSE);
 
-	t = mvc_create_generated(m, s, "#var", NULL, 1);
-	mvc_create_column_(m, t, "name", "varchar", 1024);
-
-	sql_find_subtype(&tpe, "table", 0, 0);
-	tpe.comp_type = t;
-	tpe.digits = t->base.id; /* pass the table through digits */
+	res = sa_list(m->sa);
+	list_append(res, sql_create_arg(m->sa, "name", sql_bind_subtype(m->sa, "varchar", 1024, 0), ARG_OUT));  
 
 	/* add function */
-	l = sa_list(m->sa);
-	mvc_create_func(m, NULL, s, "var", l, &tpe, F_FUNC, "sql", "sql_variables", "CREATE FUNCTION var() RETURNS TABLE( name varchar(1024)) EXTERNAL NAME sql.sql_variables;");
-	if (m->sa == NULL)
-		_DELETE(l);
+	ops = sa_list(m->sa);
+	mvc_create_func(m, NULL, s, "var", ops, res, F_UNION, FUNC_LANG_SQL, "sql", "sql_variables", "CREATE FUNCTION var() RETURNS TABLE( name varchar(1024)) EXTERNAL NAME sql.sql_variables;", FALSE, FALSE);
 	return 0;
 }

@@ -82,39 +82,52 @@ SQLPrimaryKeys_(ODBCStmt *stmt,
 			cat = ODBCParseOA("e", "value",
 					  (const char *) CatalogName,
 					  (size_t) NameLength1);
+			if (cat == NULL)
+				goto nomem;
 		}
 		if (NameLength2 > 0) {
 			sch = ODBCParseOA("s", "name",
 					  (const char *) SchemaName,
 					  (size_t) NameLength2);
+			if (sch == NULL)
+				goto nomem;
 		}
 		if (NameLength3 > 0) {
 			tab = ODBCParseOA("t", "name",
 					  (const char *) TableName,
 					  (size_t) NameLength3);
+			if (tab == NULL)
+				goto nomem;
 		}
 	} else {
 		if (NameLength1 > 0) {
 			cat = ODBCParseID("e", "value",
 					  (const char *) CatalogName,
 					  (size_t) NameLength1);
+			if (cat == NULL)
+				goto nomem;
 		}
 		if (NameLength2 > 0) {
 			sch = ODBCParseID("s", "name",
 					  (const char *) SchemaName,
 					  (size_t) NameLength2);
+			if (sch == NULL)
+				goto nomem;
 		}
 		if (NameLength3 > 0) {
 			tab = ODBCParseID("t", "name",
 					  (const char *) TableName,
 					  (size_t) NameLength3);
+			if (tab == NULL)
+				goto nomem;
 		}
 	}
 
 	/* construct the query */
 	query = malloc(1000 + (cat ? strlen(cat) : 0) +
 		       (sch ? strlen(sch) : 0) + (tab ? strlen(tab) : 0));
-	assert(query);
+	if (query == NULL)
+		goto nomem;
 	query_end = query;
 
 	/* SQLPrimaryKeys returns a table with the following columns:
@@ -126,21 +139,20 @@ SQLPrimaryKeys_(ODBCStmt *stmt,
 	   VARCHAR      pk_name
 	 */
 	strcpy(query_end,
-	       "select "
-	       "e.\"value\" as table_cat, "
-	       "s.\"name\" as table_schem, "
-	       "t.\"name\" as table_name, "
-	       "kc.\"name\" as column_name, "
-	       "cast(kc.\"nr\" + 1 as smallint) as key_seq, "
-	       "k.\"name\" as pk_name "
-	       "from sys.\"schemas\" s, sys.\"tables\" t, "
-	       "sys.\"keys\" k, sys.\"objects\" kc, "
-	       "sys.\"env\"() e "
-	       "where k.\"id\" = kc.\"id\" and "
-	       "k.\"table_id\" = t.\"id\" and "
-	       "t.\"schema_id\" = s.\"id\" and "
-	       "k.\"type\" = 0 and "
-	       "e.\"name\" = 'gdk_dbname'");
+	       "select e.value as table_cat, "
+		      "s.name as table_schem, "
+		      "t.name as table_name, "
+		      "kc.name as column_name, "
+		      "cast(kc.nr + 1 as smallint) as key_seq, "
+		      "k.name as pk_name "
+	       "from sys.schemas s, sys.tables t, "
+		    "sys.keys k, sys.objects kc, "
+		    "sys.env() e "
+	       "where k.id = kc.id and "
+		     "k.table_id = t.id and "
+		     "t.schema_id = s.id and "
+		     "k.type = 0 and "
+		     "e.name = 'gdk_dbname'");
 	assert(strlen(query) < 800);
 	query_end += strlen(query_end);
 
@@ -176,6 +188,18 @@ SQLPrimaryKeys_(ODBCStmt *stmt,
 	free(query);
 
 	return rc;
+
+  nomem:
+	/* note that query must be NULL when we get here */
+	if (cat)
+		free(cat);
+	if (sch)
+		free(sch);
+	if (tab)
+		free(tab);
+	/* Memory allocation error */
+	addStmtError(stmt, "HY001", NULL, 0);
+	return SQL_ERROR;
 }
 
 SQLRETURN SQL_API
@@ -204,7 +228,6 @@ SQLPrimaryKeys(SQLHSTMT StatementHandle,
 			       TableName, NameLength3);
 }
 
-#ifdef WITH_WCHAR
 SQLRETURN SQL_API
 SQLPrimaryKeysA(SQLHSTMT StatementHandle,
 		SQLCHAR *CatalogName,
@@ -264,4 +287,3 @@ SQLPrimaryKeysW(SQLHSTMT StatementHandle,
 
 	return rc;
 }
-#endif /* WITH_WCHAR */

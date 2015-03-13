@@ -18,65 +18,8 @@
  */
 
 /*
- * @a M. Kersten
- * @v 1.0
- * @+ Type Resolution
- * Given the interpretative nature of many of the MAL instructions,
- * when and where type resolution takes place is a critical design issue.
- * Performing it too late, i.e. at each instruction call, leads to
- * performance problems if we derive the same information over and over again.
- * However, many built-in operators have polymorphic typed signatures,
- * so we cannot escape it altogether.
- *
- * Consider the small illustrative MAL program:
- * @example
- * function sample(nme:str, val:any_1):bit;
- *    c := 2 * 3;
- *    b := bbp.bind(nme);  #find a BAT
- *    h := algebra.select(b,val,val);
- *    t := aggr.count(h);
- *    x := io.print(t);
- *    y := io.print(val);
- * end sample;
- * @end example
- *
- * The function definition is polymorphic typed on the 2nd argument,
- * it becomes a concrete type upon invocation. The system could attempt
- * a type check, but quickly runs into assumptions that generally do not hold.
- * The first assignment can be type checked during parsing
- * and a symbolic optimizer could even evaluate the expression once.
- * Looking up a BAT in the buffer pool leads to
- * an element @sc{:bat[@emph{ht,tt}]} where @emph{ht} and @emph{tt}
- * are runtime dependent types, which means that the selection operation can
- * not be type-checked immediately. It is an example of an embedded
- * polypmorphic statement, which requires intervention of the user/optimizer
- * to make the type explicit before the type resolver becomes active.
- * The operation @sc{count} can be checked, if it is given a BAT argument.
- * This assumes that we can infer that 'h' is indeed a BAT, which requires
- * assurance that @sc{algebra.select} produces one. However, there are
- * no rules to avoid addition of new operators, or to differentiate among
- * different implementations based on the argument types.
- * Since @sc{print(t)} contains an undetermined typed
- * argument we should postpone typechecking as well.
- * The last print statement can be checked upon function invocation.
- *
- * Life becomes really complex if the body contains a loop with
- * variable types. For then we also have to keep track of the original
- * state of the function. Or alternatively, type checking should consider
- * the runtime stack rather than the function definition itself.
- *
- * These examples give little room to achieve our prime objective, i.e.
- * a fast and early type resolution scheme. Any non-polymorphic function
- * can be type checked and marked type-safe upon completion.
- * Type checking polymorphic functions are postponed until a concrete
- * type instance is known. It leads to a clone, which can be type checked
- * and is entered into the symbol table.
- * The type resolution status is marked in each instruction.
- * TYPE_RESOLVED implies that the type of the instruction is fully
- * resolved, it is marked TYPE_DYNAMIC otherwise.
- */
-/*
- * @- Function call resolution
+ * (author) M. Kersten
+ * 
  * Search the first definition of the operator in the current module
  * and check the parameter types.
  * For a polymorphic MAL function we make a fully instantiated clone.
@@ -86,6 +29,7 @@
 #include "monetdb_config.h"
 #include "mal_resolve.h"
 #include "mal_namespace.h"
+#include "mal_private.h"
 
 static malType getPolyType(malType t, int *polytype);
 static int updateTypeMap(int formal, int actual, int polytype[MAXTYPEVAR]);
@@ -280,7 +224,7 @@ findFunctionType(stream *out, Module scope, MalBlkPtr mb, InstrPtr p, int silent
 			for (k = 0; k < limit; k++)
 				polytype[k] = TYPE_any;
 			/*
-			 * Most polymorphic functions don;t have a variable argument
+			 * Most polymorphic functions don't have a variable argument
 			 * list. So we save some instructions factoring this caise out.
 			 * Be careful, the variable number of return arguments should
 			 * be considered as well.
@@ -311,7 +255,7 @@ findFunctionType(stream *out, Module scope, MalBlkPtr mb, InstrPtr p, int silent
 				formal = getPolyType(formal, polytype);
 				/*
 				 * Collect the polymorphic types and resolve them.
-				 * If it fails, we know this isn;t the function we are
+				 * If it fails, we know this isn't the function we are
 				 * looking for.
 				 */
 				if (resolveType(formal, actual) == -1) {
@@ -364,8 +308,12 @@ findFunctionType(stream *out, Module scope, MalBlkPtr mb, InstrPtr p, int silent
 				int formal = getArgType(s->def, sig, i);
 				if (resolveType(formal, actual) == -1) {
 #ifdef DEBUG_MAL_RESOLVE
+					char *ftpe = getTypeName(formal);
+					char *atpe = getTypeName(actual);
 					mnstr_printf(out, "unmatched %d formal %s actual %s\n",
-								 i, getTypeName(formal), getTypeName(actual));
+								 i, ftpe, atpe);
+					GDKfree(ftpe);
+					GDKfree(atpe);
 #endif
 					unmatched = i;
 					break;
@@ -382,23 +330,29 @@ findFunctionType(stream *out, Module scope, MalBlkPtr mb, InstrPtr p, int silent
 		 */
 #ifdef DEBUG_MAL_RESOLVE
 		if (tracefcn) {
+			char *tpe, *tpe2;
 			mnstr_printf(out, "finished %s.%s unmatched=%d polymorphic=%d %d\n",
 						 getModuleId(sig), getFunctionId(sig), unmatched,
 						 sig->polymorphic, p == sig);
 			if (sig->polymorphic) {
 				int l;
 				for (l = 0; l < 2 * p->argc; l++)
-					if (polytype[l] != TYPE_any)
-						mnstr_printf(out, "poly %d %s\n",
-									 l, getTypeName(polytype[l]));
+					if (polytype[l] != TYPE_any) {
+						tpe = getTypeName(polytype[l]);
+						mnstr_printf(out, "poly %d %s\n", l, tpe);
+						GDKfree(tpe);
+					}
 			}
 			mnstr_printf(out, "-->resolving\n");
 			printInstruction(out, mb, 0, p, LIST_MAL_ALL);
 			mnstr_printf(out, "++> test against signature\n");
 			printInstruction(out, s->def, 0, getSignature(s), LIST_MAL_ALL);
+			tpe = getTypeName(getArgType(mb, p, unmatched));
+			tpe2 = getTypeName(getArgType(s->def, sig, unmatched));
 			mnstr_printf(out, "\nmismatch unmatched %d test %s poly %s\n",
-						 unmatched, getTypeName(getArgType(mb, p, unmatched)),
-						 getTypeName(getArgType(s->def, sig, unmatched)));
+						 unmatched, tpe, tpe2);
+			GDKfree(tpe);
+			GDKfree(tpe2);
 		}
 #endif
 		if (unmatched) {
@@ -558,9 +512,12 @@ resolveType(int dsttype, int srctype)
 {
 #ifdef DEBUG_MAL_RESOLVE
 	if (tracefcn) {
+		char *dtpe = getTypeName(dsttype);
+		char *stpe = getTypeName(srctype);
 		mnstr_printf(GDKout, "resolveType dst %s (%d) %s(%d)\n",
-					 getTypeName(dsttype), dsttype,
-					 getTypeName(srctype), srctype);
+					 dtpe, dsttype, stpe, srctype);
+		GDKfree(dtpe);
+		GDKfree(stpe);
 	}
 #endif
 	if (dsttype == srctype)
@@ -593,8 +550,8 @@ resolveType(int dsttype, int srctype)
 #endif
 			return -1;
 		}
-		t1 = getTailType(dsttype);
-		t2 = getTailType(srctype);
+		t1 = getColumnType(dsttype);
+		t2 = getColumnType(srctype);
 		if (t1 == t2)
 			t3 = t1;
 		else if (t1 == TYPE_any)
@@ -611,11 +568,22 @@ resolveType(int dsttype, int srctype)
 #ifdef DEBUG_MAL_RESOLVE
 		if (tracefcn) {
 			int i1 = getHeadIndex(dsttype);
-			int i2 = getTailIndex(dsttype);
+			int i2 = getColumnIndex(dsttype);
+			char *tpe1, *tpe2, *tpe3, *tpe4, *tpe5, *tpe6;
+			tpe1 = getTypeName(h1);
+			tpe2 = getTypeName(t1);
+			tpe3 = getTypeName(h2);
+			tpe4 = getTypeName(t2);
+			tpe5 = getTypeName(h3);
+			tpe6 = getTypeName(t3);
 			mnstr_printf(GDKout, "resolved to bat[:%s,:%s] bat[:%s,:%s]->bat[%s:%d,%s:%d]\n",
-						 getTypeName(h1), getTypeName(t1),
-						 getTypeName(h2), getTypeName(t2),
-						 getTypeName(h3), i1, getTypeName(t3), i2);
+						 tpe1, tpe2, tpe3, tpe4, tpe5, i1, tpe6, i2);
+			GDKfree(tpe1);
+			GDKfree(tpe2);
+			GDKfree(tpe3);
+			GDKfree(tpe4);
+			GDKfree(tpe5);
+			GDKfree(tpe6);
 		}
 #endif
 		return newBatType(h3, t3);
@@ -760,6 +728,7 @@ typeChecker(stream *out, Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 				ValRecord cst;
 				cst.vtype = TYPE_void;
 				cst.val.oval = void_nil;
+				cst.len = 0;
 
 				rhs = isaBatType(lhs) ? TYPE_bat : lhs;
 				p->argv[i] = defConstant(mb, rhs, &cst);
@@ -847,6 +816,8 @@ chkTypes(stream *out, Module s, MalBlkPtr mb, int silent)
 		if (p == NULL)
 			continue;
 		typeChecker(out, s, mb, p, silent);
+		if (mb->errors)
+			return;
 
 		if (getFunctionId(p)) {
 			if (p->fcn != NULL && p->typechk == TYPE_RESOLVED)
@@ -875,7 +846,11 @@ chkProgram(stream *out, Module s, MalBlkPtr mb)
 /*	if( mb->flowfixed == 0)*/
 
 	chkTypes(out, s, mb, FALSE);
+	if (mb->errors)
+		return;
 	chkFlow(out, mb);
+	if (mb->errors)
+		return;
 	chkDeclarations(out, mb);
 	/* malGarbageCollector(mb); */
 }
@@ -909,11 +884,11 @@ getPolyType(malType t, int *polytype)
 	int hi, ti;
 	int head, tail;
 
-	ti = getTailIndex(t);
+	ti = getColumnIndex(t);
 	if (!isaBatType(t) && ti > 0)
 		return polytype[ti];
 
-	tail = ti == 0 ? getTailType(t) : polytype[ti];
+	tail = ti == 0 ? getColumnType(t) : polytype[ti];
 	if (isaBatType(t)) {
 		hi = getHeadIndex(t);
 		head = hi == 0 ? getHeadType(t) : polytype[hi];
@@ -939,19 +914,22 @@ updateTypeMap(int formal, int actual, int polytype[MAXTYPEVAR])
 	if (formal == TYPE_bat && isaBatType(actual))
 		return 0;
 #ifdef DEBUG_MAL_RESOLVE
-	mnstr_printf(GDKout, "updateTypeMap:");
-	mnstr_printf(GDKout, "formal %s ", getTypeName(formal));
-	mnstr_printf(GDKout, "actual %s\n", getTypeName(actual));
+	{
+		char *tpe1 = getTypeName(formal), *tpe2 = getTypeName(actual);
+		mnstr_printf(GDKout, "updateTypeMap:formal %s actual %s\n", tpe1, tpe2);
+		GDKfree(tpe1);
+		GDKfree(tpe2);
+	}
 #endif
 
-	if ((h = getTailIndex(formal))) {
+	if ((h = getColumnIndex(formal))) {
 		if (isaBatType(actual) && !isaBatType(formal) &&
 			(polytype[h] == TYPE_any || polytype[h] == actual)) {
 			polytype[h] = actual;
 			ret = 0;
 			goto updLabel;
 		}
-		t = getTailType(actual);
+		t = getColumnType(actual);
 		if (t != polytype[h]) {
 			if (polytype[h] == TYPE_bat && isaBatType(actual))
 				ret = 0;

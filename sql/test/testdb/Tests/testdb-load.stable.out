@@ -11,7 +11,7 @@ stdout of test 'testdb-load` in directory 'sql/test/testdb` itself:
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 15.629 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
 # Listening for connection requests on mapi:monetdb://rome.ins.cwi.nl:35566/
 # MonetDB/GIS module loaded
@@ -203,12 +203,12 @@ Ready.
 #	"key1" INTEGER,
 #	"key2" INTEGER
 #);
-[ 4	]
 #COPY 4 RECORDS INTO "testschema"."keytest1" FROM stdin USING DELIMITERS '\t','\n','"';
 #0	0	0
 #0	1	1
 #1	0	2
 #1	1	3
+[ 4	]
 #CREATE TABLE "testschema"."keytest2" (
 #	"key1" INTEGER,
 #	"key2" INTEGER

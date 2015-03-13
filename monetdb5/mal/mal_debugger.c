@@ -18,10 +18,11 @@
  */
 
 /*
- * M.L. Kersten
+ * (author) M.L. Kersten
  * For documentation see website.
  */
 #include "monetdb_config.h"
+#include "mal.h"
 #include "mal_readline.h"
 #include "mal_debugger.h"
 #include "mal_atom.h"		/* for showAtoms() */
@@ -31,8 +32,26 @@
 #include "mal_module.h"		/* for showModuleStatistics() */
 #include "mal_parser.h"
 #include "mal_namespace.h"
+#include "mal_private.h"
 
 int MDBdelay;			/* do not immediately react */
+typedef struct {
+	MalBlkPtr brkBlock[MAXBREAKS];
+	int		brkPc[MAXBREAKS];
+	int		brkVar[MAXBREAKS];
+	str		brkMod[MAXBREAKS];
+	str		brkFcn[MAXBREAKS];
+	char	brkCmd[MAXBREAKS];
+	str		brkRequest[MAXBREAKS];
+	int		brkTop;
+} mdbStateRecord, *mdbState;
+
+typedef struct MDBSTATE{
+	MalBlkPtr mb;
+	MalStkPtr stk;
+	InstrPtr p;
+	int pc;
+} MdbState;
 
 #define skipBlanc(c, X)    while (*(X) && isspace((int) *X)) { X++; }
 #define skipNonBlanc(c, X) while (*(X) && !isspace((int) *X)) { X++; }
@@ -41,6 +60,11 @@ int MDBdelay;			/* do not immediately react */
 
 static void printStackElm(stream *f, MalBlkPtr mb, ValPtr v, int index, BUN cnt, BUN first);
 static void printStackHdr(stream *f, MalBlkPtr mb, ValPtr v, int index);
+static void printBATelm(stream *f, bat i, BUN cnt, BUN first);
+static void printBatDetails(stream *f, int bid);
+static void printBatInfo(stream *f, VarPtr n, ValPtr v);
+static void printBatProperties(stream *f, VarPtr n, ValPtr v, str props);
+static void mdbHelp(stream *f);
 
 static mdbStateRecord *mdbTable;
 
@@ -48,7 +72,7 @@ static mdbStateRecord *mdbTable;
  * The debugger flags overview
  */
 
-void
+int
 mdbInit(void)
 {
 	/*
@@ -58,6 +82,11 @@ mdbInit(void)
 	 * space in each instruction.
 	 */
 	mdbTable = GDKzalloc(sizeof(mdbStateRecord) * MAL_MAXCLIENTS);
+	if (mdbTable == NULL) {
+		showException(GDKout,MAL, "mdbInit",MAL_MALLOC_FAIL);
+		return -1;
+	}
+	return 0;
 }
 
 static char
@@ -139,6 +168,9 @@ mdbSetBreakRequest(Client cntxt, MalBlkPtr mb, str request, char cmd)
 	}
 	/* the final step is to break on a variable */
 	i = findVariable(mb, request);
+	/* ignore a possible dummy TMPMARKER character */
+	if ( i < 0)
+		i = findVariable(mb, request+1);
 	if (i < 0)
 		mnstr_printf(cntxt->fdout, "breakpoint on %s not set\n", request);
 	else {
@@ -155,7 +187,7 @@ mdbSetBreakRequest(Client cntxt, MalBlkPtr mb, str request, char cmd)
 }
 
 /* A breakpoint should be set once for each combination */
-void
+static void
 mdbSetBreakpoint(Client cntxt, MalBlkPtr mb, int pc, char cmd)
 {
 	mdbState mdb = mdbTable + cntxt->idx;
@@ -173,7 +205,7 @@ mdbSetBreakpoint(Client cntxt, MalBlkPtr mb, int pc, char cmd)
 		mdb->brkTop++;
 }
 
-void
+static void
 mdbShowBreakpoints(Client cntxt)
 {
 	int i;
@@ -207,7 +239,7 @@ mdbClrBreakpoint(Client cntxt, int pc)
 	mdb->brkTop = j;
 }
 
-void
+static void
 mdbClrBreakRequest(Client cntxt, str request)
 {
 	int i, j = 0;
@@ -259,7 +291,7 @@ printCall(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int pc)
 }
 
 /* utility to display instruction and dispose of structure */
-void
+static void
 printTraceCall(stream *out, MalBlkPtr mb, MalStkPtr stk, int pc, int flags)
 {
 	str msg;
@@ -285,9 +317,9 @@ static void
 printBATproperties(stream *f, BAT *b)
 {
 	mnstr_printf(f, " count=" BUNFMT " lrefs=%d ",
-			BATcount(b), BBP_lrefs(ABS(b->batCacheid)));
-	if (BBP_refs(ABS(b->batCacheid)) - 1)
-		mnstr_printf(f, " refs=%d ", BBP_refs(ABS(b->batCacheid)));
+			BATcount(b), BBP_lrefs(abs(b->batCacheid)));
+	if (BBP_refs(abs(b->batCacheid)) - 1)
+		mnstr_printf(f, " refs=%d ", BBP_refs(abs(b->batCacheid)));
 	if (b->batSharecnt)
 		mnstr_printf(f, " views=%d", b->batSharecnt);
 	if (b->H->heap.parentid)
@@ -320,9 +352,14 @@ mdbLocateMalBlk(Client cntxt, MalBlkPtr mb, str b, stream *out)
 	/* start with function in context */
 	if (*b == '[') {
 		idx = atoi(b + 1);
+		if( idx < 0)
+			return NULL;
 		return getMalBlkHistory(mb, idx);
 	} else if (isdigit((int) *b)) {
-		return getMalBlkHistory(mb, atoi(b));
+		idx = atoi(b);
+		if( idx < 0)
+			return NULL;
+		return getMalBlkHistory(mb, idx);
 	} else if (*b != 0) {
 		char *fcnname = strchr(b, '.');
 		Symbol fsym;
@@ -332,6 +369,8 @@ mdbLocateMalBlk(Client cntxt, MalBlkPtr mb, str b, stream *out)
 		if ((h = strchr(fcnname + 1, '['))) {
 			*h = 0;
 			idx = atoi(h + 1);
+			if( idx < 0)
+				return NULL;
 		}
 		fsym = findSymbolInModule(findModule(cntxt->nspace, putName(b, strlen(b))), fcnname + 1);
 		*fcnname = '.';
@@ -348,7 +387,7 @@ mdbLocateMalBlk(Client cntxt, MalBlkPtr mb, str b, stream *out)
 }
 
 
-void
+static void
 mdbCommand(Client cntxt, MalBlkPtr mb, MalStkPtr stkbase, InstrPtr p, int pc)
 {
 	int m = 1;
@@ -382,7 +421,7 @@ retryRead:
 			b = (char *) (*cntxt->phase[MAL_SCENARIO_READER])(cntxt);
 			if (b != 0)
 				break;
-			if (cntxt->mode == FINISHING)
+			if (cntxt->mode == FINISHCLIENT)
 				break;
 			/* SQL patch, it should only react to Smessages, Xclose requests to be ignored */
 			if (strncmp(cntxt->fdin->buf, "Xclose", 6) == 0) {
@@ -463,8 +502,10 @@ retryRead:
 		case 's':   /* step */
 			if (strncmp("span", b, 4) == 0) {
 				Lifespan span = setLifespan(mb);
-				debugLifespan(cntxt, mb, span);
-				GDKfree(span);
+				if ( span){
+					debugLifespan(cntxt, mb, span);
+					GDKfree(span);
+				}
 				continue;
 			} else if (strncmp("scenarios", b, 9) == 0) {
 				showAllScenarios(out);
@@ -513,8 +554,15 @@ retryRead:
 					}
 				}
 				continue;
-			} else
-				showModules(out, cntxt->nspace);
+			} else{
+				Module s;
+				for( s= cntxt->nspace; s; s= s->outer) {
+					mnstr_printf(out,"%s",s->name);
+					if( s->subscope==0) mnstr_printf(out,"?");
+					if(s->outer) mnstr_printf(out,",");
+				}
+				mnstr_printf(out,"\n");
+			}
 		}
 		break;
 		case 'T':   /* debug type resolver for a function call */
@@ -604,7 +652,7 @@ retryRead:
 				if (i)
 					limit = i + 1;
 				else {
-					limit = BBPsize;
+					limit = getBBPsize();
 					i = 1;
 				}
 				/* the 'dense' qualification only shows entries with a hard ref */
@@ -702,16 +750,13 @@ retryRead:
 				/* optional file */
 				skipBlanc(cntxt, b);
 				if (*b == 0) {
-					strcpy(fname, monet_cwd);
-					strcat(fname, name);
+					snprintf(fname, sizeof(fname), "%s%s", monet_cwd, name);
 				} else if (*b != '/') {
-					strcpy(fname, monet_cwd);
-					strcat(fname, name);
+					snprintf(fname, sizeof(fname), "%s%s", monet_cwd, name);
 				} else if (b[strlen(b) - 1] == '/') {
-					strcpy(fname, b);
-					strcat(fname, name + 1);
+					snprintf(fname, sizeof(fname), "%s%s", b, name + 1);
 				} else
-					strcat(fname, b);
+					snprintf(fname, sizeof(fname), "%s", b);
 
 				showFlowGraph(mdot, 0, fname);
 				mnstr_printf(out, "#dot file '%s' created\n", fname);
@@ -782,12 +827,17 @@ retryRead:
 			/* search the symbol */
 			i = findVariable(mb, b);
 			if (i < 0) {
+				// deal with temporary
+				if( *b == 'X' ) b++;
+				i = findVariable(mb, b);
+			}
+			if (i < 0) {
 				i = BBPindex(b);
 				if (i != 0) {
 					printBATelm(out, i, size, first);
 				} else {
 					i = atoi(b);
-					if (i || *b == '0')
+					if (i>-0 || *b == '0')
 						printStackElm(out, mb, stk->stk + i, i, size, first);
 					else
 						mnstr_printf(out, "%s Symbol not found\n", "#mdb ");
@@ -899,10 +949,9 @@ partial:
 			continue;
 		}
 		case '?':
-			if (!isspace((int) b[1])) {
+			if (!isspace((int) b[1]))
 				showHelp(cntxt->nspace, b + 1, out);
-				continue;
-			}
+			continue;
 		case 'h':
 			if (strncmp("help", b, 2) == 0)
 				mdbHelp(out);
@@ -939,6 +988,8 @@ mdbDump(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	int i = getPC(mb, pci);
 	mnstr_printf(cntxt->fdout, "!MDB dump of instruction %d\n", i);
+	if( i < 0)
+		return;
 	printFunction(cntxt->fdout, mb, stk, LIST_MAL_ALL);
 	mdbBacktrace(cntxt, stk, i);
 	printStack(cntxt->fdout, mb, stk);
@@ -973,12 +1024,12 @@ mdbSanityCheck(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int pc)
 			int i = v->val.ival;
 			BAT *b;
 
-			b = BBPquickdesc(ABS(i), TRUE);
+			b = BBPquickdesc(abs(i), TRUE);
 			if (i < 0)
 				b = BATmirror(b);
 			if (b) {
 				nme = getTypeName(n->type);
-				nmeOnStk = getTypeName(newBatType(b->htype, b->ttype));
+				nmeOnStk = getTypeName(newColumnType(b->ttype));
 				if (strcmp(nme, nmeOnStk)) {
 					printTraceCall(cntxt->fdout, mb, stk, pc, cntxt->flags);
 					mnstr_printf(cntxt->fdout, "!ERROR: %s != :%s\n",
@@ -986,6 +1037,7 @@ mdbSanityCheck(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int pc)
 					stk->cmd = 'n';
 				}
 				GDKfree(nme);
+				GDKfree(nmeOnStk);
 			}
 		}
 	}
@@ -997,11 +1049,11 @@ static MalBlkPtr trapped_mb;
 static MalStkPtr trapped_stk;
 static int trapped_pc;
 
-str mdbTrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int pc)
+str mdbTrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
-	InstrPtr p;
 	int cnt = 20;   /* total 10 sec delay */
-	p = getInstrPtr(mb, pc);
+	int pc = getPC(mb,p);
+
 	mnstr_printf(mal_clients[0].fdout, "#trapped %s.%s[%d]\n",
 			getModuleId(mb->stmt[0]), getFunctionId(mb->stmt[0]), pc);
 	printInstruction(mal_clients[0].fdout, mb, stk, p, LIST_MAL_DEBUG);
@@ -1045,7 +1097,7 @@ mdbStep(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int pc)
 		cntxt->mdb = &state;
 		mnstr_printf(mal_clients[0].fdout, "#Process %d put to sleep\n", (int) (cntxt - mal_clients));
 		cntxt->itrace = 'W';
-		mdbTrap(cntxt, mb, stk, pc);
+		mdbTrap(cntxt, mb, stk, state.p);
 		while (cntxt->itrace == 'W')
 			MT_sleep_ms(300);
 		mnstr_printf(mal_clients[0].fdout, "#Process %d woke up\n", (int) (cntxt - mal_clients));
@@ -1056,7 +1108,7 @@ mdbStep(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int pc)
 	/* a trapped call leads to process suspension */
 	/* then the console can be used to attach a debugger */
 	if (mb->trap) {
-		mdbTrap(cntxt, mb, stk, pc);
+		mdbTrap(cntxt, mb, stk, getInstrPtr(mb,pc));
 		return;
 	}
 	p = getInstrPtr(mb, pc);
@@ -1141,12 +1193,12 @@ mdbGrab(Client cntxt, MalBlkPtr mb1, MalStkPtr stk1, InstrPtr pc1)
 str
 mdbTrapClient(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 {
-	int id = *(int *) getArgReference(stk, p, 1);
+	int id = *getArgReference_int(stk, p, 1);
 	Client c;
 
 	(void) cntxt;
 	(void) mb;
-	if (id < 0 || id > MAL_MAXCLIENTS || mal_clients[id].mode == 0)
+	if (id < 0 || id >= MAL_MAXCLIENTS || mal_clients[id].mode == 0)
 		throw(INVCRED, "mdb.grab", INVCRED_WRONG_ID);
 	c = mal_clients + id;
 
@@ -1164,8 +1216,7 @@ str
 runMALDebugger(Client cntxt, Symbol s)
 {
 	cntxt->itrace = 'n';
-	runMAL(cntxt, s->def, 0, 0);
-	return MAL_SUCCEED;
+	return runMAL(cntxt, s->def, 0, 0);
 }
 
 /* Utilities
@@ -1193,15 +1244,15 @@ printStack(stream *f, MalBlkPtr mb, MalStkPtr s)
 			printStackElm(f, mb, 0, i, 0, 0);
 }
 
-void
-printBATelm(stream *f, int i, BUN cnt, BUN first)
+static void
+printBATelm(stream *f, bat i, BUN cnt, BUN first)
 {
 	BAT *b, *bs;
 	str tpe;
 
 	b = BATdescriptor(i);
 	if (b) {
-		tpe = getTypeName(newBatType(b->htype, b->ttype));
+		tpe = getTypeName(newColumnType(b->ttype));
 		mnstr_printf(f, ":%s ", tpe);
 		printBATproperties(f, b);
 		/* perform property checking */
@@ -1260,13 +1311,12 @@ printStackElm(stream *f, MalBlkPtr mb, ValPtr v, int index, BUN cnt, BUN first)
 
 	if (v && v->vtype == TYPE_bat) {
 		int i = v->val.ival;
-		BAT *b = BBPquickdesc(ABS(i), TRUE);
+		BAT *b = BBPquickdesc(abs(i), TRUE);
 
-		b = BBPquickdesc(ABS(i), TRUE);
 		if (i < 0)
 			b = BATmirror(b);
 		if (b) {
-			nme = getTypeName(newBatType(b->htype, b->ttype));
+			nme = getTypeName(newColumnType(b->ttype));
 			mnstr_printf(f, " :%s rows="BUNFMT, nme, BATcount(b));
 		} else {
 			nme = getTypeName(n->type);
@@ -1296,10 +1346,10 @@ printStackElm(stream *f, MalBlkPtr mb, ValPtr v, int index, BUN cnt, BUN first)
 	mnstr_printf(f, "\n");
 	GDKfree(nmeOnStk);
 
-	if (cnt && v && (isaBatType(n->type) || v->vtype == TYPE_bat) && v->val.ival) {
+	if (cnt && v && (isaBatType(n->type) || v->vtype == TYPE_bat) && v->val.bval != bat_nil) {
 		BAT *b, *bs;
 
-		b = BATdescriptor(v->val.ival);
+		b = BATdescriptor(v->val.bval);
 		if (b == NULL) {
 			mnstr_printf(f, "Could not access descriptor\n");
 			return;
@@ -1312,19 +1362,20 @@ printStackElm(stream *f, MalBlkPtr mb, ValPtr v, int index, BUN cnt, BUN first)
 
 		if (bs == NULL)
 			mnstr_printf(f, "Failed to take chunk\n");
-		else
+		else{
 			BATmultiprintf(f, 2, &bs, TRUE, 0, TRUE);
-		BBPunfix(bs->batCacheid);
+			BBPunfix(bs->batCacheid);
+		}
 
 		BBPunfix(b->batCacheid);
 	}
 }
 
-void
-printBatDetails(stream *f, int bid)
+static void
+printBatDetails(stream *f, bat bid)
 {
 	BAT *b[2];
-	int ret,ret2;
+	bat ret,ret2;
 	MALfcn fcn;
 
 	/* at this level we don't know bat kernel primitives */
@@ -1336,26 +1387,29 @@ printBatDetails(stream *f, int bid)
 		if (b[0] == NULL)
 			return;
 		b[1] = BATdescriptor(ret2);
-		if (b[1] == NULL)
+		if (b[1] == NULL) {
+			BBPunfix(b[0]->batCacheid);
 			return;
+		}
 		BATmultiprintf(f, 3, b, TRUE, 0, TRUE);
 		BBPunfix(b[0]->batCacheid);
 		BBPunfix(b[1]->batCacheid);
 	}
 }
-void
+
+static void
 printBatInfo(stream *f, VarPtr n, ValPtr v)
 {
 	if (isaBatType(n->type) && v->val.ival)
 		printBatDetails(f, v->val.ival);
 }
 
-void
+static void
 printBatProperties(stream *f, VarPtr n, ValPtr v, str props)
 {
 	if (isaBatType(n->type) && v->val.ival) {
-		int bid;
-		int ret,ret2;
+		bat bid;
+		bat ret,ret2;
 		MALfcn fcn;
 		BUN p;
 
@@ -1377,9 +1431,13 @@ printBatProperties(stream *f, VarPtr n, ValPtr v, str props)
 			b[1] = BATdescriptor(ret2);
 			if (b[0] == NULL || b[1] == NULL) {
 				mnstr_printf(f, "Could not access descriptor\n");
+				if (b[0])
+					BBPunfix(b[0]->batCacheid);
+				if (b[1])
+					BBPunfix(b[1]->batCacheid);
 				return;
 			}
-			p = BUNfnd(b[0], props);
+			p = BUNfnd(BATmirror(b[0]), props);
 			if (p != BUN_NONE) {
 				BATiter bi = bat_iterator(b[1]);
 				mnstr_printf(f, " %s\n", (str) BUNtail(bi, p));
@@ -1392,6 +1450,7 @@ printBatProperties(stream *f, VarPtr n, ValPtr v, str props)
 	}
 }
 
+#if 0							/* these are not referenced anywhere */
 /*
  * The memory positions for the BATs is useful information to
  * assess for memory fragmentation.
@@ -1400,7 +1459,7 @@ static str
 memProfileVector(stream *out, int cells)
 {
 	str v;
-	int i;
+	bat i;
 
 	if (cells <= 0)
 		return GDKstrdup("");
@@ -1412,7 +1471,7 @@ memProfileVector(stream *out, int cells)
 		v[i] = '.';
 	v[i] = 0;
 
-	for (i = 1; i < BBPsize; i++)
+	for (i = 1; i < getBBPsize(); i++)
 		if (BBP_status(i) & BBPLOADED) {
 			BAT *b = BATdescriptor(i);
 			Heap *hp;
@@ -1471,8 +1530,9 @@ printBBPinfo(stream *out)
 	mnstr_printf(out, "#BBP VM history not available\n");
 #endif
 }
+#endif
 
-void
+static void
 mdbHelp(stream *f)
 {
 	mnstr_printf(f, "next             -- Advance to next statement\n");

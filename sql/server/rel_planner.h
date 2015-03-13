@@ -22,9 +22,6 @@
 
 #include "rel_semantic.h"
 
-extern sql_rel * rel_planner(mvc *sql, list *rels, list *jes);
-
-extern int rel_has_exp(sql_rel *rel, sql_exp *e);
-extern sql_rel *find_one_rel(list *rels, sql_exp *e);
+extern sql_rel * rel_planner(mvc *sql, list *rels, list *djes, list *ojes);
 
 #endif /*_REL_PLANNER_H_ */

@@ -11,7 +11,7 @@ stdout of test 'count-and-not.Bug-2663` in directory 'sql/test/BugTracker-2010` 
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.751 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://monetdb.cwi.nl/ for further information
 # Listening for connection requests on mapi:monetdb://ottar.ins.cwi.nl:35150/
 # MonetDB/SQL module v2.38.5 loaded
@@ -29,7 +29,7 @@ Ready.
 #          FROM tables
 #         GROUP BY id) as i
 # WHERE NOT (1 < i.cnt);
-% . # table_name
+% .L2 # table_name
 % res # name
 % boolean # type
 % 5 # length
@@ -39,7 +39,7 @@ Ready.
 #          FROM tables
 #         GROUP BY id) as i
 # WHERE NOT (i.cnt > 1);
-% . # table_name
+% .L2 # table_name
 % res # name
 % boolean # type
 % 5 # length
@@ -49,7 +49,7 @@ Ready.
 #          FROM tables
 #         GROUP BY id) as i
 # WHERE NOT (1 < i.cnt);
-% . # table_name
+% .L1 # table_name
 % res # name
 % boolean # type
 % 5 # length
@@ -59,7 +59,7 @@ Ready.
 #          FROM tables
 #         GROUP BY id) as i
 # WHERE 1 >= i.cnt;
-% . # table_name
+% .L2 # table_name
 % res # name
 % boolean # type
 % 5 # length
@@ -69,7 +69,7 @@ Ready.
 #          FROM tables
 #         GROUP BY id) as i
 # WHERE i.cnt <= 1;
-% . # table_name
+% .L2 # table_name
 % res # name
 % boolean # type
 % 5 # length
@@ -79,7 +79,7 @@ Ready.
 #          FROM tables
 #         GROUP BY id) as i
 # WHERE 1 < i.cnt;
-% . # table_name
+% .L2 # table_name
 % res # name
 % boolean # type
 % 5 # length

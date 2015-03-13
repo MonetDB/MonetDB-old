@@ -51,7 +51,7 @@ SQLFetch_(ODBCStmt *stmt)
 	ODBCDescRec *rec;
 	int i;
 	SQLULEN row;
-	SQLINTEGER offset;
+	SQLLEN offset;
 	SQLUSMALLINT *statusp;
 
 	/* stmt->startRow is the (0 based) index of the first row we
@@ -127,6 +127,9 @@ SQLFetch_(ODBCStmt *stmt)
 			*statusp = SQL_ROW_SUCCESS;
 
 		stmt->rowSetSize++;
+
+		for (i = 1; i <= ird->sql_desc_count; i++)
+			ird->descRec[i].already_returned = 0;
 
 		for (i = 1; i <= ard->sql_desc_count; i++) {
 			rec = &ard->descRec[i];

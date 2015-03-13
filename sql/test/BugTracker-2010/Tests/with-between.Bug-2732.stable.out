@@ -11,7 +11,7 @@ stdout of test 'with-between.Bug-2732` in directory 'sql/test/BugTracker-2010` i
 # Compiled for x86_64-pc-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.750 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://monetdb.cwi.nl/ for further information
 # MonetDB/SQL module v11.0.0 loaded
 # MonetDB/GIS module v11.0.0 loaded
@@ -32,7 +32,7 @@ Ready.
 # where t1.p = 1
 #   and t2.p between (t1.p + 1) and (t1.p + t1.s)
 #   and t3.p between (t2.p + 1) and (t2.p + t2.s);
-% .t1,	.t2,	.t3 # table_name
+% .L2,	.L2,	.L2 # table_name
 % p1,	p2,	p3 # name
 % tinyint,	tinyint,	tinyint # type
 % 1,	1,	1 # length
@@ -46,7 +46,7 @@ Ready.
 # where t1.p = 1
 #   and t2.p >= (t1.p + 1) and t2.p <= (t1.p + t1.s)
 #   and t3.p >= (t2.p + 1) and t3.p <= (t2.p + t2.s);
-% .t1,	.t2,	.t3 # table_name
+% .L2,	.L2,	.L2 # table_name
 % p1,	p2,	p3 # name
 % tinyint,	tinyint,	tinyint # type
 % 1,	1,	1 # length

@@ -18,34 +18,30 @@
  */
 
 /*
- * @f mal_errors
- * @-
- * The error strings are
- * geared at answering the question "what happened".
+ * The error strings are geared at answering the question "what happened".
  * Optional information about "why it happened" is added
  * as local strings in the code base with possibly runtime information.
  * Information on "how to avoid it" is sporadically added using expected values.
  *
  * General considerations on error classes are summarized below:
- * @itemize
- * @item MAL_MALLOC_FAIL
+ * MAL_MALLOC_FAIL
  * An operation allocates space for an object failed.
  * Either the pre-requisites are not satisfied, or the system
  * runs low on resources and can not accomodate the object.
  * For failures to create BATs it sometimes indicates that an
  * intermediate BAT size is too large.
- * @item OPERATION_FAILED
+ * OPERATION_FAILED
  * Mostly the module and function name are indicative enough.
  * If possible more is said about the error context,
  * informative references to arguments or variables,
  * provided it is produced by the underlying implementation.
- * @item GDK_EXCEPTION
+ * GDK_EXCEPTION
  * In general these are generated deep inside the kernel.
  * They are captured by the MAL interpreter.
- * @item SEMANTIC_*
+ * SEMANTIC_*
  * The patterns can be used to defer semantic type errors
  * to runtime.
- * @end itemize
+ * 
  * Getting all exception strings in one place improves consistency
  * and maintenance.
  *
@@ -100,6 +96,7 @@
 #define RUNTIME_OBJECT_UNDEFINED "Object not found"
 #define RUNTIME_UNKNOWN_INSTRUCTION "Instruction type not supported"
 #define RUNTIME_QRY_TIMEOUT "Query aborted due to timeout"
+#define RUNTIME_SESSION_TIMEOUT "Query aborted due to session timeout"
 #define OPERATION_FAILED "operation failed"
 
 #define BOX_CLOSED "Box is not open"
@@ -143,4 +140,5 @@
 #define XML_ILLEGAL_CONTENT "Illegal content"
 
 #define GDK_EXCEPTION "GDK reported error."
+#define MAL_DEPRECATED "Deprecated MAL operation."
 #endif /* MAL_ERRORS */

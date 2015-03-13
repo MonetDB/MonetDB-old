@@ -142,7 +142,7 @@ logFD(int fd, char *type, char *dbname, long long int pid, FILE *stream)
 {
 	time_t now;
 	char buf[8096];
-	size_t len;
+	int len = 0;
 	char *p, *q;
 	struct tm *tmp;
 	char mytime[20];
@@ -165,7 +165,7 @@ logFD(int fd, char *type, char *dbname, long long int pid, FILE *stream)
 			q = p + 1;
 			writeident = 1;
 		}
-		if ((size_t)(q - buf) < len) {
+		if ((int)(q - buf) < len) {
 			if (writeident == 1)
 				fprintf(stream, "%s %s %s[" LLFMT "]: ",
 						mytime, type, dbname, pid);
@@ -294,8 +294,13 @@ terminateProcess(void *p)
 			msab_freeStatus(&stats);
 			free(dbname);
 			return;
+		case SABdbStarting:
+			Mfprintf(stderr, "database '%s' appears to be starting up\n",
+					 dbname);
+			/* starting up, so we'll go to the shut down phase */
+			break;
 		default:
-			Mfprintf(stderr, "unknown state: %d", (int)stats->state);
+			Mfprintf(stderr, "unknown state: %d\n", (int)stats->state);
 			msab_freeStatus(&stats);
 			free(dbname);
 			return;
@@ -303,11 +308,13 @@ terminateProcess(void *p)
 
 	if (d->type == MEROFUN) {
 		multiplexDestroy(dbname);
+		msab_freeStatus(&stats);
 		free(dbname);
 		return;
 	} else if (d->type != MERODB) {
 		/* barf */
 		Mfprintf(stderr, "cannot stop merovingian process role: %s\n", dbname);
+		msab_freeStatus(&stats);
 		free(dbname);
 		return;
 	}
@@ -324,7 +331,6 @@ terminateProcess(void *p)
 		er = msab_getStatus(&stats, dbname);
 		if (er != NULL) {
 			Mfprintf(stderr, "unexpected problem: %s\n", er);
-			free(dbname);
 			free(er);
 			/* don't die, just continue, so we KILL in the end */
 		} else if (stats == NULL) {
@@ -333,6 +339,7 @@ terminateProcess(void *p)
 		} else {
 			switch (stats->state) {
 				case SABdbRunning:
+				case SABdbStarting:
 					/* ok, try again */
 				break;
 				case SABdbCrashed:
@@ -348,7 +355,7 @@ terminateProcess(void *p)
 					free(dbname);
 					return;
 				default:
-					Mfprintf(stderr, "unknown state: %d", (int)stats->state);
+					Mfprintf(stderr, "unknown state: %d\n", (int)stats->state);
 				break;
 			}
 		}
@@ -357,6 +364,7 @@ terminateProcess(void *p)
 			" (database '%s') the KILL signal\n",
 			kv->val, (long long int)pid, dbname);
 	kill(pid, SIGKILL);
+	msab_freeStatus(&stats);
 	free(dbname);
 	return;
 }
@@ -405,6 +413,7 @@ main(int argc, char *argv[])
 	pthread_t tid = 0;
 	struct sigaction sa;
 	int ret;
+	int lockfd = -1;
 	int sock = -1;
 	int usock = -1;
 	int unsock = -1;
@@ -464,6 +473,8 @@ main(int argc, char *argv[])
 	kv = findConfKey(_mero_db_props, "shared");
 	kv->val = strdup("yes");
 	kv = findConfKey(_mero_db_props, "readonly");
+	kv->val = strdup("no");
+	kv = findConfKey(_mero_db_props, "embedr");
 	kv->val = strdup("no");
 	kv = findConfKey(_mero_db_props, "nclients");
 	kv->val = strdup("64");
@@ -645,7 +656,7 @@ main(int argc, char *argv[])
 				Mfprintf(stderr, "could not get dbfarm working directory: %s\n",
 						strerror(errno));
 			}
-			MERO_EXIT(1);
+			MERO_EXIT_CLEAN(1);
 		}
 	}
 
@@ -660,7 +671,11 @@ main(int argc, char *argv[])
 	}
 
 	/* read the merovingian properties from the dbfarm */
-	readProps(ckv, ".");
+	if (readProps(ckv, ".") != 0) {
+		Mfprintf(stderr, "cannot find or read properties file, was "
+				"this dbfarm created by `monetdbd create`?\n");
+		MERO_EXIT_CLEAN(1);
+	}
 	_mero_props = ckv;
 
 	pidfilename = getConfVal(_mero_props, "pidfile");
@@ -713,11 +728,11 @@ main(int argc, char *argv[])
 			p, port);
 
 	/* lock such that we are alone on this world */
-	if ((ret = MT_lockf(".merovingian_lock", F_TLOCK, 4, 1)) == -1) {
+	if ((lockfd = MT_lockf(".merovingian_lock", F_TLOCK, 4, 1)) == -1) {
 		/* locking failed */
 		Mfprintf(stderr, "another monetdbd is already running\n");
 		MERO_EXIT_CLEAN(1);
-	} else if (ret == -2) {
+	} else if (lockfd == -2) {
 		/* directory or something doesn't exist */
 		Mfprintf(stderr, "unable to create %s/.merovingian_lock file: %s\n",
 				dbfarm, strerror(errno));
@@ -737,6 +752,8 @@ main(int argc, char *argv[])
 	if (_mero_topdp->out == -1) {
 		Mfprintf(stderr, "unable to open '%s': %s\n",
 				p, strerror(errno));
+		MT_lockf(".merovingian_lock", F_ULOCK, 4, 1);
+		close(lockfd);
 		MERO_EXIT_CLEAN(1);
 	}
 	_mero_topdp->err = _mero_topdp->out;
@@ -896,6 +913,7 @@ main(int argc, char *argv[])
 	/* open up connections */
 	if (
 			(e = openConnectionTCP(&sock, port, stdout)) == NO_ERR &&
+			/* coverity[operator_confusion] */
 			(unlink(control_usock) | unlink(mapi_usock) | 1) &&
 			(e = openConnectionUNIX(&socku, mapi_usock, 0, stdout)) == NO_ERR &&
 			(discovery == 0 || (e = openConnectionUDP(&usock, port)) == NO_ERR) &&
@@ -908,8 +926,9 @@ main(int argc, char *argv[])
 		if (discovery == 1) {
 			_mero_broadcastsock = socket(AF_INET, SOCK_DGRAM, 0);
 			ret = 1;
-			if ((setsockopt(_mero_broadcastsock,
-							SOL_SOCKET, SO_BROADCAST, &ret, sizeof(ret))) == -1)
+			if (_mero_broadcastsock == -1 ||
+				setsockopt(_mero_broadcastsock,
+						   SOL_SOCKET, SO_BROADCAST, &ret, sizeof(ret)) == -1)
 			{
 				Mfprintf(stderr, "cannot create broadcast package, "
 						"discovery services disabled\n");
@@ -1054,6 +1073,11 @@ shutdown:
 	if (_mero_db_props != NULL) {
 		freeConfFile(_mero_db_props);
 		free(_mero_db_props);
+	}
+
+	if (lockfd >= 0) {
+		MT_lockf(".merovingian_lock", F_ULOCK, 4, 1);
+		close(lockfd);
 	}
 
 	/* the child's return code at this point doesn't matter, as noone

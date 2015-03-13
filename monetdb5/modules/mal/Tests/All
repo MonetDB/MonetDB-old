@@ -5,8 +5,6 @@ clients01
 
 bigsum
 
-compress
-
 inspect00
 inspect05
 inspect10
@@ -18,14 +16,14 @@ mserver00
 
 qgram
 
-# statistics00
-#statistics01
+groupby00
+
+imprints
 
 call00
 callstring
 callfunction
 
-#radix
 
 #ascii_io2 needs work
 
@@ -63,11 +61,12 @@ mapi06
 mapi07
 mapi01
 
-cluster00
 tokenizer00
 zorder
 
-#HAVE_RAPTOR?rdf
+manifold
+manifoldstr
+#manifoldaggr
 
 # might show different output if openssl is compiled without full sha2
 # support
@@ -79,3 +78,5 @@ clients-getpasswd
 #cpustat too system dependent to always run.
 
 pqueue
+pqueue2
+pqueue3

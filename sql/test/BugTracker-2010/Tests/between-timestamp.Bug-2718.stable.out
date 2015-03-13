@@ -11,7 +11,7 @@ stdout of test 'between-timestamp.Bug-2718` in directory 'sql/test/BugTracker-20
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.750 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://monetdb.cwi.nl/ for further information
 # Listening for connection requests on mapi:monetdb://ottar.ins.cwi.nl:33285/
 # MonetDB/SQL module v2.40.2 loaded
@@ -46,7 +46,7 @@ Ready.
 #where t2.time between (t1.time - interval '1' second) and (t1.time + interval '1' second)
 #group by t1.time
 #order by t1.time;
-% sys.t1,	sys.t2 # table_name
+% sys.t1,	sys.L1 # table_name
 % time,	L1 # name
 % timestamp,	wrd # type
 % 26,	1 # length

@@ -12,7 +12,7 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2013 MonetDB B.V.
+# Copyright August 2008-2015 MonetDB B.V.
 # All Rights Reserved.
 
 import os
@@ -30,7 +30,7 @@ automake_ext = ['', 'c', 'def', 'h', 'lo', 'o', 'pm.c',
 # buildtools/conf.  The generated sources should therefore be included
 # in the tar ball and not be removed with `make distclean' when
 # running "in" said tar ball.
-buildtools_ext = ['brg', 'l', 'mx', 'pm.i', 'syms', 't', 'y']
+buildtools_ext = ['brg', 'l', 'pm.i', 'syms', 't', 'y']
 
 am_assign = "+="
 
@@ -817,6 +817,12 @@ def am_library(fd, var, libmap, am):
                 deps.append(target)
     fd.write(nsrcs + "\n")
     fd.write(srcs + "\n")
+    if 'XDEPS' in libmap:
+        fd.write(fullpref + '_DEPENDENCIES =')
+        for dep in libmap['XDEPS']:
+            fd.write(' ')
+            fd.write(dep)
+        fd.write('\n')
 
     if deps:
         fd.write(am_additional_deps(libname, sep, "LIB", deps, am, pref))
@@ -971,7 +977,7 @@ def am_gem(fd, var, gem, am):
         for src in srcs:
             fd.write("\t[ '$(srcdir)' -ef . ] || rm -f '%s'\n" % src)
         for d in sorted(dirs, reverse = True):
-            fd.write("\t[ '$(srcdir)' -ef . ] || rmdir '%s'\n" % d)
+            fd.write("\t[ '$(srcdir)' -ef . -o ! -d '%s' ] || rmdir '%s'\n" % (d, d))
         fd.write("install-exec-local-%s: %s\n" % (sf, f[:-4]))
         fd.write("\tmkdir -p $(DESTDIR)'%s'\n" % rd)
         fd.write("\tgem install --local --install-dir $(DESTDIR)'%s' --force --rdoc '%s'\n" % (rd, f[:-4]))
@@ -1020,7 +1026,7 @@ def am_python_generic(fd, var, python, am, PYTHON):
         fd.write("\trm '$(DESTDIR)$(prefix)/$(%s_LIBDIR)'/%s-*.egg-info\n" % (PYTHON, name.replace('-', '_')))
     fd.write('mostlyclean-local:\n')
     for pkgdir in sorted(pkgdirs, reverse = True):
-        fd.write("\t[ '$(srcdir)' -ef . ] || rm -r '%s'\n" % pkgdir)
+        fd.write("\t[ '$(srcdir)' -ef . -o ! -d '%s' ] || rm -r '%s'\n" % (pkgdir, pkgdir))
 
 def am_python2(fd, var, python, am):
     am_python_generic(fd, var, python, am, 'PYTHON2')
@@ -1046,7 +1052,7 @@ def am_ant(fd, var, ant, am):
     if "COND" in ant:
         fd.write("\nif " + ant["COND"][0] +"\n\n")
 
-    fd.write("\n%s_ant_target:\n\t\"$(ANT)\" -f \"`$(anttranslatepath) $(srcdir)/build.xml`\" -Dbuilddir=\"`$(anttranslatepath) $(PWD)/%s`\" -Djardir=\"`$(anttranslatepath) $(PWD)`\" -Dbasedir=\"`$(anttranslatepath) $(srcdir)`\" %s\n" % (target, target, target))
+    fd.write("\n%s_ant_target:\n\t\"$(ANT)\" -f \"`$(anttranslatepath) $(srcdir)/build.xml`\" -Dbuilddir=\"`$(anttranslatepath) $(PWD)`/%s\" -Djardir=\"`$(anttranslatepath) $(PWD)`\" -Dbasedir=\"`$(anttranslatepath) $(srcdir)`\" %s\n" % (target, target, target))
 
     for file in ant['FILES']:
         sfile = file.replace(".", "_")

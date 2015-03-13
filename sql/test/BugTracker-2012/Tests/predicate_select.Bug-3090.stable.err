@@ -30,9 +30,10 @@ stderr of test 'predicate_select.Bug-3090` in directory 'sql/test/BugTracker-201
 # 18:53:13 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=niels" "--port=32323"
 # 18:53:13 >  
 
-MAPI  = (monetdb) /var/tmp/mtest-30433/.s.monetdb.30902
-QUERY = select * from tables where name;
-ERROR = !conversion of string 'r' to type bit failed.
+MAPI  = (monetdb) /var/tmp/mtest-10718/.s.monetdb.32351
+QUERY = select name, schema_id, query, type, system, commit_action, readonly, temporary from tbls where name;
+ERROR = !conversion of string 'schemas' to type bit failed.
+
 
 # 18:53:13 >  
 # 18:53:13 >  "Done."

@@ -11,7 +11,7 @@ stdout of test 'many-connects-cache.Bug-2904` in directory 'sql/test/BugTracker-
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 7.749 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
 # Listening for connection requests on mapi:monetdb://ottar.ins.cwi.nl:33580/
 # MonetDB/GIS module loaded
@@ -44,301 +44,301 @@ Ready.
 # 14:18:16 >  
 
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length
 [ 0.9741885087	]
 #SELECT rad(55.81689)
-% . # table_name
+% .L # table_name
 % rad_single_value # name
 % double # type
 % 24 # length

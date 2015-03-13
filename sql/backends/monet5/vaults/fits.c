@@ -18,33 +18,11 @@
  */
 
 /*
- * @' The contents of this file are subject to the MonetDB Public License
- * @' Version 1.1 (the "License"); you may not use this file except in
- * @' compliance with the License. You may obtain a copy of the License at
- * @' http://www.monetdb.org/Legal/MonetDBLicense
- * @'
- * @' Software distributed under the License is distributed on an "AS IS"
- * @' basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * @' License for the specific language governing rights and limitations
- * @' under the License.
- * @'
- * @' The Original Code is the MonetDB Database System.
- * @'
- * @' The Initial Developer of the Original Code is CWI.
- * @' Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * @' Copyright August 2008-2013 MonetDB B.V.
- * @' All Rights Reserved.
+ * Authors: M. Ivanova, M. Kersten, N. Nes
  *
- * @a M. Ivanova, M. Kersten, N. Nes
- * @f fits
- * @- This module contains primitives for accessing data in FITS file format.
- *
- * @-
+ * This module contains primitives for accessing data in FITS file format.
  */
-/*
- * @-
- *
- */
+
 #include "monetdb_config.h"
 #include <glob.h>
 
@@ -199,7 +177,7 @@ fits2subtype(sql_subtype *tpe, int t, long rep, long wid)
 str FITSexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str msg = MAL_SUCCEED;
-	str tname = *(str*) getArgReference(stk, pci, 1);
+	str tname = *getArgReference_str(stk, pci, 1);
 	mvc *m = NULL;
 	sql_trans *tr;
 	sql_schema *sch;
@@ -227,8 +205,9 @@ str FITSexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	_Bool boolvalue, *readboolrows;
 	struct list * set;
 
-	msg = getSQLContext(cntxt, mb, &m, NULL);
-	if (msg)
+	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
+		return msg;
+	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
 		return msg;
 
 	tr = m->session->tr;
@@ -248,7 +227,7 @@ str FITSexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	colname = (str *) GDKmalloc(columns * sizeof(str));
 	tform = (str *) GDKmalloc(columns * sizeof(str));
 
-	/*	mnstr_printf(GDKout,"Number of columns: %d\n", columns);*/
+	/*	fprintf(stderr,"Number of columns: %d\n", columns);*/
 
 	tables = mvc_bind_table(m, sch, "_tables");
 	col = mvc_bind_column(m, tables, "name");
@@ -295,7 +274,7 @@ str FITSexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	nrows = store_funcs.count_col(tr, col, 1);
 
 	snprintf(filename,BUFSIZ,"\n%s.fit",tname);
-	mnstr_printf(GDKout, "Filename: %s\n", filename);
+	fprintf(stderr, "Filename: %s\n", filename);
 
 	remove(filename);
 
@@ -550,15 +529,15 @@ str FITSexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	/* print all the times that were needed to export each one of the columns
 		
-	mnstr_printf(GDKout, "\n\n");
-	if (texportboolean > 0)		mnstr_printf(GDKout, "%d Boolean\tcolumn(s) exported in %d ms\n", boolcols,   texportboolean);
-	if (texportchar > 0)		mnstr_printf(GDKout, "%d Char\t\tcolumn(s) exported in %d ms\n",    charcols,   texportchar);
-	if (texportstring > 0)		mnstr_printf(GDKout, "%d String\tcolumn(s) exported in %d ms\n",  strcols,    texportstring);
-	if (texportshort > 0)		mnstr_printf(GDKout, "%d Short\t\tcolumn(s) exported in %d ms\n",   shortcols,  texportshort);
-	if (texportint > 0)		mnstr_printf(GDKout, "%d Integer\tcolumn(s) exported in %d ms\n", intcols,    texportint);
-	if (texportlong > 0)		mnstr_printf(GDKout, "%d Long\t\tcolumn(s) exported in %d ms\n",    longcols,   texportlong);
-	if (texportfloat > 0)		mnstr_printf(GDKout, "%d Float\t\tcolumn(s) exported in %d ms\n",   floatcols,  texportfloat);
-	if (texportdouble > 0) 		mnstr_printf(GDKout, "%d Double\tcolumn(s) exported in %d ms\n",  doublecols, texportdouble);
+	fprintf(stderr, "\n\n");
+	if (texportboolean > 0)		fprintf(stderr, "%d Boolean\tcolumn(s) exported in %d ms\n", boolcols,   texportboolean);
+	if (texportchar > 0)		fprintf(stderr, "%d Char\t\tcolumn(s) exported in %d ms\n",    charcols,   texportchar);
+	if (texportstring > 0)		fprintf(stderr, "%d String\tcolumn(s) exported in %d ms\n",  strcols,    texportstring);
+	if (texportshort > 0)		fprintf(stderr, "%d Short\t\tcolumn(s) exported in %d ms\n",   shortcols,  texportshort);
+	if (texportint > 0)		fprintf(stderr, "%d Integer\tcolumn(s) exported in %d ms\n", intcols,    texportint);
+	if (texportlong > 0)		fprintf(stderr, "%d Long\t\tcolumn(s) exported in %d ms\n",    longcols,   texportlong);
+	if (texportfloat > 0)		fprintf(stderr, "%d Float\t\tcolumn(s) exported in %d ms\n",   floatcols,  texportfloat);
+	if (texportdouble > 0) 		fprintf(stderr, "%d Double\tcolumn(s) exported in %d ms\n",  doublecols, texportdouble);
 	*/
 
 	fits_close_file(fptr, &status);
@@ -569,7 +548,7 @@ str FITSexportTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str FITSdir(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str msg = MAL_SUCCEED;
-	str dir = *(str*)getArgReference(stk, pci, 1);
+	str dir = *getArgReference_str(stk, pci, 1);
 	DIR *dp;
 	struct dirent *ep;
 	fitsfile *fptr;
@@ -584,18 +563,18 @@ str FITSdir(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 		s = stmt;
 
-		while ((ep = readdir(dp)) != NULL) {
+		while ((ep = readdir(dp)) != NULL && !msg) {
 			snprintf(fname, BUFSIZ, "%s%s", dir, ep->d_name);
 			status = 0;
 			fits_open_file(&fptr, fname, READONLY, &status);
 			if (status == 0) {
 				snprintf(stmt, BUFSIZ, ATTACHDIR, fname);
-				msg = SQLstatementIntern(cntxt, &s, "fits.listofdir", TRUE, FALSE);
+				msg = SQLstatementIntern(cntxt, &s, "fits.listofdir", TRUE, FALSE, NULL);
 				fits_close_file(fptr, &status);
 			}
 		}
 		(void)closedir(dp);
-	}else
+	} else
 		msg = createException(MAL, "listdir", "Couldn't open the directory");
 
 	return msg;
@@ -604,8 +583,8 @@ str FITSdir(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 str FITSdirpat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str msg = MAL_SUCCEED;
-	str dir = *(str*)getArgReference(stk, pci, 1);
-	str pat = *(str*)getArgReference(stk, pci, 2);
+	str dir = *getArgReference_str(stk, pci, 1);
+	str pat = *getArgReference_str(stk, pci, 2);
 	fitsfile *fptr;
 	char *s;
 	int status = 0;
@@ -618,10 +597,10 @@ str FITSdirpat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	snprintf(fulldirectory, BUFSIZ, "%s%s", dir, pat);
 	glob(fulldirectory, GLOB_DOOFFS, NULL, &globbuf);
 
-	/*	mnstr_printf(GDKout,"#fulldir: %s \nSize: %lu\n",fulldirectory, globbuf.gl_pathc);*/
+	/*	fprintf(stderr,"#fulldir: %s \nSize: %lu\n",fulldirectory, globbuf.gl_pathc);*/
 
 	if (globbuf.gl_pathc == 0)
-		msg = createException(MAL, "listdir", "Couldn't open the directory or there are no files that match the pattern");
+		throw(MAL, "listdir", "Couldn't open the directory or there are no files that match the pattern");
 
 	for (j = 0; j < globbuf.gl_pathc; j++) {
 		char stmt[BUFSIZ];
@@ -633,8 +612,9 @@ str FITSdirpat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		fits_open_file(&fptr, fname, READONLY, &status);
 		if (status == 0) {
 			snprintf(stmt, BUFSIZ, ATTACHDIR, fname);
-			msg = SQLstatementIntern(cntxt, &s, "fits.listofdirpat", TRUE, FALSE);
+			msg = SQLstatementIntern(cntxt, &s, "fits.listofdirpat", TRUE, FALSE, NULL);
 			fits_close_file(fptr, &status);
+			break;
 		}
 	}
 
@@ -669,7 +649,7 @@ str FITSattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_table *fits_tp, *fits_fl, *fits_tbl, *fits_col, *tbl = NULL;
 	sql_column *col;
 	str msg = MAL_SUCCEED;
-	str fname = *(str*)getArgReference(stk, pci, 1);
+	str fname = *getArgReference_str(stk, pci, 1);
 	fitsfile *fptr;  /* pointer to the FITS file */
 	int status = 0, i, j, hdutype, hdunum = 1, cnum = 0, bitpixnumber = 0;
 	oid fid, tid, cid, rid = oid_nil;
@@ -680,8 +660,9 @@ str FITSattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	char xtensionname[BUFSIZ] = "", stilversion[BUFSIZ] = "";
 	char stilclass[BUFSIZ] = "", tdate[BUFSIZ] = "", orig[BUFSIZ] = "", comm[BUFSIZ] = "";
 
-	msg = getSQLContext(cntxt, mb, &m, NULL);
-	if (msg)
+	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
+		return msg;
+	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
 		return msg;
 
 	if (fits_open_file(&fptr, fname, READONLY, &status)) {
@@ -819,7 +800,7 @@ str FITSattach(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		for (j = 1; j <= cnum; j++, cid++) {
 			fits_get_acolparms(fptr, j, cname, &tbcol, tunit, tform, &tscal, &tzero, tnull, tdisp, &status);
 			snprintf(stmt, BUFSIZ, FITS_INS_COL, (int)cid, cname, tform, tunit, j, (int)tid);
-			msg = SQLstatementIntern(cntxt, &s, "fits.attach", TRUE, FALSE);
+			msg = SQLstatementIntern(cntxt, &s, "fits.attach", TRUE, FALSE, NULL);
 			if (msg != MAL_SUCCEED) {
 				fits_close_file(fptr, &status);
 				return msg;
@@ -840,7 +821,7 @@ str FITSloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_column *col;
 	sql_subtype tpe;
 	fitsfile *fptr;
-	str tname = *(str*)getArgReference(stk, pci, 1);
+	str tname = *getArgReference_str(stk, pci, 1);
 	str fname;
 	str msg = MAL_SUCCEED;
 	oid rid = oid_nil, frid = oid_nil;
@@ -850,8 +831,9 @@ str FITSloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	char keywrd[80], **cname, nm[FLEN_VALUE];
 	ptr nilptr;
 
-	msg = getSQLContext(cntxt, mb, &m, NULL);
-	if (msg)
+	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != MAL_SUCCEED)
+		return msg;
+	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
 		return msg;
 	sch = mvc_bind_schema(m, "sys");
 
@@ -916,26 +898,26 @@ str FITSloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			snprintf(nm, FLEN_VALUE, "column_%d", j);
 			status = 0;
 		}
-		cname[j - 1] = GDKstrdup(toLower(nm));
+		cname[j - 1] = toLower(nm);
 		fits_get_coltype(fptr, j, &tpcode[j - 1], &rep[j - 1], &wid[j - 1], &status);
 		fits2subtype(&tpe, tpcode[j - 1], rep[j - 1], wid[j - 1]);
 
-		/*		mnstr_printf(cntxt->fdout,"#%d %ld %ld - M: %s\n", tpcode[j-1], rep[j-1], wid[j-1], tpe.type->sqlname); */
+		/*		fprintf(stderr,"#%d %ld %ld - M: %s\n", tpcode[j-1], rep[j-1], wid[j-1], tpe.type->sqlname); */
 
 		mvc_create_column(m, tbl, cname[j - 1], &tpe);
 	}
 
 	/* data load */
 	fits_get_num_rows(fptr, &rows, &status);
-	mnstr_printf(cntxt->fdout,"#Loading %ld rows in table %s\n", rows, tname);
+	fprintf(stderr,"#Loading %ld rows in table %s\n", rows, tname);
 	for (j = 1; j <= cnum; j++) {
 		BAT *tmp = NULL;
 		int time0 = GDKms();
 		mtype = fits2mtype(tpcode[j - 1]);
-		nilptr = ATOMnil(mtype);
+		nilptr = ATOMnilptr(mtype);
 		col = mvc_bind_column(m, tbl, cname[j - 1]);
 
-		tmp = BATnew(TYPE_void, mtype, rows);
+		tmp = BATnew(TYPE_void, mtype, rows, TRANSIENT);
 		if ( tmp == NULL){
 			GDKfree(tpcode);
 			GDKfree(rep);
@@ -944,8 +926,6 @@ str FITSloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			throw(MAL,"fits.load", MAL_MALLOC_FAIL);
 		}
 		BATseqbase(tmp, 0);
-		if (rows > (long)REMAP_PAGE_MAXSIZE)
-			BATmmap(tmp, STORE_MMAP, STORE_MMAP, STORE_MMAP, STORE_MMAP, 0);
 		if (mtype != TYPE_str) {
 			fits_read_col(fptr, tpcode[j - 1], j, 1, 1, rows, nilptr, (void *)BUNtloc(bat_iterator(tmp), BUNfirst(tmp)), &anynull, &status);
 			BATsetcount(tmp, rows);
@@ -972,7 +952,7 @@ str FITSloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			for(i = 0; i < bsize ; i++)
 				GDKfree(v[i]);
 			GDKfree(v);
-			mnstr_printf(cntxt->fdout,"#String column load %d ms, BUNappend %d ms\n", tloadtm, tattachtm);
+			fprintf(stderr,"#String column load %d ms, BUNappend %d ms\n", tloadtm, tattachtm);
 		}
 
 		if (status) {
@@ -981,9 +961,9 @@ str FITSloadTable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			msg = createException(MAL, "fits.loadtable", "Cannot load column %s of %s table: %s.\n", cname[j - 1], tname, buf);
 			break;
 		}
-		mnstr_printf(cntxt->fdout,"#Column %s loaded for %d ms\t", cname[j-1], GDKms() - time0);
+		fprintf(stderr,"#Column %s loaded for %d ms\t", cname[j-1], GDKms() - time0);
 		store_funcs.append_col(m->session->tr, col, tmp, TYPE_bat);
-		mnstr_printf(cntxt->fdout,"#Total %d ms\n", GDKms() - time0);
+		fprintf(stderr,"#Total %d ms\n", GDKms() - time0);
 		BBPunfix(tmp->batCacheid);
 	}
 

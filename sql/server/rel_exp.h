@@ -20,13 +20,14 @@
 #ifndef _REL_EXP_H_
 #define _REL_EXP_H_
 
+#include "sql_mvc.h"
+
 #define new_exp_list(sa) sa_list(sa)
 #define exp2list(sa,e)   append(sa_list(sa),e)
 
 extern sql_exp *exp_compare(sql_allocator *sa, sql_exp *l, sql_exp *r, int cmptype);
 extern sql_exp *exp_compare2(sql_allocator *sa, sql_exp *l, sql_exp *r, sql_exp *h, int cmptype);
-extern sql_exp *exp_filter(sql_allocator *sa, sql_exp *l, list *r, sql_subfunc *f, int anti);
-extern sql_exp *exp_filter2(sql_allocator *sa, sql_exp *l, sql_exp *r, sql_exp *h, sql_subfunc *f, int anti);
+extern sql_exp *exp_filter(sql_allocator *sa, list *l, list *r, sql_subfunc *f, int anti);
 extern sql_exp *exp_or(sql_allocator *sa, list *l, list *r);
 extern sql_exp *exp_in(sql_allocator *sa, sql_exp *l, list *r, int cmptype);
 
@@ -52,6 +53,9 @@ extern sql_exp * exp_atom(sql_allocator *sa, atom *a);
 extern sql_exp * exp_atom_bool(sql_allocator *sa, int b); 
 extern sql_exp * exp_atom_int(sql_allocator *sa, int i);
 extern sql_exp * exp_atom_lng(sql_allocator *sa, lng l);
+#ifdef HAVE_HGE
+extern sql_exp * exp_atom_hge(sql_allocator *sa, hge l);
+#endif
 extern sql_exp * exp_atom_wrd(sql_allocator *sa, wrd w);
 extern sql_exp * exp_atom_flt(sql_allocator *sa, flt f);
 extern sql_exp * exp_atom_dbl(sql_allocator *sa, dbl d);
@@ -69,17 +73,21 @@ extern sql_exp * exp_column(sql_allocator *sa, char *rname, char *name, sql_subt
 extern sql_exp * exp_alias(sql_allocator *sa, char *arname, char *acname, char *org_rname, char *org_cname, sql_subtype *t, int card, int has_nils, int intern);
 extern sql_exp * exp_set(sql_allocator *sa, char *name, sql_exp *val, int level);
 extern sql_exp * exp_var(sql_allocator *sa, char *name, sql_subtype *type, int level);
+extern sql_exp * exp_table(sql_allocator *sa, char *name, sql_table *t, int level);
 extern sql_exp * exp_return(sql_allocator *sa, sql_exp *val, int level);
 extern sql_exp * exp_while(sql_allocator *sa, sql_exp *cond, list *stmts);
 extern sql_exp * exp_if(sql_allocator *sa, sql_exp *cond, list *if_stmts, list *else_stmts);
-extern sql_exp * exp_rel(sql_allocator *sa, sql_rel * r);
+extern sql_exp * exp_rel(mvc *sql, sql_rel * r);
 
 extern void exp_setname(sql_allocator *sa, sql_exp *e, char *rname, char *name );
+extern void exp_setrelname(sql_allocator *sa, sql_exp *e, int nr );
+
 extern void noninternexp_setname(sql_allocator *sa, sql_exp *e, char *rname, char *name );
 extern sql_exp* exp_label(sql_allocator *sa, sql_exp *e, int nr);
 
 extern sql_exp * exp_copy( sql_allocator *sa, sql_exp *e);
 extern list * exps_copy( sql_allocator *sa, list *exps);
+extern list * exps_alias( sql_allocator *sa, list *exps);
 
 
 extern void exp_swap( sql_exp *e );
@@ -95,26 +103,40 @@ extern char *exp_find_rel_name(sql_exp *e);
 extern sql_exp *rel_find_exp( sql_rel *rel, sql_exp *e);
 
 extern int exp_cmp( sql_exp *e1, sql_exp *e2);
+extern int exp_refers( sql_exp *c, sql_exp *p);
 extern int exp_match( sql_exp *e1, sql_exp *e2);
 extern int exp_match_exp( sql_exp *e1, sql_exp *e2);
 /* match just the column (cmp equality) expressions */
 extern int exp_match_col_exps( sql_exp *e, list *l);
 extern int exps_match_col_exps( sql_exp *e1, sql_exp *e2);
-extern int exp_is_join(sql_exp *e);
+extern int exp_is_join(sql_exp *e, list *rels);
 extern int exp_is_eqjoin(sql_exp *e);
 extern int exp_is_correlation(sql_exp *e, sql_rel *r );
 extern int exp_is_join_exp(sql_exp *e);
 extern int exp_is_atom(sql_exp *e);
+extern int exps_are_atoms(list *exps);
 extern int exp_has_func(sql_exp *e);
+extern int exp_unsafe(sql_exp *e);
+
+/* returns 0 when the relation contain the passed expression else < 0 */
+extern int rel_has_exp(sql_rel *rel, sql_exp *e);
+/* return 0 when the relation contain atleast one of the passed expressions else < 0 */
+extern int rel_has_exps(sql_rel *rel, list *e);
+
+extern sql_rel *find_rel(list *rels, sql_exp *e);
+extern sql_rel *find_one_rel(list *rels, sql_exp *e);
 
 extern sql_exp *exps_bind_column( list *exps, char *cname, int *ambiguous);
 extern sql_exp *exps_bind_column2( list *exps, char *rname, char *cname);
+extern sql_exp *exps_bind_alias( list *exps, char *rname, char *cname);
 
 extern int exps_card( list *l );
 extern void exps_fix_card( list *exps, int card);
+extern void exps_setcard( list *exps, int card);
 extern int exps_intern(list *exps);
 
 extern char *compare_func( comp_type t );
 extern int is_identity( sql_exp *e, sql_rel *r);
+
 
 #endif /* _REL_EXP_H_ */

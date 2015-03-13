@@ -11,7 +11,7 @@ stdout of test 'case-overflow.Bug-2239` in directory 'sql/test/BugTracker-2011` 
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 15.662 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2013 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
 # Listening for connection requests on mapi:monetdb://madrid.ins.cwi.nl:30822/
 # MonetDB/GIS module loaded
@@ -62,8 +62,8 @@ Ready.
 #        (CASE WHEN station136 is NULL THEN 0 ELSE station136 END) +
 #        (CASE WHEN station136 is NULL THEN 0 ELSE station136 END) +
 #        (CASE WHEN station136 is NULL THEN 0 ELSE station136 END) +
-% sys.t2239,	sys. # table_name
-% station136,	isnull_station136 # name
+% sys.t2239,	sys.L1 # table_name
+% station136,	L1 # name
 % smallint,	bigint # type
 % 4,	5 # length
 [ 1214,	38848	]

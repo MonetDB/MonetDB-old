@@ -40,6 +40,7 @@
 #include "mal_interpreter.h"	/* for showErrors() */
 #include "mal_linker.h"		/* for loadModuleLibrary() */
 #include "mal_parser.h"
+#include "mal_private.h"
 
 void
 slash_2_dir_sep(str fname)
@@ -85,19 +86,24 @@ malOpenSource(str file)
  * where an intermediate file is used to pass commands around.
  * Since the parser needs access to the complete block, we first have
  * to find out how long the input is.
- * For the time being, we assume at most 1Mb.
 */
-str
+static str
 malLoadScript(Client c, str name, bstream **fdin)
 {
 	stream *fd;
+	size_t sz;
 
 	fd = malOpenSource(name);
-	if (mnstr_errnr(fd) == MNSTR_OPEN_ERROR) {
+	if (fd == 0 || mnstr_errnr(fd) == MNSTR_OPEN_ERROR) {
 		mnstr_destroy(fd);
 		throw(MAL, "malInclude", "could not open file: %s", name);
 	}
-	*fdin = bstream_create(fd, 128 * BLOCK);
+	sz = getFileSize(fd);
+	if (sz > (size_t) 1 << 29) {
+		mnstr_destroy(fd);
+		throw(MAL, "malInclude", "file %s too large to process", name);
+	}
+	*fdin = bstream_create(fd, sz == 0 ? (size_t) (2 * 128 * BLOCK) : sz);
 	if (bstream_next(*fdin) < 0)
 		mnstr_printf(c->fdout, "!WARNING: could not read %s\n", name);
 	return MAL_SUCCEED;
@@ -105,9 +111,9 @@ malLoadScript(Client c, str name, bstream **fdin)
 
 /*
  * Beware that we have to isolate the execution of the source file
- * in its own environment. E.g. we have to removed the execution
+ * in its own environment. E.g. we have to remove the execution
  * state until we are finished.
- * The script being read my contain errors, such as non-balanced
+ * The script being read may contain errors, such as non-balanced
  * brackets as indicated by blkmode.
  * It should be reset before continuing.
 */
@@ -145,6 +151,7 @@ malLoadScript(Client c, str name, bstream **fdin)
 	c->prompt = oldprompt; \
 	c->promptlength= (int)strlen(c->prompt);
 #define restoreClient2 \
+	assert(c->glb == 0 || c->glb == oldglb); /* detect leak */ \
 	c->glb = oldglb; \
 	c->nspace = oldnspace; \
 	c->curprg = oldprg;
@@ -157,10 +164,11 @@ malLoadScript(Client c, str name, bstream **fdin)
 	c->mode = oldmode; \
 	c->blkmode = oldblkmode; \
 	c->srcFile = oldsrcFile;
+
 /*
  * The include operation parses the file indentified and
  * leaves the MAL code behind in the 'main' function.
-*/
+ */
 str
 malInclude(Client c, str name, int listing)
 {
@@ -197,8 +205,15 @@ malInclude(Client c, str name, int listing)
 			c->yycur = 0;
 			c->bak = NULL;
 			if ((s = malLoadScript(c, filename, &c->fdin)) == 0) {
-				parseMAL(c, c->curprg);
+				parseMAL(c, c->curprg, 1);
 				bstream_destroy(c->fdin);
+/*
+				mnstr_printf(c->fdout,"\n# file %s\n",name);
+				printFunction(c->fdout, c->curprg->def, 0, LIST_MAL_ALL);
+*/
+			} else {
+				GDKfree(s); // not interested in error here
+				s = MAL_SUCCEED;
 			}
 			if (p)
 				filename = p + 1;
@@ -256,8 +271,8 @@ evalFile(Client c, str fname, int listing)
 	while ((p = strchr(filename, PATH_SEP)) != NULL) {
 		*p = '\0';
 		fd = malOpenSource(filename);
-		if (mnstr_errnr(fd) == MNSTR_OPEN_ERROR) {
-			mnstr_destroy(fd);
+		if (fd == 0 || mnstr_errnr(fd) == MNSTR_OPEN_ERROR) {
+			if(fd) mnstr_destroy(fd);
 			mnstr_printf(c->fdout, "#WARNING: could not open file: %s\n",
 					filename);
 		} else {
@@ -271,10 +286,9 @@ evalFile(Client c, str fname, int listing)
 		filename = p + 1;
 	}
 	fd = malOpenSource(filename);
-	if (mnstr_errnr(fd) == MNSTR_OPEN_ERROR) {
-		mnstr_destroy(fd);
-		mnstr_printf(c->fdout, "#WARNING: could not open file: %s\n",
-				filename);
+	if (fd == 0 || mnstr_errnr(fd) == MNSTR_OPEN_ERROR) {
+		if( fd == 0) mnstr_destroy(fd);
+		msg = createException(MAL,"mal.eval", "WARNING: could not open file: %s\n", filename);
 	} else {
 		c->srcFile = filename;
 		c->yycur = 0;
@@ -387,8 +401,10 @@ callString(Client c, str s, int listing)
 	if (old != s)
 		GDKfree(s);
 	b = (buffer *) GDKmalloc(sizeof(buffer));
-	if (b == NULL)
+	if (b == NULL){
+		GDKfree(qry);
 		return -1;
+	}
 	buffer_init(b, qry, len);
 	if (MCpushClientInput(c, bstream_create(buffer_rastream(b, "callString"), b->len), listing, "") < 0) {
 		GDKfree(b);

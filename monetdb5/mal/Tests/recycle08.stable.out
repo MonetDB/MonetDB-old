@@ -8,60 +8,44 @@ stdout of test 'recycle08` in directory 'monetdb5/mal` itself:
 # MonetDB server v5.7.0, based on kernel v1.25.0
 # Serving database 'mTests_src_mal'
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
-# Copyright (c) 1993-2008 CWI, all rights reserved
-# Visit http://monetdb.cwi.nl/ for further information
-# Listening for connection requests on mapi:monetdb://modi.ins.cwi.nl:34583/
-## Test of CREDIT cache policy in limited memory (8 RU)
-## Evicts the leaf instruction with smallest credit= cnt*(0.5*ticks + 0.5(wr+rd))
-#
-#function user.bind(s:str,t:str,c:str,i:int):bat[:oid,:int];
-#b:= bat.new(:oid,:int);
-#barrier (go,i):= language.newRange(0:int);
-#	bat.append(b,i);
-#	redo (go,i):= language.nextElement(1:int,1000:int);
-#exit (go,i);
-#return bind:=b;
-#end bind;
-function user.bind(s:str,t:str,c:str,i:int):bat[:oid,:int];
+# Found 15.591 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://vienna.ins.cwi.nl:30041/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-21946/.s.monetdb.30041
+# MonetDB/GIS module loaded
+# MonetDB/JAQL module loaded
+# MonetDB/SQL module loaded
+function sql.mvc():int;
+    return mvc := 1;
+end sql.mvc;
+function sql.tid(mvc:int,s:str,t:str):bat[:oid,:oid];
+    b := bat.new(:oid,:oid);
+barrier i := 0@0:oid;
+    bat.append(b,i);
+    redo i := iterator.next(1@0:oid,1000@0:oid);
+exit i;
+    return tid := b;
+end sql.tid;
+function sql.bind(m:int,s:str,t:str,c:str,i:int):bat[:oid,:int];
     b := bat.new(:oid,:int);
 barrier i := 0:int;
     bat.append(b,i);
     redo i := iterator.next(1:int,1000:int);
 exit i;
     return bind := b;
-end bind;
-#
-#function qry(low:int, hgh:int);
-#	b:= user.bind("schema","table","column",0);
-#	s1:= algebra.select(b,low,hgh);
-#end qry;
-function user.qry(low:int,hgh:int):void;
-    b := user.bind("schema","table","column",0);
-    s1 := algebra.select(b,low,hgh);
-end qry;
-#
-#recycle.setRetainPolicy(1);
-#recycle.setReusePolicy(1);
-#recycle.setCachePolicy(2,0,8);
-#optimizer.recycle("user","qry");
-#
-#io.print("start");
-#qry(100,150);
-#qry(200,240);
-#qry(700,720);
-#qry(800,900);
-#qry(700,720);
-#recycle.dump();
-## The next query should evict the cheapest 2 selects. 
-#qry(300,800);
-#recycle.dump();
-#
+end sql.bind;
+function sql.qry(low:int,hgh:int):void;
+    m := sql.mvc();
+    x:bat[:oid,:oid]  := sql.tid(m,"sys","tbl");
+    b:bat[:oid,:int]  := sql.bind(m,"sys","tbl","col",0);
+    s1 := algebra.subselect(b,x,low,hgh,true,true,false);
+end sql.qry;
 function user.main():void;
 # Test of CREDIT cache policy in limited memory (8 RU) 
 # Evicts the leaf instruction with smallest credit= cnt*(0.5*ticks + 0.5(wr+rd)) 
-    recycle.setAdmPolicy(1);
-    recycle.setReusePolicy(1);
-    recycle.setCachePolicy(2,0,8);
+    recycle.setCache(4);
     io.print("start");
     user.qry(100,150);
     user.qry(200,240);
@@ -72,7 +56,7 @@ function user.main():void;
 # The next query should evict the cheapest 2 selects(#2 and #4).  
     user.qry(300,800);
     recycle.dump();
-end main;
+end user.main;
 [ "start" ]
 #Recycler  catalog
 #retain= 1 time =0 sze= 0 alpha= 0.500

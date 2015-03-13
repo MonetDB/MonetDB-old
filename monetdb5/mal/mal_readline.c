@@ -61,7 +61,7 @@
  * using the commands @sc{manual.help}.
  * Keyword based lookup is supported by the operation @sc{manual.search};
  * Additional routines are available in the @sc{inspect}
- * module to built reflexive code.
+ * module to build reflexive code.
  *
  * For console input the @sc{readline} library linked with
  * the system provides a history mechanism and also name completion.
@@ -333,6 +333,10 @@ getConsoleInput(Client c, const char *prompt, int linemode, int exit_on_error)
 				add_history(buf);
 				length = strlen(buf);
 				buf = realloc(buf, length + 2);
+				if( buf == NULL){
+					GDKerror("getConsoleInput: " MAL_MALLOC_FAIL);
+					return NULL;
+				}
 				buf[length++] = '\n';
 				buf[length] = 0;
 			}
@@ -346,8 +350,13 @@ getConsoleInput(Client c, const char *prompt, int linemode, int exit_on_error)
 				fflush(stdout);
 			}
 #endif
-			if (buf == NULL)
+			if (buf == NULL) {
 				buf= malloc(BUFSIZ);
+				if( buf == NULL){
+					GDKerror("getConsoleInput: " MAL_MALLOC_FAIL);
+					return NULL;
+				}
+			}
 			line = fgets(buf, BUFSIZ, stdin);
 		}
 
@@ -355,7 +364,7 @@ getConsoleInput(Client c, const char *prompt, int linemode, int exit_on_error)
 			/* end of file */
 			if (buf)
 				free(buf);
-			return 0;
+			return NULL;
 		} else
 			length = strlen(line);
 
@@ -377,7 +386,7 @@ getConsoleInput(Client c, const char *prompt, int linemode, int exit_on_error)
 				switch (line[1]) {
 				case 'q':
 					free(buf);
-					return 0;
+					return NULL;
 				default:
 					break;
 				}
@@ -476,6 +485,11 @@ readConsole(Client cntxt)
 		if( len >= cntxt->fdin->size) {
 			/* extremly dirty inplace buffer overwriting */
 			cntxt->fdin->buf= realloc(cntxt->fdin->buf, len+1);
+			if( cntxt->fdin->buf == NULL) {
+				GDKerror("readConsole: " MAL_MALLOC_FAIL);
+				free(buf);
+				goto bailout;
+			}
 			cntxt->fdin->size = len;
 		}
 		strcpy(cntxt->fdin->buf, buf);
@@ -483,14 +497,14 @@ readConsole(Client cntxt)
 		cntxt->fdin->len = len;
 		free(buf);
 		return 1;
-	} else {
-		cntxt->fdin->eof = 1;
-#ifdef HAVE_LIBREADLINE
-		if( initReadline ){
-			deinit_readline();
-			initReadline= 0;
-		}
-#endif
 	}
+  bailout:
+	cntxt->fdin->eof = 1;
+#ifdef HAVE_LIBREADLINE
+	if( initReadline ){
+		deinit_readline();
+		initReadline= 0;
+	}
+#endif
 	return -1;
 }
