@@ -58,6 +58,7 @@ typedef enum ColumnType {
 
 typedef struct propertyList {
 	int num; 
+	oid subj; 	
 	char** lstProps; 
 	oid* lstPropIds; 
 	sp_po *lstPOs; 

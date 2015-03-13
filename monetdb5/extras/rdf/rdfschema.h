@@ -560,4 +560,7 @@ void freePropStat(PropStat *propStat);
 rdf_export
 void addaProp(PropStat* propStat, oid prop, int csIdx, int invertIdx);
 
+rdf_export
+void getTblIdxFromS(oid Soid, int *tbidx, oid *baseSoid);
+
 #endif /* _RDFSCHEMA_H_ */

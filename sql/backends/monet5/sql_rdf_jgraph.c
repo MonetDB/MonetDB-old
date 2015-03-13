@@ -801,6 +801,7 @@ spProps *init_sp_props(int num){
 	spProps* spprops = NULL; 
 	spprops = (spProps*) GDKmalloc(sizeof (spProps) ); 
 	spprops->num = num; 
+	spprops->subj = BUN_NONE; 
 	spprops->lstProps = (char **) GDKmalloc(sizeof(char *) * num); 
 	spprops->lstPropIds = (oid *) GDKmalloc(sizeof(oid) * num); 
 
@@ -821,6 +822,9 @@ void add_props_to_spprops(spProps *spprops, int idx, sp_po po, char *col){
 	spprops->lstProps[idx] = GDKstrdup(col); 
 
 	//Get propId, assuming the tokenizer is open already 
+	//Note that, the prop oid is the original one (before
+	//running structural recognition process) so that 
+	//we can directly get its oid from TKNR
 	TKNRstringToOid(&id, & (spprops->lstProps[idx])); 
 	spprops->lstPropIds[idx] = id;  
 	
@@ -828,6 +832,20 @@ void add_props_to_spprops(spProps *spprops, int idx, sp_po po, char *col){
 	
 	//without any information, assuming that the column is single-valued col
 	spprops->lstctype[idx] = CTYPE_SG; 
+}
+
+static
+void add_subj_to_spprops(spProps *spprops, char *subj){
+	oid soid = BUN_NONE;
+	
+	SQLrdfstrtoid(&soid, &subj); 
+
+	if (spprops->subj == BUN_NONE){
+		spprops->subj = soid; 
+	}
+	else
+		assert(spprops->subj == soid); 
+
 }
 
 static
@@ -916,12 +934,42 @@ void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, char *_a
 	
 }
 
+/*
+ * oid[sys.rdf_strtoid(char(67) "<http://www/product>")] 
+ * returns <http://www/product>
+ * */
+static 
+void extractURI_from_exp(mvc *c, char **uri, sql_exp *exp){
+
+	sql_exp *tmpexp, *tmpexp2;
+	node *tmpen; 
+	str s;
+	list *lst = NULL; 
+
+	assert(exp->type == e_convert);
+
+	tmpexp = (sql_exp *) exp->l;
+	assert(tmpexp->type == e_func); 
+
+	lst = tmpexp->l;
+	
+	//There should be only one parameter for the function which is the property name
+	tmpen = lst->h; 
+	tmpexp2 = (sql_exp *) tmpen->data;
+				
+	s = atom2string(c->sa, (atom *) tmpexp2->l); 
+	*uri = GDKstrdup(s); 
+
+	//get_col_name_from_p (&col, s);
+	//printf("%s --> corresponding column %s\n", *prop,  col); 
+
+}
 
 /*
  * //Example: [s12_t0.p = oid[sys.rdf_strtoid(char(67) "<http://www/product>")], s12_t0.o = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
  * */
 static 
-void get_predicate_from_exps(mvc *c, list *tmpexps, char **prop){
+void get_predicate_from_exps(mvc *c, list *tmpexps, char **prop, char **subj){
 
 
 	node *en;
@@ -930,7 +978,6 @@ void get_predicate_from_exps(mvc *c, list *tmpexps, char **prop){
 	assert (tmpexps != NULL);
 	for (en = tmpexps->h; en; en = en->next){
 		sql_exp *tmpexp = (sql_exp *) en->data; 
-		list *lst = NULL; 
 
 		assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
 		
@@ -940,30 +987,14 @@ void get_predicate_from_exps(mvc *c, list *tmpexps, char **prop){
 		//Check if the column name is p, then
 		//extract the input property name
 		if (strcmp(((sql_exp *)tmpexp->l)->name, "p") == 0){
-			sql_exp *tmpexp2;
-			node *tmpen; 
-			str s;
-			
+
 			num_p_cond++; 
-			assert(((sql_exp *)tmpexp->r)->type == e_convert);
-
-			tmpexp = (sql_exp *) ((sql_exp *)tmpexp->r)->l;
-			assert(tmpexp->type == e_func); 
-
-			lst = tmpexp->l;
-			
-			//There should be only one parameter for the function which is the property name
-			tmpen = lst->h; 
-			tmpexp2 = (sql_exp *) tmpen->data;
-						
-			s = atom2string(c->sa, (atom *) tmpexp2->l); 
-			*prop = GDKstrdup(s); 
-			//get_col_name_from_p (&col, s);
-			//printf("%s --> corresponding column %s\n", *prop,  col); 
-			
+			extractURI_from_exp(c, prop, (sql_exp *)tmpexp->r);	
 			//In case the column name is not in the abstract table, add it
 			if (0) add_abstract_column(c, *prop);
 
+		} else if (strcmp(((sql_exp *)tmpexp->l)->name, "s") == 0) {
+			extractURI_from_exp(c, subj, (sql_exp *)tmpexp->r);	
 		} else{ 
 			continue; 
 		}
@@ -982,7 +1013,7 @@ void get_predicate_from_exps(mvc *c, list *tmpexps, char **prop){
  *
  * */
 static
-void get_prop_and_exps(mvc *c, sql_rel *r, char **prop){
+void extract_prop_and_subj_from_exps(mvc *c, sql_rel *r, char **prop, char **subj){
 	
 	list *tmpexps = NULL; 
 	char select_s = 0, select_p = 0, select_o = 0; 
@@ -1010,8 +1041,9 @@ void get_prop_and_exps(mvc *c, sql_rel *r, char **prop){
 	
 	//Get the column name by checking exps of r
 	tmpexps = r->exps;
-	if (tmpexps)
-		get_predicate_from_exps(c, tmpexps, prop); 
+	if (tmpexps){
+		get_predicate_from_exps(c, tmpexps, prop, subj); 
+	}
 }
 
 
@@ -1264,29 +1296,43 @@ void get_matching_tbl_from_spprops(int **rettbId, spProps *spprops, int *num_mat
 	str tblname; 
 
 	get_sorted_distinct_set(spprops->lstPropIds, &lstprop, spprops->num, &num);
-	
-	tmptblId = (int **) malloc(sizeof(int *) * num); 
-	count = (int *) malloc(sizeof(int) * num); 
 
-	printf("Table Id for set of props [");
-	for (i = 0; i < num; i++){
-		Postinglist pl = get_p_postingList(global_p_propstat, lstprop[i]);
-		tmptblId[i] = pl.lstIdx;
-		count[i] = pl.numAdded; 
-		printf("  " BUNFMT, lstprop[i]);
+	if (spprops->subj != BUN_NONE){
+		int tblIdx;
+		oid baseSoid; 
+		getTblIdxFromS(spprops->subj, &tblIdx, &baseSoid);
+		numtbl = 1;
+		tblId = (int *) malloc(sizeof(int));
+		tblId[0] = tblIdx;
+
+		printf("Table Id found based on known subj is: %d\n", tblIdx); 
+	}
+	else{
+		
+		tmptblId = (int **) malloc(sizeof(int *) * num); 
+		count = (int *) malloc(sizeof(int) * num); 
+
+		printf("Table Id for set of props [");
+		for (i = 0; i < num; i++){
+			Postinglist pl = get_p_postingList(global_p_propstat, lstprop[i]);
+			tmptblId[i] = pl.lstIdx;
+			count[i] = pl.numAdded; 
+			printf("  " BUNFMT, lstprop[i]);
+		}
+		
+		intersect_intsets(tmptblId, count, num, &tblId,  &numtbl);
+
+		printf(" ] --> ");
+
 	}
 	
-	intersect_intsets(tmptblId, count, num, &tblId,  &numtbl);
-
-	printf(" ] --> ");
-
 	*rettbId = (int *) malloc(sizeof(int) * numtbl); 
 
 	for (i = 0; i < numtbl; i++){
 		int tId = tblId[i];
 		oid tblnameoid = global_csset->items[tId]->tblname; 
 
-		*rettbId[i] = tId; 
+		(*rettbId)[i] = tId; 
 		
 		tblname = (str) GDKmalloc(sizeof(char) * 100); 
 
@@ -1466,6 +1512,7 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 		int isMVcol = 0; 
 		list *tmpexps = NULL; 
 		str prop; 
+		str subj;
 		oid tmpPropId;
 
 		assert(tmprel->op == op_select);
@@ -1473,7 +1520,7 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 
 		tmpexps = tmprel->exps;
 
-		if (tmpexps) get_predicate_from_exps(c, tmpexps, &prop);
+		if (tmpexps) get_predicate_from_exps(c, tmpexps, &prop, &subj);
 
 		//After having prop, get the corresponding column name
 
@@ -1728,11 +1775,18 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 		spprops = init_sp_props(nnode); 	
 
 		for (i = 0; i < nnode; i++){
-			str col; 
+			str col = NULL; 
+			str subj = NULL; 	//May also get subject if it is available
 			sql_rel *tmprel = (sql_rel*) (jg->lstnodes[group[i]]->data);
-			get_prop_and_exps(c, tmprel, &col); 
+			extract_prop_and_subj_from_exps(c, tmprel, &col, &subj); 
 			printf("Column %d name is %s\n", i, col);
 			add_props_to_spprops(spprops, i, NAV, col); 		
+			if (subj){ 
+				printf("Also found subject = %s\n", subj); 
+				add_subj_to_spprops(spprops, subj); 
+				GDKfree(subj); 
+			}
+			
 			GDKfree(col); 
 		}
 

@@ -9982,7 +9982,6 @@ BAT* getOriginalUriOBat(BAT *obat){
  * a subject has the default data types for its properties or not. 
  * Thus, the way to calculate the table idx and base idx is changed
  * */
-static 
 void getTblIdxFromS(oid Soid, int *tbidx, oid *baseSoid){
 	
 	*tbidx = (int) ((Soid >> (sizeof(BUN)*8 - NBITS_FOR_CSID))  &  ((1 << (NBITS_FOR_CSID-1)) - 1)) ;
