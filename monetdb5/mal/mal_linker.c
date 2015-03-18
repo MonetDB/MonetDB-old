@@ -191,6 +191,7 @@ loadLibrary(str filename, int flag)
 
 	while (*mod_path) {
 		char *p;
+		char *err;
 
 		for (p = mod_path; *p && *p != PATH_SEP; p++)
 			;
@@ -222,7 +223,8 @@ loadLibrary(str filename, int flag)
 			handle = dlopen(nme, mode);
 		}
 #endif
-
+		err = dlerror();
+		printf("err:%s\n", err);
 		if (*p == 0 || handle != NULL)
 			break;
 		mod_path = p + 1;
