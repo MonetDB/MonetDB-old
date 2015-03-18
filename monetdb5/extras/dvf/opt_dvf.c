@@ -95,6 +95,8 @@
 #include "mal_interpreter.h"
 #include "opt_statistics.h"
 
+int get_column_num(str schema_name, str table_name, str column_name);
+
 static int
 OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int mode)
 {
@@ -677,40 +679,6 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 			
 			actions += 2;
 		}
-		else if((state == 3) &&
-			getModuleId(p) == sqlRef &&
-			getFunctionId(p) == deltaRef &&
-			p->argc == 5 &&
-			p->retc == 1 &&
-			last_bind_return_var_id == getArg(p, 1))
-		{
-			r = newInstruction(mb, ASSIGNsymbol);
-			r = pushReturn(mb, r, getArg(p, 0));
-			r = pushArgument(mb, r, last_bind_return_var_id);
-			
-			insertInstruction(mb, r, i+1);
-			removeInstruction(mb, p);
-			
-			actions += 2;
-		}
-		else if((state == 3) && 
-			getModuleId(p) == sqlRef &&
-			getFunctionId(p) == subdeltaRef &&
-			p->argc == 6 &&
-			p->retc == 1 &&
-			last_subselect_return_var_id == getArg(p, 1))
-		{
-			last_subdelta_return_var_id = getArg(p, 0);
-			
-			r = newInstruction(mb, ASSIGNsymbol);
-			r = pushReturn(mb, r, getArg(p, 0));
-			r = pushArgument(mb, r, last_subselect_return_var_id);
-			
-			insertInstruction(mb, r, i+1);
-			removeInstruction(mb, p);
-			
-			actions += 2;
-		}
 		else if(getModuleId(p) == algebraRef &&
 			getFunctionId(p) == leftfetchjoinRef &&
 			p->argc == 3 &&
@@ -732,6 +700,40 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 			removeInstruction(mb, old[i-1]);
 			
 			actions += 3;
+		}
+// 		else if((state == 3) &&
+// 			getModuleId(p) == sqlRef &&
+// 			getFunctionId(p) == deltaRef &&
+// 			p->argc == 5 &&
+// 			p->retc == 1 &&
+// 			last_bind_return_var_id == getArg(p, 1))
+// 		{
+// 			r = newInstruction(mb, ASSIGNsymbol);
+// 			r = pushReturn(mb, r, getArg(p, 0));
+// 			r = pushArgument(mb, r, last_bind_return_var_id);
+// 			
+// 			insertInstruction(mb, r, i+1);
+// 			removeInstruction(mb, p);
+// 			
+// 			actions += 2;
+// 		}
+		else if((state == 3) && 
+			getModuleId(p) == sqlRef &&
+			getFunctionId(p) == subdeltaRef &&
+			p->argc == 6 &&
+			p->retc == 1 &&
+			last_subselect_return_var_id == getArg(p, 1))
+		{
+			last_subdelta_return_var_id = getArg(p, 0);
+			
+			r = newInstruction(mb, ASSIGNsymbol);
+			r = pushReturn(mb, r, getArg(p, 0));
+			r = pushArgument(mb, r, last_subselect_return_var_id);
+			
+			insertInstruction(mb, r, i+1);
+			removeInstruction(mb, p);
+			
+			actions += 2;
 		}
 		
 		/* put the exit instruction of the dataflow defender barrier */
@@ -759,7 +761,6 @@ str OPTdvfIterative(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	lng t,clk= GDKusec();
 	int actions = 0;
 	
-	optimizerInit();
 	if( p )
 		removeInstruction(mb, p);
 
@@ -787,7 +788,6 @@ str OPTdvfSemiparallel(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	lng t,clk= GDKusec();
 	int actions = 0;
 	
-	optimizerInit();
 	if( p )
 		removeInstruction(mb, p);
 	
@@ -815,7 +815,6 @@ str OPTdvfParallel(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 	lng t,clk= GDKusec();
 	int actions = 0;
 	
-	optimizerInit();
 	if( p )
 		removeInstruction(mb, p);
 	
