@@ -19,8 +19,8 @@
 
 #define NUM_RET_MOUNT 4
 
-int get_column_num(str schema_name, str table_name, str column_name);
-int get_column_type(str schema_name, str table_name, int column_num);
+dvf_export int get_column_num(str schema_name, str table_name, str column_name);
+dvf_export int get_column_type(str schema_name, str table_name, int column_num);
 dvf_export str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 
 /* TODO: What is the following line? */
