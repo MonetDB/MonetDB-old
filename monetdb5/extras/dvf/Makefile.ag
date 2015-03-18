@@ -21,6 +21,7 @@ INCLUDES = \
 	../../../gdk \
 	../../../common/stream \
 	../../../common/options \
+	$(MSEED_CFLAGS)
 
 MTSAFE
 
@@ -32,6 +33,7 @@ lib_opt_dvf = {
 	LIBS = ../../tools/libmonetdb5 \
 		../../../gdk/libbat \
 		../../../common/stream/libstream \
+		$(MSEED_LIBS) \
 		$(MALLOC_LIBS)
 }
 
@@ -42,6 +44,7 @@ lib__dvf = {
 	LIBS = ../../tools/libmonetdb5 \
 		../../../gdk/libbat \
 		../../../common/stream/libstream \
+		$(MSEED_LIBS) \
 		$(MALLOC_LIBS)
 }
 
@@ -54,15 +57,15 @@ headers_mal = {
 headers_opt_dvf_autoload = {
 	HEADERS = mal
 	DIR = libdir/monetdb5/autoload
-	SOURCES = 91_opt_dvf.mal
+	SOURCES = 92_opt_dvf.mal
 }
 
 headers_dvf_autoload = {
 	HEADERS = mal
 	DIR = libdir/monetdb5/autoload
-	SOURCES = 90_dvf.mal
+	SOURCES = 91_dvf.mal
 }
 
-EXTRA_DIST = 91_opt_dvf.mal dvf.mal 90_dvf.mal dvf.h
+EXTRA_DIST = 92_opt_dvf.mal dvf.mal 91_dvf.mal dvf.h
 
 EXTRA_DIST_DIR = Tests
