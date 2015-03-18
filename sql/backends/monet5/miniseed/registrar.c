@@ -1025,48 +1025,48 @@ str mseed_register(int assigned_file_id, str file_path, temp_container* ret_tc)
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[0])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &assigned_file_id, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[0], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[0], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[1])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) file_path, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[1], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[1], FALSE);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[2])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			ch[0] = msr->dataquality;
 			BUNappend(aBAT, (ptr) ch, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[2], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[2], FALSE);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[3])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) msr->network, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[3], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[3], FALSE);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[4])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) msr->station, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[4], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[4], FALSE);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[5])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) msr->location, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[5], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[5], FALSE);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[6])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) msr->channel, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[6], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[6], FALSE);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[7])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &(msr->encoding), FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[7], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[7], FALSE);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[8])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &(msr->byteorder), FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[8], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[8], FALSE);
 
 			files_done = TRUE;
 		}
@@ -1074,41 +1074,41 @@ str mseed_register(int assigned_file_id, str file_path, temp_container* ret_tc)
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[0])) == NULL)
 			throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 		BUNappend(aBAT, (ptr) &assigned_file_id, FALSE);
-		BBPdecref(ret_tc->tables_columns[1].column_bats[0], TRUE);
+		BBPdecref(ret_tc->tables_columns[1].column_bats[0], FALSE);
 
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[1])) == NULL)
 			throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 /* 		BUNappend(aBAT, (ptr) &(msr->sequence_number), FALSE); */
 		BUNappend(aBAT, (ptr) &(seq_no_fake), FALSE);
-		BBPdecref(ret_tc->tables_columns[1].column_bats[1], TRUE);
+		BBPdecref(ret_tc->tables_columns[1].column_bats[1], FALSE);
 
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[2])) == NULL)
 			throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 		BUNappend(aBAT, (ptr) &(msr->reclen), FALSE);
-		BBPdecref(ret_tc->tables_columns[1].column_bats[2], TRUE);
+		BBPdecref(ret_tc->tables_columns[1].column_bats[2], FALSE);
 
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[3])) == NULL)
 			throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 		st = (lng) msr->starttime / 1000;
 		MTIMEtimestamp_lng(&start_timestamp, &st);
 		BUNappend(aBAT, (ptr) &start_timestamp, FALSE);
-		BBPdecref(ret_tc->tables_columns[1].column_bats[3], TRUE);
+		BBPdecref(ret_tc->tables_columns[1].column_bats[3], FALSE);
 
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[4])) == NULL)
 			throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 		BUNappend(aBAT, (ptr) &(msr->samprate), FALSE);
-		BBPdecref(ret_tc->tables_columns[1].column_bats[4], TRUE);
+		BBPdecref(ret_tc->tables_columns[1].column_bats[4], FALSE);
 
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[5])) == NULL)
 			throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 		BUNappend(aBAT, (ptr) &(msr->samplecnt), FALSE);
-		BBPdecref(ret_tc->tables_columns[1].column_bats[5], TRUE);
+		BBPdecref(ret_tc->tables_columns[1].column_bats[5], FALSE);
 
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[6])) == NULL)
 			throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 		ch[0] = msr->sampletype;
 		BUNappend(aBAT, (ptr) ch, FALSE);
-		BBPdecref(ret_tc->tables_columns[1].column_bats[6], TRUE);
+		BBPdecref(ret_tc->tables_columns[1].column_bats[6], FALSE);
 
 		seq_no_fake++;
 	}
@@ -1162,48 +1162,48 @@ str mseed_register_and_mount(int assigned_file_id, str file_path, temp_container
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[0])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &assigned_file_id, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[0], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[0], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[1])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) file_path, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[1], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[1], FALSE);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[2])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			ch[0] = msr->dataquality;
 			BUNappend(aBAT, (ptr) ch, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[2], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[2], FALSE);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[3])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) msr->network, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[3], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[3], FALSE);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[4])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) msr->station, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[4], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[4], FALSE);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[5])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) msr->location, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[5], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[5], FALSE);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[6])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) msr->channel, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[6], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[6], FALSE);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[7])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &(msr->encoding), FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[7], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[7], FALSE);
 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[8])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &(msr->byteorder), FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[8], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[8], FALSE);
 
 			files_done = TRUE;
 		}
@@ -1211,41 +1211,41 @@ str mseed_register_and_mount(int assigned_file_id, str file_path, temp_container
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[0])) == NULL)
 			throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 		BUNappend(aBAT, (ptr) &assigned_file_id, FALSE);
-		BBPdecref(ret_tc->tables_columns[1].column_bats[0], TRUE);
+		BBPdecref(ret_tc->tables_columns[1].column_bats[0], FALSE);
 
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[1])) == NULL)
 			throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 /* 		BUNappend(aBAT, (ptr) &(msr->sequence_number), FALSE); */
 		BUNappend(aBAT, (ptr) &(seq_no_fake), FALSE);
-		BBPdecref(ret_tc->tables_columns[1].column_bats[1], TRUE);
+		BBPdecref(ret_tc->tables_columns[1].column_bats[1], FALSE);
 
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[2])) == NULL)
 			throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 		BUNappend(aBAT, (ptr) &(msr->reclen), FALSE);
-		BBPdecref(ret_tc->tables_columns[1].column_bats[2], TRUE);
+		BBPdecref(ret_tc->tables_columns[1].column_bats[2], FALSE);
 
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[3])) == NULL)
 			throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 		st = (lng) msr->starttime / 1000;
 		MTIMEtimestamp_lng(&start_timestamp, &st);
 		BUNappend(aBAT, (ptr) &start_timestamp, FALSE);
-		BBPdecref(ret_tc->tables_columns[1].column_bats[3], TRUE);
+		BBPdecref(ret_tc->tables_columns[1].column_bats[3], FALSE);
 
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[4])) == NULL)
 			throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 		BUNappend(aBAT, (ptr) &(msr->samprate), FALSE);
-		BBPdecref(ret_tc->tables_columns[1].column_bats[4], TRUE);
+		BBPdecref(ret_tc->tables_columns[1].column_bats[4], FALSE);
 
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[5])) == NULL)
 			throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 		BUNappend(aBAT, (ptr) &(msr->samplecnt), FALSE);
-		BBPdecref(ret_tc->tables_columns[1].column_bats[5], TRUE);
+		BBPdecref(ret_tc->tables_columns[1].column_bats[5], FALSE);
 
 		if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[6])) == NULL)
 			throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 		ch[0] = msr->sampletype;
 		BUNappend(aBAT, (ptr) ch, FALSE);
-		BBPdecref(ret_tc->tables_columns[1].column_bats[6], TRUE);
+		BBPdecref(ret_tc->tables_columns[1].column_bats[6], FALSE);
 
 		/* mount */
 		{
@@ -1280,10 +1280,10 @@ str mseed_register_and_mount(int assigned_file_id, str file_path, temp_container
 				sampling_time += sample_interval;
 			}
 
-			BBPdecref(ret_tc->tables_columns[2].column_bats[0], TRUE);
-			BBPdecref(ret_tc->tables_columns[2].column_bats[1], TRUE);
-			BBPdecref(ret_tc->tables_columns[2].column_bats[2], TRUE);
-			BBPdecref(ret_tc->tables_columns[2].column_bats[3], TRUE);
+			BBPdecref(ret_tc->tables_columns[2].column_bats[0], FALSE);
+			BBPdecref(ret_tc->tables_columns[2].column_bats[1], FALSE);
+			BBPdecref(ret_tc->tables_columns[2].column_bats[2], FALSE);
+			BBPdecref(ret_tc->tables_columns[2].column_bats[3], FALSE);
 		}
 
 		seq_no_fake++;
@@ -1346,48 +1346,48 @@ str mseed_register_segments_mode(int assigned_file_id, str file_path, temp_conta
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[0])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &assigned_file_id, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[0], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[0], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[1])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) file_path, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[1], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[1], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[2])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			ch[0] = msr->dataquality;
 			BUNappend(aBAT, (ptr) ch, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[2], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[2], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[3])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) msr->network, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[3], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[3], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[4])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) msr->station, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[4], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[4], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[5])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) msr->location, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[5], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[5], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[6])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) msr->channel, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[6], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[6], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[7])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &(msr->encoding), FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[7], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[7], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[8])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &(msr->byteorder), FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[8], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[8], FALSE);
 			
 			files_done = TRUE;
 		}
@@ -1416,26 +1416,26 @@ str mseed_register_segments_mode(int assigned_file_id, str file_path, temp_conta
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[0])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &assigned_file_id, FALSE);
-			BBPdecref(ret_tc->tables_columns[1].column_bats[0], TRUE);
+			BBPdecref(ret_tc->tables_columns[1].column_bats[0], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[1])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &(segment_id_fake), FALSE);
-			BBPdecref(ret_tc->tables_columns[1].column_bats[1], TRUE);
+			BBPdecref(ret_tc->tables_columns[1].column_bats[1], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[2])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			st = (lng) seg->starttime / 1000;
 			MTIMEtimestamp_lng(&start_timestamp, &st);
 			BUNappend(aBAT, (ptr) &start_timestamp, FALSE);
-			BBPdecref(ret_tc->tables_columns[1].column_bats[2], TRUE);
+			BBPdecref(ret_tc->tables_columns[1].column_bats[2], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[3])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			st = (lng) seg->endtime / 1000;
 			MTIMEtimestamp_lng(&end_timestamp, &st);
 			BUNappend(aBAT, (ptr) &end_timestamp, FALSE);
-			BBPdecref(ret_tc->tables_columns[1].column_bats[3], TRUE);
+			BBPdecref(ret_tc->tables_columns[1].column_bats[3], FALSE);
 			
 			/* Compute gap with previous segment */
 			gap = 0.0;
@@ -1463,23 +1463,23 @@ str mseed_register_segments_mode(int assigned_file_id, str file_path, temp_conta
 				BUNappend(aBAT, (ptr) &(dbl_nil), FALSE);
 			else
 				BUNappend(aBAT, (ptr) &(gap), FALSE);
-			BBPdecref(ret_tc->tables_columns[1].column_bats[4], TRUE);
+			BBPdecref(ret_tc->tables_columns[1].column_bats[4], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[5])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &(seg->samprate), FALSE);
-			BBPdecref(ret_tc->tables_columns[1].column_bats[5], TRUE);
+			BBPdecref(ret_tc->tables_columns[1].column_bats[5], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[6])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &(seg->samplecnt), FALSE);
-			BBPdecref(ret_tc->tables_columns[1].column_bats[6], TRUE);
+			BBPdecref(ret_tc->tables_columns[1].column_bats[6], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[7])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			ch[0] = seg->sampletype;
 			BUNappend(aBAT, (ptr) ch, FALSE);
-			BBPdecref(ret_tc->tables_columns[1].column_bats[7], TRUE);
+			BBPdecref(ret_tc->tables_columns[1].column_bats[7], FALSE);
 			
 			segment_id_fake++;
 			seg = seg->next;
@@ -1560,48 +1560,48 @@ str mseed_register_and_mount_segments_mode(int assigned_file_id, str file_path, 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[0])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &assigned_file_id, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[0], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[0], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[1])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) file_path, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[1], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[1], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[2])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			ch[0] = msr->dataquality;
 			BUNappend(aBAT, (ptr) ch, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[2], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[2], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[3])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) msr->network, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[3], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[3], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[4])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) msr->station, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[4], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[4], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[5])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) msr->location, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[5], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[5], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[6])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) msr->channel, FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[6], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[6], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[7])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &(msr->encoding), FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[7], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[7], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[0].column_bats[8])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &(msr->byteorder), FALSE);
-			BBPdecref(ret_tc->tables_columns[0].column_bats[8], TRUE);
+			BBPdecref(ret_tc->tables_columns[0].column_bats[8], FALSE);
 			
 			files_done = TRUE;
 		}
@@ -1630,26 +1630,26 @@ str mseed_register_and_mount_segments_mode(int assigned_file_id, str file_path, 
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[0])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &assigned_file_id, FALSE);
-			BBPdecref(ret_tc->tables_columns[1].column_bats[0], TRUE);
+			BBPdecref(ret_tc->tables_columns[1].column_bats[0], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[1])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &(segment_id_fake), FALSE);
-			BBPdecref(ret_tc->tables_columns[1].column_bats[1], TRUE);
+			BBPdecref(ret_tc->tables_columns[1].column_bats[1], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[2])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			st = (lng) seg->starttime / 1000;
 			MTIMEtimestamp_lng(&start_timestamp, &st);
 			BUNappend(aBAT, (ptr) &start_timestamp, FALSE);
-			BBPdecref(ret_tc->tables_columns[1].column_bats[2], TRUE);
+			BBPdecref(ret_tc->tables_columns[1].column_bats[2], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[3])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			st = (lng) seg->endtime / 1000;
 			MTIMEtimestamp_lng(&end_timestamp, &st);
 			BUNappend(aBAT, (ptr) &end_timestamp, FALSE);
-			BBPdecref(ret_tc->tables_columns[1].column_bats[3], TRUE);
+			BBPdecref(ret_tc->tables_columns[1].column_bats[3], FALSE);
 			
 			/* Compute gap with previous segment */
 			gap = 0.0;
@@ -1677,23 +1677,23 @@ str mseed_register_and_mount_segments_mode(int assigned_file_id, str file_path, 
 				BUNappend(aBAT, (ptr) &(dbl_nil), FALSE);
 			else
 				BUNappend(aBAT, (ptr) &(gap), FALSE);
-			BBPdecref(ret_tc->tables_columns[1].column_bats[4], TRUE);
+			BBPdecref(ret_tc->tables_columns[1].column_bats[4], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[5])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &(seg->samprate), FALSE);
-			BBPdecref(ret_tc->tables_columns[1].column_bats[5], TRUE);
+			BBPdecref(ret_tc->tables_columns[1].column_bats[5], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[6])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			BUNappend(aBAT, (ptr) &(seg->samplecnt), FALSE);
-			BBPdecref(ret_tc->tables_columns[1].column_bats[6], TRUE);
+			BBPdecref(ret_tc->tables_columns[1].column_bats[6], FALSE);
 			
 			if ((aBAT = BATdescriptor(ret_tc->tables_columns[1].column_bats[7])) == NULL)
 				throw(MAL, "mseed_register", RUNTIME_OBJECT_MISSING);
 			ch[0] = seg->sampletype;
 			BUNappend(aBAT, (ptr) ch, FALSE);
-			BBPdecref(ret_tc->tables_columns[1].column_bats[7], TRUE);
+			BBPdecref(ret_tc->tables_columns[1].column_bats[7], FALSE);
 		
 			/* mount */
 			{
@@ -1729,10 +1729,10 @@ str mseed_register_and_mount_segments_mode(int assigned_file_id, str file_path, 
 					sampling_time += sample_interval;
 				}
 				
-				BBPdecref(ret_tc->tables_columns[2].column_bats[0], TRUE);
-				BBPdecref(ret_tc->tables_columns[2].column_bats[1], TRUE);
-				BBPdecref(ret_tc->tables_columns[2].column_bats[2], TRUE);
-				BBPdecref(ret_tc->tables_columns[2].column_bats[3], TRUE);
+				BBPdecref(ret_tc->tables_columns[2].column_bats[0], FALSE);
+				BBPdecref(ret_tc->tables_columns[2].column_bats[1], FALSE);
+				BBPdecref(ret_tc->tables_columns[2].column_bats[2], FALSE);
+				BBPdecref(ret_tc->tables_columns[2].column_bats[3], FALSE);
 			}
 		
 			segment_id_fake++;

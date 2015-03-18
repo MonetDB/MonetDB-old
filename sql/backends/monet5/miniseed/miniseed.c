@@ -57,13 +57,13 @@ str MiniseedMount(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if(bfile == NULL || bseqno == NULL || btime == NULL || bdata == NULL) /* exception handling. */
 	{
 		if(bfile)
-			BBPdecref(bfile->batCacheid, TRUE);
+			BBPdecref(bfile->batCacheid, FALSE);
 		if(bseqno)
-			BBPdecref(bseqno->batCacheid, TRUE);
+			BBPdecref(bseqno->batCacheid, FALSE);
 		if(btime)
-			BBPdecref(btime->batCacheid, TRUE);
+			BBPdecref(btime->batCacheid, FALSE);
 		if(bdata)
-			BBPdecref(bdata->batCacheid, TRUE);
+			BBPdecref(bdata->batCacheid, FALSE);
 		throw(MAL,"miniseed.mount", MAL_MALLOC_FAIL);
 	}
 
@@ -178,13 +178,13 @@ str MiniseedMountSegmentMode(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 	if(bfile == NULL || bsegid == NULL || btime == NULL || bvalue == NULL) /* exception handling. */
 	{
 		if(bfile)
-			BBPdecref(bfile->batCacheid, TRUE);
+			BBPdecref(bfile->batCacheid, FALSE);
 		if(bsegid)
-			BBPdecref(bsegid->batCacheid, TRUE);
+			BBPdecref(bsegid->batCacheid, FALSE);
 		if(btime)
-			BBPdecref(btime->batCacheid, TRUE);
+			BBPdecref(btime->batCacheid, FALSE);
 		if(bvalue)
-			BBPdecref(bvalue->batCacheid, TRUE);
+			BBPdecref(bvalue->batCacheid, FALSE);
 		throw(MAL,"miniseed.mount", MAL_MALLOC_FAIL);
 	}
 	
