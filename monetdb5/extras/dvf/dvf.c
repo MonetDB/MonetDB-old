@@ -7,6 +7,8 @@
 #include "../../modules/atoms/mtime.h"
 #include "dvf.h"
 #include "mal_interpreter.h"
+#include "mal_function.h"
+
 
 int get_column_type(str schema_name, str table_name, int column_num)
 {
@@ -343,7 +345,7 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	
 	if(run_recycle_opt)
 	{
-		o = newFcnCall(mb, "optimizer", "recycle");
+		o = newFcnCall(mb, "optimizer", "recycler");
 		typeChecker(cntxt->fdout, cntxt->nspace, mb, o, FALSE);
 	}
 	
@@ -469,7 +471,7 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		{
 			if(stk_new->stk[j].vtype == TYPE_bat && stk_new->stk[j].val.bval != 0)
 			{
-				BBPdecref(stk_new->stk[j].val.bval, TRUE);
+				BBPdecref(stk_new->stk[j].val.bval, FALSE);
 			}
 		}
 		
