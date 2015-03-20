@@ -58,8 +58,6 @@ OPTrecyclerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	int limit;
 	char *recycled;
 	
-	int preluded = 0;
-	
 	str mountRef = putName("mount", 5);
 
 	(void) cntxt;
@@ -78,11 +76,6 @@ OPTrecyclerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 		return 0;
 	}
 	pushInstruction(mb, old[0]);
-	if(!baseTableMode)
-	{
-		/* create a handle for recycler */
-		(void) newFcnCall(mb, "recycle", "prelude");
-	}
 	
 	for (i = 1; i < limit; i++) {
 		p = old[i];
@@ -116,12 +109,6 @@ OPTrecyclerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			marks++;
 			for (j = 0; j < p->retc; j++)
 				recycled[getArg(p, j)] = 1;
-			
-			if(!preluded) {
-				/* create a handle for recycler */
-				(void) newFcnCall(mb, "recycle", "prelude");
-				preluded = 1;
-			}
 		}
 		
 		// Not all instruction may be recycled. In particular, we should avoid
