@@ -109,6 +109,21 @@ OPTrecyclerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			}
 			continue;
 		}
+		
+		if (getFunctionId(p) == mountRef) {
+			recycled[getArg(p, 0)] = 1;
+			p->recycle = RECYCLING;
+			marks++;
+			for (j = 0; j < p->retc; j++)
+				recycled[getArg(p, j)] = 1;
+			
+			if(!preluded) {
+				/* create a handle for recycler */
+				(void) newFcnCall(mb, "recycle", "prelude");
+				preluded = 1;
+			}
+		}
+		
 		// Not all instruction may be recycled. In particular, we should avoid
 		// MAL function with implicit/recursive side effects. 
 		// This can not always be detected easily. Likewise, we ignore cheap operations
@@ -125,18 +140,6 @@ OPTrecyclerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			){
 			pushInstruction(mb,p);
 			continue;
-		}
-
-		if (getFunctionId(p) == mountRef) {
-			recycled[getArg(p, 0)] = 1;
-			p->recycle = RECYCLING;
-			marks++;
-			
-			if(!preluded) {
-				/* create a handle for recycler */
-				(void) newFcnCall(mb, "recycle", "prelude");
-				preluded = 1;
-			}
 		}
 		
 		/* During base table recycling skip marking instructions other than octopus.bind */
