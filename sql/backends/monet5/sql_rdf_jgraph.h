@@ -37,6 +37,7 @@
 #define tbl_abstract_name "tblabstract"
 #define subj_col_name "subject"
 #define default_abstbl_col_type "varchar"
+#define USING_UNION_FOR_MULTIPLE_MATCH 1
 
 /* Map for the name -> node Id */
 typedef struct nMap {

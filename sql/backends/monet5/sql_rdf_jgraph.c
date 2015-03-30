@@ -1735,6 +1735,41 @@ int** get_inner_join_groups_in_sp_group(jgraph *jg, int* group, int nnode, int *
 	return ijgroup; 
 }
 
+static
+void get_union_expr(mvc *c, sql_rel *r, list *union_exps){
+	
+	list *tmpexps = NULL; 
+	sql_allocator *sa = c->sa; 
+	sql_rel *sel_rel = NULL;
+	sql_rel *tbl_rel = NULL; 
+	
+	sel_rel = r; 
+	//Because, the select op may be included 
+	//inside an join for the case of 
+	while (sel_rel->op != op_select){
+		assert(sel_rel->op == op_join);
+		sel_rel = sel_rel->l; 
+	}
+
+	assert (((sql_rel *)sel_rel->l)->op == op_basetable);
+	tbl_rel = (sql_rel *)sel_rel->l;
+	tmpexps = tbl_rel->exps; 
+
+	if (tmpexps){
+		node *en;
+	
+		for (en = tmpexps->h; en; en = en->next){
+			sql_exp *tmpexp = (sql_exp *) en->data;
+			sql_exp *m_exp = exp_copy(sa, tmpexp);
+
+			assert(tmpexp->type == e_column); 
+			//append this exp to list
+			append(union_exps, m_exp);
+
+		}
+
+	}
+}
 /*
  * Create a select sql_rel from a star pattern
  * */
@@ -1771,6 +1806,8 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 	
 	//Convert to sql_rel of abstract table
 	if (is_all_select){
+		sql_rel **tbl_m_rels; 	//each rel (table matching rel) replaces all the triples matching with 
+					//a specific table
 
 		spprops = init_sp_props(nnode); 	
 
@@ -1794,9 +1831,10 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 
 		get_matching_tbl_from_spprops(&tmptbId, spprops, &num_match_tbl);
 
-		assert(num_match_tbl == 1); 	//TODO: Handle the case of matching multiple table
 		printf("Number of matching table is: %d\n", num_match_tbl);
 		
+		tbl_m_rels = (sql_rel **) malloc(sizeof(sql_rel *) * num_match_tbl);
+
 		for (tblIdx = 0; tblIdx < num_match_tbl; tblIdx++){
 			int tId = tmptbId[tblIdx];
 			int *nnodes_per_ijgroup; 
@@ -1833,10 +1871,10 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 				}
 				connect_groups(nijgroup, ijrels, edge_ijrels);
 
-				rel = edge_ijrels[0];	
+				tbl_m_rels[tblIdx] = edge_ijrels[0];	
 			}
 			else{	//nijgroup = 1
-				rel = ijrels[0]; 
+				tbl_m_rels[tblIdx] = ijrels[0]; 
 			}
 			
 					
@@ -1853,9 +1891,36 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 			free(nnodes_per_ijgroup);
 		}
 
+		
+		#if USING_UNION_FOR_MULTIPLE_MATCH
+			//using union
+		{
+			sql_rel *tmprel = NULL;
+			list *union_exps = NULL;
+			union_exps = new_exp_list(c->sa);
+			tmprel = tbl_m_rels[0]; 
+			for (tblIdx = 1; tblIdx < num_match_tbl; tblIdx++){
+				sql_rel *tmprel2 = rel_setop(c->sa, tmprel, tbl_m_rels[tblIdx], op_union); 
+				tmprel = tmprel2;
+			}
+			get_union_expr(c, tbl_m_rels[0], union_exps); 
+			printf("Union expresion is: \n"); 
+			exps_print_ext(c, union_exps, 0, "");
+			tmprel->exps = union_exps; 
+			rel = tmprel; 
+	
+			
+		}
+		#else
+			assert(num_match_tbl == 1); 	//TODO: Handle the case of matching multiple table
+			rel = tbl_m_rels[0]; 
+		#endif
+
 		free_sp_props(spprops);
+		free(tbl_m_rels);
 	}
 
+		
 	//Only basetable --> this node has only one pattern from basetable
 	if (is_only_basetable){
 		sql_rel *tmprel = (sql_rel*) (jg->lstnodes[group[0]]->data);
