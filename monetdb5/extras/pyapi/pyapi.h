@@ -19,8 +19,6 @@
 
 #define pyapi_export extern
 
-pyapi_export str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk,
-		InstrPtr pci, bit grouped);
 pyapi_export str PyAPIevalStd(Client cntxt, MalBlkPtr mb, MalStkPtr stk,
 		InstrPtr pci);
 pyapi_export str PyAPIevalAggr(Client cntxt, MalBlkPtr mb, MalStkPtr stk,

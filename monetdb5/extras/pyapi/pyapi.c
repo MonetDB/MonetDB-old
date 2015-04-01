@@ -36,18 +36,21 @@ static int pyapiInitialized = FALSE;
 
 #define _PYAPI_DEBUG_
 
+str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped);
 
 pyapi_export str PyAPIevalStd(Client cntxt, MalBlkPtr mb, MalStkPtr stk,
 							InstrPtr pci) {
-	return PyAPIeval(cntxt, mb, stk, pci, 0);
+	(void) cntxt;
+	return PyAPIeval(mb, stk, pci, 0);
 }
 pyapi_export str PyAPIevalAggr(Client cntxt, MalBlkPtr mb, MalStkPtr stk,
 							 InstrPtr pci) {
-	return PyAPIeval(cntxt, mb, stk, pci, 1);
+	(void) cntxt;
+	return PyAPIeval(mb, stk, pci, 1);
 }
 
 
-str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
+str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 	sql_func * sqlfun = *(sql_func**) getArgReference(stk, pci, pci->retc);
 	str exprStr = *getArgReference_str(stk, pci, pci->retc + 1);
 
@@ -67,9 +70,6 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 	node * argnode;
 	int seengrp = FALSE;
 	PyObject *pArgs; // this is going to be the parameter tuple
-
-	// we don't need no context, but the compiler needs us to touch it (...)
-	(void) cntxt;
 
 	if (!PyAPIEnabled()) {
 		throw(MAL, "pyapi.eval",
