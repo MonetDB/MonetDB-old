@@ -4,5 +4,5 @@
 #
 # Copyright 2008-2015 MonetDB B.V.
 
-SUBDIRS = HAVE_SPHINXCLIENT?sphinx mal_optimizer_template HAVE_LIBR?rapi HAVE_LIBPY?pyapi
-
+# This loads the MonetDB/PyAPI module
+include pyapi;
