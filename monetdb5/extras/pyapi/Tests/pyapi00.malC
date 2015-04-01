@@ -12,7 +12,7 @@ bat.append(b,1189641421);
 
 io.print(b);
 
-r:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"TODO",b);
+r:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"print(arg1);someval <- Re(fft(arg1)); print(someval); return(someval);",b);
 io.print(r);
 
 

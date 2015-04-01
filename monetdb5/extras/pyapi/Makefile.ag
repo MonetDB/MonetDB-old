@@ -18,18 +18,17 @@ lib__pyapi = {
 	MODULE
 	DIR = libdir/monetdb5
 	SOURCES = pyapi.c pyapi.h
+	XDEPS = $(libpy_LIBDEP)
 	LIBS = ../../tools/libmonetdb5 \
 	../../../gdk/libbat \
 	$(MALLOC_LIBS) $(libpy_LIBS)
 }
-
 
 headers_pyapi_mal = {
 	HEADERS = mal
 	DIR = libdir/monetdb5
 	SOURCES = pyapi.mal
 }
-
 
 headers_autoload = {
 	HEADERS = mal
