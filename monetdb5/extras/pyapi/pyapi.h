@@ -17,7 +17,15 @@
 #include "mal_exception.h"
 #include "mal_interpreter.h"
 
+#ifdef WIN32
+#ifndef LIBPYAPI
+#define pyapi_export extern __declspec(dllimport)
+#else
+#define pyapi_export extern __declspec(dllexport)
+#endif
+#else
 #define pyapi_export extern
+#endif
 
 pyapi_export str PyAPIevalStd(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 pyapi_export str PyAPIevalAggr(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

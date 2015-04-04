@@ -16,6 +16,9 @@
 
 #include "pyapi.h"
 
+#undef _GNU_SOURCE
+#undef _XOPEN_SOURCE
+#undef _POSIX_C_SOURCE
 #include <Python.h>
 
 // other headers
@@ -66,7 +69,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 	str *args;
 	//int evalErr;
 	char *msg = MAL_SUCCEED;
-	BAT *b;
+	BAT *b = NULL;
 	BUN cnt;
 	node * argnode;
 	int seengrp = FALSE;
@@ -120,6 +123,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 
 	// for each input column (BAT):
 	for (i = pci->retc + 2; i < pci->argc; i++) {
+		PyObject *varlist = NULL;
+		size_t j;
+
 		// turn scalars into one-valued BATs
 		// TODO: also do this for Python? Or should scalar values be 'simple' variables?
 		if (!isaBatType(getArgType(mb,pci,i))) {
@@ -143,9 +149,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 			}
 		}
 
-		PyObject *varlist = PyList_New(BATcount(b));
-		size_t j;
-
+		varlist = PyList_New(BATcount(b));
 		switch (ATOMstorage(getColumnType(getArgType(mb,pci,i)))) {
 		case TYPE_int:
 		//	BAT_TO_INTSXP(b, int, varvalue);
@@ -245,8 +249,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 			*getArgReference_bat(stk, pci, i) = b->batCacheid;
 			BBPkeepref(b->batCacheid);
 		} else { // single value return, only for non-grouped aggregations
-			VALinit(&stk->stk[pci->argv[i]], bat_type,
-					Tloc(b, BUNfirst(b)));
+			VALinit(&stk->stk[pci->argv[i]], bat_type, Tloc(b, BUNfirst(b)));
 		}
 		msg = MAL_SUCCEED;
 	}
