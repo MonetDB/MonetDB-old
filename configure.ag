@@ -2279,7 +2279,7 @@ if test "x$enable_pyintegration" != xno; then
 			enable_pyintegration=no
 			disable_pyintegration="(python-config command not found)"
 		fi
-	elif libpy_CFLAGS=`$PYCMD --cflags ` && libpy_LIBS=`$PYCMD --ldflags`; then
+	elif libpy_CFLAGS=`$PYCMD --includes ` && libpy_LIBS=`$PYCMD --ldflags`; then
 		have_libpy=yes
 		AC_DEFINE(HAVE_LIBPY, 1, [Define if we can link to python])
 		AC_SUBST(libpy_CFLAGS, $libpy_CFLAGS)
