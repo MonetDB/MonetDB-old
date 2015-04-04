@@ -38,13 +38,14 @@ static int pyapiInitialized = FALSE;
 
 str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped);
 
-pyapi_export str PyAPIevalStd(Client cntxt, MalBlkPtr mb, MalStkPtr stk,
-							InstrPtr pci) {
+str 
+PyAPIevalStd(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	(void) cntxt;
 	return PyAPIeval(mb, stk, pci, 0);
 }
-pyapi_export str PyAPIevalAggr(Client cntxt, MalBlkPtr mb, MalStkPtr stk,
-							 InstrPtr pci) {
+
+str 
+PyAPIevalAggr(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	(void) cntxt;
 	return PyAPIeval(mb, stk, pci, 1);
 }
