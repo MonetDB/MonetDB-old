@@ -328,6 +328,10 @@ void printRel_JGraph(jgraph *jg, mvc *sql){
 		while (tmpedge != NULL){
 			assert(tmpedge->from == tmpnode->vid); 
 			printf(" %d", tmpedge->to); 
+			if ( (jg->lstnodes[tmpedge->to])->patternId != tmpnode->patternId)
+				printf(" [connect pattern, r = %d, p_r = %d]", tmpedge->r_id, tmpedge->p_r_id); 
+			else
+				printf(" [r = %d, p_r = %d]", tmpedge->r_id, tmpedge->p_r_id);
 			tmpedge = tmpedge->next; 
 		}
 		printf("\n"); 
@@ -336,6 +340,85 @@ void printRel_JGraph(jgraph *jg, mvc *sql){
 	printf("---------------------\n"); 
 }
 
+
+/*
+ * Get cross star pattern edges
+ * */
+
+static
+jgedge** get_cross_sp_edges(jgraph *jg, int *num_cross_edges){
+	int i; 
+	int num = 0; 
+	jgedge **lstedges = (jgedge **) malloc(sizeof(jgedge*) * (jg->nEdge)); //May be redundant
+	for (i = 0; i < jg->nEdge; i++){
+		lstedges[i] = NULL; 
+	}
+	for (i = 0; i  < jg->nNode; i++){
+		jgnode *tmpnode = jg->lstnodes[i]; 
+		jgedge *tmpedge = tmpnode->first; 
+		while (tmpedge != NULL){
+			if ( (jg->lstnodes[tmpedge->to])->patternId != tmpnode->patternId){ //cross pattern
+					
+				if (tmpedge->op == op_join){	//For inner join, only keep the edge from low node id -> high node id
+					if (tmpedge->from < tmpedge->to){
+						lstedges[num] = tmpedge;
+						num++;
+					}
+				}
+				else{
+					lstedges[num] = tmpedge;
+					num++;
+				}
+			}
+			tmpedge = tmpedge->next; 
+		}
+	}
+
+	*num_cross_edges = num; 
+	return lstedges;
+}
+
+//Compute the order of applying the crossedges for 
+//connecting star pattern. 
+//Each cross edge is actually a join. 
+//We based on the parent_rel_id of each edge
+//in order to find this order.
+//E.g., the cross edges may have rel_id and parent_rel_id as
+//[1,0]  [0,-1]  [5,4]  [5,4]
+//Then the apply order is 
+//[5,4]  [5,4] [1,0] [0,-1]
+//Note: The edges [5,4]  [5,4] are usually the join (NOT outer join)
+//so that we only to apply one of them
+static
+int* get_crossedge_apply_orders(jgedge **lstEdges, int num){
+	int* orders = NULL;
+	int i, j, tmp; 
+
+	orders = (int *) malloc(sizeof(int) * num); 
+
+	for (i = 0; i < num; i++){
+		orders[i] = i; 
+	}
+
+	for (i = 0; i < num; i++){
+		jgedge *e1 = lstEdges[orders[i]]; 
+		for (j = i+1; j < num; j++){
+			jgedge *e2 = lstEdges[orders[j]];		
+			if (e1->p_r_id < e2->p_r_id){
+				tmp = orders[i];
+				orders[i] = orders[j];
+				orders[j] = tmp; 
+			}
+		}
+	}
+	
+	printf("Orders of applying cross edges\n");
+	for (i = 0; i < num; i++){
+		printf("Cross edge [%d, %d] [r = %d, p = %d]\n", lstEdges[orders[i]]->from, lstEdges[orders[i]]->to, lstEdges[orders[i]]->r_id, lstEdges[orders[i]]->p_r_id);
+	}
+
+	return orders; 
+}
 /*
  * Algorithm for adding sql rels to Join Graph
  *
@@ -562,7 +645,7 @@ void get_jp(str pred1, str pred2, JP *jp){
  * Input: sql_rel with op == op_join, op_left or op_right
  * */
 static
-void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect){
+void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int rel_id, int p_rel_id){
 
 	sql_exp *tmpexp;
 	list *tmpexps; 
@@ -591,14 +674,12 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect){
 					JP tmpjp = JP_NAV; 
 					get_jp(l->name, r->name, &tmpjp); 
 					printf("Join predicate = %d\n", tmpjp); 
-					if (rel->op == op_join) addJGedge(from, to, rel->op, jg, rel, tmpjp);
+					if (rel->op == op_join) add_undirectedJGedge(from, to, rel->op, jg, rel, tmpjp, rel_id, p_rel_id);
 					if (rel->op == op_left){ 
-						adddirectedJGedge(from, to, op_left, jg, rel, tmpjp);
-						//adddirectedJGedge(to, from, op_right, jg, rel, tmpjp);
+						add_directedJGedge(from, to, op_left, jg, rel, tmpjp, rel_id, p_rel_id);
 					}
 					if (rel->op == op_right){ 
-						adddirectedJGedge(from, to, op_right, jg, rel, tmpjp);
-						adddirectedJGedge(to, from, op_left, jg, rel, tmpjp);
+						add_directedJGedge(from, to, op_right, jg, rel, tmpjp, rel_id, p_rel_id);
 					}
 					isConnect[from][to] = 1;  
 				}
@@ -606,7 +687,7 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect){
 					JP tmpjp = JP_NAV;
 					printf("This edge is created \n"); 
 					get_jp(l->name, r->name, &tmpjp);
-					if (1) update_edge_jp(jg, from, to, tmpjp); 
+					if (1) update_undirectededge_jp(jg, from, to, tmpjp); 
 					printf("Updated join predicate = %d\n", tmpjp); 
 				}
 			} else if (tmpexp->type == e_atom){
@@ -622,7 +703,11 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect){
 					printf("Join (condition 1) between %s and %s\n", rel_name((sql_rel*) rel->l), rel_name((sql_rel *)rel->r)); 
 					from = rname_to_nodeId(nm,  rel_name((sql_rel*) rel->l));
 					to = rname_to_nodeId(nm,  rel_name((sql_rel*) rel->r));	
-					addJGedge(from, to, rel->op, jg, rel, JP_NAV);
+					if (rel->op == op_join) add_undirectedJGedge(from, to, rel->op, jg, rel, JP_NAV, rel_id, p_rel_id);
+					else if (rel->op == op_left)	add_directedJGedge(from, to, op_left, jg, rel, JP_NAV, rel_id, p_rel_id);
+					else assert(0);	//Other case is not handled yet
+					
+					printf("From: %d To %d\n", from, to); 
 				}
 				continue; 
 			} else {
@@ -638,8 +723,9 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect){
 
 
 static
-void addJoinEdgesToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg, int *subjgId, nMap *nm, char **isConnect){
+void addJoinEdgesToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg, int *subjgId, nMap *nm, char **isConnect, int *last_rel_join_id, int p_rel_id){
 	//int tmpvid =-1; 
+	int tmp_r_id; 
 
 	switch (rel->op) {
 		case op_right:
@@ -647,13 +733,17 @@ void addJoinEdgesToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg
 			break;
 		case op_left:
 		case op_join:
+			*last_rel_join_id = (*last_rel_join_id) + 1; 
+			tmp_r_id = *last_rel_join_id;
 			if (new_subjg){ 	//The new subgraph flag is set
 				*subjgId = *subjgId + 1; 
 			}
-			addJoinEdgesToJG(c, rel->l, depth+1, jg, 0, subjgId, nm, isConnect);
-			addJoinEdgesToJG(c, rel->r, depth+1, jg, 0, subjgId, nm, isConnect);
+			addJoinEdgesToJG(c, rel->l, depth+1, jg, 0, subjgId, nm, isConnect, last_rel_join_id, tmp_r_id);
+			addJoinEdgesToJG(c, rel->r, depth+1, jg, 0, subjgId, nm, isConnect, last_rel_join_id, tmp_r_id);
+
 			// Get the node Ids from 			
-			_add_join_edges(jg, rel, nm, isConnect); 
+			_add_join_edges(jg, rel, nm, isConnect, tmp_r_id, p_rel_id); 
+
 			break; 
 		case op_select: 
 			if (is_basic_pattern(rel)){
@@ -662,7 +752,7 @@ void addJoinEdgesToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg
 			else{	//This is the connect to a new join sg
 
 				//if is_join(((sql_rel *)rel->l)->op) printf("Join graph will be connected from here\n"); 
-				addJoinEdgesToJG(c, rel->l, depth+1, jg, 1, subjgId, nm, isConnect);
+				addJoinEdgesToJG(c, rel->l, depth+1, jg, 1, subjgId, nm, isConnect, last_rel_join_id, (*last_rel_join_id));
 			}
 			break; 
 		case op_basetable:
@@ -670,11 +760,11 @@ void addJoinEdgesToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg
 		default:		//op_project, topn,...
 			if (rel->l){
 				//if is_join(((sql_rel *)rel->l)->op) printf("Join graph will be connected from here\n"); 
-				addJoinEdgesToJG(c, rel->l, depth+1, jg, 1, subjgId, nm, isConnect); 
+				addJoinEdgesToJG(c, rel->l, depth+1, jg, 1, subjgId, nm, isConnect, last_rel_join_id, (*last_rel_join_id)); 
 			}
 			if (rel->r){
 				//if is_join(((sql_rel *)rel->l)->op) printf("Join graph will be connected from here\n"); 
-				addJoinEdgesToJG(c, rel->r, depth+1, jg, 1, subjgId, nm, isConnect); 
+				addJoinEdgesToJG(c, rel->r, depth+1, jg, 1, subjgId, nm, isConnect, last_rel_join_id, (*last_rel_join_id)); 
 			}
 			break; 
 			
@@ -730,6 +820,8 @@ void connect_groups(int numsp, sql_rel **lstRels, sql_rel **lstEdgeRels){
 	lstEdgeRels[numsp -2]->l = lstRels[numsp - 2];
 	lstEdgeRels[numsp -2]->r = lstRels[numsp - 1];
 }
+
+
 
 static 
 char** createMatrix(int num, char initValue){
@@ -1621,6 +1713,29 @@ void tranforms_join_exps(mvc *c, sql_rel *r, list *sp_edge_exps, int is_outer_jo
 	}
 }
 
+
+static
+void build_exps_from_join_jgedge(mvc *c, jgedge *edge, list *sp_edge_exps, operator_type *op, int is_combine_ij){
+	sql_rel *tmpjoin = NULL; 
+	char tmp[50];
+
+	tmpjoin = (sql_rel*) edge->data; 
+
+	if (is_combine_ij && tmpjoin->op == op_join) assert(0); 
+
+	sprintf(tmp, "Expression of edge [%d,%d] \n", edge->from, edge->to);
+	exps_print_ext(c, tmpjoin->exps, 0, tmp);
+	if (is_combine_ij) tranforms_join_exps(c, tmpjoin,sp_edge_exps, 1);
+	else tranforms_join_exps(c, tmpjoin,sp_edge_exps, 0);
+	exps_print_ext(c, sp_edge_exps, 0, "Update expression:");
+
+	if (tmpjoin->op != op_join) //May be op_left, op_right	
+		*op = tmpjoin->op;
+		//TODO: Need to recheck this since not all edges 
+		//between two pattern can be outter joins.
+
+}
+
 /*
  * Create edges between star pattern 
  * (or between inner join groups) in order to replace
@@ -1632,14 +1747,15 @@ void tranforms_join_exps(mvc *c, sql_rel *r, list *sp_edge_exps, int is_outer_jo
  * An edge between sp0 and sp1 will be created by combining edge between
  * 0,2  0,3   0,4    1,2   1,3   1,4. This edge is an join where left is sp0, right is sp1 and
  * expression is the combination of expression from these edges.
+ *
+ * Input: is_combine_ij: Are these two groups inner join groups
  * */
 static
 sql_rel *_group_edge_between_two_groups(mvc *c, jgraph *jg, int pId, int *group1, int nnode1, 
-					int *group2, int nnode2, sql_rel *left, sql_rel *right, int force_no_ij){
+					int *group2, int nnode2, sql_rel *left, sql_rel *right, int is_combine_ij){
 	int i, j; 
 	sql_rel *rel_edge = NULL;
 	list *sp_edge_exps = NULL;
-
 	operator_type op = op_join;
 
 	assert(left);
@@ -1650,24 +1766,9 @@ sql_rel *_group_edge_between_two_groups(mvc *c, jgraph *jg, int pId, int *group1
 	for (i = 0; i < nnode1; i++){
 		for (j = 0; j < nnode2; j++){
 			//Get the edge between group1[i], group2[j]
-			char tmp[50];
 			jgedge *edge = get_edge_jp(jg, group1[i], group2[j]);
 			if (edge) {	
-				sql_rel *tmpjoin = (sql_rel*) edge->data; 
-
-				if (force_no_ij && tmpjoin->op == op_join) assert(0); 
-
-				sprintf(tmp, "Expression of edge [%d,%d] \n", group1[i], group2[j]);
-				exps_print_ext(c, tmpjoin->exps, 0, tmp);
-				if (force_no_ij) tranforms_join_exps(c, tmpjoin,sp_edge_exps, 1);
-				else tranforms_join_exps(c, tmpjoin,sp_edge_exps,0);
-				exps_print_ext(c, sp_edge_exps, 0, "Update expression:");
-
-				if (tmpjoin->op != op_join) //May be op_left, op_right	
-					op = tmpjoin->op;
-					//TODO: Need to recheck this since not all edges 
-					//between two pattern can be outter joins.
-
+				build_exps_from_join_jgedge(c, edge, sp_edge_exps, &op, is_combine_ij);	
 			} else {
 				printf("No edge between  [%d,%d] \n", group1[i], group2[j]);
 			}
@@ -1682,6 +1783,88 @@ sql_rel *_group_edge_between_two_groups(mvc *c, jgraph *jg, int pId, int *group1
 	rel_edge = rdf_rel_join(c->sa, left, right, sp_edge_exps, op);
 
 	return rel_edge; 
+}
+
+static 
+sql_rel *group_pattern_by_cross_edge(mvc *c, sql_rel *left, sql_rel *right, jgedge *edge){
+	sql_rel *rel_edge = NULL;
+	list *sp_edge_exps = NULL;
+	operator_type op = op_join;
+
+	assert(left);
+	assert(right); 
+	
+	sp_edge_exps = new_exp_list(c->sa);
+	printf("Build rel for cross edge from %d to %d\n", edge->from, edge->to);
+
+	build_exps_from_join_jgedge(c, edge, sp_edge_exps, &op, 0);
+
+	printf("Expression for this cross edge:");
+	exps_print_ext(c, sp_edge_exps, 0, "Exp:");
+
+	rel_edge = rdf_rel_join(c->sa, left, right, sp_edge_exps, op);
+
+	return rel_edge; 
+
+}
+
+/*
+ * The algorithm for building rels from cross edge is as following:
+ * - Init [Star Pattern] to [CrossEdge] mapping (-1 by default meaning
+ *   that this star pattern has not been included into any cross edge rel yet)
+ * - We loop over all the cross edge. 
+ *   For each cross edge, we connect 
+ * */
+static 
+void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_cross_edges, 
+	int *cr_ed_orders, jgraph *jg, sql_rel **lst_cross_edge_rels, sql_rel **lstRels, int numsp){
+	
+	int i; 
+	int e_id; 
+	int *sp_cre_map = NULL; //Star pattern - cross edge rel mapping
+
+	sp_cre_map = (int *) malloc(sizeof(int) * numsp); 
+
+	for (i = 0; i < numsp; i++){
+		sp_cre_map[i] = -1;  
+	}
+	for (i = 0; i < num_cross_edges; i++){
+		lst_cross_edge_rels[i] = NULL; 
+	}
+
+	for (i = 0; i < num_cross_edges; i++){
+		int spId1, spId2; 
+		jgnode *n1, *n2; 
+		jgedge *edge;
+		e_id = cr_ed_orders[i]; 
+		edge = lst_cross_edges[e_id]; 
+
+		n1 = jg->lstnodes[edge->from]; 
+		n2 = jg->lstnodes[edge->to];
+		spId1 = n1->patternId;
+		spId2 = n2->patternId; 
+
+		if (sp_cre_map[spId1] == -1 && sp_cre_map[spId2] == -1){
+			lst_cross_edge_rels[i] = group_pattern_by_cross_edge(c, lstRels[spId1], lstRels[spId2], edge); 
+		}
+		else if (sp_cre_map[spId1] == -1 && sp_cre_map[spId2] != -1){
+			int cre_id2 =  sp_cre_map[spId2];
+			lst_cross_edge_rels[i] = group_pattern_by_cross_edge(c, lstRels[spId1], lst_cross_edge_rels[cre_id2], edge);
+		}
+		else if (sp_cre_map[spId1] != -1 && sp_cre_map[spId2] == -1){
+			 int cre_id1 =  sp_cre_map[spId1];
+			 lst_cross_edge_rels[i] = group_pattern_by_cross_edge(c, lst_cross_edge_rels[cre_id1], lstRels[spId2], edge);
+		}
+		else{	//Both the star patterns belong to some cross edge rels
+			int cre_id1 =  sp_cre_map[spId1];
+			int cre_id2 =  sp_cre_map[spId2];
+			lst_cross_edge_rels[i] = group_pattern_by_cross_edge(c, lst_cross_edge_rels[cre_id1], lst_cross_edge_rels[cre_id2], edge);
+		}
+
+		//Update sp_cre_map
+		sp_cre_map[spId1] = i;
+		sp_cre_map[spId2] = i;
+	}
 }
 
 
@@ -1903,10 +2086,12 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 				sql_rel *tmprel2 = rel_setop(c->sa, tmprel, tbl_m_rels[tblIdx], op_union); 
 				tmprel = tmprel2;
 			}
-			get_union_expr(c, tbl_m_rels[0], union_exps); 
-			printf("Union expresion is: \n"); 
-			exps_print_ext(c, union_exps, 0, "");
-			tmprel->exps = union_exps; 
+			if (num_match_tbl > 1){
+				get_union_expr(c, tbl_m_rels[0], union_exps); 
+				printf("Union expresion is: \n"); 
+				exps_print_ext(c, union_exps, 0, "");
+				tmprel->exps = union_exps; 
+			}
 			rel = tmprel; 
 	
 			
@@ -1931,7 +2116,7 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 }
 
 static 
-void group_star_pattern(mvc *c, jgraph *jg, int numsp, sql_rel** lstRels, sql_rel** lstEdgeRels){
+void group_star_pattern(mvc *c, jgraph *jg, int numsp, sql_rel** lstRels){
 
 	int i; 
 	int** group; //group of nodes in a same pattern
@@ -1979,12 +2164,13 @@ void group_star_pattern(mvc *c, jgraph *jg, int numsp, sql_rel** lstRels, sql_re
 		}
 	}
 
+	/*
 	for (i = 0; i < (numsp-1); i++){
 		lstEdgeRels[i] = _group_edge_between_two_groups(c, jg, i, group[i], nnode_per_group[i], 
 								  group[i+1], nnode_per_group[i+1],
 								  lstRels[i], lstRels[i+1], 0); 
 	}	
-
+	*/
 
 
 	//Free
@@ -2040,7 +2226,14 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 			  	//In case of large sparse graph, this should not be used.
 	int numsp = 0; 	 	//Number of star pattern
 	sql_rel** lstRels; 	//One rel for replacing one star-pattern
-	sql_rel** lstEdgeRels; 	//One rel for replacing edges connecting nodes from 2 star patterns
+
+
+	jgedge** lst_cross_edges = NULL; //Cross pattern edges
+	int num_cross_edges = 0; 
+	int *cr_ed_orders = NULL; 	//orders of applying cross edges for connecting sp
+	sql_rel** lst_cross_edge_rels; 	//One rel for replacing edges connecting nodes from 2 star patterns
+
+	int last_rel_join_id = -1; 
 
 	(void) c; 
 	(void) r; 
@@ -2056,7 +2249,7 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 	isConnect = createMatrix(jg->nNode, 0); 
 
-	addJoinEdgesToJG(c, r, depth, jg, 0, &subjgId2, nm, isConnect);
+	addJoinEdgesToJG(c, r, depth, jg, 0, &subjgId2, nm, isConnect, &last_rel_join_id, -1);
 
 	detect_star_pattern(jg, &numsp); 
 
@@ -2066,11 +2259,15 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 	
 	lstRels = (sql_rel**) malloc(sizeof(sql_rel*) * numsp); 
 
-	lstEdgeRels = (sql_rel**) malloc(sizeof(sql_rel*) * (numsp - 1));
 
-	group_star_pattern(c, jg, numsp, lstRels, lstEdgeRels); 
+	group_star_pattern(c, jg, numsp, lstRels); 
 
-	
+	lst_cross_edges = get_cross_sp_edges(jg, &num_cross_edges);
+
+	cr_ed_orders = get_crossedge_apply_orders(lst_cross_edges, num_cross_edges);
+
+	lst_cross_edge_rels = (sql_rel**) malloc(sizeof(sql_rel*) * num_cross_edges);
+
 	//Change the pointer pointing to the first join
 	//to the address of the lstRels[0], the rel for the first star-pattern
 	if (numsp == 1) connect_rel_with_sprel(r, lstRels[0]); 
@@ -2078,10 +2275,12 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 	if (numsp > 1){
 		//Connect to the first edge between sp0 and sp1
 		
-		connect_groups(numsp, lstRels, lstEdgeRels); 
+		//connect_groups(numsp, lstRels, lstEdgeRels); 
+		
+		build_all_rels_from_cross_edges(c, num_cross_edges, lst_cross_edges, cr_ed_orders, jg, lst_cross_edge_rels, lstRels, numsp); 
 		
 					
-		connect_rel_with_sprel(r, lstEdgeRels[0]); 
+		connect_rel_with_sprel(r, lst_cross_edge_rels[num_cross_edges-1]); 
 	}
 
 	//rel_print(c, r, 0); 
@@ -2092,6 +2291,7 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 	free_nMap(nm); 
 	freeMatrix(jg->nNode, isConnect); 
+	free(cr_ed_orders);
 	//printJGraph(jg); 
 
 	freeJGraph(jg); 

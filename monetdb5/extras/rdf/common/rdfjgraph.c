@@ -46,6 +46,7 @@ jgraph* initJGraph(void){
 	jgraph *jg = NULL; 
 	jg = (jgraph*)malloc(sizeof(jgraph)); 
 	jg->nNode = 0; 
+	jg->nEdge = 0; 
 	jg->nAllocation = MAX_JGRAPH_NODENUMBER;
 	jg->lstnodes = (jgnode**) malloc(sizeof (jgnode*) * MAX_JGRAPH_NODENUMBER);
 	return jg; 
@@ -75,7 +76,10 @@ void setNodeType(jgnode *node, JNodeT t){
 }
 
 
-void adddirectedJGedge(int from, int to, operator_type op, jgraph *jg, void *data, JP jp){
+/*
+ * We DO NOT check for the duplication when adding edge
+ * */
+void add_directedJGedge(int from, int to, operator_type op, jgraph *jg, void *data, JP jp, int rel_id, int p_rel_id){
 	jgnode *fromnode;
 	jgedge *edge;
 		
@@ -86,6 +90,10 @@ void adddirectedJGedge(int from, int to, operator_type op, jgraph *jg, void *dat
 	edge->next = NULL; 
 	edge->data = data; 	
 	edge->jp = jp; 
+	edge->gl_edge_id = jg->nEdge; 
+	edge->r_id = rel_id; 
+	edge->p_r_id = p_rel_id; 
+	edge->is_processed = 0;
 	
 	fromnode = jg->lstnodes[from]; 
 
@@ -101,8 +109,7 @@ void adddirectedJGedge(int from, int to, operator_type op, jgraph *jg, void *dat
 		printf("Add edge of node %d from %d to %d\n", fromnode->vid, edge->from, edge->to); 
 	}
 	fromnode->nEdge++;
-	
-
+	jg->nEdge++;
 }
 
 jgedge* get_edge_jp(jgraph *jg, int from, int to){
@@ -124,7 +131,7 @@ jgedge* get_edge_jp(jgraph *jg, int from, int to){
 }
 
 static 
-void _update_edge_jp(jgraph *jg, int from, int to, JP jp){
+void update_directededge_jp(jgraph *jg, int from, int to, JP jp){
 	jgedge *nxtedge;
 	jgedge *tmpedge; 
 	
@@ -152,23 +159,15 @@ void _update_edge_jp(jgraph *jg, int from, int to, JP jp){
 	}
 }
 
-void update_edge_jp(jgraph *jg, int from, int to, JP jp){
-	#if UNDIRECTED_JGRAPH
-		_update_edge_jp(jg, from, to, jp); 
-		_update_edge_jp(jg, to, from, jp);
-	#else
-		_update_edge_jp(jg, from, to, jp); 
-	#endif
+void update_undirectededge_jp(jgraph *jg, int from, int to, JP jp){
+	update_directededge_jp(jg, from, to, jp); 
+	update_directededge_jp(jg, to, from, jp);
 }
 
-void addJGedge(int from, int to, operator_type op, jgraph *jg, void *data, JP jp){
+void add_undirectedJGedge(int from, int to, operator_type op, jgraph *jg, void *data, JP jp, int rel_id, int p_rel_id){
 
-	#if UNDIRECTED_JGRAPH
-		adddirectedJGedge(from, to, op, jg, data, jp); 
-		adddirectedJGedge(to, from, op, jg, data, jp); 	
-	#else
-		adddirectedJGedge(from, to, op, jg, data, jp); 
-	#endif
+		add_directedJGedge(from, to, op, jg, data, jp, rel_id, p_rel_id); 
+		add_directedJGedge(to, from, op, jg, data, jp, rel_id, p_rel_id); 	
 		
 }
 
@@ -207,15 +206,15 @@ void buildExampleJGraph(void){
 	for (i = 0; i < 5; i++){
 		addJGnode(&tmpid, jg, NULL, 0, JN_REQUIRED); 
 	}
-	addJGedge(0, 1, op_join, jg, NULL, JP_NAV); 
-	addJGedge(0, 3, op_join, jg, NULL, JP_NAV); 
-	addJGedge(0, 4, op_join, jg, NULL, JP_NAV); 
+	add_undirectedJGedge(0, 1, op_join, jg, NULL, JP_NAV, -1, -1); 
+	add_undirectedJGedge(0, 3, op_join, jg, NULL, JP_NAV, -1, -1); 
+	add_undirectedJGedge(0, 4, op_join, jg, NULL, JP_NAV, -1, -1); 
 
-	addJGedge(1, 3, op_join, jg, NULL, JP_NAV); 
-	addJGedge(1, 2, op_join, jg, NULL, JP_NAV); 
+	add_undirectedJGedge(1, 3, op_join, jg, NULL, JP_NAV, -1, -1); 
+	add_undirectedJGedge(1, 2, op_join, jg, NULL, JP_NAV, -1, -1); 
 
-	addJGedge(2, 3, op_join, jg, NULL, JP_NAV); 
-	addJGedge(2, 4, op_join, jg, NULL, JP_NAV); 
+	add_undirectedJGedge(2, 3, op_join, jg, NULL, JP_NAV, -1, -1); 
+	add_undirectedJGedge(2, 4, op_join, jg, NULL, JP_NAV, -1, -1); 
 	printJGraph(jg); 
 	freeJGraph(jg); 
 }

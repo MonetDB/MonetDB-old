@@ -57,6 +57,12 @@ typedef struct jgedge {
 	struct jgedge *next; 
 	void *data; 
 	JP jp; 
+	int gl_edge_id; 
+	int r_id; 	//rel id. For keeping the information of 
+			//join where this edge was created
+	int p_r_id; 	//parent child join id
+	int is_processed; 	//Keep state of the edge --> edge is already processed 
+				//and transformed 
 
 } jgedge; 
 
@@ -79,6 +85,7 @@ typedef struct jgnode {
 
 typedef struct jgraph{
 	int nNode;	 	//Number of vertex
+	int nEdge; 
 	jgnode **lstnodes; 
 	int nAllocation; 	//Number of allocation. 
 } jgraph; 
@@ -93,13 +100,13 @@ rdf_export
 void addJGnode(int *vid, jgraph *jg, void *data, int subjgId, JNodeT type); 
 
 rdf_export 
-void addJGedge(int from, int to, operator_type op, jgraph *jg, void *data, JP jp);
+void add_undirectedJGedge(int from, int to, operator_type op, jgraph *jg, void *data, JP jp, int rel_id, int p_rel_id);
 
 rdf_export
-void adddirectedJGedge(int from, int to, operator_type op, jgraph *jg, void *data, JP jp);
+void add_directedJGedge(int from, int to, operator_type op, jgraph *jg, void *data, JP jp, int rel_id, int p_rel_id);
 
 rdf_export 
-void update_edge_jp(jgraph *jg, int from, int to, JP jp);
+void update_undirectededge_jp(jgraph *jg, int from, int to, JP jp);
 
 rdf_export
 void setNodeType(jgnode *node, JNodeT type); 
