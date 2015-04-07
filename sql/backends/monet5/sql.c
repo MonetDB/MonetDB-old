@@ -136,12 +136,12 @@ sql_symbol2relation(mvc *c, symbol *sym)
 			if (1){
 			buildJoinGraph(c,r,0); 
 			rel_print(c,r,0); 
-			//c->emode = m_normal;
+			c->emode = m_normal;
 			//c->emod = mod_explain;
 			}
 		}
 
-		if (0){
+		if (1){
 		r = rel_optimizer(c, r);
 
 		r = rel_distribute(c, r);

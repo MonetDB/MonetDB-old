@@ -390,7 +390,7 @@ jgedge** get_cross_sp_edges(jgraph *jg, int *num_cross_edges){
 //Note: The edges [5,4]  [5,4] are usually the join (NOT outer join)
 //so that we only to apply one of them
 static
-int* get_crossedge_apply_orders(jgedge **lstEdges, int num){
+int* get_crossedge_apply_orders(jgraph *jg, jgedge **lstEdges, int num){
 	int* orders = NULL;
 	int i, j, tmp; 
 
@@ -414,7 +414,11 @@ int* get_crossedge_apply_orders(jgedge **lstEdges, int num){
 	
 	printf("Orders of applying cross edges\n");
 	for (i = 0; i < num; i++){
-		printf("Cross edge [%d, %d] [r = %d, p = %d]\n", lstEdges[orders[i]]->from, lstEdges[orders[i]]->to, lstEdges[orders[i]]->r_id, lstEdges[orders[i]]->p_r_id);
+		int from = lstEdges[orders[i]]->from; 
+		int to = lstEdges[orders[i]]->to;
+		jgnode *fromnode = jg->lstnodes[from];
+		jgnode *tonode = jg->lstnodes[to];
+		printf("Cross edge [%d, %d][P%d -> P%d] [r = %d, p = %d]\n", from, to, fromnode->patternId, tonode->patternId, lstEdges[orders[i]]->r_id, lstEdges[orders[i]]->p_r_id);
 	}
 
 	return orders; 
@@ -1659,7 +1663,7 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 		rel = rel_wo_mv; 
 	}
 
-	rel_print(c, rel, 0); 
+	//rel_print(c, rel, 0); 
 	//GDKfree(tblname); 
 
 	//TODO: Handle other cases. By now, we only handle 
@@ -1817,7 +1821,7 @@ sql_rel *group_pattern_by_cross_edge(mvc *c, sql_rel *left, sql_rel *right, jged
  * */
 static 
 void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_cross_edges, 
-	int *cr_ed_orders, jgraph *jg, sql_rel **lst_cross_edge_rels, sql_rel **lstRels, int numsp){
+	int *cr_ed_orders, jgraph *jg, sql_rel **lst_cross_edge_rels, sql_rel **lstRels, int numsp, int *last_cre){
 	
 	int i; 
 	int e_id; 
@@ -1844,6 +1848,7 @@ void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_c
 		spId1 = n1->patternId;
 		spId2 = n2->patternId; 
 
+
 		if (sp_cre_map[spId1] == -1 && sp_cre_map[spId2] == -1){
 			lst_cross_edge_rels[i] = group_pattern_by_cross_edge(c, lstRels[spId1], lstRels[spId2], edge); 
 		}
@@ -1858,12 +1863,16 @@ void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_c
 		else{	//Both the star patterns belong to some cross edge rels
 			int cre_id1 =  sp_cre_map[spId1];
 			int cre_id2 =  sp_cre_map[spId2];
-			lst_cross_edge_rels[i] = group_pattern_by_cross_edge(c, lst_cross_edge_rels[cre_id1], lst_cross_edge_rels[cre_id2], edge);
+
+			if (cre_id1 == cre_id2) continue;  //These patterns are connected already
+			else
+				lst_cross_edge_rels[i] = group_pattern_by_cross_edge(c, lst_cross_edge_rels[cre_id1], lst_cross_edge_rels[cre_id2], edge);
 		}
 
 		//Update sp_cre_map
 		sp_cre_map[spId1] = i;
 		sp_cre_map[spId2] = i;
+		*last_cre = i;
 	}
 }
 
@@ -2232,6 +2241,7 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 	int num_cross_edges = 0; 
 	int *cr_ed_orders = NULL; 	//orders of applying cross edges for connecting sp
 	sql_rel** lst_cross_edge_rels; 	//One rel for replacing edges connecting nodes from 2 star patterns
+	int last_cre = -1; 		//The last cross edge, which will be connected to the root of the plan
 
 	int last_rel_join_id = -1; 
 
@@ -2264,7 +2274,7 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 	lst_cross_edges = get_cross_sp_edges(jg, &num_cross_edges);
 
-	cr_ed_orders = get_crossedge_apply_orders(lst_cross_edges, num_cross_edges);
+	cr_ed_orders = get_crossedge_apply_orders(jg, lst_cross_edges, num_cross_edges);
 
 	lst_cross_edge_rels = (sql_rel**) malloc(sizeof(sql_rel*) * num_cross_edges);
 
@@ -2277,10 +2287,10 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 		
 		//connect_groups(numsp, lstRels, lstEdgeRels); 
 		
-		build_all_rels_from_cross_edges(c, num_cross_edges, lst_cross_edges, cr_ed_orders, jg, lst_cross_edge_rels, lstRels, numsp); 
+		build_all_rels_from_cross_edges(c, num_cross_edges, lst_cross_edges, cr_ed_orders, jg, lst_cross_edge_rels, lstRels, numsp, &last_cre); 
 		
 					
-		connect_rel_with_sprel(r, lst_cross_edge_rels[num_cross_edges-1]); 
+		connect_rel_with_sprel(r, lst_cross_edge_rels[last_cre]); 
 	}
 
 	//rel_print(c, r, 0); 
