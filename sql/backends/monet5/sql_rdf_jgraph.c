@@ -857,6 +857,11 @@ void _detect_star_pattern(jgraph *jg, jgnode *node, int pId, int _optm){
 	//If the edge has join predicate JP_S
 	//and the to_node does not belong to
 	//any pattern, add to the current pattern
+	
+	//Khi kiem tra xem co cung pattern khong co the dua vao 
+	//subject trong truong hop subject biet roi. 
+	//Consider query 2
+	
 	jgedge *tmpedge; 
 	tmpedge = node->first; 
 	while (tmpedge != NULL){
@@ -1538,23 +1543,33 @@ sql_rel *connect_sp_select_and_mv_prop(mvc *c, sql_rel *rel_wo_mv, mvPropRel *mv
 	int i; 
 	sql_rel *rel = NULL; 
 	(void) tblname; 
-	for (i = 0; i < nnode; i++){
-		//sql_rel *tmprel = NULL; 
-		if (mvPropRels[i].mvrel != NULL){
-			//str subjcolname = "subject"; 
-			if (rel == NULL){
-				rel = join_two_rels(c, rel_wo_mv, atblname, asubjcolname, mvPropRels[i].mvrel,
-						 mvPropRels[i].atblname,  mvPropRels[i].asubjcolname);
-				//tmprel = rel_copy(c->sa, rel); 
-			}
-			else {
-				
-				rel = join_two_rels(c, rel, atblname, asubjcolname, mvPropRels[i].mvrel, 
-						mvPropRels[i].atblname,  mvPropRels[i].asubjcolname); 
-				//tmprel = rel_copy(c->sa, rel); 
-			}
-		}
 
+	if (rel_wo_mv == NULL){ //NO select from non-columns, all are MV cols
+		rel = mvPropRels[0].mvrel; 
+		for (i = 1; i < nnode; i++){
+			rel = join_two_rels(c, rel,  mvPropRels[0].atblname,  mvPropRels[0].asubjcolname, mvPropRels[i].mvrel,
+					mvPropRels[i].atblname,  mvPropRels[i].asubjcolname);
+		}
+	}
+	else{
+		for (i = 0; i < nnode; i++){
+			//sql_rel *tmprel = NULL; 
+			if (mvPropRels[i].mvrel != NULL){
+				//str subjcolname = "subject"; 
+				if (rel == NULL){
+					rel = join_two_rels(c, rel_wo_mv, atblname, asubjcolname, mvPropRels[i].mvrel,
+							 mvPropRels[i].atblname,  mvPropRels[i].asubjcolname);
+					//tmprel = rel_copy(c->sa, rel); 
+				}
+				else {
+					
+					rel = join_two_rels(c, rel, atblname, asubjcolname, mvPropRels[i].mvrel, 
+							mvPropRels[i].atblname,  mvPropRels[i].asubjcolname); 
+					//tmprel = rel_copy(c->sa, rel); 
+				}
+			}
+
+		}
 	}
 
 	return rel; 
@@ -1583,6 +1598,7 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 	sql_allocator *sa = c->sa;
 	int num_mv_col = 0;
 	int i; 
+	int has_nonMV_col = 0; 
 
 	mvPropRel *mvPropRels = init_mvPropRelSet(nnode); 
 
@@ -1627,8 +1643,10 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 		//Check whether the column is multi-valued prop
 		isMVcol = isMVCol(tId, colIdx, global_csset);
 
-		if (isMVcol == 0)  
+		if (isMVcol == 0){
 			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname); 
+			has_nonMV_col=1; 
+		}
 		else{
 			printf("Table %d, column %d is multi-valued prop\n", tId, colIdx);
 			assert (mvPropRels[i].mvrel == NULL); 
@@ -1652,7 +1670,7 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 
 	rel_basetbl->exps = trans_table_exps;
 	
-	rel_wo_mv = rel_select_copy(c->sa, rel_basetbl, trans_select_exps); 
+	if (has_nonMV_col) rel_wo_mv = rel_select_copy(c->sa, rel_basetbl, trans_select_exps); 
 
 	
 	if (num_mv_col > 0){
