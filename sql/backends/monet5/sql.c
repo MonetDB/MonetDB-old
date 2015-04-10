@@ -130,12 +130,15 @@ sql_symbol2relation(mvc *c, symbol *sym)
 		return NULL;
 	if (r) {
 		if (c->emode == m_sparql){
-			rel_print(c,r, 0); 
+			//rel_print(c,r, 0); 
+			_rel_print(c,r); 
 			rdf_rel_optimizer(c, r); 
-			rel_print(c,r, 0);
+			//rel_print(c,r, 0);
+			_rel_print(c,r); 
 			if (1){
 			buildJoinGraph(c,r,0); 
-			rel_print(c,r,0); 
+			//rel_print(c,r,0); 
+			_rel_print(c,r); 
 			c->emode = m_normal;
 			//c->emod = mod_explain;
 			}

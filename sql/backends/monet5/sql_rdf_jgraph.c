@@ -271,6 +271,7 @@ int is_basic_pattern(sql_rel *r){
 
 }
 
+#if 0
 static 
 void exps_print_ext(mvc *sql, list *exps, int depth, char *prefix){
 	
@@ -310,6 +311,17 @@ void exps_print_ext(mvc *sql, list *exps, int depth, char *prefix){
 	mnstr_destroy(s);
 	buffer_destroy(b);
 }
+#endif
+
+static 
+void exps_print_ext(mvc *sql, list *exps, int depth, char *prefix){
+	(void) prefix; 
+	mnstr_printf(THRdata[0], "%s ", prefix);
+	exps_print(sql, THRdata[0], exps, depth, 1, 0);
+	mnstr_printf(THRdata[0], "\n");
+}
+	
+
 
 static
 void printRel_JGraph(jgraph *jg, mvc *sql){
@@ -1945,22 +1957,31 @@ int** get_inner_join_groups_in_sp_group(jgraph *jg, int* group, int nnode, int *
 	return ijgroup; 
 }
 
+/*
+ * Get union expression when there are multiple matching tables
+ * */
+
+/*
+Recursively go throuhg all op_select  cho mot rel
+join
+   join
+     join
+       join
+          select
+	  select
+       select
+   select
+select
+*/   
+
 static
-void get_union_expr(mvc *c, sql_rel *r, list *union_exps){
-	
+void _append_union_expr(mvc *c, sql_rel *sel_rel, list *union_exps){
+
 	list *tmpexps = NULL; 
 	sql_allocator *sa = c->sa; 
-	sql_rel *sel_rel = NULL;
-	sql_rel *tbl_rel = NULL; 
-	
-	sel_rel = r; 
-	//Because, the select op may be included 
-	//inside an join for the case of 
-	while (sel_rel->op != op_select){
-		assert(sel_rel->op == op_join);
-		sel_rel = sel_rel->l; 
-	}
+	sql_rel *tbl_rel = NULL;
 
+	assert(sel_rel->op == op_select); 
 	assert (((sql_rel *)sel_rel->l)->op == op_basetable);
 	tbl_rel = (sql_rel *)sel_rel->l;
 	tmpexps = tbl_rel->exps; 
@@ -1979,6 +2000,28 @@ void get_union_expr(mvc *c, sql_rel *r, list *union_exps){
 		}
 
 	}
+
+}
+
+
+static
+void get_union_expr(mvc *c, sql_rel *r, list *union_exps){
+	
+	sql_rel *tmp_rel = NULL;
+	
+	tmp_rel = r; 
+	//Because, the select op may be included 
+	//inside an join for the case of 
+	if (tmp_rel->op != op_select){
+		assert(tmp_rel->op == op_join);
+		get_union_expr(c, tmp_rel->l, union_exps);
+		get_union_expr(c, tmp_rel->r, union_exps);
+	}
+	else{
+		_append_union_expr(c, tmp_rel, union_exps); 
+	}
+
+
 }
 /*
  * Create a select sql_rel from a star pattern
