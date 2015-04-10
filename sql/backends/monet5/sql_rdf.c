@@ -1292,7 +1292,7 @@ SQLrdfidtostr_bat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	BATloop(srcBat, p, q){
 		id = (oid *)BUNtloc(srci, p);
 		if (*id == oid_nil){
-			desBat = BUNappend(desBat, str_nil, TRUE);
+			BUNappend(desBat, str_nil, TRUE);
 			continue; 
 		}
 		objType = getObjType(*id);
@@ -1325,7 +1325,7 @@ SQLrdfidtostr_bat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		}
 
 		//Append to desBAT
-		desBat = BUNappend(desBat, s, TRUE);
+		BUNappend(desBat, s, TRUE);
 
 	}
 	

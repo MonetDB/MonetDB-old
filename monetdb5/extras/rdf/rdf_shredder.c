@@ -122,8 +122,7 @@ rdf_insert(parserData* pdata, BAT *b, void* value, BUN* bun){
 
 static void
 rdf_BUNappend(parserData* pdata, BAT *b, BUN* bun){
-	b = BUNappend(b, bun, TRUE);
-	if (b == NULL) {
+	if (BUNappend(b, bun, TRUE) == GDK_FAIL){
 		pdata->exception++;
 		pdata->exceptionMsg =  "could not append to a BAT with rdf_BUNappend";
 		raptor_parser_parse_abort (pdata->rparser);
@@ -135,8 +134,7 @@ rdf_BUNappend(parserData* pdata, BAT *b, BUN* bun){
 static void
 rdf_BUNappend_BlankNode_Obj(parserData* pdata, BAT *b, BUN* bun){
 	*bun |= (BUN)BLANKNODE << (sizeof(BUN)*8 - 4);		//Blank node	
-	b = BUNappend(b, bun, TRUE);
-	if (b == NULL) {
+	if (BUNappend(b, bun, TRUE) == GDK_FAIL){
 		pdata->exception++;
 		pdata->exceptionMsg =  "could not append to a BAT with rdf_BUNappend_BlankNode_Obj";
 		raptor_parser_parse_abort (pdata->rparser);
@@ -162,10 +160,8 @@ rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType obj
 		*bun |= (BUN)objType << (sizeof(BUN)*8 - 4);
 		
 		//b = BUNappend(b, (ptr) (str)objStr, TRUE);
-		b = BUNins(b, (ptr) bun, (ptr) (str)objStr, TRUE); 
+		if (BUNins(b, (ptr) bun, (ptr) (str)objStr, TRUE) == GDK_FAIL){
 
-		if (b == NULL) {
-		
 			pdata->exception++;
 			pdata->exceptionMsg =  "could not append in Object bat";
 			raptor_parser_parse_abort (pdata->rparser);

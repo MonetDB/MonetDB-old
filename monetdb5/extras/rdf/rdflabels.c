@@ -945,7 +945,7 @@ void createPropStatistics(PropStat* propStat, oid** ontattributes, int ontattrib
 				BAThash(propStat->pBat, 2*BATcount(propStat->pBat));
 			}
 
-			propStat->pBat = BUNappend(propStat->pBat, &attr, TRUE);
+			BUNappend(propStat->pBat, &attr, TRUE);
 
 			if (propStat->numAdded == propStat->numAllocation) {
 				propStat->numAllocation += INIT_PROP_NUM;

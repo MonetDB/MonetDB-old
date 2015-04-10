@@ -302,7 +302,7 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontat
 
 		tmpBun = BUNfnd(ontmetaBat,&classOid);
 		if (tmpBun == BUN_NONE){	//If it is a new class
-			if (BUNappend(ontmetaBat,&classOid, TRUE) == NULL)    
+			if (BUNappend(ontmetaBat,&classOid, TRUE) == GDK_FAIL)    
 				throw(RDF, "buildOntologyClassesInfo", "Cannot insert to ontmetaBat");
 
 			if (tmpOntLabels[i] != NULL){
@@ -323,7 +323,7 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontat
 		if (scOid != BUN_NONE){	//The superClass oid is there
 			tmpBun = BUNfnd(ontmetaBat,&scOid);	
 			if (tmpBun == BUN_NONE){	//If it is a new class
-				if (BUNappend(ontmetaBat, &scOid, TRUE) == NULL)    
+				if (BUNappend(ontmetaBat, &scOid, TRUE) == GDK_FAIL)    
 					throw(RDF, "buildOntologyClassesInfo", "Cannot insert to ontmetaBat");
 				
 				tmpLabelsShortlist[classIdx] = NULL;
@@ -480,26 +480,26 @@ RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msup
 	}
 
 	if ((aattr = BATdescriptor(*aattrid)) == NULL) {
-		BBPreleaseref(auri->batCacheid);
+		BBPunfix(auri->batCacheid);
 		throw(MAL, "rdf.RDFloadsqlontologies", RUNTIME_OBJECT_MISSING);
 	}
 	if ((muri = BATdescriptor(*muriid)) == NULL) {
-		BBPreleaseref(auri->batCacheid);
-		BBPreleaseref(aattr->batCacheid);
+		BBPunfix(auri->batCacheid);
+		BBPunfix(aattr->batCacheid);
 		throw(MAL, "rdf.RDFloadsqlontologies", RUNTIME_OBJECT_MISSING);
 	}
 	if ((msuper = BATdescriptor(*msuperid)) == NULL) {
-		BBPreleaseref(auri->batCacheid);
-		BBPreleaseref(aattr->batCacheid);
-		BBPreleaseref(muri->batCacheid);
+		BBPunfix(auri->batCacheid);
+		BBPunfix(aattr->batCacheid);
+		BBPunfix(muri->batCacheid);
 		throw(MAL, "rdf.RDFloadsqlontologies", RUNTIME_OBJECT_MISSING);
 	}
 
 	if ((mlabel = BATdescriptor(*mlabelid)) == NULL) {
-		BBPreleaseref(auri->batCacheid);
-		BBPreleaseref(aattr->batCacheid);
-		BBPreleaseref(muri->batCacheid);
-		BBPreleaseref(msuper->batCacheid);
+		BBPunfix(auri->batCacheid);
+		BBPunfix(aattr->batCacheid);
+		BBPunfix(muri->batCacheid);
+		BBPunfix(msuper->batCacheid);
 		throw(MAL, "rdf.RDFloadsqlontologies", RUNTIME_OBJECT_MISSING);
 	}
 

@@ -2548,7 +2548,7 @@ void testBatHash(void){
 				BAThash(testBat, 2*BATcount(testBat));
 			}
 
-			testBat = BUNappend(testBat, (ptr) &csKey, TRUE);
+			BUNappend(testBat, (ptr) &csKey, TRUE);
 		
 		}
 		else{
@@ -2558,7 +2558,7 @@ void testBatHash(void){
 
 
 
-			testBat = BUNappend(testBat, (ptr) &csKey, TRUE);
+			BUNappend(testBat, (ptr) &csKey, TRUE);
 
 		}
 	}
@@ -2585,7 +2585,7 @@ void addaProp(PropStat* propStat, oid prop, int csIdx, int invertIdx){
 			BAThash(propStat->pBat, 2*BATcount(propStat->pBat));
 		}
 
-		propStat->pBat = BUNappend(propStat->pBat,&p, TRUE);
+		BUNappend(propStat->pBat,&p, TRUE);
 		
 		if(propStat->numAdded == propStat->numAllocation){
 
@@ -2676,7 +2676,7 @@ void addNewCS(CSBats *csBats, PropStat* fullPropStat, BUN* csKey, oid* key, oid 
 		BAThash(csBats->hsKeyBat, 2*BATcount(csBats->hsKeyBat));
 	}
 
-	csBats->hsKeyBat = BUNappend(csBats->hsKeyBat, csKey, TRUE);
+	BUNappend(csBats->hsKeyBat, csKey, TRUE);
 		
 	(*csoid)++;
 		
@@ -3615,7 +3615,7 @@ void buildLabelStatForTable(LabelStat *labelStat, int numTables, CStableStat* cs
 					BAThash(labelStat->labelBat, 2*BATcount(labelStat->labelBat));
 				}
 
-				labelStat->labelBat = BUNappend(labelStat->labelBat, (ptr) &name, TRUE);
+				BUNappend(labelStat->labelBat, (ptr) &name, TRUE);
 						
 				if(labelStat->numLabeladded == labelStat->numAllocation) 
 				{ 
@@ -3692,7 +3692,7 @@ void buildLabelStatForFinalMergeCS(LabelStat *labelStat, CSset *freqCSset, CSlab
 					BAThash(labelStat->labelBat, 2*BATcount(labelStat->labelBat));
 				}
 
-				labelStat->labelBat = BUNappend(labelStat->labelBat, (ptr) &name, TRUE);
+				BUNappend(labelStat->labelBat, (ptr) &name, TRUE);
 						
 				if(labelStat->numLabeladded == labelStat->numAllocation) 
 				{ 
@@ -3778,7 +3778,7 @@ void buildLabelStat(LabelStat *labelStat, CSlabel *labels, CSset *freqCSset, int
 						BAThash(labelStat->labelBat, 2*BATcount(labelStat->labelBat));
 					}
 
-					labelStat->labelBat = BUNappend(labelStat->labelBat, (ptr) &candidate, TRUE);
+					BUNappend(labelStat->labelBat, (ptr) &candidate, TRUE);
 							
 					if(labelStat->numLabeladded == labelStat->numAllocation) 
 					{ 
@@ -4995,7 +4995,7 @@ BAT* generateTablesForEvaluating(CSset *freqCSset, int numTbl, int* mergeCSFreqC
 				HASHdestroy(outputBat);
 				BAThash(outputBat, 2*BATcount(outputBat));
 			}
-			outputBat = BUNappend(outputBat, (ptr) &tmpIdx, TRUE);
+			BUNappend(outputBat, (ptr) &tmpIdx, TRUE);
 			i++;
 		}
 		numLoop++;
@@ -6846,7 +6846,7 @@ str initFullSampleData(CSSampleExtend *csSampleEx, int *mTblIdxFreqIdxMapping, C
 	}
 	
 	if ((rmap = BATdescriptor(*rmapbatid)) == NULL) {
-		BBPreleaseref(lmap->batCacheid);
+		BBPunfix(lmap->batCacheid);
 		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
 	}
 	srand(123456); 
@@ -9599,23 +9599,23 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
 	if (!(sbat->tsorted)){
-		BBPreleaseref(sbat->batCacheid);
+		BBPunfix(sbat->batCacheid);
 		throw(MAL, "rdf.RDFextractCSwithTypes", "sbat is not sorted");
 	}
 
 	if ((pbat = BATdescriptor(*pbatid)) == NULL) {
-		BBPreleaseref(sbat->batCacheid);
+		BBPunfix(sbat->batCacheid);
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
 	if ((obat = BATdescriptor(*obatid)) == NULL) {
-		BBPreleaseref(sbat->batCacheid);
-		BBPreleaseref(pbat->batCacheid);
+		BBPunfix(sbat->batCacheid);
+		BBPunfix(pbat->batCacheid);
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
 	if ((mbat = BATdescriptor(*mapbatid)) == NULL) {
-		BBPreleaseref(sbat->batCacheid);
-		BBPreleaseref(pbat->batCacheid);
-		BBPreleaseref(obat->batCacheid);
+		BBPunfix(sbat->batCacheid);
+		BBPunfix(pbat->batCacheid);
+		BBPunfix(obat->batCacheid);
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
 
@@ -9889,13 +9889,13 @@ RDFextractPfromPSO(int *ret, bat *pbatid, bat *sbatid){
 		throw(MAL, "rdf.RDFextractCS", RUNTIME_OBJECT_MISSING);
 	}
 	if ((pbat = BATdescriptor(*pbatid)) == NULL) {
-		BBPreleaseref(sbat->batCacheid);
+		BBPunfix(sbat->batCacheid);
 		throw(MAL, "rdf.RDFextractCS", RUNTIME_OBJECT_MISSING);
 	}
 
 	if (BATcount(pbat) == 0) {
-		BBPreleaseref(sbat->batCacheid);
-		BBPreleaseref(pbat->batCacheid);
+		BBPunfix(sbat->batCacheid);
+		BBPunfix(pbat->batCacheid);
 		throw(RDF, "rdf.RDFextractPfromPSO", "pbat must not be empty");
 		/* otherwise, variable bt is not initialized and thus
 		 * cannot be dereferenced after the BATloop below */
@@ -10310,7 +10310,7 @@ str fillMissingvalues(BAT* curBat, int from, int to){
 	//printf("Fill from  %d to %d \n", from, to);
 	if (curBat != NULL){
 		for(k = from -1; k < to; k++){
-			if (BUNfastins(curBat, ATOMnilptr(TYPE_void), ATOMnilptr(curBat->ttype))== NULL){
+			if (BUNfastins(curBat, ATOMnilptr(TYPE_void), ATOMnilptr(curBat->ttype))== GDK_FAIL){
 				throw(RDF, "fillMissingvalues", "[Debug] Problem in inserting value");
 			}
 		}
@@ -10365,7 +10365,7 @@ str fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, i
 		//printf("Append null to main table: Col: %d \n", colIdx);
 		//BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
 		
-		if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), ATOMnilptr(tmpBat->ttype)) == NULL){
+		if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), ATOMnilptr(tmpBat->ttype)) == GDK_FAIL){
 			throw(RDF, "fillMissingvaluesByNils", "[Debug0] Problem in inserting value");
 		}
 		
@@ -10386,7 +10386,7 @@ str fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, i
 			for(k = from; k < to; k++){
 				//printf("Append null to ex table: Col: %d \n", tmpColExIdx);
 				//BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
-				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), ATOMnilptr(tmpBat->ttype)) == NULL){
+				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), ATOMnilptr(tmpBat->ttype)) == GDK_FAIL){
 					throw(RDF, "fillMissingvaluesByNils", "[Debug1] Problem in inserting value");
 				}
 			}
@@ -10394,14 +10394,14 @@ str fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, i
 			if (tblType == MAINTBL){
 				//printf("Append null to not to-be-inserted col in ex table: Col: %d  (# colIdxEx = %d) \n", tmpColExIdx, colIdxEx);
 				//BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
-				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), ATOMnilptr(tmpBat->ttype)) == NULL){
+				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), ATOMnilptr(tmpBat->ttype)) == GDK_FAIL){
 					throw(RDF, "fillMissingvaluesByNils", "[Debug2] Problem in inserting value");
 				}
 			}
 			else if (tmpColExIdx != colIdxEx){
 				//printf("Append null to not to-be-inserted col in ex table: Col: %d (WHILE tblType = %d,  colIdxEx = %d) \n", tmpColExIdx, tblType, colIdxEx);
 				//BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
-				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), ATOMnilptr(tmpBat->ttype)) == NULL){
+				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), ATOMnilptr(tmpBat->ttype)) == GDK_FAIL){
 					throw(RDF, "fillMissingvaluesByNils", "[Debug3] Problem in inserting value");
 				}
 			}
@@ -10499,13 +10499,13 @@ void updatePropTypeForRemovedTriple(CSPropTypes *csPropTypes, int* tmpTblIdxProp
 //Macro for inserting to PSO
 #define insToPSO(pb, sb, ob, pbt, sbt, obt)	\
 	do{					\
-			if (BUNfastins(pb, ATOMnilptr(TYPE_void), pbt) == NULL){		\
+			if (BUNfastins(pb, ATOMnilptr(TYPE_void), pbt) == GDK_FAIL){		\
 				throw(RDF, "insToPSO","[Debug] Problem in inserting to pbat"); 	\
 			}									\
-			if (BUNfastins(sb, ATOMnilptr(TYPE_void), sbt) == NULL){		\
+			if (BUNfastins(sb, ATOMnilptr(TYPE_void), sbt) == GDK_FAIL){		\
 				throw(RDF, "insToPSO","[Debug] Problem in inserting to sbat"); 	\
 			}									\
-			if (BUNfastins(ob, ATOMnilptr(TYPE_void), obt) == NULL){		\
+			if (BUNfastins(ob, ATOMnilptr(TYPE_void), obt) == GDK_FAIL){		\
 				throw(RDF, "insToPSO","[Debug] Problem in inserting to obat"); 	\
 			}									\
 	}while (0)
@@ -10585,36 +10585,36 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
 	}
 	if ((pbat = BATdescriptor(*pbatid)) == NULL) {
-		BBPreleaseref(sbat->batCacheid);
+		BBPunfix(sbat->batCacheid);
 		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
 	}
 	if ((obat = BATdescriptor(*obatid)) == NULL) {
-		BBPreleaseref(sbat->batCacheid);
-		BBPreleaseref(pbat->batCacheid);
+		BBPunfix(sbat->batCacheid);
+		BBPunfix(pbat->batCacheid);
 		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
 	}
 
 	if ((mbat = BATdescriptor(*mbatid)) == NULL) {
-		BBPreleaseref(sbat->batCacheid);
-		BBPreleaseref(pbat->batCacheid);
-		BBPreleaseref(obat->batCacheid);
+		BBPunfix(sbat->batCacheid);
+		BBPunfix(pbat->batCacheid);
+		BBPunfix(obat->batCacheid);
 		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
 	}
 
 	if ((lmap = BATdescriptor(*lmapbatid)) == NULL) {
-		BBPreleaseref(sbat->batCacheid);
-		BBPreleaseref(pbat->batCacheid);
-		BBPreleaseref(obat->batCacheid);
-		BBPreleaseref(mbat->batCacheid);
+		BBPunfix(sbat->batCacheid);
+		BBPunfix(pbat->batCacheid);
+		BBPunfix(obat->batCacheid);
+		BBPunfix(mbat->batCacheid);
 		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
 	}
 	
 	if ((rmap = BATdescriptor(*rmapbatid)) == NULL) {
-		BBPreleaseref(sbat->batCacheid);
-		BBPreleaseref(pbat->batCacheid);
-		BBPreleaseref(obat->batCacheid);
-		BBPreleaseref(mbat->batCacheid);
-		BBPreleaseref(lmap->batCacheid);
+		BBPunfix(sbat->batCacheid);
+		BBPunfix(pbat->batCacheid);
+		BBPunfix(obat->batCacheid);
+		BBPunfix(mbat->batCacheid);
+		BBPunfix(lmap->batCacheid);
 		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
 	}
 
@@ -10775,7 +10775,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for Bat");
 				}
 
-				if (BUNappend(tmpHashBat,obt, TRUE) == NULL){		//Insert the first value
+				if (BUNappend(tmpHashBat,obt, TRUE) == GDK_FAIL){		//Insert the first value
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot insert to tmpHashBat");
 				}
 				isCheckDone = 0; 
@@ -10794,7 +10794,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				if (!(tmpFKHashBat->T->hash)){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for FK Bat");
 				}
-				if (BUNappend(tmpFKHashBat,obt, TRUE) == NULL){		//The first value
+				if (BUNappend(tmpFKHashBat,obt, TRUE) == GDK_FAIL){		//The first value
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot insert to tmpFKHashBat");
 				}
 
@@ -10836,7 +10836,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for FK Bat");
 				}
 
-				if (BUNappend(tmpFKHashBat,obt, TRUE) == NULL){		//The first value
+				if (BUNappend(tmpFKHashBat,obt, TRUE) == GDK_FAIL){		//The first value
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot insert to tmpFKHashBat");
 				}
 			}
@@ -10866,7 +10866,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 
 				csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isPKProp = 1;  /* Assume that the object values are all unique*/
 
-				if (BUNappend(tmpHashBat,obt, TRUE) == NULL){		//Insert the first value
+				if (BUNappend(tmpHashBat,obt, TRUE) == GDK_FAIL){		//Insert the first value
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot insert to tmpHashBat");
 				}
 				isCheckDone = 0;
@@ -10882,7 +10882,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			if (isCheckDone == 0 && isPossiblePK){
 				tmpObjBun = BUNfnd(tmpHashBat,(ptr) obt);
 				if (tmpObjBun == BUN_NONE){
-					if (BUNappend(tmpHashBat,obt, TRUE) == NULL){		//Insert the first value
+					if (BUNappend(tmpHashBat,obt, TRUE) == GDK_FAIL){		//Insert the first value
 						throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot insert to tmpHashBat");
 					}
 				}
@@ -10909,7 +10909,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 							throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for FK Bat");
 						}
 					}
-					if (BUNappend(tmpFKHashBat,obt, TRUE) == NULL){		
+					if (BUNappend(tmpFKHashBat,obt, TRUE) == GDK_FAIL){		
 						throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot insert to tmpFKHashBat");
 					}
 				}
@@ -10934,7 +10934,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				//BATprint(tmpmvBat);
 				if (i == tmpMVColIdx){	
 					// TODO: If i != 0, try to cast to default value		
-					if (BUNfastins(tmpmvBat, ATOMnilptr(TYPE_void), VALgetExtend(&vrRealObjValue,objType, &ts)) == NULL){
+					if (BUNfastins(tmpmvBat, ATOMnilptr(TYPE_void), VALgetExtend(&vrRealObjValue,objType, &ts)) == GDK_FAIL){
 						throw(RDF, "rdf.RDFdistTriplesToCSs", " Error in Bunfastins ");
 					} 
 				}
@@ -10942,19 +10942,19 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 					if (i == 0){	//The deafult type column
 						//Check whether we can cast the value to the default type value
 						if (rdfcast(objType, defaultType, &vrRealObjValue, &vrCastedObjValue) == 1){
-							if (BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),VALgetExtend(&vrCastedObjValue, defaultType, &ts)) == NULL){ 
+							if (BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),VALgetExtend(&vrCastedObjValue, defaultType, &ts)) == GDK_FAIL){ 
 								throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins ");
 							} 	
 							VALclear(&vrCastedObjValue);
 						}
 						else{
-							if (BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),ATOMnilptr(tmpmvBat->ttype)) == NULL){
+							if (BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),ATOMnilptr(tmpmvBat->ttype)) == GDK_FAIL){
 								throw(RDF, "rdf.RDFdistTriplesToCSs", "Error in Bunfastins ");
 							} 
 						}
 					}
 					else{
-						if (BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),ATOMnilptr(tmpmvBat->ttype)) == NULL){ 
+						if (BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),ATOMnilptr(tmpmvBat->ttype)) == GDK_FAIL){ 
 							throw(RDF, "rdf.RDFdistTriplesToCSs", "Error in Bunfastins ");
 						}
 					 
@@ -10976,20 +10976,20 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				//BATprint(tmpmvBat);
 				tmpmvValue = (oid)(BUNlast(tmpmvBat) - 1);
 				//printf("Insert the refered oid " BUNFMT "for MV prop \n", tmpmvValue);
-				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), &tmpmvValue) == NULL){
+				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), &tmpmvValue) == GDK_FAIL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");
 				}
 				//BATprint(tmpBat);
 				
 				//Insert this "key" to the key column of mv table.
 				tmpmvKey = tmpmvValue; 
-				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,ATOMnilptr(TYPE_void),&tmpmvKey) == NULL){
+				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,ATOMnilptr(TYPE_void),&tmpmvKey) == GDK_FAIL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
 				} 
 
 				//Insert the current subject oid of the main table to the subject
 				//column of this mvtable
-				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].subjBat,ATOMnilptr(TYPE_void),sbt) == NULL){
+				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].subjBat,ATOMnilptr(TYPE_void),sbt) == GDK_FAIL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
 				} 
 				
@@ -11003,13 +11003,13 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			}
 			else{
 				//Repeat referred "key" in the key column of mvtable
-				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,ATOMnilptr(TYPE_void),&tmpmvKey) == NULL){
+				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,ATOMnilptr(TYPE_void),&tmpmvKey) == GDK_FAIL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
 				} 
 
 				//Insert the current subject oid of the main table to the subject
 				//column of this mvtable
-				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].subjBat,ATOMnilptr(TYPE_void),sbt) == NULL){
+				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].subjBat,ATOMnilptr(TYPE_void),sbt) == GDK_FAIL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
 				} 
 				
@@ -11072,21 +11072,21 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			tmpBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
 			if (rdfcast(objType, defaultType, &vrRealObjValue, &vrCastedObjValue) == 1){
 				//printf("Casted a value (type: %d) to tables %d col %d (type: %d)  \n", objType, tblIdx,tmpColIdx,defaultType);
-				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), VALgetExtend(&vrCastedObjValue, defaultType,&ts)) == NULL){
+				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), VALgetExtend(&vrCastedObjValue, defaultType,&ts)) == GDK_FAIL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
 				} 
 	
 				VALclear(&vrCastedObjValue);
 			}
 			else{
-				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void),ATOMnilptr(tmpBat->ttype)) == NULL){
+				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void),ATOMnilptr(tmpBat->ttype)) == GDK_FAIL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
 				}
 			}
 
 		}
 		
-		if (BUNfastins(curBat, ATOMnilptr(TYPE_void), VALgetExtend(&vrRealObjValue, objType,&ts)) == NULL){
+		if (BUNfastins(curBat, ATOMnilptr(TYPE_void), VALgetExtend(&vrRealObjValue, objType,&ts)) == GDK_FAIL){
 			throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
 		} 
 		
@@ -11396,19 +11396,19 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 	}
 
 	if ((obat = BATdescriptor(*obatid)) == NULL) {
-		BBPreleaseref(sbat->batCacheid);
+		BBPunfix(sbat->batCacheid);
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
 	}
 
 	if ((pbat = BATdescriptor(*pbatid)) == NULL) {
-		BBPreleaseref(sbat->batCacheid);
-		BBPreleaseref(obat->batCacheid);
+		BBPunfix(sbat->batCacheid);
+		BBPunfix(obat->batCacheid);
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
 	}
 	if ((mbat = BATdescriptor(*mapbatid)) == NULL) {
-		BBPreleaseref(sbat->batCacheid);
-		BBPreleaseref(obat->batCacheid);
-		BBPreleaseref(pbat->batCacheid);
+		BBPunfix(sbat->batCacheid);
+		BBPunfix(obat->batCacheid);
+		BBPunfix(pbat->batCacheid);
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
 	}
 
@@ -11614,8 +11614,8 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 				l = *sbt; 
 				r = newId; 
 
-				lmap = BUNappend(lmap, &l, TRUE);
-				rmap = BUNappend(rmap, &r, TRUE);
+				BUNappend(lmap, &l, TRUE);
+				BUNappend(rmap, &r, TRUE);
 
 			}
 
@@ -11624,7 +11624,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 			newId = *sbt; 
 		}
 
-		sNewBat = BUNappend(sNewBat, &newId, TRUE);	
+		BUNappend(sNewBat, &newId, TRUE);	
 		//printf("Tbl: %d  || Convert s: " BUNFMT " to " BUNFMT " \n", tblIdx, *sbt, newId); 
 		
 	}

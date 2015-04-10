@@ -66,20 +66,20 @@ RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 		throw(MAL, "rdf.RDFpartialjoin", RUNTIME_OBJECT_MISSING);
 	}
 	if ((right = BATdescriptor(*rid)) == NULL) {
-		BBPreleaseref(left->batCacheid);
+		BBPunfix(left->batCacheid);
 		throw(MAL, "rdf.RDFpartialjoin", RUNTIME_OBJECT_MISSING);
 	}
 
 	if ((input = BATdescriptor(*inputid)) == NULL) {
-		BBPreleaseref(left->batCacheid);
-		BBPreleaseref(right->batCacheid);
+		BBPunfix(left->batCacheid);
+		BBPunfix(right->batCacheid);
 		throw(MAL, "rdf.RDFpartialjoin", RUNTIME_OBJECT_MISSING);
 	}
 
 	map = VIEWcreate(BATmirror(left), right);
 
-	BBPreleaseref(left->batCacheid);
-	BBPreleaseref(right->batCacheid);
+	BBPunfix(left->batCacheid);
+	BBPunfix(right->batCacheid);
 
 	//BATprint(map); 
 
@@ -96,7 +96,7 @@ RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 		}
 	}
 
-	BBPreleaseref(input->batCacheid);
+	BBPunfix(input->batCacheid);
 
 	//BATprint(result); 
 	if (result == NULL)
@@ -122,13 +122,13 @@ RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 		throw(MAL, "rdf.RDFpartialjoin", RUNTIME_OBJECT_MISSING);
 	}
 	if ((right = BATdescriptor(*rid)) == NULL) {
-		BBPreleaseref(left->batCacheid);
+		BBPunfix(left->batCacheid);
 		throw(MAL, "rdf.RDFpartialjoin", RUNTIME_OBJECT_MISSING);
 	}
 
 	if ((input = BATdescriptor(*inputid)) == NULL) {
-		BBPreleaseref(left->batCacheid);
-		BBPreleaseref(right->batCacheid);
+		BBPunfix(left->batCacheid);
+		BBPunfix(right->batCacheid);
 		throw(MAL, "rdf.RDFpartialjoin", RUNTIME_OBJECT_MISSING);
 	}
 
@@ -138,8 +138,8 @@ RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 	result->T->nil = 0; 
 	
 
-	BBPreleaseref(left->batCacheid);
-	BBPreleaseref(right->batCacheid);
+	BBPunfix(left->batCacheid);
+	BBPunfix(right->batCacheid);
 
 	resulti = bat_iterator(result);
 	inputi = bat_iterator(input);
@@ -152,7 +152,7 @@ RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 		}
 	}
 
-	BBPreleaseref(input->batCacheid);
+	BBPunfix(input->batCacheid);
 	BBPreclaim(result1);
 	BBPreclaim(result2);
 
