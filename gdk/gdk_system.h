@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2014 MonetDB B.V.
+ * Copyright August 2008-2015 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -98,7 +98,7 @@ gdk_export unsigned long long MT_clock(void);
 	do {								\
 		int _i = MT_locktrace_hash(s);				\
 		if (MT_locktrace_nme[_i] && MT_locktrace_nme[_i] != (n)) { \
-			printf("MT_locktrace: name collision %s hides %s\n", \
+			fprintf(stderr, "MT_locktrace: name collision %s hides %s\n", \
 			       MT_locktrace_nme[_i], (n));		\
 		} else							\
 			MT_locktrace_nme[_i] = (n);			\
@@ -130,8 +130,6 @@ enum MT_thr_detach { MT_THR_JOINABLE, MT_THR_DETACHED };
 gdk_export int MT_create_thread(MT_Id *t, void (*function) (void *),
 				void *arg, enum MT_thr_detach d);
 gdk_export void MT_exiting_thread(void);
-__declspec(noreturn) gdk_export void MT_global_exit(int status)
-	__attribute__((__noreturn__));
 gdk_export MT_Id MT_getpid(void);
 gdk_export int MT_join_thread(MT_Id t);
 

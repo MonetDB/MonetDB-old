@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2014 MonetDB B.V.
+ * Copyright August 2008-2015 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -540,6 +540,19 @@ MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t
 					}
 					if (write(fd, old_address,
 						  old_size) < 0 ||
+#ifdef HAVE_FALLOCATE
+					    /* prefer Linux-specific
+					     * fallocate over standard
+					     * posix_fallocate, since
+					     * glibc uses a rather
+					     * slow method of
+					     * allocating the file if
+					     * the file system doesn't
+					     * support the operation,
+					     * we just use ftruncate
+					     * in that case */
+					    (fallocate(fd, 0, (off_t) old_size, (off_t) *new_size - (off_t) old_size) < 0 && (errno != EOPNOTSUPP || ftruncate(fd, (off_t) *new_size) < 0))
+#else
 #ifdef HAVE_POSIX_FALLOCATE
 					    /* posix_fallocate returns
 					     * error number on
@@ -550,18 +563,23 @@ MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t
 					     * operation, so we then
 					     * need to try
 					     * ftruncate */
-					    ((rt = posix_fallocate(fd, 0, (off_t) *new_size)) == EINVAL ? ftruncate(fd, (off_t) *new_size) < 0 : rt != 0)
+					    ((rt = posix_fallocate(fd, (off_t) old_size, (off_t) *new_size - (off_t) old_size)) == EINVAL ? ftruncate(fd, (off_t) *new_size) < 0 : rt != 0)
 #else
 					    ftruncate(fd, (off_t) *new_size) < 0
+#endif
 #endif
 						) {
 						close(fd);
 						fprintf(stderr,
 							"= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): write() or "
+#ifdef HAVE_FALLOCATE
+							"fallocate()"
+#else
 #ifdef HAVE_POSIX_FALLOCATE
 							"posix_fallocate()"
 #else
 							"ftruncate()"
+#endif
 #endif
 							" failed\n", __FILE__, __LINE__, path, PTRFMTCAST old_address, old_size, *new_size);
 						return NULL;
@@ -586,19 +604,14 @@ MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t
 }
 
 int
-MT_msync(void *p, size_t len, int mode)
+MT_msync(void *p, size_t len)
 {
-	int ret = msync(p, len,
-			(mode & MMAP_SYNC) ? MS_SYNC :
-			((mode & MMAP_ASYNC) ? MS_ASYNC : MS_INVALIDATE));
+	int ret = msync(p, len, MS_SYNC);
 
 #ifdef MMAP_DEBUG
 	fprintf(stderr,
-		     "#msync(" PTRFMT "," SZFMT ",%s) = %d\n",
-		     PTRFMTCAST p, len,
-		     (mode & MMAP_SYNC) ? "MS_SYNC" :
-		     ((mode & MMAP_ASYNC) ? "MS_ASYNC" : "MS_INVALIDATE"),
-		     ret);
+		     "#msync(" PTRFMT "," SZFMT ",MS_SYNC) = %d\n",
+		     PTRFMTCAST p, len, ret);
 #endif
 	return ret;
 }
@@ -811,11 +824,10 @@ MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t
 }
 
 int
-MT_msync(void *p, size_t len, int mode)
+MT_msync(void *p, size_t len)
 {
 	int ret;
 
-	(void) mode;
 	/*       Windows' FlushViewOfFile returns success!=0, error== 0,
 	 * while Unix's   munmap          returns success==0, error==-1. */
 	ret = FlushViewOfFile(p, len);
@@ -994,7 +1006,7 @@ win_rmdir(const char *pathname)
 		/* it could be the <expletive deleted> indexing
 		 * service which prevents us from doing what we have a
 		 * right to do, so try again (once) */
-		IODEBUG THRprintf(GDKstdout, "retry rmdir %s\n", pathname);
+		IODEBUG fprintf(stderr, "retry rmdir %s\n", pathname);
 		MT_sleep_ms(100);	/* wait a little */
 		ret = _rmdir(p);
 	}
@@ -1019,7 +1031,7 @@ win_unlink(const char *pathname)
 		/* it could be the <expletive deleted> indexing
 		 * service which prevents us from doing what we have a
 		 * right to do, so try again (once) */
-		IODEBUG THRprintf(GDKstdout, "retry unlink %s\n", pathname);
+		IODEBUG fprintf(stderr, "retry unlink %s\n", pathname);
 		MT_sleep_ms(100);	/* wait a little */
 		ret = _unlink(pathname);
 	}
@@ -1044,7 +1056,7 @@ win_rename(const char *old, const char *dst)
 		/* it could be the <expletive deleted> indexing
 		 * service which prevents us from doing what we have a
 		 * right to do, so try again (once) */
-		IODEBUG THRprintf(GDKstdout, "#retry rename %s %s\n", old, dst);
+		IODEBUG fprintf(stderr, "#retry rename %s %s\n", old, dst);
 		MT_sleep_ms(100);	/* wait a little */
 		ret = rename(old, dst);
 	}

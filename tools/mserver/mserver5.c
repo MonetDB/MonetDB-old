@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2014 MonetDB B.V.
+ * Copyright August 2008-2015 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -74,7 +74,7 @@ mserver_abort()
 {
 	fprintf(stderr, "\n! mserver_abort() was called by terminate(). !\n");
 	fflush(stderr);
-	MT_global_exit(0);
+	exit(0);
 }
 #endif
 
@@ -159,7 +159,7 @@ monet_hello(void)
 	printf("# Module path:%s\n", GDKgetenv("monet_mod_path"));
 #endif
 	printf("# Copyright (c) 1993-July 2008 CWI.\n");
-	printf("# Copyright (c) August 2008-2014 MonetDB B.V., all rights reserved\n");
+	printf("# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved\n");
 	printf("# Visit http://www.monetdb.org/ for further information\n");
 }
 

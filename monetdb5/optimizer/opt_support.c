@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2014 MonetDB B.V.
+ * Copyright August 2008-2015 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -151,7 +151,6 @@ struct OPTcatalog {
 {"constants",	0,	0,	0,	DEBUG_OPT_CONSTANTS},
 {"costModel",	0,	0,	0,	DEBUG_OPT_COSTMODEL},
 {"crack",		0,	0,	0,	DEBUG_OPT_CRACK},
-{"datacell",	0,	0,	0,	DEBUG_OPT_DATACELL},
 {"datacyclotron",0,	0,	0,	DEBUG_OPT_DATACYCLOTRON},
 {"dataflow",	0,	0,	0,	DEBUG_OPT_DATAFLOW},
 {"deadcode",	0,	0,	0,	DEBUG_OPT_DEADCODE},
@@ -812,10 +811,7 @@ isBlocking(InstrPtr p)
 	if (blockStart(p) || blockExit(p) || blockCntrl(p))
 		return TRUE;
 
-	if ( getFunctionId(p) == sortTailRef ||
-		 getFunctionId(p) == sortHRef ||
-		 getFunctionId(p) == sortHTRef ||
-		 getFunctionId(p) == sortTHRef )
+	if ( getFunctionId(p) == sortRef )
 		return TRUE;
 
 	if( getModuleId(p) == aggrRef ||
@@ -868,8 +864,8 @@ int isSlice(InstrPtr p){
 
 int isOrderby(InstrPtr p){
 	return getModuleId(p) == algebraRef &&
-		(getFunctionId(p) == sortTailRef ||
-		 getFunctionId(p) == sortReverseTailRef);
+		(getFunctionId(p) == sortRef ||
+		 getFunctionId(p) == sortReverseRef);
 }
 
 int isDiffOp(InstrPtr p){
@@ -881,14 +877,12 @@ int isDiffOp(InstrPtr p){
 int isMatJoinOp(InstrPtr p){
 	return (getModuleId(p) == algebraRef &&
                 (getFunctionId(p) == crossRef ||
-                 getFunctionId(p) == subjoinRef ||
                  getFunctionId(p) == joinRef ||
-                 getFunctionId(p) == antijoinRef || /* is not mat save */
+                 getFunctionId(p) == subjoinRef ||
                  getFunctionId(p) == subantijoinRef || /* is not mat save */
-                 getFunctionId(p) == thetajoinRef ||
                  getFunctionId(p) == subthetajoinRef ||
-                 getFunctionId(p) == bandjoinRef ||
-                 getFunctionId(p) == subbandjoinRef)
+                 getFunctionId(p) == subbandjoinRef ||
+                 getFunctionId(p) == subrangejoinRef)
 		);
 }
 

@@ -12,7 +12,7 @@
 --
 -- The Initial Developer of the Original Code is CWI.
 -- Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
--- Copyright August 2008-2014 MonetDB B.V.
+-- Copyright August 2008-2015 MonetDB B.V.
 -- All Rights Reserved.
 
 -- Author M.Kersten
@@ -28,11 +28,11 @@
 -- of columns and foreign key indices, and possible temporary hash indices.
 -- For strings we take a sample to determine their average length.
 
-create function sys.storage()
-returns table ("schema" string, "table" string, "column" string, "type" string, location string, "count" bigint, typewidth int, columnsize bigint, heapsize bigint, hashes bigint, imprints bigint, sorted boolean)
-external name sql.storage;
+create function sys."storage"()
+returns table ("schema" string, "table" string, "column" string, "type" string, "mode" string, location string, "count" bigint, typewidth int, columnsize bigint, heapsize bigint, hashes bigint, imprints bigint, sorted boolean)
+external name sql."storage";
 
-create view sys.storage as select * from sys.storage();
+create view sys."storage" as select * from sys."storage"();
 
 -- To determine the footprint of an arbitrary database, we first have
 -- to define its schema, followed by an indication of the properties of each column.
@@ -57,7 +57,7 @@ begin
 	delete from sys.storagemodelinput;
 
 	insert into sys.storagemodelinput
-	select X."schema", X."table", X."column", X."type", X.typewidth, X.count, 0, X.typewidth, false, X.sorted from sys.storage() X;
+	select X."schema", X."table", X."column", X."type", X.typewidth, X.count, 0, X.typewidth, false, X.sorted from sys."storage"() X;
 
 	update sys.storagemodelinput
 	set reference = true
@@ -169,7 +169,7 @@ end;
 
 create view sys.storagemodel as select * from sys.storagemodel();
 -- A summary of the table storage requirement is is available as a table view.
--- The auxillary column denotes the maximum space if all non-sorted columns
+-- The auxiliary column denotes the maximum space if all non-sorted columns
 -- would be augmented with a hash (rare situation)
 create view sys.tablestoragemodel
 as select "schema","table",max(count) as "count",
@@ -177,5 +177,5 @@ as select "schema","table",max(count) as "count",
 	sum(heapsize) as heapsize,
 	sum(hashes) as hashes,
 	sum(imprints) as imprints,
-	sum(case when sorted = false then 8 * count else 0 end) as auxillary
+	sum(case when sorted = false then 8 * count else 0 end) as auxiliary
 from sys.storagemodel() group by "schema","table";

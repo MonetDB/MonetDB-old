@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2014 MonetDB B.V.
+ * Copyright August 2008-2015 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -26,31 +26,15 @@ logger *bat_logger = NULL;
 static int
 bl_preversion( int oldversion, int newversion)
 {
-#define CATALOG_FEB2010 50000
-#define CATALOG_OCT2010 51000
-#define CATALOG_APR2011 51100
-#define CATALOG_AUG2011 51101
-#define CATALOG_DEC2011 52000
 #define CATALOG_FEB2013 52001
+#define CATALOG_OCT2014 52100
 
 	(void)newversion;
 	if (oldversion == CATALOG_FEB2013) {
 		catalog_version = oldversion;
 		return 0;
 	}
-	if (oldversion == CATALOG_OCT2010) {
-		catalog_version = oldversion;
-		return 0;
-	}
-	if (oldversion == CATALOG_APR2011) {
-		catalog_version = oldversion;
-		return 0;
-	}
-	if (oldversion == CATALOG_AUG2011) {
-		catalog_version = oldversion;
-		return 0;
-	}
-	if (oldversion == CATALOG_DEC2011) {
+	if (oldversion == CATALOG_OCT2014) {
 		catalog_version = oldversion;
 		return 0;
 	}
@@ -64,13 +48,6 @@ N( char *buf, char *pre, char *schema, char *post)
 		snprintf(buf, 64, "%s_%s_%s", pre, schema, post);
 	else
 		snprintf(buf, 64, "%s_%s", schema, post);
-	return buf;
-}
-
-static char *
-I( char *buf, char *schema, char *table, char *iname)
-{
-	snprintf(buf, 64, "%s_%s@%s", schema, table, iname);
 	return buf;
 }
 
@@ -127,7 +104,7 @@ bl_postversion( void *lg)
 				v = TRUE;
 			BUNappend(b1, &v, TRUE);
 		}
-		b1 = BATsetaccess(b1, BAT_READ);
+		BATsetaccess(b1, BAT_READ);
 		logger_add_bat(lg, b1, N(n, NULL, s, "schemas_system"));
 		bat_destroy(b);
 		bat_destroy(b1);
@@ -150,7 +127,7 @@ bl_postversion( void *lg)
 				v = ARG_OUT;
 			BUNappend(b1, &v, TRUE);
 		}
-		b1 = BATsetaccess(b1, BAT_READ);
+		BATsetaccess(b1, BAT_READ);
 		logger_add_bat(lg, b1, N(n, NULL, s, "args_inout"));
 		bat_destroy(b);
 		bat_destroy(b1);
@@ -205,9 +182,9 @@ bl_postversion( void *lg)
 			if (strcasestr(name, "RETURNS TABLE") != NULL) 
 				void_inplace(u, p, &type, TRUE);
 		}
-		b1 = BATsetaccess(b1, BAT_READ);
-		b2 = BATsetaccess(b2, BAT_READ);
-		b3 = BATsetaccess(b3, BAT_READ);
+		BATsetaccess(b1, BAT_READ);
+		BATsetaccess(b2, BAT_READ);
+		BATsetaccess(b3, BAT_READ);
 
 		logger_add_bat(lg, b1, N(n, NULL, s, "functions_vararg"));
 		logger_add_bat(lg, b2, N(n, NULL, s, "functions_varres"));
@@ -224,166 +201,38 @@ bl_postversion( void *lg)
 		bat_destroy(b2);
 		bat_destroy(b3);
 	}
-	if (catalog_version == CATALOG_OCT2010) {
+	if (catalog_version == CATALOG_OCT2014) {
+		/* we need to replace tables.readonly by tables.access column */
 		BAT *b, *b1;
+		BATiter bi;
 		char *s = "sys", n[64];
+		BUN p,q;
 
-		fprintf(stdout, "# upgrading catalog from Oct2010\n");
-		fflush(stdout);
-
-		/* rename table 'keycolumns' into 'objects' 
-		 * and remove trunc column */
-		while (s) {
-			b = temp_descriptor(logger_find_bat(lg, N(n, "D", s, "keycolumns")));
+		while(s) {
+			b = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "_tables_readonly")));
 			if (!b)
 				return;
-			b1 = BATcopy(b, b->htype, b->ttype, 1, PERSISTENT);
-			if (!b1)
-				return;
-			b1 = BATsetaccess(b1, BAT_READ);
-			logger_del_bat(lg, b->batCacheid);
-			logger_add_bat(lg, b1, N(n, "D", s, "objects"));
-			bat_destroy(b);
-			bat_destroy(b1);
-
-			b = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "keycolumns_id")));
-			if (!b)
-				return;
-			b1 = BATcopy(b, b->htype, b->ttype, 1, PERSISTENT);
-			if (!b1)
-				return;
-			b1 = BATsetaccess(b1, BAT_READ);
-			logger_del_bat(lg, b->batCacheid);
-			logger_add_bat(lg, b1, N(n, NULL, s, "objects_id"));
-			bat_destroy(b);
-			bat_destroy(b1);
-
-			b = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "keycolumns_column")));
-			if (!b)
-				return;
-			b1 = BATcopy(b, b->htype, b->ttype, 1, PERSISTENT);
-			if (!b1)
-				return;
-			b1 = BATsetaccess(b1, BAT_READ);
-			logger_del_bat(lg, b->batCacheid);
-			logger_add_bat(lg, b1, N(n, NULL, s, "objects_name"));
-			bat_destroy(b);
-			bat_destroy(b1);
-
-			b = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "keycolumns_nr")));
-			if (!b)
-				return;
-			b1 = BATcopy(b, b->htype, b->ttype, 1, PERSISTENT);
-			if (!b1)
-				return;
-			b1 = BATsetaccess(b1, BAT_READ);
-			logger_del_bat(lg, b->batCacheid);
-			logger_add_bat(lg, b1, N(n, NULL, s, "objects_nr"));
-			bat_destroy(b);
-			bat_destroy(b1);
-
-			b = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "keycolumns_trunc")));
-			if (!b)
-				return;
-			logger_del_bat(lg, b->batCacheid);
-			bat_destroy(b);
-			if (strcmp(s, "sys") == 0)
-				s = "tmp";
-			else
-				s = NULL;
-		}
-	}
-	if (catalog_version == CATALOG_APR2011) {
-		char n[64];
-		BAT *b, *b1, *b2, *iname, *tname, *sname;
-		BUN bs;
-		BATiter iiname, itname, isname;
-
-		/* TODO functions.aggr (boolean) -> functions.type (int) */
-		fprintf(stdout, "# upgrading catalog from Apr2011\n");
-		fflush(stdout);
-
-		/* join 	sys.idxs(table_id, name), 
-		 * 		sys._tables(id,schema_id, name),
-		 * 		sys.schemas(id,name) */
-		iname = temp_descriptor(logger_find_bat(lg, N(n, "sys", "idxs", "name")));
-		bs = BATcount(iname);
-		b = temp_descriptor(logger_find_bat(lg, N(n, "sys", "idxs", "table_id")));
-		b1 = temp_descriptor(logger_find_bat(lg, N(n, "sys", "_tables", "id")));
-		b2 = BATleftjoin( b, BATmirror(b1), bs);
-		bat_destroy(b);
-		bat_destroy(b1); 
-		b = b2;
-
-		b1 = temp_descriptor(logger_find_bat(lg, N(n, "sys", "_tables", "name")));
-		b2 = temp_descriptor(logger_find_bat(lg, N(n, "sys", "_tables", "schema_id")));
-		tname = BATleftjoin( b, b1, bs );
-		bat_destroy(b1); 
-		b1 = BATleftjoin( b, b2, bs );
-		bat_destroy(b2); 
-		bat_destroy(b); 
-
-		b = temp_descriptor(logger_find_bat(lg, N(n, "sys", "schemas", "id")));
-		b2 = BATleftjoin( b1, BATmirror(b), bs);
-		bat_destroy(b1); 
-		bat_destroy(b); 
-		b = temp_descriptor(logger_find_bat(lg, N(n, "sys", "schemas", "name")));
-		sname = BATleftjoin( b2, b, bs);
-		bat_destroy(b2); 
-		bat_destroy(b); 
-
-		iiname = bat_iterator(iname);
-		itname = bat_iterator(tname);
-		isname = bat_iterator(sname);
-		/* rename idx bats */
-		for (bs = 0; bs < BATcount(iname); bs++) {
-			/* schema_name, table_name, index_name */
-			char *i = BUNtail(iiname, bs);
-			char *t = BUNtail(itname, bs);
-			char *s = BUNtail(isname, bs);
-
-			b = temp_descriptor(logger_find_bat(lg, N(n, s, t, i)));
-			if (!b) /* skip idxs without bats */
-				continue;
-			b1 = BATcopy(b, b->htype, b->ttype, 1, PERSISTENT);
-			if (!b1)
-				return;
-			b1 = BATsetaccess(b1, BAT_READ);
-			logger_del_bat(lg, b->batCacheid);
-			logger_add_bat(lg, b1, I(n, s, t, i));
-			bat_destroy(b);
-			bat_destroy(b1);
-		}
-		bat_destroy(iname);
-		bat_destroy(tname);
-		bat_destroy(sname);
-	}
-
-	if (catalog_version == CATALOG_AUG2011) {
-		char *s = "sys", n[64];
-		BUN i;
-		BAT *b, *b1;
-
-		while (s) {
-			b = temp_descriptor(logger_find_bat(lg, N(n, NULL, s, "functions_aggr")));
-			if (!b)
-				return;
-			b1 = BATnew(TYPE_void, TYPE_int, BATcount(b), PERSISTENT);
+			bi = bat_iterator(b);
+			b1 = BATnew(TYPE_void, TYPE_sht, BATcount(b), PERSISTENT);
 			if (!b1)
 				return;
         		BATseqbase(b1, b->hseqbase);
-			for (i=0;i<BATcount(b); i++) {
-				bit aggr = *(bit*)Tloc(b, i);
-				int func = aggr?F_AGGR:F_FUNC;
-				BUNappend(b1, &func, TRUE);
+
+			bi = bat_iterator(b);
+			for(p=BUNfirst(b), q=BUNlast(b); p<q; p++) {
+				bit ro = *(bit*)BUNtail(bi, p);
+				sht access = 0;
+				if (ro)
+					access = TABLE_READONLY;
+				BUNappend(b1, &access, TRUE);
 			}
-			b1 = BATsetaccess(b1, BAT_READ);
+			BATsetaccess(b1, BAT_READ);
+			logger_add_bat(lg, b1, N(n, NULL, s, "_tables_access"));
+			/* delete functions.sql */
 			logger_del_bat(lg, b->batCacheid);
-			logger_add_bat(lg, b1, N(n, NULL, s, "functions_type"));
 			bat_destroy(b);
 			bat_destroy(b1);
-
-			if (strcmp(s, "sys") == 0)
+			if (strcmp(s,"sys")==0)
 				s = "tmp";
 			else
 				s = NULL;

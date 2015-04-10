@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2014 MonetDB B.V.
+ * Copyright August 2008-2015 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -48,7 +48,6 @@
 #define DEBUG_OPT_CONSTANTS			7
 #define DEBUG_OPT_COSTMODEL			8
 #define DEBUG_OPT_CRACK				9
-#define DEBUG_OPT_DATACELL			10
 #define DEBUG_OPT_DATACYCLOTRON		11
 #define DEBUG_OPT_DATAFLOW			12
 #define DEBUG_OPT_DEADCODE     		13

@@ -15,7 +15,7 @@
 #
 # The Initial Developer of the Original Code is CWI.
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2014 MonetDB B.V.
+# Copyright August 2008-2015 MonetDB B.V.
 # All Rights Reserved.
 ?>
 
@@ -28,7 +28,7 @@ $tables = monetdb_query('SELECT name FROM tables LIMIT 10');
 for ($i = 0; $line = @monetdb_fetch_assoc($tables); $i++) {
 	print($line['name']."\n");
 }
-$result = monetdb_query('SELECT name, schema_id, query, type, system, commit_action, readonly, temporary FROM tables LIMIT 10');
+$result = monetdb_query('SELECT name, schema_id, query, type, system, commit_action, access, temporary FROM tables LIMIT 10');
 $cols = monetdb_num_fields($result);
 for ($i = 0; $i < $cols; $i++) {
 	print(monetdb_field_name($result, $i)."\t");

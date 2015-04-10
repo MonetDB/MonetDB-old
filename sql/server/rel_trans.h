@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2014 MonetDB B.V.
+ * Copyright August 2008-2015 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -23,11 +23,6 @@
 #include "sql_symbol.h"
 #include "sql_mvc.h"
 #include "sql_relation.h"
-
-#define tr_none		0
-#define tr_readonly	1
-#define tr_writable	2
-#define tr_serializable 4
 
 extern sql_rel *rel_transactions(mvc *sql, symbol *sym);
 

@@ -11,13 +11,12 @@ stdout of test 'large-number-operation-strange-results.Bug-2929` in directory 's
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Found 15.629 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008-2014 MonetDB B.V., all rights reserved
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
 # Listening for connection requests on mapi:monetdb://riga.ins.cwi.nl:32568/
 # MonetDB/GIS module loaded
 # MonetDB/JAQL module loaded
 # MonetDB/SQL module loaded
-# MonetDB/DataCell loaded
 
 Ready.
 # SQL catalog created, loading sql scripts once
@@ -40,7 +39,6 @@ Ready.
 # loading sql script: 25_debug.sql
 # loading sql script: 39_analytics.sql
 # loading sql script: 40_geom.sql
-# loading sql script: 50_datacell.sql
 # loading sql script: 80_udf.sql
 # loading sql script: 99_system.sql
 

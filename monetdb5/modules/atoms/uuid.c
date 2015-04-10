@@ -13,7 +13,7 @@
  *
  * The Initial Developer of the Original Code is CWI.
  * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2014 MonetDB B.V.
+ * Copyright August 2008-2015 MonetDB B.V.
  * All Rights Reserved.
  */
 
@@ -237,8 +237,6 @@ UUIDequal(bit *retval, uuid **l, uuid **r)
 	return MAL_SUCCEED;
 }
 
-/* taken from gdk_search.h */
-#define mix_int(X)	(((X)>>7)^((X)>>13)^((X)>>21)^(X))
 BUN
 UUIDhash(const void *v)
 {
