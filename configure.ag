@@ -1,22 +1,11 @@
 #                                               -*- Autoconf -*-
 #                                               vim: ft=config :
 
-dnl The contents of this file are subject to the MonetDB Public License
-dnl Version 1.1 (the "License"); you may not use this file except in
-dnl compliance with the License. You may obtain a copy of the License at
-dnl http://www.monetdb.org/Legal/MonetDBLicense
+dnl This Source Code Form is subject to the terms of the Mozilla Public
+dnl License, v. 2.0.  If a copy of the MPL was not distributed with this
+dnl file, You can obtain one at http://mozilla.org/MPL/2.0/.
 dnl
-dnl Software distributed under the License is distributed on an "AS IS"
-dnl basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
-dnl License for the specific language governing rights and limitations
-dnl under the License.
-dnl
-dnl The Original Code is the MonetDB Database System.
-dnl
-dnl The Initial Developer of the Original Code is CWI.
-dnl Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-dnl Copyright August 2008-2015 MonetDB B.V.
-dnl All Rights Reserved.
+dnl Copyright 2008-2015 MonetDB B.V.
 
 # Process this file with autoconf to produce a configure script.
 
@@ -1429,8 +1418,8 @@ case "$have_rubygem_dir" in
 				yes|auto)
 					AC_MSG_CHECKING([where rubygems are stored])
 					RUBY_DIR=
-					d=`$RUBY -rrbconfig -e "puts Config::CONFIG[['prefix']]" 2>/dev/null`
-					RUBY_DIR=`$RUBY -rrbconfig -e "puts Config::CONFIG[['sitelibdir']]" 2>/dev/null | sed -e "s|^$d/||" -e 's/site_ruby/gems/'`
+					d=`$RUBY -rrbconfig -e "puts RbConfig::CONFIG[['prefix']]" 2>/dev/null`
+					RUBY_DIR=`$RUBY -rrbconfig -e "puts RbConfig::CONFIG[['sitelibdir']]" 2>/dev/null | sed -e "s|^$d/||" -e 's/site_ruby/gems/'`
 					if test x"$RUBY_DIR" = x ; then
 						if test x"$have_rubygem_dir" != xauto; then
 							AC_MSG_ERROR([unable to determine rubygems location])
@@ -1455,7 +1444,7 @@ esac
 case "$RUBY_DIR" in
 ${prefix}/*)
 	RUBY_DIR="\${prefix}`echo "$RUBY_DIR" | sed "s|^$prefix||"`";;
-/*)	;;
+/*)	RUBY_DIR="\${prefix}$RUBY_DIR";;
 *)
 	RUBY_DIR="\${prefix}/$RUBY_DIR";;
 esac
@@ -2371,45 +2360,6 @@ else
 	why_have_unixodbc="(ODBC disabled)"
 fi
 AM_CONDITIONAL(HAVE_ODBC, test x$have_unixodbc != xno)
-
-# mseed, only used by sql
-org_have_mseed="auto"
-have_mseed=$org_have_mseed
-AC_ARG_WITH(mseed,
-    AS_HELP_STRING([--with-mseed=DIR],[mseed library is installed in DIR]),
-    [have_mseed="$withval"])
-if test "x$have_mseed" != xno; then
-
-	case "$have_mseed" in
-	auto|yes)
-	    ;;
-	*)
-	    MSEED_CFLAGS="-I$have_mseed/include"
-	    MSEED_LIBS="-L$have_mseed/lib -lmseed"
-	    ;;
-	esac
-
-	save_CPPFLAGS="$CPPFLAGS"
-	save_LDFLAGS="$LDFLAGS"
-	CPPFLAGS="$CPPFLAGS $MSEED_CFLAGS"
-	LDFLAGS="$LDFLAGS $MSEED_LIBS"
-	AC_CHECK_HEADER(libmseed.h,
-		AC_CHECK_LIB(mseed, msr_init,
-			AC_DEFINE(HAVE_MSEED, 1, [Define if you have the mseed library]),
-			[ if test "x$have_mseed" != xauto; then AC_MSG_ERROR([-lmseed library not found]); fi
-			  have_mseed=no; why_have_mseed="(mseed library not found)" ], "-lm"),
-		[ if test "x$have_mseed" != xauto; then AC_MSG_ERROR([libmseed.h header not found]); fi
-		  have_mseed=no; why_have_mseed="(libmseed.h header not found)" ])
-	LDFLAGS="$save_LDFLAGS"
-	CPPFLAGS="$save_CPPFLAGS"
-	if test "x$have_mseed" = "xyes" -o "x$have_mseed" = "xauto"; then
-	    MSEED_CFLAGS=
-	    MSEED_LIBS="-lmseed"
-	fi
-fi
-AC_SUBST(MSEED_CFLAGS, $MSEED_CFLAGS)
-AC_SUBST(MSEED_LIBS, $MSEED_LIBS)
-AM_CONDITIONAL(HAVE_MSEED, test x"$have_mseed" != xno)
 
 # samtools, only used by sql
 org_have_samtools="auto"
@@ -3383,7 +3333,6 @@ for comp in \
 	'java_control ' \
 	'java_jdbc    ' \
 	'libxml2      ' \
-	'mseed        ' \
 	'openssl      ' \
 	'pcre         ' \
 	'perl         ' \

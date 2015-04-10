@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -1803,55 +1792,6 @@ ALGfind(oid *ret, const bat *bid, ptr val)
 	return msg;
 }
 
-str
-ALGprojectNIL(bat *ret, const bat *bid)
-{
-    BAT *b, *bn;
-
-    if ((b = BATdescriptor(*bid)) == NULL) {
-        throw(MAL, "algebra.project", RUNTIME_OBJECT_MISSING);
-    }
-
-    bn = BATconst(b, TYPE_void, (ptr) &oid_nil, TRANSIENT);
-    if (bn) {
-        *ret = bn->batCacheid;
-        BBPkeepref(bn->batCacheid);
-		BBPunfix(b->batCacheid);
-        return MAL_SUCCEED;
-    }
-    BBPunfix(b->batCacheid);
-    throw(MAL, "algebra.project", MAL_MALLOC_FAIL);
-}
-
-/*
- * The constant versions are typed by the parser
- */
-str
-ALGprojecthead(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	bat *ret = getArgReference_bat(stk, pci, 0);
-	const ValRecord *v = &stk->stk[getArg(pci, 1)];
-	bat bid = * getArgReference_bat(stk, pci, 2);
-	BAT *b, *bn;
-
-	(void) cntxt;
-	(void) mb;
-	if ((b = BATdescriptor(bid)) == NULL)
-		throw(MAL, "algebra.project", RUNTIME_OBJECT_MISSING);
-	b = BATmirror(b);
-	bn = BATconst(b, v->vtype, VALptr(v), TRANSIENT);
-	if (bn == NULL) {
-		*ret = bat_nil;
-		throw(MAL, "algebra.project", MAL_MALLOC_FAIL);
-	}
-	bn = BATmirror(bn);
-	if (!(bn->batDirty&2))
-		BATsetaccess(bn, BAT_READ);
-	*ret= bn->batCacheid;
-	BBPkeepref(bn->batCacheid);
-	BBPunfix(b->batCacheid);
-	return MAL_SUCCEED;
-}
 
 str
 ALGprojecttail(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
@@ -1863,6 +1803,8 @@ ALGprojecttail(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	(void) cntxt;
 	(void) mb;
+	if( isaBatType(getArgType(mb,pci,2)) )
+		throw(MAL,"algebra.project","Scalar value expected");
 	if ((b = BATdescriptor(bid)) == NULL)
 		throw(MAL, "algebra.project", RUNTIME_OBJECT_MISSING);
 	bn = BATconst(b, v->vtype, VALptr(v), TRANSIENT);

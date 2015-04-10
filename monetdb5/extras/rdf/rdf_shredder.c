@@ -567,7 +567,7 @@ parserData_create (str location, BAT** graph, bat *ontbatid)
 		if ((pdata->ontBat = BATdescriptor(*ontbatid)) == NULL) {
 			return NULL; 
 		}
-		(void)BATprepareHash(pdata->ontBat);
+		(void)BAThash(pdata->ontBat,0);
 		if (!(pdata->ontBat->T->hash)){
 			return NULL; 
 		}

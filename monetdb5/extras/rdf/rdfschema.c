@@ -3263,7 +3263,7 @@ PropStat* initPropStat(void){
 		return NULL; 
 	}
 
-	(void)BATprepareHash(propStat->pBat);
+	(void)BAThash(propStat->pBat,0);
 	if (!(propStat->pBat->T->hash)){
 		return NULL;
 	}
@@ -3541,7 +3541,7 @@ LabelStat* initLabelStat(void){
 	if (labelStat->labelBat == NULL){
 		return NULL; 
 	}
-	(void)BATprepareHash(labelStat->labelBat);
+	(void)BAThash(labelStat->labelBat,0);
 	if (!(labelStat->labelBat->T->hash)) 
 		return NULL; 
 	labelStat->lstCount = (int*)malloc(sizeof(int) * INIT_DISTINCT_LABEL);
@@ -4855,7 +4855,7 @@ CSBats* initCSBats(void){
 		return NULL; 
 	}
 
-	(void)BATprepareHash(csBats->hsKeyBat);
+	(void)BAThash(csBats->hsKeyBat,0);
 	if (!(csBats->hsKeyBat->T->hash)){
 		return NULL;
 	}
@@ -4945,7 +4945,7 @@ BAT* generateTablesForEvaluating(CSset *freqCSset, int numTbl, int* mergeCSFreqC
 	if (outputBat == NULL){
 		return NULL; 
 	}
-	(void)BATprepareHash(outputBat);
+	(void)BAThash(outputBat,0);
 	if (!(outputBat->T->hash)) 
 		return NULL; 
 
@@ -5027,7 +5027,7 @@ BAT* buildTypeOidBat(void){
 		printf("In rdfschema.c/buildTypeOidBat: Cannot create new bat\n");
 		return NULL;
 	}	
-	(void)BATprepareHash(typeBat);
+	(void)BAThash(typeBat,0);
 	
 	if (!(typeBat->T->hash)){
 		printf("rdfschema.c/buildTypeOidBat: Cannot allocate the hash for Bat \n");
@@ -9622,7 +9622,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	if ((ontbat = BATdescriptor(*ontbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
-	(void)BATprepareHash(ontbat);
+	(void)BAThash(ontbat,0);
 	if (!(ontbat->T->hash)){
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
@@ -10770,7 +10770,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				if (tmpHashBat == NULL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot create new tmpHashBat");
 				}	
-				(void)BATprepareHash(tmpHashBat);
+				(void)BAThash(tmpHashBat,0);
 				if (!(tmpHashBat->T->hash)){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for Bat");
 				}
@@ -10790,7 +10790,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				if (tmpFKHashBat == NULL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot create new tmpFKHashBat");
 				}	
-				(void)BATprepareHash(tmpFKHashBat);
+				(void)BAThash(tmpFKHashBat,0);
 				if (!(tmpFKHashBat->T->hash)){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for FK Bat");
 				}
@@ -10831,7 +10831,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				if (tmpFKHashBat == NULL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot create new tmpFKHashBat");
 				}	
-				(void)BATprepareHash(tmpFKHashBat);
+				(void)BAThash(tmpFKHashBat,0);
 				if (!(tmpFKHashBat->T->hash)){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for FK Bat");
 				}
@@ -10859,7 +10859,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				if (tmpHashBat == NULL){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot create new tmpHashBat");
 				}	
-				(void)BATprepareHash(tmpHashBat);
+				(void)BAThash(tmpHashBat,0);
 				if (!(tmpHashBat->T->hash)){
 					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for Bat");
 				}
@@ -11486,7 +11486,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 	if ((ontbat = BATdescriptor(*ontbatid)) == NULL) {
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}
-	(void)BATprepareHash(ontbat);
+	(void)BAThash(ontbat,0);
 	if (!(ontbat->T->hash)){
 		throw(MAL, "rdf.RDFextractCSwithTypes", RUNTIME_OBJECT_MISSING);
 	}

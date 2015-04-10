@@ -287,7 +287,7 @@ str buildOntologyClassesInfo(oid **ontmetadat, int ontmetadataCount, oid **ontat
 	
 	ontmetaBat = BATnew(TYPE_void, TYPE_oid, ontmetadataCount, TRANSIENT);
 	BATseqbase(ontmetaBat, 0);
-	(void)BATprepareHash(ontmetaBat);
+	BAThash(ontmetaBat,0);
 	if (!(ontmetaBat->T->hash)){
 		throw(RDF, "buildOntologyClassesInfo", "Cannot allocate the hash for Bat");
 	}

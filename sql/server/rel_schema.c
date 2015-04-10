@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -932,8 +921,21 @@ rel_create_view(mvc *sql, sql_schema *ss, dlist *qname, dlist *column_spec, symb
 		if (!sq)
 			return NULL;
 
-		if (!create)
+		if (!create) {
+			if (column_spec) {
+				dnode *n = column_spec->h;
+				node *m = sq->exps->h;
+
+				for (; n && m; n = n->next, m = m->next)
+					;
+				if (n || m) {
+					sql_error(sql, 01, "21S02!WITH CLAUSE: number of columns does not match");
+					rel_destroy(sq);
+					return NULL;
+				}
+			}
 			rel_add_intern(sql, sq);
+		}
 
 		if (create) {
 			t = mvc_create_view(sql, s, name, SQL_DECLARED_TABLE, q, 0);
@@ -946,7 +948,7 @@ rel_create_view(mvc *sql, sql_schema *ss, dlist *qname, dlist *column_spec, symb
 		t = mvc_bind_table(sql, s, name);
 		if (!persistent && column_spec) 
 			sq = view_rename_columns( sql, name, sq, column_spec);
-		if (sq->op == op_project && sq->l && sq->exps && sq->card == CARD_AGGR) {
+		if (sq && sq->op == op_project && sq->l && sq->exps && sq->card == CARD_AGGR) {
 			exps_setcard(sq->exps, CARD_MULTI);
 			sq->card = CARD_MULTI;
 		}
