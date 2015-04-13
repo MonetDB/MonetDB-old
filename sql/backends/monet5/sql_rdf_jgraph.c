@@ -2168,16 +2168,20 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 			list *union_exps = NULL;
 			union_exps = new_exp_list(c->sa);
 			tmprel = tbl_m_rels[0]; 
-			for (tblIdx = 1; tblIdx < num_match_tbl; tblIdx++){
-				sql_rel *tmprel2 = rel_setop(c->sa, tmprel, tbl_m_rels[tblIdx], op_union); 
-				tmprel = tmprel2;
-			}
+
 			if (num_match_tbl > 1){
 				get_union_expr(c, tbl_m_rels[0], union_exps); 
 				printf("Union expresion is: \n"); 
 				exps_print_ext(c, union_exps, 0, "");
-				tmprel->exps = union_exps; 
 			}
+
+			for (tblIdx = 1; tblIdx < num_match_tbl; tblIdx++){
+				sql_rel *tmprel2 = rel_setop(c->sa, tmprel, tbl_m_rels[tblIdx], op_union); 
+				list *tmpexps = exps_copy(c->sa, union_exps);
+				tmprel2->exps = tmpexps; 
+				tmprel = tmprel2;
+			}
+
 			rel = tmprel; 
 	
 			
