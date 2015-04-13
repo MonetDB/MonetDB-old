@@ -1004,12 +1004,16 @@ void get_col_name_from_p (char **col, char *p){
  *
  * E.g., s12_t0.o = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
  * will be convert to tbl1.p = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
+ * UPDATE: oid[s12_t0.o] = sys.rdf_strtoid(char(85) "<http://www/Product9>"
+ * will be convert to tbl1.p = type_of_column_p[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
+ *
  * */
+
 static
 void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, char *_arname, char *_aname, int update_e_convert){
-	sql_exp *e = NULL;
+	sql_exp *tmpe = NULL;
 	sql_exp *ne = NULL;
-	sql_exp *re = NULL; //right expression, should be e_convert
+	sql_exp *le = NULL; //right expression, should be e_convert
 	
 	str rname = GDKstrdup(_rname); 
 	str name = GDKstrdup(_name);
@@ -1020,57 +1024,55 @@ void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, char *_a
 	//exp_setname(sa, e, rname, name); 
 	assert(m_exp->type == e_cmp); 
 
-	e = (sql_exp *)m_exp->l; 
-	assert(e->type == e_column); 
+	le = (sql_exp *)m_exp->l; 
+	assert(le->type == e_convert); 
 
- 	ne = exp_column(c->sa, arname, aname, exp_subtype(e), exp_card(e), has_nil(e), 0);
+	tmpe = le->l; 
+
+	assert(tmpe->type == e_column); 
+
+ 	ne = exp_column(c->sa, arname, aname, exp_subtype(tmpe), exp_card(tmpe), has_nil(tmpe), 0);
 
 	m_exp->l = ne; 
-	
+
 	if (update_e_convert){
 		//TODO: Convert subtype to the type of new col
 		//sql_subtype *t;
-		sql_exp *l = NULL;
-		sql_exp *newre = NULL;
+		sql_exp *newle = NULL;
 		sql_column *col = get_rdf_column(c, rname, name);
 		sql_subtype totype = col->type;
-		re = (sql_exp *)m_exp->r;
 
-		l = exp_copy(c->sa,re->l);
-	
-		assert(re->type == e_convert && l); 
+		assert(le->type == e_convert && ne); 
 		
-		newre = exp_convert(c->sa, l, exp_fromtype(re), &totype);
+		newle = exp_convert(c->sa, m_exp->r, exp_fromtype(le), &totype);
 
-		m_exp->r = newre; 
+		m_exp->r = newle; 
 	}
-	
+
 }
 
 /*
  * oid[sys.rdf_strtoid(char(67) "<http://www/product>")] 
+ * UPDATE: sys.rdf_strtoid(char(67) "<http://www/product>")
  * returns <http://www/product>
  * */
 static 
 void extractURI_from_exp(mvc *c, char **uri, sql_exp *exp){
 
-	sql_exp *tmpexp, *tmpexp2;
+	sql_exp *tmpexp;
 	node *tmpen; 
 	str s;
 	list *lst = NULL; 
 
-	assert(exp->type == e_convert);
+	assert(exp->type == e_func); 
 
-	tmpexp = (sql_exp *) exp->l;
-	assert(tmpexp->type == e_func); 
-
-	lst = tmpexp->l;
+	lst = exp->l;
 	
 	//There should be only one parameter for the function which is the property name
 	tmpen = lst->h; 
-	tmpexp2 = (sql_exp *) tmpen->data;
+	tmpexp = (sql_exp *) tmpen->data;
 				
-	s = atom2string(c->sa, (atom *) tmpexp2->l); 
+	s = atom2string(c->sa, (atom *) tmpexp->l); 
 	*uri = GDKstrdup(s); 
 
 	//get_col_name_from_p (&col, s);
@@ -1080,6 +1082,8 @@ void extractURI_from_exp(mvc *c, char **uri, sql_exp *exp){
 
 /*
  * //Example: [s12_t0.p = oid[sys.rdf_strtoid(char(67) "<http://www/product>")], s12_t0.o = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
+ * // UPDATED: Example: [oid[s12_t0.p] = sys.rdf_strtoid(char(67) "<http://www/product>"), oid[s12_t0.o] = sys.rdf_strtoid(char(85) "<http://www/Product9>" 
+ *
  * */
 static 
 void get_predicate_from_exps(mvc *c, list *tmpexps, char **prop, char **subj){
@@ -1091,22 +1095,26 @@ void get_predicate_from_exps(mvc *c, list *tmpexps, char **prop, char **subj){
 	assert (tmpexps != NULL);
 	for (en = tmpexps->h; en; en = en->next){
 		sql_exp *tmpexp = (sql_exp *) en->data; 
+		sql_exp *colexp = NULL;
 
 		assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
 		
 		//Example: [s12_t0.p = oid[sys.rdf_strtoid(char(67) "<http://www/product>")], s12_t0.o = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
-		assert(((sql_exp *)tmpexp->l)->type == e_column); 
+		assert(((sql_exp *)tmpexp->l)->type == e_convert); 
 
+		colexp = ((sql_exp *)tmpexp->l)->l; 
+
+		assert(colexp->type == e_column); 
 		//Check if the column name is p, then
 		//extract the input property name
-		if (strcmp(((sql_exp *)tmpexp->l)->name, "p") == 0){
+		if (strcmp(colexp->name, "p") == 0){
 
 			num_p_cond++; 
 			extractURI_from_exp(c, prop, (sql_exp *)tmpexp->r);	
 			//In case the column name is not in the abstract table, add it
 			if (0) add_abstract_column(c, *prop);
 
-		} else if (strcmp(((sql_exp *)tmpexp->l)->name, "s") == 0) {
+		} else if (strcmp(colexp->name, "s") == 0) {
 			extractURI_from_exp(c, subj, (sql_exp *)tmpexp->r);	
 		} else{ 
 			continue; 
@@ -1189,6 +1197,10 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 			sql_exp *e = (sql_exp *)tmpexp->l; 
 
 			assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
+			assert(e->type == e_convert); 
+
+			e = e->l; 
+
 			assert(e->type == e_column); 
 
 			if (strcmp(e->name, "p") == 0){
@@ -1304,6 +1316,10 @@ void tranforms_mvprop_exps(mvc *c, sql_rel *r, mvPropRel *mvproprel, int tblId, 
 			sql_exp *e = (sql_exp *)tmpexp->l; 
 
 			assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
+			assert(e->type == e_convert); 
+
+			e = e->l; 
+
 			assert(e->type == e_column); 
 
 			if (strcmp(e->name, "p") == 0){

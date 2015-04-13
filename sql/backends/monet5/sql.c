@@ -2095,6 +2095,7 @@ DELTAbat(bat *result, const bat *col, const bat *uid, const bat *uval, const bat
 		BBPunfix(i->batCacheid);
 	}
 
+	if (!(res->batDirty&2)) BATsetaccess(res, BAT_READ);
 	BBPkeepref(*result = res->batCacheid);
 	return MAL_SUCCEED;
 }
@@ -2214,6 +2215,7 @@ DELTAsub(bat *result, const bat *col, const bat *cid, const bat *uid, const bat 
 		res = u;
 	}
 	BATkey(BATmirror(res), TRUE);
+	if (!(res->batDirty&2)) BATsetaccess(res, BAT_READ);
 	BBPkeepref(*result = res->batCacheid);
 	return MAL_SUCCEED;
 }
@@ -2302,6 +2304,7 @@ DELTAproject(bat *result, const bat *sub, const bat *col, const bat *uid, const 
 	BBPunfix(u_id->batCacheid);
 	BBPunfix(u_val->batCacheid);
 
+	if (!(res->batDirty&2)) BATsetaccess(res, BAT_READ);
 	BBPkeepref(*result = res->batCacheid);
 	return MAL_SUCCEED;
 }
@@ -2378,6 +2381,7 @@ SQLtid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		BBPunfix(diff->batCacheid);
 		BBPunfix(d->batCacheid);
 	}
+	if (!(tids->batDirty&2)) BATsetaccess(tids, BAT_READ);
 	BBPkeepref(*res = tids->batCacheid);
 	return MAL_SUCCEED;
 }
