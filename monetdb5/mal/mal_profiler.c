@@ -22,7 +22,6 @@
 #include "mal_debugger.h"
 
 stream *eventstream = 0;
-stream *progressstream = 0;
 
 static int offlineProfiling = FALSE;
 static int cachedProfiling = FALSE;
@@ -45,8 +44,7 @@ static struct rusage prevUsage;
 
 #define logadd(...) {														\
 	do {																\
-		(void) snprintf(logbase+loglen, LOGLEN -1 - loglen, __VA_ARGS__); \
-		loglen += (int) strlen(logbase+loglen);							\
+		loglen += snprintf(logbase+loglen, LOGLEN -1 - loglen, __VA_ARGS__); \
 	} while (0);}
 
 static void
@@ -431,8 +429,8 @@ static BAT *TRACE_id_time = 0;
 static BAT *TRACE_id_pc = 0;
 static BAT *TRACE_id_thread = 0;
 static BAT *TRACE_id_ticks = 0;
-static BAT *TRACE_id_reads = 0;
-static BAT *TRACE_id_writes = 0;
+static BAT *TRACE_id_inblock = 0;
+static BAT *TRACE_id_oublock = 0;
 static BAT *TRACE_id_rssMB = 0;
 static BAT *TRACE_id_tmpspace = 0;
 static BAT *TRACE_id_minflt = 0;
@@ -453,8 +451,8 @@ TRACEtable(BAT **r)
 	r[4] = BATcopy(TRACE_id_ticks, TRACE_id_ticks->htype, TRACE_id_ticks->ttype, 0, TRANSIENT);
 	r[5] = BATcopy(TRACE_id_rssMB, TRACE_id_rssMB->htype, TRACE_id_rssMB->ttype, 0, TRANSIENT);
 	r[6] = BATcopy(TRACE_id_tmpspace, TRACE_id_tmpspace->htype, TRACE_id_tmpspace->ttype, 0, TRANSIENT);
-	r[7] = BATcopy(TRACE_id_reads, TRACE_id_reads->htype, TRACE_id_reads->ttype, 0, TRANSIENT);
-	r[8] = BATcopy(TRACE_id_writes, TRACE_id_writes->htype, TRACE_id_writes->ttype, 0, TRANSIENT);
+	r[7] = BATcopy(TRACE_id_inblock, TRACE_id_inblock->htype, TRACE_id_inblock->ttype, 0, TRANSIENT);
+	r[8] = BATcopy(TRACE_id_oublock, TRACE_id_oublock->htype, TRACE_id_oublock->ttype, 0, TRANSIENT);
 	r[9] = BATcopy(TRACE_id_minflt, TRACE_id_minflt->htype, TRACE_id_minflt->ttype, 0, TRANSIENT);
 	r[10] = BATcopy(TRACE_id_majflt, TRACE_id_majflt->htype, TRACE_id_majflt->ttype, 0, TRANSIENT);
 	r[11] = BATcopy(TRACE_id_nvcsw, TRACE_id_nvcsw->htype, TRACE_id_nvcsw->ttype, 0, TRANSIENT);
@@ -498,8 +496,8 @@ _cleanupProfiler(void)
 	CLEANUPprofile(TRACE_id_pc);
 	CLEANUPprofile(TRACE_id_rssMB);
 	CLEANUPprofile(TRACE_id_tmpspace);
-	CLEANUPprofile(TRACE_id_reads);
-	CLEANUPprofile(TRACE_id_writes);
+	CLEANUPprofile(TRACE_id_inblock);
+	CLEANUPprofile(TRACE_id_oublock);
 	CLEANUPprofile(TRACE_id_minflt);
 	CLEANUPprofile(TRACE_id_majflt);
 	CLEANUPprofile(TRACE_id_nvcsw);
@@ -518,8 +516,8 @@ _initTrace(void)
 	TRACE_id_ticks = TRACEcreate("id", "ticks", TYPE_lng);
 	TRACE_id_rssMB = TRACEcreate("id", "rssMB", TYPE_lng);
 	TRACE_id_tmpspace = TRACEcreate("id", "tmpspace", TYPE_lng);
-	TRACE_id_reads = TRACEcreate("id", "read", TYPE_lng);
-	TRACE_id_writes = TRACEcreate("id", "write", TYPE_lng);
+	TRACE_id_inblock = TRACEcreate("id", "read", TYPE_lng);
+	TRACE_id_oublock = TRACEcreate("id", "write", TYPE_lng);
 	TRACE_id_minflt = TRACEcreate("id", "minflt", TYPE_lng);
 	TRACE_id_majflt = TRACEcreate("id", "majflt", TYPE_lng);
 	TRACE_id_nvcsw = TRACEcreate("id", "nvcsw", TYPE_lng);
@@ -531,8 +529,8 @@ _initTrace(void)
 		TRACE_id_stmt == NULL ||
 		TRACE_id_rssMB == NULL ||
 		TRACE_id_tmpspace == NULL ||
-		TRACE_id_reads == NULL ||
-		TRACE_id_writes == NULL ||
+		TRACE_id_inblock == NULL ||
+		TRACE_id_oublock == NULL ||
 		TRACE_id_minflt == NULL ||
 		TRACE_id_majflt == NULL ||
 		TRACE_id_nvcsw == NULL ||
@@ -578,8 +576,8 @@ clearTrace(void)
 	BBPclear(TRACE_id_ticks->batCacheid);
 	BBPclear(TRACE_id_rssMB->batCacheid);
 	BBPclear(TRACE_id_tmpspace->batCacheid);
-	BBPclear(TRACE_id_reads->batCacheid);
-	BBPclear(TRACE_id_writes->batCacheid);
+	BBPclear(TRACE_id_inblock->batCacheid);
+	BBPclear(TRACE_id_oublock->batCacheid);
 	BBPclear(TRACE_id_minflt->batCacheid);
 	BBPclear(TRACE_id_majflt->batCacheid);
 	BBPclear(TRACE_id_nvcsw->batCacheid);
@@ -609,9 +607,9 @@ getTrace(const char *nme)
 	if (strcmp(nme, "tmpspace") == 0)
 		return BATcopy(TRACE_id_tmpspace, TRACE_id_tmpspace->htype, TRACE_id_tmpspace->ttype, 0, TRANSIENT);
 	if (strcmp(nme, "reads") == 0)
-		return BATcopy(TRACE_id_reads, TRACE_id_reads->htype, TRACE_id_reads->ttype, 0, TRANSIENT);
+		return BATcopy(TRACE_id_inblock, TRACE_id_inblock->htype, TRACE_id_inblock->ttype, 0, TRANSIENT);
 	if (strcmp(nme, "writes") == 0)
-		return BATcopy(TRACE_id_writes, TRACE_id_writes->htype, TRACE_id_writes->ttype, 0, TRANSIENT);
+		return BATcopy(TRACE_id_oublock, TRACE_id_oublock->htype, TRACE_id_oublock->ttype, 0, TRANSIENT);
 	if (strcmp(nme, "minflt") == 0)
 		return BATcopy(TRACE_id_minflt, TRACE_id_minflt->htype, TRACE_id_minflt->ttype, 0, TRANSIENT);
 	if (strcmp(nme, "majflt") == 0)
@@ -731,8 +729,8 @@ cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	errors += BUNappend(TRACE_id_ticks, &pci->ticks, FALSE) == GDK_FAIL;
 	errors += BUNappend(TRACE_id_rssMB, &rssMB, FALSE) == GDK_FAIL;
 	errors += BUNappend(TRACE_id_tmpspace, &tmpspace, FALSE) == GDK_FAIL;
-	errors += BUNappend(TRACE_id_reads, &v1, FALSE) == GDK_FAIL;
-	errors += BUNappend(TRACE_id_writes, &v2, FALSE) == GDK_FAIL;
+	errors += BUNappend(TRACE_id_inblock, &v1, FALSE) == GDK_FAIL;
+	errors += BUNappend(TRACE_id_oublock, &v2, FALSE) == GDK_FAIL;
 	errors += BUNappend(TRACE_id_minflt, &v3, FALSE) == GDK_FAIL;
 	errors += BUNappend(TRACE_id_majflt, &v4, FALSE) == GDK_FAIL;
 	errors += BUNappend(TRACE_id_nvcsw, &v5, FALSE) == GDK_FAIL;
@@ -834,10 +832,10 @@ static struct{
 } corestat[256];
 
 static int getCPULoad(char cpuload[BUFSIZ]){
-    int cpu, len, i;
+    int cpu, len = 0, i;
 	lng user, nice, system, idle, iowait;
 	size_t n;
-    char buf[BUFSIZ+1],*s;
+    char buf[BUFSIZ+1], *s;
 	static FILE *proc= NULL;
 	lng newload;
 
@@ -887,20 +885,12 @@ static int getCPULoad(char cpuload[BUFSIZ]){
 
 	if( cpuload == 0)
 		return 0;
-	s= cpuload;
-	len = BUFSIZ;
 	// identify core processing
-	snprintf(s, len, "[ ");
-	len -= (int)strlen(s);
-	s += (int) strlen(s);
+	len += snprintf(cpuload, BUFSIZ, "[ ");
 	for ( cpu = 0; cpuload && cpu < 255 && corestat[cpu].user; cpu++) {
-		snprintf(s, len, " %.2f ",corestat[cpu].load);
-		len -= (int)strlen(s);
-		s += (int) strlen(s);
+		len +=snprintf(cpuload + len, BUFSIZ - len, " %.2f ",corestat[cpu].load);
 	}
-	snprintf(s, len, "]");
-	len -= (int)strlen(s);
-	s += (int) strlen(s);
+	(void) snprintf(cpuload + len, BUFSIZ - len, "]");
 	return 0;
 }
 
@@ -928,11 +918,11 @@ static str getIOactivity(void){
 	//MT_lock_set(&GDKthreadLock, "profiler.io");
 	for (t = GDKthreads, s = t + THREADS; t < s; t++, i++)
 		if (t->pid ){
-			snprintf(fnme,BUFSIZ,"/proc/"SZFMT"/io",t->pid);
+			(void) snprintf(fnme,BUFSIZ,"/proc/"SZFMT"/io",t->pid);
 			fd = fopen(fnme,"r");
 			if ( fd == NULL)
 				return buf;
-			snprintf(buf+len, BUFSIZ-len-2,"thr %d ",i);
+			(void) snprintf(buf+len, BUFSIZ-len-2,"thr %d ",i);
 			if ((n = fread(buf+len, 1, BUFSIZ-len-2,fd)) == 0 )
 				return  buf;
 			// extract the properties
