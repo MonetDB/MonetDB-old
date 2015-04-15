@@ -5765,6 +5765,14 @@ rel_simplify_predicates(int *changes, mvc *sql, sql_rel *rel)
 		for (n = rel->exps->h; n; n = n->next) {
 			sql_exp *e = n->data;
 
+			if (is_atom(e) && e->l) { /* direct literal */
+				atom *a = e->l;
+				int flag = a->data.val.bval;
+
+				/* remove simple select true expressions */
+				if (flag)
+					break;
+			}
 			if (e->type == e_cmp && get_cmp(e) == cmp_equal) {
 				sql_exp *l = e->l;
 				sql_exp *r = e->r;
@@ -7541,6 +7549,9 @@ _rdf_rel_optimizer(mvc *sql, sql_rel *rel, int level)
 	/* push (simple renaming) projections up */
 	if (gp.cnt[op_project])
 		rel = rewrite(sql, rel, &rel_push_project_up, &changes); 
+
+	if (gp.cnt[op_select] && level <= 0)
+		rel = rewrite(sql, rel, &rel_simplify_predicates, &changes); 
 
 	/* join's/crossproducts between a relation and a constant (row).
 	 * could be rewritten 
