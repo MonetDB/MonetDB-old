@@ -12,7 +12,7 @@ bat.append(b,1189641421);
 
 io.print(b);
 
-r:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"This string is somehow not arriving at the C function, why?",b);
+r:bat[:oid,:int] := pyapi.eval(nil:ptr,"int(arg1/1000)",b);
 io.print(r);
 
 

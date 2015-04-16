@@ -158,7 +158,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 						//if ( v == int_nil)
 						//	PyList_SET_ITEM(varlist, j, );
 						//else
-							PyList_SET_ITEM(varlist, j, PyInt_FromLong(v));
+						// TODO: use numpy arrays here, readonly, ignore NULLs for now?
+						PyList_SET_ITEM(varlist, j, PyInt_FromLong(v));
 					}
 			break;
 		// TODO: implement other types
@@ -200,12 +201,12 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 		PyObject *pFunc, *pModule, *pResult;
 
 		pModule = PyImport_Import(PyString_FromString("__main__"));
-		pyret = PyRun_SimpleString("def pyfun(x):\n  return list(([e+1 for e in x],1))");
+		pyret = PyRun_SimpleString("def pyfun(x):\n  print(x)\n  return list(([e+1 for e in x],1))");
 		pFunc = PyObject_GetAttrString(pModule, "pyfun");
 
 		if (pyret != 0 || !pModule || !pFunc || !PyCallable_Check(pFunc)) {
 			// TODO: include parsed code
-			msg = createException(MAL, "pyapi.eval", "could not parse blubb");
+			msg = createException(MAL, "pyapi.eval", "could not parse Python code %s", rcall);
 			goto wrapup; // shudder
 		}
 
@@ -216,16 +217,12 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 			msg = createException(MAL, "pyapi.eval", "invalid result object");
 			goto wrapup;
 		}
-
-
 		// delete the function again
 		PyRun_SimpleString("del pyfun");
-
 	}
 
 	// collect the return values
 	for (i = 0; i < pci->retc; i++) {
-		//SEXP ret_col = VECTOR_ELT(retval, i);
 		int bat_type = ATOMstorage(getColumnType(getArgType(mb,pci,i)));
 		cnt = (BUN) ret_rows;
 
