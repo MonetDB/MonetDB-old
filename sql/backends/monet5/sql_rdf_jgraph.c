@@ -447,7 +447,7 @@ int* get_crossedge_apply_orders(jgraph *jg, jgedge **lstEdges, int num){
  *
  * */
 static
-void addRelationsToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg, int *subjgId){
+void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *jg, int new_subjg, int *subjgId, int *level, int tmp_level, sql_rel **node_root){
 	int tmpvid =-1; 
 
 	switch (rel->op) {
@@ -465,30 +465,38 @@ void addRelationsToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg
 				*subjgId = *subjgId + 1; 
 			}
 
-			addRelationsToJG(c, rel->l, depth+1, jg, 0, subjgId);
-			addRelationsToJG(c, rel->r, depth+1, jg, 0, subjgId);
+			addRelationsToJG(c, rel, rel->l, depth+1, jg, 0, subjgId, level, tmp_level + 1, node_root);
+			addRelationsToJG(c, rel, rel->r, depth+1, jg, 0, subjgId, level, tmp_level + 1, node_root);
 
 			break; 
 		case op_select: 
 			 printf("[select]\n");
 			if (is_basic_pattern(rel)){
 				printf("Found a basic pattern\n");
+				if (*level == 0){ 
+					*level = tmp_level; 
+					 *node_root = parent; 
+				}
 				addJGnode(&tmpvid, jg, (sql_rel *) rel, *subjgId, JN_REQUIRED); 
 			}
 			else{	//This is the connect to a new join sg
-				addRelationsToJG(c, rel->l, depth+1, jg, 1, subjgId);
+				addRelationsToJG(c, rel, rel->l, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root);
 			}
 			break; 
 		case op_basetable:
 			printf("[Base table]\n");		
+			if (*level == 0){
+				*level = tmp_level;
+				*node_root = parent;
+			}
 			addJGnode(&tmpvid, jg, (sql_rel *) rel, *subjgId, JN_REQUIRED);
 			break;
 		default:
 			printf("[%s]\n", op2string(rel->op)); 
 			if (rel->l) 
-				addRelationsToJG(c, rel->l, depth+1, jg, 1, subjgId); 
+				addRelationsToJG(c, rel, rel->l, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root); 
 			if (rel->r)
-				addRelationsToJG(c, rel->r, depth+1, jg, 1, subjgId); 
+				addRelationsToJG(c, rel, rel->r, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root); 
 			break; 
 			
 	}
@@ -739,7 +747,7 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 
 
 static
-void addJoinEdgesToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg, int *subjgId, nMap *nm, char **isConnect, int *last_rel_join_id, int p_rel_id){
+void addJoinEdgesToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *jg, int new_subjg, int *subjgId, nMap *nm, char **isConnect, int *last_rel_join_id, int p_rel_id, int *level, int tmp_level, sql_rel **edge_root){
 	//int tmpvid =-1; 
 	int tmp_r_id; 
 
@@ -754,8 +762,14 @@ void addJoinEdgesToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg
 			if (new_subjg){ 	//The new subgraph flag is set
 				*subjgId = *subjgId + 1; 
 			}
-			addJoinEdgesToJG(c, rel->l, depth+1, jg, 0, subjgId, nm, isConnect, last_rel_join_id, tmp_r_id);
-			addJoinEdgesToJG(c, rel->r, depth+1, jg, 0, subjgId, nm, isConnect, last_rel_join_id, tmp_r_id);
+
+			if (*level == 0){
+				*level = tmp_level; 	//Store the depth of the relational plan where the first join edge is found
+				*edge_root = parent; 
+			}
+
+			addJoinEdgesToJG(c, rel, rel->l, depth+1, jg, 0, subjgId, nm, isConnect, last_rel_join_id, tmp_r_id, level, tmp_level+1, edge_root);
+			addJoinEdgesToJG(c, rel, rel->r, depth+1, jg, 0, subjgId, nm, isConnect, last_rel_join_id, tmp_r_id, level, tmp_level+1, edge_root);
 
 			// Get the node Ids from 			
 			_add_join_edges(jg, rel, nm, isConnect, tmp_r_id, p_rel_id); 
@@ -766,9 +780,8 @@ void addJoinEdgesToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg
 				//printf("Found a basic pattern\n");
 			}
 			else{	//This is the connect to a new join sg
-
 				//if is_join(((sql_rel *)rel->l)->op) printf("Join graph will be connected from here\n"); 
-				addJoinEdgesToJG(c, rel->l, depth+1, jg, 1, subjgId, nm, isConnect, last_rel_join_id, (*last_rel_join_id));
+				addJoinEdgesToJG(c, rel, rel->l, depth+1, jg, 1, subjgId, nm, isConnect, last_rel_join_id, (*last_rel_join_id), level, tmp_level+1, edge_root);
 			}
 			break; 
 		case op_basetable:
@@ -776,11 +789,11 @@ void addJoinEdgesToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg
 		default:		//op_project, topn,...
 			if (rel->l){
 				//if is_join(((sql_rel *)rel->l)->op) printf("Join graph will be connected from here\n"); 
-				addJoinEdgesToJG(c, rel->l, depth+1, jg, 1, subjgId, nm, isConnect, last_rel_join_id, (*last_rel_join_id)); 
+				addJoinEdgesToJG(c, rel, rel->l, depth+1, jg, 1, subjgId, nm, isConnect, last_rel_join_id, (*last_rel_join_id), level, tmp_level + 1, edge_root); 
 			}
 			if (rel->r){
 				//if is_join(((sql_rel *)rel->l)->op) printf("Join graph will be connected from here\n"); 
-				addJoinEdgesToJG(c, rel->r, depth+1, jg, 1, subjgId, nm, isConnect, last_rel_join_id, (*last_rel_join_id)); 
+				addJoinEdgesToJG(c, rel, rel->r, depth+1, jg, 1, subjgId, nm, isConnect, last_rel_join_id, (*last_rel_join_id), level, tmp_level + 1, edge_root); 
 			}
 			break; 
 			
@@ -789,9 +802,22 @@ void addJoinEdgesToJG(mvc *c, sql_rel *rel, int depth, jgraph *jg, int new_subjg
 }
 
 static
-void connect_rel_with_sprel(sql_rel *rel, sql_rel *firstsp){
-	//int tmpvid =-1; 
-	
+void connect_rel_with_sprel(sql_rel *rel, sql_rel *firstsp, int e_level, int n_level, sql_rel *node_root, sql_rel *edge_root){
+	(void) rel; 
+
+	if (e_level == 0){ //No join edge
+		node_root->l = firstsp; 
+	}
+	else{
+		if (e_level < n_level){
+			edge_root->l = firstsp; 
+		}
+		else{
+			node_root->l = firstsp;
+		}
+	}
+
+	/* OLD CODE --> to be removed
 	if (rel->l){
 		if (((sql_rel*)rel->l)->op == op_join ||
 		    ((sql_rel*)rel->l)->op == op_left ||			
@@ -799,7 +825,7 @@ void connect_rel_with_sprel(sql_rel *rel, sql_rel *firstsp){
 			rel->l = firstsp; 		
 		}
 		else{
-			connect_rel_with_sprel(rel->l, firstsp);
+			connect_rel_with_sprel(rel->l, firstsp, level + 1, connect_level);
 		}
 	}
 	
@@ -811,9 +837,10 @@ void connect_rel_with_sprel(sql_rel *rel, sql_rel *firstsp){
 			rel->r = firstsp; 		
 		}
 		else{
-			connect_rel_with_sprel(rel->r, firstsp);
+			connect_rel_with_sprel(rel->r, firstsp, level + 1, connect_level);
 		}
 	}
+	*/
 }
 
 /**
@@ -2326,6 +2353,12 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 	int last_rel_join_id = -1; 
 
+	int e_start_level = 0; 	//Depth of the relational plan where the sp transformating of join edge is processed.
+	int n_start_level = 0; 	//Depth of the relational plan where the sp transformating of join edge is processed.
+	sql_rel *node_root = NULL; //Root from that point to sp
+	sql_rel *edge_root = NULL; 
+
+
 	(void) c; 
 	(void) r; 
 	(void) depth; 
@@ -2333,14 +2366,15 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 	jg = initJGraph(); 
 	
-	addRelationsToJG(c, r, depth, jg, 0, &subjgId); 
+	addRelationsToJG(c, NULL, r, depth, jg, 0, &subjgId, &n_start_level, 0, &node_root); 
 	
 	nm = create_nMap(MAX_JGRAPH_NODENUMBER); 
 	add_relNames_to_nmap(jg, nm); 
 
 	isConnect = createMatrix(jg->nNode, 0); 
 
-	addJoinEdgesToJG(c, r, depth, jg, 0, &subjgId2, nm, isConnect, &last_rel_join_id, -1);
+	addJoinEdgesToJG(c, NULL, r, depth, jg, 0, &subjgId2, nm, isConnect, &last_rel_join_id, -1, &e_start_level, 0, &edge_root);
+	
 
 	detect_star_pattern(jg, &numsp); 
 
@@ -2361,7 +2395,8 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 	//Change the pointer pointing to the first join
 	//to the address of the lstRels[0], the rel for the first star-pattern
-	if (numsp == 1) connect_rel_with_sprel(r, lstRels[0]); 
+	printf("e_start_level = %d   |   n_start_level = %d\n", e_start_level, n_start_level); 
+	if (numsp == 1) connect_rel_with_sprel(r, lstRels[0], e_start_level, n_start_level, node_root, edge_root); 
 	
 	if (numsp > 1){
 		//Connect to the first edge between sp0 and sp1
@@ -2371,7 +2406,7 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 		build_all_rels_from_cross_edges(c, num_cross_edges, lst_cross_edges, cr_ed_orders, jg, lst_cross_edge_rels, lstRels, numsp, &last_cre); 
 		
 					
-		connect_rel_with_sprel(r, lst_cross_edge_rels[last_cre]); 
+		connect_rel_with_sprel(r, lst_cross_edge_rels[last_cre], e_start_level, n_start_level, node_root, edge_root); 
 	}
 
 	//rel_print(c, r, 0); 

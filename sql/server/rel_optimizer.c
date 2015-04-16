@@ -5783,6 +5783,7 @@ rel_simplify_predicates(int *changes, mvc *sql, sql_rel *rel)
 					/* rewrite isnull(x) = TRUE/FALSE => x =/<> NULL */
 					if (!f->func->s && !strcmp(f->func->base.name, "isnull") && 
 					     is_atom(r->type) && r->l) { /* direct literal */
+						if (0){		//DUC: Disable as it does work for RDF module
 						atom *a = r->l;
 						int flag = a->data.val.bval;
 						list *args = l->l;
@@ -5791,6 +5792,7 @@ rel_simplify_predicates(int *changes, mvc *sql, sql_rel *rel)
 						l = args->h->data;
 						r = exp_atom(sql->sa, atom_general(sql->sa, exp_subtype(l), NULL));
 						e = exp_compare(sql->sa, l, r, (flag)?cmp_equal:cmp_notequal);
+						}
 					} else if (!f->func->s && !strcmp(f->func->base.name, "not")) {
 						if (is_atom(r->type) && r->l) { /* direct literal */
 							atom *a = r->l;
