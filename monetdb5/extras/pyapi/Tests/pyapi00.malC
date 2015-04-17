@@ -12,7 +12,7 @@ bat.append(b,1189641421);
 
 io.print(b);
 
-r:bat[:oid,:int] := pyapi.eval(nil:ptr,"int(arg1/1000)",b);
+r:bat[:oid,:int] := pyapi.eval(nil:ptr,"r=[e**2 for e in arg1]\nreturn ([numpy.asarray(r)])",b);
 io.print(r);
 
 

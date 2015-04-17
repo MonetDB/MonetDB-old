@@ -21,7 +21,9 @@
 #undef _POSIX_C_SOURCE
 #include <Python.h>
 
-// other headers
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#include <numpy/arrayobject.h>
+
 #include <string.h>
 
 const char* pyapi_enableflag = "embedded_py";
@@ -64,16 +66,12 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 	size_t pos;
 	char* rcall = NULL;
 	size_t rcalllen;
-	size_t ret_rows = 0;
-	//int ret_cols = 0; /* int because pci->retc is int, too*/
 	str *args;
-	//int evalErr;
 	char *msg = MAL_SUCCEED;
 	BAT *b = NULL;
-	BUN cnt;
 	node * argnode;
 	int seengrp = FALSE;
-	PyObject *pArgs; // this is going to be the parameter tuple
+	PyObject *pArgs, *pResult; // this is going to be the parameter tuple
 
 	if (!PyAPIEnabled()) {
 		throw(MAL, "pyapi.eval",
@@ -106,7 +104,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 			argnode = argnode->next;
 		}
 	}
-	pArgs = PyTuple_New(pci->argc - pci->retc + 2);
 
 	// the first unknown argument is the group, we don't really care for the rest.
 	for (i = pci->retc + 2; i < pci->argc; i++) {
@@ -121,10 +118,12 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 		}
 	}
 
+	// create function argument tuple, we pass a tuple of numpy arrays
+	pArgs = PyTuple_New(pci->argc-(pci->retc + 2));
+
 	// for each input column (BAT):
 	for (i = pci->retc + 2; i < pci->argc; i++) {
-		PyObject *varlist = NULL;
-		size_t j;
+		PyObject *vararray = NULL;
 
 		// turn scalars into one-valued BATs
 		// TODO: also do this for Python? Or should scalar values be 'simple' variables?
@@ -149,19 +148,14 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 			}
 		}
 
-		varlist = PyList_New(BATcount(b));
 		switch (ATOMstorage(getColumnType(getArgType(mb,pci,i)))) {
 		case TYPE_int:
-		//	BAT_TO_INTSXP(b, int, varvalue);
-			for (j = 0; j < BATcount(b); j++) {
-						int v = ((int*) Tloc(b, BUNfirst(b)))[j];
-						//if ( v == int_nil)
-						//	PyList_SET_ITEM(varlist, j, );
-						//else
-						// TODO: use numpy arrays here, readonly, ignore NULLs for now?
-						PyList_SET_ITEM(varlist, j, PyInt_FromLong(v));
-					}
+			// yeah yeah yeah
+			vararray = PyArray_New(&PyArray_Type, 1, (npy_intp[1]) {BATcount(b)}, NPY_INT32, NULL,
+					(int*) Tloc(b, BUNfirst(b)), 0, NPY_ARRAY_CARRAY || !NPY_ARRAY_WRITEABLE, NULL);
 			break;
+			// TODO: handle NULLs!
+
 		// TODO: implement other types
 		default:
 			msg = createException(MAL, "pyapi.eval", "unknown argument type ");
@@ -169,7 +163,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 		}
 		BBPunfix(b->batCacheid);
 
-		PyTuple_SetItem(pArgs, ai++, varlist);
+		PyTuple_SetItem(pArgs, ai++, vararray);
 	}
 
 	pos = 0;
@@ -192,20 +186,19 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 #endif
 
 	// parse the code and create the function
-	// TODO: do this in a temporary namespace, how?
+	// TODO: do this in a temporary namespace? Later...
+
 	// TODO: actually include user code
-	// TODO: use numpy arrays for columns!
-	// TODO: How do we make nice indentation so it parses? Force user code to use level-1 indentation?
+	// TODO: Indent user code: Search for newline-tab, if there, add tabs, if not, add single space in front of every line. Thanks Sjoerd!
 	{
 		int pyret;
-		PyObject *pFunc, *pModule, *pResult;
-
+		PyObject *pFunc, *pModule;
+		// TODO: check whether this succeeds
 		pModule = PyImport_Import(PyString_FromString("__main__"));
-		pyret = PyRun_SimpleString("def pyfun(x):\n  print(x)\n  return list(([e+1 for e in x],1))");
+		pyret = PyRun_SimpleString("def pyfun(x):\n import numpy as np\n r=[e+1 for e in x]\n return ([np.asarray(r)])");
 		pFunc = PyObject_GetAttrString(pModule, "pyfun");
 
 		if (pyret != 0 || !pModule || !pFunc || !PyCallable_Check(pFunc)) {
-			// TODO: include parsed code
 			msg = createException(MAL, "pyapi.eval", "could not parse Python code %s", rcall);
 			goto wrapup; // shudder
 		}
@@ -213,8 +206,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 		// TODO: use other interface, here we can assign each value. We know how many params there will be
 		// this is it
 		pResult = PyObject_CallObject(pFunc, pArgs);
-		if (!pResult || !PyList_Check(pResult) || !PyList_Size(pResult)) {
-			msg = createException(MAL, "pyapi.eval", "invalid result object");
+		if (!pResult || !PyList_Check(pResult) || PyList_Size(pResult) != pci->retc) {
+			msg = createException(MAL, "pyapi.eval", "Invalid result object. Need list of size %d containing numpy arrays", pci->retc);
 			goto wrapup;
 		}
 		// delete the function again
@@ -223,12 +216,33 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 
 	// collect the return values
 	for (i = 0; i < pci->retc; i++) {
+		PyObject * pColO = PyList_GetItem(pResult, i);
 		int bat_type = ATOMstorage(getColumnType(getArgType(mb,pci,i)));
-		cnt = (BUN) ret_rows;
 
 		switch (bat_type) {
 		case TYPE_int: {
-			// TODO
+			int *p;
+			BUN j;
+			// this only copies if it has to
+			PyArrayObject* pCol = (PyArrayObject*) PyArray_FromAny(pColO,
+					PyArray_DescrFromType(NPY_INT32), 1, 1, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
+			//size_t cnt = pCol->dimensions[0];
+			size_t  cnt = 5;
+			// TODO: get actual length from array
+
+			// TODO null rewriting, we are guaranteed to be able to write to this
+			// TODO: only accepted masked array as output?
+			// TODO check whether the length of our output
+
+			/* We would like to simply pass over the BAT from numpy,
+			 * but cannot due to malloc/free incompatibility */
+			b = BATnew(TYPE_void, TYPE_int, cnt, TRANSIENT);
+			BATseqbase(b, 0); b->T->nil = 0; b->T->nonil = 1; b->tkey = 0;
+			b->tsorted = 0; b->trevsorted = 0;
+			p = (int*) Tloc(b, BUNfirst(b));								\
+			for( j =0; j< cnt; j++, p++){
+				*p = (int) PyArray_GETPTR1(pCol, j);
+			}
 			break;
 		}
 		// TODO: implement other types
@@ -239,7 +253,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 								  bat_type);
 			goto wrapup;
 		}
-		BATsetcount(b, cnt);
 
 		// bat return
 		if (isaBatType(getArgType(mb,pci,i))) {
@@ -265,7 +278,9 @@ str PyAPIprelude(void *ret) {
 		MT_lock_set(&pyapiLock, "pyapi.evaluate");
 		/* startup internal Python environment  */
 		if (!pyapiInitialized) {
+			char* iar = NULL;
 			Py_Initialize();
+			import_array1(iar);
 			pyapiInitialized++;
 		}
 		MT_lock_unset(&pyapiLock, "pyapi.evaluate");
