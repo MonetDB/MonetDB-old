@@ -1480,6 +1480,8 @@ void get_matching_tbl_from_spprops(int **rettbId, spProps *spprops, int *num_mat
 
 		printf(" ] --> ");
 
+		free(count); 
+
 	}
 	
 	*rettbId = (int *) malloc(sizeof(int) * numtbl); 
@@ -1890,7 +1892,11 @@ sql_rel *group_pattern_by_cross_edge(mvc *c, sql_rel *left, sql_rel *right, jged
  * - Init [Star Pattern] to [CrossEdge] mapping (-1 by default meaning
  *   that this star pattern has not been included into any cross edge rel yet)
  * - We loop over all the cross edge. 
- *   For each cross edge, we connect 
+ *   For each cross edge, we join/outerjoin two sp's connected by this edge.
+ * - To prevent different cross edges applied to the same pair of sp's
+ *   we update group represent ID after joining them. If the sp's already
+ *   share the same group represent ID, then do not apply that cross edge.
+ *   Group represent ID is chosen as the smallest sp Id.
  * */
 static 
 void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_cross_edges, 
@@ -1899,11 +1905,14 @@ void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_c
 	int i; 
 	int e_id; 
 	int *sp_cre_map = NULL; //Star pattern - cross edge rel mapping
+	int *gr_rep_id = NULL; //Group represent ID.
 
 	sp_cre_map = (int *) malloc(sizeof(int) * numsp); 
+	gr_rep_id = (int *) malloc(sizeof(int) * numsp); 
 
 	for (i = 0; i < numsp; i++){
-		sp_cre_map[i] = -1;  
+		sp_cre_map[i] = -1; 
+		gr_rep_id[i] = i; 
 	}
 	for (i = 0; i < num_cross_edges; i++){
 		lst_cross_edge_rels[i] = NULL; 
@@ -1921,6 +1930,11 @@ void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_c
 		spId1 = n1->patternId;
 		spId2 = n2->patternId; 
 
+		if (gr_rep_id[spId1] == gr_rep_id[spId2]){
+			printf("Already belong to the same group. Do not apply cross edges [%d,%d]\n",edge->from,edge->to);
+			continue;
+		}
+
 
 		if (sp_cre_map[spId1] == -1 && sp_cre_map[spId2] == -1){
 			lst_cross_edge_rels[i] = group_pattern_by_cross_edge(c, lstRels[spId1], lstRels[spId2], edge); 
@@ -1937,7 +1951,10 @@ void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_c
 			int cre_id1 =  sp_cre_map[spId1];
 			int cre_id2 =  sp_cre_map[spId2];
 
-			if (cre_id1 == cre_id2) continue;  //These patterns are connected already
+			if (cre_id1 == cre_id2) {
+				printf("Already connected. Do not apply cross edges [%d,%d]\n",edge->from,edge->to);
+				continue;  //These patterns are connected already
+			}
 			else
 				lst_cross_edge_rels[i] = group_pattern_by_cross_edge(c, lst_cross_edge_rels[cre_id1], lst_cross_edge_rels[cre_id2], edge);
 		}
@@ -1945,8 +1962,18 @@ void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_c
 		//Update sp_cre_map
 		sp_cre_map[spId1] = i;
 		sp_cre_map[spId2] = i;
+		
+		if (gr_rep_id[spId1] > gr_rep_id[spId2]){
+			gr_rep_id[spId1] = gr_rep_id[spId2];
+		} else
+			gr_rep_id[spId2] = gr_rep_id[spId1];
+
+
 		*last_cre = i;
 	}
+
+	free(sp_cre_map);
+	free(gr_rep_id); 
 }
 
 
@@ -2128,6 +2155,8 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 		get_matching_tbl_from_spprops(&tmptbId, spprops, &num_match_tbl);
 
 		printf("Number of matching table is: %d\n", num_match_tbl);
+
+		//num_match_tbl = 1; 
 		
 		tbl_m_rels = (sql_rel **) malloc(sizeof(sql_rel *) * num_match_tbl);
 
@@ -2185,6 +2214,8 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 
 			free(ijgroup); 
 			free(nnodes_per_ijgroup);
+			free(edge_ijrels);
+			free(ijrels);
 		}
 
 		
@@ -2386,6 +2417,16 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 
 	group_star_pattern(c, jg, numsp, lstRels); 
+	
+	{
+		int i; 
+		printf("--------- Each star pattern ----------\n");
+		for (i = 0; i < numsp; i++){
+			printf("++++Star pattern %d \n",i);
+			_rel_print(c, lstRels[i]); 
+			printf("\n"); 
+		}
+	}
 
 	lst_cross_edges = get_cross_sp_edges(jg, &num_cross_edges);
 
