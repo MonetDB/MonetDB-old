@@ -18,6 +18,9 @@
 #include "rel_planner.h"
 #include "rel_psm.h"
 #include "sql_env.h"
+#ifdef HAVE_HGE
+#include "mal.h"		/* for have_hge */
+#endif
 
 #define new_func_list(sa) sa_list(sa)
 #define new_col_list(sa) sa_list(sa)
@@ -1891,6 +1894,8 @@ exp_push_down_prj(mvc *sql, sql_exp *e, sql_rel *f, sql_rel *t)
 			ne = exps_bind_column(f->exps, e->r, NULL);
 		if (!ne || (ne->type != e_column && ne->type != e_atom))
 			return NULL;
+		if (ne && list_position(f->exps, ne) >= list_position(f->exps, e)) 
+			return NULL;
 		while (ne && f->op == op_project && ne->type == e_column) {
 			sql_exp *oe = e, *one = ne;
 
@@ -1900,7 +1905,7 @@ exp_push_down_prj(mvc *sql, sql_exp *e, sql_rel *f, sql_rel *t)
 				ne = exps_bind_column2(f->exps, e->l, e->r);
 			if (!ne && !e->l)
 				ne = exps_bind_column(f->exps, e->r, NULL);
-			if (ne && list_position(f->exps, ne) >= list_position(f->exps, one)) 
+			if (ne && ne != one && list_position(f->exps, ne) >= list_position(f->exps, one)) 
 				ne = NULL;
 			if (!ne || ne == one) {
 				ne = one;
@@ -2170,7 +2175,32 @@ rel_merge_projects(int *changes, mvc *sql, sql_rel *rel)
 		for (n = exps->h; n && all; n = n->next) { 
 			sql_exp *e = n->data, *ne = NULL;
 
+			/* We do not handle expressions pointing back in the list */
+			if (e->type == e_column) {
+				if (e->l) 
+					ne = exps_bind_column2(exps, e->l, e->r);
+				if (!ne && !e->l)
+					ne = exps_bind_column(exps, e->r, NULL);
+				if (ne && e != ne) {
+					all = 0;
+					break;
+				} else {
+					ne = NULL;
+				}
+			}
 			ne = exp_push_down_prj(sql, e, prj, prj->l);
+			if (ne && ne->type == e_column) { /* check if the refered alias name isn't used twice */
+				sql_exp *nne = NULL;
+
+				if (ne->l)
+					nne = exps_bind_column2(rel->exps, ne->l, ne->r);
+				if (!nne && !ne->l)
+					nne = exps_bind_column(rel->exps, ne->r, NULL);
+				if (nne && ne != nne && nne != e) {
+					all = 0;
+					break;
+				}
+			}
 			if (ne) {
 				exp_setname(sql->sa, ne, exp_relname(e), exp_name(e));
 				list_append(rel->exps, ne);
@@ -6133,7 +6163,7 @@ rel_reduce_casts(int *changes, mvc *sql, sql_rel *rel)
 								}
 								append(args, re);
 #ifdef HAVE_HGE
-								append(args, exp_atom_hge(sql->sa, v));
+								append(args, have_hge ? exp_atom_hge(sql->sa, v) : exp_atom_lng(sql->sa, (lng) v));
 #else
 								append(args, exp_atom_lng(sql->sa, v));
 #endif
