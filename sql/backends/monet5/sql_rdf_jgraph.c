@@ -1196,7 +1196,7 @@ void extract_prop_and_subj_from_exps(mvc *c, sql_rel *r, char **prop, char **sub
 
 
 static
-void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl_exps, str tblname, int colIdx, oid tmpPropId, str *atblname, str *asubjcolname){
+void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl_exps, str tblname, int colIdx, oid tmpPropId, str *atblname, str *asubjcolname, list *sp_prj_exps){
 
 	list *tmpexps = NULL; 
 	list *tmp_tbl_exps = NULL; 
@@ -1277,9 +1277,11 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 				str origtblname = GDKstrdup(tblname);
 				sql_column *tmpcol = get_rdf_column(c, tblname, origcolname);
 				sql_exp *e = exp_alias(sa, tmpexp->rname, tmpexp->name, origtblname, origcolname, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
+				sql_exp *proj_e = exp_alias(sa, tmpexp->rname, tmpexp->name, tmpexp->rname, tmpexp->name, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);	
 
 				printf("tmpcolname in rdf basetable is %s\n", tmpcolname);
 				append(trans_tbl_exps, e); 
+				append(sp_prj_exps, proj_e); 
 			}
 
 			if (strcmp(tmpexp->name, "s") == 0){
@@ -1289,12 +1291,15 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 				str origtblname = GDKstrdup(tblname);
 				sql_column *tmpcol = get_rdf_column(c, origtblname, origcolname);
 				sql_exp *e = exp_alias(sa, tmpexp->rname, tmpexp->name, origtblname, origcolname, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
+				sql_exp *proj_e = exp_alias(sa, tmpexp->rname, tmpexp->name, tmpexp->rname, tmpexp->name, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
+
 
 				if (*atblname == NULL){
 					*atblname = GDKstrdup(tmpexp->rname);
 					*asubjcolname = GDKstrdup(tmpexp->name);
 				}
 				append(trans_tbl_exps, e); 
+				append(sp_prj_exps, proj_e); 
 			}
 
 		}
@@ -1303,7 +1308,7 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 
 
 static
-void tranforms_mvprop_exps(mvc *c, sql_rel *r, mvPropRel *mvproprel, int tblId, oid tblnameoid, int colIdx, oid tmpPropId, int isMVcol){
+void tranforms_mvprop_exps(mvc *c, sql_rel *r, mvPropRel *mvproprel, int tblId, oid tblnameoid, int colIdx, oid tmpPropId, int isMVcol, list *sp_prj_exps){
 
 	list *tmpexps = NULL; 
 	list *trans_select_exps = NULL; 
@@ -1396,9 +1401,11 @@ void tranforms_mvprop_exps(mvc *c, sql_rel *r, mvPropRel *mvproprel, int tblId, 
 				str origtblname = GDKstrdup(mvtblname);
 				sql_column *tmpcol = get_rdf_column(c, mvtblname, origcolname);
 				sql_exp *e = exp_alias(sa, tmpexp->rname, tmpexp->name, origtblname, origcolname, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
+				sql_exp *proj_e = exp_alias(sa, tmpexp->rname, tmpexp->name, tmpexp->rname, tmpexp->name, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
 
 				printf("tmpmvcolname in rdf basetable is %s\n", tmpmvcolname);
 				append(trans_tbl_exps, e); 
+				append(sp_prj_exps, proj_e);
 			}
 
 			if (strcmp(tmpexp->name, "s") == 0){
@@ -1408,8 +1415,10 @@ void tranforms_mvprop_exps(mvc *c, sql_rel *r, mvPropRel *mvproprel, int tblId, 
 				str origtblname = GDKstrdup(mvtblname);
 				sql_column *tmpcol = get_rdf_column(c, origtblname, origcolname);
 				sql_exp *e = exp_alias(sa, tmpexp->rname, tmpexp->name, origtblname, origcolname, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
+				sql_exp *proj_e = exp_alias(sa, tmpexp->rname, tmpexp->name, tmpexp->rname, tmpexp->name, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
 
 				append(trans_tbl_exps, e); 
+				append(sp_prj_exps, proj_e);
 
 				mvproprel->atblname = GDKstrdup(tmpexp->rname);
 				mvproprel->asubjcolname = GDKstrdup(tmpexp->name);
@@ -1638,9 +1647,14 @@ sql_rel *connect_sp_select_and_mv_prop(mvc *c, sql_rel *rel_wo_mv, mvPropRel *mv
  * - A sub-join graph (jsg) that all nodes are connected by using inner join
  * - The table (tId) that the node belongs to has been identified 
  *   (The table corresponding to the star pattern is known)
+ * 
+ * Output: 
+ *  - A select from a relational table with list of columns. Or a join between
+ *  select from a table and mv_table if there is mv prop. 
+ *  - sp_prj_exps stores all the columns should be selected in the "original order" 
  * */
 static
-sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int nnode){
+sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int nnode, list *sp_prj_exps, int *is_contain_mv){
 
 	sql_rel *rel = NULL;
 	str tblname; 
@@ -1701,13 +1715,13 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 		isMVcol = isMVCol(tId, colIdx, global_csset);
 
 		if (isMVcol == 0){
-			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname); 
+			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname, sp_prj_exps); 
 			has_nonMV_col=1; 
 		}
 		else{
 			printf("Table %d, column %d is multi-valued prop\n", tId, colIdx);
 			assert (mvPropRels[i].mvrel == NULL); 
-			tranforms_mvprop_exps(c, tmprel, &(mvPropRels[i]), tId, tblnameoid, colIdx, tmpPropId, isMVcol);
+			tranforms_mvprop_exps(c, tmprel, &(mvPropRels[i]), tId, tblnameoid, colIdx, tmpPropId, isMVcol, sp_prj_exps);
 			num_mv_col++;
 
 			//rel_print(c, mvPropRels[i].mvrel, 0);
@@ -1723,6 +1737,7 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 	exps_print_ext(c, trans_table_exps, 0, tmp);	
 
 
+
 	rel_basetbl = rel_basetable(c, get_rdf_table(c,tblname), tblname); 
 
 	rel_basetbl->exps = trans_table_exps;
@@ -1731,6 +1746,7 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 
 	
 	if (num_mv_col > 0){
+		*is_contain_mv = 1; 
 		rel = connect_sp_select_and_mv_prop(c, rel_wo_mv, mvPropRels, tblname, atblname, asubjcolname, nnode); 
 
 	}
@@ -2131,6 +2147,9 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 	if (is_all_select){
 		sql_rel **tbl_m_rels; 	//each rel (table matching rel) replaces all the triples matching with 
 					//a specific table
+		list **sp_proj_exps; 	//Store the simple project expressions for each star pattern w/o 
+					//regarding the availability of multi-valued prop
+		int *contain_mv_col = NULL; 			
 
 		spprops = init_sp_props(nnode); 	
 
@@ -2159,6 +2178,8 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 		//num_match_tbl = 1; 
 		
 		tbl_m_rels = (sql_rel **) malloc(sizeof(sql_rel *) * num_match_tbl);
+		sp_proj_exps = (list **) malloc(sizeof(list *) * num_match_tbl); 
+		contain_mv_col = (int *) malloc(sizeof(int) * num_match_tbl);
 
 		for (tblIdx = 0; tblIdx < num_match_tbl; tblIdx++){
 			int tId = tmptbId[tblIdx];
@@ -2167,7 +2188,9 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 			int **ijgroup; 
 			sql_rel **ijrels;    //rel for inner join groups
 			sql_rel **edge_ijrels;  //sql_rel connecting each pair of ijrels
+			int is_contain_mv = 0; 
 
+			sp_proj_exps[tblIdx] = new_exp_list(c->sa);
 			ijgroup = get_inner_join_groups_in_sp_group(jg, group, nnode, &nijgroup, &nnodes_per_ijgroup);				
 
 			printf("Number of inner join group is: %d\n", nijgroup);
@@ -2185,8 +2208,13 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 			edge_ijrels = (sql_rel **) malloc(sizeof(sql_rel*) * (nijgroup - 1));
 			
 			for (i = 0; i < nijgroup; i++){
-				ijrels[i] = transform_inner_join_subjg (c, jg, tId, ijgroup[i], nnodes_per_ijgroup[i]);
+				ijrels[i] = transform_inner_join_subjg (c, jg, tId, ijgroup[i], nnodes_per_ijgroup[i], sp_proj_exps[tblIdx], &is_contain_mv);
 			}
+	
+			contain_mv_col[tblIdx] = is_contain_mv;
+			if (is_contain_mv) printf("Contain MV cols \n"); 
+			printf("Original Projection of all columns (w/o considering mv col): \n"); 
+			exps_print_ext(c, sp_proj_exps[tblIdx], 0, NULL); 
 
 			if (nijgroup > 1){
 				//Connect these ijrels by outer joins
@@ -2201,11 +2229,6 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 			else{	//nijgroup = 1
 				tbl_m_rels[tblIdx] = ijrels[0]; 
 			}
-			
-					
-
-			//rel = transform_inner_join_subjg (c, jg, tId, group, nnode);
-
 
 			//Free
 			for (i = 0; i < nijgroup; i++){
@@ -2225,7 +2248,11 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 			sql_rel *tmprel = NULL;
 			list *union_exps = NULL;
 			union_exps = new_exp_list(c->sa);
-			tmprel = tbl_m_rels[0]; 
+			if (contain_mv_col[0]){		//cover by a project with original columns order
+				tmprel = rel_project(c->sa, tbl_m_rels[0], sp_proj_exps[0]);	
+			} else {
+				tmprel = tbl_m_rels[0];
+			}
 
 			if (num_match_tbl > 1){
 				get_union_expr(c, tbl_m_rels[0], union_exps); 
@@ -2234,8 +2261,18 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 			}
 
 			for (tblIdx = 1; tblIdx < num_match_tbl; tblIdx++){
-				sql_rel *tmprel2 = rel_setop(c->sa, tmprel, tbl_m_rels[tblIdx], op_union); 
-				list *tmpexps = exps_copy(c->sa, union_exps);
+				sql_rel *tmp_proj_rel = NULL; 
+				sql_rel *tmprel2 = NULL; 
+				list *tmpexps;
+
+				if (contain_mv_col[tblIdx]){
+					tmp_proj_rel = rel_project(c->sa, tbl_m_rels[tblIdx], sp_proj_exps[tblIdx]);
+				}else{
+					tmp_proj_rel = tbl_m_rels[tblIdx];
+				}
+
+				tmprel2 = rel_setop(c->sa, tmprel, tmp_proj_rel, op_union); 
+				tmpexps = exps_copy(c->sa, union_exps);
 				tmprel2->exps = tmpexps; 
 				tmprel = tmprel2;
 			}
