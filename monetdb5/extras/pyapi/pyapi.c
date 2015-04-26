@@ -243,7 +243,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 	}
 
 	if (snprintf(pycall, pycalllen,
-		 "def pyfun(%s):\n%s",
+		 "import numpy\ndef pyfun(%s):\n%s",
 		 argnames, expr_ind) >= (int) pycalllen) {
 		msg = createException(MAL, "pyapi.eval", "Command too large");
 		goto wrapup;
@@ -256,16 +256,28 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 	{
 		int pyret;
 		PyObject *pFunc, *pModule;
+
 		pModule = PyImport_Import(PyString_FromString("__main__"));
 		pyret = PyRun_SimpleString(pycall);
 		pFunc = PyObject_GetAttrString(pModule, "pyfun");
 
 		if (pyret != 0 || !pModule || !pFunc || !PyCallable_Check(pFunc)) {
 			msg = createException(MAL, "pyapi.eval", "could not parse Python code %s", pycall);
-			goto wrapup; // shudder
+			goto wrapup;
 		}
 
 		pResult = PyObject_CallObject(pFunc, pArgs);
+		if (PyErr_Occurred()) {
+			PyObject *pErrType, *pErrVal, *pErrTb;
+			PyErr_Fetch(&pErrType, &pErrVal, &pErrTb);
+			if (pErrVal) {
+				msg = createException(MAL, "pyapi.eval", "Python exception: %s", PyString_AS_STRING(PyObject_Str(pErrVal)));
+			} else {
+				msg = createException(MAL, "pyapi.eval", "Python exception: ?");
+			}
+			goto wrapup; // shudder
+		}
+
 		if (!pResult || !PyList_Check(pResult) || PyList_Size(pResult) != pci->retc) {
 			msg = createException(MAL, "pyapi.eval", "Invalid result object. Need list of size %d containing numpy arrays", pci->retc);
 			goto wrapup;
@@ -335,10 +347,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 str PyAPIprelude(void *ret) {
 	(void) ret;
 	MT_lock_init(&pyapiLock, "pyapi_lock");
-
 	if (PyAPIEnabled()) {
 		MT_lock_set(&pyapiLock, "pyapi.evaluate");
-		/* startup internal Python environment  */
 		if (!pyapiInitialized) {
 			char* iar = NULL;
 			Py_Initialize();
