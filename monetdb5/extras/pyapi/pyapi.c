@@ -55,6 +55,9 @@ PyAPIevalAggr(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	return PyAPIeval(mb, stk, pci, 1);
 }
 
+typedef enum {
+	NORMAL, SEENNL, INQUOTES, ESCAPED
+} pyapi_scan_state;
 
 str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 	sql_func * sqlfun = *(sql_func**) getArgReference(stk, pci, pci->retc);
@@ -64,8 +67,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 	char argbuf[64];
 	char argnames[1000] = "";
 	size_t pos;
-	char* rcall = NULL;
-	size_t rcalllen;
+	char* pycall = NULL;
+	char *expr_ind = NULL;
+	size_t pycalllen, expr_ind_len;
 	str *args;
 	char *msg = MAL_SUCCEED;
 	BAT *b = NULL;
@@ -79,19 +83,20 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 			  pyapi_enableflag);
 	}
 
-	rcalllen = strlen(exprStr) + sizeof(argnames) + 100;
-	rcall = malloc(rcalllen);
+	pycalllen = strlen(exprStr) + sizeof(argnames) + 1000;
+	expr_ind_len = strlen(exprStr) + 1000;
+
+	pycall =      GDKzalloc(pycalllen);
+	expr_ind =    GDKzalloc(expr_ind_len);
 	args = (str*) GDKzalloc(sizeof(str) * pci->argc);
 
-	if (args == NULL || rcall == NULL) {
+	if (args == NULL || pycall == NULL) {
 		throw(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
 		// TODO: free args and rcall
 	}
 
 	// TODO: do we need this lock for Python as well?
 	MT_lock_set(&pyapiLock, "pyapi.evaluate");
-
-
 
 	// first argument after the return contains the pointer to the sql_func structure
 	if (sqlfun != NULL && sqlfun->ops->cnt > 0) {
@@ -166,6 +171,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 		PyTuple_SetItem(pArgs, ai++, vararray);
 	}
 
+	// create argument list
 	pos = 0;
 	for (i = pci->retc + 2; i < pci->argc && pos < sizeof(argnames); i++) {
 		pos += snprintf(argnames + pos, sizeof(argnames) - pos, "%s%s",
@@ -175,36 +181,90 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 		msg = createException(MAL, "pyapi.eval", "Command too large");
 		goto wrapup;
 	}
-	if (snprintf(rcall, rcalllen,
-				 "ret <- as.data.frame((function(%s){%s})(%s), nm=NA, stringsAsFactors=F)\n",
-				 argnames, exprStr, argnames) >= (int) rcalllen) {
+
+	{
+		// indent every line in the expression by one level,
+		// if we find newline-tab, use tab, space otherwise
+		// two passes, first inserts null placeholder, second replaces
+		// need to be careful, newline might be in a quoted string
+		// this does not handle multi-line strings starting with """ (yet?)
+		pyapi_scan_state state = SEENNL;
+		char indentchar = 0;
+		size_t py_pos, py_ind_pos = 0;
+		for (py_pos = 0; py_pos < strlen(exprStr); py_pos++) {
+			// +1 because we need space for the \0 we append below.
+			if (py_ind_pos + 1 > expr_ind_len) {
+				msg = createException(MAL, "pyapi.eval", "Overflow in re-indentation");
+				goto wrapup;
+			}
+			switch(state) {
+				case NORMAL:
+					if (exprStr[py_pos] == '\'' || exprStr[py_pos] == '"') {
+						state = INQUOTES;
+					}
+					if (exprStr[py_pos] == '\n') {
+						state = SEENNL;
+					}
+					break;
+
+				case INQUOTES:
+					if (exprStr[py_pos] == '\\') {
+						state = ESCAPED;
+					}
+					if (exprStr[py_pos] == '\'' || exprStr[py_pos] == '"') {
+						state = NORMAL;
+					}
+					break;
+
+				case ESCAPED:
+					state = INQUOTES;
+					break;
+
+				case SEENNL:
+					if (exprStr[py_pos] == ' ' || exprStr[py_pos] == '\t') {
+						indentchar = exprStr[py_pos];
+					}
+					expr_ind[py_ind_pos++] = 0;
+					state = NORMAL;
+					break;
+			}
+			expr_ind[py_ind_pos++] = exprStr[py_pos];
+		}
+		if (indentchar == 0) {
+			indentchar = ' ';
+		}
+		for (py_pos = 0; py_pos < py_ind_pos; py_pos++) {
+			if (expr_ind[py_pos] == 0) {
+				expr_ind[py_pos] = indentchar;
+			}
+		}
+		// make sure this is terminated.
+		expr_ind[py_ind_pos++] = 0;
+	}
+
+	if (snprintf(pycall, pycalllen,
+		 "def pyfun(%s):\n%s",
+		 argnames, expr_ind) >= (int) pycalllen) {
 		msg = createException(MAL, "pyapi.eval", "Command too large");
 		goto wrapup;
 	}
+
 #ifdef _PYAPI_DEBUG_
-	printf("# Python call %s\n",rcall);
+	printf("# Actual Python function definition: %s\n",pycall);
 #endif
 
-	// parse the code and create the function
-	// TODO: do this in a temporary namespace? Later...
-
-	// TODO: actually include user code
-	// TODO: Indent user code: Search for newline-tab, if there, add tabs, if not, add single space in front of every line. Thanks Sjoerd!
 	{
 		int pyret;
 		PyObject *pFunc, *pModule;
-		// TODO: check whether this succeeds
 		pModule = PyImport_Import(PyString_FromString("__main__"));
-		pyret = PyRun_SimpleString("def pyfun(x):\n import numpy as np\n r=[e+1 for e in x]\n return ([np.asarray(r)])");
+		pyret = PyRun_SimpleString(pycall);
 		pFunc = PyObject_GetAttrString(pModule, "pyfun");
 
 		if (pyret != 0 || !pModule || !pFunc || !PyCallable_Check(pFunc)) {
-			msg = createException(MAL, "pyapi.eval", "could not parse Python code %s", rcall);
+			msg = createException(MAL, "pyapi.eval", "could not parse Python code %s", pycall);
 			goto wrapup; // shudder
 		}
 
-		// TODO: use other interface, here we can assign each value. We know how many params there will be
-		// this is it
 		pResult = PyObject_CallObject(pFunc, pArgs);
 		if (!pResult || !PyList_Check(pResult) || PyList_Size(pResult) != pci->retc) {
 			msg = createException(MAL, "pyapi.eval", "Invalid result object. Need list of size %d containing numpy arrays", pci->retc);
@@ -266,6 +326,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
   wrapup:
 	MT_lock_unset(&pyapiLock, "pyapi.evaluate");
 	GDKfree(args);
+	GDKfree(pycall);
+	GDKfree(expr_ind);
 
 	return msg;
 }
