@@ -1170,13 +1170,14 @@ BUNins(BAT *b, const void *h, const void *t, bit force)
 		if (BUNinplace(bm, p, t, h, force) == GDK_FAIL)
 			return GDK_FAIL;
 	} else {
+		size_t hsize = 0, tsize = 0;
+
 		p = BUNlast(b);	/* insert at end */
 		if (p == BUN_MAX || b->batCount == BUN_MAX) {
 			GDKerror("BUNins: bat too large\n");
 			return GDK_FAIL;
 		}
 
-		HASHdestroy(b);
 		if (unshare_string_heap(b) == GDK_FAIL) {
 			GDKerror("BUNins: failed to unshare string heap\n");
 			return GDK_FAIL;
@@ -1184,6 +1185,10 @@ BUNins(BAT *b, const void *h, const void *t, bit force)
 
 		ALIGNins(b, "BUNins", force, GDK_FAIL);
 		b->batDirty = 1;
+		if (b->H->hash && b->H->vheap)
+			hsize = b->H->vheap->size;
+		if (b->T->hash && b->T->vheap)
+			tsize = b->T->vheap->size;
 
 		setcolprops(b, b->H, h);
 		setcolprops(b, b->T, t);
@@ -1192,6 +1197,17 @@ BUNins(BAT *b, const void *h, const void *t, bit force)
 			bunfastins(b, h, t);
 		} else {
 			BATsetcount(b, b->batCount + 1);
+		}
+
+		if (b->H->hash) {
+			HASHins(bm, p, h);
+			if (hsize && hsize != b->H->vheap->size)
+				HEAPwarm(b->H->vheap);
+		}
+		if (b->T->hash) {
+			HASHins(b, p, t);
+			if (tsize && tsize != b->T->vheap->size)
+				HEAPwarm(b->T->vheap);
 		}
 	}
 	IMPSdestroy(b); /* no support for inserts in imprints yet */
@@ -1675,15 +1691,16 @@ void_inplace(BAT *b, oid id, const void *val, bit force)
 }
 
 BUN
-void_replace_bat(BAT *b, BAT *u, bit force)
+void_replace_bat(BAT *b, BAT *p, BAT *u, bit force)
 {
 	BUN nr = 0;
 	BUN r, s;
-	BATiter ui = bat_iterator(u);
+	BATiter uii = bat_iterator(p);
+	BATiter uvi = bat_iterator(u);
 
 	BATloop(u, r, s) {
-		oid updid = *(oid *) BUNhead(ui, r);
-		const void *val = BUNtail(ui, r);
+		oid updid = *(oid *) BUNtail(uii, r);
+		const void *val = BUNtail(uvi, r);
 
 		if (void_inplace(b, updid, val, force) == GDK_FAIL)
 			return BUN_NONE;
