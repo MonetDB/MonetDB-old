@@ -3332,10 +3332,10 @@ sql_trans_commit(sql_trans *tr)
 	if (bs_debug)
 		fprintf(stderr, "#forwarding changes %d,%d %d,%d\n", gtrans->stime, tr->stime, gtrans->wstime, tr->wstime);
 
-	/* do a pre-commit first, writing the changes to the write-ahead log and rollingforward the transaction */
+	/* do a pre-commit first, writing the changes to the write-ahead log */
 	result = sql_trans_precommit(tr);
 	if (result == LOG_OK) {
-		/* write the changes in the persistent store */
+		/* write the changes in the persistent store, rolling-forward the transaction*/
 		result = sql_trans_persistcommit(tr);
 	}
 	if (bs_debug)
