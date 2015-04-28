@@ -3359,6 +3359,12 @@ sql_trans_precommit(sql_trans *tr)
 			result = logger_funcs.log_tstart();
 		if (result == LOG_OK)
 			result = rollforward_trans(tr, R_LOG);
+		if (result == LOG_OK && prev_oid != store_oid)
+			result = logger_funcs.log_sequence(OBJ_SID, store_oid);
+		prev_oid = store_oid;
+		if (result == LOG_OK)
+			result = logger_funcs.log_tend();
+		tr->schema_number = store_schema_number();
 		return result;
 	}
 	return (result==LOG_OK)?SQL_OK:SQL_ERR;
@@ -3373,14 +3379,6 @@ sql_trans_persistcommit(sql_trans *tr)
 			fprintf(stderr, "#writing changes to persistent store %d,%d\n", gtrans->stime, gtrans->wstime);
 	}
 
-	if (result == LOG_OK) {
-		if (result == LOG_OK && prev_oid != store_oid)
-			result = logger_funcs.log_sequence(OBJ_SID, store_oid);
-		prev_oid = store_oid;
-		if (result == LOG_OK)
-			result = logger_funcs.log_tend();
-		tr->schema_number = store_schema_number();
-	}
 	if (result == LOG_OK) {
 		/* It is save to rollforward the changes now. In case 
 		   of failure, the log will be replayed. */
