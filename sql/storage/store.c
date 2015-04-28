@@ -3356,7 +3356,7 @@ sql_trans_precommit(sql_trans *tr)
 		result = rollforward_trans(tr, R_SNAPSHOT);
 
 		if (result == LOG_OK)
-			result = logger_funcs.log_tstart();
+			result = logger_funcs.log_tstart(tr->htm_id);
 		if (result == LOG_OK)
 			result = rollforward_trans(tr, R_LOG);
 		if (result == LOG_OK && prev_oid != store_oid)
@@ -3383,6 +3383,9 @@ sql_trans_persistcommit(sql_trans *tr)
 		/* It is save to rollforward the changes now. In case 
 		   of failure, the log will be replayed. */
 		result = rollforward_trans(tr, R_APPLY);
+	}
+	if (result == LOG_OK) {
+		result = logger_funcs.log_globalpersist(tr->htm_id);
 	}
     return result;
 }

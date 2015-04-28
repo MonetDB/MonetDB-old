@@ -174,9 +174,9 @@ bl_log_isnew(void)
 }
 
 static int 
-bl_tstart(void)
+bl_tstart(lng htm_id)
 {
-	return log_tstart(bat_logger);
+	return log_tstart(bat_logger, htm_id);
 }
 
 static int 
@@ -189,6 +189,12 @@ static int
 bl_sequence(int seq, lng id)
 {
 	return log_sequence(bat_logger, seq, id);
+}
+
+static int
+bl_globalpersist(lng htm_id)
+{
+	return log_globalpersist(bat_logger, htm_id);
 }
 
 int 
@@ -204,5 +210,6 @@ bat_logger_init( logger_functions *lf )
 	lf->log_tstart = bl_tstart;
 	lf->log_tend = bl_tend;
 	lf->log_sequence = bl_sequence;
+	lf->log_globalpersist = bl_globalpersist;
 	return LOG_OK;
 }

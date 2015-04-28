@@ -75,6 +75,7 @@
 #define LOG_USE		8
 #define LOG_CLEAR	9
 #define LOG_SEQ		10
+#define LOG_GLOBALCOMMIT		11
 
 static char *log_commands[] = {
 	NULL,
@@ -88,12 +89,14 @@ static char *log_commands[] = {
 	"LOG_USE",
 	"LOG_CLEAR",
 	"LOG_SEQ",
+	"LOG_GLOBALCOMMIT",
 };
 
 typedef struct logformat_t {
 	char flag;
 	int tid;
 	lng nr;
+	lng htm_id;
 } logformat;
 
 #define LOGFILE "log"
@@ -1739,6 +1742,7 @@ log_bat_persists(logger *lg, BAT *b, const char *name)
 	}
 	l.flag = flag;
 	l.tid = lg->tid;
+	l.htm_id = -1;
 	lg->changes++;
 	if (log_write_format(lg, &l) == LOG_ERR ||
 	    log_write_string(lg, name) == LOG_ERR)
@@ -1799,6 +1803,7 @@ log_bat_transient(logger *lg, const char *name)
 	l.flag = LOG_DESTROY;
 	l.tid = lg->tid;
 	l.nr = 0;
+	l.htm_id = -1;
 	lg->changes++;
 
 	/* if this is a snapshot bat, we need to skip all changes */
@@ -1852,6 +1857,7 @@ log_delta(logger *lg, BAT *uid, BAT *uval, const char *name)
 
 	l.tid = lg->tid;
 	l.nr = (BUNlast(uval) - BUNfirst(uval));
+	l.htm_id = -1;
 	lg->changes += l.nr;
 
 	if (l.nr) {
@@ -1895,6 +1901,7 @@ log_bat(logger *lg, BAT *b, const char *name)
 
 	l.tid = lg->tid;
 	l.nr = (BUNlast(b) - b->batInserted);
+	l.htm_id = -1;
 	lg->changes += l.nr;
 
 	if (l.nr) {
@@ -1968,6 +1975,7 @@ log_bat_clear(logger *lg, const char *name)
 
 	l.nr = 1;
 	l.tid = lg->tid;
+	l.htm_id = -1;
 	lg->changes += l.nr;
 
 	l.flag = LOG_CLEAR;
@@ -1982,16 +1990,33 @@ log_bat_clear(logger *lg, const char *name)
 }
 
 int
-log_tstart(logger *lg)
+log_tstart(logger *lg, lng htm_id)
 {
 	logformat l;
 
 	l.flag = LOG_START;
 	l.tid = ++lg->tid;
 	l.nr = lg->tid;
+	l.htm_id = htm_id;
 
 	if (lg->debug & 1)
-		fprintf(stderr, "#log_tstart %d\n", lg->tid);
+		fprintf(stderr, "#log_tstart %d:" LLFMT "\n", lg->tid, htm_id);
+
+	return log_write_format(lg, &l);
+}
+
+int
+log_globalpersist(logger *lg, lng htm_id)
+{
+	logformat l;
+
+	l.flag = LOG_GLOBALCOMMIT;
+	l.tid =	lg->tid;
+	l.nr = lg->tid;
+	l.htm_id = htm_id;
+
+	if (lg->debug & 1)
+		fprintf(stderr, "#log_globalpersist %d:" LLFMT "\n", lg->tid, htm_id);
 
 	return log_write_format(lg, &l);
 }
@@ -2096,6 +2121,7 @@ log_tend(logger *lg)
 	l.flag = LOG_END;
 	l.tid = lg->tid;
 	l.nr = lg->tid;
+	l.htm_id = -1;
 	if (res ||
 	    log_write_format(lg, &l) == LOG_ERR ||
 	    mnstr_flush(lg->log) ||
@@ -2118,6 +2144,7 @@ log_abort(logger *lg)
 	l.flag = LOG_END;
 	l.tid = lg->tid;
 	l.nr = -1;
+	l.htm_id = -1;
 
 	if (log_write_format(lg, &l) == LOG_ERR)
 		return LOG_ERR;
@@ -2133,6 +2160,7 @@ log_sequence_(logger *lg, int seq, lng val)
 	l.flag = LOG_SEQ;
 	l.tid = lg->tid;
 	l.nr = seq;
+	l.htm_id = -1;
 
 	if (lg->debug & 1)
 		fprintf(stderr, "#log_sequence_ (%d," LLFMT ")\n", seq, val);

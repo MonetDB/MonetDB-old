@@ -245,9 +245,10 @@ typedef int (*logger_changes_fptr)(void);
 typedef int (*logger_get_sequence_fptr) (int seq, lng *id);
 
 typedef int (*log_isnew_fptr)(void);
-typedef int (*log_tstart_fptr) (void);
+typedef int (*log_tstart_fptr) (lng htm_id);
 typedef int (*log_tend_fptr) (void);
 typedef int (*log_sequence_fptr) (int seq, lng id);
+typedef int (*log_globalpersist_fptr) (lng htm_id);
 
 typedef struct logger_functions {
 	logger_create_fptr create;
@@ -262,6 +263,7 @@ typedef struct logger_functions {
 	log_tstart_fptr log_tstart;
 	log_tend_fptr log_tend;
 	log_sequence_fptr log_sequence;
+	log_globalpersist_fptr log_globalpersist;
 } logger_functions;
 
 extern logger_functions logger_funcs;

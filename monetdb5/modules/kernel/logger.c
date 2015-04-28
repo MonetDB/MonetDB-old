@@ -152,7 +152,7 @@ int
 log_tstart_wrap(logger *L )
 {
 	logger *l = *(logger**)L;
-	if (l && log_tstart(l) == LOG_OK)
+	if (l && log_tstart(l, -1) == LOG_OK)
 		return GDK_SUCCEED;
 	return GDK_FAIL;
 }
