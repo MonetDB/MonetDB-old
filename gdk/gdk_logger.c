@@ -75,7 +75,6 @@
 #define LOG_USE		8
 #define LOG_CLEAR	9
 #define LOG_SEQ		10
-#define LOG_GLOBALCOMMIT		11
 
 static char *log_commands[] = {
 	NULL,
@@ -89,7 +88,6 @@ static char *log_commands[] = {
 	"LOG_USE",
 	"LOG_CLEAR",
 	"LOG_SEQ",
-	"LOG_GLOBALCOMMIT",
 };
 
 typedef struct logformat_t {
@@ -910,7 +908,7 @@ logger_readlog(logger *lg, char *filename)
 				err = 1;
 			else if (l.tid != l.nr)	/* abort record */
 				tr = tr_abort(lg, tr);
-			else
+			else if (l.htm_id > -1) /* otherwise the transaction might not be globally committed */
 				tr = tr_commit(lg, tr);
 			break;
 		case LOG_SEQ:
@@ -2010,7 +2008,7 @@ log_globalpersist(logger *lg, lng htm_id)
 {
 	logformat l;
 
-	l.flag = LOG_GLOBALCOMMIT;
+	l.flag = LOG_END;
 	l.tid =	lg->tid;
 	l.nr = lg->tid;
 	l.htm_id = htm_id;
