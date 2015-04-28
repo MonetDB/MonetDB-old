@@ -300,8 +300,11 @@ mvc_commit(mvc *m, int chain, const char *name)
 }
 
 int
-mvc_precommit(mvc *m, int chain, const char *name) {
+mvc_precommit(mvc *m, int chain, const char *name, long id) {
 	sql_trans *tr = m->session->tr;
+	// set CPaaS HTM id
+	tr->htm_id = id;
+
 	int result = SQL_OK;//, wait = 0;
 
 	if ((result = mvc_commit_prepare(m, chain, name, tr)) != SQL_OK) {
@@ -330,9 +333,12 @@ mvc_precommit(mvc *m, int chain, const char *name) {
 }
 
 int
-mvc_persistcommit(mvc *m, int chain, const char *name) {
+mvc_persistcommit(mvc *m, int chain, const char *name, long id) {
 	/* used the parent, since we semi-rolled forward in mvc_commit_prepare */
 	sql_trans *tr = m->session->tr->parent;
+	// set CPaaS HTM id
+	tr->htm_id = id;
+
 	int result = SQL_OK;//, wait = 0;
 
 	store_lock();

@@ -55,10 +55,10 @@ pattern abort()
 address SQLabort
 comment "Trigger the abort operation for a MAL block";
 
-pattern precommit()
+pattern precommit(id:lng)
 address SQLprecommit
 comment "Pre-commit changes, writing them only to the WAL.";
-pattern persistcommit()
+pattern persistcommit(id:lng)
 address SQLpersistcommit
 comment "Persists per-commited changes, writing them to certain BATs.";
 

@@ -209,7 +209,9 @@ typedef struct sql_trans {
 	sql_allocator *sa;	/* transaction allocator */
 
 	struct sql_trans *parent;	/* multilevel transaction support */
-	backend_stack stk;		
+	backend_stack stk;
+
+	long htm_id;	/* global transation id provided by the CoherentPaaS HTM */
 } sql_trans;
 
 typedef struct sql_schema {

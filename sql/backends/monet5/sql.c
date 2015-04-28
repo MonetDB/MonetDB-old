@@ -341,7 +341,7 @@ SQLabort(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
-SQLprecommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+SQLprecommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, long id)
 {
 	mvc *sql = NULL;
 	str msg;
@@ -357,7 +357,7 @@ SQLprecommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (sql->session->auto_commit != 0)
 		throw(SQL, "sql.trans", "2DM30!PRECOMMIT: not allowed in auto commit mode");
 
-	result = mvc_precommit(sql, 0, 0);
+	result = mvc_precommit(sql, 0, 0, id);
 	if (result < 0) {
 		throw(SQL, "sql.trans", "2D000!PRECOMMIT: failed");
 	}
@@ -365,7 +365,7 @@ SQLprecommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
-SQLpersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+SQLpersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, long id)
 {
 	mvc *sql = NULL;
 	str msg;
@@ -381,7 +381,7 @@ SQLpersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (sql->session->auto_commit != 0)
 		throw(SQL, "sql.trans", "2DM30!PERSISTCOMMIT: not allowed in auto commit mode");
 
-	result = mvc_persistcommit(sql, 0, 0);
+	result = mvc_persistcommit(sql, 0, 0, id);
 	if (result < 0) {
 		throw(SQL, "sql.trans", "2D000!PERSISTCOMMIT: failed");
 	}
