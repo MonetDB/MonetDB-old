@@ -250,7 +250,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 	}
 
 #ifdef _PYAPI_DEBUG_
-	printf("# Actual Python function definition: %s\n",pycall);
+	printf("Actual Python function definition: \n%s\n", pycall);
 #endif
 
 	{
@@ -278,6 +278,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 			goto wrapup; // shudder
 		}
 
+		// TODO: handle the case where only  a single array is returned (nice to have)
 		if (!pResult || !PyList_Check(pResult) || PyList_Size(pResult) != pci->retc) {
 			msg = createException(MAL, "pyapi.eval", "Invalid result object. Need list of size %d containing numpy arrays", pci->retc);
 			goto wrapup;
@@ -293,28 +294,24 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 
 		switch (bat_type) {
 		case TYPE_int: {
-			int *p;
 			BUN j;
 			// this only copies if it has to
 			PyArrayObject* pCol = (PyArrayObject*) PyArray_FromAny(pColO,
 					PyArray_DescrFromType(NPY_INT32), 1, 1, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
-			//size_t cnt = pCol->dimensions[0];
-			size_t  cnt = 5;
-			// TODO: get actual length from array
+			size_t cnt = PyArray_DIMS(pCol)[0];
 
 			// TODO null rewriting, we are guaranteed to be able to write to this
-			// TODO: only accepted masked array as output?
-			// TODO check whether the length of our output
 
 			/* We would like to simply pass over the BAT from numpy,
 			 * but cannot due to malloc/free incompatibility */
+
 			b = BATnew(TYPE_void, TYPE_int, cnt, TRANSIENT);
 			BATseqbase(b, 0); b->T->nil = 0; b->T->nonil = 1; b->tkey = 0;
 			b->tsorted = 0; b->trevsorted = 0;
-			p = (int*) Tloc(b, BUNfirst(b));								\
-			for( j =0; j< cnt; j++, p++){
-				*p = (int) PyArray_GETPTR1(pCol, j);
+			for( j =0; j< cnt; j++){
+				((int*) Tloc(b, BUNfirst(b)))[j] = *(int*) PyArray_GETPTR1(pCol, j);
 			}
+			BATsetcount(b, cnt);
 			break;
 		}
 		// TODO: implement other types

@@ -1,18 +1,18 @@
 b:= bat.new(:oid,:int);
-bat.append(b,1804289383);
-bat.append(b,846930886);
-bat.append(b,1681692777);
-bat.append(b,1714636915);
-bat.append(b,1957747793);
-bat.append(b,424238335);
-bat.append(b,719885386);
-bat.append(b,1649760492);
-bat.append(b,596516649);
-bat.append(b,1189641421);
+bat.append(b, 42);
+bat.append(b, 43);
+bat.append(b, 44);
+bat.append(b, 45);
+bat.append(b, 46);
+bat.append(b, 47);
+bat.append(b, 48);
+bat.append(b, 49);
+bat.append(b, 50);
+bat.append(b, 51);
 
 io.print(b);
 
-r:bat[:oid,:int] := pyapi.eval(nil:ptr,"r=[e**2 for e in arg1]\nreturn ([numpy.asarray(r)])",b);
+r:bat[:oid,:int] := pyapi.eval(nil:ptr, "r=[e+1 for e in arg1]\nreturn ([r])", b);
 io.print(r);
 
 
