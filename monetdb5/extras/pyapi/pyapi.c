@@ -58,6 +58,7 @@ static int pyapiInitialized = FALSE;
 					*(mtpe*) PyArray_GETPTR1(pCol, j); }              \
 		BATsetcount(bat, cnt); }
 
+// TODO: also handle the case if someone returns a masked array
 
 #define _PYAPI_DEBUG_
 
@@ -152,6 +153,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 	// for each input column (BAT):
 	for (i = pci->retc + 2; i < pci->argc; i++) {
 		PyObject *vararray = NULL;
+		// null mask for masked array
 
 		// turn scalars into one-valued BATs
 		// TODO: also do this for Python? Or should scalar values be 'simple' variables?
@@ -176,6 +178,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 			}
 		}
 
+
 		switch (ATOMstorage(getColumnType(getArgType(mb,pci,i)))) {
 		case TYPE_bte:
 			vararray = BAT_TO_NP(b, bte, NPY_INT8);
@@ -195,16 +198,50 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 		case TYPE_dbl:
 			vararray = BAT_TO_NP(b, dbl, NPY_FLOAT64);
 			break;
-			// TODO: handle NULLs!
 
 		// TODO: implement other types (strings, boolean)
 		default:
 			msg = createException(MAL, "pyapi.eval", "unknown argument type ");
 			goto wrapup;
 		}
+
+		// we use numpy.ma to deal with possible NULL values in the data
+		// once numpy comes with proper NA support, this will change
+		{
+			PyObject *mafunc = PyObject_GetAttrString(PyImport_Import(
+					PyString_FromString("numpy.ma")), "masked_array");
+			PyObject *maargs = PyTuple_New(2);
+			PyArrayObject* nullmask = (PyArrayObject*) PyArray_ZEROS(1,
+							(npy_intp[1]) {BATcount(b)}, NPY_BOOL, 0);
+
+			const void *nil = ATOMnilptr(b->ttype);
+			int (*atomcmp)(const void *, const void *) = ATOMcompare(b->ttype);
+			BATiter bi = bat_iterator(b);
+
+			if (b->T->nil) {
+				size_t j;
+				for (j = 0; j < BATcount(b); j++) {
+					if ((*atomcmp)(BUNtail(bi, BUNfirst(b) + j), nil) == 0) {
+						// Houston we have a NULL
+						PyArray_SETITEM(nullmask, PyArray_GETPTR1(nullmask, j), Py_True);
+					}
+				}
+			}
+			PyTuple_SetItem(maargs, 0, vararray);
+			PyTuple_SetItem(maargs, 1, (PyObject*) nullmask);
+			vararray = PyObject_CallObject(mafunc, maargs);
+			if (!vararray) {
+				msg = createException(MAL, "pyapi.eval", "UUUH");
+						goto wrapup;
+			}
+		}
+		PyTuple_SetItem(pArgs, ai++, vararray);
+
+		// TODO: we cannot clean this up just yet, there may be a shallow copy referenced in python.
+		// TODO: do this later
+
 		BBPunfix(b->batCacheid);
 
-		PyTuple_SetItem(pArgs, ai++, vararray);
 	}
 
 	// create argument list
@@ -284,10 +321,12 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 		msg = createException(MAL, "pyapi.eval", "Command too large");
 		goto wrapup;
 	}
-
 	{
 		int pyret;
 		PyObject *pFunc, *pModule;
+
+		// TODO: does this create overhead?, see if we can share the import
+		PyRun_SimpleString("import numpy");
 
 		pModule = PyImport_Import(PyString_FromString("__main__"));
 		pyret = PyRun_SimpleString(pycall);
@@ -297,9 +336,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 			msg = createException(MAL, "pyapi.eval", "could not parse Python code %s", pycall);
 			goto wrapup;
 		}
-
-		// TODO: does this create overhead?, see if we can share the import
-		PyRun_SimpleString("import numpy");
 
 		pResult = PyObject_CallObject(pFunc, pArgs);
 		if (PyErr_Occurred()) {
