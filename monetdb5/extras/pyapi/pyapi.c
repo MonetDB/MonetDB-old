@@ -34,9 +34,29 @@ int PyAPIEnabled(void) {
 }
 
 // TODO: exclude pyapi from mergetable, too
+// TODO: add to SQL layer
 // TODO: can we call the Python interpreter in a multi-thread environment?
 static MT_Lock pyapiLock;
 static int pyapiInitialized = FALSE;
+
+
+#define BAT_TO_NP(bat, mtpe, nptpe)                                   \
+		PyArray_New(&PyArray_Type, 1, (npy_intp[1]) {BATcount(bat)},  \
+        nptpe, NULL, (mtpe*) Tloc(bat, BUNfirst(bat)), 0,             \
+		NPY_ARRAY_CARRAY || !NPY_ARRAY_WRITEABLE, NULL);
+
+#define NP_TO_BAT(bat, mtpe, nptpe) {                                 \
+		PyArrayObject* pCol = (PyArrayObject*) PyArray_FromAny(pColO, \
+			PyArray_DescrFromType(nptpe), 1, 1, NPY_ARRAY_CARRAY |    \
+			NPY_ARRAY_FORCECAST, NULL);                               \
+		size_t cnt = PyArray_DIMS(pCol)[0], j;                        \
+		bat = BATnew(TYPE_void, TYPE_##mtpe, cnt, TRANSIENT);         \
+		BATseqbase(bat, 0); bat->T->nil = 0; bat->T->nonil = 1;       \
+		bat->tkey = 0; bat->tsorted = 0; bat->trevsorted = 0;         \
+		for (j =0; j < cnt; j++) {                                    \
+			((mtpe*) Tloc(bat, BUNfirst(bat)))[j] =                   \
+					*(mtpe*) PyArray_GETPTR1(pCol, j); }              \
+		BATsetcount(bat, cnt); }
 
 
 #define _PYAPI_DEBUG_
@@ -76,6 +96,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 	node * argnode;
 	int seengrp = FALSE;
 	PyObject *pArgs, *pResult; // this is going to be the parameter tuple
+	PyThreadState* tstate;
+
 
 	if (!PyAPIEnabled()) {
 		throw(MAL, "pyapi.eval",
@@ -95,8 +117,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 		// TODO: free args and rcall
 	}
 
-	// TODO: do we need this lock for Python as well?
-	MT_lock_set(&pyapiLock, "pyapi.evaluate");
+	// this isolates our interpreter, so it's safe to run pyapi multithreaded
+	// TODO: verify this
+	tstate = Py_NewInterpreter();
 
 	// first argument after the return contains the pointer to the sql_func structure
 	if (sqlfun != NULL && sqlfun->ops->cnt > 0) {
@@ -154,14 +177,27 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 		}
 
 		switch (ATOMstorage(getColumnType(getArgType(mb,pci,i)))) {
+		case TYPE_bte:
+			vararray = BAT_TO_NP(b, bte, NPY_INT8);
+			break;
+		case TYPE_sht:
+			vararray = BAT_TO_NP(b, sht, NPY_INT16);
+			break;
 		case TYPE_int:
-			// yeah yeah yeah
-			vararray = PyArray_New(&PyArray_Type, 1, (npy_intp[1]) {BATcount(b)}, NPY_INT32, NULL,
-					(int*) Tloc(b, BUNfirst(b)), 0, NPY_ARRAY_CARRAY || !NPY_ARRAY_WRITEABLE, NULL);
+			vararray = BAT_TO_NP(b, int, NPY_INT32);
+			break;
+		case TYPE_lng:
+			vararray = BAT_TO_NP(b, lng, NPY_INT64);
+			break;
+		case TYPE_flt:
+			vararray = BAT_TO_NP(b, flt, NPY_FLOAT32);
+			break;
+		case TYPE_dbl:
+			vararray = BAT_TO_NP(b, dbl, NPY_FLOAT64);
 			break;
 			// TODO: handle NULLs!
 
-		// TODO: implement other types
+		// TODO: implement other types (strings, boolean)
 		default:
 			msg = createException(MAL, "pyapi.eval", "unknown argument type ");
 			goto wrapup;
@@ -243,15 +279,11 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 	}
 
 	if (snprintf(pycall, pycalllen,
-		 "import numpy\ndef pyfun(%s):\n%s",
+		 "def pyfun(%s):\n%s",
 		 argnames, expr_ind) >= (int) pycalllen) {
 		msg = createException(MAL, "pyapi.eval", "Command too large");
 		goto wrapup;
 	}
-
-#ifdef _PYAPI_DEBUG_
-	printf("Actual Python function definition: \n%s\n", pycall);
-#endif
 
 	{
 		int pyret;
@@ -265,6 +297,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 			msg = createException(MAL, "pyapi.eval", "could not parse Python code %s", pycall);
 			goto wrapup;
 		}
+
+		// TODO: does this create overhead?, see if we can share the import
+		PyRun_SimpleString("import numpy");
 
 		pResult = PyObject_CallObject(pFunc, pArgs);
 		if (PyErr_Occurred()) {
@@ -292,28 +327,26 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 		PyObject * pColO = PyList_GetItem(pResult, i);
 		int bat_type = ATOMstorage(getColumnType(getArgType(mb,pci,i)));
 
+		// TODO null handling
 		switch (bat_type) {
-		case TYPE_int: {
-			BUN j;
-			// this only copies if it has to
-			PyArrayObject* pCol = (PyArrayObject*) PyArray_FromAny(pColO,
-					PyArray_DescrFromType(NPY_INT32), 1, 1, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
-			size_t cnt = PyArray_DIMS(pCol)[0];
-
-			// TODO null rewriting, we are guaranteed to be able to write to this
-
-			/* We would like to simply pass over the BAT from numpy,
-			 * but cannot due to malloc/free incompatibility */
-
-			b = BATnew(TYPE_void, TYPE_int, cnt, TRANSIENT);
-			BATseqbase(b, 0); b->T->nil = 0; b->T->nonil = 1; b->tkey = 0;
-			b->tsorted = 0; b->trevsorted = 0;
-			for( j =0; j< cnt; j++){
-				((int*) Tloc(b, BUNfirst(b)))[j] = *(int*) PyArray_GETPTR1(pCol, j);
-			}
-			BATsetcount(b, cnt);
+		case TYPE_bte:
+			NP_TO_BAT(b, bte, NPY_INT8);
 			break;
-		}
+		case TYPE_sht:
+			NP_TO_BAT(b, sht, NPY_INT16);
+			break;
+		case TYPE_int:
+			NP_TO_BAT(b, int, NPY_INT32);
+			break;
+		case TYPE_lng:
+			NP_TO_BAT(b, lng, NPY_INT64);
+			break;
+		case TYPE_flt:
+			NP_TO_BAT(b, flt, NPY_FLOAT32);
+			break;
+		case TYPE_dbl:
+			NP_TO_BAT(b, dbl, NPY_FLOAT64);
+			break;
 		// TODO: implement other types
 
 		default:
@@ -333,7 +366,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 		msg = MAL_SUCCEED;
 	}
   wrapup:
-	MT_lock_unset(&pyapiLock, "pyapi.evaluate");
+	//MT_lock_unset(&pyapiLock, "pyapi.evaluate");
+	Py_EndInterpreter(tstate);
+
 	GDKfree(args);
 	GDKfree(pycall);
 	GDKfree(expr_ind);

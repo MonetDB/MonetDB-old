@@ -1,1 +1,2 @@
 HAVE_LIBPY?pyapi00
+HAVE_LIBPY?pyapi02
