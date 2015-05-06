@@ -362,6 +362,7 @@ base_colors[NUM_COLORS] = {
 /*     2 */	{ 0, 0, "calc", "bit", 0 },
 /*     2 */	{ 0, 0, "calc", "*", 0 },
 /*     2 */	{ 0, 0, "algebra", "thetajoin", 0 },
+/*     2 */	{ 0, 0, "algebra", "subthetajoin", 0 },
 /*     1 */	{ 0, 0, "sql", "dec_round", 0 },
 /*     1 */	{ 0, 0, "pqueue", "topn_min", 0 },
 /*     1 */	{ 0, 0, "mtime", "date_sub_msec_interval", 0 },
@@ -377,6 +378,20 @@ base_colors[NUM_COLORS] = {
 /*     1 */	{ 0, 0, "aggr", "max", 0 },
 /*     ? */	{ 0, 0, "aggr", "avg", 0 },
 /*     ? */	{ 0, 0, "aggr", "subavg", 0 },
+/*     ? */	{ 0, 0, "aggr", "submedian", 0 },
+/*     ? */	{ 0, 0, "aggr", "subquantile", 0 },
+/*     ? */	{ 0, 0, "aggr", "substdev", 0 },
+/*     ? */	{ 0, 0, "batcalc", "floor", 0 },
+/*     ? */	{ 0, 0, "batcalc", "identity", 0 },
+/*    ? */	{ 0, 0, "batmkey", "hash", 0 },
+/*    ? */	{ 0, 0, "calc", "hge", 0 },
+/*    ? */	{ 0, 0, "batcalc", "hge", 0 },
+/*    ? */	{ 0, 0, "algebra", "firstn", 0 },
+/*    ? */	{ 0, 0, "sql", "single", 0 },
+/*    ? */	{ 0, 0, "algebra", "crossproduct", 0 },
+/*    ? */	{ 0, 0, "profiler", "wait", 0 },
+/*    ? */	{ 0, 0, "querylog", "define", 0 },
+/*    ? */	{ 0, 0, "*", "*", 0 },
 /*     0 */	{ 0, 0, 0, 0, 0 }
 };
 
@@ -776,10 +791,11 @@ showmemory(void)
 static char *
 getHeatColor(double load)
 {
-	if ( load > 0.75 ) return "yellow";
+	if ( load > 0.9 ) return "red";
+	if ( load > 0.75 ) return "orangered";
 	if ( load > 0.5 ) return "orange";
-	if ( load > 0.25 ) return "red";
-	if ( load > 0.02 ) return "blue";
+	if ( load > 0.25 ) return "gold";
+	if ( load > 0.02 ) return "yellow";
 	return "white";
 }
 
@@ -796,7 +812,7 @@ showcpu(void)
 	fprintf(gnudata, "set lmarg 10\n");
 	fprintf(gnudata, "set rmarg 10\n");
 	fprintf(gnudata, "set size 1,0.%02d\n", cpus?cpus:1);
-	fprintf(gnudata, "set origin 0.0, 0.%d\n", 89 - cpus);
+	fprintf(gnudata, "set origin 0.0, 0.%d\n", 88 - cpus);
 	fprintf(gnudata, "set ylabel \"CPU\"\n");
 	fprintf(gnudata, "unset xtics\n");
 	fprintf(gnudata, "unset ytics\n");
@@ -949,18 +965,31 @@ fprintf_time(FILE *f, lng time)
 }
 
 /* produce a legenda image for the color map */
-#define COLUMNS 5
+#define COLUMNS 3
 
 static void
 showcolormap(char *filename, int all)
 {
 	FILE *f = 0;
 	char buf[BUFSIZ];
-	int i, k = 0;
+	int i, k = 0,nl;
 	int w = 380; // 600 for 3 columns
-	int h = 590;
+	int h = 590, h1=h;
 	lng totfreq = 0, tottime = 0;
 	Color *clrs = colors, *_clrs_ = NULL;
+	char *c;
+	time_t tm;
+	char *date;
+
+	tm = time(0);
+	date = ctime(&tm);
+	if (strchr(date, '\n'))
+		*strchr(date, '\n') = 0;
+
+
+	// count size of query text
+	for (nl=0, c= currentquery; c && *c; c++)
+		nl += *c == '\n';
 
 	if (all) {
 		snprintf(buf, BUFSIZ, "%s%s_%s_%02d.gpl", cachebuf, basefilename, dbname, atlaspage);
@@ -989,7 +1018,7 @@ showcolormap(char *filename, int all)
 		fprintf(f, "set lmarg 10\n");
 		fprintf(f, "set rmarg 10\n");
 		fprintf(f, "set size 1,0.4\n");
-		fprintf(f, "set origin 0.0,%s\n", "-0.05");
+		fprintf(f, "set origin 0.0,%s\n", "-0.04");
 		fprintf(f, "set xrange [0:1800]\n");
 		fprintf(f, "set yrange [0:600]\n");
 		fprintf(f, "unset xtics\n");
@@ -1016,17 +1045,15 @@ showcolormap(char *filename, int all)
 				tottime += clrs[i].timeused;
 				totfreq += clrs[i].freq;
 
-				if (k % COLUMNS == 0)
-					h -= 45;
+				if (k % COLUMNS == 0 && i)
+					h -= 35;
 				fprintf(f, "set object %d rectangle from %.2f, %.2f to %.2f, %.2f fillcolor rgb \"%s\" fillstyle solid 1.0\n",
-					object++, (double) (k % COLUMNS) * w, (double) h - 40, (double) ((k % COLUMNS) * w + 0.05 * w), (double) h - 5, clrs[i].col);
+					object++, (double) (k % COLUMNS) * w, (double) h - 40, (double) ((k % COLUMNS) * w + 0.09 * w), (double) h - 15, clrs[i].col);
 				fprintf(f, "set label %d \"%s.%s \" at %d,%d\n",
-					object++, (clrs[i].mod?clrs[i].mod:""), clrs[i].fcn, (int) ((k % COLUMNS) * w + 0.07 * w), h - 15);
-				fprintf(f, "set label %d \"%d call%s: ",
-					object++, clrs[i].freq, clrs[i].freq>1?"s":"");
+					object++, (clrs[i].mod?clrs[i].mod:""), clrs[i].fcn, (int) ((k % COLUMNS) * w + 0.1 * w), h - 20);
+				fprintf(f, "set label %d \"%d call%s: ", object++, clrs[i].freq, clrs[i].freq>1?"s":"");
 				fprintf_time(f, clrs[i].timeused);
-				fprintf(f, "\" at %f,%f\n",
-					(double) ((k % COLUMNS) * w + 0.07 * w), (double) h - 35);
+				fprintf(f, "\" at %f,%f\n", (double) ((k % COLUMNS) * w + 0.1 * w), (double) h - 35);
 				k++;
 			} else {
 				clrs[0].timeused += clrs[i].timeused;
@@ -1039,13 +1066,37 @@ showcolormap(char *filename, int all)
 		_clrs_ = NULL;
 	}
 
-	h -= 45;
-	fprintf(f, "set label %d \" "LLFMT" MAL instructions executed; total CPU core time: ",
-		object++, totfreq);
+	h -= 30;
+	fprintf(f, "set label %d \"MAL instructions executed: "LLFMT, object++, totfreq);
+	fprintf(f, "\" at 0,%d\n", h - 30);
+
+	fprintf(f, "set label %d \"Total CPU core time: ", object++);
 	fprintf_time(f, tottime);
-	fprintf(f, "; parallelism usage %.1f %%", totalclkticks / (totalticks / 100.0));
-	fprintf(f, "\" at %d,%d\n",
-		(int) (0.2 * w), h - 35);
+	fprintf(f, "\" at 0,%d\n", h - 50);
+
+	fprintf(f, "set label %d \"Parallelism used: %.1f %%", object++, totalclkticks / (totalticks / 100.0));
+	fprintf(f, "\" at 0,%d\n", h - 70);
+	// show complete query text
+	if( currentquery ){
+		h = h1-40;
+		//fprintf(gnudata, "set object %d rectangle from %d.0, 250.0 to %d.0,%d.0\n", object++, 3 * w, 5 *w , h -5);
+		fprintf(f, "set label %d \"", object++);
+		k=0;
+		for (c= currentquery; *c; c++){
+			if (*c == '"') fprintf(f,"\\"); else
+			if (*c == '\t') fprintf(f,"  "); else
+			if (*c == '\n') { fprintf(f,"\\n"); k=0; continue;} else
+			if( ++k >60 && (*c == ' ' || *c =='\t')){
+				fprintf(f,"\\n");
+				k = 1;
+			}
+			fputc(*c,f);
+		}
+		fprintf(f, "\" at %d,%d\n", (int) ( 3 * w ), h - 17);
+		h-= 17;
+	}
+	fprintf(f, "set label %d \"%d\" at 1750.0, 100.00\n", object++, atlaspage + 1);
+	fprintf(f, "set label %d \"%s\" at 0.0, 100.00\n", object++, date);
 	fprintf(f, "plot 0 notitle with lines linecolor rgb \"white\"\n");
 	if (all) {
 		fclose(f);
@@ -1053,21 +1104,25 @@ showcolormap(char *filename, int all)
 }
 
 static void
-updmap(int idx)
+updatecolormap(int idx)
 {
 	char *mod, *fcn, buf[BUFSIZ], *call = buf;
 	int i, fnd = 0;
 
 	if( box[idx].fcn == 0)
 		return;
+	
 	snprintf(buf, sizeof(buf), "%s", box[idx].fcn);
 	mod = call;
 	fcn = strchr(call, '.');
 	if (fcn) {
 		*fcn = 0;
 		fcn++;
-	} else
+	} else{
 		fcn = "*";
+	}
+	if( strncmp(call,"end",3) == 0)
+		mod ="*";
 	/* find "mod.fcn" */
 	for (i = 1; i < NUM_COLORS && colors[i].mod; i++)
 		if (strcmp(mod, colors[i].mod) == 0 &&
@@ -1080,8 +1135,8 @@ updmap(int idx)
 		fnd = i;
 		colors[fnd].mod = mod?strdup(mod): 0;
 		colors[fnd].fcn = strdup(fcn);
-		if( debug)
-			printf("added function #%d: %s.%s\n", fnd, (mod?mod:""), fcn);
+		if( debug) 
+			fprintf(stderr,"-- Added function #%d: %s.%s\n", fnd, (mod?mod:""), fcn);
 	}
 
 	colors[fnd].freq++;
@@ -1095,41 +1150,25 @@ static int height = 160;
 static void
 gnuplotheader(char *filename)
 {
-	time_t tm;
-	char *date, *c,ch;
+	char *c,ch;
 	int i=0;
 
 	fprintf(gnudata, "set terminal pdfcairo noenhanced font 'verdana,10' color solid size 8.3,11.7\n");
 	fprintf(gnudata, "set output \"%s.pdf\"\n", filename);
 	fprintf(gnudata, "set size 1,1\n");
 	fprintf(gnudata, "set tics front\n");
-	tm = time(0);
-	date = ctime(&tm);
-	if (strchr(date, '\n'))
-		*strchr(date, '\n') = 0;
+
 	if( title){
 		for (c = title; c && *c && i <100; c++, i++)
 			if (*c == '_')// for gnuplot
 				*c = '-';
 		ch= *c; *c =0;
-		fprintf(gnudata, "set title \"%s\t%s%s\"\n", date, title, *c? "...":"");
+		fprintf(gnudata, "set title \"%s%s\"\n", title, (*c? "...":""));
 		*c =ch;
-	} else 
-	if( currentquery ){
-		fprintf(gnudata, "set title \"%s\t", date);
-		for (c= currentquery; *c && i <100; c++, i++)
-			if( *c =='"')
-				fprintf(gnudata,"\\\"");
-			else 
-			if( *c != '\n' && *c != '\t')
-				fputc(*c,gnudata);
-		if(*c)
-			fprintf(gnudata, "...");
-		fprintf(gnudata, "\"\n");
-	}
-	else
-		fprintf(gnudata, "set title \"%s\tTomogram\"\n", date);
+	}  else
+		fprintf(gnudata, "set title \"MonetDB tomogram for database %s\"\n", dbname);
 	fprintf(gnudata, "set multiplot\n");
+
 }
 
 static void
@@ -1157,6 +1196,7 @@ createTomogram(void)
 	if( strchr(buf,'.'))
 		*strchr(buf, '.') = 0;
 	gnuplotheader(buf);
+	object=1;
 	dumpboxes();
 	showio(); //DISABLED due to access permissions
 	showmemory();
@@ -1167,7 +1207,7 @@ createTomogram(void)
 	fprintf(gnudata, "set lmarg 10\n");
 	fprintf(gnudata, "set rmarg 10\n");
 	fprintf(gnudata, "set size 1,0.48\n");
-	fprintf(gnudata, "set origin 0.0,%s\n", "0.32");
+	fprintf(gnudata, "set origin 0.0,%s\n", "0.33");
 	fprintf(gnudata, "set xrange ["LLFMT".0:"LLFMT".0]\n", startrange, lastclktick - starttime);
 
 	/* detect all different threads and assign them a row */
@@ -1183,12 +1223,12 @@ createTomogram(void)
 				rows[top++] = box[i].thread;
 			}
 			if( box[i].state != MDB_WAIT)
-				updmap(i);
+				updatecolormap(i);
 		}
 	}
 
 
-	height = top * 20;
+	height = (top < cpus? cpus : top) * 20;
 	fprintf(gnudata, "set yrange [0:%d]\n", height);
 	fprintf(gnudata, "set ylabel \"threads\"\n");
 	fprintf(gnudata, "set key right \n");
