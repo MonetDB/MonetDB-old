@@ -1,8 +1,23 @@
+
+
+#booleans
+bool:= bat.new(:oid,:str);
+bat.append(bool,"T":str);
+bat.append(bool,"T":str);
+bat.append(bool,"T":str);
+bat.append(bool,"T":str);
+bat.append(bool,"T":str);
+bat.append(bool,"T":str);
+bat.append(bool,"T":str);
+bat.append(bool,nil:str);
+rbool:bat[:oid,:str] := pyapi.eval(nil:ptr,"return([[True]])",bool);
+io.print(rbool);
+
 #strings testing
 bstr:= bat.new(:oid,:str);
 bat.append(bstr,"asdf":str);
 bat.append(bstr,"sd asd asd asd asd a":str);
-bat.append(bstr,"":str);
+bat.append(bstr,nil:str);
 bat.append(bstr,"test":str);
 rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"return(arg1)",bstr);
 io.print(rstr);

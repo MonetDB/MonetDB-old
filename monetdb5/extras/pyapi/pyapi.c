@@ -49,24 +49,42 @@ static int pyapiInitialized = FALSE;
 		NPY_ARRAY_CARRAY || !NPY_ARRAY_WRITEABLE, NULL);
 
 #define NP_TO_BAT(bat, mtpe, nptpe) {                                 \
-		PyArrayObject* pCol = (PyArrayObject*) PyArray_FromAny(pColO, \
+		pCol = (PyArrayObject*) PyArray_FromAny(pColO, \
 			PyArray_DescrFromType(nptpe), 1, 1, NPY_ARRAY_CARRAY |    \
 			NPY_ARRAY_FORCECAST, NULL);                               \
-		size_t cnt = 0;                                               \
 		if (pCol == NULL)											  \
 		{															  \
 			pCol = (PyArrayObject*) PyArray_FromAny(pColO, NULL, 1, 1,  NPY_ARRAY_CARRAY, NULL);  \
 			msg = createException(MAL, "pyapi.eval", "Wrong return type in python function. Expected an array of type \"%s\" as return value, but the python function returned an array of type \"%s\".", #mtpe, NPYConstToString(PyArray_DTYPE(pCol)->type_num));	      \
 			goto wrapup;	 										  \
 		}															  \
-		cnt = PyArray_DIMS(pCol)[0], j;                               \
-		bat = BATnew(TYPE_void, TYPE_##mtpe, cnt, TRANSIENT);         \
+		count = PyArray_DIMS(pCol)[0];                                \
+		bat = BATnew(TYPE_void, TYPE_##mtpe, count, TRANSIENT);         \
+		pMask = PyObject_GetAttrString(pColO, "mask");                \
+		if (pMask != NULL)                                            \
+		{                                                             \
+			pMaskArray = (PyArrayObject*) PyArray_FromAny(pMask, NPY_BOOL, 1, 1,  NPY_ARRAY_CARRAY, NULL); \
+			if (pMaskArray == NULL || PyArray_DIMS(pMaskArray)[0] != (int)count)                                  \
+			{                                                         \
+				msg = createException(MAL, "pyapi.eval", "A masked array was returned, but the mask does not have the same length as the array.");	\
+				goto wrapup;	                                      \
+			}                                                         \
+		}                                                             \
+	}
+#define NP_MAKE_BAT(bat, mtpe, nptpe) {                               \
 		BATseqbase(bat, 0); bat->T->nil = 0; bat->T->nonil = 1;       \
 		bat->tkey = 0; bat->tsorted = 0; bat->trevsorted = 0;         \
-		for (j =0; j < cnt; j++) {                                    \
-			((mtpe*) Tloc(bat, BUNfirst(bat)))[j] =                   \
-					*(mtpe*) PyArray_GETPTR1(pCol, j); }              \
-		BATsetcount(bat, cnt); }
+		for (j =0; j < count; j++)                                      \
+		{                                                             \
+			((mtpe*) Tloc(bat, BUNfirst(bat)))[j] = *(mtpe*) PyArray_GETPTR1(pCol, j); \
+			if (pMaskArray != NULL && PyArray_GETITEM(pMaskArray, PyArray_GETPTR1(pMaskArray, j)) == Py_True) \
+			{                                                         \
+				bat->T->nil = 1;                                       \
+                ((mtpe*) Tloc(bat, BUNfirst(bat)))[j] = mtpe##_nil;                                 \
+				                                                      \
+			}                                                         \
+		} bat->T->nonil = 1 - bat->T->nil;                            \
+		BATsetcount(bat, count); }
 
 //todo: NULL
 // TODO: also handle the case if someone returns a masked array
@@ -226,9 +244,57 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 
 				if (strlen(t) > maxsize)
 					maxsize = length;
-
 			}
 
+			if (maxsize == 1 || maxsize == strlen(str_nil))
+			{
+				//BOOLEANS
+				bool isbool = true;
+				BATloop(b, p, q)
+				{
+					const char *t = (const char *) BUNtail(li, p);
+					if (t[0] != 'T' && t[0] !='F' && strcmp(t, str_nil) != 0)
+					{
+						isbool = false;
+						break;
+					}
+				}
+				if (isbool)
+				{
+					//create a NPY_BOOL array object
+					vararray = PyArray_New(
+						&PyArray_Type, 
+						1, 
+						(npy_intp[1]) {count},  
+		        		NPY_BOOL, 
+		        		NULL, 
+		        		NULL, 
+		        		0,             
+						NPY_ARRAY_CARRAY || NPY_ARRAY_WRITEABLE, 
+						NULL);
+
+					//fill the NPY_BOOL array object using the PyArray_SETITEM function
+					j = 0;
+					BATloop(b, p, q)
+					{
+						const char *t = (const char *) BUNtail(li, p);
+						PyObject *value;
+						if (t[0] == 'T') 
+						{
+							Py_INCREF(Py_True);
+							value = Py_True;
+						}
+						else 
+						{
+							Py_INCREF(Py_False);
+							value = Py_False;
+						}
+						PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), value);
+						j++;
+					}
+					break;
+				}	
+			}
 			//create a NPY_STRING array object
 			vararray = PyArray_New(
 				&PyArray_Type, 
@@ -251,7 +317,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 			}
 			break;
 		case TYPE_hge:
-			vararray = BAT_TO_NP(b, hge, NPY_LONGLONG);
+			vararray = BAT_TO_NP(b, hge, NPY_LONGDOUBLE);
 			break;
 
 		// TODO: implement other types (boolean)
@@ -413,6 +479,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 			{
 				//a single array is returned rather than a list of arrays
 				//convert the single array to a list of size 1
+
+				//TODO: Accept a single object (not just a single array) and cast it to an array
+				//TODO: Accept a single array with a single object in it (this currently gives a Segmentation Fault)
 				PyObject *list = PyList_New(1);
 				PyList_SetItem(list, 0, pResult);
 				pResult = list;
@@ -431,67 +500,111 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 	// collect the return values
 	for (i = 0; i < pci->retc; i++) {
 		PyArrayObject *pCol = NULL;
+		PyArrayObject *pMaskArray = NULL;
+		PyObject *pMask = NULL;
 		PyObject * pColO = PyList_GetItem(pResult, i);
 		int bat_type = ATOMstorage(getColumnType(getArgType(mb,pci,i)));
-
+		bool isbool;
+		
 		// TODO null handling
 		switch (bat_type) {
 		case TYPE_bte:
 			NP_TO_BAT(b, bte, NPY_INT8);
+			NP_MAKE_BAT(b, bte, NPY_INT8);
 			break;
 		case TYPE_sht:
 			NP_TO_BAT(b, sht, NPY_INT16);
+			NP_MAKE_BAT(b, sht, NPY_INT16);
 			break;
 		case TYPE_int:
 			NP_TO_BAT(b, int, NPY_INT32);
+			NP_MAKE_BAT(b, int, NPY_INT32);
 			break;
 		case TYPE_lng:
 			NP_TO_BAT(b, lng, NPY_INT64);
+			NP_MAKE_BAT(b, lng, NPY_INT64);
 			break;
 		case TYPE_flt:
 			NP_TO_BAT(b, flt, NPY_FLOAT32);
+			NP_MAKE_BAT(b, flt, NPY_FLOAT32);
 			break;
 		case TYPE_dbl:
 			NP_TO_BAT(b, dbl, NPY_FLOAT64);
+			NP_MAKE_BAT(b, dbl, NPY_FLOAT64);
 			break;
 		case TYPE_str:
-			//convert the returned column to an ArrayObject of String type
-			pCol = (PyArrayObject*) PyArray_FromAny(pColO, PyArray_DescrFromType(NPY_STRING), 1, 1, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
 
-			if (pCol == NULL)
+			pCol = (PyArrayObject*) PyArray_FromAny(pColO, \
+				NULL, 1, 1, NPY_ARRAY_CARRAY |    \
+				NPY_ARRAY_FORCECAST, NULL);    
+			isbool = PyBool_Check(PyArray_GETITEM(pCol, PyArray_GETPTR1(pCol, 0)));
+			if (isbool)
 			{
-				//if the conversion isn't possible, throw an exception and finish the execution
-				//we find out which actual type the array is by setting NPY_<type> to NULL, and then obtaining the type of the resulting array using PyArray_DTYPE
-				pCol = (PyArrayObject*) PyArray_FromAny(pColO, NULL, 1, 1,  NPY_ARRAY_CARRAY, NULL); 
-				msg = createException(MAL, "pyapi.eval", 
-					"Wrong return type in python function. Expected an array of type \"%s\" as return value, but the python function returned an array of type \"%s\".", 
-					"str", NPYConstToString(PyArray_DTYPE(pCol)->type_num));	      
-				goto wrapup;	
+				//Boolean Array!
+				NP_TO_BAT(b, str, NPY_BOOL);
+
+				//create and initialize a new BAT
+				b = BATnew(TYPE_void, TYPE_str, count, TRANSIENT);
+				BATseqbase(b, 0); 
+				b->T->nil = 0; b->tkey = 0; b->tsorted = 0; b->trevsorted = 0; b->tdense = 0;
+
+				for (j = 0; j < count; j++) 
+				{
+					//first check if the masked array contains 'TRUE' here
+					if (pMaskArray != NULL && PyArray_GETITEM(pMaskArray, PyArray_GETPTR1(pMaskArray, j)) == Py_True) 
+					{                                  
+						//if it is, we have found a NULL value, append str_nil to the BAT                   
+						b->T->nil = 1; 
+						BUNappend(b, str_nil, FALSE);  
+					}
+					else
+					{
+						//if the masked array contains FALSE, then append the boolean to the BAT
+						PyObject *obj = PyArray_GETITEM(pCol, PyArray_GETPTR1(pCol, j));
+						if (obj == Py_True)
+						{
+							BUNappend(b, "T", FALSE);
+						}
+						else 
+						{
+							BUNappend(b, "F", FALSE);
+						}
+					}
+				} 
 			}
-			//find the amount of elements in the array
-			count = PyArray_DIMS(pCol)[0];
-
-			//create and initialize a new BAT
-			b = BATnew(TYPE_void, TYPE_str, count, TRANSIENT);
-
-			BATseqbase(b, 0); 
-			b->T->nil = 0; 
-			b->T->nonil = 1;
-			b->tkey = 0; 
-			b->tsorted = 0; 
-			b->trevsorted = 0;
-			b->tdense = 1;
-
-			for (j = 0; j < count; j++) 
+			else
 			{
-				//for every string in the array, obtain the string and append it to the BAT
-				PyObject *obj = PyArray_GETITEM(pCol, PyArray_GETPTR1(pCol, j));
-				BUNappend(b, PyString_AsString(PyObject_Str(obj)), FALSE);
-			}              
+				//String Array!
+				NP_TO_BAT(b, str, NPY_STRING);
+
+				//create and initialize a new BAT
+				b = BATnew(TYPE_void, TYPE_str, count, TRANSIENT);
+
+				BATseqbase(b, 0); 
+				b->T->nil = 0; b->tkey = 0; b->tsorted = 0; b->trevsorted = 0; b->tdense = 0;
+
+				for (j = 0; j < count; j++) 
+				{
+					//first check if the masked array contains 'TRUE' here
+					if (pMaskArray != NULL && PyArray_GETITEM(pMaskArray, PyArray_GETPTR1(pMaskArray, j)) == Py_True) 
+					{                                  
+						//if it is, we have found a NULL value, append str_nil to the BAT                   
+						b->T->nil = 1; 
+						BUNappend(b, str_nil, FALSE);  
+					}
+					else
+					{
+						//if the masked array contains FALSE, then append the actual string to the BAT
+						PyObject *obj = PyArray_GETITEM(pCol, PyArray_GETPTR1(pCol, j));
+						BUNappend(b, PyString_AsString(PyObject_Str(obj)), FALSE);
+					}
+				}     
+			}
+			b->T->nonil = 1 - b->T->nil;        
 			BATsetcount(b, count); 
 			break;
 		case TYPE_hge:
-			NP_TO_BAT(b, hge, NPY_LONGLONG);
+			NP_TO_BAT(b, hge, NPY_LONGDOUBLE);
 			break;
 		default:
 			msg = createException(MAL, "pyapi.eval",
@@ -499,7 +612,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 								  bat_type);
 			goto wrapup;
 		}
-
 		// bat return
 		if (isaBatType(getArgType(mb,pci,i))) {
 			*getArgReference_bat(stk, pci, i) = b->batCacheid;
@@ -575,13 +687,11 @@ char *NPYConstToString(int NPY)
 
 bool IsPyArrayObject(PyObject *object)
 {
-	PyArrayObject *arr = NULL;
-	PyArray_Descr *dtype = NULL;
-	int ndim = 0;
-	npy_intp dims[NPY_MAXDIMS];
-	if (PyArray_GetArrayParamsFromObject(object, NULL, 1, &dtype, &ndim, dims, &arr, NULL) < 0) 
+	//Todo: Does this leak an array object? Is this too slow?
+	PyArrayObject* pCol = (PyArrayObject*) PyArray_FromAny(object, NULL, 1, 1,  NPY_ARRAY_CARRAY, NULL); 
+	if (pCol == NULL)
 	{
-	    return false;
+		return false;
 	}
 	return true;
 }

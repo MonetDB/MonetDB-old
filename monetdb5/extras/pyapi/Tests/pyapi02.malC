@@ -27,7 +27,7 @@ bat.append(bsht,82:sht);
 bat.append(bsht,0:sht);
 bat.append(bsht,240:sht);
 bat.append(bsht,nil:sht);
-rsht:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"return([numpy.add(arg1.filled(0),1)])",bsht);
+rsht:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"return([numpy.add(arg1,1)])",bsht);
 io.print(rsht);
 
 bint:= bat.new(:oid,:int);
@@ -36,8 +36,8 @@ bat.append(bint,846930886:int);
 bat.append(bint,1681692777:int);
 bat.append(bint,1714636915:int);
 bat.append(bint,nil:int);
-rint:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"return([numpy.add(arg1.filled(0),1)])",bint);
-io.print(rint);
+#rint:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"return([numpy.add(arg1.filled(0),1)])",bint);
+#io.print(rint);
 
 bwrd:= bat.new(:oid,:wrd);
 bat.append(bwrd,1804289383:wrd);
@@ -45,16 +45,16 @@ bat.append(bwrd,846930886:wrd);
 bat.append(bwrd,1681692777:wrd);
 bat.append(bwrd,1714636915:wrd);
 bat.append(bwrd,nil:wrd);
-rwrd:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"return([numpy.add(arg1.filled(0),1)])",bwrd);
-io.print(rwrd);
+#rwrd:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"return([numpy.add(arg1.filled(0),1)])",bwrd);
+#io.print(rwrd);
 
 blng:= bat.new(:oid,:lng);
 bat.append(blng,1804289383L);
 bat.append(blng,846930886L);
 bat.append(blng,1681692777L);
 bat.append(blng,1714636915L);
-rlng:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"return([numpy.add(arg1.filled(0),1)])",blng);
-io.print(rlng);
+#rlng:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"return([numpy.add(arg1.filled(0),1)])",blng);
+#io.print(rlng);
 
 # not sure what to with hge, numpy only supports 128 bits when sizeof(long)=16
 # bhge:= bat.new(:oid,:hge);
@@ -73,7 +73,7 @@ bat.append(bflt,846.930886:flt);
 bat.append(bflt,16.81692777:flt);
 bat.append(bflt,1714636.915:flt);
 bat.append(bflt,nil:flt);
-rflt:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"return([numpy.add(arg1.filled(0),1)])",bflt);
+rflt:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"return([numpy.add(arg1,1)])",bflt);
 io.print(rflt);
 
 bdbl:= bat.new(:oid,:dbl);
@@ -82,19 +82,34 @@ bat.append(bdbl,84.6930886:dbl);
 bat.append(bdbl,168169.2777:dbl);
 bat.append(bdbl,17146369.15:dbl);
 bat.append(bdbl,nil:dbl);
-rdbl:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"return([numpy.add(arg1.filled(0),1)])",bdbl);
-io.print(rdbl);
+#rdbl:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"return([numpy.add(arg1.filled(0),1)])",bdbl);
+#io.print(rdbl);
 
 # strings
 
-#bstr:= bat.new(:oid,:str);
-#bat.append(bstr,"asdf":str);
-#bat.append(bstr,"sd asd asd asd asd a":str);
-#bat.append(bstr,"":str);
-#bat.append(bstr,"test":str);
-#rstr:bat[:oid,:int] := pyapi.eval(nil:ptr,"print(arg1);\nreturn([arg1])",bstr);
+bstr:= bat.new(:oid,:str);
+bat.append(bstr,"asdf":str);
+bat.append(bstr,"sd asd asd asd asd a":str);
+bat.append(bstr,nil:str);
+bat.append(bstr,"test":str);
+#rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"print(arg1);\nreturn(arg1)",bstr);
 #io.print(rstr);
 
+#STRANGE BUG HERE WITH .filled()
+#TODO: Investigate
+
+#booleans
+bool:= bat.new(:oid,:str);
+bat.append(bool,"T":str);
+bat.append(bool,"T":str);
+bat.append(bool,"T":str);
+bat.append(bool,"T":str);
+bat.append(bool,"T":str);
+bat.append(bool,"T":str);
+bat.append(bool,"T":str);
+bat.append(bool,"T":str);
+rbool:bat[:oid,:str] := pyapi.eval(nil:ptr,"print arg1\nreturn(arg1)",bool);
+io.print(rbool);
 
 
 # output types testing
