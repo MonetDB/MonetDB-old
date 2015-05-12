@@ -27,11 +27,14 @@
 #include <string.h>
 
 const char* pyapi_enableflag = "embedded_py";
+char *NPYConstToString(int);
+bool IsPyArrayObject(PyObject *);
 
 int PyAPIEnabled(void) {
 	return (GDKgetenv_istrue(pyapi_enableflag)
 			|| GDKgetenv_isyes(pyapi_enableflag));
 }
+
 
 // TODO: exclude pyapi from mergetable, too
 // TODO: add to SQL layer
@@ -49,7 +52,14 @@ static int pyapiInitialized = FALSE;
 		PyArrayObject* pCol = (PyArrayObject*) PyArray_FromAny(pColO, \
 			PyArray_DescrFromType(nptpe), 1, 1, NPY_ARRAY_CARRAY |    \
 			NPY_ARRAY_FORCECAST, NULL);                               \
-		size_t cnt = PyArray_DIMS(pCol)[0], j;                        \
+		size_t cnt = 0;                                               \
+		if (pCol == NULL)											  \
+		{															  \
+			pCol = (PyArrayObject*) PyArray_FromAny(pColO, NULL, 1, 1,  NPY_ARRAY_CARRAY, NULL);  \
+			msg = createException(MAL, "pyapi.eval", "Wrong return type in python function. Expected an array of type \"%s\" as return value, but the python function returned an array of type \"%s\".", #mtpe, NPYConstToString(PyArray_DTYPE(pCol)->type_num));	      \
+			goto wrapup;	 										  \
+		}															  \
+		cnt = PyArray_DIMS(pCol)[0], j;                               \
 		bat = BATnew(TYPE_void, TYPE_##mtpe, cnt, TRANSIENT);         \
 		BATseqbase(bat, 0); bat->T->nil = 0; bat->T->nonil = 1;       \
 		bat->tkey = 0; bat->tsorted = 0; bat->trevsorted = 0;         \
@@ -58,6 +68,7 @@ static int pyapiInitialized = FALSE;
 					*(mtpe*) PyArray_GETPTR1(pCol, j); }              \
 		BATsetcount(bat, cnt); }
 
+//todo: NULL
 // TODO: also handle the case if someone returns a masked array
 
 #define _PYAPI_DEBUG_
@@ -97,8 +108,12 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 	node * argnode;
 	int seengrp = FALSE;
 	PyObject *pArgs, *pResult; // this is going to be the parameter tuple
-	PyThreadState* tstate;
+	BUN p = 0, q = 0;
+	BATiter li;
 
+	size_t count;
+	size_t maxsize;
+	size_t j;
 
 	if (!PyAPIEnabled()) {
 		throw(MAL, "pyapi.eval",
@@ -120,7 +135,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 
 	// this isolates our interpreter, so it's safe to run pyapi multithreaded
 	// TODO: verify this
-	tstate = Py_NewInterpreter();
+	/*tstate = Py_NewInterpreter();*/
 
 	// first argument after the return contains the pointer to the sql_func structure
 	if (sqlfun != NULL && sqlfun->ops->cnt > 0) {
@@ -178,7 +193,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 			}
 		}
 
-
 		switch (ATOMstorage(getColumnType(getArgType(mb,pci,i)))) {
 		case TYPE_bte:
 			vararray = BAT_TO_NP(b, bte, NPY_INT8);
@@ -198,8 +212,49 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 		case TYPE_dbl:
 			vararray = BAT_TO_NP(b, dbl, NPY_FLOAT64);
 			break;
+		case TYPE_str:
+			li = bat_iterator(b);
 
-		// TODO: implement other types (strings, boolean)
+			//we first loop over all the strings in the BAT to find the maximum length of a single string
+			//this is because NUMPY only supports strings with a fixed maximum length
+			maxsize = 0;
+			count = BATcount(b);
+			BATloop(b, p, q)
+			{
+				const char *t = (const char *) BUNtail(li, p);
+				const size_t length = (const size_t) strlen(t);
+
+				if (strlen(t) > maxsize)
+					maxsize = length;
+
+			}
+
+			//create a NPY_STRING array object
+			vararray = PyArray_New(
+				&PyArray_Type, 
+				1, 
+				(npy_intp[1]) {count},  
+        		NPY_STRING, 
+        		NULL, 
+        		NULL, 
+        		maxsize,             
+				0, 
+				NULL);
+
+			//fill the NPY_STRING array object using the PyArray_SETITEM function
+			j = 0;
+			BATloop(b, p, q)
+			{
+				const char *t = (const char *) BUNtail(li, p);
+				PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), PyString_FromString(t));
+				j++;
+			}
+			break;
+		case TYPE_hge:
+			vararray = BAT_TO_NP(b, hge, NPY_LONGLONG);
+			break;
+
+		// TODO: implement other types (boolean)
 		default:
 			msg = createException(MAL, "pyapi.eval", "unknown argument type ");
 			goto wrapup;
@@ -218,7 +273,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 			int (*atomcmp)(const void *, const void *) = ATOMcompare(b->ttype);
 			BATiter bi = bat_iterator(b);
 
-			if (b->T->nil) {
+			if (b->T->nil) 
+			{
 				size_t j;
 				for (j = 0; j < BATcount(b); j++) {
 					if ((*atomcmp)(BUNtail(bi, BUNfirst(b) + j), nil) == 0) {
@@ -227,8 +283,10 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 					}
 				}
 			}
+
 			PyTuple_SetItem(maargs, 0, vararray);
 			PyTuple_SetItem(maargs, 1, (PyObject*) nullmask);
+				
 			vararray = PyObject_CallObject(mafunc, maargs);
 			if (!vararray) {
 				msg = createException(MAL, "pyapi.eval", "UUUH");
@@ -241,7 +299,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 		// TODO: do this later
 
 		BBPunfix(b->batCacheid);
-
 	}
 
 	// create argument list
@@ -326,12 +383,12 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 		PyObject *pFunc, *pModule;
 
 		// TODO: does this create overhead?, see if we can share the import
-		PyRun_SimpleString("import numpy");
 
 		pModule = PyImport_Import(PyString_FromString("__main__"));
 		pyret = PyRun_SimpleString(pycall);
 		pFunc = PyObject_GetAttrString(pModule, "pyfun");
 
+		//fprintf(stdout, "%s\n", pycall);
 		if (pyret != 0 || !pModule || !pFunc || !PyCallable_Check(pFunc)) {
 			msg = createException(MAL, "pyapi.eval", "could not parse Python code %s", pycall);
 			goto wrapup;
@@ -349,10 +406,23 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 			goto wrapup; // shudder
 		}
 
-		// TODO: handle the case where only  a single array is returned (nice to have)
-		if (!pResult || !PyList_Check(pResult) || PyList_Size(pResult) != pci->retc) {
-			msg = createException(MAL, "pyapi.eval", "Invalid result object. Need list of size %d containing numpy arrays", pci->retc);
-			goto wrapup;
+		if (!pResult || !PyList_Check(pResult) || PyList_Size(pResult) != pci->retc) 
+		{
+			//the object is not a PyList, but maybe it is a single PyArrayObject, so we will check if it is
+			if (IsPyArrayObject(pResult))
+			{
+				//a single array is returned rather than a list of arrays
+				//convert the single array to a list of size 1
+				PyObject *list = PyList_New(1);
+				PyList_SetItem(list, 0, pResult);
+				pResult = list;
+			}
+			else
+			{
+				//it is neither a PyList nor a PyArrayObject, so throw an error
+				msg = createException(MAL, "pyapi.eval", "Invalid result object. Need list of size %d containing numpy arrays", pci->retc);
+				goto wrapup;
+			}
 		}
 		// delete the function again
 		PyRun_SimpleString("del pyfun");
@@ -360,6 +430,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 
 	// collect the return values
 	for (i = 0; i < pci->retc; i++) {
+		PyArrayObject *pCol = NULL;
 		PyObject * pColO = PyList_GetItem(pResult, i);
 		int bat_type = ATOMstorage(getColumnType(getArgType(mb,pci,i)));
 
@@ -383,8 +454,45 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 		case TYPE_dbl:
 			NP_TO_BAT(b, dbl, NPY_FLOAT64);
 			break;
-		// TODO: implement other types
+		case TYPE_str:
+			//convert the returned column to an ArrayObject of String type
+			pCol = (PyArrayObject*) PyArray_FromAny(pColO, PyArray_DescrFromType(NPY_STRING), 1, 1, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
 
+			if (pCol == NULL)
+			{
+				//if the conversion isn't possible, throw an exception and finish the execution
+				//we find out which actual type the array is by setting NPY_<type> to NULL, and then obtaining the type of the resulting array using PyArray_DTYPE
+				pCol = (PyArrayObject*) PyArray_FromAny(pColO, NULL, 1, 1,  NPY_ARRAY_CARRAY, NULL); 
+				msg = createException(MAL, "pyapi.eval", 
+					"Wrong return type in python function. Expected an array of type \"%s\" as return value, but the python function returned an array of type \"%s\".", 
+					"str", NPYConstToString(PyArray_DTYPE(pCol)->type_num));	      
+				goto wrapup;	
+			}
+			//find the amount of elements in the array
+			count = PyArray_DIMS(pCol)[0];
+
+			//create and initialize a new BAT
+			b = BATnew(TYPE_void, TYPE_str, count, TRANSIENT);
+
+			BATseqbase(b, 0); 
+			b->T->nil = 0; 
+			b->T->nonil = 1;
+			b->tkey = 0; 
+			b->tsorted = 0; 
+			b->trevsorted = 0;
+			b->tdense = 1;
+
+			for (j = 0; j < count; j++) 
+			{
+				//for every string in the array, obtain the string and append it to the BAT
+				PyObject *obj = PyArray_GETITEM(pCol, PyArray_GETPTR1(pCol, j));
+				BUNappend(b, PyString_AsString(PyObject_Str(obj)), FALSE);
+			}              
+			BATsetcount(b, count); 
+			break;
+		case TYPE_hge:
+			NP_TO_BAT(b, hge, NPY_LONGLONG);
+			break;
 		default:
 			msg = createException(MAL, "pyapi.eval",
 								  "unknown return type for return argument %d: %d", i,
@@ -403,7 +511,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 	}
   wrapup:
 	//MT_lock_unset(&pyapiLock, "pyapi.evaluate");
-	Py_EndInterpreter(tstate);
+	//Py_EndInterpreter(tstate);
 
 	GDKfree(args);
 	GDKfree(pycall);
@@ -421,10 +529,59 @@ str PyAPIprelude(void *ret) {
 			char* iar = NULL;
 			Py_Initialize();
 			import_array1(iar);
+			PyRun_SimpleString("import numpy");
 			pyapiInitialized++;
 		}
 		MT_lock_unset(&pyapiLock, "pyapi.evaluate");
 		fprintf(stdout, "# MonetDB/Python module loaded\n");
 	}
 	return MAL_SUCCEED;
+}
+
+
+char *NPYConstToString(int NPY)
+{
+	switch (NPY)
+	{
+		case NPY_BOOL: return "BOOL";
+		case NPY_BYTE: return "BYTE";
+		case NPY_SHORT: return "SHORT";
+		case NPY_INT: return "INT";
+		case NPY_LONG: return "LONG";
+		case NPY_LONGLONG: return "LONG LONG";
+		case NPY_UBYTE: return "UNSIGNED BYTE";
+		case NPY_USHORT: return "UNSIGNED SHORT";
+		case NPY_UINT: return "UNSIGNED INT";
+		case NPY_ULONG: return "UNSIGNED LONG";
+		case NPY_ULONGLONG: return "UNSIGNED LONG LONG";
+		case NPY_FLOAT16: return "HALF-FLOAT (FLOAT16)";
+		case NPY_FLOAT: return "FLOAT";
+		case NPY_DOUBLE: return "DOUBLE";
+		case NPY_LONGDOUBLE: return "LONG DOUBLE";
+		case NPY_COMPLEX64: return "COMPLEX FLOAT";
+		case NPY_COMPLEX128: return "COMPLEX DOUBLE";
+		case NPY_CLONGDOUBLE: return "COMPLEX LONG DOUBLE";
+		case NPY_DATETIME: return "DATETIME";
+		case NPY_TIMEDELTA: return "TIMEDELTA";
+		case NPY_STRING: return "STRING";
+		case NPY_UNICODE: return "UNICODE STRING";
+		case NPY_OBJECT: return "PYTHON OBJECT";
+		case NPY_VOID: return "VOID";
+
+
+		default: return "UNKNOWN";
+	}
+}
+
+bool IsPyArrayObject(PyObject *object)
+{
+	PyArrayObject *arr = NULL;
+	PyArray_Descr *dtype = NULL;
+	int ndim = 0;
+	npy_intp dims[NPY_MAXDIMS];
+	if (PyArray_GetArrayParamsFromObject(object, NULL, 1, &dtype, &ndim, dims, &arr, NULL) < 0) 
+	{
+	    return false;
+	}
+	return true;
 }
