@@ -1,4 +1,1 @@
-HAVE_LIBPY?pyapi00
-HAVE_LIBPY?pyapi01
-HAVE_LIBPY?pyapi02
-HAVE_LIBPY?pyapi03
+HAVE_LIBPY?pyapi_types_string

@@ -1,16 +1,17 @@
 
 
+#testing basic string and boolean types
 #booleans
-bool:= bat.new(:oid,:str);
-bat.append(bool,"T":str);
-bat.append(bool,"T":str);
-bat.append(bool,"T":str);
-bat.append(bool,"T":str);
-bat.append(bool,"T":str);
-bat.append(bool,"T":str);
-bat.append(bool,"T":str);
-bat.append(bool,nil:str);
-rbool:bat[:oid,:str] := pyapi.eval(nil:ptr,"return([[True]])",bool);
+bool:= bat.new(:oid,:bte);
+bat.append(bool,1:bte);
+bat.append(bool,1:bte);
+bat.append(bool,1:bte);
+bat.append(bool,1:bte);
+bat.append(bool,1:bte);
+bat.append(bool,1:bte);
+bat.append(bool,1:bte);
+bat.append(bool,nil:bte);
+rbool:bat[:oid,:bte] := pyapi.eval(nil:ptr,"return(all(arg1))",bool);
 io.print(rbool);
 
 #strings testing

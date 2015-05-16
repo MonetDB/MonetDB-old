@@ -1,10 +1,9 @@
-# input types testing
+# different functions testing
 
 # inty types
 
 
-#single-value array gives segmentation fault
-rstr:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"return [55]");
+rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"return 42");
 io.print(rstr);
 
 bstr:= bat.new(:oid,:int);
