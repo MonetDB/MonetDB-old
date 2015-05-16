@@ -247,29 +247,45 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 					maxsize = length;
 			}
 
-			//create a NPY_STRING array object
+			//create a NPY_UNICODE array object
 			vararray = PyArray_New(
 				&PyArray_Type, 
 				1, 
 				(npy_intp[1]) {count},  
-        		NPY_STRING, 
+        		NPY_UNICODE, 
         		NULL, 
         		NULL, 
-        		maxsize,             
+        		maxsize * 4,  //we have to do maxsize*4 because NPY_UNICODE is stored as UNICODE-32 (i.e. 4 bytes per character)           
 				0, 
 				NULL);
 
-			//fill the NPY_STRING array object using the PyArray_SETITEM function
+			//fill the NPY_UNICODE array object using the PyArray_SETITEM function
 			j = 0;
 			BATloop(b, p, q)
 			{
 				const char *t = (const char *) BUNtail(li, p);
-				PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), PyString_FromString(t));
+				PyObject *obj;
+				if (strcmp(t, str_nil) == 0) 
+				{
+					 //for some reason str_nil isn't a valid UTF-8 character (it's 0x80), so we need to decode it as Latin1
+					obj = PyUnicode_DecodeLatin1(t, strlen(t), "strict");
+				}
+				else
+				{
+					obj = PyUnicode_DecodeUTF8(t, strlen(t), "strict");
+				}
+				if (obj == NULL)
+				{
+					PyErr_Print();
+					msg = createException(MAL, "pyapi.eval", "Failed to decode string as UTF-8.");
+					goto wrapup;
+				}
+				PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), obj);
 				j++;
 			}
 			break;
 		case TYPE_hge:
-			vararray = BAT_TO_NP(b, hge, NPY_LONGDOUBLE);
+			vararray = BAT_TO_NP(b, hge,  NPY_LONGDOUBLE);
 			break;
 		default:
 			msg = createException(MAL, "pyapi.eval", "unknown argument type ");
@@ -504,7 +520,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 		case TYPE_str:
 
 			//String Array!
-			NP_TO_BAT(b, str, NPY_STRING);
+			NP_TO_BAT(b, str, NPY_UNICODE);
 
 			//create and initialize a new BAT
 			b = BATnew(TYPE_void, TYPE_str, count, TRANSIENT);
@@ -524,7 +540,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 				else
 				{
 					//if the masked array contains FALSE, then append the actual string to the BAT
-					PyObject *obj = PyArray_GETITEM(pCol, PyArray_GETPTR1(pCol, j));
+					PyObject *obj = PyUnicode_AsUTF8String(PyArray_GETITEM(pCol, PyArray_GETPTR1(pCol, j)));
 					BUNappend(b, PyString_AsString(PyObject_Str(obj)), FALSE);
 				}
 			}     
@@ -532,8 +548,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 			BATsetcount(b, count); 
 			break;
 		case TYPE_hge:
-			NP_TO_BAT(b, hge, NPY_LONGDOUBLE);
-			NP_MAKE_BAT(b, hge, NPY_LONGDOUBLE);
+			NP_TO_BAT(b, hge,  NPY_LONGDOUBLE);
+			NP_MAKE_BAT(b, hge,  NPY_LONGDOUBLE);
 			break;
 		default:
 			msg = createException(MAL, "pyapi.eval",

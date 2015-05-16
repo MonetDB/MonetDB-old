@@ -1,0 +1,8 @@
+
+
+
+# read data from a CSV file using the Python PANDAS library and store it in a BAT
+# requires python-pandas to be installed
+# CSV location is hardcoded (sorry) ----->---------->----------->-------->------vvvv
+r:bat[:oid,:int] := pyapi.eval(nil:ptr, "import pandas as pd\ndf = pd.read_csv(\"/home/mytherin/Programs/MonetDB/monetdb5/extras/pyapi/Tests/bikedata.csv\")\nreturn([list(df['Berri 1'])])");
+io.print(r);

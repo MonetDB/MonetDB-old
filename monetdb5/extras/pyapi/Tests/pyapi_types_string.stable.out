@@ -1,0 +1,95 @@
+stdout of test 'pyapi_types_string` in directory 'monetdb5/extras/pyapi` itself:
+
+
+# 18:11:27 >  
+# 18:11:27 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=30512" "--set" "mapi_usock=/var/tmp/mtest-11968/.s.monetdb.30512" "--set" "monet_prompt=" "--forcemito" "--set" "mal_listing=2" "--dbpath=/usr/local/var/MonetDB/mTests_monetdb5_extras_pyapi" "--set" "mal_listing=2" "--set" "embedded_r=true" "--set" "embedded_py=true"
+# 18:11:27 >  
+
+# MonetDB 5 server v11.20.0
+# This is an unreleased version
+# Serving database 'mTests_monetdb5_extras_pyapi', using 8 threads
+# Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs and 128bit integers dynamically linked
+# Found 7.684 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://mytherin-N750JV:30512/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-11968/.s.monetdb.30512
+# MonetDB/SQL module loaded
+# MonetDB/Python module loaded
+# MonetDB/R   module loaded
+
+Ready.
+
+# 18:11:27 >  
+# 18:11:27 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-11968" "--port=30512"
+# 18:11:27 >  
+
+#io.print(rstr);
+#--------------------------#
+# h	t  # name
+# void	str  # type
+#--------------------------#
+[ 0@0,	"asdf"	]
+[ 1@0,	"sd asd asd asd asd a"	]
+[ 2@0,	"test123"	]
+[ 3@0,	"test"	]
+#io.print(rstr);
+#--------------------------#
+# h	t  # name
+# void	str  # type
+#--------------------------#
+[ 0@0,	"asdf"	]
+[ 1@0,	"sd asd asd asd asd a"	]
+[ 2@0,	nil	]
+[ 3@0,	"test"	]
+#io.print(rstr);
+#--------------------------#
+# h	t  # name
+# void	str  # type
+#--------------------------#
+[ 0@0,	"Hannes Mühleisen"	]
+[ 1@0,	"héllo"	]
+[ 2@0,	"éáú üüäãö"	]
+[ 3@0,	"幺巾乡阜阝测试一些中国符号"	]
+[ 4@0,	"いくつかの日本のシンボルをテストします"	]
+#io.print(rstr);
+#--------------------------#
+# h	t  # name
+# void	str  # type
+#--------------------------#
+[ 0@0,	"Hello"	]
+[ 1@0,	"World"	]
+#io.print(rstr);
+#--------------------------#
+# h	t  # name
+# void	str  # type
+#--------------------------#
+[ 0@0,	"1804289383"	]
+[ 1@0,	"846930886"	]
+[ 2@0,	"1681692777"	]
+[ 3@0,	"1714636915"	]
+[ 4@0,	nil	]
+#io.print(rstr);
+#--------------------------#
+# h	t  # name
+# void	str  # type
+#--------------------------#
+[ 0@0,	"18042.8945312"	]
+[ 1@0,	"846.930908203"	]
+[ 2@0,	"16.8169269562"	]
+[ 3@0,	"1714636.875"	]
+[ 4@0,	nil	]
+#io.print(rstr);
+#--------------------------#
+# h	t  # name
+# void	str  # type
+#--------------------------#
+[ 0@0,	"True"	]
+[ 1@0,	"True"	]
+[ 2@0,	"False"	]
+
+# 18:11:27 >  
+# 18:11:27 >  "Done."
+# 18:11:27 >  
+

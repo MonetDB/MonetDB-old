@@ -1,1 +1,4 @@
+HAVE_LIBPY?pyapi_numpy_boolean
 HAVE_LIBPY?pyapi_types_string
+HAVE_LIBPY?pyapi_types_numeric
+HAVE_LIBPY?pyapi_pandas
