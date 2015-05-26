@@ -1897,6 +1897,7 @@ doFileBulk(Mapi mid, FILE *fp)
 			}
 			if (hdl == NULL)
 				break;	/* nothing more to do */
+			buf[0] = 0;
 		} else {
 			if (first &&
 			    length >= UTF8BOMLENGTH &&
@@ -2860,7 +2861,7 @@ usage(const char *prog, int xit)
 #endif
 	fprintf(stderr, " -f kind     | --format=kind      specify output format {csv,tab,raw,sql,xml}\n");
 	fprintf(stderr, " -H          | --history          load/save cmdline history (default off)\n");
-	fprintf(stderr, " -i          | --interactive[=tm] interpret \\ commands on stdin, use time formatting {ms,s,m}\n");
+	fprintf(stderr, " -i          | --interactive[=tm] interpret `\\' commands on stdin, use time formatting {ms,s,m}\n");
 	fprintf(stderr, " -l language | --language=lang    {sql,mal}\n");
 	fprintf(stderr, " -L logfile  | --log=logfile      save client/server interaction\n");
 	fprintf(stderr, " -s stmt     | --statement=stmt   run single statement\n");
