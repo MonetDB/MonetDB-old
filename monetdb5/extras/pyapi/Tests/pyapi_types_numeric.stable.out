@@ -20,6 +20,8 @@ stdout of test 'pyapi_types_numeric` in directory 'monetdb5/extras/pyapi` itself
 # MonetDB/R   module loaded
 
 Ready.
+!WARNING: Type "hge" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type "long". This can be very slow.
+
 
 # 19:41:50 >  
 # 19:41:50 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-7261" "--port=31934"
@@ -90,7 +92,7 @@ Ready.
 # h	t  # name
 # void	hge  # type
 #--------------------------#
-[ 0@0,	180444334289335346546346436988	]
+[ 0@0,	18044433428933534654634643698858345	]
 [ 1@0,	895233278923448975389573895731	]
 [ 2@0,	558372892789247104910348981249	]
 [ 3@0,	23	]

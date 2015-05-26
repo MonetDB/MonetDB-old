@@ -154,6 +154,9 @@ io.print(r,s);
 ## --WRONG RETURNS-- ##
 #######################
 #######################
+# return a multi-dimensional python array and load it into a wrong BAT
+(di:bat[:oid,:int],dd:bat[:oid,:dbl]) := pyapi.eval(nil:ptr,"return(numpy.array([[33.2, 24.7, 55.4], [44.1, 66.3, 2.2]]))");
+io.print(di,dd);
 
 # return a string when an int is expected
 r:bat[:oid,:int] := pyapi.eval(nil:ptr,"return(\"Test\")");
@@ -164,7 +167,7 @@ r:bat[:oid,:int] := pyapi.eval(nil:ptr,"return(\"Test\")");
 # return a scalar when multiple returns are expected
 (r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(12)");
 
-# return a pandas dataframe with the incorrect format
+# return a pandas dataframe with the incorrect format (return a dataframe with 3 columns when 2 columns are expected)
 (r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"import pandas as pd\ndf = pd.DataFrame({\'Group\': arg1, \'Values\': arg2, 'Values2': arg2})\nreturn(df)", g, b);
 
 # return a single numpy array when two are expected

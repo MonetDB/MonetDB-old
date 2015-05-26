@@ -61,7 +61,7 @@ io.print(rlng);
 
 # huge with null value
 bhge:= bat.new(:oid,:hge);
-bat.append(bhge,180444334289335346546346436988:hge);
+bat.append(bhge,18044433428933534654634643698858345:hge);
 bat.append(bhge,895233278923448975389573895731:hge);
 bat.append(bhge,558372892789247104910348981249:hge);
 bat.append(bhge,23:hge);

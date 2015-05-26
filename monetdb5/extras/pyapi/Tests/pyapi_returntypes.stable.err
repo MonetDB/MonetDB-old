@@ -1,0 +1,67 @@
+stderr of test 'pyapi_returntypes` in directory 'monetdb5/extras/pyapi` itself:
+
+
+# 20:21:21 >  
+# 20:21:21 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=36401" "--set" "mapi_usock=/var/tmp/mtest-9956/.s.monetdb.36401" "--set" "monet_prompt=" "--forcemito" "--set" "mal_listing=2" "--dbpath=/usr/local/var/MonetDB/mTests_monetdb5_extras_pyapi" "--set" "mal_listing=2" "--set" "embedded_r=true" "--set" "embedded_py=true"
+# 20:21:21 >  
+
+# builtin opt 	gdk_dbpath = /usr/local/var/monetdb5/dbfarm/demo
+# builtin opt 	gdk_debug = 0
+# builtin opt 	gdk_vmtrim = no
+# builtin opt 	monet_prompt = >
+# builtin opt 	monet_daemon = no
+# builtin opt 	mapi_port = 50000
+# builtin opt 	mapi_open = false
+# builtin opt 	mapi_autosense = false
+# builtin opt 	sql_optimizer = default_pipe
+# builtin opt 	sql_debug = 0
+# cmdline opt 	gdk_nr_threads = 0
+# cmdline opt 	mapi_open = true
+# cmdline opt 	mapi_port = 36401
+# cmdline opt 	mapi_usock = /var/tmp/mtest-9956/.s.monetdb.36401
+# cmdline opt 	monet_prompt = 
+# cmdline opt 	mal_listing = 2
+# cmdline opt 	gdk_dbpath = /usr/local/var/MonetDB/mTests_monetdb5_extras_pyapi
+# cmdline opt 	mal_listing = 2
+# cmdline opt 	embedded_r = true
+# cmdline opt 	embedded_py = true
+# cmdline opt 	gdk_debug = 536870922
+
+# 20:21:21 >  
+# 20:21:21 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-9956" "--port=36401"
+# 20:21:21 >  
+
+MAPI  = (monetdb) /var/tmp/mtest-30800/.s.monetdb.32717
+QUERY = r:bat[:oid,:int] := pyapi.eval(nil:ptr,"return(\"Test\")");
+ERROR = !MALException:pyapi.eval:Wrong return type in python function. Expected an array of type "NPY_INT32" as return value, but the python function returned an array of type "STRING".
+MAPI  = (monetdb) /var/tmp/mtest-30800/.s.monetdb.32717
+QUERY = (r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"class NewClass:\n\tx = 5\n\n\treturn(NewClass())");
+ERROR = !MALException:pyapi.eval:Unsupported result object. Expected either an array, a numpy array, a numpy masked array or a pandas data frame, but received an object of type "<type 'instance'>"
+MAPI  = (monetdb) /var/tmp/mtest-30800/.s.monetdb.32717
+QUERY = (r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(12)");
+ERROR = !MALException:pyapi.eval:A single scalar was returned, yet we expect a list of 2 columns. We can only convert a single scalar into a single column, thus the result is invalid.
+MAPI  = (monetdb) /var/tmp/mtest-30800/.s.monetdb.32717
+QUERY = (r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"import pandas as pd\ndf = pd.DataFrame({\'Group\': arg1, \'Values\': arg2, 'Values2': arg2})\nreturn(df)", g, b);
+ERROR = !MALException:pyapi.eval:An array of size 3 was returned, yet we expect a list of 2 columns. The result is invalid.
+MAPI  = (monetdb) /var/tmp/mtest-30800/.s.monetdb.32717
+QUERY = (r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(numpy.array([12]))");
+ERROR = !MALException:pyapi.eval:A single array was returned, yet we expect a list of 2 columns. The result is invalid.
+MAPI  = (monetdb) /var/tmp/mtest-30800/.s.monetdb.32717
+QUERY = (r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return([12])");
+ERROR = !MALException:pyapi.eval:A single array was returned, yet we expect a list of 2 columns. The result is invalid.
+MAPI  = (monetdb) /var/tmp/mtest-30800/.s.monetdb.32717
+QUERY = r:bat[:oid,:int] := pyapi.eval(nil:ptr,"return([[33,24,55], [44,66,345]])");
+ERROR = !MALException:pyapi.eval:An array of size 2 was returned, yet we expect a list of 1 columns. The result is invalid.
+MAPI  = (monetdb) /var/tmp/mtest-30800/.s.monetdb.32717
+QUERY = a:bat[:oid,:str] := pyapi.eval(nil:ptr,"x = unicode(\"hello\")\nreturn(x.encode(\"utf32\"))");
+ERROR = !MALException:pyapi.eval:Could not convert the string array to UTF-8. We currently only support UTF-8 formatted strings.
+MAPI  = (monetdb) /var/tmp/mtest-30800/.s.monetdb.32717
+QUERY = (str1:bat[:oid,:str], str2:bat[:oid,:str]) := pyapi.eval(nil:ptr,"x = unicode(\"hello\")\nreturn(numpy.array([[x.encode(\"utf32\")], [x.encode(\"utf32\")]]))");
+ERROR = !MALException:pyapi.eval:Could not convert the string "ÿþ" to UTF-8. We currently only support UTF-8 formatted strings.
+
+
+
+# 20:21:22 >  
+# 20:21:22 >  "Done."
+# 20:21:22 >  
+
