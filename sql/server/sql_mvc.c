@@ -302,11 +302,10 @@ mvc_commit(mvc *m, int chain, const char *name)
 
 int
 mvc_precommit(mvc *m, int chain, const char *name, long id) {
+	int result = SQL_OK;//, wait = 0;
 	sql_trans *tr = m->session->tr;
 	// set CPaaS HTM id
 	tr->htm_id = id;
-
-	int result = SQL_OK;//, wait = 0;
 
 	if ((result = mvc_commit_prepare(m, chain, name, tr)) != SQL_OK) {
 		store_unlock();
