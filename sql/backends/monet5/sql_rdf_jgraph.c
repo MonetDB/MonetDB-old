@@ -27,6 +27,7 @@
 #include <sql_rdf.h>
 #include <rdfschema.h>
 #include <sql_rdf_rel.h>
+#include <rel_rdfscan.h>
 
 /*
 static
@@ -1281,7 +1282,7 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 
 				printf("tmpcolname in rdf basetable is %s\n", tmpcolname);
 				append(trans_tbl_exps, e); 
-				append(sp_prj_exps, proj_e); 
+				if (sp_prj_exps) append(sp_prj_exps, proj_e); 
 			}
 
 			if (strcmp(tmpexp->name, "s") == 0){
@@ -1299,7 +1300,7 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 					*asubjcolname = GDKstrdup(tmpexp->name);
 				}
 				append(trans_tbl_exps, e); 
-				append(sp_prj_exps, proj_e); 
+				if (sp_prj_exps) append(sp_prj_exps, proj_e); 
 			}
 
 		}
@@ -1768,6 +1769,113 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 
 }
 
+/*
+ * Input: 
+ * - A sub-join graph (jsg) that all nodes are connected by using inner join
+ * - The table (tId) that the node belongs to has been identified 
+ *   (The table corresponding to the star pattern is known)
+ * 
+ * Output: 
+ *  - A select from a relational table with list of columns. Or a join between
+ *  select from a table and mv_table if there is mv prop. 
+ *  - sp_prj_exps stores all the columns should be selected in the "original order" 
+ * */
+static
+sql_rel* build_rdfscan (mvc *c, jgraph *jg, int tId, int ncol, int nijgroup, int **ijgroup, int *nnodes_per_ijgroup){
+
+	sql_rel *rel_rdfscan = NULL;
+	str tblname; 
+	oid tblnameoid;
+	str atblname = NULL; 		//alias for table of sp
+	str asubjcolname = NULL; 	//alias for subject column of sp table
+	char tmp[50]; 
+	list *trans_select_exps = NULL; 	//Store the exps in op_select
+	list *trans_table_exps = NULL; 		//Store the list of column for basetable in op_select
+	sql_rel *rel_basetbl = NULL; 
+	sql_allocator *sa = c->sa;
+	int num_mv_col = 0;
+	int i, gr; 
+	int num_nonMV_col = 0; 
+	rdf_rel_prop *r_r_prop = NULL; 
+
+	num_mv_col = 0;
+
+	trans_select_exps = new_exp_list(sa);
+	trans_table_exps = new_exp_list(sa); 
+	r_r_prop = init_rdf_rel_prop(ncol, nijgroup, nnodes_per_ijgroup);
+
+	printf("Get real expressions from tableId %d\n", tId);
+
+	tblnameoid = global_csset->items[tId]->tblname;
+
+	tblname = (str) GDKmalloc(sizeof(char) * 100); 
+
+	getTblSQLname(tblname, tId, 0,  tblnameoid, global_mapi, global_mbat);
+
+	printf("  [Name of the table  %s]", tblname);  
+	
+	for (gr = 0; gr < nijgroup; gr++){
+		for (i = 0; i < nnodes_per_ijgroup[gr]; i++){
+			int nodeid = ijgroup[gr][i];
+			sql_rel *tmprel = (sql_rel*) (jg->lstnodes[nodeid]->data);
+			int colIdx; 
+			int isMVcol = 0; 
+			list *tmpexps = NULL; 
+			str prop; 
+			str subj;
+			oid tmpPropId;
+
+			assert(tmprel->op == op_select);
+			assert(((sql_rel*)tmprel->l)->op == op_basetable); 
+
+			tmpexps = tmprel->exps;
+
+			if (tmpexps) get_predicate_from_exps(c, tmpexps, &prop, &subj);
+
+			//After having prop, get the corresponding column name
+
+			TKNRstringToOid(&tmpPropId, &prop);
+
+			colIdx = getColIdx_from_oid(tId, global_csset, tmpPropId);
+
+			//Check whether the column is multi-valued prop
+			isMVcol = isMVCol(tId, colIdx, global_csset);
+
+			//Only for RDFscan, otherwise we need to handle Multi-valued prop
+			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname, NULL); 
+
+			if (isMVcol == 0){
+				num_nonMV_col++; 
+			}
+			else{
+				num_mv_col++;
+			}
+		}
+	}
+	
+	sprintf(tmp, "[RDFscan] select exprs: "); 
+	exps_print_ext(c, trans_select_exps, 0, tmp);
+	sprintf(tmp, "          base table expression: \n"); 
+	exps_print_ext(c, trans_table_exps, 0, tmp);	
+
+
+
+	rel_basetbl = rel_basetable(c, get_rdf_table(c,tblname), tblname); 
+
+	rel_basetbl->exps = trans_table_exps;
+
+	if (num_mv_col > 0) r_r_prop->containMV = 1; 
+	
+	rel_rdfscan = rel_rdfscan_create(c->sa, rel_basetbl, trans_select_exps, r_r_prop); 
+
+	
+	list_destroy(trans_select_exps);
+
+	return rel_rdfscan; 
+
+}
+
+
 static
 void tranforms_join_exps(mvc *c, sql_rel *r, list *sp_edge_exps, int is_outer_join){
 
@@ -2189,11 +2297,14 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 			sql_rel **ijrels;    //rel for inner join groups
 			sql_rel **edge_ijrels;  //sql_rel connecting each pair of ijrels
 			int is_contain_mv = 0; 
+			sql_rel *rel_rdfscan = NULL; 
 
 			sp_proj_exps[tblIdx] = new_exp_list(c->sa);
 			ijgroup = get_inner_join_groups_in_sp_group(jg, group, nnode, &nijgroup, &nnodes_per_ijgroup);				
 
 			printf("Number of inner join group is: %d\n", nijgroup);
+
+			rel_rdfscan = build_rdfscan(c, jg, tId, nnode, nijgroup, ijgroup, nnodes_per_ijgroup);
 
 			for (i = 0; i < nijgroup; i++){
 				printf("Group %d: ", i);
@@ -2229,6 +2340,12 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 			else{	//nijgroup = 1
 				tbl_m_rels[tblIdx] = ijrels[0]; 
 			}
+
+			#if USINGRDFSCAN
+			tbl_m_rels[tblIdx] = rel_rdfscan; 
+			#else
+			rel_destroy(rel_rdfscan);
+			#endif
 
 			//Free
 			for (i = 0; i < nijgroup; i++){
@@ -2341,22 +2458,10 @@ void group_star_pattern(mvc *c, jgraph *jg, int numsp, sql_rel** lstRels){
 	//Merge sql_rels in each group into one sql_rel
 	for (i = 0; i < numsp; i++){
 		lstRels[i] = _group_star_pattern(c, jg, group[i], nnode_per_group[i], i); 
-		if (lstRels[i]){
-			//rel_print(c, lstRels[i], 0); 
-		}
-		else{
+		if (!lstRels[i]){
 			printf("Group pattern %d cannot be converted to select from rel table\n", i); 
 		}
 	}
-
-	/*
-	for (i = 0; i < (numsp-1); i++){
-		lstEdgeRels[i] = _group_edge_between_two_groups(c, jg, i, group[i], nnode_per_group[i], 
-								  group[i+1], nnode_per_group[i+1],
-								  lstRels[i], lstRels[i+1], 0); 
-	}	
-	*/
-
 
 	//Free
 	for (i = 0; i < numsp; i++){

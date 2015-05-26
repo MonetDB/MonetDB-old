@@ -28,6 +28,7 @@ typedef struct TypeAttributesFreq {
 	oid		value;
 	int		freq;
 	int		percent;
+	float		rankscore; 	//= percent / global
 } TypeAttributesFreq;
 
 // Statistics for a foreign key relationship
@@ -106,6 +107,7 @@ enum {
 #define	ONLY_USE_ONTOLOGYBASED_TYPE 0
 #define USE_BEST_TYPEVALUE_INSTEADOF_DUMMY 1  //Use the most frequent type value instead of a dummy for the label name	
 #define MIN_POSSIBLE_TYPE_FREQ_THRESHOLD  20  //However, that type must still appears in more than a minimum threshold
+#define TYPE_TFIDF_RANKING 1	//Rank value of type property by using (percent in a CS) / (percent in all subjects)
 
 rdf_export void
 getPropNameShort(char** name, char* propStr);

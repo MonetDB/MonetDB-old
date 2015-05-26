@@ -127,8 +127,10 @@ sql_symbol2relation(mvc *c, symbol *sym)
 			buildJoinGraph(c,r,0); 
 			//rel_print(c,r,0); 
 			_rel_print(c,r); 
-			c->emode = m_normal;
-			//c->emod = mod_explain;
+			
+			if (1) c->emode = m_normal;
+			
+			if (1) c->emod = mod_explain;
 			}
 		}
 

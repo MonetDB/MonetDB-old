@@ -116,6 +116,31 @@ static struct PIPELINES {
 	 "optimizer.generator();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
+/* The rdf_opt_pipe is identical to the no_mitosis_pipe
+ * which is used for rdf/sparql queries
+ */
+	{"rdf_opt_pipe",
+	 "optimizer.inline();"
+	 "optimizer.remap();"
+	 "optimizer.costModel();"
+	 "optimizer.coercions();"
+	 "optimizer.evaluate();"
+	 "optimizer.aliases();"
+	 "optimizer.pushselect();"
+	 "optimizer.mergetable();"
+	 "optimizer.deadcode();"
+	 "optimizer.commonTerms();"
+	 "optimizer.joinPath();"
+	 "optimizer.reorder();"
+	 "optimizer.deadcode();"
+	 "optimizer.reduce();"
+	 "optimizer.matpack();"
+	 "optimizer.dataflow();"
+	 "optimizer.querylog();"
+	 "optimizer.multiplex();"
+	 "optimizer.generator();"
+	 "optimizer.garbageCollector();",
+	 "stable", NULL, NULL, 1},
 /* The sequential pipe line is (and should be kept!) identical to the
  * default pipeline, except that optimizers mitosis & dataflow are
  * omitted.  It is use mainly to make some tests work

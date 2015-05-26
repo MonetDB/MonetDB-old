@@ -403,6 +403,80 @@ getStringBetweenQuotes(str* out, str in) {
 	}
 }
 
+#if TYPE_TFIDF_RANKING
+/*
+ * Init the BATs for storing all type oids and their frequency
+ * */
+static 
+void initGlobalTypeBATs(BAT **glTypeValueBat, BAT **glTypeFreqBat){
+
+	*glTypeValueBat = BATnew(TYPE_void, TYPE_oid, smallbatsz, TRANSIENT);
+	BATseqbase(*glTypeValueBat, 0);
+	if (*glTypeValueBat == NULL) {
+		fprintf(stderr, "ERROR: Couldn't create BAT!\n");
+	}
+
+	(void)BAThash(*glTypeValueBat,0);
+	if (!((*glTypeValueBat)->T->hash)){
+		fprintf(stderr, "ERROR: Couldn't create Hash for BAT!\n");	
+	}
+
+	*glTypeFreqBat = BATnew(TYPE_void, TYPE_int, smallbatsz, TRANSIENT);
+	if (*glTypeFreqBat == NULL) {
+		fprintf(stderr, "ERROR: Couldn't create BAT!\n");	
+	}
+
+}
+
+static
+void freeGlobalTypeBATs(BAT *glTypeValueBat, BAT *glTypeFreqBat){
+	BBPunfix(glTypeValueBat->batCacheid);
+	BBPunfix(glTypeFreqBat->batCacheid);
+}
+
+static 
+void addGlobalType(oid typevalue, BAT *glTypeValueBat, BAT *glTypeFreqBat){
+	oid tmp;
+	BUN bun; 
+	int freq; 
+
+	tmp = typevalue; 
+	bun = BUNfnd(glTypeValueBat,(ptr) &tmp);
+	if (bun == BUN_NONE){	//New type value
+		if (glTypeValueBat->T->hash && BATcount(glTypeValueBat) > 4 * glTypeValueBat->T->hash->mask) {
+			HASHdestroy(glTypeValueBat);
+			BAThash(glTypeValueBat, 2*BATcount(glTypeValueBat));
+		}
+		BUNappend(glTypeValueBat,&tmp, TRUE);	
+		freq = 1; 
+		BUNappend(glTypeFreqBat, &freq, TRUE);
+	} else{
+		int *curfreq = (int *)Tloc(glTypeFreqBat, bun);	
+		(*curfreq)++;  
+	}
+}
+
+static
+int getTypeGlobalFrequency(oid typevalue, BAT *glTypeValueBat, BAT *glTypeFreqBat){
+	
+	oid tmp;
+	BUN bun; 
+	int ret = -1; 
+
+	tmp = typevalue; 
+	bun = BUNfnd(glTypeValueBat,(ptr) &tmp);
+	if (bun == BUN_NONE){	//New type value
+		fprintf(stderr, "ERROR: This typevalue must be there!\n");	
+	} else{
+		int *freq = (int *)Tloc(glTypeFreqBat, bun);	
+		ret = *freq;  
+		return ret; 
+	}	
+	return ret; 
+}
+#endif
+
+
 #if USE_TYPE_NAMES
 static
 int compareTypeAttributesFreqs (const void * a, const void * b) {
@@ -413,7 +487,7 @@ int compareTypeAttributesFreqs (const void * a, const void * b) {
 #if USE_TYPE_NAMES
 /* Add type values to the histogram. Values that are not present in the hierarchy tree built from the ontologies are NOT added to the histogram. */
 static
-void insertValuesIntoTypeAttributesHistogram(oid* typeList, int typeListLength, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, int csFreqIdx, int type, BAT *ontmetaBat) {
+void insertValuesIntoTypeAttributesHistogram(oid* typeList, int typeListLength, TypeAttributesFreq*** typeAttributesHistogram, int** typeAttributesHistogramCount, int csFreqIdx, int type, BAT *ontmetaBat, BAT *glTypeValueBat, BAT *glTypeFreqBat) {
 	int		i, j;
 	int		fit;
 	(void) ontmetaBat;
@@ -444,8 +518,18 @@ void insertValuesIntoTypeAttributesHistogram(oid* typeList, int typeListLength, 
 			typeAttributesHistogram[csFreqIdx][type][typeAttributesHistogramCount[csFreqIdx][type] - 1].value = typeList[i];
 			typeAttributesHistogram[csFreqIdx][type][typeAttributesHistogramCount[csFreqIdx][type] - 1].freq = 1;
 		}
+
+		//Add to global types
+		#if TYPE_TFIDF_RANKING
+		addGlobalType(typeList[i], glTypeValueBat, glTypeFreqBat); 
+		#else
+		(void) glTypeValueBat; 
+		(void) glTypeFreqBat; 
+		#endif
 	}
 }
+
+
 
 /* Loop through all subjects to collect frequency statistics for type attribute values. */
 static
@@ -461,11 +545,20 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 	oid		*typeValues; // list of type values per subject and type
 	int		typeValuesSize;
 	int		typeValuesMaxSize = 10;
+	int		numS = 0; 
 
 	// histogram
 	int		i, j, k;
 
 	oid 		*typeAttributesOids = malloc(sizeof(oid) * typeAttributesCount);
+
+	BAT		*glTypeValueBat = NULL;	//Store the oid of each type value 
+	BAT		*glTypeFreqBat = NULL; 	//Store the global frequency (#of subjects) of a type value 
+
+	#if TYPE_TFIDF_RANKING	
+	int		tmpgl_freq = 0; 
+	initGlobalTypeBATs(&glTypeValueBat, &glTypeFreqBat); 
+	#endif
 
 	if (BATcount(sbat) == 0) {
 		fprintf(stderr, "sbat must not be empty");
@@ -517,10 +610,11 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 					} else {
 						// analyze values and add to histogram
 						csFreqIdx = csIdFreqIdxMap[subjCSMap[curS]]; // get csFreqIdx of last subject
-						insertValuesIntoTypeAttributesHistogram(typeValues, typeValuesSize, typeAttributesHistogram, typeAttributesHistogramCount, csFreqIdx, curT, ontmetaBat);
+						insertValuesIntoTypeAttributesHistogram(typeValues, typeValuesSize, typeAttributesHistogram, typeAttributesHistogramCount, csFreqIdx, curT, ontmetaBat, glTypeValueBat,glTypeFreqBat);
 						typeValuesSize = 0; // reset
 					}
 					curS = *sbt;
+					numS++; 
 					curT = i;
 				}
 				// add value to list of type values
@@ -539,7 +633,7 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 	// analyze and add last set of typeValues
 	if (curS != BUN_NONE && typeValuesSize != 0) {
 		csFreqIdx = csIdFreqIdxMap[subjCSMap[curS]]; // get csFreqIdx of last subject
-		insertValuesIntoTypeAttributesHistogram(typeValues, typeValuesSize, typeAttributesHistogram, typeAttributesHistogramCount, csFreqIdx, curT, ontmetaBat);
+		insertValuesIntoTypeAttributesHistogram(typeValues, typeValuesSize, typeAttributesHistogram, typeAttributesHistogramCount, csFreqIdx, curT, ontmetaBat, glTypeValueBat,glTypeFreqBat);
 	}
 
 	GDKfree(typeValues);
@@ -551,18 +645,27 @@ void createTypeAttributesHistogram(BAT *sbat, BATiter si, BATiter pi, BATiter oi
 		}
 	}
 
-	// assign percentage
+	(void) numS; 
+	// assign percentage and tf-idf ranking score
 	for (i = 0; i < freqCSset->numCSadded; ++i) {
 		for (j = 0; j < typeAttributesCount; ++j) {
 			// assign percentage values for every value
 			for (k = 0; k < typeAttributesHistogramCount[i][j]; ++k) {
 				typeAttributesHistogram[i][j][k].percent = (int) (100.0 * typeAttributesHistogram[i][j][k].freq / freqCSset->items[i].support + 0.5);
-
+				#if TYPE_TFIDF_RANKING
+				tmpgl_freq = getTypeGlobalFrequency(typeAttributesHistogram[i][j][k].value, glTypeValueBat, glTypeFreqBat); 
+				typeAttributesHistogram[i][j][k].rankscore = ((float) typeAttributesHistogram[i][j][k].percent * numS) / (float) tmpgl_freq; 
+				//printf("numS = %d, oid "BUNFMT", typeAttributesHistogram[i][j][k].freq = %d, tmpgl_freq = %d, percent = %d , rankscore = %f\n",
+				//		numS,  typeAttributesHistogram[i][j][k].value, typeAttributesHistogram[i][j][k].freq, tmpgl_freq, typeAttributesHistogram[i][j][k].percent, typeAttributesHistogram[i][j][k].rankscore);
+				#endif
 			}
 		}
 	}
 
 	free(typeAttributesOids);
+	#if TYPE_TFIDF_RANKING
+	freeGlobalTypeBATs(glTypeValueBat, glTypeFreqBat);
+	#endif
 }
 #endif
 
@@ -1316,6 +1419,13 @@ void getTableName(CSlabel* label, CSset* freqCSset, int csIdx,  int typeAttribut
 	char		nameFound = 0;
 	oid		maxDepthOid;
 	int		maxFreq;
+	
+	#if TYPE_TFIDF_RANKING	
+	oid		maxRankscoreOid; 
+	float		maxRankscore = 0.0; 
+	float 		tmprankscore = 0.0; 
+	int		maxRankscoreFreq; 
+	#endif
 
 	//for choosing the right type values
 	BUN		ontClassPos;
@@ -1339,7 +1449,7 @@ void getTableName(CSlabel* label, CSset* freqCSset, int csIdx,  int typeAttribut
 	label->nameFreq = 0;
 	label->ontologySimScore = 0.0;
 	#endif
-
+	
 	for (i = 0; i < typeAttributesCount; ++i) {
 		foundOntologyTypeValue = 0;
 		if (typeAttributesHistogramCount[csIdx][i] == 0) continue;
@@ -1373,6 +1483,12 @@ void getTableName(CSlabel* label, CSset* freqCSset, int csIdx,  int typeAttribut
 		// of all values that are >= TYPE_FREQ_THRESHOLD, choose the value with the highest hierarchy level ("deepest" value)
 		maxDepthOid = typeAttributesHistogram[csIdx][i][0].value;
 		maxFreq = typeAttributesHistogram[csIdx][i][0].freq;
+		#if TYPE_TFIDF_RANKING
+		maxRankscore = typeAttributesHistogram[csIdx][i][0].rankscore; 
+		maxRankscoreOid = typeAttributesHistogram[csIdx][i][0].value;
+		maxRankscoreFreq = typeAttributesHistogram[csIdx][i][0].freq;
+		#endif
+
 		ontClassPos = BUNfnd(ontmetaBat, &maxDepthOid);
 		if ( ontClassPos != BUN_NONE){
 			foundOntologyTypeValue = 1;
@@ -1405,6 +1521,14 @@ void getTableName(CSlabel* label, CSset* freqCSset, int csIdx,  int typeAttribut
 					maxFreq = freq;
 				}
 
+				#if TYPE_TFIDF_RANKING
+				tmprankscore = typeAttributesHistogram[csIdx][i][j].rankscore; 
+				if (tmprankscore > maxRankscore){
+					maxRankscore = tmprankscore; 
+					maxRankscoreOid = typeAttributesHistogram[csIdx][i][j].value;
+					maxRankscoreFreq = typeAttributesHistogram[csIdx][i][j].freq; 	
+				}
+				#endif
 			}
 		}
 
@@ -1414,6 +1538,10 @@ void getTableName(CSlabel* label, CSset* freqCSset, int csIdx,  int typeAttribut
 		if (foundOntologyTypeValue){
 			choosenOntologyTypeValue = maxDepthOid;
 			choosenFreq = maxFreq;
+			#if TYPE_TFIDF_RANKING
+			choosenOntologyTypeValue = maxRankscoreOid; 
+			choosenFreq = maxRankscoreFreq; 
+			#endif
 		}
 	}
 
@@ -2025,6 +2153,7 @@ CSlabel* createLabels(CSset* freqCSset, CSrel* csrelSet, int num, BAT *sbat, BAT
 	CSlabel			*labels;
         clock_t  	  	curT;
         clock_t         	tmpLastT;
+
 
 
 	str		schema = "rdf";

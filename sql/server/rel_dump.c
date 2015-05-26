@@ -255,6 +255,8 @@ op2string(operator_type op)
 		return "project";
 	case op_select: 
 		return "select";
+	case op_rdfscan:
+		return "rdfscan"; 
 	case op_apply: 
 		return "apply";
 	case op_join: 
@@ -418,12 +420,15 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs)
 		break;
 	case op_project:
 	case op_select: 
+	case op_rdfscan:
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 
 		r = "project";
 		if (rel->op == op_select)
 			r = "select";
+		if (rel->op == op_rdfscan)
+			r = "rdfscan";
 		if (rel->op == op_groupby)
 			r = "group by";
 		if (rel->op == op_topn)
@@ -526,6 +531,7 @@ rel_print_refs(mvc *sql, stream* fout, sql_rel *rel, int depth, list *refs)
 		break;
 	case op_project:
 	case op_select: 
+	case op_rdfscan:	
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 

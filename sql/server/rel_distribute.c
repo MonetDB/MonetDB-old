@@ -51,7 +51,8 @@ has_remote_or_replica( sql_rel *rel )
 			return 1;
 		break;
 	case op_project:
-	case op_select: 
+	case op_select:
+	case op_rdfscan:
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 
@@ -163,6 +164,7 @@ replica(mvc *sql, sql_rel *rel, char *uri)
 		break;
 	case op_project:
 	case op_select: 
+	case op_rdfscan:		
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 
@@ -252,6 +254,7 @@ distribute(mvc *sql, sql_rel *rel)
 		break;
 	case op_project:
 	case op_select: 
+	case op_rdfscan:		
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 
@@ -304,6 +307,7 @@ rel_remote_func(mvc *sql, sql_rel *rel)
 		break;
 	case op_project:
 	case op_select: 
+	case op_rdfscan:		
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 

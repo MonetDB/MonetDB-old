@@ -112,6 +112,7 @@ name_find_column( sql_rel *rel, char *rname, char *name, int pnr, sql_rel **bt )
 			c = name_find_column( rel->l, rname, name, pnr, bt);
 		return c;
 	case op_select:
+	case op_rdfscan:
 	case op_topn:
 	case op_sample:
 		return name_find_column( rel->l, rname, name, pnr, bt);
@@ -263,6 +264,7 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 		break;
 	case op_project:
 	case op_select:
+	case op_rdfscan:
 	case op_groupby:
 	case op_topn:
 	case op_sample:
@@ -305,6 +307,7 @@ rel_properties(mvc *sql, global_props *gp, sql_rel *rel)
 	case op_topn:
 	case op_sample:
 	case op_select:
+	case op_rdfscan:
 		break;
 
 	case op_insert:
@@ -576,6 +579,7 @@ find_basetable( sql_rel *r)
 		return r;
 	case op_project:
 	case op_select:
+	case op_rdfscan:		
 		return find_basetable(r->l);
 	default:
 		return NULL;
@@ -5175,6 +5179,7 @@ rel_mark_used(mvc *sql, sql_rel *rel, int proj)
 		break;
 
 	case op_select:
+	case op_rdfscan:		
 		if (rel->l) {
 			exps_mark_used(sql->sa, rel, rel->l);
 			rel_mark_used(sql, rel->l, 0);
@@ -5323,6 +5328,7 @@ rel_remove_unused(mvc *sql, sql_rel *rel)
 	case op_delete:
 
 	case op_select: 
+	case op_rdfscan:
 
 	case op_join: 
 	case op_left: 
@@ -5391,6 +5397,7 @@ rel_dce_down(mvc *sql, sql_rel *rel, int skip_proj)
 		return rel;
 
 	case op_select: 
+	case op_rdfscan:		
 		if (rel->l)
 			rel->l = rel_dce_down(sql, rel->l, 0);
 		return rel;
@@ -5483,6 +5490,7 @@ rel_add_projects(mvc *sql, sql_rel *rel)
 	case op_project:
 	case op_groupby: 
 	case op_select: 
+	case op_rdfscan:		
 		if (rel->l)
 			rel->l = rel_add_projects(sql, rel->l);
 		return rel;
@@ -6777,6 +6785,7 @@ rel_uses_exps(sql_rel *rel, list *exps )
 		return (rel_uses_exps(rel->l, exps) ||	rel_uses_exps(rel->r, exps)); 
 	case op_project:
 	case op_select: 
+	case op_rdfscan:		
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 
@@ -6939,6 +6948,7 @@ rel_rename(mvc *sql, sql_rel *rel, list *aliases)
 		return nrel;
 	}
 	case op_select: 
+	case op_rdfscan:		       
 	case op_topn: 
 	case op_sample: 
 		nrel->l = rel_rename(sql, rel->l, aliases);
@@ -7005,6 +7015,7 @@ rel_apply_rename(mvc *sql, sql_rel *rel)
 		return rel;
 	case op_project:
 	case op_select: 
+	case op_rdfscan:		
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 
@@ -7353,6 +7364,7 @@ rewrite(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 		break;
 	case op_project:
 	case op_select: 
+	case op_rdfscan:		
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 
@@ -7405,6 +7417,7 @@ rewrite_topdown(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes)
 		break;
 	case op_project:
 	case op_select: 
+	case op_rdfscan:		
 	case op_groupby: 
 	case op_topn: 
 	case op_sample: 

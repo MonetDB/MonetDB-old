@@ -4433,6 +4433,7 @@ subrel_bin(mvc *sql, sql_rel *rel, list *refs)
 		sql->type = Q_TABLE;
 		break;
 	case op_select: 
+	case op_rdfscan:		
 		s = rel2bin_select(sql, rel, refs);
 		sql->type = Q_TABLE;
 		break;

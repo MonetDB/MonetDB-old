@@ -125,6 +125,7 @@ typedef enum operator_type {
 	op_ddl,
 	op_project, 		/* includes order by */
 	op_select,	
+	op_rdfscan,		/* New operator specialized for RDF */
 	op_join,
 	op_left,
 	op_right,
@@ -177,6 +178,8 @@ typedef enum operator_type {
 	(op == op_apply)
 #define is_select(op) \
 	(op == op_select)
+#define is_rdfscan(op) \
+	(op == op_rdfscan)
 #define is_set(op) \
 	(op == op_union || op == op_inter || op == op_except)
 #define is_union(op) \
@@ -249,6 +252,15 @@ typedef enum operator_type {
 
 #define rel_is_ref(rel) 	(((sql_rel*)rel)->ref.refcnt > 1)
 
+typedef struct rdf_rel_properties {
+	int ncol;
+	int *nopt; 	/* Num optional cols, 2, 3, 1 --> first 2 are required, group of 3 next are optional,
+				one more is optional */
+	char **lstcol;
+	char *mv_prop; 		/* List of values 0,1: 1->mv prop, otherwise 0*/
+	char containMV;		/* Does it contain multi-valued prop */
+} rdf_rel_prop; 
+
 typedef struct relation {
 	sql_ref ref;
 
@@ -262,6 +274,7 @@ typedef struct relation {
 	char processed; /* fully processed or still in the process of building */
 	char subquery;	/* is this part a subquery, this is needed for proper name binding */
 	void *p;	/* properties for the optimizer, distribution */
+	rdf_rel_prop *rrp; /* properties needed for rdfscan operator */
 } sql_rel;
 
 #endif /* SQL_RELATION_H */

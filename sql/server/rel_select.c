@@ -19,6 +19,7 @@
 #include "rel_psm.h"
 #include "rel_schema.h"
 #include "rel_sequence.h"
+#include "rel_rdfscan.h"
 #ifdef HAVE_HGE
 #include "mal.h"		/* for have_hge */
 #endif
@@ -53,6 +54,10 @@ rel_destroy_(sql_rel *rel)
 	} else if (is_modify(rel->op)) {
 		if (rel->r)
 			rel_destroy(rel->r);
+	}
+
+	if (is_rdfscan(rel->op)){
+		free_rdf_rel_prop(rel->rrp); 			
 	}
 }
 
@@ -214,8 +219,8 @@ rel_table_projections( mvc *sql, sql_rel *rel, char *tname, int level )
 	case op_semi:
 	case op_anti:
 	case op_select:
+	case op_rdfscan:		
 		return rel_table_projections( sql, rel->l, tname, level+1);
-
 	case op_topn:
 	case op_sample:
 	case op_groupby:
@@ -272,6 +277,7 @@ rel_bind_path_(sql_rel *rel, sql_exp *e, list *path )
 	case op_anti:
 
 	case op_select:
+	case op_rdfscan:	
 	case op_topn:
 	case op_sample:
 		found = rel_bind_path_(rel->l, e, path);
@@ -387,6 +393,7 @@ rel_projections(mvc *sql, sql_rel *rel, char *tname, int settname, int intern )
 	case op_anti:
 
 	case op_select:
+	case op_rdfscan:
 	case op_topn:
 	case op_sample:
 		return rel_projections(sql, rel->l, tname, settname, intern );
@@ -426,6 +433,7 @@ rel_copy( sql_allocator *sa, sql_rel *i )
 	case op_anti:
 	case op_project:
 	case op_select:
+	case op_rdfscan:		
 	default:
 		if (i->l)
 			rel->l = rel_copy(sa, i->l);
@@ -1355,6 +1363,7 @@ rel_bind_column_(mvc *sql, sql_rel **p, sql_rel *rel, char *cname )
 	case op_anti:
 
 	case op_select:
+	case op_rdfscan:
 	case op_topn:
 	case op_sample:
 		*p = rel;
@@ -4637,6 +4646,7 @@ rel_projections_(mvc *sql, sql_rel *rel)
 	case op_anti:
 
 	case op_select:
+	case op_rdfscan:		
 	case op_topn:
 	case op_sample:
 		return rel_projections_(sql, rel->l);
