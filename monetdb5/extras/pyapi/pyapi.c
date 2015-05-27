@@ -124,6 +124,7 @@ static int pyapiInitialized = FALSE;
         BATsetcount(bat, count); }
 
 
+//this code is not necessary
 #define NP_TO_BAT_MULTI(bat, mtpe, nptpe, npyconversion) {                                 \
         count = PyArray_DIMS((PyArrayObject*)pResult)[1]; \
         pCol = (PyArrayObject*)PyArray_ZEROS(1, (npy_intp[1]) { count }, nptpe, false); \
@@ -197,6 +198,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
               pyapi_enableflag);
     }
 
+
     pycalllen = strlen(exprStr) + sizeof(argnames) + 1000;
     expr_ind_len = strlen(exprStr) + 1000;
 
@@ -208,6 +210,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
         throw(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
         // TODO: free args and rcall
     }
+
 
     // first argument after the return contains the pointer to the sql_func structure
     if (sqlfun != NULL && sqlfun->ops->cnt > 0) {
@@ -240,12 +243,12 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
     // for each input column (BAT):
     for (i = pci->retc + 2; i < pci->argc; i++) {
         PyObject *vararray = NULL;
-        // null mask for masked array
-
         // turn scalars into one-valued BATs
         // TODO: also do this for Python? Or should scalar values be 'simple' variables?
-        if (!isaBatType(getArgType(mb,pci,i))) {
-            b = BATnew(TYPE_void, getArgType(mb, pci, i), 0, TRANSIENT);
+        if (!isaBatType(getArgType(mb,pci,i))) 
+        {
+            //the argument is a scalar, check which scalar type it is
+            /*b = BATnew(TYPE_void, getArgType(mb, pci, i), 0, TRANSIENT);
             if (b == NULL) {
                 msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
                 goto wrapup;
@@ -253,7 +256,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
             if ( getArgType(mb,pci,i) == TYPE_str)
                 BUNappend(b, *getArgReference_str(stk, pci, i), FALSE);
             else
+            {
                 BUNappend(b, getArgReference(stk, pci, i), FALSE);
+            }
             BATsetcount(b, 1);
             BATseqbase(b, 0);
             BATsettrivprop(b);
@@ -262,195 +267,251 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
             if (b == NULL) {
                 msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
                 goto wrapup;
+            }*/
+            switch(getArgType(mb,pci,i))
+            {
+                case TYPE_bte:
+                    vararray = PyInt_FromLong((long)(*(bte*)getArgReference(stk, pci, i)));
+                    break;
+                case TYPE_sht:
+                    vararray = PyInt_FromLong((long)(*(sht*)getArgReference(stk, pci, i))); 
+                    break;
+                case TYPE_int:
+                    vararray = PyInt_FromLong((long)(*(int*)getArgReference(stk, pci, i)));
+                    break;
+                case TYPE_lng:
+                    vararray = PyLong_FromLong((long)(*(lng*)getArgReference(stk, pci, i)));
+                    break;
+                case TYPE_flt:
+                    vararray = PyFloat_FromDouble((double)(*(flt*)getArgReference(stk, pci, i)));
+                    break;
+                case TYPE_dbl:
+                    vararray = PyFloat_FromDouble((double)(*(dbl*)getArgReference(stk, pci, i)));
+                    break;
+                case TYPE_hge:
+                    {
+                        char hex[40];
+                        const hge *t = (const hge *) getArgReference(stk, pci, i);
+                        snprintf_huge(hex, 40, *t);
+                        //then we create a PyLong from that string by parsing it
+                        vararray = PyLong_FromString(hex, NULL, 16);
+                    }
+                    break;
+                case TYPE_str:
+                    vararray = PyString_FromString((char*)getArgReference_str(stk, pci, i));
+                    break;
+                default:
+                    msg = createException(MAL, "pyapi.eval", "Unsupported scalar type.");
+                    goto wrapup;
             }
+            if (vararray == NULL)
+            {
+                msg = createException(MAL, "pyapi.eval", "Something went wrong converting the MonetDB scalar to a Python scalar.");
+                goto wrapup;
+            }
+            PyTuple_SetItem(pArgs, ai++, vararray);
         }
-        switch (ATOMstorage(getColumnType(getArgType(mb,pci,i)))) {
-        case TYPE_bte:
-            vararray = BAT_TO_NP(b, bte, NPY_INT8);
-            break;
-        case TYPE_sht:
-            vararray = BAT_TO_NP(b, sht, NPY_INT16);
-            break;
-        case TYPE_int:
-            vararray = BAT_TO_NP(b, int, NPY_INT32);
-            break;
-        case TYPE_lng:
-            vararray = BAT_TO_NP(b, lng, NPY_INT64);
-            break;
-        case TYPE_flt:
-            vararray = BAT_TO_NP(b, flt, NPY_FLOAT32);
-            break;
-        case TYPE_dbl:
-            vararray = BAT_TO_NP(b, dbl, NPY_FLOAT64);
-            break;
-        case TYPE_str:
-            li = bat_iterator(b);
-
-            //we first loop over all the strings in the BAT to find the maximum length of a single string
-            //this is because NUMPY only supports strings with a fixed maximum length
-            maxsize = 0;
-            count = BATcount(b);
-            BATloop(b, p, q)
-            {
-                const char *t = (const char *) BUNtail(li, p);
-                const size_t length = (const size_t) strlen(t);
-
-                if (strlen(t) > maxsize)
-                    maxsize = length;
-            }
-
-            //create a NPY_UNICODE array object
-            vararray = PyArray_New(
-                &PyArray_Type, 
-                1, 
-                (npy_intp[1]) {count},  
-                NPY_UNICODE, 
-                NULL, 
-                NULL, 
-                maxsize * 4,  //we have to do maxsize*4 because NPY_UNICODE is stored as UNICODE-32 (i.e. 4 bytes per character)           
-                0, 
-                NULL);
-
-            //fill the NPY_UNICODE array object using the PyArray_SETITEM function
-            j = 0;
-            BATloop(b, p, q)
-            {
-                const char *t = (const char *) BUNtail(li, p);
-                PyObject *obj;
-                if (strcmp(t, str_nil) == 0) 
-                {
-                     //for some reason str_nil isn't a valid UTF-8 character (it's 0x80), so we need to decode it as Latin1
-                    obj = PyUnicode_DecodeLatin1(t, strlen(t), "strict");
-                }
-                else
-                {
-                    obj = PyUnicode_DecodeUTF8(t, strlen(t), "strict");
-                }
-                if (obj == NULL)
-                {
-                    PyErr_Print();
-                    msg = createException(MAL, "pyapi.eval", "Failed to decode string as UTF-8.");
-                    goto wrapup;
-                }
-                PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), obj);
-                j++;
-            }
-            break;
-        case TYPE_hge:
-            li = bat_iterator(b);
-            count = BATcount(b);
-
-            //create a NPY_OBJECT array to hold the huge type
-            vararray = PyArray_New(
-                &PyArray_Type, 
-                1, 
-                (npy_intp[1]) {count},  
-                NPY_OBJECT, 
-                NULL, 
-                NULL, 
-                128,          //128 bits per value
-                0, 
-                NULL);
-
-            j = 0;
-            printf("!WARNING: Type \"hge\" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type \"long\". This is likely very slow.\n");
-            BATloop(b, p, q)
-            {
-                //we first convert the huge to a string in hex format
-                char hex[40];
-                PyObject *obj;
-                const hge *t = (const hge *) BUNtail(li, p);
-                snprintf_huge(hex, 40, *t);
-                //then we create a PyLong from that string by parsing it
-                obj = PyLong_FromString(hex, NULL, 16);
-                if (obj == NULL)
-                {
-                    PyErr_Print();
-                    msg = createException(MAL, "pyapi.eval", "Failed to convert huge array.");
-                    goto wrapup;
-                }
-                PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), obj);
-                j++;
-            }
-            break;
-
-            /*
-            //Convert huge to double, this might be preferrable so I'll leave this code here.//
-            li = bat_iterator(b);
-            count = BATcount(b);
-            vararray = PyArray_New(
-                &PyArray_Type, 
-                1, 
-                (npy_intp[1]) {count},  
-                NPY_DOUBLE, 
-                NULL, 
-                NULL, 
-                0,          
-                0, 
-                NULL);
-            j = 0;
-            BATloop(b, p, q)
-            {
-
-                const hge *t = (const hge *) BUNtail(li, p);
-                PyObject *obj = PyFloat_FromDouble((double) *t);
-                if (obj == NULL)
-                {
-                    PyErr_Print();
-                    msg = createException(MAL, "pyapi.eval", "Failed to convert huge array.");
-                    goto wrapup;
-                }
-                PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), obj);
-                j++;
-            }
-            printf("!WARNING: BATs of type \"hge\" (128 bits) are converted to type \"double\" (64 bits), information might be lost.\n");
-            break;*/
-        default:
-            msg = createException(MAL, "pyapi.eval", "unknown argument type ");
-            goto wrapup;
-        }
-
-           
-        // we use numpy.ma to deal with possible NULL values in the data
-        // once numpy comes with proper NA support, this will change
+        else
         {
-            PyObject *mafunc = PyObject_GetAttrString(PyImport_Import(
-                    PyString_FromString("numpy.ma")), "masked_array");
-            PyObject *maargs = PyTuple_New(2);
-            PyArrayObject* nullmask = (PyArrayObject*) PyArray_ZEROS(1,
-                            (npy_intp[1]) {BATcount(b)}, NPY_BOOL, 0);
+            b = BATdescriptor(*getArgReference_bat(stk, pci, i));
+            if (b == NULL) {
+                msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
+                goto wrapup;
+            }
+            //the argument is a BAT, convert it to a numpy array
+            switch (ATOMstorage(getColumnType(getArgType(mb,pci,i)))) {
+            case TYPE_bte:
+                vararray = BAT_TO_NP(b, bte, NPY_INT8);
+                break;
+            case TYPE_sht:
+                vararray = BAT_TO_NP(b, sht, NPY_INT16);
+                break;
+            case TYPE_int:
+                vararray = BAT_TO_NP(b, int, NPY_INT32);
+                break;
+            case TYPE_lng:
+                vararray = BAT_TO_NP(b, lng, NPY_INT64);
+                break;
+            case TYPE_flt:
+                vararray = BAT_TO_NP(b, flt, NPY_FLOAT32);
+                break;
+            case TYPE_dbl:
+                vararray = BAT_TO_NP(b, dbl, NPY_FLOAT64);
+                break;
+            case TYPE_str:
+                li = bat_iterator(b);
 
-            const void *nil = ATOMnilptr(b->ttype);
-            int (*atomcmp)(const void *, const void *) = ATOMcompare(b->ttype);
-            BATiter bi = bat_iterator(b);
+                //we first loop over all the strings in the BAT to find the maximum length of a single string
+                //this is because NUMPY only supports strings with a fixed maximum length
+                maxsize = 0;
+                count = BATcount(b);
+                BATloop(b, p, q)
+                {
+                    const char *t = (const char *) BUNtail(li, p);
+                    const size_t length = (const size_t) strlen(t);
 
-            if (b->T->nil) 
+                    if (strlen(t) > maxsize)
+                        maxsize = length;
+                }
+
+                //create a NPY_UNICODE array object
+                vararray = PyArray_New(
+                    &PyArray_Type, 
+                    1, 
+                    (npy_intp[1]) {count},  
+                    NPY_UNICODE, 
+                    NULL, 
+                    NULL, 
+                    maxsize * 4,  //we have to do maxsize*4 because NPY_UNICODE is stored as UNICODE-32 (i.e. 4 bytes per character)           
+                    0, 
+                    NULL);
+
+                //fill the NPY_UNICODE array object using the PyArray_SETITEM function
+                j = 0;
+                BATloop(b, p, q)
+                {
+                    const char *t = (const char *) BUNtail(li, p);
+                    PyObject *obj;
+                    if (strcmp(t, str_nil) == 0) 
+                    {
+                         //str_nil isn't a valid UTF-8 character (it's 0x80), so we need to decode it as Latin1
+                        obj = PyUnicode_DecodeLatin1(t, strlen(t), "strict");
+                    }
+                    else
+                    {
+                        obj = PyUnicode_DecodeUTF8(t, strlen(t), "strict");
+                    }
+                    if (obj == NULL)
+                    {
+                        PyErr_Print();
+                        msg = createException(MAL, "pyapi.eval", "Failed to decode string as UTF-8.");
+                        goto wrapup;
+                    }
+                    PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), obj);
+                    j++;
+                }
+                break;
+            case TYPE_hge:
+                li = bat_iterator(b);
+                count = BATcount(b);
+
+                //create a NPY_OBJECT array to hold the huge type
+                vararray = PyArray_New(
+                    &PyArray_Type, 
+                    1, 
+                    (npy_intp[1]) {count},  
+                    NPY_OBJECT, 
+                    NULL, 
+                    NULL, 
+                    128,          //128 bits per value
+                    0, 
+                    NULL);
+
+                j = 0;
+                printf("!WARNING: Type \"hge\" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type \"long\". This is likely very slow.\n");
+                BATloop(b, p, q)
+                {
+                    //we first convert the huge to a string in hex format
+                    char hex[40];
+                    PyObject *obj;
+                    const hge *t = (const hge *) BUNtail(li, p);
+                    snprintf_huge(hex, 40, *t);
+                    //then we create a PyLong from that string by parsing it
+                    obj = PyLong_FromString(hex, NULL, 16);
+                    if (obj == NULL)
+                    {
+                        PyErr_Print();
+                        msg = createException(MAL, "pyapi.eval", "Failed to convert huge array.");
+                        goto wrapup;
+                    }
+                    PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), obj);
+                    j++;
+                }
+                break;
+
+                /*
+                //Convert huge to double, this might be preferrable so I'll leave this code here.//
+                li = bat_iterator(b);
+                count = BATcount(b);
+                vararray = PyArray_New(
+                    &PyArray_Type, 
+                    1, 
+                    (npy_intp[1]) {count},  
+                    NPY_DOUBLE, 
+                    NULL, 
+                    NULL, 
+                    0,          
+                    0, 
+                    NULL);
+                j = 0;
+                BATloop(b, p, q)
+                {
+
+                    const hge *t = (const hge *) BUNtail(li, p);
+                    PyObject *obj = PyFloat_FromDouble((double) *t);
+                    if (obj == NULL)
+                    {
+                        PyErr_Print();
+                        msg = createException(MAL, "pyapi.eval", "Failed to convert huge array.");
+                        goto wrapup;
+                    }
+                    PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), obj);
+                    j++;
+                }
+                printf("!WARNING: BATs of type \"hge\" (128 bits) are converted to type \"double\" (64 bits), information might be lost.\n");
+                break;*/
+            default:
+                msg = createException(MAL, "pyapi.eval", "unknown argument type ");
+                goto wrapup;
+            }
+
+               
+            // we use numpy.ma to deal with possible NULL values in the data
+            // once numpy comes with proper NA support, this will change
             {
-                size_t j;
-                for (j = 0; j < BATcount(b); j++) {
-                    if ((*atomcmp)(BUNtail(bi, BUNfirst(b) + j), nil) == 0) {
-                        // Houston we have a NULL
-                        PyArray_SETITEM(nullmask, PyArray_GETPTR1(nullmask, j), Py_True);
+                PyObject *mafunc = PyObject_GetAttrString(PyImport_Import(
+                        PyString_FromString("numpy.ma")), "masked_array");
+                PyObject *maargs = PyTuple_New(2);
+                PyArrayObject* nullmask = (PyArrayObject*) PyArray_ZEROS(1,
+                                (npy_intp[1]) {BATcount(b)}, NPY_BOOL, 0);
+
+                const void *nil = ATOMnilptr(b->ttype);
+                int (*atomcmp)(const void *, const void *) = ATOMcompare(b->ttype);
+                BATiter bi = bat_iterator(b);
+
+                if (b->T->nil) 
+                {
+                    size_t j;
+                    for (j = 0; j < BATcount(b); j++) {
+                        if ((*atomcmp)(BUNtail(bi, BUNfirst(b) + j), nil) == 0) {
+                            // Houston we have a NULL
+                            PyArray_SETITEM(nullmask, PyArray_GETPTR1(nullmask, j), Py_True);
+                        }
                     }
                 }
-            }
 
-            PyTuple_SetItem(maargs, 0, vararray);
-            PyTuple_SetItem(maargs, 1, (PyObject*) nullmask);
-                
-            vararray = PyObject_CallObject(mafunc, maargs);
-            if (!vararray) {
-                msg = createException(MAL, "pyapi.eval", "UUUH");
-                        goto wrapup;
+                PyTuple_SetItem(maargs, 0, vararray);
+                PyTuple_SetItem(maargs, 1, (PyObject*) nullmask);
+                    
+                vararray = PyObject_CallObject(mafunc, maargs);
+                if (!vararray) {
+                    msg = createException(MAL, "pyapi.eval", "UUUH");
+                            goto wrapup;
+                }
             }
+            PyTuple_SetItem(pArgs, ai++, vararray);
+
+            // TODO: we cannot clean this up just yet, there may be a shallow copy referenced in python.
+            // TODO: do this later
+
+            BBPunfix(b->batCacheid);
+
+            //msg = createException(MAL, "pyapi.eval", "unknown argument type ");
+            //goto wrapup;
         }
-        PyTuple_SetItem(pArgs, ai++, vararray);
-
-        // TODO: we cannot clean this up just yet, there may be a shallow copy referenced in python.
-        // TODO: do this later
-
-        BBPunfix(b->batCacheid);
     }
+
+    
 
     // create argument list
     pos = 0;
@@ -464,6 +525,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
     }
 
     {
+
         // indent every line in the expression by one level,
         // if we find newline-tab, use tab, space otherwise
         // two passes, first inserts null placeholder, second replaces
@@ -472,6 +534,13 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
         pyapi_scan_state state = SEENNL;
         char indentchar = 0;
         size_t py_pos, py_ind_pos = 0;
+
+        for (py_pos = 0; py_pos < strlen(exprStr); py_pos++) 
+        {
+            if (exprStr[py_pos] == '{' || exprStr[py_pos] == '}' || exprStr[py_pos] == ';')
+                exprStr[py_pos] = ' ';
+        }
+
         for (py_pos = 0; py_pos < strlen(exprStr); py_pos++) {
             // +1 because we need space for the \0 we append below.
             if (py_ind_pos + 1 > expr_ind_len) {
@@ -679,7 +748,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
         PyRun_SimpleString("del pyfun");
     }
     // collect the return values
-    for (i = 0; i < pci->retc; i++) {
+    for (i = 0; i < pci->retc; i++) 
+    {
         PyArrayObject *pCol = NULL;
         PyArrayObject *pMaskArray = NULL;
         PyObject *pMask = NULL;

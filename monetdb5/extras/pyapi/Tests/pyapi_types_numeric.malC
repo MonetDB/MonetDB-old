@@ -1,4 +1,18 @@
 
+
+a:= bat.new(:oid,:int);
+bat.append(a,1:int);
+bat.append(a,2:int);
+bat.append(a,3:int);
+bat.append(a,4:int);
+b:= bat.new(:oid,:int);
+bat.append(b,4:int);
+bat.append(b,3:int);
+bat.append(b,2:int);
+bat.append(b,1:int);
+result:bat[:oid,:int] := pyapi.eval(nil:ptr, "return(arg1*sum(arg2)*arg3)", a, b, 2);
+io.print(result);
+
 # bits with null value
 bbit:= bat.new(:oid,:bit);
 bat.append(bbit,1:bit);

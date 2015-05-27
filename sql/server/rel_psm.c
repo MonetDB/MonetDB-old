@@ -762,7 +762,8 @@ rel_create_func(mvc *sql, dlist *qname, dlist *params, symbol *res, dlist *ext_n
 				char *lang_body = body->h->data.sval;
 				char *mod = 	(lang == FUNC_LANG_R)?"rapi":
 						(lang == FUNC_LANG_C)?"capi":
-						(lang == FUNC_LANG_J)?"japi":"unknown";
+						(lang == FUNC_LANG_J)?"japi":
+						(lang == FUNC_LANG_PY)?"pyapi":"unknown";
 				sql->params = NULL;
 				if (create) {
 					f = mvc_create_func(sql, sql->sa, s, fname, l, restype, type, lang,  mod, fname, lang_body, FALSE, vararg);
