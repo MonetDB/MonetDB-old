@@ -79,7 +79,7 @@ static int pyapiInitialized = FALSE;
         pMask = PyObject_GetAttrString(pColO, "mask");                \
         if (pMask != NULL)                                            \
         {                                                             \
-            pMaskArray = (PyArrayObject*) PyArray_FromAny(pMask, NPY_BOOL, 1, 1,  NPY_ARRAY_CARRAY, NULL); \
+            pMaskArray = (PyArrayObject*) PyArray_FromAny(pMask, PyArray_DescrFromType(NPY_BOOL), 1, 1,  NPY_ARRAY_CARRAY, NULL); \
             if (pMaskArray == NULL || PyArray_DIMS(pMaskArray)[0] != (int)count)                                  \
             {                                                         \
                 msg = createException(MAL, "pyapi.eval", "A masked array was returned, but the mask does not have the same length as the array.");  \
