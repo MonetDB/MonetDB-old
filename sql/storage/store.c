@@ -3325,7 +3325,7 @@ catalog_corrupt( sql_trans *tr )
 int
 sql_trans_commit(sql_trans *tr)
 {
-	int result = LOG_OK;
+	int result = SQL_OK;
 
 	/* write phase */
 	if (bs_debug)
@@ -3333,13 +3333,13 @@ sql_trans_commit(sql_trans *tr)
 
 	/* do a pre-commit first, writing the changes to the write-ahead log */
 	result = sql_trans_precommit(tr);
-	if (result == LOG_OK) {
+	if (result == SQL_OK) {
 		/* write the changes in the persistent store, rolling-forward the transaction*/
 		result = sql_trans_persistcommit(tr);
 	}
 	if (bs_debug)
 		fprintf(stderr, "#done forwarding changes %d,%d\n", gtrans->stime, gtrans->wstime);
-	return (result==LOG_OK)?SQL_OK:SQL_ERR;
+	return result;
 }
 
 int
@@ -3364,7 +3364,7 @@ sql_trans_precommit(sql_trans *tr)
 		if (result == LOG_OK)
 			result = logger_funcs.log_tend();
 		tr->schema_number = store_schema_number();
-		return result;
+		return (result==LOG_OK)?SQL_OK:SQL_ERR;
 	}
 	return (result==LOG_OK)?SQL_OK:SQL_ERR;
 }
@@ -3386,7 +3386,7 @@ sql_trans_persistcommit(sql_trans *tr)
 	if (result == LOG_OK) {
 		result = logger_funcs.log_globalpersist(tr->htm_id);
 	}
-    return result;
+    return (result==LOG_OK)?SQL_OK:SQL_ERR;
 }
 
 static void
