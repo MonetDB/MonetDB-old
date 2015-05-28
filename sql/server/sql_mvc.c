@@ -334,12 +334,12 @@ mvc_precommit(mvc *m, int chain, const char *name, long id) {
 
 int
 mvc_persistcommit(mvc *m, int chain, const char *name, long id) {
-	/* used the parent, since we semi-rolled forward in mvc_commit_prepare */
-	sql_trans *tr = m->session->tr->parent;
+	int result = SQL_OK;//, wait = 0;
+	/* use the parent, since we semi-rolled forward in mvc_commit_prepare */
+	sql_trans *tr = m->session->tr;
 	// set CPaaS HTM id
 	tr->htm_id = id;
 
-	int result = SQL_OK;//, wait = 0;
 
 	store_lock();
 	// find the transaction
