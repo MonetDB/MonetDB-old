@@ -32,6 +32,7 @@ headers_sql = {
 		51_sys_schema_extension.sql \
 		75_storagemodel.sql \
 		80_statistics.sql \
+		85_htm.sql \
 		99_system.sql
 }
 
