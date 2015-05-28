@@ -3375,15 +3375,15 @@ sql_trans_persistcommit(sql_trans *tr)
 	int result = LOG_OK;
 
 	if (bs_debug) {
-			fprintf(stderr, "#writing changes to persistent store %d,%d\n", gtrans->stime, gtrans->wstime);
+		fprintf(stderr, "#writing changes to persistent store %d,%d\n", gtrans->stime, gtrans->wstime);
 	}
 
+	/* It is save to rollforward the changes now. In case
+	  of failure, the log will be replayed. */
+	result = rollforward_trans(tr, R_APPLY);
+
 	if (result == LOG_OK) {
-		/* It is save to rollforward the changes now. In case 
-		   of failure, the log will be replayed. */
-		result = rollforward_trans(tr, R_APPLY);
-	}
-	if (result == LOG_OK) {
+		/* Mark the transaction as globally persisted as well */
 		result = logger_funcs.log_globalpersist(tr->htm_id);
 	}
     return (result==LOG_OK)?SQL_OK:SQL_ERR;
