@@ -336,7 +336,7 @@ int
 mvc_persistcommit(mvc *m, int chain, const char *name, long id) {
 	int result = SQL_OK;//, wait = 0;
 	/* use the parent, since we semi-rolled forward in mvc_commit_prepare */
-	sql_trans *tr = m->session->tr;
+	sql_trans *tr = sql_trans_create(m->session->stk, m->session->tr, name);
 	// set CPaaS HTM id
 	tr->htm_id = id;
 
