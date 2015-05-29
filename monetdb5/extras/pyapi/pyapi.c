@@ -28,6 +28,7 @@
 
 const char* pyapi_enableflag = "embedded_py";
 char *NPYConstToString(int);
+char *BATConstToString(int);
 bool IsPyScalar(PyObject *object);
 bool IsNPYArray(PyObject *object);
 bool IsNPYMaskedArray(PyObject *object);
@@ -82,8 +83,10 @@ static int pyapiInitialized = FALSE;
             pMaskArray = (PyArrayObject*) PyArray_FromAny(pMask, PyArray_DescrFromType(NPY_BOOL), 1, 1,  NPY_ARRAY_CARRAY, NULL); \
             if (pMaskArray == NULL || PyArray_DIMS(pMaskArray)[0] != (int)count)                                  \
             {                                                         \
-                msg = createException(MAL, "pyapi.eval", "A masked array was returned, but the mask does not have the same length as the array.");  \
-                goto wrapup;                                          \
+                pMask = NULL; \
+                pMaskArray = NULL; \
+                /*msg = createException(MAL, "pyapi.eval", "A masked array was returned, but the mask does not have the same length as the array.");*/  \
+                /*goto wrapup;*/                                       \
             }                                                         \
         }                                                             \
     }
@@ -121,7 +124,8 @@ static int pyapiInitialized = FALSE;
                                                                       \
             }                                                         \
         } bat->T->nonil = 1 - bat->T->nil;                            \
-        BATsetcount(bat, count); }
+        BATsetcount(bat, count); \
+        BATsettrivprop(bat); }
 
 
 //this code is not necessary
@@ -148,6 +152,7 @@ static int pyapiInitialized = FALSE;
         } \
         bat = BATnew(TYPE_void, TYPE_##mtpe, count, TRANSIENT);    }
 
+#define PYAPI_VERBOSE
 #define _PYAPI_DEBUG_
 
 str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped);
@@ -167,6 +172,7 @@ PyAPIevalAggr(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 typedef enum {
     NORMAL, SEENNL, INQUOTES, ESCAPED
 } pyapi_scan_state;
+
 
 str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
     sql_func * sqlfun = *(sql_func**) getArgReference(stk, pci, pci->retc);
@@ -197,7 +203,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
               "Embedded Python has not been enabled. Start server with --set %s=true",
               pyapi_enableflag);
     }
-
+    MT_lock_set(&pyapiLock, "pyapi.evaluate");
 
     pycalllen = strlen(exprStr) + sizeof(argnames) + 1000;
     expr_ind_len = strlen(exprStr) + 1000;
@@ -214,12 +220,12 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
 
     // first argument after the return contains the pointer to the sql_func structure
     if (sqlfun != NULL && sqlfun->ops->cnt > 0) {
-        int carg = pci->retc + 2;
+        int cargs = pci->retc + 2;
         argnode = sqlfun->ops->h;
         while (argnode) {
             char* argname = ((sql_arg*) argnode->data)->name;
-            args[carg] = GDKstrdup(argname);
-            carg++;
+            args[cargs] = GDKstrdup(argname);
+            cargs++;
             argnode = argnode->next;
         }
     }
@@ -237,6 +243,11 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
         }
     }
 
+#ifdef PYAPI_VERBOSE
+    printf("Loading data from the database into Python.\n");
+    fflush(stdout);
+#endif
+
     // create function argument tuple, we pass a tuple of numpy arrays
     pArgs = PyTuple_New(pci->argc-(pci->retc + 2));
 
@@ -247,6 +258,12 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
         // TODO: also do this for Python? Or should scalar values be 'simple' variables?
         if (!isaBatType(getArgType(mb,pci,i))) 
         {
+
+#ifdef PYAPI_VERBOSE
+            printf("- Loading a scalar of type %s (%i)\n", BATConstToString(getArgType(mb,pci,i)), getArgType(mb,pci,i));
+            fflush(stdout);
+#endif
+            //this is old code that converts a single input scalar into a BAT -> this is replaced by the code below, but I'll leave this here in case this might be preferable
             //the argument is a scalar, check which scalar type it is
             /*b = BATnew(TYPE_void, getArgType(mb, pci, i), 0, TRANSIENT);
             if (b == NULL) {
@@ -318,6 +335,11 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
                 msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
                 goto wrapup;
             }
+
+#ifdef PYAPI_VERBOSE
+            printf("- Loading a BAT of type %s (%i)\n", BATConstToString(ATOMstorage(getColumnType(getArgType(mb,pci,i)))), ATOMstorage(getColumnType(getArgType(mb,pci,i))));
+            fflush(stdout);
+#endif
             //the argument is a BAT, convert it to a numpy array
             switch (ATOMstorage(getColumnType(getArgType(mb,pci,i)))) {
             case TYPE_bte:
@@ -511,7 +533,11 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
         }
     }
 
-    
+
+#ifdef PYAPI_VERBOSE
+    printf("Formatting python code.\n");
+    fflush(stdout);
+#endif
 
     // create argument list
     pos = 0;
@@ -535,9 +561,14 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
         char indentchar = 0;
         size_t py_pos, py_ind_pos = 0;
 
+        if (strlen(exprStr) > 0 && exprStr[0] == '{')
+            exprStr[0] = ' ';
+        if (strlen(exprStr) > 2 && exprStr[strlen(exprStr) - 2] == '}')
+            exprStr[strlen(exprStr) - 2] = ' ';
+
         for (py_pos = 0; py_pos < strlen(exprStr); py_pos++) 
         {
-            if (exprStr[py_pos] == '{' || exprStr[py_pos] == '}' || exprStr[py_pos] == ';')
+            if (exprStr[py_pos] == ';')
                 exprStr[py_pos] = ' ';
         }
 
@@ -592,6 +623,11 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
         expr_ind[py_ind_pos++] = 0;
     }
 
+
+#ifdef PYAPI_VERBOSE
+    printf("Executing python code.\n");
+    fflush(stdout);
+#endif
     if (snprintf(pycall, pycalllen,
          "def pyfun(%s):\n%s",
          argnames, expr_ind) >= (int) pycalllen) {
@@ -747,13 +783,19 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
         // delete the function again
         PyRun_SimpleString("del pyfun");
     }
+
+#ifdef PYAPI_VERBOSE
+    printf("Returning result.\n");
+    fflush(stdout);
+#endif
+
     // collect the return values
     for (i = 0; i < pci->retc; i++) 
     {
         PyArrayObject *pCol = NULL;
         PyArrayObject *pMaskArray = NULL;
         PyObject *pMask = NULL;
-        PyObject * pColO;
+        PyObject * pColO = NULL;
         bool multidimensional = false;
         int resultType = 0;
         int bat_type = ATOMstorage(getColumnType(getArgType(mb,pci,i)));
@@ -788,16 +830,25 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
             }
         }
 
+#ifdef PYAPI_VERBOSE
+        if (!isaBatType(getArgType(mb,pci,i)))
+        {
+            printf("Not a bat, but %s (%i).\n", BATConstToString(getArgType(mb,pci,i)), getArgType(mb,pci,i));
+            fflush(stdout);
+        }
+        printf("Returning a bat of type %s (%i)\n", BATConstToString(bat_type), bat_type);
+        fflush(stdout);
+#endif
         switch (bat_type) {
         case TYPE_bte:
             if (multidimensional) 
             {
-                NP_TO_BAT_COL(b, bte, PyType_IsInteger);
+                NP_TO_BAT_COL(b, bit, PyType_IsInteger);
             }
             else 
             {
-                NP_TO_BAT(b, bte, NPY_INT8);
-                NP_MAKE_BAT(b, bte, NPY_INT8);
+                NP_TO_BAT(b, bit, NPY_INT8);
+                NP_MAKE_BAT(b, bit, NPY_INT8);
             }
             break;
         case TYPE_sht:
@@ -978,6 +1029,10 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
             goto wrapup;
         }
 
+#ifdef PYAPI_VERBOSE
+        printf("Returning a bat of size %zu.\n", count);
+        fflush(stdout);
+    #endif
         // bat return
         if (isaBatType(getArgType(mb,pci,i))) {
             *getArgReference_bat(stk, pci, i) = b->batCacheid;
@@ -989,8 +1044,12 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
     }
   wrapup:
 
+#ifdef PYAPI_VERBOSE
+    printf("Cleaning up.\n");
+    fflush(stdout);
+#endif
     //Py_Finalize();
-    //MT_lock_unset(&pyapiLock, "pyapi.evaluate");
+    MT_lock_unset(&pyapiLock, "pyapi.evaluate");
 
     GDKfree(args);
     GDKfree(pycall);
@@ -1048,6 +1107,22 @@ char *NPYConstToString(int type)
         case NPY_VOID: return "VOID";
 
 
+        default: return "UNKNOWN";
+    }
+}
+
+char *BATConstToString(int type)
+{
+    switch (type)
+    {
+        case TYPE_bte: return "BYTE";
+        case TYPE_sht: return "SHORT";
+        case TYPE_int: return "INT";
+        case TYPE_lng: return "LONG";
+        case TYPE_flt: return "FLOAT";
+        case TYPE_dbl: return "DOUBLE";
+        case TYPE_str: return "STRING";
+        case TYPE_hge: return "HUGE";
         default: return "UNKNOWN";
     }
 }
