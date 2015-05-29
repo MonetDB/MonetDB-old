@@ -185,6 +185,7 @@ str queryRef;
 str rankRef;
 str rank_grpRef;
 str rapiRef;
+str pyapiRef;
 str reconnectRef;
 str recycleRef;
 str refineRef;
@@ -437,6 +438,7 @@ void optimizerInit(void)
 	rankRef = putName("rank", 4);
 	rank_grpRef = putName("rank_grp", 8);
 	rapiRef = putName("batrapi", 7);
+	pyapiRef = putName("batpyapi", 8);
 	reconnectRef = putName("reconnect",9);
 	recycleRef = putName("recycle",7);
 	refineRef = putName("refine",6);

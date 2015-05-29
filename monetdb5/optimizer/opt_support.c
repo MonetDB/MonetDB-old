@@ -646,7 +646,8 @@ int isMapOp(InstrPtr p){
 		 (getModuleId(p) == batcalcRef && getFunctionId(p) != mark_grpRef && getFunctionId(p) != rank_grpRef) ||
 		 (getModuleId(p) != batcalcRef && getModuleId(p) != batRef && strncmp(getModuleId(p), "bat", 3) == 0) ||
 		 (getModuleId(p) == mkeyRef)) &&
-		 getModuleId(p) != rapiRef;
+		 getModuleId(p) != rapiRef &&
+		 getModuleId(p) != pyapiRef;
 }
 
 int isLikeOp(InstrPtr p){
