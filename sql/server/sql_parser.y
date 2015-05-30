@@ -1833,12 +1833,14 @@ func_def:
 				lang = FUNC_LANG_R;
 			else if (l == 'P' || l == 'p')
 				lang = FUNC_LANG_PY;
+			else if (l == 'M' || l == 'm')
+				lang = FUNC_LANG_MAP_PY;
 			else if (l == 'C' || l == 'c')
 				lang = FUNC_LANG_C;
 			else if (l == 'J' || l == 'j')
 				lang = FUNC_LANG_J;
 			else
-				yyerror(m, sql_message("Language name R, C, P(ython) or J(avascript):expected, received '%c'", l));
+				yyerror(m, sql_message("Language name R, C, P(ython), M(ap Python) or J(avascript):expected, received '%c'", l));
 
 			append_list(f, $3);
 			append_list(f, $5);
@@ -1886,12 +1888,14 @@ func_def:
 				lang = FUNC_LANG_R;
 			else if (l == 'P' || l == 'p')
 				lang = FUNC_LANG_PY;
+			else if (l == 'M' || l == 'm')
+				lang = FUNC_LANG_MAP_PY;
 			else if (l == 'C' || l == 'c')
 				lang = FUNC_LANG_C;
 			else if (l == 'J' || l == 'j')
 				lang = FUNC_LANG_J;
 			else
-				yyerror(m, sql_message("Language name R, C, P(ython) or J(avascript):expected, received '%c'", l));
+				yyerror(m, sql_message("Language name R, C, P(ython), M(ap Python) or J(avascript):expected, received '%c'", l));
 
 			append_list(f, $3);
 			append_list(f, $5);

@@ -4,12 +4,9 @@ CREATE TABLE rval(i integer,j integer);
 INSERT INTO rval VALUES (1,4), (2,3), (3,2), (4,1);
 
 CREATE FUNCTION pyapi02(i integer,j integer,z integer) returns integer
-language P 
+language M
 {
-	print(i);
-	print(j);
 	x = i * sum(j) * z;
-	print(x)
 	return(x);
 };
 
@@ -18,3 +15,4 @@ DROP FUNCTION pyapi02;
 DROP TABLE rval;
 
 ROLLBACK;
+

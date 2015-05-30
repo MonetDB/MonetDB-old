@@ -288,6 +288,7 @@ typedef struct sql_arg {
 #define FUNC_LANG_C   4
 #define FUNC_LANG_J   5
 #define FUNC_LANG_PY  6 /* create .. language Python */
+#define FUNC_LANG_MAP_PY  7 /* create .. language Map Python */
 
 #define LANG_EXT(l)  (l>FUNC_LANG_SQL)
 

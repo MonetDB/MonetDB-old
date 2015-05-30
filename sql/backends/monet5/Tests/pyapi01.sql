@@ -1,7 +1,7 @@
 START TRANSACTION;
 
 CREATE FUNCTION pyapi01(i integer) returns table (i integer, d double)
-language P 
+language M
 {
 	x = range(1, i + 1)
 	y = [42.0] * i
