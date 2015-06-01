@@ -4,7 +4,7 @@ CREATE TABLE rval(i integer,j integer);
 INSERT INTO rval VALUES (1,4), (2,3), (3,2), (4,1);
 
 CREATE FUNCTION pyapi02(i integer,j integer,z integer) returns integer
-language M
+language PYTHON_MAP
 {
 	x = i * sum(j) * z;
 	return(x);

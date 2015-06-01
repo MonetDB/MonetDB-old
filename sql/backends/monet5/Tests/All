@@ -1,10 +1,10 @@
 #optimizers
 
-HAVE_LIBPY?pyapi00
-HAVE_LIBPY?pyapi01
-HAVE_LIBPY?pyapi02
-HAVE_LIBPY?pyapi03
-#HAVE_LIBPY?pyapi05
+#HAVE_LIBPY?pyapi00
+#HAVE_LIBPY?pyapi01
+#HAVE_LIBPY?pyapi02
+#HAVE_LIBPY?pyapi03
+HAVE_LIBPY?pyapi06
 
 #HAVE_LIBR?rapi00
 #HAVE_LIBR?rapi01

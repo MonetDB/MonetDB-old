@@ -1832,9 +1832,11 @@ func_def:
 			if (l == 'R' || l == 'r')
 				lang = FUNC_LANG_R;
 			else if (l == 'P' || l == 'p')
-				lang = FUNC_LANG_PY;
-			else if (l == 'M' || l == 'm')
-				lang = FUNC_LANG_MAP_PY;
+           {
+                if (strcasecmp($10, "PYTHON_MAP") == 0)
+                     lang = FUNC_LANG_MAP_PY;
+                else lang = FUNC_LANG_PY;
+           }
 			else if (l == 'C' || l == 'c')
 				lang = FUNC_LANG_C;
 			else if (l == 'J' || l == 'j')
@@ -1887,9 +1889,11 @@ func_def:
 			if (l == 'R' || l == 'r')
 				lang = FUNC_LANG_R;
 			else if (l == 'P' || l == 'p')
-				lang = FUNC_LANG_PY;
-			else if (l == 'M' || l == 'm')
-				lang = FUNC_LANG_MAP_PY;
+            {
+                if (strcasecmp($10, "PYTHON_MAP") == 0)
+                     lang = FUNC_LANG_MAP_PY;
+                else lang = FUNC_LANG_PY;
+            }
 			else if (l == 'C' || l == 'c')
 				lang = FUNC_LANG_C;
 			else if (l == 'J' || l == 'j')

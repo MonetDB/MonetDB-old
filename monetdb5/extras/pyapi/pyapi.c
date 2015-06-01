@@ -193,7 +193,7 @@ static int pyapiInitialized = FALSE;
         BATsetcount(bat, ret->count); \
         BATsettrivprop(bat); }
 
-//#define PYAPI_VERBOSE
+#define PYAPI_VERBOSE
 #define _PYAPI_DEBUG_
 
 str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped);
@@ -450,6 +450,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
             }*/
             switch(getArgType(mb,pci,i))
             {
+                case TYPE_bit:
+                    vararray = PyInt_FromLong((long)(*(bit*)getArgReference(stk, pci, i)));
+                    break;
                 case TYPE_bte:
                     vararray = PyInt_FromLong((long)(*(bte*)getArgReference(stk, pci, i)));
                     break;
@@ -481,7 +484,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
                     vararray = PyString_FromString((char*)getArgReference_str(stk, pci, i));
                     break;
                 default:
-                    msg = createException(MAL, "pyapi.eval", "Unsupported scalar type.");
+                    msg = createException(MAL, "pyapi.eval", "Unsupported scalar type %i.", getArgType(mb,pci,i));
                     goto wrapup;
             }
             if (vararray == NULL)
@@ -494,7 +497,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
         else
         {
             b = BATdescriptor(*getArgReference_bat(stk, pci, i));
-            if (b == NULL) {
+            if (b == NULL) 
+            {
                 msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
                 goto wrapup;
             }
@@ -653,6 +657,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
                
             // we use numpy.ma to deal with possible NULL values in the data
             // once numpy comes with proper NA support, this will change
+            if (b->T->nil)
             {
                 PyObject *mafunc = PyObject_GetAttrString(PyImport_Import(
                         PyString_FromString("numpy.ma")), "masked_array");
@@ -1171,8 +1176,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
             break;
         }
 
-
-
         if (isaBatType(getArgType(mb,pci,i))) {
             *getArgReference_bat(stk, pci, i) = b->batCacheid;
             BBPkeepref(b->batCacheid);
@@ -1266,6 +1269,7 @@ char *BATConstToString(int type)
 {
     switch (type)
     {
+        case TYPE_bit: return "BIT";
         case TYPE_bte: return "BYTE";
         case TYPE_sht: return "SHORT";
         case TYPE_int: return "INT";
@@ -1274,6 +1278,7 @@ char *BATConstToString(int type)
         case TYPE_dbl: return "DOUBLE";
         case TYPE_str: return "STRING";
         case TYPE_hge: return "HUGE";
+        case TYPE_oid: return "OID";
         default: return "UNKNOWN";
     }
 }
