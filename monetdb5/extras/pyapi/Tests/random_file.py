@@ -10,3 +10,20 @@ for j in range(1,15):
         f.write("(" + str(x) + "," + str(y) + ");\n")
     f.write("COMMIT;\n")
     f.close()
+
+
+\<workfile1.sql
+\<workfile2.sql
+\<workfile3.sql
+\<workfile4.sql
+\<workfile5.sql
+\<workfile6.sql
+\<workfile7.sql
+\<workfile8.sql
+\<workfile9.sql
+\<workfile10.sql
+\<workfile11.sql
+\<workfile12.sql
+\<workfile13.sql
+\<workfile14.sql
+\<workfile15.sql

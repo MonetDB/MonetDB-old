@@ -111,12 +111,12 @@ io.print(r);
 io.print(r,s);
 
 # return a multi-dimensional masked array with uneven dimensions 
-(r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(numpy.ma.masked_array([[1, 2, 3], [1,2,3,4]], 0))");
-io.print(r,s);
+#(r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(numpy.ma.masked_array([[1, 2, 3], [1,2,3,4]], 0))");
+#io.print(r,s);
 
 # return a masked array, holding multiple masked arrays of uneven length (if they had even length, the test would be identical to the one above because numpy would automatically convert the object to one big masked array)
-(r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(numpy.ma.masked_array([numpy.ma.masked_array([17,2,28], [0,1,0]), numpy.ma.masked_array([1,2,3,4], [1,0,0,0])], 0))");
-io.print(r,s);
+#(r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(numpy.ma.masked_array([numpy.ma.masked_array([17,2,28], [0,1,0]), numpy.ma.masked_array([1,2,3,4], [1,0,0,0])], 0))");
+#io.print(r,s);
 
 ##############
 # --PANDAS-- #

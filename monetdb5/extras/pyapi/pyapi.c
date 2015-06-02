@@ -15,7 +15,7 @@
 #include "sql_catalog.h"
 
 #include "pyapi.h"
-
+ 
 #undef _GNU_SOURCE
 #undef _XOPEN_SOURCE
 #undef _POSIX_C_SOURCE
@@ -24,7 +24,12 @@
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <numpy/arrayobject.h>
 
+#define PYAPI_VERBOSE
+#define _PYAPI_DEBUG_
+
 #include <string.h>
+
+ #include <semaphore.h>
 
 const char* pyapi_enableflag = "embedded_py";
 char *NPYConstToString(int);
@@ -44,11 +49,27 @@ int PyAPIEnabled(void) {
             || GDKgetenv_isyes(pyapi_enableflag));
 }
 
+#ifdef WIN32
+//windows
+#else
+//linux
+#endif
+
+#ifdef PYAPI_VERBOSE
+#define VERBOSE_MESSAGE(args...) { \
+    printf(args); \
+    fflush(stdout); \
+}
+#else
+#define VERBOSE_MESSAGE(args...) ((void) 0)
+#endif
+
 
 // TODO: exclude pyapi from mergetable, too
 // TODO: add to SQL layer
 // TODO: can we call the Python interpreter in a multi-thread environment?
 static MT_Lock pyapiLock;
+static MT_Lock pyapiSluice;
 static int pyapiInitialized = FALSE;
 
 
@@ -65,7 +86,7 @@ static int pyapiInitialized = FALSE;
         ret->count = PyArray_DIMS((PyArrayObject*)pResult)[1];        \
         ret->numpy_array = (PyArrayObject*)pResult;                   \
         ret->numpy_mask = (PyArrayObject*)pMask;                      \
-        ret->memory_size = PyArray_DESCR(ret->numpy_array)->elsize;    \
+        ret->memory_size = PyArray_DESCR(ret->numpy_array)->elsize;   \
     }
 
 #define NP_PREPARE_DATA(nptpe) {                                      \
@@ -87,16 +108,19 @@ static int pyapiInitialized = FALSE;
             }                                                         \
         }                                                             \
         ret->count = PyArray_DIMS(ret->numpy_array)[0];               \
-        pMask = PyObject_GetAttrString(pColO, "mask");                \
-        if (pMask != NULL)                                            \
+        if (PyObject_HasAttrString(pColO, "mask"))                    \
         {                                                             \
-            ret->numpy_mask = (PyArrayObject*) PyArray_FromAny(pMask, PyArray_DescrFromType(NPY_BOOL), 1, 1,  NPY_ARRAY_CARRAY, NULL); \
-            if (ret->numpy_mask == NULL || PyArray_DIMS(ret->numpy_mask)[0] != (int)ret->count)                                  \
+            pMask = PyObject_GetAttrString(pColO, "mask");            \
+            if (pMask != NULL)                                        \
             {                                                         \
-                pMask = NULL;                                         \
-                ret->numpy_mask = NULL;                               \
-                /*msg = createException(MAL, "pyapi.eval", "A masked array was returned, but the mask does not have the same length as the array.");*/  \
-                /*goto wrapup;*/                                      \
+                ret->numpy_mask = (PyArrayObject*) PyArray_FromAny(pMask, PyArray_DescrFromType(NPY_BOOL), 1, 1,  NPY_ARRAY_CARRAY, NULL); \
+                if (ret->numpy_mask == NULL || PyArray_DIMS(ret->numpy_mask)[0] != (int)ret->count)                                  \
+                {                                                     \
+                    pMask = NULL;                                     \
+                    ret->numpy_mask = NULL;                           \
+                    /*msg = createException(MAL, "pyapi.eval", "A masked array was returned, but the mask does not have the same length as the array.");*/  \
+                    /*goto wrapup;*/                                  \
+                }                                                     \
             }                                                         \
         }                                                             \
     }
@@ -121,18 +145,21 @@ static int pyapiInitialized = FALSE;
         }                                                             \
         count = PyArray_DIMS(pCol)[0];                                \
         bat = BATnew(TYPE_void, TYPE_##mtpe, count, TRANSIENT);         \
-        pMask = PyObject_GetAttrString(pColO, "mask");                \
-        if (pMask != NULL)                                            \
-        {                                                             \
-            pMaskArray = (PyArrayObject*) PyArray_FromAny(pMask, PyArray_DescrFromType(NPY_BOOL), 1, 1,  NPY_ARRAY_CARRAY, NULL); \
-            if (pMaskArray == NULL || PyArray_DIMS(pMaskArray)[0] != (int)count)                                  \
-            {                                                         \
-                pMask = NULL; \
-                pMaskArray = NULL; \
-                /*msg = createException(MAL, "pyapi.eval", "A masked array was returned, but the mask does not have the same length as the array.");*/  \
-                /*goto wrapup;*/                                       \
-            }                                                         \
-        }                                                             \
+        if (PyObject_HasAttrString(pColO, "mask"))                      \
+        {                                                                 \
+            pMask = PyObject_GetAttrString(pColO, "mask");                \
+            if (pMask != NULL)                                            \
+            {                                                             \
+                pMaskArray = (PyArrayObject*) PyArray_FromAny(pMask, PyArray_DescrFromType(NPY_BOOL), 1, 1,  NPY_ARRAY_CARRAY, NULL); \
+                if (pMaskArray == NULL || PyArray_DIMS(pMaskArray)[0] != (int)count)                                  \
+                {                                                         \
+                    pMask = NULL; \
+                    pMaskArray = NULL; \
+                    /*msg = createException(MAL, "pyapi.eval", "A masked array was returned, but the mask does not have the same length as the array.");*/  \
+                    /*goto wrapup;*/                                       \
+                }                                                         \
+            }                                                             \
+        }                                                                  \
     }
 
 #define NP_CREATE_BAT(bat, mtpe, nptpe) {                               \
@@ -193,21 +220,30 @@ static int pyapiInitialized = FALSE;
         BATsetcount(bat, ret->count); \
         BATsettrivprop(bat); }
 
-#define PYAPI_VERBOSE
-#define _PYAPI_DEBUG_
-
-str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped);
+str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped);
 
 str 
 PyAPIevalStd(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
     (void) cntxt;
-    return PyAPIeval(mb, stk, pci, 0);
+    return PyAPIeval(mb, stk, pci, 0, 0);
+}
+
+str 
+PyAPIevalStdMap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
+    (void) cntxt;
+    return PyAPIeval(mb, stk, pci, 0, 1);
 }
 
 str 
 PyAPIevalAggr(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
     (void) cntxt;
-    return PyAPIeval(mb, stk, pci, 1);
+    return PyAPIeval(mb, stk, pci, 1, 0);
+}
+
+str 
+PyAPIevalAggrMap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
+    (void) cntxt;
+    return PyAPIeval(mb, stk, pci, 1, 1);
 }
 
 typedef enum {
@@ -224,8 +260,17 @@ struct _PyReturn{
     bool multidimensional;
 };
 #define PyReturn struct _PyReturn
+static bool Initialized = false;
+static bool SemaphoreInitialized = false;
+static int PassedSemaphore = 0;
+static int MaxProcesses = 0;
+static int Processes = 0;
+sem_t execute_semaphore;
 
-str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
+PyGILState_STATE AcquireLock(bool *holds_gil, bool first);
+void ReleaseLock(PyGILState_STATE gstate, bool *holds_gil, bool final);
+
+str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped) {
     sql_func * sqlfun = *(sql_func**) getArgReference(stk, pci, pci->retc);
     str exprStr = *getArgReference_str(stk, pci, pci->retc + 1);
 
@@ -258,10 +303,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
               pyapi_enableflag);
     }
 
-#ifdef PYAPI_VERBOSE
-    printf("PYAPI START.\n");
-    fflush(stdout);
-#endif
+    VERBOSE_MESSAGE("PyAPI Start\n");
 
     pycalllen = strlen(exprStr) + sizeof(argnames) + 1000;
     expr_ind_len = strlen(exprStr) + 1000;
@@ -303,10 +345,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
     }
 
 
-#ifdef PYAPI_VERBOSE
-    printf("Formatting python code.\n");
-    fflush(stdout);
-#endif
+    VERBOSE_MESSAGE("Formatting python code.\n");
 
     // create argument list
     pos = 0;
@@ -387,8 +426,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
             if (expr_ind[py_pos] == 0) {
                 expr_ind[py_pos] = indentchar;
             }
-        }
-        // make sure this is terminated.
+        
+}        // make sure this is terminated.
         expr_ind[py_ind_pos++] = 0;
     }
 
@@ -399,17 +438,24 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
         goto wrapup;
     }
 
-#ifdef PYAPI_VERBOSE
-    printf("Acquiring GIL lock.\n");
-    fflush(stdout);
-#endif
-    gstate = PyGILState_Ensure();
-    holds_gil = TRUE;
+    if (mapped)
+    {
+        MT_lock_set(&pyapiSluice, "pyapi.sluice");
+        if (SemaphoreInitialized == FALSE)
+        {
+            MaxProcesses = 8; //todo: replace 8 with #number of processes
+            PassedSemaphore = 0;
 
-#ifdef PYAPI_VERBOSE
-    printf("Loading data from the database into Python.\n");
-    fflush(stdout);
-#endif
+            sem_init(&execute_semaphore, 0, 0); //initialize execute semaphore
+
+            SemaphoreInitialized = TRUE;
+        }
+        MT_lock_unset(&pyapiSluice, "pyapi.sluice");
+    }
+
+    gstate = AcquireLock(&holds_gil, true);
+
+    VERBOSE_MESSAGE("Loading data from the database into Python.\n");
 
     // create function argument tuple, we pass a tuple of numpy arrays
     pArgs = PyTuple_New(pci->argc-(pci->retc + 2));
@@ -422,10 +468,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
         if (!isaBatType(getArgType(mb,pci,i))) 
         {
 
-#ifdef PYAPI_VERBOSE
-            printf("- Loading a scalar of type %s (%i)\n", BATConstToString(getArgType(mb,pci,i)), getArgType(mb,pci,i));
-            fflush(stdout);
-#endif
+            VERBOSE_MESSAGE("- Loading a scalar of type %s (%i)\n", BATConstToString(getArgType(mb,pci,i)), getArgType(mb,pci,i));
+
             //this is old code that converts a single input scalar into a BAT -> this is replaced by the code below, but I'll leave this here in case this might be preferable
             //the argument is a scalar, check which scalar type it is
             /*b = BATnew(TYPE_void, getArgType(mb, pci, i), 0, TRANSIENT);
@@ -503,10 +547,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
                 goto wrapup;
             }
 
-#ifdef PYAPI_VERBOSE
-            printf("- Loading a BAT of type %s (%i)\n", BATConstToString(ATOMstorage(getColumnType(getArgType(mb,pci,i)))), ATOMstorage(getColumnType(getArgType(mb,pci,i))));
-            fflush(stdout);
-#endif
+            VERBOSE_MESSAGE("- Loading a BAT of type %s (%i)\n", BATConstToString(ATOMstorage(getColumnType(getArgType(mb,pci,i)))), ATOMstorage(getColumnType(getArgType(mb,pci,i))));
+
             //the argument is a BAT, convert it to a numpy array
             switch (ATOMstorage(getColumnType(getArgType(mb,pci,i)))) {
             case TYPE_bte:
@@ -702,19 +744,24 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
     }
 
 
-#ifdef PYAPI_VERBOSE
-    printf("Executing python code.\n");
-    fflush(stdout);
-#endif
+    VERBOSE_MESSAGE("Executing python code.\n");
+
     {
-        int pyret;
+        int pyret = 0;
         PyObject *pFunc, *pModule;
 
         // TODO: does this create overhead?, see if we can share the import
-
         pModule = PyImport_Import(PyString_FromString("__main__"));
-        pyret = PyRun_SimpleString(pycall);
+        if (!Initialized)
+        {
+            VERBOSE_MESSAGE("Initializing function.\n");
+            pyret = PyRun_SimpleString(pycall);
+
+            Initialized = true;
+        }
         pFunc = PyObject_GetAttrString(pModule, "pyfun");
+
+        
 
         //fprintf(stdout, "%s\n", pycall);
         if (pyret != 0 || !pModule || !pFunc || !PyCallable_Check(pFunc)) {
@@ -722,7 +769,69 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
             goto wrapup;
         }
 
-        pResult = PyObject_CallObject(pFunc, pArgs);
+        if (mapped)
+        {
+            PyObject *pMult, *pPoolClass, *pPoolProcesses, *pPoolObject, *pApply, *pPoolArgs, *pOutput, *pGet;
+
+            pMult = PyImport_Import(PyString_FromString("multiprocessing"));
+            if (pMult == NULL)
+            {
+                msg = createException(MAL, "pyapi.eval", "Failed to load module Multiprocessing");
+                goto wrapup;
+            }
+            pPoolClass = PyObject_GetAttrString(pMult, "Pool");
+            if (pPoolClass == NULL)
+            {
+                msg = createException(MAL, "pyapi.eval", "Failed to load Pool class");
+                goto wrapup;
+            }
+
+            VERBOSE_MESSAGE("Create pool process.\n");
+            pPoolProcesses = PyTuple_New(1);
+            PyTuple_SetItem(pPoolProcesses, 0, PyInt_FromLong(1));
+            pPoolObject = PyObject_CallObject(pPoolClass, pPoolProcesses);
+            if (pPoolObject == NULL)
+            {
+                msg = createException(MAL, "pyapi.eval", "Failed to construct pool.");
+                goto wrapup;
+            }
+            pApply = PyObject_GetAttrString(pPoolObject, "apply_async");
+            if (pApply == NULL)
+            {
+                msg = createException(MAL, "pyapi.eval", "Failed.");
+                goto wrapup;
+            }
+            pPoolArgs = PyTuple_New(2);
+
+            PyTuple_SetItem(pPoolArgs, 0, pFunc);
+            PyTuple_SetItem(pPoolArgs, 1, pArgs);
+
+            pOutput = PyObject_CallObject(pApply, pPoolArgs);
+
+            pGet = PyObject_GetAttrString(pOutput, "get");
+            if (pGet == NULL)
+            {
+                msg = createException(MAL, "pyapi.eval", "No get?");
+                goto wrapup;
+            }
+
+            PassedSemaphore++;
+            ReleaseLock(gstate, &holds_gil, false);
+
+            if (PassedSemaphore != MaxProcesses)
+            {
+                VERBOSE_MESSAGE("Start waiting, %i processes passed semaphore\n", PassedSemaphore);
+                sem_wait(&execute_semaphore);
+            }
+
+            gstate = AcquireLock(&holds_gil, false);
+
+            pResult = PyObject_CallObject(pGet, NULL);
+        }
+        else
+        {
+            pResult = PyObject_CallObject(pFunc, pArgs);
+        }
         if (PyErr_Occurred()) {
             PyObject *pErrType, *pErrVal, *pErrTb;
             PyErr_Fetch(&pErrType, &pErrVal, &pErrTb);
@@ -853,13 +962,10 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
             goto wrapup;
         }
         // delete the function again
-        PyRun_SimpleString("try:\n\tdel pyfun\nexcept NameError:\n\tpass");
+        //PyRun_SimpleString("try:\n\tdel pyfun\nexcept NameError:\n\tpass");
     }
 
-#ifdef PYAPI_VERBOSE
-    printf("Collecting return values.\n");
-    fflush(stdout);
-#endif
+    VERBOSE_MESSAGE("Collecting return values.\n");
 
     for (i = 0; i < pci->retc; i++) 
     {
@@ -1092,18 +1198,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
     }
 
 
-#ifdef PYAPI_VERBOSE
-    printf("Releasing GIL lock.\n");
-    fflush(stdout);
-#endif
-    PyGILState_Release(gstate);
-    holds_gil = FALSE;
+    ReleaseLock(gstate, &holds_gil, true);
 
-
-#ifdef PYAPI_VERBOSE
-    printf("Returning values.\n");
-    fflush(stdout);
-#endif
+    VERBOSE_MESSAGE("Returning values.\n");
 
     for (i = 0; i < pci->retc; i++) 
     {
@@ -1186,32 +1283,22 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
     }
   wrapup:
 
-#ifdef PYAPI_VERBOSE
-    printf("Cleaning up.\n");
-    fflush(stdout);
-#endif
-    //ts = PyEval_SaveThread();
-    if (holds_gil) 
-    {
-#ifdef PYAPI_VERBOSE
-        printf("Releasing GIL lock.\n");
-        fflush(stdout);
-#endif
-        PyGILState_Release(gstate);
-        holds_gil = FALSE;
-    }
+    VERBOSE_MESSAGE("Cleaning up.\n");
+    ReleaseLock(gstate, &holds_gil, true);
 
     GDKfree(pyreturn_values);
     GDKfree(args);
     GDKfree(pycall);
     GDKfree(expr_ind);
 
+    VERBOSE_MESSAGE("Finished cleaning up.\n");
     return msg;
 }
 
 str PyAPIprelude(void *ret) {
     (void) ret;
     MT_lock_init(&pyapiLock, "pyapi_lock");
+    MT_lock_init(&pyapiSluice, "pyapi_sluice");
     if (PyAPIEnabled()) {
         MT_lock_set(&pyapiLock, "pyapi.evaluate");
         if (!pyapiInitialized) {
@@ -1418,3 +1505,56 @@ bool string_to_hge(char* str, hge *h)
     return TRUE;
 }
 
+
+PyGILState_STATE AcquireLock(bool *holds_gil, bool first)
+{
+    PyGILState_STATE gstate;
+    if (*holds_gil == TRUE) 
+    {
+        VERBOSE_MESSAGE("Process already holds GIL!\n");
+        return 0;
+    }
+
+    MT_lock_set(&pyapiLock, "pyapi.evaluate");
+    //gstate = 1;
+    gstate = PyGILState_Ensure();
+
+    VERBOSE_MESSAGE("Acquired GIL lock.\n");
+
+    *holds_gil = true;
+    if (first)
+    {
+        Processes++;
+        VERBOSE_MESSAGE("Processes: %i\n", Processes);
+    }
+    return gstate;
+}
+
+void ReleaseLock(PyGILState_STATE gstate, bool *holds_gil, bool final)
+{
+    if (*holds_gil == FALSE) return;
+
+    if (final)
+    {
+        Processes--;
+        VERBOSE_MESSAGE("Processes: %i\n", Processes);
+        if (Processes == 0) 
+        {
+            Initialized = false;
+            SemaphoreInitialized = false;
+            PassedSemaphore = 0;
+            PyRun_SimpleString("del pyfun");
+        }
+    }
+    
+    VERBOSE_MESSAGE("Releasing GIL lock.\n");
+
+    PyGILState_Release(gstate);
+    MT_lock_unset(&pyapiLock, "pyapi.evaluate");
+    *holds_gil = FALSE;
+
+    if (final)
+    {
+        sem_post(&execute_semaphore);
+    }
+}
