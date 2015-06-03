@@ -1887,7 +1887,7 @@ str form_pkey_select_str(sel_predicate** sps, int num_PERPAD, str* pkey_bound_to
 str get_non_pkey_select_str(str schema_name, str dmdt_name)
 {
 	if(strcmp(schema_name, "mseed") == 0 && strcmp(dmdt_name, "windowmetadata") == 0)
-		return "MIN(sample_value) AS min_val, MAX(sample_value) AS max_val, AVG(sample_value) AS avg_val, stddev_pop(sample_value) AS std_dev";
+		return "MIN(sample_value) AS min_val, MAX(sample_value) AS max_val, AVG(sample_value) AS avg_val, SUM(sample_value) AS std_dev";
 	if(strcmp(schema_name, "mseed") == 0 && strcmp(dmdt_name, "psdmetadata") == 0)
 		return "AVG(sample_value) AS psd_value";
 	else
