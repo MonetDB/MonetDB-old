@@ -188,8 +188,11 @@ static int pyapiInitialized = FALSE;
                                                                       \
             }                                                         \
         } bat->T->nonil = 1 - bat->T->nil;                            \
-        BATsetcount(bat, ret->count); \
-        BATsettrivprop(bat); }
+        BATsetcount(bat, ret->count);                                 \
+        BATsettrivprop(bat);                                          \
+        Py_DECREF(ret->numpy_array);                                  \
+        if (ret->numpy_mask != NULL) Py_DECREF(ret->numpy_mask);       \
+    }
 
 #define NP_CREATE_BAT_COL(bat, mtpe, nptpe) {                               \
         bool *mask = NULL; \
@@ -218,7 +221,10 @@ static int pyapiInitialized = FALSE;
             }                                                         \
         } bat->T->nonil = 1 - bat->T->nil;                            \
         BATsetcount(bat, ret->count); \
-        BATsettrivprop(bat); }
+        BATsettrivprop(bat); \
+        Py_DECREF(ret->numpy_array);                                  \
+        if (ret->numpy_mask != NULL) Py_DECREF(ret->numpy_mask);       \
+    }
 
 str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped);
 
@@ -289,7 +295,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     PyObject *pArgs, *pResult; // this is going to be the parameter tuple
     BUN p = 0, q = 0;
     BATiter li;
-    PyGILState_STATE gstate;
+    PyGILState_STATE gstate = -1;
     bool holds_gil = FALSE;
     PyReturn *pyreturn_values = NULL;
 
@@ -317,7 +323,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         throw(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
         // TODO: free args and rcall
     }
-
 
     // first argument after the return contains the pointer to the sql_func structure
     if (sqlfun != NULL && sqlfun->ops->cnt > 0) {
@@ -748,23 +753,26 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 
     {
         int pyret = 0;
-        PyObject *pFunc, *pModule;
+        PyObject *pFunc, *pModule, *str;
 
-        // TODO: does this create overhead?, see if we can share the import
-        pModule = PyImport_Import(PyString_FromString("__main__"));
+        str = PyString_FromString("__main__");
+        pModule = PyImport_Import(str);
+        Py_CLEAR(str);
+
         if (!Initialized)
         {
             VERBOSE_MESSAGE("Initializing function.\n");
+
             pyret = PyRun_SimpleString(pycall);
 
             Initialized = true;
         }
         pFunc = PyObject_GetAttrString(pModule, "pyfun");
-
         
 
         //fprintf(stdout, "%s\n", pycall);
         if (pyret != 0 || !pModule || !pFunc || !PyCallable_Check(pFunc)) {
+            PyErr_Print();
             msg = createException(MAL, "pyapi.eval", "could not parse Python code %s", pycall);
             goto wrapup;
         }
@@ -831,6 +839,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         else
         {
             pResult = PyObject_CallObject(pFunc, pArgs);
+            Py_DECREF(pFunc);
+            Py_DECREF(pArgs);
         }
         if (PyErr_Occurred()) {
             PyObject *pErrType, *pErrVal, *pErrTb;
@@ -1196,9 +1206,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             goto wrapup;
         }
     }
+    Py_DECREF(pResult);
 
-
-    ReleaseLock(gstate, &holds_gil, true);
+    //ReleaseLock(gstate, &holds_gil, true);
 
     VERBOSE_MESSAGE("Returning values.\n");
 
@@ -1287,6 +1297,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     ReleaseLock(gstate, &holds_gil, true);
 
     GDKfree(pyreturn_values);
+    for (i = pci->retc + 2; i < pci->argc; i++)
+        if (args[i] != NULL)
+            GDKfree(args[i]);
     GDKfree(args);
     GDKfree(pycall);
     GDKfree(expr_ind);
@@ -1294,8 +1307,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     VERBOSE_MESSAGE("Finished cleaning up.\n");
     return msg;
 }
-
-str PyAPIprelude(void *ret) {
+str
+ PyAPIprelude(void *ret) {
     (void) ret;
     MT_lock_init(&pyapiLock, "pyapi_lock");
     MT_lock_init(&pyapiSluice, "pyapi_sluice");
@@ -1428,17 +1441,26 @@ bool IsPyScalar(PyObject *object)
 
 bool IsPandasDataFrame(PyObject *object)
 {
-    return (strcmp(PyString_AsString(PyObject_Str(PyObject_Type(object))), "<class 'pandas.core.frame.DataFrame'>") == 0);
+    PyObject *str = PyObject_Str(PyObject_Type(object));
+    bool ret = strcmp(PyString_AsString(str), "<class 'pandas.core.frame.DataFrame'>") == 0;
+    Py_DECREF(str);
+    return ret;
 }
 
 bool IsNPYArray(PyObject *object)
 {
-    return (strcmp(PyString_AsString(PyObject_Str(PyObject_Type(object))), "<type 'numpy.ndarray'>") == 0);
+    PyObject *str = PyObject_Str(PyObject_Type(object));
+    bool ret = strcmp(PyString_AsString(str), "<type 'numpy.ndarray'>") == 0;
+    Py_DECREF(str);
+    return ret;
 }
 
 bool IsNPYMaskedArray(PyObject *object)
 {
-    return (strcmp(PyString_AsString(PyObject_Str(PyObject_Type(object))), "<class 'numpy.ma.core.MaskedArray'>") == 0);
+    PyObject *str = PyObject_Str(PyObject_Type(object));
+    bool ret = strcmp(PyString_AsString(str), "<class 'numpy.ma.core.MaskedArray'>") == 0;
+    Py_DECREF(str);
+    return ret;
 }
    
 int snprintf_huge(char * str, int size, hge x)
@@ -1512,7 +1534,7 @@ PyGILState_STATE AcquireLock(bool *holds_gil, bool first)
     if (*holds_gil == TRUE) 
     {
         VERBOSE_MESSAGE("Process already holds GIL!\n");
-        return 0;
+        return -1;
     }
 
     MT_lock_set(&pyapiLock, "pyapi.evaluate");
