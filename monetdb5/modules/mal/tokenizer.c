@@ -62,16 +62,18 @@ static char name[128];
 #define GET_d(x) ((sht) ((x) & 255))
 #define GET_h(x) ((x) >> 8)
 
-static int prvlocate(BAT* b, BAT* bidx, oid *prv, str part)
+static int prvlocate(BAT* b, BAT* bidx, oid *prv, const char *part)
 {
 	BATiter bi = bat_iterator(b);
 	BATiter biidx = bat_iterator(bidx);
-
 	BUN p;
+	BUN prb;
+	int pcs;
+
 	if (b->T->hash == NULL)
-		BAThash(b, 2 * BATcount(b));
-	HASHloop_str(bi, b->T->hash, p, part)
-	{
+		BAThash(b);
+	prb = strHash(part) & b->T->hash->mask;
+	HASHloop_str(bi, b->T->hash, prb, part, p, pcs) {
 		if (*((oid *) BUNtail(biidx, p)) == *prv) {
 			*prv = (oid) p;
 			return TRUE;
@@ -351,7 +353,7 @@ TKNZRappend(oid *pos, str *s)
 		if (tokenBAT[i].val->T->hash == NULL ||
 			BATcount(tokenBAT[i].val) > 4 * tokenBAT[i].val->T->hash->mask) {
 			HASHdestroy(tokenBAT[i].val);
-			BAThash(tokenBAT[i].val, 2 * BATcount(tokenBAT[i].val));
+			BAThash(tokenBAT[i].val);
 		}
 
 		if (BUNappend(tokenBAT[i].idx, (ptr) & prv, TRUE) != GDK_SUCCEED) {
@@ -369,7 +371,7 @@ TKNZRappend(oid *pos, str *s)
 	if (tokenBAT[INDEX].val->T->hash == NULL ||
 		BATcount(tokenBAT[INDEX].val) > 4 * tokenBAT[INDEX].val->T->hash->mask) {
 		HASHdestroy(tokenBAT[INDEX].val);
-		BAThash(tokenBAT[INDEX].val, 2 * BATcount(tokenBAT[INDEX].val));
+		BAThash(tokenBAT[INDEX].val);
 	}
 
 	GDKfree(url);

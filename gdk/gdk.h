@@ -622,12 +622,12 @@ typedef size_t BUN;
 #endif
 typedef uint16_t BUN2type;
 typedef uint32_t BUN4type;
-#if SIZEOF_BUN > 4
+#ifdef BUN8
 typedef uint64_t BUN8type;
 #endif
 #define BUN2_NONE ((BUN2type) 0xFFFF)
 #define BUN4_NONE ((BUN4type) 0xFFFFFFFF)
-#if SIZEOF_BUN > 4
+#ifdef BUN8
 #define BUN8_NONE ((BUN8type) LL_CONSTANT(0xFFFFFFFFFFFFFFFF))
 #endif
 
@@ -663,16 +663,7 @@ typedef struct {
 	bat parentid;		/* cache id of VIEW parent bat */
 } Heap;
 
-typedef struct {
-	int type;		/* type of index entity */
-	int width;		/* width of hash entries */
-	BUN nil;		/* nil representation */
-	BUN lim;		/* collision list size */
-	BUN mask;		/* number of hash buckets-1 (power of 2) */
-	void *Hash;		/* hash table */
-	void *Link;		/* collision list */
-	Heap *heap;		/* heap where the hash is stored */
-} Hash;
+#include "gdk_hash.h"
 
 typedef struct Imprints Imprints;
 
@@ -2072,7 +2063,8 @@ gdk_export oid OIDnew(oid inc);
  * accelerator on the tail of the BAT exists. GDK_FAIL is returned
  * upon failure to create the supportive structures.
  */
-gdk_export gdk_return BAThash(BAT *b, BUN masksize);
+
+gdk_export gdk_return BAThash(BAT *b);
 
 /*
  * @- Column Imprints Functions
@@ -2975,84 +2967,7 @@ gdk_export void ALIGNsetH(BAT *b1, BAT *b2);
 #define DELloop(b, p, q)						\
 	for (q = (b)->batFirst, p = (b)->batDeleted; p < q; p++)
 
-/*
- * @- hash-table supported loop over BUNs
- * The first parameter `b' is a BAT, the second (`h') should point to
- * `b->H->hash', and `v' a pointer to an atomic value (corresponding
- * to the head column of `b'). The 'hb' is an integer index, pointing
- * out the `hb'-th BUN.
- */
 #define GDK_STREQ(l,r) (*(char*) (l) == *(char*) (r) && !strcmp(l,r))
-
-#define HASHloop(bi, h, hb, v)					\
-	for (hb = HASHget(h, HASHprobe((h), v));		\
-	     hb != HASHnil(h);					\
-	     hb = HASHgetlink(h,hb))				\
-		if (ATOMcmp(h->type, v, BUNtail(bi, hb)) == 0)
-#define HASHloop_str_hv(bi, h, hb, v)				\
-	for (hb = HASHget((h),((BUN *) (v))[-1]&(h)->mask);	\
-	     hb != HASHnil(h);					\
-	     hb = HASHgetlink(h,hb))				\
-		if (GDK_STREQ(v, BUNtvar(bi, hb)))
-#define HASHloop_str(bi, h, hb, v)			\
-	for (hb = HASHget((h),strHash(v)&(h)->mask);	\
-	     hb != HASHnil(h);				\
-	     hb = HASHgetlink(h,hb))			\
-		if (GDK_STREQ(v, BUNtvar(bi, hb)))
-
-/*
- * The following example shows how the hashloop is used:
- *
- * @verbatim
- * void
- * print_books(BAT *books_author, str author)
- * {
- *         BAT *b = books_author;
- *         BUN i;
- *
- *         printf("%s\n==================\n", author);
- *         HASHloop(b, (b)->T->hash, i, author)
- *			printf("%s\n", ((str) BUNhead(b, i));
- * }
- * @end verbatim
- *
- * Note that for optimization purposes, we could have used a
- * HASHloop_str instead, and also a BUNhvar instead of a BUNhead
- * (since we know the head-type of books_author is string, hence
- * variable-sized). However, this would make the code less general.
- *
- * @- specialized hashloops
- * HASHloops come in various flavors, from the general HASHloop, as
- * above, to specialized versions (for speed) where the type is known
- * (e.g. HASHloop_int), or the fact that the atom is fixed-sized
- * (HASHlooploc) or variable-sized (HASHloopvar).
- */
-#define HASHlooploc(bi, h, hb, v)				\
-	for (hb = HASHget(h, HASHprobe(h, v));			\
-	     hb != HASHnil(h);					\
-	     hb = HASHgetlink(h,hb))				\
-		if (ATOMcmp(h->type, v, BUNtloc(bi, hb)) == 0)
-#define HASHloopvar(bi, h, hb, v)				\
-	for (hb = HASHget(h,HASHprobe(h, v));			\
-	     hb != HASHnil(h);					\
-	     hb = HASHgetlink(h,hb))				\
-		if (ATOMcmp(h->type, v, BUNtvar(bi, hb)) == 0)
-
-#define HASHloop_TYPE(bi, h, hb, v, TYPE)			\
-	for (hb = HASHget(h, hash_##TYPE(h, v));		\
-	     hb != HASHnil(h);					\
-	     hb = HASHgetlink(h,hb))				\
-		if (simple_EQ(v, BUNtloc(bi, hb), TYPE))
-
-#define HASHloop_bte(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, bte)
-#define HASHloop_sht(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, sht)
-#define HASHloop_int(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, int)
-#define HASHloop_lng(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, lng)
-#ifdef HAVE_HGE
-#define HASHloop_hge(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, hge)
-#endif
-#define HASHloop_flt(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, flt)
-#define HASHloop_dbl(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, dbl)
 
 /*
  * @- loop over a BAT with ordered tail

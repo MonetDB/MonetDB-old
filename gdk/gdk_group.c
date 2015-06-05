@@ -204,10 +204,10 @@
  * Note this algorithm depends critically on the fact that our hash
  * chains go from higher to lower BUNs.
  */
-#define GRP_use_existing_hash_table(INIT_0,INIT_1,COMP)			\
+#define GRP_use_existing_hash_table(INIT_0,INIT_1,COMP,HASH)		\
 	do {								\
 		INIT_0;							\
-		for (r = lo, p = r, q = hi;				\
+		for (p = r = lo, q = hi;				\
 		     p < q;						\
 		     p++) {						\
 			INIT_1;						\
@@ -216,10 +216,12 @@
 			/* consider BUNs smaller than the one we're */	\
 			/* looking up (p), and that we also consider */	\
 			/* the input groups */				\
+			if ((pcs = (int) (p / hs->chunk)) >= hs->pieces) \
+				pcs = hs->pieces - 1;			\
+			prb = HASH;					\
 			if (grps) {					\
-				for (hb = HASHgetlink(hs, p);		\
-				     hb != HASHnil(hs) && hb >= lo;	\
-				     hb = HASHgetlink(hs, hb)) {	\
+				hb = HASHgetlink(hs, p);		\
+				while (hb != HASHnil(hs) && hb >= lo) {	\
 					assert(hb < p);			\
 					if (grps[hb - r] == grps[p - r] && \
 					    COMP) {			\
@@ -232,11 +234,20 @@
 							gn->tsorted = 0; \
 						break;			\
 					}				\
+					if ((hb = HASHgetlink(hs, hb)) == HASHnil(hs)) { \
+						while (pcs > 0 && lo < pcs * hs->chunk) { \
+							pcs--;		\
+							hb = HASHget(hs, pcs, prb); \
+							if (hb != HASHnil(hs)) \
+								break;	\
+						}			\
+						if (hb == HASHnil(hs))	\
+							break;		\
+					}				\
 				}					\
 			} else {					\
-				for (hb = HASHgetlink(hs, p);		\
-				     hb != HASHnil(hs) && hb >= lo;	\
-				     hb = HASHgetlink(hs, hb)) {	\
+				hb = HASHgetlink(hs, p);		\
+				while (hb != HASHnil(hs) && hb >= lo) {	\
 					assert(hb < p);			\
 					if (COMP) {			\
 						oid grp = ngrps[hb - r]; \
@@ -247,6 +258,16 @@
 						    grp != ngrp - 1)	\
 							gn->tsorted = 0; \
 						break;			\
+					}				\
+					if ((hb = HASHgetlink(hs, hb)) == HASHnil(hs)) { \
+						while (pcs > 0 && lo < pcs * hs->chunk) { \
+							pcs--;		\
+							hb = HASHget(hs, pcs, prb); \
+							if (hb != HASHnil(hs)) \
+								break;	\
+						}			\
+						if (hb == HASHnil(hs))	\
+							break;		\
 					}				\
 				}					\
 			}						\
@@ -260,16 +281,75 @@
 	GRP_use_existing_hash_table(				\
 	/* INIT_0 */	const TYPE *w = (TYPE *) Tloc(b, 0),	\
 	/* INIT_1 */					,	\
-	/* COMP   */	w[p] == w[hb]				\
+	/* COMP   */	w[p] == w[hb],				\
+	/* HASH   */	HASHprobe(hs, w + p)			\
 	)
 
 #define GRP_use_existing_hash_table_any()			\
 	GRP_use_existing_hash_table(				\
 	/* INIT_0 */					,	\
 	/* INIT_1 */	v = BUNtail(bi, p)		,	\
-	/* COMP   */	cmp(v, BUNtail(bi, hb)) == 0		\
+	/* COMP   */	cmp(v, BUNtail(bi, hb)) == 0	,	\
+	/* HASH   */	HASHprobe(hs, v)			\
 	)
 
+#ifdef BUN8
+#define HASHputlink()							\
+	do {								\
+		switch (hs->width) {					\
+		case BUN2:						\
+			((BUN2type *) hs->Link)[p] = ((BUN2type *) hs->Hash)[prb]; \
+			((BUN2type *) hs->Hash)[prb] = p;		\
+			break;						\
+		case BUN4:						\
+			((BUN4type *) hs->Link)[p] = ((BUN4type *) hs->Hash)[prb]; \
+			((BUN4type *) hs->Hash)[prb] = p;		\
+			break;						\
+		case BUN8:						\
+			((BUN8type *) hs->Link)[p] = ((BUN8type *) hs->Hash)[prb]; \
+			((BUN8type *) hs->Hash)[prb] = p;		\
+			break;						\
+		}							\
+	} while (0)
+#else
+#define HASHputlink()							\
+	do {								\
+		switch (hs->width) {					\
+		case BUN2:						\
+			((BUN2type *) hs->Link)[p] = ((BUN2type *) hs->Hash)[prb]; \
+			((BUN2type *) hs->Hash)[prb] = p;		\
+			break;						\
+		case BUN4:						\
+			((BUN4type *) hs->Link)[p] = ((BUN4type *) hs->Hash)[prb]; \
+			((BUN4type *) hs->Hash)[prb] = p;		\
+			break;						\
+		}							\
+	} while (0)
+#endif
+
+/* Count number of 1 bits in the argument.
+ * The algorithm comes from Henry S. Warren, Jr., Hacker's Delight,
+ * 2nd Edition, page 82. */
+static inline int
+pop(BUN n)
+{
+#if SIZEOF_BUN == 4
+	n -= (n >> 1) & 0x55555555;
+	n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
+	n = (n + (n >> 4)) & 0x0F0F0F0F;
+	n += n >> 8;
+	n += n >> 16;
+	return (int) (n & 0x3F);
+#else
+	n -= (n >> 1) & 0x5555555555555555;
+	n = (n & 0x3333333333333333) + ((n >> 2) & 0x3333333333333333);
+	n = (n + (n >> 4)) & 0x0F0F0F0F0F0F0F0F;
+	n += n >> 8;
+	n += n >> 16;
+	n += n >> 32;
+	return (int) (n & 0x7F);
+#endif
+}
 
 #define GRP_create_partial_hash_table(INIT_0,INIT_1,HASH,COMP)		\
 	do {								\
@@ -280,13 +360,13 @@
 			INIT_1;						\
 			prb = HASH;					\
 			if (gc) {					\
-				for (hb = HASHget(hs,prb);		\
+				for (hb = HASHget(hs, 0, prb);		\
 				     hb != HASHnil(hs) &&		\
 				      grps[hb - r] == grps[p - r];	\
-				     hb = HASHgetlink(hs,hb)) {		\
-					assert(HASHgetlink(hs,hb) == HASHnil(hs) \
-					       || HASHgetlink(hs,hb) < hb); \
-					if (COMP) {		\
+				     hb = HASHgetlink(hs, hb)) {	\
+					assert(HASHgetlink(hs, hb) == HASHnil(hs) \
+					       || HASHgetlink(hs, hb) < hb); \
+					if (COMP) {			\
 						oid grp = ngrps[hb - r]; \
 						ngrps[p - r] = grp; 	\
 						if (histo)		\
@@ -304,9 +384,9 @@
 				}					\
 			} else if (grps) {				\
 				prb = (prb ^ (BUN) grps[p-r] << bits) & hs->mask; \
-				for (hb = HASHget(hs,prb);		\
+				for (hb = HASHget(hs, 0, prb);		\
 				     hb != HASHnil(hs);			\
-				     hb = HASHgetlink(hs,hb)) {		\
+				     hb = HASHgetlink(hs, hb)) {	\
 					if (grps[hb - r] == grps[p - r] && \
 					    COMP) {			\
 						oid grp = ngrps[hb - r]; \
@@ -320,10 +400,10 @@
 					}				\
 				}					\
 			} else {					\
-				for (hb = HASHget(hs,prb);		\
+				for (hb = HASHget(hs, 0, prb);		\
 				     hb != HASHnil(hs);			\
-				     hb = HASHgetlink(hs,hb)) {		\
-					if (COMP) {		\
+				     hb = HASHgetlink(hs, hb)) {	\
+					if (COMP) {			\
 						oid grp = ngrps[hb - r]; \
 						ngrps[p - r] = grp;	\
 						if (histo)		\
@@ -338,8 +418,7 @@
 			if (hb == HASHnil(hs)) {			\
 				GRPnotfound();				\
 				/* enter new group into hash table */	\
-				HASHputlink(hs,p, HASHget(hs,prb));	\
-				HASHput(hs,prb,p); 			\
+				HASHputlink();				\
 			}						\
 		}							\
 	} while (0)
@@ -375,7 +454,6 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 	BUN p, q, r;
 	const void *v, *pv;
 	BATiter bi;
-	char *ext = NULL;
 	Hash *hs = NULL;
 	BUN hb;
 	BUN maxgrps;
@@ -760,10 +838,12 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		GDKfree(sgrps);
 	} else if (BATcheckhash(b) ||
 		   (b->batPersistence == PERSISTENT &&
-		    BAThash(b, 0) == GDK_SUCCEED) ||
+		    BAThash(b) == GDK_SUCCEED) ||
 		   ((parent = VIEWtparent(b)) != 0 &&
 		    BATcheckhash(BBPdescriptor(-parent)))) {
 		BUN lo, hi;
+		BUN prb;
+		int pcs;
 
 		/* we already have a hash table on b, or b is
 		 * persistent and we could create a hash table, or b
@@ -829,16 +909,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		size_t nmelen;
 		Heap *hp = NULL;
 		BUN prb;
-		BUN mask = HASHmask(b->batCount) >> 3;
-		int bits = 3;
-
-		/* when combining value and group-id hashes,
-		 * we left-shift one of them by half the hash-mask width
-		 * to better spread bits and use the entire hash-mask,
-		 * and thus reduce collisions */
-		while (mask >>= 1)
-			bits++;
-		bits /= 2;
+		int bits = 0;
 
 		/* not sorted, and no pre-existing hash table: we'll
 		 * build an incomplete hash table on the fly--also see
@@ -857,36 +928,28 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 				  subsorted, gc ? " (g clustered)" : "");
 		nme = BBP_physical(b->batCacheid);
 		nmelen = strlen(nme);
-		if (ATOMsize(t) == 1) {
-			mask = 1 << 16;
-			bits = 8;
-		} else if (ATOMsize(t) == 2) {
-			mask = 1 << 16;
-			bits = 8;
-		} else {
-			mask = HASHmask(b->batCount);
-			bits = 0;
-		}
 		if ((hp = GDKzalloc(sizeof(Heap))) == NULL ||
-		    (hp->farmid = BBPselectfarm(TRANSIENT, b->ttype, hashheap)) < 0 ||
 		    (hp->filename = GDKmalloc(nmelen + 30)) == NULL ||
+		    (hp->farmid = BBPselectfarm(TRANSIENT, b->ttype, hashheap)) < 0 ||
 		    snprintf(hp->filename, nmelen + 30,
 			     "%s.hash" SZFMT, nme, MT_getpid()) < 0 ||
-		    (ext = GDKstrdup(hp->filename + nmelen + 1)) == NULL ||
-		    (hs = HASHnew(hp, b->ttype, BUNlast(b),
-				  MAX(HASHmask(b->batCount), 1 << 16), BUN_NONE)) == NULL) {
+		    (hs = HASHnew(hp, t, 1,
+				  BUNlast(b), BATcount(b))) == NULL) {
 			if (hp) {
-				if (hp->filename)
-					GDKfree(hp->filename);
+				GDKfree(hp->filename);
 				GDKfree(hp);
 			}
-			if (ext)
-				GDKfree(ext);
 			hp = NULL;
-			ext = NULL;
 			GDKerror("BATgroup: cannot allocate hash table\n");
 			goto error;
 		}
+
+		/* when combining value and group-id hashes,
+		 * we left-shift one of them by half the hash-mask width
+		 * to better spread bits and use the entire hash-mask,
+		 * and thus reduce collisions */
+		bits = pop(hs->mask) >> 1;
+
 		gn->tsorted = 1; /* be optimistic */
 
 		switch (t) {
@@ -920,7 +983,6 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		HEAPfree(hp, 1);
 		GDKfree(hp);
 		GDKfree(hs);
-		GDKfree(ext);
 	}
 	if (extents) {
 		BATsetcount(en, (BUN) ngrp);

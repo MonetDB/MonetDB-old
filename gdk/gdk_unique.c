@@ -35,7 +35,6 @@ BATsubunique(BAT *b, BAT *s)
 	oid i, o;
 	unsigned short *seen = NULL;
 	const char *nme;
-	char *ext = NULL;
 	Heap *hp = NULL;
 	Hash *hs = NULL;
 	BUN hb;
@@ -142,6 +141,8 @@ BATsubunique(BAT *b, BAT *s)
 	bi = bat_iterator(b);
 
 	if (b->tsorted || b->trevsorted) {
+		/* the BAT is sorted so we only need to compare
+		 * consecutive values */
 		const void *prev = NULL;
 
 		ALGODEBUG fprintf(stderr, "#BATsubunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): (reverse) sorted\n",
@@ -168,6 +169,8 @@ BATsubunique(BAT *b, BAT *s)
 			prev = v;
 		}
 	} else if (ATOMbasetype(b->ttype) == TYPE_bte) {
+		/* byte-sized values: we use a bit mask to record the
+		 * values we've seen */
 		unsigned char val;
 
 		ALGODEBUG fprintf(stderr, "#BATsubunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): byte sized atoms\n",
@@ -205,6 +208,8 @@ BATsubunique(BAT *b, BAT *s)
 		GDKfree(seen);
 		seen = NULL;
 	} else if (ATOMbasetype(b->ttype) == TYPE_sht) {
+		/* short-sized values: we use a bit mask to record the
+		 * values we've seen */
 		unsigned short val;
 
 		ALGODEBUG fprintf(stderr, "#BATsubunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): short sized atoms\n",
@@ -243,11 +248,13 @@ BATsubunique(BAT *b, BAT *s)
 		seen = NULL;
 	} else if (BATcheckhash(b) ||
 		   (b->batPersistence == PERSISTENT &&
-		    BAThash(b, 0) == GDK_SUCCEED) ||
+		    BAThash(b) == GDK_SUCCEED) ||
 		   ((parent = VIEWtparent(b)) != 0 &&
 		    BATcheckhash(BBPdescriptor(-parent)))) {
 		BUN lo;
 		oid seq;
+		int pcs;
+		BUN prb;
 
 		/* we already have a hash table on b, or b is
 		 * persistent and we could create a hash table, or b
@@ -279,9 +286,11 @@ BATsubunique(BAT *b, BAT *s)
 					break;
 			}
 			v = VALUE(i);
-			for (hb = HASHgetlink(hs, i + lo);
-			     hb != HASHnil(hs) && hb >= lo;
-			     hb = HASHgetlink(hs, hb)) {
+			prb = HASHprobe(hs, v);
+			if ((pcs = (int) ((i + lo) / hs->chunk)) >= hs->pieces)
+				pcs = hs->pieces - 1;
+			hb = HASHgetlink(hs, i + lo);
+			while (hb != HASHnil(hs) && hb >= lo) {
 				assert(hb < i + lo);
 				if (cmp(v, BUNtail(bi, hb)) == 0) {
 					o = hb - lo + seq;
@@ -291,6 +300,16 @@ BATsubunique(BAT *b, BAT *s)
 						 * value before */
 						break;
 					}
+				}
+				if ((hb = HASHgetlink(hs, hb)) == HASHnil(hs)) {
+					while (pcs > 0 && lo < pcs * hs->chunk) {
+						pcs--;
+						hb = HASHget(hs, pcs, prb);
+						if (hb != HASHnil(hs))
+							break;
+					}
+					if (hb == HASHnil(hs))
+						break;
 				}
 			}
 			if (hb == HASHnil(hs) || hb < lo) {
@@ -302,7 +321,6 @@ BATsubunique(BAT *b, BAT *s)
 		size_t nmelen;
 		BUN prb;
 		BUN p;
-		BUN mask;
 
 		ALGODEBUG fprintf(stderr, "#BATsubunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): create partial hash\n",
 				  BATgetId(b), BATcount(b),
@@ -310,35 +328,21 @@ BATsubunique(BAT *b, BAT *s)
 				  s ? BATcount(s) : 0);
 		nme = BBP_physical(b->batCacheid);
 		nmelen = strlen(nme);
-		if (ATOMbasetype(b->ttype) == TYPE_bte) {
-			mask = 1 << 8;
+		if (BATatoms[b->ttype].atomHash == BATatoms[TYPE_bte].atomHash ||
+		    BATatoms[b->ttype].atomHash == BATatoms[TYPE_sht].atomHash)
 			cmp = NULL; /* no compare needed, "hash" is perfect */
-		} else if (ATOMbasetype(b->ttype) == TYPE_sht) {
-			mask = 1 << 16;
-			cmp = NULL; /* no compare needed, "hash" is perfect */
-		} else {
-			if (s)
-				mask = HASHmask(s->batCount);
-			else
-				mask = HASHmask(b->batCount);
-			if (mask < (1 << 16))
-				mask = 1 << 16;
-		}
 		if ((hp = GDKzalloc(sizeof(Heap))) == NULL ||
 		    (hp->filename = GDKmalloc(nmelen + 30)) == NULL ||
+		    (hp->farmid = BBPselectfarm(TRANSIENT, b->ttype, hashheap)) < 0 ||
 		    snprintf(hp->filename, nmelen + 30,
 			     "%s.hash" SZFMT, nme, MT_getpid()) < 0 ||
-		    (ext = GDKstrdup(hp->filename + nmelen + 1)) == NULL ||
-		    (hs = HASHnew(hp, b->ttype, BUNlast(b), mask, BUN_NONE)) == NULL) {
+		    (hs = HASHnew(hp, b->ttype, 1,
+				  BUNlast(b), BATcount(b))) == NULL) {
 			if (hp) {
-				if (hp->filename)
-					GDKfree(hp->filename);
+				GDKfree(hp->filename);
 				GDKfree(hp);
 			}
-			if (ext)
-				GDKfree(ext);
 			hp = NULL;
-			ext = NULL;
 			GDKerror("BATsubunique: cannot allocate hash table\n");
 			goto bunins_failed;
 		}
@@ -356,7 +360,7 @@ BATsubunique(BAT *b, BAT *s)
 			}
 			v = VALUE(i);
 			prb = HASHprobe(hs, v);
-			for (hb = HASHget(hs, prb);
+			for (hb = HASHget(hs, 0, prb);
 			     hb != HASHnil(hs);
 			     hb = HASHgetlink(hs, hb)) {
 				if (cmp == NULL || cmp(v, BUNtail(bi, hb)) == 0)
@@ -367,14 +371,27 @@ BATsubunique(BAT *b, BAT *s)
 				p = i + BUNfirst(b);
 				bunfastapp(bn, &o);
 				/* enter into hash table */
-				HASHputlink(hs, p, HASHget(hs, prb));
-				HASHput(hs, prb, p);
+				switch (hs->width) {
+				case BUN2:
+					((BUN2type *) hs->Link)[p] = ((BUN2type *) hs->Hash)[prb];
+					((BUN2type *) hs->Hash)[prb] = p;
+					break;
+				case BUN4:
+					((BUN4type *) hs->Link)[p] = ((BUN4type *) hs->Hash)[prb];
+					((BUN4type *) hs->Hash)[prb] = p;
+					break;
+#ifdef BUN8
+				case BUN8:
+					((BUN8type *) hs->Link)[p] = ((BUN8type *) hs->Hash)[prb];
+					((BUN8type *) hs->Hash)[prb] = p;
+					break;
+#endif
+				}
 			}
 		}
 		HEAPfree(hp, 1);
 		GDKfree(hp);
 		GDKfree(hs);
-		GDKfree(ext);
 	}
 
 	bn->tsorted = 1;
@@ -391,7 +408,6 @@ BATsubunique(BAT *b, BAT *s)
 		HEAPfree(hp, 1);
 		GDKfree(hp);
 		GDKfree(hs);
-		GDKfree(ext);
 	}
 	BBPreclaim(bn);
 	return NULL;

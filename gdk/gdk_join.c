@@ -1731,21 +1731,6 @@ binsearchcand(const oid *cand, BUN lo, BUN hi, oid v)
 		nr++;							\
 	} while (0)
 
-#define HASHloop_bound(bi, h, hb, v, lo, hi)		\
-	for (hb = HASHget(h, HASHprobe((h), v));	\
-	     hb != HASHnil(h);				\
-	     hb = HASHgetlink(h,hb))			\
-		if (hb >= (lo) && hb < (hi) &&		\
-		    (cmp == NULL ||			\
-		     (*cmp)(v, BUNtail(bi, hb)) == 0))
-
-#define HASHloop_bound_TYPE(bi, h, hb, v, lo, hi, TYPE)		\
-	for (hb = HASHget(h, hash_##TYPE(h, v));		\
-	     hb != HASHnil(h);					\
-	     hb = HASHgetlink(h,hb))				\
-		if (hb >= (lo) && hb < (hi) &&			\
-		    simple_EQ(v, BUNtloc(bi, hb), TYPE))
-
 static gdk_return
 hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, int nil_on_miss, int semi, int must_match)
 {
@@ -1767,6 +1752,8 @@ hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, in
 	oid lval = oid_nil;	/* hold value if l has dense tail */
 	const char *v = (const char *) &lval;
 	int lskipped = 0;	/* whether we skipped values in l */
+	BUN prb;
+	int pcs;
 
 	ALGODEBUG fprintf(stderr, "#hashjoin(l=%s#" BUNFMT "[%s]%s%s,"
 			  "r=%s#" BUNFMT "[%s]%s%s,sl=%s#" BUNFMT "%s%s,"
@@ -1850,7 +1837,7 @@ hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, in
 	rl += rstart;
 	rseq += rstart;
 
-	if (BAThash(r, 0) != GDK_SUCCEED)
+	if (BAThash(r) != GDK_SUCCEED)
 		goto bailout;
 	ri = bat_iterator(r);
 	nrcand = (BUN) (rcandend - rcand);
@@ -1869,23 +1856,28 @@ hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, in
 				continue;
 			}
 			nr = 0;
+			prb = HASHprobe(r->T->hash, v);
+			/* note that the HASHloop* macros are two
+			 * nested for loops, so if we want to break
+			 * out, we need to use goto */
 			if (rcand) {
-				HASHloop_bound(ri, r->T->hash, rb, v, rl, rh) {
+				HASHloop_bound(ri, r->T->hash, prb, v, rl, rh, rb, pcs) {
 					ro = (oid) (rb - rl + rseq);
 					if (!binsearchcand(rcand, 0, nrcand, ro))
 						continue;
 					HASHLOOPBODY();
 					if (semi)
-						break;
+						goto breakloop1;
 				}
 			} else {
-				HASHloop_bound(ri, r->T->hash, rb, v, rl, rh) {
+				HASHloop_bound(ri, r->T->hash, prb, v, rl, rh, rb, pcs) {
 					ro = (oid) (rb - rl + rseq);
 					HASHLOOPBODY();
 					if (semi)
-						break;
+						goto breakloop1;
 				}
 			}
+		  breakloop1:
 			if (nr == 0) {
 				if (nil_on_miss) {
 					nr = 1;
@@ -1938,18 +1930,22 @@ hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, in
 			}
 			lstart++;
 			nr = 0;
+			prb = HASHprobe(r->T->hash, v);
+			/* note that the HASHloop* macros are two
+			 * nested for loops, so if we want to break
+			 * out, we need to use goto */
 			if (rcand) {
 				if (!nil_matches && cmp(v, nil) == 0) {
 					lskipped = BATcount(r1) > 0;
 					continue;
 				}
-				HASHloop_bound(ri, r->T->hash, rb, v, rl, rh) {
+				HASHloop_bound(ri, r->T->hash, prb, v, rl, rh, rb, pcs) {
 					ro = (oid) (rb - rl + rseq);
 					if (!binsearchcand(rcand, 0, nrcand, ro))
 						continue;
 					HASHLOOPBODY();
 					if (semi)
-						break;
+						goto breakloop2;
 				}
 			} else {
 				switch (t) {
@@ -1958,11 +1954,11 @@ hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, in
 						lskipped = BATcount(r1) > 0;
 						continue;
 					}
-					HASHloop_bound_TYPE(ri, r->T->hash, rb, v, rl, rh, int) {
+					HASHloop_bound_TYPE(ri, r->T->hash, prb, v, rl, rh, rb, pcs, int) {
 						ro = (oid) (rb - rl + rseq);
 						HASHLOOPBODY();
 						if (semi)
-							break;
+							goto breakloop2;
 					}
 					break;
 				case TYPE_lng:
@@ -1970,11 +1966,11 @@ hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, in
 						lskipped = BATcount(r1) > 0;
 						continue;
 					}
-					HASHloop_bound_TYPE(ri, r->T->hash, rb, v, rl, rh, lng) {
+					HASHloop_bound_TYPE(ri, r->T->hash, prb, v, rl, rh, rb, pcs, lng) {
 						ro = (oid) (rb - rl + rseq);
 						HASHLOOPBODY();
 						if (semi)
-							break;
+							goto breakloop2;
 					}
 					break;
 #ifdef HAVE_HGE
@@ -1983,11 +1979,11 @@ hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, in
 						lskipped = BATcount(r1) > 0;
 						continue;
 					}
-					HASHloop_bound_TYPE(ri, r->T->hash, rb, v, rl, rh, hge) {
+					HASHloop_bound_TYPE(ri, r->T->hash, prb, v, rl, rh, rb, pcs, hge) {
 						ro = (oid) (rb - rl + rseq);
 						HASHLOOPBODY();
 						if (semi)
-							break;
+							goto breakloop2;
 					}
 					break;
 #endif
@@ -1996,15 +1992,16 @@ hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, in
 						lskipped = BATcount(r1) > 0;
 						continue;
 					}
-					HASHloop_bound(ri, r->T->hash, rb, v, rl, rh) {
+					HASHloop_bound(ri, r->T->hash, prb, v, rl, rh, rb, pcs) {
 						ro = (oid) (rb - rl + rseq);
 						HASHLOOPBODY();
 						if (semi)
-							break;
+							goto breakloop2;
 					}
 					break;
 				}
 			}
+		  breakloop2:
 			if (nr == 0) {
 				if (nil_on_miss) {
 					nr = 1;
@@ -2930,12 +2927,14 @@ BATsubjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_match
 			return mergejoin(r1, r2, l, r, sl, sr, nil_matches, 0, 0, 0);
 		else
 			return mergejoin(r2, r1, r, l, sr, sl, nil_matches, 0, 0, 0);
-	} else if (lhash && rhash) {
-		/* both have hash, smallest on right */
-		swap = lcount < rcount;
 	} else if (lhash) {
-		/* only left has hash, swap */
-		swap = 1;
+		if (rhash) {
+			/* both have hash, smallest on right */
+			swap = lcount < rcount;
+		} else {
+			/* only left has hash, swap */
+			swap = 1;
+		}
 	} else if (rhash) {
 		/* only right has hash, don't swap */
 		swap = 0;

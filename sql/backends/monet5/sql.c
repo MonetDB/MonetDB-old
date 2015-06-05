@@ -3251,8 +3251,10 @@ HASHfndTwice(BAT *b, ptr v)
 	BATiter bi = bat_iterator(b);
 	BUN i = BUN_NONE;
 	int first = 1;
+	BUN prb = HASHprobe(b->T->hash, v);
+	int pcs;
 
-	HASHloop(bi, b->T->hash, i, v) {
+	HASHloop(bi, b->T->hash, prb, v, i, pcs) {
 		if (!first)
 			return 1;
 		first = 0;
@@ -3320,7 +3322,7 @@ not_unique_oids(bat *ret, const bat *bid)
 		oid *rf, *rh, *rt;
 		oid *h = (oid *) Hloc(b, 0), *vp, *ve;
 
-		if (BAThash(b, 0) != GDK_SUCCEED)
+		if (BAThash(b) != GDK_SUCCEED)
 			 throw(SQL, "not_uniques", "hash creation failed");
 		bn = BATnew(TYPE_oid, TYPE_oid, BATcount(b), TRANSIENT);
 		if (bn == NULL) {

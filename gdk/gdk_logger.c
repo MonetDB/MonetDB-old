@@ -119,8 +119,10 @@ log_find_int(BAT *b, BAT *d, int val)
 	BATiter cni = bat_iterator(b);
 	BUN p;
 
-	if (b->T->hash || BAThash(b, 0) == GDK_SUCCEED) {
-		HASHloop_int(cni, cni.b->T->hash, p, &val) {
+	if (b->T->hash || BAThash(b) == GDK_SUCCEED) {
+		BUN prb = HASHprobe(cni.b->T->hash, &val);
+		int pcs;
+		HASHloop_int(cni, cni.b->T->hash, prb, &val, p, pcs) {
 			oid pos = p;
 			if (BUNfnd(d, &pos) == BUN_NONE)
 				return p;
@@ -148,8 +150,10 @@ log_find_bid(BAT *b, BAT *d, log_bid val)
 	BATiter cni = bat_iterator(b);
 	BUN p;
 
-	if (b->T->hash || BAThash(b, 0) == GDK_SUCCEED) {
-		HASHloop_int(cni, cni.b->T->hash, p, &val) {
+	if (b->T->hash || BAThash(b) == GDK_SUCCEED) {
+		BUN prb = HASHprobe(cni.b->T->hash, &val);
+		int pcs;
+		HASHloop_int(cni, cni.b->T->hash, prb, &val, p, pcs) {
 			oid pos = p;
 			if (BUNfnd(d, &pos) == BUN_NONE)
 				return p;
@@ -2405,8 +2409,10 @@ logger_find_bat(logger *lg, const char *name)
 	BATiter cni = bat_iterator(lg->catalog_nme);
 	BUN p;
 
-	if (lg->catalog_nme->T->hash || BAThash(lg->catalog_nme, 0) == GDK_SUCCEED) {
-		HASHloop_str(cni, cni.b->T->hash, p, name) {
+	if (lg->catalog_nme->T->hash || BAThash(lg->catalog_nme) == GDK_SUCCEED) {
+		BUN prb = strHash(name) & cni.b->T->hash->mask;
+		int pcs;
+		HASHloop_str(cni, cni.b->T->hash, prb, name, p, pcs) {
 			oid pos = p;
 			if (BUNfnd(lg->dcatalog, &pos) == BUN_NONE)
 				return *(log_bid *) Tloc(lg->catalog_bid, p);

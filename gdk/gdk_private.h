@@ -131,11 +131,9 @@ __hidden int GDKssort(void *h, void *t, const void *base, size_t n, int hs, int 
 	__attribute__((__visibility__("hidden")));
 __hidden gdk_return GDKunlink(int farmid, const char *dir, const char *nme, const char *extension)
 	__attribute__((__visibility__("hidden")));
-__hidden int HASHgonebad(BAT *b, const void *v)
+__hidden  void HASHins(BAT *b, BUN i, const void *v)
 	__attribute__((__visibility__("hidden")));
-__hidden BUN HASHmask(BUN cnt)
-	__attribute__((__visibility__("hidden")));
-__hidden Hash *HASHnew(Heap *hp, int tpe, BUN size, BUN mask, BUN count)
+__hidden Hash *HASHnew(Heap *hp, int tpe, int pieces, BUN cap, BUN count)
 	__attribute__((__visibility__("hidden")));
 __hidden void HASHremove(BAT *b)
 	__attribute__((__visibility__("hidden")));

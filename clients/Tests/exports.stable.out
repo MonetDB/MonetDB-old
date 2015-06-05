@@ -135,7 +135,7 @@ BAT *BATgroupsum(BAT *b, BAT *g, BAT *e, BAT *s, int tp, int skip_nils, int abor
 BAT *BATgroupvariance_population(BAT *b, BAT *g, BAT *e, BAT *s, int tp, int skip_nils, int abort_on_error);
 BAT *BATgroupvariance_sample(BAT *b, BAT *g, BAT *e, BAT *s, int tp, int skip_nils, int abort_on_error);
 BUN BATgrows(BAT *b);
-gdk_return BAThash(BAT *b, BUN masksize);
+gdk_return BAThash(BAT *b);
 gdk_return BATimprints(BAT *b);
 gdk_return BATins(BAT *b, BAT *c, bit force);
 BAT *BATintersectcand(BAT *a, BAT *b);

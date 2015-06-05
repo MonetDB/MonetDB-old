@@ -300,7 +300,7 @@ rids_select( sql_trans *tr, sql_column *key, void *key_value_low, void *key_valu
 		kvh = ATOMnilptr(b->ttype);
 	hi = (kvl == kvh);
 	if (!b->T->hash)
-		BAThash(b, 0);
+		BAThash(b);
 	r = BATsubselect(b, s, kvl, kvh, 1, hi, 0);
 	bat_destroy(s);
 	s = r;

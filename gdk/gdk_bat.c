@@ -1815,7 +1815,6 @@ BUNlocate(BAT *b, const void *x, const void *y)
 		lng l;
 	} hidx, tidx;
 	BUN p, q;
-	BAT *v = NULL;
 
 	BATcheck(b, "BUNlocate: BAT parameter required", 0);
 	BATcheck(x, "BUNlocate: value parameter required", 0);
@@ -1840,7 +1839,7 @@ BUNlocate(BAT *b, const void *x, const void *y)
 	}
 
 	/* positional lookup is always the best choice */
-	if (BATtdense(b))
+	if (BATtdense(b) && !BAThdense(b))
 		usemirror();
 	if (BAThdense(b)) {
 		BUN i = (BUN) (*(oid *) x - b->hseqbase);
@@ -1871,61 +1870,12 @@ BUNlocate(BAT *b, const void *x, const void *y)
 	if (p >= q)
 		return BUN_NONE;	/* value combination cannot occur */
 
-	/* if the range is still larger than 32 BUNs, consider
-	 * investing in a hash table */
-	if ((q - p) > (1 << 5)) {
-		/* regrettably MonetDB support only single-column hashes
-		 * strategy: create a hash on both columns, and select
-		 * the column with the best distribution
-		 */
-		if ((b->T->hash && b->H->hash == NULL) || !dohash(b->H))
-			usemirror();
-		if (b->H->hash == NULL && (v = VIEWcreate_(b, b, TRUE)) != NULL) {
-			/* As we are going to remove the worst hash
-			 * table later, we must do everything in a
-			 * view, as it is not permitted to remove a
-			 * hash table from a read-only operation (like
-			 * BUNlocate). Other threads might then crash.
-			 */
-			if (dohash(v->H))
-				(void) BAThash(BATmirror(v), 0);
-			if (dohash(v->T))
-				(void) BAThash(v, 0);
-			if (v->H->hash && v->T->hash) {	/* we can choose between two hash tables */
-				BUN hcnt = 0, tcnt = 0;
-				BUN i;
-
-				for (i = 0; i <= v->H->hash->mask; i++)
-					hcnt += HASHget(v->H->hash,i) != HASHnil(v->H->hash);
-				for (i = 0; i <= v->T->hash->mask; i++)
-					tcnt += HASHget(v->T->hash,i) != HASHnil(v->T->hash);
-				if (hcnt < tcnt) {
-					usemirror();
-					v = BATmirror(v);
-				}
-				/* remove the least selective hash table */
-				HASHremove(v);
-			}
-			if (v->H->hash == NULL) {
-				usemirror();
-				v = BATmirror(v);
-			}
-			if (v->H->hash) {
-				MT_lock_set(&GDKhashLock(abs(b->batCacheid)), "BUNlocate");
-				if (b->H->hash == NULL) {	/* give it to the parent */
-					b->H->hash = v->H->hash;
-				}
-				MT_lock_unset(&GDKhashLock(abs(b->batCacheid)), "BUNlocate");
-			}
-			BBPreclaim(v);
-			v = NULL;
-		}
-	}
-
 	/* exploit string double elimination, when present */
 	htpe = ATOMbasetype(b->htype);
 	ttpe = ATOMbasetype(b->ttype);
-	if (ATOMstorage(htpe) == TYPE_str && GDK_ELIMDOUBLES(b->H->vheap) && b->H->width > 2) {
+	if (ATOMstorage(htpe) == TYPE_str &&
+	    GDK_ELIMDOUBLES(b->H->vheap) &&
+	    b->H->width > 2) {
 		hidx.v = strLocate(b->H->vheap, x);
 		if (hidx.v == 0)
 			return BUN_NONE;	/* x does not occur */
@@ -1950,7 +1900,9 @@ BUNlocate(BAT *b, const void *x, const void *y)
 			}
 		}
 	}
-	if (ATOMstorage(ttpe) == TYPE_str && GDK_ELIMDOUBLES(b->T->vheap) && b->T->width > 2) {
+	if (ATOMstorage(ttpe) == TYPE_str &&
+	    GDK_ELIMDOUBLES(b->T->vheap) &&
+	    b->T->width > 2) {
 		tidx.v = strLocate(b->T->vheap, y);
 		if (tidx.v == 0)
 			return BUN_NONE;	/* y does not occur */
@@ -1998,26 +1950,28 @@ BUNlocate(BAT *b, const void *x, const void *y)
 	/* hashloop over head values, check tail values */
 	if (b->H->hash) {
 		BUN h;
+		BUN prb = HASHprobe(b->H->hash, x);
+		int pcs;
 
 		bi = bat_iterator(BATmirror(b)); /* HASHloop works on tail */
 		if (hint && tint) {
-			HASHloop_int(bi, b->H->hash, h, x)
+			HASHloop_int(bi, b->H->hash, prb, x, h, pcs)
 			    if (*(int *) y == *(int *) BUNhloc(bi, h))
 				return h;
 		} else if (hint && tlng) {
-			HASHloop_int(bi, b->H->hash, h, x)
+			HASHloop_int(bi, b->H->hash, prb, x, h, pcs)
 			    if (*(lng *) y == *(lng *) BUNhloc(bi, h))
 				return h;
 		} else if (hlng && tint) {
-			HASHloop_lng(bi, b->H->hash, h, x)
+			HASHloop_lng(bi, b->H->hash, prb, x, h, pcs)
 			    if (*(int *) y == *(int *) BUNhloc(bi, h))
 				return h;
 		} else if (hlng && tlng) {
-			HASHloop_lng(bi, b->H->hash, h, x)
+			HASHloop_lng(bi, b->H->hash, prb, x, h, pcs)
 			    if (*(lng *) y == *(lng *) BUNhloc(bi, h))
 				return h;
 		} else {
-			HASHloop(bi, b->H->hash, h, x)
+			HASHloop(bi, b->H->hash, prb, x, h, pcs)
 			    if ((*tcmp) (y, BUNhead(bi, h)) == 0)
 				return h;
 		}
@@ -2850,7 +2804,7 @@ BATassertHeadProps(BAT *b)
 	}
 
 	PROPDEBUG { /* only do a scan if property checking is requested */
-		if (b->hsorted || b->hrevsorted || !b->hkey) {
+		if (b->hsorted || b->hrevsorted || !b->hkey || BATcount(b) == 0) {
 			/* if sorted (either way), or we don't have to
 			 * prove uniqueness, we can do a simple
 			 * scan */
@@ -2894,16 +2848,15 @@ BATassertHeadProps(BAT *b)
 			/* we need to check for uniqueness the hard
 			 * way (i.e. using a hash table) */
 			const char *nme = BBP_physical(b->batCacheid);
-			char *ext;
 			size_t nmelen = strlen(nme);
 			Heap *hp;
 			Hash *hs = NULL;
-			BUN mask;
 
 			if ((hp = GDKzalloc(sizeof(Heap))) == NULL ||
+			    (hp->farmid = BBPselectfarm(TRANSIENT, b->htype,
+							hashheap)) < 0 ||
 			    (hp->filename = GDKmalloc(nmelen + 30)) == NULL) {
-				if (hp)
-					GDKfree(hp);
+				GDKfree(hp);
 				fprintf(stderr,
 					"#BATassertProps: cannot allocate "
 					"hash table\n");
@@ -2911,18 +2864,8 @@ BATassertHeadProps(BAT *b)
 			}
 			snprintf(hp->filename, nmelen + 30,
 				 "%s.hash" SZFMT, nme, MT_getpid());
-			ext = GDKstrdup(hp->filename + nmelen + 1);
-			if (ATOMsize(b->htype) == 1)
-				mask = 1 << 8;
-			else if (ATOMsize(b->htype) == 2)
-				mask = 1 << 16;
-			else
-				mask = HASHmask(b->batCount);
-			if ((hp->farmid = BBPselectfarm(TRANSIENT, b->htype,
-							hashheap)) < 0 ||
-			    (hs = HASHnew(hp, b->htype, BUNlast(b),
-					  mask, BUN_NONE)) == NULL) {
-				GDKfree(ext);
+			if ((hs = HASHnew(hp, b->htype, 1,
+					  BUNlast(b), BATcount(b))) == NULL) {
 				GDKfree(hp->filename);
 				GDKfree(hp);
 				fprintf(stderr,
@@ -2935,13 +2878,27 @@ BATassertHeadProps(BAT *b)
 				BUN prb;
 				valp = BUNhead(bi, p);
 				prb = HASHprobe(hs, valp);
-				for (hb = HASHget(hs,prb);
+				for (hb = HASHget(hs, 0, prb);
 				     hb != HASHnil(hs);
-				     hb = HASHgetlink(hs,hb))
+				     hb = HASHgetlink(hs, hb))
 					if (cmpf(valp, BUNhead(bi, hb)) == 0)
 						assert(!b->hkey);
-				HASHputlink(hs,p, HASHget(hs,prb));
-				HASHput(hs,prb,p);
+				switch (hs->width) {
+				case BUN2:
+					((BUN2type *) hs->Link)[p] = ((BUN2type *) hs->Hash)[prb];
+					((BUN2type *) hs->Hash)[prb] = p;
+					break;
+				case BUN4:
+					((BUN4type *) hs->Link)[p] = ((BUN4type *) hs->Hash)[prb];
+					((BUN4type *) hs->Hash)[prb] = p;
+					break;
+#ifdef BUN8
+				case BUN8:
+					((BUN8type *) hs->Link)[p] = ((BUN8type *) hs->Hash)[prb];
+					((BUN8type *) hs->Hash)[prb] = p;
+					break;
+#endif
+				}
 				cmp = cmpf(valp, nilp);
 				assert(!b->H->nonil || cmp != 0);
 				if (cmp == 0)
@@ -2950,7 +2907,6 @@ BATassertHeadProps(BAT *b)
 			HEAPfree(hp, 1);
 			GDKfree(hp);
 			GDKfree(hs);
-			GDKfree(ext);
 		}
 	  abort_check:
 		assert(!b->H->nil || seennil);
@@ -3035,7 +2991,6 @@ BATderiveHeadProps(BAT *b, int expensive)
 	const void *prev = NULL, *valp, *nilp;
 	int sorted, revsorted, key, dense;
 	const char *nme = NULL;
-	char *ext = NULL;
 	size_t nmelen;
 	Heap *hp = NULL;
 	Hash *hs = NULL;
@@ -3120,32 +3075,20 @@ BATderiveHeadProps(BAT *b, int expensive)
 		b->H->nodense = 0;
 	}
 	if (expensive) {
-		BUN mask;
-
 		nme = BBP_physical(b->batCacheid);
 		nmelen = strlen(nme);
-		if (ATOMsize(b->htype) == 1)
-			mask = 1 << 8;
-		else if (ATOMsize(b->htype) == 2)
-			mask = 1 << 16;
-		else
-			mask = HASHmask(b->batCount);
 		if ((hp = GDKzalloc(sizeof(Heap))) == NULL ||
-		    (hp->filename = GDKmalloc(nmelen + 30)) == NULL ||
 		    (hp->farmid = BBPselectfarm(TRANSIENT, b->htype, hashheap)) < 0 ||
+		    (hp->filename = GDKmalloc(nmelen + 30)) == NULL ||
 		    snprintf(hp->filename, nmelen + 30,
 			     "%s.hash" SZFMT, nme, MT_getpid()) < 0 ||
-		    (ext = GDKstrdup(hp->filename + nmelen + 1)) == NULL ||
-		    (hs = HASHnew(hp, b->htype, BUNlast(b), mask, BUN_NONE)) == NULL) {
+		    (hs = HASHnew(hp, b->htype, 1,
+				  BUNlast(b), BATcount(b))) == NULL) {
 			if (hp) {
-				if (hp->filename)
-					GDKfree(hp->filename);
+				GDKfree(hp->filename);
 				GDKfree(hp);
 			}
-			if (ext)
-				GDKfree(ext);
 			hp = NULL;
-			ext = NULL;
 			fprintf(stderr,
 				"#BATderiveProps: cannot allocate "
 				"hash table: not doing full check\n");
@@ -3193,9 +3136,9 @@ BATderiveHeadProps(BAT *b, int expensive)
 		prev = valp;
 		if (key && hs) {
 			prb = HASHprobe(hs, valp);
-			for (hb = HASHget(hs,prb);
+			for (hb = HASHget(hs, 0, prb);
 			     hb != HASHnil(hs);
-			     hb = HASHgetlink(hs,hb)) {
+			     hb = HASHgetlink(hs, hb)) {
 				if (cmpf(valp, BUNhead(bi, hb)) == 0) {
 					key = 0;
 					b->H->nokey[0] = hb;
@@ -3203,15 +3146,28 @@ BATderiveHeadProps(BAT *b, int expensive)
 					break;
 				}
 			}
-			HASHputlink(hs,p, HASHget(hs,prb));
-			HASHput(hs,prb,p);
+			switch (hs->width) {
+			case BUN2:
+				((BUN2type *) hs->Link)[p] = ((BUN2type *) hs->Hash)[prb];
+				((BUN2type *) hs->Hash)[prb] = p;
+				break;
+			case BUN4:
+				((BUN4type *) hs->Link)[p] = ((BUN4type *) hs->Hash)[prb];
+				((BUN4type *) hs->Hash)[prb] = p;
+				break;
+#ifdef BUN8
+			case BUN8:
+				((BUN8type *) hs->Link)[p] = ((BUN8type *) hs->Hash)[prb];
+				((BUN8type *) hs->Hash)[prb] = p;
+				break;
+#endif
+			}
 		}
 	}
 	if (hs) {
 		HEAPfree(hp, 1);
 		GDKfree(hp);
 		GDKfree(hs);
-		GDKfree(ext);
 	}
 	b->hsorted = sorted;
 	b->hrevsorted = revsorted;

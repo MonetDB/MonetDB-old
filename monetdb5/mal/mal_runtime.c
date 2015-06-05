@@ -21,7 +21,7 @@
 #include "mal_authorize.h"
 
 #define heapinfo(X) ((X) && (X)->base ? (X)->free: 0)
-#define hashinfo(X) (((X) && (X)->mask)? ((X)->mask + (X)->lim + 1) * sizeof(int) + sizeof(*(X)) + cnt * sizeof(int):  0)
+#define hashinfo(X) ((X) ? heapinfo((X)->heap + sizeof(*(X))) : 0)
 
 // Keep a queue of running queries
 QueryQueue QRYqueue;
@@ -262,7 +262,6 @@ void
 updateFootPrint(MalBlkPtr mb, MalStkPtr stk, int varid)
 {
     BAT *b;
-	BUN cnt;
     lng total = 0;
 	bat bid;
 
@@ -273,7 +272,6 @@ updateFootPrint(MalBlkPtr mb, MalStkPtr stk, int varid)
 		b = BATdescriptor(bid);
         if (b == NULL || isVIEW(b) || b->batPersistence == PERSISTENT)
             return;
-		cnt = BATcount(b);
 		total += heapinfo(&b->T->heap);
 		total += heapinfo(b->T->vheap);
 		total += hashinfo(b->T->hash);

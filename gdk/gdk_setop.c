@@ -130,19 +130,24 @@
 		BATiter ri = bat_iterator(BATmirror(r));		\
 									\
 		ALGODEBUG fprintf(stderr, "#BATins_%s%s: hashcheck[%s, %s, %s, %s, k];\n", #a1, #a2, #a1, #a2, #a3, #a4); \
-		if (BAThash(BATmirror(r), 0) != GDK_SUCCEED) {		\
+		if (BAThash(BATmirror(r)) != GDK_SUCCEED) {		\
 			goto bunins_failed;				\
 		}							\
 		BATloop(l, p1, q1) {					\
 			h = BUNh##a2(li, p1);				\
 			t = BUNtail(li, p1);				\
 			ins = TRUE;					\
-			if (a5) /* check for not-nil (nils don't match anyway) */ \
-				HASHloop##a4(ri, r->H->hash, s2, h) {	\
+			if (a5) {					\
+				/* check for not-nil (nils don't match anyway) */ \
+				BUN prb = HASHprobe(r->H->hash, h);	\
+				int pcs;				\
+				HASHloop##a4(ri, r->H->hash, prb, h, s2, pcs) { \
 					HIT##a1(h, t);			\
 					ins = FALSE;			\
+					pcs = 0; /* causes exit of outer loop */ \
 					break;				\
 				}					\
+			}						\
 			if (!ins)					\
 				continue;				\
 			MISS##a1(h, t);					\
@@ -262,11 +267,7 @@
 		if (BAThdense(l)) {					\
 			hashcheck(a1,pos,a2,a3,TRUE);			\
 		} else if (hash) {					\
-			if (l->htype == TYPE_str && l->H->vheap->hashash) { \
-				hashcheck(a1,a2,a2,_str_hv,a4);		\
-			} else {					\
-				hashcheck(a1,a2,a2,a3,a4);		\
-			}						\
+			hashcheck(a1,a2,a2,a3,a4);			\
 		} else {						\
 			mergecheck(a1,a2,a3,a4);			\
 		}							\

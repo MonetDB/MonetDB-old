@@ -152,14 +152,6 @@ doubleslice(BAT *b, BUN l1, BUN h1, BUN l2, BUN h2)
 	return virtualize(bn);
 }
 
-#define HASHloop_bound(bi, h, hb, v, lo, hi)		\
-	for (hb = HASHget(h, HASHprobe((h), v));	\
-	     hb != HASHnil(h);				\
-	     hb = HASHgetlink(h,hb))			\
-		if (hb >= (lo) && hb < (hi) &&		\
-		    (cmp == NULL ||			\
-		     (*cmp)(v, BUNtail(bi, hb)) == 0))
-
 static BAT *
 BAT_hashselect(BAT *b, BAT *s, BAT *bn, const void *tl, BUN maximum)
 {
@@ -169,6 +161,8 @@ BAT_hashselect(BAT *b, BAT *s, BAT *bn, const void *tl, BUN maximum)
 	BUN l, h;
 	oid seq;
 	int (*cmp)(const void *, const void *);
+	BUN prb;
+	int pcs;
 
 	assert(bn->htype == TYPE_void);
 	assert(bn->ttype == TYPE_oid);
@@ -194,25 +188,23 @@ BAT_hashselect(BAT *b, BAT *s, BAT *bn, const void *tl, BUN maximum)
 		}
 		s = NULL;
 	}
-	if (BAThash(b, 0) != GDK_SUCCEED) {
+	if (BAThash(b) != GDK_SUCCEED) {
 		BBPreclaim(bn);
 		return NULL;
 	}
-	switch (ATOMbasetype(b->ttype)) {
-	case TYPE_bte:
-	case TYPE_sht:
-		cmp = NULL;	/* no need to compare: "hash" is perfect */
-		break;
-	default:
+	if (BATatoms[b->ttype].atomHash == BATatoms[TYPE_bte].atomHash ||
+	    BATatoms[b->ttype].atomHash == BATatoms[TYPE_sht].atomHash)
+		cmp = NULL; /* no compare needed, "hash" is perfect */
+	else
 		cmp = ATOMcompare(b->ttype);
-		break;
-	}
 	bi = bat_iterator(b);
 	dst = (oid *) Tloc(bn, BUNfirst(bn));
 	cnt = 0;
+	prb = HASHprobe(b->T->hash, tl);
+#define EQ(a, b)	(cmp == NULL || (*cmp)((a), (b)) == 0)
 	if (s) {
 		assert(s->tsorted);
-		HASHloop_bound(bi, b->T->hash, i, tl, l, h) {
+		HASHloop_bound_EQ(bi, b->T->hash, prb, tl, l, h, i, pcs, EQ) {
 			o = (oid) (i - l + seq);
 			if (SORTfnd(s, &o) != BUN_NONE) {
 				buninsfix(bn, dst, cnt, o,
@@ -222,7 +214,7 @@ BAT_hashselect(BAT *b, BAT *s, BAT *bn, const void *tl, BUN maximum)
 			}
 		}
 	} else {
-		HASHloop_bound(bi, b->T->hash, i, tl, l, h) {
+		HASHloop_bound_EQ(bi, b->T->hash, prb, tl, l, h, i, pcs, EQ) {
 			o = (oid) (i - l + seq);
 			buninsfix(bn, dst, cnt, o,
 				  maximum - BATcapacity(bn),
@@ -230,6 +222,7 @@ BAT_hashselect(BAT *b, BAT *s, BAT *bn, const void *tl, BUN maximum)
 			cnt++;
 		}
 	}
+#undef EQ
 	BATsetcount(bn, cnt);
 	bn->tkey = 1;
 	if (cnt > 1) {

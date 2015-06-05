@@ -89,7 +89,7 @@ HASHinfo(BAT *bk, BAT *bv, Hash *h, str s)
 	BUNappend(bk, pre(s, "type"), FALSE);
 	BUNappend(bv, ATOMname(h->type),FALSE);
 	BUNappend(bk, pre(s, "mask"), FALSE);
-	BUNappend(bv, local_utoa(h->lim),FALSE);
+	BUNappend(bv, local_utoa(h->mask),FALSE);
 
 	for (i = 0; i < COLLISION + 1; i++) {
 		cnt[i] = 0;
@@ -1283,7 +1283,7 @@ BKCsetHash(bit *ret, const bat *bid)
 	if ((b = BATdescriptor(*bid)) == NULL) {
 		throw(MAL, "bat.setHash", RUNTIME_OBJECT_MISSING);
 	}
-	*ret = BAThash(b, 0) == GDK_SUCCEED;
+	*ret = BAThash(b) == GDK_SUCCEED;
 	BBPunfix(b->batCacheid);
 	return MAL_SUCCEED;
 }

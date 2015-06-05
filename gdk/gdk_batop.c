@@ -474,13 +474,13 @@ BATins(BAT *b, BAT *n, bit force)
 	    (b->batCount > 0 || !n->hkey) &&
 	    (BATcount(b) ||
 	     (BATcount(n) && n->htype != TYPE_void && !n->hdense))) {
-		BAThash(BATmirror(b), BATcount(b) + BATcount(n));
+		BAThash(BATmirror(b));
 	}
 	if (b->T->hash == NULL && b->tkey & BOUND2BTRUE &&
 	    (b->batCount > 0 || !n->tkey) &&
 	    (BATcount(b) ||
 	     (BATcount(n) && n->ttype != TYPE_void && !n->tdense))) {
-		BAThash(b, BATcount(b) + BATcount(n));
+		BAThash(b);
 	}
 	b->batDirty = 1;
 	if (fastpath) {
@@ -578,7 +578,7 @@ BATins(BAT *b, BAT *n, bit force)
 				const void *v = BUNhead(ni, p);
 
 				bunfastins_nocheck(b, r, v, BUNtail(ni, p), Hsize(b), Tsize(b));
-				HASHins_oid(b->H->hash, i, v);
+				HASHins(b, i, v);
 				r++;
 				i++;
 			}
