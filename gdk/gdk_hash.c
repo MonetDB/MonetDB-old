@@ -427,6 +427,9 @@ BAThash(BAT *b)
 			}
 		}
 #endif
+		b->T->hash = h;
+		/* unlock before potentially expensive sync */
+		MT_lock_unset(&GDKhashLock(abs(b->batCacheid)), "BAThash");
 		t0 = GDKusec();
 		if ((BBP_status(b->batCacheid) & BBPEXISTING) &&
 		    b->batInserted == b->batCount &&
@@ -449,7 +452,7 @@ BAThash(BAT *b)
 		} else {
 			ALGODEBUG fprintf(stderr, "#BAThash: NOT persisting hash %d\n", b->batCacheid);
 		}
-		b->T->hash = h;
+		return GDK_SUCCEED;
 	}
   bailout:
 	MT_lock_unset(&GDKhashLock(abs(b->batCacheid)), "BAThash");
