@@ -360,6 +360,34 @@ BATparthash(BAT *b, Hash *h, int piece)
 	}
 }
 
+static void
+BAThashsync(void *arg)
+{
+	Heap *hp = arg;
+	int fd;
+	lng t0;
+
+	t0 = GDKusec();
+	if (HEAPsave(hp, hp->filename, NULL) != GDK_SUCCEED)
+		return;
+	if ((fd = GDKfdlocate(hp->farmid, hp->filename, "rb+", NULL)) < 0)
+		return;
+	((size_t *) hp->base)[0] |= 1 << 24;
+	if (write(fd, hp->base, SIZEOF_SIZE_T) < 0)
+		perror("write hash");
+	if (!(GDKdebug & FORCEMITOMASK)) {
+#if defined(NATIVE_WIN32)
+		_commit(fd);
+#elif defined(HAVE_FDATASYNC)
+		fdatasync(fd);
+#elif defined(HAVE_FSYNC)
+		fsync(fd);
+#endif
+	}
+	close(fd);
+	ALGODEBUG fprintf(stderr, "#BAThash: persisting hash %s (" LLFMT " usec)\n", hp->filename, GDKusec() - t0);
+}
+
 gdk_return
 BAThash(BAT *b)
 {
@@ -377,7 +405,6 @@ BAThash(BAT *b)
 		Heap *hp;
 		const char *nme = BBP_physical(b->batCacheid);
 		const char *ext = b->batCacheid > 0 ? "thash" : "hash";
-		int fd;
 		lng t0;
 
 		if ((hp = GDKzalloc(sizeof(*hp))) == NULL ||
@@ -430,27 +457,9 @@ BAThash(BAT *b)
 		b->T->hash = h;
 		/* unlock before potentially expensive sync */
 		MT_lock_unset(&GDKhashLock(abs(b->batCacheid)), "BAThash");
-		t0 = GDKusec();
-		if ((BBP_status(b->batCacheid) & BBPEXISTING) &&
-		    b->batInserted == b->batCount &&
-		    HEAPsave(hp, nme, ext) == GDK_SUCCEED &&
-		    (fd = GDKfdlocate(hp->farmid, nme, "rb+", ext)) >= 0) {
-			((size_t *) hp->base)[0] |= 1 << 24;
-			if (write(fd, hp->base, SIZEOF_SIZE_T) < 0)
-				perror("write hash");
-			if (!(GDKdebug & FORCEMITOMASK)) {
-#if defined(NATIVE_WIN32)
-				_commit(fd);
-#elif defined(HAVE_FDATASYNC)
-				fdatasync(fd);
-#elif defined(HAVE_FSYNC)
-				fsync(fd);
-#endif
-			}
-			close(fd);
-			ALGODEBUG fprintf(stderr, "#BAThash: persisting hash %d (" LLFMT " usec)\n", b->batCacheid, GDKusec() - t0);
-		} else {
-			ALGODEBUG fprintf(stderr, "#BAThash: NOT persisting hash %d\n", b->batCacheid);
+		if (BBP_status(b->batCacheid) & BBPEXISTING) {
+			MT_Id tid;
+			MT_create_thread(&tid, BAThashsync, hp, MT_THR_DETACHED);
 		}
 		return GDK_SUCCEED;
 	}
