@@ -15,6 +15,13 @@
 #define HASH_VERSION		2 /* if mismatch, discard */
 #define HASH_HEADER_SIZE	6 /* nr of size_t fields in header */
 
+/* we won't split the table into pieces smaller than HASHMINSIZE */
+#define HASHMINSIZE		(1 << 20)
+
+/* we won't split the table into more than HASHMAXCHUNKS number of pieces */
+#define HASHMAXCHUNKSLOG	4
+#define HASHMAXCHUNKS		(1 << HASHMAXCHUNKSLOG)
+
 static BUN
 HASHmask(BUN cnt, int tpe)
 {
@@ -352,13 +359,6 @@ BATparthash(BAT *b, Hash *h, int piece)
 #endif
 	}
 }
-
-/* we won't split the table into pieces smaller than HASHMINSIZE */
-#define HASHMINSIZE		(1 << 20)
-
-/* we won't split the table into more than HASHMAXCHUNKS number of pieces */
-#define HASHMAXCHUNKSLOG	4
-#define HASHMAXCHUNKS		(1 << HASHMAXCHUNKSLOG)
 
 gdk_return
 BAThash(BAT *b)
