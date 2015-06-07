@@ -8,7 +8,7 @@
 
 /*
  * M. Raasveldt
- * This file contains a number of helper functions for converting between files, mainly used to convert from an object from a numpy array to the type requested by the BAT.
+ * This file contains a number of helper functions for converting between types, mainly used to convert from an object from a numpy array to the type requested by the BAT.
  */
 
 #ifndef _TYPE_CONVERSION_

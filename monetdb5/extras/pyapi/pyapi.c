@@ -778,7 +778,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 
         if (mapped)
         {
-            PyObject *pMult, *pPoolClass, *pPoolProcesses, *pPoolObject, *pApply, *pPoolArgs, *pOutput, *pGet;
+            PyObject *pMult, *pPoolClass, *pPoolProcesses, *pPoolObject, *pApply, *pPoolArgs, *pOutput, *pGet, *pClose;
 
             pMult = PyImport_Import(PyString_FromString("multiprocessing"));
             if (pMult == NULL)
@@ -834,6 +834,14 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             gstate = AcquireLock(&holds_gil, false);
 
             pResult = PyObject_CallObject(pGet, NULL);
+
+            pClose = PyObject_GetAttrString(pPoolObject, "terminate");
+            if (pClose == NULL)
+            {
+                msg = createException(MAL, "pyapi.eval", "No close?");
+                goto wrapup;
+            }
+            PyObject_CallObject(pClose, NULL);
         }
         else
         {
