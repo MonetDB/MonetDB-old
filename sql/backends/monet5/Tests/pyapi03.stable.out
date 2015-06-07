@@ -21,15 +21,6 @@ stdout of test 'pyapi03` in directory 'sql/backends/monet5` itself:
 # MonetDB/R   module loaded
 
 Ready.
-Loading data from the database into Python.
-- Loading a BAT of type INT (5)
-- Loading a scalar of type INT (5)
-Formatting python code.
-Executing python code.
-Returning result.
-Returning a bat of type BYTE (2)
-Returning a bat of size 6.
-Cleaning up.
 
 # 16:11:25 >  
 # 16:11:25 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-9490" "--port=33314"

@@ -2,7 +2,7 @@ START TRANSACTION;
 
 
 CREATE FUNCTION pyapi00() returns table (d integer)
-language PYTHON_MAP
+language P
 {
 	x = range(1,11)
 	return(x)

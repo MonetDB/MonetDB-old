@@ -1,28 +1,4 @@
-b:= bat.new(:oid,:int);
-bat.append(b, 1);
-bat.append(b, 2);
-bat.append(b, 3);
-bat.append(b, 4);
-bat.append(b, -1);
-bat.append(b, 0);
 
-io.print(b);
-
-r:bat[:oid,:bit] := pyapi.eval(nil:ptr, "return numpy.greater(arg1, arg2)", b, 2);
+# return a string when an int is expected
+r:bat[:oid,:int] := pyapi.eval(nil:ptr,"import os\nprint(os.getcwd())\nreturn(33)");
 io.print(r);
-
-# return a single integer value
-r:bat[:oid,:int] := pyapi.eval(nil:ptr,"return(33)");
-io.print(r);
-
-# return a single float value
-x:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"return(12.31)");
-io.print(x);
-
-# return a single string value
-r:bat[:oid,:str] := pyapi.eval(nil:ptr,"return(\"test\")");
-io.print(r);
-
-# return a multi-dimensional numpy array containing integers
-(r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(numpy.array([[33, 24, 55], [44, 66,345]]))");
-io.print(r,s);

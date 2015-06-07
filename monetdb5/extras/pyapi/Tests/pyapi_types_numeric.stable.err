@@ -26,6 +26,7 @@ stderr of test 'pyapi_types_numeric` in directory 'monetdb5/extras/pyapi` itself
 # cmdline opt 	embedded_r = true
 # cmdline opt 	embedded_py = true
 # cmdline opt 	gdk_debug = 536870922
+!WARNING: Type "hge" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type "long". This is likely very slow.
 
 # 19:41:50 >  
 # 19:41:50 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-7261" "--port=31934"

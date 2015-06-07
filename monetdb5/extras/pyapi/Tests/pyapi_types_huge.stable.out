@@ -20,12 +20,7 @@ stdout of test 'pyapi_types_huge` in directory 'monetdb5/extras/pyapi` itself:
 # MonetDB/R   module loaded
 
 Ready.
-!WARNING: Type "hge" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type "long". This can be very slow.
-!WARNING: Type "hge" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type "long". This can be very slow.
-!WARNING: Type "hge" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type "long". This can be very slow.
-!WARNING: Type "hge" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type "long". This can be very slow.
-!WARNING: Type "hge" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type "long". This can be very slow.
-!WARNING: Type "hge" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type "long". This can be very slow.
+
 
 # 00:29:47 >  
 # 00:29:47 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-30800" "--port=32717"
@@ -65,6 +60,16 @@ Ready.
 #--------------------------#
 [ 0@0,	3200,	44	]
 [ 1@0,	12,	22	]
+#io.print(rhge, shge);
+#--------------------------#
+# h	t	t  # name
+# void	hge	hge  # type
+#--------------------------#
+[ 0@0,	18044433428933534654634643698858345,	18044433428933534654634643698858345	]
+[ 1@0,	895233278923448975389573895731,	895233278923448975389573895731	]
+[ 2@0,	558372892789247104910348981249,	558372892789247104910348981249	]
+[ 3@0,	-23,	-23	]
+[ 4@0,	nil,	nil	]
 #io.print(rint);
 #--------------------------#
 # h	t  # name

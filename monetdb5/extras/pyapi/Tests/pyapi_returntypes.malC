@@ -12,7 +12,7 @@ r:bat[:oid,:int] := pyapi.eval(nil:ptr,"return(33)");
 io.print(r);
 
 # return a single float value
-r:bat[:oid,:dbl] := pyapi.eval(nil:ptr,"return(12.31)");
+r:bat[:oid,:flt] := pyapi.eval(nil:ptr,"return(12.31)");
 io.print(r);
 
 # return a single string value
@@ -62,15 +62,11 @@ io.print(s);
 io.print(s);
 
 # return a multi-dimensional numpy array containing integers
-#(r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(numpy.array([[33, 24, 55], [44, 66,345]]))");
-#io.print(r,s);
-
-# return a multi-dimensional numpy array containing doubles 
-(r:bat[:oid,:dbl], s:bat[:oid,:dbl]) := pyapi.eval(nil:ptr,"return(numpy.array([[27.42, 18.62, 33.81], [12.55, 41.44, 20.88]]))");
+(r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(numpy.array([[33, 24, 55], [44, 66,345]]))");
 io.print(r,s);
 
-# return a multi-dimensional numpy array containing strings
-(r:bat[:oid,:str], s:bat[:oid,:str]) := pyapi.eval(nil:ptr,"return(numpy.array([[\"Hëllo\", \"Hello Again\"], [\"Hello Again Again\",\"That's quite enough.\"]]))");
+# return a multi-dimensional numpy array containing doubles 
+(r:bat[:oid,:flt], s:bat[:oid,:flt]) := pyapi.eval(nil:ptr,"return(numpy.array([[27.42, 18.62, 33.81], [12.55, 41.44, 20.88]]))");
 io.print(r,s);
 
 # return a multi-dimensional numpy array containing unicode strings
@@ -86,6 +82,10 @@ io.print(r,s);
 # return a multi-dimensional numpy array containing integers, but store them in a string BAT
 (r:bat[:oid,:str], s:bat[:oid,:str]) := pyapi.eval(nil:ptr,"return(numpy.array([[33, 24, 55], [44, 66,345]]))");
 io.print(r,s);
+
+# return a multi-dimensional python array and load it into different types of BATs
+(di:bat[:oid,:int],dd:bat[:oid,:flt]) := pyapi.eval(nil:ptr,"return(numpy.array([[33.2, 24.7, 55.4], [44.1, 66.3, 2.2]]))");
+io.print(di,dd);
 
 #####################
 # --MASKED ARRAYS-- #
@@ -110,13 +110,17 @@ io.print(r);
 (r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(numpy.ma.masked_array([[1, 2, 3], [1,2,3]], [[0,0,0], [1,0,0]]))");
 io.print(r,s);
 
+# return a multi-dimensional masked array with even dimensions
+(r:bat[:oid,:str], s:bat[:oid,:str]) := pyapi.eval(nil:ptr,"return(numpy.ma.masked_array([['str', 'test', 'k'], ['test','test213','test44']], [[0,0,0], [1,0,0]]))");
+io.print(r,s);
+
 # return a multi-dimensional masked array with uneven dimensions 
-#(r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(numpy.ma.masked_array([[1, 2, 3], [1,2,3,4]], 0))");
-#io.print(r,s);
+(r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(numpy.ma.masked_array([[1, 2, 3], [1,2,3,4]], 0))");
+io.print(r,s);
 
 # return a masked array, holding multiple masked arrays of uneven length (if they had even length, the test would be identical to the one above because numpy would automatically convert the object to one big masked array)
-#(r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(numpy.ma.masked_array([numpy.ma.masked_array([17,2,28], [0,1,0]), numpy.ma.masked_array([1,2,3,4], [1,0,0,0])], 0))");
-#io.print(r,s);
+(r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(numpy.ma.masked_array([numpy.ma.masked_array([17,2,28], [0,1,0]), numpy.ma.masked_array([1,2,3,4], [1,0,0,0])], 0))");
+io.print(r,s);
 
 ##############
 # --PANDAS-- #
@@ -154,12 +158,9 @@ io.print(r,s);
 ## --WRONG RETURNS-- ##
 #######################
 #######################
-# return a multi-dimensional python array and load it into a wrong BAT
-(di:bat[:oid,:int],dd:bat[:oid,:dbl]) := pyapi.eval(nil:ptr,"return(numpy.array([[33.2, 24.7, 55.4], [44.1, 66.3, 2.2]]))");
-io.print(di,dd);
-
 # return a string when an int is expected
 r:bat[:oid,:int] := pyapi.eval(nil:ptr,"return(\"Test\")");
+io.print(r);
 
 # return an unsupported object
 (r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"class NewClass:\n\tx = 5\n\n\treturn(NewClass())");
@@ -184,4 +185,8 @@ a:bat[:oid,:str] := pyapi.eval(nil:ptr,"x = unicode(\"hello\")\nreturn(x.encode(
 
 # return a UTF-32 encoded string in a numpy array
 (str1:bat[:oid,:str], str2:bat[:oid,:str]) := pyapi.eval(nil:ptr,"x = unicode(\"hello\")\nreturn(numpy.array([[x.encode(\"utf32\")], [x.encode(\"utf32\")]]))");
+
+# return a multi-dimensional numpy array containing invalid strings
+(str1:bat[:oid,:str], str2:bat[:oid,:str]) := pyapi.eval(nil:ptr,"return(numpy.array([[\"Hëllo\", \"Hello Again\"], [\"Hello Again Again\",\"That's quite enough.\"]]))");
+
 
