@@ -1197,7 +1197,7 @@ void extract_prop_and_subj_from_exps(mvc *c, sql_rel *r, char **prop, char **sub
 
 
 static
-void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl_exps, str tblname, int colIdx, oid tmpPropId, str *atblname, str *asubjcolname, list *sp_prj_exps){
+void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl_exps, str tblname, int colIdx, oid tmpPropId, str *atblname, str *asubjcolname, list *sp_prj_exps, list *base_column_exps){
 
 	list *tmpexps = NULL; 
 	list *tmp_tbl_exps = NULL; 
@@ -1279,10 +1279,12 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 				sql_column *tmpcol = get_rdf_column(c, tblname, origcolname);
 				sql_exp *e = exp_alias(sa, tmpexp->rname, tmpexp->name, origtblname, origcolname, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
 				sql_exp *proj_e = exp_alias(sa, tmpexp->rname, tmpexp->name, tmpexp->rname, tmpexp->name, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);	
+				sql_exp *base_col_e = exp_copy(sa, proj_e);
 
 				printf("tmpcolname in rdf basetable is %s\n", tmpcolname);
 				append(trans_tbl_exps, e); 
 				if (sp_prj_exps) append(sp_prj_exps, proj_e); 
+				if (base_column_exps) append(base_column_exps, base_col_e);
 			}
 
 			if (strcmp(tmpexp->name, "s") == 0){
@@ -1293,7 +1295,7 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 				sql_column *tmpcol = get_rdf_column(c, origtblname, origcolname);
 				sql_exp *e = exp_alias(sa, tmpexp->rname, tmpexp->name, origtblname, origcolname, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
 				sql_exp *proj_e = exp_alias(sa, tmpexp->rname, tmpexp->name, tmpexp->rname, tmpexp->name, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
-
+				sql_exp *base_col_e = exp_copy(sa, proj_e);
 
 				if (*atblname == NULL){
 					*atblname = GDKstrdup(tmpexp->rname);
@@ -1301,6 +1303,7 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 				}
 				append(trans_tbl_exps, e); 
 				if (sp_prj_exps) append(sp_prj_exps, proj_e); 
+				if (base_column_exps) append(base_column_exps, base_col_e); 
 			}
 
 		}
@@ -1309,7 +1312,7 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 
 
 static
-void tranforms_mvprop_exps(mvc *c, sql_rel *r, mvPropRel *mvproprel, int tblId, oid tblnameoid, int colIdx, oid tmpPropId, int isMVcol, list *sp_prj_exps){
+void tranforms_mvprop_exps(mvc *c, sql_rel *r, mvPropRel *mvproprel, int tblId, oid tblnameoid, int colIdx, oid tmpPropId, int isMVcol, list *sp_prj_exps, list *base_column_exps){
 
 	list *tmpexps = NULL; 
 	list *trans_select_exps = NULL; 
@@ -1403,10 +1406,12 @@ void tranforms_mvprop_exps(mvc *c, sql_rel *r, mvPropRel *mvproprel, int tblId, 
 				sql_column *tmpcol = get_rdf_column(c, mvtblname, origcolname);
 				sql_exp *e = exp_alias(sa, tmpexp->rname, tmpexp->name, origtblname, origcolname, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
 				sql_exp *proj_e = exp_alias(sa, tmpexp->rname, tmpexp->name, tmpexp->rname, tmpexp->name, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
+				sql_exp *base_col_e = exp_copy(sa, proj_e);
 
 				printf("tmpmvcolname in rdf basetable is %s\n", tmpmvcolname);
 				append(trans_tbl_exps, e); 
 				append(sp_prj_exps, proj_e);
+				if (base_column_exps) append(base_column_exps, base_col_e);
 			}
 
 			if (strcmp(tmpexp->name, "s") == 0){
@@ -1417,9 +1422,11 @@ void tranforms_mvprop_exps(mvc *c, sql_rel *r, mvPropRel *mvproprel, int tblId, 
 				sql_column *tmpcol = get_rdf_column(c, origtblname, origcolname);
 				sql_exp *e = exp_alias(sa, tmpexp->rname, tmpexp->name, origtblname, origcolname, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
 				sql_exp *proj_e = exp_alias(sa, tmpexp->rname, tmpexp->name, tmpexp->rname, tmpexp->name, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
+				sql_exp *base_col_e = exp_copy(sa, proj_e);
 
 				append(trans_tbl_exps, e); 
 				append(sp_prj_exps, proj_e);
+				if (base_column_exps) append(base_column_exps, base_col_e);
 
 				mvproprel->atblname = GDKstrdup(tmpexp->rname);
 				mvproprel->asubjcolname = GDKstrdup(tmpexp->name);
@@ -1643,6 +1650,191 @@ sql_rel *connect_sp_select_and_mv_prop(mvc *c, sql_rel *rel_wo_mv, mvPropRel *mv
 
 }
 
+static 
+list *single_exp_list(sql_allocator *sa, sql_exp *e){
+	list *lst = NULL; 
+	lst = new_exp_list(sa);
+
+	append(lst, e); 
+
+	return lst; 
+}
+
+/*
+ * Return sys.isnull(e)
+ * Right now, it is more like e = null
+ * */
+static 
+sql_exp* exp_isnull(sql_allocator *sa, sql_exp *e){
+	sql_exp *l = NULL; 
+	sql_exp *r = NULL; 
+	sql_exp *isnull_exp = NULL;
+
+	l = e;
+	r = exp_atom(sa, atom_general(sa, exp_subtype(l), NULL));
+	
+	isnull_exp = exp_compare(sa, l, r, cmp_equal); 
+	
+	return isnull_exp; 
+}
+
+static 
+sql_exp* exp_isnotnull(sql_allocator *sa, sql_exp *e){
+	sql_exp *l = NULL; 
+	sql_exp *r = NULL; 
+	sql_exp *isnotnull_exp = NULL;
+
+	l = e;
+	r = exp_atom(sa, atom_general(sa, exp_subtype(l), NULL));
+	
+	isnotnull_exp = exp_compare(sa, l, r, cmp_notequal); 
+	
+	return isnotnull_exp; 
+}
+
+/*
+ * Create exps for optional set of columns
+ * e.g., base_column_exps  [s1.p1, s1.p2, s1.p3]
+ * Then, the opt_exps will be
+ * sys.ifthenelse(
+ * 	sys.ifthenelse(
+ * 		sys.isnull(
+ * 		sys.or(sys.isnull(s1.p1),
+ * 			sys.or(sys.isnull(s1.p2), sys.isnull(s1.p3))
+ * 		)),
+ *		boolean "false",
+ * 		sys.or(sys.isnull(s1.p1),
+ * 			sys.or(sys.isnull(s1.p2), sys.isnull(s1.p3))
+ * 		)
+ * 	),
+ * 	NULL, 
+ * 	s1.p1
+ * )
+ *
+ * Look complicated :)
+ *
+ * If it is a set of required columns, then put sys.isnotnull()
+ *
+ * NOTE THAT as set of base columns can look like s1.s, s1.o, s2.s, s2.o,...
+ * we only put the condition on o, while keeping s as original
+ *
+ * */
+
+static 
+list *create_optional_exps(sql_allocator *sa, list *base_column_exps, int isOptionalGroup, int contain_mv_col){
+	list *opt_exps = NULL ;
+	list *req_exps = NULL; 
+	sql_exp *or_exp = NULL; 
+	node *en = NULL; 
+
+	list *only_o_exps = NULL; //keeping only o
+	only_o_exps = new_exp_list(sa); 
+
+	for (en = base_column_exps->h; en; en = en->next){
+		sql_exp *o_exp = (sql_exp *) en->data;
+		assert(o_exp->type == e_column);
+		if (strcmp(o_exp->name, "o") == 0){
+			sql_exp *tmp_o_exp =  exp_copy(sa, o_exp); 
+			append(only_o_exps, tmp_o_exp);  
+		}
+	}
+
+	if (isOptionalGroup){
+		opt_exps = new_exp_list(sa); 
+		if (contain_mv_col){
+			printf("Do nothing for group of optional prop containing mv col \n");
+			return base_column_exps; 
+		} else {
+			node *first_node = only_o_exps->h;
+			sql_exp *first_exp = (sql_exp *) first_node->data;
+			sql_exp *first_isnull_exp = exp_isnull(sa, first_exp); 
+
+			if (first_node->next){
+				for (en = first_node->next; en; en = en->next){
+					sql_exp *tmpexp = (sql_exp *) en->data;
+					sql_exp *tmp_isnull_exp = NULL; 
+					assert(tmpexp->type == e_column); 
+					tmp_isnull_exp = exp_isnull(sa, tmpexp); 
+
+					if (or_exp == NULL){
+						list *lst1 = single_exp_list(sa, first_isnull_exp); 
+						list *lst2 = single_exp_list(sa, tmp_isnull_exp); 
+						or_exp = exp_or(sa, lst1, lst2);   	
+					} else {
+						list *lst1 = single_exp_list(sa, or_exp); 
+						list *lst2 = single_exp_list(sa, tmp_isnull_exp);
+
+						or_exp = exp_or(sa, lst1, lst2); 
+					}
+				}
+			}
+
+			if (or_exp == NULL){
+				or_exp = exp_copy(sa, first_isnull_exp); 
+			}
+
+			//Replace each column by ifthenelse
+			//e.g.: col1 = ifthenelse ( or (col1 == null, col2 == null, col3 ==null), null, col1)
+			for (en =base_column_exps->h; en; en = en->next){	
+				sql_exp *tmpexp = (sql_exp *) en->data;
+				sql_exp *if_exp = NULL; 
+				sql_exp *exp_null = NULL; 
+				list *lst_ifthen;
+				list *lst_else;
+
+				assert(tmpexp->type == e_column);
+				assert(or_exp != NULL); 	
+
+				if (strcmp(tmpexp->name, "o") == 0){
+
+					exp_null = exp_atom(sa, atom_general(sa, exp_subtype(tmpexp), NULL));
+					
+					lst_ifthen = single_exp_list(sa, exp_null); 
+					lst_else = single_exp_list(sa, tmpexp); 
+
+					if_exp = exp_if(sa, or_exp, lst_ifthen, lst_else);	
+
+					append(opt_exps, if_exp); 
+				} else {
+					sql_exp *s_exp = NULL;
+					assert (strcmp(tmpexp->name, "s") == 0); 
+
+					s_exp = exp_copy(sa, tmpexp); 
+
+					append(opt_exps, s_exp); 
+				}
+
+			}
+
+		}
+
+		return opt_exps;	
+	} else {
+		req_exps = new_exp_list(sa); 
+		for (en = base_column_exps->h; en; en = en->next){
+			sql_exp *tmpexp = (sql_exp *) en->data;
+			sql_exp *exp_notnull = NULL;
+			assert(tmpexp->type == e_column);
+
+			exp_notnull = exp_isnotnull(sa, tmpexp); 
+
+			append(req_exps, exp_notnull);
+		}
+
+		return req_exps; 
+	}
+
+}
+
+static
+void append_sp_rdfscan_proj_exps(list *opt_col_exps, list *sp_rdfscan_proj_exps){
+	node *en; 
+	for (en = opt_col_exps->h; en; en = en->next){
+		sql_exp *tmpexp = (sql_exp *) en->data;
+		append(sp_rdfscan_proj_exps, tmpexp); 
+	}
+}
+
 /*
  * Input: 
  * - A sub-join graph (jsg) that all nodes are connected by using inner join
@@ -1655,7 +1847,7 @@ sql_rel *connect_sp_select_and_mv_prop(mvc *c, sql_rel *rel_wo_mv, mvPropRel *mv
  *  - sp_prj_exps stores all the columns should be selected in the "original order" 
  * */
 static
-sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int nnode, list *sp_prj_exps, int *is_contain_mv){
+sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int nnode, list *sp_prj_exps, list *sp_rdfscan_proj_exps, int *is_contain_mv, int isOptionalGroup){
 
 	sql_rel *rel = NULL;
 	str tblname; 
@@ -1672,12 +1864,17 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 	int i; 
 	int has_nonMV_col = 0; 
 
+	list *base_column_exps = NULL; 
+	list *opt_exps = NULL; 
+
 	mvPropRel *mvPropRels = init_mvPropRelSet(nnode); 
 
 	num_mv_col = 0;
 
 	trans_select_exps = new_exp_list(sa);
 	trans_table_exps = new_exp_list(sa); 
+	base_column_exps = new_exp_list(sa); 
+	opt_exps = new_exp_list(sa); 
 
 	printf("Get real expressions from tableId %d\n", tId);
 
@@ -1716,13 +1913,13 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 		isMVcol = isMVCol(tId, colIdx, global_csset);
 
 		if (isMVcol == 0){
-			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname, sp_prj_exps); 
+			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname, sp_prj_exps, base_column_exps); 
 			has_nonMV_col=1; 
 		}
 		else{
 			printf("Table %d, column %d is multi-valued prop\n", tId, colIdx);
 			assert (mvPropRels[i].mvrel == NULL); 
-			tranforms_mvprop_exps(c, tmprel, &(mvPropRels[i]), tId, tblnameoid, colIdx, tmpPropId, isMVcol, sp_prj_exps);
+			tranforms_mvprop_exps(c, tmprel, &(mvPropRels[i]), tId, tblnameoid, colIdx, tmpPropId, isMVcol, sp_prj_exps, base_column_exps);
 			num_mv_col++;
 
 			//rel_print(c, mvPropRels[i].mvrel, 0);
@@ -1750,11 +1947,17 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 		*is_contain_mv = 1; 
 		rel = connect_sp_select_and_mv_prop(c, rel_wo_mv, mvPropRels, tblname, atblname, asubjcolname, nnode); 
 
+		opt_exps = create_optional_exps(c->sa, base_column_exps, isOptionalGroup, 1);
 	}
 	else{
+		*is_contain_mv = 0;
 		rel = rel_wo_mv; 
+
+		opt_exps = create_optional_exps(c->sa, base_column_exps, isOptionalGroup, 0);
 	}
 
+
+	append_sp_rdfscan_proj_exps(opt_exps, sp_rdfscan_proj_exps);
 	//rel_print(c, rel, 0); 
 	//GDKfree(tblname); 
 
@@ -1762,6 +1965,7 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 	//the case where each sql_rel is a op_select. 
 
 	list_destroy(trans_select_exps);
+	list_destroy(base_column_exps); 
 
 	if (0) free_mvPropRelSet(mvPropRels, nnode);
 
@@ -1842,7 +2046,7 @@ sql_rel* build_rdfscan (mvc *c, jgraph *jg, int tId, int ncol, int nijgroup, int
 			isMVcol = isMVCol(tId, colIdx, global_csset);
 
 			//Only for RDFscan, otherwise we need to handle Multi-valued prop
-			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname, NULL); 
+			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname, NULL, NULL); 
 
 			if (isMVcol == 0){
 				num_nonMV_col++; 
@@ -1963,8 +2167,10 @@ sql_rel *_group_edge_between_two_groups(mvc *c, jgraph *jg, int pId, int *group1
 
 	assert(left);
 	assert(right); 
-	
+
 	sp_edge_exps = new_exp_list(c->sa);
+
+
 	printf("Create edge between pattern %d and %d\n", pId, (pId + 1)); 
 	for (i = 0; i < nnode1; i++){
 		for (j = 0; j < nnode2; j++){
@@ -1983,6 +2189,7 @@ sql_rel *_group_edge_between_two_groups(mvc *c, jgraph *jg, int pId, int *group1
 	printf("Expression for join between pattern %d and %d\n", pId, (pId + 1));
 	exps_print_ext(c, sp_edge_exps, 0, "Exp:");
 
+	
 	rel_edge = rdf_rel_join(c->sa, left, right, sp_edge_exps, op);
 
 	return rel_edge; 
@@ -2257,6 +2464,8 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 					//a specific table
 		list **sp_proj_exps; 	//Store the simple project expressions for each star pattern w/o 
 					//regarding the availability of multi-valued prop
+		list **sp_rdfscan_proj_exps = NULL; 	//Store the project experessions for each star pattern
+					// with ifthenelse statement for optional keywords
 		int *contain_mv_col = NULL; 			
 
 		spprops = init_sp_props(nnode); 	
@@ -2288,6 +2497,8 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 		tbl_m_rels = (sql_rel **) malloc(sizeof(sql_rel *) * num_match_tbl);
 		sp_proj_exps = (list **) malloc(sizeof(list *) * num_match_tbl); 
 		contain_mv_col = (int *) malloc(sizeof(int) * num_match_tbl);
+		
+		sp_rdfscan_proj_exps = (list **) malloc(sizeof(list *) * num_match_tbl);
 
 		for (tblIdx = 0; tblIdx < num_match_tbl; tblIdx++){
 			int tId = tmptbId[tblIdx];
@@ -2298,8 +2509,12 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 			sql_rel **edge_ijrels;  //sql_rel connecting each pair of ijrels
 			int is_contain_mv = 0; 
 			sql_rel *rel_rdfscan = NULL; 
+			int *ingroup_contain_mv = NULL;
+			sql_rel *tmprel_rdfscan = NULL; 
 
 			sp_proj_exps[tblIdx] = new_exp_list(c->sa);
+			sp_rdfscan_proj_exps[tblIdx] = new_exp_list(c->sa);
+
 			ijgroup = get_inner_join_groups_in_sp_group(jg, group, nnode, &nijgroup, &nnodes_per_ijgroup);				
 
 			printf("Number of inner join group is: %d\n", nijgroup);
@@ -2317,9 +2532,15 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 
 			ijrels = (sql_rel **) malloc(sizeof(sql_rel*) * nijgroup);
 			edge_ijrels = (sql_rel **) malloc(sizeof(sql_rel*) * (nijgroup - 1));
+			ingroup_contain_mv  = (int *) malloc(sizeof(int) * nijgroup); 
 			
 			for (i = 0; i < nijgroup; i++){
-				ijrels[i] = transform_inner_join_subjg (c, jg, tId, ijgroup[i], nnodes_per_ijgroup[i], sp_proj_exps[tblIdx], &is_contain_mv);
+				int isOptionalGroup = 0;
+				if (i > 0) isOptionalGroup = 1;
+				ingroup_contain_mv[i] = 0;
+				ijrels[i] = transform_inner_join_subjg (c, jg, tId, ijgroup[i], nnodes_per_ijgroup[i], sp_proj_exps[tblIdx], sp_rdfscan_proj_exps[tblIdx], &is_contain_mv, isOptionalGroup);
+				ingroup_contain_mv[i] = is_contain_mv; 
+
 			}
 	
 			contain_mv_col[tblIdx] = is_contain_mv;
@@ -2327,7 +2548,13 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 			printf("Original Projection of all columns (w/o considering mv col): \n"); 
 			exps_print_ext(c, sp_proj_exps[tblIdx], 0, NULL); 
 
+			printf("RDFscan expression for table matching %d\n",tblIdx);
+			exps_print_ext(c, sp_rdfscan_proj_exps[tblIdx], 0, NULL); 
+
 			if (nijgroup > 1){
+				#if (APPLY_OPTIMIZATION_FOR_OPTIONAL == 0) 	
+				//Always use left outer join for connecting ijgroup
+				printf("APPLY_OPTIMIZATION_FOR_OPTIONAL \n"); 
 				//Connect these ijrels by outer joins
 				for (i = 0; i < (nijgroup - 1); i++){
 					edge_ijrels[i] = _group_edge_between_two_groups(c, jg, i, ijgroup[i], nnodes_per_ijgroup[i], 
@@ -2336,6 +2563,59 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 				connect_groups(nijgroup, ijrels, edge_ijrels);
 
 				tbl_m_rels[tblIdx] = edge_ijrels[0];	
+
+				#else
+				//if the inner group does not have mv prop, then use the IFTHENELSE approach
+				//First: Connect all non-mv prop groups into single rel (with the first rel)
+				sql_rel *non_mv_rep_rel = NULL; //Represent all non-mv props. 
+				int 	n_mv_groups = 1; 	//Number of groups with mv prop
+								//Start from 1 (the first is the combination of 
+								//all non-mv groups)
+				int 	n_non_mv_groups = 0;
+				int 	*old_idx_map = (int *) malloc(sizeof(int) * nijgroup); 
+
+				sql_rel **newijrels = (sql_rel **) malloc(sizeof(sql_rel*) * nijgroup);
+
+				non_mv_rep_rel = ijrels[0]; 
+				for (i = 1; i < nijgroup; i++){
+					if (ingroup_contain_mv[i] == 0){
+						n_non_mv_groups++;
+						non_mv_rep_rel =  rdf_rel_simple_combine_with_optional_cols(c->sa, non_mv_rep_rel, ijrels[i]);
+					}
+					else {
+						old_idx_map[n_mv_groups] = i; 
+						newijrels[n_mv_groups] = ijrels[i]; 
+						n_mv_groups++; 
+					}
+				}
+
+				newijrels[0] = non_mv_rep_rel; 
+				old_idx_map[0] = 0; 	
+				
+				if (n_mv_groups > 1){
+					//Then, connect with groups having mv props
+					for (i = 0; i < (n_mv_groups - 1); i++){
+						int id1 = old_idx_map[i];
+						int id2 = old_idx_map[i+1];
+
+						edge_ijrels[i] = _group_edge_between_two_groups(c, jg, i, ijgroup[id1], nnodes_per_ijgroup[id1],
+        	                                                        ijgroup[id2], nnodes_per_ijgroup[id2], newijrels[i], newijrels[i+1], 1);
+					}
+
+					connect_groups(n_mv_groups, newijrels, edge_ijrels);	
+					tmprel_rdfscan = edge_ijrels[0];
+				}
+				else{
+					tmprel_rdfscan = newijrels[0];
+				}
+				if (n_non_mv_groups > 0){	//Add IFTHENELSE project
+					sql_rel *tmp_proj_rel = rel_project(c->sa, tmprel_rdfscan, sp_rdfscan_proj_exps[tblIdx]);
+					tbl_m_rels[tblIdx] = tmp_proj_rel; 
+				}
+				else{
+					tbl_m_rels[tblIdx] = tmprel_rdfscan; 			
+				}
+				#endif
 			}
 			else{	//nijgroup = 1
 				tbl_m_rels[tblIdx] = ijrels[0]; 
@@ -2583,8 +2863,6 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 	
 	if (numsp > 1){
 		//Connect to the first edge between sp0 and sp1
-		
-		//connect_groups(numsp, lstRels, lstEdgeRels); 
 		
 		build_all_rels_from_cross_edges(c, num_cross_edges, lst_cross_edges, cr_ed_orders, jg, lst_cross_edge_rels, lstRels, numsp, &last_cre); 
 		

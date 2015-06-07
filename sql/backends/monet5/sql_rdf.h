@@ -51,6 +51,9 @@ extern PropStat *global_c_propstat;
 extern BAT *global_mbat;
 extern BATiter global_mapi;
 
-#define USINGRDFSCAN	1
+#define USINGRDFSCAN	0
+
+#define APPLY_OPTIMIZATION_FOR_OPTIONAL	1	/* Instead of using left join, we use a project with ifthenelse */
+						/* on the set of optional columns */
 
 #endif /*_SQL_RDF_H */

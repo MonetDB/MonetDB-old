@@ -36,5 +36,6 @@
 
 rdf_export sql_rel * rdf_rel_join(sql_allocator *sa, sql_rel *l, sql_rel *r, list *exps, operator_type join);
 
+rdf_export sql_rel *rdf_rel_simple_combine_with_optional_cols(sql_allocator *sa, sql_rel *rel1, sql_rel *rel2); 
 
 #endif /* _SQL_RDF_REL_H_ */

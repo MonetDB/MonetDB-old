@@ -133,6 +133,10 @@ sql_symbol2relation(mvc *c, symbol *sym)
 			if (1) c->emod = mod_explain;
 			}
 		}
+		else {
+		
+			_rel_print(c,r);
+		}
 
 		if (1){
 		r = rel_optimizer(c, r);
