@@ -39,15 +39,10 @@
 const char* pyapi_enableflag = "embedded_py";
 
 
-#define FORCE_MESSAGE(args...) {   \
-    printf(args);                  \
-    fflush(stdout);                \
-}
-
 #ifdef _PYAPI_VERBOSE_
-#define VERBOSE_MESSAGE(args...) FORCE_MESSAGE(args) 
+#define VERBOSE_MESSAGE printf
 #else
-#define VERBOSE_MESSAGE(args...) ((void) 0)
+#define VERBOSE_MESSAGE ((void) 0)
 #endif
 
 struct _PyReturn{
@@ -272,7 +267,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     BAT *b = NULL;
     node * argnode;
     int seengrp = FALSE;
-    PyObject *pArgs, *pResult; // this is going to be the parameter tuple
+    PyObject *pArgs, *pResult = NULL; // this is going to be the parameter tuple
     BUN p = 0, q = 0;
     BATiter li;
     PyGILState_STATE gstate = -1;
@@ -523,7 +518,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                     }
                     break;
                 case TYPE_str:
-                    vararray = PyUnicode_FromString((char*)getArgReference_str(stk, pci, i));
+                    vararray = PyUnicode_FromString(*((char**)getArgReference_str(stk, pci, i)));
                     break;
                 default:
                     msg = createException(MAL, "pyapi.eval", "Unsupported scalar type %i.", getArgType(mb,pci,i));
