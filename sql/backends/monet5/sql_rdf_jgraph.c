@@ -323,6 +323,37 @@ void exps_print_ext(mvc *sql, list *exps, int depth, char *prefix){
 }
 	
 
+/*
+static 
+list *single_exp_list(sql_allocator *sa, sql_exp *e){
+	list *lst = NULL; 
+	lst = new_exp_list(sa);
+
+	append(lst, e); 
+
+	return lst; 
+}
+*/
+
+/*
+ * Return sys.isnull(e)
+ * Right now, it is more like e = null
+ * */
+static 
+sql_exp* exp_isnull(mvc *sql, sql_exp *e){
+	sql_exp *isnull_exp = rel_unop_(sql, e, NULL, "isnull", card_value);
+	return isnull_exp; 
+}
+
+static 
+sql_exp* exp_isnotnull(mvc *sql, sql_exp *e){
+	sql_exp *isnull_exp = rel_unop_(sql, e, NULL, "isnull", card_value);
+	sql_exp *not_exp = exp_atom_bool(sql->sa, 0);
+	
+	sql_exp *isnotnull_exp = exp_compare(sql->sa, isnull_exp, not_exp, cmp_equal);
+
+	return isnotnull_exp; 
+}
 
 static
 void printRel_JGraph(jgraph *jg, mvc *sql){
@@ -1197,13 +1228,14 @@ void extract_prop_and_subj_from_exps(mvc *c, sql_rel *r, char **prop, char **sub
 
 
 static
-void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl_exps, str tblname, int colIdx, oid tmpPropId, str *atblname, str *asubjcolname, list *sp_prj_exps, list *base_column_exps){
+void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl_exps, str tblname, int colIdx, oid tmpPropId, str *atblname, str *asubjcolname, list *sp_prj_exps, list *base_column_exps, int isOptionalGroup){
 
 	list *tmpexps = NULL; 
 	list *tmp_tbl_exps = NULL; 
 	sql_allocator *sa = c->sa; 
 	char tmpcolname[100]; //TODO: Should we use char[]
 	sql_rel *tbl_rel = NULL;
+	int isConstrain_o = 0; 
 	
 	printf("Converting op_select in star pattern to sql_rel of corresponding table\n"); 
 	//Get the column name by checking exps of r
@@ -1236,11 +1268,11 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 
 			} else if (strcmp(e->name, "o") == 0){
 				sql_exp *m_exp = exp_copy(sa, tmpexp);
-				modify_exp_col(c, m_exp, tblname, tmpcolname, e->rname, e->name, 1);
-				
+
 				//append this exp to list
 				append(trans_select_exps, m_exp);
 				num_o_cond++;
+				isConstrain_o = 1; 
 
 			} else if (strcmp(e->name, "s") == 0){
 				char subj_colname[50] = "subject";
@@ -1280,11 +1312,20 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 				sql_exp *e = exp_alias(sa, tmpexp->rname, tmpexp->name, origtblname, origcolname, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
 				sql_exp *proj_e = exp_alias(sa, tmpexp->rname, tmpexp->name, tmpexp->rname, tmpexp->name, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);	
 				sql_exp *base_col_e = exp_copy(sa, proj_e);
+				sql_exp *notnull_m_exp = NULL; 
 
 				printf("tmpcolname in rdf basetable is %s\n", tmpcolname);
 				append(trans_tbl_exps, e); 
 				if (sp_prj_exps) append(sp_prj_exps, proj_e); 
 				if (base_column_exps) append(base_column_exps, base_col_e);
+				
+				if (isConstrain_o == 0 && isOptionalGroup == 0){
+					//Add not NULL condition if
+					//there is no constrain on o yet.
+					sql_exp *base_col_dup = exp_copy(sa, base_col_e); 
+					notnull_m_exp = exp_isnotnull(c, base_col_dup); 
+					append(trans_select_exps, notnull_m_exp);
+				}
 			}
 
 			if (strcmp(tmpexp->name, "s") == 0){
@@ -1650,47 +1691,7 @@ sql_rel *connect_sp_select_and_mv_prop(mvc *c, sql_rel *rel_wo_mv, mvPropRel *mv
 
 }
 
-static 
-list *single_exp_list(sql_allocator *sa, sql_exp *e){
-	list *lst = NULL; 
-	lst = new_exp_list(sa);
 
-	append(lst, e); 
-
-	return lst; 
-}
-
-/*
- * Return sys.isnull(e)
- * Right now, it is more like e = null
- * */
-static 
-sql_exp* exp_isnull(sql_allocator *sa, sql_exp *e){
-	sql_exp *l = NULL; 
-	sql_exp *r = NULL; 
-	sql_exp *isnull_exp = NULL;
-
-	l = e;
-	r = exp_atom(sa, atom_general(sa, exp_subtype(l), NULL));
-	
-	isnull_exp = exp_compare(sa, l, r, cmp_equal); 
-	
-	return isnull_exp; 
-}
-
-static 
-sql_exp* exp_isnotnull(sql_allocator *sa, sql_exp *e){
-	sql_exp *l = NULL; 
-	sql_exp *r = NULL; 
-	sql_exp *isnotnull_exp = NULL;
-
-	l = e;
-	r = exp_atom(sa, atom_general(sa, exp_subtype(l), NULL));
-	
-	isnotnull_exp = exp_compare(sa, l, r, cmp_notequal); 
-	
-	return isnotnull_exp; 
-}
 
 /*
  * Create exps for optional set of columns
@@ -1721,11 +1722,12 @@ sql_exp* exp_isnotnull(sql_allocator *sa, sql_exp *e){
  * */
 
 static 
-list *create_optional_exps(sql_allocator *sa, list *base_column_exps, int isOptionalGroup, int contain_mv_col){
+list *create_optional_exps(mvc *sql, list *base_column_exps, int isOptionalGroup, int contain_mv_col){
 	list *opt_exps = NULL ;
 	list *req_exps = NULL; 
 	sql_exp *or_exp = NULL; 
 	node *en = NULL; 
+	sql_allocator *sa = sql->sa; 
 
 	list *only_o_exps = NULL; //keeping only o
 	only_o_exps = new_exp_list(sa); 
@@ -1747,24 +1749,19 @@ list *create_optional_exps(sql_allocator *sa, list *base_column_exps, int isOpti
 		} else {
 			node *first_node = only_o_exps->h;
 			sql_exp *first_exp = (sql_exp *) first_node->data;
-			sql_exp *first_isnull_exp = exp_isnull(sa, first_exp); 
+			sql_exp *first_isnull_exp = exp_isnull(sql, first_exp); 
 
 			if (first_node->next){
 				for (en = first_node->next; en; en = en->next){
 					sql_exp *tmpexp = (sql_exp *) en->data;
 					sql_exp *tmp_isnull_exp = NULL; 
 					assert(tmpexp->type == e_column); 
-					tmp_isnull_exp = exp_isnull(sa, tmpexp); 
+					tmp_isnull_exp = exp_isnull(sql, tmpexp); 
 
 					if (or_exp == NULL){
-						list *lst1 = single_exp_list(sa, first_isnull_exp); 
-						list *lst2 = single_exp_list(sa, tmp_isnull_exp); 
-						or_exp = exp_or(sa, lst1, lst2);   	
+						or_exp = rel_binop_(sql, first_isnull_exp, tmp_isnull_exp, NULL, "or", card_value);
 					} else {
-						list *lst1 = single_exp_list(sa, or_exp); 
-						list *lst2 = single_exp_list(sa, tmp_isnull_exp);
-
-						or_exp = exp_or(sa, lst1, lst2); 
+						or_exp = rel_binop_(sql, or_exp, tmp_isnull_exp, NULL, "or", card_value);
 					}
 				}
 			}
@@ -1779,20 +1776,17 @@ list *create_optional_exps(sql_allocator *sa, list *base_column_exps, int isOpti
 				sql_exp *tmpexp = (sql_exp *) en->data;
 				sql_exp *if_exp = NULL; 
 				sql_exp *exp_null = NULL; 
-				list *lst_ifthen;
-				list *lst_else;
 
 				assert(tmpexp->type == e_column);
 				assert(or_exp != NULL); 	
 
 				if (strcmp(tmpexp->name, "o") == 0){
-
+					sql_exp *res = exp_copy(sa, tmpexp); 
 					exp_null = exp_atom(sa, atom_general(sa, exp_subtype(tmpexp), NULL));
 					
-					lst_ifthen = single_exp_list(sa, exp_null); 
-					lst_else = single_exp_list(sa, tmpexp); 
+					if_exp = rel_nop_(sql, or_exp, exp_null, res, NULL, NULL, "ifthenelse", card_value);	
 
-					if_exp = exp_if(sa, or_exp, lst_ifthen, lst_else);	
+					assert (if_exp != NULL); 
 
 					append(opt_exps, if_exp); 
 				} else {
@@ -1813,12 +1807,9 @@ list *create_optional_exps(sql_allocator *sa, list *base_column_exps, int isOpti
 		req_exps = new_exp_list(sa); 
 		for (en = base_column_exps->h; en; en = en->next){
 			sql_exp *tmpexp = (sql_exp *) en->data;
-			sql_exp *exp_notnull = NULL;
-			assert(tmpexp->type == e_column);
-
-			exp_notnull = exp_isnotnull(sa, tmpexp); 
-
-			append(req_exps, exp_notnull);
+			sql_exp *r_exp = exp_copy(sa, tmpexp); 
+			
+			append(req_exps, r_exp);
 		}
 
 		return req_exps; 
@@ -1827,11 +1818,12 @@ list *create_optional_exps(sql_allocator *sa, list *base_column_exps, int isOpti
 }
 
 static
-void append_sp_rdfscan_proj_exps(list *opt_col_exps, list *sp_rdfscan_proj_exps){
+void append_sp_rdfscan_proj_exps(sql_allocator *sa, list *opt_col_exps, list *sp_rdfscan_proj_exps){
 	node *en; 
 	for (en = opt_col_exps->h; en; en = en->next){
 		sql_exp *tmpexp = (sql_exp *) en->data;
-		append(sp_rdfscan_proj_exps, tmpexp); 
+		sql_exp *proj_exp = exp_copy(sa, tmpexp);
+		append(sp_rdfscan_proj_exps, proj_exp); 
 	}
 }
 
@@ -1913,7 +1905,7 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 		isMVcol = isMVCol(tId, colIdx, global_csset);
 
 		if (isMVcol == 0){
-			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname, sp_prj_exps, base_column_exps); 
+			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname, sp_prj_exps, base_column_exps, isOptionalGroup); 
 			has_nonMV_col=1; 
 		}
 		else{
@@ -1947,17 +1939,20 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 		*is_contain_mv = 1; 
 		rel = connect_sp_select_and_mv_prop(c, rel_wo_mv, mvPropRels, tblname, atblname, asubjcolname, nnode); 
 
-		opt_exps = create_optional_exps(c->sa, base_column_exps, isOptionalGroup, 1);
+		opt_exps = create_optional_exps(c, base_column_exps, isOptionalGroup, 1);
 	}
 	else{
 		*is_contain_mv = 0;
 		rel = rel_wo_mv; 
 
-		opt_exps = create_optional_exps(c->sa, base_column_exps, isOptionalGroup, 0);
+		opt_exps = create_optional_exps(c, base_column_exps, isOptionalGroup, 0);
+			
+		printf("OPTIONAL Expressions\n");
+		exps_print_ext(c, opt_exps, 0, NULL); 
 	}
 
 
-	append_sp_rdfscan_proj_exps(opt_exps, sp_rdfscan_proj_exps);
+	append_sp_rdfscan_proj_exps(c->sa, opt_exps, sp_rdfscan_proj_exps);
 	//rel_print(c, rel, 0); 
 	//GDKfree(tblname); 
 
@@ -2046,7 +2041,7 @@ sql_rel* build_rdfscan (mvc *c, jgraph *jg, int tId, int ncol, int nijgroup, int
 			isMVcol = isMVCol(tId, colIdx, global_csset);
 
 			//Only for RDFscan, otherwise we need to handle Multi-valued prop
-			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname, NULL, NULL); 
+			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname, NULL, NULL, 0); 
 
 			if (isMVcol == 0){
 				num_nonMV_col++; 
