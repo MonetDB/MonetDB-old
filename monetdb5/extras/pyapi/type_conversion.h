@@ -14,6 +14,9 @@
 #ifndef _TYPE_CONVERSION_
 #define _TYPE_CONVERSION_
 
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
 
 //! Copies the string of size up to max_size from the source to the destination, returns FALSE if "source" is not a legal ASCII string (i.e. a character is >= 128)
 bool string_copy(char * source, char* dest, size_t max_size);
@@ -36,18 +39,50 @@ bool utf32_to_dbl(uint32_t *utf32, dbl *value);
 //! Converts a base-10 utf32-encoded string to a hge value
 bool utf32_to_hge(uint32_t *utf32, hge *value);
 
+//using macros, create a number of str_to_<type> and unicode_to_<type> functions
+#define CONVERSION_FUNCTION_FACTORY(tpe, strconv, utfconv, strval)          \
+    bool str_to_##tpe(void *ptr, size_t size, tpe *value);          \
+    bool str_to_##tpe(void *ptr, size_t size, tpe *value)           \
+    {                                                              \
+        strval val;                                                \
+        if (!strconv((char*)ptr, size, &val)) return false;   \
+        *value = (tpe)val;                                         \
+        return true;                                               \
+    }                                                              \
+    bool unicode_to_##tpe(void *ptr, size_t size, tpe *value);                  \
+    bool unicode_to_##tpe(void *ptr, size_t size, tpe *value)                   \
+    {                                                              \
+        strval val;                                                \
+        (void) size;                                               \
+        if (!utfconv((uint32_t*)ptr, &val)) return false;         \
+        *value = (tpe)val;                                         \
+        return true;                                               \
+    }                                                              
+    
+CONVERSION_FUNCTION_FACTORY(bit, s_to_lng, utf32_to_lng, lng)
+CONVERSION_FUNCTION_FACTORY(sht, s_to_lng, utf32_to_lng, lng)
+CONVERSION_FUNCTION_FACTORY(int, s_to_lng, utf32_to_lng, lng)
+CONVERSION_FUNCTION_FACTORY(lng, s_to_lng, utf32_to_lng, lng)
+CONVERSION_FUNCTION_FACTORY(hge, s_to_hge, utf32_to_hge, hge)
+CONVERSION_FUNCTION_FACTORY(flt, s_to_dbl, utf32_to_dbl, dbl)
+CONVERSION_FUNCTION_FACTORY(dbl, s_to_dbl, utf32_to_dbl, dbl)
+
+
+#include "type_conversion.h"
+
+
 
 bool string_copy(char * source, char* dest, size_t max_size)
 {
-	size_t i;
-	for(i = 0; i < max_size; i++)
-	{
-		dest[i] = source[i];
-		if (dest[i] == 0) return TRUE;
-		if ((*(unsigned char*)&source[i]) >= 128) return FALSE;
-	}
-	dest[max_size] = '\0';
-	return TRUE;
+    size_t i;
+    for(i = 0; i < max_size; i++)
+    {
+        dest[i] = source[i];
+        if (dest[i] == 0) return TRUE;
+        if ((*(unsigned char*)&source[i]) >= 128) return FALSE;
+    }
+    dest[max_size] = '\0';
+    return TRUE;
 }
 
 void lng_to_string(char* str, lng value)
@@ -130,34 +165,6 @@ int hge_to_string(char * str, int size, hge x)
     }
     return TRUE;
 }
-
-//using macros, create a number of str_to_<type> and unicode_to_<type> functions
-#define CONVERSION_FUNCTION_FACTORY(tpe, strconv, utfconv, strval)          \
-    bool str_to_##tpe(void *ptr, size_t size, tpe *value);          \
-    bool str_to_##tpe(void *ptr, size_t size, tpe *value)           \
-    {                                                              \
-        strval val;                                                \
-        if (!strconv((char*)ptr, size, &val)) return false;   \
-        *value = (tpe)val;                                         \
-        return true;                                               \
-    }                                                              \
-    bool unicode_to_##tpe(void *ptr, size_t size, tpe *value);                  \
-    bool unicode_to_##tpe(void *ptr, size_t size, tpe *value)                   \
-    {                                                              \
-        strval val;                                                \
-        (void) size;                                               \
-        if (!utfconv((uint32_t*)ptr, &val)) return false;         \
-        *value = (tpe)val;                                         \
-        return true;                                               \
-    }                                                              
-    
-CONVERSION_FUNCTION_FACTORY(bit, s_to_lng, utf32_to_lng, lng)
-CONVERSION_FUNCTION_FACTORY(sht, s_to_lng, utf32_to_lng, lng)
-CONVERSION_FUNCTION_FACTORY(int, s_to_lng, utf32_to_lng, lng)
-CONVERSION_FUNCTION_FACTORY(lng, s_to_lng, utf32_to_lng, lng)
-CONVERSION_FUNCTION_FACTORY(hge, s_to_hge, utf32_to_hge, hge)
-CONVERSION_FUNCTION_FACTORY(flt, s_to_dbl, utf32_to_dbl, dbl)
-CONVERSION_FUNCTION_FACTORY(dbl, s_to_dbl, utf32_to_dbl, dbl)
 
 bool s_to_lng(char *ptr, size_t size, lng *value)
 {
@@ -261,64 +268,64 @@ bool s_to_dbl(char *ptr, size_t size, dbl *value)
 
 bool utf32_to_lng(uint32_t *utf32, lng *value)
 {
-	size_t length = utf32_strlen(utf32);
-	int i = length;
-	size_t factor = 1;
+    size_t length = utf32_strlen(utf32);
+    int i = length;
+    size_t factor = 1;
     *value = 0;
-	for( ; i >= 0; i--)
-	{
-		switch(utf32[i])
-		{
-			case '0': break;
-			case '1': *value += factor; break;
-			case '2': *value += 2 * factor; break;
-			case '3': *value += 3 * factor; break;
-			case '4': *value += 4 * factor; break;
-			case '5': *value += 5 * factor; break;
-			case '6': *value += 6 * factor; break;
-			case '7': *value += 7 * factor; break;
-			case '8': *value += 8 * factor; break;
-			case '9': *value += 9 * factor; break;
+    for( ; i >= 0; i--)
+    {
+        switch(utf32[i])
+        {
+            case '0': break;
+            case '1': *value += factor; break;
+            case '2': *value += 2 * factor; break;
+            case '3': *value += 3 * factor; break;
+            case '4': *value += 4 * factor; break;
+            case '5': *value += 5 * factor; break;
+            case '6': *value += 6 * factor; break;
+            case '7': *value += 7 * factor; break;
+            case '8': *value += 8 * factor; break;
+            case '9': *value += 9 * factor; break;
             case '-': *value *= -1; break;
-			case '.':
-			case ',': *value = 0; factor = 1; continue;
+            case '.':
+            case ',': *value = 0; factor = 1; continue;
             case '\0': continue;
             default: return false;
-		}
-		factor *= 10;
-	}
-	return true;
+        }
+        factor *= 10;
+    }
+    return true;
 }
 
 bool utf32_to_dbl(uint32_t *utf32, dbl *value)
 {
-	size_t length = utf32_strlen(utf32);
-	int i = length;
-	size_t factor = 1;
+    size_t length = utf32_strlen(utf32);
+    int i = length;
+    size_t factor = 1;
     *value = 0;
-	for( ; i >= 0; i--)
-	{
-		switch(utf32[i])
-		{
-			case '0': break;
-			case '1': *value += factor; break;
-			case '2': *value += 2 * factor; break;
-			case '3': *value += 3 * factor; break;
-			case '4': *value += 4 * factor; break;
-			case '5': *value += 5 * factor; break;
-			case '6': *value += 6 * factor; break;
-			case '7': *value += 7 * factor; break;
-			case '8': *value += 8 * factor; break;
-			case '9': *value += 9 * factor; break;
+    for( ; i >= 0; i--)
+    {
+        switch(utf32[i])
+        {
+            case '0': break;
+            case '1': *value += factor; break;
+            case '2': *value += 2 * factor; break;
+            case '3': *value += 3 * factor; break;
+            case '4': *value += 4 * factor; break;
+            case '5': *value += 5 * factor; break;
+            case '6': *value += 6 * factor; break;
+            case '7': *value += 7 * factor; break;
+            case '8': *value += 8 * factor; break;
+            case '9': *value += 9 * factor; break;
             case '-': *value *= -1; break;
-			case '.':
-			case ',': *value /= factor; factor = 1; continue;
+            case '.':
+            case ',': *value /= factor; factor = 1; continue;
             case '\0': continue;
             default: return false;
-		}
-		factor *= 10;
-	}
-	return true;
+        }
+        factor *= 10;
+    }
+    return true;
 }
 
 bool utf32_to_hge(uint32_t *utf32, hge *value)

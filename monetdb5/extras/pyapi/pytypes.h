@@ -14,12 +14,9 @@
 #ifndef _PYTYPE_LIB_
 #define _PYTYPE_LIB_
 
-#include "unicode.h"
-
-#include <Python.h>
-
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#include <numpy/arrayobject.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
 
 //! Returns true if a NPY_#type is an integral type, and false otherwise
 bool PyType_IsInteger(int);
@@ -27,6 +24,8 @@ bool PyType_IsInteger(int);
 bool PyType_IsFloat(int);
 //! Returns true if a NPY_#type is a double type, and false otherwise
 bool PyType_IsDouble(int);
+//! Formats NPY_#type as a String (so NPY_INT => "INT"), for usage in error reporting and warnings
+char *PyType_Format(int);
 //! Returns true if a PyObject is a scalar type ('scalars' in this context means numeric or string types)
 bool PyType_IsPyScalar(PyObject *object);
 //! Returns true if the PyObject is of type numpy.ndarray, and false otherwise
@@ -35,13 +34,11 @@ bool PyType_IsNumpyArray(PyObject *object);
 bool PyType_IsNumpyMaskedArray(PyObject *object);
 //! Returns true if the PyObject is of type pandas.core.frame.DataFrame, and false otherwise
 bool PyType_IsPandasDataFrame(PyObject *object);
-//! Formats NPY_#type as a String (so NPY_INT => "INT"), for usage in error reporting and warnings
-char *PyType_Format(int);
+
 char *BatType_Format(int);
 
 int PyType_ToBat(int);
 int BatType_ToPyType(int);
-
 
 bool PyType_IsInteger(int type)
 {
@@ -57,8 +54,8 @@ bool PyType_IsInteger(int type)
         case NPY_USHORT: 
         case NPY_UINT:
         case NPY_ULONG: 
-        case NPY_ULONGLONG: return TRUE;
-        default: return FALSE;
+        case NPY_ULONGLONG: return true;
+        default: return false;
     }
 }
 
@@ -67,8 +64,8 @@ bool PyType_IsFloat(int type)
     switch (type)
     {
         case NPY_FLOAT16: 
-        case NPY_FLOAT: return TRUE;
-        default: return FALSE;
+        case NPY_FLOAT: return true;
+        default: return false;
     }
 }
 
@@ -77,50 +74,9 @@ bool PyType_IsDouble(int type)
     switch (type)
     {
         case NPY_DOUBLE:
-        case NPY_LONGDOUBLE: return TRUE;
-        default: return FALSE;
+        case NPY_LONGDOUBLE: return true;
+        default: return false;
     }
-}
-
-//Returns TRUE if the type of [object] is a scalar (i.e. numeric scalar or string, basically "not an array but a single value")
-bool PyType_IsPyScalar(PyObject *object)
-{
-    PyArray_Descr *descr;
-
-    if (object == NULL) return FALSE;
-    if (PyList_Check(object)) return FALSE;
-    if (PyObject_HasAttrString(object, "mask")) return FALSE;
-
-    descr = PyArray_DescrFromScalar(object);
-    if (descr == NULL) return FALSE;
-    if (descr->type_num != NPY_OBJECT) return TRUE; //check if the object is a numpy scalar
-    if (PyInt_Check(object) || PyFloat_Check(object) || PyLong_Check(object) || PyString_Check(object) || PyBool_Check(object) || PyUnicode_Check(object)) return TRUE;
-
-    return FALSE;
-}
-
-bool PyType_IsPandasDataFrame(PyObject *object)
-{
-    PyObject *str = PyObject_Str(PyObject_Type(object));
-    bool ret = strcmp(PyString_AsString(str), "<class 'pandas.core.frame.DataFrame'>") == 0;
-    Py_DECREF(str);
-    return ret;
-}
-
-bool PyType_IsNumpyArray(PyObject *object)
-{
-    PyObject *str = PyObject_Str(PyObject_Type(object));
-    bool ret = strcmp(PyString_AsString(str), "<type 'numpy.ndarray'>") == 0;
-    Py_DECREF(str);
-    return ret;
-}
-
-bool PyType_IsNumpyMaskedArray(PyObject *object)
-{
-    PyObject *str = PyObject_Str(PyObject_Type(object));
-    bool ret = strcmp(PyString_AsString(str), "<class 'numpy.ma.core.MaskedArray'>") == 0;
-    Py_DECREF(str);
-    return ret;
 }
 
 char *PyType_Format(int type)
@@ -215,4 +171,46 @@ int BatType_ToPyType(int type)
         default: return NPY_STRING;
     }
 }
+
+//Returns true if the type of [object] is a scalar (i.e. numeric scalar or string, basically "not an array but a single value")
+bool PyType_IsPyScalar(PyObject *object)
+{
+    PyArray_Descr *descr;
+
+    if (object == NULL) return false;
+    if (PyList_Check(object)) return false;
+    if (PyObject_HasAttrString(object, "mask")) return false;
+
+    descr = PyArray_DescrFromScalar(object);
+    if (descr == NULL) return false;
+    if (descr->type_num != NPY_OBJECT) return true; //check if the object is a numpy scalar
+    if (PyInt_Check(object) || PyFloat_Check(object) || PyLong_Check(object) || PyString_Check(object) || PyBool_Check(object) || PyUnicode_Check(object)) return true;
+
+    return false;
+}
+
+bool PyType_IsPandasDataFrame(PyObject *object)
+{
+    PyObject *str = PyObject_Str(PyObject_Type(object));
+    bool ret = strcmp(PyString_AsString(str), "<class 'pandas.core.frame.DataFrame'>") == 0;
+    Py_DECREF(str);
+    return ret;
+}
+
+bool PyType_IsNumpyArray(PyObject *object)
+{
+    PyObject *str = PyObject_Str(PyObject_Type(object));
+    bool ret = strcmp(PyString_AsString(str), "<type 'numpy.ndarray'>") == 0;
+    Py_DECREF(str);
+    return ret;
+}
+
+bool PyType_IsNumpyMaskedArray(PyObject *object)
+{
+    PyObject *str = PyObject_Str(PyObject_Type(object));
+    bool ret = strcmp(PyString_AsString(str), "<class 'numpy.ma.core.MaskedArray'>") == 0;
+    Py_DECREF(str);
+    return ret;
+}
+
 #endif /* _PYTYPE_LIB_ */

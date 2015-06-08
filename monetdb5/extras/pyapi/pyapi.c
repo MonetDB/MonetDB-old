@@ -15,20 +15,20 @@
 #include "sql_catalog.h"
 #include "pyapi.h"
 
-#include "unicode.h"
-#include "pytypes.h"
-#include "type_conversion.h"
- 
 #undef _GNU_SOURCE
 #undef _XOPEN_SOURCE
 #undef _POSIX_C_SOURCE
 #include <Python.h>
 
-//#define _PYAPI_VERBOSE_
-#define _PYAPI_DEBUG_
-
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <numpy/arrayobject.h>
+
+#include "unicode.h"
+#include "pytypes.h"
+#include "type_conversion.h"
+
+//#define _PYAPI_VERBOSE_
+#define _PYAPI_DEBUG_
 
 #include <stdint.h>
 
@@ -40,9 +40,12 @@ const char* pyapi_enableflag = "embedded_py";
 
 
 #ifdef _PYAPI_VERBOSE_
-#define VERBOSE_MESSAGE printf
+#define VERBOSE_MESSAGE(...) {   \
+    printf(__VA_ARGS__);        \
+    fflush(stdout);                   \
+}
 #else
-#define VERBOSE_MESSAGE ((void) 0)
+#define VERBOSE_MESSAGE(...) ((void) 0)
 #endif
 
 struct _PyReturn{
@@ -67,7 +70,6 @@ int PyAPIEnabled(void) {
 static MT_Lock pyapiLock;
 static MT_Lock pyapiSluice;
 static int pyapiInitialized = FALSE;
-
 
 #define BAT_TO_NP(bat, mtpe, nptpe)                                   \
         PyArray_New(&PyArray_Type, 1, (npy_intp[1]) {BATcount(bat)},  \
@@ -1340,5 +1342,3 @@ void ReleaseLock(PyGILState_STATE gstate, bool *holds_gil, bool final)
         sem_post(&execute_semaphore);
     }
 }
-
-
