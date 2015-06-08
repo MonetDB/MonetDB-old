@@ -696,14 +696,19 @@ HEAPsave_intern(Heap *h, const char *nme, const char *ext, const char *suffix)
 	if (h->storage != STORE_MEM && store == STORE_PRIV) {
 		/* anonymous or private VM is saved as if it were malloced */
 		store = STORE_MEM;
-		assert(strlen(ext) + strlen(suffix) < sizeof(extension));
-		snprintf(extension, sizeof(extension), "%s%s", ext, suffix);
-		ext = extension;
+		if (ext) {
+			assert(strlen(ext) + strlen(suffix) < sizeof(extension));
+			snprintf(extension, sizeof(extension), "%s%s", ext, suffix);
+			ext = extension;
+		} else if (suffix[0] == '.')
+			ext = suffix + 1;
+		else
+			ext = suffix;
 	} else if (store != STORE_MEM) {
 		store = h->storage;
 	}
 	HEAPDEBUG {
-		fprintf(stderr, "#HEAPsave(%s.%s,storage=%d,free=" SZFMT ",size=" SZFMT ")\n", nme, ext, (int) h->newstorage, h->free, h->size);
+		fprintf(stderr, "#HEAPsave(%s%s%s,storage=%d,free=" SZFMT ",size=" SZFMT ")\n", nme, ext ? "." : "", ext ? ext : "", (int) h->newstorage, h->free, h->size);
 	}
 	return GDKsave(h->farmid, nme, ext, h->base, h->free, store);
 }
