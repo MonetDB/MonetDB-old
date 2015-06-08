@@ -281,6 +281,7 @@ mvc_commit(mvc *m, int chain, const char *name)
 
 	if (sql_trans_validate(tr)) {
 		/* execute commit */
+        tr->htm_id = 0;
 		if ((result = sql_trans_commit(tr)) != SQL_OK) {
 			char *msg;
 			store_unlock();
@@ -335,8 +336,7 @@ mvc_precommit(mvc *m, int chain, const char *name, long id) {
 int
 mvc_persistcommit(mvc *m, int chain, const char *name, long id) {
 	int result = SQL_OK;//, wait = 0;
-	/* use the parent, since we semi-rolled forward in mvc_commit_prepare */
-	sql_trans *tr = m->session->tr->parent;
+	sql_trans *tr = m->session->tr;
 	// set CPaaS HTM id
 	tr->htm_id = id;
 
