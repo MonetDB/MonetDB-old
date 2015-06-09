@@ -3337,10 +3337,14 @@ sql_trans_commit(sql_trans *tr)
         /* It is save to rollforward the changes now. In case
          of failure, the log will be replayed. */
         result = rollforward_trans(tr, R_APPLY);
-	}
+    } else {
+        if (bs_debug)
+            fprintf(stderr, "#failed forwarding changes %d,%d\n", gtrans->stime, gtrans->wstime);
+        return result;
+    }
 	if (bs_debug)
 		fprintf(stderr, "#done forwarding changes %d,%d\n", gtrans->stime, gtrans->wstime);
-	return result;
+	return (result==LOG_OK)?SQL_OK:SQL_ERR;
 }
 
 int
