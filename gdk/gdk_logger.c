@@ -188,7 +188,8 @@ log_read_format(logger *l, logformat *data)
 {
 	return mnstr_read(l->log, &data->flag, 1, 1) == 1 &&
 		mnstr_readLng(l->log, &data->nr) == 1 &&
-		mnstr_readInt(l->log, &data->tid) == 1;
+		mnstr_readInt(l->log, &data->tid) == 1 &&
+		mnstr_readLng(l->log, &data->htm_id) == 1;
 }
 
 static int
@@ -196,7 +197,8 @@ log_write_format(logger *l, logformat *data)
 {
 	if (mnstr_write(l->log, &data->flag, 1, 1) == 1 &&
 	    mnstr_writeLng(l->log, data->nr) &&
-	    mnstr_writeInt(l->log, data->tid))
+	    mnstr_writeInt(l->log, data->tid) &&
+	    mnstr_writeLng(l->log, data->htm_id))
 		return LOG_OK;
 	fprintf(stderr, "!ERROR: log_write_format: write failed\n");
 	return LOG_ERR;
