@@ -11,7 +11,7 @@ int utf8_strlen(const char *utf8_str)
     //we traverse the string and simply count the amount of utf8 characters in the string
     for(i = 0; i < char_count; )
     {
-        int offset = utf8_length((const unsigned char) utf8_str[i]);
+        int offset = utf8_length(utf8_str[i]);
         if (offset < 0) return -1; //invalid utf8 character
         i += offset;
         utf8_char_count++;
@@ -93,7 +93,7 @@ int utf8_char_to_utf32_char(size_t position, uint32_t *utf32_storage, int offset
 {
     unsigned char bytes[4];
     int utf8_size = 4;
-    bytes[0] = utf8_char[offset];
+    bytes[0] = utf8_char[offset]; bytes[1] = 0xFF; bytes[2] = 0xFF; bytes[3] = 0xFF;
     //the first byte tells us how many bytes the utf8 character uses
     if      (bytes[0] < 0b10000000) utf8_size = 1;
     else if (bytes[0] < 0b11100000) utf8_size = 2;
