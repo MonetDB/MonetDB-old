@@ -1236,6 +1236,7 @@ logger_new(int debug, const char *fn, const char *logdir, int version, preversio
 	lg->id = 1;
 
 	lg->tid = 0;
+	lg->htm_id = -1;
 #if SIZEOF_OID == 8
 	lg->read32bitoid = 0;
 #endif
@@ -1844,7 +1845,7 @@ log_bat_persists(logger *lg, BAT *b, const char *name)
 	}
 	l.flag = flag;
 	l.tid = lg->tid;
-	l.htm_id = -1;
+	l.htm_id = lg->htm_id;
 	lg->changes++;
 	if (log_write_format(lg, &l) == LOG_ERR ||
 	    log_write_string(lg, name) == LOG_ERR)
@@ -1910,7 +1911,7 @@ log_bat_transient(logger *lg, const char *name)
 	l.flag = LOG_DESTROY;
 	l.tid = lg->tid;
 	l.nr = 0;
-	l.htm_id = -1;
+	l.htm_id = lg->htm_id;
 	lg->changes++;
 
 	/* if this is a snapshot bat, we need to skip all changes */
@@ -1971,7 +1972,7 @@ log_delta(logger *lg, BAT *uid, BAT *uval, const char *name)
 
 	l.tid = lg->tid;
 	l.nr = (BUNlast(uval) - BUNfirst(uval));
-	l.htm_id = -1;
+	l.htm_id = lg->htm_id;
 	lg->changes += l.nr;
 
 	if (l.nr) {
@@ -2015,7 +2016,7 @@ log_bat(logger *lg, BAT *b, const char *name)
 
 	l.tid = lg->tid;
 	l.nr = (BUNlast(b) - b->batInserted);
-	l.htm_id = -1;
+	l.htm_id = lg->htm_id;
 	lg->changes += l.nr;
 
 	if (l.nr) {
@@ -2089,7 +2090,7 @@ log_bat_clear(logger *lg, const char *name)
 
 	l.nr = 1;
 	l.tid = lg->tid;
-	l.htm_id = -1;
+	l.htm_id = lg->htm_id;
 	lg->changes += l.nr;
 
 	l.flag = LOG_CLEAR;
@@ -2111,7 +2112,8 @@ log_tstart(logger *lg, lng htm_id)
 	l.flag = LOG_START;
 	l.tid = ++lg->tid;
 	l.nr = lg->tid;
-	l.htm_id = htm_id;
+	lg->htm_id = htm_id;
+	l.htm_id = lg->htm_id;
 
 	if (lg->debug & 1)
 		fprintf(stderr, "#log_tstart %d:" LLFMT "\n", lg->tid, htm_id);
@@ -2206,7 +2208,7 @@ log_tend(logger *lg)
 	l.flag = LOG_END;
 	l.tid = lg->tid;
 	l.nr = lg->tid;
-	l.htm_id = -1;
+	l.htm_id = lg->htm_id;
 	if (res != GDK_SUCCEED ||
 	    log_write_format(lg, &l) == LOG_ERR ||
 	    mnstr_flush(lg->log) ||
@@ -2229,7 +2231,7 @@ log_abort(logger *lg)
 	l.flag = LOG_END;
 	l.tid = lg->tid;
 	l.nr = -1;
-	l.htm_id = -1;
+	l.htm_id = lg->htm_id;
 
 	if (log_write_format(lg, &l) == LOG_ERR)
 		return LOG_ERR;
@@ -2245,7 +2247,7 @@ log_sequence_(logger *lg, int seq, lng val)
 	l.flag = LOG_SEQ;
 	l.tid = lg->tid;
 	l.nr = seq;
-	l.htm_id = -1;
+	l.htm_id = lg->htm_id;
 
 	if (lg->debug & 1)
 		fprintf(stderr, "#log_sequence_ (%d," LLFMT ")\n", seq, val);
