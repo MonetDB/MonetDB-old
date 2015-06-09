@@ -22,6 +22,8 @@
 #define HASHMAXCHUNKSLOG	4
 #define HASHMAXCHUNKS		(1 << HASHMAXCHUNKSLOG)
 
+/* #define DISABLE_HASHSYNC */
+
 static BUN
 HASHmask(BUN cnt, int tpe)
 {
@@ -360,6 +362,7 @@ BATparthash(BAT *b, Hash *h, int piece)
 	}
 }
 
+#ifdef DISABLE_HASHSYNC
 static void
 BAThashsync(void *arg)
 {
@@ -387,6 +390,7 @@ BAThashsync(void *arg)
 	close(fd);
 	ALGODEBUG fprintf(stderr, "#BAThash: persisting hash %s (" LLFMT " usec)\n", hp->filename, GDKusec() - t0);
 }
+#endif
 
 gdk_return
 BAThash(BAT *b)
@@ -457,10 +461,12 @@ BAThash(BAT *b)
 		b->T->hash = h;
 		/* unlock before potentially expensive sync */
 		MT_lock_unset(&GDKhashLock(abs(b->batCacheid)), "BAThash");
+#ifdef DISABLE_HASHSYNC
 		if (BBP_status(b->batCacheid) & BBPEXISTING) {
 			MT_Id tid;
 			MT_create_thread(&tid, BAThashsync, hp, MT_THR_DETACHED);
 		}
+#endif
 		return GDK_SUCCEED;
 	}
   bailout:
