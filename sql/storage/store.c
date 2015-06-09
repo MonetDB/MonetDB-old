@@ -3334,8 +3334,9 @@ sql_trans_commit(sql_trans *tr)
 	/* do a pre-commit first, writing the changes to the write-ahead log */
 	result = sql_trans_precommit(tr);
 	if (result == SQL_OK) {
-		/* write the changes in the persistent store, rolling-forward the transaction*/
-		result = sql_trans_persistcommit(tr);
+        /* It is save to rollforward the changes now. In case
+         of failure, the log will be replayed. */
+        result = rollforward_trans(tr, R_APPLY);
 	}
 	if (bs_debug)
 		fprintf(stderr, "#done forwarding changes %d,%d\n", gtrans->stime, gtrans->wstime);
