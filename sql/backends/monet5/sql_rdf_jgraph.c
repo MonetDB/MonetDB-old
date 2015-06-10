@@ -1079,7 +1079,7 @@ void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, char *_a
 	str arname = GDKstrdup(_arname);
 	str aname = GDKstrdup(_aname);
 
-
+	
 	//exp_setname(sa, e, rname, name); 
 	assert(m_exp->type == e_cmp); 
 
@@ -1089,11 +1089,11 @@ void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, char *_a
 	tmpe = le->l; 
 
 	assert(tmpe->type == e_column); 
-
+	
  	ne = exp_column(c->sa, arname, aname, exp_subtype(tmpe), exp_card(tmpe), has_nil(tmpe), 0);
 
 	m_exp->l = ne; 
-
+	
 	if (update_e_convert){
 		//TODO: Convert subtype to the type of new col
 		//sql_subtype *t;
@@ -1268,6 +1268,7 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 
 			} else if (strcmp(e->name, "o") == 0){
 				sql_exp *m_exp = exp_copy(sa, tmpexp);
+				modify_exp_col(c, m_exp, tblname, tmpcolname, e->rname, e->name, 1);
 
 				//append this exp to list
 				append(trans_select_exps, m_exp);
@@ -1774,19 +1775,23 @@ list *create_optional_exps(mvc *sql, list *base_column_exps, int isOptionalGroup
 			//e.g.: col1 = ifthenelse ( or (col1 == null, col2 == null, col3 ==null), null, col1)
 			for (en =base_column_exps->h; en; en = en->next){	
 				sql_exp *tmpexp = (sql_exp *) en->data;
-				sql_exp *if_exp = NULL; 
 				sql_exp *exp_null = NULL; 
 
 				assert(tmpexp->type == e_column);
 				assert(or_exp != NULL); 	
 
 				if (strcmp(tmpexp->name, "o") == 0){
+					sql_exp *if_exp = NULL; 
 					sql_exp *res = exp_copy(sa, tmpexp); 
 					exp_null = exp_atom(sa, atom_general(sa, exp_subtype(tmpexp), NULL));
 					
 					if_exp = rel_nop_(sql, or_exp, exp_null, res, NULL, NULL, "ifthenelse", card_value);	
-
+					
 					assert (if_exp != NULL); 
+
+					//Set the name
+					exp_setname(sa, if_exp, tmpexp->rname, tmpexp->name);
+
 
 					append(opt_exps, if_exp); 
 				} else {

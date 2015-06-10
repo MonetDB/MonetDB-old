@@ -130,7 +130,7 @@ sql_symbol2relation(mvc *c, symbol *sym)
 			
 			if (1) c->emode = m_normal;
 			
-			if (1) c->emod = mod_explain;
+			if (0) c->emod = mod_explain;
 			}
 		}
 		else {
@@ -144,8 +144,9 @@ sql_symbol2relation(mvc *c, symbol *sym)
 		r = rel_distribute(c, r);
 		if (rel_is_point_query(r) || rel_need_distinct_query(r))
 			c->point_query = 1;
-
+		
 		rel_print(c,r,0); 
+		
 		}
 	}
 	return r;
