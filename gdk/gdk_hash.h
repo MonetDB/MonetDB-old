@@ -56,21 +56,30 @@ typedef struct {
 
 #define HASHget2(h, pcs, prb) ((BUN) ((const BUN2type *) h->Hash)[pcs * (h->mask + 1) + prb])
 #define HASHget4(h, pcs, prb) ((BUN) ((const BUN4type *) h->Hash)[pcs * (h->mask + 1) + prb])
+#ifdef BUN8
 #define HASHget8(h, pcs, prb) ((BUN) ((const BUN8type *) h->Hash)[pcs * (h->mask + 1) + prb])
-
 #define HASHget(h, pcs, prb)				\
 	((h)->width == BUN4 ? HASHget4(h, pcs, prb) :	\
 	 (h)->width == BUN8 ? HASHget8(h, pcs, prb) :	\
 	 HASHget2(h, pcs, prb))
+#else
+#define HASHget(h, pcs, prb)				\
+	((h)->width == BUN4 ? HASHget4(h, pcs, prb) : HASHget2(h, pcs, prb))
+#endif
+
 
 #define HASHgetlink2(h, hb) ((BUN) ((BUN2type *) h->Link)[hb])
 #define HASHgetlink4(h, hb) ((BUN) ((BUN4type *) h->Link)[hb])
+#ifdef BUN8
 #define HASHgetlink8(h, hb) ((BUN) ((BUN8type *) h->Link)[hb])
-
 #define HASHgetlink(h, hb)				\
 	((h)->width == BUN4 ? HASHgetlink4(h, hb) :	\
 	 (h)->width == BUN8 ? HASHgetlink8(h, hb) :	\
 	 HASHgetlink2(h, hb))
+#else
+#define HASHgetlink(h, hb)				\
+	((h)->width == BUN4 ? HASHgetlink4(h, hb) : HASHgetlink2(h, hb))
+#endif
 
 /* input parameters:
  * BATiter *bi -- the iterator for the BAT being searched
