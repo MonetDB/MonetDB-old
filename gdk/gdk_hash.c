@@ -73,6 +73,24 @@ HASHins(BAT *b, BUN i, const void *v)
 			HASHdestroy(b);
 		} else {
 			BUN c = ATOMhash(b->ttype, v) & h->mask;
+			if (((size_t *) h->heap->base)[0] & 1 << 24) {
+				int fd;
+				if ((fd = GDKfdlocate(h->heap->farmid, h->heap->filename, "rb+", NULL)) >= 0) {
+					((size_t *) h->heap->base)[0] &= ~(1 << 24);
+					if (write(fd, h->heap->base, SIZEOF_SIZE_T) < 0)
+						perror("write hash");
+					if (!(GDKdebug & FORCEMITOMASK)) {
+#if defined(NATIVE_WIN32)
+						_commit(fd);
+#elif defined(HAVE_FDATASYNC)
+						fdatasync(fd);
+#elif defined(HAVE_FSYNC)
+						fsync(fd);
+#endif
+					}
+					close(fd);
+				}
+			}
 			switch (h->width) {
 			case BUN2:
 				((BUN2type *)h->Link)[i] = ((BUN2type *)h->Hash)[(h->pieces - 1) * (h->mask + 1) + c];
