@@ -404,9 +404,10 @@ do {									\
 do {									\
 	assert(imprints);						\
 	ALGODEBUG fprintf(stderr,					\
-			  "#BATsubselect(b=%s#"BUNFMT",s=%s%s,anti=%d): " \
+			  "#BATsubselect(b=%s#"BUNFMT",s=%s#"BUNFMT"%s,anti=%d): " \
 			  "imprints select %s\n", BATgetId(b), BATcount(b), \
 			  s ? BATgetId(s) : "NULL",			\
+			  s ? BATcount(s) : 0,				\
 			  s && BATtdense(s) ? "(dense)" : "",		\
 			  anti, #TEST);					\
 	switch (imprints->bits) {					\
@@ -424,9 +425,10 @@ do {									\
 #define scanloop(NAME,CAND,TEST)					\
 do {									\
 	ALGODEBUG fprintf(stderr,					\
-			  "#BATsubselect(b=%s#"BUNFMT",s=%s%s,anti=%d): " \
+			  "#BATsubselect(b=%s#"BUNFMT",s=%s#"BUNFMT"%s,anti=%d): " \
 			  "%s %s\n", BATgetId(b), BATcount(b),		\
 			  s ? BATgetId(s) : "NULL",			\
+			  s ? BATcount(s) : 0,				\
 			  s && BATtdense(s) ? "(dense)" : "",		\
 			  anti, #NAME, #TEST);				\
 	if (BATcapacity(bn) < maximum) {				\
@@ -592,9 +594,10 @@ candscan_any (BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 	(void) use_imprints;
 	if (equi) {
 		ALGODEBUG fprintf(stderr,
-				  "#BATsubselect(b=%s#"BUNFMT",s=%s%s,anti=%d): "
+				  "#BATsubselect(b=%s#"BUNFMT",s=%s#"BUNFMT"%s,anti=%d): "
 				  "candscan equi\n", BATgetId(b), BATcount(b),
-				  BATgetId(s), BATtdense(s) ? "(dense)" : "",
+				  BATgetId(s), BATcount(s),
+				  BATtdense(s) ? "(dense)" : "",
 				  anti);
 		while (p < q) {
 			o = *candlist++;
@@ -610,9 +613,10 @@ candscan_any (BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 		}
 	} else if (anti) {
 		ALGODEBUG fprintf(stderr,
-				  "#BATsubselect(b=%s#"BUNFMT",s=%s%s,anti=%d): "
+				  "#BATsubselect(b=%s#"BUNFMT",s=%s#"BUNFMT"%s,anti=%d): "
 				  "candscan anti\n", BATgetId(b), BATcount(b),
-				  BATgetId(s), BATtdense(s) ? "(dense)" : "",
+				  BATgetId(s), BATcount(s),
+				  BATtdense(s) ? "(dense)" : "",
 				  anti);
 		while (p < q) {
 			o = *candlist++;
@@ -634,9 +638,10 @@ candscan_any (BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 		}
 	} else {
 		ALGODEBUG fprintf(stderr,
-				  "#BATsubselect(b=%s#"BUNFMT",s=%s%s,anti=%d): "
+				  "#BATsubselect(b=%s#"BUNFMT",s=%s#"BUNFMT"%s,anti=%d): "
 				  "candscan range\n", BATgetId(b), BATcount(b),
-				  BATgetId(s), BATtdense(s) ? "(dense)" : "",
+				  BATgetId(s), BATcount(s),
+				  BATtdense(s) ? "(dense)" : "",
 				  anti);
 		while (p < q) {
 			o = *candlist++;
@@ -680,9 +685,10 @@ fullscan_any(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 
 	if (equi) {
 		ALGODEBUG fprintf(stderr,
-				  "#BATsubselect(b=%s#"BUNFMT",s=%s%s,anti=%d): "
+				  "#BATsubselect(b=%s#"BUNFMT",s=%s#"BUNFMT"%s,anti=%d): "
 				  "fullscan equi\n", BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
+				  s ? BATcount(s) : 0,
 				  s && BATtdense(s) ? "(dense)" : "", anti);
 		while (p < q) {
 			o = (oid)(p + off);
@@ -698,9 +704,10 @@ fullscan_any(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 		}
 	} else if (anti) {
 		ALGODEBUG fprintf(stderr,
-				  "#BATsubselect(b=%s#"BUNFMT",s=%s%s,anti=%d): "
+				  "#BATsubselect(b=%s#"BUNFMT",s=%s#"BUNFMT"%s,anti=%d): "
 				  "fullscan anti\n", BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
+				  s ? BATcount(s) : 0,
 				  s && BATtdense(s) ? "(dense)" : "", anti);
 		while (p < q) {
 			o = (oid)(p + off);
@@ -722,9 +729,10 @@ fullscan_any(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 		}
 	} else {
 		ALGODEBUG fprintf(stderr,
-				  "#BATsubselect(b=%s#"BUNFMT",s=%s%s,anti=%d): "
+				  "#BATsubselect(b=%s#"BUNFMT",s=%s#"BUNFMT"%s,anti=%d): "
 				  "fullscan range\n", BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
+				  s ? BATcount(s) : 0,
 				  s && BATtdense(s) ? "(dense)" : "", anti);
 		while (p < q) {
 			o = (oid)(p + off);
@@ -763,9 +771,10 @@ fullscan_str(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 				    lval, hval, r, q, cnt, off, dst,
 				    candlist, maximum, use_imprints);
 	ALGODEBUG fprintf(stderr,
-			  "#BATsubselect(b=%s#"BUNFMT",s=%s%s,anti=%d): "
+			  "#BATsubselect(b=%s#"BUNFMT",s=%s#"BUNFMT"%s,anti=%d): "
 			  "fullscan equi strelim\n", BATgetId(b), BATcount(b),
 			  s ? BATgetId(s) : "NULL",
+			  s ? BATcount(s) : 0,
 			  s && BATtdense(s) ? "(dense)" : "", anti);
 	if ((pos = strLocate(b->T->vheap, tl)) == 0)
 		return 0;
@@ -1247,9 +1256,10 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 		     s->tseqbase + BATcount(s) <= b->hseqbase))))) {
 		/* trivially empty result */
 		ALGODEBUG fprintf(stderr, "#BATsubselect(b=%s#" BUNFMT
-				  ",s=%s%s,anti=%d): trivially empty\n",
+				  ",s=%s#"BUNFMT"%s,anti=%d): trivially empty\n",
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
+				  s ? BATcount(s) : 0,
 				  s && BATtdense(s) ? "(dense)" : "", anti);
 		return newempty("BATsubselect");
 	}
@@ -1289,10 +1299,11 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 			lnil = ATOMcmp(t, tl, nil) == 0;
 			anti = 0;
 			ALGODEBUG fprintf(stderr, "#BATsubselect(b=%s#" BUNFMT
-					  ",s=%s%s,anti=%d): anti: "
+					  ",s=%s#"BUNFMT"%s,anti=%d): anti: "
 					  "switch ranges\n",
 					  BATgetId(b), BATcount(b),
 					  s ? BATgetId(s) : "NULL",
+					  s ? BATcount(s) : 0,
 					  s && BATtdense(s) ? "(dense)" : "",
 					  anti);
 		} else if (!lval && !hval) {
@@ -1300,10 +1311,11 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 			 * values are in range; we must return all
 			 * other non-nil values, i.e. nothing */
 			ALGODEBUG fprintf(stderr, "#BATsubselect(b=%s#" BUNFMT
-					  ",s=%s%s,anti=%d): anti: "
+					  ",s=%s#"BUNFMT"%s,anti=%d): anti: "
 					  "nil-nil range, nonil\n",
 					  BATgetId(b), BATcount(b),
 					  s ? BATgetId(s) : "NULL",
+					  s ? BATcount(s) : 0,
 					  s && BATtdense(s) ? "(dense)" : "",
 					  anti);
 			return newempty("BATsubselect");
@@ -1316,9 +1328,10 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 			lval = 0;
 			hval = 0;
 			ALGODEBUG fprintf(stderr, "#BATsubselect(b=%s#" BUNFMT
-					  ",s=%s%s,anti=0): anti-nil\n",
+					  ",s=%s#"BUNFMT"%s,anti=0): anti-nil\n",
 					  BATgetId(b), BATcount(b),
 					  s ? BATgetId(s) : "NULL",
+					  s ? BATcount(s) : 0,
 					  s && BATtdense(s) ? "(dense)" : "");
 		} else if (equi) {
 			equi = 0;
@@ -1330,10 +1343,11 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 				lval = 0;
 				hval = 0;
 				ALGODEBUG fprintf(stderr, "#BATsubselect(b=%s#"
-						  BUNFMT ",s=%s%s,anti=0): "
+						  BUNFMT ",s=%s#"BUNFMT"%s,anti=0): "
 						  "anti-nothing\n",
 						  BATgetId(b), BATcount(b),
 						  s ? BATgetId(s) : "NULL",
+						  s ? BATcount(s) : 0,
 						  s && BATtdense(s) ? "(dense)" : "");
 			}
 		}
@@ -1345,18 +1359,20 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 	if (hval && ((equi && !(li && hi)) || ATOMcmp(t, tl, th) > 0)) {
 		/* empty range */
 		ALGODEBUG fprintf(stderr, "#BATsubselect(b=%s#" BUNFMT
-				  ",s=%s%s,anti=%d): empty range\n",
+				  ",s=%s#"BUNFMT"%s,anti=%d): empty range\n",
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
+				  s ? BATcount(s) : 0,
 				  s && BATtdense(s) ? "(dense)" : "", anti);
 		return newempty("BATsubselect");
 	}
 	if (equi && lnil && b->T->nonil) {
 		/* return all nils, but there aren't any */
 		ALGODEBUG fprintf(stderr, "#BATsubselect(b=%s#" BUNFMT
-				  ",s=%s%s,anti=%d): equi-nil, nonil\n",
+				  ",s=%s#"BUNFMT"%s,anti=%d): equi-nil, nonil\n",
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
+				  s ? BATcount(s) : 0,
 				  s && BATtdense(s) ? "(dense)" : "", anti);
 		return newempty("BATsubselect");
 	}
@@ -1365,9 +1381,10 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 		/* return all non-nils from a BAT that doesn't have
 		 * any: i.e. return everything */
 		ALGODEBUG fprintf(stderr, "#BATsubselect(b=%s#" BUNFMT
-				  ",s=%s%s,anti=%d): everything, nonil\n",
+				  ",s=%s#"BUNFMT"%s,anti=%d): everything, nonil\n",
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
+				  s ? BATcount(s) : 0,
 				  s && BATtdense(s) ? "(dense)" : "", anti);
 		if (s) {
 			return BATcopy(s, TYPE_void, s->ttype, 0, TRANSIENT);
@@ -1419,9 +1436,10 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 			assert(b->T->nonil);
 			assert(b->tsorted);
 			ALGODEBUG fprintf(stderr, "#BATsubselect(b=%s#" BUNFMT
-					  ",s=%s%s,anti=%d): dense\n",
+					  ",s=%s#"BUNFMT"%s,anti=%d): dense\n",
 					  BATgetId(b), BATcount(b),
 					  s ? BATgetId(s) : "NULL",
+					  s ? BATcount(s) : 0,
 					  s && BATtdense(s) ? "(dense)" : "",
 					  anti);
 			h = * (oid *) th + hi;
@@ -1443,9 +1461,10 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 				low = high;
 		} else if (b->tsorted) {
 			ALGODEBUG fprintf(stderr, "#BATsubselect(b=%s#" BUNFMT
-					  ",s=%s%s,anti=%d): sorted\n",
+					  ",s=%s#"BUNFMT"%s,anti=%d): sorted\n",
 					  BATgetId(b), BATcount(b),
 					  s ? BATgetId(s) : "NULL",
+					  s ? BATcount(s) : 0,
 					  s && BATtdense(s) ? "(dense)" : "",
 					  anti);
 			if (lval) {
@@ -1468,9 +1487,10 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 		} else {
 			assert(b->trevsorted);
 			ALGODEBUG fprintf(stderr, "#BATsubselect(b=%s#" BUNFMT
-					  ",s=%s%s,anti=%d): reverse sorted\n",
+					  ",s=%s#"BUNFMT"%s,anti=%d): reverse sorted\n",
 					  BATgetId(b), BATcount(b),
 					  s ? BATgetId(s) : "NULL",
+					  s ? BATcount(s) : 0,
 					  s && BATtdense(s) ? "(dense)" : "",
 					  anti);
 			if (lval) {
@@ -1674,9 +1694,10 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 
 	if (equi && hash) {
 		ALGODEBUG fprintf(stderr, "#BATsubselect(b=%s#" BUNFMT
-				  ",s=%s%s,anti=%d): hash select\n",
+				  ",s=%s#"BUNFMT"%s,anti=%d): hash select\n",
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
+				  s ? BATcount(s) : 0,
 				  s && BATtdense(s) ? "(dense)" : "", anti);
 		bn = BAT_hashselect(b, s, bn, tl, maximum);
 	} else {
