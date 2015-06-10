@@ -410,6 +410,37 @@ BAThashsync(void *arg)
 }
 #endif
 
+static void
+HASHcollisions(BAT *b, Hash *h)
+{
+	BUN entries = 0;
+	BUN max = 0;
+	BUN cnt;
+	BUN total = 0;
+	BUN nil = h->nil;
+	int pcs;
+	BUN i;
+	BUN p;
+
+	for (pcs = 0; pcs < h->pieces; pcs++) {
+		for (i = 0; i <= h->mask; i++) {
+			if ((p = HASHget(h, pcs, i)) != nil) {
+				entries++;
+				for (cnt = 0; p != nil; p = HASHgetlink(h, p))
+					cnt++;
+				if (cnt > max)
+					max = cnt;
+				total += cnt;
+			}
+		}
+	}
+	fprintf(stderr, "#HASH stats %s#" BUNFMT ", pieces: %d, "
+		"chunksize: " BUNFMT ", mask: " BUNFMT ", entries: " BUNFMT ", "
+		"max chain: " BUNFMT ", average chain: %2.6f\n",
+		BATgetId(b), BATcount(b), h->pieces, h->chunk, h->mask,
+		entries, max, entries == 0 ? 0.0 : (double) total / entries);
+}
+
 gdk_return
 BAThash(BAT *b)
 {
@@ -453,7 +484,10 @@ BAThash(BAT *b)
 		t0 = GDKusec();
 		for (i = 0; i < pieces; i++)
 			BATparthash(b, h, i);
-		ALGODEBUG fprintf(stderr, "#BAThash: hash construction " LLFMT " usec\n", GDKusec() - t0);
+		ALGODEBUG {
+			fprintf(stderr, "#BAThash(%s#" BUNFMT "[%s]): hash construction " LLFMT " usec\n", BATgetId(b), BATcount(b), ATOMname(b->ttype), GDKusec() - t0);
+			HASHcollisions(b, h);
+		}
 #if 0
 		/* check that the hash table is correct */
 		{
