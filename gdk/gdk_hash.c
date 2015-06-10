@@ -131,7 +131,7 @@ HASHnew(Heap *hp, int tpe, int pieces, BUN cap, BUN count)
 {
 	Hash *h;
 	int width = HASHwidth(cap);
-	BUN chunk = (count + pieces - 1) / pieces;
+	BUN chunk = count / pieces;
 	BUN mask = HASHmask(chunk, tpe);
 
 	if (count == 0 || pieces == 1) {
