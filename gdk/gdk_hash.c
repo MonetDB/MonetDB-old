@@ -362,7 +362,7 @@ BATparthash(BAT *b, Hash *h, int piece)
 	}
 }
 
-#ifdef DISABLE_HASHSYNC
+#ifndef DISABLE_HASHSYNC
 static void
 BAThashsync(void *arg)
 {
@@ -461,7 +461,7 @@ BAThash(BAT *b)
 		b->T->hash = h;
 		/* unlock before potentially expensive sync */
 		MT_lock_unset(&GDKhashLock(abs(b->batCacheid)), "BAThash");
-#ifdef DISABLE_HASHSYNC
+#ifndef DISABLE_HASHSYNC
 		if (BBP_status(b->batCacheid) & BBPEXISTING) {
 			MT_Id tid;
 			MT_create_thread(&tid, BAThashsync, hp, MT_THR_DETACHED);
