@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -618,7 +607,7 @@ BATsum(void *res, int tp, BAT *b, BAT *s, int skip_nils, int abort_on_error, int
 			dbl avg;
 			BUN cnt;
 
-			if (BATcalcavg(b, s, &avg, &cnt) == GDK_FAIL)
+			if (BATcalcavg(b, s, &avg, &cnt) != GDK_SUCCEED)
 				return GDK_FAIL;
 			if (cnt == 0) {
 				avg = nil_if_empty ? dbl_nil : 0;
@@ -891,7 +880,7 @@ doprod(const void *restrict values, oid seqb, BUN start, BUN end, void *restrict
 	seen = GDKzalloc(((ngrp + 31) / 32) * sizeof(int));
 	if (seen == NULL) {
 		GDKerror("%s: cannot allocate enough memory\n", func);
-		return GDK_FAIL;
+		return BUN_NONE;
 	}
 
 	switch (tp2) {
@@ -1597,8 +1586,7 @@ BATgroupavg(BAT **bnp, BAT **cntsp, BAT *b, BAT *g, BAT *e, BAT *s, int tp, int 
 		BBPunfix(bn->batCacheid);
 	GDKfree(rems);
 	if (cntsp) {
-		if (*cntsp)
-			BBPreclaim(*cntsp);
+		BBPreclaim(*cntsp);
 	} else if (cnts) {
 		GDKfree(cnts);
 	}
@@ -1710,7 +1698,7 @@ BATgroupavg(BAT **bnp, BAT **cntsp, BAT *b, BAT *g, BAT *e, BAT *s, int tp, int 
 		*avg = n > 0 ? a : dbl_nil;			\
 	} while (0)
 
-int
+gdk_return
 BATcalcavg(BAT *b, BAT *s, dbl *avg, BUN *vals)
 {
 	BUN n = 0, r = 0, i = 0;
@@ -2389,23 +2377,24 @@ BATminmax(BAT *b, void *aggr,
 
 	if (!BAThdense(b))
 		return NULL;
-	if (b->T->imprints &&
-	    (VIEWtparent(b) == 0 ||
-	     BATcount(b) == BATcount(BBPdescriptor(VIEWtparent(b))))) {
+	if ((VIEWtparent(b) == 0 ||
+	     BATcount(b) == BATcount(BBPdescriptor(VIEWtparent(b)))) &&
+	    BATcheckimprints(b)) {
+		Imprints *imprints = VIEWtparent(b) ? BBPdescriptor(-VIEWtparent(b))->T->imprints : b->T->imprints;
 		pos = oid_nil;
 		if (minmax == do_groupmin) {
 			/* find first non-empty bin */
-			for (s = 0; s < b->T->imprints->bits; s++) {
-				if (b->T->imprints->stats[s + 128]) {
-					pos = b->T->imprints->stats[s] + b->hseqbase;
+			for (s = 0; s < imprints->bits; s++) {
+				if (imprints->stats[s + 128]) {
+					pos = imprints->stats[s] + b->hseqbase;
 					break;
 				}
 			}
 		} else {
 			/* find last non-empty bin */
-			for (s = b->T->imprints->bits - 1; s >= 0; s--) {
-				if (b->T->imprints->stats[s + 128]) {
-					pos = b->T->imprints->stats[s + 64] + b->hseqbase;
+			for (s = imprints->bits - 1; s >= 0; s--) {
+				if (imprints->stats[s + 128]) {
+					pos = imprints->stats[s + 64] + b->hseqbase;
 					break;
 				}
 			}
@@ -2581,6 +2570,8 @@ BATgroupquantile(BAT *b, BAT *g, BAT *e, BAT *s, int tp, double quantile,
 				if (skip_nils) {
 					while (r < p && (*atomcmp)(BUNtail(bi, BUNfirst(b) + r), nil) == 0)
 						r++;
+					if (r == p)
+						break;
 				}
 				while (BATcount(bn) < prev - min) {
 					bunfastapp_nocheck(bn, BUNlast(bn),
@@ -2600,6 +2591,7 @@ BATgroupquantile(BAT *b, BAT *g, BAT *e, BAT *s, int tp, double quantile,
 					prev = grps[p];
 			}
 		}
+		nils += ngrp - BATcount(bn);
 		while (BATcount(bn) < ngrp) {
 			bunfastapp_nocheck(bn, BUNlast(bn), nil, Tsize(bn));
 		}
@@ -2954,8 +2946,7 @@ dogroupstdev(BAT **avgb, BAT *b, BAT *g, BAT *e, BAT *s, int tp,
 		BBPreclaim(*avgb);
 	else
 		GDKfree(mean);
-	if (bn)
-		BBPreclaim(bn);
+	BBPreclaim(bn);
 	GDKfree(delta);
 	GDKfree(m2);
 	GDKfree(cnts);

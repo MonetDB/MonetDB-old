@@ -34,13 +34,13 @@ Ready.
 % promo_revenue # name
 % decimal # type
 % 41 # length
-[ 15.48	]
+[ 15.48654	]
 #select * from optimizer_stats() stats;
 % .stats,	.stats # table_name
 % rewrite,	count # name
 % clob,	int # type
 % 7,	1 # length
-[ "joinidx",	1	]
+[ "joinidx",	0	]
 
 # 09:17:18 >  
 # 09:17:18 >  Done.

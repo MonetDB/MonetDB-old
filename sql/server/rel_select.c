@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -30,6 +19,9 @@
 #include "rel_psm.h"
 #include "rel_schema.h"
 #include "rel_sequence.h"
+#ifdef HAVE_HGE
+#include "mal.h"		/* for have_hge */
+#endif
 
 #define ERR_AMBIGUOUS		050000
 
@@ -134,12 +126,13 @@ rel_name( sql_rel *r )
 }
 
 sql_rel *
-rel_label( mvc *sql, sql_rel *r)
+rel_label( mvc *sql, sql_rel *r, int all)
 {
 	int nr = ++sql->label;
-	char name[16], *nme;
+	char tname[16], *tnme;
+	char cname[16], *cnme = NULL;
 
-	nme = number2name(name, 16, nr);
+	tnme = number2name(tname, 16, nr);
 	if (!is_project(r->op)) {
 		r = rel_project(sql->sa, r, rel_projections(sql, r, NULL, 1, 1));
 		set_processed(r);
@@ -147,16 +140,26 @@ rel_label( mvc *sql, sql_rel *r)
 	if (is_project(r->op) && r->exps) {
 		node *ne = r->exps->h;
 
-		for (; ne; ne = ne->next)
-			exp_setname(sql->sa, ne->data, nme, NULL );
+		for (; ne; ne = ne->next) {
+			if (all) {
+				nr = ++sql->label;
+				cnme = number2name(cname, 16, nr);
+			}
+			exp_setname(sql->sa, ne->data, tnme, cnme );
+		}
 	}
 	/* op_projects can have a order by list */
 	if (r->op == op_project && r->r) {
 		list *exps = r->r;
 		node *ne = exps->h;
 
-		for (; ne; ne = ne->next)
-			exp_setname(sql->sa, ne->data, nme, NULL );
+		for (; ne; ne = ne->next) {
+			if (all) {
+				nr = ++sql->label;
+				cnme = number2name(cname, 16, nr);
+			}
+			exp_setname(sql->sa, ne->data, tnme, cnme );
+		}
 	}
 	return r;
 }
@@ -1191,6 +1194,9 @@ rel_table_optname(mvc *sql, sql_rel *sq, symbol *optname)
 			dnode *d = columnrefs->h;
 			node *ne = sq->exps->h;
 
+			MT_lock_set(&sq->exps->ht_lock, "rel_table_optname");
+			sq->exps->ht = NULL;
+			MT_lock_unset(&sq->exps->ht_lock, "rel_table_optname");
 			for (; d && ne; d = d->next, ne = ne->next) {
 				sql_exp *e = ne->data;
 
@@ -1824,7 +1830,7 @@ table_ref(mvc *sql, sql_rel *rel, symbol *tableref)
 			if (sql->emode == m_deps)
 				rel = rel_basetable(sql, t, tname);
 			else
-				rel = rel_parse(sql, t->query, m_instantiate);
+				rel = rel_parse(sql, t->s, t->query, m_instantiate);
 
 			if (!rel)
 				return rel;
@@ -2065,7 +2071,7 @@ rel_set_type_param(mvc *sql, sql_subtype *type, sql_exp *param, int upcast)
 	/* use largest numeric types */
 	if (upcast && type->type->eclass == EC_NUM) 
 #ifdef HAVE_HGE
-		type = sql_bind_localtype("hge");
+		type = sql_bind_localtype(have_hge ? "hge" : "lng");
 #else
 		type = sql_bind_localtype("lng");
 #endif
@@ -2106,8 +2112,8 @@ exp_convert_inplace(mvc *sql, sql_subtype *t, sql_exp *exp)
 {
 	atom *a;
 
-	/* exclude named variables */
-	if (exp->type != e_atom || (exp->l && !atom_null(exp->l)) /* atoms */ || exp->r /* named */ || exp->f /* list */) 
+	/* exclude named variables and variable lists */
+	if (exp->type != e_atom || exp->r /* named */ || exp->f /* list */) 
 		return NULL;
 
 	if (exp->l)
@@ -2115,7 +2121,7 @@ exp_convert_inplace(mvc *sql, sql_subtype *t, sql_exp *exp)
 	else
 		a = sql_bind_arg(sql, exp->flag);
 
-	if ((!exp->l || !atom_null(a)) && (t->scale && t->type->eclass != EC_FLT))
+	if (t->scale && t->type->eclass != EC_FLT)
 		return NULL;
 
 	if (a && atom_cast(a, t)) {
@@ -2138,7 +2144,7 @@ rel_numeric_supertype(mvc *sql, sql_exp *e )
 	}
 	if (tp->type->eclass == EC_NUM) {
 #ifdef HAVE_HGE
-		sql_subtype *ltp = sql_bind_localtype("hge");
+		sql_subtype *ltp = sql_bind_localtype(have_hge ? "hge" : "lng");
 #else
 		sql_subtype *ltp = sql_bind_localtype("lng");
 #endif
@@ -2206,16 +2212,20 @@ exp_sum_scales(mvc *sql, sql_subfunc *f, sql_exp *l, sql_exp *r)
 
 		/* HACK alert: digits should be less than max */
 #ifdef HAVE_HGE
-		if (ares->type.type->radix == 10 && res->digits > 39)
-			res->digits = 39;
-		if (ares->type.type->radix == 2 && res->digits > 128)
-			res->digits = 128;
-#else
-		if (ares->type.type->radix == 10 && res->digits > 19)
-			res->digits = 19;
-		if (ares->type.type->radix == 2 && res->digits > 64)
-			res->digits = 64;
+		if (have_hge) {
+			if (ares->type.type->radix == 10 && res->digits > 39)
+				res->digits = 39;
+			if (ares->type.type->radix == 2 && res->digits > 128)
+				res->digits = 128;
+		} else
 #endif
+		{
+
+			if (ares->type.type->radix == 10 && res->digits > 19)
+				res->digits = 19;
+			if (ares->type.type->radix == 2 && res->digits > 64)
+				res->digits = 64;
+		}
 
 		/* sum of digits may mean we need a bigger result type
 		 * as the function don't support this we need to
@@ -2264,16 +2274,19 @@ exp_scale_algebra(mvc *sql, sql_subfunc *f, sql_exp *l, sql_exp *r)
 
 		/* HACK alert: digits should be less than max */
 #ifdef HAVE_HGE
-		if (res->type->radix == 10 && digits > 39)
-			digits = 39;
-		if (res->type->radix == 2 && digits > 128)
-			digits = 128;
-#else
-		if (res->type->radix == 10 && digits > 19)
-			digits = 19;
-		if (res->type->radix == 2 && digits > 64)
-			digits = 64;
+		if (have_hge) {
+			if (res->type->radix == 10 && digits > 39)
+				digits = 39;
+			if (res->type->radix == 2 && digits > 128)
+				digits = 128;
+		} else
 #endif
+		{
+			if (res->type->radix == 10 && digits > 19)
+				digits = 19;
+			if (res->type->radix == 2 && digits > 64)
+				digits = 64;
+		}
 
 		sql_find_subtype(&nlt, lt->type->sqlname, digL, scaleL);
 		l = rel_check_type( sql, &nlt, l, type_equal );
@@ -2775,8 +2788,14 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 				if (!l) {
 					l = *rel = rel_project(sql->sa, NULL, new_exp_list(sql->sa));
 					rel_project_add_exp(sql, l, ls);
-				} else if (f == sql_sel) /* allways add left side in case of selections phase */
-					rel_project_add_exp(sql, l, ls);
+				} else if (f == sql_sel) { /* allways add left side in case of selections phase */
+					if (!l->processed) { /* add all expressions to the project */
+						l->exps = list_merge(l->exps, rel_projections(sql, l->l, NULL, 1, 1), (fdup)NULL);
+						set_processed(l);
+					}
+					if (!rel_find_exp(l, ls))
+						rel_project_add_exp(sql, l, ls);
+				}
 				rel_setsubquery(r);
 				rs = rel_lastexp(sql, r);
 				if (r->card > CARD_ATOM) {
@@ -2848,7 +2867,7 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 				right = rl;
 			}
 			if (right->processed)
-				right = rel_label(sql, right);
+				right = rel_label(sql, right, 0);
 			right = rel_distinct(right);
 		} else {
 			return sql_error(sql, 02, "IN: missing inner query");
@@ -3295,7 +3314,7 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 			}
 			if (!correlated) {
 				if (right->processed)
-					right = rel_label(sql, right);
+					right = rel_label(sql, right, 0);
 				/*
 				right = rel_distinct(right);
 				*/
@@ -5645,11 +5664,10 @@ rel_setquery(mvc *sql, sql_rel *rel, symbol *q)
 	if (rel && !t1 && sql->session->status != -ERR_AMBIGUOUS) {
 		sql_rel *r = rel;
 
-		if (rel_is_ref(rel)) {
-			used = 1;
-			r = rel_project( sql->sa, rel, rel_projections(sql, rel, NULL, 1, 1));
-			set_processed(r);
-		}
+		r = rel_project( sql->sa, rel, rel_projections(sql, rel, NULL, 1, 1));
+		set_processed(r);
+		used = 1;
+
 		/* reset error */
 		sql->session->status = 0;
 		sql->errstr[0] = 0;
@@ -5661,12 +5679,11 @@ rel_setquery(mvc *sql, sql_rel *rel, symbol *q)
 	if (rel && !t2 && sql->session->status != -ERR_AMBIGUOUS) {
 		sql_rel *r = rel;
 
-		if (rel_is_ref(rel)) {
-			if (used)
-				rel = rel_dup(rel);
-			r = rel_project( sql->sa, rel, rel_projections(sql, rel, NULL, 1, 1));
-			set_processed(r);
-		}
+		if (used)
+			rel = rel_dup(rel);
+		r = rel_project( sql->sa, rel, rel_projections(sql, rel, NULL, 1, 1));
+		set_processed(r);
+
 		/* reset error */
 		sql->session->status = 0;
 		sql->errstr[0] = 0;

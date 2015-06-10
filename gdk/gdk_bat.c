@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -247,10 +236,12 @@ BATnewstorage(int ht, int tt, BUN cap, int role)
 	BATstore *bs;
 	BAT *bn;
 
-	assert(cap <= BUN_MAX);
 	/* and in case we don't have assertions enabled: limit the size */
-	if (cap > BUN_MAX)
+	if (cap > BUN_MAX) {
+		/* shouldn't happen, but if it does... */
+		assert(0);
 		cap = BUN_MAX;
+	}
 	bs = BATcreatedesc(ht, tt, (ht || tt), role);
 	if (bs == NULL)
 		return NULL;
@@ -260,16 +251,16 @@ BATnewstorage(int ht, int tt, BUN cap, int role)
 	bn->batCapacity = cap;
 
 	/* alloc the main heaps */
-	if (ht && HEAPalloc(&bn->H->heap, cap, bn->H->width) < 0) {
+	if (ht && HEAPalloc(&bn->H->heap, cap, bn->H->width) != GDK_SUCCEED) {
 		return NULL;
 	}
-	if (tt && HEAPalloc(&bn->T->heap, cap, bn->T->width) < 0) {
+	if (tt && HEAPalloc(&bn->T->heap, cap, bn->T->width) != GDK_SUCCEED) {
 		if (ht)
 			HEAPfree(&bn->H->heap, 1);
 		return NULL;
 	}
 
-	if (ATOMheap(ht, bn->H->vheap, cap) < 0) {
+	if (ATOMheap(ht, bn->H->vheap, cap) != GDK_SUCCEED) {
 		if (ht)
 			HEAPfree(&bn->H->heap, 1);
 		if (tt)
@@ -279,7 +270,7 @@ BATnewstorage(int ht, int tt, BUN cap, int role)
 			GDKfree(bn->T->vheap);
 		return NULL;
 	}
-	if (ATOMheap(tt, bn->T->vheap, cap) < 0) {
+	if (ATOMheap(tt, bn->T->vheap, cap) != GDK_SUCCEED) {
 		if (ht)
 			HEAPfree(&bn->H->heap, 1);
 		if (tt)
@@ -336,7 +327,7 @@ BATattach(int tt, const char *heapfile, int role)
 	ERRORcheck(role < 0 || role >= 32, "BATattach: role error\n", NULL);
 	if (lstat(heapfile, &st) < 0) {
 		GDKerror("BATattach: cannot stat heapfile\n");
-		return 0;
+		return NULL;
 	}
 	ERRORcheck(!S_ISREG(st.st_mode), "BATattach: heapfile must be a regular file\n", NULL);
 	ERRORcheck(st.st_nlink != 1, "BATattach: heapfile must have only one link\n", NULL);
@@ -372,7 +363,7 @@ BATattach(int tt, const char *heapfile, int role)
 	bn->batRestricted = BAT_READ;
 	bn->T->heap.size = (size_t) st.st_size;
 	bn->T->heap.newstorage = bn->T->heap.storage = (bn->T->heap.size < GDK_mmap_minsize) ? STORE_MEM : STORE_MMAP;
-	if (HEAPload(&bn->T->heap, BBP_physical(bn->batCacheid), "tail", TRUE) < 0) {
+	if (HEAPload(&bn->T->heap, BBP_physical(bn->batCacheid), "tail", TRUE) != GDK_SUCCEED) {
 		HEAPfree(&bn->T->heap, 1);
 		GDKfree(bs);
 		return NULL;
@@ -472,13 +463,13 @@ BATextend(BAT *b, BUN newcap)
 	if (b->H->heap.base && GDKdebug & HEAPMASK)
 		fprintf(stderr, "#HEAPextend in BATextend %s " SZFMT " " SZFMT "\n", b->H->heap.filename, b->H->heap.size, hheap_size);
 	if (b->H->heap.base &&
-	    HEAPextend(&b->H->heap, hheap_size, b->batRestricted == BAT_READ) < 0)
+	    HEAPextend(&b->H->heap, hheap_size, b->batRestricted == BAT_READ) != GDK_SUCCEED)
 		return GDK_FAIL;
 	theap_size *= Tsize(b);
 	if (b->T->heap.base && GDKdebug & HEAPMASK)
 		fprintf(stderr, "#HEAPextend in BATextend %s " SZFMT " " SZFMT "\n", b->T->heap.filename, b->T->heap.size, theap_size);
 	if (b->T->heap.base &&
-	    HEAPextend(&b->T->heap, theap_size, b->batRestricted == BAT_READ) < 0)
+	    HEAPextend(&b->T->heap, theap_size, b->batRestricted == BAT_READ) != GDK_SUCCEED)
 		return GDK_FAIL;
 	HASHdestroy(b);
 	IMPSdestroy(b);
@@ -544,14 +535,14 @@ BATclear(BAT *b, int force)
 		if (b->H->vheap) {
 			hh.farmid = b->H->vheap->farmid;
 			if (b->H->vheap->free > 0 &&
-			    ATOMheap(b->htype, &hh, cap) < 0) {
+			    ATOMheap(b->htype, &hh, cap) != GDK_SUCCEED) {
 				return GDK_FAIL;
 			}
 		}
 		if (b->T->vheap) {
 			th.farmid = b->T->vheap->farmid;
 			if (b->T->vheap->free > 0 &&
-			    ATOMheap(b->ttype, &th, cap) < 0) {
+			    ATOMheap(b->ttype, &th, cap) != GDK_SUCCEED) {
 				if (b->H->vheap && b->H->vheap->free > 0)
 					HEAPfree(&hh, 1);
 				return GDK_FAIL;
@@ -602,10 +593,11 @@ BATclear(BAT *b, int force)
 }
 
 /* free a cached BAT; leave the bat descriptor cached */
-int
+void
 BATfree(BAT *b)
 {
-	BATcheck(b, "BATfree", 0);
+	if (b == NULL)
+		return;
 
 	/* deallocate all memory for a bat */
 	if (b->batCacheid < 0)
@@ -645,7 +637,6 @@ BATfree(BAT *b)
 	if (b) {
 		BBP_cache(b->batCacheid) = NULL;
 	}
-	return 0;
 }
 
 /* free a cached BAT descriptor */
@@ -702,14 +693,14 @@ BATdestroy( BATstore *bs )
  * which ensures that the original cannot be modified or destroyed
  * (which could affect the shared heaps).
  */
-static int
+static gdk_return
 heapcopy(BAT *bn, char *ext, Heap *dst, Heap *src)
 {
 	if (src->filename && src->newstorage != STORE_MEM) {
 		const char *nme = BBP_physical(bn->batCacheid);
 
 		if ((dst->filename = GDKfilepath(NOFARM, NULL, nme, ext)) == NULL)
-			return -1;
+			return GDK_FAIL;
 	}
 	return HEAPcopy(dst, src);
 }
@@ -832,13 +823,13 @@ BATcopy(BAT *b, int ht, int tt, int writable, int role)
 		if (bn->hvarsized && bn->htype && bunstocopy == BUN_NONE) {
 			bn->H->shift = b->H->shift;
 			bn->H->width = b->H->width;
-			if (HEAPextend(&bn->H->heap, BATcapacity(bn) << bn->H->shift, TRUE) < 0)
+			if (HEAPextend(&bn->H->heap, BATcapacity(bn) << bn->H->shift, TRUE) != GDK_SUCCEED)
 				goto bunins_failed;
 		}
 		if (bn->tvarsized && bn->ttype && bunstocopy == BUN_NONE) {
 			bn->T->shift = b->T->shift;
 			bn->T->width = b->T->width;
-			if (HEAPextend(&bn->T->heap, BATcapacity(bn) << bn->T->shift, TRUE) < 0)
+			if (HEAPextend(&bn->T->heap, BATcapacity(bn) << bn->T->shift, TRUE) != GDK_SUCCEED)
 				goto bunins_failed;
 		}
 
@@ -861,10 +852,10 @@ BATcopy(BAT *b, int ht, int tt, int writable, int role)
 			bthp.farmid = BBPselectfarm(role, b->ttype, offheap);
 			hhp.farmid = BBPselectfarm(role, b->htype, varheap);
 			thp.farmid = BBPselectfarm(role, b->ttype, varheap);
-			if ((b->htype && heapcopy(bn, "head", &bhhp, &b->H->heap) < 0) ||
-			    (b->ttype && heapcopy(bn, "tail", &bthp, &b->T->heap) < 0) ||
-			    (bn->H->vheap && heapcopy(bn, "hheap", &hhp, b->H->vheap) < 0) ||
-			    (bn->T->vheap && heapcopy(bn, "theap", &thp, b->T->vheap) < 0)) {
+			if ((b->htype && heapcopy(bn, "head", &bhhp, &b->H->heap) != GDK_SUCCEED) ||
+			    (b->ttype && heapcopy(bn, "tail", &bthp, &b->T->heap) != GDK_SUCCEED) ||
+			    (bn->H->vheap && heapcopy(bn, "hheap", &hhp, b->H->vheap) != GDK_SUCCEED) ||
+			    (bn->T->vheap && heapcopy(bn, "theap", &thp, b->T->vheap) != GDK_SUCCEED)) {
 				HEAPfree(&thp, 1);
 				HEAPfree(&hhp, 1);
 				HEAPfree(&bthp, 1);
@@ -971,11 +962,11 @@ BATcopy(BAT *b, int ht, int tt, int writable, int role)
 		bn->tdense = bn->T->nonil = 0;
 	}
 	if (BATcount(bn) <= 1) {
-		bn->hsorted = BATatoms[b->htype].linear;
-		bn->hrevsorted = BATatoms[b->htype].linear;
+		bn->hsorted = ATOMlinear(b->htype);
+		bn->hrevsorted = ATOMlinear(b->htype);
 		bn->hkey = 1;
-		bn->tsorted = BATatoms[b->ttype].linear;
-		bn->trevsorted = BATatoms[b->ttype].linear;
+		bn->tsorted = ATOMlinear(b->ttype);
+		bn->trevsorted = ATOMlinear(b->ttype);
 		bn->tkey = 1;
 	}
 	if (writable != TRUE)
@@ -1070,7 +1061,7 @@ setcolprops(BAT *b, COLrec *col, const void *x)
 	assert(x != NULL || col->type == TYPE_void);
 	if (b->batCount == 0) {
 		/* first value */
-		col->sorted = col->revsorted = BATatoms[col->type].linear != 0;
+		col->sorted = col->revsorted = ATOMlinear(col->type) != 0;
 		col->key |= 1;
 		if (col->type == TYPE_void) {
 			if (x) {
@@ -1144,7 +1135,7 @@ setcolprops(BAT *b, COLrec *col, const void *x)
 			if (* (oid *) x == oid_nil ||			\
 			    ((b)->batCount > 0 &&			\
 			     (b)->x##seqbase + (b)->batCount != *(oid *) x)) { \
-				if (BATmaterialize##x(b) == GDK_FAIL)	\
+				if (BATmaterialize##x(b) != GDK_SUCCEED)	\
 					return GDK_FAIL;		\
 				countonly = 0;				\
 			} else if ((b)->batCount == 0) {		\
@@ -1175,26 +1166,31 @@ BUNins(BAT *b, const void *h, const void *t, bit force)
 	void_materialize(b, t);
 
 	if ((b->hkey & BOUND2BTRUE) && (p = BUNfnd(bm, h)) != BUN_NONE) {
-		if (BUNinplace(b, p, h, t, force) == GDK_FAIL)
+		if (BUNinplace(b, p, h, t, force) != GDK_SUCCEED)
 			return GDK_FAIL;
 	} else if ((b->tkey & BOUND2BTRUE) && (p = BUNfnd(b, t)) != BUN_NONE) {
-		if (BUNinplace(bm, p, t, h, force) == GDK_FAIL)
+		if (BUNinplace(bm, p, t, h, force) != GDK_SUCCEED)
 			return GDK_FAIL;
 	} else {
+		size_t hsize = 0, tsize = 0;
+
 		p = BUNlast(b);	/* insert at end */
 		if (p == BUN_MAX || b->batCount == BUN_MAX) {
 			GDKerror("BUNins: bat too large\n");
 			return GDK_FAIL;
 		}
 
-		HASHdestroy(b);
-		if (unshare_string_heap(b) == GDK_FAIL) {
+		if (unshare_string_heap(b) != GDK_SUCCEED) {
 			GDKerror("BUNins: failed to unshare string heap\n");
 			return GDK_FAIL;
 		}
 
 		ALIGNins(b, "BUNins", force, GDK_FAIL);
 		b->batDirty = 1;
+		if (b->H->hash && b->H->vheap)
+			hsize = b->H->vheap->size;
+		if (b->T->hash && b->T->vheap)
+			tsize = b->T->vheap->size;
 
 		setcolprops(b, b->H, h);
 		setcolprops(b, b->T, t);
@@ -1203,6 +1199,17 @@ BUNins(BAT *b, const void *h, const void *t, bit force)
 			bunfastins(b, h, t);
 		} else {
 			BATsetcount(b, b->batCount + 1);
+		}
+
+		if (b->H->hash) {
+			HASHins(bm, p, h);
+			if (hsize && hsize != b->H->vheap->size)
+				HEAPwarm(b->H->vheap);
+		}
+		if (b->T->hash) {
+			HASHins(b, p, t);
+			if (tsize && tsize != b->T->vheap->size)
+				HEAPwarm(b->T->vheap);
 		}
 	}
 	IMPSdestroy(b); /* no support for inserts in imprints yet */
@@ -1283,7 +1290,7 @@ BUNappend(BAT *b, const void *t, bit force)
 	}
 	void_materialize(b, t);
 
-	if (unshare_string_heap(b) == GDK_FAIL) {
+	if (unshare_string_heap(b) != GDK_SUCCEED) {
 		GDKerror("BUNappend: failed to unshare string heap\n");
 		return GDK_FAIL;
 	}
@@ -1490,7 +1497,7 @@ BUNdelete(BAT *b, BUN p, bit force)
 		BUN last = BUNlast(b) - 1;
 
 		if ((p < b->batInserted || p != last) && !force) {
-			if (BATmaterialize(b) == GDK_FAIL)
+			if (BATmaterialize(b) != GDK_SUCCEED)
 				return BUN_NONE;
 		}
 	}
@@ -1577,7 +1584,7 @@ BUNinplace(BAT *b, BUN p, const void *h, const void *t, bit force)
 			 * property, so we must clear it */
 			b->T->nil = 0;
 		}
-		HASHremove(BATmirror(b));
+		HASHremove(b);
 		Treplacevalue(b, BUNtloc(bi, p), t);
 
 		tt = b->ttype;
@@ -1624,7 +1631,7 @@ BUNinplace(BAT *b, BUN p, const void *h, const void *t, bit force)
 	} else {
 		/* committed BUN */
 		BUNdelete(b, p, force);
-		if (BUNins(b, h, t, force) == GDK_FAIL) {
+		if (BUNins(b, h, t, force) != GDK_SUCCEED) {
 		      bunins_failed:
 			return GDK_FAIL;
 		}
@@ -1654,7 +1661,7 @@ BUNreplace(BAT *b, const void *h, const void *t, bit force)
 		if (b->tseqbase == oid_nil || (b->hseqbase + p) == *(oid *) t)
 			return GDK_SUCCEED;
 		i = p;
-		if (BATmaterializet(b) == GDK_FAIL)
+		if (BATmaterializet(b) != GDK_SUCCEED)
 			return GDK_FAIL;
 		p = i;
 	}
@@ -1686,17 +1693,18 @@ void_inplace(BAT *b, oid id, const void *val, bit force)
 }
 
 BUN
-void_replace_bat(BAT *b, BAT *u, bit force)
+void_replace_bat(BAT *b, BAT *p, BAT *u, bit force)
 {
 	BUN nr = 0;
 	BUN r, s;
-	BATiter ui = bat_iterator(u);
+	BATiter uii = bat_iterator(p);
+	BATiter uvi = bat_iterator(u);
 
 	BATloop(u, r, s) {
-		oid updid = *(oid *) BUNhead(ui, r);
-		const void *val = BUNtail(ui, r);
+		oid updid = *(oid *) BUNtail(uii, r);
+		const void *val = BUNtail(uvi, r);
 
-		if (void_inplace(b, updid, val, force) == GDK_FAIL)
+		if (void_inplace(b, updid, val, force) != GDK_SUCCEED)
 			return BUN_NONE;
 		nr++;
 	}
@@ -1880,9 +1888,9 @@ BUNlocate(BAT *b, const void *x, const void *y)
 			 * BUNlocate). Other threads might then crash.
 			 */
 			if (dohash(v->H))
-				(void) BATprepareHash(BATmirror(v));
+				(void) BAThash(BATmirror(v), 0);
 			if (dohash(v->T))
-				(void) BATprepareHash(v);
+				(void) BAThash(v, 0);
 			if (v->H->hash && v->T->hash) {	/* we can choose between two hash tables */
 				BUN hcnt = 0, tcnt = 0;
 				BUN i;
@@ -2078,8 +2086,8 @@ BATsetcount(BAT *b, BUN cnt)
 	if (b->H->type == TYPE_void && b->T->type == TYPE_void)
 		b->batCapacity = cnt;
 	if (cnt <= 1) {
-		b->hsorted = b->hrevsorted = BATatoms[b->htype].linear != 0;
-		b->tsorted = b->trevsorted = BATatoms[b->ttype].linear != 0;
+		b->hsorted = b->hrevsorted = ATOMlinear(b->htype) != 0;
+		b->tsorted = b->trevsorted = ATOMlinear(b->ttype) != 0;
 	}
 	assert(b->batCapacity >= cnt);
 }
@@ -2442,7 +2450,7 @@ BATmmap(BAT *b, int hb, int tb, int hhp, int thp, int force)
  */
 /* rather than deleting X.new, we comply with the commit protocol and
  * move it to backup storage */
-static int
+static gdk_return
 backup_new(Heap *hp, int lockbat)
 {
 	int batret, bakret, xx, ret = 0;
@@ -2473,7 +2481,7 @@ backup_new(Heap *hp, int lockbat)
 	GDKfree(bakpath);
 	for (xx = lockbat; xx >= 0; xx--)
 		MT_lock_unset(&GDKtrimLock(xx), "TMsubcommit");
-	return ret;
+	return ret ? GDK_FAIL : GDK_SUCCEED;
 }
 
 #define ACCESSMODE(wr,rd) ((wr)?BAT_WRITE:(rd)?BAT_READ:-1)
@@ -2492,7 +2500,7 @@ HEAPchangeaccess(Heap *hp, int dstmode, int existing)
 	}
 	if (hp->storage == STORE_MMAP) {	/* 6=>4 */
 		hp->dirty = 1;
-		return backup_new(hp, BBP_THREADMASK) ? STORE_INVALID : STORE_MMAP;	/* only called for existing bats */
+		return backup_new(hp, BBP_THREADMASK) != GDK_SUCCEED ? STORE_INVALID : STORE_MMAP;	/* only called for existing bats */
 	}
 	return hp->storage;	/* 7=>5 */
 }
@@ -2504,7 +2512,7 @@ HEAPcommitpersistence(Heap *hp, int writable, int existing)
 	if (existing) {		/* existing, ie will become transient */
 		if (hp->storage == STORE_MMAP && hp->newstorage == STORE_PRIV && writable) {	/* 6=>2 */
 			hp->dirty = 1;
-			return backup_new(hp, -1) ? STORE_INVALID : STORE_MMAP;	/* only called for existing bats */
+			return backup_new(hp, -1) != GDK_SUCCEED ? STORE_INVALID : STORE_MMAP;	/* only called for existing bats */
 		}
 		return hp->newstorage;	/* 4=>0,5=>1,7=>3,c=>a no change */
 	}
@@ -2521,14 +2529,14 @@ HEAPcommitpersistence(Heap *hp, int writable, int existing)
 
 
 /* change the heap modes at a commit */
-int
+gdk_return
 BATcheckmodes(BAT *b, int existing)
 {
 	int wr = (b->batRestricted == BAT_WRITE);
 	storage_t m0 = STORE_MEM, m1 = STORE_MEM, m2 = STORE_MEM, m3 = STORE_MEM;
 	int dirty = 0;
 
-	BATcheck(b, "BATcheckmodes", 0);
+	BATcheck(b, "BATcheckmodes", GDK_FAIL);
 
 	if (b->htype) {
 		m0 = HEAPcommitpersistence(&b->H->heap, wr, existing);
@@ -2552,7 +2560,7 @@ BATcheckmodes(BAT *b, int existing)
 	}
 	if (m0 == STORE_INVALID || m1 == STORE_INVALID ||
 	    m2 == STORE_INVALID || m3 == STORE_INVALID)
-		return -1;
+		return GDK_FAIL;
 
 	if (dirty) {
 		b->batDirtydesc = 1;
@@ -2563,7 +2571,7 @@ BATcheckmodes(BAT *b, int existing)
 		if (b->T->vheap)
 			b->T->vheap->newstorage = m3;
 	}
-	return 0;
+	return GDK_SUCCEED;
 }
 
 gdk_return
@@ -2572,7 +2580,7 @@ BATsetaccess(BAT *b, int newmode)
 	int bakmode, bakdirty;
 	BATcheck(b, "BATsetaccess", GDK_FAIL);
 	if (isVIEW(b) && newmode != BAT_READ) {
-		if (VIEWreset(b) == GDK_FAIL)
+		if (VIEWreset(b) != GDK_SUCCEED)
 			return GDK_FAIL;
 	}
 	bakmode = b->batRestricted;
@@ -2617,7 +2625,7 @@ BATsetaccess(BAT *b, int newmode)
 		if (b->T->vheap)
 			b->T->vheap->newstorage = m3;
 
-		if (existing && BBPsave(b) < 0) {
+		if (existing && BBPsave(b) != GDK_SUCCEED) {
 			/* roll back all changes */
 			b->batRestricted = bakmode;
 			b->batDirtydesc = bakdirty;
@@ -2700,7 +2708,7 @@ BATmode(BAT *b, int mode)
 		BBPdirty(1);
 
 		if (mode == PERSISTENT && isVIEW(b)) {
-			if (VIEWreset(b) == GDK_FAIL) {
+			if (VIEWreset(b) != GDK_SUCCEED) {
 				GDKerror("BATmode: cannot allocate memory.\n");
 				return GDK_FAIL;
 			}
@@ -2832,8 +2840,8 @@ BATassertHeadProps(BAT *b)
 		}
 	}
 	/* only linear atoms can be sorted */
-	assert(!b->hsorted || BATatoms[b->htype].linear);
-	assert(!b->hrevsorted || BATatoms[b->htype].linear);
+	assert(!b->hsorted || ATOMlinear(b->htype));
+	assert(!b->hrevsorted || ATOMlinear(b->htype));
 
 	if (!b->hkey && !b->hsorted && !b->hrevsorted &&
 	    !b->H->nonil && !b->H->nil) {
@@ -2890,6 +2898,7 @@ BATassertHeadProps(BAT *b)
 			size_t nmelen = strlen(nme);
 			Heap *hp;
 			Hash *hs = NULL;
+			BUN mask;
 
 			if ((hp = GDKzalloc(sizeof(Heap))) == NULL ||
 			    (hp->filename = GDKmalloc(nmelen + 30)) == NULL) {
@@ -2903,10 +2912,16 @@ BATassertHeadProps(BAT *b)
 			snprintf(hp->filename, nmelen + 30,
 				 "%s.hash" SZFMT, nme, MT_getpid());
 			ext = GDKstrdup(hp->filename + nmelen + 1);
+			if (ATOMsize(b->htype) == 1)
+				mask = 1 << 8;
+			else if (ATOMsize(b->htype) == 2)
+				mask = 1 << 16;
+			else
+				mask = HASHmask(b->batCount);
 			if ((hp->farmid = BBPselectfarm(TRANSIENT, b->htype,
 							hashheap)) < 0 ||
 			    (hs = HASHnew(hp, b->htype, BUNlast(b),
-					  HASHmask(b->batCount))) == NULL) {
+					  mask, BUN_NONE)) == NULL) {
 				GDKfree(ext);
 				GDKfree(hp->filename);
 				GDKfree(hp);
@@ -3027,9 +3042,10 @@ BATderiveHeadProps(BAT *b, int expensive)
 	BUN hb, prb;
 	oid sqbs = oid_nil;
 
-	assert(b != NULL);
-	if (b == NULL)
+	if (b == NULL) {
+		assert(0);
 		return;
+	}
 	assert((b->hkey & BOUND2BTRUE) == 0);
 	COLsettrivprop(b, b->H);
 	cmpf = ATOMcompare(b->htype);
@@ -3052,7 +3068,7 @@ BATderiveHeadProps(BAT *b, int expensive)
 	}
 	/* tentatively set until proven otherwise */
 	key = 1;
-	sorted = revsorted = (BATatoms[b->htype].linear != 0);
+	sorted = revsorted = (ATOMlinear(b->htype) != 0);
 	dense = (b->htype == TYPE_oid);
 	/* if no* props already set correctly, we can maybe speed
 	 * things up, if not set correctly, reset them now and set
@@ -3104,16 +3120,23 @@ BATderiveHeadProps(BAT *b, int expensive)
 		b->H->nodense = 0;
 	}
 	if (expensive) {
+		BUN mask;
+
 		nme = BBP_physical(b->batCacheid);
 		nmelen = strlen(nme);
+		if (ATOMsize(b->htype) == 1)
+			mask = 1 << 8;
+		else if (ATOMsize(b->htype) == 2)
+			mask = 1 << 16;
+		else
+			mask = HASHmask(b->batCount);
 		if ((hp = GDKzalloc(sizeof(Heap))) == NULL ||
 		    (hp->filename = GDKmalloc(nmelen + 30)) == NULL ||
 		    (hp->farmid = BBPselectfarm(TRANSIENT, b->htype, hashheap)) < 0 ||
 		    snprintf(hp->filename, nmelen + 30,
 			     "%s.hash" SZFMT, nme, MT_getpid()) < 0 ||
 		    (ext = GDKstrdup(hp->filename + nmelen + 1)) == NULL ||
-		    (hs = HASHnew(hp, b->htype, BUNlast(b),
-				  HASHmask(b->batCount))) == NULL) {
+		    (hs = HASHnew(hp, b->htype, BUNlast(b), mask, BUN_NONE)) == NULL) {
 			if (hp) {
 				if (hp->filename)
 					GDKfree(hp->filename);
@@ -3222,10 +3245,10 @@ BATderiveHeadProps(BAT *b, int expensive)
 void
 BATderiveProps(BAT *b, int expensive)
 {
-	assert(b != NULL);
-
-	if (b == NULL)
+	if (b == NULL) {
+		assert(0);
 		return;
+	}
 	BATderiveHeadProps(b, expensive);
 	if (b->H != b->T)
 		BATderiveHeadProps(BATmirror(b), expensive);

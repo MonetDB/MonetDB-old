@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -64,10 +53,10 @@ delta_cands(sql_trans *tr, sql_table *t)
 		t->data = timestamp_dbat(ot->data, tr->stime);
 	}
 	d = t->data;
-	if (d->cached && !tr->parent) 
+	if (d->cached /*&& !tr->parent*/) 
 		return temp_descriptor(d->cached->batCacheid);
 	tids = _delta_cands(tr, t);
-	if (!d->cached && !tr->parent) /* only cache during catalog loading */
+	if (!d->cached /*&& !tr->parent*/) /* only cache during catalog loading */
 		d->cached = temp_descriptor(tids->batCacheid);
 	return tids;
 }
@@ -80,14 +69,14 @@ delta_full_bat_( sql_trans *tr, sql_column *c, sql_delta *bat, int temp)
 		b := b.append(i);
 		b := b.replace(u);
 	*/
-	BAT *r, *b, *u, *i = temp_descriptor(bat->ibid);
+	BAT *r, *b, *ui, *uv, *i = temp_descriptor(bat->ibid);
 	int needcopy = 1;
 
+(void)tr;
 	r = i; 
 	if (temp) 
 		return r;
 	b = temp_descriptor(bat->bid);
-	u = temp_descriptor(bat->ubid);
 	if (!b) {
 		b = i;
 	} else {
@@ -100,26 +89,31 @@ delta_full_bat_( sql_trans *tr, sql_column *c, sql_delta *bat, int temp)
 		}
 		bat_destroy(i); 
 	}
-	if (BATcount(u)) {
-		if (needcopy) {
-			r = BATcopy(b, b->htype, b->ttype, 1, TRANSIENT); 
-			bat_destroy(b); 
-			b = r;
+	if (bat->uibid && bat->ucnt) {
+		ui = temp_descriptor(bat->uibid);
+		uv = temp_descriptor(bat->uvbid);
+		if (BATcount(ui)) {
+			if (needcopy) {
+				r = BATcopy(b, b->htype, b->ttype, 1, TRANSIENT); 
+				bat_destroy(b); 
+				b = r;
+			}
+			void_replace_bat(b, ui, uv, TRUE);
 		}
-		BATreplace(b, u, TRUE);
+		bat_destroy(ui); 
+		bat_destroy(uv); 
 	}
-	bat_destroy(u); 
 	(void)c;
-	if (!bat->cached && !tr->parent) 
-		bat->cached = temp_descriptor(b->batCacheid);
+	if (!bat->cached /*&& !tr->parent*/) 
+		bat->cached = b;
 	return b;
 }
 
 static BAT *
 delta_full_bat( sql_trans *tr, sql_column *c, sql_delta *bat, int temp)
 {
-	if (bat->cached && !tr->parent) 
-		return temp_descriptor(bat->cached->batCacheid);
+	if (bat->cached /*&& !tr->parent*/) 
+		return bat->cached;
 	return delta_full_bat_( tr, c, bat, temp);
 }
 
@@ -131,6 +125,15 @@ full_column(sql_trans *tr, sql_column *c)
 		c->data = timestamp_delta(oc->data, tr->stime);
 	}
 	return delta_full_bat(tr, c, c->data, isTemp(c));
+}
+
+static void
+full_destroy(sql_column *c, BAT *b)
+{
+	sql_delta *d = c->data;
+	assert(d);
+	if (d->cached != b)
+		bat_destroy(b);
 }
 
 static oid column_find_row(sql_trans *tr, sql_column *c, const void *value, ...);
@@ -147,7 +150,7 @@ column_find_row(sql_trans *tr, sql_column *c, const void *value, ...)
 	r = BATsubselect(b, s, value, NULL, 1, 0, 0);
 	bat_destroy(s);
 	s = r;
-	bat_destroy(b);
+	full_destroy(c, b);
 	while ((c = va_arg(va, sql_column *)) != NULL) {
 		value = va_arg(va, void *);
 
@@ -155,7 +158,7 @@ column_find_row(sql_trans *tr, sql_column *c, const void *value, ...)
 		r = BATsubselect(b, s, value, NULL, 1, 0, 0);
 		bat_destroy(s);
 		s = r;
-		bat_destroy(b);
+		full_destroy(c, b);
 	}
 	va_end(va);
 	if (BATcount(s) == 1) {
@@ -182,11 +185,11 @@ column_find_value(sql_trans *tr, sql_column *c, oid rid)
 
 		res = BUNtail(bi, q);
 		sz = ATOMlen(b->ttype, res);
-		r = GDKzalloc(sz);
+		r = GDKmalloc(sz);
 		memcpy(r,res,sz);
 		res = r;
 	}
-	bat_destroy(b);
+	full_destroy(c, b);
 	return res;
 }
 
@@ -296,10 +299,12 @@ rids_select( sql_trans *tr, sql_column *key, void *key_value_low, void *key_valu
 	if (!kvh && key_value_low != ATOMnilptr(b->ttype))
 		kvh = ATOMnilptr(b->ttype);
 	hi = (kvl == kvh);
+	if (!b->T->hash)
+		BAThash(b, 0);
 	r = BATsubselect(b, s, kvl, kvh, 1, hi, 0);
 	bat_destroy(s);
 	s = r;
-	bat_destroy(b);
+	full_destroy(key, b);
 	if (key_value_low || key_value_high) {
 		va_start(va, key_value_high);
 		while ((key = va_arg(va, sql_column *)) != NULL) {
@@ -315,7 +320,7 @@ rids_select( sql_trans *tr, sql_column *key, void *key_value_low, void *key_valu
 			r = BATsubselect(b, s, kvl, kvh, 1, hi, 0);
 			bat_destroy(s);
 			s = r;
-			bat_destroy(b);
+			full_destroy(key, b);
 		}
 		va_end(va);
 	}
@@ -332,7 +337,7 @@ rids_orderby(sql_trans *tr, rids *r, sql_column *orderby_col)
 
 	b = full_column(tr, orderby_col);
 	s = BATproject(r->data, b);
-	bat_destroy(b);
+	full_destroy(orderby_col, b);
 	BATsubsort(NULL, &o, NULL, s, NULL, NULL, 0, 0);
 	bat_destroy(s);
 	s = BATproject(o, r->data);

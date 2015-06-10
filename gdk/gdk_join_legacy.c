@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -86,7 +75,7 @@ BATsemijoin(BAT *l, BAT *r)
 		/* r is [dense2,any_1] */
 		BBPfix(r->batCacheid);
 	}
-	if (BATsubsemijoin(&res1, &res2, l, r, NULL, NULL, 0, BATcount(l)) == GDK_FAIL) {
+	if (BATsubsemijoin(&res1, &res2, l, r, NULL, NULL, 0, BATcount(l)) != GDK_SUCCEED) {
 		if (lmap)
 			BBPunfix(lmap->batCacheid);
 		BBPunfix(l->batCacheid);
@@ -223,7 +212,7 @@ do_batjoin(BAT *l, BAT *r, BAT *r2, int op,
 		assert(c2 == NULL);
 		ret = (*rangejoin)(&res1, &res2, l, r, r2, NULL, NULL, li, hi, estimate);
 	}
-	if (ret == GDK_FAIL) {
+	if (ret != GDK_SUCCEED) {
 		BBPunfix(l->batCacheid);
 		BBPunfix(r->batCacheid);
 		if (lmap)

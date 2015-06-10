@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -39,6 +28,7 @@
 
 #include "ODBCGlobal.h"
 #include "ODBCStmt.h"
+#include "ODBCUtil.h"
 
 SQLRETURN SQL_API
 SQLGetStmtOption(SQLHSTMT StatementHandle,
@@ -50,8 +40,9 @@ SQLGetStmtOption(SQLHSTMT StatementHandle,
 	SQLRETURN r;
 
 #ifdef ODBCDEBUG
-	ODBCLOG("SQLGetStmtOption " PTRFMT " %s\n",
-		PTRFMTCAST StatementHandle, translateStmtOption(Option));
+	ODBCLOG("SQLGetStmtOption " PTRFMT " %s " PTRFMT "\n",
+		PTRFMTCAST StatementHandle, translateStmtOption(Option),
+		PTRFMTCAST ValuePtr);
 #endif
 
 	if (!isValidStmt(stmt))
@@ -72,9 +63,9 @@ SQLGetStmtOption(SQLHSTMT StatementHandle,
 	case SQL_ROW_NUMBER:
 		/* SQLGetStmtAttr returns 64 bit value, but we need to
 		 * return 32 bit value */
-		r = SQLGetStmtAttr_(stmt, Option, &v, 0, NULL);
+		r = MNDBGetStmtAttr(stmt, Option, &v, 0, NULL);
 		if (SQL_SUCCEEDED(r))
-			*(SQLUINTEGER *) ValuePtr = (SQLUINTEGER) v;
+			WriteData(ValuePtr, (SQLUINTEGER) v, SQLUINTEGER);
 		return r;
 	case SQL_BIND_TYPE:
 	case SQL_KEYSET_SIZE:
@@ -83,7 +74,7 @@ SQLGetStmtOption(SQLHSTMT StatementHandle,
 	case SQL_ROWSET_SIZE:
 /*		case SQL_GET_BOOKMARKS:	is deprecated in ODBC 3.0+ */
 		/* use mapping as described in ODBC 3.0 SDK Help */
-		return SQLGetStmtAttr_(stmt, Option, ValuePtr, 0, NULL);
+		return MNDBGetStmtAttr(stmt, Option, ValuePtr, 0, NULL);
 	default:
 		/* Invalid attribute/option identifier */
 		addStmtError(stmt, "HY092", NULL, 0);

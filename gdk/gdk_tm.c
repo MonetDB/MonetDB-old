@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -57,7 +46,7 @@
  */
 /* in the commit prelude, the delta status in the memory image of all
  * bats is commited */
-static int
+static gdk_return
 prelude(int cnt, bat *subcommit)
 {
 	int i = 0;
@@ -71,7 +60,7 @@ prelude(int cnt, bat *subcommit)
 			if (b == NULL && (BBP_status(bid) & BBPSWAPPED)) {
 				b = BBPquickdesc(bid, TRUE);
 				if (b == NULL)
-					return -1;
+					return GDK_FAIL;
 			}
 			if (b) {
 				assert(!isVIEW(b));
@@ -80,7 +69,7 @@ prelude(int cnt, bat *subcommit)
 			}
 		}
 	}
-	return 0;
+	return GDK_SUCCEED;
 }
 
 /* in the commit epilogue, the BBP-status of the bats is changed to
@@ -88,7 +77,7 @@ prelude(int cnt, bat *subcommit)
  * the previous checkpoint that were deleted now are physically
  * destroyed.
  */
-static int
+static gdk_return
 epilogue(int cnt, bat *subcommit)
 {
 	int i = 0;
@@ -131,7 +120,7 @@ epilogue(int cnt, bat *subcommit)
 		}
 		BBP_status_off(bid, BBPDELETED | BBPSWAPPED | BBPNEW, subcommit ? "TMsubcommit" : "TMcommit");
 	}
-	return 0;
+	return GDK_SUCCEED;
 }
 
 /*
@@ -139,14 +128,15 @@ epilogue(int cnt, bat *subcommit)
  * global commit without any multi-threaded access assumptions, thus
  * taking all BBP locks.  It creates a new database checkpoint.
  */
-int
+gdk_return
 TMcommit(void)
 {
-	int ret = -1;
+	gdk_return ret = GDK_FAIL;
 
 	/* commit with the BBP globally locked */
 	BBPlock("TMcommit");
-	if (prelude(getBBPsize(), NULL) == 0 && BBPsync(getBBPsize(), NULL) == 0) {
+	if (prelude(getBBPsize(), NULL) == GDK_SUCCEED &&
+	    BBPsync(getBBPsize(), NULL) == GDK_SUCCEED) {
 		ret = epilogue(getBBPsize(), NULL);
 	}
 	BBPunlock("TMcommit");
@@ -179,10 +169,11 @@ TMcommit(void)
  * much lighter to ongoing concurrent query and update facilities than
  * a real global TMcommit.
  */
-int
+gdk_return
 TMsubcommit_list(bat *subcommit, int cnt)
 {
-	int xx, ret = -1;
+	int xx;
+	gdk_return ret = GDK_FAIL;
 
 	assert(cnt > 0);
 	assert(subcommit[0] == 0); /* BBP artifact: slot 0 in the array will be ignored */
@@ -191,12 +182,12 @@ TMsubcommit_list(bat *subcommit, int cnt)
 	GDKqsort(subcommit + 1, NULL, NULL, cnt - 1, sizeof(bat), 0, TYPE_bat);
 
 	assert(cnt == 1 || subcommit[1] > 0);  /* all values > 0 */
-	if (prelude(cnt, subcommit) == 0) {	/* save the new bats outside the lock */
+	if (prelude(cnt, subcommit) == GDK_SUCCEED) {	/* save the new bats outside the lock */
 		/* lock just prevents BBPtrims, and other global
 		 * (sub-)commits */
 		for (xx = 0; xx <= BBP_THREADMASK; xx++)
 			MT_lock_set(&GDKtrimLock(xx), "TMsubcommit");
-		if (BBPsync(cnt, subcommit) == 0) {	/* write BBP.dir (++) */
+		if (BBPsync(cnt, subcommit) == GDK_SUCCEED) { /* write BBP.dir (++) */
 			ret = epilogue(cnt, subcommit);
 		}
 		for (xx = BBP_THREADMASK; xx >= 0; xx--)
@@ -205,18 +196,18 @@ TMsubcommit_list(bat *subcommit, int cnt)
 	return ret;
 }
 
-int
+gdk_return
 TMsubcommit(BAT *b)
 {
 	int cnt = 1;
-	int ret = -1;
+	gdk_return ret = GDK_FAIL;
 	bat *subcommit;
 	BUN p, q;
 	BATiter bi = bat_iterator(b);
 
 	subcommit = (bat *) GDKmalloc((BATcount(b) + 1) * sizeof(bat));
 	if (subcommit == NULL)
-		return -1;
+		return GDK_FAIL;
 
 	subcommit[0] = 0;	/* BBP artifact: slot 0 in the array will be ignored */
 	/* collect the list and save the new bats outside any
@@ -242,7 +233,7 @@ TMsubcommit(BAT *b)
  * swapped out. Persistent BATs that were made transient in this
  * transaction become persistent again.
  */
-int
+gdk_return
 TMabort(void)
 {
 	int i;
@@ -300,6 +291,5 @@ TMabort(void)
 		BBP_status_off(i, BBPDELETED | BBPSWAPPED | BBPNEW, "TMabort");
 	}
 	BBPunlock("TMabort");
-	return 0;
+	return GDK_SUCCEED;
 }
-

@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -34,6 +23,9 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <sql_keyword.h>
+#ifdef HAVE_HGE
+#include "mal.h"		/* for have_hge */
+#endif
 
 void
 scanner_init_keywords(void)
@@ -103,7 +95,8 @@ scanner_init_keywords(void)
 	keywords_insert("MEDIUMINT", sqlINTEGER);
 	keywords_insert("BIGINT", BIGINT);
 #ifdef HAVE_HGE
-	keywords_insert("HUGEINT", HUGEINT);
+	if (have_hge)
+		keywords_insert("HUGEINT", HUGEINT);
 #endif
 	keywords_insert("DEC", sqlDECIMAL);
 	keywords_insert("DECIMAL", sqlDECIMAL);
@@ -240,6 +233,7 @@ scanner_init_keywords(void)
 
 	keywords_insert("POSITION", POSITION);
 	keywords_insert("SUBSTRING", SUBSTRING);
+	keywords_insert("SPLIT_PART", SPLIT_PART);
 
 	keywords_insert("CASE", CASE);
 	keywords_insert("WHEN", WHEN);
@@ -290,6 +284,7 @@ scanner_init_keywords(void)
 	keywords_insert("LANGUAGE", LANGUAGE);
 
 	keywords_insert("ANALYZE", ANALYZE);
+	keywords_insert("MINMAX", MINMAX);
 	keywords_insert("EXPLAIN", SQL_EXPLAIN);
 	keywords_insert("PLAN", SQL_PLAN);
 	keywords_insert("DEBUG", SQL_DEBUG);

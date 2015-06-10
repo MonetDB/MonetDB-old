@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -612,7 +601,7 @@ load_table(sql_trans *tr, sql_schema *s, oid rid)
 	cs_new(&t->idxs, tr->sa, (fdestroy) &idx_destroy);
 	cs_new(&t->keys, tr->sa, (fdestroy) &key_destroy);
 	cs_new(&t->triggers, tr->sa, (fdestroy) &trigger_destroy);
-	cs_new(&t->tables, tr->sa, (fdestroy) &table_destroy);
+	cs_new(&t->tables, tr->sa, (fdestroy) NULL);
 
 	if (isTable(t)) {
 		if (store_funcs.create_del(tr, t) != LOG_OK) {
@@ -1149,8 +1138,8 @@ bootstrap_create_column(sql_trans *tr, sql_table *t, char *name, char *sqltype, 
 	return col;
 }
 
-sql_table *
-create_sql_table(sql_allocator *sa, const char *name, sht type, bit system, int persistence, int commit_action)
+static sql_table *
+create_sql_table_with_id(sql_allocator *sa, int id, const char *name, sht type, bit system, int persistence, int commit_action)
 {
 	sql_table *t = SA_ZNEW(sa, sql_table);
 
@@ -1158,7 +1147,8 @@ create_sql_table(sql_allocator *sa, const char *name, sht type, bit system, int 
 	assert((persistence==SQL_PERSIST ||
 		persistence==SQL_DECLARED_TABLE || 
 		commit_action) && commit_action>=0);
-	base_init(sa, &t->base, next_oid(), TR_NEW, name);
+	assert(id);
+	base_init(sa, &t->base, id, TR_NEW, name);
 	t->type = type;
 	t->system = system;
 	t->persistence = (temp_t)persistence;
@@ -1169,11 +1159,18 @@ create_sql_table(sql_allocator *sa, const char *name, sht type, bit system, int 
 	cs_new(&t->idxs, sa, (fdestroy) &idx_destroy);
 	cs_new(&t->keys, sa, (fdestroy) &key_destroy);
 	cs_new(&t->triggers, sa, (fdestroy) &trigger_destroy);
+	cs_new(&t->tables, sa, (fdestroy) NULL);
 	t->pkey = NULL;
 	t->sz = COLSIZE;
 	t->cleared = 0;
 	t->s = NULL;
 	return t;
+}
+
+sql_table *
+create_sql_table(sql_allocator *sa, const char *name, sht type, bit system, int persistence, int commit_action)
+{
+	return create_sql_table_with_id(sa, next_oid(), name, type, system, persistence, commit_action);
 }
 
 static sql_column *
@@ -1199,11 +1196,12 @@ dup_sql_column(sql_allocator *sa, sql_table *t, sql_column *c)
 	return col;
 }
 
-sql_table *
-dup_sql_table(sql_allocator *sa, sql_table *t)
+#if 0
+static sql_table *
+dup_sql_ptable(sql_allocator *sa, sql_table *mt, sql_table *t)
 {
 	node *n;
-	sql_table *nt = create_sql_table(sa, t->base.name, t->type, t->system, SQL_DECLARED_TABLE, t->commit_action);
+	sql_table *nt = create_sql_table_with_id(sa, t->base.id, t->base.name, t->type, t->system, SQL_DECLARED_TABLE, t->commit_action);
 
 	nt->base.flag = t->base.flag;
 
@@ -1214,6 +1212,36 @@ dup_sql_table(sql_allocator *sa, sql_table *t)
 		dup_sql_column(sa, nt, n->data);
 	nt->columns.dset = NULL;
 	nt->columns.nelm = NULL;
+	cs_add(&mt->tables, nt, TR_NEW);
+	/* we need a valid schema */
+	nt->s = t->s;
+	return nt;
+}
+#endif
+
+sql_table *
+dup_sql_table(sql_allocator *sa, sql_table *t)
+{
+	node *n;
+	sql_table *nt = create_sql_table_with_id(sa, t->base.id, t->base.name, t->type, t->system, SQL_DECLARED_TABLE, t->commit_action);
+
+	nt->base.flag = t->base.flag;
+
+	nt->access = t->access;
+	nt->query = (t->query) ? sa_strdup(sa, t->query) : NULL;
+
+	for (n = t->columns.set->h; n; n = n->next) 
+		dup_sql_column(sa, nt, n->data);
+	nt->columns.dset = NULL;
+	nt->columns.nelm = NULL;
+
+	/*
+	if (t->tables.set)
+		for (n = t->tables.set->h; n; n = n->next) 
+			dup_sql_ptable(sa, nt, n->data);
+			*/
+	nt->tables.dset = NULL;
+	nt->tables.nelm = NULL;
 	return nt;
 }
 
@@ -1563,7 +1591,7 @@ store_manager(void)
 				return;
 		}
 		MT_lock_set(&bs_lock, "store_manager");
-		if (GDKexiting() || logger_funcs.changes() < 1000) {
+		if (GDKexiting() || logger_funcs.changes() < 1000000) {
 			MT_lock_unset(&bs_lock, "store_manager");
 			continue;
 		}
@@ -2046,15 +2074,8 @@ sql_trans_copy_column( sql_trans *tr, sql_table *t, sql_column *c )
 static sql_table *
 schema_table_find(sql_schema *s, sql_table *ot)
 {
-	node *n;
-
 	if (s) 
-	for (n = s->tables.set->h; n; n = n->next) {
-		sql_table *t = n->data;
-
-		if (t->base.id == ot->base.id)
-			return t;
-	}
+		return find_sql_table(s, ot->base.name);
 	assert(NULL);
 	return NULL;
 }
@@ -2095,6 +2116,7 @@ table_dup(sql_trans *tr, int flag, sql_table *ot, sql_schema *s)
 	cs_new(&t->keys, sa, (fdestroy) &key_destroy);
 	cs_new(&t->idxs, sa, (fdestroy) &idx_destroy);
 	cs_new(&t->triggers, sa, (fdestroy) &trigger_destroy);
+	cs_new(&t->tables, sa, (fdestroy) NULL);
 
 	t->pkey = NULL;
 
@@ -3123,8 +3145,6 @@ reset_table(sql_trans *tr, sql_table *ft, sql_table *pft)
 		ft->cleared = 0;
 		ok = reset_changeset( tr, &ft->columns, &pft->columns, &ft->base, (resetf) &reset_column, (dupfunc) &column_dup);
 		if (ok == LOG_OK)
-			ok = reset_changeset( tr, &ft->tables, &pft->tables, &ft->base, (resetf) NULL, (dupfunc) &table_find);
-		if (ok == LOG_OK)
 			ok = reset_changeset( tr, &ft->idxs, &pft->idxs, &ft->base, (resetf) &reset_idx, (dupfunc) &idx_dup);
 		if (ok == LOG_OK)
 			ok = reset_changeset( tr, &ft->keys, &pft->keys, &ft->base, (resetf) NULL, (dupfunc) &key_dup);
@@ -3616,6 +3636,22 @@ sys_drop_columns(sql_trans *tr, sql_table *t, int drop_action)
 }
 
 static void
+sys_table_del_tables(sql_trans *tr, sql_table *t, int drop_action)
+{
+	node *n;
+
+	if (cs_size(&t->tables)) {
+		for (n = t->tables.set->h; n; ) {
+			sql_table *pt = n->data;
+
+			n = n->next;
+			sql_trans_del_table(tr, t, pt, drop_action);
+		}
+	}
+}
+
+
+static void
 sys_drop_table(sql_trans *tr, sql_table *t, int drop_action)
 {
 	sql_schema *syss = find_sql_schema(tr, isGlobal(t)?"sys":"tmp");
@@ -3627,6 +3663,8 @@ sys_drop_table(sql_trans *tr, sql_table *t, int drop_action)
 	table_funcs.table_delete(tr, systable, rid);
 	sys_drop_keys(tr, t, drop_action);
 	sys_drop_idxs(tr, t, drop_action);
+	if (isMergeTable(t) || isReplicaTable(t))
+		sys_table_del_tables(tr, t, drop_action);
 
 	sql_trans_drop_dependencies(tr, t->base.id);
 
@@ -3963,7 +4001,7 @@ sql_trans_drop_schema(sql_trans *tr, int id, int drop_action)
 		
 }
 
- sql_table *
+sql_table *
 sql_trans_add_table(sql_trans *tr, sql_table *mt, sql_table *pt)
 {
 	sql_schema *syss = find_sql_schema(tr, isGlobal(mt)?"sys":"tmp");
@@ -3988,7 +4026,7 @@ sql_trans_del_table(sql_trans *tr, sql_table *mt, sql_table *pt, int drop_action
 	oid rid = table_funcs.column_find_row(tr, find_sql_column(sysobj, "name"), pt->base.name, NULL);
 
 	/* merge table depends on part table */
-	sql_trans_create_dependency(tr, pt->base.id, mt->base.id, TABLE_DEPENDENCY);
+	sql_trans_drop_dependency(tr, pt->base.id, mt->base.id, TABLE_DEPENDENCY);
 	cs_del(&mt->tables, n, pt->base.flag);
 	mt->s->base.wtime = mt->base.wtime = tr->wtime = tr->wstime;
 	table_funcs.table_delete(tr, sysobj, rid);

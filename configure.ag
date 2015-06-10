@@ -1,22 +1,11 @@
 #                                               -*- Autoconf -*-
 #                                               vim: ft=config :
 
-dnl The contents of this file are subject to the MonetDB Public License
-dnl Version 1.1 (the "License"); you may not use this file except in
-dnl compliance with the License. You may obtain a copy of the License at
-dnl http://www.monetdb.org/Legal/MonetDBLicense
+dnl This Source Code Form is subject to the terms of the Mozilla Public
+dnl License, v. 2.0.  If a copy of the MPL was not distributed with this
+dnl file, You can obtain one at http://mozilla.org/MPL/2.0/.
 dnl
-dnl Software distributed under the License is distributed on an "AS IS"
-dnl basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
-dnl License for the specific language governing rights and limitations
-dnl under the License.
-dnl
-dnl The Original Code is the MonetDB Database System.
-dnl
-dnl The Initial Developer of the Original Code is CWI.
-dnl Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-dnl Copyright August 2008-2015 MonetDB B.V.
-dnl All Rights Reserved.
+dnl Copyright 2008-2015 MonetDB B.V.
 
 # Process this file with autoconf to produce a configure script.
 
@@ -167,6 +156,13 @@ AC_ARG_ENABLE(fits,
 	enable_fits=$enableval,
 	enable_fits=$dft_fits)
 
+dft_netcdf=auto
+AC_ARG_ENABLE(netcdf,
+	AS_HELP_STRING([--enable-netcdf],
+		[enable support for netcdf (default=auto)]),
+	enable_netcdf=$enableval,
+	enable_netcdf=$dft_netcdf)
+
 dft_sql=yes
 AC_ARG_ENABLE(sql,
 	AS_HELP_STRING([--enable-sql],
@@ -199,29 +195,12 @@ no-auto)
 	;;
 esac
 
-dft_jsonstore=no
-AC_ARG_ENABLE(jsonstore,
-	AS_HELP_STRING([--enable-jsonstore],
-		[enable support for MonetDB/jsonstore (default=no)]),
-	enable_jsonstore=$enableval,
-	enable_jsonstore=$dft_jsonstore)
-
-dft_microhttpd=$enable_jsonstore
+dft_microhttpd=no
 AC_ARG_ENABLE(microhttpd,
 	AS_HELP_STRING([--enable-microhttpd],
-		[enable support for the builtin MircoHTTPD daemon (default: implied by --enable-jsonstore)]),
+		[enable support for the builtin MircoHTTPD daemon]),
 	enable_microhttpd=$enableval,
 	enable_microhttpd=$dft_microhttpd)
-
-case "$enable_jsonstore-$enable_microhttpd" in
-yes-no)
-	AC_MSG_ERROR([jsonstore require microhttpd])
-	;;
-auto-no)
-	enable_jsonstore=no
-	disable_jsonstore="(jsonstore requires microhttpd)"
-	;;
-esac
 
 dft_gsl=auto
 AC_ARG_ENABLE(gsl,
@@ -462,6 +441,7 @@ case $bits-$enable_oid32 in
 	oids=32
 	;;
 esac
+AM_CONDITIONAL(BITS64OID32, test x"$bits-$enable_oid32" = x64-yes)
 AC_SUBST(oids)
 AC_MSG_RESULT($oids bits)
 
@@ -959,7 +939,7 @@ if test "x$enable_optimize" = xyes; then
 	JAVACFLAGS="$JAVACFLAGS -g:none -O"
 	case "$GCC-$CC_ver" in
 	yes-clang-*)
-	  CFLAGS="$CFLAGS -O3 -fomit-frame-pointer -finline-functions"
+	  CFLAGS="$CFLAGS -O3 -fomit-frame-pointer" # -finline-functions is no longer supported in llvm 3.6 
 	  ;;
 	yes-*)
 	  dnl -fomit-frame-pointer crashes memprof
@@ -1203,6 +1183,10 @@ fi
 AC_SUBST(PERL)
 AM_CONDITIONAL(HAVE_PERL, test x"$have_perl" != xno)
 AC_SUBST(PERL_LIBDIR)
+QPERL_LIBDIR="$PERL_LIBDIR"
+XPERL_LIBDIR="`$translatepath "$QPERL_LIBDIR"`"
+QXPERL_LIBDIR="`echo "$XPERL_LIBDIR" | sed 's/\\\\/\\\\\\\\/g'`"
+AC_SUBST(QXPERL_LIBDIR)
 
 # check major version of python
 # check if python2 and python3 exist
@@ -1326,8 +1310,16 @@ else
 fi
 
 AC_SUBST(PYTHON2)
+QPYTHON2="$PYTHON2"
+XPYTHON2="`$translatepath "$QPYTHON2"`"
+QXPYTHON2="`echo "$XPYTHON2" | sed 's/\\\\/\\\\\\\\/g'`"
+AC_SUBST(QXPYTHON2)
 AM_CONDITIONAL(HAVE_PYTHON2, test x"$have_python2" != xno)
 AC_SUBST(PYTHON2_LIBDIR)
+QPYTHON2_LIBDIR="$PYTHON2_LIBDIR"
+XPYTHON2_LIBDIR="`$translatepath "$QPYTHON2_LIBDIR"`"
+QXPYTHON2_LIBDIR="`echo "$XPYTHON2_LIBDIR" | sed 's/\\\\/\\\\\\\\/g'`"
+AC_SUBST(QXPYTHON2_LIBDIR)
 
 if test "x$have_python3" != xno; then
 	if test x$cross_compiling != xyes; then
@@ -1381,8 +1373,16 @@ else
 fi
 
 AC_SUBST(PYTHON3)
+QPYTHON3="$PYTHON3"
+XPYTHON3="`$translatepath "$QPYTHON3"`"
+QXPYTHON3="`echo "$XPYTHON3" | sed 's/\\\\/\\\\\\\\/g'`"
+AC_SUBST(QXPYTHON3)
 AM_CONDITIONAL(HAVE_PYTHON3, test x"$have_python3" != xno)
 AC_SUBST(PYTHON3_LIBDIR)
+QPYTHON3_LIBDIR="$PYTHON3_LIBDIR"
+XPYTHON3_LIBDIR="`$translatepath "$QPYTHON3_LIBDIR"`"
+QXPYTHON3_LIBDIR="`echo "$XPYTHON3_LIBDIR" | sed 's/\\\\/\\\\\\\\/g'`"
+AC_SUBST(QXPYTHON3_LIBDIR)
 
 AM_CONDITIONAL(HAVE_PYTHON, test x"$have_python2" != xno -o x"$have_python3" != xno)
 
@@ -1422,8 +1422,8 @@ case "$have_rubygem_dir" in
 				yes|auto)
 					AC_MSG_CHECKING([where rubygems are stored])
 					RUBY_DIR=
-					d=`$RUBY -rrbconfig -e "puts Config::CONFIG[['prefix']]" 2>/dev/null`
-					RUBY_DIR=`$RUBY -rrbconfig -e "puts Config::CONFIG[['sitelibdir']]" 2>/dev/null | sed -e "s|^$d/||" -e 's/site_ruby/gems/'`
+					d=`$RUBY -rrbconfig -e "puts RbConfig::CONFIG[['prefix']]" 2>/dev/null`
+					RUBY_DIR=`$RUBY -rrbconfig -e "puts RbConfig::CONFIG[['sitelibdir']]" 2>/dev/null | sed -e "s|^$d/||" -e 's/site_ruby/gems/'`
 					if test x"$RUBY_DIR" = x ; then
 						if test x"$have_rubygem_dir" != xauto; then
 							AC_MSG_ERROR([unable to determine rubygems location])
@@ -1448,7 +1448,7 @@ esac
 case "$RUBY_DIR" in
 ${prefix}/*)
 	RUBY_DIR="\${prefix}`echo "$RUBY_DIR" | sed "s|^$prefix||"`";;
-/*)	;;
+/*)	RUBY_DIR="\${prefix}$RUBY_DIR";;
 *)
 	RUBY_DIR="\${prefix}/$RUBY_DIR";;
 esac
@@ -2523,6 +2523,19 @@ if test "x$enable_fits" != xno; then
 fi
 AM_CONDITIONAL(HAVE_FITS, test x"$have_cfitsio" != xno)
 
+org_have_netcdf=no
+have_netcdf=$org_have_netcdf
+if test "x$enable_netcdf" != xno; then
+	req_netcdf='4.2'
+	PKG_CHECK_MODULES([netcdf], [netcdf],
+		[have_netcdf="yes"; AC_DEFINE(HAVE_NETCDF, 1, [Define if the netcdf module is to be enabled])],
+		[have_netcdf="no"; why_have_netcdf="(netcdf library not found)"
+		 if test "x$enable_netcdf" = xyes; then AC_MSG_ERROR([netcdf library required for NetCDF support]); fi
+		 enable_netcdf=no; disable_netcdf="(netcdf library not found)"])
+fi
+AM_CONDITIONAL(HAVE_NETCDF, test x"$have_netcdf" != xno)
+
+
 PKG_CHECK_MODULES([atomic_ops], [atomic_ops], [have_atomic_ops="yes"],
 	[have_atomic_ops="no"; why_have_atomic_ops="(atomic_ops library not found)"])
 if test x"$have_atomic_ops" = x"yes" ; then
@@ -2555,7 +2568,7 @@ if test x"$have_atomic_ops" = x"yes" ; then
 fi
 
 dnl MicroHTTPD library
-dnl required for MonetDB5 SQL jsonstore, optional otherwise
+dnl optional
 org_have_libmicrohttpd=auto
 have_libmicrohttpd=$org_have_libmicrohttpd
 if test "x$enable_microhttpd" != xno; then
@@ -2571,24 +2584,6 @@ if test "x$enable_microhttpd" != xno; then
 fi
 if test x$enable_microhttpd != xno; then
 	AC_DEFINE(HAVE_MICROHTTPD, 1, [Define if the microhttpd server is to be enabled])
-fi
-
-org_have_liburiparser=auto
-have_liburiparser=$org_have_liburiparser
-if test "x$enable_jsonstore" != xno; then
-	dnl Uriparser library
-	dnl required for MonetDB5 SQL jsonstore, optional otherwise
-	PKG_CHECK_MODULES([liburiparser], [liburiparser],
-		[have_liburiparser=yes],
-		[have_liburiparser=no; disable_jsonstore="(liburiparser not found)"; if test "x$enable_jsonstore" = xyes; then AC_MSG_ERROR([LibUriParser library not found but required for jsonstore]); fi])
-
-	if test "$have_libmicrohttpd-$have_liburiparser" = yes-yes; then
-		AC_DEFINE(HAVE_JSONSTORE, 1, [Define that you want to build the jsonstore library])
-	elif test "x$enable_jsonstore" = xyes; then
-		AC_MSG_ERROR([cannot enable jsonstore $why_have_libmicrohttpd$why_have_liburiparser])
-	else
-		enable_jsonstore=no
-	fi
 fi
 
 dnl Check for gsl library for statistical functions
@@ -2967,7 +2962,6 @@ AM_CONDITIONAL(HAVE_GDK, test "x$enable_gdk" = xyes -o "x$enable_gdk" = xauto)
 AM_CONDITIONAL(HAVE_MONETDB5, test "x$enable_monetdb5" = xyes -o "x$enable_monetdb5" = xauto)
 AM_CONDITIONAL(HAVE_SQL, test "x$enable_sql" = xyes -o "x$enable_sql" = xauto)
 AM_CONDITIONAL(HAVE_GEOM, test "x$enable_geom" = xyes -o "x$enable_geom" = xauto)
-AM_CONDITIONAL(HAVE_JSONSTORE, test "x$enable_jsonstore" = xyes -o "x$enable_jsonstore" = xauto)
 AM_CONDITIONAL(HAVE_TESTING, test "x$enable_testing" = xyes -o "x$enable_testing" = xauto)
 AM_CONDITIONAL(HAVE_DEVELOPER, test "x$enable_developer" = xyes)
 
@@ -3163,21 +3157,25 @@ typedef size_t uintptr_t;
 
 #ifdef HAVE_LONG_LONG
 typedef long long lng;
+typedef unsigned long long ulng;
 # define SIZEOF_LNG SIZEOF_LONG_LONG
 #else
 # ifdef HAVE___INT64
 typedef __int64 lng;
+typedef unsigned __int64 ulng;
 #  define SIZEOF_LNG SIZEOF___INT64
 # endif
 #endif
 
 #ifdef HAVE___INT128
 typedef __int128 hge;
+typedef unsigned __int128 uhge;
 # define HAVE_HGE 1
 # define SIZEOF_HGE SIZEOF___INT128
 #else
 # if defined(HAVE___INT128_T) && defined(HAVE___UINT128_T)
 typedef __int128_t hge;
+typedef __uint128_t uhge;
 #  define HAVE_HGE 1
 #  define SIZEOF_HGE SIZEOF___INT128_T
 # endif
@@ -3324,7 +3322,7 @@ for comp in \
 	'console     ' \
 	'gsl         ' \
 	'fits        ' \
-	'jsonstore   ' \
+	'netcdf      ' \
 	'microhttpd  ' \
 	'rintegration' \
 	'odbc        ' \

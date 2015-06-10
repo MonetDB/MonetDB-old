@@ -57,9 +57,9 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str planmodifierRef = putName("plan_modifier", 13);
 
 	InstrPtr *old = NULL, *mounts = NULL, q = NULL, r = NULL, o = NULL;
-	int i, j, k, limit, slimit, actions = 0;
+	int i, j, k, ntv, limit, slimit, actions = 0;
 	int num_fl = 0, num_fi = 0;
-	int* file_ids = NULL;
+	int* file_ids = NULL, *mount_ret_vars = NULL;
 	int var_bar = -1;
 	BUN b1 = 0, b2 = 0, b3 = 0, b4 = 0;
 
@@ -227,6 +227,8 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				
 				which_fl = 0;
 				
+				mount_ret_vars = (int*) GDKmalloc(num_fl*NUM_RET_MOUNT*sizeof(int));
+				
 				/* loop over the file_locations */
 				BATloop(BAT_fl, b1, b2)
 				{
@@ -243,9 +245,12 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 						type = get_column_type(*schema_name, getVarConstant(mb, getArg(p, 3)).val.sval, a);
 						if(type < 0)
 							throw(MAL, "dvf.get_column_num", "is not defined yet for schema: %s and table: %s and column: %s.", *schema_name, getVarConstant(mb, getArg(p, 3)).val.sval, getVarConstant(mb, getArg(p, 4)).val.sval);
-						q = pushReturn(mb, q, newTmpVariable(mb, newBatType(TYPE_oid, type)));
+						ntv = newTmpVariable(mb, newBatType(TYPE_oid, type));
+						q = pushReturn(mb, q, ntv);
 						varSetProp(mb, getArg(q, a), PropertyIndex("hlb"), op_gte, (ptr) &low.value);
 						varSetProp(mb, getArg(q, a), PropertyIndex("hub"), op_lt, (ptr) &high.value);
+						mb->var[ntv]->value.vtype = TYPE_bat;
+						mount_ret_vars[which_fl*NUM_RET_MOUNT+a] = ntv;
 					}
 
 					q = pushInt(mb, q, file_ids[which_fl]);
@@ -409,6 +414,19 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			}
 		}
 	}
+	
+	/* guarantee vtypes of mount returns */
+	if(mount_ret_vars != NULL)
+	{
+		for(i = 0; i < num_fl*NUM_RET_MOUNT; i++)
+		{
+			rhs = getVarValue(mb, mount_ret_vars[i]);
+			lhs = &stk_new->stk[mount_ret_vars[i]];
+			VALcopy(lhs, rhs);
+		}
+	}
+	
+	
 	stk_new->blk = mb;
 
 	/* adjust variable lifetimes */

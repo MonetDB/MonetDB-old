@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -252,7 +241,11 @@ tr_find_table( sql_trans *tr, sql_table *t)
 	while ((!nt || !nt->data) && tr) {
 		sql_schema *s = tr_find_schema( tr, t->s);
 
-		nt = find_sql_table_id(s, t->base.id);
+		if (list_length(s->tables.set) < HASH_MIN_SIZE)
+			nt = find_sql_table_id(s, t->base.id);
+		else
+			nt = find_sql_table(s, t->base.name);
+		assert(nt->base.id == t->base.id);
 		tr = tr->parent;
 	}
 	return nt;
@@ -264,8 +257,7 @@ tr_find_column( sql_trans *tr, sql_column *c)
 	sql_column *nc = NULL;
 
 	while ((!nc || !nc->data) && tr) {
-		sql_schema *s = tr_find_schema( tr, c->t->s);
-		sql_table *t =  find_sql_table_id(s, c->t->base.id);
+		sql_table *t =  tr_find_table(tr, c->t);
 		node *n = cs_find_id(&t->columns, c->base.id);
 		if (n)
 			nc = n->data;
@@ -280,8 +272,7 @@ tr_find_idx( sql_trans *tr, sql_idx *i)
 	sql_idx *ni = NULL;
 
 	while ((!ni || !ni->data) && tr) {
-		sql_schema *s = tr_find_schema( tr, i->t->s);
-		sql_table *t =  find_sql_table_id(s, i->t->base.id);
+		sql_table *t =  tr_find_table(tr, i->t);
 		node *n = cs_find_id(&t->idxs, i->base.id);
 		if (n)
 			ni = n->data;

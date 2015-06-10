@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #ifndef SQL_RELATION_H
@@ -62,6 +51,8 @@ typedef struct expression {
 #define EXP_DISTINCT	1
 #define NO_NIL		2
 #define TOPN_INCLUDING	4
+
+#define LEFT_JOIN	4
 
 #define APPLY_JOIN 	8
 #define APPLY_LOJ 	16
@@ -125,6 +116,10 @@ typedef struct expression {
 #define DDL_CREATE_ROLE 59
 #define DDL_DROP_ROLE 	60
 
+#define DDL_ALTER_TABLE_ADD_TABLE  61
+#define DDL_ALTER_TABLE_DEL_TABLE  62
+#define DDL_ALTER_TABLE_SET_ACCESS  63
+
 #define MAXOPS 21
 
 typedef enum operator_type {
@@ -181,6 +176,8 @@ typedef enum operator_type {
 	(op == op_join || is_outerjoin(op))
 #define is_semi(op) \
 	(op == op_semi || op == op_anti)
+#define is_joinop(op) \
+	(is_join(op) || is_semi(op))
 #define is_apply(op) \
 	(op == op_apply)
 #define is_select(op) \

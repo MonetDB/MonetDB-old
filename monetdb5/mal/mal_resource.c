@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /* (author) M.L. Kersten 
@@ -24,7 +13,7 @@
 #include "mal_private.h"
 
 #define heapinfo(X) if ((X) && (X)->base) vol = (X)->free; else vol = 0;
-#define hashinfo(X) if ((X) && (X)->mask) vol = ((X)->mask + (X)->lim + 1) * sizeof(int) + sizeof(*(X)) + cnt * sizeof(int); else vol = 0;
+#define hashinfo(X) if ((X) && (X)->mask) vol = (((X)->mask + cnt ) * (X)-> width); else vol = 0;
 
 /* MEMORY admission does not seem to have a major impact */
 lng memorypool = 0;      /* memory claimed by concurrent threads */
@@ -77,7 +66,7 @@ getMemoryClaim(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int i, int flag)
 
 	(void)mb;
 	if (stk->stk[getArg(pci, i)].vtype == TYPE_bat) {
-		b = BATdescriptor(stk->stk[getArg(pci, i)].val.bval);
+		b = BATdescriptor( stk->stk[getArg(pci, i)].val.bval);
 		if (b == NULL)
 			return 0;
 		if (flag && isVIEW(b)) {
@@ -85,14 +74,14 @@ getMemoryClaim(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int i, int flag)
 			return 0;
 		}
 		cnt = BATcount(b);
-		heapinfo(&b->H->heap); total += vol;
-		heapinfo(b->H->vheap); total += vol;
-		hashinfo(b->H->hash); total += vol;
 
 		heapinfo(&b->T->heap); total += vol;
-		heapinfo(b->T->vheap); total += vol;
+		// string heaps can be shared, consider them as space-less views
+		if ( b->T->vheap && b->T->vheap->parentid ){
+			heapinfo(b->T->vheap); total += vol;
+		}
 		hashinfo(b->T->hash); total += vol;
-		total = total > (lng)(MEMORY_THRESHOLD * monet_memory) ? (lng)(MEMORY_THRESHOLD * monet_memory) : total;
+		total = total > (lng)(MEMORY_THRESHOLD ) ? (lng)(MEMORY_THRESHOLD ) : total;
 		BBPunfix(b->batCacheid);
 	}
 	return total;
@@ -141,7 +130,7 @@ MALadmission(lng argclaim, lng hotclaim)
 	if (memoryclaims < 0)
 		memoryclaims = 0;
 	if (memorypool <= 0 && memoryclaims == 0)
-		memorypool = (lng)(MEMORY_THRESHOLD * monet_memory);
+		memorypool = (lng)(MEMORY_THRESHOLD );
 
 	if (argclaim > 0) {
 		if (memoryclaims == 0 || memorypool > argclaim + hotclaim) {
@@ -196,7 +185,7 @@ MALresourceFairness(lng usec)
 	/* use GDKmem_cursize as MT_getrss() is too expensive */
 	rss = GDKmem_cursize();
 	/* ample of memory available*/
-	if ( rss < MEMORY_THRESHOLD * monet_memory && usec <= TIMESLICE)
+	if ( rss < MEMORY_THRESHOLD && usec <= TIMESLICE)
 		return;
 
 	/* worker reporting time spent  in usec! */
@@ -208,13 +197,13 @@ MALresourceFairness(lng usec)
 		/* always keep one running to avoid all waiting  */
 		while (clk > 0 && running >= 2 && delayed < MAX_DELAYS) {
 			/* speed up wake up when we have memory */
-			if (rss < MEMORY_THRESHOLD * monet_memory)
+			if (rss < MEMORY_THRESHOLD )
 				break;
 			threads = GDKnr_threads > 0 ? GDKnr_threads : 1;
 			delay = (unsigned int) ( ((double)DELAYUNIT * running) / threads);
 			if (delay) {
 				if ( delayed++ == 0){
-						mnstr_printf(GDKstdout, "#delay initial %u["LLFMT"] memory  "SZFMT"[%f]\n", delay, clk, rss, MEMORY_THRESHOLD * monet_memory);
+						mnstr_printf(GDKstdout, "#delay initial %u["LLFMT"] memory  "SZFMT"[%f]\n", delay, clk, rss, MEMORY_THRESHOLD );
 						mnstr_flush(GDKstdout);
 				}
 				MT_sleep_ms(delay);

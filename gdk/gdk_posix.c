@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -423,7 +412,7 @@ MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t
 			fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): open() failed\n", __FILE__, __LINE__, path, PTRFMTCAST old_address, old_size, *new_size);
 			return NULL;
 		}
-		if (GDKextendf(fd, *new_size, path) < 0) {
+		if (GDKextendf(fd, *new_size, path) != GDK_SUCCEED) {
 			close(fd);
 			fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): GDKextendf() failed\n", __FILE__, __LINE__, path, PTRFMTCAST old_address, old_size, *new_size);
 			return NULL;
@@ -804,7 +793,7 @@ MT_mremap(const char *path, int mode, void *old_address, size_t old_size, size_t
 		*new_size = old_size;
 		return old_address;	/* don't bother shrinking */
 	}
-	if (GDKextend(path, *new_size) < 0) {
+	if (GDKextend(path, *new_size) != GDK_SUCCEED) {
 		fprintf(stderr, "= %s:%d: MT_mremap(%s,"PTRFMT","SZFMT","SZFMT"): GDKextend() failed\n", __FILE__, __LINE__, path?path:"NULL", PTRFMTCAST old_address, old_size, *new_size);
 		return NULL;
 	}

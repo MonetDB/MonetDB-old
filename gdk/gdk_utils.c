@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -942,7 +931,7 @@ GDKmmap(const char *path, int mode, size_t len)
 }
 
 #undef GDKmunmap
-int
+gdk_return
 GDKmunmap(void *addr, size_t size)
 {
 	int ret;
@@ -951,7 +940,7 @@ GDKmunmap(void *addr, size_t size)
 	VALGRIND_FREELIKE_BLOCK(addr, 0);
 	if (ret == 0)
 		memdec(size, "GDKunmap");
-	return ret;
+	return ret == 0 ? GDK_SUCCEED : GDK_FAIL;
 }
 
 
@@ -1204,11 +1193,11 @@ GDKexiting(void)
 {
 	int stopped;
 #ifdef ATOMIC_LOCK
-	pthread_mutex_lock(&GDKstoppedLock);
+	pthread_mutex_lock(&GDKstoppedLock.lock);
 #endif
 	stopped = GDKstopped != 0;
 #ifdef ATOMIC_LOCK
-	pthread_mutex_unlock(&GDKstoppedLock);
+	pthread_mutex_unlock(&GDKstoppedLock.lock);
 #endif
 	return stopped;
 }
@@ -1263,7 +1252,7 @@ GDKexit(int status)
 #endif
 		GDKlog(GDKLOGOFF);
 		GDKunlockHome();
-#if !defined(ATOMIC_LOCK) && !defined(NDEBUG)
+#if !defined(USE_PTHREAD_LOCKS) && !defined(NDEBUG)
 		TEMDEBUG GDKlockstatistics(1);
 #endif
 		MT_global_exit(status);
@@ -1311,7 +1300,7 @@ GDKlockHome(void)
 		/* The DIR_SEP at the end of the path is needed for a
 		 * successful call to GDKcreatedir */
 		snprintf(GDKdirStr, PATHLENGTH, "%s%c", GDKdbpathStr, DIR_SEP);
-		if (GDKcreatedir(GDKdirStr) == GDK_FAIL)
+		if (GDKcreatedir(GDKdirStr) != GDK_SUCCEED)
 			GDKfatal("GDKlockHome: could not create %s\n", GDKdbpathStr);
 		if (chdir(GDKdbpathStr) < 0)
 			GDKfatal("GDKlockHome: could not move to %s\n", GDKdbpathStr);
@@ -1367,7 +1356,6 @@ GDKunlockHome(void)
  * GDKerrorCount(); Furthermore, threads may have set their private
  * error buffer.
  */
-static int THRerrorcount[THREADDATA];
 
 /* do the real work for GDKaddbuf below. */
 static void
@@ -1375,7 +1363,6 @@ doGDKaddbuf(const char *prefix, const char *message, size_t messagelen, const ch
 {
 	char *buf;
 
-	THRerrorcount[THRgettid()]++;
 	buf = GDKerrbuf;
 	if (buf) {
 		char *dst = buf + strlen(buf);
@@ -1485,7 +1472,7 @@ GDKaddbuf(const char *message)
 
 #define GDKERRLEN	(1024+512)
 
-int
+void
 GDKerror(const char *format, ...)
 {
 	char message[GDKERRLEN];
@@ -1502,11 +1489,9 @@ GDKerror(const char *format, ...)
 	va_end(ap);
 
 	GDKaddbuf(message);
-
-	return 0;
 }
 
-int
+void
 GDKsyserror(const char *format, ...)
 {
 	char message[GDKERRLEN];
@@ -1556,7 +1541,6 @@ GDKsyserror(const char *format, ...)
 	GDKaddbuf(message);
 
 	errno = 0;
-	return err;
 }
 
 void

@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -37,7 +26,6 @@
  * reduce the cost to prepare MAL statements significantly.
  *
  * A dummy module is needed to load properly.
- * @-
  */
 #include "monetdb_config.h"
 #include "sql_gencode.h"
@@ -55,7 +43,7 @@
 #include <rel_bin.h>
 
 static int _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s);
-static int backend_dumpstmt(backend *be, MalBlkPtr mb, stmt *s, int top);
+static int backend_dumpstmt(backend *be, MalBlkPtr mb, stmt *s, int top, int addend);
 
 /*
  * @+ MAL code support
@@ -69,7 +57,7 @@ static int backend_dumpstmt(backend *be, MalBlkPtr mb, stmt *s, int top);
  *
  * The catalog relations should be maintained in a MAL box, which
  * provides the handle for transaction management.
- * @-
+ *
  * The atoms produced by the parser should be converted back into
  * MAL constants. Ideally, this should not be necessary when the
  * SQL parser keeps the string representation around.
@@ -120,7 +108,6 @@ argumentZero(MalBlkPtr mb, int tpe)
 }
 
 /*
- * @-
  * To speedup code generation we freeze the references to the major modules.
  * This safes table lookups.
  */
@@ -139,7 +126,6 @@ initSQLreferences(void)
 }
 
 /*
- * @-
  * The dump_header produces a sequence of instructions for
  * the front-end to prepare presentation of a result table.
  */
@@ -376,7 +362,7 @@ _create_relational_function(mvc *m, char *name, sql_rel *rel, stmt *call)
 	}
 
 	be->mvc->argc = 0;
-	if (backend_dumpstmt(be, curBlk, s, 0) < 0)
+	if (backend_dumpstmt(be, curBlk, s, 0, 1) < 0)
 		return -1;
 	be->mvc->argc = old_argc;
 	/* SQL function definitions meant for inlineing should not be optimized before */
@@ -1573,19 +1559,25 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 		case st_join:{
 			int l;
 			int r;
+			int cmp = s->flag;
+			int left = (cmp == cmp_left);
 			char *sjt = "subjoin";
 
+			if (left) {
+				cmp = cmp_equal;
+				sjt = "subleftjoin";
+			}
 			if ((l = _dumpstmt(sql, mb, s->op1)) < 0)
 				return -1;
 			if ((r = _dumpstmt(sql, mb, s->op2)) < 0)
 				return -1;
 			assert(l >= 0 && r >= 0);
 
-			if (s->flag == cmp_joined) {
+			if (cmp == cmp_joined) {
 				s->nr = l;
 				return s->nr;
 			}
-			if (s->flag == cmp_project || s->flag == cmp_reorder_project) {
+			if (cmp == cmp_project || cmp == cmp_reorder_project) {
 				int ins;
 
 				/* delta bat */
@@ -1610,7 +1602,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 					return s->nr;
 				}
 				/* projections, ie left is void headed */
-				if (s->flag == cmp_project)
+				if (cmp == cmp_project)
 					q = newStmt1(mb, algebraRef, "leftfetchjoin");
 				else
 					q = newStmt2(mb, algebraRef, leftjoinRef);
@@ -1623,7 +1615,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			}
 
 
-			switch (s->flag) {
+			switch (cmp) {
 			case cmp_equal:
 				q = newStmt1(mb, algebraRef, sjt);
 				q = pushReturn(mb, q, newTmpVariable(mb, TYPE_any));
@@ -1670,13 +1662,13 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 				q = pushArgument(mb, q, r);
 				q = pushNil(mb, q, TYPE_bat);
 				q = pushNil(mb, q, TYPE_bat);
-				if (s->flag == cmp_lt)
+				if (cmp == cmp_lt)
 					q = pushInt(mb, q, -1);
-				else if (s->flag == cmp_lte)
+				else if (cmp == cmp_lte)
 					q = pushInt(mb, q, -2);
-				else if (s->flag == cmp_gt)
+				else if (cmp == cmp_gt)
 					q = pushInt(mb, q, 1);
-				else if (s->flag == cmp_gte)
+				else if (cmp == cmp_gte)
 					q = pushInt(mb, q, 2);
 				q = pushBit(mb, q, TRUE);
 				q = pushNil(mb, q, TYPE_lng);
@@ -1833,6 +1825,9 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			/* convert to string, give error on to large strings */
 			if (EC_VARCHAR(t->type->eclass) && !(f->type->eclass == EC_STRING && t->digits == 0))
 				q = pushInt(mb, q, t->digits);
+			/* convert a string to a time(stamp) with time zone */
+			if (EC_VARCHAR(f->type->eclass) && EC_TEMP_FRAC(t->type->eclass) && type_has_tz(t))
+				q = pushInt(mb, q, type_has_tz(t));
 			if (q == NULL)
 				return -1;
 			s->nr = getDestVar(q);
@@ -1861,7 +1856,10 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 				    (q = newStmt(mb, "mkey", "bulk_rotate_xor_hash")) == NULL)
 					return -1;
 				if (!q) {
-					q = newStmt(mb, "mal", "multiplex");
+					if (f->func->type == F_UNION)
+						q = newStmt(mb, "batmal", "multiplex");
+					else
+						q = newStmt(mb, "mal", "multiplex");
 					if (q == NULL)
 						return -1;
 					setVarType(mb, getArg(q, 0), newBatType(TYPE_oid, res->type->localtype));
@@ -1895,7 +1893,9 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 				q = pushArgument(mb, q, op->nr);
 				if (special) {
 					q = pushInt(mb, q, tpe->digits);
+					setVarUDFtype(mb, getArg(q, q->argc-1));
 					q = pushInt(mb, q, tpe->scale);
+					setVarUDFtype(mb, getArg(q, q->argc-1));
 				}
 				special = 0;
 			}
@@ -2535,7 +2535,7 @@ setCommitProperty(MalBlkPtr mb)
 }
 
 static int
-backend_dumpstmt(backend *be, MalBlkPtr mb, stmt *s, int top)
+backend_dumpstmt(backend *be, MalBlkPtr mb, stmt *s, int top, int add_end)
 {
 	mvc *c = be->mvc;
 	stmt **stmts = stmt_array(c->sa, s);
@@ -2575,12 +2575,13 @@ backend_dumpstmt(backend *be, MalBlkPtr mb, stmt *s, int top)
 		getArg(q, 0) = getArg(getInstrPtr(mb, 0), 0);
 		q->barrier = RETURNsymbol;
 	}
-	pushEndInstruction(mb);
+	if (add_end)
+		pushEndInstruction(mb);
 	return 0;
 }
 
 int
-backend_callinline(backend *be, Client c, stmt *s)
+backend_callinline(backend *be, Client c, stmt *s, int add_end)
 {
 	mvc *m = be->mvc;
 	InstrPtr curInstr = 0;
@@ -2612,7 +2613,7 @@ backend_callinline(backend *be, Client c, stmt *s)
 			}
 		}
 	}
-	if (backend_dumpstmt(be, curBlk, s, 1) < 0)
+	if (backend_dumpstmt(be, curBlk, s, 1, add_end) < 0)
 		return -1;
 	c->curprg->def = curBlk;
 	return 0;
@@ -2679,7 +2680,7 @@ backend_dumpproc(backend *be, Client c, cq *cq, stmt *s)
 		}
 	}
 
-	if (backend_dumpstmt(be, mb, s, 1) < 0)
+	if (backend_dumpstmt(be, mb, s, 1, 1) < 0)
 		return NULL;
 
 	// Always keep the SQL query around for monitoring
@@ -2707,7 +2708,6 @@ backend_dumpproc(backend *be, Client c, cq *cq, stmt *s)
 		q = pushStr(mb, q, t);
 		GDKfree(tt);
 		q = pushStr(mb, q, getSQLoptimizer(be->mvc));
-		m->Tparse = 0;
 	}
 	if (cq)
 		addQueryToCache(c);
@@ -2909,7 +2909,7 @@ backend_create_sql_func(backend *be, sql_func *f, list *restypes, list *ops)
 	if (m->session->auto_commit)
 		setCommitProperty(curBlk);
 
-	if (backend_dumpstmt(be, curBlk, s, 0) < 0)
+	if (backend_dumpstmt(be, curBlk, s, 0, 1) < 0)
 		return -1;
 	/* selectively make functions available for inlineing */
 	/* for the time being we only inline scalar functions */

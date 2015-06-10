@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #ifndef _REL_SELECT_H_
@@ -37,7 +26,7 @@ extern sql_rel * rel_project(sql_allocator *sa, sql_rel *l, list *e);
 extern sql_rel * rel_inplace_project(sql_allocator *sa, sql_rel *rel, sql_rel *l, list *e);
 extern void rel_project_add_exp( mvc *sql, sql_rel *rel, sql_exp *e);
 extern list * rel_projections(mvc *sql, sql_rel *rel, char *tname, int settname , int intern);
-extern sql_rel * rel_label( mvc *sql, sql_rel *r);
+extern sql_rel * rel_label( mvc *sql, sql_rel *r, int all);
 extern sql_exp *rel_column_exp(mvc *sql, sql_rel **rel, symbol *column_e, int f);
 
 extern void rel_add_intern(mvc *sql, sql_rel *rel);

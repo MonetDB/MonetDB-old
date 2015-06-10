@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -1188,4 +1177,86 @@ atom_cmp(atom *a1, atom *a2)
 	if ( a1->isnull)
 		return 0;
 	return VALcmp(&a1->data, &a2->data);
+}
+
+atom * 
+atom_add(atom *a1, atom *a2)
+{
+	if (a1->tpe.type->localtype != a2->tpe.type->localtype) 
+		return NULL;
+	switch(a1->tpe.type->localtype) {
+	case TYPE_bte:
+			a1->data.val.btval += a2->data.val.btval;
+			a1->d = (dbl) a1->data.val.btval;
+			break;
+	case TYPE_sht:
+			a1->data.val.shval += a2->data.val.shval;
+			a1->d = (dbl) a1->data.val.shval;
+			break;
+	case TYPE_int:
+			a1->data.val.ival += a2->data.val.ival;
+			a1->d = (dbl) a1->data.val.ival;
+			break;
+	case TYPE_lng:
+			a1->data.val.lval += a2->data.val.lval;
+			a1->d = (dbl) a1->data.val.lval;
+			break;
+#ifdef HAVE_HGE
+	case TYPE_hge:
+			a1->data.val.hval += a2->data.val.hval;
+			a1->d = (dbl) a1->data.val.hval;
+			break;
+#endif
+	case TYPE_flt:
+			a1->data.val.fval += a2->data.val.fval;
+			a1->d = (dbl) a1->data.val.fval;
+			break;
+	case TYPE_dbl:
+			a1->data.val.dval += a2->data.val.dval;
+			a1->d = (dbl) a1->data.val.dval;
+	default:
+			break;
+	}
+	return a1;
+}
+
+atom * 
+atom_sub(atom *a1, atom *a2)
+{
+	if (a1->tpe.type->localtype != a2->tpe.type->localtype) 
+		return NULL;
+	switch(a1->tpe.type->localtype) {
+	case TYPE_bte:
+			a1->data.val.btval -= a2->data.val.btval;
+			a1->d = (dbl) a1->data.val.btval;
+			break;
+	case TYPE_sht:
+			a1->data.val.shval -= a2->data.val.shval;
+			a1->d = (dbl) a1->data.val.shval;
+			break;
+	case TYPE_int:
+			a1->data.val.ival -= a2->data.val.ival;
+			a1->d = (dbl) a1->data.val.ival;
+			break;
+	case TYPE_lng:
+			a1->data.val.lval -= a2->data.val.lval;
+			a1->d = (dbl) a1->data.val.lval;
+			break;
+#ifdef HAVE_HGE
+	case TYPE_hge:
+			a1->data.val.hval -= a2->data.val.hval;
+			a1->d = (dbl) a1->data.val.hval;
+			break;
+#endif
+	case TYPE_flt:
+			a1->data.val.fval -= a2->data.val.fval;
+			a1->d = (dbl) a1->data.val.fval;
+			break;
+	case TYPE_dbl:
+			a1->data.val.dval -= a2->data.val.dval;
+			a1->d = (dbl) a1->data.val.dval;
+	default:
+			break;
+	}
+	return a1;
 }

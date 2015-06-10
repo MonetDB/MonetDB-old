@@ -1,19 +1,8 @@
--- The contents of this file are subject to the MonetDB Public License
--- Version 1.1 (the "License"); you may not use this file except in
--- compliance with the License. You may obtain a copy of the License at
--- http://www.monetdb.org/Legal/MonetDBLicense
+-- This Source Code Form is subject to the terms of the Mozilla Public
+-- License, v. 2.0.  If a copy of the MPL was not distributed with this
+-- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 --
--- Software distributed under the License is distributed on an "AS IS"
--- basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
--- License for the specific language governing rights and limitations
--- under the License.
---
--- The Original Code is the MonetDB Database System.
---
--- The Initial Developer of the Original Code is CWI.
--- Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
--- Copyright August 2008-2015 MonetDB B.V.
--- All Rights Reserved.
+-- Copyright 2008-2015 MonetDB B.V.
 
 create function str_to_date(s string, format string) returns date
 	external name mtime."str_to_date";
@@ -23,5 +12,18 @@ create function date_to_str(d date, format string) returns string
 
 create function date_trunc( t timestamp, field string ) returns timestamp
 	external name mtime.timestamp_trunc;
+
 create function date_trunc_after_every( t timestamp, field string, after_every integer ) returns timestamp
 	external name mtime.timestamp_trunc_after_every;
+
+create function str_to_time(s string, format string) returns time
+	external name mtime."str_to_time";
+
+create function time_to_str(d time, format string) returns string
+	external name mtime."time_to_str";
+
+create function str_to_timestamp(s string, format string) returns timestamp
+	external name mtime."str_to_timestamp";
+
+create function timestamp_to_str(d timestamp, format string) returns string
+	external name mtime."timestamp_to_str";

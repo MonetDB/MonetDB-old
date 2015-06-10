@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -80,17 +69,19 @@
 			maxgrps = BATcount(b);				\
 			if (extents) {					\
 				BATsetcount(en, ngrp);			\
-				BATextend(en, maxgrps);			\
+				if (BATextend(en, maxgrps) != GDK_SUCCEED) \
+					goto error;			\
 				exts = (oid *) Tloc(en, BUNfirst(en));	\
 			}						\
 			if (histo) {					\
 				BATsetcount(hn, ngrp);			\
-				BATextend(hn, maxgrps);			\
+				if (BATextend(hn, maxgrps) != GDK_SUCCEED) \
+					goto error;			\
 				cnts = (wrd *) Tloc(hn, BUNfirst(hn));	\
 			}						\
 		}							\
 		if (extents)						\
-			exts[ngrp] = b->hseqbase + (oid) (p - r);	\
+			exts[ngrp] = hseqb + (oid) (p - r);		\
 		if (histo)						\
 			cnts[ngrp] = 1;					\
 		ngrps[p - r] = ngrp;					\
@@ -197,7 +188,6 @@
 	/* KEEP   */	pv = v					\
 	)
 
-
 /* If a hash table exists on b we use it.
  *
  * The algorithm is simple.  We go through b and for each value we
@@ -214,7 +204,7 @@
  * Note this algorithm depends critically on the fact that our hash
  * chains go from higher to lower BUNs.
  */
-#define GRP_use_existing_hash_table(INIT_0,INIT_1,HASH,COMP)		\
+#define GRP_use_existing_hash_table(INIT_0,INIT_1,COMP)			\
 	do {								\
 		INIT_0;							\
 		for (r = lo, p = r, q = hi;				\
@@ -270,7 +260,6 @@
 	GRP_use_existing_hash_table(				\
 	/* INIT_0 */	const TYPE *w = (TYPE *) Tloc(b, 0),	\
 	/* INIT_1 */					,	\
-	/* HASH   */	hash_##TYPE(hs, &w[p])		,	\
 	/* COMP   */	w[p] == w[hb]				\
 	)
 
@@ -278,7 +267,6 @@
 	GRP_use_existing_hash_table(				\
 	/* INIT_0 */					,	\
 	/* INIT_1 */	v = BUNtail(bi, p)		,	\
-	/* HASH   */	HASHprobe(hs, v)		,	\
 	/* COMP   */	cmp(v, BUNtail(bi, hb)) == 0		\
 	)
 
@@ -296,7 +284,7 @@
 				     hb != HASHnil(hs) &&		\
 				      grps[hb - r] == grps[p - r];	\
 				     hb = HASHgetlink(hs,hb)) {		\
-					assert( HASHgetlink(hs,hb) == HASHnil(hs) \
+					assert(HASHgetlink(hs,hb) == HASHnil(hs) \
 					       || HASHgetlink(hs,hb) < hb); \
 					if (COMP) {		\
 						oid grp = ngrps[hb - r]; \
@@ -315,7 +303,7 @@
 					hb = HASHnil(hs);		\
 				}					\
 			} else if (grps) {				\
-				prb = ((prb << bits) ^ (BUN) grps[p-r]) & hs->mask; \
+				prb = (prb ^ (BUN) grps[p-r] << bits) & hs->mask; \
 				for (hb = HASHget(hs,prb);		\
 				     hb != HASHnil(hs);			\
 				     hb = HASHgetlink(hs,hb)) {		\
@@ -381,7 +369,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 	int t;
 	int (*cmp)(const void *, const void *);
 	const oid *grps = NULL;
-	oid *restrict ngrps, ngrp, prev = 0;
+	oid *restrict ngrps, ngrp, prev = 0, hseqb = 0;
 	oid *restrict exts = NULL;
 	wrd *restrict cnts = NULL;
 	BUN p, q, r;
@@ -399,7 +387,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 	}
 	/* g is NULL or [oid(dense),oid] and same size as b */
 	assert(g == NULL || BAThdense(g));
-	assert(g == NULL || BATttype(g) == TYPE_oid);
+	assert(g == NULL || BATttype(g) == TYPE_oid || BATcount(g) == 0);
 	assert(g == NULL || BATcount(b) == BATcount(g));
 	assert(g == NULL || BATcount(b) == 0 || b->hseqbase == g->hseqbase);
 	/* e is NULL or [oid(dense),oid] */
@@ -414,6 +402,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 	/* we want our output to go somewhere */
 	assert(groups != NULL);
 
+	hseqb = b->hseqbase;
 	if (b->tkey || BATcount(b) <= 1 || (g && (g->tkey || BATtdense(g)))) {
 		/* grouping is trivial: 1 element per group */
 		ALGODEBUG fprintf(stderr, "#BATgroup(b=%s#" BUNFMT ","
@@ -565,6 +554,27 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 	/* figure out if we can use the storage type also for
 	 * comparing values */
 	t = ATOMbasetype(b->ttype);
+	/* for strings we can use the offset instead of the actual
+	 * string values if we know that the strings in the string
+	 * heap are unique */
+	if (t == TYPE_str && GDK_ELIMDOUBLES(b->T->vheap)) {
+		switch (b->T->width) {
+		case 1:
+			t = TYPE_bte;
+			break;
+		case 2:
+			t = TYPE_sht;
+			break;
+#if SIZEOF_VAR_T == 8
+		case 4:
+			t = TYPE_int;
+			break;
+#endif
+		default:
+			t = TYPE_var;
+			break;
+		}
+	}
 
 	if (((b->tsorted || b->trevsorted) &&
 	     (g == NULL || g->tsorted || g->trevsorted)) ||
@@ -696,7 +706,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		}
 
 		GDKfree(pgrp);
-	} else if (g == NULL && ATOMbasetype(b->ttype) == TYPE_bte) {
+	} else if (g == NULL && t == TYPE_bte) {
 		/* byte-sized values, use 256 entry array to keep
 		 * track of doled out group ids; note that we can't
 		 * possibly have more than 256 groups, so the group id
@@ -722,7 +732,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 				cnts[v]++;
 		}
 		GDKfree(bgrps);
-	} else if (g == NULL && ATOMbasetype(b->ttype) == TYPE_sht) {
+	} else if (g == NULL && t == TYPE_sht) {
 		/* short-sized values, use 65536 entry array to keep
 		 * track of doled out group ids; note that we can't
 		 * possibly have more than 65536 groups, so the group
@@ -748,11 +758,11 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 				cnts[v]++;
 		}
 		GDKfree(sgrps);
-	} else if (b->T->hash ||
+	} else if (BATcheckhash(b) ||
 		   (b->batPersistence == PERSISTENT &&
-		    !BATprepareHash(b)) ||
+		    BAThash(b, 0) == GDK_SUCCEED) ||
 		   ((parent = VIEWtparent(b)) != 0 &&
-		    BBPdescriptor(-parent)->T->hash)) {
+		    BATcheckhash(BBPdescriptor(-parent)))) {
 		BUN lo, hi;
 
 		/* we already have a hash table on b, or b is
@@ -775,7 +785,9 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 			BAT *b2 = BBPdescriptor(-parent);
 			lo = (BUN) ((b->T->heap.base - b2->T->heap.base) >> b->T->shift) + BUNfirst(b);
 			hi = lo + BATcount(b);
+			hseqb = b->hseqbase;
 			b = b2;
+			bi = bat_iterator(b);
 		} else {
 			lo = BUNfirst(b);
 			hi = BUNlast(b);
@@ -845,6 +857,16 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 				  subsorted, gc ? " (g clustered)" : "");
 		nme = BBP_physical(b->batCacheid);
 		nmelen = strlen(nme);
+		if (ATOMsize(t) == 1) {
+			mask = 1 << 16;
+			bits = 8;
+		} else if (ATOMsize(t) == 2) {
+			mask = 1 << 16;
+			bits = 8;
+		} else {
+			mask = HASHmask(b->batCount);
+			bits = 0;
+		}
 		if ((hp = GDKzalloc(sizeof(Heap))) == NULL ||
 		    (hp->farmid = BBPselectfarm(TRANSIENT, b->ttype, hashheap)) < 0 ||
 		    (hp->filename = GDKmalloc(nmelen + 30)) == NULL ||
@@ -852,7 +874,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 			     "%s.hash" SZFMT, nme, MT_getpid()) < 0 ||
 		    (ext = GDKstrdup(hp->filename + nmelen + 1)) == NULL ||
 		    (hs = HASHnew(hp, b->ttype, BUNlast(b),
-				  HASHmask(b->batCount))) == NULL) {
+				  MAX(HASHmask(b->batCount), 1 << 16), BUN_NONE)) == NULL) {
 			if (hp) {
 				if (hp->filename)
 					GDKfree(hp->filename);

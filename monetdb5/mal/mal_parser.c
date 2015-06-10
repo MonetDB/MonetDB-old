@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /* (c): M. L. Kersten
@@ -39,12 +28,14 @@
 static str idCopy(Client cntxt, int len);
 static str strCopy(Client cntxt, int len);
 
+static str parseError(Client cntxt, str msg);
 
 /* Before a line is parsed we check for a request to echo it.
  * This command should be executed at the beginning of a parse
  * request and each time we encounter EOL.
 */
-void echoInput(Client cntxt)
+static void 
+echoInput(Client cntxt)
 {
 	if (cntxt->listing == 1) {
 		char *c = CURRENT(cntxt);
@@ -122,7 +113,7 @@ initParser(void)
 #undef isdigit
 #define isdigit(X)  ((X) >= '0' && (X) <= '9')
 
-int
+static int
 idLength(Client cntxt)
 {
 	str s, t;
@@ -179,18 +170,7 @@ idCopy(Client cntxt, int length)
 	return s;
 }
 
-int
-MALkeyword(Client cntxt, str kw, int length)
-{
-	skipSpace(cntxt);
-	if (MALlookahead(cntxt, kw, length)) {
-		advance(cntxt, length);
-		return 1;
-	}
-	return 0;
-}
-
-int
+static int
 MALlookahead(Client cntxt, str kw, int length)
 {
 	int i;
@@ -213,6 +193,18 @@ MALlookahead(Client cntxt, str kw, int length)
 	}
 	return 0;
 }
+
+static inline int
+MALkeyword(Client cntxt, str kw, int length)
+{
+	skipSpace(cntxt);
+	if (MALlookahead(cntxt, kw, length)) {
+		advance(cntxt, length);
+		return 1;
+	}
+	return 0;
+}
+
 /*
  * Keyphrase testing is limited to a few characters only
  * (check manually). To speed this up we use a pipelined and inline macros.
@@ -247,7 +239,7 @@ keyphrase2(Client cntxt, str kw)
  * We should provide the C-method to split strings and
  * concatenate them upon retrieval[todo]
 */
-int
+static int
 stringLength(Client cntxt)
 {
 	int l = 0;
@@ -258,18 +250,13 @@ stringLength(Client cntxt)
 
 	if (*s != '"')
 		return 0;
-	s++;
-	while (*s) {
+	for (s++;*s; l++, s++) {
 		if (quote) {
-			l++;
-			s++;
 			quote = 0;
 		} else {
 			if (*s == '"')
 				break;
 			quote = *s == '\\';
-			l++;
-			s++;
 		}
 	}
 	return l + 2;
@@ -286,10 +273,11 @@ strCopy(Client cntxt, int length)
 	int i;
 
 	i = length < 4 ? 4 : length;
-	s = GDKzalloc(i);
+	s = GDKmalloc(i);
 	if (s == 0)
 		return NULL;
 	memcpy(s, CURRENT(cntxt) + 1, (size_t) (length - 2));
+	s[length-2] = 0;
 	mal_unquote(s);
 	return s;
 }
@@ -299,7 +287,7 @@ strCopy(Client cntxt, int length)
  * A lookup table is considered, because it generally is
  * faster then a non-dense switch.
 */
-int
+static int
 operatorLength(Client cntxt)
 {
 	int l = 0;
@@ -315,7 +303,7 @@ operatorLength(Client cntxt)
 	return l;
 }
 
-str
+static str
 operatorCopy(Client cntxt, int length)
 {
 	return idCopy(cntxt,length);
@@ -326,7 +314,7 @@ operatorCopy(Client cntxt, int length)
  * which, ofcourse, is easy given the client buffer.
  * The remaining functions are self-explanatory.
 */
-str
+static str
 lastline(Client cntxt)
 {
 	str s = CURRENT(cntxt);
@@ -339,7 +327,7 @@ lastline(Client cntxt)
 	return s;
 }
 
-ssize_t
+static ssize_t
 position(Client cntxt)
 {
 	str s = lastline(cntxt);
@@ -365,7 +353,7 @@ skipToEnd(Client cntxt)
  * Aside from getting its length, we need an indication of its type.
  * The constant structure is initialized for later use.
  */
-int
+static int
 cstToken(Client cntxt, ValPtr cst)
 {
 	int i = 0;
@@ -423,7 +411,7 @@ cstToken(Client cntxt, ValPtr cst)
 				i++;
 				s++;
 			}
-			cst->vtype = TYPE_flt;
+			cst->vtype = TYPE_dbl;
 		}
 		if (*s == 'e' || *s == 'E') {
 			i++;
@@ -457,11 +445,6 @@ cstToken(Client cntxt, ValPtr cst)
 				GDKfree(pval);
 			} else
 				cst->val.dval = 0;
-
-			if (cst->val.dval > FLT_MIN && cst->val.dval <= FLT_MAX) {
-				cst->vtype = TYPE_flt;
-				cst->val.fval = (flt) cst->val.dval;
-			}
 		}
 		if (*s == '@') {
 			int len = (int) sizeof(lng);
@@ -644,7 +627,7 @@ handleInts:
  * The type variable are defined within the context of a function
  * scope.
  * Additional information, such as a repetition factor,
- * encoding tables, or type dependency should be modelled as properties.
+ * encoding tables, or type dependency should be modeled as properties.
  */
 static int
 typeAlias(Client cntxt, int tpe)
@@ -697,7 +680,7 @@ parseTypeId(Client cntxt, int defaultType)
 	int i = TYPE_any, ht, tt, kh = 0, kt = 0;
 	char *s = CURRENT(cntxt);
 
-	if (strncmp(s, ":bat[", 5) == 0) {
+	if (s[0] == ':' && s[1] == 'b' && s[2] == 'a' && s[3] == 't' && s[4] == '[') {
 		/* parse :bat[:type,:type] */
 		advance(cntxt, 5);
 		if (currChar(cntxt) == ':') {
@@ -730,12 +713,15 @@ parseTypeId(Client cntxt, int defaultType)
 		skipSpace(cntxt);
 		return i;
 	}
-	if ((strncmp(s, ":bat", 4) == 0 ||
-		 strncmp(s, ":BAT", 4) == 0) && !idCharacter[(int) s[4]]) {
+	if (s[0] == ':' && 
+	   ((s[1] == 'b' && s[2] == 'a' && s[3] == 't')  || 
+	    (s[1] == 'B' && s[2] == 'A' && s[3] == 'T')) && 
+	   !idCharacter[(int) s[4]]) {
 		advance(cntxt, 4);
 		return TYPE_bat;
 	}
-	if (strncmp(s, ":col", 4) == 0 && !idCharacter[(int) s[4]]) {
+	if (s[0] == ':' && s[1] == 'c' && s[2] == 'o' && s[3] == 'l' &&
+	   !idCharacter[(int) s[4]]) {
 		/* parse default for :col[:any] */
 		advance(cntxt, 4);
 		return newColumnType(TYPE_any);
@@ -846,6 +832,9 @@ propList(Client cntxt, int arg)
 						if( msg) GDKfree(msg);
 					} else
 						parseError(cntxt, "simple type expected\n");
+				} else if (cst.vtype == TYPE_dbl && cst.val.dval > FLT_MIN && cst.val.dval <= FLT_MAX) {
+					cst.vtype = TYPE_flt;
+					cst.val.fval = (flt) cst.val.dval;
 				}
 				varSetProperty(curBlk, arg, pname, opname, &cst);
 			} else {
@@ -926,9 +915,14 @@ term(Client cntxt, MalBlkPtr curBlk, InstrPtr *curInstr, int ret)
 	malType tpe = TYPE_any;
 
 	if ((i = cstToken(cntxt, &cst))) {
+		advance(cntxt, i);
+		if (currChar(cntxt) != ':' && cst.vtype == TYPE_dbl && cst.val.dval > FLT_MIN && cst.val.dval <= FLT_MAX) {
+			cst.vtype = TYPE_flt;
+			cst.val.fval = (flt) cst.val.dval;
+		}
 		cstidx = fndConstant(curBlk, &cst, MAL_VAR_WINDOW);
 		if (cstidx >= 0) {
-			advance(cntxt, i);
+
 			if (currChar(cntxt) == ':') {
 				tpe = typeElm(cntxt, getVarType(curBlk, cstidx));
 				if (tpe < 0)
@@ -953,7 +947,6 @@ term(Client cntxt, MalBlkPtr curBlk, InstrPtr *curInstr, int ret)
 			return ret;
 		} else {
 			/* add a new constant */
-			advance(cntxt, i);
 			flag = currChar(cntxt) == ':';
 			tpe = typeElm(cntxt, cst.vtype);
 			if (tpe < 0)
@@ -1220,7 +1213,7 @@ fcnHeader(Client cntxt, int kind)
 			cntxt->curprg = cntxt->backup;
 			cntxt->backup = 0;
 		}
-		parseError(cntxt, "<module> not defined\n");
+		parseError(cntxt, "<module> name not defined\n");
 		return curBlk;
 	}
 
@@ -1392,6 +1385,7 @@ parseCommandPattern(Client cntxt, int kind)
 	Symbol curPrg = 0;
 	InstrPtr curInstr = 0;
 	str modnme = NULL;
+	size_t l = 0;
 
 	curBlk = fcnHeader(cntxt, kind);
 	if (curBlk == NULL) 
@@ -1406,8 +1400,10 @@ parseCommandPattern(Client cntxt, int kind)
 		return (MalBlkPtr) parseError(cntxt, "<module> not defined\n");
 	modnme = modnme ? modnme : cntxt->nspace->name;
 
-	if (isModuleDefined(cntxt->nspace, putName(modnme, strlen(modnme))))
-		insertSymbol(findModule(cntxt->nspace, putName(modnme, strlen(modnme))), curPrg);
+	l = strlen(modnme);
+	modnme = putName(modnme, l);
+	if (isModuleDefined(cntxt->nspace, modnme))
+		insertSymbol(findModule(cntxt->nspace, modnme), curPrg);
 	else
 		return (MalBlkPtr) parseError(cntxt, "<module> not found\n");
 	trimMalBlk(curBlk);
@@ -1442,7 +1438,7 @@ parseCommandPattern(Client cntxt, int kind)
 		if (getModuleId(curInstr))
 			setModuleId(curInstr, NULL);
 		setModuleScope(curInstr,
-				findModule(cntxt->nspace, putName(modnme, strlen(modnme))));
+				findModule(cntxt->nspace, modnme));
 		curInstr->fcn = getAddress(cntxt->fdout, cntxt->srcFile, modnme, nme, TRUE);
 		curBlk->binding = nme;
 		if (cntxt->nspace->isAtomModule) {
@@ -1461,6 +1457,10 @@ parseCommandPattern(Client cntxt, int kind)
 	showErrors(cntxt);
 	if (curBlk && cntxt->listing > 1)
 		printFunction(cntxt->fdout, curBlk, 0, cntxt->listing);
+#ifdef HAVE_HGE
+	if (!have_hge)
+		have_hge = strcmp(modnme, "calc") == 0 && strcmp(getFunctionId(curInstr), "hge") == 0;
+#endif
 	return curBlk;
 }
 
@@ -2038,7 +2038,7 @@ parseMAL(Client cntxt, Symbol curPrg, int skipcomments)
  * If no lookahead character is a used and the next character is a newline,
  * we should also copy the input.
  */
-str
+static str
 parseError(Client cntxt, str msg)
 {
 	Symbol curPrg;

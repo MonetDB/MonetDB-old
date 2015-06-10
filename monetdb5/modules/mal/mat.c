@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -162,7 +151,7 @@ MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		/* allocate enough space for the strings */
 		if ( b->T->vheap && bn->T->vheap ){
 			newsize =  b->T->vheap->size * pieces;
-			if (HEAPextend(bn->T->vheap, newsize, TRUE) < 0)
+			if (HEAPextend(bn->T->vheap, newsize, TRUE) != GDK_SUCCEED)
 				throw(MAL, "mat.pack", MAL_MALLOC_FAIL);
 		}
 		BATseqbase(bn, b->H->seq);
@@ -170,6 +159,7 @@ MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		BATappend(bn,b,FALSE);
 		assert(!bn->H->nil || !bn->H->nonil);
 		assert(!bn->T->nil || !bn->T->nonil);
+		bn->H->align = (pieces-1);
 		BBPkeepref(*ret = bn->batCacheid);
 		BBPunfix(b->batCacheid);
 	} else {
@@ -182,6 +172,9 @@ MATpackIncrement(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 				BATseqbase(BATmirror(b), bb->T->seq);
 			BATappend(b,bb,FALSE);
 		}
+		b->H->align--;
+		if(b->H->align == 0)
+			BATsetaccess(b, BAT_READ);
 		assert(!b->H->nil || !b->H->nonil);
 		assert(!b->T->nil || !b->T->nonil);
 		BBPkeepref(*ret = b->batCacheid);
@@ -354,7 +347,7 @@ MATpack2Internal(MalStkPtr stk, InstrPtr p)
 		cap += BATcount(b);
 		BBPunfix(b->batCacheid);
 	}
-	if (BATextend(bn, cap) == GDK_FAIL) {
+	if (BATextend(bn, cap) != GDK_SUCCEED) {
 		BBPunfix(bn->batCacheid);
 		throw(MAL, "mat.pack", RUNTIME_OBJECT_MISSING);
 	}
@@ -551,12 +544,9 @@ MATproject_any( BAT *map, BAT **bats, int len )
 	batsT = (BUN*)GDKmalloc(sizeof(BUN) * len);
 	bats_i = (BATiter*)GDKmalloc(sizeof(BATiter) * len);
 	if (res == NULL || batsT == NULL || bats_i == NULL) {
-		if (res)
-			BBPreclaim(res);
-		if (batsT)
-			GDKfree(batsT);
-		if (bats_i)
-			GDKfree(bats_i);
+		BBPreclaim(res);
+		GDKfree(batsT);
+		GDKfree(bats_i);
 		return NULL;
 	}
 	BATseqbase(res, map->hseqbase);
@@ -585,10 +575,8 @@ MATproject_bte( BAT *map, BAT **bats, int len, int ttpe )
 	res = BATnew(TYPE_void, ttpe, cnt, TRANSIENT);
 	batsT = (bte**)GDKmalloc(sizeof(bte*) * len);
 	if (res == NULL || batsT == NULL) {
-		if (res)
-			BBPreclaim(res);
-		if (batsT)
-			GDKfree(batsT);
+		BBPreclaim(res);
+		GDKfree(batsT);
 		return NULL;
 	}
 	BATseqbase(res, map->hseqbase);
@@ -616,10 +604,8 @@ MATproject_sht( BAT *map, BAT **bats, int len, int ttpe )
 	res = BATnew(TYPE_void, ttpe, cnt, TRANSIENT);
 	batsT = (sht**)GDKmalloc(sizeof(sht*) * len);
 	if (res == NULL || batsT == NULL) {
-		if (res)
-			BBPreclaim(res);
-		if (batsT)
-			GDKfree(batsT);
+		BBPreclaim(res);
+		GDKfree(batsT);
 		return NULL;
 	}
 	BATseqbase(res, map->hseqbase);
@@ -647,10 +633,8 @@ MATproject_int( BAT *map, BAT **bats, int len, int ttpe )
 	res = BATnew(TYPE_void, ttpe, cnt, TRANSIENT);
 	batsT = (int**)GDKmalloc(sizeof(int*) * len);
 	if (res == NULL || batsT == NULL) {
-		if (res)
-			BBPreclaim(res);
-		if (batsT)
-			GDKfree(batsT);
+		BBPreclaim(res);
+		GDKfree(batsT);
 		return NULL;
 	}
 	BATseqbase(res, map->hseqbase);
@@ -678,10 +662,8 @@ MATproject_lng( BAT *map, BAT **bats, int len, int ttpe )
 	res = BATnew(TYPE_void, ttpe, cnt, TRANSIENT);
 	batsT = (lng**)GDKmalloc(sizeof(lng*) * len);
 	if (res == NULL || batsT == NULL) {
-		if (res)
-			BBPreclaim(res);
-		if (batsT)
-			GDKfree(batsT);
+		BBPreclaim(res);
+		GDKfree(batsT);
 		return NULL;
 	}
 	BATseqbase(res, map->hseqbase);
@@ -710,10 +692,8 @@ MATproject_hge( BAT *map, BAT **bats, int len, int ttpe )
 	res = BATnew(TYPE_void, ttpe, cnt, TRANSIENT);
 	batsT = (hge**)GDKmalloc(sizeof(hge*) * len);
 	if (res == NULL || batsT == NULL) {
-		if (res)
-			BBPreclaim(res);
-		if (batsT)
-			GDKfree(batsT);
+		BBPreclaim(res);
+		GDKfree(batsT);
 		return NULL;
 	}
 	BATseqbase(res, map->hseqbase);
@@ -900,7 +880,7 @@ MATsortloop_rev( bte *map_res, BAT *i1, bte *map_i1, BUN cnt_i1, BAT *i2, bte ma
 	BUN end_i2 = val_i2 + cnt_i2;
 	BATiter bi_i1 = bat_iterator(i1); 
 	BATiter bi_i2 = bat_iterator(i2);
-	int (*cmp) (const void *, const void *) = BATatoms[i1->ttype].atomCmp;
+	int (*cmp) (const void *, const void *) = ATOMcompare(i1->ttype);
 	BAT *res = BATnew(TYPE_void, i1->ttype, cnt_i1 + cnt_i2, TRANSIENT);
 
 	if (res == NULL)
@@ -960,7 +940,7 @@ MATsortloop_( bte *map_res, BAT *i1, bte *map_i1, BUN cnt_i1, BAT *i2, bte map_i
 	BUN end_i2 = val_i2 + cnt_i2;
 	BATiter bi_i1 = bat_iterator(i1); 
 	BATiter bi_i2 = bat_iterator(i2);
-	int (*cmp) (const void *, const void *) = BATatoms[i1->ttype].atomCmp;
+	int (*cmp) (const void *, const void *) = ATOMcompare(i1->ttype);
 	BAT *res = BATnew(TYPE_void, i1->ttype, cnt_i1 + cnt_i2, TRANSIENT);
 
 	if (res == NULL)

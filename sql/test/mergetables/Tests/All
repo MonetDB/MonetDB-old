@@ -5,7 +5,12 @@ mergequery
 emptymergequery
 alter
 types
+doubletable
 forex
+forex1
 mergedrop
-mergekey 
+mergekey
 crash0
+mergedropcrash
+mergedrop1
+mergedrop2

@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -337,9 +326,9 @@ VIEWcreate_(BAT *h, BAT *t, int slice_view)
 		bn->T->hash = NULL;
 	else
 		bn->T->hash = t->T->hash;
-	/* imprints can and must be shared */
-	bn->H->imprints = h->H->imprints;
-	bn->T->imprints = t->T->imprints;
+	/* imprints are shared, but the check is dynamic */
+	bn->H->imprints = NULL;
+	bn->T->imprints = NULL;
 	BBPcacheit(bs, 1);	/* enter in BBP */
 	/* View of VIEW combine, ie we need to fix the head of the mirror */
 	if (vc) {
@@ -452,7 +441,7 @@ BATmaterializeh(BAT *b)
 	IMPSdestroy(b);
 
 	b->H->heap.filename = NULL;
-	if (HEAPalloc(&b->H->heap, cnt, sizeof(oid)) < 0) {
+	if (HEAPalloc(&b->H->heap, cnt, sizeof(oid)) != GDK_SUCCEED) {
 		b->H->heap = head;
 		return GDK_FAIL;
 	}
@@ -495,7 +484,7 @@ BATmaterializet(BAT *b)
 gdk_return
 BATmaterialize(BAT *b)
 {
-	if (BATmaterializeh(b) == GDK_FAIL)
+	if (BATmaterializeh(b) != GDK_SUCCEED)
 		return GDK_FAIL;
 	return BATmaterializet(b);
 }
@@ -608,7 +597,7 @@ VIEWreset(BAT *b)
 			if (head.filename == NULL)
 				goto bailout;
 			snprintf(head.filename, nmelen + 12, "%s.head", nme);
-			if (n->htype && HEAPalloc(&head, cnt, Hsize(n)) < 0)
+			if (n->htype && HEAPalloc(&head, cnt, Hsize(n)) != GDK_SUCCEED)
 				goto bailout;
 		}
 		if (n->ttype) {
@@ -616,7 +605,7 @@ VIEWreset(BAT *b)
 			if (tail.filename == NULL)
 				goto bailout;
 			snprintf(tail.filename, nmelen + 12, "%s.tail", nme);
-			if (n->ttype && HEAPalloc(&tail, cnt, Tsize(n)) < 0)
+			if (n->ttype && HEAPalloc(&tail, cnt, Tsize(n)) != GDK_SUCCEED)
 				goto bailout;
 		}
 		if (n->H->vheap) {
@@ -625,7 +614,7 @@ VIEWreset(BAT *b)
 			if (hh.filename == NULL)
 				goto bailout;
 			snprintf(hh.filename, nmelen + 12, "%s.hheap", nme);
-			if (ATOMheap(n->htype, &hh, cnt) < 0)
+			if (ATOMheap(n->htype, &hh, cnt) != GDK_SUCCEED)
 				goto bailout;
 		}
 		if (n->T->vheap) {
@@ -634,7 +623,7 @@ VIEWreset(BAT *b)
 			if (th.filename == NULL)
 				goto bailout;
 			snprintf(th.filename, nmelen + 12, "%s.theap", nme);
-			if (ATOMheap(n->ttype, &th, cnt) < 0)
+			if (ATOMheap(n->ttype, &th, cnt) != GDK_SUCCEED)
 				goto bailout;
 		}
 
@@ -735,8 +724,7 @@ VIEWreset(BAT *b)
 	}
 	return GDK_SUCCEED;
       bailout:
-	if (v != NULL)
-		BBPreclaim(v);
+	BBPreclaim(v);
 	if (n != NULL)
 		BBPunfix(n->batCacheid);
 	HEAPfree(&head, 0);

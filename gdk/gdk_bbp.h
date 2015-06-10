@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #ifndef _GDK_BBP_H_
@@ -70,13 +59,12 @@ gdk_export int BBPout;		/* BATs swapped out of BBP */
 gdk_export bat getBBPsize(void); /* current occupied size of BBP array */
 
 /* global calls */
-gdk_export int BBPdir(int cnt, bat *subcommit);
 gdk_export void BBPaddfarm(const char *dirname, int rolemask);
 
 /* update interface */
 gdk_export void BBPclear(bat bid);
 gdk_export int BBPreclaim(BAT *b);
-gdk_export int BBPsave(BAT *b);
+gdk_export gdk_return BBPsave(BAT *b);
 gdk_export int BBPrename(bat bid, const char *nme);
 
 /* query interface */
@@ -84,7 +72,7 @@ gdk_export bat BBPindex(const char *nme);
 gdk_export BAT *BBPdescriptor(bat b);
 
 /* swapping interface */
-gdk_export int BBPsync(int cnt, bat *subcommit);
+gdk_export gdk_return BBPsync(int cnt, bat *subcommit);
 gdk_export int BBPincref(bat b, int logical);
 gdk_export void BBPkeepref(bat i);
 gdk_export int BBPdecref(bat b, int logical);
