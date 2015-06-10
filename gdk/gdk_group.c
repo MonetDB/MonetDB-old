@@ -327,30 +327,6 @@
 	} while (0)
 #endif
 
-/* Count number of 1 bits in the argument.
- * The algorithm comes from Henry S. Warren, Jr., Hacker's Delight,
- * 2nd Edition, page 82. */
-static inline int
-pop(BUN n)
-{
-#if SIZEOF_BUN == 4
-	n -= (n >> 1) & 0x55555555;
-	n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
-	n = (n + (n >> 4)) & 0x0F0F0F0F;
-	n += n >> 8;
-	n += n >> 16;
-	return (int) (n & 0x3F);
-#else
-	n -= (n >> 1) & 0x5555555555555555;
-	n = (n & 0x3333333333333333) + ((n >> 2) & 0x3333333333333333);
-	n = (n + (n >> 4)) & 0x0F0F0F0F0F0F0F0F;
-	n += n >> 8;
-	n += n >> 16;
-	n += n >> 32;
-	return (int) (n & 0x7F);
-#endif
-}
-
 #define GRP_create_partial_hash_table(INIT_0,INIT_1,HASH,COMP)		\
 	do {								\
 		INIT_0;							\
@@ -383,7 +359,7 @@ pop(BUN n)
 					hb = HASHnil(hs);		\
 				}					\
 			} else if (grps) {				\
-				prb = (prb ^ (BUN) grps[p-r] << bits) & hs->mask; \
+				prb = (prb ^ (BUN) grps[p-r]) & hs->mask; \
 				for (hb = HASHget(hs, 0, prb);		\
 				     hb != HASHnil(hs);			\
 				     hb = HASHgetlink(hs, hb)) {	\
@@ -909,7 +885,6 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		size_t nmelen;
 		Heap *hp = NULL;
 		BUN prb;
-		int bits = 0;
 
 		/* not sorted, and no pre-existing hash table: we'll
 		 * build an incomplete hash table on the fly--also see
@@ -943,12 +918,6 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 			GDKerror("BATgroup: cannot allocate hash table\n");
 			goto error;
 		}
-
-		/* when combining value and group-id hashes,
-		 * we left-shift one of them by half the hash-mask width
-		 * to better spread bits and use the entire hash-mask,
-		 * and thus reduce collisions */
-		bits = pop(hs->mask) >> 1;
 
 		gn->tsorted = 1; /* be optimistic */
 
