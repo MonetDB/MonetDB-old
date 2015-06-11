@@ -60,7 +60,7 @@ address SQLprecommit
 comment "Pre-commit changes, writing them only to the WAL.";
 pattern persistcommit(id:lng)
 address SQLpersistcommit
-comment "Persists per-committed changes, writing them to certain BATs.";
+comment "Persists the per-committed changes, rolling-forward the transaction.";
 
 pattern catalog(type:int,sname:str,name:str,action:int):void
 address SQLcatalog
