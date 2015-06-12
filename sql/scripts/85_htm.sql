@@ -4,8 +4,8 @@
 --
 -- Copyright 2008-2015 MonetDB B.V.
 
-CREATE FUNCTION precommit(id bigint) RETURNS STRING
+CREATE PROCEDURE precommit(id bigint)
 	EXTERNAL name sql.precommit;
 
-CREATE FUNCTION persistcommit(id bigint) RETURNS STRING
+CREATE PROCEDURE persistcommit(id bigint)
 	EXTERNAL name sql.persistcommit;
