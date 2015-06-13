@@ -1358,7 +1358,7 @@ void HeartbeatCPUload(void *arg)
 	int n=0;  /*number of idle cores*/
 	double N=0;  /*number of busy cores*/
 	FILE *ofp;
-        char *outputFilename1 = "/scratch/petraki/experiments_sigmod_2014/vectorized_parallel_cracking_analysis/threads_vectorsize/columns_10/holistic/time.txt";
+        char *outputFilename1 = getenv("WORKERS_TIME");
         struct timeval t0,t1;
         double elapsedTime;
 	void (*IdleFunc)(void *) = arg;
