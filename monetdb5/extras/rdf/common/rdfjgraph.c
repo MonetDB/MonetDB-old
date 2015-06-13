@@ -52,7 +52,7 @@ jgraph* initJGraph(void){
 	return jg; 
 }
 
-void addJGnode(int *vid, jgraph *jg, void *data, int subjgId, JNodeT t){
+void addJGnode(int *vid, jgraph *jg, void *data, int subjgId, oid _soid, JNodeT t){
 
 	jgnode *node = (jgnode *) malloc(sizeof(jgnode)); 
 	node->vid = jg->nNode; 
@@ -64,6 +64,7 @@ void addJGnode(int *vid, jgraph *jg, void *data, int subjgId, JNodeT t){
 	node->subjgId = subjgId; 
 	node->patternId = -1; 
 	node->ijpatternId = -1;
+	node->soid = _soid; 
 	node->type = t;
 	
 	jg->lstnodes[jg->nNode] = node; 
@@ -204,7 +205,7 @@ void buildExampleJGraph(void){
 	jgraph *jg = initJGraph(); 
 
 	for (i = 0; i < 5; i++){
-		addJGnode(&tmpid, jg, NULL, 0, JN_REQUIRED); 
+		addJGnode(&tmpid, jg, NULL, 0, BUN_NONE,  JN_REQUIRED); 
 	}
 	add_undirectedJGedge(0, 1, op_join, jg, NULL, JP_NAV, -1, -1); 
 	add_undirectedJGedge(0, 3, op_join, jg, NULL, JP_NAV, -1, -1); 

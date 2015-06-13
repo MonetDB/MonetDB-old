@@ -154,6 +154,8 @@ void addRelationsToJG(mvc *sql, sql_rel *rel, int depth, jgraph *jg){
  * Get the table from rdf schema
  * */
 
+static void get_predicate_from_exps(mvc *c, list *tmpexps, char **prop, char **subj, int get_subject_only);
+
 static
 sql_table* get_rdf_table(mvc *c, char *tblname){
 	sql_table *tbl = NULL; 
@@ -467,6 +469,30 @@ int* get_crossedge_apply_orders(jgraph *jg, jgedge **lstEdges, int num){
 
 	return orders; 
 }
+
+static
+void _add_jg_node(mvc *c, jgraph *jg, sql_rel *rel, int subjgId, JNodeT t){
+	int tmpvid = -1;
+	str subj = NULL; 
+	oid soid = BUN_NONE; 
+
+	//Set subject oid if it is there
+	if (rel->op==op_select){
+		//Check whether there is constrainst on s_oid
+		list *exps = rel->exps; 
+
+		if (exps){
+			get_predicate_from_exps(c, exps, NULL, &subj, 1);
+		}
+		if (subj){
+			SQLrdfstrtoid(&soid, &subj);
+			assert (soid != BUN_NONE); 
+		}
+	}
+
+	addJGnode(&tmpvid, jg, rel, subjgId, soid, t);
+}
+
 /*
  * Algorithm for adding sql rels to Join Graph
  *
@@ -480,7 +506,6 @@ int* get_crossedge_apply_orders(jgraph *jg, jgedge **lstEdges, int num){
  * */
 static
 void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *jg, int new_subjg, int *subjgId, int *level, int tmp_level, sql_rel **node_root){
-	int tmpvid =-1; 
 
 	switch (rel->op) {
 		case op_right:
@@ -509,7 +534,7 @@ void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *
 					*level = tmp_level; 
 					 *node_root = parent; 
 				}
-				addJGnode(&tmpvid, jg, (sql_rel *) rel, *subjgId, JN_REQUIRED); 
+				_add_jg_node(c, jg, (sql_rel *) rel, *subjgId, JN_REQUIRED);
 			}
 			else{	//This is the connect to a new join sg
 				addRelationsToJG(c, rel, rel->l, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root);
@@ -521,7 +546,7 @@ void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *
 				*level = tmp_level;
 				*node_root = parent;
 			}
-			addJGnode(&tmpvid, jg, (sql_rel *) rel, *subjgId, JN_REQUIRED);
+			_add_jg_node(c, jg, (sql_rel *) rel, *subjgId, JN_REQUIRED);
 			break;
 		default:
 			printf("[%s]\n", op2string(rel->op)); 
@@ -697,6 +722,19 @@ void get_jp(str pred1, str pred2, JP *jp){
 	
 }
 
+static
+int have_same_subj(jgraph *jg, int from, int to){
+
+	jgnode *fromnode, *tonode; 
+	
+	fromnode = jg->lstnodes[from];
+	tonode = jg->lstnodes[to]; 
+	
+	if ((fromnode->soid != BUN_NONE) && (fromnode->soid == tonode->soid)) return 1; 
+
+	else return 0; 
+}
+
 /*
  * Input: sql_rel with op == op_join, op_left or op_right
  * */
@@ -708,6 +746,11 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 
 	assert(rel->op == op_join || rel->op == op_left || rel->op == op_right); 
 	tmpexps = rel->exps;
+	
+	if (rel->op == op_left){
+		printf("Add Join Edge via LEFT JOIN: \n");
+	}
+
 	if (tmpexps){
 		node *en; 
 
@@ -751,6 +794,7 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 				//TODO: Handle other cases
 				int tmpCond; 
 				int from, to; 
+				JP tmpjg = JP_NAV; 
 				assert(tmpexp->l); 
 				assert(atom_type(tmpexp->l)->type->localtype != TYPE_ptr);
 				tmpCond = (int) atom_get_int(tmpexp->l); 
@@ -759,8 +803,11 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 					printf("Join (condition 1) between %s and %s\n", rel_name((sql_rel*) rel->l), rel_name((sql_rel *)rel->r)); 
 					from = rname_to_nodeId(nm,  rel_name((sql_rel*) rel->l));
 					to = rname_to_nodeId(nm,  rel_name((sql_rel*) rel->r));	
-					if (rel->op == op_join) add_undirectedJGedge(from, to, rel->op, jg, rel, JP_NAV, rel_id, p_rel_id);
-					else if (rel->op == op_left)	add_directedJGedge(from, to, op_left, jg, rel, JP_NAV, rel_id, p_rel_id);
+					if (have_same_subj(jg, from, to) == 1){
+						tmpjg = JP_S; 
+					}
+					if (rel->op == op_join) add_undirectedJGedge(from, to, rel->op, jg, rel, tmpjg, rel_id, p_rel_id);
+					else if (rel->op == op_left)	add_directedJGedge(from, to, op_left, jg, rel, tmpjg, rel_id, p_rel_id);
 					else assert(0);	//Other case is not handled yet
 					
 					printf("From: %d To %d\n", from, to); 
@@ -774,13 +821,33 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 		}
 		printf("\n\n\n"); 
 	}
+	else{
+		str relname1; 
+		str relname2;
+		int from, to;
+		JP tmpjp = JP_S;
+
+		relname1 = rel_name((sql_rel*) rel->l);
+		relname2 = rel_name((sql_rel*) rel->r);
+
+		printf("CROSS PRODUCT HERE between %s and %s\n", relname1, relname2); 
+
+		assert (rel->op == op_join); 
+
+		from = rname_to_nodeId(nm, relname1); 
+		to = rname_to_nodeId(nm, relname2); 
+
+		if (have_same_subj(jg, from, to) == 1){
+			printf("Connect to nodes having known subjects\n"); 
+			add_undirectedJGedge(from, to, rel->op, jg, rel, tmpjp, rel_id, p_rel_id);
+		}
+	}
 
 }
 
 
 static
 void addJoinEdgesToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *jg, int new_subjg, int *subjgId, nMap *nm, char **isConnect, int *last_rel_join_id, int p_rel_id, int *level, int tmp_level, sql_rel **edge_root){
-	//int tmpvid =-1; 
 	int tmp_r_id; 
 
 	switch (rel->op) {
@@ -929,18 +996,14 @@ void _detect_star_pattern(jgraph *jg, jgnode *node, int pId, int _optm){
 	//and the to_node does not belong to
 	//any pattern, add to the current pattern
 	
-	//Khi kiem tra xem co cung pattern khong co the dua vao 
-	//subject trong truong hop subject biet roi. 
-	//Consider query 2
-	
 	jgedge *tmpedge; 
 	tmpedge = node->first; 
 	while (tmpedge != NULL){
 		if (tmpedge->jp == JP_S){
 			int optm = _optm; 
-			int tonode_ijpatternId = node->ijpatternId;
 			jgnode *tonode = jg->lstnodes[tmpedge->to]; 
 
+			/*
 			if (tmpedge->op == op_left){ //left outer join
 				optm = 1;
 				tonode_ijpatternId++;
@@ -948,10 +1011,10 @@ void _detect_star_pattern(jgraph *jg, jgnode *node, int pId, int _optm){
 			else if (tmpedge->op == op_right){
 				assert(0); //Have not handle this case
 			}
+			*/
 
 			if (tonode->patternId == -1){
 				tonode->patternId = pId; 
-				tonode->ijpatternId = tonode_ijpatternId;
 
 				if (optm == 1) setNodeType(tonode, JN_OPTIONAL);
 
@@ -1145,7 +1208,7 @@ void extractURI_from_exp(mvc *c, char **uri, sql_exp *exp){
  *
  * */
 static 
-void get_predicate_from_exps(mvc *c, list *tmpexps, char **prop, char **subj){
+void get_predicate_from_exps(mvc *c, list *tmpexps, char **prop, char **subj, int get_subject_only){
 
 
 	node *en;
@@ -1167,8 +1230,8 @@ void get_predicate_from_exps(mvc *c, list *tmpexps, char **prop, char **subj){
 		//Check if the column name is p, then
 		//extract the input property name
 		if (strcmp(colexp->name, "p") == 0){
-
 			num_p_cond++; 
+			if (get_subject_only) continue; 	
 			extractURI_from_exp(c, prop, (sql_exp *)tmpexp->r);	
 			//In case the column name is not in the abstract table, add it
 			if (0) add_abstract_column(c, *prop);
@@ -1182,7 +1245,8 @@ void get_predicate_from_exps(mvc *c, list *tmpexps, char **prop, char **subj){
 
 	}
 
-	assert(num_p_cond == 1 && (*prop) != NULL); //Verify that there is only one p in this op_select sql_rel 
+	if (!get_subject_only)
+		assert(num_p_cond == 1 && (*prop) != NULL); //Verify that there is only one p in this op_select sql_rel 
 
 }
 
@@ -1222,7 +1286,7 @@ void extract_prop_and_subj_from_exps(mvc *c, sql_rel *r, char **prop, char **sub
 	//Get the column name by checking exps of r
 	tmpexps = r->exps;
 	if (tmpexps){
-		get_predicate_from_exps(c, tmpexps, prop, subj); 
+		get_predicate_from_exps(c, tmpexps, prop, subj, 0); 
 	}
 }
 
@@ -1898,7 +1962,7 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 
 		tmpexps = tmprel->exps;
 
-		if (tmpexps) get_predicate_from_exps(c, tmpexps, &prop, &subj);
+		if (tmpexps) get_predicate_from_exps(c, tmpexps, &prop, &subj, 0);
 
 		//After having prop, get the corresponding column name
 
@@ -2034,7 +2098,7 @@ sql_rel* build_rdfscan (mvc *c, jgraph *jg, int tId, int ncol, int nijgroup, int
 
 			tmpexps = tmprel->exps;
 
-			if (tmpexps) get_predicate_from_exps(c, tmpexps, &prop, &subj);
+			if (tmpexps) get_predicate_from_exps(c, tmpexps, &prop, &subj, 0);
 
 			//After having prop, get the corresponding column name
 
@@ -2424,6 +2488,48 @@ void get_union_expr(mvc *c, sql_rel *r, list *union_exps){
 
 
 }
+
+static 
+void _generate_ijpatternId(jgraph *jg, jgnode *node, int ijpId){
+	jgedge *tmpedge;
+	tmpedge = node->first;
+	while (tmpedge != NULL){
+		if (tmpedge->jp == JP_S){
+			jgnode *tonode = jg->lstnodes[tmpedge->to];
+			assert(tonode->patternId == node->patternId); 
+			if (tmpedge->op == op_join){
+				if (tonode->ijpatternId == -1) tonode->ijpatternId = ijpId;
+				else{
+					assert (tonode->ijpatternId == ijpId); 
+				}
+			}
+		}
+		tmpedge = tmpedge->next;
+	}
+}
+/*
+ * Generate ijpatternId for each node in a
+ * star pattern.
+ * Algorithm: 
+ * All nodes connected by inner join belong to the same ijgroup
+ * */
+static
+void generate_ijpatternId(jgraph *jg, int *group, int nnode){
+	int i; 
+	int ijpId = -1; 
+	for (i = 0; i < nnode; i++){
+		int idx = group[i]; 
+		jgnode *node = jg->lstnodes[idx]; 
+		if (node->ijpatternId == -1){
+			ijpId++; 
+			node->ijpatternId = ijpId; 
+			_generate_ijpatternId(jg, node, ijpId); 
+		}
+	
+	}
+	
+	printf("Number of ijgroup is: %d\n", (ijpId + 1)); 
+}
 /*
  * Create a select sql_rel from a star pattern
  * */
@@ -2445,6 +2551,8 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 	(void) jg; 
 
 	printf("Group %d contain %d nodes: ", pId, nnode); 
+
+	generate_ijpatternId(jg, group, nnode); 
 
 	//Check whether all nodes are SELECT nodes 
 	for (i = 0; i < nnode; i++){
@@ -2509,8 +2617,8 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 			sql_rel **edge_ijrels;  //sql_rel connecting each pair of ijrels
 			int is_contain_mv = 0; 
 			sql_rel *rel_rdfscan = NULL; 
-			int *ingroup_contain_mv = NULL;
-			sql_rel *tmprel_rdfscan = NULL; 
+
+			int *ingroup_contain_mv = NULL; sql_rel *tmprel_rdfscan = NULL; 
 
 			sp_proj_exps[tblIdx] = new_exp_list(c->sa);
 			sp_rdfscan_proj_exps[tblIdx] = new_exp_list(c->sa);
@@ -2770,7 +2878,6 @@ void detect_star_pattern(jgraph *jg, int *numsp){
 		if (node->patternId == -1){
 			pId++;
 			node->patternId = pId; 
-			node->ijpatternId = 0; 
 			optionalMode = 0;
 			_detect_star_pattern(jg, node, pId, optionalMode); 	
 		}
