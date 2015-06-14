@@ -31,12 +31,12 @@ lib_gdk = {
 		gdk_unique.c \
 		gdk_firstn.c \
 		bat.feps bat1.feps bat2.feps \
-		libbat.rc
+		libbat.rc shared_memory.h shared_memory.c
 	LIBS = ../common/options/libmoptions \
 		../common/stream/libstream \
 		../common/utils/libmutils \
 		$(MATH_LIBS) $(SOCKET_LIBS) $(zlib_LIBS) $(BZ_LIBS) \
-		$(MALLOC_LIBS) $(PTHREAD_LIBS) $(DL_LIBS) $(PSAPILIB) $(KVM_LIBS)
+		$(MALLOC_LIBS) $(PTHREAD_LIBS) $(DL_LIBS) $(PSAPILIB) $(KVM_LIBS) 
 }
 
 headers_h = {

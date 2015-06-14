@@ -47,6 +47,7 @@
 #include "monetdb_config.h"
 #include "gdk.h"
 #include "gdk_private.h"
+#include "shared_memory.h"
 
 static void *
 HEAPcreatefile(int farmid, size_t *maxsz, const char *fn)
@@ -560,7 +561,11 @@ HEAPfree(Heap *h, int remove)
 		} else if (h->storage == STORE_CMEM) {
 			//heap is stored in regular C memory rather than GDK memory
 			free(h->base);
-		} else {	/* mapped file, or STORE_PRIV */
+		} else if (h->storage == STORE_SHARED)
+		{
+			release_shared_memory(h->base);
+		}
+		else {	/* mapped file, or STORE_PRIV */
 			gdk_return ret = GDKmunmap(h->base, h->size);
 
 			if (ret != GDK_SUCCEED) {

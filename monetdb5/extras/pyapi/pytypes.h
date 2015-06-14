@@ -18,7 +18,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 
- #include <Python.h>
+#undef _GNU_SOURCE
+#undef _XOPEN_SOURCE
+#undef _POSIX_C_SOURCE
+#include <Python.h>
 
 //! Returns true if a NPY_#type is an integral type, and false otherwise
 bool PyType_IsInteger(int);

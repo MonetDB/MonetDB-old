@@ -26,20 +26,28 @@
 #include "unicode.h"
 #include "pytypes.h"
 #include "type_conversion.h"
+#include "shared_memory.h"
 
 //#define _PYAPI_VERBOSE_
 #define _PYAPI_DEBUG_
 
 #include <stdint.h>
 
+#include <stdio.h>
 #include <string.h>
 
-#include <semaphore.h>
+#ifdef WIN32
+
+#else
+#include <sys/types.h>
+#include <sys/wait.h>
+#endif
 
 const char* pyapi_enableflag = "embedded_py";
 
 #ifdef _PYAPI_VERBOSE_
 #define VERBOSE_MESSAGE(...) {   \
+    if (shm_id > 0) printf("%d: ", shm_id); \
     printf(__VA_ARGS__);        \
     fflush(stdout);                   \
 }
@@ -47,9 +55,45 @@ const char* pyapi_enableflag = "embedded_py";
 #define VERBOSE_MESSAGE(...) ((void) 0)
 #endif
 
+#define GDK_Alloc(var, size) { \
+    var = GDKzalloc(size);  \
+    if (var == NULL) \
+    { \
+        msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL); \
+        goto wrapup; \
+    } \
+}
+
+#define GDK_Free(var) { \
+    if (var != NULL) \
+        GDKfree(var); \
+}
+
+struct _ReturnBatDescr
+{
+    int npy_type;                        //npy type 
+    size_t element_size;                 //element size in bytes
+    size_t bat_count;                     //number of elements in bat
+    size_t bat_size;                     //bat size in bytes
+    size_t bat_start;                    //start position of bat
+    bool has_mask;                       //if the return value has a mask or not
+};
+#define ReturnBatDescr struct _ReturnBatDescr
+
+struct _PyInput{
+    void *dataptr;
+    BAT *bat;
+    int bat_type;
+    size_t count;
+    bool scalar;
+};
+#define PyInput struct _PyInput
+
 struct _PyReturn{
     PyArrayObject *numpy_array;
     PyArrayObject *numpy_mask;
+    void *array_data;
+    bool *mask_data;
     size_t count;
     size_t memory_size;
     BAT *bat_return;
@@ -65,28 +109,27 @@ int PyAPIEnabled(void) {
 
 
 // TODO: exclude pyapi from mergetable, too
-// TODO: can we call the Python interpreter in a multi-thread environment? [no]
 static MT_Lock pyapiLock;
 static MT_Lock pyapiSluice;
 static int pyapiInitialized = FALSE;
 
 #define BAT_TO_NP(bat, mtpe, nptpe)                                                                     \
-        PyArray_New(&PyArray_Type, 1, (npy_intp[1]) {BATcount(bat)},                                    \
-        nptpe, NULL, (mtpe*) Tloc(bat, BUNfirst(bat)), 0,                                               \
+        PyArray_New(&PyArray_Type, 1, (npy_intp[1]) {(t_end-t_start)},                                  \
+        nptpe, NULL, &((mtpe*) Tloc(bat, BUNfirst(bat)))[t_start], 0,                                   \
         NPY_ARRAY_CARRAY || !NPY_ARRAY_WRITEABLE, NULL);
 
-#define BAT_MMAP(bat, mtpe) {                                                                           \
+#define BAT_MMAP(bat, mtpe, batstore) {                                                                 \
         bat = BATnew(TYPE_void, TYPE_##mtpe, 0, TRANSIENT);                                             \
         BATseqbase(bat, 0); bat->T->nil = 0; bat->T->nonil = 1;                                         \
         bat->tkey = 0; bat->tsorted = 0; bat->trevsorted = 0;                                           \
         /*Change nil values to the proper values, if they exist*/                                       \
         if (mask != NULL)                                                                               \
         {                                                                                               \
-            for (j = 0; j < ret->count; j++)                                                            \
+            for (iu = 0; iu < ret->count; iu++)                                                         \
             {                                                                                           \
-                if (mask[index_offset * ret->count + j] == TRUE)                                        \
+                if (mask[index_offset * ret->count + iu] == TRUE)                                       \
                 {                                                                                       \
-                    (*(mtpe*)(&data[(index_offset * ret->count + j) * ret->memory_size])) = mtpe##_nil; \
+                    (*(mtpe*)(&data[(index_offset * ret->count + iu) * ret->memory_size])) = mtpe##_nil;\
                     bat->T->nil = 1;                                                                    \
                 }                                                                                       \
             }                                                                                           \
@@ -102,36 +145,36 @@ static int pyapiInitialized = FALSE;
         /*The entire array will be cleared when the part with index_offset=0 is freed*/                 \
         /*So we set this part of the mapping to 'NOWN'*/                                                \
         if (index_offset > 0) bat->T->heap.storage = STORE_NOWN;                                        \
-        else bat->T->heap.storage = STORE_CMEM; /*Numpy allocated the array with malloc*/               \
+        else bat->T->heap.storage = batstore;                                                           \
         bat->T->heap.newstorage = STORE_MEM;                                                            \
         bat->S->count = ret->count;                                                                     \
         bat->S->capacity = ret->count;                                                                  \
         bat->S->copiedtodisk = false;                                                                   \
                                                                                                         \
         /*Take over the data from the numpy array*/                                                     \
-        PyArray_CLEARFLAGS(ret->numpy_array, NPY_ARRAY_OWNDATA);                                        \
+        if (ret->numpy_array != NULL) PyArray_CLEARFLAGS(ret->numpy_array, NPY_ARRAY_OWNDATA);          \
     }
 
 #define NP_COL_BAT_LOOP(bat, mtpe_to, mtpe_from) {                                                                                               \
     if (mask == NULL)                                                                                                                            \
     {                                                                                                                                            \
-        for (j = 0; j < ret->count; j++)                                                                                                         \
+        for (iu = 0; iu < ret->count; iu++)                                                                                                      \
         {                                                                                                                                        \
-            ((mtpe_to*) Tloc(bat, BUNfirst(bat)))[j] = (mtpe_to)(*(mtpe_from*)(&data[(index_offset * ret->count + j) * ret->memory_size]));      \
+            ((mtpe_to*) Tloc(bat, BUNfirst(bat)))[iu] = (mtpe_to)(*(mtpe_from*)(&data[(index_offset * ret->count + iu) * ret->memory_size]));    \
         }                                                                                                                                        \
     }                                                                                                                                            \
     else                                                                                                                                         \
     {                                                                                                                                            \
-        for (j = 0; j < ret->count; j++)                                                                                                         \
+        for (iu = 0; iu < ret->count; iu++)                                                                                                      \
         {                                                                                                                                        \
-            if (mask[index_offset * ret->count + j] == TRUE)                                                                                     \
+            if (mask[index_offset * ret->count + iu] == TRUE)                                                                                    \
             {                                                                                                                                    \
                 bat->T->nil = 1;                                                                                                                 \
-                ((mtpe_to*) Tloc(bat, BUNfirst(bat)))[j] = mtpe_to##_nil;                                                                        \
+                ((mtpe_to*) Tloc(bat, BUNfirst(bat)))[iu] = mtpe_to##_nil;                                                                       \
             }                                                                                                                                    \
             else                                                                                                                                 \
             {                                                                                                                                    \
-                ((mtpe_to*) Tloc(bat, BUNfirst(bat)))[j] = (mtpe_to)(*(mtpe_from*)(&data[(index_offset * ret->count + j) * ret->memory_size]));  \
+                ((mtpe_to*) Tloc(bat, BUNfirst(bat)))[iu] = (mtpe_to)(*(mtpe_from*)(&data[(index_offset * ret->count + iu) * ret->memory_size]));\
             }                                                                                                                                    \
         }                                                                                                                                        \
     } }
@@ -140,33 +183,33 @@ static int pyapiInitialized = FALSE;
     mtpe_to value;                                                                                                                                    \
     if (mask == NULL)                                                                                                                                 \
     {                                                                                                                                                 \
-        for (j = 0; j < ret->count; j++)                                                                                                              \
+        for (iu = 0; iu < ret->count; iu++)                                                                                                           \
         {                                                                                                                                             \
-            if (!func(&data[(index_offset * ret->count + j) * ret->memory_size], ret->memory_size, &value))                                           \
+            if (!func(&data[(index_offset * ret->count + iu) * ret->memory_size], ret->memory_size, &value))                                          \
             {                                                                                                                                         \
                 msg = createException(MAL, "pyapi.eval", "Could not convert from type %s to type %s", PyType_Format(ret->result_type), #mtpe_to);     \
                 goto wrapup;                                                                                                                          \
             }                                                                                                                                         \
-            ((mtpe_to*) Tloc(bat, BUNfirst(bat)))[j] = value;                                                                                         \
+            ((mtpe_to*) Tloc(bat, BUNfirst(bat)))[iu] = value;                                                                                        \
         }                                                                                                                                             \
     }                                                                                                                                                 \
     else                                                                                                                                              \
     {                                                                                                                                                 \
-        for (j = 0; j < ret->count; j++)                                                                                                              \
+        for (iu = 0; iu < ret->count; iu++)                                                                                                           \
         {                                                                                                                                             \
-            if (mask[index_offset * ret->count + j] == TRUE)                                                                                          \
+            if (mask[index_offset * ret->count + iu] == TRUE)                                                                                         \
             {                                                                                                                                         \
                 bat->T->nil = 1;                                                                                                                      \
-                ((mtpe_to*) Tloc(bat, BUNfirst(bat)))[j] = mtpe_to##_nil;                                                                             \
+                ((mtpe_to*) Tloc(bat, BUNfirst(bat)))[iu] = mtpe_to##_nil;                                                                            \
             }                                                                                                                                         \
             else                                                                                                                                      \
             {                                                                                                                                         \
-                if (!func(&data[(index_offset * ret->count + j) * ret->memory_size], ret->memory_size, &value))                                       \
+                if (!func(&data[(index_offset * ret->count + iu) * ret->memory_size], ret->memory_size, &value))                                      \
                 {                                                                                                                                     \
                     msg = createException(MAL, "pyapi.eval", "Could not convert from type %s to type %s", PyType_Format(ret->result_type), #mtpe_to); \
                     goto wrapup;                                                                                                                      \
                 }                                                                                                                                     \
-                ((mtpe_to*) Tloc(bat, BUNfirst(bat)))[j] = value;                                                                                     \
+                ((mtpe_to*) Tloc(bat, BUNfirst(bat)))[iu] = value;                                                                                    \
             }                                                                                                                                         \
         }                                                                                                                                             \
     } }
@@ -175,24 +218,24 @@ static int pyapiInitialized = FALSE;
 #define NP_COL_BAT_STR_LOOP(bat, mtpe, conv)                                                                                                          \
     if (mask == NULL)                                                                                                                                 \
     {                                                                                                                                                 \
-        for (j = 0; j < ret->count; j++)                                                                                                              \
+        for (iu = 0; iu < ret->count; iu++)                                                                                                           \
         {                                                                                                                                             \
-            conv(utf8_string, *((mtpe*)&data[(index_offset * ret->count + j) * ret->memory_size]));                                                   \
+            conv(utf8_string, *((mtpe*)&data[(index_offset * ret->count + iu) * ret->memory_size]));                                                  \
             BUNappend(bat, utf8_string, FALSE);                                                                                                       \
         }                                                                                                                                             \
     }                                                                                                                                                 \
     else                                                                                                                                              \
     {                                                                                                                                                 \
-        for (j = 0; j < ret->count; j++)                                                                                                              \
+        for (iu = 0; iu < ret->count; iu++)                                                                                                           \
         {                                                                                                                                             \
-            if (mask[index_offset * ret->count + j] == TRUE)                                                                                          \
+            if (mask[index_offset * ret->count + iu] == TRUE)                                                                                         \
             {                                                                                                                                         \
                 bat->T->nil = 1;                                                                                                                      \
                 BUNappend(b, str_nil, FALSE);                                                                                                         \
             }                                                                                                                                         \
             else                                                                                                                                      \
             {                                                                                                                                         \
-                conv(utf8_string, *((mtpe*)&data[(index_offset * ret->count + j) * ret->memory_size]));                                               \
+                conv(utf8_string, *((mtpe*)&data[(index_offset * ret->count + iu) * ret->memory_size]));                                              \
                 BUNappend(bat, utf8_string, FALSE);                                                                                                   \
             }                                                                                                                                         \
         }                                                                                                                                             \
@@ -201,22 +244,33 @@ static int pyapiInitialized = FALSE;
 #define NP_CREATE_BAT(bat, mtpe) {                                                                                                                             \
         bool *mask = NULL;                                                                                                                                     \
         char *data = NULL;                                                                                                                                     \
-        if (ret->numpy_mask != NULL)                                                                                                                           \
+        if (ret->mask_data != NULL)                                                                                                                            \
         {                                                                                                                                                      \
-            mask = (bool*)PyArray_DATA(ret->numpy_mask);                                                                                                       \
+            mask = (bool*) ret->mask_data;                                                                                                                     \
         }                                                                                                                                                      \
-        if (ret->numpy_array == NULL)                                                                                                                          \
+        if (ret->array_data == NULL)                                                                                                                           \
         {                                                                                                                                                      \
             msg = createException(MAL, "pyapi.eval", "No return value stored in the structure.\n");                                                            \
             goto wrapup;                                                                                                                                       \
         }                                                                                                                                                      \
-        data = (char*) PyArray_DATA(ret->numpy_array);                                                                                                         \
-        if (TYPE_##mtpe == PyType_ToBat(ret->result_type) && (ret->count * ret->memory_size < BUN_MAX) && PyArray_FLAGS(ret->numpy_array) & NPY_ARRAY_OWNDATA) \
+        data = (char*) ret->array_data;                                                                                                                        \
+        if (TYPE_##mtpe == PyType_ToBat(ret->result_type) && (ret->count * ret->memory_size < BUN_MAX) &&                                                      \
+            (ret->numpy_array == NULL || PyArray_FLAGS(ret->numpy_array) & NPY_ARRAY_OWNDATA))                                                                 \
         {                                                                                                                                                      \
             /*We can only create a direct map if the numpy array type and target BAT type*/                                                                    \
             /*are identical, otherwise we have to do a conversion.*/                                                                                           \
-            VERBOSE_MESSAGE("Memory Map\n");                                                                                                                   \
-            BAT_MMAP(bat, mtpe);                                                                                                                               \
+            if (ret->numpy_array == NULL)                                                                                                                      \
+            {                                                                                                                                                  \
+                /*shared memory return*/                                                                                                                       \
+                VERBOSE_MESSAGE("Shared memory map!\n");                                                                                                       \
+                BAT_MMAP(bat, mtpe, STORE_SHARED);                                                                                                             \
+                ret->array_data = NULL;                                                                                                                        \
+            }                                                                                                                                                  \
+            else                                                                                                                                               \
+            {                                                                                                                                                  \
+                VERBOSE_MESSAGE("Memory map!\n");                                                                                                              \
+                BAT_MMAP(bat, mtpe, STORE_CMEM);                                                                                                               \
+            }                                                                                                                                                  \
         }                                                                                                                                                      \
         else                                                                                                                                                   \
         {                                                                                                                                                      \
@@ -287,17 +341,7 @@ typedef enum {
     NORMAL, SEENNL, INQUOTES, ESCAPED
 } pyapi_scan_state;
 
-
-static bool Initialized = false;
-static bool SemaphoreInitialized = false;
-static int PassedSemaphore = 0;
-static int MaxProcesses = 0;
-static int Processes = 0;
-sem_t execute_semaphore;
-
 bool PyType_IsPyScalar(PyObject *object);
-PyGILState_STATE AcquireLock(bool *holds_gil, bool first);
-void ReleaseLock(PyGILState_STATE gstate, bool *holds_gil, bool final);
 
 str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped) {
     sql_func * sqlfun = *(sql_func**) getArgReference(stk, pci, pci->retc);
@@ -318,13 +362,22 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     PyObject *pArgs, *pResult = NULL; // this is going to be the parameter tuple
     BUN p = 0, q = 0;
     BATiter li;
-    PyGILState_STATE gstate = -1;
-    bool holds_gil = FALSE;
     PyReturn *pyreturn_values = NULL;
+    PyInput *pyinput_values = NULL;
+
+#ifndef WIN32
+    bool single_fork = mapped == 1;
+    int shm_id = -1;
+    int sem_id = -1;
+    int process_id = 0;
+    int memory_size;
+    int process_count;
+#endif
 
     size_t count;
     size_t maxsize;
-    size_t j;
+    int j;
+    size_t iu;
 
     if (!PyAPIEnabled()) 
     {
@@ -334,7 +387,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     }
 
     VERBOSE_MESSAGE("PyAPI Start\n");
-
     pycalllen = strlen(exprStr) + sizeof(argnames) + 1000;
     expr_ind_len = strlen(exprStr) + 1000;
 
@@ -342,6 +394,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     expr_ind =    GDKzalloc(expr_ind_len);
     args = (str*) GDKzalloc(pci->argc * sizeof(str));
     pyreturn_values = GDKzalloc(pci->retc * sizeof(PyReturn));
+    pyinput_values = GDKzalloc((pci->argc - (pci->retc + 2)) * sizeof(PyInput));
 
     if (args == NULL || pycall == NULL || pyreturn_values == NULL) 
     {
@@ -394,7 +447,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     }
 
     {
-
         // indent every line in the expression by one level,
         // if we find newline-tab, use tab, space otherwise
         // two passes, first inserts null placeholder, second replaces
@@ -479,22 +531,243 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         goto wrapup;
     }
 
-    if (mapped)
+    //input analysis
+    for (i = pci->retc + 2; i < pci->argc; i++) 
     {
-        MT_lock_set(&pyapiSluice, "pyapi.sluice");
-        if (SemaphoreInitialized == FALSE)
+        PyInput *inp = &pyinput_values[i - (pci->retc + 2)];
+        if (!isaBatType(getArgType(mb,pci,i))) 
         {
-            MaxProcesses = 8; //todo: replace 8 with #number of processes
-            PassedSemaphore = 0;
-
-            sem_init(&execute_semaphore, 0, 0); //initialize execute semaphore
-
-            SemaphoreInitialized = TRUE;
+            inp->scalar = true;
+            inp->bat_type = getArgType(mb, pci, i);
+            inp->count = 1;
+            if (inp->bat_type == TYPE_str)
+            {
+                inp->dataptr = getArgReference_str(stk, pci, i);
+            }
+            else
+            {
+                inp->dataptr = getArgReference(stk, pci, i);
+            }
         }
-        MT_lock_unset(&pyapiSluice, "pyapi.sluice");
+        else
+        {
+            b = BATdescriptor(*getArgReference_bat(stk, pci, i));
+
+            inp->count = BATcount(b);
+            inp->bat_type = ATOMstorage(getColumnType(getArgType(mb,pci,i)));
+            inp->bat = b;
+        }
     }
 
-    gstate = AcquireLock(&holds_gil, true);
+    if (mapped)
+    {
+#ifdef WIN32
+        msg = createException(MAL, "pyapi.eval", "Please visit http://www.linux.com/directory/Distributions to download a Linux distro.\n");
+        goto wrapup;
+#else
+        lng *pids = NULL;
+        char *ptr = NULL;
+        if (single_fork)
+        {
+            process_count = 1;
+        }
+        else
+        {
+            process_count = 8;
+        }
+
+        //create initial shared memory
+        MT_lock_set(&pyapiLock, "pyapi.evaluate");
+        shm_id = get_unique_shared_memory_id(1 + pci->retc * 2); //we need 1 + pci->retc * 2 shared memory spaces, the first is for the header information, the second pci->retc * 2 is one for each return BAT, and one for each return mask array    
+        MT_lock_unset(&pyapiLock, "pyapi.evaluate");
+
+        VERBOSE_MESSAGE("Creating multiple processes.\n");
+
+        pids = GDKzalloc(sizeof(lng) * process_count);
+
+        memory_size = pci->retc * process_count * sizeof(ReturnBatDescr); //the memory size for the header files, each process has one per return value
+
+        VERBOSE_MESSAGE("Initializing shared memory.\n");
+
+        //create the shared memory for the header
+        MT_lock_set(&pyapiLock, "pyapi.evaluate");
+        ptr = create_shared_memory(shm_id, memory_size); 
+        MT_lock_unset(&pyapiLock, "pyapi.evaluate");
+        if (ptr == NULL) 
+        {
+            msg = createException(MAL, "pyapi.eval", "Failed to initialize shared memory");
+            GDKfree(pids);
+            process_id = 0;
+            goto wrapup;
+        }
+
+        if (process_count > 1)
+        {
+            //initialize cross-process semaphore, we use two semaphores
+            //the semaphores are used as follows:
+            //we set the first semaphore to process_count, and the second semaphore to 0
+            //every process first passes the first semaphore (decreasing the value), then tries to pass the second semaphore (which will block, because it is set to 0)
+            //when the final process passes the first semaphore, it checks the value of the first semaphore (which is then equal to 0)
+            //the final process will then set the value of the second semaphore to process_count, allowing all processes to pass
+
+            //this means processes will only start returning values once all the processes are finished, this is done because we want to have one big shared memory block for each return value
+            //and we can only create that block when we know how many return values there are, which we only know when all the processes have returned
+            
+            sem_id = create_process_semaphore(shm_id, 2);
+            change_semaphore_value(sem_id, 0, process_count);
+        }
+
+        VERBOSE_MESSAGE("Waiting to fork.\n");
+        //fork
+        MT_lock_set(&pyapiLock, "pyapi.evaluate");
+        VERBOSE_MESSAGE("Start forking.\n");
+        for(i = 0; i < process_count; i++)
+        {
+            if ((pids[i] = fork()) < 0)
+            {
+                msg = createException(MAL, "pyapi.eval", "Failed to fork process");
+                MT_lock_unset(&pyapiLock, "pyapi.evaluate");
+
+                if (process_count > 1) release_process_semaphore(sem_id);
+                release_shared_memory(ptr);
+                GDKfree(pids);
+
+                process_id = 0;
+                goto wrapup;
+            }
+            else if (pids[i] == 0)
+            {
+                break;
+            }
+        }
+
+        process_id = i + 1;
+        if (i == process_count)
+        {
+            //main process
+            int failedprocess = 0;
+            int current_process = process_count;
+            bool success = true;
+
+            //wait for child processes
+            MT_lock_unset(&pyapiLock, "pyapi.evaluate");
+            while(current_process > 0)
+            {
+                int status;
+                waitpid(pids[current_process - 1], &status, 0);
+                if (status != 0)
+                {
+                    failedprocess = current_process - 1;
+                    success = false;
+                }
+                current_process--;
+            }
+
+            if (!success)
+            {
+                //a child failed, get the error message from the child
+                ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[failedprocess * pci->retc + 0]);
+
+                char *err_ptr = get_shared_memory(shm_id + 1, descr->bat_size);
+                if (err_ptr != NULL)
+                {
+                    msg = createException(MAL, "pyapi.eval", "%s", err_ptr);
+                    release_shared_memory(err_ptr);
+                }
+                else
+                {
+                    msg = createException(MAL, "pyapi.eval", "Error in child process, but no exception was thrown.");
+                }
+
+                if (process_count > 1) release_process_semaphore(sem_id);
+                release_shared_memory(ptr);
+                GDKfree(pids);
+
+                process_id = 0;
+                goto wrapup;
+            }
+            VERBOSE_MESSAGE("Finished waiting for child processes.\n");
+
+            //collect return values
+            for(i = 0; i < pci->retc; i++)
+            {
+                PyReturn *ret = &pyreturn_values[i];
+                int total_size = 0;
+                bool has_mask = false;
+                ret->count = 0;
+                ret->memory_size = 0;
+                ret->result_type = 0;
+
+                //first get header information 
+                for(j = 0; j < process_count; j++)
+                {
+                    ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[j * pci->retc + i]);
+                    ret->count += descr->bat_count;
+                    total_size += descr->bat_size;
+                    if (j > 0)
+                    {
+                        //if these asserts fail the processes are returning different BAT types, which shouldn't happen
+                        assert(ret->memory_size == descr->element_size);
+                        assert(ret->result_type == descr->npy_type);
+                    }
+                    ret->memory_size = descr->element_size;
+                    ret->result_type = descr->npy_type;
+                    has_mask = has_mask || descr->has_mask;
+                }
+
+                //get the shared memory address for this return value
+                VERBOSE_MESSAGE("Parent requesting memory at id %d of size %d\n", shm_id + (i + 1), total_size);
+
+                MT_lock_set(&pyapiLock, "pyapi.evaluate");
+                ret->array_data = get_shared_memory(shm_id + (i + 1), total_size);
+                MT_lock_unset(&pyapiLock, "pyapi.evaluate");
+
+                if (ret->array_data == NULL)
+                {
+                    msg = createException(MAL, "pyapi.eval", "Shared memory does not exist.\n");
+                    if (process_count > 1) release_process_semaphore(sem_id);
+                    release_shared_memory(ptr);
+                    GDKfree(pids);
+                    goto wrapup;
+                }
+                ret->mask_data = NULL;
+                ret->numpy_array = NULL;
+                ret->numpy_mask = NULL;
+                ret->multidimensional = FALSE;
+                if (has_mask)
+                {
+                    int mask_size = ret->count * sizeof(bool);
+
+                    MT_lock_set(&pyapiLock, "pyapi.evaluate");
+                    ret->mask_data = get_shared_memory(shm_id + pci->retc + (i + 1), mask_size);
+                    MT_lock_unset(&pyapiLock, "pyapi.evaluate");
+
+                    if (ret->mask_data == NULL)
+                    {
+                        msg = createException(MAL, "pyapi.eval", "Shared memory does not exist.\n");
+                        if (process_count > 1) release_process_semaphore(sem_id);
+                        release_shared_memory(ptr);
+                        release_shared_memory(ret->array_data);
+                        GDKfree(pids);
+                        goto wrapup;
+                    }
+                }
+            }
+            msg = MAL_SUCCEED;
+        
+            if (sem_id >= 0) release_process_semaphore(sem_id);    
+            if (ptr != NULL) release_shared_memory(ptr);
+            if (pids != NULL) GDKfree(pids);
+            process_id = 0;
+
+            goto returnvalues;
+        }
+#endif
+    }
+
+    //VERBOSE_MESSAGE("Attempt to acquire GIL.\n");
+    //gstate = AcquireLock(&holds_gil);
+
 
     VERBOSE_MESSAGE("Loading data from the database into Python.\n");
 
@@ -504,63 +777,41 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     // for each input column (BAT):
     for (i = pci->retc + 2; i < pci->argc; i++) {
         PyObject *vararray = NULL;
+        PyInput *inp = &pyinput_values[i - (pci->retc + 2)];
         // turn scalars into one-valued BATs
         // TODO: also do this for Python? Or should scalar values be 'simple' variables?
-        if (!isaBatType(getArgType(mb,pci,i))) 
+        if (inp->scalar) 
         {
-
             VERBOSE_MESSAGE("- Loading a scalar of type %s (%i)\n", BatType_Format(getArgType(mb,pci,i)), getArgType(mb,pci,i));
-
-            //this is old code that converts a single input scalar into a BAT -> this is replaced by the code below, but I'll leave this here in case this might be preferable
-            //the argument is a scalar, check which scalar type it is
-            /*b = BATnew(TYPE_void, getArgType(mb, pci, i), 0, TRANSIENT);
-            if (b == NULL) {
-                msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
-                goto wrapup;
-            }
-            if ( getArgType(mb,pci,i) == TYPE_str)
-                BUNappend(b, *getArgReference_str(stk, pci, i), FALSE);
-            else
-            {
-                BUNappend(b, getArgReference(stk, pci, i), FALSE);
-            }
-            BATsetcount(b, 1);
-            BATseqbase(b, 0);
-            BATsettrivprop(b);
-        } else {
-            b = BATdescriptor(*getArgReference_bat(stk, pci, i));
-            if (b == NULL) {
-                msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
-                goto wrapup;
-            }*/
-            switch(getArgType(mb,pci,i))
+            
+            switch(inp->bat_type)
             {
                 case TYPE_bit:
-                    vararray = PyInt_FromLong((long)(*(bit*)getArgReference(stk, pci, i)));
+                    vararray = PyInt_FromLong((long)(*(bit*)inp->dataptr));
                     break;
                 case TYPE_bte:
-                    vararray = PyInt_FromLong((long)(*(bte*)getArgReference(stk, pci, i)));
+                    vararray = PyInt_FromLong((long)(*(bte*)inp->dataptr));
                     break;
                 case TYPE_sht:
-                    vararray = PyInt_FromLong((long)(*(sht*)getArgReference(stk, pci, i))); 
+                    vararray = PyInt_FromLong((long)(*(sht*)inp->dataptr)); 
                     break;
                 case TYPE_int:
-                    vararray = PyInt_FromLong((long)(*(int*)getArgReference(stk, pci, i)));
+                    vararray = PyInt_FromLong((long)(*(int*)inp->dataptr));
                     break;
                 case TYPE_lng:
-                    vararray = PyLong_FromLong((long)(*(lng*)getArgReference(stk, pci, i)));
+                    vararray = PyLong_FromLong((long)(*(lng*)inp->dataptr));
                     break;
                 case TYPE_flt:
-                    vararray = PyFloat_FromDouble((double)(*(flt*)getArgReference(stk, pci, i)));
+                    vararray = PyFloat_FromDouble((double)(*(flt*)inp->dataptr));
                     break;
                 case TYPE_dbl:
-                    vararray = PyFloat_FromDouble((double)(*(dbl*)getArgReference(stk, pci, i)));
+                    vararray = PyFloat_FromDouble((double)(*(dbl*)inp->dataptr));
                     break;
 #ifdef HAVE_HGE
                 case TYPE_hge:
                     {
                         char hex[40];
-                        const hge *t = (const hge *) getArgReference(stk, pci, i);
+                        const hge *t = (const hge *) inp->dataptr;
                         hge_to_string(hex, 40, *t);
                         //then we create a PyLong from that string by parsing it
                         vararray = PyLong_FromString(hex, NULL, 16);
@@ -568,10 +819,10 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                     break;
 #endif
                 case TYPE_str:
-                    vararray = PyUnicode_FromString(*((char**)getArgReference_str(stk, pci, i)));
+                    vararray = PyUnicode_FromString(*((char**) inp->dataptr));
                     break;
                 default:
-                    msg = createException(MAL, "pyapi.eval", "Unsupported scalar type %i.", getArgType(mb,pci,i));
+                    msg = createException(MAL, "pyapi.eval", "Unsupported scalar type %i.", inp->bat_type);
                     goto wrapup;
             }
             if (vararray == NULL)
@@ -583,17 +834,33 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         }
         else
         {
-            b = BATdescriptor(*getArgReference_bat(stk, pci, i));
+            int t_start = 0, t_end = 0;
+
+            b = inp->bat;
             if (b == NULL) 
             {
                 msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
                 goto wrapup;
             }
+            t_end = inp->count;
 
-            VERBOSE_MESSAGE("- Loading a BAT of type %s (%i)\n", BatType_Format(ATOMstorage(getColumnType(getArgType(mb,pci,i)))), ATOMstorage(getColumnType(getArgType(mb,pci,i))));
+#ifndef WIN32
+            if (mapped && process_id && process_count > 1)
+            {
+                double chunk = process_id - 1;
+                double totalchunks = process_count;
+                double count = BATcount(b);
+                t_start = ceil((count * chunk) / totalchunks);
+                t_end = floor((count * (chunk + 1)) / totalchunks);
+                if (((int)count) / 2 * 2 == (int)count) t_end--;
+            }
+#endif
+            VERBOSE_MESSAGE("Start: %d, End: %d, Count: %d\n", t_start, t_end, t_end - t_start);
+
+            VERBOSE_MESSAGE("- Loading a BAT of type %s (%d)\n", BatType_Format(inp->bat_type), inp->bat_type);
 
             //the argument is a BAT, convert it to a numpy array
-            switch (ATOMstorage(getColumnType(getArgType(mb,pci,i)))) {
+            switch (inp->bat_type) {
             case TYPE_bte:
                 vararray = BAT_TO_NP(b, bte, NPY_INT8);
                 break;
@@ -618,11 +885,11 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 //we first loop over all the strings in the BAT to find the maximum length of a single string
                 //this is because NUMPY only supports strings with a fixed maximum length
                 maxsize = 0;
-                count = BATcount(b);
+                count = inp->count;
                 BATloop(b, p, q)
                 {
                     const char *t = (const char *) BUNtail(li, p);
-                    const size_t length = (const size_t) utf8_strlen(t); //get the amount of UTF-8 characters in the string
+                    const size_t length = utf8_strlen(t); //get the amount of UTF-8 characters in the string
 
                     if (length > maxsize)
                         maxsize = length;
@@ -670,7 +937,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 #ifdef HAVE_HGE
             case TYPE_hge:
                 li = bat_iterator(b);
-                count = BATcount(b);
+                count = inp->count;
 
                 //create a NPY_OBJECT array to hold the huge type
                 vararray = PyArray_New(
@@ -706,42 +973,12 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 }
                 break;
 #endif
-                /*
-                //Convert huge to double, this might be preferrable so I'll leave this code here.//
-                li = bat_iterator(b);
-                count = BATcount(b);
-                vararray = PyArray_New(
-                    &PyArray_Type, 
-                    1, 
-                    (npy_intp[1]) {count},  
-                    NPY_DOUBLE, 
-                    NULL, 
-                    NULL, 
-                    0,          
-                    0, 
-                    NULL);
-                j = 0;
-                BATloop(b, p, q)
-                {
-
-                    const hge *t = (const hge *) BUNtail(li, p);
-                    PyObject *obj = PyFloat_FromDouble((double) *t);
-                    if (obj == NULL)
-                    {
-                        PyErr_Print();
-                        msg = createException(MAL, "pyapi.eval", "Failed to convert huge array.");
-                        goto wrapup;
-                    }
-                    PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), obj);
-                    j++;
-                }
-                printf("!WARNING: BATs of type \"hge\" (128 bits) are converted to type \"double\" (64 bits), information might be lost.\n");
-                break;*/
             default:
                 msg = createException(MAL, "pyapi.eval", "unknown argument type ");
                 goto wrapup;
             }
 
+            VERBOSE_MESSAGE("Masked array check\n");
             // we use numpy.ma to deal with possible NULL values in the data
             // once numpy comes with proper NA support, this will change
             if (b->T->nil)
@@ -750,16 +987,15 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 PyObject *mafunc = PyObject_GetAttrString(PyImport_Import(PyString_FromString("numpy.ma")), "masked_array");
                 PyObject *maargs = PyTuple_New(2);
                 PyArrayObject* nullmask = (PyArrayObject*) PyArray_ZEROS(1,
-                                (npy_intp[1]) {BATcount(b)}, NPY_BOOL, 0);
+                                (npy_intp[1]) {(t_end - t_start)}, NPY_BOOL, 0);
 
                 const void *nil = ATOMnilptr(b->ttype);
                 int (*atomcmp)(const void *, const void *) = ATOMcompare(b->ttype);
                 BATiter bi = bat_iterator(b);
 
-                size_t j;
-                for (j = 0; j < BATcount(b); j++) 
+                for (j = 0; j < t_end - t_start; j++) 
                 {
-                    if ((*atomcmp)(BUNtail(bi, BUNfirst(b) + j), nil) == 0) 
+                    if ((*atomcmp)(BUNtail(bi, BUNfirst(b) + t_start + j), nil) == 0) 
                     {
                         // Houston we have a NULL
                         PyArray_SETITEM(nullmask, PyArray_GETPTR1(nullmask, j), Py_True);
@@ -772,6 +1008,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 mask = PyObject_CallObject(mafunc, maargs);
                 if (!mask) 
                 {
+                    PyErr_Print();
                     msg = createException(MAL, "pyapi.eval", "UUUH");
                     goto wrapup;
                 }
@@ -783,13 +1020,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             }
             PyTuple_SetItem(pArgs, ai++, vararray);
 
-            // TODO: we cannot clean this up just yet, there may be a shallow copy referenced in python.
-            // TODO: do this later
-
-            BBPunfix(b->batCacheid);
-
-            //msg = createException(MAL, "pyapi.eval", "unknown argument type ");
-            //goto wrapup;
+            //BBPunfix(b->batCacheid);
         }
     }
 
@@ -804,97 +1035,21 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         pModule = PyImport_Import(str);
         Py_CLEAR(str);
 
-        if (!Initialized)
-        {
-            VERBOSE_MESSAGE("Initializing function.\n");
-
-            pyret = PyRun_SimpleString(pycall);
-
-            Initialized = true;
-        }
+        
+        VERBOSE_MESSAGE("Initializing function.\n");
+        pyret = PyRun_SimpleString(pycall);
         pFunc = PyObject_GetAttrString(pModule, "pyfun");
         
-
-        //fprintf(stdout, "%s\n", pycall);
         if (pyret != 0 || !pModule || !pFunc || !PyCallable_Check(pFunc)) {
             PyErr_Print();
-            msg = createException(MAL, "pyapi.eval", "could not parse Python code %s", pycall);
+            msg = createException(MAL, "pyapi.eval", "could not parse Python code \n%s", pycall);
             goto wrapup;
         }
 
-        if (mapped)
-        {
-            PyObject *pMult, *pPoolClass, *pPoolProcesses, *pPoolObject, *pApply, *pPoolArgs, *pOutput, *pGet, *pClose;
+        pResult = PyObject_CallObject(pFunc, pArgs);
+        Py_DECREF(pFunc);
+        Py_DECREF(pArgs);
 
-            pMult = PyImport_Import(PyString_FromString("multiprocessing"));
-            if (pMult == NULL)
-            {
-                msg = createException(MAL, "pyapi.eval", "Failed to load module Multiprocessing");
-                goto wrapup;
-            }
-            pPoolClass = PyObject_GetAttrString(pMult, "Pool");
-            if (pPoolClass == NULL)
-            {
-                msg = createException(MAL, "pyapi.eval", "Failed to load Pool class");
-                goto wrapup;
-            }
-
-            VERBOSE_MESSAGE("Create pool process.\n");
-            pPoolProcesses = PyTuple_New(1);
-            PyTuple_SetItem(pPoolProcesses, 0, PyInt_FromLong(1));
-            pPoolObject = PyObject_CallObject(pPoolClass, pPoolProcesses);
-            if (pPoolObject == NULL)
-            {
-                msg = createException(MAL, "pyapi.eval", "Failed to construct pool.");
-                goto wrapup;
-            }
-            pApply = PyObject_GetAttrString(pPoolObject, "apply_async");
-            if (pApply == NULL)
-            {
-                msg = createException(MAL, "pyapi.eval", "Failed.");
-                goto wrapup;
-            }
-            pPoolArgs = PyTuple_New(2);
-
-            PyTuple_SetItem(pPoolArgs, 0, pFunc);
-            PyTuple_SetItem(pPoolArgs, 1, pArgs);
-
-            pOutput = PyObject_CallObject(pApply, pPoolArgs);
-
-            pGet = PyObject_GetAttrString(pOutput, "get");
-            if (pGet == NULL)
-            {
-                msg = createException(MAL, "pyapi.eval", "No get?");
-                goto wrapup;
-            }
-
-            PassedSemaphore++;
-            ReleaseLock(gstate, &holds_gil, false);
-
-            if (PassedSemaphore != MaxProcesses)
-            {
-                VERBOSE_MESSAGE("Start waiting, %i processes passed semaphore\n", PassedSemaphore);
-                sem_wait(&execute_semaphore);
-            }
-
-            gstate = AcquireLock(&holds_gil, false);
-
-            pResult = PyObject_CallObject(pGet, NULL);
-
-            pClose = PyObject_GetAttrString(pPoolObject, "terminate");
-            if (pClose == NULL)
-            {
-                msg = createException(MAL, "pyapi.eval", "No close?");
-                goto wrapup;
-            }
-            PyObject_CallObject(pClose, NULL);
-        }
-        else
-        {
-            pResult = PyObject_CallObject(pFunc, pArgs);
-            Py_DECREF(pFunc);
-            Py_DECREF(pArgs);
-        }
         if (PyErr_Occurred()) {
             PyObject *pErrType, *pErrVal, *pErrTb;
             PyErr_Fetch(&pErrType, &pErrVal, &pErrTb);
@@ -1054,6 +1209,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                     }
                 }
             }
+            PyRun_SimpleString("del pyfun");
         }
         else
         {
@@ -1108,7 +1264,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         {
             ret->count = PyArray_DIMS((PyArrayObject*)pResult)[1];        
             ret->numpy_array = (PyArrayObject*)pResult;                   
-            ret->numpy_mask = (PyArrayObject*)pMask;                      
+            ret->numpy_mask = (PyArrayObject*)pMask;   
+            ret->array_data = PyArray_DATA(ret->numpy_array);
+            if (ret->numpy_mask != NULL) ret->mask_data = PyArray_DATA(ret->numpy_mask);                 
             ret->memory_size = PyArray_DESCR(ret->numpy_array)->elsize;   
         }
         else
@@ -1137,6 +1295,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             }
             ret->memory_size = PyArray_DESCR(ret->numpy_array)->elsize;
             ret->count = PyArray_DIMS(ret->numpy_array)[0];
+            ret->array_data = PyArray_DATA(ret->numpy_array);     
             if (PyObject_HasAttrString(pColO, "mask"))
             {
                 pMask = PyObject_GetAttrString(pColO, "mask");
@@ -1152,12 +1311,181 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                     }
                 }
             }
+            if (ret->numpy_mask != NULL) ret->mask_data = PyArray_DATA(ret->numpy_mask); 
         }
     }
 
-    ReleaseLock(gstate, &holds_gil, false);
+    //ReleaseLock(gstate, &holds_gil);
 
     VERBOSE_MESSAGE("Returning values.\n");
+
+#ifndef WIN32
+    if (mapped && process_id)
+    {
+        int value = 0;
+        char *shm_ptr;
+        ReturnBatDescr *ptr;
+
+
+        VERBOSE_MESSAGE("Getting shared memory.\n");
+        shm_ptr = get_shared_memory(shm_id, memory_size);
+        if (shm_ptr == NULL) 
+        {
+            msg = createException(MAL, "pyapi.eval", "Failed to allocate shared memory for header data.\n");
+            goto wrapup;
+        }
+
+
+        VERBOSE_MESSAGE("Writing headers.\n");
+        ptr = (ReturnBatDescr*)shm_ptr;
+        //return values
+        //first fill in header values
+        for (i = 0; i < pci->retc; i++) 
+        {
+            PyReturn *ret = &pyreturn_values[i];
+
+            ReturnBatDescr *descr = &ptr[(process_id - 1) * pci->retc + i];
+            descr->npy_type = ret->result_type;
+            descr->element_size =   ret->memory_size;
+            descr->bat_count = ret->count;
+            descr->bat_size = ret->memory_size * ret->count;
+            descr->has_mask = ret->mask_data != NULL;
+        }
+
+        if (process_count > 1)
+        {
+            VERBOSE_MESSAGE("Process %d entering the first semaphore\n", process_id);
+            change_semaphore_value(sem_id, 0, -1);
+            value = get_semaphore_value(sem_id, 0);
+            VERBOSE_MESSAGE("Process %d waiting on semaphore, currently at value %d\n", process_id, value);
+        }
+        if (value == 0)
+        {
+            //all processes have passed the semaphore, so we can begin returning values
+            //first create the shared memory space for each of the return values
+            for (i = 0; i < pci->retc; i++) 
+            {
+                int return_size = 0;
+                int mask_size = 0;
+                bool has_mask = false;
+                for(j = 0; j < process_count; j++)
+                {
+                     //for each of the processes, count the size of their return values
+                     ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[j * pci->retc + i]);
+                     return_size += descr->bat_size;
+                     mask_size += descr->bat_count * sizeof(bool);
+                     has_mask = has_mask || descr->has_mask;
+                }
+                //allocate the shared memory for this return value
+                VERBOSE_MESSAGE("Child creating shared memory at id %d of size %d\n", shm_id + (i + 1), return_size);
+                if (create_shared_memory(shm_id + (i + 1), return_size) == NULL)
+                {
+                    msg = createException(MAL, "pyapi.eval", "Failed to allocate shared memory for returning data.\n");
+                    goto wrapup;
+                }
+                if (has_mask)                 
+                {
+                    if (create_shared_memory(shm_id + pci->retc + (i + 1), mask_size)== NULL) //create a memory space for the mask
+                    {
+                        msg = createException(MAL, "pyapi.eval", "Failed to allocate shared memory for returning mask.\n");
+                        goto wrapup;
+                    }
+                }
+            }
+
+            //now release all the other waiting processes so they can all begin returning values
+            if (process_count > 1) change_semaphore_value(sem_id, 1, process_count);
+        }
+
+        //we wait here for all the processes to finish, so we can know the size of their return values
+        if (process_count > 1) 
+        {
+            change_semaphore_value(sem_id, 1, -1); 
+
+            //first check if all of the processes successfully completed, if any one of them failed we return with an error code
+            for (i = 0; i < pci->retc; i++) 
+            {
+                for(j = 0; j < process_count; j++)
+                {
+                    ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[j * pci->retc + i]);
+                    if (descr->npy_type < 0)
+                    {
+                        exit(0);
+                    }
+                }
+            }
+        }
+
+        //now we can return the values
+        for (i = 0; i < pci->retc; i++) 
+        {
+            char *mem_ptr;
+            PyReturn *ret = &pyreturn_values[i];
+            //first we compute the position where we will start writing in shared memory by looking at the processes before us
+            int start_size = 0;
+            int return_size = 0;
+            int mask_size = 0;
+            int mask_start = 0;
+            bool has_mask = false;
+            for(j = 0; j < process_count; j++)
+            {
+                ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[j * pci->retc + i]);
+                if (j < (process_id - 1)) 
+                {
+                   start_size += descr->bat_size;
+                   mask_start += descr->bat_count;
+                }
+                return_size += descr->bat_size;
+                mask_size += descr->bat_count *sizeof(bool);
+
+                has_mask = descr->has_mask || descr->has_mask;
+            }
+            //now we can copy our return values to the shared memory
+            VERBOSE_MESSAGE("Process %d returning values in range %zu-%zu\n", process_id, start_size / ret->memory_size, start_size / ret->memory_size + ret->count);
+            mem_ptr = get_shared_memory(shm_id + (i + 1), return_size);
+            if (mem_ptr == NULL)
+            {
+                msg = createException(MAL, "pyapi.eval", "Failed to get pointer to shared memory for data.\n");
+                goto wrapup;
+            }
+            memcpy(&mem_ptr[start_size], PyArray_DATA(ret->numpy_array), ret->memory_size * ret->count);
+
+            if (has_mask)
+            {
+                bool *mask_ptr = (bool*)get_shared_memory(shm_id + pci->retc + (i + 1), mask_size);
+
+                if (mask_ptr == NULL)
+                {
+                    msg = createException(MAL, "pyapi.eval", "Failed to get pointer to shared memory for pointer.\n");
+                    goto wrapup;
+                }
+
+                if (ret->numpy_mask == NULL)
+                {
+                    for(iu = 0; iu < ret->count; iu++)
+                    {
+                        mask_ptr[mask_start + iu] = false;
+                    }
+                }
+                else
+                {
+                    for(iu = 0; iu < ret->count; iu++)
+                    {
+                        mask_ptr[mask_start + iu] = ret->mask_data[iu];
+                    }
+                }
+            }
+        }
+        exit(0);
+    }
+returnvalues:
+#endif
+    //dereference the input BATs
+    for (i = pci->retc + 2; i < pci->argc; i++) 
+    {
+        PyInput *inp = &pyinput_values[i - (pci->retc + 2)];
+        if (inp->bat != NULL) BBPunfix(inp->bat->batCacheid);
+    }
 
     for (i = 0; i < pci->retc; i++) 
     {
@@ -1198,16 +1526,16 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 bool *mask = NULL;   
                 char *data = NULL;  
                 char *utf8_string; 
-                if (ret->numpy_mask != NULL)   
+                if (ret->mask_data != NULL)   
                 {   
-                    mask = (bool*)PyArray_DATA(ret->numpy_mask);   
+                    mask = (bool*)ret->mask_data;   
                 }   
-                if (ret->numpy_array == NULL)   
+                if (ret->array_data == NULL)   
                 {   
                     msg = createException(MAL, "pyapi.eval", "No return value stored in the structure.  n");         
                     goto wrapup;      
                 }          
-                data = (char*) PyArray_DATA(ret->numpy_array);   
+                data = (char*) ret->array_data;   
 
                 utf8_string = GDKzalloc(64 + ret->memory_size + 1); 
                 utf8_string[64 + ret->memory_size] = '\0';       
@@ -1233,16 +1561,16 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                     case NPY_DOUBLE:                                                              
                     case NPY_LONGDOUBLE: NP_COL_BAT_STR_LOOP(b, dbl, dbl_to_string); break;                  
                     case NPY_STRING:    
-                        for (j = 0; j < ret->count; j++)                                        
+                        for (iu = 0; iu < ret->count; iu++)                                        
                         {              
-                            if (mask != NULL && (mask[index_offset * ret->count + j]) == TRUE)   
+                            if (mask != NULL && (mask[index_offset * ret->count + iu]) == TRUE)   
                             {                                                           
                                 b->T->nil = 1;    
                                 BUNappend(b, str_nil, FALSE);                                                            
                             }    
                             else
                             {
-                                if (!string_copy(&data[(index_offset * ret->count + j) * ret->memory_size], utf8_string, ret->memory_size))
+                                if (!string_copy(&data[(index_offset * ret->count + iu) * ret->memory_size], utf8_string, ret->memory_size))
                                 {
                                     msg = createException(MAL, "pyapi.eval", "Invalid string encoding used. Please return a regular ASCII string, or a Numpy_Unicode object.\n");       
                                     goto wrapup;    
@@ -1252,16 +1580,16 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                         }    
                         break;
                     case NPY_UNICODE:    
-                        for (j = 0; j < ret->count; j++)                                        
+                        for (iu = 0; iu < ret->count; iu++)                                        
                         {              
-                            if (mask != NULL && (mask[index_offset * ret->count + j]) == TRUE)   
+                            if (mask != NULL && (mask[index_offset * ret->count + iu]) == TRUE)   
                             {                                                           
                                 b->T->nil = 1;    
                                 BUNappend(b, str_nil, FALSE);
                             }    
                             else
                             {
-                                utf32_to_utf8(0, ret->memory_size / 4, utf8_string, (const uint32_t*)(&data[(index_offset * ret->count + j) * ret->memory_size]));
+                                utf32_to_utf8(0, ret->memory_size / 4, utf8_string, (const uint32_t*)(&data[(index_offset * ret->count + iu) * ret->memory_size]));
                                 BUNappend(b, utf8_string, FALSE);
                             }                                                       
                         }    
@@ -1270,7 +1598,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                         msg = createException(MAL, "pyapi.eval", "Unrecognized type. Could not convert to NPY_UNICODE.\n");       
                         goto wrapup;    
                 }                             
-                
                 GDKfree(utf8_string);       
                                                     
                 b->T->nonil = 1 - b->T->nil;                                                  
@@ -1292,22 +1619,75 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         msg = MAL_SUCCEED;
     }
   wrapup:
+
+#ifndef WIN32
+    if (mapped && process_id)
+    {
+        //something went wrong in a child process,
+
+        //to prevent the other processes from stalling, we set the value of the second semaphore to process_count
+        //this allows the other processes to exit
+        //but first, we set the value of npy_type to -1, this informs the other processes that this process has crashed
+        char *shm_ptr, *error_mem;
+        ReturnBatDescr *ptr;
+
+        shm_ptr = get_shared_memory(shm_id, memory_size);
+        if (shm_ptr == NULL) goto wrapup;
+
+        ptr = (ReturnBatDescr*)shm_ptr;
+
+        for (i = 0; i < pci->retc; i++) 
+        {
+            ReturnBatDescr *descr = &ptr[(process_id - 1) * pci->retc + i];
+            descr->npy_type = -1;
+            descr->bat_size = strlen(msg) * sizeof(char);
+        }
+
+        error_mem = create_shared_memory(shm_id + 1, strlen(msg) * sizeof(char));
+        for(iu = 0; iu < strlen(msg); iu++)
+        {
+            error_mem[iu] = msg[iu];
+        }
+        //increase the value of the semaphore
+        if (process_count > 1) change_semaphore_value(sem_id, 1, process_count);
+        //exit the program with an error code
+        VERBOSE_MESSAGE("%s\n", msg);
+        exit(1);
+    }
+#endif
+
     VERBOSE_MESSAGE("Cleaning up.\n");
 
-    if (!holds_gil) gstate = AcquireLock(&holds_gil, false); //Acquire the GIL for cleanup
+    //MT_lock_unset(&pyapiLock, "pyapi.evaluate");
     for (i = 0; i < pci->retc; i++) 
     {
         PyReturn *ret = &pyreturn_values[i];
         if (!ret->multidimensional)
         {
+            //AcquireLock(&holds_gil);
             if (ret->numpy_array != NULL) Py_DECREF(ret->numpy_array);                                  
             if (ret->numpy_mask != NULL) Py_DECREF(ret->numpy_mask);       
+            //ReleaseLock(gstate, &holds_gil);
+        }
+        if (ret->numpy_array == NULL && ret->array_data != NULL)
+        {
+            release_shared_memory(ret->array_data);
+        }
+        if (ret->numpy_mask == NULL && ret->mask_data != NULL) 
+        {
+            release_shared_memory(ret->mask_data);
         }
     }
-    if (pResult != NULL) { Py_DECREF(pResult); pResult = NULL; }
-    ReleaseLock(gstate, &holds_gil, true);
+    if (pResult != NULL) 
+    { 
+        //AcquireLock(&holds_gil);
+        Py_DECREF(pResult); 
+        pResult = NULL;      
+        //ReleaseLock(gstate, &holds_gil);
+    }
 
     GDKfree(pyreturn_values);
+    GDKfree(pyinput_values);
     for (i = 0; i < pci->argc; i++)
         if (args[i] != NULL)
             GDKfree(args[i]);
@@ -1329,10 +1709,11 @@ str
         if (!pyapiInitialized) {
             char* iar = NULL;
             Py_Initialize();
-            PyEval_InitThreads();
+            //PyEval_InitThreads();
             import_array1(iar);
             PyRun_SimpleString("import numpy");
-            PyEval_SaveThread();
+            //PyEval_SaveThread();
+            initialize_shared_memory();
             //PyEval_ReleaseLock();
             pyapiInitialized++;
         }
@@ -1340,60 +1721,6 @@ str
         fprintf(stdout, "# MonetDB/Python module loaded\n");
     }
     return MAL_SUCCEED;
-}
-   
-
-PyGILState_STATE AcquireLock(bool *holds_gil, bool first)
-{
-    PyGILState_STATE gstate;
-    if (*holds_gil == TRUE) 
-    {
-        VERBOSE_MESSAGE("Process already holds GIL!\n");
-        return -1;
-    }
-
-    MT_lock_set(&pyapiLock, "pyapi.evaluate");
-    //gstate = 1;
-    gstate = PyGILState_Ensure();
-
-    VERBOSE_MESSAGE("Acquired GIL lock.\n");
-
-    *holds_gil = true;
-    if (first)
-    {
-        Processes++;
-        VERBOSE_MESSAGE("Processes: %i\n", Processes);
-    }
-    return gstate;
-}
-
-void ReleaseLock(PyGILState_STATE gstate, bool *holds_gil, bool final)
-{
-    if (*holds_gil == FALSE) return;
-
-    if (final)
-    {
-        Processes--;
-        VERBOSE_MESSAGE("Processes: %i\n", Processes);
-        if (Processes == 0) 
-        {
-            Initialized = false;
-            SemaphoreInitialized = false;
-            PassedSemaphore = 0;
-            PyRun_SimpleString("del pyfun");
-        }
-    }
-    
-    VERBOSE_MESSAGE("Releasing GIL lock.\n");
-
-    PyGILState_Release(gstate);
-    MT_lock_unset(&pyapiLock, "pyapi.evaluate");
-    *holds_gil = FALSE;
-
-    if (final)
-    {
-        sem_post(&execute_semaphore);
-    }
 }
 
 //Returns true if the type of [object] is a scalar (i.e. numeric scalar or string, basically "not an array but a single value")
