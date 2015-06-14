@@ -1013,7 +1013,9 @@ copy 1000 records into streams from stdin;
 
 
 
-CREATE FUNCTION numpy_distance(stt string, tss bigint, lat double, lon double, alt double) returns table (s1 string, s2 string, timestamp int, mindist int) language P {
+#CREATE FUNCTION numpy_distance(stt string, tss bigint, lat double, lon double, alt double) returns table (s1 string, s2 string, timestamp int, mindist int) language P {
+#temporary fix
+CREATE FUNCTION numpy_distance(stt string, tss bigint, lat double, lon double, alt double) returns table (s1 string, s2 string, timestamp int) language P {
 import numpy as np
 import math
 timelimit = 10
@@ -1054,14 +1056,14 @@ while not it.finished:
             mindist = distdiff
             otheridx = it2.index
         it2.iternext()
-    out = ''
-    if mindist < distlimit:
-        rets1.append(stt[it.index])
-        rets2.append(stt[otheridx])
-        retts.append(int(it[0]/1000))
-        retmd.append(int(mindist))
+    #if mindist < distlimit:
+    rets1 = numpy.append(rets1, stt[it.index])
+    rets2 = numpy.append(rets2, stt[otheridx])
+    retts = numpy.append(retts, int(it[0]/1000))
+    retmd = numpy.append(retmd, int(mindist))
     it.iternext()
-return([rets1, rets2, retts, retmd])
+return([rets1, rets2, retts]) 
+#return([rets1, rets2, retts, retmd])
 };
 
 create temporary table planes as SELECT station, (ts-CAST('1970-01-01' AS timestamp)), lat, lon, alt*0.3048 FROM streams WHERE type = 2 and alt > 0 with data;

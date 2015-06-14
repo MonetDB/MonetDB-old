@@ -28,8 +28,10 @@
 #include "type_conversion.h"
 #include "shared_memory.h"
 
-#define _PYAPI_VERBOSE_
+//#define _PYAPI_VERBOSE_
 #define _PYAPI_DEBUG_
+
+bool memory_mapping = TRUE;
 
 #include <stdint.h>
 
@@ -254,21 +256,22 @@ static int pyapiInitialized = FALSE;
             goto wrapup;                                                                                                                                       \
         }                                                                                                                                                      \
         data = (char*) ret->array_data;                                                                                                                        \
-        if (memory_mapping && TYPE_##mtpe == PyType_ToBat(ret->result_type) && (ret->count * ret->memory_size < BUN_MAX) &&                                    \
+        if (memory_mapping && ret->count > 0 && TYPE_##mtpe == PyType_ToBat(ret->result_type) && (ret->count * ret->memory_size < BUN_MAX) &&                  \
             (ret->numpy_array == NULL || PyArray_FLAGS(ret->numpy_array) & NPY_ARRAY_OWNDATA))                                                                 \
         {                                                                                                                                                      \
             /*We can only create a direct map if the numpy array type and target BAT type*/                                                                    \
             /*are identical, otherwise we have to do a conversion.*/                                                                                           \
+            assert(ret->array_data != NULL);                                                                                                                   \
             if (ret->numpy_array == NULL)                                                                                                                      \
             {                                                                                                                                                  \
                 /*shared memory return*/                                                                                                                       \
-                VERBOSE_MESSAGE("Shared memory map!\n");                                                                                                       \
+                VERBOSE_MESSAGE("- Shared memory map!\n");                                                                                                     \
                 BAT_MMAP(bat, mtpe, STORE_SHARED);                                                                                                             \
                 ret->array_data = NULL;                                                                                                                        \
             }                                                                                                                                                  \
             else                                                                                                                                               \
             {                                                                                                                                                  \
-                VERBOSE_MESSAGE("Memory map!\n");                                                                                                              \
+                VERBOSE_MESSAGE("- Memory map!\n");                                                                                                            \
                 BAT_MMAP(bat, mtpe, STORE_CMEM);                                                                                                               \
             }                                                                                                                                                  \
         }                                                                                                                                                      \
@@ -364,7 +367,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     BATiter li;
     PyReturn *pyreturn_values = NULL;
     PyInput *pyinput_values = NULL;
-    bool memory_mapping = TRUE;
 
 #ifndef WIN32
     bool single_fork = mapped == 1;
@@ -1318,8 +1320,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 
     //ReleaseLock(gstate, &holds_gil);
 
-    VERBOSE_MESSAGE("Returning values.\n");
-
 #ifndef WIN32
     if (mapped && process_id)
     {
@@ -1481,6 +1481,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     }
 returnvalues:
 #endif
+    VERBOSE_MESSAGE("Returning values.\n");
     //dereference the input BATs
     for (i = pci->retc + 2; i < pci->argc; i++) 
     {
@@ -1496,7 +1497,7 @@ returnvalues:
         b = ret->bat_return;    
 
         if (ret->multidimensional) index_offset = i;
-
+        VERBOSE_MESSAGE("- Returning a Numpy Array of type %s of size %zu and storing it in a BAT of type %s\n", PyType_Format(ret->result_type), ret->count,  BatType_Format(bat_type));
         switch (bat_type) 
         {
         case TYPE_bte:
