@@ -28,7 +28,7 @@
 #include "type_conversion.h"
 #include "shared_memory.h"
 
-//#define _PYAPI_VERBOSE_
+#define _PYAPI_VERBOSE_
 #define _PYAPI_DEBUG_
 
 #include <stdint.h>
@@ -254,7 +254,7 @@ static int pyapiInitialized = FALSE;
             goto wrapup;                                                                                                                                       \
         }                                                                                                                                                      \
         data = (char*) ret->array_data;                                                                                                                        \
-        if (TYPE_##mtpe == PyType_ToBat(ret->result_type) && (ret->count * ret->memory_size < BUN_MAX) &&                                                      \
+        if (memory_mapping && TYPE_##mtpe == PyType_ToBat(ret->result_type) && (ret->count * ret->memory_size < BUN_MAX) &&                                    \
             (ret->numpy_array == NULL || PyArray_FLAGS(ret->numpy_array) & NPY_ARRAY_OWNDATA))                                                                 \
         {                                                                                                                                                      \
             /*We can only create a direct map if the numpy array type and target BAT type*/                                                                    \
@@ -364,6 +364,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     BATiter li;
     PyReturn *pyreturn_values = NULL;
     PyInput *pyinput_values = NULL;
+    bool memory_mapping = TRUE;
 
 #ifndef WIN32
     bool single_fork = mapped == 1;
