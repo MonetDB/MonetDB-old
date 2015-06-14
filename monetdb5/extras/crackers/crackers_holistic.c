@@ -38,35 +38,55 @@ str
 CRKinitHolistic(int *ret)
 {
 	char *p = getenv("MOTIVATION_EXPERIMENT");
-	int motivation_experiment=0;
+	char *up = getenv("UPDATES");
+	int motivation_experiment=0, updates_activated=0;
 	int i=0;
 
-	if (p == NULL){
+	if (p == NULL || up == NULL){
 		fprintf(stderr, "Error initHolistic: environment variable is missing.\n");
   		exit(1);
 	}
 	else
+	{
 		motivation_experiment=atoi(p);
+		updates_activated=atoi(up);
+	}
 
-	IdleFunc=&CRKrandomCrack;
-	idletime_thread = GDKzalloc(sizeof(*idletime_thread));
-	cpuload_thread = GDKzalloc(sizeof(*idletime_thread));
-	MT_lock_init(&frequencylock, "FrequencyStruct");
-	for (i=0;i<LOCKS;i++)
-		MT_lock_init(&CRKIndexLock[i], "Cracker Index Lock");
-	//MT_lock_init(&CRKIndexLock, "Cracker Index Lock");
-	MT_create_thread(idletime_thread,(void (*)(void *))HeartbeatCPUload, IdleFunc, MT_THR_JOINABLE);
-	if (motivation_experiment != 0)
-		MT_create_thread(cpuload_thread,(void (*)(void *))HeartbeatCPUload_total, NULL, MT_THR_JOINABLE);
-	*ret = 0;
+	if(updates_activated == 0)
+	{
+		IdleFunc=&CRKrandomCrack;
+		idletime_thread = GDKzalloc(sizeof(*idletime_thread));
+		cpuload_thread = GDKzalloc(sizeof(*idletime_thread));
+		MT_lock_init(&frequencylock, "FrequencyStruct");
+		for (i=0;i<LOCKS;i++)
+			MT_lock_init(&CRKIndexLock[i], "Cracker Index Lock");
+		//MT_lock_init(&CRKIndexLock, "Cracker Index Lock");
+		MT_create_thread(idletime_thread,(void (*)(void *))HeartbeatCPUload, IdleFunc, MT_THR_JOINABLE);
+		if (motivation_experiment != 0)
+			MT_create_thread(cpuload_thread,(void (*)(void *))HeartbeatCPUload_total, NULL, MT_THR_JOINABLE);
+		*ret = 0;
+	}
 	return MAL_SUCCEED;
 }
 
 str
 CRKinitHolisticUpdates(int *ret)
 {
-        MT_lock_init(&frequencylock, "FrequencyStruct");
-        *ret = 0;
+        char *up = getenv("UPDATES");
+        int updates_activated=0;
+
+        if (up == NULL){
+                fprintf(stderr, "Error initHolistic: environment variable is missing.\n");
+                exit(1);
+        }
+        else
+                updates_activated=atoi(up);
+
+        if(updates_activated == 1)
+        {  
+	        MT_lock_init(&frequencylock, "FrequencyStruct");
+        	*ret = 0;
+	}
         return MAL_SUCCEED;
 }
 

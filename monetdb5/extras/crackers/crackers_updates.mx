@@ -1022,11 +1022,11 @@ sizeCrackerInsertions(int bid){
                 	mnstr_printf(GDKout,"\n crack print insertions: Failed to access insertions.");
 			return;
 		}
-		printf("\n pending insertions size: "BUNFMT" \n",BATcount(u));
+		//printf("\n pending insertions size: "BUNFMT" \n",BATcount(u));
 		BBPunfix(u->batCacheid);
 	}
-	else
-		printf("\n pending insertions size: 0 \n");
+	//else
+		//printf("\n pending insertions size: 0 \n");
 }
 
 static str

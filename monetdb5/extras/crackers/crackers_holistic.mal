@@ -36,5 +36,5 @@ command zeroFrequency():void
 address CRKzeroFrequency
 comment "Turn the frequency into 0 value.";
 
-#crackers.holisticpreludeUpdates();
+crackers.holisticpreludeUpdates();
 crackers.holisticprelude();
