@@ -2530,6 +2530,153 @@ void generate_ijpatternId(jgraph *jg, int *group, int nnode){
 	
 	printf("Number of ijgroup is: %d\n", (ijpId + 1)); 
 }
+
+static 
+sql_rel* _group_star_pattern_for_single_table(mvc *c, jgraph *jg, int *group, int nnode, int tId, list **sp_proj_exps, list **sp_rdfscan_proj_exps, 
+		int *contain_mv_col){
+
+	int i, j; 
+	int *nnodes_per_ijgroup; 
+	int nijgroup = 0;
+	int **ijgroup; 
+	sql_rel **ijrels;    //rel for inner join groups
+	sql_rel **edge_ijrels;  //sql_rel connecting each pair of ijrels
+	int is_contain_mv = 0; 
+	sql_rel *rel_rdfscan = NULL;
+	sql_rel *tbl_m_rel = NULL; 
+
+	int *ingroup_contain_mv = NULL; sql_rel *tmprel_rdfscan = NULL; 
+
+	*sp_proj_exps = new_exp_list(c->sa);
+	*sp_rdfscan_proj_exps = new_exp_list(c->sa);
+
+	ijgroup = get_inner_join_groups_in_sp_group(jg, group, nnode, &nijgroup, &nnodes_per_ijgroup);				
+
+	printf("Number of inner join group is: %d\n", nijgroup);
+
+	rel_rdfscan = build_rdfscan(c, jg, tId, nnode, nijgroup, ijgroup, nnodes_per_ijgroup);
+
+	for (i = 0; i < nijgroup; i++){
+		printf("Group %d: ", i);
+		for (j = 0; j < nnodes_per_ijgroup[i]; j++){
+			printf(" %d",ijgroup[i][j]);
+		}
+		printf("\n"); 
+		
+	}
+
+	ijrels = (sql_rel **) malloc(sizeof(sql_rel*) * nijgroup);
+	edge_ijrels = (sql_rel **) malloc(sizeof(sql_rel*) * (nijgroup - 1));
+	ingroup_contain_mv  = (int *) malloc(sizeof(int) * nijgroup); 
+	
+	for (i = 0; i < nijgroup; i++){
+		int isOptionalGroup = 0;
+		if (i > 0) isOptionalGroup = 1;
+		ingroup_contain_mv[i] = 0;
+		ijrels[i] = transform_inner_join_subjg (c, jg, tId, ijgroup[i], nnodes_per_ijgroup[i], *sp_proj_exps, *sp_rdfscan_proj_exps, &is_contain_mv, isOptionalGroup);
+		ingroup_contain_mv[i] = is_contain_mv; 
+
+	}
+
+	*contain_mv_col = is_contain_mv;
+	if (is_contain_mv) printf("Contain MV cols \n"); 
+	printf("Original Projection of all columns (w/o considering mv col): \n"); 
+	exps_print_ext(c, *sp_proj_exps, 0, NULL); 
+
+	printf("RDFscan expression for table matching %d\n",tId);
+	exps_print_ext(c, *sp_rdfscan_proj_exps, 0, NULL); 
+
+	if (nijgroup > 1){
+		#if (APPLY_OPTIMIZATION_FOR_OPTIONAL == 0) 	
+		//Always use left outer join for connecting ijgroup
+		printf("APPLY_OPTIMIZATION_FOR_OPTIONAL \n"); 
+		//Connect these ijrels by outer joins
+		for (i = 0; i < (nijgroup - 1); i++){
+			edge_ijrels[i] = _group_edge_between_two_groups(c, jg, i, ijgroup[i], nnodes_per_ijgroup[i], 
+						ijgroup[i+1], nnodes_per_ijgroup[i+1], ijrels[i], ijrels[i+1], 1);
+		}
+		connect_groups(nijgroup, ijrels, edge_ijrels);
+
+		tbl_m_rel = edge_ijrels[0];	
+
+		#else
+		//if the inner group does not have mv prop, then use the IFTHENELSE approach
+		//First: Connect all non-mv prop groups into single rel (with the first rel)
+		sql_rel *non_mv_rep_rel = NULL; //Represent all non-mv props. 
+		int 	n_mv_groups = 1; 	//Number of groups with mv prop
+						//Start from 1 (the first is the combination of 
+						//all non-mv groups)
+		int 	n_non_mv_groups = 0;
+		int 	*old_idx_map = (int *) malloc(sizeof(int) * nijgroup); 
+
+		sql_rel **newijrels = (sql_rel **) malloc(sizeof(sql_rel*) * nijgroup);
+
+		non_mv_rep_rel = ijrels[0]; 
+		for (i = 1; i < nijgroup; i++){
+			if (ingroup_contain_mv[i] == 0){
+				n_non_mv_groups++;
+				non_mv_rep_rel =  rdf_rel_simple_combine_with_optional_cols(c->sa, non_mv_rep_rel, ijrels[i]);
+			}
+			else {
+				old_idx_map[n_mv_groups] = i; 
+				newijrels[n_mv_groups] = ijrels[i]; 
+				n_mv_groups++; 
+			}
+		}
+
+		newijrels[0] = non_mv_rep_rel; 
+		old_idx_map[0] = 0; 	
+		
+		if (n_mv_groups > 1){
+			//Then, connect with groups having mv props
+			for (i = 0; i < (n_mv_groups - 1); i++){
+				int id1 = old_idx_map[i];
+				int id2 = old_idx_map[i+1];
+
+				edge_ijrels[i] = _group_edge_between_two_groups(c, jg, i, ijgroup[id1], nnodes_per_ijgroup[id1],
+							ijgroup[id2], nnodes_per_ijgroup[id2], newijrels[i], newijrels[i+1], 1);
+			}
+
+			connect_groups(n_mv_groups, newijrels, edge_ijrels);	
+			tmprel_rdfscan = edge_ijrels[0];
+		}
+		else{
+			tmprel_rdfscan = newijrels[0];
+		}
+		if (n_non_mv_groups > 0){	//Add IFTHENELSE project
+			sql_rel *tmp_proj_rel = rel_project(c->sa, tmprel_rdfscan, *sp_rdfscan_proj_exps);
+			tbl_m_rel = tmp_proj_rel; 
+		}
+		else{
+			tbl_m_rel = tmprel_rdfscan; 			
+		}
+		#endif
+	}
+	else{	//nijgroup = 1
+		tbl_m_rel = ijrels[0]; 
+	}
+
+	#if USINGRDFSCAN
+	tbl_m_rel = rel_rdfscan; 
+	#else
+	rel_destroy(rel_rdfscan);
+	#endif
+
+	//Free
+	for (i = 0; i < nijgroup; i++){
+		free(ijgroup[i]);
+	}
+
+	free(ijgroup); 
+	free(nnodes_per_ijgroup);
+	free(edge_ijrels);
+	free(ijrels);
+
+
+	return tbl_m_rel; 
+}
+
+
 /*
  * Create a select sql_rel from a star pattern
  * */
@@ -2537,13 +2684,12 @@ void generate_ijpatternId(jgraph *jg, int *group, int nnode){
 static 	
 sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId){
 	sql_rel *rel = NULL; 
-	int i, j, tblIdx; 
+	int i, tblIdx; 
 	char is_all_select = 1; 
 	char is_only_basetable = 1;
 	spProps *spprops = NULL; 
 	int *tmptbId = NULL; 
 	int num_match_tbl = 0;
-
 
 	//This transformed exps list contain exps list from op_select
 	 //on the object
@@ -2609,141 +2755,8 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 		sp_rdfscan_proj_exps = (list **) malloc(sizeof(list *) * num_match_tbl);
 
 		for (tblIdx = 0; tblIdx < num_match_tbl; tblIdx++){
-			int tId = tmptbId[tblIdx];
-			int *nnodes_per_ijgroup; 
-			int nijgroup = 0;
-			int **ijgroup; 
-			sql_rel **ijrels;    //rel for inner join groups
-			sql_rel **edge_ijrels;  //sql_rel connecting each pair of ijrels
-			int is_contain_mv = 0; 
-			sql_rel *rel_rdfscan = NULL; 
-
-			int *ingroup_contain_mv = NULL; sql_rel *tmprel_rdfscan = NULL; 
-
-			sp_proj_exps[tblIdx] = new_exp_list(c->sa);
-			sp_rdfscan_proj_exps[tblIdx] = new_exp_list(c->sa);
-
-			ijgroup = get_inner_join_groups_in_sp_group(jg, group, nnode, &nijgroup, &nnodes_per_ijgroup);				
-
-			printf("Number of inner join group is: %d\n", nijgroup);
-
-			rel_rdfscan = build_rdfscan(c, jg, tId, nnode, nijgroup, ijgroup, nnodes_per_ijgroup);
-
-			for (i = 0; i < nijgroup; i++){
-				printf("Group %d: ", i);
-				for (j = 0; j < nnodes_per_ijgroup[i]; j++){
-					printf(" %d",ijgroup[i][j]);
-				}
-				printf("\n"); 
-				
-			}
-
-			ijrels = (sql_rel **) malloc(sizeof(sql_rel*) * nijgroup);
-			edge_ijrels = (sql_rel **) malloc(sizeof(sql_rel*) * (nijgroup - 1));
-			ingroup_contain_mv  = (int *) malloc(sizeof(int) * nijgroup); 
-			
-			for (i = 0; i < nijgroup; i++){
-				int isOptionalGroup = 0;
-				if (i > 0) isOptionalGroup = 1;
-				ingroup_contain_mv[i] = 0;
-				ijrels[i] = transform_inner_join_subjg (c, jg, tId, ijgroup[i], nnodes_per_ijgroup[i], sp_proj_exps[tblIdx], sp_rdfscan_proj_exps[tblIdx], &is_contain_mv, isOptionalGroup);
-				ingroup_contain_mv[i] = is_contain_mv; 
-
-			}
-	
-			contain_mv_col[tblIdx] = is_contain_mv;
-			if (is_contain_mv) printf("Contain MV cols \n"); 
-			printf("Original Projection of all columns (w/o considering mv col): \n"); 
-			exps_print_ext(c, sp_proj_exps[tblIdx], 0, NULL); 
-
-			printf("RDFscan expression for table matching %d\n",tblIdx);
-			exps_print_ext(c, sp_rdfscan_proj_exps[tblIdx], 0, NULL); 
-
-			if (nijgroup > 1){
-				#if (APPLY_OPTIMIZATION_FOR_OPTIONAL == 0) 	
-				//Always use left outer join for connecting ijgroup
-				printf("APPLY_OPTIMIZATION_FOR_OPTIONAL \n"); 
-				//Connect these ijrels by outer joins
-				for (i = 0; i < (nijgroup - 1); i++){
-					edge_ijrels[i] = _group_edge_between_two_groups(c, jg, i, ijgroup[i], nnodes_per_ijgroup[i], 
-								ijgroup[i+1], nnodes_per_ijgroup[i+1], ijrels[i], ijrels[i+1], 1);
-				}
-				connect_groups(nijgroup, ijrels, edge_ijrels);
-
-				tbl_m_rels[tblIdx] = edge_ijrels[0];	
-
-				#else
-				//if the inner group does not have mv prop, then use the IFTHENELSE approach
-				//First: Connect all non-mv prop groups into single rel (with the first rel)
-				sql_rel *non_mv_rep_rel = NULL; //Represent all non-mv props. 
-				int 	n_mv_groups = 1; 	//Number of groups with mv prop
-								//Start from 1 (the first is the combination of 
-								//all non-mv groups)
-				int 	n_non_mv_groups = 0;
-				int 	*old_idx_map = (int *) malloc(sizeof(int) * nijgroup); 
-
-				sql_rel **newijrels = (sql_rel **) malloc(sizeof(sql_rel*) * nijgroup);
-
-				non_mv_rep_rel = ijrels[0]; 
-				for (i = 1; i < nijgroup; i++){
-					if (ingroup_contain_mv[i] == 0){
-						n_non_mv_groups++;
-						non_mv_rep_rel =  rdf_rel_simple_combine_with_optional_cols(c->sa, non_mv_rep_rel, ijrels[i]);
-					}
-					else {
-						old_idx_map[n_mv_groups] = i; 
-						newijrels[n_mv_groups] = ijrels[i]; 
-						n_mv_groups++; 
-					}
-				}
-
-				newijrels[0] = non_mv_rep_rel; 
-				old_idx_map[0] = 0; 	
-				
-				if (n_mv_groups > 1){
-					//Then, connect with groups having mv props
-					for (i = 0; i < (n_mv_groups - 1); i++){
-						int id1 = old_idx_map[i];
-						int id2 = old_idx_map[i+1];
-
-						edge_ijrels[i] = _group_edge_between_two_groups(c, jg, i, ijgroup[id1], nnodes_per_ijgroup[id1],
-        	                                                        ijgroup[id2], nnodes_per_ijgroup[id2], newijrels[i], newijrels[i+1], 1);
-					}
-
-					connect_groups(n_mv_groups, newijrels, edge_ijrels);	
-					tmprel_rdfscan = edge_ijrels[0];
-				}
-				else{
-					tmprel_rdfscan = newijrels[0];
-				}
-				if (n_non_mv_groups > 0){	//Add IFTHENELSE project
-					sql_rel *tmp_proj_rel = rel_project(c->sa, tmprel_rdfscan, sp_rdfscan_proj_exps[tblIdx]);
-					tbl_m_rels[tblIdx] = tmp_proj_rel; 
-				}
-				else{
-					tbl_m_rels[tblIdx] = tmprel_rdfscan; 			
-				}
-				#endif
-			}
-			else{	//nijgroup = 1
-				tbl_m_rels[tblIdx] = ijrels[0]; 
-			}
-
-			#if USINGRDFSCAN
-			tbl_m_rels[tblIdx] = rel_rdfscan; 
-			#else
-			rel_destroy(rel_rdfscan);
-			#endif
-
-			//Free
-			for (i = 0; i < nijgroup; i++){
-				free(ijgroup[i]);
-			}
-
-			free(ijgroup); 
-			free(nnodes_per_ijgroup);
-			free(edge_ijrels);
-			free(ijrels);
+			tbl_m_rels[tblIdx] = _group_star_pattern_for_single_table(c, jg, group, nnode, tmptbId[tblIdx], &(sp_proj_exps[tblIdx]), &(sp_rdfscan_proj_exps[tblIdx]), 
+					&(contain_mv_col[tblIdx]));
 		}
 
 		

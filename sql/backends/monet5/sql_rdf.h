@@ -56,4 +56,6 @@ extern BATiter global_mapi;
 #define APPLY_OPTIMIZATION_FOR_OPTIONAL	1	/* Instead of using left join, we use a project with ifthenelse */
 						/* on the set of optional columns */
 
+#define HANDLING_EXCEPTION 1
+
 #endif /*_SQL_RDF_H */
