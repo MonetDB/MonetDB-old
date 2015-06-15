@@ -122,7 +122,7 @@ static int pyapiInitialized = FALSE;
 
 #define BAT_MMAP(bat, mtpe, batstore) {                                                                 \
         bat = BATnew(TYPE_void, TYPE_##mtpe, 0, TRANSIENT);                                             \
-        BATseqbase(bat, 0); bat->T->nil = 0; bat->T->nonil = 1;                                         \
+        BATseqbase(bat, seqbase); bat->T->nil = 0; bat->T->nonil = 1;                                         \
         bat->tkey = 0; bat->tsorted = 0; bat->trevsorted = 0;                                           \
         /*Change nil values to the proper values, if they exist*/                                       \
         if (mask != NULL)                                                                               \
@@ -278,7 +278,7 @@ static int pyapiInitialized = FALSE;
         else                                                                                                                                                   \
         {                                                                                                                                                      \
             bat = BATnew(TYPE_void, TYPE_##mtpe, ret->count, TRANSIENT);                                                                                       \
-            BATseqbase(bat, 0); bat->T->nil = 0; bat->T->nonil = 1;                                                                                            \
+            BATseqbase(bat, seqbase); bat->T->nil = 0; bat->T->nonil = 1;                                                                                            \
             bat->tkey = 0; bat->tsorted = 0; bat->trevsorted = 0;                                                                                              \
             switch(ret->result_type)                                                                                                                           \
             {                                                                                                                                                  \
@@ -367,6 +367,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     BATiter li;
     PyReturn *pyreturn_values = NULL;
     PyInput *pyinput_values = NULL;
+    int seqbase = 0;
 
 #ifndef WIN32
     bool single_fork = mapped == 1;
@@ -555,7 +556,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         else
         {
             b = BATdescriptor(*getArgReference_bat(stk, pci, i));
-
+            seqbase = b->H->seq;
             inp->count = BATcount(b);
             inp->bat_type = ATOMstorage(getColumnType(getArgType(mb,pci,i)));
             inp->bat = b;
@@ -1543,7 +1544,7 @@ returnvalues:
                 utf8_string[64 + ret->memory_size] = '\0';       
 
                 b = BATnew(TYPE_void, TYPE_str, ret->count, TRANSIENT);    
-                BATseqbase(b, 0); b->T->nil = 0; b->T->nonil = 1;         
+                BATseqbase(b, seqbase); b->T->nil = 0; b->T->nonil = 1;         
                 b->tkey = 0; b->tsorted = 0; b->trevsorted = 0;
                 switch(ret->result_type)                                                          
                 {                                                                                 
