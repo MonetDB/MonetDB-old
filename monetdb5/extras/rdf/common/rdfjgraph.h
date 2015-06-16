@@ -81,6 +81,8 @@ typedef struct jgnode {
 	int ijpatternId; 		//Id of inner join subgraph for nodes connected 
 					//only by inner join in the star patter
 	oid soid; 			//Oid of the subject if it is already known
+	oid poid; 			//Oid of the predicate if it is already known (usually Yes)
+	str prop; 			//Store the original name of the prop
 	JNodeT type;			//This node can be optional, or required in the pattern
 } jgnode; 
 
@@ -98,7 +100,7 @@ rdf_export
 void freeJGraph(jgraph *jg);		//Free join graph
 
 rdf_export
-void addJGnode(int *vid, jgraph *jg, void *data, int subjgId, oid soid, JNodeT type); 
+void addJGnode(int *vid, jgraph *jg, void *data, int subjgId, oid soid, oid poid, char *prop, JNodeT type); 
 
 rdf_export 
 void add_undirectedJGedge(int from, int to, operator_type op, jgraph *jg, void *data, JP jp, int rel_id, int p_rel_id);

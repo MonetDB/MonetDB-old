@@ -474,7 +474,9 @@ static
 void _add_jg_node(mvc *c, jgraph *jg, sql_rel *rel, int subjgId, JNodeT t){
 	int tmpvid = -1;
 	str subj = NULL; 
+	str prop = NULL; 
 	oid soid = BUN_NONE; 
+	oid poid = BUN_NONE; 
 
 	//Set subject oid if it is there
 	if (rel->op==op_select){
@@ -482,15 +484,24 @@ void _add_jg_node(mvc *c, jgraph *jg, sql_rel *rel, int subjgId, JNodeT t){
 		list *exps = rel->exps; 
 
 		if (exps){
-			get_predicate_from_exps(c, exps, NULL, &subj, 1);
+			get_predicate_from_exps(c, exps, &prop , &subj, 0);
 		}
 		if (subj){
 			SQLrdfstrtoid(&soid, &subj);
 			assert (soid != BUN_NONE); 
 		}
+		if (prop){
+			
+			//Get propId, assuming the tokenizer is open already 
+			//Note that, the prop oid is the original one (before
+			//running structural recognition process) so that 
+			//we can directly get its oid from TKNR
+			TKNRstringToOid(&poid, &prop); 
+			assert (poid != BUN_NONE); 
+		}
 	}
 
-	addJGnode(&tmpvid, jg, rel, subjgId, soid, t);
+	addJGnode(&tmpvid, jg, rel, subjgId, soid, poid, prop, t);
 }
 
 /*
@@ -1051,37 +1062,29 @@ spProps *init_sp_props(int num){
 }
 
 static
-void add_props_to_spprops(spProps *spprops, int idx, sp_po po, char *col){
-	oid id; 
+void add_props_and_subj_to_spprops(spProps *spprops, int idx, sp_po po, jgnode *node){
 
-	spprops->lstProps[idx] = GDKstrdup(col); 
+	if (node->prop){
+		spprops->lstProps[idx] = GDKstrdup(node->prop); 
+		assert(node->poid != BUN_NONE); 
+		spprops->lstPropIds[idx] = node->poid; 
+		spprops->lstPOs[idx] = po;
 
-	//Get propId, assuming the tokenizer is open already 
-	//Note that, the prop oid is the original one (before
-	//running structural recognition process) so that 
-	//we can directly get its oid from TKNR
-	TKNRstringToOid(&id, & (spprops->lstProps[idx])); 
-	spprops->lstPropIds[idx] = id;  
-	
-	spprops->lstPOs[idx] = po; 
-	
-	//without any information, assuming that the column is single-valued col
-	spprops->lstctype[idx] = CTYPE_SG; 
-}
-
-static
-void add_subj_to_spprops(spProps *spprops, char *subj){
-	oid soid = BUN_NONE;
-	
-	SQLrdfstrtoid(&soid, &subj); 
-
-	if (spprops->subj == BUN_NONE){
-		spprops->subj = soid; 
+		//without any information, assuming that the column is single-valued col
+		spprops->lstctype[idx] = CTYPE_SG; 
 	}
-	else
-		assert(spprops->subj == soid); 
-
+	
+	//For subject
+	if (node->soid){
+		if (spprops->subj == BUN_NONE){
+			spprops->subj = node->soid; 
+		}
+		else
+			assert(spprops->subj == node->soid); 
+	}
 }
+
+	
 
 static
 void print_spprops(spProps *spprops){
@@ -1257,7 +1260,7 @@ void get_predicate_from_exps(mvc *c, list *tmpexps, char **prop, char **subj, in
  *
  * */
 static
-void extract_prop_and_subj_from_exps(mvc *c, sql_rel *r, char **prop, char **subj){
+void verify_rel(sql_rel *r){
 	
 	list *tmpexps = NULL; 
 	char select_s = 0, select_p = 0, select_o = 0; 
@@ -1282,12 +1285,6 @@ void extract_prop_and_subj_from_exps(mvc *c, sql_rel *r, char **prop, char **sub
 	}
 
 	assert(select_s && select_p && select_o);
-	
-	//Get the column name by checking exps of r
-	tmpexps = r->exps;
-	if (tmpexps){
-		get_predicate_from_exps(c, tmpexps, prop, subj, 0); 
-	}
 }
 
 
@@ -1949,25 +1946,19 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 	
 	
 	for (i = 0; i < nnode; i++){
-		sql_rel *tmprel = (sql_rel*) (jg->lstnodes[jsg[i]]->data);
+		jgnode *tmpnode = jg->lstnodes[jsg[i]];
+		sql_rel *tmprel = (sql_rel*) (tmpnode->data);
 		int colIdx; 
 		int isMVcol = 0; 
-		list *tmpexps = NULL; 
-		str prop; 
-		str subj;
 		oid tmpPropId;
 
 		assert(tmprel->op == op_select);
 		assert(((sql_rel*)tmprel->l)->op == op_basetable); 
+		
+		tmpPropId = tmpnode->poid; 
 
-		tmpexps = tmprel->exps;
-
-		if (tmpexps) get_predicate_from_exps(c, tmpexps, &prop, &subj, 0);
-
-		//After having prop, get the corresponding column name
-
-		TKNRstringToOid(&tmpPropId, &prop);
-
+		assert(tmpPropId != BUN_NONE); 
+	
 		colIdx = getColIdx_from_oid(tId, global_csset, tmpPropId);
 
 		//Check whether the column is multi-valued prop
@@ -2049,6 +2040,105 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
  *  - sp_prj_exps stores all the columns should be selected in the "original order" 
  * */
 static
+sql_rel* build_rdfexception (mvc *c, jgraph *jg, int tId, int ncol, int nijgroup, int **ijgroup, int *nnodes_per_ijgroup){
+
+	sql_rel *rel_rdfscan = NULL;
+	str tblname; 
+	oid tblnameoid;
+	str atblname = NULL; 		//alias for table of sp
+	str asubjcolname = NULL; 	//alias for subject column of sp table
+	char tmp[50]; 
+	list *trans_select_exps = NULL; 	//Store the exps in op_select
+	list *trans_table_exps = NULL; 		//Store the list of column for basetable in op_select
+	sql_rel *rel_basetbl = NULL; 
+	sql_allocator *sa = c->sa;
+	int num_mv_col = 0;
+	int i, gr; 
+	int num_nonMV_col = 0; 
+	rdf_rel_prop *r_r_prop = NULL; 
+
+	num_mv_col = 0;
+
+	trans_select_exps = new_exp_list(sa);
+	trans_table_exps = new_exp_list(sa); 
+	r_r_prop = init_rdf_rel_prop(ncol, nijgroup, nnodes_per_ijgroup);
+
+	printf("Get real expressions from tableId %d\n", tId);
+
+	tblnameoid = global_csset->items[tId]->tblname;
+
+	tblname = (str) GDKmalloc(sizeof(char) * 100); 
+
+	getTblSQLname(tblname, tId, 0,  tblnameoid, global_mapi, global_mbat);
+
+	printf("  [Name of the table  %s]", tblname);  
+	
+	for (gr = 0; gr < nijgroup; gr++){
+		for (i = 0; i < nnodes_per_ijgroup[gr]; i++){
+			int nodeid = ijgroup[gr][i];
+			jgnode *tmpnode = jg->lstnodes[nodeid];
+			sql_rel *tmprel = (sql_rel*) (tmpnode->data);
+			int colIdx; 
+			int isMVcol = 0; 
+			oid tmpPropId;
+
+			assert(tmprel->op == op_select);
+			assert(((sql_rel*)tmprel->l)->op == op_basetable); 
+
+			tmpPropId = tmpnode->poid; 
+
+			colIdx = getColIdx_from_oid(tId, global_csset, tmpPropId);
+
+			//Check whether the column is multi-valued prop
+			isMVcol = isMVCol(tId, colIdx, global_csset);
+
+			//Only for RDFscan, otherwise we need to handle Multi-valued prop
+			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname, NULL, NULL, 0); 
+
+			if (isMVcol == 0){
+				num_nonMV_col++; 
+			}
+			else{
+				num_mv_col++;
+			}
+		}
+	}
+	
+	sprintf(tmp, "[RDFscan] select exprs: "); 
+	exps_print_ext(c, trans_select_exps, 0, tmp);
+	sprintf(tmp, "          base table expression: \n"); 
+	exps_print_ext(c, trans_table_exps, 0, tmp);	
+
+
+
+	rel_basetbl = rel_basetable(c, get_rdf_table(c,tblname), tblname); 
+
+	rel_basetbl->exps = trans_table_exps;
+
+	if (num_mv_col > 0) r_r_prop->containMV = 1; 
+	
+	rel_rdfscan = rel_rdfscan_create(c->sa, rel_basetbl, trans_select_exps, r_r_prop); 
+
+	
+	list_destroy(trans_select_exps);
+
+	return rel_rdfscan; 
+
+}
+
+
+/*
+ * Input: 
+ * - A sub-join graph (jsg) that all nodes are connected by using inner join
+ * - The table (tId) that the node belongs to has been identified 
+ *   (The table corresponding to the star pattern is known)
+ * 
+ * Output: 
+ *  - A select from a relational table with list of columns. Or a join between
+ *  select from a table and mv_table if there is mv prop. 
+ *  - sp_prj_exps stores all the columns should be selected in the "original order" 
+ * */
+static
 sql_rel* build_rdfscan (mvc *c, jgraph *jg, int tId, int ncol, int nijgroup, int **ijgroup, int *nnodes_per_ijgroup){
 
 	sql_rel *rel_rdfscan = NULL;
@@ -2085,24 +2175,16 @@ sql_rel* build_rdfscan (mvc *c, jgraph *jg, int tId, int ncol, int nijgroup, int
 	for (gr = 0; gr < nijgroup; gr++){
 		for (i = 0; i < nnodes_per_ijgroup[gr]; i++){
 			int nodeid = ijgroup[gr][i];
-			sql_rel *tmprel = (sql_rel*) (jg->lstnodes[nodeid]->data);
+			jgnode *tmpnode = jg->lstnodes[nodeid];
+			sql_rel *tmprel = (sql_rel*) (tmpnode->data);
 			int colIdx; 
 			int isMVcol = 0; 
-			list *tmpexps = NULL; 
-			str prop; 
-			str subj;
 			oid tmpPropId;
 
 			assert(tmprel->op == op_select);
 			assert(((sql_rel*)tmprel->l)->op == op_basetable); 
 
-			tmpexps = tmprel->exps;
-
-			if (tmpexps) get_predicate_from_exps(c, tmpexps, &prop, &subj, 0);
-
-			//After having prop, get the corresponding column name
-
-			TKNRstringToOid(&tmpPropId, &prop);
+			tmpPropId = tmpnode->poid; 
 
 			colIdx = getColIdx_from_oid(tId, global_csset, tmpPropId);
 
@@ -2674,6 +2756,55 @@ sql_rel* _group_star_pattern_for_single_table(mvc *c, jgraph *jg,
 	return tbl_m_rel; 
 }
 
+static
+sql_rel* union_sp_from_all_matching_tbls(mvc *c, int num_match_tbl, int *contain_mv_col, sql_rel **tbl_m_rels, list **sp_proj_exps){
+	
+	sql_rel *rel = NULL; 
+	#if USING_UNION_FOR_MULTIPLE_MATCH
+	int tblIdx; 
+	//using union
+	sql_rel *tmprel = NULL;
+	list *union_exps = NULL;
+	union_exps = new_exp_list(c->sa);
+	if (contain_mv_col[0]){		//cover by a project with original columns order
+		tmprel = rel_project(c->sa, tbl_m_rels[0], sp_proj_exps[0]);	
+	} else {
+		tmprel = tbl_m_rels[0];
+	}
+
+	if (num_match_tbl > 1){
+		get_union_expr(c, tbl_m_rels[0], union_exps); 
+		printf("Union expresion is: \n"); 
+		exps_print_ext(c, union_exps, 0, "");
+	}
+
+	for (tblIdx = 1; tblIdx < num_match_tbl; tblIdx++){
+		sql_rel *tmp_proj_rel = NULL; 
+		sql_rel *tmprel2 = NULL; 
+		list *tmpexps;
+
+		if (contain_mv_col[tblIdx]){
+			tmp_proj_rel = rel_project(c->sa, tbl_m_rels[tblIdx], sp_proj_exps[tblIdx]);
+		}else{
+			tmp_proj_rel = tbl_m_rels[tblIdx];
+		}
+
+		tmprel2 = rel_setop(c->sa, tmprel, tmp_proj_rel, op_union); 
+		tmpexps = exps_copy(c->sa, union_exps);
+		tmprel2->exps = tmpexps; 
+		tmprel = tmprel2;
+	}
+
+	rel = tmprel; 
+
+	
+	#else
+	assert(num_match_tbl == 1); 	//TODO: Handle the case of matching multiple table
+	rel = tbl_m_rels[0]; 
+	#endif
+
+	return rel; 
+}
 
 /*
  * Create a select sql_rel from a star pattern
@@ -2727,19 +2858,12 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 		spprops = init_sp_props(nnode); 	
 
 		for (i = 0; i < nnode; i++){
-			str col = NULL; 
-			str subj = NULL; 	//May also get subject if it is available
-			sql_rel *tmprel = (sql_rel*) (jg->lstnodes[group[i]]->data);
-			extract_prop_and_subj_from_exps(c, tmprel, &col, &subj); 
-			printf("Column %d name is %s\n", i, col);
-			add_props_to_spprops(spprops, i, NAV, col); 		
-			if (subj){ 
-				printf("Also found subject = %s\n", subj); 
-				add_subj_to_spprops(spprops, subj); 
-				GDKfree(subj); 
-			}
-			
-			GDKfree(col); 
+			jgnode *tmpnode = jg->lstnodes[group[i]]; 
+			sql_rel *tmprel = (sql_rel*) (tmpnode->data);
+			verify_rel(tmprel); 
+			printf("Column %d name is %s\n", i, tmpnode->prop);
+			add_props_and_subj_to_spprops(spprops, i, NAV, tmpnode); 		
+
 		}
 
 		print_spprops(spprops);
@@ -2765,61 +2889,23 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 
 		
 		rel_rdfscan = build_rdfscan(c, jg, tmptbId[0], nnode, nijgroup, ijgroup, nnodes_per_ijgroup);
-
-		(void) rel_rdfscan; 
 		
+		if (0) rel_rdfscan = build_rdfexception(c, jg, tmptbId[0], nnode, nijgroup, ijgroup, nnodes_per_ijgroup);
+		
+		(void) rel_rdfscan; 
+		/*
 		#if USINGRDFSCAN
 		tbl_m_rel = rel_rdfscan; 
 		#else
 		rel_destroy(rel_rdfscan);
 		#endif
+		*/
 	
 
 		free_inner_join_groups(ijgroup, nijgroup, nnodes_per_ijgroup); 
 
-		
-		#if USING_UNION_FOR_MULTIPLE_MATCH
-		{//using union
-			sql_rel *tmprel = NULL;
-			list *union_exps = NULL;
-			union_exps = new_exp_list(c->sa);
-			if (contain_mv_col[0]){		//cover by a project with original columns order
-				tmprel = rel_project(c->sa, tbl_m_rels[0], sp_proj_exps[0]);	
-			} else {
-				tmprel = tbl_m_rels[0];
-			}
+		rel = union_sp_from_all_matching_tbls(c, num_match_tbl, contain_mv_col, tbl_m_rels, sp_proj_exps); 
 
-			if (num_match_tbl > 1){
-				get_union_expr(c, tbl_m_rels[0], union_exps); 
-				printf("Union expresion is: \n"); 
-				exps_print_ext(c, union_exps, 0, "");
-			}
-
-			for (tblIdx = 1; tblIdx < num_match_tbl; tblIdx++){
-				sql_rel *tmp_proj_rel = NULL; 
-				sql_rel *tmprel2 = NULL; 
-				list *tmpexps;
-
-				if (contain_mv_col[tblIdx]){
-					tmp_proj_rel = rel_project(c->sa, tbl_m_rels[tblIdx], sp_proj_exps[tblIdx]);
-				}else{
-					tmp_proj_rel = tbl_m_rels[tblIdx];
-				}
-
-				tmprel2 = rel_setop(c->sa, tmprel, tmp_proj_rel, op_union); 
-				tmpexps = exps_copy(c->sa, union_exps);
-				tmprel2->exps = tmpexps; 
-				tmprel = tmprel2;
-			}
-
-			rel = tmprel; 
-	
-			
-		}
-		#else
-			assert(num_match_tbl == 1); 	//TODO: Handle the case of matching multiple table
-			rel = tbl_m_rels[0]; 
-		#endif
 
 		free_sp_props(spprops);
 		free(tbl_m_rels);
