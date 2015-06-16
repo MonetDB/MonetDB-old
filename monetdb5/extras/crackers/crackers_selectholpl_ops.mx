@@ -266,7 +266,7 @@ CRKrandomholpl_@1_MT(int *bid, bit *inclusiveHgh, int nthreads, int vector_eleme
 
 	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
-  		fprintf(stderr, "Can't open output file!\n");
+  		fprintf(stderr, "Can't open output file HOLOUTPUT_PIECES!\n");
   		exit(1);
 	}
 
@@ -535,7 +535,7 @@ createView:
 
 	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
-  		fprintf(stderr, "Can't open output file!\n");
+  		fprintf(stderr, "Can't open output file HOLOUTPUT PIECES!\n");
   		exit(1);
 	}
 
@@ -1396,7 +1396,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 	ofp = fopen(outputFilename1,"a");
 
 	if (ofp == NULL) {
-  		fprintf(stderr, "Can't open output file!\n");
+  		fprintf(stderr, "Can't open output file HOLOUTPUT_PIECES!\n");
   		exit(1);
 	}
 
@@ -1423,7 +1423,7 @@ CRKRangeLeftNilTree_@1(int *vid, int *bid, @1 *hgh, bit *inclusiveHgh, bit tail,
 		ofp_copy = fopen(outputFilename2,"a");
 	
 		if (ofp_copy == NULL) {
-  			fprintf(stderr, "Can't open output file!\n");
+  			fprintf(stderr, "Can't open output file HOLISTIC_COPY_TIME!\n");
   			exit(1);
 		}
 
@@ -1648,7 +1648,7 @@ CRKRangeRightNilTree_@1(int *vid, int *bid, @1 *low, bit *inclusiveLow, bit tail
 
 	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
-  		fprintf(stderr, "Can't open output file!\n");
+  		fprintf(stderr, "Can't open output file HOLOUTPUT_PIECES!\n");
   		exit(1);
 	}
 

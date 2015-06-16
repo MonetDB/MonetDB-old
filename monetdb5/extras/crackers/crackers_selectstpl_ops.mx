@@ -340,7 +340,7 @@ createView:
 
 	ofp = fopen(outputFilename1,"a");
 	if (ofp == NULL) {
-  		fprintf(stderr, "Can't open output file!\n");
+  		fprintf(stderr, "Can't open output file STOCHASTIC_SELECT!\n");
   		exit(1);
 	}
 	

@@ -1651,12 +1651,12 @@ static str CRKscan_MT_@2_@1 (const BAT *b, BAT *ob, BUN first, BUN last, const @
         int i;
 #ifdef SCAN_BREAKDOWN
         FILE *ofp;
-        char *outputFilename1 = "/export/scratch2/petraki/experiments_sigmod_2014/parallel_scan_analysis/parallelscan_breakdown.txt";
+        char *outputFilename1 = getenv("PARALLELSCAN_OUTPUT");
         lng t0, t1;
         double elapsedTimeScan,elapsedTimeMerge;
         ofp = fopen(outputFilename1,"a");
         if (ofp == NULL) {
-                fprintf(stderr, "Can't open output file!\n");
+                fprintf(stderr, "Can't open output file: PARALLELSCAN_OUTPUT!\n");
                 exit(1);
         }
         t0 = GDKusec();
