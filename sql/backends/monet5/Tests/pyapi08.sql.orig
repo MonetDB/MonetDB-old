@@ -1012,12 +1012,15 @@ copy 1000 records into streams from stdin;
 2015-06-03 15:11:40.000000|1|"244650760"|52.382215|4.928525|0
 
 
+CREATE FUNCTION numpy_distance_test(stt string, tss bigint, lat double, lon double, alt double) returns table (s1 string, s2 string, timestamp int, mindist int) language R {
+	return [stt, stt, lat, lon];
+};
 
 CREATE FUNCTION numpy_distance(stt string, tss bigint, lat double, lon double, alt double) returns table (s1 string, s2 string, timestamp int, mindist int) language P {
 import numpy as np
 import math
 timelimit = 10
-distlimit = 20000
+distlimit = 1000
 rets1 = np.array([], dtype='|S10')
 rets2 = np.array([], dtype='|S10')
 retts = np.array([], dtype=np.int64)
@@ -1054,17 +1057,18 @@ while not it.finished:
             mindist = distdiff
             otheridx = it2.index
         it2.iternext()
+    out = ''
     if mindist < distlimit:
-	    rets1 = numpy.append(rets1, stt[it.index])
-	    rets2 = numpy.append(rets2, stt[otheridx])
-	    retts = numpy.append(retts, int(it[0]/1000))
-	    retmd = numpy.append(retmd, int(mindist))
+        rets1.append(stt[it.index])
+        rets2.append(stt[otheridx])
+        retts.append(int(it[0]/1000))
+        retmd.append(int(mindist))
     it.iternext()
 return([rets1, rets2, retts, retmd])
 };
 
 create temporary table planes as SELECT station, (ts-CAST('1970-01-01' AS timestamp)), lat, lon, alt*0.3048 FROM streams WHERE type = 2 and alt > 0 with data;
-select * from numpy_distance( (SELECT * FROM planes AS p) );
+select * from numpy_distance_test( (SELECT * FROM planes AS p) );
 
 drop table planes;
 drop function numpy_distance;
