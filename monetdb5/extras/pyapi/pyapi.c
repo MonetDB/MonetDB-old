@@ -71,6 +71,15 @@ const char* debug_enableflag = "enable_pydebug";
         GDKfree(var); \
 }
 
+const char * pyarg_tabwidth[] = {"TABWIDTH", "MULTIPROCESSING"};
+
+struct _ParseArguments
+{
+    int tab_width;
+    bool multiprocessing;
+};
+#define ParseArguments struct _ParseArguments
+
 struct _ReturnBatDescr
 {
     int npy_type;                        //npy type 
@@ -108,6 +117,8 @@ int PyAPIEnabled(void) {
             || GDKgetenv_isyes(pyapi_enableflag));
 }
 
+
+char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth);
 
 // TODO: exclude pyapi from mergetable, too
 static MT_Lock pyapiLock;
@@ -255,7 +266,7 @@ static int pyapiInitialized = FALSE;
             goto wrapup;                                                                                                                                       \
         }                                                                                                                                                      \
         data = (char*) ret->array_data;                                                                                                                        \
-        if (zero_copy && ret->count > 0 && TYPE_##mtpe == PyType_ToBat(ret->result_type) && (ret->count * ret->memory_size < BUN_MAX) &&                  \
+        if (option_zerocopy && ret->count > 0 && TYPE_##mtpe == PyType_ToBat(ret->result_type) && (ret->count * ret->memory_size < BUN_MAX) &&                  \
             (ret->numpy_array == NULL || PyArray_FLAGS(ret->numpy_array) & NPY_ARRAY_OWNDATA))                                                                 \
         {                                                                                                                                                      \
             /*We can only create a direct map if the numpy array type and target BAT type*/                                                                    \
@@ -344,19 +355,14 @@ typedef enum {
 } pyapi_scan_state;
 
 bool PyType_IsPyScalar(PyObject *object);
-char *PyError_CreateException(char *error_text, char *error_text_2);
+char *PyError_CreateException(char *error_text, char *pycall);
 
 str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped) {
     sql_func * sqlfun = *(sql_func**) getArgReference(stk, pci, pci->retc);
     str exprStr = *getArgReference_str(stk, pci, pci->retc + 1);
 
     int i = 1, ai = 0;
-    char argbuf[64];
-    char argnames[1000] = "";
-    size_t pos;
     char* pycall = NULL;
-    char *expr_ind = NULL;
-    size_t pycalllen, expr_ind_len;
     str *args;
     char *msg = MAL_SUCCEED;
     BAT *b = NULL;
@@ -368,7 +374,11 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     PyReturn *pyreturn_values = NULL;
     PyInput *pyinput_values = NULL;
     int seqbase = 0;
-    bool zero_copy = !(GDKgetenv_isyes(zerocopy_disableflag) || GDKgetenv_istrue(zerocopy_disableflag));
+
+    bool option_verbose = GDKgetenv_isyes(verbose_enableflag) || GDKgetenv_istrue(verbose_enableflag);
+    bool option_debug = GDKgetenv_isyes(debug_enableflag) || GDKgetenv_istrue(debug_enableflag);
+    bool option_zerocopy = !(GDKgetenv_isyes(zerocopy_disableflag) || GDKgetenv_istrue(zerocopy_disableflag));
+    (void) option_verbose; (void) option_debug;
 #ifndef WIN32
     bool single_fork = mapped == 1;
     int shm_id = -1;
@@ -383,32 +393,38 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     int j;
     size_t iu;
 
-    if (!PyAPIEnabled()) 
-    {
+    if (!PyAPIEnabled()) {
         throw(MAL, "pyapi.eval",
               "Embedded Python has not been enabled. Start server with --set %s=true",
               pyapi_enableflag);
     }
 
     VERBOSE_MESSAGE("PyAPI Start\n");
-    pycalllen = strlen(exprStr) + sizeof(argnames) + 1000;
-    expr_ind_len = strlen(exprStr) + 1000;
 
-    pycall =      GDKzalloc(pycalllen);
-    expr_ind =    GDKzalloc(expr_ind_len);
+
     args = (str*) GDKzalloc(pci->argc * sizeof(str));
-    pyreturn_values = GDKzalloc(pci->retc * sizeof(PyReturn));
-    pyinput_values = GDKzalloc((pci->argc - (pci->retc + 2)) * sizeof(PyInput));
-
-    if (args == NULL || pycall == NULL || pyreturn_values == NULL) 
-    {
+    if (args == NULL) {
         throw(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
-        // TODO: free args and rcall
+    }
+    pyreturn_values = GDKzalloc(pci->retc * sizeof(PyReturn));
+
+    if (pyreturn_values == NULL) {
+        GDKfree(args);
+        throw(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
+    }
+
+    if ((pci->argc - (pci->retc + 2)) * sizeof(PyInput) > 0)
+    {
+        pyinput_values = GDKzalloc((pci->argc - (pci->retc + 2)) * sizeof(PyInput));
+
+        if (pyinput_values == NULL) {
+            GDKfree(args); GDKfree(pyreturn_values);
+            throw(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
+        }
     }
 
     // first argument after the return contains the pointer to the sql_func structure
-    if (sqlfun != NULL && sqlfun->ops->cnt > 0) 
-    {
+    if (sqlfun != NULL && sqlfun->ops->cnt > 0) {
         int cargs = pci->retc + 2;
         argnode = sqlfun->ops->h;
         while (argnode) {
@@ -420,15 +436,13 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     }
 
     // the first unknown argument is the group, we don't really care for the rest.
-    for (i = pci->retc + 2; i < pci->argc; i++) 
-    {
-        if (args[i] == NULL) 
-        {
-            if (!seengrp && grouped) 
-            {
+    for (i = pci->retc + 2; i < pci->argc; i++) {
+        if (args[i] == NULL) {
+            if (!seengrp && grouped) {
                 args[i] = GDKstrdup("aggr_group");
                 seengrp = TRUE;
             } else {
+                char argbuf[64];
                 snprintf(argbuf, sizeof(argbuf), "arg%i", i - pci->retc - 1);
                 args[i] = GDKstrdup(argbuf);
             }
@@ -438,101 +452,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 
     VERBOSE_MESSAGE("Formatting python code.\n");
 
-    // create argument list
-    pos = 0;
-    for (i = pci->retc + 2; i < pci->argc && pos < sizeof(argnames); i++) 
-    {
-        pos += snprintf(argnames + pos, sizeof(argnames) - pos, "%s%s", args[i], i < pci->argc - 1 ? ", " : "");
-    }
-    if (pos >= sizeof(argnames)) 
-    {
-        msg = createException(MAL, "pyapi.eval", "Command too large");
-        goto wrapup;
-    }
-
-    {
-        // indent every line in the expression by one level,
-        // if we find newline-tab, use tab, space otherwise
-        // two passes, first inserts null placeholder, second replaces
-        // need to be careful, newline might be in a quoted string
-        // this does not handle multi-line strings starting with """ (yet?)
-        pyapi_scan_state state = SEENNL;
-        char indentchar = 0;
-        size_t py_pos, py_ind_pos = 0;
-
-        if (strlen(exprStr) > 0 && exprStr[0] == '{')
-            exprStr[0] = ' ';
-        if (strlen(exprStr) > 2 && exprStr[strlen(exprStr) - 2] == '}')
-            exprStr[strlen(exprStr) - 2] = ' ';
-
-        for (py_pos = 0; py_pos < strlen(exprStr); py_pos++) 
-        {
-            if (exprStr[py_pos] == ';')
-                exprStr[py_pos] = ' ';
-        }
-
-        for (py_pos = 0; py_pos < strlen(exprStr); py_pos++) {
-            // +1 because we need space for the \0 we append below.
-            if (py_ind_pos + 1 > expr_ind_len) {
-                msg = createException(MAL, "pyapi.eval", "Overflow in re-indentation");
-                goto wrapup;
-            }
-            switch(state) {
-                case NORMAL:
-                    if (exprStr[py_pos] == '\'' || exprStr[py_pos] == '"') 
-                    {
-                        state = INQUOTES;
-                    }
-                    if (exprStr[py_pos] == '\n') 
-                    {
-                        state = SEENNL;
-                    }
-                    break;
-
-                case INQUOTES:
-                    if (exprStr[py_pos] == '\\') 
-                    {
-                        state = ESCAPED;
-                    }
-                    if (exprStr[py_pos] == '\'' || exprStr[py_pos] == '"') 
-                    {
-                        state = NORMAL;
-                    }
-                    break;
-
-                case ESCAPED:
-                    state = INQUOTES;
-                    break;
-
-                case SEENNL:
-                    if (exprStr[py_pos] == ' ' || exprStr[py_pos] == '\t') 
-                    {
-                        indentchar = exprStr[py_pos];
-                    }
-                    expr_ind[py_ind_pos++] = 0;
-                    state = NORMAL;
-                    break;
-            }
-            expr_ind[py_ind_pos++] = exprStr[py_pos];
-        }
-        if (indentchar == 0) {
-            indentchar = ' ';
-        }
-        for (py_pos = 0; py_pos < py_ind_pos; py_pos++) 
-        {
-            if (expr_ind[py_pos] == 0) 
-            {
-                expr_ind[py_pos] = indentchar;
-            }
-        }        // make sure this is terminated.
-        expr_ind[py_ind_pos++] = 0;
-    }
-
-    if (snprintf(pycall, pycalllen,
-         "def pyfun(%s):\n%s",
-         argnames, expr_ind) >= (int) pycalllen) {
-        msg = createException(MAL, "pyapi.eval", "Command too large");
-        goto wrapup;
+    pycall = FormatCode(exprStr, args, pci->argc, 4);
+    if (pycall == NULL) {
+        throw(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
     }
 
     //input analysis
@@ -1012,7 +934,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                     
                 mask = PyObject_CallObject(mafunc, maargs);
                 if (!mask) {
-                    msg = PyError_CreateException("Failed to create mask", "");
+                    msg = PyError_CreateException("Failed to create mask", NULL);
                     goto wrapup;
                 }
                 Py_DECREF(vararray);
@@ -1035,7 +957,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         // First we will load the main module, this is required
         pModule = PyImport_AddModule("__main__");
         if (!pModule) {
-            msg = PyError_CreateException("Failed to load module", "");
+            msg = PyError_CreateException("Failed to load module", NULL);
             goto wrapup;
         }
         
@@ -1051,7 +973,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         // Now we need to obtain a pointer to the function, the function is called "pyfun"
         pFunc = PyObject_GetAttrString(pModule, "pyfun");
         if (!pFunc || !PyCallable_Check(pFunc)) {
-            msg = PyError_CreateException("Failed to load function", "");
+            msg = PyError_CreateException("Failed to load function", NULL);
             goto wrapup;
         }
 
@@ -1688,7 +1610,7 @@ returnvalues:
             GDKfree(args[i]);
     GDKfree(args);
     GDKfree(pycall);
-    GDKfree(expr_ind);
+    //GDKfree(expr_ind);
 
     VERBOSE_MESSAGE("Finished cleaning up.\n");
     return msg;
@@ -1736,10 +1658,11 @@ bool PyType_IsPyScalar(PyObject *object)
 }
 
 
-char *PyError_CreateException(char *error_text, char *error_text_2)
+char *PyError_CreateException(char *error_text, char *pycall)
 {
     PyObject *py_error_type, *py_error_value, *py_error_traceback;
     char *py_error_string;
+    lng line_number;
 
     PyErr_Fetch(&py_error_type, &py_error_value, &py_error_traceback);
     if (py_error_value) {
@@ -1749,12 +1672,301 @@ char *PyError_CreateException(char *error_text, char *error_text_2)
 
         py_error_string = PyString_AS_STRING(error);
         Py_XDECREF(error);
+        if (pycall != NULL && strlen(pycall) > 0) {
+            // If pycall is given, we try to parse the line number from the error string and format pycall so it only displays the lines around the line number
+            // (This code is pretty ugly, sorry)
+            char line[] = "line ";
+            char linenr[32]; //we only support functions with at most 10^32 lines, mostly out of philosophical reasons
+            size_t i = 0, j = 0, pos = 0, nrpos = 0;
+
+            // First parse the line number from py_error_string
+            for(i = 0; i < strlen(py_error_string); i++) {
+                if (pos < strlen(line)) {
+                    if (py_error_string[i] == line[pos]) {
+                        pos++;
+                    }
+                } else {
+                    if (py_error_string[i] == '0' || py_error_string[i] == '1' || py_error_string[i] == '2' || 
+                        py_error_string[i] == '3' || py_error_string[i] == '4' || py_error_string[i] == '5' || 
+                        py_error_string[i] == '6' || py_error_string[i] == '7' || py_error_string[i] == '8' || py_error_string[i] == '9') {
+                        linenr[nrpos++] = py_error_string[i];
+                    }
+                }
+            }
+            linenr[nrpos] = '\0';
+            if (!str_to_lng(linenr, nrpos, &line_number)) {
+                // No line number in the error, so just display a normal error
+                goto finally;
+            }
+
+            // Now only display the line numbers around the error message, we display 5 lines around the error message
+            {
+                char lineinformation[5000]; //we only support 5000 characters for 5 lines of the program, should be enough
+                nrpos = 0; // Current line number 
+                pos = 0; //Current position in the lineinformation result array
+                for(i = 0; i < strlen(pycall); i++) {
+                    if (pycall[i] == '\n' || i == 0) { 
+                        // Check if we have arrived at a new line, if we have increment the line count
+                        nrpos++;  
+                        // Now check if we should display this line 
+                        if (nrpos >= ((size_t)line_number - 2) && nrpos <= ((size_t)line_number + 2) && pos < 4997) { 
+                            // We shouldn't put a newline on the first line we encounter, only on subsequent lines
+                            if (nrpos > ((size_t)line_number - 2)) lineinformation[pos++] = '\n';
+                            if ((size_t)line_number == nrpos) {
+                                // If this line is the 'error' line, add an arrow before it, otherwise just add spaces
+                                lineinformation[pos++] = '>';
+                                lineinformation[pos++] = ' ';
+                            } else {
+                                lineinformation[pos++] = ' ';
+                                lineinformation[pos++] = ' ';
+                            }
+                            lng_to_string(linenr, nrpos); // Convert the current line number to string and add it to lineinformation
+                            for(j = 0; j < strlen(linenr); j++) {
+                                lineinformation[pos++] = linenr[j];
+                            }
+                            lineinformation[pos++] = '.';
+                            lineinformation[pos++] = ' ';
+                        }
+                    }
+                    if (pycall[i] != '\n' && nrpos >= (size_t)line_number - 2 && nrpos <= (size_t)line_number + 2 && pos < 4999) { 
+                        // If we are on a line number that we have to display, copy the text from this line for display
+                        lineinformation[pos++] = pycall[i];
+                    }
+                }
+                lineinformation[pos] = '\0';
+                Py_XDECREF(py_error_type);
+                Py_XDECREF(py_error_value);
+                Py_XDECREF(py_error_traceback);
+                return createException(MAL, "pyapi.eval", "%s\n%s\n%s", error_text, lineinformation, py_error_string);
+            }
+        }
     }
     else {
         py_error_string = "";
     }
+finally:
     Py_XDECREF(py_error_type);
     Py_XDECREF(py_error_value);
     Py_XDECREF(py_error_traceback);
-    return createException(MAL, "pyapi.eval", "%s\n%s\n%s", error_text, error_text_2, py_error_string);
+    if (pycall == NULL) return createException(MAL, "pyapi.eval", "%s\n%s", error_text, py_error_string);
+    return createException(MAL, "pyapi.eval", "%s\n%s\n%s", error_text, pycall, py_error_string);
+}
+
+
+char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth)
+{
+    // Format the python code by fixing the indentation levels
+    // We do two passes, first we get the length of the resulting formatted code and then we actually create the resulting code
+    size_t i = 0, j = 0, k = 0;
+    size_t length = strlen(code);
+    size_t size = 0;
+    size_t spaces_per_level = 4;
+
+    size_t code_location = 0;
+    char *newcode = NULL;
+
+    size_t indentation_count = 0;
+    size_t max_indentation = 100;
+    size_t *indentation_levels = (size_t*)GDKzalloc(max_indentation * sizeof(size_t));
+    size_t *statements_per_level = (size_t*)GDKzalloc(max_indentation * sizeof(size_t));
+
+    size_t initial_spaces = 0;
+    size_t statement_size = 0;
+    bool seen_statement = false;
+
+    char base_start[] = "def pyfun(";
+    char base_end[] = "):\n";
+
+    if (indentation_levels == NULL) goto finally;
+
+    // Base function definition size
+    // For every argument, add a comma, and add another entry for the '\0'
+    size += strlen(base_start) + strlen(base_end) + argcount + 1;
+    for(i = 0; i < argcount; i++) {
+        if (args[i] != NULL) {
+            size += strlen(args[i]) + 1; 
+        }
+    }
+    // First remove the "{" at the start and the "};" at the end of the function, this is added when we have a function created through SQL and python doesn't like them
+    // We need to be careful to only remove ones at the start/end, otherwise we might invalidate some otherwise valid python code containing them
+    for(i = length - 1, j = 0; i > 0; i--)
+    {
+        if (code[i] != '\n' && code[i] != ' ' && code[i] != '\t' && code[i] != ';' && code[i] != '}') break;
+        if (j == 0) {
+            if (code[i] == ';') {
+                code[i] = ' ';
+                j = 1;
+            }
+        }
+        else if (j == 1) {
+            if (code[i] == '}') {
+                code[i] = ' ';
+                break;
+            }
+        }
+    }
+    for(i = 0; i < length; i++) {
+        if (code[i] != '\n' && code[i] != ' ' && code[i] != '\t' && code[i] != '{') break;
+        if (code[i] == '{') {
+            code[i] = ' ';
+        }
+    }
+    // We indent using spaces, four spaces per level
+    // We also erase empty lines
+    for(i = 0; i < length; i++) {
+        if (!seen_statement) {
+            // We have not seen a statement on this line yet
+            if (code[i] == '\n'){ 
+                // Empty line, skip to the next one
+                initial_spaces = 0;
+            } else if (code[i] == ' ') {
+                initial_spaces++;
+            } else if (code[i] == '\t') {
+                initial_spaces += tabwidth;
+            } else {
+                // Statement starts here
+                seen_statement = true;
+            }
+        }
+        if (seen_statement) {
+            // We have seen a statement on this line, check the indentation level
+            statement_size++;
+
+            if (code[i] == '\n' || i == length - 1) {
+                // Statement ends here
+                bool placed = false;
+                size_t level = 0;
+                // First put the indentation in the indentation table
+                if (indentation_count >= max_indentation) {
+                    size_t *new_indentation = GDKzalloc(2 * max_indentation * sizeof(size_t));
+                    size_t *new_statements_per_level = GDKzalloc(2 * max_indentation * sizeof(size_t));
+                    if (new_indentation == NULL) goto finally;
+
+                    for(i = 0; i < max_indentation; i++) {
+                        new_indentation[i] = indentation_levels[i];
+                        new_statements_per_level[i] = statements_per_level[i];
+                    }
+                    GDKfree(indentation_levels);
+                    GDKfree(statements_per_level);
+                    indentation_levels = new_indentation;
+                    statements_per_level = new_statements_per_level;
+                    max_indentation *= 2;
+                }
+
+                for(j = 0; j < indentation_count; j++) {
+                    if (initial_spaces == indentation_levels[j]) {
+                        level = j;
+                        placed = true;
+                        break;
+                    }
+
+                    if (initial_spaces < indentation_levels[j]) {
+                        //put the indentation level here
+                        for(k = indentation_count; k > j; k--) {
+                            indentation_levels[k] = indentation_levels[k - 1];
+                            statements_per_level[k] = statements_per_level[k - 1];
+                        }
+                        indentation_count++;
+                        statements_per_level[j] = 0;
+                        indentation_levels[j] = initial_spaces;
+                        level = j;
+                        placed = true;
+                        break;
+                    }
+                }
+                if (!placed) {
+                    level = indentation_count;
+                    indentation_levels[indentation_count++] = initial_spaces;
+                }
+                statements_per_level[level]++;
+                size += statement_size;
+                seen_statement = false;
+                initial_spaces = 0;
+                statement_size = 0;
+            }
+        }
+    }
+    for(i = 0; i < indentation_count; i++) {
+        size += (i + 1) * spaces_per_level * statements_per_level[i];
+    }
+
+    // Allocate space for the function
+    newcode = GDKzalloc(size);
+    if (newcode == NULL) goto finally;
+    initial_spaces = 0;
+    seen_statement = false;
+
+    // First print in the function definition and arguments
+    for(i = 0; i < strlen(base_start); i++) {
+        newcode[code_location++] = base_start[i];
+    }
+    for(i = 0; i < argcount; i++) {
+        if (args[i] != NULL) {
+            for(j = 0; j < strlen(args[i]); j++) {
+                newcode[code_location++] = args[i][j];
+            }
+            if (i != argcount - 1) {
+                newcode[code_location++] = ',';
+            }
+        }
+    }
+    for(i = 0; i < strlen(base_end); i++) {
+        newcode[code_location++] = base_end[i];
+    }
+
+    // Now the second pass, actually construct the code
+    for(i = 0; i < length; i++) {
+        if (!seen_statement) {
+            // We have not seen a statement on this line yet
+            if (code[i] == '\n'){ 
+                // Empty line, skip to the next one
+                initial_spaces = 0;
+            } else if (code[i] == ' ') {
+                initial_spaces++;
+            } else if (code[i] == '\t') {
+                initial_spaces += tabwidth;
+            } else {
+                // Statement starts here
+                seen_statement = true;
+                bool placed = false;
+                int level = 0;
+
+                for(j = 0; j < indentation_count; j++) {
+                    if (initial_spaces == indentation_levels[j]) {
+                        level = j;
+                        placed = true;
+                        break;
+                    }
+                }
+                if (!placed) {
+                    // This should never happen
+                    printf("WHAT HAPPENED\n");
+                    goto finally;
+                }
+                for(j = 0; j < (level + 1) * spaces_per_level; j++) {
+                    // Add spaces to the code
+                    newcode[code_location++] = ' ';
+                }
+            }
+        }
+        if (seen_statement) {
+            // We have seen a statement on this line, copy it
+            newcode[code_location++] = code[i];
+            if (code[i] == '\n') {
+                // The statement has ended, move on to the next line
+                seen_statement = false;
+                initial_spaces = 0;
+                statement_size = 0;
+            }
+        }
+    }
+    newcode[code_location] = '\0';
+    if (code_location >= size) {
+        printf("WHAT HAPPENED\n");
+        goto finally;
+    }
+finally:
+    GDKfree(indentation_levels);
+    GDKfree(statements_per_level);
+    return newcode;
 }

@@ -163,7 +163,7 @@ r:bat[:oid,:int] := pyapi.eval(nil:ptr,"return(\"Test\")");
 io.print(r);
 
 # return an unsupported object
-(r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"class NewClass:\n\tx = 5\n\n\treturn(NewClass())");
+(r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"class NewClass:\n x = 5\n\nreturn(NewClass())");
 
 # return a scalar when multiple returns are expected
 (r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(12)");
