@@ -31,8 +31,6 @@
 //#define _PYAPI_VERBOSE_
 #define _PYAPI_DEBUG_
 
-bool memory_mapping = TRUE;
-
 #include <stdint.h>
 
 #include <stdio.h>
@@ -46,6 +44,9 @@ bool memory_mapping = TRUE;
 #endif
 
 const char* pyapi_enableflag = "embedded_py";
+const char* zerocopy_disableflag = "disable_pyzerocopy";
+const char* verbose_enableflag = "enable_pyverbose";
+const char* debug_enableflag = "enable_pydebug";
 
 #ifdef _PYAPI_VERBOSE_
 #define VERBOSE_MESSAGE(...) {   \
@@ -59,8 +60,7 @@ const char* pyapi_enableflag = "embedded_py";
 
 #define GDK_Alloc(var, size) { \
     var = GDKzalloc(size);  \
-    if (var == NULL) \
-    { \
+    if (var == NULL) { \
         msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL); \
         goto wrapup; \
     } \
@@ -98,7 +98,6 @@ struct _PyReturn{
     bool *mask_data;
     size_t count;
     size_t memory_size;
-    BAT *bat_return;
     int result_type;
     bool multidimensional;
 };
@@ -256,7 +255,7 @@ static int pyapiInitialized = FALSE;
             goto wrapup;                                                                                                                                       \
         }                                                                                                                                                      \
         data = (char*) ret->array_data;                                                                                                                        \
-        if (memory_mapping && ret->count > 0 && TYPE_##mtpe == PyType_ToBat(ret->result_type) && (ret->count * ret->memory_size < BUN_MAX) &&                  \
+        if (zero_copy && ret->count > 0 && TYPE_##mtpe == PyType_ToBat(ret->result_type) && (ret->count * ret->memory_size < BUN_MAX) &&                  \
             (ret->numpy_array == NULL || PyArray_FLAGS(ret->numpy_array) & NPY_ARRAY_OWNDATA))                                                                 \
         {                                                                                                                                                      \
             /*We can only create a direct map if the numpy array type and target BAT type*/                                                                    \
@@ -345,6 +344,7 @@ typedef enum {
 } pyapi_scan_state;
 
 bool PyType_IsPyScalar(PyObject *object);
+char *PyError_CreateException(char *error_text, char *error_text_2);
 
 str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped) {
     sql_func * sqlfun = *(sql_func**) getArgReference(stk, pci, pci->retc);
@@ -368,13 +368,13 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     PyReturn *pyreturn_values = NULL;
     PyInput *pyinput_values = NULL;
     int seqbase = 0;
-
+    bool zero_copy = !(GDKgetenv_isyes(zerocopy_disableflag) || GDKgetenv_istrue(zerocopy_disableflag));
 #ifndef WIN32
     bool single_fork = mapped == 1;
     int shm_id = -1;
     int sem_id = -1;
     int process_id = 0;
-    int memory_size;
+    int memory_size = 0;
     int process_count;
 #endif
 
@@ -769,25 +769,26 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 #endif
     }
 
-    //VERBOSE_MESSAGE("Attempt to acquire GIL.\n");
-    //gstate = AcquireLock(&holds_gil);
-
-
     VERBOSE_MESSAGE("Loading data from the database into Python.\n");
 
-    // create function argument tuple, we pass a tuple of numpy arrays
-    pArgs = PyTuple_New(pci->argc-(pci->retc + 2));
+    // Now we will do the input handling (aka converting the input BATs to numpy arrays)
+    // We will put the python arrays in a PyTuple object, we will use this PyTuple object as the set of arguments to call the Python function
+    pArgs = PyTuple_New(pci->argc - (pci->retc + 2));
 
-    // for each input column (BAT):
+    // Now we will loop over the input BATs and convert them to python objects
     for (i = pci->retc + 2; i < pci->argc; i++) {
-        PyObject *vararray = NULL;
-        PyInput *inp = &pyinput_values[i - (pci->retc + 2)];
-        // turn scalars into one-valued BATs
-        // TODO: also do this for Python? Or should scalar values be 'simple' variables?
-        if (inp->scalar) 
-        {
+        // This variable will hold the converted Python object
+        PyObject *vararray = NULL; 
+        // This is the header information of this input BAT, it holds a pointer to the BAT and information about the BAT
+        PyInput *inp = &pyinput_values[i - (pci->retc + 2)]; 
+
+        // There are two possibilities, either the input is a BAT, or the input is a scalar
+        // If the input is a scalar we will convert it to a python scalar
+        // If the input is a BAT, we will convert it to a numpy array
+        if (inp->scalar) {
             VERBOSE_MESSAGE("- Loading a scalar of type %s (%i)\n", BatType_Format(getArgType(mb,pci,i)), getArgType(mb,pci,i));
             
+            // The input is a scalar, so we will create a Python scalar from the input
             switch(inp->bat_type)
             {
                 case TYPE_bit:
@@ -834,23 +835,27 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 msg = createException(MAL, "pyapi.eval", "Something went wrong converting the MonetDB scalar to a Python scalar.");
                 goto wrapup;
             }
-            PyTuple_SetItem(pArgs, ai++, vararray);
+            PyTuple_SetItem(pArgs, ai++, vararray); // Add the resulting python object to the PyTuple
         }
         else
         {
-            int t_start = 0, t_end = 0;
+            // The input is a BAT, we will convert it to a numpy array
+            // t_start and t_end hold the part of the BAT we will convert to a Numpy array, by default these hold the entire BAT [0 - BATcount(b)]
+            int t_start = 0, t_end = inp->count;
 
             b = inp->bat;
             if (b == NULL) 
             {
+                // No BAT was found, we can't do anything in this case
                 msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
                 goto wrapup;
             }
-            t_end = inp->count;
 
 #ifndef WIN32
             if (mapped && process_id && process_count > 1)
             {
+                // If there are multiple processes, we are responsible for dividing the input among them
+                // We set t_start and t_end to the appropriate chunk for this process (depending on the process id and total amount of processes)
                 double chunk = process_id - 1;
                 double totalchunks = process_count;
                 double count = BATcount(b);
@@ -863,7 +868,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 
             VERBOSE_MESSAGE("- Loading a BAT of type %s (%d)\n", BatType_Format(inp->bat_type), inp->bat_type);
 
-            //the argument is a BAT, convert it to a numpy array
             switch (inp->bat_type) {
             case TYPE_bte:
                 vararray = BAT_TO_NP(b, bte, NPY_INT8);
@@ -893,7 +897,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 BATloop(b, p, q)
                 {
                     const char *t = (const char *) BUNtail(li, p);
-                    const size_t length = utf8_strlen(t); //get the amount of UTF-8 characters in the string
+                    const size_t length = strlen(t);//utf8_strlen(t); //get the amount of UTF-8 characters in the string
 
                     if (length > maxsize)
                         maxsize = length;
@@ -917,13 +921,11 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 {
                     const char *t = (const char *) BUNtail(li, p);
                     PyObject *obj;
-                    if (strcmp(t, str_nil) == 0) 
-                    {
+                    if (strcmp(t, str_nil) == 0) {
                          //str_nil isn't a valid UTF-8 character (it's 0x80), so we can't decode it as UTF-8 (it will throw an error)
                         obj = PyUnicode_FromString("-");
                     }
-                    else
-                    {
+                    else {
                         //otherwise we can just decode the string as UTF-8
                         obj = PyUnicode_FromString(t);
                     }
@@ -957,8 +959,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 
                 j = 0;
                 fprintf(stderr, "!WARNING: Type \"hge\" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type \"long\". This is likely very slow.\n");
-                BATloop(b, p, q)
-                {
+                BATloop(b, p, q) {
                     char hex[40];
                     //we first convert the huge to a string in hex format
                     PyObject *obj;
@@ -966,8 +967,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                     hge_to_string(hex, 40, *t);
                     //then we create a PyLong from that string by parsing it
                     obj = PyLong_FromString(hex, NULL, 16);
-                    if (obj == NULL)
-                    {
+                    if (obj == NULL) {
                         PyErr_Print();
                         msg = createException(MAL, "pyapi.eval", "Failed to convert huge array.");
                         goto wrapup;
@@ -982,38 +982,37 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 goto wrapup;
             }
 
-            VERBOSE_MESSAGE("Masked array check\n");
-            // we use numpy.ma to deal with possible NULL values in the data
-            // once numpy comes with proper NA support, this will change
-            if (b->T->nil)
-            {
+            // To deal with null values, we use the numpy masked array structure
+            // The masked array structure is an object with two arrays of equal size, a data array and a mask array
+            // The mask array is a boolean array that has the value 'True' when the element is NULL, and 'False' otherwise
+            // If the BAT has Null values, we construct this masked array
+            if (b->T->nil) {
                 PyObject *mask;
                 PyObject *mafunc = PyObject_GetAttrString(PyImport_Import(PyString_FromString("numpy.ma")), "masked_array");
                 PyObject *maargs = PyTuple_New(2);
+                // We will now construct the Masked array, we start by setting everything to False
                 PyArrayObject* nullmask = (PyArrayObject*) PyArray_ZEROS(1,
                                 (npy_intp[1]) {(t_end - t_start)}, NPY_BOOL, 0);
 
+                // Now we will loop over the BAT, for every value that is Null we set the corresponding mask attribute to True
                 const void *nil = ATOMnilptr(b->ttype);
                 int (*atomcmp)(const void *, const void *) = ATOMcompare(b->ttype);
                 BATiter bi = bat_iterator(b);
 
-                for (j = 0; j < t_end - t_start; j++) 
-                {
-                    if ((*atomcmp)(BUNtail(bi, BUNfirst(b) + t_start + j), nil) == 0) 
-                    {
+                for (j = 0; j < t_end - t_start; j++) {
+                    if ((*atomcmp)(BUNtail(bi, BUNfirst(b) + t_start + j), nil) == 0) {
                         // Houston we have a NULL
                         PyArray_SETITEM(nullmask, PyArray_GETPTR1(nullmask, j), Py_True);
                     }
                 }
 
+                // Now we will actually construct the mask by calling the masked array constructor
                 PyTuple_SetItem(maargs, 0, vararray);
                 PyTuple_SetItem(maargs, 1, (PyObject*) nullmask);
                     
                 mask = PyObject_CallObject(mafunc, maargs);
-                if (!mask) 
-                {
-                    PyErr_Print();
-                    msg = createException(MAL, "pyapi.eval", "UUUH");
+                if (!mask) {
+                    msg = PyError_CreateException("Failed to create mask", "");
                     goto wrapup;
                 }
                 Py_DECREF(vararray);
@@ -1022,76 +1021,73 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 
                 vararray = mask;
             }
-            PyTuple_SetItem(pArgs, ai++, vararray);
-
-            //BBPunfix(b->batCacheid);
+            PyTuple_SetItem(pArgs, ai++, vararray); // Add the resulting python object to the PyTuple
         }
     }
 
 
     VERBOSE_MESSAGE("Executing python code.\n");
 
+    // Now it is time to actually execute the python code
     {
-        int pyret = 0;
-        PyObject *pFunc, *pModule, *str;
+        PyObject *pFunc, *pModule, *v, *d;
 
-        str = PyString_FromString("__main__");
-        pModule = PyImport_Import(str);
-        Py_CLEAR(str);
-
+        // First we will load the main module, this is required
+        pModule = PyImport_AddModule("__main__");
+        if (!pModule) {
+            msg = PyError_CreateException("Failed to load module", "");
+            goto wrapup;
+        }
         
-        VERBOSE_MESSAGE("Initializing function.\n");
-        pyret = PyRun_SimpleString(pycall);
+        // Now we will add the UDF to the main module
+        d = PyModule_GetDict(pModule);
+        v = PyRun_StringFlags(pycall, Py_file_input, d, d, NULL);
+        if (v == NULL) {
+            msg = PyError_CreateException("Could not parse Python code", pycall);
+            goto wrapup;
+        }
+        Py_DECREF(v);
+
+        // Now we need to obtain a pointer to the function, the function is called "pyfun"
         pFunc = PyObject_GetAttrString(pModule, "pyfun");
-        
-        if (pyret != 0 || !pModule || !pFunc || !PyCallable_Check(pFunc)) {
-            PyErr_Print();
-            msg = createException(MAL, "pyapi.eval", "could not parse Python code \n%s", pycall);
+        if (!pFunc || !PyCallable_Check(pFunc)) {
+            msg = PyError_CreateException("Failed to load function", "");
             goto wrapup;
         }
 
+        // The function has been successfully created/compiled, all that remains is to actually call the function
         pResult = PyObject_CallObject(pFunc, pArgs);
         Py_DECREF(pFunc);
         Py_DECREF(pArgs);
 
         if (PyErr_Occurred()) {
-            PyObject *pErrType, *pErrVal, *pErrTb;
-            PyErr_Fetch(&pErrType, &pErrVal, &pErrTb);
-            if (pErrVal) {
-                msg = createException(MAL, "pyapi.eval", "Python exception: %s", PyString_AS_STRING(PyObject_Str(pErrVal)));
-            } else {
-                msg = createException(MAL, "pyapi.eval", "Python exception: ?");
-            }
-            goto wrapup; // shudder
+            msg = PyError_CreateException("Python exception", pycall);
+            goto wrapup;
         }
 
-        if (pResult) 
-        {
+        // Now we need to do some error checking on the result object, because the result object has to have the correct type/size
+        // We will also do some converting of result objects to a common type (such as scalar -> [[scalar]])
+        if (pResult) {
             PyObject * pColO = NULL;
 
-            if (PyType_IsPandasDataFrame(pResult))
-            {
+            if (PyType_IsPandasDataFrame(pResult)) {
                 //the result object is a Pandas data frame
                 //we can convert the pandas data frame to a numpy array by simply accessing the "values" field (as pandas dataframes are numpy arrays internally)
                 pResult = PyObject_GetAttrString(pResult, "values"); 
-                if (pResult == NULL)
-                {
+                if (pResult == NULL) {
                     msg = createException(MAL, "pyapi.eval", "Invalid Pandas data frame.");
                     goto wrapup; 
                 }
                 //we transpose the values field so it's aligned correctly for our purposes
                 pResult = PyObject_GetAttrString(pResult, "T");
-                if (pResult == NULL)
-                {
+                if (pResult == NULL) {
                     msg = createException(MAL, "pyapi.eval", "Invalid Pandas data frame.");
                     goto wrapup; 
                 }
             }
 
-            if (PyType_IsPyScalar(pResult)) //check if the return object is a scalar
-            {
-                if (pci->retc == 1) 
-                {
+            if (PyType_IsPyScalar(pResult)) { //check if the return object is a scalar 
+                if (pci->retc == 1)  {
                     //if we only expect a single return value, we can accept scalars by converting it into an array holding an array holding the element (i.e. [[pResult]])
                     PyObject *list = PyList_New(1);
                     PyList_SetItem(list, 0, pResult);
@@ -1101,92 +1097,75 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                     PyList_SetItem(list, 0, pResult);
                     pResult = list;
                 }
-                else
-                {
+                else {
                     //the result object is a scalar, yet we expect more than one return value. We can only convert the result into a list with a single element, so the output is necessarily wrong.
                     msg = createException(MAL, "pyapi.eval", "A single scalar was returned, yet we expect a list of %d columns. We can only convert a single scalar into a single column, thus the result is invalid.", pci->retc);
                     goto wrapup;
                 }
             }
-            else
-            {
+            else {
                 //if it is not a scalar, we check if it is a single array
                 bool IsSingleArray = TRUE;
                 PyObject *data = pResult;
-                if (PyType_IsNumpyMaskedArray(data))
-                {
+                if (PyType_IsNumpyMaskedArray(data)) {
                     data = PyObject_GetAttrString(pResult, "data");   
-                    if (data == NULL)
-                    {
+                    if (data == NULL) {
                         msg = createException(MAL, "pyapi.eval", "Invalid masked array.");
                         goto wrapup;
                     }           
                 }
 
-                if (PyType_IsNumpyArray(data)) 
-                {
-                    if (PyArray_NDIM((PyArrayObject*)data) != 1)
-                    {
+                if (PyType_IsNumpyArray(data)) {
+                    if (PyArray_NDIM((PyArrayObject*)data) != 1) {
                         IsSingleArray = FALSE;
                     }
-                    else
-                    {
+                    else {
                         pColO = PyArray_GETITEM((PyArrayObject*)data, PyArray_GETPTR1((PyArrayObject*)data, 0));
                         IsSingleArray = PyType_IsPyScalar(pColO);
                     }
                 }
-                else if (PyList_Check(data)) 
-                {
+                else if (PyList_Check(data)) {
                     pColO = PyList_GetItem(data, 0);
                     IsSingleArray = PyType_IsPyScalar(pColO);
                 }
-                else if (!PyType_IsNumpyMaskedArray(data))
-                {
+                else if (!PyType_IsNumpyMaskedArray(data)) {
                     //it is neither a python array, numpy array or numpy masked array, thus the result is unsupported! Throw an exception!
                     msg = createException(MAL, "pyapi.eval", "Unsupported result object. Expected either an array, a numpy array, a numpy masked array or a pandas data frame, but received an object of type \"%s\"", PyString_AsString(PyObject_Str(PyObject_Type(data))));
                     goto wrapup;
                 }
 
-                if (IsSingleArray)
-                {
-                    if (pci->retc == 1)
-                     {
+                if (IsSingleArray) {
+                    if (pci->retc == 1) {
                         //if we only expect a single return value, we can accept a single array by converting it into an array holding an array holding the element (i.e. [pResult])
                         PyObject *list = PyList_New(1);
                         PyList_SetItem(list, 0, pResult);
                         pResult = list;
                     }
-                    else
-                    {
+                    else {
                         //the result object is a single array, yet we expect more than one return value. We can only convert the result into a list with a single array, so the output is necessarily wrong.
                         msg = createException(MAL, "pyapi.eval", "A single array was returned, yet we expect a list of %d columns. The result is invalid.", pci->retc);
                         goto wrapup;
                     }
                 }
-                else
-                {
+                else {
                     //the return value is an array of arrays, all we need to do is check if it is the correct size
                     int results = 0;
                     if (PyList_Check(data)) results = PyList_Size(data);
                     else results = PyArray_DIMS((PyArrayObject*)data)[0];
-                    if (results != pci->retc)
-                    {
+                    if (results != pci->retc) {
                         //wrong return size, we expect pci->retc arrays
                         msg = createException(MAL, "pyapi.eval", "An array of size %d was returned, yet we expect a list of %d columns. The result is invalid.", results, pci->retc);
                         goto wrapup;
                     }
                 }
             }
-            if (!PyList_Check(pResult)) 
-            {
+            if (!PyList_Check(pResult)) {
                 //check if the result is a multi-dimensional numpy array of type NPY_OBJECT
                 //if the result object is a multi-dimensional numpy array of type NPY_OBJECT, we convert it to NPY_STRING because we don't know how to handle NPY_OBJECT arrays otherwise (they could contain literally anything)
-                if (PyType_IsNumpyMaskedArray(pResult))
-                {
+                if (PyType_IsNumpyMaskedArray(pResult)) {
                     PyObject *data, *mask;
                     data = PyObject_GetAttrString(pResult, "data");  
-                    if (PyArray_NDIM((PyArrayObject*)data) != 1 && PyArray_DESCR((PyArrayObject*)data)->type_num == NPY_OBJECT)
-                    {
+                    if (PyArray_NDIM((PyArrayObject*)data) != 1 && PyArray_DESCR((PyArrayObject*)data)->type_num == NPY_OBJECT) {
                         //if it's a masked array we have to copy the mask along with converting the data to NPY_STRING 
                         PyObject *mafunc, *maargs;
                         PyObject *tp = PyArray_FromAny(pResult, PyArray_DescrFromType(NPY_STRING), 0, 0, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
@@ -1202,10 +1181,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                         pResult = mask;
                     }  
                 }
-                else 
-                {
-                    if (PyArray_NDIM((PyArrayObject*)pResult) != 1 && PyArray_DESCR((PyArrayObject*)pResult)->type_num == NPY_OBJECT)
-                    {
+                else {
+                    if (PyArray_NDIM((PyArrayObject*)pResult) != 1 && PyArray_DESCR((PyArrayObject*)pResult)->type_num == NPY_OBJECT) {
                         //if it's not a masked array we just convert the data to NPY_STRING
                         PyObject *tp = PyArray_FromAny(pResult, PyArray_DescrFromType(NPY_STRING), 0, 0, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
                         Py_DECREF(pResult);
@@ -1215,8 +1192,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             }
             PyRun_SimpleString("del pyfun");
         }
-        else
-        {
+        else {
             msg = createException(MAL, "pyapi.eval", "Invalid result object. No result object could be generated.");
             goto wrapup;
         }
@@ -1224,48 +1200,56 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 
     VERBOSE_MESSAGE("Collecting return values.\n");
 
-    for (i = 0; i < pci->retc; i++) 
-    {
+    // Now we have executed the Python function, we have to collect the return values and convert them to BATs
+    // We will first collect header information about the Python return objects and extract the underlying C arrays
+    // We will store this header information in a PyReturn object
+
+    // The reason we are doing this as a separate step is because this preprocessing requires us to call the Python API
+    // Whereas the actual returning does not require us to call the Python API
+    // This means we can do the actual returning without holding the GIL
+    for (i = 0; i < pci->retc; i++) {
+        // Refers to the current Numpy mask (if it exists)
         PyObject *pMask = NULL;
+        // Refers to the current Numpy array
         PyObject * pColO = NULL;
+        // This is the PyReturn header information for the current return value, we will fill this now
         PyReturn *ret = &pyreturn_values[i];
+        // This is the expected BAT result type (the type of BAT we have to make)
         int bat_type = ATOMstorage(getColumnType(getArgType(mb,pci,i)));
 
-        ret->bat_return = NULL;
         ret->multidimensional = FALSE;
 
-        if (PyList_Check(pResult)) 
-        {
-            //if it is a PyList, get the i'th array from the PyList
+        // There are three possibilities (we have ensured this right after executing the Python call)
+        // 1: The top level result object is a PyList or Numpy Array containing pci->retc Numpy Arrays
+        // 2: The top level result object is a (pci->retc x N) dimensional Numpy Array [Multidimensional]
+        // 3: The top level result object is a (pci->retc x N) dimensional Numpy Masked Array [Multidimensional]
+        if (PyList_Check(pResult)) {
+            // If it is a PyList, we simply get the i'th Numpy array from the PyList
             pColO = PyList_GetItem(pResult, i);
         }
-        else 
-        {
-            //if it isn't it's either a NPYArray or a NPYMaskedArray
+        else {
+            // If it isn't, the result object is either a Nump Masked Array or a Numpy Array
             PyObject *data = pResult;
-            if (PyType_IsNumpyMaskedArray(data))
-            {
-                data = PyObject_GetAttrString(pResult, "data");   
+            if (PyType_IsNumpyMaskedArray(data)) {
+                data = PyObject_GetAttrString(pResult, "data"); // If it is a Masked array, the data is stored in the masked_array.data attribute
                 pMask = PyObject_GetAttrString(pResult, "mask");    
             }
 
-
-            //we can either have a multidimensional numpy array, or a single dimensional numpy array 
-            if (PyArray_NDIM((PyArrayObject*)data) != 1)
-            {
-                //if it is a multidimensional numpy array, we have to convert the i'th dimension to a NUMPY array object
+            // We can either have a multidimensional numpy array, or a single dimensional numpy array 
+            if (PyArray_NDIM((PyArrayObject*)data) != 1) {
+                // If it is a multidimensional numpy array, we have to convert the i'th dimension to a NUMPY array object
                 ret->multidimensional = TRUE;
                 ret->result_type = PyArray_DESCR((PyArrayObject*)data)->type_num;
             }
-            else
-            {
-                //if it is a single dimensional numpy array, we get the i'th array from the NPYArray (this is a list)
+            else {
+                // If it is a single dimensional Numpy array, we get the i'th Numpy array from the Numpy Array
                 pColO = PyArray_GETITEM((PyArrayObject*)data, PyArray_GETPTR1((PyArrayObject*)data, i));
             }
         }
 
-        if (ret->multidimensional)
-        {
+        // Now we have to do some preprocessing on the data
+        if (ret->multidimensional) {
+            // If it is a multidimensional Numpy array, we don't need to do any conversion, we can just do some pointers
             ret->count = PyArray_DIMS((PyArrayObject*)pResult)[1];        
             ret->numpy_array = (PyArrayObject*)pResult;                   
             ret->numpy_mask = (PyArrayObject*)pMask;   
@@ -1273,45 +1257,41 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             if (ret->numpy_mask != NULL) ret->mask_data = PyArray_DATA(ret->numpy_mask);                 
             ret->memory_size = PyArray_DESCR(ret->numpy_array)->elsize;   
         }
-        else
-        {
+        else {
+            // If it isn't we need to convert pColO to the expected Numpy Array type
             ret->numpy_array = (PyArrayObject*) PyArray_FromAny(pColO, PyArray_DescrFromType(BatType_ToPyType(bat_type)), 1, 1, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
-            if (ret->numpy_array == NULL)
-            {
+            if (ret->numpy_array == NULL) {
+                // If this conversion fails, we will set the expected type to NULL, this means it will automatically pick a type for us
                 ret->numpy_array = (PyArrayObject*) PyArray_FromAny(pColO, NULL, 1, 1, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
-                if (ret->numpy_array == NULL)
-                {
+                if (ret->numpy_array == NULL) {
                     msg = createException(MAL, "pyapi.eval", "Could not create a Numpy array from the return type.\n");
                     goto wrapup;
                 }
             }
-            ret->result_type = PyArray_DESCR((PyArrayObject*)ret->numpy_array)->type_num;
-            if (ret->result_type == NPY_OBJECT)
-            {
+            ret->result_type = PyArray_DESCR((PyArrayObject*)ret->numpy_array)->type_num; // We read the result type from the resulting array
+            if (ret->result_type == NPY_OBJECT) {
+                // However, if we have an array of type NPY_OBJECT (this is essentially an array of pointers to Python objects), we can't really do anything with this
+                // So we will convert this to a NPY_STRING array instead, which we can then parse
                 Py_DECREF(ret->numpy_array);
                 ret->numpy_array = (PyArrayObject*) PyArray_FromAny(pColO, PyArray_DescrFromType(NPY_STRING), 1, 1, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
                 ret->result_type = PyArray_DESCR((PyArrayObject*)ret->numpy_array)->type_num;
-                if (ret->numpy_array == NULL)
-                {
+                if (ret->numpy_array == NULL) {
                     msg = createException(MAL, "pyapi.eval", "Could not create a Numpy array from the return type.\n");
                     goto wrapup;
                 }
             }
             ret->memory_size = PyArray_DESCR(ret->numpy_array)->elsize;
             ret->count = PyArray_DIMS(ret->numpy_array)[0];
-            ret->array_data = PyArray_DATA(ret->numpy_array);     
-            if (PyObject_HasAttrString(pColO, "mask"))
-            {
+            ret->array_data = PyArray_DATA(ret->numpy_array);
+            // If pColO is a Masked array, we convert the mask to a NPY_BOOL numpy array     
+            if (PyObject_HasAttrString(pColO, "mask")) {
                 pMask = PyObject_GetAttrString(pColO, "mask");
-                if (pMask != NULL)
-                {
+                if (pMask != NULL) {
                     ret->numpy_mask = (PyArrayObject*) PyArray_FromAny(pMask, PyArray_DescrFromType(NPY_BOOL), 1, 1,  NPY_ARRAY_CARRAY, NULL);
                     if (ret->numpy_mask == NULL || PyArray_DIMS(ret->numpy_mask)[0] != (int)ret->count)
                     {
                         pMask = NULL;
-                        ret->numpy_mask = NULL;
-                        /*msg = createException(MAL, "pyapi.eval", "A masked array was returned, but the mask does not have the same length as the array.");*/  
-                        /*goto wrapup;*/                                  
+                        ret->numpy_mask = NULL;                            
                     }
                 }
             }
@@ -1319,29 +1299,27 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         }
     }
 
-    //ReleaseLock(gstate, &holds_gil);
-
 #ifndef WIN32
-    if (mapped && process_id)
-    {
+    // This is where the child process stops executing
+    // We have successfully executed the Python function and converted the result object to a C array
+    // Now all that is left is to copy the C array to share memory so the main process can read it and return it
+    if (mapped && process_id) {
         int value = 0;
         char *shm_ptr;
         ReturnBatDescr *ptr;
 
-
+        // First we will fill in the header information, we will need to get a pointer to the header data first
+        // The main process has already created the header data for all the child processes
         VERBOSE_MESSAGE("Getting shared memory.\n");
         shm_ptr = get_shared_memory(shm_id, memory_size);
-        if (shm_ptr == NULL) 
-        {
+        if (shm_ptr == NULL) {
             msg = createException(MAL, "pyapi.eval", "Failed to allocate shared memory for header data.\n");
             goto wrapup;
         }
 
-
         VERBOSE_MESSAGE("Writing headers.\n");
+        // Now we will write data about our result (memory size, type, number of elements) to the header
         ptr = (ReturnBatDescr*)shm_ptr;
-        //return values
-        //first fill in header values
         for (i = 0; i < pci->retc; i++) 
         {
             PyReturn *ret = &pyreturn_values[i];
@@ -1354,6 +1332,17 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             descr->has_mask = ret->mask_data != NULL;
         }
 
+        // After writing the header information, we want to write the actual C array to the shared memory
+        // However, if we have multiple processes enabled, we need to wait for all the processes to complete
+        // The reason for this is that we only want to copy the return values one time
+        // So our plan is: 
+        // Wait for all processes to complete and write their header information
+        // Now by reading that header information, every process knows the total return size of all the return values combined
+        // And because the processes know their process_id number and which processes are before them, they also know where to write their values
+        // So after all processes have completed, we can allocate the shared memory for the return value, 
+        //                            and all the processes can write their return values simultaneously
+        // The way we accomplish this is by using two semaphores
+        // The first semaphore was initialized exactly to process_count, so when all the processes have passed the semaphore, it has the value of 0
         if (process_count > 1)
         {
             VERBOSE_MESSAGE("Process %d entering the first semaphore\n", process_id);
@@ -1363,22 +1352,22 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         }
         if (value == 0)
         {
-            //all processes have passed the semaphore, so we can begin returning values
-            //first create the shared memory space for each of the return values
+            // So if we get here, we know all processes have finished and that we are the last process to pass the first semaphore
+            // Since we are the last process, it is our job to create the shared memory for each of the return values
             for (i = 0; i < pci->retc; i++) 
             {
                 int return_size = 0;
                 int mask_size = 0;
                 bool has_mask = false;
+                // Now we will count the size of the return values for each of the processes
                 for(j = 0; j < process_count; j++)
                 {
-                     //for each of the processes, count the size of their return values
                      ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[j * pci->retc + i]);
                      return_size += descr->bat_size;
                      mask_size += descr->bat_count * sizeof(bool);
                      has_mask = has_mask || descr->has_mask;
                 }
-                //allocate the shared memory for this return value
+                // Then we allocate the shared memory for this return value
                 VERBOSE_MESSAGE("Child creating shared memory at id %d of size %d\n", shm_id + (i + 1), return_size);
                 if (create_shared_memory(shm_id + (i + 1), return_size) == NULL)
                 {
@@ -1395,16 +1384,21 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 }
             }
 
-            //now release all the other waiting processes so they can all begin returning values
+            // Now all the other processes have been waiting for the last process to get here at the second semaphore
+            // Since we are now here, we set the second semaphore to process_count, so all the processes can continue again
             if (process_count > 1) change_semaphore_value(sem_id, 1, process_count);
         }
 
-        //we wait here for all the processes to finish, so we can know the size of their return values
         if (process_count > 1) 
         {
+            // If we get here and value != 0, then not all processes have finished writing their header information
+            // So we will wait on the second semaphore (which is initialized to 0, so we cannot pass until the value changes)
             change_semaphore_value(sem_id, 1, -1); 
 
-            //first check if all of the processes successfully completed, if any one of them failed we return with an error code
+            // Now all processes have passed the first semaphore and the header information is written
+            // However, we do not know if any of the other childs have failed
+            // If they have, they have written descr->npy_type to -1 in one of their headers
+            // So we check for that
             for (i = 0; i < pci->retc; i++) 
             {
                 for(j = 0; j < process_count; j++)
@@ -1412,18 +1406,20 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                     ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[j * pci->retc + i]);
                     if (descr->npy_type < 0)
                     {
+                        // If any of the child processes have failed, exit without an error code because we did not fail
+                        // The child that failed will execute with an error code and will report his error to the main process
                         exit(0);
                     }
                 }
             }
         }
 
-        //now we can return the values
+        // Now we can finally return the values
         for (i = 0; i < pci->retc; i++) 
         {
             char *mem_ptr;
             PyReturn *ret = &pyreturn_values[i];
-            //first we compute the position where we will start writing in shared memory by looking at the processes before us
+            // First we compute the position where we will start writing in shared memory by looking at the processes before us
             int start_size = 0;
             int return_size = 0;
             int mask_size = 0;
@@ -1440,9 +1436,10 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 return_size += descr->bat_size;
                 mask_size += descr->bat_count *sizeof(bool);
 
+                // We also check if ANY of the processes returns a mask, not just if we return a mask
                 has_mask = descr->has_mask || descr->has_mask;
             }
-            //now we can copy our return values to the shared memory
+            // Now we can copy our return values to the shared memory
             VERBOSE_MESSAGE("Process %d returning values in range %zu-%zu\n", process_id, start_size / ret->memory_size, start_size / ret->memory_size + ret->count);
             mem_ptr = get_shared_memory(shm_id + (i + 1), return_size);
             if (mem_ptr == NULL)
@@ -1452,32 +1449,30 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             }
             memcpy(&mem_ptr[start_size], PyArray_DATA(ret->numpy_array), ret->memory_size * ret->count);
 
-            if (has_mask)
-            {
+            if (has_mask) {
                 bool *mask_ptr = (bool*)get_shared_memory(shm_id + pci->retc + (i + 1), mask_size);
+                // If any of the processes return a mask, we need to write our mask values to the shared memory
 
-                if (mask_ptr == NULL)
-                {
+                if (mask_ptr == NULL) {
                     msg = createException(MAL, "pyapi.eval", "Failed to get pointer to shared memory for pointer.\n");
                     goto wrapup;
                 }
 
-                if (ret->numpy_mask == NULL)
-                {
-                    for(iu = 0; iu < ret->count; iu++)
-                    {
+                if (ret->numpy_mask == NULL) { 
+                    // If we do not return a mask, simply write false everywhere
+                    for(iu = 0; iu < ret->count; iu++) {
                         mask_ptr[mask_start + iu] = false;
                     }
                 }
-                else
-                {
-                    for(iu = 0; iu < ret->count; iu++)
-                    {
+                else {
+                    // If we do return a mask, write our mask values to the shared memory
+                    for(iu = 0; iu < ret->count; iu++) {
                         mask_ptr[mask_start + iu] = ret->mask_data[iu];
                     }
                 }
             }
         }
+        // Exit without an error code
         exit(0);
     }
 returnvalues:
@@ -1495,7 +1490,6 @@ returnvalues:
         PyReturn *ret = &pyreturn_values[i];
         int bat_type = ATOMstorage(getColumnType(getArgType(mb,pci,i)));
         size_t index_offset = 0;
-        b = ret->bat_return;    
 
         if (ret->multidimensional) index_offset = i;
         VERBOSE_MESSAGE("- Returning a Numpy Array of type %s of size %zu and storing it in a BAT of type %s\n", PyType_Format(ret->result_type), ret->count,  BatType_Format(bat_type));
@@ -1626,34 +1620,38 @@ returnvalues:
 #ifndef WIN32
     if (mapped && process_id)
     {
-        //something went wrong in a child process,
+        // If we get here, something went wrong in a child process,
 
-        //to prevent the other processes from stalling, we set the value of the second semaphore to process_count
-        //this allows the other processes to exit
-        //but first, we set the value of npy_type to -1, this informs the other processes that this process has crashed
         char *shm_ptr, *error_mem;
         ReturnBatDescr *ptr;
 
         shm_ptr = get_shared_memory(shm_id, memory_size);
         if (shm_ptr == NULL) goto wrapup;
 
+        // To indicate that we failed, we will write information to our header
         ptr = (ReturnBatDescr*)shm_ptr;
-
-        for (i = 0; i < pci->retc; i++) 
-        {
+        for (i = 0; i < pci->retc; i++) {
             ReturnBatDescr *descr = &ptr[(process_id - 1) * pci->retc + i];
+            // We will write descr->npy_type to -1, so other processes can see that we failed
             descr->npy_type = -1;
+            // We will write the memory size of our error message to the bat_size, so the main process can access the shared memory
             descr->bat_size = strlen(msg) * sizeof(char);
         }
 
+        // Now create the shared memory to write our error message to
+        // We can simply use the slot shm_id + 1, even though this is normally used for return values
+        // This is because, if any one process fails, no values will be returned
         error_mem = create_shared_memory(shm_id + 1, strlen(msg) * sizeof(char));
-        for(iu = 0; iu < strlen(msg); iu++)
-        {
-            error_mem[iu] = msg[iu];
+        for(iu = 0; iu < strlen(msg); iu++) {
+            // Copy the error message to the shared memory
+            error_mem[iu] = msg[iu]; 
         }
-        //increase the value of the semaphore
+
+        // To prevent the other processes from stalling, we set the value of the second semaphore to process_count
+        // This allows the other processes to exit
         if (process_count > 1) change_semaphore_value(sem_id, 1, process_count);
-        //exit the program with an error code
+
+        // Now we exit the program with an error code
         VERBOSE_MESSAGE("%s\n", msg);
         exit(1);
     }
@@ -1661,34 +1659,28 @@ returnvalues:
 
     VERBOSE_MESSAGE("Cleaning up.\n");
 
-    //MT_lock_unset(&pyapiLock, "pyapi.evaluate");
-    for (i = 0; i < pci->retc; i++) 
-    {
+    // Actual cleanup
+    for (i = 0; i < pci->retc; i++) {
         PyReturn *ret = &pyreturn_values[i];
-        if (!ret->multidimensional)
-        {
-            //AcquireLock(&holds_gil);
+        // First clean up any return values
+        if (!ret->multidimensional) {
+            // Clean up numpy arrays, if they are there
             if (ret->numpy_array != NULL) Py_DECREF(ret->numpy_array);                                  
-            if (ret->numpy_mask != NULL) Py_DECREF(ret->numpy_mask);       
-            //ReleaseLock(gstate, &holds_gil);
+            if (ret->numpy_mask != NULL) Py_DECREF(ret->numpy_mask);
         }
-        if (ret->numpy_array == NULL && ret->array_data != NULL)
-        {
+        // If there is no numpy array, but there is array data, then that array data must be shared memory
+        if (ret->numpy_array == NULL && ret->array_data != NULL) {
             release_shared_memory(ret->array_data);
         }
-        if (ret->numpy_mask == NULL && ret->mask_data != NULL) 
-        {
+        if (ret->numpy_mask == NULL && ret->mask_data != NULL) {
             release_shared_memory(ret->mask_data);
         }
     }
-    if (pResult != NULL) 
-    { 
-        //AcquireLock(&holds_gil);
-        Py_DECREF(pResult); 
-        pResult = NULL;      
-        //ReleaseLock(gstate, &holds_gil);
+    if (pResult != NULL) { 
+        Py_DECREF(pResult);
     }
 
+    // Now release some GDK memory we alloced for strings and input values
     GDKfree(pyreturn_values);
     GDKfree(pyinput_values);
     for (i = 0; i < pci->argc; i++)
@@ -1741,4 +1733,28 @@ bool PyType_IsPyScalar(PyObject *object)
     if (PyInt_Check(object) || PyFloat_Check(object) || PyLong_Check(object) || PyString_Check(object) || PyBool_Check(object) || PyUnicode_Check(object)) return true;
 
     return false;
+}
+
+
+char *PyError_CreateException(char *error_text, char *error_text_2)
+{
+    PyObject *py_error_type, *py_error_value, *py_error_traceback;
+    char *py_error_string;
+
+    PyErr_Fetch(&py_error_type, &py_error_value, &py_error_traceback);
+    if (py_error_value) {
+        PyObject *error;
+        PyErr_NormalizeException(&py_error_type, &py_error_value, &py_error_traceback);
+        error = PyObject_Str(py_error_value);
+
+        py_error_string = PyString_AS_STRING(error);
+        Py_XDECREF(error);
+    }
+    else {
+        py_error_string = "";
+    }
+    Py_XDECREF(py_error_type);
+    Py_XDECREF(py_error_value);
+    Py_XDECREF(py_error_traceback);
+    return createException(MAL, "pyapi.eval", "%s\n%s\n%s", error_text, error_text_2, py_error_string);
 }

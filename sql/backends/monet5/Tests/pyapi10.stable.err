@@ -1,9 +1,9 @@
 stderr of test 'pyapi10` in directory 'sql/backends/monet5` itself:
 
 
-# 13:49:18 >  
-# 13:49:18 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=30082" "--set" "mapi_usock=/var/tmp/mtest-5056/.s.monetdb.30082" "--set" "monet_prompt=" "--forcemito" "--set" "mal_listing=2" "--dbpath=/home/mytherin/opt/var/mTests_sql_backends_monet5" "--set" "mal_listing=0" "--set" "embedded_r=true" "--set" "embedded_py=true"
-# 13:49:18 >  
+# 15:32:31 >  
+# 15:32:31 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=33372" "--set" "mapi_usock=/var/tmp/mtest-27693/.s.monetdb.33372" "--set" "monet_prompt=" "--forcemito" "--set" "mal_listing=2" "--dbpath=/home/mytherin/opt/var/mTests_sql_backends_monet5" "--set" "mal_listing=0" "--set" "embedded_r=true" "--set" "embedded_py=true"
+# 15:32:31 >  
 
 # builtin opt 	gdk_dbpath = /home/mytherin/opt/var/monetdb5/dbfarm/demo
 # builtin opt 	gdk_debug = 0
@@ -17,8 +17,8 @@ stderr of test 'pyapi10` in directory 'sql/backends/monet5` itself:
 # builtin opt 	sql_debug = 0
 # cmdline opt 	gdk_nr_threads = 0
 # cmdline opt 	mapi_open = true
-# cmdline opt 	mapi_port = 30082
-# cmdline opt 	mapi_usock = /var/tmp/mtest-5056/.s.monetdb.30082
+# cmdline opt 	mapi_port = 33372
+# cmdline opt 	mapi_usock = /var/tmp/mtest-27693/.s.monetdb.33372
 # cmdline opt 	monet_prompt = 
 # cmdline opt 	mal_listing = 2
 # cmdline opt 	gdk_dbpath = /home/mytherin/opt/var/mTests_sql_backends_monet5
@@ -26,25 +26,21 @@ stderr of test 'pyapi10` in directory 'sql/backends/monet5` itself:
 # cmdline opt 	embedded_r = true
 # cmdline opt 	embedded_py = true
 # cmdline opt 	gdk_debug = 536870922
-  File "<string>", line 4
-    
-    ^
-SyntaxError: invalid syntax
-AttributeError: 'module' object has no attribute 'pyfun'
 
-# 13:49:18 >  
-# 13:49:18 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-5056" "--port=30082"
-# 13:49:18 >  
+# 15:32:31 >  
+# 15:32:31 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-27693" "--port=33372"
+# 15:32:31 >  
 
-MAPI  = (monetdb) /var/tmp/mtest-5056/.s.monetdb.30082
+MAPI  = (monetdb) /var/tmp/mtest-27693/.s.monetdb.33372
 QUERY = SELECT AVG(pyapi10_error(i,j)) FROM pyapi10_random_table_nulls(5000);
-ERROR = !MALException:pyapi.eval:could not parse Python code 
+ERROR = !MALException:pyapi.eval:Could not parse Python code
         !def pyfun(i, j):
         !  
         !     return(i*j 
         !   
+        !invalid syntax (<string>, line 4)
 
-# 13:49:18 >  
-# 13:49:18 >  "Done."
-# 13:49:18 >  
+# 15:32:31 >  
+# 15:32:31 >  "Done."
+# 15:32:31 >  
 

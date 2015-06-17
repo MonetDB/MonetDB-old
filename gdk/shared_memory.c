@@ -1,7 +1,15 @@
 
 #include "shared_memory.h"
 
-#ifndef WIN32
+#ifndef false
+#define false 0
+#endif
+
+#ifndef true
+#define true 1
+#endif
+
+#ifndef _WIN32
 
 #include <stdlib.h>
 #include <assert.h>
@@ -27,12 +35,12 @@ static void **shm_ptrs;
 static int shm_unique_id = 1;
 static int shm_current_id = 0;
 static int shm_max_id = 32;
-static bool shm_is_initialized = false;
+static int shm_is_initialized = false;
 static char shm_keystring[] = ".";
 
 void *init_shared_memory(int id, size_t size, int flags);
 void store_shared_memory(int memory_id, void *ptr);
-bool release_shared_memory_id(int memory_id, void *ptr);
+int release_shared_memory_id(int memory_id, void *ptr);
 
 int init_process_semaphore(int id, int count, int flags);
 
@@ -146,7 +154,7 @@ void *init_shared_memory(int id, size_t size, int flags)
     return ptr;
 }
 
-bool release_shared_memory(void *ptr)
+int release_shared_memory(void *ptr)
 {
 	int i = 0;
 	int memory_id = -1;
@@ -170,7 +178,7 @@ bool release_shared_memory(void *ptr)
 	return release_shared_memory_id(memory_id, ptr);
 }
 
-bool release_shared_memory_id(int memory_id, void *ptr)
+int release_shared_memory_id(int memory_id, void *ptr)
 {
 	if (shmctl(memory_id, IPC_RMID, NULL) == -1)
 	{
@@ -222,7 +230,7 @@ int get_semaphore_value(int sem_id, int number)
     return semval;
 }
 
-bool change_semaphore_value(int sem_id, int number, int change)
+int change_semaphore_value(int sem_id, int number, int change)
 {
     struct sembuf buffer;
     buffer.sem_num = number;
@@ -237,7 +245,7 @@ bool change_semaphore_value(int sem_id, int number, int change)
     return true;
 }
 
-bool release_process_semaphore(int sem_id)
+int release_process_semaphore(int sem_id)
 {
     if (semctl(sem_id, 0, IPC_RMID) < 0)
     {
@@ -266,7 +274,7 @@ void* create_shared_memory(int id, size_t size)
     return NULL;
 }
 
-bool release_shared_memory(void *ptr)
+int release_shared_memory(void *ptr)
 {
     (void) ptr;
     NOTIMPLEMENTED();
@@ -309,14 +317,14 @@ int get_semaphore_value(int sem_id, int number)
     return -1;
 }
 
-bool change_semaphore_value(int sem_id, int number, int change)
+int change_semaphore_value(int sem_id, int number, int change)
 {
     (void) sem_id; (void) number; (void) change;
     NOTIMPLEMENTED();
     return false;
 }
 
-bool release_process_semaphore(int sem_id)
+int release_process_semaphore(int sem_id)
 {
     (void) sem_id;
     NOTIMPLEMENTED();

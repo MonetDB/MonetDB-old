@@ -183,6 +183,12 @@ r:bat[:oid,:int] := pyapi.eval(nil:ptr,"return([[33,24,55], [44,66,345]])");
 # return a single UTF-32 encoded string
 a:bat[:oid,:str] := pyapi.eval(nil:ptr,"x = unicode(\"hello\")\nreturn(x.encode(\"utf32\"))");
 
+# Incorrect syntax
+bb:bat[:oid,:int] := pyapi.eval(nil:ptr,"return (1");
+
+# Incorrect indentation
+cc:bat[:oid,:int] := pyapi.eval(nil:ptr,"x = 4\n  x++\n\treturn (x)");
+
 # return a UTF-32 encoded string in a numpy array
 (str1:bat[:oid,:str], str2:bat[:oid,:str]) := pyapi.eval(nil:ptr,"x = unicode(\"hello\")\nreturn(numpy.array([[x.encode(\"utf32\")], [x.encode(\"utf32\")]]))");
 
