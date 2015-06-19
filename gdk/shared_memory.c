@@ -256,6 +256,8 @@ int release_process_semaphore(int sem_id)
 }
 #else
 //Windows -> Not yet implemented
+#include <stdio.h>
+#include <stdlib.h>
 
 #define NOTIMPLEMENTED() { \
     printf("FATAL ERROR: Shared memory isn't implemented on Windows yet.\n"); \

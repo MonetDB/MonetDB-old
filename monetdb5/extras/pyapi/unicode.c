@@ -3,19 +3,20 @@
 
 #include <string.h>
 
-int utf8_strlen(const char *utf8_str)
+int utf8_strlen(const char *utf8_str, bool *ascii)
 {
     int utf8_char_count = 0;
-    int char_count = strlen(utf8_str);
-    int i;
+    int i = 0;
     //we traverse the string and simply count the amount of utf8 characters in the string
-    for(i = 0; i < char_count; )
+    while (true)
     {
+        if (utf8_str[i] == '\0') break;
         int offset = utf8_length(utf8_str[i]);
         if (offset < 0) return -1; //invalid utf8 character
         i += offset;
         utf8_char_count++;
     }
+    if (ascii != NULL) *ascii = i == utf8_char_count;
     return utf8_char_count;
 }
 

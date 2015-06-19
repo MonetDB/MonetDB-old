@@ -117,7 +117,6 @@ int PyAPIEnabled(void) {
             || GDKgetenv_isyes(pyapi_enableflag));
 }
 
-
 char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth);
 
 // TODO: exclude pyapi from mergetable, too
@@ -375,6 +374,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     PyInput *pyinput_values = NULL;
     int seqbase = 0;
 
+    bool numpy_string_array = true;
     bool option_verbose = GDKgetenv_isyes(verbose_enableflag) || GDKgetenv_istrue(verbose_enableflag);
     bool option_debug = GDKgetenv_isyes(debug_enableflag) || GDKgetenv_istrue(debug_enableflag);
     bool option_zerocopy = !(GDKgetenv_isyes(zerocopy_disableflag) || GDKgetenv_istrue(zerocopy_disableflag));
@@ -385,7 +385,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     int sem_id = -1;
     int process_id = 0;
     int memory_size = 0;
-    int process_count;
+    int process_count = 0;
 #endif
 
     size_t count;
@@ -773,6 +773,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 goto wrapup;
             }
 
+            VERBOSE_MESSAGE("- Loading a BAT of type %s (%d)\n", BatType_Format(inp->bat_type), inp->bat_type);
+
 #ifndef WIN32
             if (mapped && process_id && process_count > 1)
             {
@@ -781,15 +783,14 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 double chunk = process_id - 1;
                 double totalchunks = process_count;
                 double count = BATcount(b);
-                t_start = ceil((count * chunk) / totalchunks);
-                t_end = floor((count * (chunk + 1)) / totalchunks);
-                if (((int)count) / 2 * 2 == (int)count) t_end--;
+                if (count >= process_count) {
+                    t_start = ceil((count * chunk) / totalchunks);
+                    t_end = floor((count * (chunk + 1)) / totalchunks);
+                    if (((int)count) / 2 * 2 == (int)count) t_end--;
+                    VERBOSE_MESSAGE("---Start: %d, End: %d, Count: %d\n", t_start, t_end, t_end - t_start);
+                }
             }
 #endif
-            VERBOSE_MESSAGE("Start: %d, End: %d, Count: %d\n", t_start, t_end, t_end - t_start);
-
-            VERBOSE_MESSAGE("- Loading a BAT of type %s (%d)\n", BatType_Format(inp->bat_type), inp->bat_type);
-
             switch (inp->bat_type) {
             case TYPE_bte:
                 vararray = BAT_TO_NP(b, bte, NPY_INT8);
@@ -810,60 +811,150 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 vararray = BAT_TO_NP(b, dbl, NPY_FLOAT64);
                 break;
             case TYPE_str:
-                li = bat_iterator(b);
+                if (numpy_string_array) {
+                    bool unicode = false;
 
-                //we first loop over all the strings in the BAT to find the maximum length of a single string
-                //this is because NUMPY only supports strings with a fixed maximum length
-                maxsize = 0;
-                count = inp->count;
-                BATloop(b, p, q)
-                {
-                    const char *t = (const char *) BUNtail(li, p);
-                    const size_t length = strlen(t);//utf8_strlen(t); //get the amount of UTF-8 characters in the string
+                    li = bat_iterator(b);
 
-                    if (length > maxsize)
-                        maxsize = length;
+                    //we first loop over all the strings in the BAT to find the maximum length of a single string
+                    //this is because NUMPY only supports strings with a fixed maximum length
+                    maxsize = 0;
+                    count = inp->count;
+                    j = 0;
+                    BATloop(b, p, q) {
+                        if (j >= t_start) {
+                            bool ascii;
+                            const char *t = (const char *) BUNtail(li, p);
+                            size_t length;
+                            if (strcmp(t, str_nil) == 0) {
+                                length = 1;
+                            } else {
+                                length = utf8_strlen(t, &ascii); //get the amount of UTF-8 characters in the string
+                                unicode = !ascii || unicode; //if even one string is unicode we have to store the entire array as unicode
+                            }
+                            if (length > maxsize)
+                                maxsize = length;
+                        }
+                        if (j == t_end) break;
+                        j++;
+                    }
+                    if (unicode) {
+                        VERBOSE_MESSAGE("- Unicode string!\n");
+                        //create a NPY_UNICODE array object
+                        vararray = PyArray_New(
+                            &PyArray_Type, 
+                            1, 
+                            (npy_intp[1]) {t_end - t_start},  
+                            NPY_UNICODE, 
+                            NULL, 
+                            NULL, 
+                            maxsize * 4,  //we have to do maxsize*4 because NPY_UNICODE is stored as UNICODE-32 (i.e. 4 bytes per character)           
+                            0, 
+                            NULL);
+                        //fill the NPY_UNICODE array object using the PyArray_SETITEM function
+                        j = 0;
+                        BATloop(b, p, q)
+                        {
+                            if (j >= t_start) {
+                                char *t = (char *) BUNtail(li, p);
+                                PyObject *obj;
+                                if (strcmp(t, str_nil) == 0) {
+                                     //str_nil isn't a valid UTF-8 character (it's 0x80), so we can't decode it as UTF-8 (it will throw an error)
+                                    obj = PyUnicode_FromString("-");
+                                }
+                                else {
+                                    //otherwise we can just decode the string as UTF-8
+                                    obj = PyUnicode_FromString(t);
+                                }
+
+                                if (obj == NULL)
+                                {
+                                    PyErr_Print();
+                                    msg = createException(MAL, "pyapi.eval", "Failed to decode string as UTF-8.");
+                                    goto wrapup;
+                                }
+                                PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), obj);
+                            }
+                            if (j == t_end) break;
+                            j++;
+                        }
+                    } else {
+                        VERBOSE_MESSAGE("- ASCII string!\n");
+                        //create a NPY_STRING array object
+                        vararray = PyArray_New(
+                            &PyArray_Type, 
+                            1, 
+                            (npy_intp[1]) {t_end - t_start},  
+                            NPY_STRING, 
+                            NULL, 
+                            NULL, 
+                            maxsize,
+                            0, 
+                            NULL);
+                        j = 0;
+                        BATloop(b, p, q)
+                        {
+                            if (j >= t_start) {
+                                char *t = (char *) BUNtail(li, p);
+                                PyObject *obj = PyString_FromString(t);
+
+                                if (obj == NULL)
+                                {
+                                    msg = createException(MAL, "pyapi.eval", "Failed to create string.");
+                                    goto wrapup;
+                                }
+                                PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), obj);
+                            }
+                            if (j == t_end) break;
+                            j++;
+                        }
+                    }
                 }
+                else {
+                    // TODO: This
+                    // NPY_OBJECT array
+                    // vararray = PyArray_New(
+                    //     &PyArray_Type, 
+                    //     1, 
+                    //     (npy_intp[1]) {count},  
+                    //     NPY_OBJECT, 
+                    //     NULL, 
+                    //     NULL, 
+                    //     0, 
+                    //     0, 
+                    //     NULL);
+                    // j = 0;
+                    // BATloop(b, p, q)
+                    // {
+                    //     if (j >= t_start) {
+                    //         char *t = (char *) BUNtail(li, p);
+                    //         PyObject *obj;
+                    //         if (strcmp(t, str_nil) == 0) {
+                    //              //str_nil isn't a valid UTF-8 character (it's 0x80), so we can't decode it as UTF-8 (it will throw an error)
+                    //             obj = PyString_FromString("-");
+                    //         }
+                    //         else {
+                    //             //otherwise we can just decode the string as UTF-8
+                    //             obj = PyString_FromString(t);
+                    //         }
 
-                //create a NPY_UNICODE array object
-                vararray = PyArray_New(
-                    &PyArray_Type, 
-                    1, 
-                    (npy_intp[1]) {count},  
-                    NPY_UNICODE, 
-                    NULL, 
-                    NULL, 
-                    maxsize * 4,  //we have to do maxsize*4 because NPY_UNICODE is stored as UNICODE-32 (i.e. 4 bytes per character)           
-                    0, 
-                    NULL);
-
-                //fill the NPY_UNICODE array object using the PyArray_SETITEM function
-                j = 0;
-                BATloop(b, p, q)
-                {
-                    const char *t = (const char *) BUNtail(li, p);
-                    PyObject *obj;
-                    if (strcmp(t, str_nil) == 0) {
-                         //str_nil isn't a valid UTF-8 character (it's 0x80), so we can't decode it as UTF-8 (it will throw an error)
-                        obj = PyUnicode_FromString("-");
-                    }
-                    else {
-                        //otherwise we can just decode the string as UTF-8
-                        obj = PyUnicode_FromString(t);
-                    }
-
-                    if (obj == NULL)
-                    {
-                        PyErr_Print();
-                        msg = createException(MAL, "pyapi.eval", "Failed to decode string as UTF-8.");
-                        goto wrapup;
-                    }
-                    PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), obj);
-                    j++;
+                    //         if (obj == NULL)
+                    //         {
+                    //             PyErr_Print();
+                    //             msg = createException(MAL, "pyapi.eval", "Failed to decode string as UTF-8.");
+                    //             goto wrapup;
+                    //         }
+                    //         PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), obj);
+                    //     }
+                    //     if (j == t_end) break;
+                    //     j++;
+                    // }
+                    // PyArray_INCREF((PyArrayObject*)vararray);
                 }
                 break;
 #ifdef HAVE_HGE
             case TYPE_hge:
+            {
                 li = bat_iterator(b);
                 count = inp->count;
 
@@ -883,7 +974,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 fprintf(stderr, "!WARNING: Type \"hge\" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type \"long\". This is likely very slow.\n");
                 BATloop(b, p, q) {
                     char hex[40];
-                    //we first convert the huge to a string in hex format
                     PyObject *obj;
                     const hge *t = (const hge *) BUNtail(li, p);
                     hge_to_string(hex, 40, *t);
@@ -898,6 +988,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                     j++;
                 }
                 break;
+            }
 #endif
             default:
                 msg = createException(MAL, "pyapi.eval", "unknown argument type ");
@@ -946,7 +1037,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             PyTuple_SetItem(pArgs, ai++, vararray); // Add the resulting python object to the PyTuple
         }
     }
-
 
     VERBOSE_MESSAGE("Executing python code.\n");
 
@@ -1181,7 +1271,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         }
         else {
             // If it isn't we need to convert pColO to the expected Numpy Array type
-            ret->numpy_array = (PyArrayObject*) PyArray_FromAny(pColO, PyArray_DescrFromType(BatType_ToPyType(bat_type)), 1, 1, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
+            ret->numpy_array = NULL;
+            if (bat_type != TYPE_str) ret->numpy_array = (PyArrayObject*) PyArray_FromAny(pColO, PyArray_DescrFromType(BatType_ToPyType(bat_type)), 1, 1, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
             if (ret->numpy_array == NULL) {
                 // If this conversion fails, we will set the expected type to NULL, this means it will automatically pick a type for us
                 ret->numpy_array = (PyArrayObject*) PyArray_FromAny(pColO, NULL, 1, 1, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
@@ -1462,6 +1553,7 @@ returnvalues:
                 b = BATnew(TYPE_void, TYPE_str, ret->count, TRANSIENT);    
                 BATseqbase(b, seqbase); b->T->nil = 0; b->T->nonil = 1;         
                 b->tkey = 0; b->tsorted = 0; b->trevsorted = 0;
+                VERBOSE_MESSAGE("- Collecting return values of type %s.\n", PyType_Format(ret->result_type));
                 switch(ret->result_type)                                                          
                 {                                                                                 
                     case NPY_BOOL:      NP_COL_BAT_STR_LOOP(b, bit, lng_to_string); break;
@@ -1513,6 +1605,7 @@ returnvalues:
                             }                                                       
                         }    
                         break;
+                    case NPY_OBJECT:
                     default:
                         msg = createException(MAL, "pyapi.eval", "Unrecognized type. Could not convert to NPY_UNICODE.\n");       
                         goto wrapup;    
@@ -1767,7 +1860,15 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth)
 
     size_t indentation_count = 0;
     size_t max_indentation = 100;
+    // This keeps track of the different indentation levels
+    // indentation_levels is a sorted array with how many spaces of indentation that specific array has
+    // so indentation_levels[0] = 4 means that the first level (level 0) has 4 spaces in the source code
+    // after this array is constructed we can count the amount of spaces before a statement and look in this
+    // array to immediately find the indentation level of the statement
     size_t *indentation_levels = (size_t*)GDKzalloc(max_indentation * sizeof(size_t));
+    // statements_per_level keeps track of how many statements are at the specified indentation level
+    // this is needed to compute the size of the resulting formatted code
+    // for every indentation level i, we add statements_per_level[i] * (i + 1) * spaces_per_level spaces
     size_t *statements_per_level = (size_t*)GDKzalloc(max_indentation * sizeof(size_t));
 
     size_t initial_spaces = 0;
@@ -1777,7 +1878,7 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth)
     char base_start[] = "def pyfun(";
     char base_end[] = "):\n";
 
-    if (indentation_levels == NULL) goto finally;
+    if (indentation_levels == NULL || statements_per_level == NULL) goto finally;
 
     // Base function definition size
     // For every argument, add a comma, and add another entry for the '\0'
@@ -1838,9 +1939,12 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth)
                 size_t level = 0;
                 // First put the indentation in the indentation table
                 if (indentation_count >= max_indentation) {
+                    // If there is no room in the indentation arrays we will extend them
+                    // This probably will never happen unless in really extreme code (or if max_indentation is set very low)
                     size_t *new_indentation = GDKzalloc(2 * max_indentation * sizeof(size_t));
-                    size_t *new_statements_per_level = GDKzalloc(2 * max_indentation * sizeof(size_t));
                     if (new_indentation == NULL) goto finally;
+                    size_t *new_statements_per_level = GDKzalloc(2 * max_indentation * sizeof(size_t));
+                    if (new_statements_per_level == NULL) goto finally;
 
                     for(i = 0; i < max_indentation; i++) {
                         new_indentation[i] = indentation_levels[i];
@@ -1855,13 +1959,16 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth)
 
                 for(j = 0; j < indentation_count; j++) {
                     if (initial_spaces == indentation_levels[j]) {
+                        // The exact space count is already in the array, so we can stop
                         level = j;
                         placed = true;
                         break;
                     }
 
                     if (initial_spaces < indentation_levels[j]) {
-                        //put the indentation level here
+                        // The indentation level is smaller than this level (but bigger than the previous level)
+                        // So the indentation level belongs here, so we move every level past this one upward one level
+                        // and put the indentation level here
                         for(k = indentation_count; k > j; k--) {
                             indentation_levels[k] = indentation_levels[k - 1];
                             statements_per_level[k] = statements_per_level[k - 1];
@@ -1875,6 +1982,7 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth)
                     }
                 }
                 if (!placed) {
+                    // The space count is the biggest we have seen, so we add it to the end of the array
                     level = indentation_count;
                     indentation_levels[indentation_count++] = initial_spaces;
                 }
@@ -1886,6 +1994,7 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth)
             }
         }
     }
+    // Add the amount of spaces we will add to the size
     for(i = 0; i < indentation_count; i++) {
         size += (i + 1) * spaces_per_level * statements_per_level[i];
     }
@@ -1928,9 +2037,10 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth)
             } else {
                 // Statement starts here
                 seen_statement = true;
+                // Look through the indentation_levels array to find the level of the statement
+                // from the amount of initial spaces
                 bool placed = false;
                 int level = 0;
-
                 for(j = 0; j < indentation_count; j++) {
                     if (initial_spaces == indentation_levels[j]) {
                         level = j;
@@ -1939,7 +2049,9 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth)
                     }
                 }
                 if (!placed) {
-                    // This should never happen
+                    // This should never happen, because it means the initial spaces was not present in the array
+                    // When we just did exactly the same loop over the array, we should have encountered this statement
+                    // This means that something happened to either the indentation_levels array or something happened to the code
                     printf("WHAT HAPPENED\n");
                     goto finally;
                 }
@@ -1962,6 +2074,7 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth)
     }
     newcode[code_location] = '\0';
     if (code_location >= size) {
+        // Something went wrong with our size computation, this also should never happen
         printf("WHAT HAPPENED\n");
         goto finally;
     }

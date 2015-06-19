@@ -22,8 +22,9 @@
 //! Returns the amount of characters in the utf8 formatted string, returns -1 if the string is not a valid utf8 string
 /* Arguments:
 	utf8_str: A pointer to a utf8 formatted string.
+	ascii: a pointer to a boolean, this is set to true if the string is ascii-encoded and to false otherwise
 */
-int utf8_strlen(const char *utf8_str);
+int utf8_strlen(const char *utf8_str, bool *ascii);
 int utf32_strlen(const uint32_t *utf32_str);
 
 //! Returns the length in bytes of a single utf8 character [1,2,3 or 4] based on the signature of the first byte, returns -1 if the character is not a valid utf8 character
