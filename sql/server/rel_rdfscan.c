@@ -62,8 +62,6 @@ rel_rdfscan_create(sql_allocator *sa, sql_rel *l, list *exps, rdf_rel_prop *r_r_
 {
 	sql_rel *rel = rel_create(sa);
 	
-	assert (r_r_prop); 
-
 	rel->l = l;
 	rel->r = NULL;
 	rel->rrp = r_r_prop; 

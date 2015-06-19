@@ -202,6 +202,44 @@ sql_column* get_rdf_column(mvc *c, char *tblname, char *cname){
 
 }
 
+#if HANDLING_EXCEPTION
+
+static
+sql_table *create_dummy_table(mvc *c, str tblname, list *proj_exps){
+	
+	sql_table *tbl = NULL;
+	str schema = "rdf"; 
+	sql_schema *sch = NULL; 
+
+	node *en;
+	//sql_subtype tpe_oid;		
+
+	sch = mvc_bind_schema(c, schema); 
+	assert(sch != NULL); 
+
+	if ((tbl = mvc_bind_table(c, sch, tblname)) == NULL){
+		tbl = mvc_create_table(c, sch, tblname, tt_table, 0, SQL_PERSIST, 0, 3);
+	}
+		
+	//create columns
+	for (en = proj_exps->h; en; en = en->next){
+		sql_exp *tmpexp = (sql_exp *) en->data; 
+		sql_subtype *tpe; 
+		char colname[100]; 
+
+		assert(tmpexp->type == e_column); 
+		tpe = exp_subtype(tmpexp); 
+		sprintf(colname, "dummy_%s_%s", tmpexp->rname, tmpexp->name);
+		if (mvc_bind_column(c, tbl, colname) == NULL){
+			mvc_create_column(c, tbl, colname, tpe);
+		}
+	}
+	
+
+	return tbl; 
+}
+
+#endif
 
 static 
 str create_abstract_table(mvc *c){
@@ -273,48 +311,6 @@ int is_basic_pattern(sql_rel *r){
 	return 1; 
 
 }
-
-#if 0
-static 
-void exps_print_ext(mvc *sql, list *exps, int depth, char *prefix){
-	
-	size_t pos;
-	size_t nl = 0;
-	size_t len = 0, lastpos = 0;
-
-	stream *fd = sql->scanner.ws;
-	stream *s;
-	buffer *b = buffer_create(2000); /* hopefully enough */
-	if (!b)
-		return; /* signal somehow? */
-	s = buffer_wastream(b, "SQL Plan");
-	if (!s) {
-		buffer_destroy(b);
-		return; /* signal somehow? */
-	}
-
-	exps_print(sql, s, exps, depth, 1, 0);
-	
-	mnstr_printf(s, "\n");
-
-	/* count the number of lines in the output, skip the leading \n */
-	for (pos = 1; pos < b->pos; pos++) {
-		if (b->buf[pos] == '\n') {
-			nl++;
-			if (len < pos - lastpos)
-				len = pos - lastpos;
-			lastpos = pos + 1;
-		}
-	}
-	b->buf[b->pos - 1] = '\0';  /* should always end with a \n, can overwrite */
-
-	mnstr_printf(fd, "%s \n", b->buf + 1 /* omit starting \n */);
-	printf("%s %s\n", prefix, b->buf + 1 /* omit starting \n */);
-	mnstr_close(s);
-	mnstr_destroy(s);
-	buffer_destroy(b);
-}
-#endif
 
 static 
 void exps_print_ext(mvc *sql, list *exps, int depth, char *prefix){
@@ -1135,7 +1131,7 @@ void get_col_name_from_p (char **col, char *p){
  * */
 
 static
-void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, char *_arname, char *_aname, int update_e_convert){
+void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, char *_arname, char *_aname, int update_e_convert, int dummy_exps){
 	sql_exp *tmpe = NULL;
 	sql_exp *ne = NULL;
 	sql_exp *le = NULL; //right expression, should be e_convert
@@ -1156,7 +1152,10 @@ void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, char *_a
 
 	assert(tmpe->type == e_column); 
 	
- 	ne = exp_column(c->sa, arname, aname, exp_subtype(tmpe), exp_card(tmpe), has_nil(tmpe), 0);
+ 	if (dummy_exps)
+		ne = exp_column(c->sa, rname, name, exp_subtype(tmpe), exp_card(tmpe), has_nil(tmpe), 0);
+	else 
+		ne = exp_column(c->sa, arname, aname, exp_subtype(tmpe), exp_card(tmpe), has_nil(tmpe), 0);
 
 	m_exp->l = ne; 
 	
@@ -1287,6 +1286,91 @@ void verify_rel(sql_rel *r){
 	assert(select_s && select_p && select_o);
 }
 
+static 
+void get_transform_select_exps(mvc *c, list *exps, list *trans_select_exps, str tblname, str colname, int *isConstrain_o){
+	
+	node *en;
+	int num_o_cond = 0;
+	int num_s_cond = 0; 
+	sql_allocator *sa = c->sa;
+
+	for (en = exps->h; en; en = en->next){
+		sql_exp *tmpexp = (sql_exp *) en->data; 
+		sql_exp *e = (sql_exp *)tmpexp->l; 
+
+		assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
+		assert(e->type == e_convert); 
+
+		e = e->l; 
+
+		assert(e->type == e_column); 
+
+		if (strcmp(e->name, "p") == 0){
+			continue; 
+
+		} else if (strcmp(e->name, "o") == 0){
+			sql_exp *m_exp = exp_copy(sa, tmpexp);
+			modify_exp_col(c, m_exp, tblname, colname, e->rname, e->name, 1, 0);
+
+			//append this exp to list
+			append(trans_select_exps, m_exp);
+			num_o_cond++;
+			*isConstrain_o = 1; 
+
+		} else if (strcmp(e->name, "s") == 0){
+			char subj_colname[50] = "subject";
+			sql_exp *m_exp = exp_copy(sa, tmpexp);
+			modify_exp_col(c, m_exp, tblname, subj_colname, e->rname, e->name, 1, 0);
+
+			//append this exp to list
+			append(trans_select_exps, m_exp);
+			num_s_cond++;
+		} else{ 
+			printf("The exp of other predicates (not s, p, o) is not handled\n"); 
+		}
+
+
+	}
+}
+
+#if HANDLING_EXCEPTION
+static 
+void get_transform_dummy_select_exps(mvc *c, list *exps, list *trans_select_exps, str tblname){
+	
+	node *en;
+	sql_allocator *sa = c->sa;
+
+	for (en = exps->h; en; en = en->next){
+		sql_exp *tmpexp = (sql_exp *) en->data; 
+		sql_exp *e = (sql_exp *)tmpexp->l; 
+
+		assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
+		assert(e->type == e_convert); 
+
+		e = e->l; 
+
+		assert(e->type == e_column); 
+
+		if (strcmp(e->name, "p") == 0){
+			continue; 
+
+		} else if (strcmp(e->name, "o") == 0 || strcmp(e->name, "s") == 0){
+			sql_exp *m_exp = exp_copy(sa, tmpexp);
+			char dum_col[100]; 
+			sprintf(dum_col,"dummy_%s_%s", e->rname, e->name); 
+			modify_exp_col(c, m_exp, tblname, dum_col, e->rname, e->name, 1, 1);
+
+			//append this exp to list
+			append(trans_select_exps, m_exp);
+
+		} else{ 
+			printf("The exp of other predicates (not s, p, o) is not handled\n"); 
+		}
+
+
+	}
+}
+#endif
 
 static
 void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl_exps, str tblname, int colIdx, oid tmpPropId, str *atblname, str *asubjcolname, list *sp_prj_exps, list *base_column_exps, int isOptionalGroup){
@@ -1309,48 +1393,7 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 	tmpexps = r->exps;
 
 	if (tmpexps){
-		node *en;
-		int num_o_cond = 0;
-		int num_s_cond = 0; 
-	
-		for (en = tmpexps->h; en; en = en->next){
-			sql_exp *tmpexp = (sql_exp *) en->data; 
-			sql_exp *e = (sql_exp *)tmpexp->l; 
-
-			assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
-			assert(e->type == e_convert); 
-
-			e = e->l; 
-
-			assert(e->type == e_column); 
-
-			if (strcmp(e->name, "p") == 0){
-				continue; 
-
-			} else if (strcmp(e->name, "o") == 0){
-				sql_exp *m_exp = exp_copy(sa, tmpexp);
-				modify_exp_col(c, m_exp, tblname, tmpcolname, e->rname, e->name, 1);
-
-				//append this exp to list
-				append(trans_select_exps, m_exp);
-				num_o_cond++;
-				isConstrain_o = 1; 
-
-			} else if (strcmp(e->name, "s") == 0){
-				char subj_colname[50] = "subject";
-				sql_exp *m_exp = exp_copy(sa, tmpexp);
-				modify_exp_col(c, m_exp, tblname, subj_colname, e->rname, e->name, 1);
-
-				//append this exp to list
-				append(trans_select_exps, m_exp);
-				num_s_cond++;
-			} else{ 
-				printf("The exp of other predicates (not s, p, o) is not handled\n"); 
-			}
-
-
-		}
-
+		get_transform_select_exps(c, tmpexps, trans_select_exps, tblname, tmpcolname, &isConstrain_o); 
 	}
 
 
@@ -1466,7 +1509,7 @@ void tranforms_mvprop_exps(mvc *c, sql_rel *r, mvPropRel *mvproprel, int tblId, 
 
 			} else if (strcmp(e->name, "o") == 0){
 				sql_exp *m_exp = exp_copy(sa, tmpexp);
-				modify_exp_col(c, m_exp, mvtblname, tmpmvcolname, e->rname, e->name, 1);
+				modify_exp_col(c, m_exp, mvtblname, tmpmvcolname, e->rname, e->name, 1, 0);
 				
 				//append this exp to list
 				append(trans_select_exps, m_exp);
@@ -1474,7 +1517,7 @@ void tranforms_mvprop_exps(mvc *c, sql_rel *r, mvPropRel *mvproprel, int tblId, 
 			} else if (strcmp(e->name, "s") == 0){
 				char subj_colname[50] = "mvsubj";
 				sql_exp *m_exp = exp_copy(sa, tmpexp);
-				modify_exp_col(c, m_exp, mvtblname, subj_colname, e->rname, e->name, 1);
+				modify_exp_col(c, m_exp, mvtblname, subj_colname, e->rname, e->name, 1, 0);
 
 				//append this exp to list
 				append(trans_select_exps, m_exp);
@@ -2028,6 +2071,31 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 
 }
 
+#if HANDLING_EXCEPTION
+static 
+void get_removed_tid_exps(mvc *c, list *trans_base_exps, sql_rel *r){
+	list *tmpexps = NULL; 
+	node *en;
+
+	assert (r->op == op_basetable);
+	tmpexps = r->exps; 
+
+	assert(tmpexps); 
+
+	for (en = tmpexps->h; en; en = en->next){
+		sql_exp *tmpexp = (sql_exp *) en->data;
+		assert (tmpexp->type == e_column); 
+
+		if (strcmp(tmpexp->name, "%TID%") == 0){
+			continue; 
+		} else {
+			sql_exp *m_exp = exp_copy(c->sa, tmpexp);
+			//append this exp to list
+			append(trans_base_exps, m_exp);
+		}
+	}
+}
+
 /*
  * Input: 
  * - A sub-join graph (jsg) that all nodes are connected by using inner join
@@ -2040,93 +2108,84 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
  *  - sp_prj_exps stores all the columns should be selected in the "original order" 
  * */
 static
-sql_rel* build_rdfexception (mvc *c, jgraph *jg, int tId, int ncol, int nijgroup, int **ijgroup, int *nnodes_per_ijgroup){
+sql_rel* build_rdfexception (mvc *c, int tId, jgraph *jg, list *union_rdfscan_exps, int nijgroup, int **ijgroup, int *nnodes_per_ijgroup){
 
 	sql_rel *rel_rdfscan = NULL;
 	str tblname; 
+	char dummy_tblname[100]; 
 	oid tblnameoid;
-	str atblname = NULL; 		//alias for table of sp
-	str asubjcolname = NULL; 	//alias for subject column of sp table
-	char tmp[50]; 
-	list *trans_select_exps = NULL; 	//Store the exps in op_select
-	list *trans_table_exps = NULL; 		//Store the list of column for basetable in op_select
 	sql_rel *rel_basetbl = NULL; 
-	sql_allocator *sa = c->sa;
-	int num_mv_col = 0;
-	int i, gr; 
-	int num_nonMV_col = 0; 
-	rdf_rel_prop *r_r_prop = NULL; 
+	str dup_tblname = NULL;
+	int gr, i; 
 
-	num_mv_col = 0;
-
-	trans_select_exps = new_exp_list(sa);
-	trans_table_exps = new_exp_list(sa); 
-	r_r_prop = init_rdf_rel_prop(ncol, nijgroup, nnodes_per_ijgroup);
-
+	sql_table *tbl; 
+	list *trans_select_exps = NULL; 
+	list *trans_base_exps = NULL; 
+	
 	printf("Get real expressions from tableId %d\n", tId);
 
 	tblnameoid = global_csset->items[tId]->tblname;
 
-	tblname = (str) GDKmalloc(sizeof(char) * 100); 
+	tblname = (str) GDKmalloc(sizeof(char) * 50); 
 
 	getTblSQLname(tblname, tId, 0,  tblnameoid, global_mapi, global_mbat);
+	
+	sprintf(dummy_tblname,"dummy_%s",tblname); 
+
+	dup_tblname  = sa_strdup(c->sa, dummy_tblname); 
+
+	tbl = create_dummy_table(c, dup_tblname, union_rdfscan_exps);
 
 	printf("  [Name of the table  %s]", tblname);  
 	
+	rel_basetbl = rel_basetable(c, tbl, dup_tblname); 
+
+	trans_base_exps = new_exp_list(c->sa); 
+
+	get_removed_tid_exps(c, trans_base_exps, rel_basetbl);
+
+	rel_basetbl->exps = trans_base_exps; 
+
+
+	printf("\nDUMMY TABLE\n"); 
+
+	_rel_print(c, rel_basetbl);
+
+	
+	trans_select_exps = new_exp_list(c->sa);
 	for (gr = 0; gr < nijgroup; gr++){
 		for (i = 0; i < nnodes_per_ijgroup[gr]; i++){
 			int nodeid = ijgroup[gr][i];
 			jgnode *tmpnode = jg->lstnodes[nodeid];
 			sql_rel *tmprel = (sql_rel*) (tmpnode->data);
-			int colIdx; 
-			int isMVcol = 0; 
-			oid tmpPropId;
+			list *tmpexps = NULL; 
 
 			assert(tmprel->op == op_select);
 			assert(((sql_rel*)tmprel->l)->op == op_basetable); 
 
-			tmpPropId = tmpnode->poid; 
+			tmpexps = tmprel->exps;
 
-			colIdx = getColIdx_from_oid(tId, global_csset, tmpPropId);
-
-			//Check whether the column is multi-valued prop
-			isMVcol = isMVCol(tId, colIdx, global_csset);
-
-			//Only for RDFscan, otherwise we need to handle Multi-valued prop
-			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname, NULL, NULL, 0); 
-
-			if (isMVcol == 0){
-				num_nonMV_col++; 
-			}
-			else{
-				num_mv_col++;
+			if (tmpexps){
+				get_transform_dummy_select_exps(c, tmpexps, trans_select_exps, dup_tblname); 
 			}
 		}
 	}
 	
-	sprintf(tmp, "[RDFscan] select exprs: "); 
-	exps_print_ext(c, trans_select_exps, 0, tmp);
-	sprintf(tmp, "          base table expression: \n"); 
-	exps_print_ext(c, trans_table_exps, 0, tmp);	
-
-
-
-	rel_basetbl = rel_basetable(c, get_rdf_table(c,tblname), tblname); 
-
-	rel_basetbl->exps = trans_table_exps;
-
-	if (num_mv_col > 0) r_r_prop->containMV = 1; 
+	exps_print_ext(c, trans_select_exps, 0, "[RDFexception] select exprs: ");
 	
-	rel_rdfscan = rel_rdfscan_create(c->sa, rel_basetbl, trans_select_exps, r_r_prop); 
-
+	rel_rdfscan = rel_rdfscan_create(c->sa, rel_basetbl, trans_select_exps, NULL); 
+	//rel_rdfscan = rel_rdfscan_create(c->sa, rel_basetbl, NULL, NULL); 
 	
-	list_destroy(trans_select_exps);
-
+	printf("\nRDFSCAN \n");
+	_rel_print(c, rel_rdfscan);
+	
 	return rel_rdfscan; 
 
 }
 
+#endif
 
+#if 0
 /*
  * Input: 
  * - A sub-join graph (jsg) that all nodes are connected by using inner join
@@ -2225,6 +2284,7 @@ sql_rel* build_rdfscan (mvc *c, jgraph *jg, int tId, int ncol, int nijgroup, int
 
 }
 
+#endif
 
 static
 void tranforms_join_exps(mvc *c, sql_rel *r, list *sp_edge_exps, int is_outer_join){
@@ -2550,7 +2610,7 @@ void _append_union_expr(mvc *c, sql_rel *sel_rel, list *union_exps){
 	sql_allocator *sa = c->sa; 
 	sql_rel *tbl_rel = NULL;
 
-	assert(sel_rel->op == op_select); 
+	assert(sel_rel->op == op_select || sel_rel->op == op_rdfscan); 
 	assert (((sql_rel *)sel_rel->l)->op == op_basetable);
 	tbl_rel = (sql_rel *)sel_rel->l;
 	tmpexps = tbl_rel->exps; 
@@ -2580,7 +2640,7 @@ void get_union_expr(mvc *c, sql_rel *r, list *union_exps){
 	
 	tmp_rel = r; 
 	//Because, the select op may be included 
-	//inside an join for the case of 
+	//inside an join for the case of mvprop
 	if (tmp_rel->op != op_select){
 		assert(tmp_rel->op == op_join);
 		get_union_expr(c, tmp_rel->l, union_exps);
@@ -2812,7 +2872,7 @@ sql_rel* union_sp_from_all_matching_tbls(mvc *c, int num_match_tbl, int *contain
 
 static 	
 sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId){
-	sql_rel *rel = NULL; 
+	sql_rel *rel = NULL, *rel_alltable = NULL; 
 	int 	i, tblIdx; 
 	char 	is_all_select = 1; 
 	char 	is_only_basetable = 1;
@@ -2823,8 +2883,11 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 	int 	**ijgroup; 
 	int 	*nnodes_per_ijgroup; 
 	int 	nijgroup = 0;
-
+	
+	#if	HANDLING_EXCEPTION
 	sql_rel *rel_rdfscan = NULL;	//For handling exception
+	list *union_rdfscan_exps = NULL; //Union for rel_rdfscan and other regular matching tables
+	#endif
 
 	//This transformed exps list contain exps list from op_select
 	 //on the object
@@ -2887,25 +2950,28 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 					&(contain_mv_col[tblIdx]));
 		}
 
-		
-		rel_rdfscan = build_rdfscan(c, jg, tmptbId[0], nnode, nijgroup, ijgroup, nnodes_per_ijgroup);
-		
-		if (0) rel_rdfscan = build_rdfexception(c, jg, tmptbId[0], nnode, nijgroup, ijgroup, nnodes_per_ijgroup);
-		
-		(void) rel_rdfscan; 
-		/*
-		#if USINGRDFSCAN
-		tbl_m_rel = rel_rdfscan; 
-		#else
-		rel_destroy(rel_rdfscan);
-		#endif
-		*/
+		rel_alltable = union_sp_from_all_matching_tbls(c, num_match_tbl, contain_mv_col, tbl_m_rels, sp_proj_exps); 
 	
+		#if HANDLING_EXCEPTION
+		//Union with RDFscan
+		union_rdfscan_exps = new_exp_list(c->sa);
+		get_union_expr(c,tbl_m_rels[0] , union_rdfscan_exps);
+
+		exps_print_ext(c, union_rdfscan_exps, 0, "union_rdfscan_exps: ");
+			
+		rel_rdfscan = build_rdfexception(c, tmptbId[0], jg, union_rdfscan_exps, nijgroup, ijgroup, nnodes_per_ijgroup);
+
+		printf("RDF exception\n"); 
+		_rel_print(c, rel_rdfscan); 
+
+
+		rel = rel_setop(c->sa, rel_alltable, rel_rdfscan, op_union); 
+		rel->exps = union_rdfscan_exps;		
+		#else
+		rel = rel_alltable; 
+		#endif
 
 		free_inner_join_groups(ijgroup, nijgroup, nnodes_per_ijgroup); 
-
-		rel = union_sp_from_all_matching_tbls(c, num_match_tbl, contain_mv_col, tbl_m_rels, sp_proj_exps); 
-
 
 		free_sp_props(spprops);
 		free(tbl_m_rels);
@@ -3056,7 +3122,7 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 	printRel_JGraph(jg, c); 
 
-	create_abstract_table(c);
+	if (0) create_abstract_table(c);
 	
 	lstRels = (sql_rel**) malloc(sizeof(sql_rel*) * numsp); 
 
