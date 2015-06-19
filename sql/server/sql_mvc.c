@@ -302,7 +302,7 @@ mvc_commit(mvc *m, int chain, const char *name)
 }
 
 int
-mvc_precommit(mvc *m, int chain, const char *name, long id) {
+mvc_precommit(mvc *m, int chain, const char *name, lng id) {
 	int result = SQL_OK;//, wait = 0;
 	sql_trans *tr = m->session->tr;
 	// set CPaaS HTM id
@@ -334,7 +334,7 @@ mvc_precommit(mvc *m, int chain, const char *name, long id) {
 }
 
 int
-mvc_persistcommit(mvc *m, int chain, const char *name, long id) {
+mvc_persistcommit(mvc *m, int chain, const char *name, lng id) {
 	int result = SQL_OK;//, wait = 0;
 	sql_trans *tr = m->session->tr;
 	// set CPaaS HTM id

@@ -342,14 +342,13 @@ SQLabort(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
-SQLprecommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, long id)
+SQLprecommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	mvc *sql = NULL;
 	str msg;
 	int result;
-	backend *b = NULL;
-	wrd nr;
-	str *w = getArgReference_str(stk, pci, 3);
+	backend *b = cntxt->sqlcontext;
+	lng *id = getArgReference_lng(stk, pci, 1);
 
 	if ((msg = getSQLContext(cntxt, mb, &sql, NULL)) != NULL)
 		return msg;
@@ -360,28 +359,25 @@ SQLprecommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, long id)
 		throw(SQL, "sql.precommit", "precommit not allowed in auto commit mode");
 
 	/* execute the precommit */
-	result = mvc_precommit(sql, 0, 0, id);
+	result = mvc_precommit(sql, 0, 0, *id);
 	if (result < 0) {
 		throw(SQL, "sql.precommit", "failed");
 	}
 
 	/* get the result set */
-	nr = *getArgReference_wrd(stk, pci, 2);
-	b = cntxt->sqlcontext;
-	if (mvc_export_affrows(b, b->out, nr, *w))
+	if (mvc_export_affrows(b, b->out, 1, ""))
 		throw(SQL, "sql.precommit", "failed - could not get affected rows");
 	return msg;
 }
 
 str
-SQLpersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, long id)
+SQLpersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	mvc *sql = NULL;
 	str msg;
 	int result;
-	backend *b = NULL;
-	wrd nr;
-	str *w = getArgReference_str(stk, pci, 3);
+	backend *b = cntxt->sqlcontext;
+	lng *id = getArgReference_lng(stk, pci, 1);
 
 	if ((msg = getSQLContext(cntxt, mb, &sql, NULL)) != NULL)
 		return msg;
@@ -392,15 +388,13 @@ SQLpersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, long i
 		throw(SQL, "sql.persistcommit", "persistcommit not allowed in auto commit mode");
 
 	/* execute the persistcommit */
-	result = mvc_persistcommit(sql, 0, 0, id);
+	result = mvc_persistcommit(sql, 0, 0, *id);
 	if (result < 0) {
 		throw(SQL, "sql.persistcommit", "failed");
 	}
 
 	/* get the result set */
-	nr = *getArgReference_wrd(stk, pci, 2);
-	b = cntxt->sqlcontext;
-	if (mvc_export_affrows(b, b->out, nr, *w))
+	if (mvc_export_affrows(b, b->out, 1, ""))
 		throw(SQL, "sql.persistcommit", "failed - could not get affected rows");
 	return msg;
 }
