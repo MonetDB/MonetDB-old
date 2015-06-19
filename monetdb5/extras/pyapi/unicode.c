@@ -10,8 +10,9 @@ int utf8_strlen(const char *utf8_str, bool *ascii)
     //we traverse the string and simply count the amount of utf8 characters in the string
     while (true)
     {
+        int offset;
         if (utf8_str[i] == '\0') break;
-        int offset = utf8_length(utf8_str[i]);
+        offset = utf8_length(utf8_str[i]);
         if (offset < 0) return -1; //invalid utf8 character
         i += offset;
         utf8_char_count++;

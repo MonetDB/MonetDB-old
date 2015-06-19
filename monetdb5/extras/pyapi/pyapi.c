@@ -1853,7 +1853,7 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth)
     size_t i = 0, j = 0, k = 0;
     size_t length = strlen(code);
     size_t size = 0;
-    size_t spaces_per_level = 4;
+    size_t spaces_per_level = 2;
 
     size_t code_location = 0;
     char *newcode = NULL;
@@ -1942,8 +1942,9 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth)
                     // If there is no room in the indentation arrays we will extend them
                     // This probably will never happen unless in really extreme code (or if max_indentation is set very low)
                     size_t *new_indentation = GDKzalloc(2 * max_indentation * sizeof(size_t));
+                    size_t *new_statements_per_level;
                     if (new_indentation == NULL) goto finally;
-                    size_t *new_statements_per_level = GDKzalloc(2 * max_indentation * sizeof(size_t));
+                    new_statements_per_level = GDKzalloc(2 * max_indentation * sizeof(size_t));
                     if (new_statements_per_level == NULL) goto finally;
 
                     for(i = 0; i < max_indentation; i++) {
