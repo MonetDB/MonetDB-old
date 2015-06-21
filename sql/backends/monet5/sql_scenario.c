@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -48,6 +37,7 @@
 #include "sql_readline.h"
 #include "sql_user.h"
 #include "sql_datetime.h"
+#include "sql_optimizer.h"
 #include "mal_io.h"
 #include "mal_parser.h"
 #include "mal_builder.h"
@@ -61,6 +51,7 @@
 #include "opt_statistics.h"
 #include "opt_prelude.h"
 #include "opt_pipes.h"
+#include "opt_mitosis.h"
 #include <unistd.h>
 #include "sql_upgrades.h"
 
@@ -105,6 +96,8 @@ str
 SQLsession(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str msg = MAL_SUCCEED;
+	str logmsg;
+	int cnt=0;
 
 	(void) mb;
 	(void) stk;
@@ -112,6 +105,13 @@ SQLsession(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (SQLinitialized == 0 && (msg = SQLprelude(NULL)) != MAL_SUCCEED)
 		return msg;
 	msg = setScenario(cntxt, "sql");
+	// Wait for any recovery process to be finished
+	do {
+		MT_sleep_ms(1000);
+		logmsg = GDKgetenv("recovery");
+		if( logmsg== NULL && ++cnt  == 5)
+			throw(SQL,"SQLinit","#WARNING server not ready, recovery in progress\n");
+    }while (logmsg == NULL);
 	return msg;
 }
 
@@ -119,6 +119,8 @@ str
 SQLsession2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str msg = MAL_SUCCEED;
+	str logmsg;
+	int cnt=0;
 
 	(void) mb;
 	(void) stk;
@@ -126,6 +128,13 @@ SQLsession2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (SQLinitialized == 0 && (msg = SQLprelude(NULL)) != MAL_SUCCEED)
 		return msg;
 	msg = setScenario(cntxt, "msql");
+	// Wait for any recovery process to be finished
+	do {
+		MT_sleep_ms(1000);
+		logmsg = GDKgetenv("recovery");
+		if( logmsg== NULL && ++cnt  == 5)
+			throw(SQL,"SQLinit","#WARNING server not ready, recovery in progress\n");
+    }while (logmsg == NULL);
 	return msg;
 }
 
@@ -270,7 +279,7 @@ SQLexit(Client c)
 	stack_push_var(sql, name, &ctype);	   \
 	stack_set_var(sql, name, VALset(&src, ctype.type->localtype, val));
 
-#define NR_GLOBAL_VARS 9
+#define NR_GLOBAL_VARS 8
 /* NR_GLOBAL_VAR should match exactly the number of variables created
    in global_variables */
 /* initialize the global variable, ie make mvc point to these */
@@ -300,7 +309,6 @@ global_variables(mvc *sql, char *user, char *schema)
 	if (!opt)
 		opt = "default_pipe";
 	SQLglobal("optimizer", opt);
-	SQLglobal("trace", "show,ticks,stmt");
 
 	typename = "sec_interval";
 	sql_find_subtype(&ctype, typename, inttype2digits(ihour, isec), 0);
@@ -790,7 +798,7 @@ SQLreader(Client c)
 #endif
 		}
 	}
-	if ( (c->stimeout &&  GDKusec()- c->session > c->stimeout) || !go || (strncmp(CURRENT(c), "\\q", 2) == 0)) {
+	if ( (c->stimeout && (GDKusec() - c->session) > c->stimeout) || !go || (strncmp(CURRENT(c), "\\q", 2) == 0)) {
 		in->pos = in->len;	/* skip rest of the input */
 		c->mode = FINISHCLIENT;
 		return NULL;
@@ -879,9 +887,11 @@ SQLsetTrace(backend *be, Client c, bit onoff)
 				 * supplied values */
 				if (strcmp(s, "time") == 0 || strcmp(s, "pc") == 0 || strcmp(s, "stmt") == 0) {
 					coltype[i] = TYPE_str;
-				} else if (strcmp(s, "ticks") == 0 || strcmp(s, "rssMB") == 0 || strcmp(s, "vmMB") == 0 || strcmp(s, "reads") == 0 || strcmp(s, "writes") == 0) {
+				} else if (strcmp(s, "ticks") == 0 || strcmp(s, "rssMB") == 0 || strcmp(s, "tmpspace") == 0 || 
+						   strcmp(s, "inblock") == 0 || strcmp(s, "oublock") == 0 || strcmp(s,"minflt") == 0 ||
+						   strcmp(s,"majflt") ==0  || strcmp(s,"nvcsw") == 0) {
 					coltype[i] = TYPE_lng;
-				} else if (strcmp(s, "thread") == 0) {
+				} else if ( strcmp(s,"event") == 0 || strcmp(s, "thread") == 0) {
 					coltype[i] = TYPE_int;
 				}
 				i++;
@@ -958,7 +968,7 @@ SQLparser(Client c)
 	mvc *m;
 	int oldvtop, oldstop;
 	int pstatus = 0;
-	int err = 0;
+	int err = 0, opt = 0;
 
 	be = (backend *) c->sqlcontext;
 	if (be == 0) {
@@ -989,8 +999,6 @@ SQLparser(Client c)
 	if (!m->sa)
 		m->sa = sa_create();
 
-	if (m->history)
-		be->mvc->Tparse = GDKusec();
 	m->emode = m_normal;
 	m->emod = mod_none;
 	if (be->language == 'X') {
@@ -1116,6 +1124,12 @@ SQLparser(Client c)
 		m->emode = m_inplace;
 		scanner_query_processed(&(m->scanner));
 	} else if (caching(m) && cachable(m, NULL) && m->emode != m_prepare && (be->q = qc_match(m->qc, m->sym, m->args, m->argc, m->scanner.key ^ m->session->schema->base.id)) != NULL) {
+		// look for outdated plans
+		if ( OPTmitosisPlanOverdue(c,be->q->name) ){
+			msg = SQLCacheRemove(c, be->q->name);
+			qc_delete(be->mvc->qc, be->q);
+			goto recompilequery;
+		}
 
 		if (m->emod & mod_debug)
 			SQLsetDebugger(c, m, TRUE);
@@ -1125,8 +1139,11 @@ SQLparser(Client c)
 			m->emode = m_inplace;
 		scanner_query_processed(&(m->scanner));
 	} else {
-		sql_rel *r = sql_symbol2relation(m, m->sym);
-		stmt *s = sql_relation2stmt(m, r);
+		sql_rel *r;
+		stmt *s;
+recompilequery:
+		r = sql_symbol2relation(m, m->sym);
+		s = sql_relation2stmt(m, r);
 
 		if (s == 0 || (err = mvc_status(m) && m->type != Q_TRANS)) {
 			msg = createException(PARSE, "SQLparser", "%s", m->errstr);
@@ -1142,23 +1159,9 @@ SQLparser(Client c)
 		if (m->emod & mod_debug)
 			SQLsetDebugger(c, m, TRUE);
 		if (!caching(m) || !cachable(m, s)) {
-			MalBlkPtr mb;
-
 			scanner_query_processed(&(m->scanner));
-			if (backend_callinline(be, c, s) == 0) {
-				trimMalBlk(c->curprg->def);
-				mb = c->curprg->def;
-				chkProgram(c->fdout, c->nspace, mb);
-				if (!cachable(m, s))
-					addOptimizerPipe(c, mb, "minimal_pipe");
-				else
-					addOptimizerPipe(c, mb, "default_pipe");
-				msg = optimizeMALBlock(c, mb);
-				if (msg != MAL_SUCCEED) {
-					sqlcleanup(m, err);
-					goto finalize;
-				}
-				c->curprg->def = mb;
+			if (backend_callinline(be, c, s, 0) == 0) {
+				opt = 1;
 			} else {
 				err = 1;
 			}
@@ -1211,10 +1214,22 @@ SQLparser(Client c)
 		 * The default action is to print them out at the end of the
 		 * query block.
 		 */
-		if (be->q)
-			pushEndInstruction(c->curprg->def);
+		pushEndInstruction(c->curprg->def);
 
 		chkTypes(c->fdout, c->nspace, c->curprg->def, TRUE);	/* resolve types */
+		if (opt) {
+			MalBlkPtr mb = c->curprg->def;
+
+			trimMalBlk(mb);
+			chkProgram(c->fdout, c->nspace, mb);
+			addOptimizers(c, mb, "default_pipe");
+			msg = optimizeMALBlock(c, mb);
+			if (msg != MAL_SUCCEED) {
+				sqlcleanup(m, err);
+				goto finalize;
+			}
+			c->curprg->def = mb;
+		}
 		/* we know more in this case than
 		   chkProgram(c->fdout, c->nspace, c->curprg->def); */
 		if (c->curprg->def->errors) {

@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -98,11 +87,10 @@ sql5_export str DELTAproject(bat *result, const bat *subselect, const bat *col, 
 sql5_export str DELTAbat2(bat *result, const bat *col, const bat *uid, const bat *uval);
 sql5_export str DELTAsub2(bat *result, const bat *col, const bat *cid, const bat *uid, const bat *uval);
 sql5_export str DELTAproject2(bat *result, const bat *subselect, const bat *col, const bat *uid, const bat *uval);
-sql5_export str mvc_result_row_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-sql5_export str mvc_result_file_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-sql5_export str mvc_result_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-sql5_export str mvc_result_column_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-sql5_export str mvc_result_value_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str mvc_table_result_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+
+sql5_export str mvc_export_row_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str mvc_export_table_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 sql5_export str mvc_declared_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str mvc_declared_table_column_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
@@ -118,9 +106,10 @@ sql5_export str mvc_export_result_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk
 sql5_export str mvc_export_head_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str mvc_export_chunk_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str mvc_export_operation_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-sql5_export str mvc_export_value_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str mvc_scalar_value_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str mvc_row_result_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str mvc_export_row_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-sql5_export str mvc_import_table_stdin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str mvc_bin_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str setVariable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str getVariable(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
@@ -256,14 +245,18 @@ sql5_export str batnil_2num_hge(bat *res, const bat *v, const int *len);
 sql5_export str nil_2time_timestamp(timestamp *res, const void *v, const int *len);
 sql5_export str batnil_2time_timestamp(bat *res, const bat *v, const int *len);
 sql5_export str str_2time_timestamp(timestamp *res, const str *v, const int *len);
+sql5_export str str_2time_timestamptz(timestamp *res, const str *v, const int *len, int *tz);
 sql5_export str batstr_2time_timestamp(bat *res, const bat *v, const int *len);
+sql5_export str batstr_2time_timestamptz(bat *res, const bat *v, const int *len, int *tz);
 sql5_export str timestamp_2time_timestamp(timestamp *res, const timestamp *v, const int *len);
 sql5_export str battimestamp_2time_timestamp(bat *res, const bat *v, const int *len);
 
 sql5_export str nil_2time_daytime(daytime *res, const void *v, const int *len);
 sql5_export str batnil_2time_daytime(bat *res, const bat *v, const int *len);
 sql5_export str str_2time_daytime(daytime *res, const str *v, const int *len);
+sql5_export str str_2time_daytimetz(daytime *res, const str *v, const int *len, int *tz);
 sql5_export str batstr_2time_daytime(bat *res, const bat *v, const int *len);
+sql5_export str batstr_2time_daytimetz(bat *res, const bat *v, const int *len, int *tz);
 sql5_export str daytime_2time_daytime(daytime *res, const daytime *v, const int *len);
 sql5_export str batdaytime_2time_daytime(bat *res, const bat *v, const int *len);
 

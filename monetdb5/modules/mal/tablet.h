@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -66,9 +55,10 @@ typedef struct Column_t {
 	int fieldwidth;
 	int scale, precision;
 	int (*tostr)(void *extra, char **buf, int *len, int type, const void *a);
-	void *(*frstr)(struct Column_t *fmt, int type, const char *s, const char *e, char quote);
+	void *(*frstr)(struct Column_t *fmt, int type, const char *s);
 	void *extra;
 	void *data;
+	int skip;					/* only skip to the next field */
 	int len;
 	int nillen;
 	bit ws;						/* if set we need to skip white space */
@@ -90,16 +80,19 @@ typedef struct Table_t {
 	Column *format;				/* remove later */
 	str error;					/* last error */
 	int tryall;					/* skip erroneous lines */
+	str filename;				/* source */
 	BAT *complaints;			/* lines that did not match the required input */
 } Tablet;
 
-tablet_export BUN SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char *rsep, char quote, lng skip, lng maxrow);
-tablet_export int TABLETcreate_bats(Tablet *as, BUN est);
-tablet_export BAT **TABLETcollect(Tablet *as);
-tablet_export BAT **TABLETcollect_parts(Tablet *as, BUN offset);
+tablet_export BUN SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char *rsep, char quote, lng skip, lng maxrow, int best);
+tablet_export str TABLETcreate_bats(Tablet *as, BUN est);
+tablet_export str TABLETcollect(BAT **bats, Tablet *as);
+tablet_export str TABLETcollect_parts(BAT **bats, Tablet *as, BUN offset);
 tablet_export void TABLETdestroy_format(Tablet *as);
 tablet_export int TABLEToutput_file(Tablet *as, BAT *order, stream *s);
 tablet_export void *TABLETadt_frStr(Column *c, int type, char *s, char *e, char quote);
 tablet_export int TABLETadt_toStr(void *extra, char **buf, int *len, int type, ptr a);
+tablet_export str COPYrejects(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+tablet_export str COPYrejects_clear(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 #endif

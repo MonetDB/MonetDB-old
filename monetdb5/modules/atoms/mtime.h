@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -125,6 +114,7 @@ mtime_export timestamp *timestamp_nil;
 #define ts_isnil(t)   ((t).days == timestamp_nil->days && (t).msecs == timestamp_nil->msecs)
 
 mtime_export int daytime_tz_fromstr(const char *buf, int *len, daytime **ret);
+mtime_export int timestamp_tz_fromstr(const char *buf, int *len, timestamp **ret);
 mtime_export str MTIMEcurrent_timestamp(timestamp *t);
 mtime_export str MTIMEcurrent_date(date *d);
 mtime_export str MTIMEcurrent_time(daytime *t);
@@ -252,8 +242,12 @@ mtime_export int rule_fromstr(const char *buf, int *len, rule **d);
 mtime_export int rule_tostr(str *buf, int *len, const rule *r);
 mtime_export int tzone_fromstr(const char *buf, int *len, tzone **d);
 
-mtime_export str MTIMEstrptime(date *d, const char * const *s, const char * const *format);
-mtime_export str MTIMEstrftime(str *s, const date *d, const char * const *format);
+mtime_export str MTIMEstr_to_date(date *d, const char * const *s, const char * const *format);
+mtime_export str MTIMEdate_to_str(str *s, const date *d, const char * const *format);
+mtime_export str MTIMEstr_to_time(daytime *d, const char * const *s, const char * const *format);
+mtime_export str MTIMEtime_to_str(str *s, const daytime *d, const char * const *format);
+mtime_export str MTIMEstr_to_timestamp(timestamp *d, const char * const *s, const char * const *format);
+mtime_export str MTIMEtimestamp_to_str(str *s, const timestamp *d, const char * const *format);
 
 mtime_export str timestamp_trunc(timestamp *ret, timestamp *t, str *field);
 mtime_export str timestamp_trunc_after_every(timestamp *ret, timestamp *t, str *field, int *after_every);

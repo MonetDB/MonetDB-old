@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -1902,6 +1891,66 @@ STRReverseStrSearch(int *res, const str *arg1, const str *arg2)
 			break;
 		}
 	}
+	return MAL_SUCCEED;
+}
+
+str
+STRsplitpart(str *res, str *haystack, str *needle, int *field)
+{
+	size_t slen;
+	int len, f = *field;
+	char *p;
+	const char *s = *haystack;
+	const char *s2 = *needle;
+
+	if (strNil(s) || *field == int_nil) {
+		*res = GDKstrdup("");
+		if (*res == NULL)
+			throw(MAL, "str.splitpart", "Allocation failed");
+		return MAL_SUCCEED;
+	}
+
+	if (*field <= 0) {
+		throw(MAL, "str.splitpart", "field position must be greater than zero");
+		*res = GDKstrdup("");
+		if (*res == NULL)
+			throw(MAL, "str.splitpart", "field position must be greater than zero");
+		return MAL_SUCCEED;
+	}
+
+	slen = strlen(s2);
+
+	while ((p = strstr(s, s2)) != 0 && f > 1) {
+		s = p + slen;
+		f--;
+	}
+
+	if (f != 1) {
+		*res = GDKstrdup("");
+		if (*res == NULL)
+			throw(MAL, "str.splitpart", "Allocation failed");
+		return MAL_SUCCEED;
+	}
+   
+	if (p == 0) {
+		len = UTF8_strlen(s);
+	} else if ((p = strstr(s, s2)) != 0) {
+		len = (int) (p - s);
+	} else {
+		len = UTF8_strlen(s);
+	}
+
+	if (len == int_nil || len == 0) {
+		*res = GDKstrdup("");
+		if (*res == NULL)
+			throw(MAL, "str.splitpart", "Allocation failed");
+		return MAL_SUCCEED;
+	}
+	*res = GDKmalloc(len + 1);
+	if (*res == NULL)
+		throw(MAL, "str.splitpart", "Allocation failed");
+	strncpy(*res, s, len);
+	(*res)[len] = 0;
 	return MAL_SUCCEED;
 }
 

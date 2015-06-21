@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -42,7 +31,7 @@
 
 
 SQLRETURN
-SQLSetConnectAttr_(ODBCDbc *dbc,
+MNDBSetConnectAttr(ODBCDbc *dbc,
 		   SQLINTEGER Attribute,
 		   SQLPOINTER ValuePtr,
 		   SQLINTEGER StringLength)
@@ -159,9 +148,10 @@ SQLSetConnectAttr(SQLHDBC ConnectionHandle,
 		  SQLINTEGER StringLength)
 {
 #ifdef ODBCDEBUG
-	ODBCLOG("SQLSetConnectAttr " PTRFMT " %s\n",
+	ODBCLOG("SQLSetConnectAttr " PTRFMT " %s " PTRFMT " %d\n",
 		PTRFMTCAST ConnectionHandle,
-		translateConnectAttribute(Attribute));
+		translateConnectAttribute(Attribute),
+		PTRFMTCAST ValuePtr, (int) StringLength);
 #endif
 
 	if (!isValidDbc((ODBCDbc *) ConnectionHandle))
@@ -169,7 +159,7 @@ SQLSetConnectAttr(SQLHDBC ConnectionHandle,
 
 	clearDbcErrors((ODBCDbc *) ConnectionHandle);
 
-	return SQLSetConnectAttr_((ODBCDbc *) ConnectionHandle,
+	return MNDBSetConnectAttr((ODBCDbc *) ConnectionHandle,
 				  Attribute,
 				  ValuePtr,
 				  StringLength);
@@ -199,9 +189,10 @@ SQLSetConnectAttrW(SQLHDBC ConnectionHandle,
 	SQLRETURN rc;
 
 #ifdef ODBCDEBUG
-	ODBCLOG("SQLSetConnectAttrW " PTRFMT " %s\n",
+	ODBCLOG("SQLSetConnectAttrW " PTRFMT " %s " PTRFMT " %d\n",
 		PTRFMTCAST ConnectionHandle,
-		translateConnectAttribute(Attribute));
+		translateConnectAttribute(Attribute),
+		PTRFMTCAST ValuePtr, (int) StringLength);
 #endif
 
 	if (!isValidDbc(dbc))
@@ -225,7 +216,7 @@ SQLSetConnectAttrW(SQLHDBC ConnectionHandle,
 		break;
 	}
 
-	rc = SQLSetConnectAttr_(dbc, Attribute, ptr, n);
+	rc = MNDBSetConnectAttr(dbc, Attribute, ptr, n);
 
 	if (ptr && ptr != ValuePtr)
 		free(ptr);

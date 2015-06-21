@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /* multi version catalog */
@@ -72,7 +61,7 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 			mvc_drop_table(m, s, t, 0);
 		}
 
-		t = mvc_create_view(m, s, "tables", SQL_PERSIST, "SELECT * FROM (SELECT p.*, 0 AS \"temporary\" FROM \"sys\".\"_tables\" AS p UNION ALL SELECT t.*, 1 AS \"temporary\" FROM \"tmp\".\"_tables\" AS t) AS tables where tables.type <> 2;", 1);
+		t = mvc_create_view(m, s, "tables", SQL_PERSIST, "SELECT * FROM (SELECT p.*, 0 AS \"temporary\", CAST(CASE WHEN system THEN type + 10 /* system table/view */ ELSE (CASE WHEN commit_action = 0 THEN type /* table/view */ ELSE type + 20 /* global temp table */ END) END AS SMALLINT) AS table_type FROM \"sys\".\"_tables\" AS p UNION ALL SELECT t.*, 1 AS \"temporary\", CAST(type + 30 /* local temp table */ AS SMALLINT) AS table_type FROM \"tmp\".\"_tables\" AS t) AS tables where tables.type <> 2;", 1);
 		mvc_create_column_(m, t, "id", "int", 32);
 		mvc_create_column_(m, t, "name", "varchar", 1024);
 		mvc_create_column_(m, t, "schema_id", "int", 32);
@@ -82,6 +71,7 @@ mvc_init(int debug, store_type store, int ro, int su, backend_stack stk)
 		mvc_create_column_(m, t, "commit_action", "smallint", 16);
 		mvc_create_column_(m, t, "access", "smallint", 16);
 		mvc_create_column_(m, t, "temporary", "smallint", 16);
+		mvc_create_column_(m, t, "table_type", "smallint", 16);
 
 		if (!first) {
 			int pub = ROLE_PUBLIC;

@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -149,7 +138,7 @@ BATsubunique(BAT *b, BAT *s)
 	else
 		vars = NULL;
 	width = Tsize(b);
-	cmp = BATatoms[b->ttype].atomCmp;
+	cmp = ATOMcompare(b->ttype);
 	bi = bat_iterator(b);
 
 	if (b->tsorted || b->trevsorted) {
@@ -252,21 +241,23 @@ BATsubunique(BAT *b, BAT *s)
 		}
 		GDKfree(seen);
 		seen = NULL;
-	} else if (b->T->hash ||
+	} else if (BATcheckhash(b) ||
 		   (b->batPersistence == PERSISTENT &&
-		    !BATprepareHash(b)) ||
+		    BAThash(b, 0) == GDK_SUCCEED) ||
 		   ((parent = VIEWtparent(b)) != 0 &&
-		    BBPdescriptor(-parent)->T->hash)) {
+		    BATcheckhash(BBPdescriptor(-parent)))) {
 		BUN lo;
 		oid seq;
 
-		/* use existing hash table */
+		/* we already have a hash table on b, or b is
+		 * persistent and we could create a hash table, or b
+		 * is a view on a bat that already has a hash table */
 		ALGODEBUG fprintf(stderr, "#BATsubunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): use existing hash\n",
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
 				  s ? BATcount(s) : 0);
 		seq = b->hseqbase;
-		if ((parent = VIEWtparent(b)) != 0) {
+		if (b->T->hash == NULL && (parent = VIEWtparent(b)) != 0) {
 			BAT *b2 = BBPdescriptor(-parent);
 			lo = (BUN) ((b->T->heap.base - b2->T->heap.base) >> b->T->shift) + BUNfirst(b);
 			b = b2;
@@ -311,6 +302,7 @@ BATsubunique(BAT *b, BAT *s)
 		size_t nmelen;
 		BUN prb;
 		BUN p;
+		BUN mask;
 
 		ALGODEBUG fprintf(stderr, "#BATsubunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): create partial hash\n",
 				  BATgetId(b), BATcount(b),
@@ -318,13 +310,26 @@ BATsubunique(BAT *b, BAT *s)
 				  s ? BATcount(s) : 0);
 		nme = BBP_physical(b->batCacheid);
 		nmelen = strlen(nme);
+		if (ATOMbasetype(b->ttype) == TYPE_bte) {
+			mask = 1 << 8;
+			cmp = NULL; /* no compare needed, "hash" is perfect */
+		} else if (ATOMbasetype(b->ttype) == TYPE_sht) {
+			mask = 1 << 16;
+			cmp = NULL; /* no compare needed, "hash" is perfect */
+		} else {
+			if (s)
+				mask = HASHmask(s->batCount);
+			else
+				mask = HASHmask(b->batCount);
+			if (mask < (1 << 16))
+				mask = 1 << 16;
+		}
 		if ((hp = GDKzalloc(sizeof(Heap))) == NULL ||
 		    (hp->filename = GDKmalloc(nmelen + 30)) == NULL ||
 		    snprintf(hp->filename, nmelen + 30,
 			     "%s.hash" SZFMT, nme, MT_getpid()) < 0 ||
 		    (ext = GDKstrdup(hp->filename + nmelen + 1)) == NULL ||
-		    (hs = HASHnew(hp, b->ttype, BUNlast(b),
-				  HASHmask(b->batCount))) == NULL) {
+		    (hs = HASHnew(hp, b->ttype, BUNlast(b), mask, BUN_NONE)) == NULL) {
 			if (hp) {
 				if (hp->filename)
 					GDKfree(hp->filename);
@@ -354,7 +359,7 @@ BATsubunique(BAT *b, BAT *s)
 			for (hb = HASHget(hs, prb);
 			     hb != HASHnil(hs);
 			     hb = HASHgetlink(hs, hb)) {
-				if (cmp(v, BUNtail(bi, hb)) == 0)
+				if (cmp == NULL || cmp(v, BUNtail(bi, hb)) == 0)
 					break;
 			}
 			if (hb == HASHnil(hs)) {

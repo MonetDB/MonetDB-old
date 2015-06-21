@@ -1,21 +1,10 @@
 #!/usr/bin/env python
 
-# The contents of this file are subject to the MonetDB Public License
-# Version 1.1 (the "License"); you may not use this file except in
-# compliance with the License. You may obtain a copy of the License at
-# http://www.monetdb.org/Legal/MonetDBLicense
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0.  If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
-# License for the specific language governing rights and limitations
-# under the License.
-#
-# The Original Code is the MonetDB Database System.
-#
-# The Initial Developer of the Original Code is CWI.
-# Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2015 MonetDB B.V.
-# All Rights Reserved.
+# Copyright 2008-2015 MonetDB B.V.
 
 import os
 from distutils.core import setup
@@ -24,14 +13,14 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 setup(name='python-monetdb',
-    version='11.20.0',
+    version='11.22.0',
     description='Native MonetDB client Python API',
     long_description=read('README.rst'),
     author='MonetDB BV',
     author_email='info@monetdb.org',
     url='http://www.monetdb.org/',
     packages=['monetdb', 'monetdb.sql'],
-    download_url='<will be filled in before a release>/python3-monetdb-11.20.0.tar.gz',
+    download_url='<will be filled in before a release>/python3-monetdb-11.22.0.tar.gz',
     classifiers=[
         "Topic :: Database",
         "Topic :: Database :: Database Engines/Servers",

@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /* stream
@@ -773,10 +762,11 @@ open_stream(const char *filename, const char *flags)
 	s->fgetpos = file_fgetpos;
 	s->fsetpos = file_fsetpos;
 	s->stream_data.p = (void *) fp;
-	/* if file is opened for reading, and it starts with the UTF-8
-	 * encoding of the Unicode Byte Order Mark, skip the mark, and
-	 * mark the stream as being a UTF-8 stream */
+	/* if a text file is opened for reading, and it starts with
+	 * the UTF-8 encoding of the Unicode Byte Order Mark, skip the
+	 * mark, and mark the stream as being a UTF-8 stream */
 	if (flags[0] == 'r' &&
+	    flags[1] != 'b' &&
 	    file_fgetpos(s, &pos) == 0) {
 		if (file_read(s, buf, 1, UTF8BOMLENGTH) == UTF8BOMLENGTH &&
 		    strncmp(buf, UTF8BOM, UTF8BOMLENGTH) == 0)
@@ -897,7 +887,7 @@ open_gzstream(const char *filename, const char *flags)
 	s->close = stream_gzclose;
 	s->flush = stream_gzflush;
 	s->stream_data.p = (void *) fp;
-	if (flags[0] == 'r') {
+	if (flags[0] == 'r' && flags[1] != 'b') {
 		char buf[UTF8BOMLENGTH];
 		if (gzread(fp, buf, UTF8BOMLENGTH) == UTF8BOMLENGTH &&
 		    strncmp(buf, UTF8BOM, UTF8BOMLENGTH) == 0) {
@@ -1101,7 +1091,7 @@ open_bzstream(const char *filename, const char *flags)
 	s->close = stream_bzclose;
 	s->flush = NULL;
 	s->stream_data.p = (void *) bzp;
-	if (strchr(flags, 'r') != NULL) {
+	if (flags[0] == 'r' && flags[1] != 'b') {
 		s->access = ST_READ;
 		bzp->b = BZ2_bzReadOpen(&err, bzp->f, 0, 0, NULL, 0);
 		if (err == BZ_STREAM_END) {
@@ -1120,6 +1110,9 @@ open_bzstream(const char *filename, const char *flags)
 				bzp->b = BZ2_bzReadOpen(&err, bzp->f, 0, 0, NULL, 0);
 			}
 		}
+	} else if (flags[0] == 'r') {
+		bzp->b = BZ2_bzReadOpen(&err, bzp->f, 0, 0, NULL, 0);
+		s->access = ST_READ;
 	} else {
 		bzp->b = BZ2_bzWriteOpen(&err, bzp->f, 9, 0, 30);
 		s->access = ST_WRITE;

@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /* The Mapi Client Interface
@@ -1048,10 +1037,36 @@ TESTrenderer(MapiHdl hdl)
 				}
 				mnstr_write(toConsole, "\"", 1, 1);
 			} else if (strcmp(tp, "double") == 0 ||
-				   strcmp(tp, "dbl") == 0 ||
-				   strcmp(tp, "real") == 0)
-				mnstr_printf(toConsole, "%.10g", atof(s));
-			else
+				   strcmp(tp, "dbl") == 0) {
+				char buf[32];
+				int j;
+				double v = strtod(s, NULL);
+				for (j = 4; j < 11; j++) {
+					snprintf(buf, sizeof(buf), "%.*g", j, v);
+					if (v == strtod(buf, NULL))
+						break;
+				}
+				mnstr_printf(toConsole, "%s", buf);
+			} else if (strcmp(tp, "real") == 0) {
+				char buf[32];
+				int j;
+#ifdef HAVE_STRTOF
+				float v = strtof(s, NULL);
+#else
+				float v = (float) strtod(s, NULL);
+#endif
+				for (j = 4; j < 6; j++) {
+					snprintf(buf, sizeof(buf), "%.*g", j, v);
+#ifdef HAVE_STRTOF
+					if (v == strtof(buf, NULL))
+						break;
+#else
+					if (v == (float) strtod(buf, NULL))
+						break;
+#endif
+				}
+				mnstr_printf(toConsole, "%s", buf);
+			} else
 				mnstr_printf(toConsole, "%s", s);
 		}
 		mnstr_printf(toConsole, "\t]\n");
@@ -1492,7 +1507,7 @@ setFormatter(const char *s)
 		free(separator);
 	separator = NULL;
 	csvheader = 0;
-#ifdef WIN32
+#ifdef _TWO_DIGIT_EXPONENT
 	if (formatter == TESTformatter)
 		_set_output_format(0);
 #endif
@@ -1528,7 +1543,7 @@ setFormatter(const char *s)
 	} else if (strcmp(s, "xml") == 0) {
 		formatter = XMLformatter;
 	} else if (strcmp(s, "test") == 0) {
-#ifdef WIN32
+#ifdef _TWO_DIGIT_EXPONENT
 		_set_output_format(_TWO_DIGIT_EXPONENT);
 #endif
 		formatter = TESTformatter;
@@ -1802,6 +1817,9 @@ doRequest(Mapi mid, const char *buf)
 		return 1;
 	}
 
+	if (mapi_needmore(hdl) == MMORE)
+		return 0;
+
 	format_result(mid, hdl, 0);
 
 	if (mapi_get_active(mid) == NULL)
@@ -1866,7 +1884,7 @@ doFileBulk(Mapi mid, FILE *fp)
 	buf = malloc(bufsize + 1);
 	if (!buf) {
 		fprintf(stderr, "cannot allocate memory for send buffer\n");
-		if (fp != stdin)
+		if (fp != stdin && fp != NULL)
 			fclose(fp);
 		return 1;
 	}
@@ -1874,7 +1892,12 @@ doFileBulk(Mapi mid, FILE *fp)
 	timerStart();
 	do {
 		timerPause();
-		if ((length = fread(buf, 1, bufsize, fp)) == 0) {
+		if (fp == NULL) {
+			if (hdl == NULL)
+				break;
+			length = 0;
+			buf[0] = 0;
+		} else if ((length = fread(buf, 1, bufsize, fp)) == 0) {
 			/* end of file */
 			if (fp != stdin) {
 				fclose(fp);
@@ -1882,6 +1905,7 @@ doFileBulk(Mapi mid, FILE *fp)
 			}
 			if (hdl == NULL)
 				break;	/* nothing more to do */
+			buf[0] = 0;
 		} else {
 			if (first &&
 			    length >= UTF8BOMLENGTH &&
@@ -1946,8 +1970,9 @@ doFileBulk(Mapi mid, FILE *fp)
 		mapi_query_part(hdl, buf, length);
 		CHECK_RESULT(mid, hdl, buf, continue, buf);
 
-		/*  make sure there is a newline in the buffer */
-		if (strchr(buf, '\n') == NULL)
+		/* if not at EOF, make sure there is a newline in the
+		 * buffer */
+		if (length > 0 && strchr(buf, '\n') == NULL)
 			continue;
 
 		assert(hdl != NULL);
@@ -2845,7 +2870,7 @@ usage(const char *prog, int xit)
 #endif
 	fprintf(stderr, " -f kind     | --format=kind      specify output format {csv,tab,raw,sql,xml}\n");
 	fprintf(stderr, " -H          | --history          load/save cmdline history (default off)\n");
-	fprintf(stderr, " -i          | --interactive[=tm] interpret \\ commands on stdin, use time formatting {ms,s,m}\n");
+	fprintf(stderr, " -i          | --interactive[=tm] interpret `\\' commands on stdin, use time formatting {ms,s,m}\n");
 	fprintf(stderr, " -l language | --language=lang    {sql,mal}\n");
 	fprintf(stderr, " -L logfile  | --log=logfile      save client/server interaction\n");
 	fprintf(stderr, " -s stmt     | --statement=stmt   run single statement\n");
@@ -3329,7 +3354,8 @@ main(int argc, char **argv)
 			c |= doFile(mid, argv[optind], useinserts, interactive, save_history);
 			optind++;
 		}
-	}
+	} else if (command && mapi_get_active(mid))
+		c = doFileBulk(mid, NULL);
 
 	if (!has_fileargs && command == NULL)
 		c = doFile(mid, "-", useinserts, interactive, save_history);

@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /* (c) M Kersten, S Manegold
@@ -60,6 +49,9 @@
 #  include <time.h>
 # endif
 #endif
+#ifdef NATIVE_WIN32
+#include <direct.h>
+#endif
 
 #define die(dbh, hdl)						\
 	do {							\
@@ -78,14 +70,22 @@
 
 static stream *conn = NULL;
 static char hostname[128];
-static char *basefilename = "tomograph";
+static char *dbname = NULL;
+#ifdef NATIVE_WIN32
+static char *dirpath= "cache\\";
+#else
+static char *dirpath= "cache/";
+#endif
+static char *prefix = "tomograph";
+static char basefile[BUFSIZ];
 static FILE *tracefd;
 static lng startrange = 0, endrange = 0;
 static char *inputfile = NULL;
 static char *title = 0;
+static char *query = 0;
 static int beat = 5000;
 static int cpus = 0;
-static int atlas= 1;
+static int atlas= 32;
 static int atlaspage = 0;
 static FILE *gnudata;
 static Mapi dbh;
@@ -94,10 +94,6 @@ static MapiHdl hdl = NULL;
 /*
  * Parsing the argument list of a MAL call to obtain un-quoted string values
  */
-#define MAXMALARGS 1024
-char *malarguments[MAXMALARGS];
-int malargtop;
-
 static int capturing=0;
 
 #define MAXTHREADS 1048
@@ -369,6 +365,7 @@ base_colors[NUM_COLORS] = {
 /*     2 */	{ 0, 0, "calc", "bit", 0 },
 /*     2 */	{ 0, 0, "calc", "*", 0 },
 /*     2 */	{ 0, 0, "algebra", "thetajoin", 0 },
+/*     2 */	{ 0, 0, "algebra", "subthetajoin", 0 },
 /*     1 */	{ 0, 0, "sql", "dec_round", 0 },
 /*     1 */	{ 0, 0, "pqueue", "topn_min", 0 },
 /*     1 */	{ 0, 0, "mtime", "date_sub_msec_interval", 0 },
@@ -384,6 +381,20 @@ base_colors[NUM_COLORS] = {
 /*     1 */	{ 0, 0, "aggr", "max", 0 },
 /*     ? */	{ 0, 0, "aggr", "avg", 0 },
 /*     ? */	{ 0, 0, "aggr", "subavg", 0 },
+/*     ? */	{ 0, 0, "aggr", "submedian", 0 },
+/*     ? */	{ 0, 0, "aggr", "subquantile", 0 },
+/*     ? */	{ 0, 0, "aggr", "substdev", 0 },
+/*     ? */	{ 0, 0, "batcalc", "floor", 0 },
+/*     ? */	{ 0, 0, "batcalc", "identity", 0 },
+/*    ? */	{ 0, 0, "batmkey", "hash", 0 },
+/*    ? */	{ 0, 0, "calc", "hge", 0 },
+/*    ? */	{ 0, 0, "batcalc", "hge", 0 },
+/*    ? */	{ 0, 0, "algebra", "firstn", 0 },
+/*    ? */	{ 0, 0, "sql", "single", 0 },
+/*    ? */	{ 0, 0, "algebra", "crossproduct", 0 },
+/*    ? */	{ 0, 0, "profiler", "wait", 0 },
+/*    ? */	{ 0, 0, "querylog", "define", 0 },
+/*    ? */	{ 0, 0, "*", "*", 0 },
 /*     0 */	{ 0, 0, 0, 0, 0 }
 };
 
@@ -397,12 +408,14 @@ showNumaHeatmap(void){
 	int i,j =0;
 	int max= 0;
 	FILE *f;
+	char buf[BUFSIZ];
 
 	
-	f= fopen("tomograph_heatmap.csv","a");
+	snprintf(buf,BUFSIZ,"%s_heatmap.csv",basefile);
+	f= fopen(buf,"a");
 	if( f == NULL){
-		fprintf(stderr,"Can not create tomograph_heatmap.csv\n");
-		return;
+		fprintf(stderr,"Can not create %s\n",buf);
+		exit(-1);
 	}
 	for( i=0; i< MAXTHREADS; i++){
 		if( target[i])
@@ -437,11 +450,11 @@ usageTomograph(void)
 	fprintf(stderr, "  -p | --port=<portnr>\n");
 	fprintf(stderr, "  -h | --host=<hostname>\n");
 	fprintf(stderr, "  -T | --title=<plot title>\n");
-	fprintf(stderr, "  -r | --range=<starttime>-<endtime>[ms,s] \n");
-	fprintf(stderr, "  -i | --input=<profiler event file > \n");
-	fprintf(stderr, "  -o | --output=<file prefix > (default 'tomograph'\n");
+	fprintf(stderr, "  -r | --range=<starttime>-<endtime>[ms,s]\n");
+	fprintf(stderr, "  -i | --input=<profiler event file >\n");
+	fprintf(stderr, "  -o | --output=<dir/file prefix > (default 'cache/<dbname>'\n");
 	fprintf(stderr, "  -b | --beat=<delay> in milliseconds (default 5000)\n");
-	fprintf(stderr, "  -A | --atlas=<number> maximum number of pages\n");
+	fprintf(stderr, "  -A | --atlas=<number> maximum number of queries (default 1)\n");
 	fprintf(stderr, "  -D | --debug\n");
 	fprintf(stderr, "  -? | --help\n");
 	exit(-1);
@@ -454,7 +467,12 @@ static void createTomogram(void);
 static void
 stopListening(int i)
 {
-	fprintf(stderr,"signal %d received\n",i);
+#define BSIZE 64*1024
+	char buf[BSIZE + BUFSIZ]={0};
+	char pages[BSIZE]={0};
+	int j, error =0, plen =0;
+	if( i)
+		fprintf(stderr,"signal %d received\n",i);
 	if( dbh)
 		doQ("profiler.stop();");
 stop_disconnect:
@@ -462,10 +480,36 @@ stop_disconnect:
 		createTomogram();
 	// show follow up action only once
 	if(atlaspage >= 1){
-		fprintf(stderr, "To create the atlas run:\n");
-		for (i = 0; i< atlaspage;  i++)
-			fprintf(stderr, "gnuplot %s_%02d.gpl;",basefilename,i);
-		fprintf(stderr, "gs -dNOPAUSE -sDEVICE=pdfwrite -sOUTPUTFILE=%s.pdf -dBATCH %s_??.pdf\n",basefilename,basefilename);
+		for (i = 0; i < atlaspage;  i++){
+			snprintf(buf, BUFSIZ, "gnuplot %s_%02d.gpl;", basefile, i);
+			if( error == 0){
+				fprintf(stderr,"-- exec:%s\n",buf);
+				error = system(buf);
+				if( error){
+					fprintf(stderr, "To finish the atlas make sure gnuplot is available and run:\n");
+					for (j=i; j< atlaspage;  j++)
+						fprintf(stderr, "gnuplot %s_%02d.gpl\n", basefile, j);
+				}
+			}
+
+			snprintf(buf, BUFSIZ, "%s_%02d.pdf ", basefile, i);
+			plen += snprintf(pages + plen, BSIZE -plen,"%s",buf);
+			if ( plen >= BSIZE-1){
+				error = -1;
+				break;
+			} 
+		}
+
+
+		if( error == 0) {
+			snprintf(buf, BSIZE, "gs -q -dNOPAUSE -sDEVICE=pdfwrite -sOUTPUTFILE=%s.pdf -dBATCH %s",basefile,pages);
+			fprintf(stderr,"-- exec:%s\n",buf);
+			error = system(buf);
+		}
+		if( error == 0) 
+			fprintf(stderr,"-- done: %s.pdf\n", basefile);
+		else
+			fprintf(stderr, "gs -dNOPAUSE -sDEVICE=pdfwrite -sOUTPUTFILE=%s.pdf -dBATCH %s\n", basefile, pages);
 	}
 
 	if(dbh)
@@ -480,7 +524,7 @@ typedef struct BOX {
 	lng clkstart, clkend;
 	lng ticks;
 	lng memstart, memend;
-	lng footstart, vmmemory;
+	lng footstart, tmpspace;
 	lng inblock, oublock;
 	lng majflt, nswap, csw;
 	char *stmt;
@@ -491,8 +535,9 @@ typedef struct BOX {
 
 int threads[MAXTHREADS];
 lng lastclk[MAXTHREADS];
-Box box[MAXBOX];
+Box *box= 0;
 int topbox = 0;
+int maxbox = 0;
 int events = 0;
 
 lng totalclkticks = 0; /* number of clock ticks reported */
@@ -508,11 +553,20 @@ int object = 1;
 static void resetTomograph(void){
 	static char buf[BUFSIZ];
 	int i;
-	snprintf(buf,BUFSIZ,"%s_%02d.trace",basefilename,atlaspage);
-	if( inputfile == 0 || strcmp(inputfile,buf) ){
+
+	snprintf(buf,BUFSIZ,"%s_%02d.trace", basefile, atlaspage);
+
+	if( inputfile && strcmp(inputfile,buf) == 0 ){
+		fprintf(stderr,"Should not overwrite existing trace file '%s'\n",buf);
+		exit(-1);
+	}
+	if( inputfile == 0 ){
+		// don't create another tracefile when input is given
 		tracefd = fopen(buf,"w");
-		if( tracefd == NULL)
-			fprintf(stderr,"Could not create trace file\n");
+		if( tracefd == NULL){
+			fprintf(stderr,"Could not create trace file '%s'\n",buf);
+			exit(-1);
+		}
 	}
 	if (debug)
 		fprintf(stderr, "RESET tomograph %d\n", atlaspage);
@@ -524,10 +578,15 @@ static void resetTomograph(void){
 		lastclk[i]=0;
 	topbox =0;
 	events = 0;
-	malargtop =0;
 	for (i = 0; i < MAXTHREADS; i++)
 		threads[i] = topbox++;
-	memset((char*) box, 0, sizeof(Box) * MAXBOX);
+	for ( i=MAXTHREADS; i< maxbox; i++){
+		if( box[i].fcn ){
+			free(box[i].fcn);
+			box[i].fcn=0;
+		}
+	}
+	memset((char*) box, 0, sizeof(Box) * maxbox);
 
 	totalclkticks = 0; 
 	totalexecticks = 0;
@@ -607,7 +666,7 @@ static void dumpbox(int i)
 		fprintf(stderr,"%s ", box[i].fcn);
 	fprintf(stderr,"clk "LLFMT" - "LLFMT" ", box[i].clkstart, box[i].clkend);
 	fprintf(stderr,"mem "LLFMT" - "LLFMT" ", box[i].memstart, box[i].memend);
-	fprintf(stderr,"foot "LLFMT" - "LLFMT" ", box[i].footstart, box[i].vmmemory);
+	fprintf(stderr,"foot "LLFMT" - "LLFMT" ", box[i].footstart, box[i].tmpspace);
 	fprintf(stderr,"ticks "LLFMT" ", box[i].ticks);
 	if (box[i].stmt)
 		fprintf(stderr,"\"%s\"", box[i].stmt);
@@ -668,16 +727,16 @@ dumpboxes(void)
 	int i;
 	int written = 0;
 
-	snprintf(buf, BUFSIZ, "%s_%02d.dat", basefilename, atlaspage);
+	snprintf(buf, BUFSIZ, "%s_%02d.dat", basefile,atlaspage);
 	f = fopen(buf, "w");
 	if(f == NULL){
-		fprintf(stderr,"Could not create %s\n",buf);
-		exit(0);
+		fprintf(stderr,"Could not create file '%s'\n",buf);
+		exit(-1);
 	}
 
 	for (i = 0; i < topbox; i++)
 	if (box[i].clkend && box[i].fcn) {
-			fprintf(f, ""LLFMT" %f %f "LLFMT" "LLFMT " " LLFMT " " LLFMT " " LLFMT"\n", box[i].clkstart, (box[i].memend / 1024.0), box[i].vmmemory/1024.0, box[i].inblock, box[i].oublock, box[i].majflt, box[i].nswap,box[i].csw);
+			fprintf(f, ""LLFMT" %f %f "LLFMT" "LLFMT " " LLFMT " " LLFMT " " LLFMT"\n", box[i].clkstart, (box[i].memend / 1024.0), box[i].tmpspace/1024.0, box[i].inblock, box[i].oublock, box[i].majflt, box[i].nswap,box[i].csw);
 			written++;
 		}
 	if( written == 0){
@@ -737,23 +796,25 @@ showmemory(void)
 	fprintf(gnudata, "set xrange ["LLFMT".0:"LLFMT".0]\n", startrange, lastclktick - starttime);
 	fprintf(gnudata, "set ylabel \"memory in %s\"\n", scalename);
 	fprintf(gnudata, "unset xtics\n");
+	fprintf(gnudata, "set border\n");
 	gnuXtics(0);
 	mn = min / 1024.0;
 	mx = max / 1024.0;
 	mm = (mx - mn) / 50.0; /* 2% top & bottom margin */
 	fprintf(gnudata, "set yrange [%f:%f]\n", mn - mm, mx + mm);
 	fprintf(gnudata, "set ytics (\"%.*f\" %f, \"%.*f\" %f) nomirror\n", digits, min / scale, mn, digits, max / scale, mx);
-	fprintf(gnudata, "plot \"%s_%02d.dat\" using 1:2 notitle with dots linecolor rgb \"blue\"\n", basefilename,atlaspage);
+	fprintf(gnudata, "plot \"%s_%02d.dat\" using 1:2 notitle with dots linecolor rgb \"blue\"\n", basefile, atlaspage);
 	fprintf(gnudata, "unset yrange\n");
 }
 
 static char *
 getHeatColor(double load)
 {
-	if ( load > 0.75 ) return "yellow";
+	if ( load > 0.9 ) return "red";
+	if ( load > 0.75 ) return "orangered";
 	if ( load > 0.5 ) return "orange";
-	if ( load > 0.25 ) return "red";
-	if ( load > 0.02 ) return "blue";
+	if ( load > 0.25 ) return "gold";
+	if ( load > 0.02 ) return "yellow";
 	return "white";
 }
 
@@ -769,12 +830,12 @@ showcpu(void)
 	fprintf(gnudata, "set bmarg 0\n");
 	fprintf(gnudata, "set lmarg 10\n");
 	fprintf(gnudata, "set rmarg 10\n");
-	fprintf(gnudata, "set size 1,0.%02d\n", cpus?cpus:1);
-	fprintf(gnudata, "set origin 0.0, 0.%d\n", 89 - cpus);
-	fprintf(gnudata, "set ylabel \"CPU\"\n");
+	fprintf(gnudata, "set size 1,0.084\n");
+	fprintf(gnudata, "set origin 0.0, 0.8\n");
+	fprintf(gnudata, "set ylabel \"%d cores\"\n",cpus);
 	fprintf(gnudata, "unset xtics\n");
 	fprintf(gnudata, "unset ytics\n");
-	fprintf(gnudata, "set ytics 0, %d\n",4);
+	fprintf(gnudata, "set ytics 0, %d\n",cpus <48?(cpus <=8 ?4:8):12);
 	fprintf(gnudata, "set grid ytics\n");
 
 	fprintf(gnudata, "set border\n");
@@ -783,11 +844,11 @@ showcpu(void)
 	fprintf(gnudata, "set xrange ["LLFMT".0:"LLFMT".0]\n", startrange, (endrange? endrange:lastclktick - starttime));
 	fprintf(gnudata, "set yrange [0:%d]\n", cpus);
 	for (i = 0; i < topbox; i++)
-		j+=(box[i].state == PING);
+		j+=(box[i].state == MDB_PING);
 	if( debug)
 		fprintf(stderr,"Pings for cpu heat:%d\n",j);
 	for (i = 0; i < topbox; i++)
-		if (box[i].state == PING) {
+		if (box[i].state == MDB_PING) {
 			// decode the cpu heat
 			j = 0;
 			s = box[i].stmt +1;
@@ -807,7 +868,8 @@ showcpu(void)
 			prev = i;
 		}
 	if( cpus)
-		fprintf(gnudata,"  plot 0 notitle with lines\n unset for[i=1:%d] object i \n",object);
+		fprintf(gnudata,"  plot 0 notitle with lines\n unset for[i=1:%d] object i\n",object);
+	fprintf(gnudata, "set border\n");
 	fprintf(gnudata, "unset yrange\n");
 	fprintf(gnudata, "unset ytics\n");
 	fprintf(gnudata, "unset grid\n");
@@ -820,17 +882,18 @@ showio(void)
 {
 	int i,b = (beat? beat:1);
 	lng max = 0;
+	char *c, ch;
 
 	for (i = 0; i < topbox; i++)
-		if (box[i].clkend && box[i].state >= PING) {
+		if (box[i].clkend && box[i].state >= MDB_PING) {
 			if (box[i].inblock > max)
 				max = box[i].inblock;
 			if (box[i].oublock > max)
 				max = box[i].oublock;
-			if (box[i].majflt > max)
-				max = box[i].majflt;
-			if (box[i].nswap > max)
-				max = box[i].nswap;
+			//if (box[i].majflt > max)
+				//max = box[i].majflt;
+			//if (box[i].nswap > max)
+				//max = box[i].nswap;
 		}
 	max += b;
 
@@ -847,23 +910,34 @@ showio(void)
 	fprintf(gnudata, "unset ytics\n");
 	fprintf(gnudata, "unset ylabel\n");
 	fprintf(gnudata, "set y2tics in (0, "LLFMT".0) nomirror\n", max / b);
+	fprintf(gnudata, "set y2label \"in/oublock\"\n");
 	fprintf(gnudata, "set key font \",8\"\n");
-	fprintf(gnudata, "set key spacing 0.5\n");
+	fprintf(gnudata, "set key bottom right horizontal\n");
+	if( title){
+		for (c = title; c && *c && i <100; c++, i++)
+			if (*c == '_')// for gnuplot
+				*c = '-';
+		ch= *c; *c =0;
+		fprintf(gnudata, "set title \"%s%s\"\n", title, (*c? "...":""));
+		*c =ch;
+	}  else
+	if( dbname)
+		fprintf(gnudata, "set title \"Database %s\"\n", dbname);
 #ifdef GNUPLOT_463_BUG_ON_FEDORA_20
 /* this is the original version, but on Fedora 20 with
  * gnuplot-4.6.3-6.fc20.x86_64 it produces a red background on most of
  * the page */
-	fprintf(gnudata, "plot \"%s_%02d.dat\" using 1:($4/%d.0) title \"inblock\" dots fs solid linecolor rgb \"gray\" ,\\\n", basefilename, atlaspage, beat);
-	fprintf(gnudata, "\"%s_%02d.dat\" using ($1+4):($5/%d.0) title \"oublock\" with dots solid linecolor rgb \"red\", \\\n", basefilename, atlaspage, beat);
-	fprintf(gnudata, "\"%s_%02d.dat\" using ($1+8):($6/%d.0) title \"majflt\" with dots linecolor rgb \"green\", \\\n", basefilename, atlaspage, beat);
-	fprintf(gnudata, "\"%s_%02d.dat\" using ($1+12):($7/%d.0) title \"nswap\" with dots linecolor rgb \"purple\"  \n", basefilename, atlaspage, beat);
+	fprintf(gnudata, "plot \"%s_%02d.dat\" using 1:($4/%d.0) notitle with dots fs solid linecolor rgb \"gray\" ,\\\n", basefile,  atlaspage, b);
+	fprintf(gnudata, "\"%s_%02d.dat\" using ($1+4):($5/%d.0) notitle with dots solid linecolor rgb \"red\"\n", basefile,  atlaspage, b);
+	//fprintf(gnudata, "\"%s_%02d.dat\" using ($1+8):($6/%d.0) notitle with dots linecolor rgb \"green\", \\\n", basefile,  atlaspage, b);
+	//fprintf(gnudata, "\"%s_%02d.dat\" using ($1+12):($7/%d.0) notitle with dots linecolor rgb \"purple\"\n", basefile,  atlaspage, b);
 #else
 /* this is a slightly modified version that produces decent results on
  * all platforms */
-	fprintf(gnudata, "plot \"%s_%02d.dat\" using 1:($4/%d.0) title \"inblock\" with dots linecolor rgb \"gray\" ,\\\n", basefilename, atlaspage, beat);
-	fprintf(gnudata, "\"%s_%02d.dat\" using ($1+4):($5/%d.0) title \"oublock\" with dots linecolor rgb \"red\", \\\n", basefilename, atlaspage, beat);
-	fprintf(gnudata, "\"%s_%02d.dat\" using ($1+8):($6/%d.0) title \"majflt\" with dots linecolor rgb \"green\", \\\n", basefilename, atlaspage, beat);
-	fprintf(gnudata, "\"%s_%02d.dat\" using ($1+12):($7/%d.0) title \"nswap\" with dots linecolor rgb \"purple\"  \n", basefilename, atlaspage, beat);
+	fprintf(gnudata, "plot \"%s_%02d.dat\" using 1:($4/%d.0) notitle with dots linecolor rgb \"gray\" ,\\\n", basefile,  atlaspage, b);
+	fprintf(gnudata, "\"%s_%02d.dat\" using ($1+4):($5/%d.0) notitle with dots linecolor rgb \"red\"\n", basefile,  atlaspage, b);
+	//fprintf(gnudata, "\"%s_%02d.dat\" using ($1+8):($6/%d.0) notitle with dots linecolor rgb \"green\", \\\n", basefile,  atlaspage, b);
+	//fprintf(gnudata, "\"%s_%02d.dat\" using ($1+12):($7/%d.0) notitle with dots linecolor rgb \"purple\"\n", basefile,  atlaspage, b);
 #endif
 	fprintf(gnudata, "unset y2label\n");
 	fprintf(gnudata, "unset y2tics\n");
@@ -923,25 +997,40 @@ fprintf_time(FILE *f, lng time)
 }
 
 /* produce a legenda image for the color map */
-#define COLUMNS 5
+#define COLUMNS 3
 
 static void
 showcolormap(char *filename, int all)
 {
 	FILE *f = 0;
 	char buf[BUFSIZ];
-	int i, k = 0;
+	int i, k = 0,nl;
 	int w = 380; // 600 for 3 columns
-	int h = 590;
+	int h = 590, h1=h;
 	lng totfreq = 0, tottime = 0;
 	Color *clrs = colors, *_clrs_ = NULL;
+	char *c;
+	time_t tm;
+	char *date;
+	lng longest = lastclktick > starttime? lastclktick - starttime: 0;
+	double perc;
 
+	tm = time(0);
+	date = ctime(&tm);
+	if (strchr(date, '\n'))
+		*strchr(date, '\n') = 0;
+
+
+	// count size of query text
+	for (nl=0, c= currentquery; c && *c; c++)
+		nl += *c == '\n';
+
+	snprintf(buf, BUFSIZ, "%s_%02d.gpl", basefile, atlaspage);
 	if (all) {
-		snprintf(buf, BUFSIZ, "%s_%02d.gpl", basefilename, atlaspage);
 		f = fopen(buf, "w");
 		if (f == NULL) {
-			fprintf(stderr, "Creating file %s.gpl failed\n", filename);
-			exit(1);
+			fprintf(stderr, "Could not create file '%s'\n", buf);
+			exit(-1);
 		}
 		fprintf(f, "set terminal pdfcairo noenhanced color solid size 8.3, 11.7\n");
 		fprintf(f, "set output \"%s.pdf\"\n", filename);
@@ -963,7 +1052,7 @@ showcolormap(char *filename, int all)
 		fprintf(f, "set lmarg 10\n");
 		fprintf(f, "set rmarg 10\n");
 		fprintf(f, "set size 1,0.4\n");
-		fprintf(f, "set origin 0.0,%s\n", "-0.05");
+		fprintf(f, "set origin 0.0,%s\n", "-0.04");
 		fprintf(f, "set xrange [0:1800]\n");
 		fprintf(f, "set yrange [0:600]\n");
 		fprintf(f, "unset xtics\n");
@@ -990,17 +1079,15 @@ showcolormap(char *filename, int all)
 				tottime += clrs[i].timeused;
 				totfreq += clrs[i].freq;
 
-				if (k % COLUMNS == 0)
-					h -= 45;
+				if (k % COLUMNS == 0 && i)
+					h -= 35;
 				fprintf(f, "set object %d rectangle from %.2f, %.2f to %.2f, %.2f fillcolor rgb \"%s\" fillstyle solid 1.0\n",
-					object++, (double) (k % COLUMNS) * w, (double) h - 40, (double) ((k % COLUMNS) * w + 0.05 * w), (double) h - 5, clrs[i].col);
+					object++, (double) (k % COLUMNS) * w, (double) h - 40, (double) ((k % COLUMNS) * w + 0.09 * w), (double) h - 15, clrs[i].col);
 				fprintf(f, "set label %d \"%s.%s \" at %d,%d\n",
-					object++, (clrs[i].mod?clrs[i].mod:""), clrs[i].fcn, (int) ((k % COLUMNS) * w + 0.07 * w), h - 15);
-				fprintf(f, "set label %d \"%d call%s: ",
-					object++, clrs[i].freq, clrs[i].freq>1?"s":"");
+					object++, (clrs[i].mod?clrs[i].mod:""), clrs[i].fcn, (int) ((k % COLUMNS) * w + 0.1 * w), h - 20);
+				fprintf(f, "set label %d \"%d call%s: ", object++, clrs[i].freq, clrs[i].freq>1?"s":"");
 				fprintf_time(f, clrs[i].timeused);
-				fprintf(f, "\" at %f,%f\n",
-					(double) ((k % COLUMNS) * w + 0.07 * w), (double) h - 35);
+				fprintf(f, "\" at %f,%f\n", (double) ((k % COLUMNS) * w + 0.1 * w), (double) h - 35);
 				k++;
 			} else {
 				clrs[0].timeused += clrs[i].timeused;
@@ -1013,13 +1100,40 @@ showcolormap(char *filename, int all)
 		_clrs_ = NULL;
 	}
 
-	h -= 45;
-	fprintf(f, "set label %d \" "LLFMT" MAL instructions executed; total CPU core time: ",
-		object++, totfreq);
+	h -= 30;
+	fprintf(f, "set label %d \"MAL instructions executed: "LLFMT, object++, totfreq);
+	fprintf(f, "\" at 0.0,120\n");
+
+	fprintf(f, "set label %d \"Total CPU core time: ", object++);
 	fprintf_time(f, tottime);
-	fprintf(f, "; parallelism usage %.1f %%", totalclkticks / (totalticks / 100.0));
-	fprintf(f, "\" at %d,%d\n",
-		(int) (0.2 * w), h - 35);
+	fprintf(f, "\" at 750.0,120.0\n");
+
+	perc = (totalclkticks-longest) / ((cpus * longest) / 100.0);
+	perc = perc <0?0.0:perc;
+	fprintf(f, "set label %d \"Parallelism %.2f %%", object++, perc>100.0 ? 100.0:perc);
+	fprintf(f, "\" at 1550.0,120.0\n");
+	// show complete query text
+	if( currentquery ){
+		h = h1-40;
+		//fprintf(gnudata, "set object %d rectangle from %d.0, 250.0 to %d.0,%d.0\n", object++, 3 * w, 5 *w , h -5);
+		fprintf(f, "set label %d \"", object++);
+		k=0;
+		for (c= currentquery; *c; c++){
+			if (*c == '"') fprintf(f,"\\"); else
+			if (*c == '\t') fprintf(f,"  "); else
+			if (*c == '\n') { fprintf(f,"\\n"); k=0; continue;} else
+			if( ++k >60 && (*c == ' ' || *c =='\t')){
+				fprintf(f,"\\n");
+				k = 1;
+			}
+			fputc(*c,f);
+		}
+		fprintf(f, "\" at %d,%d\n", (int) ( 3 * w ), h - 17);
+		h-= 17;
+	}
+	fprintf(f, "set label %d \"%d\" at 1750.0, 100.00\n", object++, atlaspage + 1);
+	fprintf(f, "set label %d \"%s\" at 750.0, 100.00\n", object++, buf);
+	fprintf(f, "set label %d \"%s\" at 0.0, 100.00\n", object++, date);
 	fprintf(f, "plot 0 notitle with lines linecolor rgb \"white\"\n");
 	if (all) {
 		fclose(f);
@@ -1027,21 +1141,25 @@ showcolormap(char *filename, int all)
 }
 
 static void
-updmap(int idx)
+updatecolormap(int idx)
 {
 	char *mod, *fcn, buf[BUFSIZ], *call = buf;
 	int i, fnd = 0;
 
 	if( box[idx].fcn == 0)
 		return;
+	
 	snprintf(buf, sizeof(buf), "%s", box[idx].fcn);
 	mod = call;
 	fcn = strchr(call, '.');
 	if (fcn) {
 		*fcn = 0;
 		fcn++;
-	} else
+	} else{
 		fcn = "*";
+	}
+	if( strncmp(call,"end",3) == 0)
+		mod ="*";
 	/* find "mod.fcn" */
 	for (i = 1; i < NUM_COLORS && colors[i].mod; i++)
 		if (strcmp(mod, colors[i].mod) == 0 &&
@@ -1054,8 +1172,8 @@ updmap(int idx)
 		fnd = i;
 		colors[fnd].mod = mod?strdup(mod): 0;
 		colors[fnd].fcn = strdup(fcn);
-		if( debug)
-			printf("added function #%d: %s.%s\n", fnd, (mod?mod:""), fcn);
+		if( debug) 
+			fprintf(stderr,"-- Added function #%d: %s.%s\n", fnd, (mod?mod:""), fcn);
 	}
 
 	colors[fnd].freq++;
@@ -1066,31 +1184,50 @@ updmap(int idx)
 /* gnuplot defaults */
 static int height = 160;
 
+#define LOGOFILE DATA_DIR "/doc/MonetDB/monetdblogo.png"
+
+static char *
+findlogo(void)
+{
+#ifdef _MSC_VER
+	/* on Windows, convert \ to  / path separators since this path
+	 * is added to gnuplot input */
+	static char buf[sizeof(LOGOFILE)];
+	int i;
+
+	snprintf(buf, sizeof(buf), "%s", LOGOFILE);
+	for (i = 0; buf[i]; i++)
+		if (buf[i] == '\\')
+			buf[i] = '/';
+	return buf;
+#else
+	return LOGOFILE;
+#endif
+}
+
 static void
 gnuplotheader(char *filename)
 {
-	time_t tm;
-	char *date, *c;
-
-	fprintf(gnudata, "set terminal pdfcairo noenhanced color solid size 8.3,11.7\n");
+	fprintf(gnudata, "set terminal pdfcairo noenhanced font 'verdana,10' color solid size 8.3,11.7\n");
 	fprintf(gnudata, "set output \"%s.pdf\"\n", filename);
 	fprintf(gnudata, "set size 1,1\n");
 	fprintf(gnudata, "set tics front\n");
-	tm = time(0);
-	date = ctime(&tm);
-	if (strchr(date, '\n'))
-		*strchr(date, '\n') = 0;
-	if( title){
-		for (c = title; c && *c; c++)
-			if (*c == '_')
-				*c = '-';
-		fprintf(gnudata, "set title \"%s\t%s\"\n", date, title);
-	} else 
-	if( currentquery )
-		fprintf(gnudata, "set title \"%s\t%s\"\n", date, currentquery);
-	else
-		fprintf(gnudata, "set title \"%s\tTomogram\"\n", date);
 	fprintf(gnudata, "set multiplot\n");
+	// try to inject the MonetDB logo and documentation
+	fprintf(gnudata,"set tmarg 1\n");
+	fprintf(gnudata,"set bmarg 1\n");
+	fprintf(gnudata,"set lmarg 10\n");
+	fprintf(gnudata,"set rmarg 10\n");
+	fprintf(gnudata,"set size 0.450,0.11\n");
+	fprintf(gnudata,"set origin 0.0,0.945\n");
+	fprintf(gnudata,"set xrange [0.0:1125.0]\n");
+	fprintf(gnudata,"set yrange [0:581.0]\n");
+	fprintf(gnudata,"unset border\n");
+	fprintf(gnudata,"unset xtics\n");
+	fprintf(gnudata,"unset ytics\n");
+	fprintf(gnudata,"plot \"%s\" binary filetype=png dx=0.5 dy=0.5 notitle with rgbimage\n", findlogo());
+	fprintf(gnudata,"unset title\n");
+
 }
 
 static void
@@ -1098,7 +1235,7 @@ createTomogram(void)
 {
 	char buf[BUFSIZ];
 	int rows[MAXTHREADS] = {0};
-	int top = 0;
+	int top = 0, rowoffset = 0;
 	int i, j;
 	int h, prevobject = 1;
 	lng w = lastclktick - starttime;
@@ -1106,18 +1243,20 @@ createTomogram(void)
 	if( debug)
 		fprintf(stderr,"create tomogram\n");
 	if( events == 0){
-		fprintf(stderr,"No events found\n");
+		if( debug)
+			fprintf(stderr,"No further events found\n");
 		return;
 	}
-	snprintf(buf, BUFSIZ, "%s_%02d.gpl", basefilename,atlaspage);
+	snprintf(buf, BUFSIZ, "%s_%02d.gpl", basefile, atlaspage);
 	gnudata = fopen(buf, "w");
 	if (gnudata == 0) {
-		printf("ERROR in creation of %s\n", buf);
+		printf("Could not create file '%s'\n", buf);
 		exit(-1);
 	}
-	if( strchr(buf,'.'))
-		*strchr(buf, '.') = 0;
+	if( strrchr(buf,'.'))
+		*strrchr(buf, '.') = 0;
 	gnuplotheader(buf);
+	object=1;
 	dumpboxes();
 	showio(); //DISABLED due to access permissions
 	showmemory();
@@ -1128,12 +1267,12 @@ createTomogram(void)
 	fprintf(gnudata, "set lmarg 10\n");
 	fprintf(gnudata, "set rmarg 10\n");
 	fprintf(gnudata, "set size 1,0.48\n");
-	fprintf(gnudata, "set origin 0.0,%s\n", "0.32");
+	fprintf(gnudata, "set origin 0.0,%s\n", "0.33");
 	fprintf(gnudata, "set xrange ["LLFMT".0:"LLFMT".0]\n", startrange, lastclktick - starttime);
 
 	/* detect all different threads and assign them a row */
 	for (i = 0; i < topbox; i++){
-		if (box[i].clkend && box[i].state != PING) {
+		if (box[i].clkend && box[i].state != MDB_PING) {
 			for (j = 0; j < top; j++)
 				if (rows[j] == box[i].thread)
 					break;
@@ -1143,16 +1282,17 @@ createTomogram(void)
 					fprintf(stderr,"Assign thread %d to %d\n", box[i].thread, top);
 				rows[top++] = box[i].thread;
 			}
-			if( box[i].state != WAIT)
-				updmap(i);
+			if( box[i].state != MDB_WAIT)
+				updatecolormap(i);
 		}
 	}
 
 
-	height = top * 20;
+	h = 10; /* unit height of bars */
+	height = (cpus+1) * 2 * h;
 	fprintf(gnudata, "set yrange [0:%d]\n", height);
-	fprintf(gnudata, "set ylabel \"threads\"\n");
-	fprintf(gnudata, "set key right \n");
+	fprintf(gnudata, "set ylabel \"worker threads\"\n");
+	fprintf(gnudata, "set key right\n");
 	fprintf(gnudata, "unset colorbox\n");
 	fprintf(gnudata, "unset title\n");
 
@@ -1163,16 +1303,25 @@ createTomogram(void)
 	for (i = 0; i < top; i++)
 		totalticks += lastclk[rows[i]];
 
-	h = 10; /* unit height of bars */
+	/* fill the page from top to bottom */
+	if( top <= cpus +1){
+			rowoffset = cpus+1 - top;
+		if ( top <= cpus/2+1){
+			h *= 2;
+			rowoffset = (cpus+2)/2 - top;
+		}
+		
+	}
+
 	fprintf(gnudata, "set ytics (");
 	for (i = 0; i < top; i++)
-		fprintf(gnudata, "\"%d\" %d%c", rows[i], i * 2 * h + h / 2, (i < top - 1 ? ',' : ' '));
+		fprintf(gnudata, "\"%d\" %d%c", rows[i],  (rowoffset + i) * 2 * h + h / 2, (i < top - 1 ? ',' : ' '));
 	fprintf(gnudata, ")\n");
 
 	/* mark duration of each thread */
 	for (i = 0; i < top; i++)
 		fprintf(gnudata, "set object %d rectangle from %d, %d to "LLFMT".0, %d\n",
-			object++, 0, i * 2 * h + h/3, lastclk[rows[i]], i * 2 * h + h - h/3);
+			object++, 0, (rowoffset +i) * 2 * h + h/3, lastclk[rows[i]], (rowoffset +i) * 2 * h + h - h/3);
 
 	/* fill the duration of each instruction encountered that fit our range constraint */
 	for (i = 0; i < topbox; i++)
@@ -1183,21 +1332,17 @@ createTomogram(void)
 					dumpbox(i);
 				// always show a start line
 				if ( box[i].clkend - box[i].clkstart < w/200.0)
-					fprintf(gnudata, "set object %d rectangle from "LLFMT".0, %d.0 to %4.2f, %d fillcolor rgb \"%s\" fillstyle solid 1.0 \n",
-						object++, box[i].clkstart, box[i].row * 2 * h, box[i].clkstart+(w/200.0>1?w/200.0:1), box[i].row * 2 * h + h, colors[box[i].color].col);
+					fprintf(gnudata, "set object %d rectangle from "LLFMT".0, %d.0 to "LLFMT".0, %d.0 fillcolor rgb \"%s\" fillstyle solid 1.0\n",
+						object++, box[i].clkstart, (rowoffset + box[i].row)  * 2 * h, box[i].clkstart+2, (rowoffset + box[i].row) * 2 * h + h, colors[box[i].color].col);
 				else
-					fprintf(gnudata, "set object %d rectangle from "LLFMT".0, %d.0 to "LLFMT".0, %d fillcolor rgb \"%s\" fillstyle solid 1.0 \n",
-						object++, box[i].clkstart, box[i].row * 2 * h, box[i].clkend, box[i].row * 2 * h + h, colors[box[i].color].col);
+					fprintf(gnudata, "set object %d rectangle from "LLFMT".0, %d.0 to "LLFMT".0, %d.0 fillcolor rgb \"%s\" fillstyle solid 1.0\n",
+						object++, box[i].clkstart, (rowoffset + box[i].row)  * 2 * h, box[i].clkend, (rowoffset + box[i].row)  * 2 * h + h, colors[box[i].color].col);
 				break;
-			case PING:
+			case MDB_PING:
 				break;
-			case WAIT:
+			case MDB_WAIT:
 				fprintf(gnudata, "set object %d rectangle from "LLFMT".0, %d.0 to %.2f,%.2f front fillcolor rgb \"red\" fillstyle solid 1.0\n",
-					object++, box[i].clkstart, box[i].row * 2 * h+h/3, box[i].clkstart+ w /25.0, box[i].row *2 *h + h - 0.3 * h);
-				break;
-			case GCOLLECT:
-				fprintf(gnudata, "set object %d rectangle from "LLFMT".0, %d.0 to "LLFMT".0, %d fillcolor rgb \"green\" fillstyle solid 1.0 \n",
-					object++, box[i].clkstart, box[i].row * 2 * h +h/3, box[i].clkend, box[i].row * 2 * h + h-h/3);
+					object++, box[i].clkstart, (rowoffset + box[i].row) * 2 * h+h/3, box[i].clkstart+ w /25.0, (rowoffset + box[i].row) *2 *h + h - 0.3 * h);
 				break;
 			}
 
@@ -1254,17 +1399,25 @@ update(char *line, EventRecord *ev)
 	int idx, i;
 	Box b;
 	char *s;
-	char *qry, *q, *c;
 	int uid = 0,qid = 0;
  
-	if (topbox == MAXBOX) {
-		fprintf(stderr, "Out of space for trace");
-		createTomogram();
-		exit(0);
+	if (topbox == maxbox || maxbox < topbox) {
+	
+		if( box == 0){
+			box = (Box*) malloc(MAXBOX * sizeof(Box)); 
+			memset((char*) box, 0, sizeof(Box) * MAXBOX);
+		} else
+			box = (Box*) realloc((void*)box, (maxbox + MAXBOX) * sizeof(Box)); 
+		if( box == NULL){
+			fprintf(stderr, "Out of space for trace, exceeds max entries %d\n", maxbox);
+			fprintf(stderr, "Restart with a slower beat might help, e.g. --beat=5000  or --beat=0\n");
+			exit(-1);
+		}
+		maxbox += MAXBOX;
 	}
 	/* handle a ping event, keep the current instruction in focus */
-	if (ev->state >= PING ) {
-		if (cpus == 0 && ev->state == PING) {
+	if (ev->state >= MDB_PING ) {
+		if (cpus == 0 && ev->state == MDB_PING) {
 			char *s;
 			if( (s= ev->stmt,'[')) 
 				s++;
@@ -1289,10 +1442,8 @@ update(char *line, EventRecord *ev)
 		box[idx].thread = ev->thread;
 		//lastclk[thread] = clkticks-starttime;
 		box[idx].clkend = box[idx].clkstart = ev->clkticks-starttime;
-		if (ev->state == GCOLLECT)
-			box[idx].clkstart -= ev->ticks;
 		box[idx].memend = box[idx].memstart = ev->memory;
-		box[idx].footstart = box[idx].vmmemory = ev->vmmemory;
+		box[idx].footstart = box[idx].tmpspace = ev->tmpspace;
 		box[idx].inblock = ev->inblock;
 		box[idx].oublock = ev->oublock;
 		box[idx].majflt = ev->majflt;
@@ -1307,7 +1458,11 @@ update(char *line, EventRecord *ev)
 			ping = idx;
 			return;
 		}
-		box[idx].fcn = ev->state == PING? strdup("profiler.ping"):strdup("profiler.wait");
+		box[idx].fcn = ev->state == MDB_PING? strdup("profiler.ping"):strdup("profiler.wait");
+		if( box[idx].fcn == NULL){
+			fprintf(stderr,"Could not allocate blk->fcn\n");
+			exit(-1);
+		}
 		threads[ev->thread] = ++topbox;
 		idx = threads[ev->thread];
 		box[idx] = b;
@@ -1341,7 +1496,7 @@ update(char *line, EventRecord *ev)
 	}
 
 	/* monitor top level function brackets, we restrict ourselves to SQL queries */
-	if (!capturing && ev->state == START && ev->fcn && strncmp(ev->fcn, "function", 8) == 0) {
+	if (!capturing && ev->state == MDB_START && ev->fcn && strncmp(ev->fcn, "function", 8) == 0) {
 		if( (i = sscanf(ev->fcn + 9,"user.s%d_%d",&uid,&qid)) != 2){
 			if( debug)
 				fprintf(stderr,"Start phase parsing %d, uid %d qid %d\n",i,uid,qid);
@@ -1372,7 +1527,7 @@ update(char *line, EventRecord *ev)
 	if( tracefd)
 		fprintf(tracefd,"%s\n",line);
 	/* start of instruction box */
-	if (ev->state == START ) {
+	if (ev->state == MDB_START ) {
 		if(debug)
 			fprintf(stderr, "Start box %s clicks "LLFMT" stmt %s thread %d idx %d box %d\n", (ev->fcn?ev->fcn:""), ev->clkticks,currentfunction, ev->thread,idx,topbox);
 		box[idx].state = ev->state;
@@ -1383,44 +1538,17 @@ update(char *line, EventRecord *ev)
 		box[idx].memend = ev->memory;
 		box[idx].numa = ev->numa;
 		if(ev->numa) updateNumaHeatmap(ev->thread, ev->numa);
-		box[idx].footstart = ev->vmmemory;
+		box[idx].footstart = ev->tmpspace;
 		box[idx].stmt = ev->stmt;
-		box[idx].fcn = ev->fcn ? ev->fcn : strdup("");
+		box[idx].fcn = ev->fcn ? strdup(ev->fcn) : strdup("");
 		if(ev->fcn && strstr(ev->fcn,"querylog.define") ){
-			// extract a string argument
-			currentquery = malarguments[0];
-			// use the truncated query text, beware the the \ is already escaped in the call argument.
-			q = qry = (char *) malloc(strlen(currentquery) * 2);
-			for (c= currentquery; *c; )
-				switch(*c){
-				case '\\':
-					c++;
-					switch(*c){
-					case 'n': *q++=' '; c++; break;
-					case 't': *q++=' '; c++; break;
-					case '\\': break;
-					default:
-						*q++ = *c++;
-					}
-					break;
-				default:
-					*q++ = *c++;
-				}
-			*q =0;
-			
-			if( strlen(qry) > 93){
-				qry[90]= '.';
-				qry[91]= '.';
-				qry[92]= '.';
-				qry[93]= 0;
-			}
-			currentquery = qry;
-			fprintf(stderr,"-- page %d %s:%s\n",atlaspage, (title?title:""), currentquery);
+			currentquery = stripQuotes(strdup(malarguments[malretc]));
+			fprintf(stderr,"-- page %d :%s\n",atlaspage, currentquery);
 		}
 		return;
 	}
 	/* end the instruction box */
-	if (ev->state == DONE && ev->fcn && strncmp(ev->fcn, "function", 8) == 0) {
+	if (ev->state == MDB_DONE && ev->fcn && strncmp(ev->fcn, "function", 8) == 0) {
 		if (currentfunction && strcmp(currentfunction, ev->fcn+9) == 0) {
 			if( capturing == 0){
 				free(currentfunction);
@@ -1442,7 +1570,7 @@ update(char *line, EventRecord *ev)
 			return;
 		}
 	}
-	if (ev->state == DONE ){
+	if (ev->state == MDB_DONE ){
 		if( box[idx].clkstart == 0){
 			// ignore incorrect pairs
 			if(debug) fprintf(stderr, "INCORRECT START\n");
@@ -1453,9 +1581,9 @@ update(char *line, EventRecord *ev)
 		events++;
 		box[idx].clkend = ev->clkticks;
 		box[idx].memend = ev->memory;
-		box[idx].vmmemory = ev->vmmemory;
+		box[idx].tmpspace = ev->tmpspace;
 		box[idx].ticks = ev->ticks;
-		box[idx].state = ACTION;
+		box[idx].state = MDB_DONE;
 		box[idx].inblock = ev->inblock;
 		box[idx].oublock = ev->oublock;
 		box[idx].majflt = ev->majflt;
@@ -1492,7 +1620,6 @@ main(int argc, char **argv)
 	size_t n, len;
 	char *host = NULL;
 	int portnr = 0;
-	char *dbname = NULL;
 	char *uri = NULL;
 	char *user = NULL;
 	char *password = NULL;
@@ -1501,8 +1628,9 @@ main(int argc, char **argv)
 	FILE *inpfd;
 	int colormap=0;
 	EventRecord event;
+	char *s;
 
-	static struct option long_options[15] = {
+	static struct option long_options[18] = {
 		{ "dbname", 1, 0, 'd' },
 		{ "user", 1, 0, 'u' },
 		{ "port", 1, 0, 'p' },
@@ -1512,6 +1640,7 @@ main(int argc, char **argv)
 		{ "title", 1, 0, 'T' },
 		{ "input", 1, 0, 'i' },
 		{ "range", 1, 0, 'r' },
+		{ "query", 1, 0, 'q' },
 		{ "output", 1, 0, 'o' },
 		{ "debug", 0, 0, 'D' },
 		{ "beat", 1, 0, 'b' },
@@ -1523,9 +1652,13 @@ main(int argc, char **argv)
 	/* parse config file first, command line options override */
 	parse_dotmonetdb(&user, &password, NULL, NULL, NULL, NULL);
 
+	if( argc == 1){
+		usageTomograph();
+		exit(-1);
+	}
 	while (1) {
 		int option_index = 0;
-		int c = getopt_long(argc, argv, "d:u:p:P:h:?T:i:r:o:Db:A:m",
+		int c = getopt_long(argc, argv, "d:u:p:P:h:?T:i:r:s:q:o:c:Db:A:m",
 					long_options, &option_index);
 		if (c == -1)
 			break;
@@ -1543,10 +1676,15 @@ main(int argc, char **argv)
 			debug = 1;
 			break;
 		case 'd':
-			dbname = optarg;
+			prefix = dbname = optarg;
+			break;
+		case 'q':
+			query = optarg;
+			atlas = 1;
 			break;
 		case 'i':
 			inputfile = optarg;
+			prefix = strdup("");
 			break;
 		case 'u':
 			if (user)
@@ -1573,10 +1711,19 @@ main(int argc, char **argv)
 			title = optarg;
 			break;
 		case 'o':
-			basefilename = strdup(optarg);
-			if( strstr(basefilename,".trace"))
-				*strstr(basefilename,".trace") = 0;
-			printf("-- Output directed towards %s\n", basefilename);
+			//store the output files in a specific place
+			prefix = strdup(optarg);
+#ifdef NATIVE_WIN32
+			s= strrchr(prefix, (int) '\\');
+#else
+			s= strrchr(prefix, (int) '/');
+#endif
+			if( s ){
+				dirpath= prefix;
+				prefix = strdup(prefix);
+				*(s+1) = 0;
+				prefix += s-dirpath;
+			} 
 			break;
 		case 'r':
 		{
@@ -1612,24 +1759,33 @@ main(int argc, char **argv)
 			exit(-1);
 		}
 	}
-	initcolors();
-	resetTomograph();
 
-	if(debug){
-		if( dbname)
-			printf("tomograph -d %s --output=%s\n",dbname,basefilename);
-		if(inputfile)
-			printf("tomograph --input=%s --output=%s\n",inputfile,basefilename);
+	if ( dbname == NULL && inputfile == NULL){
+		fprintf(stderr,"Database name and inputfile missing\n");
+		usageTomograph();
+		exit(-1);
 	}
-
 	if (dbname != NULL && strncmp(dbname, "mapi:monetdb://", 15) == 0) {
 		uri = dbname;
 		dbname = NULL;
 	}
 
+	/* reprocess an existing profiler trace, possibly producing the trace split   */
+	printf("-- Output directed towards %s%s_*\n", dirpath, prefix);
+#ifdef NATIVE_WIN32
+	if( _mkdir(dirpath) < 0 && errno != EEXIST){
+#else
+	if( mkdir(dirpath,0755)  < 0 && errno != EEXIST) {
+#endif
+		fprintf(stderr,"Failed to create dirpath '%s'\n",dirpath);
+		exit(-1);
+	}
+
+	initcolors();
+
 	if (colormap) {
-		showcolormap(basefilename, 1);
-		printf("Color map file '%s.gpl' generated\n", basefilename);
+		showcolormap(prefix, 1);
+		printf("Color map file generated\n");
 		exit(0);
 	}
 
@@ -1646,27 +1802,22 @@ main(int argc, char **argv)
 	signal(SIGTERM, stopListening);
 	close(0);
 
-	/* reprocess an existing profiler trace, possibly producing the trace split   */
-	snprintf(buf,BUFSIZ,"%s_%02d.trace",basefilename,atlaspage);
-	if (inputfile==0 || strcmp(buf, inputfile) ){
-		// avoid overwriting yourself
-		tracefd = fopen(buf,"w");
-		if( tracefd == NULL)
-			fprintf(stderr,"Could not create trace file\n");
-	}
 	if (inputfile) {
 		inpfd = fopen(inputfile,"r");
 		if (inpfd == NULL ){
-			fprintf(stderr,"ERROR Can not access '%s'\n",inputfile);
-			exit(0);
+			fprintf(stderr,"Can not access '%s'\n",inputfile);
+			exit(-1);
 		}
+		if( strstr(inputfile,".trace"))
+			*strstr(inputfile,".trace") = 0;
+		snprintf(basefile,BUFSIZ,"%s",inputfile);
 		len = 0;
+		resetTomograph();
 		while ((n = fread(buf + len, 1, BUFSIZ - len, inpfd)) > 0) {
 			buf[len + n] = 0;
 			response = buf;
 			while ((e = strchr(response, '\n')) != NULL) {
 				*e = 0;
-				//i = parser(response);
 				i = eventparser(response, &event);
 				update(response, &event);
 				if (debug  )
@@ -1682,6 +1833,8 @@ main(int argc, char **argv)
 			} else
 				len = 0;
 		}
+		createTomogram();
+		stopListening(0);
 	} else {
 		if (user == NULL)
 			user = simple_prompt("user", BUFSIZ, 1, prompt_getlogin());
@@ -1715,7 +1868,7 @@ main(int argc, char **argv)
 			goto stop_disconnect;
 		}
 
-		printf("-- opened UDP profile stream %s:%d for %s\n", hostname, portnr, host);
+		fprintf(stderr,"-- Stop capturing with <cntrl-c> or after %d pages\n",atlas);
 
 		snprintf(buf, BUFSIZ, " port := profiler.openStream(\"%s\", %d);", hostname, portnr);
 		if( debug)
@@ -1728,12 +1881,20 @@ main(int argc, char **argv)
 			fprintf(stderr,"-- %s\n",buf);
 		doQ(buf);
 	
-		snprintf(buf,BUFSIZ,"%s_%02d.trace",basefilename,atlaspage);
+		snprintf(basefile,BUFSIZ,"%s%s",dirpath, prefix);
+		snprintf(buf,BUFSIZ,"%s_%02d.trace",basefile, atlaspage);
 		tracefd = fopen(buf,"w");
 		if( tracefd == NULL)
-			fprintf(stderr,"Could not create trace file\n");
+			fprintf(stderr,"Could not create file '%s'\n",buf);
 
+		if(query){
+			// fork and execute mclient session (TODO)
+			snprintf(buf, BUFSIZ,"mclient -d %s -s \"%s\"",dbname,query);
+			fprintf(stderr,"%s\n",buf);
+			fprintf(stderr,"Not yet implemented\n");
+		}
 		len = 0;
+		resetTomograph();
 		while ((m = mnstr_read(conn, buf + len, 1, BUFSIZ - len)) > 0) {
 			buf[len + m] = 0;
 			response = buf;
@@ -1757,8 +1918,6 @@ main(int argc, char **argv)
 				len = 0;
 		}
 	}
-	if( inputfile && atlas >= atlaspage)
-		createTomogram();
 
 	if( !inputfile) 
 		doQ("profiler.stop();");

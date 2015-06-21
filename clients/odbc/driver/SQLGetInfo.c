@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -42,7 +31,7 @@
 
 
 static SQLRETURN
-SQLGetInfo_(ODBCDbc *dbc,
+MNDBGetInfo(ODBCDbc *dbc,
 	    SQLUSMALLINT InfoType,
 	    SQLPOINTER InfoValuePtr,
 	    SQLSMALLINT BufferLength,
@@ -675,8 +664,8 @@ SQLGetInfo_(ODBCDbc *dbc,
 			"CALL,CHAIN,CLOB,COMMITTED,COPY,CORR,CUME_DIST,"
 			"CURRENT_ROLE,CYCLE,DATABASE,DELIMITERS,DENSE_RANK,"
 			"DO,EACH,ELSEIF,ENCRYPTED,EVERY,EXCLUDE,FOLLOWING,"
-			"FUNCTION,GENERATED,IF,ILIKE,INCREMENT,LAG,LAG,LEAD,"
-			"LEAD,LIMIT,LOCALTIME,LOCALTIMESTAMP,LOCKED,MAXVALUE,"
+			"FUNCTION,GENERATED,IF,ILIKE,INCREMENT,LAG,LEAD,"
+			"LIMIT,LOCALTIME,LOCALTIMESTAMP,LOCKED,MAXVALUE,"
 			"MEDIAN,MEDIUMINT,MERGE,MINVALUE,NEW,NOCYCLE,"
 			"NOMAXVALUE,NOMINVALUE,NOW,OFFSET,OLD,OTHERS,OVER,"
 			"PARTITION,PERCENT_RANK,PLAN,PRECEDING,PROD,QUANTILE,"
@@ -1557,7 +1546,8 @@ translateInfoType(SQLUSMALLINT InfoType)
 	case SQL_XOPEN_CLI_YEAR:
 		return "SQL_XOPEN_CLI_YEAR";
 	default:
-		snprintf(unknown, sizeof(unknown), "unknown (%u)", InfoType);
+		snprintf(unknown, sizeof(unknown), "unknown (%u)",
+			 (unsigned int) InfoType);
 		return unknown;
 	}
 }
@@ -1573,8 +1563,10 @@ SQLGetInfo(SQLHDBC ConnectionHandle,
 	ODBCDbc *dbc = (ODBCDbc *) ConnectionHandle;
 
 #ifdef ODBCDEBUG
-	ODBCLOG("SQLGetInfo " PTRFMT " %s\n",
-		PTRFMTCAST ConnectionHandle, translateInfoType(InfoType));
+	ODBCLOG("SQLGetInfo " PTRFMT " %s " PTRFMT " %d " PTRFMT "\n",
+		PTRFMTCAST ConnectionHandle, translateInfoType(InfoType),
+		PTRFMTCAST InfoValuePtr, (int) BufferLength,
+		PTRFMTCAST StringLengthPtr);
 #endif
 
 	if (!isValidDbc(dbc))
@@ -1582,7 +1574,7 @@ SQLGetInfo(SQLHDBC ConnectionHandle,
 
 	clearDbcErrors(dbc);
 
-	return SQLGetInfo_(dbc,
+	return MNDBGetInfo(dbc,
 			   InfoType,
 			   InfoValuePtr,
 			   BufferLength,
@@ -1616,8 +1608,10 @@ SQLGetInfoW(SQLHDBC ConnectionHandle,
 	SQLSMALLINT n;
 
 #ifdef ODBCDEBUG
-	ODBCLOG("SQLGetInfoW " PTRFMT " %s\n",
-		PTRFMTCAST ConnectionHandle, translateInfoType(InfoType));
+	ODBCLOG("SQLGetInfoW " PTRFMT " %s " PTRFMT " %d " PTRFMT "\n",
+		PTRFMTCAST ConnectionHandle, translateInfoType(InfoType),
+		PTRFMTCAST InfoValuePtr, (int) BufferLength,
+		PTRFMTCAST StringLengthPtr);
 #endif
 
 	if (!isValidDbc(dbc))
@@ -1666,12 +1660,7 @@ SQLGetInfoW(SQLHDBC ConnectionHandle,
 	case SQL_TABLE_TERM:
 	case SQL_USER_NAME:
 	case SQL_XOPEN_CLI_YEAR:
-		rc = SQLGetInfo_(dbc, InfoType, NULL, 0, &n);
-		if (!SQL_SUCCEEDED(rc))
-			return rc;
-		clearDbcErrors(dbc);
-		n++;		/* account for NUL byte */
-		ptr = (SQLPOINTER) malloc(n);
+		ptr = malloc(BufferLength);
 		if (ptr == NULL) {
 			/* Memory allocation error */
 			addDbcError(dbc, "HY001", NULL, 0);
@@ -1679,14 +1668,24 @@ SQLGetInfoW(SQLHDBC ConnectionHandle,
 		}
 		break;
 	default:
-		n = BufferLength;
 		ptr = InfoValuePtr;
 		break;
 	}
 
-	rc = SQLGetInfo_(dbc, InfoType, ptr, n, &n);
+	rc = MNDBGetInfo(dbc, InfoType, ptr, BufferLength, &n);
 
 	if (ptr != InfoValuePtr) {
+		if (rc == SQL_SUCCESS_WITH_INFO) {
+			clearDbcErrors(dbc);
+			free(ptr);
+			ptr = malloc(++n); /* add one for NULL byte */
+			if (ptr == NULL) {
+				/* Memory allocation error */
+				addDbcError(dbc, "HY001", NULL, 0);
+				return SQL_ERROR;
+			}
+			rc = MNDBGetInfo(dbc, InfoType, ptr, n, &n);
+		}
 		if (SQL_SUCCEEDED(rc)) {
 			fixWcharOut(rc, ptr, n, InfoValuePtr, BufferLength,
 				    StringLengthPtr, 2, addDbcError, dbc);

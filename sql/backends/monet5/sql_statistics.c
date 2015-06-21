@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /* (c) M.L. Kersten
@@ -45,17 +34,14 @@ sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int sorted;
 	lng nils = 0;
 	lng uniq = 0;
-	lng samplesize = 0;
+	lng samplesize = *getArgReference_lng(stk, pci, 2);
 	int argc = pci->argc;
 	int width = 0;
+	int minmax = *getArgReference_int(stk, pci, 1);
 
 	if (msg != MAL_SUCCEED || (msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
 
-	if (argc > 1 && getVarType(mb, getArg(pci, argc - 1)) == TYPE_lng) {
-		samplesize = *getArgReference_lng(stk, pci, pci->argc - 1);
-		argc--;
-	}
 	dquery = (char *) GDKzalloc(8192);
 	query = (char *) GDKzalloc(8192);
 	if (!(dquery && query)) {
@@ -65,15 +51,15 @@ sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	switch (argc) {
+	case 6:
+		col = *getArgReference_str(stk, pci, 5);
+	case 5:
+		tbl = *getArgReference_str(stk, pci, 4);
 	case 4:
-		col = *getArgReference_str(stk, pci, 3);
-	case 3:
-		tbl = *getArgReference_str(stk, pci, 2);
-	case 2:
-		sch = *getArgReference_str(stk, pci, 1);
+		sch = *getArgReference_str(stk, pci, 3);
 	}
 #ifdef DEBUG_SQL_STATISTICS
-	mnstr_printf(cntxt->fdout, "analyze %s.%s.%s sample " LLFMT "\n", (sch ? sch : ""), (tbl ? tbl : " "), (col ? col : " "), samplesize);
+	mnstr_printf(cntxt->fdout, "analyze %s.%s.%s sample " LLFMT "%s\n", (sch ? sch : ""), (tbl ? tbl : " "), (col ? col : " "), samplesize, (minmax)?"MinMax":"");
 #endif
 	for (nsch = tr->schemas.set->h; nsch; nsch = nsch->next) {
 		sql_base *b = nsch->data;
@@ -105,7 +91,7 @@ sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 							continue;
 						snprintf(dquery, 8192, "delete from sys.statistics where \"column_id\" = %d;", c->base.id);
 						if (samplesize > 0) {
-							bsample = BATsample(bn, (BUN) 25000);
+							bsample = BATsample(bn, (BUN) samplesize);
 						} else
 							bsample = NULL;
 						br = BATsubselect(bn, bsample, ATOMnilptr(bn->ttype), NULL, 0, 0, 0);
@@ -113,7 +99,7 @@ sql_analyze(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 						BBPunfix(br->batCacheid);
 						if (bn->tkey)
 							uniq = sz;
-						else {
+						else if (!minmax) {
 							BAT *en;
 							if (bsample)
 								br = BATproject(bsample, bn);

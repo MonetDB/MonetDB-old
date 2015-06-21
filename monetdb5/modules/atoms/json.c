@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -126,8 +115,15 @@ JSONtoString(str *s, int *len, json src)
 	char *c, *dst;
 
 	if (GDK_STRNIL(src)) {
-		*s = GDKstrdup("null");
-		return 0;
+		if (*s == NULL || *len < 4) {
+			GDKfree(*s);
+			*len = 4;
+			*s = GDKmalloc(4);
+			if (*s == NULL)
+				return -1;
+		}
+		strncpy(*s, "nil", 4);
+		return 3;
 	}
 	/* count how much space we need for the output string */
 	cnt = 3;		/* two times " plus \0 */
@@ -1298,7 +1294,7 @@ JSONvalueTable(bat *ret, json *js)
 	JSON *jt;
 
 	jt = JSONparse(*js, TRUE);	// already validated
-	bn = BATnew(TYPE_void, TYPE_str, 64, TRANSIENT);
+	bn = BATnew(TYPE_void, TYPE_json, 64, TRANSIENT);
 	if (bn == NULL)
 		throw(MAL, "json.values", MAL_MALLOC_FAIL);
 	BATseqbase(bn, 0);
@@ -1884,7 +1880,7 @@ JSONjsonaggr(BAT **bnp, BAT *b, BAT *g, BAT *e, BAT *s, int skip_nils)
 	bi = bat_iterator(b);
 	if (g) {
 		/* stable sort g */
-		if (BATsubsort(&t1, &t2, NULL, g, NULL, NULL, 0, 1) == GDK_FAIL) {
+		if (BATsubsort(&t1, &t2, NULL, g, NULL, NULL, 0, 1) != GDK_SUCCEED) {
 			BBPreclaim(bn);
 			bn = NULL;
 			err = "internal sort failed";
@@ -2124,8 +2120,7 @@ JSONjsonaggr(BAT **bnp, BAT *b, BAT *g, BAT *e, BAT *s, int skip_nils)
 	return err;
 
       bunins_failed:
-	if (bn)
-		BBPreclaim(bn);
+	BBPreclaim(bn);
 	bn = NULL;
 	if (err == NULL)
 		err = MAL_MALLOC_FAIL;	/* insertion into result BAT failed */

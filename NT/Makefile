@@ -1,21 +1,10 @@
 # -*- makefile -*-
 
-# The contents of this file are subject to the MonetDB Public License
-# Version 1.1 (the "License"); you may not use this file except in
-# compliance with the License. You may obtain a copy of the License at
-# http://www.monetdb.org/Legal/MonetDBLicense
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0.  If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
-# License for the specific language governing rights and limitations
-# under the License.
-#
-# The Original Code is the MonetDB Database System.
-#
-# The Initial Developer of the Original Code is CWI.
-# Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2015 MonetDB B.V.
-# All Rights Reserved.
+# Copyright 2008-2015 MonetDB B.V.
 
 TOPDIR = .
 srcdir = $(TOPDIR)\..
@@ -36,7 +25,6 @@ install: targetdirs all
 	$(INSTALL) ..\NT\installer$(bits)\*.sln "$(prefix)"
 	$(INSTALL) ..\NT\installer$(bits)\*.vdproj "$(prefix)"
 	-if exist "C:\Program Files (x86)" if $(bits)==32 cd "$(prefix)"&&C:\cygwin\bin\sed.exe -i "s/Program Files/Program Files (x86)/" *.vdproj
-	if not exist "C:\Program Files (x86)\Microsoft Visual Studio 10.0" if not exist "C:\Program Files\Microsoft Visual Studio 10.0" cd "$(prefix)"&&C:\cygwin\bin\sed.exe -i "s/Format Version 11.00/Format Version 10.00/;s/Visual Studio 2010/Visual Studio 2008/;s/-vs10//;s/_VC100_CRT_x64/_VC90_CRT_x86_x64/;s/_VC100_/_VC90_/" *.vdproj *.sln
 
 $(srcdir)\Makefile.msc: "$(srcdir)\Makefile.ag"
         cd "$(srcdir)"&&set PYTHONPATH=buildtools\autogen&&python buildtools\autogen\autogen.py

@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #include <monetdb_config.h>
@@ -24,6 +13,10 @@
 #include "rel_psm.h"
 #include "rel_prop.h" /* for prop_copy() */
 #include "rel_optimizer.h"
+#include "rel_distribute.h"
+#ifdef HAVE_HGE
+#include "mal.h"		/* for have_hge */
+#endif
 
 static sql_exp * 
 exp_create(sql_allocator *sa, int type ) 
@@ -207,7 +200,7 @@ exp_atom_lng(sql_allocator *sa, lng i)
 	sql_subtype it; 
 
 #ifdef HAVE_HGE
-	sql_find_subtype(&it, "bigint", 18, 0);
+	sql_find_subtype(&it, "bigint", have_hge ? 18 : 19, 0);
 #else
 	sql_find_subtype(&it, "bigint", 19, 0);
 #endif
@@ -231,7 +224,7 @@ exp_atom_wrd(sql_allocator *sa, wrd w)
 	sql_subtype it; 
 
 #ifdef HAVE_HGE
-	sql_find_subtype(&it, "wrd", 18, 0);
+	sql_find_subtype(&it, "wrd", have_hge ? 18 : 19, 0);
 #else
 	sql_find_subtype(&it, "wrd", 19, 0);
 #endif
@@ -461,6 +454,7 @@ exp_rel(mvc *sql, sql_rel *rel)
 	sql_exp *e = exp_create(sql->sa, e_psm);
 
 	rel = rel_optimizer(sql, rel);
+	rel = rel_distribute(sql, rel);
 	e->l = rel;
 	e->flag = PSM_REL;
 	return e;
@@ -641,6 +635,20 @@ exp_match( sql_exp *e1, sql_exp *e2)
 		if (!e1->r || !e2->r || strcmp(e1->r, e2->r) != 0)
 			return 0;
 		return 1;
+	}
+	if (e1->type == e2->type && e1->type == e_func) {
+		if (is_identity(e1, NULL) && is_identity(e2, NULL)) {
+			list *args1 = e1->l;
+			list *args2 = e2->l;
+			
+			if (list_length(args1) == list_length(args2) && list_length(args1) == 1) {
+				sql_exp *ne1 = args1->h->data;
+				sql_exp *ne2 = args2->h->data;
+
+				if (exp_match(ne1,ne2))
+					return 1;
+			}
+		}
 	}
 	return 0;
 }
@@ -1594,5 +1602,40 @@ exp_copy( sql_allocator *sa, sql_exp * e)
 	if (e->name)
 		exp_setname(sa, ne, exp_find_rel_name(e), exp_name(e));
 	return ne;
+}
+
+atom *
+exp_flatten(mvc *sql, sql_exp *e) 
+{
+	if (e->type == e_atom) {
+		atom *v =  exp_value(e, sql->args, sql->argc);
+
+		if (v)
+			return atom_dup(sql->sa, v);
+	} else if (e->type == e_convert) {
+		atom *v = exp_flatten(sql, e->l); 
+
+		if (v && atom_cast(v, &e->tpe))
+			return v;
+		return NULL;
+	} else if (e->type == e_func) {
+		sql_subfunc *f = e->f;
+		list *l = e->l;
+		sql_arg *res = (f->func->res)?(f->func->res->h->data):NULL;
+
+		/* TODO handle date + x months */
+		if (strcmp(f->func->base.name, "sql_add") == 0 && list_length(l) == 2 && res && EC_NUMBER(res->type.type->eclass)) {
+			atom *l1 = exp_flatten(sql, l->h->data);
+			atom *l2 = exp_flatten(sql, l->h->next->data);
+			if (l1 && l2)
+				return atom_add(l1,l2);
+		} else if (strcmp(f->func->base.name, "sql_sub") == 0 && list_length(l) == 2 && res && EC_NUMBER(res->type.type->eclass)) {
+			atom *l1 = exp_flatten(sql, l->h->data);
+			atom *l2 = exp_flatten(sql, l->h->next->data);
+			if (l1 && l2)
+				return atom_sub(l1,l2);
+		}
+	}
+	return NULL;
 }
 

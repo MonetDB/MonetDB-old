@@ -1,42 +1,15 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /* This file contains shared definitions for gdk_calc.c and gdk_aggr.c */
 
 #ifndef LIBGDK
 #error this file should not be included outside its source directory
-#endif
-
-#ifdef HAVE_LONG_LONG
-typedef unsigned long long ulng;
-#else
-typedef unsigned __int64 ulng;
-#endif
-
-#ifdef HAVE_HGE
-#ifdef HAVE___INT128
-typedef unsigned __int128 uhge;
-#else
-#ifdef HAVE___UINT128_T
-typedef __uint128_t uhge;
-#endif
-#endif
 #endif
 
 /* signed version of BUN */

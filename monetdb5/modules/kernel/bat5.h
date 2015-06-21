@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #ifndef _BAT_H_
@@ -54,9 +43,9 @@ bat5_export str BKCappend_reverse_val_wrap(bat *r, const bat *bid, const void *u
 bat5_export str BKCappend_force_wrap(bat *r, const bat *bid, const bat *uid, const bit *force);
 bat5_export str BKCappend_val_force_wrap(bat *r, const bat *bid, const void *u, const bit *force);
 bat5_export str BKCbun_inplace(bat *r, const bat *bid, const oid *id, const void *t);
-bat5_export str BKCbat_inplace(bat *r, const bat *bid, const bat *rid);
+bat5_export str BKCbat_inplace(bat *r, const bat *bid, const bat *rid, const bat *uid);
 bat5_export str BKCbun_inplace_force(bat *r, const bat *bid, const oid *id, const void *t, const bit *force);
-bat5_export str BKCbat_inplace_force(bat *r, const bat *bid, const bat *rid, const bit *force);
+bat5_export str BKCbat_inplace_force(bat *r, const bat *bid, const bat *rid, const bat *uid, const bit *force);
 bat5_export str BKCgetCapacity(lng *res, const bat *bid);
 bat5_export str BKCgetHeadType(str *res, const bat *bid);
 bat5_export str BKCgetColumnType(str *res, const bat *bid);

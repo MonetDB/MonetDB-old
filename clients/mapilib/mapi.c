@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -1501,6 +1490,8 @@ new_result(MapiHdl hdl)
 		printf("allocating new result set\n");
 	/* append a newly allocated struct to the end of the linked list */
 	result = malloc(sizeof(*result));
+	if (result == NULL)
+		return NULL;
 	result->next = NULL;
 	if (hdl->lastresult == NULL)
 		hdl->result = hdl->lastresult = result;
@@ -1746,7 +1737,6 @@ mapi_new_handle(Mapi mid)
 	mapi_check0(mid, "mapi_new_handle");
 
 	hdl = malloc(sizeof(*hdl));
-	assert(hdl);
 	if (hdl == NULL) {
 		mapi_setError(mid, "Memory allocation failure", "mapi_new_handle", MERROR);
 		return NULL;
@@ -1904,6 +1894,10 @@ mapi_new(void)
 	mid->tracelog = NULL;
 	mid->blk.eos = 0;
 	mid->blk.buf = malloc(BLOCK + 1);
+	if (mid->blk.buf == NULL) {
+		mapi_destroy(mid);
+		return NULL;
+	}
 	mid->blk.buf[BLOCK] = 0;
 	mid->blk.buf[0] = 0;
 	mid->blk.nxt = 0;
@@ -2557,21 +2551,25 @@ mapi_start_talking(Mapi mid)
 	/* consume server challenge */
 	len = mnstr_read_block(mid->from, buf, 1, BLOCK);
 
-	check_stream(mid, mid->from, "Connection terminated", "mapi_start_talking", (mid->blk.eos = 1, mid->error));
+	check_stream(mid, mid->from, "Connection terminated while starting", "mapi_start_talking", (mid->blk.eos = 1, mid->error));
 
 	assert(len < BLOCK);
 
+	if (len == 0){
+		mapi_setError(mid, "Challenge string is not valid, it is empty", "mapi_start_talking", MERROR);
+		return mid->error;
+	}
 	/* buf at this point looks like "challenge:servertype:protover[:.*]" */
 	chal = buf;
 	server = strchr(chal, ':');
 	if (server == NULL) {
-		mapi_setError(mid, "Challenge string is not valid", "mapi_start_talking", MERROR);
+		mapi_setError(mid, "Challenge string is not valid, server not found", "mapi_start_talking", MERROR);
 		return mid->error;
 	}
 	*server++ = '\0';
 	protover = strchr(server, ':');
 	if (protover == NULL) {
-		mapi_setError(mid, "Challenge string is not valid", "mapi_start_talking", MERROR);
+		mapi_setError(mid, "Challenge string is not valid, protocol not found", "mapi_start_talking", MERROR);
 		return mid->error;
 	}
 	*protover++ = '\0';
@@ -3443,7 +3441,7 @@ read_line(Mapi mid)
 		if (mid->trace == MAPI_TRACE)
 			printf("fetch next block: start at:%d\n", mid->blk.end);
 		len = mnstr_read(mid->from, mid->blk.buf + mid->blk.end, 1, BLOCK);
-		check_stream(mid, mid->from, "Connection terminated", "read_line", (mid->blk.eos = 1, (char *) 0));
+		check_stream(mid, mid->from, "Connection terminated during read line", "read_line", (mid->blk.eos = 1, (char *) 0));
 		if (mid->tracelog) {
 			mapi_log_header(mid, "R");
 			mnstr_write(mid->tracelog, mid->blk.buf + mid->blk.end, 1, len);
@@ -4289,8 +4287,11 @@ mapi_query_part(MapiHdl hdl, const char *query, size_t size)
 		char *q;
 
 		if (sz < 512 &&
-		    (q = realloc(hdl->query, sz + size + 1)) != NULL)
-			hdl->query = strncat(q, query, size);
+		    (q = realloc(hdl->query, sz + size + 1)) != NULL) {
+			strncpy(q + sz, query, size);
+			q[sz + size] = 0;
+			hdl->query = q;
+		}
 	}
 
 	if (mid->trace == MAPI_TRACE) {

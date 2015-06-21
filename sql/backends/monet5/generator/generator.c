@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -139,7 +128,7 @@ VLTgenerator_table_(BAT **result, Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 			lng s;
 			ValRecord ret;
 			if (VARcalccmp(&ret, &stk->stk[pci->argv[1]],
-				       &stk->stk[pci->argv[2]]) == GDK_FAIL)
+				       &stk->stk[pci->argv[2]]) != GDK_SUCCEED)
 				throw(MAL, "generator.table",
 				      "Illegal generator expression range");
 			f = *getArgReference_TYPE(stk, pci, 1, timestamp);
@@ -971,14 +960,14 @@ str VLTgenerator_join(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 #define VLTrangeExpand() \
 {	limit+= cnt * (limit/(done?done:1)+1);\
-	if (BATextend(bln, limit) == GDK_FAIL) {	\
+	if (BATextend(bln, limit) != GDK_SUCCEED) {	\
 		BBPunfix(blow->batCacheid);\
 		BBPunfix(bhgh->batCacheid);\
 		BBPunfix(bln->batCacheid);\
 		BBPunfix(brn->batCacheid);\
 		throw(MAL,"generator.rangejoin",MAL_MALLOC_FAIL);\
 	}\
-	if (BATextend(brn, limit) == GDK_FAIL) {	\
+	if (BATextend(brn, limit) != GDK_SUCCEED) {	\
 		BBPunfix(blow->batCacheid);\
 		BBPunfix(bhgh->batCacheid);\
 		BBPunfix(bln->batCacheid);\

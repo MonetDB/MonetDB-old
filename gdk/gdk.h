@@ -1,18 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -399,15 +390,9 @@
 #define MIN(A,B)	((A)>(B)?(B):(A))
 
 /* defines from ctype with casts that allow passing char values */
-#define GDKisprint(c)	isprint((int) (unsigned char) (c))
 #define GDKisspace(c)	isspace((int) (unsigned char) (c))
 #define GDKisalnum(c)	isalnum((int) (unsigned char) (c))
-#define GDKisgraph(c)	isgraph((int) (unsigned char) (c))
 #define GDKisdigit(c)	(((unsigned char) (c)) >= '0' && ((unsigned char) (c)) <= '9')
-#define GDKisxcntrl(c)  (((unsigned char) (c)) >= 128 && ((unsigned char) (c)) <= 160)
-#define GDKisspecial(c) (((unsigned char) (c)) >= 161 && ((unsigned char) (c)) <= 191)
-#define GDKisupperl(c)  (((unsigned char) (c)) >= 192 && ((unsigned char) (c)) <= 223)
-#define GDKislowerl(c)  (((unsigned char) (c)) >= 224 && ((unsigned char) (c)) <= 255)
 
 #define GDKPROP		6	/* use one spare! */
 #define MONETHOME	"MONETHOME"
@@ -1012,7 +997,7 @@ typedef int (*GDKfcn) ();
  * These routines should be used to alloc free or extend heaps; they
  * isolate you from the different ways heaps can be accessed.
  */
-gdk_export int HEAPextend(Heap *h, size_t size, int mayshare);
+gdk_export gdk_return HEAPextend(Heap *h, size_t size, int mayshare);
 gdk_export size_t HEAPvmsize(Heap *h);
 gdk_export size_t HEAPmemsize(Heap *h);
 
@@ -1178,7 +1163,7 @@ gdk_export bte ATOMelmshift(int sz);
 			if ((b)->HT->width < SIZEOF_VAR_T &&		\
 			    ((b)->HT->width <= 2 ? _d - GDK_VAROFFSET : _d) >= ((size_t) 1 << (8 * (b)->HT->width))) { \
 				/* doesn't fit in current heap, upgrade it */ \
-				if (GDKupgradevarheap((b)->HT, _d, (copyall), (b)->batRestricted == BAT_READ) == GDK_FAIL) \
+				if (GDKupgradevarheap((b)->HT, _d, (copyall), (b)->batRestricted == BAT_READ) != GDK_SUCCEED) \
 					goto bunins_failed;		\
 			}						\
 			_ptr = (p);					\
@@ -1226,7 +1211,7 @@ gdk_export bte ATOMelmshift(int sz);
 			if ((b)->HT->width < SIZEOF_VAR_T &&		\
 			    ((b)->HT->width <= 2 ? _d - GDK_VAROFFSET : _d) >= ((size_t) 1 << (8 * (b)->HT->width))) { \
 				/* doesn't fit in current heap, upgrade it */ \
-				if (GDKupgradevarheap((b)->HT, _d, 0, (b)->batRestricted == BAT_READ) == GDK_FAIL) \
+				if (GDKupgradevarheap((b)->HT, _d, 0, (b)->batRestricted == BAT_READ) != GDK_SUCCEED) \
 					goto bunins_failed;		\
 			}						\
 			_ptr = (p);					\
@@ -1280,7 +1265,7 @@ gdk_export bte ATOMelmshift(int sz);
 				GDKerror("bunfastins: too many elements to accomodate (" BUNFMT ")\n", BUN_MAX); \
 				goto bunins_failed;			\
 			}						\
-			if (BATextend((b), BATgrows(b)) == GDK_FAIL)	\
+			if (BATextend((b), BATgrows(b)) != GDK_SUCCEED)	\
 				goto bunins_failed;			\
 		}							\
 		bunfastins_nocheck(b, _p, h, t, Hsize(b), Tsize(b));	\
@@ -1307,7 +1292,7 @@ gdk_export bte ATOMelmshift(int sz);
 				GDKerror("bunfastapp: too many elements to accomodate (" BUNFMT ")\n", BUN_MAX); \
 				goto bunins_failed;			\
 			}						\
-			if (BATextend((b), BATgrows(b)) == GDK_FAIL)	\
+			if (BATextend((b), BATgrows(b)) != GDK_SUCCEED)	\
 				goto bunins_failed;			\
 		}							\
 		bunfastapp_nocheck(b, _p, t, Tsize(b));			\
@@ -1326,7 +1311,7 @@ gdk_export gdk_return BATdel(BAT *b, BAT *c, bit force);
 
 gdk_export gdk_return BUNreplace(BAT *b, const void *left, const void *right, bit force);
 gdk_export gdk_return BUNinplace(BAT *b, BUN p, const void *left, const void *right, bit force);
-gdk_export gdk_return BATreplace(BAT *b, BAT *n, bit force);
+gdk_export gdk_return BATreplace(BAT *b, BAT *p, BAT *n, bit force);
 
 gdk_export BUN BUNfnd(BAT *b, const void *right);
 
@@ -1576,6 +1561,8 @@ gdk_export gdk_return BATgroup(BAT **groups, BAT **extents, BAT **histo, BAT *b,
 
 gdk_export gdk_return BATsave(BAT *b);
 gdk_export void BATmmap(BAT *b, int hb, int tb, int hh, int th, int force);
+gdk_export void BATmsync(BAT *b);
+
 gdk_export size_t BATmemsize(BAT *b, int dirty);
 
 #define NOFARM (-1) /* indicate to GDKfilepath to create relative path */
@@ -1689,7 +1676,7 @@ gdk_export void GDKqsort_rev(void *h, void *t, const void *base, size_t n, int h
 			}						\
 			(col)->sorted = 1;				\
 		} else if ((b)->batCount <= 1) {			\
-			if (BATatoms[(col)->type].linear) {		\
+			if (ATOMlinear((col)->type)) {			\
 				(col)->sorted = 1;			\
 				(col)->revsorted = 1;			\
 			}						\
@@ -1716,7 +1703,7 @@ gdk_export void GDKqsort_rev(void *h, void *t, const void *base, size_t n, int h
 				(col)->seq = sqbs;			\
 			}						\
 		}							\
-		if (!BATatoms[(col)->type].linear) {			\
+		if (!ATOMlinear((col)->type)) {				\
 			(col)->sorted = 0;				\
 			(col)->revsorted = 0;				\
 		}							\
@@ -2020,7 +2007,7 @@ typedef struct {
 	int (*atomFromStr) (const char *src, int *len, ptr *dst);
 	int (*atomToStr) (str *dst, int *len, const void *src);
 	void *(*atomRead) (void *dst, stream *s, size_t cnt);
-	int (*atomWrite) (const void *src, stream *s, size_t cnt);
+	gdk_return (*atomWrite) (const void *src, stream *s, size_t cnt);
 	int (*atomCmp) (const void *v1, const void *v2);
 	BUN (*atomHash) (const void *v);
 	/* optional functions */
@@ -2081,19 +2068,12 @@ gdk_export oid OIDnew(oid inc);
  *  BAThash (BAT *b, BUN masksize)
  * @end multitable
  *
- * The current BAT implementation supports one search accelerator:
- * hashing. The routine BAThash makes sure that a hash accelerator on
- * the head of the BAT exists. A zero is returned upon failure to
- * create the supportive structures.
- *
- * The hash data structures are currently maintained during update
- * operations.
+ * The current BAT implementation supports two search accelerators:
+ * hashing and imprints.  The routine BAThash makes sure that a hash
+ * accelerator on the tail of the BAT exists. GDK_FAIL is returned
+ * upon failure to create the supportive structures.
  */
 gdk_export gdk_return BAThash(BAT *b, BUN masksize);
-
-/* low level functions */
-
-#define BATprepareHash(X) (BAThash((X), 0) == GDK_FAIL)
 
 /*
  * @- Column Imprints Functions
@@ -2493,9 +2473,9 @@ free_debug(void *ptr, const char *filename, int lineno)
 
 /* Data Distilleries uses ICU for internationalization of some MonetDB error messages */
 
-gdk_export int GDKerror(_In_z_ _Printf_format_string_ const char *format, ...)
+gdk_export void GDKerror(_In_z_ _Printf_format_string_ const char *format, ...)
 	__attribute__((__format__(__printf__, 1, 2)));
-gdk_export int GDKsyserror(_In_z_ _Printf_format_string_ const char *format, ...)
+gdk_export void GDKsyserror(_In_z_ _Printf_format_string_ const char *format, ...)
 	__attribute__((__format__(__printf__, 1, 2)));
 __declspec(noreturn) gdk_export void GDKfatal(_In_z_ _Printf_format_string_ const char *format, ...)
 	__attribute__((__format__(__printf__, 1, 2)))
@@ -2511,7 +2491,7 @@ __declspec(noreturn) gdk_export void GDKfatal(_In_z_ _Printf_format_string_ cons
 #include "gdk_utils.h"
 
 /* functions defined in gdk_bat.c */
-gdk_export BUN void_replace_bat(BAT *b, BAT *u, bit force);
+gdk_export BUN void_replace_bat(BAT *b, BAT *p, BAT *u, bit force);
 gdk_export gdk_return void_inplace(BAT *b, oid id, const void *val, bit force);
 gdk_export BAT *BATattach(int tt, const char *heapfile, int role);
 
@@ -2713,10 +2693,10 @@ BATmirror(register BAT *b)
  * you try to partially commit an already committed persistent BAT (it
  * needs the rollback mechanism).
  */
-gdk_export int TMcommit(void);
-gdk_export int TMabort(void);
-gdk_export int TMsubcommit(BAT *bl);
-gdk_export int TMsubcommit_list(bat *subcommit, int cnt);
+gdk_export gdk_return TMcommit(void);
+gdk_export gdk_return TMabort(void);
+gdk_export gdk_return TMsubcommit(BAT *bl);
+gdk_export gdk_return TMsubcommit_list(bat *subcommit, int cnt);
 
 /*
  * @- Delta Management
@@ -2916,30 +2896,15 @@ gdk_export void ALIGNsetH(BAT *b1, BAT *b2);
  * @item HASHloop
  * @tab
  *  (BAT *b; Hash *h, size_t dummy; ptr value)
- * @item HASHloop_bit
- * @tab
- *  (BAT *b; Hash *h, size_t idx; bit *value, BUN w)
  * @item HASHloop_bte
  * @tab
  *  (BAT *b; Hash *h, size_t idx; bte *value, BUN w)
  * @item HASHloop_sht
  * @tab
  *  (BAT *b; Hash *h, size_t idx; sht *value, BUN w)
- * @item HASHloop_bat
- * @tab
- *  (BAT *b; Hash *h, size_t idx; bat *value, BUN w)
- * @item HASHloop_ptr
- * @tab
- *  (BAT *b; Hash *h, size_t idx; ptr *value, BUN w)
  * @item HASHloop_int
  * @tab
  *  (BAT *b; Hash *h, size_t idx; int *value, BUN w)
- * @item HASHloop_oid
- * @tab
- *  (BAT *b; Hash *h, size_t idx; oid *value, BUN w)
- * @item HASHloop_wrd
- * @tab
- *  (BAT *b; Hash *h, size_t idx; wrd *value, BUN w)
  * @item HASHloop_flt
  * @tab
  *  (BAT *b; Hash *h, size_t idx; flt *value, BUN w)
@@ -3037,17 +3002,6 @@ gdk_export void ALIGNsetH(BAT *b1, BAT *b2);
 		if (GDK_STREQ(v, BUNtvar(bi, hb)))
 
 /*
- * For string search, we can optimize if the string heap has
- * eliminated all doubles. This is the case when not too many
- * different strings are stored in the heap. You can check this with
- * the macro strElimDoubles() If so, we can just compare integer index
- * numbers instead of strings:
- */
-#define HASHloop_fstr(bi, h, hb, idx, v)				\
-	for (hb = HASHget(h, strHash(v)&h->mask), idx = strLocate((bi.b)->T->vheap,v); \
-	     hb != HASHnil(h); hb = HASHgetlink(h,hb))				\
-		if (VarHeapValRaw((bi).b->T->heap.base, hb, (bi).b->T->width) == idx)
-/*
  * The following example shows how the hashloop is used:
  *
  * @verbatim
@@ -3091,26 +3045,15 @@ gdk_export void ALIGNsetH(BAT *b1, BAT *b2);
 	     hb = HASHgetlink(h,hb))				\
 		if (simple_EQ(v, BUNtloc(bi, hb), TYPE))
 
-#define HASHloop_bit(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, bte)
 #define HASHloop_bte(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, bte)
 #define HASHloop_sht(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, sht)
 #define HASHloop_int(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, int)
-#define HASHloop_wrd(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, wrd)
 #define HASHloop_lng(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, lng)
 #ifdef HAVE_HGE
 #define HASHloop_hge(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, hge)
 #endif
-#define HASHloop_oid(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, oid)
-#define HASHloop_bat(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, bat)
 #define HASHloop_flt(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, flt)
 #define HASHloop_dbl(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, dbl)
-#define HASHloop_ptr(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, ptr)
-
-#define HASHloop_any(bi, h, hb, v)				\
-	for (hb = HASHget(h, hash_any(h, v));			\
-	     hb != HASHnil(h);					\
-	     hb = HASHgetlink(h,hb))				\
-		if (atom_EQ(v, BUNtail(bi, hb), (bi).b->ttype))
 
 /*
  * @- loop over a BAT with ordered tail

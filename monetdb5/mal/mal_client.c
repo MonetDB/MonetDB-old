@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -253,6 +242,7 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	c->totaltime = 0;
 	/* create a recycler cache */
 	c->exception_buf_initialized = 0;
+	c->error_row = c->error_fld = c->error_msg = c->error_input = NULL;
 	MT_sema_init(&c->s, 0, "Client->s");
 	return c;
 }
@@ -387,6 +377,13 @@ freeClient(Client c)
 	c->mode = MCshutdowninprogress()? BLOCKCLIENT: FREECLIENT;
 	GDKfree(c->glb);
 	c->glb = NULL;
+	if( c->error_row){
+		BBPdecref(c->error_row->batCacheid,TRUE);
+		BBPdecref(c->error_fld->batCacheid,TRUE);
+		BBPdecref(c->error_msg->batCacheid,TRUE);
+		BBPdecref(c->error_input->batCacheid,TRUE);
+		c->error_row = c->error_fld = c->error_msg = c->error_input = NULL;
+	}
 	if (t)
 		THRdel(t);  /* you may perform suicide */
 	MT_sema_destroy(&c->s);

@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 /*
@@ -821,6 +810,41 @@ timestamp_fromstr(const char *buf, int *len, timestamp **ret)
 	}
 	return (int) (s - buf);
 }
+
+int
+timestamp_tz_fromstr(const char *buf, int *len, timestamp **ret)
+{
+	const char *s = buf;
+	int pos = timestamp_fromstr(s, len, ret);
+	lng offset = 0;
+
+	if (!*ret || *ret == timestamp_nil)
+		return pos;
+
+	s = buf + pos;
+	pos = 0;
+	while (GDKisspace(*s))
+		s++;
+	/* incase of gmt we need to add the time zone */
+	if (fleximatch(s, "gmt", 0) == 3) {
+		s += 3;
+	}
+	if ((s[0] == '-' || s[0] == '+') &&
+		GDKisdigit(s[1]) && GDKisdigit(s[2]) && GDKisdigit(s[pos = 4]) &&
+		((s[3] == ':' && GDKisdigit(s[5])) || GDKisdigit(s[pos = 3]))) {
+		offset = (((s[1] - '0') * (lng) 10 + (s[2] - '0')) * (lng) 60 + (s[pos] - '0') * (lng) 10 + (s[pos + 1] - '0')) * (lng) 60000;
+		pos += 2;
+		if (s[0] != '-')
+			offset = -offset;
+		s += pos;
+	} else {
+		/* if no tzone is specified; work with the local */
+		offset = get_offset(&tzone_local) * (lng) -60000;
+	}
+	MTIMEtimestamp_add(*ret, *ret, &offset);
+	return (int) (s - buf);
+}
+
 
 int
 timestamp_tz_tostr(str *buf, int *len, const timestamp *val, const tzone *timezone)
@@ -3455,7 +3479,7 @@ MTIMEdaytime_extract_milliseconds_bulk(bat *ret, const bat *bid)
 }
 
 str
-MTIMEstrptime(date *d, const char * const *s, const char * const *format)
+MTIMEstr_to_date(date *d, const char * const *s, const char * const *format)
 {
 #ifdef HAVE_STRPTIME
 	struct tm t;
@@ -3475,7 +3499,7 @@ MTIMEstrptime(date *d, const char * const *s, const char * const *format)
 }
 
 str
-MTIMEstrftime(str *s, const date *d, const char * const *format)
+MTIMEdate_to_str(str *s, const date *d, const char * const *format)
 {
 #ifdef HAVE_STRFTIME
 	struct tm t;
@@ -3495,11 +3519,111 @@ MTIMEstrftime(str *s, const date *d, const char * const *format)
 		throw(MAL, "mtime.date_to_str", "failed to convert date to string using format '%s'\n", *format);
 	*s = GDKmalloc(sz + 1);
 	if (*s == NULL)
-		throw(MAL, "mtime.str_to_date", "memory allocation failure");
+		throw(MAL, "mtime.date_to_str", "memory allocation failure");
 	strncpy(*s, buf, sz + 1);
 	return MAL_SUCCEED;
 #else
-	throw(MAL, "mtime.str_to_date", "strftime support missing");
+	throw(MAL, "mtime.date_to_str", "strftime support missing");
+#endif
+}
+
+str
+MTIMEstr_to_time(daytime *d, const char * const *s, const char * const *format)
+{
+#ifdef HAVE_STRPTIME
+	struct tm t;
+
+	if (strcmp(*s, str_nil) == 0 || strcmp(*format, str_nil) == 0) {
+		*d = daytime_nil;
+		return MAL_SUCCEED;
+	}
+	memset(&t, 0, sizeof(struct tm));
+	if (strptime(*s, *format, &t) == NULL)
+		throw(MAL, "mtime.str_to_time", "format '%s', doesn't match time '%s'\n", *format, *s);
+	*d = totime(t.tm_hour, t.tm_min, t.tm_sec, 0);
+	return MAL_SUCCEED;
+#else
+	throw(MAL, "mtime.str_to_time", "strptime support missing");
+#endif
+}
+
+str
+MTIMEtime_to_str(str *s, const daytime *d, const char * const *format)
+{
+#ifdef HAVE_STRFTIME
+	struct tm t;
+	char buf[BUFSIZ + 1];
+	size_t sz;
+	int msec;
+
+	if (daytime_isnil(*d) || strcmp(*format, str_nil) == 0) {
+		*s = GDKstrdup(str_nil);
+		return MAL_SUCCEED;
+	}
+	memset(&t, 0, sizeof(struct tm));
+	fromtime(*d, &t.tm_hour, &t.tm_min, &t.tm_sec, &msec);
+	(void)msec;
+	if ((sz = strftime(buf, BUFSIZ, *format, &t)) == 0)
+		throw(MAL, "mtime.time_to_str", "failed to convert time to string using format '%s'\n", *format);
+	*s = GDKmalloc(sz + 1);
+	if (*s == NULL)
+		throw(MAL, "mtime.time_to_str", "memory allocation failure");
+	strncpy(*s, buf, sz + 1);
+	return MAL_SUCCEED;
+#else
+	throw(MAL, "mtime.time_to_str", "strftime support missing");
+#endif
+}
+
+str
+MTIMEstr_to_timestamp(timestamp *ts, const char * const *s, const char * const *format)
+{
+#ifdef HAVE_STRPTIME
+	struct tm t;
+
+	if (strcmp(*s, str_nil) == 0 || strcmp(*format, str_nil) == 0) {
+		*ts = *timestamp_nil;
+		return MAL_SUCCEED;
+	}
+	memset(&t, 0, sizeof(struct tm));
+	if (strptime(*s, *format, &t) == NULL)
+		throw(MAL, "mtime.str_to_timestamp", "format '%s', doesn't match timestamp '%s'\n", *format, *s);
+	ts->days = todate(t.tm_mday, t.tm_mon + 1, t.tm_year + 1900);
+	ts->msecs = totime(t.tm_hour, t.tm_min, t.tm_sec, 0);
+	return MAL_SUCCEED;
+#else
+	throw(MAL, "mtime.str_to_timestamp", "strptime support missing");
+#endif
+}
+
+str
+MTIMEtimestamp_to_str(str *s, const timestamp *ts, const char * const *format)
+{
+#ifdef HAVE_STRFTIME
+	struct tm t;
+	char buf[BUFSIZ + 1];
+	size_t sz;
+	int mon, year, msec;
+
+	if (timestamp_isnil(*ts) || strcmp(*format, str_nil) == 0) {
+		*s = GDKstrdup(str_nil);
+		return MAL_SUCCEED;
+	}
+	memset(&t, 0, sizeof(struct tm));
+	fromdate(ts->days, &t.tm_mday, &mon, &year);
+	t.tm_mon = mon - 1;
+	t.tm_year = year - 1900;
+	fromtime(ts->msecs, &t.tm_hour, &t.tm_min, &t.tm_sec, &msec);
+	(void)msec;
+	if ((sz = strftime(buf, BUFSIZ, *format, &t)) == 0)
+		throw(MAL, "mtime.timestamp_to_str", "failed to convert timestampt to string using format '%s'\n", *format);
+	*s = GDKmalloc(sz + 1);
+	if (*s == NULL)
+		throw(MAL, "mtime.timestamp_to_str", "memory allocation failure");
+	strncpy(*s, buf, sz + 1);
+	return MAL_SUCCEED;
+#else
+	throw(MAL, "mtime.timestamp_to_str", "strftime support missing");
 #endif
 }
 
@@ -3648,3 +3772,4 @@ timestamp_trunc_after_every_bulk(int *ret, int *bid, str *field, int *after_ever
 	BBPunfix(b->batCacheid);
 	return MAL_SUCCEED;
 }
+

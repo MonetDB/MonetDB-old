@@ -1,19 +1,8 @@
--- The contents of this file are subject to the MonetDB Public License
--- Version 1.1 (the "License"); you may not use this file except in
--- compliance with the License. You may obtain a copy of the License at
--- http://www.monetdb.org/Legal/MonetDBLicense
+-- This Source Code Form is subject to the terms of the Mozilla Public
+-- License, v. 2.0.  If a copy of the MPL was not distributed with this
+-- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 --
--- Software distributed under the License is distributed on an "AS IS"
--- basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
--- License for the specific language governing rights and limitations
--- under the License.
---
--- The Original Code is the MonetDB Database System.
---
--- The Initial Developer of the Original Code is CWI.
--- Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
--- Copyright August 2008-2015 MonetDB B.V.
--- All Rights Reserved.
+-- Copyright 2008-2015 MonetDB B.V.
 
 -- Author M.Kersten
 -- This script gives the database administrator insight in the actual
@@ -29,7 +18,7 @@
 -- For strings we take a sample to determine their average length.
 
 create function sys."storage"()
-returns table ("schema" string, "table" string, "column" string, "type" string, "mode" string, location string, "count" bigint, typewidth int, columnsize bigint, heapsize bigint, hashes bigint, imprints bigint, sorted boolean)
+returns table ("schema" string, "table" string, "column" string, "type" string, "mode" string, location string, "count" bigint, typewidth int, columnsize bigint, heapsize bigint, hashes bigint, phash boolean, imprints bigint, sorted boolean)
 external name sql."storage";
 
 create view sys."storage" as select * from sys."storage"();
@@ -43,11 +32,11 @@ create table sys.storagemodelinput(
 	"column" string,
 	"type" string,
 	"typewidth" int,
-	"count"	bigint,		-- estimated number of tuples
+	"count" bigint,	-- estimated number of tuples
 	"distinct" bigint,	-- indication of distinct number of strings
-	"atomwidth" int,		-- average width of strings or clob
-	"reference" boolean,-- used as foreign key reference
-	"sorted" boolean 	-- if set there is no need for an index
+	"atomwidth" int,	-- average width of strings or clob
+	"reference" boolean,	-- used as foreign key reference
+	"sorted" boolean	-- if set there is no need for an index
 );
 -- this table can be adjusted to reflect the anticipated final database size
 
@@ -89,9 +78,9 @@ begin
 	when nme = 'boolean' then return i;
 	when nme = 'char' then return 2*i;
 	when nme = 'smallint' then return 2 * i;
-	when nme = 'int'	 then return 4 * i;
-	when nme = 'bigint'	 then return 8 * i;
-	when nme = 'hugeint'	 then return 16 * i;
+	when nme = 'int' then return 4 * i;
+	when nme = 'bigint' then return 8 * i;
+	when nme = 'hugeint' then return 16 * i;
 	when nme = 'timestamp' then return 8 * i;
 	when  nme = 'varchar' then
 		case
@@ -131,10 +120,10 @@ begin
 	if nme = 'boolean'
 		or nme = 'tinyint'
 		or nme = 'smallint'
-		or nme = 'int'	
-		or nme = 'bigint'	
-		or nme = 'hugeint'	
-		or nme = 'decimal'	
+		or nme = 'int'
+		or nme = 'bigint'
+		or nme = 'hugeint'
+		or nme = 'decimal'
 		or nme = 'date'
 		or nme = 'timestamp'
 		or nme = 'real'
@@ -151,7 +140,7 @@ returns table (
 	"table" string,
 	"column" string,
 	"type" string,
-	"count"	bigint,
+	"count" bigint,
 	columnsize bigint,
 	heapsize bigint,
 	hashes bigint,

@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -244,7 +233,7 @@ rel_insert_idxs(mvc *sql, sql_table *t, sql_rel *inserts)
 	if (!t->idxs.set)
 		return inserts;
 
-	inserts->r = rel_label(sql, inserts->r); 
+	inserts->r = rel_label(sql, inserts->r, 1); 
 	for (n = t->idxs.set->h; n; n = n->next) {
 		sql_idx *i = n->data;
 		sql_rel *ins = inserts->r;
@@ -408,6 +397,8 @@ insert_into(mvc *sql, dlist *qname, dlist *columns, symbol *val_or_q)
 		return sql_error(sql, 02, "42S02!INSERT INTO: no such table '%s'", tname);
 	} else if (isView(t)) {
 		return sql_error(sql, 02, "INSERT INTO: cannot insert into view '%s'", tname);
+	} else if (isMergeTable(t)) {
+		return sql_error(sql, 02, "INSERT INTO: cannot insert into merge table '%s'", tname);
 	} else if (t->access == TABLE_READONLY) {
 		return sql_error(sql, 02, "INSERT INTO: cannot insert into read only table '%s'", tname);
 	}
@@ -419,6 +410,8 @@ insert_into(mvc *sql, dlist *qname, dlist *columns, symbol *val_or_q)
 	}
 
 	collist = check_table_columns(sql, t, columns, "INSERT", tname);
+	if (!collist)
+		return NULL;
 	if (val_or_q->token == SQL_VALUES) {
 		dlist *rowlist = val_or_q->data.lval;
 		dlist *values;
@@ -677,6 +670,7 @@ rel_update_join_idx(mvc *sql, sql_idx *i, sql_rel *updates)
 	pexps = rel_projections(sql, nnlls, NULL, 1, 1);
 	nnlls = rel_crossproduct(sql->sa, nnlls, rt, op_join);
 	nnlls->exps = join_exps;
+	nnlls->flag = LEFT_JOIN;
 	nnlls = rel_project(sql->sa, nnlls, pexps);
 	/* add row numbers */
 	e = exp_column(sql->sa, rel_name(rt), TID, sql_bind_localtype("oid"), CARD_MULTI, 0, 1);
@@ -831,6 +825,8 @@ update_table(mvc *sql, dlist *qname, dlist *assignmentlist, symbol *opt_where)
 		return sql_error(sql, 02, "42S02!UPDATE: no such table '%s'", tname);
 	} else if (isView(t)) {
 		return sql_error(sql, 02, "UPDATE: cannot update view '%s'", tname);
+	} else if (isMergeTable(t)) {
+		return sql_error(sql, 02, "UPDATE: cannot update merge table '%s'", tname);
 	} else if (t->access == TABLE_READONLY || t->access == TABLE_APPENDONLY) {
 		return sql_error(sql, 02, "UPDATE: cannot update read or append only table '%s'", tname);
 	} else {
@@ -1015,6 +1011,8 @@ delete_table(mvc *sql, dlist *qname, symbol *opt_where)
 		return sql_error(sql, 02, "42S02!DELETE FROM: no such table '%s'", tname);
 	} else if (isView(t)) {
 		return sql_error(sql, 02, "DELETE FROM: cannot delete from view '%s'", tname);
+	} else if (isMergeTable(t)) {
+		return sql_error(sql, 02, "DELETE FROM: cannot delete from merge table '%s'", tname);
 	} else if (t->access == TABLE_READONLY || t->access == TABLE_APPENDONLY) {
 		return sql_error(sql, 02, "DELETE FROM: cannot delete from read or append only table '%s'", tname);
 	}
@@ -1063,13 +1061,14 @@ table_column_types(sql_allocator *sa, sql_table *t)
 
 	if (t->columns.set) for (n = t->columns.set->h; n; n = n->next) {
 		sql_column *c = n->data;
-		append(types, &c->type);
+		if (c->base.name[0] != '%')
+			append(types, &c->type);
 	}
 	return types;
 }
 
 static sql_rel *
-rel_import(mvc *sql, sql_table *t, char *tsep, char *rsep, char *ssep, char *ns, char *filename, lng nr, lng offset, int locked)
+rel_import(mvc *sql, sql_table *t, char *tsep, char *rsep, char *ssep, char *ns, char *filename, lng nr, lng offset, int locked, int best_effort)
 {
 	sql_rel *res;
 	list *exps, *args;
@@ -1077,48 +1076,48 @@ rel_import(mvc *sql, sql_table *t, char *tsep, char *rsep, char *ssep, char *ns,
 	sql_subtype tpe;
 	sql_exp *import;
 	sql_schema *sys = mvc_bind_schema(sql, "sys");
-	int len = 7 + (filename != NULL);
-	sql_subfunc *f = sql_find_func(sql->sa, sys, "copyfrom", len, F_UNION, NULL); 
+	sql_subfunc *f = sql_find_func(sql->sa, sys, "copyfrom", 9, F_UNION, NULL); 
 	
 	if (!f) /* we do expect copyfrom to be there */
 		return NULL;
 	f->res = table_column_types(sql->sa, t);
  	sql_find_subtype(&tpe, "varchar", 0, 0);
-	args = append( append( append( append( append( append( new_exp_list(sql->sa), 
-		exp_atom_str(sql->sa, t->s?t->s->base.name:NULL, &tpe)), 
-		exp_atom_str(sql->sa, t->base.name, &tpe)), 
+	args = append( append( append( append( append( new_exp_list(sql->sa), 
+		exp_atom_ptr(sql->sa, t)), 
 		exp_atom_str(sql->sa, tsep, &tpe)), 
 		exp_atom_str(sql->sa, rsep, &tpe)), 
 		exp_atom_str(sql->sa, ssep, &tpe)), 
 		exp_atom_str(sql->sa, ns, &tpe));
 
-	if (filename)
-		append( args, exp_atom_str(sql->sa, filename, &tpe)); 
+	append( args, exp_atom_str(sql->sa, filename, &tpe)); 
 	import = exp_op(sql->sa,  
+	append(
 		append(
 			append( 
 				append( args, 
 					exp_atom_lng(sql->sa, nr)), 
 					exp_atom_lng(sql->sa, offset)), 
-					exp_atom_int(sql->sa, locked)), f); 
+					exp_atom_int(sql->sa, locked)),
+					exp_atom_int(sql->sa, best_effort)), f); 
 	
 	exps = new_exp_list(sql->sa);
 	for (n = t->columns.set->h; n; n = n->next) {
 		sql_column *c = n->data;
-		append(exps, exp_column(sql->sa, t->base.name, c->base.name, &c->type, CARD_MULTI, c->null, 0));
+		if (c->base.name[0] != '%')
+			append(exps, exp_column(sql->sa, t->base.name, c->base.name, &c->type, CARD_MULTI, c->null, 0));
 	}
 	res = rel_table_func(sql->sa, NULL, import, exps, 1);
 	return res;
 }
 
 static sql_rel *
-copyfrom(mvc *sql, dlist *qname, dlist *columns, dlist *files, dlist *seps, dlist *nr_offset, str null_string, int locked, int constraint)
+copyfrom(mvc *sql, dlist *qname, dlist *columns, dlist *files, dlist *headers, dlist *seps, dlist *nr_offset, str null_string, int locked, int best_effort, int constraint)
 {
 	sql_rel *rel = NULL;
 	char *sname = qname_schema(qname);
 	char *tname = qname_table(qname);
 	sql_schema *s = NULL;
-	sql_table *t = NULL;
+	sql_table *t = NULL, *nt = NULL;
 	char *tsep = seps->h->data.sval;
 	char *rsep = seps->h->next->data.sval;
 	char *ssep = (seps->h->next->next)?seps->h->next->next->data.sval:NULL;
@@ -1177,6 +1176,45 @@ copyfrom(mvc *sql, dlist *qname, dlist *columns, dlist *files, dlist *seps, dlis
 		sql->caching = 0; 	/* do not cache this query */
 	}
 		 
+	collist = check_table_columns(sql, t, columns, "COPY", tname);
+	if (!collist)
+		return NULL;
+	/* if collist has skip and different order (or format specification) use intermediate table */
+	nt = t;
+	if (headers) {
+		int has_formats = 0;
+		dnode *n;
+
+		nt = mvc_create_table(sql, s, tname, tt_table, 0, SQL_DECLARED_TABLE, CA_COMMIT, -1);
+		for (n = headers->h; n; n = n->next) {
+			dnode *dn = n->data.lval->h;
+			char *cname = dn->data.sval;
+			char *format = NULL;
+			sql_column *cs = NULL;
+
+			if (dn->next)
+				format = dn->next->data.sval;
+			if (!list_find_name(collist, cname)) {
+				char *name;
+				size_t len = strlen(cname) + 2;
+				sql_subtype *ctype = sql_bind_localtype("oid");
+
+				name = sa_alloc(sql->sa, len);
+				snprintf(name, len, "%%cname");
+				cs = mvc_create_column(sql, nt, name, ctype);
+			} else if (!format) {
+				cs = find_sql_column(t, cname);
+				cs = mvc_create_column(sql, nt, cname, &cs->type);
+			} else { /* load as string, parse later */
+				sql_subtype *ctype = sql_bind_localtype("str");
+				cs = mvc_create_column(sql, nt, cname, ctype);
+				has_formats = 1;
+			}
+			(void)cs;
+		}
+		if (!has_formats)
+			headers = NULL;
+	}
 	if (files) {
 		dnode *n = files->h;
 
@@ -1194,7 +1232,7 @@ copyfrom(mvc *sql, dlist *qname, dlist *columns, dlist *files, dlist *seps, dlis
 				return sql_error(sql, 02, "COPY INTO: filename must "
 						"have absolute path: %s", fname);
 
-			nrel = rel_import(sql, t, tsep, rsep, ssep, ns, fname, nr, offset, locked);
+			nrel = rel_import(sql, nt, tsep, rsep, ssep, ns, fname, nr, offset, locked, best_effort);
 
 			if (!rel)
 				rel = nrel;
@@ -1204,11 +1242,51 @@ copyfrom(mvc *sql, dlist *qname, dlist *columns, dlist *files, dlist *seps, dlis
 				return rel;
 		}
 	} else {
-		rel = rel_import(sql, t, tsep, rsep, ssep, ns, NULL, nr, offset, locked);
+		rel = rel_import(sql, nt, tsep, rsep, ssep, ns, NULL, nr, offset, locked, best_effort);
 	}
+	if (headers) {
+		dnode *n;
+		node *m = rel->exps->h;
+		list *nexps = sa_list(sql->sa);
+
+		assert(is_project(rel->op) || is_base(rel->op));
+		for (n = headers->h; n; n = n->next) {
+			dnode *dn = n->data.lval->h;
+			char *cname = dn->data.sval;
+			sql_exp *e;
+
+			if (!list_find_name(collist, cname)) 
+				continue;
+		       	e = m->data;
+			if (dn->next) {
+				char *format = dn->next->data.sval;
+				sql_column *cs = find_sql_column(t, cname);
+				sql_schema *sys = mvc_bind_schema(sql, "sys");
+				sql_subtype st;
+				sql_subfunc *f;
+				list *args = sa_list(sql->sa);
+				size_t l = strlen(cs->type.type->sqlname);
+				char *fname = sa_alloc(sql->sa, l+8);
+
+				snprintf(fname, l+8, "str_to_%s", cs->type.type->sqlname);
+				sql_find_subtype(&st, "clob", 0, 0);
+				f = sql_bind_func_result(sql->sa, sys, fname, &st, &st, &cs->type); 
+				if (!f)
+					return sql_error(sql, 02, "COPY INTO: '%s' missing for type %s", fname, cs->type.type->sqlname);
+				append(args, e);
+				append(args, exp_atom_clob(sql->sa, format));
+				e = exp_op(sql->sa, args, f);
+				append(nexps, e);
+			} else {
+				append(nexps, e);
+			}
+			m = m->next;
+		}
+		rel = rel_project(sql->sa, rel, nexps);
+	}
+	
 	if (!rel)
 		return rel;
-	collist = check_table_columns(sql, t, columns, "COPY", tname);
 	rel->exps = rel_inserts(sql, t, rel, collist, 1);
 	rel = rel_insert_table(sql, t, tname, rel);
 	if (rel && locked)
@@ -1428,7 +1506,17 @@ rel_updates(mvc *sql, symbol *s)
 	{
 		dlist *l = s->data.lval;
 
-		ret = copyfrom(sql, l->h->data.lval, l->h->next->data.lval, l->h->next->next->data.lval, l->h->next->next->next->data.lval, l->h->next->next->next->next->data.lval, l->h->next->next->next->next->next->data.sval, l->h->next->next->next->next->next->next->data.i_val, l->h->next->next->next->next->next->next->next->data.i_val);
+		ret = copyfrom(sql, 
+				l->h->data.lval, 
+				l->h->next->data.lval, 
+				l->h->next->next->data.lval, 
+				l->h->next->next->next->data.lval, 
+				l->h->next->next->next->next->data.lval, 
+				l->h->next->next->next->next->next->data.lval, 
+				l->h->next->next->next->next->next->next->data.sval, 
+				l->h->next->next->next->next->next->next->next->data.i_val, 
+				l->h->next->next->next->next->next->next->next->next->data.i_val, 
+				l->h->next->next->next->next->next->next->next->next->next->data.i_val);
 		sql->type = Q_UPDATE;
 	}
 		break;

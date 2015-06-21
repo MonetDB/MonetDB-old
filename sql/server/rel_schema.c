@@ -1,20 +1,9 @@
 /*
- * The contents of this file are subject to the MonetDB Public License
- * Version 1.1 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.monetdb.org/Legal/MonetDBLicense
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
- * License for the specific language governing rights and limitations
- * under the License.
- *
- * The Original Code is the MonetDB Database System.
- *
- * The Initial Developer of the Original Code is CWI.
- * Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
- * Copyright August 2008-2015 MonetDB B.V.
- * All Rights Reserved.
+ * Copyright 2008-2015 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -56,6 +45,30 @@ rel_table(mvc *sql, int cat_type, char *sname, sql_table *t, int nr)
 	rel->r = NULL;
 	rel->op = op_ddl;
 	rel->flag = cat_type;
+	rel->exps = exps;
+	rel->card = CARD_MULTI;
+	rel->nrcols = 0;
+	return rel;
+}
+
+static sql_rel *
+rel_alter_table(sql_allocator *sa, int cattype, char *sname, char *tname, char *sname2, char *tname2, int action)
+{
+	sql_rel *rel = rel_create(sa);
+	list *exps = new_exp_list(sa);
+
+	append(exps, exp_atom_clob(sa, sname));
+	append(exps, exp_atom_clob(sa, tname));
+	assert((sname2 && tname2) || (!sname2 && !tname2));
+	if (sname2) {
+		append(exps, exp_atom_clob(sa, sname2));
+		append(exps, exp_atom_clob(sa, tname2));
+	}
+	append(exps, exp_atom_int(sa, action));
+	rel->l = NULL;
+	rel->r = NULL;
+	rel->op = op_ddl;
+	rel->flag = cattype;
 	rel->exps = exps;
 	rel->card = CARD_MULTI;
 	rel->nrcols = 0;
@@ -433,7 +446,7 @@ column_options(mvc *sql, dlist *opt_list, sql_schema *ss, sql_table *t, sql_colu
 	return SQL_OK;
 }
 
-static int 
+static int
 table_foreign_key(mvc *sql, char *name, symbol *s, sql_schema *ss, sql_table *t)
 {
 	dnode *n = s->data.lval->h;
@@ -495,7 +508,7 @@ table_foreign_key(mvc *sql, char *name, symbol *s, sql_schema *ss, sql_table *t)
 	return SQL_OK;
 }
 
-static int 
+static int
 table_constraint_type(mvc *sql, char *name, symbol *s, sql_schema *ss, sql_table *t)
 {
 	int res = SQL_OK;
@@ -536,14 +549,14 @@ table_constraint_type(mvc *sql, char *name, symbol *s, sql_schema *ss, sql_table
 		res = table_foreign_key(sql, name, s, ss, t);
 		break;
 	}
-	if (!res) {
+	if (res != SQL_OK) {
 		sql_error(sql, 02, "M0M03!table constraint type: wrong token (" PTRFMT ") = %s\n", PTRFMTCAST s, token2string(s->token));
 		return SQL_ERR;
 	}
 	return res;
 }
 
-static int 
+static int
 table_constraint(mvc *sql, symbol *s, sql_schema *ss, sql_table *t)
 {
 	int res = SQL_OK;
@@ -560,7 +573,7 @@ table_constraint(mvc *sql, symbol *s, sql_schema *ss, sql_table *t)
 			free(opt_name);
 	}
 
-	if (!res) {
+	if (res != SQL_OK) {
 		sql_error(sql, 02, "M0M03!table constraint: wrong token (" PTRFMT ") = %s\n", PTRFMTCAST s, token2string(s->token));
 		return SQL_ERR;
 	}
@@ -599,7 +612,7 @@ create_column(mvc *sql, symbol *s, sql_schema *ss, sql_table *t, int alter)
 	return res;
 }
 
-static int 
+static int
 table_element(mvc *sql, symbol *s, sql_schema *ss, sql_table *t, int alter)
 {
 	int res = SQL_OK;
@@ -932,8 +945,21 @@ rel_create_view(mvc *sql, sql_schema *ss, dlist *qname, dlist *column_spec, symb
 		if (!sq)
 			return NULL;
 
-		if (!create)
+		if (!create) {
+			if (column_spec) {
+				dnode *n = column_spec->h;
+				node *m = sq->exps->h;
+
+				for (; n && m; n = n->next, m = m->next)
+					;
+				if (n || m) {
+					sql_error(sql, 01, "21S02!WITH CLAUSE: number of columns does not match");
+					rel_destroy(sq);
+					return NULL;
+				}
+			}
 			rel_add_intern(sql, sq);
+		}
 
 		if (create) {
 			t = mvc_create_view(sql, s, name, SQL_DECLARED_TABLE, q, 0);
@@ -946,7 +972,7 @@ rel_create_view(mvc *sql, sql_schema *ss, dlist *qname, dlist *column_spec, symb
 		t = mvc_bind_table(sql, s, name);
 		if (!persistent && column_spec) 
 			sq = view_rename_columns( sql, name, sq, column_spec);
-		if (sq->op == op_project && sq->l && sq->exps && sq->card == CARD_AGGR) {
+		if (sq && sq->op == op_project && sq->l && sq->exps && sq->card == CARD_AGGR) {
 			exps_setcard(sq->exps, CARD_MULTI);
 			sq->card = CARD_MULTI;
 		}
@@ -1071,44 +1097,8 @@ get_schema_name( mvc *sql, char *sname, char *tname)
 	return sname;
 }
 
-static int
-rel_check_tables(mvc *sql, sql_table *nt, sql_table *nnt)
-{
-	node *n, *m;
-
-	if (cs_size(&nt->columns) != cs_size(&nnt->columns)) {
-		(void) sql_error(sql, 02, "3F000!ALTER MERGE TABLE: to be added table doesn't match MERGE TABLE definition");
-		return -1;
-	}
-	for (n = nt->columns.set->h, m = nnt->columns.set->h; n && m; n = n->next, m = m->next) {
-		sql_column *nc = n->data;
-		sql_column *mc = m->data;
-
-		if (subtype_cmp(&nc->type, &mc->type) != 0) {
-			(void) sql_error(sql, 02, "3F000!ALTER MERGE TABLE: to be added table column type doesn't match MERGE TABLE definition");
-			return -2;
-		}
-	}
-	if (cs_size(&nt->idxs) != cs_size(&nnt->idxs)) {
-		(void) sql_error(sql, 02, "3F000!ALTER MERGE TABLE: to be added table index doesn't match MERGE TABLE definition");
-		return -1;
-	}
-	if (cs_size(&nt->idxs))
-	for (n = nt->idxs.set->h, m = nnt->idxs.set->h; n && m; n = n->next, m = m->next) {
-		sql_idx *ni = n->data;
-		sql_idx *mi = m->data;
-
-		/* todo check def */
-		if (ni->type != mi->type) {
-			(void) sql_error(sql, 02, "3F000!ALTER MERGE TABLE: to be added table index type doesn't match MERGE TABLE definition");
-			return -2;
-		}
-	}
-	return 0;
-}
-
 static sql_rel *
-rel_alter_table(mvc *sql, dlist *qname, symbol *te)
+sql_alter_table(mvc *sql, dlist *qname, symbol *te)
 {
 	char *sname = qname_schema(qname);
 	char *tname = qname_table(qname);
@@ -1129,11 +1119,11 @@ rel_alter_table(mvc *sql, dlist *qname, symbol *te)
 	} else {
 		node *n;
 		sql_rel *res = NULL, *r;
-		sql_table *nt = dup_sql_table(sql->sa, t);
+		sql_table *nt = NULL;
 		sql_exp ** updates, *e;
 
 		assert(te);
-		if (nt && te && te->token == SQL_DROP_CONSTRAINT) {
+		if (t && te && te->token == SQL_DROP_CONSTRAINT) {
 			dlist *l = te->data.lval;
 			char *kname = l->h->data.sval;
 			int drop_action = l->h->next->data.i_val;
@@ -1145,26 +1135,33 @@ rel_alter_table(mvc *sql, dlist *qname, symbol *te)
 		if (t->persistence != SQL_DECLARED_TABLE)
 			sname = s->base.name;
 
-		/* read only or read write */
-		if (nt && te && te->token == SQL_ALTER_TABLE) {
-			int state = te->data.i_val;
+		if (te && (te->token == SQL_TABLE || te->token == SQL_DROP_TABLE)) {
+			char *ntname = te->data.lval->h->data.sval;
 
-			if (t->s && !nt->s)
-				nt->s = t->s;
-
-			if (nt->type == tt_merge_table)
-				return sql_error(sql, 02, "42S02!ALTER TABLE: read only MERGE TABLES are not supported");
-
-			if (state == tr_readonly) {
-				nt = mvc_access(sql, nt, TABLE_READONLY);
-			} else if (state == tr_append) {
-				nt = mvc_access(sql, nt, TABLE_APPENDONLY);
+			/* TODO partition sname */
+			if (te->token == SQL_TABLE) {
+				return rel_alter_table(sql->sa, DDL_ALTER_TABLE_ADD_TABLE, sname, tname, sname, ntname, 0);
 			} else {
-				nt = mvc_access(sql, nt, TABLE_WRITABLE);
+				int drop_action = te->data.lval->h->next->data.i_val;
+
+				return rel_alter_table(sql->sa, DDL_ALTER_TABLE_DEL_TABLE, sname, tname, sname, ntname, drop_action);
 			}
-			return rel_table(sql, DDL_ALTER_TABLE, sname, nt, 0);
 		}
 
+		/* read only or read write */
+		if (te && te->token == SQL_ALTER_TABLE) {
+			int state = te->data.i_val;
+
+			if (state == tr_readonly) 
+				state = TABLE_READONLY;
+			else if (state == tr_append) 
+				state = TABLE_APPENDONLY;
+			else
+				state = TABLE_WRITABLE;
+			return rel_alter_table(sql->sa, DDL_ALTER_TABLE_SET_ACCESS, sname, tname, NULL, NULL, state);
+		}
+
+	       	nt = dup_sql_table(sql->sa, t);
 		if (!nt || (te && table_element(sql, te, s, nt, 1) == SQL_ERR)) 
 			return NULL;
 
@@ -1172,32 +1169,6 @@ rel_alter_table(mvc *sql, dlist *qname, symbol *te)
 			nt->s = t->s;
 
 		res = rel_table(sql, DDL_ALTER_TABLE, sname, nt, 0);
-
-		/* table add table */
-		if (te->token == SQL_TABLE) {
-			char *ntname = te->data.lval->h->data.sval;
-			sql_table *nnt = mvc_bind_table(sql, s, ntname);
-
-			/* check tables */
-			if (nnt) {
-				if (rel_check_tables(sql, t, nnt) < 0)
-					return NULL;
-				cs_add(&nt->tables, nnt, TR_NEW); 
-			}
-		}
-		/* table drop table */
-		if (te->token == SQL_DROP_TABLE) {
-			char *ntname = te->data.lval->h->data.sval;
-			int drop_action = te->data.lval->h->next->data.i_val;
-			node *n = cs_find_name(&nt->tables, ntname);
-
-			if (n) {
-				sql_table *ntt = n->data;
-
-				ntt->drop_action = drop_action;
-				cs_del(&nt->tables, n, ntt->base.flag); 
-			}
-		}
 
 		if (!isTable(nt))
 			return res;
@@ -1720,7 +1691,7 @@ rel_schemas(mvc *sql, symbol *s)
 	{
 		dlist *l = s->data.lval;
 
-		ret = rel_alter_table(sql, 
+		ret = sql_alter_table(sql, 
 			l->h->data.lval,      /* table name */
 		  	l->h->next->data.sym);/* table element */
 	} 	break;
