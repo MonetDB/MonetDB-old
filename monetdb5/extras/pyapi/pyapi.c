@@ -1874,6 +1874,8 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth)
     size_t initial_spaces = 0;
     size_t statement_size = 0;
     bool seen_statement = false;
+    bool multiline_statement = false;
+    int multiline_quotes = 0;
 
     char base_start[] = "def pyfun(";
     char base_end[] = "):\n";
@@ -1915,6 +1917,19 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth)
     // We indent using spaces, four spaces per level
     // We also erase empty lines
     for(i = 0; i < length; i++) {
+        // handle multiline strings (strings that start with """)
+        if (code[i] == '\"') {
+            if (!multiline_statement) {
+                multiline_quotes++;
+                multiline_statement = multiline_quotes == 3;
+            } else {
+                multiline_quotes--;
+                multiline_statement = multiline_quotes != 0;
+            }
+        } else {
+            multiline_quotes = multiline_statement ? 3 : 0;
+        }
+
         if (!seen_statement) {
             // We have not seen a statement on this line yet
             if (code[i] == '\n'){ 
@@ -1937,6 +1952,14 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth)
                 // Statement ends here
                 bool placed = false;
                 size_t level = 0;
+
+                if (multiline_statement) {
+                    //if we are in a multiline statement, we don't want to mess with the indentation
+                    size += statement_size;
+                    initial_spaces = 0;
+                    statement_size = 0;
+                    continue;
+                }
                 // First put the indentation in the indentation table
                 if (indentation_count >= max_indentation) {
                     // If there is no room in the indentation arrays we will extend them
@@ -2026,9 +2049,23 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth)
 
     // Now the second pass, actually construct the code
     for(i = 0; i < length; i++) {
+        //handle multiline statements
+        if (code[i] == '\"') {
+            if (!multiline_statement) {
+                multiline_quotes++;
+                multiline_statement = multiline_quotes == 3;
+            } else {
+                multiline_quotes--;
+                multiline_statement = multiline_quotes != 0;
+            }
+        } else {
+            multiline_quotes = multiline_statement ? 3 : 0;
+        }
+
         if (!seen_statement) {
+            if (multiline_statement) seen_statement = true; //if we are in a multiline string, we simply want to copy everything (including indentation)
             // We have not seen a statement on this line yet
-            if (code[i] == '\n'){ 
+            else if (code[i] == '\n'){ 
                 // Empty line, skip to the next one
                 initial_spaces = 0;
             } else if (code[i] == ' ') {
@@ -2074,6 +2111,7 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth)
         }
     }
     newcode[code_location] = '\0';
+    //printf("%s\n", newcode);
     if (code_location >= size) {
         // Something went wrong with our size computation, this also should never happen
         printf("WHAT HAPPENED\n");
