@@ -8833,6 +8833,7 @@ rel_apply_rewrite(int *changes, mvc *sql, sql_rel *rel)
 				r->r = rel->l;
 			}
 			/* unbind join exps */
+			if (r->exps)
 			for (n=r->exps->h; n; n = n->next) {
 				sql_exp *e = n->data;
 				assert(e->type == e_cmp);

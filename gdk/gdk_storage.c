@@ -606,6 +606,63 @@ DESCclean(BAT *b)
 		b->T->vheap->dirty = 0;
 }
 
+/* spawning the background msync should be done carefully 
+ * because there is a (small) chance that the BAT has been
+ * deleted by the time you issue the msync.
+ * This leaves you with possibly deadbeef BAT descriptors.
+ */
+
+/* #define DISABLE_MSYNC */
+#define MSYNC_BACKGROUND
+
+#ifndef DISABLE_MSYNC
+static void
+BATmsyncImplementation(void *arg)
+{
+	Heap *h = arg;
+	char *adr;
+	size_t len;
+	size_t offset;
+
+	adr = h->base;
+	offset = ((size_t) adr % MT_pagesize());
+	len = MT_pagesize() * (1 + ((h->base + h->free - adr) / MT_pagesize()));
+	if (offset)
+		adr -= MT_pagesize() - offset;
+	if (len)
+		(void) MT_msync(adr, len);
+}
+#endif
+
+void
+BATmsync(BAT *b)
+{
+#ifndef DISABLE_MSYNC
+#ifdef MSYNC_BACKGROUND
+	MT_Id tid;
+#endif
+
+	assert(b->batPersistence == PERSISTENT);
+	if (b->T->heap.storage == STORE_MMAP) {
+#ifdef MSYNC_BACKGROUND
+		MT_create_thread(&tid, BATmsyncImplementation, (void *) &b->T->heap, MT_THR_DETACHED);
+#else
+		BATmsyncImplementation((void*) &b->T->heap);
+#endif
+	}
+
+	if (b->T->vheap && b->T->vheap->storage == STORE_MMAP) {
+#ifdef MSYNC_BACKGROUND
+		MT_create_thread(&tid, BATmsyncImplementation, (void *) b->T->vheap, MT_THR_DETACHED);
+#else
+		BATmsyncImplementation((void*) b->T->vheap);
+#endif
+	}
+#else
+	(void) b;
+#endif	/* DISABLE_MSYNC */
+}
+
 gdk_return
 BATsave(BAT *bd)
 {
