@@ -5,7 +5,7 @@ bat.append(bstr,"asdf":str);
 bat.append(bstr,"sd asd asd asd asd a":str);
 bat.append(bstr,"test123":str);
 bat.append(bstr,"test":str);
-rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"print(arg1)\nreturn(arg1)",bstr);
+rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"return(arg1)",bstr);
 io.print(rstr);
 
 # strings with nil value

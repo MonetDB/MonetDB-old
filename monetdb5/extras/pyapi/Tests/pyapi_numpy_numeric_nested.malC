@@ -72,8 +72,8 @@ bat.append(fib, 27:int);
 bat.append(fib, 28:int);
 bat.append(fib, 29:int);
 
-# load a UDF from a file (to compute fibonacci sequence) and map it onto an array
-s:bat[:oid,:dbl] := pyapi.eval(nil:ptr, "import imp\nfib = imp.load_source('fibonacci', '/home/mytherin/Programs/MonetDB/monetdb5/extras/pyapi/Tests/fibonacci.py')\nreturn(map(fib.fibonacci, arg1))", fib);
+# define a function within the main function and map it to a BAT
+s:bat[:oid,:dbl] := pyapi.eval(nil:ptr, "def fibonacci(nmbr):\n\tif (nmbr == 0): return 0\n\tif (nmbr == 1): return 1\n\ta = 0\n\tb = 1\n\tfor i in range(0, nmbr - 1):\n\t\tc = a + b\n\t\ta = b\n\t\tb = c\n\treturn b\nreturn(map(fibonacci, arg1))", fib);
 io.print(s);
 
 indices:= bat.new(:oid,:int);
@@ -230,6 +230,6 @@ bat.append(indices, 149:int);
 bat.append(indices, 150:int);
 
 
-# load a UDF from a file (to compute fibonacci sequence) and map it onto an array, we need to put the result in a hge type because otherwise it doesn't fit
-s:bat[:oid,:hge] := pyapi.eval(nil:ptr, "import imp\nfib = imp.load_source('fibonacci', '/home/mytherin/Programs/MonetDB/monetdb5/extras/pyapi/Tests/fibonacci.py')\nreturn(map(fib.fibonacci, arg1))", indices);
+# now do it while returning a hge, to test returning very large numbers
+s:bat[:oid,:hge] := pyapi.eval(nil:ptr, "def fibonacci(nmbr):\n\tif (nmbr == 0): return 0\n\tif (nmbr == 1): return 1\n\ta = 0\n\tb = 1\n\tfor i in range(0, nmbr - 1):\n\t\tc = a + b\n\t\ta = b\n\t\tb = c\n\treturn b\nreturn(map(fibonacci, arg1))", indices);
 io.print(s);

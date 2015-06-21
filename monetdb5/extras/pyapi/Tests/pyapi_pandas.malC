@@ -1,14 +1,6 @@
 
 
 
-
-# read data from a CSV file using the Python PANDAS library and store it in a BAT
-# requires python-pandas to be installed
-# CSV location is hardcoded (sorry) ----->---------->----------->-------->------vvvv
-r:bat[:oid,:int] := pyapi.eval(nil:ptr, "import pandas as pd\ndf = pd.read_csv(\"/home/mytherin/Programs/MonetDB/monetdb5/extras/pyapi/Tests/bikedata.csv\")\nreturn([list(df['Berri 1'])])");
-io.print(r);
-
-# use pandas to perform data aggregation
 g:= bat.new(:oid,:int);
 bat.append(g,1);
 bat.append(g,2);
@@ -36,3 +28,26 @@ bat.append(b,1189641421:dbl);
 (r:bat[:oid,:int], s:bat[:oid,:dbl]) := pyapi.eval(nil:ptr,"import pandas as pd\ndf = pd.DataFrame({\'Group\': arg1, \'Values\': arg2})\ngrouped = df.groupby('Group')\nreturn([grouped.groups.keys(),grouped.sum().values.flatten()])", g, b);
 
 io.print(r,s);
+
+
+##############
+# --PANDAS-- #
+##############
+c:= bat.new(:oid,:int);
+bat.append(c,4:int);
+bat.append(c,24:int);
+bat.append(c,363:int);
+bat.append(c,63:int);
+bat.append(c,838:int);
+bat.append(c,454:int);
+bat.append(c,22:int);
+bat.append(c,663:int);
+bat.append(c,123:int);
+bat.append(c,442:int);
+
+# return a pandas dataframe
+(r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"import pandas as pd\ndf = pd.DataFrame({\'Group\': arg1, \'Values\': arg2})\nreturn(df)", g, c);
+io.print(r,s);
+
+# return a pandas dataframe with the incorrect format (return a dataframe with 3 columns when 2 columns are expected)
+(r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"import pandas as pd\ndf = pd.DataFrame({\'Group\': arg1, \'Values\': arg2, 'Values2': arg2})\nreturn(df)", g, c);
