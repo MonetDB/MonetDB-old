@@ -25,16 +25,19 @@
 #include "gdk_utils.h"
 #include "gdk.h"
 
+#undef _GNU_SOURCE
+#undef _XOPEN_SOURCE
+#undef _POSIX_C_SOURCE
+#include <Python.h>
+
+
+
 //! Copies the string of size up to max_size from the source to the destination, returns FALSE if "source" is not a legal ASCII string (i.e. a character is >= 128)
 bool string_copy(char * source, char* dest, size_t max_size);
 //! Converts a long to a string and writes it into the string "str"
 void lng_to_string(char* str, lng value);
 //! Converts a double to a string and writes it into the string "str"
 void dbl_to_string(char* str, dbl value);
-//! Converts a hge to a string and writes it into the string "str" [base 16], size specifies the maximum size of the string
-int hge_to_string(char *, int, hge );
-//! Converts a base-10 string to a hge value
-bool s_to_hge(char *ptr, size_t size, hge *value);
 //! Converts a base-10 string to a dbl value
 bool s_to_dbl(char *ptr, size_t size, dbl *value);
 //! Converts a base-10 string to a lng value
@@ -45,18 +48,37 @@ bool utf32_to_lng(uint32_t *utf32, lng *value);
 bool utf32_to_dbl(uint32_t *utf32, dbl *value);
 //! Converts a base-10 utf32-encoded string to a hge value
 bool utf32_to_hge(uint32_t *utf32, hge *value);
+//! Converts a PyObject to a dbl value
+bool py_to_dbl(PyObject *ptr, dbl *value);
+//! Converts a PyObject to a lng value
+bool py_to_lng(PyObject *ptr, lng *value);
 
-//using macros, create a number of str_to_<type> and unicode_to_<type> functions
-#define CONVERSION_FUNCTION_HEADER_FACTORY(tpe, strconv, utfconv, strval)          \
+#ifdef HAVE_HGE
+//! Converts a hge to a string and writes it into the string "str"
+int hge_to_string(char *str, hge );
+//! Converts a base-10 string to a hge value
+bool s_to_hge(char *ptr, size_t size, hge *value);
+//! Converts a PyObject to a hge value
+bool py_to_hge(PyObject *ptr, hge *value);
+//! Create a PyLongObject from a hge integer
+PyObject *PyLong_FromHge(hge h);
+#endif
+
+
+//using macros, create a number of str_to_<type>, unicode_to_<type> and pyobject_to_<type> functions (we are Java now)
+#define CONVERSION_FUNCTION_HEADER_FACTORY(tpe)          \
     bool str_to_##tpe(void *ptr, size_t size, tpe *value);          \
     bool unicode_to_##tpe(void *ptr, size_t size, tpe *value);                  \
+    bool pyobject_to_##tpe(void *ptr, size_t size, tpe *value);                  \
 
-CONVERSION_FUNCTION_HEADER_FACTORY(bit, s_to_lng, utf32_to_lng, lng)
-CONVERSION_FUNCTION_HEADER_FACTORY(sht, s_to_lng, utf32_to_lng, lng)
-CONVERSION_FUNCTION_HEADER_FACTORY(int, s_to_lng, utf32_to_lng, lng)
-CONVERSION_FUNCTION_HEADER_FACTORY(lng, s_to_lng, utf32_to_lng, lng)
-CONVERSION_FUNCTION_HEADER_FACTORY(hge, s_to_hge, utf32_to_hge, hge)
-CONVERSION_FUNCTION_HEADER_FACTORY(flt, s_to_dbl, utf32_to_dbl, dbl)
-CONVERSION_FUNCTION_HEADER_FACTORY(dbl, s_to_dbl, utf32_to_dbl, dbl)
+CONVERSION_FUNCTION_HEADER_FACTORY(bit)
+CONVERSION_FUNCTION_HEADER_FACTORY(sht)
+CONVERSION_FUNCTION_HEADER_FACTORY(int)
+CONVERSION_FUNCTION_HEADER_FACTORY(lng)
+CONVERSION_FUNCTION_HEADER_FACTORY(flt)
+CONVERSION_FUNCTION_HEADER_FACTORY(dbl)
+#ifdef HAVE_HGE
+CONVERSION_FUNCTION_HEADER_FACTORY(hge)
+#endif
 
 #endif /* _TYPE_CONVERSION_ */
