@@ -106,7 +106,7 @@ int replace_method(char *name, PyCFunction method)
 	}
 	if (i >= 0)
 	{
-        fprintf(stderr, "ERROR, trying to replace function %s in ByteArrayObject with a new object but the function was not where we expected it to be.", name);
+        fprintf(stderr, "WARNING: Trying to replace function %s in ByteArrayObject with a new object but the function could not be found. Maybe this is because of a different/newer Python version?", name);
 	}
 	return index;
 }

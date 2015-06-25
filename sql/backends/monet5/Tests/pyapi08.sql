@@ -1014,60 +1014,116 @@ copy 1000 records into streams from stdin;
 
 
 CREATE FUNCTION numpy_distance(stt string, tss bigint, lat double, lon double, alt double) returns table (s1 string, s2 string, timestamp int, mindist int) language P {
-	import numpy as np
-	import math
-	timelimit = 10
-	distlimit = 20000
-	rets1 = np.array([], dtype='|S10')
-	rets2 = np.array([], dtype='|S10')
-	retts = np.array([], dtype=np.int64)
-	retmd = np.array([], dtype=np.uint32)
-	it = np.nditer(tss, flags=['f_index'])
-	while not it.finished:
-		if (it.index+1 >= tss.size) : break
-	    lat1 = lat[it.index]
-	    lon1 = lon[it.index]
-	    alt1 = alt[it.index]
-	    mindist = distlimit
-	    otheridx = -1
-	    it2 = np.nditer(tss[it.index+1:], flags=['f_index'])
-	    while not it2.finished:
-	    	timediff = it2[0] - it[0]
-	        if (timediff > timelimit):
-	            break
-	        if (stt[it.index] == stt[it2.index]):
-	            it2.iternext()
-	            continue
-	        altdiff = abs(alt[it2.index] - alt1)
-	        if (altdiff > distlimit):
-	            it2.iternext()
-	            continue
-	        lat2 = lat[it2.index]
-	        lon2 = lon[it2.index]
-	        distdiff = (6371000 * math.sqrt(math.pow((lon1 * 0.01745 - lon2 * 0.01745) * 
-	            math.cos(0.5 * (lat1 * 0.01745 + lat2 * 0.01745)),2) + 
-	            math.pow((lat1 * 0.01745 - lat2 * 0.01745),2)))
-	        if (distdiff > distlimit) :
-	            it2.iternext()
-	            continue
-	        if (distdiff < mindist):
-	            mindist = distdiff
-	            otheridx = it2.index
-	        it2.iternext()
-	    if mindist < distlimit:
-		    rets1 = numpy.append(rets1, str(stt[it.index]))
-		    rets2 = numpy.append(rets2, str(stt[otheridx]))
-		    retts = numpy.append(retts, int(it[0]/1000))
-		    retmd = numpy.append(retmd, int(mindist))
-	    it.iternext()
-	return([rets1, rets2, retts, retmd])
+    import numpy as np
+    import math
+    timelimit = 10
+    distlimit = 20000
+    rets1 = np.array([], dtype='|S10')
+    rets2 = np.array([], dtype='|S10')
+    retts = np.array([], dtype=np.int64)
+    retmd = np.array([], dtype=np.uint32)
+    it = np.nditer(tss, flags=['f_index'])
+    while not it.finished:
+        if (it.index+1 >= tss.size) : break
+        lat1 = lat[it.index]
+        lon1 = lon[it.index]
+        alt1 = alt[it.index]
+        mindist = distlimit
+        otheridx = -1
+        it2 = np.nditer(tss[it.index+1:], flags=['f_index'])
+        while not it2.finished:
+            timediff = it2[0] - it[0]
+            if (timediff > timelimit):
+                break
+            if (stt[it.index] == stt[it2.index]):
+                it2.iternext()
+                continue
+            altdiff = abs(alt[it2.index] - alt1)
+            if (altdiff > distlimit):
+                it2.iternext()
+                continue
+            lat2 = lat[it2.index]
+            lon2 = lon[it2.index]
+            distdiff = (6371000 * math.sqrt(math.pow((lon1 * 0.01745 - lon2 * 0.01745) * 
+                math.cos(0.5 * (lat1 * 0.01745 + lat2 * 0.01745)),2) + 
+                math.pow((lat1 * 0.01745 - lat2 * 0.01745),2)))
+            if (distdiff > distlimit) :
+                it2.iternext()
+                continue
+            if (distdiff < mindist):
+                mindist = distdiff
+                otheridx = it2.index
+            it2.iternext()
+        if mindist < distlimit:
+            rets1 = numpy.append(rets1, str(stt[it.index]))
+            rets2 = numpy.append(rets2, str(stt[otheridx]))
+            retts = numpy.append(retts, int(it[0]/1000))
+            retmd = numpy.append(retmd, int(mindist))
+        it.iternext()
+    return([rets1, rets2, retts, retmd])
+};
+
+CREATE FUNCTION numpy_distance_fast(stt_in string, tss_in bigint, lat_in double, lon_in double, alt_in double) returns table (s1 string, s2 string, timestamp int, mindist int) language P {
+    import numpy as np
+    import math
+    stt = np.array(stt_in, dtype=object);
+    tss = np.array(tss_in, dtype=object);
+    lat = np.array(lat_in, dtype=object);
+    lon = np.array(lon_in, dtype=object);
+    alt = np.array(alt_in, dtype=object);
+    timelimit = 10
+    distlimit = 20000
+    rets1 = np.array([], dtype='|S10')
+    rets2 = np.array([], dtype='|S10')
+    retts = np.array([], dtype=np.int64)
+    retmd = np.array([], dtype=np.uint32)
+    it = np.nditer(tss, flags=['f_index', 'refs_ok'])
+    while not it.finished:
+        if (it.index+1 >= tss.size) : break
+        lat1 = lat[it.index]
+        lon1 = lon[it.index]
+        alt1 = alt[it.index]
+        mindist = distlimit
+        otheridx = -1
+        it2 = np.nditer(tss[it.index+1:], flags=['f_index', 'refs_ok'])
+        while not it2.finished:
+            timediff = it2[0] - it[0]
+            if (timediff > timelimit):
+                break
+            if (stt[it.index] == stt[it2.index]):
+                it2.iternext()
+                continue
+            altdiff = abs(alt[it2.index] - alt1)
+            if (altdiff > distlimit):
+                it2.iternext()
+                continue
+            lat2 = lat[it2.index]
+            lon2 = lon[it2.index]
+            distdiff = (6371000 * math.sqrt(math.pow((lon1 * 0.01745 - lon2 * 0.01745) * 
+                math.cos(0.5 * (lat1 * 0.01745 + lat2 * 0.01745)),2) + 
+                math.pow((lat1 * 0.01745 - lat2 * 0.01745),2)))
+            if (distdiff > distlimit) :
+                it2.iternext()
+                continue
+            if (distdiff < mindist):
+                mindist = distdiff
+                otheridx = it2.index
+            it2.iternext()
+        if mindist < distlimit:
+            rets1 = numpy.append(rets1, str(stt[it.index]))
+            rets2 = numpy.append(rets2, str(stt[otheridx]))
+            retts = numpy.append(retts, int(it[0]/1000))
+            retmd = numpy.append(retmd, int(mindist))
+        it.iternext()
+    return([rets1, rets2, retts, retmd])
 };
 
 create temporary table planes as SELECT station, (ts-CAST('1970-01-01' AS timestamp)), lat, lon, alt*0.3048 FROM streams WHERE type = 2 and alt > 0 with data;
-select * from numpy_distance( (SELECT * FROM planes AS p) );
+select * from numpy_distance_fast( (SELECT * FROM planes AS p) );
 
 drop table planes;
 drop function numpy_distance;
+drop function numpy_distance_fast;
 
 rollback;
 
