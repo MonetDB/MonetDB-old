@@ -539,6 +539,7 @@ mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws)
 	store_unlock();
 
 	m->type = Q_PARSE;
+	m->update = 0;
 	m->pushdown = 1;
 
 	m->result_id = 0;

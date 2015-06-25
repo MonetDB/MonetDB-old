@@ -1565,5 +1565,9 @@ rel_updates(mvc *sql, symbol *s)
 		return sql_error(sql, 01, "Updates statement unknown Symbol(" PTRFMT ")->token = %s", PTRFMTCAST s, token2string(s->token));
 	}
 	sql->use_views = old;
+	// If the transaction contains an update, set the updated flag (used for a two-phase commit)
+	if (sql->type == Q_UPDATE) {
+		sql->update = 1;
+	}
 	return ret;
 }

@@ -349,7 +349,6 @@ SQLprecommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int result;
 	backend *b = cntxt->sqlcontext;
 	lng *id = getArgReference_lng(stk, pci, 1);
-	int res_output = 0;
 
 	if ((msg = getSQLContext(cntxt, mb, &sql, NULL)) != NULL)
 		return msg;
@@ -366,10 +365,7 @@ SQLprecommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	/* get the result set */
-	if (sql->type == Q_PARSE || sql->type == Q_UPDATE) {
-		res_output = 1;
-	}
-	if (mvc_export_affrows(b, b->out, res_output, ""))
+	if (mvc_export_affrows(b, b->out, sql->update, ""))
 		throw(SQL, "sql.precommit", "failed - could not export number affected rows");
 	return msg;
 }
@@ -382,7 +378,6 @@ SQLpersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int result;
 	backend *b = cntxt->sqlcontext;
 	lng *id = getArgReference_lng(stk, pci, 1);
-	int res_output = 0;
 
 	if ((msg = getSQLContext(cntxt, mb, &sql, NULL)) != NULL)
 		return msg;
@@ -399,10 +394,7 @@ SQLpersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	/* get the result set */
-	if (sql->type == Q_PARSE || sql->type == Q_UPDATE) {
-		res_output = 1;
-	}
-	if (mvc_export_affrows(b, b->out, res_output, ""))
+	if (mvc_export_affrows(b, b->out, sql->update, ""))
 		throw(SQL, "sql.persistcommit", "failed - could not export number affected rows");
 	return msg;
 }
