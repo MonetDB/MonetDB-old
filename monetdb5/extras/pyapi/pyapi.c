@@ -25,8 +25,9 @@
 
 #include "unicode.h"
 #include "pytypes.h"
-#include "type_conversion.h"
 #include "shared_memory.h"
+#include "bytearray.h"
+#include "type_conversion.h"
 
 //#define _PYAPI_VERBOSE_
 #define _PYAPI_DEBUG_
@@ -374,7 +375,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     PyInput *pyinput_values = NULL;
     int seqbase = 0;
 
-    bool numpy_string_array = false;
+    bool option_numpy_string_array = false;
+    bool option_bytearray = true;
     bool option_verbose = GDKgetenv_isyes(verbose_enableflag) || GDKgetenv_istrue(verbose_enableflag);
     bool option_debug = GDKgetenv_isyes(debug_enableflag) || GDKgetenv_istrue(debug_enableflag);
     bool option_zerocopy = !(GDKgetenv_isyes(zerocopy_disableflag) || GDKgetenv_istrue(zerocopy_disableflag));
@@ -805,7 +807,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 vararray = BAT_TO_NP(b, dbl, NPY_FLOAT64);
                 break;
             case TYPE_str:
-                if (numpy_string_array) {
+                if (option_numpy_string_array) {
                     bool unicode = false;
 
                     li = bat_iterator(b);
@@ -913,8 +915,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                         &PyArray_Type, 
                         1, 
                         (npy_intp[1]) {t_end - t_start},  
-                        NPY_OBJECT, 
-                        NULL, 
+                        NPY_OBJECT,
+                         NULL, 
                         NULL, 
                         0,         
                         0, 
@@ -936,14 +938,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                                     obj = PyUnicode_FromString(t);
                                 }
                             } else {
-                                if (strcmp(t, str_nil) == 0) {
-                                     //str_nil isn't a valid UTF-8 character (it's 0x80), so we can't decode it as UTF-8 (it will throw an error)
-                                    obj = PyString_FromString("-");
-                                }
-                                else {
-                                    //otherwise we can just decode the string as UTF-8
-                                    obj = PyString_FromString(t);
-                                }
+                                if (option_bytearray) obj = PyByteArray_FromString(t);
+                                else obj = PyString_FromString(t);
                             }
 
                             if (obj == NULL)
@@ -952,7 +948,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                                 goto wrapup;
                             }
                             PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), obj);
-                            }
+                            //PyObject *obj2 = PyArray_GETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j));
+                            //printf("%s\n", (PyStringObject*)obj2)
+                        }
                         if (j == t_end) break;
                         j++;
                     }
@@ -977,7 +975,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                     NULL);
 
                 j = 0;
-                fprintf(stderr, "!WARNING: Type \"hge\" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type \"long\". This is likely very slow.\n");
+                fprintf(stderr, "!PERFORMANCE WARNING: Type \"hge\" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type \"PyLong\". This means a python object is constructed for every huge integer and the entire column is copied.\n");
                 BATloop(b, p, q) {
                     PyObject *obj;
                     const hge *t = (const hge *) BUNtail(li, p);
@@ -1072,6 +1070,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 
         if (PyErr_Occurred()) {
             msg = PyError_CreateException("Python exception", pycall);
+            PyRun_SimpleString("del pyfun");
             goto wrapup;
         }
 
@@ -1447,11 +1446,11 @@ returnvalues:
 #endif
     VERBOSE_MESSAGE("Returning values.\n");
     //dereference the input BATs
-    for (i = pci->retc + 2; i < pci->argc; i++) 
-    {
-        PyInput *inp = &pyinput_values[i - (pci->retc + 2)];
-        if (inp->bat != NULL) BBPunfix(inp->bat->batCacheid);
-    }
+    // for (i = pci->retc + 2; i < pci->argc; i++) 
+    // {
+    //     PyInput *inp = &pyinput_values[i - (pci->retc + 2)];
+    //     if (inp->bat != NULL) BBPunfix(inp->bat->batCacheid);
+    // }
 
     for (i = 0; i < pci->retc; i++) 
     {
@@ -1563,14 +1562,23 @@ returnvalues:
                             } else {
                                 //we try to handle as many types as possible
                                 PyObject *obj = *((PyObject**) &data[(index_offset * ret->count + iu) * ret->memory_size]);
-                                if (PyString_Check(obj)) {
+                                if (PyString_CheckExact(obj)) {
                                     char *str = ((PyStringObject*)obj)->ob_sval;
+                                    //printf("%s\n", str);
                                     utf8_string = GDKzalloc(strlen(str) * 4);
                                     if (!string_copy(str, utf8_string, strlen(str) + 1)) {
                                         msg = createException(MAL, "pyapi.eval", "Invalid string encoding used. Please return a regular ASCII string, or a Numpy_Unicode object.\n");       
                                         goto wrapup;    
                                     }
-                                } else if (PyUnicode_Check(obj)) {
+                                } else if (PyByteArray_CheckExact(obj)) {
+                                    char *str = ((PyByteArrayObject*)obj)->ob_bytes;
+                                    //printf("%s\n", str);
+                                    utf8_string = GDKzalloc(strlen(str) * 4);
+                                    if (!string_copy(str, utf8_string, strlen(str) + 1)) {
+                                        msg = createException(MAL, "pyapi.eval", "Invalid string encoding used. Please return a regular ASCII string, or a Numpy_Unicode object.\n");       
+                                        goto wrapup;    
+                                    }
+                                } else if (PyUnicode_CheckExact(obj)) {
                                     uint32_t *str = (uint32_t*)((PyUnicodeObject*)obj)->str;
                                     utf8_string = GDKzalloc(((PyUnicodeObject*)obj)->length * 4);
                                     utf32_to_utf8(0, ((PyUnicodeObject*)obj)->length, utf8_string, str);
@@ -1695,7 +1703,7 @@ returnvalues:
     GDKfree(args);
     GDKfree(pycall);
     //GDKfree(expr_ind);
-    VERBOSE_MESSAGE("%s\n", msg);
+    if (msg != NULL) VERBOSE_MESSAGE("%s\n", msg);
 
     VERBOSE_MESSAGE("Finished cleaning up.\n");
     return msg;
@@ -1711,6 +1719,7 @@ str
         if (!pyapiInitialized) {
             char* iar = NULL;
             Py_Initialize();
+            PyByteArray_Override();
             //PyEval_InitThreads();
             import_array1(iar);
             PyRun_SimpleString("import numpy");
@@ -1737,7 +1746,7 @@ bool PyType_IsPyScalar(PyObject *object)
     descr = PyArray_DescrFromScalar(object);
     if (descr == NULL) return false;
     if (descr->type_num != NPY_OBJECT) return true; //check if the object is a numpy scalar
-    if (PyInt_Check(object) || PyFloat_Check(object) || PyLong_Check(object) || PyString_Check(object) || PyBool_Check(object) || PyUnicode_Check(object)) return true;
+    if (PyInt_Check(object) || PyFloat_Check(object) || PyLong_Check(object) || PyString_Check(object) || PyBool_Check(object) || PyUnicode_Check(object) || PyByteArray_Check(object)) return true;
 
     return false;
 }

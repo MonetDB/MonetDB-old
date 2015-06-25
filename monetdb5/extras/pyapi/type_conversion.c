@@ -330,6 +330,8 @@ bool py_to_##type(PyObject *ptr, type *value)                                   
         return true;                                                                                             \
     } else if (PyString_Check(ptr)) {                                                                            \
         return s_to_##type(((PyStringObject*)ptr)->ob_sval, strlen(((PyStringObject*)ptr)->ob_sval), value);     \
+    }  else if (PyByteArray_Check(ptr)) {                                                                        \
+        return s_to_##type(((PyByteArrayObject*)ptr)->ob_bytes, strlen(((PyByteArrayObject*)ptr)->ob_bytes), value);\
     } else if (PyUnicode_Check(ptr)) {                                                                           \
         return utf32_to_##type(((PyUnicodeObject*)ptr)->str, value);                                             \
     }                                                                                                            \

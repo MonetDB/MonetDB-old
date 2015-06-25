@@ -31,7 +31,7 @@ stderr of test 'pyapi_pandas` in directory 'monetdb5/extras/pyapi` itself:
 # 19:41:50 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-7261" "--port=31934"
 # 19:41:50 >  
 
-MAPI  = (monetdb) /var/tmp/mtest-16516/.s.monetdb.30115
+MAPI  = (monetdb) /var/tmp/mtest-30203/.s.monetdb.31030
 QUERY = (r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"import pandas as pd\ndf = pd.DataFrame({\'Group\': arg1, \'Values\': arg2, 'Values2': arg2})\nreturn(df)", g, c);
 ERROR = !MALException:pyapi.eval:An array of size 3 was returned, yet we expect a list of 2 columns. The result is invalid.
 

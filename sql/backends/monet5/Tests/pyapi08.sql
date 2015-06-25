@@ -1055,8 +1055,8 @@ CREATE FUNCTION numpy_distance(stt string, tss bigint, lat double, lon double, a
 	            otheridx = it2.index
 	        it2.iternext()
 	    if mindist < distlimit:
-		    rets1 = numpy.append(rets1, stt[it.index])
-		    rets2 = numpy.append(rets2, stt[otheridx])
+		    rets1 = numpy.append(rets1, str(stt[it.index]))
+		    rets2 = numpy.append(rets2, str(stt[otheridx]))
 		    retts = numpy.append(retts, int(it[0]/1000))
 		    retmd = numpy.append(retmd, int(mindist))
 	    it.iternext()

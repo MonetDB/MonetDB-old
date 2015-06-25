@@ -64,6 +64,9 @@ bool py_to_hge(PyObject *ptr, hge *value);
 PyObject *PyLong_FromHge(hge h);
 #endif
 
+//! Create a PyByteArray from a reference to a string. NOTE: The string is not actually copied
+PyObject *PyByteArray_FromString(char *str);
+void PyByteArray_Override(void);
 
 //using macros, create a number of str_to_<type>, unicode_to_<type> and pyobject_to_<type> functions (we are Java now)
 #define CONVERSION_FUNCTION_HEADER_FACTORY(tpe)          \

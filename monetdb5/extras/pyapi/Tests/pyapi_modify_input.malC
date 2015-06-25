@@ -1,0 +1,34 @@
+
+# a number of operations that might not work properly with byte arrays
+# basic strings
+bstr:= bat.new(:oid,:str);
+bat.append(bstr,"asdf":str);
+bat.append(bstr,"sd asd asd asd asd a":str);
+bat.append(bstr,"1234":str);
+bat.append(bstr,"test":str);
+
+# we are not allowed to change the value of the input BAT from within python code, check if this is possible with byte array operations
+# setitem
+rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"arg1[0].__setitem__(0,'a')\nreturn(arg1)",bstr);
+# subscript
+rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"arg1[0][0]='d'\nreturn(arg1)",bstr);
+# reverse
+rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"arg1[0].reverse()\nreturn(arg1)",bstr);
+# replace
+rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"arg1[0].replace('a','d')\nreturn(arg1)",bstr);
+# remove
+rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"a = arg1[0].remove('a')\nreturn(arg1)",bstr);
+# delete
+rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"a = arg1[0]\ndel a\nreturn(arg1)",bstr);
+# pop
+rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"a = arg1[0].pop()\nreturn(arg1)",bstr);
+io.print(bstr);
+
+#try the same with other types just to be sure
+a:= bat.new(:oid,:int);
+bat.append(a,1:int);
+bat.append(a,2:int);
+bat.append(a,3:int);
+bat.append(a,4:int);
+result:bat[:oid,:int] := pyapi.eval(nil:ptr, "arg1[0]=4\nreturn(arg1)", a);
+io.print(a);
