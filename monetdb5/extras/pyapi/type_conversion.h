@@ -43,11 +43,11 @@ bool s_to_dbl(char *ptr, size_t size, dbl *value);
 //! Converts a base-10 string to a lng value
 bool s_to_lng(char *ptr, size_t size, lng *value);
 //! Converts a base-10 utf32-encoded string to a lng value
-bool utf32_to_lng(uint32_t *utf32, lng *value);
+bool utf32_to_lng(Py_UNICODE *utf32, lng *value);
 //! Converts a base-10 utf32-encoded string to a dbl value
-bool utf32_to_dbl(uint32_t *utf32, dbl *value);
+bool utf32_to_dbl(Py_UNICODE *utf32, dbl *value);
 //! Converts a base-10 utf32-encoded string to a hge value
-bool utf32_to_hge(uint32_t *utf32, hge *value);
+bool utf32_to_hge(Py_UNICODE *utf32, hge *value);
 //! Converts a PyObject to a dbl value
 bool py_to_dbl(PyObject *ptr, dbl *value);
 //! Converts a PyObject to a lng value

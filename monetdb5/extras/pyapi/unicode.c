@@ -21,7 +21,7 @@ int utf8_strlen(const char *utf8_str, bool *ascii)
     return utf8_char_count;
 }
 
-int utf32_strlen(const uint32_t *utf32_str)
+int utf32_strlen(const Py_UNICODE *utf32_str)
 {
 	size_t i = 0;
 	while(utf32_str[i] != 0)
@@ -39,7 +39,7 @@ int utf8_length(unsigned char utf8_char)
     else return -1; //invalid utf8 character, the maximum value of the first byte is 0b11110111
 }
 
-int utf32_char_to_utf8_char(size_t position, char *utf8_storage, uint32_t utf32_char)
+int utf32_char_to_utf8_char(size_t position, char *utf8_storage, Py_UNICODE utf32_char)
 {
     int utf8_size = 4;
     if      (utf32_char < 0x80)        utf8_size = 1;
@@ -70,7 +70,7 @@ int utf32_char_to_utf8_char(size_t position, char *utf8_storage, uint32_t utf32_
     }
 }
 
-bool utf32_to_utf8(size_t offset, size_t size, char *utf8_storage, const uint32_t *utf32)
+bool utf32_to_utf8(size_t offset, size_t size, char *utf8_storage, const Py_UNICODE *utf32)
 {
     size_t i = 0;
     int position = 0;
@@ -91,7 +91,7 @@ bool utf32_to_utf8(size_t offset, size_t size, char *utf8_storage, const uint32_
 }
 
 
-int utf8_char_to_utf32_char(size_t position, uint32_t *utf32_storage, int offset, const unsigned char *utf8_char)
+int utf8_char_to_utf32_char(size_t position, Py_UNICODE *utf32_storage, int offset, const unsigned char *utf8_char)
 {
     unsigned char bytes[4];
     int utf8_size = 4;
@@ -141,7 +141,7 @@ int utf8_char_to_utf32_char(size_t position, uint32_t *utf32_storage, int offset
     }
 }
 
-bool utf8_to_utf32(size_t offset, size_t size, uint32_t *utf32_storage, const unsigned char *utf8)
+bool utf8_to_utf32(size_t offset, size_t size, Py_UNICODE *utf32_storage, const unsigned char *utf8)
 {
     size_t i = 0;
     int position = 0;

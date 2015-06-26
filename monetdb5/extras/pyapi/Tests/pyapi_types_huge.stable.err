@@ -26,14 +26,6 @@ stderr of test 'pyapi_types_huge` in directory 'monetdb5/extras/pyapi` itself:
 # cmdline opt 	embedded_r = true
 # cmdline opt 	embedded_py = true
 # cmdline opt 	gdk_debug = 536870922
-!PERFORMANCE WARNING: Type "hge" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type "PyLong". This means a python object is constructed for every huge integer and the entire column is copied.
-!PERFORMANCE WARNING: Type "hge" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type "PyLong". This means a python object is constructed for every huge integer and the entire column is copied.
-!PERFORMANCE WARNING: Type "hge" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type "PyLong". This means a python object is constructed for every huge integer and the entire column is copied.
-!PERFORMANCE WARNING: Type "hge" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type "PyLong". This means a python object is constructed for every huge integer and the entire column is copied.
-!PERFORMANCE WARNING: Type "hge" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type "PyLong". This means a python object is constructed for every huge integer and the entire column is copied.
-!PERFORMANCE WARNING: Type "hge" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type "PyLong". This means a python object is constructed for every huge integer and the entire column is copied.
-!PERFORMANCE WARNING: Type "hge" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type "PyLong". This means a python object is constructed for every huge integer and the entire column is copied.
-!PERFORMANCE WARNING: Type "hge" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type "PyLong". This means a python object is constructed for every huge integer and the entire column is copied.
 
 # 00:29:47 >  
 # 00:29:47 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-30800" "--port=32717"

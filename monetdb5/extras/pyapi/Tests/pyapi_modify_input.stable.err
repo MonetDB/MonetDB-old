@@ -31,23 +31,23 @@ stderr of test 'pyapi_modify_input` in directory 'monetdb5/extras/pyapi` itself:
 # 12:27:29 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-30203" "--port=31030"
 # 12:27:29 >  
 
-MAPI  = (monetdb) /var/tmp/mtest-30203/.s.monetdb.31030
+MAPI  = (monetdb) /var/tmp/mtest-10930/.s.monetdb.36894
 QUERY = rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"arg1[0][0]='d'\nreturn(arg1)",bstr);
 ERROR = !MALException:pyapi.eval:Python exception
         !This ByteArray references to a BAT in the database, you may not assign to it.
-MAPI  = (monetdb) /var/tmp/mtest-30203/.s.monetdb.31030
+MAPI  = (monetdb) /var/tmp/mtest-10930/.s.monetdb.36894
 QUERY = rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"arg1[0].reverse()\nreturn(arg1)",bstr);
 ERROR = !MALException:pyapi.eval:Python exception
         !This ByteArray references to a BAT in the database, you may not reverse it.
-MAPI  = (monetdb) /var/tmp/mtest-30203/.s.monetdb.31030
+MAPI  = (monetdb) /var/tmp/mtest-10930/.s.monetdb.36894
 QUERY = rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"a = arg1[0].remove('a')\nreturn(arg1)",bstr);
 ERROR = !MALException:pyapi.eval:Python exception
         !This ByteArray references to a BAT in the database, you may not remove anything from it.
-MAPI  = (monetdb) /var/tmp/mtest-30203/.s.monetdb.31030
+MAPI  = (monetdb) /var/tmp/mtest-10930/.s.monetdb.36894
 QUERY = rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"a = arg1[0].pop()\nreturn(arg1)",bstr);
 ERROR = !MALException:pyapi.eval:Python exception
         !This ByteArray references to a BAT in the database, you may not remove anything from it.
-MAPI  = (monetdb) /var/tmp/mtest-30203/.s.monetdb.31030
+MAPI  = (monetdb) /var/tmp/mtest-10930/.s.monetdb.36894
 QUERY = result:bat[:oid,:int] := pyapi.eval(nil:ptr, "arg1[0]=4\nreturn(arg1)", a);
 ERROR = !MALException:pyapi.eval:Python exception
         !assignment destination is read-only

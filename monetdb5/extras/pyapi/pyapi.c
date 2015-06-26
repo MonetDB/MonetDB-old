@@ -30,6 +30,7 @@
 #include "type_conversion.h"
 
 //#define _PYAPI_VERBOSE_
+//#define _PYAPI_WARNINGS_
 #define _PYAPI_DEBUG_
 
 #include <stdint.h>
@@ -58,6 +59,16 @@ const char* debug_enableflag = "enable_pydebug";
 #else
 #define VERBOSE_MESSAGE(...) ((void) 0)
 #endif
+
+#ifdef _PYAPI_WARNINGS_
+#define WARNING_MESSAGE(...) {   \
+    fprintf(stderr, __VA_ARGS__);        \
+    fflush(stdout);                   \
+}
+#else
+#define WARNING_MESSAGE(...) ((void) 0)
+#endif
+
 
 #define GDK_Alloc(var, size) { \
     var = GDKzalloc(size);  \
@@ -274,13 +285,13 @@ static int pyapiInitialized = FALSE;
             if (ret->numpy_array == NULL)                                                                                                                      \
             {                                                                                                                                                  \
                 /*shared memory return*/                                                                                                                       \
-                VERBOSE_MESSAGE("- Shared memory map!\n");                                                                                                     \
+                VERBOSE_MESSAGE("- Zero copy (shared memory)!\n");                                                                                                     \
                 BAT_MMAP(bat, mtpe, STORE_SHARED);                                                                                                             \
                 ret->array_data = NULL;                                                                                                                        \
             }                                                                                                                                                  \
             else                                                                                                                                               \
             {                                                                                                                                                  \
-                VERBOSE_MESSAGE("- Memory map!\n");                                                                                                            \
+                VERBOSE_MESSAGE("- Zero copy!\n");                                                                                                            \
                 BAT_MMAP(bat, mtpe, STORE_CMEM);                                                                                                               \
             }                                                                                                                                                  \
         }                                                                                                                                                      \
@@ -288,6 +299,8 @@ static int pyapiInitialized = FALSE;
         {                                                                                                                                                      \
             bat = BATnew(TYPE_void, TYPE_##mtpe, ret->count, TRANSIENT);                                                                                       \
             BATseqbase(bat, seqbase); bat->T->nil = 0; bat->T->nonil = 1;                                                                                      \
+            if (TYPE_##mtpe != TYPE_hge) WARNING_MESSAGE("!PERFORMANCE WARNING: You are returning a Numpy Array of type %s, which has to be converted to a BAT of type %s. If you return a Numpy\
+Array of type %s no copying will be needed.\n", PyType_Format(ret->result_type), BatType_Format(TYPE_##mtpe), PyType_Format(BatType_ToPyType(TYPE_##mtpe))); \
             bat->tkey = 0; bat->tsorted = 0; bat->trevsorted = 0;                                                                                              \
             switch(ret->result_type)                                                                                                                           \
             {                                                                                                                                                  \
@@ -948,8 +961,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                                 goto wrapup;
                             }
                             PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), obj);
-                            //PyObject *obj2 = PyArray_GETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j));
-                            //printf("%s\n", (PyStringObject*)obj2)
                         }
                         if (j == t_end) break;
                         j++;
@@ -975,7 +986,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                     NULL);
 
                 j = 0;
-                fprintf(stderr, "!PERFORMANCE WARNING: Type \"hge\" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type \"PyLong\". This means a python object is constructed for every huge integer and the entire column is copied.\n");
+                WARNING_MESSAGE("!PERFORMANCE WARNING: Type \"hge\" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type \"PyLong\". This means a python object is constructed for every huge integer and the entire column is copied.\n");
                 BATloop(b, p, q) {
                     PyObject *obj;
                     const hge *t = (const hge *) BUNtail(li, p);

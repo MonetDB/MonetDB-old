@@ -69,13 +69,13 @@ Ready.
 % L2 # name
 % double # type
 % 24 # length
-[ 2507	]
+[ 2507.2468	]
 #SELECT AVG(pyapi10_mult(i,j)) FROM pyapi10_random_table_nulls(5000);
 % .L2 # table_name
 % L2 # name
 % double # type
 % 24 # length
-[ 5661	]
+[ 5661.349765	]
 #DROP FUNCTION pyapi10_random_table;
 #DROP FUNCTION pyapi10_mult;
 #ROLLBACK;

@@ -205,7 +205,7 @@ bool s_to_dbl(char *ptr, size_t size, dbl *value)
 }
 
 
-bool utf32_to_lng(uint32_t *utf32, lng *value)
+bool utf32_to_lng(Py_UNICODE *utf32, lng *value)
 {
     size_t length = utf32_strlen(utf32);
     int i = length;
@@ -236,7 +236,7 @@ bool utf32_to_lng(uint32_t *utf32, lng *value)
     return true;
 }
 
-bool utf32_to_dbl(uint32_t *utf32, dbl *value)
+bool utf32_to_dbl(Py_UNICODE *utf32, dbl *value)
 {
     size_t length = utf32_strlen(utf32);
     int i = length;
@@ -268,7 +268,7 @@ bool utf32_to_dbl(uint32_t *utf32, dbl *value)
 }
 
 #ifdef HAVE_HGE
-bool utf32_to_hge(uint32_t *utf32, hge *value)
+bool utf32_to_hge(Py_UNICODE *utf32, hge *value)
 {
     size_t length = utf32_strlen(utf32);
     int i = length;
@@ -399,7 +399,7 @@ bool py_to_dbl(PyObject *ptr, dbl *value)
     {                                                              \
         strval val;                                                \
         (void) size;                                               \
-        if (!utf32_to_##strval((uint32_t*)ptr, &val)) return false;         \
+        if (!utf32_to_##strval((Py_UNICODE*)ptr, &val)) return false;         \
         *value = (tpe)val;                                         \
         return true;                                               \
     }                                                              \
