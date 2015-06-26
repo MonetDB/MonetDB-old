@@ -2,7 +2,7 @@
 
 HAVE_LIBPY?pyapi_types_huge
 HAVE_LIBPY?pyapi_returntypes
-HAVE_LIBPY?pyapi_pandas
+HAVE_LIBPANDAS?pyapi_pandas
 HAVE_LIBPY?pyapi_types_string
 HAVE_LIBPY?pyapi_numpy_boolean
 HAVE_LIBPY?pyapi_types_numeric

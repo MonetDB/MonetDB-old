@@ -270,33 +270,37 @@ bool utf32_to_dbl(Py_UNICODE *utf32, dbl *value)
 #ifdef HAVE_HGE
 bool utf32_to_hge(Py_UNICODE *utf32, hge *value)
 {
-    size_t length = utf32_strlen(utf32);
-    int i = length;
-    size_t factor = 1;
-    *value = 0;
-    for( ; i >= 0; i--)
-    {
-        switch(utf32[i])
-        {
-            case '0': break;
-            case '1': *value += factor; break;
-            case '2': *value += 2 * factor; break;
-            case '3': *value += 3 * factor; break;
-            case '4': *value += 4 * factor; break;
-            case '5': *value += 5 * factor; break;
-            case '6': *value += 6 * factor; break;
-            case '7': *value += 7 * factor; break;
-            case '8': *value += 8 * factor; break;
-            case '9': *value += 9 * factor; break;
-            case '-': *value *= -1; break;
-            case '.':
-            case ',': *value = 0; factor = 1; continue;
-            case '\0': continue;
-            default: return false;
-        }
-        factor *= 10;
-    }
-    return true;
+    //size_t length = utf32_strlen(utf32);
+    char utf8[200];
+    utf32_to_utf8(0, 200, utf8, utf32);
+    return s_to_hge(utf8, strlen(utf8), value);
+    
+    // int i = length;
+    // size_t factor = 1;
+    // *value = 0;
+    // for( ; i >= 0; i--)
+    // {
+    //     switch(utf32[i])
+    //     {
+    //         case '0': break;
+    //         case '1': *value += factor; break;
+    //         case '2': *value += 2 * factor; break;
+    //         case '3': *value += 3 * factor; break;
+    //         case '4': *value += 4 * factor; break;
+    //         case '5': *value += 5 * factor; break;
+    //         case '6': *value += 6 * factor; break;
+    //         case '7': *value += 7 * factor; break;
+    //         case '8': *value += 8 * factor; break;
+    //         case '9': *value += 9 * factor; break;
+    //         case '-': *value *= -1; break;
+    //         case '.':
+    //         case ',': *value = 0; factor = 1; continue;
+    //         case '\0': continue;
+    //         default: return false;
+    //     }
+    //     factor *= 10;
+    // }
+    //return true;
 }
 #endif
 
@@ -361,6 +365,13 @@ PyObject *PyLong_FromHge(hge h)
     }
     if (h < 0) Py_SIZE(z) = -(Py_SIZE(z));
     return (PyObject*) z;
+}
+
+void printhuge(hge h)
+{
+    char s[80];
+    hge_to_string(s, h);
+    printf("%s\n", s);
 }
 #endif
 

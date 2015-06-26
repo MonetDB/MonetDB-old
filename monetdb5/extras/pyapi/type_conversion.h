@@ -62,6 +62,8 @@ bool s_to_hge(char *ptr, size_t size, hge *value);
 bool py_to_hge(PyObject *ptr, hge *value);
 //! Create a PyLongObject from a hge integer
 PyObject *PyLong_FromHge(hge h);
+
+void printhuge(hge h);
 #endif
 
 
