@@ -384,7 +384,9 @@ SQLpersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
 
-	if (sql->session->auto_commit != 0)
+	/* If update flag is set, persistcommit does not throw and exception in autocommit,
+	 * since it was probably executed after a precommit with no-update transaction. */
+	if (sql->session->auto_commit != 0 && sql->update > 0)
 		throw(SQL, "sql.persistcommit", "persistcommit not allowed in auto commit mode");
 
 	/* execute the persistcommit */

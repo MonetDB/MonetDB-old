@@ -133,6 +133,7 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output, res_ta
 		if (!m->sa)
 			m->sa = sa_create();
 		m->sym = NULL;
+		m->update = 0;
 		if ((err = sqlparse(m)) ||
 		    /* Only forget old errors on transaction boundaries */
 		    (mvc_status(m) && m->type != Q_TRANS) || !m->sym) {

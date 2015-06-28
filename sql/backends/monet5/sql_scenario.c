@@ -1010,7 +1010,6 @@ SQLparser(Client c)
 #endif
 	m = be->mvc;
 	m->type = Q_PARSE;
-	m->update = 0;
 	SQLtrans(m);
 	pstatus = m->session->status;
 
