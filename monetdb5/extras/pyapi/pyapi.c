@@ -953,6 +953,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                         NULL);
 
                     if (!option_alwaysunicode) {
+                        j = 0;
                         BATloop(b, p, q) {
                             if (j >= t_start) {
                                 bool ascii;
@@ -967,6 +968,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                     }
                     j = 0;
 
+                    j = 0;
                     BATloop(b, p, q)
                     {
                         if (j >= t_start) {
@@ -1580,7 +1582,7 @@ returnvalues:
                             }  else {
                                 if (!string_copy(&data[(index_offset * ret->count + iu) * ret->memory_size], utf8_string, ret->memory_size)) {
                                     msg = createException(MAL, "pyapi.eval", "Invalid string encoding used. Please return a regular ASCII string, or a Numpy_Unicode object.\n");       
-                                    goto wrapup;    
+                                    goto wrapup;
                                 }
                                 BUNappend(b, utf8_string, FALSE); 
                             }                                                       

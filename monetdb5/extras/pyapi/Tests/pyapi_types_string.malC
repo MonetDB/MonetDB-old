@@ -18,13 +18,13 @@ rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"return(arg1)",bstr);
 io.print(rstr);
 
 # unicode strings
-bstr:= bat.new(:oid,:str);
-bat.append(bstr,"Hannes Mühleisen":str);
-bat.append(bstr,"héllo":str);
-bat.append(bstr,"éáú üüäãö":str);
-bat.append(bstr,"幺巾乡阜阝测试一些中国符号":str);
-bat.append(bstr,"いくつかの日本のシンボルをテストします":str);
-rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"return(arg1)",bstr);
+astr:= bat.new(:oid,:str);
+bat.append(astr,"Hannes Mühleisen":str);
+bat.append(astr,"héllo":str);
+bat.append(astr,"éáú üüäãö":str);
+bat.append(astr,"幺巾乡阜阝测试一些中国符号":str);
+bat.append(astr,"いくつかの日本のシンボルをテストします":str);
+rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"return(arg1)",astr);
 io.print(rstr);
 
 # return python strings

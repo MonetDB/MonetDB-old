@@ -1805,7 +1805,7 @@ BBPinsert(BATstore *bs)
 
 	/* critical section: get a new BBP entry */
 	if (lock) {
-		MT_lock_set(&GDKtrimLock(idx), "BBPreplace");
+		MT_lock_set(&GDKtrimLock(idx), "BBPinsert");
 		MT_lock_set(&GDKcacheLock(idx), "BBPinsert");
 	}
 
@@ -1838,7 +1838,7 @@ BBPinsert(BATstore *bs)
 
 	if (lock) {
 		MT_lock_unset(&GDKcacheLock(idx), "BBPinsert");
-		MT_lock_unset(&GDKtrimLock(idx), "BBPreplace");
+		MT_lock_unset(&GDKtrimLock(idx), "BBPinsert");
 	}
 	/* rest of the work outside the lock , as GDKstrdup/GDKmalloc
 	 * may trigger a BBPtrim */
@@ -1850,7 +1850,7 @@ BBPinsert(BATstore *bs)
 	bs->BM.batCacheid = -i;
 	bs->S.tid = MT_getpid();
 
-	BBP_status_set(i, BBPDELETING, "BBPentry");
+	BBP_status_set(i, BBPDELETING, "BBPinsert");
 	BBP_cache(i) = NULL;
 	BBP_desc(i) = NULL;
 	BBP_refs(i) = 1;	/* new bats have 1 pin */
@@ -3530,6 +3530,10 @@ BBPsync(int cnt, bat *subcommit)
 			backup_dir = backup_subdir = 0;
 			(void) GDKremovedir(0, DELDIR);
 			(void) BBPprepare(0);	/* (try to) remove DELDIR and set up new BAKDIR */
+			if (backup_files > 1) {
+				PERFDEBUG fprintf(stderr, "%d\n", backup_files);
+				backup_files = 1;
+			}
 		}
 	}
 	PERFDEBUG fprintf(stderr, "#BBPsync (ready time %d)\n", (t0 = GDKms()) - t1);
