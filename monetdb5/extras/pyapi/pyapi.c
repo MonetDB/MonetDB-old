@@ -140,11 +140,23 @@ static MT_Lock pyapiLock;
 static MT_Lock pyapiSluice;
 static int pyapiInitialized = FALSE;
 
+
+#define bte_TO_PYSCALAR(mtpe, value) PyInt_FromLong((lng)value)
+#define bit_TO_PYSCALAR(mtpe, value) PyInt_FromLong((lng)value)
+#define sht_TO_PYSCALAR(mtpe, value) PyInt_FromLong((lng)value)
+#define int_TO_PYSCALAR(mtpe, value) PyInt_FromLong((lng)value)
+#define lng_TO_PYSCALAR(mtpe, value) PyLong_FromLong(value)
+#define flt_TO_PYSCALAR(mtpe, value) PyFloat_FromDouble(value)
+#define dbl_TO_PYSCALAR(mtpe, value) PyFloat_FromDouble(value)
+
+#define SCALAR_TO_PYSCALAR(mtpe, value) mtpe##_TO_PYSCALAR(mtpe, value)
+    
+
 #define BAT_TO_NP(bat, mtpe, nptpe)                                                                                                 \
         if (!option_zerocopyinput) {                                                                                                \
             vararray = PyArray_Zeros(1, (npy_intp[1]) {(t_end-t_start)}, PyArray_DescrFromType(nptpe), 0);                          \
-            for(i = t_start; i < t_end; i++) {                                                                                     \
-                ((mtpe*)PyArray_DATA((PyArrayObject*)vararray))[i - t_start] = ((mtpe*) Tloc(bat, BUNfirst(bat)))[i];               \
+            for(j = t_start; j < t_end; j++) {                                                                                     \
+                PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), SCALAR_TO_PYSCALAR(mtpe, ((mtpe*) Tloc(bat, BUNfirst(bat)))[j]));                      \
             }                                                                                                                       \
         } else {                                                                                                                    \
             vararray = PyArray_New(&PyArray_Type, 1, (npy_intp[1]) {(t_end-t_start)},                                               \
@@ -224,7 +236,6 @@ static int pyapiInitialized = FALSE;
                 msg = createException(MAL, "pyapi.eval", "Could not convert from type %s to type %s", PyType_Format(ret->result_type), #mtpe_to);     \
                 goto wrapup;                                                                                                                          \
             }                                                                                                                                         \
-                            /*printhuge(value);*/\
             ((mtpe_to*) Tloc(bat, BUNfirst(bat)))[iu] = value;                                                                                        \
         }                                                                                                                                             \
     }                                                                                                                                                 \
@@ -406,7 +417,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     bool option_debug = GDKgetenv_isyes(debug_enableflag) || GDKgetenv_istrue(debug_enableflag);
     (void) option_verbose; (void) option_debug;
     //These flags are for testing purposes, they shouldn't be used for normal purposes
-    bool option_zerocopyinput = !(GDKgetenv_isyes(zerocopyinput_disableflag) || GDKgetenv_istrue(zerocopyinput_disableflag)); //the program breaks when this is set to true and passing more than one BAT to a function, but it's just for testing and shouldn't be used outside of that anyway
+    bool option_zerocopyinput = !(GDKgetenv_isyes(zerocopyinput_disableflag) || GDKgetenv_istrue(zerocopyinput_disableflag));
     bool option_zerocopyoutput = !(GDKgetenv_isyes(zerocopyoutput_disableflag) || GDKgetenv_istrue(zerocopyoutput_disableflag));
     bool option_numpy_string_array = GDKgetenv_isyes(numpy_string_array_enableflag) || GDKgetenv_istrue(numpy_string_array_enableflag);
     bool option_bytearray = !(GDKgetenv_isyes(bytearray_disableflag) || GDKgetenv_istrue(bytearray_disableflag));
