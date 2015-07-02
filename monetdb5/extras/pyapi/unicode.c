@@ -44,9 +44,12 @@ int utf32_char_to_utf8_char(size_t position, char *utf8_storage, Py_UNICODE utf3
     int utf8_size = 4;
     if      (utf32_char < 0x80)        utf8_size = 1;
     else if (utf32_char < 0x800)       utf8_size = 2;
+#if Py_UNICODE_SIZE >= 4
     else if (utf32_char < 0x10000)     utf8_size = 3;
     else if (utf32_char > 0x0010FFFF)  return -1; //utf32 character is out of legal range
-
+#else 
+    else if (utf32_char >= 0x10000)     return -1; //utf16 character is out of legal range
+#endif
     switch(utf8_size)
     {
         case 4:
@@ -102,6 +105,13 @@ int utf8_char_to_utf32_char(size_t position, Py_UNICODE *utf32_storage, int offs
     else if (bytes[0] < 0b11110000) utf8_size = 3;
     else if (bytes[0] < 0b11111000) utf8_size = 4;
     else return -1; //invalid utf8 character, the maximum value of the first byte is 0b11110111
+
+#if Py_UNICODE_SIZE == 2
+    if (utf8_size > 2) {
+        //utf-8 character out of range on a UCS2 python compilation
+        return -1;
+    }
+#endif
 
     switch(utf8_size)
     {

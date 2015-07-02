@@ -156,7 +156,7 @@ static int pyapiInitialized = FALSE;
         if (!option_zerocopyinput) {                                                                                                \
             vararray = PyArray_Zeros(1, (npy_intp[1]) {(t_end-t_start)}, PyArray_DescrFromType(nptpe), 0);                          \
             for(j = t_start; j < t_end; j++) {                                                                                     \
-                PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), SCALAR_TO_PYSCALAR(mtpe, ((mtpe*) Tloc(bat, BUNfirst(bat)))[j]));                      \
+                PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j - t_start), SCALAR_TO_PYSCALAR(mtpe, ((mtpe*) Tloc(bat, BUNfirst(bat)))[j]));                      \
             }                                                                                                                       \
         } else {                                                                                                                    \
             vararray = PyArray_New(&PyArray_Type, 1, (npy_intp[1]) {(t_end-t_start)},                                               \
@@ -1547,7 +1547,7 @@ returnvalues:
             {
                 bool *mask = NULL;   
                 char *data = NULL;  
-                char *utf8_string; 
+                char *utf8_string = NULL;
                 if (ret->mask_data != NULL)   
                 {   
                     mask = (bool*)ret->mask_data;   
