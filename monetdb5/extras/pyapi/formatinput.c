@@ -9,13 +9,20 @@
 #include "gdk_utils.h"
 #include "gdk.h"
 
+
+//! Parse a PyCodeObject from a string, the string is expected to be in the format {@<encoded_function>};, where <encoded_function> is all the PyCodeObject properties in order
+PyObject *PyCodeObject_ParseString(char *string);
+
 char* GetArg(char *string, char *storage, int index);
 char* GetArg(char *string, char *storage, int index)
 {
     int i, j = 0, k = 0;
+    int brackets = 0;
     int length = strlen(string);
     for(i = 2; i < length; i++) {
-        if (string[i] == '@') {
+        if (string[i] == '(') brackets++;
+        else if (string[i] == ')') brackets--;
+        if (brackets == 0 && string[i] == '@') {
             j++;
             if (j > index) {
                 storage[k] = '\0';
@@ -63,43 +70,61 @@ PyObject *GetConstantObject(char *string, char *storage)
     PyObject *result;
     bool type = false;
     char type_str[100];
+    int brackets = 0;
     //first get the amount of constant objects
     for(i = 0; i < length; i++) {
+        if (string[i] == '(') brackets++;
         if (string[i] == ')') {
-            numbers++;
+            brackets--;
+            if (brackets == 0) numbers++;
         }
     }
+    if (brackets != 0) {
+        //invalid number of brackets
+        return NULL;
+    }
+
     //then create the python tuple and fill it with the actual python objects
     result = PyTuple_New(numbers);
-    for(i = 1; i < length; i++) {
-        if (string[i] == ')' || i == length - 1) {
-            PyObject *object = NULL;
-            storage[k] = '\0';
-            //parse object type
-            if (strcmp(type_str, "NoneType") == 0) {
-                object = Py_None;
-            } else if (strcmp(type_str, "int") == 0) {
-                object = PyInt_FromString(storage, NULL, 0);
-            } else if (strcmp(type_str, "long") == 0) {
-                object = PyLong_FromString(storage, NULL, 0);
-            } else if (strcmp(type_str, "float") == 0) {
-                dbl d;
-                str_to_dbl(storage, strlen(storage), &d);
-                object = PyFloat_FromDouble(d);
-            } else if (strcmp(type_str, "str") == 0) {
-                object = PyString_FromString(storage);
-            } else if (strcmp(type_str, "unicode") == 0) {
-                object = PyUnicode_FromString(storage);
-            } else {
-                printf("ERROR: Unrecognized type %s!", type_str);
-                return NULL;
-            }
-            PyTuple_SetItem(result, j, object);
+    for(i = 0; i < length; i++) {
+        if (string[i] == '(') brackets++;
+        if (string[i] == ')') {
+            brackets--;
+            if (brackets == 0) {
+                PyObject *object = NULL;
+                storage[k] = '\0';
+                //parse object type
+                if (strcmp(type_str, "NoneType") == 0) {
+                    object = Py_None;
+                } else if (strcmp(type_str, "int") == 0) {
+                    object = PyInt_FromString(storage, NULL, 0);
+                } else if (strcmp(type_str, "long") == 0) {
+                    object = PyLong_FromString(storage, NULL, 0);
+                } else if (strcmp(type_str, "float") == 0) {
+                    dbl d;
+                    str_to_dbl(storage, strlen(storage), &d);
+                    object = PyFloat_FromDouble(d);
+                } else if (strcmp(type_str, "str") == 0) {
+                    object = PyString_FromString(storage);
+                } else if (strcmp(type_str, "unicode") == 0) {
+                    object = PyUnicode_FromString(storage);
+                } else if (strcmp(type_str, "code") == 0) {
+                    //recursive call, we've got a function within this function, so we have to parse another code object
+                    object = PyCodeObject_ParseString(storage);
+                } else {
+                    printf("ERROR: Unrecognized type %s!", type_str);
+                    return NULL;
+                }
+                PyTuple_SetItem(result, j, object);
 
-            type = false;
-            i++; j++;
-            k = 0;
-        } else if (string[i] == ':') {
+                type = false;
+                j++;
+                k = 0;    
+                continue;            
+            }
+        } 
+
+        if (string[i] == ':' && !type) {
             type = true;
             type_str[k] = '\0';
             k = 0;
@@ -107,7 +132,9 @@ PyObject *GetConstantObject(char *string, char *storage)
             if (type) {
                 storage[k++] = string[i];
             } else {
-                type_str[k++] = string[i];
+                if (string[i] != '(') {
+                    type_str[k++] = string[i];
+                }
             }
         }
     }
@@ -143,8 +170,6 @@ PyObject* GetStringTuple(char *string, char *storage)
     return result;
 }
 
-//! Parse a PyCodeObject from a string, the string is expected to be in the format {@<encoded_function>};, where <encoded_function> is all the PyCodeObject properties in order
-PyObject *PyCodeObject_ParseString(char *string);
 PyObject *PyCodeObject_ParseString(char *string)
 {
     int argcount, nlocals, stacksize, flags, firstlineno;
@@ -230,7 +255,9 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth, PyOb
 
     indentation_levels = (size_t*)GDKzalloc(max_indentation * sizeof(size_t));
     statements_per_level = (size_t*)GDKzalloc(max_indentation * sizeof(size_t));
-    if (indentation_levels == NULL || statements_per_level == NULL) goto finally;
+    if (indentation_levels == NULL || statements_per_level == NULL) {
+        goto finally;
+    }
 
     // Base function definition size
     // For every argument, add a comma, and add another entry for the '\0'

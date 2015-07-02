@@ -323,7 +323,7 @@ static int pyapiInitialized = FALSE;
         {                                                                                                                                                      \
             bat = BATnew(TYPE_void, TYPE_##mtpe, ret->count, TRANSIENT);                                                                                       \
             BATseqbase(bat, seqbase); bat->T->nil = 0; bat->T->nonil = 1;                                                                                      \
-            if (TYPE_##mtpe != TYPE_hge) WARNING_MESSAGE("!PERFORMANCE WARNING: You are returning a Numpy Array of type %s, which has to be converted to a BAT of type %s. If you return a Numpy\
+            if (TYPE_##mtpe != TYPE_hge  && TYPE_##mtpe != PyType_ToBat(ret->result_type)) WARNING_MESSAGE("!PERFORMANCE WARNING: You are returning a Numpy Array of type %s, which has to be converted to a BAT of type %s. If you return a Numpy\
 Array of type %s no copying will be needed.\n", PyType_Format(ret->result_type), BatType_Format(TYPE_##mtpe), PyType_Format(BatType_ToPyType(TYPE_##mtpe))); \
             bat->tkey = 0; bat->tsorted = 0; bat->trevsorted = 0;                                                                                              \
             switch(ret->result_type)                                                                                                                           \

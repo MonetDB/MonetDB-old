@@ -1,15 +1,10 @@
 
 #include "shared_memory.h"
 
-#ifndef false
-#define false 0
-#endif
-
-#ifndef true
-#define true 1
-#endif
-
 #ifndef _WIN32
+
+#include "monetdb_config.h"
+#include "gdk.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -26,9 +21,6 @@
 #include <sched.h>
 #include <errno.h>
 #include <sys/sem.h>
-
-#include "monetdb_config.h"
-#include "gdk.h"
 
 static int *shm_memory_ids;
 static void **shm_ptrs;
@@ -258,6 +250,14 @@ int release_process_semaphore(int sem_id)
 //Windows -> Not yet implemented
 #include <stdio.h>
 #include <stdlib.h>
+
+#ifndef false
+#define false 0
+#endif
+
+#ifndef true
+#define true 1
+#endif
 
 #define NOTIMPLEMENTED() { \
     printf("FATAL ERROR: Shared memory isn't implemented on Windows yet.\n"); \
