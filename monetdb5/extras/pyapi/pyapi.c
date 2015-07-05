@@ -431,7 +431,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     int process_count = 0;
 #endif
 
-    size_t count;
     size_t maxsize;
     int j;
     size_t iu;
@@ -951,7 +950,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 else {
                     bool unicode = option_alwaysunicode;
                     li = bat_iterator(b);
-                    count = inp->count;
                     //create a NPY_OBJECT array object
                     vararray = PyArray_New(
                         &PyArray_Type, 

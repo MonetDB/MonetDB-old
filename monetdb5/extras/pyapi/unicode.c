@@ -47,9 +47,8 @@ int utf32_char_to_utf8_char(size_t position, char *utf8_storage, Py_UNICODE utf3
 #if Py_UNICODE_SIZE >= 4
     else if (utf32_char < 0x10000)     utf8_size = 3;
     else if (utf32_char > 0x0010FFFF)  return -1; //utf32 character is out of legal range
-#else 
-    else if (utf32_char >= 0x10000)     return -1; //utf16 character is out of legal range
 #endif
+    
     switch(utf8_size)
     {
         case 4:

@@ -18,7 +18,7 @@ export OUTPUT_TESTING_NTESTS=10
 
 # String tests
 # Strings of the same length (mb, length)
-export STRINGSAMELENGTH_TESTING_SIZES="(10,1) (10,10) (10,100) (10,1000) (10,1000) (10, 10000) (10, 100000)"
+export STRINGSAMELENGTH_TESTING_SIZES="(10,1) (10,10) (10,100) (10,1000) (10,1000) (10,10000) (10,100000)"
 export STRINGSAMELENGTH_TESTING_NTESTS=10
 # Extreme length string testing (all strings have length 1 except for one string, which has EXTREME length)
 # Arguments are (Extreme Length, String Count)
@@ -46,8 +46,6 @@ export PYTHON_MONETDB_DIR=python-monetdb-$PYTHON_MONETDB_CONNECTOR_VERSION
 export PYTHON_MONETDB_FILE=python-monetdb-$PYTHON_MONETDB_CONNECTOR_VERSION.tar.gz
 export PYTHON_MONETDB_URL=https://pypi.python.org/packages/source/p/python-monetdb/$PYTHON_MONETDB_FILE
 
-# Import test location (a simple python script that returns an exit code of 1 if the import of a library fails)
-export IMPORT_TESTFILE=$PYAPI_MONETDB_DIR/monetdb5/extras/pyapi/Benchmarks/importtest.py
 # Python testfile location
 export PYAPI_TESTFILE=$PYAPI_MONETDB_DIR/monetdb5/extras/pyapi/Benchmarks/monetdb_testing.py
 # Graph file location
@@ -60,7 +58,10 @@ function pyapi_build {
         echo "Failed to create testing directory, exiting..."
         return 1
     fi
-    python $IMPORT_TESTFILE numpy
+    python -c "import numpy"
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
     if [ $? -ne 0 ]; then
         read -p "Failed to load library Numpy. Would you like me to try and install it for you? (y/n):  " -n 1 -r
         echo ""
@@ -75,7 +76,7 @@ function pyapi_build {
             return 1
         fi
     fi
-    python $IMPORT_TESTFILE monetdb.sql
+    python -c "import monetdb.sql"
     if [ $? -ne 0 ]; then
         read -p "Failed to load library MonetDB Python connector. Would you like me to try and install it for you? (y/n):  " -n 1 -r
         echo ""
@@ -239,6 +240,7 @@ function pyapi_graph {
     python $PYAPI_GRAPHFILE "SAVE" "ByteArrayObject vs StringObject" "String Length" "Byte Array Object:string_bytearrayobject.out" "String Object:string_stringobject.out"
 }
 
+
 function pyapi_cleanup {
     read -p "Finished testing, would you like me to remove the test directory $PYAPI_TEST_DIR and everything in it? (y/n):  " -n 1 -r
     echo ""
@@ -261,6 +263,9 @@ function pyapi_test {
                 if [[ $REPLY =~ ^[Yy]$ ]]; then
                     rm -rf $PYAPI_TEST_DIR
                     pyapi_build
+                    if [ $? -ne 0 ]; then
+                        return 1
+                    fi
                 else
                     return 1
                 fi
@@ -270,9 +275,27 @@ function pyapi_test {
         fi
     else
         pyapi_build
+        if [ $? -ne 0 ]; then
+            return 1
+        fi
+    fi
+
+    if ! [[ -a $PYAPI_BUILD_DIR/bin/mserver5 ]]; then 
+        echo "mserver5 not found, building monetdb failed."
+        return 1
     fi
 
     pyapi_run_tests
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
     pyapi_graph
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
     pyapi_cleanup
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
 }
+
