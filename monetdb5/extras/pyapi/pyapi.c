@@ -856,7 +856,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                     //we first loop over all the strings in the BAT to find the maximum length of a single string
                     //this is because NUMPY only supports strings with a fixed maximum length
                     maxsize = 0;
-                    count = inp->count;
                     j = 0;
                     BATloop(b, p, q) {
                         if (j >= t_start) {
@@ -910,7 +909,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                                     msg = createException(MAL, "pyapi.eval", "Failed to decode string as UTF-8.");
                                     goto wrapup;
                                 }
-                                PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), obj);
+                                PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j - t_start), obj);
+                                Py_DECREF(obj);
                             }
                             if (j == t_end) break;
                             j++;
@@ -940,7 +940,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                                     msg = createException(MAL, "pyapi.eval", "Failed to create string.");
                                     goto wrapup;
                                 }
-                                PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), obj);
+                                PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j - t_start), obj);
+                                Py_DECREF(obj);
                             }
                             if (j == t_end) break;
                             j++;
@@ -972,6 +973,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                                 if (strcmp(t, str_nil) == 0) continue;
                                 utf8_strlen(t, &ascii); 
                                 unicode = !ascii || unicode; 
+                                if (unicode) break;
                             }
                             if (j == t_end) break;
                             j++;
@@ -1016,13 +1018,12 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             case TYPE_hge:
             {
                 li = bat_iterator(b);
-                count = inp->count;
 
                 //create a NPY_OBJECT array to hold the huge type
                 vararray = PyArray_New(
                     &PyArray_Type, 
                     1, 
-                    (npy_intp[1]) {count},  
+                    (npy_intp[1]) { t_end - t_start },  
                     NPY_OBJECT, 
                     NULL, 
                     NULL, 
@@ -1033,11 +1034,14 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 j = 0;
                 WARNING_MESSAGE("!PERFORMANCE WARNING: Type \"hge\" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type \"PyLong\". This means a python object is constructed for every huge integer and the entire column is copied.\n");
                 BATloop(b, p, q) {
-                    PyObject *obj;
-                    const hge *t = (const hge *) BUNtail(li, p);
-                    obj = PyLong_FromHge(*t);
-                    PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j), obj);
-                    Py_DECREF(obj);
+                    if (j >= t_start) {
+                        PyObject *obj;
+                        const hge *t = (const hge *) BUNtail(li, p);
+                        obj = PyLong_FromHge(*t);
+                        PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j - t_start), obj);
+                        Py_DECREF(obj);
+                    }
+                    if (j == t_end) break;
                     j++;
                 }
                 break;

@@ -205,11 +205,13 @@ bool s_to_dbl(char *ptr, size_t size, dbl *value)
 }
 
 
-bool utf32_to_lng(Py_UNICODE *utf32, lng *value)
+bool utf32_to_lng(Py_UNICODE *utf32, size_t maxsize, lng *value)
 {
     size_t length = utf32_strlen(utf32);
-    int i = length;
+    int i;
     size_t factor = 1;
+    if (length > maxsize) length = maxsize;
+    i = length;
     *value = 0;
     for( ; i >= 0; i--)
     {
@@ -236,11 +238,13 @@ bool utf32_to_lng(Py_UNICODE *utf32, lng *value)
     return true;
 }
 
-bool utf32_to_dbl(Py_UNICODE *utf32, dbl *value)
+bool utf32_to_dbl(Py_UNICODE *utf32, size_t maxsize, dbl *value)
 {
     size_t length = utf32_strlen(utf32);
-    int i = length;
+    int i;
     size_t factor = 1;
+    if (length > maxsize) length = maxsize;
+    i = length;
     *value = 0;
     for( ; i >= 0; i--)
     {
@@ -268,39 +272,13 @@ bool utf32_to_dbl(Py_UNICODE *utf32, dbl *value)
 }
 
 #ifdef HAVE_HGE
-bool utf32_to_hge(Py_UNICODE *utf32, hge *value)
+bool utf32_to_hge(Py_UNICODE *utf32, size_t maxsize, hge *value)
 {
-    //size_t length = utf32_strlen(utf32);
+    size_t length = utf32_strlen(utf32) + 1;    
     char utf8[200];
-    utf32_to_utf8(0, 200, utf8, utf32);
-    return s_to_hge(utf8, strlen(utf8), value);
-    
-    // int i = length;
-    // size_t factor = 1;
-    // *value = 0;
-    // for( ; i >= 0; i--)
-    // {
-    //     switch(utf32[i])
-    //     {
-    //         case '0': break;
-    //         case '1': *value += factor; break;
-    //         case '2': *value += 2 * factor; break;
-    //         case '3': *value += 3 * factor; break;
-    //         case '4': *value += 4 * factor; break;
-    //         case '5': *value += 5 * factor; break;
-    //         case '6': *value += 6 * factor; break;
-    //         case '7': *value += 7 * factor; break;
-    //         case '8': *value += 8 * factor; break;
-    //         case '9': *value += 9 * factor; break;
-    //         case '-': *value *= -1; break;
-    //         case '.':
-    //         case ',': *value = 0; factor = 1; continue;
-    //         case '\0': continue;
-    //         default: return false;
-    //     }
-    //     factor *= 10;
-    // }
-    //return true;
+    if (length > maxsize) length = maxsize;
+    utf32_to_utf8(0, maxsize, utf8, utf32);
+    return s_to_hge(utf8, length, value);
 }
 #endif
 
@@ -309,7 +287,7 @@ bool utf32_to_hge(Py_UNICODE *utf32, hge *value)
 #define PY_TO_(type)                                                                                             \
 bool py_to_##type(PyObject *ptr, type *value)                                                                    \
 {                                                                                                                \
-    if (PyLong_Check(ptr)) {                                                                                     \
+    if (PyLong_CheckExact(ptr)) {                                                                                     \
         PyLongObject *p = (PyLongObject*) ptr;                                                                   \
         type h = 0;                                                                                              \
         type prev = 0;                                                                                           \
@@ -326,18 +304,18 @@ bool py_to_##type(PyObject *ptr, type *value)                                   
         }                                                                                                        \
         *value = h * sign;                                                                                       \
         return true;                                                                                             \
-    } else if (PyInt_Check(ptr) || PyBool_Check(ptr)) {                                                          \
+    } else if (PyInt_CheckExact(ptr) || PyBool_Check(ptr)) {                                                          \
         *value = (type)((PyIntObject*)ptr)->ob_ival;                                                             \
         return true;                                                                                             \
-    } else if (PyFloat_Check(ptr)) {                                                                             \
+    } else if (PyFloat_CheckExact(ptr)) {                                                                             \
         *value = (type) ((PyFloatObject*)ptr)->ob_fval;                                                          \
         return true;                                                                                             \
-    } else if (PyString_Check(ptr)) {                                                                            \
+    } else if (PyString_CheckExact(ptr)) {                                                                            \
         return s_to_##type(((PyStringObject*)ptr)->ob_sval, strlen(((PyStringObject*)ptr)->ob_sval), value);     \
-    }  else if (PyByteArray_Check(ptr)) {                                                                        \
+    }  else if (PyByteArray_CheckExact(ptr)) {                                                                        \
         return s_to_##type(((PyByteArrayObject*)ptr)->ob_bytes, strlen(((PyByteArrayObject*)ptr)->ob_bytes), value);\
-    } else if (PyUnicode_Check(ptr)) {                                                                           \
-        return utf32_to_##type(((PyUnicodeObject*)ptr)->str, value);                                             \
+    } else if (PyUnicode_CheckExact(ptr)) {                                                                           \
+        return utf32_to_##type(((PyUnicodeObject*)ptr)->str, 64, value);                                             \
     }                                                                                                            \
     return false;                                                                                                \
 }
@@ -409,8 +387,7 @@ bool py_to_dbl(PyObject *ptr, dbl *value)
     bool unicode_to_##tpe(void *ptr, size_t size, tpe *value)                   \
     {                                                              \
         strval val;                                                \
-        (void) size;                                               \
-        if (!utf32_to_##strval((Py_UNICODE*)ptr, &val)) return false;         \
+        if (!utf32_to_##strval((Py_UNICODE*)ptr, size / 4, &val)) return false;         \
         *value = (tpe)val;                                         \
         return true;                                               \
     }                                                              \
