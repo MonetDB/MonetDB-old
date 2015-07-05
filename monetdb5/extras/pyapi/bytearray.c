@@ -111,6 +111,20 @@ int replace_method(char *name, PyCFunction method)
 	return index;
 }
 
+static void
+bytearray_dealloc(PyByteArrayObject *self)
+{
+    if (self->ob_alloc != 0 && self->ob_exports > 0) {
+        PyErr_SetString(PyExc_SystemError,
+                        "deallocated bytearray object has exported buffers");
+        PyErr_Print();
+    }
+    if (self->ob_bytes != 0 && self->ob_alloc != 0) {
+        PyMem_Free(self->ob_bytes);
+    }
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
 void PyByteArray_Override(void)
 {
 	// We override all the Python ByteArray methods that modify the Byte Array
@@ -131,4 +145,7 @@ void PyByteArray_Override(void)
     pop_index = replace_method("pop", (PyCFunction)bytearray_pop);
     // Extend: bytearray.extend('extend')
     extend_index = replace_method("extend", (PyCFunction)bytearray_extend);
+
+    //
+    (&PyByteArray_Type)->tp_dealloc = (destructor)bytearray_dealloc;
 }

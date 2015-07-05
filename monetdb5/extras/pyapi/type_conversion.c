@@ -67,7 +67,7 @@ void dbl_to_string(char* str, dbl value)
 int hge_to_string(char * str, hge x)
 {
     int i = 0;
-    size_t size = 2;
+    size_t size = 1;
     hge cpy = x > 0 ? x : -x;
     while(cpy > 0) {
         cpy /= 10;
@@ -80,7 +80,7 @@ int hge_to_string(char * str, hge x)
         str[0] = '-';
     }
     str[size - 1] = '\0';
-    i = size - 2;
+    i = size - 1;
     while(x > 0)
     {
         int v = x % 10;

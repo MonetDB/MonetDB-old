@@ -90,6 +90,7 @@ bool utf32_to_utf8(size_t offset, size_t size, char *utf8_storage, const Py_UNIC
         if (shift < 0) return false;
         position += shift;
     }
+    utf8_storage[position] = '\0';
     return true;
 }
 
