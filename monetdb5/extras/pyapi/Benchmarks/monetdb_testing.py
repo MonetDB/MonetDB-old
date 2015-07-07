@@ -62,6 +62,25 @@ def export_function(function, argtypes, returns, multithreading=False, table=Fal
             raise Exception("Zero byte!");
     return(export)
 
+import multiprocessing
+import numpy
+import platform
+import os
+import sys
+python_version = str(sys.version_info.major) + '.' + str(sys.version_info.minor) + '.' + str(sys.version_info.micro)
+numpy_version = numpy.version.version
+amount_of_cores = str(multiprocessing.cpu_count())
+main_memory = str(-1)
+try: main_memory = str(int(os.popen("cat /proc/meminfo | grep MemTotal | awk '{ print $2 }'").read().translate(None, ' \n\t')) / 1000 ** 2)
+except: pass
+os_name = ' '.join(platform.dist())
+
+def format_headers(measurement_xaxis, measurement_yaxis, measurement_zaxis = None):
+    return 'Python Ver\tNumpy Ver\tCPU Cores\tMain Memory (GB)\tOS\t' + measurement_xaxis + '\t' + measurement_yaxis + ('\t' + measurement_zaxis if measurement_zaxis is not None else '') + '\n'
+
+def format_output(measurement_x, measurement_y, measurement_z = None):
+    return python_version + '\t' + numpy_version + '\t' + amount_of_cores + '\t' + main_memory + '\t' + os_name + '\t' + str(measurement_x) + '\t' + str(measurement_y) + ('\t' + str(measurement_z) if measurement_z is not None else '') + '\n'
+
 import os
 import sys
 import time
@@ -78,7 +97,7 @@ if (len(arguments) <= 4):
 
 output_file = os.path.join(os.getcwd(), arguments[2])
 test_count = int(arguments[3])
-max_retries = 10
+max_retries = 15
 
 import monetdb.sql
 # Try to connect to the database
@@ -88,7 +107,7 @@ for i in range(0, max_retries):
         connection = monetdb.sql.connect(username="monetdb", password="monetdb", hostname="localhost", database="demo")
         break
     except:
-        time.sleep(1)
+        time.sleep(3)
     connection = None
 
 if connection is None:
@@ -125,26 +144,24 @@ if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-m
     cursor.execute(export_function(import_test, ['integer'], ['boolean'], multithreading=str(arguments[1]).lower() == "input-map"))
 
     import time
-    f = open(output_file, "w+")
+    f = open(output_file + '.tsv', "w+")
+    f.write(format_headers('Data Size (MB)', 'Time (s)'))
     mb = []
     for i in range(4, len(arguments)):
         mb.append(float(arguments[i]))
 
     for size in mb:
-        f.write('Table Size: ' + str(size) + ' MB\n');
         start = time.time()
         cursor.execute('create temporary table integers as SELECT * FROM generate_integers(' + str(size) + ') with data;')
         end = time.time()
-        f.write('Table Creation\n' + str(end - start) + '\n');
-        f.write("PyAPI Execution\n");
         for i in range(0,test_count):
             start = time.time()
             cursor.execute('select import_test(i) from integers;');
             cursor.fetchall();
             end = time.time()
-            f.write(str(end - start) + '\n');
+            f.write(format_output(size, end - start))
+            f.flush()
         cursor.execute('drop table integers;')
-    f.write('\n')
     f.close()
 
     cursor.execute('drop function generate_integers');
@@ -165,21 +182,20 @@ elif str(arguments[1]).lower() == "output":
 
     cursor.execute(export_function(generate_output, ['float'], ['i integer'], table=True))
 
-    f = open(output_file, "w+")
+    f = open(output_file + '.tsv', "w+")
+    f.write(format_headers('Data Size (MB)', 'Time (s)'))
     mb = []
     for i in range(4, len(arguments)):
         mb.append(float(arguments[i]))
 
     for size in mb:
-        f.write('Output Size: ' + str(size) + ' MB\n');
-        f.write("PyAPI Execution\n");
         for i in range(0,test_count):
             start = time.time()
             cursor.execute('select count(*) from generate_output(' + str(size) + ');');
             cursor.fetchall();
             end = time.time()
-            f.write(str(end - start) + '\n');
-    f.write('\n')
+            f.write(format_output(size, end - start))
+            f.flush()
     f.close()
 
     cursor.execute('drop function generate_output');
@@ -238,24 +254,22 @@ elif str(arguments[1]).lower() == "string_samelength" or str(arguments[1]).lower
 
     cursor.execute(export_function(import_test, ['string'], ['boolean']))
 
-    f = open(output_file, "w+")
+    f = open(output_file + '.tsv', "w+")
+    f.write(format_headers('Data Size (MB)', 'String Length (Characters)', 'Time (s)'))
     for j in range(0,len(mb)):
         size = mb[j]
         length = lens[j]
-        f.write('Table Size: ' + str(size) + ' MB, String Length: ' + str(length) + ' Characters\n');
         start = time.time()
         cursor.execute('create table strings as SELECT * FROM generate_strings_samelength(' + str(size) + ',' + str(length) + ') with data;')
         end = time.time()
-        f.write('Table Creation\n' + str(end - start) + '\n');
-        f.write("PyAPI Execution\n");
         for i in range(0,test_count):
             start = time.time()
             cursor.execute('select import_test(i) from strings;');
             cursor.fetchall();
             end = time.time()
-            f.write(str(end - start) + '\n');
+            f.write(format_output(size, length, end - start))
+            f.flush()
         cursor.execute('drop table strings;')
-    f.write('\n')
     f.close()
 
     cursor.execute('drop function generate_strings_samelength');
@@ -292,24 +306,22 @@ elif str(arguments[1]).lower() == "string_extremelength":
 
     cursor.execute(export_function(import_test, ['string'], ['boolean']))
 
-    f = open(output_file, "w+")
+    f = open(output_file + '.tsv', "w+")
+    f.write(format_headers('(Strings)', 'Extreme Length (Characters)', 'Time (s)'))
     for j in range(0,len(extreme_lengths)):
         str_len = extreme_lengths[j]
         str_count = string_counts[j]
-        f.write('String Count: ' + str(str_count) + ' Strings, Extreme Length: ' + str(str_len) + ' Characters\n');
         start = time.time()
         cursor.execute('create table strings as SELECT * FROM generate_strings_extreme(' + str(str_len) + ',' + str(str_count) + ') with data;')
         end = time.time()
-        f.write('Table Creation\n' + str(end - start) + '\n');
-        f.write("PyAPI Execution\n");
         for i in range(0,test_count):
             start = time.time()
             cursor.execute('select import_test(i) from strings;');
             cursor.fetchall();
             end = time.time()
-            f.write(str(end - start) + '\n');
+            f.write(format_output(str_count, str_len, end - start))
+            f.flush()
         cursor.execute('drop table strings;')
-    f.write('\n')
     f.close()
 
     cursor.execute('drop function generate_strings_extreme');

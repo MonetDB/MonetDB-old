@@ -2,6 +2,10 @@
 
 # The base directory of testing, a new folder is created in this base directory [$PYAPI_TEST_DIR], and everything is done in that new folder
 export PYAPI_BASE_DIR=$HOME
+# The terminal to start mserver with, examples are 'gnome-terminal', 'xterm', 'konsole'
+export TERMINAL=x-terminal-emulator
+# A command that tests if the mserver is still running (used to find out when the shutting down is completed)
+export MSERVERTEST='netstat -ant | grep "127.0.0.1:50000.*LISTEN">/dev/null'
 
 # Testing parameters
 # Input test (zero copy vs copy)
@@ -25,7 +29,7 @@ export STRINGSAMELENGTH_TESTING_NTESTS=10
 export STRINGEXTREMELENGTH_TESTING_SIZES="(10,100000) (100,100000) (1000,100000) (10000,100000)"
 export STRINGEXTREMELENGTH_TESTING_NTESTS=10
 # Check Unicode vs Always Unicode (ASCII) (mb, length)
-export STRINGUNICODE_TESTING_SIZES="(0.1,10) (1,10) (10,10) (100,10)"
+export STRINGUNICODE_TESTING_SIZES="(0.1,10) (1,10) (10,10) (0.1,100) (1,100) (10,100)"
 export STRINGUNICODE_TESTING_NTESTS=10
 
 # Multithreading tests
@@ -37,8 +41,6 @@ export PYAPI_BUILD_DIR=$PYAPI_TEST_DIR/build
 export PYAPI_OUTPUT_DIR=$PYAPI_TEST_DIR/output
 # PyAPI TAR url
 export PYAPI_TAR_URL=http://dev.monetdb.org/hg/MonetDB/archive/pyapi.tar.gz
-# The terminal to start mserver with, examples are 'gnome-terminal', 'xterm', 'konsole'
-export TERMINAL=x-terminal-emulator
 
 # Used for downloading the python-monetdb connector (import monetdb.sql)
 export PYTHON_MONETDB_CONNECTOR_VERSION=11.19.3.2
@@ -60,22 +62,19 @@ function pyapi_build {
     fi
     python -c "import numpy"
     if [ $? -ne 0 ]; then
-        return 1
-    fi
-    if [ $? -ne 0 ]; then
         read -p "Failed to load library Numpy. Would you like me to try and install it for you? (y/n):  " -n 1 -r
         echo ""
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             return 1
         fi
-        pip install numpy && python $IMPORT_TESTFILE numpy
+        pip install --user numpy && python $IMPORT_TESTFILE numpy
         if [$? -eq 0]; then
             echo "Successfully installed Numpy."
         else
             echo "Failed to install Numpy. Exiting..."
             return 1
         fi
-    fi
+    fi    
     python -c "import monetdb.sql"
     if [ $? -ne 0 ]; then
         read -p "Failed to load library MonetDB Python connector. Would you like me to try and install it for you? (y/n):  " -n 1 -r
@@ -83,7 +82,7 @@ function pyapi_build {
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             return 1
         fi
-        wget $PYTHON_MONETDB_URL && tar xvzf $PYTHON_MONETDB_FILE && cd $PYTHON_MONETDB_DIR && python setup.py install && python $IMPORT_TESTFILE monetdb.sql
+        wget $PYTHON_MONETDB_URL && tar xvzf $PYTHON_MONETDB_FILE && cd $PYTHON_MONETDB_DIR && python setup.py install --user && python $IMPORT_TESTFILE monetdb.sql
         if [$? -eq 0]; then
             echo "Successfully installed monetdb.sql."
         else
@@ -108,7 +107,7 @@ function pyapi_run_single_test() {
         return 1
     fi
     for i in `seq 1 20`; do
-        nc -z 127.0.0.1 50000
+        eval $MSERVERTEST
         if [ $? -eq 0 ]; then
             sleep 1
         else 
@@ -122,85 +121,85 @@ function pyapi_run_single_test() {
 
 function pyapi_test_input {
     echo "Beginning Input Testing (Copy vs Zero Copy)"
-    pyapi_run_single_test "Input Testing (Zero Copy)" "" "INPUT" input_zerocopy.out "$INPUT_TESTING_NTESTS" "$INPUT_TESTING_SIZES"
+    pyapi_run_single_test "Input Testing (Zero Copy)" "" "INPUT" input_zerocopy "$INPUT_TESTING_NTESTS" "$INPUT_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
-    pyapi_run_single_test "Input Testing (Copy)" "--set disable_pyzerocopyinput=true" "INPUT" input_copy.out "$INPUT_TESTING_NTESTS" "$INPUT_TESTING_SIZES"
+    pyapi_run_single_test "Input Testing (Copy)" "--set disable_pyzerocopyinput=true" "INPUT" input_copy "$INPUT_TESTING_NTESTS" "$INPUT_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
-    pyapi_run_single_test "Input Testing (Map)" "" "INPUT-MAP" input_zerocopy_map.out "$INPUT_TESTING_NTESTS" "$INPUT_TESTING_SIZES"
+    pyapi_run_single_test "Input Testing (Map)" "" "INPUT-MAP" input_zerocopy_map "$INPUT_TESTING_NTESTS" "$INPUT_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 }
 
 function pyapi_test_output {
-    pyapi_run_single_test "Output Testing (Zero Copy)" "" "OUTPUT" output_zerocopy.out "$OUTPUT_TESTING_NTESTS" "$OUTPUT_TESTING_SIZES"
+    pyapi_run_single_test "Output Testing (Zero Copy)" "" "OUTPUT" output_zerocopy "$OUTPUT_TESTING_NTESTS" "$OUTPUT_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 
-    pyapi_run_single_test "Output Testing (Copy)" "--set disable_pyzerocopyoutput=true" "OUTPUT" output_copy.out "$OUTPUT_TESTING_NTESTS" "$OUTPUT_TESTING_SIZES"
+    pyapi_run_single_test "Output Testing (Copy)" "--set disable_pyzerocopyoutput=true" "OUTPUT" output_copy "$OUTPUT_TESTING_NTESTS" "$OUTPUT_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 }
 
 function pyapi_test_string_samelength {
-    pyapi_run_single_test "String Testing (NPY_OBJECT, Same Length)" "" "STRING_SAMELENGTH" string_samelength_npyobject.out "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (NPY_OBJECT, Same Length)" "" "STRING_SAMELENGTH" string_samelength_npyobject "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 
-    pyapi_run_single_test "String Testing (NPY_STRING, Same Length)" "--set enable_numpystringarray=true" "STRING_SAMELENGTH" string_samelength_npystring.out "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (NPY_STRING, Same Length)" "--set enable_numpystringarray=true" "STRING_SAMELENGTH" string_samelength_npystring "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 }
 
 function pyapi_test_string_extreme {
-    pyapi_run_single_test "String Testing (NPY_OBJECT, Extreme Length)" "" "STRING_EXTREMELENGTH" string_extremelength_npyobject.out "$STRINGEXTREMELENGTH_TESTING_NTESTS" "$STRINGEXTREMELENGTH_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (NPY_OBJECT, Extreme Length)" "" "STRING_EXTREMELENGTH" string_extremelength_npyobject "$STRINGEXTREMELENGTH_TESTING_NTESTS" "$STRINGEXTREMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 
-    pyapi_run_single_test "String Testing (NPY_STRING, Extreme Length)" "--set enable_numpystringarray=true" "STRING_EXTREMELENGTH" string_extremelength_npystring.out "$STRINGEXTREMELENGTH_TESTING_NTESTS" "$STRINGEXTREMELENGTH_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (NPY_STRING, Extreme Length)" "--set enable_numpystringarray=true" "STRING_EXTREMELENGTH" string_extremelength_npystring "$STRINGEXTREMELENGTH_TESTING_NTESTS" "$STRINGEXTREMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 }
 
 function pyapi_test_string_unicode_ascii {
-    pyapi_run_single_test "String Testing (Check Unicode, ASCII)" "" "STRING_SAMELENGTH" string_unicode_ascii_check.out "$STRINGUNICODE_TESTING_NTESTS" "$STRINGUNICODE_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (Check Unicode, ASCII)" "" "STRING_SAMELENGTH" string_unicode_ascii_check "$STRINGUNICODE_TESTING_NTESTS" "$STRINGUNICODE_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 
-    pyapi_run_single_test "String Testing (Always Unicode, ASCII)" "--set enable_alwaysunicode=true" "STRING_SAMELENGTH" string_unicode_ascii_always.out "$STRINGUNICODE_TESTING_NTESTS" "$STRINGUNICODE_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (Always Unicode, ASCII)" "--set enable_alwaysunicode=true" "STRING_SAMELENGTH" string_unicode_ascii_always "$STRINGUNICODE_TESTING_NTESTS" "$STRINGUNICODE_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 
-    pyapi_run_single_test "String Testing (Check Unicode, Extreme)" "" "STRING_EXTREMEUNICODE" string_unicode_extreme_check.out "$STRINGUNICODE_TESTING_NTESTS" "$STRINGUNICODE_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (Check Unicode, Extreme)" "" "STRING_EXTREMEUNICODE" string_unicode_extreme_check "$STRINGUNICODE_TESTING_NTESTS" "$STRINGUNICODE_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 
-    pyapi_run_single_test "String Testing (Always Unicode, Extreme)" "" "STRING_EXTREMEUNICODE" string_unicode_extreme_always.out "$STRINGUNICODE_TESTING_NTESTS" "$STRINGUNICODE_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (Always Unicode, Extreme)" "" "STRING_EXTREMEUNICODE" string_unicode_extreme_always "$STRINGUNICODE_TESTING_NTESTS" "$STRINGUNICODE_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 }
 
 function pyapi_test_bytearray_vs_string {
-    pyapi_run_single_test "String Testing (ByteArray Object)" "" "STRING_SAMELENGTH" string_bytearrayobject.out "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (ByteArray Object)" "" "STRING_SAMELENGTH" string_bytearrayobject "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 
-    pyapi_run_single_test "String Testing (String Object)" "--set disable_bytearray=true" "STRING_SAMELENGTH" string_stringobject.out "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (String Object)" "--set disable_bytearray=true" "STRING_SAMELENGTH" string_stringobject "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
@@ -231,13 +230,13 @@ function pyapi_run_tests {
 }
 
 function pyapi_graph {
-    python $PYAPI_GRAPHFILE "SAVE" "Input" "Table Size" "Zero Copy:input_zerocopy.out" "Copy:input_copy.out" "Zero Copy (Map):input_zerocopy_map.out"
-    python $PYAPI_GRAPHFILE "SAVE" "Output" "Output Size" "Zero Copy:output_zerocopy.out" "Copy:output_copy.out"
-    python $PYAPI_GRAPHFILE "SAVE" "String Samelength" "String Length" "Numpy Object:string_samelength_npyobject.out" "Numpy String:string_samelength_npystring.out"
-    python $PYAPI_GRAPHFILE "SAVE" "String Extremelength" "Extreme Length" "Numpy Object:string_extremelength_npyobject.out" "Numpy String:string_extremelength_npystring.out"
-    python $PYAPI_GRAPHFILE "SAVE" "Unicode Check vs Always Unicode (ASCII)" "Table Size" "Check Unicode:string_unicode_ascii_check.out" "Always Unicode:string_unicode_ascii_always.out"
-    python $PYAPI_GRAPHFILE "SAVE" "Unicode Check vs Always Unicode (Extreme)" "Table Size" "Check Unicode:string_unicode_extreme_check.out" "Always Unicode:string_unicode_extreme_always.out"
-    python $PYAPI_GRAPHFILE "SAVE" "ByteArrayObject vs StringObject" "String Length" "Byte Array Object:string_bytearrayobject.out" "String Object:string_stringobject.out"
+    python $PYAPI_GRAPHFILE "SAVE" "Input" "Zero Copy:input_zerocopy.tsv" "Copy:input_copy.tsv" "Zero Copy (Map):input_zerocopy_map.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Output" "Zero Copy:output_zerocopy.tsv" "Copy:output_copy.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "String Samelength" "Numpy Object:string_samelength_npyobject.tsv" "Numpy String:string_samelength_npystring.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "String Extremelength" "Numpy Object:string_extremelength_npyobject.tsv" "Numpy String:string_extremelength_npystring.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Unicode Check vs Always Unicode (ASCII)" "Check Unicode:string_unicode_ascii_check.tsv" "Always Unicode:string_unicode_ascii_always.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Unicode Check vs Always Unicode (Extreme)" "Check Unicode:string_unicode_extreme_check.tsv" "Always Unicode:string_unicode_extreme_always.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "ByteArrayObject vs StringObject" "Byte Array Object:string_bytearrayobject.tsv" "String Object:string_stringobject.tsv"
 }
 
 
@@ -282,6 +281,11 @@ function pyapi_test {
 
     if ! [[ -a $PYAPI_BUILD_DIR/bin/mserver5 ]]; then 
         echo "mserver5 not found, building monetdb failed."
+        return 1
+    fi
+    type $TERMINAL >/dev/null 2>&1
+    if [ $? -ne 0  ]; then
+        echo "\"$TERMINAL\" could not be found, please set the \$TERMINAL variable to a proper value."
         return 1
     fi
 
