@@ -75,11 +75,17 @@ try: main_memory = str(int(os.popen("cat /proc/meminfo | grep MemTotal | awk '{ 
 except: pass
 os_name = ' '.join(platform.dist())
 
-def format_headers(measurement_xaxis, measurement_yaxis, measurement_zaxis = None):
-    return 'Python Ver\tNumpy Ver\tCPU Cores\tMain Memory (GB)\tOS\t' + measurement_xaxis + '\t' + measurement_yaxis + ('\t' + measurement_zaxis if measurement_zaxis is not None else '') + '\n'
+def format_headers(*measurement_axes):
+    result = 'Python Ver\tNumpy Ver\tCPU Cores\tMain Memory (GB)\tOS'
+    for measurement in measurement_axes:
+        result = result + '\t' + str(measurement)
+    return result + '\n'
 
-def format_output(measurement_x, measurement_y, measurement_z = None):
-    return python_version + '\t' + numpy_version + '\t' + amount_of_cores + '\t' + main_memory + '\t' + os_name + '\t' + str(measurement_x) + '\t' + str(measurement_y) + ('\t' + str(measurement_z) if measurement_z is not None else '') + '\n'
+def format_output(*measurements):
+    result = python_version + '\t' + numpy_version + '\t' + amount_of_cores + '\t' + main_memory + '\t' + os_name
+    for measurement in measurements:
+        result = result + '\t' + str(measurement)
+    return result + '\n'
 
 import os
 import sys
@@ -96,6 +102,10 @@ if (len(arguments) <= 4):
     quit()
 
 output_file = os.path.join(os.getcwd(), arguments[2])
+temp_file = os.path.join(os.getcwd(), 'tempfile.tsv')
+result_file = open(temp_file, 'w+')
+result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
+result_file.close();
 test_count = int(arguments[3])
 max_retries = 15
 
@@ -134,7 +144,7 @@ if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-m
             integers[i] = random.randint(min_int, max_int)
         return integers
 
-    cursor.execute(export_function(generate_integers, ['integer'], ['i integer'], table=True))
+    cursor.execute(export_function(generate_integers, ['float'], ['i integer'], table=True))
 
     # Our import test function returns a single boolean value and doesn't do anything with the actual input
     # This way the input loading is the only relevant factor in running time, because the time taken for function execution/output handling is constant
@@ -145,15 +155,15 @@ if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-m
 
     import time
     f = open(output_file + '.tsv', "w+")
-    f.write(format_headers('Data Size (MB)', 'Time (s)'))
+    f.write(format_headers('Data Size (MB)', 'Total Time (s)'))
     mb = []
     for i in range(4, len(arguments)):
         mb.append(float(arguments[i]))
 
     for size in mb:
-        start = time.time()
         cursor.execute('create temporary table integers as SELECT * FROM generate_integers(' + str(size) + ') with data;')
-        end = time.time()
+        #result_file = open(temp_file, 'r')
+        #result_file.readline()
         for i in range(0,test_count):
             start = time.time()
             cursor.execute('select import_test(i) from integers;');
@@ -259,9 +269,7 @@ elif str(arguments[1]).lower() == "string_samelength" or str(arguments[1]).lower
     for j in range(0,len(mb)):
         size = mb[j]
         length = lens[j]
-        start = time.time()
         cursor.execute('create table strings as SELECT * FROM generate_strings_samelength(' + str(size) + ',' + str(length) + ') with data;')
-        end = time.time()
         for i in range(0,test_count):
             start = time.time()
             cursor.execute('select import_test(i) from strings;');
@@ -311,9 +319,7 @@ elif str(arguments[1]).lower() == "string_extremelength":
     for j in range(0,len(extreme_lengths)):
         str_len = extreme_lengths[j]
         str_count = string_counts[j]
-        start = time.time()
         cursor.execute('create table strings as SELECT * FROM generate_strings_extreme(' + str(str_len) + ',' + str(str_count) + ') with data;')
-        end = time.time()
         for i in range(0,test_count):
             start = time.time()
             cursor.execute('select import_test(i) from strings;');

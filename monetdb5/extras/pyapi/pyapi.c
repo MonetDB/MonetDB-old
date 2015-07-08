@@ -29,6 +29,7 @@
 #include "bytearray.h"
 #include "type_conversion.h"
 #include "formatinput.h"
+#include "benchmark.h"
 
 //#define _PYAPI_VERBOSE_
 //#define _PYAPI_WARNINGS_
@@ -54,6 +55,7 @@ const char* debug_enableflag = "enable_pydebug";
 const char* numpy_string_array_enableflag = "enable_numpystringarray";
 const char* alwaysunicode_enableflag = "enable_alwaysunicode";
 const char* bytearray_disableflag = "disable_bytearray";
+const char* benchmark_output_flag = "pyapi_benchmark_output";
 
 
 
@@ -422,6 +424,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     bool option_numpy_string_array = GDKgetenv_isyes(numpy_string_array_enableflag) || GDKgetenv_istrue(numpy_string_array_enableflag);
     bool option_bytearray = !(GDKgetenv_isyes(bytearray_disableflag) || GDKgetenv_istrue(bytearray_disableflag));
     bool option_alwaysunicode = (GDKgetenv_isyes(alwaysunicode_enableflag) || GDKgetenv_istrue(alwaysunicode_enableflag));
+    char *benchmark_output = GDKgetenv(benchmark_output_flag);
 #ifndef WIN32
     bool single_fork = mapped == 1;
     int shm_id = -1;
@@ -434,6 +437,11 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     size_t maxsize;
     int j;
     size_t iu;
+
+    if (benchmark_output != NULL) {
+	    if (!mapped) init_hook();
+	    start_timer();
+	}
 
     if (!PyAPIEnabled()) {
         throw(MAL, "pyapi.eval",
@@ -1773,9 +1781,19 @@ returnvalues:
             GDKfree(args[i]);
     GDKfree(args);
     GDKfree(pycall);
-    //GDKfree(expr_ind);
-    if (msg != NULL) VERBOSE_MESSAGE("%s\n", msg);
 
+    if (benchmark_output != NULL) {
+		FILE *f = NULL;
+		end_timer();
+
+		f = fopen(benchmark_output, "a");
+		if (f != NULL) {
+			fprintf(f, "%llu\t%f\n", GET_MEMORY_PEAK(), GET_ELAPSED_TIME());
+		}
+		fclose(f);
+
+		if (!mapped) revert_hook();
+	}
     VERBOSE_MESSAGE("Finished cleaning up.\n");
     return msg;
 }
