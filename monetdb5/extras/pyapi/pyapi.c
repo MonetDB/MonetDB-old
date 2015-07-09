@@ -21,6 +21,10 @@
 #include <Python.h>
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#ifdef __INTEL_COMPILER
+//intel compiler complains about trailing comma's in numpy source code, so hopefully this works
+#pragma warning(disable:271)
+#endif
 #include <numpy/arrayobject.h>
 
 #include "unicode.h"

@@ -1,19 +1,18 @@
 
 #include "benchmark.h"
 
-#include <malloc.h>
-#include <string.h>
-#include <time.h>
+#include "monetdb_config.h"
 
 static unsigned long long memtrace_current_memory_bytes = 0;
 static unsigned long long memtrace_memory_peak = 0;
-static double benchmark_start_time = 0;
-static double benchmark_end_time = 0;
+
+#if defined(HAVE_MALLOC_H) && defined(HAVE_STRING_H)
+#include <string.h>
+#include <malloc.h>
 
 #ifdef __MALLOC_DEPRECATED //if this isn't defined MALLOC_HOOKS aren't supported, probably
 // We are using malloc/free hooks which are deprecated, so we have to ignore the warnings
 // (This is obviously bad practice, but the alternative is having to recompile Python and then tracing both PyMemAlloc/Realloc and GDKmalloc/realloc calls, this is much easier, and we aren't using them in a thread context and no thread safety is why they are deprecated in the first place) 
-#pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 /* Prototypes for our hooks.  */
 static void *my_malloc_hook (size_t, const void *);
@@ -121,24 +120,20 @@ static void my_free_hook (void *ptr, const void *caller)
 	__malloc_hook = my_malloc_hook;
 	__free_hook = my_free_hook;
 }
-#pragma GCC diagnostic pop
 #else
-
 void init_hook (void) {}
 void revert_hook (void) {}
-
+#endif
+#else
+void init_hook (void) {}
+void revert_hook (void) {}
 #endif
 
-unsigned long long GET_MEMORY_PEAK(void)
-{
-	return memtrace_memory_peak;
-}
+#ifdef HAVE_TIME_H
+#include <time.h>
 
-unsigned long long GET_MEMORY_USAGE(void)
-{
-	return memtrace_current_memory_bytes;
-}
-
+static double benchmark_start_time = 0;
+static double benchmark_end_time = 0;
 double GET_ELAPSED_TIME(void)
 {
 	return (double)(benchmark_end_time - benchmark_start_time) / CLOCKS_PER_SEC;
@@ -152,4 +147,19 @@ void start_timer(void)
 void end_timer(void)
 {
 	benchmark_end_time = clock();
+}
+#else
+double GET_ELAPSED_TIME(void) { return 0; }
+void start_timer(void) { }
+void end_timer(void) { }
+#endif
+
+unsigned long long GET_MEMORY_PEAK(void)
+{
+	return memtrace_memory_peak;
+}
+
+unsigned long long GET_MEMORY_USAGE(void)
+{
+	return memtrace_current_memory_bytes;
 }
