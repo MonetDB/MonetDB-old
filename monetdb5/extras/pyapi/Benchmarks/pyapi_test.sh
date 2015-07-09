@@ -22,7 +22,7 @@ export OUTPUT_TESTING_NTESTS=10
 
 # String tests
 # Strings of the same length (mb, length)
-export STRINGSAMELENGTH_TESTING_SIZES="(10,1) (10,10) (10,100) (10,1000) (10,1000) (10,10000) (10,100000)"
+export STRINGSAMELENGTH_TESTING_SIZES="(1,1) (1,10) (1,100) (1,1000) (1,1000) (1,10000) (1,100000)"
 export STRINGSAMELENGTH_TESTING_NTESTS=10
 # Extreme length string testing (all strings have length 1 except for one string, which has EXTREME length)
 # Arguments are (Extreme Length, String Count)
@@ -100,7 +100,7 @@ function pyapi_build {
 
 function pyapi_run_single_test() {
     echo "Beginning Test $1"
-    $TERMINAL -e "$PYAPI_BUILD_DIR/bin/mserver5 --set embedded_py=true $2" && python $PYAPI_TESTFILE $3 $4 $5 $6 && killall mserver5
+    $TERMINAL -e "$PYAPI_BUILD_DIR/bin/mserver5 --set embedded_py=true --set pyapi_benchmark_output=$PYAPI_OUTPUT_DIR/temp_output.tsv $2" && python $PYAPI_TESTFILE $3 $4 $5 $6 && killall mserver5
     if [ $? -ne 0 ]; then
         echo "Failed Test $1"
         killall mserver5
@@ -230,7 +230,8 @@ function pyapi_run_tests {
 }
 
 function pyapi_graph {
-    python $PYAPI_GRAPHFILE "SAVE" "Input" "Zero Copy:input_zerocopy.tsv" "Copy:input_copy.tsv" "Zero Copy (Map):input_zerocopy_map.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Input" "Zero Copy:input_zerocopy.tsv" "Copy:input_copy.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Input-Map" "Zero Copy:input_zerocopy.tsv" "Zero Copy (Map):input_zerocopy_map.tsv"
     python $PYAPI_GRAPHFILE "SAVE" "Output" "Zero Copy:output_zerocopy.tsv" "Copy:output_copy.tsv"
     python $PYAPI_GRAPHFILE "SAVE" "String Samelength" "Numpy Object:string_samelength_npyobject.tsv" "Numpy String:string_samelength_npystring.tsv"
     python $PYAPI_GRAPHFILE "SAVE" "String Extremelength" "Numpy Object:string_extremelength_npyobject.tsv" "Numpy String:string_extremelength_npystring.tsv"

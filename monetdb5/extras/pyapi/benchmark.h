@@ -20,6 +20,7 @@ void start_timer(void);
 void end_timer(void);
 //sets up malloc hooks, not thread safe, do not use in thread context
 void init_hook (void);
+void reset_hook(void);
 //detaches malloc hooks, not thread safe
 void revert_hook (void);
 //gets peak memory usage between init_hook() and revert_hook() calls

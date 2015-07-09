@@ -163,3 +163,9 @@ unsigned long long GET_MEMORY_USAGE(void)
 {
 	return memtrace_current_memory_bytes;
 }
+
+void reset_hook(void)
+{
+	memtrace_current_memory_bytes = 0;
+	memtrace_memory_peak = 0;
+}

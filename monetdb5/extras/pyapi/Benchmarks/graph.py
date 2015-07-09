@@ -15,9 +15,13 @@ axis = []
 graph_data = []
 sorted_indices = []
 x_axis = "Unknown"
-y_axis = "Unknown"
+y_axis = []
+
+measurements = 0
 
 for i in range(3, len(arguments)):
+    axis = []
+    measurements = 0
     spl = arguments[i].split(':')
     list.append(file_titles, spl[0])
     file_loc = spl[1]
@@ -26,7 +30,8 @@ for i in range(3, len(arguments)):
     if len(title) < 7: raise Exception('Invalid header data')
     data = []
     for i in range(5, len(title)):
-        list.append(axis, title[i])
+        if '[MEASUREMENT]:' in title[i]: measurements = measurements + 1
+        list.append(axis, title[i].split(':')[1])
         list.append(data, [])
     line = f.readline()
     while len(line) > 0:
@@ -37,7 +42,7 @@ for i in range(3, len(arguments)):
         line = f.readline()
     f.close()
     unique = []
-    for i in range(0, len(data) - 1):
+    for i in range(0, len(data) - measurements):
         list.append(unique, numpy.unique(data[i]))
     sorted_indices = [i[0] for i in sorted(enumerate(unique), key=lambda x:len(x[1]))]
     dictionary = dict()
@@ -56,9 +61,10 @@ for i in range(3, len(arguments)):
                 dic[unique[sorted_indices[i]][j]] = dict()
     def recursive_find(dictionary, data, mask, sorted_indices, unique, index = 0):
         if index == len(sorted_indices):
-            new_data = numpy.array(data[index])[mask]
-            dictionary['mean'] = numpy.mean(new_data)
-            dictionary['std'] = numpy.std(new_data)
+            for m in range(0, measurements):
+                new_data = numpy.array(data[index + m])[mask]
+                dictionary['mean' + str(m)] = numpy.mean(new_data)
+                dictionary['std' + str(m)] = numpy.std(new_data)
         else:
             for val in unique[sorted_indices[index]]:
                 new_mask = numpy.logical_and(mask, data[sorted_indices[index]]==val)
@@ -66,7 +72,7 @@ for i in range(3, len(arguments)):
     recursive_find(dictionary, numpy.array(data), numpy.array([True] * len(data[0])), sorted_indices, unique)
     list.append(graph_data, dictionary)
     x_axis = axis[sorted_indices[len(sorted_indices)-1]]
-    y_axis = axis[len(axis)-1]
+    y_axis = axis[len(axis)-measurements:]
 
 def format_subtitle(title, value):
     ind = title.find('(')
@@ -77,25 +83,27 @@ def format_subtitle(title, value):
 def plot_graphs(graph_data, title, subtitle = "", index = 0):
     if index == len(sorted_indices) - 1:
         if len(subtitle) > 0: subtitle = '\n' + subtitle[:len(subtitle)-1]
-        fig, (ax0) = plt.subplots(nrows=1, sharex=True)
-        j = 0
-        for dictionary in graph_data:
-            x_data = sorted(dictionary.keys())
-            y_data = []
-            y_std = []
-            for x_value in x_data:
-                list.append(y_data, dictionary[x_value]['mean'])
-                list.append(y_std, dictionary[x_value]['std'])
-            ax0.errorbar(x_data, y_data, yerr=y_std, fmt='-o', label=file_titles[j])
-            j += 1
-        ax0.set_xscale('log')
-        ax0.set_yscale('log')
-        ax0.set_title(title + subtitle)
-        plt.xlabel(x_axis)
-        plt.ylabel(y_axis)
-        plt.legend(bbox_to_anchor=(0,0.83), loc=3)
+        for m in range(0, measurements):
+            ax0 = plt.subplot(measurements, 1, m)
+            j = 0
+            for dictionary in graph_data:
+                x_data = sorted(dictionary.keys())
+                y_data = []
+                y_std = []
+                for x_value in x_data:
+                    list.append(y_data, dictionary[x_value]['mean' + str(m)])
+                    list.append(y_std, dictionary[x_value]['std' + str(m)])
+                ax0.errorbar(x_data, y_data, yerr=y_std, fmt='-o', label=file_titles[j])
+                j += 1
+            ax0.set_xscale('log')
+            ax0.set_yscale('log')
+            if m == 1 or measurements == 1: ax0.set_title(title + subtitle)
+            plt.xlabel(x_axis)
+            plt.ylabel(y_axis[m])
+            plt.legend()
         if action.lower() == 'save':
-            plt.savefig(title + subtitle, format="pdf")
+            plt.savefig((title + subtitle).translate(None, '\n'), format="pdf")
+            plt.close()
         else:
             plt.show()
     else:

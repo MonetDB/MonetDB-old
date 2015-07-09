@@ -102,10 +102,7 @@ if (len(arguments) <= 4):
     quit()
 
 output_file = os.path.join(os.getcwd(), arguments[2])
-temp_file = os.path.join(os.getcwd(), 'tempfile.tsv')
-result_file = open(temp_file, 'w+')
-result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
-result_file.close();
+temp_file = os.path.join(os.getcwd(), 'temp_output.tsv')
 test_count = int(arguments[3])
 max_retries = 15
 
@@ -155,7 +152,10 @@ if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-m
 
     import time
     f = open(output_file + '.tsv', "w+")
-    f.write(format_headers('Data Size (MB)', 'Total Time (s)'))
+    if str(arguments[1]).lower() == "input-map":
+        f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)'))
+    else:
+        f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
     mb = []
     for i in range(4, len(arguments)):
         mb.append(float(arguments[i]))
@@ -164,12 +164,24 @@ if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-m
         cursor.execute('create temporary table integers as SELECT * FROM generate_integers(' + str(size) + ') with data;')
         #result_file = open(temp_file, 'r')
         #result_file.readline()
+        results = []
+        result_file = open(temp_file, 'w+')
+        result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
+        result_file.close();
         for i in range(0,test_count):
             start = time.time()
             cursor.execute('select import_test(i) from integers;');
             cursor.fetchall();
             end = time.time()
-            f.write(format_output(size, end - start))
+            list.append(results, end - start)
+        result_file = open(temp_file, 'r')
+        result_file.readline()
+        for result in results:
+            pyapi_results = result_file.readline().translate(None, '\n').split('\t')
+            if (str(arguments[1]).lower() == "input-map"):
+                f.write(format_output(size, result))
+            else:
+                f.write(format_output(size, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
             f.flush()
         cursor.execute('drop table integers;')
     f.close()
@@ -193,18 +205,27 @@ elif str(arguments[1]).lower() == "output":
     cursor.execute(export_function(generate_output, ['float'], ['i integer'], table=True))
 
     f = open(output_file + '.tsv', "w+")
-    f.write(format_headers('Data Size (MB)', 'Time (s)'))
+    f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
     mb = []
     for i in range(4, len(arguments)):
         mb.append(float(arguments[i]))
 
     for size in mb:
+        results = []
+        result_file = open(temp_file, 'w+')
+        result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
+        result_file.close();
         for i in range(0,test_count):
             start = time.time()
             cursor.execute('select count(*) from generate_output(' + str(size) + ');');
             cursor.fetchall();
             end = time.time()
-            f.write(format_output(size, end - start))
+            list.append(results, end - start)
+        result_file = open(temp_file, 'r')
+        result_file.readline()
+        for result in results:
+            pyapi_results = result_file.readline().translate(None, '\n').split('\t')
+            f.write(format_output(size, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
             f.flush()
     f.close()
 
@@ -265,17 +286,26 @@ elif str(arguments[1]).lower() == "string_samelength" or str(arguments[1]).lower
     cursor.execute(export_function(import_test, ['string'], ['boolean']))
 
     f = open(output_file + '.tsv', "w+")
-    f.write(format_headers('Data Size (MB)', 'String Length (Characters)', 'Time (s)'))
+    f.write(format_headers('[AXIS]:Data Size (MB)', '[AXIS]:String Length (Characters)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
     for j in range(0,len(mb)):
         size = mb[j]
         length = lens[j]
         cursor.execute('create table strings as SELECT * FROM generate_strings_samelength(' + str(size) + ',' + str(length) + ') with data;')
+        results = []
+        result_file = open(temp_file, 'w+')
+        result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
+        result_file.close();
         for i in range(0,test_count):
             start = time.time()
             cursor.execute('select import_test(i) from strings;');
             cursor.fetchall();
             end = time.time()
-            f.write(format_output(size, length, end - start))
+            list.append(results, end - start)
+        result_file = open(temp_file, 'r')
+        result_file.readline()
+        for result in results:
+            pyapi_results = result_file.readline().translate(None, '\n').split('\t')
+            f.write(format_output(size, length, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
             f.flush()
         cursor.execute('drop table strings;')
     f.close()
@@ -315,17 +345,26 @@ elif str(arguments[1]).lower() == "string_extremelength":
     cursor.execute(export_function(import_test, ['string'], ['boolean']))
 
     f = open(output_file + '.tsv', "w+")
-    f.write(format_headers('(Strings)', 'Extreme Length (Characters)', 'Time (s)'))
+    f.write(format_headers('[AXIS]:(Strings)', '[AXIS]:Extreme Length (Characters)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
     for j in range(0,len(extreme_lengths)):
         str_len = extreme_lengths[j]
         str_count = string_counts[j]
         cursor.execute('create table strings as SELECT * FROM generate_strings_extreme(' + str(str_len) + ',' + str(str_count) + ') with data;')
+        results = []
+        result_file = open(temp_file, 'w+')
+        result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
+        result_file.close();
         for i in range(0,test_count):
             start = time.time()
             cursor.execute('select import_test(i) from strings;');
             cursor.fetchall();
             end = time.time()
-            f.write(format_output(str_count, str_len, end - start))
+            list.append(results, end - start)
+        result_file = open(temp_file, 'r')
+        result_file.readline()
+        for result in results:
+            pyapi_results = result_file.readline().translate(None, '\n').split('\t')
+            f.write(format_output(str_count, str_len, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
             f.flush()
         cursor.execute('drop table strings;')
     f.close()

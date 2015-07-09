@@ -443,6 +443,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     size_t iu;
 
     if (benchmark_output != NULL) {
+        reset_hook();
 	    if (!mapped) init_hook();
 	    start_timer();
 	}
@@ -1788,6 +1789,7 @@ returnvalues:
 
     if (benchmark_output != NULL) {
 		FILE *f = NULL;
+        if (!mapped) revert_hook();
 		end_timer();
 
 		f = fopen(benchmark_output, "a");
@@ -1795,8 +1797,6 @@ returnvalues:
 			fprintf(f, "%llu\t%f\n", GET_MEMORY_PEAK(), GET_ELAPSED_TIME());
 		}
 		fclose(f);
-
-		if (!mapped) revert_hook();
 	}
     VERBOSE_MESSAGE("Finished cleaning up.\n");
     return msg;
