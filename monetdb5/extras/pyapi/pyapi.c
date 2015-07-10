@@ -893,8 +893,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         PyObject * pColO = NULL;
         // This is the PyReturn header information for the current return value, we will fill this now
         PyReturn *ret = &pyreturn_values[i];
-        // This is the expected BAT result type (the type of BAT we have to make)
-        int bat_type = ATOMstorage(getColumnType(getArgType(mb,pci,i)));
 
         ret->multidimensional = FALSE;
         // There are three possibilities (we have ensured this right after executing the Python call)
@@ -936,16 +934,10 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         }
         else {
             // If it isn't we need to convert pColO to the expected Numpy Array type
-            ret->numpy_array = NULL;
-            (void) bat_type;
-            //if (bat_type != TYPE_str) ret->numpy_array = (PyArrayObject*) PyArray_FromAny(pColO, PyArray_DescrFromType(BatType_ToPyType(bat_type)), 1, 1, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
+            ret->numpy_array = PyArray_FromAny(pColO, NULL, 1, 1, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
             if (ret->numpy_array == NULL) {
-                // If this conversion fails, we will set the expected type to NULL, this means it will automatically pick a type for us
-                ret->numpy_array = PyArray_FromAny(pColO, NULL, 1, 1, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
-                if (ret->numpy_array == NULL) {
-                    msg = createException(MAL, "pyapi.eval", "Could not create a Numpy array from the return type.\n");
-                    goto wrapup;
-                }
+                msg = createException(MAL, "pyapi.eval", "Could not create a Numpy array from the return type.\n");
+                goto wrapup;
             }
             ret->result_type = PyArray_DESCR((PyArrayObject*)ret->numpy_array)->type_num; // We read the result type from the resulting array
             ret->memory_size = PyArray_DESCR((PyArrayObject*)ret->numpy_array)->elsize;
@@ -992,8 +984,28 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         for (i = 0; i < pci->retc; i++) 
         {
             PyReturn *ret = &pyreturn_values[i];
-
             ReturnBatDescr *descr = &ptr[(process_id - 1) * pci->retc + i];
+
+            if (ret->result_type == NPY_OBJECT) {
+                // We can't deal with NPY_OBJECT arrays, because these are 'arrays of pointers', so we can't just copy the content of the array into shared memory
+                // So if we're dealing with a NPY_OBJECT array, we convert them to a Numpy Array of type NPY_<TYPE> that corresponds with the desired BAT type 
+                // WARNING: Because we could be converting to a NPY_STRING or NPY_UNICODE array (if the desired type is TYPE_str or TYPE_hge), this means that memory usage can explode
+                //   because NPY_STRING/NPY_UNICODE arrays are 2D string arrays with fixed string length (so if there's one very large string the size explodes quickly)
+                //   if someone has some problem with memory size exploding when using PYTHON_MAP but it being fine in regular PYTHON this is probably the issue
+                int bat_type = ATOMstorage(getColumnType(getArgType(mb,pci,i)));
+                PyObject *new_array = PyArray_FromAny(ret->numpy_array, PyArray_DescrFromType(BatType_ToPyType(bat_type)), 1, 1, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
+                if (new_array == NULL) {
+                    msg = createException(MAL, "pyapi.eval", "Could not convert the returned NPY_OBJECT array to the desired array of type %s.\n", BatType_Format(bat_type));
+                    goto wrapup;
+                }
+                Py_DECREF(ret->numpy_array); //do we really care about cleaning this up, considering this only happens in a separate process that will be exited soon anyway?
+                ret->numpy_array = new_array;
+                ret->result_type = PyArray_DESCR((PyArrayObject*)ret->numpy_array)->type_num;
+                ret->memory_size = PyArray_DESCR((PyArrayObject*)ret->numpy_array)->elsize;
+                ret->count = PyArray_DIMS((PyArrayObject*)ret->numpy_array)[0];
+                ret->array_data = PyArray_DATA((PyArrayObject*)ret->numpy_array);
+            }
+
             descr->npy_type = ret->result_type;
             descr->element_size =   ret->memory_size;
             descr->bat_count = ret->count;
