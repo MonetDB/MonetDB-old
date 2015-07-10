@@ -85,9 +85,11 @@ static int pyapiInitialized = FALSE;
 // if _PYAPI_TESTING_ is enabled, and option_zerocopyinput is set to FALSE, the BAT is copied. Otherwise the internal BAT pointer is passed to the numpy array (zero copy)
 #define BAT_TO_NP(bat, mtpe, nptpe)                                                                                                 \
         if (!option_zerocopyinput) {                                                                                                \
+            mtpe *array;                                                                                                            \
             vararray = PyArray_Zeros(1, (npy_intp[1]) {(t_end-t_start)}, PyArray_DescrFromType(nptpe), 0);                          \
+            array = PyArray_DATA((PyArrayObject*)vararray);                                                                                         \
             for(j = t_start; j < t_end; j++) {                                                                                      \
-                PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j - t_start), SCALAR_TO_PYSCALAR(mtpe, ((mtpe*) Tloc(bat, BUNfirst(bat)))[j]));                      \
+                array[j - t_start] = ((mtpe*) Tloc(bat, BUNfirst(bat)))[j];                                                         \
             }                                                                                                                       \
         } else {                                                                                                                    \
             vararray = PyArray_New(&PyArray_Type, 1, (npy_intp[1]) {(t_end-t_start)},                                               \
