@@ -14,10 +14,9 @@
 #ifndef _PYAPI_BENCHMARK_LIB_
 #define _PYAPI_BENCHMARK_LIB_
 
-//starts a performance timer with clock()
-void start_timer(void);
-//ends the timer
-void end_timer(void);
+//returns the current time
+double timer(void);
+double GET_ELAPSED_TIME(double start_time, double end_time);
 //sets up malloc hooks, not thread safe, do not use in thread context
 void init_hook (void);
 void reset_hook(void);
@@ -27,7 +26,5 @@ void revert_hook (void);
 unsigned long long GET_MEMORY_PEAK(void);
 //get current memory usage (note that this only measures the malloc calls between init_hook() and revert_hook() calls)
 unsigned long long GET_MEMORY_USAGE(void);
-//gets the elapsed time of a timer started with start_timer() and end_timer()
-double GET_ELAPSED_TIME(void);
 
 #endif

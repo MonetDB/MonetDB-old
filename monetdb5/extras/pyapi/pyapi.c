@@ -87,7 +87,7 @@ static int pyapiInitialized = FALSE;
         if (!option_zerocopyinput) {                                                                                                \
             mtpe *array;                                                                                                            \
             vararray = PyArray_Zeros(1, (npy_intp[1]) {(t_end-t_start)}, PyArray_DescrFromType(nptpe), 0);                          \
-            array = PyArray_DATA((PyArrayObject*)vararray);                                                                                         \
+            array = PyArray_DATA((PyArrayObject*)vararray);                                                                         \
             for(j = t_start; j < t_end; j++) {                                                                                      \
                 array[j - t_start] = ((mtpe*) Tloc(bat, BUNfirst(bat)))[j];                                                         \
             }                                                                                                                       \
@@ -105,40 +105,40 @@ static int pyapiInitialized = FALSE;
 
 // This #define creates a new BAT with the internal data and mask from a Numpy array, without copying the data
 // 'bat' is a BAT* pointer, which will contain the new BAT. TYPE_'mtpe' is the BAT type, and 'batstore' is the heap storage type of the BAT (this should be STORE_CMEM or STORE_SHARED)
-#define CREATE_BAT_ZEROCOPY(bat, mtpe, batstore) {                                                      \
-        bat = BATnew(TYPE_void, TYPE_##mtpe, 0, TRANSIENT);                                             \
-        BATseqbase(bat, seqbase); bat->T->nil = 0; bat->T->nonil = 1;                                   \
-        bat->tkey = 0; bat->tsorted = 0; bat->trevsorted = 0;                                           \
-        /*Change nil values to the proper values, if they exist*/                                       \
-        if (mask != NULL)                                                                               \
-        {                                                                                               \
-            for (iu = 0; iu < ret->count; iu++)                                                         \
-            {                                                                                           \
-                if (mask[index_offset * ret->count + iu] == TRUE)                                       \
-                {                                                                                       \
-                    (*(mtpe*)(&data[(index_offset * ret->count + iu) * ret->memory_size])) = mtpe##_nil;\
-                    bat->T->nil = 1;                                                                    \
-                }                                                                                       \
-            }                                                                                           \
-        }                                                                                               \
-        bat->T->nonil = 1 - bat->T->nil;                                                                \
-        /*When we create a BAT a small part of memory is allocated, free it*/                           \
-        GDKfree(bat->T->heap.base);                                                                     \
-                                                                                                        \
-        bat->T->heap.base = &data[(index_offset * ret->count) * ret->memory_size];                      \
-        bat->T->heap.size = ret->count * ret->memory_size;                                              \
-        bat->T->heap.free = bat->T->heap.size;  /*There are no free places in the array*/               \
-        /*If index_offset > 0, we are mapping part of a multidimensional array.*/                       \
-        /*The entire array will be cleared when the part with index_offset=0 is freed*/                 \
-        /*So we set this part of the mapping to 'NOWN'*/                                                \
-        if (index_offset > 0) bat->T->heap.storage = STORE_NOWN;                                        \
-        else bat->T->heap.storage = batstore;                                                           \
-        bat->T->heap.newstorage = STORE_MEM;                                                            \
-        bat->S->count = ret->count;                                                                     \
-        bat->S->capacity = ret->count;                                                                  \
-        bat->S->copiedtodisk = false;                                                                   \
-                                                                                                        \
-        /*Take over the data from the numpy array*/                                                     \
+#define CREATE_BAT_ZEROCOPY(bat, mtpe, batstore) {                                                                      \
+        bat = BATnew(TYPE_void, TYPE_##mtpe, 0, TRANSIENT);                                                             \
+        BATseqbase(bat, seqbase); bat->T->nil = 0; bat->T->nonil = 1;                                                   \
+        bat->tkey = 0; bat->tsorted = 0; bat->trevsorted = 0;                                                           \
+        /*Change nil values to the proper values, if they exist*/                                                       \
+        if (mask != NULL)                                                                                               \
+        {                                                                                                               \
+            for (iu = 0; iu < ret->count; iu++)                                                                         \
+            {                                                                                                           \
+                if (mask[index_offset * ret->count + iu] == TRUE)                                                       \
+                {                                                                                                       \
+                    (*(mtpe*)(&data[(index_offset * ret->count + iu) * ret->memory_size])) = mtpe##_nil;                \
+                    bat->T->nil = 1;                                                                                    \
+                }                                                                                                       \
+            }                                                                                                           \
+        }                                                                                                               \
+        bat->T->nonil = 1 - bat->T->nil;                                                                                \
+        /*When we create a BAT a small part of memory is allocated, free it*/                                           \
+        GDKfree(bat->T->heap.base);                                                                                     \
+                                                                                                                        \
+        bat->T->heap.base = &data[(index_offset * ret->count) * ret->memory_size];                                      \
+        bat->T->heap.size = ret->count * ret->memory_size;                                                              \
+        bat->T->heap.free = bat->T->heap.size;  /*There are no free places in the array*/                               \
+        /*If index_offset > 0, we are mapping part of a multidimensional array.*/                                       \
+        /*The entire array will be cleared when the part with index_offset=0 is freed*/                                 \
+        /*So we set this part of the mapping to 'NOWN'*/                                                                \
+        if (index_offset > 0) bat->T->heap.storage = STORE_NOWN;                                                        \
+        else bat->T->heap.storage = batstore;                                                                           \
+        bat->T->heap.newstorage = STORE_MEM;                                                                            \
+        bat->S->count = ret->count;                                                                                     \
+        bat->S->capacity = ret->count;                                                                                  \
+        bat->S->copiedtodisk = false;                                                                                   \
+                                                                                                                        \
+        /*Take over the data from the numpy array*/                                                                     \
         if (ret->numpy_array != NULL) PyArray_CLEARFLAGS((PyArrayObject*)ret->numpy_array, NPY_ARRAY_OWNDATA);          \
     }
 
@@ -257,7 +257,7 @@ static int pyapiInitialized = FALSE;
             goto wrapup;                                                                                                                                       \
         }                                                                                                                                                      \
         data = (char*) ret->array_data;                                                                                                                        \
-        if (ZEROCOPY_OUTPUT ret->count > 0 && TYPE_##mtpe == PyType_ToBat(ret->result_type) && (ret->count * ret->memory_size < BUN_MAX) &&                   \
+        if (ZEROCOPY_OUTPUT ret->count > 0 && TYPE_##mtpe == PyType_ToBat(ret->result_type) && (ret->count * ret->memory_size < BUN_MAX) &&                    \
             (ret->numpy_array == NULL || PyArray_FLAGS((PyArrayObject*)ret->numpy_array) & NPY_ARRAY_OWNDATA))                                                 \
         {                                                                                                                                                      \
             /*We can only create a direct map if the numpy array type and target BAT type*/                                                                    \
@@ -281,7 +281,7 @@ static int pyapiInitialized = FALSE;
             bat = BATnew(TYPE_void, TYPE_##mtpe, ret->count, TRANSIENT);                                                                                       \
             BATseqbase(bat, seqbase); bat->T->nil = 0; bat->T->nonil = 1;                                                                                      \
             if (TYPE_##mtpe != TYPE_hge  && TYPE_##mtpe != PyType_ToBat(ret->result_type)) WARNING_MESSAGE("!PERFORMANCE WARNING: You are returning a Numpy Array of type %s, which has to be converted to a BAT of type %s. If you return a Numpy\
-Array of type %s no copying will be needed.\n", PyType_Format(ret->result_type), BatType_Format(TYPE_##mtpe), PyType_Format(BatType_ToPyType(TYPE_##mtpe))); \
+Array of type %s no copying will be needed.\n", PyType_Format(ret->result_type), BatType_Format(TYPE_##mtpe), PyType_Format(BatType_ToPyType(TYPE_##mtpe)));   \
             bat->tkey = 0; bat->tsorted = 0; bat->trevsorted = 0;                                                                                              \
             switch(ret->result_type)                                                                                                                           \
             {                                                                                                                                                  \
@@ -302,7 +302,7 @@ Array of type %s no copying will be needed.\n", PyType_Format(ret->result_type),
                 case NPY_LONGDOUBLE: NP_COL_BAT_LOOP(bat, mtpe, dbl); break;                                                                                   \
                 case NPY_STRING:     NP_COL_BAT_LOOP_FUNC(bat, mtpe, str_to_##mtpe); break;                                                                    \
                 case NPY_UNICODE:    NP_COL_BAT_LOOP_FUNC(bat, mtpe, unicode_to_##mtpe); break;                                                                \
-                case NPY_OBJECT:     NP_COL_BAT_LOOP_FUNC(bat, mtpe, pyobject_to_##mtpe); break;                                                                \
+                case NPY_OBJECT:     NP_COL_BAT_LOOP_FUNC(bat, mtpe, pyobject_to_##mtpe); break;                                                               \
                 default:                                                                                                                                       \
                     msg = createException(MAL, "pyapi.eval", "Unrecognized type. Could not convert to %s.\n", BatType_Format(TYPE_##mtpe));                    \
                     goto wrapup;                                                                                                                               \
@@ -378,6 +378,10 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     int memory_size = 0;
     int process_count = 0;
 #endif
+#ifdef _PYAPI_TESTING_
+    double start_time = 0, end_time = 0;
+    unsigned long long peak_memory_usage = 0;
+#endif
 
     int j;
     size_t iu;
@@ -392,7 +396,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     if (benchmark_output != NULL) {
         reset_hook();
         if (!mapped) init_hook();
-        start_timer();
+        start_time = timer();
     }
 #endif
 
@@ -553,6 +557,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             }
             else if (pids[i] == 0)
             {
+#ifdef _PYAPI_TESTING_
+                if (benchmark_output != NULL) { init_hook(); }
+#endif
                 break;
             }
         }
@@ -615,11 +622,17 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 ret->result_type = 0;
 
                 //first get header information 
+#ifdef _PYAPI_TESTING_
+                peak_memory_usage = 0;
+#endif
                 for(j = 0; j < process_count; j++)
                 {
                     ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[j * pci->retc + i]);
                     ret->count += descr->bat_count;
-                    total_size += descr->bat_size;
+                    total_size += descr->bat_size;                    
+#ifdef _PYAPI_TESTING_
+                    peak_memory_usage += descr->peak_memory_usage;
+#endif
                     if (j > 0)
                     {
                         //if these asserts fail the processes are returning different BAT types, which shouldn't happen
@@ -979,6 +992,10 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         }
 
         VERBOSE_MESSAGE("Writing headers.\n");
+
+#ifdef _PYAPI_TESTING_
+        if (benchmark_output != NULL) { revert_hook(); }
+#endif
         // Now we will write data about our result (memory size, type, number of elements) to the header
         ptr = (ReturnBatDescr*)shm_ptr;
         for (i = 0; i < pci->retc; i++) 
@@ -1011,6 +1028,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             descr->bat_count = ret->count;
             descr->bat_size = ret->memory_size * ret->count;
             descr->has_mask = ret->mask_data != NULL;
+#ifdef _PYAPI_TESTING_
+            descr->peak_memory_usage = GET_MEMORY_PEAK();
+#endif
         }
 
         // After writing the header information, we want to write the actual C array to the shared memory
@@ -1410,7 +1430,7 @@ returnvalues:
         Py_DECREF(pResult);
     }
 
-    // Now release some GDK memory we alloced for strings and input values
+    // Now release some GDK memory we allocated for strings and input values
     GDKfree(pyreturn_values);
     GDKfree(pyinput_values);
     for (i = 0; i < pci->argc; i++)
@@ -1422,14 +1442,20 @@ returnvalues:
 #ifdef _PYAPI_TESTING_
     if (benchmark_output != NULL) {
 		FILE *f = NULL;
-        if (!mapped) revert_hook();
-		end_timer();
+        if (!mapped) { 
+            revert_hook();
+            peak_memory_usage = GET_MEMORY_PEAK();
+        }
+		end_time = timer();
 
+        // We lock file access for when mapped is set
+        MT_lock_set(&pyapiLock, "pyapi.evaluate");
 		f = fopen(benchmark_output, "a");
 		if (f != NULL) {
-			fprintf(f, "%llu\t%f\n", GET_MEMORY_PEAK(), GET_ELAPSED_TIME());
+			fprintf(f, "%llu\t%f\n", peak_memory_usage, GET_ELAPSED_TIME(start_time, end_time));
 		}
 		fclose(f);
+        MT_lock_unset(&pyapiLock, "pyapi.evaluate");
 	}
 #endif
     VERBOSE_MESSAGE("Finished cleaning up.\n");

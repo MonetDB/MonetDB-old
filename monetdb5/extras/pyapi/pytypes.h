@@ -18,8 +18,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#include "monetdb_config.h"
-#include "mal.h"
+#include "pyapi.h"
 
 #undef _GNU_SOURCE
 #undef _XOPEN_SOURCE
@@ -36,6 +35,9 @@ struct _ReturnBatDescr
     size_t bat_size;                     //bat size in bytes
     size_t bat_start;                    //start position of bat
     bool has_mask;                       //if the return value has a mask or not
+#ifdef _PYAPI_TESTING_
+    unsigned long long peak_memory_usage;            //peak memory usage of the thread in bytes, used for testing
+#endif
 };
 #define ReturnBatDescr struct _ReturnBatDescr
 

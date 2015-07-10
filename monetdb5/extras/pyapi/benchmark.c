@@ -142,26 +142,18 @@ void revert_hook (void) {}
 #ifdef HAVE_TIME_H
 #include <time.h>
 
-static double benchmark_start_time = 0;
-static double benchmark_end_time = 0;
-double GET_ELAPSED_TIME(void)
+double GET_ELAPSED_TIME(double start_time, double end_time)
 {
-	return (double)(benchmark_end_time - benchmark_start_time) / CLOCKS_PER_SEC;
+	return (double)(end_time - start_time) / CLOCKS_PER_SEC;
 }
 
-void start_timer(void)
+double timer(void)
 {
-	benchmark_start_time = clock();
-}
-
-void end_timer(void)
-{
-	benchmark_end_time = clock();
+	return clock();
 }
 #else
-double GET_ELAPSED_TIME(void) { return 0; }
-void start_timer(void) { }
-void end_timer(void) { }
+double GET_ELAPSED_TIME(double start_time, double end_time) { return 0; }
+double timer(void) { return 0; }
 #endif
 
 unsigned long long GET_MEMORY_PEAK(void)
