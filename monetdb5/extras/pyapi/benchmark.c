@@ -1,3 +1,10 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0.  If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright 2008-2015 MonetDB B.V.
+ */
 
 #include "benchmark.h"
 
@@ -13,7 +20,10 @@ static unsigned long long memtrace_memory_peak = 0;
 #ifdef __MALLOC_DEPRECATED //if this isn't defined MALLOC_HOOKS aren't supported, probably
 // We are using malloc/free hooks which are deprecated, so we have to ignore the warnings
 // (This is obviously bad practice, but the alternative is having to recompile Python and then tracing both PyMemAlloc/Realloc and GDKmalloc/realloc calls, this is much easier, and we aren't using them in a thread context and no thread safety is why they are deprecated in the first place) 
+
+#ifndef __INTEL_COMPILER
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 /* Prototypes for our hooks.  */
 static void *my_malloc_hook (size_t, const void *);
 static void my_free_hook (void*, const void *);

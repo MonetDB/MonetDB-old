@@ -4,7 +4,7 @@
 export PYAPI_BASE_DIR=$HOME
 # The terminal to start mserver with, examples are 'gnome-terminal', 'xterm', 'konsole'
 export TERMINAL=x-terminal-emulator
-# A command that tests if the mserver is still running (used to find out when the shutting down is completed)
+# A command that tests if the mserver is still running (used to find out when the shutting down of mserver is completed)
 export MSERVERTEST='netstat -ant | grep "127.0.0.1:50000.*LISTEN">/dev/null'
 
 # Testing parameters
@@ -52,6 +52,20 @@ export PYTHON_MONETDB_URL=https://pypi.python.org/packages/source/p/python-monet
 export PYAPI_TESTFILE=$PYAPI_MONETDB_DIR/monetdb5/extras/pyapi/Benchmarks/monetdb_testing.py
 # Graph file location
 export PYAPI_GRAPHFILE=$PYAPI_MONETDB_DIR/monetdb5/extras/pyapi/Benchmarks/graph.py
+
+# Try a bunch of popular different terminals
+type $TERMINAL >/dev/null 2>&1
+if [ $? -ne 0  ]; then
+    export TERMINAL=gnome-terminal
+fi
+type $TERMINAL >/dev/null 2>&1
+if [ $? -ne 0  ]; then
+    export TERMINAL=xterm
+fi
+type $TERMINAL >/dev/null 2>&1
+if [ $? -ne 0  ]; then
+    export TERMINAL=konsole
+fi
 
 function pyapi_build {
     echo "Making directory $PYAPI_TEST_DIR."
