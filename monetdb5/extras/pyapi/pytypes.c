@@ -2,6 +2,10 @@
 #include "pytypes.h"
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#ifdef __INTEL_COMPILER
+// Intel compiler complains about trailing comma's in numpy source code
+#pragma warning(disable:271)
+#endif
 #include <numpy/ndarraytypes.h>
 #include <numpy/npy_common.h>
 
