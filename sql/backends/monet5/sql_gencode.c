@@ -1367,6 +1367,14 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 				s->nr = newTmpVariable(mb, TYPE_any);
 		}
 			break;
+
+		case st_rdfscan:
+			q = newStmt1(mb, sqlRef, "rdfscan");
+			q = pushArgument(mb, q, 222) ;
+			q = pushStr(mb, q, "Testing rdfscan");
+			if (q == NULL)
+				return -1;
+			break; 
 		case st_uselect2:
 		case st_join2:{
 			InstrPtr r, p;

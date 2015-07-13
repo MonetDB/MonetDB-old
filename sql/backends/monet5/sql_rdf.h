@@ -39,17 +39,31 @@
 
 //sql5_export str SQLrdfdeserialize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLrdfprepare(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str SQLrdfRetrieveSubschema(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str SQLrdfdeserialize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+//sql5_export str SQLrdfidtostr(str *ret, oid *id);
 
+sql5_export str SQLrdfidtostr(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str SQLrdfidtostr_bat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str SQLrdfstrtoid(oid *ret, str *s);
+//sql5_export str SQLrdfstrtoid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export void getTblSQLname(char *tmptbname, int tblIdx, int isExTbl, oid tblname, BATiter mapi, BAT *mbat);
 sql5_export void getColSQLname(char *tmpcolname, int colIdx, int colType, oid propid, BATiter mapi, BAT *mbat);
 sql5_export void getMvTblSQLname(char *tmpmvtbname, int tblIdx, int colIdx, oid tblname, oid propid, BATiter mapi, BAT *mbat);
 
+sql5_export str SQLrdfScan_old(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+
+sql5_export void getSlides_per_P(PsoPropStat *pso_pstat, oid *prop, BAT *obat, BAT *sbat, BAT **ret_oBat, BAT **ret_sBat); 
 
 extern SimpleCSset *global_csset; 
 extern PropStat *global_p_propstat;
 extern PropStat *global_c_propstat;
 extern BAT *global_mbat;
 extern BATiter global_mapi;
+extern PsoPropStat *pso_propstat; 
 
 #define APPLY_OPTIMIZATION_FOR_OPTIONAL	1	/* Instead of using left join, we use a project with ifthenelse */
 						/* on the set of optional columns */

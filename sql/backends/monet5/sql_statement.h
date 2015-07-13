@@ -60,6 +60,7 @@ typedef enum stmt_type {
 	st_atom,
 	st_uselect,
 	st_uselect2,
+	st_rdfscan,
 	st_tunion,
 	st_tdiff,
 	st_tinter,
@@ -177,6 +178,7 @@ extern stmt *stmt_uselect(sql_allocator *sa, stmt *op1, stmt *op2, comp_type cmp
        3 ==   l <= x <= h
        */
 extern stmt *stmt_uselect2(sql_allocator *sa, stmt *op1, stmt *op2, stmt *op3, int cmp, stmt *sub);
+extern stmt *stmt_rdfscan(sql_allocator *sa); 
 extern stmt *stmt_genselect(sql_allocator *sa, stmt *lops, stmt *rops, sql_subfunc *f, stmt *sub);
 
 extern stmt *stmt_tunion(sql_allocator *sa, stmt *op1, stmt *op2);

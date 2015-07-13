@@ -44,6 +44,9 @@ typedef struct RdfScanParams {
 
 
 rdf_export str
-RDFscan(str query, str schema); 
+RDFscan_old(str query, str schema); 
+
+rdf_export str
+RDFscan(oid *props, BAT **resBATs); 
 
 #endif /* RDFSCAN */

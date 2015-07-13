@@ -74,3 +74,53 @@ rel_rdfscan_create(sql_allocator *sa, sql_rel *l, list *exps, rdf_rel_prop *r_r_
 	}
 	return rel;
 }
+
+
+static list *
+table_column_types(sql_allocator *sa, sql_table *t)
+{
+	node *n;
+	list *types = sa_list(sa);
+
+	if (t->columns.set) for (n = t->columns.set->h; n; n = n->next) {
+		sql_column *c = n->data;
+		if (c->base.name[0] != '%')
+			append(types, &c->type);
+	}
+	return types;
+}
+
+sql_rel *
+rel_rdfscan_func(mvc *sql, sql_table *t, int numprop, int nRP, oid *lstprop)
+{
+	sql_rel *res;
+	list *exps, *args;
+	node *n;
+	sql_exp *import;
+	int i; 
+	sql_schema *sys = mvc_bind_schema(sql, "sys");
+	sql_subfunc *f = sql_find_func(sql->sa, sys, "rdfscan", -1, F_UNION, NULL); 
+	
+	if (!f) /* we do expect copyfrom to be there */
+		return NULL;
+
+	f->res = table_column_types(sql->sa, t);
+	args = new_exp_list(sql->sa); 
+	append(args, exp_atom_int(sql->sa, numprop));
+	append(args, exp_atom_int(sql->sa, nRP)); 
+	
+	for (i = 0; i < numprop; i++){
+		append(args, exp_atom_oid(sql->sa, lstprop[i]));  	
+	}
+
+	import = exp_op(sql->sa, args, f); 
+	
+	exps = new_exp_list(sql->sa);
+	for (n = t->columns.set->h; n; n = n->next) {
+		sql_column *c = n->data;
+		if (c->base.name[0] != '%')
+			append(exps, exp_column(sql->sa, t->base.name, c->base.name, &c->type, CARD_MULTI, c->null, 0));
+	}
+	res = rel_table_func(sql->sa, NULL, import, exps, 1);
+	return res;
+}

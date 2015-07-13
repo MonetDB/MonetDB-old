@@ -1473,7 +1473,7 @@ SQLrdfstrtoid(oid *ret, str *s){
 #endif 
 
 str 
-SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+SQLrdfScan_old(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	str msg; 
 	int ret; 
 	mvc *m = NULL; 
@@ -1483,12 +1483,84 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 	rethrow("sql.rdfScan", msg, getSQLContext(cntxt, mb, &m, NULL));
 
-	rethrow("sql.rdfScan", msg, RDFscan(*params, *schema));
+	rethrow("sql.rdfScan", msg, RDFscan_old(*params, *schema));
 
 	(void) ret; 
 
 	return MAL_SUCCEED; 
 }
+
+/*
+ * This is the same as the function in sql.c
+ * */
+static void
+bat2return(MalStkPtr stk, InstrPtr pci, BAT **b)
+{
+	int i;
+
+	for (i = 0; i < pci->retc; i++) {
+		*getArgReference_bat(stk, pci, i) = b[i]->batCacheid;
+		BBPkeepref(b[i]->batCacheid);
+	}
+}
+
+
+/*
+ * The input for this pattern should be
+ * Number of Ps, Number of RPs, <List of Prop Ids>
+ * */
+str 
+SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+	
+	BAT **b = NULL;		//List of BATs (columns) to be returned
+	int nRet = -1; 		//Number of BATs to return
+	int *nP = NULL; 	//Number of props
+	int *nRP = NULL; 	
+	oid *lstProps = NULL; 
+	int i;
+
+
+	(void) cntxt; 
+	(void) mb; 
+	(void) stk; 
+	(void) pci; 
+		
+		
+	nP = (int *) getArgReference(stk, pci, pci->retc + 0);
+	nRP =  (int *) getArgReference(stk, pci, pci->retc + 1);
+	nRet = 2 * *nP; 
+	
+	(void) nRP;
+
+	assert (pci->retc == nRet);
+		
+	b = (BAT **) GDKmalloc (sizeof (BAT*) * pci->retc); 
+	lstProps = (oid *)GDKmalloc(sizeof(oid) * (*nP)); 
+	for (i = 0; i < (*nP); i++){
+		oid *tmpp = (oid *) getArgReference(stk, pci, pci->retc + 2 + i);
+		lstProps[i] = *tmpp; 
+	}
+	
+	for (i = 0; i < pci->retc; i++){
+		int tmp = -1; 
+		//Get type from pci
+		int bat_type = 	ATOMstorage(getColumnType(getArgType(mb,pci,i))); 
+		
+		if (bat_type == TYPE_str) printf("bat_type is string\n");
+		else printf("bat_type is %d\n", bat_type); 
+
+		b[i] = BATnew(TYPE_void, bat_type, smallbatsz, TRANSIENT); 	
+		tmp = i;
+		BUNappend(b[i], &tmp, TRUE); 
+	}
+	
+	printf("There are %d props, among them %d RPs /n", *nP, *nRP);
+	bat2return(stk, pci, b);
+	GDKfree(b);
+
+	return MAL_SUCCEED; 
+}
+
 
 str
 SQLrdfRetrieveSubschema(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
@@ -1656,6 +1728,90 @@ PropStat 	*global_p_propstat = NULL;
 PropStat 	*global_c_propstat = NULL; 
 BAT		*global_mbat = NULL;
 BATiter 	global_mapi; 
+PsoPropStat	*pso_propstat = NULL; /* Store the offsets of a prop 
+					 in the exceptional PSO table */
+static
+void getOffsets(PsoPropStat *pso_pstat, oid *p, BUN *start, BUN *end){
+
+	BUN pos; 
+
+	pos = BUNfnd(pso_pstat->pBat, p);
+	if (pos == BUN_NONE)	
+		fprintf(stderr, "[Error] The prop "BUNFMT " must be there!\n", *p);
+	else{
+		oid *tmpstart = (oid *) Tloc(pso_pstat->offsetBat, pos);
+		*start = (*tmpstart); 
+		if (pos == BATcount(pso_pstat->pBat) - 1){ //This is the last prop
+			*end = BUN_NONE; 
+		}
+		else{
+			oid *tmpend = (oid *) Tloc(pso_pstat->offsetBat, pos + 1);	
+			*end = (*tmpend) - 1; 
+		}
+
+	}
+}
+
+void getSlides_per_P(PsoPropStat *pso_pstat, oid *p, BAT *obat, BAT *sbat, BAT **ret_oBat, BAT **ret_sBat){
+	BUN l, h; 	
+	
+	getOffsets(pso_pstat, p, &l, &h); 
+
+	*ret_oBat = BATslice(obat, l, h); 
+
+	*ret_sBat = BATslice(sbat, l, h); 
+
+
+}
+
+/*
+ * From the full P BAT (column P) of the PSO
+ * triple table, extract the offsets where each 
+ * prop starts. 
+ * */
+static 
+void build_PsoPropStat(BAT *full_pbat, int maxNumP, BAT *full_sbat, BAT *full_obat){
+	BUN p, q; 
+	oid *poid; 
+	BATiter pi; 
+	oid curP; 
+	int batsize = 150000; 
+	pi = bat_iterator(full_pbat); 
+
+	batsize = maxNumP; 	//Can be smaller
+
+	pso_propstat = (PsoPropStat *) GDKmalloc(sizeof(PsoPropStat)); 
+	pso_propstat->pBat =  BATnew(TYPE_void, TYPE_oid, batsize, TRANSIENT);
+	pso_propstat->pBat->tsorted = 1;
+	pso_propstat->offsetBat = BATnew(TYPE_void, TYPE_oid, batsize, TRANSIENT); 
+	
+	curP = BUN_NONE; 
+	BATloop(full_pbat, p, q){
+		poid = (oid *) BUNtloc(pi, p); 
+		if (*poid != curP){	//Start new poid
+			oid tmpoffset = p; 
+			BUNappend(pso_propstat->pBat, poid, TRUE); 
+			BUNappend(pso_propstat->offsetBat, &tmpoffset, TRUE);
+
+			curP = *poid; 	
+		}	
+	}	
+	printf("Number of P in PSO is: "BUNFMT"\n", BATcount(pso_propstat->pBat)); 
+	BATprint(pso_propstat->pBat); 
+	BATprint(pso_propstat->offsetBat); 
+	{
+
+		BAT *obat, *sbat; 
+		oid p = 100; 
+
+		getSlides_per_P(pso_propstat, &p, full_obat, full_sbat, &obat, &sbat); 
+		printf("Slice of P = "BUNFMT "\n", p);
+		BATprint(sbat);
+		BATprint(obat); 
+	}
+	
+}
+				
 
 str SQLrdfdeserialize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	
@@ -1739,6 +1895,17 @@ str SQLrdfprepare(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	print_simpleCSset(global_csset);
 
 	printf("Done preparation\n"); 
+
+	//Build pso_propstat to store offsets of each
+	//P in PSO table
+	{
+		
+		BAT *pso_fullPbat = mvc_bind(m, schema, "pso", "p",0);
+		BAT *pso_fullSbat = mvc_bind(m, schema, "pso", "s",0);
+		BAT *pso_fullObat = mvc_bind(m, schema, "pso", "o",0);
+		build_PsoPropStat(pso_fullPbat, global_p_propstat->numAdded, pso_fullSbat, pso_fullObat); 
+	}
+
 
 	(void) cntxt; (void) mb; (void) stk; (void) pci;
 			

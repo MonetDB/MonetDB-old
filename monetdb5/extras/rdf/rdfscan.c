@@ -164,7 +164,7 @@ void freeParams(RdfScanParams *rsParam){
 
 }
 
-str RDFscan(str s, str schema){
+str RDFscan_old(str s, str schema){
 	
 	str query; 
 	RdfScanParams *rsParam = NULL; 
@@ -183,5 +183,12 @@ str RDFscan(str s, str schema){
 
 	GDKfree(query); 
 
+	return MAL_SUCCEED; 
+}
+
+str
+RDFscan(oid *props, BAT **resBATs){
+	(void) props; 
+	(void) resBATs;
 	return MAL_SUCCEED; 
 }

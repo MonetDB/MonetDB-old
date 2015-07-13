@@ -249,6 +249,14 @@ exp_atom_dbl(sql_allocator *sa, dbl f)
 }
 
 sql_exp *
+exp_atom_oid(sql_allocator *sa, oid f) 
+{
+	sql_subtype it; 
+
+	sql_find_subtype(&it, "oid", 63, 0);
+	return exp_atom(sa, atom_int(sa, &it, f ));
+}
+sql_exp *
 exp_atom_str(sql_allocator *sa, str s, sql_subtype *st) 
 {
 	return exp_atom(sa, atom_string(sa, st, s?sa_strdup(sa, s):NULL));

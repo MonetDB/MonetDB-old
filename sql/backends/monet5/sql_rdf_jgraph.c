@@ -2108,7 +2108,7 @@ void get_removed_tid_exps(mvc *c, list *trans_base_exps, sql_rel *r){
  *  - sp_prj_exps stores all the columns should be selected in the "original order" 
  * */
 static
-sql_rel* build_rdfexception (mvc *c, int tId, jgraph *jg, list *union_rdfscan_exps, int nijgroup, int **ijgroup, int *nnodes_per_ijgroup){
+sql_rel* build_rdfexception_old (mvc *c, int tId, jgraph *jg, list *union_rdfscan_exps, int nijgroup, int **ijgroup, int *nnodes_per_ijgroup){
 
 	sql_rel *rel_rdfscan = NULL;
 	str tblname; 
@@ -2175,6 +2175,84 @@ sql_rel* build_rdfexception (mvc *c, int tId, jgraph *jg, list *union_rdfscan_ex
 	
 	rel_rdfscan = rel_rdfscan_create(c->sa, rel_basetbl, trans_select_exps, NULL); 
 	//rel_rdfscan = rel_rdfscan_create(c->sa, rel_basetbl, NULL, NULL); 
+	
+	printf("\nRDFSCAN \n");
+	_rel_print(c, rel_rdfscan);
+	
+	return rel_rdfscan; 
+
+}
+
+
+static
+sql_rel* build_rdfexception (mvc *c, int tId, jgraph *jg, list *union_rdfscan_exps, int nijgroup, int **ijgroup, int *nnodes_per_ijgroup, spProps *spprops){
+
+	sql_rel *rel_rdfscan = NULL;
+	str tblname; 
+	char dummy_tblname[100]; 
+	oid tblnameoid;
+	sql_rel *rel_basetbl = NULL; 
+	str dup_tblname = NULL;
+	int gr, i; 
+
+	sql_table *tbl; 
+	list *trans_select_exps = NULL; 
+	list *trans_base_exps = NULL; 
+	
+	printf("Get real expressions from tableId %d\n", tId);
+
+	tblnameoid = global_csset->items[tId]->tblname;
+
+	tblname = (str) GDKmalloc(sizeof(char) * 50); 
+
+	getTblSQLname(tblname, tId, 0,  tblnameoid, global_mapi, global_mbat);
+	
+	sprintf(dummy_tblname,"dummy_%s",tblname); 
+
+	dup_tblname  = sa_strdup(c->sa, dummy_tblname); 
+
+	tbl = create_dummy_table(c, dup_tblname, union_rdfscan_exps);
+
+	printf("  [Name of the table  %s]", tblname);  
+	
+	rel_basetbl = rel_basetable(c, tbl, dup_tblname); 
+
+	trans_base_exps = new_exp_list(c->sa); 
+
+	get_removed_tid_exps(c, trans_base_exps, rel_basetbl);
+
+	rel_basetbl->exps = trans_base_exps; 
+
+
+	printf("\nDUMMY TABLE\n"); 
+
+	_rel_print(c, rel_basetbl);
+
+	
+	trans_select_exps = new_exp_list(c->sa);
+	for (gr = 0; gr < nijgroup; gr++){
+		for (i = 0; i < nnodes_per_ijgroup[gr]; i++){
+			int nodeid = ijgroup[gr][i];
+			jgnode *tmpnode = jg->lstnodes[nodeid];
+			sql_rel *tmprel = (sql_rel*) (tmpnode->data);
+			list *tmpexps = NULL; 
+
+			assert(tmprel->op == op_select);
+			assert(((sql_rel*)tmprel->l)->op == op_basetable); 
+
+			tmpexps = tmprel->exps;
+
+			if (tmpexps){
+				get_transform_dummy_select_exps(c, tmpexps, trans_select_exps, dup_tblname); 
+			}
+		}
+	}
+	
+	exps_print_ext(c, trans_select_exps, 0, "[RDFexception] select exprs: ");
+	
+	if (0) rel_rdfscan = rel_rdfscan_create(c->sa, rel_basetbl, trans_select_exps, NULL); 
+
+	rel_rdfscan = rel_rdfscan_func(c, tbl, spprops->num, nnodes_per_ijgroup[0], spprops->lstPropIds); 
 	
 	printf("\nRDFSCAN \n");
 	_rel_print(c, rel_rdfscan);
@@ -2959,7 +3037,9 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 
 		exps_print_ext(c, union_rdfscan_exps, 0, "union_rdfscan_exps: ");
 			
-		rel_rdfscan = build_rdfexception(c, tmptbId[0], jg, union_rdfscan_exps, nijgroup, ijgroup, nnodes_per_ijgroup);
+		if (0) rel_rdfscan = build_rdfexception_old(c, tmptbId[0], jg, union_rdfscan_exps, nijgroup, ijgroup, nnodes_per_ijgroup);
+
+		rel_rdfscan = build_rdfexception(c, tmptbId[0], jg, union_rdfscan_exps, nijgroup, ijgroup, nnodes_per_ijgroup, spprops);
 
 		printf("RDF exception\n"); 
 		_rel_print(c, rel_rdfscan); 

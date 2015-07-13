@@ -48,6 +48,7 @@ extern sql_exp * exp_atom_hge(sql_allocator *sa, hge l);
 extern sql_exp * exp_atom_wrd(sql_allocator *sa, wrd w);
 extern sql_exp * exp_atom_flt(sql_allocator *sa, flt f);
 extern sql_exp * exp_atom_dbl(sql_allocator *sa, dbl d);
+extern sql_exp * exp_atom_oid(sql_allocator *sa, oid f);
 extern sql_exp * exp_atom_str(sql_allocator *sa, str s, sql_subtype *st);
 extern sql_exp * exp_atom_clob(sql_allocator *sa, str s);
 extern sql_exp * exp_atom_ptr(sql_allocator *sa, void *s);

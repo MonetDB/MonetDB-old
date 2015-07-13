@@ -401,6 +401,7 @@ stmt_deps(list *dep_list, stmt *s, int depend_type, int dir)
 			case st_atom:
 			case st_trans:
 			case st_catalog:
+			case st_rdfscan: 				
 				break;
 			}
 		}
@@ -842,6 +843,14 @@ stmt_uselect(sql_allocator *sa, stmt *op1, stmt *op2, comp_type cmptype, stmt *s
 	s->op3 = sub;
 	s->flag = cmptype;
 	s->nrcols = (op1->nrcols == 2) ? 2 : 1;
+	return s;
+}
+
+stmt *
+stmt_rdfscan(sql_allocator *sa)
+{
+	stmt *s = stmt_create(sa, st_rdfscan);
+
 	return s;
 }
 

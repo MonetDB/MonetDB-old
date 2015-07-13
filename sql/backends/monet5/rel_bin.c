@@ -2416,6 +2416,15 @@ rel2bin_select( mvc *sql, sql_rel *rel, list *refs)
 	return stmt_list(sql->sa, l);
 }
 
+
+static stmt *
+rel2bin_rdfscan( mvc *sql, sql_rel *rel, list *refs)
+{	
+	(void) rel; 
+	(void) refs; 
+	return stmt_rdfscan(sql->sa);
+}
+
 static stmt *
 rel2bin_groupby( mvc *sql, sql_rel *rel, list *refs)
 {
@@ -4433,8 +4442,12 @@ subrel_bin(mvc *sql, sql_rel *rel, list *refs)
 		sql->type = Q_TABLE;
 		break;
 	case op_select: 
-	case op_rdfscan:		
 		s = rel2bin_select(sql, rel, refs);
+		sql->type = Q_TABLE;
+		break;
+	case op_rdfscan:		
+		if (1) s = rel2bin_rdfscan(sql, rel, refs);
+		else s = rel2bin_select(sql, rel, refs);
 		sql->type = Q_TABLE;
 		break;
 	case op_groupby: 

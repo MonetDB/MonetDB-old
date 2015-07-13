@@ -93,6 +93,11 @@ typedef struct PropStat {
 	int		maxNumPPerCS;   /* Maximum number of different properties in one CS */
 } PropStat; 			
 
+typedef struct PsoPropStat {
+	BAT*		pBat; 		/* Store the list of properties */
+	BAT*		offsetBat; 	/* Store the first pos where the prop starts in PSO table */
+} PsoPropStat; 
+
 #define INIT_PROP_NUM	10
 #define INIT_CS_PER_PROP 10
 #define	USINGTFIDF	1

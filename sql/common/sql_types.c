@@ -1666,6 +1666,12 @@ sqltypeinit( sql_allocator *sa)
 			create_arg(sa, NULL, sql_create_subtype(sa, STR, 0, 0), ARG_IN)), 
 			create_arg(sa, NULL, sql_create_subtype(sa, STR, 0, 0), ARG_IN)), sres, FALSE, F_UNION, SCALE_FIX);
 	f->varres = 1;
+	
+	/* rdfscan */
+	f = sql_create_func_(sa, "rdfscan", "sql", "rdfscan", 
+				sa_list(sa), 
+				sres, FALSE, F_UNION, SCALE_FIX);
+	f->varres = 1;
 }
 
 void
