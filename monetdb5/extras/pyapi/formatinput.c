@@ -8,10 +8,11 @@
 #include "mal_linker.h"
 #include "gdk_utils.h"
 #include "gdk.h"
+#include "mal_exception.h"
 
 
 //! Parse a PyCodeObject from a string, the string is expected to be in the format {@<encoded_function>};, where <encoded_function> is all the PyCodeObject properties in order
-PyObject *PyCodeObject_ParseString(char *string);
+PyObject *PyCodeObject_ParseString(char *string, char **msg);
 
 char* GetArg(char *string, char *storage, int index);
 char* GetArg(char *string, char *storage, int index)
@@ -62,8 +63,8 @@ size_t ModifyCode(char *string, char *storage)
     return j;
 }
 
-PyObject *GetConstantObject(char *string, char *storage);
-PyObject *GetConstantObject(char *string, char *storage)
+PyObject *GetConstantObject(char *string, char *storage, char **msg);
+PyObject *GetConstantObject(char *string, char *storage, char **msg)
 {
     int numbers = 0, i = 0, j = 0, k = 0;
     int length = strlen(string);
@@ -81,6 +82,7 @@ PyObject *GetConstantObject(char *string, char *storage)
     }
     if (brackets != 0) {
         //invalid number of brackets
+        *msg = createException(MAL, "pyapi.eval", "Invalid number of brackets in encoded Python code object string.");
         return NULL;
     }
 
@@ -110,9 +112,9 @@ PyObject *GetConstantObject(char *string, char *storage)
                     object = PyUnicode_FromString(storage);
                 } else if (strcmp(type_str, "code") == 0) {
                     //recursive call, we've got a function within this function, so we have to parse another code object
-                    object = PyCodeObject_ParseString(storage);
+                    object = PyCodeObject_ParseString(storage, msg);
                 } else {
-                    printf("ERROR: Unrecognized type %s!", type_str);
+                    *msg = createException(MAL, "pyapi.eval", "Unrecognized constant type %s in encoded Python code object string.", type_str);
                     return NULL;
                 }
                 PyTuple_SetItem(result, j, object);
@@ -170,13 +172,17 @@ PyObject* GetStringTuple(char *string, char *storage)
     return result;
 }
 
-PyObject *PyCodeObject_ParseString(char *string)
+PyObject *PyCodeObject_ParseString(char *string, char **msg)
 {
     int argcount, nlocals, stacksize, flags, firstlineno;
     PyObject *code, *name, *filename, *lnotab;
     PyObject *consts, *names, *varnames, *freevars, *cellvars;
     char *temp_string = GDKmalloc(strlen(string));
     char *temp_string2 = GDKmalloc(strlen(string));
+    if (temp_string == NULL || temp_string2 == NULL) {
+        *msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
+        return NULL;
+    }
     size_t size;
 
     //argcount is a single int
@@ -191,7 +197,7 @@ PyObject *PyCodeObject_ParseString(char *string)
     size = ModifyCode(GetArg(string, temp_string, 4), temp_string2);
     code = PyString_FromStringAndSize(temp_string2, size);
     //now parse the constants, constants are a list of python objects in the form of (type:value) (ex: (int:20)(int:33)(str:hello))
-    consts = GetConstantObject(GetArg(string, temp_string, 5), temp_string2);
+    consts = GetConstantObject(GetArg(string, temp_string, 5), temp_string2, msg);
     //now parse the names, this is a list of strings delimited by commas (ex: name,name2,)
     names = GetStringTuple(GetArg(string, temp_string, 6), temp_string2);
     //now parse the varnames, same as above
@@ -214,7 +220,7 @@ PyObject *PyCodeObject_ParseString(char *string)
     return (PyObject*)PyCode_New(argcount, nlocals, stacksize, flags, code, consts, names, varnames, freevars, cellvars, filename, name, firstlineno, lnotab);
 }
 
-char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth, PyObject **code_object)
+char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth, PyObject **code_object, char **msg)
 {
     // Format the python code by fixing the indentation levels
     // We do two passes, first we get the length of the resulting formatted code and then we actually create the resulting code
@@ -247,15 +253,16 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth, PyOb
 
     char base_start[] = "def pyfun(";
     char base_end[] = "):\n";
-
+    *msg = NULL;
     if (code[1] == '@') {
-        *code_object = PyCodeObject_ParseString(code);
+        *code_object = PyCodeObject_ParseString(code, msg);
         return NULL;
     }
 
     indentation_levels = (size_t*)GDKzalloc(max_indentation * sizeof(size_t));
     statements_per_level = (size_t*)GDKzalloc(max_indentation * sizeof(size_t));
     if (indentation_levels == NULL || statements_per_level == NULL) {
+        *msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
         goto finally;
     }
 
@@ -343,9 +350,15 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth, PyOb
                     // This probably will never happen unless in really extreme code (or if max_indentation is set very low)
                     size_t *new_indentation = GDKzalloc(2 * max_indentation * sizeof(size_t));
                     size_t *new_statements_per_level;
-                    if (new_indentation == NULL) goto finally;
+                    if (new_indentation == NULL) { 
+                        *msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
+                        goto finally;
+                    }
                     new_statements_per_level = GDKzalloc(2 * max_indentation * sizeof(size_t));
-                    if (new_statements_per_level == NULL) goto finally;
+                    if (new_statements_per_level == NULL) {
+                        *msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
+                        goto finally;
+                    }
 
                     for(i = 0; i < max_indentation; i++) {
                         new_indentation[i] = indentation_levels[i];
@@ -402,7 +415,10 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth, PyOb
 
     // Allocate space for the function
     newcode = GDKzalloc(size);
-    if (newcode == NULL) goto finally;
+    if (newcode == NULL) { 
+        *msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
+        goto finally;
+    }
     initial_spaces = 0;
     seen_statement = false;
 
@@ -467,7 +483,7 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth, PyOb
                     // This should never happen, because it means the initial spaces was not present in the array
                     // When we just did exactly the same loop over the array, we should have encountered this statement
                     // This means that something happened to either the indentation_levels array or something happened to the code
-                    printf("WHAT HAPPENED\n");
+                    *msg = createException(MAL, "pyapi.eval", "If you see this error something went wrong in the code. Sorry.");
                     goto finally;
                 }
                 for(j = 0; j < (level + 1) * spaces_per_level; j++) {
@@ -490,7 +506,7 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth, PyOb
     newcode[code_location] = '\0';
     if (code_location >= size) {
         // Something went wrong with our size computation, this also should never happen
-        printf("WHAT HAPPENED\n");
+        *msg = createException(MAL, "pyapi.eval", "If you see this error something went wrong in the code (size computation). Sorry.");
         goto finally;
     }
 finally:

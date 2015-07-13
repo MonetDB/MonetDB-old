@@ -696,9 +696,10 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 
     /*[PARSE_CODE]*/
     VERBOSE_MESSAGE("Formatting python code.\n"); 
-    pycall = FormatCode(exprStr, args, pci->argc, 4, &code_object);
+    pycall = FormatCode(exprStr, args, pci->argc, 4, &code_object, &msg);
     if (pycall == NULL && code_object == NULL) {
-        throw(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
+        if (msg == NULL) { msg = createException(MAL, "pyapi.eval", "Error while parsing Python code."); }
+        goto wrapup;
     }
     
     /*[CONVERT_BAT]*/

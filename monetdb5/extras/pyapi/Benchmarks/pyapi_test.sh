@@ -1,7 +1,7 @@
 
 
 # The base directory of testing, a new folder is created in this base directory [$PYAPI_TEST_DIR], and everything is done in that new folder
-export PYAPI_BASE_DIR=$HOME
+export PYAPI_BASE_DIR=/export/scratch1/raasveld
 # The terminal to start mserver with, examples are 'gnome-terminal', 'xterm', 'konsole'
 export TERMINAL=x-terminal-emulator
 # A command that tests if the mserver is still running (used to find out when the shutting down of mserver is completed)
