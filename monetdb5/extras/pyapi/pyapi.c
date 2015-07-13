@@ -1480,26 +1480,27 @@ str
         }
         MT_lock_unset(&pyapiLock, "pyapi.evaluate");
         fprintf(stdout, "# MonetDB/Python module loaded\n");
-    }
 #ifdef _PYAPI_VERBOSE_
-    option_verbose = GDKgetenv_isyes(verbose_enableflag) || GDKgetenv_istrue(verbose_enableflag);
+        option_verbose = GDKgetenv_isyes(verbose_enableflag) || GDKgetenv_istrue(verbose_enableflag);
 #endif
 #ifdef _PYAPI_DEBUG_
-    option_debug = GDKgetenv_isyes(debug_enableflag) || GDKgetenv_istrue(debug_enableflag);
-    (void) option_debug;
+        option_debug = GDKgetenv_isyes(debug_enableflag) || GDKgetenv_istrue(debug_enableflag);
+        (void) option_debug;
 #endif
 #ifdef _PYAPI_WARNINGS_
-    option_warning = GDKgetenv_isyes(warning_enableflag) || GDKgetenv_istrue(warning_enableflag);
+        option_warning = GDKgetenv_isyes(warning_enableflag) || GDKgetenv_istrue(warning_enableflag);
 #endif
 #ifdef _PYAPI_TESTING_
-    //These flags are for testing purposes, they shouldn't be used for normal purposes
-    option_zerocopyinput = !(GDKgetenv_isyes(zerocopyinput_disableflag) || GDKgetenv_istrue(zerocopyinput_disableflag));
-    option_zerocopyoutput = !(GDKgetenv_isyes(zerocopyoutput_disableflag) || GDKgetenv_istrue(zerocopyoutput_disableflag));
-    option_numpy_string_array = GDKgetenv_isyes(numpy_string_array_enableflag) || GDKgetenv_istrue(numpy_string_array_enableflag);
-    option_bytearray = !(GDKgetenv_isyes(bytearray_disableflag) || GDKgetenv_istrue(bytearray_disableflag));
-    option_alwaysunicode = (GDKgetenv_isyes(alwaysunicode_enableflag) || GDKgetenv_istrue(alwaysunicode_enableflag));
-    benchmark_output = GDKgetenv(benchmark_output_flag);
+        //These flags are for testing purposes, they shouldn't be used for normal purposes
+        option_zerocopyinput = !(GDKgetenv_isyes(zerocopyinput_disableflag) || GDKgetenv_istrue(zerocopyinput_disableflag));
+        option_zerocopyoutput = !(GDKgetenv_isyes(zerocopyoutput_disableflag) || GDKgetenv_istrue(zerocopyoutput_disableflag));
+        option_numpy_string_array = GDKgetenv_isyes(numpy_string_array_enableflag) || GDKgetenv_istrue(numpy_string_array_enableflag);
+        option_bytearray = !(GDKgetenv_isyes(bytearray_disableflag) || GDKgetenv_istrue(bytearray_disableflag));
+        option_alwaysunicode = (GDKgetenv_isyes(alwaysunicode_enableflag) || GDKgetenv_istrue(alwaysunicode_enableflag));
+        benchmark_output = GDKgetenv(benchmark_output_flag);
+        fprintf(stdout, "# MonetDB/Python testing enabled.\n");
 #endif
+    }
     return MAL_SUCCEED;
 }
 
@@ -1887,6 +1888,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                     j++;
                 }
             }
+            //printf("%s\n", (char*)b->T->vheap->base + b->T->heap.base[0] + GDK_VAROFFSET);
             break;
 #ifdef HAVE_HGE
         case TYPE_hge:

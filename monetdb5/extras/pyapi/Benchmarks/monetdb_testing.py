@@ -152,37 +152,64 @@ if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-m
 
     import time
     f = open(output_file + '.tsv', "w+")
-    if str(arguments[1]).lower() == "input-map":
-        f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)'))
-    else:
-        f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
+    f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
     mb = []
     for i in range(4, len(arguments)):
         mb.append(float(arguments[i]))
 
     for size in mb:
-        cursor.execute('create temporary table integers as SELECT * FROM generate_integers(' + str(size) + ') with data;')
+        cursor.execute('create table integers as SELECT * FROM generate_integers(' + str(size) + ') with data;')
         #result_file = open(temp_file, 'r')
         #result_file.readline()
-        results = []
-        result_file = open(temp_file, 'w+')
-        result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
-        result_file.close();
-        for i in range(0,test_count):
-            start = time.time()
-            cursor.execute('select import_test(i) from integers;');
-            cursor.fetchall();
-            end = time.time()
-            list.append(results, end - start)
-        result_file = open(temp_file, 'r')
-        result_file.readline()
-        for result in results:
-            pyapi_results = result_file.readline().translate(None, '\n').split('\t')
-            if (str(arguments[1]).lower() == "input-map"):
-                f.write(format_output(size, result))
-            else:
+
+        if (str(arguments[1]).lower() == "input"):
+            results = []
+            result_file = open(temp_file, 'w+')
+            result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
+            result_file.close();
+            for i in range(0,test_count):
+                start = time.time()
+                cursor.execute('select import_test(i) from integers;');
+                cursor.fetchall();
+                end = time.time()
+                list.append(results, end - start)
+            result_file = open(temp_file, 'r')
+            result_file.readline()
+            for result in results:
+                pyapi_results = result_file.readline().translate(None, '\n').split('\t')
                 f.write(format_output(size, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
-            f.flush()
+                f.flush()
+        else:
+            # for input-map we need to do some special analysis of the PyAPI output
+            # this is because every thread writes memory usage and execution time to the temp_file
+            # rather than just having one entry for per query
+            # so we have to analyse the result file for every query we perform
+            results = [[], [], []]
+            for i in range(0,test_count):
+                # clear the result file
+                result_file = open(temp_file, 'w+')
+                result_file.write("")
+                result_file.close();
+                # execute the query, measure the total time
+                start = time.time()
+                cursor.execute('select import_test(i) from integers;');
+                cursor.fetchall();
+                end = time.time()
+                list.append(results[0], end - start)
+                # now we need to analyze the result file
+                # we use the total memory usage of all threads (sum) and the highest of all the execution times of the threads (max)
+                memory_usage = 0
+                peak_execution_time = 0
+                with open(temp_file, 'r') as result_file:
+                    for line in result_file:
+                        pyapi_results = line.translate(None, '\n').split('\t')
+                        memory_usage = memory_usage + float(pyapi_results[0]) / 1000 ** 2
+                        if float(pyapi_results[1]) > peak_execution_time: peak_execution_time = float(pyapi_results[1])
+                list.append(results[1], memory_usage)
+                list.append(results[2], peak_execution_time)
+            for i in range(0, len(results[0])):
+                f.write(format_output(size, results[0][i], results[1][i], results[2][i]))
+                f.flush()
         cursor.execute('drop table integers;')
     f.close()
 
