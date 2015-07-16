@@ -1770,8 +1770,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                                 msg = createException(MAL, "pyapi.eval", "Failed to decode string as UTF-8.");
                                 goto wrapup;
                             }
-                            PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j - t_start), obj);
-                            Py_DECREF(obj);
+                            ((PyObject**)PyArray_DATA((PyArrayObject*)vararray))[j - t_start] = obj;
                         }
                         if (j == t_end) break;
                         j++;
@@ -1802,8 +1801,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                                 msg = createException(MAL, "pyapi.eval", "Failed to create string.");
                                 goto wrapup;
                             }
-                            PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j - t_start), obj);
-                            Py_DECREF(obj);
+                            ((PyObject**)PyArray_DATA((PyArrayObject*)vararray))[j - t_start] = obj;
                         }
                         if (j == t_end) break;
                         j++;
@@ -1881,8 +1879,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                             msg = createException(MAL, "pyapi.eval", "Failed to create string.");
                             goto wrapup;
                         }
-                        PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j - t_start), obj);
-                        Py_DECREF(obj);
+                        ((PyObject**)PyArray_DATA((PyArrayObject*)vararray))[j - t_start] = obj;
                     }
                     if (j == t_end) break;
                     j++;
@@ -1914,8 +1911,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                     PyObject *obj;
                     const hge *t = (const hge *) BUNtail(li, p);
                     obj = PyLong_FromHge(*t);
-                    PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j - t_start), obj);
-                    Py_DECREF(obj);
+                    ((PyObject**)PyArray_DATA((PyArrayObject*)vararray))[j - t_start] = obj;
                 }
                 if (j == t_end) break;
                 j++;
@@ -1936,8 +1932,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
             PyObject *mafunc = PyObject_GetAttrString(PyImport_Import(PyString_FromString("numpy.ma")), "masked_array");
             PyObject *maargs = PyTuple_New(2);
             // We will now construct the Masked array, we start by setting everything to False
-            PyArrayObject* nullmask = (PyArrayObject*) PyArray_ZEROS(1,
-                            (npy_intp[1]) {(t_end - t_start)}, NPY_BOOL, 0);
+            PyArrayObject* nullmask = (PyArrayObject*) PyArray_ZEROS(1, (npy_intp[1]) {(t_end - t_start)}, NPY_BOOL, 0);
 
             // Now we will loop over the BAT, for every value that is Null we set the corresponding mask attribute to True
             const void *nil = ATOMnilptr(b->ttype);
@@ -1946,8 +1941,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
 
             for (j = 0; j < t_end - t_start; j++) {
                 if ((*atomcmp)(BUNtail(bi, BUNfirst(b) + t_start + j), nil) == 0) {
-                    // Houston we have a NULL
-                    PyArray_SETITEM(nullmask, PyArray_GETPTR1(nullmask, j), Py_True);
+                    ((bool*)PyArray_DATA(nullmask))[j] = true;
                 }
             }
 
