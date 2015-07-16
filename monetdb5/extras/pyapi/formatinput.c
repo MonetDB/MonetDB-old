@@ -177,13 +177,13 @@ PyObject *PyCodeObject_ParseString(char *string, char **msg)
     int argcount, nlocals, stacksize, flags, firstlineno;
     PyObject *code, *name, *filename, *lnotab;
     PyObject *consts, *names, *varnames, *freevars, *cellvars;
+    size_t size;
     char *temp_string = GDKmalloc(strlen(string));
     char *temp_string2 = GDKmalloc(strlen(string));
     if (temp_string == NULL || temp_string2 == NULL) {
         *msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
         return NULL;
     }
-    size_t size;
 
     //argcount is a single int
     argcount = atoi(GetArg(string, temp_string, 0));

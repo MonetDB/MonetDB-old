@@ -78,18 +78,23 @@ bool PyType_IsNumpyArray(PyObject *object);
 bool PyType_IsNumpyMaskedArray(PyObject *object);
 //! Returns true if the PyObject is of type pandas.core.frame.DataFrame, and false otherwise
 bool PyType_IsPandasDataFrame(PyObject *object);
-//! Create a Numpy Array Object from a PyInput structure
+//! Returns true if the PyObject is of type lazyarray, and false otherwise
+bool PyType_IsLazyArray(PyObject *object);
+//! Create a Numpy Array Object from a PyInput structure containing a BAT
 PyObject *PyArrayObject_FromBAT(PyInput *input_bat, size_t start, size_t end, char **return_message);
+//! Creates a Python object from an PyInput structure containing a scalar
+PyObject *PyArrayObject_FromScalar(PyInput* input_scalar, char **return_message);
+PyObject *PyNullMask_FromBAT(BAT *b, size_t start, size_t end);
 
 char *BatType_Format(int);
 
 int PyType_ToBat(int);
 int BatType_ToPyType(int);
 
-#define bte_TO_PYSCALAR(value) PyInt_FromLong((lng)value)
-#define bit_TO_PYSCALAR(value) PyInt_FromLong((lng)value)
-#define sht_TO_PYSCALAR(value) PyInt_FromLong((lng)value)
-#define int_TO_PYSCALAR(value) PyInt_FromLong((lng)value)
+#define bte_TO_PYSCALAR(value) PyInt_FromLong(value)
+#define bit_TO_PYSCALAR(value) PyInt_FromLong(value)
+#define sht_TO_PYSCALAR(value) PyInt_FromLong(value)
+#define int_TO_PYSCALAR(value) PyInt_FromLong(value)
 #define lng_TO_PYSCALAR(value) PyLong_FromLong(value)
 #define flt_TO_PYSCALAR(value) PyFloat_FromDouble(value)
 #define dbl_TO_PYSCALAR(value) PyFloat_FromDouble(value)

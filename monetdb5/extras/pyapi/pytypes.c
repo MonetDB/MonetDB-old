@@ -171,3 +171,11 @@ bool PyType_IsNumpyMaskedArray(PyObject *object)
     Py_DECREF(str);
     return ret;
 }
+
+bool PyType_IsLazyArray(PyObject *object)
+{
+    PyObject *str = PyObject_Str(PyObject_Type(object));
+    bool ret = strcmp(PyString_AsString(str), "<class 'lazyarray'>") == 0;
+    Py_DECREF(str);
+    return ret;
+}
