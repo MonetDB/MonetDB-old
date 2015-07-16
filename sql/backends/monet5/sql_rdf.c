@@ -1757,10 +1757,10 @@ void getSlides_per_P(PsoPropStat *pso_pstat, oid *p, BAT *obat, BAT *sbat, BAT *
 	
 	getOffsets(pso_pstat, p, &l, &h); 
 
-	*ret_oBat = BATslice(obat, l, h); 
+	*ret_oBat = BATslice(obat, l, h+1); 
 
-	*ret_sBat = BATslice(sbat, l, h); 
-
+	*ret_sBat = BATslice(sbat, l, h+1); 
+	(*ret_sBat)->tsorted = true; 
 
 }
 
@@ -1801,13 +1801,27 @@ void build_PsoPropStat(BAT *full_pbat, int maxNumP, BAT *full_sbat, BAT *full_ob
 	BATprint(pso_propstat->offsetBat); 
 	{
 
-		BAT *obat, *sbat; 
-		oid p = 100; 
+		BAT **obats, **sbats, *r_sbat, **r_obats; 
+		int i; 
+		int np = 5; 
 
-		getSlides_per_P(pso_propstat, &p, full_obat, full_sbat, &obat, &sbat); 
-		printf("Slice of P = "BUNFMT "\n", p);
-		BATprint(sbat);
-		BATprint(obat); 
+		oid props[5] = {100, 200, 400, 500, 700} ; 
+		obats = (BAT**)malloc(sizeof(BAT*) * np);
+		sbats = (BAT**)malloc(sizeof(BAT*) * np);
+		r_obats = (BAT**)malloc(sizeof(BAT*) * np);
+
+		for (i = 0; i < np; i++){
+			getSlides_per_P(pso_propstat, &(props[i]),full_obat, full_sbat, &(obats[i]), &(sbats[i])); 
+		}
+
+		RDFmultiway_merge_outerjoins(np, sbats, obats, &r_sbat, r_obats);
+
+		printf("Outer join result: \n");
+		BATprint(r_sbat); 
+		for (i = 0; i < np; i++){
+			BATprint(r_obats[i]); 
+		}
+		
 	}
 	
 }

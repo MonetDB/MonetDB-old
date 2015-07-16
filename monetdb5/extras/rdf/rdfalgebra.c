@@ -21,8 +21,8 @@
 
 #include "monetdb_config.h"
 #include "rdf.h"
+#include "rdfminheap.h"
 #include "algebra.h"
-#include <gdk.h>
 #include "tokenizer.h"
 
 str
@@ -199,6 +199,118 @@ str RDFtriplesubsort(BAT **sbat, BAT **pbat, BAT **obat){
 	BBPunfix(g3->batCacheid);
 
 	return MAL_SUCCEED; 
+}
+
+/* This function RDFmultiway_merge_outerjoins()
+ * is used to create full outer join from multiple 
+ * Input: 
+ * - np: Number of properties --> == number of obats, number of sbats
+ * - Set of pair of bats corresponding a slice of PSO with certain P value
+ * [bat_s1, bat_o1], [bat_s2, bat_o2],....,[bat_sn, bat_on]
+ * - All bat_si are sorted 
+ * Output:
+ * bat_s, bat_o1_new, bat_o2_new, ..., bat_on_new
+ * Where bat_s is union of all bat_s1, ..., bat_sn
+ * 
+ * Use a minheap to merge multiple list
+ * */
+str RDFmultiway_merge_outerjoins(int np, BAT **sbats, BAT **obats, BAT **r_sbat, BAT **r_obats){
+	BUN estimate = 0; 
+	int i = 0; 
+	MinHeap *hp;
+	MinHeapNode *harr;
+	oid **sbatCursors, **obatCursors; 
+	int numMergedS = 0; 
+	oid lastS = BUN_NONE; 
+	oid tmpO; 
+
+	for (i = 0; i < np; i++){
+		estimate += BATcount(obats[i]); 
+	}
+
+	sbatCursors = (oid **) malloc(sizeof(oid*) * np); 
+	obatCursors = (oid **) malloc(sizeof(oid*) * np); 
+
+	*r_sbat = BATnew(TYPE_void, TYPE_oid, estimate, TRANSIENT); 
+	
+	for (i = 0; i < np; i++){
+		r_obats[i] = BATnew(TYPE_void, TYPE_oid, estimate, TRANSIENT); 
+
+		//Keep the cursor to the first element of each input sbats
+		sbatCursors[i] = (oid *) Tloc(sbats[i], BUNfirst(sbats[i]));
+		obatCursors[i] = (oid *) Tloc(obats[i], BUNfirst(obats[i]));	
+	}
+
+	//Create a min heap with np heap nodes.  Every heap node
+	//has first element of an array (pointing to the first element of each sbat)
+	harr = (MinHeapNode*)malloc(sizeof(MinHeapNode) * np);
+	for (i = 0; i < np; i++){
+		harr[i].element =  sbatCursors[i][0]; //Store the first element
+		harr[i].i = i; //index of array
+		harr[i].j = 1; //Index of next element to be stored from array
+	}
+
+	hp = (MinHeap *) malloc(sizeof(MinHeap)); 
+	initMinHeap(hp, harr, np);  //Create the heap
+
+	//Now one by one get the minimum element from min
+	//heap and replace it with next element of its array
+	numMergedS = 0;		//Number of S in the output BAT
+	while (1){
+		//Get the minimum element and store it in output
+		MinHeapNode root = getMin(hp);
+		if (root.element == INT_MAX) break; 
+		
+		if (lastS != root.element){		//New S
+			
+			//Go through all output o_bat to add Null value
+			//if they do not value for the last S
+			for (i = 0; i < np; i++){
+				if (BATcount(r_obats[i]) < (BUN)numMergedS)	
+					BUNappend(r_obats[i], ATOMnilptr(TYPE_oid), TRUE); 
+			}
+
+			//Append new s to output sbat
+			BUNappend(*r_sbat, &(root.element), TRUE); 
+			//Append the obat corresonding to this root node 
+			tmpO = obatCursors[root.i][root.j - 1]; 
+			BUNappend(r_obats[root.i], &tmpO, TRUE); 
+			
+			lastS = root.element; 
+			(numMergedS)++;
+		}
+		else{
+			//Get element from the corresponding o
+			//Add to the output o
+			tmpO = obatCursors[root.i][root.j - 1];
+			BUNappend(r_obats[root.i], &tmpO, TRUE);
+		}
+
+		//Find the next elelement that will replace current
+		//root of heap. The next element belongs to same
+		//array as the current root.
+		if (root.j < (int) BATcount(sbats[root.i]))
+		{
+			root.element = sbatCursors[root.i][root.j];
+			root.j += 1;
+		}
+		//If root was the last element of its array
+		else root.element =  INT_MAX; //INT_MAX is for infinite
+
+		//Replace root with next element of array
+		replaceMin(hp, root);
+	}
+	
+	for (i = 0; i < np; i++){
+		if (BATcount(r_obats[i]) < (BUN)numMergedS)	
+			BUNappend(r_obats[i], ATOMnilptr(TYPE_oid), TRUE); 
+	}
+
+	free(hp); 
+	free(harr); 
+	free(sbatCursors); 
+	free(obatCursors); 
+	return MAL_SUCCEED;
 }
 
 /*
