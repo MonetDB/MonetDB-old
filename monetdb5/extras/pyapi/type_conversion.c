@@ -67,7 +67,7 @@ void lng_to_string(char* str, lng value)
 
 void dbl_to_string(char* str, dbl value)
 {
-    sprintf(str, "%lf", value);
+    snprintf(str, 256, "%lf", value);
 }
 
 #ifdef HAVE_HGE

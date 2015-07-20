@@ -56,8 +56,8 @@ PyObject* PyLazyArray_GetItem(PyLazyArrayObject *a, Py_ssize_t index)
     }
 
     if (PyLazyArray_IsNil(a, index)) {
-        a->array[index] = Py_None;
-        Py_RETURN_NONE;
+        PyErr_SetString(PyExc_IndexError, "Attempting to retrieve a NULL value directly from a LazyArray. If you want to work with NULL values, convert the lazy array to a numpy masked array using .asnumpyarray().");
+        return NULL;
     }
 
     if (PyLazyArray_GET_TYPE(a) == TYPE_str) {
@@ -378,6 +378,8 @@ PyDoc_STRVAR(aslist_doc,
 "L.aslist() -- Creates a Python list from the array. If L.hasnil() is true, throws an error.");
 PyDoc_STRVAR(hasnil_doc,
 "L.hasnil() -- Returns True if the BAT has a nill value in it, or false otherwise.");
+PyDoc_STRVAR(isnil_doc,
+"L.nil(index) -- Returns True if the item at the indicated position is a null value.");
 PyDoc_STRVAR(type_doc,
 "L.type() -- Returns the type of the BAT as a string. Either \"String\" or \"Huge\".");
 
@@ -457,6 +459,25 @@ lazyarray_hasnil(PyLazyArrayObject *a, PyObject *unused)
     Py_RETURN_FALSE;
 }
 
+
+static PyObject*
+lazyarray_isnil(PyLazyArrayObject *a, PyObject *index)
+{
+    if (PyIndex_Check(index)) {
+        Py_ssize_t i;
+        i = PyNumber_AsSsize_t(index, PyExc_IndexError);
+        if (PyLazyArray_IsNil(a, i)) {
+            Py_RETURN_TRUE; 
+        }
+        Py_RETURN_FALSE;
+    }
+
+    PyErr_Format(PyExc_TypeError,
+             "list indices must be integers, not %.200s",
+             index->ob_type->tp_name);
+    return NULL;
+}
+
 static PyObject*
 lazyarray_type(PyLazyArrayObject *a, PyObject *unused)
 {
@@ -470,7 +491,6 @@ lazyarray_getattr(PyObject *o, PyObject *attr_name)
     if (PyString_Check(attr_name) && _PyString_Eq(attr_name, PyString_FromString("mask"))) {
         return PyNullMask_FromBAT(LAZYARRAY_BAT(o) ,0, Py_SIZE(o));
     }
-
     return PyObject_GenericGetAttr((PyObject*)o, attr_name);
 }
 
@@ -481,6 +501,7 @@ static PyMethodDef lazyarray_methods[] = {
     {"asnumpyarray",(PyCFunction)lazyarray_asnumpyarray, METH_NOARGS, asnumpyarray_doc},
     {"aslist",(PyCFunction)lazyarray_aslist, METH_NOARGS, aslist_doc},
     {"hasnil",(PyCFunction)lazyarray_hasnil, METH_NOARGS, hasnil_doc},
+    {"isnil",(PyCFunction)lazyarray_isnil, METH_O, isnil_doc},
     {"type",(PyCFunction)lazyarray_type, METH_NOARGS, type_doc},
     {NULL,              NULL, 0, NULL}           /* sentinel */
 };

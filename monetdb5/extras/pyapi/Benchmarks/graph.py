@@ -100,7 +100,10 @@ def plot_graphs(graph_data, title, subtitle = "", index = 0):
             if m == 1 or measurements == 1: ax0.set_title(title + subtitle)
             plt.xlabel(x_axis)
             plt.ylabel(y_axis[m])
-            plt.legend()
+            box = ax0.get_position()
+            ax0.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+            # Put a legend below current axis
+            ax0.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         if action.lower() == 'save':
             plt.savefig((title + subtitle).translate(None, '\n'), format="pdf")
             plt.close()

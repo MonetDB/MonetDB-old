@@ -383,6 +383,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 #endif
 #ifdef _PYAPI_TESTING_
     double start_time = 0, end_time = 0;
+    bool disable_testing = false;
     unsigned long long peak_memory_usage = 0;
 #endif
 
@@ -396,7 +397,16 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     }
 
 #ifdef _PYAPI_TESTING_
-    if (benchmark_output != NULL) {
+    // If the source starts with 'NOTEST' we disable testing, kind of a band-aid solution but they don't pay me enough for anything better
+    if (exprStr[1] == 'N' && exprStr[2] == 'O' && exprStr[3] == 'T' && exprStr[4] == 'E' && exprStr[5] == 'S' && exprStr[6] == 'T') {
+        for(iu = 7; iu < strlen(exprStr); iu++) {
+            exprStr[iu - 6] = exprStr[iu];
+        }
+        exprStr[iu - 6] = '\0';
+        disable_testing = true;
+    }
+
+    if (!disable_testing && benchmark_output != NULL) {
         reset_hook();
         if (!mapped) init_hook();
         start_time = timer();
@@ -565,7 +575,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             else if (pids[i] == 0)
             {
 #ifdef _PYAPI_TESTING_
-                if (benchmark_output != NULL) { init_hook(); }
+                if (!disable_testing && benchmark_output != NULL) { init_hook(); }
 #endif
                 break;
             }
@@ -1028,7 +1038,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         VERBOSE_MESSAGE("Writing headers.\n");
 
 #ifdef _PYAPI_TESTING_
-        if (benchmark_output != NULL) { revert_hook(); }
+        if (!disable_testing && benchmark_output != NULL) { revert_hook(); }
 #endif
         // Now we will write data about our result (memory size, type, number of elements) to the header
         ptr = (ReturnBatDescr*)shm_ptr;
@@ -1218,7 +1228,7 @@ returnvalues:
     for (i = 0; i < pci->retc; i++) 
     {
         PyReturn *ret = &pyreturn_values[i];
-        int bat_type = ATOMstorage(getColumnType(getArgType(mb,pci,i)));
+        int bat_type = isaBatType(getArgType(mb,pci,i)) ? ATOMstorage(getColumnType(getArgType(mb,pci,i))) : ATOMstorage(getArgType(mb,pci,i));
         size_t index_offset = 0;
 
         if (ret->multidimensional) index_offset = i;
@@ -1265,8 +1275,8 @@ returnvalues:
                 data = (char*) ret->array_data;   
 
                 if (ret->result_type != NPY_OBJECT) {
-                    utf8_string = GDKzalloc(64 + ret->memory_size + 1); 
-                    utf8_string[64 + ret->memory_size] = '\0';       
+                    utf8_string = GDKzalloc(256 + ret->memory_size + 1); 
+                    utf8_string[256 + ret->memory_size] = '\0';       
                 }
 
                 b = BATnew(TYPE_void, TYPE_str, ret->count, TRANSIENT);    
@@ -1320,9 +1330,9 @@ returnvalues:
                         //The resulting array is an array of pointers to various python objects
                         //Because the python objects can be of any size, we need to allocate a different size utf8_string for every object
                         //we will first loop over all the objects to get the maximum size needed, so we only need to do one allocation
-                        size_t utf8_size = 64;
+                        size_t utf8_size = 256;
                         for (iu = 0; iu < ret->count; iu++) {
-                            size_t size = 64;
+                            size_t size = 256;
                             PyObject *obj;
                             if (mask != NULL && (mask[index_offset * ret->count + iu]) == TRUE) continue;
                             obj = *((PyObject**) &data[(index_offset * ret->count + iu) * ret->memory_size]);
@@ -1386,6 +1396,9 @@ returnvalues:
                 BATsettrivprop(b); 
                 break;
             }
+        default:
+            msg = createException(MAL, "pyapi.eval", "Unrecognized BAT type %s.\n", BatType_Format(bat_type));       
+            goto wrapup; 
         }
 
         if (isaBatType(getArgType(mb,pci,i))) 
@@ -1443,7 +1456,14 @@ returnvalues:
 
     VERBOSE_MESSAGE("Cleaning up.\n");
 
+
     // Actual cleanup
+    // Cleanup input BATs
+    for (i = pci->retc + 2; i < pci->argc; i++) 
+    {
+        PyInput *inp = &pyinput_values[i - (pci->retc + 2)];
+        if (inp->bat != NULL) BBPunfix(inp->bat->batCacheid);
+    }
     for (i = 0; i < pci->retc; i++) {
         PyReturn *ret = &pyreturn_values[i];
         // First clean up any return values
@@ -1474,7 +1494,7 @@ returnvalues:
     GDKfree(pycall);
 
 #ifdef _PYAPI_TESTING_
-    if (benchmark_output != NULL) {
+    if (!disable_testing && benchmark_output != NULL) {
         FILE *f = NULL;
         if (!mapped) { 
             revert_hook();
@@ -1961,7 +1981,8 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
     // The masked array structure is an object with two arrays of equal size, a data array and a mask array
     // The mask array is a boolean array that has the value 'True' when the element is NULL, and 'False' otherwise
     // If the BAT has Null values, we construct this masked array
-    if (b->T->nil) {
+    if (!(b->T->nil == 0 && b->T->nonil == 1))
+    {
         PyObject *mask;
         PyObject *mafunc = PyObject_GetAttrString(PyImport_Import(PyString_FromString("numpy.ma")), "masked_array");
         PyObject *maargs = PyTuple_New(2);
@@ -1976,9 +1997,10 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
             msg = PyError_CreateException("Failed to create mask", NULL);
             goto wrapup;
         }
-        Py_DECREF(vararray);
-        Py_DECREF(nullmask);
+        Py_DECREF(maargs);
         Py_DECREF(mafunc);
+        //Py_DECREF(vararray);
+        //Py_DECREF(nullmask);
 
         vararray = mask;
     }

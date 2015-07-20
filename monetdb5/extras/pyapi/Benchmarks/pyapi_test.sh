@@ -1,7 +1,7 @@
 
 
 # The base directory of testing, a new folder is created in this base directory [$PYAPI_TEST_DIR], and everything is done in that new folder
-export PYAPI_BASE_DIR=/export/scratch1/raasveld
+export PYAPI_BASE_DIR=$HOME
 # The terminal to start mserver with, examples are 'gnome-terminal', 'xterm', 'konsole'
 export TERMINAL=x-terminal-emulator
 # A command that tests if the mserver is still running (used to find out when the shutting down of mserver is completed)
@@ -22,17 +22,28 @@ export OUTPUT_TESTING_NTESTS=10
 
 # String tests
 # Strings of the same length (mb, length)
-export STRINGSAMELENGTH_TESTING_SIZES="(1,1) (1,10) (1,100) (1,1000) (1,1000) (1,10000) (1,100000)"
+export STRINGSAMELENGTH_TESTING_SIZES="(100,1) (100,10) (100,100) (100,1000) (100,1000) (100,10000) (100,100000)"
 export STRINGSAMELENGTH_TESTING_NTESTS=10
 # Extreme length string testing (all strings have length 1 except for one string, which has EXTREME length)
 # Arguments are (Extreme Length, String Count)
 export STRINGEXTREMELENGTH_TESTING_SIZES="(10,100000) (100,100000) (1000,100000) (10000,100000)"
 export STRINGEXTREMELENGTH_TESTING_NTESTS=10
 # Check Unicode vs Always Unicode (ASCII) (mb, length)
-export STRINGUNICODE_TESTING_SIZES="(0.1,10) (1,10) (10,10) (0.1,100) (1,100) (10,100)"
+export STRINGUNICODE_TESTING_SIZES="(0.1,10) (1,10) (10,10) (0.1,100) (1,100) (10,100) (100,100) (1000,100)"
 export STRINGUNICODE_TESTING_NTESTS=10
 
 # Multithreading tests
+export MULTITHREADING_NR_THREADS="1 2 3 4 5 6 7 8"
+export MULTITHREADING_TESTING_SIZES="1"
+#amount of tests for each thread
+export MULTITHREADING_TESTING_NTESTS=1
+
+# Quantile speedtest
+# The input sizes to test (in MB)
+export QUANTILE_TESTING_SIZES="0.1 1 10 100 1000"
+# Amount of tests to run for each size
+export QUANTILE_TESTING_NTESTS=10
+
 
 # You probably don't need to change these
 export PYAPI_TEST_DIR=$PYAPI_BASE_DIR/monetdb_pyapi_test
@@ -114,7 +125,7 @@ function pyapi_build {
 
 function pyapi_run_single_test() {
     echo "Beginning Test $1"
-    $TERMINAL -e "$PYAPI_BUILD_DIR/bin/mserver5 --set embedded_py=true --set pyapi_benchmark_output=$PYAPI_OUTPUT_DIR/temp_output.tsv $2" && python $PYAPI_TESTFILE $3 $4 $5 $6 && killall mserver5
+    $TERMINAL -e "$PYAPI_BUILD_DIR/bin/mserver5 --set embedded_py=true --set enable_pyverbose=true --set pyapi_benchmark_output=$PYAPI_OUTPUT_DIR/temp_output.tsv $2" && python $PYAPI_TESTFILE $3 $4 $5 $6 && killall mserver5
     if [ $? -ne 0 ]; then
         echo "Failed Test $1"
         killall mserver5
@@ -144,6 +155,19 @@ function pyapi_test_input {
         return 1
     fi
     pyapi_run_single_test "Input Testing (Map)" "" "INPUT-MAP" input_zerocopy_map "$INPUT_TESTING_NTESTS" "$INPUT_TESTING_SIZES"
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+}
+
+
+function pyapi_test_input_null {
+    echo "Beginning Input Testing [NULL] (Copy vs Zero Copy)"
+    pyapi_run_single_test "Input Testing (Zero Copy)" "" "INPUT-NULL" input_zerocopy_null "$INPUT_TESTING_NTESTS" "$INPUT_TESTING_SIZES"
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+    pyapi_run_single_test "Input Testing (Copy)" "--set disable_pyzerocopyinput=true" "INPUT-NULL" input_copy_null "$INPUT_TESTING_NTESTS" "$INPUT_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
@@ -219,6 +243,33 @@ function pyapi_test_bytearray_vs_string {
     fi
 }
 
+function pyapi_test_threads {
+    rm multithreading.tsv
+    for thread in $MULTITHREADING_NR_THREADS
+    do
+        pyapi_run_single_test "Multithreading ($thread Threads)" "--forcemito --set gdk_nr_threads=$thread" "FACTORIAL-$thread" multithreading "$MULTITHREADING_TESTING_NTESTS" "$MULTITHREADING_TESTING_SIZES"
+        if [ $? -ne 0 ]; then
+            return 1
+        fi
+    done
+}
+
+function pyapi_test_quantile {
+    echo "Beginning Quantile Testing (Python vs R vs MonetDB)"
+    pyapi_run_single_test "Quantile Testing (Python)" "" "PQUANTILE" quantile_python "$QUANTILE_TESTING_NTESTS" "$QUANTILE_TESTING_SIZES"
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+    pyapi_run_single_test "Quantile Testing (R)" "--set embedded_r=true" "RQUANTILE" quantile_r "$QUANTILE_TESTING_NTESTS" "$QUANTILE_TESTING_SIZES"
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+    pyapi_run_single_test "Quantile Testing (MonetDB)" "" "QUANTILE" quantile_monetdb "$QUANTILE_TESTING_NTESTS" "$QUANTILE_TESTING_SIZES"
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+}
+
 function pyapi_run_tests {
     if [ -d $PYAPI_OUTPUT_DIR ]; then
         read -p "Directory $PYAPI_OUTPUT_DIR already exists, should we delete it? (y/n): " -n 1 -r
@@ -236,15 +287,20 @@ function pyapi_run_tests {
     fi
     
     pyapi_test_input
+    pyapi_test_input_null
     pyapi_test_output
     pyapi_test_string_samelength
     pyapi_test_string_extreme
     pyapi_test_string_unicode_ascii
     pyapi_test_bytearray_vs_string
+    pyapi_test_quantile
+    pyapi_test_threads
 }
 
 function pyapi_graph {
+    python $PYAPI_GRAPHFILE "SAVE" "Input (Both)" "Zero Copy:input_zerocopy.tsv" "Copy:input_copy.tsv" "Zero Copy (Null):input_zerocopy_null.tsv" "Copy (Null):input_copy_null.tsv"
     python $PYAPI_GRAPHFILE "SAVE" "Input" "Zero Copy:input_zerocopy.tsv" "Copy:input_copy.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Input-Null" "Zero Copy:input_zerocopy_null.tsv" "Copy:input_copy_null.tsv"
     python $PYAPI_GRAPHFILE "SAVE" "Input-Map" "Zero Copy:input_zerocopy.tsv" "Zero Copy (Map):input_zerocopy_map.tsv"
     python $PYAPI_GRAPHFILE "SAVE" "Output" "Zero Copy:output_zerocopy.tsv" "Copy:output_copy.tsv"
     python $PYAPI_GRAPHFILE "SAVE" "String Samelength" "Numpy Object:string_samelength_npyobject.tsv" "Numpy String:string_samelength_npystring.tsv"
@@ -252,6 +308,8 @@ function pyapi_graph {
     python $PYAPI_GRAPHFILE "SAVE" "Unicode Check vs Always Unicode (ASCII)" "Check Unicode:string_unicode_ascii_check.tsv" "Always Unicode:string_unicode_ascii_always.tsv"
     python $PYAPI_GRAPHFILE "SAVE" "Unicode Check vs Always Unicode (Extreme)" "Check Unicode:string_unicode_extreme_check.tsv" "Always Unicode:string_unicode_extreme_always.tsv"
     python $PYAPI_GRAPHFILE "SAVE" "ByteArrayObject vs StringObject" "Byte Array Object:string_bytearrayobject.tsv" "String Object:string_stringobject.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Quantile Speedtest" "Python:quantile_python.tsv" "R:quantile_r.tsv" "MonetDB:quantile_monetdb.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Multithreading Test" "Threads:multithreading.tsv"
 }
 
 

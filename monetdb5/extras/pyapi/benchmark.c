@@ -35,8 +35,8 @@ static void (*old_free_hook)(void*, const void*)=NULL;
 //we keep a datastore of pointers and the amount of size that was malloced when the pointer was created
 static void **memtrace_pointers = NULL;   //the pointers
 static size_t *memtrace_sizes = NULL;     //the sizes
-static size_t memtrace_max_size = 100;    //the max size of the _pointers and _sizes arrays
-static size_t memtrace_current_size = -1; //the current index
+static long memtrace_max_size = 100;    //the max size of the _pointers and _sizes arrays
+static long memtrace_current_size = -1; //the current index
 
 void add_ptr(void *ptr, size_t size)
 {
@@ -45,9 +45,9 @@ void add_ptr(void *ptr, size_t size)
 	{
 		//if the max_size is exceeded extend the array
 		void **new_ptrs = malloc(sizeof(void*) * memtrace_max_size * 2);
-		size_t *new_sizes = malloc(sizeof(size_t*) * memtrace_max_size * 2);
+		size_t *new_sizes = malloc(sizeof(size_t) * memtrace_max_size * 2);
 		memcpy(new_ptrs, memtrace_pointers, memtrace_max_size * sizeof(void*));
-		memcpy(new_sizes, memtrace_sizes, memtrace_max_size * sizeof(size_t*));
+		memcpy(new_sizes, memtrace_sizes, memtrace_max_size * sizeof(size_t));
 		free(memtrace_pointers); free(memtrace_sizes);
 		memtrace_pointers = new_ptrs; memtrace_sizes = new_sizes;
 		memtrace_max_size = memtrace_max_size * 2;
@@ -62,7 +62,7 @@ void add_ptr(void *ptr, size_t size)
 void remove_ptr(void *ptr)
 {
 	//because malloc hooks inherently aren't thread safe we don't care to make this thread safe either
-	size_t i;
+	long i;
 	for(i = 0; i <= memtrace_current_size; i++)
 	{
 		if (memtrace_pointers[i] == ptr)
@@ -80,7 +80,8 @@ void init_hook (void)
 {
 	if (memtrace_pointers == NULL) {
 		memtrace_pointers = malloc(memtrace_max_size * sizeof(void*));
-		memtrace_sizes = malloc(memtrace_max_size * sizeof(size_t*));
+		memtrace_sizes = malloc(memtrace_max_size * sizeof(size_t));
+		memtrace_current_size = -1;
 	}
 	memtrace_current_memory_bytes = 0;
 	memtrace_memory_peak = 0;
@@ -95,10 +96,10 @@ void revert_hook (void)
 {
 	__malloc_hook = old_malloc_hook;
 	__free_hook = old_free_hook;
-	memtrace_current_size = -1;
-	memtrace_max_size = 100;
 	free(memtrace_pointers);
 	free(memtrace_sizes);
+	memtrace_current_size = -1;
+	memtrace_max_size = 100;
 	memtrace_pointers = NULL; memtrace_sizes = NULL;
 }
 
