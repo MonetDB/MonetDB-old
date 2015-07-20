@@ -66,7 +66,7 @@ PTHREAD_INCS =
 PTHREAD_LIBS =
 !ENDIF
 
-ODBCINST_LIBS = odbccp32.lib user32.lib
+ODBCINST_LIBS = odbccp32.lib user32.lib $(LEGACY_STDIO_DEFINITIONS)
 ODBC_LIBS = odbc32.lib
 
 !IFNDEF PYTHON2BASE
@@ -439,7 +439,7 @@ create_winconfig_conds_new_py:
 
 update_winconfig_conds_py: create_winconfig_conds_new_py
 	if not exist "$(TOPDIR)\winconfig_conds.py" $(CP) "$(TOPDIR)\winconfig_conds_new.py" "$(TOPDIR)\winconfig_conds.py"
-	C:\cygwin\bin\cmp.exe -s "$(TOPDIR)\winconfig_conds_new.py" "$(TOPDIR)\winconfig_conds.py" || \
+	cmp -s "$(TOPDIR)\winconfig_conds_new.py" "$(TOPDIR)\winconfig_conds.py" || \
 	$(CP) "$(TOPDIR)\winconfig_conds_new.py" "$(TOPDIR)\winconfig_conds.py"
 
 CONFIGURE=$(PYTHON) $(CONFIGURE_PY) \

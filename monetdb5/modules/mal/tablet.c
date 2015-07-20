@@ -896,6 +896,7 @@ SQLinsert_val(READERtask *task, int col, int idx)
 			BUNappend(task->cntxt->error_msg, buf, FALSE);
 			BUNappend(task->cntxt->error_input, err, FALSE);
 			snprintf(buf, BUFSIZ, "line " LLFMT " field %d '%s' expected in '%s'", row, col, fmt->type, s);
+			buf[BUFSIZ-1]=0;
 			if (task->as->error == NULL && (task->as->error = GDKstrdup(buf)) == NULL)
 				task->as->error = M5OutOfMemory;
 			task->rowerror[idx]++;
@@ -969,7 +970,7 @@ SQLload_parse_line(READERtask *task, int idx)
 	char *line = task->lines[task->cur][idx];
 	Tablet *as = task->as;
 	Column *fmt = as->format;
-	int error = 0, skip;
+	int error = 0;
 	str errline = 0;
 
 #ifdef _DEBUG_TABLET_
@@ -982,10 +983,8 @@ SQLload_parse_line(READERtask *task, int idx)
 	if (task->quote || task->seplen != 1) {
 		for (i = 0; i < as->nr_attrs; i++) {
 			task->fields[i][idx] = line;
-			skip = 0;
 			/* recognize fields starting with a quote, keep them */
 			if (*line == task->quote) {
-				skip = 1;
 #ifdef _DEBUG_TABLET_
 				mnstr_printf(GDKout, "before #1 %s\n", s = line);
 #endif
@@ -1032,7 +1031,7 @@ SQLload_parse_line(READERtask *task, int idx)
 		  endoffieldcheck:
 			;
 			/* check for user defined NULL string */
-			if (!skip && fmt->nullstr && task->fields[i][idx] && strncasecmp(task->fields[i][idx], fmt->nullstr, fmt->null_length + 1) == 0)
+			if (!fmt->skip && fmt->nullstr && task->fields[i][idx] && strncasecmp(task->fields[i][idx], fmt->nullstr, fmt->null_length + 1) == 0)
 				task->fields[i][idx] = 0;
 		}
 #ifdef _DEBUG_TABLET_
@@ -1629,7 +1628,7 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 	else
 		task->maxrow = (BUN) maxrow;
 
-	if (task->fields == 0 || task->cols == 0 || task->time == 0 || task->base == 0) {
+	if (task->fields == 0 || task->cols == 0 || task->time == 0) {
 		tablet_error(task, lng_nil, int_nil, NULL, "SQLload_file");
 		goto bailout;
 	}
@@ -1910,8 +1909,14 @@ SQLload_file(Client cntxt, Tablet *as, bstream *b, stream *out, char *csep, char
 	GDKfree(task->fields);
 	GDKfree(task->cols);
 	GDKfree(task->time);
-	GDKfree(task->base[task->cur]);
-	GDKfree(task->lines[task->cur]);
+	for (i = 0; i < MAXBUFFERS; i++) {
+		if (task->base[i])
+			GDKfree(task->base[i]);
+		if (task->lines[i])
+			GDKfree(task->lines[i]);
+	}
+	if (task->rowerror)
+		GDKfree(task->rowerror);
 	MT_sema_destroy(&task->producer);
 	MT_sema_destroy(&task->consumer);
 	GDKfree(task);

@@ -804,7 +804,7 @@ dcount_col(sql_trans *tr, sql_column *c)
 		dbl f = 1.0;
 		BAT *v = delta_bind_bat(b, RDONLY, 0), *o = v, *u;
 
-		if ((dcnt = BATcount(v)) > 1024*1024) {
+		if ((dcnt = (size_t) BATcount(v)) > 1024*1024) {
 			v = BATsample(v, 1024);
 			f = dcnt/1024.0;
 		}
@@ -812,7 +812,7 @@ dcount_col(sql_trans *tr, sql_column *c)
 		bat_destroy(o);
 		if (v!=o)
 			bat_destroy(v);
-		dcnt = BATcount(u)*f;
+		dcnt = (size_t) (BATcount(u) * f);
 		bat_destroy(u);
 		return dcnt;
 	} else {
@@ -1829,11 +1829,9 @@ tr_update_delta( sql_trans *tr, sql_delta *obat, sql_delta *cbat, int unique)
 
 	(void)tr;
 	assert(store_nr_active==1);
+	assert (obat->bid != 0 || tr != gtrans);
 
-	
-	assert (obat->bid != 0);
 	/* for cleared tables the bid is reset */
-
 	if (cbat->bid == 0) {
 		cleared = 1;
 		cbat->bid = obat->bid;
@@ -1850,6 +1848,16 @@ tr_update_delta( sql_trans *tr, sql_delta *obat, sql_delta *cbat, int unique)
 	}
 	if (obat->bid)
 		cur = temp_descriptor(obat->bid);
+	if (!obat->bid && tr != gtrans) {
+		*obat = *cbat;
+		cbat->bid = 0;
+		cbat->ibid = 0;
+		cbat->uibid = 0;
+		cbat->uvbid = 0;
+		cbat->name = NULL;
+		cbat->cached = NULL;
+		return ok;
+	}
 	ins = temp_descriptor(cbat->ibid);
 	if (unique)
 		BATkey(BATmirror(cur), TRUE);
@@ -1866,6 +1874,7 @@ tr_update_delta( sql_trans *tr, sql_delta *obat, sql_delta *cbat, int unique)
 			obat->bid = cbat->ibid;
 			cbat->bid = cbat->ibid = 0;
 
+			BATmsync(ins);
 			ins = cur;
 			cur = newcur;
 		} else {
@@ -1878,6 +1887,8 @@ tr_update_delta( sql_trans *tr, sql_delta *obat, sql_delta *cbat, int unique)
 			temp_destroy(cbat->bid);
 			temp_destroy(cbat->ibid);
 			cbat->bid = cbat->ibid = 0;
+			if (cur->batPersistence == PERSISTENT)
+				BATmsync(cur);
 		}
 		obat->cnt = cbat->cnt = obat->ibase = cbat->ibase = BATcount(cur);
 		temp_destroy(obat->ibid);
@@ -2002,9 +2013,11 @@ update_table(sql_trans *tr, sql_table *ft, sql_table *tt)
 				destroy_dbat(tr, b->next);
 				b->next = NULL;
 			}
-		} else {
-			assert(tt->base.allocated);
+		} else if (tt->base.allocated) {
 			tr_update_dbat(tr, tt->data, ft->data, ft->cleared);
+		} else {
+			tt->data = ft->data;
+			tt->base.allocated = 1;
 		}
 	}
 	for (n = ft->columns.set->h, m = tt->columns.set->h; ok == LOG_OK && n && m; n = n->next, m = m->next) {
@@ -2030,9 +2043,11 @@ update_table(sql_trans *tr, sql_table *ft, sql_table *tt)
 					destroy_bat(tr, b->next);
 					b->next = NULL;
 				}
-			} else {
-				assert(oc->base.allocated);
+			} else if (oc->base.allocated) {
 				tr_update_delta(tr, oc->data, cc->data, cc->unique == 1);
+			} else {
+				oc->data = cc->data; 
+				oc->base.allocated = 1;
 			}
 		}
 
@@ -2083,9 +2098,12 @@ update_table(sql_trans *tr, sql_table *ft, sql_table *tt)
 					destroy_bat(tr, b->next);
 					b->next = NULL;
 				}
-			} else {
+			} else if (oi->base.allocated) {
 				assert(oi->base.allocated);
 				tr_update_delta(tr, oi->data, ci->data, 0);
+			} else {
+				oi->data = ci->data;
+				oi->base.allocated = 1;
 			}
 
 			if (oi->base.rtime < ci->base.rtime)

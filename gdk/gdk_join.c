@@ -1012,6 +1012,9 @@ mergejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 
 	rcandorig = rcand;
 	rstartorig = rstart;
+
+	if (sl)
+		r1->tdense = sl->tdense;
 	while (lcand ? lcand < lcandend : lstart < lend) {
 		if (!nil_on_miss && !must_match && lscan > 0) {
 			/* If l is sorted (lscan > 0), we look at the
@@ -1192,6 +1195,8 @@ mergejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 		 * going to match: ready for the next iteration. */
 		if (!nil_matches && cmp(v, nil) == 0) {
 			/* v is nil and nils don't match anything */
+			r1->tdense = 0;
+			r2->tdense = 0;
 			if (must_match) {
 				GDKerror("mergejoin(%s,%s) does not hit always => can't use fetchjoin.\n", BATgetId(l), BATgetId(r));
 				goto bailout;
@@ -1515,7 +1520,7 @@ mergejoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr,
 			}
 			if (lcand &&
 			    nl > 1 &&
-			    lcand[-1] != lcand[-1 - nl] + nl) {
+			    lcand[-1] != lcand[-1 - (ssize_t) nl] + nl) {
 				/* not all values in the range are
 				 * candidates */
 				lskipped = 1;
@@ -1808,6 +1813,9 @@ hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, in
 	r2->tsorted = 0;
 	r2->trevsorted = 0;
 	r2->tdense = 0;
+
+	if (sl) 
+		r1->tdense = sl->tdense;
 
 	if (lstart == lend || (!nil_on_miss && rstart == rend)) {
 		/* nothing to do: there are no matches */
@@ -2909,8 +2917,8 @@ BATsubjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_match
 	swap = 0;
 
 	/* some statistics to help us decide */
-	lsize = (BUN) (BATcount(l) * (Tsize(l) + (l->T->vheap ? l->T->vheap->size : 0) + 2 * sizeof(BUN)));
-	rsize = (BUN) (BATcount(r) * (Tsize(r) + (r->T->vheap ? r->T->vheap->size : 0) + 2 * sizeof(BUN)));
+	lsize = (BUN) (BATcount(l) * (Tsize(l)) + (l->T->vheap ? l->T->vheap->size : 0) + 2 * sizeof(BUN));
+	rsize = (BUN) (BATcount(r) * (Tsize(r)) + (r->T->vheap ? r->T->vheap->size : 0) + 2 * sizeof(BUN));
 	mem_size = GDK_mem_maxsize / (GDKnr_threads ? GDKnr_threads : 1);
 
 	lparent = VIEWtparent(l);

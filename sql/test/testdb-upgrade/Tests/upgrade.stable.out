@@ -24,6 +24,7 @@ create filter function sys."like"(val string, pat string) external name algebra.
 drop filter function sys."ilike";
 create filter function sys."ilike"(val string, pat string, esc string) external name algebra."ilike";
 create filter function sys."ilike"(val string, pat string) external name algebra."ilike";
+create function sys."epoch"(ts TIMESTAMP WITH TIME ZONE) returns INT external name timestamp."epoch";
 CREATE TABLE sys.keywords (
     keyword VARCHAR(40) NOT NULL PRIMARY KEY);
 
@@ -76,7 +77,7 @@ INSERT INTO sys.dependency_types (dependency_type_id, dependency_type_name) VALU
   (1, 'SCHEMA'), (2, 'TABLE'), (3, 'COLUMN'), (4, 'KEY'), (5, 'VIEW'), (6, 'USER'), (7, 'FUNCTION'), (8, 'TRIGGER'),
   (9, 'OWNER'), (10, 'INDEX'), (11, 'FKEY'), (12, 'SEQUENCE'), (13, 'PROCEDURE'), (14, 'BE_DROPPED');
 drop view sys.tables;
-create view sys.tables as SELECT * FROM (SELECT p.*, 0 AS "temporary", CAST(CASE WHEN system THEN type + 10 /* system table/view */ ELSE (CASE WHEN commit_action = 0 THEN type /* table/view */ ELSE type + 20 /* global temp table */ END) END AS SMALLINT) AS table_type FROM "sys"."_tables" AS p UNION ALL SELECT t.*, 1 AS "temporary", CAST(type + 30 /* local temp table */ AS SMALLINT) AS table_type FROM "tmp"."_tables" AS t) AS tables where tables.type <> 2;
+create view sys.tables as SELECT "id", "name", "schema_id", "query", CAST(CASE WHEN "system" THEN "type" + 10 /* system table/view */ ELSE (CASE WHEN "commit_action" = 0 THEN "type" /* table/view */ ELSE "type" + 20 /* global temp table */ END) END AS SMALLINT) AS "type", "system", "commit_action", "access", CASE WHEN (NOT "system" AND "commit_action" > 0) THEN 1 ELSE 0 END AS "temporary" FROM "sys"."_tables" WHERE "type" <> 2 UNION ALL SELECT "id", "name", "schema_id", "query", CAST("type" + 30 /* local temp table */ AS SMALLINT) AS "type", "system", "commit_action", "access", 1 AS "temporary" FROM "tmp"."_tables";
 drop view sys.storagemodel;
 drop view sys.tablestoragemodel;
 drop view sys.storage;
@@ -219,7 +220,7 @@ returns table (
 	stmt string
 	) external name sql.dump_trace;
 create view sys.tracelog as select * from sys.tracelog();
-insert into sys.systemfunctions (select id from sys.functions where name in ('columnsize', 'ilike', 'imprintsize', 'like', 'querylog_calls', 'storage', 'storagemodel', 'tracelog') and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));
+insert into sys.systemfunctions (select id from sys.functions where name in ('columnsize', 'epoch', 'ilike', 'imprintsize', 'like', 'querylog_calls', 'storage', 'storagemodel', 'tracelog') and schema_id = (select id from sys.schemas where name = 'sys') and id not in (select function_id from sys.systemfunctions));
 delete from systemfunctions where function_id not in (select id from functions);
 update sys._tables set system = true where name in ('dependency_types', 'keywords', 'querylog_calls', 'querylog_history', 'statistics', 'storage', 'storagemodel', 'tables', 'tablestoragemodel', 'table_types', 'tracelog') and schema_id = (select id from sys.schemas where name = 'sys');
 drop procedure sys.cluster1;

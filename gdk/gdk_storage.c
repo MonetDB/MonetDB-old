@@ -85,6 +85,18 @@ GDKfilepath(int farmid, const char *dir, const char *name, const char *ext)
 	return path;
 }
 
+/* Same as GDKfilepath, but tries to extract a filename from multilevel dir paths. */
+char *
+GDKfilepath_long(int farmid, const char *dir, const char *ext) {
+	char last_dir_parent[BUFSIZ] = "";
+	char last_dir[BUFSIZ] = "";
+
+	if (GDKextractParentAndLastDirFromPath(dir, last_dir_parent, last_dir)) {
+		return GDKfilepath(farmid, last_dir_parent, last_dir, ext);
+	}
+	return NULL;
+}
+
 gdk_return
 GDKcreatedir(const char *dir)
 {
@@ -212,6 +224,23 @@ GDKfilelocate(int farmid, const char *nme, const char *mode, const char *extensi
 	return f;
 }
 
+FILE *
+GDKfileopen(int farmid, const char * dir, const char *name, const char *extension, const char *mode) {
+	char *path;
+
+	/* if name is null, try to get one from dir (in case it was a path) */
+	if ((name == NULL) || (*name == 0)) {
+		path = GDKfilepath_long(farmid, dir, extension);
+	} else {
+		path = GDKfilepath(farmid, dir, name, extension);
+	}
+
+	if (path != NULL) {
+        IODEBUG THRprintf(GDKstdout, "#GDKfileopen(%s)\n", path);
+		return fopen(path, mode);
+	}
+	return NULL;
+}
 
 /*
  * Unlink the file.
@@ -612,8 +641,10 @@ DESCclean(BAT *b)
  * This leaves you with possibly deadbeef BAT descriptors.
  */
 
+/* #define DISABLE_MSYNC */
 #define MSYNC_BACKGROUND
 
+#ifndef DISABLE_MSYNC
 static void
 BATmsyncImplementation(void *arg)
 {
@@ -630,14 +661,17 @@ BATmsyncImplementation(void *arg)
 	if (len)
 		(void) MT_msync(adr, len);
 }
+#endif
 
 void
 BATmsync(BAT *b)
 {
+#ifndef DISABLE_MSYNC
 #ifdef MSYNC_BACKGROUND
 	MT_Id tid;
 #endif
 
+	assert(b->batPersistence == PERSISTENT);
 	if (b->T->heap.storage == STORE_MMAP) {
 #ifdef MSYNC_BACKGROUND
 		MT_create_thread(&tid, BATmsyncImplementation, (void *) &b->T->heap, MT_THR_DETACHED);
@@ -653,6 +687,9 @@ BATmsync(BAT *b)
 		BATmsyncImplementation((void*) b->T->vheap);
 #endif
 	}
+#else
+	(void) b;
+#endif	/* DISABLE_MSYNC */
 }
 
 gdk_return

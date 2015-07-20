@@ -1017,7 +1017,7 @@ if test "x$enable_optimize" = xyes; then
 	      dnl  -mp does no longer exist with icc 15; using -mieee-fp, instead.
 	      dnl  adding -axSSE4.2 (or even -axCORE-AVX512) results in errors like
 	      dnl  "error: ODBCFetch has been targeted for automatic cpu dispatch" ...
-	      x86_64-*-*-15.*) CFLAGS="$CFLAGS -mieee-fp -O3 -restrict -unroll -no-inline-max-size -no-inline-max-total-size -xHost -xHOST";; 
+	      x86_64-*-*-15.*) CFLAGS="$CFLAGS -mieee-fp -O3 -restrict -unroll -no-inline-max-size -no-inline-max-total-size -inline-level=1 -xHost";;
 
 	      i*86-*-*-8.*)    CFLAGS="$CFLAGS -mp1 -O3 -restrict -unroll               -tpp6 -axKWNPB";;
 	      i*86-*-*-9.*)    CFLAGS="$CFLAGS -mp1 -O3 -restrict -unroll               -tpp6 -axKWNPB";;
@@ -3034,6 +3034,8 @@ fi
 Qdatadir="$datadir"
 Xdatadir="`$translatepath "$datadir"`"
 QXdatadir="`echo "$Xdatadir" | sed 's/\\\\/\\\\\\\\/g'`"
+eval "Edatadir=${Xdatadir}"
+QEdatadir="`echo "$Edatadir" | sed 's/\\\\/\\\\\\\\/g'`"
 AC_SUBST(Qdatadir)
 AC_SUBST(Xdatadir)
 AC_SUBST(QXdatadir)
@@ -3069,6 +3071,7 @@ AC_SUBST(QSOURCE)
 AC_SUBST(XSOURCE)
 AC_SUBST(QXSOURCE)
 AC_DEFINE_UNQUOTED(LOCALSTATEDIR,"$QElocalstatedir",[modifiable single-machine data])
+AC_DEFINE_UNQUOTED(DATA_DIR,"$QEdatadir",[read-only architecture-independent data])
 AC_DEFINE_UNQUOTED(BINDIR,"$QEbindir",[location where binaries are installed])
 
 dnl  On Solaris, libxml2 enables threading only when _REENTRANT, __MT__
