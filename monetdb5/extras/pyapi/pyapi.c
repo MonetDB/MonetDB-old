@@ -1674,7 +1674,7 @@ finally:
 PyObject *PyArrayObject_FromScalar(PyInput* inp, char **return_message)
 {
     PyObject *vararray = NULL; 
-    char *msg;
+    char *msg = NULL;
     assert(inp->scalar); //input has to be a scalar
     VERBOSE_MESSAGE("- Loading a scalar of type %s (%i)\n", BatType_Format(inp->bat_type), inp->bat_type);
         
