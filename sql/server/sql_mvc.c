@@ -201,6 +201,8 @@ mvc_trans(mvc *m)
 			qc_clean(m->qc);
 		}
 	}
+	/* rest the per-transaction global affected row count */
+	m->affected_rows = 0;
 	store_unlock();
 }
 
@@ -524,7 +526,7 @@ mvc_create(int clientid, backend_stack stk, int debug, bstream *rs, stream *ws)
 	store_unlock();
 
 	m->type = Q_PARSE;
-	m->update = 0;
+	m->affected_rows = 0;
 	m->pushdown = 1;
 
 	m->result_id = 0;

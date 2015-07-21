@@ -1591,6 +1591,17 @@ mvc_export_affrows(backend *b, stream *s, lng val, str w)
 	if (!s)
 		return 0;
 
+	if (val > 0) {
+		/* increment the affected row count per transaction */
+		m->affected_rows += val;
+	} else {
+		/* This is the special case where pre/persist-commit call the function.
+		 * Then output only the current stored affected row count for the complete transaction.
+		 */
+		val = m->affected_rows;
+	}
+
+
 	if (mnstr_write(s, "&2 ", 3, 1) != 1 || !mvc_send_lng(s, val) || mnstr_write(s, " ", 1, 1) != 1 || !mvc_send_lng(s, m->last_id) || mnstr_write(s, "\n", 1, 1) != 1)
 		return -1;
 	if (mvc_export_warning(s, w) != 1)

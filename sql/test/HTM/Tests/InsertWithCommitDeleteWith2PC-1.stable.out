@@ -47,9 +47,9 @@ Ready.
 #DELETE FROM htmtest WHERE id > 3;
 [ 6	]
 #CALL precommit(7);
-[ 1	]
+[ 6	]
 #CALL persistcommit(7);
-[ 1	]
+[ 6	]
 #SELECT * FROM htmtest;
 % sys.htmtest,	sys.htmtest # table_name
 % id,	val # name

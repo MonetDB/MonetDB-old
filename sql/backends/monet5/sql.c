@@ -365,7 +365,7 @@ SQLprecommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	/* get the result set */
-	if (mvc_export_affrows(b, b->out, sql->update, ""))
+	if (mvc_export_affrows(b, b->out, -1, ""))
 		throw(SQL, "sql.precommit", "failed - could not export number affected rows");
 	return msg;
 }
@@ -386,7 +386,7 @@ SQLpersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	/* If update flag is set, persistcommit does not throw and exception in autocommit,
 	 * since it was probably executed after a precommit with no-update transaction. */
-	if (sql->session->auto_commit != 0 && sql->update > 0)
+	if (sql->session->auto_commit != 0 && sql->affected_rows > 0)
 		throw(SQL, "sql.persistcommit", "persistcommit not allowed in auto commit mode");
 
 	/* execute the persistcommit */
@@ -396,7 +396,7 @@ SQLpersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 
 	/* get the result set */
-	if (mvc_export_affrows(b, b->out, sql->update, ""))
+	if (mvc_export_affrows(b, b->out, -1, ""))
 		throw(SQL, "sql.persistcommit", "failed - could not export number affected rows");
 	return msg;
 }

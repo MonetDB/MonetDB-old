@@ -31,8 +31,10 @@ Ready.
 #INSERT INTO htmtest VALUES (10, 99), (11, 99), (12, 99);
 [ 3	]
 #CALL precommit(5);
-[ 1	]
+[ 3	]
 #ROLLBACK;
+#CALL persistcommit(5);
+[ 0	]
 #SELECT * FROM htmtest;
 % sys.htmtest,	sys.htmtest # table_name
 % id,	val # name

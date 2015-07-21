@@ -31,14 +31,14 @@ INSERT INTO htmtest VALUES (4, 99), (5, 99), (6, 99)
 &2 3 -1
 
 CALL precommit(1)
-&2 1 -1
+&2 3 -1
 
 SELECT * FROM htmtest
 [(1, 10), (2, 20), (3, 30), (4, 99), (5, 99), (6, 99)]
 SELECT * FROM htmtest
 [(1, 10), (2, 20), (3, 30)]
 CALL persistcommit(1)
-&2 1 -1
+&2 3 -1
 
 SELECT * FROM htmtest
 [(1, 10), (2, 20), (3, 30), (4, 99), (5, 99), (6, 99)]

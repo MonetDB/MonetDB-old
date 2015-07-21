@@ -39,6 +39,8 @@ Ready.
 [ 1,	10	]
 [ 2,	20	]
 [ 3,	30	]
+#CALL persistcommit(4);
+[ 0     ]
 #SELECT * FROM htmtest;
 % sys.htmtest,	sys.htmtest # table_name
 % id,	val # name

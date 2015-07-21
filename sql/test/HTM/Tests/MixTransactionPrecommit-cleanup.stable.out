@@ -1,4 +1,4 @@
-stdout of test 'MixTransactionPrecommitReturns1-cleanup` in directory 'sql/test/HTM` itself:
+stdout of test 'MixTransactionPrecommit-cleanup` in directory 'sql/test/HTM` itself:
 
 
 # 22:26:49 >  
@@ -28,7 +28,7 @@ Ready.
 # 22:26:49 >  
 
 #DELETE FROM htmtest WHERE id > 3;
-[ 3	]
+[ 6	]
 
 # 22:26:49 >  
 # 22:26:49 >  "Done."

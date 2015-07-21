@@ -29,7 +29,7 @@ stderr of test 'RollbackAfterPersistcommitHasNoEffect-1` in directory 'sql/test/
 # 23:18:40 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-10386" "--port=35631"
 # 23:18:40 >  
 
-MAPI  = (monetdb) /var/tmp/mtest-10386/.s.monetdb.35631
+MAPI  = (monetdb) /var/tmp/mtest-83948/.s.monetdb.35849
 QUERY = ROLLBACK;
 ERROR = !ROLLBACK: not allowed in auto commit mode
 

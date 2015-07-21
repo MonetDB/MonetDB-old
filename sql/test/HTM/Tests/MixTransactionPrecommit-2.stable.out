@@ -1,4 +1,4 @@
-stdout of test 'MixTransactionPrecommitReturns1` in directory 'sql/test/HTM` itself:
+stdout of test 'MixTransactionPrecommit-2` in directory 'sql/test/HTM` itself:
 
 
 # 15:18:28 >  
@@ -28,7 +28,7 @@ Ready.
 # 15:18:28 >  
 
 #START TRANSACTION;
-#INSERT INTO htmtest VALUES (4, 99), (5, 99), (6, 99);
+#INSERT INTO htmtest VALUES (7, 99), (8, 99), (9, 99);
 [ 3	]
 #SELECT * FROM htmtest;
 % sys.htmtest,	sys.htmtest # table_name
@@ -41,10 +41,38 @@ Ready.
 [ 7,	99	]
 [ 8,	99	]
 [ 9,	99	]
-#CALL precommit(2);
-[ 1	]
-#CALL persistcommit(2);
-[ 1	]
+[ 7,	99	]
+[ 8,	99	]
+[ 9,	99	]
+#CALL precommit(3);
+[ 3	]
+#CALL persistcommit(3);
+[ 3	]
+
+#START TRANSACTION;
+#INSERT INTO htmtest VALUES (7, 99), (8, 99), (9, 99);
+[ 3	]
+#SELECT * FROM htmtest;
+% sys.htmtest,	sys.htmtest # table_name
+% id,	val # name
+% int,	int # type
+% 1,	2 # length
+[ 1,	10	]
+[ 2,	20	]
+[ 3,	30	]
+[ 7,	99	]
+[ 8,	99	]
+[ 9,	99	]
+[ 7,	99	]
+[ 8,	99	]
+[ 9,	99	]
+[ 7,	99	]
+[ 8,	99	]
+[ 9,	99	]
+#CALL precommit(3);
+[ 3	]
+#CALL persistcommit(3);
+[ 3	]
 
 
 # 15:18:28 >  

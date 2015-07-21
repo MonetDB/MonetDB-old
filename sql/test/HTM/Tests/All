@@ -5,8 +5,9 @@ MultipleConnectionsAllWithAutocommit
 ReadsItsOwnWrites
 ReadsItsOwnWrites-cleanup
 NonUpdatePrecommitReturns0
-MixTransactionPrecommitReturns1
-MixTransactionPrecommitReturns1-cleanup
+MixTransactionPrecommit-1
+MixTransactionPrecommit-2
+MixTransactionPrecommit-cleanup
 RollbackBeforePrecommit-1
 RollbackBeforePrecommit-2
 RollbackAfterPrecommit-1
@@ -21,3 +22,4 @@ InsertWith2PCDeleteWithCommit-1
 InsertWith2PCDeleteWithCommit-2
 InsertWithCommitDeleteWith2PC-1
 InsertWithCommitDeleteWith2PC-2
+TwoInsetsIn1Transaction
