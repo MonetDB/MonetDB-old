@@ -7211,6 +7211,7 @@ void getSqlName(str *name, oid nameId, BATiter mapi, BAT *mbat){
 	if (nameId != BUN_NONE){
 		//takeOid(nameId, &canStr);
 		getStringName(nameId, &canStr, mapi, mbat, 1);
+		assert(canStr != NULL); 
 		getPropNameShort(&canStrShort, canStr);
 
 		if (strstr (canStrShort,".") != NULL || 
@@ -11510,8 +11511,19 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 	computeMetricsQForRefinedTable(freqCSset, *csPropTypes,mfreqIdxTblIdxMapping,mTblIdxFreqIdxMapping,numTables);
 	#endif
 
+
 	#if DUMP_CSSET
-	dumpFreqCSs(cstablestat, freqCSset); 
+	{
+		str schema = "rdf"; 
+		if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+			throw(RDF, "rdf.rdfschema",
+				"could not open the tokenizer\n");
+		}
+	
+		dumpFreqCSs(cstablestat, freqCSset, mi, mbat); 
+
+		TKNZRclose(ret);
+	}
 	#endif
 
 	if (*mode == EXPLOREONLY){

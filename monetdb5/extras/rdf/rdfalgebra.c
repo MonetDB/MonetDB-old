@@ -235,7 +235,9 @@ str RDFmultiway_merge_outerjoins(int np, BAT **sbats, BAT **obats, BAT **r_sbat,
 	
 	for (i = 0; i < np; i++){
 		r_obats[i] = BATnew(TYPE_void, TYPE_oid, estimate, TRANSIENT); 
-
+	
+		//assert(BATcount(sbats[i]) > 0); 
+		//
 		//Keep the cursor to the first element of each input sbats
 		sbatCursors[i] = (oid *) Tloc(sbats[i], BUNfirst(sbats[i]));
 		obatCursors[i] = (oid *) Tloc(obats[i], BUNfirst(obats[i]));	
@@ -245,9 +247,16 @@ str RDFmultiway_merge_outerjoins(int np, BAT **sbats, BAT **obats, BAT **r_sbat,
 	//has first element of an array (pointing to the first element of each sbat)
 	harr = (MinHeapNode*)malloc(sizeof(MinHeapNode) * np);
 	for (i = 0; i < np; i++){
-		harr[i].element =  sbatCursors[i][0]; //Store the first element
-		harr[i].i = i; //index of array
-		harr[i].j = 1; //Index of next element to be stored from array
+		if (BATcount(sbats[i]) != 0){
+			harr[i].element =  sbatCursors[i][0]; //Store the first element
+			harr[i].i = i; //index of array
+			harr[i].j = 1; //Index of next element to be stored from array
+		} else {
+			harr[i].element =  INT_MAX; //Store the INT_MAX in case of empty BATs
+			harr[i].i = i; //index of array
+			harr[i].j = 1; //Index of next element to be stored from array
+		}
+
 	}
 
 	hp = (MinHeap *) malloc(sizeof(MinHeap)); 

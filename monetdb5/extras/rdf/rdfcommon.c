@@ -28,6 +28,9 @@ void copyIntSet(int* dest, int* orig, int len){
 	memcpy(dest, orig, len * sizeof(int));
 }
 
+void copybatSet(bat* dest, bat* orig, int len){
+	memcpy(dest, orig, len * sizeof(int));
+}
 
 void initCharArray(char* inputArr, int num, char defaultValue){
 	int i; 
@@ -322,6 +325,18 @@ void appendIntArrayToBat(BAT *b, int* inArray, int num){
 			BATextend(b, b->batCapacity + smallbatsz); 
 		}
 		memcpy(Tloc(b, BUNlast(b)), inArray, sizeof(int) * num); 
+		BATsetcount(b, (BUN) (b->batCount + num)); 
+	}
+}
+
+
+void appendbatArrayToBat(BAT *b, bat* inArray, int num){
+	if (num > 0){
+		BUN r = BUNlast(b);
+		if (r + num > b->batCapacity){
+			BATextend(b, b->batCapacity + smallbatsz); 
+		}
+		memcpy(Tloc(b, BUNlast(b)), inArray, sizeof(bat) * num); 
 		BATsetcount(b, (BUN) (b->batCount + num)); 
 	}
 }

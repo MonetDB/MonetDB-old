@@ -1032,7 +1032,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 			tmpbat = cstablestat->lstcstable[i].colBats[j];
 			isRightPropBAT(tmpbat);
-			//printf("Column %d: \n",j); 
+			//printf("Column %d of tableId %d: Batid is %d \n",j, i, tmpbat->batCacheid); 
 			//BATprint(tmpbat);
                 	store_funcs.append_col(m->session->tr,
 					mvc_bind_column(m, cstables[i],tmpcolname ), 
@@ -1505,6 +1505,80 @@ bat2return(MalStkPtr stk, InstrPtr pci, BAT **b)
 }
 
 
+static
+void get_full_outerjoin_p_slices(oid *lstprops, int np, BAT *full_obat, BAT *full_sbat, BAT **r_sbat, BAT ***r_obats){
+
+	BAT **obats, **sbats; 
+	int i; 
+
+	obats = (BAT**)malloc(sizeof(BAT*) * np);
+	sbats = (BAT**)malloc(sizeof(BAT*) * np);
+	(*r_obats) = (BAT**)malloc(sizeof(BAT*) * np);
+
+	for (i = 0; i < np; i++){
+		getSlides_per_P(pso_propstat, &(lstprops[i]),full_obat, full_sbat, &(obats[i]), &(sbats[i])); 
+	}
+
+	RDFmultiway_merge_outerjoins(np, sbats, obats, r_sbat, (*r_obats));
+
+	printf("Outer join result: \n");
+	BATprint(*r_sbat); 
+	for (i = 0; i < np; i++){
+		BATprint((*r_obats)[i]); 
+	}
+}
+
+/*
+ * Combine exceptioins and regular tables
+ * */
+
+static
+void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, BAT *sbat, BAT **obats, oid *lstProps, int nP, int nRP){
+	oid *sbatCursor; 
+	oid **obatCursors; 
+	int i, j; 
+	int numS; 
+	char *schema = "rdf";
+	
+	(void) r_sbat; 
+	(void) r_obats; 
+	(void) nRP; 
+
+	sbatCursor = (oid *) Tloc(sbat, BUNfirst(sbat));
+	obatCursors = (oid **) malloc(sizeof(oid*) * nP); 
+	for (i = 0; i < nP; i++){
+		obatCursors[i] = (oid *) Tloc(obats[i], BUNfirst(obats[i]));
+		assert (BATcount(obats[i]) == BATcount(sbat)); 
+	}
+	
+	numS = BATcount(sbat); 
+
+	for (i = 0; i < numS; i++){
+		oid sbt = sbatCursor[i]; 
+		int tid = -1; 
+	 	oid tmpS = BUN_NONE; 
+		getTblIdxFromS(sbt, &tid, &tmpS);
+		printf("At row "BUNFMT" of table %d\n", tmpS, tid); 
+		for (j = 0;  j < nP; j++){
+			if (obatCursors[i][j] == oid_nil){
+				//Look for the value from main table
+				int colIdx = getColIdx_from_oid(tid, global_csset, lstProps[j]);
+				str tmpColname = getColumnName(global_csset, tid, colIdx); 
+				str tmptblname = (global_csset->items[tid])->tblsname; 
+				BAT *regular_obat = NULL; 
+
+				assert(colIdx != -1); 
+				regular_obat = mvc_bind(c, schema, tmptblname, tmpColname, 0);						
+				if (regular_obat == NULL) printf("There is no BAT binding for table %s and column %s \n", tmptblname, tmpColname); 
+			}	
+
+		}
+	}
+
+	
+}
+
+
 /*
  * The input for this pattern should be
  * Number of Ps, Number of RPs, <List of Prop Ids>
@@ -1528,7 +1602,7 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		
 	nP = (int *) getArgReference(stk, pci, pci->retc + 0);
 	nRP =  (int *) getArgReference(stk, pci, pci->retc + 1);
-	nRet = 2 * *nP; 
+	nRet = 2 * (*nP); 
 	
 	(void) nRP;
 
@@ -1555,6 +1629,31 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	}
 	
 	printf("There are %d props, among them %d RPs /n", *nP, *nRP);
+	
+	//Step 1. "Full outer join" to get all the possible combination
+	//of all props from PSO table
+	{
+		BAT *r_sbat, **r_obats; 
+		BAT *m_sbat, **m_obats; 
+		char *schema = "rdf"; 
+		mvc *m = NULL;
+		str msg; 
+		BAT *pso_fullSbat = NULL, *pso_fullObat = NULL;
+
+
+		rethrow("sql.rdfShred", msg, getSQLContext(cntxt, mb, &m, NULL));
+
+		pso_fullSbat = mvc_bind(m, schema, "pso", "s",0);
+		pso_fullObat = mvc_bind(m, schema, "pso", "o",0);
+
+		get_full_outerjoin_p_slices(lstProps, *nP, pso_fullObat, pso_fullSbat, &r_sbat, &r_obats);
+	
+
+		//Step 2. Merge exceptions with Tables
+	
+		combine_exception_and_regular_tables(m, &m_sbat, &m_obats, r_sbat, r_obats, lstProps, *nP, *nRP);
+	}
+
 	bat2return(stk, pci, b);
 	GDKfree(b);
 
@@ -1799,28 +1898,12 @@ void build_PsoPropStat(BAT *full_pbat, int maxNumP, BAT *full_sbat, BAT *full_ob
 	printf("Number of P in PSO is: "BUNFMT"\n", BATcount(pso_propstat->pBat)); 
 	BATprint(pso_propstat->pBat); 
 	BATprint(pso_propstat->offsetBat); 
+	if (0)		//Testing only 
 	{
-
-		BAT **obats, **sbats, *r_sbat, **r_obats; 
-		int i; 
 		int np = 5; 
-
-		oid props[5] = {100, 200, 400, 500, 700} ; 
-		obats = (BAT**)malloc(sizeof(BAT*) * np);
-		sbats = (BAT**)malloc(sizeof(BAT*) * np);
-		r_obats = (BAT**)malloc(sizeof(BAT*) * np);
-
-		for (i = 0; i < np; i++){
-			getSlides_per_P(pso_propstat, &(props[i]),full_obat, full_sbat, &(obats[i]), &(sbats[i])); 
-		}
-
-		RDFmultiway_merge_outerjoins(np, sbats, obats, &r_sbat, r_obats);
-
-		printf("Outer join result: \n");
-		BATprint(r_sbat); 
-		for (i = 0; i < np; i++){
-			BATprint(r_obats[i]); 
-		}
+		oid lstprops[5] = {100, 200, 400, 500, 700} ; 
+		BAT *r_sbat, **r_obats; 
+		get_full_outerjoin_p_slices(&(lstprops[0]), np, full_obat, full_sbat, &r_sbat, &r_obats); 
 		
 	}
 	
@@ -1918,6 +2001,7 @@ str SQLrdfprepare(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		BAT *pso_fullSbat = mvc_bind(m, schema, "pso", "s",0);
 		BAT *pso_fullObat = mvc_bind(m, schema, "pso", "o",0);
 		build_PsoPropStat(pso_fullPbat, global_p_propstat->numAdded, pso_fullSbat, pso_fullObat); 
+
 	}
 
 

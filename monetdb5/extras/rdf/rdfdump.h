@@ -24,10 +24,10 @@
 #include "rdftypes.h"
 #include "rdfschema.h"
 
-
 typedef enum {
 	csd_tblId,
 	csd_tblname, 
+	csd_tblsname, 
 	csd_csId, 
 	csd_freq,
 	csd_coverage, 
@@ -35,6 +35,8 @@ typedef enum {
 	csd_fullP, 
 	csd_cOffset,
 	csd_fullC, 
+	csd_fullC_batIds,
+	csd_fullC_name,
 	csd_isMV,
 	csd_cname
 } csdumBatType;
@@ -59,11 +61,14 @@ typedef struct CSDumpBATs{
 typedef struct SimpleDumpCS {	
 	int tblId; 
 	oid tblname; 
+	str tblsname; 
 	int freqId; 
 	int numP; 
 	oid *lstProp; 
 	int numC; 
 	oid *lstCol; 
+	bat *lstColbat;
+	str *lstColname; 
 	int *lstIsMV; //Whether the column is multi-valued column or not
 	int sup; 
 	int cov; 
@@ -77,7 +82,7 @@ typedef struct SimpleCSset{
 
 
 rdf_export 
-void dumpFreqCSs(CStableStat* cstablestat, CSset *freqCSset); 
+void dumpFreqCSs(CStableStat* cstablestat, CSset *freqCSset, BATiter mapi, BAT *mbat); 
 
 rdf_export
 SimpleCSset *dumpBat_to_CSset(void);
@@ -99,6 +104,12 @@ Postinglist get_p_postingList(PropStat *propStat, oid p);
 
 rdf_export 
 int getColIdx_from_oid(int tblId, SimpleCSset *csset, oid coloid);
+
+rdf_export 
+BAT* getcolumn_bat(SimpleCSset *csset, int tblId, int colId);	/* Get the BAT corresponding to a column in a table*/
+
+rdf_export 
+str getColumnName(SimpleCSset *csset, int tblId, int colId);
 
 rdf_export
 int isMVCol(int tblId, int colIdx, SimpleCSset *csset);

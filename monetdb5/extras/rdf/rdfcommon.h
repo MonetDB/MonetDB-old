@@ -28,6 +28,8 @@
 
 rdf_export void copyOidSet(oid* dest, oid* orig, int len); 
 rdf_export void copyIntSet(int* dest, int* orig, int len); 
+rdf_export void copybatSet(bat *dest, bat* orig, int len); 
+
 rdf_export void initCharArray(char* inputArr, int num, char defaultValue);
 rdf_export void initArray(oid* inputArr, int num, oid defaultValue);
 rdf_export void initIntArray(int* inputArr, int num, oid defaultValue);
@@ -41,5 +43,6 @@ rdf_export void get_sorted_distinct_set(oid* src, oid** des, int numsrc, int *nu
 
 rdf_export void appendArrayToBat(BAT *b, BUN* inArray, int num);
 rdf_export void appendIntArrayToBat(BAT *b, int* inArray, int num);
+rdf_export void appendbatArrayToBat(BAT *b, bat* inArray, int num);
 
 #endif /* _RDFCOMMON_H_ */

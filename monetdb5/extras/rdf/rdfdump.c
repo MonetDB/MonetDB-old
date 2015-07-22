@@ -29,11 +29,12 @@
 #include "rdfdump.h"
 #include "bat5.h"
 #include "rdfcommon.h"
-
+#include "sql_rdf.h"
 
 static csdumBATdef csdumBatdefs[N_CSDUM_BAT] = {
 	{csd_tblId, "tblIdBat_dump", TYPE_void, TYPE_int},
 	{csd_tblname, "tblnameBat_dump", TYPE_void, TYPE_oid},
+	{csd_tblsname, "tblsnameBat_dump", TYPE_void, TYPE_str},
 	{csd_csId, "csIdBat_dump", TYPE_void, TYPE_int},
 	{csd_freq, "freqBat_dump", TYPE_void, TYPE_int},
 	{csd_coverage, "coverageBat_dump", TYPE_void, TYPE_int},
@@ -41,6 +42,8 @@ static csdumBATdef csdumBatdefs[N_CSDUM_BAT] = {
 	{csd_fullP, "fullPBat_dump", TYPE_void, TYPE_oid},
 	{csd_cOffset, "cOffsetBat_dump", TYPE_void, TYPE_oid},
 	{csd_fullC, "fullCBat_dump", TYPE_void, TYPE_oid},
+	{csd_fullC_batIds, "fullC_batIds_dump", TYPE_void, TYPE_int},  //BAT ids for each column
+	{csd_fullC_name, "fullC_name_dump", TYPE_void, TYPE_str},	//Name of each column
 	{csd_isMV, "isMVBat_dump", TYPE_void, TYPE_int},	// 0 indicating single-valued column, otherwise > 0
 								// the value is the number of column in MVtable
 	{csd_cname, "cIdxBat_dump", TYPE_void, TYPE_int}	//Index of the col in the table
@@ -102,10 +105,12 @@ void commitCSDump(CSDump *csdump){
 }
 
 static 
-void dumpCS(CSDump *csdump, int _freqId, int _tblId, CS cs, CStable cstbl){
+void dumpCS(CSDump *csdump, int _freqId, int _tblId, CS cs, CStable cstbl, BATiter mapi, BAT *mbat){
 	BUN	offset, offsetc; 
 	int tblId, freqId, freq, cov; 
 	oid tblname; 
+	str tblsname; 
+	bat *lstColbat = NULL; 
 	int *lstIsMV;
 	int i;
 	
@@ -119,6 +124,11 @@ void dumpCS(CSDump *csdump, int _freqId, int _tblId, CS cs, CStable cstbl){
 	BUNappend(csdump->dumpBats[csd_tblId], &tblId, TRUE);
 
 	BUNappend(csdump->dumpBats[csd_tblname], &tblname, TRUE);
+
+        tblsname = (str) GDKmalloc(sizeof(char) * 100);
+
+	getTblSQLname(tblsname, tblId, 0,  tblname, mapi, mbat);
+	BUNappend(csdump->dumpBats[csd_tblsname], tblsname, TRUE);
 
 	BUNappend(csdump->dumpBats[csd_csId], &freqId, TRUE);
 	
@@ -138,17 +148,25 @@ void dumpCS(CSDump *csdump, int _freqId, int _tblId, CS cs, CStable cstbl){
 	/* Add list of multi-valued indication to csd_isMV bat*/
 
 	lstIsMV = (int *) malloc(sizeof(int) * cstbl.numCol);
-	for (i = 0; i < cstbl.numCol; i++){
-		lstIsMV[i] = cstbl.lstMVTables[i].numCol; 
-	}
+	lstColbat = (bat *) malloc(sizeof(bat) * cstbl.numCol);
 	
+	for (i = 0; i < cstbl.numCol; i++){
+		str tmpColName = (char *) malloc(sizeof(char) * 100);
+		lstIsMV[i] = cstbl.lstMVTables[i].numCol; 
+		lstColbat[i] = cstbl.colBats[i]->batCacheid; 
+		getColSQLname(tmpColName, i, -1, cstbl.lstProp[i], mapi, mbat); 
+		BUNappend(csdump->dumpBats[csd_fullC_name], tmpColName, TRUE); 
+	}
+
 	appendIntArrayToBat(csdump->dumpBats[csd_isMV], lstIsMV, cstbl.numCol);
+	appendbatArrayToBat(csdump->dumpBats[csd_fullC_batIds], lstColbat, cstbl.numCol); 
+	
 
 	free(lstIsMV); 
 
 }
 
-void dumpFreqCSs(CStableStat* cstablestat, CSset *freqCSset){
+void dumpFreqCSs(CStableStat* cstablestat, CSset *freqCSset, BATiter mapi, BAT *mbat){
 	int i, numTables;
 	int freqId; 
 	int is_already_built = 0; 
@@ -169,7 +187,7 @@ void dumpFreqCSs(CStableStat* cstablestat, CSset *freqCSset){
 		for (i = 0; i < numTables; i++){
 			freqId = cstablestat->lstfreqId[i];
 			assert(freqId != -1); 
-			dumpCS(csdump, freqId, i, freqCSset->items[freqId], cstablestat->lstcstable[i]); 			
+			dumpCS(csdump, freqId, i, freqCSset->items[freqId], cstablestat->lstcstable[i], mapi, mbat); 			
 		}
 
 		commitCSDump(csdump); 	
@@ -214,11 +232,13 @@ void freeCSDump(CSDump *csdump){
 
 
 static
-SimpleCS *create_simpleCS(int tblId, oid tblname, int freqId, int numP, oid* lstProp, int numC, oid* lstCol, int* lstIsMV,  int sup, int cov){
+SimpleCS *create_simpleCS(int tblId, oid tblname, str tblsname, int freqId, int numP, oid* lstProp, int numC, oid* lstCol, bat *lstColbat, str *lstColname, int* lstIsMV,  int sup, int cov){
 	SimpleCS *cs;  
 	cs = (SimpleCS *) malloc(sizeof(SimpleCS)); 
 	cs->tblId = tblId; 
 	cs->tblname = tblname;
+	cs->tblsname = GDKstrdup(tblsname); 
+
 	cs->freqId = freqId; 
 	
 	cs->numP = numP; 
@@ -228,6 +248,11 @@ SimpleCS *create_simpleCS(int tblId, oid tblname, int freqId, int numP, oid* lst
 	cs->numC = numC; 
 	cs->lstCol = (oid *) malloc(sizeof(oid) * numC);
 	copyOidSet(cs->lstCol, lstCol, numC);
+
+	cs->lstColbat = (bat *) malloc(sizeof(bat) * numC);
+	copybatSet(cs->lstColbat, lstColbat, numC);
+
+	cs->lstColname = lstColname; 
 
 	cs->lstIsMV = (int *) malloc(sizeof(int) * numC); 
 	copyIntSet(cs->lstIsMV, lstIsMV, numC); 
@@ -242,6 +267,14 @@ void free_simpleCS(SimpleCS *cs){
 	if (cs->lstProp) free(cs->lstProp);
 	if (cs->lstCol) free(cs->lstCol); 
 	if (cs->lstIsMV) free(cs->lstIsMV);
+	if (cs->lstColname){
+		int i; 
+		for (i = 0; i < cs->numC; i++){
+			GDKfree(cs->lstColname[i]); 
+		}
+		GDKfree(cs->lstColname); 
+	}
+	GDKfree(cs->tblsname); 
 	free(cs); 
 }	
 
@@ -254,16 +287,25 @@ SimpleCS* read_a_cs_from_csdump(int pos, CSDump *csdump){
 	int *tblId, *freqId, *freq, *coverage;
 	oid *tblname; 
 	oid *lstProp = NULL, *lstCol = NULL; 
+	bat *lstColbat = NULL; 
 	int *lstIsMV = NULL; 
+	str *lstColname = NULL; 
+	BATiter cname_mapi, tblsname_mapi; 
+	int i; 
 
 	SimpleCS *cs; 
+	str tblsname; 
 
 	
 	tblId = (int *) Tloc(csdump->dumpBats[csd_tblId], pos); 
 	assert(*tblId == pos); 
 
 	tblname = (oid *) Tloc(csdump->dumpBats[csd_tblname], pos);
+
+	tblsname_mapi = bat_iterator(csdump->dumpBats[csd_tblsname]);
 	
+	tblsname = (str) BUNtail(tblsname_mapi, pos);
+		
 	freqId = (int *) Tloc(csdump->dumpBats[csd_csId], pos); 
 
 	freq = (int *) Tloc(csdump->dumpBats[csd_freq], pos); 
@@ -296,8 +338,21 @@ SimpleCS* read_a_cs_from_csdump(int pos, CSDump *csdump){
 	lstCol = (oid *)Tloc(csdump->dumpBats[csd_fullC], *offsetC);	
 
 	lstIsMV = (int *)Tloc(csdump->dumpBats[csd_isMV], *offsetC); 
+	
+	lstColbat = (bat *)Tloc(csdump->dumpBats[csd_fullC_batIds], *offsetC); 
 
-	cs = create_simpleCS(*tblId, *tblname, *freqId, numP, lstProp, numC, lstCol, lstIsMV, *freq, *coverage);
+	lstColname = (str *)malloc(sizeof(str) * numC); 
+
+	cname_mapi = bat_iterator(csdump->dumpBats[csd_fullC_name]); 
+	
+	for (i = 0; i < numC; i++){
+		 str tmpStr = (str) BUNtail(cname_mapi, BUNfirst(csdump->dumpBats[csd_fullC_name]) + (BUN) (*offsetC + i));
+
+                 lstColname[i] = GDKstrdup(tmpStr);
+
+	}
+
+	cs = create_simpleCS(*tblId, *tblname, tblsname, *freqId, numP, lstProp, numC, lstCol, lstColbat, lstColname, lstIsMV, *freq, *coverage);
 
 	return cs; 
 }
@@ -332,7 +387,7 @@ void print_simpleCSset(SimpleCSset *csset){
 
 	for (i = 0; i < num; i++){
 		SimpleCS *cs = csset->items[i]; 
-		printf("Simple CS: %d [TblId: %d] [FreqId: %d] [Support: %d] [Coverage: %d]\n", i, cs->tblId, cs->freqId, cs->sup, cs->cov);  
+		printf("Simple CS: %d [TblId: %d] [Name: %s] [FreqId: %d] [Support: %d] [Coverage: %d]\n", i, cs->tblId, cs->tblsname, cs->freqId, cs->sup, cs->cov);  
 		printf("              Props: "); 
 		for (j = 0; j < cs->numP; j++){
 			printf(" " BUNFMT, cs->lstProp[j]); 
@@ -341,7 +396,7 @@ void print_simpleCSset(SimpleCSset *csset){
 
 		printf("              Cols: "); 
 		for (j = 0; j < cs->numC; j++){
-			printf(" " BUNFMT "  (isMV: %d) ", cs->lstCol[j],cs->lstIsMV[j]); 
+			printf(" " BUNFMT "  (Name: %s) (isMV: %d) ", cs->lstCol[j], cs->lstColname[j], cs->lstIsMV[j]); 
 		}	
 		printf("\n"); 
 	}
@@ -389,6 +444,25 @@ int getColIdx_from_oid(int tblId, SimpleCSset *csset, oid coloid){
 	if (i == cs->numC) return -1; 
 
 	return -1; 
+}
+
+str getColumnName(SimpleCSset *csset, int tblId, int colId){
+
+	SimpleCS *cs = csset->items[tblId];
+	
+	return cs->lstColname[colId]; 
+}
+
+BAT* getcolumn_bat(SimpleCSset *csset, int tblId, int colId){
+	BAT* b = NULL;
+	bat bid;
+	bid = (csset->items[tblId])->lstColbat[colId]; 
+	printf("bId = %d\n", (int)bid); 
+	if ((b = BATdescriptor(bid)) == NULL) {
+		fprintf(stderr, "Fail while de-serializing batcolumn\n");	
+	}
+	
+	return b; 
 }
 
 int isMVCol(int tblId, int colIdx, SimpleCSset *csset){

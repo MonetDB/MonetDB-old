@@ -22,6 +22,10 @@ INCLUDES = ../../modules/atoms ../../modules/mal ../../mal \
 		   ../../../common/stream \
 		   ../../../gdk \
 		   ../../../sql/include \
+		   ../../../sql/backends/monet5 \
+		   ../../../sql/server \
+		   ../../../sql/common \
+		   ../../../sql/storage \
 		   $(raptor_CFLAGS)
 
 MTSAFE
