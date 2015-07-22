@@ -4,6 +4,7 @@ MultipleConnections1WithAutocommitFalseAndDelete
 MultipleConnectionsAllWithAutocommit
 MultipleConnections-1
 MultipleConnections-2
+MultipleConnections-3
 MultipleConnections-cleanup
 ReadsItsOwnWrites
 ReadsItsOwnWrites-cleanup
