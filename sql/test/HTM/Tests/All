@@ -2,6 +2,9 @@ setup
 MultipleConnections1WithAutocommitFalse
 MultipleConnections1WithAutocommitFalseAndDelete
 MultipleConnectionsAllWithAutocommit
+MultipleConnections-1
+MultipleConnections-2
+MultipleConnections-cleanup
 ReadsItsOwnWrites
 ReadsItsOwnWrites-cleanup
 NonUpdatePrecommitReturns0

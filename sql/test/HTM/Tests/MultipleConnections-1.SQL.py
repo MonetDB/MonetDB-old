@@ -28,16 +28,19 @@ def run(conn, sql):
     print(r)
 
 
-c1 = connect(True)
-run(c1, 'INSERT INTO htmtest VALUES (25, 99), (26, 99), (27, 99)')
+c1 = connect(False)
+run(c1, 'INSERT INTO htmtest VALUES (40, 99), (41, 99), (42, 99)')
+run(c1, 'COMMIT')
 query(c1, 'SELECT * FROM htmtest')
 
-c2 = connect(True)
+c2 = connect(False)
 query(c2, 'SELECT * FROM htmtest')
+
 run(c1, 'DELETE FROM htmtest WHERE id > 3')
+run(c1, 'COMMIT')
+query(c1, 'SELECT * FROM htmtest')
+
 query(c2, 'SELECT * FROM htmtest')
 
-c3 = connect(True)
+c3 = connect(False)
 query(c3, 'SELECT * FROM htmtest')
-
-query(c1, 'SELECT * FROM htmtest')
