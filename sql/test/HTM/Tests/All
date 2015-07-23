@@ -5,6 +5,8 @@ MultipleConnectionsAllWithAutocommit
 MultipleConnections-1
 MultipleConnections-2
 MultipleConnections-3
+MultipleConnections-4
+MultipleConnections-5
 MultipleConnections-cleanup
 ReadsItsOwnWrites
 ReadsItsOwnWrites-cleanup

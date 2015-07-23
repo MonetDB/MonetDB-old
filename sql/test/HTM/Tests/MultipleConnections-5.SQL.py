@@ -33,6 +33,7 @@ run(c1, 'INSERT INTO htmtest VALUES (43, 99), (44, 99), (45, 99)')
 query(c1, 'SELECT * FROM htmtest')
 
 c2 = connect(False)
+print('c2')
 query(c2, 'SELECT * FROM htmtest')
 
 run(c1, 'DELETE FROM htmtest WHERE id > 3')
@@ -42,6 +43,16 @@ query(c1, 'SELECT * FROM htmtest')
 print('c2')
 query(c2, 'SELECT * FROM htmtest')
 
+print('c2')
+run(c2, 'SELECT * FROM htmtest')
+run(c2, 'COMMIT')
+
+print('c2')
+query(c2, 'SELECT * FROM htmtest')
+
 c3 = connect(True)
 print('c3')
 query(c3, 'SELECT * FROM htmtest')
+
+print('c1')
+query(c2, 'SELECT * FROM htmtest')

@@ -38,9 +38,12 @@ query(c2, 'SELECT * FROM htmtest')
 
 run(c1, 'DELETE FROM htmtest WHERE id > 3')
 run(c1, 'COMMIT')
+print('c1')
 query(c1, 'SELECT * FROM htmtest')
 
+print('c2')
 query(c2, 'SELECT * FROM htmtest')
 
 c3 = connect(False)
+print('c3')
 query(c3, 'SELECT * FROM htmtest')

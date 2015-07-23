@@ -31,14 +31,11 @@ def run(conn, sql):
 c1 = connect(True)
 run(c1, 'INSERT INTO htmtest VALUES (43, 99), (44, 99), (45, 99)')
 query(c1, 'SELECT * FROM htmtest')
-
-c2 = connect(False)
-query(c2, 'SELECT * FROM htmtest')
-
 run(c1, 'DELETE FROM htmtest WHERE id > 3')
 print('c1')
 query(c1, 'SELECT * FROM htmtest')
 
+c2 = connect(False)
 print('c2')
 query(c2, 'SELECT * FROM htmtest')
 

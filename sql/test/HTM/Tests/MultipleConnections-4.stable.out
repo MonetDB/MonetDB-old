@@ -1,0 +1,51 @@
+stdout of test 'MultipleConnections-4` in directory 'sql/test/HTM` itself:
+
+
+# 15:47:00 >  
+# 15:47:00 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=32366" "--set" "mapi_usock=/var/tmp/mtest-57125/.s.monetdb.32366" "--set" "monet_prompt=" "--forcemito" "--set" "mal_listing=2" "--dbpath=/Users/dnedev/monetdb/installation/var/MonetDB/mTests_sql_test_HTM" "--set" "mal_listing=0"
+# 15:47:00 >  
+
+# MonetDB 5 server v11.22.0
+# This is an unreleased version
+# Serving database 'mTests_sql_test_HTM', using 4 threads
+# Compiled for x86_64-apple-darwin14.4.0/64bit with 64bit OIDs and 128bit integers dynamically linked
+# Found 8.000 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://wired-56.cwi.nl:32366/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-57125/.s.monetdb.32366
+# Start processing logs sql/sql_logs version 52200
+# Start reading the write-ahead log 'sql_logs/sql/log.9'
+# Finished reading the write-ahead log 'sql_logs/sql/log.9'
+# Finished processing logs sql/sql_logs
+# MonetDB/SQL module loaded
+
+Ready.
+
+# 15:47:00 >  
+# 15:47:00 >  "/usr/bin/python" "MultipleConnections-4.SQL.py" "MultipleConnections-4"
+# 15:47:00 >  
+
+INSERT INTO htmtest VALUES (43, 99), (44, 99), (45, 99)
+&2 3 -1
+
+SELECT * FROM htmtest
+[(1, 10), (2, 20), (3, 30), (43, 99), (44, 99), (45, 99)]
+DELETE FROM htmtest WHERE id > 3
+&2 3 -1
+
+c1
+SELECT * FROM htmtest
+[(1, 10), (2, 20), (3, 30)]
+c2
+SELECT * FROM htmtest
+[(1, 10), (2, 20), (3, 30)]
+c3
+SELECT * FROM htmtest
+[(1, 10), (2, 20), (3, 30)]
+
+# 15:47:01 >  
+# 15:47:01 >  "Done."
+# 15:47:01 >  
+
