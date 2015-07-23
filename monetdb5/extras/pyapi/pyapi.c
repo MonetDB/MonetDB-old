@@ -761,10 +761,11 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 #endif
             {
                 //result_array = PyLazyArray_FromBAT(pyinput_values[i - (pci->retc + 2)].bat);
-                result_array = PyArrayObject_FromBAT(&pyinput_values[i - (pci->retc + 2)], t_start, t_end, &msg);
+                result_array = PyMaskedArray_FromBAT(&pyinput_values[i - (pci->retc + 2)], t_start, t_end, &msg);
             }
         }
         if (result_array == NULL) {
+            msg = createException(MAL, "pyapi.eval", "Failed to create Numpy Array from BAT.");
             goto wrapup;
         }
         PyTuple_SetItem(pArgs, ai++, result_array);
@@ -813,7 +814,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         // The function has been successfully created/compiled, all that remains is to actually call the function
         pResult = PyObject_CallObject(pFunc, pArgs);
 
-        Py_DECREF(pArgs);
+        //Py_DECREF(pArgs);
         Py_DECREF(pFunc);
 
         if (PyErr_Occurred()) {
@@ -984,7 +985,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         else {
             if (PyLazyArray_CheckExact(pColO)) {
                 // To handle returning of lazy arrays, we just convert them to a Numpy array. This is slow and could be done much faster, but since this can only happen if we directly return one of the input arguments this should be a rare situation anyway.
-                pColO = PyLazyArray_AsNumpyArray((PyLazyArrayObject*)pColO, 0, Py_SIZE(pColO));
+                pColO = PyLazyArray_AsNumpyArray(pColO);
                 if (pColO == NULL) {
                     msg = PyError_CreateException("Failed to convert lazy array to numpy array.\n", NULL);
                     goto wrapup;
@@ -1527,9 +1528,9 @@ str
             Py_Initialize();
             PyByteArray_Override();
             import_array1(iar);
-            lazyarray_init();
             PyRun_SimpleString("import numpy");
             initialize_shared_memory();
+            lazyarray_init();
             pyapiInitialized++;
         }
         MT_lock_unset(&pyapiLock, "pyapi.evaluate");
@@ -1579,8 +1580,8 @@ bool PyType_IsPyScalar(PyObject *object)
 
 static char *PyError_CreateException(char *error_text, char *pycall)
 {
-    PyObject *py_error_type, *py_error_value, *py_error_traceback;
-    char *py_error_string;
+    PyObject *py_error_type = NULL, *py_error_value = NULL, *py_error_traceback = NULL;
+    char *py_error_string = NULL;
     lng line_number;
 
     PyErr_Fetch(&py_error_type, &py_error_value, &py_error_traceback);
@@ -1653,9 +1654,6 @@ static char *PyError_CreateException(char *error_text, char *pycall)
                     }
                 }
                 lineinformation[pos] = '\0';
-                Py_XDECREF(py_error_type);
-                Py_XDECREF(py_error_value);
-                Py_XDECREF(py_error_traceback);
                 return createException(MAL, "pyapi.eval", "%s\n%s\n%s", error_text, lineinformation, py_error_string);
             }
         }
@@ -1664,9 +1662,6 @@ static char *PyError_CreateException(char *error_text, char *pycall)
         py_error_string = "";
     }
 finally:
-    Py_XDECREF(py_error_type);
-    Py_XDECREF(py_error_value);
-    Py_XDECREF(py_error_traceback);
     if (pycall == NULL) return createException(MAL, "pyapi.eval", "%s\n%s", error_text, py_error_string);
     return createException(MAL, "pyapi.eval", "%s\n%s\n%s", error_text, pycall, py_error_string);
 }
@@ -1721,6 +1716,42 @@ PyObject *PyArrayObject_FromScalar(PyInput* inp, char **return_message)
 wrapup:
     *return_message = msg;
     return vararray;
+}
+
+PyObject *PyMaskedArray_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char **return_message)
+{
+    BAT *b = inp->bat;
+    PyObject *vararray = PyArrayObject_FromBAT(inp, t_start, t_end, return_message);
+    char *msg;
+    // To deal with null values, we use the numpy masked array structure
+    // The masked array structure is an object with two arrays of equal size, a data array and a mask array
+    // The mask array is a boolean array that has the value 'True' when the element is NULL, and 'False' otherwise
+    // If the BAT has Null values, we construct this masked array
+    
+    {
+        PyObject *mask;
+        PyObject *mafunc = PyObject_GetAttrString(PyImport_Import(PyString_FromString("numpy.ma")), "masked_array");
+        PyObject *maargs = PyTuple_New(2);
+        PyArrayObject *nullmask = (PyArrayObject*)PyNullMask_FromBAT(b, t_start, t_end);
+
+        // Now we will actually construct the mask by calling the masked array constructor
+        PyTuple_SetItem(maargs, 0, vararray);
+        PyTuple_SetItem(maargs, 1, (PyObject*) nullmask);
+            
+        mask = PyObject_CallObject(mafunc, maargs);
+        if (!mask) {
+            msg = PyError_CreateException("Failed to create mask", NULL);
+            goto wrapup;
+        }
+        Py_DECREF(maargs);
+        Py_DECREF(mafunc);
+
+        vararray = mask;
+    }
+    return vararray;
+wrapup:
+    *return_message = msg;
+    return NULL;
 }
 
 PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char **return_message)
@@ -1976,33 +2007,6 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
     default:
         msg = createException(MAL, "pyapi.eval", "unknown argument type ");
         goto wrapup;
-    }
-    // To deal with null values, we use the numpy masked array structure
-    // The masked array structure is an object with two arrays of equal size, a data array and a mask array
-    // The mask array is a boolean array that has the value 'True' when the element is NULL, and 'False' otherwise
-    // If the BAT has Null values, we construct this masked array
-    if (!(b->T->nil == 0 && b->T->nonil == 1))
-    {
-        PyObject *mask;
-        PyObject *mafunc = PyObject_GetAttrString(PyImport_Import(PyString_FromString("numpy.ma")), "masked_array");
-        PyObject *maargs = PyTuple_New(2);
-        PyArrayObject *nullmask = (PyArrayObject*)PyNullMask_FromBAT(b, t_start, t_end);
-
-        // Now we will actually construct the mask by calling the masked array constructor
-        PyTuple_SetItem(maargs, 0, vararray);
-        PyTuple_SetItem(maargs, 1, (PyObject*) nullmask);
-            
-        mask = PyObject_CallObject(mafunc, maargs);
-        if (!mask) {
-            msg = PyError_CreateException("Failed to create mask", NULL);
-            goto wrapup;
-        }
-        Py_DECREF(maargs);
-        Py_DECREF(mafunc);
-        //Py_DECREF(vararray);
-        //Py_DECREF(nullmask);
-
-        vararray = mask;
     }
     return vararray;
 wrapup:

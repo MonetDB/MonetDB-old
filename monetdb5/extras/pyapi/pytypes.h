@@ -82,9 +82,12 @@ bool PyType_IsPandasDataFrame(PyObject *object);
 bool PyType_IsLazyArray(PyObject *object);
 //! Create a Numpy Array Object from a PyInput structure containing a BAT
 PyObject *PyArrayObject_FromBAT(PyInput *input_bat, size_t start, size_t end, char **return_message);
-//! Creates a Python object from an PyInput structure containing a scalar
-PyObject *PyArrayObject_FromScalar(PyInput* input_scalar, char **return_message);
+//! Creates a Null Mask from a BAT (a Numpy Boolean Array of equal length to the BAT, where NULLMASK[i] = True if BAT[i] is NULL, and False otherwise)
 PyObject *PyNullMask_FromBAT(BAT *b, size_t start, size_t end);
+//! Creates a Numpy Array object from an PyInput structure containing a scalar
+PyObject *PyArrayObject_FromScalar(PyInput* input_scalar, char **return_message);
+//! Creates a Numpy Masked Array  from an PyInput structure containing a BAT (essentially just combines PyArrayObject_FromBAT and PyNullMask_FromBAT)
+PyObject *PyMaskedArray_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char **return_message);
 
 char *BatType_Format(int);
 

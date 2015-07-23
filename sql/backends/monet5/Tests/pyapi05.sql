@@ -7,7 +7,7 @@ CREATE FUNCTION kmeans(data float, ncluster integer) returns integer
 language P 
 {
 	import scipy.cluster.vq as vq
-	whitened = vq.whiten(data)
+	whitened = vq.whiten(data.data)
 	kmeans = (vq.kmeans(whitened,ncluster))[0]
 	groups = numpy.zeros(whitened.size)
 	for i in range(0,whitened.size):

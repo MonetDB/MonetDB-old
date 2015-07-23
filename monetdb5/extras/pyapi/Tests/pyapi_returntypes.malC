@@ -76,7 +76,7 @@ bat.append(bstr,"héllo":str);
 bat.append(bstr,"éáú üüäãö":str);
 bat.append(bstr,"幺巾乡阜阝测试一些中国符号":str);
 bat.append(bstr,"いくつかの日本のシンボルをテストします":str);
-(z123:bat[:oid,:str], z234:bat[:oid,:str]) := pyapi.eval(nil:ptr,"return(numpy.array([arg1, arg1]))",bstr);
+(z123:bat[:oid,:str], z234:bat[:oid,:str]) := pyapi.eval(nil:ptr,"return(numpy.array([arg1.data, arg1.data]))",bstr);
 io.print(z123,z234);
 
 # return a multi-dimensional numpy array containing integers, but store them in a string BAT
