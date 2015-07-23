@@ -4150,7 +4150,7 @@ _rel_aggr(mvc *sql, sql_rel **rel, int distinct, sql_schema *s, char *aname, dno
 			rel_project_add_exp(sql, gr, e);
 			e = exp_alias_or_copy(sql, exp_relname(e), exp_name(e), gr->l, e);
 		}
-		if (!e) {
+		if (!e || !exp_subtype(e)) { /* we also do not expect parameters here */
 			set_processed(groupby);
 			return NULL;
 		}
@@ -4160,8 +4160,27 @@ _rel_aggr(mvc *sql, sql_rel **rel, int distinct, sql_schema *s, char *aname, dno
 	groupby->l = gr;
 
 	a = sql_bind_aggr_(sql->sa, s, aname, exp_types(sql->sa, exps));
+	if (!a && list_length(exps) > 1) { 
+		a = sql_bind_member_aggr(sql->sa, s, aname, exp_subtype(exps->h->data), list_length(exps));
+		if (a) {
+			node *n, *op = a->aggr->ops->h;
+			list *nexps = sa_list(sql->sa);
+
+			for (n = exps->h ; a && op && n; op = op->next, n = n->next ) {
+				sql_arg *arg = op->data;
+				sql_exp *e = n->data;
+
+				e = rel_check_type(sql, &arg->type, e, type_equal);
+				if (!e)
+					a = NULL;
+				list_append(nexps, e);
+			}
+			if (a && list_length(nexps))  /* count(col) has |exps| != |nexps| */
+				exps = nexps;
+		}
+	}
 	if (!a) { /* find aggr + convert */
-		/* First try larger numeric type */
+		/* try larger numeric type */
 		node *n;
 		list *nexps = sa_list(sql->sa);
 
@@ -4197,7 +4216,6 @@ _rel_aggr(mvc *sql, sql_rel **rel, int distinct, sql_schema *s, char *aname, dno
 			}
 		}
 	}
-	/* TODO: convert to single super type (iff |exps| > 1) */
 	if (a) {
 		sql_exp *e = exp_aggr(sql->sa, exps, a, distinct, no_nil, groupby->card, have_nil(exps));
 
@@ -6009,3 +6027,16 @@ rel_selects(mvc *sql, symbol *s)
 		(void) sql_error(sql, 02, "relational query without result");
 	return ret;
 }
+
+sql_rel *
+schema_selects(mvc *sql, sql_schema *schema, symbol *s)
+{
+	sql_rel *res;
+	sql_schema *os = sql->session->schema;
+
+	sql->session->schema = schema;
+	res = rel_selects(sql, s);
+	sql->session->schema = os;
+	return res;
+}
+
