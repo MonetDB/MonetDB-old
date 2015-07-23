@@ -37,10 +37,13 @@ SELECT * FROM htmtest
 DELETE FROM htmtest WHERE id > 3
 &2 3 -1
 
+c1
 SELECT * FROM htmtest
 [(1, 10), (2, 20), (3, 30)]
+c2
 SELECT * FROM htmtest
 [(1, 10), (2, 20), (3, 30)]
+c3
 SELECT * FROM htmtest
 [(1, 10), (2, 20), (3, 30)]
 
