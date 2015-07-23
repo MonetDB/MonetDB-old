@@ -24,7 +24,7 @@
 // Numpy Library
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #ifdef __INTEL_COMPILER
-// Intel compiler complains about trailing comma's in numpy source code, so hopefully this works
+// Intel compiler complains about trailing comma's in numpy source code,
 #pragma warning(disable:271)
 #endif
 #include <numpy/arrayobject.h>
@@ -997,6 +997,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 msg = createException(MAL, "pyapi.eval", "Could not create a Numpy array from the return type.\n");
                 goto wrapup;
             }
+            PyErr_Print();
             ret->result_type = PyArray_DESCR((PyArrayObject*)ret->numpy_array)->type_num; // We read the result type from the resulting array
             ret->memory_size = PyArray_DESCR((PyArrayObject*)ret->numpy_array)->elsize;
             ret->count = PyArray_DIMS((PyArrayObject*)ret->numpy_array)[0];
@@ -1008,6 +1009,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                     ret->numpy_mask = PyArray_FromAny(pMask, PyArray_DescrFromType(NPY_BOOL), 1, 1,  NPY_ARRAY_CARRAY, NULL);
                     if (ret->numpy_mask == NULL || PyArray_DIMS((PyArrayObject*)ret->numpy_mask)[0] != (int)ret->count)
                     {
+                        PyErr_Clear();
                         pMask = NULL;
                         ret->numpy_mask = NULL;                            
                     }
@@ -1229,8 +1231,14 @@ returnvalues:
     for (i = 0; i < pci->retc; i++) 
     {
         PyReturn *ret = &pyreturn_values[i];
-        int bat_type = isaBatType(getArgType(mb,pci,i)) ? ATOMstorage(getColumnType(getArgType(mb,pci,i))) : ATOMstorage(getArgType(mb,pci,i));
+        int bat_type = ATOMstorage(getColumnType(getArgType(mb,pci,i)));
         size_t index_offset = 0;
+
+        if (bat_type == TYPE_any || bat_type == TYPE_void) {
+            getArgType(mb,pci,i) = bat_type;
+            msg = createException(MAL, "pyapi.eval", "Unknown return value, possibly projecting with no parameters.");
+            goto wrapup;
+       }
 
         if (ret->multidimensional) index_offset = i;
         VERBOSE_MESSAGE("- Returning a Numpy Array of type %s of size %zu and storing it in a BAT of type %s\n", PyType_Format(ret->result_type), ret->count,  BatType_Format(bat_type));
@@ -1727,17 +1735,23 @@ PyObject *PyMaskedArray_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
     // The masked array structure is an object with two arrays of equal size, a data array and a mask array
     // The mask array is a boolean array that has the value 'True' when the element is NULL, and 'False' otherwise
     // If the BAT has Null values, we construct this masked array
-    
+    if (!(b->T->nil == 0 && b->T->nonil == 1))
     {
         PyObject *mask;
         PyObject *mafunc = PyObject_GetAttrString(PyImport_Import(PyString_FromString("numpy.ma")), "masked_array");
-        PyObject *maargs = PyTuple_New(2);
-        PyArrayObject *nullmask = (PyArrayObject*)PyNullMask_FromBAT(b, t_start, t_end);
+        PyObject *maargs;
+        PyObject *nullmask = PyNullMask_FromBAT(b, t_start, t_end);
 
+        if (nullmask == Py_None) {
+            maargs = PyTuple_New(1);
+            PyTuple_SetItem(maargs, 0, vararray);
+        } else {
+            maargs = PyTuple_New(2);
+            PyTuple_SetItem(maargs, 0, vararray);
+            PyTuple_SetItem(maargs, 1, (PyObject*) nullmask);
+        }
+       
         // Now we will actually construct the mask by calling the masked array constructor
-        PyTuple_SetItem(maargs, 0, vararray);
-        PyTuple_SetItem(maargs, 1, (PyObject*) nullmask);
-            
         mask = PyObject_CallObject(mafunc, maargs);
         if (!mask) {
             msg = PyError_CreateException("Failed to create mask", NULL);
@@ -2021,12 +2035,19 @@ PyObject *PyNullMask_FromBAT(BAT *b, size_t t_start, size_t t_end)
     const void *nil = ATOMnilptr(b->ttype);
     int (*atomcmp)(const void *, const void *) = ATOMcompare(b->ttype);
     size_t j;
+    bool found_nil = false;
     BATiter bi = bat_iterator(b);
 
     for (j = 0; j < t_end - t_start; j++) {
         if ((*atomcmp)(BUNtail(bi, BUNfirst(b) + t_start + j), nil) == 0) {
             ((bool*)PyArray_DATA(nullmask))[j] = true;
+            found_nil = true;
         }
     }
+    if (!found_nil) {
+        Py_DECREF(nullmask);
+        Py_RETURN_NONE;
+    }
+
     return (PyObject*)nullmask;
 }

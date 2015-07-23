@@ -38,6 +38,7 @@ lazyarray_materialize(PyObject *lazyarray, PyObject *unused)
             input.bat = PyBatObject_GETBAT(bat);
             input.count = BATcount(PyBatObject_GETBAT(bat));
             input.bat_type = PyBatObject_GETTYPE(bat);
+            input.scalar = false;
 
             array = (PyObject*)PyArrayObject_FromBAT(&input, 0, input.count, &msg);
             if (array == NULL) {
