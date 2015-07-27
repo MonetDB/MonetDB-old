@@ -46,6 +46,8 @@ static csdumBATdef csdumBatdefs[N_CSDUM_BAT] = {
 	{csd_fullC_name, "fullC_name_dump", TYPE_void, TYPE_str},	//Name of each column
 	{csd_isMV, "isMVBat_dump", TYPE_void, TYPE_int},	// 0 indicating single-valued column, otherwise > 0
 								// the value is the number of column in MVtable
+	{csd_mv_tbl_name, "mvtblname_dump", TYPE_void, TYPE_str},	// Table name of a mv col
+	{csd_mv_defaultcol_name, "mvdefaultcolname_dump", TYPE_void, TYPE_str},	//Name of default type col in the mv table
 	{csd_cname, "cIdxBat_dump", TYPE_void, TYPE_int}	//Index of the col in the table
 };
 
@@ -152,10 +154,19 @@ void dumpCS(CSDump *csdump, int _freqId, int _tblId, CS cs, CStable cstbl, BATit
 	
 	for (i = 0; i < cstbl.numCol; i++){
 		str tmpColName = (char *) malloc(sizeof(char) * 100);
+		str tmptblMVName = (char *) malloc(sizeof(char) * 100); 
+		str tmpmvdefaultcolname = (char *) malloc(sizeof(char) * 100); 
+
 		lstIsMV[i] = cstbl.lstMVTables[i].numCol; 
 		lstColbat[i] = cstbl.colBats[i]->batCacheid; 
 		getColSQLname(tmpColName, i, -1, cstbl.lstProp[i], mapi, mbat); 
+		getMvTblSQLname(tmptblMVName, tblId, i, tblname, cstbl.lstProp[i], mapi, mbat);
+		getColSQLname(tmpmvdefaultcolname, i, 0, cstbl.lstProp[i], mapi, mbat);	//only get default-type mv col
+
 		BUNappend(csdump->dumpBats[csd_fullC_name], tmpColName, TRUE); 
+		BUNappend(csdump->dumpBats[csd_mv_tbl_name], tmptblMVName, TRUE); 
+		BUNappend(csdump->dumpBats[csd_mv_defaultcol_name], tmpmvdefaultcolname, TRUE); 
+
 	}
 
 	appendIntArrayToBat(csdump->dumpBats[csd_isMV], lstIsMV, cstbl.numCol);
@@ -232,7 +243,7 @@ void freeCSDump(CSDump *csdump){
 
 
 static
-SimpleCS *create_simpleCS(int tblId, oid tblname, str tblsname, int freqId, int numP, oid* lstProp, int numC, oid* lstCol, bat *lstColbat, str *lstColname, int* lstIsMV,  int sup, int cov){
+SimpleCS *create_simpleCS(int tblId, oid tblname, str tblsname, int freqId, int numP, oid* lstProp, int numC, oid* lstCol, bat *lstColbat, str *lstColname, int* lstIsMV, str *lstMVtblname, str *lstMVdefaultcolname, int sup, int cov){
 	SimpleCS *cs;  
 	cs = (SimpleCS *) malloc(sizeof(SimpleCS)); 
 	cs->tblId = tblId; 
@@ -257,6 +268,9 @@ SimpleCS *create_simpleCS(int tblId, oid tblname, str tblsname, int freqId, int 
 	cs->lstIsMV = (int *) malloc(sizeof(int) * numC); 
 	copyIntSet(cs->lstIsMV, lstIsMV, numC); 
 
+	cs->lstmvtblname = lstMVtblname;
+	cs->lstmvdefaultcolname = lstMVdefaultcolname;
+
 	cs->sup = sup; 
 	cs->cov = cov; 
 
@@ -274,6 +288,20 @@ void free_simpleCS(SimpleCS *cs){
 		}
 		GDKfree(cs->lstColname); 
 	}
+	if (cs->lstmvtblname){
+		int i; 
+		for (i = 0; i < cs->numC; i++){
+			GDKfree(cs->lstmvtblname[i]); 
+		}
+		GDKfree(cs->lstmvtblname); 
+	}
+	if (cs->lstmvdefaultcolname){
+		int i; 
+		for (i = 0; i < cs->numC; i++){
+			GDKfree(cs->lstmvdefaultcolname[i]); 
+		}
+		GDKfree(cs->lstmvdefaultcolname); 
+	}
 	GDKfree(cs->tblsname); 
 	free(cs); 
 }	
@@ -290,7 +318,9 @@ SimpleCS* read_a_cs_from_csdump(int pos, CSDump *csdump){
 	bat *lstColbat = NULL; 
 	int *lstIsMV = NULL; 
 	str *lstColname = NULL; 
-	BATiter cname_mapi, tblsname_mapi; 
+	str *lstMVtblname = NULL; 
+	str *lstMVdefaultcolname = NULL; 
+	BATiter cname_mapi, tblsname_mapi, mvnamei, mvcolnamei; 
 	int i; 
 
 	SimpleCS *cs; 
@@ -343,16 +373,28 @@ SimpleCS* read_a_cs_from_csdump(int pos, CSDump *csdump){
 
 	lstColname = (str *)malloc(sizeof(str) * numC); 
 
+	lstMVtblname = (str *)malloc(sizeof(str) * numC);
+
+	lstMVdefaultcolname = (str *)malloc(sizeof(str) * numC);
+
 	cname_mapi = bat_iterator(csdump->dumpBats[csd_fullC_name]); 
+	
+	mvnamei = bat_iterator(csdump->dumpBats[csd_mv_tbl_name]);
+
+	mvcolnamei = bat_iterator(csdump->dumpBats[csd_mv_defaultcol_name]);
 	
 	for (i = 0; i < numC; i++){
 		 str tmpStr = (str) BUNtail(cname_mapi, BUNfirst(csdump->dumpBats[csd_fullC_name]) + (BUN) (*offsetC + i));
+		 str tmpMVname = (str) BUNtail(mvnamei, BUNfirst(csdump->dumpBats[csd_mv_tbl_name]) + (BUN) (*offsetC + i));
+		 str tmpMVcolname = (str) BUNtail(mvcolnamei, BUNfirst(csdump->dumpBats[csd_mv_defaultcol_name]) + (BUN) (*offsetC + i));
 
                  lstColname[i] = GDKstrdup(tmpStr);
+		 lstMVtblname[i] = GDKstrdup(tmpMVname);
+		 lstMVdefaultcolname[i] = GDKstrdup(tmpMVcolname);
 
 	}
 
-	cs = create_simpleCS(*tblId, *tblname, tblsname, *freqId, numP, lstProp, numC, lstCol, lstColbat, lstColname, lstIsMV, *freq, *coverage);
+	cs = create_simpleCS(*tblId, *tblname, tblsname, *freqId, numP, lstProp, numC, lstCol, lstColbat, lstColname, lstIsMV, lstMVtblname, lstMVdefaultcolname,  *freq, *coverage);
 
 	return cs; 
 }

@@ -38,6 +38,8 @@ typedef enum {
 	csd_fullC_batIds,
 	csd_fullC_name,
 	csd_isMV,
+	csd_mv_tbl_name,
+	csd_mv_defaultcol_name,
 	csd_cname
 } csdumBatType;
 
@@ -70,6 +72,8 @@ typedef struct SimpleDumpCS {
 	bat *lstColbat;
 	str *lstColname; 
 	int *lstIsMV; //Whether the column is multi-valued column or not
+	str *lstmvtblname; 
+	str *lstmvdefaultcolname; 
 	int sup; 
 	int cov; 
 

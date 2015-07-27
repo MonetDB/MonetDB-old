@@ -1528,6 +1528,27 @@ void get_full_outerjoin_p_slices(oid *lstprops, int np, BAT *full_obat, BAT *ful
 	}
 }
 
+
+static
+void next(BAT *r_sbat, BAT **r_obats, oid **obatCursors, oid **regular_obat_cursors, oid **regular_obat_mv_cursors, int cur_p, int np){
+	
+	if (obatCursors[j][pos] == oid_nil){
+		Look for the result from regular bat. 
+		Check if the regular bat is pointing to a MVBat
+		Then, get all teh value from MVBATs
+	}
+	else{
+		
+	}
+
+	for (int i = 0; i < numofresult; i++){
+		if (cur_p < (np -1)){
+			next (r_sbat, r_obats, sbat, obats, cur_p + 1, np);
+		}
+		
+		//Output  
+	}  
+}
 /*
  * Combine exceptioins and regular tables
  * */
@@ -1536,47 +1557,125 @@ static
 void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, BAT *sbat, BAT **obats, oid *lstProps, int nP, int nRP){
 	oid *sbatCursor; 
 	oid **obatCursors; 
-	int i, j; 
+	int i, j, pos; 
 	int numS; 
 	char *schema = "rdf";
+	int curtid = -1; 
+	BAT **regular_obats = NULL; 
+	BAT **regular_obat_mv = NULL; 
+	oid **regular_obat_cursors = NULL; 
+	oid **regular_obat_mv_cursors = NULL; 	//If this column is MV col, then store the point to its MV BAT
+	int accept = 0; 
+	int nAdded = 0; //Number of tuples added to the output 
+	oid *r_set = NULL; //Set of output values
 	
 	(void) r_sbat; 
 	(void) r_obats; 
 	(void) nRP; 
 
+	//Init return BATs
+	*r_sbat = BATnew(TYPE_void, TYPE_oid, BATcount(sbat), TRANSIENT); 
+	*r_obats = (BAT **) malloc(sizeof(BAT*) * nP); 
+	for (i = 0; i < nP; i++){
+		(*r_obats)[i] = BATnew(TYPE_void, TYPE_oid, BATcount(sbat), TRANSIENT); 
+	}
+	
+	
 	sbatCursor = (oid *) Tloc(sbat, BUNfirst(sbat));
 	obatCursors = (oid **) malloc(sizeof(oid*) * nP); 
+	regular_obat_cursors = (oid **) malloc(sizeof(oid*) * nP); 
 	for (i = 0; i < nP; i++){
 		obatCursors[i] = (oid *) Tloc(obats[i], BUNfirst(obats[i]));
 		assert (BATcount(obats[i]) == BATcount(sbat)); 
+		regular_obat_cursors[i] = NULL; 
 	}
+
+	regular_obats = (BAT **) malloc(sizeof(BAT *) * nP); 
+	regular_obat_mv = (BAT **) malloc(sizeof(BAT *) * nP); 
 	
 	numS = BATcount(sbat); 
 
-	for (i = 0; i < numS; i++){
-		oid sbt = sbatCursor[i]; 
+	for (pos = 0; pos < numS; pos++){
+		oid sbt = sbatCursor[pos]; 
 		int tid = -1; 
 	 	oid tmpS = BUN_NONE; 
 		getTblIdxFromS(sbt, &tid, &tmpS);
-		printf("At row "BUNFMT" of table %d\n", tmpS, tid); 
-		for (j = 0;  j < nP; j++){
-			if (obatCursors[i][j] == oid_nil){
-				//Look for the value from main table
+		if (tid != curtid){
+			//reload BATs for that table
+			for (j = 0;  j < nP; j++){
+				str tmpColname, tmptblname;
 				int colIdx = getColIdx_from_oid(tid, global_csset, lstProps[j]);
-				str tmpColname = getColumnName(global_csset, tid, colIdx); 
-				str tmptblname = (global_csset->items[tid])->tblsname; 
-				BAT *regular_obat = NULL; 
+				if (colIdx == -1) {
+					regular_obats[j] = NULL; 
+					regular_obat_mv[j] = NULL; 
+					regular_obat_cursors[j] = NULL; 
+					regular_obat_mv_cursors[j] = NULL; 
+					continue; 
+				}
 
-				assert(colIdx != -1); 
-				regular_obat = mvc_bind(c, schema, tmptblname, tmpColname, 0);						
-				if (regular_obat == NULL) printf("There is no BAT binding for table %s and column %s \n", tmptblname, tmpColname); 
-			}	
+				tmpColname = getColumnName(global_csset, tid, colIdx);
+				tmptblname = (global_csset->items[tid])->tblsname;
+				tmpmvtblname = (global_csset->items[tid])->lstmvtblname[colIdx]; 
+				tmpmvdefcolname = (global_csset->items[tid])->lstmvdefaultcolname[colIdx];
 
+				//Unfix old one
+				if (regular_obats[j]) {
+					BBPunfix(regular_obats[j]->batCacheid); 
+					regular_obats[j] = NULL; 
+				}
+
+				if (regular_obat_mv[j]){
+					BBPunfix(regular_obat_mv[j]->batCacheid);
+					regular_obat_mv[j] = NULL; 
+				}
+
+				regular_obats[j] = mvc_bind(c, schema, tmptblname, tmpColname, 0);
+				assert(regular_obats[j] != NULL); 
+				regular_obat_cursors[j] = (oid *) Tloc(regular_obats[j], BUNfirst(regular_obats[j]));
+
+				regular_obat_mv[j] = mvc_bind(c, schema, tmpmvtblname, tmpmvdefcolname, 0);
+				regular_obat_mv_cursors[j] = (oid *) Tloc(regular_obat_mv[j], BUNfirst(regular_obat_mv[j]));
+				
+			}
 		}
+
+		printf("At row "BUNFMT" of table %d\n", tmpS, tid); 
+		accept = 1; 
+		for (j = 0;  j < nP; j++){
+			if (obatCursors[j][pos] == oid_nil){
+				if (regular_obat_cursors[j] == NULL){	//No corresponding regular column
+					accept = 0; 
+					break; 			
+				}
+				//Look for the value from main table
+				if (regular_obat_cursors[j][tmpS] == oid_nil) {
+					//TODO: Continue if this [j] is optional prop
+					accept = 0;
+					break; 
+				}
+			}	
+		}
+
+		if (accept == 1){	//Accept, can insert to the output bat
+			for (j = 0; j < np; j++){
+
+
+			}
+
+			nAdded++; 
+		}
+
 	}
 
-	
+
+	//free
+	for (i = 0; i < nP; i++){
+		if (regular_obats[i]) BBPunfix(regular_obats[j]->batCacheid);
+	}
+	free(regular_obats); 
+	free(regular_obat_cursors); 
 }
+
 
 
 /*
@@ -1592,6 +1691,7 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	int *nRP = NULL; 	
 	oid *lstProps = NULL; 
 	int i;
+	//int *lstbattypes = NULL; 
 
 
 	(void) cntxt; 
@@ -1650,7 +1750,7 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	
 
 		//Step 2. Merge exceptions with Tables
-	
+		
 		combine_exception_and_regular_tables(m, &m_sbat, &m_obats, r_sbat, r_obats, lstProps, *nP, *nRP);
 	}
 
@@ -2001,9 +2101,33 @@ str SQLrdfprepare(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		BAT *pso_fullSbat = mvc_bind(m, schema, "pso", "s",0);
 		BAT *pso_fullObat = mvc_bind(m, schema, "pso", "o",0);
 		build_PsoPropStat(pso_fullPbat, global_p_propstat->numAdded, pso_fullSbat, pso_fullObat); 
-
+		
 	}
+	
+	{	//Test
+		BAT *testBat = BATnew(TYPE_void, TYPE_str, 100, TRANSIENT); 
+		str s1 = "a", s2 = "bbbb", s3 = "ccc"; 
+		str sptr = NULL; 
+		BATiter tmpiter; 
+		int (*cmp)(const void *, const void *) = ATOMcompare(testBat->ttype);
+		const void *nil = ATOMnilptr(testBat->ttype);
 
+		BUNappend(testBat, s1, TRUE);
+		BUNappend(testBat, s2, TRUE);	
+		BUNappend(testBat, ATOMnilptr(testBat->ttype), TRUE);
+		BUNappend(testBat, ATOMnilptr(testBat->ttype), TRUE);
+		BUNappend(testBat, s3, TRUE);	
+		BATprint(testBat); 
+			
+		tmpiter = bat_iterator(testBat);
+		//Check data
+		sptr = BUNtail(tmpiter, 3); 
+		if (sptr == NULL) printf("NULL value \n");
+		else if (sptr == str_nil) printf("STRING NULL\n"); 
+		else printf("NONE OF THEM\n"); 
+		
+		if ((*cmp)(sptr, nil) == 0) printf("ATOM compare works\n"); 
+	}
 
 	(void) cntxt; (void) mb; (void) stk; (void) pci;
 			
