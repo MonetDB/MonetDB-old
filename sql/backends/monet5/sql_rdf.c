@@ -1530,24 +1530,51 @@ void get_full_outerjoin_p_slices(oid *lstprops, int np, BAT *full_obat, BAT *ful
 
 
 static
-void next(BAT *r_sbat, BAT **r_obats, oid **obatCursors, oid **regular_obat_cursors, oid **regular_obat_mv_cursors, int cur_p, int np){
-	
-	if (obatCursors[j][pos] == oid_nil){
-		Look for the result from regular bat. 
-		Check if the regular bat is pointing to a MVBat
-		Then, get all teh value from MVBATs
+void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_cursors, oid **regular_obat_mv_cursors, BAT **regular_obats, BAT **regular_obat_mv, oid sbt, oid tmpS, int cur_p, int np, oid *tmpres){
+	int j; 
+	if (obatCursors[cur_p][pos] == oid_nil){
+		//Look for the result from regular bat. 
+		//Check if the regular bat is pointing to a MVBat
+		//Then, get all teh value from MVBATs
+		assert(regular_obat_cursors[cur_p][tmpS] != oid_nil); 
+		if (regular_obat_mv_cursors[cur_p] != NULL){		//mv col
+			//Get the values from mvBat
+			oid offset = regular_obat_cursors[cur_p][tmpS]; 
+			oid nextoffset; 
+			int numCand, i; 
+
+			if ((tmpS + 1) < regular_obats[cur_p]->batCount){
+				nextoffset = regular_obat_cursors[cur_p][tmpS +  1]; 
+				numCand = nextoffset - offset;
+			}
+			else{
+				numCand = BUNlast(regular_obat_mv[cur_p]) - offset;
+			}
+			for (i = 0; i < numCand; i++){
+				tmpres[cur_p] = regular_obat_mv_cursors[cur_p][offset + i]; 
+
+				if (cur_p < (np -1))
+					fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p, np, tmpres); 
+
+				else if (cur_p == (np - 1)){
+					//Output result
+					for (j = 0; j < np; j++){
+						BUNappend(r_obats[j], &(tmpres[j]), TRUE); 
+					}
+				}
+			}
+					
+		}
+		else{
+			tmpres[cur_p] = regular_obat_cursors[cur_p][tmpS];
+		}
+
 	}
 	else{
-		
+		tmpres[cur_p] = obatCursors[cur_p][pos];		
 	}
 
-	for (int i = 0; i < numofresult; i++){
-		if (cur_p < (np -1)){
-			next (r_sbat, r_obats, sbat, obats, cur_p + 1, np);
-		}
-		
-		//Output  
-	}  
+
 }
 /*
  * Combine exceptioins and regular tables
@@ -1566,8 +1593,6 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 	oid **regular_obat_cursors = NULL; 
 	oid **regular_obat_mv_cursors = NULL; 	//If this column is MV col, then store the point to its MV BAT
 	int accept = 0; 
-	int nAdded = 0; //Number of tuples added to the output 
-	oid *r_set = NULL; //Set of output values
 	
 	(void) r_sbat; 
 	(void) r_obats; 
@@ -1603,7 +1628,7 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 		if (tid != curtid){
 			//reload BATs for that table
 			for (j = 0;  j < nP; j++){
-				str tmpColname, tmptblname;
+				str tmpColname, tmptblname, tmpmvtblname, tmpmvdefcolname;
 				int colIdx = getColIdx_from_oid(tid, global_csset, lstProps[j]);
 				if (colIdx == -1) {
 					regular_obats[j] = NULL; 
@@ -1633,8 +1658,10 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 				assert(regular_obats[j] != NULL); 
 				regular_obat_cursors[j] = (oid *) Tloc(regular_obats[j], BUNfirst(regular_obats[j]));
 
-				regular_obat_mv[j] = mvc_bind(c, schema, tmpmvtblname, tmpmvdefcolname, 0);
-				regular_obat_mv_cursors[j] = (oid *) Tloc(regular_obat_mv[j], BUNfirst(regular_obat_mv[j]));
+				if (isMVCol(tid, colIdx, global_csset)){
+					regular_obat_mv[j] = mvc_bind(c, schema, tmpmvtblname, tmpmvdefcolname, 0);
+					regular_obat_mv_cursors[j] = (oid *) Tloc(regular_obat_mv[j], BUNfirst(regular_obat_mv[j]));
+				}
 				
 			}
 		}
@@ -1657,12 +1684,11 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 		}
 
 		if (accept == 1){	//Accept, can insert to the output bat
-			for (j = 0; j < np; j++){
-
-
+			oid *tmpres = (oid *) malloc(sizeof(oid) * nP); 
+			for (j = 0; j < nP; j++){
+				tmpres[i] = oid_nil; 
 			}
-
-			nAdded++; 
+			fetch_result(*r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, 0, nP, tmpres);
 		}
 
 	}
