@@ -4,9 +4,9 @@
 export PYAPI_BASE_DIR=$HOME
 # The terminal to start mserver with, examples are 'gnome-terminal', 'xterm', 'konsole'
 export TERMINAL=x-terminal-emulator
+export MSERVER_PORT=49979
 # A command that tests if the mserver is still running (used to find out when the shutting down of mserver is completed)
-export MSERVERTEST='netstat -ant | grep "127.0.0.1:50000.*LISTEN">/dev/null'
-
+export MSERVERTEST='netstat -ant | grep "127.0.0.1:$MSERVER_PORT.*LISTEN">/dev/null'
 # Testing parameters
 # Input test (zero copy vs copy)
 # The input sizes to test (in MB)
@@ -65,6 +65,7 @@ export PYAPI_TESTFILE=$PYAPI_MONETDB_DIR/monetdb5/extras/pyapi/Benchmarks/monetd
 export PYAPI_GRAPHFILE=$PYAPI_MONETDB_DIR/monetdb5/extras/pyapi/Benchmarks/graph.py
 
 # Try a bunch of popular different terminals
+export SETSID=0
 type $TERMINAL >/dev/null 2>&1
 if [ $? -ne 0  ]; then
     export TERMINAL=gnome-terminal
@@ -76,6 +77,11 @@ fi
 type $TERMINAL >/dev/null 2>&1
 if [ $? -ne 0  ]; then
     export TERMINAL=konsole
+fi
+type $TERMINAL >/dev/null 2>&1
+if [ $? -ne 0  ]; then
+    export TERMINAL=setsid
+    export SETSID=1
 fi
 
 function pyapi_build {
@@ -92,7 +98,7 @@ function pyapi_build {
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             return 1
         fi
-        pip install --user numpy && python $IMPORT_TESTFILE numpy
+        pip install --user numpy && python -c "import numpy"
         if [$? -eq 0]; then
             echo "Successfully installed Numpy."
         else
@@ -107,7 +113,7 @@ function pyapi_build {
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             return 1
         fi
-        wget $PYTHON_MONETDB_URL && tar xvzf $PYTHON_MONETDB_FILE && cd $PYTHON_MONETDB_DIR && python setup.py install --user && python $IMPORT_TESTFILE monetdb.sql
+        wget $PYTHON_MONETDB_URL && tar xvzf $PYTHON_MONETDB_FILE && cd $PYTHON_MONETDB_DIR && python setup.py install --user && python -c "import monetdb.sql"
         if [$? -eq 0]; then
             echo "Successfully installed monetdb.sql."
         else
@@ -125,7 +131,11 @@ function pyapi_build {
 
 function pyapi_run_single_test() {
     echo "Beginning Test $1"
-    $TERMINAL -e "$PYAPI_BUILD_DIR/bin/mserver5 --set embedded_py=true --set enable_pyverbose=true --set pyapi_benchmark_output=$PYAPI_OUTPUT_DIR/temp_output.tsv $2" && python $PYAPI_TESTFILE $3 $4 $5 $6 && killall mserver5
+    if [ $SETSID -eq 1 ]; then
+        $TERMINAL $PYAPI_BUILD_DIR/bin/mserver5 --set mapi_port=$MSERVER_PORT --set embedded_py=true --set enable_pyverbose=true --set pyapi_benchmark_output=$PYAPI_OUTPUT_DIR/temp_output.tsv $2 && python $PYAPI_TESTFILE $3 $4 $5 $MSERVER_PORT $6 && killall mserver5
+    else
+        $TERMINAL -e "$PYAPI_BUILD_DIR/bin/mserver5  --set mapi_port=$MSERVER_PORT --set embedded_py=true --set enable_pyverbose=true --set pyapi_benchmark_output=$PYAPI_OUTPUT_DIR/temp_output.tsv $2" && python $PYAPI_TESTFILE $3 $4 $5 $MSERVER_PORT $6 && killall mserver5
+    fi
     if [ $? -ne 0 ]; then
         echo "Failed Test $1"
         killall mserver5
@@ -186,6 +196,11 @@ function pyapi_test_output {
 }
 
 function pyapi_test_string_samelength {
+    pyapi_run_single_test "String Testing (LazyArray, Same Length)" "--set enable_lazyarray=true" "STRING_SAMELENGTH" string_samelength_lazyarray "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+
     pyapi_run_single_test "String Testing (NPY_OBJECT, Same Length)" "" "STRING_SAMELENGTH" string_samelength_npyobject "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
@@ -298,18 +313,30 @@ function pyapi_run_tests {
 }
 
 function pyapi_graph {
-    python $PYAPI_GRAPHFILE "SAVE" "Input (Both)" "Zero Copy:input_zerocopy.tsv" "Copy:input_copy.tsv" "Zero Copy (Null):input_zerocopy_null.tsv" "Copy (Null):input_copy_null.tsv"
-    python $PYAPI_GRAPHFILE "SAVE" "Input" "Zero Copy:input_zerocopy.tsv" "Copy:input_copy.tsv"
-    python $PYAPI_GRAPHFILE "SAVE" "Input-Null" "Zero Copy:input_zerocopy_null.tsv" "Copy:input_copy_null.tsv"
-    python $PYAPI_GRAPHFILE "SAVE" "Input-Map" "Zero Copy:input_zerocopy.tsv" "Zero Copy (Map):input_zerocopy_map.tsv"
-    python $PYAPI_GRAPHFILE "SAVE" "Output" "Zero Copy:output_zerocopy.tsv" "Copy:output_copy.tsv"
-    python $PYAPI_GRAPHFILE "SAVE" "String Samelength" "Numpy Object:string_samelength_npyobject.tsv" "Numpy String:string_samelength_npystring.tsv"
-    python $PYAPI_GRAPHFILE "SAVE" "String Extremelength" "Numpy Object:string_extremelength_npyobject.tsv" "Numpy String:string_extremelength_npystring.tsv"
-    python $PYAPI_GRAPHFILE "SAVE" "Unicode Check vs Always Unicode (ASCII)" "Check Unicode:string_unicode_ascii_check.tsv" "Always Unicode:string_unicode_ascii_always.tsv"
-    python $PYAPI_GRAPHFILE "SAVE" "Unicode Check vs Always Unicode (Extreme)" "Check Unicode:string_unicode_extreme_check.tsv" "Always Unicode:string_unicode_extreme_always.tsv"
-    python $PYAPI_GRAPHFILE "SAVE" "ByteArrayObject vs StringObject" "Byte Array Object:string_bytearrayobject.tsv" "String Object:string_stringobject.tsv"
-    python $PYAPI_GRAPHFILE "SAVE" "Quantile Speedtest" "Python:quantile_python.tsv" "R:quantile_r.tsv" "MonetDB:quantile_monetdb.tsv"
-    python $PYAPI_GRAPHFILE "SAVE" "Multithreading Test" "Threads:multithreading.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Input (Both)" "-xlog" "Zero Copy:input_zerocopy.tsv" "Copy:input_copy.tsv" "Zero Copy (Null):input_zerocopy_null.tsv" "Copy (Null):input_copy_null.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Input" "-xlog" "Zero Copy:input_zerocopy.tsv" "Copy:input_copy.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Input-Null" "-xlog" "Zero Copy:input_zerocopy_null.tsv" "Copy:input_copy_null.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Input-Map" "-xlog" "Zero Copy:input_zerocopy.tsv" "Zero Copy (Map):input_zerocopy_map.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Output" "-xlog" "Zero Copy:output_zerocopy.tsv" "Copy:output_copy.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "String Samelength" "-xlog" "Numpy Object:string_samelength_npyobject.tsv" "Numpy String:string_samelength_npystring.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "String Extremelength" "-xlog" "Numpy Object:string_extremelength_npyobject.tsv" "Numpy String:string_extremelength_npystring.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Unicode Check vs Always Unicode (ASCII)" "-xlog" "Check Unicode:string_unicode_ascii_check.tsv" "Always Unicode:string_unicode_ascii_always.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Unicode Check vs Always Unicode (Extreme)" "-xlog" "Check Unicode:string_unicode_extreme_check.tsv" "Always Unicode:string_unicode_extreme_always.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "ByteArrayObject vs StringObject" "-xlog" "Byte Array Object:string_bytearrayobject.tsv" "String Object:string_stringobject.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Quantile Speedtest" "-xlog" "Python:quantile_python.tsv" "R:quantile_r.tsv" "MonetDB:quantile_monetdb.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Multithreading Test" "-lineplot" "Threads:multithreading.tsv"
+
+    python $PYAPI_GRAPHFILE "SAVE" "Input (Both) y-log" "-xlog" "-ylog" "Zero Copy:input_zerocopy.tsv" "Copy:input_copy.tsv" "Zero Copy (Null):input_zerocopy_null.tsv" "Copy (Null):input_copy_null.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Input y-log" "-xlog" "-ylog" "Zero Copy:input_zerocopy.tsv" "Copy:input_copy.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Input-Null y-log" "-xlog" "-ylog" "Zero Copy:input_zerocopy_null.tsv" "Copy:input_copy_null.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Input-Map y-log" "-xlog" "-ylog" "Zero Copy:input_zerocopy.tsv" "Zero Copy (Map):input_zerocopy_map.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Output y-log" "-xlog" "-ylog" "Zero Copy:output_zerocopy.tsv" "Copy:output_copy.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "String Samelength y-log" "-xlog" "-ylog" "Numpy Object:string_samelength_npyobject.tsv" "Numpy String:string_samelength_npystring.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "String Extremelength y-log" "-xlog" "-ylog" "Numpy Object:string_extremelength_npyobject.tsv" "Numpy String:string_extremelength_npystring.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Unicode Check vs Always Unicode (ASCII) y-log" "-xlog" "-ylog" "Check Unicode:string_unicode_ascii_check.tsv" "Always Unicode:string_unicode_ascii_always.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Unicode Check vs Always Unicode (Extreme) y-log" "-xlog" "-ylog" "Check Unicode:string_unicode_extreme_check.tsv" "Always Unicode:string_unicode_extreme_always.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "ByteArrayObject vs StringObject y-log" "-xlog" "-ylog" "Byte Array Object:string_bytearrayobject.tsv" "String Object:string_stringobject.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Quantile Speedtest y-log" "-xlog" "-ylog" "Python:quantile_python.tsv" "R:quantile_r.tsv" "MonetDB:quantile_monetdb.tsv"
 }
 
 

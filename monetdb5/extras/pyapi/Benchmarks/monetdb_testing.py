@@ -95,15 +95,18 @@ import time
 # [1] => Type of test ['INPUT', 'OUTPUT']
 # [2] => Output file name
 # [3] => Number of tests for each value
-# [4+] => List of input values
+# [4] => Mapi Port
+# [5+] => List of input values
 arguments = sys.argv
-if (len(arguments) <= 4):
+if (len(arguments) <= 5):
     print("Too few arguments provided.")
     quit()
 
 output_file = os.path.join(os.getcwd(), arguments[2])
 temp_file = os.path.join(os.getcwd(), 'temp_output.tsv')
 test_count = int(arguments[3])
+port = int(arguments[4])
+parameters_start = 5
 max_retries = 15
 
 import monetdb.sql
@@ -111,7 +114,7 @@ import monetdb.sql
 # We try a couple of times because starting up the database takes some time, so it might fail the first few times
 for i in range(0, max_retries):
     try:
-        connection = monetdb.sql.connect(username="monetdb", password="monetdb", hostname="localhost", database="demo")
+        connection = monetdb.sql.connect(username="monetdb", password="monetdb", hostname="localhost",port=port,database="demo")
         break
     except:
         time.sleep(3)
@@ -172,7 +175,7 @@ if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-m
     f = open(output_file + '.tsv', "w+")
     f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
     mb = []
-    for i in range(4, len(arguments)):
+    for i in range(parameters_start, len(arguments)):
         mb.append(float(arguments[i]))
 
     for size in mb:
@@ -252,7 +255,7 @@ elif str(arguments[1]).lower() == "output":
     f = open(output_file + '.tsv', "w+")
     f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
     mb = []
-    for i in range(4, len(arguments)):
+    for i in range(parameters_start, len(arguments)):
         mb.append(float(arguments[i]))
 
     for size in mb:
@@ -320,7 +323,7 @@ elif str(arguments[1]).lower() == "string_samelength" or str(arguments[1]).lower
 
     mb = []
     lens = []
-    for i in range(4, len(arguments)):
+    for i in range(parameters_start, len(arguments)):
         tple = arguments[i].translate(None, '()').split(',')
         mb.append(float(tple[0]))
         lens.append(int(tple[1]))
@@ -379,7 +382,7 @@ elif str(arguments[1]).lower() == "string_extremelength":
 
     extreme_lengths = []
     string_counts = []
-    for i in range(4, len(arguments)):
+    for i in range(parameters_start, len(arguments)):
         tple = arguments[i].translate(None, '()').split(',')
         extreme_lengths.append(float(tple[0]))
         string_counts.append(int(tple[1]))
@@ -448,7 +451,7 @@ elif "factorial" in str(arguments[1]).lower():
         f.write(format_headers('[AXIS]:Cores (#)', '[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
     cores = int(str(arguments[1]).split('-')[1])
     mb = []
-    for i in range(4, len(arguments)):
+    for i in range(parameters_start, len(arguments)):
         mb.append(float(arguments[i]))
 
     for size in mb:
@@ -518,7 +521,7 @@ elif str(arguments[1]).lower() == "pquantile" or str(arguments[1]).lower() == "r
     f = open(output_file + '.tsv', "w+")
     f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)'))
     mb = []
-    for i in range(4, len(arguments)):
+    for i in range(parameters_start, len(arguments)):
         mb.append(float(arguments[i]))
 
     for size in mb:
