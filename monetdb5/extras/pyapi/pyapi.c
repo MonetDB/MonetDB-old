@@ -754,13 +754,12 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         if (pyinput_values[i - (pci->retc + 2)].scalar) {
             result_array = PyArrayObject_FromScalar(&pyinput_values[i - (pci->retc + 2)], &msg);
         } else {
-#ifdef PYAPI_TESTING
+#ifdef _PYAPI_TESTING_
             if (option_lazyarray) {
                 result_array = PyLazyArray_FromBAT(pyinput_values[i - (pci->retc + 2)].bat);
             } else 
 #endif
             {
-                //result_array = PyLazyArray_FromBAT(pyinput_values[i - (pci->retc + 2)].bat);
                 result_array = PyMaskedArray_FromBAT(&pyinput_values[i - (pci->retc + 2)], t_start, t_end, &msg);
             }
         }
@@ -814,7 +813,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         // The function has been successfully created/compiled, all that remains is to actually call the function
         pResult = PyObject_CallObject(pFunc, pArgs);
 
-        //Py_DECREF(pArgs);
         Py_DECREF(pFunc);
 
         if (PyErr_Occurred()) {
@@ -1810,6 +1808,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
         BAT_TO_NP(b, dbl, NPY_FLOAT64);
         break;
     case TYPE_str:
+        option_numpy_string_array = true;
     #ifdef _PYAPI_TESTING_
         if (option_numpy_string_array) {
             bool unicode = false;
@@ -1871,7 +1870,8 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                             msg = createException(MAL, "pyapi.eval", "Failed to decode string as UTF-8.");
                             goto wrapup;
                         }
-                        ((PyObject**)PyArray_DATA((PyArrayObject*)vararray))[j - t_start] = obj;
+                        PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j - t_start), obj);
+                        Py_DECREF(obj);
                     }
                     if (j == t_end) break;
                     j++;
@@ -1902,7 +1902,8 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                             msg = createException(MAL, "pyapi.eval", "Failed to create string.");
                             goto wrapup;
                         }
-                        ((PyObject**)PyArray_DATA((PyArrayObject*)vararray))[j - t_start] = obj;
+                        PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j - t_start), obj);
+                        Py_DECREF(obj);
                     }
                     if (j == t_end) break;
                     j++;

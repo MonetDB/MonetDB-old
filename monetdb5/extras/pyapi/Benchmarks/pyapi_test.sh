@@ -122,7 +122,7 @@ function pyapi_build {
         fi
     fi
     echo "Finished testing for libraries. Downloading and installing MonetDB."
-    wget $PYAPI_TAR_URL && tar xvzf pyapi.tar.gz && cd $PYAPI_MONETDB_DIR && ./bootstrap && ./configure prefix=$PYAPI_BUILD_DIR && make -j install
+    wget $PYAPI_TAR_URL && tar xvzf pyapi.tar.gz && cd $PYAPI_MONETDB_DIR && ./bootstrap && ./configure prefix=$PYAPI_BUILD_DIR --enable-debug=no --enable-assert=no --enable-optimize=yes && make -j install
     if [ $? -ne 0 ]; then
         echo "Failed to download and install MonetDB. Exiting..."
         return 1
