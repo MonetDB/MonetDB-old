@@ -382,7 +382,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     int process_count = 0;
 #endif
 #ifdef _PYAPI_TESTING_
-    double start_time = 0, end_time = 0;
+    time_storage start_time, end_time;
     bool disable_testing = false;
     unsigned long long peak_memory_usage = 0;
 #endif
@@ -409,7 +409,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     if (!disable_testing && benchmark_output != NULL) {
         reset_hook();
         if (!mapped) init_hook();
-        start_time = timer();
+        timer(&start_time);
     }
 #endif
 
@@ -1509,7 +1509,8 @@ returnvalues:
             revert_hook();
             peak_memory_usage = GET_MEMORY_PEAK();
         }
-        end_time = timer();
+        timer(&end_time);
+        VERBOSE_MESSAGE("End Time: %f\n", GET_ELAPSED_TIME(start_time, end_time));
 
         // We lock file access for when mapped is set
         MT_lock_set(&pyapiLock, "pyapi.evaluate");

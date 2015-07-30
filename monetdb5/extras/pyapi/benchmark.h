@@ -14,9 +14,18 @@
 #ifndef _PYAPI_BENCHMARK_LIB_
 #define _PYAPI_BENCHMARK_LIB_
 
+#include "monetdb_config.h"
+ 
+#ifdef HAVE_TIME_H
+#include <time.h>
+typedef struct timespec time_storage;
+#else
+typedef int time_storage;
+#endif
+
 //returns the current time
-double timer(void);
-double GET_ELAPSED_TIME(double start_time, double end_time);
+void timer(time_storage*);
+double GET_ELAPSED_TIME(time_storage start_time, time_storage end_time);
 //sets up malloc hooks, not thread safe, do not use in thread context
 void init_hook (void);
 void reset_hook(void);

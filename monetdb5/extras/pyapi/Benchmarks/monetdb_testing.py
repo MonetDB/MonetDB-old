@@ -538,7 +538,6 @@ elif str(arguments[1]).lower() == "pquantile" or str(arguments[1]).lower() == "r
             f.write(format_output(size, result))
             f.flush()
         cursor.execute('drop table integers;')
-
 else:
     print("Unrecognized test type \"" + arguments[1] + "\", exiting...")
     sys.exit(1)

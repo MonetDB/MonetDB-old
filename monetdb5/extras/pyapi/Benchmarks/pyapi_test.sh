@@ -164,7 +164,7 @@ function pyapi_test_input {
     if [ $? -ne 0 ]; then
         return 1
     fi
-    pyapi_run_single_test "Input Testing (Map)" "" "INPUT-MAP" input_zerocopy_map "$INPUT_TESTING_NTESTS" "$INPUT_TESTING_SIZES"
+    pyapi_run_single_test "Input Testing (Map)" "--forcemito" "INPUT-MAP" input_zerocopy_map "$INPUT_TESTING_NTESTS" "$INPUT_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi

@@ -8,7 +8,6 @@
 
 #include "benchmark.h"
 
-#include "monetdb_config.h"
 
 static unsigned long long memtrace_current_memory_bytes = 0;
 static unsigned long long memtrace_memory_peak = 0;
@@ -141,20 +140,19 @@ void revert_hook (void) {}
 #endif
 
 #ifdef HAVE_TIME_H
-#include <time.h>
 
-double GET_ELAPSED_TIME(double start_time, double end_time)
+double GET_ELAPSED_TIME(time_storage start_time, time_storage end_time)
 {
-	return (double)(end_time - start_time) / CLOCKS_PER_SEC;
+	return end_time.tv_sec - start_time.tv_sec + (end_time.tv_nsec - start_time.tv_nsec) / 1000000000.0;
 }
 
-double timer(void)
+void timer(time_storage *timespec)
 {
-	return clock();
+	clock_gettime(CLOCK_MONOTONIC, timespec);
 }
 #else
-double GET_ELAPSED_TIME(double start_time, double end_time) { return 0; }
-double timer(void) { return 0; }
+double GET_ELAPSED_TIME(int start_time, int end_time) { return 0; }
+int timer(void *timespec) { return 0; }
 #endif
 
 unsigned long long GET_MEMORY_PEAK(void)
