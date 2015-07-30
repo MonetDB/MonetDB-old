@@ -31,7 +31,7 @@
 
 
 #define NCOLUMNS	5
-#define NROWS		9
+#define NROWS		10
 static const char *columnnames[NCOLUMNS] = {
 	"table_cat",
 	"table_schem",
@@ -75,9 +75,12 @@ static const char *tuples6[NCOLUMNS] = {
 	NULL, NULL, NULL, "SYSTEM TABLE", NULL
 };
 static const char *tuples7[NCOLUMNS] = {
-	NULL, NULL, NULL, "TABLE", NULL
+	NULL, NULL, NULL, "SYSTEM VIEW", NULL
 };
 static const char *tuples8[NCOLUMNS] = {
+	NULL, NULL, NULL, "TABLE", NULL
+};
+static const char *tuples9[NCOLUMNS] = {
 	NULL, NULL, NULL, "VIEW", NULL
 };
 static const char **tuples[NROWS] = {
@@ -89,7 +92,8 @@ static const char **tuples[NROWS] = {
 	tuples5,
 	tuples6,
 	tuples7,
-	tuples8
+	tuples8,
+	tuples9
 };
 
 static SQLRETURN
@@ -234,11 +238,6 @@ MNDBTables(ODBCStmt *stmt,
 					"t.temporary = 0 and "
 					"s.name <> 'tmp' "
 				   "then cast('TABLE' as varchar(20)) "
-				   "when t.type = 20 and "
-					"t.system = false and "
-					"t.temporary = 1 and "
-					"s.name = 'tmp' "
-				   "then cast('GLOBAL TEMPORARY' as varchar(20)) "
 				   "when t.type = 10 and "
 					"t.system = true and "
 					"t.temporary = 0 "
@@ -257,6 +256,11 @@ MNDBTables(ODBCStmt *stmt,
 				   "then cast('REMOTE TABLE' as varchar(20)) "
 				   "when t.type = 6 "
 				   "then cast('REPLICA TABLE' as varchar(20)) "
+				   "when t.type = 20 and "
+					"t.system = false and "
+					"t.temporary = 1 and "
+					"s.name = 'tmp' "
+				   "then cast('GLOBAL TEMPORARY' as varchar(20)) "
 				   "when t.type = 30 and "
 					"t.system = false and "
 					"t.temporary = 1 "
@@ -311,20 +315,27 @@ MNDBTables(ODBCStmt *stmt,
 					}
 					buf[j] = 0;
 					if (strcmp(buf, "VIEW") == 0) {
-						strcpy(query_end,
-						       "t.type = 1 or ");
+						strcpy(query_end, "t.type = 1 or ");
 					} else if (strcmp(buf, "TABLE") == 0) {
 						strcpy(query_end,
 						       "(t.type = 0 and t.system = false and t.temporary = 0 and s.name <> 'tmp') or ");
-					} else if (strcmp(buf, "GLOBAL TEMPORARY") == 0) {
-						strcpy(query_end,
-						       "(t.type = 20 and t.system = false and t.temporary = 1 and s.name = 'tmp') or ");
+					} else if (strcmp(buf, "MERGE TABLE") == 0) {
+						strcpy(query_end, "t.type = 3 or ");
+					} else if (strcmp(buf, "STREAM TABLE") == 0) {
+						strcpy(query_end, "t.type = 4 or ");
+					} else if (strcmp(buf, "REMOTE TABLE") == 0) {
+						strcpy(query_end, "t.type = 5 or ");
+					} else if (strcmp(buf, "REPLICA TABLE") == 0) {
+						strcpy(query_end, "t.type = 6 or ");
 					} else if (strcmp(buf, "SYSTEM TABLE") == 0) {
 						strcpy(query_end,
 						       "(t.type = 10 and t.system = true and t.temporary = 0) or ");
 					} else if (strcmp(buf, "SYSTEM VIEW") == 0) {
 						strcpy(query_end,
 						       "(t.type = 11 and t.system = true and t.temporary = 0) or ");
+					} else if (strcmp(buf, "GLOBAL TEMPORARY") == 0) {
+						strcpy(query_end,
+						       "(t.type = 20 and t.system = false and t.temporary = 1 and s.name = 'tmp') or ");
 					} else if (strcmp(buf, "LOCAL TEMPORARY") == 0) {
 						strcpy(query_end,
 						       "(t.type = 30 and t.system = false and t.temporary = 1) or ");

@@ -191,7 +191,7 @@ HEAPextend(Heap *h, size_t size, int mayshare)
 		if (size == 0)
 			size = GDK_mmap_pagesize;
 
-		p = MT_mremap(path,
+		p = GDKmremap(path,
 			      h->storage == STORE_PRIV ?
 				MMAP_COPY | MMAP_READ | MMAP_WRITE :
 				MMAP_READ | MMAP_WRITE,
@@ -202,7 +202,7 @@ HEAPextend(Heap *h, size_t size, int mayshare)
 			h->base = p;
  			return GDK_SUCCEED; /* success */
  		}
-		failure = "MT_mremap() failed";
+		failure = "GDKmremap() failed";
 	} else {
 		/* extend a malloced heap, possibly switching over to
 		 * file-mapped storage */
@@ -344,7 +344,7 @@ HEAPshrink(Heap *h, size_t size)
 			return GDK_SUCCEED;
 		}
 		path = GDKfilepath(h->farmid, BATDIR, nme, ext);
-		p = MT_mremap(path,
+		p = GDKmremap(path,
 			      h->storage == STORE_PRIV ?
 				MMAP_COPY | MMAP_READ | MMAP_WRITE :
 				MMAP_READ | MMAP_WRITE,
