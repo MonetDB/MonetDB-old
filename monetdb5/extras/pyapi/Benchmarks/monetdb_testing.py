@@ -479,12 +479,6 @@ elif "factorial" in str(arguments[1]).lower():
             f.write(format_output(cores, size, results[0][i], results[1][i], results[2][i]))
             f.flush()
 
-        # result_file = open(temp_file, 'r')
-        # result_file.readline()
-        # for result in results:
-        #     pyapi_results = result_file.readline().translate(None, '\n').split('\t')
-        #     f.write(format_output(cores, size, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
-        #     f.flush()
         cursor.execute('drop table integers;')
     f.close()
 

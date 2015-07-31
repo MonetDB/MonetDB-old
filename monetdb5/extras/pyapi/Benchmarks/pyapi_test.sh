@@ -4,25 +4,26 @@
 export PYAPI_BASE_DIR=$HOME
 # The terminal to start mserver with, examples are 'gnome-terminal', 'xterm', 'konsole'
 export TERMINAL=x-terminal-emulator
+# Port used by the MSERVER
 export MSERVER_PORT=49979
 # A command that tests if the mserver is still running (used to find out when the shutting down of mserver is completed)
 export MSERVERTEST='netstat -ant | grep "127.0.0.1:$MSERVER_PORT.*LISTEN">/dev/null'
 # Testing parameters
 # Input test (zero copy vs copy)
 # The input sizes to test (in MB)
-export INPUT_TESTING_SIZES="0.1 1 10 100 1000"
+export INPUT_TESTING_SIZES="0.1 1 10 100 1000 10000"
 # Amount of tests to run for each size
 export INPUT_TESTING_NTESTS=10
 
 # Output test (zero copy vs copy)
 # The output sizes to test (in MB)
-export OUTPUT_TESTING_SIZES="0.1 1 10 100 1000"
+export OUTPUT_TESTING_SIZES="0.1 1 10 100 1000 10000"
 # Amount of tests to run for each size
 export OUTPUT_TESTING_NTESTS=10
 
 # String tests
 # Strings of the same length (mb, length)
-export STRINGSAMELENGTH_TESTING_SIZES="(100,1) (100,10) (100,100) (100,1000) (100,1000) (100,10000) (100,100000)"
+export STRINGSAMELENGTH_TESTING_SIZES="(1000,1) (1000,10) (1000,100) (1000,1000) (1000,1000) (1000,10000) (1000,100000)"
 export STRINGSAMELENGTH_TESTING_NTESTS=10
 # Extreme length string testing (all strings have length 1 except for one string, which has EXTREME length)
 # Arguments are (Extreme Length, String Count)
@@ -36,11 +37,11 @@ export STRINGUNICODE_TESTING_NTESTS=10
 export MULTITHREADING_NR_THREADS="1 2 3 4 5 6 7 8"
 export MULTITHREADING_TESTING_SIZES="1"
 #amount of tests for each thread
-export MULTITHREADING_TESTING_NTESTS=1
+export MULTITHREADING_TESTING_NTESTS=10
 
 # Quantile speedtest
 # The input sizes to test (in MB)
-export QUANTILE_TESTING_SIZES="0.1 1 10 100 1000"
+export QUANTILE_TESTING_SIZES="0.1 1 10 100 1000 10000"
 # Amount of tests to run for each size
 export QUANTILE_TESTING_NTESTS=10
 
@@ -48,6 +49,7 @@ export QUANTILE_TESTING_NTESTS=10
 # You probably don't need to change these
 export PYAPI_TEST_DIR=$PYAPI_BASE_DIR/monetdb_pyapi_test
 export PYAPI_MONETDB_DIR=$PYAPI_TEST_DIR/MonetDB-pyapi
+export PYAPI_SRC_DIR=$PYAPI_MONETDB_DIR/monetdb5/extras/pyapi
 export PYAPI_BUILD_DIR=$PYAPI_TEST_DIR/build
 export PYAPI_OUTPUT_DIR=$PYAPI_TEST_DIR/output
 # PyAPI TAR url
@@ -122,7 +124,7 @@ function pyapi_build {
         fi
     fi
     echo "Finished testing for libraries. Downloading and installing MonetDB."
-    wget $PYAPI_TAR_URL && tar xvzf pyapi.tar.gz && cd $PYAPI_MONETDB_DIR && ./bootstrap && ./configure prefix=$PYAPI_BUILD_DIR --enable-debug=no --enable-assert=no --enable-optimize=yes && make -j install
+    wget $PYAPI_TAR_URL && tar xvzf pyapi.tar.gz && cd $PYAPI_MONETDB_DIR && printf '#ifndef _PYAPI_TESTING_\n#define _PYAPI_TESTING_\n#endif\n' | cat - $PYAPI_SRC_DIR/pyapi.h > $PYAPI_SRC_DIR/temp && mv $PYAPI_SRC_DIR/temp $PYAPI_SRC_DIR/pyapi.h && ./bootstrap && ./configure prefix=$PYAPI_BUILD_DIR --enable-debug=no --enable-assert=no --enable-optimize=yes && make -j install
     if [ $? -ne 0 ]; then
         echo "Failed to download and install MonetDB. Exiting..."
         return 1

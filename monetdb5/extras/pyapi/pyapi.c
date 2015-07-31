@@ -1808,7 +1808,6 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
         BAT_TO_NP(b, dbl, NPY_FLOAT64);
         break;
     case TYPE_str:
-        option_numpy_string_array = true;
     #ifdef _PYAPI_TESTING_
         if (option_numpy_string_array) {
             bool unicode = false;

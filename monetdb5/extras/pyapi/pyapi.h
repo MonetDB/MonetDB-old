@@ -1,3 +1,4 @@
+
 /*
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
@@ -25,8 +26,6 @@
 #define _PYAPI_WARNINGS_
 // Enable debug mode, does literally nothing right now, but hey we have this nice #define here anyway
 #define _PYAPI_DEBUG_
-// Enable testing, if this #define is set you can use a bunch of testing flags to enable/disable certain optimizations
-#define _PYAPI_TESTING_
 #endif
 
 #ifdef _PYAPI_VERBOSE_
