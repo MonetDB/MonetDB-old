@@ -62,6 +62,7 @@ def export_function(function, argtypes, returns, multithreading=False, table=Fal
             raise Exception("Zero byte!");
     return(export)
 
+import math
 import multiprocessing
 import numpy
 import platform
@@ -108,6 +109,7 @@ test_count = int(arguments[3])
 port = int(arguments[4])
 parameters_start = 5
 max_retries = 15
+max_size = 1000
 
 import monetdb.sql
 # Try to connect to the database
@@ -141,13 +143,8 @@ if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-m
             max_int = math.pow(2,31) - 1
             min_int = -max_int
             integer_count = int(byte_size / integer_size_byte)
-            integers = numpy.zeros(integer_count, dtype=numpy.int32)
-            mask = numpy.zeros(integer_count, dtype=numpy.bool)
-            for i in range(0, integer_count):
-                integers[i] = random.randint(min_int, max_int)
-                if integers[i] < 0:
-                    mask[i] = True
-            return numpy.ma.masked_array(integers, mask)
+            integers = numpy.random.random_integers(min_int, max_int, integer_count).astype(numpy.int32)
+            return numpy.ma.masked_array(integers, numpy.less(integers, 0))
     else:
         def generate_integers(mb):
             import random
@@ -157,10 +154,7 @@ if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-m
             max_int = math.pow(2,31) - 1
             min_int = -max_int
             integer_count = int(byte_size / integer_size_byte)
-            integers = numpy.zeros(integer_count, dtype=numpy.int32)
-            for i in range(0, integer_count):
-                integers[i] = random.randint(min_int, max_int)
-            return integers
+            return numpy.random.random_integers(min_int, max_int, integer_count).astype(numpy.int32)
 
     cursor.execute(export_function(generate_integers, ['float'], ['i integer'], table=True, test=False))
 
@@ -179,9 +173,12 @@ if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-m
         mb.append(float(arguments[i]))
 
     for size in mb:
-        cursor.execute('create table integers as SELECT * FROM generate_integers(' + str(size) + ') with data;')
-        #result_file = open(temp_file, 'r')
-        #result_file.readline()
+        cursor.execute('CREATE TABLE integers (i integer);')
+        temp_size = size
+        for increment in range(0, int(math.ceil(float(size) / float(max_size)))):
+            current_size = temp_size if temp_size < max_size else max_size
+            cursor.execute('INSERT INTO integers SELECT * FROM generate_integers(' + str(current_size) + ');')
+            temp_size -= max_size
 
         if (str(arguments[1]).lower() == "input"):
             results = []
@@ -430,10 +427,7 @@ elif "factorial" in str(arguments[1]).lower():
         max_int = 2000
         min_int = 1000
         integer_count = int(byte_size / integer_size_byte)
-        integers = numpy.zeros(integer_count, dtype=numpy.int32)
-        for i in range(0, integer_count):
-            integers[i] = random.randint(min_int, max_int)
-        return integers
+        return numpy.random.random_integers(min_int, max_int, integer_count).astype(numpy.int32)
 
     cursor.execute(export_function(generate_integers, ['float'], ['i integer'], table=True, test=False))
     def factorial(i):
@@ -503,10 +497,7 @@ elif str(arguments[1]).lower() == "pquantile" or str(arguments[1]).lower() == "r
         max_int = math.pow(2,31) - 1
         min_int = -max_int
         integer_count = int(byte_size / integer_size_byte)
-        integers = numpy.zeros(integer_count, dtype=numpy.int32)
-        for i in range(0, integer_count):
-            integers[i] = random.randint(min_int, max_int)
-        return integers
+        return numpy.random.random_integers(min_int, max_int, integer_count).astype(numpy.int32)
 
     cursor.execute(export_function(generate_integers, ['float'], ['i integer'], table=True, test=False))
 

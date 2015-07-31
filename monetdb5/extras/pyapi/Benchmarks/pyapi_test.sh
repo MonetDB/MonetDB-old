@@ -1,8 +1,8 @@
 
 
 # The base directory of testing, a new folder is created in this base directory [$PYAPI_TEST_DIR], and everything is done in that new folder
-export PYAPI_BASE_DIR=$HOME
-# The terminal to start mserver with, examples are 'gnome-terminal', 'xterm', 'konsole'
+export PYAPI_BASE_DIR=/export/scratch1/raasveld
+# The terminal to start mserver with, examples are gnome-terminal, xterm, konsole
 export TERMINAL=x-terminal-emulator
 # Port used by the MSERVER
 export MSERVER_PORT=49979
@@ -45,8 +45,7 @@ export QUANTILE_TESTING_SIZES="0.1 1 10 100 1000 10000"
 # Amount of tests to run for each size
 export QUANTILE_TESTING_NTESTS=10
 
-
-# You probably don't need to change these
+# You probably dont need to change these
 export PYAPI_TEST_DIR=$PYAPI_BASE_DIR/monetdb_pyapi_test
 export PYAPI_MONETDB_DIR=$PYAPI_TEST_DIR/MonetDB-pyapi
 export PYAPI_SRC_DIR=$PYAPI_MONETDB_DIR/monetdb5/extras/pyapi
@@ -86,7 +85,7 @@ if [ $? -ne 0  ]; then
     export SETSID=1
 fi
 
-function pyapi_build {
+function pyapi_build() {
     echo "Making directory $PYAPI_TEST_DIR."
     mkdir $PYAPI_TEST_DIR && cd $PYAPI_TEST_DIR
     if [ $? -ne 0 ]; then
@@ -124,7 +123,7 @@ function pyapi_build {
         fi
     fi
     echo "Finished testing for libraries. Downloading and installing MonetDB."
-    wget $PYAPI_TAR_URL && tar xvzf pyapi.tar.gz && cd $PYAPI_MONETDB_DIR && printf '#ifndef _PYAPI_TESTING_\n#define _PYAPI_TESTING_\n#endif\n' | cat - $PYAPI_SRC_DIR/pyapi.h > $PYAPI_SRC_DIR/temp && mv $PYAPI_SRC_DIR/temp $PYAPI_SRC_DIR/pyapi.h && ./bootstrap && ./configure prefix=$PYAPI_BUILD_DIR --enable-debug=no --enable-assert=no --enable-optimize=yes && make -j install
+    wget $PYAPI_TAR_URL && tar xvzf pyapi.tar.gz && cd $PYAPI_MONETDB_DIR && printf '#ifndef _PYAPI_TESTING_\n#define _PYAPI_TESTING_\n#define _PYAPI_VERBOSE_\n#endif\n' | cat - $PYAPI_SRC_DIR/pyapi.h > $PYAPI_SRC_DIR/temp && mv $PYAPI_SRC_DIR/temp $PYAPI_SRC_DIR/pyapi.h && ./bootstrap && ./configure --prefix=$PYAPI_BUILD_DIR --enable-debug=no --enable-assert=no --enable-optimize=yes && make -j install
     if [ $? -ne 0 ]; then
         echo "Failed to download and install MonetDB. Exiting..."
         return 1
@@ -156,7 +155,7 @@ function pyapi_run_single_test() {
     return 1
 }
 
-function pyapi_test_input {
+function pyapi_test_input() {
     echo "Beginning Input Testing (Copy vs Zero Copy)"
     pyapi_run_single_test "Input Testing (Zero Copy)" "" "INPUT" input_zerocopy "$INPUT_TESTING_NTESTS" "$INPUT_TESTING_SIZES"
     if [ $? -ne 0 ]; then
@@ -173,7 +172,7 @@ function pyapi_test_input {
 }
 
 
-function pyapi_test_input_null {
+function pyapi_test_input_null() {
     echo "Beginning Input Testing [NULL] (Copy vs Zero Copy)"
     pyapi_run_single_test "Input Testing (Zero Copy)" "" "INPUT-NULL" input_zerocopy_null "$INPUT_TESTING_NTESTS" "$INPUT_TESTING_SIZES"
     if [ $? -ne 0 ]; then
@@ -185,7 +184,7 @@ function pyapi_test_input_null {
     fi
 }
 
-function pyapi_test_output {
+function pyapi_test_output() {
     pyapi_run_single_test "Output Testing (Zero Copy)" "" "OUTPUT" output_zerocopy "$OUTPUT_TESTING_NTESTS" "$OUTPUT_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
@@ -197,7 +196,7 @@ function pyapi_test_output {
     fi
 }
 
-function pyapi_test_string_samelength {
+function pyapi_test_string_samelength() {
     pyapi_run_single_test "String Testing (LazyArray, Same Length)" "--set enable_lazyarray=true" "STRING_SAMELENGTH" string_samelength_lazyarray "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
@@ -214,7 +213,7 @@ function pyapi_test_string_samelength {
     fi
 }
 
-function pyapi_test_string_extreme {
+function pyapi_test_string_extreme() {
     pyapi_run_single_test "String Testing (NPY_OBJECT, Extreme Length)" "" "STRING_EXTREMELENGTH" string_extremelength_npyobject "$STRINGEXTREMELENGTH_TESTING_NTESTS" "$STRINGEXTREMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
@@ -226,7 +225,7 @@ function pyapi_test_string_extreme {
     fi
 }
 
-function pyapi_test_string_unicode_ascii {
+function pyapi_test_string_unicode_ascii() {
     pyapi_run_single_test "String Testing (Check Unicode, ASCII)" "" "STRING_SAMELENGTH" string_unicode_ascii_check "$STRINGUNICODE_TESTING_NTESTS" "$STRINGUNICODE_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
@@ -248,7 +247,7 @@ function pyapi_test_string_unicode_ascii {
     fi
 }
 
-function pyapi_test_bytearray_vs_string {
+function pyapi_test_bytearray_vs_string() {
     pyapi_run_single_test "String Testing (ByteArray Object)" "" "STRING_SAMELENGTH" string_bytearrayobject "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
@@ -260,7 +259,7 @@ function pyapi_test_bytearray_vs_string {
     fi
 }
 
-function pyapi_test_threads {
+function pyapi_test_threads() {
     rm multithreading.tsv
     for thread in $MULTITHREADING_NR_THREADS
     do
@@ -271,7 +270,7 @@ function pyapi_test_threads {
     done
 }
 
-function pyapi_test_quantile {
+function pyapi_test_quantile() {
     echo "Beginning Quantile Testing (Python vs R vs MonetDB)"
     pyapi_run_single_test "Quantile Testing (Python)" "" "PQUANTILE" quantile_python "$QUANTILE_TESTING_NTESTS" "$QUANTILE_TESTING_SIZES"
     if [ $? -ne 0 ]; then
@@ -287,7 +286,7 @@ function pyapi_test_quantile {
     fi
 }
 
-function pyapi_run_tests {
+function pyapi_run_tests() {
     if [ -d $PYAPI_OUTPUT_DIR ]; then
         read -p "Directory $PYAPI_OUTPUT_DIR already exists, should we delete it? (y/n): " -n 1 -r
         echo ""
@@ -314,7 +313,7 @@ function pyapi_run_tests {
     pyapi_test_threads
 }
 
-function pyapi_graph {
+function pyapi_graph() {
     python $PYAPI_GRAPHFILE "SAVE" "Input (Both)" "-xlog" "Zero Copy:input_zerocopy.tsv" "Copy:input_copy.tsv" "Zero Copy (Null):input_zerocopy_null.tsv" "Copy (Null):input_copy_null.tsv"
     python $PYAPI_GRAPHFILE "SAVE" "Input" "-xlog" "Zero Copy:input_zerocopy.tsv" "Copy:input_copy.tsv"
     python $PYAPI_GRAPHFILE "SAVE" "Input-Null" "-xlog" "Zero Copy:input_zerocopy_null.tsv" "Copy:input_copy_null.tsv"
@@ -342,7 +341,7 @@ function pyapi_graph {
 }
 
 
-function pyapi_cleanup {
+function pyapi_cleanup() {
     read -p "Finished testing, would you like me to remove the test directory $PYAPI_TEST_DIR and everything in it? (y/n):  " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -351,7 +350,7 @@ function pyapi_cleanup {
     return 0
 }
 
-function pyapi_test {
+function pyapi_test() {
     if [ -d $PYAPI_TEST_DIR ]; then
         read -p "Directory $PYAPI_TEST_DIR already exists, skip the building and continue to testing? (y/n): " -n 1 -r
         echo ""

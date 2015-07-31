@@ -1678,40 +1678,50 @@ PyObject *PyArrayObject_FromScalar(PyInput* inp, char **return_message)
     PyObject *vararray = NULL; 
     char *msg = NULL;
     assert(inp->scalar); //input has to be a scalar
-    VERBOSE_MESSAGE("- Loading a scalar of type %s (%i)\n", BatType_Format(inp->bat_type), inp->bat_type);
+    VERBOSE_MESSAGE("- Loading a scalar of type %s (%i)", BatType_Format(inp->bat_type), inp->bat_type);
         
     switch(inp->bat_type)
     {
         case TYPE_bit:
             vararray = PyInt_FromLong((long)(*(bit*)inp->dataptr));
+            VERBOSE_MESSAGE(" [Value: %ld]\n", (long)(*(bit*)inp->dataptr));
             break;
         case TYPE_bte:
             vararray = PyInt_FromLong((long)(*(bte*)inp->dataptr));
+            VERBOSE_MESSAGE(" [Value: %ld]\n", (long)(*(bte*)inp->dataptr));
             break;
         case TYPE_sht:
             vararray = PyInt_FromLong((long)(*(sht*)inp->dataptr)); 
+            VERBOSE_MESSAGE(" [Value: %ld]\n", (long)(*(sht*)inp->dataptr));
             break;
         case TYPE_int:
             vararray = PyInt_FromLong((long)(*(int*)inp->dataptr));
+            VERBOSE_MESSAGE(" [Value: %ld]\n", (long)(*(int*)inp->dataptr));
             break;
         case TYPE_lng:
             vararray = PyLong_FromLong((long)(*(lng*)inp->dataptr));
+            VERBOSE_MESSAGE(" [Value: %ld]\n", (long)(*(lng*)inp->dataptr));
             break;
         case TYPE_flt:
             vararray = PyFloat_FromDouble((double)(*(flt*)inp->dataptr));
+            VERBOSE_MESSAGE(" [Value: %lf]\n", (double)(*(flt*)inp->dataptr));
             break;
         case TYPE_dbl:
             vararray = PyFloat_FromDouble((double)(*(dbl*)inp->dataptr));
+            VERBOSE_MESSAGE(" [Value: %lf]\n", (double)(*(dbl*)inp->dataptr));
             break;
 #ifdef HAVE_HGE
         case TYPE_hge:
             vararray = PyLong_FromHge(*((hge *) inp->dataptr));
+            VERBOSE_MESSAGE(" [Value: Huge]\n");
             break;
 #endif
         case TYPE_str:
             vararray = PyUnicode_FromString(*((char**) inp->dataptr));
+            VERBOSE_MESSAGE(" [Value: %s]\n", *((char**) inp->dataptr));
             break;
         default:
+            VERBOSE_MESSAGE(" [Value: Unknown]\n");
             msg = createException(MAL, "pyapi.eval", "Unsupported scalar type %i.", inp->bat_type);
             goto wrapup;
     }
@@ -1786,7 +1796,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
         goto wrapup;
     }
 
-    VERBOSE_MESSAGE("- Loading a BAT of type %s (%d)\n", BatType_Format(inp->bat_type), inp->bat_type);
+    VERBOSE_MESSAGE("- Loading a BAT of type %s (%d) [Size: %lu]\n", BatType_Format(inp->bat_type), inp->bat_type, inp->count);
    
     switch (inp->bat_type) {
     case TYPE_bte:
