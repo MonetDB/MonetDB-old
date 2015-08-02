@@ -820,6 +820,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         pResult = PyObject_CallObject(pFunc, pArgs);
 
         Py_DECREF(pFunc);
+        Py_DECREF(pArgs);
 
         if (PyErr_Occurred()) {
             msg = PyError_CreateException("Python exception", pycall);
@@ -1001,7 +1002,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 msg = createException(MAL, "pyapi.eval", "Could not create a Numpy array from the return type.\n");
                 goto wrapup;
             }
-            PyErr_Print();
+            
             ret->result_type = PyArray_DESCR((PyArrayObject*)ret->numpy_array)->type_num; // We read the result type from the resulting array
             ret->memory_size = PyArray_DESCR((PyArrayObject*)ret->numpy_array)->elsize;
             ret->count = PyArray_DIMS((PyArrayObject*)ret->numpy_array)[0];
