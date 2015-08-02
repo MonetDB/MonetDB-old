@@ -397,8 +397,14 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     }
 
 #ifdef _PYAPI_TESTING_
+    {
+        char *string = GDKzalloc((strlen(exprStr) + 1) * sizeof(char));
+        strcpy(string, exprStr);
+        exprStr = string;
+    }
     // If the source starts with 'NOTEST' we disable testing, kind of a band-aid solution but they don't pay me enough for anything better
     if (exprStr[1] == 'N' && exprStr[2] == 'O' && exprStr[3] == 'T' && exprStr[4] == 'E' && exprStr[5] == 'S' && exprStr[6] == 'T') {
+        VERBOSE_MESSAGE("Disable testing!\n");
         for(iu = 7; iu < strlen(exprStr); iu++) {
             exprStr[iu - 6] = exprStr[iu];
         }
@@ -1501,6 +1507,7 @@ returnvalues:
     GDKfree(pycall);
 
 #ifdef _PYAPI_TESTING_
+    GDKfree(exprStr);
     if (!disable_testing && benchmark_output != NULL) {
         FILE *f = NULL;
         if (!mapped) { 

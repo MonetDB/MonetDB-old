@@ -1,7 +1,7 @@
 
 
 # The base directory of testing, a new folder is created in this base directory [$PYAPI_TEST_DIR], and everything is done in that new folder
-export PYAPI_BASE_DIR=/export/scratch1/raasveld
+export PYAPI_BASE_DIR=/local/raasveld
 # The terminal to start mserver with, examples are gnome-terminal, xterm, konsole
 export TERMINAL=x-terminal-emulator
 # Port used by the MSERVER
@@ -11,37 +11,37 @@ export MSERVERTEST='netstat -ant | grep "127.0.0.1:$MSERVER_PORT.*LISTEN">/dev/n
 # Testing parameters
 # Input test (zero copy vs copy)
 # The input sizes to test (in MB)
-export INPUT_TESTING_SIZES="0.1 1 10 100 1000 10000"
+export INPUT_TESTING_SIZES="0.1 1 10 100 1000"
 # Amount of tests to run for each size
 export INPUT_TESTING_NTESTS=10
 
 # Output test (zero copy vs copy)
 # The output sizes to test (in MB)
-export OUTPUT_TESTING_SIZES="0.1 1 10 100 1000 10000"
+export OUTPUT_TESTING_SIZES="0.1 1 10 100 1000"
 # Amount of tests to run for each size
 export OUTPUT_TESTING_NTESTS=10
 
 # String tests
 # Strings of the same length (mb, length)
-export STRINGSAMELENGTH_TESTING_SIZES="(1000,1) (1000,10) (1000,100) (1000,1000) (1000,1000) (1000,10000) (1000,100000)"
+export STRINGSAMELENGTH_TESTING_SIZES="(100,1) (100,10) (100,100) (100,1000) (100,1000) (100,10000) (100,100000)"
 export STRINGSAMELENGTH_TESTING_NTESTS=10
 # Extreme length string testing (all strings have length 1 except for one string, which has EXTREME length)
 # Arguments are (Extreme Length, String Count)
 export STRINGEXTREMELENGTH_TESTING_SIZES="(10,100000) (100,100000) (1000,100000) (10000,100000)"
 export STRINGEXTREMELENGTH_TESTING_NTESTS=10
 # Check Unicode vs Always Unicode (ASCII) (mb, length)
-export STRINGUNICODE_TESTING_SIZES="(0.1,10) (1,10) (10,10) (0.1,100) (1,100) (10,100) (100,100) (1000,100)"
+export STRINGUNICODE_TESTING_SIZES="(0.1,10) (1,10) (10,10) (100,10) (0.1,100) (1,100) (10,100) (100,100)"
 export STRINGUNICODE_TESTING_NTESTS=10
 
 # Multithreading tests
 export MULTITHREADING_NR_THREADS="1 2 3 4 5 6 7 8"
-export MULTITHREADING_TESTING_SIZES="1"
+export MULTITHREADING_TESTING_SIZES="10"
 #amount of tests for each thread
 export MULTITHREADING_TESTING_NTESTS=10
 
 # Quantile speedtest
 # The input sizes to test (in MB)
-export QUANTILE_TESTING_SIZES="0.1 1 10 100 1000 10000"
+export QUANTILE_TESTING_SIZES="0.1 1 10 100 1000"
 # Amount of tests to run for each size
 export QUANTILE_TESTING_NTESTS=10
 
