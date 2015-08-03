@@ -1517,6 +1517,9 @@ void get_full_outerjoin_p_slices(oid *lstprops, int np, BAT *full_obat, BAT *ful
 
 	for (i = 0; i < np; i++){
 		getSlides_per_P(pso_propstat, &(lstprops[i]),full_obat, full_sbat, &(obats[i]), &(sbats[i])); 
+		printf("Slides of P = "BUNFMT"\n", lstprops[i]);
+		BATprint(sbats[i]);
+		BATprint(obats[i]);
 	}
 
 	RDFmultiway_merge_outerjoins(np, sbats, obats, r_sbat, (*r_obats));
@@ -1608,15 +1611,23 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 	
 	sbatCursor = (oid *) Tloc(sbat, BUNfirst(sbat));
 	obatCursors = (oid **) malloc(sizeof(oid*) * nP); 
+	
+	regular_obats = (BAT **) malloc(sizeof(BAT *) * nP); 
+	regular_obat_mv = (BAT **) malloc(sizeof(BAT *) * nP); 
+
 	regular_obat_cursors = (oid **) malloc(sizeof(oid*) * nP); 
+	regular_obat_mv_cursors = (oid **) malloc(sizeof(oid*) * nP); 
 	for (i = 0; i < nP; i++){
 		obatCursors[i] = (oid *) Tloc(obats[i], BUNfirst(obats[i]));
 		assert (BATcount(obats[i]) == BATcount(sbat)); 
+		regular_obats[i] = NULL; 
+		regular_obat_mv[i] = NULL; 
 		regular_obat_cursors[i] = NULL; 
+		regular_obat_mv_cursors[i] = NULL;
 	}
 
-	regular_obats = (BAT **) malloc(sizeof(BAT *) * nP); 
-	regular_obat_mv = (BAT **) malloc(sizeof(BAT *) * nP); 
+
+
 	
 	numS = BATcount(sbat); 
 
@@ -1683,20 +1694,29 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 			}	
 		}
 
-		if (accept == 1){	//Accept, can insert to the output bat
+
+		if (accept == 1){	//Accept, can insert to the output bat			
 			oid *tmpres = (oid *) malloc(sizeof(oid) * nP); 
+			oid r_obat_oldsize = BATcount((*r_obats)[0]); 
+			oid r_obat_newsize = BUN_NONE; 
 			for (j = 0; j < nP; j++){
 				tmpres[i] = oid_nil; 
 			}
 			fetch_result(*r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, 0, nP, tmpres);
+			r_obat_newsize = BATcount((*r_obats)[0]); 
+			for (j = 0; j < (int)(r_obat_newsize - r_obat_oldsize); j++){
+				BUNappend(*r_sbat, &sbt, TRUE); 
+			}
 		}
 
 	}
 
+	BATprint(*r_sbat); 
 
+				
 	//free
 	for (i = 0; i < nP; i++){
-		if (regular_obats[i]) BBPunfix(regular_obats[j]->batCacheid);
+		if (regular_obats[i]) BBPunfix(regular_obats[i]->batCacheid);
 	}
 	free(regular_obats); 
 	free(regular_obat_cursors); 
@@ -1754,7 +1774,7 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		BUNappend(b[i], &tmp, TRUE); 
 	}
 	
-	printf("There are %d props, among them %d RPs /n", *nP, *nRP);
+	printf("There are %d props, among them %d RPs \n", *nP, *nRP);
 	
 	//Step 1. "Full outer join" to get all the possible combination
 	//of all props from PSO table
@@ -2130,6 +2150,7 @@ str SQLrdfprepare(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		
 	}
 	
+	/*
 	{	//Test
 		BAT *testBat = BATnew(TYPE_void, TYPE_str, 100, TRANSIENT); 
 		str s1 = "a", s2 = "bbbb", s3 = "ccc"; 
@@ -2154,6 +2175,7 @@ str SQLrdfprepare(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		
 		if ((*cmp)(sptr, nil) == 0) printf("ATOM compare works\n"); 
 	}
+	*/
 
 	(void) cntxt; (void) mb; (void) stk; (void) pci;
 			
