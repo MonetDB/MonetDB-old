@@ -285,36 +285,48 @@ elif str(arguments[1]).lower() == "string_samelength" or str(arguments[1]).lower
                 import string
                 result = ""
                 for i in range(0, length):
-                    result += random.choice(string.printable)
+                    result += random.choice(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
                 return result
             import random
             import math
             byte_size = mb * 1000 * 1000
             string_size_byte = length
             string_count = int(byte_size / string_size_byte)
-            strings = numpy.zeros(string_count, dtype='S' + str(length))
-            for i in range(0, string_count):
-                strings[i] = random_string(length)
-            return strings
+            if length < 15:
+                min_int = math.pow(10, length - 1)
+                max_int = math.pow(10, length) - 1
+                strings = numpy.random.random_integers(min_int, max_int, string_count).astype('S' + str(length))
+                return strings
+            else:
+                strings = numpy.zeros(string_count, dtype='S' + str(length))
+                for i in range(0, string_count):
+                    strings[i] = random_string(length)
+                return strings
         cursor.execute(export_function(generate_strings_samelength, ['float', 'integer'], ['i string'], table=True, test=False))
     else:
         def generate_strings_samelength(mb, length):
             def random_string(length):
                 import random
                 import string
-                result = unicode('')
+                result = ""
                 for i in range(0, length):
-                    result += random.choice(string.printable)
+                    result += random.choice(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
                 return result
             import random
             import math
             byte_size = mb * 1000 * 1000
             string_size_byte = length
             string_count = int(byte_size / string_size_byte)
-            strings = numpy.zeros(string_count, dtype='U' + str(length))
-            for i in range(0, string_count - 1):
-                strings[i] = random_string(length)
-            strings[string_count - 1] = random_string(length - 1) + unichr(0x100)
+            strings = None
+            if length < 15:
+                min_int = math.pow(10, length - 1)
+                max_int = math.pow(10, length) - 1
+                strings = numpy.random.random_integers(min_int, max_int, string_count).astype('U' + str(length))
+            else:
+                strings = numpy.zeros(string_count, dtype='U' + str(length))
+                for i in range(0, string_count):
+                    strings[i] = random_string(length)
+            strings[string_count - 1] = unichr(0x100) * length
             return strings
         cursor.execute(export_function(generate_strings_samelength, ['float', 'integer'], ['i string'], table=True, test=False))
 
@@ -449,7 +461,13 @@ elif "factorial" in str(arguments[1]).lower():
         mb.append(float(arguments[i]))
 
     for size in mb:
-        cursor.execute('create table integers as SELECT * FROM generate_integers(' + str(size) + ') with data;')
+        cursor.execute('CREATE TABLE integers (i integer);')
+        temp_size = size
+        for increment in range(0, int(math.ceil(float(size) / float(max_size)))):
+            current_size = temp_size if temp_size < max_size else max_size
+            cursor.execute('INSERT INTO integers SELECT * FROM generate_integers(' + str(current_size) + ');')
+            temp_size -= max_size
+
         results = [[], [], []]
         for i in range(0,test_count):
             result_file = open(temp_file, 'w+')
@@ -510,7 +528,12 @@ elif str(arguments[1]).lower() == "pquantile" or str(arguments[1]).lower() == "r
         mb.append(float(arguments[i]))
 
     for size in mb:
-        cursor.execute('create table integers as SELECT * FROM generate_integers(' + str(size) + ') with data;')
+        cursor.execute('CREATE TABLE integers (i integer);')
+        temp_size = size
+        for increment in range(0, int(math.ceil(float(size) / float(max_size)))):
+            current_size = temp_size if temp_size < max_size else max_size
+            cursor.execute('INSERT INTO integers SELECT * FROM generate_integers(' + str(current_size) + ');')
+            temp_size -= max_size
 
         results = []
         for i in range(0,test_count):
