@@ -130,7 +130,7 @@ sql_symbol2relation(mvc *c, symbol *sym)
 			
 			if (1) c->emode = m_normal;
 			
-			if (1) c->emod = mod_explain;
+			if (0) c->emod = mod_explain;
 			}
 		}
 		else {

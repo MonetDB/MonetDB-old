@@ -224,8 +224,19 @@ str RDFmultiway_merge_outerjoins(int np, BAT **sbats, BAT **obats, BAT **r_sbat,
 	oid lastS = BUN_NONE; 
 	oid tmpO; 
 
+	// This aray is used for storing the candidate outputs in case 
+	// that there are multi-valued prop in pso. 
+	// In that case, a recursive program need to run to generate
+	// all the combinations of the output candidates
+	int maxNumExcept = 20; 	//TODO: This need to be verified
+	oid **tmpCand;
+
+	tmpCand = (oid **) malloc(sizeof(oid *) * np); 
+	
+
 	for (i = 0; i < np; i++){
 		estimate += BATcount(obats[i]); 
+		tmpCand[i] = (oid *) malloc(sizeof(oid) * maxNumExcept); 
 	}
 
 	sbatCursors = (oid **) malloc(sizeof(oid*) * np); 
@@ -314,8 +325,11 @@ str RDFmultiway_merge_outerjoins(int np, BAT **sbats, BAT **obats, BAT **r_sbat,
 	for (i = 0; i < np; i++){
 		if (BATcount(r_obats[i]) < (BUN)numMergedS)	
 			BUNappend(r_obats[i], ATOMnilptr(TYPE_oid), TRUE); 
+
+		free(tmpCand[i]);
 	}
 
+	free(tmpCand); 
 	free(hp); 
 	free(harr); 
 	free(sbatCursors); 

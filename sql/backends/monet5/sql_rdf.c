@@ -1557,7 +1557,7 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 				tmpres[cur_p] = regular_obat_mv_cursors[cur_p][offset + i]; 
 
 				if (cur_p < (np -1))
-					fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p, np, tmpres); 
+					fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, np, tmpres); 
 
 				else if (cur_p == (np - 1)){
 					//Output result
@@ -1570,11 +1570,31 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 		}
 		else{
 			tmpres[cur_p] = regular_obat_cursors[cur_p][tmpS];
+			
+			if (cur_p < (np -1))
+				fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, np, tmpres); 
+
+			else if (cur_p == (np - 1)){
+				//Output result
+				for (j = 0; j < np; j++){
+					BUNappend(r_obats[j], &(tmpres[j]), TRUE); 
+				}
+			}
 		}
 
 	}
 	else{
 		tmpres[cur_p] = obatCursors[cur_p][pos];		
+		
+		if (cur_p < (np -1))
+			fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, np, tmpres); 
+
+		else if (cur_p == (np - 1)){
+			//Output result
+			for (j = 0; j < np; j++){
+				BUNappend(r_obats[j], &(tmpres[j]), TRUE); 
+			}
+		}
 	}
 
 
@@ -1677,7 +1697,7 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 			}
 		}
 
-		printf("At row "BUNFMT" of table %d\n", tmpS, tid); 
+		printf("At row "BUNFMT" of table %d for sbt "BUNFMT"...", tmpS, tid, sbt); 
 		accept = 1; 
 		for (j = 0;  j < nP; j++){
 			if (obatCursors[j][pos] == oid_nil){
@@ -1699,19 +1719,22 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 			oid *tmpres = (oid *) malloc(sizeof(oid) * nP); 
 			oid r_obat_oldsize = BATcount((*r_obats)[0]); 
 			oid r_obat_newsize = BUN_NONE; 
+			printf("Accepted\n"); 
 			for (j = 0; j < nP; j++){
-				tmpres[i] = oid_nil; 
+				tmpres[j] = oid_nil; 
 			}
 			fetch_result(*r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, 0, nP, tmpres);
 			r_obat_newsize = BATcount((*r_obats)[0]); 
 			for (j = 0; j < (int)(r_obat_newsize - r_obat_oldsize); j++){
 				BUNappend(*r_sbat, &sbt, TRUE); 
 			}
+		} else {
+			printf("Rejected\n");
 		}
+
 
 	}
 
-	BATprint(*r_sbat); 
 
 				
 	//free
@@ -1762,16 +1785,16 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	}
 	
 	for (i = 0; i < pci->retc; i++){
-		int tmp = -1; 
+		//int tmp = -1; 
 		//Get type from pci
 		int bat_type = 	ATOMstorage(getColumnType(getArgType(mb,pci,i))); 
 		
 		if (bat_type == TYPE_str) printf("bat_type is string\n");
 		else printf("bat_type is %d\n", bat_type); 
 
-		b[i] = BATnew(TYPE_void, bat_type, smallbatsz, TRANSIENT); 	
-		tmp = i;
-		BUNappend(b[i], &tmp, TRUE); 
+		//b[i] = BATnew(TYPE_void, bat_type, smallbatsz, TRANSIENT); 	
+		//tmp = i;
+		//BUNappend(b[i], &tmp, TRUE); 
 	}
 	
 	printf("There are %d props, among them %d RPs \n", *nP, *nRP);
@@ -1798,8 +1821,16 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		//Step 2. Merge exceptions with Tables
 		
 		combine_exception_and_regular_tables(m, &m_sbat, &m_obats, r_sbat, r_obats, lstProps, *nP, *nRP);
-	}
+		
+		BATprint(m_sbat); 
 
+		for (i = 0; i < (*nP); i++){
+			BATprint(m_obats[i]);
+			b[2*i] = BATcopy(m_sbat, m_sbat->htype, m_sbat->ttype, FALSE, TRANSIENT);
+			b[2*i+1] = BATcopy(m_obats[i], m_obats[i]->htype, m_obats[i]->ttype, FALSE, TRANSIENT); 
+		}
+	}
+	printf("Return the resusting BATs\n"); 
 	bat2return(stk, pci, b);
 	GDKfree(b);
 
