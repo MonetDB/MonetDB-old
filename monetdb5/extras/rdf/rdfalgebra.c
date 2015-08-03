@@ -268,7 +268,7 @@ str RDFmultiway_merge_outerjoins(int np, BAT **sbats, BAT **obats, BAT **r_sbat,
 	while (1){
 		//Get the minimum element and store it in output
 		MinHeapNode root = getMin(hp);
-		if (root.element == INT_MAX) break; 
+		if (root.element == GDK_oid_max) break; 
 		
 		if (lastS != root.element){		//New S
 			
@@ -304,8 +304,9 @@ str RDFmultiway_merge_outerjoins(int np, BAT **sbats, BAT **obats, BAT **r_sbat,
 			root.j += 1;
 		}
 		//If root was the last element of its array
-		else root.element =  INT_MAX; //INT_MAX is for infinite
+		else root.element =  GDK_oid_max; 
 
+		//printf("Update root.element = " BUNFMT, root.element); 		
 		//Replace root with next element of array
 		replaceMin(hp, root);
 	}
