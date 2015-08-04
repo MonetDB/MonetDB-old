@@ -1439,7 +1439,7 @@ returnvalues:
         ReturnBatDescr *ptr;
 
         shm_ptr = get_shared_memory(shm_id, memory_size);
-        if (shm_ptr == NULL) goto wrapup;
+        if (shm_ptr == NULL) exit(1);
 
         // To indicate that we failed, we will write information to our header
         ptr = (ReturnBatDescr*)shm_ptr;
@@ -1455,6 +1455,7 @@ returnvalues:
         // We can simply use the slot shm_id + 1, even though this is normally used for return values
         // This is because, if any one process fails, no values will be returned
         error_mem = create_shared_memory(shm_id + 1, strlen(msg) * sizeof(char));
+        if (error_mem == NULL) exit(1);
         for(iu = 0; iu < strlen(msg); iu++) {
             // Copy the error message to the shared memory
             error_mem[iu] = msg[iu]; 
