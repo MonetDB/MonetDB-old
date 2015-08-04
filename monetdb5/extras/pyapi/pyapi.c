@@ -412,9 +412,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         disable_testing = true;
     }
 
-    if (!disable_testing && benchmark_output != NULL) {
+    if (benchmark_output != NULL) {
         reset_hook();
-        if (!mapped) init_hook();
+        if (!disable_testing && !mapped) init_hook();
         timer(&start_time);
     }
 #endif
@@ -770,7 +770,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             }
         }
         if (result_array == NULL) {
-            msg = createException(MAL, "pyapi.eval", "Failed to create Numpy Array from BAT.");
+            if (msg == MAL_SUCCEED) {
+                msg = createException(MAL, "pyapi.eval", "Failed to create Numpy Array from BAT.");
+            }
             goto wrapup;
         }
         PyTuple_SetItem(pArgs, ai++, result_array);
@@ -1509,9 +1511,9 @@ returnvalues:
 
 #ifdef _PYAPI_TESTING_
     GDKfree(exprStr);
-    if (!disable_testing && benchmark_output != NULL) {
+    if (benchmark_output != NULL) {
         FILE *f = NULL;
-        if (!mapped) { 
+        if (!mapped && !disable_testing) { 
             revert_hook();
             peak_memory_usage = GET_MEMORY_PEAK();
         }
@@ -1523,8 +1525,10 @@ returnvalues:
         f = fopen(benchmark_output, "a");
         if (f != NULL) {
             fprintf(f, "%llu\t%f\n", peak_memory_usage, GET_ELAPSED_TIME(start_time, end_time));
+            fclose(f);
+        } else {
+            perror("Error");
         }
-        fclose(f);
         MT_lock_unset(&pyapiLock, "pyapi.evaluate");
     }
 #endif
@@ -1746,8 +1750,11 @@ wrapup:
 PyObject *PyMaskedArray_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char **return_message)
 {
     BAT *b = inp->bat;
-    PyObject *vararray = PyArrayObject_FromBAT(inp, t_start, t_end, return_message);
     char *msg;
+    PyObject *vararray = PyArrayObject_FromBAT(inp, t_start, t_end, return_message);
+    if (vararray == NULL) {
+        return NULL;
+    }
     // To deal with null values, we use the numpy masked array structure
     // The masked array structure is an object with two arrays of equal size, a data array and a mask array
     // The mask array is a boolean array that has the value 'True' when the element is NULL, and 'False' otherwise
@@ -2039,6 +2046,10 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
 #endif
     default:
         msg = createException(MAL, "pyapi.eval", "unknown argument type ");
+        goto wrapup;
+    }
+    if (vararray == NULL) {
+        msg = PyError_CreateException("Failed to convert BAT to Numpy array.", NULL);
         goto wrapup;
     }
     return vararray;
