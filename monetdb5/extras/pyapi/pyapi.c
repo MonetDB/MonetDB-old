@@ -89,7 +89,7 @@ static int pyapiInitialized = FALSE;
 #define BAT_TO_NP(bat, mtpe, nptpe)                                                                                                 \
         if (!option_zerocopyinput) {                                                                                                \
             mtpe *array;                                                                                                            \
-            vararray = PyArray_Zeros(1, (npy_intp[1]) {(t_end-t_start)}, PyArray_DescrFromType(nptpe), 0);                          \
+            vararray = PyArray_Zeros(1, (npy_intp[1]) {(t_end - t_start)}, PyArray_DescrFromType(nptpe), 0);                          \
             array = PyArray_DATA((PyArrayObject*)vararray);                                                                         \
             for(j = t_start; j < t_end; j++) {                                                                                      \
                 array[j - t_start] = ((mtpe*) Tloc(bat, BUNfirst(bat)))[j];                                                         \
@@ -736,7 +736,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     for (i = pci->retc + 2; i < pci->argc; i++) {
         PyObject *result_array;
          // t_start and t_end hold the part of the BAT we will convert to a Numpy array, by default these hold the entire BAT [0 - BATcount(b)]
-        int t_start = 0, t_end = pyinput_values[i - (pci->retc + 2)].count;
+        size_t t_start = 0, t_end = pyinput_values[i - (pci->retc + 2)].count;
 #ifndef WIN32
         if (mapped && process_id && process_count > 1)
         {
