@@ -201,6 +201,36 @@ str RDFtriplesubsort(BAT **sbat, BAT **pbat, BAT **obat){
 	return MAL_SUCCEED; 
 }
 
+static
+void append_cand_to_bats(BAT *r_sbat, BAT **r_obats, oid **tmpCand, int *numCand, oid *cand, int cur_p, int np, oid curS){
+	int i, j; 
+	if (numCand[cur_p] == 0){
+		cand[cur_p] = oid_nil;
+
+		if (cur_p < np - 1)
+			append_cand_to_bats(r_sbat, r_obats, tmpCand, numCand, cand, cur_p + 1, np, curS); 
+		else{
+			for (j = 0; j < np; j++){
+				BUNappend(r_obats[j], &(cand[j]), TRUE); 
+			}
+			BUNappend(r_sbat, &curS, TRUE);
+		}
+	} else {
+		for (i = 0; i < numCand[cur_p]; i++){
+			cand[cur_p] = tmpCand[cur_p][i]; 
+			
+			if (cur_p < np - 1)
+				append_cand_to_bats(r_sbat, r_obats, tmpCand, numCand, cand, cur_p + 1, np, curS); 
+			else{
+				for (j = 0; j < np; j++){
+					BUNappend(r_obats[j], &(cand[j]), TRUE); 
+				}
+				BUNappend(r_sbat, &curS, TRUE);
+			}
+		}		
+	}
+
+}
 /* This function RDFmultiway_merge_outerjoins()
  * is used to create full outer join from multiple 
  * Input: 
@@ -220,7 +250,6 @@ str RDFmultiway_merge_outerjoins(int np, BAT **sbats, BAT **obats, BAT **r_sbat,
 	MinHeap *hp;
 	MinHeapNode *harr;
 	oid **sbatCursors, **obatCursors; 
-	int numMergedS = 0; 
 	oid lastS = BUN_NONE; 
 	oid tmpO; 
 
@@ -230,13 +259,18 @@ str RDFmultiway_merge_outerjoins(int np, BAT **sbats, BAT **obats, BAT **r_sbat,
 	// all the combinations of the output candidates
 	int maxNumExcept = 20; 	//TODO: This need to be verified
 	oid **tmpCand;
+	int *numCand; 
+	oid *cand; 
 
 	tmpCand = (oid **) malloc(sizeof(oid *) * np); 
-	
+	numCand = (int*) malloc(sizeof(int) * np); 
+	cand = (oid *) malloc(sizeof(oid) * np); 
 
 	for (i = 0; i < np; i++){
 		estimate += BATcount(obats[i]); 
 		tmpCand[i] = (oid *) malloc(sizeof(oid) * maxNumExcept); 
+		numCand[i] = 0; 
+		cand[i] = oid_nil; 
 	}
 
 	sbatCursors = (oid **) malloc(sizeof(oid*) * np); 
@@ -275,7 +309,6 @@ str RDFmultiway_merge_outerjoins(int np, BAT **sbats, BAT **obats, BAT **r_sbat,
 
 	//Now one by one get the minimum element from min
 	//heap and replace it with next element of its array
-	numMergedS = 0;		//Number of S in the output BAT
 	while (1){
 		//Get the minimum element and store it in output
 		MinHeapNode root = getMin(hp);
@@ -285,25 +318,26 @@ str RDFmultiway_merge_outerjoins(int np, BAT **sbats, BAT **obats, BAT **r_sbat,
 			
 			//Go through all output o_bat to add Null value
 			//if they do not value for the last S
-			for (i = 0; i < np; i++){
-				if (BATcount(r_obats[i]) < (BUN)numMergedS)	
-					BUNappend(r_obats[i], ATOMnilptr(TYPE_oid), TRUE); 
-			}
 
-			//Append new s to output sbat
-			BUNappend(*r_sbat, &(root.element), TRUE); 
+			if (lastS != BUN_NONE) append_cand_to_bats(*r_sbat, r_obats, tmpCand, numCand, cand, 0, np, lastS);
+
+			for (i = 0; i < np; i++){
+				numCand[i] = 0;
+			}
 			//Append the obat corresonding to this root node 
 			tmpO = obatCursors[root.i][root.j - 1]; 
-			BUNappend(r_obats[root.i], &tmpO, TRUE); 
-			
+			tmpCand[root.i][numCand[root.i]] = tmpO;
+			numCand[root.i]++;
+
 			lastS = root.element; 
-			(numMergedS)++;
 		}
 		else{
 			//Get element from the corresponding o
 			//Add to the output o
 			tmpO = obatCursors[root.i][root.j - 1];
-			BUNappend(r_obats[root.i], &tmpO, TRUE);
+			//BUNappend(r_obats[root.i], &tmpO, TRUE);
+			tmpCand[root.i][numCand[root.i]] = tmpO;  
+			numCand[root.i]++; 	
 		}
 
 		//Find the next elelement that will replace current
@@ -322,14 +356,15 @@ str RDFmultiway_merge_outerjoins(int np, BAT **sbats, BAT **obats, BAT **r_sbat,
 		replaceMin(hp, root);
 	}
 	
-	for (i = 0; i < np; i++){
-		if (BATcount(r_obats[i]) < (BUN)numMergedS)	
-			BUNappend(r_obats[i], ATOMnilptr(TYPE_oid), TRUE); 
+	if (lastS != BUN_NONE) append_cand_to_bats(*r_sbat, r_obats, tmpCand, numCand, cand, 0, np, lastS);
 
+	for (i = 0; i < np; i++){
 		free(tmpCand[i]);
 	}
 
 	free(tmpCand); 
+	free(numCand); 
+	free(cand); 
 	free(hp); 
 	free(harr); 
 	free(sbatCursors); 
