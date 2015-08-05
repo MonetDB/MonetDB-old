@@ -749,7 +749,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 t_start = ceil((count * chunk) / totalchunks);
                 t_end = floor((count * (chunk + 1)) / totalchunks);
                 if (((int)count) / 2 * 2 == (int)count) t_end--;
-                VERBOSE_MESSAGE("---Start: %d, End: %d, Count: %d\n", t_start, t_end, t_end - t_start);
+                VERBOSE_MESSAGE("---Start: %zu, End: %zu, Count: %zu\n", t_start, t_end, t_end - t_start);
             }
         }
 #endif
@@ -830,110 +830,19 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             goto wrapup;
         }
 
+        if (code_object == NULL) { PyRun_SimpleString("del pyfun"); }
+
         // Now we need to do some error checking on the result object, because the result object has to have the correct type/size
         // We will also do some converting of result objects to a common type (such as scalar -> [[scalar]])
-        if (pResult) {
-            PyObject * pColO = NULL;
-
-            if (PyType_IsPandasDataFrame(pResult)) {
-                //the result object is a Pandas data frame
-                //we can convert the pandas data frame to a numpy array by simply accessing the "values" field (as pandas dataframes are numpy arrays internally)
-                pResult = PyObject_GetAttrString(pResult, "values"); 
-                if (pResult == NULL) {
-                    msg = createException(MAL, "pyapi.eval", "Invalid Pandas data frame.");
-                    goto wrapup; 
-                }
-                //we transpose the values field so it's aligned correctly for our purposes
-                pResult = PyObject_GetAttrString(pResult, "T");
-                if (pResult == NULL) {
-                    msg = createException(MAL, "pyapi.eval", "Invalid Pandas data frame.");
-                    goto wrapup; 
-                }
-            }
-
-            if (PyType_IsPyScalar(pResult)) { //check if the return object is a scalar 
-                if (pci->retc == 1)  {
-                    //if we only expect a single return value, we can accept scalars by converting it into an array holding an array holding the element (i.e. [[pResult]])
-                    PyObject *list = PyList_New(1);
-                    PyList_SetItem(list, 0, pResult);
-                    pResult = list;
-
-                    list = PyList_New(1);
-                    PyList_SetItem(list, 0, pResult);
-                    pResult = list;
-                }
-                else {
-                    //the result object is a scalar, yet we expect more than one return value. We can only convert the result into a list with a single element, so the output is necessarily wrong.
-                    msg = createException(MAL, "pyapi.eval", "A single scalar was returned, yet we expect a list of %d columns. We can only convert a single scalar into a single column, thus the result is invalid.", pci->retc);
-                    goto wrapup;
-                }
-            }
-            else {
-                //if it is not a scalar, we check if it is a single array
-                bool IsSingleArray = TRUE;
-                PyObject *data = pResult;
-                if (PyType_IsNumpyMaskedArray(data)) {
-                    data = PyObject_GetAttrString(pResult, "data");   
-                    if (data == NULL) {
-                        msg = createException(MAL, "pyapi.eval", "Invalid masked array.");
-                        goto wrapup;
-                    }           
-                }
-                if (PyType_IsNumpyArray(data)) {
-                    if (PyArray_NDIM((PyArrayObject*)data) != 1) {
-                        IsSingleArray = FALSE;
-                    }
-                    else {
-                        pColO = PyArray_GETITEM((PyArrayObject*)data, PyArray_GETPTR1((PyArrayObject*)data, 0));
-                        IsSingleArray = PyType_IsPyScalar(pColO);
-                    }
-                }
-                else if (PyList_Check(data)) {
-                    pColO = PyList_GetItem(data, 0);
-                    IsSingleArray = PyType_IsPyScalar(pColO);
-                }
-                else if (PyLazyArray_CheckExact(data)) {
-                    pColO = data;
-                    IsSingleArray = TRUE;
-                } else if (!PyType_IsNumpyMaskedArray(data)) {
-                    //it is neither a python array, numpy array or numpy masked array, thus the result is unsupported! Throw an exception!
-                    msg = createException(MAL, "pyapi.eval", "Unsupported result object. Expected either an array, a numpy array, a numpy masked array or a pandas data frame, but received an object of type \"%s\"", PyString_AsString(PyObject_Str(PyObject_Type(data))));
-                    goto wrapup;
-                }
-
-                if (IsSingleArray) {
-                    if (pci->retc == 1) {
-                        //if we only expect a single return value, we can accept a single array by converting it into an array holding an array holding the element (i.e. [pResult])
-                        PyObject *list = PyList_New(1);
-                        PyList_SetItem(list, 0, pResult);
-                        pResult = list;
-                    }
-                    else {
-                        //the result object is a single array, yet we expect more than one return value. We can only convert the result into a list with a single array, so the output is necessarily wrong.
-                        msg = createException(MAL, "pyapi.eval", "A single array was returned, yet we expect a list of %d columns. The result is invalid.", pci->retc);
-                        goto wrapup;
-                    }
-                }
-                else {
-                    //the return value is an array of arrays, all we need to do is check if it is the correct size
-                    int results = 0;
-                    if (PyList_Check(data)) results = PyList_Size(data);
-                    else results = PyArray_DIMS((PyArrayObject*)data)[0];
-                    if (results != pci->retc) {
-                        //wrong return size, we expect pci->retc arrays
-                        msg = createException(MAL, "pyapi.eval", "An array of size %d was returned, yet we expect a list of %d columns. The result is invalid.", results, pci->retc);
-                        goto wrapup;
-                    }
-                }
-            }
-            if (code_object == NULL) { PyRun_SimpleString("del pyfun"); }
-        } else {
-            msg = createException(MAL, "pyapi.eval", "Invalid result object. No result object could be generated.");
+        pResult = PyObject_CheckForConversion(pResult, pci->retc, NULL, &msg);
+        if (pResult == NULL) {
             goto wrapup;
         }
     }
 
     VERBOSE_MESSAGE("Collecting return values.\n");
+
+
 
     // Now we have executed the Python function, we have to collect the return values and convert them to BATs
     // We will first collect header information about the Python return objects and extract the underlying C arrays
@@ -942,89 +851,10 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     // The reason we are doing this as a separate step is because this preprocessing requires us to call the Python API
     // Whereas the actual returning does not require us to call the Python API
     // This means we can do the actual returning without holding the GIL
-    for (i = 0; i < pci->retc; i++) {
-        // Refers to the current Numpy mask (if it exists)
-        PyObject *pMask = NULL;
-        // Refers to the current Numpy array
-        PyObject * pColO = NULL;
-        // This is the PyReturn header information for the current return value, we will fill this now
-        PyReturn *ret = &pyreturn_values[i];
-
-        ret->multidimensional = FALSE;
-        // There are three possibilities (we have ensured this right after executing the Python call)
-        // 1: The top level result object is a PyList or Numpy Array containing pci->retc Numpy Arrays
-        // 2: The top level result object is a (pci->retc x N) dimensional Numpy Array [Multidimensional]
-        // 3: The top level result object is a (pci->retc x N) dimensional Numpy Masked Array [Multidimensional]
-        if (PyList_Check(pResult)) {
-            // If it is a PyList, we simply get the i'th Numpy array from the PyList
-            pColO = PyList_GetItem(pResult, i);
-        }
-        else {
-            // If it isn't, the result object is either a Nump Masked Array or a Numpy Array
-            PyObject *data = pResult;
-            if (PyType_IsNumpyMaskedArray(data)) {
-                data = PyObject_GetAttrString(pResult, "data"); // If it is a Masked array, the data is stored in the masked_array.data attribute
-                pMask = PyObject_GetAttrString(pResult, "mask");    
-            }
-
-            // We can either have a multidimensional numpy array, or a single dimensional numpy array 
-            if (PyArray_NDIM((PyArrayObject*)data) != 1) {
-                // If it is a multidimensional numpy array, we have to convert the i'th dimension to a NUMPY array object
-                ret->multidimensional = TRUE;
-                ret->result_type = PyArray_DESCR((PyArrayObject*)data)->type_num;
-            }
-            else {
-                // If it is a single dimensional Numpy array, we get the i'th Numpy array from the Numpy Array
-                pColO = PyArray_GETITEM((PyArrayObject*)data, PyArray_GETPTR1((PyArrayObject*)data, i));
-            }
-        }
-
-        // Now we have to do some preprocessing on the data
-        if (ret->multidimensional) {
-            // If it is a multidimensional Numpy array, we don't need to do any conversion, we can just do some pointers
-            ret->count = PyArray_DIMS((PyArrayObject*)pResult)[1];        
-            ret->numpy_array = pResult;                   
-            ret->numpy_mask = pMask;   
-            ret->array_data = PyArray_DATA((PyArrayObject*)ret->numpy_array);
-            if (ret->numpy_mask != NULL) ret->mask_data = PyArray_DATA((PyArrayObject*)ret->numpy_mask);                 
-            ret->memory_size = PyArray_DESCR((PyArrayObject*)ret->numpy_array)->elsize;   
-        }
-        else {
-            if (PyLazyArray_CheckExact(pColO)) {
-                // To handle returning of lazy arrays, we just convert them to a Numpy array. This is slow and could be done much faster, but since this can only happen if we directly return one of the input arguments this should be a rare situation anyway.
-                pColO = PyLazyArray_AsNumpyArray(pColO);
-                if (pColO == NULL) {
-                    msg = PyError_CreateException("Failed to convert lazy array to numpy array.\n", NULL);
-                    goto wrapup;
-                }
-            }
-            // If it isn't we need to convert pColO to the expected Numpy Array type
-            ret->numpy_array = PyArray_FromAny(pColO, NULL, 1, 1, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
-            if (ret->numpy_array == NULL) {
-                msg = createException(MAL, "pyapi.eval", "Could not create a Numpy array from the return type.\n");
-                goto wrapup;
-            }
-            
-            ret->result_type = PyArray_DESCR((PyArrayObject*)ret->numpy_array)->type_num; // We read the result type from the resulting array
-            ret->memory_size = PyArray_DESCR((PyArrayObject*)ret->numpy_array)->elsize;
-            ret->count = PyArray_DIMS((PyArrayObject*)ret->numpy_array)[0];
-            ret->array_data = PyArray_DATA((PyArrayObject*)ret->numpy_array);
-            // If pColO is a Masked array, we convert the mask to a NPY_BOOL numpy array     
-            if (PyObject_HasAttrString(pColO, "mask")) {
-                pMask = PyObject_GetAttrString(pColO, "mask");
-                if (pMask != NULL) {
-                    ret->numpy_mask = PyArray_FromAny(pMask, PyArray_DescrFromType(NPY_BOOL), 1, 1,  NPY_ARRAY_CARRAY, NULL);
-                    if (ret->numpy_mask == NULL || PyArray_DIMS((PyArrayObject*)ret->numpy_mask)[0] != (int)ret->count)
-                    {
-                        PyErr_Clear();
-                        pMask = NULL;
-                        ret->numpy_mask = NULL;                            
-                    }
-                }
-            }
-            if (ret->numpy_mask != NULL) ret->mask_data = PyArray_DATA((PyArrayObject*)ret->numpy_mask); 
-        }
+    if (!PyObject_PreprocessObject(pResult, pyreturn_values, pci->retc, &msg)) {
+        goto wrapup;
     }
+    
 
 #ifndef WIN32
     /*[SHARED_MEMORY]*/
@@ -1239,184 +1069,18 @@ returnvalues:
     {
         PyReturn *ret = &pyreturn_values[i];
         int bat_type = ATOMstorage(getColumnType(getArgType(mb,pci,i)));
-        size_t index_offset = 0;
 
         if (bat_type == TYPE_any || bat_type == TYPE_void) {
             getArgType(mb,pci,i) = bat_type;
             msg = createException(MAL, "pyapi.eval", "Unknown return value, possibly projecting with no parameters.");
             goto wrapup;
-       }
-
-        if (ret->multidimensional) index_offset = i;
-        VERBOSE_MESSAGE("- Returning a Numpy Array of type %s of size %zu and storing it in a BAT of type %s\n", PyType_Format(ret->result_type), ret->count,  BatType_Format(bat_type));
-        switch (bat_type) 
-        {
-        case TYPE_bte:
-            NP_CREATE_BAT(b, bit);
-            break;
-        case TYPE_sht:
-            NP_CREATE_BAT(b, sht);
-            break;
-        case TYPE_int:
-            NP_CREATE_BAT(b, int);
-            break;
-        case TYPE_lng:
-            NP_CREATE_BAT(b, lng);
-            break;
-        case TYPE_flt:
-            NP_CREATE_BAT(b, flt);
-            break;
-        case TYPE_dbl:
-            NP_CREATE_BAT(b, dbl);
-            break;
-#ifdef HAVE_HGE
-        case TYPE_hge:
-            NP_CREATE_BAT(b, hge);
-            break;
-#endif
-        case TYPE_str:
-            {
-                bool *mask = NULL;   
-                char *data = NULL;  
-                char *utf8_string = NULL;
-                if (ret->mask_data != NULL)   
-                {   
-                    mask = (bool*)ret->mask_data;   
-                }   
-                if (ret->array_data == NULL)   
-                {   
-                    msg = createException(MAL, "pyapi.eval", "No return value stored in the structure.  n");         
-                    goto wrapup;      
-                }          
-                data = (char*) ret->array_data;   
-
-                if (ret->result_type != NPY_OBJECT) {
-                    utf8_string = GDKzalloc(256 + ret->memory_size + 1); 
-                    utf8_string[256 + ret->memory_size] = '\0';       
-                }
-
-                b = BATnew(TYPE_void, TYPE_str, ret->count, TRANSIENT);    
-                BATseqbase(b, seqbase); b->T->nil = 0; b->T->nonil = 1;         
-                b->tkey = 0; b->tsorted = 0; b->trevsorted = 0;
-                VERBOSE_MESSAGE("- Collecting return values of type %s.\n", PyType_Format(ret->result_type));
-                switch(ret->result_type)                                                          
-                {                                                                                 
-                    case NPY_BOOL:      NP_COL_BAT_STR_LOOP(b, bit, lng_to_string); break;
-                    case NPY_BYTE:      NP_COL_BAT_STR_LOOP(b, bte, lng_to_string); break;
-                    case NPY_SHORT:     NP_COL_BAT_STR_LOOP(b, sht, lng_to_string); break;
-                    case NPY_INT:       NP_COL_BAT_STR_LOOP(b, int, lng_to_string); break;
-                    case NPY_LONG:      
-                    case NPY_LONGLONG:  NP_COL_BAT_STR_LOOP(b, lng, lng_to_string); break;
-                    case NPY_UBYTE:     NP_COL_BAT_STR_LOOP(b, unsigned char, lng_to_string); break;
-                    case NPY_USHORT:    NP_COL_BAT_STR_LOOP(b, unsigned short, lng_to_string); break;
-                    case NPY_UINT:      NP_COL_BAT_STR_LOOP(b, unsigned int, lng_to_string); break;
-                    case NPY_ULONG:     NP_COL_BAT_STR_LOOP(b, unsigned long, lng_to_string); break;  
-                    case NPY_ULONGLONG: NP_COL_BAT_STR_LOOP(b, unsigned long long, lng_to_string); break;  
-                    case NPY_FLOAT16:                                                             
-                    case NPY_FLOAT:     NP_COL_BAT_STR_LOOP(b, flt, dbl_to_string); break;             
-                    case NPY_DOUBLE:                                                              
-                    case NPY_LONGDOUBLE: NP_COL_BAT_STR_LOOP(b, dbl, dbl_to_string); break;                  
-                    case NPY_STRING:    
-                        for (iu = 0; iu < ret->count; iu++) {              
-                            if (mask != NULL && (mask[index_offset * ret->count + iu]) == TRUE) {                                                           
-                                b->T->nil = 1;    
-                                BUNappend(b, str_nil, FALSE);                                                            
-                            }  else {
-                                if (!string_copy(&data[(index_offset * ret->count + iu) * ret->memory_size], utf8_string, ret->memory_size)) {
-                                    msg = createException(MAL, "pyapi.eval", "Invalid string encoding used. Please return a regular ASCII string, or a Numpy_Unicode object.\n");       
-                                    goto wrapup;
-                                }
-                                BUNappend(b, utf8_string, FALSE); 
-                            }                                                       
-                        }    
-                        break;
-                    case NPY_UNICODE:    
-                        for (iu = 0; iu < ret->count; iu++) {              
-                            if (mask != NULL && (mask[index_offset * ret->count + iu]) == TRUE) {                                                           
-                                b->T->nil = 1;    
-                                BUNappend(b, str_nil, FALSE);
-                            }  else {
-                                utf32_to_utf8(0, ret->memory_size / 4, utf8_string, (const Py_UNICODE*)(&data[(index_offset * ret->count + iu) * ret->memory_size]));
-                                BUNappend(b, utf8_string, FALSE);
-                            }                                                       
-                        }    
-                        break;
-                    case NPY_OBJECT:
-                    {
-                        //The resulting array is an array of pointers to various python objects
-                        //Because the python objects can be of any size, we need to allocate a different size utf8_string for every object
-                        //we will first loop over all the objects to get the maximum size needed, so we only need to do one allocation
-                        size_t utf8_size = 256;
-                        for (iu = 0; iu < ret->count; iu++) {
-                            size_t size = 256;
-                            PyObject *obj;
-                            if (mask != NULL && (mask[index_offset * ret->count + iu]) == TRUE) continue;
-                            obj = *((PyObject**) &data[(index_offset * ret->count + iu) * ret->memory_size]);
-                            if (PyString_CheckExact(obj) || PyByteArray_CheckExact(obj)) {
-                                size = Py_SIZE(obj);
-                            } else if (PyUnicode_CheckExact(obj)) {
-                                size = Py_SIZE(obj) * 4;
-                            }
-                            if (size > utf8_size) utf8_size = size;
-                        }
-                        utf8_string = GDKzalloc(utf8_size);
-                        for (iu = 0; iu < ret->count; iu++) {          
-                            if (mask != NULL && (mask[index_offset * ret->count + iu]) == TRUE) {                
-                                b->T->nil = 1;    
-                                BUNappend(b, str_nil, FALSE);
-                            } else {
-                                //we try to handle as many types as possible
-                                PyObject *obj = *((PyObject**) &data[(index_offset * ret->count + iu) * ret->memory_size]);
-                                if (PyString_CheckExact(obj)) {
-                                    char *str = ((PyStringObject*)obj)->ob_sval;
-                                    if (!string_copy(str, utf8_string, strlen(str) + 1)) {
-                                        msg = createException(MAL, "pyapi.eval", "Invalid string encoding used. Please return a regular ASCII string, or a Numpy_Unicode object.\n");       
-                                        goto wrapup;    
-                                    }
-                                } else if (PyByteArray_CheckExact(obj)) {
-                                    char *str = ((PyByteArrayObject*)obj)->ob_bytes;
-                                    if (!string_copy(str, utf8_string, strlen(str) + 1)) {
-                                        msg = createException(MAL, "pyapi.eval", "Invalid string encoding used. Please return a regular ASCII string, or a Numpy_Unicode object.\n");       
-                                        goto wrapup;    
-                                    }
-                                } else if (PyUnicode_CheckExact(obj)) {
-                                    Py_UNICODE *str = (Py_UNICODE*)((PyUnicodeObject*)obj)->str;
-                                    utf32_to_utf8(0, ((PyUnicodeObject*)obj)->length, utf8_string, str);
-                                } else if (PyBool_Check(obj) || PyLong_Check(obj) || PyInt_Check(obj) || PyFloat_Check(obj)) { 
-#ifdef HAVE_HGE
-                                    hge h;
-                                    py_to_hge(obj, &h);
-                                    hge_to_string(utf8_string, h);
-#else
-                                    lng h;
-                                    py_to_lng(obj, &h);
-                                    lng_to_string(utf8_string, h);
-#endif
-                                } else {
-                                    msg = createException(MAL, "pyapi.eval", "Unrecognized Python object. Could not convert to NPY_UNICODE.\n");       
-                                    goto wrapup; 
-                                }
-                                BUNappend(b, utf8_string, FALSE); 
-                            }                                                       
-                        }
-                        break;
-                    }
-                    default:
-                        msg = createException(MAL, "pyapi.eval", "Unrecognized type. Could not convert to NPY_UNICODE.\n");       
-                        goto wrapup;    
-                }                           
-                GDKfree(utf8_string);   
-                                                    
-                b->T->nonil = 1 - b->T->nil;                                                  
-                BATsetcount(b, ret->count);                                                     
-                BATsettrivprop(b); 
-                break;
-            }
-        default:
-            msg = createException(MAL, "pyapi.eval", "Unrecognized BAT type %s.\n", BatType_Format(bat_type));       
-            goto wrapup; 
         }
 
+        b = PyObject_ConvertToBAT(ret, bat_type, i, seqbase, &msg);
+        if (b == NULL) { 
+            goto wrapup;
+        }
+        
         if (isaBatType(getArgType(mb,pci,i))) 
         {
             *getArgReference_bat(stk, pci, i) = b->batCacheid;
@@ -2081,4 +1745,396 @@ PyObject *PyNullMask_FromBAT(BAT *b, size_t t_start, size_t t_end)
     }
 
     return (PyObject*)nullmask;
+}
+
+
+PyObject *PyObject_CheckForConversion(PyObject *pResult, int expected_columns, int *actual_columns, char **return_message)
+{
+    char *msg;
+    int columns = 0;
+    if (pResult) {
+        PyObject * pColO = NULL;
+        if (PyType_IsPandasDataFrame(pResult)) {
+            //the result object is a Pandas data frame
+            //we can convert the pandas data frame to a numpy array by simply accessing the "values" field (as pandas dataframes are numpy arrays internally)
+            pResult = PyObject_GetAttrString(pResult, "values"); 
+            if (pResult == NULL) {
+                msg = createException(MAL, "pyapi.eval", "Invalid Pandas data frame.");
+                goto wrapup; 
+            }
+            //we transpose the values field so it's aligned correctly for our purposes
+            pResult = PyObject_GetAttrString(pResult, "T");
+            if (pResult == NULL) {
+                msg = createException(MAL, "pyapi.eval", "Invalid Pandas data frame.");
+                goto wrapup; 
+            }
+        }
+
+        if (PyType_IsPyScalar(pResult)) { //check if the return object is a scalar 
+            if (expected_columns == 1 || expected_columns <= 0)  {
+                //if we only expect a single return value, we can accept scalars by converting it into an array holding an array holding the element (i.e. [[pResult]])
+                PyObject *list = PyList_New(1);
+                PyList_SetItem(list, 0, pResult);
+                pResult = list;
+
+                list = PyList_New(1);
+                PyList_SetItem(list, 0, pResult);
+                pResult = list;
+
+                columns = 1;
+            }
+            else {
+                //the result object is a scalar, yet we expect more than one return value. We can only convert the result into a list with a single element, so the output is necessarily wrong.
+                msg = createException(MAL, "pyapi.eval", "A single scalar was returned, yet we expect a list of %d columns. We can only convert a single scalar into a single column, thus the result is invalid.", expected_columns);
+                goto wrapup;
+            }
+        }
+        else {
+            //if it is not a scalar, we check if it is a single array
+            bool IsSingleArray = TRUE;
+            PyObject *data = pResult;
+            if (PyType_IsNumpyMaskedArray(data)) {
+                data = PyObject_GetAttrString(pResult, "data");   
+                if (data == NULL) {
+                    msg = createException(MAL, "pyapi.eval", "Invalid masked array.");
+                    goto wrapup;
+                }           
+            }
+            if (PyType_IsNumpyArray(data)) {
+                if (PyArray_NDIM((PyArrayObject*)data) != 1) {
+                    IsSingleArray = FALSE;
+                }
+                else {
+                    pColO = PyArray_GETITEM((PyArrayObject*)data, PyArray_GETPTR1((PyArrayObject*)data, 0));
+                    IsSingleArray = PyType_IsPyScalar(pColO);
+                }
+            }
+            else if (PyList_Check(data)) {
+                pColO = PyList_GetItem(data, 0);
+                IsSingleArray = PyType_IsPyScalar(pColO);
+            }
+            else if (PyLazyArray_CheckExact(data)) {
+                pColO = data;
+                IsSingleArray = TRUE;
+            } else if (!PyType_IsNumpyMaskedArray(data)) {
+                //it is neither a python array, numpy array or numpy masked array, thus the result is unsupported! Throw an exception!
+                msg = createException(MAL, "pyapi.eval", "Unsupported result object. Expected either an array, a numpy array, a numpy masked array or a pandas data frame, but received an object of type \"%s\"", PyString_AsString(PyObject_Str(PyObject_Type(data))));
+                goto wrapup;
+            }
+
+            if (IsSingleArray) {
+                if (expected_columns == 1 || expected_columns <= 0) {
+                    //if we only expect a single return value, we can accept a single array by converting it into an array holding an array holding the element (i.e. [pResult])
+                    PyObject *list = PyList_New(1);
+                    PyList_SetItem(list, 0, pResult);
+                    pResult = list;
+
+                    columns = 1;
+                }
+                else {
+                    //the result object is a single array, yet we expect more than one return value. We can only convert the result into a list with a single array, so the output is necessarily wrong.
+                    msg = createException(MAL, "pyapi.eval", "A single array was returned, yet we expect a list of %d columns. The result is invalid.", expected_columns);
+                    goto wrapup;
+                }
+            }
+            else {
+                //the return value is an array of arrays, all we need to do is check if it is the correct size
+                int results = 0;
+                if (PyList_Check(data)) results = PyList_Size(data);
+                else results = PyArray_DIMS((PyArrayObject*)data)[0];
+                columns = results;
+                if (results != expected_columns && expected_columns > 0) {
+                    //wrong return size, we expect pci->retc arrays
+                    msg = createException(MAL, "pyapi.eval", "An array of size %d was returned, yet we expect a list of %d columns. The result is invalid.", results, expected_columns);
+                    goto wrapup;
+                }
+            }
+        }
+    } else {
+        msg = createException(MAL, "pyapi.eval", "Invalid result object. No result object could be generated.");
+        goto wrapup;
+    }
+
+    if (actual_columns != NULL) *actual_columns = columns;
+    return pResult;
+wrapup:
+    if (actual_columns != NULL) *actual_columns = columns;
+    *return_message = msg;
+    return NULL;
+}
+
+
+bool PyObject_PreprocessObject(PyObject *pResult, PyReturn *pyreturn_values, int column_count, char **return_message)
+{
+    int i;
+    char *msg;
+    for (i = 0; i < column_count; i++) {
+        // Refers to the current Numpy mask (if it exists)
+        PyObject *pMask = NULL;
+        // Refers to the current Numpy array
+        PyObject * pColO = NULL;
+        // This is the PyReturn header information for the current return value, we will fill this now
+        PyReturn *ret = &pyreturn_values[i];
+
+        ret->multidimensional = FALSE;
+        // There are three possibilities (we have ensured this right after executing the Python call by calling PyObject_CheckForConversion)
+        // 1: The top level result object is a PyList or Numpy Array containing pci->retc Numpy Arrays
+        // 2: The top level result object is a (pci->retc x N) dimensional Numpy Array [Multidimensional]
+        // 3: The top level result object is a (pci->retc x N) dimensional Numpy Masked Array [Multidimensional]
+        if (PyList_Check(pResult)) {
+            // If it is a PyList, we simply get the i'th Numpy array from the PyList
+            pColO = PyList_GetItem(pResult, i);
+        }
+        else {
+            // If it isn't, the result object is either a Nump Masked Array or a Numpy Array
+            PyObject *data = pResult;
+            if (PyType_IsNumpyMaskedArray(data)) {
+                data = PyObject_GetAttrString(pResult, "data"); // If it is a Masked array, the data is stored in the masked_array.data attribute
+                pMask = PyObject_GetAttrString(pResult, "mask");    
+            }
+
+            // We can either have a multidimensional numpy array, or a single dimensional numpy array 
+            if (PyArray_NDIM((PyArrayObject*)data) != 1) {
+                // If it is a multidimensional numpy array, we have to convert the i'th dimension to a NUMPY array object
+                ret->multidimensional = TRUE;
+                ret->result_type = PyArray_DESCR((PyArrayObject*)data)->type_num;
+            }
+            else {
+                // If it is a single dimensional Numpy array, we get the i'th Numpy array from the Numpy Array
+                pColO = PyArray_GETITEM((PyArrayObject*)data, PyArray_GETPTR1((PyArrayObject*)data, i));
+            }
+        }
+
+        // Now we have to do some preprocessing on the data
+        if (ret->multidimensional) {
+            // If it is a multidimensional Numpy array, we don't need to do any conversion, we can just do some pointers
+            ret->count = PyArray_DIMS((PyArrayObject*)pResult)[1];        
+            ret->numpy_array = pResult;                   
+            ret->numpy_mask = pMask;   
+            ret->array_data = PyArray_DATA((PyArrayObject*)ret->numpy_array);
+            if (ret->numpy_mask != NULL) ret->mask_data = PyArray_DATA((PyArrayObject*)ret->numpy_mask);                 
+            ret->memory_size = PyArray_DESCR((PyArrayObject*)ret->numpy_array)->elsize;   
+        }
+        else {
+            if (PyLazyArray_CheckExact(pColO)) {
+                // To handle returning of lazy arrays, we just convert them to a Numpy array. This is slow and could be done much faster, but since this can only happen if we directly return one of the input arguments this should be a rare situation anyway.
+                pColO = PyLazyArray_AsNumpyArray(pColO);
+                if (pColO == NULL) {
+                    msg = PyError_CreateException("Failed to convert lazy array to numpy array.\n", NULL);
+                    goto wrapup;
+                }
+            }
+            // If it isn't we need to convert pColO to the expected Numpy Array type
+            ret->numpy_array = PyArray_FromAny(pColO, NULL, 1, 1, NPY_ARRAY_CARRAY | NPY_ARRAY_FORCECAST, NULL);
+            if (ret->numpy_array == NULL) {
+                msg = createException(MAL, "pyapi.eval", "Could not create a Numpy array from the return type.\n");
+                goto wrapup;
+            }
+            
+            ret->result_type = PyArray_DESCR((PyArrayObject*)ret->numpy_array)->type_num; // We read the result type from the resulting array
+            ret->memory_size = PyArray_DESCR((PyArrayObject*)ret->numpy_array)->elsize;
+            ret->count = PyArray_DIMS((PyArrayObject*)ret->numpy_array)[0];
+            ret->array_data = PyArray_DATA((PyArrayObject*)ret->numpy_array);
+            // If pColO is a Masked array, we convert the mask to a NPY_BOOL numpy array     
+            if (PyObject_HasAttrString(pColO, "mask")) {
+                pMask = PyObject_GetAttrString(pColO, "mask");
+                if (pMask != NULL) {
+                    ret->numpy_mask = PyArray_FromAny(pMask, PyArray_DescrFromType(NPY_BOOL), 1, 1,  NPY_ARRAY_CARRAY, NULL);
+                    if (ret->numpy_mask == NULL || PyArray_DIMS((PyArrayObject*)ret->numpy_mask)[0] != (int)ret->count)
+                    {
+                        PyErr_Clear();
+                        pMask = NULL;
+                        ret->numpy_mask = NULL;                            
+                    }
+                }
+            }
+            if (ret->numpy_mask != NULL) ret->mask_data = PyArray_DATA((PyArrayObject*)ret->numpy_mask); 
+        }
+    }
+    return TRUE;
+wrapup:
+    *return_message = msg;
+    return FALSE;
+}
+
+BAT *PyObject_ConvertToBAT(PyReturn *ret, int bat_type, int i, int seqbase, char **return_message)
+{
+    BAT *b = NULL;
+    size_t index_offset = 0;
+    char *msg;
+    size_t iu;
+
+    if (ret->multidimensional) index_offset = i;
+    VERBOSE_MESSAGE("- Returning a Numpy Array of type %s of size %zu and storing it in a BAT of type %s\n", PyType_Format(ret->result_type), ret->count,  BatType_Format(bat_type));
+    switch (bat_type) 
+    {
+    case TYPE_bte:
+        NP_CREATE_BAT(b, bit);
+        break;
+    case TYPE_sht:
+        NP_CREATE_BAT(b, sht);
+        break;
+    case TYPE_int:
+        NP_CREATE_BAT(b, int);
+        break;
+    case TYPE_lng:
+        NP_CREATE_BAT(b, lng);
+        break;
+    case TYPE_flt:
+        NP_CREATE_BAT(b, flt);
+        break;
+    case TYPE_dbl:
+        NP_CREATE_BAT(b, dbl);
+        break;
+#ifdef HAVE_HGE
+    case TYPE_hge:
+        NP_CREATE_BAT(b, hge);
+        break;
+#endif
+    case TYPE_str:
+        {
+            bool *mask = NULL;   
+            char *data = NULL;  
+            char *utf8_string = NULL;
+            if (ret->mask_data != NULL)   
+            {   
+                mask = (bool*)ret->mask_data;   
+            }   
+            if (ret->array_data == NULL)   
+            {   
+                msg = createException(MAL, "pyapi.eval", "No return value stored in the structure.  n");         
+                goto wrapup;      
+            }          
+            data = (char*) ret->array_data;   
+
+            if (ret->result_type != NPY_OBJECT) {
+                utf8_string = GDKzalloc(256 + ret->memory_size + 1); 
+                utf8_string[256 + ret->memory_size] = '\0';       
+            }
+
+            b = BATnew(TYPE_void, TYPE_str, ret->count, TRANSIENT);    
+            BATseqbase(b, seqbase); b->T->nil = 0; b->T->nonil = 1;         
+            b->tkey = 0; b->tsorted = 0; b->trevsorted = 0;
+            VERBOSE_MESSAGE("- Collecting return values of type %s.\n", PyType_Format(ret->result_type));
+            switch(ret->result_type)                                                          
+            {                                                                                 
+                case NPY_BOOL:      NP_COL_BAT_STR_LOOP(b, bit, lng_to_string); break;
+                case NPY_BYTE:      NP_COL_BAT_STR_LOOP(b, bte, lng_to_string); break;
+                case NPY_SHORT:     NP_COL_BAT_STR_LOOP(b, sht, lng_to_string); break;
+                case NPY_INT:       NP_COL_BAT_STR_LOOP(b, int, lng_to_string); break;
+                case NPY_LONG:      
+                case NPY_LONGLONG:  NP_COL_BAT_STR_LOOP(b, lng, lng_to_string); break;
+                case NPY_UBYTE:     NP_COL_BAT_STR_LOOP(b, unsigned char, lng_to_string); break;
+                case NPY_USHORT:    NP_COL_BAT_STR_LOOP(b, unsigned short, lng_to_string); break;
+                case NPY_UINT:      NP_COL_BAT_STR_LOOP(b, unsigned int, lng_to_string); break;
+                case NPY_ULONG:     NP_COL_BAT_STR_LOOP(b, unsigned long, lng_to_string); break;  
+                case NPY_ULONGLONG: NP_COL_BAT_STR_LOOP(b, unsigned long long, lng_to_string); break;  
+                case NPY_FLOAT16:                                                             
+                case NPY_FLOAT:     NP_COL_BAT_STR_LOOP(b, flt, dbl_to_string); break;             
+                case NPY_DOUBLE:                                                              
+                case NPY_LONGDOUBLE: NP_COL_BAT_STR_LOOP(b, dbl, dbl_to_string); break;                  
+                case NPY_STRING:    
+                    for (iu = 0; iu < ret->count; iu++) {              
+                        if (mask != NULL && (mask[index_offset * ret->count + iu]) == TRUE) {                                                           
+                            b->T->nil = 1;    
+                            BUNappend(b, str_nil, FALSE);                                                            
+                        }  else {
+                            if (!string_copy(&data[(index_offset * ret->count + iu) * ret->memory_size], utf8_string, ret->memory_size)) {
+                                msg = createException(MAL, "pyapi.eval", "Invalid string encoding used. Please return a regular ASCII string, or a Numpy_Unicode object.\n");       
+                                goto wrapup;
+                            }
+                            BUNappend(b, utf8_string, FALSE); 
+                        }                                                       
+                    }    
+                    break;
+                case NPY_UNICODE:    
+                    for (iu = 0; iu < ret->count; iu++) {              
+                        if (mask != NULL && (mask[index_offset * ret->count + iu]) == TRUE) {                                                           
+                            b->T->nil = 1;    
+                            BUNappend(b, str_nil, FALSE);
+                        }  else {
+                            utf32_to_utf8(0, ret->memory_size / 4, utf8_string, (const Py_UNICODE*)(&data[(index_offset * ret->count + iu) * ret->memory_size]));
+                            BUNappend(b, utf8_string, FALSE);
+                        }                                                       
+                    }    
+                    break;
+                case NPY_OBJECT:
+                {
+                    //The resulting array is an array of pointers to various python objects
+                    //Because the python objects can be of any size, we need to allocate a different size utf8_string for every object
+                    //we will first loop over all the objects to get the maximum size needed, so we only need to do one allocation
+                    size_t utf8_size = 256;
+                    for (iu = 0; iu < ret->count; iu++) {
+                        size_t size = 256;
+                        PyObject *obj;
+                        if (mask != NULL && (mask[index_offset * ret->count + iu]) == TRUE) continue;
+                        obj = *((PyObject**) &data[(index_offset * ret->count + iu) * ret->memory_size]);
+                        if (PyString_CheckExact(obj) || PyByteArray_CheckExact(obj)) {
+                            size = Py_SIZE(obj);
+                        } else if (PyUnicode_CheckExact(obj)) {
+                            size = Py_SIZE(obj) * 4;
+                        }
+                        if (size > utf8_size) utf8_size = size;
+                    }
+                    utf8_string = GDKzalloc(utf8_size);
+                    for (iu = 0; iu < ret->count; iu++) {          
+                        if (mask != NULL && (mask[index_offset * ret->count + iu]) == TRUE) {                
+                            b->T->nil = 1;    
+                            BUNappend(b, str_nil, FALSE);
+                        } else {
+                            //we try to handle as many types as possible
+                            PyObject *obj = *((PyObject**) &data[(index_offset * ret->count + iu) * ret->memory_size]);
+                            if (PyString_CheckExact(obj)) {
+                                char *str = ((PyStringObject*)obj)->ob_sval;
+                                if (!string_copy(str, utf8_string, strlen(str) + 1)) {
+                                    msg = createException(MAL, "pyapi.eval", "Invalid string encoding used. Please return a regular ASCII string, or a Numpy_Unicode object.\n");       
+                                    goto wrapup;    
+                                }
+                            } else if (PyByteArray_CheckExact(obj)) {
+                                char *str = ((PyByteArrayObject*)obj)->ob_bytes;
+                                if (!string_copy(str, utf8_string, strlen(str) + 1)) {
+                                    msg = createException(MAL, "pyapi.eval", "Invalid string encoding used. Please return a regular ASCII string, or a Numpy_Unicode object.\n");       
+                                    goto wrapup;    
+                                }
+                            } else if (PyUnicode_CheckExact(obj)) {
+                                Py_UNICODE *str = (Py_UNICODE*)((PyUnicodeObject*)obj)->str;
+                                utf32_to_utf8(0, ((PyUnicodeObject*)obj)->length, utf8_string, str);
+                            } else if (PyBool_Check(obj) || PyLong_Check(obj) || PyInt_Check(obj) || PyFloat_Check(obj)) { 
+#ifdef HAVE_HGE
+                                hge h;
+                                py_to_hge(obj, &h);
+                                hge_to_string(utf8_string, h);
+#else
+                                lng h;
+                                py_to_lng(obj, &h);
+                                lng_to_string(utf8_string, h);
+#endif
+                            } else {
+                                msg = createException(MAL, "pyapi.eval", "Unrecognized Python object. Could not convert to NPY_UNICODE.\n");       
+                                goto wrapup; 
+                            }
+                            BUNappend(b, utf8_string, FALSE); 
+                        }                                                       
+                    }
+                    break;
+                }
+                default:
+                    msg = createException(MAL, "pyapi.eval", "Unrecognized type. Could not convert to NPY_UNICODE.\n");       
+                    goto wrapup;    
+            }                           
+            GDKfree(utf8_string);   
+                                                
+            b->T->nonil = 1 - b->T->nil;                                                  
+            BATsetcount(b, ret->count);                                                     
+            BATsettrivprop(b); 
+            break;
+        }
+    default:
+        msg = createException(MAL, "pyapi.eval", "Unrecognized BAT type %s.\n", BatType_Format(bat_type));       
+        goto wrapup; 
+    }
+    return b;
+wrapup:
+    *return_message = msg;
+    return NULL;
 }

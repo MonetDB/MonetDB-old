@@ -1941,6 +1941,50 @@ mvc_bind_idxbat_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	throw(SQL, "sql.idxbind", "unable to find index %s for %s", *iname, *tname);
 }
 
+
+str
+mvc_append_intern(Client cntxt, str sname, str tname, str cname, ptr ins, int tpe)
+{
+	mvc *m = NULL;
+	str msg;
+	sql_schema *s;
+	sql_table *t;
+	sql_column *c;
+	BAT *b = 0;
+
+	if ((msg = getSQLContext(cntxt, NULL, &m, NULL)) != NULL)
+		return msg;
+	if ((msg = checkSQLContext(cntxt)) != NULL)
+		return msg;
+	if (tpe > GDKatomcnt)
+		tpe = TYPE_bat;
+	if (tpe == TYPE_bat && (ins = BATdescriptor(*(int *) ins)) == NULL)
+		throw(SQL, "sql.append", "Cannot access descriptor");
+	if (ATOMextern(tpe))
+		ins = *(ptr *) ins;
+	if ( tpe == TYPE_bat)
+		b =  (BAT*) ins;
+	s = mvc_bind_schema(m, sname);
+	if (s == NULL)
+		throw(SQL, "sql.append", "Schema missing");
+	t = mvc_bind_table(m, s, tname);
+	if (t == NULL)
+		throw(SQL, "sql.append", "Table missing");
+	if( b && BATcount(b) > 4096 && b->batPersistence == PERSISTENT)
+		BATmsync(b);
+	if (cname[0] != '%' && (c = mvc_bind_column(m, t, cname)) != NULL) {
+		store_funcs.append_col(m->session->tr, c, ins, tpe);
+	} else if (cname[0] == '%') {
+		sql_idx *i = mvc_bind_idx(m, s, cname + 1);
+		if (i)
+			store_funcs.append_idx(m->session->tr, i, ins, tpe);
+	}
+	if (tpe == TYPE_bat) {
+		BBPunfix(((BAT *) ins)->batCacheid);
+	}
+	return MAL_SUCCEED;
+}
+
 /*mvc_append_wrap(int *bid, str *sname, str *tname, str *cname, ptr d) */
 str
 mvc_append_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)

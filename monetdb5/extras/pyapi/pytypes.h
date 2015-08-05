@@ -89,6 +89,13 @@ PyObject *PyArrayObject_FromScalar(PyInput* input_scalar, char **return_message)
 //! Creates a Numpy Masked Array  from an PyInput structure containing a BAT (essentially just combines PyArrayObject_FromBAT and PyNullMask_FromBAT)
 PyObject *PyMaskedArray_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char **return_message);
 
+//! Test if a specific PyObject can be converted to a set of <expected_columns> BATs (or just check if they can be converted to any number of BATs if expected_columns is smaller than 0)
+PyObject *PyObject_CheckForConversion(PyObject *pResult, int expected_columns, int *actual_columns, char **return_message);
+//! Preprocess a PyObject (that is the result of PyObject_CheckForConversion), pyreturn_values must be an array of PyReturn structs of size column_count
+bool PyObject_PreprocessObject(PyObject *pResult, PyReturn *pyreturn_values, int column_count, char **return_message);
+//! Create a BAT from the i'th PyReturn struct (filled by PyObject_PreprocessObject), with bat_type set to the expected BAT Type (set this to PyType_ToBat(ret->result_type) if there is no expected type), seqbase should be set to 0 unless you know what you're doing
+BAT *PyObject_ConvertToBAT(PyReturn *ret, int bat_type, int index, int seqbase, char **return_message);
+
 char *BatType_Format(int);
 
 int PyType_ToBat(int);

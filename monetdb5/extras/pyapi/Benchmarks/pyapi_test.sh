@@ -11,7 +11,7 @@ export MSERVERTEST='netstat -ant | grep "127.0.0.1:$MSERVER_PORT.*LISTEN">/dev/n
 # Testing parameters
 # Input test (zero copy vs copy)
 # The input sizes to test (in MB)
-export INPUT_TESTING_SIZES="0.1 1 10 100 1000 10000"
+export INPUT_TESTING_SIZES="0.1 1 10 100 1000"
 # Amount of tests to run for each size
 export INPUT_TESTING_NTESTS=10
 
