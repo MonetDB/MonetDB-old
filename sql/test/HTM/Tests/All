@@ -1,12 +1,5 @@
 setup
-MultipleConnections1WithAutocommitFalse
-MultipleConnections1WithAutocommitFalseAndDelete
 MultipleConnectionsAllWithAutocommit
-MultipleConnections-1
-MultipleConnections-2
-MultipleConnections-3
-MultipleConnections-4
-MultipleConnections-5
 MultipleConnections-cleanup
 ReadsItsOwnWrites
 ReadsItsOwnWrites-cleanup
@@ -29,3 +22,5 @@ InsertWith2PCDeleteWithCommit-2
 InsertWithCommitDeleteWith2PC-1
 InsertWithCommitDeleteWith2PC-2
 TwoInsetsIn1Transaction
+PrecommitWithoutPersists-1
+PrecommitWithoutPersists-2
