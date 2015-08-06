@@ -1190,6 +1190,9 @@ returnvalues:
         f = fopen(benchmark_output, "a");
         if (f != NULL) {
             fprintf(f, "%llu\t%f\n", peak_memory_usage, GET_ELAPSED_TIME(start_time, end_time));
+            if (msg != MAL_SUCCEED) {
+                fprintf(f, "Error: %s\n", msg);
+            }
             fclose(f);
         } else {
             perror("Error");
