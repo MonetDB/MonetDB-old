@@ -28,7 +28,7 @@ Ready.
 # 22:22:13 >  
 
 #DELETE FROM htmtest WHERE id > 3;
-[ 3	]
+[ 0	]
 
 # 22:22:13 >  
 # 22:22:13 >  "Done."

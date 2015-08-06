@@ -31,13 +31,10 @@ Ready.
 % sys.htmtest,	sys.htmtest # table_name
 % id,	val # name
 % int,	int # type
-% 2,	2 # length
+% 1,	2 # length
 [ 1,	10	]
 [ 2,	20	]
 [ 3,	88	]
-[ 16,	99	]
-[ 17,	99	]
-[ 18,	99	]
 
 # 17:16:34 >  
 # 17:16:34 >  "Done."
