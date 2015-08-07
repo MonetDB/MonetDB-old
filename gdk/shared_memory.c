@@ -27,8 +27,10 @@ static int shm_unique_id = 1;
 static int shm_current_id = 0;
 static int shm_max_id = 32;
 static int shm_is_initialized = false;
-static char shm_keystring[] = ".";
+static char shm_keystring[] = BINDIR;
 static MT_Lock release_memory_lock;
+static key_t base_key = 800000000;
+
 
 str init_shared_memory(int id, size_t size, void **ptr, int flags);
 void store_shared_memory(int memory_id, void *ptr);
@@ -84,7 +86,6 @@ void store_shared_memory(int memory_id, void *ptr)
 		shm_max_id *= 2;
 	}
 
-
 	shm_memory_ids[shm_current_id] = memory_id;
 	shm_ptrs[shm_current_id] = ptr;
 	shm_current_id++;
@@ -110,17 +111,24 @@ str get_shared_memory(int id, size_t size, void **return_ptr)
 	return init_shared_memory(id, size, return_ptr, 0);
 }
 
+str ftok_enhanced(int id, key_t *return_key);
+str ftok_enhanced(int id, key_t *return_key)
+{
+    *return_key = base_key + id;
+    return MAL_SUCCEED;
+}
+
 str init_shared_memory(int id, size_t size, void **return_ptr, int flags)
 {
     int shmid;
     void *ptr;
     int i;
-	int key = ftok(shm_keystring, id);
-    if (key == (key_t) -1)
+    key_t key;
+
+	str msg = ftok_enhanced(id, &key);
+    if (msg != MAL_SUCCEED)
     {
-        char *err = strerror(errno);
-        errno = 0;
-        return createException(MAL, "shared_memory.get", "Error calling ftok(keystring:%s,id:%d): %s", shm_keystring, id, err);
+        return msg;
     }
 
 	assert(shm_is_initialized);

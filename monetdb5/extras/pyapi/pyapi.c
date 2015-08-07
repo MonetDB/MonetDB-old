@@ -618,7 +618,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 if (descr->bat_size == 0) {
                     msg = createException(MAL, "pyapi.eval", "Failure in child process with unknown error.");
                 } else {
+                    MT_lock_set(&pyapiLock, "pyapi.evaluate");
                     msg = get_shared_memory(shm_id + 1, descr->bat_size, (void**) &err_ptr);
+                    MT_lock_unset(&pyapiLock, "pyapi.evaluate");
                     if (msg == MAL_SUCCEED)
                     {
                         msg = createException(MAL, "pyapi.eval", "%s", err_ptr);
@@ -1148,7 +1150,6 @@ returnvalues:
 #endif
 
     VERBOSE_MESSAGE("Cleaning up.\n");
-
 
     // Actual cleanup
     // Cleanup input BATs
