@@ -532,13 +532,13 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 
         VERBOSE_MESSAGE("Initializing shared memory.\n");
 
+        assert(memory_size > 0);
         //create the shared memory for the header
         MT_lock_set(&pyapiLock, "pyapi.evaluate");
-        ptr = create_shared_memory(shm_id, memory_size); 
+        msg = create_shared_memory(shm_id, memory_size, (void**) &ptr); 
         MT_lock_unset(&pyapiLock, "pyapi.evaluate");
-        if (ptr == NULL) 
+        if (msg != MAL_SUCCEED) 
         {
-            msg = createException(MAL, "pyapi.eval", "Failed to initialize shared memory");
             GDKfree(pids);
             process_id = 0;
             goto wrapup;
@@ -613,16 +613,17 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             {
                 //a child failed, get the error message from the child
                 ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[failedprocess * pci->retc + 0]);
+                char *err_ptr;
 
-                char *err_ptr = get_shared_memory(shm_id + 1, descr->bat_size);
-                if (err_ptr != NULL)
-                {
-                    msg = createException(MAL, "pyapi.eval", "%s", err_ptr);
-                    release_shared_memory(err_ptr);
-                }
-                else
-                {
-                    msg = createException(MAL, "pyapi.eval", "Error in child process, but no exception was thrown.");
+                if (descr->bat_size == 0) {
+                    msg = createException(MAL, "pyapi.eval", "Failure in child process with unknown error.");
+                } else {
+                    msg = get_shared_memory(shm_id + 1, descr->bat_size, (void**) &err_ptr);
+                    if (msg == MAL_SUCCEED)
+                    {
+                        msg = createException(MAL, "pyapi.eval", "%s", err_ptr);
+                        release_shared_memory(err_ptr);
+                    }
                 }
 
                 if (process_count > 1) release_process_semaphore(sem_id);
@@ -670,13 +671,13 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 //get the shared memory address for this return value
                 VERBOSE_MESSAGE("Parent requesting memory at id %d of size %d\n", shm_id + (i + 1), total_size);
 
+                assert(total_size > 0);
                 MT_lock_set(&pyapiLock, "pyapi.evaluate");
-                ret->array_data = get_shared_memory(shm_id + (i + 1), total_size);
+                msg = get_shared_memory(shm_id + (i + 1), total_size, &ret->array_data);
                 MT_lock_unset(&pyapiLock, "pyapi.evaluate");
 
-                if (ret->array_data == NULL)
+                if (msg != MAL_SUCCEED)
                 {
-                    msg = createException(MAL, "pyapi.eval", "Shared memory does not exist.\n");
                     if (process_count > 1) release_process_semaphore(sem_id);
                     release_shared_memory(ptr);
                     GDKfree(pids);
@@ -690,13 +691,13 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 {
                     int mask_size = ret->count * sizeof(bool);
 
+                    assert(mask_size > 0);
                     MT_lock_set(&pyapiLock, "pyapi.evaluate");
-                    ret->mask_data = get_shared_memory(shm_id + pci->retc + (i + 1), mask_size);
+                    msg = get_shared_memory(shm_id + pci->retc + (i + 1), mask_size, (void**) &ret->mask_data);
                     MT_lock_unset(&pyapiLock, "pyapi.evaluate");
 
-                    if (ret->mask_data == NULL)
+                    if (msg != MAL_SUCCEED)
                     {
-                        msg = createException(MAL, "pyapi.eval", "Shared memory does not exist.\n");
                         if (process_count > 1) release_process_semaphore(sem_id);
                         release_shared_memory(ptr);
                         release_shared_memory(ret->array_data);
@@ -869,9 +870,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         // First we will fill in the header information, we will need to get a pointer to the header data first
         // The main process has already created the header data for all the child processes
         VERBOSE_MESSAGE("Getting shared memory.\n");
-        shm_ptr = get_shared_memory(shm_id, memory_size);
-        if (shm_ptr == NULL) {
-            msg = createException(MAL, "pyapi.eval", "Failed to allocate shared memory for header data.\n");
+        msg = get_shared_memory(shm_id, memory_size, (void**) &shm_ptr);
+        if (msg != MAL_SUCCEED) {
             goto wrapup;
         }
 
@@ -952,16 +952,18 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                      mask_size += descr->bat_count * sizeof(bool);
                      has_mask = has_mask || descr->has_mask;
                 }
+                assert(return_size > 0);
                 // Then we allocate the shared memory for this return value
                 VERBOSE_MESSAGE("Child creating shared memory at id %d of size %d\n", shm_id + (i + 1), return_size);
-                if (create_shared_memory(shm_id + (i + 1), return_size) == NULL)
+                if (create_shared_memory(shm_id + (i + 1), return_size, NULL) != MAL_SUCCEED)
                 {
                     msg = createException(MAL, "pyapi.eval", "Failed to allocate shared memory for returning data.\n");
                     goto wrapup;
                 }
                 if (has_mask)                 
                 {
-                    if (create_shared_memory(shm_id + pci->retc + (i + 1), mask_size)== NULL) //create a memory space for the mask
+                    assert(mask_size > 0);
+                    if (create_shared_memory(shm_id + pci->retc + (i + 1), mask_size, NULL) != MAL_SUCCEED) //create a memory space for the mask
                     {
                         msg = createException(MAL, "pyapi.eval", "Failed to allocate shared memory for returning mask.\n");
                         goto wrapup;
@@ -1026,16 +1028,16 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             }
             // Now we can copy our return values to the shared memory
             VERBOSE_MESSAGE("Process %d returning values in range %zu-%zu\n", process_id, start_size / ret->memory_size, start_size / ret->memory_size + ret->count);
-            mem_ptr = get_shared_memory(shm_id + (i + 1), return_size);
-            if (mem_ptr == NULL)
+            msg = get_shared_memory(shm_id + (i + 1), return_size, (void**) &mem_ptr);
+            if (msg != MAL_SUCCEED)
             {
-                msg = createException(MAL, "pyapi.eval", "Failed to get pointer to shared memory for data.\n");
                 goto wrapup;
             }
             memcpy(&mem_ptr[start_size], PyArray_DATA((PyArrayObject*)ret->numpy_array), ret->memory_size * ret->count);
 
             if (has_mask) {
-                bool *mask_ptr = (bool*)get_shared_memory(shm_id + pci->retc + (i + 1), mask_size);
+                bool *mask_ptr;
+                msg = get_shared_memory(shm_id + pci->retc + (i + 1), mask_size, (void**) &mask_ptr);
                 // If any of the processes return a mask, we need to write our mask values to the shared memory
 
                 if (mask_ptr == NULL) {
@@ -1099,11 +1101,18 @@ returnvalues:
     {
         // If we get here, something went wrong in a child process,
 
-        char *shm_ptr, *error_mem;
+        char *shm_ptr, *error_mem, *tmp_msg;
         ReturnBatDescr *ptr;
 
-        shm_ptr = get_shared_memory(shm_id, memory_size);
-        if (shm_ptr == NULL) exit(1);
+        // Now we exit the program with an error code
+        VERBOSE_MESSAGE("Failure in child process: %s\n", msg);
+
+        assert(memory_size > 0);
+        tmp_msg = get_shared_memory(shm_id, memory_size, (void**) &shm_ptr);
+        if (tmp_msg != MAL_SUCCEED) {
+            VERBOSE_MESSAGE("Failed to get shared memory in child process: %s\n", tmp_msg);
+            exit(1);
+        }
 
         // To indicate that we failed, we will write information to our header
         ptr = (ReturnBatDescr*)shm_ptr;
@@ -1112,25 +1121,28 @@ returnvalues:
             // We will write descr->npy_type to -1, so other processes can see that we failed
             descr->npy_type = -1;
             // We will write the memory size of our error message to the bat_size, so the main process can access the shared memory
-            descr->bat_size = strlen(msg) * sizeof(char);
+            descr->bat_size = (strlen(msg) + 1) * sizeof(char);
         }
 
         // Now create the shared memory to write our error message to
         // We can simply use the slot shm_id + 1, even though this is normally used for return values
         // This is because, if any one process fails, no values will be returned
-        error_mem = create_shared_memory(shm_id + 1, strlen(msg) * sizeof(char));
-        if (error_mem == NULL) exit(1);
+        tmp_msg = create_shared_memory(shm_id + 1, (strlen(msg) + 1) * sizeof(char), (void**) &error_mem);
+        if (tmp_msg != MAL_SUCCEED) {
+            VERBOSE_MESSAGE("Failed to create shared memory in child process: %s\n", tmp_msg);
+            exit(1);
+        }
+
         for(iu = 0; iu < strlen(msg); iu++) {
             // Copy the error message to the shared memory
             error_mem[iu] = msg[iu]; 
         }
+        error_mem[iu + 1] = '\0';
 
         // To prevent the other processes from stalling, we set the value of the second semaphore to process_count
         // This allows the other processes to exit
         if (process_count > 1) change_semaphore_value(sem_id, 1, process_count);
 
-        // Now we exit the program with an error code
-        VERBOSE_MESSAGE("%s\n", msg);
         exit(1);
     }
 #endif

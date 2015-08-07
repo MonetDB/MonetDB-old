@@ -3,8 +3,7 @@
 
 #ifndef _WIN32
 
-#include "monetdb_config.h"
-#include "gdk.h"
+#include "../monetdb5/mal/mal_exception.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -29,24 +28,30 @@ static int shm_current_id = 0;
 static int shm_max_id = 32;
 static int shm_is_initialized = false;
 static char shm_keystring[] = ".";
+static MT_Lock release_memory_lock;
 
-void *init_shared_memory(int id, size_t size, int flags);
+str init_shared_memory(int id, size_t size, void **ptr, int flags);
 void store_shared_memory(int memory_id, void *ptr);
-int release_shared_memory_id(int memory_id, void *ptr);
+str release_shared_memory_id(int memory_id, void *ptr);
 
 int init_process_semaphore(int id, int count, int flags);
 
-void initialize_shared_memory(void)
+str initialize_shared_memory(void)
 {
-	if (shm_is_initialized) return;
-
+	if (shm_is_initialized) //maybe this should just return MAL_SUCCEED as well
+        return createException(MAL, "shared_memory.init", "Attempting to initialize shared memory when it was already initialized.");
+                
+    //initialize the pointer to memory ID structure
 	shm_ptrs = malloc(shm_max_id * sizeof(void*));
 	shm_memory_ids = malloc(shm_max_id * sizeof(int));
 	shm_current_id = 0;
 	shm_max_id = 32;
 	shm_unique_id = 2;
 
-	shm_is_initialized = true;
+    MT_lock_init(&release_memory_lock, "release_memory_lock");
+
+    shm_is_initialized = true;
+    return MAL_SUCCEED;
 }
 
 void store_shared_memory(int memory_id, void *ptr)
@@ -95,17 +100,17 @@ int get_unique_shared_memory_id(int offset)
 	return id;
 }
 
-void* create_shared_memory(int id, size_t size)
+str create_shared_memory(int id, size_t size, void **return_ptr)
 {
-	return init_shared_memory(id, size, IPC_CREAT);
+	return init_shared_memory(id, size, return_ptr, IPC_CREAT);
 }
 
-void *get_shared_memory(int id, size_t size)
+str get_shared_memory(int id, size_t size, void **return_ptr)
 {
-	return init_shared_memory(id, size, 0);
+	return init_shared_memory(id, size, return_ptr, 0);
 }
 
-void *init_shared_memory(int id, size_t size, int flags)
+str init_shared_memory(int id, size_t size, void **return_ptr, int flags)
 {
     int shmid;
     void *ptr;
@@ -113,8 +118,9 @@ void *init_shared_memory(int id, size_t size, int flags)
 	int key = ftok(shm_keystring, id);
     if (key == (key_t) -1)
     {
-        perror("ftok");
-        return NULL;
+        char *err = strerror(errno);
+        errno = 0;
+        return createException(MAL, "shared_memory.get", "Error calling ftok(keystring:%s,id:%d): %s", shm_keystring, id, err);
     }
 
 	assert(shm_is_initialized);
@@ -122,8 +128,9 @@ void *init_shared_memory(int id, size_t size, int flags)
 	shmid = shmget(key, size, flags | 0666);
     if (shmid < 0)
     {
-    	perror("shmget");
-        return NULL;
+        char *err = strerror(errno);
+        errno = 0;
+        return createException(MAL, "shared_memory.get", "Error calling shmget(key:%d,size:%zu,flags:%d): %s", key, size, flags, err);
     }
 
     //check if the shared memory segment is already created, if it is we do not need to add it to the table and can simply return the pointer
@@ -131,28 +138,32 @@ void *init_shared_memory(int id, size_t size, int flags)
     {
         if (shm_memory_ids[i] == shmid)
         {
-            return shm_ptrs[i];
+            if (return_ptr != NULL) *return_ptr = shm_ptrs[i];
+            return MAL_SUCCEED;
         }
     }
 
 	ptr = shmat(shmid, NULL, 0);
     if (ptr == (void*)-1)
     {
-    	perror("shmat");
-        return NULL;
+        char *err = strerror(errno);
+        errno = 0;
+        return createException(MAL, "shared_memory.get", "Error calling shmat(id:%d,NULL,0): %s", shmid, err);
     }
 
     store_shared_memory(shmid, ptr);
-    return ptr;
+    if (return_ptr != NULL) *return_ptr = ptr;
+    return MAL_SUCCEED;
 }
 
-int release_shared_memory(void *ptr)
+str release_shared_memory(void *ptr)
 {
 	int i = 0;
 	int memory_id = -1;
 
     assert(shm_is_initialized);
 
+    MT_lock_set(&release_memory_lock, "release_memory_lock");
 	//find the memory_id accompanying the given pointer in the structure
 	for(i = 0; i < shm_current_id; i++)
 	{
@@ -164,25 +175,28 @@ int release_shared_memory(void *ptr)
 			break;
 		}
 	}
+    MT_lock_unset(&release_memory_lock, "release_memory_lock");
 
 	assert(memory_id);
 	//actually release the memory at the given ID
 	return release_shared_memory_id(memory_id, ptr);
 }
 
-int release_shared_memory_id(int memory_id, void *ptr)
+str release_shared_memory_id(int memory_id, void *ptr)
 {
 	if (shmctl(memory_id, IPC_RMID, NULL) == -1)
 	{
-    	perror("shmctl");
-        return false;
+        char *err = strerror(errno);
+        errno = 0;
+        return createException(MAL, "shared_memory.release", "Error calling shmctl(id:%d,IPC_RMID,NULL): %s", memory_id, err);
 	}
 	if (shmdt(ptr) == -1)
 	{
-    	perror("shmdt");
-        return false;
+        char *err = strerror(errno);
+        errno = 0;
+        return createException(MAL, "shared_memory.release", "Error calling shmdt(ptr:%p): %s", ptr, err);
 	}
-	return true;
+	return MAL_SUCCEED;
 }
 
 int init_process_semaphore(int id, int count, int flags)

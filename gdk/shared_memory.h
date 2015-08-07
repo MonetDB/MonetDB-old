@@ -14,18 +14,21 @@
 #ifndef _SHAREDMEMORY_LIB_
 #define _SHAREDMEMORY_LIB_
 
+#include "monetdb_config.h"
+#include "gdk.h"
+
 #include <stddef.h>
 
 //! Initialize the shared memory module
-void initialize_shared_memory(void);
+str initialize_shared_memory(void);
 //! Not thread safe
-void* create_shared_memory(int id, size_t size);
-//! Not thread safe
-int release_shared_memory(void *ptr);
+str create_shared_memory(int id, size_t size, void **return_ptr);
+//! This is thread safe
+str release_shared_memory(void *ptr);
 //! Not thread safe
 int get_unique_shared_memory_id(int offset);
 //! This is thread safe
-void *get_shared_memory(int id, size_t size);
+str get_shared_memory(int id, size_t size, void **return_ptr);
 
 //! Returns semaphore ID, id = unique id within the program, count = amount of semaphores
 int create_process_semaphore(int id, int count);
