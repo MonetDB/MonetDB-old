@@ -3483,7 +3483,7 @@ sql_trans_precommit(sql_trans *tr)
 		result = rollforward_trans(tr, R_SNAPSHOT);
 
 		if (result == LOG_OK)
-			result = logger_funcs.log_tstart(tr->htm_id);
+			result = logger_funcs.log_tstart(tr->precommit_id);
 		if (result == LOG_OK)
 			result = rollforward_trans(tr, R_LOG);
 		if (result == LOG_OK && prev_oid != store_oid)
@@ -3512,7 +3512,7 @@ sql_trans_persistcommit(sql_trans *tr)
 
 	if (result == LOG_OK) {
 		/* Mark the transaction as globally persisted as well */
-		result = logger_funcs.log_globalpersist(tr->htm_id);
+		result = logger_funcs.log_persist_precommit(tr->precommit_id);
 	}
     return (result==LOG_OK)?SQL_OK:SQL_ERR;
 }

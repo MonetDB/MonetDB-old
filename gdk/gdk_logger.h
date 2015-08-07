@@ -46,7 +46,7 @@ typedef struct logger {
 	int version;
 	lng id;
 	int tid;
-	lng htm_id;
+	lng precommit_id;
 #if SIZEOF_OID == 8
 	/* on 64-bit architecture, read OIDs as 32 bits (for upgrading
 	 * oid size) */
@@ -130,10 +130,10 @@ gdk_export int log_bat_persists(logger *lg, BAT *b, const char *n);
 gdk_export int log_bat_transient(logger *lg, const char *n);
 gdk_export int log_delta(logger *lg, BAT *uid, BAT *uval, const char *n);
 
-gdk_export int log_tstart(logger *lg, lng htm_id);	/* TODO return transaction id */
+gdk_export int log_tstart(logger *lg, lng precommit_id);
 gdk_export int log_tend(logger *lg);
 gdk_export int log_abort(logger *lg);
-gdk_export int log_globalpersist(logger *lg, lng htm_id);
+gdk_export int log_persist_precommit(logger *lg, lng precommit_id);
 
 gdk_export int log_sequence(logger *lg, int seq, lng id);
 

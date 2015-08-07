@@ -272,9 +272,9 @@ bl_log_isnew_shared(void)
 }
 
 static int 
-bl_tstart(lng htm_id)
+bl_tstart(lng precommit_id)
 {
-	return log_tstart(bat_logger, htm_id);
+	return log_tstart(bat_logger, precommit_id);
 }
 
 static int 
@@ -296,9 +296,9 @@ bl_reload_shared(void)
 }
 
 static int
-bl_globalpersist(lng htm_id)
+bl_persist_precommit(lng precommit_id)
 {
-	return log_globalpersist(bat_logger, htm_id);
+	return log_persist_precommit(bat_logger, precommit_id);
 }
 
 int 
@@ -314,7 +314,7 @@ bat_logger_init( logger_functions *lf )
 	lf->log_tstart = bl_tstart;
 	lf->log_tend = bl_tend;
 	lf->log_sequence = bl_sequence;
-	lf->log_globalpersist = bl_globalpersist;
+	lf->log_persist_precommit = bl_persist_precommit;
 	return LOG_OK;
 }
 

@@ -211,7 +211,7 @@ typedef struct sql_trans {
 	struct sql_trans *parent;	/* multilevel transaction support */
 	backend_stack stk;
 
-	lng htm_id;	/* global transation id provided by the CoherentPaaS HTM */
+	lng precommit_id;	/* global transaction id use for 2-phase commits */
 } sql_trans;
 
 typedef struct sql_schema {

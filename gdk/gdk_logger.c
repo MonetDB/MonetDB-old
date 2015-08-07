@@ -94,8 +94,8 @@ typedef struct logformat_t {
 	char flag;
 	int tid;
 	lng nr;
-	lng htm_id;
-	lng global_commit;
+	lng precommit_id;
+	int persistcommit;
 } logformat;
 
 static int bm_commit(logger *lg);
@@ -190,8 +190,8 @@ log_read_format(logger *l, logformat *data)
 	return mnstr_read(l->log, &data->flag, 1, 1) == 1 &&
 		mnstr_readLng(l->log, &data->nr) == 1 &&
 		mnstr_readInt(l->log, &data->tid) == 1 &&
-		mnstr_readLng(l->log, &data->htm_id) == 1 &&
-		mnstr_readLng(l->log, &data->global_commit) == 1;
+		mnstr_readLng(l->log, &data->precommit_id) == 1 &&
+		mnstr_readInt(l->log, &data->persistcommit) == 1;
 }
 
 static int
@@ -200,8 +200,8 @@ log_write_format(logger *l, logformat *data)
 	if (mnstr_write(l->log, &data->flag, 1, 1) == 1 &&
 	    mnstr_writeLng(l->log, data->nr) &&
 	    mnstr_writeInt(l->log, data->tid) &&
-	    mnstr_writeLng(l->log, data->htm_id) &&
-	    mnstr_writeLng(l->log, data->global_commit))
+	    mnstr_writeLng(l->log, data->precommit_id) &&
+		mnstr_writeInt(l->log, data->persistcommit))
 		return LOG_OK;
 	fprintf(stderr, "!ERROR: log_write_format: write failed\n");
 	return LOG_ERR;
@@ -1015,8 +1015,8 @@ logger_readlog(logger *lg, char *filename)
 				err = 1;
 			else if (l.tid != l.nr)	/* abort record */
 				tr = tr_abort(lg, tr);
-			else if (l.htm_id == 0 || (l.htm_id > 0 && l.global_commit == 1))
-                /* htm == 0: not a 2-pahse transaction
+			else if (l.precommit_id == 0 || (l.precommit_id > 0 && l.persistcommit == 1))
+                /* precommit_id == 0: not a 2-phase transaction
                  otherwise the transaction might must be globally committed to re-commit */
 				tr = tr_commit(lg, tr);
 			break;
@@ -1808,7 +1808,7 @@ logger_new(int debug, const char *fn, const char *logdir, int version, preversio
 	lg->id = 1;
 
 	lg->tid = 0;
-	lg->htm_id = -1;
+	lg->precommit_id = -1;
 #if SIZEOF_OID == 8
 	lg->read32bitoid = 0;
 #endif
@@ -2245,8 +2245,8 @@ log_bat_persists(logger *lg, BAT *b, const char *name)
 	}
 	l.flag = flag;
 	l.tid = lg->tid;
-	l.htm_id = lg->htm_id;
-	l.global_commit = 0;
+	l.precommit_id = lg->precommit_id;
+	l.persistcommit = 0;
 	lg->changes++;
 	if (log_write_format(lg, &l) == LOG_ERR ||
 	    log_write_string(lg, name) == LOG_ERR)
@@ -2312,8 +2312,8 @@ log_bat_transient(logger *lg, const char *name)
 	l.flag = LOG_DESTROY;
 	l.tid = lg->tid;
 	l.nr = 0;
-	l.htm_id = lg->htm_id;
-	l.global_commit = 0;
+	l.precommit_id = lg->precommit_id;
+	l.persistcommit = 0;
 	lg->changes++;
 
 	/* if this is a snapshot bat, we need to skip all changes */
@@ -2374,8 +2374,8 @@ log_delta(logger *lg, BAT *uid, BAT *uval, const char *name)
 
 	l.tid = lg->tid;
 	l.nr = (BUNlast(uval) - BUNfirst(uval));
-	l.htm_id = lg->htm_id;
-	l.global_commit = 0;
+	l.precommit_id = lg->precommit_id;
+	l.persistcommit = 0;
 	lg->changes += l.nr;
 
 	if (l.nr) {
@@ -2419,8 +2419,8 @@ log_bat(logger *lg, BAT *b, const char *name)
 
 	l.tid = lg->tid;
 	l.nr = (BUNlast(b) - b->batInserted);
-	l.htm_id = lg->htm_id;
-	l.global_commit = 0;
+	l.precommit_id = lg->precommit_id;
+	l.persistcommit = 0;
 	lg->changes += l.nr;
 
 	if (l.nr) {
@@ -2494,8 +2494,8 @@ log_bat_clear(logger *lg, const char *name)
 
 	l.nr = 1;
 	l.tid = lg->tid;
-	l.htm_id = lg->htm_id;
-	l.global_commit = 0;
+	l.precommit_id = lg->precommit_id;
+	l.persistcommit = 0;
 	lg->changes += l.nr;
 
 	l.flag = LOG_CLEAR;
@@ -2510,36 +2510,36 @@ log_bat_clear(logger *lg, const char *name)
 }
 
 int
-log_tstart(logger *lg, lng htm_id)
+log_tstart(logger *lg, lng precommit_id)
 {
 	logformat l;
 
 	l.flag = LOG_START;
 	l.tid = ++lg->tid;
 	l.nr = lg->tid;
-	lg->htm_id = htm_id;
-	l.htm_id = lg->htm_id;
-	l.global_commit = 0;
+	lg->precommit_id = precommit_id;
+	l.precommit_id = lg->precommit_id;
+	l.persistcommit = 0;
 
 	if (lg->debug & 1)
-		fprintf(stderr, "#log_tstart %d:" LLFMT "\n", lg->tid, htm_id);
+		fprintf(stderr, "#log_tstart %d:" LLFMT "\n", lg->tid, precommit_id);
 
 	return log_write_format(lg, &l);
 }
 
 int
-log_globalpersist(logger *lg, lng htm_id)
+log_persist_precommit(logger *lg, lng precommit_id)
 {
 	logformat l;
 
 	l.flag = LOG_END;
 	l.tid =	lg->tid;
 	l.nr = lg->tid;
-	l.htm_id = htm_id;
-	l.global_commit = 1;
+	l.precommit_id = precommit_id;
+	l.persistcommit = 1;
 
 	if (lg->debug & 1)
-		fprintf(stderr, "#log_globalpersist %d:" LLFMT "\n", lg->tid, htm_id);
+		fprintf(stderr, "#log_globalpersist %d:" LLFMT "\n", lg->tid, precommit_id);
 
 	if (log_write_format(lg, &l) == LOG_ERR ||
 			mnstr_flush(lg->log) ||
@@ -2620,8 +2620,8 @@ log_tend(logger *lg)
 	l.flag = LOG_END;
 	l.tid = lg->tid;
 	l.nr = lg->tid;
-	l.htm_id = lg->htm_id;
-	l.global_commit = 0;
+	l.precommit_id = lg->precommit_id;
+	l.persistcommit = 0;
 	if (res != GDK_SUCCEED ||
 	    log_write_format(lg, &l) == LOG_ERR ||
 	    mnstr_flush(lg->log) ||
@@ -2644,8 +2644,8 @@ log_abort(logger *lg)
 	l.flag = LOG_END;
 	l.tid = lg->tid;
 	l.nr = -1;
-	l.htm_id = lg->htm_id;
-	l.global_commit = 0;
+	l.precommit_id = lg->precommit_id;
+	l.persistcommit = 0;
 
 	if (log_write_format(lg, &l) == LOG_ERR ||
 			mnstr_flush(lg->log) ||
@@ -2663,8 +2663,8 @@ log_sequence_(logger *lg, int seq, lng val)
 	l.flag = LOG_SEQ;
 	l.tid = lg->tid;
 	l.nr = seq;
-	l.htm_id = lg->htm_id;
-	l.global_commit = 0;
+	l.precommit_id = lg->precommit_id;
+	l.persistcommit = 0;
 
 	if (lg->debug & 1)
 		fprintf(stderr, "#log_sequence_ (%d," LLFMT ")\n", seq, val);

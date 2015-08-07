@@ -279,10 +279,10 @@ typedef lng (*logger_get_transaction_drift_fptr)(void);
 typedef int (*logger_reload_fptr) (void);
 
 typedef int (*log_isnew_fptr)(void);
-typedef int (*log_tstart_fptr) (lng htm_id);
+typedef int (*log_tstart_fptr) (lng precommit_id);
 typedef int (*log_tend_fptr) (void);
 typedef int (*log_sequence_fptr) (int seq, lng id);
-typedef int (*log_globalpersist_fptr) (lng htm_id);
+typedef int (*log_persist_precommit_fptr) (lng precommit_id);
 
 typedef struct logger_functions {
 	logger_create_fptr create;
@@ -302,7 +302,7 @@ typedef struct logger_functions {
 	log_tstart_fptr log_tstart;
 	log_tend_fptr log_tend;
 	log_sequence_fptr log_sequence;
-	log_globalpersist_fptr log_globalpersist;
+	log_persist_precommit_fptr log_persist_precommit;
 } logger_functions;
 
 extern logger_functions logger_funcs;

@@ -306,7 +306,7 @@ mvc_commit(mvc *m, int chain, const char *name)
 
 	if (sql_trans_validate(tr)) {
 		/* execute commit */
-        tr->htm_id = 0;
+        tr->precommit_id = 0;
 		if ((result = sql_trans_commit(tr)) != SQL_OK) {
 			char *msg;
 			store_unlock();
@@ -330,8 +330,8 @@ int
 mvc_precommit(mvc *m, int chain, const char *name, lng id) {
 	int result = SQL_OK;//, wait = 0;
 	sql_trans *tr = m->session->tr;
-	// set CPaaS HTM id
-	tr->htm_id = id;
+	// set precommit_id
+	tr->precommit_id = id;
 
 	if ((result = mvc_commit_prepare(m, chain, name, tr)) != SQL_OK) {
 		store_unlock();
@@ -362,7 +362,7 @@ int
 mvc_persistcommit(mvc *m, int chain, const char *name, lng id) {
 	int result = SQL_OK;//, wait = 0;
 	sql_trans *tr = m->session->tr;
-	if (tr->htm_id != id) {
+	if (tr->precommit_id != id) {
 		(void)sql_error(m, 010, "40000!PERSISTCOMMIT: transaction is aborted because pre-commit transaction id missmatch. Transaction was either not pre-commited or aborted.");
 		return -1;
 	}
@@ -393,7 +393,7 @@ mvc_rollback(mvc *m, int chain, const char *name)
 
 	store_lock();
     // Reset pre-commit id
-    tr->htm_id = 0;
+    tr->precommit_id = 0;
 	if (m->qc) 
 		qc_clean(m->qc);
 	if (name && name[0] != '\0') {
