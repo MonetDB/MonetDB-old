@@ -523,6 +523,9 @@ typedef struct CSSampleExtend{
 rdf_export str
 RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,bat *mbatid, bat *lmapbatid, bat *rmapbatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId, char *isLotsNullSubj, oid *subjCSMap, int* csTblIdxMapping);
 
+rdf_export str
+RDFdistTriplesToCSs_alloid(int *ret, bat *sbatid, bat *pbatid, bat *obatid,bat *mbatid, bat *lmapbatid, bat *rmapbatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId, char *isLotsNullSubj, oid *subjCSMap, int* csTblIdxMapping);
+
 rdf_export str 
 RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, bat *ontbatid, int *freqThreshold, void *freqCSset, oid **subjCSMap, oid *maxCSoid, int *maxNumPwithDup, CSlabel** labels, CSrel **csRelBetweenMergeFreqSet);
 

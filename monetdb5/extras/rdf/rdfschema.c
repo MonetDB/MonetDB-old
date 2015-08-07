@@ -10050,6 +10050,15 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 	int		mvColIdx; 
 
 	mapObjBATtypes = (char*) malloc(sizeof(char) * (MULTIVALUES + 1)); 
+	#if EVERYTHING_AS_OID==1
+	mapObjBATtypes[URI] = TYPE_oid; 
+	mapObjBATtypes[DATETIME] = TYPE_oid;
+	mapObjBATtypes[INTEGER] = TYPE_oid; 
+	mapObjBATtypes[DOUBLE] = TYPE_oid; 
+	mapObjBATtypes[STRING] = TYPE_oid; 
+	mapObjBATtypes[BLANKNODE] = TYPE_oid;
+	mapObjBATtypes[MULTIVALUES] = TYPE_oid;
+	#else
 	mapObjBATtypes[URI] = TYPE_oid; 
 	mapObjBATtypes[DATETIME] = TYPE_timestamp;
 	mapObjBATtypes[INTEGER] = TYPE_int; 
@@ -10057,6 +10066,7 @@ void initCStables(CStableStat* cstablestat, CSset* freqCSset, CSPropTypes *csPro
 	mapObjBATtypes[STRING] = TYPE_str; 
 	mapObjBATtypes[BLANKNODE] = TYPE_oid;
 	mapObjBATtypes[MULTIVALUES] = TYPE_oid;
+	#endif
 	
 	printf("Start initCStables \n"); 
 	// allocate memory space for cstablestat
@@ -10413,6 +10423,7 @@ str fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, i
 	return MAL_SUCCEED; 
 }
 
+#if EVERYTHING_AS_OID == 0
 /*
  * Extend VALget for handling DATETIME 
  */
@@ -10428,6 +10439,21 @@ void * VALgetExtend(ValPtr v, ObjectType objType, timestamp *ts){
 
 }
 
+#else	/*EVERYTHING_AS_OID == 1*/
+
+/*
+ * Convert any type-specific value backto the oid 
+ */
+static 
+void * VALgetExtend_alloid(ValPtr v, ObjectType objType, timestamp *ts, oid *obt){
+	(void) v; 
+	(void) objType; 
+	(void) ts; 
+	return obt; 
+}
+
+#endif
+
 static
 void getRealValue(ValPtr returnValue, oid objOid, ObjectType objType, BATiter mapi, BAT *mapbat){
 	str 	objStr; 
@@ -10438,7 +10464,10 @@ void getRealValue(ValPtr returnValue, oid objOid, ObjectType objType, BATiter ma
 
 	//printf("objOid = " BUNFMT " \n",objOid);
 	if (objType == URI || objType == BLANKNODE){
+		oid oldoid = objOid;
 		objOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
+
+		assert(oldoid == objOid); 
 		
 		if (objOid < maxObjectURIOid){
 			//takeOid(objOid, &objStr); 		//TODO: Do we need to get URI string???
@@ -10511,7 +10540,674 @@ void updatePropTypeForRemovedTriple(CSPropTypes *csPropTypes, int* tmpTblIdxProp
 			}									\
 	}while (0)
 
+#if EVERYTHING_AS_OID == 1
+str RDFdistTriplesToCSs_alloid(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *mbatid, bat *lmapbatid, bat *rmapbatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId, char *isLotsNullSubj, oid *subjCSMap, int* csTblIdxMapping){
+	
+	BAT *sbat = NULL, *pbat = NULL, *obat = NULL, *mbat = NULL, *lmap = NULL, *rmap = NULL; 
+	BATiter si,pi,oi, mi; 
+	BUN p,q; 
+	oid *pbt, *sbt, *obt;
+	oid 	maxOrigPbt; 
+	oid	origPbt; 
+	oid lastP, lastS; 
+	int	tblIdx = -1; 
+	int	tmpOidTblIdx = -1; 
+	oid	tmpSoid = BUN_NONE; 
+	BUN	ppos; 
+	int*	tmpTblIdxPropIdxMap;	//For each property, this maps the table Idx (in the posting list
+					// of that property to the position of that property in the
+					// list of that table's properties
+	Postinglist tmpPtl; 
+	int	tmpPropIdx = -1; 	// The index of property in the property list in a CS. It is not the same as the column Idx as some infrequent props can be removed
+	int	tmpColIdx = -1; 
+	int	tmpColExIdx = -1; 
+	int	tmpMVColIdx = -1; 
+	int	lasttblIdx = -1; 
+	int	lastColIdx = -1; 
+	int	lastPropIdx = -1; 
+	int	numEmptyBat = 0; 
 
+	char	isSetLasttblIdx = 0;
+	ObjectType	objType, defaultType; 
+	char	tmpTableType = 0;
+
+	int	i,j, k; 
+	BAT	*curBat = NULL;
+	BAT	*tmpBat = NULL; 
+	BAT     *tmpmvBat = NULL;       // Multi-values BAT
+	//BAT	*tmpmvExBat = NULL; 
+	int	tmplastInsertedS = -1; 
+	int     numMultiValues = 0;
+	oid	tmpmvValue; 
+	oid	tmpmvKey = BUN_NONE; 
+	char	istmpMVProp = 0; 
+	char*   schema = "rdf";
+	//void* 	realObjValue = NULL;
+	ValRecord	vrRealObjValue;
+	ValRecord	vrCastedObjValue; 
+	timestamp	ts; 
+	#if	DETECT_PKCOL
+	BAT	*tmpHashBat = NULL; 
+	char	isCheckDone = 0; 
+	BUN	tmpObjBun = BUN_NONE; 
+	int	numPKcols = 0; 
+	char	isPossiblePK = 0; 
+	#endif
+	#if	COUNT_DISTINCT_REFERRED_S
+	BAT     *tmpFKHashBat = NULL;
+	int	initHashBatgz = 0; 
+	BUN	tmpFKRefBun = BUN_NONE; 
+	char	isFKCol = 0; 
+	#endif	
+
+	oid	lastRemovedSubj = BUN_NONE; 
+	oid	lastRemovedProp = BUN_NONE; 
+
+	(void) isLotsNullSubj;
+
+	maxOrigPbt = ((oid)1 << (sizeof(BUN)*8 - NBITS_FOR_CSID)) - 1; 
+	if (TKNZRopen (NULL, &schema) != MAL_SUCCEED) {
+		throw(RDF, "RDFdistTriplesToCSs",
+				"could not open the tokenizer\n");
+	}
+
+	if ((sbat = BATdescriptor(*sbatid)) == NULL) {
+		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
+	}
+	if ((pbat = BATdescriptor(*pbatid)) == NULL) {
+		BBPunfix(sbat->batCacheid);
+		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
+	}
+	if ((obat = BATdescriptor(*obatid)) == NULL) {
+		BBPunfix(sbat->batCacheid);
+		BBPunfix(pbat->batCacheid);
+		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
+	}
+
+	if ((mbat = BATdescriptor(*mbatid)) == NULL) {
+		BBPunfix(sbat->batCacheid);
+		BBPunfix(pbat->batCacheid);
+		BBPunfix(obat->batCacheid);
+		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
+	}
+
+	if ((lmap = BATdescriptor(*lmapbatid)) == NULL) {
+		BBPunfix(sbat->batCacheid);
+		BBPunfix(pbat->batCacheid);
+		BBPunfix(obat->batCacheid);
+		BBPunfix(mbat->batCacheid);
+		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
+	}
+	
+	if ((rmap = BATdescriptor(*rmapbatid)) == NULL) {
+		BBPunfix(sbat->batCacheid);
+		BBPunfix(pbat->batCacheid);
+		BBPunfix(obat->batCacheid);
+		BBPunfix(mbat->batCacheid);
+		BBPunfix(lmap->batCacheid);
+		throw(MAL, "rdf.RDFdistTriplesToCSs", RUNTIME_OBJECT_MISSING);
+	}
+
+	si = bat_iterator(sbat); 
+	pi = bat_iterator(pbat); 
+	oi = bat_iterator(obat);
+	mi = bat_iterator(mbat);
+	
+	tmpTblIdxPropIdxMap = (int*)malloc(sizeof(int) * cstablestat->numTables);
+	initIntArray(tmpTblIdxPropIdxMap, cstablestat->numTables, -1); 
+
+	tmplastInsertedS = -1; 
+	
+
+	lastP = BUN_NONE; 
+	lastS = BUN_NONE; 
+	
+	printf("Reorganize the triple store by using %d CS tables \n", cstablestat->numTables);
+
+	//setofBats = (BAT**)malloc(sizeof(BAT*) * cstablestat->numTables); 
+	isSetLasttblIdx = 0; 
+
+	BATloop(pbat, p, q){
+		if (p % 1048576 == 0) printf(".");
+		pbt = (oid *) BUNtloc(pi, p);
+		sbt = (oid *) BUNtloc(si, p);
+		obt = (oid *) BUNtloc(oi, p);
+		
+		//BATprint(pbat);
+		//BATprint(sbat); 
+		//BATprint(obat); 
+		
+		//printf(BUNFMT ": " BUNFMT "  |  " BUNFMT " | " BUNFMT "\n", p, *pbt, *sbt, *obt); 
+		getTblIdxFromS(*sbt, &tblIdx, &tmpSoid);	
+		//printf("  --> Tbl: %d  tmpSoid: " BUNFMT " | Last SubjId " BUNFMT "\n", tblIdx,tmpSoid, lastSubjId[tblIdx]);
+
+
+		if (tblIdx == -1){	
+			#if REMOVE_LOTSOFNULL_SUBJECT
+			if (isLotsNullSubj[*sbt] == 0){
+				// This is for irregular triples, put them to pso table
+				insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
+				//printf(" ==> To PSO \n");
+				isFKCol = 0;
+				continue; 
+			}
+			#else
+				insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
+				isFKCol = 0;
+				continue;
+			#endif
+		}
+
+		if (*pbt != lastP){
+			if (*pbt > maxOrigPbt){	//This pbt has been changed according to the modification of Soid
+				if (getOrigPbt(pbt, &origPbt, lmap, rmap) != MAL_SUCCEED){
+					throw(RDF, "rdf.RDFdistTriplesToCSs","Problem in getting the orignal pbt ");
+				} 	
+				//printf("Pbt = " BUNFMT " ==> orignal pbt = " BUNFMT "\n", *pbt, origPbt); 
+			}
+			else {
+				origPbt = *pbt;
+			}
+
+	
+			//Get number of BATs for this p
+			ppos = BUNfnd(propStat->pBat, &origPbt);
+			if (ppos == BUN_NONE){
+				throw(RDF, "rdf.RDFdistTriplesToCSs", "This prop must be in propStat bat");
+			}
+
+			tmpPtl =  propStat->plCSidx[ppos];
+			updateTblIdxPropIdxMap(tmpTblIdxPropIdxMap, 
+					tmpPtl.lstIdx, tmpPtl.lstInvertIdx,tmpPtl.numAdded);
+			
+			lastP = *pbt; 
+			//lastS = *sbt; 
+			lastS = BUN_NONE; 
+			numMultiValues = 0;
+			tmplastInsertedS = -1;
+
+		}
+
+		#if REMOVE_LOTSOFNULL_SUBJECT
+		if (tblIdx == -1 && isLotsNullSubj[*sbt]){	
+			// A lots-of-null subject
+			insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
+			
+			//Update propTypes
+			updatePropTypeForRemovedTriple(csPropTypes, tmpTblIdxPropIdxMap, tblIdx, subjCSMap, csTblIdxMapping, *sbt, *pbt, &lastRemovedProp, &lastRemovedSubj,0);
+
+			continue; 
+		}
+		#endif
+
+		objType = getObjType(*obt); 
+		assert (objType != BLANKNODE);
+
+		tmpPropIdx = tmpTblIdxPropIdxMap[tblIdx]; 
+		//printf(" PropIdx = %d \n", tmpPropIdx);
+		tmpColIdx = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].defColIdx; 
+		if (tmpColIdx == -1){ 	// This col is removed as an infrequent prop
+			insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
+			continue; 
+		}
+
+		if (csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isDirtyFKProp){	//Check whether this URI have a reference 		
+			if (objType != URI){ //Must be a dirty one --> put to pso
+				//printf("Dirty FK at tbl %d | propId " BUNFMT " \n", tblIdx, *pbt);
+				insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
+
+				//Update propTypes
+				updatePropTypeForRemovedTriple(csPropTypes, tmpTblIdxPropIdxMap,tblIdx, subjCSMap, csTblIdxMapping, *sbt, *pbt, &lastRemovedProp, &lastRemovedSubj,0);
+
+				continue; 
+			}
+			else{ //  
+				getTblIdxFromO(*obt,&tmpOidTblIdx);
+				if (tmpOidTblIdx != csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblId){
+					//printf("Dirty FK at tbl %d | propId " BUNFMT " \n", tblIdx, *pbt);
+					insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
+
+					//Update propTypes
+					updatePropTypeForRemovedTriple(csPropTypes, tmpTblIdxPropIdxMap,tblIdx, subjCSMap, csTblIdxMapping, *sbt, *pbt, &lastRemovedProp, &lastRemovedSubj,0);
+
+					continue; 
+				}
+			}
+		}
+
+		//printf(" Tbl: %d   |   Col: %d \n", tblIdx, tmpColIdx);
+		#if COUNT_DISTINCT_REFERRED_S
+		isFKCol = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isFKProp; 
+		#endif
+		
+		istmpMVProp = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isMVProp; 
+		defaultType = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].defaultType; 
+		#if     DETECT_PKCOL
+			isPossiblePK = 1;
+			#if ONLY_URI_PK
+			if (defaultType != URI) isPossiblePK = 0; 
+			#endif
+		#endif
+		if (isSetLasttblIdx == 0){
+			lastColIdx = tmpColIdx;
+			lastPropIdx = tmpPropIdx; 
+			lasttblIdx = tblIdx;
+			cstablestat->lastInsertedS[tblIdx][tmpColIdx] = BUN_NONE;
+			#if     DETECT_PKCOL
+			if (isPossiblePK){
+				tmpHashBat = BATnew(TYPE_void, TYPE_oid, lastSubjId[tblIdx] + 1, TRANSIENT);
+				
+				if (tmpHashBat == NULL){
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot create new tmpHashBat");
+				}	
+				(void)BAThash(tmpHashBat,0);
+				if (!(tmpHashBat->T->hash)){
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for Bat");
+				}
+
+				if (BUNappend(tmpHashBat,obt, TRUE) == GDK_FAIL){		//Insert the first value
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot insert to tmpHashBat");
+				}
+				isCheckDone = 0; 
+				numPKcols++;
+			}
+			#endif
+			#if COUNT_DISTINCT_REFERRED_S
+			if (isFKCol){
+				initHashBatgz = (csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblSupport > smallHashBatsz)?smallHashBatsz:csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblSupport;
+				tmpFKHashBat = BATnew(TYPE_void, TYPE_oid, initHashBatgz + 1, TRANSIENT);
+
+				if (tmpFKHashBat == NULL){
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot create new tmpFKHashBat");
+				}	
+				(void)BAThash(tmpFKHashBat,0);
+				if (!(tmpFKHashBat->T->hash)){
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for FK Bat");
+				}
+				if (BUNappend(tmpFKHashBat,obt, TRUE) == GDK_FAIL){		//The first value
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot insert to tmpFKHashBat");
+				}
+
+			}
+			#endif
+			isSetLasttblIdx = 1; 
+		}
+		
+	
+			
+		/* New column. Finish with lastTblIdx and lastColIdx. Note: This lastColIdx is
+		 * the position of the prop in a final CS. Not the exact colIdx in MAINTBL or TYPETBL
+		 * */
+		if (tmpColIdx != lastColIdx || lasttblIdx != tblIdx){ 
+			//Insert missing values for all columns of this property in this table
+
+			if (fillMissingvaluesAll(cstablestat, csPropTypes, lasttblIdx, lastColIdx, lastPropIdx, lastSubjId) != MAL_SUCCEED){
+				throw(RDF, "rdf.RDFdistTriplesToCSs", "Problem in filling missing values all");		
+			}
+				
+			#if COUNT_DISTINCT_REFERRED_S
+			if (csPropTypes[lasttblIdx].lstPropTypes[lastPropIdx].isFKProp ) {
+				//printf("Update refcount for FK Col at: Table %d  Prop %d (Orig Ref size: %d) --> " BUNFMT "\n", lasttblIdx, lastPropIdx, csPropTypes[lasttblIdx].lstPropTypes[lastPropIdx].refTblSupport, BATcount(tmpFKHashBat)); 
+				csPropTypes[lasttblIdx].lstPropTypes[lastPropIdx].numDisRefValues = BATcount(tmpFKHashBat);
+				if (tmpFKHashBat != NULL){
+					BBPreclaim(tmpFKHashBat);
+					tmpFKHashBat = NULL; 
+				}
+			}
+			if (isFKCol){
+				initHashBatgz = (csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblSupport > smallHashBatsz)?smallHashBatsz:csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblSupport;
+				tmpFKHashBat = BATnew(TYPE_void, TYPE_oid, initHashBatgz + 1, TRANSIENT);
+
+				if (tmpFKHashBat == NULL){
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot create new tmpFKHashBat");
+				}	
+				(void)BAThash(tmpFKHashBat,0);
+				if (!(tmpFKHashBat->T->hash)){
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for FK Bat");
+				}
+
+				if (BUNappend(tmpFKHashBat,obt, TRUE) == GDK_FAIL){		//The first value
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot insert to tmpFKHashBat");
+				}
+			}
+			#endif
+
+			lastColIdx = tmpColIdx; 
+			lastPropIdx = tmpPropIdx; 
+			lasttblIdx = tblIdx;
+			tmplastInsertedS = -1;
+			cstablestat->lastInsertedS[tblIdx][tmpColIdx] = BUN_NONE;
+
+			#if     DETECT_PKCOL	
+			if (isPossiblePK){
+				if (tmpHashBat != NULL){
+					BBPreclaim(tmpHashBat); 
+					tmpHashBat = NULL; 
+				}
+				tmpHashBat = BATnew(TYPE_void, TYPE_oid, lastSubjId[tblIdx] + 1, TRANSIENT);
+
+				if (tmpHashBat == NULL){
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot create new tmpHashBat");
+				}	
+				(void)BAThash(tmpHashBat,0);
+				if (!(tmpHashBat->T->hash)){
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for Bat");
+				}
+
+				csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isPKProp = 1;  /* Assume that the object values are all unique*/
+
+				if (BUNappend(tmpHashBat,obt, TRUE) == GDK_FAIL){		//Insert the first value
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot insert to tmpHashBat");
+				}
+				isCheckDone = 0;
+				numPKcols++;
+			}
+			#endif
+
+			
+		}
+		else{
+
+			#if     DETECT_PKCOL
+			if (isCheckDone == 0 && isPossiblePK){
+				tmpObjBun = BUNfnd(tmpHashBat,(ptr) obt);
+				if (tmpObjBun == BUN_NONE){
+					if (BUNappend(tmpHashBat,obt, TRUE) == GDK_FAIL){		//Insert the first value
+						throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot insert to tmpHashBat");
+					}
+				}
+				else{
+					isCheckDone = 1; 
+					csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isPKProp = 0; 
+					numPKcols--;
+					//printf("Found duplicated value at " BUNFMT "  |  " BUNFMT " | " BUNFMT "\n", *pbt, *sbt, *obt);
+				}
+			}
+
+			#endif
+			#if COUNT_DISTINCT_REFERRED_S
+			if (isFKCol){
+				assert(tmpFKHashBat != NULL); 
+				tmpFKRefBun = BUNfnd(tmpFKHashBat,(ptr) obt);
+				if (tmpFKRefBun == BUN_NONE){
+
+				       if (tmpFKHashBat->T->hash && BATcount(tmpFKHashBat) > 4 * tmpFKHashBat->T->hash->mask) {
+						HASHdestroy(tmpFKHashBat);
+						BAThash(tmpFKHashBat, 2*BATcount(tmpFKHashBat));
+
+						if (!(tmpFKHashBat->T->hash)){
+							throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot allocate the hash for FK Bat");
+						}
+					}
+					if (BUNappend(tmpFKHashBat,obt, TRUE) == GDK_FAIL){		
+						throw(RDF, "rdf.RDFdistTriplesToCSs", "Cannot insert to tmpFKHashBat");
+					}
+				}
+			}
+			#endif
+		}
+			
+		if (istmpMVProp == 1){	// This is a multi-valued prop
+			//printf("Multi values prop \n"); 
+			if (*sbt != lastS){ 	
+				numMultiValues = 0;
+				lastS = *sbt; 
+			}
+
+			assert(objType != MULTIVALUES); 	//TODO: Remove this
+			tmpMVColIdx = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].colIdxes[(int)objType];
+			tmpBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
+			getRealValue(&vrRealObjValue, *obt, objType, mi, mbat);
+				
+			for (i = 0; i < cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].numCol; i++){
+				tmpmvBat = cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].mvBats[i];
+				//BATprint(tmpmvBat);
+				if (i == tmpMVColIdx){	
+					// TODO: If i != 0, try to cast to default value		
+					if (BUNfastins(tmpmvBat, ATOMnilptr(TYPE_void), VALgetExtend_alloid(&vrRealObjValue,objType, &ts, obt)) == GDK_FAIL){
+						throw(RDF, "rdf.RDFdistTriplesToCSs", " Error in Bunfastins ");
+					} 
+				}
+				else{
+					if (i == 0){	//The deafult type column
+						//Check whether we can cast the value to the default type value
+						if (rdfcast(objType, defaultType, &vrRealObjValue, &vrCastedObjValue) == 1){
+							if (BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),VALgetExtend_alloid(&vrCastedObjValue, defaultType, &ts, obt)) == GDK_FAIL){ 
+								throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins ");
+							} 	
+							VALclear(&vrCastedObjValue);
+						}
+						else{
+							if (BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),ATOMnilptr(tmpmvBat->ttype)) == GDK_FAIL){
+								throw(RDF, "rdf.RDFdistTriplesToCSs", "Error in Bunfastins ");
+							} 
+						}
+					}
+					else{
+						if (BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),ATOMnilptr(tmpmvBat->ttype)) == GDK_FAIL){ 
+							throw(RDF, "rdf.RDFdistTriplesToCSs", "Error in Bunfastins ");
+						}
+					 
+					}
+				}
+			
+			}
+
+			VALclear(&vrRealObjValue);
+
+			if (numMultiValues == 0){	
+				//In search the position of the first value 
+				//to the correcponding column in the MAINTBL
+				//First: Insert all missing value
+				if ((int)tmpSoid > (tmplastInsertedS + 1)){
+					fillMissingvalues(tmpBat, tmplastInsertedS + 1, (int)tmpSoid-1);
+				}
+				
+				//BATprint(tmpmvBat);
+				tmpmvValue = (oid)(BUNlast(tmpmvBat) - 1);
+				//printf("Insert the refered oid " BUNFMT "for MV prop \n", tmpmvValue);
+				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), &tmpmvValue) == GDK_FAIL){
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");
+				}
+				//BATprint(tmpBat);
+				
+				//Insert this "key" to the key column of mv table.
+				tmpmvKey = tmpmvValue; 
+				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,ATOMnilptr(TYPE_void),&tmpmvKey) == GDK_FAIL){
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
+				} 
+
+				//Insert the current subject oid of the main table to the subject
+				//column of this mvtable
+				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].subjBat,ATOMnilptr(TYPE_void),sbt) == GDK_FAIL){
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
+				} 
+				
+				tmplastInsertedS = (int)tmpSoid; 
+				
+				lastColIdx = tmpColIdx; 
+				lastPropIdx = tmpPropIdx; 
+				lasttblIdx = tblIdx;
+				
+				numMultiValues++;
+			}
+			else{
+				//Repeat referred "key" in the key column of mvtable
+				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,ATOMnilptr(TYPE_void),&tmpmvKey) == GDK_FAIL){
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
+				} 
+
+				//Insert the current subject oid of the main table to the subject
+				//column of this mvtable
+				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].subjBat,ATOMnilptr(TYPE_void),sbt) == GDK_FAIL){
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
+				} 
+				
+			}
+			
+			continue; 
+		}
+		else{	
+			//If there exist multi-valued prop, but handle them as single-valued prop.
+			//Only first object value is stored. Other object values are 
+			if (*sbt != lastS){
+				lastS = *sbt; 
+			}
+			else{	// This is an extra object value
+				insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
+				//printf(" Extra object value ==> To PSO \n");
+
+				//Update propTypes
+				updatePropTypeForRemovedTriple(csPropTypes, tmpTblIdxPropIdxMap, tblIdx,subjCSMap, csTblIdxMapping, *sbt, *pbt, &lastRemovedProp, &lastRemovedSubj,1);
+
+				continue; 
+			}
+		}
+
+
+		tmpTableType = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].TableTypes[(int)objType]; 
+
+		//printf("  objType: %d  TblType: %d \n", (int)objType,(int)tmpTableType);
+		if (tmpTableType == PSOTBL){			//For infrequent type ---> go to PSO
+			insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
+			//printf(" ==> To PSO \n");
+
+			//Update propTypes
+			updatePropTypeForRemovedTriple(csPropTypes, tmpTblIdxPropIdxMap, tblIdx,subjCSMap, csTblIdxMapping, *sbt, *pbt, &lastRemovedProp, &lastRemovedSubj,0);
+
+			continue; 
+		}
+
+		if (tmpTableType == MAINTBL){
+			curBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
+			//printf(" tmpColIdx = %d \n",tmpColIdx);
+		}
+		else{	//tmpTableType == TYPETBL
+			tmpColExIdx = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].colIdxes[(int)objType];
+			curBat = cstablestat->lstcstableEx[tblIdx].colBats[tmpColExIdx];
+			//printf(" tmpColExIdx = %d \n",tmpColExIdx);
+		}
+
+
+		tmplastInsertedS = (cstablestat->lastInsertedS[tblIdx][tmpColIdx] == BUN_NONE)?(-1):(int)(cstablestat->lastInsertedS[tblIdx][tmpColIdx]);
+
+		//If S is not continuous meaning that some S's have missing values for this property. Fill nils for them.
+		if (fillMissingValueByNils(cstablestat, csPropTypes, tblIdx, tmpColIdx, tmpPropIdx, tmpColExIdx, tmpTableType, tmplastInsertedS + 1, (int)tmpSoid)!= MAL_SUCCEED){
+			throw(RDF, "rdf.RDFdistTriplesToCSs", "Problem in filling missing values by Nils error");			
+		}
+		
+		getRealValue(&vrRealObjValue, *obt, objType, mi, mbat);
+
+		if (tmpTableType != MAINTBL){	//Check whether it can be casted to the default type
+			tmpBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
+			if (rdfcast(objType, defaultType, &vrRealObjValue, &vrCastedObjValue) == 1){
+				//printf("Casted a value (type: %d) to tables %d col %d (type: %d)  \n", objType, tblIdx,tmpColIdx,defaultType);
+				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), VALgetExtend_alloid(&vrCastedObjValue, defaultType,&ts, obt)) == GDK_FAIL){
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
+				} 
+	
+				VALclear(&vrCastedObjValue);
+			}
+			else{
+				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void),ATOMnilptr(tmpBat->ttype)) == GDK_FAIL){
+					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
+				}
+			}
+
+		}
+		
+		if (BUNfastins(curBat, ATOMnilptr(TYPE_void), VALgetExtend_alloid(&vrRealObjValue, objType,&ts, obt)) == GDK_FAIL){
+			throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
+		} 
+		
+		VALclear(&vrRealObjValue);
+		
+		//printf(BUNFMT": Table %d | column %d  for prop " BUNFMT " | sub " BUNFMT " | obj " BUNFMT "\n",p, tblIdx, 
+		//					tmpColIdx, *pbt, tmpSoid, *obt); 
+					
+		//Update last inserted S
+		cstablestat->lastInsertedS[tblIdx][tmpColIdx] = tmpSoid;
+
+	}
+	
+	#if DETECT_PKCOL 
+	if (tmpHashBat != NULL){
+		BBPreclaim(tmpHashBat); 
+		tmpHashBat = NULL; 
+	}
+	printf("Number of possible PK cols is: %d \n", numPKcols); 
+	#endif
+
+	#if COUNT_DISTINCT_REFERRED_S
+	if (isFKCol){
+		//Update FK referred count for the last csProp
+		printf("LAST update ref count for FK Col at: Table %d  Prop %d (Orig Ref size: %d) \n", tblIdx, tmpPropIdx, csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].refTblSupport); 
+		csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].numDisRefValues = BATcount(tmpFKHashBat);
+		if (tmpFKHashBat != NULL){
+			BBPreclaim(tmpFKHashBat);
+			tmpFKHashBat = NULL; 
+		}
+	}
+	#endif
+
+	//HAVE TO GO THROUGH ALL BATS
+	if (fillMissingvaluesAll(cstablestat, csPropTypes, lasttblIdx, lastColIdx, lastPropIdx, lastSubjId) != MAL_SUCCEED){
+		throw(RDF, "rdf.RDFdistTriplesToCSs", "Problem in filling missing values all");			
+	}
+
+	numEmptyBat = 0;
+	// Keep the batCacheId
+	for (i = 0; i < cstablestat->numTables; i++){
+		//printf("----- Table %d ------ \n",i );
+		for (j = 0; j < cstablestat->numPropPerTable[i];j++){
+			//printf("Column %d \n", j);
+			cstablestat->lstbatid[i][j] = cstablestat->lstcstable[i].colBats[j]->batCacheid; 
+			tmpBat = cstablestat->lstcstable[i].colBats[j];
+			if (BATcount(tmpBat) == 0) {
+				printf("Empty Bats at table %d column %d \n",i,j);
+				numEmptyBat++;
+				fillMissingvalues(tmpBat, (int)BATcount(tmpBat), (int)lastSubjId[i]);
+			}
+			if (j > 0) 
+				if (BATcount(cstablestat->lstcstable[i].colBats[j]) > 0 &&
+				    BATcount(cstablestat->lstcstable[i].colBats[j-1]) > 0){			
+					assert(BATcount(cstablestat->lstcstable[i].colBats[j]) == BATcount(cstablestat->lstcstable[i].colBats[j-1]));
+				}
+			//BATprint(cstablestat->lstcstable[i].colBats[j]);
+			if (csPropTypes[i].lstPropTypes[j].isMVProp){
+				//printf("MV Columns: \n");
+				for (k = 0; k < cstablestat->lstcstable[i].lstMVTables[j].numCol; k++){
+					//BATprint(cstablestat->lstcstable[i].lstMVTables[j].mvBats[k]);
+				}
+
+			}
+
+		}
+	}
+	
+
+	*ret = 1; 
+
+	printf(" ... Done \n");
+	printf("Number of full empty bats %d \n",numEmptyBat);
+
+	printf("Number of triples in PSO table is "BUNFMT"\n", BATcount(cstablestat->pbat));
+	
+	BBPunfix(sbat->batCacheid);
+	BBPunfix(pbat->batCacheid);
+	BBPunfix(obat->batCacheid);
+	BBPunfix(mbat->batCacheid);
+	BBPunfix(lmap->batCacheid);
+	BBPunfix(rmap->batCacheid);
+
+	free(tmpTblIdxPropIdxMap); 
+
+	TKNZRclose(ret);
+
+	return MAL_SUCCEED; 
+}
+
+#else
 str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *mbatid, bat *lmapbatid, bat *rmapbatid, PropStat* propStat, CStableStat *cstablestat, CSPropTypes *csPropTypes, oid* lastSubjId, char *isLotsNullSubj, oid *subjCSMap, int* csTblIdxMapping){
 	
 	BAT *sbat = NULL, *pbat = NULL, *obat = NULL, *mbat = NULL, *lmap = NULL, *rmap = NULL; 
@@ -11177,6 +11873,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 
 	return MAL_SUCCEED; 
 }
+#endif
 
 #if BUILDTOKENZIER_TO_MAPID 
 /*
@@ -11700,8 +12397,13 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 	curT = clock(); 
 	printf (" Prepare and create sub-sorted PSO took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
+	#if EVERYTHING_AS_OID == 1
+	returnStr = RDFdistTriplesToCSs_alloid(ret, &sNewBat->batCacheid, &pNewBat->batCacheid, &oNewBat->batCacheid, mapbatid, 
+			&lmap->batCacheid, &rmap->batCacheid, propStat, cstablestat, *csPropTypes, lastSubjId, isLotsNullSubj, subjCSMap, csTblIdxMapping);
+	#else
 	returnStr = RDFdistTriplesToCSs(ret, &sNewBat->batCacheid, &pNewBat->batCacheid, &oNewBat->batCacheid, mapbatid, 
 			&lmap->batCacheid, &rmap->batCacheid, propStat, cstablestat, *csPropTypes, lastSubjId, isLotsNullSubj, subjCSMap, csTblIdxMapping);
+	#endif
 	printf("Return value from RDFdistTriplesToCSs is %s \n", returnStr);
 	if (returnStr != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in distributing triples to BATs using CSs");		
@@ -11723,7 +12425,12 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
         initMergeCSFreqCSMap(freqCSset, mergeCSFreqCSMap);
 	propStat2 = initPropStat();
 	getPropStatisticsFromMergeCSs(propStat2, curNumMergeCS, mergeCSFreqCSMap, freqCSset);
+
+	#if EVERYTHING_AS_OID 
+	if (0) 
+	#endif	
 	getFullSampleData(cstablestat, *csPropTypes, mTblIdxFreqIdxMapping, labels, numTables, &lmap->batCacheid, &rmap->batCacheid, freqCSset, mapbatid, propStat2);
+
 	freePropStat(propStat2);
 	free(mergeCSFreqCSMap);
 	}

@@ -67,8 +67,6 @@ RDFbisubsort(BAT **lbat, BAT **rbat);
 
 #define RDF_MIN_LITERAL (((oid) 1) << ((sizeof(oid)==8)?59:27))
 
-
-
 #define IS_DUPLICATE_FREE 0		/* 0: Duplications have not been removed, otherwise 1 */
 #define IS_COMPACT_TRIPLESTORE 1	/* 1: Only keep SPO for triple store */
 #define TRIPLE_STORE 1
@@ -78,6 +76,10 @@ RDFbisubsort(BAT **lbat, BAT **rbat);
 					the same type, i.e., MULTIVALUES */
 
 #define STORE TRIPLE_STORE /* this should become a compile time option */
+
+#define EVERYTHING_AS_OID 1	/*We do not store type-specific column but oid only*/
+#define STORE_ALL_EXCEPTION_IN_PSO 1	/* All the exceptions such as non-default type values are stored in 
+					PSO table.*/
 
 #define batsz 10000000
 #define smallbatsz 100000
