@@ -2972,7 +2972,7 @@ static sql_exp *
 exp_uses_exp( list *exps, sql_exp *e)
 {
 	node *n;
-	char *rname = exp_find_rel_name(e);
+	char *rname = exp_relname(e);
 	char *name = exp_name(e);
 
 	if (!exps)
@@ -4969,14 +4969,6 @@ exp_mark_used(sql_rel *subrel, sql_exp *e)
 			for (;n != NULL; n = n->next) 
 				nr += exp_mark_used(subrel, n->data);
 		}
-		/* rank operators have a second list of arguments */
-		if (e->r) {
-			list *l = e->r;
-			node *n = l->h;
-	
-			for (;n != NULL; n = n->next) 
-				nr += exp_mark_used(subrel, n->data);
-		}
 		break;
 	}
 	case e_cmp:
@@ -6101,18 +6093,37 @@ rel_reduce_casts(int *changes, mvc *sql, sql_rel *rel)
 			sql_exp *re = e->r;
 	
 			/* handle the and's in the or lists */
-			if (e->type != e_cmp || 
-			   (e->flag != cmp_lt && e->flag != cmp_gt)) 
+			if (e->type != e_cmp || !is_theta_exp(e->flag) || e->f)
 				continue;
-			/* rewrite e if left or right is cast */
+			/* rewrite e if left or right is a cast */
 			if (le->type == e_convert || re->type == e_convert) {
 				sql_rel *r = rel->r;
+				sql_subtype *st = exp_subtype(re);
 
+				/* e_convert(le) ==, <(=), >(=), !=  e_atom(re), conversion between integers only */
+				if (le->type == e_convert && is_simple_atom(re) && st->type->eclass == EC_NUM) {
+					sql_subtype *tt = exp_totype(le);
+					sql_subtype *ft = exp_fromtype(le);
+
+					if (tt->type->eclass != EC_NUM || ft->type->eclass != EC_NUM || tt->type->localtype < ft->type->localtype)
+						continue;
+
+					/* tt->type larger then tt->type, ie empty result, ie change into > max */
+					re = exp_atom_max( sql->sa, ft);
+					if (!re)
+						continue;
+					/* the ==, > and >=  change to l > max, the !=, < and <=  change to l < max */
+					if (e->flag == cmp_equal || e->flag == cmp_gt || e->flag == cmp_gte)
+						e = exp_compare(sql->sa, le->l, re, cmp_gt);
+					else
+						e = exp_compare(sql->sa, le->l, re, cmp_lt);
+					sql->caching = 0;
+				} else
 				/* if convert on left then find
 				 * mul or div on right which increased
 				 * scale!
 				 */
-				if (le->type == e_convert && re->type == e_column && r && is_project(r->op)) {
+				if (le->type == e_convert && re->type == e_column && (e->flag == cmp_lt || e->flag == cmp_gt) && r && is_project(r->op)) {
 					sql_exp *nre = rel_find_exp(r, re);
 					sql_subtype *tt = exp_totype(le);
 					sql_subtype *ft = exp_fromtype(le);
@@ -6850,7 +6861,7 @@ exp_rename_up(mvc *sql, sql_exp *e, list *aliases)
 		break;
 	case e_aggr:
 	case e_func: {
-		list *l = e->l, *nl = NULL, *r = e->r, *nr = NULL;
+		list *l = e->l, *nl = NULL;
 
 		if (!l) {
 			return e;
@@ -6859,19 +6870,10 @@ exp_rename_up(mvc *sql, sql_exp *e, list *aliases)
 			if (!nl)
 				return NULL;
 		}
-		if (e->r) {
-			nr = exps_rename_up(sql, r, aliases);
-			if (!nr)
-				return NULL;
-		}
 		if (e->type == e_func)
 			ne = exp_op(sql->sa, nl, e->f);
 		else 
 			ne = exp_aggr(sql->sa, nl, e->f, need_distinct(e), need_no_nil(e), e->card, has_nil(e));
-		if (ne && nr) {
-			ne->card = CARD_AGGR;
-			ne->r = nr;
-		}
 		break;
 	}	
 	case e_atom:
