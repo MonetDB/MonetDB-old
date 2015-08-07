@@ -29,9 +29,13 @@ stderr of test 'RollbackBeforePrecommit-1` in directory 'sql/test/HTM` itself:
 # 15:43:07 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-80594" "--port=38441"
 # 15:43:07 >  
 
-MAPI  = (monetdb) /var/tmp/mtest-83748/.s.monetdb.30393
+MAPI  = (monetdb) /var/tmp/mtest-8727/.s.monetdb.34885
 QUERY = CALL precommit(4);
 ERROR = !precommit not allowed in auto commit mode
+MAPI  = (monetdb) /var/tmp/mtest-8727/.s.monetdb.34885
+QUERY = CALL persistcommit(4);
+ERROR = !failed
+
 
 # 14:32:57 >  
 # 14:32:57 >  "Done."

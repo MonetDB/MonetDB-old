@@ -24,3 +24,7 @@ InsertWithCommitDeleteWith2PC-2
 TwoInsetsIn1Transaction
 PrecommitWithoutPersists-1
 PrecommitWithoutPersists-2
+PersistBeforePrecommit-1
+PersistBeforePrecommit-2
+PersistBeforePrecommitWithRollback-1
+PersistBeforePrecommitWithRollback-2

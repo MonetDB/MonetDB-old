@@ -25,14 +25,16 @@ stderr of test 'RollbackAfterPrecommit-1` in directory 'sql/test/HTM` itself:
 # cmdline opt 	mal_listing = 0
 # cmdline opt 	gdk_debug = 536870922
 
-# 15:40:50 >  
-# 15:40:50 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-80477" "--port=35564"
-# 15:40:50 >  
+# 11:13:01 >  
+# 11:13:01 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-8727" "--port=34885"
+# 11:13:01 >  
+
+MAPI  = (monetdb) /var/tmp/mtest-8727/.s.monetdb.34885
+QUERY = CALL persistcommit(5);
+ERROR = !failed
 
 
-
-
-# 15:40:50 >  
-# 15:40:50 >  "Done."
-# 15:40:50 >  
+# 11:13:01 >  
+# 11:13:01 >  "Done."
+# 11:13:01 >  
 

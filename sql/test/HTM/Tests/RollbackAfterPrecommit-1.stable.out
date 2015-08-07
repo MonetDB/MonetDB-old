@@ -33,8 +33,6 @@ Ready.
 #CALL precommit(5);
 [ 3	]
 #ROLLBACK;
-#CALL persistcommit(5);
-[ 0	]
 #SELECT * FROM htmtest;
 % sys.htmtest,	sys.htmtest # table_name
 % id,	val # name
