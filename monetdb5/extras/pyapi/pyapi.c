@@ -54,13 +54,15 @@ const char* zerocopyoutput_disableflag = "disable_pyzerocopyoutput";
 const char* numpy_string_array_enableflag = "enable_numpystringarray";
 const char* alwaysunicode_enableflag = "enable_alwaysunicode";
 const char* lazyarray_enableflag = "enable_lazyarray";
-const char* bytearray_disableflag = "disable_bytearray";
+const char* oldnullmask_enableflag = "enable_oldnullmask";
+const char* bytearray_enableflag = "enable_bytearray";
 const char* benchmark_output_flag = "pyapi_benchmark_output";
 static bool option_zerocopyinput;
 static bool option_zerocopyoutput;
 static bool option_numpy_string_array;
 static bool option_bytearray;
 static bool option_lazyarray;
+static bool option_oldnullmask;
 static bool option_alwaysunicode;
 static char *benchmark_output;
 #endif
@@ -1250,7 +1252,8 @@ str
         option_zerocopyinput = !(GDKgetenv_isyes(zerocopyinput_disableflag) || GDKgetenv_istrue(zerocopyinput_disableflag));
         option_zerocopyoutput = !(GDKgetenv_isyes(zerocopyoutput_disableflag) || GDKgetenv_istrue(zerocopyoutput_disableflag));
         option_numpy_string_array = GDKgetenv_isyes(numpy_string_array_enableflag) || GDKgetenv_istrue(numpy_string_array_enableflag);
-        option_bytearray = !(GDKgetenv_isyes(bytearray_disableflag) || GDKgetenv_istrue(bytearray_disableflag));
+        option_bytearray = GDKgetenv_isyes(bytearray_enableflag) || GDKgetenv_istrue(bytearray_enableflag);
+        option_oldnullmask = GDKgetenv_isyes(oldnullmask_enableflag) || GDKgetenv_istrue(oldnullmask_enableflag);
         option_lazyarray = GDKgetenv_isyes(lazyarray_enableflag) || GDKgetenv_istrue(lazyarray_enableflag);
         option_alwaysunicode = (GDKgetenv_isyes(alwaysunicode_enableflag) || GDKgetenv_istrue(alwaysunicode_enableflag));
         benchmark_output = GDKgetenv(benchmark_output_flag);
@@ -1739,22 +1742,64 @@ wrapup:
     return NULL;
 }
 
+#define CreateNullMask(tpe)                                        \
+    for(j = 0; j < count; j++) {                                   \
+        mask_data[j] = *((tpe*)BUNtail(bi, BUNfirst(b) + j)) == tpe##_nil;  \
+        found_nil = found_nil || mask_data[j];                     \
+    }                                                             
+
 PyObject *PyNullMask_FromBAT(BAT *b, size_t t_start, size_t t_end)
 {
     // We will now construct the Masked array, we start by setting everything to False
-    PyArrayObject* nullmask = (PyArrayObject*) PyArray_ZEROS(1, (npy_intp[1]) {(t_end - t_start)}, NPY_BOOL, 0);
+    size_t count = t_end - t_start;
+    PyArrayObject* nullmask = (PyArrayObject*) PyArray_ZEROS(1, (npy_intp[1]) {( count )}, NPY_BOOL, 0);
     const void *nil = ATOMnilptr(b->ttype);
-    int (*atomcmp)(const void *, const void *) = ATOMcompare(b->ttype);
     size_t j;
     bool found_nil = false;
     BATiter bi = bat_iterator(b);
+    bool *mask_data = (bool*)PyArray_DATA(nullmask);
 
-    for (j = 0; j < t_end - t_start; j++) {
-        if ((*atomcmp)(BUNtail(bi, BUNfirst(b) + t_start + j), nil) == 0) {
-            ((bool*)PyArray_DATA(nullmask))[j] = true;
-            found_nil = true;
+#ifdef _PYAPI_TESTING_
+    if (!option_oldnullmask) {
+#endif
+    switch(ATOMstorage(getColumnType(b->T->type)))
+    {
+        case TYPE_bit: CreateNullMask(bit); break;
+        case TYPE_bte: CreateNullMask(bte); break;
+        case TYPE_sht: CreateNullMask(sht); break;
+        case TYPE_int: CreateNullMask(int); break;
+        case TYPE_lng: CreateNullMask(lng); break;
+        case TYPE_flt: CreateNullMask(flt); break;
+        case TYPE_dbl: CreateNullMask(dbl); break;
+#ifdef HAVE_HGE
+        case TYPE_hge: CreateNullMask(hge); break;
+#endif
+        case TYPE_str:
+        {
+            int (*atomcmp)(const void *, const void *) = ATOMcompare(b->ttype);
+            for (j = 0; j < count; j++) {
+                mask_data[j] = (*atomcmp)(BUNtail(bi, BUNfirst(b) + j), nil) == 0;
+                found_nil = found_nil || mask_data[j];
+            }
+            break;
+        }
+        default:
+            //todo: do something with the error?
+            return NULL;
+    }
+#ifdef _PYAPI_TESTING_
+    } else {
+        int (*atomcmp)(const void *, const void *) = ATOMcompare(b->ttype);
+        for (j = 0; j < count; j++) {
+            if ((*atomcmp)(BUNtail(bi, BUNfirst(b) + j), nil) == 0) {
+                ((bool*)PyArray_DATA(nullmask))[j] = true;
+                found_nil = true;
+            }
         }
     }
+#endif
+       
+    
     if (!found_nil) {
         Py_DECREF(nullmask);
         Py_RETURN_NONE;

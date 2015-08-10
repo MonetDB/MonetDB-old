@@ -191,12 +191,12 @@ function pyapi_test_input_null() {
 }
 
 function pyapi_test_output() {
-    pyapi_run_single_test "Output Testing (Zero Copy)" "" "OUTPUT" output_zerocopy "$OUTPUT_TESTING_NTESTS" "$OUTPUT_TESTING_SIZES"
+    pyapi_run_single_test "Output Testing (Zero Copy)" "--set gdk_mmap_minsize=99999999999999999999999" "OUTPUT" output_zerocopy "$OUTPUT_TESTING_NTESTS" "$OUTPUT_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 
-    pyapi_run_single_test "Output Testing (Copy)" "--set disable_pyzerocopyoutput=true" "OUTPUT" output_copy "$OUTPUT_TESTING_NTESTS" "$OUTPUT_TESTING_SIZES"
+    pyapi_run_single_test "Output Testing (Copy)" "--set disable_pyzerocopyoutput=true --set gdk_mmap_minsize=99999999999999999999999" "OUTPUT" output_copy "$OUTPUT_TESTING_NTESTS" "$OUTPUT_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
@@ -254,12 +254,12 @@ function pyapi_test_string_unicode_ascii() {
 }
 
 function pyapi_test_bytearray_vs_string() {
-    pyapi_run_single_test "String Testing (ByteArray Object)" "" "STRING_SAMELENGTH" string_bytearrayobject "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (ByteArray Object)" "--set enable_bytearray=true" "STRING_SAMELENGTH" string_bytearrayobject "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 
-    pyapi_run_single_test "String Testing (String Object)" "--set disable_bytearray=true" "STRING_SAMELENGTH" string_stringobject "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (String Object)" "" "STRING_SAMELENGTH" string_stringobject "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
