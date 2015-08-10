@@ -60,10 +60,12 @@ export PYTHON_MONETDB_DIR=python-monetdb-$PYTHON_MONETDB_CONNECTOR_VERSION
 export PYTHON_MONETDB_FILE=python-monetdb-$PYTHON_MONETDB_CONNECTOR_VERSION.tar.gz
 export PYTHON_MONETDB_URL=https://pypi.python.org/packages/source/p/python-monetdb/$PYTHON_MONETDB_FILE
 
+# Benchmarks DIR
+export PYAPI_BENCHMARKS_DIR=$PYAPI_MONETDB_DIR/monetdb5/extras/pyapi/Benchmarks
 # Python testfile location
-export PYAPI_TESTFILE=$PYAPI_MONETDB_DIR/monetdb5/extras/pyapi/Benchmarks/monetdb_testing.py
+export PYAPI_TESTFILE=$PYAPI_BENCHMARKS_DIR/monetdb_testing.py
 # Graph file location
-export PYAPI_GRAPHFILE=$PYAPI_MONETDB_DIR/monetdb5/extras/pyapi/Benchmarks/graph.py
+export PYAPI_GRAPHFILE=$PYAPI_BENCHMARKS_DIR/graph.py
 
 # Try a bunch of popular different terminals
 export SETSID=0

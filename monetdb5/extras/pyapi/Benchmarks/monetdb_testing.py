@@ -278,6 +278,16 @@ elif str(arguments[1]).lower() == "output":
     cursor.execute('rollback')
 
 elif str(arguments[1]).lower() == "string_samelength" or str(arguments[1]).lower() == "string_extremeunicode":
+    #todo: this
+    #benchmark_dir = os.environ["PYAPI_BENCHMARKS_DIR"]
+    #os.system("gcc " + benchmark_dir + "/randomstrings.c -o randomstrings")
+
+    #def generate_strings_samelength():
+    #   file = open("result.txt", 'r')
+    #   content = file.read()
+    #   strings = content.split(' ')
+    #   result = numpy.array(strings)
+    #   return result
     if str(arguments[1]).lower() == "string_samelength":
         def generate_strings_samelength(mb, length):
             def random_string(length):
@@ -347,6 +357,7 @@ elif str(arguments[1]).lower() == "string_samelength" or str(arguments[1]).lower
     for j in range(0,len(mb)):
         size = mb[j]
         length = lens[j]
+        #os.system("./randomstrings %s %s result.txt" % (str(size), str(length)))
         cursor.execute('create table strings as SELECT * FROM generate_strings_samelength(' + str(size) + ',' + str(length) + ') with data;')
         results = []
         result_file = open(temp_file, 'w+')
