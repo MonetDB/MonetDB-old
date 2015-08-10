@@ -1,6 +1,6 @@
 
 
-export PYAPI_BASE_DIR=/export/scratch1/raasveld
+export PYAPI_BASE_DIR=/home/mytherin/
 
 export PYAPI_TEST_DIR=$PYAPI_BASE_DIR/monetdb_pyapi_test
 export PYAPI_MONETDB_DIR=$PYAPI_TEST_DIR/MonetDB-pyapi
