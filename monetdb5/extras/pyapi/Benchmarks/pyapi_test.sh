@@ -11,7 +11,7 @@ export MSERVERTEST='netstat -ant | grep "127.0.0.1:$MSERVER_PORT.*LISTEN">/dev/n
 # Testing parameters
 # Input test (zero copy vs copy)
 # The input sizes to test (in MB)
-export INPUT_TESTING_SIZES="0.1 1 10 100 1000"
+export INPUT_TESTING_SIZES="10"
 # Amount of tests to run for each size
 export INPUT_TESTING_NTESTS=10
 
@@ -130,6 +130,11 @@ function pyapi_build() {
     fi
 }
 
+function pyapi_run_single_test_echo() {
+    echo \$PYAPI_BUILD_DIR/bin/mserver5 --set mapi_port=\$MSERVER_PORT --set embedded_py=true --set enable_pyverbose=true --set pyapi_benchmark_output=\$PYAPI_OUTPUT_DIR/temp_output.tsv $2
+    echo python \$PYAPI_TESTFILE $3 $4 $5 \$MSERVER_PORT $6
+}
+
 function pyapi_run_single_test() {
     echo "Beginning Test $1"
     if [ $SETSID -eq 1 ]; then
@@ -154,6 +159,7 @@ function pyapi_run_single_test() {
     echo "Failed to close mserver, exiting..."
     return 1
 }
+
 
 function pyapi_test_input() {
     echo "Beginning Input Testing (Copy vs Zero Copy)"
