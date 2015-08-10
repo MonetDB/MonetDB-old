@@ -60,6 +60,8 @@ export PYTHON_MONETDB_DIR=python-monetdb-$PYTHON_MONETDB_CONNECTOR_VERSION
 export PYTHON_MONETDB_FILE=python-monetdb-$PYTHON_MONETDB_CONNECTOR_VERSION.tar.gz
 export PYTHON_MONETDB_URL=https://pypi.python.org/packages/source/p/python-monetdb/$PYTHON_MONETDB_FILE
 
+# Datafarm Dir
+export PYAPI_DATAFARM_DIR=$PYAPI_BUILD_DIR/var/monetdb5/dbfarm
 # Benchmarks DIR
 export PYAPI_BENCHMARKS_DIR=$PYAPI_MONETDB_DIR/monetdb5/extras/pyapi/Benchmarks
 # Python testfile location
@@ -139,6 +141,7 @@ function pyapi_run_single_test_echo() {
 
 function pyapi_run_single_test() {
     echo "Beginning Test $1"
+    rm -rf $PYAPI_DATAFARM_DIR
     if [ $SETSID -eq 1 ]; then
         $TERMINAL $PYAPI_BUILD_DIR/bin/mserver5 --set mapi_port=$MSERVER_PORT --set embedded_py=true --set enable_pyverbose=true --set pyapi_benchmark_output=$PYAPI_OUTPUT_DIR/temp_output.tsv $2 && python $PYAPI_TESTFILE $3 $4 $5 $MSERVER_PORT $6 && killall mserver5
     else
