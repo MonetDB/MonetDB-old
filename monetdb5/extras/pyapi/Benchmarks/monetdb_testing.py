@@ -136,7 +136,7 @@ if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-m
     # First create a function that generates the desired input size (in MB) and pass it to the database
     if str(arguments[1]).lower() == "input-null":
         #if the type is input-null, we simply set all negative numbers to NULL
-        def generate_integers(mb):
+        def generate_integers(mb, random_seed):
             import random
             import math
             numpy.random.seed(random_seed)
@@ -148,7 +148,7 @@ if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-m
             integers = numpy.random.random_integers(min_int, max_int, integer_count).astype(numpy.int32)
             return numpy.ma.masked_array(integers, numpy.less(integers, 0))
     else:
-        def generate_integers(mb):
+        def generate_integers(mb, random_seed):
             import random
             import math
             numpy.random.seed(random_seed)
@@ -159,7 +159,7 @@ if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-m
             integer_count = int(byte_size / integer_size_byte)
             return numpy.random.random_integers(min_int, max_int, integer_count).astype(numpy.int32)
 
-    cursor.execute(export_function(generate_integers, ['float'], ['i integer'], table=True, test=False))
+    cursor.execute(export_function(generate_integers, ['float', 'integer'], ['i integer'], table=True, test=False))
 
     # Our import test function returns a single boolean value and doesn't do anything with the actual input
     # This way the input loading is the only relevant factor in running time, because the time taken for function execution/output handling is constant
@@ -180,7 +180,7 @@ if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-m
         temp_size = size
         for increment in range(0, int(math.ceil(float(size) / float(max_size)))):
             current_size = temp_size if temp_size < max_size else max_size
-            cursor.execute('INSERT INTO integers SELECT * FROM generate_integers(' + str(current_size) + ');')
+            cursor.execute('INSERT INTO integers SELECT * FROM generate_integers(' + str(current_size) + ',' + str(random_seed + increment) + ');')
             temp_size -= max_size
 
         if (str(arguments[1]).lower() == "input"):
@@ -410,7 +410,7 @@ elif str(arguments[1]).lower() == "string_extremelength":
     #cursor.execute('drop function import_test');
     cursor.execute('rollback')
 elif "factorial" in str(arguments[1]).lower():
-    def generate_integers(mb):
+    def generate_integers(mb, random_seed):
         import random
         import math
         numpy.random.seed(random_seed)
@@ -421,7 +421,7 @@ elif "factorial" in str(arguments[1]).lower():
         integer_count = int(byte_size / integer_size_byte)
         return numpy.random.random_integers(min_int, max_int, integer_count).astype(numpy.int32)
 
-    cursor.execute(export_function(generate_integers, ['float'], ['i integer'], table=True, test=False))
+    cursor.execute(export_function(generate_integers, ['float', 'integer'], ['i integer'], table=True, test=False))
     def factorial(i):
         import math
         result = numpy.zeros(i.shape[0])
@@ -445,7 +445,7 @@ elif "factorial" in str(arguments[1]).lower():
         temp_size = size
         for increment in range(0, int(math.ceil(float(size) / float(max_size)))):
             current_size = temp_size if temp_size < max_size else max_size
-            cursor.execute('INSERT INTO integers SELECT * FROM generate_integers(' + str(current_size) + ');')
+            cursor.execute('INSERT INTO integers SELECT * FROM generate_integers(' + str(current_size) + ',' + str(random_seed + increment) + ');')
             temp_size -= max_size
 
         results = [[], [], []]
@@ -487,7 +487,7 @@ elif str(arguments[1]).lower() == "pquantile" or str(arguments[1]).lower() == "r
         cursor.execute("CREATE FUNCTION rquantile(v double, q double) RETURNS double LANGUAGE R { quantile(v,q) };");
         quantile_function = "rquantile"
 
-    def generate_integers(mb):
+    def generate_integers(mb, random_seed):
         import random
         import math
         numpy.random.seed(random_seed)
@@ -498,7 +498,7 @@ elif str(arguments[1]).lower() == "pquantile" or str(arguments[1]).lower() == "r
         integer_count = int(byte_size / integer_size_byte)
         return numpy.random.random_integers(min_int, max_int, integer_count).astype(numpy.int32)
 
-    cursor.execute(export_function(generate_integers, ['float'], ['i integer'], table=True, test=False))
+    cursor.execute(export_function(generate_integers, ['float', 'integer'], ['i integer'], table=True, test=False))
 
 
     import time
@@ -513,7 +513,7 @@ elif str(arguments[1]).lower() == "pquantile" or str(arguments[1]).lower() == "r
         temp_size = size
         for increment in range(0, int(math.ceil(float(size) / float(max_size)))):
             current_size = temp_size if temp_size < max_size else max_size
-            cursor.execute('INSERT INTO integers SELECT * FROM generate_integers(' + str(current_size) + ');')
+            cursor.execute('INSERT INTO integers SELECT * FROM generate_integers(' + str(current_size) + ',' + str(random_seed + increment) + ');')
             temp_size -= max_size
 
         results = []
