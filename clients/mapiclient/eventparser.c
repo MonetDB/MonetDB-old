@@ -6,7 +6,7 @@
  * Copyright 2008-2015 MonetDB B.V.
  */
 
-/* (c) M Kersten, S Manegold */
+/* (c) M Kersten */
 
 #include "eventparser.h"
 
@@ -340,8 +340,8 @@ eventparser(char *row, EventRecord *ev)
 	if (*c == 0)
 		return -1;
 	*c = 0;
-	ev->numa= strdup(numa);
-	if( ev->num == NULL){
+	ev->numa = strdup(numa);
+	if( ev->numa == NULL){
 		fprintf(stderr,"Could not allocate numa memory\n");
 		exit(-1);
 	}
@@ -441,7 +441,7 @@ eventparser(char *row, EventRecord *ev)
 		*w = 0;
 	if( ev->state == MDB_SYSTEM){
 		monetdb_characteristics = strdup(ev->stmt);
-		if( ev->stmt == NULL){
+		if( monetdb_characteristics == NULL){
 			fprintf(stderr,"Could not allocate monetdb_characteristics memory\n");
 			exit(-1);
 		}

@@ -567,7 +567,7 @@ static void
 update(EventRecord *ev)
 {
 	int progress=0;
-	int i,j;
+	int i,j,k;
 	char *v, *s;
 	int uid = 0,qid = 0;
 	char line[BUFSIZ];
@@ -717,16 +717,15 @@ update(EventRecord *ev)
 
 		// collect all input producing PCs
 		fprintf(tachojson,"\"prereq\":[");
-		for( i=0; i < malvartop; i++){
+		for( k=0, i=0; i < malvartop; i++){
 			// remove duplicates
 			for(j= ev->pc-1; j>=0;j --){
-				//if(debug)
-					//fprintf(stderr,"locate %s in %s\n",malvariables[i], events[j].stmt);
 				if(events[j].stmt && (v = strstr(events[j].stmt, malvariables[i])) && v < strstr(events[j].stmt,":=")){
-					snprintf(number,BUFSIZ,"%d",j);
+					snprintf(number,BUFSIZ," %d ",j);
+					//avoid duplicate prerequisites
 					if( strstr(prereq,number) == 0)
-						snprintf(prereq + strlen(prereq), BUFSIZ-1-strlen(prereq), "%s%d",(i?", ":""), j);
-					//fprintf(tachojson,"%s%d",(i?", ":""), j);
+						snprintf(prereq + strlen(prereq), BUFSIZ-1-strlen(prereq), "%s %d ",(k?", ":""), j);
+					k++;
 					break;
 				}
 			}
@@ -755,7 +754,7 @@ update(EventRecord *ev)
 		fprintf(tachojson,"\"time\": "LLFMT",\n",ev->clkticks);
 		fprintf(tachojson,"\"status\": \"done\",\n");
 		fprintf(tachojson,"\"ticks\": "LLFMT",\n",ev->ticks);
-		fprintf(tachojson," \"stmt\":\"");
+		fprintf(tachojson,"\"stmt\":\"");
 		for(s = ev->stmt; *s; s++)
 		switch(*s){
 		case '\\': 
@@ -765,14 +764,14 @@ update(EventRecord *ev)
 		fprintf(tachojson,"\",\n");
 
 		renderCall(line,BUFSIZ, ev->stmt,1,1);
-		fprintf(tachojson," \"beautystmt\":\"");
+		fprintf(tachojson,"\"beautystmt\":\"");
 		for(s = line; *s; s++)
 		switch(*s){
 		case '\\': 
 			if( *(s+1) == '\\' ) s++;
 		default: fputc((int) *s, tachojson);
 		}
-		fprintf(tachojson,"\",\n");
+		fprintf(tachojson,"\"\n");
 
 		fprintf(tachojson,"},\n");
 		fflush(tachojson);

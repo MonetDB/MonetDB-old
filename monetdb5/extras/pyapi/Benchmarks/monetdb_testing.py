@@ -290,7 +290,15 @@ elif str(arguments[1]).lower() == "string_samelength" or str(arguments[1]).lower
             file = open(f, 'r')
             content = file.read()
             strings = content.split(' ')
-            result = numpy.array(strings)
+            max_numpy_size = 1000000000
+            result = numpy.zeros(0, dtype="S%d" % length)
+            tempstr = len(strings)
+            current = 0
+            while tempstr > max_numpy_size:
+                result = numpy.append(result, numpy.array(strings[current:current + max_numpy_size]))
+                tempstr -= max_numpy_size
+                current += max_numpy_size
+            result = numpy.append(result, numpy.array(strings[current:len(strings) - 1]))
             return result
         cursor.execute(export_function(generate_strings_samelength, ['string', 'integer'], ['i string'], table=True, test=False))
     else:
@@ -298,7 +306,15 @@ elif str(arguments[1]).lower() == "string_samelength" or str(arguments[1]).lower
             file = open(f, 'r')
             content = file.read()
             strings = content.split(' ')
-            result = numpy.array(strings).astype("U%d" % length)
+            max_numpy_size = 1000000000
+            result = numpy.zeros(0, dtype="U%d" % length)
+            tempstr = len(strings)
+            current = 0
+            while tempstr > max_numpy_size:
+                result = numpy.append(result, numpy.array(strings[current:current + max_numpy_size]))
+                tempstr -= max_numpy_size
+                current += max_numpy_size
+            result = numpy.append(result, numpy.array(strings[current:len(strings) - 1]))
             result[len(result) - 1] = unichr(0x100) * length
             return result
         cursor.execute(export_function(generate_strings_samelength, ['string', 'integer'], ['i string'], table=True, test=False))
