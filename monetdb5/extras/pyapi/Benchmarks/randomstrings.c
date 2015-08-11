@@ -21,13 +21,13 @@ int main(int argc, char *argv[])
 	}
 
 	double size_mb;
-	int string_count;
-	int string_length;
+	size_t string_count;
+	size_t string_length;
 
 	size_mb = strtod(argv[1], NULL);
 	string_length = atoi(argv[2]);
 
-	string_count = (int) (size_mb * 1000 * 1000) / string_length;
+	string_count = (size_t) (size_mb * 1000 * 1000) / string_length;
 
 	char option_string[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 	size_t options = strlen(option_string);
