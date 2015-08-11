@@ -46,11 +46,11 @@ int main(int argc, char *argv[])
 	for(i = string_length; i < result_size; i += string_length + 1) {
 		result[i] = sep;
 	}
-	int MAX_BUFFER_SIZE = 100000;
+	size_t MAX_BUFFER_SIZE = 100000;
 	{
 		FILE *f = fopen(argv[3], "w");
 		for(i = 0; i < result_size / MAX_BUFFER_SIZE; i++) {
-			int tempindex = (i + 1) * MAX_BUFFER_SIZE;
+			size_t tempindex = (i + 1) * MAX_BUFFER_SIZE;
 			char tmp = result[tempindex];
 			result[tempindex] = '\0';
 			fprintf(f, "%s", result + i * MAX_BUFFER_SIZE);
