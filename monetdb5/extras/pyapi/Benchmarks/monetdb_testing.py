@@ -110,6 +110,7 @@ port = int(arguments[4])
 parameters_start = 5
 max_retries = 15
 max_size = 1000
+random_seed = 33
 
 import monetdb.sql
 # Try to connect to the database
@@ -138,6 +139,7 @@ if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-m
         def generate_integers(mb):
             import random
             import math
+            numpy.random.seed(random_seed)
             byte_size = mb * 1000 * 1000
             integer_size_byte = 4
             max_int = math.pow(2,31) - 1
@@ -149,6 +151,7 @@ if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-m
         def generate_integers(mb):
             import random
             import math
+            numpy.random.seed(random_seed)
             byte_size = mb * 1000 * 1000
             integer_size_byte = 4
             max_int = math.pow(2,31) - 1
@@ -444,7 +447,7 @@ elif "factorial" in str(arguments[1]).lower():
     def generate_integers(mb):
         import random
         import math
-        random.seed(100)
+        numpy.random.seed(random_seed)
         byte_size = mb * 1000 * 1000
         integer_size_byte = 4
         max_int = 2000
@@ -521,6 +524,7 @@ elif str(arguments[1]).lower() == "pquantile" or str(arguments[1]).lower() == "r
     def generate_integers(mb):
         import random
         import math
+        numpy.random.seed(random_seed)
         byte_size = mb * 1000 * 1000
         integer_size_byte = 4
         max_int = math.pow(2,31) - 1
