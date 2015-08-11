@@ -286,38 +286,13 @@ elif str(arguments[1]).lower() == "string_samelength" or str(arguments[1]).lower
     result_path = os.path.join(os.getcwd(), 'result.txt')
 
     if str(arguments[1]).lower() == "string_samelength":
-        def generate_strings_samelength(f, length):
-            file = open(f, 'r')
-            content = file.read()
-            strings = content.split(' ')
-            max_numpy_size = 1000000000
-            result = numpy.zeros(0, dtype="S%d" % length)
-            tempstr = len(strings)
-            current = 0
-            while tempstr > max_numpy_size:
-                result = numpy.append(result, numpy.array(strings[current:current + max_numpy_size]))
-                tempstr -= max_numpy_size
-                current += max_numpy_size
-            result = numpy.append(result, numpy.array(strings[current:len(strings) - 1]))
-            return result
-        cursor.execute(export_function(generate_strings_samelength, ['string', 'integer'], ['i string'], table=True, test=False))
+        def generate_strings_samelength(length):
+            return 'A' * length
+        cursor.execute(export_function(generate_strings_samelength, ['integer'], ['i string'], table=True, test=False))
     else:
-        def generate_strings_samelength(f, length):
-            file = open(f, 'r')
-            content = file.read()
-            strings = content.split(' ')
-            max_numpy_size = 1000000000
-            result = numpy.zeros(0, dtype="U%d" % length)
-            tempstr = len(strings)
-            current = 0
-            while tempstr > max_numpy_size:
-                result = numpy.append(result, numpy.array(strings[current:current + max_numpy_size]))
-                tempstr -= max_numpy_size
-                current += max_numpy_size
-            result = numpy.append(result, numpy.array(strings[current:len(strings) - 1]))
-            result[len(result) - 1] = unichr(0x100) * length
-            return result
-        cursor.execute(export_function(generate_strings_samelength, ['string', 'integer'], ['i string'], table=True, test=False))
+        def generate_strings_samelength(length):
+            return unichr(0x100) * length
+        cursor.execute(export_function(generate_strings_samelength, ['integer'], ['i string'], table=True, test=False))
 
     mb = []
     lens = []
@@ -337,7 +312,10 @@ elif str(arguments[1]).lower() == "string_samelength" or str(arguments[1]).lower
         size = mb[j]
         length = lens[j]
         os.system("%s %s %s %s" % ("./randomstrings", str(size), str(length), result_path))
-        cursor.execute('create table strings as SELECT * FROM generate_strings_samelength(\'' + result_path + '\',' + str(length) + ') with data;')
+        cursor.execute('CREATE TABLE strings(i string);')
+        cursor.execute("COPY INTO strings FROM '%s';" % result_path)
+        cursor.execute('INSERT INTO strings SELECT * FROM generate_strings_samelength(' + str(length) + ');')
+        #cursor.execute('create table strings as SELECT * FROM generate_strings_samelength(\'' + result_path + '\',' + str(length) + ') with data;')
         results = []
         result_file = open(temp_file, 'w+')
         result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
@@ -365,7 +343,7 @@ elif str(arguments[1]).lower() == "string_extremelength":
     os.system("gcc " + benchmark_dir + "/randomstrings.c -o randomstrings")
     result_path = os.path.join(os.getcwd(), 'result.txt')
 
-    def generate_strings_extreme(f, extreme_length):
+    def generate_strings_extreme(extreme_length):
         def random_string(length):
             import random
             import string
@@ -373,13 +351,8 @@ elif str(arguments[1]).lower() == "string_extremelength":
             for i in range(0, length):
                 result += random.choice(string.printable)
             return result
-        file = open(f, 'r')
-        content = file.read()
-        strings = content.split(' ')
-        result = numpy.array(strings).astype('object')
-        result[0] = random_string(extreme_length)
-        return result
-    cursor.execute(export_function(generate_strings_extreme, ['string', 'integer'], ['i string'], table=True, test=False))
+        return random_string(extreme_length)
+    cursor.execute(export_function(generate_strings_extreme, ['integer'], ['i string'], table=True, test=False))
 
     extreme_lengths = []
     string_counts = []
@@ -399,10 +372,11 @@ elif str(arguments[1]).lower() == "string_extremelength":
         str_len = extreme_lengths[j]
         str_count = string_counts[j]
         string_mb = float(str_count) / (1000 ** 2)
-        print("%s %s %s %s" % ("./randomstrings", str(string_mb), str(1), result_path))
         os.system("%s %s %s %s" % ("./randomstrings", str(string_mb), str(1), result_path))
-        cursor.execute('create table strings as SELECT * FROM generate_strings_extreme(\'' + result_path + '\',' + str(str_len) + ') with data;')
-        print('create table strings as SELECT * FROM generate_strings_extreme(\'' + result_path + '\',' + str(str_len) + ') with data;')
+        cursor.execute('CREATE TABLE strings(i string);')
+        cursor.execute("COPY INTO strings FROM '%s';" % result_path)
+        cursor.execute('INSERT INTO strings SELECT * FROM generate_strings_extreme(' + str(str_len) + ');')
+        #print('create table strings as SELECT * FROM generate_strings_extreme(\'' + result_path + '\',' + str(str_len) + ') with data;')
         results = []
         result_file = open(temp_file, 'w+')
         result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")

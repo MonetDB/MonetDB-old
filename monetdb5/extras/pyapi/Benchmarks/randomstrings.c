@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 	size_t result_size = string_length * string_count + string_count - 1;
 	char *result = malloc(sizeof(char) * result_size + 1);
 	result[result_size] = '\0';
-	char sep = ' ';
+	char sep = '\n';
 	size_t i, j;
 
 	for(i = 0; i < result_size; i += string_length + 1) {
@@ -49,6 +49,7 @@ int main(int argc, char *argv[])
 	size_t MAX_BUFFER_SIZE = 100000;
 	{
 		FILE *f = fopen(argv[3], "w");
+		fprintf(f, "s\n");
 		for(i = 0; i < result_size / MAX_BUFFER_SIZE; i++) {
 			size_t tempindex = (i + 1) * MAX_BUFFER_SIZE;
 			char tmp = result[tempindex];
@@ -57,6 +58,7 @@ int main(int argc, char *argv[])
 			result[tempindex] = tmp;
 		}
 		fprintf(f, "%s", result + i * MAX_BUFFER_SIZE);
+		fprintf(f, "\n");
 		fclose(f);
 	}
 
