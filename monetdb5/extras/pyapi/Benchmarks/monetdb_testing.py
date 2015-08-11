@@ -281,67 +281,27 @@ elif str(arguments[1]).lower() == "output":
     cursor.execute('rollback')
 
 elif str(arguments[1]).lower() == "string_samelength" or str(arguments[1]).lower() == "string_extremeunicode":
-    #todo: this
-    #benchmark_dir = os.environ["PYAPI_BENCHMARKS_DIR"]
-    #os.system("gcc " + benchmark_dir + "/randomstrings.c -o randomstrings")
+    benchmark_dir = os.environ["PYAPI_BENCHMARKS_DIR"]
+    os.system("gcc " + benchmark_dir + "/randomstrings.c -o randomstrings")
+    result_path = os.path.join(os.getcwd(), 'result.txt')
 
-    #def generate_strings_samelength():
-    #   file = open("result.txt", 'r')
-    #   content = file.read()
-    #   strings = content.split(' ')
-    #   result = numpy.array(strings)
-    #   return result
     if str(arguments[1]).lower() == "string_samelength":
-        def generate_strings_samelength(mb, length):
-            def random_string(length):
-                import random
-                import string
-                result = ""
-                for i in range(0, length):
-                    result += random.choice(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
-                return result
-            import random
-            import math
-            byte_size = mb * 1000 * 1000
-            string_size_byte = length
-            string_count = int(byte_size / string_size_byte)
-            if length < 15:
-                min_int = math.pow(10, length - 1)
-                max_int = math.pow(10, length) - 1
-                strings = numpy.random.random_integers(min_int, max_int, string_count).astype('S' + str(length))
-                return strings
-            else:
-                strings = numpy.zeros(string_count, dtype='S' + str(length))
-                for i in range(0, string_count):
-                    strings[i] = random_string(length)
-                return strings
-        cursor.execute(export_function(generate_strings_samelength, ['float', 'integer'], ['i string'], table=True, test=False))
+        def generate_strings_samelength(f, length):
+            file = open(f, 'r')
+            content = file.read()
+            strings = content.split(' ')
+            result = numpy.array(strings)
+            return result
+        cursor.execute(export_function(generate_strings_samelength, ['string', 'integer'], ['i string'], table=True, test=False))
     else:
-        def generate_strings_samelength(mb, length):
-            def random_string(length):
-                import random
-                import string
-                result = ""
-                for i in range(0, length):
-                    result += random.choice(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
-                return result
-            import random
-            import math
-            byte_size = mb * 1000 * 1000
-            string_size_byte = length
-            string_count = int(byte_size / string_size_byte)
-            strings = None
-            if length < 15:
-                min_int = math.pow(10, length - 1)
-                max_int = math.pow(10, length) - 1
-                strings = numpy.random.random_integers(min_int, max_int, string_count).astype('U' + str(length))
-            else:
-                strings = numpy.zeros(string_count, dtype='U' + str(length))
-                for i in range(0, string_count):
-                    strings[i] = random_string(length)
-            strings[string_count - 1] = unichr(0x100) * length
-            return strings
-        cursor.execute(export_function(generate_strings_samelength, ['float', 'integer'], ['i string'], table=True, test=False))
+        def generate_strings_samelength(f, length):
+            file = open(f, 'r')
+            content = file.read()
+            strings = content.split(' ')
+            result = numpy.array(strings).astype("U%d" % length)
+            result[len(result) - 1] = unichr(0x100) * length
+            return result
+        cursor.execute(export_function(generate_strings_samelength, ['string', 'integer'], ['i string'], table=True, test=False))
 
     mb = []
     lens = []
@@ -360,8 +320,8 @@ elif str(arguments[1]).lower() == "string_samelength" or str(arguments[1]).lower
     for j in range(0,len(mb)):
         size = mb[j]
         length = lens[j]
-        #os.system("./randomstrings %s %s result.txt" % (str(size), str(length)))
-        cursor.execute('create table strings as SELECT * FROM generate_strings_samelength(' + str(size) + ',' + str(length) + ') with data;')
+        os.system("%s %s %s %s" % ("./randomstrings", str(size), str(length), result_path))
+        cursor.execute('create table strings as SELECT * FROM generate_strings_samelength(\'' + result_path + '\',' + str(length) + ') with data;')
         results = []
         result_file = open(temp_file, 'w+')
         result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
@@ -385,7 +345,11 @@ elif str(arguments[1]).lower() == "string_samelength" or str(arguments[1]).lower
     #cursor.execute('drop function import_test');
     cursor.execute('rollback')
 elif str(arguments[1]).lower() == "string_extremelength":
-    def generate_strings_extreme(extreme_length, string_count):
+    benchmark_dir = os.environ["PYAPI_BENCHMARKS_DIR"]
+    os.system("gcc " + benchmark_dir + "/randomstrings.c -o randomstrings")
+    result_path = os.path.join(os.getcwd(), 'result.txt')
+
+    def generate_strings_extreme(f, extreme_length):
         def random_string(length):
             import random
             import string
@@ -393,15 +357,13 @@ elif str(arguments[1]).lower() == "string_extremelength":
             for i in range(0, length):
                 result += random.choice(string.printable)
             return result
-        import random
-        import math
-        result = numpy.array([], dtype=object)
-        result = numpy.append(result, random_string(extreme_length))
-        for i in range(0, string_count - 1):
-            result = numpy.append(result, random_string(1))
+        file = open(f, 'r')
+        content = file.read()
+        strings = content.split(' ')
+        result = numpy.array(strings).astype('object')
+        result[0] = random_string(extreme_length)
         return result
-
-    cursor.execute(export_function(generate_strings_extreme, ['integer', 'integer'], ['i string'], table=True, test=False))
+    cursor.execute(export_function(generate_strings_extreme, ['string', 'integer'], ['i string'], table=True, test=False))
 
     extreme_lengths = []
     string_counts = []
@@ -420,7 +382,11 @@ elif str(arguments[1]).lower() == "string_extremelength":
     for j in range(0,len(extreme_lengths)):
         str_len = extreme_lengths[j]
         str_count = string_counts[j]
-        cursor.execute('create table strings as SELECT * FROM generate_strings_extreme(' + str(str_len) + ',' + str(str_count) + ') with data;')
+        string_mb = float(str_count) / (1000 ** 2)
+        print("%s %s %s %s" % ("./randomstrings", str(string_mb), str(1), result_path))
+        os.system("%s %s %s %s" % ("./randomstrings", str(string_mb), str(1), result_path))
+        cursor.execute('create table strings as SELECT * FROM generate_strings_extreme(\'' + result_path + '\',' + str(str_len) + ') with data;')
+        print('create table strings as SELECT * FROM generate_strings_extreme(\'' + result_path + '\',' + str(str_len) + ') with data;')
         results = []
         result_file = open(temp_file, 'w+')
         result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
@@ -564,4 +530,5 @@ elif str(arguments[1]).lower() == "pquantile" or str(arguments[1]).lower() == "r
 else:
     print("Unrecognized test type \"" + arguments[1] + "\", exiting...")
     sys.exit(1)
+
 
