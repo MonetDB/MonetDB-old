@@ -138,7 +138,7 @@ str init_shared_memory(int id, size_t size, void **return_ptr, int flags)
     {
         char *err = strerror(errno);
         errno = 0;
-        return createException(MAL, "shared_memory.get", "Error calling shmget(key:%d,size:%zu,flags:%d): %s", key, size, flags, err);
+        return createException(MAL, "shared_memory.get", "Error calling shmget(key:%zu,size:%zu,flags:%d): %s", (size_t)key, size, flags, err);
     }
 
     //check if the shared memory segment is already created, if it is we do not need to add it to the table and can simply return the pointer
@@ -291,18 +291,18 @@ void initialize_shared_memory(void)
     NOTIMPLEMENTED();
 }
 
-void* create_shared_memory(int id, size_t size)
+str create_shared_memory(int id, size_t size, void **return_ptr);
 {
-    (void) id; (void) size;
+    (void) id; (void) size; (void) return_ptr;
     NOTIMPLEMENTED();
     return NULL;
 }
 
-int release_shared_memory(void *ptr)
+str release_shared_memory(void *ptr);
 {
     (void) ptr;
     NOTIMPLEMENTED();
-    return false;
+    return NULL;
 }
 
 int get_unique_shared_memory_id(int offset)
@@ -312,9 +312,9 @@ int get_unique_shared_memory_id(int offset)
     return -1;
 }  
 
-void *get_shared_memory(int id, size_t size)
+str get_shared_memory(int id, size_t size, void **return_ptr);
 {
-    (void) id; (void) size;
+    (void) id; (void) size; (void) return_ptr;
     NOTIMPLEMENTED();
     return NULL;
 }

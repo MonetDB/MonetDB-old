@@ -844,7 +844,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             goto wrapup;
         }
     }
-
     VERBOSE_MESSAGE("Collecting return values.\n");
 
 

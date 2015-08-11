@@ -9,6 +9,8 @@
 #include "benchmark.h"
 
 
+#ifdef _PYAPI_TESTING_
+
 static unsigned long long memtrace_current_memory_bytes = 0;
 static unsigned long long memtrace_memory_peak = 0;
 
@@ -170,3 +172,5 @@ void reset_hook(void)
 	memtrace_current_memory_bytes = 0;
 	memtrace_memory_peak = 0;
 }
+
+#endif

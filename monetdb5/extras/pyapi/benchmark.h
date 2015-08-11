@@ -15,7 +15,10 @@
 #define _PYAPI_BENCHMARK_LIB_
 
 #include "monetdb_config.h"
- 
+#include "pyapi.h"
+
+#ifdef _PYAPI_TESTING_
+
 #ifdef HAVE_TIME_H
 #include <time.h>
 typedef struct timespec time_storage;
@@ -35,5 +38,8 @@ void revert_hook (void);
 unsigned long long GET_MEMORY_PEAK(void);
 //get current memory usage (note that this only measures the malloc calls between init_hook() and revert_hook() calls)
 unsigned long long GET_MEMORY_USAGE(void);
+
+
+#endif
 
 #endif
