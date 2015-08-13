@@ -96,9 +96,9 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* check for logical error: mb must never be NULL */
 	assert (mb != NULL);
 
-	cntxt = cntxt; /* to escape 'unused' parameter error. */
-	stk = stk; /* to escape 'unused' parameter error. */
-	pci = pci; /* to escape 'unused' parameter error. */
+	(void)cntxt; /* to escape 'unused' parameter error. */
+	(void)stk; /* to escape 'unused' parameter error. */
+	(void)pci; /* to escape 'unused' parameter error. */
 
 	if ((BAT_fi = BATdescriptor(bat_fi)) == NULL)
 		throw(MAL, "dvf.plan_modifier", RUNTIME_OBJECT_MISSING);
@@ -129,7 +129,7 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	printf("files of interest: %d\n", num_fl);
 	
-	num_fi = num_fi;
+	(void)num_fi;
 	
 	/* check for logical error */
 	assert(num_fi == num_fl);
@@ -153,7 +153,7 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	copy_old = mb;
 	mb = copy_mb;
 
-	copy_old = copy_old; /* to escape 'unused' parameter error. */
+	(void)copy_old; /* to escape 'unused' parameter error. */
 	
 	old = mb->stmt;
 	limit= mb->stop;
@@ -464,7 +464,7 @@ str plan_modifier(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 // 		mb->profiler[i].trace = TRUE;
 // 	}
 	
-	msg = msg;
+	(void)msg;
 	/* run rest of the plan */
 	msg = runMALsequence(cntxt, mb, startpc+1, mb->stop, stk_new, stk_new, mb->stmt[startpc]);
 

@@ -136,9 +136,9 @@ OPTdvfImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, in
 	int var_sql_mvc = 0;
 	int barrier_to_defend_against_dataflow = 0;
 
-	stk = stk; //to escape 'unused' parameter error.
-	pci = pci; //to escape 'unused' parameter error.
-	cntxt = cntxt; //to escape 'unused' parameter error.
+	(void)stk; //to escape 'unused' parameter error.
+	(void)pci; //to escape 'unused' parameter error.
+	(void)cntxt; //to escape 'unused' parameter error.
 
 	/* check for logical error: mb must never be NULL */
 	assert (mb != NULL);

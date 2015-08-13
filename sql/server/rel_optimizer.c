@@ -1999,11 +1999,11 @@ void compute_and_insert_unavailable_required_derived_metadata(mvc* sql, sel_pred
 	
 // 	u = "INSERT INTO %s.%s SELECT %s, %s FROM mseed.dataview%sWHERE start_time < %s + INTERVAL %s AND end_time > %s AND sys.date_trunc(sample_time, \'%s\') = %s %s GROUP BY %s;";
 	
-	schema_name = schema_name;
-	dmdt_name = dmdt_name;
+	(void)schema_name;
+	(void)dmdt_name;
 	pkey_select_str = form_pkey_select_str(sps, num_PERPAD, pkey_bound_to_dataview, select_str_per_pkey);
 	non_pkey_select_str = get_non_pkey_select_str(schema_name, dmdt_name);
-	from_join_temp_table_str = from_join_temp_table_str;
+	(void)from_join_temp_table_str;
 	if(idx_time_pkey >= 0)
 		start_ts_str = select_str_per_pkey[idx_time_pkey];
 	else
