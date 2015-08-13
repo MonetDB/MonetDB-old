@@ -237,6 +237,8 @@ BATcheckhash(BAT *b)
 	t = GDKusec();
 	MT_lock_set(&GDKhashLock(abs(b->batCacheid)), "BATcheckhash");
 	t = GDKusec() - t;
+// use or ignore a persistent hash
+#ifdef PERSISTENTHASH
 	if (b->T->hash == NULL) {
 		Hash *h;
 		Heap *hp;
@@ -298,6 +300,7 @@ BATcheckhash(BAT *b)
 		}
 		GDKfree(hp);
 	}
+#endif
 	ret = b->T->hash != NULL;
 	MT_lock_unset(&GDKhashLock(abs(b->batCacheid)), "BATcheckhash");
 	ALGODEBUG if (ret) fprintf(stderr, "#BATcheckhash: already has hash %d, waited " LLFMT " usec\n", b->batCacheid, t);
@@ -333,7 +336,9 @@ BAThash(BAT *b, BUN masksize)
 		const char *nme = BBP_physical(b->batCacheid);
 		const char *ext = b->batCacheid > 0 ? "thash" : "hhash";
 		BATiter bi = bat_iterator(b);
+#ifdef PERSISTENTHASH
 		int fd;
+#endif
 
 		ALGODEBUG fprintf(stderr, "#BAThash: create hash(" BUNFMT ");\n", BATcount(b));
 		if ((hp = GDKzalloc(sizeof(*hp))) == NULL ||
@@ -505,6 +510,7 @@ BAThash(BAT *b, BUN masksize)
 			}
 			break;
 		}
+#ifdef PERSISTENTHASH
 		if ((BBP_status(b->batCacheid) & BBPEXISTING) &&
 		    b->batInserted == b->batCount &&
 		    HEAPsave(hp, nme, ext) == GDK_SUCCEED &&
@@ -525,6 +531,7 @@ BAThash(BAT *b, BUN masksize)
 			close(fd);
 		} else
 			ALGODEBUG fprintf(stderr, "#BAThash: NOT persisting hash %d\n", b->batCacheid);
+#endif
 		b->T->hash = h;
 		t1 = GDKusec();
 		ALGODEBUG fprintf(stderr, "#BAThash: hash construction " LLFMT " usec\n", t1 - t0);

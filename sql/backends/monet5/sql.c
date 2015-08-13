@@ -1257,14 +1257,18 @@ SQLcatalog(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	case DDL_GRANT_ROLES:{
 		char *auth = SaveArgReference(stk, pci, 3);
+		int grantor = *getArgReference_int(stk, pci, 4);
+		int admin = *getArgReference_int(stk, pci, 5);
 
-		msg = sql_grant_role(sql, sname /*grantee */ , auth);
+		msg = sql_grant_role(sql, sname /*grantee */ , auth, grantor, admin);
 		break;
 	}
 	case DDL_REVOKE_ROLES:{
 		char *auth = SaveArgReference(stk, pci, 3);
+		int grantor = *getArgReference_int(stk, pci, 4);
+		int admin = *getArgReference_int(stk, pci, 5);
 
-		msg = sql_revoke_role(sql, sname /*grantee */ , auth);
+		msg = sql_revoke_role(sql, sname /*grantee */ , auth, grantor, admin);
 		break;
 	}
 	case DDL_GRANT:{
@@ -1758,6 +1762,7 @@ mvc_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int upd = (pci->argc == 7 || pci->argc == 9);
 	BAT *b = NULL, *bn;
 	bat *bid = getArgReference_bat(stk, pci, 0);
+	int coltype = getColumnType(getArgType(mb, pci, 0));
 	mvc *m = NULL;
 	str msg;
 	str *sname = getArgReference_str(stk, pci, 2 + upd);
@@ -1770,6 +1775,8 @@ mvc_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
 	b = mvc_bind(m, *sname, *tname, *cname, *access);
+	if (b && b->ttype != coltype)
+		throw(SQL,"sql.bind","tail type mismatch");
 	if (b) {
 		if (pci->argc == (8 + upd) && getArgType(mb, pci, 6 + upd) == TYPE_int) {
 			BUN cnt = BATcount(b), psz;
@@ -1853,6 +1860,7 @@ mvc_bind_idxbat_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int upd = (pci->argc == 7 || pci->argc == 9);
 	BAT *b = NULL, *bn;
 	bat *bid = getArgReference_bat(stk, pci, 0);
+	int coltype = getColumnType(getArgType(mb, pci, 0));
 	mvc *m = NULL;
 	str msg;
 	str *sname = getArgReference_str(stk, pci, 2 + upd);
@@ -1865,6 +1873,8 @@ mvc_bind_idxbat_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
 	b = mvc_bind_idxbat(m, *sname, *tname, *iname, *access);
+	if (b && b->ttype != coltype)
+		throw(SQL,"sql.bind","tail type mismatch");
 	if (b) {
 		if (pci->argc == (8 + upd) && getArgType(mb, pci, 6 + upd) == TYPE_int) {
 			BUN cnt = BATcount(b), psz;
@@ -5194,5 +5204,13 @@ BATSTRstrings(bat *res, const bat *src)
 	}
 	BBPunfix(s->batCacheid);
 	BBPkeepref((*res = r->batCacheid));
+	return MAL_SUCCEED;
+}
+
+str 
+SQLflush_log(void *ret)
+{
+	(void)ret;
+	store_flush_log();
 	return MAL_SUCCEED;
 }

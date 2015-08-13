@@ -35,7 +35,7 @@ Ready.
 % clob # type
 % 112 # length
 function user.s5_1{autoCommit=true}(A0:flt):void;
-    X_38:void := querylog.define("explain select * from tab_2826 where func_2826(d) > 1;","sequential_pipe",24);
+    X_37:void := querylog.define("explain select * from tab_2826 where func_2826(d) > 1;","sequential_pipe",24);
     X_21 := bat.new(nil:oid,nil:str);
     X_29 := bat.append(X_21,"sys.tab_2826");
     X_24 := bat.new(nil:oid,nil:str);

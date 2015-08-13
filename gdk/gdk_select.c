@@ -782,13 +782,14 @@ fullscan_str(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 		const unsigned char *ptr = (const unsigned char *) Tloc(b, 0);
 		pos -= GDK_VAROFFSET;
 		while (p < q) {
-			if (ptr[p++] == pos) {
+			if (ptr[p] == pos) {
 				buninsfix(bn, dst, cnt, o,
 					  (BUN) ((dbl) cnt / (dbl) (p-r)
 						 * (dbl) (q-p) * 1.1 + 1024),
 					  BATcapacity(bn) + q - p, BUN_NONE);
 				cnt++;
 			}
+			p++;
 			o++;
 		}
 		break;
@@ -797,13 +798,14 @@ fullscan_str(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 		const unsigned short *ptr = (const unsigned short *) Tloc(b, 0);
 		pos -= GDK_VAROFFSET;
 		while (p < q) {
-			if (ptr[p++] == pos) {
+			if (ptr[p] == pos) {
 				buninsfix(bn, dst, cnt, o,
 					  (BUN) ((dbl) cnt / (dbl) (p-r)
 						 * (dbl) (q-p) * 1.1 + 1024),
 					  BATcapacity(bn) + q - p, BUN_NONE);
 				cnt++;
 			}
+			p++;
 			o++;
 		}
 		break;
@@ -812,13 +814,14 @@ fullscan_str(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 	case 4: {
 		const unsigned int *ptr = (const unsigned int *) Tloc(b, 0);
 		while (p < q) {
-			if (ptr[p++] == pos) {
+			if (ptr[p] == pos) {
 				buninsfix(bn, dst, cnt, o,
 					  (BUN) ((dbl) cnt / (dbl) (p-r)
 						 * (dbl) (q-p) * 1.1 + 1024),
 					  BATcapacity(bn) + q - p, BUN_NONE);
 				cnt++;
 			}
+			p++;
 			o++;
 		}
 		break;
@@ -827,13 +830,14 @@ fullscan_str(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 	default: {
 		const var_t *ptr = (const var_t *) Tloc(b, 0);
 		while (p < q) {
-			if (ptr[p++] == pos) {
+			if (ptr[p] == pos) {
 				buninsfix(bn, dst, cnt, o,
 					  (BUN) ((dbl) cnt / (dbl) (p-r)
 						 * (dbl) (q-p) * 1.1 + 1024),
 					  BATcapacity(bn) + q - p, BUN_NONE);
 				cnt++;
 			}
+			p++;
 			o++;
 		}
 		break;
@@ -1270,13 +1274,14 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 	equi = th == NULL || (lval && ATOMcmp(t, tl, th) == 0); /* point select? */
 	if (equi) {
 		assert(lval);
-		if (th == NULL)
-			hi = li;
+		hi = li;
 		th = tl;
 		hval = 1;
 	} else {
 		hval = ATOMcmp(t, th, nil) != 0;
 	}
+	if (!equi && !lval && !hval && lnil) 
+		anti = !anti;
 	if (anti) {
 		if (lval != hval) {
 			/* one of the end points is nil and the other
@@ -1517,7 +1522,7 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 							 BATcount(b) + b->hseqbase);
 				}
 			} else {
-				BUN last = SORTfndlast(b, nil) - BUNfirst(b);
+				BUN last = SORTfndfirst(b, nil) - BUNfirst(b);
 				/* match: [0..low) + [high..last) */
 				if (s) {
 					oid o = (oid) last + b->H->seq;

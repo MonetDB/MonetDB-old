@@ -85,6 +85,18 @@ GDKfilepath(int farmid, const char *dir, const char *name, const char *ext)
 	return path;
 }
 
+/* Same as GDKfilepath, but tries to extract a filename from multilevel dir paths. */
+char *
+GDKfilepath_long(int farmid, const char *dir, const char *ext) {
+	char last_dir_parent[BUFSIZ] = "";
+	char last_dir[BUFSIZ] = "";
+
+	if (GDKextractParentAndLastDirFromPath(dir, last_dir_parent, last_dir)) {
+		return GDKfilepath(farmid, last_dir_parent, last_dir, ext);
+	}
+	return NULL;
+}
+
 gdk_return
 GDKcreatedir(const char *dir)
 {
@@ -212,6 +224,23 @@ GDKfilelocate(int farmid, const char *nme, const char *mode, const char *extensi
 	return f;
 }
 
+FILE *
+GDKfileopen(int farmid, const char * dir, const char *name, const char *extension, const char *mode) {
+	char *path;
+
+	/* if name is null, try to get one from dir (in case it was a path) */
+	if ((name == NULL) || (*name == 0)) {
+		path = GDKfilepath_long(farmid, dir, extension);
+	} else {
+		path = GDKfilepath(farmid, dir, name, extension);
+	}
+
+	if (path != NULL) {
+        IODEBUG THRprintf(GDKstdout, "#GDKfileopen(%s)\n", path);
+		return fopen(path, mode);
+	}
+	return NULL;
+}
 
 /*
  * Unlink the file.
@@ -616,10 +645,15 @@ DESCclean(BAT *b)
 #define MSYNC_BACKGROUND
 
 #ifndef DISABLE_MSYNC
+struct msync {
+	bat id;
+	Heap *h;
+};
+
 static void
 BATmsyncImplementation(void *arg)
 {
-	Heap *h = arg;
+	Heap *h = ((struct msync *) arg)->h;
 	char *adr;
 	size_t len;
 	size_t offset;
@@ -631,6 +665,8 @@ BATmsyncImplementation(void *arg)
 		adr -= MT_pagesize() - offset;
 	if (len)
 		(void) MT_msync(adr, len);
+	BBPunfix(((struct msync *) arg)->id);
+	GDKfree(arg);
 }
 #endif
 
@@ -641,21 +677,30 @@ BATmsync(BAT *b)
 #ifdef MSYNC_BACKGROUND
 	MT_Id tid;
 #endif
+	struct msync *arg;
 
 	assert(b->batPersistence == PERSISTENT);
-	if (b->T->heap.storage == STORE_MMAP) {
+	if (b->T->heap.storage == STORE_MMAP &&
+	    (arg = GDKmalloc(sizeof(*arg))) != NULL) {
+		arg->id = b->batCacheid;
+		arg->h = &b->T->heap;
+		BBPfix(b->batCacheid);
 #ifdef MSYNC_BACKGROUND
-		MT_create_thread(&tid, BATmsyncImplementation, (void *) &b->T->heap, MT_THR_DETACHED);
+		MT_create_thread(&tid, BATmsyncImplementation, arg, MT_THR_DETACHED);
 #else
-		BATmsyncImplementation((void*) &b->T->heap);
+		BATmsyncImplementation(arg);
 #endif
 	}
 
-	if (b->T->vheap && b->T->vheap->storage == STORE_MMAP) {
+	if (b->T->vheap && b->T->vheap->storage == STORE_MMAP &&
+	    (arg = GDKmalloc(sizeof(*arg))) != NULL) {
+		arg->id = b->batCacheid;
+		arg->h = b->T->vheap;
+		BBPfix(b->batCacheid);
 #ifdef MSYNC_BACKGROUND
-		MT_create_thread(&tid, BATmsyncImplementation, (void *) b->T->vheap, MT_THR_DETACHED);
+		MT_create_thread(&tid, BATmsyncImplementation, arg, MT_THR_DETACHED);
 #else
-		BATmsyncImplementation((void*) b->T->vheap);
+		BATmsyncImplementation(arg);
 #endif
 	}
 #else

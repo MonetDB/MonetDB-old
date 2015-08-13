@@ -172,6 +172,8 @@ delta_bind_bat( sql_delta *bat, int access, int temp)
 static BAT *
 bind_col(sql_trans *tr, sql_column *c, int access)
 {
+	if (!isTable(c->t)) 
+		return NULL;
 	if (!c->data) {
 		sql_column *oc = tr_find_column(tr->parent, c);
 		c->data = timestamp_delta(oc->data, tr->stime);
@@ -186,6 +188,8 @@ bind_col(sql_trans *tr, sql_column *c, int access)
 static BAT *
 bind_idx(sql_trans *tr, sql_idx * i, int access)
 {
+	if (!isTable(i->t)) 
+		return NULL;
 	if (!i->data) {
 		sql_idx *oi = tr_find_idx(tr->parent, i);
 		i->data = timestamp_delta(oi->data, tr->stime);
@@ -774,6 +778,8 @@ count_col(sql_trans *tr, sql_column *c, int all)
 {
 	sql_delta *b;
 
+	if (!isTable(c->t)) 
+		return 0;
 	if (!c->data) {
 		sql_column *oc = tr_find_column(tr->parent, c);
 		c->data = timestamp_delta(oc->data, tr->stime);
@@ -792,6 +798,8 @@ dcount_col(sql_trans *tr, sql_column *c)
 {
 	sql_delta *b;
 
+	if (!isTable(c->t)) 
+		return 0;
 	if (!c->data) {
 		sql_column *oc = tr_find_column(tr->parent, c);
 		c->data = timestamp_delta(oc->data, tr->stime);
@@ -825,6 +833,8 @@ count_idx(sql_trans *tr, sql_idx *i, int all)
 {
 	sql_delta *b;
 
+	if (!isTable(i->t)) 
+		return 0;
 	if (!i->data) {
 		sql_idx *oi = tr_find_idx(tr->parent, i);
 		i->data = timestamp_delta(oi->data, tr->stime);
@@ -843,6 +853,8 @@ count_del(sql_trans *tr, sql_table *t)
 {
 	sql_dbat *d;
 
+	if (!isTable(t)) 
+		return 0;
 	if (!t->data) {
 		sql_table *ot = tr_find_table(tr->parent, t);
 		t->data = timestamp_dbat(ot->data, tr->stime);
@@ -873,12 +885,10 @@ sorted_col(sql_trans *tr, sql_column *col)
 	int sorted = 0;
 
 	/* fallback to central bat */
-	if (tr && tr->parent && !col->data) {
-		col = find_col(tr->parent, 
-			col->t->s->base.name, 
-			col->t->base.name,
-			col->base.name);
-	}
+	if (!isTable(col->t) || !col->t->s)
+		return 0;
+	if (tr && tr->parent && !col->data) 
+		col = find_col(tr->parent, col->t->s->base.name, col->t->base.name, col->base.name);
 
 	if (col && col->data) {
 		BAT *b = bind_col(tr, col, QUICK);
@@ -894,6 +904,8 @@ double_elim_col(sql_trans *tr, sql_column *col)
 {
 	int de = 0;
 
+	if (!isTable(col->t) || !col->t->s)
+		return 0;
 	/* fallback to central bat */
 	if (tr && tr->parent && !col->data) {
 		col = find_col(tr->parent, 
@@ -1829,11 +1841,9 @@ tr_update_delta( sql_trans *tr, sql_delta *obat, sql_delta *cbat, int unique)
 
 	(void)tr;
 	assert(store_nr_active==1);
+	assert (obat->bid != 0 || tr != gtrans);
 
-	
-	assert (obat->bid != 0);
 	/* for cleared tables the bid is reset */
-
 	if (cbat->bid == 0) {
 		cleared = 1;
 		cbat->bid = obat->bid;
@@ -1850,6 +1860,16 @@ tr_update_delta( sql_trans *tr, sql_delta *obat, sql_delta *cbat, int unique)
 	}
 	if (obat->bid)
 		cur = temp_descriptor(obat->bid);
+	if (!obat->bid && tr != gtrans) {
+		*obat = *cbat;
+		cbat->bid = 0;
+		cbat->ibid = 0;
+		cbat->uibid = 0;
+		cbat->uvbid = 0;
+		cbat->name = NULL;
+		cbat->cached = NULL;
+		return ok;
+	}
 	ins = temp_descriptor(cbat->ibid);
 	if (unique)
 		BATkey(BATmirror(cur), TRUE);
@@ -1879,6 +1899,8 @@ tr_update_delta( sql_trans *tr, sql_delta *obat, sql_delta *cbat, int unique)
 			temp_destroy(cbat->bid);
 			temp_destroy(cbat->ibid);
 			cbat->bid = cbat->ibid = 0;
+			if (cur->batPersistence == PERSISTENT)
+				BATmsync(cur);
 		}
 		obat->cnt = cbat->cnt = obat->ibase = cbat->ibase = BATcount(cur);
 		temp_destroy(obat->ibid);
@@ -2003,9 +2025,11 @@ update_table(sql_trans *tr, sql_table *ft, sql_table *tt)
 				destroy_dbat(tr, b->next);
 				b->next = NULL;
 			}
-		} else {
-			assert(tt->base.allocated);
+		} else if (tt->base.allocated) {
 			tr_update_dbat(tr, tt->data, ft->data, ft->cleared);
+		} else {
+			tt->data = ft->data;
+			tt->base.allocated = 1;
 		}
 	}
 	for (n = ft->columns.set->h, m = tt->columns.set->h; ok == LOG_OK && n && m; n = n->next, m = m->next) {
@@ -2031,9 +2055,11 @@ update_table(sql_trans *tr, sql_table *ft, sql_table *tt)
 					destroy_bat(tr, b->next);
 					b->next = NULL;
 				}
-			} else {
-				assert(oc->base.allocated);
+			} else if (oc->base.allocated) {
 				tr_update_delta(tr, oc->data, cc->data, cc->unique == 1);
+			} else {
+				oc->data = cc->data; 
+				oc->base.allocated = 1;
 			}
 		}
 
@@ -2084,9 +2110,12 @@ update_table(sql_trans *tr, sql_table *ft, sql_table *tt)
 					destroy_bat(tr, b->next);
 					b->next = NULL;
 				}
-			} else {
+			} else if (oi->base.allocated) {
 				assert(oi->base.allocated);
 				tr_update_delta(tr, oi->data, ci->data, 0);
+			} else {
+				oi->data = ci->data;
+				oi->base.allocated = 1;
 			}
 
 			if (oi->base.rtime < ci->base.rtime)

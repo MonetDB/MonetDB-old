@@ -108,6 +108,8 @@ __hidden int GDKfdlocate(int farmid, const char *nme, const char *mode, const ch
 	__attribute__((__visibility__("hidden")));
 __hidden FILE *GDKfilelocate(int farmid, const char *nme, const char *mode, const char *ext)
 	__attribute__((__visibility__("hidden")));
+__hidden FILE *GDKfileopen(int farmid, const char *dir, const char *name, const char *extension, const char *mode)
+	__attribute__((__visibility__("hidden")));
 __hidden char *GDKload(int farmid, const char *nme, const char *ext, size_t size, size_t *maxsize, storage_t mode)
 	__attribute__((__visibility__("hidden")));
 __hidden void GDKlog(_In_z_ _Printf_format_string_ const char *format, ...)
@@ -116,6 +118,8 @@ __hidden void GDKlog(_In_z_ _Printf_format_string_ const char *format, ...)
 __hidden void *GDKmallocmax(size_t size, size_t *maxsize, int emergency)
 	__attribute__((__visibility__("hidden")));
 __hidden gdk_return GDKmove(int farmid, const char *dir1, const char *nme1, const char *ext1, const char *dir2, const char *nme2, const char *ext2)
+	__attribute__((__visibility__("hidden")));
+__hidden void *GDKmremap(const char *path, int mode, void *old_address, size_t old_size, size_t *new_size)
 	__attribute__((__visibility__("hidden")));
 __hidden gdk_return GDKmunmap(void *addr, size_t len)
 	__attribute__((__visibility__("hidden")));
