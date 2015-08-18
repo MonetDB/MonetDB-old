@@ -1518,8 +1518,8 @@ void get_full_outerjoin_p_slices(oid *lstprops, int np, BAT *full_obat, BAT *ful
 	for (i = 0; i < np; i++){
 		getSlides_per_P(pso_propstat, &(lstprops[i]),full_obat, full_sbat, &(obats[i]), &(sbats[i])); 
 		printf("Slides of P = "BUNFMT"\n", lstprops[i]);
-		BATprint(sbats[i]);
-		BATprint(obats[i]);
+		if (sbats[i]) BATprint(sbats[i]);
+		if (obats[i]) BATprint(obats[i]);
 	}
 
 	RDFmultiway_merge_outerjoins(np, sbats, obats, r_sbat, (*r_obats));
@@ -2012,8 +2012,11 @@ void getOffsets(PsoPropStat *pso_pstat, oid *p, BUN *start, BUN *end){
 	BUN pos; 
 
 	pos = BUNfnd(pso_pstat->pBat, p);
-	if (pos == BUN_NONE)	
-		fprintf(stderr, "[Error] The prop "BUNFMT " must be there!\n", *p);
+	if (pos == BUN_NONE){
+		printf("The prop "BUNFMT " is not in PSO!\n", *p);
+		*start = BUN_NONE; 
+		*end = BUN_NONE; 
+	}
 	else{
 		oid *tmpstart = (oid *) Tloc(pso_pstat->offsetBat, pos);
 		*start = (*tmpstart); 
@@ -2032,11 +2035,16 @@ void getSlides_per_P(PsoPropStat *pso_pstat, oid *p, BAT *obat, BAT *sbat, BAT *
 	BUN l, h; 	
 	
 	getOffsets(pso_pstat, p, &l, &h); 
+	
+	if (l != BUN_NONE){
+		*ret_oBat = BATslice(obat, l, h+1); 
 
-	*ret_oBat = BATslice(obat, l, h+1); 
-
-	*ret_sBat = BATslice(sbat, l, h+1); 
-	(*ret_sBat)->tsorted = true; 
+		*ret_sBat = BATslice(sbat, l, h+1); 
+		(*ret_sBat)->tsorted = true; 
+	} else {
+		*ret_oBat = NULL;
+		*ret_sBat = NULL; 
+	}
 
 }
 

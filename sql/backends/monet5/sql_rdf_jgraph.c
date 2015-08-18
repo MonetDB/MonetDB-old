@@ -218,6 +218,7 @@ sql_table *create_dummy_table(mvc *c, str tblname, list *proj_exps){
 	assert(sch != NULL); 
 
 	if ((tbl = mvc_bind_table(c, sch, tblname)) == NULL){
+		printf("The dummy table does not exist --> Create new one\n"); 
 		tbl = mvc_create_table(c, sch, tblname, tt_table, 0, SQL_PERSIST, 0, 3);
 	}
 		
@@ -500,6 +501,38 @@ void _add_jg_node(mvc *c, jgraph *jg, sql_rel *rel, int subjgId, JNodeT t){
 	addJGnode(&tmpvid, jg, rel, subjgId, soid, poid, prop, t);
 }
 
+/* Example
+ * s10_t0.p, s10_t0.s, s10_t0.o, s10_t0.%TID% NOT NULL, s10_t1.p, s10_t1.s, s10_t1.o, s10_t1.%TID% NOT NULL, s10_t2.p, s10_t2.s, s10_t2.o, s10_t2.%TID% NOT NULL, s10_t3.p, s10_t3.s, s10_t3.o, s10_t3.%TID% NOT NULL, s10_t4.p, s10_t4.s, s10_t4.o, s10_t4.%TID% NOT NULL, sys.rdf_idtostr(s10_t0.o) as L1.L1 ]
+ *
+ * We remove .p and .%TID%
+ * */
+
+
+static 
+list* remove_p_from_proj_exps(mvc *c, list *exps){
+	
+	node *en;
+	sql_allocator *sa = c->sa;
+	list *newexps = NULL; 
+	newexps = new_exp_list(sa);
+	for (en = exps->h; en; en = en->next){
+		sql_exp *e = (sql_exp *) en->data; 
+
+		if (e->type == e_column && strcmp(e->name, "p") == 0){ //e.g., sys.rdf_idtostr(s10_t0.s) as L.product, sys.rdf_idtostr(s10_t0.o) as L.label
+			continue; 
+		} else if (e->type == e_column && strcmp(e->name, "o") != 0 && strcmp(e->name, "s") != 0){
+			continue; 
+		} else {
+			sql_exp *newexp = exp_copy(sa, e);
+			//append this exp to list
+			append(newexps, newexp);
+		}
+
+	}
+
+	return newexps; 
+}
+
 /*
  * Algorithm for adding sql rels to Join Graph
  *
@@ -555,6 +588,16 @@ void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *
 			}
 			_add_jg_node(c, jg, (sql_rel *) rel, *subjgId, JN_REQUIRED);
 			break;
+		case op_project: 
+			printf("[%s]\n", op2string(rel->op)); 
+			//Update project expression in order to remove p from expressions
+			rel->exps = remove_p_from_proj_exps(c, rel->exps); 
+			
+			if (rel->l) 
+				addRelationsToJG(c, rel, rel->l, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root); 
+			if (rel->r)
+				addRelationsToJG(c, rel, rel->r, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root); 
+			break; 
 		default:
 			printf("[%s]\n", op2string(rel->op)); 
 			if (rel->l) 
@@ -1332,6 +1375,8 @@ void get_transform_select_exps(mvc *c, list *exps, list *trans_select_exps, str 
 
 	}
 }
+
+
 
 #if HANDLING_EXCEPTION
 static 
@@ -3230,6 +3275,8 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 	printf("e_start_level = %d   |   n_start_level = %d\n", e_start_level, n_start_level); 
 	if (numsp == 1) connect_rel_with_sprel(r, lstRels[0], e_start_level, n_start_level, node_root, edge_root); 
 	
+	//Check the projection operator and then refine the expressions
+
 	if (numsp > 1){
 		//Connect to the first edge between sp0 and sp1
 		

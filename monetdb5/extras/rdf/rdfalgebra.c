@@ -267,7 +267,7 @@ str RDFmultiway_merge_outerjoins(int np, BAT **sbats, BAT **obats, BAT **r_sbat,
 	cand = (oid *) malloc(sizeof(oid) * np); 
 
 	for (i = 0; i < np; i++){
-		estimate += BATcount(obats[i]); 
+		if (obats[i]) estimate += BATcount(obats[i]); 
 		tmpCand[i] = (oid *) malloc(sizeof(oid) * maxNumExcept); 
 		numCand[i] = 0; 
 		cand[i] = oid_nil; 
@@ -284,20 +284,23 @@ str RDFmultiway_merge_outerjoins(int np, BAT **sbats, BAT **obats, BAT **r_sbat,
 		//assert(BATcount(sbats[i]) > 0); 
 		//
 		//Keep the cursor to the first element of each input sbats
-		sbatCursors[i] = (oid *) Tloc(sbats[i], BUNfirst(sbats[i]));
-		obatCursors[i] = (oid *) Tloc(obats[i], BUNfirst(obats[i]));	
+		if (sbats[i]) sbatCursors[i] = (oid *) Tloc(sbats[i], BUNfirst(sbats[i]));
+		else sbatCursors[i] = NULL; 
+
+		if (obats[i]) obatCursors[i] = (oid *) Tloc(obats[i], BUNfirst(obats[i]));	
+		else obatCursors[i] = NULL; 
 	}
 
 	//Create a min heap with np heap nodes.  Every heap node
 	//has first element of an array (pointing to the first element of each sbat)
 	harr = (MinHeapNode*)malloc(sizeof(MinHeapNode) * np);
 	for (i = 0; i < np; i++){
-		if (BATcount(sbats[i]) != 0){
+		if (sbats[i] && BATcount(sbats[i]) != 0){
 			harr[i].element =  sbatCursors[i][0]; //Store the first element
 			harr[i].i = i; //index of array
 			harr[i].j = 1; //Index of next element to be stored from array
 		} else {
-			harr[i].element =  INT_MAX; //Store the INT_MAX in case of empty BATs
+			harr[i].element =  GDK_oid_max; //Store the INT_MAX in case of empty BATs
 			harr[i].i = i; //index of array
 			harr[i].j = 1; //Index of next element to be stored from array
 		}
