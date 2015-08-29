@@ -85,7 +85,9 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output, res_ta
 	if (!o)
 		throw(SQL, "SQLstatement", "Out of memory");
 	*o = *m;
-
+	
+	/* hide query cache, this causes crashes in SQLtrans() due to uninitialized memory otherwise */
+	m->qc = NULL;
 	/* create private allocator */
 	m->sa = NULL;
 	SQLtrans(m);
@@ -95,6 +97,10 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output, res_ta
 	be = sql;
 	sql = backend_create(m, c);
 	sql->output_format = be->output_format;
+	if (!output) {
+		sql->output_format = OFMT_NONE;
+	}
+	// and do it again
 	m->qc = NULL;
 	m->caching = 0;
 	m->user_id = m->role_id = USER_MONETDB;
