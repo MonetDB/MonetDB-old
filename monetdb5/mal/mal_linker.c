@@ -87,7 +87,13 @@ getAddress(stream *out, str filename, str modnme, str fcnname, int silent)
 	 *
 	 * the first argument must be the same as the base name of the
 	 * library that is created in src/tools */
+#ifdef _EMBEDDED_MONETDB_MONETDB_LIB_
+	 //mdlopen does not actually use the provided library (libmonetdb5) and instead tries to load from the local library (NULL), this works fine for mserver5 but when calling from python
+	 //we need to load from the actual library (libmonetdb5), so we just directly call dlopen() instead of using mdlopen() (this should be changed at some point)
+	dl = dlopen(_EMBEDDED_MONETDB_MONETDB_LIB_, RTLD_NOW | RTLD_GLOBAL);
+#else
 	dl = mdlopen("libmonetdb5", RTLD_NOW | RTLD_GLOBAL);
+#endif
 	if (dl == NULL) {
 		/* shouldn't happen, really */
 		if (!silent)
