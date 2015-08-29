@@ -63,43 +63,43 @@ struct _PyInput{
 #define PyInput struct _PyInput
 
 //! Returns true if a NPY_#type is an integral type, and false otherwise
-bool PyType_IsInteger(int);
+pyapi_export bool PyType_IsInteger(int);
 //! Returns true if a NPY_#type is a float type, and false otherwise
-bool PyType_IsFloat(int);
+pyapi_export bool PyType_IsFloat(int);
 //! Returns true if a NPY_#type is a double type, and false otherwise
-bool PyType_IsDouble(int);
+pyapi_export bool PyType_IsDouble(int);
 //! Formats NPY_#type as a String (so NPY_INT => "INT"), for usage in error reporting and warnings
-char *PyType_Format(int);
+pyapi_export char *PyType_Format(int);
 //! Returns true if a PyObject is a scalar type ('scalars' in this context means numeric or string types)
-bool PyType_IsPyScalar(PyObject *object);
+pyapi_export bool PyType_IsPyScalar(PyObject *object);
 //! Returns true if the PyObject is of type numpy.ndarray, and false otherwise
-bool PyType_IsNumpyArray(PyObject *object);
+pyapi_export bool PyType_IsNumpyArray(PyObject *object);
 //! Returns true if the PyObject is of type numpy.ma.core.MaskedArray, and false otherwise
-bool PyType_IsNumpyMaskedArray(PyObject *object);
+pyapi_export bool PyType_IsNumpyMaskedArray(PyObject *object);
 //! Returns true if the PyObject is of type pandas.core.frame.DataFrame, and false otherwise
-bool PyType_IsPandasDataFrame(PyObject *object);
+pyapi_export bool PyType_IsPandasDataFrame(PyObject *object);
 //! Returns true if the PyObject is of type lazyarray, and false otherwise
-bool PyType_IsLazyArray(PyObject *object);
+pyapi_export bool PyType_IsLazyArray(PyObject *object);
 //! Create a Numpy Array Object from a PyInput structure containing a BAT
-PyObject *PyArrayObject_FromBAT(PyInput *input_bat, size_t start, size_t end, char **return_message);
+pyapi_export PyObject *PyArrayObject_FromBAT(PyInput *input_bat, size_t start, size_t end, char **return_message);
 //! Creates a Null Mask from a BAT (a Numpy Boolean Array of equal length to the BAT, where NULLMASK[i] = True if BAT[i] is NULL, and False otherwise)
-PyObject *PyNullMask_FromBAT(BAT *b, size_t start, size_t end);
+pyapi_export PyObject *PyNullMask_FromBAT(BAT *b, size_t start, size_t end);
 //! Creates a Numpy Array object from an PyInput structure containing a scalar
-PyObject *PyArrayObject_FromScalar(PyInput* input_scalar, char **return_message);
+pyapi_export PyObject *PyArrayObject_FromScalar(PyInput* input_scalar, char **return_message);
 //! Creates a Numpy Masked Array  from an PyInput structure containing a BAT (essentially just combines PyArrayObject_FromBAT and PyNullMask_FromBAT)
-PyObject *PyMaskedArray_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char **return_message);
+pyapi_export PyObject *PyMaskedArray_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char **return_message);
 
 //! Test if a specific PyObject can be converted to a set of <expected_columns> BATs (or just check if they can be converted to any number of BATs if expected_columns is smaller than 0)
-PyObject *PyObject_CheckForConversion(PyObject *pResult, int expected_columns, int *actual_columns, char **return_message);
+pyapi_export PyObject *PyObject_CheckForConversion(PyObject *pResult, int expected_columns, int *actual_columns, char **return_message);
 //! Preprocess a PyObject (that is the result of PyObject_CheckForConversion), pyreturn_values must be an array of PyReturn structs of size column_count
-bool PyObject_PreprocessObject(PyObject *pResult, PyReturn *pyreturn_values, int column_count, char **return_message);
+pyapi_export bool PyObject_PreprocessObject(PyObject *pResult, PyReturn *pyreturn_values, int column_count, char **return_message);
 //! Create a BAT from the i'th PyReturn struct (filled by PyObject_PreprocessObject), with bat_type set to the expected BAT Type (set this to PyType_ToBat(ret->result_type) if there is no expected type), seqbase should be set to 0 unless you know what you're doing
-BAT *PyObject_ConvertToBAT(PyReturn *ret, int bat_type, int index, int seqbase, char **return_message);
+pyapi_export BAT *PyObject_ConvertToBAT(PyReturn *ret, int bat_type, int index, int seqbase, char **return_message);
 
-char *BatType_Format(int);
+pyapi_export char *BatType_Format(int);
 
-int PyType_ToBat(int);
-int BatType_ToPyType(int);
+pyapi_export int PyType_ToBat(int);
+pyapi_export int BatType_ToPyType(int);
 
 #define bte_TO_PYSCALAR(value) PyInt_FromLong(value)
 #define bit_TO_PYSCALAR(value) PyInt_FromLong(value)

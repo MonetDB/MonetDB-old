@@ -1221,15 +1221,16 @@ returnvalues:
 str
  PyAPIprelude(void *ret) {
     (void) ret;
+#ifndef _EMBEDDED_MONETDB_MONETDB_LIB_
     MT_lock_init(&pyapiLock, "pyapi_lock");
     if (PyAPIEnabled()) {
         MT_lock_set(&pyapiLock, "pyapi.evaluate");
         if (!pyapiInitialized) {
             char* iar = NULL;
             Py_Initialize();
+            PyRun_SimpleString("import numpy");
             PyByteArray_Override();
             import_array1(iar);
-            PyRun_SimpleString("import numpy");
             initialize_shared_memory();
             lazyarray_init();
             pyapiInitialized++;
@@ -1259,6 +1260,23 @@ str
         fprintf(stdout, "# MonetDB/Python testing enabled.\n");
 #endif
     }
+#else
+    if (!pyapiInitialized) {
+        char* iar = NULL;
+        import_array1(iar);
+        pyapiInitialized++;
+    }
+#ifdef _PYAPI_VERBOSE_
+    option_verbose = GDKgetenv_isyes(verbose_enableflag) || GDKgetenv_istrue(verbose_enableflag);
+#endif
+#ifdef _PYAPI_DEBUG_
+    option_debug = GDKgetenv_isyes(debug_enableflag) || GDKgetenv_istrue(debug_enableflag);
+    (void) option_debug;
+#endif
+#ifdef _PYAPI_WARNINGS_
+    option_warning = GDKgetenv_isyes(warning_enableflag) || GDKgetenv_istrue(warning_enableflag);
+#endif
+#endif
     return MAL_SUCCEED;
 }
 
