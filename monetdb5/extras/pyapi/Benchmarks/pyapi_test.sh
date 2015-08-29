@@ -136,16 +136,16 @@ function pyapi_build() {
 
 function pyapi_run_single_test_echo() {
     echo \$PYAPI_BUILD_DIR/bin/mserver5 --set mapi_port=\$MSERVER_PORT --set embedded_py=true --set enable_pyverbose=true --set pyapi_benchmark_output=\$PYAPI_OUTPUT_DIR/temp_output.tsv $2
-    echo python \$PYAPI_TESTFILE $3 $4 $5 \$MSERVER_PORT $6
+    echo python \$PYAPI_TESTFILE MONETDB $3 $4 $5 \$MSERVER_PORT $6
 }
 
 function pyapi_run_single_test() {
     echo "Beginning Test $1"
     rm -rf $PYAPI_DATAFARM_DIR
     if [ $SETSID -eq 1 ]; then
-        $TERMINAL $PYAPI_BUILD_DIR/bin/mserver5 --set mapi_port=$MSERVER_PORT --set embedded_py=true --set enable_pyverbose=true --set pyapi_benchmark_output=$PYAPI_OUTPUT_DIR/temp_output.tsv $2 && python $PYAPI_TESTFILE $3 $4 $5 $MSERVER_PORT $6 && killall mserver5
+        $TERMINAL $PYAPI_BUILD_DIR/bin/mserver5 --set mapi_port=$MSERVER_PORT --set embedded_py=true --set enable_pyverbose=true --set pyapi_benchmark_output=$PYAPI_OUTPUT_DIR/temp_output.tsv $2 && python $PYAPI_TESTFILE MONETDB $3 $4 $5 $MSERVER_PORT $6 && killall mserver5
     else
-        $TERMINAL -e "$PYAPI_BUILD_DIR/bin/mserver5  --set mapi_port=$MSERVER_PORT --set embedded_py=true --set enable_pyverbose=true --set pyapi_benchmark_output=$PYAPI_OUTPUT_DIR/temp_output.tsv $2" && python $PYAPI_TESTFILE $3 $4 $5 $MSERVER_PORT $6 && killall mserver5
+        $TERMINAL -e "$PYAPI_BUILD_DIR/bin/mserver5  --set mapi_port=$MSERVER_PORT --set embedded_py=true --set enable_pyverbose=true --set pyapi_benchmark_output=$PYAPI_OUTPUT_DIR/temp_output.tsv $2" && python $PYAPI_TESTFILE MONETDB $3 $4 $5 $MSERVER_PORT $6 && killall mserver5
     fi
     if [ $? -ne 0 ]; then
         echo "Failed Test $1"
@@ -163,6 +163,37 @@ function pyapi_run_single_test() {
     done
     echo "Failed to close mserver, exiting..."
     return 1
+}
+
+export POSTGRES_BASEDIR=$PYAPI_TEST_DIR/postgres
+export POSTGRES_BUILD_DIR=$POSTGRES_BASEDIR/build
+export PGDATA=$POSTGRES_BASEDIR/postgres_data
+
+export POSTGRES_VERSION=9.4.4
+export POSTGRES_BASE=postgresql-$POSTGRES_VERSION
+export POSTGRES_TAR_FILE=$POSTGRES_BASE.tar.gz
+export POSTGRES_TAR_URL=https://ftp.postgresql.org/pub/source/v$POSTGRES_VERSION/$POSTGRES_TAR_FILE
+
+export POSTGRES_DB_NAME=python_test
+export POSTGRES_SERVER_COMMAND=$POSTGRES_BUILD_DIR/bin/postgres
+export POSTGRES_CREATEDB_COMMAND="$POSTGRES_BUILD_DIR/bin/createdb $POSTGRES_DB_NAME && $POSTGRES_BUILD_DIR/bin/createlang --dbname=$POSTGRES_DB_NAME plpythonu" 
+export POSTGRES_CLIENT_COMMAND="$POSTGRES_BUILD_DIR/bin/psql --dbname=$POSTGRES_DB_NAME"
+export POSTGRES_DROPDB_COMMAND="$POSTGRES_BUILD_DIR/bin/dropdb $POSTGRES_DB_NAME"
+export POSTGRES_INPUT_FILE=$POSTGRES_BASEDIR/input.csv
+
+export POSTGRES_CWD=$(pwd)
+
+function postgres_build() {
+    wget $POSTGRES_TAR_URL && tar xvzf $POSTGRES_TAR_FILE && cd $POSTGRES_BASE && ./configure --prefix=$POSTGRES_BUILD_DIR --with-python && make && make install && $POSTGRES_BUILD_DIR/bin/initdb
+}
+
+function postgres_run_single_test() {
+    # start server
+    setsid $POSTGRES_SERVER_COMMAND && sleep 5
+    # call python test script
+    python "$PYAPI_TESTFILE" POSTGRES $1 $2 $3 $MSERVER_PORT $4
+    # finish testing, kill postgres
+    killall postgres
 }
 
 
@@ -361,18 +392,30 @@ function pyapi_cleanup() {
     return 0
 }
 
+function postgres_run_tests() {
+    if [ ! -d $PYAPI_OUTPUT_DIR ]; then
+        mkdir $PYAPI_OUTPUT_DIR
+    fi
+    cd $PYAPI_OUTPUT_DIR
+    postgres_run_single_test IDENTITY postgres_identity 5 1 10
+}
+
 function pyapi_test() {
-    if [ -d $PYAPI_TEST_DIR ]; then
-        read -p "Directory $PYAPI_TEST_DIR already exists, skip the building and continue to testing? (y/n): " -n 1 -r
+    if [ ! -d $PYAPI_TEST_DIR ]; then
+        mkdir $PYAPI_TEST_DIR
+    fi
+
+    if [ -d $PYAPI_MONETDB_DIR ]; then
+        read -p "Directory $PYAPI_MONETDB_DIR already exists, skip the building and continue to testing? (y/n): " -n 1 -r
         echo ""
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            read -p "Should we delete the directory $PYAPI_TEST_DIR and rebuild everything? WARNING: This will delete everything in the directory $PYAPI_TEST_DIR. (y/n): " -n 1 -r
+            read -p "Should we delete the directory $PYAPI_MONETDB_DIR and rebuild everything? WARNING: This will delete everything in the directory $PYAPI_TEST_DIR. (y/n): " -n 1 -r
             echo ""
             if [[ $REPLY =~ ^[Yy]$ ]]; then
-                read -p "Are you absolutely sure you want to delete everything in $PYAPI_TEST_DIR? (y/n): " -n 1 -r
+                read -p "Are you absolutely sure you want to delete everything in $PYAPI_MONETDB_DIR? (y/n): " -n 1 -r
                 echo ""
                 if [[ $REPLY =~ ^[Yy]$ ]]; then
-                    rm -rf $PYAPI_TEST_DIR
+                    rm -rf $PYAPI_MONETDB_DIR
                     pyapi_build
                     if [ $? -ne 0 ]; then
                         return 1
@@ -413,5 +456,43 @@ function pyapi_test() {
     if [ $? -ne 0 ]; then
         return 1
     fi
+}
+
+function postgres_test() {
+    if [ ! -d $PYAPI_TEST_DIR ]; then
+        mkdir $PYAPI_TEST_DIR
+    fi
+    cd $PYAPI_TEST_DIR
+
+    if [ -d $POSTGRES_BASEDIR ]; then
+        read -p "Directory $POSTGRES_BASEDIR already exists, skip the building and continue to testing? (y/n): " -n 1 -r
+        echo ""
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            read -p "Should we delete the directory $POSTGRES_BASEDIR and rebuild everything? WARNING: This will delete everything in the directory $PYAPI_TEST_DIR. (y/n): " -n 1 -r
+            echo ""
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                read -p "Are you absolutely sure you want to delete everything in $POSTGRES_BASEDIR? (y/n): " -n 1 -r
+                echo ""
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    rm -rf $POSTGRES_BASEDIR
+                    postgres_build
+                    if [ $? -ne 0 ]; then
+                        return 1
+                    fi
+                else
+                    return 1
+                fi
+            else
+                return 1
+            fi
+        fi
+    else
+        postgres_build
+        if [ $? -ne 0 ]; then
+            return 1
+        fi
+    fi
+
+    postgres_run_tests
 }
 

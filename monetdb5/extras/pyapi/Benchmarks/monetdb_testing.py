@@ -92,62 +92,398 @@ import os
 import sys
 import time
 
+c_compiler = "gcc"
+
 # The arguments are
-# [1] => Type of test ['INPUT', 'OUTPUT']
-# [2] => Output file name
-# [3] => Number of tests for each value
-# [4] => Mapi Port
-# [5+] => List of input values
+# [1] => Database to test on ("MonetDB", "Postgres")
+# [2] => Type of test ['INPUT', 'OUTPUT']
+# [3] => Output file name
+# [4] => Number of tests for each value
+# [5] => Mapi Port
+# [6+] => List of input values
 arguments = sys.argv
-if (len(arguments) <= 5):
+if (len(arguments) <= 6):
     print("Too few arguments provided.")
     quit()
 
-output_file = os.path.join(os.getcwd(), arguments[2])
+args_input_database = arguments[1]
+args_test_type = arguments[2]
+args_output_file = arguments[3]
+args_ntests = arguments[4]
+args_port = arguments[5]
+parameters_start = 6
+
+output_file = os.path.join(os.getcwd(), args_output_file)
 temp_file = os.path.join(os.getcwd(), 'temp_output.tsv')
-test_count = int(arguments[3])
-port = int(arguments[4])
-parameters_start = 5
+test_count = int(args_ntests)
+port = int(args_port)
 max_retries = 15
 max_size = 1000
 random_seed = 33
 
-import monetdb.sql
-# Try to connect to the database
-# We try a couple of times because starting up the database takes some time, so it might fail the first few times
-for i in range(0, max_retries):
-    try:
-        connection = monetdb.sql.connect(username="monetdb", password="monetdb", hostname="localhost",port=port,database="demo")
-        break
-    except:
-        time.sleep(3)
-    connection = None
+if str(args_input_database).lower() == "monetdb":
+    import monetdb.sql
+    # Try to connect to the database
+    # We try a couple of times because starting up the database takes some time, so it might fail the first few times
+    for i in range(0, max_retries):
+        try:
+            connection = monetdb.sql.connect(username="monetdb", password="monetdb", hostname="localhost",port=port,database="demo")
+            break
+        except:
+            time.sleep(3)
+        connection = None
 
-if connection is None:
-    print("Failed to connect to MonetDB Server (mserver5) in " + str(max_retries) + " attempts.")
-    sys.exit(1)
+    if connection is None:
+        print("Failed to connect to MonetDB Server (mserver5) in " + str(max_retries) + " attempts.")
+        sys.exit(1)
+    cursor = connection.cursor()
 
-cursor = connection.cursor()
+    if str(args_test_type).lower() == "input" or str(args_test_type).lower() == "input-map" or str(args_test_type).lower() == "input-null":
+        # Input testing
 
+        # First create a function that generates the desired input size (in MB) and pass it to the database
+        if str(args_test_type).lower() == "input-null":
+            #if the type is input-null, we simply set all negative numbers to NULL
+            def generate_integers(mb, random_seed):
+                import random
+                import math
+                numpy.random.seed(random_seed)
+                byte_size = mb * 1000 * 1000
+                integer_size_byte = 4
+                max_int = math.pow(2,31) - 1
+                min_int = -max_int
+                integer_count = int(byte_size / integer_size_byte)
+                integers = numpy.random.random_integers(min_int, max_int, integer_count).astype(numpy.int32)
+                return numpy.ma.masked_array(integers, numpy.less(integers, 0))
+        else:
+            def generate_integers(mb, random_seed):
+                import random
+                import math
+                numpy.random.seed(random_seed)
+                byte_size = mb * 1000 * 1000
+                integer_size_byte = 4
+                max_int = math.pow(2,31) - 1
+                min_int = -max_int
+                integer_count = int(byte_size / integer_size_byte)
+                return numpy.random.random_integers(min_int, max_int, integer_count).astype(numpy.int32)
 
-if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-map" or str(arguments[1]).lower() == "input-null":
-    # Input testing
+        cursor.execute(export_function(generate_integers, ['float', 'integer'], ['i integer'], table=True, test=False))
 
-    # First create a function that generates the desired input size (in MB) and pass it to the database
-    if str(arguments[1]).lower() == "input-null":
-        #if the type is input-null, we simply set all negative numbers to NULL
+        # Our import test function returns a single boolean value and doesn't do anything with the actual input
+        # This way the input loading is the only relevant factor in running time, because the time taken for function execution/output handling is constant
+        def import_test(inp):
+            return(True)
+
+        cursor.execute(export_function(import_test, ['integer'], ['boolean'], multithreading=str(args_test_type).lower() == "input-map"))
+
+        f = open(output_file + '.tsv', "w+")
+        f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
+        mb = []
+        for i in range(parameters_start, len(arguments)):
+            mb.append(float(arguments[i]))
+
+        for size in mb:
+            cursor.execute('CREATE TABLE integers (i integer);')
+            temp_size = size
+            for increment in range(0, int(math.ceil(float(size) / float(max_size)))):
+                current_size = temp_size if temp_size < max_size else max_size
+                cursor.execute('INSERT INTO integers SELECT * FROM generate_integers(' + str(current_size) + ',' + str(random_seed + increment) + ');')
+                temp_size -= max_size
+
+            if (str(args_test_type).lower() == "input"):
+                results = []
+                result_file = open(temp_file, 'w+')
+                result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
+                result_file.close();
+                for i in range(0,test_count):
+                    start = time.time()
+                    cursor.execute('select import_test(i) from integers;');
+                    cursor.fetchall();
+                    end = time.time()
+                    list.append(results, end - start)
+                result_file = open(temp_file, 'r')
+                result_file.readline()
+                for result in results:
+                    pyapi_results = result_file.readline().translate(None, '\n').split('\t')
+                    f.write(format_output(size, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
+                    f.flush()
+            else:
+                # for input-map we need to do some special analysis of the PyAPI output
+                # this is because every thread writes memory usage and execution time to the temp_file
+                # rather than just having one entry for per query
+                # so we have to analyse the result file for every query we perform
+                results = [[], [], []]
+                for i in range(0,test_count):
+                    # clear the result file
+                    result_file = open(temp_file, 'w+')
+                    result_file.write("")
+                    result_file.close();
+                    # execute the query, measure the total time
+                    start = time.time()
+                    cursor.execute('select import_test(i) from integers;');
+                    cursor.fetchall();
+                    end = time.time()
+                    list.append(results[0], end - start)
+                    # now we need to analyze the result file
+                    # we use the total memory usage of all threads (sum) and the highest of all the execution times of the threads (max)
+                    memory_usage = 0
+                    peak_execution_time = 0
+                    with open(temp_file, 'r') as result_file:
+                        for line in result_file:
+                            pyapi_results = line.translate(None, '\n').split('\t')
+                            memory_usage = memory_usage + float(pyapi_results[0]) / 1000 ** 2
+                            if float(pyapi_results[1]) > peak_execution_time: peak_execution_time = float(pyapi_results[1])
+                    list.append(results[1], memory_usage)
+                    list.append(results[2], peak_execution_time)
+                for i in range(0, len(results[0])):
+                    f.write(format_output(size, results[0][i], results[1][i], results[2][i]))
+                    f.flush()
+            cursor.execute('drop table integers;')
+        f.close()
+
+        #cursor.execute('drop function generate_integers');
+        #cursor.execute('drop function import_test');
+        cursor.execute('rollback')
+    elif str(args_test_type).lower() == "output":
+        # output testing
+
+        # we use a single scalar as input (the amount of MB to generate) so the input handling is fast
+        # we do some computation (namely creating the output array) but that should only be a single malloc call, and should be negligible compared to the copying
+        # that malloc call is also the same for both zero copy and copy, so it shouldn't make any difference in the comparison
+        def generate_output(mb):
+            byte_size = mb * 1000 * 1000
+            integer_size_byte = 4
+            integer_count = int(byte_size / integer_size_byte)
+            integers = numpy.zeros(integer_count, dtype=numpy.int32)
+            return integers
+
+        cursor.execute(export_function(generate_output, ['float'], ['i integer'], table=True))
+
+        f = open(output_file + '.tsv', "w+")
+        f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
+        mb = []
+        for i in range(parameters_start, len(arguments)):
+            mb.append(float(arguments[i]))
+
+        for size in mb:
+            results = []
+            result_file = open(temp_file, 'w+')
+            result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
+            result_file.close();
+            for i in range(0,test_count):
+                start = time.time()
+                cursor.execute('select count(*) from generate_output(' + str(size) + ');');
+                cursor.fetchall();
+                end = time.time()
+                list.append(results, end - start)
+            result_file = open(temp_file, 'r')
+            result_file.readline()
+            for result in results:
+                pyapi_results = result_file.readline().translate(None, '\n').split('\t')
+                f.write(format_output(size, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
+                f.flush()
+        f.close()
+
+        #cursor.execute('drop function generate_output');
+        cursor.execute('rollback')
+
+    elif str(args_test_type).lower() == "string_samelength" or str(args_test_type).lower() == "string_extremeunicode":
+        benchmark_dir = os.environ["PYAPI_BENCHMARKS_DIR"]
+        os.system("%s " % c_compiler + benchmark_dir + "/randomstrings.c -o randomstrings")
+        result_path = os.path.join(os.getcwd(), 'result.txt')
+
+        if str(args_test_type).lower() == "string_samelength":
+            def generate_strings_samelength(length):
+                return 'A' * length
+            cursor.execute(export_function(generate_strings_samelength, ['integer'], ['i string'], table=True, test=False))
+        else:
+            def generate_strings_samelength(length):
+                return unichr(0x100) * length
+            cursor.execute(export_function(generate_strings_samelength, ['integer'], ['i string'], table=True, test=False))
+
+        mb = []
+        lens = []
+        for i in range(parameters_start, len(arguments)):
+            tple = arguments[i].translate(None, '()').split(',')
+            mb.append(float(tple[0]))
+            lens.append(int(tple[1]))
+
+        def import_test(inp):
+            return(True)
+
+        cursor.execute(export_function(import_test, ['string'], ['boolean']))
+
+        f = open(output_file + '.tsv', "w+")
+        f.write(format_headers('[AXIS]:Data Size (MB)', '[AXIS]:String Length (Characters)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
+        for j in range(0,len(mb)):
+            size = mb[j]
+            length = lens[j]
+            os.system("%s %s %s %s" % ("./randomstrings", str(size), str(length), result_path))
+            cursor.execute('CREATE TABLE strings(i string);')
+            cursor.execute("COPY INTO strings FROM '%s';" % result_path)
+            cursor.execute('INSERT INTO strings SELECT * FROM generate_strings_samelength(' + str(length) + ');')
+            #cursor.execute('create table strings as SELECT * FROM generate_strings_samelength(\'' + result_path + '\',' + str(length) + ') with data;')
+            results = []
+            result_file = open(temp_file, 'w+')
+            result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
+            result_file.close();
+            for i in range(0,test_count):
+                start = time.time()
+                cursor.execute('select import_test(i) from strings;');
+                cursor.fetchall();
+                end = time.time()
+                list.append(results, end - start)
+            result_file = open(temp_file, 'r')
+            result_file.readline()
+            for result in results:
+                pyapi_results = result_file.readline().translate(None, '\n').split('\t')
+                f.write(format_output(size, length, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
+                f.flush()
+            cursor.execute('drop table strings;')
+        f.close()
+
+        #cursor.execute('drop function generate_strings_samelength');
+        #cursor.execute('drop function import_test');
+        cursor.execute('rollback')
+    elif str(args_test_type).lower() == "string_extremelength":
+        benchmark_dir = os.environ["PYAPI_BENCHMARKS_DIR"]
+        os.system("%s " % c_compiler + benchmark_dir + "/randomstrings.c -o randomstrings")
+        result_path = os.path.join(os.getcwd(), 'result.txt')
+
+        def generate_strings_extreme(extreme_length):
+            def random_string(length):
+                import random
+                import string
+                result = ""
+                for i in range(0, length):
+                    result += random.choice(string.printable)
+                return result
+            return random_string(extreme_length)
+        cursor.execute(export_function(generate_strings_extreme, ['integer'], ['i string'], table=True, test=False))
+
+        extreme_lengths = []
+        string_counts = []
+        for i in range(parameters_start, len(arguments)):
+            tple = arguments[i].translate(None, '()').split(',')
+            extreme_lengths.append(float(tple[0]))
+            string_counts.append(int(tple[1]))
+
+        def import_test(inp):
+            return(True)
+
+        cursor.execute(export_function(import_test, ['string'], ['boolean']))
+
+        f = open(output_file + '.tsv', "w+")
+        f.write(format_headers('[AXIS]:(Strings)', '[AXIS]:Extreme Length (Characters)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
+        for j in range(0,len(extreme_lengths)):
+            str_len = extreme_lengths[j]
+            str_count = string_counts[j]
+            string_mb = float(str_count) / (1000 ** 2)
+            os.system("%s %s %s %s" % ("./randomstrings", str(string_mb), str(1), result_path))
+            cursor.execute('CREATE TABLE strings(i string);')
+            cursor.execute("COPY INTO strings FROM '%s';" % result_path)
+            cursor.execute('INSERT INTO strings SELECT * FROM generate_strings_extreme(' + str(str_len) + ');')
+            #print('create table strings as SELECT * FROM generate_strings_extreme(\'' + result_path + '\',' + str(str_len) + ') with data;')
+            results = []
+            result_file = open(temp_file, 'w+')
+            result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
+            result_file.close();
+            for i in range(0,test_count):
+                start = time.time()
+                cursor.execute('select import_test(i) from strings;');
+                cursor.fetchall();
+                end = time.time()
+                list.append(results, end - start)
+            result_file = open(temp_file, 'r')
+            result_file.readline()
+            for result in results:
+                pyapi_results = result_file.readline().translate(None, '\n').split('\t')
+                f.write(format_output(str_count, str_len, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
+                f.flush()
+            cursor.execute('drop table strings;')
+        f.close()
+
+        #cursor.execute('drop function generate_strings_extreme');
+        #cursor.execute('drop function import_test');
+        cursor.execute('rollback')
+    elif "factorial" in str(args_test_type).lower():
         def generate_integers(mb, random_seed):
             import random
             import math
             numpy.random.seed(random_seed)
             byte_size = mb * 1000 * 1000
             integer_size_byte = 4
-            max_int = math.pow(2,31) - 1
-            min_int = -max_int
+            max_int = 2000
+            min_int = 1000
             integer_count = int(byte_size / integer_size_byte)
-            integers = numpy.random.random_integers(min_int, max_int, integer_count).astype(numpy.int32)
-            return numpy.ma.masked_array(integers, numpy.less(integers, 0))
-    else:
+            return numpy.random.random_integers(min_int, max_int, integer_count).astype(numpy.int32)
+
+        cursor.execute(export_function(generate_integers, ['float', 'integer'], ['i integer'], table=True, test=False))
+        def factorial(i):
+            import math
+            result = numpy.zeros(i.shape[0])
+            for a in range(0, i.shape[0]):
+                result[a] = math.log(math.factorial(i[a]))
+            return result
+
+        cursor.execute(export_function(factorial, ['float'], ['double'], multithreading=True))
+        if os.path.isfile(output_file + '.tsv'):
+            f = open(output_file + '.tsv', "a")
+        else:
+            f = open(output_file + '.tsv', "w+")
+            f.write(format_headers('[AXIS]:Cores (#)', '[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
+        cores = int(str(args_test_type).split('-')[1])
+        mb = []
+        for i in range(parameters_start, len(arguments)):
+            mb.append(float(arguments[i]))
+
+        for size in mb:
+            cursor.execute('CREATE TABLE integers (i integer);')
+            temp_size = size
+            for increment in range(0, int(math.ceil(float(size) / float(max_size)))):
+                current_size = temp_size if temp_size < max_size else max_size
+                cursor.execute('INSERT INTO integers SELECT * FROM generate_integers(' + str(current_size) + ',' + str(random_seed + increment) + ');')
+                temp_size -= max_size
+
+            results = [[], [], []]
+            for i in range(0,test_count):
+                result_file = open(temp_file, 'w+')
+                result_file.write("")
+                result_file.close();
+                start = time.time()
+                cursor.execute('select min(factorial(i)) from integers;');
+                cursor.fetchall();
+                end = time.time()
+                list.append(results[0], end - start)
+                memory_usage = 0
+                peak_execution_time = 0
+                with open(temp_file, 'r') as result_file:
+                    for line in result_file:
+                        pyapi_results = line.translate(None, '\n').split('\t')
+                        memory_usage = memory_usage + float(pyapi_results[0]) / 1000 ** 2
+                        if float(pyapi_results[1]) > peak_execution_time: peak_execution_time = float(pyapi_results[1])
+                list.append(results[1], memory_usage)
+                list.append(results[2], peak_execution_time)
+            for i in range(0, len(results[0])):
+                f.write(format_output(cores, size, results[0][i], results[1][i], results[2][i]))
+                f.flush()
+
+            cursor.execute('drop table integers;')
+        f.close()
+
+
+    elif str(args_test_type).lower() == "pquantile" or str(args_test_type).lower() == "rquantile" or str(args_test_type).lower() == "quantile":
+        quantile_function = "quantile"
+        if str(args_test_type).lower() == "pquantile":
+            def pyquantile(i, j):
+                return numpy.percentile(i, j * 100)
+
+            cursor.execute(export_function(pyquantile, ['double', 'double'], ['double']))
+            quantile_function = "pyquantile"
+        elif str(args_test_type).lower() == "rquantile":
+            cursor.execute("CREATE FUNCTION rquantile(v double, q double) RETURNS double LANGUAGE R { quantile(v,q) };");
+            quantile_function = "rquantile"
+
         def generate_integers(mb, random_seed):
             import random
             import math
@@ -159,366 +495,102 @@ if str(arguments[1]).lower() == "input" or str(arguments[1]).lower() == "input-m
             integer_count = int(byte_size / integer_size_byte)
             return numpy.random.random_integers(min_int, max_int, integer_count).astype(numpy.int32)
 
-    cursor.execute(export_function(generate_integers, ['float', 'integer'], ['i integer'], table=True, test=False))
+        cursor.execute(export_function(generate_integers, ['float', 'integer'], ['i integer'], table=True, test=False))
 
-    # Our import test function returns a single boolean value and doesn't do anything with the actual input
-    # This way the input loading is the only relevant factor in running time, because the time taken for function execution/output handling is constant
-    def import_test(inp):
-        return(True)
+        f = open(output_file + '.tsv', "w+")
+        f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)'))
+        mb = []
+        for i in range(parameters_start, len(arguments)):
+            mb.append(float(arguments[i]))
 
-    cursor.execute(export_function(import_test, ['integer'], ['boolean'], multithreading=str(arguments[1]).lower() == "input-map"))
+        for size in mb:
+            cursor.execute('CREATE TABLE integers (i integer);')
+            temp_size = size
+            for increment in range(0, int(math.ceil(float(size) / float(max_size)))):
+                current_size = temp_size if temp_size < max_size else max_size
+                cursor.execute('INSERT INTO integers SELECT * FROM generate_integers(' + str(current_size) + ',' + str(random_seed + increment) + ');')
+                temp_size -= max_size
 
-    import time
-    f = open(output_file + '.tsv', "w+")
-    f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
-    mb = []
-    for i in range(parameters_start, len(arguments)):
-        mb.append(float(arguments[i]))
-
-    for size in mb:
-        cursor.execute('CREATE TABLE integers (i integer);')
-        temp_size = size
-        for increment in range(0, int(math.ceil(float(size) / float(max_size)))):
-            current_size = temp_size if temp_size < max_size else max_size
-            cursor.execute('INSERT INTO integers SELECT * FROM generate_integers(' + str(current_size) + ',' + str(random_seed + increment) + ');')
-            temp_size -= max_size
-
-        if (str(arguments[1]).lower() == "input"):
             results = []
-            result_file = open(temp_file, 'w+')
-            result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
-            result_file.close();
             for i in range(0,test_count):
                 start = time.time()
-                cursor.execute('select import_test(i) from integers;');
+                cursor.execute('select ' + quantile_function + '(i, 0.5) from integers;');
                 cursor.fetchall();
                 end = time.time()
                 list.append(results, end - start)
-            result_file = open(temp_file, 'r')
-            result_file.readline()
             for result in results:
-                pyapi_results = result_file.readline().translate(None, '\n').split('\t')
-                f.write(format_output(size, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
+                f.write(format_output(size, result))
                 f.flush()
-        else:
-            # for input-map we need to do some special analysis of the PyAPI output
-            # this is because every thread writes memory usage and execution time to the temp_file
-            # rather than just having one entry for per query
-            # so we have to analyse the result file for every query we perform
-            results = [[], [], []]
-            for i in range(0,test_count):
-                # clear the result file
-                result_file = open(temp_file, 'w+')
-                result_file.write("")
-                result_file.close();
-                # execute the query, measure the total time
-                start = time.time()
-                cursor.execute('select import_test(i) from integers;');
-                cursor.fetchall();
-                end = time.time()
-                list.append(results[0], end - start)
-                # now we need to analyze the result file
-                # we use the total memory usage of all threads (sum) and the highest of all the execution times of the threads (max)
-                memory_usage = 0
-                peak_execution_time = 0
-                with open(temp_file, 'r') as result_file:
-                    for line in result_file:
-                        pyapi_results = line.translate(None, '\n').split('\t')
-                        memory_usage = memory_usage + float(pyapi_results[0]) / 1000 ** 2
-                        if float(pyapi_results[1]) > peak_execution_time: peak_execution_time = float(pyapi_results[1])
-                list.append(results[1], memory_usage)
-                list.append(results[2], peak_execution_time)
-            for i in range(0, len(results[0])):
-                f.write(format_output(size, results[0][i], results[1][i], results[2][i]))
-                f.flush()
-        cursor.execute('drop table integers;')
-    f.close()
-
-    #cursor.execute('drop function generate_integers');
-    #cursor.execute('drop function import_test');
-    cursor.execute('rollback')
-elif str(arguments[1]).lower() == "output":
-    # output testing
-
-    # we use a single scalar as input (the amount of MB to generate) so the input handling is fast
-    # we do some computation (namely creating the output array) but that should only be a single malloc call, and should be negligible compared to the copying
-    # that malloc call is also the same for both zero copy and copy, so it shouldn't make any difference in the comparison
-    def generate_output(mb):
-        byte_size = mb * 1000 * 1000
-        integer_size_byte = 4
-        integer_count = int(byte_size / integer_size_byte)
-        integers = numpy.zeros(integer_count, dtype=numpy.int32)
-        return integers
-
-    cursor.execute(export_function(generate_output, ['float'], ['i integer'], table=True))
-
-    f = open(output_file + '.tsv', "w+")
-    f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
-    mb = []
-    for i in range(parameters_start, len(arguments)):
-        mb.append(float(arguments[i]))
-
-    for size in mb:
-        results = []
-        result_file = open(temp_file, 'w+')
-        result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
-        result_file.close();
-        for i in range(0,test_count):
-            start = time.time()
-            cursor.execute('select count(*) from generate_output(' + str(size) + ');');
-            cursor.fetchall();
-            end = time.time()
-            list.append(results, end - start)
-        result_file = open(temp_file, 'r')
-        result_file.readline()
-        for result in results:
-            pyapi_results = result_file.readline().translate(None, '\n').split('\t')
-            f.write(format_output(size, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
-            f.flush()
-    f.close()
-
-    #cursor.execute('drop function generate_output');
-    cursor.execute('rollback')
-
-elif str(arguments[1]).lower() == "string_samelength" or str(arguments[1]).lower() == "string_extremeunicode":
-    benchmark_dir = os.environ["PYAPI_BENCHMARKS_DIR"]
-    os.system("gcc " + benchmark_dir + "/randomstrings.c -o randomstrings")
-    result_path = os.path.join(os.getcwd(), 'result.txt')
-
-    if str(arguments[1]).lower() == "string_samelength":
-        def generate_strings_samelength(length):
-            return 'A' * length
-        cursor.execute(export_function(generate_strings_samelength, ['integer'], ['i string'], table=True, test=False))
+            cursor.execute('drop table integers;')
     else:
-        def generate_strings_samelength(length):
-            return unichr(0x100) * length
-        cursor.execute(export_function(generate_strings_samelength, ['integer'], ['i string'], table=True, test=False))
+        print("Unrecognized test type \"" + args_test_type + "\", exiting...")
+        sys.exit(1)
+elif str(args_input_database).lower() == "postgres":
+    input_dir = os.environ["POSTGRES_CWD"]
+    input_file = os.environ["POSTGRES_INPUT_FILE"]
+    client = os.environ["POSTGRES_CLIENT_COMMAND"]
+    dropdb = os.environ["POSTGRES_DROPDB_COMMAND"]
+    initdb = os.environ["POSTGRES_CREATEDB_COMMAND"]
 
-    mb = []
-    lens = []
-    for i in range(parameters_start, len(arguments)):
-        tple = arguments[i].translate(None, '()').split(',')
-        mb.append(float(tple[0]))
-        lens.append(int(tple[1]))
+    print "Beginning POSTGRES Testing"
+    function_name = str(args_test_type).lower()
+    input_type = "integer"
+    if function_name == "identity":
+        createdb_file = "%s/%s.createdb.sql" % (input_dir, function_name)
+        run_file = "%s/%s.sql" % (input_dir, function_name)
 
-    def import_test(inp):
-        return(True)
+        createdb_sql = """
+        CREATE TABLE integers(i integer);
 
-    cursor.execute(export_function(import_test, ['string'], ['boolean']))
+        COPY integers FROM '%s' DELIMITER ',' CSV;
 
-    f = open(output_file + '.tsv', "w+")
-    f.write(format_headers('[AXIS]:Data Size (MB)', '[AXIS]:String Length (Characters)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
-    for j in range(0,len(mb)):
-        size = mb[j]
-        length = lens[j]
-        os.system("%s %s %s %s" % ("./randomstrings", str(size), str(length), result_path))
-        cursor.execute('CREATE TABLE strings(i string);')
-        cursor.execute("COPY INTO strings FROM '%s';" % result_path)
-        cursor.execute('INSERT INTO strings SELECT * FROM generate_strings_samelength(' + str(length) + ');')
-        #cursor.execute('create table strings as SELECT * FROM generate_strings_samelength(\'' + result_path + '\',' + str(length) + ') with data;')
-        results = []
-        result_file = open(temp_file, 'w+')
-        result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
-        result_file.close();
-        for i in range(0,test_count):
-            start = time.time()
-            cursor.execute('select import_test(i) from strings;');
-            cursor.fetchall();
-            end = time.time()
-            list.append(results, end - start)
-        result_file = open(temp_file, 'r')
-        result_file.readline()
-        for result in results:
-            pyapi_results = result_file.readline().translate(None, '\n').split('\t')
-            f.write(format_output(size, length, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
-            f.flush()
-        cursor.execute('drop table strings;')
-    f.close()
+        CREATE FUNCTION %s(a integer)
+          RETURNS integer
+        AS $$
+          return a
+        $$ LANGUAGE plpythonu;
+        """ % (input_file, function_name)
 
-    #cursor.execute('drop function generate_strings_samelength');
-    #cursor.execute('drop function import_test');
-    cursor.execute('rollback')
-elif str(arguments[1]).lower() == "string_extremelength":
-    benchmark_dir = os.environ["PYAPI_BENCHMARKS_DIR"]
-    os.system("gcc " + benchmark_dir + "/randomstrings.c -o randomstrings")
-    result_path = os.path.join(os.getcwd(), 'result.txt')
+        run_sql = """
+        SELECT MIN(%s(i)) FROM integers;
+        """ % function_name
 
-    def generate_strings_extreme(extreme_length):
-        def random_string(length):
-            import random
-            import string
-            result = ""
-            for i in range(0, length):
-                result += random.choice(string.printable)
-            return result
-        return random_string(extreme_length)
-    cursor.execute(export_function(generate_strings_extreme, ['integer'], ['i string'], table=True, test=False))
+    createdb = open(createdb_file, 'w+')
+    createdb.write(createdb_sql)
+    createdb.close()
 
-    extreme_lengths = []
-    string_counts = []
-    for i in range(parameters_start, len(arguments)):
-        tple = arguments[i].translate(None, '()').split(',')
-        extreme_lengths.append(float(tple[0]))
-        string_counts.append(int(tple[1]))
+    run = open(run_file, 'w+')
+    run.write(run_sql)
+    run.close()
 
-    def import_test(inp):
-        return(True)
-
-    cursor.execute(export_function(import_test, ['string'], ['boolean']))
-
-    f = open(output_file + '.tsv', "w+")
-    f.write(format_headers('[AXIS]:(Strings)', '[AXIS]:Extreme Length (Characters)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
-    for j in range(0,len(extreme_lengths)):
-        str_len = extreme_lengths[j]
-        str_count = string_counts[j]
-        string_mb = float(str_count) / (1000 ** 2)
-        os.system("%s %s %s %s" % ("./randomstrings", str(string_mb), str(1), result_path))
-        cursor.execute('CREATE TABLE strings(i string);')
-        cursor.execute("COPY INTO strings FROM '%s';" % result_path)
-        cursor.execute('INSERT INTO strings SELECT * FROM generate_strings_extreme(' + str(str_len) + ');')
-        #print('create table strings as SELECT * FROM generate_strings_extreme(\'' + result_path + '\',' + str(str_len) + ') with data;')
-        results = []
-        result_file = open(temp_file, 'w+')
-        result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
-        result_file.close();
-        for i in range(0,test_count):
-            start = time.time()
-            cursor.execute('select import_test(i) from strings;');
-            cursor.fetchall();
-            end = time.time()
-            list.append(results, end - start)
-        result_file = open(temp_file, 'r')
-        result_file.readline()
-        for result in results:
-            pyapi_results = result_file.readline().translate(None, '\n').split('\t')
-            f.write(format_output(str_count, str_len, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
-            f.flush()
-        cursor.execute('drop table strings;')
-    f.close()
-
-    #cursor.execute('drop function generate_strings_extreme');
-    #cursor.execute('drop function import_test');
-    cursor.execute('rollback')
-elif "factorial" in str(arguments[1]).lower():
-    def generate_integers(mb, random_seed):
-        import random
-        import math
-        numpy.random.seed(random_seed)
-        byte_size = mb * 1000 * 1000
-        integer_size_byte = 4
-        max_int = 2000
-        min_int = 1000
-        integer_count = int(byte_size / integer_size_byte)
-        return numpy.random.random_integers(min_int, max_int, integer_count).astype(numpy.int32)
-
-    cursor.execute(export_function(generate_integers, ['float', 'integer'], ['i integer'], table=True, test=False))
-    def factorial(i):
-        import math
-        result = numpy.zeros(i.shape[0])
-        for a in range(0, i.shape[0]):
-            result[a] = math.log(math.factorial(i[a]))
-        return result
-
-    cursor.execute(export_function(factorial, ['float'], ['double'], multithreading=True))
-    if os.path.isfile(output_file + '.tsv'):
-        f = open(output_file + '.tsv', "a")
-    else:
-        f = open(output_file + '.tsv', "w+")
-        f.write(format_headers('[AXIS]:Cores (#)', '[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
-    cores = int(str(arguments[1]).split('-')[1])
-    mb = []
-    for i in range(parameters_start, len(arguments)):
-        mb.append(float(arguments[i]))
-
-    for size in mb:
-        cursor.execute('CREATE TABLE integers (i integer);')
-        temp_size = size
-        for increment in range(0, int(math.ceil(float(size) / float(max_size)))):
-            current_size = temp_size if temp_size < max_size else max_size
-            cursor.execute('INSERT INTO integers SELECT * FROM generate_integers(' + str(current_size) + ',' + str(random_seed + increment) + ');')
-            temp_size -= max_size
-
-        results = [[], [], []]
-        for i in range(0,test_count):
-            result_file = open(temp_file, 'w+')
-            result_file.write("")
-            result_file.close();
-            start = time.time()
-            cursor.execute('select min(factorial(i)) from integers;');
-            cursor.fetchall();
-            end = time.time()
-            list.append(results[0], end - start)
-            memory_usage = 0
-            peak_execution_time = 0
-            with open(temp_file, 'r') as result_file:
-                for line in result_file:
-                    pyapi_results = line.translate(None, '\n').split('\t')
-                    memory_usage = memory_usage + float(pyapi_results[0]) / 1000 ** 2
-                    if float(pyapi_results[1]) > peak_execution_time: peak_execution_time = float(pyapi_results[1])
-            list.append(results[1], memory_usage)
-            list.append(results[2], peak_execution_time)
-        for i in range(0, len(results[0])):
-            f.write(format_output(cores, size, results[0][i], results[1][i], results[2][i]))
-            f.flush()
-
-        cursor.execute('drop table integers;')
-    f.close()
-
-
-elif str(arguments[1]).lower() == "pquantile" or str(arguments[1]).lower() == "rquantile" or str(arguments[1]).lower() == "quantile":
-    quantile_function = "quantile"
-    if str(arguments[1]).lower() == "pquantile":
-        def pyquantile(i, j):
-            return numpy.percentile(i, j * 100)
-
-        cursor.execute(export_function(pyquantile, ['double', 'double'], ['double']))
-        quantile_function = "pyquantile"
-    elif str(arguments[1]).lower() == "rquantile":
-        cursor.execute("CREATE FUNCTION rquantile(v double, q double) RETURNS double LANGUAGE R { quantile(v,q) };");
-        quantile_function = "rquantile"
-
-    def generate_integers(mb, random_seed):
-        import random
-        import math
-        numpy.random.seed(random_seed)
-        byte_size = mb * 1000 * 1000
-        integer_size_byte = 4
-        max_int = math.pow(2,31) - 1
-        min_int = -max_int
-        integer_count = int(byte_size / integer_size_byte)
-        return numpy.random.random_integers(min_int, max_int, integer_count).astype(numpy.int32)
-
-    cursor.execute(export_function(generate_integers, ['float', 'integer'], ['i integer'], table=True, test=False))
-
-
-    import time
     f = open(output_file + '.tsv', "w+")
     f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)'))
+
     mb = []
     for i in range(parameters_start, len(arguments)):
         mb.append(float(arguments[i]))
 
     for size in mb:
-        cursor.execute('CREATE TABLE integers (i integer);')
-        temp_size = size
-        for increment in range(0, int(math.ceil(float(size) / float(max_size)))):
-            current_size = temp_size if temp_size < max_size else max_size
-            cursor.execute('INSERT INTO integers SELECT * FROM generate_integers(' + str(current_size) + ',' + str(random_seed + increment) + ');')
-            temp_size -= max_size
+        print "Testing size %d" % size
+        os.system(initdb)
+        # generate input and build database
+        os.system("%s " % c_compiler + input_dir + "/randomstrings.c -o randomstrings")
+        os.system("%s %s %s %s" % (input_dir + "/randomstrings", size, input_type, input_file))
 
-        results = []
+        os.system("%s -f %s/%s.createdb.sql" % (client, input_dir, function_name))
+
         for i in range(0,test_count):
             start = time.time()
-            cursor.execute('select ' + quantile_function + '(i, 0.5) from integers;');
-            cursor.fetchall();
+            os.system("%s -f %s/%s.sql" % (client, input_dir, function_name))
             end = time.time()
-            list.append(results, end - start)
-        for result in results:
-            f.write(format_output(size, result))
-            f.flush()
-        cursor.execute('drop table integers;')
+            f.write(format_output(size, end - start))
+        # drop database
+        os.system(dropdb)
+
+    f.close()
+
+    os.remove(createdb_file)
+    os.remove(run_file)
+    os.remove(input_file)
 else:
-    print("Unrecognized test type \"" + arguments[1] + "\", exiting...")
-    sys.exit(1)
-
-
+    print("Unrecognized database type %s, exiting..." % args_input_database)
