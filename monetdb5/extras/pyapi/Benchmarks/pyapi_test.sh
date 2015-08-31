@@ -318,11 +318,11 @@ function pyapi_test_quantile() {
     if [ $? -ne 0 ]; then
         return 1
     fi
-    pyapi_run_single_test "Quantile Testing (R)" "--set embedded_r=true" "RQUANTILE" quantile_r "$QUANTILE_TESTING_NTESTS" "$QUANTILE_TESTING_SIZES"
+    pyapi_run_single_test "Quantile Testing (MonetDB)" "" "QUANTILE" quantile_monetdb "$QUANTILE_TESTING_NTESTS" "$QUANTILE_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
-    pyapi_run_single_test "Quantile Testing (MonetDB)" "" "QUANTILE" quantile_monetdb "$QUANTILE_TESTING_NTESTS" "$QUANTILE_TESTING_SIZES"
+    pyapi_run_single_test "Quantile Testing (R)" "--set embedded_r=true" "RQUANTILE" quantile_r "$QUANTILE_TESTING_NTESTS" "$QUANTILE_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
