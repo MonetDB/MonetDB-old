@@ -196,6 +196,10 @@ function postgres_run_single_test() {
     killall postgres
 }
 
+export SQLITE_DB_FILE=$PYAPI_TEST_DIR/sqlite_dbfile.dbname
+function python_run_single_test() {
+    python "$PYAPI_TESTFILE" $1 $2 $3 $4 $MSERVER_PORT $5
+}
 
 function pyapi_test_input() {
     echo "Beginning Input Testing (Copy vs Zero Copy)"
@@ -392,14 +396,6 @@ function pyapi_cleanup() {
     return 0
 }
 
-function postgres_run_tests() {
-    if [ ! -d $PYAPI_OUTPUT_DIR ]; then
-        mkdir $PYAPI_OUTPUT_DIR
-    fi
-    cd $PYAPI_OUTPUT_DIR
-    postgres_run_single_test IDENTITY postgres_identity 5 1 10
-}
-
 function pyapi_test() {
     if [ ! -d $PYAPI_TEST_DIR ]; then
         mkdir $PYAPI_TEST_DIR
@@ -494,5 +490,35 @@ function postgres_test() {
     fi
 
     postgres_run_tests
+}
+
+export IDENTITY_NTESTS=5
+export IDENTITY_SIZES="1 10"
+
+function postgres_run_tests() {
+    if [ ! -d $PYAPI_OUTPUT_DIR ]; then
+        mkdir $PYAPI_OUTPUT_DIR
+    fi
+    cd $PYAPI_OUTPUT_DIR
+    postgres_run_single_test IDENTITY postgres_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+}
+
+function sqlite_test() {
+    python_run_single_test SQLITEMEM IDENTITY sqlitemem_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    python_run_single_test SQLITEDB IDENTITY sqlitedb_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+}
+
+function csv_test() {
+    python_run_single_test CSV IDENTITY csv_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+}
+
+
+function numpy_test() {
+    python_run_single_test NUMPYBINARY IDENTITY numpy_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+}
+
+
+function monetdbembedded_test() {
+    python_run_single_test MONETDBEMBEDDED IDENTITY monetdbembedded_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
 }
 

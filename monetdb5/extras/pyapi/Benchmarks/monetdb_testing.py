@@ -525,72 +525,324 @@ if str(args_input_database).lower() == "monetdb":
     else:
         print("Unrecognized test type \"" + args_test_type + "\", exiting...")
         sys.exit(1)
-elif str(args_input_database).lower() == "postgres":
-    input_dir = os.environ["POSTGRES_CWD"]
-    input_file = os.environ["POSTGRES_INPUT_FILE"]
-    client = os.environ["POSTGRES_CLIENT_COMMAND"]
-    dropdb = os.environ["POSTGRES_DROPDB_COMMAND"]
-    initdb = os.environ["POSTGRES_CREATEDB_COMMAND"]
 
-    print "Beginning POSTGRES Testing"
-    function_name = str(args_test_type).lower()
-    input_type = "integer"
-    if function_name == "identity":
-        createdb_file = "%s/%s.createdb.sql" % (input_dir, function_name)
-        run_file = "%s/%s.sql" % (input_dir, function_name)
-
-        createdb_sql = """
-        CREATE TABLE integers(i integer);
-
-        COPY integers FROM '%s' DELIMITER ',' CSV;
-
-        CREATE FUNCTION %s(a integer)
-          RETURNS integer
-        AS $$
-          return a
-        $$ LANGUAGE plpythonu;
-        """ % (input_file, function_name)
-
-        run_sql = """
-        SELECT MIN(%s(i)) FROM integers;
-        """ % function_name
-
-    createdb = open(createdb_file, 'w+')
-    createdb.write(createdb_sql)
-    createdb.close()
-
-    run = open(run_file, 'w+')
-    run.write(run_sql)
-    run.close()
-
-    f = open(output_file + '.tsv', "w+")
-    f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)'))
-
-    mb = []
-    for i in range(parameters_start, len(arguments)):
-        mb.append(float(arguments[i]))
-
-    for size in mb:
-        print "Testing size %d" % size
-        os.system(initdb)
-        # generate input and build database
-        os.system("%s " % c_compiler + input_dir + "/randomstrings.c -o randomstrings")
-        os.system("%s %s %s %s" % (input_dir + "/randomstrings", size, input_type, input_file))
-
-        os.system("%s -f %s/%s.createdb.sql" % (client, input_dir, function_name))
-
-        for i in range(0,test_count):
-            start = time.time()
-            os.system("%s -f %s/%s.sql" % (client, input_dir, function_name))
-            end = time.time()
-            f.write(format_output(size, end - start))
-        # drop database
-        os.system(dropdb)
-
-    f.close()
-
-    os.remove(createdb_file)
-    os.remove(run_file)
-    os.remove(input_file)
 else:
-    print("Unrecognized database type %s, exiting..." % args_input_database)
+    input_file = os.environ["POSTGRES_INPUT_FILE"]
+    input_dir = os.environ["POSTGRES_CWD"]
+    def execute_test(input_type, database_init, database_load, database_execute, database_clear, database_final):
+        database_init()
+
+        f = open(output_file + '.tsv', "w+")
+        f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)'))
+
+        mb = []
+        for i in range(parameters_start, len(arguments)):
+            mb.append(float(arguments[i]))
+
+        for size in mb:
+            os.system("%s " % c_compiler + input_dir + "/randomstrings.c -o randomstrings")
+            os.system("%s %s %s %s" % (input_dir + "/randomstrings", size, input_type, input_file))
+
+            database_load()
+            for i in range(0,test_count):
+                start = time.time()
+                database_execute()
+                end = time.time()
+                f.write(format_output(size, end - start))
+            database_clear()
+        f.close()
+        database_final
+
+    input_type = "integer"
+    function_name = str(args_test_type).lower()
+    function = None
+    if function_name == "identity":
+        def identity(a):
+            return numpy.min(a)
+        function = identity
+
+    # import inspect
+    # inspect_result = inspect.getsourcelines(function)
+    # source = "".join(["  " + x.lstrip() for x in inspect_result[0][1:]])
+
+    if str(args_input_database).lower() == "postgres":
+        client = os.environ["POSTGRES_CLIENT_COMMAND"]
+        dropdb = os.environ["POSTGRES_DROPDB_COMMAND"]
+        initdb = os.environ["POSTGRES_CREATEDB_COMMAND"]
+
+        function_name = str(args_test_type).lower()
+        def postgres_init():
+            input_dir = os.environ["POSTGRES_CWD"]
+
+            createdb_file = "%s/%s.createdb.sql" % (input_dir, function_name)
+            run_file = "%s/%s.sql" % (input_dir, function_name)
+
+            if function_name == "identity":
+                source = "  return a"
+
+            createdb_sql = """
+            CREATE TABLE integers(i integer);
+
+            COPY integers FROM '%s' DELIMITER ',' CSV;
+
+            CREATE FUNCTION %s(a integer)
+              RETURNS integer
+            AS $$
+              %s
+            $$ LANGUAGE plpythonu;
+            """ % (input_file, function_name, source)
+
+            run_sql = """
+            SELECT MIN(%s(i)) FROM integers;
+            """ % function_name
+
+            createdb = open(createdb_file, 'w+')
+            createdb.write(createdb_sql)
+            createdb.close()
+
+            run = open(run_file, 'w+')
+            run.write(run_sql)
+            run.close()
+
+        def postgres_load():
+            os.system(initdb)
+            os.system("%s -f %s/%s.createdb.sql" % (client, input_dir, function_name))
+
+        def postgres_execute():
+            os.system("%s -f %s/%s.sql" % (client, input_dir, function_name))
+
+        def postgres_clear():
+            os.system(dropdb)
+
+        def postgres_final():
+            os.remove(createdb_file)
+            os.remove(run_file)
+            os.remove(input_file)
+
+        execute_test(input_type, postgres_init, postgres_load, postgres_execute, postgres_clear, postgres_final)
+    elif str(args_input_database).lower() == "sqlitemem" or str(args_input_database).lower() == "sqlitedb":
+        import csv, sqlite3
+        database_file = os.environ["SQLITE_DB_FILE"]
+        database_name = ":memory:" if str(args_input_database).lower() == "sqlitemem" else database_file
+
+        conn = sqlite3.connect(database_file)
+        c = conn.cursor()
+
+        def sqlite_init():
+            return None
+
+        def sqlite_load():
+            c.execute("CREATE TABLE integers(i int);")
+            inp = open(input_file, 'r')
+            result = [(int(x.strip('\n')),) for x in inp]
+            inp.close()
+            c.executemany('INSERT INTO integers VALUES (?);', result)
+
+        def sqlite_execute():
+            cursor = c.execute('SELECT * FROM integers')
+            result = cursor.fetchall()
+            function(numpy.array(result, dtype=numpy.int32))
+
+        def sqlite_clear():
+            c.execute("DROP TABLE integers")
+
+        def sqlite_final():
+            if str(args_input_database).lower() != "sqlitemem":
+                os.remove(database_file)
+            os.remove(input_file)
+            conn.close()
+
+        execute_test(input_type, sqlite_init, sqlite_load, sqlite_execute, sqlite_clear, sqlite_final)
+    elif str(args_input_database).lower() == "monetdbmapi" or str(args_input_database).lower() == "pyapi" or str(args_input_database).lower() == "rapi":
+        import monetdb.sql
+        for i in range(0, max_retries):
+            try:
+                connection = monetdb.sql.connect(username="monetdb", password="monetdb", hostname="localhost",port=port,database="demo")
+                break
+            except:
+                time.sleep(3)
+            connection = None
+
+        if connection is None:
+            print("Failed to connect to MonetDB Server (mserver5) in " + str(max_retries) + " attempts.")
+            sys.exit(1)
+        cursor = connection.cursor()
+        print("Not implemented")
+    elif str(args_input_database).lower() == "pytables":
+        print("Not implemented")
+    elif str(args_input_database).lower() == "csv":
+        import csv
+        def csv_init():
+            return None
+
+        def csv_load():
+            return None
+
+        def csv_execute():
+            with open(input_file, 'rb') as csvfile:
+                reader = csv.reader(csvfile)
+                result = [x for x in reader]
+                function(numpy.array(result, dtype=numpy.int32))
+
+        def csv_clear():
+            return None
+
+        def csv_final():
+            os.remove(input_file)
+
+        execute_test(input_type, csv_init, csv_load, csv_execute, csv_clear, csv_final)
+    elif str(args_input_database).lower() == "numpybinary":
+        import csv, numpy
+        numpy_binary = 'tempfile.npy'
+        def numpy_init():
+            return None
+
+        def numpy_load():
+            with open(input_file, 'rb') as csvfile:
+                reader = csv.reader(csvfile)
+                result = [x for x in reader]
+                numpy_array = numpy.array(result, dtype=numpy.int32)
+                numpy.save(numpy_binary, numpy_array)
+
+        def numpy_execute():
+            numpy_array = numpy.load(numpy_binary)
+            function(numpy_array)
+
+        def numpy_clear():
+            return None
+
+        def numpy_final():
+            os.remove(input_file)
+            os.remove(numpy_binary)
+
+        execute_test(input_type, numpy_init, numpy_load, numpy_execute, numpy_clear, numpy_final)
+    elif str(args_input_database).lower() == "castra":
+        print("Not implemented")
+    elif str(args_input_database).lower() == "numpymemorymap":
+        print("Not implemented")
+    elif str(args_input_database).lower() == "monetdbembedded":
+        import monetdb, csv
+
+        def monetdbembedded_init():
+            monetdb.init('/tmp/dbfarm')
+            try: monetdb.sql('DROP TABLE integers')
+            except: pass
+
+        def monetdbembedded_load():
+            with open(input_file, 'rb') as csvfile:
+                reader = csv.reader(csvfile)
+                result = [int(x[0]) for x in reader]
+                monetdb.create('integers', ['i'], result)
+
+        def monetdbembedded_execute():
+            result = monetdb.sql('SELECT * FROM integers')
+            print(function(result['i']))
+
+        def monetdbembedded_clear():
+            monetdb.sql('DROP TABLE integers')
+
+        def monetdbembedded_final():
+            os.remove(input_file)
+
+        execute_test(input_type, monetdbembedded_init, monetdbembedded_load, monetdbembedded_execute, monetdbembedded_clear, monetdbembedded_final)
+
+    else:
+        print("Unrecognized database type %s, exiting..." % args_input_database)
+
+# elif str(args_input_database).lower() == "postgres":
+#     input_dir = os.environ["POSTGRES_CWD"]
+#     input_file = os.environ["POSTGRES_INPUT_FILE"]
+#     client = os.environ["POSTGRES_CLIENT_COMMAND"]
+#     dropdb = os.environ["POSTGRES_DROPDB_COMMAND"]
+#     initdb = os.environ["POSTGRES_CREATEDB_COMMAND"]
+
+#     print "Beginning POSTGRES Testing"
+#     function_name = str(args_test_type).lower()
+#     input_type = "integer"
+#     if function_name == "identity":
+#         createdb_file = "%s/%s.createdb.sql" % (input_dir, function_name)
+#         run_file = "%s/%s.sql" % (input_dir, function_name)
+
+#         createdb_sql = """
+#         CREATE TABLE integers(i integer);
+
+#         COPY integers FROM '%s' DELIMITER ',' CSV;
+
+#         CREATE FUNCTION %s(a integer)
+#           RETURNS integer
+#         AS $$
+#           return a
+#         $$ LANGUAGE plpythonu;
+#         """ % (input_file, function_name)
+
+#         run_sql = """
+#         SELECT MIN(%s(i)) FROM integers;
+#         """ % function_name
+
+#     createdb = open(createdb_file, 'w+')
+#     createdb.write(createdb_sql)
+#     createdb.close()
+
+#     run = open(run_file, 'w+')
+#     run.write(run_sql)
+#     run.close()
+
+#     f = open(output_file + '.tsv', "w+")
+#     f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)'))
+
+#     mb = []
+#     for i in range(parameters_start, len(arguments)):
+#         mb.append(float(arguments[i]))
+
+#     for size in mb:
+#         print "Testing size %d" % size
+#         os.system(initdb)
+#         # generate input and build database
+#         os.system("%s " % c_compiler + input_dir + "/randomstrings.c -o randomstrings")
+#         os.system("%s %s %s %s" % (input_dir + "/randomstrings", size, input_type, input_file))
+
+#         os.system("%s -f %s/%s.createdb.sql" % (client, input_dir, function_name))
+
+#         for i in range(0,test_count):
+#             start = time.time()
+#             os.system("%s -f %s/%s.sql" % (client, input_dir, function_name))
+#             end = time.time()
+#             f.write(format_output(size, end - start))
+#         # drop database
+#         os.system(dropdb)
+
+#     f.close()
+
+#     os.remove(createdb_file)
+#     os.remove(run_file)
+#     os.remove(input_file)
+# elif str(args_input_database).lower() == "sqlitemem":
+#     import csv, sqlite3
+#     input_file = "/ufs/raasveld/Programs/MonetDB/monetdb5/extras/pyapi/Benchmarks/result.csv"
+
+#     conn = sqlite3.connect(":memory:")
+#     c = conn.cursor()
+#     c.execute("CREATE TABLE integers(i int);")
+#     inp = open(input_file, 'r')
+#     result = [(int(x.strip('\n')),) for x in inp]
+#     inp.close()
+#     c.executemany('INSERT INTO integers VALUES (?);', result)
+
+
+
+# elif str(args_input_database).lower() == "monetdbmapi":
+#     print("Not implemented")
+# elif str(args_input_database).lower() == "pytables":
+#     print("Not implemented")
+# elif str(args_input_database).lower() == "rapi":
+#     print("Not implemented")
+# elif str(args_input_database).lower() == "csv":
+#     print("Not implemented")
+# elif str(args_input_database).lower() == "numpybinary":
+#     print("Not implemented")
+# elif str(args_input_database).lower() == "castra":
+#     print("Not implemented")
+# elif str(args_input_database).lower() == "numpymemorymap":
+#     print("Not implemented")
+# else:
+#     print("Unrecognized database type %s, exiting..." % args_input_database)
