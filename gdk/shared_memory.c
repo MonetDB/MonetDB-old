@@ -286,19 +286,19 @@ int release_process_semaphore(int sem_id)
     fflush(stdout); \
 }
 
-void initialize_shared_memory(void)
+str initialize_shared_memory(void)
 {
     NOTIMPLEMENTED();
 }
 
-str create_shared_memory(int id, size_t size, void **return_ptr);
+str create_shared_memory(int id, size_t size, void **return_ptr)
 {
     (void) id; (void) size; (void) return_ptr;
     NOTIMPLEMENTED();
     return NULL;
 }
 
-str release_shared_memory(void *ptr);
+str release_shared_memory(void *ptr)
 {
     (void) ptr;
     NOTIMPLEMENTED();
@@ -312,7 +312,7 @@ int get_unique_shared_memory_id(int offset)
     return -1;
 }  
 
-str get_shared_memory(int id, size_t size, void **return_ptr);
+str get_shared_memory(int id, size_t size, void **return_ptr)
 {
     (void) id; (void) size; (void) return_ptr;
     NOTIMPLEMENTED();
