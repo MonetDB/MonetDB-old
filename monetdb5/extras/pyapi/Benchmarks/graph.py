@@ -21,7 +21,7 @@ y_log = False
 line_plot = False
 fill_time = False
 data_start = 3
-graph_colors = ['blue', 'green', 'red', 'cyan', 'magenta', 'yellow', 'black', 'white']
+graph_colors = ['blue', 'green', 'red', 'cyan', 'magenta', 'yellow', 'black', 'white', 'orange', 'darkgreen', 'aliceblue', 'darkgoldenrod', 'darkorchid', 'darkred', 'forestgreen', 'lavenderblush', 'lightsalmon', 'midnightblue', 'moccasin', 'papayawhip', 'turquoise', 'violet']
 for i in range(3, len(arguments)):
     if '-xlog' in arguments[i]: x_log = True
     elif '-ylog' in arguments[i]: y_log = True
@@ -125,7 +125,7 @@ if not line_plot:
 
             for m in range(0, measurements):
                 if y_axis[m] == "PyAPI Time (s)": continue
-                ax0 = plt.subplot(graph_count + 1, 1, m)
+                ax0 = plt.subplot(graph_count + 1 if graph_count != 1 else 1, 1, m)
                 plot_axis[y_axis[m]] = ax0
 
             for m in range(0, measurements):

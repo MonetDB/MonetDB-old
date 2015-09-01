@@ -187,9 +187,32 @@ function postgres_build() {
     wget $POSTGRES_TAR_URL && tar xvzf $POSTGRES_TAR_FILE && cd $POSTGRES_BASE && ./configure --prefix=$POSTGRES_BUILD_DIR --with-python && make && make install && $POSTGRES_BUILD_DIR/bin/initdb
 }
 
+function monetdbmapi_run_single_test() {
+    rm -rf $PYAPI_DATAFARM_DIR
+    setsid $PYAPI_BUILD_DIR/bin/mserver5 --set mapi_port=$MSERVER_PORT --set embedded_py=true $2 > /dev/null
+    python $PYAPI_TESTFILE $1 $3 $4 $5 $MSERVER_PORT $6
+    killall mserver5
+    if [ $? -ne 0 ]; then
+        echo "Failed Test $1"
+        killall mserver5
+        return 1
+    fi
+    for i in `seq 1 20`; do
+        eval $MSERVERTEST
+        if [ $? -eq 0 ]; then
+            sleep 1
+        else 
+            echo "Finished Test $1"
+            return 0
+        fi
+    done
+    echo "Failed to close mserver, exiting..."
+    return 1
+}
+
 function postgres_run_single_test() {
     # start server
-    setsid $POSTGRES_SERVER_COMMAND && sleep 5
+    setsid $POSTGRES_SERVER_COMMAND > /dev/null && sleep 5
     # call python test script
     python "$PYAPI_TESTFILE" POSTGRES $1 $2 $3 $MSERVER_PORT $4
     # finish testing, kill postgres
@@ -492,8 +515,8 @@ function postgres_test() {
     postgres_run_tests
 }
 
-export IDENTITY_NTESTS=5
-export IDENTITY_SIZES="1 10"
+export IDENTITY_NTESTS=3
+export IDENTITY_SIZES="100"
 
 function postgres_run_tests() {
     if [ ! -d $PYAPI_OUTPUT_DIR ]; then
@@ -501,27 +524,82 @@ function postgres_run_tests() {
     fi
     cd $PYAPI_OUTPUT_DIR
     postgres_run_single_test IDENTITY postgres_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    postgres_run_single_test SQROOT postgres_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
 }
 
 function sqlite_test() {
     python_run_single_test SQLITEMEM IDENTITY sqlitemem_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
     python_run_single_test SQLITEDB IDENTITY sqlitedb_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+
+    python_run_single_test SQLITEMEM SQROOT sqlitemem_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    python_run_single_test SQLITEDB SQROOT sqlitedb_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
 }
 
 function csv_test() {
     python_run_single_test CSV IDENTITY csv_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    python_run_single_test CSV SQROOT csv_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
 }
 
 
 function numpy_test() {
     python_run_single_test NUMPYBINARY IDENTITY numpy_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    python_run_single_test NUMPYBINARY SQROOT numpy_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
 }
 
 
 function monetdbembedded_test() {
     python_run_single_test MONETDBEMBEDDED IDENTITY monetdbembedded_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    python_run_single_test MONETDBEMBEDDED SQROOT monetdbembedded_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
 }
 
 function numpymmap_test() {
     python_run_single_test NUMPYMEMORYMAP IDENTITY numpymmap_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    python_run_single_test NUMPYMEMORYMAP SQROOT numpymmap_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
 }
+
+function monetdbmapi_test() {
+    #monetdbmapi_run_single_test MONETDBMAPI "" IDENTITY monetdbmapi_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    monetdbmapi_run_single_test MONETDBMAPI "" SQROOT monetdbmapi_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+}
+
+function monetdbpyapi_test() {
+    monetdbmapi_run_single_test PYAPI "--set gdk_nr_threads=1" IDENTITY monetdbpyapi_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    monetdbmapi_run_single_test PYAPI "--set gdk_nr_threads=1" SQROOT monetdbpyapi_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+}
+
+function monetdbpyapimap_test() {
+    monetdbmapi_run_single_test PYAPIMAP "" IDENTITY monetdbpyapimap_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    monetdbmapi_run_single_test PYAPIMAP "" SQROOT monetdbpyapimap_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+}
+
+function monetdbrapi_test() {
+    monetdbmapi_run_single_test RAPI "--set gdk_nr_threads=1 --set embedded_r=true" IDENTITY monetdbrapi_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    monetdbmapi_run_single_test RAPI "--set gdk_nr_threads=1 --set embedded_r=true" SQROOT monetdbrapi_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+}
+
+function psycopg_install() {
+    wget http://initd.org/psycopg/tarballs/PSYCOPG-2-6/psycopg2-2.6.1.tar.gz && tar xvzf psycopg2-2.6.1.tar.gz && rm tar xvzf psycopg2-2.6.1.tar.gz && cd psycopg2-2.6.1 && python setup.py install --user build_ext --pg-config $POSTGRES_BUILD_DIR/bin/pg_config
+}
+
+function comparison_test() {
+    postgres_run_tests
+    sqlite_test
+    csv_test
+    numpy_test
+    numpymmap_test
+    monetdbembedded_test
+    monetdbmapi_test
+    monetdbpyapi_test
+    monetdbpyapimap_test
+    monetdbrapi_test
+}
+
+function comparison_graph() {
+    python $PYAPI_GRAPHFILE "SAVE" "Identity" "-xlog" "postgres:postgres_identity.tsv" "sqlitemem:sqlitemem_identity.tsv" "sqlitedb:sqlitedb_identity.tsv" "csv:csv_identity.tsv" "numpy:numpy_identity.tsv" "numpymmap:numpymmap_identity.tsv" "monetdbembedded:monetdbembedded_identity.tsv" "monetdbmapi:monetdbmapi_identity.tsv" "monetdbpyapi:monetdbpyapi_identity.tsv" "monetdbpyapimap:monetdbpyapimap_identity.tsv" "monetdbrapi:monetdbrapi_identity.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Identity [Fast Only]" "-xlog" "numpy:numpy_identity.tsv" "numpymmap:numpymmap_identity.tsv" "monetdbembedded:monetdbembedded_identity.tsv" "monetdbpyapi:monetdbpyapi_identity.tsv" "monetdbpyapimap:monetdbpyapimap_identity.tsv" "monetdbrapi:monetdbrapi_identity.tsv"
+
+    python $PYAPI_GRAPHFILE "SAVE" "Square Root" "-xlog" "postgres:postgres_sqroot.tsv" "sqlitemem:sqlitemem_sqroot.tsv" "sqlitedb:sqlitedb_sqroot.tsv" "csv:csv_sqroot.tsv" "numpy:numpy_sqroot.tsv" "numpymmap:numpymmap_sqroot.tsv" "monetdbembedded:monetdbembedded_sqroot.tsv" "monetdbmapi:monetdbmapi_sqroot.tsv" "monetdbpyapi:monetdbpyapi_sqroot.tsv" "monetdbpyapimap:monetdbpyapimap_sqroot.tsv" "monetdbrapi:monetdbrapi_sqroot.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Square Root [Fast Only]" "-xlog" "numpy:numpy_sqroot.tsv" "numpymmap:numpymmap_sqroot.tsv" "monetdbembedded:monetdbembedded_sqroot.tsv" "monetdbpyapi:monetdbpyapi_sqroot.tsv" "monetdbpyapimap:monetdbpyapimap_sqroot.tsv" "monetdbrapi:monetdbrapi_sqroot.tsv"
+
+}
+

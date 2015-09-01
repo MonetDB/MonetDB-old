@@ -130,7 +130,7 @@ if str(args_input_database).lower() == "monetdb":
             connection = monetdb.sql.connect(username="monetdb", password="monetdb", hostname="localhost",port=port,database="demo")
             break
         except:
-            time.sleep(3)
+            time.sleep(1)
         connection = None
 
     if connection is None:
@@ -561,10 +561,16 @@ else:
         def identity(a):
             return numpy.min(a)
         function = identity
+        return_value = "integer"
+    if function_name == "sqroot":
+        def sqroot(a):
+            return numpy.min(numpy.sqrt(numpy.abs(a)))
+        function = sqroot
+        return_value = "double precision"
 
-    # import inspect
-    # inspect_result = inspect.getsourcelines(function)
-    # source = "".join(["  " + x.lstrip() for x in inspect_result[0][1:]])
+    import inspect
+    inspect_result = inspect.getsourcelines(function)
+    source_code = "".join(["  " + x.lstrip() for x in inspect_result[0][1:]])
 
     if str(args_input_database).lower() == "postgres":
         client = os.environ["POSTGRES_CLIENT_COMMAND"]
@@ -580,18 +586,19 @@ else:
 
             if function_name == "identity":
                 source = "  return a"
+            if function_name == "sqroot":
+                source = "  import math\n  return math.sqrt(abs(a))"
 
             createdb_sql = """
-            CREATE TABLE integers(i integer);
+CREATE TABLE integers(i integer);
 
-            COPY integers FROM '%s' DELIMITER ',' CSV;
+COPY integers FROM '%s' DELIMITER ',' CSV;
 
-            CREATE FUNCTION %s(a integer)
-              RETURNS integer
-            AS $$
-              %s
-            $$ LANGUAGE plpythonu;
-            """ % (input_file, function_name, source)
+CREATE FUNCTION %s(a integer)
+  RETURNS %s
+AS $$
+%s
+$$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
 
             run_sql = """
             SELECT MIN(%s(i)) FROM integers;
@@ -607,7 +614,7 @@ else:
 
         def postgres_load():
             os.system(initdb)
-            os.system("%s -f %s/%s.createdb.sql" % (client, input_dir, function_name))
+            os.system("%s -f %s/%s.createdb.sql > /dev/null" % (client, input_dir, function_name))
 
         def postgres_execute():
             os.system("%s -f %s/%s.sql" % (client, input_dir, function_name))
@@ -646,6 +653,7 @@ else:
 
         def sqlite_clear():
             c.execute("DROP TABLE integers")
+            conn.commit();
 
         def sqlite_final():
             if str(args_input_database).lower() != "sqlitemem":
@@ -654,21 +662,57 @@ else:
             conn.close()
 
         execute_test(input_type, sqlite_init, sqlite_load, sqlite_execute, sqlite_clear, sqlite_final)
-    elif str(args_input_database).lower() == "monetdbmapi" or str(args_input_database).lower() == "pyapi" or str(args_input_database).lower() == "rapi":
+    elif str(args_input_database).lower() == "monetdbmapi" or str(args_input_database).lower() == "pyapi" or str(args_input_database).lower() == "pyapimap" or str(args_input_database).lower() == "rapi":
         import monetdb.sql
         for i in range(0, max_retries):
             try:
                 connection = monetdb.sql.connect(username="monetdb", password="monetdb", hostname="localhost",port=port,database="demo")
                 break
             except:
-                time.sleep(3)
+                time.sleep(1)
             connection = None
 
         if connection is None:
             print("Failed to connect to MonetDB Server (mserver5) in " + str(max_retries) + " attempts.")
             sys.exit(1)
-        cursor = connection.cursor()
-        print("Not implemented")
+        c = connection.cursor()
+
+        def monetdb_init():
+            return None
+
+        def monetdb_load():
+            c.execute("CREATE TABLE integers(i int);")
+            c.execute("COPY INTO integers FROM '%s';" % input_file)
+            if str(args_input_database).lower() == "pyapi" or str(args_input_database).lower() == "pyapimap":
+                func_language = "PYTHON" if str(args_input_database).lower() == "pyapi" else "PYTHON_MAP"
+                c.execute("CREATE FUNCTION FUNC_%s(a integer) RETURNS %s LANGUAGE %s {%s};" % (function_name,return_value,func_language, source_code))
+            elif str(args_input_database).lower() == "rapi":
+                if function_name == "identity":
+                    c.execute("CREATE FUNCTION FUNC_%s(a integer) RETURNS %s LANGUAGE R { min(a) };" % (function_name,return_value))
+                if function_name == "sqroot":
+                    c.execute("CREATE FUNCTION FUNC_%s(a integer) RETURNS %s LANGUAGE R { min(sqrt(abs(a))) };" % (function_name,return_value))
+
+        if str(args_input_database).lower() == "pyapi" or str(args_input_database).lower() == "pyapimap" or str(args_input_database).lower() == "rapi":
+            def monetdb_execute():
+                c.execute("SELECT FUNC_%s(i) FROM integers;" % function_name)
+                result = c.fetchall()
+        else:
+            def monetdb_execute():
+                c.execute('SELECT * FROM integers')
+                result = c.fetchall()
+                function(numpy.array(result, dtype=numpy.int32))
+
+        def monetdb_clear():
+            c.execute("DROP TABLE integers;")
+            if str(args_input_database).lower() == "pyapi" or str(args_input_database).lower() == "pyapimap" or str(args_input_database).lower() == "rapi":
+                c.execute("DROP FUNCTION FUNC_%s;" % function_name)
+
+        def monetdb_final():
+            os.remove(input_file)
+            conn.close()
+
+        execute_test(input_type, monetdb_init, monetdb_load, monetdb_execute, monetdb_clear, monetdb_final)
+
     elif str(args_input_database).lower() == "pytables":
         print("Not implemented")
     elif str(args_input_database).lower() == "csv":
