@@ -545,6 +545,7 @@ else:
 
             database_load()
             for i in range(0,test_count):
+                os.system('/home/mytherin/bin/flushcache')
                 start = time.time()
                 database_execute()
                 end = time.time()
@@ -719,7 +720,30 @@ else:
     elif str(args_input_database).lower() == "castra":
         print("Not implemented")
     elif str(args_input_database).lower() == "numpymemorymap":
-        print("Not implemented")
+        import csv, numpy
+        numpy_binary = 'tempfile.npy'
+        def numpy_init():
+            return None
+
+        def numpy_load():
+            with open(input_file, 'rb') as csvfile:
+                reader = csv.reader(csvfile)
+                result = [x for x in reader]
+                numpy_array = numpy.array(result, dtype=numpy.int32)
+                numpy.save(numpy_binary, numpy_array)
+
+        def numpy_execute():
+            numpy_array = numpy.memmap(numpy_binary, dtype=numpy.int32)
+            function(numpy_array)
+
+        def numpy_clear():
+            return None
+
+        def numpy_final():
+            os.remove(input_file)
+            os.remove(numpy_binary)
+
+        execute_test(input_type, numpy_init, numpy_load, numpy_execute, numpy_clear, numpy_final)
     elif str(args_input_database).lower() == "monetdbembedded":
         import monetdb, csv
 
@@ -736,7 +760,7 @@ else:
 
         def monetdbembedded_execute():
             result = monetdb.sql('SELECT * FROM integers')
-            print(function(result['i']))
+            function(result['i'])
 
         def monetdbembedded_clear():
             monetdb.sql('DROP TABLE integers')

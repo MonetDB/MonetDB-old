@@ -1,7 +1,7 @@
-
+        
 
 # The base directory of testing, a new folder is created in this base directory [$PYAPI_TEST_DIR], and everything is done in that new folder
-export PYAPI_BASE_DIR=/export/scratch1/raasveld
+export PYAPI_BASE_DIR=/home/mytherin
 # The terminal to start mserver with, examples are gnome-terminal, xterm, konsole
 export TERMINAL=x-terminal-emulator
 # Port used by the MSERVER
@@ -522,3 +522,6 @@ function monetdbembedded_test() {
     python_run_single_test MONETDBEMBEDDED IDENTITY monetdbembedded_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
 }
 
+function numpymmap_test() {
+    python_run_single_test NUMPYMEMORYMAP IDENTITY numpymmap_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+}
