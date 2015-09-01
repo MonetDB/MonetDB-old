@@ -745,25 +745,25 @@ else:
 
         execute_test(input_type, numpy_init, numpy_load, numpy_execute, numpy_clear, numpy_final)
     elif str(args_input_database).lower() == "monetdbembedded":
-        import monetdb, csv
+        import monetdb_embedded, csv
 
         def monetdbembedded_init():
-            monetdb.init('/tmp/dbfarm')
-            try: monetdb.sql('DROP TABLE integers')
+            monetdb_embedded.init('/tmp/dbfarm')
+            try: monetdb_embedded.sql('DROP TABLE integers')
             except: pass
 
         def monetdbembedded_load():
             with open(input_file, 'rb') as csvfile:
                 reader = csv.reader(csvfile)
                 result = [int(x[0]) for x in reader]
-                monetdb.create('integers', ['i'], result)
+                monetdb_embedded.create('integers', ['i'], result)
 
         def monetdbembedded_execute():
-            result = monetdb.sql('SELECT * FROM integers')
+            result = monetdb_embedded.sql('SELECT * FROM integers')
             function(result['i'])
 
         def monetdbembedded_clear():
-            monetdb.sql('DROP TABLE integers')
+            monetdb_embedded.sql('DROP TABLE integers')
 
         def monetdbembedded_final():
             os.remove(input_file)
