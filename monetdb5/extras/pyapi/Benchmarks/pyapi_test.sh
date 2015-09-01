@@ -595,11 +595,11 @@ function comparison_test() {
 }
 
 function comparison_graph() {
-    python $PYAPI_GRAPHFILE "SAVE" "Identity" "-xlog" "postgres:postgres_identity.tsv" "sqlitemem:sqlitemem_identity.tsv" "sqlitedb:sqlitedb_identity.tsv" "csv:csv_identity.tsv" "numpy:numpy_identity.tsv" "numpymmap:numpymmap_identity.tsv" "monetdbembedded:monetdbembedded_identity.tsv" "monetdbmapi:monetdbmapi_identity.tsv" "monetdbpyapi:monetdbpyapi_identity.tsv" "monetdbpyapimap:monetdbpyapimap_identity.tsv" "monetdbrapi:monetdbrapi_identity.tsv"
-    python $PYAPI_GRAPHFILE "SAVE" "Identity [Fast Only]" "-xlog" "numpy:numpy_identity.tsv" "numpymmap:numpymmap_identity.tsv" "monetdbembedded:monetdbembedded_identity.tsv" "monetdbpyapi:monetdbpyapi_identity.tsv" "monetdbpyapimap:monetdbpyapimap_identity.tsv" "monetdbrapi:monetdbrapi_identity.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Identity" "postgres:postgres_identity.tsv" "sqlitemem:sqlitemem_identity.tsv" "sqlitedb:sqlitedb_identity.tsv" "csv:csv_identity.tsv" "numpy:numpy_identity.tsv" "numpymmap:numpymmap_identity.tsv" "monetdbembedded:monetdbembedded_identity.tsv" "monetdbmapi:monetdbmapi_identity.tsv" "monetdbpyapi:monetdbpyapi_identity.tsv" "monetdbpyapimap:monetdbpyapimap_identity.tsv" "monetdbrapi:monetdbrapi_identity.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Identity [Fast Only]" "numpy:numpy_identity.tsv" "numpymmap:numpymmap_identity.tsv" "monetdbembedded:monetdbembedded_identity.tsv" "monetdbpyapi:monetdbpyapi_identity.tsv" "monetdbpyapimap:monetdbpyapimap_identity.tsv" "monetdbrapi:monetdbrapi_identity.tsv"
 
-    python $PYAPI_GRAPHFILE "SAVE" "Square Root" "-xlog" "postgres:postgres_sqroot.tsv" "sqlitemem:sqlitemem_sqroot.tsv" "sqlitedb:sqlitedb_sqroot.tsv" "csv:csv_sqroot.tsv" "numpy:numpy_sqroot.tsv" "numpymmap:numpymmap_sqroot.tsv" "monetdbembedded:monetdbembedded_sqroot.tsv" "monetdbmapi:monetdbmapi_sqroot.tsv" "monetdbpyapi:monetdbpyapi_sqroot.tsv" "monetdbpyapimap:monetdbpyapimap_sqroot.tsv" "monetdbrapi:monetdbrapi_sqroot.tsv"
-    python $PYAPI_GRAPHFILE "SAVE" "Square Root [Fast Only]" "-xlog" "numpy:numpy_sqroot.tsv" "numpymmap:numpymmap_sqroot.tsv" "monetdbembedded:monetdbembedded_sqroot.tsv" "monetdbpyapi:monetdbpyapi_sqroot.tsv" "monetdbpyapimap:monetdbpyapimap_sqroot.tsv" "monetdbrapi:monetdbrapi_sqroot.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Square Root" "postgres:postgres_sqroot.tsv" "sqlitemem:sqlitemem_sqroot.tsv" "sqlitedb:sqlitedb_sqroot.tsv" "csv:csv_sqroot.tsv" "numpy:numpy_sqroot.tsv" "numpymmap:numpymmap_sqroot.tsv" "monetdbembedded:monetdbembedded_sqroot.tsv" "monetdbmapi:monetdbmapi_sqroot.tsv" "monetdbpyapi:monetdbpyapi_sqroot.tsv" "monetdbpyapimap:monetdbpyapimap_sqroot.tsv" "monetdbrapi:monetdbrapi_sqroot.tsv"
+    python $PYAPI_GRAPHFILE "SAVE" "Square Root [Fast Only]" "numpy:numpy_sqroot.tsv" "numpymmap:numpymmap_sqroot.tsv" "monetdbembedded:monetdbembedded_sqroot.tsv" "monetdbpyapi:monetdbpyapi_sqroot.tsv" "monetdbpyapimap:monetdbpyapimap_sqroot.tsv" "monetdbrapi:monetdbrapi_sqroot.tsv"
 
 }
 
