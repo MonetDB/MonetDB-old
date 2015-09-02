@@ -529,6 +529,7 @@ if str(args_input_database).lower() == "monetdb":
 else:
     input_file = os.environ["POSTGRES_INPUT_FILE"]
     input_dir = os.environ["POSTGRES_CWD"]
+    drop_cache = os.environ["DROP_CACHE_COMMAND"]
     def execute_test(input_type, database_init, database_load, database_execute, database_clear, database_final):
         database_init()
 
@@ -545,7 +546,7 @@ else:
 
             database_load()
             for i in range(0,test_count):
-                os.system('/home/mytherin/bin/flushcache')
+                #os.system(drop_cache)
                 start = time.time()
                 database_execute()
                 end = time.time()
@@ -666,16 +667,16 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
         import monetdb.sql
         for i in range(0, max_retries):
             try:
-                connection = monetdb.sql.connect(username="monetdb", password="monetdb", hostname="localhost",port=port,database="demo")
+                conn = monetdb.sql.connect(username="monetdb", password="monetdb", hostname="localhost",port=port,database="demo")
                 break
             except:
                 time.sleep(1)
-            connection = None
+            conn = None
 
-        if connection is None:
+        if conn is None:
             print("Failed to connect to MonetDB Server (mserver5) in " + str(max_retries) + " attempts.")
             sys.exit(1)
-        c = connection.cursor()
+        c = conn.cursor()
 
         def monetdb_init():
             return None
@@ -712,9 +713,75 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
             conn.close()
 
         execute_test(input_type, monetdb_init, monetdb_load, monetdb_execute, monetdb_clear, monetdb_final)
+    elif str(args_input_database).lower() == "psycopg2":
+        dbname = os.environ["POSTGRES_DB_NAME"]
+        initdb = os.environ["POSTGRES_CREATEDB_COMMAND"]
+        dropdb = os.environ["POSTGRES_DROPDB_COMMAND"]
+        os.system(initdb)
+        import psycopg2
+        conn = psycopg2.connect("dbname=%s host=/tmp/" % dbname)
+        c = conn.cursor()
+        def psycopg2_init():
+            return None
 
+        def psycopg2_load():
+            c.execute("CREATE TABLE integers(i integer);")
+            c.execute("COPY integers FROM '%s' DELIMITER ',' CSV;" % input_file)
+
+
+        def psycopg2_execute():
+            c.execute("SELECT * FROM integers;")
+            result = c.fetchall()
+            print function(numpy.array(result, dtype=numpy.int32))
+
+        def psycopg2_clear():
+            c.execute("DROP TABLE integers;")
+
+        def psycopg2_final():
+            os.system(dropdb)
+            conn.close()
+            os.remove(input_file)
+
+        execute_test(input_type, psycopg2_init, psycopg2_load, psycopg2_execute, psycopg2_clear, psycopg2_final)
     elif str(args_input_database).lower() == "pytables":
-        print("Not implemented")
+        import tables
+        import csv
+
+        table_file = 'testfile.h5'
+
+        description = dict()
+        description['i'] = tables.Int32Col()
+
+        def pytables_init():
+            return None
+
+        def pytables_load():
+            file = tables.open_file(table_file, mode='w', title='test file')
+            group = file.create_group('/', 'integers', 'integer_data')
+            table = file.create_table(group, 'values', description, "example")
+            values = table.row
+            with open(input_file, 'rb') as csvfile:
+                reader = csv.reader(csvfile)
+                result = [x for x in reader]
+                for x in result:
+                    values['i'] = int(x[0])
+                    values.append()
+            table.flush()
+            file.close()
+
+        def pytables_execute():
+            file = tables.open_file(table_file, mode='r')
+            table = file.root.integers.values
+            result = [x['i'] for x in table.iterrows()]
+            function(numpy.array(result, dtype=numpy.int32))
+
+        def pytables_clear():
+            os.remove('testfile.h5')
+
+        def pytables_final():
+            os.remove(input_file)
+
+        execute_test(input_type, pytables_init, pytables_load, pytables_execute, pytables_clear, pytables_final)
     elif str(args_input_database).lower() == "csv":
         import csv
         def csv_init():
@@ -726,7 +793,7 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
         def csv_execute():
             with open(input_file, 'rb') as csvfile:
                 reader = csv.reader(csvfile)
-                result = [x for x in reader]
+                result = [int(x[0]) for x in reader]
                 function(numpy.array(result, dtype=numpy.int32))
 
         def csv_clear():
@@ -745,7 +812,7 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
         def numpy_load():
             with open(input_file, 'rb') as csvfile:
                 reader = csv.reader(csvfile)
-                result = [x for x in reader]
+                result = [int(x[0]) for x in reader]
                 numpy_array = numpy.array(result, dtype=numpy.int32)
                 numpy.save(numpy_binary, numpy_array)
 
@@ -762,7 +829,31 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
 
         execute_test(input_type, numpy_init, numpy_load, numpy_execute, numpy_clear, numpy_final)
     elif str(args_input_database).lower() == "castra":
-        print("Not implemented")
+        import castra, csv, shutil, pandas as pd
+        castra_binary = 'data.castra'
+        def castra_init():
+            return None
+
+        def castra_load():
+            with open(input_file, 'rb') as csvfile:
+                reader = csv.reader(csvfile)
+                result = [int(x[0]) for x in reader]
+                numpy_array = numpy.array(result, dtype=numpy.int32)
+                A = pd.DataFrame({'i': numpy_array})
+                c = castra.Castra(castra_binary, template=A)
+                c.extend(A)
+
+        def castra_execute():
+            c = castra.Castra(castra_binary, readonly=True)
+            print function(c[:, 'i'].values)
+
+        def castra_clear():
+            shutil.rmtree(castra_binary)
+
+        def castra_final():
+            os.remove(input_file)
+
+        execute_test(input_type, castra_init, castra_load, castra_execute, castra_clear, castra_final)
     elif str(args_input_database).lower() == "numpymemorymap":
         import csv, numpy
         numpy_binary = 'tempfile.npy'
@@ -772,7 +863,7 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
         def numpy_load():
             with open(input_file, 'rb') as csvfile:
                 reader = csv.reader(csvfile)
-                result = [x for x in reader]
+                result = [int(x[0]) for x in reader]
                 numpy_array = numpy.array(result, dtype=numpy.int32)
                 numpy.save(numpy_binary, numpy_array)
 
