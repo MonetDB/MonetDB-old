@@ -301,6 +301,12 @@ bl_persist_precommit(lng precommit_id)
 	return log_persist_precommit(bat_logger, precommit_id);
 }
 
+static int
+bl_abort(void)
+{
+	return log_abort(bat_logger);
+}
+
 int 
 bat_logger_init( logger_functions *lf )
 {
@@ -315,6 +321,7 @@ bat_logger_init( logger_functions *lf )
 	lf->log_tend = bl_tend;
 	lf->log_sequence = bl_sequence;
 	lf->log_persist_precommit = bl_persist_precommit;
+	lf->log_abort = bl_abort;
 	return LOG_OK;
 }
 
