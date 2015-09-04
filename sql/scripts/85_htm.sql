@@ -12,4 +12,4 @@ CREATE PROCEDURE persistcommit(id bigint)
 
 CREATE PROCEDURE forcepersistcommit(id bigint)
 	EXTERNAL name sql.forcepersistcommit;
-	
+
