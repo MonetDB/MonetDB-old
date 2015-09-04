@@ -860,45 +860,45 @@ static int log_sequence_nrs(logger *lg);
 
 /* Update the last transaction id written in the catalog file.
  * Only used by the shared logger. */
-static int
-logger_update_catalog_file(logger *lg, const char *dir, const char *filename, int role)
-{
-	FILE *fp;
-	int bak_exists;
-	int farmid = BBPselectfarm(role, 0, offheap);
-
-	bak_exists = 0;
-	/* check if an older file exists and move bak it up */
-	if (access(filename, 0) != -1) {
-		bak_exists = 1;
-		if (GDKmove(farmid, dir, filename, NULL, dir, filename, "bak") == GDK_FAIL) {
-			fprintf(stderr, "!ERROR: logger_update_catalog_file: rename %s to %s.bak in %s failed\n", filename, filename, dir);
-			return LOG_ERR;
-		}
-	}
-
-	if ((fp = GDKfileopen(farmid, dir, filename, NULL, "w")) != NULL) {
-		if (fprintf(fp, "%06d\n\n", lg->version) < 0) {
-			fprintf(stderr, "!ERROR: logger_update_catalog_file: write to %s failed\n", filename);
-			return LOG_ERR;
-		}
-
-		if (fprintf(fp, LLFMT "\n", lg->id) < 0 || fclose(fp) < 0) {
-			fprintf(stderr, "!ERROR: logger_update_catalog_file: write/flush to %s failed\n", filename);
-			return LOG_ERR;
-		}
-
-		/* cleanup the bak file, if it exists*/
-		if (bak_exists) {
-			GDKunlink(farmid, dir, filename, "bak");
-		}
-	} else {
-		fprintf(stderr, "!ERROR: logger_update_catalog_file: could not create %s\n", filename);
-		GDKerror("logger_update_catalog_file: could not open %s\n", filename);
-		return LOG_ERR;
-	}
-	return LOG_OK;
-}
+//static int
+//logger_update_catalog_file(logger *lg, const char *dir, const char *filename, int role)
+//{
+//	FILE *fp;
+//	int bak_exists;
+//	int farmid = BBPselectfarm(role, 0, offheap);
+//
+//	bak_exists = 0;
+//	/* check if an older file exists and move bak it up */
+//	if (access(filename, 0) != -1) {
+//		bak_exists = 1;
+//		if (GDKmove(farmid, dir, filename, NULL, dir, filename, "bak") == GDK_FAIL) {
+//			fprintf(stderr, "!ERROR: logger_update_catalog_file: rename %s to %s.bak in %s failed\n", filename, filename, dir);
+//			return LOG_ERR;
+//		}
+//	}
+//
+//	if ((fp = GDKfileopen(farmid, dir, filename, NULL, "w")) != NULL) {
+//		if (fprintf(fp, "%06d\n\n", lg->version) < 0) {
+//			fprintf(stderr, "!ERROR: logger_update_catalog_file: write to %s failed\n", filename);
+//			return LOG_ERR;
+//		}
+//
+//		if (fprintf(fp, LLFMT "\n", lg->id) < 0 || fclose(fp) < 0) {
+//			fprintf(stderr, "!ERROR: logger_update_catalog_file: write/flush to %s failed\n", filename);
+//			return LOG_ERR;
+//		}
+//
+//		/* cleanup the bak file, if it exists*/
+//		if (bak_exists) {
+//			GDKunlink(farmid, dir, filename, "bak");
+//		}
+//	} else {
+//		fprintf(stderr, "!ERROR: logger_update_catalog_file: could not create %s\n", filename);
+//		GDKerror("logger_update_catalog_file: could not open %s\n", filename);
+//		return LOG_ERR;
+//	}
+//	return LOG_OK;
+//}
 
 static int
 logger_open(logger *lg)
@@ -1014,7 +1014,8 @@ logger_readlog(logger *lg, char *filename)
 				err = 1;
 			else if (l.tid != l.nr)	/* abort record */
 				tr = tr_abort(lg, tr);
-			else if (l.precommit_id == 0 || (l.precommit_id > 0 && l.persistcommit == 1))
+//			else if (l.precommit_id == 0 || (l.precommit_id > 0 && l.persistcommit == 1))
+            else if (l.precommit_id >= 0)
                 /* precommit_id == 0: not a 2-phase transaction
                  otherwise the transaction might must be globally committed to re-commit */
 				tr = tr_commit(lg, tr);
@@ -1124,7 +1125,7 @@ logger_readlogs(logger *lg, FILE *fp, char *filename)
 				lg->id = lid;
 			}
 			/* if this is a shared logger, write the id in the shared file */
-			logger_update_catalog_file(lg, lg->local_dir, LOGFILE_SHARED, lg->local_dbfarm_role);
+//			logger_update_catalog_file(lg, lg->local_dir, LOGFILE_SHARED, lg->local_dbfarm_role);
 		}
 	}
 	return res;
@@ -1820,6 +1821,7 @@ logger_new(int debug, const char *fn, const char *logdir, int version, preversio
 #endif
 
 	lg->dbfarm_role = logger_set_logdir_path(filename, fn, logdir, shared);
+    lg->local_dbfarm_role = logger_set_logdir_path(filename, fn, logdir, shared);
 	lg->fn = GDKstrdup(fn);
 	lg->dir = GDKstrdup(filename);
 	lg->bufsize = 64*1024;
@@ -1902,6 +1904,7 @@ logger_new(int debug, const char *fn, const char *logdir, int version, preversio
 int
 logger_reload(logger *lg)
 {
+    int res;
 	char filename[BUFSIZ];
 
 	snprintf(filename, sizeof(filename), "%s", lg->dir);
@@ -1909,7 +1912,10 @@ logger_reload(logger *lg)
 		fprintf(stderr, "#logger_reload %s\n", filename);
 	}
 
-	return logger_load(lg->debug, lg->fn, filename, lg);
+    lg->shared = 1;
+    res = logger_load(lg->debug, lg->fn, filename, lg);
+    lg->shared = 0;
+    return res;
 }
 
 /* Create a new logger */

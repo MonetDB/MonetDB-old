@@ -380,6 +380,11 @@ mvc_persistcommit(mvc *m, int chain, const char *name, lng id) {
 }
 
 int
+mvc_force_persistcommit(lng id) {
+    return sql_trans_force_persistcommit(id);
+}
+
+int
 mvc_abort(mvc *m)
 {
 	sql_trans *tr = m->session->tr;

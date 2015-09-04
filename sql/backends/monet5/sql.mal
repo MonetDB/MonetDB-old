@@ -61,6 +61,9 @@ comment "Pre-commit changes, writing them only to the WAL.";
 pattern persistcommit(id:lng) :int
 address SQLpersistcommit
 comment "Persists the per-committed changes, rolling-forward the transaction.";
+pattern forcepersistcommit(id:lng) :int
+address SQLforcepersistcommit
+comment "Persists the per-committed changes.";
 
 pattern catalog(type:int,sname:str,name:str,action:int):void
 address SQLcatalog

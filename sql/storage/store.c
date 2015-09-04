@@ -3518,6 +3518,56 @@ sql_trans_persistcommit(sql_trans *tr)
 }
 
 int
+sql_trans_force_persistcommit(lng id)
+{
+    int res;
+    (void)id;
+    
+    MT_lock_set(&bs_lock, "store_manager");
+    res = logger_funcs.reload();
+    if (res != LOG_OK) {
+        MT_lock_unset(&bs_lock, "store_manager");
+        GDKfatal("shared write-ahead log loading failure");
+    }
+    /* destroy all global transactions
+     * we will re-load the new later */
+    sql_trans_destroy(gtrans);
+    destroy_spare_transactions();
+    
+    /* re-set the store_oid */
+    store_oid = 0;
+    /* reload the store and the global transactions */
+    res = store_load();
+    if (res < 0) {
+        MT_lock_unset(&bs_lock, "store_manager");
+        GDKfatal("shared write-ahead log store re-load failure");
+    }
+    MT_lock_set(&bs_lock, "store_manager");
+
+    logging = 1;
+    /* make sure we reset all transactions on re-activation */
+    gtrans->wstime = timestamp();
+    if (store_funcs.gtrans_update) {
+        store_funcs.gtrans_update(gtrans);
+    }
+    res = logger_funcs.restart();
+
+    MT_lock_unset(&bs_lock, "store_manager");
+    if (logging && res == LOG_OK) {
+        res = logger_funcs.cleanup(keep_persisted_log_files);
+    }
+
+    MT_lock_set(&bs_lock, "store_manager");
+    logging = 0;
+    MT_lock_unset(&bs_lock, "store_manager");
+
+    if (res != LOG_OK)
+        GDKfatal("write-ahead logging failure, disk full?");
+    
+    return SQL_OK;
+}
+
+int
 sql_trans_abort(sql_trans *tr)
 {
 	int result = LOG_OK;

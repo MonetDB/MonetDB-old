@@ -296,6 +296,12 @@ bl_reload_shared(void)
 }
 
 static int
+bl_reload(void)
+{
+    return logger_reload(bat_logger);
+}
+
+static int
 bl_persist_precommit(lng precommit_id)
 {
 	return log_persist_precommit(bat_logger, precommit_id);
@@ -321,6 +327,7 @@ bat_logger_init( logger_functions *lf )
 	lf->log_tend = bl_tend;
 	lf->log_sequence = bl_sequence;
 	lf->log_persist_precommit = bl_persist_precommit;
+   	lf->reload = bl_reload;
 	lf->log_abort = bl_abort;
 	return LOG_OK;
 }

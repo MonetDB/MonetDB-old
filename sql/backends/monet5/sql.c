@@ -385,6 +385,7 @@ SQLpersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
 
+    
 	/* If update flag is set, persistcommit does not throw and exception in autocommit,
 	 * since it was probably executed after a precommit with no-update transaction. */
 	if (sql->session->auto_commit != 0 && sql->affected_rows > 0)
@@ -400,6 +401,28 @@ SQLpersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (mvc_export_affrows(b, b->out, -1, ""))
 		throw(SQL, "sql.persistcommit", "failed - could not export number affected rows");
 	return msg;
+}
+
+str
+SQLforcepersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    (void) cntxt;
+    (void) mb;
+    (void) stk;
+    (void) pci;
+    
+	mvc_force_persistcommit(0);
+//	if (result < 0) {
+//		throw(MAL, "sql.persistcommit", "failed");
+//	}
+    
+//  SQLepilogue(NULL);
+//  SQLprelude(NULL);
+    
+//  SQLexit(NULL);
+//  SQLinit();
+    
+    return MAL_SUCCEED;
 }
 
 str

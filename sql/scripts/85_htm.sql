@@ -9,3 +9,7 @@ CREATE PROCEDURE precommit(id bigint)
 
 CREATE PROCEDURE persistcommit(id bigint)
 	EXTERNAL name sql.persistcommit;
+
+CREATE PROCEDURE forcepersistcommit(id bigint)
+	EXTERNAL name sql.forcepersistcommit;
+	
