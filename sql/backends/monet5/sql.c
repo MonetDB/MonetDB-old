@@ -336,6 +336,7 @@ SQLabort(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	if (sql->session->active) {
 		RECYCLEdrop(cntxt);
+		mvc_abort(sql);
 		mvc_rollback(sql, 0, NULL);
 	}
 	return msg;

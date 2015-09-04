@@ -380,6 +380,13 @@ mvc_persistcommit(mvc *m, int chain, const char *name, lng id) {
 }
 
 int
+mvc_abort(mvc *m)
+{
+	sql_trans *tr = m->session->tr;
+	return sql_trans_precommit(tr);
+}
+
+int
 mvc_rollback(mvc *m, int chain, const char *name)
 {
 	int res = 0;

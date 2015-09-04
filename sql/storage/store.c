@@ -3517,6 +3517,18 @@ sql_trans_persistcommit(sql_trans *tr)
     return (result==LOG_OK)?SQL_OK:SQL_ERR;
 }
 
+int
+sql_trans_abort(sql_trans *tr)
+{
+	int result = LOG_OK;
+	if (bs_debug) {
+		fprintf(stderr, "#writing changes to WAL %d,%d %d,%d\n", gtrans->stime, tr->stime, gtrans->wstime, tr->wstime);
+	}
+	result = logger_funcs.log_abort();
+
+	return (result==LOG_OK)?SQL_OK:SQL_ERR;
+}
+
 static void
 sql_trans_drop_all_dependencies(sql_trans *tr, sql_schema *s, int id, short type)
 {

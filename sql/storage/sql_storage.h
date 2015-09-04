@@ -283,6 +283,7 @@ typedef int (*log_tstart_fptr) (lng precommit_id);
 typedef int (*log_tend_fptr) (void);
 typedef int (*log_sequence_fptr) (int seq, lng id);
 typedef int (*log_persist_precommit_fptr) (lng precommit_id);
+typedef int (*log_abort_fptr) (void);
 
 typedef struct logger_functions {
 	logger_create_fptr create;
@@ -303,6 +304,7 @@ typedef struct logger_functions {
 	log_tend_fptr log_tend;
 	log_sequence_fptr log_sequence;
 	log_persist_precommit_fptr log_persist_precommit;
+	log_abort_fptr log_abort;
 } logger_functions;
 
 extern logger_functions logger_funcs;
@@ -336,6 +338,7 @@ extern int sql_trans_validate(sql_trans *tr);
 extern int sql_trans_commit(sql_trans *tr);
 extern int sql_trans_precommit(sql_trans *tr);
 extern int sql_trans_persistcommit(sql_trans *tr);
+extern int sql_trans_abort(sql_trans *tr);
 
 extern sql_type *sql_trans_create_type(sql_trans *tr, sql_schema * s, const char *sqlname, int digits, int scale, int radix, const char *impl);
 
