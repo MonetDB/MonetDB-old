@@ -1,4 +1,4 @@
 Python Ver	Numpy Ver	CPU Cores	Main Memory (GB)	OS	[AXIS]:Data Size (MB)	[MEASUREMENT]:Total Time (s)
-2.7.6	1.9.2	8	8	Ubuntu 14.04 trusty	100.0	0.631062984467
-2.7.6	1.9.2	8	8	Ubuntu 14.04 trusty	100.0	0.323966026306
-2.7.6	1.9.2	8	8	Ubuntu 14.04 trusty	100.0	0.326652050018
+2.7.5	1.8.2	8	16	fedora 20 Heisenbug	100.0	0.902215003967
+2.7.5	1.8.2	8	16	fedora 20 Heisenbug	100.0	0.277521848679
+2.7.5	1.8.2	8	16	fedora 20 Heisenbug	100.0	0.278372049332

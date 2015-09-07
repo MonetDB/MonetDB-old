@@ -1,0 +1,25 @@
+SORT
+1000MB random integers
+SQL
+CREATE TABLE sorted AS SELECT i FROM integers ORDER BY i WITH data;
+1m11s
+1m11s
+
+PYAPI, MULTITHREADED
+CREATE FUNCTION python_sort_partial(i INTEGER) RETURNS INTEGER LANGUAGE PYTHON_MAP { return numpy.sort(i) };
+CREATE FUNCTION python_merge(i INTEGER) RETURNS INTEGER LANGUAGE PYTHON { return numpy.sort(i, kind='mergesort') };
+CREATE TABLE sorted AS SELECT python_merge(python_sort_partial(i)) FROM integers WITH data;
+17.1s
+17.5s
+
+PYAPI, SINGLETHREADED
+CREATE FUNCTION python_sort(i INTEGER) RETURNS INTEGER LANGUAGE PYTHON { return numpy.sort(i) };
+CREATE TABLE sorted AS SELECT python_sort(i) FROM integers WITH data;
+27.5s
+27.7s
+
+R:
+CREATE FUNCTION rsort(i INTEGER) RETURNS integer LANGUAGE R { sort(i) };
+CREATE TABLE sorted AS SELECT rsort(i) FROM integers WITH data;
+59.1s
+59.4s

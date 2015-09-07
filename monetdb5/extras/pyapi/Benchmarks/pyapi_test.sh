@@ -1,7 +1,7 @@
         
 
 # The base directory of testing, a new folder is created in this base directory [$PYAPI_TEST_DIR], and everything is done in that new folder
-export PYAPI_BASE_DIR=/export/scratch1/raasveld
+export PYAPI_BASE_DIR=/tmp
 # The terminal to start mserver with, examples are gnome-terminal, xterm, konsole
 export TERMINAL=x-terminal-emulator
 # Port used by the MSERVER
@@ -23,8 +23,8 @@ export OUTPUT_TESTING_NTESTS=10
 
 # String tests
 # Strings of the same length (mb, length)
-export STRINGSAMELENGTH_TESTING_SIZES="(100,1) (100,10) (100,100) (100,1000) (100,1000) (100,10000) (100,100000)"
-export STRINGSAMELENGTH_TESTING_NTESTS=1
+export STRINGSAMELENGTH_TESTING_SIZES="(100,1) (100,10) (100,100) (100,125) (100,150) (100,175) (100,200) (100,201) (100,210) (100,211) (100,212) (100,213) (100,214) (100,215) (100,216) (100,217) (100,218) (100,219) (100,220) (100,225) (100,250) (100,500) (100,750) (100,1000) (100,1250) (100,1500) (100,2000) (100,2500) (100,10000) (100,100000)"
+export STRINGSAMELENGTH_TESTING_NTESTS=5
 # Extreme length string testing (all strings have length 1 except for one string, which has EXTREME length)
 # Arguments are (Extreme Length, String Count)
 export STRINGEXTREMELENGTH_TESTING_SIZES="(10,1000000) (100,1000000) (1000,1000000) (10000,1000000)"
@@ -45,14 +45,16 @@ export QUANTILE_TESTING_SIZES="0.1 1 10 100 1000"
 # Amount of tests to run for each size
 export QUANTILE_TESTING_NTESTS=10
 
+# PyAPI TAR url
+export PYAPI_TAR_NAME=pyapi
+export PYAPI_TAR_FILE=$PYAPI_TAR_NAME.tar.gz
+export PYAPI_TAR_URL=http://dev.monetdb.org/hg/MonetDB/archive/$PYAPI_TAR_FILE
 # You probably dont need to change these
 export PYAPI_TEST_DIR=$PYAPI_BASE_DIR/monetdb_pyapi_test
-export PYAPI_MONETDB_DIR=$PYAPI_TEST_DIR/MonetDB-pyapi
+export PYAPI_MONETDB_DIR=$PYAPI_TEST_DIR/MonetDB-$PYAPI_TAR_NAME
 export PYAPI_SRC_DIR=$PYAPI_MONETDB_DIR/monetdb5/extras/pyapi
 export PYAPI_BUILD_DIR=$PYAPI_TEST_DIR/build
 export PYAPI_OUTPUT_DIR=$PYAPI_TEST_DIR/output
-# PyAPI TAR url
-export PYAPI_TAR_URL=http://dev.monetdb.org/hg/MonetDB/archive/pyapi.tar.gz
 
 # Used for downloading the python-monetdb connector (import monetdb.sql)
 export PYTHON_MONETDB_CONNECTOR_VERSION=11.19.3.2
@@ -90,8 +92,8 @@ if [ $? -ne 0  ]; then
 fi
 
 function pyapi_build() {
-    echo "Making directory $PYAPI_TEST_DIR."
-    mkdir $PYAPI_TEST_DIR && cd $PYAPI_TEST_DIR
+    echo "Making directory $PYAPI_MONETDB_DIR."
+    mkdir $PYAPI_MONETDB_DIR && cd $PYAPI_TEST_DIR
     if [ $? -ne 0 ]; then
         echo "Failed to create testing directory, exiting..."
         return 1
@@ -127,7 +129,7 @@ function pyapi_build() {
         fi
     fi
     echo "Finished testing for libraries. Downloading and installing MonetDB."
-    wget $PYAPI_TAR_URL && tar xvzf pyapi.tar.gz && cd $PYAPI_MONETDB_DIR && printf '#ifndef _PYAPI_TESTING_\n#define _PYAPI_TESTING_\n#define _PYAPI_VERBOSE_\n#endif\n' | cat - $PYAPI_SRC_DIR/pyapi.h > $PYAPI_SRC_DIR/temp && mv $PYAPI_SRC_DIR/temp $PYAPI_SRC_DIR/pyapi.h && ./bootstrap && ./configure --prefix=$PYAPI_BUILD_DIR --enable-debug=no --enable-assert=no --enable-optimize=yes && make -j install
+    wget $PYAPI_TAR_URL && tar xvzf $PYAPI_TAR_FILE && cd $PYAPI_MONETDB_DIR && printf '#ifndef _PYAPI_TESTING_\n#define _PYAPI_TESTING_\n#define _PYAPI_VERBOSE_\n#endif\n' | cat - $PYAPI_SRC_DIR/pyapi.h > $PYAPI_SRC_DIR/temp && mv $PYAPI_SRC_DIR/temp $PYAPI_SRC_DIR/pyapi.h && ./bootstrap && ./configure --prefix=$PYAPI_BUILD_DIR --enable-debug=no --enable-assert=no --enable-optimize=yes && make -j install
     if [ $? -ne 0 ]; then
         echo "Failed to download and install MonetDB. Exiting..."
         return 1
@@ -214,7 +216,7 @@ function postgres_run_single_test() {
     # start server
     setsid $POSTGRES_SERVER_COMMAND > /dev/null && sleep 5
     # call python test script
-    python "$PYAPI_TESTFILE" $5 $1 $2 $3 $MSERVER_PORT $4
+    python "$PYAPI_TESTFILE" POSTGRES $1 $2 $3 $MSERVER_PORT $4
     # finish testing, kill postgres
     killall postgres
 }
@@ -371,15 +373,15 @@ function pyapi_run_tests() {
         return 1
     fi
     
-    pyapi_test_input
-    pyapi_test_input_null
-    pyapi_test_output
+    #pyapi_test_input
+    #pyapi_test_input_null
+    #pyapi_test_output
     pyapi_test_string_samelength
-    pyapi_test_string_extreme
-    pyapi_test_string_unicode_ascii
-    pyapi_test_bytearray_vs_string
-    pyapi_test_quantile
-    pyapi_test_threads
+    #pyapi_test_string_extreme
+    #pyapi_test_string_unicode_ascii
+    #pyapi_test_bytearray_vs_string
+    #pyapi_test_quantile
+    #pyapi_test_threads
 }
 
 function pyapi_graph() {
@@ -515,14 +517,16 @@ function postgres_test() {
     postgres_run_tests
 }
 
-export DROP_CACHE_COMMAND='echo 3 | sudo /usr/bin/tee /proc/sys/vm/drop_caches'
-
 export IDENTITY_NTESTS=3
 export IDENTITY_SIZES="100"
 
 function postgres_run_tests() {
-    postgres_run_single_test IDENTITY postgres_identity $IDENTITY_NTESTS "$IDENTITY_SIZES" POSTGRES
-    postgres_run_single_test SQROOT postgres_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES" POSTGRES
+    if [ ! -d $PYAPI_OUTPUT_DIR ]; then
+        mkdir $PYAPI_OUTPUT_DIR
+    fi
+    cd $PYAPI_OUTPUT_DIR
+    postgres_run_single_test IDENTITY postgres_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    postgres_run_single_test SQROOT postgres_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
 }
 
 function sqlite_test() {
@@ -575,33 +579,11 @@ function monetdbrapi_test() {
     monetdbmapi_run_single_test RAPI "--set gdk_nr_threads=1 --set embedded_r=true" SQROOT monetdbrapi_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
 }
 
-function psycopg2_install() {
-    wget http://initd.org/psycopg/tarballs/PSYCOPG-2-6/psycopg2-2.6.1.tar.gz && tar xvzf psycopg2-2.6.1.tar.gz && rm psycopg2-2.6.1.tar.gz && cd psycopg2-2.6.1 && python setup.py install --user build_ext --pg-config $POSTGRES_BUILD_DIR/bin/pg_config
-}
-
-function psycopg2_test() {
-    postgres_run_single_test IDENTITY psycopg2_identity $IDENTITY_NTESTS "$IDENTITY_SIZES" PSYCOPG2
-}
-
-function cython_install() {
-    wget http://cython.org/release/Cython-0.23.1.tar.gz && tar xvzf Cython-0.23.1.tar.gz && cd Cython-0.23.1 && python setup.py install --user
-}
-
-function pytables_install() {
-    wget https://github.com/PyTables/PyTables/archive/develop.zip && unzip develop.zip && cd PyTables-develop && python setup.py install --user
-}
-
-function pytables_test() {
-    python_run_single_test PYTABLES IDENTITY pytables_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    python_run_single_test PYTABLES SQROOT pytables_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+function psycopg_install() {
+    wget http://initd.org/psycopg/tarballs/PSYCOPG-2-6/psycopg2-2.6.1.tar.gz && tar xvzf psycopg2-2.6.1.tar.gz && rm tar xvzf psycopg2-2.6.1.tar.gz && cd psycopg2-2.6.1 && python setup.py install --user build_ext --pg-config $POSTGRES_BUILD_DIR/bin/pg_config
 }
 
 function comparison_test() {
-    if [ ! -d $PYAPI_OUTPUT_DIR ]; then
-        mkdir $PYAPI_OUTPUT_DIR
-    fi
-    cd $PYAPI_OUTPUT_DIR
-
     postgres_run_tests
     sqlite_test
     csv_test
@@ -612,20 +594,7 @@ function comparison_test() {
     monetdbpyapi_test
     monetdbpyapimap_test
     monetdbrapi_test
-    psycopg2_test
-    pytables_test
-    castra_test
 }
-
-function castra_install() {
-    wget https://github.com/blaze/castra/archive/master.zip && unzip master.zip && cd castra-master && python setup.py install --user
-}
-
-function castra_test() {
-    python_run_single_test CASTRA IDENTITY castra_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    python_run_single_test CASTRA SQROOT castra_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
-}
-
 
 function comparison_graph() {
     python $PYAPI_GRAPHFILE "SAVE" "Identity" "postgres:postgres_identity.tsv" "sqlitemem:sqlitemem_identity.tsv" "sqlitedb:sqlitedb_identity.tsv" "csv:csv_identity.tsv" "numpy:numpy_identity.tsv" "numpymmap:numpymmap_identity.tsv" "monetdbembedded:monetdbembedded_identity.tsv" "monetdbmapi:monetdbmapi_identity.tsv" "monetdbpyapi:monetdbpyapi_identity.tsv" "monetdbpyapimap:monetdbpyapimap_identity.tsv" "monetdbrapi:monetdbrapi_identity.tsv"
