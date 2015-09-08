@@ -57,6 +57,7 @@ const char* lazyarray_enableflag = "enable_lazyarray";
 const char* oldnullmask_enableflag = "enable_oldnullmask";
 const char* bytearray_enableflag = "enable_bytearray";
 const char* benchmark_output_flag = "pyapi_benchmark_output";
+const char* disable_malloc_tracking = "disable_malloc_tracking";
 static bool option_zerocopyinput;
 static bool option_zerocopyoutput;
 static bool option_numpy_string_array;
@@ -64,6 +65,7 @@ static bool option_bytearray;
 static bool option_lazyarray;
 static bool option_oldnullmask;
 static bool option_alwaysunicode;
+static bool option_disablemalloctracking;
 static char *benchmark_output;
 #endif
 #ifdef _PYAPI_VERBOSE_
@@ -416,7 +418,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 
     if (benchmark_output != NULL) {
         reset_hook();
-        if (!disable_testing && !mapped) init_hook();
+        if (!disable_testing && !option_disablemalloctracking && !mapped) init_hook();
         timer(&start_time);
     }
 #endif
@@ -583,7 +585,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             else if (pids[i] == 0)
             {
 #ifdef _PYAPI_TESTING_
-                if (!disable_testing && benchmark_output != NULL) { init_hook(); }
+                if (!disable_testing && !option_disablemalloctracking && benchmark_output != NULL) { init_hook(); }
 #endif
                 break;
             }
@@ -881,7 +883,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         VERBOSE_MESSAGE("Writing headers.\n");
 
 #ifdef _PYAPI_TESTING_
-        if (!disable_testing && benchmark_output != NULL) { revert_hook(); }
+        if (!disable_testing && !option_disablemalloctracking && benchmark_output != NULL) { revert_hook(); }
 #endif
         // Now we will write data about our result (memory size, type, number of elements) to the header
         ptr = (ReturnBatDescr*)shm_ptr;
@@ -1192,7 +1194,7 @@ returnvalues:
     GDKfree(exprStr);
     if (benchmark_output != NULL) {
         FILE *f = NULL;
-        if (!mapped && !disable_testing) { 
+        if (!mapped && !disable_testing && !option_disablemalloctracking) { 
             revert_hook();
             peak_memory_usage = GET_MEMORY_PEAK();
         }
@@ -1257,6 +1259,7 @@ str
         option_lazyarray = GDKgetenv_isyes(lazyarray_enableflag) || GDKgetenv_istrue(lazyarray_enableflag);
         option_alwaysunicode = (GDKgetenv_isyes(alwaysunicode_enableflag) || GDKgetenv_istrue(alwaysunicode_enableflag));
         benchmark_output = GDKgetenv(benchmark_output_flag);
+        option_disablemalloctracking = (GDKgetenv_isyes(disable_malloc_tracking) || GDKgetenv_istrue(disable_malloc_tracking));
         fprintf(stdout, "# MonetDB/Python testing enabled.\n");
 #endif
     }
