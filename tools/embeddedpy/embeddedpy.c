@@ -62,6 +62,7 @@ PyObject *monetdb_init(PyObject *self, PyObject *args)
 	   		PyErr_SetString(PyExc_Exception, "Failed to initialize MonetDB with the specified directory.");
 			return NULL;
 		}
+		GDKsetenv("enable_numpystringarray", "true");
 		PyAPIprelude(NULL);
 	}
 	Py_RETURN_NONE;

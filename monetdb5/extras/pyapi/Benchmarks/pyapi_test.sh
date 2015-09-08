@@ -1,7 +1,7 @@
         
 
 # The base directory of testing, a new folder is created in this base directory [$PYAPI_TEST_DIR], and everything is done in that new folder
-export PYAPI_BASE_DIR=/tmp
+export PYAPI_BASE_DIR=/export/scratch1/raasveld
 # The terminal to start mserver with, examples are gnome-terminal, xterm, konsole
 export TERMINAL=x-terminal-emulator
 # Port used by the MSERVER
@@ -23,8 +23,8 @@ export OUTPUT_TESTING_NTESTS=10
 
 # String tests
 # Strings of the same length (mb, length)
-export STRINGSAMELENGTH_TESTING_SIZES="(100,1) (100,10) (100,100) (100,125) (100,150) (100,175) (100,200) (100,201) (100,210) (100,211) (100,212) (100,213) (100,214) (100,215) (100,216) (100,217) (100,218) (100,219) (100,220) (100,225) (100,250) (100,500) (100,750) (100,1000) (100,1250) (100,1500) (100,2000) (100,2500) (100,10000) (100,100000)"
-export STRINGSAMELENGTH_TESTING_NTESTS=5
+export STRINGSAMELENGTH_TESTING_SIZES="(100,1) (100,10) (100,100) (100,250) (100,500) (100,750) (100,1000) (100,1000) (100,10000) (100,100000)"
+export STRINGSAMELENGTH_TESTING_NTESTS=3
 # Extreme length string testing (all strings have length 1 except for one string, which has EXTREME length)
 # Arguments are (Extreme Length, String Count)
 export STRINGEXTREMELENGTH_TESTING_SIZES="(10,1000000) (100,1000000) (1000,1000000) (10000,1000000)"
@@ -46,12 +46,12 @@ export QUANTILE_TESTING_SIZES="0.1 1 10 100 1000"
 export QUANTILE_TESTING_NTESTS=10
 
 # PyAPI TAR url
-export PYAPI_TAR_NAME=pyapi
-export PYAPI_TAR_FILE=$PYAPI_TAR_NAME.tar.gz
+export PYAPI_BRANCH_NAME=pyapi
+export PYAPI_TAR_FILE=$PYAPI_BRANCH_NAME.tar.gz
 export PYAPI_TAR_URL=http://dev.monetdb.org/hg/MonetDB/archive/$PYAPI_TAR_FILE
 # You probably dont need to change these
 export PYAPI_TEST_DIR=$PYAPI_BASE_DIR/monetdb_pyapi_test
-export PYAPI_MONETDB_DIR=$PYAPI_TEST_DIR/MonetDB-$PYAPI_TAR_NAME
+export PYAPI_MONETDB_DIR=$PYAPI_TEST_DIR/MonetDB-$PYAPI_BRANCH_NAME
 export PYAPI_SRC_DIR=$PYAPI_MONETDB_DIR/monetdb5/extras/pyapi
 export PYAPI_BUILD_DIR=$PYAPI_TEST_DIR/build
 export PYAPI_OUTPUT_DIR=$PYAPI_TEST_DIR/output
@@ -92,12 +92,7 @@ if [ $? -ne 0  ]; then
 fi
 
 function pyapi_build() {
-    echo "Making directory $PYAPI_MONETDB_DIR."
-    mkdir $PYAPI_MONETDB_DIR && cd $PYAPI_TEST_DIR
-    if [ $? -ne 0 ]; then
-        echo "Failed to create testing directory, exiting..."
-        return 1
-    fi
+    cd $PYAPI_TEST_DIR
     python -c "import numpy"
     if [ $? -ne 0 ]; then
         read -p "Failed to load library Numpy. Would you like me to try and install it for you? (y/n):  " -n 1 -r
@@ -145,7 +140,7 @@ function pyapi_run_single_test() {
     echo "Beginning Test $1"
     rm -rf $PYAPI_DATAFARM_DIR
     if [ $SETSID -eq 1 ]; then
-        $TERMINAL $PYAPI_BUILD_DIR/bin/mserver5 --set mapi_port=$MSERVER_PORT --set embedded_py=true --set enable_pyverbose=true --set pyapi_benchmark_output=$PYAPI_OUTPUT_DIR/temp_output.tsv $2 && python $PYAPI_TESTFILE MONETDB $3 $4 $5 $MSERVER_PORT $6 && killall mserver5
+        $TERMINAL $PYAPI_BUILD_DIR/bin/mserver5 --set mapi_port=$MSERVER_PORT --set embedded_py=true --set enable_pyverbose=true --set enable_oldnullmask=true --set pyapi_benchmark_output=$PYAPI_OUTPUT_DIR/temp_output.tsv $2 && python $PYAPI_TESTFILE MONETDB $3 $4 $5 $MSERVER_PORT $6 && killall mserver5
     else
         $TERMINAL -e "$PYAPI_BUILD_DIR/bin/mserver5  --set mapi_port=$MSERVER_PORT --set embedded_py=true --set enable_pyverbose=true --set pyapi_benchmark_output=$PYAPI_OUTPUT_DIR/temp_output.tsv $2" && python $PYAPI_TESTFILE MONETDB $3 $4 $5 $MSERVER_PORT $6 && killall mserver5
     fi
@@ -216,7 +211,7 @@ function postgres_run_single_test() {
     # start server
     setsid $POSTGRES_SERVER_COMMAND > /dev/null && sleep 5
     # call python test script
-    python "$PYAPI_TESTFILE" POSTGRES $1 $2 $3 $MSERVER_PORT $4
+    python "$PYAPI_TESTFILE" $5 $1 $2 $3 $MSERVER_PORT $4
     # finish testing, kill postgres
     killall postgres
 }
@@ -372,6 +367,8 @@ function pyapi_run_tests() {
         echo "Failed to create output directory."
         return 1
     fi
+    cp /local/raasveld/monetdb_testing.py /tmp/monetdb_pyapi_test/MonetDB-$PYAPI_BRANCH_NAME/monetdb5/extras/pyapi/Benchmarks/
+    cp /local/raasveld/randomstrings.c /tmp/monetdb_pyapi_test/MonetDB-$PYAPI_BRANCH_NAME/monetdb5/extras/pyapi/Benchmarks/
     
     #pyapi_test_input
     #pyapi_test_input_null
@@ -517,16 +514,15 @@ function postgres_test() {
     postgres_run_tests
 }
 
+export DROP_CACHE_COMMAND='echo 3 | sudo /usr/bin/tee /proc/sys/vm/drop_caches'
+
 export IDENTITY_NTESTS=3
 export IDENTITY_SIZES="100"
 
 function postgres_run_tests() {
-    if [ ! -d $PYAPI_OUTPUT_DIR ]; then
-        mkdir $PYAPI_OUTPUT_DIR
-    fi
-    cd $PYAPI_OUTPUT_DIR
-    postgres_run_single_test IDENTITY postgres_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    postgres_run_single_test SQROOT postgres_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    postgres_run_single_test IDENTITY postgres_identity $IDENTITY_NTESTS "$IDENTITY_SIZES" POSTGRES
+    sleep 5
+    postgres_run_single_test SQROOT postgres_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES" POSTGRES
 }
 
 function sqlite_test() {
@@ -579,11 +575,33 @@ function monetdbrapi_test() {
     monetdbmapi_run_single_test RAPI "--set gdk_nr_threads=1 --set embedded_r=true" SQROOT monetdbrapi_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
 }
 
-function psycopg_install() {
-    wget http://initd.org/psycopg/tarballs/PSYCOPG-2-6/psycopg2-2.6.1.tar.gz && tar xvzf psycopg2-2.6.1.tar.gz && rm tar xvzf psycopg2-2.6.1.tar.gz && cd psycopg2-2.6.1 && python setup.py install --user build_ext --pg-config $POSTGRES_BUILD_DIR/bin/pg_config
+function psycopg2_install() {
+    wget http://initd.org/psycopg/tarballs/PSYCOPG-2-6/psycopg2-2.6.1.tar.gz && tar xvzf psycopg2-2.6.1.tar.gz && rm psycopg2-2.6.1.tar.gz && cd psycopg2-2.6.1 && python setup.py install --user build_ext --pg-config $POSTGRES_BUILD_DIR/bin/pg_config
+}
+
+function psycopg2_test() {
+    postgres_run_single_test IDENTITY psycopg2_identity $IDENTITY_NTESTS "$IDENTITY_SIZES" PSYCOPG2
+}
+
+function cython_install() {
+    wget http://cython.org/release/Cython-0.23.1.tar.gz && tar xvzf Cython-0.23.1.tar.gz && cd Cython-0.23.1 && python setup.py install --user
+}
+
+function pytables_install() {
+    wget https://github.com/PyTables/PyTables/archive/develop.zip && unzip develop.zip && cd PyTables-develop && python setup.py install --user
+}
+
+function pytables_test() {
+    python_run_single_test PYTABLES IDENTITY pytables_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    python_run_single_test PYTABLES SQROOT pytables_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
 }
 
 function comparison_test() {
+    if [ ! -d $PYAPI_OUTPUT_DIR ]; then
+        mkdir $PYAPI_OUTPUT_DIR
+    fi
+    cd $PYAPI_OUTPUT_DIR
+
     postgres_run_tests
     sqlite_test
     csv_test
@@ -594,7 +612,20 @@ function comparison_test() {
     monetdbpyapi_test
     monetdbpyapimap_test
     monetdbrapi_test
+    psycopg2_test
+    pytables_test
+    castra_test
 }
+
+function castra_install() {
+    wget https://github.com/blaze/castra/archive/master.zip && unzip master.zip && cd castra-master && python setup.py install --user
+}
+
+function castra_test() {
+    python_run_single_test CASTRA IDENTITY castra_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    python_run_single_test CASTRA SQROOT castra_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+}
+
 
 function comparison_graph() {
     python $PYAPI_GRAPHFILE "SAVE" "Identity" "postgres:postgres_identity.tsv" "sqlitemem:sqlitemem_identity.tsv" "sqlitedb:sqlitedb_identity.tsv" "csv:csv_identity.tsv" "numpy:numpy_identity.tsv" "numpymmap:numpymmap_identity.tsv" "monetdbembedded:monetdbembedded_identity.tsv" "monetdbmapi:monetdbmapi_identity.tsv" "monetdbpyapi:monetdbpyapi_identity.tsv" "monetdbpyapimap:monetdbpyapimap_identity.tsv" "monetdbrapi:monetdbrapi_identity.tsv"
@@ -603,4 +634,22 @@ function comparison_graph() {
     python $PYAPI_GRAPHFILE "SAVE" "Square Root" "postgres:postgres_sqroot.tsv" "sqlitemem:sqlitemem_sqroot.tsv" "sqlitedb:sqlitedb_sqroot.tsv" "csv:csv_sqroot.tsv" "numpy:numpy_sqroot.tsv" "numpymmap:numpymmap_sqroot.tsv" "monetdbembedded:monetdbembedded_sqroot.tsv" "monetdbmapi:monetdbmapi_sqroot.tsv" "monetdbpyapi:monetdbpyapi_sqroot.tsv" "monetdbpyapimap:monetdbpyapimap_sqroot.tsv" "monetdbrapi:monetdbrapi_sqroot.tsv"
     python $PYAPI_GRAPHFILE "SAVE" "Square Root [Fast Only]" "numpy:numpy_sqroot.tsv" "numpymmap:numpymmap_sqroot.tsv" "monetdbembedded:monetdbembedded_sqroot.tsv" "monetdbpyapi:monetdbpyapi_sqroot.tsv" "monetdbpyapimap:monetdbpyapimap_sqroot.tsv" "monetdbrapi:monetdbrapi_sqroot.tsv"
 
+}
+
+export BUILD_DIR=/export/scratch1/raasveld/build
+function install_cfitsio() {
+    wget ftp://heasarc.gsfc.nasa.gov/software/fitsio/c/cfitsio_latest.tar.gz && tar xvzf cfitsio_latest.tar.gz && cd cfitsio && ./configure --enable-sse2 --prefix=$BUILD_DIR --enable-reentrant && make install
+}
+
+function install_wcslib() {
+    wget ftp://ftp.atnf.csiro.au/pub/software/wcslib/wcslib.tar.bz2 && tar jxf wcslib.tar.bz2 && cd wcslib-5.9 && ./configure --prefix=$BUILD_DIR --without-pgplot && gmake && gmake check && gmake install
+}
+
+function install_casacore() {
+    export PATH=$PATH:$BUILD_DIR
+    wget https://github.com/casacore/casacore/archive/master.zip && unzip master.zip && rm master.zip && cd casacore-master && mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX:PATH=$BUILD_DIR -DBUILD_PYTHON=ON .. && make all install
+}
+
+function install_lofar() {
+    wget https://github.com/transientskp/tkp/archive/master.zip && unzip master.zip && rm master.zip && cd tkp-master && python setup.py install --user
 }

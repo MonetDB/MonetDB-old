@@ -58,15 +58,15 @@ const char* oldnullmask_enableflag = "enable_oldnullmask";
 const char* bytearray_enableflag = "enable_bytearray";
 const char* benchmark_output_flag = "pyapi_benchmark_output";
 const char* disable_malloc_tracking = "disable_malloc_tracking";
-static bool option_zerocopyinput;
-static bool option_zerocopyoutput;
-static bool option_numpy_string_array;
-static bool option_bytearray;
-static bool option_lazyarray;
-static bool option_oldnullmask;
-static bool option_alwaysunicode;
-static bool option_disablemalloctracking;
-static char *benchmark_output;
+static bool option_zerocopyinput = true;
+static bool option_zerocopyoutput  = true;
+static bool option_numpy_string_array = false;
+static bool option_bytearray = false;
+static bool option_lazyarray = false;
+static bool option_oldnullmask = false;
+static bool option_alwaysunicode = false;
+static bool option_disablemalloctracking = false;
+static char *benchmark_output = NULL;
 #endif
 #ifdef _PYAPI_VERBOSE_
 static bool option_verbose;
