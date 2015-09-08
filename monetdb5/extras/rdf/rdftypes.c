@@ -578,6 +578,38 @@ encodeValueInOid(ValPtr vrPtrRealValue, ObjectType objType, BUN* bun){
 	}
 }
 
+static ObjectType getObjType_fromValRec(ValRecord v){
+	ObjectType objT; 
+	switch (v.vtype){
+		case TYPE_bit:
+		case TYPE_bte:
+		case TYPE_sht:
+		case TYPE_int:
+		case TYPE_wrd:
+		case TYPE_lng:
+			objT = INTEGER; 
+			break; 
+		case TYPE_oid: 
+			objT = URI; 
+			break;
+		case TYPE_dbl:
+		case TYPE_flt:			
+			objT = DOUBLE;
+		case TYPE_str:		//Have not handle this case
+			assert(0); 
+		default: 
+			assert(0); 
+	}
+
+	return objT; 
+}
+
+
+void get_encodedOid_from_atom(atom *at, oid *ret){
+	ValRecord vrec = at->data; 
+	ObjectType objT = getObjType_fromValRec(vrec);
+	encodeValueInOid(&vrec, objT, ret); 
+}
 
 void 
 decodeValueFromOid(BUN bun, ObjectType objType, ValPtr vrPtrRealValue){

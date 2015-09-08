@@ -220,6 +220,11 @@ sql_table *create_dummy_table(mvc *c, str tblname, list *proj_exps){
 	if ((tbl = mvc_bind_table(c, sch, tblname)) == NULL){
 		printf("The dummy table does not exist --> Create new one\n"); 
 		tbl = mvc_create_table(c, sch, tblname, tt_table, 0, SQL_PERSIST, 0, 3);
+		//tbl = mvc_create_table(c, sch, tblname, tt_view, 0, SQL_PERSIST, 0, 3);
+		//tbl = mvc_create_table(c, sch, tblname, tt_table, 0, SQL_LOCAL_TEMP, 0, 3);
+	} else {
+		drop_table(c, schema, tblname, 0);
+		tbl = mvc_create_table(c, sch, tblname, tt_table, 0, SQL_PERSIST, 0, 3);
 	}
 		
 	//create columns
@@ -518,9 +523,8 @@ list* remove_p_from_proj_exps(mvc *c, list *exps){
 	for (en = exps->h; en; en = en->next){
 		sql_exp *e = (sql_exp *) en->data; 
 
-		if (e->type == e_column && strcmp(e->name, "p") == 0){ //e.g., sys.rdf_idtostr(s10_t0.s) as L.product, sys.rdf_idtostr(s10_t0.o) as L.label
-			continue; 
-		} else if (e->type == e_column && strcmp(e->name, "o") != 0 && strcmp(e->name, "s") != 0){
+		if ((e->type == e_column && strcmp(e->name, "p") == 0) || 
+		    (e->type == e_column && strcmp(e->name, "%TID%") == 0)){ //e.g., sys.rdf_idtostr(s10_t0.s) as L.product, sys.rdf_idtostr(s10_t0.o) as L.label
 			continue; 
 		} else {
 			sql_exp *newexp = exp_copy(sa, e);
@@ -1171,6 +1175,9 @@ void get_col_name_from_p (char **col, char *p){
  * UPDATE: oid[s12_t0.o] = sys.rdf_strtoid(char(85) "<http://www/Product9>"
  * will be convert to tbl1.p = type_of_column_p[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
  *
+ * UPDATE: 
+ * As everything will be stored as oid, we have to remove 
+ *
  * */
 
 static
@@ -1203,17 +1210,37 @@ void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, char *_a
 	m_exp->l = ne; 
 	
 	if (update_e_convert){
-		//TODO: Convert subtype to the type of new col
-		//sql_subtype *t;
 		sql_exp *newle = NULL;
 		sql_column *col = get_rdf_column(c, rname, name);
 		sql_subtype totype = col->type;
-
+		sql_exp *re = m_exp->r;
+		oid newoid; 
+		(void) re;
+		(void) newoid; 
+		(void) totype; 
 		assert(le->type == e_convert && ne); 
 		
+		#if EVERYTHING_AS_OID
+		//first: Convert the compared value into oid
+		newoid = BUN_NONE; 
+		if (re->type == e_atom){
+			atom *at = re->l;
+			assert(at != NULL); 
+
+			printf("Atom expression \n");
+			exp_print(c, THRdata[0] , re, 0,0,0);
+
+			get_encodedOid_from_atom(at, &newoid);
+			newle = exp_atom_oid(c->sa, newoid);
+		} else {
+			newle = exp_convert(c->sa, m_exp->r, exp_fromtype(le), &totype);	
+		}
+		#else
 		newle = exp_convert(c->sa, m_exp->r, exp_fromtype(le), &totype);
+		#endif
 
 		m_exp->r = newle; 
+
 	}
 
 }
@@ -1678,7 +1705,8 @@ void get_matching_tbl_from_spprops(int **rettbId, spProps *spprops, int *num_mat
 
 		printf("Table Id for set of props [");
 		for (i = 0; i < num; i++){
-			Postinglist pl = get_p_postingList(global_p_propstat, lstprop[i]);
+			//Postinglist pl = get_p_postingList(global_p_propstat, lstprop[i]);
+			Postinglist pl = get_p_postingList(global_c_propstat, lstprop[i]);
 			tmptblId[i] = pl.lstIdx;
 			count[i] = pl.numAdded; 
 			printf("  " BUNFMT, lstprop[i]);
@@ -2765,7 +2793,7 @@ void get_union_expr(mvc *c, sql_rel *r, list *union_exps){
 	//Because, the select op may be included 
 	//inside an join for the case of mvprop
 	if (tmp_rel->op != op_select){
-		assert(tmp_rel->op == op_join);
+		assert(tmp_rel->op == op_join || tmp_rel->op == op_left);
 		get_union_expr(c, tmp_rel->l, union_exps);
 		get_union_expr(c, tmp_rel->r, union_exps);
 	}

@@ -207,7 +207,7 @@ dump_table(MalBlkPtr mb, sql_table *t)
 }
 
 static int
-drop_table(MalBlkPtr mb, str n)
+drop_table1(MalBlkPtr mb, str n)
 {
 	InstrPtr k = newStmt1(mb, sqlRef, "dropDeclaredTable");
 	int nr = getDestVar(k);
@@ -2475,7 +2475,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 
 				if (!s->op2) {
 					/* drop declared table */
-					s->nr = drop_table(mb, vn);
+					s->nr = drop_table1(mb, vn);
 					if (s->nr < 0)
 						return -1;
 					break;

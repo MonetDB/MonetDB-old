@@ -257,7 +257,7 @@ str RDFmultiway_merge_outerjoins(int np, BAT **sbats, BAT **obats, BAT **r_sbat,
 	// that there are multi-valued prop in pso. 
 	// In that case, a recursive program need to run to generate
 	// all the combinations of the output candidates
-	int maxNumExcept = 20; 	//TODO: This need to be verified
+	int maxNumExcept = 10000; 	//TODO: This need to be verified
 	oid **tmpCand;
 	int *numCand; 
 	oid *cand; 

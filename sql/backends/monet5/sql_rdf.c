@@ -1517,18 +1517,26 @@ void get_full_outerjoin_p_slices(oid *lstprops, int np, BAT *full_obat, BAT *ful
 
 	for (i = 0; i < np; i++){
 		getSlides_per_P(pso_propstat, &(lstprops[i]),full_obat, full_sbat, &(obats[i]), &(sbats[i])); 
-		printf("Slides of P = "BUNFMT"\n", lstprops[i]);
-		if (sbats[i]) BATprint(sbats[i]);
-		if (obats[i]) BATprint(obats[i]);
+		printf("Slides of P = "BUNFMT "\n", lstprops[i]);
+		if (sbats[i]){
+			printf("   contains "BUNFMT " rows in sbat\n", BATcount(sbats[i]));
+			//BATprint(sbats[i]);
+		}
+		if (obats[i]){ 
+			printf("   contains "BUNFMT " rows in obat\n", BATcount(obats[i]));
+			//BATprint(obats[i]);
+		}
 	}
 
 	RDFmultiway_merge_outerjoins(np, sbats, obats, r_sbat, (*r_obats));
 
-	printf("Outer join result: \n");
-	BATprint(*r_sbat); 
+	printf("Outer join result: ("BUNFMT" rows) \n", BATcount(*r_sbat));
+	//BATprint(*r_sbat); 
+	/*
 	for (i = 0; i < np; i++){
 		BATprint((*r_obats)[i]); 
 	}
+	*/
 }
 
 
@@ -1599,6 +1607,13 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 
 
 }
+
+static 
+void setBasicProps(BAT *b){
+	b->hdense = 1;
+	b->hseqbase = 0; 
+	b->hsorted = 1; 
+}
 /*
  * Combine exceptioins and regular tables
  * */
@@ -1623,9 +1638,11 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 
 	//Init return BATs
 	*r_sbat = BATnew(TYPE_void, TYPE_oid, BATcount(sbat), TRANSIENT); 
+	setBasicProps(*r_sbat); 
 	*r_obats = (BAT **) malloc(sizeof(BAT*) * nP); 
 	for (i = 0; i < nP; i++){
 		(*r_obats)[i] = BATnew(TYPE_void, TYPE_oid, BATcount(sbat), TRANSIENT); 
+		setBasicProps((*r_obats)[i]); 
 	}
 	
 	
@@ -1697,7 +1714,7 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 			}
 		}
 
-		printf("At row "BUNFMT" of table %d for sbt "BUNFMT"...", tmpS, tid, sbt); 
+		//printf("At row "BUNFMT" of table %d for sbt "BUNFMT"...", tmpS, tid, sbt); 
 		accept = 1; 
 		for (j = 0;  j < nP; j++){
 			if (obatCursors[j][pos] == oid_nil){
@@ -1719,7 +1736,7 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 			oid *tmpres = (oid *) malloc(sizeof(oid) * nP); 
 			oid r_obat_oldsize = BATcount((*r_obats)[0]); 
 			oid r_obat_newsize = BUN_NONE; 
-			printf("Accepted\n"); 
+			//printf("Accepted\n"); 
 			for (j = 0; j < nP; j++){
 				tmpres[j] = oid_nil; 
 			}
@@ -1729,7 +1746,7 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 				BUNappend(*r_sbat, &sbt, TRUE); 
 			}
 		} else {
-			printf("Rejected\n");
+			//printf("Rejected\n");
 		}
 
 
@@ -1822,16 +1839,17 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		
 		combine_exception_and_regular_tables(m, &m_sbat, &m_obats, r_sbat, r_obats, lstProps, *nP, *nRP);
 		
-		BATprint(m_sbat); 
+		//BATprint(m_sbat); 
 
 		for (i = 0; i < (*nP); i++){
-			BATprint(m_obats[i]);
+			//BATprint(m_obats[i]);
 			b[2*i] = BATcopy(m_sbat, m_sbat->htype, m_sbat->ttype, FALSE, TRANSIENT);
 			b[2*i+1] = BATcopy(m_obats[i], m_obats[i]->htype, m_obats[i]->ttype, FALSE, TRANSIENT); 
 		}
 	}
-	printf("Return the resusting BATs\n"); 
+	printf("Return the resusting BATs...");
 	bat2return(stk, pci, b);
+	printf("... done\n"); 
 	GDKfree(b);
 
 	return MAL_SUCCEED; 
@@ -2081,8 +2099,8 @@ void build_PsoPropStat(BAT *full_pbat, int maxNumP, BAT *full_sbat, BAT *full_ob
 		}	
 	}	
 	printf("Number of P in PSO is: "BUNFMT"\n", BATcount(pso_propstat->pBat)); 
-	BATprint(pso_propstat->pBat); 
-	BATprint(pso_propstat->offsetBat); 
+	//BATprint(pso_propstat->pBat); 
+	//BATprint(pso_propstat->offsetBat); 
 	if (0)		//Testing only 
 	{
 		int np = 5; 
@@ -2174,7 +2192,7 @@ str SQLrdfprepare(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 	global_c_propstat = getPropStat_C_simpleCSset(global_csset); 
 
-	print_simpleCSset(global_csset);
+	//print_simpleCSset(global_csset);
 
 	printf("Done preparation\n"); 
 

@@ -130,7 +130,7 @@ sql_symbol2relation(mvc *c, symbol *sym)
 			
 			if (1) c->emode = m_normal;
 			
-			if (1) c->emod = mod_explain;
+			if (0) c->emod = mod_explain;
 			}
 		}
 		else {
@@ -650,7 +650,7 @@ alter_table(mvc *sql, char *sname, sql_table *t)
 	return MAL_SUCCEED;
 }
 
-static char *
+char *
 drop_table(mvc *sql, char *sname, char *tname, int drop_action)
 {
 	sql_schema *s = NULL;
@@ -1176,7 +1176,6 @@ SQLcatalog(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	case DDL_DROP_TABLE:{
 		int action = *getArgReference_int(stk, pci, 4);
 		str name = *getArgReference_str(stk, pci, 3);
-
 		msg = drop_table(sql, sname, name, action);
 		break;
 	}

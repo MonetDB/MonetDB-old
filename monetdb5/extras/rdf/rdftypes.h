@@ -25,6 +25,7 @@
 #define _RDFTYPES_H_
 
 #include <mtime.h>
+#include <sql_atom.h>
 
 #ifdef WIN32
 #ifndef LIBRDF
@@ -82,6 +83,9 @@ encodeValueInOid(ValPtr vrPtrRealValue, ObjectType objType, BUN* bun);
 
 rdf_export void
 decodeValueFromOid(BUN bun, ObjectType objType, ValPtr vrPtrRealValue);
+
+rdf_export void 
+get_encodedOid_from_atom(atom *at, oid *ret);
 
 rdf_export int 
 convertDateTimeToTimeT(char *sDateTime, int len, time_t *t);
