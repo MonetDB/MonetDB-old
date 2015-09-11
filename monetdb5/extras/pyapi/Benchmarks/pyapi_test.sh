@@ -512,7 +512,7 @@ function postgres_test() {
     postgres_run_tests
 }
 
-export DROP_CACHE_COMMAND='echo 3 | sudo /usr/bin/tee /proc/sys/vm/drop_caches'
+export DROP_CACHE_COMMAND='sync && echo 3 | sudo /usr/bin/tee /proc/sys/vm/drop_caches'
 
 export IDENTITY_NTESTS=3
 export IDENTITY_SIZES="100"
@@ -538,8 +538,10 @@ function csv_test() {
 
 
 function numpy_test() {
-    python_run_single_test NUMPYBINARY IDENTITY numpy_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    python_run_single_test NUMPYBINARY SQROOT numpy_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    python_run_single_test NUMPYBINARY IDENTITY:COLD numpy_identity_cold $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    python_run_single_test NUMPYBINARY IDENTITY:HOT numpy_identity_hot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    python_run_single_test NUMPYBINARY SQROOT:COLD numpy_sqroot_cold $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    python_run_single_test NUMPYBINARY SQROOT:HOT numpy_sqroot_hot $IDENTITY_NTESTS "$IDENTITY_SIZES"
 }
 
 
@@ -549,12 +551,14 @@ function monetdbembedded_test() {
 }
 
 function numpymmap_test() {
-    python_run_single_test NUMPYMEMORYMAP IDENTITY numpymmap_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    python_run_single_test NUMPYMEMORYMAP SQROOT numpymmap_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    python_run_single_test NUMPYMEMORYMAP IDENTITY:COLD numpymmap_identity_cold $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    python_run_single_test NUMPYMEMORYMAP IDENTITY:HOT numpymmap_identity_hot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    python_run_single_test NUMPYMEMORYMAP SQROOT:COLD numpymmap_sqroot_cold $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    python_run_single_test NUMPYMEMORYMAP SQROOT:HOT numpymmap_sqroot_hot $IDENTITY_NTESTS "$IDENTITY_SIZES"
 }
 
 function monetdbmapi_test() {
-    #monetdbmapi_run_single_test MONETDBMAPI "" IDENTITY monetdbmapi_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    monetdbmapi_run_single_test MONETDBMAPI "" IDENTITY monetdbmapi_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
     monetdbmapi_run_single_test MONETDBMAPI "" SQROOT monetdbmapi_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
 }
 

@@ -121,6 +121,24 @@ max_retries = 15
 max_size = 1000
 random_seed = 33
 
+hot_test = True
+split = args_test_type.split(':')
+if len(split) > 1 and split[1].lower() == 'cold':
+    hot_test = False
+args_test_type = split[0]
+
+drop_cache = os.environ["DROP_CACHE_COMMAND"]
+def drop_all_caches():
+    array = numpy.zeros(100000)
+    numpy.savetxt("temp_file.csv", array, delimiter=",")
+    barray = numpy.loadtxt("temp_file.csv", delimiter=",")
+    os.remove("temp_file.csv")
+    del array
+    del barray
+    os.system(drop_cache)
+
+
+
 if str(args_input_database).lower() == "monetdb":
     import monetdb.sql
     # Try to connect to the database
@@ -139,6 +157,7 @@ if str(args_input_database).lower() == "monetdb":
     cursor = connection.cursor()
 
     def run_test(testcommand, testcommand_nomem, *measurements):
+        if hot_test: cursor.execute(testcommand_nomem) #run the test once to warm up
         for i in range(0,test_count):
             total_time, memory, pyapi_time = 0, 0, 0
             if testcommand != None:
@@ -146,17 +165,16 @@ if str(args_input_database).lower() == "monetdb":
                 result_file = open(temp_file, 'w+')
                 result_file.close()
                 # run the command
-                print(testcommand)
                 cursor.execute(testcommand)
                 # now read the memory value from the file
                 result_file = open(temp_file, 'r')
                 pyapi_results = result_file.readline().translate(None, '\n').split('\t')
                 result_file.close()
                 memory = float(pyapi_results[0]) / 1000**2
-                print(memory)
             # now run the normal test (with malloc tracking disabled)
             result_file = open(temp_file, 'w+')
             result_file.close()
+            if not hot_test: drop_all_caches() #drop caches everytime for cold tests
             start = time.time()
             cursor.execute(testcommand_nomem);
             cursor.fetchall();
@@ -233,11 +251,17 @@ if str(args_input_database).lower() == "monetdb":
                 # rather than just having one entry for per query
                 # so we have to analyse the result file for every query we perform
                 results = [[], [], []]
+
+                if hot_test:
+                    for i in range(0, 2):
+                        cursor.execute('select import_test(i) from integers;');
+                        cursor.fetchall();
                 for i in range(0,test_count):
                     # clear the result file
                     result_file = open(temp_file, 'w+')
                     result_file.write("")
                     result_file.close();
+                    if not hot_test: drop_all_caches() #drop caches everytime for cold tests
                     # execute the query, measure the total time
                     start = time.time()
                     cursor.execute('select import_test(i) from integers;');
@@ -420,10 +444,15 @@ if str(args_input_database).lower() == "monetdb":
                 temp_size -= max_size
 
             results = [[], [], []]
+            if hot_test:
+                for i in range(0, 2):
+                    cursor.execute('select min(factorial(i)) from integers;');
+                    cursor.fetchall();
             for i in range(0,test_count):
                 result_file = open(temp_file, 'w+')
                 result_file.write("")
                 result_file.close();
+                if not hot_test: drop_all_caches() #drop caches everytime for cold tests
                 start = time.time()
                 cursor.execute('select min(factorial(i)) from integers;');
                 cursor.fetchall();
@@ -486,7 +515,12 @@ if str(args_input_database).lower() == "monetdb":
                 temp_size -= max_size
 
             results = []
+            if hot_test:
+                for i in range(0, 2):
+                    cursor.execute('select ' + quantile_function + '(i, 0.5) from integers;') #run the test once to warm up
+                    cursor.fetchall()
             for i in range(0,test_count):
+                if not hot_test: drop_all_caches() #drop caches everytime for cold tests
                 start = time.time()
                 cursor.execute('select ' + quantile_function + '(i, 0.5) from integers;');
                 cursor.fetchall();
@@ -503,7 +537,6 @@ if str(args_input_database).lower() == "monetdb":
 else:
     input_file = os.environ["POSTGRES_INPUT_FILE"]
     input_dir = os.environ["POSTGRES_CWD"]
-    drop_cache = os.environ["DROP_CACHE_COMMAND"]
     def execute_test(input_type, database_init, database_load, database_execute, database_clear, database_final):
         database_init()
 
@@ -515,12 +548,15 @@ else:
             mb.append(float(arguments[i]))
 
         for size in mb:
-            os.system("%s " % c_compiler + input_dir + "/randomstrings.c -o randomstrings")
+            os.system("%s " % c_compiler + input_dir + "/randomstrings.c -o " + input_dir + "/randomstrings")
             os.system("%s %s %s %s" % (input_dir + "/randomstrings", size, input_type, input_file))
 
             database_load()
+            if hot_test:
+                for i in range(0, 2):
+                    database_execute()
             for i in range(0,test_count):
-                #os.system(drop_cache)
+                if not hot_test: drop_all_caches() #drop caches everytime for cold tests
                 start = time.time()
                 database_execute()
                 end = time.time()
