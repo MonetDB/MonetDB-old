@@ -251,6 +251,8 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth, PyOb
     bool multiline_statement = false;
     int multiline_quotes = 0;
 
+    size_t additional_argcount = 2;
+    const char * additional_args[] = {"_columns", "_column_types"};
     char base_start[] = "def pyfun(";
     char base_end[] = "):\n";
     *msg = NULL;
@@ -274,6 +276,9 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth, PyOb
             size += strlen(args[i]) + 1; 
         }
     }
+    // Additional parameters
+    for(i = 0; i < additional_argcount; i++) size += strlen(additional_args[i]) + 1;
+
     // First remove the "{" at the start and the "};" at the end of the function, this is added when we have a function created through SQL and python doesn't like them
     // We need to be careful to only remove ones at the start/end, otherwise we might invalidate some otherwise valid python code containing them
     for(i = length - 1, j = 0; i > 0; i--)
@@ -426,12 +431,24 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth, PyOb
     for(i = 0; i < strlen(base_start); i++) {
         newcode[code_location++] = base_start[i];
     }
+    // Add user-defined parameters
     for(i = 0; i < argcount; i++) {
         if (args[i] != NULL) {
             for(j = 0; j < strlen(args[i]); j++) {
                 newcode[code_location++] = args[i][j];
             }
-            if (i != argcount - 1) {
+            if (i != argcount - 1 || additional_argcount > 0) {
+                newcode[code_location++] = ',';
+            }
+        }
+    }
+    // Add additional parameters
+    for(i = 0; i < additional_argcount; i++) {
+    if (additional_args[i] != NULL) {
+            for(j = 0; j < strlen(additional_args[i]); j++) {
+                newcode[code_location++] = additional_args[i][j];
+            }
+            if (i != additional_argcount - 1) {
                 newcode[code_location++] = ',';
             }
         }

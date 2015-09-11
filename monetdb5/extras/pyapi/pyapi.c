@@ -372,7 +372,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     BAT *b = NULL;
     node * argnode;
     int seengrp = FALSE;
-    PyObject *pArgs = NULL, *pResult = NULL; // this is going to be the parameter tuple
+    PyObject *pArgs = NULL, *pColumns = NULL, *pColumnTypes = NULL, *pResult = NULL; // this is going to be the parameter tuple
     PyObject *code_object = NULL;
     PyReturn *pyreturn_values = NULL;
     PyInput *pyinput_values = NULL;
@@ -426,18 +426,12 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     VERBOSE_MESSAGE("PyAPI Start\n");
 
     args = (str*) GDKzalloc(pci->argc * sizeof(str));
-    if (args == NULL) {
-        throw(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
-    }
     pyreturn_values = GDKzalloc(pci->retc * sizeof(PyReturn));
-
-    if (pyreturn_values == NULL) {
-        GDKfree(args);
+    if (args == NULL || pyreturn_values == NULL) {
         throw(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
     }
 
-    if ((pci->argc - (pci->retc + 2)) * sizeof(PyInput) > 0)
-    {
+    if ((pci->argc - (pci->retc + 2)) * sizeof(PyInput) > 0) {
         pyinput_values = GDKzalloc((pci->argc - (pci->retc + 2)) * sizeof(PyInput));
 
         if (pyinput_values == NULL) {
@@ -740,11 +734,13 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 
     // Now we will do the input handling (aka converting the input BATs to numpy arrays)
     // We will put the python arrays in a PyTuple object, we will use this PyTuple object as the set of arguments to call the Python function
-    pArgs = PyTuple_New(pci->argc - (pci->retc + 2));
+    pArgs = PyTuple_New(pci->argc - (pci->retc + 2) + 2);
+    pColumns = PyDict_New();
+    pColumnTypes = PyDict_New();
 
     // Now we will loop over the input BATs and convert them to python objects
     for (i = pci->retc + 2; i < pci->argc; i++) {
-        PyObject *result_array;
+        PyObject *result_array, *arg_name, *arg_type;
          // t_start and t_end hold the part of the BAT we will convert to a Numpy array, by default these hold the entire BAT [0 - BATcount(b)]
         size_t t_start = 0, t_end = pyinput_values[i - (pci->retc + 2)].count;
 #ifndef WIN32
@@ -763,7 +759,6 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             }
         }
 #endif
-
         // There are two possibilities, either the input is a BAT, or the input is a scalar
         // If the input is a scalar we will convert it to a python scalar
         // If the input is a BAT, we will convert it to a numpy array
@@ -785,9 +780,16 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             }
             goto wrapup;
         }
+        arg_name = PyString_FromString(args[i]);
+        arg_type = PyString_FromString(BatType_Format(pyinput_values[i - (pci->retc + 2)].bat_type));
+        PyDict_SetItem(pColumns, arg_name, result_array);
+        PyDict_SetItem(pColumnTypes, arg_name, arg_type);
+        Py_DECREF(arg_name); Py_DECREF(arg_type);
         PyTuple_SetItem(pArgs, ai++, result_array);
     }
 
+    PyTuple_SetItem(pArgs, ai++, pColumns);
+    PyTuple_SetItem(pArgs, ai++, pColumnTypes);
 
     /*[EXECUTE_CODE]*/
     VERBOSE_MESSAGE("Executing python code.\n");
@@ -833,6 +835,8 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 
         Py_DECREF(pFunc);
         Py_DECREF(pArgs);
+        Py_DECREF(pColumns);
+        Py_DECREF(pColumnTypes);
 
         if (PyErr_Occurred()) {
             msg = PyError_CreateException("Python exception", pycall);

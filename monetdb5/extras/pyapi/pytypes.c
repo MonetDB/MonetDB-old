@@ -94,7 +94,7 @@ char *BatType_Format(int type)
         case TYPE_bit: return "BIT";
         case TYPE_bte: return "BYTE";
         case TYPE_sht: return "SHORT";
-        case TYPE_int: return "INT";
+        case TYPE_int: return "INTEGER";
         case TYPE_lng: return "LONG";
         case TYPE_flt: return "FLOAT";
         case TYPE_dbl: return "DOUBLE";
