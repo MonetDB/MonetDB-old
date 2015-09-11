@@ -1,7 +1,7 @@
         
 
 # The base directory of testing, a new folder is created in this base directory [$PYAPI_TEST_DIR], and everything is done in that new folder
-export PYAPI_BASE_DIR=/export/scratch1/raasveld
+export PYAPI_BASE_DIR=/tmp
 # The terminal to start mserver with, examples are gnome-terminal, xterm, konsole
 export TERMINAL=x-terminal-emulator
 # Port used by the MSERVER
@@ -11,39 +11,39 @@ export MSERVERTEST='netstat -ant | grep "127.0.0.1:$MSERVER_PORT.*LISTEN">/dev/n
 # Testing parameters
 # Input test (zero copy vs copy)
 # The input sizes to test (in MB)
-export INPUT_TESTING_SIZES="10"
+export INPUT_TESTING_SIZES="1000 10000 100000"
 # Amount of tests to run for each size
-export INPUT_TESTING_NTESTS=10
+export INPUT_TESTING_NTESTS=3
 
 # Output test (zero copy vs copy)
 # The output sizes to test (in MB)
-export OUTPUT_TESTING_SIZES="0.1 1 10 100 1000"
+export OUTPUT_TESTING_SIZES="1000 10000 100000"
 # Amount of tests to run for each size
-export OUTPUT_TESTING_NTESTS=10
+export OUTPUT_TESTING_NTESTS=3
 
 # String tests
 # Strings of the same length (mb, length)
-export STRINGSAMELENGTH_TESTING_SIZES="(100,1) (100,10) (100,100) (100,250) (100,500) (100,750) (100,1000) (100,1000) (100,10000) (100,100000)"
+export STRINGSAMELENGTH_TESTING_SIZES="(1000,1) (1000,10) (1000,100) (1000,1000) (1000,10000) (1000,100000)"
 export STRINGSAMELENGTH_TESTING_NTESTS=3
 # Extreme length string testing (all strings have length 1 except for one string, which has EXTREME length)
 # Arguments are (Extreme Length, String Count)
 export STRINGEXTREMELENGTH_TESTING_SIZES="(10,1000000) (100,1000000) (1000,1000000) (10000,1000000)"
-export STRINGEXTREMELENGTH_TESTING_NTESTS=1
+export STRINGEXTREMELENGTH_TESTING_NTESTS=3
 # Check Unicode vs Always Unicode (ASCII) (mb, length)
-export STRINGUNICODE_TESTING_SIZES="(1000,10) (10000,10) (1000,100) (10000,100)"
-export STRINGUNICODE_TESTING_NTESTS=1
+export STRINGUNICODE_TESTING_SIZES="(1000,10) (1000,100) (1000,1000) (1000,10000)"
+export STRINGUNICODE_TESTING_NTESTS=3
 
 # Multithreading tests
-export MULTITHREADING_NR_THREADS="1 2 3 4 5 6 7 8"
+export MULTITHREADING_NR_THREADS="1 2 4 8 16 32 64 96"
 export MULTITHREADING_TESTING_SIZES="1"
 #amount of tests for each thread
-export MULTITHREADING_TESTING_NTESTS=10
+export MULTITHREADING_TESTING_NTESTS=3
 
 # Quantile speedtest
 # The input sizes to test (in MB)
-export QUANTILE_TESTING_SIZES="0.1 1 10 100 1000"
+export QUANTILE_TESTING_SIZES="1000 8000 40000"
 # Amount of tests to run for each size
-export QUANTILE_TESTING_NTESTS=10
+export QUANTILE_TESTING_NTESTS=3
 
 # PyAPI TAR url
 export PYAPI_BRANCH_NAME=pyapi
@@ -268,58 +268,58 @@ function pyapi_test_string_samelength() {
         return 1
     fi
 
-    pyapi_run_single_test "String Testing (NPY_OBJECT, Same Length)" "" "STRING_SAMELENGTH" string_samelength_npyobject "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (NPY_OBJECT, Same Length)" "--set disable_numpystringarray=true" "STRING_SAMELENGTH" string_samelength_npyobject "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 
-    pyapi_run_single_test "String Testing (NPY_STRING, Same Length)" "--set enable_numpystringarray=true" "STRING_SAMELENGTH" string_samelength_npystring "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (NPY_STRING, Same Length)" "" "STRING_SAMELENGTH" string_samelength_npystring "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 }
 
 function pyapi_test_string_extreme() {
-    pyapi_run_single_test "String Testing (NPY_OBJECT, Extreme Length)" "" "STRING_EXTREMELENGTH" string_extremelength_npyobject "$STRINGEXTREMELENGTH_TESTING_NTESTS" "$STRINGEXTREMELENGTH_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (NPY_OBJECT, Extreme Length)" "--set disable_numpystringarray=true" "STRING_EXTREMELENGTH" string_extremelength_npyobject "$STRINGEXTREMELENGTH_TESTING_NTESTS" "$STRINGEXTREMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 
-    pyapi_run_single_test "String Testing (NPY_STRING, Extreme Length)" "--set enable_numpystringarray=true" "STRING_EXTREMELENGTH" string_extremelength_npystring "$STRINGEXTREMELENGTH_TESTING_NTESTS" "$STRINGEXTREMELENGTH_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (NPY_STRING, Extreme Length)" "" "STRING_EXTREMELENGTH" string_extremelength_npystring "$STRINGEXTREMELENGTH_TESTING_NTESTS" "$STRINGEXTREMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 }
 
 function pyapi_test_string_unicode_ascii() {
-    pyapi_run_single_test "String Testing (Check Unicode, ASCII)" "" "STRING_SAMELENGTH" string_unicode_ascii_check "$STRINGUNICODE_TESTING_NTESTS" "$STRINGUNICODE_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (Check Unicode, ASCII)" "--set disable_numpystringarray=true" "STRING_SAMELENGTH" string_unicode_ascii_check "$STRINGUNICODE_TESTING_NTESTS" "$STRINGUNICODE_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 
-    pyapi_run_single_test "String Testing (Always Unicode, ASCII)" "--set enable_alwaysunicode=true" "STRING_SAMELENGTH" string_unicode_ascii_always "$STRINGUNICODE_TESTING_NTESTS" "$STRINGUNICODE_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (Always Unicode, ASCII)" "--set disable_numpystringarray=true --set enable_alwaysunicode=true" "STRING_SAMELENGTH" string_unicode_ascii_always "$STRINGUNICODE_TESTING_NTESTS" "$STRINGUNICODE_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 
-    pyapi_run_single_test "String Testing (Check Unicode, Extreme)" "" "STRING_EXTREMEUNICODE" string_unicode_extreme_check "$STRINGUNICODE_TESTING_NTESTS" "$STRINGUNICODE_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (Check Unicode, Extreme)" "--set disable_numpystringarray=true" "STRING_EXTREMEUNICODE" string_unicode_extreme_check "$STRINGUNICODE_TESTING_NTESTS" "$STRINGUNICODE_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 
-    pyapi_run_single_test "String Testing (Always Unicode, Extreme)" "" "STRING_EXTREMEUNICODE" string_unicode_extreme_always "$STRINGUNICODE_TESTING_NTESTS" "$STRINGUNICODE_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (Always Unicode, Extreme)" "--set disable_numpystringarray=true" "STRING_EXTREMEUNICODE" string_unicode_extreme_always "$STRINGUNICODE_TESTING_NTESTS" "$STRINGUNICODE_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 }
 
 function pyapi_test_bytearray_vs_string() {
-    pyapi_run_single_test "String Testing (ByteArray Object)" "--set enable_bytearray=true" "STRING_SAMELENGTH" string_bytearrayobject "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (ByteArray Object)" "--set disable_numpystringarray=true --set enable_bytearray=true" "STRING_SAMELENGTH" string_bytearrayobject "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
 
-    pyapi_run_single_test "String Testing (String Object)" "" "STRING_SAMELENGTH" string_stringobject "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
+    pyapi_run_single_test "String Testing (String Object)" "--set disable_numpystringarray=true" "STRING_SAMELENGTH" string_stringobject "$STRINGSAMELENGTH_TESTING_NTESTS" "$STRINGSAMELENGTH_TESTING_SIZES"
     if [ $? -ne 0 ]; then
         return 1
     fi
@@ -367,18 +367,16 @@ function pyapi_run_tests() {
         echo "Failed to create output directory."
         return 1
     fi
-    cp /local/raasveld/monetdb_testing.py /tmp/monetdb_pyapi_test/MonetDB-$PYAPI_BRANCH_NAME/monetdb5/extras/pyapi/Benchmarks/
-    cp /local/raasveld/randomstrings.c /tmp/monetdb_pyapi_test/MonetDB-$PYAPI_BRANCH_NAME/monetdb5/extras/pyapi/Benchmarks/
-    
-    #pyapi_test_input
-    #pyapi_test_input_null
-    #pyapi_test_output
+
+    pyapi_test_input
+    pyapi_test_input_null
+    pyapi_test_output
     pyapi_test_string_samelength
-    #pyapi_test_string_extreme
-    #pyapi_test_string_unicode_ascii
-    #pyapi_test_bytearray_vs_string
-    #pyapi_test_quantile
-    #pyapi_test_threads
+    pyapi_test_string_extreme
+    pyapi_test_string_unicode_ascii
+    pyapi_test_bytearray_vs_string
+    pyapi_test_quantile
+    pyapi_test_threads
 }
 
 function pyapi_graph() {

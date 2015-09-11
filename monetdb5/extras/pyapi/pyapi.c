@@ -51,7 +51,7 @@ const char* debug_enableflag = "enable_pydebug";
 #ifdef _PYAPI_TESTING_
 const char* zerocopyinput_disableflag = "disable_pyzerocopyinput";
 const char* zerocopyoutput_disableflag = "disable_pyzerocopyoutput";
-const char* numpy_string_array_enableflag = "enable_numpystringarray";
+const char* numpy_string_array_disableflag = "disable_numpystringarray";
 const char* alwaysunicode_enableflag = "enable_alwaysunicode";
 const char* lazyarray_enableflag = "enable_lazyarray";
 const char* oldnullmask_enableflag = "enable_oldnullmask";
@@ -60,7 +60,7 @@ const char* benchmark_output_flag = "pyapi_benchmark_output";
 const char* disable_malloc_tracking = "disable_malloc_tracking";
 static bool option_zerocopyinput = true;
 static bool option_zerocopyoutput  = true;
-static bool option_numpy_string_array = false;
+static bool option_numpy_string_array = true;
 static bool option_bytearray = false;
 static bool option_lazyarray = false;
 static bool option_oldnullmask = false;
@@ -1254,29 +1254,6 @@ str
         }
         MT_lock_unset(&pyapiLock, "pyapi.evaluate");
         fprintf(stdout, "# MonetDB/Python module loaded\n");
-#ifdef _PYAPI_VERBOSE_
-        option_verbose = GDKgetenv_isyes(verbose_enableflag) || GDKgetenv_istrue(verbose_enableflag);
-#endif
-#ifdef _PYAPI_DEBUG_
-        option_debug = GDKgetenv_isyes(debug_enableflag) || GDKgetenv_istrue(debug_enableflag);
-        (void) option_debug;
-#endif
-#ifdef _PYAPI_WARNINGS_
-        option_warning = GDKgetenv_isyes(warning_enableflag) || GDKgetenv_istrue(warning_enableflag);
-#endif
-#ifdef _PYAPI_TESTING_
-        //These flags are for testing purposes, they shouldn't be used for normal purposes
-        option_zerocopyinput = !(GDKgetenv_isyes(zerocopyinput_disableflag) || GDKgetenv_istrue(zerocopyinput_disableflag));
-        option_zerocopyoutput = !(GDKgetenv_isyes(zerocopyoutput_disableflag) || GDKgetenv_istrue(zerocopyoutput_disableflag));
-        option_numpy_string_array = GDKgetenv_isyes(numpy_string_array_enableflag) || GDKgetenv_istrue(numpy_string_array_enableflag);
-        option_bytearray = GDKgetenv_isyes(bytearray_enableflag) || GDKgetenv_istrue(bytearray_enableflag);
-        option_oldnullmask = GDKgetenv_isyes(oldnullmask_enableflag) || GDKgetenv_istrue(oldnullmask_enableflag);
-        option_lazyarray = GDKgetenv_isyes(lazyarray_enableflag) || GDKgetenv_istrue(lazyarray_enableflag);
-        option_alwaysunicode = (GDKgetenv_isyes(alwaysunicode_enableflag) || GDKgetenv_istrue(alwaysunicode_enableflag));
-        benchmark_output = GDKgetenv(benchmark_output_flag);
-        option_disablemalloctracking = (GDKgetenv_isyes(disable_malloc_tracking) || GDKgetenv_istrue(disable_malloc_tracking));
-        fprintf(stdout, "# MonetDB/Python testing enabled.\n");
-#endif
     }
 #else
     if (!pyapiInitialized) {
@@ -1284,6 +1261,7 @@ str
         import_array1(iar);
         pyapiInitialized++;
     }
+#endif
 #ifdef _PYAPI_VERBOSE_
     option_verbose = GDKgetenv_isyes(verbose_enableflag) || GDKgetenv_istrue(verbose_enableflag);
 #endif
@@ -1294,6 +1272,18 @@ str
 #ifdef _PYAPI_WARNINGS_
     option_warning = GDKgetenv_isyes(warning_enableflag) || GDKgetenv_istrue(warning_enableflag);
 #endif
+#ifdef _PYAPI_TESTING_
+    //These flags are for testing purposes, they shouldn't be used for normal purposes
+    option_zerocopyinput = !(GDKgetenv_isyes(zerocopyinput_disableflag) || GDKgetenv_istrue(zerocopyinput_disableflag));
+    option_zerocopyoutput = !(GDKgetenv_isyes(zerocopyoutput_disableflag) || GDKgetenv_istrue(zerocopyoutput_disableflag));
+    option_numpy_string_array = !(GDKgetenv_isyes(numpy_string_array_disableflag) || GDKgetenv_istrue(numpy_string_array_disableflag));
+    option_bytearray = GDKgetenv_isyes(bytearray_enableflag) || GDKgetenv_istrue(bytearray_enableflag);
+    option_oldnullmask = GDKgetenv_isyes(oldnullmask_enableflag) || GDKgetenv_istrue(oldnullmask_enableflag);
+    option_lazyarray = GDKgetenv_isyes(lazyarray_enableflag) || GDKgetenv_istrue(lazyarray_enableflag);
+    option_alwaysunicode = (GDKgetenv_isyes(alwaysunicode_enableflag) || GDKgetenv_istrue(alwaysunicode_enableflag));
+    benchmark_output = GDKgetenv(benchmark_output_flag);
+    option_disablemalloctracking = (GDKgetenv_isyes(disable_malloc_tracking) || GDKgetenv_istrue(disable_malloc_tracking));
+    fprintf(stdout, "# MonetDB/Python testing enabled.\n");
 #endif
     return MAL_SUCCEED;
 }
@@ -1552,8 +1542,10 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
         BAT_TO_NP(b, dbl, NPY_FLOAT64);
         break;
     case TYPE_str:
-    #ifdef _PYAPI_TESTING_
-        if (option_numpy_string_array) {
+#ifdef _PYAPI_TESTING_
+        if (option_numpy_string_array) 
+#endif
+        {
             bool unicode = false;
             size_t maxsize = 0;
             li = bat_iterator(b);
@@ -1620,7 +1612,6 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                     j++;
                 }
             } else {
-
                 VERBOSE_MESSAGE("- ASCII string!\n");
                 //create a NPY_STRING array object
                 vararray = PyArray_New(
@@ -1653,14 +1644,10 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                 }
             }
         }
-        else 
-#endif
-        {
 #ifdef _PYAPI_TESTING_
+        else 
+        {
             bool unicode = option_alwaysunicode;
-#else
-            bool unicode = false;
-#endif
             li = bat_iterator(b);
             //create a NPY_OBJECT array object
             vararray = PyArray_New(
@@ -1674,9 +1661,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                 0, 
                 NULL);
 
-#ifdef _PYAPI_TESTING_
             if (!option_alwaysunicode) 
-#endif
             {
                 j = 0;
                 BATloop(b, p, q) {
@@ -1710,10 +1695,8 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                             obj = PyUnicode_FromString(t);
                         }
                     } else {
-#ifdef _PYAPI_TESTING_
                         if (option_bytearray) obj = PyByteArray_FromString(t);
                         else 
-#endif
                         {
                             obj = PyString_FromString(t);
                         }
@@ -1730,6 +1713,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                 j++;
             }
         }
+#endif
         break;
 #ifdef HAVE_HGE
     case TYPE_hge:
