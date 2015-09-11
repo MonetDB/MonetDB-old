@@ -849,9 +849,24 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 
         if (code_object == NULL) { PyRun_SimpleString("del pyfun"); }
 
-        // Now we need to do some error checking on the result object, because the result object has to have the correct type/size
-        // We will also do some converting of result objects to a common type (such as scalar -> [[scalar]])
-        pResult = PyObject_CheckForConversion(pResult, pci->retc, NULL, &msg);
+        if (PyDict_Check(pResult)) { // Handle dictionary returns
+            // For dictionary returns we need to map each of the (key,value) pairs to the proper return value
+            // We first analyze the SQL Function structure for a list of return value names
+            char **retnames = NULL;
+            if (sqlfun != NULL) {
+                retnames = GDKzalloc(sizeof(char*) * sqlfun->res->cnt);
+                argnode = sqlfun->res->h;
+                for(i = 0; i < sqlfun->res->cnt; i++) {
+                    retnames[i] = ((sql_arg*)argnode->data)->name;
+                    argnode = argnode->next;
+                }
+            }
+            pResult = PyDict_CheckForConversion(pResult, pci->retc, retnames, &msg);
+        } else {
+            // Now we need to do some error checking on the result object, because the result object has to have the correct type/size
+            // We will also do some converting of result objects to a common type (such as scalar -> [[scalar]])
+            pResult = PyObject_CheckForConversion(pResult, pci->retc, NULL, &msg);
+        }
         if (pResult == NULL) {
             goto wrapup;
         }
@@ -1835,6 +1850,54 @@ PyObject *PyNullMask_FromBAT(BAT *b, size_t t_start, size_t t_end)
 }
 
 
+PyObject *PyDict_CheckForConversion(PyObject *pResult, int expected_columns, char **retcol_names, char **return_message) 
+{
+    char *msg = MAL_SUCCEED;
+    PyObject *result = PyList_New(expected_columns), *keys = PyDict_Keys(pResult);
+    int i;
+
+    if (PyList_Size(keys) != expected_columns) {
+        if (retcol_names == NULL) {
+            msg = createException(MAL, "pyapi.eval", "Expected a dictionary with %d return values, but a dictionary with %zu was returned instead.", expected_columns, PyList_Size(keys));
+            goto wrapup;
+        } 
+#ifdef _PYAPI_WARNINGS_
+        if (PyList_Size(keys) > expected_columns) {
+            WARNING_MESSAGE("WARNING: Expected %d return values, but a dictionary with %zu values was returned instead.\n", expected_columns, PyList_Size(keys));
+        }
+#endif 
+    }
+
+    for(i = 0; i < expected_columns; i++) {
+        PyObject *object;
+        if (retcol_names == NULL) {
+            object = PyDict_GetItem(pResult, PyList_GetItem(keys, i));
+        } else {
+            object = PyDict_GetItemString(pResult, retcol_names[i]);
+            if (object == NULL) {
+                msg = createException(MAL, "pyapi.eval", "Expected a return value with name \"%s\", but this key was not present in the dictionary.", retcol_names[i]);
+                goto wrapup;
+            }
+        }
+        object = PyObject_CheckForConversion(object, 1, NULL, &msg);
+        if (object == NULL) {
+            goto wrapup;
+        }
+        if (PyList_CheckExact(object)) {
+            PyList_SetItem(result, i, PyList_GetItem(object, 0));
+        } else { 
+            msg = createException(MAL, "pyapi.eval", "Why is this not a list?");
+            goto wrapup;
+        }
+    }
+    return result;
+wrapup:
+    *return_message = msg;
+    Py_DECREF(result);
+    Py_DECREF(keys);
+    return NULL;
+}
+
 PyObject *PyObject_CheckForConversion(PyObject *pResult, int expected_columns, int *actual_columns, char **return_message)
 {
     char *msg;
@@ -1905,7 +1968,7 @@ PyObject *PyObject_CheckForConversion(PyObject *pResult, int expected_columns, i
                 IsSingleArray = TRUE;
             } else if (!PyType_IsNumpyMaskedArray(data)) {
                 //it is neither a python array, numpy array or numpy masked array, thus the result is unsupported! Throw an exception!
-                msg = createException(MAL, "pyapi.eval", "Unsupported result object. Expected either an array, a numpy array, a numpy masked array or a pandas data frame, but received an object of type \"%s\"", PyString_AsString(PyObject_Str(PyObject_Type(data))));
+                msg = createException(MAL, "pyapi.eval", "Unsupported result object. Expected either a list, dictionary, a numpy array, a numpy masked array or a pandas data frame, but received an object of type \"%s\"", PyString_AsString(PyObject_Str(PyObject_Type(data))));
                 goto wrapup;
             }
 
