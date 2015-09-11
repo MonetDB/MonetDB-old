@@ -10,6 +10,8 @@
 #include "gdk.h"
 #include "mal_exception.h"
 
+const size_t additional_argcount = 2;
+const char * additional_args[] = {"_columns", "_column_types"};
 
 //! Parse a PyCodeObject from a string, the string is expected to be in the format {@<encoded_function>};, where <encoded_function> is all the PyCodeObject properties in order
 PyObject *PyCodeObject_ParseString(char *string, char **msg);
@@ -251,8 +253,6 @@ char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth, PyOb
     bool multiline_statement = false;
     int multiline_quotes = 0;
 
-    size_t additional_argcount = 2;
-    const char * additional_args[] = {"_columns", "_column_types"};
     char base_start[] = "def pyfun(";
     char base_end[] = "):\n";
     *msg = NULL;

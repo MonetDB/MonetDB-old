@@ -734,7 +734,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
 
     // Now we will do the input handling (aka converting the input BATs to numpy arrays)
     // We will put the python arrays in a PyTuple object, we will use this PyTuple object as the set of arguments to call the Python function
-    pArgs = PyTuple_New(pci->argc - (pci->retc + 2) + 2);
+    pArgs = PyTuple_New(pci->argc - (pci->retc + 2) + (code_object == NULL ? 2 : 0));
     pColumns = PyDict_New();
     pColumnTypes = PyDict_New();
 
@@ -780,16 +780,19 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
             }
             goto wrapup;
         }
-        arg_name = PyString_FromString(args[i]);
-        arg_type = PyString_FromString(BatType_Format(pyinput_values[i - (pci->retc + 2)].bat_type));
-        PyDict_SetItem(pColumns, arg_name, result_array);
-        PyDict_SetItem(pColumnTypes, arg_name, arg_type);
-        Py_DECREF(arg_name); Py_DECREF(arg_type);
+        if (code_object == NULL) {
+            arg_name = PyString_FromString(args[i]);
+            arg_type = PyString_FromString(BatType_Format(pyinput_values[i - (pci->retc + 2)].bat_type));
+            PyDict_SetItem(pColumns, arg_name, result_array);
+            PyDict_SetItem(pColumnTypes, arg_name, arg_type);
+            Py_DECREF(arg_name); Py_DECREF(arg_type);
+        }
         PyTuple_SetItem(pArgs, ai++, result_array);
     }
-
-    PyTuple_SetItem(pArgs, ai++, pColumns);
-    PyTuple_SetItem(pArgs, ai++, pColumnTypes);
+    if (code_object == NULL) {
+        PyTuple_SetItem(pArgs, ai++, pColumns);
+        PyTuple_SetItem(pArgs, ai++, pColumnTypes);
+    }
 
     /*[EXECUTE_CODE]*/
     VERBOSE_MESSAGE("Executing python code.\n");
