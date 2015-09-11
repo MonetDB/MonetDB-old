@@ -862,6 +862,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
                 }
             }
             pResult = PyDict_CheckForConversion(pResult, pci->retc, retnames, &msg);
+            if (retnames != NULL) GDKfree(retnames);
         } else {
             // Now we need to do some error checking on the result object, because the result object has to have the correct type/size
             // We will also do some converting of result objects to a common type (such as scalar -> [[scalar]])
