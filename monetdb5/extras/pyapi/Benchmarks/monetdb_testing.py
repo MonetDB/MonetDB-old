@@ -42,8 +42,8 @@ def code_object_to_string(codeobject):
 def function_to_string(fun):
     return code_object_to_string(fun.__code__)
 
-def export_function(function, argtypes, returns, multithreading=False, table=False, test=True):
-    name = function.__code__.co_name;
+def export_function(function, argtypes, returns, new_name=None, multithreading=False, table=False, test=True):
+    name = function.__code__.co_name if new_name == None else new_name;
     argc = function.__code__.co_argcount
     argnames = function.__code__.co_varnames
     language = " language PYTHON_MAP" if multithreading else " language P"
@@ -138,9 +138,40 @@ if str(args_input_database).lower() == "monetdb":
         sys.exit(1)
     cursor = connection.cursor()
 
+    def run_test(testcommand, testcommand_nomem, *measurements):
+        for i in range(0,test_count):
+            total_time, memory, pyapi_time = 0, 0, 0
+            if testcommand != None:
+                # clear the result file
+                result_file = open(temp_file, 'w+')
+                result_file.close()
+                # run the command
+                print(testcommand)
+                cursor.execute(testcommand)
+                # now read the memory value from the file
+                result_file = open(temp_file, 'r')
+                pyapi_results = result_file.readline().translate(None, '\n').split('\t')
+                result_file.close()
+                memory = float(pyapi_results[0]) / 1000**2
+                print(memory)
+            # now run the normal test (with malloc tracking disabled)
+            result_file = open(temp_file, 'w+')
+            result_file.close()
+            start = time.time()
+            cursor.execute(testcommand_nomem);
+            cursor.fetchall();
+            end = time.time()
+            result_file = open(temp_file, 'r')
+            pyapi_results = result_file.readline().translate(None, '\n').split('\t')
+            result_file.close()
+            total_time = end - start
+            pyapi_time = pyapi_results[1]
+            f.write(format_output(*(measurements + (total_time, memory, pyapi_time))))
+            f.flush()
+
     if str(args_test_type).lower() == "input" or str(args_test_type).lower() == "input-map" or str(args_test_type).lower() == "input-null":
         # Input testing
-
+        multithreading_test = str(args_test_type).lower() == "input-map"
         # First create a function that generates the desired input size (in MB) and pass it to the database
         if str(args_test_type).lower() == "input-null":
             #if the type is input-null, we simply set all negative numbers to NULL
@@ -175,9 +206,13 @@ if str(args_input_database).lower() == "monetdb":
             return(True)
 
         cursor.execute(export_function(import_test, ['integer'], ['boolean'], multithreading=str(args_test_type).lower() == "input-map"))
+        cursor.execute(export_function(import_test, ['integer'], ['boolean'], new_name="import_test_nomem", test=False, multithreading=multithreading_test))
 
         f = open(output_file + '.tsv', "w+")
-        f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
+        if not multithreading_test:
+            f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
+        else:
+            f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Time (s)'))
         mb = []
         for i in range(parameters_start, len(arguments)):
             mb.append(float(arguments[i]))
@@ -191,22 +226,7 @@ if str(args_input_database).lower() == "monetdb":
                 temp_size -= max_size
 
             if (str(args_test_type).lower() == "input"):
-                results = []
-                result_file = open(temp_file, 'w+')
-                result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
-                result_file.close();
-                for i in range(0,test_count):
-                    start = time.time()
-                    cursor.execute('select import_test(i) from integers;');
-                    cursor.fetchall();
-                    end = time.time()
-                    list.append(results, end - start)
-                result_file = open(temp_file, 'r')
-                result_file.readline()
-                for result in results:
-                    pyapi_results = result_file.readline().translate(None, '\n').split('\t')
-                    f.write(format_output(size, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
-                    f.flush()
+                run_test('select import_test(i) from integers;', 'select import_test_nomem(i) from integers;', size)
             else:
                 # for input-map we need to do some special analysis of the PyAPI output
                 # this is because every thread writes memory usage and execution time to the temp_file
@@ -225,7 +245,8 @@ if str(args_input_database).lower() == "monetdb":
                     end = time.time()
                     list.append(results[0], end - start)
                     # now we need to analyze the result file
-                    # we use the total memory usage of all threads (sum) and the highest of all the execution times of the threads (max)
+                    # we use the highest of all the execution times of the threads (max)
+                    # we ignore memory usage, because we're not measuring it correctly for mapped stuff
                     memory_usage = 0
                     peak_execution_time = 0
                     with open(temp_file, 'r') as result_file:
@@ -236,13 +257,10 @@ if str(args_input_database).lower() == "monetdb":
                     list.append(results[1], memory_usage)
                     list.append(results[2], peak_execution_time)
                 for i in range(0, len(results[0])):
-                    f.write(format_output(size, results[0][i], results[1][i], results[2][i]))
+                    f.write(format_output(size, results[0][i], results[2][i]))
                     f.flush()
             cursor.execute('drop table integers;')
         f.close()
-
-        #cursor.execute('drop function generate_integers');
-        #cursor.execute('drop function import_test');
         cursor.execute('rollback')
     elif str(args_test_type).lower() == "output":
         # output testing
@@ -258,6 +276,7 @@ if str(args_input_database).lower() == "monetdb":
             return integers
 
         cursor.execute(export_function(generate_output, ['float'], ['i integer'], table=True))
+        cursor.execute(export_function(generate_output, ['float'], ['i integer'], new_name="generate_output2", table=True, test=False))
 
         f = open(output_file + '.tsv', "w+")
         f.write(format_headers('[AXIS]:Data Size (MB)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
@@ -266,22 +285,7 @@ if str(args_input_database).lower() == "monetdb":
             mb.append(float(arguments[i]))
 
         for size in mb:
-            results = []
-            result_file = open(temp_file, 'w+')
-            result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
-            result_file.close();
-            for i in range(0,test_count):
-                start = time.time()
-                cursor.execute('select count(*) from generate_output(' + str(size) + ');');
-                cursor.fetchall();
-                end = time.time()
-                list.append(results, end - start)
-            result_file = open(temp_file, 'r')
-            result_file.readline()
-            for result in results:
-                pyapi_results = result_file.readline().translate(None, '\n').split('\t')
-                f.write(format_output(size, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
-                f.flush()
+            run_test("select count(*) from generate_output(" + str(size) + ");", "select count(*) from generate_output2(" + str(size) + ");", size)
         f.close()
 
         #cursor.execute('drop function generate_output');
@@ -312,6 +316,7 @@ if str(args_input_database).lower() == "monetdb":
             return(True)
 
         cursor.execute(export_function(import_test, ['string'], ['boolean']))
+        cursor.execute(export_function(import_test, ['string'], ['boolean'], new_name='import_test2', test=False))
 
         f = open(output_file + '.tsv', "w+")
         f.write(format_headers('[AXIS]:Data Size (MB)', '[AXIS]:String Length (Characters)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
@@ -322,23 +327,7 @@ if str(args_input_database).lower() == "monetdb":
             cursor.execute('CREATE TABLE strings(i string);')
             cursor.execute("COPY INTO strings FROM '%s';" % result_path)
             cursor.execute('INSERT INTO strings SELECT * FROM generate_strings_samelength(' + str(length) + ');')
-            #cursor.execute('create table strings as SELECT * FROM generate_strings_samelength(\'' + result_path + '\',' + str(length) + ') with data;')
-            results = []
-            result_file = open(temp_file, 'w+')
-            result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
-            result_file.close();
-            for i in range(0,test_count):
-                start = time.time()
-                cursor.execute('select import_test(i) from strings;');
-                cursor.fetchall();
-                end = time.time()
-                list.append(results, end - start)
-            result_file = open(temp_file, 'r')
-            result_file.readline()
-            for result in results:
-                pyapi_results = result_file.readline().translate(None, '\n').split('\t')
-                f.write(format_output(size, length, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
-                f.flush()
+            run_test('select import_test(i) from strings;', 'select import_test2(i) from strings;', size, length)
             cursor.execute('drop table strings;')
         f.close()
 
@@ -372,6 +361,7 @@ if str(args_input_database).lower() == "monetdb":
             return(True)
 
         cursor.execute(export_function(import_test, ['string'], ['boolean']))
+        cursor.execute(export_function(import_test, ['string'], ['boolean'], new_name='import_test2', test=False))
 
         f = open(output_file + '.tsv', "w+")
         f.write(format_headers('[AXIS]:(Strings)', '[AXIS]:Extreme Length (Characters)', '[MEASUREMENT]:Total Time (s)', '[MEASUREMENT]:PyAPI Memory (MB)', '[MEASUREMENT]:PyAPI Time (s)'))
@@ -383,24 +373,8 @@ if str(args_input_database).lower() == "monetdb":
             cursor.execute('CREATE TABLE strings(i string);')
             cursor.execute("COPY INTO strings FROM '%s';" % result_path)
             cursor.execute('INSERT INTO strings SELECT * FROM generate_strings_extreme(' + str(str_len) + ');')
-            #print('create table strings as SELECT * FROM generate_strings_extreme(\'' + result_path + '\',' + str(str_len) + ') with data;')
-            results = []
-            result_file = open(temp_file, 'w+')
-            result_file.write("Peak Memory Usage (Bytes)\tExecution Time (s)\n")
-            result_file.close();
-            for i in range(0,test_count):
-                start = time.time()
-                cursor.execute('select import_test(i) from strings;');
-                cursor.fetchall();
-                end = time.time()
-                list.append(results, end - start)
-            result_file = open(temp_file, 'r')
-            result_file.readline()
-            for result in results:
-                pyapi_results = result_file.readline().translate(None, '\n').split('\t')
-                f.write(format_output(str_count, str_len, result, float(pyapi_results[0]) / 1000**2, pyapi_results[1]))
-                f.flush()
-            cursor.execute('drop table strings;')
+            run_test('select import_test(i) from strings;', 'select import_test2(i) from strings;', str_count, str_len)
+            cursor.execute('DROP TABLE strings;')
         f.close()
 
         #cursor.execute('drop function generate_strings_extreme');
@@ -478,7 +452,7 @@ if str(args_input_database).lower() == "monetdb":
             def pyquantile(i, j):
                 return numpy.percentile(i, j * 100)
 
-            cursor.execute(export_function(pyquantile, ['double', 'double'], ['double']))
+            cursor.execute(export_function(pyquantile, ['double', 'double'], ['double'], test=False))
             quantile_function = "pyquantile"
         elif str(args_test_type).lower() == "rquantile":
             cursor.execute("CREATE FUNCTION rquantile(v double, q double) RETURNS double LANGUAGE R { quantile(v,q) };");
