@@ -390,7 +390,7 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
     bool disable_testing = false;
     unsigned long long peak_memory_usage = 0;
 #endif
-
+    PyGILState_STATE gstate = 0;
     int j;
     size_t iu;
 
@@ -723,6 +723,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         }
 #endif
     }
+
+    //After this point we will execute Python Code, so we need to acquire the GIL
+    gstate = PyGILState_Ensure();
 
     /*[PARSE_CODE]*/
     VERBOSE_MESSAGE("Formatting python code.\n"); 
@@ -1067,6 +1070,9 @@ str PyAPIeval(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, bit mapped
         // Exit without an error code
         exit(0);
     }
+    // We are done executing Python code (aside from cleanup), so we can release the GIL
+    PyGILState_Release(gstate);
+    gstate = 0;
 returnvalues:
 #endif
     /*[RETURN_VALUES]*/
@@ -1161,6 +1167,11 @@ returnvalues:
         PyInput *inp = &pyinput_values[i - (pci->retc + 2)];
         if (inp->bat != NULL) BBPunfix(inp->bat->batCacheid);
     }
+    if (pResult != NULL && gstate == 0) {
+        //if there is a pResult here, we are running single threaded (LANGUAGE PYTHON), 
+        //thus we need to free python objects, thus we need to obtain the GIL
+        gstate = PyGILState_Ensure();
+    }
     for (i = 0; i < pci->retc; i++) {
         PyReturn *ret = &pyreturn_values[i];
         // First clean up any return values
@@ -1179,6 +1190,9 @@ returnvalues:
     }
     if (pResult != NULL) { 
         Py_DECREF(pResult);
+    }
+    if (gstate != 0) {
+        PyGILState_Release(gstate);
     }
 
     // Now release some GDK memory we allocated for strings and input values
@@ -1235,6 +1249,7 @@ str
             import_array1(iar);
             initialize_shared_memory();
             lazyarray_init();
+            PyEval_SaveThread();
             pyapiInitialized++;
         }
         MT_lock_unset(&pyapiLock, "pyapi.evaluate");
