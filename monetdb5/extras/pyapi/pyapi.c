@@ -868,6 +868,21 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         // The function has been successfully created/compiled, all that remains is to actually call the function
         pResult = PyObject_CallObject(pFunc, pArgs);
 
+        {
+            //check the _values dictionary to see if any of the stored values are input values
+            PyObject *key, *value;
+            Py_ssize_t pos = 0;
+            while (PyDict_Next(pDict, &pos, &key, &value)) {
+                for(i = 0; i < pci->argc - (pci->retc + 2); i ++) {
+                    PyObject *arg = PyTuple_GetItem(pArgs, i);
+                    if (arg == value) {
+                        msg = createException(MAL, "pyapi.eval", "You cannot directly store input arguments in the _values dictionary, instead use _values[key] = numpy.copy(input).");
+                        goto wrapup;
+                    }
+                }
+            }
+        }
+
         Py_DECREF(pFunc);
         Py_DECREF(pArgs);
         Py_DECREF(pColumns);
