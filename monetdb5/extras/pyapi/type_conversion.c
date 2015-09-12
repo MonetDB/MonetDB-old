@@ -81,7 +81,7 @@ int hge_to_string(char * str, hge x)
         size++;
     }
     if (x < 0) size++;
-    if (x < 0) 
+    if (x < 0)
     {
         x *= -1;
         str[0] = '-';
@@ -134,7 +134,7 @@ bool s_to_lng(char *ptr, size_t size, lng *value)
             case '.':
             case ',': *value = 0; factor = 1; continue;
             case '\0': continue;
-            default: 
+            default:
             {
                 return false;
             }
@@ -169,7 +169,7 @@ bool s_to_hge(char *ptr, size_t size, hge *value)
             case '.':
             case ',': *value = 0; factor = 1; continue;
             case '\0': continue;
-            default: 
+            default:
             {
                 return false;
             }
@@ -281,7 +281,7 @@ bool utf32_to_dbl(Py_UNICODE *utf32, size_t maxsize, dbl *value)
 #ifdef HAVE_HGE
 bool utf32_to_hge(Py_UNICODE *utf32, size_t maxsize, hge *value)
 {
-    size_t length = utf32_strlen(utf32) + 1;    
+    size_t length = utf32_strlen(utf32) + 1;
     char utf8[200];
     if (length > maxsize) length = maxsize;
     utf32_to_utf8(0, maxsize, utf8, utf32);
@@ -405,8 +405,8 @@ bool py_to_dbl(PyObject *ptr, dbl *value)
         if (!py_to_##strval(*((PyObject**)ptr), &val)) return false;         \
         *value = (tpe)val;                                         \
         return true;                                               \
-    }                       
-    
+    }
+
 CONVERSION_FUNCTION_FACTORY(bit, lng)
 CONVERSION_FUNCTION_FACTORY(sht, lng)
 CONVERSION_FUNCTION_FACTORY(int, lng)

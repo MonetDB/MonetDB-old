@@ -10,13 +10,13 @@
 #include <string.h>
 
 #include <sys/types.h>
-#include <sys/ipc.h> 
-#include <sys/shm.h> 
+#include <sys/ipc.h>
+#include <sys/shm.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <fcntl.h> 
+#include <fcntl.h>
 #include <sched.h>
 #include <errno.h>
 #include <sys/sem.h>
@@ -42,7 +42,7 @@ str initialize_shared_memory(void)
 {
 	if (shm_is_initialized) //maybe this should just return MAL_SUCCEED as well
         return createException(MAL, "shared_memory.init", "Attempting to initialize shared memory when it was already initialized.");
-                
+
     //initialize the pointer to memory ID structure
 	shm_ptrs = malloc(shm_max_id * sizeof(void*));
 	shm_memory_ids = malloc(shm_max_id * sizeof(int));
@@ -310,7 +310,7 @@ int get_unique_shared_memory_id(int offset)
     (void) offset;
     NOTIMPLEMENTED();
     return -1;
-}  
+}
 
 str get_shared_memory(int id, size_t size, void **return_ptr)
 {

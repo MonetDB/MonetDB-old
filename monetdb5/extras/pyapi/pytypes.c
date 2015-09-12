@@ -15,21 +15,21 @@
 #include "mal_linker.h"
 #include "gdk_utils.h"
 #include "gdk.h"
- 
+
 bool PyType_IsInteger(int type)
 {
     switch (type)
     {
         case NPY_BOOL:
-        case NPY_BYTE: 
-        case NPY_SHORT: 
-        case NPY_INT: 
-        case NPY_LONG: 
-        case NPY_LONGLONG: 
+        case NPY_BYTE:
+        case NPY_SHORT:
+        case NPY_INT:
+        case NPY_LONG:
+        case NPY_LONGLONG:
         case NPY_UBYTE:
-        case NPY_USHORT: 
+        case NPY_USHORT:
         case NPY_UINT:
-        case NPY_ULONG: 
+        case NPY_ULONG:
         case NPY_ULONGLONG: return true;
         default: return false;
     }
@@ -39,7 +39,7 @@ bool PyType_IsFloat(int type)
 {
     switch (type)
     {
-        case NPY_FLOAT16: 
+        case NPY_FLOAT16:
         case NPY_FLOAT: return true;
         default: return false;
     }
@@ -113,16 +113,16 @@ int PyType_ToBat(int type)
         case NPY_BYTE: return TYPE_bte;
         case NPY_SHORT: return TYPE_sht;
         case NPY_INT: return TYPE_int;
-        case NPY_LONG: 
+        case NPY_LONG:
         case NPY_LONGLONG: return TYPE_lng;
         case NPY_UBYTE:
-        case NPY_USHORT: 
+        case NPY_USHORT:
         case NPY_UINT:
-        case NPY_ULONG: 
+        case NPY_ULONG:
         case NPY_ULONGLONG: return TYPE_void;
-        case NPY_FLOAT16: 
+        case NPY_FLOAT16:
         case NPY_FLOAT: return TYPE_flt;
-        case NPY_DOUBLE: 
+        case NPY_DOUBLE:
         case NPY_LONGDOUBLE: return TYPE_dbl;
         case NPY_STRING: return TYPE_str;
         case NPY_UNICODE: return TYPE_str;

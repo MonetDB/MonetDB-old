@@ -29,7 +29,7 @@
 // This describes return values, used in multiprocessing to tell the main process the size of the shared memory to allocate
 struct _ReturnBatDescr
 {
-    int npy_type;                        //npy type 
+    int npy_type;                        //npy type
     size_t element_size;                 //element size in bytes
     size_t bat_count;                    //number of elements in bat
     size_t bat_size;                     //bat size in bytes
