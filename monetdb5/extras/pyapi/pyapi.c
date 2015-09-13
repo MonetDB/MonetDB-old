@@ -719,7 +719,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                 ret->multidimensional = FALSE;
                 if (has_mask)
                 {
-                    lng mask_size = ret->count * sizeof(bool);
+                    size_t mask_size = ret->count * sizeof(bool);
 
                     assert(mask_size > 0);
                     MT_lock_set(&pyapiLock, "pyapi.evaluate");
@@ -1384,34 +1384,17 @@ static char *PyError_CreateException(char *error_text, char *pycall)
         py_error_string = PyString_AS_STRING(error);
         Py_XDECREF(error);
         if (pycall != NULL && strlen(pycall) > 0) {
-            // If pycall is given, we try to parse the line number from the error string and format pycall so it only displays the lines around the line number
-            // (This code is pretty ugly, sorry)
-            char line[] = "line ";
-            char linenr[32]; //we only support functions with at most 10^32 lines, mostly out of philosophical reasons
-            size_t i = 0, j = 0, pos = 0, nrpos = 0;
-
-            // First parse the line number from py_error_string
-            for(i = 0; i < strlen(py_error_string); i++) {
-                if (pos < strlen(line)) {
-                    if (py_error_string[i] == line[pos]) {
-                        pos++;
-                    }
-                } else {
-                    if (py_error_string[i] == '0' || py_error_string[i] == '1' || py_error_string[i] == '2' ||
-                        py_error_string[i] == '3' || py_error_string[i] == '4' || py_error_string[i] == '5' ||
-                        py_error_string[i] == '6' || py_error_string[i] == '7' || py_error_string[i] == '8' || py_error_string[i] == '9') {
-                        linenr[nrpos++] = py_error_string[i];
-                    }
-                }
-            }
-            linenr[nrpos] = '\0';
-            if (!str_to_lng(linenr, nrpos, &line_number)) {
-                // No line number in the error, so just display a normal error
+            if (py_error_traceback == NULL) {
+                //no traceback info, display normal error
                 goto finally;
-            }
+            } 
+
+            line_number = ((PyTracebackObject*)py_error_traceback)->tb_lineno;
 
             // Now only display the line numbers around the error message, we display 5 lines around the error message
             {
+                char linenr[32];
+                size_t nrpos, pos, i, j;
                 char lineinformation[5000]; //we only support 5000 characters for 5 lines of the program, should be enough
                 nrpos = 0; // Current line number
                 pos = 0; //Current position in the lineinformation result array
