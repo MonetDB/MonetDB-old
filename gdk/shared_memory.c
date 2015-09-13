@@ -6,6 +6,7 @@
 #include "gdk.h"
 #include "gdk_private.h"
 #include "../monetdb5/mal/mal_exception.h"
+#include "mutils.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -106,21 +107,42 @@ int get_unique_shared_memory_id(int offset)
 	return id;
 }
 
-#define VERBOSE_MESSAGE(...) {              \
-    printf(__VA_ARGS__);                    \
-    fflush(stdout);                        \
-}
-
 str init_mmap_memory(int id, size_t size, void **return_ptr, int flags)
 {   
     char address[100];
     void *ptr;
+    int fd, result;
     snprintf(address, 100, "/tmp/temp_pyapi_mmap_%d", id);
-    (void) flags;
 
-    ptr = GDKmmap(address, MMAP_READ | MMAP_WRITE | MMAP_SEQUENTIAL | MMAP_SYNC, size);
-    if (ptr == NULL) {
-        return createException(MAL, "mmap.init", "Failure in GDKmmap(\"%s\",mode,%zu).", address, size);
+    fd = open(address, flags | O_RDWR, MONETDB_MODE);
+    if (fd < 0) {
+        char *err = strerror(errno);
+        errno = 0;
+        close(fd);
+        return createException(MAL, "shared_memory.get", "Could not create mmap file %s: %s", address, err);
+    }
+    if (flags != 0) {
+        result = lseek(fd, size - 1, SEEK_SET);
+        if (result == -1) {
+            char *err = strerror(errno);
+            errno = 0;
+            close(fd);
+            return createException(MAL, "shared_memory.get", "Failed to extend mmap file: %s", err);
+        }
+        result = write(fd, "", 1);
+        if (result != 1) {
+            char *err = strerror(errno);
+            errno = 0;
+            close(fd);
+            return createException(MAL, "shared_memory.get", "Failed to write to mmap file: %s", err);
+        }
+    }
+    ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    close(fd);
+    if (ptr == (void*) -1) {
+        char *err = strerror(errno);
+        errno = 0;
+        return createException(MAL, "shared_memory.get", "Failure in mmap(NULL, %zu, PROT_WRITE, MAP_SHARED, %d, 0): %s", size, fd, err);
     }
     store_shared_memory(size, ptr);
     if (return_ptr != NULL) *return_ptr = ptr;
@@ -129,8 +151,12 @@ str init_mmap_memory(int id, size_t size, void **return_ptr, int flags)
 
 str release_mmap_memory(void *ptr, size_t size)
 {
-    if (GDKmunmap(ptr, size) != GDK_SUCCEED) {
-        return createException(MAL, "mmap.release", "Failure in GDKmunmap(%p,%zu)", ptr, size);
+    int ret;
+    ret = munmap(ptr, size);
+    if (ret != 0) {
+        char *err = strerror(errno);
+        errno = 0;
+        return createException(MAL, "shared_memory.release_mmap_memory", "Failure in munmap(%p,%zu): %s", ptr, size, err);
     }
     return MAL_SUCCEED;
 }
@@ -138,7 +164,7 @@ str release_mmap_memory(void *ptr, size_t size)
 str create_shared_memory(int id, size_t size, void **return_ptr)
 {
     char *shared, *mmap;
-	if ((shared = init_shared_memory(id, size, return_ptr, IPC_CREAT)) == MAL_SUCCEED) return MAL_SUCCEED;
+    if ((shared = init_shared_memory(id, size, return_ptr, IPC_CREAT)) == MAL_SUCCEED) return MAL_SUCCEED;
     if ((mmap = init_mmap_memory(id, size, return_ptr, O_CREAT)) == MAL_SUCCEED) return MAL_SUCCEED;
     return createException(MAL, "shared_memory.release_mmap_memory", "Failed to create shared memory or mmap space.\nshared memory error: %s\nmmap error: %s", shared, mmap);
 }

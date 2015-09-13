@@ -413,7 +413,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     int shm_id = -1;
     int sem_id = -1;
     int process_id = 0;
-    int memory_size = 0;
+    size_t memory_size = 0;
     int process_count = 0;
 #endif
 #ifdef _PYAPI_TESTING_
@@ -669,7 +669,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
             for(i = 0; i < pci->retc; i++)
             {
                 PyReturn *ret = &pyreturn_values[i];
-                int total_size = 0;
+                size_t total_size = 0;
                 bool has_mask = false;
                 ret->count = 0;
                 ret->memory_size = 0;
@@ -699,7 +699,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                 }
 
                 //get the shared memory address for this return value
-                VERBOSE_MESSAGE("Parent requesting memory at id %d of size %d\n", shm_id + (i + 1), total_size);
+                VERBOSE_MESSAGE("Parent requesting memory at id %d of size %zu\n", shm_id + (i + 1), total_size);
 
                 assert(total_size > 0);
                 MT_lock_set(&pyapiLock, "pyapi.evaluate");
@@ -719,7 +719,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                 ret->multidimensional = FALSE;
                 if (has_mask)
                 {
-                    int mask_size = ret->count * sizeof(bool);
+                    lng mask_size = ret->count * sizeof(bool);
 
                     assert(mask_size > 0);
                     MT_lock_set(&pyapiLock, "pyapi.evaluate");
@@ -1022,8 +1022,8 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
             // Since we are the last process, it is our job to create the shared memory for each of the return values
             for (i = 0; i < pci->retc; i++)
             {
-                int return_size = 0;
-                int mask_size = 0;
+                size_t return_size = 0;
+                size_t mask_size = 0;
                 bool has_mask = false;
                 // Now we will count the size of the return values for each of the processes
                 for(j = 0; j < process_count; j++)
@@ -1035,7 +1035,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                 }
                 assert(return_size > 0);
                 // Then we allocate the shared memory for this return value
-                VERBOSE_MESSAGE("Child creating shared memory at id %d of size %d\n", shm_id + (i + 1), return_size);
+                VERBOSE_MESSAGE("Child creating shared memory at id %d of size %zu\n", shm_id + (i + 1), return_size);
                 if (create_shared_memory(shm_id + (i + 1), return_size, NULL) != MAL_SUCCEED)
                 {
                     msg = createException(MAL, "pyapi.eval", "Failed to allocate shared memory for returning data.\n");
@@ -1088,10 +1088,10 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
             char *mem_ptr;
             PyReturn *ret = &pyreturn_values[i];
             // First we compute the position where we will start writing in shared memory by looking at the processes before us
-            int start_size = 0;
-            int return_size = 0;
-            int mask_size = 0;
-            int mask_start = 0;
+            size_t start_size = 0;
+            size_t return_size = 0;
+            size_t mask_size = 0;
+            size_t mask_start = 0;
             bool has_mask = false;
             for(j = 0; j < process_count; j++)
             {
