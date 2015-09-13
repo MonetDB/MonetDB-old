@@ -3,6 +3,8 @@
 
 #ifndef _WIN32
 
+#include "gdk.h"
+#include "gdk_private.h"
 #include "../monetdb5/mal/mal_exception.h"
 
 #include <stdlib.h>
@@ -21,7 +23,7 @@
 #include <errno.h>
 #include <sys/sem.h>
 
-static int *shm_memory_ids;
+static lng *shm_memory_ids;
 static void **shm_ptrs;
 static int shm_unique_id = 1;
 static int shm_current_id = 0;
@@ -33,8 +35,11 @@ static key_t base_key = 800000000;
 
 
 str init_shared_memory(int id, size_t size, void **ptr, int flags);
-void store_shared_memory(int memory_id, void *ptr);
+void store_shared_memory(lng memory_id, void *ptr);
 str release_shared_memory_id(int memory_id, void *ptr);
+
+str init_mmap_memory(int id, size_t size, void **ptr, int flags);
+str release_mmap_memory(void *ptr, size_t size);
 
 int init_process_semaphore(int id, int count, int flags);
 
@@ -45,7 +50,7 @@ str initialize_shared_memory(void)
 
     //initialize the pointer to memory ID structure
 	shm_ptrs = malloc(shm_max_id * sizeof(void*));
-	shm_memory_ids = malloc(shm_max_id * sizeof(int));
+	shm_memory_ids = malloc(shm_max_id * sizeof(lng));
 	shm_current_id = 0;
 	shm_max_id = 32;
 	shm_unique_id = 2;
@@ -56,7 +61,7 @@ str initialize_shared_memory(void)
     return MAL_SUCCEED;
 }
 
-void store_shared_memory(int memory_id, void *ptr)
+void store_shared_memory(lng memory_id, void *ptr)
 {
     int i;
 
@@ -76,10 +81,10 @@ void store_shared_memory(int memory_id, void *ptr)
 	if (shm_current_id >= shm_max_id)
 	{
 		void **new_ptrs = malloc(shm_max_id * 2 * sizeof(void*));
-		int *new_memory_ids = malloc(shm_max_id * 2 * sizeof(int));
+		lng *new_memory_ids = malloc(shm_max_id * 2 * sizeof(lng));
 
 		memcpy(new_ptrs, shm_ptrs, sizeof(void*) * shm_max_id);
-		memcpy(new_memory_ids, shm_memory_ids, sizeof(int) * shm_max_id);
+		memcpy(new_memory_ids, shm_memory_ids, sizeof(lng) * shm_max_id);
 
 		free(shm_ptrs); free(shm_memory_ids);
 		shm_ptrs = new_ptrs; shm_memory_ids = new_memory_ids;
@@ -101,14 +106,49 @@ int get_unique_shared_memory_id(int offset)
 	return id;
 }
 
+#define VERBOSE_MESSAGE(...) {              \
+    printf(__VA_ARGS__);                    \
+    fflush(stdout);                        \
+}
+
+str init_mmap_memory(int id, size_t size, void **return_ptr, int flags)
+{   
+    char address[100];
+    void *ptr;
+    snprintf(address, 100, "/tmp/temp_pyapi_mmap_%d", id);
+    (void) flags;
+
+    ptr = GDKmmap(address, MMAP_READ | MMAP_WRITE | MMAP_SEQUENTIAL | MMAP_SYNC, size);
+    if (ptr == NULL) {
+        return createException(MAL, "mmap.init", "Failure in GDKmmap(\"%s\",mode,%zu).", address, size);
+    }
+    store_shared_memory(size, ptr);
+    if (return_ptr != NULL) *return_ptr = ptr;
+    return MAL_SUCCEED;
+}
+
+str release_mmap_memory(void *ptr, size_t size)
+{
+    if (GDKmunmap(ptr, size) != GDK_SUCCEED) {
+        return createException(MAL, "mmap.release", "Failure in GDKmunmap(%p,%zu)", ptr, size);
+    }
+    return MAL_SUCCEED;
+}
+
 str create_shared_memory(int id, size_t size, void **return_ptr)
 {
-	return init_shared_memory(id, size, return_ptr, IPC_CREAT);
+    char *shared, *mmap;
+	if ((shared = init_shared_memory(id, size, return_ptr, IPC_CREAT)) == MAL_SUCCEED) return MAL_SUCCEED;
+    if ((mmap = init_mmap_memory(id, size, return_ptr, O_CREAT)) == MAL_SUCCEED) return MAL_SUCCEED;
+    return createException(MAL, "shared_memory.release_mmap_memory", "Failed to create shared memory or mmap space.\nshared memory error: %s\nmmap error: %s", shared, mmap);
 }
 
 str get_shared_memory(int id, size_t size, void **return_ptr)
 {
-	return init_shared_memory(id, size, return_ptr, 0);
+    char *shared, *mmap;
+    if ((shared = init_shared_memory(id, size, return_ptr, 0)) == MAL_SUCCEED) return MAL_SUCCEED;
+    if ((mmap = init_mmap_memory(id, size, return_ptr, 0)) == MAL_SUCCEED) return MAL_SUCCEED;
+    return createException(MAL, "shared_memory.release_mmap_memory", "Failed to get shared memory or mmap space.\nshared memory error: %s\nmmap error: %s", shared, mmap);
 }
 
 str ftok_enhanced(int id, key_t *return_key);
@@ -120,12 +160,13 @@ str ftok_enhanced(int id, key_t *return_key)
 
 str init_shared_memory(int id, size_t size, void **return_ptr, int flags)
 {
-    int shmid;
+    lng shmid;
     void *ptr;
     int i;
     key_t key;
+    str msg;
 
-	str msg = ftok_enhanced(id, &key);
+	msg = ftok_enhanced(id, &key);
     if (msg != MAL_SUCCEED)
     {
         return msg;
@@ -156,7 +197,7 @@ str init_shared_memory(int id, size_t size, void **return_ptr, int flags)
     {
         char *err = strerror(errno);
         errno = 0;
-        return createException(MAL, "shared_memory.get", "Error calling shmat(id:%d,NULL,0): %s", shmid, err);
+        return createException(MAL, "shared_memory.get", "Error calling shmat(id:%lld,NULL,0): %s", shmid, err);
     }
 
     store_shared_memory(shmid, ptr);
@@ -187,7 +228,9 @@ str release_shared_memory(void *ptr)
 
 	assert(memory_id);
 	//actually release the memory at the given ID
-	return release_shared_memory_id(memory_id, ptr);
+	if (release_shared_memory_id(memory_id, ptr) == MAL_SUCCEED) return MAL_SUCCEED;
+    if (release_mmap_memory(ptr, memory_id) == MAL_SUCCEED) return MAL_SUCCEED;
+    return createException(MAL, "shared_memory.release", "Failed to release shared memory.");
 }
 
 str release_shared_memory_id(int memory_id, void *ptr)
