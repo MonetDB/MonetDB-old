@@ -158,19 +158,19 @@ if str(args_input_database).lower() == "monetdb":
 
     def run_test(testcommand, testcommand_nomem, *measurements):
         if hot_test: cursor.execute(testcommand_nomem) #run the test once to warm up
+        if testcommand != None:
+            # clear the result file
+            result_file = open(temp_file, 'w+')
+            result_file.close()
+            # run the command
+            cursor.execute(testcommand)
+            # now read the memory value from the file
+            result_file = open(temp_file, 'r')
+            pyapi_results = result_file.readline().translate(None, '\n').split('\t')
+            result_file.close()
+            memory = float(pyapi_results[0]) / 1000**2
         for i in range(0,test_count):
             total_time, memory, pyapi_time = 0, 0, 0
-            if testcommand != None:
-                # clear the result file
-                result_file = open(temp_file, 'w+')
-                result_file.close()
-                # run the command
-                cursor.execute(testcommand)
-                # now read the memory value from the file
-                result_file = open(temp_file, 'r')
-                pyapi_results = result_file.readline().translate(None, '\n').split('\t')
-                result_file.close()
-                memory = float(pyapi_results[0]) / 1000**2
             # now run the normal test (with malloc tracking disabled)
             result_file = open(temp_file, 'w+')
             result_file.close()
