@@ -41,7 +41,7 @@ Ready.
 #};
 #SELECT pyapi02(i,j,2) as r02 FROM rval;
 % sys.L # table_name
-% r02 # name
+% pyapi02_i # name
 % int # type
 % 2 # length
 [ 20	]
@@ -49,6 +49,17 @@ Ready.
 [ 60	]
 [ 80	]
 #DROP FUNCTION pyapi02;
+#CREATE FUNCTION pyapi02(i integer) returns integer
+#language P
+#{
+#	return numpy.min(i)
+#};
+#SELECT pyapi02(i) FROM rval;
+% sys.L # table_name
+% pyapi02_i # name
+% int # type
+% 1 # length
+[ 1	]
 #DROP TABLE rval;
 #ROLLBACK;
 

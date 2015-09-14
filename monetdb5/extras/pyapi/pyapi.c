@@ -1365,7 +1365,7 @@ str
 bool PyType_IsPyScalar(PyObject *object)
 {
     if (object == NULL) return false;
-    return (PyInt_Check(object) || PyFloat_Check(object) || PyLong_Check(object) || PyString_Check(object) || PyBool_Check(object) || PyUnicode_Check(object) || PyByteArray_Check(object));
+    return (PyArray_CheckScalar(object) || PyInt_Check(object) || PyFloat_Check(object) || PyLong_Check(object) || PyString_Check(object) || PyBool_Check(object) || PyUnicode_Check(object) || PyByteArray_Check(object));
 }
 
 
@@ -1373,7 +1373,7 @@ static char *PyError_CreateException(char *error_text, char *pycall)
 {
     PyObject *py_error_type = NULL, *py_error_value = NULL, *py_error_traceback = NULL;
     char *py_error_string = NULL;
-    lng line_number;
+    lng line_number = -1;
 
     PyErr_Fetch(&py_error_type, &py_error_value, &py_error_traceback);
     if (py_error_value) {
@@ -1385,11 +1385,13 @@ static char *PyError_CreateException(char *error_text, char *pycall)
         Py_XDECREF(error);
         if (pycall != NULL && strlen(pycall) > 0) {
             if (py_error_traceback == NULL) {
-                //no traceback info, display normal error
-                goto finally;
-            } 
-
-            line_number = ((PyTracebackObject*)py_error_traceback)->tb_lineno;
+                //no traceback info, this means we are dealing with a parsing error
+                //line information should be in the error message
+                sscanf(py_error_string, "%*[^0-9]%llu", &line_number);
+                if (line_number < 0) goto finally;
+            } else {
+                line_number = ((PyTracebackObject*)py_error_traceback)->tb_lineno;
+            }
 
             // Now only display the line numbers around the error message, we display 5 lines around the error message
             {

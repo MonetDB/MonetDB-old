@@ -22,3 +22,25 @@ DROP AGGREGATE aggrmedian;
 DROP TABLE rval;
 
 ROLLBACK;
+
+# Aggregation on multiple columns
+START TRANSACTION;
+
+CREATE TABLE rval(groupcol integer, secondgroupcol integer, datacol integer);
+INSERT INTO rval VALUES (0, 0, 1), (0, 0, 2), (0, 1, 3), (0, 1, 4), (1, 0, 5), (1, 0, 6), (1, 1, 7), (1, 1, 8);
+
+CREATE AGGREGATE aggrsum(val integer) RETURNS integer LANGUAGE P {
+	unique = numpy.unique(aggr_group)
+	x = numpy.zeros(shape=(unique.size))
+	for i in range(0, unique.size):
+		x[i] = numpy.sum(val[aggr_group==unique[i]])
+	return x
+};
+
+SELECT groupcol,secondgroupcol,aggrsum(datacol) FROM rval GROUP BY groupcol,secondgroupcol;
+
+
+DROP AGGREGATE aggrsum;
+DROP TABLE rval;
+
+ROLLBACK;

@@ -31,15 +31,15 @@ stderr of test 'pyapi10` in directory 'sql/backends/monet5` itself:
 # 15:32:31 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-27693" "--port=33372"
 # 15:32:31 >  
 
-MAPI  = (monetdb) /var/tmp/mtest-11526/.s.monetdb.32079
+MAPI  = (monetdb) /var/tmp/mtest-15243/.s.monetdb.38589
 QUERY = SELECT AVG(pyapi10_error(i,j)) FROM pyapi10_random_table_nulls(5000);
 ERROR = !MALException:pyapi.eval:Could not parse Python code
         !  
-        !  1. def pyfun(i,j):
+        !  1. def pyfun(i,j,_columns,_column_types,_values):
         !> 2.     return(i*j 
         !  3. 
         !invalid syntax (<string>, line 2)
-MAPI  = (monetdb) /var/tmp/mtest-11526/.s.monetdb.32079
+MAPI  = (monetdb) /var/tmp/mtest-15243/.s.monetdb.38589
 QUERY = SELECT AVG(pyapi10_indentation_error(i,j)) FROM pyapi10_random_table_nulls(5000);
 ERROR = !MALException:pyapi.eval:Could not parse Python code
         !  7.     f = 6

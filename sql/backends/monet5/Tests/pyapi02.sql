@@ -10,8 +10,17 @@ language P
     return(x);
 };
 
-SELECT pyapi02(i,j,2) as r02 FROM rval;
+SELECT pyapi02(i,j,2) FROM rval;
 DROP FUNCTION pyapi02;
+
+CREATE FUNCTION pyapi02(i integer) returns integer
+language P
+{
+	return numpy.min(i)
+};
+
+SELECT pyapi02(i) FROM rval;
+
 DROP TABLE rval;
 
 ROLLBACK;

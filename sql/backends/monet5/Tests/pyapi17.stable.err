@@ -31,13 +31,13 @@ stderr of test 'pyapi17` in directory 'sql/backends/monet5` itself:
 # 18:29:27 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-4853" "--port=37688"
 # 18:29:27 >  
 
-MAPI  = (monetdb) /var/tmp/mtest-5177/.s.monetdb.38806
+MAPI  = (monetdb) /var/tmp/mtest-15243/.s.monetdb.38589
 QUERY = SELECT * FROM pyapi17();
-ERROR = !An array of size 2 was returned, yet we expect a list of 1 columns. The result is invalid.
-MAPI  = (monetdb) /var/tmp/mtest-5177/.s.monetdb.38806
+ERROR = !Error converting dict return value "a": MALException:pyapi.eval:An array of size 2 was returned, yet we expect a list of 1 columns. The result is invalid..
+MAPI  = (monetdb) /var/tmp/mtest-15243/.s.monetdb.38589
 QUERY = SELECT * FROM pyapi17();
 ERROR = !Expected a return value with name "c", but this key was not present in the dictionary.
-MAPI  = (monetdb) /var/tmp/mtest-5177/.s.monetdb.38806
+MAPI  = (monetdb) /var/tmp/mtest-15243/.s.monetdb.38589
 QUERY = SELECT pyapi17(i) FROM integers;
 ERROR = !Expected a return value with name "result", but this key was not present in the dictionary.
 
