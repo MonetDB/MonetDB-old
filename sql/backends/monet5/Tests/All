@@ -18,6 +18,9 @@ HAVE_LIBPY?pyapi16
 HAVE_LIBPY?pyapi17
 HAVE_LIBPY?pyapi18
 HAVE_LIBPY?pyapi19
+HAVE_LIBPY?pyapi20
+HAVE_LIBPY?pyapi21
+HAVE_LIBPY?pyapi22
 
 #HAVE_LIBR?rapi00
 #HAVE_LIBR?rapi01
@@ -31,9 +34,9 @@ HAVE_LIBPY?pyapi19
 #HAVE_LIBR?rapi09
 #HAVE_LIBR?rapi10
 #HAVE_LIBR?rapi12
-HAVE_LIBR?rapi13
-HAVE_LIBR?rapi14
-HAVE_LIBR?rapi15
+#HAVE_LIBR?rapi13
+#HAVE_LIBR?rapi14
+#HAVE_LIBR?rapi15
 
 # should this work?
 #inlineUDF
