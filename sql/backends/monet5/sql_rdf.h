@@ -70,4 +70,6 @@ extern PsoPropStat *pso_propstat;
 
 #define HANDLING_EXCEPTION 1
 
+#define RDF_HANDLING_EXCEPTION_MISSINGPROP_OPT 1
+
 #endif /*_SQL_RDF_H */

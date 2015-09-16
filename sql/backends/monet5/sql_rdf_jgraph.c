@@ -1093,12 +1093,18 @@ spProps *init_sp_props(int num){
 	spprops->subj = BUN_NONE; 
 	spprops->lstProps = (char **) GDKmalloc(sizeof(char *) * num); 
 	spprops->lstPropIds = (oid *) GDKmalloc(sizeof(oid) * num); 
+	spprops->lst_o_constraints = (o_constraint *) GDKmalloc(sizeof(o_constraint) * num); 
+	spprops->lstPOs = (sp_po *) GDKmalloc(sizeof(sp_po) * num); 
 
 	for (i = 0; i < num; i++){
 		spprops->lstProps[i] = NULL; 
 		spprops->lstPropIds[i] = BUN_NONE; 
+		spprops->lst_o_constraints[i].cmp_type = -1; 
+		spprops->lst_o_constraints[i].low = BUN_NONE; 
+		spprops->lst_o_constraints[i].hi = BUN_NONE; 
+		
+		spprops->lstPOs[i] = NAV; 
 	}
-	spprops->lstPOs = (sp_po *) GDKmalloc(sizeof(sp_po) * num); 
 	spprops->lstctype = (ctype *) GDKmalloc(sizeof(ctype) * num); 
 
 	return spprops; 
@@ -1133,9 +1139,17 @@ static
 void print_spprops(spProps *spprops){
 	int i; 
 	
-	printf("List of properties: \n");
+	printf("List of properties from spProps: \n");
 	for (i = 0; i < spprops->num; i++){
-		printf("%s (Id: "BUNFMT ")\n" ,spprops->lstProps[i], spprops->lstPropIds[i]);	
+		printf("%s (Id: "BUNFMT "): " ,spprops->lstProps[i], spprops->lstPropIds[i]);	
+		if (spprops->lstPOs[i] == REQUIRED) printf("[REQUIRED]"); 
+		else printf("[NAV]");
+		
+		if (spprops->lst_o_constraints[i].low != BUN_NONE) printf(" [low = "BUNFMT"]", spprops->lst_o_constraints[i].low);
+		if (spprops->lst_o_constraints[i].hi != BUN_NONE) printf(" [hi = "BUNFMT"]", spprops->lst_o_constraints[i].hi);
+
+		printf("\n");
+		
 	}
 	printf("\n"); 
 }
@@ -1150,6 +1164,7 @@ void free_sp_props(spProps *spprops){
 	GDKfree(spprops->lstPropIds);
 	GDKfree(spprops->lstPOs); 
 	GDKfree(spprops->lstctype);
+	GDKfree(spprops->lst_o_constraints);
 	GDKfree(spprops); 
 }
 
@@ -1179,6 +1194,7 @@ void get_col_name_from_p (char **col, char *p){
  * As everything will be stored as oid, we have to remove 
  *
  * */
+
 
 static
 void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, char *_arname, char *_aname, int update_e_convert, int dummy_exps){
@@ -1245,6 +1261,7 @@ void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, char *_a
 
 }
 
+
 /*
  * oid[sys.rdf_strtoid(char(67) "<http://www/product>")] 
  * UPDATE: sys.rdf_strtoid(char(67) "<http://www/product>")
@@ -1257,9 +1274,14 @@ void extractURI_from_exp(mvc *c, char **uri, sql_exp *exp){
 	node *tmpen; 
 	str s;
 	list *lst = NULL; 
+	char *funcname; 
 
 	assert(exp->type == e_func); 
 
+	funcname = ((sql_subfunc *)exp->f)->func->base.name; 
+
+	assert(strcmp(funcname, "rdf_strtoid") == 0); 
+	
 	lst = exp->l;
 	
 	//There should be only one parameter for the function which is the property name
@@ -1273,6 +1295,42 @@ void extractURI_from_exp(mvc *c, char **uri, sql_exp *exp){
 	//printf("%s --> corresponding column %s\n", *prop,  col); 
 
 }
+
+static
+void get_o_constraint_value(mvc *c, sql_exp *m_exp, oid *tmpvalue){
+	oid newoid; 
+	sql_exp *re = m_exp->r;
+
+	assert(m_exp->type == e_cmp); 
+
+	//first: Convert the compared value into oid
+	newoid = BUN_NONE; 
+	if (re->type == e_atom){
+		atom *at = re->l;
+		assert(at != NULL); 
+
+		get_encodedOid_from_atom(at, &newoid);
+	} else if (re->type == e_func) {
+		//Check whether this is the function of rdf_strtoid
+		char *funcname = ((sql_subfunc *)re->f)->func->base.name;
+		str uri = NULL;
+
+		if (strcmp(funcname, "rdf_strtoid") == 0){
+			extractURI_from_exp(c, &uri, re);
+			TKNRstringToOid(&newoid, &uri);
+                        assert (newoid != BUN_NONE);
+
+		} else {
+			printf("TODO: The function %s is not handled yet\n", funcname);		
+		}
+	} else {
+		printf("TODO: This is not handled yet\n");
+	}
+
+	*tmpvalue = newoid; 
+}
+
+
 
 /*
  * //Example: [s12_t0.p = oid[sys.rdf_strtoid(char(67) "<http://www/product>")], s12_t0.o = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
@@ -1354,6 +1412,59 @@ void verify_rel(sql_rel *r){
 	}
 
 	assert(select_s && select_p && select_o);
+}
+
+static
+void get_o_constraint(mvc *c, o_constraint *o_cst, list *exps){
+	node *en;
+	for (en = exps->h; en; en = en->next){
+		sql_exp *tmpexp = (sql_exp *) en->data;
+		sql_exp *e = (sql_exp *)tmpexp->l;
+
+		assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
+		assert(e->type == e_convert); 
+
+		e = e->l; 
+
+		assert(e->type == e_column); 
+
+		if (strcmp(e->name, "o") == 0){
+			int cmp = get_cmp(tmpexp); 		
+			oid tmp_o_value = BUN_NONE; 
+			get_o_constraint_value(c, tmpexp, &tmp_o_value); 
+
+			o_cst->cmp_type = cmp; 
+
+			switch(cmp) {
+			case cmp_equal:
+				o_cst->low = tmp_o_value; 
+				o_cst->hi = tmp_o_value; 
+				break; 
+			case cmp_gt: 
+				if (tmp_o_value != BUN_NONE) o_cst->low = tmp_o_value + 1;  
+				break;
+			case cmp_gte: 	
+				o_cst->low = tmp_o_value;
+				break;
+			case cmp_lte: 	
+				o_cst->hi = tmp_o_value;	
+				break;
+			case cmp_lt: 	
+				if (tmp_o_value != BUN_NONE) o_cst->hi = tmp_o_value - 1; 
+				break;
+			//All other cases are not handled yet
+			case cmp_notequal:
+			case cmp_all: 
+			case cmp_or: 
+			case cmp_in:
+			case cmp_notin: 
+			case cmp_filter: 
+			default:
+				o_cst->cmp_type = -1; 		
+				break; 
+			}
+		}
+	}
 }
 
 static 
@@ -3017,6 +3128,38 @@ sql_rel* union_sp_from_all_matching_tbls(mvc *c, int num_match_tbl, int *contain
 	return rel; 
 }
 
+
+static
+void update_RP_and_O_constraint(mvc *c, jgraph *jg, int *ijgroup, int nnode, spProps *spprops){
+	int i, j; 
+	
+	
+	for (i = 0; i < nnode; i++){
+		int pidx; 
+		jgnode *tmpnode = jg->lstnodes[ijgroup[i]];
+		sql_rel *tmprel = (sql_rel*) (tmpnode->data);
+		oid tmpPropId;
+
+		assert(tmprel->op == op_select);
+		assert(((sql_rel*)tmprel->l)->op == op_basetable); 
+		
+		tmpPropId = tmpnode->poid; 
+
+		//Get index of this prop
+		for (j = 0; j < spprops->num; j++){
+			if (spprops->lstPropIds[j] == tmpPropId) break; 
+		}
+		pidx = j; 
+		spprops->lstPOs[pidx] = REQUIRED;
+		assert(j < spprops->num); 
+
+		//Check for o_constraint
+
+		get_o_constraint(c, &(spprops->lst_o_constraints[pidx]), tmprel->exps);
+	}
+
+}
+
 /*
  * Create a select sql_rel from a star pattern
  * */
@@ -3080,7 +3223,6 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 
 		}
 
-		print_spprops(spprops);
 
 		get_matching_tbl_from_spprops(&tmptbId, spprops, &num_match_tbl);
 
@@ -3094,7 +3236,15 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 		
 		sp_opt_proj_exps = (list **) malloc(sizeof(list *) * num_match_tbl);
 
-		ijgroup = get_inner_join_groups_in_sp_group(jg, group, nnode, &nijgroup, &nnodes_per_ijgroup);				
+		ijgroup = get_inner_join_groups_in_sp_group(jg, group, nnode, &nijgroup, &nnodes_per_ijgroup);
+
+		//TODO: Add a function update_Require_Optional_prop() 
+		//to specify which prop is optional, which is required, and o_contrains
+			
+		update_RP_and_O_constraint(c, jg, ijgroup[0], nnodes_per_ijgroup[0], spprops); 
+	
+
+		print_spprops(spprops);
 
 		for (tblIdx = 0; tblIdx < num_match_tbl; tblIdx++){
 			tbl_m_rels[tblIdx] = _group_star_pattern_for_single_table(c, jg, ijgroup, nijgroup, nnodes_per_ijgroup, tmptbId[tblIdx], &(sp_proj_exps[tblIdx]), &(sp_opt_proj_exps[tblIdx]), 

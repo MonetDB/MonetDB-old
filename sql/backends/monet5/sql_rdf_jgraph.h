@@ -57,6 +57,12 @@ typedef enum ColumnType {
 	CTYPE_MV		//multi-valued column
 } ctype; 
 
+typedef struct o_constraint{
+	int cmp_type; 
+	oid low; 
+	oid hi; 
+} o_constraint;
+
 typedef struct propertyList {
 	int num; 
 	oid subj; 	
@@ -64,6 +70,7 @@ typedef struct propertyList {
 	oid* lstPropIds; 
 	sp_po *lstPOs; 
 	ctype *lstctype;
+	o_constraint *lst_o_constraints; 
 } spProps; 		//star pattern property list
 
 typedef struct mvProp{

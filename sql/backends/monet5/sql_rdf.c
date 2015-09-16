@@ -1631,6 +1631,10 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 	oid **regular_obat_cursors = NULL; 
 	oid **regular_obat_mv_cursors = NULL; 	//If this column is MV col, then store the point to its MV BAT
 	int accept = 0; 
+	#if RDF_HANDLING_EXCEPTION_MISSINGPROP_OPT
+	int *lst_missing_props = NULL; 	//Index of missing prop in the lstProp
+	int num_mp = 0; 	//Number of missing prop
+	#endif
 	
 	(void) r_sbat; 
 	(void) r_obats; 
@@ -1645,6 +1649,11 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 		setBasicProps((*r_obats)[i]); 
 	}
 	
+	#if RDF_HANDLING_EXCEPTION_MISSINGPROP_OPT
+	lst_missing_props = (int *) malloc(sizeof(int) * nP); 
+	num_mp = 0; 
+	#endif
+
 	
 	sbatCursor = (oid *) Tloc(sbat, BUNfirst(sbat));
 	obatCursors = (oid **) malloc(sizeof(oid*) * nP); 
@@ -1674,6 +1683,9 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 	 	oid tmpS = BUN_NONE; 
 		getTblIdxFromS(sbt, &tid, &tmpS);
 		if (tid != curtid){
+			#if RDF_HANDLING_EXCEPTION_MISSINGPROP_OPT
+			num_mp = 0; 
+			#endif
 			//reload BATs for that table
 			for (j = 0;  j < nP; j++){
 				str tmpColname, tmptblname, tmpmvtblname, tmpmvdefcolname;
@@ -1683,6 +1695,10 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 					regular_obat_mv[j] = NULL; 
 					regular_obat_cursors[j] = NULL; 
 					regular_obat_mv_cursors[j] = NULL; 
+					#if RDF_HANDLING_EXCEPTION_MISSINGPROP_OPT
+					lst_missing_props[num_mp] = j; 
+					num_mp++; 
+					#endif
 					continue; 
 				}
 
@@ -1716,6 +1732,15 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 
 		//printf("At row "BUNFMT" of table %d for sbt "BUNFMT"...", tmpS, tid, sbt); 
 		accept = 1; 
+		#if RDF_HANDLING_EXCEPTION_MISSINGPROP_OPT
+		for (j = 0; j < num_mp; j++){
+			if (obatCursors[lst_missing_props[j]][pos] == oid_nil){
+				accept = 0;
+				break; 
+			}	
+		}
+		if (accept == 0) continue; 
+		#endif
 		for (j = 0;  j < nP; j++){
 			if (obatCursors[j][pos] == oid_nil){
 				if (regular_obat_cursors[j] == NULL){	//No corresponding regular column
@@ -1778,20 +1803,22 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	oid *lstProps = NULL; 
 	int i;
 	//int *lstbattypes = NULL; 
-
+	clock_t sT; 
+	clock_t eT; 
 
 	(void) cntxt; 
 	(void) mb; 
 	(void) stk; 
 	(void) pci; 
 		
-		
+	sT = clock(); 
+
 	nP = (int *) getArgReference(stk, pci, pci->retc + 0);
 	nRP =  (int *) getArgReference(stk, pci, pci->retc + 1);
 	nRet = 2 * (*nP); 
 	
 	(void) nRP;
-
+	
 	assert (pci->retc == nRet);
 		
 	b = (BAT **) GDKmalloc (sizeof (BAT*) * pci->retc); 
@@ -1825,17 +1852,21 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		mvc *m = NULL;
 		str msg; 
 		BAT *pso_fullSbat = NULL, *pso_fullObat = NULL;
-
-
+		clock_t sT1, eT1; 
+		
+		sT1 = clock(); 
 		rethrow("sql.rdfShred", msg, getSQLContext(cntxt, mb, &m, NULL));
 
 		pso_fullSbat = mvc_bind(m, schema, "pso", "s",0);
 		pso_fullObat = mvc_bind(m, schema, "pso", "o",0);
 
 		get_full_outerjoin_p_slices(lstProps, *nP, pso_fullObat, pso_fullSbat, &r_sbat, &r_obats);
-	
+
+		eT1 = clock(); 
+		printf("Step 1 in Handling exception took  %f seconds.\n", ((float)(eT1 - sT1))/CLOCKS_PER_SEC);
 
 		//Step 2. Merge exceptions with Tables
+		sT1 = clock();
 		
 		combine_exception_and_regular_tables(m, &m_sbat, &m_obats, r_sbat, r_obats, lstProps, *nP, *nRP);
 		
@@ -1846,11 +1877,18 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 			b[2*i] = BATcopy(m_sbat, m_sbat->htype, m_sbat->ttype, FALSE, TRANSIENT);
 			b[2*i+1] = BATcopy(m_obats[i], m_obats[i]->htype, m_obats[i]->ttype, FALSE, TRANSIENT); 
 		}
+		
+		eT1 = clock(); 
+		printf("Step 2 in Handling exception took  %f seconds.\n", ((float)(eT1 - sT1))/CLOCKS_PER_SEC);
+
 	}
 	printf("Return the resusting BATs...");
 	bat2return(stk, pci, b);
 	printf("... done\n"); 
 	GDKfree(b);
+
+	eT = clock(); 
+	printf("RDFscan for handling exception took  %f seconds.\n", ((float)(eT - sT))/CLOCKS_PER_SEC);
 
 	return MAL_SUCCEED; 
 }
