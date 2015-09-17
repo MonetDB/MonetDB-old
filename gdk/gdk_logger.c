@@ -1209,11 +1209,9 @@ bm_tids(BAT *b, BAT *d)
 	tids->H->dense = 1;
 
 	if (BATcount(d)) {
-		BAT *diff = BATkdiff(tids, BATmirror(d));
-
+		BAT *diff = BATsubdiff(tids, d, NULL, NULL, 0, BUN_NONE);
 		logbat_destroy(tids);
-		tids = BATmirror(BATmark(diff, 0));
-		logbat_destroy(diff);
+		tids = diff;
 	}
 	return tids;
 }
@@ -1837,6 +1835,7 @@ logger_new(int debug, const char *fn, const char *logdir, int version, preversio
 	if (lg->debug & 1) {
 		fprintf(stderr, "#logger_new dir set to %s\n", lg->dir);
 	}
+	lg->local_dir = NULL;
 
 	if (shared) {
 		/* set the local logdir as well
