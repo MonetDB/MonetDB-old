@@ -2382,6 +2382,10 @@ sql_rel* build_rdfexception (mvc *c, int tId, jgraph *jg, list *union_rdfscan_ex
 	sql_table *tbl; 
 	list *trans_select_exps = NULL; 
 	list *trans_base_exps = NULL; 
+
+	//Constraints for o values
+	oid *los; 
+	oid *his; 
 	
 	printf("Get real expressions from tableId %d\n", tId);
 
@@ -2436,7 +2440,14 @@ sql_rel* build_rdfexception (mvc *c, int tId, jgraph *jg, list *union_rdfscan_ex
 	
 	if (0) rel_rdfscan = rel_rdfscan_create(c->sa, rel_basetbl, trans_select_exps, NULL); 
 
-	rel_rdfscan = rel_rdfscan_func(c, tbl, spprops->num, nnodes_per_ijgroup[0], spprops->lstPropIds); 
+	los = (oid *) malloc(sizeof(oid) * spprops->num);
+	his = (oid *) malloc(sizeof(oid) * spprops->num);
+	for (i = 0; i < spprops->num; i++){
+		los[i] = spprops->lst_o_constraints[i].low;
+		his[i] = spprops->lst_o_constraints[i].hi;
+	}
+ 
+	rel_rdfscan = rel_rdfscan_func(c, tbl, spprops->num, nnodes_per_ijgroup[0], spprops->lstPropIds, los, his); 
 	
 	printf("\nRDFSCAN \n");
 	_rel_print(c, rel_rdfscan);

@@ -91,7 +91,7 @@ table_column_types(sql_allocator *sa, sql_table *t)
 }
 
 sql_rel *
-rel_rdfscan_func(mvc *sql, sql_table *t, int numprop, int nRP, oid *lstprop)
+rel_rdfscan_func(mvc *sql, sql_table *t, int numprop, int nRP, oid *lstprop, oid *los, oid *his)
 {
 	sql_rel *res;
 	list *exps, *args;
@@ -111,6 +111,13 @@ rel_rdfscan_func(mvc *sql, sql_table *t, int numprop, int nRP, oid *lstprop)
 	
 	for (i = 0; i < numprop; i++){
 		append(args, exp_atom_oid(sql->sa, lstprop[i]));  	
+	}
+	for (i = 0; i < numprop; i++){
+		append(args, exp_atom_oid(sql->sa, los[i]));
+	}
+	
+	for (i = 0; i < numprop; i++){
+		append(args, exp_atom_oid(sql->sa, his[i]));
 	}
 
 	import = exp_op(sql->sa, args, f); 

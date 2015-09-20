@@ -58,7 +58,7 @@ command rdfstrtoid(urlstr:str):oid
 address	SQLrdfstrtoid
 comment "Convert from string to encoded id";
 
-#pattern rdfscan{unsafe}(nprop:int, x:bat[:oid, :oid])(:bat[:oid,:any]...)
+#x:oid contains list of property, their lower bound, their upper bound (if these bounds exist)
 pattern rdfscan{unsafe}(nprop:int, nrqrop:int, x:oid...)(:bat[:oid,:any]...)
 address SQLrdfScan
 comment "RDFscan operator which return results from exceptional values";

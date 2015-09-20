@@ -1506,7 +1506,7 @@ bat2return(MalStkPtr stk, InstrPtr pci, BAT **b)
 
 
 static
-void get_full_outerjoin_p_slices(oid *lstprops, int np, BAT *full_obat, BAT *full_sbat, BAT **r_sbat, BAT ***r_obats){
+void get_full_outerjoin_p_slices(oid *lstprops, int np, oid *los, oid *his, BAT *full_obat, BAT *full_sbat, BAT **r_sbat, BAT ***r_obats){
 
 	BAT **obats, **sbats; 
 	int i; 
@@ -1516,8 +1516,8 @@ void get_full_outerjoin_p_slices(oid *lstprops, int np, BAT *full_obat, BAT *ful
 	(*r_obats) = (BAT**)malloc(sizeof(BAT*) * np);
 
 	for (i = 0; i < np; i++){
-		getSlides_per_P(pso_propstat, &(lstprops[i]),full_obat, full_sbat, &(obats[i]), &(sbats[i])); 
-		printf("Slides of P = "BUNFMT "\n", lstprops[i]);
+		getSlides_per_P(pso_propstat, &(lstprops[i]), los[i], his[i], full_obat, full_sbat, &(obats[i]), &(sbats[i])); 
+		printf("Slides of P = "BUNFMT " with o constraints from "BUNFMT" to " BUNFMT"\n", lstprops[i], los[i], his[i]);
 		if (sbats[i]){
 			printf("   contains "BUNFMT " rows in sbat\n", BATcount(sbats[i]));
 			//BATprint(sbats[i]);
@@ -1801,6 +1801,11 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	int *nP = NULL; 	//Number of props
 	int *nRP = NULL; 	
 	oid *lstProps = NULL; 
+	
+	//Constraints for o values
+	oid *los = NULL; 
+	oid *his = NULL; 
+
 	int i;
 	//int *lstbattypes = NULL; 
 	clock_t sT; 
@@ -1823,9 +1828,17 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		
 	b = (BAT **) GDKmalloc (sizeof (BAT*) * pci->retc); 
 	lstProps = (oid *)GDKmalloc(sizeof(oid) * (*nP)); 
+	los = (oid *)GDKmalloc(sizeof(oid) * (*nP));
+	his = (oid *)GDKmalloc(sizeof(oid) * (*nP));
+
 	for (i = 0; i < (*nP); i++){
 		oid *tmpp = (oid *) getArgReference(stk, pci, pci->retc + 2 + i);
+		oid *lo = (oid *) getArgReference(stk, pci, pci->retc + 2 + (*nP) + i);
+		oid *hi = (oid *) getArgReference(stk, pci, pci->retc + 2 + 2 * (*nP) + i);
+
 		lstProps[i] = *tmpp; 
+		los[i] = *lo; 
+		his[i] = *hi; 
 	}
 	
 	for (i = 0; i < pci->retc; i++){
@@ -1860,7 +1873,7 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		pso_fullSbat = mvc_bind(m, schema, "pso", "s",0);
 		pso_fullObat = mvc_bind(m, schema, "pso", "o",0);
 
-		get_full_outerjoin_p_slices(lstProps, *nP, pso_fullObat, pso_fullSbat, &r_sbat, &r_obats);
+		get_full_outerjoin_p_slices(lstProps, *nP, los, his, pso_fullObat, pso_fullSbat, &r_sbat, &r_obats);
 
 		eT1 = clock(); 
 		printf("Step 1 in Handling exception took  %f seconds.\n", ((float)(eT1 - sT1))/CLOCKS_PER_SEC);
@@ -2087,16 +2100,45 @@ void getOffsets(PsoPropStat *pso_pstat, oid *p, BUN *start, BUN *end){
 	}
 }
 
-void getSlides_per_P(PsoPropStat *pso_pstat, oid *p, BAT *obat, BAT *sbat, BAT **ret_oBat, BAT **ret_sBat){
+/*
+ * Get slide of PSO for an input P with lower bound constraint (lo_cst) and upper bound constraint (hi_cst)
+ * */
+void getSlides_per_P(PsoPropStat *pso_pstat, oid *p, oid lo_cst, oid hi_cst, BAT *obat, BAT *sbat, BAT **ret_oBat, BAT **ret_sBat){
 	BUN l, h; 	
-	
 	getOffsets(pso_pstat, p, &l, &h); 
 	
 	if (l != BUN_NONE){
-		*ret_oBat = BATslice(obat, l, h+1); 
+		BAT *tmp_o = NULL, *tmp_s = NULL; 
+		oid lo, hi; 
+		tmp_o = BATslice(obat, l, h+1); 
 
-		*ret_sBat = BATslice(sbat, l, h+1); 
-		(*ret_sBat)->tsorted = true; 
+		tmp_s = BATslice(sbat, l, h+1); 
+		
+		#if RDF_HANDLING_EXCEPTION_SELECTPUSHDOWN_OPT
+			if (lo_cst == BUN_NONE && hi_cst == BUN_NONE){	//No constraint
+				*ret_oBat =  tmp_o; 
+				*ret_sBat = tmp_s; 
+			} else {	
+				if (lo_cst == BUN_NONE){
+					lo = oid_nil; 
+					hi = hi_cst; 
+				} else if (hi_cst == BUN_NONE){
+					lo = lo_cst; 
+					hi = oid_nil; 
+				
+				} else {	//Have both lower and upper bounds
+					lo = lo_cst; 
+					hi = hi_cst; 
+				}
+				//BATsubselect(inputbat, <dont know yet>, lowValue, Highvalue, isIncludeLowValue, isIncludeHigh, <anti> 
+				*ret_oBat = BATsubselect(tmp_o, NULL, &lo, &hi, 1, 1, 0); 
+				*ret_sBat = BATproject(*ret_oBat, tmp_s); 
+			}
+		#else
+			*ret_oBat =  tmp_o; 
+			*ret_sBat = tmp_s; 
+		#endif
+		(*ret_sBat)->tsorted = true;
 	} else {
 		*ret_oBat = NULL;
 		*ret_sBat = NULL; 
@@ -2117,6 +2159,9 @@ void build_PsoPropStat(BAT *full_pbat, int maxNumP, BAT *full_sbat, BAT *full_ob
 	oid curP; 
 	int batsize = 150000; 
 	pi = bat_iterator(full_pbat); 
+
+	(void) full_sbat; 
+	(void) full_obat;
 
 	batsize = maxNumP; 	//Can be smaller
 
@@ -2139,14 +2184,6 @@ void build_PsoPropStat(BAT *full_pbat, int maxNumP, BAT *full_sbat, BAT *full_ob
 	printf("Number of P in PSO is: "BUNFMT"\n", BATcount(pso_propstat->pBat)); 
 	//BATprint(pso_propstat->pBat); 
 	//BATprint(pso_propstat->offsetBat); 
-	if (0)		//Testing only 
-	{
-		int np = 5; 
-		oid lstprops[5] = {100, 200, 400, 500, 700} ; 
-		BAT *r_sbat, **r_obats; 
-		get_full_outerjoin_p_slices(&(lstprops[0]), np, full_obat, full_sbat, &r_sbat, &r_obats); 
-		
-	}
 	
 }
 				

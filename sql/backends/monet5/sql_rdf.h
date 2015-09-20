@@ -56,7 +56,7 @@ sql5_export void getMvTblSQLname(char *tmpmvtbname, int tblIdx, int colIdx, oid 
 sql5_export str SQLrdfScan_old(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
-sql5_export void getSlides_per_P(PsoPropStat *pso_pstat, oid *prop, BAT *obat, BAT *sbat, BAT **ret_oBat, BAT **ret_sBat); 
+sql5_export void getSlides_per_P(PsoPropStat *pso_pstat, oid *p, oid low, oid hi, BAT *obat, BAT *sbat, BAT **ret_oBat, BAT **ret_sBat); 
 
 extern SimpleCSset *global_csset; 
 extern PropStat *global_p_propstat;
@@ -71,5 +71,7 @@ extern PsoPropStat *pso_propstat;
 #define HANDLING_EXCEPTION 1
 
 #define RDF_HANDLING_EXCEPTION_MISSINGPROP_OPT 1
+
+#define RDF_HANDLING_EXCEPTION_SELECTPUSHDOWN_OPT 1
 
 #endif /*_SQL_RDF_H */
