@@ -127,6 +127,8 @@ if len(split) > 1 and split[1].lower() == 'cold':
     hot_test = False
 args_test_type = split[0]
 
+print("Start test %s-%s" % (args_input_database, args_test_type))
+
 drop_cache = os.environ["DROP_CACHE_COMMAND"]
 def drop_all_caches():
     array = numpy.zeros(100000)
@@ -557,14 +559,18 @@ else:
                 for i in range(0, 2):
                     database_execute()
             for i in range(0,test_count):
-                if not hot_test: drop_all_caches() #drop caches everytime for cold tests
+                if not hot_test:
+                    drop_all_caches() #drop caches everytime for cold tests
+                    database_final()
+                    os.system("%s %s %s %s" % (input_dir + "/randomstrings", size, input_type, input_file))
+                    database_load()
                 start = time.time()
                 database_execute()
                 end = time.time()
                 f.write(format_output(size, end - start))
             database_clear()
         f.close()
-        database_final
+        database_final()
 
     input_type = "integer"
     function_name = str(args_test_type).lower()
@@ -579,29 +585,34 @@ else:
             return numpy.min(numpy.sqrt(numpy.abs(a)))
         function = sqroot
         return_value = "double precision"
+    if function_name == "quantile":
+        def quantile(a):
+            return numpy.percentile(a, 50)
+        function = quantile
+        return_value = "integer"
 
     import inspect
     inspect_result = inspect.getsourcelines(function)
     source_code = "".join(["  " + x.lstrip() for x in inspect_result[0][1:]])
 
-    if str(args_input_database).lower() == "postgres":
+    if str(args_input_database).lower() == "plpython" or str(args_input_database).lower() == "postgres":
         client = os.environ["POSTGRES_CLIENT_COMMAND"]
         dropdb = os.environ["POSTGRES_DROPDB_COMMAND"]
         initdb = os.environ["POSTGRES_CREATEDB_COMMAND"]
 
+        input_dir = os.environ["POSTGRES_CWD"]
         function_name = str(args_test_type).lower()
+        createdb_file = "%s/%s.createdb.sql" % (input_dir, function_name)
+        run_file = "%s/%s.sql" % (input_dir, function_name)
         def postgres_init():
-            input_dir = os.environ["POSTGRES_CWD"]
+            if str(args_input_database).lower() == "plpython":
+                if function_name == "identity":
+                    source = "  return a"
+                elif function_name == "sqroot":
+                    source = "  import math\n  return math.sqrt(abs(a))"
+                else: raise Exception("Unsupported function %s" % function_name)
 
-            createdb_file = "%s/%s.createdb.sql" % (input_dir, function_name)
-            run_file = "%s/%s.sql" % (input_dir, function_name)
-
-            if function_name == "identity":
-                source = "  return a"
-            if function_name == "sqroot":
-                source = "  import math\n  return math.sqrt(abs(a))"
-
-            createdb_sql = """
+                createdb_sql = """
 CREATE TABLE integers(i integer);
 
 COPY integers FROM '%s' DELIMITER ',' CSV;
@@ -612,9 +623,18 @@ AS $$
 %s
 $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
 
-            run_sql = """
-            SELECT MIN(%s(i)) FROM integers;
-            """ % function_name
+                run_sql = """
+                SELECT MIN(%s(i)) FROM integers;
+                """ % function_name
+            elif str(args_input_database).lower() == "postgres":
+                if function_name == "quantile":
+                    run_sql = "SELECT percentile_cont(0.5) WITHIN GROUP(ORDER BY i) FROM integers;"
+                else: raise Exception("Unsupported function %s" % function_name)
+                createdb_sql = """
+                CREATE TABLE integers(i integer);
+
+                COPY integers FROM '%s' DELIMITER ',' CSV;""" % input_file
+
 
             createdb = open(createdb_file, 'w+')
             createdb.write(createdb_sql)
@@ -641,7 +661,7 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
 
         execute_test(input_type, postgres_init, postgres_load, postgres_execute, postgres_clear, postgres_final)
     elif str(args_input_database).lower() == "sqlitemem" or str(args_input_database).lower() == "sqlitedb":
-        import csv, sqlite3
+        import sqlite3
         database_file = os.environ["SQLITE_DB_FILE"]
         database_name = ":memory:" if str(args_input_database).lower() == "sqlitemem" else database_file
 
@@ -674,7 +694,7 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
             conn.close()
 
         execute_test(input_type, sqlite_init, sqlite_load, sqlite_execute, sqlite_clear, sqlite_final)
-    elif str(args_input_database).lower() == "monetdbmapi" or str(args_input_database).lower() == "pyapi" or str(args_input_database).lower() == "pyapimap" or str(args_input_database).lower() == "rapi":
+    elif str(args_input_database).lower() == "monetdbmapi" or str(args_input_database).lower() == "pyapi" or str(args_input_database).lower() == "pyapimap" or str(args_input_database).lower() == "rapi"  or str(args_input_database).lower() == "monetdb":
         import monetdb.sql
         for i in range(0, max_retries):
             try:
@@ -701,18 +721,26 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
             elif str(args_input_database).lower() == "rapi":
                 if function_name == "identity":
                     c.execute("CREATE FUNCTION FUNC_%s(a integer) RETURNS %s LANGUAGE R { min(a) };" % (function_name,return_value))
-                if function_name == "sqroot":
+                elif function_name == "sqroot":
                     c.execute("CREATE FUNCTION FUNC_%s(a integer) RETURNS %s LANGUAGE R { min(sqrt(abs(a))) };" % (function_name,return_value))
+                elif function_name == "quantile":
+                    c.execute("CREATE FUNCTION FUNC_%s(a integer) RETURNS %s LANGUAGE R { as.integer(quantile(a,0.5)) };" % (function_name,return_value))
+                else: raise Exception("Unsupported function %s" % function_name)
 
         if str(args_input_database).lower() == "pyapi" or str(args_input_database).lower() == "pyapimap" or str(args_input_database).lower() == "rapi":
             def monetdb_execute():
                 c.execute("SELECT FUNC_%s(i) FROM integers;" % function_name)
                 result = c.fetchall()
-        else:
+        elif str(args_input_database).lower() == "monetdbmapi":
             def monetdb_execute():
                 c.execute('SELECT * FROM integers')
                 result = c.fetchall()
                 function(numpy.array(result, dtype=numpy.int32))
+        elif str(args_input_database).lower() == "monetdb":
+            def monetdb_execute():
+                if function_name == "quantile": c.execute("SELECT quantile(i, 0.5) FROM integers;")
+                else: raise Exception("Unsupported function %s" % function_name)
+                result = c.fetchall()
 
         def monetdb_clear():
             c.execute("DROP TABLE integers;")
@@ -743,7 +771,7 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
         def psycopg2_execute():
             c.execute("SELECT * FROM integers;")
             result = c.fetchall()
-            print function(numpy.array(result, dtype=numpy.int32))
+            function(numpy.array(result, dtype=numpy.int32))
 
         def psycopg2_clear():
             c.execute("DROP TABLE integers;")
@@ -755,8 +783,7 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
 
         execute_test(input_type, psycopg2_init, psycopg2_load, psycopg2_execute, psycopg2_clear, psycopg2_final)
     elif str(args_input_database).lower() == "pytables":
-        import tables
-        import csv
+        import tables, pandas as pd
 
         table_file = 'testfile.h5'
 
@@ -771,12 +798,9 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
             group = file.create_group('/', 'integers', 'integer_data')
             table = file.create_table(group, 'values', description, "example")
             values = table.row
-            with open(input_file, 'rb') as csvfile:
-                reader = csv.reader(csvfile)
-                result = [x for x in reader]
-                for x in result:
-                    values['i'] = int(x[0])
-                    values.append()
+            for x in pd.read_csv(input_file).values:
+                values['i'] = int(x)
+                values.append()
             table.flush()
             file.close()
 
@@ -814,18 +838,60 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
             os.remove(input_file)
 
         execute_test(input_type, csv_init, csv_load, csv_execute, csv_clear, csv_final)
+    elif str(args_input_database).lower() == "pandascsv":
+        import pandas as pd
+        def csv_init():
+            return None
+
+        def csv_load():
+            return None
+
+        def csv_execute():
+            a = pd.read_csv(input_file)
+            function(a.values)
+
+        def csv_clear():
+            return None
+
+        def csv_final():
+            os.remove(input_file)
+
+        execute_test(input_type, csv_init, csv_load, csv_execute, csv_clear, csv_final)
+    elif str(args_input_database).lower() == "pyfits":
+        import pyfits, pandas as pd
+        hdu_file = 'tempfile.fits'
+        def pyfits_init():
+            return None
+
+        def pyfits_load():
+            try: os.remove(hdu_file)
+            except: pass
+            array = pd.read_csv(input_file).values
+            numpy_array = numpy.array(array, dtype=numpy.int32)
+            hdu = pyfits.PrimaryHDU(numpy_array)
+            hdu.writeto(hdu_file)
+
+        def pyfits_execute():
+            hdulist = pyfits.open(hdu_file)
+            function(hdulist[0].data)
+
+        def pyfits_clear():
+            return None
+
+        def pyfits_final():
+            os.remove(input_file)
+            os.remove(hdu_file)
+
+        execute_test(input_type, pyfits_init, pyfits_load, pyfits_execute, pyfits_clear, pyfits_final)
     elif str(args_input_database).lower() == "numpybinary":
-        import csv, numpy
+        import pandas as pd, numpy
         numpy_binary = 'tempfile.npy'
         def numpy_init():
             return None
 
         def numpy_load():
-            with open(input_file, 'rb') as csvfile:
-                reader = csv.reader(csvfile)
-                result = [int(x[0]) for x in reader]
-                numpy_array = numpy.array(result, dtype=numpy.int32)
-                numpy.save(numpy_binary, numpy_array)
+            array = pd.read_csv(input_file).values
+            numpy.save(numpy_binary, numpy.array(array, dtype=numpy.int32))
 
         def numpy_execute():
             numpy_array = numpy.load(numpy_binary)
@@ -835,12 +901,12 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
             return None
 
         def numpy_final():
-            os.remove(input_file)
             os.remove(numpy_binary)
+            os.remove(input_file)
 
         execute_test(input_type, numpy_init, numpy_load, numpy_execute, numpy_clear, numpy_final)
     elif str(args_input_database).lower() == "castra":
-        import castra, csv, shutil, pandas as pd
+        import castra, shutil, pandas as pd
         castra_binary = 'data.castra'
         def castra_init():
             return None
@@ -856,7 +922,7 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
 
         def castra_execute():
             c = castra.Castra(castra_binary, readonly=True)
-            print function(c[:, 'i'].values)
+            function(c[:, 'i'].values)
 
         def castra_clear():
             shutil.rmtree(castra_binary)
@@ -866,17 +932,15 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
 
         execute_test(input_type, castra_init, castra_load, castra_execute, castra_clear, castra_final)
     elif str(args_input_database).lower() == "numpymemorymap":
-        import csv, numpy
+        import pandas as pd, numpy
         numpy_binary = 'tempfile.npy'
         def numpy_init():
             return None
 
         def numpy_load():
-            with open(input_file, 'rb') as csvfile:
-                reader = csv.reader(csvfile)
-                result = [int(x[0]) for x in reader]
-                numpy_array = numpy.array(result, dtype=numpy.int32)
-                numpy.save(numpy_binary, numpy_array)
+            array = pd.read_csv(input_file).values
+            numpy_array = numpy.array(array, dtype=numpy.int32)
+            numpy.save(numpy_binary, numpy_array)
 
         def numpy_execute():
             numpy_array = numpy.memmap(numpy_binary, dtype=numpy.int32)
@@ -891,7 +955,7 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
 
         execute_test(input_type, numpy_init, numpy_load, numpy_execute, numpy_clear, numpy_final)
     elif str(args_input_database).lower() == "monetdbembedded":
-        import monetdb_embedded, csv
+        import monetdb_embedded, pandas as pd
 
         def monetdbembedded_init():
             monetdb_embedded.init('/tmp/dbfarm')
@@ -899,10 +963,10 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
             except: pass
 
         def monetdbembedded_load():
-            with open(input_file, 'rb') as csvfile:
-                reader = csv.reader(csvfile)
-                result = [int(x[0]) for x in reader]
-                monetdb_embedded.create('integers', ['i'], result)
+            array = pd.read_csv(input_file).values
+            numpy_array = numpy.array(array, dtype=numpy.int32)
+            numpy_array.shape = (numpy_array.shape[0],)
+            monetdb_embedded.create('integers', ['i'], numpy_array)
 
         def monetdbembedded_execute():
             result = monetdb_embedded.sql('SELECT * FROM integers')
@@ -918,3 +982,6 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
 
     else:
         print("Unrecognized database type %s, exiting..." % args_input_database)
+
+
+print("Finish test %s-%s" % (args_input_database, args_test_type))

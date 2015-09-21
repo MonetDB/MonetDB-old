@@ -100,7 +100,7 @@ function pyapi_build() {
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             return 1
         fi
-        pip install --user numpy && python -c "import numpy"
+        wget https://github.com/numpy/numpy/archive/master.zip && unzip master.zip && cd numpy-master && python setup.py install --user && cd .. && python -c "import numpy"
         if [$? -eq 0]; then
             echo "Successfully installed Numpy."
         else
@@ -115,7 +115,7 @@ function pyapi_build() {
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             return 1
         fi
-        wget $PYTHON_MONETDB_URL && tar xvzf $PYTHON_MONETDB_FILE && cd $PYTHON_MONETDB_DIR && python setup.py install --user && python -c "import monetdb.sql"
+        wget $PYTHON_MONETDB_URL && tar xvzf $PYTHON_MONETDB_FILE && cd $PYTHON_MONETDB_DIR && python setup.py install --user && cd .. && python -c "import monetdb.sql"
         if [$? -eq 0]; then
             echo "Successfully installed monetdb.sql."
         else
@@ -514,75 +514,184 @@ function postgres_test() {
 
 export DROP_CACHE_COMMAND='sync && echo 3 | sudo /usr/bin/tee /proc/sys/vm/drop_caches'
 
-export IDENTITY_NTESTS=3
-export IDENTITY_SIZES="100"
+export ntests_identity=3
+export sizes_identity="10"
+
+export ntests_sqroot=3
+export sizes_sqroot="10"
+
+export ntests_quantile=3
+export sizes_quantile="10 100 1000"
+
+export PYTHON_TESTS=("identity" "sqroot" "quantile")
+export PYTHON_MAP_TESTS=("identity" "sqroot")
+export PLPYTHON_TESTS=("identity" "sqroot")
+export POSTGRES_TESTS=("quantile")
+export MONETDB_TESTS=("quantile")
+
+function plpython_run_tests() {
+    for i in "${PLPYTHON_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        postgres_run_single_test $i plpython_$i ${!n} "${!s}" PLPYTHON
+        sleep 5
+    done
+}
 
 function postgres_run_tests() {
-    postgres_run_single_test IDENTITY postgres_identity $IDENTITY_NTESTS "$IDENTITY_SIZES" POSTGRES
-    sleep 5
-    postgres_run_single_test SQROOT postgres_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES" POSTGRES
+    for i in "${POSTGRES_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        postgres_run_single_test $i postgres_$i ${!n} "${!s}" POSTGRES
+        sleep 5
+    done
 }
 
 function sqlite_test() {
-    python_run_single_test SQLITEMEM IDENTITY sqlitemem_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    python_run_single_test SQLITEDB IDENTITY sqlitedb_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
-
-    python_run_single_test SQLITEMEM SQROOT sqlitemem_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    python_run_single_test SQLITEDB SQROOT sqlitedb_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    for i in "${PYTHON_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        python_run_single_test SQLITEMEM $i sqlitemem_$i ${!n} "${!s}"
+        python_run_single_test SQLITEDB $i sqlitedb_$i ${!n} "${!s}"
+    done
 }
 
 function csv_test() {
-    python_run_single_test CSV IDENTITY csv_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    python_run_single_test CSV SQROOT csv_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    for i in "${PYTHON_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        python_run_single_test CSV $i csv_$i ${!n} "${!s}"
+    done
 }
 
 
 function numpy_test() {
-    python_run_single_test NUMPYBINARY IDENTITY:COLD numpy_identity_cold $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    python_run_single_test NUMPYBINARY IDENTITY:HOT numpy_identity_hot $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    python_run_single_test NUMPYBINARY SQROOT:COLD numpy_sqroot_cold $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    python_run_single_test NUMPYBINARY SQROOT:HOT numpy_sqroot_hot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    for i in "${PYTHON_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        python_run_single_test NUMPYBINARY $i:COLD numpy_cold_$i ${!n} "${!s}"
+        python_run_single_test NUMPYBINARY $i:HOT numpy_hot_$i ${!n} "${!s}"
+    done
 }
 
 
 function monetdbembedded_test() {
-    python_run_single_test MONETDBEMBEDDED IDENTITY monetdbembedded_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    python_run_single_test MONETDBEMBEDDED SQROOT monetdbembedded_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    for i in "${PYTHON_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        python_run_single_test MONETDBEMBEDDED $i monetdbembedded_$i ${!n} "${!s}"
+    done
 }
 
 function numpymmap_test() {
-    python_run_single_test NUMPYMEMORYMAP IDENTITY:COLD numpymmap_identity_cold $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    python_run_single_test NUMPYMEMORYMAP IDENTITY:HOT numpymmap_identity_hot $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    python_run_single_test NUMPYMEMORYMAP SQROOT:COLD numpymmap_sqroot_cold $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    python_run_single_test NUMPYMEMORYMAP SQROOT:HOT numpymmap_sqroot_hot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    for i in "${PYTHON_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        python_run_single_test NUMPYMEMORYMAP $i:COLD numpymmap_cold_$i ${!n} "${!s}"
+        python_run_single_test NUMPYMEMORYMAP $i:HOT numpymmap_hot_$i ${!n} "${!s}"
+    done
 }
 
 function monetdbmapi_test() {
-    monetdbmapi_run_single_test MONETDBMAPI "" IDENTITY monetdbmapi_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    monetdbmapi_run_single_test MONETDBMAPI "" SQROOT monetdbmapi_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    for i in "${PYTHON_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        monetdbmapi_run_single_test MONETDBMAPI "" $i monetdbmapi_$i ${!n} "${!s}"
+    done
 }
 
 function monetdbpyapi_test() {
-    monetdbmapi_run_single_test PYAPI "--set gdk_nr_threads=1" IDENTITY monetdbpyapi_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    monetdbmapi_run_single_test PYAPI "--set gdk_nr_threads=1" SQROOT monetdbpyapi_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    for i in "${PYTHON_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        monetdbmapi_run_single_test PYAPI "--set gdk_nr_threads=1" $i monetdbpyapi_$i ${!n} "${!s}"
+    done
 }
 
 function monetdbpyapimap_test() {
-    monetdbmapi_run_single_test PYAPIMAP "" IDENTITY monetdbpyapimap_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    monetdbmapi_run_single_test PYAPIMAP "" SQROOT monetdbpyapimap_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    for i in "${PYTHON_MAP_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        monetdbmapi_run_single_test PYAPIMAP "" $i monetdbpyapimap_$i ${!n} "${!s}"
+    done
+}
+
+function monetdb_test() {
+    for i in "${MONETDB_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        monetdbmapi_run_single_test MONETDB "" $i monetdb_$i ${!n} "${!s}"
+    done
 }
 
 function monetdbrapi_test() {
-    monetdbmapi_run_single_test RAPI "--set gdk_nr_threads=1 --set embedded_r=true" IDENTITY monetdbrapi_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    monetdbmapi_run_single_test RAPI "--set gdk_nr_threads=1 --set embedded_r=true" SQROOT monetdbrapi_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+    for i in "${PYTHON_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        monetdbmapi_run_single_test RAPI "--set gdk_nr_threads=1 --set embedded_r=true" $i monetdbrapi_$i ${!n} "${!s}"
+    done
+}
+
+function pytables_test() {
+    for i in "${PYTHON_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        python_run_single_test PYTABLES $i pytables_$i ${!n} "${!s}"
+    done
+}
+
+function pyfits_test() {
+    for i in "${PYTHON_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        python_run_single_test PYFITS $i pyfits_$i ${!n} "${!s}"
+    done
+}
+
+function pandascsv_test() {
+    for i in "${PYTHON_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        python_run_single_test PANDASCSV $i pandascsv_$i ${!n} "${!s}"
+    done
+}
+
+function castra_test() {
+    for i in "${PYTHON_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        python_run_single_test CASTRA $i castra_$i ${!n} "${!s}"
+    done
+}
+
+function psycopg2_test() {
+    for i in "${PYTHON_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        postgres_run_single_test $i psycopg2_$i ${!n} "${!s}" PSYCOPG2
+        sleep 5
+    done
 }
 
 function psycopg2_install() {
     wget http://initd.org/psycopg/tarballs/PSYCOPG-2-6/psycopg2-2.6.1.tar.gz && tar xvzf psycopg2-2.6.1.tar.gz && rm psycopg2-2.6.1.tar.gz && cd psycopg2-2.6.1 && python setup.py install --user build_ext --pg-config $POSTGRES_BUILD_DIR/bin/pg_config
-}
-
-function psycopg2_test() {
-    postgres_run_single_test IDENTITY psycopg2_identity $IDENTITY_NTESTS "$IDENTITY_SIZES" PSYCOPG2
 }
 
 function cython_install() {
@@ -593,41 +702,42 @@ function pytables_install() {
     wget https://github.com/PyTables/PyTables/archive/develop.zip && unzip develop.zip && cd PyTables-develop && python setup.py install --user
 }
 
-function pytables_test() {
-    python_run_single_test PYTABLES IDENTITY pytables_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    python_run_single_test PYTABLES SQROOT pytables_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
-}
-
 function comparison_test() {
     if [ ! -d $PYAPI_OUTPUT_DIR ]; then
         mkdir $PYAPI_OUTPUT_DIR
     fi
     cd $PYAPI_OUTPUT_DIR
-
+    
+    plpython_run_tests
     postgres_run_tests
-    sqlite_test
-    csv_test
+    #sqlite_test
+    #csv_test
     numpy_test
     numpymmap_test
-    monetdbembedded_test
-    monetdbmapi_test
-    monetdbpyapi_test
-    monetdbpyapimap_test
-    monetdbrapi_test
-    psycopg2_test
-    pytables_test
+    #monetdbembedded_test
+    #monetdbmapi_test
+    #monetdbpyapi_test
+    #monetdbpyapimap_test
+    #monetdbrapi_test
+    #psycopg2_test
+    #pytables_test
     castra_test
+    monetdb_test
+    #pyfits_test
+    #pandascsv_test
 }
 
 function castra_install() {
     wget https://github.com/blaze/castra/archive/master.zip && unzip master.zip && cd castra-master && python setup.py install --user
 }
 
-function castra_test() {
-    python_run_single_test CASTRA IDENTITY castra_identity $IDENTITY_NTESTS "$IDENTITY_SIZES"
-    python_run_single_test CASTRA SQROOT castra_sqroot $IDENTITY_NTESTS "$IDENTITY_SIZES"
+function pandas_install() {
+    wget https://pypi.python.org/packages/source/p/pandas/pandas-0.16.2.tar.gz && tar xvzf pandas-0.16.2.tar.gz && cd pandas-0.16.2 && python setup.py install --user
 }
 
+function pyfits_install() {
+    wget https://pypi.python.org/packages/source/p/pyfits/pyfits-3.3.tar.gz && tar xvzf pyfits-3.3.tar.gz && cd pyfits-3.3 && python setup.py install --user && cd .. && rm -rf pyfits-3.3
+}
 
 function comparison_graph() {
     python $PYAPI_GRAPHFILE "SAVE" "Identity" "postgres:postgres_identity.tsv" "sqlitemem:sqlitemem_identity.tsv" "sqlitedb:sqlitedb_identity.tsv" "csv:csv_identity.tsv" "numpy:numpy_identity.tsv" "numpymmap:numpymmap_identity.tsv" "monetdbembedded:monetdbembedded_identity.tsv" "monetdbmapi:monetdbmapi_identity.tsv" "monetdbpyapi:monetdbpyapi_identity.tsv" "monetdbpyapimap:monetdbpyapimap_identity.tsv" "monetdbrapi:monetdbrapi_identity.tsv"
@@ -655,3 +765,6 @@ function install_casacore() {
 function install_lofar() {
     wget https://github.com/transientskp/tkp/archive/master.zip && unzip master.zip && rm master.zip && cd tkp-master && python setup.py install --user
 }
+
+#export PYAPI_TESTFILE=/local/raasveld/monetdb_testing.py
+#export LD_LIBRARY_PATH=/local/raasveld/build/lib
