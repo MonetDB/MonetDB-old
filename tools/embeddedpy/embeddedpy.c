@@ -303,7 +303,8 @@ int monetdb_startup(char* dir, char silent) {
 	if (GDKinit(set, setlen) == 0)  goto cleanup;
 
 	snprintf(mod_path, 1000, "%s/../lib/monetdb5", BINDIR);
-	GDKsetenv("monet_mod_path", mod_path);
+	GDKsetenv("sql_optimizer", "sequential_pipe");
+	GDKsetenv("monet_mod_path", mod_path);	
 	GDKsetenv("mapi_disable", "true");
 	GDKsetenv("max_clients", "0");
 
