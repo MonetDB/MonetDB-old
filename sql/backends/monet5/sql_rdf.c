@@ -1510,14 +1510,17 @@ void get_full_outerjoin_p_slices(oid *lstprops, int np, oid *los, oid *his, BAT 
 
 	BAT **obats, **sbats; 
 	int i; 
+	clock_t start, end;
 
 	obats = (BAT**)malloc(sizeof(BAT*) * np);
 	sbats = (BAT**)malloc(sizeof(BAT*) * np);
 	(*r_obats) = (BAT**)malloc(sizeof(BAT*) * np);
 
 	for (i = 0; i < np; i++){
+		start = clock(); 
 		getSlides_per_P(pso_propstat, &(lstprops[i]), los[i], his[i], full_obat, full_sbat, &(obats[i]), &(sbats[i])); 
-		printf("Slides of P = "BUNFMT " with o constraints from "BUNFMT" to " BUNFMT"\n", lstprops[i], los[i], his[i]);
+		end = clock(); 
+		printf("Slides of P = "BUNFMT " with o constraints from "BUNFMT" to " BUNFMT" [Took %f seconds)\n", lstprops[i], los[i], his[i], ((float)(end - start))/CLOCKS_PER_SEC);
 		if (sbats[i]){
 			printf("   contains "BUNFMT " rows in sbat\n", BATcount(sbats[i]));
 			//BATprint(sbats[i]);
@@ -1527,10 +1530,12 @@ void get_full_outerjoin_p_slices(oid *lstprops, int np, oid *los, oid *his, BAT 
 			//BATprint(obats[i]);
 		}
 	}
-
+	
+	start = clock(); 
 	RDFmultiway_merge_outerjoins(np, sbats, obats, r_sbat, (*r_obats));
+	end = clock(); 
 
-	printf("Outer join result: ("BUNFMT" rows) \n", BATcount(*r_sbat));
+	printf("Mutliway outer join result: ("BUNFMT" rows)  [Took %f seconds]\n", BATcount(*r_sbat), ((float)(end - start))/CLOCKS_PER_SEC);
 	//BATprint(*r_sbat); 
 	/*
 	for (i = 0; i < np; i++){
