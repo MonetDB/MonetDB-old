@@ -1,0 +1,17 @@
+
+START TRANSACTION;
+
+CREATE TABLE integers(i INTEGER);
+INSERT INTO integers VALUES (1), (2), (3), (4), (5);
+
+CREATE FUNCTION rtwo(i INTEGER) RETURNS DOUBLE LANGUAGE R {
+	i*2
+};
+
+SELECT rtwo(MIN(i)) FROM integers;
+
+DROP FUNCTION rtwo;
+DROP TABLE integers;
+
+ROLLBACK;
+
