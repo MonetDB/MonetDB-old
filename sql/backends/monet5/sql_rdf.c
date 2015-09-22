@@ -786,6 +786,8 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BAT *ontbat = NULL;
 	int **colOrder = NULL; 
 
+	(void) tmptbnameex;
+
 	beginT = clock();
 	
 	rethrow("sql.rdfShred", msg, getSQLContext(cntxt, mb, &m, NULL));
@@ -974,6 +976,9 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 				//Value columns 
 				for (k = 0; k < tmpNumMVCols; k++){
+					#if STORE_ALL_EXCEPTION_IN_PSO == 1
+					if (k > 0) continue; //Only keep the first default type column as other columns will be stored in pso
+					#endif
 					getColSQLname(tmpmvcolname, j, k, cstablestat->lstcstable[i].lstProp[j], mapi, mbat);
 
 					tmpbat = cstablestat->lstcstable[i].lstMVTables[j].mvBats[k];
@@ -989,6 +994,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		totalNumDefCols += cstablestat->lstcstable[i].numCol;
 
 		#if CSTYPE_TABLE == 1
+		#if STORE_ALL_EXCEPTION_IN_PSO == 0
 		// Add non-default type table
 		if (cstablestat->lstcstableEx[i].numCol != 0){	
 
@@ -1011,7 +1017,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			}
 			totalNumNonDefCols += cstablestat->lstcstableEx[i].numCol;
 		}
-
+		#endif
 		#endif
 
 		#if APPENDSUBJECTCOLUMN
@@ -1060,7 +1066,9 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 				//Value columns
 				for (k = 0; k < tmpNumMVCols; k++){
-
+					#if STORE_ALL_EXCEPTION_IN_PSO == 1
+					if (k > 0) continue; //Only keep the first default type column as other columns will be stored in pso
+					#endif
 					getColSQLname(tmpmvcolname, j, k, cstablestat->lstcstable[i].lstProp[j], mapi, mbat);
 
 					tmpbat = cstablestat->lstcstable[i].lstMVTables[j].mvBats[k];
@@ -1078,6 +1086,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 
 		#if CSTYPE_TABLE == 1
+		#if STORE_ALL_EXCEPTION_IN_PSO == 0
 		// Add non-default type table
 		if (cstablestat->lstcstableEx[i].numCol != 0){	
 			for (j = 0; j < cstablestat->lstcstableEx[i].numCol; j++){
@@ -1095,7 +1104,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 						tmpbat, TYPE_bat);
 			}
 		}
-
+		#endif
 		#endif
 		//Create a view to combine these tables
 		/*

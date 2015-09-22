@@ -10345,6 +10345,9 @@ str fillMissingvaluesAll(CStableStat* cstablestat, CSPropTypes *csPropTypes, int
 
 	for (i = 0; i < (MULTIVALUES + 1); i++){
 		if (csPropTypes[lasttblIdx].lstPropTypes[lastPropIdx].TableTypes[i] == TYPETBL){
+			#if STORE_ALL_EXCEPTION_IN_PSO
+			continue; 
+			#endif
 			tmpColExIdx = csPropTypes[lasttblIdx].lstPropTypes[lastPropIdx].colIdxes[i]; 
 			tmpBat = cstablestat->lstcstableEx[lasttblIdx].colBats[tmpColExIdx];
 			//printf("Fill excol %d \n", tmpColExIdx);
@@ -10391,6 +10394,9 @@ str fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, i
 	*/
 	for (i = 0; i < (MULTIVALUES + 1); i++){
 		if (csPropTypes[tblIdx].lstPropTypes[propIdx].TableTypes[i] == TYPETBL){
+			#if STORE_ALL_EXCEPTION_IN_PSO
+			continue; 
+			#endif
 			tmpColExIdx = csPropTypes[tblIdx].lstPropTypes[propIdx].colIdxes[i]; 
 			tmpBat = cstablestat->lstcstableEx[tblIdx].colBats[tmpColExIdx];
 			//Fill all missing values from From to To
@@ -10743,7 +10749,18 @@ str RDFdistTriplesToCSs_alloid(int *ret, bat *sbatid, bat *pbatid, bat *obatid, 
 		objType = getObjType(*obt); 
 		assert (objType != BLANKNODE);
 
+
 		tmpPropIdx = tmpTblIdxPropIdxMap[tblIdx]; 
+
+		defaultType = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].defaultType; 
+		assert(defaultType != MULTIVALUES); 	
+		#if STORE_ALL_EXCEPTION_IN_PSO
+		if (objType != defaultType){
+			insToPSO(cstablestat->pbat,cstablestat->sbat, cstablestat->obat, pbt, sbt, obt);
+			continue; 
+		}
+		#endif
+
 		//printf(" PropIdx = %d \n", tmpPropIdx);
 		tmpColIdx = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].defColIdx; 
 		if (tmpColIdx == -1){ 	// This col is removed as an infrequent prop
@@ -10781,7 +10798,6 @@ str RDFdistTriplesToCSs_alloid(int *ret, bat *sbatid, bat *pbatid, bat *obatid, 
 		#endif
 		
 		istmpMVProp = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isMVProp; 
-		defaultType = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].defaultType; 
 		#if     DETECT_PKCOL
 			isPossiblePK = 1;
 			#if ONLY_URI_PK
@@ -11449,6 +11465,8 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 		
 		istmpMVProp = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].isMVProp; 
 		defaultType = csPropTypes[tblIdx].lstPropTypes[tmpPropIdx].defaultType; 
+		
+
 		#if     DETECT_PKCOL
 			isPossiblePK = 1;
 			#if ONLY_URI_PK
