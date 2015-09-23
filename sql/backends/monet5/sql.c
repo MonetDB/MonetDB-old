@@ -1789,7 +1789,7 @@ mvc_bind_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
 	b = mvc_bind(m, *sname, *tname, *cname, *access);
-	if (b && b->ttype != coltype)
+	if (b && coltype != TYPE_any && b->T->type != coltype)
 		throw(SQL,"sql.bind","tail type mismatch");
 	if (b) {
 		if (pci->argc == (8 + upd) && getArgType(mb, pci, 6 + upd) == TYPE_int) {
@@ -1887,7 +1887,7 @@ mvc_bind_idxbat_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
 	b = mvc_bind_idxbat(m, *sname, *tname, *iname, *access);
-	if (b && b->ttype != coltype)
+	if (b && coltype != TYPE_any && b->T->type != coltype)
 		throw(SQL,"sql.bind","tail type mismatch");
 	if (b) {
 		if (pci->argc == (8 + upd) && getArgType(mb, pci, 6 + upd) == TYPE_int) {
