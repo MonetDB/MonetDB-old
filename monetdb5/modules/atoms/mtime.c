@@ -1586,7 +1586,8 @@ MTIMEtimestamp_create_from_date_bulk(bat *ret, bat *bid)
 	bn->tsorted = b->tsorted || BATcount(bn) <= 1;
 	bn->trevsorted = b->trevsorted || BATcount(bn) <= 1;
 	bn->T->nonil = !bn->T->nil;
-	if (b->htype != bn->htype) {
+	if (!BAThdense(b)) {
+		/* legacy */
 		BAT *b2 = VIEWcreate(b, bn);
 		BBPunfix(bn->batCacheid);
 		bn = b2;
@@ -1819,7 +1820,8 @@ MTIMEtimestamp_extract_daytime_default_bulk(bat *ret, bat *bid)
 	bn->tsorted = b->tsorted || BATcount(bn) <= 1;
 	bn->trevsorted = b->trevsorted || BATcount(bn) <= 1;
 	bn->T->nonil = !bn->T->nil;
-	if (b->htype != bn->htype) {
+	if (!BAThdense(b)) {
+		/* legacy */
 		BAT *b2 = VIEWcreate(b, bn);
 		BBPunfix(bn->batCacheid);
 		bn = b2;
@@ -1901,7 +1903,8 @@ MTIMEtimestamp_extract_date_default_bulk(bat *ret, bat *bid)
 	bn->tsorted = b->tsorted || BATcount(bn) <= 1;
 	bn->trevsorted = b->trevsorted || BATcount(bn) <= 1;
 	bn->T->nonil = !bn->T->nil;
-	if (b->htype != bn->htype) {
+	if (!BAThdense(b)) {
+		/* legacy */
 		BAT *b2 = VIEWcreate(b, bn);
 		BBPunfix(bn->batCacheid);
 		bn = b2;
@@ -2588,7 +2591,8 @@ MTIMEsecs2daytime_bulk(bat *ret, bat *bid)
 	bn->tsorted = b->tsorted || BATcount(bn) <= 1;
 	bn->trevsorted = b->trevsorted || BATcount(bn) <= 1;
 	bn->T->nonil = !bn->T->nil;
-	if (b->htype != bn->htype) {
+	if (!BAThdense(b)) {
+		/* legacy */
 		BAT *b2 = VIEWcreate(b, bn);
 		BBPunfix(bn->batCacheid);
 		bn = b2;
@@ -2727,7 +2731,8 @@ MTIMEtimestamp_bulk(bat *ret, bat *bid)
 	bn->tsorted = b->tsorted || BATcount(bn) <= 1;
 	bn->trevsorted = b->trevsorted || BATcount(bn) <= 1;
 	bn->T->nonil = !bn->T->nil;
-	if (b->htype != bn->htype) {
+	if (!BAThdense(b)) {
+		/* legacy */
 		BAT *b2 = VIEWcreate(b, bn);
 		BBPunfix(bn->batCacheid);
 		bn = b2;
@@ -2791,7 +2796,8 @@ MTIMEtimestamp_lng_bulk(bat *ret, bat *bid)
 	bn->tsorted = b->tsorted || BATcount(bn) <= 1;
 	bn->trevsorted = b->trevsorted || BATcount(bn) <= 1;
 	bn->T->nonil = !bn->T->nil;
-	if (b->htype != bn->htype) {
+	if (!BAThdense(b)) {
+		/* legacy */
 		BAT *b2 = VIEWcreate(b, bn);
 		BBPunfix(bn->batCacheid);
 		bn = b2;
@@ -3081,7 +3087,8 @@ MTIMEdate_extract_year_bulk(bat *ret, const bat *bid)
 		t++;
 	}
 
-	if (b->htype != bn->htype) {
+	if (!BAThdense(b)) {
+		/* legacy */
 		BAT *r = VIEWcreate(b,bn);
 		BBPunfix(bn->batCacheid);
 		bn = r;
@@ -3137,7 +3144,8 @@ MTIMEdate_extract_month_bulk(bat *ret, const bat *bid)
 		m++;
 		t++;
 	}
-	if (b->htype != bn->htype) {
+	if (!BAThdense(b)) {
+		/* legacy */
 		BAT *r = VIEWcreate(b,bn);
 		BBPunfix(bn->batCacheid);
 		bn = r;
@@ -3194,7 +3202,8 @@ MTIMEdate_extract_day_bulk(bat *ret, const bat *bid)
 		t++;
 	}
 
-	if (b->htype != bn->htype) {
+	if (!BAThdense(b)) {
+		/* legacy */
 		BAT *r = VIEWcreate(b,bn);
 		BBPunfix(bn->batCacheid);
 		bn = r;
@@ -3250,7 +3259,8 @@ MTIMEdaytime_extract_hours_bulk(bat *ret, const bat *bid)
 		h++;
 		t++;
 	}
-	if (b->htype != bn->htype) {
+	if (!BAThdense(b)) {
+		/* legacy */
 		BAT *r = VIEWcreate(b,bn);
 		BBPunfix(bn->batCacheid);
 		bn = r;
@@ -3304,7 +3314,8 @@ MTIMEdaytime_extract_minutes_bulk(bat *ret, const bat *bid)
 		m++;
 		t++;
 	}
-	if (b->htype != bn->htype) {
+	if (!BAThdense(b)) {
+		/* legacy */
 		BAT *r = VIEWcreate(b,bn);
 		BBPunfix(bn->batCacheid);
 		bn = r;
@@ -3357,7 +3368,8 @@ MTIMEdaytime_extract_seconds_bulk(bat *ret, const bat *bid)
 		}
 		s++; t++;
 	}
-	if (b->htype != bn->htype) {
+	if (!BAThdense(b)) {
+		/* legacy */
 		BAT *r = VIEWcreate(b,bn);
 		BBPunfix(bn->batCacheid);
 		bn = r;
@@ -3411,7 +3423,8 @@ MTIMEdaytime_extract_sql_seconds_bulk(bat *ret, const bat *bid)
 		t++;
 	}
 
-	if (b->htype != bn->htype) {
+	if (!BAThdense(b)) {
+		/* legacy */
 		BAT *r = VIEWcreate(b,bn);
 		BBPunfix(bn->batCacheid);
 		bn = r;
@@ -3464,7 +3477,8 @@ MTIMEdaytime_extract_milliseconds_bulk(bat *ret, const bat *bid)
 		s++;
 		t++;
 	}
-	if (b->htype != bn->htype) {
+	if (!BAThdense(b)) {
+		/* legacy */
 		BAT *r = VIEWcreate(b,bn);
 		BBPunfix(bn->batCacheid);
 		bn = r;
