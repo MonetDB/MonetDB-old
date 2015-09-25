@@ -1,0 +1,10 @@
+Python Ver	Numpy Ver	CPU Cores	Main Memory (GB)	OS	[AXIS]:Data Size (MB)	[MEASUREMENT]:Total Time (s)
+2.7.5	1.9.2	96	1056	fedora 20 Heisenbug	10.0	2.21634888649
+2.7.5	1.9.2	96	1056	fedora 20 Heisenbug	10.0	2.21684813499
+2.7.5	1.9.2	96	1056	fedora 20 Heisenbug	10.0	2.21722078323
+2.7.5	1.9.2	96	1056	fedora 20 Heisenbug	100.0	24.2235159874
+2.7.5	1.9.2	96	1056	fedora 20 Heisenbug	100.0	24.2195270061
+2.7.5	1.9.2	96	1056	fedora 20 Heisenbug	100.0	24.2032399178
+2.7.5	1.9.2	96	1056	fedora 20 Heisenbug	1000.0	229.562676907
+2.7.5	1.9.2	96	1056	fedora 20 Heisenbug	1000.0	229.426995039
+2.7.5	1.9.2	96	1056	fedora 20 Heisenbug	1000.0	229.516844988
