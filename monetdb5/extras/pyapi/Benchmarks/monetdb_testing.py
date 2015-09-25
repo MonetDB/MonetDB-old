@@ -607,30 +607,50 @@ else:
         def postgres_init():
             if str(args_input_database).lower() == "plpython":
                 if function_name == "identity":
-                    source = "  return a"
+                    source = "return a[0]"
+                    return_value = "integer"
                 elif function_name == "sqroot":
-                    source = "  import math\n  return math.sqrt(abs(a))"
+                    source = "return numpy.sqrt(numpy.abs(a))"
+                    return_value = "float"
+                elif function_name == "quantile":
+                    source = "return numpy.percentile(a, 50)"
+                    return_value = "float"
                 else: raise Exception("Unsupported function %s" % function_name)
 
                 createdb_sql = """
+DROP TABLE IF EXISTS integers;
 CREATE TABLE integers(i integer);
-
 COPY integers FROM '%s' DELIMITER ',' CSV;
 
-CREATE FUNCTION %s(a integer)
+DROP TABLE IF EXISTS dummy;
+CREATE TABLE dummy(i integer);
+INSERT INTO dummy VALUES (0);
+
+DROP FUNCTION IF EXISTS %s(integer);
+CREATE FUNCTION %s(inp integer)
   RETURNS %s
 AS $$
+import numpy
+cursor = plpy.cursor('SELECT i FROM integers')
+a = numpy.array([], dtype=numpy.int32)
+while True:
+   rv = cursor.fetch(10000000)
+   if not rv: break
+   python_array = [x['i'] for x in rv]
+   numpy_array = numpy.array(python_array, dtype=numpy.int32)
+   a = numpy.concatenate( (a, numpy_array) )
 %s
-$$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
+$$ LANGUAGE plpythonu;""" % (input_file, function_name, function_name, return_value, source)
 
                 run_sql = """
-                SELECT MIN(%s(i)) FROM integers;
+                SELECT %s(i) FROM dummy;
                 """ % function_name
             elif str(args_input_database).lower() == "postgres":
                 if function_name == "quantile":
                     run_sql = "SELECT percentile_cont(0.5) WITHIN GROUP(ORDER BY i) FROM integers;"
                 else: raise Exception("Unsupported function %s" % function_name)
                 createdb_sql = """
+                DROP TABLE IF EXISTS integers;
                 CREATE TABLE integers(i integer);
 
                 COPY integers FROM '%s' DELIMITER ',' CSV;""" % input_file
@@ -734,7 +754,11 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
         elif str(args_input_database).lower() == "monetdbmapi":
             def monetdb_execute():
                 c.execute('SELECT * FROM integers')
-                result = c.fetchall()
+                result = numpy.array([], dtype=numpy.int32)
+                while True:
+                    arr = c.fetchmany(10000)
+                    if len(arr) == 0: break
+                    result = numpy.concatenate((result, arr[0]))
                 function(numpy.array(result, dtype=numpy.int32))
         elif str(args_input_database).lower() == "monetdb":
             def monetdb_execute():
@@ -758,7 +782,7 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
         dropdb = os.environ["POSTGRES_DROPDB_COMMAND"]
         os.system(initdb)
         import psycopg2
-        conn = psycopg2.connect("dbname=%s host=/tmp/" % dbname)
+        conn = psycopg2.connect(dbname=dbname, host="/tmp/")
         c = conn.cursor()
         def psycopg2_init():
             return None
@@ -769,23 +793,30 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
 
 
         def psycopg2_execute():
-            c.execute("SELECT * FROM integers;")
-            result = c.fetchall()
+            c2 = conn.cursor("named_cursor")
+            c2.execute("SELECT * FROM integers;")
+            result = numpy.array([], dtype=numpy.int32)
+            while True:
+                arr = c2.fetchmany(10000)
+                if len(arr) == 0: break
+                result = numpy.concatenate((result, arr[0]))
             function(numpy.array(result, dtype=numpy.int32))
+            c2.close()
 
         def psycopg2_clear():
             c.execute("DROP TABLE integers;")
 
         def psycopg2_final():
-            os.system(dropdb)
+            c.close()
             conn.close()
+            os.system(dropdb)
             os.remove(input_file)
 
         execute_test(input_type, psycopg2_init, psycopg2_load, psycopg2_execute, psycopg2_clear, psycopg2_final)
     elif str(args_input_database).lower() == "pytables":
         import tables, pandas as pd
 
-        table_file = 'testfile.h5'
+        table_file = 'testfile.h5file'
 
         description = dict()
         description['i'] = tables.Int32Col()
@@ -794,24 +825,21 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, return_value, source)
             return None
 
         def pytables_load():
-            file = tables.open_file(table_file, mode='w', title='test file')
-            group = file.create_group('/', 'integers', 'integer_data')
-            table = file.create_table(group, 'values', description, "example")
-            values = table.row
-            for x in pd.read_csv(input_file).values:
-                values['i'] = int(x)
-                values.append()
-            table.flush()
-            file.close()
+            h5file = tables.open_file(table_file, mode='w', title='Benchmark Integers')
+            root = h5file.root
+            numpy_array = numpy.array(pd.read_csv(input_file).values, dtype=numpy.int32)
+            h5file.create_array(root, 'integers', numpy_array)
+            h5file.flush()
+            h5file.close()
 
         def pytables_execute():
-            file = tables.open_file(table_file, mode='r')
-            table = file.root.integers.values
-            result = [x['i'] for x in table.iterrows()]
-            function(numpy.array(result, dtype=numpy.int32))
+            h5file = tables.open_file(table_file, mode='r', driver="H5FD_CORE", driver_core_backing_store=0)
+            array = h5file.root.integers.read()
+            function(array)
+            h5file.close()
 
         def pytables_clear():
-            os.remove('testfile.h5')
+            os.remove(table_file)
 
         def pytables_final():
             os.remove(input_file)

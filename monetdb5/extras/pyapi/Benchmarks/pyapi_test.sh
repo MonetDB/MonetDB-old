@@ -209,7 +209,7 @@ function monetdbmapi_run_single_test() {
 
 function postgres_run_single_test() {
     # start server
-    setsid $POSTGRES_SERVER_COMMAND > /dev/null && sleep 5
+    setsid $POSTGRES_SERVER_COMMAND -c autovacuum=off -c random_page_cost=3.5 -c geqo_threshold=15 -c from_collapse_limit=14 -c join_collapse_limit=14 -c default_statistics_target=10000 -c constraint_exclusion=on -c checkpoint_completion_target=0.9 -c wal_buffers=16MB -c checkpoint_segments=128 -c shared_buffers=256GB -c effective_cache_size=768GB -c work_mem=128GB > /dev/null && sleep 5
     # call python test script
     python "$PYAPI_TESTFILE" $5 $1 $2 $3 $MSERVER_PORT $4
     # finish testing, kill postgres
@@ -521,11 +521,11 @@ export ntests_sqroot=3
 export sizes_sqroot="10"
 
 export ntests_quantile=3
-export sizes_quantile="10 100 1000"
+export sizes_quantile="1 1000"
 
 export PYTHON_TESTS=("identity" "sqroot" "quantile")
 export PYTHON_MAP_TESTS=("identity" "sqroot")
-export PLPYTHON_TESTS=("identity" "sqroot")
+export PLPYTHON_TESTS=("quantile")
 export POSTGRES_TESTS=("quantile")
 export MONETDB_TESTS=("quantile")
 
@@ -748,7 +748,9 @@ function comparison_graph() {
 
 }
 
-export BUILD_DIR=/export/scratch1/raasveld/build
+export BUILD_DIR=/export/scratch2/raasveld/build
+export CPATH=/export/scratch2/raasveld/build/include
+export LIBRARY_PATH=/export/scratch2/raasveld/build/lib
 function install_cfitsio() {
     wget ftp://heasarc.gsfc.nasa.gov/software/fitsio/c/cfitsio_latest.tar.gz && tar xvzf cfitsio_latest.tar.gz && cd cfitsio && ./configure --enable-sse2 --prefix=$BUILD_DIR --enable-reentrant && make install
 }
@@ -762,9 +764,15 @@ function install_casacore() {
     wget https://github.com/casacore/casacore/archive/master.zip && unzip master.zip && rm master.zip && cd casacore-master && mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX:PATH=$BUILD_DIR -DBUILD_PYTHON=ON .. && make all install
 }
 
+function install_pythoncasacore() {
+    wget https://github.com/casacore/python-casacore/archive/master.zip && unzip master.zip && rm master.zip && cd python-casacore-master && python setup.py install --user
+}
+
 function install_lofar() {
     wget https://github.com/transientskp/tkp/archive/master.zip && unzip master.zip && rm master.zip && cd tkp-master && python setup.py install --user
 }
 
-#export PYAPI_TESTFILE=/local/raasveld/monetdb_testing.py
-#export LD_LIBRARY_PATH=/local/raasveld/build/lib
+
+
+export PYAPI_TESTFILE=/local/raasveld/monetdb_testing.py
+export LD_LIBRARY_PATH=/local/raasveld/build/lib

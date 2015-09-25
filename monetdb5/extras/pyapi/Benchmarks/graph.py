@@ -21,7 +21,7 @@ y_log = False
 line_plot = False
 fill_time = False
 data_start = 3
-graph_colors = ['blue', 'green', 'red', 'cyan', 'magenta', 'yellow', 'black', 'white', 'orange', 'darkgreen', 'darkgray', 'gold', 'darkorchid', 'darkred', 'violet', 'lavenderblush', 'lightsalmon', 'midnightblue', 'moccasin', 'papayawhip', 'turquoise', 'violet']
+graph_colors = ['blue', 'green', 'red', 'cyan', 'magenta', 'yellow', 'black', 'white', 'orange', 'lightgreen', 'darkgray', 'gold', 'darkorchid', 'darkred', 'violet', 'powderblue', 'rosybrown', 'midnightblue', 'moccasin', 'papayawhip', 'turquoise', 'violet']
 for i in range(3, len(arguments)):
     if '-xlog' in arguments[i]: x_log = True
     elif '-ylog' in arguments[i]: y_log = True
@@ -104,7 +104,7 @@ def position_log(x, graphnr, graphs):
         position += width_log(x, i, graphs)
     return position
 def width_normal(x, graphnr, graphs):
-    return x / graphs * 2
+    return x / graphs * 3
 def position_normal(x, graphnr, graphs):
     position = x
     for i in range(0, graphnr):
