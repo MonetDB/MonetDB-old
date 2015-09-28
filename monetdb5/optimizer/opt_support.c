@@ -129,7 +129,6 @@ struct OPTcatalog {
 	int actions;
 	int debug;
 } optcatalog[]= {
-{"accumulators",0,	0,	0,	DEBUG_OPT_ACCUMULATORS},
 {"aliases",		0,	0,	0,	DEBUG_OPT_ALIASES},
 {"coercions",	0,	0,	0,	DEBUG_OPT_COERCION},
 {"commonTerms",	0,	0,	0,	DEBUG_OPT_COMMONTERMS},
@@ -645,13 +644,27 @@ int isAllScalar(MalBlkPtr mb, InstrPtr p)
  * Used in the merge table optimizer. It is built incrementally
  * and should be conservative.
  */
+
+static int 
+instrHasProp(InstrPtr p, int prop)
+{
+	int i;
+	MalBlkPtr mb = p->blk;
+	
+	for (i = 0; i < mb->ptop; i++) {
+		if (mb->prps[i].idx == prop)
+			return 1;
+	}
+	return 0;
+}
+
 int isMapOp(InstrPtr p){
 	return	getModuleId(p) &&
 		((getModuleId(p) == malRef && getFunctionId(p) == multiplexRef) ||
 		 (getModuleId(p) == malRef && getFunctionId(p) == manifoldRef) ||
-		 (getModuleId(p) == batcalcRef && getFunctionId(p) != mark_grpRef && getFunctionId(p) != rank_grpRef) ||
+		 (getModuleId(p) == batcalcRef) ||
 		 (getModuleId(p) != batcalcRef && getModuleId(p) != batRef && strncmp(getModuleId(p), "bat", 3) == 0) ||
-		 (getModuleId(p) == mkeyRef)) &&
+		 (getModuleId(p) == mkeyRef)) && (!instrHasProp(p, orderDependendProp)) &&
 		 getModuleId(p) != rapiRef;
 }
 

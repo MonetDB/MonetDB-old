@@ -36,11 +36,20 @@ create view sys.environment as select * from sys.environment();
 
 -- The BAT buffer pool overview
 create function sys.bbp ()
-	returns table (id int, name string, htype string,
+	returns table (id int, name string, 
 		ttype string, count BIGINT, refcnt int, lrefcnt int,
 		location string, heat int, dirty string,
 		status string, kind string)
 	external name bbp.get;
 
+create function sys.malfunctions()
+	returns table("signature" string, "address" string, "comment" string)
+	external name "manual"."functions";
+
 create procedure sys.evalAlgebra( ra_stmt string, opt bool)
 	external name sql."evalAlgebra";
+
+-- enqueue a flush log, ie as soon as no transactions are active 
+-- flush the log and cleanup the used storage
+create procedure sys.flush_log ()
+	external name sql."flush_log";

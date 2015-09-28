@@ -611,7 +611,7 @@ handleInts:
  * @item scalarType
  * @tab :  ':' @sc{ identifier}
  * @item collectionType
- * @tab :  ':' @sc{ bat} ['[' col ',' col ']']
+ * @tab :  ':' @sc{ bat} ['[' ':' oid ',' col ']']
  * @item anyType
  * @tab :  ':' @sc{ any} [typeAlias]
  * @item col
@@ -681,11 +681,14 @@ parseTypeId(Client cntxt, int defaultType)
 	char *s = CURRENT(cntxt);
 
 	if (s[0] == ':' && s[1] == 'b' && s[2] == 'a' && s[3] == 't' && s[4] == '[') {
-		/* parse :bat[:type,:type] */
+		/* parse :bat[:oid,:type] */
 		advance(cntxt, 5);
 		if (currChar(cntxt) == ':') {
 			ht = simpleTypeId(cntxt);
-			kh = typeAlias(cntxt, ht);
+			if( ht != TYPE_oid){
+				parseError(cntxt, "':oid' expected\n");
+				return i;
+			}
 		} else
 			ht = TYPE_any;
 
@@ -713,18 +716,22 @@ parseTypeId(Client cntxt, int defaultType)
 		skipSpace(cntxt);
 		return i;
 	}
+	/* A pure BAT as generic type should be avoided .*/
 	if (s[0] == ':' && 
 	   ((s[1] == 'b' && s[2] == 'a' && s[3] == 't')  || 
 	    (s[1] == 'B' && s[2] == 'A' && s[3] == 'T')) && 
 	   !idCharacter[(int) s[4]]) {
 		advance(cntxt, 4);
+		//parseError(cntxt, "':bat[:oid,:any]' expected\n");
 		return TYPE_bat;
 	}
-	if (s[0] == ':' && s[1] == 'c' && s[2] == 'o' && s[3] == 'l' &&
-	   !idCharacter[(int) s[4]]) {
+	// Headless definition of a column
+	if (s[0] == ':' && s[1] == 'c' && s[2] == 'o' && s[3] == 'l' && s[4] == '[') {
 		/* parse default for :col[:any] */
-		advance(cntxt, 4);
-		return newColumnType(TYPE_any);
+		advance(cntxt, 5);
+		skipSpace(cntxt);
+		tt = simpleTypeId(cntxt);
+		return newColumnType(tt);
 	}
 	if (currChar(cntxt) == ':') {
 		ht = simpleTypeId(cntxt);
@@ -2052,21 +2059,17 @@ parseError(Client cntxt, str msg)
 	if (curBlk)
 		curBlk->errors++;
 
-	/* accidental %s directives in the lastline can
-	   crash the vfsprintf later => escape them */
-	for (t = l; *t && *t != '\n' && s < buf+1024; t++) {
-		if (*t == '%')
-			*s++ = '%';
+	for (t = l; *t && *t != '\n' && s < buf+sizeof(buf)-4; t++) {
 		*s++ = *t;
 	}
 	*s++ = '\n';
 	*s = 0;
-	if (s != buf + 1 && strlen(buf) < 1024) {
+	if (s != buf + 1 && strlen(buf) < sizeof(buf) - 4) {
 		showException(cntxt->fdout, SYNTAX, "parseError", "%s", buf);
 		/* produce the position marker*/
 		s = buf;
 		i = position(cntxt) - 1;
-		for (; i > 0; i--) {
+		for (; i > 0 && s < buf+sizeof(buf)-4; i--) {
 			*s++ = ((l && *(l + 1) && *l++ != '\t')) ? ' ' : '\t';
 		}
 		*s++ = '^';
@@ -2074,7 +2077,7 @@ parseError(Client cntxt, str msg)
 	}
 
 	if (msg && strlen(msg))
-		snprintf(s, 1020, "%s", msg);
+		snprintf(s, sizeof(buf)-(s-buf), "%s", msg);
 	skipToEnd(cntxt);
 	showException(cntxt->fdout, SYNTAX, "parseError", "%s", buf);
 	return 0;

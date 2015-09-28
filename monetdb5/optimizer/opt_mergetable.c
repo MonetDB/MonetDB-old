@@ -1294,7 +1294,7 @@ mat_pack_topn(MalBlkPtr mb, InstrPtr slc, mat_t *mat, int m)
 		for(k=1; k < mat[attr].mi->argc; k++) {
 			InstrPtr q = newInstruction(mb, ASSIGNsymbol);
 			setModuleId(q, algebraRef);
-			setFunctionId(q, leftjoinRef);
+			setFunctionId(q, leftfetchjoinRef);
 			getArg(q, 0) = newTmpVariable(mb, tpe);
 
 			q = pushArgument(mb, q, getArg(slc, k));
@@ -1401,7 +1401,6 @@ mat_topn(MalBlkPtr mb, InstrPtr p, matlist_t *ml, int m, int n, int o)
 			pushInstruction(mb,q);
 		}
 
-		ml->v[piv].pushed = 1;
 		ml->v[piv].packed = 1;
 		ml->v[piv].type = mat_slc;
 	}
@@ -1626,8 +1625,8 @@ OPTmergetableImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
 		}
 		/* Handle setops */
 		if (match > 0 && getModuleId(p) == algebraRef &&
-		    (getFunctionId(p) == tdiffRef || 
-		     getFunctionId(p) == tinterRef) && 
+		    (getFunctionId(p) == subdiffRef || 
+		     getFunctionId(p) == subinterRef) && 
 		   (m=is_a_mat(getArg(p,1), &ml)) >= 0) { 
 		   	n=is_a_mat(getArg(p,2), &ml);
 			mat_setop(mb, p, &ml, m, n);

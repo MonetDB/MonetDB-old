@@ -756,8 +756,10 @@ table_element(mvc *sql, symbol *s, sql_schema *ss, sql_table *t, int alter)
 		if (!os)
 			os = ss;
 	       	ot = mvc_bind_table(sql, os, name);
-		if (!ot)
+		if (!ot) {
+			sql_error(sql, 02, "3F000!CREATE TABLE: no such table '%s'", name);
 			return SQL_ERR;
+		}
 		for (n = ot->columns.set->h; n; n = n->next) {
 			sql_column *oc = n->data;
 
@@ -941,7 +943,7 @@ rel_create_view(mvc *sql, sql_schema *ss, dlist *qname, dlist *column_spec, symb
 				return sql_error(sql, 01, "42000!CREATE VIEW: ORDER BY not supported");
 		}
 
-		sq = rel_selects(sql, query);
+		sq = schema_selects(sql, s, query);
 		if (!sq)
 			return NULL;
 
@@ -1207,7 +1209,7 @@ sql_alter_table(mvc *sql, dlist *qname, symbol *te)
 }
 
 static sql_rel *
-rel_role(sql_allocator *sa, char *grantee, char *auth, int type)
+rel_role(sql_allocator *sa, char *grantee, char *auth, int grantor, int admin, int type)
 {
 	sql_rel *rel = rel_create(sa);
 	list *exps = new_exp_list(sa);
@@ -1215,6 +1217,8 @@ rel_role(sql_allocator *sa, char *grantee, char *auth, int type)
 	assert(type == DDL_GRANT_ROLES || type == DDL_REVOKE_ROLES);
 	append(exps, exp_atom_clob(sa, grantee));
 	append(exps, exp_atom_clob(sa, auth));
+	append(exps, exp_atom_int(sa, grantor));
+	append(exps, exp_atom_int(sa, admin));
 	rel->l = NULL;
 	rel->r = NULL;
 	rel->op = op_ddl;
@@ -1233,16 +1237,13 @@ rel_grant_roles(mvc *sql, sql_schema *schema, dlist *roles, dlist *grantees, int
 	dnode *r, *g;
 
 	(void) schema;
-	(void) grant;
-	(void) grantor;		/* Stefan: unused!? */
-
 	for (r = roles->h; r; r = r->next) {
 		char *role = r->data.sval;
 
 		for (g = grantees->h; g; g = g->next) {
 			char *grantee = g->data.sval;
 
-			if ((res = rel_list(sql->sa, res, rel_role(sql->sa, grantee, role, DDL_GRANT_ROLES))) == NULL) {
+			if ((res = rel_list(sql->sa, res, rel_role(sql->sa, grantee, role, grantor, grant, DDL_GRANT_ROLES))) == NULL) {
 				rel_destroy(res);
 				return NULL;
 			}
@@ -1259,16 +1260,13 @@ rel_revoke_roles(mvc *sql, sql_schema *schema, dlist *roles, dlist *grantees, in
 	dnode *r, *g;
 
 	(void) schema;
-	(void) admin;
-	(void) grantor;		/* Stefan: unused!? */
-
 	for (r = roles->h; r; r = r->next) {
 		char *role = r->data.sval;
 
 		for (g = grantees->h; g; g = g->next) {
 			char *grantee = g->data.sval;
 
-			if ((res = rel_list(sql->sa, res, rel_role(sql->sa, grantee, role, DDL_REVOKE_ROLES))) == NULL) {
+			if ((res = rel_list(sql->sa, res, rel_role(sql->sa, grantee, role, grantor, admin, DDL_REVOKE_ROLES))) == NULL) {
 				rel_destroy(res);
 				return NULL;
 			}
@@ -1299,6 +1297,35 @@ rel_priv(sql_allocator *sa, char *sname, char *name, char *grantee, int privs, c
 	rel->card = 0;
 	rel->nrcols = 0;
 	return rel;
+}
+
+static sql_rel *
+rel_grant_global(mvc *sql, sql_schema *cur, dlist *privs, dlist *grantees, int grant, int grantor)
+{
+	sql_rel *res = NULL;
+	char *sname = cur->base.name;
+	dnode *gn;
+
+	if (!privs)
+		return NULL;
+	sname = cur->base.name;
+	for (gn = grantees->h; gn; gn = gn->next) {
+		dnode *opn;
+		char *grantee = gn->data.sval;
+
+		if (!grantee)
+			grantee = "public";
+
+		for (opn = privs->h; opn; opn = opn->next) {
+			int priv = opn->data.i_val;
+
+			if ((res = rel_list(sql->sa, res, rel_priv(sql->sa, sname, NULL, grantee, priv, NULL, grant, grantor, DDL_GRANT))) == NULL) {
+				rel_destroy(res);
+				return NULL;
+			}
+		}
+	}
+	return res;
 }
 
 static sql_rel *
@@ -1403,6 +1430,8 @@ rel_grant_privs(mvc *sql, sql_schema *cur, dlist *privs, dlist *grantees, int gr
 	}
 
 	switch (token) {
+	case SQL_GRANT: 
+		return rel_grant_global(sql, cur, obj_privs, grantees, grant, grantor);
 	case SQL_TABLE:
 		return rel_grant_table(sql, cur, obj_privs, obj->data.lval, grantees, grant, grantor);
 	case SQL_NAME:
@@ -1410,6 +1439,34 @@ rel_grant_privs(mvc *sql, sql_schema *cur, dlist *privs, dlist *grantees, int gr
 	default:
 		return sql_error(sql, 02, "M0M03!Grant: unknown token %d", token);
 	}
+}
+
+static sql_rel *
+rel_revoke_global(mvc *sql, sql_schema *cur, dlist *privs, dlist *grantees, int grant, int grantor)
+{
+	sql_rel *res = NULL;
+	char *sname = cur->base.name;
+	dnode *gn;
+
+	if (!privs)
+		return NULL;
+	for (gn = grantees->h; gn; gn = gn->next) {
+		dnode *opn;
+		char *grantee = gn->data.sval;
+
+		if (!grantee)
+			grantee = "public";
+
+		for (opn = privs->h; opn; opn = opn->next) {
+			int priv = opn->data.i_val;
+
+			if ((res = rel_list(sql->sa, res, rel_priv(sql->sa, sname, NULL, grantee, priv, NULL, grant, grantor, DDL_REVOKE))) == NULL) {
+				rel_destroy(res);
+				return NULL;
+			}
+		}
+	}
+	return res;
 }
 
 static sql_rel *
@@ -1516,6 +1573,8 @@ rel_revoke_privs(mvc *sql, sql_schema *cur, dlist *privs, dlist *grantees, int g
 	}
 
 	switch (token) {
+	case SQL_GRANT: 
+		return rel_revoke_global(sql, cur, obj_privs, grantees, grant, grantor);
 	case SQL_TABLE:
 		return rel_revoke_table(sql, cur, obj_privs, obj->data.lval, grantees, grant, grantor);
 	case SQL_NAME:
@@ -1704,7 +1763,7 @@ rel_schemas(mvc *sql, symbol *s)
 		ret = rel_grant_roles(sql, cur_schema(sql), l->h->data.lval,	/* authids */
 				  l->h->next->data.lval,	/* grantees */
 				  l->h->next->next->data.i_val,	/* admin? */
-				  l->h->next->next->next->data.i_val ? sql->user_id : sql->role_id);
+				  l->h->next->next->next->data.i_val == cur_user ? sql->user_id : sql->role_id);
 		/* grantor ? */
 	} 	break;
 	case SQL_REVOKE_ROLES:
@@ -1716,7 +1775,7 @@ rel_schemas(mvc *sql, symbol *s)
 		ret = rel_revoke_roles(sql, cur_schema(sql), l->h->data.lval,	/* authids */
 				  l->h->next->data.lval,	/* grantees */
 				  l->h->next->next->data.i_val,	/* admin? */
-				  l->h->next->next->next->data.i_val ? sql->user_id : sql->role_id);
+				  l->h->next->next->next->data.i_val  == cur_user? sql->user_id : sql->role_id);
 		/* grantor ? */
 	} 	break;
 	case SQL_GRANT:
@@ -1728,7 +1787,7 @@ rel_schemas(mvc *sql, symbol *s)
 		ret = rel_grant_privs(sql, cur_schema(sql), l->h->data.lval,	/* privileges */
 				  l->h->next->data.lval,	/* grantees */
 				  l->h->next->next->data.i_val,	/* grant ? */
-				  l->h->next->next->next->data.i_val ? sql->user_id : sql->role_id);
+				  l->h->next->next->next->data.i_val  == cur_user? sql->user_id : sql->role_id);
 		/* grantor ? */
 	} 	break;
 	case SQL_REVOKE:
@@ -1740,7 +1799,7 @@ rel_schemas(mvc *sql, symbol *s)
 		ret = rel_revoke_privs(sql, cur_schema(sql), l->h->data.lval,	/* privileges */
 				   l->h->next->data.lval,	/* grantees */
 				   l->h->next->next->data.i_val,	/* grant ? */
-				   l->h->next->next->next->data.i_val ? sql->user_id : sql->role_id);
+				   l->h->next->next->next->data.i_val  == cur_user? sql->user_id : sql->role_id);
 		/* grantor ? */
 	} 	break;
 	case SQL_CREATE_ROLE:
@@ -1748,7 +1807,7 @@ rel_schemas(mvc *sql, symbol *s)
 		dlist *l = s->data.lval;
 		char *rname = l->h->data.sval;
 		ret = rel_schema2(sql->sa, DDL_CREATE_ROLE, rname, NULL,
-				 l->h->next->data.i_val);
+				 l->h->next->data.i_val  == cur_user? sql->user_id : sql->role_id);
 	} 	break;
 	case SQL_DROP_ROLE:
 	{
