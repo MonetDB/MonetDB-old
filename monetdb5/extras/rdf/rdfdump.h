@@ -104,7 +104,7 @@ rdf_export
 PropStat* getPropStat_C_simpleCSset(SimpleCSset* csset);
 
 rdf_export 
-Postinglist get_p_postingList(PropStat *propStat, oid p);
+Postinglist* get_p_postingList(PropStat *propStat, oid p);
 
 rdf_export 
 int getColIdx_from_oid(int tblId, SimpleCSset *csset, oid coloid);

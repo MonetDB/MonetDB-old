@@ -569,19 +569,20 @@ PropStat* getPropStat_C_simpleCSset(SimpleCSset* csset){
  * Note that p may be in the list of column of that table as 
  * it may be refined while removing infrequent p. 
  * */
-Postinglist get_p_postingList(PropStat *propStat, oid p){
+Postinglist* get_p_postingList(PropStat *propStat, oid p){
 
 	BUN ppos = BUN_NONE;
-	Postinglist ptl;
+	Postinglist *ptl = NULL;
 
 	//Get number of BATs for this p
 	ppos = BUNfnd(propStat->pBat, &p);
 
 	if (ppos == BUN_NONE){
 		fprintf(stderr, "The prop "BUNFMT" must be in propStat bat\n", p);
+	} else {
+		ptl = (Postinglist *) malloc(sizeof(Postinglist)); 
+		*ptl =  propStat->plCSidx[ppos];
 	}
-
-	ptl =  propStat->plCSidx[ppos];
 	
 	return ptl; 
 }

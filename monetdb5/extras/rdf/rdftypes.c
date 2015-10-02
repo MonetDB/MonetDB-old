@@ -608,6 +608,12 @@ static ObjectType getObjType_fromValRec(ValRecord v){
 void get_encodedOid_from_atom(atom *at, oid *ret){
 	ValRecord vrec = at->data; 
 	ObjectType objT = getObjType_fromValRec(vrec);
+	oid Min_String_Oid = RDF_MIN_LITERAL;
+	Min_String_Oid |= (BUN)STRING << (sizeof(BUN)*8 - 4);
+	if (objT == URI && (oid)(vrec.val.lval) >= Min_String_Oid){
+		*ret = (oid)(vrec.val.lval); 
+		return; 
+	}
 	encodeValueInOid(&vrec, objT, ret); 
 }
 

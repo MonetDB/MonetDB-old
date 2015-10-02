@@ -205,7 +205,7 @@ sql_column* get_rdf_column(mvc *c, char *tblname, char *cname){
 #if HANDLING_EXCEPTION
 
 static
-sql_table *create_dummy_table(mvc *c, str tblname, list *proj_exps){
+sql_table *create_dummy_table(mvc *c, str tblname, list *proj_exps, int nump){
 	
 	sql_table *tbl = NULL;
 	str schema = "rdf"; 
@@ -228,20 +228,36 @@ sql_table *create_dummy_table(mvc *c, str tblname, list *proj_exps){
 	}
 		
 	//create columns
-	for (en = proj_exps->h; en; en = en->next){
-		sql_exp *tmpexp = (sql_exp *) en->data; 
-		sql_subtype *tpe; 
-		char colname[100]; 
+	if (proj_exps != NULL){	//Create the column based on the an existing expression
+		for (en = proj_exps->h; en; en = en->next){
+			sql_exp *tmpexp = (sql_exp *) en->data; 
+			sql_subtype *tpe; 
+			char colname[100]; 
 
-		assert(tmpexp->type == e_column); 
-		tpe = exp_subtype(tmpexp); 
-		sprintf(colname, "dummy_%s_%s", tmpexp->rname, tmpexp->name);
-		if (mvc_bind_column(c, tbl, colname) == NULL){
-			mvc_create_column(c, tbl, colname, tpe);
+			assert(tmpexp->type == e_column); 
+			tpe = exp_subtype(tmpexp); 
+			sprintf(colname, "dummy_%s_%s", tmpexp->rname, tmpexp->name);
+			if (mvc_bind_column(c, tbl, colname) == NULL){
+				mvc_create_column(c, tbl, colname, tpe);
+			}
+		}
+	} else {	//No existing expression
+		int i;
+		for (i = 0; i < nump; i++){
+			char colname_s[50], colname_o[50]; 
+			sql_subtype tpe; 
+			sql_find_subtype(&tpe, "oid", 31, 0);
+			sprintf(colname_s, "dummy_col_s_%d", i); 
+			sprintf(colname_o, "dummy_col_o_%d", i); 		
+			if (mvc_bind_column(c, tbl, colname_s) == NULL){
+				mvc_create_column(c, tbl, colname_s, &tpe);
+			}
+			if (mvc_bind_column(c, tbl, colname_o) == NULL){
+				mvc_create_column(c, tbl, colname_o, &tpe);
+			}
 		}
 	}
 	
-
 	return tbl; 
 }
 
@@ -1305,6 +1321,7 @@ void get_o_constraint_value(mvc *c, sql_exp *m_exp, oid *tmpvalue){
 
 	//first: Convert the compared value into oid
 	newoid = BUN_NONE; 
+
 	if (re->type == e_atom){
 		atom *at = re->l;
 		assert(at != NULL); 
@@ -1817,13 +1834,20 @@ void get_matching_tbl_from_spprops(int **rettbId, spProps *spprops, int *num_mat
 		printf("Table Id for set of props [");
 		for (i = 0; i < num; i++){
 			//Postinglist pl = get_p_postingList(global_p_propstat, lstprop[i]);
-			Postinglist pl = get_p_postingList(global_c_propstat, lstprop[i]);
-			tmptblId[i] = pl.lstIdx;
-			count[i] = pl.numAdded; 
-			printf("  " BUNFMT, lstprop[i]);
+			Postinglist *pl = get_p_postingList(global_c_propstat, lstprop[i]);
+			if (pl != NULL){
+				tmptblId[i] = pl->lstIdx;
+				count[i] = pl->numAdded; 
+				printf("  " BUNFMT, lstprop[i]);
+			} else {
+				printf(" NO TABLE"); 
+				break; 
+			}
+
 		}
 		
-		intersect_intsets(tmptblId, count, num, &tblId,  &numtbl);
+		if (i == num)	//All props have matching tabe
+			intersect_intsets(tmptblId, count, num, &tblId,  &numtbl);
 
 		printf(" ] --> ");
 
@@ -2291,82 +2315,6 @@ void get_removed_tid_exps(mvc *c, list *trans_base_exps, sql_rel *r){
  *  select from a table and mv_table if there is mv prop. 
  *  - sp_prj_exps stores all the columns should be selected in the "original order" 
  * */
-static
-sql_rel* build_rdfexception_old (mvc *c, int tId, jgraph *jg, list *union_rdfscan_exps, int nijgroup, int **ijgroup, int *nnodes_per_ijgroup){
-
-	sql_rel *rel_rdfscan = NULL;
-	str tblname; 
-	char dummy_tblname[100]; 
-	oid tblnameoid;
-	sql_rel *rel_basetbl = NULL; 
-	str dup_tblname = NULL;
-	int gr, i; 
-
-	sql_table *tbl; 
-	list *trans_select_exps = NULL; 
-	list *trans_base_exps = NULL; 
-	
-	printf("Get real expressions from tableId %d\n", tId);
-
-	tblnameoid = global_csset->items[tId]->tblname;
-
-	tblname = (str) GDKmalloc(sizeof(char) * 50); 
-
-	getTblSQLname(tblname, tId, 0,  tblnameoid, global_mapi, global_mbat);
-	
-	sprintf(dummy_tblname,"dummy_%s",tblname); 
-
-	dup_tblname  = sa_strdup(c->sa, dummy_tblname); 
-
-	tbl = create_dummy_table(c, dup_tblname, union_rdfscan_exps);
-
-	printf("  [Name of the table  %s]", tblname);  
-	
-	rel_basetbl = rel_basetable(c, tbl, dup_tblname); 
-
-	trans_base_exps = new_exp_list(c->sa); 
-
-	get_removed_tid_exps(c, trans_base_exps, rel_basetbl);
-
-	rel_basetbl->exps = trans_base_exps; 
-
-
-	printf("\nDUMMY TABLE\n"); 
-
-	_rel_print(c, rel_basetbl);
-
-	
-	trans_select_exps = new_exp_list(c->sa);
-	for (gr = 0; gr < nijgroup; gr++){
-		for (i = 0; i < nnodes_per_ijgroup[gr]; i++){
-			int nodeid = ijgroup[gr][i];
-			jgnode *tmpnode = jg->lstnodes[nodeid];
-			sql_rel *tmprel = (sql_rel*) (tmpnode->data);
-			list *tmpexps = NULL; 
-
-			assert(tmprel->op == op_select);
-			assert(((sql_rel*)tmprel->l)->op == op_basetable); 
-
-			tmpexps = tmprel->exps;
-
-			if (tmpexps){
-				get_transform_dummy_select_exps(c, tmpexps, trans_select_exps, dup_tblname); 
-			}
-		}
-	}
-	
-	exps_print_ext(c, trans_select_exps, 0, "[RDFexception] select exprs: ");
-	
-	rel_rdfscan = rel_rdfscan_create(c->sa, rel_basetbl, trans_select_exps, NULL); 
-	//rel_rdfscan = rel_rdfscan_create(c->sa, rel_basetbl, NULL, NULL); 
-	
-	printf("\nRDFSCAN \n");
-	_rel_print(c, rel_rdfscan);
-	
-	return rel_rdfscan; 
-
-}
-
 
 static
 sql_rel* build_rdfexception (mvc *c, int tId, jgraph *jg, list *union_rdfscan_exps, int nijgroup, int **ijgroup, int *nnodes_per_ijgroup, spProps *spprops){
@@ -2387,22 +2335,28 @@ sql_rel* build_rdfexception (mvc *c, int tId, jgraph *jg, list *union_rdfscan_ex
 	oid *los; 
 	oid *his; 
 	
-	printf("Get real expressions from tableId %d\n", tId);
+	if (tId != -1){
+		printf("Get real expressions from tableId %d\n", tId);
 
-	tblnameoid = global_csset->items[tId]->tblname;
+		tblnameoid = global_csset->items[tId]->tblname;
 
-	tblname = (str) GDKmalloc(sizeof(char) * 50); 
+		tblname = (str) GDKmalloc(sizeof(char) * 50); 
 
-	getTblSQLname(tblname, tId, 0,  tblnameoid, global_mapi, global_mbat);
+		getTblSQLname(tblname, tId, 0,  tblnameoid, global_mapi, global_mbat);
 	
-	sprintf(dummy_tblname,"dummy_%s",tblname); 
+		sprintf(dummy_tblname,"dummy_%s",tblname); 
 
-	dup_tblname  = sa_strdup(c->sa, dummy_tblname); 
+		printf("  [Name of the table  %s]", tblname);  
 
-	tbl = create_dummy_table(c, dup_tblname, union_rdfscan_exps);
+		dup_tblname  = sa_strdup(c->sa, dummy_tblname); 
 
-	printf("  [Name of the table  %s]", tblname);  
+	} else {
+		sprintf(dummy_tblname,"dummy_tbl"); 
+		dup_tblname  = sa_strdup(c->sa, dummy_tblname); 
+	}
+
 	
+	tbl = create_dummy_table(c, dup_tblname, union_rdfscan_exps, spprops->num);
 	rel_basetbl = rel_basetable(c, tbl, dup_tblname); 
 
 	trans_base_exps = new_exp_list(c->sa); 
@@ -2417,6 +2371,7 @@ sql_rel* build_rdfexception (mvc *c, int tId, jgraph *jg, list *union_rdfscan_ex
 	_rel_print(c, rel_basetbl);
 
 	
+	if(0){
 	trans_select_exps = new_exp_list(c->sa);
 	for (gr = 0; gr < nijgroup; gr++){
 		for (i = 0; i < nnodes_per_ijgroup[gr]; i++){
@@ -2437,9 +2392,8 @@ sql_rel* build_rdfexception (mvc *c, int tId, jgraph *jg, list *union_rdfscan_ex
 	}
 	
 	exps_print_ext(c, trans_select_exps, 0, "[RDFexception] select exprs: ");
+	}
 	
-	if (0) rel_rdfscan = rel_rdfscan_create(c->sa, rel_basetbl, trans_select_exps, NULL); 
-
 	los = (oid *) malloc(sizeof(oid) * spprops->num);
 	his = (oid *) malloc(sizeof(oid) * spprops->num);
 	for (i = 0; i < spprops->num; i++){
@@ -2914,7 +2868,10 @@ void get_union_expr(mvc *c, sql_rel *r, list *union_exps){
 	tmp_rel = r; 
 	//Because, the select op may be included 
 	//inside an join for the case of mvprop
-	if (tmp_rel->op != op_select){
+	if (tmp_rel->op == op_project){ //For the case of having more projection on top of the rel
+		get_union_expr(c, tmp_rel->l, union_exps);	
+	}
+	else if (tmp_rel->op != op_select){
 		assert(tmp_rel->op == op_join || tmp_rel->op == op_left);
 		get_union_expr(c, tmp_rel->l, union_exps);
 		get_union_expr(c, tmp_rel->r, union_exps);
@@ -2978,9 +2935,8 @@ sql_rel* _group_star_pattern_for_single_table(mvc *c, jgraph *jg,
 
 	sql_rel **ijrels;    //rel for inner join groups
 	sql_rel **edge_ijrels;  //sql_rel connecting each pair of ijrels
-	int is_contain_mv = 0; 
 	sql_rel *tbl_m_rel = NULL; 
-
+	int is_contain_mv = 0; 
 	int *ingroup_contain_mv = NULL; sql_rel *tmprel_rdfscan = NULL; 
 
 	*sp_proj_exps = new_exp_list(c->sa);
@@ -2995,15 +2951,19 @@ sql_rel* _group_star_pattern_for_single_table(mvc *c, jgraph *jg,
 	
 	for (i = 0; i < nijgroup; i++){
 		int isOptionalGroup = 0;
+
+		ingroup_contain_mv[i] = 0;
 		if (i > 0) isOptionalGroup = 1;
 		ingroup_contain_mv[i] = 0;
-		ijrels[i] = transform_inner_join_subjg (c, jg, tId, ijgroup[i], nnodes_per_ijgroup[i], *sp_proj_exps, *sp_opt_proj_exps, &is_contain_mv, isOptionalGroup);
-		ingroup_contain_mv[i] = is_contain_mv; 
+		ijrels[i] = transform_inner_join_subjg (c, jg, tId, ijgroup[i], nnodes_per_ijgroup[i], *sp_proj_exps, *sp_opt_proj_exps, &(ingroup_contain_mv[i]), isOptionalGroup);
+		if (ingroup_contain_mv[i]){
+			 is_contain_mv = 1;
+		}
 
 	}
-
+	
 	*contain_mv_col = is_contain_mv;
-	if (is_contain_mv) printf("Contain MV cols \n"); 
+	if (*contain_mv_col) printf("Contain MV cols \n"); 
 	printf("Original Projection of all columns (w/o considering mv col): \n"); 
 	exps_print_ext(c, *sp_proj_exps, 0, NULL); 
 
@@ -3234,12 +3194,6 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 
 		}
 
-
-		get_matching_tbl_from_spprops(&tmptbId, spprops, &num_match_tbl);
-
-		printf("Number of matching table is: %d\n", num_match_tbl);
-
-		//num_match_tbl = 1; 
 		
 		tbl_m_rels = (sql_rel **) malloc(sizeof(sql_rel *) * num_match_tbl);
 		sp_proj_exps = (list **) malloc(sizeof(list *) * num_match_tbl); 
@@ -3257,33 +3211,51 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 
 		print_spprops(spprops);
 
+		get_matching_tbl_from_spprops(&tmptbId, spprops, &num_match_tbl);
+
+		printf("Number of matching table is: %d\n", num_match_tbl);
+
+		//num_match_tbl = 1; 
+		
+		printf("Grouping star pattern for each matching table of %d candidates\n",num_match_tbl);
 		for (tblIdx = 0; tblIdx < num_match_tbl; tblIdx++){
 			tbl_m_rels[tblIdx] = _group_star_pattern_for_single_table(c, jg, ijgroup, nijgroup, nnodes_per_ijgroup, tmptbId[tblIdx], &(sp_proj_exps[tblIdx]), &(sp_opt_proj_exps[tblIdx]), 
 					&(contain_mv_col[tblIdx]));
 		}
+		
+		printf("Done grouping star pattern\n"); 
 
-		rel_alltable = union_sp_from_all_matching_tbls(c, num_match_tbl, contain_mv_col, tbl_m_rels, sp_proj_exps); 
+		if (num_match_tbl > 0){ 
+			rel_alltable = union_sp_from_all_matching_tbls(c, num_match_tbl, contain_mv_col, tbl_m_rels, sp_proj_exps); 
 	
-		#if HANDLING_EXCEPTION
-		//Union with RDFscan
-		union_rdfscan_exps = new_exp_list(c->sa);
-		get_union_expr(c,tbl_m_rels[0] , union_rdfscan_exps);
+			printf("RDF Regular Rel\n"); 
+			printf("Number of ijgroups %d  -  Is contain MV %d\n", nijgroup, contain_mv_col[0]);
+			exps_print_ext(c, sp_proj_exps[0], 0, "sp_proj_exps ==> "); 
+			_rel_print(c, rel_alltable); 
 
-		exps_print_ext(c, union_rdfscan_exps, 0, "union_rdfscan_exps: ");
+			//Union with RDFscan
+			/*
+			union_rdfscan_exps = new_exp_list(c->sa);
+			get_union_expr(c,tbl_m_rels[0] , union_rdfscan_exps);
+			exps_print_ext(c, union_rdfscan_exps, 0, "union_rdfscan_exps: ");
+			*/
 			
-		if (0) rel_rdfscan = build_rdfexception_old(c, tmptbId[0], jg, union_rdfscan_exps, nijgroup, ijgroup, nnodes_per_ijgroup);
+			rel_rdfscan = build_rdfexception(c, tmptbId[0], jg, union_rdfscan_exps, nijgroup, ijgroup, nnodes_per_ijgroup, spprops);
+				
+			printf("RDF exception\n"); 
+			_rel_print(c, rel_rdfscan); 
 
-		rel_rdfscan = build_rdfexception(c, tmptbId[0], jg, union_rdfscan_exps, nijgroup, ijgroup, nnodes_per_ijgroup, spprops);
+			rel = rel_setop(c->sa, rel_alltable, rel_rdfscan, op_union); 
+			//rel->exps = union_rdfscan_exps;		
+			rel->exps = sp_proj_exps[0]; 
 
-		printf("RDF exception\n"); 
-		_rel_print(c, rel_rdfscan); 
+		}
+		else {
+			rel_rdfscan = build_rdfexception(c, -1, jg, NULL,  nijgroup, ijgroup, nnodes_per_ijgroup, spprops);
+			rel = rel_rdfscan; 
+		}
 
 
-		rel = rel_setop(c->sa, rel_alltable, rel_rdfscan, op_union); 
-		rel->exps = union_rdfscan_exps;		
-		#else
-		rel = rel_alltable; 
-		#endif
 
 		free_inner_join_groups(ijgroup, nijgroup, nnodes_per_ijgroup); 
 

@@ -1527,17 +1527,23 @@ void get_full_outerjoin_p_slices(oid *lstprops, int np, oid *los, oid *his, BAT 
 
 	for (i = 0; i < np; i++){
 		start = clock(); 
+		printf("Slides of P = "BUNFMT " with o constraints from "BUNFMT" to " BUNFMT"\n", lstprops[i], los[i], his[i]);
 		getSlides_per_P(pso_propstat, &(lstprops[i]), los[i], his[i], full_obat, full_sbat, &(obats[i]), &(sbats[i])); 
 		end = clock(); 
-		printf("Slides of P = "BUNFMT " with o constraints from "BUNFMT" to " BUNFMT" [Took %f seconds)\n", lstprops[i], los[i], his[i], ((float)(end - start))/CLOCKS_PER_SEC);
 		if (sbats[i]){
 			printf("   contains "BUNFMT " rows in sbat\n", BATcount(sbats[i]));
 			//BATprint(sbats[i]);
+			if (BATcount(sbats[i]) < 100){
+				BATprint(sbats[i]);
+			}
 		}
 		if (obats[i]){ 
 			printf("   contains "BUNFMT " rows in obat\n", BATcount(obats[i]));
-			//BATprint(obats[i]);
+			if (BATcount(obats[i]) < 100){
+				BATprint(obats[i]);
+			}
 		}
+		printf(" [Took %f seconds)\n",((float)(end - start))/CLOCKS_PER_SEC); 
 	}
 	
 	start = clock(); 
@@ -1555,13 +1561,15 @@ void get_full_outerjoin_p_slices(oid *lstprops, int np, oid *los, oid *his, BAT 
 
 
 static
-void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_cursors, oid **regular_obat_mv_cursors, BAT **regular_obats, BAT **regular_obat_mv, oid sbt, oid tmpS, int cur_p, int np, oid *tmpres){
+void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_cursors, oid **regular_obat_mv_cursors, BAT **regular_obats, BAT **regular_obat_mv, oid sbt, oid tmpS, int cur_p, int nrp, int np, oid *tmpres){
 	int j; 
 	if (obatCursors[cur_p][pos] == oid_nil){
 		//Look for the result from regular bat. 
 		//Check if the regular bat is pointing to a MVBat
 		//Then, get all teh value from MVBATs
-		assert(regular_obat_cursors[cur_p][tmpS] != oid_nil); 
+
+		assert(cur_p >= nrp || regular_obat_cursors[cur_p][tmpS] != oid_nil); 
+
 		if (regular_obat_mv_cursors[cur_p] != NULL){		//mv col
 			//Get the values from mvBat
 			oid offset = regular_obat_cursors[cur_p][tmpS]; 
@@ -1579,7 +1587,7 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 				tmpres[cur_p] = regular_obat_mv_cursors[cur_p][offset + i]; 
 
 				if (cur_p < (np -1))
-					fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, np, tmpres); 
+					fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, nrp, np, tmpres); 
 
 				else if (cur_p == (np - 1)){
 					//Output result
@@ -1591,10 +1599,11 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 					
 		}
 		else{
-			tmpres[cur_p] = regular_obat_cursors[cur_p][tmpS];
+			if (regular_obat_cursors[cur_p] != NULL) tmpres[cur_p] = regular_obat_cursors[cur_p][tmpS];
+			else tmpres[cur_p] = oid_nil; 
 			
 			if (cur_p < (np -1))
-				fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, np, tmpres); 
+				fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, nrp, np, tmpres); 
 
 			else if (cur_p == (np - 1)){
 				//Output result
@@ -1609,7 +1618,7 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 		tmpres[cur_p] = obatCursors[cur_p][pos];		
 		
 		if (cur_p < (np -1))
-			fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, np, tmpres); 
+			fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, nrp, np, tmpres); 
 
 		else if (cur_p == (np - 1)){
 			//Output result
@@ -1710,7 +1719,7 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 					regular_obat_cursors[j] = NULL; 
 					regular_obat_mv_cursors[j] = NULL; 
 					#if RDF_HANDLING_EXCEPTION_MISSINGPROP_OPT
-					lst_missing_props[num_mp] = j; 
+					if (j < nRP) lst_missing_props[num_mp] = j; 
 					num_mp++; 
 					#endif
 					continue; 
@@ -1755,7 +1764,7 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 		}
 		if (accept == 0) continue; 
 		#endif
-		for (j = 0;  j < nP; j++){
+		for (j = 0;  j < nRP; j++){
 			if (obatCursors[j][pos] == oid_nil){
 				if (regular_obat_cursors[j] == NULL){	//No corresponding regular column
 					accept = 0; 
@@ -1779,7 +1788,7 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 			for (j = 0; j < nP; j++){
 				tmpres[j] = oid_nil; 
 			}
-			fetch_result(*r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, 0, nP, tmpres);
+			fetch_result(*r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, 0, nRP, nP, tmpres);
 			r_obat_newsize = BATcount((*r_obats)[0]); 
 			for (j = 0; j < (int)(r_obat_newsize - r_obat_oldsize); j++){
 				BUNappend(*r_sbat, &sbt, TRUE); 
@@ -2119,6 +2128,7 @@ void getOffsets(PsoPropStat *pso_pstat, oid *p, BUN *start, BUN *end){
  * */
 void getSlides_per_P(PsoPropStat *pso_pstat, oid *p, oid lo_cst, oid hi_cst, BAT *obat, BAT *sbat, BAT **ret_oBat, BAT **ret_sBat){
 	BUN l, h; 	
+	BAT *tmpB = NULL; 
 	getOffsets(pso_pstat, p, &l, &h); 
 	
 	if (l != BUN_NONE){
@@ -2145,8 +2155,10 @@ void getSlides_per_P(PsoPropStat *pso_pstat, oid *p, oid lo_cst, oid hi_cst, BAT
 					hi = hi_cst; 
 				}
 				//BATsubselect(inputbat, <dont know yet>, lowValue, Highvalue, isIncludeLowValue, isIncludeHigh, <anti> 
-				*ret_oBat = BATsubselect(tmp_o, NULL, &lo, &hi, 1, 1, 0); 
-				*ret_sBat = BATproject(*ret_oBat, tmp_s); 
+				tmpB = BATsubselect(tmp_o, NULL, &lo, &hi, 1, 1, 0);
+				*ret_oBat = BATproject(tmpB, tmp_o); 
+				*ret_sBat = BATproject(tmpB, tmp_s); 
+				BBPunfix(tmpB->batCacheid); 
 			}
 		#else
 			*ret_oBat =  tmp_o; 

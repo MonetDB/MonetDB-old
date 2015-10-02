@@ -139,6 +139,7 @@ sql_symbol2relation(mvc *c, symbol *sym)
 		}
 
 		if (1){
+		rel_print(c,r,0);
 		r = rel_optimizer(c, r);
 
 		r = rel_distribute(c, r);
