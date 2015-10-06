@@ -1,7 +1,8 @@
 library(testthat)
-library(MonetDB)
+library(MonetDBLite)
 
 test_that("db starts up", {
+	expect_error(monetdb_embedded_startup("/dev/null"))
 	expect_equal(monetdb_embedded_startup(), TRUE)
 	expect_warning(monetdb_embedded_startup())
 })

@@ -36,7 +36,6 @@
 #ifdef HAVE_OPENSSL
 # include <openssl/rand.h>		/* RAND_bytes() */
 #endif
-
 #ifdef _WIN32   /* Windows specific */
 # include <winsock.h>
 #else           /* UNIX specific */
@@ -78,19 +77,25 @@ static void generateChallenge(str buf, int min, int max) {
 
 	/* don't seed the randomiser here, or you get the same challenge
 	 * during the same second */
+#ifdef HAVE_OPENSSL
 	if (RAND_bytes((unsigned char *) &size, (int) sizeof(size)) < 0)
+#endif
 		size = rand();
 	size = (size % (max - min)) + min;
+#ifdef HAVE_OPENSSL
 	if (RAND_bytes((unsigned char *) buf, (int) size) >= 0) {
 		for (i = 0; i < size; i++)
 			buf[i] = seedChars[((unsigned char *) buf)[i] % 62];
 	} else {
+#endif
 		for (i = 0; i < size; i++) {
 			bte = rand();
 			bte %= 62;
 			buf[i] = seedChars[bte];
 		}
+#ifdef HAVE_OPENSSL
 	}
+#endif
 	buf[i] = '\0';
 }
 
@@ -1649,7 +1654,7 @@ SERVERput(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		}
 
 		/* reconstruct the object */
-		ht = getTypeName(getHeadType(tpe));
+		ht = getTypeName(TYPE_oid);
 		tt = getTypeName(getColumnType(tpe));
 		snprintf(buf,BUFSIZ,"%s:= bat.new(:%s,%s);", *nme, ht,tt );
 		len = (int) strlen(buf);
@@ -1743,7 +1748,7 @@ SERVERbindBAT(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	} else {
 		str hn,tn;
 		int target= getArgType(mb,pci,0);
-		hn= getTypeName(getHeadType(target));
+		hn= getTypeName(TYPE_oid);
 		tn= getTypeName(getColumnType(target));
 		snprintf(buf,BUFSIZ,"%s:bat[:%s,:%s]:=bbp.bind(\"%s\");",
 			getVarName(mb,getDestVar(pci)), hn,tn, *nme);
