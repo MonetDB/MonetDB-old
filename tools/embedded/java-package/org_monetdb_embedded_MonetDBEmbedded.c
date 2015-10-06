@@ -24,14 +24,9 @@ JNIEXPORT jint JNICALL Java_org_monetdb_embedded_MonetDBLite_startupWrapper
 	return monetdb_startup(dir, silent_char);
 }
 
-/*
- * Class:     org_monetdb_embedded_MonetDBEmbedded
- * Method:    query
- * Signature: (Ljava/lang/String;)Lorg/monetdb/embedded/result/EmbeddedQueryResult;
- */
 JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_query
 (JNIEnv *env, jobject object, jstring query) {
-	res_table* output = NULL;
+	res_table *output = NULL;
 	const char *query_string = (*env)->GetStringUTFChars(env, query, 0);
 
 	jobject *result;
@@ -115,16 +110,11 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_query
 	return result;
 }
 
-/*
- * Class:     org_monetdb_embedded_MonetDBLite
- * Method:    append
- * Signature: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/reflect/Array;)Ljava/lang/String;
- */
 JNIEXPORT jstring JNICALL Java_org_monetdb_embedded_MonetDBLite_append
 (JNIEnv *env, jobject object, jstring schema_name, jstring table_name, jobject data) {
 	const char *schema_name = (*env)->GetStringUTFChars(env, schema, 0);
 	const char *table_name = (*env)->GetStringUTFChars(env, table, 0);
+	(void)data;
 
-	(*env)->ReleaseStringUTFChars(env, string, str);
-	return (*env)->NewStringUTF(env, strupr(cap));
+	return (*env)->NewStringUTF(env, "");
 }

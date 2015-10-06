@@ -13,11 +13,11 @@ package org.monetdb.embedded.result.column;
  *
  */
 public class IntegerColumn extends Column<Integer> {
-	private int[] array;
+	private int[] values;
 
-	public IntegerColumn(int[] array, int columnSize, boolean[] nullIndex) {
+	public IntegerColumn(int[] values, int columnSize, boolean[] nullIndex) {
 		super(columnSize, nullIndex);
-		this.array = array;
+		this.values = values;
 	}
 
 	@Override
@@ -25,6 +25,6 @@ public class IntegerColumn extends Column<Integer> {
 		if (isNullValue(index) || index <= columnSize()) {
 			return null;
 		}
-		return Integer.valueOf(array[index]);
+		return Integer.valueOf(values[index]);
 	}
 }
