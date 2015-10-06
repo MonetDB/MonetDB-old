@@ -1513,23 +1513,115 @@ bat2return(MalStkPtr stk, InstrPtr pci, BAT **b)
 	}
 }
 
+static 
+void setBasicProps(BAT *b){
+	b->hdense = 1;
+	b->hseqbase = 0; 
+	b->hsorted = 1; 
+}
+
+#if RDF_HANDLING_EXCEPTION_POSSIBLE_TBL_OPT
+/*
+ * Input: 
+ * 	sbat: BAT of subjects
+ * 	obat: BAT of objects
+ * 	tblCand: Set of possible matching table Ids
+ * 	nt: number of possible matching table
+ * Output: 
+ * 		
+ * */
+static void refine_BAT_with_possible_tblId(BAT *sbat, BAT *obat, BAT **retsbat, BAT **retobat, int *tblCand, int nt){
+	oid *sbatpt = (oid *) Tloc(sbat, BUNfirst(sbat));				
+	oid *obatpt = (oid *) Tloc(obat, BUNfirst(obat)); 
+	int cnt = BATcount(sbat); 
+	int i = 0; 
+	int curId = -1; 	//Cur possible tblId
+	int curpos = -1; 	//Cur possition in the tblCand
+	BAT *r_sbat = NULL; 
+	BAT *r_obat = NULL; 
+
+	r_sbat = BATnew(TYPE_void, TYPE_oid, cnt, TRANSIENT); 
+	setBasicProps(r_sbat); 
+	r_sbat->tsorted = 1; 
+
+	r_obat = BATnew(TYPE_void, TYPE_oid, cnt, TRANSIENT);
+
+	for (i = 0; i < cnt; i++){
+		//Check one by one from sbat and obat and then write to the output BAT
+		oid tmps = sbatpt[i]; 
+		oid tmpo = obatpt[i]; 
+		int tmptbid = -1; 
+		tmptbid = getTblId_from_S_simple(tmps); 
+			
+		while (tmptbid > curId){
+			curpos++; 
+			if (curpos >= nt) break; 
+			curId = tblCand[curpos];
+		}
+
+		if (curpos >= nt) break; 
+
+		if (tmptbid == curId){	
+			//This row is possible candidate. Write tmps, tmpo to the ret BATs 	
+			if (BUNfastins(r_sbat, ATOMnilptr(TYPE_void), &tmps)== GDK_FAIL){
+				fprintf(stderr, "Cannot insert into r_sbat in refine_BAT_with_possible_tblId \n");
+			}
+			if (BUNfastins(r_obat, ATOMnilptr(TYPE_void), &tmpo)== GDK_FAIL){
+				fprintf(stderr, "Cannot insert into r_obat in refine_BAT_with_possible_tblId \n");
+			}
+		} else {
+			continue; 
+		}
+	}
+	
+	*retsbat = r_sbat; 
+	*retobat = r_obat; 
+}
+#endif
 
 static
-void get_full_outerjoin_p_slices(oid *lstprops, int np, oid *los, oid *his, BAT *full_obat, BAT *full_sbat, BAT **r_sbat, BAT ***r_obats){
+void get_full_outerjoin_p_slices(oid *lstprops, int nrp, int np, oid *los, oid *his, BAT *full_obat, BAT *full_sbat, BAT **r_sbat, BAT ***r_obats){
 
 	BAT **obats, **sbats; 
 	int i; 
 	clock_t start, end;
+	#if RDF_HANDLING_EXCEPTION_POSSIBLE_TBL_OPT
+	int num_match_tbl = 0; 
+	int *regtblIds = NULL; 
+	#endif
 
+	(void) nrp; 
 	obats = (BAT**)malloc(sizeof(BAT*) * np);
 	sbats = (BAT**)malloc(sizeof(BAT*) * np);
 	(*r_obats) = (BAT**)malloc(sizeof(BAT*) * np);
 
+	#if RDF_HANDLING_EXCEPTION_POSSIBLE_TBL_OPT	
+	get_possible_matching_tbl_from_RPs(&regtblIds, &num_match_tbl, lstprops, nrp, BUN_NONE);
+	
+	printf("Exception handling: Possible matching regular table [ ");
+	for (i = 0; i < num_match_tbl; i++){
+		printf(" %d ", regtblIds[i]); 
+	}
+	printf(" ]\n"); 
+	#endif
+
 	for (i = 0; i < np; i++){
+		BAT *tmpobat = NULL; 
+		BAT *tmpsbat = NULL; 
 		start = clock(); 
 		printf("Slides of P = "BUNFMT " with o constraints from "BUNFMT" to " BUNFMT"\n", lstprops[i], los[i], his[i]);
-		getSlides_per_P(pso_propstat, &(lstprops[i]), los[i], his[i], full_obat, full_sbat, &(obats[i]), &(sbats[i])); 
+		getSlides_per_P(pso_propstat, &(lstprops[i]), los[i], his[i], full_obat, full_sbat, &tmpobat, &tmpsbat); 
 		end = clock(); 
+
+		printf(" [Took %f seconds)\n",((float)(end - start))/CLOCKS_PER_SEC); 
+	
+		#if RDF_HANDLING_EXCEPTION_POSSIBLE_TBL_OPT
+		refine_BAT_with_possible_tblId(tmpsbat, tmpobat, &(sbats[i]), &(obats[i]), regtblIds, num_match_tbl);
+		#else
+		sbats[i] = tmpsbat; 
+		obats[i] = tmpobat;
+		#endif
+		
 		if (sbats[i]){
 			printf("   contains "BUNFMT " rows in sbat\n", BATcount(sbats[i]));
 			//BATprint(sbats[i]);
@@ -1543,9 +1635,8 @@ void get_full_outerjoin_p_slices(oid *lstprops, int np, oid *los, oid *his, BAT 
 				BATprint(obats[i]);
 			}
 		}
-		printf(" [Took %f seconds)\n",((float)(end - start))/CLOCKS_PER_SEC); 
 	}
-	
+
 	start = clock(); 
 	RDFmultiway_merge_outerjoins(np, sbats, obats, r_sbat, (*r_obats));
 	end = clock(); 
@@ -1631,12 +1722,7 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 
 }
 
-static 
-void setBasicProps(BAT *b){
-	b->hdense = 1;
-	b->hseqbase = 0; 
-	b->hsorted = 1; 
-}
+
 /*
  * Combine exceptioins and regular tables
  * */
@@ -1719,8 +1805,10 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 					regular_obat_cursors[j] = NULL; 
 					regular_obat_mv_cursors[j] = NULL; 
 					#if RDF_HANDLING_EXCEPTION_MISSINGPROP_OPT
-					if (j < nRP) lst_missing_props[num_mp] = j; 
-					num_mp++; 
+					if (j < nRP){ 
+						lst_missing_props[num_mp] = j; 
+						num_mp++; 
+					}
 					#endif
 					continue; 
 				}
@@ -1896,7 +1984,7 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		pso_fullSbat = mvc_bind(m, schema, "pso", "s",0);
 		pso_fullObat = mvc_bind(m, schema, "pso", "o",0);
 
-		get_full_outerjoin_p_slices(lstProps, *nP, los, his, pso_fullObat, pso_fullSbat, &r_sbat, &r_obats);
+		get_full_outerjoin_p_slices(lstProps, *nRP, *nP, los, his, pso_fullObat, pso_fullSbat, &r_sbat, &r_obats);
 
 		eT1 = clock(); 
 		printf("Step 1 in Handling exception took  %f seconds.\n", ((float)(eT1 - sT1))/CLOCKS_PER_SEC);

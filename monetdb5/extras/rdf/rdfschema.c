@@ -9994,6 +9994,15 @@ void getTblIdxFromS(oid Soid, int *tbidx, oid *baseSoid){
 	//return freqCSid; 
 }
 
+int getTblId_from_S_simple(oid Soid){
+	
+	int tbidx = (int) ((Soid >> (sizeof(BUN)*8 - NBITS_FOR_CSID))  &  ((1 << (NBITS_FOR_CSID-1)) - 1)) ;
+	
+	tbidx = tbidx - 1; 
+
+	return tbidx; 
+}
+
 /* This function should be the same as getTblIdxFromS */
 static 
 void getTblIdxFromO(oid Ooid, int *tbidx){

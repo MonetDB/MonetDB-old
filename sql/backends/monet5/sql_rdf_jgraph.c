@@ -1800,7 +1800,10 @@ void tranforms_mvprop_exps(mvc *c, sql_rel *r, mvPropRel *mvproprel, int tblId, 
 }
 
 /*
- * 
+ * Output: 
+ * num_match_tbl: Number of table having columns of these input props
+ * rettbId: List of matching tables 
+ *
  * */
 static 
 void get_matching_tbl_from_spprops(int **rettbId, spProps *spprops, int *num_match_tbl){
@@ -1887,6 +1890,66 @@ void get_matching_tbl_from_spprops(int **rettbId, spProps *spprops, int *num_mat
 
 }
 
+/* 
+ * lstRP: list of required props
+ * num: Num of RP
+ * subj: Subject oid
+ * num_possible_tbl: Number of tables that, by combining with exceptions, can contain these set of RP props 
+ * ret_pos_tbId: List of possible tables
+ */
+void get_possible_matching_tbl_from_RPs(int **rettbId, int *num_match_tbl, oid *lstRP, int num, oid subj){
+
+	int i; 
+	int **tmptblId; 	//lists of tables corresonding to each prop
+	int *count; 		//number of tables per prop	
+	int *tblId; 		//list of matching tblId
+	int numtbl = 0; 	
+
+	if (subj != BUN_NONE){
+		int tblIdx;
+		oid baseSoid; 
+		getTblIdxFromS(subj, &tblIdx, &baseSoid);
+		numtbl = 1;
+		tblId = (int *) malloc(sizeof(int));
+		tblId[0] = tblIdx;
+		printf("Possible table Id found based on known subj is: %d\n", tblIdx); 
+	}
+	else{
+		
+		tmptblId = (int **) malloc(sizeof(int *) * num); 
+		count = (int *) malloc(sizeof(int) * num); 
+
+		printf("Possible table Id for set of props [");
+		for (i = 0; i < num; i++){
+			Postinglist *pl = get_p_postingList(global_p_propstat, lstRP[i]);
+			if (pl != NULL){
+				tmptblId[i] = pl->lstIdx;
+				count[i] = pl->numAdded; 
+				printf("  " BUNFMT, lstRP[i]);
+			} else {
+				printf(" NO TABLE"); 
+				break; 
+			}
+
+		}
+		
+		if (i == num)	//All props have matching tabe
+			intersect_intsets(tmptblId, count, num, &tblId,  &numtbl);
+
+		printf(" ] --> ");
+
+		free(count); 
+
+	}
+	
+	*rettbId = (int *) malloc(sizeof(int) * numtbl); 
+	for (i = 0; i < numtbl; i++){
+		(*rettbId)[i] = tblId[i];
+	}
+
+	*num_match_tbl = numtbl; 
+
+}
 
 static
 mvPropRel* init_mvPropRelSet(int n){

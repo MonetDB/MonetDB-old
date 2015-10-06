@@ -571,4 +571,8 @@ void addaProp(PropStat* propStat, oid prop, int csIdx, int invertIdx);
 rdf_export
 void getTblIdxFromS(oid Soid, int *tbidx, oid *baseSoid);
 
+rdf_export
+int getTblId_from_S_simple(oid Soid); 
+
+
 #endif /* _RDFSCHEMA_H_ */

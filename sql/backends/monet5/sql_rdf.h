@@ -58,6 +58,8 @@ sql5_export str SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 
 sql5_export void getSlides_per_P(PsoPropStat *pso_pstat, oid *p, oid low, oid hi, BAT *obat, BAT *sbat, BAT **ret_oBat, BAT **ret_sBat); 
 
+sql5_export void get_possible_matching_tbl_from_RPs(int **rettbId, int *num_match_tbl, oid *lstRP, int num, oid subj); 
+
 extern SimpleCSset *global_csset; 
 extern PropStat *global_p_propstat;
 extern PropStat *global_c_propstat;
@@ -73,5 +75,7 @@ extern PsoPropStat *pso_propstat;
 #define RDF_HANDLING_EXCEPTION_MISSINGPROP_OPT 1
 
 #define RDF_HANDLING_EXCEPTION_SELECTPUSHDOWN_OPT 1
+
+#define RDF_HANDLING_EXCEPTION_POSSIBLE_TBL_OPT	1 /* Use the set of possible table for the set of required props to limit the number of matching subj Id */
 
 #endif /*_SQL_RDF_H */
