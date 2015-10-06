@@ -21,7 +21,7 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_g
 	jintArray values = (*env)->NewIntArray(env, size);
 	jbooleanArray nulls =  (*env)->NewBooleanArray(env, size);
 
-	jobect *column;
+	jobject *column;
 	jclass columnClass = (*env)->FindClass(env, "org/monetdb/embedded/result/column/IntegerColumn");
 	// from Java IntegerColumn(int[] values, int columnSize, boolean[] nullIndex)
 	jmethodID columnConstructor = (*env)->GetMethodID(env, columnClass, "<init>", "([II[Z)V");

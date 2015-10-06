@@ -17,27 +17,27 @@
 
 MTSAFE
 
-SUBDIRS = HAVE_JAVA?java-package
-
-INCLUDES = ../../monetdb5/mal \
-		   ../../monetdb5/modules/atoms \ 
-		   ../../monetdb5/modules/mal \ 
-		   ../../monetdb5/extras/rapi \ 
-		   ../../gdk \
-		   ../../common/stream \
-		   ../../common/utils \
-		   ../../common/options \
-		   ../../clients/mapilib \
-		   ../../sql/include \
-		   ../../sql/server \
-		   ../../sql/common \
-		   ../../sql/storage \
-		   ../../sql/backends/monet5 \ 
+INCLUDES = ../ \
+           ../../../monetdb5/mal \
+		   ../../../monetdb5/modules/atoms \ 
+		   ../../../monetdb5/modules/mal \ 
+		   ../../../monetdb5/extras/rapi \ 
+		   ../../../gdk \
+		   ../../../common/stream \
+		   ../../../common/utils \
+		   ../../../common/options \
+		   ../../../clients/mapilib \
+		   ../../../sql/include \
+		   ../../../sql/server \
+		   ../../../sql/common \
+		   ../../../sql/storage \
+		   ../../../sql/backends/monet5 \ 
 		   $(pcre_CFLAGS)
 
 lib_embedded  =  {
-	SOURCES = embedded.c embedded.h
-	VERSION = 1
+	SOURCES = org_monetdb_embedded_MonetDBEmbedded.c org_monetdb_embedded_MonetDBEmbedded.h \
+		org_monetdb_embedded_result_EmbeddedQueryResult.c org_monetdb_embedded_result_EmbeddedQueryResult.h 
+	VERSION = 0.1
 	LIBS = ../../monetdb5/tools/libmonetdb5 \
 		../../gdk/libbat \
 		$(pcre_LIBS) $(PSAPILIB) \

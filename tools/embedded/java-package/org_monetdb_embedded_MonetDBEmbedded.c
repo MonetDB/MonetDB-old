@@ -8,7 +8,15 @@
 
 #include "org_monetdb_embedded_MonetDBEmbedded.h"
 #include "embedded.h"
+
 #include "gdk.h"
+#include "monetdb_config.h"
+#include "monet_options.h"
+#include "mal.h"
+#include "mal_client.h"
+#include "mal_linker.h"
+#include "msabaoth.h"
+#include "sql_scenario.h"
 
 JNIEXPORT jint JNICALL Java_org_monetdb_embedded_MonetDBLite_startupWrapper
 (JNIEnv *env, jobject object, jstring directory, jboolean silent) {
