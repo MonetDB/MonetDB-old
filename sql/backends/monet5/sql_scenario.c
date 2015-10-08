@@ -1128,7 +1128,6 @@ SQLparser(Client c)
 recompilequery:
 		r = sql_symbol2relation(m, m->sym);
 		s = sql_relation2stmt(m, r);
-
 		//if (m->emode == m_sparql) printf("DUC: ---- Input query -----\n %s \n", sql_escape_str(QUERY(m->scanner))); 
 
 		if (s == 0 || (err = mvc_status(m) && m->type != Q_TRANS)) {

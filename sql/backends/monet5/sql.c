@@ -139,14 +139,18 @@ sql_symbol2relation(mvc *c, symbol *sym)
 		}
 
 		if (1){
-		rel_print(c,r,0);
+		//rel_print(c,r,0);
+		printf("BEFORE running rel_optimizer\n");
+		_rel_print(c,r);
 		r = rel_optimizer(c, r);
 
 		r = rel_distribute(c, r);
 		if (rel_is_point_query(r) || rel_need_distinct_query(r))
 			c->point_query = 1;
 		
-		rel_print(c,r,0); 
+		//rel_print(c,r,0); 
+		printf("AFTER running rel_optimizer\n");
+		_rel_print(c,r);
 		
 		}
 	}

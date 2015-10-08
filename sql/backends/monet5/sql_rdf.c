@@ -1790,6 +1790,10 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 		oid sbt = sbatCursor[pos]; 
 		int tid = -1; 
 	 	oid tmpS = BUN_NONE; 
+
+		if (sbt == (oid)3835096557682764){
+			printf("[DEBUG] FOUND THAT SUBJECT HERE\n");
+		}
 		getTblIdxFromS(sbt, &tid, &tmpS);
 		if (tid != curtid){
 			#if RDF_HANDLING_EXCEPTION_MISSINGPROP_OPT
@@ -1842,6 +1846,9 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 		}
 
 		//printf("At row "BUNFMT" of table %d for sbt "BUNFMT"...", tmpS, tid, sbt); 
+		if (sbt == (oid)3835096557682764){
+			printf("[DEBUG2] FOUND THAT SUBJECT HERE\n");
+		}
 		accept = 1; 
 		#if RDF_HANDLING_EXCEPTION_MISSINGPROP_OPT
 		for (j = 0; j < num_mp; j++){
@@ -1898,7 +1905,19 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 	free(regular_obat_cursors); 
 }
 
+static void
+BATprint_topn(BAT *b, int n){
+	BAT *tmp = NULL; 
+	if (BATcount(b) > (oid) n){
+		tmp = BATslice(b, 0, n);
+	} else {
+		tmp = BATslice(b, 0, BATcount(b) - 1); 
+	}
 
+	BATprint(tmp); 
+
+	BBPunfix(tmp->batCacheid); 
+}
 
 /*
  * The input for this pattern should be
@@ -1977,6 +1996,8 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		str msg; 
 		BAT *pso_fullSbat = NULL, *pso_fullObat = NULL;
 		clock_t sT1, eT1; 
+		BUN testbun = BUN_NONE; 
+		BUN testoid = 3835096557682764;
 		
 		sT1 = clock(); 
 		rethrow("sql.rdfShred", msg, getSQLContext(cntxt, mb, &m, NULL));
@@ -1988,12 +2009,25 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 		eT1 = clock(); 
 		printf("Step 1 in Handling exception took  %f seconds.\n", ((float)(eT1 - sT1))/CLOCKS_PER_SEC);
+		
 
+		testbun = BUNfnd(r_sbat, &testoid); 
+		if (testbun == BUN_NONE){
+			printf("[DEBUG] That subject is not here\n");
+		} else {
+			printf("[DEBUG] The subject is found at " BUNFMT " position\n", testbun);
+		}
 		//Step 2. Merge exceptions with Tables
 		sT1 = clock();
 		
 		combine_exception_and_regular_tables(m, &m_sbat, &m_obats, r_sbat, r_obats, lstProps, *nP, *nRP);
 		
+		printf("Combining exceptions and regular table returns "BUNFMT " rows\n", BATcount(m_sbat)); 
+
+		BATprint_topn(m_sbat, 5); 
+		for (i = 0; i < (*nP); i++){
+			BATprint_topn(m_obats[i], 5); 
+		}
 		//BATprint(m_sbat); 
 
 		for (i = 0; i < (*nP); i++){

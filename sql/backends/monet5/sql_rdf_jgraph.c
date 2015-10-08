@@ -247,8 +247,8 @@ sql_table *create_dummy_table(mvc *c, str tblname, list *proj_exps, int nump){
 			char colname_s[50], colname_o[50]; 
 			sql_subtype tpe; 
 			sql_find_subtype(&tpe, "oid", 31, 0);
-			sprintf(colname_s, "dummy_col_s_%d", i); 
-			sprintf(colname_o, "dummy_col_o_%d", i); 		
+			sprintf(colname_s, "dummy_col_%d_s", i); 
+			sprintf(colname_o, "dummy_col_%d_o", i); 		
 			if (mvc_bind_column(c, tbl, colname_s) == NULL){
 				mvc_create_column(c, tbl, colname_s, &tpe);
 			}
@@ -1101,7 +1101,7 @@ void _detect_star_pattern(jgraph *jg, jgnode *node, int pId, int _optm){
  * a star pattern
  * */
 static 
-spProps *init_sp_props(int num){
+spProps *init_sp_props(mvc *c, int num){
 	int i; 
 	spProps* spprops = NULL; 
 	spprops = (spProps*) GDKmalloc(sizeof (spProps) ); 
@@ -1109,11 +1109,13 @@ spProps *init_sp_props(int num){
 	spprops->subj = BUN_NONE; 
 	spprops->lstProps = (char **) GDKmalloc(sizeof(char *) * num); 
 	spprops->lstPropIds = (oid *) GDKmalloc(sizeof(oid) * num); 
+	spprops->lstAlias = (char **) GDKmalloc(sizeof(char *) * num);
 	spprops->lst_o_constraints = (o_constraint *) GDKmalloc(sizeof(o_constraint) * num); 
 	spprops->lstPOs = (sp_po *) GDKmalloc(sizeof(sp_po) * num); 
 
 	for (i = 0; i < num; i++){
 		spprops->lstProps[i] = NULL; 
+		spprops->lstAlias[i] = NULL; 
 		spprops->lstPropIds[i] = BUN_NONE; 
 		spprops->lst_o_constraints[i].cmp_type = -1; 
 		spprops->lst_o_constraints[i].low = BUN_NONE; 
@@ -1123,6 +1125,9 @@ spProps *init_sp_props(int num){
 	}
 	spprops->lstctype = (ctype *) GDKmalloc(sizeof(ctype) * num); 
 
+	spprops->exps = new_exp_list(c->sa);
+	(void) c; 
+
 	return spprops; 
 }
 
@@ -1130,7 +1135,16 @@ static
 void add_props_and_subj_to_spprops(spProps *spprops, int idx, sp_po po, jgnode *node){
 
 	if (node->prop){
+		str tmpalias = NULL; 
+		sql_rel *tmprel = (sql_rel*) (node->data);
+		assert(tmprel->op == op_select);
+		assert(((sql_rel*)tmprel->l)->op == op_basetable); 
+
+		tmpalias = get_relname_from_basetable(tmprel->l); 
 		spprops->lstProps[idx] = GDKstrdup(node->prop); 
+		spprops->lstAlias[idx] = GDKstrdup(tmpalias); 
+		printf("\nTable alias in spprops is %s\n", spprops->lstAlias[idx]);
+
 		assert(node->poid != BUN_NONE); 
 		spprops->lstPropIds[idx] = node->poid; 
 		spprops->lstPOs[idx] = po;
@@ -1175,12 +1189,15 @@ void free_sp_props(spProps *spprops){
 	int i; 
 	for (i = 0; i < spprops->num; i++){
 		if (spprops->lstProps[i]) GDKfree(spprops->lstProps[i]); 
+		if (spprops->lstAlias[i]) GDKfree(spprops->lstAlias[i]);
 	}
 	GDKfree(spprops->lstProps); 
+	GDKfree(spprops->lstAlias);
 	GDKfree(spprops->lstPropIds);
 	GDKfree(spprops->lstPOs); 
 	GDKfree(spprops->lstctype);
 	GDKfree(spprops->lst_o_constraints);
+	list_destroy(spprops->exps); 
 	GDKfree(spprops); 
 }
 
@@ -2464,7 +2481,8 @@ sql_rel* build_rdfexception (mvc *c, int tId, jgraph *jg, list *union_rdfscan_ex
 		his[i] = spprops->lst_o_constraints[i].hi;
 	}
  
-	rel_rdfscan = rel_rdfscan_func(c, tbl, spprops->num, nnodes_per_ijgroup[0], spprops->lstPropIds, los, his); 
+	rel_rdfscan = rel_rdfscan_func(c, tbl, spprops->num, nnodes_per_ijgroup[0], spprops->lstPropIds, los, his, spprops->exps); 
+	//rel_rdfscan = rel_rdfscan_func(c, tbl, spprops->num, nnodes_per_ijgroup[0], spprops->lstPropIds, los, his, NULL); 
 	
 	printf("\nRDFSCAN \n");
 	_rel_print(c, rel_rdfscan);
@@ -3162,6 +3180,38 @@ sql_rel* union_sp_from_all_matching_tbls(mvc *c, int num_match_tbl, int *contain
 	return rel; 
 }
 
+static void
+add_spprops_exps(mvc *c, list *retexps, list *exps){
+
+	node *en;
+	sql_allocator *sa = c->sa;
+
+	for (en = exps->h; en; en = en->next){
+		sql_exp *tmpexp = (sql_exp *) en->data; 
+		sql_exp *e = (sql_exp *)tmpexp->l; 
+
+		assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
+		assert(e->type == e_convert); 
+
+		e = e->l; 
+
+		assert(e->type == e_column); 
+
+		if (strcmp(e->name, "p") == 0){
+			continue; 
+
+		} else if (strcmp(e->name, "o") == 0){
+			sql_exp *m_exp = exp_copy(sa, tmpexp);
+			//append this exp to list
+			append(retexps, m_exp);
+
+		} else if (strcmp(e->name, "s") == 0){
+			sql_exp *m_exp = exp_copy(sa, tmpexp);
+			//append this exp to list
+			append(retexps, m_exp);
+		}
+	}
+}
 
 static
 void update_RP_and_O_constraint(mvc *c, jgraph *jg, int *ijgroup, int nnode, spProps *spprops){
@@ -3178,18 +3228,21 @@ void update_RP_and_O_constraint(mvc *c, jgraph *jg, int *ijgroup, int nnode, spP
 		assert(((sql_rel*)tmprel->l)->op == op_basetable); 
 		
 		tmpPropId = tmpnode->poid; 
-
+		
 		//Get index of this prop
 		for (j = 0; j < spprops->num; j++){
 			if (spprops->lstPropIds[j] == tmpPropId) break; 
 		}
 		pidx = j; 
 		spprops->lstPOs[pidx] = REQUIRED;
+
 		assert(j < spprops->num); 
 
 		//Check for o_constraint
 
 		get_o_constraint(c, &(spprops->lst_o_constraints[pidx]), tmprel->exps);
+		add_spprops_exps(c, spprops->exps, tmprel->exps); 
+		(void) c; 
 	}
 
 }
@@ -3246,7 +3299,7 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 					// with ifthenelse statement for optional keywords
 		int *contain_mv_col = NULL; 			
 
-		spprops = init_sp_props(nnode); 	
+		spprops = init_sp_props(c, nnode); 	
 
 		for (i = 0; i < nnode; i++){
 			jgnode *tmpnode = jg->lstnodes[group[i]]; 

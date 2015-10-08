@@ -68,8 +68,10 @@ typedef struct propertyList {
 	oid subj; 	
 	char** lstProps; 
 	oid* lstPropIds; 
+	char** lstAlias; //Table alias from original query
 	sp_po *lstPOs; 
 	ctype *lstctype;
+	list *exps; 	//Expression of all 
 	o_constraint *lst_o_constraints; 
 } spProps; 		//star pattern property list
 
