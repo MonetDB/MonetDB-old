@@ -31,15 +31,21 @@ INCLUDES = ../ \
 		   ../../../sql/server \
 		   ../../../sql/common \
 		   ../../../sql/storage \
-		   ../../../sql/backends/monet5 \ 
+		   ../../../sql/storage/bat \
+		   ../../../sql/backends/monet5 \
+		   -I$(JAVA_HOME)/include \ 
+		   -I$(JAVA_HOME)/include/darwin \
+		   -I"/Library/Frameworks/R.framework/Resources/include" \
 		   $(pcre_CFLAGS)
+		   
 
-lib_embedded  =  {
+lib_embedded_java  =  {
 	SOURCES = org_monetdb_embedded_MonetDBEmbedded.c org_monetdb_embedded_MonetDBEmbedded.h \
 		org_monetdb_embedded_result_EmbeddedQueryResult.c org_monetdb_embedded_result_EmbeddedQueryResult.h 
 	VERSION = 0.1
 	LIBS = ../../monetdb5/tools/libmonetdb5 \
 		../../gdk/libbat \
+		../embedded \
 		$(pcre_LIBS) $(PSAPILIB) \
 		$(SOCKET_LIBS) $(MALLOC_LIBS) $(DL_LIBS) $(PTHREAD_LIBS)
 }

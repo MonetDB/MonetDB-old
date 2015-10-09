@@ -12,7 +12,7 @@ extern "C" {
  * Method:    startupNative
  * Signature: (Ljava/lang/String;Z)I
  */
-JNIEXPORT jint JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupNative
+JNIEXPORT jint JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapper
   (JNIEnv *, jobject, jstring, jboolean);
 
 /*

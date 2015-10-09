@@ -9,49 +9,49 @@
 #include "org_monetdb_embedded_MonetDBEmbedded.h"
 #include "embedded.h"
 
-#include "gdk.h"
-#include "monetdb_config.h"
-#include "monet_options.h"
-#include "mal.h"
-#include "mal_client.h"
-#include "mal_linker.h"
-#include "msabaoth.h"
-#include "sql_scenario.h"
+#include "res_table.h"
+#include "mal_type.h"
 
-JNIEXPORT jint JNICALL Java_org_monetdb_embedded_MonetDBLite_startupWrapper
+jint JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapper
 (JNIEnv *env, jobject object, jstring directory, jboolean silent) {
-	const char *dir = (*env)->GetStringUTFChars(env, directory, 0);
+	(void)object;
+	const char *directory_string_tmp = (*env)->GetStringUTFChars(env, directory, 0);
+	char *directory_string = strdup(directory_string_tmp);
 	unsigned char silent_char = 'n';
 
 	// Release the directory string
-	(*env)->ReleaseStringUTFChars(env, directory, dir);
+	(*env)->ReleaseStringUTFChars(env, directory, directory_string_tmp);
 	// Set the silent flag based on passed boolean value
 	if (silent) {
 		silent_char = 'y';
 	}
-	return monetdb_startup(dir, silent_char);
+	return monetdb_startup(directory_string, silent_char);
 }
 
-JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_query
+jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_query
 (JNIEnv *env, jobject object, jstring query) {
+	(void)object;
 	res_table *output = NULL;
-	const char *query_string = (*env)->GetStringUTFChars(env, query, 0);
+	const char *query_string_tmp = (*env)->GetStringUTFChars(env, query, 0);
+	char *query_string = strdup(query_string_tmp);
+	// Release the query string
+	(*env)->ReleaseStringUTFChars(env, query, query_string_tmp);
 
-	jobject *result;
+	jobject result;
 	jclass resultClass = (*env)->FindClass(env, "org/monetdb/embedded/result/EmbeddedQueryResult");
 	// from Java EmbeddedQueryResult(String[] columnNames, String[] columnTypes, int numberOfColumns, long resultPointer)
 	jmethodID resultConstructor = (*env)->GetMethodID(env, resultClass, "<init>", "([Ljava/lang/String;[Ljava/lang/String;IJ)V");
 	// column names and types string arrays
 	jobjectArray columnNames, columnTypes = NULL;
+	jclass stringClass = (*env)->FindClass(env, "java/lang/String");
 
 	// In case we can't find the result object class
 	if (resultClass == NULL) {
 		return NULL;
 	}
 
+	// Execute the query
 	char* err = monetdb_query(query_string, (void**)&output);
-	// Release the query string
-	(*env)->ReleaseStringUTFChars(env, query, query_string);
 
 	// Checking for errors
 	if (err != NULL) {
@@ -63,13 +63,16 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_query
 			// Cloud not find the exception class, just return empty object
 			return NULL;
 		}
-		return (*env)->ThrowNew(env, exClass, err);
+		(*env)->ThrowNew(env, exClass, err);
+		return NULL;
 	}
 
 	// Collect result column names and types in string arrays
 	// If we have not output, we will return them empty
-	columnNames = (jobjectArray)env->NewObjectArray(output->nr_cols, env->FindClass("java/lang/String"), env->NewStringUTF(""));
-	columnTypes = (jobjectArray)env->NewObjectArray(output->nr_cols, env->FindClass("java/lang/String"), env->NewStringUTF(""));
+	columnNames = (*env)->NewObjectArray(env, output->nr_cols, stringClass, 0);
+	columnTypes = (*env)->NewObjectArray(env, output->nr_cols, stringClass, 0);
+//	columnNames = (jobjectArray)env->NewObjectArray(env, output->nr_cols, env->FindClass("java/lang/String"), env->NewStringUTF(""));
+//	columnTypes = (jobjectArray)env->NewObjectArray(env, output->nr_cols, env->FindClass("java/lang/String"), env->NewStringUTF(""));
 	if (output && output->nr_cols > 0) {
 		int i;
 		for (i = 0; i < output->nr_cols; i++) {
@@ -98,15 +101,15 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_query
 				break;
 #ifdef HAVE_HGE
 			case TYPE_hge:
-				type_string = "huge";
+				type = "huge";
 				break;
 #endif
 			default:
-				type_string = "unknown";
+				type = "unknown";
 			}
 			// Set the meta fields in the result object
-			env->SetObjectArrayElement(columnNames, i, env->NewStringUTF(env, col.name));
-			env->SetObjectArrayElement(columnTypes, i, env->NewStringUTF(env, type));
+			(*env)->SetObjectArrayElement(env, columnNames, i, (*env)->NewStringUTF(env, col.name));
+			(*env)->SetObjectArrayElement(env, columnTypes, i, (*env)->NewStringUTF(env, type));
 		}
 	}
 	// Also keep a long value with the result pointer in the Java result object
@@ -118,10 +121,11 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_query
 	return result;
 }
 
-JNIEXPORT jstring JNICALL Java_org_monetdb_embedded_MonetDBLite_append
-(JNIEnv *env, jobject object, jstring schema_name, jstring table_name, jobject data) {
-	const char *schema_name = (*env)->GetStringUTFChars(env, schema, 0);
-	const char *table_name = (*env)->GetStringUTFChars(env, table, 0);
+jstring JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_append
+(JNIEnv *env, jobject object, jstring table, jstring schema, jobject data) {
+	(void)object;
+	(void)table;
+	(void)schema;
 	(void)data;
 
 	return (*env)->NewStringUTF(env, "");

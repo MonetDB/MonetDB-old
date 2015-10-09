@@ -384,7 +384,8 @@ mcrypt_hashPassword(
 
 #define NO_OPENSSL_FATAL "MonetDB was built without OpenSSL, but what you are trying to do requires it.\n"
 
-char* mcrypt_sum_fail(const char *string, size_t len) {
+static char*
+mcrypt_sum_fail(const char *string, size_t len) {
 	(void)string;
 	(void)len;
 	fprintf(stderr, NO_OPENSSL_FATAL);

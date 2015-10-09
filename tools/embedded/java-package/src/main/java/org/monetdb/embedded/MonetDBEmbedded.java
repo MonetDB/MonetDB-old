@@ -60,7 +60,7 @@ public class MonetDBEmbedded {
 	 */
 	public boolean startup(boolean silent) {
 		if (!running) {
-			if (startupNative(directory, silent) == 1) {
+			if (startupWrapper(directory, silent) == 1) {
 				running = true;
 			}
 		}
@@ -74,7 +74,7 @@ public class MonetDBEmbedded {
 	 * @param silent Silent flag
 	 * @return Startup status code
 	 */
-	private native int startupNative(String dir, boolean silent);
+	private native int startupWrapper(String dir, boolean silent);
 
 	public native EmbeddedQueryResult query(String query) throws SQLException;
 

@@ -32,7 +32,8 @@ INCLUDES = ../../monetdb5/mal \
 		   ../../sql/server \
 		   ../../sql/common \
 		   ../../sql/storage \
-		   ../../sql/backends/monet5 \ 
+		   ../../sql/backends/monet5 \
+		   -I"/Library/Frameworks/R.framework/Resources/include" \
 		   $(pcre_CFLAGS)
 
 lib_embedded  =  {

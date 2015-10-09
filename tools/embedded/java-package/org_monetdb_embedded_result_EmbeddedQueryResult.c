@@ -9,19 +9,22 @@
 #include "org_monetdb_embedded_result_EmbeddedQueryResult.h"
 #include "embedded.h"
 
-JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_getColumnWrapper
+#include "res_table.h"
+
+jobject JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_getColumnWrapper
 (JNIEnv *env, jobject object, jlong resultTablePointer, jint columnIndex) {
+	(void)object;
 	// The result table
 	res_table* result = (res_table *)resultTablePointer;
 	// Get the column we need
-	res_col col = output->cols[columnIndex];
+	res_col col = result->cols[columnIndex];
 	BAT* b = BATdescriptor(col.b);
 	int size = BATcount(b);
 	// The values and nulls arrays
 	jintArray values = (*env)->NewIntArray(env, size);
-	jbooleanArray nulls =  (*env)->NewBooleanArray(env, size);
+	jbooleanArray nulls = (*env)->NewBooleanArray(env, size);
 
-	jobject *column;
+	jobject column;
 	jclass columnClass = (*env)->FindClass(env, "org/monetdb/embedded/result/column/IntegerColumn");
 	// from Java IntegerColumn(int[] values, int columnSize, boolean[] nullIndex)
 	jmethodID columnConstructor = (*env)->GetMethodID(env, columnClass, "<init>", "([II[Z)V");
@@ -37,13 +40,13 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_g
 	else {
 		for (i = 0; i < size; i++) {
 			int v = ((int*) Tloc(b, BUNfirst(b)))[i];
-			if (v == int##_nil) {
+			if (v == INT_MIN) {
 				val_tmp[i] = 0;
-				nul_tmp = JNI_TRUE;
+				nul_tmp[i] = JNI_TRUE;
 
 			} else {
 				val_tmp[i] = (int)v;
-				nul_tmp = JNI_FALSE;
+				nul_tmp[i] = JNI_FALSE;
 			}
 		}
 	}
@@ -53,13 +56,15 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_g
 
 	// Create the column object
 	// from Java IntegerColumn(int[] values, int columnSize, boolean[] nullIndex)
-	result = (*env)->NewObject(env, columnClass, columnConstructor, values, size, nulls);
+	column = (*env)->NewObject(env, columnClass, columnConstructor, values, size, nulls);
 
 	return column;
 }
 
-JNIEXPORT void JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_cleanupResult
+void JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_cleanupResult
 (JNIEnv *env, jobject object, jlong resultTablePointer) {
+	(void)object;
+	(void)env;
 	res_table* result = (res_table *)resultTablePointer;
 
 	monetdb_cleanup_result(result);
