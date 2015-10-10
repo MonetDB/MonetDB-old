@@ -71,8 +71,6 @@ jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_query
 	// If we have not output, we will return them empty
 	columnNames = (*env)->NewObjectArray(env, output->nr_cols, stringClass, 0);
 	columnTypes = (*env)->NewObjectArray(env, output->nr_cols, stringClass, 0);
-//	columnNames = (jobjectArray)env->NewObjectArray(env, output->nr_cols, env->FindClass("java/lang/String"), env->NewStringUTF(""));
-//	columnTypes = (jobjectArray)env->NewObjectArray(env, output->nr_cols, env->FindClass("java/lang/String"), env->NewStringUTF(""));
 	if (output && output->nr_cols > 0) {
 		int i;
 		for (i = 0; i < output->nr_cols; i++) {
