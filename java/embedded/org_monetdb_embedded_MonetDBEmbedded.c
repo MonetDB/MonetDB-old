@@ -9,6 +9,7 @@
 #include "org_monetdb_embedded_MonetDBEmbedded.h"
 #include "embedded.h"
 
+#include "monetdb_config.h"
 #include "res_table.h"
 #include "mal_type.h"
 

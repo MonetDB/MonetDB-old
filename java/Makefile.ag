@@ -4,7 +4,7 @@
 #
 # Copyright 2008-2015 MonetDB B.V.
 
-SUBDIRS = HAVE_JAVAJDBC?tests
+SUBDIRS = HAVE_JAVAJDBC?tests HAVE_EMBEDDED_JAVA?embedded
 
 EXTRA_DIST = build.xml build.properties release.txt
 

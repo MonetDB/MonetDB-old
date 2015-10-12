@@ -17,22 +17,22 @@
 
 MTSAFE
 
-INCLUDES = ../ \
-           ../../../monetdb5/mal \
-		   ../../../monetdb5/modules/atoms \ 
-		   ../../../monetdb5/modules/mal \ 
-		   ../../../monetdb5/extras/rapi \ 
-		   ../../../gdk \
-		   ../../../common/stream \
-		   ../../../common/utils \
-		   ../../../common/options \
-		   ../../../clients/mapilib \
-		   ../../../sql/include \
-		   ../../../sql/server \
-		   ../../../sql/common \
-		   ../../../sql/storage \
-		   ../../../sql/storage/bat \
-		   ../../../sql/backends/monet5 \
+INCLUDES = ../../tools/embedded \
+           ../../monetdb5/mal \
+		   ../../monetdb5/modules/atoms \ 
+		   ../../monetdb5/modules/mal \ 
+		   ../../monetdb5/extras/rapi \ 
+		   ../../gdk \
+		   ../../common/stream \
+		   ../../common/utils \
+		   ../../common/options \
+		   ../../clients/mapilib \
+		   ../../sql/include \
+		   ../../sql/server \
+		   ../../sql/common \
+		   ../../sql/storage \
+		   ../../sql/storage/bat \
+		   ../../sql/backends/monet5 \
 		   -I$(JAVA_HOME)/include \ 
 		   -I$(JAVA_HOME)/include/darwin \
 		   -I"/Library/Frameworks/R.framework/Resources/include" \
@@ -45,7 +45,7 @@ lib_embedded_java  =  {
 	VERSION = 0.1
 	LIBS = ../../monetdb5/tools/libmonetdb5 \
 		../../gdk/libbat \
-		../embedded \
+		../../tools/embedded/libembedded \
 		$(pcre_LIBS) $(PSAPILIB) \
 		$(SOCKET_LIBS) $(MALLOC_LIBS) $(DL_LIBS) $(PTHREAD_LIBS)
 }

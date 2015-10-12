@@ -17,8 +17,6 @@
 
 MTSAFE
 
-SUBDIRS = HAVE_JAVA?java-package
-
 INCLUDES = ../../monetdb5/mal \
 		   ../../monetdb5/modules/atoms \ 
 		   ../../monetdb5/modules/mal \ 

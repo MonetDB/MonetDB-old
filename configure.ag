@@ -2987,6 +2987,7 @@ AM_CONDITIONAL(HAVE_MONETDB5, test "x$enable_monetdb5" = xyes -o "x$enable_monet
 AM_CONDITIONAL(HAVE_SQL, test "x$enable_sql" = xyes -o "x$enable_sql" = xauto)
 AM_CONDITIONAL(HAVE_GEOM, test "x$enable_geom" = xyes -o "x$enable_geom" = xauto)
 AM_CONDITIONAL(HAVE_EMBEDDED, test "x$enable_embedded" = xyes)
+AM_CONDITIONAL(HAVE_EMBEDDED_JAVA, test "x$enable_embedded_java" = xyes)
 AM_CONDITIONAL(HAVE_MEROVINGIAN, test "x$enable_merovingian" = xyes -o "x$enable_merovingian" = xauto)
 AM_CONDITIONAL(HAVE_MSERVER, test "x$enable_mserver" = xyes -o "x$enable_mserver" = xauto)
 AM_CONDITIONAL(HAVE_TESTING, test "x$enable_testing" = xyes -o "x$enable_testing" = xauto)

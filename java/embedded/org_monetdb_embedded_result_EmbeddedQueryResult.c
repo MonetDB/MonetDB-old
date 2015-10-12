@@ -9,6 +9,7 @@
 #include "org_monetdb_embedded_result_EmbeddedQueryResult.h"
 #include "embedded.h"
 
+#include "monetdb_config.h"
 #include "res_table.h"
 
 jobject JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_getColumnWrapper
