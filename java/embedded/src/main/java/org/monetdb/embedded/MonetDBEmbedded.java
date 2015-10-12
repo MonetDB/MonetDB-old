@@ -8,6 +8,7 @@
 
 package org.monetdb.embedded;
 
+import java.io.File;
 import java.lang.reflect.Array;
 import java.sql.SQLException;
 
@@ -20,7 +21,7 @@ import org.monetdb.embedded.result.EmbeddedQueryResult;
  */
 public class MonetDBEmbedded {
 	static {
-		System.loadLibrary("monetdb");
+		System.loadLibrary("embedded_java");
 	}
 
 	/** 
@@ -30,7 +31,7 @@ public class MonetDBEmbedded {
 	/** 
 	 * The working directory for MonetDB.
 	 */
-	private String directory = "";
+	private File directory;
 
 	/**
 	 * You can instantiate multiple object, 
@@ -38,7 +39,7 @@ public class MonetDBEmbedded {
 	 * 
 	 * @param directory Database directory 
 	 */
-	public MonetDBEmbedded(String directory) {
+	public MonetDBEmbedded(File directory) {
 		this.directory = directory;
 	}
 
@@ -60,7 +61,7 @@ public class MonetDBEmbedded {
 	 */
 	public boolean startup(boolean silent) {
 		if (!running) {
-			if (startupWrapper(directory, silent) == 1) {
+			if (startupWrapper(directory.getAbsolutePath(), silent) == 1) {
 				running = true;
 			}
 		}

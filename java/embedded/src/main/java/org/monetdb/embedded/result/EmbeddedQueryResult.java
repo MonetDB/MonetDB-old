@@ -90,7 +90,6 @@ public class EmbeddedQueryResult implements Closeable, Iterable<Column<?>> {
 	 */
 	private native Column<?> getColumnWrapper(long resultPointerWrapper, int index);
 
-
 	@Override
 	public Iterator<Column<?>> iterator() {
 		return new Iterator<Column<?>>() {

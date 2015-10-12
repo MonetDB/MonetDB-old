@@ -214,11 +214,14 @@ AC_ARG_ENABLE(embedded-java,
 		[enable support for running MonetDB as a Java library (default=no)]),
 	enable_embedded_java=$enableval,
 	enable_embedded_java=$dft_embedded_java)
-AM_CONDITIONAL(HAVE_EMBEDDED, test x$enable_embedded_java != xno)
 
-if test "x$enable_embedded" != xno; then
+if test "x$enable_embedded" = xno; then
 	enable_embedded_java=no
 fi
+if test "x$enable_embedded_java" != xno; then
+	AC_DEFINE(HAVE_EMBEDDED_JAVA, 1, [Support for MonetDB as a Java library])
+fi
+AM_CONDITIONAL(HAVE_EMBEDDED_JAVA, test x"$enable_embedded_java" != xno)
 
 dft_microhttpd=no
 AC_ARG_ENABLE(microhttpd,
@@ -2987,7 +2990,6 @@ AM_CONDITIONAL(HAVE_MONETDB5, test "x$enable_monetdb5" = xyes -o "x$enable_monet
 AM_CONDITIONAL(HAVE_SQL, test "x$enable_sql" = xyes -o "x$enable_sql" = xauto)
 AM_CONDITIONAL(HAVE_GEOM, test "x$enable_geom" = xyes -o "x$enable_geom" = xauto)
 AM_CONDITIONAL(HAVE_EMBEDDED, test "x$enable_embedded" = xyes)
-AM_CONDITIONAL(HAVE_EMBEDDED_JAVA, test "x$enable_embedded_java" = xyes)
 AM_CONDITIONAL(HAVE_MEROVINGIAN, test "x$enable_merovingian" = xyes -o "x$enable_merovingian" = xauto)
 AM_CONDITIONAL(HAVE_MSERVER, test "x$enable_mserver" = xyes -o "x$enable_mserver" = xauto)
 AM_CONDITIONAL(HAVE_TESTING, test "x$enable_testing" = xyes -o "x$enable_testing" = xauto)
@@ -3366,6 +3368,7 @@ for comp in \
 	'assert      ' \
 	'optimize    ' \
 	'embedded    ' \
+	'embedded-java' \
 ; do
 	eval "dft=\$dft_$comp"
 	eval "enable=\$enable_$comp"

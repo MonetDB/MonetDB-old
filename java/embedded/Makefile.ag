@@ -38,11 +38,10 @@ INCLUDES = ../../tools/embedded \
 		   -I"/Library/Frameworks/R.framework/Resources/include" \
 		   $(pcre_CFLAGS)
 		   
-
 lib_embedded_java  =  {
 	SOURCES = org_monetdb_embedded_MonetDBEmbedded.c org_monetdb_embedded_MonetDBEmbedded.h \
 		org_monetdb_embedded_result_EmbeddedQueryResult.c org_monetdb_embedded_result_EmbeddedQueryResult.h 
-	VERSION = 0.1
+	VERSION = 1
 	LIBS = ../../monetdb5/tools/libmonetdb5 \
 		../../gdk/libbat \
 		../../tools/embedded/libembedded \
