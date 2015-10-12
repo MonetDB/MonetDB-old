@@ -69,6 +69,7 @@ java/build
 java/target
 java/bin
 java/src/main/java/nl/cwi/monetdb/jdbc/MonetDriver.java
+java/embedded/target
 # python:
 dist
 

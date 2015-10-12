@@ -1,8 +1,0 @@
-org/monetdb/embedded/MonetDBEmbedded.class
-org/monetdb/embedded/result/Result.class
-org/monetdb/embedded/result/column/Column$1.class
-org/monetdb/embedded/result/column/Column.class
-org/monetdb/embedded/result/EmbeddedQueryResult.class
-org/monetdb/embedded/result/QueryResult.class
-org/monetdb/embedded/result/EmbeddedQueryResult$1.class
-org/monetdb/embedded/result/column/IntegerColumn.class
