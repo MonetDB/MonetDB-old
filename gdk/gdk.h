@@ -1521,7 +1521,6 @@ gdk_export size_t BATmemsize(BAT *b, int dirty);
 #define NOFARM (-1) /* indicate to GDKfilepath to create relative path */
 
 gdk_export char *GDKfilepath(int farmid, const char *dir, const char *nme, const char *ext);
-gdk_export char *GDKfilepath_long(int farmid, const char *dir, const char *ext);
 gdk_export gdk_return GDKcreatedir(const char *nme);
 
 /*
@@ -2477,7 +2476,7 @@ gdk_export ThreadRec GDKthreads[THREADS];
 
 gdk_export int THRgettid(void);
 gdk_export Thread THRget(int tid);
-gdk_export Thread THRnew(str name);
+gdk_export Thread THRnew(const char *name);
 gdk_export void THRdel(Thread t);
 gdk_export void THRsetdata(int, ptr);
 gdk_export void *THRgetdata(int);
@@ -2621,7 +2620,7 @@ BATmirror(register BAT *b)
  * needs the rollback mechanism).
  */
 gdk_export gdk_return TMcommit(void);
-gdk_export gdk_return TMabort(void);
+gdk_export void TMabort(void);
 gdk_export gdk_return TMsubcommit(BAT *bl);
 gdk_export gdk_return TMsubcommit_list(bat *subcommit, int cnt);
 
@@ -2853,9 +2852,6 @@ gdk_export void ALIGNsetH(BAT *b1, BAT *b2);
  * @item HASHloopvar
  * @tab
  *  (BAT *b; Hash *h, size_t idx; ptr value, BUN w)
- * @item SORTloop
- * @tab
- *  (BAT *b,p,q,tl,th,s)
  * @end multitable
  *
  * The @emph{BATloop()} looks like a function call, but is actually a
@@ -2904,25 +2900,6 @@ gdk_export void ALIGNsetH(BAT *b1, BAT *b2);
 	for (q = (b)->batFirst, p = (b)->batDeleted; p < q; p++)
 
 #define GDK_STREQ(l,r) (*(char*) (l) == *(char*) (r) && !strcmp(l,r))
-
-/*
- * @- loop over a BAT with ordered tail
- * Here we loop over a BAT with an ordered tail column. Again, 'p' and
- * 'q' are iteration variables, where 'p' points at the current
- * BUN. 'tl' and 'th' are pointers to atom corresponding to the
- * minimum (included) and maximum (included) bound in the selected
- * range of BUNs. A nil-value means that there is no bound.  The 's'
- * finally is an integer denoting the bunsize, used for speed.
- */
-#define SORTloop(b, p, q, tl, th)					\
-	if (!BATtordered(b))						\
-		GDKerror("SORTloop: BAT not sorted.\n");		\
-	else for (p = (ATOMcmp((b)->ttype, tl, ATOMnilptr((b)->ttype)) ? \
-		       SORTfndfirst((b), tl) : BUNfirst(b)),		\
-		  q = (ATOMcmp((b)->ttype, th, ATOMnilptr((b)->ttype)) ? \
-		       SORTfndlast((b), th) : BUNlast(b));		\
-		  p < q;						\
-		  p++)
 
 /*
  * @+ Common BAT Operations

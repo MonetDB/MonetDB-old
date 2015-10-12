@@ -327,7 +327,7 @@ BATattach(int tt, const char *heapfile, int role)
 	ERRORcheck(heapfile == 0, "BATattach: bad heapfile name\n", NULL);
 	ERRORcheck(role < 0 || role >= 32, "BATattach: role error\n", NULL);
 	if (lstat(heapfile, &st) < 0) {
-		GDKerror("BATattach: cannot stat heapfile\n");
+		GDKsyserror("BATattach: cannot stat heapfile\n");
 		return NULL;
 	}
 	ERRORcheck(!S_ISREG(st.st_mode), "BATattach: heapfile must be a regular file\n", NULL);
@@ -1135,7 +1135,6 @@ BUNins(BAT *b, const void *h, const void *t, bit force)
 		}
 
 		if (unshare_string_heap(b) != GDK_SUCCEED) {
-			GDKerror("BUNins: failed to unshare string heap\n");
 			return GDK_FAIL;
 		}
 
@@ -1257,7 +1256,6 @@ BUNappend(BAT *b, const void *t, bit force)
 	void_materialize(b, t);
 
 	if (unshare_string_heap(b) != GDK_SUCCEED) {
-		GDKerror("BUNappend: failed to unshare string heap\n");
 		return GDK_FAIL;
 	}
 
@@ -2395,11 +2393,14 @@ backup_new(Heap *hp, int lockbat)
 	if (batret == 0 && bakret) {
 		/* no backup yet, so move the existing X.new there out
 		 * of the way */
-		ret = rename(batpath, bakpath);
+		if ((ret = rename(batpath, bakpath)) < 0)
+			GDKsyserror("backup_new: rename %s to %s failed\n",
+				    batpath, bakpath);
 		IODEBUG fprintf(stderr, "#rename(%s,%s) = %d\n", batpath, bakpath, ret);
 	} else if (batret == 0) {
 		/* there is a backup already; just remove the X.new */
-		ret = unlink(batpath);
+		if ((ret = unlink(batpath)) < 0)
+			GDKsyserror("backup_new: unlink %s failed\n", batpath);
 		IODEBUG fprintf(stderr, "#unlink(%s) = %d\n", batpath, ret);
 	}
 	GDKfree(batpath);
@@ -2519,6 +2520,8 @@ BATsetaccess(BAT *b, int newmode)
 
 		if (b->batSharecnt && newmode != BAT_READ) {
 			BATDEBUG THRprintf(GDKout, "#BATsetaccess: %s has %d views; try creating a copy\n", BATgetId(b), b->batSharecnt);
+			GDKerror("BATsetaccess: %s has %d views\n",
+				 BATgetId(b), b->batSharecnt);
 			return GDK_FAIL;
 		}
 
@@ -2634,7 +2637,6 @@ BATmode(BAT *b, int mode)
 
 		if (mode == PERSISTENT && isVIEW(b)) {
 			if (VIEWreset(b) != GDK_SUCCEED) {
-				GDKerror("BATmode: cannot allocate memory.\n");
 				return GDK_FAIL;
 			}
 		}

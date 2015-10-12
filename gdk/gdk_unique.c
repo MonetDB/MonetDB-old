@@ -330,6 +330,7 @@ BATsubunique(BAT *b, BAT *s)
 		BUN prb;
 		BUN p;
 
+		GDKclrerr();	/* not interested in BAThash errors */
 		ALGODEBUG fprintf(stderr, "#BATsubunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): create partial hash\n",
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
