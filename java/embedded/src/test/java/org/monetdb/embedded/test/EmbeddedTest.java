@@ -32,10 +32,10 @@ public class EmbeddedTest {
 		MonetDBEmbedded db = new MonetDBEmbedded(directory);
 		db.startup(false);
 
-		db.query("CREATE TABLE world (id integer, val integer)");
-		db.query("INSERT INTO world VALUES (1, 10), (2, 20), (3, 30)");
+		db.query("CREATE TABLE world (id integer, val integer);");
+		db.query("INSERT INTO world VALUES (1, 10), (2, 20), (3, 30);");
 
-		EmbeddedQueryResult result = db.query("SELECT * FROM world");
+		EmbeddedQueryResult result = db.query("SELECT * FROM world;");
 		assertEquals(3, result.getColumn(1).columnSize());
 
 		result.close();
@@ -50,9 +50,9 @@ public class EmbeddedTest {
 		MonetDBEmbedded db = new MonetDBEmbedded(directory);
 		db.startup(false);
 
-		EmbeddedQueryResult result = db.query("SELECT 1");
-//		EmbeddedQueryResult result = db.query("SELECT * FROM world");
+		EmbeddedQueryResult result = db.query("SELECT * FROM world;");
 		assertEquals(3, result.getColumn(1).columnSize());
+		assertEquals(20, result.getColumn(1).getVaule(1));
 
 		result.close();
 	}

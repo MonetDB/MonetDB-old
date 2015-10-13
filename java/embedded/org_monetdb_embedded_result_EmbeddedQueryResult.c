@@ -36,6 +36,7 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_g
 	if (b->T->nonil && !b->T->nil) {
 		for (i = 0; i < size; i++) {
 			val_tmp[i] = (int) ((int*) Tloc(b, BUNfirst(b)))[i];
+			nul_tmp[i] = false;
 		}
 	}
 	else {
@@ -43,11 +44,10 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_g
 			int v = ((int*) Tloc(b, BUNfirst(b)))[i];
 			if (v == INT_MIN) {
 				val_tmp[i] = 0;
-				nul_tmp[i] = JNI_TRUE;
-
+				nul_tmp[i] = true;
 			} else {
 				val_tmp[i] = (int)v;
-				nul_tmp[i] = JNI_FALSE;
+				nul_tmp[i] = false;
 			}
 		}
 	}

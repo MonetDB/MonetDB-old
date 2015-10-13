@@ -22,7 +22,7 @@ public class IntegerColumn extends Column<Integer> {
 
 	@Override
 	public Integer getVaule(int index) {
-		if (isNullValue(index) || index <= columnSize()) {
+		if (isNullValue(index) || index < 0 || index >= columnSize()) {
 			return null;
 		}
 		return Integer.valueOf(values[index]);
