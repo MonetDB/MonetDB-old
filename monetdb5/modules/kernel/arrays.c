@@ -992,13 +992,30 @@ str ALGprojectDimension(bat* result, const ptr *dim, const ptr *array) {
 }
 
 str ALGprojectNonDimension(bat *result, const bat *vals, const ptr *array) {
-	const gdk_array *dimsCands = arrayCopy((gdk_array*)*array); //candidates exactly the same to the array
+ 	/* just send the input vals to the output */
+    (void)*array;
 
-	//empty cands so that it will project all cells	
-	BAT *oidsCandsBAT = newempty("ALGprojectNonDimension");
-	bat oidsCands = oidsCandsBAT->batCacheid;
+    /* make a copy of vals */
+    BAT *resBAT, *inputBAT = BATdescriptor(*vals);
+    if(!inputBAT)
+        throw(MAL, "algebra.projectArray", RUNTIME_OBJECT_MISSING);
+ 
+    resBAT = BATcopy(inputBAT, TYPE_void, BATttype(inputBAT), FALSE, TRANSIENT);
 
-	return ALGnonDimensionLeftfetchjoin1(result, (void*)&dimsCands, &oidsCands, vals, array);
+    BBPunfix(inputBAT->batCacheid);
+    BBPkeepref(*result = resBAT->batCacheid);
+    return MAL_SUCCEED;
+
+#if 0
+    const gdk_array *dimsCands = arrayCopy((gdk_array*)*array); //candidates exactly the same to the array
+
+    //empty cands so that it will project all cells 
+    BAT *oidsCandsBAT = newempty("ALGprojectNonDimension");
+    bat oidsCands = oidsCandsBAT->batCacheid;
+    
+    return ALGnonDimensionLeftfetchjoin1(result, (void*)&dimsCands, &oidsCands, vals, array);
+#endif
+    
 }
 
 str ALGnonDimensionQRDecomposition(bat *oidsRes, ptr *dimsRes,  const bat* vals, const ptr *dims)
