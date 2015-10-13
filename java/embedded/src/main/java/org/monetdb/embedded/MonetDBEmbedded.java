@@ -40,6 +40,9 @@ public class MonetDBEmbedded {
 	 * @param directory Database directory 
 	 */
 	public MonetDBEmbedded(File directory) {
+		if (!directory.isDirectory()) {
+			throw new IllegalArgumentException(directory + " is not a directory");
+		}
 		this.directory = directory;
 	}
 

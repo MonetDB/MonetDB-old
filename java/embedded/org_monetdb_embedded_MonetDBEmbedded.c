@@ -13,7 +13,7 @@
 #include "res_table.h"
 #include "mal_type.h"
 
-jint JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapper
+JNIEXPORT jint JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapper
 (JNIEnv *env, jobject object, jstring directory, jboolean silent) {
 	(void)object;
 	const char *directory_string_tmp = (*env)->GetStringUTFChars(env, directory, 0);
@@ -29,7 +29,7 @@ jint JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapper
 	return monetdb_startup(directory_string, silent_char);
 }
 
-jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_query
+JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_query
 (JNIEnv *env, jobject object, jstring query) {
 	(void)object;
 	res_table *output = NULL;
@@ -120,7 +120,7 @@ jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_query
 	return result;
 }
 
-jstring JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_append
+JNIEXPORT jstring JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_append
 (JNIEnv *env, jobject object, jstring table, jstring schema, jobject data) {
 	(void)object;
 	(void)table;

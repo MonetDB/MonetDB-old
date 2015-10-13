@@ -17,8 +17,7 @@
 
 MTSAFE
 
-INCLUDES = ../../tools/embedded \
-           ../../monetdb5/mal \
+INCLUDES = ../../monetdb5/mal \
 		   ../../monetdb5/modules/atoms \ 
 		   ../../monetdb5/modules/mal \ 
 		   ../../monetdb5/extras/rapi \ 
@@ -35,16 +34,15 @@ INCLUDES = ../../tools/embedded \
 		   ../../sql/backends/monet5 \
 		   -I$(JAVA_HOME)/include \ 
 		   -I$(JAVA_HOME)/include/darwin \
-		   -I"/Library/Frameworks/R.framework/Resources/include" \
 		   $(pcre_CFLAGS)
 		   
 lib_embedded_java  =  {
-	SOURCES = org_monetdb_embedded_MonetDBEmbedded.c org_monetdb_embedded_MonetDBEmbedded.h \
+	SOURCES = embedded.c embedded.h \ 
+		org_monetdb_embedded_MonetDBEmbedded.c org_monetdb_embedded_MonetDBEmbedded.h \
 		org_monetdb_embedded_result_EmbeddedQueryResult.c org_monetdb_embedded_result_EmbeddedQueryResult.h 
 	VERSION = 1
 	LIBS = ../../monetdb5/tools/libmonetdb5 \
 		../../gdk/libbat \
-		../../tools/embedded/libembedded \
 		$(pcre_LIBS) $(PSAPILIB) \
 		$(SOCKET_LIBS) $(MALLOC_LIBS) $(DL_LIBS) $(PTHREAD_LIBS)
 }

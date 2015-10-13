@@ -12,7 +12,7 @@
 #include "monetdb_config.h"
 #include "res_table.h"
 
-jobject JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_getColumnWrapper
+JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_getColumnWrapper
 (JNIEnv *env, jobject object, jlong resultTablePointer, jint columnIndex) {
 	(void)object;
 	// The result table
@@ -62,7 +62,7 @@ jobject JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_getColumnWr
 	return column;
 }
 
-void JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_cleanupResult
+JNIEXPORT void JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_cleanupResult
 (JNIEnv *env, jobject object, jlong resultTablePointer) {
 	(void)object;
 	(void)env;

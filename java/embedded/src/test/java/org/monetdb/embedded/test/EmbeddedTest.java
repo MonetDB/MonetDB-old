@@ -12,6 +12,8 @@ import static org.junit.Assert.assertEquals;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.SQLException;
 
 import org.junit.Test;
@@ -22,8 +24,8 @@ public class EmbeddedTest {
 
 	@Test
 	public void simpleTest() throws IOException, SQLException {
-		final File directory;
-		directory = File.createTempFile("temp", Long.toString(System.nanoTime()));
+		final Path directoryPath = Files.createTempDirectory("monetdb");
+		final File directory = directoryPath.toFile();
 
 		MonetDBEmbedded db = new MonetDBEmbedded(directory);
 		db.startup(true);
@@ -33,7 +35,7 @@ public class EmbeddedTest {
 
 		EmbeddedQueryResult result = db.query("SELECT * FROM world");
 		assertEquals(3, result.getColumn(1).columnSize());
-		
+
 		result.close();
 	}
 }
