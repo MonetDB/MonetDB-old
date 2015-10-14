@@ -15,13 +15,13 @@
 static char module_docstring[] =
     "This module provides a MonetDB client.";
 static char init_docstring[] =
-    "monetdb_embedded.init(directory) => Initialize the SQL client with the given database directory.";
+    "monetdblite.init(directory) => Initialize the SQL client with the given database directory.";
 static char sql_docstring[] =
-    "monetdb_embedded.sql(query) => Execute a SQL query on the database. Returns the result as a dictionary of Numpy Arrays.";
+    "monetdblite.sql(query) => Execute a SQL query on the database. Returns the result as a dictionary of Numpy Arrays.";
 static char create_docstring[] =
-    "monetdb_embedded.create(tablename, dictionary), monetdb_embedded.create(tablename, column_names, values) => Create a SQL table from the given Python objects, objects must either be a (column name, value) dictionary or a list of column names and a list of values";
+    "monetdblite.create(tablename, dictionary), monetdblite.create(tablename, column_names, values) => Create a SQL table from the given Python objects, objects must either be a (column name, value) dictionary or a list of column names and a list of values";
 static char insert_docstring[] =
-    "monetdb_embedded.insert(tablename, dictionary), monetdb_embedded.insert(tablename, column_names, values) => Insert a set of values into a SQL table";
+    "monetdblite.insert(tablename, dictionary), monetdblite.insert(tablename, column_names, values) => Insert a set of values into a SQL table";
 
 static PyMethodDef module_methods[] = {
     {"init", monetdb_init, METH_O, init_docstring},
@@ -31,11 +31,11 @@ static PyMethodDef module_methods[] = {
     {NULL, NULL, 0, NULL}
 };
 
-PyMODINIT_FUNC initmonetdb_embedded(void);
-PyMODINIT_FUNC initmonetdb_embedded(void)
+PyMODINIT_FUNC initmonetdblite(void);
+PyMODINIT_FUNC initmonetdblite(void)
 {
     //initialize module
-    PyObject *m = Py_InitModule3("monetdb_embedded", module_methods, module_docstring);
+    PyObject *m = Py_InitModule3("monetdblite", module_methods, module_docstring);
     if (m == NULL)
         return;
 

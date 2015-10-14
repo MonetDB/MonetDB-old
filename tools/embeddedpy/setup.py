@@ -4,7 +4,7 @@ import ntpath
 import os
 import sys
 
-package_name = "monetdb_embedded" #if you change this you also need to change the init function in embedded_module.c
+package_name = "monetdblite" #if you change this you also need to change the init function in embedded_module.c
 
 if os.name == 'nt':
     print("Windows is not currently supported.")
