@@ -6,14 +6,14 @@
  * Copyright 2008-2015 MonetDB B.V.
  */
 
-#ifndef _OPT_ACCUMULATORS_
-#define _OPT_ACCUMULATORS_
+#ifndef _OPT_CANDIDATES_
+#define _OPT_CANDIDATES_
 #include "opt_prelude.h"
 #include "opt_support.h"
-#include "mal_interpreter.h"
+#include "mal_exception.h"
 
-opt_export int OPTaccumulatorsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+opt_export int OPTcandidatesImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p);
 
-#define OPTDEBUGaccumulators  if ( optDebug & ((lng)1 <<DEBUG_OPT_ACCUMULATORS) )
+#define OPTDEBUGcandidates  if ( optDebug & ((lng) 1 <<DEBUG_OPT_CANDIDATES) )
 
 #endif

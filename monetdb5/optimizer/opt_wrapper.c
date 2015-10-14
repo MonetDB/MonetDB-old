@@ -26,10 +26,10 @@
 /*
  * The optimizer used so far
 */
-#include "opt_accumulators.h"
 #include "opt_aliases.h"
 #include "opt_coercion.h"
 #include "opt_commonTerms.h"
+#include "opt_candidates.h"
 #include "opt_constants.h"
 #include "opt_costModel.h"
 #include "opt_dataflow.h"
@@ -59,10 +59,10 @@ struct{
 	str nme;
 	int (*fcn)();
 } codes[] = {
-	{"accumulators", &OPTaccumulatorsImplementation},
 	{"aliases", &OPTaliasesImplementation},
 	{"coercions", &OPTcoercionImplementation},
 	{"commonTerms", &OPTcommonTermsImplementation},
+	{"candidates", &OPTcandidatesImplementation},
 	{"constants", &OPTconstantsImplementation},
 	{"costModel", &OPTcostModelImplementation},
 	{"dataflow", &OPTdataflowImplementation},

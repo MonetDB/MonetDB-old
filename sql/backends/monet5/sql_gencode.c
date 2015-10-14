@@ -549,7 +549,7 @@ _create_relational_remote(mvc *m, char *name, sql_rel *rel, stmt *call, prop *pr
 
 		type = newBatType(TYPE_oid, type);
 		p = newFcnCall(curBlk, batRef, newRef);
-		p = pushType(curBlk, p, getHeadType(type));
+		p = pushType(curBlk, p, TYPE_oid);
 		p = pushType(curBlk, p, getColumnType(type));
 		setArgType(curBlk, p, 0, type);
 		lret[i] = getArg(p, 0);
@@ -956,7 +956,6 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			s->nr = getDestVar(q);
 		} break;
 		case st_single:{
-			int ht = TYPE_oid;
 			int tt = s->op4.typeval.type->localtype;
 			int val = _dumpstmt(sql, mb, s->op1);
 
@@ -965,22 +964,21 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			q = newStmt1(mb, sqlRef, "single");
 			if (q == NULL)
 				return -1;
-			setVarType(mb, getArg(q, 0), newBatType(ht, tt));
+			setVarType(mb, getArg(q, 0), newBatType(TYPE_oid, tt));
 			q = pushArgument(mb, q, val);
 			if (q == NULL)
 				return -1;
 			s->nr = getDestVar(q);
 		} break;
 		case st_temp:{
-			int ht = TYPE_oid;
 			int tt = s->op4.typeval.type->localtype;
 
 			q = newStmt1(mb, batRef, "new");
 			if (q == NULL)
 				return -1;
-			setVarType(mb, getArg(q, 0), newBatType(ht, tt));
+			setVarType(mb, getArg(q, 0), newBatType(TYPE_oid, tt));
 			setVarUDFtype(mb, getArg(q, 0));
-			q = pushType(mb, q, ht);
+			q = pushType(mb, q, TYPE_oid);
 			q = pushType(mb, q, tt);
 			if (q == NULL)
 				return -1;
@@ -988,14 +986,13 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			s->nr = getDestVar(q);
 		} break;
 		case st_tid:{
-			int ht = TYPE_oid;
 			int tt = TYPE_oid;
 			sql_table *t = s->op4.tval;
 
 			q = newStmt1(mb, sqlRef, "tid");
 			if (q == NULL)
 				return -1;
-			setVarType(mb, getArg(q, 0), newBatType(ht, tt));
+			setVarType(mb, getArg(q, 0), newBatType(TYPE_oid, tt));
 			setVarUDFtype(mb, getArg(q, 0));
 			q = pushArgument(mb, q, sql->mvc_var);
 			q = pushSchema(mb, q, t);
@@ -1006,7 +1003,6 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 		}
 			break;
 		case st_bat:{
-			int ht = TYPE_oid;
 			int tt = s->op4.cval->type.type->localtype;
 			sql_table *t = s->op4.cval->t;
 
@@ -1014,9 +1010,9 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			if (q == NULL)
 				return -1;
 			if (s->flag == RD_UPD_ID) {
-				q = pushReturn(mb, q, newTmpVariable(mb, newBatType(ht, tt)));
+				q = pushReturn(mb, q, newTmpVariable(mb, newBatType(TYPE_oid, tt)));
 			} else {
-				setVarType(mb, getArg(q, 0), newBatType(ht, tt));
+				setVarType(mb, getArg(q, 0), newBatType(TYPE_oid, tt));
 				setVarUDFtype(mb, getArg(q, 0));
 			}
 			q = pushArgument(mb, q, sql->mvc_var);
@@ -1035,7 +1031,6 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 		}
 			break;
 		case st_idxbat:{
-			int ht = TYPE_oid;
 			int tt = tail_type(s)->type->localtype;
 			sql_table *t = s->op4.idxval->t;
 
@@ -1043,9 +1038,9 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			if (q == NULL)
 				return -1;
 			if (s->flag == RD_UPD_ID) {
-				q = pushReturn(mb, q, newTmpVariable(mb, newBatType(ht, tt)));
+				q = pushReturn(mb, q, newTmpVariable(mb, newBatType(TYPE_oid, tt)));
 			} else {
-				setVarType(mb, getArg(q, 0), newBatType(ht, tt));
+				setVarType(mb, getArg(q, 0), newBatType(TYPE_oid, tt));
 				setVarUDFtype(mb, getArg(q, 0));
 			}
 
@@ -1079,11 +1074,6 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 				return -1;
 		}
 			break;
-		case st_reverse:{
-			if (dump_1(sql, mb, s, batRef, reverseRef) < 0)
-				return -1;
-		}
-			break;
 		case st_mirror:{
 			if (dump_1(sql, mb, s, batRef, mirrorRef) < 0)
 				return -1;
@@ -1111,16 +1101,15 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			assert(s->nrcols);
 			if (s->nrcols == 0) {
 				int k;
-				int ht = TYPE_oid;
 				int tt = tail_type(s->op1)->type->localtype;
 
 				assert(0);
 				q = newStmt1(mb, batRef, "new");
 				if (q == NULL)
 					return -1;
-				setVarType(mb, getArg(q, 0), newBatType(ht, tt));
+				setVarType(mb, getArg(q, 0), newBatType(TYPE_oid, tt));
 				setVarUDFtype(mb, getArg(q, 0));
-				q = pushType(mb, q, ht);
+				q = pushType(mb, q, TYPE_oid);
 				q = pushType(mb, q, tt);
 				if (q == NULL)
 					return -1;
@@ -1701,7 +1690,20 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 				s->nr = l;
 				return s->nr;
 			}
-			if (cmp == cmp_project || cmp == cmp_reorder_project) {
+			if (cmp == cmp_left_project) {
+				int op3;
+				if ((op3 = _dumpstmt(sql, mb, s->op3)) < 0)
+					return -1;
+				q = newStmt2(mb, sqlRef, projectRef);
+				q = pushArgument(mb, q, l);
+				q = pushArgument(mb, q, r);
+				q = pushArgument(mb, q, op3);
+				if (q == NULL)
+					return -1;
+				s->nr = getDestVar(q);
+				return s->nr;
+			}
+			if (cmp == cmp_project) {
 				int ins;
 
 				/* delta bat */
@@ -1726,10 +1728,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 					return s->nr;
 				}
 				/* projections, ie left is void headed */
-				if (cmp == cmp_project)
-					q = newStmt1(mb, algebraRef, "leftfetchjoin");
-				else
-					q = newStmt2(mb, algebraRef, leftjoinRef);
+				q = newStmt1(mb, algebraRef, "leftfetchjoin");
 				q = pushArgument(mb, q, l);
 				q = pushArgument(mb, q, r);
 				if (q == NULL)
@@ -1808,7 +1807,6 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 					return -1;
 				break;
 			case cmp_project:
-			case cmp_reorder_project:
 				assert(0);
 				break;
 			default:

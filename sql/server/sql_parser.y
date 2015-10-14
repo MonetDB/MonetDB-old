@@ -299,6 +299,7 @@ int yydebug=1;
 %type <l>
 	passwd_schema
 	object_privileges
+	global_privileges
 	privileges
 	schema_name_clause
 	assignment_commalist
@@ -402,7 +403,8 @@ int yydebug=1;
 	opt_encrypted
 	opt_for_each
 	opt_from_grantor
-	opt_grantor
+	opt_grantor	
+	global_privilege
 	opt_index_type
 	opt_match
 	opt_match_type
@@ -900,10 +902,25 @@ opt_admin_for:
  ;
 
 privileges:
-	object_privileges ON object_name
+ 	global_privileges 
+	{ $$ = L();
+	  append_list($$, $1);
+	  append_symbol($$, _symbol_create(SQL_GRANT, NULL)); }
+ |	object_privileges ON object_name
 	{ $$ = L();
 	  append_list($$, $1);
 	  append_symbol($$, $3); }
+ ;
+
+global_privileges:
+    global_privilege	{ $$ = append_int(L(), $1); }
+ |  global_privilege ',' global_privilege
+			{ $$ = append_int(append_int(L(), $1), $3); }
+ ;
+
+global_privilege:
+	COPY FROM 	{ $$ = PRIV_COPYFROMFILE; }
+ |	COPY INTO 	{ $$ = PRIV_COPYINTOFILE; }
  ;
 
 object_name:
@@ -3422,7 +3439,7 @@ simple_scalar_exp:
 			  append_list(l, 
 			  	append_string(append_string(L(), sa_strdup(SA, "sys")), sa_strdup(SA, "bit_not")));
 	  		  append_symbol(l, $2);
-	  		  $$ = _symbol_create_list( SQL_BINOP, l ); }
+	  		  $$ = _symbol_create_list( SQL_UNOP, l ); }
  |  scalar_exp LEFT_SHIFT scalar_exp
 			{ dlist *l = L();
 			  append_list(l, 
