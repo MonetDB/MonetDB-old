@@ -94,16 +94,16 @@ HASHins(BAT *b, BUN i, const void *v)
 			switch (h->width) {
 			case BUN2:
 				((BUN2type *)h->Link)[i] = ((BUN2type *)h->Hash)[(h->pieces - 1) * (h->mask + 1) + c];
-				((BUN2type *)h->Hash)[(h->pieces - 1) * (h->mask + 1) + c] = i;
+				((BUN2type *)h->Hash)[(h->pieces - 1) * (h->mask + 1) + c] = (BUN2type) i;
 				break;
 			case BUN4:
 				((BUN4type *)h->Link)[i] = ((BUN4type *)h->Hash)[(h->pieces - 1) * (h->mask + 1) + c];
-				((BUN4type *)h->Hash)[(h->pieces - 1) * (h->mask + 1) + c] = i;
+				((BUN4type *)h->Hash)[(h->pieces - 1) * (h->mask + 1) + c] = (BUN4type) i;
 				break;
 #ifdef BUN8
 			case BUN8:
 				((BUN8type *)h->Link)[i] = ((BUN8type *)h->Hash)[(h->pieces - 1) * (h->mask + 1) + c];
-				((BUN8type *)h->Hash)[(h->pieces - 1) * (h->mask + 1) + c] = i;
+				((BUN8type *)h->Hash)[(h->pieces - 1) * (h->mask + 1) + c] = (BUN8type) i;
 				break;
 #endif
 			}
@@ -285,7 +285,7 @@ BATcheckhash(BAT *b)
 		while (start < end) {					\
 			c = (BUN) mix_##TYPE(v[start]) & mask;		\
 			links##N[start] = hashes##N[c];			\
-			hashes##N[c] = start;				\
+			hashes##N[c] = (BUN##N##type) start;		\
 			start++;					\
 		}							\
 	} while (0)
@@ -300,7 +300,7 @@ BATcheckhash(BAT *b)
 			const void *v = BUNtail(bi, start);		\
 			c = (*hashf)(v) & mask;				\
 			links##N[start] = hashes##N[c];			\
-			hashes##N[c] = start;				\
+			hashes##N[c] = (BUN##N##type) start;		\
 			start++;					\
 		}							\
 	} while (0)

@@ -2859,16 +2859,16 @@ BATassertHeadProps(BAT *b)
 				switch (hs->width) {
 				case BUN2:
 					((BUN2type *) hs->Link)[p] = ((BUN2type *) hs->Hash)[prb];
-					((BUN2type *) hs->Hash)[prb] = p;
+					((BUN2type *) hs->Hash)[prb] = (BUN2type) p;
 					break;
 				case BUN4:
 					((BUN4type *) hs->Link)[p] = ((BUN4type *) hs->Hash)[prb];
-					((BUN4type *) hs->Hash)[prb] = p;
+					((BUN4type *) hs->Hash)[prb] = (BUN4type) p;
 					break;
 #ifdef BUN8
 				case BUN8:
 					((BUN8type *) hs->Link)[p] = ((BUN8type *) hs->Hash)[prb];
-					((BUN8type *) hs->Hash)[prb] = p;
+					((BUN8type *) hs->Hash)[prb] = (BUN8type) p;
 					break;
 #endif
 				}
@@ -3122,16 +3122,16 @@ BATderiveHeadProps(BAT *b, int expensive)
 			switch (hs->width) {
 			case BUN2:
 				((BUN2type *) hs->Link)[p] = ((BUN2type *) hs->Hash)[prb];
-				((BUN2type *) hs->Hash)[prb] = p;
+				((BUN2type *) hs->Hash)[prb] = (BUN2type) p;
 				break;
 			case BUN4:
 				((BUN4type *) hs->Link)[p] = ((BUN4type *) hs->Hash)[prb];
-				((BUN4type *) hs->Hash)[prb] = p;
+				((BUN4type *) hs->Hash)[prb] = (BUN4type) p;
 				break;
 #ifdef BUN8
 			case BUN8:
 				((BUN8type *) hs->Link)[p] = ((BUN8type *) hs->Hash)[prb];
-				((BUN8type *) hs->Hash)[prb] = p;
+				((BUN8type *) hs->Hash)[prb] = (BUN8type) p;
 				break;
 #endif
 			}
