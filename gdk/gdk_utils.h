@@ -10,6 +10,7 @@
 #define _GDK_UTILS_H_
 
 #include <monet_options.h>
+#include <setjmp.h>
 
 gdk_export BAT *GDKkey;
 gdk_export BAT *GDKval;
@@ -94,4 +95,8 @@ gdk_export const char *GDKversion(void);
 
 gdk_export int GDKextractParentAndLastDirFromPath(const char *path, char *last_dir_parent, char *last_dir);
 
+// these are used in embedded mode to jump out of GDKfatal
+gdk_export jmp_buf GDKfataljump;
+gdk_export str GDKfatalmsg;
+gdk_export bit GDKfataljumpenable;
 #endif /* _GDK_UTILS_H_ */

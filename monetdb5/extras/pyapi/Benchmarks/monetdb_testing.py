@@ -572,7 +572,12 @@ else:
         f.close()
         database_final()
 
-    input_type = "integer"
+    input_columns = dict()
+    input_columns['a'] = 'integer'
+
+    output_columns = dict()
+    output_columns['_normal_return'] = 'integer'
+
     function_name = str(args_test_type).lower()
     function = None
     if function_name == "identity":
@@ -590,6 +595,22 @@ else:
             return numpy.percentile(a, 50)
         function = quantile
         return_value = "integer"
+    if function_name == "voter_classification":
+        input_columns = dict()
+        input_columns['county'] = 'string'
+        input_columns['precinct'] = 'string'
+        input_columns['sex'] = 'string'
+        input_columns['race'] = 'string'
+        input_columns['ethnicity'] = 'string'
+        input_columns['age'] = 'string'
+        input_columns['pr_precinct'] = 'string'
+        input_columns['pr_republican_percentage'] = 'string'
+        input_columns['pr_republican_percentage'] = 'string'
+        #todo
+
+        def voter_classification(input_cols):
+            return False
+
 
     import inspect
     inspect_result = inspect.getsourcelines(function)

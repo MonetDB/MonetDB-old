@@ -27,22 +27,29 @@
 #include "mal_linker.h"
 #include "msabaoth.h"
 #include "sql_scenario.h"
+#include "gdk_utils.h"
 
 #include "pyapi.h"
 #include "pytypes.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-// copy paste from embedded.c
-bool monetdb_isinit(void);
-int monetdb_startup(char* dir, char silent);
-char* monetdb_query(char* query, void** result);
+// copy paste from embedded.h
+typedef struct append_data {
+	char* colname;
+	ssize_t batid;
+} append_data;
+
+str monetdb_startup(char* dir, char silent);
+str monetdb_query(char* query, void** result);
+str monetdb_create_table(char *schema, char *table_name, append_data *ad, int ncols);
+str monetdb_append(const char* schema, const char* table, append_data *ad, int ncols);
 void monetdb_cleanup_result(void* output);
-str monetdb_get_columns(char *table_name, int *column_count, char ***column_names, int **column_types);
-str monetdb_create_table(char *table_name, size_t columns, BAT **bats, char **column_names);
-str monetdb_insert_into_table(char *table_name, size_t columns, BAT **bats, char **column_names);
+static str monetdb_get_columns(const char* schema_name, const char *table_name, int *column_count, char ***column_names, int **column_types) ;
+
+static bit monetdb_embedded_initialized = 0;
+static MT_Lock monetdb_embedded_lock;
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-//LOCALSTATEDIR
 PyObject *monetdb_init(PyObject *self, PyObject *args)
 {
 	(void) self;
@@ -52,17 +59,18 @@ PyObject *monetdb_init(PyObject *self, PyObject *args)
 	}
 
 	{
+		char *msg;
 		char *directory = &(((PyStringObject*)args)->ob_sval[0]);
 		printf("Making directory %s\n", directory);
 		if (GDKcreatedir(directory) != GDK_SUCCEED) {
    			PyErr_Format(PyExc_Exception, "Failed to create directory %s.", directory);
    			return NULL;
 		}
-		if (monetdb_startup(directory, 1) < 0) {
-	   		PyErr_SetString(PyExc_Exception, "Failed to initialize MonetDB with the specified directory.");
+		msg = monetdb_startup(directory, 1);
+		if (msg != MAL_SUCCEED) {
+	   		PyErr_Format(PyExc_Exception, "Failed to initialize MonetDB. %s", msg);
 			return NULL;
 		}
-		GDKsetenv("enable_numpystringarray", "true");
 		PyAPIprelude(NULL);
 	}
 	Py_RETURN_NONE;
@@ -75,7 +83,7 @@ PyObject *monetdb_sql(PyObject *self, PyObject *args)
    		PyErr_SetString(PyExc_TypeError, "Expected a SQL query as a single string argument.");
 		return NULL;
 	}
-	if (!monetdb_isinit()) {
+	if (!monetdb_embedded_initialized) {
    		PyErr_SetString(PyExc_Exception, "monetdb has not been initialized yet");
 		return NULL;
 	}
@@ -126,11 +134,12 @@ PyObject *monetdb_sql(PyObject *self, PyObject *args)
 
 PyObject *monetdb_create(PyObject *self, PyObject *args)
 {
+	char *schema = "sys";
 	char *table_name;
 	PyObject *dict = NULL, *values = NULL;
 	int i;
 	(void) self;
-	if (!monetdb_isinit()) {
+	if (!monetdb_embedded_initialized) {
    		PyErr_SetString(PyExc_Exception, "monetdb has not been initialized yet");
 		return NULL;
 	}
@@ -139,7 +148,7 @@ PyObject *monetdb_create(PyObject *self, PyObject *args)
 	}
 	if (values == NULL) {
 		if (!PyDict_CheckExact(dict)) {
-	   		PyErr_SetString(PyExc_TypeError, "the second argument to be a dict");
+	   		PyErr_SetString(PyExc_TypeError, "the second argument has to be a dict");
 			return NULL;
 		}
    		PyErr_Format(PyExc_Exception, "dict is not implemented yet");
@@ -167,32 +176,36 @@ PyObject *monetdb_create(PyObject *self, PyObject *args)
 			char *msg = NULL;
 			PyObject *pResult;
 			int columns = PyList_Size(dict);
+			append_data *append_bats = NULL;
 			PyReturn *pyreturn_values = NULL;
-			BAT **bats = NULL;
-			char **column_names = NULL;
 
 			pResult = PyObject_CheckForConversion(values, columns, NULL, &msg);
 			if (pResult == NULL) goto cleanup;
+
 			pyreturn_values = GDKzalloc(sizeof(PyReturn) * columns);
 			if (!PyObject_PreprocessObject(pResult, pyreturn_values, columns, &msg)) goto cleanup;
 
-			bats = GDKzalloc(sizeof(BAT*) * columns);
-			column_names = GDKzalloc(sizeof(char*) * columns);
+
+			append_bats = GDKzalloc(sizeof(append_data) * columns);
 			for(i = 0; i < columns; i++) {
-				column_names[i] = PyString_AS_STRING(PyList_GetItem(dict, i));
-				bats[i] = PyObject_ConvertToBAT(&pyreturn_values[i], PyType_ToBat(pyreturn_values[i].result_type), i, 0, &msg);
-				if (bats[i] == NULL) goto cleanup; 
+				append_bats[i].batid = int_nil;
+			}
+			for(i = 0; i < columns; i++) {
+				BAT *b = PyObject_ConvertToBAT(&pyreturn_values[i], PyType_ToBat(pyreturn_values[i].result_type), i, 0, &msg);
+				if (b == NULL) goto cleanup; 
+				append_bats[i].batid = b->batCacheid;
+				append_bats[i].colname = PyString_AS_STRING(PyList_GetItem(dict, i));
  			}
- 			msg = monetdb_create_table(table_name, columns, bats, column_names);
+ 			msg = monetdb_create_table(schema, table_name, append_bats, columns);
 cleanup:
 			if (pyreturn_values) GDKfree(pyreturn_values);
-			if (bats) {
+			if (append_bats) {
 				for(i = 0; i < columns; i++) {
-					if (bats[i] != NULL) BBPunfix(bats[i]->batCacheid);
+					if (append_bats[i].batid != int_nil) 
+						BBPunfix(append_bats[i].batid);
 				}
-				GDKfree(bats);
+				GDKfree(append_bats);
 			}
-			if (column_names) GDKfree(column_names);
 			if (msg != NULL) {
 				PyErr_Format(PyExc_Exception, "%s", msg);
 				return NULL;
@@ -204,10 +217,11 @@ cleanup:
 
 PyObject *monetdb_insert(PyObject *self, PyObject *args)
 {
+	char *schema_name = "sys";
 	char *table_name;
 	PyObject *values = NULL;
 	(void) self;
-	if (!monetdb_isinit()) {
+	if (!monetdb_embedded_initialized) {
    		PyErr_SetString(PyExc_Exception, "monetdb has not been initialized yet");
 		return NULL;
 	}
@@ -218,34 +232,40 @@ PyObject *monetdb_insert(PyObject *self, PyObject *args)
 		char *msg = NULL;
 		PyObject *pResult;
 		PyReturn *pyreturn_values = NULL;
-		BAT **bats = NULL;
+		append_data *append_bats;
 		int i;
 		char **column_names = NULL;
 		int *column_types = NULL;
 		int columns;
 
-		msg = monetdb_get_columns(table_name, &columns, &column_names, &column_types);
+		msg = monetdb_get_columns(schema_name, table_name, &columns, &column_names, &column_types);
 
 		pResult = PyObject_CheckForConversion(values, columns, NULL, &msg);
 		if (pResult == NULL) goto cleanup;
 		pyreturn_values = GDKzalloc(sizeof(PyReturn) * columns);
 		if (!PyObject_PreprocessObject(pResult, pyreturn_values, columns, &msg)) goto cleanup;
 
-		bats = GDKzalloc(sizeof(BAT*) * columns);
+		append_bats = GDKzalloc(sizeof(append_bats) * columns);
 		for(i = 0; i < columns; i++) {
-			bats[i] = PyObject_ConvertToBAT(&pyreturn_values[i], column_types[i], i, 0, &msg);
-			if (bats[i] == NULL) goto cleanup; 
-			}
-			msg = monetdb_insert_into_table(table_name, columns, bats, column_names);
+			append_bats[i].batid = int_nil;
+			append_bats[i].colname = column_names[i];
+		}
+		for(i = 0; i < columns; i++) {
+			BAT *b = PyObject_ConvertToBAT(&pyreturn_values[i], column_types[i], i, 0, &msg);
+
+			if (b == NULL) goto cleanup; 
+			append_bats[i].batid = b->batCacheid;
+		}
+		msg = monetdb_append(schema_name, table_name, append_bats, columns);
 cleanup:
 		if (pyreturn_values) GDKfree(pyreturn_values);
 		if (column_names) GDKfree(column_names);
 		if (column_types) GDKfree(column_types);
-		if (bats) {
+		if (append_bats) {
 			for(i = 0; i < columns; i++) {
-				if (bats[i] != NULL) BBPunfix(bats[i]->batCacheid);
+				if (append_bats[i].batid != int_nil) BBPunfix(append_bats[i].batid);
 			}
-			GDKfree(bats);
+			GDKfree(append_bats);
 		}
 		if (msg != NULL) {
 			PyErr_Format(PyExc_Exception, "%s", msg);
@@ -266,15 +286,24 @@ void init_embedded_py(void)
 /////////////////////////////////////////////////////////
 typedef str (*SQLstatementIntern_ptr_tpe)(Client, str*, str, bit, bit, res_table**);
 SQLstatementIntern_ptr_tpe SQLstatementIntern_ptr = NULL;
+typedef str (*SQLautocommit_ptr_tpe)(Client, mvc*);
+SQLautocommit_ptr_tpe SQLautocommit_ptr = NULL;
+typedef str (*SQLinitClient_ptr_tpe)(Client);
+SQLinitClient_ptr_tpe SQLinitClient_ptr = NULL;
+typedef str (*getSQLContext_ptr_tpe)(Client, MalBlkPtr, mvc**, backend**);
+getSQLContext_ptr_tpe getSQLContext_ptr = NULL;
 typedef void (*res_table_destroy_ptr_tpe)(res_table *t);
 res_table_destroy_ptr_tpe res_table_destroy_ptr = NULL;
-
-static bit monetdb_embedded_initialized = 0;
-static MT_Lock monetdb_embedded_lock;
-
-bool monetdb_isinit(void) {
-	return monetdb_embedded_initialized;
-}
+typedef str (*mvc_append_wrap_ptr_tpe)(Client, MalBlkPtr, MalStkPtr, InstrPtr);
+mvc_append_wrap_ptr_tpe mvc_append_wrap_ptr = NULL;
+typedef sql_schema* (*mvc_bind_schema_ptr_tpe)(mvc*, const char*);
+mvc_bind_schema_ptr_tpe mvc_bind_schema_ptr = NULL;
+typedef sql_table* (*mvc_bind_table_ptr_tpe)(mvc*, sql_schema*, const char*);
+mvc_bind_table_ptr_tpe mvc_bind_table_ptr = NULL;
+typedef int (*sqlcleanup_ptr_tpe)(mvc*, int);
+sqlcleanup_ptr_tpe sqlcleanup_ptr = NULL;
+typedef void (*mvc_trans_ptr_tpe)(mvc*);
+mvc_trans_ptr_tpe mvc_trans_ptr = NULL;
 
 static void* lookup_function(char* lib, char* func) {
 	void *dl, *fun;
@@ -287,12 +316,22 @@ static void* lookup_function(char* lib, char* func) {
 	return fun;
 }
 
-int monetdb_startup(char* dir, char silent) {
+char* monetdb_startup(char* dir, char silent) {
 	opt *set = NULL;
 	int setlen = 0;
-	int retval = -1;
+	char* retval = NULL;
+	char* sqres = NULL;
 	void* res = NULL;
 	char mod_path[1000];
+	GDKfataljumpenable = 1;
+	if(setjmp(GDKfataljump) != 0) {
+		retval = GDKfatalmsg;
+		// we will get here if GDKfatal was called.
+		if (retval != NULL) {
+			retval = GDKstrdup("GDKfatal() with unspecified error?");
+		}
+		goto cleanup;
+	}
 
 	MT_lock_init(&monetdb_embedded_lock, "monetdb_embedded_lock");
 	MT_lock_set(&monetdb_embedded_lock, "monetdb.startup");
@@ -300,33 +339,60 @@ int monetdb_startup(char* dir, char silent) {
 
 	setlen = mo_builtin_settings(&set);
 	setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_dbpath", dir);
-	if (GDKinit(set, setlen) == 0)  goto cleanup;
+	if (GDKinit(set, setlen) == 0) {
+		retval = GDKstrdup("GDKinit() failed");
+		goto cleanup;
+	}
 
 	snprintf(mod_path, 1000, "%s/../lib/monetdb5", BINDIR);
-	GDKsetenv("sql_optimizer", "sequential_pipe");
-	GDKsetenv("monet_mod_path", mod_path);	
+	GDKsetenv("monet_mod_path", mod_path);
 	GDKsetenv("mapi_disable", "true");
 	GDKsetenv("max_clients", "0");
+	GDKsetenv("sql_optimizer", "sequential_pipe"); // TODO: SELECT * FROM table should not use mitosis in the first place.
 
 	if (silent) THRdata[0] = stream_blackhole_create();
 	msab_dbpathinit(GDKgetenv("gdk_dbpath"));
-	if (mal_init() != 0) goto cleanup;
+	if (mal_init() != 0) {
+		retval = GDKstrdup("mal_init() failed");
+		goto cleanup;
+	}
 	if (silent) mal_clients[0].fdout = THRdata[0];
 
 	// This dynamically looks up functions, because the library containing them is loaded at runtime.
+	// argh
 	SQLstatementIntern_ptr = (SQLstatementIntern_ptr_tpe) lookup_function("lib_sql",  "SQLstatementIntern");
+	SQLautocommit_ptr = (SQLautocommit_ptr_tpe) lookup_function("lib_sql",  "SQLautocommit");
+	SQLinitClient_ptr = (SQLinitClient_ptr_tpe) lookup_function("lib_sql",  "SQLinitClient");
+	getSQLContext_ptr = (getSQLContext_ptr_tpe) lookup_function("lib_sql",  "getSQLContext");
 	res_table_destroy_ptr  = (res_table_destroy_ptr_tpe)  lookup_function("libstore", "res_table_destroy");
-	if (SQLstatementIntern_ptr == NULL || res_table_destroy_ptr == NULL) goto cleanup;
+	mvc_append_wrap_ptr = (mvc_append_wrap_ptr_tpe)  lookup_function("lib_sql", "mvc_append_wrap");
+	mvc_bind_schema_ptr = (mvc_bind_schema_ptr_tpe)  lookup_function("lib_sql", "mvc_bind_schema");
+	mvc_bind_table_ptr = (mvc_bind_table_ptr_tpe)  lookup_function("lib_sql", "mvc_bind_table");
+	sqlcleanup_ptr = (sqlcleanup_ptr_tpe)  lookup_function("lib_sql", "sqlcleanup");
+	mvc_trans_ptr = (mvc_trans_ptr_tpe) lookup_function("lib_sql", "mvc_trans");
 
-	monetdb_embedded_initialized = true;
-	// sanity check, run a SQL query
-	if (monetdb_query("SELECT * FROM tables;", res) != NULL) {
-		monetdb_embedded_initialized = false;
+	if (SQLstatementIntern_ptr == NULL || SQLautocommit_ptr == NULL ||
+			SQLinitClient_ptr == NULL || getSQLContext_ptr == NULL ||
+			res_table_destroy_ptr == NULL || mvc_append_wrap_ptr == NULL ||
+			mvc_bind_schema_ptr == NULL || mvc_bind_table_ptr == NULL ||
+			sqlcleanup_ptr == NULL || mvc_trans_ptr == NULL) {
+		retval = GDKstrdup("Dynamic function lookup failed");
 		goto cleanup;
 	}
-	if (res != NULL) monetdb_cleanup_result(res);
-	retval = 0;
+	// call this, otherwise c->sqlcontext is empty
+	(*SQLinitClient_ptr)(&mal_clients[0]);
+	((backend *) mal_clients[0].sqlcontext)->mvc->session->auto_commit = 1;
+	monetdb_embedded_initialized = true;
+	// we do not want to jump after this point, since we cannot do so between threads
+	GDKfataljumpenable = 0;
 
+	// sanity check, run a SQL query
+	sqres = monetdb_query("SELECT * FROM tables;", res);
+	if (sqres != NULL) {
+		monetdb_embedded_initialized = false;
+		retval = sqres;
+		goto cleanup;
+	}
 cleanup:
 	mo_free_options(set, setlen);
 	MT_lock_unset(&monetdb_embedded_lock, "monetdb.startup");
@@ -334,19 +400,128 @@ cleanup:
 }
 
 char* monetdb_query(char* query, void** result) {
-	str res;
+	str res = MAL_SUCCEED;
 	Client c = &mal_clients[0];
+	mvc* m = ((backend *) c->sqlcontext)->mvc;
 	if (!monetdb_embedded_initialized) {
-		fprintf(stderr, "Embedded MonetDB is not started.\n");
-		return NULL;
+		return GDKstrdup("Embedded MonetDB is not started");
 	}
-	res = (*SQLstatementIntern_ptr)(c, &query, "name", 1, 0, (res_table **) result);
-	SQLautocommit(c, ((backend *) c->sqlcontext)->mvc);
+
+	while (*query == ' ' || *query == '\t') query++;
+	if (strncasecmp(query, "START", 5) == 0) { // START TRANSACTION
+		m->session->auto_commit = 0;
+	}
+	else if (strncasecmp(query, "ROLLBACK", 8) == 0) {
+		m->session->status = -1;
+		m->session->auto_commit = 1;
+	}
+	else if (strncasecmp(query, "COMMIT", 6) == 0) {
+		m->session->auto_commit = 1;
+	}
+	else if (strncasecmp(query, "SHIBBOLEET", 10) == 0) {
+		res = GDKstrdup("\x46\x6f\x72\x20\x69\x6d\x6d\x65\x64\x69\x61\x74\x65\x20\x74\x65\x63\x68\x6e\x69\x63\x61\x6c\x20\x73\x75\x70\x70\x6f\x72\x74\x20\x63\x61\x6c\x6c\x20\x2b\x33\x31\x20\x32\x30\x20\x35\x39\x32\x20\x34\x30\x33\x39");
+	}
+	else if (m->session->status < 0 && m->session->auto_commit ==0){
+		res = GDKstrdup("Current transaction is aborted (please ROLLBACK)");
+	} else {
+		res = (*SQLstatementIntern_ptr)(c, &query, "name", 1, 0, (res_table **) result);
+	}
+
+	(*SQLautocommit_ptr)(c, m);
+	return res;
+}
+
+char* monetdb_append(const char* schema, const char* table, append_data *data, int col_ct) {
+	int i;
+	int nvar = 6; // variables we need to make up
+	MalBlkRecord mb;
+	MalStack*     stk = NULL;
+	InstrRecord*  pci = NULL;
+	str res = MAL_SUCCEED;
+	VarRecord bat_varrec;
+	mvc* m = ((backend *) mal_clients[0].sqlcontext)->mvc;
+
+	assert(table != NULL && data != NULL && col_ct > 0);
+
+	// very black MAL magic below
+	mb.var = GDKmalloc(nvar * sizeof(VarRecord*));
+	stk = GDKmalloc(sizeof(MalStack) + nvar * sizeof(ValRecord));
+	pci = GDKmalloc(sizeof(InstrRecord) + nvar * sizeof(int));
+	assert(mb.var != NULL && stk != NULL && pci != NULL); // cough, cough
+	bat_varrec.type = TYPE_bat;
+	for (i = 0; i < nvar; i++) {
+		pci->argv[i] = i;
+	}
+	stk->stk[0].vtype = TYPE_int;
+	stk->stk[2].val.sval = (str) schema;
+	stk->stk[2].vtype = TYPE_str;
+	stk->stk[3].val.sval = (str) table;
+	stk->stk[3].vtype = TYPE_str;
+	stk->stk[4].vtype = TYPE_str;
+	stk->stk[5].vtype = TYPE_bat;
+	mb.var[5] = &bat_varrec;
+	if (!m->session->active) (*mvc_trans_ptr)(m);
+	for (i=0; i < col_ct; i++) {
+		append_data ad = data[i];
+		stk->stk[4].val.sval = ad.colname;
+		stk->stk[5].val.bval = ad.batid;
+
+		res = (*mvc_append_wrap_ptr)(&mal_clients[0], &mb, stk, pci);
+		if (res != NULL) {
+			break;
+		}
+	}
+	if (res == MAL_SUCCEED) {
+		(*sqlcleanup_ptr)(m, 0);
+	}
+	GDKfree(mb.var);
+	GDKfree(stk);
+	GDKfree(pci);
 	return res;
 }
 
 void monetdb_cleanup_result(void* output) {
 	(*res_table_destroy_ptr)((res_table*) output);
+}
+
+static str monetdb_get_columns(const char* schema_name, const char *table_name, int *column_count, char ***column_names, int **column_types) 
+{
+	Client c = &mal_clients[0];
+	mvc *m;
+	sql_schema *s;
+	sql_table *t;
+	char *msg = MAL_SUCCEED;
+	int columns;
+	node *n;
+
+	assert(column_count != NULL && column_names != NULL && column_types != NULL);
+
+	if ((msg = (*getSQLContext_ptr)(c, NULL, &m, NULL)) != NULL)
+		return msg;
+
+	s = (*mvc_bind_schema_ptr)(m, schema_name);
+	if (s == NULL)
+		return createException(MAL, "embedded", "Missing schema!");
+	t = (*mvc_bind_table_ptr)(m, s, table_name);
+	if (t == NULL)
+		return createException(MAL, "embedded", "Could not find table %s", table_name);
+
+	columns = t->columns.set->cnt;
+	*column_count = columns;
+	*column_names = GDKzalloc(sizeof(char*) * columns);
+	*column_types = GDKzalloc(sizeof(int) * columns);
+
+	if (*column_names == NULL || *column_types == NULL) {
+		return MAL_MALLOC_FAIL;
+	}
+
+	for (n = t->columns.set->h; n; n = n->next) {
+		sql_column *c = n->data;
+		(*column_names)[c->colnr] = c->base.name;
+		(*column_types)[c->colnr] = c->type.type->localtype;
+	}
+
+	return msg;
 }
 
 static char *BatType_ToSQLType(int type)
@@ -367,56 +542,11 @@ static char *BatType_ToSQLType(int type)
     }
 }
 
-static char *BatType_DefaultValue(int type)
-{
-    switch (type)
-    {
-        case TYPE_bit:
-        case TYPE_bte: 
-        case TYPE_sht: 
-        case TYPE_int:
-        case TYPE_lng:
-        case TYPE_flt: 
-        case TYPE_hge:
-        case TYPE_dbl: return "0";
-        case TYPE_str: return "''";
-        default: return "UNKNOWN";
-    }
-}
-
-str monetdb_insert_into_table(char *table_name, size_t columns, BAT **bats, char **column_names)
-{
-	size_t i;
-	const int max_length = 10000;
-	char query[max_length], copy[max_length];
-	Client c = &mal_clients[0];
-	char *msg = MAL_SUCCEED;
-	void *res;
-
-	snprintf(query, max_length, "insert into %s values ", table_name);
-	for(i = 0; i < columns; i++) {
-		snprintf(copy, max_length, "%s%s%s%s", query, i == 0 ? "(" : "", BatType_DefaultValue(bats[i]->T->type), i < columns - 1 ? "," : ");");
-		strcpy(query, copy);
-	}
-
-	c->_append_columns = columns;
-	c->_append_bats = (void**)bats;
-	c->_append_column_names = column_names;
-	msg = monetdb_query(query, &res);
-	c->_append_columns = 0;
-	c->_append_bats = NULL;
-	c->_append_column_names = NULL;
-	if (msg != MAL_SUCCEED) {
-		return msg;
-	}
-	return msg;
-}
-
-str monetdb_create_table(char *table_name, size_t columns, BAT **bats, char **column_names)
+str monetdb_create_table(char *schema, char *table_name, append_data *ad, int ncols)
 {
 	const int max_length = 10000;
 	char query[max_length], copy[max_length];
-	size_t i;
+	int i;
 	void *res;
 	char *msg = MAL_SUCCEED;
 
@@ -425,9 +555,10 @@ str monetdb_create_table(char *table_name, size_t columns, BAT **bats, char **co
 		return NULL;
 	}
 	//format the CREATE TABLE query
-	snprintf(query, max_length, "create table %s(", table_name);
-	for(i = 0; i < columns; i++) {
-		snprintf(copy, max_length, "%s %s %s%s", query, column_names[i], BatType_ToSQLType(bats[i]->T->type), i < columns - 1 ? "," : ");");
+	snprintf(query, max_length, "create table %s.%s(", schema, table_name);
+	for(i = 0; i < ncols; i++) {
+		BAT *b = BBP_cache(ad[i].batid);
+		snprintf(copy, max_length, "%s %s %s%s", query, ad[i].colname, BatType_ToSQLType(b->T->type), i < ncols - 1 ? "," : ");");
 		strcpy(query, copy);
 	}
 
@@ -436,48 +567,5 @@ str monetdb_create_table(char *table_name, size_t columns, BAT **bats, char **co
 		return msg;
 	}
 
-	return monetdb_insert_into_table(table_name, columns, bats, column_names);
-}
-
-
-str monetdb_get_columns(char *table_name, int *column_count, char ***column_names, int **column_types)
-{
-	Client c = &mal_clients[0];
-	mvc *m;
-	sql_schema *s;
-	sql_table *t;
-	char *msg = MAL_SUCCEED;
-
-	if ((msg = getSQLContext(c, NULL, &m, NULL)) != NULL)
-		return msg;
-
-	s = mvc_bind_schema(m, "sys");
-	if (s == NULL)
-		msg = createException(MAL, "embedded", "Missing schema!");
-	t = mvc_bind_table(m, s, table_name);
-	if (t == NULL)
-		msg = createException(MAL, "embedded", "Could not find table %s", table_name);
-
-	{
-		const int columns = t->columns.set->cnt;
-		if (column_count != NULL) {
-			*column_count = columns;
-		}
-		if (column_names != NULL) {
-			int i;
-			*column_names = GDKzalloc(sizeof(char*) * columns);
-			for(i = 0; i < columns; i++) {
-				*column_names[i] = ((sql_base*)t->columns.set->h->data)[i].name;
-			}
-		}
-		if (column_types != NULL) {
-			int i;
-			*column_types = GDKzalloc(sizeof(int) * columns);
-			for(i = 0; i < columns; i++) {
-				*column_types[i] = ((sql_column*)t->columns.set->h->data)[i].type.type->localtype;
-			}
-		}
-	}
-
-	return msg;
+	return monetdb_append(schema, table_name, ad, ncols);
 }

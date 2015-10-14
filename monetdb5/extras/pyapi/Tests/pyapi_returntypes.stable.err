@@ -31,45 +31,45 @@ stderr of test 'pyapi_returntypes` in directory 'monetdb5/extras/pyapi` itself:
 # 23:33:07 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-20340" "--port=36739"
 # 23:33:07 >  
 
-MAPI  = (monetdb) /var/tmp/mtest-14418/.s.monetdb.33668
+MAPI  = (monetdb) /var/tmp/mtest-8465/.s.monetdb.38932
 QUERY = r:bat[:oid,:int] := pyapi.eval(nil:ptr,"return(\"Test\")");
 ERROR = !MALException:pyapi.eval:Could not convert from type STRING to type int
-MAPI  = (monetdb) /var/tmp/mtest-14418/.s.monetdb.33668
+MAPI  = (monetdb) /var/tmp/mtest-8465/.s.monetdb.38932
 QUERY = (r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"class NewClass:\n x = 5\n\nreturn(NewClass())");
 ERROR = !MALException:pyapi.eval:Unsupported result object. Expected either a list, dictionary, a numpy array, a numpy masked array or a pandas data frame, but received an object of type "<type 'instance'>"
-MAPI  = (monetdb) /var/tmp/mtest-14418/.s.monetdb.33668
+MAPI  = (monetdb) /var/tmp/mtest-8465/.s.monetdb.38932
 QUERY = (r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(12)");
 ERROR = !MALException:pyapi.eval:A single scalar was returned, yet we expect a list of 2 columns. We can only convert a single scalar into a single column, thus the result is invalid.
-MAPI  = (monetdb) /var/tmp/mtest-14418/.s.monetdb.33668
+MAPI  = (monetdb) /var/tmp/mtest-8465/.s.monetdb.38932
 QUERY = (r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return(numpy.array([12]))");
 ERROR = !MALException:pyapi.eval:A single array was returned, yet we expect a list of 2 columns. The result is invalid.
-MAPI  = (monetdb) /var/tmp/mtest-14418/.s.monetdb.33668
+MAPI  = (monetdb) /var/tmp/mtest-8465/.s.monetdb.38932
 QUERY = (r:bat[:oid,:int], s:bat[:oid,:int]) := pyapi.eval(nil:ptr,"return([12])");
 ERROR = !MALException:pyapi.eval:A single array was returned, yet we expect a list of 2 columns. The result is invalid.
-MAPI  = (monetdb) /var/tmp/mtest-14418/.s.monetdb.33668
+MAPI  = (monetdb) /var/tmp/mtest-8465/.s.monetdb.38932
 QUERY = r:bat[:oid,:int] := pyapi.eval(nil:ptr,"return([[33,24,55], [44,66,345]])");
 ERROR = !MALException:pyapi.eval:An array of size 2 was returned, yet we expect a list of 1 columns. The result is invalid.
-MAPI  = (monetdb) /var/tmp/mtest-14418/.s.monetdb.33668
+MAPI  = (monetdb) /var/tmp/mtest-8465/.s.monetdb.38932
 QUERY = a:bat[:oid,:str] := pyapi.eval(nil:ptr,"x = unicode(\"hello\")\nreturn(x.encode(\"utf32\"))");
 ERROR = !MALException:pyapi.eval:Invalid string encoding used. Please return a regular ASCII string, or a Numpy_Unicode object.
-MAPI  = (monetdb) /var/tmp/mtest-14418/.s.monetdb.33668
+MAPI  = (monetdb) /var/tmp/mtest-8465/.s.monetdb.38932
 QUERY = bb:bat[:oid,:int] := pyapi.eval(nil:ptr,"return (1");
 ERROR = !MALException:pyapi.eval:Could not parse Python code
-        !  1. def pyfun(_columns,_column_types,_values):
-        !> 2.     return (1
+        !def pyfun(_columns,_column_types,_values):
+        !  return (1
         !invalid syntax (<string>, line 2)
-MAPI  = (monetdb) /var/tmp/mtest-14418/.s.monetdb.33668
+MAPI  = (monetdb) /var/tmp/mtest-8465/.s.monetdb.38932
 QUERY = cc:bat[:oid,:int] := pyapi.eval(nil:ptr,"x = 4\n  x++\n\treturn (x)");
 ERROR = !MALException:pyapi.eval:Could not parse Python code
-        !  1. def pyfun(_columns,_column_types,_values):
-        !  2.     x = 4
-        !> 3.         x++
-        !  4.             return (x)
+        !def pyfun(_columns,_column_types,_values):
+        !  x = 4
+        !    x++
+        !      return (x)
         !unexpected indent (<string>, line 3)
-MAPI  = (monetdb) /var/tmp/mtest-14418/.s.monetdb.33668
+MAPI  = (monetdb) /var/tmp/mtest-8465/.s.monetdb.38932
 QUERY = (str1:bat[:oid,:str], str2:bat[:oid,:str]) := pyapi.eval(nil:ptr,"x = unicode(\"hello\")\nreturn(numpy.array([[x.encode(\"utf32\")], [x.encode(\"utf32\")]]))");
 ERROR = !MALException:pyapi.eval:Invalid string encoding used. Please return a regular ASCII string, or a Numpy_Unicode object.
-MAPI  = (monetdb) /var/tmp/mtest-14418/.s.monetdb.33668
+MAPI  = (monetdb) /var/tmp/mtest-8465/.s.monetdb.38932
 QUERY = (str1:bat[:oid,:str], str2:bat[:oid,:str]) := pyapi.eval(nil:ptr,"return(numpy.array([[\"Hëllo\", \"Hello Again\"], [\"Hello Again Again\",\"That's quite enough.\"]]))");
 ERROR = !MALException:pyapi.eval:Invalid string encoding used. Please return a regular ASCII string, or a Numpy_Unicode object.
 

@@ -1963,22 +1963,7 @@ mvc_append_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_table *t;
 	sql_column *c;
 	BAT *b = 0;
-
-	//HACK
-	//This is where we check the client for any columns to append INSTEAD OF THE SUPPLIED COLUMNS TO THIS FUNCTION
-	//If they are there, we append those columns instead
-	//This should be changed to a proper function that takes a BAT and inserts it into a table
-	if (cntxt->_append_columns > 0) {
-		int i;
-		for(i = 0; i < cntxt->_append_columns; i++) {
-			if (strcmp(cname, cntxt->_append_column_names[i]) == 0) {
-				ins = (ptr) ((BAT**)cntxt->_append_bats)[i];
-				break;
-			}
-		}
-		tpe = TYPE_bat;
-	}
-
+	
 	*res = 0;
 	if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
 		return msg;

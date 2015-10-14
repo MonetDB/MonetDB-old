@@ -164,12 +164,6 @@ typedef struct CLIENT {
 	 */
 	void *sqlcontext;
 
-	/* -->HACK<--
-	This is used as a hack to insert data into tables directly from a BAT. This should be removed later.
-	*/
-	void **_append_bats;
-	char **_append_column_names;
-	int _append_columns;
 	/*
 	 * keep track of which instructions are currently being executed
 	 */
