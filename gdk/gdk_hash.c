@@ -187,7 +187,7 @@ HASHnew(Heap *hp, int tpe, int pieces, BUN cap, BUN count)
 	/* initialize the hash buckets with BUN?_NONE (all versions of
 	 * which have all bits set by design) */
 	memset(h->Hash, 0xFF, pieces * mask * width);
-	ALGODEBUG fprintf(stderr, "#HASHnew: create hash(tpe %s, pieces %d, chunk " BUNFMT ", cap " BUNFMT ", mask " BUNFMT ", width %d, total " BUNFMT " bytes);\n", ATOMname(tpe), pieces, chunk, cap, mask, width, hp->free);
+	ALGODEBUG fprintf(stderr, "#HASHnew: create hash(tpe %s, pieces %d, chunk " BUNFMT ", cap " BUNFMT ", mask " BUNFMT ", width %d, total " SZFMT " bytes);\n", ATOMname(tpe), pieces, chunk, cap, mask, width, hp->free);
 	return h;
 }
 
