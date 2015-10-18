@@ -229,8 +229,8 @@ BATcheckhash(BAT *b)
 				    HEAPload(hp, nme, ext, 0) == GDK_SUCCEED) {
 					h->width = (sht) (hdata[1] & 0xFF);
 					h->pieces = (sht) (hdata[1] >> 8 & 0xFF);
-					h->chunk = hdata[2];
-					h->cap = hdata[3];
+					h->chunk = (BUN) hdata[2];
+					h->cap = (BU) hdata[3];
 					h->mask = (BUN) (hdata[4] - 1);
 					h->heap = hp;
 					h->Link = hp->base + HASH_HEADER_SIZE * SIZEOF_SIZE_T;
