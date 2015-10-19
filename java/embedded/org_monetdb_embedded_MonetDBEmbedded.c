@@ -13,12 +13,13 @@
 #include "res_table.h"
 #include "mal_type.h"
 
-JNIEXPORT jint JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapper
+JNIEXPORT jstring JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapper
 (JNIEnv *env, jobject object, jstring directory, jboolean silent) {
 	(void)object;
 	const char *directory_string_tmp = (*env)->GetStringUTFChars(env, directory, 0);
 	char *directory_string = strdup(directory_string_tmp);
 	unsigned char silent_char = 'n';
+	jstring result;
 
 	// Release the directory string
 	(*env)->ReleaseStringUTFChars(env, directory, directory_string_tmp);
@@ -26,13 +27,16 @@ JNIEXPORT jint JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapper
 	if (silent) {
 		silent_char = 'y';
 	}
-	return monetdb_startup(directory_string, silent_char);
+
+	result = (*env)->NewStringUTF(env, monetdb_startup(directory_string, silent_char));
+	return result;
 }
 
-JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_query
+JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
 (JNIEnv *env, jobject object, jstring query) {
 	(void)object;
 	res_table *output = NULL;
+	int number_of_columns = 0;
 	const char *query_string_tmp = (*env)->GetStringUTFChars(env, query, 0);
 	char *query_string = strdup(query_string_tmp);
 	// Release the query string
@@ -59,7 +63,8 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_query
 		jclass exClass = (*env)->FindClass(env, "java/sql/SQLException");
 
 		// Clean up the result data
-		monetdb_cleanup_result(output);
+		// TODO: creates a segfault, fix later
+//		monetdb_cleanup_result(output);
 		if (exClass == NULL) {
 			// Cloud not find the exception class, just return empty object
 			return NULL;
@@ -70,11 +75,15 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_query
 
 	// Collect result column names and types in string arrays
 	// If we have not output, we will return them empty
-	columnNames = (*env)->NewObjectArray(env, output->nr_cols, stringClass, 0);
-	columnTypes = (*env)->NewObjectArray(env, output->nr_cols, stringClass, 0);
-	if (output && output->nr_cols > 0) {
+	if (output) {
+		number_of_columns = output->nr_cols;
+	}
+	columnNames = (*env)->NewObjectArray(env, number_of_columns, stringClass, 0);
+	columnTypes = (*env)->NewObjectArray(env, number_of_columns, stringClass, 0);
+
+	if (number_of_columns > 0) {
 		int i;
-		for (i = 0; i < output->nr_cols; i++) {
+		for (i = 0; i < number_of_columns; i++) {
 			res_col col = output->cols[i];
 			BAT* b = BATdescriptor(col.b);
 			char *type;
@@ -115,12 +124,12 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_query
 	long resultTablePointer = (long)output;
 	// Create the result object
 	// from Java EmbeddedQueryResult(String[] columnNames, String[] columnTypes, int numberOfColumns, long resultPointer)
-	result = (*env)->NewObject(env, resultClass, resultConstructor, columnNames, columnTypes, output->nr_cols, resultTablePointer);
+	result = (*env)->NewObject(env, resultClass, resultConstructor, columnNames, columnTypes, number_of_columns, resultTablePointer);
 
 	return result;
 }
 
-JNIEXPORT jstring JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_append
+JNIEXPORT jstring JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_appendWrapper
 (JNIEnv *env, jobject object, jstring table, jstring schema, jobject data) {
 	(void)object;
 	(void)table;

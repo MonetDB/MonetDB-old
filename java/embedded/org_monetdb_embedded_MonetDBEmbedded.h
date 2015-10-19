@@ -12,7 +12,7 @@ extern "C" {
  * Method:    startupNative
  * Signature: (Ljava/lang/String;Z)I
  */
-JNIEXPORT jint JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapper
+JNIEXPORT jstring JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapper
   (JNIEnv *, jobject, jstring, jboolean);
 
 /*
@@ -20,7 +20,7 @@ JNIEXPORT jint JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapper
  * Method:    query
  * Signature: (Ljava/lang/String;)Lorg/monetdb/embedded/result/EmbeddedQueryResult;
  */
-JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_query
+JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
   (JNIEnv *, jobject, jstring);
 
 /*
@@ -28,7 +28,7 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_query
  * Method:    append
  * Signature: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/reflect/Array;)Ljava/lang/String;
  */
-JNIEXPORT jstring JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_append
+JNIEXPORT jstring JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_appendWrapper
   (JNIEnv *, jobject, jstring, jstring, jobject);
 
 #ifdef __cplusplus

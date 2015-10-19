@@ -64,11 +64,30 @@ public class MonetDBEmbedded {
 	 */
 	public boolean startup(boolean silent) {
 		if (!running) {
-			if (startupWrapper(directory.getAbsolutePath(), silent) == 1) {
+			if (startupWrapper(directory.getAbsolutePath(), silent) == null){
 				running = true;
 			}
 		}
 		return running;
+	}
+
+	/**
+	 * Execute an SQL query in an embedded database.
+	 * 
+	 * @param query The SQL query string
+	 * @return The query result object, {@code null} if the database is not running
+	 * @throws SQLException
+	 */
+	public EmbeddedQueryResult query(String query) throws SQLException {
+		if (!running) {
+			return null;
+		}
+	
+		String queryString = query;
+		if (!queryString.endsWith(";")) {
+			queryString = queryString + ";";
+		}
+		return queryWrapper(queryString);
 	}
 
 	/**
@@ -78,9 +97,9 @@ public class MonetDBEmbedded {
 	 * @param silent Silent flag
 	 * @return Startup status code
 	 */
-	private native int startupWrapper(String dir, boolean silent);
+	private native String startupWrapper(String dir, boolean silent);
 
-	public native EmbeddedQueryResult query(String query) throws SQLException;
+	private native EmbeddedQueryResult queryWrapper(String query) throws SQLException;
 
-	public native String append(String schema, String table, Array data) throws SQLException;
+	private native String appendWrapper(String schema, String table, Array data) throws SQLException;
 }
