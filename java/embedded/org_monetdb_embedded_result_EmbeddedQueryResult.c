@@ -13,6 +13,92 @@
 #include "res_table.h"
 #include "mal_type.h"
 
+static jobject getBooleanColumn(JNIEnv *env, BAT *b) {
+	int size = BATcount(b);
+	// The values and nulls arrays
+	jbooleanArray values = (*env)->NewBooleanArray(env, size);
+	jbooleanArray nulls = (*env)->NewBooleanArray(env, size);
+
+	jobject column;
+	jclass columnClass = (*env)->FindClass(env, "org/monetdb/embedded/result/column/BooleanColumn");
+	// from Java BooleanColumn(boolean[] values, int columnSize, boolean[] nullIndex)
+	jmethodID columnConstructor = (*env)->GetMethodID(env, columnClass, "<init>", "([ZI[Z)V");
+
+	int i = 0;
+	jboolean val_tmp[size];
+	jboolean nul_tmp[size];
+	if (b->T->nonil && !b->T->nil) {
+		for (i = 0; i < size; i++) {
+			val_tmp[i] = (jboolean) ((jboolean*) Tloc(b, BUNfirst(b)))[i];
+			nul_tmp[i] = false;
+		}
+	}
+	else {
+		for (i = 0; i < size; i++) {
+			int v = ((jboolean*) Tloc(b, BUNfirst(b)))[i];
+			if (v == bit_nil) {
+				val_tmp[i] = 0;
+				nul_tmp[i] = true;
+			} else {
+				val_tmp[i] = (jboolean)v;
+				nul_tmp[i] = false;
+			}
+		}
+	}
+	// Move from the tmp C arrays to a Java arrays
+	(*env)->SetBooleanArrayRegion(env, values, 0, size, val_tmp);
+	(*env)->SetBooleanArrayRegion(env, nulls, 0, size, nul_tmp);
+
+	// Create the column object
+	// from Java BooleanColumn(boolean[] values, int columnSize, boolean[] nullIndex)
+	column = (*env)->NewObject(env, columnClass, columnConstructor, values, size, nulls);
+
+	return column;
+}
+
+static jobject getByteColumn(JNIEnv *env, BAT *b) {
+	int size = BATcount(b);
+	// The values and nulls arrays
+	jbyteArray values = (*env)->NewByteArray(env, size);
+	jbooleanArray nulls = (*env)->NewBooleanArray(env, size);
+
+	jobject column;
+	jclass columnClass = (*env)->FindClass(env, "org/monetdb/embedded/result/column/ByteColumn");
+	// from Java ByteColumn(byte[] values, int columnSize, boolean[] nullIndex)
+	jmethodID columnConstructor = (*env)->GetMethodID(env, columnClass, "<init>", "([BI[Z)V");
+
+	int i = 0;
+	bte val_tmp[size];
+	jboolean nul_tmp[size];
+	if (b->T->nonil && !b->T->nil) {
+		for (i = 0; i < size; i++) {
+			val_tmp[i] = (bte) ((bte*) Tloc(b, BUNfirst(b)))[i];
+			nul_tmp[i] = false;
+		}
+	}
+	else {
+		for (i = 0; i < size; i++) {
+			int v = ((bte*) Tloc(b, BUNfirst(b)))[i];
+			if (v == bte_nil) {
+				val_tmp[i] = 0;
+				nul_tmp[i] = true;
+			} else {
+				val_tmp[i] = (bte)v;
+				nul_tmp[i] = false;
+			}
+		}
+	}
+	// Move from the tmp C arrays to a Java arrays
+	(*env)->SetByteArrayRegion(env, values, 0, size, val_tmp);
+	(*env)->SetBooleanArrayRegion(env, nulls, 0, size, nul_tmp);
+
+	// Create the column object
+	// from Java ByteColumn(byte[] values, int columnSize, boolean[] nullIndex)
+	column = (*env)->NewObject(env, columnClass, columnConstructor, values, size, nulls);
+
+	return column;
+}
+
 static jobject getShortColumn(JNIEnv *env, BAT *b) {
 	int size = BATcount(b);
 	// The values and nulls arrays
@@ -166,7 +252,7 @@ static jobject getFloatColumn(JNIEnv *env, BAT *b) {
 		for (i = 0; i < size; i++) {
 			int v = ((float*) Tloc(b, BUNfirst(b)))[i];
 			if (v == flt_nil) {
-				val_tmp[i] = 0;
+				val_tmp[i] = 0.0;
 				nul_tmp[i] = true;
 			} else {
 				val_tmp[i] = (float)v;
@@ -209,7 +295,7 @@ static jobject getDoubleColumn(JNIEnv *env, BAT *b) {
 		for (i = 0; i < size; i++) {
 			int v = ((double*) Tloc(b, BUNfirst(b)))[i];
 			if (v == dbl_nil) {
-				val_tmp[i] = 0;
+				val_tmp[i] = 0.0;
 				nul_tmp[i] = true;
 			} else {
 				val_tmp[i] = (double)v;
@@ -278,6 +364,12 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_g
 	BAT* b = BATdescriptor(col.b);
 
 	switch (ATOMstorage(getColumnType(b->T->type))) {
+	case TYPE_bit:
+		return getBooleanColumn(env, b);
+		break;
+	case TYPE_bte:
+		return getByteColumn(env, b);
+		break;
 	case TYPE_sht:
 		return getShortColumn(env, b);
 		break;
@@ -288,9 +380,11 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_g
 		return getLongColumn(env, b);
 		break;
 	case TYPE_flt:
+		printf("float1\n");
 		return getFloatColumn(env, b);
 		break;
 	case TYPE_dbl:
+		printf("double1\n");
 		return getDoubleColumn(env, b);
 		break;
 	case TYPE_str:

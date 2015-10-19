@@ -102,6 +102,12 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
 			char *type;
 
 			switch (ATOMstorage(getColumnType(b->T->type))) {
+			case TYPE_bit:
+				type = "boolean";
+				break;
+			case TYPE_bte:
+				type = "byte";
+				break;
 			case TYPE_sht:
 				type = "short";
 				break;

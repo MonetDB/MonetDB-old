@@ -25,13 +25,22 @@ import org.monetdb.embedded.result.EmbeddedQueryResult;
 public class EmbeddedTest {
 	static File datbaseDirectory;
 	static MonetDBEmbedded db;
-	static Object[] typeValues = new Object[]{
-			Short.valueOf((short)12),
-			Integer.valueOf(23),
-			Long.valueOf(34l),
-			Float.valueOf(4.5f),
-			Double.valueOf(5.6),
+	static Object[] numbericTypeTestValues = new Object[]{
+			Byte.valueOf((byte)12),
+			Short.valueOf((short)23),
+			Integer.valueOf(34),
+			Long.valueOf(45l),
+			Float.valueOf(5.6f),
+			Double.valueOf(6.7),
+	};
+
+	static Object[] charTypeTestValues = new Object[]{
 			"a string"
+	};
+
+	static Object[] booleanTypeTestValues = new Object[]{
+			Boolean.valueOf(true),
+			Boolean.valueOf(false)
 	};
 
 	@BeforeClass
@@ -45,10 +54,19 @@ public class EmbeddedTest {
 		db.query("CREATE TABLE world (id integer, val integer);");
 		db.query("INSERT INTO world VALUES (1, 10), (2, 20), (3, 30), (4, null);");
 
-		db.query("CREATE TABLE typestest (fshort smallint, fint integer,  flong bigint, ffloat float, fdouble double, fstring string);");
-		db.query("INSERT INTO typestest VALUES (" + typeValues[0] + ", " + typeValues[1] + ", " + typeValues[2] + ", " 
-				+ typeValues[3] + ", " + typeValues[4] + ", " + "'" + typeValues[5] + "'" + ");");
-		db.query("INSERT INTO typestest VALUES (null, null, null, null, null, null);");
+		db.query("CREATE TABLE numeric_types_test (fbyte tinyint, fshort smallint, fint integer, flong bigint, ffloat float, fdouble double);");
+		db.query("INSERT INTO numeric_types_test VALUES (" + numbericTypeTestValues[0] + ", " + numbericTypeTestValues[1] + ", " + numbericTypeTestValues[2] + ", " 
+				+ numbericTypeTestValues[3] + ", " + numbericTypeTestValues[4] + ", " + numbericTypeTestValues[5] + ");");
+		db.query("INSERT INTO numeric_types_test VALUES (null, null, null, null, null, null);");
+
+		db.query("CREATE TABLE char_types_test (fstring string, fvarchar varchar(10));");
+		db.query("INSERT INTO char_types_test VALUES ('" + charTypeTestValues[0] + "', '" + charTypeTestValues[0] + "');");
+		db.query("INSERT INTO char_types_test VALUES (null, null);");
+
+		db.query("CREATE TABLE boolean_types_test (fboolean boolean);");
+		db.query("INSERT INTO boolean_types_test VALUES (" + booleanTypeTestValues[0] + ");");
+		db.query("INSERT INTO boolean_types_test VALUES (" + booleanTypeTestValues[1] + ");");
+		db.query("INSERT INTO boolean_types_test VALUES (null);");
 	}
 
 	@Test
@@ -64,7 +82,7 @@ public class EmbeddedTest {
 	}
 
 	@Test
-	public void IntegerWithNullTest() throws IOException, SQLException {
+	public void integerWithNullTest() throws IOException, SQLException {
 		try (EmbeddedQueryResult result = db.query("SELECT * FROM world;")) {
 			assertEquals(4, result.getColumn(1).columnSize());
 			assertEquals(Integer.valueOf(20), result.getColumn(1).getVaule(1));
@@ -73,32 +91,55 @@ public class EmbeddedTest {
 	}
 
 	@Test
-	public void TypesWithNullTest() throws IOException, SQLException {
-		try (EmbeddedQueryResult result = db.query("SELECT * FROM typestest;")) {
+	public void numericTypesWithNullTest() throws IOException, SQLException {
+		try (EmbeddedQueryResult result = db.query("SELECT * FROM numeric_types_test;")) {
 			assertEquals(6, result.getNumberOfColumns());
 
-			assertEquals(typeValues[0], result.getColumn(0).getVaule(0));
+			assertEquals(numbericTypeTestValues[0], result.getColumn(0).getVaule(0));
+			assertEquals(null, result.getColumn(0).getVaule(1));
+
+			assertEquals(numbericTypeTestValues[1], result.getColumn(1).getVaule(0));
 			assertEquals(null, result.getColumn(1).getVaule(1));
 
-			assertEquals(typeValues[1], result.getColumn(1).getVaule(0));
-			assertEquals(null, result.getColumn(1).getVaule(1));
+			assertEquals(numbericTypeTestValues[2], result.getColumn(2).getVaule(0));
+			assertEquals(null, result.getColumn(2).getVaule(1));
 
-			assertEquals(typeValues[2], result.getColumn(2).getVaule(0));
-			assertEquals(null, result.getColumn(1).getVaule(1));
+			assertEquals(numbericTypeTestValues[3], result.getColumn(3).getVaule(0));
+			assertEquals(null, result.getColumn(3).getVaule(1));
 
-			assertEquals(typeValues[3], result.getColumn(3).getVaule(0));
-			assertEquals(null, result.getColumn(1).getVaule(1));
+			assertEquals(numbericTypeTestValues[4], result.getColumn(4).getVaule(0));
+			assertEquals(null, result.getColumn(4).getVaule(1));
 
-			assertEquals(typeValues[4], result.getColumn(4).getVaule(0));
-			assertEquals(null, result.getColumn(1).getVaule(1));
-
-			assertEquals(typeValues[5], result.getColumn(5).getVaule(0));
-			assertEquals(null, result.getColumn(1).getVaule(1));
+			assertEquals(numbericTypeTestValues[5], result.getColumn(5).getVaule(0));
+			assertEquals(null, result.getColumn(5).getVaule(1));
 		}
 	}
 
 	@Test
-	public void TwoQueries() throws IOException, SQLException {
+	public void charTypesWithNullTest() throws IOException, SQLException {
+		try (EmbeddedQueryResult result = db.query("SELECT * FROM char_types_test;")) {
+			assertEquals(2, result.getNumberOfColumns());
+
+			assertEquals(charTypeTestValues[0], result.getColumn(0).getVaule(0));
+			assertEquals(charTypeTestValues[0], result.getColumn(1).getVaule(0));
+			assertEquals("", result.getColumn(0).getVaule(1));
+			assertEquals("", result.getColumn(1).getVaule(1));
+		}
+	}
+
+	@Test
+	public void booleanTypesWithNullTest() throws IOException, SQLException {
+		try (EmbeddedQueryResult result = db.query("SELECT * FROM boolean_types_test;")) {
+			assertEquals(1, result.getNumberOfColumns());
+
+			assertEquals(booleanTypeTestValues[0], result.getColumn(0).getVaule(0));
+			assertEquals(booleanTypeTestValues[0], result.getColumn(0).getVaule(1));
+			assertEquals(null, result.getColumn(0).getVaule(2));
+		}
+	}
+
+	@Test
+	public void twoQueries() throws IOException, SQLException {
 		EmbeddedQueryResult result1 = db.query("SELECT * FROM world WHERE id > 2;");
 		assertEquals(2, result1.getColumn(1).columnSize());
 		assertEquals(Integer.valueOf(30), result1.getColumn(1).getVaule(0));
