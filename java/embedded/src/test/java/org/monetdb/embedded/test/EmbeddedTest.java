@@ -25,6 +25,14 @@ import org.monetdb.embedded.result.EmbeddedQueryResult;
 public class EmbeddedTest {
 	static File datbaseDirectory;
 	static MonetDBEmbedded db;
+	static Object[] typeValues = new Object[]{
+			Short.valueOf((short)12),
+			Integer.valueOf(23),
+			Long.valueOf(34l),
+			Float.valueOf(4.5f),
+			Double.valueOf(5.6),
+			"a string"
+	};
 
 	@BeforeClass
 	public static void createTestDB() throws IOException, SQLException {
@@ -36,6 +44,11 @@ public class EmbeddedTest {
 
 		db.query("CREATE TABLE world (id integer, val integer);");
 		db.query("INSERT INTO world VALUES (1, 10), (2, 20), (3, 30), (4, null);");
+
+		db.query("CREATE TABLE typestest (fshort smallint, fint integer,  flong bigint, ffloat float, fdouble double, fstring string);");
+		db.query("INSERT INTO typestest VALUES (" + typeValues[0] + ", " + typeValues[1] + ", " + typeValues[2] + ", " 
+				+ typeValues[3] + ", " + typeValues[4] + ", " + "'" + typeValues[5] + "'" + ");");
+		db.query("INSERT INTO typestest VALUES (null, null, null, null, null, null);");
 	}
 
 	@Test
@@ -51,11 +64,36 @@ public class EmbeddedTest {
 	}
 
 	@Test
-	public void IntegerAndNullTest() throws IOException, SQLException {
+	public void IntegerWithNullTest() throws IOException, SQLException {
 		try (EmbeddedQueryResult result = db.query("SELECT * FROM world;")) {
 			assertEquals(4, result.getColumn(1).columnSize());
 			assertEquals(Integer.valueOf(20), result.getColumn(1).getVaule(1));
 			assertEquals(null, result.getColumn(1).getVaule(3));
+		}
+	}
+
+	@Test
+	public void TypesWithNullTest() throws IOException, SQLException {
+		try (EmbeddedQueryResult result = db.query("SELECT * FROM typestest;")) {
+			assertEquals(6, result.getNumberOfColumns());
+
+			assertEquals(typeValues[0], result.getColumn(0).getVaule(0));
+			assertEquals(null, result.getColumn(1).getVaule(1));
+
+			assertEquals(typeValues[1], result.getColumn(1).getVaule(0));
+			assertEquals(null, result.getColumn(1).getVaule(1));
+
+			assertEquals(typeValues[2], result.getColumn(2).getVaule(0));
+			assertEquals(null, result.getColumn(1).getVaule(1));
+
+			assertEquals(typeValues[3], result.getColumn(3).getVaule(0));
+			assertEquals(null, result.getColumn(1).getVaule(1));
+
+			assertEquals(typeValues[4], result.getColumn(4).getVaule(0));
+			assertEquals(null, result.getColumn(1).getVaule(1));
+
+			assertEquals(typeValues[5], result.getColumn(5).getVaule(0));
+			assertEquals(null, result.getColumn(1).getVaule(1));
 		}
 	}
 

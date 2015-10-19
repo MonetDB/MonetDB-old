@@ -9,22 +9,22 @@
 package org.monetdb.embedded.result.column;
 
 /** 
- * An {@code Integer} column.
+ * A {@code Double} column.
  *
  */
-public class IntegerColumn extends Column<Integer> {
-	private int[] values;
+public class DoubleColumn extends Column<Double> {
+	private double[] values;
 
-	public IntegerColumn(int[] values, int columnSize, boolean[] nullIndex) {
+	public DoubleColumn(double[] values, int columnSize, boolean[] nullIndex) {
 		super(columnSize, nullIndex);
 		this.values = values;
 	}
 
 	@Override
-	public Integer getVaule(int index) {
+	public Double getVaule(int index) {
 		if (isNullValue(index) || index < 0 || index >= columnSize()) {
 			return null;
 		}
-		return Integer.valueOf(values[index]);
+		return Double.valueOf(values[index]);
 	}
 }
