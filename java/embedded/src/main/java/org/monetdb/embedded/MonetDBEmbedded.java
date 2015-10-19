@@ -9,6 +9,7 @@
 package org.monetdb.embedded;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Array;
 import java.sql.SQLException;
 
@@ -20,10 +21,6 @@ import org.monetdb.embedded.result.EmbeddedQueryResult;
  * 
  */
 public class MonetDBEmbedded {
-	static {
-		System.loadLibrary("embedded_java");
-	}
-
 	/** 
 	 * Flag if the embedded database was already started.
 	 */
@@ -40,6 +37,7 @@ public class MonetDBEmbedded {
 	 * @param directory Database directory 
 	 */
 	public MonetDBEmbedded(File directory) {
+		System.loadLibrary("embedded_java");
 		if (!directory.isDirectory()) {
 			throw new IllegalArgumentException(directory + " is not a directory");
 		}
@@ -61,10 +59,11 @@ public class MonetDBEmbedded {
 	 * 
 	 * @param silent Silent flag to logging messages
 	 * @return {@code True} if the was started successfully or is already running, otherwise {@code False}.
+	 * @throws IOException 
 	 */
-	public boolean startup(boolean silent) {
+	public boolean startup(boolean silent) throws IOException {
 		if (!running) {
-			if (startupWrapper(directory.getAbsolutePath(), silent) == null){
+			if (startupWrapper(directory.getAbsolutePath(), silent)){
 				running = true;
 			}
 		}
@@ -97,8 +96,15 @@ public class MonetDBEmbedded {
 	 * @param silent Silent flag
 	 * @return Startup status code
 	 */
-	private native String startupWrapper(String dir, boolean silent);
+	private native boolean startupWrapper(String dir, boolean silent) throws IOException;
 
+	/**
+	 * Execute an SQL query in an embedded database.
+	 * 
+	 * @param query The SQL query string
+	 * @return The query result object, {@code null} if the database is not running
+	 * @throws SQLException
+	 */
 	private native EmbeddedQueryResult queryWrapper(String query) throws SQLException;
 
 	private native String appendWrapper(String schema, String table, Array data) throws SQLException;

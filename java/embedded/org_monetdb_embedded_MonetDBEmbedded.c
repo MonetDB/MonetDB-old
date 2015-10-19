@@ -13,13 +13,13 @@
 #include "res_table.h"
 #include "mal_type.h"
 
-JNIEXPORT jstring JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapper
+JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapper
 (JNIEnv *env, jobject object, jstring directory, jboolean silent) {
 	(void)object;
 	const char *directory_string_tmp = (*env)->GetStringUTFChars(env, directory, 0);
 	char *directory_string = strdup(directory_string_tmp);
 	unsigned char silent_char = 'n';
-	jstring result;
+	char *err;
 
 	// Release the directory string
 	(*env)->ReleaseStringUTFChars(env, directory, directory_string_tmp);
@@ -28,8 +28,21 @@ JNIEXPORT jstring JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapp
 		silent_char = 'y';
 	}
 
-	result = (*env)->NewStringUTF(env, monetdb_startup(directory_string, silent_char));
-	return result;
+	err = monetdb_startup(directory_string, silent_char);
+	// Checking for errors
+	if (err != NULL) {
+		jclass exClass = (*env)->FindClass(env, "java/io/IOException");
+
+		// Clean up the result data
+		if (exClass == NULL) {
+			// Cloud not find the exception class, just return empty object
+			return false;
+		}
+		(*env)->ThrowNew(env, exClass, err);
+		return false;
+	}
+
+	return true;
 }
 
 JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
@@ -64,7 +77,7 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
 
 		// Clean up the result data
 		// TODO: creates a segfault, fix later
-//		monetdb_cleanup_result(output);
+		//		monetdb_cleanup_result(output);
 		if (exClass == NULL) {
 			// Cloud not find the exception class, just return empty object
 			return NULL;

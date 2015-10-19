@@ -76,7 +76,7 @@ public class EmbeddedTest {
 
 	@Test
 	public void newDatabaseTest() throws IOException, SQLException {
-		final Path tempDirectoryPath = Files.createTempDirectory("new_monetdbtest_new");
+		final Path tempDirectoryPath = Files.createTempDirectory("monetdbtest_new");
 		final File newDirectory = tempDirectoryPath.toFile();
 
 		MonetDBEmbedded newDB = new MonetDBEmbedded(newDirectory);
