@@ -1418,7 +1418,7 @@ static char *PyError_CreateException(char *error_text, char *pycall)
             if (py_error_traceback == NULL) {
                 //no traceback info, this means we are dealing with a parsing error
                 //line information should be in the error message
-                sscanf(py_error_string, "%*[^0-9]%llu", &line_number);
+                sscanf(py_error_string, "%*[^0-9]"LLFMT, &line_number);
                 if (line_number < 0) goto finally;
             } else {
                 line_number = ((PyTracebackObject*)py_error_traceback)->tb_lineno;
@@ -1916,7 +1916,7 @@ PyObject *PyDict_CheckForConversion(PyObject *pResult, int expected_columns, cha
     if (PyList_Size(keys) != expected_columns) {
 #ifdef _PYAPI_WARNINGS_
         if (PyList_Size(keys) > expected_columns) {
-            WARNING_MESSAGE("WARNING: Expected %d return values, but a dictionary with %zu values was returned instead.\n", expected_columns, (size_t) PyList_Size(keys));
+            WARNING_MESSAGE("WARNING: Expected %d return values, but a dictionary with "SSZFMT" values was returned instead.\n", expected_columns, PyList_Size(keys));
         }
 #endif
     }

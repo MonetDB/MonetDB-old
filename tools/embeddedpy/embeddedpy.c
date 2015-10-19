@@ -36,7 +36,7 @@
 // copy paste from embedded.h
 typedef struct append_data {
 	char* colname;
-	ssize_t batid;
+	bat batid;
 } append_data;
 
 str monetdb_startup(char* dir, char silent);
@@ -557,7 +557,7 @@ str monetdb_create_table(char *schema, char *table_name, append_data *ad, int nc
 	//format the CREATE TABLE query
 	snprintf(query, max_length, "create table %s.%s(", schema, table_name);
 	for(i = 0; i < ncols; i++) {
-		BAT *b = BBP_cache((int)ad[i].batid);
+		BAT *b = BBP_cache(ad[i].batid);
 		snprintf(copy, max_length, "%s %s %s%s", query, ad[i].colname, BatType_ToSQLType(b->T->type), i < ncols - 1 ? "," : ");");
 		strcpy(query, copy);
 	}

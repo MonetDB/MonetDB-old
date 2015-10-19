@@ -786,7 +786,7 @@ function install_scons() {
 
 function install_mongodb() {
     rm master.zip
-    wget https://github.com/mongodb/mongo/archive/master.zip && unzip master.zip && cd mongo-master && ~/.local/bin/scons all
+    wget https://github.com/mongodb/mongo/archive/master.zip && unzip master.zip && cd mongo-master && ~/.local/bin/scons mongod
 }
 
 
