@@ -61,6 +61,7 @@ res_col_create(sql_trans *tr, res_table *t, const char *tn, const char *name, co
 	c->b = 0;
 	c->p = NULL;
 	c->mtype = mtype;
+#ifdef _EMBEDDED_MONETDB_MONETDB_LIB_
 	if (mtype == TYPE_bat) {
 		b = (BAT*)val;
 	} else { // wrap scalar values in BATs for result consistency
@@ -73,6 +74,16 @@ res_col_create(sql_trans *tr, res_table *t, const char *tn, const char *name, co
 	}
 	c->b = b->batCacheid;
 	bat_incref(c->b);
+#else
+	if (mtype == TYPE_bat) {
+		b = (BAT*)val;
+
+		c->b = b->batCacheid;
+		bat_incref(c->b);
+	} else {
+		c->p = ATOMdup(mtype, val);
+	}
+#endif
 	t->cur_col++;
 	assert(t->cur_col <= t->nr_cols);
 	return c;
