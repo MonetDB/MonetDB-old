@@ -1916,7 +1916,7 @@ PyObject *PyDict_CheckForConversion(PyObject *pResult, int expected_columns, cha
     if (PyList_Size(keys) != expected_columns) {
 #ifdef _PYAPI_WARNINGS_
         if (PyList_Size(keys) > expected_columns) {
-            WARNING_MESSAGE("WARNING: Expected %d return values, but a dictionary with %zu values was returned instead.\n", expected_columns, PyList_Size(keys));
+            WARNING_MESSAGE("WARNING: Expected %d return values, but a dictionary with %zu values was returned instead.\n", expected_columns, (size_t) PyList_Size(keys));
         }
 #endif
     }

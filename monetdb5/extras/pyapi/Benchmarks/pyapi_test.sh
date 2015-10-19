@@ -773,6 +773,23 @@ function install_lofar() {
 }
 
 
+function install_mongodb() {
+    wget https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.0.7.tgz && tar xvzf mongodb-linux-x86_64-3.0.7.tgz && cd mongodb-linux-x86_64-3.0.7 && cp -R -n bin/ $BUILD_DIR
+    mongod --dbpath=/export/scratch2/raasveld/mongodata
+}
+
+wget https://bitbucket.org/djcbeach/monary/get/5b0fb0c2de0a.zip
+
+function install_scons() {
+    wget http://prdownloads.sourceforge.net/scons/scons-2.3.6.tar.gz && tar xvzf scons-2.3.6.tar.gz && cd scons-2.3.6 && python setup.py install --user    
+}
+
+function install_mongodb() {
+    rm master.zip
+    wget https://github.com/mongodb/mongo/archive/master.zip && unzip master.zip && cd mongo-master && ~/.local/bin/scons all
+}
+
+
 
 export PYAPI_TESTFILE=/local/raasveld/monetdb_testing.py
 export LD_LIBRARY_PATH=/local/raasveld/build/lib

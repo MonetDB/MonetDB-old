@@ -358,6 +358,7 @@ int release_process_semaphore(int sem_id)
 str initialize_shared_memory(void)
 {
     NOTIMPLEMENTED();
+    return NULL;
 }
 
 str create_shared_memory(int id, size_t size, void **return_ptr)

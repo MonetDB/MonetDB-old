@@ -232,11 +232,11 @@ PyObject *monetdb_insert(PyObject *self, PyObject *args)
 		char *msg = NULL;
 		PyObject *pResult;
 		PyReturn *pyreturn_values = NULL;
-		append_data *append_bats;
+		append_data *append_bats = NULL;
 		int i;
 		char **column_names = NULL;
 		int *column_types = NULL;
-		int columns;
+		int columns = 0;
 
 		msg = monetdb_get_columns(schema_name, table_name, &columns, &column_names, &column_types);
 
@@ -557,7 +557,7 @@ str monetdb_create_table(char *schema, char *table_name, append_data *ad, int nc
 	//format the CREATE TABLE query
 	snprintf(query, max_length, "create table %s.%s(", schema, table_name);
 	for(i = 0; i < ncols; i++) {
-		BAT *b = BBP_cache(ad[i].batid);
+		BAT *b = BBP_cache((int)ad[i].batid);
 		snprintf(copy, max_length, "%s %s %s%s", query, ad[i].colname, BatType_ToSQLType(b->T->type), i < ncols - 1 ? "," : ");");
 		strcpy(query, copy);
 	}
