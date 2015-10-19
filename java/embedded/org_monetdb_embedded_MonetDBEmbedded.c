@@ -49,7 +49,7 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
 (JNIEnv *env, jobject object, jstring query) {
 	(void)object;
 	res_table *output = NULL;
-	int number_of_columns = 0;
+	int numberOfColumns = 0;
 	const char *query_string_tmp = (*env)->GetStringUTFChars(env, query, 0);
 	char *query_string = strdup(query_string_tmp);
 	// Release the query string
@@ -89,14 +89,14 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
 	// Collect result column names and types in string arrays
 	// If we have not output, we will return them empty
 	if (output) {
-		number_of_columns = output->nr_cols;
+		numberOfColumns = output->nr_cols;
 	}
-	columnNames = (*env)->NewObjectArray(env, number_of_columns, stringClass, 0);
-	columnTypes = (*env)->NewObjectArray(env, number_of_columns, stringClass, 0);
+	columnNames = (*env)->NewObjectArray(env, numberOfColumns, stringClass, 0);
+	columnTypes = (*env)->NewObjectArray(env, numberOfColumns, stringClass, 0);
 
-	if (number_of_columns > 0) {
+	if (numberOfColumns > 0) {
 		int i;
-		for (i = 0; i < number_of_columns; i++) {
+		for (i = 0; i < numberOfColumns; i++) {
 			res_col col = output->cols[i];
 			BAT* b = BATdescriptor(col.b);
 			char *type;
@@ -137,7 +137,7 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
 	long resultTablePointer = (long)output;
 	// Create the result object
 	// from Java EmbeddedQueryResult(String[] columnNames, String[] columnTypes, int numberOfColumns, long resultPointer)
-	result = (*env)->NewObject(env, resultClass, resultConstructor, columnNames, columnTypes, number_of_columns, resultTablePointer);
+	result = (*env)->NewObject(env, resultClass, resultConstructor, columnNames, columnTypes, numberOfColumns, resultTablePointer);
 
 	return result;
 }

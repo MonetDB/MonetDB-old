@@ -37,7 +37,9 @@ public class MonetDBEmbedded {
 	 * @param directory Database directory 
 	 */
 	public MonetDBEmbedded(File directory) {
+		// Load the embedded library (and its dependencies)
 		System.loadLibrary("embedded_java");
+
 		if (!directory.isDirectory()) {
 			throw new IllegalArgumentException(directory + " is not a directory");
 		}
@@ -81,7 +83,7 @@ public class MonetDBEmbedded {
 		if (!running) {
 			return null;
 		}
-	
+
 		String queryString = query;
 		if (!queryString.endsWith(";")) {
 			queryString = queryString + ";";
