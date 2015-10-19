@@ -2299,13 +2299,25 @@ if test "x$enable_pyintegration" != xno; then
 	esac
    	AC_PATH_PROG(PYCMD,python-config,,$XPATH)
    	if test "x$PYCMD" = x; then
-      		if test "x$enable_pyintegration" = xyes; then
+  		if test "x$enable_pyintegration" = xyes; then
 			AC_MSG_ERROR([python-config library required for Python integration support])
 		else
 			have_libpy="no"
 		 	why_have_libpy="(python-config command not found)"
 			enable_pyintegration=no
 			disable_pyintegration="(python-config command not found)"
+		fi
+	fi
+	PYTHON_CMD=`$PYCMD --exec-prefix`/bin/python
+	NUMPYVER=`$PYTHON_CMD -c "import numpy; print numpy.__version__.split('.').__getitem__(1) >= 7"`
+	if [test "x$NUMPYVER" = x] || [test "x$NUMPYVER" = xFalse]; then
+	  	if test "x$enable_pyintegration" = xyes; then
+			AC_MSG_ERROR([numpy version >= 1.7.0 required for Python integration support])
+		else
+			have_libpy="no"
+		 	why_have_libpy="(numpy version >= 1.7.0 not found)"
+			enable_pyintegration=no
+			disable_pyintegration="(numpy version >= 1.7.0 not found)"
 		fi
 	elif libpy_CFLAGS=`\`$PYCMD --exec-prefix\`/bin/python -c "from distutils.sysconfig import get_python_inc; import numpy; print ' -I' + get_python_inc() + ' -I' + numpy.get_include();"` && libpy_LIBS=`$PYCMD --ldflags`; then
 		have_libpy=yes
