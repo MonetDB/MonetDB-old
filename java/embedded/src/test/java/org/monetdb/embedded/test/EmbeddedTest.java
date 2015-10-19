@@ -16,44 +16,79 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
 
-import org.junit.Ignore;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.monetdb.embedded.MonetDBEmbedded;
 import org.monetdb.embedded.result.EmbeddedQueryResult;
 
 public class EmbeddedTest {
+	static File datbaseDirectory;
+	static MonetDBEmbedded db;
 
-	@Ignore
-	@Test
-	public void newDatabaseTest() throws IOException, SQLException {
-		final Path directoryPath = Files.createTempDirectory("monetdb");
-		final File directory = directoryPath.toFile();
+	@BeforeClass
+	public static void createTestDB() throws IOException, SQLException {
+		final Path directoryPath = Files.createTempDirectory("monetdbtest");
+		datbaseDirectory = directoryPath.toFile();
 
-		MonetDBEmbedded db = new MonetDBEmbedded(directory);
+		db = new MonetDBEmbedded(datbaseDirectory);
 		db.startup(false);
 
 		db.query("CREATE TABLE world (id integer, val integer);");
-		db.query("INSERT INTO world VALUES (1, 10), (2, 20), (3, 30);");
+		db.query("INSERT INTO world VALUES (1, 10), (2, 20), (3, 30), (4, null);");
+	}
 
+	@Test
+	public void restartExistingDatabaseTest() throws IOException, SQLException {
+		MonetDBEmbedded restartedDB = new MonetDBEmbedded(datbaseDirectory);
+		restartedDB.startup(false);
+
+		try (EmbeddedQueryResult result = restartedDB.query("SELECT * FROM world;")) {
+			assertEquals(4, result.getColumn(1).columnSize());
+			assertEquals(Integer.valueOf(20), result.getColumn(1).getVaule(1));
+			assertEquals(null, result.getColumn(1).getVaule(3));
+		}
+	}
+
+	@Test
+	public void IntegerAndNullTest() throws IOException, SQLException {
+		try (EmbeddedQueryResult result = db.query("SELECT * FROM world;")) {
+			assertEquals(4, result.getColumn(1).columnSize());
+			assertEquals(Integer.valueOf(20), result.getColumn(1).getVaule(1));
+			assertEquals(null, result.getColumn(1).getVaule(3));
+		}
+	}
+
+	@Test
+	public void manualCleanupTest() throws IOException, SQLException {
+		@SuppressWarnings("resource")
 		EmbeddedQueryResult result = db.query("SELECT * FROM world;");
-		assertEquals(3, result.getColumn(1).columnSize());
+		assertEquals(4, result.getColumn(1).columnSize());
+		assertEquals(Integer.valueOf(20), result.getColumn(1).getVaule(1));
+		assertEquals(null, result.getColumn(1).getVaule(3));
 
 		result.close();
 	}
 
+	@Test(expected=SQLException.class)
+	public void captureQueryErrorTest() throws SQLException {
+		db.query("SELECT FROM world;");
+	}
+
 	@Test
-	public void existingDatabaseTest() throws IOException, SQLException {
-		final File directory = new File("src" + File.separatorChar + "test" + 
-				File.separatorChar + "resources" + File.separatorChar + "monetdbtest");
-		directory.mkdirs();
+	public void newDatabaseTest() throws IOException, SQLException {
+		final Path tempDirectoryPath = Files.createTempDirectory("new_monetdbtest_new");
+		final File newDirectory = tempDirectoryPath.toFile();
 
-		MonetDBEmbedded db = new MonetDBEmbedded(directory);
-		db.startup(false);
+		MonetDBEmbedded newDB = new MonetDBEmbedded(newDirectory);
+		newDB.startup(false);
 
-		EmbeddedQueryResult result = db.query("SELECT * FROM world;");
-		assertEquals(3, result.getColumn(1).columnSize());
-		assertEquals(20, result.getColumn(1).getVaule(1));
+		newDB.query("CREATE TABLE world (id integer, val integer);");
+		newDB.query("INSERT INTO world VALUES (1, 10), (2, 20), (3, 30), (4, null);");
 
-		result.close();
+		try (EmbeddedQueryResult result = newDB.query("SELECT * FROM world;")) {
+			assertEquals(4, result.getColumn(1).columnSize());
+			assertEquals(Integer.valueOf(20), result.getColumn(1).getVaule(1));
+			assertEquals(null, result.getColumn(1).getVaule(3));
+		}
 	}
 }
