@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.sql.SQLException;
 
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.monetdb.embedded.MonetDBEmbedded;
 import org.monetdb.embedded.result.EmbeddedQueryResult;
@@ -59,6 +60,22 @@ public class EmbeddedTest {
 	}
 
 	@Test
+	public void TwoQueries() throws IOException, SQLException {
+		EmbeddedQueryResult result1 = db.query("SELECT * FROM world WHERE id > 2;");
+		assertEquals(2, result1.getColumn(1).columnSize());
+		assertEquals(Integer.valueOf(30), result1.getColumn(1).getVaule(0));
+		assertEquals(null, result1.getColumn(1).getVaule(1));
+
+		EmbeddedQueryResult result2 = db.query("SELECT * FROM world WHERE id < 2;");
+		assertEquals(1, result2.getColumn(1).columnSize());
+		assertEquals(Integer.valueOf(10), result2.getColumn(1).getVaule(0));
+
+		assertEquals(2, result1.getColumn(1).columnSize());
+		assertEquals(Integer.valueOf(30), result1.getColumn(1).getVaule(0));
+		assertEquals(null, result1.getColumn(1).getVaule(1));
+	}
+
+	@Test
 	public void manualCleanupTest() throws IOException, SQLException {
 		@SuppressWarnings("resource")
 		EmbeddedQueryResult result = db.query("SELECT * FROM world;");
@@ -75,6 +92,7 @@ public class EmbeddedTest {
 	}
 
 	@Test
+	@Ignore
 	public void newDatabaseTest() throws IOException, SQLException {
 		final Path tempDirectoryPath = Files.createTempDirectory("monetdbtest_new");
 		final File newDirectory = tempDirectoryPath.toFile();
