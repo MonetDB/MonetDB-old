@@ -195,6 +195,21 @@ no-auto)
 	;;
 esac
 
+dft_embedded=no
+AC_ARG_ENABLE(embedded,
+	AS_HELP_STRING([--enable-embedded],
+		[enable support for running MonetDB as a library (default=no)]),
+	enable_embedded=$enableval,
+	enable_embedded=$dft_embedded)
+AM_CONDITIONAL(HAVE_EMBEDDED, test x$enable_embedded != xno)
+
+if test "x$enable_embedded" != xno; then
+	AC_DEFINE(HAVE_EMBEDDED, 1, [Support for MonetDB as a library])
+fi
+AM_CONDITIONAL(HAVE_EMBEDDED, test x"$enable_embedded" != xno)
+
+
+
 dft_jsonstore=no
 AC_ARG_ENABLE(jsonstore,
 	AS_HELP_STRING([--enable-jsonstore],
