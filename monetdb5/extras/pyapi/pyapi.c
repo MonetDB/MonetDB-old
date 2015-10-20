@@ -421,7 +421,6 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     PyGILState_STATE gstate = PyGILState_LOCKED;
     bit varres = sqlfun ? sqlfun->varres : 0;
     int retcols = !varres ? pci->retc : -1;
-    size_t iu;
 
     (void) cntxt;
 
@@ -1044,21 +1043,14 @@ returnvalues:
 
         // Now create the shared memory to write our error message to
         // We can simply use the slot shm_id + 1, even though this is normally used for return values
-        // This is because, if any one process fails, no values will be returned
+        // This is because, if the process fails, no values will be returned
         tmp_msg = create_shared_memory(shm_id + 1, (strlen(msg) + 1) * sizeof(char), (void**) &error_mem);
         if (tmp_msg != MAL_SUCCEED) {
             VERBOSE_MESSAGE("Failed to create shared memory in child process: %s\n", tmp_msg);
             exit(1);
         }
 
-        for(iu = 0; iu < strlen(msg); iu++) {
-            // Copy the error message to the shared memory
-            error_mem[iu] = msg[iu];
-        }
-        error_mem[iu + 1] = '\0';
-
-        // To prevent the other processes from stalling, we set the value of the second semaphore to process_count
-        // This allows the other processes to exit
+        strcpy(error_mem, msg);
 
         exit(1);
     }
