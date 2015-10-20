@@ -212,13 +212,13 @@ static PyObject *GetDictionary(Client c)
 // This #define converts a Numpy Array to a BAT by copying the internal data to the BAT. It converts the data from the Numpy Array to the BAT using a function
 // This function has to have the prototype 'bool function(void *data, size_t memory_size, mtpe_to *resulting_value)', and either return False (if conversion fails)
 //  or write the value into the 'resulting_value' pointer. This is used convertring strings/unicodes/python objects to numeric values.
-#define NP_COL_BAT_LOOP_FUNC(bat, mtpe_to, func) {                                                                                                    \
+#define NP_COL_BAT_LOOP_FUNC(bat, mtpe_to, func, ptrtpe) {                                                                                                    \
     mtpe_to value;                                                                                                                                    \
     if (mask == NULL)                                                                                                                                 \
     {                                                                                                                                                 \
         for (iu = 0; iu < ret->count; iu++)                                                                                                           \
         {                                                                                                                                             \
-            if (!func(&data[(index_offset * ret->count + iu) * ret->memory_size], ret->memory_size, &value))                                          \
+            if (!func((ptrtpe*)&data[(index_offset * ret->count + iu) * ret->memory_size], ret->memory_size, &value))                                          \
             {                                                                                                                                         \
                 msg = createException(MAL, "pyapi.eval", "Could not convert from type %s to type %s", PyType_Format(ret->result_type), #mtpe_to);     \
                 goto wrapup;                                                                                                                          \
@@ -237,7 +237,7 @@ static PyObject *GetDictionary(Client c)
             }                                                                                                                                         \
             else                                                                                                                                      \
             {                                                                                                                                         \
-                if (!func(&data[(index_offset * ret->count + iu) * ret->memory_size], ret->memory_size, &value))                                      \
+                if (!func((ptrtpe*)&data[(index_offset * ret->count + iu) * ret->memory_size], ret->memory_size, &value))                                      \
                 {                                                                                                                                     \
                     msg = createException(MAL, "pyapi.eval", "Could not convert from type %s to type %s", PyType_Format(ret->result_type), #mtpe_to); \
                     goto wrapup;                                                                                                                      \
@@ -340,9 +340,9 @@ Array of type %s no copying will be needed.\n", PyType_Format(ret->result_type),
                 case NPY_FLOAT:      NP_COL_BAT_LOOP(bat, mtpe, flt); break;                                                                                   \
                 case NPY_DOUBLE:                                                                                                                               \
                 case NPY_LONGDOUBLE: NP_COL_BAT_LOOP(bat, mtpe, dbl); break;                                                                                   \
-                case NPY_STRING:     NP_COL_BAT_LOOP_FUNC(bat, mtpe, str_to_##mtpe); break;                                                                    \
-                case NPY_UNICODE:    NP_COL_BAT_LOOP_FUNC(bat, mtpe, unicode_to_##mtpe); break;                                                                \
-                case NPY_OBJECT:     NP_COL_BAT_LOOP_FUNC(bat, mtpe, pyobject_to_##mtpe); break;                                                               \
+                case NPY_STRING:     NP_COL_BAT_LOOP_FUNC(bat, mtpe, str_to_##mtpe, char); break;                                                                    \
+                case NPY_UNICODE:    NP_COL_BAT_LOOP_FUNC(bat, mtpe, unicode_to_##mtpe, Py_UNICODE); break;                                                                \
+                case NPY_OBJECT:     NP_COL_BAT_LOOP_FUNC(bat, mtpe, pyobject_to_##mtpe, PyObject*); break;                                                               \
                 default:                                                                                                                                       \
                     msg = createException(MAL, "pyapi.eval", "Unrecognized type. Could not convert to %s.\n", BatType_Format(TYPE_##mtpe));                    \
                     goto wrapup;                                                                                                                               \
@@ -2096,11 +2096,11 @@ BAT *PyObject_ConvertToBAT(PyReturn *ret, int bat_type, int i, int seqbase, char
                             } else if (PyBool_Check(obj) || PyLong_Check(obj) || PyInt_Check(obj) || PyFloat_Check(obj)) {
 #ifdef HAVE_HGE
                                 hge h;
-                                py_to_hge(obj, &h);
+                                pyobject_to_hge(&obj, 0, &h);
                                 hge_to_string(utf8_string, h);
 #else
                                 lng h;
-                                py_to_lng(obj, &h);
+                                pyobject_to_lng(&obj, 0, &h);
                                 snprintf(utf8_string, utf8string_minlength, LLFMT, h);
 #endif
                             } else {
