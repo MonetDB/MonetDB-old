@@ -64,46 +64,25 @@ int hge_to_string(char * str, hge x)
     return TRUE;
 }
 
-bool str_to_hge(char *ptr, size_t maxsize, hge *value)
+PyObject *PyLong_FromHge(hge h)
 {
-    int i = maxsize - 1;
-    hge factor = 1;
-    if (i < 0) i = strlen(ptr) - 1;
-
-    *value = 0;
-    for( ; i >= 0; i--)
-    {
-        switch(ptr[i])
-        {
-            case '0': break;
-            case '1': *value += factor; break;
-            case '2': *value += 2 * factor; break;
-            case '3': *value += 3 * factor; break;
-            case '4': *value += 4 * factor; break;
-            case '5': *value += 5 * factor; break;
-            case '6': *value += 6 * factor; break;
-            case '7': *value += 7 * factor; break;
-            case '8': *value += 8 * factor; break;
-            case '9': *value += 9 * factor; break;
-            case '-': *value *= -1; break;
-            case '.':
-            case ',': *value = 0; factor = 1; continue;
-            case '\0': continue;
-            default:
-            {
-                return false;
-            }
-        }
-        factor *= 10;
+    PyLongObject *z;
+    size_t size = 0;
+    hge shift = h >= 0 ? h : -h;
+    hge prev = shift;
+    int i;
+    while(shift > 0) {
+        size++;
+        shift = shift >> PyLong_SHIFT;
     }
-    return true;
-}
-
-bool unicode_to_hge(Py_UNICODE *utf32, size_t maxsize, hge *value)
-{
-    char utf8[255];
-    utf32_to_utf8(0, 255, utf8, utf32);
-    return str_to_hge(utf8, maxsize, value);
+    z = _PyLong_New(size);
+    for(i = size - 1; i >= 0; i--) {
+        digit result = (digit)(prev >> (PyLong_SHIFT * i));
+        prev = prev - ((prev >> (PyLong_SHIFT * i)) << (PyLong_SHIFT * i));
+        z->ob_digit[i] = result;
+    }
+    if (h < 0) Py_SIZE(z) = -(Py_SIZE(z));
+    return (PyObject*) z;
 }
 #endif
 
@@ -145,38 +124,40 @@ bool pyobject_to_##type(PyObject **pyobj, size_t maxsize, type *value)          
     return false;                                                                                                \
 }
 
-#ifdef HAVE_HGE
-PY_TO_(hge, hge);
-
-PyObject *PyLong_FromHge(hge h)
-{
-    PyLongObject *z;
-    size_t size = 0;
-    hge shift = h >= 0 ? h : -h;
-    hge prev = shift;
-    int i;
-    while(shift > 0) {
-        size++;
-        shift = shift >> PyLong_SHIFT;
-    }
-    z = _PyLong_New(size);
-    for(i = size - 1; i >= 0; i--) {
-        digit result = (digit)(prev >> (PyLong_SHIFT * i));
-        prev = prev - ((prev >> (PyLong_SHIFT * i)) << (PyLong_SHIFT * i));
-        z->ob_digit[i] = result;
-    }
-    if (h < 0) Py_SIZE(z) = -(Py_SIZE(z));
-    return (PyObject*) z;
-}
-#endif
-
-#define CONVERSION_FUNCTION_FACTORY(tpe, fmt, inttpe)              \
-    bool str_to_##tpe(char *ptr, size_t maxsize, tpe *value)       \
-    {                                                              \
-        int read = sscanf(ptr, fmt, value);                        \
-        (void) maxsize;                                            \
-        return read == 1;                                          \
-    }                                                              \
+#define CONVERSION_FUNCTION_FACTORY(tpe, inttpe)              \
+    bool str_to_##tpe(char *ptr, size_t maxsize, tpe *value) \
+    { \
+        int i = maxsize - 1; \
+        tpe factor = 1; \
+        if (i < 0) i = strlen(ptr) - 1; \
+        *value = 0;  \
+        for( ; i >= 0; i--) \
+        { \
+            switch(ptr[i]) \
+            { \
+                case '0': break; \
+                case '1': *value += factor; break; \
+                case '2': *value += 2 * factor; break; \
+                case '3': *value += 3 * factor; break; \
+                case '4': *value += 4 * factor; break; \
+                case '5': *value += 5 * factor; break; \
+                case '6': *value += 6 * factor; break; \
+                case '7': *value += 7 * factor; break; \
+                case '8': *value += 8 * factor; break; \
+                case '9': *value += 9 * factor; break; \
+                case '-': *value *= -1; break; \
+                case '.': \
+                case ',': *value /= factor; factor = 1; continue; \
+                case '\0': continue; \
+                default: \
+                { \
+                    return false; \
+                } \
+            } \
+            factor *= 10; \
+        }  \
+        return true; \
+    } \
     bool unicode_to_##tpe(Py_UNICODE *ptr, size_t maxsize, tpe *value) \
     {                                                              \
         char utf8[255];                                            \
@@ -185,9 +166,13 @@ PyObject *PyLong_FromHge(hge h)
     }                                                              \
     PY_TO_(tpe, inttpe);
 
-CONVERSION_FUNCTION_FACTORY(bit, "%hhd", bit)
-CONVERSION_FUNCTION_FACTORY(sht, "%hd", sht)
-CONVERSION_FUNCTION_FACTORY(int, "%d", int)
-CONVERSION_FUNCTION_FACTORY(lng, LLFMT, lng)
-CONVERSION_FUNCTION_FACTORY(flt, "%f", lng)
-CONVERSION_FUNCTION_FACTORY(dbl, "%lf", lng)
+CONVERSION_FUNCTION_FACTORY(bit, bit)
+CONVERSION_FUNCTION_FACTORY(sht, sht)
+CONVERSION_FUNCTION_FACTORY(int, int)
+CONVERSION_FUNCTION_FACTORY(lng, lng)
+CONVERSION_FUNCTION_FACTORY(flt, lng)
+CONVERSION_FUNCTION_FACTORY(dbl, lng)
+
+#ifdef HAVE_HGE
+CONVERSION_FUNCTION_FACTORY(hge, hge)
+#endif
