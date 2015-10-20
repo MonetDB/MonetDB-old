@@ -409,12 +409,9 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     PyInput *pyinput_values = NULL;
     int seqbase = 0;
 #ifndef WIN32
-    bool single_fork = mapped == 1;
     int shm_id = -1;
-    int sem_id = -1;
-    int process_id = 0;
     size_t memory_size = 0;
-    int process_count = 0;
+    bool child_process = false;
 #endif
 #ifdef _PYAPI_TESTING_
     time_storage start_time, end_time;
@@ -422,7 +419,6 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     unsigned long long peak_memory_usage = 0;
 #endif
     PyGILState_STATE gstate = PyGILState_LOCKED;
-    int j;
     bit varres = sqlfun ? sqlfun->varres : 0;
     int retcols = !varres ? pci->retc : -1;
     size_t iu;
@@ -538,16 +534,8 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         msg = createException(MAL, "pyapi.eval", "Please visit http://www.linux.com/directory/Distributions to download a Linux distro.\n");
         goto wrapup;
 #else
-        lng *pids = NULL;
+        lng pid;
         char *ptr = NULL;
-        if (single_fork)
-        {
-            process_count = 1;
-        }
-        else
-        {
-            process_count = 8;
-        }
 
         //create initial shared memory
         MT_lock_set(&pyapiLock, "pyapi.evaluate");
@@ -556,9 +544,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 
         VERBOSE_MESSAGE("Creating multiple processes.\n");
 
-        pids = GDKzalloc(sizeof(lng) * process_count);
-
-        memory_size = pci->retc * process_count * sizeof(ReturnBatDescr); //the memory size for the header files, each process has one per return value
+        memory_size = pci->retc * sizeof(ReturnBatDescr); //the memory size for the header files, each process has one per return value
 
         VERBOSE_MESSAGE("Initializing shared memory.\n");
 
@@ -569,80 +555,47 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         MT_lock_unset(&pyapiLock, "pyapi.evaluate");
         if (msg != MAL_SUCCEED)
         {
-            GDKfree(pids);
-            process_id = 0;
             goto wrapup;
-        }
-
-        if (process_count > 1)
-        {
-            //initialize cross-process semaphore, we use two semaphores
-            //the semaphores are used as follows:
-            //we set the first semaphore to process_count, and the second semaphore to 0
-            //every process first passes the first semaphore (decreasing the value), then tries to pass the second semaphore (which will block, because it is set to 0)
-            //when the final process passes the first semaphore, it checks the value of the first semaphore (which is then equal to 0)
-            //the final process will then set the value of the second semaphore to process_count, allowing all processes to pass
-
-            //this means processes will only start returning values once all the processes are finished, this is done because we want to have one big shared memory block for each return value
-            //and we can only create that block when we know how many return values there are, which we only know when all the processes have returned
-
-            sem_id = create_process_semaphore(shm_id, 2);
-            change_semaphore_value(sem_id, 0, process_count);
         }
 
         VERBOSE_MESSAGE("Waiting to fork.\n");
         //fork
         MT_lock_set(&pyapiLock, "pyapi.evaluate");
         VERBOSE_MESSAGE("Start forking.\n");
-        for(i = 0; i < process_count; i++)
+        if ((pid = fork()) < 0)
         {
-            if ((pids[i] = fork()) < 0)
-            {
-                msg = createException(MAL, "pyapi.eval", "Failed to fork process");
-                MT_lock_unset(&pyapiLock, "pyapi.evaluate");
+            msg = createException(MAL, "pyapi.eval", "Failed to fork process");
+            MT_lock_unset(&pyapiLock, "pyapi.evaluate");
 
-                if (process_count > 1) release_process_semaphore(sem_id);
-                release_shared_memory(ptr);
-                GDKfree(pids);
+            release_shared_memory(ptr);
 
-                process_id = 0;
-                goto wrapup;
-            }
-            else if (pids[i] == 0)
-            {
+            goto wrapup;
+        }
+        else if (pid == 0)
+        {
+            child_process = true;
 #ifdef _PYAPI_TESTING_
-                if (!disable_testing && !option_disablemalloctracking && benchmark_output != NULL) { init_hook(); }
+            if (!disable_testing && !option_disablemalloctracking && benchmark_output != NULL) { init_hook(); }
 #endif
-                break;
-            }
         }
 
-        process_id = i + 1;
-        if (i == process_count)
+        if (!child_process)
         {
             //main process
-            int failedprocess = 0;
-            int current_process = process_count;
+            int status;
             bool success = true;
 
             //wait for child processes
             MT_lock_unset(&pyapiLock, "pyapi.evaluate");
-            while(current_process > 0)
-            {
-                int status;
-                waitpid(pids[current_process - 1], &status, 0);
-                if (status != 0)
-                {
-                    failedprocess = current_process - 1;
-                    success = false;
-                }
-                current_process--;
-            }
+
+            waitpid(pid, &status, 0);
+            if (status != 0)
+                success = false;
 
             if (!success)
             {
                 //a child failed, get the error message from the child
-                ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[failedprocess * pci->retc + 0]);
+                ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[0]);
                 char *err_ptr;
 
                 if (descr->bat_size == 0) {
@@ -658,19 +611,17 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                     }
                 }
 
-                if (process_count > 1) release_process_semaphore(sem_id);
                 release_shared_memory(ptr);
-                GDKfree(pids);
 
-                process_id = 0;
                 goto wrapup;
             }
-            VERBOSE_MESSAGE("Finished waiting for child processes.\n");
+            VERBOSE_MESSAGE("Finished waiting for child process.\n");
 
             //collect return values
             for(i = 0; i < pci->retc; i++)
             {
                 PyReturn *ret = &pyreturn_values[i];
+                ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[i]);
                 size_t total_size = 0;
                 bool has_mask = false;
                 ret->count = 0;
@@ -679,26 +630,14 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 
                 //first get header information
 #ifdef _PYAPI_TESTING_
-                peak_memory_usage = 0;
+                peak_memory_usage = descr->peak_memory_usage;
 #endif
-                for(j = 0; j < process_count; j++)
-                {
-                    ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[j * pci->retc + i]);
-                    ret->count += descr->bat_count;
-                    total_size += descr->bat_size;
-#ifdef _PYAPI_TESTING_
-                    peak_memory_usage += descr->peak_memory_usage;
-#endif
-                    if (j > 0)
-                    {
-                        //if these asserts fail the processes are returning different BAT types, which shouldn't happen
-                        assert(ret->memory_size == descr->element_size);
-                        assert(ret->result_type == descr->npy_type);
-                    }
-                    ret->memory_size = descr->element_size;
-                    ret->result_type = descr->npy_type;
-                    has_mask = has_mask || descr->has_mask;
-                }
+                ret->count += descr->bat_count;
+                total_size += descr->bat_size;
+
+                ret->memory_size = descr->element_size;
+                ret->result_type = descr->npy_type;
+                has_mask = has_mask || descr->has_mask;
 
                 //get the shared memory address for this return value
                 VERBOSE_MESSAGE("Parent requesting memory at id %d of size %zu\n", shm_id + (i + 1), total_size);
@@ -710,9 +649,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 
                 if (msg != MAL_SUCCEED)
                 {
-                    if (process_count > 1) release_process_semaphore(sem_id);
                     release_shared_memory(ptr);
-                    GDKfree(pids);
                     goto wrapup;
                 }
                 ret->mask_data = NULL;
@@ -730,20 +667,15 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 
                     if (msg != MAL_SUCCEED)
                     {
-                        if (process_count > 1) release_process_semaphore(sem_id);
                         release_shared_memory(ptr);
                         release_shared_memory(ret->array_data);
-                        GDKfree(pids);
                         goto wrapup;
                     }
                 }
             }
             msg = MAL_SUCCEED;
 
-            if (sem_id >= 0) release_process_semaphore(sem_id);
             if (ptr != NULL) release_shared_memory(ptr);
-            if (pids != NULL) GDKfree(pids);
-            process_id = 0;
 
             goto returnvalues;
         }
@@ -776,22 +708,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         PyObject *result_array;
          // t_start and t_end hold the part of the BAT we will convert to a Numpy array, by default these hold the entire BAT [0 - BATcount(b)]
         size_t t_start = 0, t_end = pyinput_values[i - (pci->retc + 2)].count;
-#ifndef WIN32
-        if (mapped && process_id && process_count > 1)
-        {
-            // If there are multiple processes, we are responsible for dividing the input among them
-            // We set t_start and t_end to the appropriate chunk for this process (depending on the process id and total amount of processes)
-            double chunk = process_id - 1;
-            double totalchunks = process_count;
-            double count = BATcount(pyinput_values[i - (pci->retc + 2)].bat);
-            if (count >= process_count) {
-                t_start = ceil((count * chunk) / totalchunks);
-                t_end = floor((count * (chunk + 1)) / totalchunks);
-                if (((int)count) / 2 * 2 == (int)count) t_end--;
-                VERBOSE_MESSAGE("---Start: %zu, End: %zu, Count: %zu\n", t_start, t_end, t_end - t_start);
-            }
-        }
-#endif
+
         // There are two possibilities, either the input is a BAT, or the input is a scalar
         // If the input is a scalar we will convert it to a python scalar
         // If the input is a BAT, we will convert it to a numpy array
@@ -968,13 +885,12 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     // This is where the child process stops executing
     // We have successfully executed the Python function and converted the result object to a C array
     // Now all that is left is to copy the C array to shared memory so the main process can read it and return it
-    if (mapped && process_id) {
-        int value = 0;
+    if (mapped && child_process) {
         char *shm_ptr;
         ReturnBatDescr *ptr;
 
         // First we will fill in the header information, we will need to get a pointer to the header data first
-        // The main process has already created the header data for all the child processes
+        // The main process has already created the header data for the child process
         VERBOSE_MESSAGE("Getting shared memory.\n");
         msg = get_shared_memory(shm_id, memory_size, (void**) &shm_ptr);
         if (msg != MAL_SUCCEED) {
@@ -991,7 +907,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         for (i = 0; i < retcols; i++)
         {
             PyReturn *ret = &pyreturn_values[i];
-            ReturnBatDescr *descr = &ptr[(process_id - 1) * retcols + i];
+            ReturnBatDescr *descr = &ptr[i];
 
             if (ret->result_type == NPY_OBJECT) {
                 // We can't deal with NPY_OBJECT arrays, because these are 'arrays of pointers', so we can't just copy the content of the array into shared memory
@@ -1021,156 +937,43 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 #ifdef _PYAPI_TESTING_
             descr->peak_memory_usage = GET_MEMORY_PEAK();
 #endif
-        }
-
-        // After writing the header information, we want to write the actual C array to the shared memory
-        // However, if we have multiple processes enabled, we need to wait for all the processes to complete
-        // The reason for this is that we only want to copy the return values one time
-        // So our plan is:
-        // Wait for all processes to complete and write their header information
-        // Now by reading that header information, every process knows the total return size of all the return values combined
-        // And because the processes know their process_id number and which processes are before them, they also know where to write their values
-        // So after all processes have completed, we can allocate the shared memory for the return value,
-        //                            and all the processes can write their return values simultaneously
-        // The way we accomplish this is by using two semaphores
-        // The first semaphore was initialized exactly to process_count, so when all the processes have passed the semaphore, it has the value of 0
-        if (process_count > 1)
-        {
-            VERBOSE_MESSAGE("Process %d entering the first semaphore\n", process_id);
-            change_semaphore_value(sem_id, 0, -1);
-            value = get_semaphore_value(sem_id, 0);
-            VERBOSE_MESSAGE("Process %d waiting on semaphore, currently at value %d\n", process_id, value);
-        }
-        if (value == 0)
-        {
-            // So if we get here, we know all processes have finished and that we are the last process to pass the first semaphore
-            // Since we are the last process, it is our job to create the shared memory for each of the return values
-            for (i = 0; i < retcols; i++)
+            if (ret->count > 0)
             {
-                size_t return_size = 0;
-                size_t mask_size = 0;
-                bool has_mask = false;
-                // Now we will count the size of the return values for each of the processes
-                for(j = 0; j < process_count; j++)
-                {
-                     ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[j * retcols + i]);
-                     return_size += descr->bat_size;
-                     mask_size += descr->bat_count * sizeof(bool);
-                     has_mask = has_mask || descr->has_mask;
-                }
-                assert(return_size > 0);
-                // Then we allocate the shared memory for this return value
-                VERBOSE_MESSAGE("Child creating shared memory at id %d of size %zu\n", shm_id + (i + 1), return_size);
-                if (create_shared_memory(shm_id + (i + 1), return_size, NULL) != MAL_SUCCEED)
+                int memory_size = ret->memory_size * ret->count;
+                char *mem_ptr;
+                //now create shared memory for the return value and copy the actual values
+                assert(memory_size > 0);
+                if (create_shared_memory(shm_id + (i + 1), memory_size, (void**)&mem_ptr) != MAL_SUCCEED)
                 {
                     msg = createException(MAL, "pyapi.eval", "Failed to allocate shared memory for returning data.\n");
                     goto wrapup;
                 }
-                if (has_mask)
+                memcpy(mem_ptr, PyArray_DATA((PyArrayObject*)ret->numpy_array), memory_size);
+
+                if (descr->has_mask)
                 {
+                    bool *mask_ptr;
+                    int mask_size = ret->count * sizeof(bool);
                     assert(mask_size > 0);
-                    if (create_shared_memory(shm_id + retcols + (i + 1), mask_size, NULL) != MAL_SUCCEED) //create a memory space for the mask
+                    if (create_shared_memory(shm_id + retcols + (i + 1), mask_size, (void**)&mask_ptr) != MAL_SUCCEED) //create a memory space for the mask
                     {
                         msg = createException(MAL, "pyapi.eval", "Failed to allocate shared memory for returning mask.\n");
                         goto wrapup;
                     }
-                }
-            }
-
-            // Now all the other processes have been waiting for the last process to get here at the second semaphore
-            // Since we are now here, we set the second semaphore to process_count, so all the processes can continue again
-            if (process_count > 1) change_semaphore_value(sem_id, 1, process_count);
-        }
-
-        if (process_count > 1)
-        {
-            // If we get here and value != 0, then not all processes have finished writing their header information
-            // So we will wait on the second semaphore (which is initialized to 0, so we cannot pass until the value changes)
-            change_semaphore_value(sem_id, 1, -1);
-
-            // Now all processes have passed the first semaphore and the header information is written
-            // However, we do not know if any of the other childs have failed
-            // If they have, they have written descr->npy_type to -1 in one of their headers
-            // So we check for that
-            for (i = 0; i < retcols; i++)
-            {
-                for(j = 0; j < process_count; j++)
-                {
-                    ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[j * retcols + i]);
-                    if (descr->npy_type < 0)
-                    {
-                        // If any of the child processes have failed, exit without an error code because we did not fail
-                        // The child that failed will execute with an error code and will report his error to the main process
-                        exit(0);
-                    }
+                    assert(mask_ptr != NULL);
+                    memcpy(mask_ptr, ret->mask_data, mask_size);
                 }
             }
         }
-
-        // Now we can finally return the values
-        for (i = 0; i < retcols; i++)
-        {
-            char *mem_ptr;
-            PyReturn *ret = &pyreturn_values[i];
-            // First we compute the position where we will start writing in shared memory by looking at the processes before us
-            size_t start_size = 0;
-            size_t return_size = 0;
-            size_t mask_size = 0;
-            size_t mask_start = 0;
-            bool has_mask = false;
-            for(j = 0; j < process_count; j++)
-            {
-                ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[j * retcols + i]);
-                if (j < (process_id - 1))
-                {
-                   start_size += descr->bat_size;
-                   mask_start += descr->bat_count;
-                }
-                return_size += descr->bat_size;
-                mask_size += descr->bat_count *sizeof(bool);
-
-                // We also check if ANY of the processes returns a mask, not just if we return a mask
-                has_mask = descr->has_mask || descr->has_mask;
-            }
-            // Now we can copy our return values to the shared memory
-            VERBOSE_MESSAGE("Process %d returning values in range %zu-%zu\n", process_id, start_size / ret->memory_size, start_size / ret->memory_size + ret->count);
-            msg = get_shared_memory(shm_id + (i + 1), return_size, (void**) &mem_ptr);
-            if (msg != MAL_SUCCEED)
-            {
-                goto wrapup;
-            }
-            memcpy(&mem_ptr[start_size], PyArray_DATA((PyArrayObject*)ret->numpy_array), ret->memory_size * ret->count);
-
-            if (has_mask) {
-                bool *mask_ptr;
-                msg = get_shared_memory(shm_id + retcols + (i + 1), mask_size, (void**) &mask_ptr);
-                // If any of the processes return a mask, we need to write our mask values to the shared memory
-
-                if (mask_ptr == NULL) {
-                    msg = createException(MAL, "pyapi.eval", "Failed to get pointer to shared memory for pointer.\n");
-                    goto wrapup;
-                }
-
-                if (ret->numpy_mask == NULL) {
-                    // If we do not return a mask, simply write false everywhere
-                    for(iu = 0; iu < ret->count; iu++) {
-                        mask_ptr[mask_start + iu] = false;
-                    }
-                }
-                else {
-                    // If we do return a mask, write our mask values to the shared memory
-                    for(iu = 0; iu < ret->count; iu++) {
-                        mask_ptr[mask_start + iu] = ret->mask_data[iu];
-                    }
-                }
-            }
-        }
-        // Exit without an error code
+        // Exit child process without an error code
         exit(0);
     }
+#endif
     // We are done executing Python code (aside from cleanup), so we can release the GIL
     PyGILState_Release(gstate);
     gstate = PyGILState_LOCKED;
+
+#ifndef WIN32 // This goto is only used for multiprocessing, which isn't supported on Windows yet
 returnvalues:
 #endif
     /*[RETURN_VALUES]*/
@@ -1212,7 +1015,7 @@ returnvalues:
   wrapup:
 
 #ifndef WIN32
-    if (mapped && process_id)
+    if (mapped && child_process)
     {
         // If we get here, something went wrong in a child process,
 
@@ -1232,7 +1035,7 @@ returnvalues:
         // To indicate that we failed, we will write information to our header
         ptr = (ReturnBatDescr*)shm_ptr;
         for (i = 0; i < retcols; i++) {
-            ReturnBatDescr *descr = &ptr[(process_id - 1) * retcols + i];
+            ReturnBatDescr *descr = &ptr[i];
             // We will write descr->npy_type to -1, so other processes can see that we failed
             descr->npy_type = -1;
             // We will write the memory size of our error message to the bat_size, so the main process can access the shared memory
@@ -1256,7 +1059,6 @@ returnvalues:
 
         // To prevent the other processes from stalling, we set the value of the second semaphore to process_count
         // This allows the other processes to exit
-        if (process_count > 1) change_semaphore_value(sem_id, 1, process_count);
 
         exit(1);
     }
