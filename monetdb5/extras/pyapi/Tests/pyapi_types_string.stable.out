@@ -1,29 +1,32 @@
 stdout of test 'pyapi_types_string` in directory 'monetdb5/extras/pyapi` itself:
 
 
-# 00:51:32 >  
-# 00:51:32 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=37216" "--set" "mapi_usock=/var/tmp/mtest-31570/.s.monetdb.37216" "--set" "monet_prompt=" "--forcemito" "--set" "mal_listing=2" "--dbpath=/home/mytherin/opt/var/mTests_monetdb5_extras_pyapi" "--set" "mal_listing=2" "--set" "embedded_r=true" "--set" "embedded_py=true"
-# 00:51:32 >  
+# 18:14:04 >  
+# 18:14:04 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=34518" "--set" "mapi_usock=/var/tmp/mtest-9443/.s.monetdb.34518" "--set" "monet_prompt=" "--forcemito" "--set" "mal_listing=2" "--dbpath=/export/scratch2/raasveld/build/var/MonetDB/mTests_monetdb5_extras_pyapi" "--set" "mal_listing=2" "--set" "embedded_r=true" "--set" "embedded_py=true"
+# 18:14:04 >  
 
-# MonetDB 5 server v11.20.0
+# MonetDB 5 server v11.22.0
 # This is an unreleased version
 # Serving database 'mTests_monetdb5_extras_pyapi', using 8 threads
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs and 128bit integers dynamically linked
-# Found 7.684 GiB available main-memory.
+# Found 15.590 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
 # Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
-# Listening for connection requests on mapi:monetdb://mytherin-N750JV:37216/
-# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-31570/.s.monetdb.37216
+# Listening for connection requests on mapi:monetdb://lyon.ins.cwi.nl:34518/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-9443/.s.monetdb.34518
+# MonetDB/GIS module loaded
+# Start processing logs sql/sql_logs version 52200
+# Finished processing logs sql/sql_logs
 # MonetDB/SQL module loaded
 # MonetDB/Python module loaded
 # MonetDB/R   module loaded
 
 Ready.
 
-# 00:51:32 >  
-# 00:51:32 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-31570" "--port=37216"
-# 00:51:32 >  
+# 18:14:05 >  
+# 18:14:05 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-9443" "--port=34518"
+# 18:14:05 >  
 
 #io.print(rstr);
 #--------------------------#
@@ -65,11 +68,54 @@ Ready.
 # h	t  # name
 # void	str  # type
 #--------------------------#
+[ 0@0,	"1"	]
+[ 1@0,	"1"	]
+[ 2@0,	"0"	]
+#io.print(rbit);
+#--------------------------#
+# h	t  # name
+# void	str  # type
+#--------------------------#
+[ 0@0,	"1"	]
+[ 1@0,	"0"	]
+#io.print(rbte);
+#--------------------------#
+# h	t  # name
+# void	str  # type
+#--------------------------#
+[ 0@0,	"42"	]
+[ 1@0,	"84"	]
+#io.print(rsht);
+#--------------------------#
+# h	t  # name
+# void	str  # type
+#--------------------------#
+[ 0@0,	"42"	]
+[ 1@0,	"82"	]
+#io.print(rstr);
+#--------------------------#
+# h	t  # name
+# void	str  # type
+#--------------------------#
 [ 0@0,	"1804289383"	]
 [ 1@0,	"846930886"	]
 [ 2@0,	"1681692777"	]
 [ 3@0,	"1714636915"	]
 [ 4@0,	nil	]
+#io.print(rwrd);
+#--------------------------#
+# h	t  # name
+# void	str  # type
+#--------------------------#
+[ 0@0,	"1804289383"	]
+[ 1@0,	"846930886"	]
+#io.print(rlng);
+#--------------------------#
+# h	t  # name
+# void	str  # type
+#--------------------------#
+[ 0@0,	"1804289383"	]
+[ 1@0,	"846930886"	]
 #io.print(rstr);
 #--------------------------#
 # h	t  # name
@@ -85,11 +131,64 @@ Ready.
 # h	t  # name
 # void	str  # type
 #--------------------------#
-[ 0@0,	"1"	]
-[ 1@0,	"1"	]
-[ 2@0,	"0"	]
+[ 0@0,	"18042.893830"	]
+[ 1@0,	"846.930886"	]
+[ 2@0,	"16.816928"	]
+[ 3@0,	"1714636.915000"	]
+[ 4@0,	nil	]
+#io.print(rbit);
+#--------------------------#
+# h	t  # name
+# void	bit  # type
+#--------------------------#
+[ 0@0,	true	]
+[ 1@0,	false	]
+#io.print(rsht);
+#--------------------------#
+# h	t  # name
+# void	sht  # type
+#--------------------------#
+[ 0@0,	42	]
+[ 1@0,	82	]
+#io.print(rstr);
+#--------------------------#
+# h	t  # name
+# void	int  # type
+#--------------------------#
+[ 0@0,	1804289383	]
+[ 1@0,	846930886	]
+[ 2@0,	1681692777	]
+[ 3@0,	1714636915	]
+[ 4@0,	nil	]
+#io.print(rlng);
+#--------------------------#
+# h	t  # name
+# void	lng  # type
+#--------------------------#
+[ 0@0,	1804289383	]
+[ 1@0,	846930886	]
+#io.print(rstr);
+#--------------------------#
+# h	t  # name
+# void	flt  # type
+#--------------------------#
+[ 0@0,	18042.895	]
+[ 1@0,	846.9309	]
+[ 2@0,	16.816929	]
+[ 3@0,	1714637	]
+[ 4@0,	nil	]
+#io.print(rstr);
+#--------------------------#
+# h	t  # name
+# void	dbl  # type
+#--------------------------#
+[ 0@0,	18042.89383	]
+[ 1@0,	846.930886	]
+[ 2@0,	16.81692777	]
+[ 3@0,	1714636.915	]
+[ 4@0,	nil	]
 
-# 00:51:32 >  
-# 00:51:32 >  "Done."
-# 00:51:32 >  
+# 18:14:05 >  
+# 18:14:05 >  "Done."
+# 18:14:05 >  
 
