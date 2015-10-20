@@ -421,7 +421,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     bool disable_testing = false;
     unsigned long long peak_memory_usage = 0;
 #endif
-    PyGILState_STATE gstate = 0;
+    PyGILState_STATE gstate = PyGILState_LOCKED;
     int j;
     bit varres = sqlfun ? sqlfun->varres : 0;
     int retcols = !varres ? pci->retc : -1;
@@ -1170,7 +1170,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     }
     // We are done executing Python code (aside from cleanup), so we can release the GIL
     PyGILState_Release(gstate);
-    gstate = 0;
+    gstate = PyGILState_LOCKED;
 returnvalues:
 #endif
     /*[RETURN_VALUES]*/
@@ -1271,7 +1271,7 @@ returnvalues:
         PyInput *inp = &pyinput_values[i - (pci->retc + 2)];
         if (inp->bat != NULL) BBPunfix(inp->bat->batCacheid);
     }
-    if (pResult != NULL && gstate == 0) {
+    if (pResult != NULL && gstate == PyGILState_LOCKED) {
         //if there is a pResult here, we are running single threaded (LANGUAGE PYTHON),
         //thus we need to free python objects, thus we need to obtain the GIL
         gstate = PyGILState_Ensure();
@@ -1295,7 +1295,7 @@ returnvalues:
     if (pResult != NULL) {
         Py_DECREF(pResult);
     }
-    if (gstate != 0) {
+    if (gstate != PyGILState_LOCKED) {
         PyGILState_Release(gstate);
     }
 
