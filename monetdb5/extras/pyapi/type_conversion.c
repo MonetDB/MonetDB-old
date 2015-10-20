@@ -166,6 +166,9 @@ bool pyobject_to_##type(PyObject **pyobj, size_t maxsize, type *value)          
     }                                                              \
     PY_TO_(tpe, inttpe);
 
+CONVERSION_FUNCTION_FACTORY(bte, bte)
+CONVERSION_FUNCTION_FACTORY(wrd, wrd)
+CONVERSION_FUNCTION_FACTORY(oid, oid)
 CONVERSION_FUNCTION_FACTORY(bit, bit)
 CONVERSION_FUNCTION_FACTORY(sht, sht)
 CONVERSION_FUNCTION_FACTORY(int, int)

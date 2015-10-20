@@ -54,6 +54,9 @@ PyObject *PyLong_FromHge(hge h);
     bool unicode_to_##tpe(Py_UNICODE *ptr, size_t maxsize, tpe *value);                  \
     bool pyobject_to_##tpe(PyObject **ptr, size_t maxsize, tpe *value);                  \
 
+CONVERSION_FUNCTION_HEADER_FACTORY(bte)
+CONVERSION_FUNCTION_HEADER_FACTORY(wrd)
+CONVERSION_FUNCTION_HEADER_FACTORY(oid)
 CONVERSION_FUNCTION_HEADER_FACTORY(bit)
 CONVERSION_FUNCTION_HEADER_FACTORY(sht)
 CONVERSION_FUNCTION_HEADER_FACTORY(int)

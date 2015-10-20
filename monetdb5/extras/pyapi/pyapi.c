@@ -985,7 +985,7 @@ returnvalues:
         PyReturn *ret = &pyreturn_values[i];
         int bat_type = TYPE_any;
         if (!varres) {
-            bat_type = ATOMstorage(getColumnType(getArgType(mb,pci,i)));
+            bat_type = getColumnType(getArgType(mb,pci,i));
 
             if (bat_type == TYPE_any || bat_type == TYPE_void) {
                 getArgType(mb,pci,i) = bat_type;
@@ -1017,8 +1017,7 @@ returnvalues:
 #ifndef WIN32
     if (mapped && child_process)
     {
-        // If we get here, something went wrong in a child process,
-
+        // If we get here, something went wrong in a child process
         char *shm_ptr, *error_mem, *tmp_msg;
         ReturnBatDescr *ptr;
 
@@ -1962,8 +1961,11 @@ BAT *PyObject_ConvertToBAT(PyReturn *ret, int bat_type, int i, int seqbase, char
     VERBOSE_MESSAGE("- Returning a Numpy Array of type %s of size %zu and storing it in a BAT of type %s\n", PyType_Format(ret->result_type), ret->count,  BatType_Format(bat_type));
     switch (bat_type)
     {
-    case TYPE_bte:
+    case TYPE_bit:
         NP_CREATE_BAT(b, bit);
+        break;
+    case TYPE_bte:
+        NP_CREATE_BAT(b, bte);
         break;
     case TYPE_sht:
         NP_CREATE_BAT(b, sht);
@@ -1971,8 +1973,14 @@ BAT *PyObject_ConvertToBAT(PyReturn *ret, int bat_type, int i, int seqbase, char
     case TYPE_int:
         NP_CREATE_BAT(b, int);
         break;
+    case TYPE_oid:
+        NP_CREATE_BAT(b, oid);
+        break;
     case TYPE_lng:
         NP_CREATE_BAT(b, lng);
+        break;
+    case TYPE_wrd:
+        NP_CREATE_BAT(b, wrd);
         break;
     case TYPE_flt:
         NP_CREATE_BAT(b, flt);

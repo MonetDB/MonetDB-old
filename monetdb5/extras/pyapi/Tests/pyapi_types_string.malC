@@ -100,28 +100,28 @@ bat.append(bdbl,nil:dbl);
 rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"return(arg1)",bdbl);
 io.print(rstr);
 
-# convert bit to string
+# convert string to bit
 bstr:= bat.new(:oid,:str);
 bat.append(bstr,"1":str);
 bat.append(bstr,"0":str);
 rbit:bat[:oid,:bit] := pyapi.eval(nil:ptr,"return(arg1)",bstr);
 io.print(rbit);
 
-# convert bte to string
-#bstr:= bat.new(:oid,:str);
-#bat.append(bstr,"42":str);
-#bat.append(bstr,"84":str);
-#rbte:bat[:oid,:bte] := pyapi.eval(nil:ptr,"return(arg1)",bstr);
-#io.print(rbte);
+# convert string to bte
+bstr:= bat.new(:oid,:str);
+bat.append(bstr,"42":str);
+bat.append(bstr,"84":str);
+rbte:bat[:oid,:bte] := pyapi.eval(nil:ptr,"return(arg1)",bstr);
+io.print(rbte);
 
-# convert short to string
+# convert string to short
 bstr:= bat.new(:oid,:str);
 bat.append(bstr,"42":str);
 bat.append(bstr,"82":str);
 rsht:bat[:oid,:sht] := pyapi.eval(nil:ptr,"return(arg1)",bstr);
 io.print(rsht);
 
-# convert int to string
+# convert string to int
 bstr:= bat.new(:oid,:str);
 bat.append(bstr,"1804289383":str);
 bat.append(bstr,"846930886":str);
@@ -131,21 +131,28 @@ bat.append(bstr,nil:str);
 rstr:bat[:oid,:int] := pyapi.eval(nil:ptr,"return(arg1)",bstr);
 io.print(rstr);
 
-# convert word to string
-#bstr:= bat.new(:oid,:str);
-#bat.append(bstr,"1804289383":str);
-#bat.append(bstr,"846930886":str);
-#rwrd:bat[:oid,:wrd] := pyapi.eval(nil:ptr,"return(arg1)",bstr);
-#io.print(rwrd);
+# convert string to word
+bstr:= bat.new(:oid,:str);
+bat.append(bstr,"1804289383":str);
+bat.append(bstr,"846930886":str);
+rwrd:bat[:oid,:wrd] := pyapi.eval(nil:ptr,"return(arg1)",bstr);
+io.print(rwrd);
 
-# convert long to string
+# convert string to oid
+bstr:= bat.new(:oid,:str);
+bat.append(bstr,"18042893":str);
+bat.append(bstr,"8469308":str);
+rwrd:bat[:oid,:oid] := pyapi.eval(nil:ptr,"return(arg1)",bstr);
+io.print(rwrd);
+
+# convert string to long
 bstr:= bat.new(:oid,:str);
 bat.append(bstr,"1804289383":str);
 bat.append(bstr,"846930886":str);
 rlng:bat[:oid,:lng] := pyapi.eval(nil:ptr,"return(arg1)",bstr);
 io.print(rlng);
 
-# convert float to string
+# convert string to float
 bstr:= bat.new(:oid,:str);
 bat.append(bstr,"18042.89383":str);
 bat.append(bstr,"846.930886":str);
@@ -155,7 +162,7 @@ bat.append(bstr,nil:str);
 rstr:bat[:oid,:flt] := pyapi.eval(nil:ptr,"return(arg1)",bstr);
 io.print(rstr);
 
-# convert dbl to string
+# convert string to dbl
 bstr:= bat.new(:oid,:str);
 bat.append(bstr,"18042.89383":str);
 bat.append(bstr,"846.930886":str);
