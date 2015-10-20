@@ -75,6 +75,17 @@ Ready.
 #{
 #    return [True] * 4
 #};
+#SELECT pyapi04() FROM dval;
+% .L # table_name
+% pyapi04 # name
+% boolean # type
+% 5 # length
+[ true	]
+[ true	]
+[ true	]
+[ true	]
+#DROP FUNCTION pyapi04;
+#DROP TABLE dval;
 #ROLLBACK;
 
 # 15:05:16 >  

@@ -988,9 +988,8 @@ returnvalues:
             bat_type = getColumnType(getArgType(mb,pci,i));
 
             if (bat_type == TYPE_any || bat_type == TYPE_void) {
+                bat_type = PyType_ToBat(ret->result_type);
                 getArgType(mb,pci,i) = bat_type;
-                msg = createException(MAL, "pyapi.eval", "Unknown return value, possibly projecting with no parameters.");
-                goto wrapup;
             }
         } else {
             bat_type = PyType_ToBat(ret->result_type);

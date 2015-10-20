@@ -31,15 +31,6 @@ stderr of test 'pyapi04` in directory 'sql/backends/monet5` itself:
 # 15:05:16 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-16558" "--port=34890"
 # 15:05:16 >  
 
-MAPI  = (monetdb) /var/tmp/mtest-16558/.s.monetdb.34890
-QUERY = SELECT pyapi04() FROM dval;
-ERROR = !Unknown return value, possibly projecting with no parameters.
-MAPI  = (monetdb) /var/tmp/mtest-16558/.s.monetdb.34890
-QUERY = DROP FUNCTION pyapi04;
-ERROR = !current transaction is aborted (please ROLLBACK)
-MAPI  = (monetdb) /var/tmp/mtest-16558/.s.monetdb.34890
-QUERY = DROP TABLE dval;
-ERROR = !current transaction is aborted (please ROLLBACK)
 
 # 15:05:16 >  
 # 15:05:16 >  "Done."
