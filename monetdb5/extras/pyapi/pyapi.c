@@ -88,6 +88,7 @@ int PyAPIEnabled(void) {
 static MT_Lock pyapiLock;
 static int pyapiInitialized = FALSE;
 
+static bool python_call_active = false;
 
 static PyObject **dictionaries = NULL;
 static Client *clients = NULL;
@@ -423,6 +424,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     PyGILState_STATE gstate = PyGILState_LOCKED;
     bit varres = sqlfun ? sqlfun->varres : 0;
     int retcols = !varres ? pci->retc : -1;
+    bool holds_gil = !mapped;
 
     (void) cntxt;
 
@@ -525,6 +527,15 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
             inp->bat_type = ATOMstorage(getColumnType(getArgType(mb,pci,i)));
             inp->bat = b;
         }
+    }
+    if (!mapped) {
+        MT_lock_set(&pyapiLock, "pyapi.evaluate");
+        if (python_call_active) {
+            mapped = true;
+            holds_gil = false;
+        }
+        else python_call_active = true;
+        MT_lock_unset(&pyapiLock, "pyapi.evaluate");
     }
 
     /*[FORK_PROCESS]*/
@@ -1055,6 +1066,12 @@ returnvalues:
 #endif
 
     VERBOSE_MESSAGE("Cleaning up.\n");
+
+    if (holds_gil){
+        MT_lock_set(&pyapiLock, "pyapi.evaluate");
+        python_call_active = false;
+        MT_lock_unset(&pyapiLock, "pyapi.evaluate");
+    }
 
     // Actual cleanup
     // Cleanup input BATs
