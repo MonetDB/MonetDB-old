@@ -25,51 +25,6 @@ bool string_copy(char * source, char* dest, size_t max_size)
     return TRUE;
 }
 
-void lng_to_string(char* str, lng value)
-{
-    lng k = 0;
-    int ind = 0;
-    int base = 0;
-    int ch = 0;
-    char c;
-    //sign
-    if (value < 0) { base = 1; str[ind++] = '-'; value *= -1; }
-
-    if (value == 0) str[ind++] = '0';
-    while(value > 0)
-    {
-        k = value / 10;
-        ch = value - k * 10;
-        value = k;
-
-        switch(ch)
-        {
-            case 0: str[ind++] = '0'; break;
-            case 1: str[ind++] = '1'; break;
-            case 2: str[ind++] = '2'; break;
-            case 3: str[ind++] = '3'; break;
-            case 4: str[ind++] = '4'; break;
-            case 5: str[ind++] = '5'; break;
-            case 6: str[ind++] = '6'; break;
-            case 7: str[ind++] = '7'; break;
-            case 8: str[ind++] = '8'; break;
-            case 9: str[ind++] = '9'; break;
-        }
-    }
-    str[ind] = '\0';
-    for (ind--; ind > base; ind--)
-    {
-        c = str[ind];
-        str[ind] = str[base];
-        str[base++] = c;
-    }
-}
-
-void dbl_to_string(char* str, dbl value)
-{
-    snprintf(str, 256, "%lf", value);
-}
-
 #ifdef HAVE_HGE
 int hge_to_string(char * str, hge x)
 {

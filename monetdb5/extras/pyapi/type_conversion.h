@@ -34,10 +34,6 @@
 
 //! Copies the string of size up to max_size from the source to the destination, returns FALSE if "source" is not a legal ASCII string (i.e. a character is >= 128)
 bool string_copy(char * source, char* dest, size_t max_size);
-//! Converts a long to a string and writes it into the string "str"
-void lng_to_string(char* str, lng value);
-//! Converts a double to a string and writes it into the string "str"
-void dbl_to_string(char* str, dbl value);
 //! Converts a base-10 string to a dbl value
 bool s_to_dbl(char *ptr, size_t size, dbl *value);
 //! Converts a base-10 string to a lng value

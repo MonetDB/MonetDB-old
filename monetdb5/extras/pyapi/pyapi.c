@@ -78,6 +78,8 @@ static bool option_debug;
 static bool option_warning;
 #endif
 
+const int utf8string_minlength = 256;
+
 int PyAPIEnabled(void) {
     return (GDKgetenv_istrue(pyapi_enableflag)
             || GDKgetenv_isyes(pyapi_enableflag));
@@ -247,12 +249,12 @@ static PyObject *GetDictionary(Client c)
 
 
 // This #define is for converting a numeric numpy array into a string BAT. 'conv' is a function that turns a numeric value of type 'mtpe' to a char* array.
-#define NP_COL_BAT_STR_LOOP(bat, mtpe, conv)                                                                                                          \
+#define NP_COL_BAT_STR_LOOP(bat, mtpe, fmt)                                                                                                           \
     if (mask == NULL)                                                                                                                                 \
     {                                                                                                                                                 \
         for (iu = 0; iu < ret->count; iu++)                                                                                                           \
         {                                                                                                                                             \
-            conv(utf8_string, *((mtpe*)&data[(index_offset * ret->count + iu) * ret->memory_size]));                                                  \
+            snprintf(utf8_string, utf8string_minlength, fmt, *((mtpe*)&data[(index_offset * ret->count + iu) * ret->memory_size]));                   \
             BUNappend(bat, utf8_string, FALSE);                                                                                                       \
         }                                                                                                                                             \
     }                                                                                                                                                 \
@@ -267,7 +269,7 @@ static PyObject *GetDictionary(Client c)
             }                                                                                                                                         \
             else                                                                                                                                      \
             {                                                                                                                                         \
-                conv(utf8_string, *((mtpe*)&data[(index_offset * ret->count + iu) * ret->memory_size]));                                              \
+                snprintf(utf8_string, utf8string_minlength, fmt, *((mtpe*)&data[(index_offset * ret->count + iu) * ret->memory_size]));               \
                 BUNappend(bat, utf8_string, FALSE);                                                                                                   \
             }                                                                                                                                         \
         }                                                                                                                                             \
@@ -994,7 +996,6 @@ returnvalues:
             bat_type = PyType_ToBat(ret->result_type);
         }
 
-
         b = PyObject_ConvertToBAT(ret, bat_type, i, seqbase, &msg);
         if (b == NULL) {
             goto wrapup;
@@ -1240,7 +1241,7 @@ static char *PyError_CreateException(char *error_text, char *pycall)
                                 lineinformation[pos++] = ' ';
                                 lineinformation[pos++] = ' ';
                             }
-                            lng_to_string(linenr, nrpos); // Convert the current line number to string and add it to lineinformation
+                            snprintf(linenr, 32, SZFMT, nrpos);
                             for(j = 0; j < strlen(linenr); j++) {
                                 lineinformation[pos++] = linenr[j];
                             }
@@ -2001,8 +2002,8 @@ BAT *PyObject_ConvertToBAT(PyReturn *ret, int bat_type, int i, int seqbase, char
             data = (char*) ret->array_data;
 
             if (ret->result_type != NPY_OBJECT) {
-                utf8_string = GDKzalloc(256 + ret->memory_size + 1);
-                utf8_string[256 + ret->memory_size] = '\0';
+                utf8_string = GDKzalloc(utf8string_minlength + ret->memory_size + 1);
+                utf8_string[utf8string_minlength + ret->memory_size] = '\0';
             }
 
             b = BATnew(TYPE_void, TYPE_str, ret->count, TRANSIENT);
@@ -2011,21 +2012,21 @@ BAT *PyObject_ConvertToBAT(PyReturn *ret, int bat_type, int i, int seqbase, char
             VERBOSE_MESSAGE("- Collecting return values of type %s.\n", PyType_Format(ret->result_type));
             switch(ret->result_type)
             {
-                case NPY_BOOL:      NP_COL_BAT_STR_LOOP(b, bit, lng_to_string); break;
-                case NPY_BYTE:      NP_COL_BAT_STR_LOOP(b, bte, lng_to_string); break;
-                case NPY_SHORT:     NP_COL_BAT_STR_LOOP(b, sht, lng_to_string); break;
-                case NPY_INT:       NP_COL_BAT_STR_LOOP(b, int, lng_to_string); break;
-                case NPY_LONG:
-                case NPY_LONGLONG:  NP_COL_BAT_STR_LOOP(b, lng, lng_to_string); break;
-                case NPY_UBYTE:     NP_COL_BAT_STR_LOOP(b, unsigned char, lng_to_string); break;
-                case NPY_USHORT:    NP_COL_BAT_STR_LOOP(b, unsigned short, lng_to_string); break;
-                case NPY_UINT:      NP_COL_BAT_STR_LOOP(b, unsigned int, lng_to_string); break;
-                case NPY_ULONG:     NP_COL_BAT_STR_LOOP(b, unsigned long, lng_to_string); break;
-                case NPY_ULONGLONG: NP_COL_BAT_STR_LOOP(b, unsigned long long, lng_to_string); break;
+                case NPY_BOOL:      NP_COL_BAT_STR_LOOP(b, bit, "%hhd"); break;
+                case NPY_BYTE:      NP_COL_BAT_STR_LOOP(b, bte, "%hhd"); break;
+                case NPY_SHORT:     NP_COL_BAT_STR_LOOP(b, sht, "%hd"); break;
+                case NPY_INT:       NP_COL_BAT_STR_LOOP(b, int, "%d"); break;
+                case NPY_LONG:      NP_COL_BAT_STR_LOOP(b, long, "%ld"); break;
+                case NPY_LONGLONG:  NP_COL_BAT_STR_LOOP(b, lng, LLFMT); break;
+                case NPY_UBYTE:     NP_COL_BAT_STR_LOOP(b, unsigned char, "%hhu"); break;
+                case NPY_USHORT:    NP_COL_BAT_STR_LOOP(b, unsigned short, "%hu"); break;
+                case NPY_UINT:      NP_COL_BAT_STR_LOOP(b, unsigned int, "%u"); break;
+                case NPY_ULONG:     NP_COL_BAT_STR_LOOP(b, unsigned long, "%lu"); break;
+                case NPY_ULONGLONG: NP_COL_BAT_STR_LOOP(b, unsigned long long, ULLFMT); break;
                 case NPY_FLOAT16:
-                case NPY_FLOAT:     NP_COL_BAT_STR_LOOP(b, flt, dbl_to_string); break;
+                case NPY_FLOAT:     NP_COL_BAT_STR_LOOP(b, flt, "%f"); break;
                 case NPY_DOUBLE:
-                case NPY_LONGDOUBLE: NP_COL_BAT_STR_LOOP(b, dbl, dbl_to_string); break;
+                case NPY_LONGDOUBLE: NP_COL_BAT_STR_LOOP(b, dbl, "%lf"); break;
                 case NPY_STRING:
                     for (iu = 0; iu < ret->count; iu++) {
                         if (mask != NULL && (mask[index_offset * ret->count + iu]) == TRUE) {
@@ -2056,16 +2057,16 @@ BAT *PyObject_ConvertToBAT(PyReturn *ret, int bat_type, int i, int seqbase, char
                     //The resulting array is an array of pointers to various python objects
                     //Because the python objects can be of any size, we need to allocate a different size utf8_string for every object
                     //we will first loop over all the objects to get the maximum size needed, so we only need to do one allocation
-                    size_t utf8_size = 256;
+                    size_t utf8_size = utf8string_minlength;
                     for (iu = 0; iu < ret->count; iu++) {
-                        size_t size = 256;
+                        size_t size = utf8string_minlength;
                         PyObject *obj;
                         if (mask != NULL && (mask[index_offset * ret->count + iu]) == TRUE) continue;
                         obj = *((PyObject**) &data[(index_offset * ret->count + iu) * ret->memory_size]);
                         if (PyString_CheckExact(obj) || PyByteArray_CheckExact(obj)) {
-                            size = Py_SIZE(obj);
+                            size = Py_SIZE(obj);     //Normal strings are 1 string per character
                         } else if (PyUnicode_CheckExact(obj)) {
-                            size = Py_SIZE(obj) * 4;
+                            size = Py_SIZE(obj) * 4; //UTF32 is 4 bytes per character
                         }
                         if (size > utf8_size) utf8_size = size;
                     }
@@ -2100,7 +2101,7 @@ BAT *PyObject_ConvertToBAT(PyReturn *ret, int bat_type, int i, int seqbase, char
 #else
                                 lng h;
                                 py_to_lng(obj, &h);
-                                lng_to_string(utf8_string, h);
+                                snprintf(utf8_string, utf8string_minlength, LLFMT, h);
 #endif
                             } else {
                                 msg = createException(MAL, "pyapi.eval", "Unrecognized Python object. Could not convert to NPY_UNICODE.\n");
