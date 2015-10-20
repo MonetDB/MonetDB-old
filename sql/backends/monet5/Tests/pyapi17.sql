@@ -1,6 +1,10 @@
+# Return dictionary testing
+# If we return a TABLE we can return a (key,value) dictionary with the key representing the column name instead of returning a table
+# We check if all the columns are properly represented, and if there are too many columns in the dictionary
+# And test if the columns are properly mapped to the correct columns.
+
 START TRANSACTION;
 
-# Return dictionary testing
 
 # Standard case
 CREATE FUNCTION pyapi17() returns TABLE (a STRING, b STRING, c INTEGER, d BOOLEAN)

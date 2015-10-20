@@ -1,4 +1,6 @@
-# Test whitespace
+# Test various whitespace configurations
+# Including tests for multiline strings (strings starting with """)
+
 START TRANSACTION;
 
 CREATE FUNCTION pyapi13_random_table_nulls(entries integer) returns table (i integer, j integer)

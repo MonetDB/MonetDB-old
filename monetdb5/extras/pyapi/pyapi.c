@@ -1051,7 +1051,6 @@ returnvalues:
         }
 
         strcpy(error_mem, msg);
-
         exit(1);
     }
 #endif

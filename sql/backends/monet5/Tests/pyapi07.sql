@@ -1,3 +1,5 @@
+# A more complex aggregation, perform a quantile using MonetDB/Python
+# Also perform two aggregations in the same SELECT() statement, which could potentially fail
 START TRANSACTION;
 
 CREATE TABLE rval(val double);

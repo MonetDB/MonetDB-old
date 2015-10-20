@@ -1,4 +1,4 @@
-
+# Test storing Python objects in the database using the cPickle module to convert the objects to encoded strings
 START TRANSACTION;
 
 

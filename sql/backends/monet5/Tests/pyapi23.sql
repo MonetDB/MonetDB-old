@@ -1,4 +1,5 @@
 
+# Strange bug, when loading groups from a table the aggr_group hidden parameter contains incorrect values, which leads to an incorrect result
 START TRANSACTION;
 
 CREATE AGGREGATE pyapi23(val integer) RETURNS integer LANGUAGE P {
@@ -29,6 +30,5 @@ CREATE TABLE pyapi23table as select * from pyapi23datagen() with data;
 select g, pyapi23(n) from pyapi23datagen() group by g;
 # doesn't work
 select g, pyapi23(n) from pyapi23table group by g;
-
 
 ROLLBACK;

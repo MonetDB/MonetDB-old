@@ -1,3 +1,4 @@
+# Test the hidden _values dictionary that is used by the user to store Python objects to be used by later python functions
 START TRANSACTION;
 
 CREATE TABLE vals(i INTEGER);

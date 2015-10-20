@@ -1,3 +1,4 @@
+# Use MonetDB/Python to filter data by creating a simple filter that is identical to 'i > z' in SQL
 START TRANSACTION;
 
 CREATE TABLE rval(i integer);

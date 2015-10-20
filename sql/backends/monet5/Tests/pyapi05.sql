@@ -1,3 +1,4 @@
+# Do a more complex operation (clustering using scipy)
 START TRANSACTION;
 
 CREATE TABLE xdata (x float);

@@ -1,4 +1,7 @@
-
+# Test storing the _values() dictionary in the database using the pickle module
+# We encode all the (key,value) pairs int he store_values() function and store it in a table
+# Then unpickle and load the objects back into the _values() dictionary in the restore_values() function
+# Useful for making the _values() dictionary persistent, after the server shuts down, as it is normally only stored in memory.
 START TRANSACTION;
 
 CREATE FUNCTION initialize_values() RETURNS TABLE(a BOOLEAN) LANGUAGE PYTHON

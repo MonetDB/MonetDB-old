@@ -1,4 +1,5 @@
 # Test nested python calls
+# Basically map/reduce type stuff where we make one function execute in parallel and then pass the data to a blocking operation to do something that can't be parallelized 
 START TRANSACTION;
 
 

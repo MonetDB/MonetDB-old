@@ -1,3 +1,4 @@
+# Use MonetDB/Python for some simple SELECT() operations
 START TRANSACTION;
 
 CREATE TABLE rval(i integer,j integer);

@@ -1,3 +1,4 @@
+# Create a table with multiple columns with MonetDB/Python
 START TRANSACTION;
 
 CREATE FUNCTION pyapi01(i integer) returns table (i integer, d double)

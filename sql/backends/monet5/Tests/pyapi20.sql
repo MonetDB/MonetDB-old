@@ -1,4 +1,5 @@
-
+# Test error reporting on exceptions, this is different from parse errors because we get the line number by checking the stack trace
+# We do want to tell the user exactly which line broke
 START TRANSACTION;
 
 CREATE TABLE rval(i integer);

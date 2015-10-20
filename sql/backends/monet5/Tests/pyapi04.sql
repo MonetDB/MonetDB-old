@@ -1,3 +1,4 @@
+# Return a couple of boolean values with no parameter provided (i.e. return a constant)
 START TRANSACTION;
 
 CREATE TABLE dval(i integer);

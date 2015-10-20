@@ -1,3 +1,7 @@
+# This test example is from Hannes Muehleisen
+# From a demo he gave about checking when planes are close together to detect 'close calls' by comparing plane coordinates
+ # Nice testcase as a reasonably complex function with multiple different parameters/return values
+
 start transaction;
 
 CREATE TABLE "streams" (

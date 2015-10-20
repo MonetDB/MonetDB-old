@@ -1,3 +1,7 @@
+# Some additional tests for multiprocessing
+# Multiprocessing in the WHERE clause can fail if the SEQBASE of the BATs are not set correctly because the BATs are split up
+# Returning a numpy.object array can fail because numpy.object is essentially an array of pointers, so we if copy just the pointers into shared memory/mmap it breaks
+# We fix this by internally converting the data back into a 'normal' Numpy array of type STRING or INT or whatever (depending on the objects)
 START TRANSACTION;
 
 CREATE TABLE rval(i integer);

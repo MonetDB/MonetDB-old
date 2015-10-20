@@ -1,11 +1,13 @@
-# Description #
-# This test case tests variable number of arguments (*) using the pyapi.
+# This test case tests variable number of arguments (*) using MonetDB/Python. 
+# We can use the parameters by using the _columns() dictionary.
+# Note that the parameters are "anonymous" (they are called 'arg1', 'arg2', etc... instead of the input names)
 
 START TRANSACTION;
 
 CREATE FUNCTION pyapi24(*) RETURNS integer LANGUAGE PYTHON
 {
     sum = 0
+    print _columns.keys()
     for key in _columns.keys():
         sum += numpy.sum(_columns[key])
     return sum

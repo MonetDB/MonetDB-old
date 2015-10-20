@@ -1,3 +1,7 @@
+# Test storing input variables in the dictionary directly
+# This breaks because we do zero copy of numeric columns
+# Meaning you are storing a NumPy array that points to a non-persistent BAT, which might be deleted later
+# So if you then try to access the data it breaks
 START TRANSACTION;
 
 CREATE TABLE vals(i INTEGER);

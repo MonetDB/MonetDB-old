@@ -1,3 +1,6 @@
+# Test aggregations with the hidden variable 'aggr_group'. 
+# Note that if we do an aggregation without GROUP BY the variable 'aggr_group' does not exist.
+# To handle this case, we have to check if aggr_group is in the locals.
 START TRANSACTION;
 
 CREATE TABLE rval(groupcol integer,datacol integer);

@@ -1,3 +1,4 @@
+# Test the special _columns and _column_types parameters that store information of the columns
 START TRANSACTION;
 
 CREATE TABLE vals(a STRING, b STRING, c STRING, d INTEGER);
