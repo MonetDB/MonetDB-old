@@ -23,3 +23,8 @@ returns integer external name udf.fuse;
 -- fuse two (4-byte) integer values into one (8-byte) bigint value
 create function fuse(one integer, two integer)
 returns bigint external name udf.fuse;
+
+-- update column c of q
+CREATE FUNCTION qrq(c double, s double)
+RETURNS double external name udf.qrq;
+

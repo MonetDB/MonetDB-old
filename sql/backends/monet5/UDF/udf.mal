@@ -51,3 +51,6 @@ comment "fuse two (2-byte) sht values into one (4-byte) int value";
 command fuse(one:bat[:oid,:int],two:bat[:oid,:int]):bat[:oid,:lng]
 address UDFBATfuse
 comment "fuse two (4-byte) int values into one (8-byte) lng value";
+
+command batudf.qrq(c:bat[:oid,:dbl], s:dbl) :bat[:oid,:dbl]
+address UDFqrq;

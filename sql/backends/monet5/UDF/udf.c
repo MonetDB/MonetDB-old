@@ -366,3 +366,46 @@ UDFBATfuse(bat *ires, const bat *ione, const bat *itwo)
 
 	return msg;
 }
+
+char* UDFqrq(bat *q, const bat *c, const double *s) {
+	BAT *cBAT, *qBAT;
+	BUN start, end, i;
+	BATiter c_iter;
+	double *qVals;
+	
+	if(!(cBAT = BATdescriptor(*c))) {
+		return createException(MAL, "batudf.qrq", "Problem retrieving BAT");
+	}
+
+    if( !BAThdense(cBAT) ) {
+		BBPunfix(cBAT->batCacheid);
+		return createException(MAL, "batudf.qrq", "BATs must have dense heads");
+    }
+
+	c_iter = bat_iterator(cBAT);
+	start = BUNfirst(cBAT);
+	end = BUNlast(cBAT);
+
+	if(!(qBAT = BATnew(TYPE_void, TYPE_dbl, BATcount(cBAT), TRANSIENT))) {
+		BBPunfix(cBAT->batCacheid);
+		return createException(MAL, "batudf.qrq", MAL_MALLOC_FAIL);
+	}
+
+	BATseqbase(qBAT, cBAT->hseqbase);
+
+	qVals = (double*)Tloc(qBAT, BUNfirst(qBAT));
+	for(i=start; i<end; i++) {
+		*(qVals++) = *(double*)BUNtail(c_iter, i)/(*s);
+	}
+
+	BATsetcount(qBAT, BATcount(cBAT));
+	qBAT->tsorted = 0;
+	qBAT->trevsorted = 0;
+	qBAT->tkey = 0;
+	qBAT->tdense = 0;
+
+	BBPunfix(cBAT->batCacheid);
+	BBPkeepref(*q = qBAT->batCacheid);
+
+	return MAL_SUCCEED;
+}

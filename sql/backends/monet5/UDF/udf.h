@@ -44,4 +44,5 @@ UDFfuse_scalar_decl(lng, hge);
 
 udf_export char * UDFBATfuse(bat *ret, const bat *one, const bat *two);
 
+udf_export char* UDFqrq(bat *q, const bat *c, const double *s);
 #endif /* _SQL_UDF_H_ */
