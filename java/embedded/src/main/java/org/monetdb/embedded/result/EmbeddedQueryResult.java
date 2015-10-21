@@ -75,8 +75,9 @@ public class EmbeddedQueryResult implements Closeable, Iterable<Column<?>> {
 		int index = 0;
 		for (String columnName : columnNames) {
 			if (name.equals(columnName)) {
-				return getColumn(index++);
+				return getColumn(index);
 			}
+			index++;
 		}
 		return null;
 	}
