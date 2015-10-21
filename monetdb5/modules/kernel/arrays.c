@@ -993,14 +993,14 @@ str ALGprojectDimension(bat* result, const ptr *dim, const ptr *array) {
 
 str ALGprojectNonDimension(bat *result, const bat *vals, const ptr *array) {
  	/* just send the input vals to the output */
-    (void)*array;
-
     /* make a copy of vals */
     BAT *resBAT, *inputBAT = BATdescriptor(*vals);
     if(!inputBAT)
         throw(MAL, "algebra.projectArray", RUNTIME_OBJECT_MISSING);
  
     resBAT = BATcopy(inputBAT, TYPE_void, BATttype(inputBAT), FALSE, TRANSIENT);
+
+    (void)*array;
 
     BBPunfix(inputBAT->batCacheid);
     BBPkeepref(*result = resBAT->batCacheid);
