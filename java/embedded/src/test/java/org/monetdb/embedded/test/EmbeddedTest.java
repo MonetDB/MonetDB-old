@@ -160,7 +160,7 @@ public class EmbeddedTest {
 			assertEquals(1, result.getNumberOfColumns());
 
 			assertEquals(booleanTypeTestValues[0], result.getColumn(0).getVaule(0));
-			assertEquals(booleanTypeTestValues[0], result.getColumn(0).getVaule(1));
+			assertEquals(booleanTypeTestValues[1], result.getColumn(0).getVaule(1));
 			assertEquals(null, result.getColumn(0).getVaule(2));
 		}
 	}

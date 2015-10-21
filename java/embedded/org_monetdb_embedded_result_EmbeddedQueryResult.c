@@ -362,7 +362,7 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_g
 	res_col col = result->cols[columnIndex];
 	BAT* b = BATdescriptor(col.b);
 
-	switch (ATOMstorage(getColumnType(b->T->type))) {
+	switch (getColumnType(b->T->type)) {
 	case TYPE_bit:
 		return getBooleanColumn(env, b);
 		break;
