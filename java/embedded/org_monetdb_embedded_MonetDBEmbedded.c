@@ -147,13 +147,3 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
 
 	return result;
 }
-
-JNIEXPORT jstring JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_appendWrapper
-(JNIEnv *env, jobject object, jstring table, jstring schema, jobject data) {
-	(void)object;
-	(void)table;
-	(void)schema;
-	(void)data;
-
-	return (*env)->NewStringUTF(env, "");
-}

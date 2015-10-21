@@ -10,7 +10,6 @@ package org.monetdb.embedded;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.sql.SQLException;
 
 import org.monetdb.embedded.result.EmbeddedQueryResult;
@@ -29,14 +28,16 @@ public class MonetDBEmbedded {
 	 * The working directory for MonetDB.
 	 */
 	private File directory;
+	private boolean silentFlag;
 
 	/**
 	 * You can instantiate multiple object, 
 	 * just make sure they are assigned different directories.
 	 * 
-	 * @param directory Database directory 
+	 * @param directory Database directory
+	 * @param silentFlag Silent flag for logging messages
 	 */
-	public MonetDBEmbedded(File directory) {
+	public MonetDBEmbedded(File directory, boolean silentFlag) {
 		// Load the embedded library (and its dependencies)
 		System.loadLibrary("embedded_java");
 
@@ -44,6 +45,7 @@ public class MonetDBEmbedded {
 			throw new IllegalArgumentException(directory + " is not a directory");
 		}
 		this.directory = directory;
+		this.silentFlag = silentFlag;
 	}
 
 	/** 
@@ -59,13 +61,12 @@ public class MonetDBEmbedded {
 	 * Start the embedded database up. Starting in a existing database directory should restore
 	 * the database's last committed state.
 	 * 
-	 * @param silent Silent flag to logging messages
 	 * @return {@code True} if the was started successfully or is already running, otherwise {@code False}.
-	 * @throws IOException 
+	 * @throws IOException Database startup failure
 	 */
-	public boolean startup(boolean silent) throws IOException {
+	public boolean run() throws IOException {
 		if (!running) {
-			if (startupWrapper(directory.getAbsolutePath(), silent)){
+			if (startupWrapper(directory.getAbsolutePath(), silentFlag)){
 				running = true;
 			}
 		}
@@ -108,6 +109,4 @@ public class MonetDBEmbedded {
 	 * @throws SQLException
 	 */
 	private native EmbeddedQueryResult queryWrapper(String query) throws SQLException;
-
-	private native String appendWrapper(String schema, String table, Array data) throws SQLException;
 }

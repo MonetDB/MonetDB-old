@@ -51,8 +51,8 @@ public class EmbeddedTest {
 		final Path directoryPath = Files.createTempDirectory("monetdbtest");
 		datbaseDirectory = directoryPath.toFile();
 
-		db = new MonetDBEmbedded(datbaseDirectory);
-		db.startup(false);
+		db = new MonetDBEmbedded(datbaseDirectory, false);
+		db.run();
 
 		db.query("CREATE TABLE test (id integer, val integer);");
 		db.query("INSERT INTO test VALUES (0, " + testValues[0] + "), (1, " + testValues[1] + "), (2, " + testValues[2] + "), (3, " + testValues[3] + ");");
@@ -74,8 +74,8 @@ public class EmbeddedTest {
 
 	@Test
 	public void restartExistingDatabaseTest() throws IOException, SQLException {
-		MonetDBEmbedded restartedDB = new MonetDBEmbedded(datbaseDirectory);
-		restartedDB.startup(false);
+		MonetDBEmbedded restartedDB = new MonetDBEmbedded(datbaseDirectory, false);
+		restartedDB.run();
 
 		try (EmbeddedQueryResult result = restartedDB.query("SELECT * FROM test;")) {
 			assertEquals(4, result.getColumn(1).columnSize());
@@ -202,8 +202,8 @@ public class EmbeddedTest {
 		final Path tempDirectoryPath = Files.createTempDirectory("monetdbtest_new");
 		final File newDirectory = tempDirectoryPath.toFile();
 
-		MonetDBEmbedded newDB = new MonetDBEmbedded(newDirectory);
-		newDB.startup(false);
+		MonetDBEmbedded newDB = new MonetDBEmbedded(newDirectory, false);
+		newDB.run();
 
 		newDB.query("CREATE TABLE test (id integer, val integer);");
 		newDB.query("INSERT INTO test VALUES (1, 10), (2, 20), (3, 30), (4, null);");

@@ -23,14 +23,6 @@ JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrap
 JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
   (JNIEnv *, jobject, jstring);
 
-/*
- * Class:     org_monetdb_embedded_MonetDBEmbedded
- * Method:    append
- * Signature: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/reflect/Array;)Ljava/lang/String;
- */
-JNIEXPORT jstring JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_appendWrapper
-  (JNIEnv *, jobject, jstring, jstring, jobject);
-
 #ifdef __cplusplus
 }
 #endif
