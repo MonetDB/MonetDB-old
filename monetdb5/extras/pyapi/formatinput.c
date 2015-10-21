@@ -10,8 +10,8 @@
 #include "gdk.h"
 #include "mal_exception.h"
 
-const size_t additional_argcount = 3;
-const char * additional_args[] = {"_columns", "_column_types", "_values"};
+const size_t additional_argcount = 4;
+const char * additional_args[] = {"_columns", "_column_types", "_values", "_conn"};
 
 //! Parse a PyCodeObject from a string, the string is expected to be in the format {@<encoded_function>};, where <encoded_function> is all the PyCodeObject properties in order
 PyObject *PyCodeObject_ParseString(char *string, char **msg);

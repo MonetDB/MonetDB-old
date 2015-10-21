@@ -14,6 +14,7 @@
 #include "gdk.h"
 #include "sql_catalog.h"
 #include "pyapi.h"
+#include "connection.h"
 
 // Python library
 #undef _GNU_SOURCE
@@ -406,7 +407,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     BAT *b = NULL;
     node * argnode;
     int seengrp = FALSE;
-    PyObject *pArgs = NULL, *pColumns = NULL, *pColumnTypes = NULL, *pDict = NULL, *pResult = NULL; // this is going to be the parameter tuple
+    PyObject *pArgs = NULL, *pColumns = NULL, *pColumnTypes = NULL, *pConnection, *pDict = NULL, *pResult = NULL; // this is going to be the parameter tuple
     PyObject *code_object = NULL;
     PyReturn *pyreturn_values = NULL;
     PyInput *pyinput_values = NULL;
@@ -710,9 +711,10 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 
     // Now we will do the input handling (aka converting the input BATs to numpy arrays)
     // We will put the python arrays in a PyTuple object, we will use this PyTuple object as the set of arguments to call the Python function
-    pArgs = PyTuple_New(pci->argc - (pci->retc + 2) + (code_object == NULL ? 3 : 0));
+    pArgs = PyTuple_New(pci->argc - (pci->retc + 2) + (code_object == NULL ? 4 : 0));
     pColumns = PyDict_New();
     pColumnTypes = PyDict_New();
+    pConnection = Py_Connection_Create(cntxt);
     pDict = GetDictionary(cntxt);
 
     // Now we will loop over the input BATs and convert them to python objects
@@ -754,6 +756,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         PyTuple_SetItem(pArgs, ai++, pColumns);
         PyTuple_SetItem(pArgs, ai++, pColumnTypes);
         PyTuple_SetItem(pArgs, ai++, pDict);
+        PyTuple_SetItem(pArgs, ai++, pConnection);
         Py_INCREF(pDict);
     }
 
@@ -818,6 +821,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         Py_DECREF(pArgs);
         Py_DECREF(pColumns);
         Py_DECREF(pColumnTypes);
+        Py_DECREF(pConnection);
 
         if (PyErr_Occurred()) {
             msg = PyError_CreateException("Python exception", pycall);
@@ -1162,6 +1166,7 @@ str
             import_array1(iar);
             initialize_shared_memory();
             lazyarray_init();
+            _connection_init();
             PyEval_SaveThread();
             pyapiInitialized++;
         }

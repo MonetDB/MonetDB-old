@@ -5,11 +5,18 @@
 # Copyright 2008-2015 MonetDB B.V.
 
 INCLUDES = \
+	../../../clients/mapilib \
 	../../../common/options \
 	../../../common/stream \
+	../../modules/atoms \
+	../../modules/mal \
 	../../../gdk \
 	../../mal \
+	../../../sql/backends/monet5 \
+	../../../sql/common \
 	../../../sql/include \
+	../../../sql/server \
+	../../../sql/storage \
 	$(libpy_CFLAGS)
 
 MTSAFE
@@ -17,10 +24,10 @@ MTSAFE
 lib__pyapi = {
 	MODULE
 	DIR = libdir/monetdb5
-	SOURCES = pyapi.c pyapi.h unicode.c unicode.h pytypes.c pytypes.h type_conversion.c type_conversion.h bytearray.c bytearray.h formatinput.c formatinput.h benchmark.c benchmark.h lazyarray.c lazyarray.h
+	SOURCES = pyapi.c pyapi.h unicode.c unicode.h pytypes.c pytypes.h type_conversion.c type_conversion.h bytearray.c bytearray.h formatinput.c formatinput.h benchmark.c benchmark.h lazyarray.c lazyarray.h connection.c connection.h
 	XDEPS = $(libpy_LIBDEP)
 	LIBS = ../../tools/libmonetdb5 \
-	../../../gdk/libbat \
+	       ../../../gdk/libbat \
 	$(MALLOC_LIBS) $(libpy_LIBS)
 }
 
