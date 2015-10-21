@@ -821,7 +821,6 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         Py_DECREF(pArgs);
         Py_DECREF(pColumns);
         Py_DECREF(pColumnTypes);
-        Py_DECREF(pConnection);
 
         if (PyErr_Occurred()) {
             msg = PyError_CreateException("Python exception", pycall);
