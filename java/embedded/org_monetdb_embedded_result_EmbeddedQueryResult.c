@@ -29,18 +29,18 @@ static jobject getBooleanColumn(JNIEnv *env, BAT *b) {
 	jboolean nul_tmp[size];
 	if (b->T->nonil && !b->T->nil) {
 		for (i = 0; i < size; i++) {
-			val_tmp[i] = (jboolean) ((jboolean*) Tloc(b, BUNfirst(b)))[i];
+			val_tmp[i] = (bit) ((bit*) Tloc(b, BUNfirst(b)))[i];
 			nul_tmp[i] = false;
 		}
 	}
 	else {
 		for (i = 0; i < size; i++) {
-			int v = ((jboolean*) Tloc(b, BUNfirst(b)))[i];
+			int v = ((bit*) Tloc(b, BUNfirst(b)))[i];
 			if (v == bit_nil) {
 				val_tmp[i] = 0;
 				nul_tmp[i] = true;
 			} else {
-				val_tmp[i] = (jboolean)v;
+				val_tmp[i] = (bit)v;
 				nul_tmp[i] = false;
 			}
 		}
@@ -78,7 +78,7 @@ static jobject getByteColumn(JNIEnv *env, BAT *b) {
 	}
 	else {
 		for (i = 0; i < size; i++) {
-			int v = ((bte*) Tloc(b, BUNfirst(b)))[i];
+			bte v = ((bte*) Tloc(b, BUNfirst(b)))[i];
 			if (v == bte_nil) {
 				val_tmp[i] = 0;
 				nul_tmp[i] = true;
@@ -121,7 +121,7 @@ static jobject getShortColumn(JNIEnv *env, BAT *b) {
 	}
 	else {
 		for (i = 0; i < size; i++) {
-			int v = ((short*) Tloc(b, BUNfirst(b)))[i];
+			short v = ((short*) Tloc(b, BUNfirst(b)))[i];
 			if (v == sht_nil) {
 				val_tmp[i] = 0;
 				nul_tmp[i] = true;
@@ -207,7 +207,7 @@ static jobject getLongColumn(JNIEnv *env, BAT *b) {
 	}
 	else {
 		for (i = 0; i < size; i++) {
-			int v = ((long*) Tloc(b, BUNfirst(b)))[i];
+			long v = ((long*) Tloc(b, BUNfirst(b)))[i];
 			if (v == lng_nil) {
 				val_tmp[i] = 0;
 				nul_tmp[i] = true;
@@ -250,7 +250,7 @@ static jobject getFloatColumn(JNIEnv *env, BAT *b) {
 	}
 	else {
 		for (i = 0; i < size; i++) {
-			int v = ((float*) Tloc(b, BUNfirst(b)))[i];
+			float v = ((float*) Tloc(b, BUNfirst(b)))[i];
 			if (v == flt_nil) {
 				val_tmp[i] = 0.0;
 				nul_tmp[i] = true;
@@ -293,7 +293,7 @@ static jobject getDoubleColumn(JNIEnv *env, BAT *b) {
 	}
 	else {
 		for (i = 0; i < size; i++) {
-			int v = ((double*) Tloc(b, BUNfirst(b)))[i];
+			double v = ((double*) Tloc(b, BUNfirst(b)))[i];
 			if (v == dbl_nil) {
 				val_tmp[i] = 0.0;
 				nul_tmp[i] = true;
@@ -346,7 +346,6 @@ static jobject getStringColumn(JNIEnv *env, BAT *b) {
 			j++;
 		}
 	}
-
 	// Create the column object
 	// from Java StringColumn(String[] values, int columnSize, boolean[] nullIndex)
 	column = (*env)->NewObject(env, columnClass, columnConstructor, values, size, nulls);
@@ -380,11 +379,9 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_g
 		return getLongColumn(env, b);
 		break;
 	case TYPE_flt:
-		printf("float1\n");
 		return getFloatColumn(env, b);
 		break;
 	case TYPE_dbl:
-		printf("double1\n");
 		return getDoubleColumn(env, b);
 		break;
 	case TYPE_str:
