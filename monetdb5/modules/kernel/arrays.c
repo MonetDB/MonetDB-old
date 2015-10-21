@@ -1002,9 +1002,9 @@ str ALGprojectNonDimension(bat *result, const bat *vals, const ptr *array) {
 
     (void)*array;
 
-    BBPunfix(inputBAT->batCacheid);
-    BBPkeepref(*result = resBAT->batCacheid);
-    return MAL_SUCCEED;
+	BBPunfix(inputBAT->batCacheid);
+	BBPkeepref(*result = resBAT->batCacheid);
+	return MAL_SUCCEED;    
 
 #if 0
     const gdk_array *dimsCands = arrayCopy((gdk_array*)*array); //candidates exactly the same to the array
