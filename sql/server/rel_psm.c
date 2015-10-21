@@ -13,6 +13,7 @@
 #include "rel_select.h"
 #include "rel_exp.h"
 #include "rel_updates.h"
+#include "rel_sequence.h"
 #include "sql_privileges.h"
 
 static list *sequential_block(mvc *sql, sql_subtype *restype, list *restypelist, dlist *blk, char *opt_name, int is_func);
@@ -583,6 +584,12 @@ sequential_block (mvc *sql, sql_subtype *restype, list *restypelist, dlist *blk,
 				return NULL;
 			res = exp_rel(sql, r);
 		}	break;
+		case SQL_ALTER_SEQ: {
+			sql_rel *r = rel_sequences(sql, s);
+			if (!r)
+				return NULL;
+			res = exp_rel(sql, r);
+		} break;
 		default:
 			res = sql_error(sql, 01, 
 			 "Statement '%s' is not a valid flow control statement",
