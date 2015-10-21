@@ -91,36 +91,6 @@ static int pyapiInitialized = FALSE;
 
 static bool python_call_active = false;
 
-static PyObject **dictionaries = NULL;
-static Client *clients = NULL;
-static int dictionary_count = 0, max_dictionaries = 0;
-
-static PyObject *GetDictionary(Client c) 
-{
-    int i = 0;
-    for(i = 0; i < dictionary_count; i++) {
-        if (clients[i] == c) {
-            return dictionaries[i];
-        }
-    }
-
-    if (dictionary_count >= max_dictionaries) {
-        PyObject **new_dictionaries = GDKzalloc((max_dictionaries + 2) * sizeof(PyObject*));
-        Client *new_clients = GDKzalloc((max_dictionaries + 2) * sizeof(Client));
-        for(i = 0; i < dictionary_count; i++) {
-            new_dictionaries[i] = dictionaries[i];
-            new_clients[i] = clients[i];
-        }
-        if (clients != NULL) { GDKfree(clients); GDKfree(dictionaries); }
-        dictionaries = new_dictionaries; clients = new_clients;
-    } 
-
-    clients[dictionary_count] = c;
-    dictionaries[dictionary_count] = PyDict_New();
-    dictionary_count++;
-    return dictionaries[dictionary_count - 1];
-}
-
 #ifdef _PYAPI_TESTING_
 // This #define converts a BAT 'bat' of BAT type 'TYPE_mtpe' to a Numpy array of type 'nptpe'
 // This only works with numeric types (bit, byte, int, long, float, double), strings are handled separately
@@ -361,28 +331,24 @@ PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped, 
 str
 PyAPIevalStd(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-    (void) cntxt;
     return PyAPIeval(cntxt, mb, stk, pci, 0, 0);
 }
 
 str
 PyAPIevalStdMap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-    (void) cntxt;
     return PyAPIeval(cntxt, mb, stk, pci, 0, 1);
 }
 
 str
 PyAPIevalAggr(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-    (void) cntxt;
     return PyAPIeval(cntxt, mb, stk, pci, 1, 0);
 }
 
 str
 PyAPIevalAggrMap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-    (void) cntxt;
     return PyAPIeval(cntxt, mb, stk, pci, 1, 1);
 }
 
@@ -407,7 +373,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     BAT *b = NULL;
     node * argnode;
     int seengrp = FALSE;
-    PyObject *pArgs = NULL, *pColumns = NULL, *pColumnTypes = NULL, *pConnection, *pDict = NULL, *pResult = NULL; // this is going to be the parameter tuple
+    PyObject *pArgs = NULL, *pColumns = NULL, *pColumnTypes = NULL, *pConnection, *pResult = NULL; // this is going to be the parameter tuple
     PyObject *code_object = NULL;
     PyReturn *pyreturn_values = NULL;
     PyInput *pyinput_values = NULL;
@@ -711,11 +677,10 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 
     // Now we will do the input handling (aka converting the input BATs to numpy arrays)
     // We will put the python arrays in a PyTuple object, we will use this PyTuple object as the set of arguments to call the Python function
-    pArgs = PyTuple_New(pci->argc - (pci->retc + 2) + (code_object == NULL ? 4 : 0));
+    pArgs = PyTuple_New(pci->argc - (pci->retc + 2) + (code_object == NULL ? 3 : 0));
     pColumns = PyDict_New();
     pColumnTypes = PyDict_New();
     pConnection = Py_Connection_Create(cntxt);
-    pDict = GetDictionary(cntxt);
 
     // Now we will loop over the input BATs and convert them to python objects
     for (i = pci->retc + 2; i < pci->argc; i++) {
@@ -755,9 +720,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     if (code_object == NULL) {
         PyTuple_SetItem(pArgs, ai++, pColumns);
         PyTuple_SetItem(pArgs, ai++, pColumnTypes);
-        PyTuple_SetItem(pArgs, ai++, pDict);
         PyTuple_SetItem(pArgs, ai++, pConnection);
-        Py_INCREF(pDict);
     }
 
     /*[EXECUTE_CODE]*/
@@ -801,21 +764,6 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 
         // The function has been successfully created/compiled, all that remains is to actually call the function
         pResult = PyObject_CallObject(pFunc, pArgs);
-
-        {
-            //check the _values dictionary to see if any of the stored values are input values
-            PyObject *key, *value;
-            Py_ssize_t pos = 0;
-            while (PyDict_Next(pDict, &pos, &key, &value)) {
-                for(i = 0; i < pci->argc - (pci->retc + 2); i ++) {
-                    PyObject *arg = PyTuple_GetItem(pArgs, i);
-                    if (arg == value) {
-                        msg = createException(MAL, "pyapi.eval", "You cannot directly store input arguments in the _values dictionary, instead use _values[key] = numpy.copy(input).");
-                        goto wrapup;
-                    }
-                }
-            }
-        }
 
         Py_DECREF(pFunc);
         Py_DECREF(pArgs);

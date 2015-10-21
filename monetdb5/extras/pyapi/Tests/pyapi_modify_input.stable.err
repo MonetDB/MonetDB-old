@@ -31,45 +31,45 @@ stderr of test 'pyapi_modify_input` in directory 'monetdb5/extras/pyapi` itself:
 # 12:27:29 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-30203" "--port=31030"
 # 12:27:29 >  
 
-MAPI  = (monetdb) /var/tmp/mtest-26471/.s.monetdb.31185
+MAPI  = (monetdb) /var/tmp/mtest-30397/.s.monetdb.34935
 QUERY = rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"arg1[0].__setitem__(0,'a')\nreturn(arg1)",bstr);
 ERROR = !MALException:pyapi.eval:Python exception
-        !  1. def pyfun(arg1,_columns,_column_types,_values,_conn):
+        !  1. def pyfun(arg1,_columns,_column_types,_conn):
         !> 2.   arg1[0].__setitem__(0,'a')
         !  3.   return(arg1)
         !'numpy.string_' object has no attribute '__setitem__'
-MAPI  = (monetdb) /var/tmp/mtest-26471/.s.monetdb.31185
+MAPI  = (monetdb) /var/tmp/mtest-30397/.s.monetdb.34935
 QUERY = rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"arg1[0][0]='d'\nreturn(arg1)",bstr);
 ERROR = !MALException:pyapi.eval:Python exception
-        !  1. def pyfun(arg1,_columns,_column_types,_values,_conn):
+        !  1. def pyfun(arg1,_columns,_column_types,_conn):
         !> 2.   arg1[0][0]='d'
         !  3.   return(arg1)
         !'numpy.string_' object does not support item assignment
-MAPI  = (monetdb) /var/tmp/mtest-26471/.s.monetdb.31185
+MAPI  = (monetdb) /var/tmp/mtest-30397/.s.monetdb.34935
 QUERY = rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"arg1[0].reverse()\nreturn(arg1)",bstr);
 ERROR = !MALException:pyapi.eval:Python exception
-        !  1. def pyfun(arg1,_columns,_column_types,_values,_conn):
+        !  1. def pyfun(arg1,_columns,_column_types,_conn):
         !> 2.   arg1[0].reverse()
         !  3.   return(arg1)
         !'numpy.string_' object has no attribute 'reverse'
-MAPI  = (monetdb) /var/tmp/mtest-26471/.s.monetdb.31185
+MAPI  = (monetdb) /var/tmp/mtest-30397/.s.monetdb.34935
 QUERY = rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"a = arg1[0].remove('a')\nreturn(arg1)",bstr);
 ERROR = !MALException:pyapi.eval:Python exception
-        !  1. def pyfun(arg1,_columns,_column_types,_values,_conn):
+        !  1. def pyfun(arg1,_columns,_column_types,_conn):
         !> 2.   a = arg1[0].remove('a')
         !  3.   return(arg1)
         !'numpy.string_' object has no attribute 'remove'
-MAPI  = (monetdb) /var/tmp/mtest-26471/.s.monetdb.31185
+MAPI  = (monetdb) /var/tmp/mtest-30397/.s.monetdb.34935
 QUERY = rstr:bat[:oid,:str] := pyapi.eval(nil:ptr,"a = arg1[0].pop()\nreturn(arg1)",bstr);
 ERROR = !MALException:pyapi.eval:Python exception
-        !  1. def pyfun(arg1,_columns,_column_types,_values,_conn):
+        !  1. def pyfun(arg1,_columns,_column_types,_conn):
         !> 2.   a = arg1[0].pop()
         !  3.   return(arg1)
         !'numpy.string_' object has no attribute 'pop'
-MAPI  = (monetdb) /var/tmp/mtest-26471/.s.monetdb.31185
+MAPI  = (monetdb) /var/tmp/mtest-30397/.s.monetdb.34935
 QUERY = result:bat[:oid,:int] := pyapi.eval(nil:ptr, "arg1[0]=4\nreturn(arg1)", a);
 ERROR = !MALException:pyapi.eval:Python exception
-        !  1. def pyfun(arg1,_columns,_column_types,_values,_conn):
+        !  1. def pyfun(arg1,_columns,_column_types,_conn):
         !> 2.   arg1[0]=4
         !  3.   return(arg1)
         !assignment destination is read-only
