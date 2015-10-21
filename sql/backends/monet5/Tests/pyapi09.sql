@@ -64,8 +64,35 @@ language P
 
 SELECT * FROM pyapi09load();
 
+DROP FUNCTION pyapi09create;
+DROP FUNCTION pyapi09load;
+DROP TABLE pyapi09objects;
 
+# Fourth test: Error in query, 
+# Load the data from the table
+CREATE FUNCTION pyapi09() returns TABLE(i INTEGER)
+language P
+{
+    res = _conn.execute('SELECT * FROM unknown_table;')
+    return numpy.arange(10)
+};
 
-
+SELECT * FROM pyapi09();
 ROLLBACK;
 
+START TRANSACTION;
+
+# Fifth test: Error in query, but we capture it, does it ruin our transaction?
+# Load the data from the table
+CREATE FUNCTION pyapi09() returns TABLE(i INTEGER)
+language P
+{
+    try: res = _conn.execute('SELECT * FROM unknown_table;')
+    except: pass
+    return numpy.arange(10)
+};
+
+SELECT * FROM pyapi09();
+SELECT 1; # yes it does...
+
+ROLLBACK;
