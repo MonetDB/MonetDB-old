@@ -117,6 +117,39 @@ Ready.
 [ 7	]
 [ 8	]
 [ 9	]
+#DROP FUNCTION pyapi09create;
+#DROP FUNCTION pyapi09load;
+#DROP TABLE pyapi09objects;
+#CREATE FUNCTION pyapi09() returns TABLE(i INTEGER)
+#language P
+#{
+#    res = _conn.execute('SELECT * FROM unknown_table;')
+#    return numpy.arange(10)
+#};
+#ROLLBACK;
+#START TRANSACTION;
+#CREATE FUNCTION pyapi09() returns TABLE(i INTEGER)
+#language P
+#{
+#    try: res = _conn.execute('SELECT * FROM unknown_table;')
+#    except: pass
+#    return numpy.arange(10)
+#};
+#SELECT * FROM pyapi09();
+% . # table_name
+% i # name
+% int # type
+% 1 # length
+[ 0	]
+[ 1	]
+[ 2	]
+[ 3	]
+[ 4	]
+[ 5	]
+[ 6	]
+[ 7	]
+[ 8	]
+[ 9	]
 #ROLLBACK;
 
 # 14:42:12 >  
