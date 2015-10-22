@@ -128,25 +128,25 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
 				type = "boolean";
 				break;
 			case TYPE_bte:
-				type = "byte";
+				type = "tinyint";
 				break;
 			case TYPE_sht:
-				type = "short";
+				type = "smallint";
 				break;
 			case TYPE_int:
-				type = "integer";
+				type = "int";
 				break;
 			case TYPE_lng:
-				type = "long";
+				type = "bigint";
 				break;
 			case TYPE_flt:
-				type = "float";
+				type = "real";
 				break;
 			case TYPE_dbl:
 				type = "double";
 				break;
 			case TYPE_str:
-				type = "string";
+				type = "varchar";
 				break;
 #ifdef HAVE_HGE
 			case TYPE_hge:
