@@ -15,6 +15,7 @@
 #include "sql_catalog.h"
 #include "pyapi.h"
 #include "connection.h"
+#include "mal_dataflow.h"
 
 // Python library
 #undef _GNU_SOURCE
@@ -555,6 +556,8 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         }
         else if (pid == 0)
         {
+            forked_process = 1;
+            GDKnr_threads = 1;
             child_process = true;
 #ifdef _PYAPI_TESTING_
             if (!disable_testing && !option_disablemalloctracking && benchmark_output != NULL) { init_hook(); }
@@ -566,11 +569,11 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
             //main process
             int status;
             bool success = true;
-
             //wait for child processes
             MT_lock_unset(&pyapiLock, "pyapi.evaluate");
 
             waitpid(pid, &status, 0);
+
             if (status != 0)
                 success = false;
 

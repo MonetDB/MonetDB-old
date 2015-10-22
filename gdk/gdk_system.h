@@ -126,14 +126,15 @@ typedef struct {
 #define MT_lock_destroy(l)	pthread_mutex_destroy(&(l)->lock)
 #define MT_lock_set(l, n)						\
 	do {								\
-		TEMDEBUG fprintf(stderr, "#%s: locking %s...\n",	\
-				 (n), (l)->name);			\
+		if (forked_process) break;    \
+		TEMDEBUG fprintf(stderr, "#%s: locking %s...\n",	(n), (l)->name);		\
 		pthread_mutex_lock(&(l)->lock);				\
-		TEMDEBUG fprintf(stderr, "#%s: locking %s complete\n",	\
+		if (forked_process) fprintf(stderr, "#%s: locking %s complete\n",	\
 				 (n), (l)->name);			\
 	} while (0)
 #define MT_lock_unset(l, n)						\
 	do {								\
+		if (forked_process) break;                 \
 		TEMDEBUG fprintf(stderr, "#%s: unlocking %s\n",		\
 				 (n), (l)->name);			\
 		pthread_mutex_unlock(&(l)->lock);			\
@@ -256,8 +257,11 @@ gdk_export ATOMIC_TYPE volatile GDKlocksleepcnt;
 
 #endif
 
+extern int forked_process;
+
 #define MT_lock_set(l, n)						\
 	do {								\
+		if (forked_process) break; \
 		_DBG_LOCK_COUNT_0(l, n);				\
 		if (ATOMIC_TAS((l)->lock, dummy, n) != 0) {		\
 			/* we didn't get the lock */			\
@@ -334,16 +338,16 @@ typedef struct {
 #define MT_sema_destroy(s)	pthread_sema_destroy(&(s)->sema)
 #define MT_sema_up(s, n)					\
 	do {							\
-		TEMDEBUG fprintf(stderr, "#%s: sema %s up\n",	\
-				 (n), (s)->name);		\
+		if (forked_process) break;            \
+		TEMDEBUG fprintf(stderr, "#%s: sema %s up\n", (n), (s)->name);		\
 		pthread_sema_up(&(s)->sema);			\
 	} while (0)
 #define MT_sema_down(s, n)						\
 	do {								\
-		TEMDEBUG fprintf(stderr, "#%s: sema %s down...\n",	\
-				 (n), (s)->name);			\
+		if (forked_process) break;                    \
+		TEMDEBUG fprintf(stderr, "#%s: sema %s down...\n",(n), (s)->name);		\
 		pthread_sema_down(&(s)->sema);				\
-		TEMDEBUG fprintf(stderr, "#%s: sema %s down complete\n", \
+		if (forked_process) fprintf(stderr, "#%s: sema %s down complete\n", \
 				 (n), (s)->name);			\
 	} while (0)
 
