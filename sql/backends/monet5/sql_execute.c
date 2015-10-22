@@ -43,6 +43,13 @@
 
 /* #define _SQL_COMPILE */
 
+
+str
+SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output, res_table **result)
+{
+	return SQLstatementIntern_wrapped(c, expr, nme, execute, output, 0, 0, result);
+}
+
 /*
 * BEWARE: SQLstatementIntern only commits after all statements found
 * in expr are executed, when autocommit mode is enabled.
@@ -51,7 +58,7 @@
 * is executed within the client context specified. This leads to context juggling.
 */
 str
-SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output, res_table **result)
+SQLstatementIntern_wrapped(Client c, str *expr, str nme, int execute, bit output, bit readonly, bit singlestatement, res_table **result)
 {
 	int status = 0;
 	int err = 0;
@@ -155,7 +162,21 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output, res_ta
 			c->glb = oldglb;
 			goto endofcompile;
 		}
-
+		if (readonly) {
+			switch (m->sym->token) {
+				case SQL_SELECT:
+				case SQL_JOIN:
+				case SQL_CROSS:
+				case SQL_UNION:
+				case SQL_EXCEPT:
+				case SQL_INTERSECT:
+					break;
+				default:
+					msg = createException(PARSE, "SQLparser", "Mode set to readonly, but received token %d", m->sym->token);
+					sqlcleanup(m, err);
+					goto endofcompile;
+			}
+		}
 		/*
 		 * We have dealt with the first parsing step and advanced the input reader
 		 * to the next statement (if any).
@@ -225,6 +246,8 @@ SQLstatementIntern(Client c, str *expr, str nme, int execute, bit output, res_ta
 #endif
 		assert(c->glb == 0 || c->glb == oldglb);	/* detect leak */
 		c->glb = oldglb;
+
+		if (singlestatement) break;
 	}
 	if (m->results && result) { /* return all results sets */
 		*result = m->results;

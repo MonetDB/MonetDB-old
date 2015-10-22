@@ -129,7 +129,7 @@ typedef struct {
 		if (forked_process) break;    \
 		TEMDEBUG fprintf(stderr, "#%s: locking %s...\n",	(n), (l)->name);		\
 		pthread_mutex_lock(&(l)->lock);				\
-		if (forked_process) fprintf(stderr, "#%s: locking %s complete\n",	\
+		TEMDEBUG fprintf(stderr, "#%s: locking %s complete\n",	\
 				 (n), (l)->name);			\
 	} while (0)
 #define MT_lock_unset(l, n)						\
@@ -347,7 +347,7 @@ typedef struct {
 		if (forked_process) break;                    \
 		TEMDEBUG fprintf(stderr, "#%s: sema %s down...\n",(n), (s)->name);		\
 		pthread_sema_down(&(s)->sema);				\
-		if (forked_process) fprintf(stderr, "#%s: sema %s down complete\n", \
+		TEMDEBUG fprintf(stderr, "#%s: sema %s down complete\n", \
 				 (n), (s)->name);			\
 	} while (0)
 

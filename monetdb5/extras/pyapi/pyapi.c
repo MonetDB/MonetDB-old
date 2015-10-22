@@ -15,7 +15,6 @@
 #include "sql_catalog.h"
 #include "pyapi.h"
 #include "connection.h"
-#include "mal_dataflow.h"
 
 // Python library
 #undef _GNU_SOURCE

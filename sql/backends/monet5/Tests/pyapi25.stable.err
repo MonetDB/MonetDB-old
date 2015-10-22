@@ -31,6 +31,24 @@ stderr of test 'pyapi25` in directory 'sql/backends/monet5` itself:
 # 14:54:29 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-32200" "--port=34132"
 # 14:54:29 >  
 
+MAPI  = (monetdb) /var/tmp/mtest-32688/.s.monetdb.38881
+QUERY = SELECT pyapi09(i) FROM pyapi09table;
+ERROR = !Python exception
+        !
+        !  1. def pyfun(i,_columns,_column_types,_conn):
+        !> 2.   _conn.execute('CREATE TABLE mytable(i INTEGER);')
+        !  3.   return i
+        !  4. 
+        !SQL Query Failed: ParseException:SQLparser:Mode set to readonly, but received token 1
+MAPI  = (monetdb) /var/tmp/mtest-32688/.s.monetdb.38881
+QUERY = SELECT pyapi09map(i) FROM pyapi09table;
+ERROR = !MALException:pyapi.eval:Python exception
+        !
+        !  1. def pyfun(i,_columns,_column_types,_conn):
+        !> 2.   _conn.execute('UPDATE pyapi09multiplication SET i=10;')
+        !  3.   return i
+        !  4. 
+        !SQL Query Failed: ParseException:SQLparser:Mode set to readonly, but received token 69
 
 # 14:54:30 >  
 # 14:54:30 >  "Done."

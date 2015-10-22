@@ -64,12 +64,12 @@ Ready.
 #DROP FUNCTION pyapi09;
 #DROP TABLE pyapi09table;
 #DROP TABLE pyapi09multiplication;
-#CREATE TABLE pyapi09table(i integer);
-#INSERT INTO pyapi09table VALUES (1), (2), (3), (4);
-[ 4	]
 #CREATE TABLE pyapi09multiplication(i integer);
 #INSERT INTO pyapi09multiplication VALUES (3);
 [ 1	]
+#CREATE TABLE pyapi09table(i integer);
+#INSERT INTO pyapi09table VALUES (1), (2), (3), (4);
+[ 4	]
 #CREATE FUNCTION pyapi09(i integer) returns integer
 #language PYTHON
 #{
@@ -88,40 +88,20 @@ Ready.
 % int # type
 % 1 # length
 [ 3	]
-#SELECT pyapi09(i) FROM pyapi09table;
-% sys.L # table_name
-% pyapi09_i # name
-% int # type
-% 1 # length
+#ROLLBACK;
+#START TRANSACTION;
+#CREATE TABLE pyapi09multiplication(i integer);
+#INSERT INTO pyapi09multiplication VALUES (3);
 [ 1	]
-[ 2	]
-[ 3	]
+#CREATE TABLE pyapi09table(i integer);
+#INSERT INTO pyapi09table VALUES (1), (2), (3), (4);
 [ 4	]
 #SELECT * FROM pyapi09multiplication;
 % sys.pyapi09multiplication # table_name
 % i # name
 % int # type
-% 2 # length
-[ 20	]
-#SELECT pyapi09map(i) FROM pyapi09table;
-% sys.L # table_name
-% pyapi09map_i # name
-% int # type
 % 1 # length
-[ 1	]
-[ 2	]
 [ 3	]
-[ 4	]
-#SELECT * FROM pyapi09multiplication;
-% sys.pyapi09multiplication # table_name
-% i # name
-% int # type
-% 2 # length
-[ 20	]
-#DROP FUNCTION pyapi09;
-#DROP FUNCTION pyapi09map;
-#DROP TABLE pyapi09table;
-#DROP TABLE pyapi09multiplication;
 #ROLLBACK;
 
 # 14:54:30 >  

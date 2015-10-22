@@ -130,7 +130,7 @@ static void _connection_cleanup_result(void* output)
 static char* _connection_query(Client cntxt, char* query, res_table** result) {
     str res = MAL_SUCCEED;
     Client c = cntxt;
-    res = SQLstatementIntern(c, &query, "name", 1, 0, result);
+    res = SQLstatementIntern_wrapped(c, &query, "name", 1, 0, 1, 1, result);
     return res;
 }
 
