@@ -69,6 +69,7 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
 	(void)object;
 	res_table *output = NULL;
 	int numberOfColumns = 0;
+	int numberOfRows = 0;
 	const char *query_string_tmp = (*env)->GetStringUTFChars(env, query, 0);
 	char *query_string = strdup(query_string_tmp);
 	// Release the query string
@@ -76,8 +77,8 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
 
 	jobject result;
 	jclass resultClass = (*env)->FindClass(env, "org/monetdb/embedded/result/EmbeddedQueryResult");
-	// from Java EmbeddedQueryResult(String[] columnNames, String[] columnTypes, int numberOfColumns, long resultPointer)
-	jmethodID resultConstructor = (*env)->GetMethodID(env, resultClass, "<init>", "([Ljava/lang/String;[Ljava/lang/String;IJ)V");
+	// from Java EmbeddedQueryResult(String[] columnNames, String[] columnTypes, int numberOfColumns, int numberOfRows, long resultPointer)
+	jmethodID resultConstructor = (*env)->GetMethodID(env, resultClass, "<init>", "([Ljava/lang/String;[Ljava/lang/String;IIJ)V");
 	// column names and types string arrays
 	jobjectArray columnNames, columnTypes = NULL;
 	jclass stringClass = (*env)->FindClass(env, "java/lang/String");
@@ -120,7 +121,9 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
 			BAT* b = BATdescriptor(col.b);
 			char *type;
 
-			switch (ATOMstorage(getColumnType(b->T->type))) {
+			numberOfRows = BATcount(b);
+
+			switch (getColumnType(b->T->type)) {
 			case TYPE_bit:
 				type = "boolean";
 				break;
@@ -161,8 +164,8 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
 	// Also keep a long value with the result pointer in the Java result object
 	long resultTablePointer = (long)output;
 	// Create the result object
-	// from Java EmbeddedQueryResult(String[] columnNames, String[] columnTypes, int numberOfColumns, long resultPointer)
-	result = (*env)->NewObject(env, resultClass, resultConstructor, columnNames, columnTypes, numberOfColumns, resultTablePointer);
+	// from Java EmbeddedQueryResult(String[] columnNames, String[] columnTypes, int numberOfColumns, int numberOfRows, long resultPointer)
+	result = (*env)->NewObject(env, resultClass, resultConstructor, columnNames, columnTypes, numberOfColumns, numberOfRows, resultTablePointer);
 
 	return result;
 }

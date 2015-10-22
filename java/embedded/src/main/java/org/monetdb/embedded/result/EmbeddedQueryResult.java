@@ -14,6 +14,9 @@ import java.util.Iterator;
 
 import org.monetdb.embedded.result.column.Column;
 
+import nl.cwi.monetdb.jdbc.MonetDBResultSet;
+import nl.cwi.monetdb.jdbc.MonetResultSet;
+
 /**
  * Embedded MonetDB query result.
  * The query result columns are not eagerly copied from the native code to Java.
@@ -35,16 +38,21 @@ public class EmbeddedQueryResult implements Closeable, Iterable<Column<?>> {
 	 */
 	private int numberOfColumns;
 	/**
+	 * The number of rows in the query result.
+	 */
+	private int numberOfRows;
+	/**
 	 * Pointer to the native result set.
 	 * We need to keep it around for getting columns.
 	 * The native result set is kept until the {@link close()} is called.
 	 */
 	private long resultPointer;
 
-	public EmbeddedQueryResult(String[] columnNames, String[] columnTypes, int numberOfColumns, long resultPointer) {
+	public EmbeddedQueryResult(String[] columnNames, String[] columnTypes, int numberOfColumns, int numberOfRows, long resultPointer) {
 		this.columnNames = columnNames;
 		this.columnTypes = columnTypes;
 		this.numberOfColumns = numberOfColumns;
+		this.numberOfRows = numberOfRows;
 		this.resultPointer = resultPointer;
 	}
 
@@ -95,6 +103,10 @@ public class EmbeddedQueryResult implements Closeable, Iterable<Column<?>> {
 	 * @return
 	 */
 	private native Column<?> getColumnWrapper(long resultPointerWrapper, int index);
+
+	public MonetResultSet getJDBCResultSet() {
+		return new MonetDBResultSet(columnNames, columnTypes, numberOfRows);
+	}
 
 	@Override
 	public Iterator<Column<?>> iterator() {
