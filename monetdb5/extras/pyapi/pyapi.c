@@ -79,6 +79,9 @@ static bool option_debug;
 static bool option_warning;
 #endif
 
+static PyObject *marshal_module = NULL;
+PyObject *marshal_loads = NULL;
+
 const int utf8string_minlength = 256;
 
 int PyAPIEnabled(void) {
@@ -1114,6 +1117,14 @@ str
             initialize_shared_memory();
             lazyarray_init();
             _connection_init();
+            marshal_module = PyImport_Import(PyString_FromString("marshal"));
+            if (marshal_module == NULL) {
+                return createException(MAL, "pyapi.eval", "Failed to load Marshal module.");
+            }
+            marshal_loads = PyObject_GetAttrString(marshal_module, "loads");
+            if (marshal_loads == NULL) {
+                return createException(MAL, "pyapi.eval", "Failed to load function \"loads\" from Marshal module.");
+            }
             PyEval_SaveThread();
             pyapiInitialized++;
         }

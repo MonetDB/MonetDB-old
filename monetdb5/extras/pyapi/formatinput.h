@@ -21,6 +21,8 @@
 #undef _POSIX_C_SOURCE
 #include <Python.h>
  
+extern PyObject *marshal_loads;
+
 char* FormatCode(char* code, char **args, size_t argcount, size_t tabwidth, PyObject **code_object, char **return_message);
 
 #endif /* _PY_FORMAT_INPUT_LIB_ */

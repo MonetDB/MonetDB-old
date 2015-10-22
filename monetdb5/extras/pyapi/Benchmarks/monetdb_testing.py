@@ -1,43 +1,8 @@
 
 
-def consts_to_string(consts):
-    result = ""
-    for const in consts:
-        if not str(type(const).__name__) == "code":
-            result = result + '(' + str(type(const).__name__) + ':' + str(const) + ')'
-        else:
-            result = result + '(code:{@' + code_object_to_string(const) + '})'
-    return result
-
-def names_to_string(names):
-    result = ""
-    for name in names:
-        result = result + name + ','
-    return result
-
-def format_code(code):
-    result = "";
-    for i in code:
-        if ord(i) < 16: result = result + '\\\\x0' + hex(ord(i))[2:]
-        else: result = result + '\\\\x' + hex(ord(i))[2:]
-    return result
-
 def code_object_to_string(codeobject):
-    args = codeobject.co_argcount
-    nlocals = codeobject.co_nlocals
-    stacksize = codeobject.co_stacksize
-    flags = codeobject.co_flags
-    code = format_code(codeobject.co_code)
-    consts = codeobject.co_consts
-    names = codeobject.co_names
-    varnames = codeobject.co_varnames
-    freevars = codeobject.co_freevars
-    cellvars = codeobject.co_cellvars
-    filename = codeobject.co_filename
-    name = codeobject.co_name
-    firstlineno = codeobject.co_firstlineno
-    lnotab = format_code(codeobject.co_lnotab)
-    return str(args) + '@' + str(nlocals) + '@' + str(stacksize) + '@' + str(flags) + '@' + code + '@' + consts_to_string(consts) + '@' + names_to_string(names) + '@' + names_to_string(varnames) + '@' + names_to_string(freevars) + '@' + names_to_string(cellvars) + '@' + filename + '@' + name + '@' + str(firstlineno) + '@' + lnotab + '@'
+    import marshal, string
+    return '@' + "".join('\\x' + x.encode('hex') for x in marshal.dumps(codeobject))
 
 def function_to_string(fun):
     return code_object_to_string(fun.__code__)
