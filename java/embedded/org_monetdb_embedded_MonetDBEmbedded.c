@@ -13,6 +13,9 @@
 #include "res_table.h"
 #include "mal_type.h"
 
+bool running = false;
+char *runningDirectory;
+
 JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapper
 (JNIEnv *env, jobject object, jstring directory, jboolean silent) {
 	(void)object;
@@ -20,9 +23,25 @@ JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrap
 	char *directory_string = strdup(directory_string_tmp);
 	unsigned char silent_char = 'n';
 	char *err;
-
+	jclass exClass = (*env)->FindClass(env, "java/io/IOException");
 	// Release the directory string
 	(*env)->ReleaseStringUTFChars(env, directory, directory_string_tmp);
+
+	// Check if we already have a running db
+	if (running) {
+		if (strcmp(directory_string, runningDirectory) == 0) {
+			return true;
+		}
+		// Throw a Java exception
+		if (exClass == NULL) {
+			// Cloud not find the exception class, just return empty object
+			return false;
+		}
+		err = "A database is already working in another directory. Only a single embedded MonetDB process can be started in the same JVM";
+		(*env)->ThrowNew(env, exClass, err);
+		return false;
+	}
+
 	// Set the silent flag based on passed boolean value
 	if (silent) {
 		silent_char = 'y';
@@ -31,9 +50,6 @@ JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrap
 	err = monetdb_startup(directory_string, silent_char);
 	// Checking for errors
 	if (err != NULL) {
-		jclass exClass = (*env)->FindClass(env, "java/io/IOException");
-
-		// Clean up the result data
 		if (exClass == NULL) {
 			// Cloud not find the exception class, just return empty object
 			return false;
@@ -42,6 +58,9 @@ JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrap
 		return false;
 	}
 
+	// set the flags
+	running = true;
+	runningDirectory = directory_string;
 	return true;
 }
 

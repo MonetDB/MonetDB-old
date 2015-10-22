@@ -18,6 +18,7 @@ import org.monetdb.embedded.result.EmbeddedQueryResult;
  * Embedded version of MonetDB.
  * Communication between Java and native C is done via JNI.
  * 
+ * <br/><strong>Note</strong>: You can have only one embedded MonetDB database running per JVM process.
  */
 public class MonetDBEmbedded {
 	/** 
@@ -27,24 +28,31 @@ public class MonetDBEmbedded {
 	/** 
 	 * The working directory for MonetDB.
 	 */
-	private File directory;
-	private boolean silentFlag;
+	private final File databaseDirectory;
+	/**
+	 * Silent flag for database startup
+	 */
+	private final boolean silentFlag;
 
 	/**
-	 * You can instantiate multiple object, 
-	 * just make sure they are assigned different directories.
-	 * 
-	 * @param directory Database directory
-	 * @param silentFlag Silent flag for logging messages
+	 * @param databaseDirectory Database directory
 	 */
-	public MonetDBEmbedded(File directory, boolean silentFlag) {
+	public MonetDBEmbedded(final File databaseDirectory) {
+		this(databaseDirectory, true);
+	}
+
+	/**
+	 * @param databaseDirectory Database directory
+	 * @param silentFlag Silent flag
+	 */
+	public MonetDBEmbedded(final File databaseDirectory, final boolean silentFlag) {
 		// Load the embedded library (and its dependencies)
 		System.loadLibrary("embedded_java");
 
-		if (!directory.isDirectory()) {
-			throw new IllegalArgumentException(directory + " is not a directory");
+		if (!databaseDirectory.isDirectory()) {
+			throw new IllegalArgumentException(databaseDirectory + " is not a directory");
 		}
-		this.directory = directory;
+		this.databaseDirectory = databaseDirectory;
 		this.silentFlag = silentFlag;
 	}
 
@@ -64,9 +72,9 @@ public class MonetDBEmbedded {
 	 * @return {@code True} if the was started successfully or is already running, otherwise {@code False}.
 	 * @throws IOException Database startup failure
 	 */
-	public boolean run() throws IOException {
+	public boolean start() throws IOException {
 		if (!running) {
-			if (startupWrapper(directory.getAbsolutePath(), silentFlag)){
+			if (startupWrapper(databaseDirectory.getAbsolutePath(), silentFlag)){
 				running = true;
 			}
 		}
@@ -95,7 +103,7 @@ public class MonetDBEmbedded {
 	/**
 	 * Start the embedded database up.
 	 * 
-	 * @param direcrory Database directory
+	 * @param dir Database directory
 	 * @param silent Silent flag
 	 * @return Startup status code
 	 */

@@ -34,7 +34,7 @@ public class EmbeddedTest {
 			Integer.valueOf(34),
 			Long.valueOf(45l),
 			Float.valueOf(5.6f),
-			Double.valueOf(6.7),
+			Double.valueOf(6.7)
 	};
 
 	static Object[] charTypeTestValues = new Object[]{
@@ -51,8 +51,8 @@ public class EmbeddedTest {
 		final Path directoryPath = Files.createTempDirectory("monetdbtest");
 		datbaseDirectory = directoryPath.toFile();
 
-		db = new MonetDBEmbedded(datbaseDirectory, false);
-		db.run();
+		db = new MonetDBEmbedded(datbaseDirectory);
+		db.start();
 
 		db.query("CREATE TABLE test (id integer, val integer);");
 		db.query("INSERT INTO test VALUES (0, " + testValues[0] + "), (1, " + testValues[1] + "), (2, " + testValues[2] + "), (3, " + testValues[3] + ");");
@@ -70,18 +70,6 @@ public class EmbeddedTest {
 		db.query("INSERT INTO boolean_types_test VALUES (" + booleanTypeTestValues[0] + ");");
 		db.query("INSERT INTO boolean_types_test VALUES (" + booleanTypeTestValues[1] + ");");
 		db.query("INSERT INTO boolean_types_test VALUES (null);");
-	}
-
-	@Test
-	public void restartExistingDatabaseTest() throws IOException, SQLException {
-		MonetDBEmbedded restartedDB = new MonetDBEmbedded(datbaseDirectory, false);
-		restartedDB.run();
-
-		try (EmbeddedQueryResult result = restartedDB.query("SELECT * FROM test;")) {
-			assertEquals(4, result.getColumn(1).columnSize());
-			assertEquals(Integer.valueOf(20), result.getColumn(1).getValue(1));
-			assertEquals(null, result.getColumn(1).getValue(3));
-		}
 	}
 
 	@Test
@@ -198,20 +186,24 @@ public class EmbeddedTest {
 	}
 
 	@Test
-	public void newDatabaseTest() throws IOException, SQLException {
-		final Path tempDirectoryPath = Files.createTempDirectory("monetdbtest_new");
-		final File newDirectory = tempDirectoryPath.toFile();
-
-		MonetDBEmbedded newDB = new MonetDBEmbedded(newDirectory, false);
-		newDB.run();
-
-		newDB.query("CREATE TABLE test (id integer, val integer);");
-		newDB.query("INSERT INTO test VALUES (1, 10), (2, 20), (3, 30), (4, null);");
-
-		try (EmbeddedQueryResult result = newDB.query("SELECT * FROM world;")) {
+	public void newObjectWithSameDatabaseDirectoryTest() throws IOException, SQLException {
+		MonetDBEmbedded sameDB = new MonetDBEmbedded(datbaseDirectory, false);
+		// This is technically a no-op
+		sameDB.start();
+	
+		try (EmbeddedQueryResult result = sameDB.query("SELECT * FROM test;")) {
 			assertEquals(4, result.getColumn(1).columnSize());
 			assertEquals(Integer.valueOf(20), result.getColumn(1).getValue(1));
 			assertEquals(null, result.getColumn(1).getValue(3));
 		}
+	}
+
+	@Test(expected=IOException.class)
+	public void newDatabaseTest() throws IOException {
+		final Path tempDirectoryPath = Files.createTempDirectory("monetdbtest_new");
+		final File newDirectory = tempDirectoryPath.toFile();
+
+		MonetDBEmbedded newDB = new MonetDBEmbedded(newDirectory);
+		newDB.start();
 	}
 }

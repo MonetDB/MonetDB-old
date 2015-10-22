@@ -34,6 +34,11 @@ public class EmbeddedQueryResult implements Closeable, Iterable<Column<?>> {
 	 * The number of columns in the query result.
 	 */
 	private int numberOfColumns;
+	/**
+	 * Pointer to the native result set.
+	 * We need to keep it around for getting columns.
+	 * The native result set is kept until the {@link close()} is called.
+	 */
 	private long resultPointer;
 
 	public EmbeddedQueryResult(String[] columnNames, String[] columnTypes, int numberOfColumns, long resultPointer) {
