@@ -197,22 +197,22 @@ static jobject getLongColumn(JNIEnv *env, BAT *b) {
 	jmethodID columnConstructor = (*env)->GetMethodID(env, columnClass, "<init>", "([JI[Z)V");
 
 	int i = 0;
-	long val_tmp[size];
+	jlong val_tmp[size];
 	jboolean nul_tmp[size];
 	if (b->T->nonil && !b->T->nil) {
 		for (i = 0; i < size; i++) {
-			val_tmp[i] = (long) ((long*) Tloc(b, BUNfirst(b)))[i];
+			val_tmp[i] = (lng) ((lng*) Tloc(b, BUNfirst(b)))[i];
 			nul_tmp[i] = false;
 		}
 	}
 	else {
 		for (i = 0; i < size; i++) {
-			long v = ((long*) Tloc(b, BUNfirst(b)))[i];
+			lng v = ((lng*) Tloc(b, BUNfirst(b)))[i];
 			if (v == lng_nil) {
 				val_tmp[i] = 0;
 				nul_tmp[i] = true;
 			} else {
-				val_tmp[i] = (long)v;
+				val_tmp[i] = (lng)v;
 				nul_tmp[i] = false;
 			}
 		}
