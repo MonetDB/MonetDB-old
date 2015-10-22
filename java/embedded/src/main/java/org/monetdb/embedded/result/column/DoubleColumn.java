@@ -21,7 +21,7 @@ public class DoubleColumn extends Column<Double> {
 	}
 
 	@Override
-	public Double getVaule(int index) {
+	public Double getValue(int index) {
 		if (isNullValue(index) || index < 0 || index >= columnSize()) {
 			return null;
 		}

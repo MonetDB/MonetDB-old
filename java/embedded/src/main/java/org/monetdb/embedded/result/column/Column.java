@@ -41,7 +41,7 @@ public abstract class Column<T> implements Iterable<T> {
 	 * @param index Column index for the value
 	 * @return Value, cloud be {@code null}
 	 */
-	public abstract T getVaule(int index);
+	public abstract T getValue(int index);
 
 	/**
 	 * Get the size of a column.
@@ -74,7 +74,7 @@ public abstract class Column<T> implements Iterable<T> {
 
 			@Override
 			public T next() {
-				return getVaule(currentIndex++);
+				return getValue(currentIndex++);
 			}
 		};
 	}

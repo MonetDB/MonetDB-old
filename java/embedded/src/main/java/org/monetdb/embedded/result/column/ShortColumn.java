@@ -21,7 +21,7 @@ public class ShortColumn extends Column<Short> {
 	}
 
 	@Override
-	public Short getVaule(int index) {
+	public Short getValue(int index) {
 		if (isNullValue(index) || index < 0 || index >= columnSize()) {
 			return null;
 		}

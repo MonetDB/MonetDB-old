@@ -21,7 +21,7 @@ public class StringColumn extends Column<String> {
 	}
 
 	@Override
-	public String getVaule(int index) {
+	public String getValue(int index) {
 		return values[index];
 	}
 }

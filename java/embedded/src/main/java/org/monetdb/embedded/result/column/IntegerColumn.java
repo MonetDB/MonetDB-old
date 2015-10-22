@@ -21,7 +21,7 @@ public class IntegerColumn extends Column<Integer> {
 	}
 
 	@Override
-	public Integer getVaule(int index) {
+	public Integer getValue(int index) {
 		if (isNullValue(index) || index < 0 || index >= columnSize()) {
 			return null;
 		}

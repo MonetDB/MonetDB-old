@@ -79,8 +79,8 @@ public class EmbeddedTest {
 
 		try (EmbeddedQueryResult result = restartedDB.query("SELECT * FROM test;")) {
 			assertEquals(4, result.getColumn(1).columnSize());
-			assertEquals(Integer.valueOf(20), result.getColumn(1).getVaule(1));
-			assertEquals(null, result.getColumn(1).getVaule(3));
+			assertEquals(Integer.valueOf(20), result.getColumn(1).getValue(1));
+			assertEquals(null, result.getColumn(1).getValue(3));
 		}
 	}
 
@@ -100,8 +100,8 @@ public class EmbeddedTest {
 	public void integerWithNullTest() throws IOException, SQLException {
 		try (EmbeddedQueryResult result = db.query("SELECT * FROM test;")) {
 			assertEquals(4, result.getColumn(1).columnSize());
-			assertEquals(Integer.valueOf(20), result.getColumn(1).getVaule(1));
-			assertEquals(null, result.getColumn(1).getVaule(3));
+			assertEquals(Integer.valueOf(20), result.getColumn(1).getValue(1));
+			assertEquals(null, result.getColumn(1).getValue(3));
 		}
 	}
 
@@ -111,8 +111,8 @@ public class EmbeddedTest {
 			assertEquals(6, result.getNumberOfColumns());
 
 			// byte
-			assertEquals(numbericTypeTestValues[2], result.getColumn("fint").getVaule(0));
-			assertEquals(null, result.getColumn("fint").getVaule(1));
+			assertEquals(numbericTypeTestValues[2], result.getColumn("fint").getValue(0));
+			assertEquals(null, result.getColumn("fint").getValue(1));
 		}
 	}
 
@@ -122,23 +122,23 @@ public class EmbeddedTest {
 			assertEquals(6, result.getNumberOfColumns());
 
 			// byte
-			assertEquals(numbericTypeTestValues[0], result.getColumn(0).getVaule(0));
-			assertEquals(null, result.getColumn(0).getVaule(1));
+			assertEquals(numbericTypeTestValues[0], result.getColumn(0).getValue(0));
+			assertEquals(null, result.getColumn(0).getValue(1));
 			// short
-			assertEquals(numbericTypeTestValues[1], result.getColumn(1).getVaule(0));
-			assertEquals(null, result.getColumn(1).getVaule(1));
+			assertEquals(numbericTypeTestValues[1], result.getColumn(1).getValue(0));
+			assertEquals(null, result.getColumn(1).getValue(1));
 			// int
-			assertEquals(numbericTypeTestValues[2], result.getColumn(2).getVaule(0));
-			assertEquals(null, result.getColumn(2).getVaule(1));
+			assertEquals(numbericTypeTestValues[2], result.getColumn(2).getValue(0));
+			assertEquals(null, result.getColumn(2).getValue(1));
 			// long
-			assertEquals(numbericTypeTestValues[3], result.getColumn(3).getVaule(0));
-			assertEquals(null, result.getColumn(3).getVaule(1));
+			assertEquals(numbericTypeTestValues[3], result.getColumn(3).getValue(0));
+			assertEquals(null, result.getColumn(3).getValue(1));
 			// float
-			assertEquals(numbericTypeTestValues[4], result.getColumn(4).getVaule(0));
-			assertEquals(null, result.getColumn(4).getVaule(1));
+			assertEquals(numbericTypeTestValues[4], result.getColumn(4).getValue(0));
+			assertEquals(null, result.getColumn(4).getValue(1));
 			// double
-			assertEquals(numbericTypeTestValues[5], result.getColumn(5).getVaule(0));
-			assertEquals(null, result.getColumn(5).getVaule(1));
+			assertEquals(numbericTypeTestValues[5], result.getColumn(5).getValue(0));
+			assertEquals(null, result.getColumn(5).getValue(1));
 		}
 	}
 
@@ -147,10 +147,10 @@ public class EmbeddedTest {
 		try (EmbeddedQueryResult result = db.query("SELECT * FROM char_types_test;")) {
 			assertEquals(2, result.getNumberOfColumns());
 
-			assertEquals(charTypeTestValues[0], result.getColumn(0).getVaule(0));
-			assertEquals(charTypeTestValues[0], result.getColumn(1).getVaule(0));
-			assertEquals("", result.getColumn(0).getVaule(1));
-			assertEquals("", result.getColumn(1).getVaule(1));
+			assertEquals(charTypeTestValues[0], result.getColumn(0).getValue(0));
+			assertEquals(charTypeTestValues[0], result.getColumn(1).getValue(0));
+			assertEquals("", result.getColumn(0).getValue(1));
+			assertEquals("", result.getColumn(1).getValue(1));
 		}
 	}
 
@@ -159,9 +159,9 @@ public class EmbeddedTest {
 		try (EmbeddedQueryResult result = db.query("SELECT * FROM boolean_types_test;")) {
 			assertEquals(1, result.getNumberOfColumns());
 
-			assertEquals(booleanTypeTestValues[0], result.getColumn(0).getVaule(0));
-			assertEquals(booleanTypeTestValues[1], result.getColumn(0).getVaule(1));
-			assertEquals(null, result.getColumn(0).getVaule(2));
+			assertEquals(booleanTypeTestValues[0], result.getColumn(0).getValue(0));
+			assertEquals(booleanTypeTestValues[1], result.getColumn(0).getValue(1));
+			assertEquals(null, result.getColumn(0).getValue(2));
 		}
 	}
 
@@ -169,16 +169,16 @@ public class EmbeddedTest {
 	public void twoQueries() throws SQLException {
 		EmbeddedQueryResult result1 = db.query("SELECT * FROM test WHERE id > 1;");
 		assertEquals(2, result1.getColumn(1).columnSize());
-		assertEquals(Integer.valueOf(30), result1.getColumn(1).getVaule(0));
-		assertEquals(null, result1.getColumn(1).getVaule(1));
+		assertEquals(Integer.valueOf(30), result1.getColumn(1).getValue(0));
+		assertEquals(null, result1.getColumn(1).getValue(1));
 
 		EmbeddedQueryResult result2 = db.query("SELECT * FROM test WHERE id < 1;");
 		assertEquals(1, result2.getColumn(1).columnSize());
-		assertEquals(Integer.valueOf(10), result2.getColumn(1).getVaule(0));
+		assertEquals(Integer.valueOf(10), result2.getColumn(1).getValue(0));
 
 		assertEquals(2, result1.getColumn(1).columnSize());
-		assertEquals(Integer.valueOf(30), result1.getColumn(1).getVaule(0));
-		assertEquals(null, result1.getColumn(1).getVaule(1));
+		assertEquals(Integer.valueOf(30), result1.getColumn(1).getValue(0));
+		assertEquals(null, result1.getColumn(1).getValue(1));
 	}
 
 	@Test
@@ -186,8 +186,8 @@ public class EmbeddedTest {
 		@SuppressWarnings("resource")
 		EmbeddedQueryResult result = db.query("SELECT * FROM test;");
 		assertEquals(4, result.getColumn(1).columnSize());
-		assertEquals(Integer.valueOf(20), result.getColumn(1).getVaule(1));
-		assertEquals(null, result.getColumn(1).getVaule(3));
+		assertEquals(Integer.valueOf(20), result.getColumn(1).getValue(1));
+		assertEquals(null, result.getColumn(1).getValue(3));
 
 		result.close();
 	}
@@ -210,8 +210,8 @@ public class EmbeddedTest {
 
 		try (EmbeddedQueryResult result = newDB.query("SELECT * FROM world;")) {
 			assertEquals(4, result.getColumn(1).columnSize());
-			assertEquals(Integer.valueOf(20), result.getColumn(1).getVaule(1));
-			assertEquals(null, result.getColumn(1).getVaule(3));
+			assertEquals(Integer.valueOf(20), result.getColumn(1).getValue(1));
+			assertEquals(null, result.getColumn(1).getValue(3));
 		}
 	}
 }

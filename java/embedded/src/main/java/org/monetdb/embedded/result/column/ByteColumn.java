@@ -21,7 +21,7 @@ public class ByteColumn extends Column<Byte> {
 	}
 
 	@Override
-	public Byte getVaule(int index) {
+	public Byte getValue(int index) {
 		if (isNullValue(index) || index < 0 || index >= columnSize()) {
 			return null;
 		}

@@ -21,7 +21,7 @@ public class BooleanColumn extends Column<Boolean> {
 	}
 
 	@Override
-	public Boolean getVaule(int index) {
+	public Boolean getValue(int index) {
 		if (isNullValue(index) || index < 0 || index >= columnSize()) {
 			return null;
 		}
