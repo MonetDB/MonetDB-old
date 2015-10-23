@@ -50,7 +50,7 @@ _connection_execute(Py_ConnectionObject *self, PyObject *args)
                 input.bat_type = ATOMstorage(getColumnType(b->T->type));
                 input.scalar = false;
 
-                numpy_array = PyMaskedArray_FromBAT(&input, 0, input.count, &res);
+                numpy_array = PyMaskedArray_FromBAT(self->cntxt, &input, 0, input.count, &res);
                 if (!numpy_array) {
                     _connection_cleanup_result(output);
                     PyErr_Format(PyExc_Exception, "SQL Query Failed: %s", (res ? res : "<no error>"));

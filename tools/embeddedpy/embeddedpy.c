@@ -116,7 +116,7 @@ PyObject *monetdb_sql(PyObject *self, PyObject *args)
             	input.bat_type = ATOMstorage(getColumnType(b->T->type));
             	input.scalar = false;
 
-            	numpy_array = PyMaskedArray_FromBAT(&input, 0, input.count, &msg);
+            	numpy_array = PyMaskedArray_FromBAT(&mal_clients[0], &input, 0, input.count, &msg);
             	if (!numpy_array) {
 					monetdb_cleanup_result(output);
 			   		PyErr_Format(PyExc_Exception, "SQL Query Failed: %s", (msg ? msg : "<no error>"));
@@ -191,7 +191,7 @@ PyObject *monetdb_create(PyObject *self, PyObject *args)
 				append_bats[i].batid = int_nil;
 			}
 			for(i = 0; i < columns; i++) {
-				BAT *b = PyObject_ConvertToBAT(&pyreturn_values[i], PyType_ToBat(pyreturn_values[i].result_type), i, 0, &msg);
+				BAT *b = PyObject_ConvertToBAT(&pyreturn_values[i], NULL, PyType_ToBat(pyreturn_values[i].result_type), i, 0, &msg);
 				if (b == NULL) goto cleanup; 
 				append_bats[i].batid = b->batCacheid;
 				append_bats[i].colname = PyString_AS_STRING(PyList_GetItem(dict, i));
@@ -251,7 +251,7 @@ PyObject *monetdb_insert(PyObject *self, PyObject *args)
 			append_bats[i].colname = column_names[i];
 		}
 		for(i = 0; i < columns; i++) {
-			BAT *b = PyObject_ConvertToBAT(&pyreturn_values[i], column_types[i], i, 0, &msg);
+			BAT *b = PyObject_ConvertToBAT(&pyreturn_values[i], NULL, column_types[i], i, 0, &msg);
 
 			if (b == NULL) goto cleanup; 
 			append_bats[i].batid = b->batCacheid;
