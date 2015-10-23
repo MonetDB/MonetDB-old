@@ -39,11 +39,11 @@ int utf32_strlen(const Py_UNICODE *utf32_str)
 int utf8_length(unsigned char utf8_char)
 {
     //the first byte tells us how many bytes the utf8 character uses
-    if      (utf8_char < 0b10000000) return 1;
-    else if (utf8_char < 0b11100000) return 2;
-    else if (utf8_char < 0b11110000) return 3;
-    else if (utf8_char < 0b11111000) return 4;
-    else return -1; //invalid utf8 character, the maximum value of the first byte is 0b11110111
+    if      (utf8_char < 0x80) return 1;
+    else if (utf8_char < 0xe0) return 2;
+    else if (utf8_char < 0xf0) return 3;
+    else if (utf8_char < 0xf8) return 4;
+    else return -1; //invalid utf8 character, the maximum value of the first byte is 0xf7
 }
 
 int utf32_char_to_utf8_char(size_t position, char *utf8_storage, Py_UNICODE utf32_char)
@@ -59,19 +59,19 @@ int utf32_char_to_utf8_char(size_t position, char *utf8_storage, Py_UNICODE utf3
     switch(utf8_size)
     {
         case 4:
-            utf8_storage[position + 3] = ((utf32_char | 0b10000000) & 0b10111111); utf32_char >>= 6;
-            utf8_storage[position + 2] = ((utf32_char | 0b10000000) & 0b10111111); utf32_char >>= 6;
-            utf8_storage[position + 1] = ((utf32_char | 0b10000000) & 0b10111111); utf32_char >>= 6;
-            utf8_storage[position]     =  (utf32_char | 0b11110000);
+            utf8_storage[position + 3] = ((utf32_char | 0x80) & 0xbf); utf32_char >>= 6;
+            utf8_storage[position + 2] = ((utf32_char | 0x80) & 0xbf); utf32_char >>= 6;
+            utf8_storage[position + 1] = ((utf32_char | 0x80) & 0xbf); utf32_char >>= 6;
+            utf8_storage[position]     =  (utf32_char | 0xf0);
             return utf8_size;
         case 3:
-            utf8_storage[position + 2] = ((utf32_char | 0b10000000) & 0b10111111); utf32_char >>= 6;
-            utf8_storage[position + 1] = ((utf32_char | 0b10000000) & 0b10111111); utf32_char >>= 6;
-            utf8_storage[position]     =  (utf32_char | 0b11100000);
+            utf8_storage[position + 2] = ((utf32_char | 0x80) & 0xbf); utf32_char >>= 6;
+            utf8_storage[position + 1] = ((utf32_char | 0x80) & 0xbf); utf32_char >>= 6;
+            utf8_storage[position]     =  (utf32_char | 0xe0);
             return utf8_size;
         case 2:
-            utf8_storage[position + 1] = ((utf32_char | 0b10000000) & 0b10111111); utf32_char >>= 6;
-            utf8_storage[position]     =  (utf32_char | 0b11000000);
+            utf8_storage[position + 1] = ((utf32_char | 0x80) & 0xbf); utf32_char >>= 6;
+            utf8_storage[position]     =  (utf32_char | 0xc0);
             return utf8_size;
         default:
             utf8_storage[position]     = utf32_char;
@@ -107,11 +107,11 @@ int utf8_char_to_utf32_char(size_t position, Py_UNICODE *utf32_storage, int offs
     int utf8_size = 4;
     bytes[0] = utf8_char[offset]; bytes[1] = 0xFF; bytes[2] = 0xFF; bytes[3] = 0xFF;
     //the first byte tells us how many bytes the utf8 character uses
-    if      (bytes[0] < 0b10000000) utf8_size = 1;
-    else if (bytes[0] < 0b11100000) utf8_size = 2;
-    else if (bytes[0] < 0b11110000) utf8_size = 3;
-    else if (bytes[0] < 0b11111000) utf8_size = 4;
-    else return -1; //invalid utf8 character, the maximum value of the first byte is 0b11110111
+    if      (bytes[0] < 0x80) utf8_size = 1;
+    else if (bytes[0] < 0xe0) utf8_size = 2;
+    else if (bytes[0] < 0xf0) utf8_size = 3;
+    else if (bytes[0] < 0xf8) utf8_size = 4;
+    else return -1; //invalid utf8 character, the maximum value of the first byte is 0xf7
 
 #if Py_UNICODE_SIZE == 2
     if (utf8_size > 2) {
@@ -124,13 +124,13 @@ int utf8_char_to_utf32_char(size_t position, Py_UNICODE *utf32_storage, int offs
     {
         case 4: 
             bytes[3] = utf8_char[offset + 3];
-            if (bytes[3] > 0b11000000) return -1; //invalid utf8 character, the maximum value of the second, third and fourth bytes is 0b10111111
+            if (bytes[3] > 0xc0) return -1; //invalid utf8 character, the maximum value of the second, third and fourth bytes is 0xbf
         case 3: 
             bytes[2] = utf8_char[offset + 2];
-            if (bytes[2] > 0b11000000) return -1;
+            if (bytes[2] > 0xc0) return -1;
         case 2: 
             bytes[1] = utf8_char[offset + 1];
-            if (bytes[1] > 0b11000000) return -1;
+            if (bytes[1] > 0xc0) return -1;
     }
 
     utf32_storage[position] = 0;
@@ -138,22 +138,22 @@ int utf8_char_to_utf32_char(size_t position, Py_UNICODE *utf32_storage, int offs
     switch(utf8_size)
     {
         case 4:
-            utf32_storage[position] |= (0b00111111 & bytes[3]);
-            utf32_storage[position] |= (0b00111111 & bytes[2]) << 6;
-            utf32_storage[position] |= (0b00111111 & bytes[1]) << 12;
-            utf32_storage[position] |= (0b00000111 & bytes[0]) << 18;
+            utf32_storage[position] |= (0x3f & bytes[3]);
+            utf32_storage[position] |= (0x3f & bytes[2]) << 6;
+            utf32_storage[position] |= (0x3f & bytes[1]) << 12;
+            utf32_storage[position] |= (0x7 & bytes[0]) << 18;
             return utf8_size;
         case 3:
-            utf32_storage[position] |= (0b00111111 & bytes[2]);
-            utf32_storage[position] |= (0b00111111 & bytes[1]) << 6;
-            utf32_storage[position] |= (0b00001111 & bytes[0]) << 12;
+            utf32_storage[position] |= (0x3f & bytes[2]);
+            utf32_storage[position] |= (0x3f & bytes[1]) << 6;
+            utf32_storage[position] |= (0xf & bytes[0]) << 12;
             return utf8_size;
         case 2:
-            utf32_storage[position] |= (0b00111111 & bytes[1]);
-            utf32_storage[position] |= (0b00011111 & bytes[0]) << 6;
+            utf32_storage[position] |= (0x3f & bytes[1]);
+            utf32_storage[position] |= (0x1f & bytes[0]) << 6;
             return utf8_size;
         default:
-            utf32_storage[position] |= 0b01111111 & bytes[0];
+            utf32_storage[position] |= 0x7f & bytes[0];
             return utf8_size;
     }
 }
