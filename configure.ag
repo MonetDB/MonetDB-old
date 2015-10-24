@@ -2327,6 +2327,12 @@ if test "x$enable_pyintegration" != xno; then
 	fi
 	PYTHON_CMD=`$PYCMD --exec-prefix`/bin/python
 	NUMPYVER=`$PYTHON_CMD -c "import numpy; print numpy.__version__.split('.').__getitem__(1) >= 7"`
+	#check numpyconfig.h because autoconf tests includes by compiling a small C program, and other numpy headers do not compile without Python.h
+	AC_CHECK_HEADER(
+	    [numpy/numpyconfig.h], 
+		[NUMPYHEADERS=True],
+		[NUMPYHEADERS=`$PYTHON_CMD -c "import numpy, os; print os.path.isfile(os.path.join(numpy.get_include(), 'numpy/arrayobject.h'))"`]
+		)
 	if [test "x$NUMPYVER" = x] || [test "x$NUMPYVER" = xFalse]; then
 	  	if test "x$enable_pyintegration" = xyes; then
 			AC_MSG_ERROR([numpy version >= 1.7.0 required for Python integration support])
@@ -2335,6 +2341,15 @@ if test "x$enable_pyintegration" != xno; then
 		 	why_have_libpy="(numpy version >= 1.7.0 not found)"
 			enable_pyintegration=no
 			disable_pyintegration="(numpy version >= 1.7.0 not found)"
+		fi
+	elif [test "x$NUMPYHEADERS" = xFalse ]; then
+		if test "x$enable_pyintegration" = xyes; then
+			AC_MSG_ERROR([numpy/arrayobject.h not found])
+		else
+			have_libpy="no"
+		 	why_have_libpy="(numpy/arrayobject.h not found)"
+			enable_pyintegration=no
+			disable_pyintegration="(numpy/arrayobject.h not found)"
 		fi
 	elif libpy_CFLAGS=`\`$PYCMD --exec-prefix\`/bin/python -c "from distutils.sysconfig import get_python_inc; import numpy; print ' -I' + get_python_inc() + ' -I' + numpy.get_include();"` && libpy_LIBS=`$PYCMD --ldflags`; then
 		have_libpy=yes
