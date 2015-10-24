@@ -1923,7 +1923,7 @@ bool PyObject_PreprocessObject(PyObject *pResult, PyReturn *pyreturn_values, int
                 ret->multidimensional = TRUE;
                 ret->result_type = PyArray_DESCR((PyArrayObject*)data)->type_num;
             }
-            else {TYPE_hge
+            else {
                 // If it is a single dimensional Numpy array, we get the i'th Numpy array from the Numpy Array
                 pColO = PyArray_GETITEM((PyArrayObject*)data, PyArray_GETPTR1((PyArrayObject*)data, i));
             }
