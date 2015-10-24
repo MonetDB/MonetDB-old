@@ -41,7 +41,6 @@
 
 #include "sql_scenario.h"
 #include "sql_cast.h"
-//#include "sql_cast_impl_up_to_flt.h"
 
 #ifndef WIN32
 // These libraries are used for PYTHON_MAP operations on Linux [to start new processes and wait on them]
@@ -261,6 +260,12 @@ static bool python_call_active = false;
 #define ZEROCOPY_OUTPUT
 #endif
 
+#ifdef HAVE_HGE
+#define NOT_HGE(mtpe) TYPE_##mtpe != TYPE_hge
+#else
+#define NOT_HGE(mtpe) true
+#endif
+
 // This very big #define combines all the previous #defines for one big #define that is responsible for converting a Numpy array (described in the PyReturn object 'ret')
 // to a BAT of type 'mtpe'. This should only be used for numeric BATs (but can be used for any Numpy Array). The resulting BAT will be stored in 'bat'.
 #define NP_CREATE_BAT(bat, mtpe) {                                                                                                                             \
@@ -299,7 +304,7 @@ static bool python_call_active = false;
         {                                                                                                                                                      \
             bat = BATnew(TYPE_void, TYPE_##mtpe, ret->count, TRANSIENT);                                                                                       \
             BATseqbase(bat, seqbase); bat->T->nil = 0; bat->T->nonil = 1;                                                                                      \
-            if (TYPE_##mtpe != TYPE_hge  && TYPE_##mtpe != PyType_ToBat(ret->result_type)) WARNING_MESSAGE("!PERFORMANCE WARNING: You are returning a Numpy Array of type %s, which has to be converted to a BAT of type %s. If you return a Numpy\
+            if (NOT_HGE(mtpe) && TYPE_##mtpe != PyType_ToBat(ret->result_type)) WARNING_MESSAGE("!PERFORMANCE WARNING: You are returning a Numpy Array of type %s, which has to be converted to a BAT of type %s. If you return a Numpy\
 Array of type %s no copying will be needed.\n", PyType_Format(ret->result_type), BatType_Format(TYPE_##mtpe), PyType_Format(BatType_ToPyType(TYPE_##mtpe)));   \
             bat->tkey = 0; bat->tsorted = 0; bat->trevsorted = 0;                                                                                              \
             switch(ret->result_type)                                                                                                                           \
@@ -1918,7 +1923,7 @@ bool PyObject_PreprocessObject(PyObject *pResult, PyReturn *pyreturn_values, int
                 ret->multidimensional = TRUE;
                 ret->result_type = PyArray_DESCR((PyArrayObject*)data)->type_num;
             }
-            else {
+            else {TYPE_hge
                 // If it is a single dimensional Numpy array, we get the i'th Numpy array from the Numpy Array
                 pColO = PyArray_GETITEM((PyArrayObject*)data, PyArray_GETPTR1((PyArrayObject*)data, i));
             }

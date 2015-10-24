@@ -257,8 +257,6 @@ gdk_export ATOMIC_TYPE volatile GDKlocksleepcnt;
 
 #endif
 
-extern int forked_process;
-
 #define MT_lock_set(l, n)						\
 	do {								\
 		if (forked_process) break; \
@@ -361,5 +359,7 @@ gdk_export int MT_check_nr_cores(void);
  */
 gdk_export lng GDKusec(void);
 gdk_export int GDKms(void);
+
+extern int forked_process;
 
 #endif /*_GDK_SYSTEM_H_*/
