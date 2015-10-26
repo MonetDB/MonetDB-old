@@ -63,8 +63,9 @@ setup(
         name=package_name,
         sources=['embedded_module.c'],
         depends=['embeddedpy.h'],
-        library_dirs=[os.path.join(output_directory, 'lib')],
+        libraries=['_sql', '_pyapi'],
+        library_dirs=[os.path.join(output_directory, 'lib'), os.path.join(output_directory, 'lib/monetdb5')],
         include_dirs=[os.path.join(base_dir, x) for x in subdirs],
         extra_objects = [os.path.join(output_directory, 'lib/libpyembedded.so')],
-        runtime_library_dirs=[os.path.join(output_directory, 'lib/')])])
+        runtime_library_dirs=[os.path.join(output_directory, 'lib/'), os.path.join(output_directory, 'lib/monetdb5')])])
 

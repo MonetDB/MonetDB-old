@@ -1165,6 +1165,14 @@ str
         char* iar = NULL;
         import_array1(iar);
         pyapiInitialized++;
+        marshal_module = PyImport_Import(PyString_FromString("marshal"));
+        if (marshal_module == NULL) {
+            return createException(MAL, "pyapi.eval", "Failed to load Marshal module.");
+        }
+        marshal_loads = PyObject_GetAttrString(marshal_module, "loads");
+        if (marshal_loads == NULL) {
+            return createException(MAL, "pyapi.eval", "Failed to load function \"loads\" from Marshal module.");
+        }
     }
 #endif
 #ifdef _PYAPI_VERBOSE_

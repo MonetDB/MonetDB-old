@@ -39,8 +39,6 @@ lib_pyembedded  =  {
 	VERSION = 1
 	LIBS = ../../monetdb5/tools/libmonetdb5 \
 		../../gdk/libbat \
-		../../sql/backends/monet5/lib_sql \
-		../../monetdb5/extras/pyapi/lib_pyapi \
 		$(pcre_LIBS) $(PSAPILIB) \
 		$(SOCKET_LIBS) $(MALLOC_LIBS) $(DL_LIBS) $(PTHREAD_LIBS)
 }
