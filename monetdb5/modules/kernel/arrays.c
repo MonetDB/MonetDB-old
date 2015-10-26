@@ -1111,5 +1111,3 @@ str ALGnonDimensionQRDecomposition(bat *oidsRes, ptr *dimsRes,  const bat* vals,
     return MAL_SUCCEED;
 }
 
-
-

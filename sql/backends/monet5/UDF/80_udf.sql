@@ -28,3 +28,9 @@ returns bigint external name udf.fuse;
 CREATE FUNCTION qrq(c double, s double)
 RETURNS double external name udf.qrq;
 
+CREATE FUNCTION fotini1(c double, s double)
+RETURNS double external name udf.fotini1;
+
+CREATE FUNCTION fotini2(c double, s double)
+RETURNS TABLE(c1 double, c2 double) 
+external name udf.fotini2;

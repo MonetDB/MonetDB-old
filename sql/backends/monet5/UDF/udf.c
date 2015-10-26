@@ -409,3 +409,25 @@ char* UDFqrq(bat *q, const bat *c, const double *s) {
 
 	return MAL_SUCCEED;
 }
+
+char* fotini1UDF(double *ret1, double *in1, double *in2) {
+	if(*in1 > *in2) {
+		*ret1 = *in1;
+	} else {
+		*ret1=*in2;
+	}
+
+	return MAL_SUCCEED;
+}
+
+char* fotini2UDF(double *ret1, double *ret2, double *in1, double *in2) {
+	if(*in1 > *in2) {
+		*ret1 = *in1;
+		*ret2 = *in2;
+	} else {
+		*ret1=*in2;
+		*ret2 = *in1;
+	}
+
+	return MAL_SUCCEED;
+}
