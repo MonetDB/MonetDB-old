@@ -101,67 +101,6 @@ CMDgen_group(BAT **result, BAT *gids, BAT *cnts )
 }
 
 
-/*
- * The string pattern matching routine has been added. It should be
- * dynamically linked.
- * A simple string matcher is included. It should be refined later on
- */
-static inline int
-like(const char *x, const char *y, BUN ylen)
-{
-	const char *r;
-
-	if (x == (char *) NULL) {
-		return 0;
-	}
-	for (r = x + strlen(x) - ylen; x <= r; x++) {
-		int ok = 1;
-		const char *s = x;
-		const char *q;
-
-		for (q = y; *q; q++, s++)
-			if (*q != tolower(*s)) {
-				ok = 0;
-				break;
-			}
-		if (ok)
-			return 1;
-	}
-	return 0;
-}
-
-static gdk_return
-CMDlike(BAT **ret, BAT *b, const char *s)
-{
-	BATiter bi = bat_iterator(b);
-	BAT *c = BATnew(TYPE_void, TYPE_oid, BATcount(b) / 10, TRANSIENT);
-	str t, p;
-	BUN u, v;
-	BUN yy = 0;
-
-	if (c == NULL)
-		return GDK_FAIL;
-	t = GDKstrdup(s);
-	for (p = t; *p; p++, yy++)
-		*p = tolower(*p);
-
-	BATloop(b, u, v) {
-		p = BUNtvar(bi, u);
-		if (like(p, t, yy) &&
-			BUNappend(c, &u, TRUE) != GDK_SUCCEED) {
-				BBPreclaim(c);
-				GDKfree(t);
-				return GDK_FAIL;
-			}
-	}
-	c->tsorted = BATtordered(b);
-	c->trevsorted = BATtrevordered(b);
-	c->T->nonil = b->T->nonil;
-	*ret = c;
-	GDKfree(t);
-	return GDK_SUCCEED;
-}
-
 static gdk_return
 slice(BAT **retval, BAT *b, lng start, lng end)
 {
@@ -690,35 +629,10 @@ ALGbinary(bat *result, const bat *lid, const bat *rid, BAT* (*func)(BAT *, BAT *
 	return MAL_SUCCEED;
 }
 
-static str
-ALGbinaryestimate(bat *result, const bat *lid, const bat *rid, const lng *estimate,
-				  BAT *(*func)(BAT *, BAT *, BUN), const char *name)
-{
-	BAT *left, *right, *bn = NULL;
-
-	if ((left = BATdescriptor(*lid)) == NULL) {
-		throw(MAL, name, RUNTIME_OBJECT_MISSING);
-	}
-	if ((right = BATdescriptor(*rid)) == NULL) {
-		BBPunfix(left->batCacheid);
-		throw(MAL, name, RUNTIME_OBJECT_MISSING);
-	}
-	bn = (*func)(left, right, estimate ? (BUN) *estimate : BUN_NONE);
-	BBPunfix(left->batCacheid);
-	BBPunfix(right->batCacheid);
-	if (bn == NULL)
-		throw(MAL, name, GDK_EXCEPTION);
-	if (!(bn->batDirty&2))
-		BATsetaccess(bn, BAT_READ);
-	*result = bn->batCacheid;
-	BBPkeepref(*result);
-	return MAL_SUCCEED;
-}
-
 static BAT *
 BATwcopy(BAT *b)
 {
-	return BATcopy(b, b->htype, b->ttype, 1, TRANSIENT);
+	return BATcopy(b, TYPE_void, b->ttype, 1, TRANSIENT);
 }
 
 str
@@ -872,84 +786,9 @@ ALGrangejoin2(bat *l, bat *r, const bat *left, const bat *rightl, const bat *rig
 }
 
 str
-ALGleftjoinestimate(bat *result, const bat *lid, const bat *rid, const lng *estimate)
-{
-	return ALGbinaryestimate(result, lid, rid, estimate, BATleftjoin, "algebra.leftjoin");
-}
-
-str
-ALGleftjoin(bat *result, const bat *lid, const bat *rid)
-{
-	return ALGbinaryestimate(result, lid, rid, NULL, BATleftjoin, "algebra.leftjoin");
-}
-
-str
 ALGleftfetchjoin(bat *result, const bat *lid, const bat *rid)
 {
 	return ALGbinary(result, lid, rid, BATproject, "algebra.leftfetchjoin");
-}
-
-str
-ALGsemijoin(bat *result, const bat *lid, const bat *rid)
-{
-	return ALGbinary(result, lid, rid, BATsemijoin, "algebra.semijoin");
-}
-
-/* add items missing in the kernel */
-str
-ALGtdiff(bat *result, const bat *bid, const bat *bid2)
-{
-	BAT *b, *b2, *bn;
-
-	if ((b = BATdescriptor(*bid)) == NULL)
-		throw(MAL, "algebra.tdiff", RUNTIME_OBJECT_MISSING);
-	if ((b2 = BATdescriptor(*bid2)) == NULL){
-		BBPunfix(*bid2);
-		throw(MAL, "algebra.tdiff", RUNTIME_OBJECT_MISSING);
-	}
-
-	bn = BATkdiff(BATmirror(b),BATmirror(b2));
-	BBPunfix(b->batCacheid);
-	BBPunfix(b2->batCacheid);
-	if (bn) {
-		BAT *r = BATmirror(BATmark(bn,0));
-
-		BBPunfix(bn->batCacheid);
-		bn = r;
-		if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
-		*result = bn->batCacheid;
-		BBPkeepref(*result);
-		return MAL_SUCCEED;
-	}
-	throw(MAL, "algebra.tdiff", GDK_EXCEPTION);
-}
-
-str
-ALGtinter(bat *result, const bat *bid, const bat *bid2)
-{
-	BAT *b, *b2, *bn;
-
-	if ((b = BATdescriptor(*bid)) == NULL)
-		throw(MAL, "algebra.tinter", RUNTIME_OBJECT_MISSING);
-	if ((b2 = BATdescriptor(*bid2)) == NULL){
-		BBPunfix(*bid2);
-		throw(MAL, "algebra.tinter", RUNTIME_OBJECT_MISSING);
-	}
-
-	bn = BATsemijoin(BATmirror(b),BATmirror(b2));
-	BBPunfix(b->batCacheid);
-	BBPunfix(b2->batCacheid);
-	if (bn) {
-		BAT *r = BATmirror(BATmark(bn,0));
-
-		BBPunfix(bn->batCacheid);
-		bn = r;
-		if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
-		*result = bn->batCacheid;
-		BBPkeepref(*result);
-		return MAL_SUCCEED;
-	}
-	throw(MAL, "algebra.tinter", GDK_EXCEPTION);
 }
 
 str
@@ -1128,26 +967,6 @@ ALGtmarkp(bat *result, const bat *bid, const int *nr_parts, const int *part_nr)
 }
 
 str
-ALGlike(bat *ret, const bat *bid, const str *k)
-{
-	BAT *b, *bn = NULL;
-
-	if ((b = BATdescriptor(*bid)) == NULL) {
-		throw(MAL, "algebra.like", RUNTIME_OBJECT_MISSING);
-	}
-	CMDlike(&bn, b, *k);
-	if (bn) {
-		if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
-		*ret = bn->batCacheid;
-		BBPkeepref(*ret);
-		BBPunfix(b->batCacheid);
-		return MAL_SUCCEED;
-	}
-	BBPunfix(b->batCacheid);
-	throw(MAL, "algebra.like", GDK_EXCEPTION);
-}
-
-str
 ALGslice(bat *ret, const bat *bid, const lng *start, const lng *end)
 {
 	BAT *b, *bn = NULL;
@@ -1189,27 +1008,10 @@ ALGslice_wrd(bat *ret, const bat *bid, const wrd *start, const wrd *end)
 str
 ALGslice_oid(bat *ret, const bat *bid, const oid *start, const oid *end)
 {
-	BAT *b, *bn = NULL;
 	lng s = (lng) (*start == oid_nil ? 0 : (lng) *start);
 	lng e = (*end == oid_nil ? lng_nil : (lng) *end);
 
-	if (*start == oid_nil && end && *end == oid_nil) {
-		*ret = *bid;
-		BBPincref(*ret, TRUE);
-		return MAL_SUCCEED;
-	}
-	if ((b = BATdescriptor(*bid)) == NULL)
-		throw(MAL, "algebra.slice", RUNTIME_OBJECT_MISSING);
-
-	if (slice(&bn, b, s, e) != GDK_SUCCEED) {
-		BBPunfix(b->batCacheid);
-		throw(MAL, "algebra.slice", "Slicing failed");
-	}
-
-	*ret = bn->batCacheid;
-	BBPkeepref(*ret);
-	BBPunfix(b->batCacheid);
-	return MAL_SUCCEED;
+	return ALGslice(ret, bid, &s, &e) ;
 }
 
 str
@@ -1370,14 +1172,14 @@ str ALGreuse(bat *ret, const bat *bid)
 		throw(MAL, "algebra.reuse", RUNTIME_OBJECT_MISSING);
 
 	if( b->batPersistence != TRANSIENT || b->batRestricted != BAT_WRITE){
-		if( ATOMvarsized(b->ttype) || b->htype != TYPE_void){
+		if( ATOMvarsized(b->ttype) ){
 			bn= BATwcopy(b);
 			if (bn == NULL) {
 				BBPunfix(b->batCacheid);
 				throw(MAL, "algebra.reuse", MAL_MALLOC_FAIL);
 			}
 		} else {
-			bn = BATnew(b->htype,b->ttype,BATcount(b), TRANSIENT);
+			bn = BATnew(TYPE_void,b->ttype,BATcount(b), TRANSIENT);
 			if (bn == NULL) {
 				BBPunfix(b->batCacheid);
 				throw(MAL, "algebra.reuse", MAL_MALLOC_FAIL);

@@ -21,19 +21,19 @@ float nFextafterf(float x, float y);
 /* auxiliary functions and structs for imprints */
 #include "gdk_imprints.h"
 
-#define buninsfix(B,A,I,V,G,M,R)				\
-	do {							\
-		if ((I) == BATcapacity(B)) {			\
-			BATsetcount((B), (I));			\
-			if (BATextend((B),			\
-				      MIN(BATcapacity(B) + (G),	\
+#define buninsfix(B,A,I,V,G,M,R)					\
+	do {								\
+		if ((I) == BATcapacity(B)) {				\
+			BATsetcount((B), (I));				\
+			if (BATextend((B),				\
+				      MIN(BATcapacity(B) + (G),		\
 					  (M))) != GDK_SUCCEED) {	\
-				BBPreclaim(B);			\
-				return (R);			\
-			}					\
-			A = (oid *) Tloc((B), BUNfirst(B));	\
-		}						\
-		A[(I)] = (V);					\
+				BBPreclaim(B);				\
+				return (R);				\
+			}						\
+			A = (oid *) Tloc((B), BUNfirst(B));		\
+		}							\
+		A[(I)] = (V);						\
 	} while (0)
 
 BAT *
@@ -70,11 +70,10 @@ virtualize(BAT *bn)
 }
 
 static BAT *
-newempty(const char *func)
+newempty(void)
 {
 	BAT *bn = BATnew(TYPE_void, TYPE_void, 0, TRANSIENT);
 	if (bn == NULL) {
-		GDKerror("%s: memory allocation error", func);
 		return NULL;
 	}
 	BATseqbase(bn, 0);
@@ -909,6 +908,7 @@ BAT_scanselect(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 
 	/* build imprints if they do not exist */
 	if (use_imprints && (BATimprints(b) != GDK_SUCCEED)) {
+		GDKclrerr();	/* not interested in BATimprints errors */
 		use_imprints = 0;
 	}
 
@@ -1010,8 +1010,9 @@ BAT_scanselect(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 			break;
 		}
 	}
-	if (cnt == BUN_NONE)
+	if (cnt == BUN_NONE) {
 		return NULL;
+	}
 	assert(bn->batCapacity >= cnt);
 
 	BATsetcount(bn, cnt);
@@ -1158,7 +1159,7 @@ BAT_scanselect(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 				if (!li) {				\
 					/* open range on left */	\
 					if (*(TYPE*)tl == MAXVALUE##TYPE) \
-						return newempty("BATsubselect"); \
+						return newempty();	\
 					/* vl < x === vl+1 <= x */	\
 					vl.v_##TYPE = NEXTVALUE##TYPE(*(TYPE*)tl); \
 					li = 1;				\
@@ -1176,7 +1177,7 @@ BAT_scanselect(BAT *b, BAT *s, BAT *bn, const void *tl, const void *th,
 				if (!hi) {				\
 					/* open range on right */	\
 					if (*(TYPE*)th == MINVALUE##TYPE) \
-						return newempty("BATsubselect"); \
+						return newempty();	\
 					/* x < vh === x <= vh-1 */	\
 					vh.v_##TYPE = PREVVALUE##TYPE(*(TYPE*)th); \
 					hi = 1;				\
@@ -1265,7 +1266,7 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
 				  s && BATtdense(s) ? "(dense)" : "", anti);
-		return newempty("BATsubselect");
+		return newempty();
 	}
 
 	t = b->ttype;
@@ -1321,7 +1322,7 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 					  s ? BATgetId(s) : "NULL",
 					  s && BATtdense(s) ? "(dense)" : "",
 					  anti);
-			return newempty("BATsubselect");
+			return newempty();
 		} else if (equi && lnil) {
 			/* antiselect for nil value: turn into range
 			 * select for nil-nil range (i.e. everything
@@ -1364,7 +1365,7 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
 				  s && BATtdense(s) ? "(dense)" : "", anti);
-		return newempty("BATsubselect");
+		return newempty();
 	}
 	if (equi && lnil && b->T->nonil) {
 		/* return all nils, but there aren't any */
@@ -1373,7 +1374,7 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
 				  s && BATtdense(s) ? "(dense)" : "", anti);
-		return newempty("BATsubselect");
+		return newempty();
 	}
 
 	if (!equi && !lval && !hval && lnil && b->T->nonil) {
@@ -1752,7 +1753,7 @@ BATthetasubselect(BAT *b, BAT *s, const void *val, const char *op)
 
 	nil = ATOMnilptr(b->ttype);
 	if (ATOMcmp(b->ttype, val, nil) == 0)
-		return newempty("BATthetasubselect");
+		return newempty();
 	if (op[0] == '=' && ((op[1] == '=' && op[2] == 0) || op[2] == 0)) {
 		/* "=" or "==" */
 		//equality => call simple subselect
@@ -1956,14 +1957,14 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, 
 				high -= BUNfirst(l);
 			} else {
 				if (li)
-					low = SORTfndlast(l, vrl);
+					low = SORTfndlast(l, vrh);
 				else
-					low = SORTfndfirst(l, vrl);
+					low = SORTfndfirst(l, vrh);
 				low -= BUNfirst(l);
 				if (hi)
-					high = SORTfndfirst(l, vrh);
+					high = SORTfndfirst(l, vrl);
 				else
-					high = SORTfndlast(l, vrh);
+					high = SORTfndlast(l, vrl);
 				high -= BUNfirst(l);
 			}
 			if (high <= low)
@@ -2361,6 +2362,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, 
 			}
 			default:
 				ncnt = BUN_NONE;
+				GDKerror("BATsubrangejoin: unsupported type\n");
 				assert(0);
 			}
 			if (ncnt == BUN_NONE)
@@ -2382,6 +2384,7 @@ rangejoin(BAT *r1, BAT *r2, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, 
 		const char *vl;
 		const char *lvals;
 
+		GDKclrerr();	/* not interested in BATimprints errors */
 		sorted = 1;
 		lvals = l->ttype == TYPE_void ? NULL : (const char *) Tloc(l, BUNfirst(l));
 		for (;;) {

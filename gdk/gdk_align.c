@@ -27,8 +27,7 @@
  * (likewise, @emph{BATcopy()}, which makes a copy, instead of
  * in-place shuffling, has the same alignment effect, @emph{BATmark()}
  * marks the tail column as synced with the head of the original
- * @emph{BAT}, and for instance @emph{BATsemijoin()} marks both return
- * columns as aligned with its left parameter).
+ * @emph{BAT}).
  *
  * Each alignment sequence is given a unique identifier, so as to
  * easily detect this situation. It is retained in the @emph{BAT
@@ -749,10 +748,8 @@ VIEWbounds(BAT *b, BAT *view, BUN l, BUN h)
 	BUN cnt;
 	BATiter bi = bat_iterator(b);
 
-	if (b == NULL || view == NULL) {
-		GDKerror("VIEWbounds: bat argument missing");
+	if (b == NULL || view == NULL)
 		return;
-	}
 	if (h > BATcount(b))
 		h = BATcount(b);
 	if (h < l)

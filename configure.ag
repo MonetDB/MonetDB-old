@@ -1870,8 +1870,8 @@ if test "x$have_pthread" != xno; then
 	save_LIBS="$LIBS"
 	save_CPPFLAGS="$CPPFLAGS"
 	case $GCC-$have_pthread-$CC_ver in
-		yes-auto-clang-5.*|yes-yes-clang-5.*|yes-auto-clang-6.*|yes-yes-clang-6.*)
-			# clang 5.*/6.* (Xcode 6.0) does not
+		yes-auto-clang-5.*|yes-yes-clang-5.*|yes-auto-clang-6.*|yes-yes-clang-6.*|yes-auto-clang-7.*|yes-yes-clang-7.*)
+			# clang 5.*/6.*/7.* (Xcode 6.0) does not
 			# seem to have / require -pthread as compiler
 			# option; on Mac OS X Yosamite, "Apple LLVM 
 			# version 6.0 (clang-600.0.51) (based on LLVM 3.5svn)"
@@ -2168,9 +2168,14 @@ fi
 AM_CONDITIONAL(HAVE_CURL, test x"$have_curl" != xno)
 
 PKG_CHECK_MODULES([zlib], [zlib], [have_zlib="yes"], [have_zlib="no"; why_have_zlib="(zlib not found)"])
+if test x"$have_zlib" = x"no" ; then
+	# Solaris doesn't provide zlib.pc, but zlib may well be present
+	AC_CHECK_LIB(z, gzopen, [ have_zlib=yes zlib_LIBS="-lz" zlib_CFLAGS= ])
+elif test x"$have_zlib" = x"yes" ; then
+	AC_SUBST(PKG_ZLIB, zlib)
+fi
 if test x"$have_zlib" = x"yes" ; then
 	AC_DEFINE(HAVE_LIBZ, 1, [Define if you have the z library])
-	AC_SUBST(PKG_ZLIB, zlib)
 fi
 AM_CONDITIONAL(HAVE_LIBZ, test x"$have_zlib" != xno)
 
@@ -2751,6 +2756,7 @@ AC_CHECK_SIZEOF(size_t)
 AC_CHECK_SIZEOF(ssize_t)
 AC_CHECK_SIZEOF(ptrdiff_t,,[#include <stddef.h>
 #include <sys/types.h>])
+AC_CHECK_SIZEOF(wchar_t)
 AC_CHECK_SIZEOF(long long)
 AC_CHECK_SIZEOF(__int64)
 AC_CHECK_SIZEOF(__int128)
@@ -2804,7 +2810,7 @@ AC_DEFINE([__hidden], [/* empty */],
 
 dnl     checks for library functions
 case $host in
-	*-darwin1[[01234]]*)
+	*-darwin1[[012345]]*)
 		# OSX 10.6 (Snow Leopard) and up somehow makes configure believe
 		# that fdatasync exists, in reality however, it does not on this
 		# platform.

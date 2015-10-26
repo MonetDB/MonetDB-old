@@ -107,10 +107,6 @@ mal_export void mal_exit(void);
 #define STRUCT_ALIGNED
 #endif
 
-#ifndef MAXPATHLEN
-#define MAXPATHLEN 1024
-#endif
-
 /* The MAL instruction block type definitions */
 /* Variable properties */
 #define VAR_CONSTANT 	1
@@ -120,7 +116,8 @@ mal_export void mal_exit(void);
 #define VAR_CLEANUP	16
 #define VAR_INIT	32
 #define VAR_USED	64
-#define VAR_DISABLED	128		/* used for comments and scheduler */
+#define VAR_CLIST 	128	/* Candidate list variable */
+#define VAR_DISABLED	256		/* used for comments and scheduler */
 
 /* type check status is kept around to improve type checking efficiency */
 #define TYPE_ERROR      -1
@@ -219,7 +216,6 @@ typedef struct MALBLK {
 	ptr replica;				/* for the replicator tests */
 	sht recycle;				/* execution subject to recycler control */
 	lng recid;					/* Recycler identifier */
-	lng legid;					/* Octopus control */
 	sht trap;					/* call debugger when called */
 	lng starttime;				/* track when the query started, for resource management */
 	lng runtime;				/* average execution time of block in ticks */

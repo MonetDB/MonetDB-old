@@ -116,7 +116,9 @@ initParser(void)
 static int
 idLength(Client cntxt)
 {
-	str s, t;
+	str s,t;
+	int len = 0;
+	
 	skipSpace(cntxt);
 	s = CURRENT(cntxt);
 	t = s;
@@ -128,9 +130,15 @@ idLength(Client cntxt)
 		s[0] = REFMARKER;
 	/* prepare escape of temporary names */
 	s++;
-	while (idCharacter2[(int) (*s)])
+	while (len < IDLENGTH && idCharacter2[(int) (*s)]){
 		s++;
-	return (int) (s - t);
+		len++;
+	}
+	if( len == IDLENGTH)
+		// skip remainder
+		while (idCharacter2[(int) (*s)])
+			s++;
+	return (int) (s-t);;
 }
 
 /* Simple type identifiers can not be marked with a type variable. */
@@ -147,7 +155,7 @@ typeidLength(Client cntxt)
 	l = 1;
 	s++;
 	idCharacter[TMPMARKER] = 0;
-	while (idCharacter[(int) (*s)] || isdigit(*s)) {
+	while (l < IDLENGTH && (idCharacter[(int) (*s)] || isdigit(*s)) ) {
 		s++;
 		l++;
 	}
@@ -611,7 +619,7 @@ handleInts:
  * @item scalarType
  * @tab :  ':' @sc{ identifier}
  * @item collectionType
- * @tab :  ':' @sc{ bat} ['[' col ',' col ']']
+ * @tab :  ':' @sc{ bat} ['[' ':' oid ',' col ']']
  * @item anyType
  * @tab :  ':' @sc{ any} [typeAlias]
  * @item col
@@ -681,17 +689,15 @@ parseTypeId(Client cntxt, int defaultType)
 	char *s = CURRENT(cntxt);
 
 	if (s[0] == ':' && s[1] == 'b' && s[2] == 'a' && s[3] == 't' && s[4] == '[') {
-		/* parse :bat[:type,:type] */
+		/* parse :bat[:oid,:type] */
 		advance(cntxt, 5);
 		if (currChar(cntxt) == ':') {
 			ht = simpleTypeId(cntxt);
-			kh = typeAlias(cntxt, ht);
-/* After legacy operations have been dropped.
-			if( ht != TYPE_oid)
+			if( ht != TYPE_oid){
 				parseError(cntxt, "':oid' expected\n");
-*/
-		} else
-			ht = TYPE_any;
+				return i;
+			}
+		} 
 
 		if (currChar(cntxt) != ',') {
 			parseError(cntxt, "',' expected\n");
@@ -705,7 +711,7 @@ parseTypeId(Client cntxt, int defaultType)
 		} else
 			tt = TYPE_any;
 
-		i = newBatType(ht, tt);
+		i = newBatType(TYPE_oid, tt);
 		if (kh > 0)
 			setAnyHeadIndex(i, kh);
 		if (kt > 0)
@@ -717,18 +723,22 @@ parseTypeId(Client cntxt, int defaultType)
 		skipSpace(cntxt);
 		return i;
 	}
+	/* A pure BAT as generic type should be avoided .*/
 	if (s[0] == ':' && 
 	   ((s[1] == 'b' && s[2] == 'a' && s[3] == 't')  || 
 	    (s[1] == 'B' && s[2] == 'A' && s[3] == 'T')) && 
 	   !idCharacter[(int) s[4]]) {
 		advance(cntxt, 4);
+		//parseError(cntxt, "':bat[:oid,:any]' expected\n");
 		return TYPE_bat;
 	}
-	if (s[0] == ':' && s[1] == 'c' && s[2] == 'o' && s[3] == 'l' &&
-	   !idCharacter[(int) s[4]]) {
+	// Headless definition of a column
+	if (s[0] == ':' && s[1] == 'c' && s[2] == 'o' && s[3] == 'l' && s[4] == '[') {
 		/* parse default for :col[:any] */
-		advance(cntxt, 4);
-		return newColumnType(TYPE_any);
+		advance(cntxt, 5);
+		skipSpace(cntxt);
+		tt = simpleTypeId(cntxt);
+		return newColumnType(tt);
 	}
 	if (currChar(cntxt) == ':') {
 		ht = simpleTypeId(cntxt);
@@ -1844,7 +1854,7 @@ parseTuple(Client cntxt)
 	MalBlkPtr curBlk;
 	Symbol curPrg;
 	FILE *f = 0;
-	char buf[MAXPATHLEN];
+	char buf[PATHLENGTH];
 	int c;
 
 	sprintf(buf, "input%d", (int) (cntxt - mal_clients));
@@ -1980,13 +1990,8 @@ parseMAL(Client cntxt, Symbol curPrg, int skipcomments)
 				break;
 			}
 			goto allLeft;
-		case 'H': case 'h':
-			if (MALkeyword(cntxt, "handler", 5)) {
-				skipToEnd(cntxt);
-				cntxt->blkmode++;
-				break;
-			}
-		case 'i': if (parseInclude(cntxt))
+		case 'I': case 'i': 
+			if (parseInclude(cntxt))
 				continue;
 			goto allLeft;
 		case 'L': case 'l':
