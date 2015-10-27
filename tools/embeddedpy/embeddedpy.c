@@ -44,7 +44,7 @@ str monetdb_query(char* query, void** result);
 str monetdb_create_table(char *schema, char *table_name, append_data *ad, int ncols);
 str monetdb_append(const char* schema, const char* table, append_data *ad, int ncols);
 void monetdb_cleanup_result(void* output);
-static str monetdb_get_columns(const char* schema_name, const char *table_name, int *column_count, char ***column_names, int **column_types) ;
+static str monetdb_get_columns(const char* schema_name, const char *table_name, int *column_count, char ***column_names, int **column_types, sql_subtype ***sql_subtypes);
 
 static bit monetdb_embedded_initialized = 0;
 static MT_Lock monetdb_embedded_lock;
@@ -237,9 +237,10 @@ PyObject *monetdb_insert(PyObject *self, PyObject *args)
 		int i;
 		char **column_names = NULL;
 		int *column_types = NULL;
+		sql_subtype **sql_subtypes = NULL;
 		int columns = 0;
 
-		msg = monetdb_get_columns(schema_name, table_name, &columns, &column_names, &column_types);
+		msg = monetdb_get_columns(schema_name, table_name, &columns, &column_names, &column_types, &sql_subtypes);
 
 		pResult = PyObject_CheckForConversion(values, columns, NULL, &msg);
 		if (pResult == NULL) goto cleanup;
@@ -252,7 +253,7 @@ PyObject *monetdb_insert(PyObject *self, PyObject *args)
 			append_bats[i].colname = column_names[i];
 		}
 		for(i = 0; i < columns; i++) {
-			BAT *b = PyObject_ConvertToBAT(&pyreturn_values[i], NULL, column_types[i], i, 0, &msg, true);
+			BAT *b = PyObject_ConvertToBAT(&pyreturn_values[i], sql_subtypes[i], column_types[i], i, 0, &msg, true);
 
 			if (b == NULL) goto cleanup; 
 			append_bats[i].batid = b->batCacheid;
@@ -485,7 +486,7 @@ void monetdb_cleanup_result(void* output) {
 	(*res_table_destroy_ptr)((res_table*) output);
 }
 
-static str monetdb_get_columns(const char* schema_name, const char *table_name, int *column_count, char ***column_names, int **column_types) 
+static str monetdb_get_columns(const char* schema_name, const char *table_name, int *column_count, char ***column_names, int **column_types, sql_subtype ***sql_subtypes) 
 {
 	Client c = &mal_clients[0];
 	mvc *m;
@@ -511,6 +512,7 @@ static str monetdb_get_columns(const char* schema_name, const char *table_name, 
 	*column_count = columns;
 	*column_names = GDKzalloc(sizeof(char*) * columns);
 	*column_types = GDKzalloc(sizeof(int) * columns);
+	*sql_subtypes = GDKzalloc(sizeof(sql_subtype*) * columns);
 
 	if (*column_names == NULL || *column_types == NULL) {
 		return MAL_MALLOC_FAIL;
@@ -520,6 +522,7 @@ static str monetdb_get_columns(const char* schema_name, const char *table_name, 
 		sql_column *c = n->data;
 		(*column_names)[c->colnr] = c->base.name;
 		(*column_types)[c->colnr] = c->type.type->localtype;
+		(*sql_subtypes)[c->colnr] = &c->type;
 	}
 
 	return msg;
