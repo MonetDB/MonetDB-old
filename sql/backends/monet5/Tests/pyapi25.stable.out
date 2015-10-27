@@ -1,21 +1,20 @@
 stdout of test 'pyapi25` in directory 'sql/backends/monet5` itself:
 
 
-# 14:54:29 >  
-# 14:54:29 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=34132" "--set" "mapi_usock=/var/tmp/mtest-32200/.s.monetdb.34132" "--set" "monet_prompt=" "--forcemito" "--set" "mal_listing=2" "--dbpath=/export/scratch2/raasveld/build/var/MonetDB/mTests_sql_backends_monet5" "--set" "mal_listing=0" "--set" "embedded_r=true" "--set" "embedded_py=true"
-# 14:54:29 >  
+# 12:40:00 >  
+# 12:40:00 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=30737" "--set" "mapi_usock=/var/tmp/mtest-21450/.s.monetdb.30737" "--set" "monet_prompt=" "--forcemito" "--set" "mal_listing=2" "--dbpath=/home/mytherin/opt/var/MonetDB/mTests_sql_backends_monet5" "--set" "mal_listing=0" "--set" "embedded_r=true" "--set" "embedded_py=true"
+# 12:40:00 >  
 
 # MonetDB 5 server v11.22.0
 # This is an unreleased version
 # Serving database 'mTests_sql_backends_monet5', using 8 threads
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs and 128bit integers dynamically linked
-# Found 15.590 GiB available main-memory.
+# Found 7.684 GiB available main-memory.
 # Copyright (c) 1993-July 2008 CWI.
 # Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
 # Visit http://www.monetdb.org/ for further information
-# Listening for connection requests on mapi:monetdb://lyon.ins.cwi.nl:34132/
-# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-32200/.s.monetdb.34132
-# MonetDB/GIS module loaded
+# Listening for connection requests on mapi:monetdb://mytherin-N750JV:30737/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-21450/.s.monetdb.30737
 # Start processing logs sql/sql_logs version 52200
 # Finished processing logs sql/sql_logs
 # MonetDB/SQL module loaded
@@ -24,87 +23,145 @@ stdout of test 'pyapi25` in directory 'sql/backends/monet5` itself:
 
 Ready.
 
-# 14:54:29 >  
-# 14:54:29 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-32200" "--port=34132"
-# 14:54:29 >  
+# 12:40:00 >  
+# 12:40:00 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-21450" "--port=30737"
+# 12:40:00 >  
 
 #START TRANSACTION;
-#CREATE TABLE pyapi09table(i integer);
-#INSERT INTO pyapi09table VALUES (1), (2), (3), (4);
+#CREATE TABLE pyapi25table(i integer);
+#INSERT INTO pyapi25table VALUES (1), (2), (3), (4);
 [ 4	]
-#CREATE TABLE pyapi09multiplication(i integer);
-#INSERT INTO pyapi09multiplication VALUES (3);
+#CREATE TABLE pyapi25multiplication(i integer);
+#INSERT INTO pyapi25multiplication VALUES (3);
 [ 1	]
-#CREATE FUNCTION pyapi09(i integer) returns integer
+#CREATE FUNCTION pyapi25(i integer) returns integer
 #language PYTHON_MAP
 #{
-#    res = _conn.execute('SELECT i FROM pyapi09multiplication;')
+#    res = _conn.execute('SELECT i FROM pyapi25multiplication;')
 #    return res['i'] * i
 #};
-#SELECT pyapi09(i) FROM pyapi09table; #multiply by 3
+#SELECT pyapi25(i) FROM pyapi25table; #multiply by 3
 % sys.L # table_name
-% pyapi09_i # name
+% pyapi25_i # name
 % int # type
 % 2 # length
 [ 3	]
 [ 6	]
 [ 9	]
 [ 12	]
-#UPDATE pyapi09multiplication SET i=10;
+#UPDATE pyapi25multiplication SET i=10;
 [ 1	]
-#SELECT pyapi09(i) FROM pyapi09table; #multiply by 10
+#SELECT pyapi25(i) FROM pyapi25table; #multiply by 10
 % sys.L # table_name
-% pyapi09_i # name
+% pyapi25_i # name
 % int # type
 % 2 # length
 [ 10	]
 [ 20	]
 [ 30	]
 [ 40	]
-#DROP FUNCTION pyapi09;
-#DROP TABLE pyapi09table;
-#DROP TABLE pyapi09multiplication;
-#CREATE TABLE pyapi09multiplication(i integer);
-#INSERT INTO pyapi09multiplication VALUES (3);
-[ 1	]
-#CREATE TABLE pyapi09table(i integer);
-#INSERT INTO pyapi09table VALUES (1), (2), (3), (4);
+#DROP FUNCTION pyapi25;
+#DROP TABLE pyapi25table;
+#DROP TABLE pyapi25multiplication;
+#CREATE TABLE pyapi25table(i integer);
+#INSERT INTO pyapi25table VALUES (1), (2), (3), (4);
 [ 4	]
-#CREATE FUNCTION pyapi09(i integer) returns integer
+#CREATE FUNCTION pyapi25(i integer) returns integer
 #language PYTHON
 #{
-#    _conn.execute('UPDATE pyapi09multiplication SET i=20;')
+#    _conn.execute('CREATE TABLE mytable(i INTEGER);')
+#    _conn.execute('INSERT INTO mytable VALUES (1), (2), (3), (4);')
 #    return i
 #};
-#CREATE FUNCTION pyapi09map(i integer) returns integer
+#SELECT pyapi25(i) FROM pyapi25table;
+% sys.L # table_name
+% pyapi25_i # name
+% int # type
+% 1 # length
+[ 1	]
+[ 2	]
+[ 3	]
+[ 4	]
+#CREATE FUNCTION pyapi25map(i integer) returns integer
 #language PYTHON_MAP
 #{
-#    _conn.execute('UPDATE pyapi09multiplication SET i=10;')
+#    _conn.execute('UPDATE mytable SET i=i*10;')
 #    return i
 #};
-#SELECT * FROM pyapi09multiplication;
-% sys.pyapi09multiplication # table_name
+#SELECT * FROM mytable; # 1,2,3,4
+% sys.mytable # table_name
 % i # name
 % int # type
 % 1 # length
-[ 3	]
-#ROLLBACK;
-#START TRANSACTION;
-#CREATE TABLE pyapi09multiplication(i integer);
-#INSERT INTO pyapi09multiplication VALUES (3);
 [ 1	]
-#CREATE TABLE pyapi09table(i integer);
-#INSERT INTO pyapi09table VALUES (1), (2), (3), (4);
+[ 2	]
+[ 3	]
 [ 4	]
-#SELECT * FROM pyapi09multiplication;
-% sys.pyapi09multiplication # table_name
-% i # name
+#SELECT pyapi25map(i) FROM pyapi25table;
+% sys.L # table_name
+% pyapi25map_i # name
 % int # type
 % 1 # length
+[ 1	]
+[ 2	]
 [ 3	]
+[ 4	]
+#SELECT * FROM mytable; # 10000, 20000, 30000, 40000 (*10 for every thread, 4 threads because there are 4 entries in pyapi25table)
+% sys.mytable # table_name
+% i # name
+% int # type
+% 5 # length
+[ 10000	]
+[ 20000	]
+[ 30000	]
+[ 40000	]
+#CREATE TABLE pyapi25medians(mean DOUBLE);
+#CREATE FUNCTION pyapi25randomtable() returns TABLE(d DOUBLE) LANGUAGE PYTHON
+#{
+#    numpy.random.seed(33)
+#    return numpy.random.rand(1000000)
+#};
+#CREATE FUNCTION pyapi25mediancompute(d DOUBLE) RETURNS DOUBLE
+#language PYTHON_MAP
+#{
+#    mean = numpy.mean(d)
+#    _conn.execute('INSERT INTO pyapi25medians (mean) VALUES (' + str(mean) + ');')
+#    return 1
+#};
+#CREATE TABLE randomtable AS SELECT * FROM pyapi25randomtable() WITH DATA;
+#SELECT pyapi25mediancompute(d) FROM randomtable;
+% sys.L # table_name
+% pyapi25mediancompute_d # name
+% double # type
+% 24 # length
+[ 1	]
+[ 1	]
+[ 1	]
+[ 1	]
+[ 1	]
+[ 1	]
+[ 1	]
+[ 1	]
+#SELECT * FROM pyapi25medians;
+% sys.pyapi25medians # table_name
+% mean # name
+% double # type
+% 24 # length
+[ 0.498218383	]
+[ 0.4991642269	]
+[ 0.4993118449	]
+[ 0.499737365	]
+[ 0.4997913804	]
+[ 0.5000376408	]
+[ 0.500048696	]
+[ 0.5011960422	]
+#CREATE FUNCTION pyapi25errortable() returns TABLE(d DOUBLE) LANGUAGE PYTHON_MAP
+#{
+#    return _conn.execute('SELECT * FROM HOPEFULLYNONEXISTANTTABLE;')
+#};
 #ROLLBACK;
 
-# 14:54:30 >  
-# 14:54:30 >  "Done."
-# 14:54:30 >  
+# 12:40:01 >  
+# 12:40:01 >  "Done."
+# 12:40:01 >  
 

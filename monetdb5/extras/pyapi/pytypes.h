@@ -65,6 +65,15 @@ struct _PyInput{
 };
 #define PyInput struct _PyInput
 
+struct _QueryStruct{
+    bool pending_query;
+    char query[8192];
+    int nr_cols; 
+    int shmid;
+    size_t memsize;
+};
+#define QueryStruct struct _QueryStruct
+
 //! Returns true if a NPY_#type is an integral type, and false otherwise
 pyapi_export bool PyType_IsInteger(int);
 //! Returns true if a NPY_#type is a float type, and false otherwise
@@ -84,13 +93,13 @@ pyapi_export bool PyType_IsPandasDataFrame(PyObject *object);
 //! Returns true if the PyObject is of type lazyarray, and false otherwise
 pyapi_export bool PyType_IsLazyArray(PyObject *object);
 //! Create a Numpy Array Object from a PyInput structure containing a BAT
-pyapi_export PyObject *PyArrayObject_FromBAT(PyInput *input_bat, size_t start, size_t end, char **return_message);
+pyapi_export PyObject *PyArrayObject_FromBAT(PyInput *input_bat, size_t start, size_t end, char **return_message, bool copy);
 //! Creates a Null Mask from a BAT (a Numpy Boolean Array of equal length to the BAT, where NULLMASK[i] = True if BAT[i] is NULL, and False otherwise)
 pyapi_export PyObject *PyNullMask_FromBAT(BAT *b, size_t start, size_t end);
 //! Creates a Numpy Array object from an PyInput structure containing a scalar
 pyapi_export PyObject *PyArrayObject_FromScalar(PyInput* input_scalar, char **return_message);
 //! Creates a Numpy Masked Array  from an PyInput structure containing a BAT (essentially just combines PyArrayObject_FromBAT and PyNullMask_FromBAT)
-pyapi_export PyObject *PyMaskedArray_FromBAT(Client cntxt, PyInput *inp, size_t t_start, size_t t_end, char **return_message);
+pyapi_export PyObject *PyMaskedArray_FromBAT(Client cntxt, PyInput *inp, size_t t_start, size_t t_end, char **return_message, bool copy);
 //! Test if a PyDict object can be converted to the expected set of return columns, by checking if the correct keys are in the dictionary and if the values in the keys can be converted to single columns (to a single numpy array)
 pyapi_export PyObject *PyDict_CheckForConversion(PyObject *pResult, int expected_columns, char **retcol_names, char **return_message);
 //! Test if a specific PyObject can be converted to a set of <expected_columns> BATs (or just check if they can be converted to any number of BATs if expected_columns is smaller than 0)

@@ -40,7 +40,7 @@ lazyarray_materialize(PyObject *lazyarray, PyObject *unused)
             input.bat_type = PyBatObject_GETTYPE(bat);
             input.scalar = false;
 
-            array = (PyObject*)PyArrayObject_FromBAT(&input, 0, input.count, &msg);
+            array = (PyObject*)PyArrayObject_FromBAT(&input, 0, input.count, &msg, false);
             if (array == NULL) {
                 PyErr_Format(PyExc_Exception, "%s", msg);
                 Py_RETURN_NONE;

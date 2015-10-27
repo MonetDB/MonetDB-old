@@ -93,16 +93,14 @@ int PyAPIEnabled(void) {
 }
 
 static MT_Lock pyapiLock;
+static MT_Lock queryLock;
 static int pyapiInitialized = FALSE;
 
 static bool python_call_active = false;
 
-#ifdef _PYAPI_TESTING_
-// This #define converts a BAT 'bat' of BAT type 'TYPE_mtpe' to a Numpy array of type 'nptpe'
-// This only works with numeric types (bit, byte, int, long, float, double), strings are handled separately
-// if _PYAPI_TESTING_ is enabled, and option_zerocopyinput is set to FALSE, the BAT is copied. Otherwise the internal BAT pointer is passed to the numpy array (zero copy)
+
 #define BAT_TO_NP(bat, mtpe, nptpe)                                                                                                 \
-        if (!option_zerocopyinput) {                                                                                                \
+        if (copy) {                                                                                                                 \
             mtpe *array;                                                                                                            \
             vararray = PyArray_Zeros(1, (npy_intp[1]) {(t_end - t_start)}, PyArray_DescrFromType(nptpe), 0);                        \
             array = PyArray_DATA((PyArrayObject*)vararray);                                                                         \
@@ -114,12 +112,6 @@ static bool python_call_active = false;
             nptpe, NULL, &((mtpe*) Tloc(bat, BUNfirst(bat)))[t_start], 0,                                                           \
             NPY_ARRAY_CARRAY || !NPY_ARRAY_WRITEABLE, NULL);                                                                        \
         }
-#else
-#define BAT_TO_NP(bat, mtpe, nptpe)                                                                                                 \
-        vararray = PyArray_New(&PyArray_Type, 1, (npy_intp[1]) {(t_end-t_start)},                                                   \
-            nptpe, NULL, &((mtpe*) Tloc(bat, BUNfirst(bat)))[t_start], 0,                                                           \
-            NPY_ARRAY_CARRAY || !NPY_ARRAY_WRITEABLE, NULL);
-#endif
 
 // This #define creates a new BAT with the internal data and mask from a Numpy array, without copying the data
 // 'bat' is a BAT* pointer, which will contain the new BAT. TYPE_'mtpe' is the BAT type, and 'batstore' is the heap storage type of the BAT (this should be STORE_CMEM or STORE_SHARED)
@@ -395,7 +387,10 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     PyReturn *pyreturn_values = NULL;
     PyInput *pyinput_values = NULL;
     int seqbase = 0;
+    char *shm_ptr;
+    QueryStruct *query_ptr = NULL;
 #ifndef WIN32
+    int query_sem = -1;
     int shm_id = -1;
     size_t memory_size = 0;
     bool child_process = false;
@@ -539,11 +534,15 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         goto wrapup;
 #else
         lng pid;
-        char *ptr = NULL;
 
         //create initial shared memory
         MT_lock_set(&pyapiLock, "pyapi.evaluate");
-        shm_id = get_unique_shared_memory_id(1 + pci->retc * 2); //we need 1 + pci->retc * 2 shared memory spaces, the first is for the header information, the second pci->retc * 2 is one for each return BAT, and one for each return mask array
+        //we need 2 + pci->retc * 2 shared memory spaces
+        //the first is for the header information
+        //the second for query struct information
+        //the third is for query results
+        //the remaining pci->retc * 2 is one for each return BAT, and one for each return mask array
+        shm_id = get_unique_shared_memory_id(3 + pci->retc * 2); 
         MT_lock_unset(&pyapiLock, "pyapi.evaluate");
 
         VERBOSE_MESSAGE("Creating multiple processes.\n");
@@ -555,12 +554,32 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         assert(memory_size > 0);
         //create the shared memory for the header
         MT_lock_set(&pyapiLock, "pyapi.evaluate");
-        msg = create_shared_memory(shm_id, memory_size, (void**) &ptr);
+        msg = create_shared_memory(shm_id, memory_size, true, (void**) &shm_ptr, NULL);
         MT_lock_unset(&pyapiLock, "pyapi.evaluate");
-        if (msg != MAL_SUCCEED)
-        {
+        if (msg != MAL_SUCCEED) {
             goto wrapup;
         }
+
+        //create the cross-process semaphore used for signaling queries
+        //we need two semaphores
+        //the main process waits on the first one (exiting when a query is requested or the child process is done)
+        //the forked process waits for the second one when it requests a query (waiting for the result of the query)
+        msg = create_process_semaphore(shm_id, 2, &query_sem);
+        if (msg != MAL_SUCCEED) {
+            goto wrapup;
+        }
+
+        //create the shared memory space for queries
+        MT_lock_set(&pyapiLock, "pyapi.evaluate");
+        msg = create_shared_memory(shm_id + 1, sizeof(QueryStruct), true, (void**) &query_ptr, NULL);
+        MT_lock_unset(&pyapiLock, "pyapi.evaluate");
+        if (msg != MAL_SUCCEED) {
+            goto wrapup;
+        }
+        query_ptr->pending_query = false;
+        query_ptr->query[0] = '\0';
+        query_ptr->shmid = -1;
+        query_ptr->memsize = 0;
 
         VERBOSE_MESSAGE("Waiting to fork.\n");
         //fork
@@ -571,18 +590,16 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
             msg = createException(MAL, "pyapi.eval", "Failed to fork process");
             MT_lock_unset(&pyapiLock, "pyapi.evaluate");
 
-            release_shared_memory(ptr);
-
             goto wrapup;
         }
         else if (pid == 0)
         {
-            forked_process = 1;
-            GDKnr_threads = 1;
             child_process = true;
-#ifdef _PYAPI_TESTING_
-            if (!disable_testing && !option_disablemalloctracking && benchmark_output != NULL) { init_hook(); }
-#endif
+            query_ptr = NULL;
+            msg = get_shared_memory(shm_id + 1,  sizeof(QueryStruct), false, (void**) &query_ptr, NULL);
+            if (msg != MAL_SUCCEED) {
+                goto wrapup;
+            }
         }
 
         if (!child_process)
@@ -590,10 +607,153 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
             //main process
             int status;
             bool success = true;
+            bool sem_success;
+            int retcode;
             //wait for child processes
             MT_lock_unset(&pyapiLock, "pyapi.evaluate");
 
-            waitpid(pid, &status, 0);
+            while (true) 
+            {
+                //wait for the child to finish
+                //note that we use a timeout here in case the child crashes for some reason
+                //in this case the semaphore value is never increased, so we would be stuck otherwise
+                msg = change_semaphore_value_timeout(query_sem, 0, -1, 100, &sem_success); 
+                if (msg != MAL_SUCCEED){
+                    goto wrapup;
+                }
+                if (sem_success) 
+                {
+                    if (query_ptr->pending_query) {
+                        // we have to handle a query for the forked process
+                        res_table *output = NULL;
+                        // we only perform one query at a time, otherwise bad things happen
+                        // todo: we might only have to limit this to 'one query per client', rather than 'one query per pyapi'
+                        MT_lock_set(&queryLock, "pyapi.query");
+                        // execute the query
+                        msg = _connection_query(cntxt, query_ptr->query , &output);
+                        if (msg != MAL_SUCCEED) {
+                            MT_lock_unset(&queryLock, "pyapi.query");
+                            change_semaphore_value(query_sem, 1, 1); // free the forked process so it can exit in case of failure
+                            goto wrapup;
+                        }
+                        MT_lock_unset(&queryLock, "pyapi.query");
+
+                        query_ptr->memsize = 0;
+                        query_ptr->nr_cols = 0;
+                        query_ptr->shmid = -1;
+
+                        if (output != NULL && output->nr_cols > 0) 
+                        {
+                            // copy the return values into shared memory if there are any
+                            size_t size = 0;
+                            size_t position = 0;
+                            char *result_ptr;
+
+                            for (i = 0; i < output->nr_cols; i++) {
+                                res_col col = output->cols[i];
+                                BAT *b = BATdescriptor(col.b);
+                                sql_subtype *subtype = &col.type;
+                                enum _sqltype sql_type = get_sql_token(subtype);
+
+                                // if the sql type is set, we have to do some conversion
+                                // we do this before sending the BATs to the other process, otherwise there are complaints about not being able to find a BATdescriptor
+                                if (sql_type != sql_none) {
+                                    BAT *ret_bat = NULL;
+                                    int ret_type;
+                                    msg = ConvertFromSQLType(cntxt, b, sql_type, subtype, &ret_bat, &ret_type);
+                                    if (msg != MAL_SUCCEED) {
+                                        goto wrapup;
+                                    }
+                                    BBPunfix(col.b);
+                                    output->cols[i].b = ret_bat->batCacheid;
+                                }
+                            }
+
+                            // first obtain the total size of the shared memory region
+                            // the region is structured as [COLNAME][BAT][COLREC][BATREC][DATA]([VHEAP][VHEAPDATA])
+                            for (i = 0; i < output->nr_cols; i++) {
+                                res_col col = output->cols[i];
+                                BAT* b = BATdescriptor(col.b);
+                                size_t batsize = b->T->width * BATcount(b);
+                                char *colname = col.name;
+
+                                size += strlen(colname) + 1;                                          //[COLNAME]
+                                size += sizeof(BAT);                                                  //[BAT]
+                                size += sizeof(COLrec);                                               //[COLrec]
+                                size += sizeof(BATrec);                                               //[BATrec]
+                                size += batsize;                                                      //[DATA]
+                                
+                                if (b->T->vheap != NULL) {
+                                    size += sizeof(Heap);                                             //[VHEAP]
+                                    size += b->T->vheap->size;                                        //[VHEAPDATA]
+                                }
+                            }
+
+                            query_ptr->memsize = size;
+                            query_ptr->nr_cols = output->nr_cols;
+
+                            // create the actual shared memory region
+                            MT_lock_set(&pyapiLock, "pyapi.evaluate");
+                            query_ptr->shmid = get_unique_shared_memory_id(1); 
+                            MT_lock_unset(&pyapiLock, "pyapi.evaluate");
+
+                            msg = create_shared_memory(query_ptr->shmid, size, false, (void**) &result_ptr, NULL);
+
+                            if (msg != MAL_SUCCEED) {
+                                _connection_cleanup_result(output);
+                                change_semaphore_value(query_sem, 1, 1);
+                                goto wrapup;
+                            }
+
+                            // copy the data into the shared memory region
+                            for (i = 0; i < output->nr_cols; i++) {
+                                res_col col = output->cols[i];
+                                BAT* b = BATdescriptor(col.b);
+                                char *colname = col.name;
+                                size_t batsize = b->T->width * BATcount(b);
+
+                                //[COLNAME]
+                                memcpy(result_ptr + position, colname, strlen(colname) + 1); 
+                                position += strlen(colname) + 1;
+                                //[BAT]
+                                memcpy(result_ptr + position, b, sizeof(BAT)); 
+                                position += sizeof(BAT);
+                                //[COLREC]
+                                memcpy(result_ptr + position, b->T, sizeof(COLrec)); 
+                                position += sizeof(COLrec);
+                                //[BATREC]
+                                memcpy(result_ptr + position, b->S, sizeof(BATrec)); 
+                                position += sizeof(BATrec);
+                                //[DATA]
+                                memcpy(result_ptr + position, Tloc(b, BUNfirst(b)), batsize);
+                                position += batsize;
+                                if (b->T->vheap != NULL) {
+                                    //[VHEAP]
+                                    memcpy(result_ptr + position, b->T->vheap, sizeof(Heap));
+                                    position += sizeof(Heap);
+                                    //[VHEAPDATA]
+                                    memcpy(result_ptr + position, b->T->vheap->base, b->T->vheap->size);
+                                    position += b->T->vheap->size;
+                                }
+                            }
+                            //detach the main process from this piece of shared memory so the child process can delete it
+                            msg = release_shared_memory_ptr(result_ptr);
+                            _connection_cleanup_result(output);
+                        }
+                        //signal that we are finished processing this query
+                        query_ptr->pending_query = false;
+                        //after putting the return values in shared memory return control to the other process
+                        change_semaphore_value(query_sem, 1, 1);
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
+                retcode = waitpid(pid, &status, WNOHANG);
+                if (retcode != 0) break; //we have successfully waited for the child to exit
+            }
+            if (sem_success)
+                waitpid(pid, &status, 0);
 
             if (status != 0)
                 success = false;
@@ -601,24 +761,20 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
             if (!success)
             {
                 //a child failed, get the error message from the child
-                ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[0]);
+                ReturnBatDescr *descr = &(((ReturnBatDescr*)shm_ptr)[0]);
                 char *err_ptr;
 
                 if (descr->bat_size == 0) {
                     msg = createException(MAL, "pyapi.eval", "Failure in child process with unknown error.");
                 } else {
-                    MT_lock_set(&pyapiLock, "pyapi.evaluate");
-                    msg = get_shared_memory(shm_id + 1, descr->bat_size, (void**) &err_ptr);
-                    MT_lock_unset(&pyapiLock, "pyapi.evaluate");
+                    lng memshmid;
+                    msg = get_shared_memory(shm_id + 3, descr->bat_size, false, (void**) &err_ptr, &memshmid);
                     if (msg == MAL_SUCCEED)
                     {
                         msg = createException(MAL, "pyapi.eval", "%s", err_ptr);
-                        release_shared_memory(err_ptr);
+                        release_shared_memory_shmid(memshmid, err_ptr);
                     }
                 }
-
-                release_shared_memory(ptr);
-
                 goto wrapup;
             }
             VERBOSE_MESSAGE("Finished waiting for child process.\n");
@@ -627,7 +783,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
             for(i = 0; i < pci->retc; i++)
             {
                 PyReturn *ret = &pyreturn_values[i];
-                ReturnBatDescr *descr = &(((ReturnBatDescr*)ptr)[i]);
+                ReturnBatDescr *descr = &(((ReturnBatDescr*)shm_ptr)[i]);
                 size_t total_size = 0;
                 bool has_mask = false;
                 ret->count = 0;
@@ -646,16 +802,15 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                 has_mask = has_mask || descr->has_mask;
 
                 //get the shared memory address for this return value
-                VERBOSE_MESSAGE("Parent requesting memory at id %d of size %zu\n", shm_id + (i + 1), total_size);
+                VERBOSE_MESSAGE("Parent requesting memory at id %d of size %zu\n", shm_id + (i + 3), total_size);
 
                 assert(total_size > 0);
                 MT_lock_set(&pyapiLock, "pyapi.evaluate");
-                msg = get_shared_memory(shm_id + (i + 1), total_size, &ret->array_data);
+                msg = get_shared_memory(shm_id + (i + 3), total_size, true, &ret->array_data, NULL);
                 MT_lock_unset(&pyapiLock, "pyapi.evaluate");
 
                 if (msg != MAL_SUCCEED)
                 {
-                    release_shared_memory(ptr);
                     goto wrapup;
                 }
                 ret->mask_data = NULL;
@@ -668,20 +823,17 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 
                     assert(mask_size > 0);
                     MT_lock_set(&pyapiLock, "pyapi.evaluate");
-                    msg = get_shared_memory(shm_id + pci->retc + (i + 1), mask_size, (void**) &ret->mask_data);
+                    msg = get_shared_memory(shm_id + pci->retc + (i + 3), mask_size, true, (void**) &ret->mask_data, NULL);
                     MT_lock_unset(&pyapiLock, "pyapi.evaluate");
 
                     if (msg != MAL_SUCCEED)
                     {
-                        release_shared_memory(ptr);
                         release_shared_memory(ret->array_data);
                         goto wrapup;
                     }
                 }
             }
             msg = MAL_SUCCEED;
-
-            if (ptr != NULL) release_shared_memory(ptr);
 
             goto returnvalues;
         }
@@ -707,7 +859,11 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     pArgs = PyTuple_New(pci->argc - (pci->retc + 2) + (code_object == NULL ? 3 : 0));
     pColumns = PyDict_New();
     pColumnTypes = PyDict_New();
-    pConnection = Py_Connection_Create(cntxt);
+#ifndef WIN32
+    pConnection = Py_Connection_Create(cntxt, mapped, query_ptr, query_sem);
+#else
+    pConnection = Py_Connection_Create(cntxt, mapped, 0, 0);
+#endif
 
     // Now we will loop over the input BATs and convert them to python objects
     for (i = pci->retc + 2; i < pci->argc; i++) {
@@ -727,7 +883,13 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
             } else
 #endif
             {
-                result_array = PyMaskedArray_FromBAT(cntxt, &pyinput_values[i - (pci->retc + 2)], t_start, t_end, &msg);
+                result_array = PyMaskedArray_FromBAT(cntxt, &pyinput_values[i - (pci->retc + 2)], t_start, t_end, &msg, 
+#ifdef _PYAPI_TESTING_
+                    !option_zerocopyinput
+#else
+                    false
+#endif
+                    );
             }
         }
         if (result_array == NULL) {
@@ -882,7 +1044,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         // First we will fill in the header information, we will need to get a pointer to the header data first
         // The main process has already created the header data for the child process
         VERBOSE_MESSAGE("Getting shared memory.\n");
-        msg = get_shared_memory(shm_id, memory_size, (void**) &shm_ptr);
+        msg = get_shared_memory(shm_id, memory_size, false, (void**) &shm_ptr, NULL);
         if (msg != MAL_SUCCEED) {
             goto wrapup;
         }
@@ -933,7 +1095,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                 char *mem_ptr;
                 //now create shared memory for the return value and copy the actual values
                 assert(memory_size > 0);
-                if (create_shared_memory(shm_id + (i + 1), memory_size, (void**)&mem_ptr) != MAL_SUCCEED)
+                if (create_shared_memory(shm_id + (i + 3), memory_size, false, (void**)&mem_ptr, NULL) != MAL_SUCCEED)
                 {
                     msg = createException(MAL, "pyapi.eval", "Failed to allocate shared memory for returning data.\n");
                     goto wrapup;
@@ -945,7 +1107,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                     bool *mask_ptr;
                     int mask_size = ret->count * sizeof(bool);
                     assert(mask_size > 0);
-                    if (create_shared_memory(shm_id + retcols + (i + 1), mask_size, (void**)&mask_ptr) != MAL_SUCCEED) //create a memory space for the mask
+                    if (create_shared_memory(shm_id + retcols + (i + 3), mask_size, false, (void**)&mask_ptr, NULL) != MAL_SUCCEED) //create a memory space for the mask
                     {
                         msg = createException(MAL, "pyapi.eval", "Failed to allocate shared memory for returning mask.\n");
                         goto wrapup;
@@ -955,6 +1117,10 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                 }
             }
         }
+        //now free the main process from the semaphore
+        msg = change_semaphore_value(query_sem, 0, 1);
+        if (msg != MAL_SUCCEED)
+            goto wrapup;
         // Exit child process without an error code
         exit(0);
     }
@@ -1005,7 +1171,7 @@ returnvalues:
         }
         msg = MAL_SUCCEED;
     }
-  wrapup:
+wrapup:
 
 #ifndef WIN32
     if (mapped && child_process)
@@ -1016,9 +1182,14 @@ returnvalues:
 
         // Now we exit the program with an error code
         VERBOSE_MESSAGE("Failure in child process: %s\n", msg);
+        tmp_msg = change_semaphore_value(query_sem, 0, 1);
+        if (tmp_msg != MAL_SUCCEED) {
+            VERBOSE_MESSAGE("Failed to increase value of semaphore in child process: %s\n", tmp_msg);
+            exit(1);
+        }
 
         assert(memory_size > 0);
-        tmp_msg = get_shared_memory(shm_id, memory_size, (void**) &shm_ptr);
+        tmp_msg = get_shared_memory(shm_id, memory_size, false, (void**) &shm_ptr, NULL);
         if (tmp_msg != MAL_SUCCEED) {
             VERBOSE_MESSAGE("Failed to get shared memory in child process: %s\n", tmp_msg);
             exit(1);
@@ -1035,14 +1206,13 @@ returnvalues:
         }
 
         // Now create the shared memory to write our error message to
-        // We can simply use the slot shm_id + 1, even though this is normally used for return values
+        // We can simply use the slot shm_id + 3, even though this is normally used for return values
         // This is because, if the process fails, no values will be returned
-        tmp_msg = create_shared_memory(shm_id + 1, (strlen(msg) + 1) * sizeof(char), (void**) &error_mem);
+        tmp_msg = create_shared_memory(shm_id + 3, (strlen(msg) + 1) * sizeof(char), false, (void**) &error_mem, NULL);
         if (tmp_msg != MAL_SUCCEED) {
             VERBOSE_MESSAGE("Failed to create shared memory in child process: %s\n", tmp_msg);
             exit(1);
         }
-
         strcpy(error_mem, msg);
         exit(1);
     }
@@ -1056,6 +1226,17 @@ returnvalues:
         MT_lock_unset(&pyapiLock, "pyapi.evaluate");
     }
 
+#ifndef WIN32
+    if (mapped)
+    {
+        if (query_sem > 0) 
+            release_process_semaphore(query_sem);
+        if (shm_ptr != NULL) 
+            release_shared_memory(shm_ptr);
+        if (query_ptr != NULL)
+            release_shared_memory(query_ptr);
+    }
+#endif
     // Actual cleanup
     // Cleanup input BATs
     for (i = pci->retc + 2; i < pci->argc; i++)
@@ -1135,6 +1316,7 @@ str
     (void) ret;
 #ifndef _EMBEDDED_MONETDB_MONETDB_LIB_
     MT_lock_init(&pyapiLock, "pyapi_lock");
+    MT_lock_init(&queryLock, "query_lock");
     if (PyAPIEnabled()) {
         MT_lock_set(&pyapiLock, "pyapi.evaluate");
         if (!pyapiInitialized) {
@@ -1344,7 +1526,7 @@ wrapup:
     return vararray;
 }
 
-PyObject *PyMaskedArray_FromBAT(Client cntxt, PyInput *inp, size_t t_start, size_t t_end, char **return_message)
+PyObject *PyMaskedArray_FromBAT(Client cntxt, PyInput *inp, size_t t_start, size_t t_end, char **return_message, bool copy)
 {
     BAT *b;
     char *msg;
@@ -1367,7 +1549,7 @@ PyObject *PyMaskedArray_FromBAT(Client cntxt, PyInput *inp, size_t t_start, size
     }
     b = inp->bat;
 
-    vararray = PyArrayObject_FromBAT(inp, t_start, t_end, return_message);
+    vararray = PyArrayObject_FromBAT(inp, t_start, t_end, return_message, copy);
     if (vararray == NULL) {
         return NULL;
     }
@@ -1408,7 +1590,7 @@ wrapup:
     return NULL;
 }
 
-PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char **return_message)
+PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char **return_message, bool copy)
 {
     // This variable will hold the converted Python object
     PyObject *vararray = NULL;

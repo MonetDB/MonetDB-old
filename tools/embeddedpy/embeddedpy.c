@@ -115,8 +115,9 @@ PyObject *monetdb_sql(PyObject *self, PyObject *args)
 				input.count = BATcount(b);
             	input.bat_type = ATOMstorage(getColumnType(b->T->type));
             	input.scalar = false;
+            	input.sql_subtype = &col.type;
 
-            	numpy_array = PyMaskedArray_FromBAT(&mal_clients[0], &input, 0, input.count, &msg);
+            	numpy_array = PyMaskedArray_FromBAT(&mal_clients[0], &input, 0, input.count, &msg, true);
             	if (!numpy_array) {
 					monetdb_cleanup_result(output);
 			   		PyErr_Format(PyExc_Exception, "SQL Query Failed: %s", (msg ? msg : "<no error>"));
