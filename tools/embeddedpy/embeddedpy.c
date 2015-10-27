@@ -263,6 +263,7 @@ cleanup:
 		if (pyreturn_values) GDKfree(pyreturn_values);
 		if (column_names) GDKfree(column_names);
 		if (column_types) GDKfree(column_types);
+		if (sql_subtypes) GDKfree(sql_subtypes);
 		if (append_bats) {
 			for(i = 0; i < columns; i++) {
 				if (append_bats[i].batid != int_nil) BBPunfix(append_bats[i].batid);
