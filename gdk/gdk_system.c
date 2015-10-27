@@ -55,8 +55,6 @@
 
 #include <unistd.h>		/* for sysconf symbols */
 
-int forked_process = 0;
-
 MT_Lock MT_system_lock MT_LOCK_INITIALIZER("MT_system_lock");
 
 #if !defined(USE_PTHREAD_LOCKS) && !defined(NDEBUG)
