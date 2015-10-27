@@ -140,9 +140,7 @@ _connection_execute(Py_ConnectionObject *self, PyObject *args)
                 numpy_array = PyMaskedArray_FromBAT(self->cntxt, &input, 0, input.count, &msg, true);
                 if (!numpy_array) {
                     PyErr_Format(PyExc_Exception, "SQL Query Failed: %s", (msg ? msg : "<no error>"));
-                    msg = release_shared_memory_shmid(self->query_ptr->shmid, ptr);
-                    if (msg != MAL_SUCCEED)
-                        printf("%s\n", msg);
+                    release_shared_memory_shmid(release_shmid, ptr);
                     return NULL;
                 }
                 PyDict_SetItem(result, PyString_FromString(colname), numpy_array);

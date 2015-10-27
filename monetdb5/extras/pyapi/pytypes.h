@@ -107,7 +107,7 @@ pyapi_export PyObject *PyObject_CheckForConversion(PyObject *pResult, int expect
 //! Preprocess a PyObject (that is the result of PyObject_CheckForConversion), pyreturn_values must be an array of PyReturn structs of size column_count
 pyapi_export bool PyObject_PreprocessObject(PyObject *pResult, PyReturn *pyreturn_values, int column_count, char **return_message);
 //! Create a BAT from the i'th PyReturn struct (filled by PyObject_PreprocessObject), with bat_type set to the expected BAT Type (set this to PyType_ToBat(ret->result_type) if there is no expected type), seqbase should be set to 0 unless you know what you're doing
-pyapi_export BAT *PyObject_ConvertToBAT(PyReturn *ret, sql_subtype *type, int bat_type, int index, int seqbase, char **return_message);
+pyapi_export BAT *PyObject_ConvertToBAT(PyReturn *ret, sql_subtype *type, int bat_type, int index, int seqbase, char **return_message, bool copy);
 
 pyapi_export char *BatType_Format(int);
 

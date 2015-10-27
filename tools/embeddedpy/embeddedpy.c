@@ -192,7 +192,7 @@ PyObject *monetdb_create(PyObject *self, PyObject *args)
 				append_bats[i].batid = int_nil;
 			}
 			for(i = 0; i < columns; i++) {
-				BAT *b = PyObject_ConvertToBAT(&pyreturn_values[i], NULL, PyType_ToBat(pyreturn_values[i].result_type), i, 0, &msg);
+				BAT *b = PyObject_ConvertToBAT(&pyreturn_values[i], NULL, PyType_ToBat(pyreturn_values[i].result_type), i, 0, &msg, true);
 				if (b == NULL) goto cleanup; 
 				append_bats[i].batid = b->batCacheid;
 				append_bats[i].colname = PyString_AS_STRING(PyList_GetItem(dict, i));
@@ -252,7 +252,7 @@ PyObject *monetdb_insert(PyObject *self, PyObject *args)
 			append_bats[i].colname = column_names[i];
 		}
 		for(i = 0; i < columns; i++) {
-			BAT *b = PyObject_ConvertToBAT(&pyreturn_values[i], NULL, column_types[i], i, 0, &msg);
+			BAT *b = PyObject_ConvertToBAT(&pyreturn_values[i], NULL, column_types[i], i, 0, &msg, true);
 
 			if (b == NULL) goto cleanup; 
 			append_bats[i].batid = b->batCacheid;

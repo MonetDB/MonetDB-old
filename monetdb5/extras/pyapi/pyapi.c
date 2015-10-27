@@ -273,7 +273,7 @@ static bool python_call_active = false;
             goto wrapup;                                                                                                                                       \
         }                                                                                                                                                      \
         data = (char*) ret->array_data;                                                                                                                        \
-        if (ZEROCOPY_OUTPUT ret->count > 0 && TYPE_##mtpe == PyType_ToBat(ret->result_type) && (ret->count * ret->memory_size < BUN_MAX) &&                    \
+        if (!copy && ZEROCOPY_OUTPUT ret->count > 0 && TYPE_##mtpe == PyType_ToBat(ret->result_type) && (ret->count * ret->memory_size < BUN_MAX) &&                    \
             (ret->numpy_array == NULL || PyArray_FLAGS((PyArrayObject*)ret->numpy_array) & NPY_ARRAY_OWNDATA))                                                 \
         {                                                                                                                                                      \
             /*We can only create a direct map if the numpy array type and target BAT type*/                                                                    \
@@ -1152,7 +1152,7 @@ returnvalues:
             bat_type = PyType_ToBat(ret->result_type);
         }
 
-        b = PyObject_ConvertToBAT(ret, sql_subtype, bat_type, i, seqbase, &msg);
+        b = PyObject_ConvertToBAT(ret, sql_subtype, bat_type, i, seqbase, &msg, false);
         if (b == NULL) {
             goto wrapup;
         }
@@ -2171,7 +2171,7 @@ wrapup:
     return FALSE;
 }
 
-BAT *PyObject_ConvertToBAT(PyReturn *ret, sql_subtype *type, int bat_type, int i, int seqbase, char **return_message)
+BAT *PyObject_ConvertToBAT(PyReturn *ret, sql_subtype *type, int bat_type, int i, int seqbase, char **return_message, bool copy)
 {
     BAT *b = NULL;
     size_t index_offset = 0;
