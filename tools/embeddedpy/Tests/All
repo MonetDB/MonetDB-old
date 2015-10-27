@@ -1,0 +1,6 @@
+
+HAVE_LIBPY?pylite00
+HAVE_LIBPY?pylite01
+HAVE_LIBPY?pylite02
+HAVE_LIBPY?pylite03
+HAVE_LIBPY?pylite04

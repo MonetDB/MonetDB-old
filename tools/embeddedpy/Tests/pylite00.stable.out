@@ -1,0 +1,16 @@
+stdout of test 'pylite00` in directory 'tools/embeddedpy` itself:
+
+
+# 14:17:04 >  
+# 14:17:04 >  "/usr/bin/python2" "pylite00.py" "pylite00"
+# 14:17:04 >  
+
+Making directory /tmp/pylite_dbfarm
+# Start processing logs sql/sql_logs version 52200
+# Finished processing logs sql/sql_logs
+{'i': array([1, 2, 3, 4, 5], dtype=int32)}
+
+# 14:17:05 >  
+# 14:17:05 >  "Done."
+# 14:17:05 >  
+
