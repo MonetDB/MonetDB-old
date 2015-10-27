@@ -13,7 +13,8 @@
 
 #ifndef _SHAREDMEMORY_LIB_
 #define _SHAREDMEMORY_LIB_
-
+ 
+#ifndef _WIN32
 #include "monetdb_config.h"
 #include "gdk.h"
 
@@ -40,5 +41,6 @@ str get_semaphore_value(int sem_id, int number, int *semval);
 str change_semaphore_value(int sem_id, int number, int change);
 str change_semaphore_value_timeout(int sem_id, int number, int change, int timeout_mseconds, bool *succeed);
 str release_process_semaphore(int sem_id);
+#endif
 
 #endif /* _SHAREDMEMORY_LIB_ */

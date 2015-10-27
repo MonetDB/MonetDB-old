@@ -65,7 +65,9 @@ _connection_execute(Py_ConnectionObject *self, PyObject *args)
             Py_RETURN_NONE;
         }
     }
-    else {
+    else 
+#ifndef WIN32
+    {
         // This is a mapped process, we do not want forked processes to touch the database
         // Only the main process may touch the database, so we ship the query back to the main process
         // copy the query into shared memory and tell the main process there is a query to handle
@@ -152,6 +154,12 @@ _connection_execute(Py_ConnectionObject *self, PyObject *args)
 
         Py_RETURN_NONE;
     }
+#else
+    {
+        PyErr_Format(PyExc_Exception, "Mapped is not supported on Windows.");
+        return NULL;
+    }
+#endif
 }
 
 static PyMethodDef _connectionObject_methods[] = {

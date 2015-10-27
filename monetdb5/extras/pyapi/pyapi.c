@@ -387,9 +387,9 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     PyReturn *pyreturn_values = NULL;
     PyInput *pyinput_values = NULL;
     int seqbase = 0;
+#ifndef WIN32
     char *shm_ptr;
     QueryStruct *query_ptr = NULL;
-#ifndef WIN32
     int query_sem = -1;
     int shm_id = -1;
     size_t memory_size = 0;
@@ -1257,6 +1257,7 @@ wrapup:
             if (ret->numpy_array != NULL) Py_DECREF(ret->numpy_array);
             if (ret->numpy_mask != NULL) Py_DECREF(ret->numpy_mask);
         }
+#ifndef WIN32
         // If there is no numpy array, but there is array data, then that array data must be shared memory
         if (ret->numpy_array == NULL && ret->array_data != NULL) {
             release_shared_memory(ret->array_data);
@@ -1264,6 +1265,7 @@ wrapup:
         if (ret->numpy_mask == NULL && ret->mask_data != NULL) {
             release_shared_memory(ret->mask_data);
         }
+#endif
     }
     if (pResult != NULL) {
         Py_DECREF(pResult);
@@ -1325,7 +1327,9 @@ str
             PyRun_SimpleString("import numpy");
             PyByteArray_Override();
             import_array1(iar);
+#ifndef WIN32
             initialize_shared_memory();
+#endif
             lazyarray_init();
             _connection_init();
             marshal_module = PyImport_Import(PyString_FromString("marshal"));
