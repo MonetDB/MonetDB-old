@@ -1,9 +1,13 @@
+# we need this to find our MAL scripts and DLLs on Windows
+installdir <- ""
+
 .onLoad <- function(libname, pkgname){
-	dyn.load(file.path(libname, pkgname, "libs", "MonetDB.so"), local=F, now=F)
+	installdir <<- file.path(libname, pkgname, "libs")
+	library.dynam("libmonetdb5", pkgname, lib.loc=libname, now=T, local=F)
 }
 
 monetdb_embedded_startup <- function(dir=tempdir(), quiet=TRUE) {
-	dir <- as.character(dir)
+	dir <- normalizePath(as.character(dir))
 	quiet <- as.logical(quiet)
 	if (length(dir) != 1) {
 		stop("Need a single directory name as parameter.")
@@ -14,7 +18,7 @@ monetdb_embedded_startup <- function(dir=tempdir(), quiet=TRUE) {
 	if (file.access(dir, mode=2) < 0) {
 		stop("Cannot write to ", dir)
 	}
-	res <- .Call("monetdb_startup_R", dir, quiet)
+	res <- .Call("monetdb_startup_R", installdir, dir, quiet, PACKAGE="libmonetdb5")
 	if (is.character(res)) {
 		stop("Failed to initialize embedded MonetDB ", res)
 	}
@@ -35,7 +39,7 @@ monetdb_embedded_query <- function(query, notreally=FALSE) {
 	}
 	# make sure the query is terminated
 	query <- paste(query, "\n;", sep="")
-	res <- .Call("monetdb_query_R", query, notreally)
+	res <- .Call("monetdb_query_R", query, notreally, PACKAGE="libmonetdb5")
 
 	resp <- list()
 	if (is.character(res)) { # error
@@ -69,5 +73,5 @@ monetdb_embedded_append <- function(table, tdata, schema="sys") {
 		stop("Need a data frame as tdata parameter.")
 	}
 
-	.Call("monetdb_append_R", schema, table, tdata)
+	.Call("monetdb_append_R", schema, table, tdata, PACKAGE="libmonetdb5")
 }

@@ -27,7 +27,7 @@ s|@AUTOHEADER@||
 s|@AUTOMAKE@||
 s|@AWK@|gawk|
 s|@BASH@|sh|
-s|@bindir@||
+s|@bindir@|${exec_prefix}/bin|
 s|@bits@||
 s|@BUILD@||
 s|@build@||
@@ -43,7 +43,7 @@ s|@CC@|gcc|
 s|@CCDEPMODE@||
 s|@cfitsio_CFLAGS@||
 s|@cfitsio_LIBS@||
-s|@CFLAGS@|-m64 -O3 -I"C:/Program Files/R/R-3.2.1/include"|
+s|@CFLAGS@|-m64 -O3 -I"%RINCLUDE%"|
 s|@CLASSPATH@||
 s|@compilercall@||
 s|@configure_input@||
@@ -54,8 +54,8 @@ s|@curl_CFLAGS@||
 s|@curl_LIBS@||
 s|@CYGPATH_W@||
 s|@CYGPATH_WP@||
-s|@datadir@||
-s|@datarootdir@||
+s|@datadir@|${prefix}/share|
+s|@datarootdir@|${prefix}/share|
 s|@DEFS@||
 s|@DEPDIR@||
 s|@DIFF@||
@@ -73,7 +73,7 @@ s|@EGREP@||
 s|@Elocalstatedir@||
 s|@Elogdir@||
 s|@Erundir@||
-s|@exec_prefix@||
+s|@exec_prefix@|${prefix}|
 s|@EXEEXT@||
 s|@FGREP@||
 s|@GDK_VERSION@||
@@ -89,13 +89,13 @@ s|@host_cpu@||
 s|@host_os@||
 s|@host_vendor@||
 s|@htmldir@||
-s|@includedir@||
+s|@includedir@|${prefix}/include|
 s|@infodir@||
-s|@INSTALL@||
-s|@INSTALL_BACKUP@||
-s|@INSTALL_DATA@||
-s|@INSTALL_PROGRAM@||
-s|@INSTALL_SCRIPT@||
+s|@INSTALL@|cp|
+s|@INSTALL_BACKUP@|cp|
+s|@INSTALL_DATA@|cp|
+s|@INSTALL_PROGRAM@|cp|
+s|@INSTALL_SCRIPT@|cp|
 s|@install_sh@|${SHELL} $(top_builddir)/buildtools/conf/install-sh|
 s|@INSTALL_STRIP_PROGRAM@||
 s|@JAR@||
@@ -108,8 +108,8 @@ s|@JAVA_VERSION@||
 s|@KVM_LIBS@||
 s|@LD@||
 s|@LDFLAGS@||
-s|@libdir@||
-s|@libexecdir@||
+s|@libdir@|${exec_prefix}/lib|
+s|@libexecdir@|${exec_prefix}/libexec|
 s|@LIBICONV@||
 s|@libmicrohttpd_CFLAGS@||
 s|@libmicrohttpd_LIBS@||
@@ -126,8 +126,8 @@ s|@LINUX_DIST@||
 s|@LIPO@||
 s|@LN_S@||
 s|@localedir@||
-s|@localstatedir@||
-s|@logdir@||
+s|@localstatedir@|${prefix}/var|
+s|@logdir@|${prefix}/log/monetdb|
 s|@LTLIBICONV@||
 s|@LTLIBOBJS@||
 s|@LT_SYS_LIBRARY_PATH@||
@@ -137,8 +137,8 @@ s|@mandir@||
 s|@MANIFEST_TOOL@||
 s|@MAPI_VERSION@||
 s|@MATH_LIBS@||
-s|@MKDIR_P@||
-s|@mkdir_p@||
+s|@MKDIR_P@|mkdir -p|
+s|@mkdir_p@|mkdir -p|
 s|@MONETDB5_PASSWDHASH@||
 s|@MONETDB5_VERSION@||
 s|@MSGCONTROL_FLAGS@||
@@ -169,7 +169,7 @@ s|@PACKAGE_VERSION@||
 s|@PATHSEP@|;|
 s|@PATH_SEPARATOR@|;|
 s|@pcreversion@|8.3.7|
-s|@pcre_CFLAGS@|-I$(top_builddir)/tools/embedded/windows/pcre-8.37.win64/include|
+s|@pcre_CFLAGS@|-I$(top_builddir)/tools/embedded/windows/pcre-8.37/include|
 s|@pcre_LIBS@||
 s|@pdfdir@||
 s|@PERL@||
@@ -179,7 +179,7 @@ s|@PKG_CONFIG_LIBDIR@||
 s|@PKG_CONFIG_PATH@||
 s|@PKG_CURL@||
 s|@PKG_ZLIB@||
-s|@prefix@||
+s|@prefix@|%PREFIX%|
 s|@program_transform_name@||
 s|@psdir@||
 s|@PTHREAD_INCS@||
@@ -231,7 +231,7 @@ s|@READLINE_INCS@||
 s|@READLINE_LIBS@||
 s|@READLINK@||
 s|@RHOME@||
-s|@RM@||
+s|@RM@|rm -f|
 s|@RPMBUILD@||
 s|@RUBY@||
 s|@RUBYGEM@||
@@ -239,7 +239,7 @@ s|@RUBY_DIR@||
 s|@rundir@||
 s|@SAMTOOLS_CFLAGS@||
 s|@SAMTOOLS_LIBS@||
-s|@sbindir@||
+s|@sbindir@|${exec_prefix}/sbin|
 s|@SED@||
 s|@SET_MAKE@||
 s|@sharedstatedir@||
@@ -262,7 +262,7 @@ s|@thread_safe_flag_spec@||
 s|@THREAD_SAVE_FLAGS@||
 s|@top_builddir@|$(top_srcdir)|
 s|@top_build_prefix@||
-s|@top_srcdir@|c:/Users/Vanilla/MonetDB-2/src|
+s|@top_srcdir@|%SRCDIR%|
 s|@translatepath@||
 s|@UUID_LIBS@||
 s|@valgrind_CFLAGS@||

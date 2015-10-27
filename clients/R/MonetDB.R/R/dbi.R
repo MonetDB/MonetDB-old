@@ -400,16 +400,20 @@ quoteIfNeeded <- function(conn, x, warn=T, ...) {
 
 setMethod("dbWriteTable", "MonetDBConnection", def=function(conn, name, value, overwrite=FALSE, 
   append=FALSE, csvdump=FALSE, transaction=TRUE,...) {
-  if (is.vector(value) && !is.list(value)) value <- data.frame(x=value)
+  if (is.vector(value) && !is.list(value)) value <- data.frame(x=value, stringsAsFactors=F)
   if (length(value)<1) stop("value must have at least one column")
   if (is.null(names(value))) names(value) <- paste("V", 1:length(value), sep='')
   if (length(value[[1]])>0) {
-    if (!is.data.frame(value)) value <- as.data.frame(value, row.names=1:length(value[[1]]))
+    if (!is.data.frame(value)) value <- as.data.frame(value, row.names=1:length(value[[1]]) , stringsAsFactors=F)
   } else {
-    if (!is.data.frame(value)) value <- as.data.frame(value)
+    if (!is.data.frame(value)) value <- as.data.frame(value, stringsAsFactors=F)
   }
   if (overwrite && append) {
     stop("Setting both overwrite and append to TRUE makes no sense.")
+  }
+  if (transaction) {
+    dbBegin(conn)
+    on.exit(tryCatch(dbRollback(conn), error=function(e){}))
   }
   qname <- quoteIfNeeded(conn, name)
   if (dbExistsTable(conn, qname)) {
@@ -425,17 +429,23 @@ setMethod("dbWriteTable", "MonetDBConnection", def=function(conn, name, value, o
     dbSendUpdate(conn, ct)
   }
   if (length(value[[1]])) {
+    classes <- unlist(lapply(value, class))
+    for (c in names(classes[classes=="character"])) {
+      value[[c]] <- enc2utf8(value[[c]])
+    }
+    for (c in names(classes[classes=="factor"])) {
+      levels(value[[c]]) <- enc2utf8(levels(value[[c]]))
+    }
     if (inherits(conn, "MonetDBEmbeddedConnection")) {
       if (csvdump) {
         warning("Ignoring csvdump setting in embedded mode")
       }
       # convert Date cols to characters
       # TODO: use type mapping to select correct converters
-      classes <- unlist(lapply(value, class))
-      datecols <- names(classes[classes=="Date"])
-      for (c in datecols) {
+      for (c in names(classes[classes=="Date"])) {
         value[[c]] <- as.character(value[[c]])
       }
+
       insres <- MonetDBLite::monetdb_embedded_append(qname, value)
       if (!is.logical(insres)) {
         stop("Failed to insert data: ", insres)
@@ -449,7 +459,6 @@ setMethod("dbWriteTable", "MonetDBConnection", def=function(conn, name, value, o
         file.remove(tmp) 
       } else {
         vins <- paste("(", paste(rep("?", length(value)), collapse=', '), ")", sep='')
-        if (transaction) dbBegin(conn)
         # chunk some inserts together so we do not need to do a round trip for every one
         splitlen <- 0:(nrow(value)-1) %/% getOption("monetdb.insert.splitsize", 1000)
         lapply(split(value, splitlen), 
@@ -458,9 +467,12 @@ setMethod("dbWriteTable", "MonetDBConnection", def=function(conn, name, value, o
           for (j in 1:length(valueck[[1]])) bvins <- c(bvins,.bindParameters(vins, as.list(valueck[j, ])))
           dbSendUpdate(conn, paste0("INSERT INTO ", qname, " VALUES ",paste0(bvins, collapse=", ")))
         })
-        if (transaction) dbCommit(conn)
       }
     }
+  }
+  if (transaction) {
+    dbCommit(conn)
+    on.exit(NULL)
   }
   return(invisible(TRUE))
 })
@@ -794,7 +806,9 @@ monet.read.csv <- monetdb.read.csv <- function(conn, files, tablename, nrows=NA,
     types <- sapply(headers, function(df) sapply(df, dbDataType, dbObj=conn))
     if(!all(types==types[, 1])) stop("Files have different variable types")
   } 
-  if (create){
+  dbBegin(conn)
+  on.exit(tryCatch(dbRollback(conn), error=function(e){}))
+  if (create) {
   tablename <- quoteIfNeeded(conn, tablename)
     if(lower.case.names) names(headers[[1]]) <- tolower(names(headers[[1]]))
     if(!is.null(col.names)) {
@@ -808,7 +822,7 @@ monet.read.csv <- monetdb.read.csv <- function(conn, files, tablename, nrows=NA,
       }
       names(headers[[1]]) <- quoteIfNeeded(conn, col.names)
     }
-    dbWriteTable(conn, tablename, headers[[1]][FALSE, ])
+    dbWriteTable(conn, tablename, headers[[1]][FALSE, ], transaction=F)
   }
   
   delimspec <- paste0("USING DELIMITERS '", delim, "','", newline, "','", quote, "'")
@@ -820,5 +834,7 @@ monet.read.csv <- monetdb.read.csv <- function(conn, files, tablename, nrows=NA,
       na.strings[1], "'", sep=""), if(locked) "LOCKED"))
   }
   dbGetQuery(conn, paste("SELECT COUNT(*) FROM", tablename))[[1]]
+  dbCommit(conn)
+  on.exit(NULL)
 }
 

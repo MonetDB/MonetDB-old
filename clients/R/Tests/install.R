@@ -8,6 +8,7 @@ builddir   <- file.path(basedir, "rbuilddir")
 installdir <- file.path(basedir, "rlibdir")
 dir.create(builddir)
 dir.create(installdir)
+file.remove(file.path(builddir, "MonetDB.R"), recursive=T, showWarnings=F)
 file.copy(from=file.path(srcdir, "..", "MonetDB.R"), to=builddir, recursive=T)
 dd <- capture.output(suppressMessages( {
 	sink(file=file(tempfile(), open = "wt"), type = "message") 
