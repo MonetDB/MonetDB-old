@@ -1059,7 +1059,7 @@ sql_rel* rel_create_array(mvc *sql, sql_schema *ss, int temp, char *sname, char 
 	if (mvc_bind_table(sql, s, name)) {
 		char *cd = (temp == SQL_DECLARED_ARRAY)?"DECLARE":"CREATE";
 		return sql_error(sql, 02, "42S01!%s ARRAY: name '%s' already in use", cd, name);
-	} else if (temp != SQL_DECLARED_ARRAY && (!schema_privs(sql->role_id, s) && !(isTempSchema(s) && temp == SQL_LOCAL_TEMP))){
+	} else if (temp != SQL_DECLARED_ARRAY && (!mvc_schema_privs(sql, s) && !(isTempSchema(s) && temp == SQL_LOCAL_TEMP))){
 		return sql_error(sql, 02, "42000!CREATE ARRAY: insufficient privileges for user '%s' in schema '%s'", stack_get_string(sql, "current_user"), s->base.name);
 	} else if (array_elements->token == SQL_CREATE_ARRAY) { 
 		sql_table *t = mvc_create_array(sql, s, name, tt, 0, SQL_DECLARED_ARRAY, commit_action, -1, 0);
