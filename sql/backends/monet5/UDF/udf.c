@@ -114,7 +114,7 @@ UDFBATreverse_(BAT **ret, BAT *src)
 		assert(tr != NULL);
 
 		/* append reversed tail in result BAT */
-		BUNappend(bn, tr, FALSE);
+		BUNappend(bn, tr, FALSE);		
 
 		/* free memory allocated in UDFreverse_() */
 		GDKfree(tr);
@@ -407,24 +407,133 @@ char* UDFqrq(bat *q, const bat *c, const double *s) {
 	return MAL_SUCCEED;
 }
 
-char* fotini1UDF(double *ret1, double *in1, double *in2) {
-	if(*in1 > *in2) {
-		*ret1 = *in1;
-	} else {
-		*ret1=*in2;
+static double computeR(BAT *col) {
+	BATiter col_iter = bat_iterator(col);
+	BUN start = BUNfirst(col);
+	BUN last = BUNlast(col);
+	BUN i;
+	double s = 0.0;
+
+	for(i=start; i<last; i++) {
+		double val = *(double*)BUNtail(col_iter, i);
+		s += val*val;
 	}
 
-	return MAL_SUCCEED;
+	return sqrt(s);
 }
 
-char* fotini2UDF(double *ret1, double *ret2, double *in1, double *in2) {
-	if(*in1 > *in2) {
-		*ret1 = *in1;
-		*ret2 = *in2;
-	} else {
-		*ret1=*in2;
-		*ret2 = *in1;
+static double computeR2(BAT *col, BAT *q) {
+	BATiter col_iter = bat_iterator(col);
+	BATiter q_iter = bat_iterator(q);
+	BUN start = BUNfirst(col);
+	BUN last = BUNlast(col);
+	BUN i;
+	double s = 0.0;
+
+	for(i=start; i<last; i++) {
+		s += (*(double*)BUNtail(col_iter, i))*(*(double*)BUNtail(q_iter, i));
 	}
 
-	return MAL_SUCCEED;
+	return s;
+}
+
+static BAT* setQ(BAT *col, double r) {
+	BATiter col_iter = bat_iterator(col);
+	double *vals;
+	BUN i, start, end;
+
+	BAT *q = BATnew(TYPE_void, TYPE_dbl, 0, TRANSIENT);
+	if(!q)
+		return NULL;
+
+	start = BUNfirst(col);
+	end = BUNlast(col);
+	vals = (double*)Tloc(q, BUNfirst(q));
+
+	for(i=start; i<end; i++) {
+		double val = *(double*)BUNtail(col_iter, i);
+		*(vals++) = val/r;
+	}
+
+	BATsetcount(q, BATcount(col));
+	BATseqbase(q, col->hseqbase);
+	q->trevsorted = q->tsorted = 0;
+    q->tkey = 0;
+    q->T->nil = 1;
+    q->T->nonil = 0;
+	return q;
+}
+
+static BAT* updateCol(BAT *col, double r, BAT* q) {
+	double *colVals, *qVals;
+	oid i;
+
+	colVals = (double*)Tloc(col, BUNfirst(col));
+	qVals = (double*)Tloc(q, BUNfirst(q));
+
+	for(i=0; i<BATcount(col); i++) {
+		colVals[i] -= r*qVals[i];
+	}
+
+	return col;	
+}
+
+char* qrUDF_bulk(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
+	/* iterate over tha columns */
+	int colNum =0;
+	int colsNum = pci->argc-pci->retc;
+	/* we need to update the column without destroying the original relation */
+	BAT **cols_copy= (BAT**)malloc(sizeof(BAT*)*colsNum);
+
+	(void)cntxt;
+	(void)mb;
+	
+	/* copy the columns */
+	for(colNum=0; colNum<colsNum; colNum++) {
+		BAT *col = BATdescriptor(*getArgReference_bat(stk, pci, colNum+pci->retc));
+		if (col == NULL) {
+			int i;
+			for(i=0; i<colNum; i++)
+				BBPunfix(cols_copy[colNum]->batCacheid);
+        	return createException(MAL, "udf.qr", MAL_MALLOC_FAIL);
+        }
+
+		cols_copy[colNum] = BATcopy(col, TYPE_void, BATttype(col), FALSE, TRANSIENT);
+		if (cols_copy[colNum] == NULL) {
+			int i;
+			for(i=0; i<=colNum; i++)
+				BBPunfix(cols_copy[colNum]->batCacheid);
+        	return createException(MAL, "udf.qr", "BATcopy error");
+        }
+	}
+
+	/* process the columns */
+	for(colNum=0 ; colNum<colsNum ; colNum++) {
+		int colNum2 =0 ;
+		BAT *col = cols_copy[colNum];
+		double s = computeR(col);
+		bat *res = getArgReference_bat(stk, pci, colNum);
+		BAT *q = setQ(col,s);
+
+		if(q == NULL) {
+			int i;
+			for(i=0; i<colsNum; i++)
+				BBPunfix(cols_copy[i]->batCacheid);
+			//TODO: clean res also
+			return createException(MAL, "udf.qr", "Problem in setQ");
+		}
+
+		/* update the other columns */
+		for(colNum2 = colNum+1; colNum2<colsNum; colNum2++) {
+			s = computeR2(cols_copy[colNum2], q);
+			cols_copy[colNum2] = updateCol(cols_copy[colNum2], s, q);
+		}
+
+		BBPkeepref(*res = q->batCacheid);
+	}
+
+	for(colNum=0; colNum<colsNum; colNum++)
+		BBPunfix(cols_copy[colNum]->batCacheid);
+
+    return MAL_SUCCEED;
 }
