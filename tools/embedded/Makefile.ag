@@ -34,10 +34,19 @@ INCLUDES = ../../monetdb5/mal \
 		   -I"/Library/Frameworks/R.framework/Resources/include" \
 		   $(pcre_CFLAGS)
 
-lib_embedded  =  {
+lib_embedded  = {
 	SOURCES = embedded.c embedded.h
 	VERSION = 1
 	LIBS = ../../monetdb5/tools/libmonetdb5 \
+		../../gdk/libbat \
+		$(pcre_LIBS) $(PSAPILIB) \
+		$(SOCKET_LIBS) $(MALLOC_LIBS) $(DL_LIBS) $(PTHREAD_LIBS)
+}
+
+lib_embeddedr  = {
+	SOURCES = embeddedr.c embeddedr.h
+	VERSION = 1
+	LIBS = libembedded \
 		../../gdk/libbat \
 		$(pcre_LIBS) $(PSAPILIB) \
 		$(SOCKET_LIBS) $(MALLOC_LIBS) $(DL_LIBS) $(PTHREAD_LIBS)
