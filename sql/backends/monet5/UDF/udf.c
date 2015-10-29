@@ -537,3 +537,230 @@ char* qrUDF_bulk(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 
     return MAL_SUCCEED;
 }
+
+char* narrowqrUDF_bulk(bat *rowsRes, bat* columnsRes, bat* valuesRes, const bat *rows, const bat *columns, const bat *values) {
+	BAT *cBAT_in, *cBAT_out, *rBAT_in, *rBAT_out, *vBAT_in, *vBAT_out;
+
+	BAT *rBAT_sorted, *cBAT_sortedR, *vBAT_sortedR;
+	BAT *order;
+
+	int *minColNum, *maxColNum, colNum, colsNum;
+	oid i,j;
+
+	BAT **cols;
+	BAT **q;
+
+	int *rVals, *cVals;
+	double *vVals, *vcVals;
+
+	BUN totalElementsNum;
+
+	if(!(rBAT_in = BATdescriptor(*rows)))
+		return createException(MAL, "udf.qr", MAL_MALLOC_FAIL);
+
+	if(!(cBAT_in = BATdescriptor(*columns))) {
+		BBPunfix(rBAT_in->batCacheid);
+		return createException(MAL, "udf.qr", MAL_MALLOC_FAIL);
+	}
+
+	if(!(vBAT_in = BATdescriptor(*values))) {
+		BBPunfix(rBAT_in->batCacheid);
+		BBPunfix(cBAT_in->batCacheid);
+		return createException(MAL, "udf.qr", MAL_MALLOC_FAIL);
+
+	}
+	
+	totalElementsNum = BATcount(vBAT_in);
+	
+	/*get the minimum and maximum column number */
+	minColNum = (int*)BATmin(cBAT_in, NULL);
+	maxColNum = (int*)BATmax(cBAT_in, NULL);
+	if(!minColNum || !maxColNum) {
+		BBPunfix(rBAT_in->batCacheid);
+		BBPunfix(cBAT_in->batCacheid);
+		BBPunfix(vBAT_in->batCacheid);
+
+		return createException(MAL, "udf.qr", "Problem in BATmin or BATmax");
+	}
+	colsNum = *maxColNum-*minColNum+1;
+
+	/* sort the values according to rows */
+	if(BATsubsort(&rBAT_sorted, &order, NULL, rBAT_in, NULL, NULL, 0, 0) != GDK_SUCCEED) {
+		BBPunfix(rBAT_in->batCacheid);
+		BBPunfix(cBAT_in->batCacheid);
+		BBPunfix(vBAT_in->batCacheid);
+		return createException(MAL, "udf.qr", "Problem in BATsubsort");
+	}
+
+	if(!(cBAT_sortedR = BATproject(order, cBAT_in))) { 
+		BBPunfix(rBAT_in->batCacheid);
+		BBPunfix(cBAT_in->batCacheid);
+		BBPunfix(vBAT_in->batCacheid);
+
+		BBPunfix(rBAT_sorted->batCacheid);
+	
+		return createException(MAL, "udf.qr", "Problem in BATproject");
+	}
+
+	if(!(vBAT_sortedR = BATproject(order, vBAT_in))) {
+		BBPunfix(rBAT_in->batCacheid);
+		BBPunfix(cBAT_in->batCacheid);
+		BBPunfix(vBAT_in->batCacheid);
+
+		BBPunfix(rBAT_sorted->batCacheid);
+		BBPunfix(cBAT_sortedR->batCacheid);
+
+		return createException(MAL, "udf.qr", "Problem in BATproject");
+	}
+		
+	cols = (BAT**)GDKmalloc(sizeof(BAT*)*colsNum);
+	q = (BAT**)GDKmalloc(sizeof(BAT*)*colsNum);
+	if(!cols || !q) {
+		BBPunfix(rBAT_in->batCacheid);
+		BBPunfix(cBAT_in->batCacheid);
+		BBPunfix(vBAT_in->batCacheid);
+	
+		BBPunfix(rBAT_sorted->batCacheid);
+		BBPunfix(cBAT_sortedR->batCacheid);
+		BBPunfix(vBAT_sortedR->batCacheid);
+
+		if(cols)
+			GDKfree(cols);
+
+		return createException(MAL, "udf.qr", "Problem allocating space");
+	}
+	
+	/* create a copy of all the columns */
+	for(i=0,colNum=*minColNum; colNum<=*maxColNum; i++, colNum++) {
+		BAT *vals;
+		/*get the oids that correspond to this colNum */
+		BAT *colOidsBAT = BATsubselect(cBAT_sortedR, NULL, &colNum, &colNum, 1, 1, 0);
+		if(colOidsBAT == NULL) {
+			BBPunfix(rBAT_in->batCacheid);
+			BBPunfix(cBAT_in->batCacheid);
+			BBPunfix(vBAT_in->batCacheid);
+
+			BBPunfix(rBAT_sorted->batCacheid);
+			BBPunfix(cBAT_sortedR->batCacheid);
+			BBPunfix(vBAT_sortedR->batCacheid);
+
+			return createException(MAL, "udf.qr", "Problem in BATsubselect");
+		}
+
+		/* get the values that correspond to these oids */
+		if(!(vals = BATproject(colOidsBAT, vBAT_sortedR))) {
+			BBPunfix(rBAT_in->batCacheid);
+			BBPunfix(cBAT_in->batCacheid);
+			BBPunfix(vBAT_in->batCacheid);
+
+			BBPunfix(rBAT_sorted->batCacheid);
+			BBPunfix(cBAT_sortedR->batCacheid);
+			BBPunfix(vBAT_sortedR->batCacheid);
+	
+			for(j=0; j<i; j++)
+				BBPunfix(cols[j]->batCacheid);
+
+			return createException(MAL, "udf.qr", "Problem in BATproject");
+		}
+
+		cols[i] = vals;
+
+		/*create a BAT for the output */
+		q[i] = BATnew(TYPE_void, BATttype(vals), BATcount(vals), TRANSIENT);
+	}
+
+	/* I do not need these BATs anymore */
+	BBPunfix(rBAT_sorted->batCacheid);
+	BBPunfix(cBAT_sortedR->batCacheid);
+	BBPunfix(vBAT_sortedR->batCacheid);
+
+	/*start the algorithm*/
+	for(colNum=0 ; colNum<colsNum; colNum++) {
+		int colNum2 =0 ;
+        BAT *col = cols[colNum];
+        double s = computeR(col);
+        q[colNum] = setQ(col,s);
+
+        if(q[colNum] == NULL) {
+			BBPunfix(rBAT_in->batCacheid);
+			BBPunfix(cBAT_in->batCacheid);
+			BBPunfix(vBAT_in->batCacheid);
+
+			for(i=0; i<(unsigned int)colsNum; i++)
+				BBPunfix(cols[i]->batCacheid);
+			for(i=0; i<(unsigned int)colNum; i++)
+				BBPunfix(q[i]->batCacheid);
+
+			GDKfree(cols);
+			GDKfree(q);
+
+            return createException(MAL, "udf.qr", "Problem in setQ");
+        }
+            
+        /* update the other columns */
+        for(colNum2 = colNum+1; colNum2<colsNum; colNum2++) {
+        	s = computeR2(cols[colNum2], q[colNum]);
+            cols[colNum2] = updateCol(cols[colNum2], s, q[colNum]);
+        }
+	}
+
+	/* merge the results in a single column */
+	/* the results are ordered by column and subortered by row
+ 	* because this is how we processed them */
+	rBAT_out = BATnew(TYPE_void, BATttype(rBAT_in), totalElementsNum, TRANSIENT);
+	cBAT_out = BATnew(TYPE_void, BATttype(cBAT_in), totalElementsNum, TRANSIENT);
+	vBAT_out = BATnew(TYPE_void, BATttype(vBAT_in), totalElementsNum, TRANSIENT);
+
+	rVals = (int*)Tloc(rBAT_out, BUNfirst(rBAT_out));
+	cVals = (int*)Tloc(cBAT_out, BUNfirst(cBAT_out));
+	vVals = (double*)Tloc(vBAT_out, BUNfirst(vBAT_out));
+
+	for(i=0, colNum=0; colNum<colsNum; colNum++) {
+		vcVals = (double*)Tloc(q[colNum], BUNfirst(q[colNum]));
+		
+		for(j=0; j<BATcount(q[colNum]); j++, i++) {
+			rVals[i] = j;
+			cVals[i] = colNum;
+			vVals[i] = vcVals[j];
+		}
+
+		BBPunfix(cols[colNum]->batCacheid);
+		BBPunfix(q[colNum]->batCacheid);
+	}
+
+	GDKfree(cols);
+	GDKfree(q);
+
+	BATsetcount(rBAT_out, i);
+    BATseqbase(rBAT_out, 0);
+    rBAT_out->trevsorted = rBAT_out->tsorted = 0;
+    rBAT_out->tkey = 0;
+    rBAT_out->T->nil = 0;
+    rBAT_out->T->nonil = 0;
+
+	BATsetcount(cBAT_out, i);
+    BATseqbase(cBAT_out, 0);
+    cBAT_out->trevsorted = cBAT_out->tsorted = 0;
+    cBAT_out->tkey = 0;
+    cBAT_out->T->nil = 0;
+    cBAT_out->T->nonil = 0;
+
+	BATsetcount(vBAT_out, i);
+    BATseqbase(vBAT_out, 0);
+    vBAT_out->trevsorted = vBAT_out->tsorted = 0;
+    vBAT_out->tkey = 0;
+    vBAT_out->T->nil = 0;
+    vBAT_out->T->nonil = 0;
+
+	BBPunfix(rBAT_in->batCacheid);
+	BBPunfix(cBAT_in->batCacheid);
+	BBPunfix(vBAT_in->batCacheid);
+
+
+	BBPkeepref(*rowsRes = rBAT_out->batCacheid);
+	BBPkeepref(*columnsRes = cBAT_out->batCacheid);
+	BBPkeepref(*valuesRes = vBAT_out->batCacheid);
+
+	return MAL_SUCCEED;
+}
+

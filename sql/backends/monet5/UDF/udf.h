@@ -47,4 +47,5 @@ udf_export char * UDFBATfuse(bat *ret, const bat *one, const bat *two);
 udf_export char* UDFqrq(bat *q, const bat *c, const double *s);
 
 udf_export char* qrUDF_bulk(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+udf_export char* narrowqrUDF_bulk(bat *rowsRes, bat* columnsRes, bat* valuesRes, const bat *rows, const bat *columns, const bat *values);
 #endif /* _SQL_UDF_H_ */

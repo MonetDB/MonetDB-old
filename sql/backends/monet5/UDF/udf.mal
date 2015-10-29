@@ -58,4 +58,5 @@ address UDFqrq;
 pattern qr(c1:bat[:oid,:dbl]...) (:bat[:oid,:dbl]...)
 address qrUDF_bulk;
 
-
+command narrowqr(rows:bat[:oid,:int], columns:bat[:oid,:int], values:bat[:oid,:dbl]) (:bat[:oid,:int], :bat[:oid,:int], :bat[:oid,:dbl])
+address narrowqrUDF_bulk;
