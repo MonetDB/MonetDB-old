@@ -21,12 +21,14 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.monetdb.embedded.MonetDBEmbedded;
 import org.monetdb.embedded.result.EmbeddedQueryResult;
+import org.monetdb.embedded.result.column.Column;
 
 public class EmbeddedTest {
 	static File datbaseDirectory;
 	static MonetDBEmbedded db;
 
-	static Integer[] testValues = {Integer.valueOf(10), Integer.valueOf(20), Integer.valueOf(30), null};
+	static Integer[][] testValues = {{Integer.valueOf(0), Integer.valueOf(1), Integer.valueOf(2), Integer.valueOf(3)}, 
+			{Integer.valueOf(10), Integer.valueOf(20), Integer.valueOf(30), null}};
 
 	static Object[] numbericTypeTestValues = new Object[]{
 			Byte.valueOf((byte)12),
@@ -55,7 +57,8 @@ public class EmbeddedTest {
 		db.start();
 
 		db.query("CREATE TABLE test (id integer, val integer);");
-		db.query("INSERT INTO test VALUES (0, " + testValues[0] + "), (1, " + testValues[1] + "), (2, " + testValues[2] + "), (3, " + testValues[3] + ");");
+		db.query("INSERT INTO test VALUES (" + testValues[0][0] + ", " + testValues[1][0] + "), (" + testValues[0][1] + ", " + testValues[1][1] + 
+				"), (" + testValues[0][2] + ", " + testValues[1][2] + "), (" + testValues[0][3] + ", " + testValues[1][3] + ");");
 
 		db.query("CREATE TABLE numeric_types_test (fbyte tinyint, fshort smallint, fint integer, flong bigint, freal real, fdouble double);");
 		db.query("INSERT INTO numeric_types_test VALUES (" + numbericTypeTestValues[0] + ", " + numbericTypeTestValues[1] + ", " + numbericTypeTestValues[2] + ", " 
@@ -73,13 +76,30 @@ public class EmbeddedTest {
 	}
 
 	@Test
-	public void iteratorTest() throws IOException, SQLException {
+	public void rowIteratorTest() throws IOException, SQLException {
 		try (EmbeddedQueryResult result = db.query("SELECT * FROM test;")) {
 
 			int i = 0;
 			Iterator<?> iterator = result.getColumn(1).iterator();
 			while (iterator.hasNext()) {
-				assertEquals(testValues[i++], iterator.next());
+				assertEquals(testValues[1][i++], iterator.next());
+			}
+		}
+	}
+
+	@Test
+	public void columnIteratorTest() throws IOException, SQLException {
+		try (EmbeddedQueryResult result = db.query("SELECT * FROM test;")) {
+
+			int i = 0;
+			Iterator<Column<?>> columnIterator = result.iterator();
+			while (columnIterator.hasNext()) {
+				int j = 0;
+				Iterator<?> rowIterator = columnIterator.next().iterator();
+				while (rowIterator.hasNext()) {
+					assertEquals(testValues[i][j++], columnIterator.next());
+				}
+				i++;
 			}
 		}
 	}
@@ -154,19 +174,35 @@ public class EmbeddedTest {
 	}
 
 	@Test
-	public void twoQueries() throws SQLException {
+	public void twoQueriesTest() throws SQLException {
 		EmbeddedQueryResult result1 = db.query("SELECT * FROM test WHERE id > 1;");
 		assertEquals(2, result1.getColumn(1).columnSize());
-		assertEquals(Integer.valueOf(30), result1.getColumn(1).getValue(0));
-		assertEquals(null, result1.getColumn(1).getValue(1));
+		assertEquals(testValues[1][2], result1.getColumn(1).getValue(0));
+		assertEquals(testValues[1][3], result1.getColumn(1).getValue(1));
 
 		EmbeddedQueryResult result2 = db.query("SELECT * FROM test WHERE id < 1;");
 		assertEquals(1, result2.getColumn(1).columnSize());
-		assertEquals(Integer.valueOf(10), result2.getColumn(1).getValue(0));
+		assertEquals(testValues[1][0], result2.getColumn(1).getValue(0));
 
 		assertEquals(2, result1.getColumn(1).columnSize());
-		assertEquals(Integer.valueOf(30), result1.getColumn(1).getValue(0));
-		assertEquals(null, result1.getColumn(1).getValue(1));
+		assertEquals(testValues[1][2], result1.getColumn(1).getValue(0));
+		assertEquals(testValues[1][3], result1.getColumn(1).getValue(1));
+	}
+	
+	@Test
+	public void twoQueriesWithManualCleanupTest() throws SQLException, IOException {
+		EmbeddedQueryResult result1 = db.query("SELECT * FROM test WHERE id > 1;");
+		assertEquals(2, result1.getColumn(1).columnSize());
+		assertEquals(testValues[1][2], result1.getColumn(1).getValue(0));
+		assertEquals(testValues[1][3], result1.getColumn(1).getValue(1));
+		result1.close();
+
+		EmbeddedQueryResult result2 = db.query("SELECT * FROM test WHERE id < 1;");
+		assertEquals(testValues[1][0], result2.getColumn(1).getValue(0));
+
+		assertEquals(2, result1.getColumn(1).columnSize());
+		assertEquals(testValues[1][2], result1.getColumn(1).getValue(0));
+		assertEquals(testValues[1][3], result1.getColumn(1).getValue(1));
 	}
 
 	@Test
@@ -190,7 +226,7 @@ public class EmbeddedTest {
 		MonetDBEmbedded sameDB = new MonetDBEmbedded(datbaseDirectory, false);
 		// This is technically a no-op
 		sameDB.start();
-	
+
 		try (EmbeddedQueryResult result = sameDB.query("SELECT * FROM test;")) {
 			assertEquals(4, result.getColumn(1).columnSize());
 			assertEquals(Integer.valueOf(20), result.getColumn(1).getValue(1));
