@@ -13,7 +13,7 @@
 #ifndef _INVERSE_RAPI_LIB_
 #define _INVERSE_RAPI_LIB_
 
-char* monetdb_startup(char* dir, char silent);
+char* monetdb_startup(char* installdir, char* dbdir, char silent);
 char* monetdb_query(char* query, void** result);
 void monetdb_cleanup_result(void* output);
 

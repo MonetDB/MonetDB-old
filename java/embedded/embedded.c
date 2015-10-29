@@ -50,9 +50,9 @@ mvc_trans_ptr_tpe mvc_trans_ptr = NULL;
 static bit monetdb_embedded_initialized = 0;
 static MT_Lock monetdb_embedded_lock;
 
-static void* lookup_function(char* lib, char* func) {
+static void* lookup_function(char* func) {
 	void *dl, *fun;
-	dl = mdlopen(lib, RTLD_NOW | RTLD_GLOBAL);
+	dl = mdlopen("libmonetdb5", RTLD_NOW | RTLD_GLOBAL);
 	if (dl == NULL) {
 		return NULL;
 	}
@@ -61,7 +61,7 @@ static void* lookup_function(char* lib, char* func) {
 	return fun;
 }
 
-char* monetdb_startup(char* dir, char silent) {
+char* monetdb_startup(char* installdir, char* dbdir, char silent) {
 	opt *set = NULL;
 	int setlen = 0;
 	char* retval = NULL;
@@ -77,45 +77,48 @@ char* monetdb_startup(char* dir, char silent) {
 		}
 		goto cleanup;
 	}
-
 	MT_lock_init(&monetdb_embedded_lock, "monetdb_embedded_lock");
 	MT_lock_set(&monetdb_embedded_lock, "monetdb.startup");
 	if (monetdb_embedded_initialized) goto cleanup;
 
 	setlen = mo_builtin_settings(&set);
-	setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_dbpath", dir);
+	setlen = mo_add_option(&set, setlen, opt_cmdline, "gdk_dbpath", dbdir);
+	BBPaddfarm(dbdir, (1 << PERSISTENT) | (1 << TRANSIENT));
+
 	if (GDKinit(set, setlen) == 0) {
 		retval = GDKstrdup("GDKinit() failed");
 		goto cleanup;
 	}
-
-	snprintf(mod_path, 1000, "%s/../lib/monetdb5", BINDIR);
+	snprintf(mod_path, 1000, "%s/lib/monetdb5", installdir);
 	GDKsetenv("monet_mod_path", mod_path);
 	GDKsetenv("mapi_disable", "true");
 	GDKsetenv("max_clients", "0");
-	GDKsetenv("sql_optimizer", "sequential_pipe"); // TODO: SELECT * FROM table should not use mitosis in the first place.
-
+	// TODO: SELECT * FROM table should not use mitosis in the first place (?).
+	GDKsetenv("sql_optimizer", "sequential_pipe");
+	printf("Starting 1.1\n");
 	if (silent) THRdata[0] = stream_blackhole_create();
-	msab_dbpathinit(GDKgetenv("gdk_dbpath"));
-	if (mal_init() != 0) {
+	msab_dbpathinit(dbdir);
+	printf("Starting 1.1.1\n");
+
+	if (mal_init() != 0) { // mal_init() does not return meaningful codes on failure
+		printf("Starting 1.1 fail\n");
 		retval = GDKstrdup("mal_init() failed");
 		goto cleanup;
 	}
+	printf("Starting 1.2\n");
 	if (silent) mal_clients[0].fdout = THRdata[0];
-
-	// This dynamically looks up functions, because the library containing them is loaded at runtime.
-	// argh
-	SQLstatementIntern_ptr = (SQLstatementIntern_ptr_tpe) lookup_function("lib_sql",  "SQLstatementIntern");
-	SQLautocommit_ptr = (SQLautocommit_ptr_tpe) lookup_function("lib_sql",  "SQLautocommit");
-	SQLinitClient_ptr = (SQLinitClient_ptr_tpe) lookup_function("lib_sql",  "SQLinitClient");
-	getSQLContext_ptr = (getSQLContext_ptr_tpe) lookup_function("lib_sql",  "getSQLContext");
-	res_table_destroy_ptr  = (res_table_destroy_ptr_tpe)  lookup_function("libstore", "res_table_destroy");
-	mvc_append_wrap_ptr = (mvc_append_wrap_ptr_tpe)  lookup_function("lib_sql", "mvc_append_wrap");
-	mvc_bind_schema_ptr = (mvc_bind_schema_ptr_tpe)  lookup_function("lib_sql", "mvc_bind_schema");
-	mvc_bind_table_ptr = (mvc_bind_table_ptr_tpe)  lookup_function("lib_sql", "mvc_bind_table");
-	sqlcleanup_ptr = (sqlcleanup_ptr_tpe)  lookup_function("lib_sql", "sqlcleanup");
-	mvc_trans_ptr = (mvc_trans_ptr_tpe) lookup_function("lib_sql", "mvc_trans");
-
+	// This dynamically looks up functions, because the libraries containing them are loaded at runtime.
+	SQLstatementIntern_ptr = (SQLstatementIntern_ptr_tpe) lookup_function("SQLstatementIntern");
+	SQLautocommit_ptr      = (SQLautocommit_ptr_tpe)      lookup_function("SQLautocommit");
+	SQLinitClient_ptr      = (SQLinitClient_ptr_tpe)      lookup_function("SQLinitClient");
+	getSQLContext_ptr      = (getSQLContext_ptr_tpe)      lookup_function("getSQLContext");
+	res_table_destroy_ptr  = (res_table_destroy_ptr_tpe)  lookup_function("res_table_destroy");
+	mvc_append_wrap_ptr    = (mvc_append_wrap_ptr_tpe)    lookup_function("mvc_append_wrap");
+	mvc_bind_schema_ptr    = (mvc_bind_schema_ptr_tpe)    lookup_function("mvc_bind_schema");
+	mvc_bind_table_ptr     = (mvc_bind_table_ptr_tpe)     lookup_function("mvc_bind_table");
+	sqlcleanup_ptr         = (sqlcleanup_ptr_tpe)         lookup_function("sqlcleanup");
+	mvc_trans_ptr          = (mvc_trans_ptr_tpe)          lookup_function("mvc_trans");
+	printf("Starting 1.3\n");
 	if (SQLstatementIntern_ptr == NULL || SQLautocommit_ptr == NULL ||
 			SQLinitClient_ptr == NULL || getSQLContext_ptr == NULL ||
 			res_table_destroy_ptr == NULL || mvc_append_wrap_ptr == NULL ||
@@ -130,7 +133,7 @@ char* monetdb_startup(char* dir, char silent) {
 	monetdb_embedded_initialized = true;
 	// we do not want to jump after this point, since we cannot do so between threads
 	GDKfataljumpenable = 0;
-
+	printf("Starting 1.4\n");
 	// sanity check, run a SQL query
 	sqres = monetdb_query("SELECT * FROM tables;", res);
 	if (sqres != NULL) {
@@ -139,7 +142,9 @@ char* monetdb_startup(char* dir, char silent) {
 		goto cleanup;
 	}
 cleanup:
+	printf("Starting 1. cleanup\n");
 	mo_free_options(set, setlen);
+	printf("Starting 1. cleanup2\n");
 	MT_lock_unset(&monetdb_embedded_lock, "monetdb.startup");
 	return retval;
 }
