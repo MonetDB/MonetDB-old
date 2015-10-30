@@ -6,7 +6,7 @@ if os.path.isdir(dbfarm): shutil.rmtree(dbfarm)
 monetdblite.init(dbfarm)
 
 import numpy
-monetdblite.create('pylite01', ['i'], numpy.arange(100000))
+monetdblite.create('pylite01', colnames=['i'], values=numpy.arange(100000))
 res = monetdblite.sql('select * from pylite01')
 print res
 print 'Count', len(res['i'])

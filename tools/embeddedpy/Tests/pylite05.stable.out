@@ -1,0 +1,15 @@
+stdout of test 'pylite05` in directory 'tools/embeddedpy` itself:
+
+
+# 17:47:58 >  
+# 17:47:58 >  "/usr/bin/python2" "pylite05.py" "pylite05"
+# 17:47:58 >  
+
+Making directory /tmp/pylite_dbfarm
+100000
+200000
+
+# 17:47:59 >  
+# 17:47:59 >  "Done."
+# 17:47:59 >  
+
