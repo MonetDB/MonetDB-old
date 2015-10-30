@@ -545,6 +545,7 @@ else:
 
     function_name = str(args_test_type).lower()
     function = None
+    input_type = "integer"
     if function_name == "identity":
         def identity(a):
             return numpy.min(a)
@@ -919,6 +920,28 @@ $$ LANGUAGE plpythonu;""" % (input_file, function_name, function_name, return_va
             os.remove(input_file)
 
         execute_test(input_type, numpy_init, numpy_load, numpy_execute, numpy_clear, numpy_final)
+    elif str(args_input_database).lower() == "monary":
+        import pandas as pd, numpy, monary as m
+
+        conn = m.Monary("localhost")
+        def monary_init():
+            return None
+
+        def monary_load():
+            array = pd.read_csv(input_file).values
+            conn.insert("testdb", "values", [m.MonaryParam(numpy.ma.masked_array(array, mask=False * len(array), dtype=numpy.int32), "integers")])
+
+        def monary_execute():
+            numpy_array = conn.query("testdb", "values", {}, ["integers"], ["int32"])[0]
+            function(numpy_array)
+
+        def monary_clear():
+            return None
+
+        def monary_final():
+            os.remove(input_file)
+
+        execute_test(input_type, monary_init, monary_load, monary_execute, monary_clear, monary_final)
     elif str(args_input_database).lower() == "castra":
         import castra, shutil, pandas as pd
         castra_binary = 'data.castra'

@@ -690,6 +690,18 @@ function psycopg2_test() {
     done
 }
 
+function monary_test() {
+    mkdir $BUILD_DIR/../mongodb-data
+    setsid $BUILD_DIR/bin/mongod --dbpath=$BUILD_DIR/../mongodb-data
+    for i in "${PYTHON_TESTS[@]}"
+    do
+        n=ntests_$i
+        s=sizes_$i
+        python_run_single_test MONARY $i monary_$i ${!n} "${!s}"
+    done
+    killall mongod
+}
+
 function psycopg2_install() {
     wget http://initd.org/psycopg/tarballs/PSYCOPG-2-6/psycopg2-2.6.1.tar.gz && tar xvzf psycopg2-2.6.1.tar.gz && rm psycopg2-2.6.1.tar.gz && cd psycopg2-2.6.1 && python setup.py install --user build_ext --pg-config $POSTGRES_BUILD_DIR/bin/pg_config
 }
@@ -749,8 +761,9 @@ function comparison_graph() {
 }
 
 export BUILD_DIR=/export/scratch2/raasveld/build
-export CPATH=/export/scratch2/raasveld/build/include
-export LIBRARY_PATH=/export/scratch2/raasveld/build/lib
+export CPATH=$BUILD_DIR/include
+export LIBRARY_PATH=$BUILD_DIR/lib
+export LD_LIBRARY_PATH=$BUILD_DIR/lib
 function install_cfitsio() {
     wget ftp://heasarc.gsfc.nasa.gov/software/fitsio/c/cfitsio_latest.tar.gz && tar xvzf cfitsio_latest.tar.gz && cd cfitsio && ./configure --enable-sse2 --prefix=$BUILD_DIR --enable-reentrant && make install
 }
@@ -772,24 +785,35 @@ function install_lofar() {
     wget https://github.com/transientskp/tkp/archive/master.zip && unzip master.zip && rm master.zip && cd tkp-master && python setup.py install --user
 }
 
-
-function install_mongodb() {
-    wget https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.0.7.tgz && tar xvzf mongodb-linux-x86_64-3.0.7.tgz && cd mongodb-linux-x86_64-3.0.7 && cp -R -n bin/ $BUILD_DIR
-    mongod --dbpath=/export/scratch2/raasveld/mongodata
-}
-
-wget https://bitbucket.org/djcbeach/monary/get/5b0fb0c2de0a.zip
-
 function install_scons() {
     wget http://prdownloads.sourceforge.net/scons/scons-2.3.6.tar.gz && tar xvzf scons-2.3.6.tar.gz && cd scons-2.3.6 && python setup.py install --user    
 }
 
 function install_mongodb() {
     rm master.zip
-    wget https://github.com/mongodb/mongo/archive/master.zip && unzip master.zip && cd mongo-master && ~/.local/bin/scons mongod
+    wget https://github.com/mongodb/mongo/archive/master.zip && unzip master.zip && cd mongo-master && ~/.local/bin/scons --prefix=$BUILD_DIR --db=off --opt=on mongod
+}
+
+function install_mongocdriver() {
+    rm master.zip
+    wget https://github.com/mongodb/mongo-c-driver/releases/download/1.2.0/mongo-c-driver-1.2.0.tar.gz && tar xvzf mongo-c-driver-1.2.0.tar.gz && cd mongo-c-driver-1.2.0 && ./configure --prefix=$BUILD_DIR && make && make install
+}
+
+function install_monary() {
+    CPATH=$CPATH:$BUILD_DIR/include/libmongoc-1.0/:$BUILD_DIR/include/libbson-1.0/
+    curl https://bitbucket.org/djcbeach/monary/get/5b0fb0c2de0a.zip -o monary.zip && unzip monary.zip && cd djcbeach-monary-5b0fb0c2de0a && python setup.py install --user
+}
+
+function install_pymongo() {
+    rm master.zip
+    wget https://github.com/mongodb/mongo-python-driver/archive/master.zip && unzip master.zip && cd mongo-python-driver-master && python setup.py install --user
+}
+
+function run_mongodb() {
+    mkdir $BUILD_DIR/../mongodb-data
+    $BUILD_DIR/bin/mongod --dbpath=$BUILD_DIR/../mongodb-data
 }
 
 
-
-export PYAPI_TESTFILE=/local/raasveld/monetdb_testing.py
-export LD_LIBRARY_PATH=/local/raasveld/build/lib
+export PYAPI_TESTFILE=/tmp/monetdb_testing.py
+#export LD_LIBRARY_PATH=/local/raasveld/build/lib
