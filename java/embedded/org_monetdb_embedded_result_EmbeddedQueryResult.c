@@ -406,5 +406,5 @@ JNIEXPORT void JNICALL Java_org_monetdb_embedded_result_EmbeddedQueryResult_clea
 	(void)env;
 	res_table* result = (res_table *)resultTablePointer;
 
-	monetdb_cleanup_result(result);
+	monetdb_cleanup_result(monetdb_connect(), result);
 }

@@ -47,7 +47,6 @@ JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrap
 		silent_char = 'y';
 	}
 
-	printf("Starting 1\n");
 	// XXX: hardcoded install dir for now. fix, soon!
 	err = monetdb_startup("/Users/dnedev/monetdb/installation", directory_string, silent_char);
 	// Checking for errors
@@ -59,7 +58,7 @@ JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrap
 		(*env)->ThrowNew(env, exClass, err);
 		return false;
 	}
-	printf("Starting 2\n");
+
 	// set the flags
 	running = true;
 	runningDirectory = directory_string;
@@ -91,7 +90,7 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
 	}
 
 	// Execute the query
-	char* err = monetdb_query(query_string, (void**)&output);
+	char* err = monetdb_query(monetdb_connect(), query_string, (void**)&output);
 
 	// Checking for errors
 	if (err != NULL) {
