@@ -20,7 +20,8 @@ JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrap
 (JNIEnv *env, jobject object, jstring directory, jboolean silent) {
 	(void)object;
 	const char *directory_string_tmp = (*env)->GetStringUTFChars(env, directory, 0);
-	char *directory_string = strdup(directory_string_tmp);
+	char *databaseDirectory = strdup(directory_string_tmp);
+	char installationDirectory[1000];
 	unsigned char silent_char = 'n';
 	char *err;
 	jclass exClass = (*env)->FindClass(env, "java/io/IOException");
@@ -29,7 +30,7 @@ JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrap
 
 	// Check if we already have a running db
 	if (running) {
-		if (strcmp(directory_string, runningDirectory) == 0) {
+		if (strcmp(databaseDirectory, runningDirectory) == 0) {
 			return true;
 		}
 		// Throw a Java exception
@@ -47,8 +48,9 @@ JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrap
 		silent_char = 'y';
 	}
 
-	// XXX: hardcoded install dir for now. fix, soon!
-	err = monetdb_startup("/Users/dnedev/monetdb/installation", directory_string, silent_char);
+	// XXX: still relying on bindir
+	snprintf(installationDirectory, 1000, "%s../", BINDIR);
+	err = monetdb_startup(BINDIR, databaseDirectory, silent_char);
 	// Checking for errors
 	if (err != NULL) {
 		if (exClass == NULL) {
@@ -61,7 +63,7 @@ JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrap
 
 	// set the flags
 	running = true;
-	runningDirectory = directory_string;
+	runningDirectory = databaseDirectory;
 	return true;
 }
 
