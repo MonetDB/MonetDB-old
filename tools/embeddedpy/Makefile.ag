@@ -34,13 +34,23 @@ INCLUDES = ../../monetdb5/extras/pyapi \
 		   $(libpy_CFLAGS) \
 		   $(pcre_CFLAGS) \
 
+lib_embedded  = {
+	SOURCES = embedded.c embedded.h
+	VERSION = 1
+	LIBS = ../../monetdb5/tools/libmonetdb5 \
+		../../gdk/libbat \
+		$(pcre_LIBS) $(PSAPILIB) \
+		$(SOCKET_LIBS) $(MALLOC_LIBS) $(DL_LIBS) $(PTHREAD_LIBS)
+}
+
 lib_pyembedded  =  {
-	SOURCES = embeddedpy.c embeddedpy.h
+	SOURCES = embeddedpy.c embeddedpy.h pyclient.c pyclient.h
 	VERSION = 1
 	LIBS = ../../monetdb5/tools/libmonetdb5 \
 		../../gdk/libbat \
 		../../monetdb5/extras/pyapi/lib_pyapi \
 		../../sql/backends/monet5/lib_sql  \
+		libembedded \
 		$(pcre_LIBS) $(PSAPILIB) \
 		$(SOCKET_LIBS) $(MALLOC_LIBS) $(DL_LIBS) $(PTHREAD_LIBS)
 }

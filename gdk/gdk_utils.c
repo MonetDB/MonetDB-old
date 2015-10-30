@@ -364,7 +364,7 @@ MT_init(void)
 	if (_MT_pagesize <= 0)
 		_MT_pagesize = 4096;	/* default */
 
-#ifdef _MSC_VER
+#if defined(MSC_VER) || defined(__MINGW32__)
 	{
 		MEMORYSTATUSEX memStatEx;
 
@@ -1322,24 +1322,18 @@ static void
 GDKlockHome(void)
 {
 	int fd;
+	struct stat st;
+	str gdklockpath = GDKfilepath(0, NULL, GDKLOCK, NULL);
+	char GDKdirStr[PATHLENGTH];
 
 	assert(GDKlockFile == NULL);
 	/*
-	 * Go there and obtain the global database lock.
+	 * Obtain the global database lock.
 	 */
-	if (chdir(GDKdbpathStr) < 0) {
-		char GDKdirStr[PATHLENGTH];
-
-		/* The DIR_SEP at the end of the path is needed for a
-		 * successful call to GDKcreatedir */
-		snprintf(GDKdirStr, PATHLENGTH, "%s%c", GDKdbpathStr, DIR_SEP);
-		if (GDKcreatedir(GDKdirStr) != GDK_SUCCEED)
-			GDKfatal("GDKlockHome: could not create %s\n", GDKdbpathStr);
-		if (chdir(GDKdbpathStr) < 0)
-			GDKfatal("GDKlockHome: could not move to %s\n", GDKdbpathStr);
-		IODEBUG fprintf(stderr, "#GDKlockHome: created directory %s\n", GDKdbpathStr);
+	if (stat(GDKdbpathStr, &st) < 0 && GDKcreatedir(GDKdirStr) != GDK_SUCCEED) {
+		GDKfatal("GDKlockHome: could not create %s\n", GDKdbpathStr);
 	}
-	if ((fd = MT_lockf(GDKLOCK, F_TLOCK, 4, 1)) < 0) {
+	if ((fd = MT_lockf(gdklockpath, F_TLOCK, 4, 1)) < 0) {
 		GDKfatal("GDKlockHome: Database lock '%s' denied\n", GDKLOCK);
 	}
 
@@ -1363,16 +1357,19 @@ GDKlockHome(void)
 		GDKfatal("GDKlockHome: Could not truncate %s\n", GDKLOCK);
 	fflush(GDKlockFile);
 	GDKlog(GDKLOGON);
+	GDKfree(gdklockpath);
 }
 
 static void
 GDKunlockHome(void)
 {
+	str gdklockpath = GDKfilepath(0, NULL, GDKLOCK, NULL);
 	if (GDKlockFile) {
-		MT_lockf(GDKLOCK, F_ULOCK, 4, 1);
+		MT_lockf(gdklockpath, F_ULOCK, 4, 1);
 		fclose(GDKlockFile);
 		GDKlockFile = 0;
 	}
+	GDKfree(gdklockpath);
 }
 
 /*
@@ -1610,13 +1607,14 @@ GDKfatal(const char *format, ...)
 	va_start(ap, format);
 	vsnprintf(message + len, sizeof(message) - (len + 2), format, ap);
 	va_end(ap);
+
 	if (!GDKfataljumpenable) {
 		fputs(message, stderr);
 		fputs("\n", stderr);
 		fflush(stderr);
 
 		/*
-		 * Real errors should be saved in the lock file for post-crash
+		 * Real errors should be saved in the log file for post-crash
 		 * inspection.
 		 */
 		if (GDKexiting()) {
