@@ -165,6 +165,15 @@ typedef struct CLIENT {
 	void *sqlcontext;
 
 	/*
+	 Executing multiple SQL queries in parallel with the same client
+	 does not work because of shared client state, causing 
+	 segfaults. In normal usage this is not possible, but 
+	 in MonetDBLite and MonetDB/Python this can happen. To
+	 prevent segfualts, we have to lock the client when performing a query.
+	*/
+	MT_Lock query_lock;
+
+	/*
 	 * keep track of which instructions are currently being executed
 	 */
 	bit		active;		/* processing a query or not */

@@ -23,14 +23,16 @@
 //! Initializes MonetDB with the specified directory, "args" must be a PyStringObject
 PyObject *monetdb_init(PyObject *self, PyObject *args);
 //! Performs a SQL query, monetdb_init must be called first and "args" must be a PyStringObject
-PyObject *monetdb_sql(PyObject *self, PyObject *args);
+PyObject *monetdb_sql(PyObject *self, PyObject *args, PyObject *keywds);
 //! Creates a SQL table, monetdb_init must be called first and "args" must be either (table_name, dictionary) or (table_name, list(column_names), list(values))
-PyObject *monetdb_create(PyObject *self, PyObject *args);
+PyObject *monetdb_create(PyObject *self, PyObject *args, PyObject *keywds);
 //! Inserts values into a SQL table, monetdb_init must be called first and "args" must be either (table_name, dictionary) or (table_name, list(column_names), list(values))
-PyObject *monetdb_insert(PyObject *self, PyObject *args);
+PyObject *monetdb_insert(PyObject *self, PyObject *args, PyObject *keywds);
+//! Creates a new MonetDB client context and returns it as a PyClientObject
+PyObject *monetdb_client(PyObject *self);
 
 //! Initializes numpy, if this isn't called you will get segfaults when calling numpy functions
-void init_embedded_py(void);
+void monetdblite_init(void);
 
 
 #endif /* _EMBEDDEDPY_LIB_ */

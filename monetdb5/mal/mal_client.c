@@ -69,6 +69,7 @@ MCinit(void)
 {
 	char *max_clients = GDKgetenv("max_clients");
 	int maxclients = 0;
+	Client c;
 
 	if (max_clients != NULL)
 		maxclients = atoi(max_clients);
@@ -84,6 +85,9 @@ MCinit(void)
 	if( mal_clients == NULL){
 		showException(GDKout, MAL, "MCinit",MAL_MALLOC_FAIL);
 		mal_exit();
+	}
+	for (c = mal_clients; c < mal_clients + MAL_MAXCLIENTS; c++) {
+		MT_lock_init(&c->query_lock, "client.query_lock");
 	}
 }
 

@@ -22,12 +22,15 @@ static char create_docstring[] =
     "monetdblite.create(tablename, dictionary), monetdblite.create(tablename, column_names, values) => Create a SQL table from the given Python objects, objects must either be a (column name, value) dictionary or a list of column names and a list of values";
 static char insert_docstring[] =
     "monetdblite.insert(tablename, dictionary), monetdblite.insert(tablename, column_names, values) => Insert a set of values into a SQL table";
+static char connect_docstring[] =
+    "monetdblite.connect() => Create a connection object to the monetdblite database.";
 
 static PyMethodDef module_methods[] = {
     {"init", monetdb_init, METH_O, init_docstring},
-    {"sql", monetdb_sql, METH_O, sql_docstring},
-    {"create", monetdb_create, METH_VARARGS, create_docstring},
-    {"insert", monetdb_insert, METH_VARARGS, insert_docstring},
+    {"sql", (PyCFunction)monetdb_sql, METH_VARARGS|METH_KEYWORDS, sql_docstring},
+    {"create", (PyCFunction)monetdb_create, METH_VARARGS|METH_KEYWORDS, create_docstring},
+    {"insert", (PyCFunction)monetdb_insert, METH_VARARGS|METH_KEYWORDS, insert_docstring},
+    {"connect", (PyCFunction)monetdb_client, METH_NOARGS, connect_docstring},
     {NULL, NULL, 0, NULL}
 };
 
@@ -40,5 +43,5 @@ PyMODINIT_FUNC initmonetdblite(void)
         return;
 
     //import numpy stuff
-    init_embedded_py();
+    monetdblite_init();
 }
