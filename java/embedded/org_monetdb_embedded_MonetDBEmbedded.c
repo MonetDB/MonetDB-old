@@ -49,8 +49,8 @@ JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrap
 	}
 
 	// XXX: still relying on bindir
-	snprintf(installationDirectory, 1000, "%s../", BINDIR);
-	err = monetdb_startup(BINDIR, databaseDirectory, silent_char);
+	snprintf(installationDirectory, 1000, "%s..", BINDIR);
+	err = monetdb_startup(installationDirectory, databaseDirectory, silent_char);
 	// Checking for errors
 	if (err != NULL) {
 		if (exClass == NULL) {
