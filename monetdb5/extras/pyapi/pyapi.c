@@ -1641,7 +1641,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
 #endif
         {
             bool unicode = false;
-            size_t maxsize = 0;
+            size_t maxsize = 1;
             li = bat_iterator(b);
 
             //we first loop over all the strings in the BAT to find the maximum length of a single string
