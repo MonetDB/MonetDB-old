@@ -6,3 +6,6 @@ HAVE_LIBPY?pylite03
 HAVE_LIBPY?pylite04
 HAVE_LIBPY?pylite05
 HAVE_LIBPY?pylite06
+HAVE_LIBPY?pylite07
+HAVE_LIBPY?pylite08
+

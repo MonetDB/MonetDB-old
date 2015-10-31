@@ -6,7 +6,10 @@ stdout of test 'pylite06` in directory 'tools/embeddedpy` itself:
 # 17:47:59 >  
 
 Making directory /tmp/pylite_dbfarm
-Different client is faster
+Rankings (Fastest to Slowest)
+1: Threads + Different Clients
+2: Threads + Same Client
+3: Sequential (No Threads)
 
 # 17:48:01 >  
 # 17:48:01 >  "Done."

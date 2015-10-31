@@ -1,0 +1,55 @@
+stdout of test 'pylite08` in directory 'tools/embeddedpy` itself:
+
+
+# 14:37:41 >  
+# 14:37:41 >  "/usr/bin/python2" "pylite08.py" "pylite08"
+# 14:37:41 >  
+
+
+--select before init--
+monetdb has not been initialized yet
+
+--init with weird argument--
+Expected a directory name as an argument.
+
+--init in unwritable directory--
+Making directory /unwritabledir
+Failed to initialize MonetDB. GDKfatal() with unspecified error?
+
+--proper init--
+Making directory /tmp/pylite_dbfarm
+
+--select from non-existent table--
+SQL Query Failed: ParseException:SQLparser:42S02!SELECT: no such table 'nonexistenttable'
+
+--invalid connection object--
+conn must be a connection object created by monetdblite.connect().
+
+--no colnames with list--
+no colnames are specified and values is not a dict
+
+--invalid colnames--
+colnames must be a list
+
+--empty colnames--
+colnames must have at least one element
+
+--too many colnames for values--
+MALException:pyapi.eval:An array of size 1 was returned, yet we expect a list of 3 columns. The result is invalid.
+
+--too few colnames for values--
+MALException:pyapi.eval:An array of size 3 was returned, yet we expect a list of 1 columns. The result is invalid.
+
+--dictionary with invalid keys--
+expected a key of type 'str', but key was of type int
+
+--missing dict key in insert--
+could not find required key c
+
+--too few columns in insert--
+MALException:pyapi.eval:An array of size 2 was returned, yet we expect a list of 3 columns. The result is invalid.
+
+# 14:37:42 >  
+# 14:37:42 >  "Done."
+# 14:37:42 >  
+

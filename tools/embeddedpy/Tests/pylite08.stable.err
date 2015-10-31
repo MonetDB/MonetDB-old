@@ -1,0 +1,13 @@
+stderr of test 'pylite08` in directory 'tools/embeddedpy` itself:
+
+
+# 14:37:41 >  
+# 14:37:41 >  "/usr/bin/python2" "pylite08.py" "pylite08"
+# 14:37:41 >  
+
+#GDKcreatedir(/tmp/pylite_dbfarm)
+
+# 14:37:42 >  
+# 14:37:42 >  "Done."
+# 14:37:42 >  
+
