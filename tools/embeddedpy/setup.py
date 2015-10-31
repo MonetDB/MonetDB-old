@@ -44,7 +44,7 @@ if os.system('./configure --prefix=' + output_directory + ' --enable-embedded=tr
     print("Failed configuring MonetDB.")
     exit(1)
 os.system('printf \'#ifndef _EMBEDDED_MONETDB_MONETDB_LIB_\n#define _EMBEDDED_MONETDB_MONETDB_LIB_ "%s"\n#endif\n\' | cat - monetdb_config.h > temp.h && mv temp.h monetdb_config.h' % os.path.join(output_directory, 'lib/libmonetdb5.so'))
-if os.system('make install') != 0:
+if os.system('make clean install') != 0:
     print("Failed building MonetDB.")
     exit(1)
 os.chdir(current_dir)

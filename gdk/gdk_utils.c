@@ -256,6 +256,9 @@ BATSIGinterrupt(int nr)
 static int
 BATSIGinit(void)
 {
+#ifdef _EMBEDDED_MONETDB_MONETDB_LIB_
+	return 0;
+#endif
 /* HACK to pacify compiler */
 #if (defined(__INTEL_COMPILER) && (SIZEOF_VOID_P > SIZEOF_INT))
 #undef  SIG_IGN			/*((__sighandler_t)1 ) */
@@ -1596,7 +1599,7 @@ GDKfatal(const char *format, ...)
 	va_list ap;
 
 	GDKdebug |= IOMASK;
-#ifndef NATIVE_WIN32
+#ifndef NATIVE_WIN32 
 	BATSIGinit();
 #endif
 	if (!strncmp(format, GDKFATAL, len)) {
