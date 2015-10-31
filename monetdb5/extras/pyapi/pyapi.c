@@ -396,6 +396,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     bool child_process = false;
 #endif
 #ifdef _PYAPI_TESTING_
+    size_t iu = 0;
     time_storage start_time, end_time;
     bool disable_testing = false;
     unsigned long long peak_memory_usage = 0;

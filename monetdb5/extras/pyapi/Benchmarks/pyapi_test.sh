@@ -1,7 +1,7 @@
         
 
 # The base directory of testing, a new folder is created in this base directory [$PYAPI_TEST_DIR], and everything is done in that new folder
-export PYAPI_BASE_DIR=/tmp
+export PYAPI_BASE_DIR=/scratch/raasveld
 # The terminal to start mserver with, examples are gnome-terminal, xterm, konsole
 export TERMINAL=x-terminal-emulator
 # Port used by the MSERVER
@@ -815,5 +815,5 @@ function run_mongodb() {
 }
 
 
-export PYAPI_TESTFILE=/tmp/monetdb_testing.py
+export PYAPI_TESTFILE=/local/raasveld/monetdb_testing.py
 #export LD_LIBRARY_PATH=/local/raasveld/build/lib
