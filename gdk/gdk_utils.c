@@ -1325,17 +1325,34 @@ static void
 GDKlockHome(void)
 {
 	int fd;
-	struct stat st;
 	str gdklockpath = GDKfilepath(0, NULL, GDKLOCK, NULL);
+#ifdef _EMBEDDED_MONETDB_MONETDB_LIB_
 	char GDKdirStr[PATHLENGTH];
+	struct stat st;
+#endif
 
 	assert(GDKlockFile == NULL);
 	/*
 	 * Obtain the global database lock.
 	 */
+#ifndef _EMBEDDED_MONETDB_MONETDB_LIB_
+	 if (chdir(GDKdbpathStr) < 0) {
+		char GDKdirStr[PATHLENGTH];
+
+		/* The DIR_SEP at the end of the path is needed for a
+		 * successful call to GDKcreatedir */
+		snprintf(GDKdirStr, PATHLENGTH, "%s%c", GDKdbpathStr, DIR_SEP);
+		if (GDKcreatedir(GDKdirStr) != GDK_SUCCEED)
+			GDKfatal("GDKlockHome: could not create %s\n", GDKdbpathStr);
+		if (chdir(GDKdbpathStr) < 0)
+			GDKfatal("GDKlockHome: could not move to %s\n", GDKdbpathStr);
+		IODEBUG fprintf(stderr, "#GDKlockHome: created directory %s\n", GDKdbpathStr);
+	}
+#else
 	if (stat(GDKdbpathStr, &st) < 0 && GDKcreatedir(GDKdirStr) != GDK_SUCCEED) {
 		GDKfatal("GDKlockHome: could not create %s\n", GDKdbpathStr);
 	}
+#endif
 	if ((fd = MT_lockf(gdklockpath, F_TLOCK, 4, 1)) < 0) {
 		GDKfatal("GDKlockHome: Database lock '%s' denied\n", GDKLOCK);
 	}
