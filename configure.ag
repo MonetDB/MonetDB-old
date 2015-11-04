@@ -1696,7 +1696,8 @@ if test "x$have_java" != xno; then
 		have_java=no
 		why_have_java="(no javah found)"
 	else
-		 have_java=yes
+		have_java=yes
+		javah_CFLAGS="-I$JAVA_HOME/include -I`ls -d $JAVA_HOME/include/*/`"
 	fi
 
 	if test "x$have_java" != xyes; then
@@ -1721,6 +1722,7 @@ AC_SUBST(JAVADOC)
 AC_SUBST(JAVAH)
 AC_SUBST(CLASSPATH)
 AC_SUBST(JAVA_HOME)
+AC_SUBST(javah_CFLAGS)
 
 org_have_java_jdbc=no
 have_java_jdbc=$org_have_java_jdbc

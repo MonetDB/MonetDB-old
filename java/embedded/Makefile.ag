@@ -33,8 +33,7 @@ INCLUDES = ../../tools/embedded \
 		   ../../sql/storage \
 		   ../../sql/storage/bat \
 		   ../../sql/backends/monet5 \
-		   -I$(JAVA_HOME)/include \ 
-		   -I$(JAVA_HOME)/include/darwin \
+		   $(javah_CFLAGS) \
 		   $(pcre_CFLAGS)
 		   
 lib_embedded_java  =  {
