@@ -1218,8 +1218,7 @@ static void
 TIMERrenderer(MapiHdl hdl)
 {
 	SQLqueryEcho(hdl);
-	while (fetch_line(hdl) != 0)
-		;
+	mapi_next_result(hdl);
 	printf("%s\n", timerHuman());
 }
 
@@ -2135,11 +2134,19 @@ myread(void *private, void *buf, size_t elmsize, size_t cnt)
 	if (size == 0)
 		return cnt;
 	if (p->buf == NULL) {
+		rl_completion_func_t *func = NULL;
+
+		if (strcmp(p->prompt, "more>") == 0)
+			func = suspend_completion();
 		p->buf = readline(p->prompt);
+		if (func)
+			continue_completion(func);
 		if (p->buf == NULL)
 			return 0;
 		p->len = strlen(p->buf);
 		p->read = 0;
+		if (p->len > 1)
+			save_line(p->buf);
 	}
 	if (p->read < p->len) {
 		if (p->len - p->read < size)
@@ -2154,7 +2161,6 @@ myread(void *private, void *buf, size_t elmsize, size_t cnt)
 		free(p->buf);
 		p->buf = NULL;
 	}
-	((char *) buf)[cpsize] = '\0';
 	return cpsize / elmsize;
 }
 
@@ -2195,6 +2201,7 @@ doFile(Mapi mid, stream *fp, int useinserts, int interactive, int save_history)
 #ifdef HAVE_LIBREADLINE
 		init_readline(mid, language, save_history);
 		rl.s = fp;
+		rl.buf = NULL;
 		fp = callback_stream(&rl, myread, NULL, mydestroy, mnstr_name(fp));
 #endif
 	}
@@ -3259,6 +3266,9 @@ main(int argc, char **argv)
 		} else {
 			setFormatter("raw");
 		}
+	}
+	if (formatter == TIMERformatter) {
+		mapi_cache_limit(mid, 1);
 	}
 	/* give the user a welcome message with some general info */
 	if (!has_fileargs && command == NULL && isatty(fileno(stdin))) {
