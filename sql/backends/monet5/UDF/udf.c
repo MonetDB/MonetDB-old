@@ -484,31 +484,49 @@ char* qrUDF_bulk(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	int colsNum = pci->argc-pci->retc;
 	/* we need to update the column without destroying the original relation */
 	BAT **cols_copy= (BAT**)malloc(sizeof(BAT*)*colsNum);
+	/* the first input column is the rowN */
+	BAT *rowsCol = BATdescriptor(*getArgReference_bat(stk, pci, pci->retc));
+	BAT *rowsCol_sorted = NULL, *order = NULL;
+	bat *rowsRes;
+
 
 	(void)cntxt;
 	(void)mb;
+
+	if(!rowsCol)
+		return createException(MAL, "udf.qr", MAL_MALLOC_FAIL);
 	
-	/* copy the columns */
-	for(colNum=0; colNum<colsNum; colNum++) {
+	/* sort all columns according to rowNum */
+	if(BATsubsort(&rowsCol_sorted, &order, NULL, rowsCol, NULL, NULL, 0, 0) != GDK_SUCCEED) {
+		BBPunfix(rowsCol->batCacheid);
+		return createException(MAL, "udf.qr", "Problem in BATsubsort");
+	}
+	BBPunfix(rowsCol->batCacheid);
+
+	/* copy the columns  and sort them at the same time*/
+	for(colNum=1; colNum<colsNum; colNum++) {
 		BAT *col = BATdescriptor(*getArgReference_bat(stk, pci, colNum+pci->retc));
 		if (col == NULL) {
 			int i;
+			BBPunfix(rowsCol_sorted->batCacheid);
 			for(i=0; i<colNum; i++)
 				BBPunfix(cols_copy[colNum]->batCacheid);
         	return createException(MAL, "udf.qr", MAL_MALLOC_FAIL);
         }
 
-		cols_copy[colNum] = BATcopy(col, TYPE_void, BATttype(col), FALSE, TRANSIENT);
+		cols_copy[colNum] = BATproject(order, col);  //BATcopy(col, TYPE_void, BATttype(col), FALSE, TRANSIENT);
 		if (cols_copy[colNum] == NULL) {
 			int i;
+			BBPunfix(rowsCol_sorted->batCacheid);
 			for(i=0; i<=colNum; i++)
 				BBPunfix(cols_copy[colNum]->batCacheid);
-        	return createException(MAL, "udf.qr", "BATcopy error");
+        	return createException(MAL, "udf.qr", "BATproject error");
         }
+		BBPunfix(col->batCacheid);
 	}
 
 	/* process the columns */
-	for(colNum=0 ; colNum<colsNum ; colNum++) {
+	for(colNum=1 ; colNum<colsNum ; colNum++) {
 		int colNum2 =0 ;
 		BAT *col = cols_copy[colNum];
 		double s = computeR(col);
@@ -517,6 +535,7 @@ char* qrUDF_bulk(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 
 		if(q == NULL) {
 			int i;
+			BBPunfix(rowsCol_sorted->batCacheid);
 			for(i=0; i<colsNum; i++)
 				BBPunfix(cols_copy[i]->batCacheid);
 			//TODO: clean res also
@@ -530,10 +549,12 @@ char* qrUDF_bulk(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 		}
 
 		BBPkeepref(*res = q->batCacheid);
+		/* we do not need this column anymore */
+		BBPunfix(cols_copy[colNum]->batCacheid);
 	}
 
-	for(colNum=0; colNum<colsNum; colNum++)
-		BBPunfix(cols_copy[colNum]->batCacheid);
+	rowsRes = getArgReference_bat(stk, pci, 0);
+	BBPkeepref(*rowsRes = rowsCol_sorted->batCacheid);
 
     return MAL_SUCCEED;
 }
