@@ -111,7 +111,7 @@ static bool python_call_active = false;
             PyList_SetItem(vararray, j, PyInt_FromLong(((mtpe*) Tloc(bat, BUNfirst(bat)))[j])); \
          } \
     } else if (copy) {                                                                                                                 \
-            vararray = PyArray_Empty(1, (npy_intp[1]) {(t_end - t_start)}, PyArray_DescrFromType(nptpe), 0);                        \
+            vararray = PyArray_EMPTY(1, (npy_intp[1]) {(t_end - t_start)}, nptpe, 0);                        \
             memcpy(PyArray_DATA((PyArrayObject*)vararray), Tloc(bat, BUNfirst(bat)), sizeof(mtpe) * (t_end - t_start));             \
         } else {                                                                                                                    \
             vararray = PyArray_New(&PyArray_Type, 1, (npy_intp[1]) {(t_end-t_start)},                                               \
@@ -122,7 +122,7 @@ static bool python_call_active = false;
 #define BAT_TO_NP(bat, mtpe, nptpe)                                                                                                 \
         if (copy) {                                                                                                                 \
             mtpe *array;                                                                                                            \
-            vararray = PyArray_Empty(1, (npy_intp[1]) {(t_end - t_start)}, PyArray_DescrFromType(nptpe), 0);                        \
+            vararray = PyArray_EMPTY(1, (npy_intp[1]) {(t_end - t_start)}, nptpe, 0);                        \
             memcpy(PyArray_DATA((PyArrayObject*)vararray), Tloc(bat, BUNfirst(bat)), sizeof(mtpe) * (t_end - t_start));             \
         } else {                                                                                                                    \
             vararray = PyArray_New(&PyArray_Type, 1, (npy_intp[1]) {(t_end-t_start)},                                               \
@@ -1897,7 +1897,7 @@ PyObject *PyNullMask_FromBAT(BAT *b, size_t t_start, size_t t_end)
 {
     // We will now construct the Masked array, we start by setting everything to False
     size_t count = t_end - t_start;
-    PyArrayObject* nullmask = (PyArrayObject*) PyArray_ZEROS(1, (npy_intp[1]) {( count )}, NPY_BOOL, 0);
+    PyArrayObject* nullmask = (PyArrayObject*) PyArray_EMPTY(1, (npy_intp[1]) {( count )}, NPY_BOOL, 0);
     const void *nil = ATOMnilptr(b->ttype);
     size_t j;
     bool found_nil = false;
@@ -1943,7 +1943,6 @@ PyObject *PyNullMask_FromBAT(BAT *b, size_t t_start, size_t t_end)
         }
     }
 #endif
-
 
     if (!found_nil) {
         Py_DECREF(nullmask);
