@@ -21,7 +21,7 @@ JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrap
 	(void)object;
 	const char *directory_string_tmp = (*env)->GetStringUTFChars(env, directory, 0);
 	char *databaseDirectory = strdup(directory_string_tmp);
-	char installationDirectory[1000];
+	char libsDirectory[1000];
 	unsigned char silent_char = 'n';
 	char *err;
 	jclass exClass = (*env)->FindClass(env, "java/io/IOException");
@@ -49,8 +49,8 @@ JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrap
 	}
 
 	// XXX: still relying on bindir
-	snprintf(installationDirectory, 1000, "%s/..", BINDIR);
-	err = monetdb_startup(installationDirectory, databaseDirectory, silent_char);
+	snprintf(libsDirectory, 1000, "%s/../lib", BINDIR);
+	err = monetdb_startup(libsDirectory, databaseDirectory, silent_char);
 	// Checking for errors
 	if (err != NULL) {
 		if (exClass == NULL) {
