@@ -56,8 +56,11 @@ const char* debug_enableflag = "enable_pydebug";
 const char* zerocopyinput_disableflag = "disable_pyzerocopyinput";
 const char* zerocopyoutput_disableflag = "disable_pyzerocopyoutput";
 const char* numpy_string_array_disableflag = "disable_numpystringarray";
+const char* fork_disableflag = "disable_fork";
+const char* forkmmap_enableflag = "enable_forkmmap";
 const char* alwaysunicode_enableflag = "enable_alwaysunicode";
 const char* lazyarray_enableflag = "enable_lazyarray";
+const char* pyobject_enableflag = "enable_pyobject";
 const char* oldnullmask_enableflag = "enable_oldnullmask";
 const char* bytearray_enableflag = "enable_bytearray";
 const char* benchmark_output_flag = "pyapi_benchmark_output";
@@ -65,9 +68,11 @@ const char* disable_malloc_tracking = "disable_malloc_tracking";
 static bool option_zerocopyinput = true;
 static bool option_zerocopyoutput  = true;
 static bool option_numpy_string_array = true;
+static bool option_enablefork = true;
 static bool option_bytearray = false;
 static bool option_lazyarray = false;
 static bool option_oldnullmask = false;
+static bool option_pyobject = false;
 static bool option_alwaysunicode = false;
 static bool option_disablemalloctracking = false;
 static char *benchmark_output = NULL;
@@ -98,7 +103,26 @@ static int pyapiInitialized = FALSE;
 
 static bool python_call_active = false;
 
-
+#ifdef _PYAPI_TESTING_
+#define BAT_TO_NP(bat, mtpe, nptpe) \
+    if (option_pyobject) { \
+         vararray = PyList_New(t_end - t_start); \
+         for(j = t_start; j < t_end; j++) { \
+            PyList_SetItem(vararray, j, PyInt_FromLong(((mtpe*) Tloc(bat, BUNfirst(bat)))[j])); \
+         } \
+    } else if (copy) {                                                                                                                 \
+            mtpe *array;                                                                                                            \
+            vararray = PyArray_Zeros(1, (npy_intp[1]) {(t_end - t_start)}, PyArray_DescrFromType(nptpe), 0);                        \
+            array = PyArray_DATA((PyArrayObject*)vararray);                                                                         \
+            for(j = t_start; j < t_end; j++) {                                                                                      \
+                array[j - t_start] = ((mtpe*) Tloc(bat, BUNfirst(bat)))[j];                                                         \
+            }                                                                                                                       \
+        } else {                                                                                                                    \
+            vararray = PyArray_New(&PyArray_Type, 1, (npy_intp[1]) {(t_end-t_start)},                                               \
+            nptpe, NULL, &((mtpe*) Tloc(bat, BUNfirst(bat)))[t_start], 0,                                                           \
+            NPY_ARRAY_CARRAY || !NPY_ARRAY_WRITEABLE, NULL);                                                                        \
+        }
+#else
 #define BAT_TO_NP(bat, mtpe, nptpe)                                                                                                 \
         if (copy) {                                                                                                                 \
             mtpe *array;                                                                                                            \
@@ -112,7 +136,7 @@ static bool python_call_active = false;
             nptpe, NULL, &((mtpe*) Tloc(bat, BUNfirst(bat)))[t_start], 0,                                                           \
             NPY_ARRAY_CARRAY || !NPY_ARRAY_WRITEABLE, NULL);                                                                        \
         }
-
+#endif
 // This #define creates a new BAT with the internal data and mask from a Numpy array, without copying the data
 // 'bat' is a BAT* pointer, which will contain the new BAT. TYPE_'mtpe' is the BAT type, and 'batstore' is the heap storage type of the BAT (this should be STORE_CMEM or STORE_SHARED)
 #define CREATE_BAT_ZEROCOPY(bat, mtpe, batstore) {                                                                      \
@@ -358,7 +382,6 @@ PyAPIevalAggrMap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 static char *PyError_CreateException(char *error_text, char *pycall);
 
-
 static enum _sqltype get_sql_token(sql_subtype *sqltype);
 str ConvertFromSQLType(Client cntxt, BAT *b, enum _sqltype sqltype, sql_subtype *sql_subtype, BAT **ret_bat, int *ret_type);
 str ConvertToSQLType(Client cntxt, BAT *b, enum _sqltype sqltype, sql_subtype *sql_subtype, BAT **ret_bat, int *ret_type);
@@ -401,10 +424,10 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     bool disable_testing = false;
     unsigned long long peak_memory_usage = 0;
 #endif
-    PyGILState_STATE gstate = PyGILState_LOCKED;
     bit varres = sqlfun ? sqlfun->varres : 0;
     int retcols = !varres ? pci->retc : -1;
     bool holds_gil = !mapped;
+    PyGILState_STATE gstate = PyGILState_LOCKED;
 
 
     (void) cntxt;
@@ -516,7 +539,11 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         }
     }
 
-    if (!mapped) {
+    if (!mapped
+#ifdef _PYAPI_TESTING_
+        && option_enablefork
+#endif
+        ) {
         MT_lock_set(&pyapiLock, "pyapi.evaluate");
         if (python_call_active) {
             mapped = true;
@@ -525,6 +552,8 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         else python_call_active = true;
         MT_lock_unset(&pyapiLock, "pyapi.evaluate");
     }
+
+    if (!option_enablefork) mapped = false;
 
     /*[FORK_PROCESS]*/
     if (mapped)
@@ -585,6 +614,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         VERBOSE_MESSAGE("Waiting to fork.\n");
         //fork
         MT_lock_set(&pyapiLock, "pyapi.evaluate");
+        gstate = PyGILState_Ensure(); // we need the GIL before forking, otherwise it can get stuck in the forked child
         VERBOSE_MESSAGE("Start forking.\n");
         if ((pid = fork()) < 0)
         {
@@ -602,6 +632,8 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                 goto wrapup;
             }
         }
+        PyGILState_Release(gstate);
+        gstate = PyGILState_LOCKED;
 
         if (!child_process)
         {
@@ -1377,9 +1409,12 @@ str
     option_zerocopyinput = !(GDKgetenv_isyes(zerocopyinput_disableflag) || GDKgetenv_istrue(zerocopyinput_disableflag));
     option_zerocopyoutput = !(GDKgetenv_isyes(zerocopyoutput_disableflag) || GDKgetenv_istrue(zerocopyoutput_disableflag));
     option_numpy_string_array = !(GDKgetenv_isyes(numpy_string_array_disableflag) || GDKgetenv_istrue(numpy_string_array_disableflag));
+    option_enablefork = !(GDKgetenv_isyes(fork_disableflag) || GDKgetenv_istrue(fork_disableflag));
+    if (GDKgetenv_isyes(forkmmap_enableflag) || GDKgetenv_istrue(forkmmap_enableflag)) memtype = SHM_MEMMAP;
     option_bytearray = GDKgetenv_isyes(bytearray_enableflag) || GDKgetenv_istrue(bytearray_enableflag);
     option_oldnullmask = GDKgetenv_isyes(oldnullmask_enableflag) || GDKgetenv_istrue(oldnullmask_enableflag);
     option_lazyarray = GDKgetenv_isyes(lazyarray_enableflag) || GDKgetenv_istrue(lazyarray_enableflag);
+    option_pyobject = GDKgetenv_isyes(pyobject_enableflag) || GDKgetenv_istrue(pyobject_enableflag);
     option_alwaysunicode = (GDKgetenv_isyes(alwaysunicode_enableflag) || GDKgetenv_istrue(alwaysunicode_enableflag));
     benchmark_output = GDKgetenv(benchmark_output_flag);
     option_disablemalloctracking = (GDKgetenv_isyes(disable_malloc_tracking) || GDKgetenv_istrue(disable_malloc_tracking));

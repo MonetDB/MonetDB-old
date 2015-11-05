@@ -34,12 +34,7 @@ static int shm_is_initialized = false;
 static MT_Lock release_memory_lock;
 static key_t base_key = 800000000;
 
-#define SHM_SHARED 1
-#define SHM_MEMMAP 2
-#define SHM_EITHER 3
-
-static int memtype = SHM_SHARED;
-
+int memtype = SHM_SHARED;
 
 str init_shared_memory(int id, size_t size, void **return_ptr, int flags, bool reg, lng *return_shmid);
 void store_shared_memory(lng memory_id, void *ptr);
@@ -400,7 +395,7 @@ str change_semaphore_value_timeout(int sem_id, int number, int change, int timeo
 
     if (semtimedop(sem_id, &buffer, 1, &timeout) < 0)
     {
-        if (errno == EAGAIN) {
+        if (errno == EAGAIN || errno == EINTR) {
             errno = 0;
             return MAL_SUCCEED;
         } else {

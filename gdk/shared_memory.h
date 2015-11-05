@@ -20,6 +20,10 @@
 
 #include <stddef.h>
 
+#define SHM_SHARED 1
+#define SHM_MEMMAP 2
+#define SHM_EITHER 3
+
 //! Initialize the shared memory module
 str initialize_shared_memory(void);
 //! Not thread safe if 'reg=true', otherwise thread safe
@@ -41,6 +45,8 @@ str get_semaphore_value(int sem_id, int number, int *semval);
 str change_semaphore_value(int sem_id, int number, int change);
 str change_semaphore_value_timeout(int sem_id, int number, int change, int timeout_mseconds, bool *succeed);
 str release_process_semaphore(int sem_id);
+
+extern int memtype;
 #endif
 
 #endif /* _SHAREDMEMORY_LIB_ */

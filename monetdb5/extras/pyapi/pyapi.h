@@ -26,6 +26,7 @@
 #define _PYAPI_WARNINGS_
 // Enable debug mode, does literally nothing right now, but hey we have this nice #define here anyway
 #define _PYAPI_DEBUG_
+#define _PYAPI_TESTING_
 #endif
 
 #ifdef _PYAPI_VERBOSE_
