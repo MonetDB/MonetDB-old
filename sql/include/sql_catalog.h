@@ -505,7 +505,7 @@ typedef struct sql_table {
 	char *query;		/* views may require some query */
 	int  sz;
 	
-	unsigned int cellsNum; //It is used when having an array. It helps when creating empty cells
+	BUN cellsNum; //It is used when having an array. It helps when creating empty cells
 
 	sql_ukey *pkey;
 	changeset dimensions; //used only when the table is an array

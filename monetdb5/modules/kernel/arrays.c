@@ -4,16 +4,15 @@
 
 #include <gdk_arrays.h>
 
-/*UPDATED*/
-static unsigned int jumpSize(gdk_array *array, unsigned int dimNum) {
+static BUN jumpSize(gdk_array *array, unsigned int dimNum) {
 	unsigned short i=0;
-	unsigned int skip = 1;
+	BUN skip = 1;
 	for(i=0; i<dimNum; i++)
 		skip *= array->dims[i]->elsNum;
 	return skip;
 }
 
-static wrd arrayCellsNum(gdk_array *array) {
+static BUN arrayCellsNum(gdk_array *array) {
 	return jumpSize(array, array->dimsNum);
 }
 
@@ -30,7 +29,7 @@ newempty(const char *func)
     return bn;
 }
 
-static int computeOids(oid** oidsRes, BUN currentOidsPos, unsigned int dimNum , gdk_array *array, gdk_array *dims, unsigned int jumpSize) {
+static int computeOids(oid** oidsRes, BUN currentOidsPos, unsigned int dimNum , gdk_array *array, gdk_array *dims, BUN jumpSize) {
 	unsigned int idx = 0;
 	gdk_dimension *currDim = dims->dims[dimNum];
 	gdk_dimension *currDimOrig = array->dims[dimNum];
@@ -506,7 +505,7 @@ str ALGdimensionLeftfetchjoin2(bat *result, const ptr* dimsCands, const bat* oid
 	BAT *resBAT;
 	oid *resOids;
 
-	wrd elsNum = 1;
+	BUN elsNum = 1;
 
 	if(!oidsCandsBAT) {
 		arrayDelete(dims_in);
@@ -848,7 +847,7 @@ str ALGnonDimensionSubselect2(ptr *dimsRes, bat *oidsRes, const bat* values, con
 		oid currentOid;
 		unsigned short d;
 		unsigned int dimIdx;
-		unsigned int totalElsNum = 1, elsNum;
+		BUN totalElsNum = 1, elsNum;
 
 		totalElsNum = arrayCellsNum(array);
 	
