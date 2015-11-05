@@ -568,10 +568,13 @@ HEAPfree(Heap *h, int remove)
 		} else if (h->storage == STORE_CMEM) {
 			//heap is stored in regular C memory rather than GDK memory
 			free(h->base);
-		} else if (h->storage == STORE_SHARED)
+		}
+#ifndef _WIN32 
+		else if (h->storage == STORE_SHARED)
 		{
 			release_shared_memory(h->base);
 		}
+#endif
 		else {	/* mapped file, or STORE_PRIV */
 			gdk_return ret = GDKmunmap(h->base, h->size);
 
