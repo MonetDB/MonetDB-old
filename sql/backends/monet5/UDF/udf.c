@@ -442,7 +442,7 @@ static BAT* setQ(BAT *col, double r) {
 	double *vals;
 	BUN i, start, end;
 
-	BAT *q = BATnew(TYPE_void, TYPE_dbl, 0, TRANSIENT);
+	BAT *q = BATnew(TYPE_void, TYPE_dbl, BATcount(col), TRANSIENT);
 	if(!q)
 		return NULL;
 
