@@ -386,7 +386,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     PyObject *code_object = NULL;
     PyReturn *pyreturn_values = NULL;
     PyInput *pyinput_values = NULL;
-    int seqbase = 0;
+    oid seqbase = 0;
 #ifndef WIN32
     char *shm_ptr;
     QueryStruct *query_ptr = NULL;
@@ -2176,7 +2176,7 @@ wrapup:
     return FALSE;
 }
 
-BAT *PyObject_ConvertToBAT(PyReturn *ret, sql_subtype *type, int bat_type, int i, int seqbase, char **return_message, bool copy)
+BAT *PyObject_ConvertToBAT(PyReturn *ret, sql_subtype *type, int bat_type, int i, oid seqbase, char **return_message, bool copy)
 {
     BAT *b = NULL;
     size_t index_offset = 0;
