@@ -41,8 +41,6 @@ lib_embedded_java  =  {
 		org_monetdb_embedded_result_EmbeddedQueryResult.c org_monetdb_embedded_result_EmbeddedQueryResult.h 
 	VERSION = 1
 	LIBS = ../../tools/embedded/libembedded \ 
-		../../monetdb5/tools/libmonetdb5 \
-		../../gdk/libbat \
 		$(pcre_LIBS) $(PSAPILIB) \
 		$(SOCKET_LIBS) $(MALLOC_LIBS) $(DL_LIBS) $(PTHREAD_LIBS)
 }
