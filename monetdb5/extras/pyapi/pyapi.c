@@ -111,12 +111,8 @@ static bool python_call_active = false;
             PyList_SetItem(vararray, j, PyInt_FromLong(((mtpe*) Tloc(bat, BUNfirst(bat)))[j])); \
          } \
     } else if (copy) {                                                                                                                 \
-            mtpe *array;                                                                                                            \
-            vararray = PyArray_Zeros(1, (npy_intp[1]) {(t_end - t_start)}, PyArray_DescrFromType(nptpe), 0);                        \
-            array = PyArray_DATA((PyArrayObject*)vararray);                                                                         \
-            for(j = t_start; j < t_end; j++) {                                                                                      \
-                array[j - t_start] = ((mtpe*) Tloc(bat, BUNfirst(bat)))[j];                                                         \
-            }                                                                                                                       \
+            vararray = PyArray_Empty(1, (npy_intp[1]) {(t_end - t_start)}, PyArray_DescrFromType(nptpe), 0);                        \
+            memcpy(PyArray_DATA((PyArrayObject*)vararray), Tloc(bat, BUNfirst(bat)), sizeof(mtpe) * (t_end - t_start));             \
         } else {                                                                                                                    \
             vararray = PyArray_New(&PyArray_Type, 1, (npy_intp[1]) {(t_end-t_start)},                                               \
             nptpe, NULL, &((mtpe*) Tloc(bat, BUNfirst(bat)))[t_start], 0,                                                           \
@@ -126,11 +122,8 @@ static bool python_call_active = false;
 #define BAT_TO_NP(bat, mtpe, nptpe)                                                                                                 \
         if (copy) {                                                                                                                 \
             mtpe *array;                                                                                                            \
-            vararray = PyArray_Zeros(1, (npy_intp[1]) {(t_end - t_start)}, PyArray_DescrFromType(nptpe), 0);                        \
-            array = PyArray_DATA((PyArrayObject*)vararray);                                                                         \
-            for(j = t_start; j < t_end; j++) {                                                                                      \
-                array[j - t_start] = ((mtpe*) Tloc(bat, BUNfirst(bat)))[j];                                                         \
-            }                                                                                                                       \
+            vararray = PyArray_Empty(1, (npy_intp[1]) {(t_end - t_start)}, PyArray_DescrFromType(nptpe), 0);                        \
+            memcpy(PyArray_DATA((PyArrayObject*)vararray), Tloc(bat, BUNfirst(bat)), sizeof(mtpe) * (t_end - t_start));             \
         } else {                                                                                                                    \
             vararray = PyArray_New(&PyArray_Type, 1, (npy_intp[1]) {(t_end-t_start)},                                               \
             nptpe, NULL, &((mtpe*) Tloc(bat, BUNfirst(bat)))[t_start], 0,                                                           \
