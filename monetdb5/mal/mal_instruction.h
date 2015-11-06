@@ -93,6 +93,12 @@
 #define getVarConstant(M,I)	((M)->var[I]->value)
 #define getVarValue(M,I)	VALget(&(M)->var[I]->value)
 
+#define setRowCnt(M,I,C)	(M)->var[I]->rowcnt = C
+#define getRowCnt(M,I)		((M)->var[I]->rowcnt)
+
+#define setMitosisPartition(P,C)	(P)->mitosis = C
+#define getMitosisPartition(P)		((P)->mitosis)
+
 #define getDestVar(P)		(P)->argv[0]
 #define setDestVar(P,X)		(P)->argv[0]  =X
 #define setDestType(M,P,V)	setVarType((M),getDestVar(P),V)
