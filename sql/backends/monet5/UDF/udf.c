@@ -633,7 +633,9 @@ char* narrowqrUDF_bulk(bat *rowsRes, bat* columnsRes, bat* valuesRes, const bat 
 
 		return createException(MAL, "udf.qr", "Problem in BATproject");
 	}
-		
+	
+	BBPunfix(order->batCacheid);
+	
 	cols = (BAT**)GDKmalloc(sizeof(BAT*)*colsNum);
 	q = (BAT**)GDKmalloc(sizeof(BAT*)*colsNum);
 	if(!cols || !q) {
@@ -688,6 +690,7 @@ char* narrowqrUDF_bulk(bat *rowsRes, bat* columnsRes, bat* valuesRes, const bat 
 
 		/*create a BAT for the output */
 		q[i] = BATnew(TYPE_void, BATttype(vals), BATcount(vals), TRANSIENT);
+		BBPunfix(colOidsBAT->batCacheid)
 	}
 
 	/* I do not need these BATs anymore */
