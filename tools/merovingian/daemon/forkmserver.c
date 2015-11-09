@@ -321,7 +321,7 @@ forkMserver(char *database, sabdb** stats, int force)
 
 		kv = findConfKey(ckv, "embedpy");
 		if (kv->val != NULL && strcmp(kv->val, "no") != 0)
-			embeddedr = "embedded_py=true";
+			embeddedpy = "embedded_py=true";
 
 		/* redirect stdout and stderr to a new pair of fds for
 		 * logging help */
