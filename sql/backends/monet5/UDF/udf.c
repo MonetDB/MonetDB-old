@@ -690,7 +690,7 @@ char* narrowqrUDF_bulk(bat *rowsRes, bat* columnsRes, bat* valuesRes, const bat 
 
 		/*create a BAT for the output */
 		q[i] = BATnew(TYPE_void, BATttype(vals), BATcount(vals), TRANSIENT);
-		BBPunfix(colOidsBAT->batCacheid)
+		BBPunfix(colOidsBAT->batCacheid);
 	}
 
 	/* I do not need these BATs anymore */
