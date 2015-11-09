@@ -2370,6 +2370,11 @@ AM_CONDITIONAL(HAVE_LIBPY, test x"$have_libpy" != xno)
 AM_CONDITIONAL(HAVE_LIBPANDAS, test x"$have_libpandas" != xno)
 AM_CONDITIONAL(HAVE_LIBSCIPY, test x"$have_libscipy" != xno)
 
+AC_CHECK_HEADER([sys/sem.h], [SEMOP=True], [SEMOP=False])
+if [test "x$SEMOP" = "xTrue"]; then
+	AC_CHECK_FUNC(semtimedop, [AC_DEFINE(HAVE_SEMTIMEDOP, 1, [Define if semtimedop exists])],)
+	AC_CHECK_FUNC(fork, [AC_DEFINE(HAVE_FORK, 1, [Define if fork exists])], )
+fi
 
 # ODBC, only used by ODBC driver
 if test "x$enable_odbc" != xno; then

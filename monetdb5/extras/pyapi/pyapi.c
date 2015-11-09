@@ -42,8 +42,8 @@
 #include "sql_scenario.h"
 #include "sql_cast.h"
 
-#ifndef WIN32
-// These libraries are used for PYTHON_MAP operations on Linux [to start new processes and wait on them]
+#ifdef HAVE_FORK
+// These libraries are used for PYTHON_MAP when forking is enabled [to start new processes and wait on them]
 #include <sys/types.h>
 #include <sys/wait.h>
 #endif
@@ -101,7 +101,9 @@ static MT_Lock pyapiLock;
 static MT_Lock queryLock;
 static int pyapiInitialized = FALSE;
 
+#ifdef HAVE_FORK
 static bool python_call_active = false;
+#endif
 
 #ifdef _PYAPI_TESTING_
 #define BAT_TO_NP(bat, mtpe, nptpe) \
@@ -402,13 +404,14 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     PyReturn *pyreturn_values = NULL;
     PyInput *pyinput_values = NULL;
     oid seqbase = 0;
-#ifndef WIN32
+#ifdef HAVE_FORK
     char *shm_ptr;
     QueryStruct *query_ptr = NULL;
     int query_sem = -1;
     int shm_id = -1;
     size_t memory_size = 0;
     bool child_process = false;
+    bool holds_gil = !mapped;
 #endif
 #ifdef _PYAPI_TESTING_
     size_t iu = 0;
@@ -418,11 +421,12 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 #endif
     bit varres = sqlfun ? sqlfun->varres : 0;
     int retcols = !varres ? pci->retc : -1;
-    bool holds_gil = !mapped;
     PyGILState_STATE gstate = PyGILState_LOCKED;
 
 
-    (void) cntxt;
+#ifndef HAVE_FORK
+    (void) mapped;
+#endif
 
     if (!PyAPIEnabled()) {
         throw(MAL, "pyapi.eval",
@@ -531,6 +535,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         }
     }
 
+#ifdef HAVE_FORK
     if (!mapped
 #ifdef _PYAPI_TESTING_
         && option_enablefork
@@ -544,19 +549,16 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         else python_call_active = true;
         MT_lock_unset(&pyapiLock, "pyapi.evaluate");
     }
+#endif
 
 #ifdef _PYAPI_TESTING_
     if (!option_enablefork) mapped = false;
 #endif
 
+#ifdef HAVE_FORK
     /*[FORK_PROCESS]*/
     if (mapped)
     {
-#ifdef WIN32
-        // We haven't implemented multiprocessing on Windows yet
-        msg = createException(MAL, "pyapi.eval", "Please visit http://www.linux.com/directory/Distributions to download a Linux distro.\n");
-        goto wrapup;
-#else
         lng pid;
 
         //create initial shared memory
@@ -864,8 +866,8 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 
             goto returnvalues;
         }
-#endif
     }
+#endif
 
     //After this point we will execute Python Code, so we need to acquire the GIL
     gstate = PyGILState_Ensure();
@@ -886,10 +888,10 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     pArgs = PyTuple_New(pci->argc - (pci->retc + 2) + (code_object == NULL ? 3 : 0));
     pColumns = PyDict_New();
     pColumnTypes = PyDict_New();
-#ifndef WIN32
+#ifdef HAVE_FORK
     pConnection = Py_Connection_Create(cntxt, mapped, query_ptr, query_sem);
 #else
-    pConnection = Py_Connection_Create(cntxt, mapped, 0, 0);
+    pConnection = Py_Connection_Create(cntxt, 0, 0, 0);
 #endif
 
     // Now we will loop over the input BATs and convert them to python objects
@@ -1059,7 +1061,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     }
 
 
-#ifndef WIN32
+#ifdef HAVE_FORK
     /*[SHARED_MEMORY]*/
     // This is where the child process stops executing
     // We have successfully executed the Python function and converted the result object to a C array
@@ -1156,7 +1158,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     PyGILState_Release(gstate);
     gstate = PyGILState_LOCKED;
 
-#ifndef WIN32 // This goto is only used for multiprocessing, which isn't supported on Windows yet
+#ifdef HAVE_FORK // This goto is only used for multiprocessing, if HAVE_FORK is set to 0 this is unused
 returnvalues:
 #endif
     /*[RETURN_VALUES]*/
@@ -1200,7 +1202,7 @@ returnvalues:
     }
 wrapup:
 
-#ifndef WIN32
+#ifdef HAVE_FORK
     if (mapped && child_process)
     {
         // If we get here, something went wrong in a child process
@@ -1247,13 +1249,13 @@ wrapup:
 
     VERBOSE_MESSAGE("Cleaning up.\n");
 
+#ifdef HAVE_FORK
     if (holds_gil){
         MT_lock_set(&pyapiLock, "pyapi.evaluate");
         python_call_active = false;
         MT_lock_unset(&pyapiLock, "pyapi.evaluate");
     }
 
-#ifndef WIN32
     if (mapped)
     {
         if (query_sem > 0) 
@@ -1284,7 +1286,7 @@ wrapup:
             if (ret->numpy_array != NULL) Py_DECREF(ret->numpy_array);
             if (ret->numpy_mask != NULL) Py_DECREF(ret->numpy_mask);
         }
-#ifndef WIN32
+#ifdef HAVE_FORK
         // If there is no numpy array, but there is array data, then that array data must be shared memory
         if (ret->numpy_array == NULL && ret->array_data != NULL) {
             release_shared_memory(ret->array_data);
@@ -1354,7 +1356,7 @@ str
             PyRun_SimpleString("import numpy");
             PyByteArray_Override();
             import_array1(iar);
-#ifndef WIN32
+#ifdef HAVE_FORK
             initialize_shared_memory();
 #endif
             lazyarray_init();

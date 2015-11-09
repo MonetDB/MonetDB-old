@@ -14,7 +14,6 @@
 #endif
 #include <numpy/arrayobject.h>
 
-
 static PyObject *
 _connection_execute(Py_ConnectionObject *self, PyObject *args)
 {
@@ -66,7 +65,7 @@ _connection_execute(Py_ConnectionObject *self, PyObject *args)
         }
     }
     else 
-#ifndef WIN32
+#ifdef HAVE_FORK
     {
         // This is a mapped process, we do not want forked processes to touch the database
         // Only the main process may touch the database, so we ship the query back to the main process

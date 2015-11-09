@@ -569,7 +569,7 @@ HEAPfree(Heap *h, int remove)
 			//heap is stored in regular C memory rather than GDK memory
 			free(h->base);
 		}
-#ifndef _WIN32 
+#ifdef HAVE_FORK 
 		else if (h->storage == STORE_SHARED)
 		{
 			release_shared_memory(h->base);
