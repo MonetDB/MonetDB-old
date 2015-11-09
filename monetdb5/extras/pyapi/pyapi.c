@@ -121,7 +121,6 @@ static bool python_call_active = false;
 #else
 #define BAT_TO_NP(bat, mtpe, nptpe)                                                                                                 \
         if (copy) {                                                                                                                 \
-            mtpe *array;                                                                                                            \
             vararray = PyArray_EMPTY(1, (npy_intp[1]) {(t_end - t_start)}, nptpe, 0);                        \
             memcpy(PyArray_DATA((PyArrayObject*)vararray), Tloc(bat, BUNfirst(bat)), sizeof(mtpe) * (t_end - t_start));             \
         } else {                                                                                                                    \
@@ -546,7 +545,9 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         MT_lock_unset(&pyapiLock, "pyapi.evaluate");
     }
 
+#ifdef _PYAPI_TESTING_
     if (!option_enablefork) mapped = false;
+#endif
 
     /*[FORK_PROCESS]*/
     if (mapped)
