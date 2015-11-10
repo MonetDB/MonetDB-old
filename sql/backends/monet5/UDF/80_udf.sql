@@ -39,3 +39,7 @@ external name udf.qr;
 CREATE FUNCTION qrUDF(r integer, c integer, v double)
 RETURNS TABLE(r integer, c integer, v double)
 external name udf.narrowqr;
+
+CREATE FUNCTION arrayUDF(r integer, c integer, v double)
+RETURNS TABLE(r integer, c integer, v double)
+external name udf.arrayqr;

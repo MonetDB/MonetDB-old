@@ -788,3 +788,131 @@ char* narrowqrUDF_bulk(bat *rowsRes, bat* columnsRes, bat* valuesRes, const bat 
 	return MAL_SUCCEED;
 }
 
+char* arrayqrUDF_bulk(bat *rowsRes, bat* columnsRes, bat* valuesRes, const unsigned int rowsNum, const unsigned int colsNum, const bat *vals) {
+    double *qarray, *rarray, *els;
+    unsigned int rowNum, colNum, cellsNum;
+
+    BAT *values_out, *values_in;
+    dbl *elements = NULL, *new_elements = NULL;
+
+	BAT *rows_out, *cols_out;
+	int *rowsVals, *colsVals;
+
+	if(!(values_in = BATdescriptor(*vals)))
+		return createException(MAL, "udf.arrayqr", MAL_MALLOC_FAIL);
+
+    cellsNum = rowsNum*colsNum;
+
+    qarray = (dbl*)GDKmalloc(rowsNum*colsNum*sizeof(double));
+    rarray = (dbl*)GDKmalloc(colsNum*colsNum*sizeof(double));
+    els = (dbl*)GDKmalloc(rowsNum*colsNum*sizeof(double));
+
+    /* copy the elements in column major to fit the access pattern */
+    elements = (dbl*) Tloc(values_in, BUNfirst(values_in));
+    for(rowNum=0; rowNum<rowsNum; rowNum++) {
+        unsigned int skip = rowNum*colsNum;
+        for(colNum=0; colNum<colsNum; colNum++)
+            *(els+colNum*rowsNum+rowNum) = elements[colNum+skip];
+    }
+	BBPunfix(values_in->batCacheid);
+
+    /* For each column */
+    for(colNum =0 ; colNum<colsNum; colNum++) {
+        double s=0.0;
+        unsigned int colNum_tmp;
+
+        unsigned int skip = colNum*rowsNum;
+        unsigned int rSkip = colNum*colNum;
+
+        /*get all rows*/
+        for(rowNum=0; rowNum<rowsNum; rowNum++)
+            s+=(*(els+skip+rowNum))*(*(els+skip+rowNum));
+
+        *(rarray+rSkip+colNum) = sqrt(s);
+
+        /* get all rows */
+        for(rowNum=0; rowNum<rowsNum; rowNum++)
+            *(qarray+skip+rowNum) = (*(els+skip+rowNum))/(*(rarray+rSkip+colNum));
+
+        for(colNum_tmp=colNum+1; colNum_tmp<colsNum; colNum_tmp++) {
+			unsigned int skip_tmp = colNum_tmp*rowsNum;
+            s = 0.0;
+
+            for(rowNum=0; rowNum<rowsNum; rowNum++)
+                s+=(*(els+skip_tmp+rowNum))*(*(qarray+skip+rowNum));
+
+            *(rarray+rSkip+colNum_tmp) = s;
+
+            for(rowNum=0; rowNum<rowsNum; rowNum++)
+                *(els+skip_tmp+rowNum) -= s*(*(qarray+skip+rowNum));
+        }
+    }
+
+
+    if((values_out = BATnew(TYPE_void, TYPE_dbl, cellsNum, TRANSIENT)) == NULL) {
+    	GDKfree(rarray);
+    	GDKfree(qarray);
+    	GDKfree(els);
+
+    	return createException(MAL, "udf.arrayqr", "Problem creating BAT");
+	}
+    new_elements = (dbl*) Tloc(values_out, BUNfirst(values_out));
+
+    for(rowNum=0; rowNum<rowsNum; rowNum++) {
+        for(colNum=0; colNum<colsNum; colNum++) {
+            new_elements[rowNum+colNum*rowsNum] = *(qarray+colNum*rowsNum+rowNum);
+        }
+    }
+
+    BATsetcount(values_out, cellsNum);
+    values_out->tsorted = 0;
+    values_out->trevsorted = values_out->batCount <= 1;
+    values_out->tkey = 1;
+    values_out->tdense = (values_out->batCount <= 1 || values_out->batCount == values_out->batCount);
+    if (values_out->batCount == 1 || values_out->batCount == values_out->batCount)
+        values_out->tseqbase = values_out->hseqbase;
+    values_out->hsorted = 1;
+    values_out->hdense = 1;
+    values_out->hseqbase = 0;
+    values_out->hkey = 1;
+    values_out->hrevsorted = values_out->batCount <= 1;
+
+	/* fill the row and column indicws */
+	if((rows_out = BATnew(TYPE_void, TYPE_int, cellsNum, TRANSIENT)) == NULL) {
+		GDKfree(rarray);
+    	GDKfree(qarray);
+    	GDKfree(els);
+
+		BBPunfix(values_out->batCacheid);
+		return createException(MAL, "udf.arrayqr", "Problem creating BAT");
+	}
+	if((cols_out = BATnew(TYPE_void, TYPE_int, cellsNum, TRANSIENT)) == NULL) {
+		GDKfree(rarray);
+    	GDKfree(qarray);
+    	GDKfree(els);
+
+		BBPunfix(values_out->batCacheid);
+		BBPunfix(rows_out->batCacheid);
+		return createException(MAL, "udf.arrayqr", "Problem creating BAT");
+	}
+	rowsVals = (int*)Tloc(rows_out, BUNfirst(rows_out));
+	colsVals = (int*)Tloc(cols_out, BUNfirst(cols_out));
+	for(rowNum=0; rowNum<rowsNum; rowNum++) {
+		for(colNum=0; colNum<colsNum; colNum++) {
+			rowsVals[rowNum*colsNum+colNum] = rowNum;
+			colsVals[rowNum*colsNum+colNum] = colNum;
+		}
+	} 
+
+    GDKfree(rarray);
+    GDKfree(qarray);
+    GDKfree(els);
+
+	BBPkeepref(*rowsRes = rows_out->batCacheid);
+	BBPkeepref(*columnsRes = cols_out->batCacheid);
+	BBPkeepref(*valuesRes = values_out->batCacheid);
+
+    return MAL_SUCCEED;
+}
+
+

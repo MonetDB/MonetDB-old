@@ -60,3 +60,6 @@ address qrUDF_bulk;
 
 command narrowqr(rows:bat[:oid,:int], columns:bat[:oid,:int], values:bat[:oid,:dbl]) (:bat[:oid,:int], :bat[:oid,:int], :bat[:oid,:dbl])
 address narrowqrUDF_bulk;
+
+command arrayqr(rows:int, columns:int, values:bat[:oid,:dbl]) (:bat[:oid,:int], :bat[:oid,:int], :bat[:oid,:dbl])
+address arrayqrUDF_bulk;
