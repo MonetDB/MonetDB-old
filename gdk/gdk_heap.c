@@ -47,7 +47,6 @@
 #include "monetdb_config.h"
 #include "gdk.h"
 #include "gdk_private.h"
-#include "shared_memory.h"
 
 static void *
 HEAPcreatefile(int farmid, size_t *maxsz, const char *fn)
@@ -566,16 +565,9 @@ HEAPfree(Heap *h, int remove)
 					  h->size, PTRFMTCAST h->base);
 			GDKfree(h->base);
 		} else if (h->storage == STORE_CMEM) {
-			//heap is stored in regular C memory rather than GDK memory
+			//heap is stored in regular C memory rather than GDK memory,so we call free()
 			free(h->base);
-		}
-#ifdef HAVE_FORK 
-		else if (h->storage == STORE_SHARED)
-		{
-			release_shared_memory(h->base);
-		}
-#endif
-		else {	/* mapped file, or STORE_PRIV */
+		} else {	/* mapped file, or STORE_PRIV */
 			gdk_return ret = GDKmunmap(h->base, h->size);
 
 			if (ret != GDK_SUCCEED) {
@@ -589,6 +581,16 @@ HEAPfree(Heap *h, int remove)
 					  h->size, (int) ret);
 		}
 	}
+#ifdef HAVE_FORK
+	if (h->storage == STORE_MMAPABS)  { 
+		// heap is stored in a mmap() file, but h->filename points to the absolute path
+		if (h->filename && unlink(h->filename) < 0 && errno != ENOENT) {
+			perror(h->filename);
+		}
+		GDKfree(h->filename);
+		h->filename = NULL;
+	}
+#endif
 	h->base = NULL;
 	if (h->filename) {
 		if (remove) {

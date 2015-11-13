@@ -92,13 +92,19 @@ _connection_execute(Py_ConnectionObject *self, PyObject *args)
             size_t position = 0; 
             PyObject *result;
             int i;
-            lng release_shmid;
+            void **mmap_ptrs = GDKzalloc(sizeof(void*));
+            if (mmap_ptrs == NULL) {
+                PyErr_Format(PyExc_Exception, MAL_MALLOC_FAIL" pointers.");
+                return NULL;
+            }
             // get a pointer to the shared memory holding the return values
-            msg = get_shared_memory(self->query_ptr->shmid, self->query_ptr->memsize, false, (void**) &ptr, &release_shmid);
+            msg = init_mmap_memory(self->query_ptr->mmapid, 0, self->query_ptr->memsize, &mmap_ptrs, NULL);
             if (msg != MAL_SUCCEED) {
                 PyErr_Format(PyExc_Exception, "%s", msg);
                 return NULL;
             }
+            ptr = (char*)mmap_ptrs[0];
+            GDKfree(mmap_ptrs);
 
             result = PyDict_New();
             for(i = 0; i < self->query_ptr->nr_cols; i++)
@@ -141,13 +147,12 @@ _connection_execute(Py_ConnectionObject *self, PyObject *args)
                 numpy_array = PyMaskedArray_FromBAT(self->cntxt, &input, 0, input.count, &msg, true);
                 if (!numpy_array) {
                     PyErr_Format(PyExc_Exception, "SQL Query Failed: %s", (msg ? msg : "<no error>"));
-                    release_shared_memory_shmid(release_shmid, ptr);
+                    release_mmap_memory(ptr, self->query_ptr->memsize, self->query_ptr->mmapid);
                     return NULL;
                 }
                 PyDict_SetItem(result, PyString_FromString(colname), numpy_array);
             }
-
-            release_shared_memory_shmid(release_shmid, ptr);
+            release_mmap_memory(ptr, self->query_ptr->memsize, self->query_ptr->mmapid);
             return result;
         }
 

@@ -152,7 +152,6 @@ static bool python_call_active = false;
         bat->T->nonil = 1 - bat->T->nil;                                                                                \
         /*When we create a BAT a small part of memory is allocated, free it*/                                           \
         GDKfree(bat->T->heap.base);                                                                                     \
-                                                                                                                        \
         bat->T->heap.base = &data[(index_offset * ret->count) * ret->memory_size];                                      \
         bat->T->heap.size = ret->count * ret->memory_size;                                                              \
         bat->T->heap.free = bat->T->heap.size;  /*There are no free places in the array*/                               \
@@ -160,12 +159,20 @@ static bool python_call_active = false;
         /*The entire array will be cleared when the part with index_offset=0 is freed*/                                 \
         /*So we set this part of the mapping to 'NOWN'*/                                                                \
         if (index_offset > 0) bat->T->heap.storage = STORE_NOWN;                                                        \
-        else bat->T->heap.storage = batstore;                                                                           \
-        bat->T->heap.newstorage = STORE_MEM;                                                                            \
+        else {                                                                                                          \
+            bat->T->heap.storage = batstore;                                                                            \
+            if (batstore == STORE_MMAPABS) {                                                                            \
+                /* If we are taking data from a MMAP file, set the filename to the absolute path */                     \
+                char address[100];                                                                                      \
+                snprintf_mmap_file(address, 100, ret->mmap_id);                                                         \
+                bat->T->heap.filename = GDKfilepath(NOFARM, BATDIR, address, "tmp");                                    \
+                ret->mmap_id = -1;                                                                                      \
+            }                                                                                                           \
+        }                                                                                                               \
+        bat->T->heap.newstorage = STORE_MMAP;                                                                           \
         bat->S->count = ret->count;                                                                                     \
         bat->S->capacity = ret->count;                                                                                  \
         bat->S->copiedtodisk = false;                                                                                   \
-                                                                                                                        \
         /*Take over the data from the numpy array*/                                                                     \
         if (ret->numpy_array != NULL) PyArray_CLEARFLAGS((PyArrayObject*)ret->numpy_array, NPY_ARRAY_OWNDATA);          \
     }
@@ -281,37 +288,26 @@ static bool python_call_active = false;
 #define NP_CREATE_BAT(bat, mtpe) {                                                                                                                             \
         bool *mask = NULL;                                                                                                                                     \
         char *data = NULL;                                                                                                                                     \
-        if (ret->mask_data != NULL)                                                                                                                            \
-        {                                                                                                                                                      \
+        if (ret->mask_data != NULL) {                                                                                                                          \
             mask = (bool*) ret->mask_data;                                                                                                                     \
         }                                                                                                                                                      \
-        if (ret->array_data == NULL)                                                                                                                           \
-        {                                                                                                                                                      \
+        if (ret->array_data == NULL) {                                                                                                                         \
             msg = createException(MAL, "pyapi.eval", "No return value stored in the structure.\n");                                                            \
             goto wrapup;                                                                                                                                       \
         }                                                                                                                                                      \
         data = (char*) ret->array_data;                                                                                                                        \
-        if (!copy && ZEROCOPY_OUTPUT ret->count > 0 && TYPE_##mtpe == PyType_ToBat(ret->result_type) && (ret->count * ret->memory_size < BUN_MAX) &&                    \
-            (ret->numpy_array == NULL || PyArray_FLAGS((PyArrayObject*)ret->numpy_array) & NPY_ARRAY_OWNDATA))                                                 \
-        {                                                                                                                                                      \
+        if (!copy && ZEROCOPY_OUTPUT ret->count > 0 && TYPE_##mtpe == PyType_ToBat(ret->result_type) && (ret->count * ret->memory_size < BUN_MAX) &&           \
+             (ret->numpy_array == NULL || PyArray_FLAGS((PyArrayObject*)ret->numpy_array) & NPY_ARRAY_OWNDATA)) {                      \
             /*We can only create a direct map if the numpy array type and target BAT type*/                                                                    \
             /*are identical, otherwise we have to do a conversion.*/                                                                                           \
-            assert(ret->array_data != NULL);                                                                                                                   \
-            if (ret->numpy_array == NULL)                                                                                                                      \
-            {                                                                                                                                                  \
-                /*shared memory return*/                                                                                                                       \
-                VERBOSE_MESSAGE("- Zero copy (shared memory)!\n");                                                                                             \
-                CREATE_BAT_ZEROCOPY(bat, mtpe, STORE_SHARED);                                                                                                  \
-                ret->array_data = NULL;                                                                                                                        \
-            }                                                                                                                                                  \
-            else                                                                                                                                               \
-            {                                                                                                                                                  \
+            if (ret->numpy_array == NULL) {                                                                                                                    \
+                VERBOSE_MESSAGE("- Zero copy (Map)!\n");                                                                                                       \
+                CREATE_BAT_ZEROCOPY(bat, mtpe, STORE_MMAPABS);                                                                                                 \
+            } else {                                                                                                                                           \
                 VERBOSE_MESSAGE("- Zero copy!\n");                                                                                                             \
                 CREATE_BAT_ZEROCOPY(bat, mtpe, STORE_CMEM);                                                                                                    \
             }                                                                                                                                                  \
-        }                                                                                                                                                      \
-        else                                                                                                                                                   \
-        {                                                                                                                                                      \
+        } else {                                                                                                                                               \
             bat = BATnew(TYPE_void, TYPE_##mtpe, ret->count, TRANSIENT);                                                                                       \
             BATseqbase(bat, seqbase); bat->T->nil = 0; bat->T->nonil = 1;                                                                                      \
             if (NOT_HGE(mtpe) && TYPE_##mtpe != PyType_ToBat(ret->result_type)) WARNING_MESSAGE("!PERFORMANCE WARNING: You are returning a Numpy Array of type %s, which has to be converted to a BAT of type %s. If you return a Numpy\
@@ -405,13 +401,15 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     PyInput *pyinput_values = NULL;
     oid seqbase = 0;
 #ifdef HAVE_FORK
-    char *shm_ptr;
+    char *mmap_ptr;
     QueryStruct *query_ptr = NULL;
     int query_sem = -1;
-    int shm_id = -1;
+    int mmap_id = -1;
     size_t memory_size = 0;
     bool child_process = false;
     bool holds_gil = !mapped;
+    void **mmap_ptrs = NULL;
+    size_t *mmap_sizes = NULL;
 #endif
 #ifdef _PYAPI_TESTING_
     size_t iu = 0;
@@ -462,7 +460,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     args = (str*) GDKzalloc(pci->argc * sizeof(str));
     pyreturn_values = GDKzalloc(pci->retc * sizeof(PyReturn));
     if (args == NULL || pyreturn_values == NULL) {
-        throw(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
+        throw(MAL, "pyapi.eval", MAL_MALLOC_FAIL" arguments.");
     }
 
     if ((pci->argc - (pci->retc + 2)) * sizeof(PyInput) > 0) {
@@ -470,7 +468,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 
         if (pyinput_values == NULL) {
             GDKfree(args); GDKfree(pyreturn_values);
-            throw(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
+            throw(MAL, "pyapi.eval", MAL_MALLOC_FAIL" input values.");
         }
     }
 
@@ -560,16 +558,24 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     if (mapped)
     {
         lng pid;
-
-        //create initial shared memory
-        MT_lock_set(&pyapiLock, "pyapi.evaluate");
-        //we need 2 + pci->retc * 2 shared memory spaces
+        //we need 3 + pci->retc * 2 shared memory spaces
         //the first is for the header information
         //the second for query struct information
         //the third is for query results
         //the remaining pci->retc * 2 is one for each return BAT, and one for each return mask array
-        shm_id = get_unique_shared_memory_id(3 + pci->retc * 2); 
+        int mmap_count = 3 + pci->retc * 2;
+
+        //create initial shared memory
+        MT_lock_set(&pyapiLock, "pyapi.evaluate");
+        mmap_id = get_unique_id(mmap_count); 
         MT_lock_unset(&pyapiLock, "pyapi.evaluate");
+
+        mmap_ptrs = GDKzalloc(mmap_count * sizeof(void*));
+        mmap_sizes = GDKzalloc(mmap_count * sizeof(size_t));
+        if (mmap_ptrs == NULL || mmap_sizes == NULL) {
+            msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL" mmap values.");
+            goto wrapup;
+        }
 
         VERBOSE_MESSAGE("Creating multiple processes.\n");
 
@@ -580,31 +586,33 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         assert(memory_size > 0);
         //create the shared memory for the header
         MT_lock_set(&pyapiLock, "pyapi.evaluate");
-        msg = create_shared_memory(shm_id, memory_size, true, (void**) &shm_ptr, NULL);
+        msg = init_mmap_memory(mmap_id, 0, memory_size, &mmap_ptrs, &mmap_sizes);
         MT_lock_unset(&pyapiLock, "pyapi.evaluate");
         if (msg != MAL_SUCCEED) {
             goto wrapup;
         }
+        mmap_ptr = mmap_ptrs[0];
 
         //create the cross-process semaphore used for signaling queries
         //we need two semaphores
         //the main process waits on the first one (exiting when a query is requested or the child process is done)
         //the forked process waits for the second one when it requests a query (waiting for the result of the query)
-        msg = create_process_semaphore(shm_id, 2, &query_sem);
+        msg = create_process_semaphore(mmap_id, 2, &query_sem);
         if (msg != MAL_SUCCEED) {
             goto wrapup;
         }
 
         //create the shared memory space for queries
         MT_lock_set(&pyapiLock, "pyapi.evaluate");
-        msg = create_shared_memory(shm_id + 1, sizeof(QueryStruct), true, (void**) &query_ptr, NULL);
+        msg = init_mmap_memory(mmap_id, 1, sizeof(QueryStruct), &mmap_ptrs, &mmap_sizes);
         MT_lock_unset(&pyapiLock, "pyapi.evaluate");
         if (msg != MAL_SUCCEED) {
             goto wrapup;
         }
+        query_ptr = mmap_ptrs[1];
         query_ptr->pending_query = false;
         query_ptr->query[0] = '\0';
-        query_ptr->shmid = -1;
+        query_ptr->mmapid = -1;
         query_ptr->memsize = 0;
 
         VERBOSE_MESSAGE("Waiting to fork.\n");
@@ -623,13 +631,16 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         {
             child_process = true;
             query_ptr = NULL;
-            msg = get_shared_memory(shm_id + 1,  sizeof(QueryStruct), false, (void**) &query_ptr, NULL);
+            msg = init_mmap_memory(mmap_id, 1, sizeof(QueryStruct), &mmap_ptrs, &mmap_sizes);
             if (msg != MAL_SUCCEED) {
                 goto wrapup;
             }
+            query_ptr = mmap_ptrs[1];
+        } else {
+            // release the GIL in the main process
+            PyGILState_Release(gstate);
+            gstate = PyGILState_LOCKED;
         }
-        PyGILState_Release(gstate);
-        gstate = PyGILState_LOCKED;
 
         if (!child_process)
         {
@@ -669,7 +680,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 
                         query_ptr->memsize = 0;
                         query_ptr->nr_cols = 0;
-                        query_ptr->shmid = -1;
+                        query_ptr->mmapid = -1;
 
                         if (output != NULL && output->nr_cols > 0) 
                         {
@@ -677,6 +688,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                             size_t size = 0;
                             size_t position = 0;
                             char *result_ptr;
+                            void **ptr;
 
                             for (i = 0; i < output->nr_cols; i++) {
                                 res_col col = output->cols[i];
@@ -723,11 +735,17 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 
                             // create the actual shared memory region
                             MT_lock_set(&pyapiLock, "pyapi.evaluate");
-                            query_ptr->shmid = get_unique_shared_memory_id(1); 
+                            query_ptr->mmapid = get_unique_id(1); 
                             MT_lock_unset(&pyapiLock, "pyapi.evaluate");
 
-                            msg = create_shared_memory(query_ptr->shmid, size, false, (void**) &result_ptr, NULL);
-
+                            ptr = GDKzalloc(sizeof(void*));
+                            if (ptr == NULL) {
+                                msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL" pointer.");
+                                goto wrapup;
+                            }
+                            msg = init_mmap_memory(query_ptr->mmapid, 0, size, &ptr, NULL);
+                            result_ptr = (char*) ptr[0];
+                            GDKfree(ptr);
                             if (msg != MAL_SUCCEED) {
                                 _connection_cleanup_result(output);
                                 change_semaphore_value(query_sem, 1, 1);
@@ -766,7 +784,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                                 }
                             }
                             //detach the main process from this piece of shared memory so the child process can delete it
-                            msg = release_shared_memory_ptr(result_ptr);
+                            //msg = release_mmap_memory(result_ptr, size, query_ptr->mmapid);
                             _connection_cleanup_result(output);
                         }
                         //signal that we are finished processing this query
@@ -790,18 +808,14 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
             if (!success)
             {
                 //a child failed, get the error message from the child
-                ReturnBatDescr *descr = &(((ReturnBatDescr*)shm_ptr)[0]);
-                char *err_ptr;
+                ReturnBatDescr *descr = &(((ReturnBatDescr*)mmap_ptr)[0]);
 
                 if (descr->bat_size == 0) {
                     msg = createException(MAL, "pyapi.eval", "Failure in child process with unknown error.");
                 } else {
-                    lng memshmid;
-                    msg = get_shared_memory(shm_id + 3, descr->bat_size, false, (void**) &err_ptr, &memshmid);
-                    if (msg == MAL_SUCCEED)
-                    {
-                        msg = createException(MAL, "pyapi.eval", "%s", err_ptr);
-                        release_shared_memory_shmid(memshmid, err_ptr);
+                    msg = init_mmap_memory(mmap_id, 2, descr->bat_size, &mmap_ptrs, &mmap_sizes);
+                    if (msg == MAL_SUCCEED) {
+                        msg = createException(MAL, "pyapi.eval", "%s", (char*)mmap_ptrs[2]);
                     }
                 }
                 goto wrapup;
@@ -812,10 +826,11 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
             for(i = 0; i < pci->retc; i++)
             {
                 PyReturn *ret = &pyreturn_values[i];
-                ReturnBatDescr *descr = &(((ReturnBatDescr*)shm_ptr)[i]);
+                ReturnBatDescr *descr = &(((ReturnBatDescr*)mmap_ptr)[i]);
                 size_t total_size = 0;
                 bool has_mask = false;
                 ret->count = 0;
+                ret->mmap_id = mmap_id + i + 3;
                 ret->memory_size = 0;
                 ret->result_type = 0;
 
@@ -831,17 +846,16 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                 has_mask = has_mask || descr->has_mask;
 
                 //get the shared memory address for this return value
-                VERBOSE_MESSAGE("Parent requesting memory at id %d of size %zu\n", shm_id + (i + 3), total_size);
+                VERBOSE_MESSAGE("Parent requesting memory at id %d of size %zu\n", mmap_id + (i + 3), total_size);
 
                 assert(total_size > 0);
                 MT_lock_set(&pyapiLock, "pyapi.evaluate");
-                msg = get_shared_memory(shm_id + (i + 3), total_size, true, &ret->array_data, NULL);
+                msg = init_mmap_memory(mmap_id, i + 3, total_size, &mmap_ptrs, &mmap_sizes);
                 MT_lock_unset(&pyapiLock, "pyapi.evaluate");
-
-                if (msg != MAL_SUCCEED)
-                {
+                if (msg != MAL_SUCCEED) {
                     goto wrapup;
                 }
+                ret->array_data = mmap_ptrs[i + 3];
                 ret->mask_data = NULL;
                 ret->numpy_array = NULL;
                 ret->numpy_mask = NULL;
@@ -852,14 +866,12 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 
                     assert(mask_size > 0);
                     MT_lock_set(&pyapiLock, "pyapi.evaluate");
-                    msg = get_shared_memory(shm_id + pci->retc + (i + 3), mask_size, true, (void**) &ret->mask_data, NULL);
+                    msg = init_mmap_memory(mmap_id, pci->retc + (i + 3), total_size, &mmap_ptrs, &mmap_sizes);
                     MT_lock_unset(&pyapiLock, "pyapi.evaluate");
-
-                    if (msg != MAL_SUCCEED)
-                    {
-                        release_shared_memory(ret->array_data);
+                    if (msg != MAL_SUCCEED) {
                         goto wrapup;
                     }
+                    ret->mask_data = mmap_ptrs[pci->retc + (i + 3)];
                 }
             }
             msg = MAL_SUCCEED;
@@ -870,7 +882,9 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 #endif
 
     //After this point we will execute Python Code, so we need to acquire the GIL
-    gstate = PyGILState_Ensure();
+    if (!mapped) { 
+        gstate = PyGILState_Ensure();
+    }
 
     /*[PARSE_CODE]*/
     VERBOSE_MESSAGE("Formatting python code.\n");
@@ -1067,13 +1081,12 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     // We have successfully executed the Python function and converted the result object to a C array
     // Now all that is left is to copy the C array to shared memory so the main process can read it and return it
     if (mapped && child_process) {
-        char *shm_ptr;
         ReturnBatDescr *ptr;
 
         // First we will fill in the header information, we will need to get a pointer to the header data first
         // The main process has already created the header data for the child process
         VERBOSE_MESSAGE("Getting shared memory.\n");
-        msg = get_shared_memory(shm_id, memory_size, false, (void**) &shm_ptr, NULL);
+        msg = init_mmap_memory(mmap_id, 0, memory_size, &mmap_ptrs, &mmap_sizes);
         if (msg != MAL_SUCCEED) {
             goto wrapup;
         }
@@ -1084,7 +1097,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         if (!disable_testing && !option_disablemalloctracking && benchmark_output != NULL) { revert_hook(); }
 #endif
         // Now we will write data about our result (memory size, type, number of elements) to the header
-        ptr = (ReturnBatDescr*)shm_ptr;
+        ptr = (ReturnBatDescr*)mmap_ptrs[0];
         for (i = 0; i < retcols; i++)
         {
             PyReturn *ret = &pyreturn_values[i];
@@ -1121,28 +1134,27 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
             if (ret->count > 0)
             {
                 int memory_size = ret->memory_size * ret->count;
-                char *mem_ptr;
                 //now create shared memory for the return value and copy the actual values
                 assert(memory_size > 0);
-                if (create_shared_memory(shm_id + (i + 3), memory_size, false, (void**)&mem_ptr, NULL) != MAL_SUCCEED)
+                if (init_mmap_memory(mmap_id, i + 3, memory_size, &mmap_ptrs, &mmap_sizes) != MAL_SUCCEED)
                 {
                     msg = createException(MAL, "pyapi.eval", "Failed to allocate shared memory for returning data.\n");
                     goto wrapup;
                 }
-                memcpy(mem_ptr, PyArray_DATA((PyArrayObject*)ret->numpy_array), memory_size);
+                assert(mmap_ptrs[i + 3]);
+                memcpy(mmap_ptrs[i + 3], PyArray_DATA((PyArrayObject*)ret->numpy_array), memory_size);
 
                 if (descr->has_mask)
                 {
-                    bool *mask_ptr;
                     int mask_size = ret->count * sizeof(bool);
                     assert(mask_size > 0);
-                    if (create_shared_memory(shm_id + retcols + (i + 3), mask_size, false, (void**)&mask_ptr, NULL) != MAL_SUCCEED) //create a memory space for the mask
+                    if (init_mmap_memory(mmap_id, retcols + (i + 3), mask_size, &mmap_ptrs, &mmap_sizes) != MAL_SUCCEED) //create a memory space for the mask
                     {
                         msg = createException(MAL, "pyapi.eval", "Failed to allocate shared memory for returning mask.\n");
                         goto wrapup;
                     }
-                    assert(mask_ptr != NULL);
-                    memcpy(mask_ptr, ret->mask_data, mask_size);
+                    assert(mmap_ptrs[retcols + i + 3]);
+                    memcpy(mmap_ptrs[retcols + i + 3], ret->mask_data, mask_size);
                 }
             }
         }
@@ -1186,6 +1198,13 @@ returnvalues:
             goto wrapup;
         }
 
+#ifdef HAVE_FORK
+        if (ret->mmap_id < 0) {
+            // if we directly give the mmap file to a BAT, don't delete the MMAP file
+            mmap_ptrs[i + 3] = NULL;
+        }
+#endif 
+
         if (isaBatType(getArgType(mb,pci,i)))
         {
             *getArgReference_bat(stk, pci, i) = b->batCacheid;
@@ -1206,7 +1225,7 @@ wrapup:
     if (mapped && child_process)
     {
         // If we get here, something went wrong in a child process
-        char *shm_ptr, *error_mem, *tmp_msg;
+        char *tmp_msg;
         ReturnBatDescr *ptr;
 
         // Now we exit the program with an error code
@@ -1218,14 +1237,14 @@ wrapup:
         }
 
         assert(memory_size > 0);
-        tmp_msg = get_shared_memory(shm_id, memory_size, false, (void**) &shm_ptr, NULL);
+        tmp_msg = init_mmap_memory(mmap_id, 0, memory_size, &mmap_ptrs, &mmap_sizes);
         if (tmp_msg != MAL_SUCCEED) {
             VERBOSE_MESSAGE("Failed to get shared memory in child process: %s\n", tmp_msg);
             exit(1);
         }
 
         // To indicate that we failed, we will write information to our header
-        ptr = (ReturnBatDescr*)shm_ptr;
+        ptr = (ReturnBatDescr*)mmap_ptrs[0];
         for (i = 0; i < retcols; i++) {
             ReturnBatDescr *descr = &ptr[i];
             // We will write descr->npy_type to -1, so other processes can see that we failed
@@ -1235,14 +1254,14 @@ wrapup:
         }
 
         // Now create the shared memory to write our error message to
-        // We can simply use the slot shm_id + 3, even though this is normally used for return values
+        // We can simply use the slot mmap_id + 2, even though this is normally used for query return values
         // This is because, if the process fails, no values will be returned
-        tmp_msg = create_shared_memory(shm_id + 3, (strlen(msg) + 1) * sizeof(char), false, (void**) &error_mem, NULL);
+        tmp_msg = init_mmap_memory(mmap_id, 2, (strlen(msg) + 1) * sizeof(char), &mmap_ptrs, &mmap_sizes);
         if (tmp_msg != MAL_SUCCEED) {
             VERBOSE_MESSAGE("Failed to create shared memory in child process: %s\n", tmp_msg);
             exit(1);
         }
-        strcpy(error_mem, msg);
+        strcpy(mmap_ptrs[2], msg);
         exit(1);
     }
 #endif
@@ -1258,12 +1277,13 @@ wrapup:
 
     if (mapped)
     {
-        if (query_sem > 0) 
+        for(i = 0; i < 3 + pci->retc * 2; i++) {
+            if (mmap_ptrs[i] != NULL) {
+                release_mmap_memory(mmap_ptrs[i], mmap_sizes[i], mmap_id + i);
+            }
+        }      
+        if (query_sem > 0)
             release_process_semaphore(query_sem);
-        if (shm_ptr != NULL) 
-            release_shared_memory(shm_ptr);
-        if (query_ptr != NULL)
-            release_shared_memory(query_ptr);
     }
 #endif
     // Actual cleanup
@@ -1286,15 +1306,6 @@ wrapup:
             if (ret->numpy_array != NULL) Py_DECREF(ret->numpy_array);
             if (ret->numpy_mask != NULL) Py_DECREF(ret->numpy_mask);
         }
-#ifdef HAVE_FORK
-        // If there is no numpy array, but there is array data, then that array data must be shared memory
-        if (ret->numpy_array == NULL && ret->array_data != NULL) {
-            release_shared_memory(ret->array_data);
-        }
-        if (ret->numpy_mask == NULL && ret->mask_data != NULL) {
-            release_shared_memory(ret->mask_data);
-        }
-#endif
     }
     if (pResult != NULL) {
         Py_DECREF(pResult);
@@ -1356,9 +1367,6 @@ str
             PyRun_SimpleString("import numpy");
             PyByteArray_Override();
             import_array1(iar);
-#ifdef HAVE_FORK
-            initialize_shared_memory();
-#endif
             lazyarray_init();
             _connection_init();
             marshal_module = PyImport_Import(PyString_FromString("marshal"));
@@ -1406,7 +1414,7 @@ str
     option_zerocopyoutput = !(GDKgetenv_isyes(zerocopyoutput_disableflag) || GDKgetenv_istrue(zerocopyoutput_disableflag));
     option_numpy_string_array = !(GDKgetenv_isyes(numpy_string_array_disableflag) || GDKgetenv_istrue(numpy_string_array_disableflag));
     option_enablefork = !(GDKgetenv_isyes(fork_disableflag) || GDKgetenv_istrue(fork_disableflag));
-    if (GDKgetenv_isyes(forkmmap_enableflag) || GDKgetenv_istrue(forkmmap_enableflag)) memtype = SHM_MEMMAP;
+    if (GDKgetenv_isyes(forkmmap_enableflag) || GDKgetenv_istrue(forkmmap_enableflag)) memtype = mmap_MEMMAP;
     option_bytearray = GDKgetenv_isyes(bytearray_enableflag) || GDKgetenv_istrue(bytearray_enableflag);
     option_oldnullmask = GDKgetenv_isyes(oldnullmask_enableflag) || GDKgetenv_istrue(oldnullmask_enableflag);
     option_lazyarray = GDKgetenv_isyes(lazyarray_enableflag) || GDKgetenv_istrue(lazyarray_enableflag);
@@ -1641,7 +1649,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
     if (b == NULL)
     {
         // No BAT was found, we can't do anything in this case
-        msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL);
+        msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL" bat.");
         goto wrapup;
     }
 

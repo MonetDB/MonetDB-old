@@ -49,6 +49,9 @@ struct _PyReturn{
     bool *mask_data;                    //bool* pointer to mask data
     size_t count;                       //amount of return elements
     size_t memory_size;                 //memory size of each element
+#ifdef HAVE_FORK
+    lng mmap_id;
+#endif
     int result_type;                    //result type as NPY_<TYPE>
     bool multidimensional;              //whether or not the result is multidimensional
 };
@@ -69,7 +72,7 @@ struct _QueryStruct{
     bool pending_query;
     char query[8192];
     int nr_cols; 
-    int shmid;
+    int mmapid;
     size_t memsize;
 };
 #define QueryStruct struct _QueryStruct
