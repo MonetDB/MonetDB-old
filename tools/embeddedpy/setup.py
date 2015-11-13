@@ -43,7 +43,6 @@ if os.system('./bootstrap') != 0:
 if os.system('./configure --prefix=' + output_directory + ' --enable-embedded=true --disable-fits --disable-geom --disable-rintegration --disable-gsl --disable-netcdf --disable-jdbc --disable-merocontrol --disable-odbc --disable-console --disable-microhttpd --without-perl --without-python2 --without-python3 --without-rubygem --without-unixodbc --without-samtools --without-sphinxclient --without-geos --without-samtools --without-readline --enable-silent-rules') != 0:
     print("Failed configuring MonetDB.")
     exit(1)
-os.system('printf \'#ifndef _EMBEDDED_MONETDB_MONETDB_LIB_\n#define _EMBEDDED_MONETDB_MONETDB_LIB_ "%s"\n#endif\n\' | cat - monetdb_config.h > temp.h && mv temp.h monetdb_config.h' % os.path.join(output_directory, 'lib/libmonetdb5.so'))
 if os.system('make clean install') != 0:
     print("Failed building MonetDB.")
     exit(1)

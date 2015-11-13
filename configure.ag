@@ -208,8 +208,6 @@ if test "x$enable_embedded" != xno; then
 fi
 AM_CONDITIONAL(HAVE_EMBEDDED, test x"$enable_embedded" != xno)
 
-
-
 dft_jsonstore=no
 AC_ARG_ENABLE(jsonstore,
 	AS_HELP_STRING([--enable-jsonstore],
@@ -2207,9 +2205,14 @@ fi
 AM_CONDITIONAL(HAVE_CURL, test x"$have_curl" != xno)
 
 PKG_CHECK_MODULES([zlib], [zlib], [have_zlib="yes"], [have_zlib="no"; why_have_zlib="(zlib not found)"])
+if test x"$have_zlib" = x"no" ; then
+	# Solaris doesn't provide zlib.pc, but zlib may well be present
+	AC_CHECK_LIB(z, gzopen, [ have_zlib=yes zlib_LIBS="-lz" zlib_CFLAGS= ])
+elif test x"$have_zlib" = x"yes" ; then
+	AC_SUBST(PKG_ZLIB, zlib)
+fi
 if test x"$have_zlib" = x"yes" ; then
 	AC_DEFINE(HAVE_LIBZ, 1, [Define if you have the z library])
-	AC_SUBST(PKG_ZLIB, zlib)
 fi
 AM_CONDITIONAL(HAVE_LIBZ, test x"$have_zlib" != xno)
 
@@ -2888,6 +2891,7 @@ AC_CHECK_SIZEOF(size_t)
 AC_CHECK_SIZEOF(ssize_t)
 AC_CHECK_SIZEOF(ptrdiff_t,,[#include <stddef.h>
 #include <sys/types.h>])
+AC_CHECK_SIZEOF(wchar_t)
 AC_CHECK_SIZEOF(long long)
 AC_CHECK_SIZEOF(__int64)
 AC_CHECK_SIZEOF(__int128)
@@ -3211,6 +3215,10 @@ AC_SUBST(QXSOURCE)
 AC_DEFINE_UNQUOTED(LOCALSTATEDIR,"$QElocalstatedir",[modifiable single-machine data])
 AC_DEFINE_UNQUOTED(DATA_DIR,"$QEdatadir",[read-only architecture-independent data])
 AC_DEFINE_UNQUOTED(BINDIR,"$QEbindir",[location where binaries are installed])
+
+if test "x$enable_embedded" != xno; then
+	AC_DEFINE_UNQUOTED(_EMBEDDED_MONETDB_MONETDB_LIB_, "$QEbindir/../lib/libmonetdb5.so", [libmonetdb5 library path])
+fi
 
 dnl  On Solaris, libxml2 enables threading only when _REENTRANT, __MT__
 dnl  or _POSIX_C_SOURCE >= 199506L is defined.  The latter is only

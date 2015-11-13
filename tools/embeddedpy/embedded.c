@@ -50,7 +50,7 @@ void *monetdb_default_client;
 
 static void* lookup_function(char* func) {
 	void *dl, *fun;
-	dl = mdlopen("libmonetdb5", RTLD_NOW | RTLD_GLOBAL);
+	dl = dlopen(_EMBEDDED_MONETDB_MONETDB_LIB_, RTLD_NOW | RTLD_GLOBAL);
 	if (dl == NULL) {
 		return NULL;
 	}
