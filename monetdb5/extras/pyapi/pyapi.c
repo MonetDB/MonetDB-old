@@ -97,6 +97,18 @@ int PyAPIEnabled(void) {
             || GDKgetenv_isyes(pyapi_enableflag));
 }
 
+static char* FunctionBasePath(void);
+static char* FunctionBasePath(void) {
+    char *basepath = GDKgetenv("function_basepath");
+    if (basepath == NULL) {
+        basepath = getenv("HOME");
+    }
+    if (basepath == NULL) {
+        basepath = "";
+    }
+    return basepath;
+}
+
 static MT_Lock pyapiLock;
 static MT_Lock queryLock;
 static int pyapiInitialized = FALSE;
@@ -421,7 +433,6 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     int retcols = !varres ? pci->retc : -1;
     PyGILState_STATE gstate = PyGILState_LOCKED;
 
-
 #ifndef HAVE_FORK
     (void) mapped;
 #endif
@@ -438,6 +449,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         strcpy(string, exprStr);
         exprStr = string;
     }
+
     // If the source starts with 'NOTEST' we disable testing, kind of a band-aid solution but they don't pay me enough for anything better
     if (exprStr[1] == 'N' && exprStr[2] == 'O' && exprStr[3] == 'T' && exprStr[4] == 'E' && exprStr[5] == 'S' && exprStr[6] == 'T') {
         VERBOSE_MESSAGE("Disable testing!\n");
@@ -484,7 +496,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         }
     }
 
-    // We name all the unknown arguments, if grouping is enabled there is one unknown argument that is the group variable, we name this 'aggr_group'
+    // We name all the unknown arguments, if grouping is enabled the first unknown argument that is the group variable, we name this 'aggr_group'
     for (i = pci->retc + 2; i < pci->argc; i++) {
         if (args[i] == NULL) {
             if (!seengrp && grouped) {
@@ -500,8 +512,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 
     // Construct PyInput objects, we do this before any multiprocessing because there is some locking going on in there, and locking + forking = bad idea (a thread can fork while another process is in the lock, which means we can get stuck permanently)
     argnode = sqlfun && sqlfun->ops->cnt > 0 ? sqlfun->ops->h : NULL;
-    for (i = pci->retc + 2; i < pci->argc; i++)
-    {
+    for (i = pci->retc + 2; i < pci->argc; i++) {
         PyInput *inp = &pyinput_values[i - (pci->retc + 2)];
         if (!isaBatType(getArgType(mb,pci,i))) {
             inp->scalar = true;
@@ -513,9 +524,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
             else {
                 inp->dataptr = getArgReference(stk, pci, i);
             }
-        }
-        else
-        {
+        } else {
             b = BATdescriptor(*getArgReference_bat(stk, pci, i));
             if (b == NULL) {
                 msg = createException(MAL, "pyapi.eval", "The BAT passed to the function (argument #%d) is NULL.\n", i - (pci->retc + 2) + 1);
@@ -884,6 +893,45 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
     //After this point we will execute Python Code, so we need to acquire the GIL
     if (!mapped) { 
         gstate = PyGILState_Ensure();
+    }
+
+    if (sqlfun) {
+        // Check if exprStr references to a file path or if it contains the Python code itself
+        // There is no easy way to check, so the rule is if it starts with '/' it is always a file path,
+        // Otherwise it's a (relative) file path only if it ends with '.py'
+        size_t length = strlen(exprStr);
+        if (exprStr[0] == '/' || (exprStr[length - 3] == '.' && exprStr[length - 2] == 'p' && exprStr[length - 1] == 'y')) {
+            FILE *fp;
+            char address[1000];
+            struct stat buffer;
+            size_t length;
+            if (exprStr[0] == '/') { 
+                // absolute path
+                snprintf(address, 1000, "%s", exprStr);
+            } else {
+                // relative path
+                snprintf(address, 1000, "%s/%s", FunctionBasePath(), exprStr);
+            }
+            if (stat(address, &buffer) < 0) { 
+                msg = createException(MAL, "pyapi.eval", "Could not find Python source file \"%s\".", address);
+                goto wrapup;
+            }
+            fp = fopen(address, "r");
+            if (fp == NULL) {
+                msg = createException(MAL, "pyapi.eval", "Could not open Python source file \"%s\".", address);
+                goto wrapup;
+            }
+            fseek(fp, 0, SEEK_END);
+            length = ftell(fp);
+            fseek(fp, 0, SEEK_SET);
+            exprStr = GDKzalloc(length + 1);
+            if (exprStr == NULL) {
+                msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL" function body string.");
+                goto wrapup;
+            }
+            fread(exprStr, 1, length, fp);
+            fclose(fp);
+        }
     }
 
     /*[PARSE_CODE]*/

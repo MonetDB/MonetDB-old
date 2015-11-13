@@ -295,6 +295,7 @@ int yydebug=1;
 	forest_element_name
 	XML_namespace_prefix
 	XML_PI_target
+	function_body
 
 %type <l>
 	passwd_schema
@@ -1703,6 +1704,12 @@ external_function_name:
 	ident '.' ident { $$ = append_string(append_string(L(), $1), $3); }
  ;
 
+
+function_body:
+	X_BODY
+|	string
+;
+
 func_def:
     create FUNCTION qname
 	'(' opt_paramlist ')'
@@ -1733,7 +1740,7 @@ func_def:
   | create FUNCTION qname
 	'(' opt_paramlist ')'
     RETURNS func_data_type
-    LANGUAGE IDENT X_BODY { 
+    LANGUAGE IDENT function_body { 
 			int lang = 0;
 			dlist *f = L();
 			char l = *$10;
@@ -1790,7 +1797,7 @@ func_def:
   | create AGGREGATE qname
 	'(' opt_paramlist ')'
     RETURNS func_data_type
-    LANGUAGE IDENT X_BODY { 
+    LANGUAGE IDENT function_body { 
 			int lang = 0;
 			dlist *f = L();
 			char l = *$10;

@@ -390,6 +390,13 @@ forkMserver(char *database, sabdb** stats, int force)
 		if (embeddedpy != NULL) {
 			argv[c++] = "--set"; argv[c++] = embeddedpy;
 		}
+		kv = findConfKey(ckv, "function_basepath");
+		if (kv->val != NULL) {
+			char address[1000];
+			snprintf(address, 1000, "function_basepath=%s", kv->val);
+			argv[c++] = "--set"; 
+			argv[c++] = address;
+		}
 		if (readonly != NULL) {
 			argv[c++] = readonly;
 		}
