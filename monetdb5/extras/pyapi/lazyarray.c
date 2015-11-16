@@ -258,7 +258,7 @@ PyObject *PyBAT_FromBAT(BAT *b)
     op = (PyBATObject *)PyObject_MALLOC(sizeof(PyBATObject));
     if (op == NULL)
         return PyErr_NoMemory();
-    PyObject_INIT(op, &PyBAT_Type);
+    PyObject_Init((PyObject*)op, &PyBAT_Type);
 
     op->bat = b;
 

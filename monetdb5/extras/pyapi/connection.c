@@ -241,7 +241,7 @@ PyObject *Py_Connection_Create(Client cntxt, bit mapped, QueryStruct *query_ptr,
     op = (Py_ConnectionObject *)PyObject_MALLOC(sizeof(Py_ConnectionObject));
     if (op == NULL)
         return PyErr_NoMemory();
-    PyObject_INIT(op, &Py_ConnectionType);
+    PyObject_Init((PyObject*)op, &Py_ConnectionType);
 
     op->cntxt = cntxt;
     op->mapped = mapped;
