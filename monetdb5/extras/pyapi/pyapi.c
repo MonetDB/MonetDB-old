@@ -929,7 +929,10 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                 msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL" function body string.");
                 goto wrapup;
             }
-            fread(exprStr, 1, length, fp);
+            if (fread(exprStr, 1, length, fp) != length) {
+                msg = createException(MAL, "pyapi.eval", "Failed to read from file \"%s\".", address);
+                goto wrapup;
+            }
             fclose(fp);
         }
     }
@@ -2268,7 +2271,7 @@ BAT *PyObject_ConvertToBAT(PyReturn *ret, sql_subtype *type, int bat_type, int i
     size_t index_offset = 0;
     char *msg;
     size_t iu;
-    int sql_token;
+    enum _sqltype sql_token;
 
     if (ret->multidimensional) index_offset = i;
 
