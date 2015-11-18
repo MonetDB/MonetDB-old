@@ -140,7 +140,9 @@ typedef enum comp_type {
 	cmp_joined = 12, 		/* special case already joined */
 	cmp_equal_nil = 13, 		/* special case equi join, with nil = nil */
 	cmp_left = 14,			/* special case equi join, keep left order */
-	cmp_left_project = 15		/* last step of outer join */
+	cmp_left_project = 15,		/* last step of outer join */
+	
+	cmp_left_join = 16 /*uses the BATsubouterjoin*/
 } comp_type;
 
 /* for ranges we keep the requirment for symmetric */

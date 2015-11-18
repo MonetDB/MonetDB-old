@@ -2673,13 +2673,7 @@ static stmt* find_before_uselect(stmt *s) {
  * before the selections over non-dimensions */
 static int pushDimensionSelections(stmt **s) {
 	int changes = 0;
-	stmt *nextS = NULL;
-	
-	if((*s)->type == st_mbrselect) { //st_mbrselects are always be in the beginning
-		//skip them
-		return pushDimensionSelections(&(*s)->op3);
-	}
-	nextS = (*s)->op3;
+	stmt *nextS = (*s)->op3;
 
 
 	if(nextS && nextS->op1) {
@@ -2696,6 +2690,18 @@ static int pushDimensionSelections(stmt **s) {
 	}
 
 	return changes;
+}
+
+/* when dealing with arrays we do not need to join with tid */
+static void clearJoins(stmt **s) {
+	stmt *leftS = (*s)->op1;
+
+	if(leftS->type == st_join && leftS->op1->type == st_tid && 
+		isArray(leftS->op1->op4.tval) && leftS->op2->type == st_bat)
+		(*s)->op1 = leftS->op2;
+	if((*s)->op3)
+		return clearJoins(&(*s)->op3);
+	return;
 }
 
 /*
@@ -2785,6 +2791,12 @@ rel2bin_select( mvc *sql, sql_rel *rel, list *refs)
 
 	//if there are selections on dimensions they should be performed at the beggining
 	while(pushDimensionSelections(&sel));
+	if(sel->op1->type == st_join && sel->op1->op1->type == st_tid && 
+		isArray(sel->op1->op1->op4.tval) && sel->op1->op2->type == st_bat) {
+	
+		sel = stmt_mbr(sql->sa, sel, sel->op1->op1);
+		clearJoins(&(sel->op1));		
+	}
 	////if it is an array we need to project the cells
 	//sel = addCells(sql, sel);
 

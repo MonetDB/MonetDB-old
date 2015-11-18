@@ -9,9 +9,13 @@ address ALGmaterialise;
 #address ALGdimensionLeftfetchjoin1;
 command algebra.leftfetchjoin(dimsCands:ptr, dim:ptr, dims:ptr ) :bat[:oid,:any]
 address ALGdimensionLeftfetchjoin1;
+#leftfetchjoin after selection with non-dimensions
+command algebra.leftfetchjoin(oidsCands:bat[:oid,:oid], dimsCands:ptr, dim:ptr, dims:ptr ) :bat[:oid,:any]
+address ALGdimensionLeftfetchjoin2;
 #it is called in updates. It projects all cells 
 command algebra.leftfetchjoin(dimsCands:ptr, oidsCands:bat[:oid,:oid], array:ptr) :bat[:oid,:oid]
-address ALGdimensionLeftfetchjoin2;
+address ALGdimensionLeftfetchjoin3;
+
 #it gets the candidates and projects a non-dimensional column
 #with project cells: command algebra.leftfetchjoin(cands:bat[:oid,:oid], vals:bat[:oid,:any], dims:ptr ) :bat[:oid,:any]
 #command algebra.leftfetchjoin(candDims:ptr, candBAT:bat[:oid,:oid], vals:bat[:oid,:any], dims:ptr ) :bat[:oid,:any]
@@ -47,23 +51,33 @@ command algebra.subselect(dim:ptr, dims:ptr, candDims:ptr, low:any, high:any, li
 address ALGdimensionSubselect2;
 command algebra.thetasubselect(dim:ptr, dims:ptr, candDims:ptr, val:any, op:str) :ptr
 address ALGdimensionThetasubselect2;
-#when two dimensions have been compared to each other (e.g. =, >=, etc.) the result is a ptr with the array of the dimensions
-#a bat[:oid,:bit] that shows which cells satisfy the condition. This subselect returns the mbr of the cells that satisfy the 
-#condition and a bat with the exact oids that satisfy the condition
-command algebra.subselect(dims:ptr, vals:bat[:oid,:bit], low:bit, high:bit, li:bit, hi:bit, anti:bit) (:ptr,:bat[:oid,:oid])
-address ALGdimensionSubselect3;
+##when two dimensions have been compared to each other (e.g. =, >=, etc.) the result is a ptr with the array of the dimensions
+##a bat[:oid,:bit] that shows which cells satisfy the condition. This subselect returns the mbr of the cells that satisfy the 
+##condition and a bat with the exact oids that satisfy the condition
+#command algebra.subselect(dims:ptr, vals:bat[:oid,:bit], low:bit, high:bit, li:bit, hi:bit, anti:bit) (:ptr,:bat[:oid,:oid])
+#address ALGdimensionSubselect3;
 
-#subselection in non-dimensions
-command algebra.subselect(vals:bat[:oid,:any], dims:ptr, low:any, high:any, li:bit, hi:bit, anti:bit) (:ptr, :bat[:oid,:oid])
+#subselection in non-dimensions. It is like any ther selection
+command algebra.subselect(vals:bat[:oid,:any], dims:ptr, low:any, high:any, li:bit, hi:bit, anti:bit) :bat[:oid,:oid]
 address ALGnonDimensionSubselect1;
-command algebra.thetasubselect(vals:bat[:oid,:any], dims:ptr, val:any, op:str) (:ptr, :bat[:oid,:oid])
+command algebra.thetasubselect(vals:bat[:oid,:any], dims:ptr, val:any, op:str) :bat[:oid,:oid]
 address ALGnonDimensionThetasubselect1;
-#the candBAT will be null when the candidates come from selection over dimensional column
-#and non-zero when coming from selection over non-dimensional column
-command algebra.subselect(vals:bat[:oid,:any], dims:ptr, candDims:ptr, candBAT:bat[:oid,:oid], low:any, high:any, li:bit, hi:bit, anti:bit) (:ptr, :bat[:oid,:oid])
+#subselect when having selections only to non-dimensional columns but more than one
+command algebra.subselect(vals:bat[:oid,:any], dims:ptr, candBAT:bat[:oid,:oid], low:any, high:any, li:bit, hi:bit, anti:bit) :bat[:oid,:oid]
 address ALGnonDimensionSubselect2;
-command algebra.thetasubselect(vals:bat[:oid,:any], dims:ptr, candDims:ptr, candBAT:bat[:oid,:oid], val:any, op:str) (:ptr, :bat[:oid,:oid])
+command algebra.thetasubselect(vals:bat[:oid,:any], dims:ptr, candBAT:bat[:oid,:oid], val:any, op:str) :bat[:oid,:oid]
 address ALGnonDimensionThetasubselect2;
+#when having selections over dimensions before the selection over the non-dimenions them candDims is the mbr of the dimensions
+command algebra.subselect(vals:bat[:oid,:any], dims:ptr, candDims:ptr, low:any, high:any, li:bit, hi:bit, anti:bit) (:bat[:oid,:oid], :ptr)
+address ALGnonDimensionSubselect3;
+command algebra.thetasubselect(vals:bat[:oid,:any], dims:ptr, candDims:ptr, val:any, op:str) (:bat[:oid,:oid], :ptr)
+address ALGnonDimensionThetasubselect3;
+#when having selections over dimensions and multiple selections over non-dimensions the candidates are the oids qualifying in
+#the selections over the non-dimensions and the mbr qualifying in the selections over the dimenisons.
+command algebra.subselect(vals:bat[:oid,:any], dims:ptr, candBAT:bat[:oid,:oid], candDims:ptr, low:any, high:any, li:bit, hi:bit, anti:bit) (:bat[:oid,:oid], ptr)
+address ALGnonDimensionSubselect4;
+command algebra.thetasubselect(vals:bat[:oid,:any], dims:ptr, candBAT:bat[:oid,:oid], candDims:ptr, val:any, op:str) (:bat[:oid,:oid], ptr)
+address ALGnonDimensionThetasubselect4;
 
 #projects a dimension
 command algebra.projectArray(dim:ptr, dims:ptr) :bat[:oid,:any]
@@ -77,6 +91,15 @@ address ALGprojectNonDimension;
 command algebra.cellsProject(candDims:ptr, candBAT:bat[:oid,:oid]) :bat[:oid,:oid]
 address ALGproject;
 
+command algebra.mbr(oidsCands:bat[:oid,:oid], dimsCands:ptr, dims:ptr) :ptr
+address ALGmbr1;
+#No selection over dimensions
+command algebra.mbr(oidsCands:bat[:oid,:oid], dims:ptr) :ptr
+address ALGmbr2;
+
+
+command algebra.outerjoin(l:bat[:oid,:oid], r:bat[:oid,:oid]) :bat[:oid,:oid]
+address ALGouterjoin;
 
 #the dim will be ignored. only the array will be used
 command aggr.count(array:ptr) :wrd 

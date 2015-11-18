@@ -1582,10 +1582,13 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 						if(sub > 0) { //candidates
 							q = pushArgument(mb, q, sub);
 
-							//check whether two candidates
+							//check whether two candidate (in case of multiple selections over non-dimensional columns)
 							snprintf(nme, SMALLBUFSIZ, "Y_%d", sub);
-                	    	if((arraySecondVar = findVariable(mb, nme)) >= 0 )
+                	    	if(findVariable(mb, nme) >= 0 ) {
+								arraySecondVar = findVariable(mb, nme); //I do not want to loose the arraySecondVar possibly set in l
 								q = pushArgument(mb, q, arraySecondVar);
+							}
+
 						}					
 						q = pushArgument(mb, q, r);
 						q = pushArgument(mb, q, r);
@@ -1648,8 +1651,10 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 				s->nr = getDestVar(q);
 			} else
 				s->nr = newTmpVariable(mb, TYPE_any);
-//			if(arraySecondVar >= 0)
-//				renameVariable(mb, getArg(q, 1), "Y_%d", s->nr);
+			if(arraySecondVar >= 0 && s->op1 && s->op3 && s->op1->type == st_bat){
+				q = pushReturn(mb, q, newTmpVariable(mb, TYPE_ptr)); //the second return argument is the dims mbr		
+				renameVariable(mb, getArg(q, 1), "Y_%d", s->nr);
+			}
 		}
 			break;
 		case st_uselect2:
@@ -1896,6 +1901,27 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			int left = (cmp == cmp_left);
 			char *sjt = "subjoin";
 	
+			if(cmp == cmp_left_join) {
+				if ((l = _dumpstmt(sql, mb, s->op1)) < 0)
+            		return -1;
+				if ((r = _dumpstmt(sql, mb, s->op2)) < 0)
+                	return -1;
+
+				q = newStmt2(mb, algebraRef, "outerjoin");
+				q = pushArgument(mb, q, l); //the mbr oids
+				q = pushArgument(mb, q, r); //the selection over non-dimension oids
+
+//				snprintf(nme, SMALLBUFSIZ, "Y_%d", r);
+  //          	if((arraySecondVar = findVariable(mb, nme)) >= 0)
+	//				q = pushArgument(mb, q, arraySecondVar); //the selection over non-dimension oids
+			
+				if (q == NULL)
+					return -1;
+
+				s->nr = getDestVar(q);
+
+				return s->nr;
+			}
 			if (left) {
 				cmp = cmp_equal;
 				sjt = "subleftjoin";
@@ -2078,6 +2104,28 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 
 			/* rename second result */
 //			renameVariable(mb, getArg(q, 1), "Y_%d", s->nr);
+
+			break;
+		}
+		case st_mbr: {
+			int l, r;
+
+			if ((l = _dumpstmt(sql, mb, s->op1)) < 0)
+            	return -1;
+			if ((r = _dumpstmt(sql, mb, s->op2)) < 0)
+                return -1;
+
+			q = newStmt2(mb, algebraRef, "mbr");
+			q = pushArgument(mb, q, l); //the dimsResult
+			snprintf(nme, SMALLBUFSIZ, "Y_%d", l);
+            if((arraySecondVar = findVariable(mb, nme)) >= 0)
+				q = pushArgument(mb, q, arraySecondVar); //the oids result
+			q = pushArgument(mb, q, r); //the array
+			
+			if (q == NULL)
+				return -1;
+
+			s->nr = getDestVar(q);
 
 			break;
 		}

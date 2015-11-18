@@ -293,6 +293,7 @@ stmt_deps(list *dep_list, stmt *s, int depend_type, int dir)
 				/* simple case of statements of only statements */
 			case st_alias:
 			case st_materialise:
+			case st_mbr:
 			case st_tunion:
 			case st_tdiff:
 			case st_tinter:
@@ -1248,12 +1249,34 @@ stmt_alias(sql_allocator *sa, stmt *op1, char *tname, char *alias)
 	return s;
 }
 
-stmt* stmt_materialise(sql_allocator *sa, stmt *selectStmt, stmt *joinStmt) {
-	stmt *s = stmt_create(sa, st_materialise);
+stmt *stmt_left_join(sql_allocator *sa, stmt *op1, stmt *op2) {
+	stmt *s = stmt_join(sa, op1, op2, cmp_left_join);
+	s->nrcols = op1->nrcols;
+
+	return s;
+}
+
+stmt *stmt_mbr(sql_allocator *sa, stmt *op1, stmt *op2) {
+	stmt *s = stmt_create(sa, st_mbr);
+    s->op1 = op1;
+    s->op2 = op2;
+
+	return s;
+}
+
+
+stmt* stmt_materialise(sql_allocator *sa, stmt *selectStmt, stmt *op2) {
+	stmt *s;
+
+	s = stmt_create(sa, st_materialise);
 	s->op1 = selectStmt;
-	s->op2 = joinStmt->op1;
+	s->op2 = op2->op1;
+
+	if(selectStmt->type == st_mbr) 
+		s = stmt_left_join(sa, s, selectStmt->op1);
+
 	s->nrcols = selectStmt->nrcols;
-	return stmt_project(sa, s, joinStmt->op2);
+	return stmt_project(sa, s, op2->op2);
 }
 
 sql_subtype *

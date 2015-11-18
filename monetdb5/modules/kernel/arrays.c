@@ -2,6 +2,7 @@
 #include "mal_exception.h"
 #include "arrays.h"
 
+#include <algebra.h>
 #include <gdk_arrays.h>
 
 static BUN jumpSize(gdk_array *array, unsigned int dimNum) {
@@ -293,12 +294,13 @@ str ALGdimensionSubselect1(ptr *dimsRes, const ptr *dim, const ptr* dims,
 	return ALGdimensionSubselect2(dimsRes, dim, dims, NULL, low, high, li, hi, anti);
 }
 
+#if 0
 str ALGdimensionSubselect3(ptr *dimsRes, bat *oidsRes, const ptr *array, const bat *vals,
                             const void *low, const void *high, const bit *li, const bit *hi, const bit *anti) {
 		/* it is the same with the ALGnonDimensionSubselect1 but with the array and vals argument in different order*/
- 		return ALGnonDimensionSubselect1(dimsRes, oidsRes, vals, array, low, high, li, hi, anti);
+ 		return ALGnonDimensionSubselect1(oidsRes, dimsRes, vals, array, low, high, li, hi, anti);
 }
-
+#endif
 
 str ALGdimensionThetasubselect2(ptr *dimsRes, const ptr *dim, const ptr* dims, const ptr *dimsCands, const void *val, const char **opp) {
 	bit li = 0;
@@ -500,7 +502,12 @@ do { \
 
 }
 
-str ALGdimensionLeftfetchjoin2(bat *result, const ptr* dimsCands, const bat* oidsCands, const ptr *array_in) {
+str ALGdimensionLeftfetchjoin2(bat *result, const bat *oidsCands, const ptr *dimsCands, const ptr *dim, const ptr *dims) {
+	(void)*oidsCands; //We do not use this for dimensions
+	return ALGdimensionLeftfetchjoin1(result, dimsCands, dim, dims);
+}
+
+str ALGdimensionLeftfetchjoin3(bat *result, const ptr* dimsCands, const bat* oidsCands, const ptr *array_in) {
 	gdk_array *array = (gdk_array*)*array_in;
 	gdk_array *dims_in = (gdk_array*)*dimsCands;
 	BAT *oidsCandsBAT = BATdescriptor(*oidsCands);
@@ -795,6 +802,7 @@ str ALGproject(bat *result, const ptr* candDims, const bat* candBAT) {
 
 #endif
 
+#if 0
 str ALGnonDimensionSubselect2(ptr *dimsRes, bat *oidsRes, const bat* values, const ptr *dims, const ptr *dimsCands, const bat* oidsCands,
                             const void *low, const void *high, const bit *li, const bit *hi, const bit *anti) {
 	gdk_array *array = (gdk_array*)*dims;
@@ -920,13 +928,59 @@ str ALGnonDimensionSubselect2(ptr *dimsRes, bat *oidsRes, const bat* values, con
 
 	return MAL_SUCCEED;
 }
+#endif
 
-str ALGnonDimensionSubselect1(ptr *dimsRes, bat *oidsRes, const bat *values, const ptr *dims,
+str ALGnonDimensionSubselect2(bat *oidsRes, const bat* values, const ptr *dims, const bat* oidsCands,
                             const void *low, const void *high, const bit *li, const bit *hi, const bit *anti) {
-	return ALGnonDimensionSubselect2(dimsRes, oidsRes, values, dims, NULL, NULL, low, high, li, hi, anti);
+	(void)*dims;
+
+	return ALGsubselect2(oidsRes, values, oidsCands, low, high, li, hi, anti);
 }
 
-str ALGnonDimensionThetasubselect2(ptr *dimsRes, bat *oidsRes, const bat *values, const ptr* dims, const ptr *dimsCands, const bat *oidsCands, const void *val, const char **opp) {
+str ALGnonDimensionSubselect1(bat *oidsRes, const bat *values, const ptr *dims,
+                            const void *low, const void *high, const bit *li, const bit *hi, const bit *anti) {
+	return ALGnonDimensionSubselect2(oidsRes, values, dims, NULL, low, high, li, hi, anti);
+}
+
+str ALGnonDimensionSubselect4(bat *oidsRes, ptr *dimsRes, const bat* values, const ptr *dims, const bat* oidsCands, const ptr *dimsCands,
+                            const void *low, const void *high, const bit *li, const bit *hi, const bit *anti) {
+	(void)*dims;
+
+	/*normal subselect*/
+	*dimsRes = *dimsCands; //the mbr is unaffected at this point
+
+	return ALGsubselect2(oidsRes, values, oidsCands, low, high, li, hi, anti);
+}
+
+str ALGnonDimensionSubselect3(bat *oidsRes, ptr *dimsRes, const bat *values, const ptr *dims, const ptr* dimsCands,
+                            const void *low, const void *high, const bit *li, const bit *hi, const bit *anti) {
+	return ALGnonDimensionSubselect4(oidsRes, dimsRes, values, dims, NULL, dimsCands, low, high, li, hi, anti);
+}
+
+str ALGnonDimensionThetasubselect2(bat *oidsRes, const bat *values, const ptr* dims, const bat *oidsCands, const void *val, const char **op) {
+	(void)*dims;
+	return ALGthetasubselect2(oidsRes, values, oidsCands, val, op);
+}
+
+str ALGnonDimensionThetasubselect1(bat *oidsRes, const bat *values, const ptr* dims, const void *val, const char **op) {
+	return ALGnonDimensionThetasubselect2(oidsRes, values, dims, NULL, val, op);
+}
+
+str ALGnonDimensionThetasubselect4(bat *oidsRes, ptr *dimsRes, const bat *values, const ptr* dims, const bat *oidsCands, const ptr *dimsCands, const void *val, const char **op) {
+	(void)*dims;
+
+	*dimsRes = *dimsCands;
+
+	return ALGthetasubselect2(oidsRes, values, oidsCands, val, op);
+}
+
+str ALGnonDimensionThetasubselect3(bat *oidsRes, ptr *dimsRes, const bat *values, const ptr* dims, const ptr *dimsCands, const void *val, const char **op) {
+	return ALGnonDimensionThetasubselect4(oidsRes, dimsRes, values, dims, NULL, dimsCands, val, op);
+}
+
+
+#if 0
+str ALGnonDimensionThetasubselect4(ptr *dimsRes, bat *oidsRes, const bat *values, const ptr* dims, const bat *oidsCands, const ptr *dimsCands, const void *val, const char **opp) {
 	bit li = 0;
 	bit hi = 0;
 	bit anti = 0;
@@ -945,51 +999,60 @@ str ALGnonDimensionThetasubselect2(ptr *dimsRes, bat *oidsRes, const bat *values
         /* "=" or "==" */
 		li = hi = 1;
 		anti = 0;
-        return ALGnonDimensionSubselect2(dimsRes, oidsRes, values, dims, dimsCands, oidsCands, val, nil, &li, &hi, &anti);
+        return ALGnonDimensionSubselect4(oidsRes, dimsRes, values, dims, oidsCands, dimsCands, val, nil, &li, &hi, &anti);
     }
     if (op[0] == '!' && op[1] == '=' && op[2] == 0) {
         /* "!=" (equivalent to "<>") */ 
 		li = hi = anti = 1;
-        return ALGnonDimensionSubselect2(dimsRes, oidsRes, values, dims, dimsCands, oidsCands, val, nil, &li, &hi, &anti);
+        return ALGnonDimensionSubselect4(oidsRes, dimsRes, values, dims, oidsCands, dimsCands, val, nil, &li, &hi, &anti);
     }
     if (op[0] == '<') { 
         if (op[1] == 0) {
             /* "<" */
 			li = hi = anti = 0;
-            return ALGnonDimensionSubselect2(dimsRes, oidsRes, values, dims, dimsCands, oidsCands, nil, val, &li, &hi, &anti);
+            return ALGnonDimensionSubselect4(oidsRes, dimsRes, values, dims, oidsCands, dimsCands, nil, val, &li, &hi, &anti);
         }
         if (op[1] == '=' && op[2] == 0) {
             /* "<=" */
 			li = anti = 0;
 			hi = 1;
-            return ALGnonDimensionSubselect2(dimsRes, oidsRes, values, dims, dimsCands, oidsCands, nil, val, &li, &hi, &anti);
+            return ALGnonDimensionSubselect4(oidsRes, dimsRes, values, dims, oidsCands, dimsCands, nil, val, &li, &hi, &anti);
         }
         if (op[1] == '>' && op[2] == 0) {
             /* "<>" (equivalent to "!=") */ 
 			li = hi = anti = 1;
-            return ALGnonDimensionSubselect2(dimsRes, oidsRes, values, dims, dimsCands, oidsCands, val, nil, &li, &hi, &anti);
+            return ALGnonDimensionSubselect4(oidsRes, dimsRes, values, dims, oidsCands, dimsCands, val, nil, &li, &hi, &anti);
         }
     }
     if (op[0] == '>') { 
         if (op[1] == 0) {
             /* ">" */
 			li = hi = anti = 0;
-            return ALGnonDimensionSubselect2(dimsRes, oidsRes, values, dims, dimsCands, oidsCands, val, nil, &li, &hi, &anti);
+            return ALGnonDimensionSubselect4(oidsRes, dimsRes, values, dims, oidsCands, dimsCands, val, nil, &li, &hi, &anti);
         }
         if (op[1] == '=' && op[2] == 0) {
             /* ">=" */
 			li = 1;
 			hi = anti = 0;
-            return ALGnonDimensionSubselect2(dimsRes, oidsRes, values, dims, dimsCands, oidsCands, val, nil, &li, &hi, &anti);
+            return ALGnonDimensionSubselect4(oidsRes, dimsRes, values, dims, oidsCands, dimsCands, val, nil, &li, &hi, &anti);
         }
     }
 
     throw(MAL, "algebra.dimensionThetasubselect", "BATdimensionThetasubselect: unknown operator.\n");
 }
 
-str ALGnonDimensionThetasubselect1(ptr *dimsRes, bat *oidsRes, const bat *values, const ptr* dims, const void *val, const char **op) {
-	return ALGnonDimensionThetasubselect2(dimsRes, oidsRes, values, dims, NULL, NULL, val, op);
+str ALGnonDimensionThetasubselect1(bat *oidsRes, ptr *dimsRes, const bat *values, const ptr* dims, const void *val, const char **op) {
+	return ALGnonDimensionThetasubselect4(dimsRes, oidsRes, values, dims, NULL, NULL, val, op);
 }
+
+str ALGnonDimensionThetasubselect2(bat *oidsRes, ptr *dimsRes, const bat *values, const ptr* dims, const ptr *dimsCands, const void *val, const char **op) {
+	return ALGnonDimensionThetasubselect4(dimsRes, oidsRes, values, dims, NULL, dimsCands, val, op);
+}
+
+str ALGnonDimensionThetasubselect3(bat *oidsRes, ptr *dimsRes, const bat *values, const ptr* dims, const bat* oidsCands, const void *val, const char **op) {
+	return ALGnonDimensionThetasubselect4(dimsRes, oidsRes, values, dims, oidsCands, NULL, val, op);
+}
+#endif
 
 str ALGarrayCount(wrd *res, const ptr *array) {
 	gdk_array *ar = (gdk_array*)*array;
@@ -1029,6 +1092,119 @@ str ALGprojectNonDimension(bat *result, const bat *vals, const ptr *array) {
     return ALGnonDimensionLeftfetchjoin1(result, (void*)&dimsCands, &oidsCands, vals, array);
 #endif
     
+}
+
+/* returns the oids that correspond to the MBR */
+str ALGmbr1(ptr *mbrRes, const bat *oidsCands, const ptr *dimsCands, const ptr *dims) {
+	gdk_array *array = (gdk_array*)*dims;
+	gdk_array *mbr = arrayCopy(array);
+	BAT *oidsCandsBAT = NULL;
+
+	if (oidsCands && (oidsCandsBAT = BATdescriptor(*oidsCands)) == NULL) {
+       	throw(MAL, "algebra.mbr", RUNTIME_OBJECT_MISSING);
+    }
+
+	if(dimsCands) { //if there are dimsCands then the MBR is that 
+		mbr = (gdk_array*)*dimsCands;
+	} else if(oidsCands) {
+		/*if the user did not restrict the dimensions then mbr is the one covering 
+ 		* all qualifying values. Should it be the whole array? What if the user does not 
+ 		* know exactly what area she is looking for and wants to find that using the values?*/
+
+		//find the mbr around the qualifying oids
+		BATiter oidsIter = bat_iterator(oidsCandsBAT);
+		BUN currBun = BUNfirst(oidsCandsBAT);
+		BUN lastBun = BUNlast(oidsCandsBAT);
+		oid currentOid;
+		unsigned short d;
+		unsigned int dimIdx;
+		BUN totalElsNum = 1, elsNum;
+
+		totalElsNum = arrayCellsNum(array);
+	
+		//initialise the mbr
+		elsNum = totalElsNum;
+		currentOid = *(oid*)BUNtail(oidsIter, currBun);
+
+		for(d = array->dimsNum-1; d>0; d--) {
+			//get the correct elsNum
+			elsNum /= array->dims[d]->elsNum;
+			//get the idx for the dimension
+			dimIdx = currentOid/elsNum;
+			//update the dimension
+			mbr->dims[d]->min = dimIdx;
+			mbr->dims[d]->max = dimIdx;
+			//update the oid
+			currentOid %= elsNum;
+		}
+		//update the last dimension
+		mbr->dims[d]->min = currentOid;
+		mbr->dims[d]->max = currentOid;
+
+		/* continue with the rest of the dimensions */
+		for(currBun++; currBun < lastBun; currBun++) {
+			elsNum = totalElsNum;
+			currentOid = *(oid*)BUNtail(oidsIter, currBun);
+
+			for(d = array->dimsNum-1; d>0; d--) {
+				//get the correct elsNum
+				elsNum /= array->dims[d]->elsNum;
+				//get the idx for the dimension
+				dimIdx = currentOid/elsNum;
+				//update the dimension
+				mbr->dims[d]->min = dimIdx < mbr->dims[d]->min ? dimIdx : mbr->dims[d]->min;
+				mbr->dims[d]->max = dimIdx > mbr->dims[d]->max ? dimIdx : mbr->dims[d]->max;
+				//update the oid
+				currentOid %= elsNum;
+			}
+			//update the last dimension
+			mbr->dims[d]->min = currentOid < mbr->dims[d]->min ? currentOid : mbr->dims[d]->min;
+			mbr->dims[d]->max = currentOid > mbr->dims[d]->max ? currentOid : mbr->dims[d]->max;
+		}
+
+		for(d=0; d<mbr->dimsNum; d++)
+			mbr->dims[d]->elsNum = floor((mbr->dims[d]->max-mbr->dims[d]->min)/mbr->dims[d]->step) + 1;
+	}	
+
+	*mbrRes = mbr;
+	
+	return MAL_SUCCEED;
+}
+
+str ALGmbr2(ptr *mbrRes, const bat *oidsCands, const ptr *dims) {
+	return ALGmbr1(mbrRes, oidsCands, NULL, dims);
+}
+
+str ALGouterjoin(bat *res, const bat *l, const bat *r) {
+	BAT *resBAT, *mbrCandsBAT, *oidsCandsBAT;
+	BAT *r1p, *r2p;
+
+	if ((mbrCandsBAT = BATdescriptor(*l)) == NULL) {
+		throw(MAL, "algebra.outerjoin", RUNTIME_OBJECT_MISSING);
+    }
+
+	if ((oidsCandsBAT = BATdescriptor(*r)) == NULL) {
+		BBPunfix(mbrCandsBAT->batCacheid);
+		throw(MAL, "algebra.outerjoin", RUNTIME_OBJECT_MISSING);
+    }
+
+
+	//left outer join between the mbrCands and the oidsCands
+    if(BATsubouterjoin(&r1p, &r2p, mbrCandsBAT, oidsCandsBAT, NULL, NULL, 0 /*null never match*/, BATcount(mbrCandsBAT) /*the size of the resuls. BUN_NONE will cause it to be computed*/) != GDK_SUCCEED) {
+		BBPunfix(oidsCandsBAT->batCacheid);
+        BBPunfix(mbrCandsBAT->batCacheid);
+    }
+
+	resBAT = BATproject(r2p, oidsCandsBAT);
+
+	BBPunfix(r1p->batCacheid);
+	BBPunfix(r2p->batCacheid);
+	
+	BBPunfix(mbrCandsBAT->batCacheid);
+	BBPunfix(oidsCandsBAT->batCacheid); 
+
+	BBPkeepref(*res = resBAT->batCacheid);
+	return MAL_SUCCEED; 
 }
 
 str ALGnonDimensionQRDecomposition(bat *oidsRes, ptr *dimsRes,  const bat* vals, const ptr *dims)

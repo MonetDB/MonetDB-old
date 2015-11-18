@@ -89,8 +89,6 @@ typedef enum stmt_type {
 
 	st_alias,
 
-	st_materialise,
-
 	/* used internally only */
 	st_list,
 
@@ -102,6 +100,9 @@ typedef enum stmt_type {
 
 //	st_cells,
 	st_dimension,
+	st_materialise,
+	st_mbr,
+
 	st_qqr,
 } st_type;
 
@@ -244,6 +245,8 @@ extern stmt *stmt_aggr(sql_allocator *sa, stmt *op1, stmt *grp, stmt *ext, sql_s
 extern stmt *stmt_alias(sql_allocator *sa, stmt *op1, char *tname, char *name);
 
 extern stmt *stmt_materialise(sql_allocator *sa, stmt *selectStmt, stmt* joinStmt);
+extern stmt *stmt_mbr(sql_allocator *sa, stmt *op1, stmt *op2);
+extern stmt *stmt_left_join(sql_allocator *sq, stmt *op1, stmt *op2);
 
 extern stmt *stmt_output(sql_allocator *sa, stmt *l);
 extern stmt *stmt_affected_rows(sql_allocator *sa, stmt *l);
