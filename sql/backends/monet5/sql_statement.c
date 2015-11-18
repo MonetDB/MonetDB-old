@@ -292,7 +292,7 @@ stmt_deps(list *dep_list, stmt *s, int depend_type, int dir)
 				break;
 				/* simple case of statements of only statements */
 			case st_alias:
-		//	case st_materialise:
+			case st_materialise:
 			case st_tunion:
 			case st_tdiff:
 			case st_tinter:
@@ -1248,14 +1248,13 @@ stmt_alias(sql_allocator *sa, stmt *op1, char *tname, char *alias)
 	return s;
 }
 
-#if 0
-stmt* stmt_materialise(sql_allocator *sa, stmt *op1) {
+stmt* stmt_materialise(sql_allocator *sa, stmt *selectStmt, stmt *joinStmt) {
 	stmt *s = stmt_create(sa, st_materialise);
-	s->op1 = op1;
-	s->nrcols = op1->nrcols;
-	return s;
+	s->op1 = selectStmt;
+	s->op2 = joinStmt->op1;
+	s->nrcols = selectStmt->nrcols;
+	return stmt_project(sa, s, joinStmt->op2);
 }
-#endif
 
 sql_subtype *
 tail_type(stmt *st)

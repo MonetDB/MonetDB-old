@@ -2797,8 +2797,14 @@ rel2bin_select( mvc *sql, sql_rel *rel, list *refs)
 	
 			if (col->nrcols == 0) /* constant */
 				col = stmt_const(sql->sa, sel, col);
-			else
-				col = stmt_project(sql->sa, sel, col);
+			else {
+				if(((stmt*)col->op1)->type == st_tid && ((stmt*)col->op2)->type == st_bat) {
+					sql_table *tbl = ((stmt*)col->op1)->op4.tval;
+					if(col->type == st_join && isArray(tbl))
+						col = stmt_materialise(sql->sa, sel,col);
+				} else
+					col = stmt_project(sql->sa, sel, col);
+			}
 			list_append(l, col);
 		}
 	}

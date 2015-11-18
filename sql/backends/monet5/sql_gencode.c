@@ -1573,7 +1573,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 						//check if the first argument has two outputs (in such a case it is related to the array processing)
 						snprintf(nme, SMALLBUFSIZ, "Y_%d", l);
 	       	            if((arraySecondVar = findVariable(mb, nme)) >= 0) {
-							q = pushReturn(mb, q, newTmpVariable(mb, newBatType(TYPE_oid, TYPE_oid)));		
+//							q = pushReturn(mb, q, newTmpVariable(mb, newBatType(TYPE_oid, TYPE_oid)));		
 							q = pushArgument(mb, q, l); //the dimension or the non-dimension
 							q = pushArgument(mb, q, arraySecondVar); //all the dimensions
 						} else
@@ -1599,7 +1599,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 						q = newStmt2(mb, algebraRef, cmd);
 						snprintf(nme, SMALLBUFSIZ, "Y_%d", l);
 	       	            if((arraySecondVar = findVariable(mb, nme)) >=0 ) {
-							q = pushReturn(mb, q, newTmpVariable(mb, newBatType(TYPE_oid, TYPE_oid)));		
+//There is no second return argument							q = pushReturn(mb, q, newTmpVariable(mb, newBatType(TYPE_oid, TYPE_oid)));		
 							q = pushArgument(mb, q, l); //all the dimensions
 							q = pushArgument(mb, q, arraySecondVar); //the current dimension
 						} else
@@ -1648,8 +1648,8 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 				s->nr = getDestVar(q);
 			} else
 				s->nr = newTmpVariable(mb, TYPE_any);
-			if(arraySecondVar >= 0)
-				renameVariable(mb, getArg(q, 1), "Y_%d", s->nr);
+//			if(arraySecondVar >= 0)
+//				renameVariable(mb, getArg(q, 1), "Y_%d", s->nr);
 		}
 			break;
 		case st_uselect2:
@@ -2054,6 +2054,31 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 
 			/* rename second result */
 			renameVariable(mb, getArg(q, 1), "r1_%d", s->nr);
+			break;
+		}
+		case st_materialise: {
+			int l, r;
+
+			if ((l = _dumpstmt(sql, mb, s->op1)) < 0)
+                return -1;
+            if ((r = _dumpstmt(sql, mb, s->op2)) < 0)
+                return -1;
+
+			q = newStmt2(mb, algebraRef, "materialise");
+//			q = pushReturn(mb, q, newTmpVariable(mb, newBatType(TYPE_oid, TYPE_oid)));
+			q = pushArgument(mb, q, l);
+			snprintf(nme, SMALLBUFSIZ, "Y_%d", l);
+            if((arraySecondVar = findVariable(mb, nme)) >= 0)
+				q = pushArgument(mb, q, arraySecondVar);
+			q = pushArgument(mb, q, r);
+			if (q == NULL)
+				return -1;
+
+			s->nr = getDestVar(q);
+
+			/* rename second result */
+//			renameVariable(mb, getArg(q, 1), "Y_%d", s->nr);
+
 			break;
 		}
 		case st_group:{

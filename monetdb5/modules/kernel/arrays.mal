@@ -1,13 +1,21 @@
+#it creates the oids out of the qualifying indices of the dimensions (the mbr)
+command algebra.materialise(dimsCands:ptr, dims:ptr) :bat[:oid,:oid]
+address ALGmaterialise;
+
+
 #It gets the candidates and projects the dimensions
 #With project cells: command algebra.leftfetchjoin(cands:bat[:oid,:oid], dim:ptr, dims:ptr ) :bat[:oid,:any]
-command algebra.leftfetchjoin(dimsCands:ptr, oidsCands:bat[:oid,:oid], dim:ptr, dims:ptr ) :bat[:oid,:any]
+#command algebra.leftfetchjoin(dimsCands:ptr, oidsCands:bat[:oid,:oid], dim:ptr, dims:ptr ) :bat[:oid,:any]
+#address ALGdimensionLeftfetchjoin1;
+command algebra.leftfetchjoin(dimsCands:ptr, dim:ptr, dims:ptr ) :bat[:oid,:any]
 address ALGdimensionLeftfetchjoin1;
 #it is called in updates. It projects all cells 
 command algebra.leftfetchjoin(dimsCands:ptr, oidsCands:bat[:oid,:oid], array:ptr) :bat[:oid,:oid]
 address ALGdimensionLeftfetchjoin2;
 #it gets the candidates and projects a non-dimensional column
 #with project cells: command algebra.leftfetchjoin(cands:bat[:oid,:oid], vals:bat[:oid,:any], dims:ptr ) :bat[:oid,:any]
-command algebra.leftfetchjoin(candDims:ptr, candBAT:bat[:oid,:oid], vals:bat[:oid,:any], dims:ptr ) :bat[:oid,:any]
+#command algebra.leftfetchjoin(candDims:ptr, candBAT:bat[:oid,:oid], vals:bat[:oid,:any], dims:ptr ) :bat[:oid,:any]
+command algebra.leftfetchjoin(mbrBAT:bat[:oid,:oid], vals:bat[:oid,:any], dims:ptr ) :bat[:oid,:any]
 address ALGnonDimensionLeftfetchjoin1;
 #it is called when projecting a non-dimensional column of an array
 command algebra.leftfetchjoin(array:ptr,vals:bat[:oid,:any],dims:ptr) (:bat[:oid,:any], :ptr)
@@ -17,15 +25,27 @@ address ALGnonDimensionLeftfetchjoin2;
 #the first result is the mbr and the second is the oids that satisfy the conditiont
 #it is always null but it is used to avoid having to check whether the selection
 #is on a dimension or a non-dimension when creating the MAL plan
-command algebra.subselect(dim:ptr, dims:ptr, low:any, high:any, li:bit, hi:bit, anti:bit) (:ptr, :bat[:oid,:oid])
+#command algebra.subselect(dim:ptr, dims:ptr, low:any, high:any, li:bit, hi:bit, anti:bit) (:ptr, :bat[:oid,:oid])
+#address ALGdimensionSubselect1;
+#command algebra.thetasubselect(dim:ptr, dims:ptr, val:any, op:str) (:ptr, :bat[:oid,:oid])
+#address ALGdimensionThetasubselect1;
+#
+#A selection over a dimension always results in a new array with updated dimension
+command algebra.subselect(dim:ptr, dims:ptr, low:any, high:any, li:bit, hi:bit, anti:bit) :ptr
 address ALGdimensionSubselect1;
-command algebra.thetasubselect(dim:ptr, dims:ptr, val:any, op:str) (:ptr, :bat[:oid,:oid])
+command algebra.thetasubselect(dim:ptr, dims:ptr, val:any, op:str) :ptr
 address ALGdimensionThetasubselect1;
 #the candBAT will be null when the candidates come from selection over dimensional column
 #and non-zero when coming from selection over non-dimensional column
-command algebra.subselect(dim:ptr, dims:ptr, candDims:ptr, candBAT:bat[:oid,:oid], low:any, high:any, li:bit, hi:bit, anti:bit) (:ptr, :bat[:oid,:oid])
+#command algebra.subselect(dim:ptr, dims:ptr, candDims:ptr, candBAT:bat[:oid,:oid], low:any, high:any, li:bit, hi:bit, anti:bit) (:ptr, :bat[:oid,:oid])
+#address ALGdimensionSubselect2;
+#command algebra.thetasubselect(dim:ptr, dims:ptr, candDims:ptr, candBAT:bat[:oid,:oid], val:any, op:str) (:ptr, :bat[:oid,:oid])
+#address ALGdimensionThetasubselect2;
+#
+#The candidates is an array with some other dimension already updated
+command algebra.subselect(dim:ptr, dims:ptr, candDims:ptr, low:any, high:any, li:bit, hi:bit, anti:bit) :ptr
 address ALGdimensionSubselect2;
-command algebra.thetasubselect(dim:ptr, dims:ptr, candDims:ptr, candBAT:bat[:oid,:oid], val:any, op:str) (:ptr, :bat[:oid,:oid])
+command algebra.thetasubselect(dim:ptr, dims:ptr, candDims:ptr, val:any, op:str) :ptr
 address ALGdimensionThetasubselect2;
 #when two dimensions have been compared to each other (e.g. =, >=, etc.) the result is a ptr with the array of the dimensions
 #a bat[:oid,:bit] that shows which cells satisfy the condition. This subselect returns the mbr of the cells that satisfy the 

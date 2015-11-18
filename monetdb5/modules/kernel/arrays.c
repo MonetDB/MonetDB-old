@@ -169,7 +169,18 @@ static gdk_dimension* updateDimCandIdxs(gdk_dimension *dimCand, unsigned int min
 	return dimCand;
 }
 
-str ALGdimensionSubselect2(ptr *dimsRes, bat *oidsRes, const ptr *dim, const ptr* dims, const ptr *dimsCands, const bat *oidsCands,
+str ALGmaterialise(bat* mbrResult, const ptr *dimsCands, const ptr *dims) {
+	gdk_array *dimCands_in = (gdk_array*)*dimsCands;
+	gdk_array *array = (gdk_array*)*dims;
+
+	BAT *mbrBAT = projectCells(dimCands_in, array);
+
+	BBPkeepref(*mbrResult = mbrBAT->batCacheid);
+
+	return MAL_SUCCEED;
+}
+
+str ALGdimensionSubselect2(ptr *dimsRes, const ptr *dim, const ptr* dims, const ptr *dimsCands,
 							const void *low, const void *high, const bit *li, const bit *hi, const bit *anti) {
 	gdk_array *array = (gdk_array*)*dims;
 	gdk_analytic_dimension *dimension = (gdk_analytic_dimension*)*dim;
@@ -179,12 +190,6 @@ str ALGdimensionSubselect2(ptr *dimsRes, bat *oidsRes, const ptr *dim, const ptr
 	oid qualifyingIdx_min, qualifyingIdx_max;
 	int type;
 	const void* nil;
-
-	BAT *oidsResBAT = newempty("subselect"); //nothing returned in the oids
-	BBPkeepref(*oidsRes = oidsResBAT->batCacheid);
-
-	/*ingnore oidsCands. When projecting a dimension only the dimsCands are of interest */
-	(void)*oidsCands;
 
 	if(dimsCands) 
 		dimCands_in = (gdk_array*)*dimsCands;
@@ -283,9 +288,9 @@ str ALGdimensionSubselect2(ptr *dimsRes, bat *oidsRes, const ptr *dim, const ptr
 	return MAL_SUCCEED;
 }
 
-str ALGdimensionSubselect1(ptr *dimsRes, bat *oidsRes, const ptr *dim, const ptr* dims, 
+str ALGdimensionSubselect1(ptr *dimsRes, const ptr *dim, const ptr* dims, 
 							const void *low, const void *high, const bit *li, const bit *hi, const bit *anti) {
-	return ALGdimensionSubselect2(dimsRes, oidsRes, dim, dims, NULL, NULL, low, high, li, hi, anti);
+	return ALGdimensionSubselect2(dimsRes, dim, dims, NULL, low, high, li, hi, anti);
 }
 
 str ALGdimensionSubselect3(ptr *dimsRes, bat *oidsRes, const ptr *array, const bat *vals,
@@ -295,7 +300,7 @@ str ALGdimensionSubselect3(ptr *dimsRes, bat *oidsRes, const ptr *array, const b
 }
 
 
-str ALGdimensionThetasubselect2(ptr *dimsRes, bat *oidsRes, const ptr *dim, const ptr* dims, const ptr *dimsCands, const bat *oidsCands, const void *val, const char **opp) {
+str ALGdimensionThetasubselect2(ptr *dimsRes, const ptr *dim, const ptr* dims, const ptr *dimsCands, const void *val, const char **opp) {
 	bit li = 0;
 	bit hi = 0;
 	bit anti = 0;
@@ -307,62 +312,59 @@ str ALGdimensionThetasubselect2(ptr *dimsRes, bat *oidsRes, const ptr *dim, cons
         /* "=" or "==" */
 		li = hi = 1;
 		anti = 0;
-        return ALGdimensionSubselect2(dimsRes, oidsRes, dim, dims, dimsCands, oidsCands, val, nil, &li, &hi, &anti);
+        return ALGdimensionSubselect2(dimsRes, dim, dims, dimsCands, val, nil, &li, &hi, &anti);
     }
     if (op[0] == '!' && op[1] == '=' && op[2] == 0) {
         /* "!=" (equivalent to "<>") */ 
 		li = hi = anti = 1;
-        return ALGdimensionSubselect2(dimsRes, oidsRes, dim, dims, dimsCands, oidsCands, val, nil, &li, &hi, &anti);
+        return ALGdimensionSubselect2(dimsRes, dim, dims, dimsCands, val, nil, &li, &hi, &anti);
     }
     if (op[0] == '<') { 
         if (op[1] == 0) {
             /* "<" */
 			li = hi = anti = 0;
-            return ALGdimensionSubselect2(dimsRes, oidsRes, dim, dims, dimsCands, oidsCands, nil, val, &li, &hi, &anti);
+            return ALGdimensionSubselect2(dimsRes, dim, dims, dimsCands, nil, val, &li, &hi, &anti);
         }
         if (op[1] == '=' && op[2] == 0) {
             /* "<=" */
 			li = anti = 0;
 			hi = 1;
-            return ALGdimensionSubselect2(dimsRes, oidsRes, dim, dims, dimsCands, oidsCands, nil, val, &li, &hi, &anti);
+            return ALGdimensionSubselect2(dimsRes, dim, dims, dimsCands, nil, val, &li, &hi, &anti);
         }
         if (op[1] == '>' && op[2] == 0) {
             /* "<>" (equivalent to "!=") */ 
 			li = hi = anti = 1;
-            return ALGdimensionSubselect2(dimsRes, oidsRes, dim, dims, dimsCands, oidsCands, val, nil, &li, &hi, &anti);
+            return ALGdimensionSubselect2(dimsRes, dim, dims, dimsCands, val, nil, &li, &hi, &anti);
         }
     }
     if (op[0] == '>') { 
         if (op[1] == 0) {
             /* ">" */
 			li = hi = anti = 0;
-            return ALGdimensionSubselect2(dimsRes, oidsRes, dim, dims, dimsCands, oidsCands, val, nil, &li, &hi, &anti);
+            return ALGdimensionSubselect2(dimsRes, dim, dims, dimsCands, val, nil, &li, &hi, &anti);
         }
         if (op[1] == '=' && op[2] == 0) {
             /* ">=" */
 			li = 1;
 			hi = anti = 0;
-            return ALGdimensionSubselect2(dimsRes, oidsRes, dim, dims, dimsCands, oidsCands, val, nil, &li, &hi, &anti);
+            return ALGdimensionSubselect2(dimsRes, dim, dims, dimsCands, val, nil, &li, &hi, &anti);
         }
     }
 
     throw(MAL, "algebra.dimensionThetasubselect", "BATdimensionThetasubselect: unknown operator.\n");
 }
 
-str ALGdimensionThetasubselect1(ptr *dimsRes, bat *oidsRes, const ptr *dim, const ptr* dims, const void *val, const char **op) {
-	return ALGdimensionThetasubselect2(dimsRes, oidsRes, dim, dims, NULL, NULL, val, op);
+str ALGdimensionThetasubselect1(ptr *dimsRes, const ptr *dim, const ptr* dims, const void *val, const char **op) {
+	return ALGdimensionThetasubselect2(dimsRes, dim, dims, NULL, val, op);
 }
 
-str ALGdimensionLeftfetchjoin1(bat *result, const ptr *dimsCands, const bat *oidsCands, const ptr *dim, const ptr *dims) {
+str ALGdimensionLeftfetchjoin1(bat *result, const ptr *dimsCands, const ptr *dim, const ptr *dims) {
 	gdk_array *array = (gdk_array*)*dims;
 	gdk_analytic_dimension *dimension = (gdk_analytic_dimension*)*dim;
 	gdk_array *dimCands_in = (gdk_array*)*dimsCands;
 	
 	BAT *resBAT = NULL;
 	BUN resSize = 0;
-
-	/*when projecting a dimension we ignore the oidsCands*/
-	(void)*oidsCands;
 
 	if(!dimCands_in) { //empty
 		if(!(resBAT = newempty("dimensionLeftfetchjoin")))
@@ -556,12 +558,15 @@ str ALGdimensionLeftfetchjoin2(bat *result, const ptr* dimsCands, const bat* oid
 }
 
 
-str ALGnonDimensionLeftfetchjoin1(bat* result, const ptr *dimsCands, const bat *oidsCands, const bat *vals, const ptr *dims) {
+//str ALGnonDimensionLeftfetchjoin1(bat* result, const ptr *dimsCands, const bat *oidsCands, const bat *vals, const ptr *dims) {
+str ALGnonDimensionLeftfetchjoin1(bat* result, const bat *mbrOids, const bat *vals, const ptr *dims) {
+
 	/* projecting a non-dimensional column does not differ from projecting any relational column */
-	BAT *mbrCandsBAT = NULL, *oidsCandsBAT = NULL, *valsBAT = NULL, *resBAT= NULL;
-	gdk_array *dimCands_in = (gdk_array*)*dimsCands;
-	gdk_array *array = (gdk_array*)*dims;
+	BAT *mbrCandsBAT = NULL/*, *oidsCandsBAT = NULL*/, *valsBAT = NULL, *resBAT= NULL;
+//	gdk_array *dimCands_in = (gdk_array*)*dimsCands;
+//	gdk_array *array = (gdk_array*)*dims;
 	
+#if 0
  	if(!dimCands_in) { //empty
         if(!(resBAT = newempty("nonDimensionLeftfetchjoin1")))
             throw(MAL, "algebra.leftfetchjoin", "Problem allocating new BAT");
@@ -569,19 +574,28 @@ str ALGnonDimensionLeftfetchjoin1(bat* result, const ptr *dimsCands, const bat *
 
     	return MAL_SUCCEED;
     }
+#endif
+	(void)*dims;
 
-    if ((oidsCandsBAT = BATdescriptor(*oidsCands)) == NULL) {
+//    if ((oidsCandsBAT = BATdescriptor(*oidsCands)) == NULL) {
+//        throw(MAL, "algebra.leftfetchjoin", RUNTIME_OBJECT_MISSING);
+//    }
+
+	if ((valsBAT = BATdescriptor(*vals)) == NULL) {
+//		BBPunfix(oidsCandsBAT->batCacheid);
         throw(MAL, "algebra.leftfetchjoin", RUNTIME_OBJECT_MISSING);
     }
 
-	 if ((valsBAT = BATdescriptor(*vals)) == NULL) {
-		BBPunfix(oidsCandsBAT->batCacheid);
+	if ((mbrCandsBAT = BATdescriptor(*mbrOids)) == NULL) {
+//		BBPunfix(oidsCandsBAT->batCacheid);
+		BBPunfix(valsBAT->batCacheid);
         throw(MAL, "algebra.leftfetchjoin", RUNTIME_OBJECT_MISSING);
     }
 
 	//create the oids using the candidates
-	mbrCandsBAT = projectCells(dimCands_in, array);	
+//	mbrCandsBAT = projectCells(dimCands_in, array);	
 
+#if 0
 	if(BATcount(oidsCandsBAT)) { /*there is mbr and oids. Some values need to be set to null */
 		BAT *r1p, *r2p, *r3p;
 
@@ -598,6 +612,7 @@ str ALGnonDimensionLeftfetchjoin1(bat* result, const ptr *dimsCands, const bat *
 		BBPunfix(r2p->batCacheid);
 		BBPunfix(r3p->batCacheid);
 	} else
+#endif	
 		resBAT = BATproject(mbrCandsBAT, valsBAT);
 
 #if 0
@@ -631,7 +646,7 @@ str ALGnonDimensionLeftfetchjoin1(bat* result, const ptr *dimsCands, const bat *
 
     BBPunfix(mbrCandsBAT->batCacheid);
 	BBPunfix(valsBAT->batCacheid);
-	BBPunfix(oidsCandsBAT->batCacheid);
+//	BBPunfix(oidsCandsBAT->batCacheid);
 
     if (resBAT == NULL)
         throw(MAL, "algebra.leftfetchjoin", GDK_EXCEPTION);
@@ -986,8 +1001,7 @@ str ALGarrayCount(wrd *res, const ptr *array) {
 
 str ALGprojectDimension(bat* result, const ptr *dim, const ptr *array) {
 	const gdk_array *dimsCands = arrayCopy((gdk_array*)*array); //candidates exactly the same to the array
-	bat oidsCands;
-	return ALGdimensionLeftfetchjoin1(result, (void*)&dimsCands, &oidsCands, dim, array);
+	return ALGdimensionLeftfetchjoin1(result, (void*)&dimsCands, dim, array);
 }
 
 str ALGprojectNonDimension(bat *result, const bat *vals, const ptr *array) {
