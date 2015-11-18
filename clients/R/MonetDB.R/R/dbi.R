@@ -6,19 +6,16 @@ setOldClass(c("sockconn", "connection", "monetdb_mapi_conn"))
 
 ### MonetDBDriver
 setClass("MonetDBDriver", representation("DBIDriver"))
+setClass("MonetDBEmbeddedDriver", representation("MonetDBDriver"))
 
 # allow instantiation of this driver with MonetDB to allow existing programs to work
-MonetR <- MonetDB <- MonetDBR <- MonetDB.R <- function() {
-  new("MonetDBDriver")
-}
+MonetR <- MonetDB <- MonetDBR <- MonetDB.R <- function() new("MonetDBDriver")
 
-setMethod("dbIsValid", "MonetDBDriver", def=function(dbObj, ...) {
-  return(invisible(TRUE)) # driver object cannot be invalid
-})
+MonetDBLite <- monetdblite <- RMonetDBLite <- rmonetdblite <- function() new("MonetDBEmbeddedDriver")
 
-setMethod("dbUnloadDriver", "MonetDBDriver", def=function(drv, ...) {
-  return(invisible(TRUE)) # there is nothing to really unload here...
-})
+setMethod("dbIsValid", "MonetDBDriver", def=function(dbObj, ...) invisible(TRUE))
+
+setMethod("dbUnloadDriver", "MonetDBDriver", def=function(drv, ...) invisible(TRUE))
 
 setMethod("dbGetInfo", "MonetDBDriver", def=function(dbObj, ...)
   list(name="MonetDBDriver", 
@@ -46,7 +43,7 @@ setMethod("dbConnect", "MonetDBDriver", def=function(drv, dbname="demo", user="m
                                                      password="monetdb", host="localhost", port=50000L, timeout=86400L, wait=FALSE, language="sql", embedded=FALSE,
                                                      ..., url="") {
   
-  if (substring(url, 1, 10) == "monetdb://") {
+  if (substring(url, 1, 10) == "monetdb://" || substring(url, 1, 12) == "monetdblite:") {
     dbname <- url
   }
   timeout <- as.integer(timeout)
@@ -81,10 +78,19 @@ setMethod("dbConnect", "MonetDBDriver", def=function(drv, dbname="demo", user="m
   }
   # this is important, otherwise we'll trip an assertion
   port <- as.integer(port)
-
   # validate port number
   if (length(port) != 1 || port < 1 || port > 65535) {
     stop("Illegal port number ",port)
+  }
+
+  # support monetdblite:/db/dir urls to fool sqlsurvey
+  if (substring(dbname, 1, 12) == "monetdblite:") {
+    embedded <- substring(dbname, 13, nchar(dbname))
+  }
+
+  if (inherits(drv, "MonetDBEmbeddedDriver")) {
+    if (missing(dbname)) embedded <- tempdir()
+    else embedded <- dbname
   }
 
   if (embedded != FALSE) {
@@ -95,7 +101,9 @@ setMethod("dbConnect", "MonetDBDriver", def=function(drv, dbname="demo", user="m
     connenv <- new.env(parent=emptyenv())
     connenv$conn <- MonetDBLite::monetdb_embedded_connect()
     connenv$open <- TRUE
-    return(new("MonetDBEmbeddedConnection", connenv=connenv))
+    conn <- new("MonetDBEmbeddedConnection", connenv=connenv)
+    attr(conn, "dbPreExists") <- TRUE
+    return(conn)
   }
   
   if (getOption("monetdb.debug.mapi", F)) message("II: Connecting to MonetDB on host ", host, " at "
@@ -138,6 +146,7 @@ setMethod("dbConnect", "MonetDBDriver", def=function(drv, dbname="demo", user="m
     message("MonetDB: Switching to single-threaded query execution.")
     dbSendQuery(conn, "set optimizer='sequential_pipe'")
   }
+  attr(conn, "dbPreExists") <- TRUE
   conn
 }, 
 valueClass="MonetDBConnection")
@@ -352,7 +361,7 @@ setMethod("dbSendQuery", signature(conn="MonetDBEmbeddedConnection", statement="
     env$conn <- conn
     env$query <- statement
     env$info <- resp
-
+    env$info$rows <- 0
   }
   if (resp$type == MSG_MESSAGE) {
     env$success = FALSE
@@ -383,13 +392,31 @@ setMethod("dbSendQuery", signature(conn="MonetDBEmbeddedConnection", statement="
   })
 
 
+reserved_monetdb_keywords <- c(.SQL92Keywords, 
+"ADMIN", "AFTER", "AGGREGATE", "ALWAYS", "ASYMMETRIC", "ATOMIC", 
+"AUTO_INCREMENT", "BEFORE", "BEST", "BIGINT", "BIGSERIAL", "BINARY", 
+"BLOB", "CALL", "CHAIN", "CLOB", "COMMITTED", "COPY", "CROSS", 
+"CURRENT_ROLE", "CURRENT_TIME", "CURRENT_USER", "DELIMITERS", 
+"DO", "EACH", "EFFORT", "ELSEIF", "ENCRYPTED", "EXCLUDE", "FOLLOWING", 
+"FUNCTION", "GENERATED", "HUGEINT", "IF", "ILIKE", "LIMIT", "LOCALTIME", 
+"LOCALTIMESTAMP", "LOCKED", "MERGE", "NATURAL", "NEW", "NOCYCLE", 
+"NOMAXVALUE", "NOMINVALUE", "OFFSET", "OLD", "ON", "OTHERS", 
+"OVER", "PARTITION", "PRECEDING", "RANGE", "RECORDS", "REFERENCING", 
+"REMOTE", "RENAME", "REPEATABLE", "REPLICA", "RESTART", "RETURN", 
+"RETURNS", "SAMPLE", "SAVEPOINT", "SEQUENCE", "SERIAL", "SERIALIZABLE", 
+"SESSION_USER", "SIMPLE", "SPLIT_PART", "STDIN", "STDOUT", "STREAM", 
+"SYMMETRIC", "TIES", "TINYINT", "TRIGGER", "UNBOUNDED", "UNCOMMITTED", 
+"UNENCRYPTED", "WHILE", "XMLAGG", "XMLATTRIBUTES", "XMLCOMMENT", 
+"XMLCONCAT", "XMLDOCUMENT", "XMLELEMENT", "XMLFOREST", "XMLNAMESPACES", 
+"XMLPARSE", "XMLPI", "XMLQUERY", "XMLSCHEMA", "XMLTEXT", "XMLVALIDATE")
+
 # quoting
 quoteIfNeeded <- function(conn, x, warn=T, ...) {
   chars <- !grepl("^[a-z_][a-z0-9_]*$", x, perl=T) & !grepl("^\"[^\"]*\"$", x, perl=T)
   if (any(chars) && warn) {
     message("Identifier(s) ", paste("\"", x[chars],"\"", collapse=", ", sep=""), " contain uppercase or reserved SQL characters and need(s) to be quoted in queries.")
   }
-  reserved <- toupper(x) %in% .SQL92Keywords
+  reserved <- toupper(x) %in% reserved_monetdb_keywords
   if (any(reserved) && warn) {
     message("Identifier(s) ", paste("\"", x[reserved],"\"", collapse=", ", sep=""), " are reserved SQL keywords and need(s) to be quoted in queries.")
   }
@@ -575,7 +602,7 @@ setClass("MonetDBEmbeddedResult", representation("MonetDBResult", env="environme
 .CT_RAW <- 5L
 
 # type mapping matrix
-monetTypes <- rep(c("integer", "numeric", "character", "character", "logical", "raw"), c(6, 5, 4, 6, 1, 1))
+monetTypes <- rep(c("integer", "numeric", "character", "character", "logical", "raw"), c(5, 6, 4, 6, 1, 1))
 names(monetTypes) <- c(c("WRD", "TINYINT", "SMALLINT", "INT", "MONTH_INTERVAL"), # month_interval is the diff between date cols, int
   c("BIGINT", "HUGEINT", "REAL", "DOUBLE", "DECIMAL", "SEC_INTERVAL"),  # sec_interval is the difference between timestamps, float
   c("CHAR", "VARCHAR", "CLOB", "STR"), 
@@ -606,9 +633,13 @@ setMethod("dbFetch", signature(res="MonetDBResult", n="numeric"), def=function(r
   if (!dbIsValid(res)) {
     stop("Cannot fetch results from closed response.")
   }
-  
+ 
   # okay, so we arrive here with the tuples from the first result in res@env$data as a list
   info <- res@env$info
+  # apparently, one should be able to fetch results sets from ddl ops
+  if (info$type == Q_UPDATE) { 
+    return(data.frame())
+  }
   if (res@env$delivered < 0) {
     res@env$delivered <- 0
   }
@@ -788,17 +819,13 @@ setMethod("dbGetInfo", "MonetDBResult", def=function(dbObj, ...) {
 }, valueClass="list")
 
 # adapted from RMonetDB, no java-specific things in here...
-monet.read.csv <- monetdb.read.csv <- function(conn, files, tablename, nrows=NA, header=TRUE, 
-                                               locked=FALSE, na.strings="", nrow.check=500, 
+monet.read.csv <- monetdb.read.csv <- function(conn, files, tablename, header=TRUE, 
+                                               locked=FALSE, best.effort=FALSE, na.strings="", nrow.check=500, 
                                                delim=",", newline="\\n", quote="\"", create=TRUE, 
                                                col.names=NULL, lower.case.names=FALSE, ...){
   
   if (length(na.strings)>1) stop("na.strings must be of length 1")
   headers <- lapply(files, utils::read.csv, sep=delim, na.strings=na.strings, quote=quote, nrows=nrow.check, header=header, ...)
-
-  if (!missing(nrows)) {
-    warning("monetdb.read.csv(): nrows parameter is not neccessary any more and deprecated.")
-  }
 
   if (length(files)>1){
     nn <- sapply(headers, ncol)
@@ -833,7 +860,7 @@ monet.read.csv <- monetdb.read.csv <- function(conn, files, tablename, nrows=NA,
     thefile <- normalizePath(files[i])
     dbSendUpdate(conn, paste("COPY", if(header) "OFFSET 2", "INTO", 
       tablename, "FROM", paste("'", thefile, "'", sep=""), delimspec, "NULL as", paste("'", 
-      na.strings[1], "'", sep=""), if(locked) "LOCKED"))
+      na.strings[1], "'", sep=""), if(locked) "LOCKED", if(best.effort) "BEST EFFORT"))
   }
   dbGetQuery(conn, paste("SELECT COUNT(*) FROM", tablename))[[1]]
   dbCommit(conn)
