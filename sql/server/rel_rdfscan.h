@@ -18,7 +18,7 @@ extern void free_rdf_rel_prop(rdf_rel_prop *r_r_prop);
 
 extern rdf_rel_prop *init_rdf_rel_prop(int ncol, int n_ijgroup, int *nnodes_per_ijgroup); 
 
-extern sql_rel *rel_rdfscan_func(mvc *sql, sql_table *t, int numprop, int numRP, oid *lstprops, oid *los, oid *his, list *exps); 
+extern sql_rel *rel_rdfscan_func(mvc *sql, sql_table *t, int numprop, int numRP, oid *lstprops, oid *los, oid *his, list *exps, char **lstAlias); 
 
 
 #endif /*_REL_RDFSCAN_H_*/

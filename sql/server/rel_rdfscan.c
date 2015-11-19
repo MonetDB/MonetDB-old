@@ -91,7 +91,7 @@ table_column_types(sql_allocator *sa, sql_table *t)
 }
 
 sql_rel *
-rel_rdfscan_func(mvc *sql, sql_table *t, int numprop, int nRP, oid *lstprop, oid *los, oid *his, list *sel_exps)
+rel_rdfscan_func(mvc *sql, sql_table *t, int numprop, int nRP, oid *lstprop, oid *los, oid *his, list *sel_exps, char **lstAlias)
 {
 	sql_rel *resbase;
 	sql_rel *res;
@@ -101,7 +101,8 @@ rel_rdfscan_func(mvc *sql, sql_table *t, int numprop, int nRP, oid *lstprop, oid
 	int i; 
 	sql_schema *sys = mvc_bind_schema(sql, "sys");
 	sql_subfunc *f = sql_find_func(sql->sa, sys, "rdfscan", -1, F_UNION, NULL); 
-	
+
+	(void) lstAlias; 
 	
 	if (!f) /* we do expect copyfrom to be there */
 		return NULL;
@@ -129,18 +130,22 @@ rel_rdfscan_func(mvc *sql, sql_table *t, int numprop, int nRP, oid *lstprop, oid
 	for (n = t->columns.set->h; n; n = n->next) {
 		sql_column *c = n->data;
 		if (c->base.name[0] != '%'){
-			append(exps, exp_column(sql->sa, t->base.name, c->base.name, &c->type, CARD_MULTI, c->null, 0));
-			//str s_or_o = NULL; 
-			//int idx = i % 2; 
-			//s_or_o = strlen((str)objStr);
-			//append(exps, exp_alias(sql->sa, lstAlias[idx], s_or_o, t->base.name, c->base.name, &c->type, CARD_MULTI, c->null, 0));
+			char *s = "s"; 
+			char *o = "o";
+			int idx = (int) i / 2; 
+			str alias = GDKstrdup(lstAlias[idx]); 
+			sql_exp* e = exp_column(sql->sa, NULL, c->base.name, &c->type, CARD_MULTI, c->null, 0); 
+
+			exp_setname(sql->sa, e, alias, ((i%2)==0)?s:o); 
+			append(exps, e); 
 		}
-		//i++; 
+		i++; 
 	}
 	resbase = rel_table_func(sql->sa, NULL, import, exps, 1);
 
-	if (0) res = rel_select_copy(sql->sa, resbase, sel_exps);
-	(void) res; 
-	//return res;
-	return resbase; 
+	if (1){ res = rel_select_copy(sql->sa, resbase, sel_exps);
+		return res;
+	} else {
+		return resbase; 
+	}
 }

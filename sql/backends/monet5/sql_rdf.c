@@ -1650,10 +1650,30 @@ void get_full_outerjoin_p_slices(oid *lstprops, int nrp, int np, oid *los, oid *
 	*/
 }
 
-
+static void appendResult(BAT **r_obats, oid *tmpres, int np, oid sbt){
+	int j = 0; 
+	(void) sbt; 
+	for (j = 0; j < np; j++){
+		//Output result
+		
+		if (sbt == (oid)3835096557682764 ){
+			printf(BUNFMT " | ", tmpres[j]);
+		}
+		/*
+		if (j == 1 && tmpres[j] == 62700365){
+			printf("[Debug]Append one more person \n");
+		}
+		*/
+		
+		BUNappend(r_obats[j], &(tmpres[j]), TRUE); 
+	}
+	
+	if (sbt == (oid)3835096557682764 ){
+		printf("\n"); 
+	}
+}
 static
 void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_cursors, oid **regular_obat_mv_cursors, BAT **regular_obats, BAT **regular_obat_mv, oid sbt, oid tmpS, int cur_p, int nrp, int np, oid *tmpres){
-	int j; 
 	if (obatCursors[cur_p][pos] == oid_nil){
 		//Look for the result from regular bat. 
 		//Check if the regular bat is pointing to a MVBat
@@ -1681,10 +1701,7 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 					fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, nrp, np, tmpres); 
 
 				else if (cur_p == (np - 1)){
-					//Output result
-					for (j = 0; j < np; j++){
-						BUNappend(r_obats[j], &(tmpres[j]), TRUE); 
-					}
+					appendResult(r_obats, tmpres, np, sbt); 
 				}
 			}
 					
@@ -1698,9 +1715,7 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 
 			else if (cur_p == (np - 1)){
 				//Output result
-				for (j = 0; j < np; j++){
-					BUNappend(r_obats[j], &(tmpres[j]), TRUE); 
-				}
+				appendResult(r_obats, tmpres, np, sbt); 
 			}
 		}
 
@@ -1713,9 +1728,7 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 
 		else if (cur_p == (np - 1)){
 			//Output result
-			for (j = 0; j < np; j++){
-				BUNappend(r_obats[j], &(tmpres[j]), TRUE); 
-			}
+			appendResult(r_obats, tmpres, np, sbt); 		
 		}
 	}
 
@@ -1845,10 +1858,7 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 			}
 		}
 
-		//printf("At row "BUNFMT" of table %d for sbt "BUNFMT"...", tmpS, tid, sbt); 
-		if (sbt == (oid)3835096557682764){
-			printf("[DEBUG2] FOUND THAT SUBJECT HERE\n");
-		}
+
 		accept = 1; 
 		#if RDF_HANDLING_EXCEPTION_MISSINGPROP_OPT
 		for (j = 0; j < num_mp; j++){
@@ -1874,6 +1884,11 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 			}	
 		}
 
+
+		//printf("At row "BUNFMT" of table %d for sbt "BUNFMT"...", tmpS, tid, sbt); 
+		if (sbt == (oid)3835096557682764 && accept == 1){
+			printf("[DEBUG2] THAT SUBJECT IS ACCEPTED\n");
+		}
 
 		if (accept == 1){	//Accept, can insert to the output bat			
 			oid *tmpres = (oid *) malloc(sizeof(oid) * nP); 
@@ -2029,6 +2044,23 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 			BATprint_topn(m_obats[i], 5); 
 		}
 		//BATprint(m_sbat); 
+		if ((*nP) > 2){
+		
+			oid *s_curs = (oid *) Tloc(m_sbat, BUNfirst(m_sbat));
+			oid *o_curs = (oid *) Tloc(m_obats[1], BUNfirst(m_obats[1])); 
+			int j = 0; 
+			int count = 0; 
+			for (j = 0; (oid)j < m_sbat->batCount; j++){
+				if (s_curs[j] == 3835096557682764 && o_curs[j] == 62700365){
+					printf("[Debug] Having matching results\n"); 
+				}
+				if (o_curs[j] == 62700365){
+					count++; 
+				}
+			}
+			printf("The total number of matching results is %d\n", count); 
+		
+		}
 
 		for (i = 0; i < (*nP); i++){
 			//BATprint(m_obats[i]);

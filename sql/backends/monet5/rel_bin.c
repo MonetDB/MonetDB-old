@@ -1244,10 +1244,10 @@ rel2bin_table( mvc *sql, sql_rel *rel, list *refs)
 			for(i=0, en = rel->exps->h, n = f->res->h; en; en = en->next, n = n->next, i++ ) {
 				sql_exp *exp = en->data;
 				sql_subtype *st = n->data;
-				char *rnme = exp->rname?exp->rname:exp->l;
+				//char *rnme = exp->l?exp->l:exp->rname;
 				stmt *s = stmt_rs_column(sql->sa, psub, i, st); 
 		
-				s = stmt_alias(sql->sa, s, rnme, exp->name);
+				s = stmt_alias(sql->sa, s, NULL, exp->r);
 				list_append(l, s);
 			}
 		} else {
@@ -1309,7 +1309,7 @@ rel2bin_table( mvc *sql, sql_rel *rel, list *refs)
 		stmt *s;
 
 		/* no relation names */
-		if (exp->l)
+		if (exp->l)		//DUC: CHECK exp->l==NULL
 			exp->l = NULL;
 		s = exp_bin(sql, exp, sub, NULL, NULL, NULL, NULL, NULL);
 

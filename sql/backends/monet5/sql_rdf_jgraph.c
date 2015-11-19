@@ -2481,7 +2481,7 @@ sql_rel* build_rdfexception (mvc *c, int tId, jgraph *jg, list *union_rdfscan_ex
 		his[i] = spprops->lst_o_constraints[i].hi;
 	}
  
-	rel_rdfscan = rel_rdfscan_func(c, tbl, spprops->num, nnodes_per_ijgroup[0], spprops->lstPropIds, los, his, spprops->exps); 
+	rel_rdfscan = rel_rdfscan_func(c, tbl, spprops->num, nnodes_per_ijgroup[0], spprops->lstPropIds, los, his, spprops->exps, spprops->lstAlias); 
 	//rel_rdfscan = rel_rdfscan_func(c, tbl, spprops->num, nnodes_per_ijgroup[0], spprops->lstPropIds, los, his, NULL); 
 	
 	printf("\nRDFSCAN \n");
