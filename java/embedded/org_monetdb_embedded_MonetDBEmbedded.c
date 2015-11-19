@@ -48,7 +48,7 @@ JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrap
 		silent_char = 'y';
 	}
 
-	// XXX: still relying on bindir
+	// XXX: still relying on BINDIR
 	snprintf(libsDirectory, 1000, "%s/../lib", BINDIR);
 	err = monetdb_startup(libsDirectory, databaseDirectory, silent_char);
 	// Checking for errors

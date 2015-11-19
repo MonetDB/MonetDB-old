@@ -40,7 +40,7 @@ lib_embedded_java  =  {
 	SOURCES = org_monetdb_embedded_MonetDBEmbedded.c org_monetdb_embedded_MonetDBEmbedded.h \
 		org_monetdb_embedded_result_EmbeddedQueryResult.c org_monetdb_embedded_result_EmbeddedQueryResult.h 
 	VERSION = 1
-	LIBS = ../../tools/embedded/libembedded \ 
+	LIBS = ../../tools/embedded/libembedded \
 		$(pcre_LIBS) $(PSAPILIB) \
 		$(SOCKET_LIBS) $(MALLOC_LIBS) $(DL_LIBS) $(PTHREAD_LIBS)
 }
