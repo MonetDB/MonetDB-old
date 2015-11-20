@@ -1276,7 +1276,7 @@ stmt* stmt_materialise(sql_allocator *sa, stmt *selectStmt, stmt *op2) {
 		s = stmt_left_join(sa, s, selectStmt->op1);
 
 	s->nrcols = selectStmt->nrcols;
-	return stmt_project(sa, s, op2->op2);
+	return stmt_project(sa, s, op2);
 }
 
 sql_subtype *

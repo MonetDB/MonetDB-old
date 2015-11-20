@@ -2740,6 +2740,9 @@ static int pushDimensionSelections(stmt **s) {
 	return changes;
 }
 
+
+#if 0
+We need the joins, otherwise the BAT will not be filled with null values
 /* when dealing with arrays we do not need to join with tid */
 static void clearJoins(stmt **s) {
 	stmt *leftS = (*s)->op1;
@@ -2751,6 +2754,7 @@ static void clearJoins(stmt **s) {
 		return clearJoins(&(*s)->op3);
 	return;
 }
+#endif
 
 /*
 static stmt* addCells(mvc *sql, stmt *s) {
@@ -2843,7 +2847,7 @@ rel2bin_select( mvc *sql, sql_rel *rel, list *refs)
 		isArray(sel->op1->op1->op4.tval) && sel->op1->op2->type == st_bat) {
 	
 		sel = stmt_mbr(sql->sa, sel, sel->op1->op1);
-		clearJoins(&(sel->op1));		
+		//clearJoins(&(sel->op1));		
 	}
 	////if it is an array we need to project the cells
 	//sel = addCells(sql, sel);
