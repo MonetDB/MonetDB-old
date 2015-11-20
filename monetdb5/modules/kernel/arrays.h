@@ -16,10 +16,11 @@ algebra_export str ALGmaterialise(bat* mbrResult, const ptr *dimsCands, const pt
 
 algebra_export str ALGdimensionLeftfetchjoin1(bat* result, const ptr *dimsCands, const ptr *dim, const ptr *dims) ;
 algebra_export str ALGdimensionLeftfetchjoin2(bat* result, const bat *oidsCands, const ptr *dimsCands, const ptr *dim, const ptr *dims) ;
-algebra_export str ALGdimensionLeftfetchjoin3(bat* result, const ptr* dimsCands, const bat* oidsCands, const ptr *array);
-//algebra_export str ALGnonDimensionLeftfetchjoin1(bat* result, const ptr *dimsCands, const bat* oidsCands, const bat *vals, const ptr *dims);
+algebra_export str ALGdimensionLeftfetchjoin3(bat* result, const ptr* dimsCands, const ptr *array);
+
 algebra_export str ALGnonDimensionLeftfetchjoin1(bat* result, const bat* mbrOids, const bat *vals, const ptr *dims);
 algebra_export str ALGnonDimensionLeftfetchjoin2(bat* result, ptr* dimsRes, const ptr *array, const bat *vals, const ptr *dims);
+algebra_export str ALGnonDimensionLeftfetchjoin3(bat* result, const ptr *dimsCands, const bat *vals, const ptr *dims);
 
 algebra_export str ALGdimensionSubselect2(ptr *dimsRes, const ptr *dim, const ptr* dims, const ptr *dimsCands,
                             const void *low, const void *high, const bit *li, const bit *hi, const bit *anti);
@@ -50,6 +51,9 @@ algebra_export str ALGnonDimensionThetasubselect3(bat *oidsRes, ptr *dimsRes, co
 			                            const void *val, const char **op);
 algebra_export str ALGnonDimensionThetasubselect4(bat *oidsRes, ptr *dimsRes, const bat* vals, const ptr *dims, const bat* oidsCands, const ptr *dimsCands, 
 			                            const void *val, const char **op);
+
+algebra_export str ALGsubjoin1(ptr *dimsResL, ptr *dimsResR, const ptr *dimL, const ptr *dimsL, const ptr *dimR, const ptr *dimsR);
+algebra_export str ALGsubjoin2(ptr *dimsResL, ptr *dimsResR, const ptr *dimsCandsL, const ptr *dimL, const ptr *dimsL, const ptr *dimsCandsR, const ptr *dimR, const ptr *dimsR);
 
 algebra_export str ALGprojectDimension(bat* result, const ptr *dim, const ptr *array);
 algebra_export str ALGprojectNonDimension(bat *result, const bat *vals, const ptr *array);

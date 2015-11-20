@@ -1896,6 +1896,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 		case st_join:{
 			int l;
 			int r;
+			int cands;
 			//int extra;
 			int cmp = s->flag;
 			int left = (cmp == cmp_left);
@@ -1929,6 +1930,8 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			if ((l = _dumpstmt(sql, mb, s->op1)) < 0)
 				return -1;
 			if ((r = _dumpstmt(sql, mb, s->op2)) < 0)
+				return -1;
+			if (s->op3 && (cands = _dumpstmt(sql, mb, s->op3)) < 0)
 				return -1;
 			if (cmp == cmp_joined) {
 				s->nr = l;
@@ -2006,12 +2009,32 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			case cmp_equal:
 				q = newStmt1(mb, algebraRef, sjt);
 				q = pushReturn(mb, q, newTmpVariable(mb, TYPE_any));
+				if(s->op3) //the candidates for the first array
+					q = pushArgument(mb, q, cands);
 				q = pushArgument(mb, q, l);
+                snprintf(nme, SMALLBUFSIZ, "Y_%d", l);
+                if((arraySecondVar = findVariable(mb, nme)) >= 0)
+					q = pushArgument(mb, q, arraySecondVar);
+				if(s->op3) {
+					snprintf(nme, SMALLBUFSIZ, "r1_%d", cands); //the candidates for the second array
+                	if((arraySecondVar = findVariable(mb, nme)) >= 0)
+						q = pushArgument(mb, q, arraySecondVar);
+				}
 				q = pushArgument(mb, q, r);
-				q = pushNil(mb, q, TYPE_bat);
-				q = pushNil(mb, q, TYPE_bat);
-				q = pushBit(mb, q, FALSE);
-				q = pushNil(mb, q, TYPE_lng);
+                snprintf(nme, SMALLBUFSIZ, "Y_%d", r);
+                if((arraySecondVar = findVariable(mb, nme)) >= 0)
+					q = pushArgument(mb, q, arraySecondVar);
+				if(arraySecondVar >= 0) { 
+					setVarType(mb, getArg(q, 0), TYPE_ptr);
+					setVarUDFtype(mb, getArg(q, 0));
+					setVarType(mb, getArg(q, 1), TYPE_ptr);
+					setVarUDFtype(mb, getArg(q, 1));
+				} else {/*I do not need these when dealing with arrays */
+					q = pushNil(mb, q, TYPE_bat);
+					q = pushNil(mb, q, TYPE_bat);
+					q = pushBit(mb, q, FALSE);
+					q = pushNil(mb, q, TYPE_lng);
+				}
 				if (q == NULL)
 					return -1;
 				break;

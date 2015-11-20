@@ -59,6 +59,15 @@ gdk_export gdk_return arrayDelete(gdk_array *array);
 gdk_export gdk_return analyticDimensionDelete(gdk_analytic_dimension *dim);
 gdk_export gdk_array* arrayCopy(gdk_array* array);
 
+gdk_export bte gcd_bte(bte val1, bte val2);
+gdk_export sht gcd_sht(sht val1, sht val2);
+gdk_export int gcd_int(int val1, int val2);
+gdk_export wrd gcd_wrd(wrd val1, wrd val2);
+gdk_export oid gcd_oid(oid val1, oid val2);
+gdk_export lng gcd_lng(lng val1, lng val2);
+gdk_export dbl gcd_dbl(dbl val1, dbl val2);
+gdk_export flt gcd_flt(flt val1, flt val2);
+
 
 /*find the position in the dimension indices (no repetitions) of the given value*/
 #define dimensionFndValuePos(value, min, step) fmod((value-min), step)? BUN_NONE : (BUN)(value-min)/step

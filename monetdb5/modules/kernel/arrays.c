@@ -507,153 +507,58 @@ str ALGdimensionLeftfetchjoin2(bat *result, const bat *oidsCands, const ptr *dim
 	return ALGdimensionLeftfetchjoin1(result, dimsCands, dim, dims);
 }
 
-str ALGdimensionLeftfetchjoin3(bat *result, const ptr* dimsCands, const bat* oidsCands, const ptr *array_in) {
+str ALGdimensionLeftfetchjoin3(bat *result, const ptr* dimsCands, const ptr *array_in) {
 	gdk_array *array = (gdk_array*)*array_in;
 	gdk_array *dims_in = (gdk_array*)*dimsCands;
-	BAT *oidsCandsBAT = BATdescriptor(*oidsCands);
 	BAT *resBAT;
 	oid *resOids;
 
-	BUN elsNum = 1;
 
-	if(!oidsCandsBAT) {
+	/*count the cells in the output*/
+	BUN elsNum = arrayCellsNum(dims_in);
+	/*create all oids*/
+	if(!(resBAT = BATnew(TYPE_void, TYPE_oid, elsNum, TRANSIENT))) {
 		arrayDelete(dims_in);
-		throw(MAL, "algebra.dimensionLeftfetchjoin2", RUNTIME_OBJECT_MISSING);
+		throw(MAL, "algebra.dimensionLeftfetchjoin2","Problem allocating new BAT");
 	}
 
-	/*this function is called in case of an update after a subselection
- 	* on the dimensions. In such a case only the dimsCands should have 
-	* values and the oidsCands should be empty*/
-	/*
- 	* the above is not true. When having update a set v =1 where x=y
- 	* then the oidsCandsBAT is not empty 
-	if(BATcount(oidsCandsBAT)) {
-		arrayDelete(dims_in);
-		throw(MAL,"algebra.dimensionLeftfetchjoin2", "oidsCands is not empty");
-	}*/	
+	/* create the oids that should be updated based on the dimsCands */
+	resOids = (oid*)Tloc(resBAT, BUNfirst(resBAT));
+	/* fill the array with the elements in the first dimension */
+	computeOids(&resOids, 0, array->dimsNum-1 , array, dims_in, arrayCellsNum(array));
 
-	elsNum = BATcount(oidsCandsBAT);
-	if(!elsNum) { //there are no oids update - get oids from dimsCands
-		/*count the cells in the output*/
-		elsNum = arrayCellsNum(dims_in);
-		/*create all oids*/
-		if(!(resBAT = BATnew(TYPE_void, TYPE_oid, elsNum, TRANSIENT))) {
-			arrayDelete(dims_in);
-			throw(MAL, "algebra.dimensionLeftfetchjoin2","Problem allocating new BAT");
-		}
+	BATsetcount(resBAT, elsNum);
+	BATseqbase(resBAT, 0);
+	resBAT->tsorted = 1;
+	resBAT->trevsorted = 0;
+    resBAT->tkey = 1;
+	resBAT->tdense = 0;
 
-		/* create the oids that should be updated based on the dimsCands */
-		resOids = (oid*)Tloc(resBAT, BUNfirst(resBAT));
-		/* fill the array with the elements in the first dimension */
-		computeOids(&resOids, 0, array->dimsNum-1 , array, dims_in, arrayCellsNum(array));
-
-		BATsetcount(resBAT, elsNum);
-		BATseqbase(resBAT, 0);
-		resBAT->tsorted = 1;
-	    resBAT->trevsorted = 0;
-    	resBAT->tkey = 1;
-	    resBAT->tdense = 0;
-
-		BBPkeepref(*result = resBAT->batCacheid);
-		BBPunfix(oidsCandsBAT->batCacheid);
-	} else {
-		//there are oids, use only them
-		BBPkeepref(*result = oidsCandsBAT->batCacheid);
-	}
+	BBPkeepref(*result = resBAT->batCacheid);
 	
 	return MAL_SUCCEED;
 }
 
 
-//str ALGnonDimensionLeftfetchjoin1(bat* result, const ptr *dimsCands, const bat *oidsCands, const bat *vals, const ptr *dims) {
 str ALGnonDimensionLeftfetchjoin1(bat* result, const bat *mbrOids, const bat *vals, const ptr *dims) {
 
 	/* projecting a non-dimensional column does not differ from projecting any relational column */
-	BAT *mbrCandsBAT = NULL/*, *oidsCandsBAT = NULL*/, *valsBAT = NULL, *resBAT= NULL;
-//	gdk_array *dimCands_in = (gdk_array*)*dimsCands;
-//	gdk_array *array = (gdk_array*)*dims;
-	
-#if 0
- 	if(!dimCands_in) { //empty
-        if(!(resBAT = newempty("nonDimensionLeftfetchjoin1")))
-            throw(MAL, "algebra.leftfetchjoin", "Problem allocating new BAT");
-		BBPkeepref(*result = resBAT->batCacheid);
-
-    	return MAL_SUCCEED;
-    }
-#endif
+	BAT *mbrCandsBAT = NULL, *valsBAT = NULL, *resBAT= NULL;
 	(void)*dims;
 
-//    if ((oidsCandsBAT = BATdescriptor(*oidsCands)) == NULL) {
-//        throw(MAL, "algebra.leftfetchjoin", RUNTIME_OBJECT_MISSING);
-//    }
-
 	if ((valsBAT = BATdescriptor(*vals)) == NULL) {
-//		BBPunfix(oidsCandsBAT->batCacheid);
         throw(MAL, "algebra.leftfetchjoin", RUNTIME_OBJECT_MISSING);
     }
 
 	if ((mbrCandsBAT = BATdescriptor(*mbrOids)) == NULL) {
-//		BBPunfix(oidsCandsBAT->batCacheid);
 		BBPunfix(valsBAT->batCacheid);
         throw(MAL, "algebra.leftfetchjoin", RUNTIME_OBJECT_MISSING);
     }
 
-	//create the oids using the candidates
-//	mbrCandsBAT = projectCells(dimCands_in, array);	
-
-#if 0
-	if(BATcount(oidsCandsBAT)) { /*there is mbr and oids. Some values need to be set to null */
-		BAT *r1p, *r2p, *r3p;
-
-		//left outer join between the mbrCands and the oidsCands
-		if(BATsubouterjoin(&r1p, &r2p, mbrCandsBAT, oidsCandsBAT, NULL, NULL, 0 /*null never match*/, BATcount(mbrCandsBAT) /*the size of the resuls. BUN_NONE will cause it to be computed*/) != GDK_SUCCEED) {
-			BBPunfix(oidsCandsBAT->batCacheid);
-			BBPunfix(valsBAT->batCacheid);
-			BBPunfix(mbrCandsBAT->batCacheid);
-		}
-		r3p = BATproject(r2p, oidsCandsBAT);
-		resBAT = BATproject(r3p, valsBAT);
-
-		BBPunfix(r1p->batCacheid);
-		BBPunfix(r2p->batCacheid);
-		BBPunfix(r3p->batCacheid);
-	} else
-#endif	
-		resBAT = BATproject(mbrCandsBAT, valsBAT);
-
-#if 0
-
-    resBAT = BATproject(mbrCandsBAT, valsBAT);
-
-	if(BATcount(resBAT)) { //if there are no oidsCands then there is no MBR either and the result will be empty
-		/*iterate over mbrCandsBAT and oidsCandsBAT and set NULL to all 
-	 	* values in resBAT that are found in mbrCandsBAT but not in oidsCandsBAT */
-		BATiter mbrIter = bat_iterator(mbrCandsBAT);
-		BATiter oidsIter = bat_iterator(oidsCandsBAT);
-	
-		void *nilPtr = ATOMnilptr(BATttype(valsBAT));		
-
-		BUN mbrCurrBun = BUNfirst(mbrCandsBAT);
-		BUN mbrLastBun = BUNlast(mbrCandsBAT);
-		BUN oidsCurrBun = BUNfirst(oidsCandsBAT);
-		BUN oidsLastBun = BUNlast(oidsCandsBAT);
-		for(; mbrCurrBun < mbrLastBun && oidsCurrBun < oidsLastBun ; mbrCurrBun++, oidsCurrBun++) {
-			oid mbrOid = *(oid*)BUNtail(mbrIter, mbrCurrBun);
-			oid oidsOid = *(oid*)BUNtail(oidsIter, oidsCurrBun);
-	
-			while(mbrOid != oidsOid && mbrCurrBun < mbrLastBun) {
-				BUNreplace(resBAT, &mbrCurrBun, nilPtr, FALSE); //replace with NULL
-				mbrCurrBun++;
-				mbrOid = *(oid*)BUNtail(mbrIter, mbrCurrBun);
-			}
-		}
-	}
-#endif
+	resBAT = BATproject(mbrCandsBAT, valsBAT);
 
     BBPunfix(mbrCandsBAT->batCacheid);
 	BBPunfix(valsBAT->batCacheid);
-//	BBPunfix(oidsCandsBAT->batCacheid);
 
     if (resBAT == NULL)
         throw(MAL, "algebra.leftfetchjoin", GDK_EXCEPTION);
@@ -684,7 +589,6 @@ str ALGnonDimensionLeftfetchjoin2(bat* result, ptr *dimsRes, const ptr *array_in
         BBPunfix(nonDimensionalBAT->batCacheid);
         throw(MAL, "algebra.leftfetchjoin", "Problem materialising non-dimensional column");
     }
-
 
     /*append the missing values to the BAT */
     BATappend(nonDimensionalBAT, materialisedBAT, TRUE);
@@ -1206,6 +1110,103 @@ str ALGouterjoin(bat *res, const bat *l, const bat *r) {
 	BBPkeepref(*res = resBAT->batCacheid);
 	return MAL_SUCCEED; 
 }
+
+str ALGsubjoin1(ptr *dimsResL, ptr *dimsResR, const ptr *dimensionL, const ptr *dimsL, const ptr *dimensionR, const ptr *dimsR) {
+	gdk_analytic_dimension *analytic_dimensionL = (gdk_analytic_dimension*)*dimensionL;	
+	gdk_analytic_dimension *analytic_dimensionR = (gdk_analytic_dimension*)*dimensionR;
+	gdk_dimension *dimL, *dimR;
+
+	*dimsResL = *dimsL;
+	*dimsResR = *dimsR;
+
+	dimL = ((gdk_array*)*dimsResL)->dims[analytic_dimensionL->dimNum];	
+	dimR = ((gdk_array*)*dimsResR)->dims[analytic_dimensionR->dimNum];	
+
+#define compareRanges(TPE) \
+do { \
+	TPE minL = *(TPE*)analytic_dimensionL->min; \
+	TPE maxL = *(TPE*)analytic_dimensionL->max; \
+	TPE stepL = *(TPE*)analytic_dimensionL->step; \
+	TPE minR = *(TPE*)analytic_dimensionR->min; \
+	TPE maxR = *(TPE*)analytic_dimensionR->max; \
+	TPE stepR = *(TPE*)analytic_dimensionR->step; \
+\
+	TPE d = gcd_##TPE(stepR, stepL); \
+	if(fmod((minL-minR),d)) {\
+		dimR->min = dimL->min = dimR->max = dimL->max = 0; \
+		dimR->step = dimL->step = 1; \
+	} else { \
+		/*find the min, max and step of the dimensions*/ \
+		TPE l = minL, r=minR; \
+		dimR->step = stepL/d; \
+		dimL->step = stepR/d;\
+		while(l != r) { \
+			while(l<r) \
+				l+=stepL; \
+			while(r<l) \
+				r+=stepR; \
+		} \
+		/*l = r*/ \
+		dimL->min = (l-minL)/stepL; \
+		dimR->min = (r-minR)/stepR; \
+\
+		l = maxL, r=maxR; \
+		while(l != r) { \
+			while(l>r) \
+				l-=stepL; \
+			while(r>l) \
+				r-=stepR; \
+		} \
+		/*l = r*/ \
+		dimL->max = (l-minL)/stepL; \
+		dimR->max = (r-minR)/stepR; \
+	} \
+} while(0)
+
+	switch(analytic_dimensionL->type) {
+   	    case TYPE_bte:
+   	        compareRanges(bte);
+			break;
+   	    case TYPE_sht: 
+   	    	compareRanges(sht);
+			break;
+   	    case TYPE_int:
+   	    	compareRanges(int);
+			break;
+   	    case TYPE_wrd:
+   	    	compareRanges(wrd);
+			break;
+   	    case TYPE_oid:
+   	    	compareRanges(oid);
+			break;
+   	    case TYPE_lng:
+   		    compareRanges(lng);
+			break;
+   	    case TYPE_dbl:
+	        compareRanges(dbl);
+			break;
+   	    case TYPE_flt:
+	    	compareRanges(flt);
+			break;
+		default:
+			throw(MAL, "algebra.subjoin", "Dimension type not supported\n");
+    }
+
+	dimL->elsNum = (dimL->max-dimL->min)/dimL->step+1;
+	dimL->idxs = NULL;
+	dimR->elsNum = (dimR->max-dimR->min)/dimR->step+1;
+	dimR->idxs = NULL;
+
+	return MAL_SUCCEED;
+}
+
+str ALGsubjoin2(ptr *dimsResL, ptr *dimsResR, const ptr *dimsCandsL, const ptr *dimL, const ptr *dimsL, const ptr *dimsCandsR, const ptr *dimR, const ptr *dimsR) {
+	(void)*dimsL;
+	(void)*dimsR;
+
+	return ALGsubjoin1(dimsResL, dimsResR, dimL, dimsCandsL, dimR, dimsCandsR);
+}
+
 
 str ALGnonDimensionQRDecomposition(bat *oidsRes, ptr *dimsRes,  const bat* vals, const ptr *dims)
 {

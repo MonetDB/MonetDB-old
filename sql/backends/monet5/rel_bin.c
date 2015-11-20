@@ -1719,19 +1719,105 @@ rel2bin_qqr(mvc *sql, sql_rel *rel, list *refs)
 	return stmt_list(sql->sa, l);
 }
 
-static bool isArrayBasetable(sql_rel *r) {
-	switch(r->op) {
-		case op_basetable: {
-			sql_table *t = (sql_table*)r->l;
-			return isArray(t);
-		} case op_select:
-			return isArrayBasetable(r->l);
-		default:
-			return 0;
+static stmt *rel2bin_array_join(mvc *sql, sql_rel *rel, list *refs) {
+	list *l; 
+	node *en = NULL, *n;
+	stmt *left = NULL, *right = NULL, *join = NULL, *jl, *jr;
+
+	if (rel->l) 
+		left = subrel_bin(sql, rel->l, refs);
+	if (rel->r) 
+		right = subrel_bin(sql, rel->r, refs);
+	if (!left || !right) 
+		return NULL;	
+
+	left = row2cols(sql, left);
+	right = row2cols(sql, right);
+
+	if (rel->exps) {
+		list *jexps = sa_list(sql->sa);
+
+		/* get equi-joins/filters first */
+		if (list_length(rel->exps) > 1) {
+			for( en = rel->exps->h; en; en = en->next ) {
+				sql_exp *e = en->data;
+				if (e->type == e_cmp && (e->flag == cmp_equal || e->flag == cmp_filter))
+					append(jexps, e);
+			}
+			for( en = rel->exps->h; en; en = en->next ) {
+				sql_exp *e = en->data;
+				if (e->type != e_cmp || (e->flag != cmp_equal && e->flag != cmp_filter))
+					append(jexps, e);
+			}
+			rel->exps = jexps;
+		}
+
+		/* generate a relational join */
+		for( en = rel->exps->h; en; en = en->next ) {
+			sql_exp *e = en->data;
+			stmt *s = NULL;
+
+			s = exp_bin(sql, e, left, right, NULL, NULL, NULL, NULL);
+			if (!s) {
+				assert(0);
+				return NULL;
+			}
+		
+			if (!join) 
+				join = s;
+			else //if(join->op1->type == st_dimension && join->op2->type == st_dimension && s->op1->type == st_dimension && s->op2->type == st_dimension)
+				join->op3 = s;
+		}
+
+	} else {
+		stmt *l = bin_first_column(sql->sa, left);
+		stmt *r = bin_first_column(sql->sa, right);
+		join = stmt_join(sql->sa, l, r, cmp_all); 
 	}
 
-	return 0;
+	jl = stmt_result(sql->sa, join, 0);
+	jr = stmt_result(sql->sa, join, 1);
+
+	/* construct relation */
+	l = sa_list(sql->sa);
+
+	for( n = left->op4.lval->h; n; n = n->next ) {
+		stmt *c = n->data;
+		char *rnme = table_name(sql->sa, c);
+		char *nme = column_name(sql->sa, c);
+		stmt *s;
+		if(c->type == st_join) { 
+			s = stmt_materialise(sql->sa, jl, column(sql->sa, c));
+		} else
+			s = stmt_project(sql->sa, jl, column(sql->sa, c) );
+
+		s = stmt_alias(sql->sa, s, rnme, nme);
+		list_append(l, s);
+	}
+
+	for( n = right->op4.lval->h; n; n = n->next ) {
+		stmt *c = n->data;
+		char *rnme = table_name(sql->sa, c);
+		char *nme = column_name(sql->sa, c);
+		stmt *s;
+		if(c->type == st_join) { 
+			s = stmt_materialise(sql->sa, jr, column(sql->sa, c));
+		} else
+			s = stmt_project(sql->sa, jr, column(sql->sa, c) );
+
+		s = stmt_alias(sql->sa, s, rnme, nme);
+		list_append(l, s);
+	}
+
+	return stmt_list(sql->sa, l);
 }
+
+static bool isArrayRelated(sql_rel *rel) {
+	sql_table *tbl = (sql_table*)rel->l;
+
+	return isArray(tbl);
+}
+
 static stmt *
 rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 {
@@ -1741,59 +1827,20 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 	stmt *ld = NULL, *rd = NULL;
 	int need_left = (rel->flag == LEFT_JOIN);
 
-	bool leftArray = 0, rightArray = 0;
+	if(isArrayRelated(rel->r) &&  isArrayRelated(rel->l))
+		return rel2bin_array_join(sql, rel, refs);
+
 	if (rel->l) { /* first construct the left sub relation */
 		left = subrel_bin(sql, rel->l, refs);
-		leftArray = isArrayBasetable((sql_rel*)rel->l);
 	}
 
 	if (rel->r) {/* first construct the right sub relation */
 		right = subrel_bin(sql, rel->r, refs);
-		rightArray = isArrayBasetable((sql_rel*)rel->l);
-	}
-
-	if(leftArray && rightArray) {
-		l = sa_list(sql->sa);
-
-		for( n = left->op4.lval->h; n; n = n->next ) {
-			stmt *c = n->data;
-			char *rnme = table_name(sql->sa, c);
-			char *nme = column_name(sql->sa, c);
-			stmt *s = c; //stmt_project(sql->sa, jl, column(sql->sa, c) );
-
-			/* as append isn't save, we append to a new copy */
-			if (rel->op == op_left || rel->op == op_full || rel->op == op_right)
-				s = Column(sql->sa, s);
-			if (rel->op == op_left || rel->op == op_full)
-				s = stmt_append(sql->sa, s, stmt_project(sql->sa, ld, c));
-			if (rel->op == op_right || rel->op == op_full) 
-				s = stmt_append(sql->sa, s, stmt_const(sql->sa, rd, (c->flag&OUTER_ZERO)?stmt_atom_wrd(sql->sa, 0):stmt_atom(sql->sa, atom_general(sql->sa, tail_type(c), NULL))));
-
-			s = stmt_alias(sql->sa, s, rnme, nme);
-			list_append(l, s);
-		}
-		for( n = right->op4.lval->h; n; n = n->next ) {
-			stmt *c = n->data;
-			char *rnme = table_name(sql->sa, c);
-			char *nme = column_name(sql->sa, c);
-			stmt *s = c; //stmt_project(sql->sa, jr, column(sql->sa, c) );
-
-			/* as append isn't save, we append to a new copy */
-			if (rel->op == op_left || rel->op == op_full || rel->op == op_right)
-				s = Column(sql->sa, s);
-			if (rel->op == op_left || rel->op == op_full) 
-				s = stmt_append(sql->sa, s, stmt_const(sql->sa, ld, (c->flag&OUTER_ZERO)?stmt_atom_wrd(sql->sa, 0):stmt_atom(sql->sa, atom_general(sql->sa, tail_type(c), NULL))));
-			if (rel->op == op_right || rel->op == op_full) 
-				s = stmt_append(sql->sa, s, stmt_project(sql->sa, rd, c));
-
-			s = stmt_alias(sql->sa, s, rnme, nme);
-			list_append(l, s);
-		}
-		return stmt_list(sql->sa, l);
 	}
 
 	if (!left || !right) 
 		return NULL;	
+
 	left = row2cols(sql, left);
 	right = row2cols(sql, right);
 	/* 
@@ -1887,6 +1934,7 @@ rel2bin_join( mvc *sql, sql_rel *rel, list *refs)
 
 			if (!join) 
 				join = s;
+
 			list_append(lje, s->op1);
 			list_append(rje, s->op2);
 		}

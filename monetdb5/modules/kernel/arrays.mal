@@ -13,7 +13,7 @@ address ALGdimensionLeftfetchjoin1;
 command algebra.leftfetchjoin(oidsCands:bat[:oid,:oid], dimsCands:ptr, dim:ptr, dims:ptr ) :bat[:oid,:any]
 address ALGdimensionLeftfetchjoin2;
 #it is called in updates. It projects all cells 
-command algebra.leftfetchjoin(dimsCands:ptr, oidsCands:bat[:oid,:oid], array:ptr) :bat[:oid,:oid]
+command algebra.leftfetchjoin(dimsCands:ptr, array:ptr) :bat[:oid,:oid]
 address ALGdimensionLeftfetchjoin3;
 
 #it gets the candidates and projects a non-dimensional column
@@ -21,9 +21,12 @@ address ALGdimensionLeftfetchjoin3;
 #command algebra.leftfetchjoin(candDims:ptr, candBAT:bat[:oid,:oid], vals:bat[:oid,:any], dims:ptr ) :bat[:oid,:any]
 command algebra.leftfetchjoin(mbrBAT:bat[:oid,:oid], vals:bat[:oid,:any], dims:ptr ) :bat[:oid,:any]
 address ALGnonDimensionLeftfetchjoin1;
-#it is called when projecting a non-dimensional column of an array
+#it is called when joining with the array (like tids). It adds NULLs (should add the default value) to missing values
 command algebra.leftfetchjoin(array:ptr,vals:bat[:oid,:any],dims:ptr) (:bat[:oid,:any], :ptr)
 address ALGnonDimensionLeftfetchjoin2;
+#it is called when after joining two arrays on the dimensions
+command algebra.leftfetchjoin(dimsCands:ptr,vals:bat[:oid,:any],dims:ptr) :bat[:oid,:any]
+address ALGnonDimensionLeftfetchjoin3;
 
 #subselection in dimensions 
 #the first result is the mbr and the second is the oids that satisfy the conditiont
@@ -78,6 +81,16 @@ command algebra.subselect(vals:bat[:oid,:any], dims:ptr, candBAT:bat[:oid,:oid],
 address ALGnonDimensionSubselect4;
 command algebra.thetasubselect(vals:bat[:oid,:any], dims:ptr, candBAT:bat[:oid,:oid], candDims:ptr, val:any, op:str) (:bat[:oid,:oid], ptr)
 address ALGnonDimensionThetasubselect4;
+
+
+#joining two dimensions
+command algebra.subjoin(diml:ptr, dimsl:ptr, dimr:ptr, dimsr:ptr) (:ptr,:ptr)
+address ALGsubjoin1;
+#joining more than two dimensions
+command algebra.subjoin(candDimsl:ptr, diml:ptr, dimsl:ptr, candDimsr:ptr, dimr:ptr, dimsr:ptr) (:ptr,:ptr)
+address ALGsubjoin2;
+
+
 
 #projects a dimension
 command algebra.projectArray(dim:ptr, dims:ptr) :bat[:oid,:any]

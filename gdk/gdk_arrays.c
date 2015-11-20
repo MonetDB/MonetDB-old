@@ -63,6 +63,26 @@ createDim(lng);
 createDim(dbl);
 createDim(flt);
 
+#define createGCD(TPE) \
+TPE gcd_##TPE(TPE val1, TPE val2) { \
+	TPE res; \
+    if(val1 == val2) \
+        return val1; \
+    res=val1-val2; \
+    if(res < val2) \
+        return gcd_##TPE(val2,res); \
+    return gcd_##TPE(res,val2); \
+} \
+
+createGCD(bte);
+createGCD(sht);
+createGCD(int);
+createGCD(wrd);
+createGCD(oid);
+createGCD(lng);
+createGCD(dbl);
+createGCD(flt);
+
 
 gdk_array* arrayNew(unsigned short dimsNum) {
 	gdk_array *array = (gdk_array*)GDKmalloc(sizeof(gdk_array));
