@@ -70,7 +70,7 @@ extern PsoPropStat *pso_propstat;
 #define APPLY_OPTIMIZATION_FOR_OPTIONAL	1	/* Instead of using left join, we use a project with ifthenelse */
 						/* on the set of optional columns */
 
-#define HANDLING_EXCEPTION 1
+#define HANDLING_EXCEPTION 0
 
 #define RDF_HANDLING_EXCEPTION_MISSINGPROP_OPT 1
 
