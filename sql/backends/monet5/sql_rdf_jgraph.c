@@ -2831,7 +2831,7 @@ static
 int** get_inner_join_groups_in_sp_group(jgraph *jg, int* group, int nnode, int *nijgroup, int **nnodes_per_ijgroup){
 
 	int max_ijId = 0;	//max inner join pattern Id
-	int **ijgroup;
+	int **ijgroup = NULL;
 	int *idx;
 	int i, j; 
 
@@ -3014,8 +3014,8 @@ sql_rel* _group_star_pattern_for_single_table(mvc *c, jgraph *jg,
 
 	int i; 
 
-	sql_rel **ijrels;    //rel for inner join groups
-	sql_rel **edge_ijrels;  //sql_rel connecting each pair of ijrels
+	sql_rel **ijrels = NULL;    //rel for inner join groups
+	sql_rel **edge_ijrels = NULL;  //sql_rel connecting each pair of ijrels
 	sql_rel *tbl_m_rel = NULL; 
 	int is_contain_mv = 0; 
 	int *ingroup_contain_mv = NULL; sql_rel *tmprel_rdfscan = NULL; 
@@ -3147,6 +3147,7 @@ sql_rel* union_sp_from_all_matching_tbls(mvc *c, int num_match_tbl, int *contain
 	}
 
 	if (num_match_tbl > 1){
+		//_rel_print(c, tbl_m_rels[0]);
 		get_union_expr(c, tbl_m_rels[0], union_exps); 
 		printf("Union expresion is: \n"); 
 		exps_print_ext(c, union_exps, 0, "");
@@ -3261,8 +3262,8 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 	int 	*tmptbId = NULL; 
 	int 	num_match_tbl = 0;
 
-	int 	**ijgroup; 
-	int 	*nnodes_per_ijgroup; 
+	int 	**ijgroup = NULL; 
+	int 	*nnodes_per_ijgroup = NULL; 
 	int 	nijgroup = 0;
 	
 	#if	HANDLING_EXCEPTION
@@ -3337,9 +3338,17 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 		for (tblIdx = 0; tblIdx < num_match_tbl; tblIdx++){
 			tbl_m_rels[tblIdx] = _group_star_pattern_for_single_table(c, jg, ijgroup, nijgroup, nnodes_per_ijgroup, tmptbId[tblIdx], &(sp_proj_exps[tblIdx]), &(sp_opt_proj_exps[tblIdx]), 
 					&(contain_mv_col[tblIdx]));
+			//Check 
+			_rel_print(c, tbl_m_rels[tblIdx]);
+
+			//_rel_print(c, tbl_m_rels[0]);
+
 		}
 		
+
 		printf("Done grouping star pattern\n"); 
+
+		_rel_print(c, tbl_m_rels[0]);
 
 		if (num_match_tbl > 0){ 
 			rel_alltable = union_sp_from_all_matching_tbls(c, num_match_tbl, contain_mv_col, tbl_m_rels, sp_proj_exps); 
@@ -3385,7 +3394,7 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 		free_inner_join_groups(ijgroup, nijgroup, nnodes_per_ijgroup); 
 
 		free_sp_props(spprops);
-		free(tbl_m_rels);
+		//free(tbl_m_rels);
 	}
 
 		

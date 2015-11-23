@@ -1656,7 +1656,8 @@ static void appendResult(BAT **r_obats, oid *tmpres, int np, oid sbt){
 	for (j = 0; j < np; j++){
 		//Output result
 		
-		if (sbt == (oid)3835096557682764 ){
+		//if (sbt == (oid)3835096557682764 ){
+		if (sbt == (oid)1460151441700192){
 			printf(BUNFMT " | ", tmpres[j]);
 		}
 		/*
@@ -1668,7 +1669,8 @@ static void appendResult(BAT **r_obats, oid *tmpres, int np, oid sbt){
 		BUNappend(r_obats[j], &(tmpres[j]), TRUE); 
 	}
 	
-	if (sbt == (oid)3835096557682764 ){
+	//if (sbt == (oid)3835096557682764 ){
+	if (sbt == (oid) 1460151441700192){
 		printf("\n"); 
 	}
 }
