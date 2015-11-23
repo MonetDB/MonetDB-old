@@ -1765,7 +1765,7 @@ static stmt *rel2bin_array_join(mvc *sql, sql_rel *rel, list *refs) {
 		
 			if (!join) 
 				join = s;
-			else //if(join->op1->type == st_dimension && join->op2->type == st_dimension && s->op1->type == st_dimension && s->op2->type == st_dimension)
+			else 
 				join->op3 = s;
 		}
 

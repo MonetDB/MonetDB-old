@@ -1,3 +1,17 @@
+command batcalc.lng(dim:ptr, dims:ptr) (:ptr, :ptr) 
+address CMDdimensionCONVERT_lng
+comment "Cast dimension values to lng";
+
+pattern calc.+(dim:ptr, dims:ptr, v:lng) (:ptr, :ptr)
+address CMDscalarADD
+comment "Add v to the borders of dimension";
+
+pattern calc.-(dim:ptr, dims:ptr, v:lng) (:ptr, :ptr)
+address CMDscalarSUB
+comment "Add v to the borders of dimension";
+
+
+#if 0
 #module calc;
 #
 #function not(dim:ptr, dims:ptr) (:ptr, :ptr) address CMDdimensionsNOT
@@ -1523,4 +1537,4 @@ comment "cast from str to oid, signal error on overflow";
 #address CMDBATprod
 #comment "Calculate aggregate product of B with candidate list.";
 #
-
+#endif

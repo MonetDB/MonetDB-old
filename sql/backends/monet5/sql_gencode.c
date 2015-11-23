@@ -2326,7 +2326,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 				stmt *op = n->data;
 				//check if each operator has a second argument
 				snprintf(nme, SMALLBUFSIZ, "Y_%d", op->nr);
-                arrayRelated = (findVariable(mb, nme) >= 0);
+                arrayRelated |= (findVariable(mb, nme) >= 0);
 				dimensionsInvolved += isDimension(op);
 			}
 
@@ -2393,6 +2393,11 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 					q = pushArgument(mb, q, arraySecondVar);
 			}
 			if(arrayRelated) {
+				setVarType(mb, getArg(q, 0), TYPE_ptr);
+                setVarUDFtype(mb, getArg(q, 0));
+				//push one more return argument
+				q = pushReturn(mb, q, newTmpVariable(mb, TYPE_ptr));
+#if 0
 				if(dimensionsInvolved == 1) { 
 					//push the type the result should be
 					sql_subtype *res = f->res->h->data;
@@ -2414,15 +2419,16 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
                 	setVarUDFtype(mb, getArg(q, 0));
 					q = pushReturn(mb, q, newTmpVariable(mb, TYPE_ptr));
 				}
+#endif
 			}
-			arrayRelated = 0;
-			dimensionsInvolved =0 ;
-
 			if (q == NULL)
 				return -1;
 			s->nr = getDestVar(q);
-			if(arraySecondVar >= 0)
+			if(arrayRelated >= 0)
 				renameVariable(mb, getArg(q, 1), "Y_%d", s->nr);
+
+			arrayRelated = 0;
+			dimensionsInvolved =0 ;
 
 			/* keep reference to instruction */
 			s->rewritten = (void *) q;

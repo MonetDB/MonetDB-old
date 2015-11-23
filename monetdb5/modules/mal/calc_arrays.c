@@ -7,6 +7,7 @@
 
 #include "calc_arrays.h"
 
+#if 0
 static int
 calctype(int tp1, int tp2)
 {
@@ -60,21 +61,29 @@ calctypeenlarge(int tp1, int tp2)
         return tp1;
     }
 }
+#endif
 
-static BAT* dimension2BAT(const gdk_analytic_dimension *dim) {
-	BAT *dimBAT = BATnew(TYPE_void, dim->type, 3, TRANSIENT);
+static BAT* dimension2BAT(const gdk_analytic_dimension *dim, int includeStep) {
+	BAT *dimBAT = NULL;
+
+	if(includeStep)
+		dimBAT = BATnew(TYPE_void, dim->type, 3, TRANSIENT);
+	else
+		dimBAT = BATnew(TYPE_void, dim->type, 2, TRANSIENT);
 
 	if(!dimBAT)
 		return NULL;
 
 	BUNappend(dimBAT, dim->min, TRUE);
 	BUNappend(dimBAT, dim->max, TRUE);
-	BUNappend(dimBAT, dim->step, TRUE);
+	if(includeStep)
+		BUNappend(dimBAT, dim->step, TRUE);
 
+	BATseqbase(dimBAT, 0);
 	return dimBAT;	
 }
 
-static gdk_analytic_dimension* BAT2dimension(BAT *dimBAT, int dimNum) {
+static gdk_analytic_dimension* BAT2dimension(BAT *dimBAT, int dimNum, void *otherStep) {
 	BATiter biter = bat_iterator(dimBAT);
 	BUN currBun = BUNfirst(dimBAT);
 
@@ -82,49 +91,81 @@ static gdk_analytic_dimension* BAT2dimension(BAT *dimBAT, int dimNum) {
 		case TYPE_bte: { 
 			bte min = *(bte*)BUNtail(biter, currBun);
 			bte max = *(bte*)BUNtail(biter, currBun+1);
-			bte step = *(bte*)BUNtail(biter, currBun+2);
+			bte step;
+			if(!otherStep)
+				step = *(bte*)BUNtail(biter, currBun+2);
+			else
+				step = *(bte*)otherStep;
 			return createAnalyticDimension_bte(dimNum, min, max, step);
 		}
 		case TYPE_sht: { 
 			short min = *(short*)BUNtail(biter, currBun);
 			short max = *(short*)BUNtail(biter, currBun+1);
-			short step = *(short*)BUNtail(biter, currBun+2);
+			short step;
+			if(!otherStep)
+				step = *(short*)BUNtail(biter, currBun+2);
+			else
+				step = *(short*)otherStep;
 			return createAnalyticDimension_sht(dimNum, min, max, step);
 		}
 		case TYPE_int: { 
 			int min = *(int*)BUNtail(biter, currBun);
 			int max = *(int*)BUNtail(biter, currBun+1);
-			int step = *(int*)BUNtail(biter, currBun+2);
+			int step;
+			if(!otherStep)
+				step = *(int*)BUNtail(biter, currBun+2);
+			else
+				step = *(int*)otherStep;
 			return createAnalyticDimension_int(dimNum, min, max, step);
 		}
 		case TYPE_wrd: { 
 			wrd min = *(wrd*)BUNtail(biter, currBun);
 			wrd max = *(wrd*)BUNtail(biter, currBun+1);
-			wrd step = *(wrd*)BUNtail(biter, currBun+2);
+			wrd step;
+			if(!otherStep)
+				step = *(wrd*)BUNtail(biter, currBun+2);
+			else
+				step = *(wrd*)otherStep;
 			return createAnalyticDimension_wrd(dimNum, min, max, step);
 		}
 		case TYPE_oid: { 
 			oid min = *(oid*)BUNtail(biter, currBun);
 			oid max = *(oid*)BUNtail(biter, currBun+1);
-			oid step = *(oid*)BUNtail(biter, currBun+2);
+			oid step;
+			if(!otherStep)
+				step = *(oid*)BUNtail(biter, currBun+2);
+			else
+				step = *(oid*)otherStep;
 			return createAnalyticDimension_oid(dimNum, min, max, step);
 		}
 		case TYPE_lng: { 
 			long min = *(long*)BUNtail(biter, currBun);
 			long max = *(long*)BUNtail(biter, currBun+1);
-			long step = *(long*)BUNtail(biter, currBun+2);
+			long step;
+			if(!otherStep)
+				step = *(long*)BUNtail(biter, currBun+2);
+			else
+				step = *(long*)otherStep;
 			return createAnalyticDimension_lng(dimNum, min, max, step);
 		}
 		case TYPE_dbl: { 
 			double min = *(double*)BUNtail(biter, currBun);
 			double max = *(double*)BUNtail(biter, currBun+1);
-			double step = *(double*)BUNtail(biter, currBun+2);
+			double step;
+			if(!otherStep)
+				step = *(double*)BUNtail(biter, currBun+2);
+			else
+				step = *(double*)otherStep;
 			return createAnalyticDimension_dbl(dimNum, min, max, step);
 		}
 		case TYPE_flt: { 
 			float min = *(float*)BUNtail(biter, currBun);
 			float max = *(float*)BUNtail(biter, currBun+1);
-			float step = *(float*)BUNtail(biter, currBun+2);
+			float step;
+			if(!otherStep)
+				step = *(float*)BUNtail(biter, currBun+2);
+			else
+				step = *(float*)otherStep;
 			return createAnalyticDimension_flt(dimNum, min, max, step);
 		}
 		default: 
@@ -139,7 +180,7 @@ static str CMDdimensionCONVERT(gdk_analytic_dimension **dimRes, const gdk_analyt
 
 	/* create a BAT and put inside the values of the dimensions */
 	/* needed to re-use functions that exist already */
-    if(!(dimBAT_in = dimension2BAT(dim)))
+    if(!(dimBAT_in = dimension2BAT(dim, 1)))
         throw(MAL, "batcalc.convert", MAL_MALLOC_FAIL);
 
 	if(!(dimBAT_out = BATconvert(dimBAT_in, s, type, abort_on_error))) {
@@ -153,7 +194,7 @@ static str CMDdimensionCONVERT(gdk_analytic_dimension **dimRes, const gdk_analyt
 	BBPunfix(dimBAT_in->batCacheid);
 
 	/*put the converted values from the BAT to the dim */
-	if(!(dim_out = BAT2dimension(dimBAT_out, dim->dimNum))) {
+	if(!(dim_out = BAT2dimension(dimBAT_out, dim->dimNum, NULL))) {
 		char buf[20];
 		snprintf(buf, sizeof(buf), "batcalc.%s", ATOMname(type));
 	
@@ -168,6 +209,134 @@ static str CMDdimensionCONVERT(gdk_analytic_dimension **dimRes, const gdk_analyt
     return MAL_SUCCEED;
 }
 
+str CMDdimensionCONVERT_lng(ptr *dimRes, ptr *dimsRes, const ptr *dim, const ptr *dims) {
+	//the array is not affected by the convertion
+	//I just need to pass it along
+	gdk_array *array = arrayCopy((gdk_array*)*dims) ;
+	*dimsRes = array;
+ 
+	return CMDdimensionCONVERT((gdk_analytic_dimension**)dimRes, (gdk_analytic_dimension*)*dim, TYPE_lng);
+}
+
+str CMDscalarADD(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
+	BAT *dimBAT_in, *dimBAT_out, *s=NULL;
+
+//	int resType, valType;
+
+	/*get the arguments */
+	ptr *dim_out = getArgReference_ptr(stk, pci, 0);
+	ptr *dim_in = getArgReference_ptr(stk, pci, 2);
+	
+	ptr *array_out = getArgReference_ptr(stk, pci, 1);
+	ptr *array_in = getArgReference_ptr(stk, pci, 3);
+
+	gdk_analytic_dimension *dim = (gdk_analytic_dimension*)*dim_in;
+
+	/* the return type is the same with the dimension type */
+	int resType = dim->type;	
+
+	(void) cntxt;
+    (void) mb;
+
+#if 0
+	void *val = getArgReference_bat(stk, pci, 4);
+	int valType = getArgType(stk, pci, 4);
+
+	/*put the value in a BAT with 3 elements */
+	BAT *valsBAT = BATnew(TYPE_void, (gdk_analytic_dimension*)*dim_in->type, 3, TRANSIENT);
+	if(!valsBAT)
+		return createException(MAL, "calc.+", "Problem creating BAT");
+	BUNappend(valsBAT, val, TRUE);
+	BUNappend(valsBAT, val, TRUE);
+	BUNappend(valsBAT, val, TRUE);
+#endif	
+	/* get the types of the input and output arguments */
+	//resType = getColumnType(getArgType(mb, pci, 0));
+	//valType = stk->stk[getArg(pci, 1)].vtype;
+	//if (resType == TYPE_any)
+    //    resType = (*typefunc)(valType, BATttype(valsBAT));
+
+	if(!(dimBAT_in = dimension2BAT(dim, 0)))
+        throw(MAL, "calc.+", MAL_MALLOC_FAIL);
+
+	//Adds the BAT to the val dimBAT_out = BATcalccstadd(&stk->stk[getArg(pci, 4)], dimBAT_in, s, resType, 1);
+	//Add the val to the BAT
+	dimBAT_out = BATcalcaddcst(dimBAT_in, &stk->stk[getArg(pci, 4)], s, resType, 1);
+
+	if (dimBAT_out == NULL) {
+        BBPunfix(dimBAT_in->batCacheid);
+        return createException(MAL, "calc.+", OPERATION_FAILED);
+    }
+
+	/*put the converted values from the BAT to the dim */
+	if(!(*dim_out = BAT2dimension(dimBAT_out, dim->dimNum, dim->step))) {
+		char buf[20];
+		snprintf(buf, sizeof(buf), "batcalc.%s", ATOMname(dim->type));
+	
+		BBPunfix(dimBAT_out->batCacheid);
+		return createException(MAL, buf, "Type not handled");
+	}
+	
+	
+	*array_out = arrayCopy((gdk_array*)*array_in);
+
+
+	BBPunfix(dimBAT_in->batCacheid);
+	BBPunfix(dimBAT_out->batCacheid);
+	
+	return MAL_SUCCEED;
+}
+
+str CMDscalarSUB(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
+	BAT *dimBAT_in, *dimBAT_out, *s=NULL;
+
+	/*get the arguments */
+	ptr *dim_out = getArgReference_ptr(stk, pci, 0);
+	ptr *dim_in = getArgReference_ptr(stk, pci, 2);
+	
+	ptr *array_out = getArgReference_ptr(stk, pci, 1);
+	ptr *array_in = getArgReference_ptr(stk, pci, 3);
+
+	gdk_analytic_dimension *dim = (gdk_analytic_dimension*)*dim_in;
+
+	/* the return type is the same with the dimension type */
+	int resType = dim->type;	
+
+	(void) cntxt;
+    (void) mb;
+
+	if(!(dimBAT_in = dimension2BAT(dim, 0)))
+        throw(MAL, "calc.+", MAL_MALLOC_FAIL);
+
+	//dimBAT_out = BATcalccstsub(&stk->stk[getArg(pci, 4)], dimBAT_in, s, resType, 1);
+	dimBAT_out = BATcalcsubcst(dimBAT_in, &stk->stk[getArg(pci, 4)], s, resType, 1);
+
+	if (dimBAT_out == NULL) {
+        BBPunfix(dimBAT_in->batCacheid);
+        return createException(MAL, "calc.+", OPERATION_FAILED);
+    }
+
+	/*put the converted values from the BAT to the dim */
+	if(!(*dim_out = BAT2dimension(dimBAT_out, dim->dimNum, dim->step))) {
+		char buf[20];
+		snprintf(buf, sizeof(buf), "batcalc.%s", ATOMname(dim->type));
+	
+		BBPunfix(dimBAT_out->batCacheid);
+		return createException(MAL, buf, "Type not handled");
+	}
+	
+	
+	*array_out = arrayCopy((gdk_array*)*array_in);
+
+
+	BBPunfix(dimBAT_in->batCacheid);
+	BBPunfix(dimBAT_out->batCacheid);
+	
+	return MAL_SUCCEED;
+}
+
+
+#if 0
 /*
 str CMDdimensionCONVERT_void(ptr *dimRes, ptr *dimsRes, const ptr *dim, const ptr *dims) {
 	//the array is not affected by the convertion
@@ -222,15 +391,6 @@ str CMDdimensionCONVERT_wrd(ptr *dimRes, ptr *dimsRes, const ptr *dim, const ptr
 	*dimsRes = array;
  
 	return CMDdimensionCONVERT((gdk_analytic_dimension**)dimRes, (gdk_analytic_dimension*)*dim, TYPE_wrd);
-}
-
-str CMDdimensionCONVERT_lng(ptr *dimRes, ptr *dimsRes, const ptr *dim, const ptr *dims) {
-	//the array is not affected by the convertion
-	//I just need to pass it along
-	gdk_array *array = arrayCopy((gdk_array*)*dims) ;
-	*dimsRes = array;
- 
-	return CMDdimensionCONVERT((gdk_analytic_dimension**)dimRes, (gdk_analytic_dimension*)*dim, TYPE_lng);
 }
 
 str CMDdimensionCONVERT_flt(ptr *dimRes, ptr *dimsRes, const ptr *dim, const ptr *dims) {
@@ -2435,50 +2595,6 @@ str CMDscalarMULenlarge(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return MAL_SUCCEED;
 }
 
-static str CMDscalarADD(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int (*typefunc)(int, int)) {
-	BAT *s=NULL;
-
-	int resType, valType;
-
-	/*get the arguments */
-	bat *result = getArgReference_bat(stk, pci, 0);
-	BAT *resBAT = NULL;
-	
-	ptr *array_out = getArgReference(stk, pci, 1);
-	ptr *array_in = getArgReference(stk, pci, 4);
-	
-	bat *vals = getArgReference_bat(stk, pci, 3);
-	BAT *valsBAT = BATdescriptor(*vals);
-	if(!valsBAT)
-		return createException(MAL, "calc.+", RUNTIME_OBJECT_MISSING);
-	
-	/* get the types of the input and output arguments */
-	resType = getColumnType(getArgType(mb, pci, 0));
-	valType = stk->stk[getArg(pci, 1)].vtype;
-	if (resType == TYPE_any)
-        resType = (*typefunc)(valType, BATttype(valsBAT));
-
-	resBAT = BATcalccstadd(&stk->stk[getArg(pci, 2)], valsBAT, s, resType, 1);
-
-	if (resBAT == NULL) {
-        BBPunfix(valsBAT->batCacheid);
-        return createException(MAL, "calc.+", OPERATION_FAILED);
-    }
-
-	BBPunfix(valsBAT->batCacheid);
-	BBPkeepref(*result = resBAT->batCacheid);
-	*array_out = arrayCopy((gdk_array*)*array_in);
-
-	return MAL_SUCCEED;
-}
-
-str CMDscalarADDsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
-	(void) cntxt;
-
-	return CMDscalarADD(mb, stk, pci, calctype);
-
-}
-
 str CMDscalarADDenlarge(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	(void) cntxt;
 	
@@ -2713,4 +2829,4 @@ str CMDdimensionsADDsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 
 	return MAL_SUCCEED;
 }
-
+#endif
