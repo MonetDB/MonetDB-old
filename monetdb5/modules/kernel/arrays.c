@@ -568,7 +568,7 @@ str ALGnonDimensionLeftfetchjoin1(bat* result, const bat *mbrOids, const bat *va
 	return MAL_SUCCEED;
 }
 
-str ALGnonDimensionLeftfetchjoin2(bat* result, ptr *dimsRes, const ptr *array_in, const bat *vals, const ptr *dims) {
+str ALGnonDimensionLeftfetchjoin2(bat* result, const ptr *array_in, const bat *vals, const ptr *dims) {
     BAT *materialisedBAT = NULL;
     BAT *nonDimensionalBAT = NULL;
     BUN totalCellsNum, neededCellsNum;
@@ -598,7 +598,7 @@ str ALGnonDimensionLeftfetchjoin2(bat* result, ptr *dimsRes, const ptr *array_in
     BBPkeepref(*result = nonDimensionalBAT->batCacheid);
 
     //sent this to the output so that we do not lose it afterwards     
-    *dimsRes = array;
+ //   *dimsRes = array;
     return MAL_SUCCEED;
 }
 

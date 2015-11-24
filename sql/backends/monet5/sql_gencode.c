@@ -1976,8 +1976,8 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 				/* projections, ie left is void headed */
 				q = newStmt1(mb, algebraRef, "leftfetchjoin");
 				
-				if(s->op1->type == st_tid && s->op2->type == st_bat && isArray(s->op2->op4.cval->t))
-                    q = pushReturn(mb, q, newTmpVariable(mb, TYPE_ptr));
+//				if(s->op1->type == st_tid && s->op2->type == st_bat && isArray(s->op2->op4.cval->t))
+//                  q = pushReturn(mb, q, newTmpVariable(mb, TYPE_ptr));
 
 				q = pushArgument(mb, q, l);
 				snprintf(nme, SMALLBUFSIZ, "Y_%d", l);
@@ -1993,13 +1993,13 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 					return -1;
 				s->nr = getDestVar(q);
 
-				if(s->op1->type == st_tid && s->op2->type == st_bat && isArray(s->op2->op4.cval->t)) {
-					/* left fetch join on a non-dimensional column and the tid
- 					* I need to return also the pointer to dims or it will be lost afterwards */
-
-					/* rename second result */
-					renameVariable(mb, getArg(q, 1), "Y_%d", s->nr);
-				}
+//				if(s->op1->type == st_tid && s->op2->type == st_bat && isArray(s->op2->op4.cval->t)) {
+//					/* left fetch join on a non-dimensional column and the tid
+//					* I need to return also the pointer to dims or it will be lost afterwards */
+//
+//					/* rename second result */
+//					renameVariable(mb, getArg(q, 1), "Y_%d", s->nr);
+//				}
 				
 				return s->nr;
 			}

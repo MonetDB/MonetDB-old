@@ -22,11 +22,11 @@ address ALGdimensionLeftfetchjoin3;
 command algebra.leftfetchjoin(mbrBAT:bat[:oid,:oid], vals:bat[:oid,:any], dims:ptr ) :bat[:oid,:any]
 address ALGnonDimensionLeftfetchjoin1;
 #it is called when joining with the array (like tids). It adds NULLs (should add the default value) to missing values
-command algebra.leftfetchjoin(array:ptr,vals:bat[:oid,:any],dims:ptr) (:bat[:oid,:any], :ptr)
+command algebra.leftfetchjoin(array:ptr,vals:bat[:oid,:any], dims:ptr) :bat[:oid,:any]
 address ALGnonDimensionLeftfetchjoin2;
 #it is called when after joining two arrays on the dimensions
-command algebra.leftfetchjoin(dimsCands:ptr,vals:bat[:oid,:any],dims:ptr) :bat[:oid,:any]
-address ALGnonDimensionLeftfetchjoin3;
+#command algebra.leftfetchjoin(dimsCands:ptr,vals:bat[:oid,:any],dims:ptr) :bat[:oid,:any]
+#address ALGnonDimensionLeftfetchjoin3;
 
 #subselection in dimensions 
 #the first result is the mbr and the second is the oids that satisfy the conditiont
