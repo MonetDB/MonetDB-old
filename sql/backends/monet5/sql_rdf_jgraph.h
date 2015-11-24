@@ -89,4 +89,7 @@ typedef struct mvProp{
 rdf_export
 void buildJoinGraph(mvc *c, sql_rel *r, int depth); 
 
+rdf_export
+void transform_to_rel_plan(mvc *c, sql_rel *r); 
+
 #endif /* _SQL_RDF_JGRAPH_H_ */

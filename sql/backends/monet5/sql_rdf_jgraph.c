@@ -506,6 +506,7 @@ void _add_jg_node(mvc *c, jgraph *jg, sql_rel *rel, int subjgId, JNodeT t){
 		}
 		if (subj){
 			SQLrdfstrtoid(&soid, &subj);
+			GDKfree(subj); 
 			assert (soid != BUN_NONE); 
 		}
 		if (prop){
@@ -515,6 +516,7 @@ void _add_jg_node(mvc *c, jgraph *jg, sql_rel *rel, int subjgId, JNodeT t){
 			//running structural recognition process) so that 
 			//we can directly get its oid from TKNR
 			TKNRstringToOid(&poid, &prop); 
+			GDKfree(prop); 
 			assert (poid != BUN_NONE); 
 		}
 	}
@@ -618,12 +620,62 @@ void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *
 			if (rel->r)
 				addRelationsToJG(c, rel, rel->r, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root); 
 			break; 
+		case op_union:
+			printf("[union] ==> Handling differently\n"); 
+			assert (rel->l && rel->r); 
+			buildJoinGraph(c, rel->l, depth + 1);
+			buildJoinGraph(c, rel->r, depth + 1); 
+			break; 
 		default:
 			printf("[%s]\n", op2string(rel->op)); 
 			if (rel->l) 
 				addRelationsToJG(c, rel, rel->l, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root); 
 			if (rel->r)
 				addRelationsToJG(c, rel, rel->r, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root); 
+			break; 
+			
+	}
+
+}
+
+
+static
+void handling_Union(mvc *c, sql_rel *rel, int depth, int *hasUnion){
+
+	switch (rel->op) {
+		case op_right:
+			assert(0);	//This case is not handled yet
+			break;
+		case op_left:
+		case op_join:
+			handling_Union(c, rel->l, depth+1, hasUnion);
+			handling_Union(c, rel->r, depth+1, hasUnion);
+
+			break; 
+		case op_select: 
+			if (!is_basic_pattern(rel)){
+				handling_Union(c, rel->l, depth+1, hasUnion);
+			}
+			break; 
+		case op_basetable:
+			break;
+		case op_project: 
+			if (rel->l) 
+				handling_Union(c, rel->l, depth+1, hasUnion); 
+			if (rel->r)
+				handling_Union(c, rel->r, depth+1, hasUnion); 
+			break; 
+		case op_union:
+			assert (rel->l && rel->r); 
+			*hasUnion = 1; 
+			buildJoinGraph(c, rel->l, depth + 1);
+			buildJoinGraph(c, rel->r, depth + 1); 
+			break; 
+		default:
+			if (rel->l) 
+				handling_Union(c, rel->l, depth+1, hasUnion); 
+			if (rel->r)
+				handling_Union(c, rel->r, depth+1, hasUnion); 
 			break; 
 			
 	}
@@ -1305,7 +1357,7 @@ void extractURI_from_exp(mvc *c, char **uri, sql_exp *exp){
 
 	sql_exp *tmpexp;
 	node *tmpen; 
-	str s;
+	str s = NULL;
 	list *lst = NULL; 
 	char *funcname; 
 
@@ -1357,6 +1409,8 @@ void get_o_constraint_value(mvc *c, sql_exp *m_exp, oid *tmpvalue){
 		} else {
 			printf("TODO: The function %s is not handled yet\n", funcname);		
 		}
+
+		if (!uri) GDKfree(uri); 
 	} else {
 		printf("TODO: This is not handled yet\n");
 	}
@@ -2345,7 +2399,7 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 
 	append_sp_opt_proj_exps(c->sa, opt_exps, sp_opt_proj_exps);
 	//rel_print(c, rel, 0); 
-	//GDKfree(tblname); 
+	GDKfree(tblname); 
 
 	//TODO: Handle other cases. By now, we only handle 
 	//the case where each sql_rel is a op_select. 
@@ -3311,6 +3365,9 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 
 		}
 
+		get_matching_tbl_from_spprops(&tmptbId, spprops, &num_match_tbl);
+
+		printf("Number of matching table is: %d\n", num_match_tbl);
 		
 		tbl_m_rels = (sql_rel **) malloc(sizeof(sql_rel *) * num_match_tbl);
 		sp_proj_exps = (list **) malloc(sizeof(list *) * num_match_tbl); 
@@ -3328,9 +3385,6 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 
 		print_spprops(spprops);
 
-		get_matching_tbl_from_spprops(&tmptbId, spprops, &num_match_tbl);
-
-		printf("Number of matching table is: %d\n", num_match_tbl);
 
 		//num_match_tbl = 1; 
 		
@@ -3394,7 +3448,9 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 		free_inner_join_groups(ijgroup, nijgroup, nnodes_per_ijgroup); 
 
 		free_sp_props(spprops);
-		//free(tbl_m_rels);
+		free(contain_mv_col);
+		free(sp_opt_proj_exps); 
+		free(tbl_m_rels);
 	}
 
 		
@@ -3504,7 +3560,7 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 	char **isConnect; 	//Matrix storing state whether two nodes are conneccted	
 			  	//In case of large sparse graph, this should not be used.
 	int numsp = 0; 	 	//Number of star pattern
-	sql_rel** lstRels; 	//One rel for replacing one star-pattern
+	sql_rel** lstRels = NULL; 	//One rel for replacing one star-pattern
 
 
 	jgedge** lst_cross_edges = NULL; //Cross pattern edges
@@ -3529,7 +3585,7 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 	jg = initJGraph(); 
 	
 	addRelationsToJG(c, NULL, r, depth, jg, 0, &subjgId, &n_start_level, 0, &node_root); 
-	
+
 	nm = create_nMap(MAX_JGRAPH_NODENUMBER); 
 	add_relNames_to_nmap(jg, nm); 
 
@@ -3596,3 +3652,12 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 	
 }
 
+void transform_to_rel_plan(mvc *c, sql_rel *r){
+	int hasUnion = 0; 
+
+	handling_Union(c, r, 0, &hasUnion);
+
+	if (hasUnion == 0) {
+		buildJoinGraph(c, r, 0);
+	}
+}

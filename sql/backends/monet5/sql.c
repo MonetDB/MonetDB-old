@@ -124,7 +124,7 @@ sql_symbol2relation(mvc *c, symbol *sym)
 			//rel_print(c,r, 0);
 			_rel_print(c,r); 
 			if (1){
-			buildJoinGraph(c,r,0); 
+			transform_to_rel_plan(c,r); 
 			//rel_print(c,r,0); 
 			_rel_print(c,r); 
 			
