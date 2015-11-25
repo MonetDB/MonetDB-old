@@ -885,6 +885,11 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 
 				l = tmpexp->l; 
 				r = tmpexp->r; 
+
+				//About the case "oid[s14_t4.o] < sys.sql_add(s14_t3.o, oid "120@0")"
+				//e.g., q5 bsbm, just ignore
+				if (l->type != e_column && r->type != e_column) continue; 
+
 				assert(l->type == e_column);
 				assert(r->type == e_column); 
 				printf("Join: [Table]%s.[Column]%s == [Table]%s.[Column]%s \n", l->rname, l->name, r->rname, r->name);

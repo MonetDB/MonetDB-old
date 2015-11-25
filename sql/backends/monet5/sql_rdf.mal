@@ -58,6 +58,10 @@ command rdfstrtoid(urlstr:str):oid
 address	SQLrdfstrtoid
 comment "Convert from string to encoded id";
 
+command rdftimetoid(dt:str):oid
+address SQLrdftimetoid
+comment "Convert from date time to encoded id";
+
 #x:oid contains list of property, their lower bound, their upper bound (if these bounds exist)
 pattern rdfscan{unsafe}(nprop:int, nrqrop:int, x:oid...)(:bat[:oid,:any]...)
 address SQLrdfScan

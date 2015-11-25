@@ -447,6 +447,34 @@ int convertDateTimeToTimeT(char *sDateTime, int len, time_t *t){
 	return 0; 
 }
 
+
+void convertTimestampToLong(timestamp *ts, lng *t){
+
+	int positiveDate = 0;
+	int sign = 0;
+	lng encodeLng = 0; 
+
+	//Encoding timestamp to lng. 
+	//First 4 bits are not used, 5th bits for sign of number of days value 
+	//(1, if the number of days is negative)
+	//27 bits for days, 32 bits for msecs
+	if (ts->days < 0){
+		positiveDate = 0 - ts->days;
+		sign = 1; 
+	} else {
+		positiveDate = ts->days;
+		sign = 0;
+	}
+	
+	encodeLng |= (lng) positiveDate;
+	encodeLng = encodeLng << (sizeof(ts->msecs) * 8); //Move 32 bits
+	encodeLng |= (lng)sign << (sizeof(lng) * 8 - 5);	//Set the sign bit
+	encodeLng = encodeLng | (lng) ts->msecs;	//Set 32 bits for msecs
+	
+	*t = encodeLng; 
+
+
+}
 /*
  * Using/extending monetdb mtime functions
  * */
@@ -455,9 +483,7 @@ int convertDateTimeToLong(char *sDateTime, lng *t){
 	timestamp *ts = NULL; 
 	//tzone *tz;
 	int len, pos = 0; 
-	lng encodeLng = 0; 
-	int positiveDate = 0;
-	int sign = 0;
+
 	
 	char *p = NULL; 
 
@@ -501,24 +527,7 @@ int convertDateTimeToLong(char *sDateTime, lng *t){
 		return 0;
 	}
 
-	//Encoding timestamp to lng. 
-	//First 4 bits are not used, 5th bits for sign of number of days value 
-	//(1, if the number of days is negative)
-	//27 bits for days, 32 bits for msecs
-	if (ts->days < 0){
-		positiveDate = 0 - ts->days;
-		sign = 1; 
-	} else {
-		positiveDate = ts->days;
-		sign = 0;
-	}
-	
-	encodeLng |= (lng) positiveDate;
-	encodeLng = encodeLng << (sizeof(ts->msecs) * 8); //Move 32 bits
-	encodeLng |= (lng)sign << (sizeof(lng) * 8 - 5);	//Set the sign bit
-	encodeLng = encodeLng | (lng) ts->msecs;	//Set 32 bits for msecs
-	
-	*t = encodeLng; 
+	convertTimestampToLong(ts, t); 
 
 	//printf("Encode string %s with days %d and msecs %d to lng %ld \n",sDateTime, ts->days, ts->msecs, *t);
 	if (ts) GDKfree(ts); 

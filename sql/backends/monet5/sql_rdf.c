@@ -1479,6 +1479,21 @@ SQLrdfstrtoid(oid *ret, str *s){
 	return msg; 
 }
 
+str 
+SQLrdftimetoid(oid *ret, str *datetime){
+	
+	lng tmp = BUN_NONE; 
+	ValRecord vrec;
+
+	convertDateTimeToLong(*datetime, &tmp); 
+
+	VALset(&vrec,TYPE_lng, &tmp);
+
+	encodeValueInOid(&vrec, DATETIME, ret);
+
+	return MAL_SUCCEED; 
+}
+
 #endif 
 
 str 

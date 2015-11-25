@@ -90,6 +90,9 @@ get_encodedOid_from_atom(atom *at, oid *ret);
 rdf_export int 
 convertDateTimeToTimeT(char *sDateTime, int len, time_t *t);
 
+rdf_export void
+convertTimestampToLong(timestamp *ts, lng *t);
+
 rdf_export int
 convertDateTimeToLong(char *sDateTime, lng *t);
 
