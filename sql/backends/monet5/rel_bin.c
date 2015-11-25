@@ -1815,7 +1815,9 @@ static stmt *rel2bin_array_join(mvc *sql, sql_rel *rel, list *refs) {
 static bool isArrayRelated(sql_rel *rel) {
 	sql_table *tbl = (sql_table*)rel->l;
 
-	return isArray(tbl);
+	if(tbl)
+		return isArray(tbl);
+	return false;
 }
 
 static stmt *

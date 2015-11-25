@@ -2424,7 +2424,7 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 			if (q == NULL)
 				return -1;
 			s->nr = getDestVar(q);
-			if(arrayRelated >= 0)
+			if(arrayRelated)
 				renameVariable(mb, getArg(q, 1), "Y_%d", s->nr);
 
 			arrayRelated = 0;
