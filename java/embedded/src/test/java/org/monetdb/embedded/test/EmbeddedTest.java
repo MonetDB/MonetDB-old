@@ -174,7 +174,7 @@ public class EmbeddedTest {
 	}
 
 	@Test
-	public void twoQueriesTest() throws SQLException {
+	public void twoQueriesTest() throws SQLException, IOException {
 		EmbeddedQueryResult result1 = db.query("SELECT * FROM test WHERE id > 1;");
 		assertEquals(2, result1.getColumn(1).columnSize());
 		assertEquals(testValues[1][2], result1.getColumn(1).getValue(0));
@@ -187,6 +187,9 @@ public class EmbeddedTest {
 		assertEquals(2, result1.getColumn(1).columnSize());
 		assertEquals(testValues[1][2], result1.getColumn(1).getValue(0));
 		assertEquals(testValues[1][3], result1.getColumn(1).getValue(1));
+		
+		result1.close();
+		result2.close();
 	}
 	
 	@Test
@@ -203,6 +206,9 @@ public class EmbeddedTest {
 		assertEquals(2, result1.getColumn(1).columnSize());
 		assertEquals(testValues[1][2], result1.getColumn(1).getValue(0));
 		assertEquals(testValues[1][3], result1.getColumn(1).getValue(1));
+		
+		result1.close();
+		result2.close();
 	}
 
 	@Test

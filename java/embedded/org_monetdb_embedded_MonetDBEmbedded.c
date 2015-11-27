@@ -13,20 +13,26 @@
 #include "res_table.h"
 #include "mal_type.h"
 
+#include "dlfcn.h"
+
 bool running = false;
 char *runningDirectory;
 
 JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapper
-(JNIEnv *env, jobject object, jstring directory, jboolean silent) {
+(JNIEnv *env, jobject object, jstring libDirectoryJava, jstring dbDirectoryJava, jboolean silent) {
 	(void)object;
-	const char *directory_string_tmp = (*env)->GetStringUTFChars(env, directory, 0);
-	char *databaseDirectory = strdup(directory_string_tmp);
-	char libsDirectory[1000];
+	const char *libdir_string_tmp = (*env)->GetStringUTFChars(env, libDirectoryJava, 0);
+	const char *dbdir_string_tmp = (*env)->GetStringUTFChars(env, dbDirectoryJava, 0);
+	char *libsDirectory = strdup(libdir_string_tmp);
+	char *databaseDirectory = strdup(dbdir_string_tmp);
 	unsigned char silent_char = 'n';
 	char *err;
 	jclass exClass = (*env)->FindClass(env, "java/io/IOException");
-	// Release the directory string
-	(*env)->ReleaseStringUTFChars(env, directory, directory_string_tmp);
+	void *dl;
+
+	// Release the directories strings
+	(*env)->ReleaseStringUTFChars(env, libDirectoryJava, libdir_string_tmp);
+	(*env)->ReleaseStringUTFChars(env, dbDirectoryJava, dbdir_string_tmp);
 
 	// Check if we already have a running db
 	if (running) {
@@ -48,8 +54,8 @@ JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrap
 		silent_char = 'y';
 	}
 
-	// XXX: still relying on BINDIR
-	snprintf(libsDirectory, 1000, "%s/../lib", BINDIR);
+	dl = dlopen("libmonetdb5", RTLD_NOW | RTLD_GLOBAL);
+	dlclose(dl);
 	err = monetdb_startup(libsDirectory, databaseDirectory, silent_char);
 	// Checking for errors
 	if (err != NULL) {

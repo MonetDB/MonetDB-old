@@ -17,13 +17,13 @@ import org.monetdb.embedded.result.EmbeddedQueryResult;
 /**
  * Embedded version of MonetDB.
  * Communication between Java and native C is done via JNI.
- * 
- * <br/><strong>Note</strong>: You can have only one embedded MonetDB database running per JVM process.
+ * <br/>
+ * <strong>Note</strong>: You can have only one embedded MonetDB database running per JVM process.
  */
 public class MonetDBEmbedded {
 	static {
 		// Load the embedded library
-		System.loadLibrary("embedded_java");
+//		System.loadLibrary("embedded_java");
 	}
 	/** 
 	 * Flag if the embedded database was already started.
@@ -50,6 +50,7 @@ public class MonetDBEmbedded {
 	 * @param silentFlag Silent flag
 	 */
 	public MonetDBEmbedded(final File databaseDirectory, final boolean silentFlag) {
+		System.loadLibrary("embedded_java");
 		if (!databaseDirectory.isDirectory()) {
 			throw new IllegalArgumentException(databaseDirectory + " is not a directory");
 		}
@@ -75,7 +76,7 @@ public class MonetDBEmbedded {
 	 */
 	public boolean start() throws IOException {
 		if (!running) {
-			if (startupWrapper(databaseDirectory.getAbsolutePath(), silentFlag)){
+			if (startupWrapper(System.getProperty("java.library.path"), databaseDirectory.getAbsolutePath(), silentFlag)){
 				running = true;
 			}
 		}
@@ -102,13 +103,14 @@ public class MonetDBEmbedded {
 	}
 
 	/**
-	 * Start the embedded database up.
+	 * Start the embedded database.
 	 * 
-	 * @param dir Database directory
+	 * @param libsDirectory Libraries directory
+	 * @param dbDirecory Database directory
 	 * @param silent Silent flag
 	 * @return Startup status code
 	 */
-	private native boolean startupWrapper(String dir, boolean silent) throws IOException;
+	private native boolean startupWrapper(String libsDirectory, String dbDirecory, boolean silent) throws IOException;
 
 	/**
 	 * Execute an SQL query in an embedded database.
