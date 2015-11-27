@@ -63,6 +63,8 @@ typedef struct jgedge {
 	int p_r_id; 	//parent child join id
 	int is_processed; 	//Keep state of the edge --> edge is already processed 
 				//and transformed 
+	int need_add_exps; //All exps from rel->exps of this edge need to be added
+			//into the join predicate between patterns
 
 } jgedge; 
 
@@ -103,10 +105,10 @@ rdf_export
 void addJGnode(int *vid, jgraph *jg, void *data, int subjgId, oid soid, oid poid, char *prop, JNodeT type); 
 
 rdf_export 
-void add_undirectedJGedge(int from, int to, operator_type op, jgraph *jg, void *data, JP jp, int rel_id, int p_rel_id);
+void add_undirectedJGedge(int from, int to, operator_type op, jgraph *jg, void *data, JP jp, int rel_id, int p_rel_id, int need_add_exps);
 
 rdf_export
-void add_directedJGedge(int from, int to, operator_type op, jgraph *jg, void *data, JP jp, int rel_id, int p_rel_id);
+void add_directedJGedge(int from, int to, operator_type op, jgraph *jg, void *data, JP jp, int rel_id, int p_rel_id, int need_add_exps);
 
 rdf_export 
 void update_undirectededge_jp(jgraph *jg, int from, int to, JP jp);

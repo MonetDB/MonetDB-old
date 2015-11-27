@@ -482,7 +482,7 @@ int* get_crossedge_apply_orders(jgraph *jg, jgedge **lstEdges, int num){
 		int to = lstEdges[orders[i]]->to;
 		jgnode *fromnode = jg->lstnodes[from];
 		jgnode *tonode = jg->lstnodes[to];
-		printf("Cross edge [%d, %d][P%d -> P%d] [r = %d, p = %d]\n", from, to, fromnode->patternId, tonode->patternId, lstEdges[orders[i]]->r_id, lstEdges[orders[i]]->p_r_id);
+		printf("Cross edge [%d, %d][P%d -> P%d] [r = %d, p = %d][Exp_Need = %d]\n", from, to, fromnode->patternId, tonode->patternId, lstEdges[orders[i]]->r_id, lstEdges[orders[i]]->p_r_id, lstEdges[orders[i]]->need_add_exps);
 	}
 
 	return orders; 
@@ -516,12 +516,13 @@ void _add_jg_node(mvc *c, jgraph *jg, sql_rel *rel, int subjgId, JNodeT t){
 			//running structural recognition process) so that 
 			//we can directly get its oid from TKNR
 			TKNRstringToOid(&poid, &prop); 
-			GDKfree(prop); 
 			assert (poid != BUN_NONE); 
 		}
 	}
 
 	addJGnode(&tmpvid, jg, rel, subjgId, soid, poid, prop, t);
+
+	if (prop) GDKfree(prop); 
 }
 
 /* Example
@@ -567,7 +568,7 @@ list* remove_p_from_proj_exps(mvc *c, list *exps){
  *
  * */
 static
-void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *jg, int new_subjg, int *subjgId, int *level, int tmp_level, sql_rel **node_root){
+void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *jg, int new_subjg, int *subjgId, int *level, int tmp_level, sql_rel **node_root, int *hasOuter){
 
 	switch (rel->op) {
 		case op_right:
@@ -575,7 +576,10 @@ void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *
 			break;
 		case op_left:
 		case op_join:
-			if (rel->op == op_left || rel->op == op_right) printf("[Outter join]\n");
+			if (rel->op == op_left || rel->op == op_right){ 
+				printf("[Outter join]\n");
+				*hasOuter = 1;
+			}
 			else printf("[join]\n"); 
 
 			printf("--- Between %s and %s ---\n", op2string(((sql_rel *)rel->l)->op), op2string(((sql_rel *)rel->r)->op) );		
@@ -584,8 +588,8 @@ void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *
 				*subjgId = *subjgId + 1; 
 			}
 
-			addRelationsToJG(c, rel, rel->l, depth+1, jg, 0, subjgId, level, tmp_level + 1, node_root);
-			addRelationsToJG(c, rel, rel->r, depth+1, jg, 0, subjgId, level, tmp_level + 1, node_root);
+			addRelationsToJG(c, rel, rel->l, depth+1, jg, 0, subjgId, level, tmp_level + 1, node_root, hasOuter);
+			addRelationsToJG(c, rel, rel->r, depth+1, jg, 0, subjgId, level, tmp_level + 1, node_root, hasOuter);
 
 			break; 
 		case op_select: 
@@ -599,7 +603,7 @@ void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *
 				_add_jg_node(c, jg, (sql_rel *) rel, *subjgId, JN_REQUIRED);
 			}
 			else{	//This is the connect to a new join sg
-				addRelationsToJG(c, rel, rel->l, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root);
+				addRelationsToJG(c, rel, rel->l, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root, hasOuter);
 			}
 			break; 
 		case op_basetable:
@@ -616,9 +620,9 @@ void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *
 			rel->exps = remove_p_from_proj_exps(c, rel->exps); 
 			
 			if (rel->l) 
-				addRelationsToJG(c, rel, rel->l, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root); 
+				addRelationsToJG(c, rel, rel->l, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root, hasOuter); 
 			if (rel->r)
-				addRelationsToJG(c, rel, rel->r, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root); 
+				addRelationsToJG(c, rel, rel->r, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root, hasOuter); 
 			break; 
 		case op_union:
 			printf("[union] ==> Handling differently\n"); 
@@ -629,9 +633,9 @@ void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *
 		default:
 			printf("[%s]\n", op2string(rel->op)); 
 			if (rel->l) 
-				addRelationsToJG(c, rel, rel->l, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root); 
+				addRelationsToJG(c, rel, rel->l, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root, hasOuter); 
 			if (rel->r)
-				addRelationsToJG(c, rel, rel->r, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root); 
+				addRelationsToJG(c, rel, rel->r, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root, hasOuter); 
 			break; 
 			
 	}
@@ -857,6 +861,20 @@ int have_same_subj(jgraph *jg, int from, int to){
 	else return 0; 
 }
 
+static
+void connect_same_subj_node(jgraph *jg){
+	int nnode = jg->nNode; 
+
+	for (int from = 0; from < nnode; from++){
+		for (int to = (from + 1); to < nnode; to++){
+			if (have_same_subj(jg, from, to) == 1){
+				JP tmpjp = JP_S;
+				add_undirectedJGedge(from, to, op_join, jg, NULL, tmpjp, -1, -1, 0);
+			}
+		}
+	}
+}
+
 /*
  * Input: sql_rel with op == op_join, op_left or op_right
  * */
@@ -865,6 +883,7 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 
 	sql_exp *tmpexp;
 	list *tmpexps; 
+	int need_add_exps = 0; 
 
 	assert(rel->op == op_join || rel->op == op_left || rel->op == op_right); 
 	tmpexps = rel->exps;
@@ -888,8 +907,45 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 
 				//About the case "oid[s14_t4.o] < sys.sql_add(s14_t3.o, oid "120@0")"
 				//e.g., q5 bsbm, just ignore
-				if (l->type != e_column && r->type != e_column) continue; 
+				if (l->type != e_column && r->type != e_column){
+					JP tmpjp = JP_NAV;
+					sql_exp *tmp = NULL; 
+					list *lst = NULL;
+					node *tmpen = NULL; 
 
+					(void) tmpjp;
+					assert(l->type == e_convert); 
+					assert(r->type == e_func);
+
+				        lst = r->l;
+					tmpen = lst->h; 
+				        
+					//There can be two parameters in the list, however, we only need to check 
+					//the first one --> s14_t3.o in the example
+					tmp = (sql_exp *) tmpen->data;
+					
+					assert(tmp->type == e_column); 
+
+					from = rname_to_nodeId(nm, ((sql_exp *)l->l)->rname); 
+					
+					to = rname_to_nodeId(nm, tmp->rname); 
+
+					assert(rel->op == op_join); 
+					
+					printf("Add edge between patterns from node %d to node %d\n", from, to); 
+					if (need_add_exps == 0){
+						need_add_exps = 1; 
+						add_undirectedJGedge(from, to, rel->op, jg, rel, tmpjp, rel_id, p_rel_id, 1);
+					} else {
+						add_undirectedJGedge(from, to, rel->op, jg, rel, tmpjp, rel_id, p_rel_id, 0);
+					}
+
+					continue; 
+
+				}
+				
+
+				//For normal case 
 				assert(l->type == e_column);
 				assert(r->type == e_column); 
 				printf("Join: [Table]%s.[Column]%s == [Table]%s.[Column]%s \n", l->rname, l->name, r->rname, r->name);
@@ -900,12 +956,12 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 					JP tmpjp = JP_NAV; 
 					get_jp(l->name, r->name, &tmpjp); 
 					printf("Join predicate = %d\n", tmpjp); 
-					if (rel->op == op_join) add_undirectedJGedge(from, to, rel->op, jg, rel, tmpjp, rel_id, p_rel_id);
+					if (rel->op == op_join) add_undirectedJGedge(from, to, rel->op, jg, rel, tmpjp, rel_id, p_rel_id, 0);
 					if (rel->op == op_left){ 
-						add_directedJGedge(from, to, op_left, jg, rel, tmpjp, rel_id, p_rel_id);
+						add_directedJGedge(from, to, op_left, jg, rel, tmpjp, rel_id, p_rel_id, 0);
 					}
 					if (rel->op == op_right){ 
-						add_directedJGedge(from, to, op_right, jg, rel, tmpjp, rel_id, p_rel_id);
+						add_directedJGedge(from, to, op_right, jg, rel, tmpjp, rel_id, p_rel_id, 0);
 					}
 					isConnect[from][to] = 1;  
 				}
@@ -933,8 +989,8 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 					if (have_same_subj(jg, from, to) == 1){
 						tmpjg = JP_S; 
 					}
-					if (rel->op == op_join) add_undirectedJGedge(from, to, rel->op, jg, rel, tmpjg, rel_id, p_rel_id);
-					else if (rel->op == op_left)	add_directedJGedge(from, to, op_left, jg, rel, tmpjg, rel_id, p_rel_id);
+					if (rel->op == op_join) add_undirectedJGedge(from, to, rel->op, jg, rel, tmpjg, rel_id, p_rel_id, 0);
+					else if (rel->op == op_left)	add_directedJGedge(from, to, op_left, jg, rel, tmpjg, rel_id, p_rel_id, 0);
 					else assert(0);	//Other case is not handled yet
 					
 					printf("From: %d To %d\n", from, to); 
@@ -966,7 +1022,7 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 
 		if (have_same_subj(jg, from, to) == 1){
 			printf("Connect to nodes having known subjects\n"); 
-			add_undirectedJGedge(from, to, rel->op, jg, rel, tmpjp, rel_id, p_rel_id);
+			add_undirectedJGedge(from, to, rel->op, jg, rel, tmpjp, rel_id, p_rel_id, 0);
 		}
 	}
 
@@ -1443,6 +1499,11 @@ void get_predicate_from_exps(mvc *c, list *tmpexps, char **prop, char **subj, in
 		sql_exp *colexp = NULL;
 
 		assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
+
+		if (tmpexp->flag != cmp_equal) {
+			printf("CANNOT get predicate/subj info from non-equal comparasion\n"); 
+			continue; 
+		}
 		
 		//Example: [s12_t0.p = oid[sys.rdf_strtoid(char(67) "<http://www/product>")], s12_t0.o = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
 		assert(((sql_exp *)tmpexp->l)->type == e_convert); 
@@ -2653,8 +2714,10 @@ sql_rel* build_rdfscan (mvc *c, jgraph *jg, int tId, int ncol, int nijgroup, int
 
 #endif
 
+
+
 static
-void tranforms_join_exps(mvc *c, sql_rel *r, list *sp_edge_exps, int is_outer_join){
+void tranforms_join_exps(mvc *c, sql_rel *r, list *sp_edge_exps, int is_outer_join, int need_add_exps){
 
 	node *en; 
 	list *tmp_exps = NULL; 
@@ -2673,6 +2736,14 @@ void tranforms_join_exps(mvc *c, sql_rel *r, list *sp_edge_exps, int is_outer_jo
 
 			l = tmpexp->l; 
 			r = tmpexp->r; 
+
+			//For case of q5 bsbm
+			if (l->type != e_column && r->type != e_column && need_add_exps == 1){
+				sql_exp *m_exp = exp_copy(c->sa, tmpexp);	
+				append(sp_edge_exps, m_exp);
+				continue; 
+			}
+
 			assert(l->type == e_column);
 			assert(r->type == e_column); 
 
@@ -2705,8 +2776,8 @@ void build_exps_from_join_jgedge(mvc *c, jgedge *edge, list *sp_edge_exps, opera
 
 	sprintf(tmp, "Expression of edge [%d,%d] \n", edge->from, edge->to);
 	exps_print_ext(c, tmpjoin->exps, 0, tmp);
-	if (is_combine_ij) tranforms_join_exps(c, tmpjoin,sp_edge_exps, 1);
-	else tranforms_join_exps(c, tmpjoin,sp_edge_exps, 0);
+	if (is_combine_ij) tranforms_join_exps(c, tmpjoin,sp_edge_exps, 1, 0);
+	else tranforms_join_exps(c, tmpjoin,sp_edge_exps, 0, 0);
 	exps_print_ext(c, sp_edge_exps, 0, "Update expression:");
 
 	if (tmpjoin->op != op_join) //May be op_left, op_right	
@@ -2835,7 +2906,13 @@ void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_c
 		spId2 = n2->patternId; 
 
 		if (gr_rep_id[spId1] == gr_rep_id[spId2]){
-			printf("Already belong to the same group. Do not apply cross edges [%d,%d]\n",edge->from,edge->to);
+			if (edge->need_add_exps == 1){ //Handling special case for q5 bsbm
+				int cre_id = sp_cre_map[spId1];
+				assert(sp_cre_map[spId1] == sp_cre_map[spId2]); 
+				tranforms_join_exps(c, edge->data, lst_cross_edge_rels[cre_id]->exps, 0, 1);
+			} else {
+				printf("Already belong to the same group. Do not apply cross edges [%d,%d]\n",edge->from,edge->to);
+			}
 			continue;
 		}
 
@@ -3581,6 +3658,7 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 	sql_rel *node_root = NULL; //Root from that point to sp
 	sql_rel *edge_root = NULL; 
 
+	int hasOuter = 0;  	
 
 	(void) c; 
 	(void) r; 
@@ -3589,7 +3667,13 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 	jg = initJGraph(); 
 	
-	addRelationsToJG(c, NULL, r, depth, jg, 0, &subjgId, &n_start_level, 0, &node_root); 
+	addRelationsToJG(c, NULL, r, depth, jg, 0, &subjgId, &n_start_level, 0, &node_root, &hasOuter); 
+
+	//This hacking is specially for handling 
+	//query without outer join of known subj patterns (e.g., q5 bsbm)
+	if (hasOuter == 0){		
+		connect_same_subj_node(jg); 	
+	}
 
 	nm = create_nMap(MAX_JGRAPH_NODENUMBER); 
 	add_relNames_to_nmap(jg, nm); 
