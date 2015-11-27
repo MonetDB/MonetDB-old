@@ -54,8 +54,6 @@ JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrap
 		silent_char = 'y';
 	}
 
-	dl = dlopen("libmonetdb5", RTLD_NOW | RTLD_GLOBAL);
-	dlclose(dl);
 	err = monetdb_startup(libsDirectory, databaseDirectory, silent_char);
 	// Checking for errors
 	if (err != NULL) {
