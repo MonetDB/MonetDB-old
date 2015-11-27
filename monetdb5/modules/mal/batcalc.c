@@ -206,6 +206,9 @@ calctype(int tp1, int tp2)
 {
 	int tp1s = ATOMbasetype(tp1);
 	int tp2s = ATOMbasetype(tp2);
+	
+	if (tp1 == TYPE_oid && tp2 == TYPE_oid) return TYPE_oid; //RDF only 
+
 	if (tp1s == TYPE_str && tp2s == TYPE_str)
 		return TYPE_str;
 	if (tp1s < TYPE_flt && tp2s < TYPE_flt) {

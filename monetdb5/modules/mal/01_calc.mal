@@ -684,6 +684,10 @@ pattern add_noerror(v1:lng,v2:wrd) :lng
 address CMDvarADD
 comment "Return V1 + V2, overflow causes NIL value";
 
+pattern +(v1:oid,v2:oid) :oid
+address CMDvarADDsignal
+comment "Return V1 + V2, signal error on overflow [RDF only]";
+
 pattern +(v1:lng,v2:lng) :lng
 address CMDvarADDsignal
 comment "Return V1 + V2, signal error on overflow";
@@ -1027,6 +1031,10 @@ comment "Return V1 - V2, signal error on overflow";
 pattern sub_noerror(v1:lng,v2:wrd) :lng
 address CMDvarSUB
 comment "Return V1 - V2, overflow causes NIL value";
+
+pattern -(v1:oid,v2:oid) :oid
+address CMDvarSUBsignal
+comment "Return V1 - V2, signal error on overflow [RDF only]";
 
 pattern -(v1:lng,v2:lng) :lng
 address CMDvarSUBsignal
@@ -2805,6 +2813,11 @@ pattern <(v1:str,v2:str) :bit
 address CMDvarLT
 comment "Return V1 < V2";
 
+
+pattern <(v1:oid,v2:lng) :bit
+address CMDvarLT
+comment "Return V1 < V2 [RDF only]";
+
 pattern <(v1:oid,v2:oid) :bit
 address CMDvarLT
 comment "Return V1 < V2";
@@ -3222,6 +3235,11 @@ comment "Return V1 > V2";
 pattern >(v1:str,v2:str) :bit
 address CMDvarGT
 comment "Return V1 > V2";
+
+
+pattern >(v1:oid,v2:lng) :bit
+address CMDvarGT
+comment "Return V1 > V2 [RDF only]";
 
 pattern >(v1:oid,v2:oid) :bit
 address CMDvarGT

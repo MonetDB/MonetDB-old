@@ -2608,6 +2608,45 @@ pattern add_noerror(v:lng,b:bat[:oid,:wrd],s:bat[:oid,:oid]) :bat[:oid,:lng]
 address CMDbatADD
 comment "Return V + B with candidates list, overflow causes NIL value";
 
+
+pattern +(b1:bat[:oid,:oid],b2:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatADDsignal
+comment "Return B1 + B2, signal error on overflow [RDF only]";
+pattern +(b1:bat[:oid,:oid],b2:bat[:oid,:oid],s:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatADDsignal
+comment "Return B1 + B2 with candidates list, signal error on overflow [RDF only]";
+pattern add_noerror(b1:bat[:oid,:oid],b2:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatADD
+comment "Return B1 + B2, overflow causes NIL value [RDF only]";
+pattern add_noerror(b1:bat[:oid,:oid],b2:bat[:oid,:oid],s:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatADD
+comment "Return B1 + B2 with candidates list, overflow causes NIL value [RDF only]";
+pattern +(b:bat[:oid,:oid],v:oid) :bat[:oid,:oid]
+address CMDbatADDsignal
+comment "Return B + V, signal error on overflow [RDF only]";
+pattern +(b:bat[:oid,:oid],v:oid,s:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatADDsignal
+comment "Return B + V with candidates list, signal error on overflow [RDF only]";
+pattern add_noerror(b:bat[:oid,:oid],v:oid) :bat[:oid,:oid]
+address CMDbatADD
+comment "Return B + V, overflow causes NIL value [RDF only]";
+pattern add_noerror(b:bat[:oid,:oid],v:oid,s:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatADD
+comment "Return B + V with candidates list, overflow causes NIL value [RDF only]";
+pattern +(v:oid,b:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatADDsignal
+comment "Return V + B, signal error on overflow [RDF only]";
+pattern +(v:oid,b:bat[:oid,:oid],s:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatADDsignal
+comment "Return V + B with candidates list, signal error on overflow [RDF only]";
+pattern add_noerror(v:oid,b:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatADD
+comment "Return V + B, overflow causes NIL value [RDF only]";
+pattern add_noerror(v:oid,b:bat[:oid,:oid],s:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatADD
+comment "Return V + B with candidates list, overflow causes NIL value [RDF only]";
+
+
 pattern +(b1:bat[:oid,:lng],b2:bat[:oid,:lng]) :bat[:oid,:lng]
 address CMDbatADDsignal
 comment "Return B1 + B2, signal error on overflow";
@@ -4421,6 +4460,43 @@ comment "Return V - B, overflow causes NIL value";
 pattern sub_noerror(v:lng,b:bat[:oid,:wrd],s:bat[:oid,:oid]) :bat[:oid,:lng]
 address CMDbatSUB
 comment "Return V - B with candidates list, overflow causes NIL value";
+
+pattern -(b1:bat[:oid,:oid],b2:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatSUBsignal
+comment "Return B1 - B2, signal error on overflow [RDF only]";
+pattern -(b1:bat[:oid,:oid],b2:bat[:oid,:oid],s:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatSUBsignal
+comment "Return B1 - B2 with candidates list, signal error on overflow [RDF only]";
+pattern sub_noerror(b1:bat[:oid,:oid],b2:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatSUB
+comment "Return B1 - B2, overflow causes NIL value [RDF only]";
+pattern sub_noerror(b1:bat[:oid,:oid],b2:bat[:oid,:oid],s:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatSUB
+comment "Return B1 - B2 with candidates list, overflow causes NIL value [RDF only]";
+pattern -(b:bat[:oid,:oid],v:oid) :bat[:oid,:oid]
+address CMDbatSUBsignal
+comment "Return B - V, signal error on overflow [RDF only]";
+pattern -(b:bat[:oid,:oid],v:oid,s:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatSUBsignal
+comment "Return B - V with candidates list, signal error on overflow [RDF only]";
+pattern sub_noerror(b:bat[:oid,:oid],v:oid) :bat[:oid,:oid]
+address CMDbatSUB
+comment "Return B - V, overflow causes NIL value [RDF only]";
+pattern sub_noerror(b:bat[:oid,:oid],v:oid,s:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatSUB
+comment "Return B - V with candidates list, overflow causes NIL value [RDF only]";
+pattern -(v:oid,b:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatSUBsignal
+comment "Return V - B, signal error on overflow [RDF only]";
+pattern -(v:oid,b:bat[:oid,:oid],s:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatSUBsignal
+comment "Return V - B with candidates list, signal error on overflow [RDF only]";
+pattern sub_noerror(v:oid,b:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatSUB
+comment "Return V - B, overflow causes NIL value [RDF only]";
+pattern sub_noerror(v:oid,b:bat[:oid,:oid],s:bat[:oid,:oid]) :bat[:oid,:oid]
+address CMDbatSUB
+comment "Return V - B with candidates list, overflow causes NIL value [RDF only]";
 
 pattern -(b1:bat[:oid,:lng],b2:bat[:oid,:lng]) :bat[:oid,:lng]
 address CMDbatSUBsignal
