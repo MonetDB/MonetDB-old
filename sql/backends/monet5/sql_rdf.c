@@ -1821,7 +1821,7 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 		int tid = -1; 
 	 	oid tmpS = BUN_NONE; 
 
-		if (sbt == (oid)3835096557682764){
+		if (sbt == (oid)1460151441686535){
 			printf("[DEBUG] FOUND THAT SUBJECT HERE\n");
 		}
 		getTblIdxFromS(sbt, &tid, &tmpS);
@@ -1903,7 +1903,7 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 
 
 		//printf("At row "BUNFMT" of table %d for sbt "BUNFMT"...", tmpS, tid, sbt); 
-		if (sbt == (oid)3835096557682764 && accept == 1){
+		if (sbt == (oid)1460151441686535 && accept == 1){
 			printf("[DEBUG2] THAT SUBJECT IS ACCEPTED\n");
 		}
 
@@ -2061,6 +2061,7 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 			BATprint_topn(m_obats[i], 5); 
 		}
 		//BATprint(m_sbat); 
+		if (0)
 		if ((*nP) > 2){
 		
 			oid *s_curs = (oid *) Tloc(m_sbat, BUNfirst(m_sbat));

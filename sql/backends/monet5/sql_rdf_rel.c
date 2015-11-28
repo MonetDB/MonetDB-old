@@ -89,7 +89,7 @@ rdf_rel_simple_combine_with_optional_cols(sql_allocator *sa, sql_rel *rel1_orig,
 	for (e = old_base1->h; e; e=e->next){
 		sql_exp *tmpexp = (sql_exp *) e->data; 
 		sql_exp *newexp = NULL;
-		assert(tmpexp->type == e_column); 
+		assert(tmpexp->type == e_column || tmpexp->type == e_atom); 
 
 		newexp = exp_copy(sa, tmpexp); 
 		append(new_base_exps, newexp); 
@@ -99,7 +99,7 @@ rdf_rel_simple_combine_with_optional_cols(sql_allocator *sa, sql_rel *rel1_orig,
 	for (e = old_base2->h; e; e=e->next){
 		sql_exp *tmpexp = (sql_exp *) e->data; 
 		sql_exp *newexp = NULL; 
-		assert(tmpexp->type == e_column); 
+		assert(tmpexp->type == e_column || tmpexp->type == e_atom); 
 
 		newexp = exp_copy(sa, tmpexp); 
 		append(new_base_exps, newexp); 

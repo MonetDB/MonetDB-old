@@ -1709,6 +1709,65 @@ void get_transform_dummy_select_exps(mvc *c, list *exps, list *trans_select_exps
 }
 #endif
 
+/*
+ * If there is a missing column in the rel 
+ * (this only happens to the rel of optional pattern group)
+ * then create rel of null columns
+ * e.g., select s11.s, null as s11.o from t
+ * */
+static
+void create_null_exps(mvc *c, sql_rel *r, list *trans_tbl_exps, list *opt_exps, list *sp_prj_exps, str tblname){
+
+	list *tmp_tbl_exps = NULL; 
+	sql_allocator *sa = c->sa; 
+	sql_rel *tbl_rel = NULL;
+	
+	
+	/*
+	 * Change the list of column from base table
+	 * */
+	assert (((sql_rel *)r->l)->op == op_basetable);
+	tbl_rel = (sql_rel *)r->l;
+	tmp_tbl_exps = tbl_rel->exps; 
+	
+	if (tmp_tbl_exps){
+		node *en; 
+		for (en = tmp_tbl_exps->h; en; en = en->next){
+			sql_exp *tmpexp = (sql_exp *) en->data;
+			assert(tmpexp->type == e_column); 
+			if (strcmp(tmpexp->name, "o") == 0){
+
+				//New e with old alias
+				sql_exp *opt_e = NULL; 
+				sql_exp *proj_e = NULL; 
+				sql_exp *exp_null = exp_atom(sa, atom_general(sa, exp_subtype(tmpexp), NULL));
+				exp_setname(sa, exp_null, tmpexp->rname, tmpexp->name);
+				append(trans_tbl_exps, exp_null); 
+				opt_e = exp_copy(sa, exp_null); 
+				proj_e = exp_copy(sa, exp_null); 
+				append(opt_exps, opt_e); 
+				if (sp_prj_exps) append(sp_prj_exps, proj_e);
+			}
+
+			if (strcmp(tmpexp->name, "s") == 0){
+				//New e with old alias
+				char subj_colname[50] = "subject";
+				str origcolname = GDKstrdup(subj_colname);
+				str origtblname = GDKstrdup(tblname);
+				sql_column *tmpcol = get_rdf_column(c, origtblname, origcolname);
+				sql_exp *e = exp_alias(sa, tmpexp->rname, tmpexp->name, origtblname, origcolname, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
+				sql_exp *proj_e = exp_alias(sa, tmpexp->rname, tmpexp->name, tmpexp->rname, tmpexp->name, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
+				sql_exp *opt_e = exp_copy(sa, proj_e); 
+
+				append(trans_tbl_exps, e); 
+				append(opt_exps, opt_e);
+				if (sp_prj_exps) append(sp_prj_exps, proj_e);
+			}
+
+		}
+	}
+}
+
 static
 void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl_exps, str tblname, int colIdx, oid tmpPropId, str *atblname, str *asubjcolname, list *sp_prj_exps, list *base_column_exps, int isOptionalGroup){
 
@@ -1954,7 +2013,25 @@ void get_matching_tbl_from_spprops(int **rettbId, spProps *spprops, int *num_mat
 	int numtbl = 0; 	
 	str tblname; 
 
-	get_sorted_distinct_set(spprops->lstPropIds, &lstprop, spprops->num, &num);
+	oid *tmplst = NULL;
+	int tmpnum = 0;
+
+	tmplst = (oid *) malloc(sizeof(oid) * spprops->num); 
+	for (i = 0; i < spprops->num; i++){
+		#if GETMATCHING_TBL_BY_RP_ONLY
+		if (spprops->lstPOs[i] == REQUIRED){
+			tmplst[tmpnum] = spprops->lstPropIds[i];
+			tmpnum++;
+		}
+		#else
+		tmplst[tmpnum] = spprops->lstPropIds[i];
+		tmpnum++;
+		#endif
+	} 
+
+	get_sorted_distinct_set(tmplst, &lstprop, tmpnum, &num);
+
+	free(tmplst); 
 
 	if (spprops->subj != BUN_NONE){
 		int tblIdx;
@@ -2356,7 +2433,7 @@ void append_sp_opt_proj_exps(sql_allocator *sa, list *opt_col_exps, list *sp_opt
  *  - sp_prj_exps stores all the columns should be selected in the "original order" 
  * */
 static
-sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int nnode, list *sp_prj_exps, list *sp_opt_proj_exps, int *is_contain_mv, int isOptionalGroup){
+sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int nnode, list *sp_prj_exps, list *sp_opt_proj_exps, int *is_contain_mv, int isOptionalGroup, int *contain_missing_prop){
 
 	sql_rel *rel = NULL;
 	str tblname; 
@@ -2372,7 +2449,8 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 	int num_mv_col = 0;
 	int i; 
 	int has_nonMV_col = 0; 
-
+	int missingcol = 0; 	//[Happen only with optional group] a column is missing
+	
 	list *base_column_exps = NULL; 
 	list *opt_exps = NULL; 
 
@@ -2412,32 +2490,46 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 	
 		colIdx = getColIdx_from_oid(tId, global_csset, tmpPropId);
 
-		//Check whether the column is multi-valued prop
-		isMVcol = isMVCol(tId, colIdx, global_csset);
-
-		if (isMVcol == 0){
-			tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname, sp_prj_exps, base_column_exps, isOptionalGroup); 
-			has_nonMV_col=1; 
+		//If the column is not there, it can only happen for
+		//optional group
+		if (colIdx == -1) {
+			assert(isOptionalGroup == 1); 
+			missingcol = 1; 
+			has_nonMV_col = 1; 
+			isMVcol = 0; 
 		}
-		else{
-			printf("Table %d, column %d is multi-valued prop\n", tId, colIdx);
-			assert (mvPropRels[i].mvrel == NULL); 
-			tranforms_mvprop_exps(c, tmprel, &(mvPropRels[i]), tId, tblnameoid, colIdx, tmpPropId, isMVcol, sp_prj_exps, base_column_exps);
-			num_mv_col++;
 
-			//rel_print(c, mvPropRels[i].mvrel, 0);
-			//rel_print(c, mvPropRels[i].mvrel, 0);
-			//rel_print(c, mvPropRels[i].mvrel, 0);
-			//rel_print(c, mvPropRels[i].mvrel, 0);
+		if (missingcol == 1){
+			create_null_exps(c, tmprel, trans_table_exps, opt_exps, sp_prj_exps, tblname); 
+		}
+		else {
+			//Check whether the column is multi-valued prop
+			isMVcol = isMVCol(tId, colIdx, global_csset);
+
+			if (isMVcol == 0){
+				tranforms_exps(c, tmprel, trans_select_exps, trans_table_exps, tblname, colIdx, tmpPropId, &atblname, &asubjcolname, sp_prj_exps, base_column_exps, isOptionalGroup); 
+				has_nonMV_col=1; 
+			}
+			else{
+				printf("Table %d, column %d is multi-valued prop\n", tId, colIdx);
+				assert (mvPropRels[i].mvrel == NULL); 
+				tranforms_mvprop_exps(c, tmprel, &(mvPropRels[i]), tId, tblnameoid, colIdx, tmpPropId, isMVcol, sp_prj_exps, base_column_exps);
+				num_mv_col++;
+
+				//rel_print(c, mvPropRels[i].mvrel, 0);
+				//rel_print(c, mvPropRels[i].mvrel, 0);
+				//rel_print(c, mvPropRels[i].mvrel, 0);
+				//rel_print(c, mvPropRels[i].mvrel, 0);
+			}
 		}
 	}
 	
+
+
 	sprintf(tmp, "[Real Pattern] after grouping: "); 
 	exps_print_ext(c, trans_select_exps, 0, tmp);
 	sprintf(tmp, "  Base table expression: \n"); 
 	exps_print_ext(c, trans_table_exps, 0, tmp);	
-
-
 
 	rel_basetbl = rel_basetable(c, get_rdf_table(c,tblname), tblname); 
 
@@ -2445,8 +2537,12 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 	
 	if (has_nonMV_col) rel_wo_mv = rel_select_copy(c->sa, rel_basetbl, trans_select_exps); 
 
+	if (missingcol == 1){ //Return the rel with null in the column list
+		*contain_missing_prop = 1; 
+		*is_contain_mv = 0; 
+	}
 	
-	if (num_mv_col > 0){
+	if (num_mv_col > 0){	//missingcol == 0
 		*is_contain_mv = 1; 
 		rel = connect_sp_select_and_mv_prop(c, rel_wo_mv, mvPropRels, tblname, atblname, asubjcolname, nnode); 
 
@@ -2455,8 +2551,10 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 	else{
 		*is_contain_mv = 0;
 		rel = rel_wo_mv; 
-
-		opt_exps = create_optional_exps(c, base_column_exps, isOptionalGroup, 0);
+		
+		if (missingcol == 0){ //in case missingcol == 1, opt_exps has been created
+			opt_exps = create_optional_exps(c, base_column_exps, isOptionalGroup, 0);
+		}
 			
 		printf("OPTIONAL Expressions\n");
 		exps_print_ext(c, opt_exps, 0, NULL); 
@@ -3155,6 +3253,7 @@ sql_rel* _group_star_pattern_for_single_table(mvc *c, jgraph *jg,
 	sql_rel *tbl_m_rel = NULL; 
 	int is_contain_mv = 0; 
 	int *ingroup_contain_mv = NULL; sql_rel *tmprel_rdfscan = NULL; 
+	int *contain_missing_prop = NULL; 
 
 	*sp_proj_exps = new_exp_list(c->sa);
 	*sp_opt_proj_exps = new_exp_list(c->sa);
@@ -3165,14 +3264,17 @@ sql_rel* _group_star_pattern_for_single_table(mvc *c, jgraph *jg,
 	ijrels = (sql_rel **) malloc(sizeof(sql_rel*) * nijgroup);
 	edge_ijrels = (sql_rel **) malloc(sizeof(sql_rel*) * (nijgroup - 1));
 	ingroup_contain_mv  = (int *) malloc(sizeof(int) * nijgroup); 
+	contain_missing_prop = (int *) malloc(sizeof(int) * nijgroup); 
 	
 	for (i = 0; i < nijgroup; i++){
 		int isOptionalGroup = 0;
 
 		ingroup_contain_mv[i] = 0;
+		contain_missing_prop[i] = 0; 
+
 		if (i > 0) isOptionalGroup = 1;
 		ingroup_contain_mv[i] = 0;
-		ijrels[i] = transform_inner_join_subjg (c, jg, tId, ijgroup[i], nnodes_per_ijgroup[i], *sp_proj_exps, *sp_opt_proj_exps, &(ingroup_contain_mv[i]), isOptionalGroup);
+		ijrels[i] = transform_inner_join_subjg (c, jg, tId, ijgroup[i], nnodes_per_ijgroup[i], *sp_proj_exps, *sp_opt_proj_exps, &(ingroup_contain_mv[i]), isOptionalGroup, &(contain_missing_prop[i]));
 		if (ingroup_contain_mv[i]){
 			 is_contain_mv = 1;
 		}
@@ -3447,6 +3549,15 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 
 		}
 
+		ijgroup = get_inner_join_groups_in_sp_group(jg, group, nnode, &nijgroup, &nnodes_per_ijgroup);
+
+		//TODO: Add a function update_Require_Optional_prop() 
+		//to specify which prop is optional, which is required, and o_contrains
+			
+		update_RP_and_O_constraint(c, jg, ijgroup[0], nnodes_per_ijgroup[0], spprops); 
+
+		print_spprops(spprops);
+	
 		get_matching_tbl_from_spprops(&tmptbId, spprops, &num_match_tbl);
 
 		printf("Number of matching table is: %d\n", num_match_tbl);
@@ -3457,15 +3568,6 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 		
 		sp_opt_proj_exps = (list **) malloc(sizeof(list *) * num_match_tbl);
 
-		ijgroup = get_inner_join_groups_in_sp_group(jg, group, nnode, &nijgroup, &nnodes_per_ijgroup);
-
-		//TODO: Add a function update_Require_Optional_prop() 
-		//to specify which prop is optional, which is required, and o_contrains
-			
-		update_RP_and_O_constraint(c, jg, ijgroup[0], nnodes_per_ijgroup[0], spprops); 
-	
-
-		print_spprops(spprops);
 
 
 		//num_match_tbl = 1; 

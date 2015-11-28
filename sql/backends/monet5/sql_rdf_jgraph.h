@@ -84,7 +84,7 @@ typedef struct mvProp{
 	//list *mvjoinexps; 	//expression for the join with main table	
 } mvPropRel; 		
 
-
+#define GETMATCHING_TBL_BY_RP_ONLY 1
 
 rdf_export
 void buildJoinGraph(mvc *c, sql_rel *r, int depth); 
