@@ -2338,8 +2338,10 @@ void getSlides_per_P(PsoPropStat *pso_pstat, oid *p, oid lo_cst, oid hi_cst, BAT
 		#endif
 		(*ret_sBat)->tsorted = true;
 	} else {
-		*ret_oBat = NULL;
-		*ret_sBat = NULL; 
+		//*ret_oBat = NULL;
+		//*ret_sBat = NULL; 
+		*ret_oBat = BATnew(TYPE_void, TYPE_oid, 0, TRANSIENT);
+		*ret_sBat = BATnew(TYPE_void, TYPE_oid, 0, TRANSIENT);
 	}
 
 }

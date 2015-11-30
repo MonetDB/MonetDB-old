@@ -1314,6 +1314,24 @@ void free_sp_props(spProps *spprops){
 	GDKfree(spprops); 
 }
 
+
+static
+sql_exp* get_atom_oid(mvc *c, sql_exp *re){
+	oid newoid; 
+	atom *at = re->l;
+	sql_exp *newre = NULL; 
+
+	newoid = BUN_NONE; 
+	assert(at != NULL); 
+
+	printf("Atom expression \n");
+	exp_print(c, THRdata[0] , re, 0,0,0);
+
+	get_encodedOid_from_atom(at, &newoid);
+	newre = exp_atom_oid(c->sa, newoid);
+
+	return newre; 
+}
 /*
  * Get column name from exp of p in a sql_rel
  * Example: s12_t0.p = oid[sys.rdf_strtoid(char(67) "<http://www/product>")]
@@ -1339,8 +1357,7 @@ void get_col_name_from_p (char **col, char *p){
  * UPDATE: 
  * As everything will be stored as oid, we have to remove 
  *
- * */
-
+ * */		
 
 static
 void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, char *_arname, char *_aname, int update_e_convert, int dummy_exps){
@@ -1372,36 +1389,26 @@ void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, char *_a
 	m_exp->l = ne; 
 	
 	if (update_e_convert){
-		sql_exp *newle = NULL;
+		sql_exp *newre = NULL;
 		sql_column *col = get_rdf_column(c, rname, name);
 		sql_subtype totype = col->type;
 		sql_exp *re = m_exp->r;
-		oid newoid; 
 		(void) re;
-		(void) newoid; 
 		(void) totype; 
 		assert(le->type == e_convert && ne); 
 		
 		#if EVERYTHING_AS_OID
 		//first: Convert the compared value into oid
-		newoid = BUN_NONE; 
 		if (re->type == e_atom){
-			atom *at = re->l;
-			assert(at != NULL); 
-
-			printf("Atom expression \n");
-			exp_print(c, THRdata[0] , re, 0,0,0);
-
-			get_encodedOid_from_atom(at, &newoid);
-			newle = exp_atom_oid(c->sa, newoid);
+			newre = get_atom_oid(c, re);
 		} else {
-			newle = exp_convert(c->sa, m_exp->r, exp_fromtype(le), &totype);	
+			newre = exp_convert(c->sa, m_exp->r, exp_fromtype(le), &totype);	
 		}
 		#else
-		newle = exp_convert(c->sa, m_exp->r, exp_fromtype(le), &totype);
+		newre = exp_convert(c->sa, m_exp->r, exp_fromtype(le), &totype);
 		#endif
 
-		m_exp->r = newle; 
+		m_exp->r = newre; 
 
 	}
 
@@ -3441,6 +3448,21 @@ add_spprops_exps(mvc *c, list *retexps, list *exps){
 
 		} else if (strcmp(e->name, "o") == 0){
 			sql_exp *m_exp = exp_copy(sa, tmpexp);
+			sql_exp *re = (sql_exp *)m_exp->r; 
+			sql_exp *le = (sql_exp *)m_exp->l; 
+			sql_exp *cole = NULL; 
+			assert(le->type == e_convert); 
+
+			cole = le->l; 
+
+			if (re->type == e_atom){
+				sql_exp *newre = get_atom_oid(c, re);
+				m_exp->r = newre;
+				assert(cole->type == e_column);
+				m_exp->l = cole; 
+			}
+			
+
 			//append this exp to list
 			append(retexps, m_exp);
 
