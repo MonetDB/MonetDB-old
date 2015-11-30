@@ -1779,7 +1779,8 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 
 				setVarType(mb, getArg(q, 0), TYPE_ptr);
 				setVarUDFtype(mb, getArg(q, 0));
-				q = pushReturn(mb, q, newTmpVariable(mb, newBatType(TYPE_oid, TYPE_oid)));
+//				if(s->type == st_join2)
+//					q = pushReturn(mb, q, newTmpVariable(mb, newBatType(TYPE_oid, TYPE_oid)));
 				q = pushArgument(mb, q, l); //all the dimensions
 				q = pushArgument(mb, q, arraySecondVar); //the current dimension
 			} else 
@@ -1821,16 +1822,14 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 				q = pushBit(mb, q, TRUE);
 				break;
 			}
-			if (s->type == st_join2)
+			if (s->type == st_join2) {
 				q = pushNil(mb, q, TYPE_lng); /* estimate */
+			}
 			if (s->type == st_uselect2) {
 				q = pushBit(mb, q, anti);
 				if (q == NULL)
 					return -1;
 				s->nr = getDestVar(q);
-				if(arraySecondVar >= 0)//two inputs -> two outputs
-					renameVariable(mb, getArg(q, 1), "Y_%d", s->nr);
-
 				break;
 			}
 			if (q == NULL)
