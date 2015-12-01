@@ -23,7 +23,7 @@ import org.monetdb.embedded.result.EmbeddedQueryResult;
 public class MonetDBEmbedded {
 	static {
 		// Load the embedded library
-//		System.loadLibrary("embedded_java");
+		System.loadLibrary("embedded_java");
 	}
 	/** 
 	 * Flag if the embedded database was already started.
@@ -50,7 +50,6 @@ public class MonetDBEmbedded {
 	 * @param silentFlag Silent flag
 	 */
 	public MonetDBEmbedded(final File databaseDirectory, final boolean silentFlag) {
-		System.loadLibrary("embedded_java");
 		if (!databaseDirectory.isDirectory()) {
 			throw new IllegalArgumentException(databaseDirectory + " is not a directory");
 		}
