@@ -14,6 +14,8 @@ import java.sql.SQLException;
 
 import org.monetdb.embedded.result.EmbeddedQueryResult;
 
+import nl.cwi.monetdb.jdbc.MonetDBEmbeddedStatement;
+
 /**
  * Embedded version of MonetDB.
  * Communication between Java and native C is done via JNI.
@@ -99,6 +101,10 @@ public class MonetDBEmbedded {
 			queryString = queryString + ";";
 		}
 		return queryWrapper(queryString);
+	}
+	
+	public MonetDBEmbeddedStatement createStatement() throws SQLException {
+		return new MonetDBEmbeddedStatement(this);
 	}
 
 	/**

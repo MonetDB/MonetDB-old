@@ -17,10 +17,10 @@ import org.monetdb.embedded.result.EmbeddedQueryResult;
  * This class overrides {@link nl.cwi.monetdb.jdbc.MonetResultSet} to allow for handling embedded query results.
  * It needs to be in the {@code nl.cwi.monetdb.jdbc} module to access the constructor.
  */
-public class MonetDBResultSet extends MonetResultSet {
+public class MonetDBEmbeddedResultSet extends MonetResultSet {
 	private final EmbeddedQueryResult resultSet;
 
-	public MonetDBResultSet(EmbeddedQueryResult resultSet) {
+	public MonetDBEmbeddedResultSet(EmbeddedQueryResult resultSet) {
 		super(resultSet.getColumnNames(), resultSet.getColumnTypes(), resultSet.getNumberOfColumns());
 		this.resultSet = resultSet;
 	}
@@ -28,7 +28,6 @@ public class MonetDBResultSet extends MonetResultSet {
 	@Override
 	public String getString(int columnIndex) throws SQLException {
 		String ret = resultSet.getColumn(columnIndex).getValue(curRow).toString();
-//		String ret = tlp.values[columnIndex - 1];
 		lastColumnRead = columnIndex - 1;
 		return ret;
 	}
@@ -40,6 +39,5 @@ public class MonetDBResultSet extends MonetResultSet {
 		} catch (IOException e) {
 			// can't throw an exception now
 		}
-		super.close();
 	}
 }

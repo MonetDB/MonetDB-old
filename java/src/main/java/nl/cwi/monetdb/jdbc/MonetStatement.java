@@ -90,8 +90,9 @@ public class MonetStatement extends MonetWrapper implements Statement {
 		int resultSetHoldability)
 		throws SQLException, IllegalArgumentException
 	{
-		if (connection == null) throw
-			new IllegalArgumentException("No Connection given!");
+		if (connection == null) {
+			addWarning("No Connection given!", "01000");
+		}
 
 		this.connection = connection;
 		this.resultSetType = resultSetType;
@@ -489,7 +490,7 @@ public class MonetStatement extends MonetWrapper implements Statement {
 	 *         it is an update count or there are no results
 	 * @throws SQLException if a database access error occurs
 	 */
-	private boolean internalExecute(String sql) throws SQLException {
+	protected boolean internalExecute(String sql) throws SQLException {
 		// close previous query, if not closed already
 		if (lastResponseList != null) {
 			lastResponseList.close();

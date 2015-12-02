@@ -14,7 +14,7 @@ import java.util.Iterator;
 
 import org.monetdb.embedded.result.column.Column;
 
-import nl.cwi.monetdb.jdbc.MonetDBResultSet;
+import nl.cwi.monetdb.jdbc.MonetDBEmbeddedResultSet;
 import nl.cwi.monetdb.jdbc.MonetResultSet;
 
 /**
@@ -128,12 +128,12 @@ public class EmbeddedQueryResult implements Closeable, Iterable<Column<?>> {
 	private native Column<?> getColumnWrapper(long resultPointerWrapper, int index);
 
 	/**
-	 * Get the results set as a JDBC ({@link nl.cwi.monetdb.jdbc.MonetDBResultSet}) results set.
+	 * Get the results set as a JDBC ({@link nl.cwi.monetdb.jdbc.MonetDBEmbeddedResultSet}) results set.
 	 * 
 	 * @return The result set
 	 */
 	public MonetResultSet getJDBCResultSet() {
-		return new MonetDBResultSet(this);
+		return new MonetDBEmbeddedResultSet(this);
 	}
 
 	@Override

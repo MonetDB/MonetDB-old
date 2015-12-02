@@ -14,6 +14,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Iterator;
 
@@ -23,6 +24,8 @@ import org.junit.Test;
 import org.monetdb.embedded.MonetDBEmbedded;
 import org.monetdb.embedded.result.EmbeddedQueryResult;
 import org.monetdb.embedded.result.column.Column;
+
+import nl.cwi.monetdb.jdbc.MonetDBEmbeddedStatement;
 
 public class EmbeddedTest {
 	static File datbaseDirectory;
@@ -272,13 +275,23 @@ public class EmbeddedTest {
 		MonetDBEmbedded newDB = new MonetDBEmbedded(newDirectory);
 		newDB.start();
 	}
-	
+
 	@Test
-	public void simpleJDBCTest() throws IOException, SQLException {
+	public void simpleResultSetJDBCTest() throws IOException, SQLException {
 		try (EmbeddedQueryResult result = db.query("SELECT * FROM test;")) {
 			assertEquals(4, result.getColumn(1).columnSize());
 			assertEquals(Integer.valueOf(10), result.getColumn(1).getValue(0));
 			assertEquals(10, result.getJDBCResultSet().getInt(1));
+		}
+	}
+
+	@Test
+	public void simpleStatementJDBCTest() throws SQLException {
+		try (MonetDBEmbeddedStatement statement = db.createStatement()) {
+			statement.execute("SELECT * FROM test;");
+			try (ResultSet result = statement.getResultSet()) {
+				assertEquals(10, result.getInt(1));
+			}
 		}
 	}
 
