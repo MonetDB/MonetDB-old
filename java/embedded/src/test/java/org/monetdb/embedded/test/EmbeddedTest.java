@@ -100,7 +100,7 @@ public class EmbeddedTest {
 				int j = 0;
 				Iterator<?> rowIterator = columnIterator.next().iterator();
 				while (rowIterator.hasNext()) {
-					assertEquals(testValues[i][j++], columnIterator.next());
+					assertEquals(testValues[i][j++], rowIterator.next());
 				}
 				i++;
 			}
