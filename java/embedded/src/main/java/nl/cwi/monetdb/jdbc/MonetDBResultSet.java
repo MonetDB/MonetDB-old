@@ -8,12 +8,38 @@
 
 package nl.cwi.monetdb.jdbc;
 
+import java.io.IOException;
+import java.sql.SQLException;
+
+import org.monetdb.embedded.result.EmbeddedQueryResult;
+
 /**
- * This class serves only to expose the {@link nl.cwi.monetdb.jdbc.MonetResultSet} constructor
- * outside the {@code nl.cwi.monetdb.jdbc}.
+ * This class overrides {@link nl.cwi.monetdb.jdbc.MonetResultSet} to allow for handling embedded query results.
+ * It needs to be in the {@code nl.cwi.monetdb.jdbc} module to access the constructor.
  */
 public class MonetDBResultSet extends MonetResultSet {
-	public MonetDBResultSet(String[] columnNames, String[] columnTypes, int numberOfRows) {
-		super(columnNames, columnTypes, numberOfRows);
+	private final EmbeddedQueryResult resultSet;
+
+	public MonetDBResultSet(EmbeddedQueryResult resultSet) {
+		super(resultSet.getColumnNames(), resultSet.getColumnTypes(), resultSet.getNumberOfColumns());
+		this.resultSet = resultSet;
+	}
+
+	@Override
+	public String getString(int columnIndex) throws SQLException {
+		String ret = resultSet.getColumn(columnIndex).getValue(curRow).toString();
+//		String ret = tlp.values[columnIndex - 1];
+		lastColumnRead = columnIndex - 1;
+		return ret;
+	}
+
+	@Override
+	public void close() {
+		try {
+			resultSet.close();
+		} catch (IOException e) {
+			// can't throw an exception now
+		}
+		super.close();
 	}
 }

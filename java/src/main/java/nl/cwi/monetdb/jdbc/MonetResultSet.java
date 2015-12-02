@@ -70,7 +70,7 @@ import nl.cwi.monetdb.mcl.parser.TupleLineParser;
  */
 public class MonetResultSet extends MonetWrapper implements ResultSet {
 	/** The last column read using some getXXX function */
-	private int lastColumnRead = -1;
+	protected int lastColumnRead = -1;
 	// the following have default access modifier for the MonetVirtualResultSet
 	/** The current line of the buffer split in columns */
 	final TupleLineParser tlp;

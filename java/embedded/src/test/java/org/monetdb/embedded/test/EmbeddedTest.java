@@ -16,10 +16,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.Iterator;
-import java.util.concurrent.TimeUnit;
 
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.monetdb.embedded.MonetDBEmbedded;
 import org.monetdb.embedded.result.EmbeddedQueryResult;
@@ -56,7 +55,7 @@ public class EmbeddedTest {
 		datbaseDirectory = directoryPath.toFile();
 
 		db = new MonetDBEmbedded(datbaseDirectory);
-//	    TimeUnit.SECONDS.sleep(15);
+		//	    TimeUnit.SECONDS.sleep(15);
 		db.start();
 
 		db.query("CREATE TABLE test (id integer, val integer);");
@@ -191,7 +190,7 @@ public class EmbeddedTest {
 		assertEquals(testValues[1][2], result1.getColumn(1).getValue(0));
 		assertEquals(testValues[1][3], result1.getColumn(1).getValue(1));
 	}
-	
+
 	@Test
 	public void twoQueriesWithManualCleanupTest() throws SQLException, IOException {
 		EmbeddedQueryResult result1 = db.query("SELECT * FROM test WHERE id > 1;");
@@ -205,7 +204,7 @@ public class EmbeddedTest {
 		assertEquals(2, result1.getColumn(1).columnSize());
 		assertEquals(testValues[1][2], result1.getColumn(1).getValue(0));
 		assertEquals(testValues[1][3], result1.getColumn(1).getValue(1));
-		
+
 		result1.close();
 		result2.close();
 	}
@@ -220,7 +219,7 @@ public class EmbeddedTest {
 
 		result.close();
 	}
-	
+
 	@Test
 	public void dobuleManualCleanupTest() throws IOException, SQLException {
 		@SuppressWarnings("resource")
@@ -232,7 +231,7 @@ public class EmbeddedTest {
 		result.close();
 		result.close();
 	}
-	
+
 	@Test
 	public void resultAccessAfterClose() throws IOException, SQLException {
 		@SuppressWarnings("resource")
@@ -242,7 +241,7 @@ public class EmbeddedTest {
 		assertEquals(null, result.getColumn(1).getValue(3));
 
 		result.close();
-		
+
 		// The result of any column get should be null
 		assertEquals(null, result.getColumn(1));
 	}
@@ -272,5 +271,22 @@ public class EmbeddedTest {
 
 		MonetDBEmbedded newDB = new MonetDBEmbedded(newDirectory);
 		newDB.start();
+	}
+	
+	@Test
+	public void simpleJDBCTest() throws IOException, SQLException {
+		try (EmbeddedQueryResult result = db.query("SELECT * FROM test;")) {
+			assertEquals(4, result.getColumn(1).columnSize());
+			assertEquals(Integer.valueOf(10), result.getColumn(1).getValue(0));
+			assertEquals(10, result.getJDBCResultSet().getInt(1));
+		}
+	}
+
+	@AfterClass
+	public static void cleanup() throws SQLException {
+		db.query("DROP TABLE test");
+		db.query("DROP TABLE numeric_types_test");
+		db.query("DROP TABLE char_types_test");
+		db.query("DROP TABLE boolean_types_test");
 	}
 }

@@ -101,6 +101,24 @@ public class EmbeddedQueryResult implements Closeable, Iterable<Column<?>> {
 	}
 
 	/**
+	 * Get the column names as a string array.
+	 * 
+	 * @return The column names array
+	 */
+	public String[] getColumnNames() {
+		return columnNames;
+	}
+
+	/**
+	 * Get the column types as a string array.
+	 * 
+	 * @return The column types array
+	 */
+	public String[] getColumnTypes() {
+		return columnTypes;
+	}
+
+	/**
 	 * A native C function that returns a {@code Column} object.
 	 * 
 	 * @param resultPointerWrapper Pointer to the C-level result structure
@@ -109,8 +127,13 @@ public class EmbeddedQueryResult implements Closeable, Iterable<Column<?>> {
 	 */
 	private native Column<?> getColumnWrapper(long resultPointerWrapper, int index);
 
+	/**
+	 * Get the results set as a JDBC ({@link nl.cwi.monetdb.jdbc.MonetDBResultSet}) results set.
+	 * 
+	 * @return The result set
+	 */
 	public MonetResultSet getJDBCResultSet() {
-		return new MonetDBResultSet(columnNames, columnTypes, numberOfRows);
+		return new MonetDBResultSet(this);
 	}
 
 	@Override
