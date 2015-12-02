@@ -1471,7 +1471,7 @@ void get_o_constraint_value(mvc *c, sql_exp *m_exp, oid *tmpvalue){
 
 		if (strcmp(funcname, "rdf_strtoid") == 0){
 			extractURI_from_exp(c, &uri, re);
-			TKNRstringToOid(&newoid, &uri);
+			SQLrdfstrtoid(&newoid, &uri);
                         assert (newoid != BUN_NONE);
 
 		} else {

@@ -1672,7 +1672,7 @@ static void appendResult(BAT **r_obats, oid *tmpres, int np, oid sbt){
 		//Output result
 		
 		//if (sbt == (oid)3835096557682764 ){
-		if (sbt == (oid)1460151441700192){
+		if (sbt == (oid)510173395288388){
 			printf(BUNFMT " | ", tmpres[j]);
 		}
 		/*
@@ -1685,7 +1685,7 @@ static void appendResult(BAT **r_obats, oid *tmpres, int np, oid sbt){
 	}
 	
 	//if (sbt == (oid)3835096557682764 ){
-	if (sbt == (oid) 1460151441700192){
+	if (sbt == (oid) 510173395288388){
 		printf("\n"); 
 	}
 }
@@ -1703,14 +1703,24 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 			oid offset = regular_obat_cursors[cur_p][tmpS]; 
 			oid nextoffset; 
 			int numCand, i; 
-
-			if ((tmpS + 1) < regular_obats[cur_p]->batCount){
-				nextoffset = regular_obat_cursors[cur_p][tmpS +  1]; 
-				numCand = nextoffset - offset;
+			int nextS = tmpS + 1;
+			int batCnt = regular_obats[cur_p]->batCount;
+	
+			//There can be oid_nil in the o value for the next subject
+			while (nextS < batCnt){
+				if (regular_obat_cursors[cur_p][nextS] == oid_nil){
+					nextS++; 
+				} else {
+					nextoffset = regular_obat_cursors[cur_p][nextS]; 
+					numCand = nextoffset - offset;
+					break; 
+				}
 			}
-			else{
+
+			if (nextS == batCnt) {
 				numCand = BUNlast(regular_obat_mv[cur_p]) - offset;
 			}
+			assert(numCand >= 0); 
 			for (i = 0; i < numCand; i++){
 				tmpres[cur_p] = regular_obat_mv_cursors[cur_p][offset + i]; 
 
@@ -1821,11 +1831,12 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 		int tid = -1; 
 	 	oid tmpS = BUN_NONE; 
 
-		if (sbt == (oid)1460151441686535){
-			printf("[DEBUG] FOUND THAT SUBJECT HERE\n");
+		if (sbt == (oid)510173395288388){
+			printf("[DEBUG] FOUND THAT SUBJECT "BUNFMT " HERE\n", sbt);
 		}
 		getTblIdxFromS(sbt, &tid, &tmpS);
 		if (tid != curtid){
+			curtid = tid; 
 			#if RDF_HANDLING_EXCEPTION_MISSINGPROP_OPT
 			num_mp = 0; 
 			#endif
@@ -1870,7 +1881,11 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 				if (isMVCol(tid, colIdx, global_csset)){
 					regular_obat_mv[j] = mvc_bind(c, schema, tmpmvtblname, tmpmvdefcolname, 0);
 					regular_obat_mv_cursors[j] = (oid *) Tloc(regular_obat_mv[j], BUNfirst(regular_obat_mv[j]));
+				} else {
+					regular_obat_mv[j] = NULL; 
+					regular_obat_mv_cursors[j] = NULL; 
 				}
+				 
 				
 			}
 		}
@@ -1903,8 +1918,8 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 
 
 		//printf("At row "BUNFMT" of table %d for sbt "BUNFMT"...", tmpS, tid, sbt); 
-		if (sbt == (oid)1460151441686535 && accept == 1){
-			printf("[DEBUG2] THAT SUBJECT IS ACCEPTED\n");
+		if (sbt == (oid)510173395288388 && accept == 1){
+			printf("[DEBUG2] THAT SUBJECT "BUNFMT " IS ACCEPTED\n",sbt);
 		}
 
 		if (accept == 1){	//Accept, can insert to the output bat			
@@ -2029,7 +2044,7 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		BAT *pso_fullSbat = NULL, *pso_fullObat = NULL;
 		clock_t sT1, eT1; 
 		BUN testbun = BUN_NONE; 
-		BUN testoid = 3835096557682764;
+		BUN testoid = 510173395288388;
 		
 		sT1 = clock(); 
 		rethrow("sql.rdfShred", msg, getSQLContext(cntxt, mb, &m, NULL));
@@ -2065,18 +2080,13 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		if ((*nP) > 2){
 		
 			oid *s_curs = (oid *) Tloc(m_sbat, BUNfirst(m_sbat));
-			oid *o_curs = (oid *) Tloc(m_obats[1], BUNfirst(m_obats[1])); 
+			//oid *o_curs = (oid *) Tloc(m_obats[1], BUNfirst(m_obats[1])); 
 			int j = 0; 
-			int count = 0; 
 			for (j = 0; (oid)j < m_sbat->batCount; j++){
-				if (s_curs[j] == 3835096557682764 && o_curs[j] == 62700365){
+				if (s_curs[j] == 510173395288388){
 					printf("[Debug] Having matching results\n"); 
 				}
-				if (o_curs[j] == 62700365){
-					count++; 
-				}
 			}
-			printf("The total number of matching results is %d\n", count); 
 		
 		}
 
