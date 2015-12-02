@@ -28,7 +28,6 @@ JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrap
 	unsigned char silent_char = 'n';
 	char *err;
 	jclass exClass = (*env)->FindClass(env, "java/io/IOException");
-	void *dl;
 
 	// Release the directories strings
 	(*env)->ReleaseStringUTFChars(env, libDirectoryJava, libdir_string_tmp);
