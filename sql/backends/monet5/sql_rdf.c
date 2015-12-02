@@ -1665,32 +1665,32 @@ void get_full_outerjoin_p_slices(oid *lstprops, int nrp, int np, oid *los, oid *
 	*/
 }
 
-static void appendResult(BAT **r_obats, oid *tmpres, int np, oid sbt){
+static void appendResult(BAT **r_obats, oid *tmpres, int np, oid sbt, int n_exp_value){
 	int j = 0; 
 	(void) sbt; 
+	if (n_exp_value == 0) return; 
+
 	for (j = 0; j < np; j++){
 		//Output result
 		
-		//if (sbt == (oid)3835096557682764 ){
-		if (sbt == (oid)510173395288388){
-			printf(BUNFMT " | ", tmpres[j]);
-		}
 		/*
-		if (j == 1 && tmpres[j] == 62700365){
-			printf("[Debug]Append one more person \n");
+		if (sbt == (oid)879609302220975){
+			printf(BUNFMT " | ", tmpres[j]);
 		}
 		*/
 		
 		BUNappend(r_obats[j], &(tmpres[j]), TRUE); 
 	}
 	
-	//if (sbt == (oid)3835096557682764 ){
-	if (sbt == (oid) 510173395288388){
+	/*
+	if (sbt == (oid) 879609302220975){
 		printf("\n"); 
 	}
+	*/
 }
+/*
 static
-void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_cursors, oid **regular_obat_mv_cursors, BAT **regular_obats, BAT **regular_obat_mv, oid sbt, oid tmpS, int cur_p, int nrp, int np, oid *tmpres){
+void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_cursors, oid **regular_obat_mv_cursors, BAT **regular_obats, BAT **regular_obat_mv, oid sbt, oid tmpS, int cur_p, int nrp, int np, oid *tmpres, int n_exp_value){
 	if (obatCursors[cur_p][pos] == oid_nil){
 		//Look for the result from regular bat. 
 		//Check if the regular bat is pointing to a MVBat
@@ -1725,10 +1725,10 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 				tmpres[cur_p] = regular_obat_mv_cursors[cur_p][offset + i]; 
 
 				if (cur_p < (np -1))
-					fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, nrp, np, tmpres); 
+					fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, nrp, np, tmpres, n_exp_value); 
 
 				else if (cur_p == (np - 1)){
-					appendResult(r_obats, tmpres, np, sbt); 
+					appendResult(r_obats, tmpres, np, sbt, n_exp_value); 
 				}
 			}
 					
@@ -1738,30 +1738,122 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 			else tmpres[cur_p] = oid_nil; 
 			
 			if (cur_p < (np -1))
-				fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, nrp, np, tmpres); 
+				fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, nrp, np, tmpres, n_exp_value); 
 
 			else if (cur_p == (np - 1)){
 				//Output result
-				appendResult(r_obats, tmpres, np, sbt); 
+				appendResult(r_obats, tmpres, np, sbt, n_exp_value); 
 			}
 		}
 
 	}
-	else{
+	else{	
+		//The result can also come from regular table
+		//Case 1: When the property has multi object values
+		//but we keep it as single-valued prop by putting some values to 
+		//pso
+		//Case 2: Some triples is moved to pso to keep FK relationship
+		//so, there can also be regular  mv col
+		if (regular_obat_cursors[cur_p] != NULL && regular_obat_cursors[cur_p][tmpS] != oid_nil){
+			tmpres[cur_p] = regular_obat_cursors[cur_p][tmpS];
+			if (cur_p < (np -1))
+				fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, nrp, np, tmpres, n_exp_value);	
+			else if (cur_p == (np -1))
+				appendResult(r_obats, tmpres, np, sbt, n_exp_value);
+
+		}
+
 		tmpres[cur_p] = obatCursors[cur_p][pos];		
-		
+	
 		if (cur_p < (np -1))
-			fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, nrp, np, tmpres); 
+			fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, nrp, np, tmpres, n_exp_value + 1); 
 
 		else if (cur_p == (np - 1)){
 			//Output result
-			appendResult(r_obats, tmpres, np, sbt); 		
+			appendResult(r_obats, tmpres, np, sbt, n_exp_value + 1); 		
 		}
 	}
 
 
 }
 
+*/
+
+
+static
+void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_cursors, oid **regular_obat_mv_cursors, BAT **regular_obats, BAT **regular_obat_mv, oid sbt, oid tmpS, int cur_p, int nrp, int np, oid *tmpres, int n_exp_value){
+		//Look for the result from regular bat. 
+		//Check if the regular bat is pointing to a MVBat
+		//Then, get all teh value from MVBATs
+
+		//assert(cur_p >= nrp || regular_obat_cursors[cur_p][tmpS] != oid_nil); 
+
+	        tmpres[cur_p] = oid_nil; 
+
+		if (regular_obat_mv_cursors[cur_p] != NULL){		//mv col
+			//Get the values from mvBat
+			oid offset = regular_obat_cursors[cur_p][tmpS]; 
+			oid nextoffset; 
+			int numCand, i; 
+			int nextS = tmpS + 1;
+			int batCnt = regular_obats[cur_p]->batCount;
+	
+			//There can be oid_nil in the o value for the next subject
+			while (nextS < batCnt){
+				if (regular_obat_cursors[cur_p][nextS] == oid_nil){
+					nextS++; 
+				} else {
+					nextoffset = regular_obat_cursors[cur_p][nextS]; 
+					numCand = nextoffset - offset;
+					break; 
+				}
+			}
+
+			if (nextS == batCnt) {
+				numCand = BUNlast(regular_obat_mv[cur_p]) - offset;
+			}
+			assert(numCand >= 0); 
+			for (i = 0; i < numCand; i++){
+				tmpres[cur_p] = regular_obat_mv_cursors[cur_p][offset + i]; 
+
+				if (cur_p < (np -1))
+					fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, nrp, np, tmpres, n_exp_value); 
+
+				else if (cur_p == (np - 1)){
+					appendResult(r_obats, tmpres, np, sbt, n_exp_value); 
+				}
+			}
+					
+		}
+		else if (regular_obat_cursors[cur_p] != NULL){ 
+			
+			tmpres[cur_p] = regular_obat_cursors[cur_p][tmpS];
+			
+			if (cur_p < (np -1))
+				fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, nrp, np, tmpres, n_exp_value); 
+
+			else if (cur_p == (np - 1)){
+				//Output result
+				appendResult(r_obats, tmpres, np, sbt, n_exp_value); 
+			}
+		}
+
+		
+		if (obatCursors[cur_p][pos] != oid_nil){
+
+			tmpres[cur_p] = obatCursors[cur_p][pos];		
+	
+			if (cur_p < (np -1))
+				fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, nrp, np, tmpres, n_exp_value + 1); 
+
+			else if (cur_p == (np - 1)){
+				//Output result
+				appendResult(r_obats, tmpres, np, sbt, n_exp_value + 1); 		
+			}
+		}
+
+
+}
 
 /*
  * Combine exceptioins and regular tables
@@ -1831,9 +1923,11 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 		int tid = -1; 
 	 	oid tmpS = BUN_NONE; 
 
-		if (sbt == (oid)510173395288388){
+		/*
+		if (sbt == (oid)879609302220975){
 			printf("[DEBUG] FOUND THAT SUBJECT "BUNFMT " HERE\n", sbt);
 		}
+		*/
 		getTblIdxFromS(sbt, &tid, &tmpS);
 		if (tid != curtid){
 			curtid = tid; 
@@ -1918,19 +2012,23 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 
 
 		//printf("At row "BUNFMT" of table %d for sbt "BUNFMT"...", tmpS, tid, sbt); 
-		if (sbt == (oid)510173395288388 && accept == 1){
+		/*
+		if (sbt == (oid)879609302220975 && accept == 1){
 			printf("[DEBUG2] THAT SUBJECT "BUNFMT " IS ACCEPTED\n",sbt);
 		}
+		*/
 
 		if (accept == 1){	//Accept, can insert to the output bat			
 			oid *tmpres = (oid *) malloc(sizeof(oid) * nP); 
 			oid r_obat_oldsize = BATcount((*r_obats)[0]); 
 			oid r_obat_newsize = BUN_NONE; 
+			int n_exp_value = 0; 	//Count the number of exception value
 			//printf("Accepted\n"); 
 			for (j = 0; j < nP; j++){
 				tmpres[j] = oid_nil; 
 			}
-			fetch_result(*r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, 0, nRP, nP, tmpres);
+
+			fetch_result(*r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, 0, nRP, nP, tmpres, n_exp_value);
 			r_obat_newsize = BATcount((*r_obats)[0]); 
 			for (j = 0; j < (int)(r_obat_newsize - r_obat_oldsize); j++){
 				BUNappend(*r_sbat, &sbt, TRUE); 
