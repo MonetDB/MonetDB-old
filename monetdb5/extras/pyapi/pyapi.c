@@ -1949,11 +1949,12 @@ wrapup:
     return NULL;
 }
 
-#define CreateNullMask(tpe)                                        \
-    for(j = 0; j < count; j++) {                                   \
-        mask_data[j] = *((tpe*)BUNtail(bi, BUNfirst(b) + j)) == tpe##_nil;  \
-        found_nil = found_nil || mask_data[j];                     \
-    }
+#define CreateNullMask(tpe) {                                       \
+    tpe *bat_ptr = (tpe*)b->T->heap.base;                           \
+    for(j = 0; j < count; j++) {                                    \
+        mask_data[j] = bat_ptr[j] == tpe##_nil;                     \
+        found_nil = found_nil || mask_data[j];                      \
+    } }
 
 PyObject *PyNullMask_FromBAT(BAT *b, size_t t_start, size_t t_end)
 {
