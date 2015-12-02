@@ -1738,21 +1738,17 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
             //this is because NUMPY only supports strings with a fixed maximum length
             j = 0;
             BATloop(b, p, q) {
-                if (j >= t_start) {
-                    bool ascii;
-                    const char *t = (const char *) BUNtail(li, p);
-                    size_t length;
-                    if (strcmp(t, str_nil) == 0) {
-                        length = 1;
-                    } else {
-                        length = utf8_strlen(t, &ascii); //get the amount of UTF-8 characters in the string
-                        unicode = !ascii || unicode; //if even one string is unicode we have to store the entire array as unicode
-                    }
-                    if (length > maxsize)
-                        maxsize = length;
+                bool ascii;
+                const char *t = (const char *) BUNtail(li, p);
+                size_t length;
+                if (strcmp(t, str_nil) == 0) {
+                    length = 1;
+                } else {
+                    length = utf8_strlen(t, &ascii); //get the amount of UTF-8 characters in the string
+                    unicode = !ascii || unicode; //if even one string is unicode we have to store the entire array as unicode
                 }
-                if (j == t_end) break;
-                j++;
+                if (length > maxsize)
+                    maxsize = length;
             }
             if (unicode) {
                 VERBOSE_MESSAGE("- Unicode string!\n");
@@ -1796,6 +1792,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                     j++;
                 }
             } else {
+                char *npy_ptr;
                 VERBOSE_MESSAGE("- ASCII string!\n");
                 //create a NPY_STRING array object
                 vararray = PyArray_New(
@@ -1805,26 +1802,17 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                     NPY_STRING,
                     NULL,
                     NULL,
-                    maxsize,
+                    maxsize + 1,
                     0,
                     NULL);
                 j = 0;
+                npy_ptr = PyArray_DATA((PyArrayObject*) vararray);
+                memset(npy_ptr, 0, (maxsize + 1) * (t_end - t_start)); //zero initialize memory
                 BATloop(b, p, q)
                 {
-                    if (j >= t_start) {
-                        char *t = (char *) BUNtail(li, p);
-                        PyObject *obj = PyString_FromString(t);
-
-                        if (obj == NULL)
-                        {
-                            msg = createException(MAL, "pyapi.eval", "Failed to create string.");
-                            goto wrapup;
-                        }
-                        PyArray_SETITEM((PyArrayObject*)vararray, PyArray_GETPTR1((PyArrayObject*)vararray, j - t_start), obj);
-                        Py_DECREF(obj);
-                    }
-                    if (j == t_end) break;
-                    j++;
+                    char *t = (char *) BUNtail(li, p);
+                    strcpy(npy_ptr, t);
+                    npy_ptr += maxsize + 1;
                 }
             }
         }
