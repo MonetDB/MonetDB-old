@@ -16,8 +16,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.Iterator;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.monetdb.embedded.MonetDBEmbedded;
 import org.monetdb.embedded.result.EmbeddedQueryResult;
@@ -49,11 +51,12 @@ public class EmbeddedTest {
 	};
 
 	@BeforeClass
-	public static void createTestDB() throws IOException, SQLException {
+	public static void createTestDB() throws IOException, SQLException, InterruptedException {
 		final Path directoryPath = Files.createTempDirectory("monetdbtest");
 		datbaseDirectory = directoryPath.toFile();
 
 		db = new MonetDBEmbedded(datbaseDirectory);
+//	    TimeUnit.SECONDS.sleep(15);
 		db.start();
 
 		db.query("CREATE TABLE test (id integer, val integer);");
@@ -187,9 +190,6 @@ public class EmbeddedTest {
 		assertEquals(2, result1.getColumn(1).columnSize());
 		assertEquals(testValues[1][2], result1.getColumn(1).getValue(0));
 		assertEquals(testValues[1][3], result1.getColumn(1).getValue(1));
-		
-		result1.close();
-		result2.close();
 	}
 	
 	@Test
@@ -198,7 +198,6 @@ public class EmbeddedTest {
 		assertEquals(2, result1.getColumn(1).columnSize());
 		assertEquals(testValues[1][2], result1.getColumn(1).getValue(0));
 		assertEquals(testValues[1][3], result1.getColumn(1).getValue(1));
-		result1.close();
 
 		EmbeddedQueryResult result2 = db.query("SELECT * FROM test WHERE id < 1;");
 		assertEquals(testValues[1][0], result2.getColumn(1).getValue(0));
@@ -220,6 +219,32 @@ public class EmbeddedTest {
 		assertEquals(null, result.getColumn(1).getValue(3));
 
 		result.close();
+	}
+	
+	@Test
+	public void dobuleManualCleanupTest() throws IOException, SQLException {
+		@SuppressWarnings("resource")
+		EmbeddedQueryResult result = db.query("SELECT * FROM test;");
+		assertEquals(4, result.getColumn(1).columnSize());
+		assertEquals(Integer.valueOf(20), result.getColumn(1).getValue(1));
+		assertEquals(null, result.getColumn(1).getValue(3));
+
+		result.close();
+		result.close();
+	}
+	
+	@Test
+	public void resultAccessAfterClose() throws IOException, SQLException {
+		@SuppressWarnings("resource")
+		EmbeddedQueryResult result = db.query("SELECT * FROM test;");
+		assertEquals(4, result.getColumn(1).columnSize());
+		assertEquals(Integer.valueOf(20), result.getColumn(1).getValue(1));
+		assertEquals(null, result.getColumn(1).getValue(3));
+
+		result.close();
+		
+		// The result of any column get should be null
+		assertEquals(null, result.getColumn(1));
 	}
 
 	@Test(expected=SQLException.class)

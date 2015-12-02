@@ -75,6 +75,11 @@ public class EmbeddedQueryResult implements Closeable, Iterable<Column<?>> {
 		if (index >= numberOfColumns || index < 0) {
 			return null;
 		}
+		if (resultPointer == 0) {
+			// The object was closed and result was cleaned-up
+			// Calling the can produce a native Segfault (and crash the JVM) 
+			return null;
+		}
 		return getColumnWrapper(resultPointer, index);
 	}
 
@@ -133,7 +138,10 @@ public class EmbeddedQueryResult implements Closeable, Iterable<Column<?>> {
 
 	@Override
 	public void close() throws IOException {
-		cleanupResult(resultPointer);
+		if (resultPointer > 0) {
+			cleanupResult(resultPointer);
+			resultPointer = 0;
+		}
 	}
 
 	/** 
