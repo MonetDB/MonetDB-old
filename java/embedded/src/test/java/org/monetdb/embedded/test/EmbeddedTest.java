@@ -14,9 +14,12 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Iterator;
+import java.util.Properties;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -25,6 +28,7 @@ import org.monetdb.embedded.MonetDBEmbedded;
 import org.monetdb.embedded.result.EmbeddedQueryResult;
 import org.monetdb.embedded.result.column.Column;
 
+import nl.cwi.monetdb.jdbc.MonetDBEmbeddedConnection;
 import nl.cwi.monetdb.jdbc.MonetDBEmbeddedStatement;
 
 public class EmbeddedTest {
@@ -286,11 +290,30 @@ public class EmbeddedTest {
 	}
 
 	@Test
-	public void simpleStatementJDBCTest() throws SQLException {
+	public void simpleCreateStatementAndResultSetJDBCTest() throws SQLException {
 		try (MonetDBEmbeddedStatement statement = db.createStatement()) {
 			statement.execute("SELECT * FROM test;");
 			try (ResultSet result = statement.getResultSet()) {
 				assertEquals(10, result.getInt(1));
+			}
+		}
+	}
+
+	@Test
+	public void simpleConnectionAndCreateStatementAndResultSetJDBCTest() throws SQLException {
+		Properties props = new Properties();
+		props.put("host", "localhost");
+		props.put("database", datbaseDirectory.toString());
+		props.put("port", "50000");
+		props.put("user", "monetdb");
+		props.put("password", "monetdb");
+
+		try (Connection connection = new MonetDBEmbeddedConnection(props)) {
+			try (Statement statement = connection.createStatement()) {
+				statement.execute("SELECT * FROM test;");
+				try (ResultSet result = statement.getResultSet()) {
+					assertEquals(10, result.getInt(1));
+				}
 			}
 		}
 	}

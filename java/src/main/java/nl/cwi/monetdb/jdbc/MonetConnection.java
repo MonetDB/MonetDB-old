@@ -120,7 +120,7 @@ public class MonetConnection extends MonetWrapper implements Connection {
 	// See javadoc for documentation about WeakHashMap if you don't know what
 	// it does !!!NOW!!! (only when you deal with it of course)
 	/** A Map containing all (active) Statements created from this Connection */
-	private Map<Statement,?> statements = new WeakHashMap<Statement, Object>();
+	protected Map<Statement,?> statements = new WeakHashMap<Statement, Object>();
 
 	/** The number of results we receive from the server at once */
 	private int curReplySize = -1;	// the server by default uses -1 (all)
