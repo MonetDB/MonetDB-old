@@ -301,6 +301,34 @@ public class MonetConnection extends MonetWrapper implements Connection {
 		// we're absolutely not closed, since we're brand new
 		closed = false;
 	}
+	
+	/**
+	 * Only use for creating embedded connection objects.
+	 * 
+	 * @param database
+	 * @throws SQLException
+	 * @throws IllegalArgumentException
+	 */
+	protected MonetConnection(String database) throws SQLException, IllegalArgumentException {
+			this.hostname = "localhost";
+			this.port = 0;
+			this.database = database;
+			this.username = "monetdb";
+			this.password = "monetdb";
+			this.blobIsBinary = false;
+			this.lang = LANG_SQL;
+
+			// initialise query templates (filled later, but needed below)
+			this.queryTempl = new String[3]; // pre, post, sep
+			this.commandTempl = new String[3]; // pre, post, sep
+
+			this.server = null;
+			this.in = null;
+			this.out = null;
+
+			// we're absolutely not closed, since we're brand new
+			this.closed = false;
+		}
 
 	//== methods of interface Connection
 

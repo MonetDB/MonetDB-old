@@ -25,27 +25,23 @@ public class MonetDBEmbeddedConnection extends MonetConnection {
 	private final MonetDBEmbedded database;
 
 	public MonetDBEmbeddedConnection(Properties props) throws SQLException, IllegalArgumentException {
-		super(props);
+		super(props.getProperty("database"));
 		this.databaseLocationString = props.getProperty("database");
 		if (databaseLocationString == null || databaseLocationString.isEmpty()) {
 			throw new IllegalArgumentException("Database location is not set.");
 		}
 		File databaseLocation = new File(databaseLocationString);
-		if (databaseLocation.mkdir()) {
-			database = new MonetDBEmbedded(databaseLocation);
-			try {
-				database.start();
-			} catch (IOException e) {
-				throw new SQLException(e);
-			}
-		} else {
-			throw new IllegalArgumentException("Database location is not valid: " + databaseLocationString);
+		database = new MonetDBEmbedded(databaseLocation);
+		try {
+			database.start();
+		} catch (IOException e) {
+			throw new SQLException(e);
 		}
 	}
 
 	@Override
 	public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-		Statement ret = new MonetDBEmbeddedStatement(database);
+		Statement ret = new MonetDBEmbeddedStatement(this);
 		statements.put(ret, null);
 		return ret;
 	}
@@ -53,5 +49,18 @@ public class MonetDBEmbeddedConnection extends MonetConnection {
 	@Override
 	public String getJDBCURL() {
 		return "jdbc:monetdb://" + databaseLocationString;
+	}
+
+	public MonetDBEmbedded getDatabase() {
+		return database;
+	}
+	
+	@Override
+	public void close() {
+		try {
+			database.close();
+		} catch (IOException e) {
+			// Do nothing. We can't throw it up
+		}
 	}
 }

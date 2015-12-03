@@ -90,9 +90,8 @@ public class MonetStatement extends MonetWrapper implements Statement {
 		int resultSetHoldability)
 		throws SQLException, IllegalArgumentException
 	{
-		if (connection == null) {
-			addWarning("No Connection given!", "01000");
-		}
+		if (connection == null) throw
+			new IllegalArgumentException("No Connection given!");
 
 		this.connection = connection;
 		this.resultSetType = resultSetType;

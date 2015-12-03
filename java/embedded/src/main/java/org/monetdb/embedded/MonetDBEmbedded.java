@@ -8,13 +8,12 @@
 
 package org.monetdb.embedded;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
 
 import org.monetdb.embedded.result.EmbeddedQueryResult;
-
-import nl.cwi.monetdb.jdbc.MonetDBEmbeddedStatement;
 
 /**
  * Embedded version of MonetDB.
@@ -22,7 +21,7 @@ import nl.cwi.monetdb.jdbc.MonetDBEmbeddedStatement;
  * <br/>
  * <strong>Note</strong>: You can have only one embedded MonetDB database running per JVM process.
  */
-public class MonetDBEmbedded {
+public class MonetDBEmbedded implements Closeable {
 	static {
 		// Load the embedded library
 		System.loadLibrary("embedded_java");
@@ -109,9 +108,9 @@ public class MonetDBEmbedded {
 	 * @return The statement object
 	 * @throws SQLException
 	 */
-	public MonetDBEmbeddedStatement createStatement() throws SQLException {
-		return new MonetDBEmbeddedStatement(this);
-	}
+//	public MonetDBEmbeddedStatement createStatement() throws SQLException {
+//		return new MonetDBEmbeddedStatement(this);
+//	}
 
 	/**
 	 * Start the embedded database.
@@ -131,4 +130,10 @@ public class MonetDBEmbedded {
 	 * @throws SQLException
 	 */
 	private native EmbeddedQueryResult queryWrapper(String query) throws SQLException;
+
+	@Override
+	public void close() throws IOException {
+		// Do nothing for now
+		// TODO: stop the databse
+	}
 }

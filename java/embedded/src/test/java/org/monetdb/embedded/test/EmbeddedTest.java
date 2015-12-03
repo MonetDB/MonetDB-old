@@ -290,23 +290,9 @@ public class EmbeddedTest {
 	}
 
 	@Test
-	public void simpleCreateStatementAndResultSetJDBCTest() throws SQLException {
-		try (MonetDBEmbeddedStatement statement = db.createStatement()) {
-			statement.execute("SELECT * FROM test;");
-			try (ResultSet result = statement.getResultSet()) {
-				assertEquals(10, result.getInt(1));
-			}
-		}
-	}
-
-	@Test
 	public void simpleConnectionAndCreateStatementAndResultSetJDBCTest() throws SQLException {
 		Properties props = new Properties();
-		props.put("host", "localhost");
 		props.put("database", datbaseDirectory.toString());
-		props.put("port", "50000");
-		props.put("user", "monetdb");
-		props.put("password", "monetdb");
 
 		try (Connection connection = new MonetDBEmbeddedConnection(props)) {
 			try (Statement statement = connection.createStatement()) {

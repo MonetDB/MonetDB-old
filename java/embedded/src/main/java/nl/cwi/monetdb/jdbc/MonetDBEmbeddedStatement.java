@@ -23,10 +23,10 @@ public class MonetDBEmbeddedStatement extends MonetStatement {
 	private final MonetDBEmbedded database;
 	private EmbeddedQueryResult resultSet;
 	
-	public MonetDBEmbeddedStatement(MonetDBEmbedded database)
+	public MonetDBEmbeddedStatement(MonetDBEmbeddedConnection connection)
 			throws SQLException, IllegalArgumentException {
-		super(null, ResultSet.CONCUR_READ_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.HOLD_CURSORS_OVER_COMMIT);
-		this.database = database;
+		super(connection, ResultSet.CONCUR_READ_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.HOLD_CURSORS_OVER_COMMIT);
+		this.database = connection.getDatabase();
 	}
 	
 	/**
