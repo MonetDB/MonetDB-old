@@ -197,13 +197,13 @@ getObjectType_and_Value(unsigned char* objStr, ValPtr vrPtrRealValue){
 	lng	realLng; 
 
 	len = strlen((str)objStr);
-	if (len > 100 || len <= 20){
+	if (len > 100 || len <= 30){
 		//String is too long for any kind of data or there is no XMLschema
 		obType = STRING; 
 	}
 	else{ //(len > 20)
-		endpart = objStr + (len - 19);   /* XMLSchema#dateTime> */
-		/* printf("Original: %s  --> substring: %s \n", (str)objStr, (str)endpart); */
+		endpart = objStr + (len - 29);   /* XMLSchema#dateTime> */
+		printf("Original: %s  --> substring: %s \n", (str)objStr, (str)endpart); 
 
 		if ( (pos = strstr((str)endpart , "XMLSchema#date>")) != NULL || (pos = strstr((str)endpart, "XMLSchema#dateTime>")) != NULL ){
 			obType = DATETIME;
@@ -226,7 +226,9 @@ getObjectType_and_Value(unsigned char* objStr, ValPtr vrPtrRealValue){
 			GDKfree(valuepart);
 
 		}
-		else if ((pos = strstr((str) endpart, "XMLSchema#int>")) != NULL || (pos = strstr((str)endpart, "XMLSchema#integer>")) != NULL){
+		else if ((pos = strstr((str) endpart, "XMLSchema#int>")) != NULL 
+			  || (pos = strstr((str)endpart, "XMLSchema#integer>")) != NULL
+			  || (pos = strstr((str)endpart, "XMLSchema#nonNegativeInteger>")) != NULL) {
 			//TODO: Consider nonNegativeInteger
 			obType = INTEGER;
 			subLen = (int) (pos - (str)objStr - 28);
@@ -235,7 +237,7 @@ getObjectType_and_Value(unsigned char* objStr, ValPtr vrPtrRealValue){
 			if (isInt(valuepart, subLen) == 1){	/* Check whether the real value is an integer */
 				realInt = (BUN) atoi(valuepart); 
 				VALset(vrPtrRealValue,TYPE_int, &realInt);
-				//printf("Real int value is: %d \n", vrPtrRealValue->val.ival);
+				printf("Real int value is: %d \n", vrPtrRealValue->val.ival);
 			}
 			else 
 				obType = STRING;	

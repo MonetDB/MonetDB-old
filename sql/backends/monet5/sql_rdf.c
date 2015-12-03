@@ -1673,20 +1673,20 @@ static void appendResult(BAT **r_obats, oid *tmpres, int np, oid sbt, int n_exp_
 	for (j = 0; j < np; j++){
 		//Output result
 		
-		/*
-		if (sbt == (oid)879609302220975){
+		
+		if (sbt == (oid)1460151441687511){
 			printf(BUNFMT " | ", tmpres[j]);
 		}
-		*/
+		
 		
 		BUNappend(r_obats[j], &(tmpres[j]), TRUE); 
 	}
 	
-	/*
-	if (sbt == (oid) 879609302220975){
+	
+	if (sbt == (oid) 1460151441687511){
 		printf("\n"); 
 	}
-	*/
+	
 }
 /*
 static
@@ -1787,10 +1787,11 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 		//Then, get all teh value from MVBATs
 
 		//assert(cur_p >= nrp || regular_obat_cursors[cur_p][tmpS] != oid_nil); 
+		int hasvalue = 0;
 
 	        tmpres[cur_p] = oid_nil; 
 
-		if (regular_obat_mv_cursors[cur_p] != NULL){		//mv col
+		if (regular_obat_mv_cursors[cur_p] != NULL && regular_obat_cursors[cur_p][tmpS] != oid_nil){		//mv col
 			//Get the values from mvBat
 			oid offset = regular_obat_cursors[cur_p][tmpS]; 
 			oid nextoffset; 
@@ -1812,7 +1813,7 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 			if (nextS == batCnt) {
 				numCand = BUNlast(regular_obat_mv[cur_p]) - offset;
 			}
-			assert(numCand >= 0); 
+			assert(numCand > 0); 
 			for (i = 0; i < numCand; i++){
 				tmpres[cur_p] = regular_obat_mv_cursors[cur_p][offset + i]; 
 
@@ -1823,9 +1824,10 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 					appendResult(r_obats, tmpres, np, sbt, n_exp_value); 
 				}
 			}
+			hasvalue = 1;
 					
 		}
-		else if (regular_obat_cursors[cur_p] != NULL){ 
+		else if (regular_obat_cursors[cur_p] != NULL && regular_obat_cursors[cur_p][tmpS] != oid_nil){ 
 			
 			tmpres[cur_p] = regular_obat_cursors[cur_p][tmpS];
 			
@@ -1836,6 +1838,8 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 				//Output result
 				appendResult(r_obats, tmpres, np, sbt, n_exp_value); 
 			}
+
+			hasvalue = 1;
 		}
 
 		
@@ -1850,6 +1854,19 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 				//Output result
 				appendResult(r_obats, tmpres, np, sbt, n_exp_value + 1); 		
 			}
+			hasvalue = 1; 
+		}
+
+
+		if (hasvalue == 0){
+		
+			if (cur_p < (np -1))
+				fetch_result(r_obats, obatCursors, pos, regular_obat_cursors, regular_obat_mv_cursors, regular_obats, regular_obat_mv, sbt, tmpS, cur_p + 1, nrp, np, tmpres, n_exp_value); 
+
+			else if (cur_p == (np - 1))
+				//Output result
+				appendResult(r_obats, tmpres, np, sbt, n_exp_value); 		
+		
 		}
 
 
@@ -2012,11 +2029,11 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 
 
 		//printf("At row "BUNFMT" of table %d for sbt "BUNFMT"...", tmpS, tid, sbt); 
-		/*
-		if (sbt == (oid)879609302220975 && accept == 1){
+		
+		if (sbt == (oid)1460151441687511 && accept == 1){
 			printf("[DEBUG2] THAT SUBJECT "BUNFMT " IS ACCEPTED\n",sbt);
 		}
-		*/
+		
 
 		if (accept == 1){	//Accept, can insert to the output bat			
 			oid *tmpres = (oid *) malloc(sizeof(oid) * nP); 
