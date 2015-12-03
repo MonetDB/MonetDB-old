@@ -1465,7 +1465,6 @@ str
     option_zerocopyoutput = !(GDKgetenv_isyes(zerocopyoutput_disableflag) || GDKgetenv_istrue(zerocopyoutput_disableflag));
     option_numpy_string_array = !(GDKgetenv_isyes(numpy_string_array_disableflag) || GDKgetenv_istrue(numpy_string_array_disableflag));
     option_enablefork = !(GDKgetenv_isyes(fork_disableflag) || GDKgetenv_istrue(fork_disableflag));
-    if (GDKgetenv_isyes(forkmmap_enableflag) || GDKgetenv_istrue(forkmmap_enableflag)) memtype = mmap_MEMMAP;
     option_bytearray = GDKgetenv_isyes(bytearray_enableflag) || GDKgetenv_istrue(bytearray_enableflag);
     option_oldnullmask = GDKgetenv_isyes(oldnullmask_enableflag) || GDKgetenv_istrue(oldnullmask_enableflag);
     option_lazyarray = GDKgetenv_isyes(lazyarray_enableflag) || GDKgetenv_istrue(lazyarray_enableflag);
@@ -1835,54 +1834,62 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
 
             if (!option_alwaysunicode)
             {
-                j = 0;
                 BATloop(b, p, q) {
-                    if (j >= t_start) {
-                        bool ascii;
-                        const char *t = (const char *) BUNtail(li, p);
-                        if (strcmp(t, str_nil) == 0) continue;
-                        utf8_strlen(t, &ascii);
-                        unicode = !ascii || unicode;
-                        if (unicode) break;
+                    char *t = (char *) BUNtail(li, p);
+                    for(; *t != 0; t++) {
+                        if (*t < 0) {
+                            unicode = true;
+                            break;
+                        }
                     }
-                    if (j == t_end) break;
-                    j++;
+                    if (unicode) {
+                        break;
+                    }
                 }
             }
 
-            j = 0;
-            BATloop(b, p, q)
             {
-                if (j >= t_start) {
-                    char *t = (char *) BUNtail(li, p);
-                    PyObject *obj;
-                    if (unicode)
-                    {
+                PyObject **data = ((PyObject**)PyArray_DATA((PyArrayObject*)vararray));
+                PyObject *obj;
+                j = 0;
+                if (unicode) {
+                    BATloop(b, p, q) {
+                        char *t = (char *) BUNtail(li, p);
                         if (strcmp(t, str_nil) == 0) {
                              //str_nil isn't a valid UTF-8 character (it's 0x80), so we can't decode it as UTF-8 (it will throw an error)
                             obj = PyUnicode_FromString("-");
-                        }
-                        else {
+                        } else {
                             //otherwise we can just decode the string as UTF-8
                             obj = PyUnicode_FromString(t);
                         }
-                    } else {
-                        if (option_bytearray) obj = PyByteArray_FromString(t);
-                        else
-                        {
-                            obj = PyString_FromString(t);
-                        }
-                    }
 
-                    if (obj == NULL)
-                    {
-                        msg = createException(MAL, "pyapi.eval", "Failed to create string.");
-                        goto wrapup;
+                        if (obj == NULL) {
+                            msg = createException(MAL, "pyapi.eval", "Failed to create string.");
+                            goto wrapup;
+                        }
+                        data[j++] = obj;
                     }
-                    ((PyObject**)PyArray_DATA((PyArrayObject*)vararray))[j - t_start] = obj;
+                } else if (option_bytearray) {
+                    BATloop(b, p, q) {
+                        char *t = (char *) BUNtail(li, p);
+                        obj = PyByteArray_FromString(t);
+                        if (obj == NULL) {
+                            msg = createException(MAL, "pyapi.eval", "Failed to create string.");
+                            goto wrapup;
+                        }
+                        data[j++] = obj;
+                    }
+                } else {
+                    BATloop(b, p, q) {
+                        char *t = (char *) BUNtail(li, p);
+                        obj = PyString_FromString(t);
+                        if (obj == NULL) {
+                            msg = createException(MAL, "pyapi.eval", "Failed to create string.");
+                            goto wrapup;
+                        }
+                        data[j++] = obj;
+                    }
                 }
-                if (j == t_end) break;
-                j++;
             }
         }
 #endif
