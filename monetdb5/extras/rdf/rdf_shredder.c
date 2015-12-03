@@ -203,7 +203,7 @@ getObjectType_and_Value(unsigned char* objStr, ValPtr vrPtrRealValue){
 	}
 	else{ //(len > 20)
 		endpart = objStr + (len - 29);   /* XMLSchema#dateTime> */
-		printf("Original: %s  --> substring: %s \n", (str)objStr, (str)endpart); 
+		//printf("Original: %s  --> substring: %s \n", (str)objStr, (str)endpart); 
 
 		if ( (pos = strstr((str)endpart , "XMLSchema#date>")) != NULL || (pos = strstr((str)endpart, "XMLSchema#dateTime>")) != NULL ){
 			obType = DATETIME;
@@ -237,7 +237,7 @@ getObjectType_and_Value(unsigned char* objStr, ValPtr vrPtrRealValue){
 			if (isInt(valuepart, subLen) == 1){	/* Check whether the real value is an integer */
 				realInt = (BUN) atoi(valuepart); 
 				VALset(vrPtrRealValue,TYPE_int, &realInt);
-				printf("Real int value is: %d \n", vrPtrRealValue->val.ival);
+				//printf("Real int value is: %d \n", vrPtrRealValue->val.ival);
 			}
 			else 
 				obType = STRING;	
