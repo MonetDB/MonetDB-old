@@ -3609,7 +3609,7 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 
 		printf("Done grouping star pattern\n"); 
 
-		_rel_print(c, tbl_m_rels[0]);
+		//if (num_match_tbl > 0)_rel_print(c, tbl_m_rels[0]);
 
 		if (num_match_tbl > 0){ 
 			rel_alltable = union_sp_from_all_matching_tbls(c, num_match_tbl, contain_mv_col, tbl_m_rels, sp_proj_exps); 
