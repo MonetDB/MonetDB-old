@@ -1418,7 +1418,7 @@ void getTableName(CSlabel* label, CSset* freqCSset, int csIdx,  int typeAttribut
 	int		tmpListCount;
 	char		nameFound = 0;
 	oid		maxDepthOid;
-	int		maxFreq;
+	int		maxFreq = 0;
 	
 	#if TYPE_TFIDF_RANKING	
 	oid		maxRankscoreOid; 

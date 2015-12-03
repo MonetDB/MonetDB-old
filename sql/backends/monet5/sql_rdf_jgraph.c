@@ -864,9 +864,10 @@ int have_same_subj(jgraph *jg, int from, int to){
 static
 void connect_same_subj_node(jgraph *jg){
 	int nnode = jg->nNode; 
+	int from = 0, to = 0; 
 
-	for (int from = 0; from < nnode; from++){
-		for (int to = (from + 1); to < nnode; to++){
+	for (from = 0; from < nnode; from++){
+		for (to = (from + 1); to < nnode; to++){
 			if (have_same_subj(jg, from, to) == 1){
 				JP tmpjp = JP_S;
 				add_undirectedJGedge(from, to, op_join, jg, NULL, tmpjp, -1, -1, 0);
