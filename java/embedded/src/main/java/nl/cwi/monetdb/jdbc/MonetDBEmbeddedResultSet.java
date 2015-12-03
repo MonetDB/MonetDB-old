@@ -14,6 +14,8 @@ import java.sql.SQLException;
 import org.monetdb.embedded.result.EmbeddedQueryResult;
 
 /**
+ * A JDBC result set for the embedded MonetDB.
+ * <br />
  * This class overrides {@link nl.cwi.monetdb.jdbc.MonetResultSet} to allow for handling embedded query results.
  * It needs to be in the {@code nl.cwi.monetdb.jdbc} module to access the constructor.
  */
