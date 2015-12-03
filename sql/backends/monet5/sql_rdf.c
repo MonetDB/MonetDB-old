@@ -1795,7 +1795,7 @@ void fetch_result(BAT **r_obats, oid **obatCursors, int pos, oid **regular_obat_
 			//Get the values from mvBat
 			oid offset = regular_obat_cursors[cur_p][tmpS]; 
 			oid nextoffset; 
-			int numCand, i; 
+			int numCand = 0, i; 
 			int nextS = tmpS + 1;
 			int batCnt = regular_obats[cur_p]->batCount;
 	
