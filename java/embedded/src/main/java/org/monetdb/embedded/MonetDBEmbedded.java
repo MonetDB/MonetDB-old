@@ -103,6 +103,12 @@ public class MonetDBEmbedded {
 		return queryWrapper(queryString);
 	}
 	
+	/**
+	 * Create a JDBC statement for the embedded database.
+	 * 
+	 * @return The statement object
+	 * @throws SQLException
+	 */
 	public MonetDBEmbeddedStatement createStatement() throws SQLException {
 		return new MonetDBEmbeddedStatement(this);
 	}
