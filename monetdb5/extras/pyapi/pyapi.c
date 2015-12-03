@@ -65,6 +65,7 @@ const char* oldnullmask_enableflag = "enable_oldnullmask";
 const char* bytearray_enableflag = "enable_bytearray";
 const char* benchmark_output_flag = "pyapi_benchmark_output";
 const char* disable_malloc_tracking = "disable_malloc_tracking";
+const char* enable_hugepyobject = "enable_hugepyobject";
 static bool option_zerocopyinput = true;
 static bool option_zerocopyoutput  = true;
 static bool option_numpy_string_array = true;
@@ -74,6 +75,7 @@ static bool option_lazyarray = false;
 static bool option_oldnullmask = false;
 static bool option_pyobject = false;
 static bool option_alwaysunicode = false;
+static bool option_hugepyobject = false;
 static bool option_disablemalloctracking = false;
 static char *benchmark_output = NULL;
 #endif
@@ -1461,6 +1463,7 @@ str
 #endif
 #ifdef _PYAPI_TESTING_
     //These flags are for testing purposes, they shouldn't be used for normal purposes
+    option_hugepyobject = (GDKgetenv_isyes(enable_hugepyobject) || GDKgetenv_istrue(enable_hugepyobject));
     option_zerocopyinput = !(GDKgetenv_isyes(zerocopyinput_disableflag) || GDKgetenv_istrue(zerocopyinput_disableflag));
     option_zerocopyoutput = !(GDKgetenv_isyes(zerocopyoutput_disableflag) || GDKgetenv_istrue(zerocopyoutput_disableflag));
     option_numpy_string_array = !(GDKgetenv_isyes(numpy_string_array_disableflag) || GDKgetenv_istrue(numpy_string_array_disableflag));
@@ -1897,32 +1900,63 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
 #ifdef HAVE_HGE
     case TYPE_hge:
     {
-        li = bat_iterator(b);
+#ifdef _PYAPI_TESTING_
+        if (option_hugepyobject) {
+            WARNING_MESSAGE("!PERFORMANCE WARNING: Type \"hge\" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type \"PyLong\". This means a python object is constructed for every huge integer and the entire column is copied.\n");
+            li = bat_iterator(b);
+            //create a NPY_OBJECT array to hold the huge type
+            vararray = PyArray_New(
+                &PyArray_Type,
+                1,
+                (npy_intp[1]) { t_end - t_start },
+                NPY_OBJECT,
+                NULL,
+                NULL,
+                0,
+                0,
+                NULL);
 
-        //create a NPY_OBJECT array to hold the huge type
-        vararray = PyArray_New(
-            &PyArray_Type,
-            1,
-            (npy_intp[1]) { t_end - t_start },
-            NPY_OBJECT,
-            NULL,
-            NULL,
-            0,
-            0,
-            NULL);
-
-        j = 0;
-        WARNING_MESSAGE("!PERFORMANCE WARNING: Type \"hge\" (128 bit) is unsupported by Numpy. The numbers are instead converted to python objects of type \"PyLong\". This means a python object is constructed for every huge integer and the entire column is copied.\n");
-        BATloop(b, p, q) {
-            if (j >= t_start) {
+            j = 0;
+            {
                 PyObject *obj;
-                const hge *t = (const hge *) BUNtail(li, p);
-                obj = PyLong_FromHge(*t);
-                ((PyObject**)PyArray_DATA((PyArrayObject*)vararray))[j - t_start] = obj;
+                PyObject **data = (PyObject**)PyArray_DATA((PyArrayObject*)vararray);
+                BATloop(b, p, q) {
+                    const hge *t = (const hge *) BUNtail(li, p);
+                    obj = PyLong_FromHge(*t);
+                    if (obj == NULL) {
+                        msg = createException(MAL, "pyapi.eval", "Failed to create PyLongObject from Huge Integer.");
+                        goto wrapup;
+                    }
+                    data[j++] = obj;
+                }
             }
-            if (j == t_end) break;
-            j++;
+        } else {
+#endif
+            WARNING_MESSAGE("!ACCURACY WARNING: Type \"hge\" (128 bit) is unsupported by Numpy. The numbers are instead converted to float64, which results in loss of accuracy.\n");
+            li = bat_iterator(b);
+            //create a NPY_FLOAT64 array to hold the huge type
+            vararray = PyArray_New(
+                &PyArray_Type,
+                1,
+                (npy_intp[1]) { t_end - t_start },
+                NPY_FLOAT64,
+                NULL,
+                NULL,
+                0,
+                0,
+                NULL);
+
+            j = 0;
+            {
+                dbl *data = (dbl*)PyArray_DATA((PyArrayObject*)vararray);
+                BATloop(b, p, q) {
+                    const hge *t = (const hge *) BUNtail(li, p);
+                    data[j++] = (dbl) *t;
+                }
+            }
+#ifdef _PYAPI_TESTING_
         }
+#endif
         break;
     }
 #endif
