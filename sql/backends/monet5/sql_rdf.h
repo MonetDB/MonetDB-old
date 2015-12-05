@@ -70,6 +70,7 @@ extern PropStat *global_c_propstat;
 extern BAT *global_mbat;
 extern BATiter global_mapi;
 extern PsoPropStat *pso_propstat; 
+extern int need_handling_exception; 
 
 #define APPLY_OPTIMIZATION_FOR_OPTIONAL	1	/* Instead of using left join, we use a project with ifthenelse */
 						/* on the set of optional columns */

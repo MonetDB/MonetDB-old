@@ -3626,28 +3626,28 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 			exps_print_ext(c, union_rdfscan_exps, 0, "union_rdfscan_exps: ");
 			*/
 			
-			#if HANDLING_EXCEPTION
+			if (need_handling_exception){
 
-			rel_rdfscan = build_rdfexception(c, tmptbId[0], jg, union_rdfscan_exps, nijgroup, ijgroup, nnodes_per_ijgroup, spprops);
-				
-			printf("RDF exception\n"); 
-			_rel_print(c, rel_rdfscan); 
+				rel_rdfscan = build_rdfexception(c, tmptbId[0], jg, union_rdfscan_exps, nijgroup, ijgroup, nnodes_per_ijgroup, spprops);
+					
+				printf("RDF exception\n"); 
+				_rel_print(c, rel_rdfscan); 
 
-			rel = rel_setop(c->sa, rel_alltable, rel_rdfscan, op_union); 
-			rel->exps = sp_proj_exps[0]; 
-			#else
-			rel = rel_alltable; 
-			#endif
+				rel = rel_setop(c->sa, rel_alltable, rel_rdfscan, op_union); 
+				rel->exps = sp_proj_exps[0]; 
+			}
+			else 
+				rel = rel_alltable; 
 
 		}
 		else {
-			#if HANDLING_EXCEPTION
-			rel_rdfscan = build_rdfexception(c, -1, jg, NULL,  nijgroup, ijgroup, nnodes_per_ijgroup, spprops);
-			rel = rel_rdfscan; 
-			#else
-			printf("There must be a matching table!!!!!\n"); 
-			assert(0); 
-			#endif
+			if (need_handling_exception){
+				rel_rdfscan = build_rdfexception(c, -1, jg, NULL,  nijgroup, ijgroup, nnodes_per_ijgroup, spprops);
+				rel = rel_rdfscan; 
+			} else {
+				printf("There must be a matching table!!!!!\n"); 
+				assert(0); 
+			}
 		}
 
 
@@ -3868,6 +3868,8 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 void transform_to_rel_plan(mvc *c, sql_rel *r){
 	int hasUnion = 0; 
+
+
 
 	handling_Union(c, r, 0, &hasUnion);
 

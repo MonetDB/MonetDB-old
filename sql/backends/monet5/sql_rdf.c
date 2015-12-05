@@ -2395,6 +2395,8 @@ BAT		*global_mbat = NULL;
 BATiter 	global_mapi; 
 PsoPropStat	*pso_propstat = NULL; /* Store the offsets of a prop 
 					 in the exceptional PSO table */
+int 		need_handling_exception = 1;
+
 static
 void getOffsets(PsoPropStat *pso_pstat, oid *p, BUN *start, BUN *end){
 
@@ -2595,7 +2597,12 @@ str SQLrdfprepare(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	//print_simpleCSset(global_csset);
 
 	printf("Done preparation\n"); 
-
+	
+	#if HANDLING_EXCEPTION
+	need_handling_exception = 1; 
+	#else
+	need_handling_exception = 0; 	
+	#endif
 	//Build pso_propstat to store offsets of each
 	//P in PSO table
 	{
@@ -2604,9 +2611,15 @@ str SQLrdfprepare(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		BAT *pso_fullSbat = mvc_bind(m, schema, "pso", "s",0);
 		BAT *pso_fullObat = mvc_bind(m, schema, "pso", "o",0);
 		build_PsoPropStat(pso_fullPbat, global_p_propstat->numAdded, pso_fullSbat, pso_fullObat); 
+			
+		if (BATcount(pso_fullSbat) == 0) {
+			need_handling_exception = 0; 
+			printf("Do not need to handle exception\n"); 
+		}
 		
 	}
 	
+
 	/*
 	{	//Test
 		BAT *testBat = BATnew(TYPE_void, TYPE_str, 100, TRANSIENT); 
