@@ -905,7 +905,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
 
                     assert(mask_size > 0);
                     MT_lock_set(&pyapiLock, "pyapi.evaluate");
-                    msg = init_mmap_memory(mmap_id, pci->retc + (i + 3), total_size, &mmap_ptrs, &mmap_sizes);
+                    msg = init_mmap_memory(mmap_id, pci->retc + (i + 3), mask_size, &mmap_ptrs, &mmap_sizes);
                     MT_lock_unset(&pyapiLock, "pyapi.evaluate");
                     if (msg != MAL_SUCCEED) {
                         goto wrapup;
