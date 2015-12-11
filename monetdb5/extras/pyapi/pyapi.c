@@ -1081,7 +1081,6 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
             size_t group_count, elements, element_it, group_it;
             lng *group_counts = NULL;
             lng *group_current_index = NULL;
-            lng **group_indices = NULL;
             lng *aggr_group_arr = NULL;
             void ***split_bats = NULL;
             int named_columns = unnamedArgs - (pci->retc + 2);
@@ -1109,28 +1108,6 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
             aggr_group_arr = (lng*) aggr_group->T->heap.base;
             for(element_it = 0; element_it < elements; element_it++) {
                 group_counts[aggr_group_arr[element_it]]++;
-            }
-
-            // now that we have the total number of elements for every group, we need to get the actual indices of the groups 
-            group_indices = GDKzalloc(group_count * sizeof(lng*));
-            group_current_index = GDKzalloc(group_count * sizeof(lng));
-            if (group_indices == NULL) {
-                msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL" group indices array.");
-                goto aggrwrapup;
-            }
-
-            for(group_it = 0; group_it < group_count; group_it++) {
-                // for every group, allocate enough space for all the indices
-                group_indices[group_it] = GDKzalloc(group_counts[group_it] * sizeof(lng));
-                if (group_indices[group_it] == NULL) {
-                    msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL" group indices array.");
-                    goto aggrwrapup;
-                }
-            }
-            // we perform one iteration over the aggr_group and fill in all the group indices
-            for(element_it = 0; element_it < elements; element_it++) {
-                lng group = aggr_group_arr[element_it]; //group of current element
-                group_indices[group][group_current_index[group]++] = (lng) element_it; //add current index to group structure
             }
 
             //now perform the actual splitting of the data, first construct room for splits for every group
@@ -1248,14 +1225,6 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
             PyList_SetItem(pResult, 0, aggr_result);
 
 aggrwrapup:
-            if (group_indices != NULL) {
-                for(group_it = 0; group_it < group_count; group_it++) {
-                    if (group_indices[group_it] != NULL) {
-                        GDKfree(group_indices[group_it]);
-                    }
-                }
-                GDKfree(group_indices);
-            }
             if (group_current_index != NULL) {
                 GDKfree(group_current_index);
             }
