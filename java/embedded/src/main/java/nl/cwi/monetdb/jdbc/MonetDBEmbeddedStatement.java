@@ -31,7 +31,7 @@ public class MonetDBEmbeddedStatement extends MonetStatement {
 	
 	/**
 	 * Execute the SQL query.
-	 * Need to call {@link nl.cwi.monetdb.jdbc.MonetDBEmbeddedStatement.getResultSet}
+	 * Need to call {@link nl.cwi.monetdb.jdbc.MonetDBEmbeddedStatement#getResultSet()}
 	 * to get the result set back, like in JDBC.
 	 * <br />
 	 * <strong>Note</strong>:Currently supports only single queries.
