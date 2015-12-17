@@ -176,6 +176,7 @@ typedef enum tokens {
 	SQL_ARRAY,
 	SQL_DIMENSION,	
 /*150*/	SQL_RANGE,
+	SQL_ARRAY_DIM_SLICE,
 	SQL_QQR
 } tokens;
 

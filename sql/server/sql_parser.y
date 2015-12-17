@@ -262,6 +262,7 @@ int yydebug=1;
 	XML_primary
 	opt_comma_string_value_expression
 	dimension
+	array_dim_slice
 	range_term	
 
 %type <type>
@@ -340,6 +341,8 @@ int yydebug=1;
 	table_exp
 	table_ref_commalist
 	table_element_list
+	range_exp_list
+    tiling_commalist	
 	range_exp
 	as_subquery_clause
 	column_exp_commalist
@@ -1412,6 +1415,17 @@ dimension:
     }
   | DIMENSION {
         $$= _symbol_create_list(SQL_RANGE, L());
+    }
+;
+
+range_exp_list:
+    range_exp
+    {
+        $$= append_list(L(), $1);
+    }
+  | range_exp_list range_exp
+    {
+        $$ = append_list($1, $2);
     }
 ;
 
@@ -3151,6 +3165,13 @@ table_name:
 opt_group_by_clause:
     /* empty */ 		  { $$ = NULL; }
  |  sqlGROUP BY column_ref_commalist { $$ = _symbol_create_list( SQL_GROUPBY, $3 );}
+ |  sqlGROUP BY tiling_commalist { $$ = _symbol_create_list( SQL_GROUPBY, $3 );}
+ ;
+
+tiling_commalist:
+    array_dim_slice { $$ = append_symbol(L(),$1);}
+ |  tiling_commalist ',' array_dim_slice
+            { $$ = append_symbol( $1, $3);}
  ;
 
 column_ref_commalist:
@@ -3593,6 +3614,15 @@ value_exp:
  |  param
  |  null
  ;
+
+array_dim_slice:
+    qname range_exp_list {
+        dlist *l = L();
+        append_list(l, $1);
+        append_list(l, $2);
+        $$ = _symbol_create_list( SQL_ARRAY_DIM_SLICE, l);
+        }
+;
 
 param:  
    '?'			

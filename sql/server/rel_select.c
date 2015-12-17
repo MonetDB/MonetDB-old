@@ -4591,36 +4591,506 @@ rel_selection_ref(mvc *sql, sql_rel *rel, symbol *grp, dlist *selection )
 	return NULL;
 }
 
+/******************************************************************************************/
+/******************************************************************************************/
+/*********************************** SciQL-start ******************************************/
+/******************************************************************************************/
+/******************************************************************************************/
+
+#define is_addition(fname) (strcmp(fname, "sql_add") == 0)
+#define is_subtraction(fname) (strcmp(fname, "sql_sub") == 0)
+
+#define has_tiling_range(e)                                 \
+    ( ((sql_exp*)(e))->type == e_column &&                  \
+      ((sql_exp*)(e))->f && \
+      list_length(((list*)((sql_exp*)(e))->f)->h->next->next->data) )
+
+static list *
+add_tiling_ranges(mvc *sql, list *l, list *r)
+{
+    node *nl = NULL, *nr = NULL;
+
+    assert(l && r && list_length(l) == list_length(r));
+
+    /* Walk over all dimensions.  For each dimension, merge the new tiling
+ 	* ranges in 'r' into existing ranges in 'l'. */
+    for (nl = l->h, nr = r->h; nl && nr; nl = nl->next, nr = nr->next) {
+        sql_exp *cl = nl->data, *cr = nr->data;
+
+        assert(cl->type == e_column && cl->f && cr->type == e_column && cr->f && strcmp(cl->name, cr->name) ==0);
+
+        if (list_length(((list*)cr->f)->h->next->next->data) > 1) {
+            return sql_error(sql, 02, "SELECT: array tiles with mixed point range and interval range not supported yet\n");
+        }
+        /* NB: in the ->f list of an e-column, the 3rd and more lists are all
+		 * tiling ranges. Let's wait and see if this is handy. maybe we want to
+		 * define that the 3rd list of e-column->f is a list of tiling ranges */
+        list_append(cl->f, ((list*)cr->f)->h->next->next->data);
+    }
+    return l;
+}
+
+
+static char *
+_get_base_name(sql_exp *exp, char *alias)
+{
+    char *bnm = NULL;
+    node *n = NULL;
+
+    if (!exp || !alias)
+        return NULL;
+
+    switch(exp->type) {
+    case e_func:
+    case e_aggr: 
+        for (n = ((list*)exp->l)->h; n; n = n->next) {
+            bnm = _get_base_name(n->data, alias);
+            if (bnm)
+                return bnm;
+        }
+        return NULL;
+    case e_convert:
+        return _get_base_name(exp->l, alias);
+    case e_cmp:
+        if(!(bnm = _get_base_name(exp->l, alias)))
+            return _get_base_name(exp->r, alias);
+        return bnm;
+    case e_column:
+        if (exp->rname && strcmp(exp->rname, alias) == 0) {
+            return exp->l;
+        }
+        return NULL;
+    default:
+        return NULL;
+    }
+    return NULL;
+}
+
+/* Given the alias of a table/array, find in all expressions contained in 'rel'
+ * the original name of the base table/array. */
+static char *
+get_base_name(sql_rel *rel, char *alias)
+{
+    char *bnm = NULL;
+    node *n = NULL;
+
+    if (!rel || !alias)
+        return NULL;
+
+    switch(rel->op) {
+    case op_select:
+    case op_topn:
+    case op_sample:
+        bnm = get_base_name(rel->l, alias);
+        break;
+    case op_join:
+    case op_left:
+    case op_right:
+    case op_full:
+    case op_semi:
+    case op_anti:
+    case op_union:
+    case op_except:
+    case op_inter: 
+        if(!(bnm = get_base_name(rel->l, alias)))
+            bnm = get_base_name(rel->r, alias);
+        break;
+    case op_table:
+    case op_project:
+    case op_groupby:
+        bnm = get_base_name(rel->l, alias);
+        if (!bnm && rel->r && ((list*)rel->r)->h) { 
+            for (n = ((list*)rel->r)->h; n && !bnm; n = n->next) {
+                bnm = _get_base_name(n->data, alias);
+            }
+        }
+        break;
+    default:
+        break;
+    }
+
+    if (!bnm && rel->exps) {
+        for (n = rel->exps->h; n; n = n->next) {
+            bnm = _get_base_name(n->data, alias);
+            if (bnm)
+                return bnm;
+        }
+    }
+
+    return bnm;
+}
+
+static sql_rel *
+_fnd_basetable(mvc *sql, sql_rel *rel, char *sname, char *tname, char *talias)
+{
+    sql_rel *rbt = NULL;
+
+    if (!rel || !tname) {
+        return NULL;
+    }
+
+    switch(rel->op) {
+        case op_basetable:
+            if ((tname && strcmp(((sql_table*)rel->l)->base.name, tname) == 0) ||
+                    (talias &&  strcmp(((sql_table*)rel->l)->base.name, tname) == 0)) {
+                if (!sname || strcmp(((sql_table*)rel->l)->s->base.name, tname) == 0)
+                    rbt = rel;
+            }
+            break;
+        case op_table:
+        case op_select:
+        case op_project:
+        case op_groupby:
+        case op_topn:
+        case op_sample:
+            rbt = _fnd_basetable(sql, rel->l, sname, tname, talias);
+            break;
+        case op_join:
+        case op_left:
+        case op_right:
+        case op_full:
+        case op_semi:
+        case op_anti:
+        case op_union:
+        case op_except:
+        case op_inter:
+            rbt = _fnd_basetable(sql, rel->l, sname, tname, talias);
+            if (!rbt)
+                rbt = _fnd_basetable(sql, rel->r, sname, tname, talias);
+            break;
+        default:
+            break;
+    }
+    return rbt;
+}
+
+static sql_exp *
+_get_tiled_dimension(mvc *sql, list *exps, symbol *dim_ref, str aname)
+{
+    sql_exp *e = NULL;
+    node *n = exps->h;
+    str dname = dim_ref->data.lval->h->data.sval;
+
+    if (dlist_length(dim_ref->data.lval) != 1)
+        return sql_error(sql, 02, "SELECT: invalid dimension name with %d (!= 1) level(s)", dlist_length(dim_ref->data.lval));
+    if (dname == NULL)
+        return sql_error(sql, 02, "SELECT: dimension name missing in tiling range");
+
+    for ( ; n; n = n->next) {
+        e = n->data;
+        assert(e->type == e_column);
+
+        if (e->name && strcmp(exp_name(e), dname) == 0)
+            return e;
+    }
+    return sql_error(sql, 02, "SELECT: no such dimension \"%s.%s\"", aname, dname);
+}
+
+static int
+_check_tiled_dimension(mvc *sql, char *dimnm, symbol *dim_ref)
+{
+    switch (dlist_length(dim_ref->data.lval)) {
+    case 1:
+        if (strcmp(dimnm, dim_ref->data.lval->h->data.sval) != 0) {
+            sql_error(sql, 02, "SELECT: dimension name in array tiling range does not match earlier definition, expected '%s', got '%s'", dimnm, dim_ref->data.lval->h->data.sval);
+            return 0;
+        }
+        break;
+    case 2:
+        sql_error(sql, 02, "SELECT: dimension name in array tiling range does not match earlier definition, expected '%s', got '%s.%s'", dimnm, dim_ref->data.lval->h->data.sval, dim_ref->data.lval->h->next->data.sval);
+        return 0;
+    case 3:
+        sql_error(sql, 02, "SELECT: dimension name in array tiling range does not match earlier definition, expected '%s', got '%s.%s.%s'", dimnm, dim_ref->data.lval->h->data.sval, dim_ref->data.lval->h->next->data.sval, dim_ref->data.lval->h->next->next->data.sval);
+        return 0;
+    default: /* should never reach here */
+        sql_error(sql, 02, "SELECT: invalid dimension reference in array tiling");
+        return 0;
+    }
+    return 1;
+}
+
+
+#define ARRAY_TILING_MAX_DIMS 4
+
+static list *
+rel_arraytiling(mvc *sql, sql_rel **rel, symbol *tile_def, int f, str *aname, int oneRange)
+{
+    list *exps = new_exp_list(sql->sa), *offsets = NULL;
+    node *n = NULL;
+    dlist *qname = NULL, *idx_exps = NULL;
+    dnode *dn =  NULL;
+    char *sname = NULL, *aalias = NULL, *opnm = NULL;
+    symbol *sym_tsta = NULL, *sym_tsto =  NULL, *opl = NULL, *opr = NULL;
+    sql_rel *rbt = NULL;
+    /*not used
+ 	sql_table *a = NULL;
+	*/
+    exp_kind ek = {type_value, card_value, FALSE};
+    int nth = 0; /* the n-th tiled dimension, needed for the '[*]' case, in which we don't have the dimension name */
+
+    (void) f;
+
+    assert(rel && *rel && tile_def->token == SQL_ARRAY_DIM_SLICE && tile_def->type == type_list && dlist_length(tile_def->data.lval) == 2);
+
+    qname = tile_def->data.lval->h->data.lval;
+    switch(dlist_length(qname)) {
+    case 1:
+        assert(qname->h->type == type_string);
+        aalias = qname->h->data.sval;
+        break;
+    case 2:
+        assert(qname->h->type == type_string && qname->h->next->type == type_string);
+        sname = qname->h->data.sval;
+        aalias = qname->h->next->data.sval;
+        break;
+    case 3:
+        return sql_error(sql, 02, "SELECT: array names of level > 2 not supported");
+        break;
+    default: /* should never reach here */
+        return sql_error(sql, 02, "SELECT: invalid array name with %d level(s) in GROUP BY", dlist_length(qname));
+    }
+
+    /* find the base array from the relation built so far */
+    if (!(rbt = _fnd_basetable(sql, *rel, sname, get_base_name(*rel, aalias), aalias))) {
+        return sql_error(sql, 02, "SELECT: no such array '%s.%s'", (cur_schema(sql))->base.name, aalias);
+    }
+	/* not used
+    a = rbt->l;
+	*/
+ /* valence does not exist   
+ 	if (a->valence == 0)
+        return sql_error(sql, 02, "SELECT: tiling over a relational table (\"%s\")not allowed", aalias);
+    if (a->valence > ARRAY_TILING_MAX_DIMS)
+        return sql_error(sql, 02, "TODO: tiling over arrays with >%d dimensions", ARRAY_TILING_MAX_DIMS);
+*/
+    if (*aname != NULL && strcmp(*aname, aalias) != 0) {
+        return sql_error(sql, 02, "SELECT: tiling over multiple arrays not supported (yet)");
+    } else {
+        *aname = aalias;
+    }
+    idx_exps = tile_def->data.lval->h->next->data.lval;
+ /* valence does not exist   
+    if (dlist_length(idx_exps) > a->valence)
+        return sql_error(sql, 02, "SELECT: #dimensions (%d) in array tiling larger than #dimensions (%d) in the array", dlist_length(idx_exps), a->valence);
+*/
+    /* copy all dimensional columns to the output groupby exps, since the
+ 	* omitting of a dimension in the GROUP BY clause equals to '[*]' */
+    for (n = rbt->exps->h; n; n = n->next) {
+        sql_exp *ce = n->data;
+        if (ce->f)
+            append(exps, exp_alias_or_copy(sql, aalias, exp_name(ce), rbt, ce));
+    }
+
+    /* Walk through all tiled dimensions in the GROUP BY clause and add the
+ 	* tiling range to the corresponding 'exp' of the addressed dimension */
+    for (dn = idx_exps->h; dn; dn = dn->next, nth++) {
+        sql_exp *exp = NULL, *exp_os_sta = NULL, *exp_os_ste = NULL, *exp_os_sto = NULL;
+        list *d_rng = NULL; /* the actual dimension range, is either the slicing range or the original range */
+        sql_subtype *st = NULL;
+
+        assert(dn->type == type_list);
+        if (!dn->data.lval->h->data.sym)
+            /* The '[*]' case is handled after this FOR-loop */
+            continue;
+
+        offsets = new_exp_list(sql->sa);
+        sym_tsta = dn->data.lval->h->data.sym;
+        /* The first is always the start of the range, to handle the first 'index_term':
+		 * 1) extract and bind the dimension, which also checks if the
+		 * dimension exists in the array 'aalias';
+		 * 2) extract the start-offset expression from the 'index_term',
+		 * create an exp_atom with "0" if not specified (case
+		 * SQL_COLUMN), and append it to 'offsets'. */
+		 switch (sym_tsta->token) {
+            case SQL_COLUMN: /* '<column>' */
+                if (!(exp = _get_tiled_dimension(sql, exps, sym_tsta, aalias)))
+                    return NULL;
+                d_rng = list_length(((list*)exp->f)->h->next->data) ? ((list*)exp->f)->h->next->data : ((list*)exp->f)->h->data;
+
+                exp_os_sta = exp_atom(sql->sa, atom_general(sql->sa, exp_subtype(d_rng->h->data), "0"));
+                break;
+            case SQL_BINOP: /* '<column> <BINOP> <exp>' or '<exp> <BINOP> <column>' */
+                /* sym_tsta->data.lval->h: a list of a single string, operator name
+				 * sym_tsta->data.lval->h->next: the symbol of the left operand
+				 * sym_tsta->data.lval->h->next->next: the symbol of the right operand */
+                opnm = sym_tsta->data.lval->h->data.lval->h->data.sval;
+                opl = sym_tsta->data.lval->h->next->data.sym;
+                opr = sym_tsta->data.lval->h->next->next->data.sym;
+                /* the <exp> could also be a SQL_COLUMN, but then opl->data.sym->data.lval->h->type == type_int */
+                if (opl->token == SQL_COLUMN && opl->data.lval->h->type == type_string) { /* '<column> +/- <exp>' */
+                    if (!(exp = _get_tiled_dimension(sql, exps, opl, aalias)))
+                        return NULL;
+                    d_rng = list_length(((list*)exp->f)->h->next->data) ? ((list*)exp->f)->h->next->data : ((list*)exp->f)->h->data;
+                    st = exp_subtype(d_rng->h->data);
+
+                    if (is_addition(opnm)) {
+                        exp_os_sta = rel_check_type(sql, st, rel_value_exp(sql, rel, opr, sql_where, ek), type_cast);
+                    } else if (is_subtraction(opnm)){
+                        exp_os_sta = exp_unop(sql->sa,
+                                rel_check_type(sql, st, rel_value_exp(sql, rel, opr, sql_where, ek), type_cast),
+                                sql_bind_func(sql->sa, sql->session->schema, "sql_neg", st, NULL, F_FUNC));
+                    } else {
+                        return sql_error(sql, 02, "SELECT: expressions in array tiling specification other than \"<column> [ '+' | '-' <exp> ]\" are not supported yet");
+
+                    }
+                } else if (opr->token == SQL_COLUMN && opr->data.lval->h->type == type_string) { /* '<exp> +/- <column>' */
+                    return sql_error(sql, 02, "SELECT: expressions in array tiling specification other than \"<column> [ '+' | '-' <exp> ]\" are not supported yet");
+                } else {
+                    return sql_error(sql, 02, "SELECT: expressions in array tiling specification other than \"<column> [ '+' | '-' <exp> ]\" are not supported yet");
+                }
+                break;
+            default: /* '<exp> '*/
+                return sql_error(sql, 02, "SELECT: expressions in array tiling specification other than \"<column> [ '+' | '-' <exp> ]\" are not supported yet");
+        }
+
+        /* Currently, start:step:stop all use the same data type */
+        if (!st)
+            st = exp_subtype(d_rng->h->data);
+        /* If a step is specified, we don't care what it exactly is, just treat
+		 * it as an expression;
+		 * otherwise get the step value from the dimension range for tiling
+		 * spec. with only one range definition.
+		 * That is, for tiling group by such as:
+		 * SELECT x, y, SUM(v) FROM a GROUP BY a[x][y:y+2];
+		 * We want to use 'array_series1' to generate a list of offsets for 'x',
+		 * instead of using 'offsets' to generate a single value.
+		 * This is because the impl. of tiled AGGR requires that the offsets
+		 * lists of all columns to be aligned (i.e., have the same length). */
+        if (dlist_length(dn->data.lval) == 3) {
+            exp_os_ste = rel_check_type(sql, exp_subtype(d_rng->h->next->data), rel_value_exp(sql, rel, dn->data.lval->h->next->data.sym, sql_where, ek), type_cast);
+        } else if (dlist_length(dn->data.lval) == 2 || oneRange) {
+            exp_os_ste = exp_copy(sql->sa, d_rng->h->next->data);
+        }
+
+        /* array tiling range stop, which, in case of a single <index_term>, is
+		 * just 'start+step' to make the range only include '0'.
+		 * Otherwise, it is given by the second or third 'index_term', which is
+		 * handled by
+		 * 1) extract and _check_ if the dimension name matches the dimension
+		 * name in the first 'index_term'.
+		 * 2) extract the stop-offset expression from the 'index_term', create
+		 * an exp_atom with "0" if not specified (case SQL_COLUMN), and
+		 * append it to 'offsets'.*/ 
+		if (dlist_length(dn->data.lval) == 1 && oneRange) {
+            exp_os_sto = exp_binop(sql->sa, exp_copy(sql->sa, exp_os_sta), exp_copy(sql->sa, exp_os_ste),
+                    sql_bind_func(sql->sa, sql->session->schema, "sql_add", st, st, F_FUNC));
+        } else if (dlist_length(dn->data.lval) > 1) {
+            sym_tsto = (dlist_length(dn->data.lval) == 2) ? dn->data.lval->h->next->data.sym : dn->data.lval->h->next->next->data.sym;
+            switch (sym_tsto->token) {
+                case SQL_COLUMN: /* '<column>' */
+                    if (!_check_tiled_dimension(sql, exp_name(exp), sym_tsto))
+                        return NULL;
+                    exp_os_sto = exp_atom(sql->sa, atom_general(sql->sa, st, "0"));
+                    break;
+                case SQL_BINOP: /* '<column> <BINOP> <exp>' or '<exp> <BINOP> <column>' */
+                    opnm = sym_tsto->data.lval->h->data.lval->h->data.sval;
+                    opl = sym_tsto->data.lval->h->next->data.sym;
+                    opr = sym_tsto->data.lval->h->next->next->data.sym;
+                    if (opl->token == SQL_COLUMN && opl->data.lval->h->type == type_string) { /* '<column> +/- <exp>' */
+                        if (!_check_tiled_dimension(sql, exp_name(exp), opl))
+                            return NULL;
+                        if (is_addition(opnm)) {
+                            exp_os_sto = rel_check_type(sql, st, rel_value_exp(sql, rel, opr, sql_where, ek), type_cast);
+                        } else if (is_subtraction(opnm)){
+                            exp_os_sto = exp_unop(sql->sa,
+                                    rel_check_type(sql, st, rel_value_exp(sql, rel, opr, sql_where, ek), type_cast),
+                                    sql_bind_func(sql->sa, sql->session->schema, "sql_neg", st, NULL, F_FUNC));
+                        } else {
+                            return sql_error(sql, 02, "SELECT: expressions in array tiling specification other than \"<column> [ '+' | '-' <exp> ]\" are not supported yet");
+                        }
+                    } else if (opr->token == SQL_COLUMN && opr->data.lval->h->type == type_string) { /* '<exp> +/- <column>' */
+                        return sql_error(sql, 02, "SELECT: expressions in array tiling specification other than \"<column> [ '+' | '-' <exp> ]\" are not supported yet");
+                    } else {
+                        return sql_error(sql, 02, "SELECT: expressions in array tiling specification other than \"<column> [ '+' | '-' <exp> ]\" are not supported yet");
+                    }
+                    break;
+                default: /* '<exp>' */
+                    return sql_error(sql, 02, "SELECT: expressions in array tiling specification other than \"<column> [ '+' | '-' <exp> ]\" are not supported yet");
+            }
+        }
+
+        append(offsets, exp_os_sta);
+        if (exp_os_ste != NULL) {
+            assert(exp_os_sto != NULL);
+            append(offsets, exp_os_ste);
+            append(offsets, exp_os_sto);
+        }
+        ((list*)exp->f)->h->next->next->data = offsets;
+    }
+    /* Check if all (e_column) exp-s in 'exps' have a tiling range */
+    for (n = exps->h; n; n = n->next) {
+        sql_exp *ce = n->data;
+        if (!has_tiling_range(ce)) {
+            /* This dimension has no tiling range, i.e., the '[*]' case or an
+ 			* omitted dimension.  Use the slicing/original range as the tiling
+			* range to get the whole column included in a tile */
+            ((list*)ce->f)->h->next->next->data =
+                list_length(((list*)ce->f)->h->next->data) > 0 ?
+                ((list*)ce->f)->h->next->data : ((list*)ce->f)->h->data;
+        }
+    }
+
+    (*rel)->card = CARD_MULTI;
+    return exps;
+}
+
+/******************************************************************************************/
+/******************************************************************************************/
+/*********************************** SciQL-end ********************************************/
+/******************************************************************************************/
+/******************************************************************************************/
+
+
 static list *
 rel_group_by(mvc *sql, sql_rel *rel, symbol *groupby, dlist *selection, int f )
 {
-	sql_rel *or = rel;
-	dnode *o = groupby->data.lval->h;
-	list *exps = new_exp_list(sql->sa);
+    sql_rel *or = rel;
+    dnode *o = groupby->data.lval->h;
+    list *exps = new_exp_list(sql->sa);
+    int found_ngb = 0, found_sgb = 0;
+    str aname = NULL;
 
-	for (; o; o = o->next) {
-		symbol *grp = o->data.sym;
-		sql_exp *e = rel_column_ref(sql, &rel, grp, f);
+    for (; o; o = o->next) {
+        symbol *grp = o->data.sym;
+        sql_exp *e = NULL;
+        list *es = NULL;
 
-		if (or != rel)
-			return NULL;
-		if (!e) {
-			char buf[ERRSIZE];
-			/* reset error */
-			sql->session->status = 0;
-			strcpy(buf, sql->errstr);
-			sql->errstr[0] = '\0';
+        if (grp->token == SQL_ARRAY_DIM_SLICE) {
+            if (!(es = rel_arraytiling(sql, &rel, grp, f, &aname, dlist_length(groupby->data.lval) ==1)))
+                return NULL;
+            /* FIXME: shouldn't we do the same error checks as the case of normal GROUP BY below? */
+            if (list_length(exps) == 0) {
+                exps = list_merge(exps, es, (fdup)NULL);
+            } else { 
+                exps = add_tiling_ranges(sql, exps, es);
+            }
+            found_sgb += 1;
+        } else {
+            e = rel_column_ref(sql, &rel, grp, f);
 
-			e = rel_selection_ref(sql, rel, grp, selection);
-			if (!e) {
-				if (sql->errstr[0] == 0)
-					strcpy(sql->errstr, buf);
-				return NULL;
-			}
-		}
-		append(exps, e);
-	}
-	return exps;
+            if (or != rel)
+                return NULL;
+            if (!e) {
+                char buf[ERRSIZE];
+                /* reset error */
+                sql->session->status = 0;
+                strcpy(buf, sql->errstr);
+                sql->errstr[0] = '\0';
+
+                e = rel_selection_ref(sql, rel, grp, selection);
+                if (!e) {
+                    if (sql->errstr[0] == 0)
+                        strcpy(sql->errstr, buf);
+                    return NULL;
+                }
+            }
+            append(exps, e);
+            found_ngb = 1;
+        }
+    }
+    if (found_ngb && found_sgb)
+        return sql_error(sql, 02, "SELECT: combination of normal SQL group by and SciQL array tiling not supported yet\n");
+    return exps;
 }
 
 /* find selection expressions matching the order by column expression */
