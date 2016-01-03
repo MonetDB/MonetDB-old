@@ -83,4 +83,6 @@ extern int need_handling_exception;
 
 #define RDF_HANDLING_EXCEPTION_POSSIBLE_TBL_OPT	1 /* Use the set of possible table for the set of required props to limit the number of matching subj Id */
 
+#define PRINT_FOR_DEBUG 0
+
 #endif /*_SQL_RDF_H */

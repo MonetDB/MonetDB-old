@@ -112,7 +112,7 @@ void add_directedJGedge(int from, int to, operator_type op, jgraph *jg, void *da
 	jgedge *edge;
 	
 	if (existEdge(jg, from, to)){ 
-		printf("The edge[%d,%d] is duplicated\n", from,to);
+		//printf("The edge[%d,%d] is duplicated\n", from,to);
 		return; 
 	}
 
@@ -133,14 +133,14 @@ void add_directedJGedge(int from, int to, operator_type op, jgraph *jg, void *da
 
 	assert(fromnode->vid == edge->from); 
 	if (fromnode->nEdge == 0){ //The first edge
-		printf("First edge of node %d from %d to %d\n", fromnode->vid, edge->from, edge->to); 
+		//printf("First edge of node %d from %d to %d\n", fromnode->vid, edge->from, edge->to); 
 		fromnode->first = edge;
 		fromnode->last = edge;
 	} 
 	else{	
 		fromnode->last->next = edge;  
 		fromnode->last = edge; 
-		printf("Add edge of node %d from %d to %d\n", fromnode->vid, edge->from, edge->to); 
+		//printf("Add edge of node %d from %d to %d\n", fromnode->vid, edge->from, edge->to); 
 	}
 	fromnode->nEdge++;
 	jg->nEdge++;

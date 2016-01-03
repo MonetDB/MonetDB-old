@@ -34,6 +34,7 @@
 #ifdef HAVE_RAPTOR
 # include <rdf.h>
 # include <sql_rdf_jgraph.h>
+# include <sql_rdf.h>
 #endif
 #include "mal_instruction.h"
 
@@ -113,25 +114,36 @@ sql_symbol2relation(mvc *c, symbol *sym)
 {
 	sql_rel *r;
 
+	clock_t sT, eT; 
+
 	r = rel_semantic(c, sym);
 	if (!r)
 		return NULL;
 	if (r) {
 		if (c->emode == m_sparql){
+			sT = clock(); 
 			//rel_print(c,r, 0); 
+			#if PRINT_FOR_DEBUG
 			_rel_print(c,r); 
+			#endif
 			rdf_rel_optimizer(c, r); 
 			//rel_print(c,r, 0);
+			#if PRINT_FOR_DEBUG
 			_rel_print(c,r); 
-			if (1){
+			#endif
+
 			transform_to_rel_plan(c,r); 
-			//rel_print(c,r,0); 
+
+			#if PRINT_FOR_DEBUG
 			_rel_print(c,r); 
+			#endif
 			
 			if (1) c->emode = m_normal;
 			
 			if (0) c->emod = mod_explain;
-			}
+
+			eT = clock(); 
+			printf("----- Transformation time: %f seconds.\n", ((float)(eT - sT))/CLOCKS_PER_SEC);
 		}
 		else {
 		
@@ -139,18 +151,25 @@ sql_symbol2relation(mvc *c, symbol *sym)
 		}
 
 		if (1){
+		sT = clock(); 
+		#if PRINT_FOR_DEBUG
 		//rel_print(c,r,0);
 		printf("BEFORE running rel_optimizer\n");
 		_rel_print(c,r);
+		#endif
+
 		r = rel_optimizer(c, r);
 
 		r = rel_distribute(c, r);
 		if (rel_is_point_query(r) || rel_need_distinct_query(r))
 			c->point_query = 1;
 		
-		//rel_print(c,r,0); 
+		#if PRINT_FOR_DEBUG
 		printf("AFTER running rel_optimizer\n");
 		_rel_print(c,r);
+		#endif
+		eT = clock(); 
+		printf("----- Optimization time: %f seconds.\n", ((float)(eT - sT))/CLOCKS_PER_SEC);
 		
 		}
 	}

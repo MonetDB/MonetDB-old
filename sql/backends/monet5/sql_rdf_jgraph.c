@@ -218,7 +218,9 @@ sql_table *create_dummy_table(mvc *c, str tblname, list *proj_exps, int nump){
 	assert(sch != NULL); 
 
 	if ((tbl = mvc_bind_table(c, sch, tblname)) == NULL){
+		#if PRINT_FOR_DEBUG
 		printf("The dummy table does not exist --> Create new one\n"); 
+		#endif
 		tbl = mvc_create_table(c, sch, tblname, tt_table, 0, SQL_PERSIST, 0, 3);
 		//tbl = mvc_create_table(c, sch, tblname, tt_view, 0, SQL_PERSIST, 0, 3);
 		//tbl = mvc_create_table(c, sch, tblname, tt_table, 0, SQL_LOCAL_TEMP, 0, 3);
@@ -334,6 +336,7 @@ int is_basic_pattern(sql_rel *r){
 
 }
 
+#if PRINT_FOR_DEBUG
 static 
 void exps_print_ext(mvc *sql, list *exps, int depth, char *prefix){
 	(void) prefix; 
@@ -341,7 +344,7 @@ void exps_print_ext(mvc *sql, list *exps, int depth, char *prefix){
 	exps_print(sql, THRdata[0], exps, depth, 1, 0);
 	mnstr_printf(THRdata[0], "\n");
 }
-	
+#endif	
 
 /*
 static 
@@ -375,6 +378,7 @@ sql_exp* exp_isnotnull(mvc *sql, sql_exp *e){
 	return isnotnull_exp; 
 }
 
+#if PRINT_FOR_DEBUG
 static
 void printRel_JGraph(jgraph *jg, mvc *sql){
 	int i; 
@@ -403,7 +407,7 @@ void printRel_JGraph(jgraph *jg, mvc *sql){
 	}
 	printf("---------------------\n"); 
 }
-
+#endif
 
 /*
  * Get cross star pattern edges
@@ -457,7 +461,8 @@ static
 int* get_crossedge_apply_orders(jgraph *jg, jgedge **lstEdges, int num){
 	int* orders = NULL;
 	int i, j, tmp; 
-
+	
+	(void) jg; 
 	orders = (int *) malloc(sizeof(int) * num); 
 
 	for (i = 0; i < num; i++){
@@ -476,6 +481,7 @@ int* get_crossedge_apply_orders(jgraph *jg, jgedge **lstEdges, int num){
 		}
 	}
 	
+	#if PRINT_FOR_DEBUG
 	printf("Orders of applying cross edges\n");
 	for (i = 0; i < num; i++){
 		int from = lstEdges[orders[i]]->from; 
@@ -484,6 +490,7 @@ int* get_crossedge_apply_orders(jgraph *jg, jgedge **lstEdges, int num){
 		jgnode *tonode = jg->lstnodes[to];
 		printf("Cross edge [%d, %d][P%d -> P%d] [r = %d, p = %d][Exp_Need = %d]\n", from, to, fromnode->patternId, tonode->patternId, lstEdges[orders[i]]->r_id, lstEdges[orders[i]]->p_r_id, lstEdges[orders[i]]->need_add_exps);
 	}
+	#endif
 
 	return orders; 
 }
@@ -577,12 +584,15 @@ void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *
 		case op_left:
 		case op_join:
 			if (rel->op == op_left || rel->op == op_right){ 
+				#if PRINT_FOR_DEBUG
 				printf("[Outter join]\n");
+				#endif
 				*hasOuter = 1;
 			}
+			#if PRINT_FOR_DEBUG
 			else printf("[join]\n"); 
-
 			printf("--- Between %s and %s ---\n", op2string(((sql_rel *)rel->l)->op), op2string(((sql_rel *)rel->r)->op) );		
+			#endif
 			
 			if (new_subjg){ 	//The new subgraph flag is set
 				*subjgId = *subjgId + 1; 
@@ -593,9 +603,10 @@ void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *
 
 			break; 
 		case op_select: 
-			 printf("[select]\n");
 			if (is_basic_pattern(rel)){
+				#if PRINT_FOR_DEBUG
 				printf("Found a basic pattern\n");
+				#endif
 				if (*level == 0){ 
 					*level = tmp_level; 
 					 *node_root = parent; 
@@ -607,7 +618,9 @@ void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *
 			}
 			break; 
 		case op_basetable:
+			#if PRINT_FOR_DEBUG
 			printf("[Base table]\n");		
+			#endif
 			if (*level == 0){
 				*level = tmp_level;
 				*node_root = parent;
@@ -615,7 +628,9 @@ void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *
 			_add_jg_node(c, jg, (sql_rel *) rel, *subjgId, JN_REQUIRED);
 			break;
 		case op_project: 
+			#if PRINT_FOR_DEBUG
 			printf("[%s]\n", op2string(rel->op)); 
+			#endif
 			//Update project expression in order to remove p from expressions
 			rel->exps = remove_p_from_proj_exps(c, rel->exps); 
 			
@@ -625,13 +640,17 @@ void addRelationsToJG(mvc *c, sql_rel *parent, sql_rel *rel, int depth, jgraph *
 				addRelationsToJG(c, rel, rel->r, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root, hasOuter); 
 			break; 
 		case op_union:
+			#if PRINT_FOR_DEBUG
 			printf("[union] ==> Handling differently\n"); 
+			#endif
 			assert (rel->l && rel->r); 
 			buildJoinGraph(c, rel->l, depth + 1);
 			buildJoinGraph(c, rel->r, depth + 1); 
 			break; 
 		default:
+			#if PRINT_FOR_DEBUG
 			printf("[%s]\n", op2string(rel->op)); 
+			#endif
 			if (rel->l) 
 				addRelationsToJG(c, rel, rel->l, depth+1, jg, 1, subjgId, level, tmp_level + 1, node_root, hasOuter); 
 			if (rel->r)
@@ -708,12 +727,17 @@ char *get_relname_from_basetable(sql_rel *rel){
 		for (en = tmpexps->h; en; en = en->next){
 			tmpexp = (sql_exp *) en->data; 
 			assert(tmpexp->type == e_column);
+				
+			#if PRINT_FOR_DEBUG
 			printf("[Table] %s -> [Column] %s", tmpexp->rname, tmpexp->name);
 			assert(strcmp(rname, tmpexp->rname) == 0); 
+			#endif
 		}
 	}
 	
+	#if PRINT_FOR_DEBUG
 	printf("rname %s vs rname %s from rel_name fucntion", rname, rel_name(rel));
+	#endif
 	return rname; 
 
 }
@@ -765,11 +789,14 @@ void add_to_nMap(nMap *nm, str s, int *id){
 	if (bun == BUN_NONE){
 		BUNappend(nm->lmap, s, TRUE); 
 		BUNappend(nm->rmap, id, TRUE); 
+		#if PRINT_FOR_DEBUG
 		printf("Add rname %s | %d to nmap\n", s, *id); 
+		#endif
 	}
 	else{
-	
+		#if PRINT_FOR_DEBUG
 		printf("This should not happen\n");
+		#endif
 		assert(0); 
 	}
 }
@@ -805,7 +832,9 @@ void add_relNames_to_nmap(jgraph *jg, nMap *nm){
 		
 		if (tmprel->op == op_basetable){
 			str s = get_relname_from_basetable(tmprel); 
+			#if PRINT_FOR_DEBUG
 			printf("[Node %d --> Table] %s\n", i, s);
+			#endif
 			add_to_nMap(nm, s, &i); 
 
 		}
@@ -814,11 +843,14 @@ void add_relNames_to_nmap(jgraph *jg, nMap *nm){
 			assert(((sql_rel *)tmprel->l)->op == op_basetable); //Only handle the case 
 									    //when selecting from base_table	
 			s = get_relname_from_basetable((sql_rel *)tmprel->l); 	
+			#if PRINT_FOR_DEBUG
 			printf("[Node %d -->Table from select] %s\n",i, s); 
+			#endif
 			add_to_nMap(nm, s, &i);
 		}
 	}
 
+	#if PRINT_FOR_DEBUG
 	//Test the rname_to_id
 	for (i = (jg->nNode - 1); i  >= 0; i--){
 		tmpnode = jg->lstnodes[i];
@@ -833,6 +865,7 @@ void add_relNames_to_nmap(jgraph *jg, nMap *nm){
 		}
 
 	}
+	#endif
 }
 
 static
@@ -889,9 +922,11 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 	assert(rel->op == op_join || rel->op == op_left || rel->op == op_right); 
 	tmpexps = rel->exps;
 	
+	#if PRINT_FOR_DEBUG
 	if (rel->op == op_left){
 		printf("Add Join Edge via LEFT JOIN: \n");
 	}
+	#endif
 
 	if (tmpexps){
 		node *en; 
@@ -932,8 +967,9 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 					to = rname_to_nodeId(nm, tmp->rname); 
 
 					assert(rel->op == op_join); 
-					
+					#if PRINT_FOR_DEBUG	
 					printf("Add edge between patterns from node %d to node %d\n", from, to); 
+					#endif
 					if (need_add_exps == 0){
 						need_add_exps = 1; 
 						add_undirectedJGedge(from, to, rel->op, jg, rel, tmpjp, rel_id, p_rel_id, 1);
@@ -949,14 +985,20 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 				//For normal case 
 				assert(l->type == e_column);
 				assert(r->type == e_column); 
+				#if PRINT_FOR_DEBUG
 				printf("Join: [Table]%s.[Column]%s == [Table]%s.[Column]%s \n", l->rname, l->name, r->rname, r->name);
+				#endif
 				from = rname_to_nodeId(nm, l->rname); 
 				to = rname_to_nodeId(nm, r->rname); 
+				#if PRINT_FOR_DEBUG
 				printf("Node %d to Node %d\n", from, to); 
+				#endif
 				if (isConnect[from][to] == 0){
 					JP tmpjp = JP_NAV; 
 					get_jp(l->name, r->name, &tmpjp); 
+					#if PRINT_FOR_DEBUG
 					printf("Join predicate = %d\n", tmpjp); 
+					#endif
 					if (rel->op == op_join) add_undirectedJGedge(from, to, rel->op, jg, rel, tmpjp, rel_id, p_rel_id, 0);
 					if (rel->op == op_left){ 
 						add_directedJGedge(from, to, op_left, jg, rel, tmpjp, rel_id, p_rel_id, 0);
@@ -968,10 +1010,14 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 				}
 				else{
 					JP tmpjp = JP_NAV;
+					#if PRINT_FOR_DEBUG
 					printf("This edge is created \n"); 
+					#endif
 					get_jp(l->name, r->name, &tmpjp);
 					if (1) update_undirectededge_jp(jg, from, to, tmpjp); 
+					#if PRINT_FOR_DEBUG
 					printf("Updated join predicate = %d\n", tmpjp); 
+					#endif
 				}
 			} else if (tmpexp->type == e_atom){
 				//Only handle the case of 1
@@ -984,7 +1030,9 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 				tmpCond = (int) atom_get_int(tmpexp->l); 
 				//printf("Atom value %d \n",tmpCond);
 				if (tmpCond == 1){
+					#if PRINT_FOR_DEBUG
 					printf("Join (condition 1) between %s and %s\n", rel_name((sql_rel*) rel->l), rel_name((sql_rel *)rel->r)); 
+					#endif
 					from = rname_to_nodeId(nm,  rel_name((sql_rel*) rel->l));
 					to = rname_to_nodeId(nm,  rel_name((sql_rel*) rel->r));	
 					if (have_same_subj(jg, from, to) == 1){
@@ -993,17 +1041,22 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 					if (rel->op == op_join) add_undirectedJGedge(from, to, rel->op, jg, rel, tmpjg, rel_id, p_rel_id, 0);
 					else if (rel->op == op_left)	add_directedJGedge(from, to, op_left, jg, rel, tmpjg, rel_id, p_rel_id, 0);
 					else assert(0);	//Other case is not handled yet
-					
+					#if PRINT_FOR_DEBUG
 					printf("From: %d To %d\n", from, to); 
+					#endif
 				}
 				continue; 
 			} else {
+				#if PRINT_FOR_DEBUG
 				printf("This tmpexp->type == %d has not been handled yet\n", tmpexp->type); 
+				#endif
 				assert(0); 
 			}
 
 		}
+		#if PRINT_FOR_DEBUG
 		printf("\n\n\n"); 
+		#endif
 	}
 	else{
 		str relname1; 
@@ -1013,8 +1066,10 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 
 		relname1 = rel_name((sql_rel*) rel->l);
 		relname2 = rel_name((sql_rel*) rel->r);
-
+		
+		#if PRINT_FOR_DEBUG
 		printf("CROSS PRODUCT HERE between %s and %s\n", relname1, relname2); 
+		#endif
 
 		assert (rel->op == op_join); 
 
@@ -1022,7 +1077,9 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 		to = rname_to_nodeId(nm, relname2); 
 
 		if (have_same_subj(jg, from, to) == 1){
+			#if PRINT_FOR_DEBUG
 			printf("Connect to nodes having known subjects\n"); 
+			#endif
 			add_undirectedJGedge(from, to, rel->op, jg, rel, tmpjp, rel_id, p_rel_id, 0);
 		}
 	}
@@ -1257,7 +1314,9 @@ void add_props_and_subj_to_spprops(spProps *spprops, int idx, sp_po po, jgnode *
 		tmpalias = get_relname_from_basetable(tmprel->l); 
 		spprops->lstProps[idx] = GDKstrdup(node->prop); 
 		spprops->lstAlias[idx] = GDKstrdup(tmpalias); 
+		#if PRINT_FOR_DEBUG
 		printf("\nTable alias in spprops is %s\n", spprops->lstAlias[idx]);
+		#endif
 
 		assert(node->poid != BUN_NONE); 
 		spprops->lstPropIds[idx] = node->poid; 
@@ -1278,7 +1337,7 @@ void add_props_and_subj_to_spprops(spProps *spprops, int idx, sp_po po, jgnode *
 }
 
 	
-
+#if PRINT_FOR_DEBUG
 static
 void print_spprops(spProps *spprops){
 	int i; 
@@ -1297,6 +1356,7 @@ void print_spprops(spProps *spprops){
 	}
 	printf("\n"); 
 }
+#endif
 
 static 
 void free_sp_props(spProps *spprops){
@@ -1325,8 +1385,10 @@ sql_exp* get_atom_oid(mvc *c, sql_exp *re){
 	newoid = BUN_NONE; 
 	assert(at != NULL); 
 
+	#if PRINT_FOR_DEBUG
 	printf("Atom expression \n");
 	exp_print(c, THRdata[0] , re, 0,0,0);
+	#endif
 
 	get_encodedOid_from_atom(at, &newoid);
 	newre = exp_atom_oid(c->sa, newoid);
@@ -1475,7 +1537,7 @@ void get_o_constraint_value(mvc *c, sql_exp *m_exp, oid *tmpvalue){
 			SQLrdfstrtoid(&newoid, &uri);
                         assert (newoid != BUN_NONE);
 
-		} else {
+		} else if (strcmp(funcname, "rdf_timetoid") != 0){
 			printf("TODO: The function %s is not handled yet\n", funcname);		
 		}
 
@@ -1509,7 +1571,9 @@ void get_predicate_from_exps(mvc *c, list *tmpexps, char **prop, char **subj, in
 		assert(tmpexp->type == e_cmp); //TODO: Handle other exps for op_select
 
 		if (tmpexp->flag != cmp_equal) {
+			#if PRINT_FOR_DEBUG
 			printf("CANNOT get predicate/subj info from non-equal comparasion\n"); 
+			#endif
 			continue; 
 		}
 		
@@ -1786,13 +1850,17 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 	sql_rel *tbl_rel = NULL;
 	int isConstrain_o = 0; 
 	
+	#if PRINT_FOR_DEBUG
 	printf("Converting op_select in star pattern to sql_rel of corresponding table\n"); 
+	#endif
 	//Get the column name by checking exps of r
 	
 
 	getColSQLname(tmpcolname, colIdx, -1, tmpPropId, global_mapi, global_mbat);
 
+	#if PRINT_FOR_DEBUG
 	printf("In transform column %d --> corresponding column %s\n", colIdx,  tmpcolname); 
+	#endif
 	
 	tmpexps = r->exps;
 
@@ -1822,8 +1890,9 @@ void tranforms_exps(mvc *c, sql_rel *r, list *trans_select_exps, list *trans_tbl
 				sql_exp *proj_e = exp_alias(sa, tmpexp->rname, tmpexp->name, tmpexp->rname, tmpexp->name, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);	
 				sql_exp *base_col_e = exp_copy(sa, proj_e);
 				sql_exp *notnull_m_exp = NULL; 
-
+				#if PRINT_FOR_DEBUG
 				printf("tmpcolname in rdf basetable is %s\n", tmpcolname);
+				#endif
 				append(trans_tbl_exps, e); 
 				if (sp_prj_exps) append(sp_prj_exps, proj_e); 
 				if (base_column_exps) append(base_column_exps, base_col_e);
@@ -1873,18 +1942,25 @@ void tranforms_mvprop_exps(mvc *c, sql_rel *r, mvPropRel *mvproprel, int tblId, 
 	sql_rel *tmptbl_rel = NULL, *rel_mv_basetbl = NULL, *rel_mv_select = NULL;
 	char mvtblname[100];
 	
+	(void) isMVcol; 
+	#if PRINT_FOR_DEBUG
 	printf("Converting op_select in star pattern to sql_rel of corresponding table\n"); 
+	#endif
 	//Get the column name by checking exps of r
 	
+	#if PRINT_FOR_DEBUG
 	if (isMVcol > 1){
 		printf("TODO: HANDLE the case of multi-type prop\n");
 	}
+	#endif
 
 	//Default-type column in MV table 
 	getMvTblSQLname(mvtblname, tblId, colIdx, tblnameoid, tmpPropId, global_mapi, global_mbat);
 	getColSQLname(tmpmvcolname, colIdx, 0, tmpPropId, global_mapi, global_mbat);	
 
+	#if PRINT_FOR_DEBUG
 	printf("In transform mv col %d --> corresponding column %s\n", colIdx,  tmpmvcolname); 
+	#endif
 	
 	tmpexps = r->exps;
 	
@@ -1957,8 +2033,10 @@ void tranforms_mvprop_exps(mvc *c, sql_rel *r, mvPropRel *mvproprel, int tblId, 
 				sql_exp *e = exp_alias(sa, tmpexp->rname, tmpexp->name, origtblname, origcolname, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
 				sql_exp *proj_e = exp_alias(sa, tmpexp->rname, tmpexp->name, tmpexp->rname, tmpexp->name, &tmpcol->type, CARD_MULTI, tmpcol->null, 0);
 				sql_exp *base_col_e = exp_copy(sa, proj_e);
-
+				
+				#if PRINT_FOR_DEBUG
 				printf("tmpmvcolname in rdf basetable is %s\n", tmpmvcolname);
+				#endif
 				append(trans_tbl_exps, e); 
 				append(sp_prj_exps, proj_e);
 				if (base_column_exps) append(base_column_exps, base_col_e);
@@ -2024,6 +2102,9 @@ void get_matching_tbl_from_spprops(int **rettbId, spProps *spprops, int *num_mat
 	oid *tmplst = NULL;
 	int tmpnum = 0;
 
+	(void) j;
+	(void) tblname; 
+
 	tmplst = (oid *) malloc(sizeof(oid) * spprops->num); 
 	for (i = 0; i < spprops->num; i++){
 		#if GETMATCHING_TBL_BY_RP_ONLY
@@ -2048,24 +2129,32 @@ void get_matching_tbl_from_spprops(int **rettbId, spProps *spprops, int *num_mat
 		numtbl = 1;
 		tblId = (int *) malloc(sizeof(int));
 		tblId[0] = tblIdx;
-
+			
+		#if PRINT_FOR_DEBUG
 		printf("Table Id found based on known subj is: %d\n", tblIdx); 
+		#endif
 	}
 	else{
 		
 		tmptblId = (int **) malloc(sizeof(int *) * num); 
 		count = (int *) malloc(sizeof(int) * num); 
 
+		#if PRINT_FOR_DEBUG
 		printf("Table Id for set of props [");
+		#endif
 		for (i = 0; i < num; i++){
 			//Postinglist pl = get_p_postingList(global_p_propstat, lstprop[i]);
 			Postinglist *pl = get_p_postingList(global_c_propstat, lstprop[i]);
 			if (pl != NULL){
 				tmptblId[i] = pl->lstIdx;
 				count[i] = pl->numAdded; 
+				#if PRINT_FOR_DEBUG
 				printf("  " BUNFMT, lstprop[i]);
+				#endif
 			} else {
+				#if PRINT_FOR_DEBUG
 				printf(" NO TABLE"); 
+				#endif	
 				break; 
 			}
 
@@ -2074,24 +2163,28 @@ void get_matching_tbl_from_spprops(int **rettbId, spProps *spprops, int *num_mat
 		if (i == num)	//All props have matching tabe
 			intersect_intsets(tmptblId, count, num, &tblId,  &numtbl);
 
+		#if PRINT_FOR_DEBUG
 		printf(" ] --> ");
+		#endif
 
 		free(count); 
 
 	}
 	
 	*rettbId = (int *) malloc(sizeof(int) * numtbl); 
+	for (i = 0; i < numtbl; i++){
+		(*rettbId)[i] = tblId[i];
+	}
 
+	#if PRINT_FOR_DEBUG
 	for (i = 0; i < numtbl; i++){
 		int tId = tblId[i];
 		oid tblnameoid = global_csset->items[tId]->tblname; 
 
-		(*rettbId)[i] = tId; 
-		
 		tblname = (str) GDKmalloc(sizeof(char) * 100); 
 
 		getTblSQLname(tblname, tId, 0,  tblnameoid, global_mapi, global_mbat);
-
+	
 		printf("  %d [Name of the table  %s]", tId, tblname);  
 
 		//Get the corresponding column names in this table
@@ -2100,13 +2193,15 @@ void get_matching_tbl_from_spprops(int **rettbId, spProps *spprops, int *num_mat
 			char tmpcolname[100];
 			int colIdx = getColIdx_from_oid(tId, global_csset, lstprop[j]);
 			int isMVcol = isMVCol(tId, colIdx, global_csset);
+
 			getColSQLname(tmpcolname, colIdx, -1, lstprop[j], global_mapi, global_mbat);
 			printf("Col %d: %s (isMV: %d)\n",j, tmpcolname, isMVcol);
 
 		}
 	}
-
+	
 	printf("\n"); 
+	#endif
 
 	*num_match_tbl = numtbl; 
 
@@ -2134,22 +2229,30 @@ void get_possible_matching_tbl_from_RPs(int **rettbId, int *num_match_tbl, oid *
 		numtbl = 1;
 		tblId = (int *) malloc(sizeof(int));
 		tblId[0] = tblIdx;
+		#if PRINT_FOR_DEBUG
 		printf("Possible table Id found based on known subj is: %d\n", tblIdx); 
+		#endif
 	}
 	else{
 		
 		tmptblId = (int **) malloc(sizeof(int *) * num); 
 		count = (int *) malloc(sizeof(int) * num); 
 
+		#if PRINT_FOR_DEBUG
 		printf("Possible table Id for set of props [");
+		#endif
 		for (i = 0; i < num; i++){
 			Postinglist *pl = get_p_postingList(global_p_propstat, lstRP[i]);
 			if (pl != NULL){
 				tmptblId[i] = pl->lstIdx;
 				count[i] = pl->numAdded; 
+				#if PRINT_FOR_DEBUG
 				printf("  " BUNFMT, lstRP[i]);
+				#endif
 			} else {
+				#if PRINT_FOR_DEBUG
 				printf(" NO TABLE"); 
+				#endif
 				break; 
 			}
 
@@ -2158,7 +2261,9 @@ void get_possible_matching_tbl_from_RPs(int **rettbId, int *num_match_tbl, oid *
 		if (i == num)	//All props have matching tabe
 			intersect_intsets(tmptblId, count, num, &tblId,  &numtbl);
 
+		#if PRINT_FOR_DEBUG
 		printf(" ] --> ");
+		#endif
 
 		free(count); 
 
@@ -2342,7 +2447,9 @@ list *create_optional_exps(mvc *sql, list *base_column_exps, int isOptionalGroup
 	if (isOptionalGroup){
 		opt_exps = new_exp_list(sa); 
 		if (contain_mv_col){
+			#if PRINT_FOR_DEBUG
 			printf("Do nothing for group of optional prop containing mv col \n");
+			#endif
 			return base_column_exps; 
 		} else {
 			node *first_node = only_o_exps->h;
@@ -2448,7 +2555,9 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 	oid tblnameoid;
 	str atblname = NULL; 		//alias for table of sp
 	str asubjcolname = NULL; 	//alias for subject column of sp table
+	#if PRINT_FOR_DEBUG
 	char tmp[50]; 
+	#endif
 	list *trans_select_exps = NULL; 	//Store the exps in op_select
 	list *trans_table_exps = NULL; 		//Store the list of column for basetable in op_select
 	sql_rel *rel_basetbl = NULL; 
@@ -2471,7 +2580,9 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 	base_column_exps = new_exp_list(sa); 
 	opt_exps = new_exp_list(sa); 
 
+	#if PRINT_FOR_DEBUG
 	printf("Get real expressions from tableId %d\n", tId);
+	#endif
 
 	tblnameoid = global_csset->items[tId]->tblname;
 
@@ -2479,8 +2590,9 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 
 	getTblSQLname(tblname, tId, 0,  tblnameoid, global_mapi, global_mbat);
 
+	#if PRINT_FOR_DEBUG
 	printf("  [Name of the table  %s]", tblname);  
-	
+	#endif
 	
 	for (i = 0; i < nnode; i++){
 		jgnode *tmpnode = jg->lstnodes[jsg[i]];
@@ -2519,25 +2631,25 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 				has_nonMV_col=1; 
 			}
 			else{
+				#if PRINT_FOR_DEBUG
 				printf("Table %d, column %d is multi-valued prop\n", tId, colIdx);
+				#endif
 				assert (mvPropRels[i].mvrel == NULL); 
 				tranforms_mvprop_exps(c, tmprel, &(mvPropRels[i]), tId, tblnameoid, colIdx, tmpPropId, isMVcol, sp_prj_exps, base_column_exps);
 				num_mv_col++;
 
-				//rel_print(c, mvPropRels[i].mvrel, 0);
-				//rel_print(c, mvPropRels[i].mvrel, 0);
-				//rel_print(c, mvPropRels[i].mvrel, 0);
 				//rel_print(c, mvPropRels[i].mvrel, 0);
 			}
 		}
 	}
 	
 
-
+	#if PRINT_FOR_DEBUG
 	sprintf(tmp, "[Real Pattern] after grouping: "); 
 	exps_print_ext(c, trans_select_exps, 0, tmp);
 	sprintf(tmp, "  Base table expression: \n"); 
 	exps_print_ext(c, trans_table_exps, 0, tmp);	
+	#endif
 
 	rel_basetbl = rel_basetable(c, get_rdf_table(c,tblname), tblname); 
 
@@ -2563,9 +2675,11 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 		if (missingcol == 0){ //in case missingcol == 1, opt_exps has been created
 			opt_exps = create_optional_exps(c, base_column_exps, isOptionalGroup, 0);
 		}
-			
+		
+		#if PRINT_FOR_DEBUG
 		printf("OPTIONAL Expressions\n");
 		exps_print_ext(c, opt_exps, 0, NULL); 
+		#endif
 	}
 
 
@@ -2642,7 +2756,9 @@ sql_rel* build_rdfexception (mvc *c, int tId, jgraph *jg, list *union_rdfscan_ex
 	oid *his; 
 	
 	if (tId != -1){
+		#if PRINT_FOR_DEBUG
 		printf("Get real expressions from tableId %d\n", tId);
+		#endif
 
 		tblnameoid = global_csset->items[tId]->tblname;
 
@@ -2651,8 +2767,10 @@ sql_rel* build_rdfexception (mvc *c, int tId, jgraph *jg, list *union_rdfscan_ex
 		getTblSQLname(tblname, tId, 0,  tblnameoid, global_mapi, global_mbat);
 	
 		sprintf(dummy_tblname,"dummy_%s",tblname); 
-
+	
+		#if PRINT_FOR_DEBUG
 		printf("  [Name of the table  %s]", tblname);  
+		#endif
 
 		dup_tblname  = sa_strdup(c->sa, dummy_tblname); 
 
@@ -2672,9 +2790,11 @@ sql_rel* build_rdfexception (mvc *c, int tId, jgraph *jg, list *union_rdfscan_ex
 	rel_basetbl->exps = trans_base_exps; 
 
 
+	#if PRINT_FOR_DEBUG
 	printf("\nDUMMY TABLE\n"); 
 
 	_rel_print(c, rel_basetbl);
+	#endif
 
 	
 	if(0){
@@ -2696,8 +2816,9 @@ sql_rel* build_rdfexception (mvc *c, int tId, jgraph *jg, list *union_rdfscan_ex
 			}
 		}
 	}
-	
+	#if PRINT_FOR_DEBUG
 	exps_print_ext(c, trans_select_exps, 0, "[RDFexception] select exprs: ");
+	#endif
 	}
 	
 	los = (oid *) malloc(sizeof(oid) * spprops->num);
@@ -2710,8 +2831,10 @@ sql_rel* build_rdfexception (mvc *c, int tId, jgraph *jg, list *union_rdfscan_ex
 	rel_rdfscan = rel_rdfscan_func(c, tbl, spprops->num, nnodes_per_ijgroup[0], spprops->lstPropIds, los, his, spprops->exps, spprops->lstAlias); 
 	//rel_rdfscan = rel_rdfscan_func(c, tbl, spprops->num, nnodes_per_ijgroup[0], spprops->lstPropIds, los, his, NULL); 
 	
+	#if PRINT_FOR_DEBUG
 	printf("\nRDFSCAN \n");
 	_rel_print(c, rel_rdfscan);
+	#endif
 	
 	return rel_rdfscan; 
 
@@ -2879,12 +3002,16 @@ void build_exps_from_join_jgedge(mvc *c, jgedge *edge, list *sp_edge_exps, opera
 	tmpjoin = (sql_rel*) edge->data; 
 
 	if (is_combine_ij && tmpjoin->op == op_join) assert(0); 
-
+	
 	sprintf(tmp, "Expression of edge [%d,%d] \n", edge->from, edge->to);
+	#if PRINT_FOR_DEBUG
 	exps_print_ext(c, tmpjoin->exps, 0, tmp);
+	#endif
 	if (is_combine_ij) tranforms_join_exps(c, tmpjoin,sp_edge_exps, 1, 0);
 	else tranforms_join_exps(c, tmpjoin,sp_edge_exps, 0, 0);
+	#if PRINT_FOR_DEBUG
 	exps_print_ext(c, sp_edge_exps, 0, "Update expression:");
+	#endif
 
 	if (tmpjoin->op != op_join) //May be op_left, op_right	
 		*op = tmpjoin->op;
@@ -2917,28 +3044,34 @@ sql_rel *_group_edge_between_two_groups(mvc *c, jgraph *jg, int pId, int *group1
 
 	assert(left);
 	assert(right); 
+	(void) pId; 
 
 	sp_edge_exps = new_exp_list(c->sa);
 
-
+	#if PRINT_FOR_DEBUG
 	printf("Create edge between pattern %d and %d\n", pId, (pId + 1)); 
+	#endif
 	for (i = 0; i < nnode1; i++){
 		for (j = 0; j < nnode2; j++){
 			//Get the edge between group1[i], group2[j]
 			jgedge *edge = get_edge_jp(jg, group1[i], group2[j]);
 			if (edge) {	
 				build_exps_from_join_jgedge(c, edge, sp_edge_exps, &op, is_combine_ij);	
-			} else {
+			} 
+			#if PRINT_FOR_DEBUG
+			else {
 				printf("No edge between  [%d,%d] \n", group1[i], group2[j]);
 			}
+			#endif
 
 
 		}
 	}
 	
+	#if PRINT_FOR_DEBUG
 	printf("Expression for join between pattern %d and %d\n", pId, (pId + 1));
 	exps_print_ext(c, sp_edge_exps, 0, "Exp:");
-
+	#endif
 	
 	rel_edge = rdf_rel_join(c->sa, left, right, sp_edge_exps, op);
 
@@ -2955,12 +3088,16 @@ sql_rel *group_pattern_by_cross_edge(mvc *c, sql_rel *left, sql_rel *right, jged
 	assert(right); 
 	
 	sp_edge_exps = new_exp_list(c->sa);
+	#if PRINT_FOR_DEBUG
 	printf("Build rel for cross edge from %d to %d\n", edge->from, edge->to);
+	#endif
 
 	build_exps_from_join_jgedge(c, edge, sp_edge_exps, &op, 0);
 
+	#if PRINT_FOR_DEBUG
 	printf("Expression for this cross edge:");
 	exps_print_ext(c, sp_edge_exps, 0, "Exp:");
+#endif
 
 	rel_edge = rdf_rel_join(c->sa, left, right, sp_edge_exps, op);
 
@@ -3016,9 +3153,12 @@ void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_c
 				int cre_id = sp_cre_map[spId1];
 				assert(sp_cre_map[spId1] == sp_cre_map[spId2]); 
 				tranforms_join_exps(c, edge->data, lst_cross_edge_rels[cre_id]->exps, 0, 1);
-			} else {
+			} 
+			#if PRINT_FOR_DEBUG
+			else {
 				printf("Already belong to the same group. Do not apply cross edges [%d,%d]\n",edge->from,edge->to);
 			}
+			#endif
 			continue;
 		}
 
@@ -3076,7 +3216,7 @@ int** get_inner_join_groups_in_sp_group(jgraph *jg, int* group, int nnode, int *
 	int **ijgroup = NULL;
 	int *idx;
 	int i, j; 
-
+	(void) j; 
 	for (i = 0; i < nnode; i++){
 		if (max_ijId < (jg->lstnodes[group[i]])->ijpatternId)
 			max_ijId = (jg->lstnodes[group[i]])->ijpatternId;
@@ -3111,7 +3251,7 @@ int** get_inner_join_groups_in_sp_group(jgraph *jg, int* group, int nnode, int *
 
 	free(idx);
 
-
+	#if PRINT_FOR_DEBUG
 	printf("Number of inner join group is: %d\n", *nijgroup);
 
 	for (i = 0; i < *nijgroup; i++){
@@ -3122,7 +3262,7 @@ int** get_inner_join_groups_in_sp_group(jgraph *jg, int* group, int nnode, int *
 		printf("\n"); 
 		
 	}
-
+	#endif
 	return ijgroup; 
 }
 
@@ -3244,8 +3384,9 @@ void generate_ijpatternId(jgraph *jg, int *group, int nnode){
 		}
 	
 	}
-	
+	#if PRINT_FOR_DEBUG
 	printf("Number of ijgroup is: %d\n", (ijpId + 1)); 
+	#endif
 }
 
 static 
@@ -3290,12 +3431,15 @@ sql_rel* _group_star_pattern_for_single_table(mvc *c, jgraph *jg,
 	}
 	
 	*contain_mv_col = is_contain_mv;
+
+	#if PRINT_FOR_DEBUG
 	if (*contain_mv_col) printf("Contain MV cols \n"); 
 	printf("Original Projection of all columns (w/o considering mv col): \n"); 
 	exps_print_ext(c, *sp_proj_exps, 0, NULL); 
 
 	printf("Expression handling OPTIONAL for table matching %d\n",tId);
 	exps_print_ext(c, *sp_opt_proj_exps, 0, NULL); 
+	#endif
 
 	if (nijgroup > 1){
 		#if (APPLY_OPTIMIZATION_FOR_OPTIONAL == 0) 	
@@ -3395,8 +3539,10 @@ sql_rel* union_sp_from_all_matching_tbls(mvc *c, int num_match_tbl, int *contain
 	if (num_match_tbl > 1){
 		//_rel_print(c, tbl_m_rels[0]);
 		get_union_expr(c, tbl_m_rels[0], union_exps); 
+		#if PRINT_FOR_DEBUG
 		printf("Union expresion is: \n"); 
 		exps_print_ext(c, union_exps, 0, "");
+		#endif
 	}
 
 	for (tblIdx = 1; tblIdx < num_match_tbl; tblIdx++){
@@ -3532,22 +3678,30 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 	list *union_rdfscan_exps = NULL; //Union for rel_rdfscan and other regular matching tables
 	#endif
 
+	(void )pId;
+
 	//This transformed exps list contain exps list from op_select
 	 //on the object
-
+	
+	#if PRINT_FOR_DEBUG
 	printf("Group %d contain %d nodes: ", pId, nnode); 
+	#endif
 
 	generate_ijpatternId(jg, group, nnode); 
 
 	//Check whether all nodes are SELECT nodes 
 	for (i = 0; i < nnode; i++){
 		sql_rel *tmprel = (sql_rel*) (jg->lstnodes[group[i]]->data);
+		#if PRINT_FOR_DEBUG
 		printf(" %d ", group[i]); 
+		#endif
 		//rel_print(c, tmprel, 0); 
 		if (tmprel->op != op_select) is_all_select = 0; 	
 		if (tmprel->op != op_basetable) is_only_basetable = 0;
 	}
+	#if PRINT_FOR_DEBUG
 	printf("\n"); 
+	#endif
 
 	if (nnode > 1) is_only_basetable = 0;
 	
@@ -3567,7 +3721,9 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 			jgnode *tmpnode = jg->lstnodes[group[i]]; 
 			sql_rel *tmprel = (sql_rel*) (tmpnode->data);
 			verify_rel(tmprel); 
+			#if PRINT_FOR_DEBUG
 			printf("Column %d name is %s\n", i, tmpnode->prop);
+			#endif
 			add_props_and_subj_to_spprops(spprops, i, NAV, tmpnode); 		
 
 		}
@@ -3579,11 +3735,15 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 			
 		update_RP_and_O_constraint(c, jg, ijgroup[0], nnodes_per_ijgroup[0], spprops); 
 
+		#if PRINT_FOR_DEBUG
 		print_spprops(spprops);
+		#endif
 	
 		get_matching_tbl_from_spprops(&tmptbId, spprops, &num_match_tbl);
-
+		
+		#if PRINT_FOR_DEBUG
 		printf("Number of matching table is: %d\n", num_match_tbl);
+		#endif
 		
 		tbl_m_rels = (sql_rel **) malloc(sizeof(sql_rel *) * num_match_tbl);
 		sp_proj_exps = (list **) malloc(sizeof(list *) * num_match_tbl); 
@@ -3594,30 +3754,36 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 
 
 		//num_match_tbl = 1; 
-		
+		#if PRINT_FOR_DEBUG
 		printf("Grouping star pattern for each matching table of %d candidates\n",num_match_tbl);
+		#endif
 		for (tblIdx = 0; tblIdx < num_match_tbl; tblIdx++){
 			tbl_m_rels[tblIdx] = _group_star_pattern_for_single_table(c, jg, ijgroup, nijgroup, nnodes_per_ijgroup, tmptbId[tblIdx], &(sp_proj_exps[tblIdx]), &(sp_opt_proj_exps[tblIdx]), 
 					&(contain_mv_col[tblIdx]));
 			//Check 
+			#if PRINT_FOR_DEBUG
 			_rel_print(c, tbl_m_rels[tblIdx]);
+			#endif
 
 			//_rel_print(c, tbl_m_rels[0]);
 
 		}
 		
-
+		#if PRINT_FOR_DEBUG
 		printf("Done grouping star pattern\n"); 
+		#endif
 
 		//if (num_match_tbl > 0)_rel_print(c, tbl_m_rels[0]);
 
 		if (num_match_tbl > 0){ 
 			rel_alltable = union_sp_from_all_matching_tbls(c, num_match_tbl, contain_mv_col, tbl_m_rels, sp_proj_exps); 
-	
+			
+			#if PRINT_FOR_DEBUG
 			printf("RDF Regular Rel\n"); 
 			printf("Number of ijgroups %d  -  Is contain MV %d\n", nijgroup, contain_mv_col[0]);
 			exps_print_ext(c, sp_proj_exps[0], 0, "sp_proj_exps ==> "); 
 			_rel_print(c, rel_alltable); 
+			#endif
 
 			//Union with RDFscan
 			/*
@@ -3630,8 +3796,10 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 
 				rel_rdfscan = build_rdfexception(c, tmptbId[0], jg, union_rdfscan_exps, nijgroup, ijgroup, nnodes_per_ijgroup, spprops);
 					
+				#if PRINT_FOR_DEBUG
 				printf("RDF exception\n"); 
 				_rel_print(c, rel_rdfscan); 
+				#endif
 
 				rel = rel_setop(c->sa, rel_alltable, rel_rdfscan, op_union); 
 				rel->exps = sp_proj_exps[0]; 
@@ -3645,7 +3813,9 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 				rel_rdfscan = build_rdfexception(c, -1, jg, NULL,  nijgroup, ijgroup, nnodes_per_ijgroup, spprops);
 				rel = rel_rdfscan; 
 			} else {
+				#if PRINT_FOR_DEBUG
 				printf("There must be a matching table!!!!!\n"); 
+				#endif
 				assert(0); 
 			}
 		}
@@ -3810,7 +3980,9 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 	detect_star_pattern(jg, &numsp); 
 
+	#if PRINT_FOR_DEBUG
 	printRel_JGraph(jg, c); 
+	#endif
 
 	if (0) create_abstract_table(c);
 	
@@ -3819,6 +3991,7 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 	group_star_pattern(c, jg, numsp, lstRels); 
 	
+	#if PRINT_FOR_DEBUG
 	{
 		int i; 
 		printf("--------- Each star pattern ----------\n");
@@ -3828,6 +4001,7 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 			printf("\n"); 
 		}
 	}
+	#endif
 
 	lst_cross_edges = get_cross_sp_edges(jg, &num_cross_edges);
 
@@ -3837,7 +4011,10 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 	//Change the pointer pointing to the first join
 	//to the address of the lstRels[0], the rel for the first star-pattern
+	#if PRINT_FOR_DEBUG
 	printf("e_start_level = %d   |   n_start_level = %d\n", e_start_level, n_start_level); 
+	#endif
+
 	if (numsp == 1) connect_rel_with_sprel(r, lstRels[0], e_start_level, n_start_level, node_root, edge_root); 
 	
 	//Check the projection operator and then refine the expressions
@@ -3851,16 +4028,12 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 		connect_rel_with_sprel(r, lst_cross_edge_rels[last_cre], e_start_level, n_start_level, node_root, edge_root); 
 	}
 
-	//rel_print(c, r, 0); 
-
-
 	//Check global_csset
 	//print_simpleCSset(global_csset);   
 
 	free_nMap(nm); 
 	freeMatrix(jg->nNode, isConnect); 
 	free(cr_ed_orders);
-	//printJGraph(jg); 
 
 	freeJGraph(jg); 
 	

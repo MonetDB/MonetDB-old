@@ -1613,22 +1613,28 @@ void get_full_outerjoin_p_slices(oid *lstprops, int nrp, int np, oid *los, oid *
 	#if RDF_HANDLING_EXCEPTION_POSSIBLE_TBL_OPT	
 	get_possible_matching_tbl_from_RPs(&regtblIds, &num_match_tbl, lstprops, nrp, BUN_NONE);
 	
+	#if PRINT_FOR_DEBUG
 	printf("Exception handling: Possible matching regular table [ ");
 	for (i = 0; i < num_match_tbl; i++){
 		printf(" %d ", regtblIds[i]); 
 	}
 	printf(" ]\n"); 
 	#endif
+	#endif
 
 	for (i = 0; i < np; i++){
 		BAT *tmpobat = NULL; 
 		BAT *tmpsbat = NULL; 
 		start = clock(); 
+		#if PRINT_FOR_DEBUG
 		printf("Slides of P = "BUNFMT " with o constraints from "BUNFMT" to " BUNFMT"\n", lstprops[i], los[i], his[i]);
+		#endif
 		getSlides_per_P(pso_propstat, &(lstprops[i]), los[i], his[i], full_obat, full_sbat, &tmpobat, &tmpsbat); 
 		end = clock(); 
-
+	
+		#if PRINT_FOR_DEBUG
 		printf(" [Took %f seconds)\n",((float)(end - start))/CLOCKS_PER_SEC); 
+		#endif
 	
 		#if RDF_HANDLING_EXCEPTION_POSSIBLE_TBL_OPT
 		refine_BAT_with_possible_tblId(tmpsbat, tmpobat, &(sbats[i]), &(obats[i]), regtblIds, num_match_tbl);
@@ -1637,6 +1643,7 @@ void get_full_outerjoin_p_slices(oid *lstprops, int nrp, int np, oid *los, oid *
 		obats[i] = tmpobat;
 		#endif
 		
+		#if PRINT_FOR_DEBUG
 		if (sbats[i]){
 			printf("   contains "BUNFMT " rows in sbat\n", BATcount(sbats[i]));
 			//BATprint(sbats[i]);
@@ -1650,6 +1657,7 @@ void get_full_outerjoin_p_slices(oid *lstprops, int nrp, int np, oid *los, oid *
 				BATprint(obats[i]);
 			}
 		}
+		#endif
 	}
 
 	start = clock(); 
@@ -1672,21 +1680,8 @@ static void appendResult(BAT **r_obats, oid *tmpres, int np, oid sbt, int n_exp_
 
 	for (j = 0; j < np; j++){
 		//Output result
-		
-		
-		if (sbt == (oid)1460151441687511){
-			printf(BUNFMT " | ", tmpres[j]);
-		}
-		
-		
 		BUNappend(r_obats[j], &(tmpres[j]), TRUE); 
 	}
-	
-	
-	if (sbt == (oid) 1460151441687511){
-		printf("\n"); 
-	}
-	
 }
 /*
 static
@@ -2067,6 +2062,7 @@ void combine_exception_and_regular_tables(mvc *c, BAT **r_sbat, BAT ***r_obats, 
 	free(regular_obat_cursors); 
 }
 
+#if PRINT_FOR_DEBUG
 static void
 BATprint_topn(BAT *b, int n){
 	BAT *tmp = NULL; 
@@ -2080,6 +2076,7 @@ BATprint_topn(BAT *b, int n){
 
 	BBPunfix(tmp->batCacheid); 
 }
+#endif
 
 /*
  * The input for this pattern should be
@@ -2133,6 +2130,7 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		his[i] = *hi; 
 	}
 	
+	#if PRINT_FOR_DEBUG
 	for (i = 0; i < pci->retc; i++){
 		//int tmp = -1; 
 		//Get type from pci
@@ -2141,12 +2139,10 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		if (bat_type == TYPE_str) printf("bat_type is string\n");
 		else printf("bat_type is %d\n", bat_type); 
 
-		//b[i] = BATnew(TYPE_void, bat_type, smallbatsz, TRANSIENT); 	
-		//tmp = i;
-		//BUNappend(b[i], &tmp, TRUE); 
 	}
 	
 	printf("There are %d props, among them %d RPs \n", *nP, *nRP);
+	#endif
 	
 	//Step 1. "Full outer join" to get all the possible combination
 	//of all props from PSO table
@@ -2158,8 +2154,7 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		str msg; 
 		BAT *pso_fullSbat = NULL, *pso_fullObat = NULL;
 		clock_t sT1, eT1; 
-		BUN testbun = BUN_NONE; 
-		BUN testoid = 510173395288388;
+
 		
 		sT1 = clock(); 
 		rethrow("sql.rdfShred", msg, getSQLContext(cntxt, mb, &m, NULL));
@@ -2172,24 +2167,32 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		eT1 = clock(); 
 		printf("Step 1 in Handling exception took  %f seconds.\n", ((float)(eT1 - sT1))/CLOCKS_PER_SEC);
 		
-
+		/* {
+		BUN testbun = BUN_NONE; 
+		BUN testoid = 510173395288388;
 		testbun = BUNfnd(r_sbat, &testoid); 
 		if (testbun == BUN_NONE){
 			printf("[DEBUG] That subject is not here\n");
 		} else {
 			printf("[DEBUG] The subject is found at " BUNFMT " position\n", testbun);
 		}
+		} */
+
 		//Step 2. Merge exceptions with Tables
 		sT1 = clock();
 		
 		combine_exception_and_regular_tables(m, &m_sbat, &m_obats, r_sbat, r_obats, lstProps, *nP, *nRP);
-		
+
+
+		#if PRINT_FOR_DEBUG
 		printf("Combining exceptions and regular table returns "BUNFMT " rows\n", BATcount(m_sbat)); 
 
 		BATprint_topn(m_sbat, 5); 
 		for (i = 0; i < (*nP); i++){
 			BATprint_topn(m_obats[i], 5); 
 		}
+		#endif
+
 		//BATprint(m_sbat); 
 		if (0)
 		if ((*nP) > 2){
@@ -2215,9 +2218,13 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		printf("Step 2 in Handling exception took  %f seconds.\n", ((float)(eT1 - sT1))/CLOCKS_PER_SEC);
 
 	}
+	#if PRINT_FOR_DEBUG
 	printf("Return the resusting BATs...");
+	#endif
 	bat2return(stk, pci, b);
+	#if PRINT_FOR_DEBUG
 	printf("... done\n"); 
+	#endif
 	GDKfree(b);
 
 	eT = clock(); 
@@ -2427,12 +2434,20 @@ void getOffsets(PsoPropStat *pso_pstat, oid *p, BUN *start, BUN *end){
  * */
 void getSlides_per_P(PsoPropStat *pso_pstat, oid *p, oid lo_cst, oid hi_cst, BAT *obat, BAT *sbat, BAT **ret_oBat, BAT **ret_sBat){
 	BUN l, h; 	
-	BAT *tmpB = NULL; 
 	getOffsets(pso_pstat, p, &l, &h); 
-	
+
+	(void) lo_cst;
+	(void) hi_cst; 
+
 	if (l != BUN_NONE){
 		BAT *tmp_o = NULL, *tmp_s = NULL; 
 		oid lo, hi; 
+		BAT *tmpB = NULL;
+
+		(void) lo; 
+		(void) hi; 
+		(void) tmpB; 
+
 		tmp_o = BATslice(obat, l, h+1); 
 
 		tmp_s = BATslice(sbat, l, h+1); 
