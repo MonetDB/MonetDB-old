@@ -12,9 +12,9 @@
 #include "gdk_calc_private.h"
 
 #define VALUE(x)	(vars ? vars + VarHeapVal(vals, (x), width) : vals + (x) * width)
-/* BATsubunique returns a bat that indicates the unique tail values of
+/* BATunique returns a bat that indicates the unique tail values of
  * the input bat.  This is essentially the same output as the
- * "extents" output of BATgroup.  The difference is that BATsubunique
+ * "extents" output of BATgroup.  The difference is that BATunique
  * can optionally take a candidate list, something that doesn't make
  * sense for BATgroup, and does not return the grouping bat.
  *
@@ -23,7 +23,7 @@
  * candidates.
  */
 BAT *
-BATsubunique(BAT *b, BAT *s)
+BATunique(BAT *b, BAT *s)
 {
 	BAT *bn;
 	BUN start, end, cnt;
@@ -44,17 +44,17 @@ BATsubunique(BAT *b, BAT *s)
 	bat parent;
 #endif
 
-	BATcheck(b, "BATsubunique", NULL);
+	BATcheck(b, "BATunique", NULL);
 	if (b->tkey || BATcount(b) <= 1 || BATtdense(b)) {
 		/* trivial: already unique */
 		if (s) {
 			/* we can return a slice of the candidate list */
 			oid lo = b->hseqbase;
 			oid hi = lo + BATcount(b);
-			ALGODEBUG fprintf(stderr, "#BATsubunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): trivial case: already unique, slice candidates\n",
+			ALGODEBUG fprintf(stderr, "#BATunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): trivial case: already unique, slice candidates\n",
 					  BATgetId(b), BATcount(b),
 					  BATgetId(s), BATcount(s));
-			b = BATsubselect(s, NULL, &lo, &hi, 1, 0, 0);
+			b = BATselect(s, NULL, &lo, &hi, 1, 0, 0);
 			if (b == NULL)
 				return NULL;
 			bn = BATproject(b, s);
@@ -62,7 +62,7 @@ BATsubunique(BAT *b, BAT *s)
 			return virtualize(bn);
 		}
 		/* we can return all values */
-		ALGODEBUG fprintf(stderr, "#BATsubunique(b=%s#" BUNFMT ",s=NULL): trivial case: already unique, return all\n",
+		ALGODEBUG fprintf(stderr, "#BATunique(b=%s#" BUNFMT ",s=NULL): trivial case: already unique, return all\n",
 				  BATgetId(b), BATcount(b));
 		bn = BATnew(TYPE_void, TYPE_void, BATcount(b), TRANSIENT);
 		if (bn == NULL)
@@ -77,7 +77,7 @@ BATsubunique(BAT *b, BAT *s)
 
 	if (start == end) {
 		/* trivial: empty result */
-		ALGODEBUG fprintf(stderr, "#BATsubunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): trivial case: empty\n",
+		ALGODEBUG fprintf(stderr, "#BATunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): trivial case: empty\n",
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
 				  s ? BATcount(s) : 0);
@@ -93,7 +93,7 @@ BATsubunique(BAT *b, BAT *s)
 	if ((b->tsorted && b->trevsorted) ||
 	    (b->ttype == TYPE_void && b->tseqbase == oid_nil)) {
 		/* trivial: all values are the same */
-		ALGODEBUG fprintf(stderr, "#BATsubunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): trivial case: all equal\n",
+		ALGODEBUG fprintf(stderr, "#BATunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): trivial case: all equal\n",
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
 				  s ? BATcount(s) : 0);
@@ -109,14 +109,14 @@ BATsubunique(BAT *b, BAT *s)
 	if (cand && BATcount(b) > 16 * BATcount(s)) {
 		BAT *nb, *r, *nr;
 
-		ALGODEBUG fprintf(stderr, "#BATsubunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): recurse: few candidates\n",
+		ALGODEBUG fprintf(stderr, "#BATunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): recurse: few candidates\n",
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
 				  s ? BATcount(s) : 0);
 		nb = BATproject(s, b);
 		if (nb == NULL)
 			return NULL;
-		r = BATsubunique(nb, NULL);
+		r = BATunique(nb, NULL);
 		if (r == NULL) {
 			BBPunfix(nb->batCacheid);
 			return NULL;
@@ -147,7 +147,7 @@ BATsubunique(BAT *b, BAT *s)
 		 * consecutive values */
 		const void *prev = NULL;
 
-		ALGODEBUG fprintf(stderr, "#BATsubunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): (reverse) sorted\n",
+		ALGODEBUG fprintf(stderr, "#BATunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): (reverse) sorted\n",
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
 				  s ? BATcount(s) : 0);
@@ -175,7 +175,7 @@ BATsubunique(BAT *b, BAT *s)
 		 * values we've seen */
 		unsigned char val;
 
-		ALGODEBUG fprintf(stderr, "#BATsubunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): byte sized atoms\n",
+		ALGODEBUG fprintf(stderr, "#BATunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): byte sized atoms\n",
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
 				  s ? BATcount(s) : 0);
@@ -214,7 +214,7 @@ BATsubunique(BAT *b, BAT *s)
 		 * values we've seen */
 		unsigned short val;
 
-		ALGODEBUG fprintf(stderr, "#BATsubunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): short sized atoms\n",
+		ALGODEBUG fprintf(stderr, "#BATunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): short sized atoms\n",
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
 				  s ? BATcount(s) : 0);
@@ -264,7 +264,7 @@ BATsubunique(BAT *b, BAT *s)
 		/* we already have a hash table on b, or b is
 		 * persistent and we could create a hash table, or b
 		 * is a view on a bat that already has a hash table */
-		ALGODEBUG fprintf(stderr, "#BATsubunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): use existing hash\n",
+		ALGODEBUG fprintf(stderr, "#BATunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): use existing hash\n",
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
 				  s ? BATcount(s) : 0);
@@ -331,7 +331,7 @@ BATsubunique(BAT *b, BAT *s)
 		BUN p;
 
 		GDKclrerr();	/* not interested in BAThash errors */
-		ALGODEBUG fprintf(stderr, "#BATsubunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): create partial hash\n",
+		ALGODEBUG fprintf(stderr, "#BATunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): create partial hash\n",
 				  BATgetId(b), BATcount(b),
 				  s ? BATgetId(s) : "NULL",
 				  s ? BATcount(s) : 0);
@@ -352,7 +352,7 @@ BATsubunique(BAT *b, BAT *s)
 				GDKfree(hp);
 			}
 			hp = NULL;
-			GDKerror("BATsubunique: cannot allocate hash table\n");
+			GDKerror("BATunique: cannot allocate hash table\n");
 			goto bunins_failed;
 		}
 		for (;;) {

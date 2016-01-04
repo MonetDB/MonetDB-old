@@ -57,6 +57,8 @@
 
 #include <assert.h>
 
+#define __func__ __FUNCTION__
+
 /* indicate to sqltypes.h that windows.h has already been included and
    that it doesn't have to define Windows constants */
 #define ALREADY_HAVE_WINDOWS_TYPE 1
@@ -688,6 +690,9 @@
 /* Define if you have valgrind installed and want to use it */
 /* #undef HAVE_VALGRIND */
 
+/* Define to 1 if you have the `_wfopen' function. */
+#define HAVE__WFOPEN 1
+
 /* Define to 1 if you have the <winsock2.h> header file. */
 #define HAVE_WINSOCK2_H 1
 
@@ -929,16 +934,6 @@
 
 /* Needed to compile bison-generated code. */
 /* #undef YYLTYPE_IS_TRIVIAL */
-
-/* Define to 1 if `lex' declares `yytext' as a `char *' by default, not a
-   `char[]'. */
-#define YYTEXT_POINTER 1
-
-/* tell compiler to use prototypes in flex-generated code */
-#define YY_USE_PROTOS
-
-/* tell compiler to use const in flex-generated code */
-#define YY_USE_CONST
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 /* #undef _FILE_OFFSET_BITS */

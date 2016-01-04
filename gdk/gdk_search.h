@@ -26,7 +26,7 @@ gdk_export BUN HASHlist(Hash *h, BUN i);
 #define HASHfnd_str(x,y,z)						\
 	do {								\
 		(x) = BUN_NONE;						\
-		if ((y).b->T->hash || BAThash((y).b) == GDK_SUCCEED) {	\
+		if (BAThash((y).b) == GDK_SUCCEED) {			\
 			BUN _i;						\
 			BUN _prb = HASHprobe((y).b->T->hash, (z));	\
 			int _pcs;					\
@@ -41,7 +41,7 @@ gdk_export BUN HASHlist(Hash *h, BUN i);
 #define HASHfnd(x,y,z)							\
 	do {								\
 		(x) = BUN_NONE;						\
-		if ((y).b->T->hash || BAThash((y).b) == GDK_SUCCEED) { \
+		if (BAThash((y).b) == GDK_SUCCEED) {			\
 			BUN _i;						\
 			BUN _prb = HASHprobe((y).b->T->hash, (z));	\
 			int _pcs;					\
@@ -56,7 +56,7 @@ gdk_export BUN HASHlist(Hash *h, BUN i);
 #define HASHfnd_TYPE(x,y,z,TYPE)					\
 	do {								\
 		(x) = BUN_NONE;						\
-		if ((y).b->T->hash || BAThash((y).b) == GDK_SUCCEED) { \
+		if (BAThash((y).b) == GDK_SUCCEED) {			\
 			BUN _i;						\
 			BUN _prb = HASHprobe((y).b->T->hash, (z));	\
 			int _pcs;					\

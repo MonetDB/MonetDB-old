@@ -200,7 +200,7 @@ BATcheckhash(BAT *b)
 	lng t;
 
 	t = GDKusec();
-	MT_lock_set(&GDKhashLock(abs(b->batCacheid)), "BATcheckhash");
+	MT_lock_set(&GDKhashLock(abs(b->batCacheid)));
 	t = GDKusec() - t;
 	if (b->T->hash == NULL) {
 		Hash *h;
@@ -256,7 +256,7 @@ BATcheckhash(BAT *b)
 					close(fd);
 					b->T->hash = h;
 					ALGODEBUG fprintf(stderr, "#BATcheckhash: reusing persisted hash %d\n", b->batCacheid);
-					MT_lock_unset(&GDKhashLock(abs(b->batCacheid)), "BATcheckhash");
+					MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
 					return 1;
 				}
 			  unusable:
@@ -270,7 +270,7 @@ BATcheckhash(BAT *b)
 		GDKfree(hp);
 	}
 	ret = b->T->hash != NULL;
-	MT_lock_unset(&GDKhashLock(abs(b->batCacheid)), "BATcheckhash");
+	MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
 	ALGODEBUG if (ret) fprintf(stderr, "#BATcheckhash: already has hash %d, waited " LLFMT " usec\n", b->batCacheid, t);
 	return ret;
 }
@@ -449,7 +449,7 @@ BAThash(BAT *b)
 		return GDK_FAIL;
 	}
 
-	MT_lock_set(&GDKhashLock(abs(b->batCacheid)), "BAThash");
+	MT_lock_set(&GDKhashLock(abs(b->batCacheid)));
 	if (b->T->hash == NULL) {
 		BUN cnt = BATcount(b);
 		int pieces = 1;
@@ -512,7 +512,7 @@ BAThash(BAT *b)
 #endif
 		b->T->hash = h;
 		/* unlock before potentially expensive sync */
-		MT_lock_unset(&GDKhashLock(abs(b->batCacheid)), "BAThash");
+		MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
 #ifndef DISABLE_HASHSYNC
 		if (BBP_status(b->batCacheid) & BBPEXISTING) {
 			MT_Id tid;
@@ -522,7 +522,7 @@ BAThash(BAT *b)
 		return GDK_SUCCEED;
 	}
   bailout:
-	MT_lock_unset(&GDKhashLock(abs(b->batCacheid)), "BAThash");
+	MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
 	return b->T->hash ? GDK_SUCCEED : GDK_FAIL;
 }
 

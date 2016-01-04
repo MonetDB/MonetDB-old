@@ -48,10 +48,7 @@ algebra_export str ALGsubdiff(bat *r1, const bat *lid, const bat *rid, const bat
 algebra_export str ALGsubinter(bat *r1, const bat *lid, const bat *rid, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate);
 
 /* legacy join functions */
-algebra_export str ALGantijoin2(bat *l, bat *r, const bat *lid, const bat *rid);
-algebra_export str ALGjoin2(bat *l, bat *r, const bat *lid, const bat *rid);
 algebra_export str ALGcrossproduct2(bat *l, bat *r, const bat *lid, const bat *rid);
-algebra_export str ALGrangejoin2(bat *l, bat *r, const bat *lid, const bat *rlid, const bat *rhid, const bit *li, const bit *hi);
 /* end legacy join functions */
 
 algebra_export str ALGfirstn(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
@@ -59,7 +56,7 @@ algebra_export str ALGfirstn(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 algebra_export str ALGcopy(bat *result, const bat *bid);
 algebra_export str ALGsubunique2(bat *result, const bat *bid, const bat *sid);
 algebra_export str ALGsubunique1(bat *result, const bat *bid);
-algebra_export str ALGleftfetchjoin(bat *result, const bat *lid, const bat *rid);
+algebra_export str ALGprojection(bat *result, const bat *lid, const bat *rid);
 algebra_export str ALGtinter(bat *result, const bat *lid, const bat *rid);
 algebra_export str ALGtdiff(bat *result, const bat *lid, const bat *rid);
 algebra_export str ALGsample(bat *result, const bat *bid, const int *param);

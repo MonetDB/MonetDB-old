@@ -37,13 +37,12 @@ static str parseError(Client cntxt, str msg);
 static void 
 echoInput(Client cntxt)
 {
-	if (cntxt->listing == 1) {
-		char *c = CURRENT(cntxt);
+	char *c = CURRENT(cntxt);
+	if (cntxt->listing == 1 && *c && !NL(*c)) {
 		mnstr_printf(cntxt->fdout,"#");
 		while (*c && !NL(*c)) {
 			mnstr_printf(cntxt->fdout, "%c", *c++);
 		}
-
 		mnstr_printf(cntxt->fdout, "\n");
 	}
 }
@@ -309,12 +308,6 @@ operatorLength(Client cntxt)
 			return l;
 	}
 	return l;
-}
-
-static str
-operatorCopy(Client cntxt, int length)
-{
-	return idCopy(cntxt,length);
 }
 
 /*
@@ -619,13 +612,11 @@ handleInts:
  * @item scalarType
  * @tab :  ':' @sc{ identifier}
  * @item collectionType
- * @tab :  ':' @sc{ bat} ['[' ':' oid ',' col ']']
+ * @tab :  ':' @sc{ bat} ['['  col ']']
  * @item anyType
  * @tab :  ':' @sc{ any} [typeAlias]
  * @item col
  * @tab :  scalarType | anyType
- * @item propQualifier
- * @tab :  ['@{' property '@}']
  * @end multitable
  *
  * The type ANY matches any type specifier.
@@ -685,24 +676,35 @@ simpleTypeId(Client cntxt)
 static int
 parseTypeId(Client cntxt, int defaultType)
 {
-	int i = TYPE_any, ht, tt, kh = 0, kt = 0;
+	int i = TYPE_any, tt, kt = 0;
 	char *s = CURRENT(cntxt);
 
 	if (s[0] == ':' && s[1] == 'b' && s[2] == 'a' && s[3] == 't' && s[4] == '[') {
 		/* parse :bat[:oid,:type] */
 		advance(cntxt, 5);
 		if (currChar(cntxt) == ':') {
-			ht = simpleTypeId(cntxt);
-			if( ht != TYPE_oid){
-				parseError(cntxt, "':oid' expected\n");
-				return i;
-			}
-		} 
+			tt = simpleTypeId(cntxt);
+			kt = typeAlias(cntxt, tt);
+		} else{
+			parseError(cntxt, "':bat[:any]' expected\n");
+			return TYPE_bat;
+		}
 
-		if (currChar(cntxt) != ',') {
-			parseError(cntxt, "',' expected\n");
+		if (currChar(cntxt) == ']') {
+			i = newBatType(TYPE_void, tt);
+			if (kt > 0)
+				setAnyColumnIndex(i, kt);
+			nextChar(cntxt); /* skip ] */
+			skipSpace(cntxt);
 			return i;
 		}
+		/* Backward compatibility parsing of :bat[:oid,:type] */
+		if( tt != TYPE_oid){
+			parseError(cntxt, "':oid' expected\n");
+			return i;
+		}
+		if (currChar(cntxt) != ',')
+				parseError(cntxt, "',' expected\n");
 		nextChar(cntxt); /* skip , */
 		skipSpace(cntxt);
 		if (currChar(cntxt) == ':') {
@@ -711,9 +713,7 @@ parseTypeId(Client cntxt, int defaultType)
 		} else
 			tt = TYPE_any;
 
-		i = newBatType(TYPE_oid, tt);
-		if (kh > 0)
-			setAnyHeadIndex(i, kh);
+		i = newBatType(TYPE_void, tt);
 		if (kt > 0)
 			setAnyColumnIndex(i, kt);
 
@@ -732,20 +732,12 @@ parseTypeId(Client cntxt, int defaultType)
 		//parseError(cntxt, "':bat[:oid,:any]' expected\n");
 		return TYPE_bat;
 	}
-	// Headless definition of a column
-	if (s[0] == ':' && s[1] == 'c' && s[2] == 'o' && s[3] == 'l' && s[4] == '[') {
-		/* parse default for :col[:any] */
-		advance(cntxt, 5);
-		skipSpace(cntxt);
-		tt = simpleTypeId(cntxt);
-		return newColumnType(tt);
-	}
 	if (currChar(cntxt) == ':') {
-		ht = simpleTypeId(cntxt);
-		kt = typeAlias(cntxt, ht);
+		tt = simpleTypeId(cntxt);
+		kt = typeAlias(cntxt, tt);
 		if (kt > 0)
-			setAnyColumnIndex(ht, kt);
-		return ht;
+			setAnyColumnIndex(tt, kt);
+		return tt;
 	}
 	parseError(cntxt, "<type identifier> expected\n");
 	return defaultType;
@@ -814,55 +806,6 @@ helpInfo(Client cntxt, str *help)
 	skipToEnd(cntxt);
 }
 
-static void
-propList(Client cntxt, int arg)
-{
-	MalBlkPtr curBlk = cntxt->curprg->def;
-	int l;
-	malType tpe;
-
-	if (keyphrase1(cntxt, "{")) {
-		do {
-			str pname, opname;
-			int i, lo;
-			ValRecord cst;
-
-			l = idLength(cntxt);
-			if (l == 0)
-				break;
-			pname = idCopy(cntxt, l);
-			/* localize value , simplified version */
-			lo = operatorLength(cntxt);
-			if (lo > 0)
-				opname = operatorCopy(cntxt, lo);
-			else
-				opname = GDKstrdup("");
-			if ((i = cstToken(cntxt, &cst))) {
-				advance(cntxt, i);
-				if (currChar(cntxt) == ':') {
-					tpe = simpleTypeId(cntxt);
-					if (tpe >=0 && tpe != TYPE_any){
-						str msg =convertConstant(tpe, &cst);
-						if( msg) GDKfree(msg);
-					} else
-						parseError(cntxt, "simple type expected\n");
-				} else if (cst.vtype == TYPE_dbl && cst.val.dval > FLT_MIN && cst.val.dval <= FLT_MAX) {
-					cst.vtype = TYPE_flt;
-					cst.val.fval = (flt) cst.val.dval;
-				}
-				varSetProperty(curBlk, arg, pname, opname, &cst);
-			} else {
-				varSetProperty(curBlk, arg, pname, NULL, NULL);
-			}
-			GDKfree(pname);
-			GDKfree(opname);
-		} while (keyphrase1(cntxt, ","));
-		if (!keyphrase1(cntxt, "}"))
-			/* return (MalBlkPtr) */
-			parseError(cntxt, "'}' expected\n");
-	}
-}
-
 static InstrPtr
 binding(Client cntxt, MalBlkPtr curBlk, InstrPtr curInstr, int flag)
 {
@@ -880,11 +823,9 @@ binding(Client cntxt, MalBlkPtr curBlk, InstrPtr curInstr, int flag)
 			if (isPolymorphic(type))
 				setPolymorphic(curInstr, type, TRUE);
 			setVarType(curBlk, varid, type);
-			propList(cntxt, varid);
 		} else if (flag) {
 			parseError(cntxt, "Argument defined twice\n");
 			typeElm(cntxt, getVarType(curBlk, varid));
-			propList(cntxt, varid);
 		} else {
 			advance(cntxt, l);
 			type = typeElm(cntxt, getVarType(curBlk, varid));
@@ -893,7 +834,6 @@ binding(Client cntxt, MalBlkPtr curBlk, InstrPtr curInstr, int flag)
 			if (isPolymorphic(type))
 				setPolymorphic(curInstr, type, TRUE);
 			setVarType(curBlk, varid, type);
-			propList(cntxt, varid);
 		}
 	} else if (currChar(cntxt) == ':') {
 		type = typeElm(cntxt, TYPE_any);
@@ -903,7 +843,6 @@ binding(Client cntxt, MalBlkPtr curBlk, InstrPtr curInstr, int flag)
 		if ( isPolymorphic(type))
 			setPolymorphic(curInstr, type, TRUE);
 		setVarType(curBlk, varid, type);
-		propList(cntxt, varid);
 	} else {
 		parseError(cntxt, "argument expected\n");
 		return curInstr;
@@ -978,10 +917,8 @@ term(Client cntxt, MalBlkPtr curBlk, InstrPtr *curInstr, int ret)
 			idx = newVariable(curBlk, v, TYPE_any);
 			if( idx <0)
 				return 0;
-			propList(cntxt, idx);
 		} else {
 			advance(cntxt, i);
-			propList(cntxt, idx);
 		}
 		*curInstr = pushArgument(curBlk, *curInstr, idx);
 	} else if (currChar(cntxt) == ':') {
@@ -990,7 +927,6 @@ term(Client cntxt, MalBlkPtr curBlk, InstrPtr *curInstr, int ret)
 			return 3;
 		setPolymorphic(*curInstr, tpe, FALSE);
 		idx = newTypeVariable(curBlk, tpe);
-		propList(cntxt, idx);
 		*curInstr = pushArgument(curBlk, *curInstr, idx);
 		return ret;
 	}
@@ -1210,7 +1146,6 @@ fcnHeader(Client cntxt, int kind)
 	curBlk->flowfixed = 0;
 	curBlk->typefixed = 0;
 	curInstr = getInstrPtr(curBlk, 0);
-	propList(cntxt, curInstr->argv[0]);
 
 	if (currChar(cntxt) != '('){
 		parseError(cntxt, "function header '(' expected\n");
@@ -1278,7 +1213,6 @@ fcnHeader(Client cntxt, int kind)
 			setPolymorphic(curInstr, TYPE_any, TRUE);
 		}
 
-		propList(cntxt, curInstr->argv[0]);
 	} else if (keyphrase1(cntxt, "(")) { /* deal with compound return */
 		int retc = curInstr->argc, i1, i2 = 0;
 		int max;
@@ -1665,7 +1599,6 @@ parseAssign(Client cntxt, int cntrl)
 				setPolymorphic(curInstr, type, FALSE);
 				setVarType(curBlk, varid, type);
 			}
-			propList(cntxt, varid);
 			curInstr = pushArgument(curBlk, curInstr, varid);
 			curInstr->retc++;
 			if (currChar(cntxt) == ')')
@@ -1723,7 +1656,6 @@ parseAssign(Client cntxt, int cntrl)
 				setVarType(curBlk, varid, type);
 			}
 		}
-		propList(cntxt, varid);
 		curInstr->argv[0] = varid;
 	}
 	/* look for assignment operator */
@@ -1839,54 +1771,6 @@ part3:
 		parseError(cntxt, "return assignment expected\n");
 }
 
-/*
- * A piggybacked way to ship tuples is to mimick
- * a copycommand through the language interface.
- * All tuples are stored in a temporary file
- * whose name can be picked up immediately afterwards.
- * The code should be made thread safe, by storing
- * the file name in the client record.
- */
-static void
-parseTuple(Client cntxt)
-{
-	InstrPtr curInstr;
-	MalBlkPtr curBlk;
-	Symbol curPrg;
-	FILE *f = 0;
-	char buf[PATHLENGTH];
-	int c;
-
-	sprintf(buf, "input%d", (int) (cntxt - mal_clients));
-	f = fopen(buf, "w");
-	if (f == NULL)
-		showException(cntxt->fdout, SYNTAX, "parser", "temp file not writeable");
-	while ((c = currChar(cntxt)) == '[' && c) {
-		do {
-			if (f && c)
-				fputc(c, f);
-			nextChar(cntxt);
-		} while ((c = currChar(cntxt)) != '\n' && c);
-		if (f && c && fputc(c, f) == EOF) {
-			(void) fclose(f);
-			if (unlink(buf) < 0)
-				showException(cntxt->fdout, SYNTAX, "parser", "out of temp file space and unable to unlink");
-			showException(cntxt->fdout, SYNTAX, "parser", "out of temp file space");
-			return;
-		}
-		nextChar(cntxt);
-	}
-	curPrg = cntxt->curprg;
-	curBlk = curPrg->def;
-	curInstr = newAssignment(curBlk);
-	setModuleId(curInstr, putName("io", 2));
-	setFunctionId(curInstr, putName("data", 4));
-	c = newVariable(curBlk, GDKstrdup("tuples"), TYPE_any);
-	getArg(curInstr, 0) = c;
-	pushStr(curBlk, curInstr, buf);
-	if (f != NULL)
-		(void) fclose(f);
-}
 
 #define BRKONERR if (curPrg->def->errors >= MAXERRORS) \
 		return curPrg->def->errors;
@@ -1896,6 +1780,7 @@ parseMAL(Client cntxt, Symbol curPrg, int skipcomments)
 	int cntrl = 0;
 	/*Symbol curPrg= cntxt->curprg;*/
 	char c;
+	int inlineProp =0, unsafeProp = 0;
 
 	echoInput(cntxt);
 	/* here the work takes place */
@@ -1908,10 +1793,6 @@ parseMAL(Client cntxt, Symbol curPrg, int skipcomments)
 		case ';': case '\t': case ' ':
 			nextChar(cntxt);
 			continue;
-		case '[':
-			/* parse a tuple value. stops at end of line */
-			parseTuple(cntxt);
-			break;
 		case '#':
 		{ /* keep the full line comments unless it is a MX #line */
 			char start[256], *e = start, c;
@@ -1962,6 +1843,11 @@ parseMAL(Client cntxt, Symbol curPrg, int skipcomments)
 		case 'C': case 'c':
 			if (MALkeyword(cntxt, "command", 7)) {
 				parseCommandPattern(cntxt, COMMANDsymbol);
+				cntxt->curprg->def->unsafeProp = unsafeProp;
+				if( inlineProp )
+					showException(cntxt->fdout, SYNTAX, "parseError", "INLINE ignored");
+				inlineProp = 0;
+				unsafeProp = 0;
 				continue;
 			}
 			if (MALkeyword(cntxt, "catch", 5)) {
@@ -1982,21 +1868,32 @@ parseMAL(Client cntxt, Symbol curPrg, int skipcomments)
 		case 'F': case 'f':
 			if (MALkeyword(cntxt, "function", 8)) {
 				cntxt->blkmode++;
-				if (parseFunction(cntxt, FUNCTIONsymbol))
+				if (parseFunction(cntxt, FUNCTIONsymbol)){
+					cntxt->curprg->def->inlineProp = inlineProp;
+					cntxt->curprg->def->unsafeProp = unsafeProp;
+					inlineProp = 0;
+					unsafeProp = 0;
 					break;
+				}
 			} else if (MALkeyword(cntxt, "factory", 7)) {
+				if( inlineProp )
+					showException(cntxt->fdout, SYNTAX, "parseError", "INLINE ignored");
+				if( unsafeProp)
+					showException(cntxt->fdout, SYNTAX, "parseError", "UNSAFE ignored");
+				inlineProp = 0;
+				unsafeProp = 0;
 				cntxt->blkmode++;
 				parseFunction(cntxt, FACTORYsymbol);
 				break;
 			}
 			goto allLeft;
-		case 'H': case 'h':
-			if (MALkeyword(cntxt, "handler", 5)) {
-				skipToEnd(cntxt);
-				cntxt->blkmode++;
-				break;
-			}
-		case 'i': if (parseInclude(cntxt))
+		case 'I': case 'i': 
+			if (MALkeyword(cntxt, "inline", 6)) {
+				inlineProp= 1;
+				skipSpace(cntxt);
+				continue;
+			} else
+			if (parseInclude(cntxt))
 				continue;
 			goto allLeft;
 		case 'L': case 'l':
@@ -2014,7 +1911,12 @@ parseMAL(Client cntxt, Symbol curPrg, int skipcomments)
 			goto allLeft;
 		case 'P': case 'p':
 			if (MALkeyword(cntxt, "pattern", 7)) {
+				if( inlineProp )
+					showException(cntxt->fdout, SYNTAX, "parseError", "INLINE ignored");
 				parseCommandPattern(cntxt, PATTERNsymbol);
+				cntxt->curprg->def->unsafeProp = unsafeProp;
+				inlineProp = 0;
+				unsafeProp = 0;
 				continue;
 			}
 			goto allLeft;
@@ -2029,6 +1931,13 @@ parseMAL(Client cntxt, Symbol curPrg, int skipcomments)
 			}
 			if (MALkeyword(cntxt, "return", 6)) {
 				cntrl = RETURNsymbol;
+			}
+			goto allLeft;
+		case 'U': case 'u': 
+			if (MALkeyword(cntxt, "unsafe", 6)) {
+				unsafeProp= 1;
+				skipSpace(cntxt);
+				continue;
 			}
 			goto allLeft;
 		case 'Y': case 'y':

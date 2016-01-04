@@ -60,19 +60,26 @@
 void
 HASHremove(BAT *b)
 {
-	if (b && b->T->hash) {
-		bat p = -VIEWtparent(b);
-		BAT *hp = NULL;
+	if (b) {
+		if (b->T->hash == (Hash *) 1) {
+			GDKunlink(BBPselectfarm(b->batRole, b->ttype, hashheap),
+				  BATDIR,
+				  BBP_physical(b->batCacheid),
+				  b->batCacheid > 0 ? "thash" : "hhash");
+		} else if (b->T->hash) {
+			bat p = -VIEWtparent(b);
+			BAT *hp = NULL;
 
-		if (p)
-			hp = BBP_cache(p);
+			if (p)
+				hp = BBP_cache(p);
 
-		if ((!hp || b->T->hash != hp->T->hash) && b->T->hash != (Hash *) -1) {
-			ALGODEBUG if (*(size_t *) b->T->hash->heap->base & (1 << 24))
-				fprintf(stderr, "#HASHremove: removing persisted hash %d\n", b->batCacheid);
-			HEAPfree(b->T->hash->heap, 1);
-			GDKfree(b->T->hash->heap);
-			GDKfree(b->T->hash);
+			if ((!hp || b->T->hash != hp->T->hash) && b->T->hash != (Hash *) -1) {
+				ALGODEBUG if (*(size_t *) b->T->hash->heap->base & (1 << 24))
+					fprintf(stderr, "#HASHremove: removing persisted hash %d\n", b->batCacheid);
+				HEAPfree(b->T->hash->heap, 1);
+				GDKfree(b->T->hash->heap);
+				GDKfree(b->T->hash);
+			}
 		}
 		b->T->hash = NULL;
 	}
@@ -86,6 +93,25 @@ HASHdestroy(BAT *b)
 		if (BATmirror(b))
 			HASHremove(BATmirror(b));
 
+	}
+}
+
+void
+HASHfree(BAT *b)
+{
+	if (b) {
+		MT_lock_set(&GDKhashLock(abs(b->batCacheid)));
+		if (b->T->hash && b->T->hash != (Hash *) -1) {
+			if (b->T->hash != (Hash *) 1) {
+				HEAPfree(b->T->hash->heap, 0);
+				GDKfree(b->T->hash->heap);
+				GDKfree(b->T->hash);
+				b->T->hash = (Hash *) 1;
+			}
+		} else {
+			b->T->hash = NULL;
+		}
+		MT_lock_unset(&GDKhashLock(abs(b->batCacheid)));
 	}
 }
 

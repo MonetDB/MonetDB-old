@@ -7,10 +7,9 @@ tst4005
 tst4010
 tst4030
 tst4601
-tst4602
 tst4630
-tst4700
-tst4701
+#tst4700 no compiler
+#tst4701
 
 #qep00 deprecated optimizer
 #qep01 ,,
@@ -48,7 +47,7 @@ inline10
 inlineIfthen
 inlineCst
 
-mitosis00
+#mitosis00
 
 manifold2
 
@@ -59,12 +58,12 @@ joinchain
 ifthencst
 #CXerror1 transaction primitives removed
 #the remainder are snippets used in the reference manual
-CMexample
+#CMexample rowcount is only set by SQL optimizer
 #CRexample push range optimizer is out of date
 ARexample
 DCexample
 DCexample2
-FTexample
+#FTexample
 GCexample01
 CXexample
 JPexample
@@ -74,4 +73,3 @@ dataflow
 dataflow3
 dataflow4
 dataflow5
-garbage
