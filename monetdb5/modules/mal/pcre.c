@@ -213,6 +213,7 @@ re_destroy( RE *p)
 #define m2p(p) (pcre*)(((size_t*)p)+1)
 #define p2m(p) (pcre*)(((size_t*)p)-1)
 
+#ifndef HAVE_EMBEDDED_JAVA
 static void *
 my_pcre_malloc(size_t s)
 {
@@ -223,6 +224,7 @@ my_pcre_malloc(size_t s)
 	*sz = s + sizeof(size_t);
 	return (void *) (sz + 1);
 }
+#endif
 
 static void
 my_pcre_free(void *blk)

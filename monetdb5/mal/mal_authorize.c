@@ -740,6 +740,7 @@ AUTHverifyPassword(str *passwd)
 {
 	char *p = *passwd;
 	size_t len = strlen(p);
+	(void)len;
 
 #ifdef HAVE_RIPEMD160
 	if (strcmp(MONETDB5_PASSWDHASH, "RIPEMD160") == 0) {

@@ -407,6 +407,7 @@ SQLinitClient(Client c)
 {
 	mvc *m;
 	str schema;
+	(void) schema;
 	str msg = MAL_SUCCEED;
 	backend *be;
 	bstream *bfd = NULL;
