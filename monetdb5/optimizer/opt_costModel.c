@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -58,10 +58,10 @@ OPTcostModelImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 				getFunctionId(p) == subsortRef  ||
 				getFunctionId(p) == projectRef  ){
 				newRows(1,1,c1,0);
-			} else if (getFunctionId(p) == joinRef ||
-				getFunctionId(p) == leftfetchjoinRef ||
+			} else if (getFunctionId(p) == subjoinRef ||
+				getFunctionId(p) == projectionRef ||
 				getFunctionId(p) == subbandjoinRef ||
-				getFunctionId(p) == leftfetchjoinPathRef ) {
+				getFunctionId(p) == projectionPathRef ) {
 				/* assume 1-1 joins */
 				newRows(1,2,(c1 < c2 ? c1 : c2),0);
 			} else

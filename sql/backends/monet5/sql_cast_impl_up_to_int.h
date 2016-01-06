@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /* ! ENSURE THAT THESE LOCAL MACROS ARE UNDEFINED AT THE END OF THIS FILE ! */
@@ -85,7 +85,7 @@ FUN(,TP1,_num2dec_,TP2) (TP2 *res, const TP1 *v, const int *d2, const int *s2)
 }
 
 str
-FUN(bat,TP1,_dec2_,TP2) (int *res, const int *s1, const int *bid)
+FUN(bat,TP1,_dec2_,TP2) (bat *res, const int *s1, const bat *bid)
 {
 	BAT *b, *bn;
 	TP1 *p, *q;
@@ -136,22 +136,13 @@ FUN(bat,TP1,_dec2_,TP2) (int *res, const int *s1, const int *bid)
 	if (!(bn->batDirty & 2))
 		BATsetaccess(bn, BAT_READ);
 
-	if (!BAThdense(b)) {
-		/* legacy */
-		BAT *r = VIEWcreate(b, bn);
-
-		BBPkeepref(*res = r->batCacheid);
-		BBPunfix(bn->batCacheid);
-		BBPunfix(b->batCacheid);
-		return msg;
-	}
 	BBPkeepref(*res = bn->batCacheid);
 	BBPunfix(b->batCacheid);
 	return msg;
 }
 
 str
-FUN(bat,TP1,_dec2dec_,TP2) (int *res, const int *S1, const int *bid, const int *d2, const int *S2)
+FUN(bat,TP1,_dec2dec_,TP2) (bat *res, const int *S1, const bat *bid, const int *d2, const int *S2)
 {
 	BAT *b, *dst;
 	BATiter bi;
@@ -179,21 +170,14 @@ FUN(bat,TP1,_dec2dec_,TP2) (int *res, const int *S1, const int *bid, const int *
 		}
 		BUNappend(dst, &r, FALSE);
 	}
-	if (!BAThdense(b)) {
-		/* legacy */
-		BAT *b2 = VIEWcreate(b, dst);
-		BBPunfix(dst->batCacheid);
-		dst = b2;
-	} else {
-		BATseqbase(dst, b->hseqbase);
-	}
+	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return msg;
 }
 
 str
-FUN(bat,TP1,_num2dec_,TP2) (int *res, const int *bid, const int *d2, const int *s2)
+FUN(bat,TP1,_num2dec_,TP2) (bat *res, const bat *bid, const int *d2, const int *s2)
 {
 	BAT *b, *dst;
 	BATiter bi;
@@ -221,14 +205,7 @@ FUN(bat,TP1,_num2dec_,TP2) (int *res, const int *bid, const int *d2, const int *
 		}
 		BUNappend(dst, &r, FALSE);
 	}
-	if (!BAThdense(b)) {
-		/* legacy */
-		BAT *b2 = VIEWcreate(b, dst);
-		BBPunfix(dst->batCacheid);
-		dst = b2;
-	} else {
-		BATseqbase(dst, b->hseqbase);
-	}
+	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return msg;

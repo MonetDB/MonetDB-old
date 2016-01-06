@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #ifndef MAL_PRELUDE
@@ -99,10 +99,6 @@ opt_export  str ioRef;
 opt_export  str iteratorRef;
 opt_export  str joinPathRef;
 opt_export  str jsonRef;
-opt_export  str joinRef;
-opt_export  str antijoinRef;
-opt_export  str bandjoinRef;
-opt_export  str thetajoinRef;
 opt_export  str subjoinRef;
 opt_export  str subleftjoinRef;
 opt_export  str subantijoinRef;
@@ -110,8 +106,8 @@ opt_export  str subbandjoinRef;
 opt_export  str subrangejoinRef;
 opt_export  str subthetajoinRef;
 opt_export  str languageRef;
-opt_export  str leftfetchjoinRef;
-opt_export  str leftfetchjoinPathRef;
+opt_export  str projectionRef;
+opt_export  str projectionPathRef;
 opt_export  str likeselectRef;
 opt_export  str ilikeselectRef;
 opt_export  str likeuselectRef;

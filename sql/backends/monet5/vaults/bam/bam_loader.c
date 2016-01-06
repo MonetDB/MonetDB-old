@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -120,18 +120,18 @@ run_process_bam_alignments(void *d)
 
 	TO_LOG("<Thread %d> Starting on next file...\n", data->thread_id);
 	/* First, find out on which bam wrapper we have to work */
-	MT_lock_set(data->reader_lock, data->reader_lock_ref);
+	MT_lock_set(data->reader_lock);
 	if (*data->cur_file == data->nr_files - 1) {
 		/* The last file is already (being) processed, this
 		 * thread is done */
-		MT_lock_unset(data->reader_lock, data->reader_lock_ref);
+		MT_lock_unset(data->reader_lock);
 		TO_LOG("<Thread %d> No files left to work on; thread done\n",
 			   data->thread_id);
 		return;
 	}
 	(*data->cur_file) += 1;
 	bw = &data->bws[*data->cur_file];
-	MT_lock_unset(data->reader_lock, data->reader_lock_ref);
+	MT_lock_unset(data->reader_lock);
 	TO_LOG("<Thread %d> Processing alignments of file '%s' (file id "
 		   LLFMT ")...\n", data->thread_id, bw->file_location,
 		   bw->file_id);

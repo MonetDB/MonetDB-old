@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -176,18 +176,18 @@ monet_hello(void)
 	printf("# Visit http://www.monetdb.org/ for further information\n");
 
 	// The properties shipped through the performance profiler
-	len = snprintf(monet_characteristics, sizeof(monet_characteristics)-1, "{ \"MonetDBversion\":\"%s\", ", VERSION);
-	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"release\":\"%s\", ", MONETDB_RELEASE);
-	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"host\":\"%s\", ", HOST);
-	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"threads\":\"%d\", ", GDKnr_threads);
-	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"memory\":\"%.3f %cB\", ", sz_mem_h, qc[qi]);
-	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"oid\":\""SZFMT"\", ", sizeof(oid) *8);
+	len = snprintf(monet_characteristics, sizeof(monet_characteristics)-1, "{\n\"version\":\"%s\",\n", VERSION);
+	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"release\":\"%s\",\n", MONETDB_RELEASE);
+	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"host\":\"%s\",\n", HOST);
+	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"threads\":\"%d\",\n", GDKnr_threads);
+	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"memory\":\"%.3f %cB\",\n", sz_mem_h, qc[qi]);
+	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"oid\":\""SZFMT"\",\n", sizeof(oid) *8);
 	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"packages\":[");
 	// add the compiled in package names
 #ifdef HAVE_HGE
 	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "\"%s\"","huge");
 #endif
-	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "]}");
+	len += snprintf(monet_characteristics + len, sizeof(monet_characteristics)-1-len, "]\n}");
 }
 
 static str
@@ -652,9 +652,6 @@ main(int argc, char **av)
 		msab_registerStop();
 		return 0;
 	}
-
-	if (GDKgetenv("mal_listing"))
-		sscanf(GDKgetenv("mal_listing"), "%d", &listing);
 
 	MSinitClientPrg(mal_clients, "user", "main");
 	if (dbinit == NULL)

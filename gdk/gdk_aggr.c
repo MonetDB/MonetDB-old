@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -29,7 +29,7 @@
  * The tail values of s refer to the head of b and g.  Only entries at
  * the specified ids are taken into account for the grouped
  * aggregates.  All other values are ignored.  s is compatible with
- * the result of BATsubselect().
+ * the result of BATselect().
  *
  * If e is not specified, we need to do an extra scan over g to find
  * out the range of the group ids that are used.  e is defined in such
@@ -162,6 +162,7 @@ BATgroupaggrinit(BAT *b, BAT *g, BAT *e, BAT *s,
 					ADD_WITH_CHECK(TYPE1, x,	\
 						       TYPE2, sum,	\
 						       TYPE2, sum,	\
+						       GDK_##TYPE2##_max, \
 						       goto overflow);	\
 				}					\
 			} else {					\
@@ -177,6 +178,7 @@ BATgroupaggrinit(BAT *b, BAT *g, BAT *e, BAT *s,
 						ADD_WITH_CHECK(TYPE1, x, \
 							       TYPE2, sum, \
 							       TYPE2, sum, \
+							       GDK_##TYPE2##_max, \
 							       goto overflow); \
 						seenval = 1;		\
 					}				\
@@ -209,6 +211,7 @@ BATgroupaggrinit(BAT *b, BAT *g, BAT *e, BAT *s,
 					ADD_WITH_CHECK(TYPE1, x,	\
 						       TYPE2, sum,	\
 						       TYPE2, sum,	\
+						       GDK_##TYPE2##_max, \
 						       goto overflow);	\
 					seenval = 1;			\
 				}					\
@@ -246,6 +249,7 @@ BATgroupaggrinit(BAT *b, BAT *g, BAT *e, BAT *s,
 								sums[gid], \
 								TYPE2,	\
 								sums[gid], \
+								GDK_##TYPE2##_max, \
 								goto overflow); \
 						}			\
 					}				\
@@ -285,6 +289,7 @@ BATgroupaggrinit(BAT *b, BAT *g, BAT *e, BAT *s,
 								sums[gid], \
 								TYPE2,	\
 								sums[gid], \
+								GDK_##TYPE2##_max, \
 								goto overflow); \
 						}			\
 					}				\
@@ -710,6 +715,7 @@ BATsum(void *res, int tp, BAT *b, BAT *s, int skip_nils, int abort_on_error, int
 							TYPE1, vals[i],	\
 							TYPE2, prods[gid], \
 							TYPE2, prods[gid], \
+							GDK_##TYPE2##_max, \
 							TYPE3,		\
 							goto overflow);	\
 					}				\
@@ -758,6 +764,7 @@ BATsum(void *res, int tp, BAT *b, BAT *s, int skip_nils, int abort_on_error, int
 					HGEMUL_CHECK(TYPE, vals[i],	\
 						     hge, prods[gid],	\
 						     prods[gid],	\
+						     GDK_hge_max,	\
 						     goto overflow);	\
 				}					\
 			}						\
@@ -805,6 +812,7 @@ BATsum(void *res, int tp, BAT *b, BAT *s, int skip_nils, int abort_on_error, int
 							TYPE, vals[i],	\
 							lng, prods[gid], \
 							prods[gid],	\
+							GDK_lng_max,	\
 							goto overflow); \
 					}				\
 				}					\
@@ -1618,6 +1626,7 @@ BATgroupavg(BAT **bnp, BAT **cntsp, BAT *b, BAT *g, BAT *e, BAT *s, int tp, int 
 			ADD_WITH_CHECK(TYPE, x,				\
 				       lng_hge, sum,			\
 				       lng_hge, sum,			\
+				       GDK_##lng_hge##_max,		\
 				       goto overflow##TYPE);		\
 			/* don't count value until after overflow check */ \
 			n++;						\
@@ -2524,13 +2533,13 @@ BATgroupquantile(BAT *b, BAT *g, BAT *e, BAT *s, int tp, double quantile,
 		if (BATtdense(g)) {
 			/* singleton groups, so calculating quantile is
 			 * easy */
-			bn = BATcopy(b, TYPE_void, b->ttype, 0, TRANSIENT);
+			bn = COLcopy(b, b->ttype, 0, TRANSIENT);
 			BATseqbase(bn, g->tseqbase);
 			if (freeg)
 				BBPunfix(g->batCacheid);
 			return bn;
 		}
-		BATsubsort(&t1, &t2, NULL, g, NULL, NULL, 0, 0);
+		BATsort(&t1, &t2, NULL, g, NULL, NULL, 0, 0);
 		if (freeg)
 			BBPunfix(g->batCacheid);
 		g = t1;
@@ -2538,7 +2547,7 @@ BATgroupquantile(BAT *b, BAT *g, BAT *e, BAT *s, int tp, double quantile,
 	} else {
 		t2 = NULL;
 	}
-	BATsubsort(&t1, NULL, NULL, b, t2, g, 0, 0);
+	BATsort(&t1, NULL, NULL, b, t2, g, 0, 0);
 	if (freeb)
 		BBPunfix(b->batCacheid);
 	b = t1;
@@ -2598,7 +2607,7 @@ BATgroupquantile(BAT *b, BAT *g, BAT *e, BAT *s, int tp, double quantile,
 		BATseqbase(bn, min);
 	} else { /* quantiles for entire BAT b, EZ */
 
-		BUN index, r = 0, p = BUNlast(b);
+		BUN index, r = 0, p = BATcount(b);
 
 		if (skip_nils) {
 			while (r < p && (*atomcmp)(BUNtail(bi, BUNfirst(b) + r), nil) == 0)

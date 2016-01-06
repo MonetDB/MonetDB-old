@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #ifndef _MAPI_H_INCLUDED
@@ -50,6 +50,7 @@ typedef int MapiMsg;
 
 #define LANG_MAL	0
 #define LANG_SQL	2
+#define LANG_PROFILER	3
 
 /* prompts for MAPI protocol */
 #define PROMPTBEG	'\001'	/* start prompt bracket */

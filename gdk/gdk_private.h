@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /* This file should not be included in any file outside of this directory */
@@ -55,7 +55,7 @@ __hidden int BATcheckimprints(BAT *b)
 	__attribute__((__visibility__("hidden")));
 __hidden gdk_return BATcheckmodes(BAT *b, int persistent)
 	__attribute__((__visibility__("hidden")));
-__hidden BATstore *BATcreatedesc(int ht, int tt, int heapnames, int role)
+__hidden BATstore *BATcreatedesc(int tt, int heapnames, int role)
 	__attribute__((__visibility__("hidden")));
 __hidden void BATdelete(BAT *b)
 	__attribute__((__visibility__("hidden")));
@@ -70,10 +70,6 @@ __hidden void BATinit_idents(BAT *bn)
 __hidden BAT *BATload_intern(bat bid, int lock)
 	__attribute__((__visibility__("hidden")));
 __hidden gdk_return BATmaterialize(BAT *b)
-	__attribute__((__visibility__("hidden")));
-__hidden gdk_return BATmaterializeh(BAT *b)
-	__attribute__((__visibility__("hidden")));
-__hidden gdk_return BATmaterializet(BAT *b)
 	__attribute__((__visibility__("hidden")));
 __hidden str BATrename(BAT *b, const char *nme)
 	__attribute__((__visibility__("hidden")));
@@ -98,7 +94,7 @@ __hidden void BBPtrim(size_t delta)
 	__attribute__((__visibility__("hidden")));
 __hidden void BBPunshare(bat b)
 	__attribute__((__visibility__("hidden")));
-__hidden gdk_return BUNins(BAT *b, const void *left, const void *right, bit force)
+__hidden gdk_return BUNreplace(BAT *b, oid left, const void *right, bit force)
 	__attribute__((__visibility__("hidden")));
 __hidden void GDKclrerr(void)
 	__attribute__((__visibility__("hidden")));
@@ -139,6 +135,8 @@ __hidden int GDKssort(void *h, void *t, const void *base, size_t n, int hs, int 
 	__attribute__((__visibility__("hidden")));
 __hidden gdk_return GDKunlink(int farmid, const char *dir, const char *nme, const char *extension)
 	__attribute__((__visibility__("hidden")));
+__hidden void HASHfree(BAT *b)
+	__attribute__((__visibility__("hidden")));
 __hidden int HASHgonebad(BAT *b, const void *v)
 	__attribute__((__visibility__("hidden")));
 __hidden BUN HASHmask(BUN cnt)
@@ -164,6 +162,8 @@ __hidden gdk_return HEAPshrink(Heap *h, size_t size)
 __hidden int HEAPwarm(Heap *h)
 	__attribute__((__visibility__("hidden")));
 __hidden void IMPSdestroy(BAT *b)
+	__attribute__((__visibility__("hidden")));
+__hidden void IMPSfree(BAT *b)
 	__attribute__((__visibility__("hidden")));
 __hidden int IMPSgetbin(int tpe, bte bits, const char *restrict bins, const void *restrict v)
 	__attribute__((__visibility__("hidden")));
@@ -200,8 +200,6 @@ __hidden int strElimDoubles(Heap *h)
 __hidden var_t strLocate(Heap *h, const char *v)
 	__attribute__((__visibility__("hidden")));
 __hidden void VIEWdestroy(BAT *b)
-	__attribute__((__visibility__("hidden")));
-__hidden BAT *VIEWhead(BAT *b)
 	__attribute__((__visibility__("hidden")));
 __hidden gdk_return VIEWreset(BAT *b)
 	__attribute__((__visibility__("hidden")));
@@ -465,33 +463,6 @@ GDKmremap_debug(const char *path, int mode, void *old_address, size_t old_size, 
 	return res;
 }
 #define GDKmremap(p, m, oa, os, ns)	GDKmremap_debug(p, m, oa, os, ns, __FILE__, __LINE__)
-
-#endif
-#endif
-
-#ifndef NDEBUG
-#ifdef __GNUC__
-/* in debug builds, complain (warn) about usage of legacy functions */
-
-#define BATmaterializeh(b)						\
-	({								\
-		BAT *_b = (b);						\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATmaterializeh([%s,%s]#"BUNFMT") %s[%s:%d]\n", \
-			_COL_TYPE(_b->H), _COL_TYPE(_b->T), BATcount(_b), \
-			__func__, __FILE__, __LINE__);			\
-		BATmaterializeh(_b);					\
-	})
-
-#define BATmaterialize(b)						\
-	({								\
-		BAT *_b = (b);						\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATmaterialize([%s,%s]#"BUNFMT") %s[%s:%d]\n", \
-			_COL_TYPE(_b->H), _COL_TYPE(_b->T), BATcount(_b), \
-			__func__, __FILE__, __LINE__);			\
-		BATmaterialize(_b);					\
-	})
 
 #endif
 #endif

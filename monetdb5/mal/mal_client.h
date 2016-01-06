@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #ifndef _MAL_CLIENT_H_
@@ -55,6 +55,7 @@ typedef struct CURRENT_INSTR{
 typedef struct CLIENT {
 	int idx;        /* entry in mal_clients */
 	oid user;       /* user id in the auth administration */
+	str username;	/* for event processor */
 	/*
 	 * The actions for a client is separated into several stages:
 	 * parsing, strategic optimization, tactical optimization, and
@@ -196,4 +197,6 @@ mal_export str     MCsuspendClient(int id);
 mal_export str     MCawakeClient(int id);
 mal_export int     MCpushClientInput(Client c, bstream *new_input, int listing, char *prompt);
 
+mal_export str PROFinitClient(Client c);
+mal_export str PROFexitClient(Client c);
 #endif /* _MAL_CLIENT_H_ */

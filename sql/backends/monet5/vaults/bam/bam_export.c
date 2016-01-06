@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -16,7 +16,7 @@
 
 #include "monetdb_config.h"
 
-#ifdef HAVE_SAMTOOLS_SAM_H
+#ifdef HAVE_SAMTOOLS_BAM_H
 #include <samtools/bam.h>
 #else
 #include <bam/bam.h>

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -231,7 +231,7 @@ SQLinit(void)
 	MT_lock_init(&sql_contextLock, "sql_contextLock");
 #endif
 
-	MT_lock_set(&sql_contextLock, "SQL init");
+	MT_lock_set(&sql_contextLock);
 	memset((char *) &be_funcs, 0, sizeof(backend_functions));
 	be_funcs.fstack = &monet5_freestack;
 	be_funcs.fcode = &monet5_freecode;
@@ -251,7 +251,7 @@ SQLinit(void)
 	if ((SQLnewcatalog = mvc_init(SQLdebug, store_bat, readonly, single_user, 0)) < 0)
 		throw(SQL, "SQLinit", "Catalogue initialization failed");
 	SQLinitialized = TRUE;
-	MT_lock_unset(&sql_contextLock, "SQL init");
+	MT_lock_unset(&sql_contextLock);
 	if (MT_create_thread(&sqllogthread, (void (*)(void *)) mvc_logmanager, NULL, MT_THR_DETACHED) != 0) {
 		throw(SQL, "SQLinit", "Starting log manager failed");
 	}
@@ -428,7 +428,7 @@ SQLinitClient(Client c)
 #endif
 	if (SQLinitialized == 0 && (msg = SQLprelude(NULL)) != MAL_SUCCEED)
 		return msg;
-	MT_lock_set(&sql_contextLock, "SQLinitClient");
+	MT_lock_set(&sql_contextLock);
 	/*
 	 * Based on the initialization return value we can prepare a SQLinit
 	 * string with all information needed to initialize the catalog
@@ -541,7 +541,7 @@ SQLinitClient(Client c)
 			SQLupgrades(c,m);
 		maybeupgrade = 0;
 	}
-	MT_lock_unset(&sql_contextLock, "SQLinitClient");
+	MT_lock_unset(&sql_contextLock);
 	fflush(stdout);
 	fflush(stderr);
 
@@ -869,9 +869,8 @@ SQLsetTrace(backend *be, Client cntxt, bit onoff)
 
 	(void) be;
 	if (onoff) {
-		newStmt(mb,"profiler","reset");
-		q= newStmt(mb, "profiler", "stethoscope");
-		(void) pushInt(mb,q,0);
+		(void) newStmt(mb, "profiler", "start");
+		initTrace();
 	} else {
 		(void) newStmt(mb, "profiler", "stop");
 		/* cook a new resultSet instruction */
@@ -906,7 +905,7 @@ SQLsetTrace(backend *be, Client cntxt, bit onoff)
 
 		q= newStmt(mb,batRef,appendRef);
 		q= pushArgument(mb,q,getArg(cols,0));
-		q= pushStr(mb,q,"ticks");
+		q= pushStr(mb,q,"usec");
 		k= getArg(q,0);
 
 		q= newStmt(mb,batRef,appendRef);
@@ -964,7 +963,7 @@ SQLsetTrace(backend *be, Client cntxt, bit onoff)
 		/* add the ticks column */
 
 		q = newStmt(mb, profilerRef, "getTrace");
-		q = pushStr(mb, q, putName("ticks",5));
+		q = pushStr(mb, q, putName("usec",4));
 		resultset= pushArgument(mb,resultset, getArg(q,0));
 
 		/* add the stmt column */
