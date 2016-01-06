@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #ifndef _OPT_SUPPORT_H
@@ -13,7 +13,6 @@
 #include "mal_function.h"
 #include "mal_scenario.h"
 #include "mal_builder.h"
-#include "mal_properties.h"
 
 #ifdef WIN32
 #if !defined(LIBMAL) && !defined(LIBATOMS) && !defined(LIBKERNEL) && !defined(LIBMAL) && !defined(LIBOPTIMIZER) && !defined(LIBSCHEDULER) && !defined(LIBMONETDB5)
@@ -34,6 +33,7 @@
 #define DEBUG_OPT_ALIASES			3
 #define DEBUG_OPT_REDUCE			4
 #define DEBUG_OPT_COMMONTERMS		5
+#define DEBUG_OPT_CANDIDATES		6
 #define DEBUG_OPT_CONSTANTS			7
 #define DEBUG_OPT_COSTMODEL			8
 #define DEBUG_OPT_CRACK				9
@@ -112,7 +112,6 @@ opt_export int isSubJoin(InstrPtr q);
 opt_export int isMultiplex(InstrPtr q);
 opt_export int isOptimizerEnabled(MalBlkPtr mb, str opt);
 opt_export str OPTsetDebugStr(void *ret, str *nme);
-opt_export wrd getVarRows(MalBlkPtr mb, int v);
 
 #endif /* _OPT_SUPPORT_H */
 

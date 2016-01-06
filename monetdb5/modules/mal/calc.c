@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -803,7 +803,6 @@ CMDBATsumprod(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci,
 			}
 		}
 	}
-	assert(BAThdense(b) && b->htype == TYPE_void); // headless guard
 	r = (*sumprod)(VALget(ret), ret->vtype, b, s, 1, 1, nil_if_empty);
 	BBPunfix(b->batCacheid);
 	if (s)

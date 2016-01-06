@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -48,7 +48,8 @@ TRNglobal_sync(bit *ret)
 str
 TRNglobal_abort(bit *ret)
 {
-	*ret = TMabort() == GDK_SUCCEED;
+	TMabort();
+	*ret = TRUE;
 	return MAL_SUCCEED;
 }
 

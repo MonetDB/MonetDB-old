@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 package nl.cwi.monetdb.jdbc;
@@ -1318,7 +1318,7 @@ public class MonetConnection extends MonetWrapper implements Connection {
 	public void setSchema(String schema) throws SQLException {
 		if (closed)
 			throw new SQLException("Cannot call on closed Connection", "M1M20");
-		createStatement().executeUpdate("SET SCHEMA = \"" + schema + "\"");
+		createStatement().executeUpdate("SET SCHEMA \"" + schema + "\"");
 	}
 
 	/**

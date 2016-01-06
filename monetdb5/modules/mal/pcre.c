@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -261,7 +261,7 @@ pcre_compile_wrap(pcre **res, const char *pattern, bit insensitive)
 #define candscanloop(TEST)										\
 	do {														\
 		ALGODEBUG fprintf(stderr,								\
-			    "#BATsubselect(b=%s#"BUNFMT",s=%s,anti=%d): "	\
+			    "#BATselect(b=%s#"BUNFMT",s=%s,anti=%d): "	\
 			    "scanselect %s\n", BATgetId(b), BATcount(b),	\
 			    s ? BATgetId(s) : "NULL", anti, #TEST);			\
 		while (p < q) {											\
@@ -278,7 +278,7 @@ pcre_compile_wrap(pcre **res, const char *pattern, bit insensitive)
 #define scanloop(TEST)											\
 	do {														\
 		ALGODEBUG fprintf(stderr,								\
-			    "#BATsubselect(b=%s#"BUNFMT",s=%s,anti=%d): "	\
+			    "#BATselect(b=%s#"BUNFMT",s=%s,anti=%d): "	\
 			    "scanselect %s\n", BATgetId(b), BATcount(b),	\
 			    s ? BATgetId(s) : "NULL", anti, #TEST);			\
 		while (p < q) {											\
@@ -661,8 +661,7 @@ pcre_replace_bat(BAT **res, BAT *origin_strs, const char *pattern, const char *r
 		throw(MAL, "pcre_replace_bat", MAL_MALLOC_FAIL);
 	}
 
-	assert(origin_strs->htype==TYPE_void); // headless guard
-	tmpbat = BATnew(origin_strs->htype, TYPE_str, BATcount(origin_strs), TRANSIENT);
+	tmpbat = BATnew(TYPE_void, TYPE_str, BATcount(origin_strs), TRANSIENT);
 	if( tmpbat==NULL) {
 		my_pcre_free(pcre_code);
 		GDKfree(ovector);
@@ -728,9 +727,7 @@ pcre_replace_bat(BAT **res, BAT *origin_strs, const char *pattern, const char *r
 
 	my_pcre_free(pcre_code);
 	GDKfree(ovector);
-	if (origin_strs->htype == TYPE_void) {
-		BATseqbase(tmpbat, origin_strs->hseqbase);
-	}
+	BATseqbase(tmpbat, origin_strs->hseqbase);
 	*res = tmpbat;
 	return MAL_SUCCEED;
 }
@@ -1041,7 +1038,7 @@ PCRElike3(bit *ret, const str *s, const str *pat, const str *esc)
 str
 PCRElike2(bit *ret, const str *s, const str *pat)
 {
-	char *esc = "\\";
+	char *esc = "";
 
 	return PCRElike3(ret, s, pat, &esc);
 }
@@ -1198,13 +1195,6 @@ BATPCRElike3(bat *ret, const bat *bid, const str *pat, const str *esc, const bit
 
 		if (!(r->batDirty&2)) BATsetaccess(r, BAT_READ);
 
-		if (!BAThdense(strs)) {
-			/* legacy */
-			BAT *v = VIEWcreate(strs, r);
-
-			BBPunfix(r->batCacheid);
-			r = v;
-		}
 		BBPkeepref(*ret = r->batCacheid);
 		BBPunfix(strs->batCacheid);
 		GDKfree(ppat);
@@ -1324,7 +1314,7 @@ PCRElikesubselect2(bat *ret, const bat *bid, const bat *sid, const str *pat, con
 		res = re_likesubselect(&bn, b, s, *pat, *caseignore, *anti);
 	} else if (ppat == NULL) {
 		/* no pattern and no special characters: can use normal select */
-		bn = BATsubselect(b, s, *pat, NULL, 1, 1, *anti);
+		bn = BATselect(b, s, *pat, NULL, 1, 1, *anti);
 		if (bn == NULL)
 			res = createException(MAL, "algebra.likeselect", GDK_EXCEPTION);
 		else

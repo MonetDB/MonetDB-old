@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #ifndef SQL_STORAGE_H
@@ -39,6 +39,7 @@ extern int store_nr_active;
 extern store_type active_store_type;
 extern int store_readonly;
 extern int store_singleuser;
+extern int store_initialized;
 
 /* relational interface */
 typedef oid (*column_find_row_fptr)(sql_trans *tr, sql_column *c, const void *value, ...);
@@ -342,6 +343,7 @@ extern int sql_trans_force_persistcommit(lng id);
 extern int sql_trans_abort(sql_trans *tr);
 
 extern sql_type *sql_trans_create_type(sql_trans *tr, sql_schema * s, const char *sqlname, int digits, int scale, int radix, const char *impl);
+extern int sql_trans_drop_type(sql_trans *tr, sql_schema * s, int id, int drop_action);
 
 extern sql_func *sql_trans_create_func(sql_trans *tr, sql_schema * s, const char *func, list *args, list *res, int type, int lang, const char *mod, const char *impl, const char *query, bit varres, bit vararg);
 

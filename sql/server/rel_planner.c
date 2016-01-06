@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -14,7 +14,7 @@
 #include "rel_optimizer.h"
 
 typedef struct memoitem {
-	char *name;
+	const char *name;
 	list *rels;
 	list *exps;
 	list *joins;
@@ -46,32 +46,32 @@ memoitem_key( memoitem *mi )
 }
 
 static memoitem*
-memo_find(list *memo, char *name)
+memo_find(list *memo, const char *name)
 {
 	int key = hash_key(name);
 	sql_hash_e *he;
 
-	MT_lock_set(&memo->ht_lock, "memo_find");
+	MT_lock_set(&memo->ht_lock);
 	he = memo->ht->buckets[key&(memo->ht->size-1)]; 
 	for (; he; he = he->chain) {
 		memoitem *mi = he->value;
 
 		if (mi->name && strcmp(mi->name, name) == 0) {
-			MT_lock_unset(&memo->ht_lock, "memo_find");
+			MT_lock_unset(&memo->ht_lock);
 			return mi;
 		}
 	}
-	MT_lock_unset(&memo->ht_lock, "memo_find");
+	MT_lock_unset(&memo->ht_lock);
 	return NULL;
 }
 
 static char *
-merge_names( sql_allocator *sa, char *lname, char *rname)
+merge_names( sql_allocator *sa, const char *lname, const char *rname)
 {
 	size_t llen = strlen(lname);
 	size_t rlen = strlen(rname);
 	char *n = SA_NEW_ARRAY(sa, char, llen+rlen+2), *p = n;
-	char *c = lname;
+	const char *c = lname;
 
 	while (*c) {
 		int i = 0;
@@ -98,9 +98,9 @@ merge_names( sql_allocator *sa, char *lname, char *rname)
 }
 
 static memoitem *
-memoitem_create( list *memo, sql_allocator *sa, char *lname, char *rname, int level)
+memoitem_create( list *memo, sql_allocator *sa, const char *lname, const char *rname, int level)
 {
-	char *name = lname;
+	const char *name = lname;
 	memoitem *mi;
 
 	if (level > 1) 
@@ -446,9 +446,9 @@ memo_create(mvc *sql, list *rels )
 	list *memo = sa_list(sql->sa);
 	node *n;
 
-	MT_lock_set(&memo->ht_lock, "memo_create");
+	MT_lock_set(&memo->ht_lock);
 	memo->ht = hash_new(sql->sa, len*len, (fkeyvalue)&memoitem_key);
-	MT_lock_unset(&memo->ht_lock, "memo_create");
+	MT_lock_unset(&memo->ht_lock);
 	for(n = rels->h; n; n = n->next) {
 		sql_rel *r = n->data;
 		memoitem *mi = memoitem_create(memo, sql->sa, rel_name(r), NULL, 1);
@@ -499,7 +499,7 @@ memo_add_exps(list *memo, mvc *sql, list *rels, list *jes)
 }
 
 static int
-memoitem_has( memoitem *mi, char *name)
+memoitem_has( memoitem *mi, const char *name)
 {
 	if (mi->level > 1) {
 		memojoin *mj = mi->joins->h->data; 

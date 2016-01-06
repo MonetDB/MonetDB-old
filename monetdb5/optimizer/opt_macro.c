@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -113,46 +113,21 @@ inlineMALblock(MalBlkPtr mb, int pc, MalBlkPtr mc)
 {
 	int i, k, l, n;
 	InstrPtr *ns, p,q;
-	int *nv, *np = NULL;
+	int *nv;
 
 	p = getInstrPtr(mb, pc);
 	q = getInstrPtr(mc, 0);
 	ns = GDKzalloc((l = (mb->ssize + mc->ssize + p->retc - 3)) * sizeof(InstrPtr));
 	if (ns == NULL)
 		return -1;
-	if ( mc->ptop > 0){
-		np = (int*) GDKmalloc(mc->ptop * sizeof(int));
-		if (np == 0){
-			GDKfree(ns);
-			return -1;
-		}
-	}
 	nv = (int*) GDKmalloc(mc->vtop * sizeof(int));
 	if (nv == 0){
 		GDKfree(ns);
-		if( np)
-			GDKfree(np);
 		return -1;
-	}
-
-	/* add all properties of the new block to the target environment */
-	for (n = 0; n < mc->ptop; n++) {
-		int propid = newProperty(mb);
-
-		if (propid < 0) {
-			assert(0);
-			return -1;
-		}
-		np[n] = propid; 
-		mb->prps[propid].idx = mc->prps[n].idx;
-		mb->prps[propid].op = mc->prps[n].op;
-		mb->prps[propid].var = mc->prps[n].var; /* fixed later */
 	}
 
 	/* add all variables of the new block to the target environment */
 	for (n = 0; n < mc->vtop; n++) {
-		VarPtr ov, v;
-
 		if (isExceptionVariable(mc->var[n]->name)) {
 			nv[n] = newVariable(mb,GDKstrdup(mc->var[n]->name),TYPE_str);
 			if (isVarUDFtype(mc,n))
@@ -170,28 +145,6 @@ inlineMALblock(MalBlkPtr mb, int pc, MalBlkPtr mc)
 			if (isVarUsed(mc,n))
 				setVarUsed(mb,nv[n]);
 		}
-		/* remap the properties */
-		ov = getVar(mc, n);
-		v = getVar(mb, nv[n]);
-		if (ov->propc > v->maxprop) {
-			int size = offsetof(VarRecord, prps);
-			VarPtr vnew = (VarPtr) GDKzalloc(size + ov->propc * sizeof(int));
-			memcpy((char*) vnew, (char*) v, size);
-			vnew->maxprop = ov->propc;
-			mb->var[nv[n]] = vnew;
-			GDKfree(v);
-			v = getVar(mb, nv[n]);
-		}
-		for (i = 0; i < ov->propc; i++) 
-			v->prps[i] = np[ov->prps[i]];
-		v->propc = ov->propc;
-	}
-
-	/* change the property variables to the new context */
-	for (n = 0; n < mc->ptop; n++) {
-		if (mc->prps[n].var)
-			mb->prps[np[n]].var = nv[mc->prps[n].var];
-		assert( mb->prps[np[n]].var >= 0);
 	}
 
 	/* use an alias mapping to keep track of the actual arguments */
@@ -250,7 +203,6 @@ inlineMALblock(MalBlkPtr mb, int pc, MalBlkPtr mc)
 
 	mb->ssize = l;
 	mb->stop = k;
-	GDKfree(np);
 	GDKfree(nv);
 	return pc;
 }

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -25,14 +25,10 @@
 #include "mal_exception.h"
 #include "mal_private.h"
 
-#ifndef MAXPATHLEN
-#define MAXPATHLEN 1024
-#endif
-
 static void setAtomName(InstrPtr pci)
 {
-	char buf[MAXPATHLEN];
-	snprintf(buf, MAXPATHLEN, "#%s", getFunctionId(pci));
+	char buf[PATHLENGTH];
+	snprintf(buf, PATHLENGTH, "#%s", getFunctionId(pci));
 	setFunctionId(pci, putName(buf, strlen(buf)));
 }
 
@@ -121,7 +117,7 @@ int malAtomProperty(MalBlkPtr mb, InstrPtr pci)
 		break;
 	case 's':
 		if (idcmp("storage", name) == 0 && pci->argc == 1) {
-			BATatoms[tpe].storage = (*(long (*)(void))pci->fcn)();
+			BATatoms[tpe].storage = (*(int (*)(void))pci->fcn)();
 			setAtomName(pci);
 			return 1;
 		}
@@ -210,14 +206,4 @@ int malAtomSize(int size, int align, char *name)
 	assert_shift_width(ATOMelmshift(ATOMsize(i)), ATOMsize(i));
 	BATatoms[i].align = align;
 	return i;
-}
-
-void showAtoms(stream *fd)
-{
-	int i;
-	for (i = 0; i< GDKatomcnt && BATatoms[i].name[0]; i++) {
-		mnstr_printf(fd, "%s", BATatoms[i].name);
-		if (BATatoms[i + 1].name[0]) mnstr_printf(fd, ",");
-	}
-	mnstr_printf(fd, "\n");
 }

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /* (c) Martin Kersten
@@ -23,7 +23,7 @@ OPTdeadcodeImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 	(void) pci;
 	(void) stk;		/* to fool compilers */
 
-	if (varGetProp(mb, getArg(mb->stmt[0], 0), inlineProp) != NULL)
+	if ( mb->inlineProp )
 		return 0;
 
 	varused = GDKzalloc(mb->vtop * sizeof(int));
@@ -56,7 +56,7 @@ OPTdeadcodeImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pc
 			continue;
 		}
 		if (hasSideEffects(p, FALSE) || isUpdateInstruction(p) || !isLinearFlow(p) || isProcedure(mb,p)  || 
-				(p->retc == 1 && varGetProp( mb, getArg(p,0), unsafeProp ) != NULL) || p->barrier /* ==side-effect */){
+				(p->retc == 1 && mb->unsafeProp) || p->barrier /* ==side-effect */){
 			varused[getArg(p,0)]++; // force keeping it
 			continue;
 		}

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -14,12 +14,10 @@
 #include "mal.h"
 #include "mal_readline.h"
 #include "mal_debugger.h"
-#include "mal_atom.h"		/* for showAtoms() */
 #include "mal_interpreter.h"	/* for getArgReference() */
 #include "mal_linker.h"		/* for getAddress() */
 #include "mal_listing.h"
 #include "mal_function.h"
-#include "mal_module.h"		/* for showModuleStatistics() */
 #include "mal_parser.h"
 #include "mal_namespace.h"
 #include "mal_private.h"
@@ -312,10 +310,8 @@ printBATproperties(stream *f, BAT *b)
 		mnstr_printf(f, " refs=%d ", BBP_refs(abs(b->batCacheid)));
 	if (b->batSharecnt)
 		mnstr_printf(f, " views=%d", b->batSharecnt);
-	if (b->H->heap.parentid)
-		mnstr_printf(f, "view on %s ", BBPname(b->H->heap.parentid));
 	if (b->T->heap.parentid)
-		mnstr_printf(f, "tail view on %s ", BBPname(b->T->heap.parentid));
+		mnstr_printf(f, "view on %s ", BBPname(b->T->heap.parentid));
 }
 /* MAL debugger parser
  * The debugger structure is inherited from GDB.
@@ -383,7 +379,6 @@ mdbCommand(Client cntxt, MalBlkPtr mb, MalStkPtr stkbase, InstrPtr p, int pc)
 	int m = 1;
 	char *b, *c, lastcmd = 0;
 	stream *out = cntxt->fdout;
-	/* int listing = cntxt->listing;*/
 	char *oldprompt = cntxt->prompt;
 	size_t oldpromptlength = cntxt->promptlength;
 	MalStkPtr stk = stkbase;
@@ -445,10 +440,6 @@ retryRead:
 		case 0:
 			m = 0;
 			break;
-		case 'a':
-			if (strncmp("atom", b, 1) == 0)
-				showAtoms(out);
-			break;
 		case 'c':
 			if (strncmp("catch", b, 3) == 0) {
 				/* catch the next exception */
@@ -503,10 +494,6 @@ retryRead:
 			} else if (strncmp("scenario", b, 3) == 0) {
 				showScenarioByName(out, cntxt->scenario);
 				continue;
-			} else if (strncmp("scope", b, 3) == 0) {
-				/* used to inspect the identifier distribution */
-				showModuleStatistics(out, cntxt->nspace);
-				continue;
 			} 
 			stk->cmd = *b;
 			m = 0;
@@ -536,10 +523,7 @@ retryRead:
 				for (i = 0; i < MAXSCOPE; i++) {
 					fs = fsym->subscope[i];
 					while (fs != NULL) {
-						if (fcnname == NULL)
-							printSignature(out, fs, 0);
-						else if (fs->def && strcmp(fcnname, getFcnName(fs->def)) == 0)
-							printSignature(out, fs, 0);
+						printSignature(out, fs, 0);
 						fs = fs->peer;
 					}
 				}
@@ -988,51 +972,6 @@ int mdbSession(void)
 {
 	return mdbSessionActive;
 }
-/*
- * It may be relevant to trap against dangerous situations, such
- * as underlying types not being aligned with what is expected
- * at the MAL level. Since such tests can be quite expensive
- * it should be used with care.
- */
-#if 0
-void
-mdbSanityCheck(Client cntxt, MalBlkPtr mb, MalStkPtr stk, int pc)
-{
-	int i;
-	VarPtr n;
-	ValPtr v;
-	str nme, nmeOnStk;
-
-	(void) stk;
-	(void) pc;
-	(void) mb;
-	for (i = 1; i < mb->vtop; i++) {
-		n = getVar(mb, i);
-		v = stk->stk + i;
-		if (isaBatType(n->type) && v->val.ival) {
-			int i = v->val.ival;
-			BAT *b;
-
-			b = BBPquickdesc(abs(i), TRUE);
-			if (i < 0)
-				b = BATmirror(b);
-			if (b) {
-				nme = getTypeName(n->type);
-				nmeOnStk = getTypeName(newColumnType(b->ttype));
-				if (strcmp(nme, nmeOnStk)) {
-					printTraceCall(cntxt->fdout, mb, stk, pc, cntxt->flags);
-					mnstr_printf(cntxt->fdout, "!ERROR: %s != :%s\n",
-							nme, nmeOnStk);
-					stk->cmd = 'n';
-				}
-				GDKfree(nme);
-				GDKfree(nmeOnStk);
-			}
-		}
-	}
-}
-#endif
-
 static Client trapped_cntxt;
 static MalBlkPtr trapped_mb;
 static MalStkPtr trapped_stk;
@@ -1047,15 +986,15 @@ str mdbTrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 			getModuleId(mb->stmt[0]), getFunctionId(mb->stmt[0]), pc);
 	printInstruction(mal_clients[0].fdout, mb, stk, p, LIST_MAL_DEBUG);
 	cntxt->itrace = 'W';
-	MT_lock_set(&mal_contextLock, "trapped procedure");
+	MT_lock_set(&mal_contextLock);
 	if (trapped_mb) {
 		mnstr_printf(mal_clients[0].fdout, "#registry not available\n");
 		mnstr_flush(cntxt->fdout);
 	}
 	while (trapped_mb && cnt-- > 0) {
-		MT_lock_unset(&mal_contextLock, "trapped procedure");
+		MT_lock_unset(&mal_contextLock);
 		MT_sleep_ms(500);
-		MT_lock_set(&mal_contextLock, "trapped procedure");
+		MT_lock_set(&mal_contextLock);
 	}
 	if (cnt > 0) {
 		trapped_cntxt = cntxt;
@@ -1063,7 +1002,7 @@ str mdbTrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 		trapped_stk = stk;
 		trapped_pc = pc;
 	} /* else give up */
-	MT_lock_unset(&mal_contextLock, "trapped procedure");
+	MT_lock_unset(&mal_contextLock);
 	return MAL_SUCCEED;
 }
 
@@ -1154,10 +1093,10 @@ mdbGrab(Client cntxt, MalBlkPtr mb1, MalStkPtr stk1, InstrPtr pc1)
 	(void) pc1;
 
 	/* get hold of a suspended plan and run debugger */
-	MT_lock_set(&mal_contextLock, "trapped procedure");
+	MT_lock_set(&mal_contextLock);
 	if (trapped_mb == 0) {
 		mnstr_printf(cntxt->fdout, "#no trapped function\n");
-		MT_lock_unset(&mal_contextLock, "trapped procedure");
+		MT_lock_unset(&mal_contextLock);
 		return MAL_SUCCEED;
 	}
 	c = trapped_cntxt;
@@ -1168,7 +1107,7 @@ mdbGrab(Client cntxt, MalBlkPtr mb1, MalStkPtr stk1, InstrPtr pc1)
 	trapped_mb = 0;
 	trapped_stk = 0;
 	trapped_pc = 0;
-	MT_lock_unset(&mal_contextLock, "trapped procedure");
+	MT_lock_unset(&mal_contextLock);
 	mnstr_printf(cntxt->fdout, "#Debugging trapped function\n");
 	mnstr_flush(cntxt->fdout);
 	sve = stk->cmd;
@@ -1258,7 +1197,7 @@ printBATelm(stream *f, bat i, BUN cnt, BUN first)
 			if (bs[1] == NULL)
 				mnstr_printf(f, "Failed to take chunk\n");
 			else {
-				bs[0] = BATmark(bs[1],0);
+				bs[0] = BATdense(bs[1]->hseqbase, 0, BATcount(bs[1]));
 				if( bs[0] == NULL){
 					mnstr_printf(f, "Failed to take chunk index\n");
 				} else {
@@ -1331,13 +1270,6 @@ printStackElm(stream *f, MalBlkPtr mb, ValPtr v, int index, BUN cnt, BUN first)
 	if (getEndOfLife(mb, index))
 		mnstr_printf(f, " eolife=%d ", getEndOfLife(mb, index));
 	GDKfree(nme);
-	if (n->propc) {
-		nme = varGetPropStr(mb, index);
-		if (nme) {
-			mnstr_printf(f, "%s", nme);
-			GDKfree(nme);
-		}
-	}
 	mnstr_printf(f, "\n");
 	GDKfree(nmeOnStk);
 
@@ -1425,74 +1357,6 @@ printBatProperties(stream *f, VarPtr n, ValPtr v, str props)
 	}
 }
 
-#if 0							/* these are not referenced anywhere */
-/*
- * The memory positions for the BATs is useful information to
- * assess for memory fragmentation.
- */
-static str
-memProfileVector(stream *out, int cells)
-{
-	str v;
-	bat i;
-
-	if (cells <= 0)
-		return GDKstrdup("");
-	v = GDKmalloc(cells + 1);
-	if (v == 0)
-		return NULL;
-
-	for (i = 0; i < cells; i++)
-		v[i] = '.';
-	v[i] = 0;
-
-	for (i = 1; i < getBBPsize(); i++)
-		if (BBP_status(i) & BBPLOADED) {
-			BAT *b = BATdescriptor(i);
-			Heap *hp;
-			Hash *h;
-
-			mnstr_printf(out, "\tdesc=" PTRFMT " size=" SZFMT "\n", PTRFMTCAST b, sizeof(*b));
-			hp = &b->T->heap;
-			if (hp && hp->base) {
-				mnstr_printf(out, "\thead=" PTRFMT " size=" SZFMT "\n", PTRFMTCAST hp->base, hp->size);
-			}
-
-			hp = b->T->vheap;
-			if (hp && hp->base) {
-				mnstr_printf(out, "\ttheap=" PTRFMT " size=" SZFMT "\n", PTRFMTCAST hp->base, hp->size);
-			}
-			h = b->T->hash;
-			if (h && h->mask) {
-				mnstr_printf(out, "\tthash=" PTRFMT " size=" SZFMT "\n", PTRFMTCAST h, sizeof(*h));
-				mnstr_printf(out, "\tthashlink=" PTRFMT " size=" SZFMT "\n", PTRFMTCAST h->Link,
-						(h->mask + h->lim + 1) * sizeof(int));
-			}
-			BBPunfix(b->batCacheid);
-		}
-
-	return v;
-}
-
-void
-printBBPinfo(stream *out)
-{
-	str v;
-
-	mnstr_printf(out, "#BBP memory layout\n");
-	v = memProfileVector(out, 32);
-	if (v) {
-		mnstr_printf(out, "#%s\n", v);
-		GDKfree(v);
-	}
-#ifdef GDK_VM_KEEPHISTO
-	mnstr_printf(out, "#BBP VM history available\n");
-#else
-	mnstr_printf(out, "#BBP VM history not available\n");
-#endif
-}
-#endif
-
 static void
 mdbHelp(stream *f)
 {
@@ -1566,7 +1430,7 @@ debugLifespan(Client cntxt, MalBlkPtr mb, Lifespan span)
 			snprintf(name, BUFSIZ, "%s ", getVar(mb, i)->name);
 		mnstr_printf(cntxt->fdout, "#%8s eolife=%4d range %4d - %4d  ",
 				name,
-				mb->var[i]->eolife,
+				getEndOfLife(mb,i),
 				getBeginLifespan(span, i),
 				getEndLifespan(span, i));
 		if (getLastUpdate(span, i))

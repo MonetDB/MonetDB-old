@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -126,7 +126,6 @@ BATsample(BAT *b, BUN n)
 	if (n == 0) {
 		bn = BATnew(TYPE_void, TYPE_void, 0, TRANSIENT);
 		if (bn == NULL) {
-			GDKerror("BATsample: memory allocation error");
 			return NULL;
 		}
 		BATsetcount(bn, 0);
@@ -136,7 +135,6 @@ BATsample(BAT *b, BUN n)
 	} else if (cnt <= n) {
 		bn = BATnew(TYPE_void, TYPE_void, cnt, TRANSIENT);
 		if (bn == NULL) {
-			GDKerror("BATsample: memory allocation error");
 			return NULL;
 		}
 		BATsetcount(bn, cnt);
@@ -154,13 +152,11 @@ BATsample(BAT *b, BUN n)
 
 		tree = GDKmalloc(n * sizeof(struct oidtreenode));
 		if (tree == NULL) {
-			GDKerror("#BATsample: memory allocation error");
 			return NULL;
 		}
 		bn = BATnew(TYPE_void, TYPE_oid, slen, TRANSIENT);
 		if (bn == NULL) {
 			GDKfree(tree);
-			GDKerror("#BATsample: memory allocation error");
 			return NULL;
 		}
 		/* while we do not have enough sample OIDs yet */

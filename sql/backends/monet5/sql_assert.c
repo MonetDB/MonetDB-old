@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -111,8 +111,8 @@ SQLassertLng(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 #ifdef HAVE_HGE
 str
 SQLassertHge(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	hge *flg = (hge*) getArgReference(stk,pci, 1);
-	str *msg = (str*) getArgReference(stk,pci, 2);
+	hge *flg = getArgReference_hge(stk,pci, 1);
+	str *msg = getArgReference_str(stk,pci, 2);
 	(void) cntxt;
 	(void)mb;
 	if (*flg){

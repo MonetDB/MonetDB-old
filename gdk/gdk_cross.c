@@ -3,14 +3,14 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
 #include "gdk.h"
 #include "gdk_private.h"
 
-gdk_return
+static gdk_return
 BATcross1(BAT **r1p, BAT **r2p, BAT *l, BAT *r)
 {
 	BAT *bn1, *bn2;
@@ -57,6 +57,10 @@ BATcross1(BAT **r1p, BAT **r2p, BAT *l, BAT *r)
 	return GDK_SUCCEED;
 }
 
+/* Calculate a cross product between bats l and r with optional
+ * candidate lists sl for l and sr for r.
+ * The result is two bats r1 and r2 which contain the OID (head
+ * values) of the input bats l and r. */
 gdk_return
 BATsubcross(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr)
 {

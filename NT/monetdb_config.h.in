@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /* Manual config.h. needed for win32 .  */
@@ -56,6 +56,8 @@
 #include <stdarg.h>		/* va_alist.. */
 
 #include <assert.h>
+
+#define __func__ __FUNCTION__
 
 /* indicate to sqltypes.h that windows.h has already been included and
    that it doesn't have to define Windows constants */
@@ -204,6 +206,9 @@
 
 /* Define to 1 if you have the `gettimeofday' function. */
 /* #undef HAVE_GETTIMEOFDAY */
+
+/* Define to 1 if you have the `_get_timezone' function. */
+#define HAVE__GET_TIMEZONE 1
 
 /* Define if you have the gsl library */
 /* #undef HAVE_GSL */
@@ -685,6 +690,9 @@
 /* Define if you have valgrind installed and want to use it */
 /* #undef HAVE_VALGRIND */
 
+/* Define to 1 if you have the `_wfopen' function. */
+#define HAVE__WFOPEN 1
+
 /* Define to 1 if you have the <winsock2.h> header file. */
 #define HAVE_WINSOCK2_H 1
 
@@ -926,16 +934,6 @@
 
 /* Needed to compile bison-generated code. */
 /* #undef YYLTYPE_IS_TRIVIAL */
-
-/* Define to 1 if `lex' declares `yytext' as a `char *' by default, not a
-   `char[]'. */
-#define YYTEXT_POINTER 1
-
-/* tell compiler to use prototypes in flex-generated code */
-#define YY_USE_PROTOS
-
-/* tell compiler to use const in flex-generated code */
-#define YY_USE_CONST
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 /* #undef _FILE_OFFSET_BITS */

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -23,19 +23,6 @@
  * with the debugger.
  * Its lifetime then is identical to that of the main program call.
  *
- * The first example create a private copy, leaving out the scheduler call.
- * @example
- * @code{
- * function f();
- *     i@{runonce, rows>4@}:=1;	# just properties
- *     mdb.list();
- *     io.print("start running\n");
- *     scheduler.isolation();
- *     io.print("done\n");
- *     mdb.list();
- * end f;
- * f(); #shows self-modification in action
- * }
  * @end example
  * This function with its history remain available as long as f()
  * is defined.

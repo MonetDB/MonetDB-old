@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -46,10 +46,12 @@ static struct PIPELINES {
  */
 	{"minimal_pipe",
 	 "optimizer.inline();"
+	 "optimizer.candidates();"
 	 "optimizer.remap();"
 	 "optimizer.deadcode();"
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
+	 "optimizer.profiler();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The default pipe line contains as of Feb2010
@@ -63,6 +65,7 @@ static struct PIPELINES {
  */
 	{"default_pipe",
 	 "optimizer.inline();"
+	 "optimizer.candidates();"
 	 "optimizer.remap();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
@@ -84,6 +87,7 @@ static struct PIPELINES {
 	 "optimizer.querylog();"
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
+	 "optimizer.profiler();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* The no_mitosis pipe line is (and should be kept!) identical to the
@@ -99,6 +103,7 @@ static struct PIPELINES {
 	{"no_mitosis_pipe",
 	 "optimizer.inline();"
 	 "optimizer.remap();"
+	 "optimizer.candidates();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
@@ -117,6 +122,7 @@ static struct PIPELINES {
 	 "optimizer.dataflow();"
 	 "optimizer.querylog();"
 	 "optimizer.multiplex();"
+	 "optimizer.profiler();"
 	 "optimizer.generator();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
@@ -132,6 +138,7 @@ static struct PIPELINES {
  */
 	{"sequential_pipe",
 	 "optimizer.inline();"
+	 "optimizer.candidates();"
 	 "optimizer.remap();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
@@ -151,6 +158,7 @@ static struct PIPELINES {
 	 "optimizer.querylog();"
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
+	 "optimizer.profiler();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
 /* Experimental pipelines stressing various components under
@@ -180,6 +188,7 @@ static struct PIPELINES {
 	 "optimizer.querylog();"
 	 "optimizer.multiplex();"
 	 "optimizer.generator();"
+	 "optimizer.profiler();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},
  */
@@ -366,14 +375,14 @@ validateOptimizerPipes(void)
 	int i;
 	str msg = MAL_SUCCEED;
 
-	MT_lock_set(&mal_contextLock, "optimizer validation");
+	MT_lock_set(&mal_contextLock);
 	for (i = 0; i < MAXOPTPIPES && pipes[i].def; i++)
 		if (pipes[i].mb) {
 			msg = validatePipe(pipes[i].mb);
 			if (msg != MAL_SUCCEED)
 				break;
 		}
-	MT_lock_unset(&mal_contextLock, "optimizer validation");
+	MT_lock_unset(&mal_contextLock);
 	return msg;
 }
 

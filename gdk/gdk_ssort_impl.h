@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /* This file is included multiple times.  We expect a bunch of tokens
@@ -749,8 +749,10 @@ do_ssort(MergeState *ms, ssize_t nremaining, size_t lo, size_t hi, ssize_t minru
 			while (ms->n > 1) {
 				ssize_t i = ms->n - 2;
 
-				if (i > 0 &&
-				    p[i - 1].len <= p[i].len + p[i + 1].len) {
+				if ((i > 0 &&
+				     p[i-1].len <= p[i].len + p[i+1].len) ||
+				    (i > 1 &&
+				     p[i-2].len <= p[i-1].len + p[i].len)) {
 					if (p[i - 1].len < p[i + 1].len)
 						--i;
 					if (merge_at(ms, i) < 0)

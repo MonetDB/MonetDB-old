@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -12,11 +12,14 @@
 #include "rel_updates.h"
 #include "rel_exp.h"
 #include "rel_schema.h"
+#include "rel_remote.h"
+#include "rel_psm.h"
 #include "sql_parser.h"
 #include "sql_privileges.h"
 
 #define qname_index(qname) qname_table(qname)
 #define qname_func(qname) qname_table(qname)
+#define qname_type(qname) qname_table(qname)
 
 static sql_table *
 _bind_table(sql_table *t, sql_schema *ss, sql_schema *s, char *name)
@@ -33,7 +36,7 @@ _bind_table(sql_table *t, sql_schema *ss, sql_schema *s, char *name)
 }
 
 static sql_rel *
-rel_table(mvc *sql, int cat_type, char *sname, sql_table *t, int nr)
+rel_table(mvc *sql, int cat_type, const char *sname, sql_table *t, int nr)
 {
 	sql_rel *rel = rel_create(sql->sa);
 	list *exps = new_exp_list(sql->sa);
@@ -157,7 +160,7 @@ as_subquery( mvc *sql, sql_table *t, sql_rel *sq, dlist *column_spec, const char
 
 		for (m = r->exps->h; m; m = m->next) {
 			sql_exp *e = m->data;
-			char *cname = exp_name(e);
+			const char *cname = exp_name(e);
 			sql_subtype *tp = exp_subtype(e);
 
 			if (!cname)
@@ -173,7 +176,7 @@ as_subquery( mvc *sql, sql_table *t, sql_rel *sq, dlist *column_spec, const char
 }
 
 sql_table *
-mvc_create_table_as_subquery( mvc *sql, sql_rel *sq, sql_schema *s, char *tname, dlist *column_spec, int temp, int commit_action )
+mvc_create_table_as_subquery( mvc *sql, sql_rel *sq, sql_schema *s, const char *tname, dlist *column_spec, int temp, int commit_action )
 {
 	int tt =(temp == SQL_REMOTE)?tt_remote:
 		(temp == SQL_STREAM)?tt_stream:
@@ -304,8 +307,10 @@ column_constraint_type(mvc *sql, char *name, symbol *s, sql_schema *ss, sql_tabl
 	} 	break;
 	case SQL_FOREIGN_KEY: {
 		dnode *n = s->data.lval->h;
+		char *rsname = qname_schema(n->data.lval);
 		char *rtname = qname_table(n->data.lval);
 		int ref_actions = n->next->next->next->data.i_val; 
+		sql_schema *rs;
 		sql_table *rt;
 		sql_fkey *fk;
 		list *cols;
@@ -318,7 +323,12 @@ column_constraint_type(mvc *sql, char *name, symbol *s, sql_schema *ss, sql_tabl
 			return res;
 		}
 */
-		rt = _bind_table(t, ss, cur_schema(sql), rtname);
+
+		if (rsname) 
+			rs = mvc_bind_schema(sql, rsname);
+		else 
+			rs = cur_schema(sql);
+		rt = _bind_table(t, ss, rs, rtname);
 		if (!rt) {
 			(void) sql_error(sql, 02, "42S02!CONSTRAINT FOREIGN KEY: no such table '%s'\n", rtname);
 			return res;
@@ -339,7 +349,7 @@ column_constraint_type(mvc *sql, char *name, symbol *s, sql_schema *ss, sql_tabl
 			rk = &rt->pkey->k;
 		}
 		if (!rk) {
-			(void) sql_error(sql, 02, "42000!CONSTRAINT FOREIGN KEY: could not find referenced PRIMARY KEY in table %s\n", rtname);
+			(void) sql_error(sql, 02, "42000!CONSTRAINT FOREIGN KEY: could not find referenced PRIMARY KEY in table %s.%s\n", rsname, rtname);
 			return res;
 		}
 		fk = mvc_create_fkey(sql, t, name, fkey, rk, ref_actions & 255, (ref_actions>>8) & 255);
@@ -384,8 +394,26 @@ column_option(
 		res = column_constraint_type(sql, opt_name, sym, ss, t, cs);
 	} 	break;
 	case SQL_DEFAULT: {
-		char *err = NULL, *r = symbol2string(sql, s->data.sym, &err);
+		symbol *sym = s->data.sym;
+		char *err = NULL, *r;
 
+		if (sym->token == SQL_COLUMN) {
+			sql_exp *e = rel_logical_value_exp(sql, NULL, sym, sql_sel);
+			
+			if (e && is_atom(e->type)) {
+				atom *a = exp_value(e, sql->args, sql->argc);
+
+				if (atom_null(a)) {
+					mvc_default(sql, cs, NULL);
+					res = SQL_OK;
+					break;
+				}
+			}
+			/* reset error */
+			sql->session->status = 0;
+			sql->errstr[0] = '\0';
+		}
+	       	r = symbol2string(sql, s->data.sym, &err);
 		if (!r) {
 			(void) sql_error(sql, 02, "42000!incorrect default value '%s'\n", err?err:"");
 			if (err) _DELETE(err);
@@ -399,6 +427,7 @@ column_option(
 	case SQL_ATOM: {
 		AtomNode *an = (AtomNode *) s;
 
+		assert(0);
 		if (!an || !an->a) {
 			mvc_default(sql, cs, NULL);
 		} else {
@@ -450,14 +479,24 @@ static int
 table_foreign_key(mvc *sql, char *name, symbol *s, sql_schema *ss, sql_table *t)
 {
 	dnode *n = s->data.lval->h;
+	char *rsname = qname_schema(n->data.lval);
 	char *rtname = qname_table(n->data.lval);
-	sql_table *ft = mvc_bind_table(sql, ss, rtname);
+	sql_schema *fs;
+	sql_table *ft;
 
+	if (rsname)
+		fs = mvc_bind_schema(sql, rsname);
+	else
+		fs = ss;
+	ft = mvc_bind_table(sql, fs, rtname);
 	/* self referenced table */
-	if (!ft && t->s == ss && strcmp(t->base.name, rtname) == 0)
+	if (!ft && t->s == fs && strcmp(t->base.name, rtname) == 0)
 		ft = t;
 	if (!ft) {
 		sql_error(sql, 02, "42S02!CONSTRAINT FOREIGN KEY: no such table '%s'\n", rtname);
+		return SQL_ERR;
+	} else if (list_find_name(t->keys.set, name)) {
+		sql_error(sql, 02, "42000!CONSTRAINT FOREIGN KEY: key '%s' already exists", name);
 		return SQL_ERR;
 	} else {
 		sql_key *rk = NULL;
@@ -821,7 +860,7 @@ table_element(mvc *sql, symbol *s, sql_schema *ss, sql_table *t, int alter)
 }
 
 sql_rel *
-rel_create_table(mvc *sql, sql_schema *ss, int temp, char *sname, char *name, symbol *table_elements_or_subquery, int commit_action, char *loc)
+rel_create_table(mvc *sql, sql_schema *ss, int temp, const char *sname, const char *name, symbol *table_elements_or_subquery, int commit_action, const char *loc)
 {
 	sql_schema *s = NULL;
 
@@ -857,15 +896,23 @@ rel_create_table(mvc *sql, sql_schema *ss, int temp, char *sname, char *name, sy
 	if (mvc_bind_table(sql, s, name)) {
 		char *cd = (temp == SQL_DECLARED_TABLE)?"DECLARE":"CREATE";
 		return sql_error(sql, 02, "42S01!%s TABLE: name '%s' already in use", cd, name);
-	} else if (temp != SQL_DECLARED_TABLE && (!schema_privs(sql->role_id, s) && !(isTempSchema(s) && temp == SQL_LOCAL_TEMP))){
+	} else if (temp != SQL_DECLARED_TABLE && (!mvc_schema_privs(sql, s) && !(isTempSchema(s) && temp == SQL_LOCAL_TEMP))){
 		return sql_error(sql, 02, "42000!CREATE TABLE: insufficient privileges for user '%s' in schema '%s'", stack_get_string(sql, "current_user"), s->base.name);
 	} else if (table_elements_or_subquery->token == SQL_CREATE_TABLE) { 
 		/* table element list */
-		sql_table *t = (tt == tt_remote)?
-			mvc_create_remote(sql, s, name, SQL_DECLARED_TABLE, loc):
-			mvc_create_table(sql, s, name, tt, 0, SQL_DECLARED_TABLE, commit_action, -1);
 		dnode *n;
 		dlist *columns = table_elements_or_subquery->data.lval;
+		sql_table *t;
+	       
+		if (tt == tt_remote) {
+			if (!mapiuri_valid(loc))
+				return sql_error(sql, 02, "42000!CREATE TABLE: incorrect uri '%s' for remote table '%s'", loc, name);
+			t = mvc_create_remote(sql, s, name, SQL_DECLARED_TABLE, loc);
+		} else {
+			t = mvc_create_table(sql, s, name, tt, 0, SQL_DECLARED_TABLE, commit_action, -1);
+		}
+		if (!t)
+			return NULL;
 
 		for (n = columns->h; n; n = n->next) {
 			symbol *sym = n->data.sym;
@@ -928,7 +975,7 @@ rel_create_view(mvc *sql, sql_schema *ss, dlist *qname, dlist *column_spec, symb
 
 	if (create && mvc_bind_table(sql, s, name) != NULL) {
 		return sql_error(sql, 02, "42S01!CREATE VIEW: name '%s' already in use", name);
-	} else if (create && (!schema_privs(sql->role_id, s) && !(isTempSchema(s) && persistent == SQL_LOCAL_TEMP))) {
+	} else if (create && (!mvc_schema_privs(sql, s) && !(isTempSchema(s) && persistent == SQL_LOCAL_TEMP))) {
 		return sql_error(sql, 02, "42000!CREATE VIEW: access denied for %s to schema ;'%s'", stack_get_string(sql, "current_user"), s->base.name);
 	} else if (query) {
 		sql_rel *sq = NULL;
@@ -983,6 +1030,83 @@ rel_create_view(mvc *sql, sql_schema *ss, dlist *qname, dlist *column_spec, symb
 	return NULL;
 }
 
+static sql_rel *
+rel_schema2(sql_allocator *sa, int cat_type, char *sname, char *auth, int nr)
+{
+	sql_rel *rel = rel_create(sa);
+	list *exps = new_exp_list(sa);
+
+	append(exps, exp_atom_clob(sa, sname));
+	append(exps, exp_atom_clob(sa, auth));
+	append(exps, exp_atom_int(sa, nr));
+	rel->l = NULL;
+	rel->r = NULL;
+	rel->op = op_ddl;
+	rel->flag = cat_type;
+	rel->exps = exps;
+	rel->card = 0;
+	rel->nrcols = 0;
+	return rel;
+}
+
+static sql_rel *
+rel_schema3(sql_allocator *sa, int cat_type, char *sname, char *tname, char *name)
+{
+	sql_rel *rel = rel_create(sa);
+	list *exps = new_exp_list(sa);
+
+	append(exps, exp_atom_clob(sa, sname));
+	append(exps, exp_atom_clob(sa, tname));
+	append(exps, exp_atom_clob(sa, name));
+	rel->l = NULL;
+	rel->r = NULL;
+	rel->op = op_ddl;
+	rel->flag = cat_type;
+	rel->exps = exps;
+	rel->card = 0;
+	rel->nrcols = 0;
+	return rel;
+}
+
+static sql_rel *
+rel_drop_type(mvc *sql, dlist *qname, int drop_action)
+{
+	char *name = qname_table(qname);
+	char *sname = qname_schema(qname);
+	sql_schema *s = NULL;
+
+	if (sname && !(s = mvc_bind_schema(sql, sname))) 
+		return sql_error(sql, 02, "3F000!DROP TYPE: no such schema '%s'", sname);
+	if (s == NULL)
+		s = cur_schema(sql);
+
+	if (schema_bind_type(sql, s, name) == NULL) {
+		return sql_error(sql, 02, "42S01!DROP TYPE: type '%s' does not exist", name);
+	} else if (!mvc_schema_privs(sql, s)) {
+		return sql_error(sql, 02, "42000!DROP TYPE: access denied for %s to schema ;'%s'", stack_get_string(sql, "current_user"), s->base.name);
+	}
+	return rel_schema2(sql->sa, DDL_DROP_TYPE, s->base.name, name, drop_action);
+}
+
+static sql_rel *
+rel_create_type(mvc *sql, dlist *qname, char *impl)
+{
+	char *name = qname_table(qname);
+	char *sname = qname_schema(qname);
+	sql_schema *s = NULL;
+
+	if (sname && !(s = mvc_bind_schema(sql, sname))) 
+		return sql_error(sql, 02, "3F000!CREATE TYPE: no such schema '%s'", sname);
+	if (s == NULL)
+		s = cur_schema(sql);
+
+	if (schema_bind_type(sql, s, name) != NULL) {
+		return sql_error(sql, 02, "42S01!CREATE TYPE: name '%s' already in use", name);
+	} else if (!mvc_schema_privs(sql, s)) {
+		return sql_error(sql, 02, "42000!CREATE TYPE: access denied for %s to schema ;'%s'", stack_get_string(sql, "current_user"), s->base.name);
+	}
+	return rel_schema3(sql->sa, DDL_CREATE_TYPE, s->base.name, name, impl);
+}
 static char *
 dlist_get_schema_name(dlist *name_auth)
 {
@@ -1016,26 +1140,6 @@ rel_schema(sql_allocator *sa, int cat_type, char *sname, char *auth, int nr)
 	rel->nrcols = 0;
 	return rel;
 }
-
-static sql_rel *
-rel_schema2(sql_allocator *sa, int cat_type, char *sname, char *auth, int nr)
-{
-	sql_rel *rel = rel_create(sa);
-	list *exps = new_exp_list(sa);
-
-	append(exps, exp_atom_clob(sa, sname));
-	append(exps, exp_atom_clob(sa, auth));
-	append(exps, exp_atom_int(sa, nr));
-	rel->l = NULL;
-	rel->r = NULL;
-	rel->op = op_ddl;
-	rel->flag = cat_type;
-	rel->exps = exps;
-	rel->card = 0;
-	rel->nrcols = 0;
-	return rel;
-}
-
 
 static sql_rel *
 rel_create_schema(mvc *sql, dlist *auth_name, dlist *schema_elements)
@@ -1300,6 +1404,29 @@ rel_priv(sql_allocator *sa, char *sname, char *name, char *grantee, int privs, c
 }
 
 static sql_rel *
+rel_func_priv(sql_allocator *sa, char *sname, int func, char *grantee, int privs, int grant, int grantor, int type)
+{
+	sql_rel *rel = rel_create(sa);
+	list *exps = new_exp_list(sa);
+
+	assert(type == DDL_GRANT_FUNC || type == DDL_REVOKE_FUNC);
+	append(exps, exp_atom_clob(sa, sname));
+	append(exps, exp_atom_int(sa, func));
+	append(exps, exp_atom_clob(sa, grantee));
+	append(exps, exp_atom_int(sa, privs));
+	append(exps, exp_atom_int(sa, grant));
+	append(exps, exp_atom_int(sa, grantor));
+	rel->l = NULL;
+	rel->r = NULL;
+	rel->op = op_ddl;
+	rel->flag = type;
+	rel->exps = exps;
+	rel->card = 0;
+	rel->nrcols = 0;
+	return rel;
+}
+
+static sql_rel *
 rel_grant_global(mvc *sql, sql_schema *cur, dlist *privs, dlist *grantees, int grant, int grantor)
 {
 	sql_rel *res = NULL;
@@ -1395,18 +1522,51 @@ rel_grant_table(mvc *sql, sql_schema *cur, dlist *privs, dlist *qname, dlist *gr
 }
 
 static sql_rel *
-rel_grant_func(mvc *sql, sql_schema *cur, dlist *privs, dlist *qname, dlist *grantees, int grant, int grantor)
+rel_grant_func(mvc *sql, sql_schema *cur, dlist *privs, dlist *qname, dlist *typelist, int type, dlist *grantees, int grant, int grantor)
 {
+	sql_rel *res = NULL;
+	dnode *gn;
+	char *sname = qname_schema(qname);
 	char *fname = qname_func(qname);
+	sql_schema *s = NULL;
+	sql_func *func = NULL;
 
-	/* todo */
-	(void) sql;
-	(void) cur;
-	(void) privs;
-	(void) grantees;
-	(void) grant;
-	(void) grantor;
-	return sql_error(sql, 02, "42000!GRANT Table/Function name %s doesn't exist", fname);
+	if (sname)
+		s = mvc_bind_schema(sql, sname);
+	else
+		s = cur;
+	func = resolve_func(sql, s, fname, typelist, type, "GRANT");
+	if (!func) 
+		return NULL;
+	if (!func->s) 
+		return sql_error(sql, 02, "42000!Cannot GRANT EXECUTE on system function '%s'", fname);
+
+	for (gn = grantees->h; gn; gn = gn->next) {
+		dnode *opn;
+		char *grantee = gn->data.sval;
+
+		if (!grantee)
+			grantee = "public";
+
+		if (!privs) {
+			if ((res = rel_list(sql->sa, res, rel_func_priv(sql->sa, s->base.name, func->base.id, grantee, PRIV_EXECUTE, grant, grantor, DDL_GRANT_FUNC))) == NULL) {
+				rel_destroy(res);
+				return NULL;
+			}
+			continue;
+		}
+		for (opn = privs->h; opn; opn = opn->next) {
+			symbol *op = opn->data.sym;
+	
+			if (op->token != SQL_EXECUTE) 
+				return sql_error(sql, 02, "42000!Can only GRANT 'EXECUTE' on function '%s'", fname);
+			if ((res = rel_list(sql->sa, res, rel_func_priv(sql->sa, s->base.name, func->base.id, grantee, PRIV_EXECUTE, grant, grantor, DDL_GRANT_FUNC))) == NULL) {
+				rel_destroy(res);
+				return NULL;
+			}
+		}
+	}
+	return res;
 }
 
 
@@ -1433,9 +1593,16 @@ rel_grant_privs(mvc *sql, sql_schema *cur, dlist *privs, dlist *grantees, int gr
 	case SQL_GRANT: 
 		return rel_grant_global(sql, cur, obj_privs, grantees, grant, grantor);
 	case SQL_TABLE:
-		return rel_grant_table(sql, cur, obj_privs, obj->data.lval, grantees, grant, grantor);
 	case SQL_NAME:
-		return rel_grant_func(sql, cur, obj_privs, obj->data.lval, grantees, grant, grantor);
+		return rel_grant_table(sql, cur, obj_privs, obj->data.lval, grantees, grant, grantor);
+	case SQL_FUNC: {
+		dlist *r = obj->data.lval;
+		dlist *qname = r->h->data.lval;
+		dlist *typelist = r->h->next->data.lval;
+		int type = r->h->next->next->data.i_val;
+
+		return rel_grant_func(sql, cur, obj_privs, qname, typelist, type, grantees, grant, grantor);
+	}
 	default:
 		return sql_error(sql, 02, "M0M03!Grant: unknown token %d", token);
 	}
@@ -1538,19 +1705,52 @@ rel_revoke_table(mvc *sql, sql_schema *cur, dlist *privs, dlist *qname, dlist *g
 }
 
 static sql_rel *
-rel_revoke_func(mvc *sql, sql_schema *cur, dlist *privs, dlist *qname, dlist *grantees, int grant, int grantor)
+rel_revoke_func(mvc *sql, sql_schema *cur, dlist *privs, dlist *qname, dlist *typelist, int type, dlist *grantees, int grant, int grantor)
 {
+	dnode *gn;
+	sql_rel *res = NULL;
+	char *sname = qname_schema(qname);
 	char *fname = qname_func(qname);
+	sql_func *func = NULL;
 
-	/* todo */
-	(void) sql;
-	(void) cur;
-	(void) privs;
-	(void) fname;
-	(void) grantees;
-	(void) grant;
-	(void) grantor;
-	return NULL;
+	sql_schema *s = NULL;
+
+	if (sname)
+		s = mvc_bind_schema(sql, sname);
+	else
+		s = cur;
+	func = resolve_func(sql, s, fname, typelist, type, "REVOKE");
+	if (!func) 
+		return NULL;
+	if (!func->s)
+		return sql_error(sql, 02, "42000!Cannot REVOKE EXECUTE on system function '%s'", fname);
+	for (gn = grantees->h; gn; gn = gn->next) {
+		dnode *opn;
+		char *grantee = gn->data.sval;
+
+		if (!grantee)
+			grantee = "public";
+
+		if (!privs) {
+			if ((res = rel_list(sql->sa, res, rel_func_priv(sql->sa, s->base.name, func->base.id, grantee, PRIV_EXECUTE, grant, grantor, DDL_REVOKE_FUNC))) == NULL) {
+				rel_destroy(res);
+				return NULL;
+			}
+			continue;
+		}
+		for (opn = privs->h; opn; opn = opn->next) {
+			symbol *op = opn->data.sym;
+
+			if (op->token != SQL_EXECUTE) 
+				return sql_error(sql, 02, "42000!Can only REVOKE EXECUTE on function name %s", fname);
+
+			if ((res = rel_list(sql->sa, res, rel_func_priv(sql->sa, s->base.name, func->base.id, grantee, PRIV_EXECUTE, grant, grantor, DDL_REVOKE_FUNC))) == NULL) {
+				rel_destroy(res);
+				return NULL;
+			}
+		}
+	}
+	return res;
 }
 
 static sql_rel *
@@ -1578,7 +1778,15 @@ rel_revoke_privs(mvc *sql, sql_schema *cur, dlist *privs, dlist *grantees, int g
 	case SQL_TABLE:
 		return rel_revoke_table(sql, cur, obj_privs, obj->data.lval, grantees, grant, grantor);
 	case SQL_NAME:
-		return rel_revoke_func(sql, cur, obj_privs, obj->data.lval, grantees, grant, grantor);
+		return rel_revoke_table(sql, cur, obj_privs, obj->data.lval, grantees, grant, grantor);
+	case SQL_FUNC: {
+		dlist *r = obj->data.lval;
+		dlist *qname = r->h->data.lval;
+		dlist *typelist = r->h->next->data.lval;
+		int type = r->h->next->next->data.i_val;
+
+		return rel_revoke_func(sql, cur, obj_privs, qname, typelist, type, grantees, grant, grantor);
+	}
 	default:
 		return sql_error(sql, 02, "M0M03!Grant: unknown token %d", token);
 	}
@@ -1859,11 +2067,11 @@ rel_schemas(mvc *sql, symbol *s)
 	case SQL_CREATE_TYPE: {
 		dlist *l = s->data.lval;
 
-		ret = rel_schema2(sql->sa, DDL_CREATE_TYPE, 
-				l->h->data.sval, l->h->next->data.sval, 0);
+		ret = rel_create_type(sql, l->h->data.lval, l->h->next->data.sval);
 	} 	break;
 	case SQL_DROP_TYPE: {
-		ret = rel_schema2(sql->sa, DDL_DROP_TYPE, s->data.sval, NULL, 0);
+		dlist *l = s->data.lval;
+		ret = rel_drop_type(sql, l->h->data.lval, l->h->next->data.i_val);
 	} 	break;
 	default:
 		return sql_error(sql, 01, "M0M03!schema statement unknown symbol(" PTRFMT ")->token = %s", PTRFMTCAST s, token2string(s->token));

@@ -91,7 +91,7 @@ Vendor: MonetDB BV <info@monetdb.org>
 Group: Applications/Databases
 License: MPL - http://www.monetdb.org/Legal/MonetDBLicense
 URL: http://www.monetdb.org/
-Source: http://dev.monetdb.org/downloads/sources/Jul2015/%{name}-%{version}.tar.bz2
+Source: http://dev.monetdb.org/downloads/sources/Jul2015-SP2/%{name}-%{version}.tar.bz2
 
 BuildRequires: bison
 BuildRequires: bzip2-devel
@@ -403,37 +403,12 @@ program.
 
 %files -n rubygem-monetdb-sql
 %defattr(-,root,root)
-%docdir %{gem_dir}/doc/ruby-monetdb-sql-0.1
-%{gem_dir}/doc/ruby-monetdb-sql-0.1/*
-%{gem_dir}/cache/ruby-monetdb-sql-0.1.gem
-# %dir %{gem_dir}/gems/ruby-monetdb-sql-0.1
-%{gem_dir}/gems/ruby-monetdb-sql-0.1
-%{gem_dir}/specifications/ruby-monetdb-sql-0.1.gemspec
-
-%package -n rubygem-activerecord-monetdb-adapter
-Summary: MonetDB ruby interface
-Group: Applications/Databases
-Requires: ruby(release)
-Requires: rubygem-activerecord
-Requires: rubygem-monetdb-sql
-BuildArch: noarch
-
-%description -n rubygem-activerecord-monetdb-adapter
-MonetDB is a database management system that is developed from a
-main-memory perspective with use of a fully decomposed storage model,
-automatic index management, extensibility of data types and search
-accelerators.  It also has an SQL frontend.
-
-This package contains the activerecord adapter for MonetDB.
-
-%files -n rubygem-activerecord-monetdb-adapter
-%defattr(-,root,root)
-%docdir %{gem_dir}/doc/activerecord-monetdb-adapter-0.1
-%{gem_dir}/doc/activerecord-monetdb-adapter-0.1/*
-%{gem_dir}/cache/activerecord-monetdb-adapter-0.1.gem
-# %dir %{gem_dir}/gems/activerecord-monetdb-adapter-0.1
-%{gem_dir}/gems/activerecord-monetdb-adapter-0.1
-%{gem_dir}/specifications/activerecord-monetdb-adapter-0.1.gemspec
+%docdir %{gem_dir}/doc/ruby-monetdb-sql-0.2
+%{gem_dir}/doc/ruby-monetdb-sql-0.2/*
+%{gem_dir}/cache/ruby-monetdb-sql-0.2.gem
+# %dir %{gem_dir}/gems/ruby-monetdb-sql-0.2
+%{gem_dir}/gems/ruby-monetdb-sql-0.2
+%{gem_dir}/specifications/ruby-monetdb-sql-0.2.gemspec
 %endif
 
 %package client-tests
@@ -920,7 +895,6 @@ developer, but if you do want to test, this is the package you need.
 # %exclude %{_bindir}/*.pyc
 # %exclude %{_bindir}/*.pyo
 %{_bindir}/Mapprove.py
-%{_bindir}/Mfilter.py
 %{_bindir}/Mtest.py
 %dir %{python_sitelib}/MonetDBtesting
 %{python_sitelib}/MonetDBtesting/*
@@ -996,6 +970,99 @@ rm -f %{buildroot}%{_bindir}/Maddlog
 %postun -p /sbin/ldconfig
 
 %changelog
+* Tue Jan 05 2016 Sjoerd Mullender <sjoerd@acm.org> - 11.21.13-20160105
+- Rebuilt.
+- BZ#2014: 'null' from copy into gets wrong
+- BZ#3817: opt_pushselect stuck with multi-table UDF
+- BZ#3835: windows does not release ram after operations
+- BZ#3836: rand() only gets evaluated once when used as an expression
+- BZ#3838: Update column with or without parenthesis produce different
+  results
+- BZ#3840: savepoints may crash the database
+- BZ#3841: mclient fails with response "Challenge string is not valid"
+- BZ#3842: SQL execution fails to finish and reports bogus error messages
+- BZ#3845: Too many VALUES in INSERT freeze mserver5
+- BZ#3847: Wrong SQL results for a certain combination of GROUP BY /
+  ORDER BY / LIMIT
+- BZ#3848: mserver segfault during bulk loading/updating
+- BZ#3849: HUGEINT incorrect value
+- BZ#3850: DEL character not escaped
+- BZ#3851: expression that should evaluate to FALSE evaluates to TRUE
+  in SELECT query
+- BZ#3852: CASE statement produces GDK error on multithreaded database:
+  BATproject does not match always
+- BZ#3854: Complex expression with comparison evaluates incorrectly in
+  WHERE clause
+- BZ#3855: Foreign key referencing table in a different schema -
+  not allowed.
+- BZ#3857: Large LIMIT in SELECT may abort the query
+- BZ#3861: Using window functions cause a crash
+- BZ#3864: Error in bulk import for chinese character
+- BZ#3871: NOT x LIKE triggers "too many nested operators"
+- BZ#3872: mserver crashes under specific combination of JOIN and WHERE
+  conditions
+- BZ#3873: mserver5: gdk_bat.c:1015: setcolprops: Assertion `x !=
+  ((void *)0) || col->type == 0' failed.
+- BZ#3879: Database crashes when querying with several UNION ALLs.
+- BZ#3887: Querying "sys"."tracelog" causes assertion violation and
+  crash of mserver5 process
+- BZ#3889: read only does not protect empty tables
+- BZ#3895: read only does not protect this table
+
+* Fri Oct 30 2015 Sjoerd Mullender <sjoerd@acm.org> - 11.21.11-20151030
+- Rebuilt.
+- BZ#3828: Schema corruption after several ALTER TABLE statements and
+  server restart
+- BZ#3839: msqldump generates incorrect syntax ON UPDATE (null)
+
+* Mon Oct 26 2015 Sjoerd Mullender <sjoerd@acm.org> - 11.21.9-20151026
+- Rebuilt.
+- BZ#3816: Server crashes when trying to convert timestamp to str with
+  incorrect format
+- BZ#3823: JDBC Connection to a schema - setSchema() error
+- BZ#3827: Certains comparisons between UUID produce a MAL error
+- BZ#3829: Certains simple WHERE clause cause MonetDB to segfault
+  without explanation
+- BZ#3830: Coalesce typing inconsistencies
+- BZ#3833: NULL literals refused at many places
+- BZ#3834: Date comparison returns incorrect results
+
+* Tue Oct 20 2015 Sjoerd Mullender <sjoerd@acm.org> - 11.21.7-20151020
+- Rebuilt.
+- BZ#3789: Query on large string table fails on HEAPextend
+- BZ#3794: table function sys.rejects() and view sys.rejects() are listed
+  are metadata objects but give an (incorrect) error when they are queried
+- BZ#3797: COPY INTO with incorrect number columns
+- BZ#3798: SELECT query with INTERSECT causes assertion failure
+- BZ#3800: LIKE is broken for many patterns
+- BZ#3802: Disk space never freed: a logical ref is keeped on a deleted
+  BATs
+- BZ#3803: SQL query parser fails to parse valid SELECT query with a
+  CASE .. END in it. It fails with parser error: identifier 'x' ambiguous
+- BZ#3804: `monetdb status` command crashes under certain conditions
+- BZ#3809: Inefficient plan is generated for queries with many (>= 24)
+  joined tables which take a long time or an HEAPalloc error. I get Error:
+  GDK reported error. HEAPalloc: Insufficient space for HEAP of 400000000
+  bytes.
+- BZ#3810: Fix statistics gathering
+- BZ#3811: NOT LIKE not working if the operand doesn't contains wildcards.
+- BZ#3813: COPY INTO fails on perfectly clean CSV file
+- BZ#3814: Server crash when using bitwise NOT operation in SQL query
+- BZ#3818: Crash when performing UNION/GROUP BY over tables with
+  different columns
+- BZ#3819: order of tables in FROM-clause has negative impact on generated
+  plan (using crossproducts instead of joins)
+- BZ#3820: mclient accepts table with repeated constraint which causes
+  crash on insert
+- BZ#3821: Unexpected error when using a number instead of a boolean
+- BZ#3822: Yet another LIKE operator issue
+- BZ#3825: MonetDB not cleaning intermediate results which leads to
+  filling up disk space and ultimately server crash
+
+* Sun Aug 30 2015 Sjoerd Mullender <sjoerd@acm.org> - 11.21.7-20151020
+- clients: In the SQL formatter of mclient (the default) we now properly align
+  East Asian wide characters.
+
 * Mon Aug 24 2015 Sjoerd Mullender <sjoerd@acm.org> - 11.21.5-20150824
 - Rebuilt.
 - BZ#3730: SAMPLE function not sampling randomly

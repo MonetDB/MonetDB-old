@@ -2,7 +2,7 @@
 -- License, v. 2.0.  If a copy of the MPL was not distributed with this
 -- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 --
--- Copyright 2008-2015 MonetDB B.V.
+-- Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 -- make the offline tracing table available for inspection
 create function sys.tracelog()
@@ -24,6 +24,3 @@ create function sys.tracelog()
 	external name sql.dump_trace;
 
 create view sys.tracelog as select * from sys.tracelog();
-
-create procedure profiler_openstream(host string, port int) external name profiler."openStream";
-create procedure profiler_stethoscope(ticks int) external name profiler.stethoscope;

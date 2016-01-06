@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /* (author) M. Kersten */
@@ -11,7 +11,7 @@
 #include <mal.h>
 
 char monet_cwd[PATHLENGTH] = { 0 };
-size_t monet_memory;
+size_t monet_memory = 0;
 char 	monet_characteristics[PATHLENGTH];
 int mal_trace;		/* enable profile events on console */
 #ifdef HAVE_HGE
@@ -29,7 +29,6 @@ int have_hge;
 #include "mal_recycle.h"
 #include "mal_dataflow.h"
 #include "mal_profiler.h"
-#include "mal_http_daemon.h"
 #include "mal_private.h"
 
 MT_Lock     mal_contextLock MT_LOCK_INITIALIZER("mal_contextLock");
@@ -38,6 +37,7 @@ MT_Lock     mal_remoteLock MT_LOCK_INITIALIZER("mal_remoteLock");
 MT_Lock  	mal_profileLock MT_LOCK_INITIALIZER("mal_profileLock");
 MT_Lock     mal_copyLock MT_LOCK_INITIALIZER("mal_copyLock");
 MT_Lock     mal_delayLock MT_LOCK_INITIALIZER("mal_delayLock");
+MT_Lock     mal_beatLock MT_LOCK_INITIALIZER("mal_beatLock");
 /*
  * Initialization of the MAL context
  * The compiler directive STRUCT_ALIGNED tells that the
@@ -79,14 +79,14 @@ int mal_init(void){
 	MT_lock_init( &mal_profileLock, "mal_profileLock");
 	MT_lock_init( &mal_copyLock, "mal_copyLock");
 	MT_lock_init( &mal_delayLock, "mal_delayLock");
+	MT_lock_init( &mal_beatLock, "mal_beatLock");
 #endif
 
 	tstAligned();
 	MCinit();
 	if (mdbInit()) 
 		return -1;
-	if (monet_memory == 0)
-		monet_memory = MT_npages() * MT_pagesize();
+	monet_memory = MT_npages() * MT_pagesize();
 	initNamespace();
 	initParser();
 	initHeartbeat();
@@ -95,11 +95,7 @@ int mal_init(void){
 	if( malBootstrap() == 0)
 		return -1;
 	/* set up the profiler if needed, output sent to console */
-	/* Use the same shortcuts as stethoscope */
-	if ( mal_trace ) {
-		openProfilerStream(mal_clients[0].fdout);
-		startProfiler(mal_clients[0].user,1,0);
-	} 
+	initProfiler();
 	return 0;
 }
 /*
@@ -130,7 +126,7 @@ void mal_exit(void){
 {
 	int reruns=0, go_on;
 	do{
-		if ( (go_on = MCactiveClients()) )
+		if ( (go_on = MCactiveClients() -1) )
 			MT_sleep_ms(1000);
 		mnstr_printf(mal_clients->fdout,"#MALexit: %d clients still active\n", go_on);
 	} while (++reruns < SERVERSHUTDOWNDELAY && go_on > 1);
@@ -154,12 +150,12 @@ void mal_exit(void){
 		GDKfree(mal_clients->bak);
 	if( mal_clients->fdin){
 		/* missing protection against closing stdin stream */
-		(void) mnstr_close(mal_clients->fdin->s);
-		(void) bstream_destroy(mal_clients->fdin);
+		mnstr_close(mal_clients->fdin->s);
+		bstream_destroy(mal_clients->fdin);
 	}
 	if( mal_clients->fdout && mal_clients->fdout != GDKstdout) {
-		(void) mnstr_close(mal_clients->fdout);
-		(void) mnstr_destroy(mal_clients->fdout);
+		mnstr_close(mal_clients->fdout);
+		mnstr_destroy(mal_clients->fdout);
 	}
 #endif
 	/* deregister everything that was registered, ignore errors */

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -221,112 +221,11 @@ static char *RAPIinitialize(void) {
 	return NULL;
 }
 #else
-/* Completely different Windows initialization */
-/* Gratefully inspired by the JRI code by Simon Urbanek (LGPL)  */
-
-/* R likes this spelling better */
-#define Win32
-
-#define NONAMELESSUNION
-#include <windows.h>
-#include <winreg.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-/* before we include RStatup.h we need to work around a bug in it for Win64:
-   it defines wrong R_size_t if R_SIZE_T_DEFINED is not set */
-#if defined(WIN64) && ! defined(R_SIZE_T_DEFINED)
-#include <stdint.h>
-#define R_size_t uintptr_t
-#define R_SIZE_T_DEFINED 1
-#endif
-
-#include "R_ext/RStartup.h"
-#include "Rversion.h"
-
-#ifndef _WIN64
-/* according to fixed/config.h Windows has uintptr_t, my windows hasn't */
-#if !defined(HAVE_UINTPTR_T) && !defined(uintptr_t) && !defined(_STDINT_H)
-//typedef unsigned uintptr_t;
-// TODO: win64? how do we know?
-#endif
-#endif
-extern __declspec(dllimport) uintptr_t R_CStackLimit; /* C stack limit */
-extern __declspec(dllimport) uintptr_t R_CStackStart; /* Initial stack address */
-
-/* for signal-handling code */
-/* #include "psignal.h" - it's not included, so just get SIGBREAK */
-#define	SIGBREAK 21	/* to readers pgrp upon background tty read */
 
 #define	S_IRWXU		0000700
 
-/* one way to allow user interrupts: called in ProcessEvents */
-#ifdef _MSC_VER
-__declspec(dllimport) int UserBreak;
-#else
-#ifndef WIN64
-#define UserBreak     (*_imp__UserBreak)
-#endif
-extern int UserBreak;
-#endif
-
-extern char *getDLLVersion(), *getRUser(), *get_R_HOME();
-extern void R_DefParams(Rstart), R_SetParams(Rstart), R_setStartTime();
-extern void ProcessEvents(void);
-extern int R_ReplDLLdo1();
-
-static void my_onintr(int sig)
-{
-    UserBreak = 1;
-}
-
-//extern Rboolean R_LoadRconsole;
-
 static char *RAPIinitialize(void) {
-	structRstart rp;
-	Rstart Rp = &rp;
-	char Rversion[25], *RHome;
-
-	snprintf(Rversion, 25, "%s.%s", R_MAJOR, R_MINOR);
-	if(strncmp(getDLLVersion(), Rversion, 25) != 0) {
-		return "Error: R.DLL version does not match";
-	}
-
-	R_setStartTime();
-	R_DefParams(Rp);
-	if((RHome = get_R_HOME()) == NULL) {
-		return "R_HOME must be set in the environment or Registry";
-	}
-	Rp->rhome = RHome;
-	Rp->home = getRUser();
-	Rp->CharacterMode = LinkDLL;
-	//Rp->ReadConsole = w;
-	Rp->WriteConsole = writeConsole;
-	//Rp->CallBack = myCallBack;
-	//Rp->ShowMessage = askok;
-	//Rp->YesNoCancel = askyesnocancel;
-	//Rp->Busy = myBusy;
-
-	Rp->R_Quiet = TRUE;
-	Rp->R_Interactive = TRUE;
-	Rp->RestoreAction = SA_RESTORE;
-	Rp->SaveAction = SA_NOSAVE;
-	R_SetParams(Rp);
-	//R_set_command_line_arguments(argc, argv);
-
-	FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
-
-	signal(SIGBREAK, my_onintr);
-	//GA_initapp(0, 0);
-	//R_LoadRconsole = FALSE;
-	setup_Rmainloop();
-
-    return RAPIinstalladdons();
-}
-
-void initRinside() {
-    /* disable stack checking, because threads will thow it off */
-    R_CStackLimit = (uintptr_t) -1;
+	return "Sorry, no R API on Windows";
 }
 
 #endif
@@ -388,7 +287,7 @@ rapi_export str RAPIevalAggr(Client cntxt, MalBlkPtr mb, MalStkPtr stk,
 }
 
 str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit grouped) {
-	sql_func * sqlfun = *(sql_func**) getArgReference(stk, pci, pci->retc);
+	sql_func * sqlfun = *(sql_func**) getArgReference_ptr(stk, pci, pci->retc);
 	str exprStr = *getArgReference_str(stk, pci, pci->retc + 1);
 
 	SEXP x, env, retval;
@@ -433,7 +332,7 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 	}
 
 	// get the lock even before initialization of the R interpreter, as this can take a second and must be done only once.
-	MT_lock_set(&rapiLock, "rapi.evaluate");
+	MT_lock_set(&rapiLock);
 
 	env = PROTECT(eval(lang1(install("new.env")),R_GlobalEnv));
 	assert(env != NULL);
@@ -499,6 +398,9 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 		varname = PROTECT(Rf_install(args[i]));
 
 		switch (ATOMstorage(getColumnType(getArgType(mb,pci,i)))) {
+		case TYPE_bit:
+			BAT_TO_INTSXP(b, bit, varvalue);
+			break;
 		case TYPE_bte:
 			BAT_TO_INTSXP(b, bte, varvalue);
 			break;
@@ -668,6 +570,7 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 									i, rtypename(TYPEOF(ret_col)));
 				goto wrapup;
 			}
+			bat_type = TYPE_bit;
 			SXP_TO_BAT(bit, LOGICAL_POINTER, *p==NA_LOGICAL);
 			break;
 		}
@@ -739,15 +642,17 @@ str RAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit groupe
 			*getArgReference_bat(stk, pci, i) = b->batCacheid;
 			BBPkeepref(b->batCacheid);
 		} else { // single value return, only for non-grouped aggregations
+			BATiter bi = bat_iterator(b);
+
 			VALinit(&stk->stk[pci->argv[i]], bat_type,
-					Tloc(b, BUNfirst(b)));
+					BUNtail(bi, BUNfirst(b)));
 		}
 		msg = MAL_SUCCEED;
 	}
 	/* unprotect environment, so it will be eaten by the GC. */
 	UNPROTECT(1);
   wrapup:
-	MT_lock_unset(&rapiLock, "rapi.evaluate");
+	MT_lock_unset(&rapiLock);
 	free(rcall);
 	GDKfree(args);
 
@@ -759,7 +664,7 @@ str RAPIprelude(void *ret) {
 	MT_lock_init(&rapiLock, "rapi_lock");
 
 	if (RAPIEnabled()) {
-		MT_lock_set(&rapiLock, "rapi.evaluate");
+		MT_lock_set(&rapiLock);
 		/* startup internal R environment  */
 		if (!rapiInitialized) {
 			char *initstatus;
@@ -769,7 +674,7 @@ str RAPIprelude(void *ret) {
 					  "failed to initialise R environment (%s)", initstatus);
 			}
 		}
-		MT_lock_unset(&rapiLock, "rapi.evaluate");
+		MT_lock_unset(&rapiLock);
 		printf("# MonetDB/R   module loaded\n");
 	}
 	return MAL_SUCCEED;

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -1630,8 +1630,16 @@ sql_update_dec2015(Client c)
 	pos += snprintf(buf + pos, bufsize - pos, "set schema \"sys\";\n");
 
 /* insert upgrade code here */
+	pos += snprintf(buf + pos, bufsize - pos, "drop procedure profiler_openstream(host string, port int);");
+	pos += snprintf(buf + pos, bufsize - pos, "drop procedure profiler_stethoscope(ticks int);");
+	pos += snprintf(buf + pos, bufsize - pos, "create schema profiler;"
+		"create procedure profiler.start() external name profiler.\"start\";"
+		"create procedure profiler.stop() external name profiler.stop;"
+		"create procedure profiler.setheartbeat(beat int) external name profiler.setheartbeat;"
+		"create procedure profiler.setpoolsize(poolsize int) external name profiler.setpoolsize;"
+		"create procedure profiler.setstream(host string, port int) external name profiler.setstream;");
 
-	if (schema) {
+			if (schema) {
 		pos += snprintf(buf + pos, bufsize - pos, "set schema \"%s\";\n", schema);
 		free(schema);
 	}

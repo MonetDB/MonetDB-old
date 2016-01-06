@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #ifndef ALGEBRA_H
@@ -48,10 +48,7 @@ algebra_export str ALGsubdiff(bat *r1, const bat *lid, const bat *rid, const bat
 algebra_export str ALGsubinter(bat *r1, const bat *lid, const bat *rid, const bat *slid, const bat *srid, const bit *nil_matches, const lng *estimate);
 
 /* legacy join functions */
-algebra_export str ALGantijoin2(bat *l, bat *r, const bat *lid, const bat *rid);
-algebra_export str ALGjoin2(bat *l, bat *r, const bat *lid, const bat *rid);
 algebra_export str ALGcrossproduct2(bat *l, bat *r, const bat *lid, const bat *rid);
-algebra_export str ALGrangejoin2(bat *l, bat *r, const bat *lid, const bat *rlid, const bat *rhid, const bit *li, const bit *hi);
 /* end legacy join functions */
 
 algebra_export str ALGfirstn(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
@@ -59,7 +56,7 @@ algebra_export str ALGfirstn(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 algebra_export str ALGcopy(bat *result, const bat *bid);
 algebra_export str ALGsubunique2(bat *result, const bat *bid, const bat *sid);
 algebra_export str ALGsubunique1(bat *result, const bat *bid);
-algebra_export str ALGleftfetchjoin(bat *result, const bat *lid, const bat *rid);
+algebra_export str ALGprojection(bat *result, const bat *lid, const bat *rid);
 algebra_export str ALGtinter(bat *result, const bat *lid, const bat *rid);
 algebra_export str ALGtdiff(bat *result, const bat *lid, const bat *rid);
 algebra_export str ALGsample(bat *result, const bat *bid, const int *param);
@@ -79,7 +76,6 @@ algebra_export str ALGcount_no_nil(wrd *result, const bat *bid);
 algebra_export str ALGtmark(bat *result, const bat *bid, const oid *base);
 algebra_export str ALGtmark_default(bat *result, const bat *bid);
 algebra_export str ALGtmarkp(bat *result, const bat *bid, const int *nr_parts, const int *part_nr);
-algebra_export str ALGlike(bat *ret, const bat *bid, const str *k);
 algebra_export str ALGslice(bat *ret, const bat *bid, const lng *start, const lng *end);
 algebra_export str ALGslice_int(bat *ret, const bat *bid, const int *start, const int *end);
 algebra_export str ALGslice_wrd(bat *ret, const bat *bid, const wrd *start, const wrd *end);

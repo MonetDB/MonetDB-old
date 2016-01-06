@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -80,13 +80,6 @@ str CMDscience_bat_##TYPE##_##FUNC(bat *ret, const bat *bid)		\
 	BATkey(BATmirror(bn), 0);										\
 	if (!(bn->batDirty&2))											\
 		BATsetaccess(bn, BAT_READ);									\
-	if (!BAThdense(b)) {											\
-		/* legacy */												\
-		BAT *r = VIEWcreate(b,bn);									\
-																	\
-		BBPunfix(bn->batCacheid);									\
-		bn = r;														\
-	}																\
 	BBPkeepref(*ret = bn->batCacheid);								\
 	BBPunfix(b->batCacheid);										\
 	return MAL_SUCCEED;												\
@@ -132,13 +125,6 @@ str CMDscience_bat_cst_##FUNC##_##TYPE(bat *ret, const bat *bid,		\
 	BATkey(BATmirror(bn),0);											\
 	if (!(bn->batDirty&2))												\
 		BATsetaccess(bn, BAT_READ);										\
-	if (!BAThdense(b)) {												\
-		/* legacy */													\
-		BAT *r = VIEWcreate(b,bn);										\
-																		\
-		BBPunfix(bn->batCacheid);										\
-		bn = r;															\
-	}																	\
 	BBPkeepref(*ret = bn->batCacheid);									\
 	BBPunfix(b->batCacheid);											\
 	return MAL_SUCCEED;													\

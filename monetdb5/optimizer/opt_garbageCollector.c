@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -11,7 +11,6 @@
 #include "mal_interpreter.h"	/* for showErrors() */
 #include "mal_builder.h"
 #include "opt_prelude.h"
-#include "mal_properties.h"
 
 /*
  * Keeping variables around beyond their end-of-life-span
@@ -29,7 +28,7 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 	(void) pci;
 	(void) cntxt;
 	(void) stk;
-	if (varGetProp(mb, getArg(mb->stmt[0], 0), inlineProp) != NULL)
+	if ( mb->inlineProp)
 		return 0;
 
 
@@ -91,8 +90,7 @@ OPTgarbageCollectorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, Ins
 			for (k = 0; k < vlimit; k++) {
 				if (getBeginLifespan(span,k) > 0  &&
 					getEndLifespan(span,k) == i &&
-					isaBatType(getVarType(mb,k)) &&
-					varGetProp(mb, k, keepProp) == NULL){
+					isaBatType(getVarType(mb,k)) ){
 						q= newAssignment(mb);
 						getArg(q,0) = k;
 						setVarUDFtype(mb,k);

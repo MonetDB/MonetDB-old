@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -32,15 +32,18 @@ pushInstruction(mb,P);
 			q= newStmt(mb,calcRef,TPE##Ref);\
 			setArgType(mb,q,0,TYPE_##TPE);\
 			pushArgument(mb,q,getArg(series[k],1));\
+			typeChecker(cntxt->fdout, cntxt->nspace, mb, q, TRUE);\
 			p = pushArgument(mb,p, getArg(q,0));\
 			q= newStmt(mb,calcRef,TPE##Ref);\
 			setArgType(mb,q,0,TYPE_##TPE);\
 			pushArgument(mb,q,getArg(series[k],2));\
+			typeChecker(cntxt->fdout, cntxt->nspace, mb, q, TRUE);\
 			p = pushArgument(mb,p, getArg(q,0));\
 			if( p->argc == 4){\
 				q= newStmt(mb,calcRef,TPE##Ref);\
 				setArgType(mb,q,0,TYPE_##TPE);\
 				pushArgument(mb,q,getArg(series[k],3));\
+				typeChecker(cntxt->fdout, cntxt->nspace, mb, q, TRUE);\
 				p = pushArgument(mb,p, getArg(q,0));\
 			}\
 			setModuleId(p,generatorRef);\
@@ -104,14 +107,8 @@ OPTgeneratorImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 		if ( getModuleId(p) == algebraRef && getFunctionId(p) == thetasubselectRef && series[getArg(p,1)]){
 			errorCheck(p,algebraRef,getArg(p,1));
 		} else
-		if ( getModuleId(p) == algebraRef && getFunctionId(p) == leftfetchjoinRef && series[getArg(p,2)]){
+		if ( getModuleId(p) == algebraRef && getFunctionId(p) == projectionRef && series[getArg(p,2)]){
 			errorCheck(p,algebraRef,getArg(p,2));
-		} else
-		if ( getModuleId(p) == algebraRef && getFunctionId(p) == joinRef && series[getArg(p,2)] ){
-			errorCheck(p,algebraRef,getArg(p,2));
-		} else
-		if ( getModuleId(p) == algebraRef && getFunctionId(p) == joinRef && series[getArg(p,3)]){
-			errorCheck(p,algebraRef,getArg(p,3));
 		} else
 		if ( getModuleId(p) == sqlRef && getFunctionId(p) ==  putName("exportValue",11) && isaBatType(getArgType(mb,p,0)) ){
 			// interface expects scalar type only, not expressable in MAL signature

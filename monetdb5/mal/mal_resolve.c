@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -29,15 +29,6 @@ static int typeKind(MalBlkPtr mb, InstrPtr p, int i);
 str traceFcnName = "____";
 int tracefcn;
 int polyVector[MAXTYPEVAR];
-#if 0
-void
-polyInit(void)
-{
-	int i;
-	for (i = 0; i < MAXTYPEVAR; i++)
-		polyVector[i] = TYPE_any;
-}
-#endif
 
 /*
  * We found the proper function. Copy some properties. In particular,
@@ -514,22 +505,7 @@ resolveType(int dsttype, int srctype)
 	if (isaBatType(dsttype) && srctype == TYPE_bat)
 		return dsttype;
 	if (isaBatType(dsttype) && isaBatType(srctype)) {
-		int h1, t1, h2, t2, h3, t3;
-		h1 = getHeadType(dsttype);
-		h2 = getHeadType(srctype);
-		if (h1 == h2)
-			h3 = h1;
-		else if (h1 == TYPE_any)
-			h3 = h2;
-		else if (h2 == TYPE_any)
-			h3 = h1;
-		else {
-#ifdef DEBUG_MAL_RESOLVE
-			if (tracefcn)
-				mnstr_printf(GDKout, "Head can not be resolved \n");
-#endif
-			return -1;
-		}
+		int t1, t2, t3;
 		t1 = getColumnType(dsttype);
 		t2 = getColumnType(srctype);
 		if (t1 == t2)
@@ -547,26 +523,19 @@ resolveType(int dsttype, int srctype)
 		}
 #ifdef DEBUG_MAL_RESOLVE
 		if (tracefcn) {
-			int i1 = getHeadIndex(dsttype);
 			int i2 = getColumnIndex(dsttype);
-			char *tpe1, *tpe2, *tpe3, *tpe4, *tpe5, *tpe6;
-			tpe1 = getTypeName(h1);
+			char *tpe1, *tpe2, *tpe3; 
 			tpe2 = getTypeName(t1);
-			tpe3 = getTypeName(h2);
 			tpe4 = getTypeName(t2);
-			tpe5 = getTypeName(h3);
 			tpe6 = getTypeName(t3);
-			mnstr_printf(GDKout, "resolved to bat[:%s,:%s] bat[:%s,:%s]->bat[%s:%d,%s:%d]\n",
-						 tpe1, tpe2, tpe3, tpe4, tpe5, i1, tpe6, i2);
+			mnstr_printf(GDKout, "resolved to bat[:oid,:%s] bat[:oid,:%s]->bat[:oid,%s:%d]\n",
+						 tpe2, tpe4, tpe6, i2);
 			GDKfree(tpe1);
 			GDKfree(tpe2);
 			GDKfree(tpe3);
-			GDKfree(tpe4);
-			GDKfree(tpe5);
-			GDKfree(tpe6);
 		}
 #endif
-		return newBatType(h3, t3);
+		return newBatType(TYPE_void, t3);
 	}
 #ifdef DEBUG_MAL_RESOLVE
 	if (tracefcn)
@@ -735,41 +704,6 @@ typeChecker(stream *out, Module scope, MalBlkPtr mb, InstrPtr p, int silent)
 }
 
 /*
- * Function binder
- * In some cases the front-end may already assure type correctness
- * of the MAL instruction generated (e.g. the SQL front-end)
- * In that case we merely have to locate the function address and
- * finalize the code for execution. Beware that we should be able to
- * distinguish the function by module name, function name, and
- * number of arguments only. Whether this is sufficient remains
- * to be seen.
- */
-int
-fcnBinder(stream *out, Module scope, MalBlkPtr mb, InstrPtr p)
-{
-	Module m = 0;
-	Symbol s;
-	int silent = FALSE;
-
-	if (p->token != ASSIGNsymbol)
-		return 0;
-	if (getModuleId(p) == NULL || getFunctionId(p) == NULL)
-		return 0;
-	for (m = findModule(scope, getModuleId(p)); m; m = m->outer)
-		if (m->name == getModuleId(p)) {
-			s = m->subscope[(int) (getSubScope(getFunctionId(p)))];
-			for (; s; s = s->peer)
-				if (getFunctionId(p) == s->name &&
-					p->argc == getSignature(s)->argc) {
-					/* found it */
-					bindFunction(s, p, mb, out);
-				}
-		}
-  wrapup:
-	return 0;
-}
-
-/*
  * After the parser finishes, we have to look for semantic errors,
  * such as flow of control problems and possible typeing conflicts.
  * The nesting of BARRIER and CATCH statements with their associated
@@ -793,8 +727,7 @@ chkTypes(stream *out, Module s, MalBlkPtr mb, int silent)
 
 	for (i = 0; i < mb->stop; i++) {
 		p = getInstrPtr(mb, i);
-		if (p == NULL)
-			continue;
+		assert (p != NULL);
 		typeChecker(out, s, mb, p, silent);
 		if (mb->errors)
 			return;
@@ -865,19 +798,16 @@ typeKind(MalBlkPtr mb, InstrPtr p, int i)
 static malType
 getPolyType(malType t, int *polytype)
 {
-	int hi, ti;
-	int head, tail;
+	int ti;
+	int tail;
 
 	ti = getColumnIndex(t);
 	if (!isaBatType(t) && ti > 0)
 		return polytype[ti];
 
 	tail = ti == 0 ? getColumnType(t) : polytype[ti];
-	if (isaBatType(t)) {
-		hi = getHeadIndex(t);
-		head = hi == 0 ? getHeadType(t) : polytype[hi];
-		return newBatType(head, tail);
-	}
+	if (isaBatType(t)) 
+		return newBatType(TYPE_void, tail);
 	return tail;
 }
 
@@ -928,17 +858,6 @@ updateTypeMap(int formal, int actual, int polytype[MAXTYPEVAR])
 	if (isaBatType(formal)) {
 		if (!isaBatType(actual) && actual != TYPE_bat)
 			return -1;
-		if ((h = getHeadIndex(formal))) {
-			t = actual == TYPE_bat ? actual : getHeadType(actual);
-			if (t != polytype[h]) {
-				if (polytype[h] == TYPE_any)
-					polytype[h] = t;
-				else {
-					ret = -1;
-					goto updLabel;
-				}
-			}
-		}
 	}
   updLabel:
 #ifdef DEBUG_MAL_RESOLVE

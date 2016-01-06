@@ -3,7 +3,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 2008-2015 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 ?>
 
 <?php
@@ -525,8 +525,9 @@
 	*/
 	function auto_commit($conn, $flag=TRUE) {
 		if ($conn["socket"] != NULL) {
-			$cmd = "auto_commit " . $flag;
+			$cmd = "auto_commit " . (int) $flag;
 			mapi_write($conn["socket"], format_command($cmd));
+			mapi_read($conn["socket"]);
 			
 			return TRUE;
 		}

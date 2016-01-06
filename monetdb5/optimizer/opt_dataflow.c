@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -208,7 +208,7 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 
 	(void) stk;
 	/* inlined functions will get their dataflow control later */
-	if ( varGetProp(mb, getArg(getInstrPtr(mb,0),0),inlineProp)!= NULL) 
+	if ( mb->inlineProp)
 		return 0;
 	OPTDEBUGdataflow{
 		mnstr_printf(cntxt->fdout,"#dataflow input\n");
@@ -283,7 +283,6 @@ OPTdataflowImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p)
 				q= newFcnCall(mb,languageRef,dataflowRef);\
 				q->barrier= BARRIERsymbol;\
 				getArg(q,0)= flowblock;\
-				varSetProperty(mb, getArg(q,0), "transparent",0,0);
 			}
 			//copyblock 
 			for( j=start ; j<i; j++) 

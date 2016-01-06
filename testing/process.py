@@ -2,7 +2,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 2008-2015 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 import subprocess
 import os
@@ -382,7 +382,7 @@ def server(args = [], stdin = None, stdout = None, stderr = None,
             s = args[i+1].partition('=')[0]
             for j in range(len(cmd)):
                 if cmd[j] == '--set' and j+1 < len(cmd) and cmd[j+1].startswith(s + '='):
-                    del cmd[i:i+2]
+                    del cmd[j:j+2]
                     break
     if log:
         prompt = time.strftime('# %H:%M:%S >  ')

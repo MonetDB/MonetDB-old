@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -518,6 +518,7 @@ BATfirstn_unique_with_groups(BAT *b, BAT *s, BAT *g, BUN n, int asc)
 			shuffle_unique_with_groups(flt, GT);
 			break;
 		case TYPE_dbl:
+			shuffle_unique_with_groups(dbl, GT);
 			break;
 		default:
 			heapify(GTanygrp, SWAP2);

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 %{
@@ -138,7 +138,6 @@ int yydebug=1;
 	join_spec
 	search_condition
 	and_exp
-	not_exp
 	update_statement
 	update_stmt
 	control_statement
@@ -337,6 +336,7 @@ int yydebug=1;
 	table_exp
 	table_ref_commalist
 	table_element_list
+	table_opt_storage
 	as_subquery_clause
 	column_exp_commalist
 	column_option_list
@@ -386,6 +386,7 @@ int yydebug=1;
 	XML_value_expression_list
 	window_frame_extent
 	window_frame_between
+	routine_designator
 
 %type <i_val>
 	any_all_some
@@ -482,7 +483,7 @@ int yydebug=1;
 
 %token	USER CURRENT_USER SESSION_USER LOCAL LOCKED BEST EFFORT
 %token  CURRENT_ROLE sqlSESSION
-%token <sval> sqlDELETE UPDATE SELECT INSERT DATABASE 
+%token <sval> sqlDELETE UPDATE SELECT INSERT 
 %token <sval> LEFT RIGHT FULL OUTER NATURAL CROSS JOIN INNER
 %token <sval> COMMIT ROLLBACK SAVEPOINT RELEASE WORK CHAIN NO PRESERVE ROWS
 %token  START TRANSACTION READ WRITE ONLY ISOLATION LEVEL
@@ -520,10 +521,10 @@ int yydebug=1;
 %left <operation> '(' ')'
 %left <sval> FILTER_FUNC 
 
-%left <operation> '='
-%left <operation> ALL ANY BETWEEN sqlIN LIKE ILIKE OR SOME
-%left <operation> AND
 %left <operation> NOT
+%left <operation> '='
+%left <operation> ALL ANY NOT_BETWEEN BETWEEN NOT_IN sqlIN NOT_LIKE LIKE NOT_ILIKE ILIKE OR SOME
+%left <operation> AND
 %left <sval> COMPARISON /* <> < > <= >= */
 %left <operation> '+' '-' '&' '|' '^' LEFT_SHIFT RIGHT_SHIFT LEFT_SHIFT_ASSIGN RIGHT_SHIFT_ASSIGN CONCATSTRING SUBSTRING POSITION SPLIT_PART
 %right UMINUS
@@ -926,7 +927,7 @@ global_privilege:
 object_name:
      TABLE qname		{ $$ = _symbol_create_list(SQL_TABLE, $2); }
  |   qname			{ $$ = _symbol_create_list(SQL_NAME, $1); }
-
+ |   routine_designator 	{ $$ = _symbol_create_list(SQL_FUNC, $1); }
 /* | DOMAIN domain_name
    | CHARACTER SET char_set_name
    | COLLATION collation_name
@@ -1257,8 +1258,13 @@ opt_encrypted:
  |  ENCRYPTED		{ $$ = SQL_PW_ENCRYPTED; }
  ;
 
+table_opt_storage:
+    /* empty */		 { $$ = NULL; }
+ |  STORAGE ident STRING { $$ = append_string(append_string(L(), $2), $3); } 
+ ;
+
 table_def:
-    TABLE qname table_content_source 
+    TABLE qname table_content_source  table_opt_storage
 	{ int commit_action = CA_COMMIT;
 	  dlist *l = L();
 
@@ -1267,6 +1273,7 @@ table_def:
 	  append_symbol(l, $3);
 	  append_int(l, commit_action);
 	  append_string(l, NULL);
+	  append_list(l, $4);
 	  $$ = _symbol_create_list( SQL_CREATE_TABLE, l ); }
  |  STREAM TABLE qname table_content_source 
 	{ int commit_action = CA_COMMIT, tpe = SQL_STREAM;
@@ -1298,7 +1305,9 @@ table_def:
 	  append_int(l, commit_action);
 	  append_string(l, NULL);
 	  $$ = _symbol_create_list( SQL_CREATE_TABLE, l ); }
- /* mapi:monetdb://host:port/database (assumed monetdb/monetdb) */
+ /* mapi:monetdb://host:port/database[/schema[/table]] 
+    This also allows access via monetdbd. 
+    We assume the monetdb user with default password */
  |  REMOTE TABLE qname table_content_source ON STRING
 	{ int commit_action = CA_COMMIT, tpe = SQL_REMOTE;
 	  dlist *l = L();
@@ -1471,7 +1480,6 @@ default:
 
 default_value:
     simple_scalar_exp 	{ $$ = $1; }
- |  sqlNULL 	{ $$ = _newAtomNode( NULL);  }
  ;
 
 column_constraint:
@@ -1692,9 +1700,9 @@ column_commalist_parens:
  ;
 
 type_def:
-    create TYPE ident EXTERNAL sqlNAME ident
+    create TYPE qname EXTERNAL sqlNAME ident
 			{ dlist *l = L();
-				append_string(l, $3);
+				append_list(l, $3);
 				append_string(l, $6);
 			  $$ = _symbol_create_list( SQL_CREATE_TYPE, l ); }
  ;
@@ -1950,7 +1958,6 @@ return_value:
    |  search_condition
    |  TABLE '(' query_expression ')'	
 		{ $$ = _symbol_create_symbol(SQL_TABLE, $3); }
-   |  sqlNULL 	{ $$ = _newAtomNode( NULL);  }
    ;
 
 case_statement:
@@ -2233,81 +2240,86 @@ triggered_statement:
     END 			{ $$ = $3; }
  ;
 
+routine_designator:
+	FUNCTION qname opt_typelist
+	{ dlist *l = L();
+	  append_list(l, $2 );	
+	  append_list(l, $3 );
+	  append_int(l, F_FUNC );
+	  $$ = l; }
+ |	FILTER FUNCTION qname opt_typelist
+	{ dlist *l = L();
+	  append_list(l, $3 );	
+	  append_list(l, $4 );
+	  append_int(l, F_FILT );
+	  $$ = l; }
+ |	AGGREGATE qname opt_typelist
+	{ dlist *l = L();
+	  append_list(l, $2 );	
+	  append_list(l, $3 );
+	  append_int(l, F_AGGR );
+	  $$ = l; }
+ |	PROCEDURE qname opt_typelist
+	{ dlist *l = L();
+	  append_list(l, $2 );	
+	  append_list(l, $3 );
+	  append_int(l, F_PROC );
+	  $$ = l; }
+ ;
+
 drop_statement:
    drop TABLE qname drop_action
 	{ dlist *l = L();
 	  append_list(l, $3 );
 	  append_int(l, $4 );
 	  $$ = _symbol_create_list( SQL_DROP_TABLE, l ); }
- | drop FUNCTION qname opt_typelist drop_action
-	{ dlist *l = L();
-	  append_list(l, $3 );
-	  append_int(l, 0 );
-	  append_list(l, $4 );
-	  append_int(l, $5 );
-	  append_int(l, F_FUNC );
-	  $$ = _symbol_create_list( SQL_DROP_FUNC, l ); }
- | drop FILTER FUNCTION qname opt_typelist drop_action
-	{ dlist *l = L();
-	  append_list(l, $4 );
-	  append_int(l, 0 );
-	  append_list(l, $5 );
-	  append_int(l, $6 );
-	  append_int(l, F_FILT );
-	  $$ = _symbol_create_list( SQL_DROP_FUNC, l ); }
- | drop AGGREGATE qname opt_typelist drop_action
-	{ dlist *l = L();
-	  append_list(l, $3 );
-	  append_int(l, 0 );
-	  append_list(l, $4 );
-	  append_int(l, $5 );
-	  append_int(l, F_AGGR );
-	  $$ = _symbol_create_list( SQL_DROP_FUNC, l ); }
- | drop PROCEDURE qname opt_typelist drop_action
-	{ dlist *l = L();
-	  append_list(l, $3 );
-	  append_int(l, 0 );
-	  append_list(l, $4 );
-	  append_int(l, $5 );
-	  append_int(l, F_PROC );
+ | drop routine_designator drop_action
+	{ dlist *l = $2;
+	  append_int(l, 0 ); /* not all */
+	  append_int(l, $3 );
 	  $$ = _symbol_create_list( SQL_DROP_FUNC, l ); }
  | drop ALL FUNCTION qname drop_action
 	{ dlist *l = L();
 	  append_list(l, $4 );
-	  append_int(l, 1 );
 	  append_list(l, NULL );
-	  append_int(l, $5 );
 	  append_int(l, F_FUNC );
+	  append_int(l, 1 );
+	  append_int(l, $5 );
 	  $$ = _symbol_create_list( SQL_DROP_FUNC, l ); }
  | drop ALL FILTER FUNCTION qname drop_action
 	{ dlist *l = L();
 	  append_list(l, $5 );
-	  append_int(l, 1 );
 	  append_list(l, NULL );
-	  append_int(l, $6 );
 	  append_int(l, F_FILT );
+	  append_int(l, 1 );
+	  append_int(l, $6 );
 	  $$ = _symbol_create_list( SQL_DROP_FUNC, l ); }
  | drop ALL AGGREGATE qname drop_action
 	{ dlist *l = L();
 	  append_list(l, $4 );
-	  append_int(l, 1 );
 	  append_list(l, NULL );
-	  append_int(l, $5 );
 	  append_int(l, F_AGGR );
+	  append_int(l, 1 );
+	  append_int(l, $5 );
 	  $$ = _symbol_create_list( SQL_DROP_FUNC, l ); }
  | drop ALL PROCEDURE qname drop_action
 	{ dlist *l = L();
 	  append_list(l, $4 );
-	  append_int(l, 1 );
 	  append_list(l, NULL );
-	  append_int(l, $5 );
 	  append_int(l, F_PROC );
+	  append_int(l, 1 );
+	  append_int(l, $5 );
 	  $$ = _symbol_create_list( SQL_DROP_FUNC, l ); }
  |  drop VIEW qname drop_action
 	{ dlist *l = L();
 	  append_list(l, $3 );
 	  append_int(l, $4 );
 	  $$ = _symbol_create_list( SQL_DROP_VIEW, l ); }
+ |  drop TYPE qname drop_action	 
+	{ dlist *l = L();
+	  append_list(l, $3 );
+	  append_int(l, $4 );
+	  $$ = _symbol_create_list( SQL_DROP_TYPE, l ); }
  |  drop ROLE ident	  { $$ = _symbol_create( SQL_DROP_ROLE, $3 ); }
  |  drop USER ident	  { $$ = _symbol_create( SQL_DROP_USER, $3 ); }
  |  drop INDEX qname	  { $$ = _symbol_create_list( SQL_DROP_INDEX, $3 ); }
@@ -2678,7 +2690,6 @@ null:
 
 simple_atom:
     scalar_exp
- |  null
  ;
 
 insert_atom:
@@ -2706,11 +2717,6 @@ assignment:
    column '=' search_condition
 	{ dlist *l = L();
 	  append_symbol(l, $3 );
-	  append_string(l, $1);
-	  $$ = _symbol_create_list( SQL_ASSIGN, l); }
- | column '=' sqlNULL
-	{ dlist *l = L();
-	  append_symbol(l, NULL );
 	  append_string(l, $1);
 	  $$ = _symbol_create_list( SQL_ASSIGN, l); }
  |  column_commalist_parens '=' subquery
@@ -3096,22 +3102,11 @@ search_condition:
  ;
    
 and_exp:
-    not_exp AND and_exp
+    pred_exp AND and_exp
 		{ dlist *l = L();
 		  append_symbol(l, $1);
 		  append_symbol(l, $3);
 		  $$ = _symbol_create_list(SQL_AND, l ); }
- |  not_exp	{ $$ = $1; }
- ;
-
-not_exp:
-    NOT not_exp 
-		{ $$ = $2;
-
-		  if ($$->token == SQL_EXISTS)
-			$$->token = SQL_NOT_EXISTS;
-		  else
-			$$ = _symbol_create_symbol(SQL_NOT, $2); }
  |  pred_exp	{ $$ = $1; }
  ;
 
@@ -3186,18 +3181,37 @@ predicate:
  ;
 
 pred_exp:
-    predicate
+    NOT pred_exp 
+		{ $$ = $2;
+
+		  if ($$->token == SQL_EXISTS)
+			$$->token = SQL_NOT_EXISTS;
+		  else if ($$->token == SQL_NOT_EXISTS)
+			$$->token = SQL_EXISTS;
+		  else if ($$->token == SQL_NOT_BETWEEN)
+			$$->token = SQL_BETWEEN;
+		  else if ($$->token == SQL_BETWEEN)
+			$$->token = SQL_NOT_BETWEEN;
+		  else if ($$->token == SQL_NOT_LIKE)
+			$$->token = SQL_LIKE;
+		  else if ($$->token == SQL_LIKE)
+			$$->token = SQL_NOT_LIKE;
+		  else
+			$$ = _symbol_create_symbol(SQL_NOT, $2); }
+ |   predicate	{ $$ = $1; }
  ;
 
 comparison_predicate:
     pred_exp COMPARISON pred_exp
 		{ dlist *l = L();
+
 		  append_symbol(l, $1);
 		  append_string(l, $2);
 		  append_symbol(l, $3);
 		  $$ = _symbol_create_list(SQL_COMPARE, l ); }
  |  pred_exp '=' pred_exp
 		{ dlist *l = L();
+
 		  append_symbol(l, $1);
 		  append_string(l, sa_strdup(SA, "="));
 		  append_symbol(l, $3);
@@ -3205,12 +3219,12 @@ comparison_predicate:
  ;
 
 between_predicate:
-    pred_exp NOT BETWEEN opt_bounds pred_exp AND pred_exp
+    pred_exp NOT_BETWEEN opt_bounds pred_exp AND pred_exp
 		{ dlist *l = L();
 		  append_symbol(l, $1);
-		  append_int(l, $4);
-		  append_symbol(l, $5);
-		  append_symbol(l, $7);
+		  append_int(l, $3);
+		  append_symbol(l, $4);
+		  append_symbol(l, $6);
 		  $$ = _symbol_create_list(SQL_NOT_BETWEEN, l ); }
  |  pred_exp BETWEEN opt_bounds pred_exp AND pred_exp
 		{ dlist *l = L();
@@ -3228,17 +3242,17 @@ opt_bounds:
  ;
 
 like_predicate:
-    pred_exp NOT LIKE like_exp
+    pred_exp NOT_LIKE like_exp
 		{ dlist *l = L();
 		  append_symbol(l, $1);
-		  append_symbol(l, $4);
+		  append_symbol(l, $3);
 		  append_int(l, FALSE);  /* case sensitive */
 		  append_int(l, TRUE);  /* anti */
 		  $$ = _symbol_create_list( SQL_LIKE, l ); }
- |  pred_exp NOT ILIKE like_exp
+ |  pred_exp NOT_ILIKE like_exp
 		{ dlist *l = L();
 		  append_symbol(l, $1);
-		  append_symbol(l, $4);
+		  append_symbol(l, $3);
 		  append_int(l, TRUE);  /* case insensitive */
 		  append_int(l, TRUE);  /* anti */
 		  $$ = _symbol_create_list( SQL_LIKE, l ); }
@@ -3264,7 +3278,7 @@ like_exp:
 	  append_symbol(l, $1);
 	  $$ = _symbol_create_list(SQL_ESCAPE, l ); }
  |  scalar_exp ESCAPE string
- 	{ char *s = sql2str($3);
+ 	{ const char *s = sql2str($3);
 	  if (_strlen(s) != 1) {
 		char *msg = sql_message("\b22025!ESCAPE must be one character");
 		yyerror(m, msg);
@@ -3286,20 +3300,22 @@ test_for_null:
  ;
 
 in_predicate:
-    pred_exp NOT sqlIN '(' value_commalist ')'
+    pred_exp NOT_IN '(' value_commalist ')'
 		{ dlist *l = L();
+
 		  append_symbol(l, $1);
-		  append_list(l, $5);
+		  append_list(l, $4);
 		  $$ = _symbol_create_list(SQL_NOT_IN, l ); }
  |  pred_exp sqlIN '(' value_commalist ')'
 		{ dlist *l = L();
+
 		  append_symbol(l, $1);
 		  append_list(l, $4);
 		  $$ = _symbol_create_list(SQL_IN, l ); }
- |  '(' pred_exp_list ')' NOT sqlIN '(' value_commalist ')'
+ |  '(' pred_exp_list ')' NOT_IN '(' value_commalist ')'
 		{ dlist *l = L();
 		  append_list(l, $2);
-		  append_list(l, $7);
+		  append_list(l, $6);
 		  $$ = _symbol_create_list(SQL_NOT_IN, l ); }
  |  '(' pred_exp_list ')' sqlIN '(' value_commalist ')'
 		{ dlist *l = L();
@@ -3334,7 +3350,6 @@ any_all_some:
 
 existence_test:
     EXISTS subquery 	{ $$ = _symbol_create_symbol( SQL_EXISTS, $2 ); }
-/*|  NOT EXISTS subquery { $$ = _symbol_create_symbol( SQL_NOT_EXISTS, $3 ); }*/
  ;
 
 filter_arg_list:
@@ -3427,7 +3442,7 @@ simple_scalar_exp:
 			  append_list(l, 
 			  	append_string(append_string(L(), sa_strdup(SA, "sys")), sa_strdup(SA, "bit_not")));
 	  		  append_symbol(l, $2);
-	  		  $$ = _symbol_create_list( SQL_BINOP, l ); }
+	  		  $$ = _symbol_create_list( SQL_UNOP, l ); }
  |  scalar_exp LEFT_SHIFT scalar_exp
 			{ dlist *l = L();
 			  append_list(l, 
@@ -3464,8 +3479,16 @@ simple_scalar_exp:
 			  assert($2->token != SQL_COLUMN || $2->data.lval->h->type != type_lng);
 			  if ($2->token == SQL_COLUMN && $2->data.lval->h->type == type_int) {
 				atom *a = sql_bind_arg(m, $2->data.lval->h->data.i_val);
-				if (!atom_neg(a))
+				if (!atom_neg(a)) {
 					$$ = $2;
+				} else {
+					char *msg = sql_message("\b22003!value too large or not a number");
+
+					yyerror(m, msg);
+					_DELETE(msg);
+					$$ = NULL;
+					YYABORT;
+				}
 			  } 
 			  if (!$$) {
 				dlist *l = L();
@@ -3501,6 +3524,7 @@ value_exp:
  |  cast_exp
  |  XML_value_function
  |  param
+ |  null
  ;
 
 param:  
@@ -3822,11 +3846,6 @@ column_exp:
   		  append_symbol(l, $1);
   		  append_string(l, NULL);
   		  $$ = _symbol_create_list( SQL_TABLE, l ); }
- |  null opt_alias_name
-		{ dlist *l = L();
-  		  append_symbol(l, $1 );
-  		  append_string(l, $2);
-  		  $$ = _symbol_create_list( SQL_COLUMN, l ); }
  |  search_condition opt_alias_name
 		{ dlist *l = L();
   		  append_symbol(l, $1);
@@ -4039,7 +4058,7 @@ user:
  ;
 
 literal:
-    string 	{ char *s = sql2str($1);
+    string 	{ const char *s = sql2str($1);
 		  int len = _strlen(s);
 		  sql_subtype t;
 		  sql_find_subtype(&t, "char", len, 0 );
@@ -4218,7 +4237,7 @@ literal:
 
 			errno = 0;
 			val = strtod($1,&p);
-			if (p == $1 || (errno == ERANGE && (val < -1 || val > 1))) {
+			if (p == $1 || val == dbl_nil || (errno == ERANGE && (val < -1 || val > 1))) {
 				char *msg = sql_message("\b22003!double value too large or not a number (%s)", $1);
 
 				yyerror(m, msg);
@@ -4237,7 +4256,7 @@ literal:
 
 		  errno = 0;
  		  val = strtod($1,&p);
-		  if (p == $1 || (errno == ERANGE && (val < -1 || val > 1))) {
+		  if (p == $1 || val == dbl_nil || (errno == ERANGE && (val < -1 || val > 1))) {
 			char *msg = sql_message("\b22003!double value too large or not a number (%s)", $1);
 
 			yyerror(m, msg);
@@ -4372,18 +4391,10 @@ literal:
 		{ sql_subtype t;
 		  sql_find_subtype(&t, "boolean", 0, 0 );
 		  $$ = _newAtomNode( atom_bool(SA, &t, FALSE)); }
- |  NOT BOOL_FALSE
-		{ sql_subtype t;
-		  sql_find_subtype(&t, "boolean", 0, 0 );
-		  $$ = _newAtomNode( atom_bool(SA, &t, TRUE)); }
  |  BOOL_TRUE
 		{ sql_subtype t;
 		  sql_find_subtype(&t, "boolean", 0, 0 );
 		  $$ = _newAtomNode( atom_bool(SA, &t, TRUE)); }
- |  NOT BOOL_TRUE
-		{ sql_subtype t;
-		  sql_find_subtype(&t, "boolean", 0, 0 );
-		  $$ = _newAtomNode( atom_bool(SA, &t, FALSE)); }
  ;
 
 interval_expression:
@@ -4478,7 +4489,6 @@ cast_exp:
 
 cast_value:
   	search_condition
- | 	null	 
  ;
 
 case_exp:
@@ -4552,12 +4562,10 @@ when_search_list:
 case_opt_else:
     /* empty */	        { $$ = NULL; }
  |  ELSE scalar_exp	{ $$ = $2; }
- |  ELSE sqlNULL 	{ $$ = _newAtomNode(NULL); }
  ;
 
 case_scalar_exp:
-    sqlNULL		{ $$ = _newAtomNode(NULL); }
- |  scalar_exp	
+    scalar_exp	
  ;
 		/* data types, more types to come */
 
@@ -4922,22 +4930,67 @@ name_commalist:
 			{ $$ = append_string($1, $3); }
  ;
 
-lngval:
-	sqlINT	{ $$ = strtoll($1,NULL,10); }
+wrdval:
+	lngval 	{ 
+		lng l = $1;
+#if SIZEOF_WRD == SIZEOF_INT
+
+		if (l > GDK_int_max) {
+			char *msg = sql_message("\b22000!constant (" LLFMT ") has wrong type (number expected)", l);
+
+			yyerror(m, msg);
+			_DELETE(msg);
+			$$ = 0;
+			YYABORT;
+		}
+#endif
+		$$ = (wrd) l;
+	}
 ;
 
-wrdval:
-	sqlINT  {
-#if SIZEOF_WRD == SIZEOF_INT
-		  $$ = strtol($1,NULL,10);
-#else /* SIZEOF_WRD == SIZEOF_LNG a*/
-		  $$ = strtoll($1,NULL,10);
-#endif
+lngval:
+	sqlINT	
+ 		{
+		  char *end = NULL, *s = $1;
+		  int l = _strlen(s);
+
+		  if (l <= 19) {
+		  	$$ = strtoll(s,&end,10);
+		  } else {
+			$$ = 0;
+		  }
+		  if (s+l != end || errno == ERANGE) {
+			char *msg = sql_message("\b22003!integer value too large or not a number (%s)", $1);
+
+			errno = 0;
+			yyerror(m, msg);
+			_DELETE(msg);
+			$$ = 0;
+			YYABORT;
+		  }
 		}
-;
 
 intval:
-	sqlINT	{ $$ = strtol($1,NULL,10); }
+	sqlINT	
+ 		{
+		  char *end = NULL, *s = $1;
+		  int l = _strlen(s);
+
+		  if (l <= 10) {
+		  	$$ = strtol(s,&end,10);
+		  } else {
+			$$ = 0;
+		  }
+		  if (s+l != end || errno == ERANGE) {
+			char *msg = sql_message("\b22003!integer value too large or not a number (%s)", $1);
+
+			errno = 0;
+			yyerror(m, msg);
+			_DELETE(msg);
+			$$ = 0;
+			YYABORT;
+		  }
+		}
  |	IDENT	{
 		  char *name = $1;
 		  sql_subtype *tpe;
@@ -5593,7 +5646,6 @@ char *token2string(int token)
 	SQL(CROSS);
 	SQL(JOIN);
 	SQL(SELECT);
-	SQL(DATABASE);
 	SQL(WHERE);
 	SQL(FROM);
 	SQL(UNIONJOIN);

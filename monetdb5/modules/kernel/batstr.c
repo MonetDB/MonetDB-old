@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -25,13 +25,6 @@
 #include <string.h>
 #include "mal_exception.h"
 #include "str.h"
-
-#ifdef HAVE_LANGINFO_H
-#include <langinfo.h>
-#endif
-#ifdef HAVE_ICONV_H
-#include <iconv.h>
-#endif
 
 #ifdef WIN32
 #define batstr_export extern __declspec(dllexport)
@@ -126,14 +119,7 @@ batstr_export str STRbatsubstring(bat *ret, const bat *l, const bat *r, const ba
 	X->tsorted=0;									\
 	X->trevsorted=0;
 #define finalizeResult(X,Y,Z)								\
-	if (!BAThdense(Z)) {									\
-		/* legacy */										\
-		BAT *b2 = VIEWcreate((Z), (Y));						\
-		BBPunfix((Y)->batCacheid);							\
-		(Y) = b2;											\
-	} else {												\
-		BATseqbase((Y), (Z)->hseqbase);						\
-	}														\
+	BATseqbase((Y), (Z)->hseqbase);						\
 	if (!((Y)->batDirty&2)) BATsetaccess((Y), BAT_READ);	\
 	*X = (Y)->batCacheid;									\
 	BBPkeepref(*(X));										\
@@ -1209,14 +1195,6 @@ STRbatsubstringcst(bat *ret, const bat *bid, const int *start, const int *length
 		GDKfree(res);
 	}
 
-	if (!BAThdense(b)) {
-		/* legacy */
-		BAT *r = VIEWcreate(b,bn);
-
-		BBPunfix(bn->batCacheid);
-		bn = r;
-	}
-
 	bn->T->nonil = 0;
   bunins_failed:
 	if (!(bn->batDirty&2)) BATsetaccess(bn, BAT_READ);
@@ -1273,12 +1251,6 @@ str STRbatsubstring(bat *ret, const bat *l, const bat *r, const bat *t)
 		STRsubstring(vp, &tl, t1, t2);
 		BUNappend(bn, *vp, FALSE);
 		GDKfree(*vp);
-	}
-	if (left->htype != bn->htype) {
-		BAT *r = VIEWcreate(left,bn);
-
-		BBPunfix(bn->batCacheid);
-		bn = r;
 	}
 	bn->T->nonil = 0;
 	BBPunfix(start->batCacheid);
