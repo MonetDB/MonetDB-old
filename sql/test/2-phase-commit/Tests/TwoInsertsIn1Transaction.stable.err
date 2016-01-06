@@ -1,9 +1,9 @@
-stderr of test 'TwoInsetsIn1Transaction` in directory 'sql/test/2-phase-commit` itself:
+stderr of test 'TwoInsertsIn1Transaction` in directory 'sql/test/2-phase-commit` itself:
 
 
-# 14:43:50 >  
+# 14:43:50 >
 # 14:43:50 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=38122" "--set" "mapi_usock=/var/tmp/mtest-84696/.s.monetdb.38122" "--set" "monet_prompt=" "--forcemito" "--set" "mal_listing=2" "--dbpath=/Users/dnedev/monetdb/installation/var/MonetDB/mTests_sql_test_2-phase-commit" "--set" "mal_listing=0"
-# 14:43:50 >  
+# 14:43:50 >
 
 # builtin opt 	gdk_dbpath = /Users/dnedev/monetdb/installation/var/monetdb5/dbfarm/demo
 # builtin opt 	gdk_debug = 0
@@ -19,18 +19,17 @@ stderr of test 'TwoInsetsIn1Transaction` in directory 'sql/test/2-phase-commit` 
 # cmdline opt 	mapi_open = true
 # cmdline opt 	mapi_port = 38122
 # cmdline opt 	mapi_usock = /var/tmp/mtest-84696/.s.monetdb.38122
-# cmdline opt 	monet_prompt = 
+# cmdline opt 	monet_prompt =
 # cmdline opt 	mal_listing = 2
 # cmdline opt 	gdk_dbpath = /Users/dnedev/monetdb/installation/var/MonetDB/mTests_sql_test_2-phase-commit
 # cmdline opt 	mal_listing = 0
 # cmdline opt 	gdk_debug = 536870922
 
-# 14:43:50 >  
+# 14:43:50 >
 # 14:43:50 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-84696" "--port=38122"
-# 14:43:50 >  
+# 14:43:50 >
 
 
-# 14:43:50 >  
+# 14:43:50 >
 # 14:43:50 >  "Done."
-# 14:43:50 >  
-
+# 14:43:50 >
