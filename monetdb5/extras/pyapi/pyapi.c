@@ -1075,7 +1075,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
         }
 
 
-        if (parallel_aggregation && sqlfun != NULL && sqlfun->ops->cnt > 0) {
+        if (parallel_aggregation && sqlfun != NULL && sqlfun->ops->cnt > 0 && unnamedArgs < pci->argc) {
             // parallel aggregation, we run the function once for every group in parallel
             BAT *aggr_group = NULL, *group_first_occurrence = NULL;
             size_t group_count, elements, element_it, group_it;
@@ -1141,7 +1141,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                     for(element_it = 0; element_it < elements; element_it++) {
                         //group of current element
                         lng group = aggr_group_arr[element_it]; 
-                        //append current element to proper 
+                        //append current element to proper group
                         ptr[group][i][temp_indices[group]++] = batcontent[element_it];
                     }
                     GDKfree(temp_indices);
