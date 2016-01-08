@@ -29,7 +29,6 @@ import org.monetdb.embedded.result.EmbeddedQueryResult;
 import org.monetdb.embedded.result.column.Column;
 
 import nl.cwi.monetdb.jdbc.MonetDBEmbeddedConnection;
-import nl.cwi.monetdb.jdbc.MonetDBEmbeddedStatement;
 
 public class EmbeddedTest {
 	static File datbaseDirectory;
@@ -57,7 +56,7 @@ public class EmbeddedTest {
 	};
 
 	@BeforeClass
-	public static void createTestDB() throws IOException, SQLException, InterruptedException {
+	public static void createTestDB() throws IOException, SQLException {
 		final Path directoryPath = Files.createTempDirectory("monetdbtest");
 		datbaseDirectory = directoryPath.toFile();
 
@@ -183,7 +182,7 @@ public class EmbeddedTest {
 	}
 
 	@Test
-	public void twoQueriesTest() throws SQLException, IOException {
+	public void twoQueriesTest() throws SQLException {
 		EmbeddedQueryResult result1 = db.query("SELECT * FROM test WHERE id > 1;");
 		assertEquals(2, result1.getColumn(1).columnSize());
 		assertEquals(testValues[1][2], result1.getColumn(1).getValue(0));
