@@ -1,41 +1,40 @@
 # Building
 The embedded Java version of MonetDB requires a few options to be set in order to build the required libraries and NOT build some of the unneeded binaries.
 
-## Setting environmental variables
-In order for the embedded Java to find the MonetDB libraries we are currently using an environmental variables. The same one would be used as a prefix when configuring the MonetDB build (see blow in 'Building MonetDB).
-$ export MONETDB_HOME=<location to installation directory>
+Run the `build-all.sh` found in the directory along with this file. This script will build the embedded version on MonetDB (and only it), pull all libraries in a single fat lib, copy to the specified dir, build and test the embedded Java
 
-## Building MonetDB
+## Manually
+
+### Building MonetDB
 Navigate the the main sources dir and bootstrap the build.
 $ sh bootstrap
 Create a BUILD directory and run the configure script found in the main sources dir. Set a prefix location using
-$ ../configure --prefix=$MONETDB_HOME --enable-embedded --enable-embedded-java
+```
+../configure --prefix=<someplace> --enable-embedded --enable-embedded-java```
 
 Then run make to build libs and make install to put them in place
-$ make -j && make install
+```
+make -j```
 
-## Building embedded Java
+After that compile all the libraries into a single library for embedded use
+```
+OFILES=`find common clients/mapilib/ gdk monetdb5/mal monetdb5/modules monetdb5/optimizer sql tools/embedded java/embedded -name "*.o" | tr "\n" " "`
+gcc -shared -o libmonetdb5.dylib $OFILES -lpthread -lpcre -lbz2 -llzma -lcurl -lz -liconv```
+
+### Building embedded Java
 Navigate to the main sources dir and then to java/embedded. Or most likely where this readmy file is. Run Maven build.
-$ mvn clean install
-
-The process uses the preset MONETDB_HOME variable for the location of the libraries. It will also run a set of unit test to validate the build.
-
-## Alternatively
-Run the build-all.sh found in the directory along with this file, supplying the location of the installation directory as the only argument.
-$ build-all.sh <location to installation directory>
-
-This script will build the embedded version on MonetDB (and only it), pull all libraries in a single fat lib, copy to the specified dir, build and test the embedded Java
+```
+mvn clean install```
 
 # Usage
 After building it all, you can use the Java binaries. In the test dir you can see examples of how to use either the native columnar interface or the JDBC one.
-Remember to set the MONETDB_HOME environmental variable and the -Djava.library.path flag, providing the MonetDB installation directory location. E.g.
--Djava.library.path=$MONETDB_HOME
+Remember to set `-Djava.library.path` flag, providing location of the directory the all-in-one embedded MonetDB lib is.
 
 # Implementation
-The embedded Java version of MonetDB is heavily based and dependent on the generic one (or MonetDBLite). The embedded Java uses the C-level interface in `tools/embedded`, particularly the `embedded` library. In a few words, that interface exposes a few functions for starting, querying and other action. So far we only use: `monetdb_startup` and `monetdb_query`, together with `monetdb_connect`, when required.
+The embedded Java version of MonetDB is heavily based and dependent on the generic one (or MonetDBLite). The embedded Java uses the C-level interface in `tools/embedded`. In a few words, that interface exposes a few functions for starting, querying and other action. So far we only use: `monetdb_startup()` and `monetdb_query()`, together with `monetdb_connect()`, when required.
 
 ## JNI C code
-To interface Java with C we use JNI. JNI code comes with two side - Java and native (C) code. In the Java code we declare a function `native`, which indicates that it is actually implemented in C. We then write the native implementation. This is where we call the embedded C-leve interface function from the generic embedded version.
+To interface Java with C we use JNI. JNI code comes with two side - Java and native (C in our case) code. In the Java code we declare a function `native`, which indicates that it is actually implemented in C. We then write the native implementation. This is where we call the embedded C-leve interface function from the generic embedded version.
 
 ### org_monetdb_embedded_MonetDBEmbedded
 - Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapper
@@ -68,32 +67,32 @@ Each column extends the abstract class `org.monetdb.embedded.result.column.Colum
 On top of the columnar interface, we've build a simple JDBC interface. This was done by extending the existing MonetDB JDBC driver and overriding a few as possible functions. The overrides facilitate moving from using the MCL library (communicatiing tuples over MAPI) to using the embedded columnar interface described above. The JDBC can be found in the `nl.cwi.monetdb.jdbc` packge in the project.
 
 There are a few ways to use the interface:
-- Using JDBC connection object.
-In that case, once can create a `MonetDBEmbeddedConnection`, passing as properties only the directory of the database:
+### Using JDBC connection object.
+- In that case, once can create a `MonetDBEmbeddedConnection`, passing as properties only the directory of the database:
 ```
 Properties props = new Properties();
 props.put("database", "/tmp/dbtest");
 Connection connection = new MonetDBEmbeddedConnection(props)```
 This process will create a `org.monetdb.embedded.MonetDBEmbedded` object and start the database.
 
-Then create statement and get the result set, as one would in JDBC:
+- Then create statement and get the result set, as one would in JDBC:
 ```
 Statement statement = connection.createStatement()
 statement.execute("SELECT * FROM test;");
 ResultSet result = statement.getResultSet();```
 This will query the embedded database and get the meta data of the result set.
-Calling get value, will then get the desired column and row in order from the `org.monetdb.embedded.result.column.Column` object.
+- Calling get value, will then get the desired column and row in order from the `org.monetdb.embedded.result.column.Column` object.
 
-- Using the embedded/columnar interfacing
-Create a database object:
+### Using the embedded/columnar interfacing
+- Create a database object:
 ```
 final Path directoryPath = Files.createTempDirectory("monetdbtest");
 datbaseDirectory = directoryPath.toFile();
 MonetDBEmbedded db = new MonetDBEmbedded(datbaseDirectory);
 db.start()```
 
-Executer a query and get the JDBC result set from the columnar result set (meta) object:
+- Execute a query and get the JDBC result set from the columnar result set (meta) object:
 ```
 EmbeddedQueryResult result = db.query("SELECT 1;");
 MonetDBEmbeddedResultSet jdbcResultSet = result.getJDBCResultSet();```
-From here one, the result set can be treated as (almost) any other JDBC result set. It is technically the same object as the one in the above example.
+- From here one, the result set can be treated as (almost) any other JDBC result set. It is technically the same object as the one in the above example.
