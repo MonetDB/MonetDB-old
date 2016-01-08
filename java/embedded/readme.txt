@@ -24,6 +24,8 @@ The process uses the preset MONETDB_HOME variable for the location of the librar
 Run the build-all.sh found in the directory along with this file, supplying the location of the installation directory as the only argument.
 $ build-all.sh <location to installation directory>
 
+This script will build the embedded version on MonetDB (and only it), pull all libraries in a single fat lib, copy to the specified dir, build and test the embedded Java
+
 # Usage
 After building it all, you can use the Java binaries. In the test dir you can see examples of how to use either the native columnar interface or the JDBC one.
 Remember to set the MONETDB_HOME environmental variable and the -Djava.library.path flag, providing the MonetDB installation directory location. E.g.

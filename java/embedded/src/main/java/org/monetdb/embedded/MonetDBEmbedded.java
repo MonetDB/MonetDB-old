@@ -24,7 +24,7 @@ import org.monetdb.embedded.result.EmbeddedQueryResult;
 public class MonetDBEmbedded implements Closeable {
 	static {
 		// Load the embedded library
-		System.loadLibrary("embedded_java");
+		System.loadLibrary("monetdb5");
 	}
 	/** 
 	 * Flag if the embedded database was already started.
