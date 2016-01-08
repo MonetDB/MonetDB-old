@@ -1,10 +1,5 @@
 #!/bin/bash
 
-if [ -z "$1" ]; then
-	echo Please provide a location for the MonetDB installation
-	exit 1;
-fi
-
 start_dir=`pwd`
 source_main_dir=`pwd`/../../
 
@@ -16,7 +11,7 @@ rc=$?; if [[ $rc != 0 ]]; then exit $rc; fi
 ## Configure
 mkdir BUILD
 cd BUILD
-../configure --prefix=source_main_dir/BUILD/installation \
+../configure --prefix=$source_main_dir/BUILD/installation \
 --enable-embedded --enable-embedded-java \
 --disable-fits --disable-geom --disable-rintegration --disable-gsl --disable-netcdf \
 --disable-merocontrol --disable-odbc --disable-console --disable-microhttpd \
