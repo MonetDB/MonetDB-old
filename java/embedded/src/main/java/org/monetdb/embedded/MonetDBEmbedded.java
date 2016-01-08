@@ -22,6 +22,10 @@ import org.monetdb.embedded.result.EmbeddedQueryResult;
  * <strong>Note</strong>: You can have only one embedded MonetDB database running per JVM process.
  */
 public class MonetDBEmbedded implements Closeable {
+	final private static String LIB_PATH_VAR = "java.library.path"; 
+	final private static String NATIVE_LIB_PATH_IN_JAR = "src/main/resources/lib";
+	final private static String NATIVE_LIB_NAME = "monetdb5";
+
 	/** 
 	 * Flag if the embedded database was already started.
 	 */
@@ -36,6 +40,19 @@ public class MonetDBEmbedded implements Closeable {
 	private final boolean silentFlag;
 
 	/**
+	 * The native embedded MonetDB library.
+	 */
+	static {
+		// Check if the lib path is set
+		if (System.getProperty(LIB_PATH_VAR).isEmpty() || "".equals(System.getProperty(LIB_PATH_VAR))) {
+			// If not set it to the location of the embedded native lib
+			System.setProperty(LIB_PATH_VAR, NATIVE_LIB_PATH_IN_JAR);
+		}
+		// Load the embedded library
+		System.loadLibrary(NATIVE_LIB_NAME);
+	}
+
+	/**
 	 * @param databaseDirectory Database directory
 	 */
 	public MonetDBEmbedded(final File databaseDirectory) {
@@ -47,14 +64,6 @@ public class MonetDBEmbedded implements Closeable {
 	 * @param silentFlag Silent flag
 	 */
 	public MonetDBEmbedded(final File databaseDirectory, final boolean silentFlag) {
-		// Check if the lib path is set
-		if (System.getProperty("java.library.path").isEmpty() || "".equals(System.getProperty("java.library.path"))) {
-			// If not set it to the location of the embedded native lib
-			System.setProperty("java.library.path", "src/main/resources/lib");
-		}
-		// Load the embedded library
-		System.loadLibrary("monetdb5");
-		
 		if (!databaseDirectory.isDirectory()) {
 			throw new IllegalArgumentException(databaseDirectory + " is not a directory");
 		}
@@ -105,16 +114,6 @@ public class MonetDBEmbedded implements Closeable {
 		}
 		return queryWrapper(queryString);
 	}
-	
-	/**
-	 * Create a JDBC statement for the embedded database.
-	 * 
-	 * @return The statement object
-	 * @throws SQLException
-	 */
-//	public MonetDBEmbeddedStatement createStatement() throws SQLException {
-//		return new MonetDBEmbeddedStatement(this);
-//	}
 
 	/**
 	 * Start the embedded database.
