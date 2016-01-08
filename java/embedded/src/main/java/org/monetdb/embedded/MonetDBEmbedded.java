@@ -22,10 +22,6 @@ import org.monetdb.embedded.result.EmbeddedQueryResult;
  * <strong>Note</strong>: You can have only one embedded MonetDB database running per JVM process.
  */
 public class MonetDBEmbedded implements Closeable {
-	static {
-		// Load the embedded library
-		System.loadLibrary("monetdb5");
-	}
 	/** 
 	 * Flag if the embedded database was already started.
 	 */
@@ -51,6 +47,14 @@ public class MonetDBEmbedded implements Closeable {
 	 * @param silentFlag Silent flag
 	 */
 	public MonetDBEmbedded(final File databaseDirectory, final boolean silentFlag) {
+		// Check if the lib path is set
+		if (System.getProperty("java.library.path").isEmpty() || "".equals(System.getProperty("java.library.path"))) {
+			// If not set it to the location of the embedded native lib
+			System.setProperty("java.library.path", "src/main/resources/lib");
+		}
+		// Load the embedded library
+		System.loadLibrary("monetdb5");
+		
 		if (!databaseDirectory.isDirectory()) {
 			throw new IllegalArgumentException(databaseDirectory + " is not a directory");
 		}
