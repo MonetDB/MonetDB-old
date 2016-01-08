@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /* (author) M.L. Kersten
@@ -20,6 +20,11 @@
 #include "mal_sabaoth.h"
 #include "mal_private.h"
 #include <gdk.h>	/* for opendir and friends */
+
+#ifdef HAVE_EMBEDDED
+// FIXME:
+//#include "mal_init_inline.h"
+#endif
 
 /*
  * The MonetDB server uses a startup script to boot the system.
@@ -134,12 +139,14 @@ exit_streams( bstream *fin, stream *fout )
 {
 	if (fout && fout != GDKstdout) {
 		mnstr_flush(fout);
-		(void) mnstr_close(fout);
-		(void) mnstr_destroy(fout);
+		mnstr_close(fout);
+		mnstr_destroy(fout);
 	}
 	if (fin) 
 		(void) bstream_destroy(fin);
 }
+
+const char* mal_enableflag = "mal_for_all";
 
 void
 MSscheduleClient(str command, str challenge, bstream *fin, stream *fout)
@@ -295,6 +302,15 @@ MSscheduleClient(str command, str challenge, bstream *fin, stream *fout)
 			mnstr_flush(c->fdout);
 			GDKfree(s);
 			c->mode = FINISHCLIENT;
+		}
+		if (!GDKgetenv_isyes(mal_enableflag) &&
+				(strncasecmp("sql", lang, 3) != 0 && uid != 0)) {
+
+			mnstr_printf(fout, "!only the 'monetdb' user can use non-sql languages. "
+					           "run mserver5 with --set %s=yes to change this.\n", mal_enableflag);
+			exit_streams(fin, fout);
+			GDKfree(command);
+			return;
 		}
 	}
 
@@ -502,9 +518,9 @@ MALreader(Client c)
 			return MAL_SUCCEED;
 	} else if (MCreadClient(c) > 0)
 		return MAL_SUCCEED;
-	MT_lock_set(&mal_contextLock, "MALreader");
+	MT_lock_set(&mal_contextLock);
 	c->mode = FINISHCLIENT;
-	MT_lock_unset(&mal_contextLock, "MALreader");
+	MT_lock_unset(&mal_contextLock);
 	if (c->fdin)
 		c->fdin->buf[c->fdin->pos] = 0;
 	else

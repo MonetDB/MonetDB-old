@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -170,7 +170,9 @@ void malAtomDefinition(stream *out, str name, int tpe)
 		return;
 	}
 	if (ATOMindex(name) >= 0) {
+#ifndef HAVE_EMBEDDED /* we can restart embedded MonetDB, making this an expected error */
 		showException(out, TYPE, "atomDefinition", "Redefinition of atom '%s'", name);
+#endif
 		return;
 	}
 	if (tpe < 0 || tpe >= GDKatomcnt) {
@@ -206,14 +208,4 @@ int malAtomSize(int size, int align, char *name)
 	assert_shift_width(ATOMelmshift(ATOMsize(i)), ATOMsize(i));
 	BATatoms[i].align = align;
 	return i;
-}
-
-void showAtoms(stream *fd)
-{
-	int i;
-	for (i = 0; i< GDKatomcnt && BATatoms[i].name[0]; i++) {
-		mnstr_printf(fd, "%s", BATatoms[i].name);
-		if (BATatoms[i + 1].name[0]) mnstr_printf(fd, ",");
-	}
-	mnstr_printf(fd, "\n");
 }

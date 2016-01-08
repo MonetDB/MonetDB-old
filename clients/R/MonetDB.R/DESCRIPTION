@@ -1,5 +1,5 @@
 Package: MonetDB.R
-Version: 1.0.0
+Version: 1.0.1
 Title: Connect MonetDB to R
 Authors@R: c(person("Hannes Muehleisen", role = c("aut", "cre"),email = "hannes@cwi.nl"),
 	person("Anthony Damico", role = "aut"),
@@ -13,5 +13,5 @@ Description: Allows to pull data from MonetDB into R. Includes a DBI implementat
 License: MPL (== 1.1)
 URL: http://monetr.r-forge.r-project.org
 SystemRequirements: MonetDB, available from http://www.monetdb.org
-Collate: mapi.R dbi.R dbapply.R dplyr.R control.R mclient.R
+Collate: mapi.R dbi.R dbapply.R dplyr.R control.R
 Additional_repositories: http://dev.monetdb.org/Assets/R/

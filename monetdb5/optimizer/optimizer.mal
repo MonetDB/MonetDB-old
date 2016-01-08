@@ -2,7 +2,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 2008-2015 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 module optimizer;
 
@@ -43,6 +43,13 @@ address OPTwrapper;
 pattern optimizer.constants(mod:str, fcn:str):str 
 address OPTwrapper
 comment "Duplicate constant removal optimizer";
+
+#opt_profiler
+pattern optimizer.profiler():str
+address OPTwrapper;
+pattern optimizer.profiler(mod:str, fcn:str):str 
+address OPTwrapper
+comment "Collect properties for the profiler";
 
 #opt_costModel.mal
 
@@ -163,7 +170,7 @@ pattern optimizer.joinPath(mod:str, fcn:str):str
 address OPTwrapper
 comment "Join path constructor";
 
-pattern algebra.leftfetchjoinPath(l:bat[:oid,:any]...):bat[:oid,:any]
+pattern algebra.projectionPath(l:bat[:oid,:any]...):bat[:oid,:any]
 address ALGjoinPath
 comment "Routine to handle join paths.  The type analysis is rather tricky.";
 

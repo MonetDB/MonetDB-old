@@ -21,6 +21,7 @@
 #include "msabaoth.h"
 #include "sql_scenario.h"
 #include "gdk_utils.h"
+#include <locale.h>
 
 typedef str (*SQLstatementIntern_ptr_tpe)(Client, str*, str, bit, bit, res_table**);
 SQLstatementIntern_ptr_tpe SQLstatementIntern_ptr = NULL;
@@ -28,6 +29,8 @@ typedef str (*SQLautocommit_ptr_tpe)(Client, mvc*);
 SQLautocommit_ptr_tpe SQLautocommit_ptr = NULL;
 typedef str (*SQLinitClient_ptr_tpe)(Client);
 SQLinitClient_ptr_tpe SQLinitClient_ptr = NULL;
+typedef str (*SQLepilogue_ptr_tpe)(void*);
+SQLepilogue_ptr_tpe SQLepilogue_ptr = NULL;
 typedef str (*getSQLContext_ptr_tpe)(Client, MalBlkPtr, mvc**, backend**);
 getSQLContext_ptr_tpe getSQLContext_ptr = NULL;
 typedef void (*res_table_destroy_ptr_tpe)(res_table *t);
@@ -63,6 +66,7 @@ void* monetdb_connect() {
 		return NULL;
 	}
 	((backend *) c->sqlcontext)->mvc->session->auto_commit = 1;
+	// TODO: keep track of pointers returned
 	return c;
 }
 
@@ -73,25 +77,30 @@ void monetdb_disconnect(void* conn) {
 	MCcloseClient((Client) conn);
 }
 
-char* monetdb_startup(char* libdir, char* dbdir, char silent) {
+char* monetdb_startup(char* dbdir, char silent) {
 	opt *set = NULL;
 	int setlen = 0;
 	str retval = MAL_SUCCEED;
 	char* sqres = NULL;
 	void* res = NULL;
 	void* c;
-	char mod_path[1000];
+
+	if (setlocale(LC_CTYPE, "") == NULL) {
+		retval = GDKstrdup("setlocale() failed");
+		goto cleanup;
+	}
+
 	GDKfataljumpenable = 1;
 	if(setjmp(GDKfataljump) != 0) {
 		retval = GDKfatalmsg;
 		// we will get here if GDKfatal was called.
-		if (retval != NULL) {
+		if (retval == NULL) {
 			retval = GDKstrdup("GDKfatal() with unspecified error?");
 		}
 		goto cleanup;
 	}
 	MT_lock_init(&monetdb_embedded_lock, "monetdb_embedded_lock");
-	MT_lock_set(&monetdb_embedded_lock, "monetdb.startup");
+	MT_lock_set(&monetdb_embedded_lock);
 	if (monetdb_embedded_initialized) goto cleanup;
 
 	setlen = mo_builtin_settings(&set);
@@ -102,11 +111,9 @@ char* monetdb_startup(char* libdir, char* dbdir, char silent) {
 		retval = GDKstrdup("GDKinit() failed");
 		goto cleanup;
 	}
-	snprintf(mod_path, 1000, "%s/monetdb5", libdir);
-	GDKsetenv("monet_mod_path", mod_path);
+	GDKsetenv("monet_mod_path", "");
 	GDKsetenv("mapi_disable", "true");
 	GDKsetenv("max_clients", "0");
-	// TODO: SELECT * FROM table should not use mitosis in the first place (?).
 	GDKsetenv("sql_optimizer", "sequential_pipe");
 
 	if (silent) THRdata[0] = stream_blackhole_create();
@@ -123,6 +130,7 @@ char* monetdb_startup(char* libdir, char* dbdir, char silent) {
 	SQLstatementIntern_ptr = (SQLstatementIntern_ptr_tpe) lookup_function("SQLstatementIntern");
 	SQLautocommit_ptr      = (SQLautocommit_ptr_tpe)      lookup_function("SQLautocommit");
 	SQLinitClient_ptr      = (SQLinitClient_ptr_tpe)      lookup_function("SQLinitClient");
+	SQLepilogue_ptr        = (SQLepilogue_ptr_tpe)        lookup_function("SQLepilogue");
 	getSQLContext_ptr      = (getSQLContext_ptr_tpe)      lookup_function("getSQLContext");
 	res_table_destroy_ptr  = (res_table_destroy_ptr_tpe)  lookup_function("res_table_destroy");
 	mvc_append_wrap_ptr    = (mvc_append_wrap_ptr_tpe)    lookup_function("mvc_append_wrap");
@@ -131,11 +139,11 @@ char* monetdb_startup(char* libdir, char* dbdir, char silent) {
 	sqlcleanup_ptr         = (sqlcleanup_ptr_tpe)         lookup_function("sqlcleanup");
 	mvc_trans_ptr          = (mvc_trans_ptr_tpe)          lookup_function("mvc_trans");
 
-	if (SQLstatementIntern_ptr == NULL || SQLautocommit_ptr == NULL ||
-			SQLinitClient_ptr == NULL || getSQLContext_ptr == NULL ||
+	if (SQLstatementIntern_ptr    == NULL || SQLautocommit_ptr   == NULL ||
+			SQLinitClient_ptr     == NULL || getSQLContext_ptr   == NULL ||
 			res_table_destroy_ptr == NULL || mvc_append_wrap_ptr == NULL ||
-			mvc_bind_schema_ptr == NULL || mvc_bind_table_ptr == NULL ||
-			sqlcleanup_ptr == NULL || mvc_trans_ptr == NULL) {
+			mvc_bind_schema_ptr   == NULL || mvc_bind_table_ptr  == NULL ||
+			sqlcleanup_ptr        == NULL || mvc_trans_ptr       == NULL) {
 		retval = GDKstrdup("Dynamic function lookup failed");
 		goto cleanup;
 	}
@@ -159,11 +167,12 @@ char* monetdb_startup(char* libdir, char* dbdir, char silent) {
 	monetdb_disconnect(c);
 cleanup:
 	mo_free_options(set, setlen);
-	MT_lock_unset(&monetdb_embedded_lock, "monetdb.startup");
+	MT_lock_unset(&monetdb_embedded_lock);
 	return retval;
 }
 
 char* monetdb_query(void* conn, char* query, void** result) {
+	// TODO: check client pointer
 	str res = MAL_SUCCEED;
 	Client c = (Client) conn;
 	mvc* m = ((backend *) c->sqlcontext)->mvc;
@@ -251,8 +260,6 @@ void  monetdb_cleanup_result(void* conn, void* output) {
 	(*res_table_destroy_ptr)((res_table*) output);
 }
 
-
-
 str monetdb_get_columns(void* conn, const char* schema_name, const char *table_name, int *column_count, char ***column_names, int **column_types) {
 	mvc *m;
 	sql_schema *s;
@@ -290,4 +297,18 @@ str monetdb_get_columns(void* conn, const char* schema_name, const char *table_n
 	}
 
 	return msg;
+}
+
+
+// TODO: fix this, it is not working correctly
+void monetdb_shutdown() {
+	MT_lock_set(&monetdb_embedded_lock);
+	// kill SQL
+	(*SQLepilogue_ptr)(NULL);
+	// kill MAL & GDK
+	mal_exit();
+	// clean up global state
+	BBPresetfarms();
+	monetdb_embedded_initialized = 0;
+	MT_lock_unset(&monetdb_embedded_lock);
 }

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -79,6 +79,7 @@ mal_export MT_Lock  mal_remoteLock;
 mal_export MT_Lock  mal_profileLock ;
 mal_export MT_Lock  mal_copyLock ;
 mal_export MT_Lock  mal_delayLock ;
+mal_export MT_Lock  mal_beatLock ;
 
 
 mal_export int mal_init(void);
@@ -149,6 +150,7 @@ typedef struct VARRECORD {
 	ValRecord value;
 	int eolife;					/* pc index when it should be garbage collected */
 	int worker;					/* tread id of last worker producing it */
+	str stc;					/* rendering schema.table.column */
 	BUN rowcnt;					/* estimated row count*/
 } *VarPtr, VarRecord;
 

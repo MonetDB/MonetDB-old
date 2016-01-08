@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #ifndef _GDK_UTILS_H_
@@ -86,9 +86,12 @@ gdk_export int GDKinit(opt *set, int setlen);
  * takes care of this.
  */
 gdk_export int GDKnr_threads;
-
+#ifndef HAVE_EMBEDDED
 __declspec(noreturn) gdk_export void GDKexit(int status)
 	__attribute__((__noreturn__));
+#else
+gdk_export void GDKexit(int status);
+#endif
 gdk_export int GDKexiting(void);
 
 gdk_export const char *GDKversion(void);

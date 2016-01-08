@@ -175,9 +175,10 @@ setMethod("dbDisconnect", "MonetDBConnection", def=function(conn, ...) {
   invisible(TRUE)
 })
 
-setMethod("dbDisconnect", "MonetDBEmbeddedConnection", def=function(conn, ...) {
+setMethod("dbDisconnect", "MonetDBEmbeddedConnection", def=function(conn, shutdown=FALSE, ...) {
   conn@connenv$open <- FALSE
   MonetDBLite::monetdb_embedded_disconnect(conn@connenv$conn)
+  if (shutdown) MonetDBLite::monetdb_embedded_shutdown()
   invisible(TRUE)
 })
 
@@ -335,9 +336,9 @@ setMethod("dbSendQuery", signature(conn="MonetDBEmbeddedConnection", statement="
   } 
   env <- NULL
   if (getOption("monetdb.debug.query", F)) message("QQ: '", statement, "'")
-
+  startt <- Sys.time()
   resp <- MonetDBLite::monetdb_embedded_query(conn@connenv$conn, statement, notreally)
-
+  takent <- round(as.numeric(Sys.time() - startt), 2)
   env <- new.env(parent=emptyenv())
   if (resp$type == Q_TABLE) {
     meta <- new.env(parent=emptyenv())
@@ -387,28 +388,48 @@ setMethod("dbSendQuery", signature(conn="MonetDBEmbeddedConnection", statement="
       stop("Unable to execute statement '", statement, "'.\nServer says '", env$message, "'.")
     }
   }
+  if (getOption("monetdb.debug.query", F)) message("II: Finished in ", takent, "s")
 
   invisible(new("MonetDBEmbeddedResult", env=env))
   })
 
-
-reserved_monetdb_keywords <- c(.SQL92Keywords, 
-"ADMIN", "AFTER", "AGGREGATE", "ALWAYS", "ASYMMETRIC", "ATOMIC", 
-"AUTO_INCREMENT", "BEFORE", "BEST", "BIGINT", "BIGSERIAL", "BINARY", 
-"BLOB", "CALL", "CHAIN", "CLOB", "COMMITTED", "COPY", "CROSS", 
-"CURRENT_ROLE", "CURRENT_TIME", "CURRENT_USER", "DELIMITERS", 
-"DO", "EACH", "EFFORT", "ELSEIF", "ENCRYPTED", "EXCLUDE", "FOLLOWING", 
-"FUNCTION", "GENERATED", "HUGEINT", "IF", "ILIKE", "LIMIT", "LOCALTIME", 
-"LOCALTIMESTAMP", "LOCKED", "MERGE", "NATURAL", "NEW", "NOCYCLE", 
-"NOMAXVALUE", "NOMINVALUE", "OFFSET", "OLD", "ON", "OTHERS", 
-"OVER", "PARTITION", "PRECEDING", "RANGE", "RECORDS", "REFERENCING", 
-"REMOTE", "RENAME", "REPEATABLE", "REPLICA", "RESTART", "RETURN", 
-"RETURNS", "SAMPLE", "SAVEPOINT", "SEQUENCE", "SERIAL", "SERIALIZABLE", 
-"SESSION_USER", "SIMPLE", "SPLIT_PART", "STDIN", "STDOUT", "STREAM", 
-"SYMMETRIC", "TIES", "TINYINT", "TRIGGER", "UNBOUNDED", "UNCOMMITTED", 
-"UNENCRYPTED", "WHILE", "XMLAGG", "XMLATTRIBUTES", "XMLCOMMENT", 
-"XMLCONCAT", "XMLDOCUMENT", "XMLELEMENT", "XMLFOREST", "XMLNAMESPACES", 
-"XMLPARSE", "XMLPI", "XMLQUERY", "XMLSCHEMA", "XMLTEXT", "XMLVALIDATE")
+# found from sql_scan.c and trial/error
+reserved_monetdb_keywords <- sort(unique(toupper(c(.SQL92Keywords, 
+"ADD", "ADMIN", "AFTER", "AGGREGATE", "ALL", "ALTER", "ALWAYS", 
+"AND", "ANY", "ASC", "ASYMMETRIC", "ATOMIC", "AUTO_INCREMENT", 
+"BEFORE", "BEGIN", "BEST", "BETWEEN", "BIGINT", "BIGSERIAL", 
+"BINARY", "BLOB", "BY", "CALL", "CASCADE", "CASE", "CAST", "CHAIN", 
+"CHAR", "CHARACTER", "CHECK", "CLOB", "COALESCE", "COMMIT", "COMMITTED", 
+"CONSTRAINT", "CONVERT", "COPY", "CORRESPONDING", "CREATE", "CROSS", 
+"CURRENT", "CURRENT_DATE", "CURRENT_ROLE", "CURRENT_TIME", "CURRENT_TIMESTAMP", 
+"CURRENT_USER", "DAY", "DEC", "DECIMAL", "DECLARE", "DEFAULT", 
+"DELETE", "DELIMITERS", "DESC", "DO", "DOUBLE", "DROP", "EACH", 
+"EFFORT", "ELSE", "ELSEIF", "ENCRYPTED", "END", "ESCAPE", "EVERY", 
+"EXCEPT", "EXCLUDE", "EXISTS", "EXTERNAL", "EXTRACT", "FALSE", 
+"FLOAT", "FOLLOWING", "FOR", "FOREIGN", "FROM", "FULL", "FUNCTION", 
+"GENERATED", "GLOBAL", "GRANT", "GROUP", "HAVING", "HOUR", "HUGEINT", 
+"IDENTITY", "IF", "ILIKE", "IN", "INDEX", "INNER", "INSERT", 
+"INT", "INTEGER", "INTERSECT", "INTO", "IS", "ISOLATION", "JOIN", 
+"LEFT", "LIKE", "LIMIT", "LOCAL", "LOCALTIME", "LOCALTIMESTAMP", 
+"LOCKED", "MEDIUMINT", "MERGE", "MINUTE", "MONTH", "NATURAL", 
+"NEW", "NEXT", "NOCYCLE", "NOMAXVALUE", "NOMINVALUE", "NOT", 
+"NOW", "NULL", "NULLIF", "NUMERIC", "OF", "OFFSET", "OLD", "ON", 
+"ONLY", "OPTION", "OR", "ORDER", "OTHERS", "OUTER", "OVER", "PARTIAL", 
+"PARTITION", "POSITION", "PRECEDING", "PRESERVE", "PRIMARY", 
+"PRIVILEGES", "PROCEDURE", "PUBLIC", "RANGE", "READ", "REAL", 
+"RECORDS", "REFERENCES", "REFERENCING", "REMOTE", "RENAME", "REPEATABLE", 
+"REPLICA", "RESTART", "RESTRICT", "RETURN", "RETURNS", "REVOKE", 
+"RIGHT", "ROLLBACK", "ROWS", "SAMPLE", "SAVEPOINT", "SECOND", 
+"SELECT", "SEQUENCE", "SERIAL", "SERIALIZABLE", "SESSION_USER", 
+"SET", "SIMPLE", "SMALLINT", "SOME", "SPLIT_PART", "STDIN", "STDOUT", 
+"STORAGE", "STREAM", "STRING", "SUBSTRING", "SYMMETRIC", "THEN", 
+"TIES", "TINYINT", "TO", "TRANSACTION", "TRIGGER", "TRUE", "UNBOUNDED", 
+"UNCOMMITTED", "UNENCRYPTED", "UNION", "UNIQUE", "UPDATE", "USER", 
+"USING", "VALUES", "VARCHAR", "VARYING", "VIEW", "WHEN", "WHERE", 
+"WHILE", "WITH", "WORK", "WRITE", "XMLAGG", "XMLATTRIBUTES", 
+"XMLCOMMENT", "XMLCONCAT", "XMLDOCUMENT", "XMLELEMENT", "XMLFOREST", 
+"XMLNAMESPACES", "XMLPARSE", "XMLPI", "XMLQUERY", "XMLSCHEMA", 
+"XMLTEXT", "XMLVALIDATE", "YEAR"))))
 
 # quoting
 quoteIfNeeded <- function(conn, x, warn=T, ...) {
@@ -429,8 +450,13 @@ quoteIfNeeded <- function(conn, x, warn=T, ...) {
 
 setMethod("dbWriteTable", "MonetDBConnection", def=function(conn, name, value, overwrite=FALSE, 
   append=FALSE, csvdump=FALSE, transaction=TRUE,...) {
+  if (is.character(value)) {
+    message("Treating character vector parameter as file name(s) for monetdb.read.csv()")
+    monetdb.read.csv(conn=conn, files=value, tablename=name, create=!append, ...)
+    return(invisible(TRUE))
+  }
   if (is.vector(value) && !is.list(value)) value <- data.frame(x=value, stringsAsFactors=F)
-  if (length(value)<1) stop("value must have at least one column")
+  if (length(value) < 1) stop("value must have at least one column")
   if (is.null(names(value))) names(value) <- paste("V", 1:length(value), sep='')
   if (length(value[[1]])>0) {
     if (!is.data.frame(value)) value <- as.data.frame(value, row.names=1:length(value[[1]]) , stringsAsFactors=F)
@@ -483,7 +509,7 @@ setMethod("dbWriteTable", "MonetDBConnection", def=function(conn, name, value, o
     else {
       if (csvdump) {
         tmp <- tempfile(fileext = ".csv")
-        write.table(value, tmp, sep = ",", quote = TRUE, row.names = FALSE, col.names = FALSE,na="")
+        write.table(value, tmp, sep = ",", quote = TRUE, row.names = FALSE, col.names = FALSE, na="", fileEncoding = "UTF-8")
         dbSendQuery(conn, paste0("COPY INTO ", qname, " FROM '", tmp, "' USING DELIMITERS ',','\\n','\"' NULL AS ''"))
         file.remove(tmp) 
       } else {
@@ -597,9 +623,8 @@ setClass("MonetDBEmbeddedResult", representation("MonetDBResult", env="environme
 .CT_INT <- 0L
 .CT_NUM <- 1L
 .CT_CHR <- 2L
-.CT_CHRR <- 3L
-.CT_BOOL <- 4L
-.CT_RAW <- 5L
+.CT_BOOL <- 3L
+.CT_RAW <- 4L
 
 # type mapping matrix
 monetTypes <- rep(c("integer", "numeric", "character", "character", "logical", "raw"), c(5, 6, 4, 6, 1, 1))
@@ -689,7 +714,7 @@ setMethod("dbFetch", signature(res="MonetDBResult", n="numeric"), def=function(r
   # if our tuple cache in res@env$data does not contain n rows, we fetch from server until it does
   while (length(res@env$data) < n) {
     cresp <- .mapiParseResponse(.mapiRequest(res@env$conn, paste0("Xexport ", .mapiLongInt(info$id), 
-                                                                  " ", .mapiLongInt(info$index), " ", .mapiLongInt(n-length(res@env$data)))))
+      " ", .mapiLongInt(info$index), " ", .mapiLongInt(n-length(res@env$data)))))
     stopifnot(cresp$type == Q_BLOCK && cresp$rows > 0)
     
     res@env$data <- c(res@env$data, cresp$tuples)
@@ -708,14 +733,11 @@ setMethod("dbFetch", signature(res="MonetDBResult", n="numeric"), def=function(r
       df[[j]] <- as.integer(parts[[j]])
     if (col == .CT_NUM) 
       df[[j]] <- as.numeric(parts[[j]])
-    if (col == .CT_CHRR) {
-      df[[j]] <- parts[[j]]
-      Encoding(df[[j]]) <- "UTF-8"
-    }
     if (col == .CT_BOOL) 
       df[[j]] <- parts[[j]]=="true"
     if (col == .CT_CHR) { 
       df[[j]] <- parts[[j]]
+      Encoding(df[[j]]) <- "UTF-8"
     }
     if (col == .CT_RAW) {
       df[[j]] <- lapply(parts[[j]], charToRaw)
@@ -749,6 +771,9 @@ setMethod("dbFetch", signature(res="MonetDBEmbeddedResult", n="numeric"), def=fu
   }
   if (n == 0) {
     stop("Fetch 0 rows? Really?")
+  }
+  if (res@env$info$type == Q_UPDATE) { 
+    return(data.frame())
   }
   if (res@env$delivered < 0) {
     res@env$delivered <- 0
@@ -792,6 +817,24 @@ setMethod("dbHasCompleted", "MonetDBResult", def = function(res, ...) {
   return(invisible(TRUE))
 }, valueClass = "logical")
 
+# compatibility with RSQLite
+if (is.null(getGeneric("isIdCurrent"))) setGeneric("isIdCurrent", function(dbObj, ...) standardGeneric("isIdCurrent"))
+setMethod("isIdCurrent", signature(dbObj="MonetDBResult"), def=function(dbObj, ...) {
+  .Deprecated("dbIsValid")
+   dbIsValid(dbObj)
+})
+setMethod("isIdCurrent", signature(dbObj="MonetDBConnection"), def=function(dbObj, ...) {
+  .Deprecated("dbIsValid")
+   dbIsValid(dbObj)
+})
+
+
+if (is.null(getGeneric("initExtension"))) setGeneric("initExtension", function(dbObj, ...) standardGeneric("initExtension"))
+setMethod("initExtension", signature(dbObj="MonetDBConnection"), def=function(dbObj, ...) {
+  .Deprecated(msg="initExtension() is not required for MonetDBLite")
+})
+
+
 setMethod("dbIsValid", signature(dbObj="MonetDBResult"), def=function(dbObj, ...) {
   if (dbObj@env$info$type == Q_TABLE) {
     return(dbObj@env$open)
@@ -822,11 +865,12 @@ setMethod("dbGetInfo", "MonetDBResult", def=function(dbObj, ...) {
 monet.read.csv <- monetdb.read.csv <- function(conn, files, tablename, header=TRUE, 
                                                locked=FALSE, best.effort=FALSE, na.strings="", nrow.check=500, 
                                                delim=",", newline="\\n", quote="\"", create=TRUE, 
-                                               col.names=NULL, lower.case.names=FALSE, ...){
+                                               col.names=NULL, lower.case.names=FALSE, sep=delim, ...){
   
   if (length(na.strings)>1) stop("na.strings must be of length 1")
-  headers <- lapply(files, utils::read.csv, sep=delim, na.strings=na.strings, quote=quote, nrows=nrow.check, header=header, ...)
+  if (!missing(sep)) delim <- sep
 
+  headers <- lapply(files, utils::read.csv, sep=delim, na.strings=na.strings, quote=quote, nrows=nrow.check, header=header, ...)
   if (length(files)>1){
     nn <- sapply(headers, ncol)
     if (!all(nn==nn[1])) stop("Files have different numbers of columns")

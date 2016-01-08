@@ -10,7 +10,6 @@ find MonetDB.R -name ".DS_Store" -exec rm {} \;
 
 # for now, no profiler
 rm MonetDB.R/src/profiler*
-rm MonetDB.R/src/Makevars.win
 
 # binary leftovers
 rm MonetDB.R/src/*.o
@@ -26,7 +25,7 @@ $R CMD build MonetDB.R
 $R CMD check -o /tmp/rcheck --as-cran MonetDB.R_*.tar.gz
 
 #scp MonetDB.R_*.tar.gz cwi:WWW/R/
-scp MonetDB.R_*.tar.gz release@dev.monetdb.org:/var/www/html/Assets/R/
+echo scp MonetDB.R_*.tar.gz release@dev.monetdb.org:/var/www/html/Assets/R/
 
 #hgid=`hg id -i | sed s/+//`
 #newname=`basename MonetDB.R_*.tar.gz .tar.gz`-$hgid.tar.gz

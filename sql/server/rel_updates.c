@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -12,6 +12,9 @@
 #include "rel_select.h"
 #include "rel_exp.h"
 #include "sql_privileges.h"
+#include "rel_optimizer.h"
+#include "rel_dump.h"
+#include "sql_symbol.h"
 
 static sql_exp *
 insert_value(mvc *sql, sql_column *c, sql_rel **r, symbol *s)
@@ -168,7 +171,7 @@ rel_insert_join_idx(mvc *sql, sql_idx *i, sql_rel *inserts)
 		sql_subfunc *isnil = sql_bind_func(sql->sa, sql->session->schema, "isnull", &c->c->type, NULL, F_FUNC);
 		sql_exp *_is = list_fetch(ins->exps, c->c->colnr), *lnl, *rnl, *je; 
 		sql_exp *rtc = exp_column(sql->sa, rel_name(rt), rc->c->base.name, &rc->c->type, CARD_MULTI, rc->c->null, 0);
-		char *ename = exp_name(_is);
+		const char *ename = exp_name(_is);
 
 		if (!ename)
 			exp_label(sql->sa, _is, ++sql->label);
@@ -861,7 +864,53 @@ update_table(mvc *sql, dlist *qname, dlist *assignmentlist, symbol *opt_where)
 		sql_rel *r = NULL;
 		list *exps;
 		dnode *n;
-		char *rname = NULL;
+		const char *rname = NULL;
+
+#if 0
+			dlist *selection = dlist_create(sql->sa);
+			dlist *from_list = dlist_create(sql->sa);
+			symbol *sym;
+			sql_rel *sq;
+
+			dlist_append_list(sql->sa, from_list, qname);
+			dlist_append_symbol(sql->sa, from_list, NULL);
+			sym = symbol_create_list(sql->sa, SQL_NAME, from_list);
+			from_list = dlist_create(sql->sa);
+			dlist_append_symbol(sql->sa, from_list, sym);
+
+			{
+				dlist *l = dlist_create(sql->sa);
+
+
+				dlist_append_string(sql->sa, l, tname);
+				dlist_append_string(sql->sa, l, TID);
+				sym = symbol_create_list(sql->sa, SQL_COLUMN, l);
+
+				l = dlist_create(sql->sa);
+				dlist_append_symbol(sql->sa, l, sym);
+				dlist_append_string(sql->sa, l, TID);
+				dlist_append_symbol(sql->sa, selection, 
+				  symbol_create_list(sql->sa, SQL_COLUMN, l));
+			}
+			for (n = assignmentlist->h; n; n = n->next) {
+				dlist *assignment = n->data.sym->data.lval, *l;
+				int single = (assignment->h->next->type == type_string);
+				symbol *a = assignment->h->data.sym;
+
+				l = dlist_create(sql->sa);
+				dlist_append_symbol(sql->sa, l, a);
+				dlist_append_string(sql->sa, l, (single)?assignment->h->next->data.sval:NULL);
+				a = symbol_create_list(sql->sa, SQL_COLUMN, l);
+				dlist_append_symbol(sql->sa, selection, a);
+			}
+		       
+			sym = newSelectNode(sql->sa, 0, selection, NULL, symbol_create_list(sql->sa, SQL_FROM, from_list), opt_where, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+			sq = rel_selects(sql, sym);
+			if (sq)
+				sq = rel_optimizer(sql, sq);
+			rel_print(sql,sq,0);
+		}
+#endif
 
 		if (opt_where) {
 			int status = sql->session->status;
@@ -917,7 +966,7 @@ update_table(mvc *sql, dlist *qname, dlist *assignmentlist, symbol *opt_where)
 					if (single) {
 						v = rel_value_exp(sql, &r, a, sql_sel, ek);
 					} else if (!rel_val && r) {
-						r = rel_subquery(sql, r, a, ek, APPLY_JOIN);
+						r = rel_subquery(sql, r, a, ek, APPLY_LOJ);
 						if (r) {
 							list *val_exps = rel_projections(sql, r->r, NULL, 0, 1);
 
@@ -938,7 +987,7 @@ update_table(mvc *sql, dlist *qname, dlist *assignmentlist, symbol *opt_where)
 						rel_val = rel_project(sql->sa, rel_val, rel_projections(sql, rel_val, NULL, 0, 1));
 						rel_project_add_exp(sql, rel_val, v);
 					}
-					r = rel_crossproduct(sql->sa, r, rel_val, op_join);
+					r = rel_crossproduct(sql->sa, r, rel_val, op_left);
 					if (single) 
 						v = exp_column(sql->sa, NULL, exp_name(v), exp_subtype(v), v->card, has_nil(v), is_intern(v));
 				}

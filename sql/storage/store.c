@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -33,6 +33,7 @@ int store_nr_active = 0;
 store_type active_store_type = store_bat;
 int store_readonly = 0;
 int store_singleuser = 0;
+int store_initialized = 0;
 
 int keep_persisted_log_files = 0;
 int create_shared_logger = 0;
@@ -180,7 +181,7 @@ trans_drop_tmp(sql_trans *tr)
 	}
 }
 
-/*#define STORE_DEBUG 1*/ 
+/*#define STORE_DEBUG 1*/
 
 sql_trans *
 sql_trans_destroy(sql_trans *t)
@@ -315,7 +316,8 @@ load_key(sql_trans *tr, sql_table *t, oid rid)
 			fk->rkey = uk;
 			if (!uk->keys)
 				uk->keys = list_new(tr->sa, NULL);
-			list_append(uk->keys, fk);
+			if (!list_find(uk->keys, &fk->k.base.id, (fcmp) &key_cmp))
+				list_append(uk->keys, fk);
 		}
 	} else {		/* could be a set of rkeys */
 		sql_ukey *uk = (sql_ukey *) nk;
@@ -334,7 +336,8 @@ load_key(sql_trans *tr, sql_table *t, oid rid)
 
 				if (!uk->keys)
 					uk->keys = list_new(tr->sa, NULL);
-				list_append(uk->keys, fk);
+				if (!list_find(uk->keys, &fk->k.base.id, (fcmp) &key_cmp))
+					list_append(uk->keys, fk);
 				fk->rkey = uk;
 			}
 		}
@@ -980,9 +983,9 @@ static sqlid
 next_oid(void)
 {
 	int id = 0;
-	MT_lock_set(&bs_lock, "next_oid");
+	MT_lock_set(&bs_lock);
 	id = store_oid++;
-	MT_lock_unset(&bs_lock, "next_oid");
+	MT_lock_unset(&bs_lock);
 	return id;
 }
 
@@ -1332,7 +1335,7 @@ store_load(void) {
 	sqlid id = 0;
 
 	sa = sa_create();
-	MT_lock_unset(&bs_lock, "store_load");
+	MT_lock_unset(&bs_lock);
 	types_init(sa, logger_debug);
 
 #define FUNC_OIDS 2000
@@ -1517,6 +1520,7 @@ store_load(void) {
 	/* load remaining schemas, tables, columns etc */
 	if (!first)
 		load_trans(gtrans, id);
+	store_initialized = 1;
 	return first;
 }
 
@@ -1541,7 +1545,7 @@ store_init(int debug, store_type store, int readonly, int singleuser, logger_set
 #ifdef NEED_MT_LOCK_INIT
 	MT_lock_init(&bs_lock, "SQL_bs_lock");
 #endif
-	MT_lock_set(&bs_lock, "store_init");
+	MT_lock_set(&bs_lock);
 
 	/* check if all parameters for a shared log are set */
 	if (store_readonly && log_settings->shared_logdir != NULL && log_settings->shared_drift_threshold >= 0) {
@@ -1549,9 +1553,8 @@ store_init(int debug, store_type store, int readonly, int singleuser, logger_set
 	}
 
 	/* initialize empty bats */
-	if (store == store_bat)
-		bat_utils_init();
 	if (store == store_bat) {
+		bat_utils_init();
 		bat_storage_init(&store_funcs);
 		bat_table_init(&table_funcs);
 		bat_logger_init(&logger_funcs);
@@ -1562,7 +1565,7 @@ store_init(int debug, store_type store, int readonly, int singleuser, logger_set
 	active_store_type = store;
 	if (!logger_funcs.create ||
 	    logger_funcs.create(debug, log_settings->logdir, CATALOG_VERSION*v, keep_persisted_log_files) == LOG_ERR) {
-		MT_lock_unset(&bs_lock, "store_init");
+		MT_lock_unset(&bs_lock);
 		return -1;
 	}
 
@@ -1572,7 +1575,7 @@ store_init(int debug, store_type store, int readonly, int singleuser, logger_set
 	fprintf(stderr, "#store_init creating shared logger\n");
 #endif
 		if (!shared_logger_funcs.create_shared || shared_logger_funcs.create_shared(debug, log_settings->shared_logdir, CATALOG_VERSION*v, log_settings->logdir) == LOG_ERR) {
-			MT_lock_unset(&bs_lock, "store_init");
+			MT_lock_unset(&bs_lock);
 			return -1;
 		}
 	}
@@ -1586,22 +1589,22 @@ static int logging = 0;
 void
 store_exit(void)
 {
-	MT_lock_set(&bs_lock, "store_exit");
+	MT_lock_set(&bs_lock);
 
 #ifdef STORE_DEBUG
 	fprintf(stderr, "#store exit locked\n");
 #endif
 	/* busy wait till the logmanager is ready */
 	while (logging) {
-		MT_lock_unset(&bs_lock, "store_exit");
+		MT_lock_unset(&bs_lock);
 		MT_sleep_ms(100);
-		MT_lock_set(&bs_lock, "store_exit");
+		MT_lock_set(&bs_lock);
 	}
 
 	if (gtrans) {
-		MT_lock_unset(&bs_lock, "store_exit");
+		MT_lock_unset(&bs_lock);
 		sequences_exit();
-		MT_lock_set(&bs_lock, "store_exit");
+		MT_lock_set(&bs_lock);
 	}
 	if (spares > 0)
 		destroy_spare_transactions();
@@ -1623,7 +1626,7 @@ store_exit(void)
 #ifdef STORE_DEBUG
 	fprintf(stderr, "#store exit unlocked\n");
 #endif
-	MT_lock_unset(&bs_lock, "store_exit");
+	MT_lock_unset(&bs_lock);
 }
 
 /* call locked ! */
@@ -1676,23 +1679,23 @@ store_manager(void)
 			}
 		}
 
-		MT_lock_set(&bs_lock, "store_manager");
+		MT_lock_set(&bs_lock);
         	if (GDKexiting() || (!need_flush && logger_funcs.changes() < 1000000 && shared_transactions_drift < shared_drift_threshold)) {
-            		MT_lock_unset(&bs_lock, "store_manager");
+            		MT_lock_unset(&bs_lock);
             		continue;
         	}
 		need_flush = 0;
         	while (store_nr_active) { /* find a moment to flush */
-            		MT_lock_unset(&bs_lock, "store_manager");
+            		MT_lock_unset(&bs_lock);
             		MT_sleep_ms(50);
-            		MT_lock_set(&bs_lock, "store_manager");
+            		MT_lock_set(&bs_lock);
         	}
 
 		if (create_shared_logger) {
 			/* (re)load data from shared write-ahead log */
 			res = shared_logger_funcs.reload();
 			if (res != LOG_OK) {
-				MT_lock_unset(&bs_lock, "store_manager");
+				MT_lock_unset(&bs_lock);
 				GDKfatal("shared write-ahead log loading failure");
 			}
 			/* destroy all global transactions
@@ -1705,10 +1708,10 @@ store_manager(void)
 			/* reload the store and the global transactions */
 			res = store_load();
 			if (res < 0) {
-				MT_lock_unset(&bs_lock, "store_manager");
+				MT_lock_unset(&bs_lock);
 				GDKfatal("shared write-ahead log store re-load failure");
 			}
-			MT_lock_set(&bs_lock, "store_manager");
+			MT_lock_set(&bs_lock);
 		}
 
 		logging = 1;
@@ -1719,14 +1722,14 @@ store_manager(void)
 		}
 		res = logger_funcs.restart();
 
-		MT_lock_unset(&bs_lock, "store_manager");
+		MT_lock_unset(&bs_lock);
 		if (logging && res == LOG_OK) {
 			res = logger_funcs.cleanup(keep_persisted_log_files);
 		}
 
-		MT_lock_set(&bs_lock, "store_manager");
+		MT_lock_set(&bs_lock);
 		logging = 0;
-		MT_lock_unset(&bs_lock, "store_manager");
+		MT_lock_unset(&bs_lock);
 
 		if (res != LOG_OK)
 			GDKfatal("write-ahead logging failure, disk full?");
@@ -1744,14 +1747,14 @@ minmax_manager(void)
 			if (GDKexiting())
 				return;
 		}
-		MT_lock_set(&bs_lock, "store_manager");
+		MT_lock_set(&bs_lock);
 		if (store_nr_active || GDKexiting()) {
-			MT_lock_unset(&bs_lock, "store_manager");
+			MT_lock_unset(&bs_lock);
 			continue;
 		}
 		if (store_funcs.gtrans_minmax)
 			store_funcs.gtrans_minmax(gtrans);
-		MT_lock_unset(&bs_lock, "store_manager");
+		MT_lock_unset(&bs_lock);
 	}
 }
 
@@ -1759,7 +1762,7 @@ minmax_manager(void)
 void
 store_lock(void)
 {
-	MT_lock_set(&bs_lock, "trans_lock");
+	MT_lock_set(&bs_lock);
 #ifdef STORE_DEBUG
 	fprintf(stderr, "#locked\n");
 #endif
@@ -1771,7 +1774,7 @@ store_unlock(void)
 #ifdef STORE_DEBUG
 	fprintf(stderr, "#unlocked\n");
 #endif
-	MT_lock_unset(&bs_lock, "trans_unlock");
+	MT_lock_unset(&bs_lock);
 }
 
 static sql_kc *
@@ -1796,7 +1799,8 @@ kc_dup(sql_trans *tr, int flag, sql_kc *kc, sql_table *t)
 static sql_key *
 key_dup_(sql_trans *tr, int flag, sql_key *k, sql_table *t, int copy)
 {
-	sql_allocator *sa = (flag == TR_NEW && !copy)?tr->parent->sa:tr->sa;
+	sql_trans *ltr = (flag == TR_NEW && !copy)?tr->parent:tr;
+	sql_allocator *sa = ltr->sa;
 	sql_key *nk = (k->type != fkey) ? (sql_key *) SA_ZNEW(sa, sql_ukey)
 	    : (sql_key *) SA_ZNEW(sa, sql_fkey);
 	node *n;
@@ -1839,18 +1843,24 @@ key_dup_(sql_trans *tr, int flag, sql_key *k, sql_table *t, int copy)
 	if (nk->type == fkey) {
 		sql_fkey *fk = (sql_fkey *) nk;
 		sql_fkey *ok = (sql_fkey *) k;
-		node *n;
+		node *n = NULL;
 
 		if (ok->rkey) {
-			n = list_find(t->s->keys, &ok->rkey->k.base.id, (fcmp) &key_cmp);
+			sql_schema *s;
 
+			if ((s=find_sql_schema_id(ltr, ok->rkey->k.t->s->base.id)) == NULL)
+		       		s = nk->t->s;
+			n = list_find(s->keys, &ok->rkey->k.base.id, (fcmp) &key_cmp);
 			if (n) {
 				sql_ukey *uk = n->data;
 	
 				fk->rkey = uk;
 				if (!uk->keys)
 					uk->keys = list_new(sa, NULL);
-				list_append(uk->keys, fk);
+				if (!list_find(uk->keys, &fk->k.base.id, (fcmp) &key_cmp))
+					list_append(uk->keys, fk);
+				else
+					assert(0);
 			}
 		}
 		fk->on_delete = ok->on_delete;
@@ -1862,15 +1872,20 @@ key_dup_(sql_trans *tr, int flag, sql_key *k, sql_table *t, int copy)
 
 		if (ok->keys)
 			for (m = ok->keys->h; m; m = m->next) {
+				sql_schema *s;
 				sql_fkey *ofk = m->data;
-				node *n = list_find(t->s->keys, &ofk->k.base.id, (fcmp) &key_cmp);
+				node *n = NULL;
 
+				if ((s=find_sql_schema_id(ltr, ofk->k.t->s->base.id)) == NULL)
+		       			s = nk->t->s;
+			       	n = list_find(s->keys, &ofk->k.base.id, (fcmp) &key_cmp);
 				if (n) {
 					sql_fkey *fk = n->data;
 
 					if (!uk->keys)
 						uk->keys = list_new(sa, NULL);
-					list_append(uk->keys, fk);
+					if (!list_find(uk->keys, &fk->k.base.id, (fcmp) &key_cmp))
+						list_append(uk->keys, fk);
 					fk->rkey = uk;
 				}
 			}
@@ -1903,6 +1918,7 @@ sql_trans_copy_key( sql_trans *tr, sql_table *t, sql_key *k )
 	if (nk->type == fkey) 
 		action = (fk->on_update<<8) + fk->on_delete;
 
+	assert( nk->type != fkey || ((sql_fkey*)nk)->rkey);
 	table_funcs.table_insert(tr, syskey, &nk->base.id, &t->base.id, &nk->type, nk->base.name, (nk->type == fkey) ? &((sql_fkey *) nk)->rkey->k.base.id : &neg, &action);
 
 	if (nk->type == fkey)
@@ -2169,9 +2185,12 @@ sql_trans_copy_column( sql_trans *tr, sql_table *t, sql_column *c )
 	if (isTable(t))
 		if (store_funcs.create_col(tr, col) == LOG_ERR)
 			return NULL;
-	if (!isDeclaredTable(t))
+	if (!isDeclaredTable(t)) {
 		table_funcs.table_insert(tr, syscolumn, &col->base.id, col->base.name, col->type.type->sqlname, &col->type.digits, &col->type.scale, &t->base.id, (col->def) ? col->def : ATOMnilptr(TYPE_str), &col->null, &col->colnr, (col->storage_type) ? col->storage_type : ATOMnilptr(TYPE_str));
 	col->base.wtime = t->base.wtime = t->s->base.wtime = tr->wtime = tr->wstime;
+		if (c->type.type->s) /* column depends on type */
+			sql_trans_create_dependency(tr, c->type.type->base.id, col->base.id, TYPE_DEPENDENCY);
+	}
 	if (isGlobal(t)) 
 		tr->schema_updates ++;
 	return col;
@@ -2849,7 +2868,6 @@ rollforward_drop_key(sql_trans *tr, sql_key *k, int mode)
 				fk->rkey = NULL;
 			}
 	}
-
 	return LOG_OK;
 }
 
@@ -3516,6 +3534,9 @@ sql_trans_drop_all_dependencies(sql_trans *tr, sql_schema *s, int id, short type
 				case FUNC_DEPENDENCY :
 							sql_trans_drop_func(tr, s, dep_id, DROP_CASCADE);
 							break;
+				case TYPE_DEPENDENCY :
+							sql_trans_drop_type(tr, s, dep_id, DROP_CASCADE);
+							break;
 				case USER_DEPENDENCY :  /*TODO schema and users dependencies*/
 							break;
 			}
@@ -3604,6 +3625,7 @@ sys_drop_key(sql_trans *tr, sql_key *k, int drop_action)
 	if (k->type == fkey) {
 		sql_fkey *fk = (sql_fkey *) k;
 		
+		assert(fk->rkey);
 		if (fk->rkey) {
 			n = list_find_name(fk->rkey->keys, fk->k.base.name);
 			list_remove_node(fk->rkey->keys, n);
@@ -3705,8 +3727,10 @@ sys_drop_column(sql_trans *tr, sql_column *col, int drop_action)
 	if (isGlobal(col->t)) 
 		tr->schema_updates ++;
 
-	if (drop_action)
+	if (drop_action) 
 		sql_trans_drop_all_dependencies(tr, col->t->s, col->base.id, COLUMN_DEPENDENCY);
+	if (col->type.type->s) 
+		sql_trans_drop_dependency(tr, col->base.id, col->type.type->base.id, TYPE_DEPENDENCY);
 }
 
 static void
@@ -3921,6 +3945,20 @@ sql_trans_create_type(sql_trans *tr, sql_schema * s, const char *sqlname, int di
 	t->base.wtime = s->base.wtime = tr->wtime = tr->wstime;
 	tr->schema_updates ++;
 	return t;
+}
+
+int
+sql_trans_drop_type(sql_trans *tr, sql_schema *s, int id, int drop_action)
+{
+	node *n = find_sql_type_node(s, id);
+	sql_type *t = n->data;
+
+	sys_drop_type(tr, t, drop_action);
+
+	t->base.wtime = s->base.wtime = tr->wtime = tr->wstime;
+	tr->schema_updates ++;
+	cs_del(&s->types, n, t->base.flag);
+	return 1;
 }
 
 sql_func *
@@ -4396,6 +4434,8 @@ sql_trans_create_column(sql_trans *tr, sql_table *t, const char *name, sql_subty
 		table_funcs.table_insert(tr, syscolumn, &col->base.id, col->base.name, col->type.type->sqlname, &col->type.digits, &col->type.scale, &t->base.id, (col->def) ? col->def : ATOMnilptr(TYPE_str), &col->null, &col->colnr, (col->storage_type) ? col->storage_type : ATOMnilptr(TYPE_str));
 
 	col->base.wtime = t->base.wtime = t->s->base.wtime = tr->wtime = tr->wstime;
+	if (tpe->type->s) /* column depends on type */
+		sql_trans_create_dependency(tr, tpe->type->base.id, col->base.id, TYPE_DEPENDENCY);
 	if (isGlobal(t)) 
 		tr->schema_updates ++;
 	return col;

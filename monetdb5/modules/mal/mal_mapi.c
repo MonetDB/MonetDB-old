@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -218,7 +218,7 @@ SERVERlistenThread(SOCKET *Sock)
 		GDKfree(Sock);
 	}
 
-	(void) ATOMIC_INC(nlistener, atomicLock, "SERVERlistenThread");
+	(void) ATOMIC_INC(nlistener, atomicLock);
 
 	do {
 		FD_ZERO(&fds);
@@ -235,11 +235,11 @@ SERVERlistenThread(SOCKET *Sock)
 		/* temporarily use msgsock to record the larger of sock and usock */
 		msgsock = sock;
 #ifdef HAVE_SYS_UN_H
-		if (usock != INVALID_SOCKET)
+		if (usock != INVALID_SOCKET && (sock == INVALID_SOCKET || usock > sock))
 			msgsock = usock;
 #endif
 		retval = select((int)msgsock + 1, &fds, NULL, NULL, &tv);
-		if (ATOMIC_GET(serverexiting, atomicLock, "SERVERlistenThread") ||
+		if (ATOMIC_GET(serverexiting, atomicLock) ||
 			GDKexiting())
 			break;
 		if (retval == 0) {
@@ -267,7 +267,7 @@ SERVERlistenThread(SOCKET *Sock)
 #else
 					errno != EINTR
 #endif
-					|| !ATOMIC_GET(serveractive, atomicLock, "SERVERlistenThread")) {
+					|| !ATOMIC_GET(serveractive, atomicLock)) {
 					msg = "accept failed";
 					goto error;
 				}
@@ -333,14 +333,13 @@ SERVERlistenThread(SOCKET *Sock)
 				{	int *c_d;
 					/* filedescriptor, put it in place of msgsock */
 					cmsg = CMSG_FIRSTHDR(&msgh);
+					closesocket(msgsock);
 					if (!cmsg || cmsg->cmsg_type != SCM_RIGHTS) {
-						closesocket(msgsock);
 						fprintf(stderr, "!mal_mapi.listen: "
 								"expected filedescriptor, but "
 								"received something else\n");
 						continue;
 					}
-					closesocket(msgsock);
 					/* HACK to avoid
 					 * "dereferencing type-punned pointer will break strict-aliasing rules"
 					 * (with gcc 4.5.1 on Fedora 14)
@@ -373,11 +372,11 @@ SERVERlistenThread(SOCKET *Sock)
 			mnstr_flush(data->out);
 			showException(GDKstdout, MAL, "initClient",
 						  "cannot fork new client thread");
-			free(data);
+			GDKfree(data);
 		}
-	} while (!ATOMIC_GET(serverexiting, atomicLock, "SERVERlistenThread") &&
+	} while (!ATOMIC_GET(serverexiting, atomicLock) &&
 			 !GDKexiting());
-	(void) ATOMIC_DEC(nlistener, atomicLock, "SERVERlistenThread");
+	(void) ATOMIC_DEC(nlistener, atomicLock);
 	return;
 error:
 	fprintf(stderr, "!mal_mapi.listen: %s, terminating listener\n", msg);
@@ -722,10 +721,10 @@ str
 SERVERstop(void *ret)
 {
 fprintf(stderr, "SERVERstop\n");
-	ATOMIC_SET(serverexiting, 1, atomicLock, "SERVERstop");
+	ATOMIC_SET(serverexiting, 1, atomicLock);
 	/* wait until they all exited, but skip the wait if the whole
 	 * system is going down */
-	while (ATOMIC_GET(nlistener, atomicLock, "SERVERstop") > 0 && !GDKexiting())
+	while (ATOMIC_GET(nlistener, atomicLock) > 0 && !GDKexiting())
 		MT_sleep_ms(100);
 	(void) ret;		/* fool compiler */
 	return MAL_SUCCEED;
@@ -736,14 +735,14 @@ str
 SERVERsuspend(void *res)
 {
 	(void) res;
-	ATOMIC_SET(serveractive, 0, atomicLock, "SERVERsuspend");
+	ATOMIC_SET(serveractive, 0, atomicLock);
 	return MAL_SUCCEED;
 }
 
 str
 SERVERresume(void *res)
 {
-	ATOMIC_SET(serveractive, 1, atomicLock, "SERVERsuspend");
+	ATOMIC_SET(serveractive, 1, atomicLock);
 	(void) res;
 	return MAL_SUCCEED;
 }
@@ -858,17 +857,17 @@ SERVERconnectAll(Client cntxt, int *key, str *host, int *port, str *username, st
 	Mapi mid;
 	int i;
 
-	MT_lock_set(&mal_contextLock, "SERVERconnect");
+	MT_lock_set(&mal_contextLock);
 	for(i=1; i< MAXSESSIONS; i++)
 	if( SERVERsessions[i].c ==0 ) break;
 
 	if( i==MAXSESSIONS){
-		MT_lock_unset(&mal_contextLock, "SERVERconnect");
+		MT_lock_unset(&mal_contextLock);
 		throw(IO, "mapi.connect", OPERATION_FAILED ": too many sessions");
 	}
 	SERVERsessions[i].c= cntxt;
 	SERVERsessions[i].key= ++sessionkey;
-	MT_lock_unset(&mal_contextLock, "SERVERconnect");
+	MT_lock_unset(&mal_contextLock);
 
 	mid = mapi_connect(*host, *port, *username, *password, *lang, NULL);
 
@@ -897,7 +896,7 @@ str
 SERVERdisconnectALL(int *key){
 	int i;
 
-	MT_lock_set(&mal_contextLock, "SERVERdisconnect");
+	MT_lock_set(&mal_contextLock);
 
 	for(i=1; i< MAXSESSIONS; i++)
 		if( SERVERsessions[i].c != 0 ) {
@@ -912,7 +911,7 @@ SERVERdisconnectALL(int *key){
 			mapi_disconnect(SERVERsessions[i].mid);
 		}
 
-	MT_lock_unset(&mal_contextLock, "SERVERdisconnect");
+	MT_lock_unset(&mal_contextLock);
 
 	return MAL_SUCCEED;
 }
@@ -921,7 +920,7 @@ str
 SERVERdisconnectWithAlias(int *key, str *dbalias){
 	int i;
 
-	MT_lock_set(&mal_contextLock, "SERVERdisconnectWithAlias");
+	MT_lock_set(&mal_contextLock);
 
 	for(i=0; i<MAXSESSIONS; i++)
 		 if( SERVERsessions[i].dbalias &&
@@ -936,11 +935,11 @@ SERVERdisconnectWithAlias(int *key, str *dbalias){
 		}
 
 	if( i==MAXSESSIONS){
-		MT_lock_unset(&mal_contextLock, "SERVERdisconnectWithAlias");
+		MT_lock_unset(&mal_contextLock);
 		throw(IO, "mapi.disconnect", "Impossible to close session for db_alias: '%s'", *dbalias);
 	}
 
-	MT_lock_unset(&mal_contextLock, "SERVERdisconnectWithAlias");
+	MT_lock_unset(&mal_contextLock);
 	return MAL_SUCCEED;
 }
 

@@ -76,7 +76,7 @@ public class MonetDBEmbedded implements Closeable {
 	 */
 	public boolean start() throws IOException {
 		if (!running) {
-			if (startupWrapper(System.getProperty("java.library.path"), databaseDirectory.getAbsolutePath(), silentFlag)){
+			if (startupWrapper(databaseDirectory.getAbsolutePath(), silentFlag)){
 				running = true;
 			}
 		}
@@ -115,12 +115,11 @@ public class MonetDBEmbedded implements Closeable {
 	/**
 	 * Start the embedded database.
 	 * 
-	 * @param libsDirectory Libraries directory
 	 * @param dbDirecory Database directory
 	 * @param silent Silent flag
 	 * @return Startup status code
 	 */
-	private native boolean startupWrapper(String libsDirectory, String dbDirecory, boolean silent) throws IOException;
+	private native boolean startupWrapper(String dbDirecory, boolean silent) throws IOException;
 
 	/**
 	 * Execute an SQL query in an embedded database.

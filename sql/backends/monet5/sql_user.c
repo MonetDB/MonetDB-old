@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -383,7 +383,7 @@ monet5_user_init(backend_functions *be_funcs)
 }
 
 str
-monet5_user_get_def_schema(mvc *m, oid user)
+monet5_user_get_def_schema(mvc *m, int user)
 {
 	oid rid;
 	sqlid schema_id;
@@ -450,7 +450,7 @@ monet5_user_set_def_schema(mvc *m, oid user)
 	str err = NULL;
 
 	if (m->debug &1)
-		fprintf(stderr, "monet5_user_get_def_schema " OIDFMT "\n", user);
+		fprintf(stderr, "monet5_user_set_def_schema " OIDFMT "\n", user);
 
 	if ((err = AUTHresolveUser(&username, &user)) !=MAL_SUCCEED) {
 		GDKfree(err);

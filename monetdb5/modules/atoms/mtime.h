@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -125,6 +125,7 @@ mtime_export str MTIMEdaytime2daytime(daytime *ret, const daytime *src);
 mtime_export str MTIMEsecs2daytime(daytime *ret, const lng *src);
 mtime_export str MTIMEsecs2daytime_bulk(bat *ret, bat *bid);
 mtime_export str MTIMEtimestamp2timestamp(timestamp *ret, const timestamp *src);
+mtime_export void MTIMEreset(void);
 mtime_export str MTIMEprelude(void *ret);
 mtime_export str MTIMEepilogue(void *ret);
 mtime_export str MTIMEsynonyms(void *ret, const bit *allow);

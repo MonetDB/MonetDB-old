@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -700,7 +700,7 @@ sql_find_func(sql_allocator *sa, sql_schema *s, const char *sqlfname, int nrargs
 	int found = 0;
 
 	assert(nrargs);
-	MT_lock_set(&funcs->ht_lock, "sql_find_func");
+	MT_lock_set(&funcs->ht_lock);
 	he = funcs->ht->buckets[key&(funcs->ht->size-1)]; 
 	if (prev) {
 		for (; he && !found; he = he->chain) 
@@ -715,11 +715,11 @@ sql_find_func(sql_allocator *sa, sql_schema *s, const char *sqlfname, int nrargs
 		if (f->type != type) 
 			continue;
 		if ((fres = func_cmp(sa, f, sqlfname, nrargs )) != NULL) {
-			MT_lock_unset(&funcs->ht_lock, "sql_find_func");
+			MT_lock_unset(&funcs->ht_lock);
 			return fres;
 		}
 	}
-	MT_lock_unset(&funcs->ht_lock, "sql_find_func");
+	MT_lock_unset(&funcs->ht_lock);
 	if (s) {
 		node *n;
 		/*
@@ -729,7 +729,7 @@ sql_find_func(sql_allocator *sa, sql_schema *s, const char *sqlfname, int nrargs
 			return fres;
 			*/
 		if (s->funcs.set) {
-			MT_lock_set(&s->funcs.set->ht_lock, "sql_find_func");
+			MT_lock_set(&s->funcs.set->ht_lock);
 			if (s->funcs.set->ht) {
 				he = s->funcs.set->ht->buckets[key&(s->funcs.set->ht->size-1)];
 				if (prev) {
@@ -745,13 +745,13 @@ sql_find_func(sql_allocator *sa, sql_schema *s, const char *sqlfname, int nrargs
 					if (f->type != type)
 						continue;
 					if ((fres = func_cmp(sa, f, sqlfname, nrargs )) != NULL) {
-						MT_lock_unset(&s->funcs.set->ht_lock, "sql_find_func");
+						MT_lock_unset(&s->funcs.set->ht_lock);
 						return fres;
 					}
 				}
-				MT_lock_unset(&s->funcs.set->ht_lock, "sql_find_func");
+				MT_lock_unset(&s->funcs.set->ht_lock);
 			} else {
-				MT_lock_unset(&s->funcs.set->ht_lock, "sql_find_func");
+				MT_lock_unset(&s->funcs.set->ht_lock);
 				n = s->funcs.set->h;
 				if (prev) {
 					for (; n && !found; n = n->next) 
@@ -1622,9 +1622,13 @@ sqltypeinit( sql_allocator *sa)
 
 		sql_create_func(sa, "locate", "str", "locate", *t, *t, INT, SCALE_NONE);
 		sql_create_func3(sa, "locate", "str", "locate", *t, *t, INT, INT, SCALE_NONE);
+		sql_create_func(sa, "charindex", "str", "locate", *t, *t, INT, SCALE_NONE);
+		sql_create_func3(sa, "charindex", "str", "locate", *t, *t, INT, INT, SCALE_NONE);
 		sql_create_func3(sa, "splitpart", "str", "splitpart", *t, *t, INT, *t, INOUT);
 		sql_create_func(sa, "substring", "str", "substring", *t, INT, *t, INOUT);
 		sql_create_func3(sa, "substring", "str", "substring", *t, INT, INT, *t, INOUT);
+		sql_create_func(sa, "substr", "str", "substring", *t, INT, *t, INOUT);
+		sql_create_func3(sa, "substr", "str", "substring", *t, INT, INT, *t, INOUT);
 		sql_create_func(sa, "like", "algebra", "like", *t, *t, BIT, SCALE_NONE);
 		sql_create_func3(sa, "like", "algebra", "like", *t, *t, *t, BIT, SCALE_NONE);
 		sql_create_func(sa, "ilike", "algebra", "ilike", *t, *t, BIT, SCALE_NONE);
@@ -1716,9 +1720,9 @@ types_init(sql_allocator *sa, int debug)
 	localtypes = sa_list(sa);
 	aggrs = sa_list(sa);
 	funcs = sa_list(sa);
-	MT_lock_set(&funcs->ht_lock, "types_init");
+	MT_lock_set(&funcs->ht_lock);
 	funcs->ht = hash_new(sa, 1024, (fkeyvalue)&base_key);
-	MT_lock_unset(&funcs->ht_lock, "types_init");
+	MT_lock_unset(&funcs->ht_lock);
 	sqltypeinit( sa );
 }
 

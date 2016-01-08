@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -219,7 +219,7 @@ loadLibrary(str filename, int flag)
 			throw(LOADER, "loadLibrary", RUNTIME_LOAD_ERROR " could not locate library %s (from within file '%s')", s, filename);
 	}
 
-	MT_lock_set(&mal_contextLock, "loadModule");
+	MT_lock_set(&mal_contextLock);
 	if (lastfile == maxfiles) {
 		if (handle)
 			dlclose(handle);
@@ -230,7 +230,7 @@ loadLibrary(str filename, int flag)
 		filesLoaded[lastfile].handle = handle;
 		lastfile ++;
 	}
-	MT_lock_unset(&mal_contextLock, "loadModule");
+	MT_lock_unset(&mal_contextLock);
 
 	return MAL_SUCCEED;
 }
@@ -245,7 +245,7 @@ unloadLibraries(void)
 {
 	int i;
 
-	MT_lock_set(&mal_contextLock, "unloadModule");
+	MT_lock_set(&mal_contextLock);
 	for (i = 0; i < lastfile; i++)
 		if (filesLoaded[i].fullname) {
 			/* dlclose(filesLoaded[i].handle);*/
@@ -253,7 +253,7 @@ unloadLibraries(void)
 			GDKfree(filesLoaded[i].fullname);
 		}
 	lastfile = 0;
-	MT_lock_unset(&mal_contextLock, "unloadModule");
+	MT_lock_unset(&mal_contextLock);
 }
 /*
  * To speedup restart and to simplify debugging, the MonetDB server can

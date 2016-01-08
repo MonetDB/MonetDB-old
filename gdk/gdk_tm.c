@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -187,13 +187,13 @@ TMsubcommit_list(bat *subcommit, int cnt)
 		/* lock just prevents BBPtrims, and other global
 		 * (sub-)commits */
 		for (xx = 0; xx <= BBP_THREADMASK; xx++)
-			MT_lock_set(&GDKtrimLock(xx), "TMsubcommit");
+			MT_lock_set(&GDKtrimLock(xx));
 		if (BBPsync(cnt, subcommit) == GDK_SUCCEED) { /* write BBP.dir (++) */
 			epilogue(cnt, subcommit);
 			ret = GDK_SUCCEED;
 		}
 		for (xx = BBP_THREADMASK; xx >= 0; xx--)
-			MT_lock_unset(&GDKtrimLock(xx), "TMsubcommit");
+			MT_lock_unset(&GDKtrimLock(xx));
 	}
 	return ret;
 }

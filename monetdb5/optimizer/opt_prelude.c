@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -101,10 +101,6 @@ str ioRef;
 str iteratorRef;
 str joinPathRef;
 str jsonRef;
-str joinRef;
-str antijoinRef;
-str bandjoinRef;
-str thetajoinRef;
 str subjoinRef;
 str subleftjoinRef;
 str subantijoinRef;
@@ -112,8 +108,8 @@ str subbandjoinRef;
 str subrangejoinRef;
 str subthetajoinRef;
 str languageRef;
-str leftfetchjoinRef;
-str leftfetchjoinPathRef;
+str projectionRef;
+str projectionPathRef;
 str likesubselectRef;
 str likethetasubselectRef;
 str ilikesubselectRef;
@@ -317,10 +313,6 @@ void optimizerInit(void)
 	ioRef = putName("io",2);
 	iteratorRef = putName("iterator",8);
 	joinPathRef = putName("joinPath",8);
-	joinRef = putName("join",4);
-	antijoinRef = putName("antijoin",8);
-	bandjoinRef = putName("bandjoin",8);
-	thetajoinRef = putName("thetajoin",9);
 	subjoinRef = putName("subjoin",7);
 	subleftjoinRef = putName("subleftjoin",11);
 	subantijoinRef = putName("subantijoin",11);
@@ -329,8 +321,8 @@ void optimizerInit(void)
 	subthetajoinRef = putName("subthetajoin",12);
 	jsonRef = putName("json",4);
 	languageRef= putName("language",8);
-	leftfetchjoinRef = putName("leftfetchjoin",13);
-	leftfetchjoinPathRef = putName("leftfetchjoinPath",17);
+	projectionRef = putName("projection",10);
+	projectionPathRef = putName("projectionPath",14);
 	likesubselectRef = putName("likesubselect",13);
 	ilikesubselectRef = putName("ilikesubselect",14);
 	listRef = putName("list",4);

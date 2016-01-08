@@ -3,17 +3,15 @@
 monetdb_embedded_env <- new.env(parent=emptyenv())
 monetdb_embedded_env$is_started <- FALSE
 monetdb_embedded_env$started_dir <- ""
-monetdb_embedded_env$install_dir <- ""
 
 .onLoad <- function(libname, pkgname){
-	monetdb_embedded_env$install_dir <- file.path(libname, pkgname, "libs")
 	library.dynam("libmonetdb5", pkgname, lib.loc=libname, now=T, local=F)
 }
 
 classname <- "monetdb_embedded_connection"
 
 monetdb_embedded_startup <- function(dir=tempdir(), quiet=TRUE) {
-	dir <- normalizePath(as.character(dir), mustWork=FALSE)
+	dir <- as.character(dir)
 	quiet <- as.logical(quiet)
 	if (length(dir) != 1) {
 		stop("Need a single directory name as parameter.")
@@ -24,11 +22,12 @@ monetdb_embedded_startup <- function(dir=tempdir(), quiet=TRUE) {
 	if (file.access(dir, mode=2) < 0) {
 		stop("Cannot write to ", dir)
 	}
+	dir <- normalizePath(dir)
 	if (!monetdb_embedded_env$is_started) {
-		res <- .Call("monetdb_startup_R", monetdb_embedded_env$install_dir, dir, quiet, PACKAGE="libmonetdb5")
+		res <- .Call("monetdb_startup_R", dir, quiet, PACKAGE="libmonetdb5")
 	} else {
 		if (dir != monetdb_embedded_env$started_dir) {
-			warning("MonetDBLite cannot change database directories (already started in ", monetdb_embedded_env$started_dir, ").")
+			stop("MonetDBLite cannot change database directories (already started in ", monetdb_embedded_env$started_dir, ", restart R).")
 		}
 		return(invisible(TRUE))
 	}
@@ -109,6 +108,13 @@ monetdb_embedded_disconnect <- function(conn) {
 		stop("Need a embedded monetdb connection as parameter")
 	}
 	.Call("monetdb_disconnect_R", conn,  PACKAGE="libmonetdb5")
+	return(invisible(TRUE))
+}
+
+monetdb_embedded_shutdown <- function() {
+	.Call("monetdb_shutdown_R", PACKAGE="libmonetdb5")
+	monetdb_embedded_env$is_started <- FALSE
+	monetdb_embedded_env$started_dir <- ""
 	return(invisible(TRUE))
 }
 

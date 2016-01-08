@@ -14,10 +14,16 @@ rc=$?; if [[ $rc != 0 ]]; then exit $rc; fi
 ## Configure
 mkdir BUILD
 cd BUILD
-sh ../configure --prefix=$MONETDB_HOME --disable-fits --disable-netcdf --disable-gsl --disable-geom --disable-merocontrol --disable-odbc --disable-microhttpd --without-perl --without-python2 --without-python3 --without-rubygem --without-unixodbc --without-readline --enable-embedded --enable-embedded-java
+../configure --prefix=$MONETDB_HOME \
+--enable-embedded --enable-embedded-java \
+--disable-fits --disable-geom --disable-rintegration --disable-gsl --disable-netcdf \
+--disable-merocontrol --disable-odbc --disable-console --disable-microhttpd \
+--without-perl --without-python2 --without-python3 --without-rubygem --without-unixodbc \
+--without-samtools --without-sphinxclient --without-geos --without-samtools --without-readline \
+--enable-optimize --enable-silent-rules --disable-assert --disable-strict --disable-int128
 rc=$?; if [[ $rc != 0 ]]; then exit $rc; fi
 ## Build
-make -j && make install
+make -j clean install
 rc=$?; if [[ $rc != 0 ]]; then exit $rc; fi
 ## Build embedded Java and test
 cd ../java/embedded

@@ -1,6 +1,7 @@
-#include "embeddedr.h"
-
 #include "monetdb_config.h"
+
+#ifdef HAVE_EMBEDDED_R
+#include "embeddedr.h"
 #include "monet_options.h"
 #include "mal.h"
 #include "mal_client.h"
@@ -50,8 +51,7 @@ SEXP monetdb_query_R(SEXP connsexp, SEXP query, SEXP notreallys) {
 	return ScalarLogical(1);
 }
 
-SEXP monetdb_startup_R(SEXP installdirsexp, SEXP dbdirsexp, SEXP silentsexp) {
-	const char* installdir = NULL;
+SEXP monetdb_startup_R(SEXP dbdirsexp, SEXP silentsexp) {
 	const char* dbdir=NULL;
 	char silent = 0;
 	char* res = NULL;
@@ -59,11 +59,10 @@ SEXP monetdb_startup_R(SEXP installdirsexp, SEXP dbdirsexp, SEXP silentsexp) {
 	if (monetdb_embedded_initialized) {
 		return ScalarLogical(0);
 	}
-	installdir = CHAR(STRING_ELT(installdirsexp, 0));
 	dbdir = CHAR(STRING_ELT(dbdirsexp, 0));
 	silent = LOGICAL(silentsexp)[0];
 
-	res = monetdb_startup((char*) installdir, (char*) dbdir, silent);
+	res = monetdb_startup((char*) dbdir, silent);
 
 	if (res == NULL) {
 		return ScalarLogical(1);
@@ -133,11 +132,24 @@ SEXP monetdb_append_R(SEXP connsexp, SEXP schemasexp, SEXP namesexp, SEXP tabled
 
 
 SEXP monetdb_connect_R() {
-	return R_MakeExternalPtr(monetdb_connect(), R_NilValue, R_NilValue);
+	SEXP conn = PROTECT(R_MakeExternalPtr(
+			monetdb_connect(), R_NilValue, R_NilValue));
+	R_RegisterCFinalizer(conn, (void (*)(SEXP)) monetdb_disconnect_R);
+	UNPROTECT(1);
+	return conn;
 }
 
 SEXP monetdb_disconnect_R(SEXP connsexp) {
-	monetdb_disconnect(R_ExternalPtrAddr(connsexp));
-	R_ClearExternalPtr(connsexp);
+	void* addr = R_ExternalPtrAddr(connsexp);
+	if (addr != NULL) {
+		monetdb_disconnect(addr);
+		R_ClearExternalPtr(connsexp);
+	}
 	return R_NilValue;
 }
+
+SEXP monetdb_shutdown_R() {
+	monetdb_shutdown();
+	return R_NilValue;
+}
+#endif

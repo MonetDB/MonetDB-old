@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -127,7 +127,7 @@ GDKlockstatistics(int what)
 {
 	MT_Lock *l;
 
-	if (ATOMIC_TAS(GDKlocklistlock, dummy, "") != 0) {
+	if (ATOMIC_TAS(GDKlocklistlock, dummy) != 0) {
 		fprintf(stderr, "#WARNING: GDKlocklistlock is set, so cannot access lock list\n");
 		return;
 	}
@@ -146,7 +146,7 @@ GDKlockstatistics(int what)
 	fprintf(stderr, "#total lock count " SZFMT "\n", (size_t) GDKlockcnt);
 	fprintf(stderr, "#lock contention  " SZFMT "\n", (size_t) GDKlockcontentioncnt);
 	fprintf(stderr, "#lock sleep count " SZFMT "\n", (size_t) GDKlocksleepcnt);
-	ATOMIC_CLEAR(GDKlocklistlock, dummy, "");
+	ATOMIC_CLEAR(GDKlocklistlock, dummy);
 }
 #endif
 
