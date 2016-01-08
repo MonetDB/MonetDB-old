@@ -9,19 +9,27 @@ extern "C" {
 #endif
 /*
  * Class:     org_monetdb_embedded_MonetDBEmbedded
- * Method:    startupNative
- * Signature: (Ljava/lang/String;Z)I
+ * Method:    startupWrapper
+ * Signature: (Ljava/lang/String;Z)Z
  */
 JNIEXPORT jboolean JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_startupWrapper
   (JNIEnv *, jobject, jstring, jboolean);
 
 /*
  * Class:     org_monetdb_embedded_MonetDBEmbedded
- * Method:    query
+ * Method:    queryWrapper
  * Signature: (Ljava/lang/String;)Lorg/monetdb/embedded/result/EmbeddedQueryResult;
  */
 JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
   (JNIEnv *, jobject, jstring);
+
+/*
+ * Class:     org_monetdb_embedded_MonetDBEmbedded
+ * Method:    shutdownWrapper
+ * Signature: (V)V;
+ */
+JNIEXPORT void JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_shutdownWrapper
+  (JNIEnv *, jobject);
 
 #ifdef __cplusplus
 }

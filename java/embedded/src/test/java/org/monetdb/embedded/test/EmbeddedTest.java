@@ -304,10 +304,11 @@ public class EmbeddedTest {
 	}
 
 	@AfterClass
-	public static void cleanup() throws SQLException {
+	public static void cleanup() throws SQLException, IOException {
 		db.query("DROP TABLE test");
 		db.query("DROP TABLE numeric_types_test");
 		db.query("DROP TABLE char_types_test");
 		db.query("DROP TABLE boolean_types_test");
+		db.close();
 	}
 }

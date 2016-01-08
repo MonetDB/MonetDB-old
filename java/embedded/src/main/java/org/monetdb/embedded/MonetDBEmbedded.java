@@ -132,10 +132,15 @@ public class MonetDBEmbedded implements Closeable {
 	 * @throws SQLException
 	 */
 	private native EmbeddedQueryResult queryWrapper(String query) throws SQLException;
+	
+	/**
+	 * Shut down the embedded database.
+	 */
+	private native void shutdownWrapper();
 
 	@Override
 	public void close() throws IOException {
-		// Do nothing for now
-		// TODO: stop the databse
+		// Avoid for now
+//		shutdownWrapper();
 	}
 }

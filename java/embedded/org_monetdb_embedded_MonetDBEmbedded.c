@@ -172,3 +172,9 @@ JNIEXPORT jobject JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_queryWrapper
 
 	return result;
 }
+
+JNIEXPORT void JNICALL Java_org_monetdb_embedded_MonetDBEmbedded_shutdownWrapper
+(JNIEnv *env, jobject object) {
+	(void)object;
+	monetdb_shutdown();
+}
