@@ -106,6 +106,7 @@ struct _AggrParams{
     str **args;
     PyObject **connection;
     PyObject **function;
+    PyObject **column_types_dict;
     str *pycall;
     str msg;
     size_t base;
@@ -1171,6 +1172,7 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                     params->group_count = group_count;
                     params->group_counts = &group_counts;
                     params->pyinput_values = &pyinput_values;
+                    params->column_types_dict = &pColumnTypes;
                     params->split_bats = &split_bats;
                     params->base = pci->retc + 2;
                     params->function = &pFunc;
@@ -2920,7 +2922,6 @@ PyObject* ComputeParallelAggregation(AggrParams *p)
         // we first have to construct new 
         PyObject *pArgsPartial = PyTuple_New(p->named_columns + p->additional_columns + 3);
         PyObject *pColumnsPartial = PyDict_New();
-        PyObject *pColumnTypesPartial = PyDict_New();
         PyObject *result;
         size_t group_elements = (*p->group_counts)[group_it];
         ai = 0;
@@ -2944,28 +2945,25 @@ PyObject* ComputeParallelAggregation(AggrParams *p)
                     return NULL;
                 }
             }
-            // fill in _columns and _column_types arrays
-            {
-                PyObject *arg_type = PyString_FromString(BatType_Format(input.bat_type));
-                PyDict_SetItemString(pColumnsPartial, (*p->args)[p->base + i], vararray);
-                PyDict_SetItemString(pColumnTypesPartial, (*p->args)[p->base + i], arg_type);
-            }
+            // fill in _columns array
+            PyDict_SetItemString(pColumnsPartial, (*p->args)[p->base + i], vararray);
 
             PyTuple_SetItem(pArgsPartial, ai++, vararray);
         }
-
-        // additional parameters
-        PyTuple_SetItem(pArgsPartial, ai++, pColumnsPartial);
-        PyTuple_SetItem(pArgsPartial, ai++, pColumnTypesPartial);
-        PyTuple_SetItem(pArgsPartial, ai++, *p->connection);
 
         // hacky fix because unnamed arguments (aggr_group, etc) are expected by the function, but we don't want to pass them
         PyTuple_SetItem(pArgsPartial, ai++, Py_None); Py_INCREF(Py_None);
         PyTuple_SetItem(pArgsPartial, ai++, Py_None); Py_INCREF(Py_None);
         PyTuple_SetItem(pArgsPartial, ai++, Py_None); Py_INCREF(Py_None);
 
+        // additional parameters
+        PyTuple_SetItem(pArgsPartial, ai++, pColumnsPartial);
+        PyTuple_SetItem(pArgsPartial, ai++, *p->column_types_dict); Py_INCREF(*p->column_types_dict);
+        PyTuple_SetItem(pArgsPartial, ai++, *p->connection); Py_INCREF(*p->connection);
+
         // call the aggregation function
         result = PyObject_CallObject(*p->function, pArgsPartial);
+        Py_DECREF(pArgsPartial);
 
         if (result == NULL) {
             p->msg = PyError_CreateException("Python exception", *p->pycall);
