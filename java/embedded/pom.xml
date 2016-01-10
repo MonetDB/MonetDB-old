@@ -64,8 +64,8 @@ MonetDB is an analytical database designed to handle very large datasets. It is 
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>2.12.4</version>
 				<configuration>
-					<argLine>-Djava.library.path="src/main/resources/lib"</argLine>
-				</configuration>
+<!-- 					<argLine>-Djava.library.path="src/main/resources/lib"</argLine>
+ -->				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>

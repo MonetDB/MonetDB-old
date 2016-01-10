@@ -10,7 +10,13 @@ package org.monetdb.embedded;
 
 import java.io.Closeable;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.SQLException;
 
 import org.monetdb.embedded.result.EmbeddedQueryResult;
@@ -23,7 +29,8 @@ import org.monetdb.embedded.result.EmbeddedQueryResult;
  */
 public class MonetDBEmbedded implements Closeable {
 	final private static String LIB_PATH_VAR = "java.library.path"; 
-	final private static String NATIVE_LIB_PATH_IN_JAR = "src/main/resources/lib";
+	final private static String NATIVE_LIB_PATH_IN_JAR = "src" + File.separatorChar + "main" +
+			File.separatorChar + "resources" + File.separatorChar + "lib";
 	final private static String NATIVE_LIB_NAME = "monetdb5";
 
 	/** 
@@ -43,13 +50,36 @@ public class MonetDBEmbedded implements Closeable {
 	 * The native embedded MonetDB library.
 	 */
 	static {
-		// Check if the lib path is set
-		if (System.getProperty(LIB_PATH_VAR).isEmpty() || "".equals(System.getProperty(LIB_PATH_VAR))) {
-			// If not set it to the location of the embedded native lib
-			System.setProperty(LIB_PATH_VAR, NATIVE_LIB_PATH_IN_JAR);
+		try {
+			// Try load the embedded library
+			System.loadLibrary(NATIVE_LIB_NAME);
+		} catch (UnsatisfiedLinkError e) {
+			// Still no, then get the lib bundled in the jar
+			loadLibFromJar("lib" + NATIVE_LIB_NAME + ".jnilib");
 		}
-		// Load the embedded library
-		System.loadLibrary(NATIVE_LIB_NAME);
+	}
+
+	private static void loadLibFromJar(String fileName) {
+		String pathToLib = NATIVE_LIB_PATH_IN_JAR + File.separatorChar + fileName;
+		try {
+			InputStream in = MonetDBEmbedded.class.getResourceAsStream(File.separatorChar + pathToLib);
+			if (in == null) {
+				in = new FileInputStream(new File(pathToLib));
+			}
+			byte[] buffer = new byte[in.available()];
+			in.read(buffer);
+			in.close();
+			// Extract it in a temp location
+			final Path tempLibsDir = Files.createTempDirectory("monetdb-embedded-libs");
+			File fileOut = new File(tempLibsDir.toString() + File.separatorChar + fileName);
+			try (OutputStream out = new FileOutputStream(fileOut)) {
+				out.write(buffer);
+				// Load the lib from the extracted file
+				System.load(fileOut.toString());
+			}
+		} catch (IOException e) {
+			throw new UnsatisfiedLinkError("Unable to extract native library from JAR:" + e.getMessage());
+		}
 	}
 
 	/**
@@ -132,7 +162,7 @@ public class MonetDBEmbedded implements Closeable {
 	 * @throws SQLException
 	 */
 	private native EmbeddedQueryResult queryWrapper(String query) throws SQLException;
-	
+
 	/**
 	 * Shut down the embedded database.
 	 */
@@ -141,6 +171,6 @@ public class MonetDBEmbedded implements Closeable {
 	@Override
 	public void close() throws IOException {
 		// Avoid for now
-//		shutdownWrapper();
+		//		shutdownWrapper();
 	}
 }

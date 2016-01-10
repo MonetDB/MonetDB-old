@@ -26,12 +26,12 @@ rc=$?; if [[ $rc != 0 ]]; then exit $rc; fi
 
 ## Combine libraries
 OFILES=`find common clients/mapilib/ gdk monetdb5/mal monetdb5/modules monetdb5/optimizer sql tools/embedded java/embedded -name "*.o" | tr "\n" " "`
-gcc -shared -o libmonetdb5.dylib $OFILES -lpthread -lpcre -lbz2 -llzma -lcurl -lz -liconv
+gcc -shared -o libmonetdb5.jnilib $OFILES -lpthread -lpcre -lbz2 -llzma -lcurl -lz -liconv
 rc=$?; if [[ $rc != 0 ]]; then exit $rc; fi
 
 ## Copy the single lib
 mkdir -p $start_dir/src/main/resources/lib
-cp libmonetdb5.dylib $start_dir/src/main/resources/lib/
+cp libmonetdb5.jnilib $start_dir/src/main/resources/lib/
 
 ## Build embedded Java and test
 cd $start_dir
