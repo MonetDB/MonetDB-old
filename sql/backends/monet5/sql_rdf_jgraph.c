@@ -2662,6 +2662,7 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 		*is_contain_mv = 0; 
 	}
 	
+	printf("Number of mv_col: %d\n", num_mv_col); 
 	if (num_mv_col > 0){	//missingcol == 0
 		*is_contain_mv = 1; 
 		rel = connect_sp_select_and_mv_prop(c, rel_wo_mv, mvPropRels, tblname, atblname, asubjcolname, nnode); 
