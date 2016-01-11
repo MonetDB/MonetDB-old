@@ -64,16 +64,20 @@ public class MonetDBEmbedded implements Closeable {
 		try {
 			InputStream in = MonetDBEmbedded.class.getResourceAsStream(File.separatorChar + pathToLib);
 			if (in == null) {
+				// OK, the input stream is null, hence no .jar
+				// This was probably a test and/or in an IDE
+				// Just read the files from the src/main/resources/lib dir
 				in = new FileInputStream(new File(pathToLib));
 			}
-			byte[] buffer = new byte[in.available()];
-			in.read(buffer);
-			in.close();
-			// Extract it in a temp location
+			// Set a temp location to extract (and load from later)
 			final Path tempLibsDir = Files.createTempDirectory("monetdb-embedded-libs");
 			File fileOut = new File(tempLibsDir.toString() + File.separatorChar + fileName);
 			try (OutputStream out = new FileOutputStream(fileOut)) {
-				out.write(buffer);
+				int buffer;
+				while ((buffer = in.read()) != -1) {
+			        out.write(buffer);
+				}
+				in.close();
 				// Load the lib from the extracted file
 				System.load(fileOut.toString());
 			}
