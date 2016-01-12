@@ -73,10 +73,11 @@ public class MonetDBEmbedded implements Closeable {
 			final Path tempLibsDir = Files.createTempDirectory("monetdb-embedded-libs");
 			File fileOut = new File(tempLibsDir.toString() + File.separatorChar + fileName);
 			try (OutputStream out = new FileOutputStream(fileOut)) {
-				int buffer;
-				while ((buffer = in.read()) != -1) {
+				byte[] buffer = new byte[in.available()];
+				while (in.read(buffer) != -1) {
 			        out.write(buffer);
 				}
+				out.flush();
 				in.close();
 				// Load the lib from the extracted file
 				System.load(fileOut.toString());
