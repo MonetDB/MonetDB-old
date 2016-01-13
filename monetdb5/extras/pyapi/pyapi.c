@@ -1259,6 +1259,13 @@ str PyAPIeval(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, bit group
                     }
                     results[thread_it] = result;
                 }
+                for(thread_it = 0; thread_it < threads; thread_it++) {
+                    AggrParams params = parameters[thread_it];
+                    if (results[thread_it] == NULL || params.msg != NULL) {
+                        msg = params.msg;
+                        goto wrapup;
+                    }
+                }
 
                 // we need the GIL again to group the parameters
                 gstate = PyGILState_Ensure();
@@ -3049,7 +3056,8 @@ PyObject* ComputeParallelAggregation(AggrParams *p)
 
                 if (vararray == NULL) {
                     p->msg = createException(MAL, "pyapi.eval", MAL_MALLOC_FAIL" to create NumPy array.");
-                    return NULL;
+                    Py_DECREF(aggr_result); aggr_result = NULL;
+                    goto wrapup;
                 }
             }
             // fill in _columns array
@@ -3074,12 +3082,14 @@ PyObject* ComputeParallelAggregation(AggrParams *p)
 
         if (result == NULL) {
             p->msg = PyError_CreateException("Python exception", *p->pycall);
-            return NULL;
+            Py_DECREF(aggr_result); aggr_result = NULL;
+            goto wrapup;
         }
         // gather results
         PyList_SetItem(aggr_result, group_it - p->group_start, result);
     }
-    //release the GIL again    
+    //release the GIL again   
+wrapup: 
     PyGILState_Release(gstate);
     gstate = PyGILState_LOCKED;
     return aggr_result;
