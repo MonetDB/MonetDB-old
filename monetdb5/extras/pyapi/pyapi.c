@@ -2004,7 +2004,6 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
     case TYPE_str:
 #ifdef _PYAPI_TESTING_
         if (option_numpy_string_array)
-#endif
         {
             bool unicode = false;
             size_t maxsize = 1;
@@ -2092,10 +2091,14 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                 }
             }
         }
-#ifdef _PYAPI_TESTING_
         else
+#endif
         {
+#ifdef PYAPI_TESTING
             bool unicode = option_alwaysunicode;
+#else
+            bool unicode = false;
+#endif
             li = bat_iterator(b);
             //create a NPY_OBJECT array object
             vararray = PyArray_New(
@@ -2109,7 +2112,9 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                 0,
                 NULL);
 
+#ifdef PYAPI_TESTING
             if (!option_alwaysunicode)
+#endif
             {
                 BATloop(b, p, q) {
                     char *t = (char *) BUNtail(li, p);
@@ -2146,6 +2151,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                         }
                         data[j++] = obj;
                     }
+#ifdef PYAPI_TESTING
                 } else if (option_bytearray) {
                     BATloop(b, p, q) {
                         char *t = (char *) BUNtail(li, p);
@@ -2156,6 +2162,7 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                         }
                         data[j++] = obj;
                     }
+#endif
                 } else {
                     BATloop(b, p, q) {
                         char *t = (char *) BUNtail(li, p);
@@ -2169,7 +2176,6 @@ PyObject *PyArrayObject_FromBAT(PyInput *inp, size_t t_start, size_t t_end, char
                 }
             }
         }
-#endif
         break;
 #ifdef HAVE_HGE
     case TYPE_hge:

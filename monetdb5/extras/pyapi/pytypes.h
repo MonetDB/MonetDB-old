@@ -65,6 +65,7 @@ struct _PyInput{
     sql_subtype *sql_subtype;           //SQL typename (for _column_types)
     size_t count;                       //amount of elements in BAT
     bool scalar;                        //True if the input is a scalar (in this case, BAT* is NULL)
+    PyObject *result;                   //Converted PyObject, probably shouldn't be here 
 };
 #define PyInput struct _PyInput
 
