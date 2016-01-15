@@ -1599,18 +1599,27 @@ BATsubselect(BAT *b, BAT *s, const void *tl, const void *th,
 	 * persistent and the total size wouldn't be too large; check
 	 * for existence of hash last since that may involve I/O */
 	hash = equi &&
-		(((b->batPersistence == PERSISTENT ||
-		  (parent != 0 &&
-		   BBPquickdesc(abs(parent),0)->batPersistence == PERSISTENT)) &&
+		(((b->batPersistence == PERSISTENT 
+#ifndef DISABLE_PARENT_HASH		   
+		   || (parent != 0 &&
+		   BBPquickdesc(abs(parent),0)->batPersistence == PERSISTENT)
+#endif		   
+		   ) &&
 		 (size_t) ATOMsize(b->ttype) >= sizeof(BUN) / 4 &&
 		  BATcount(b) * (ATOMsize(b->ttype) + 2 * sizeof(BUN)) < GDK_mem_maxsize / 2) ||
-		 (BATcheckhash(b) ||
-		  (parent != 0 &&
-		   BATcheckhash(BBPdescriptor(-parent)))));
+		 (BATcheckhash(b) 
+#ifndef DISABLE_PARENT_HASH		  
+		  || (parent != 0 &&
+		   BATcheckhash(BBPdescriptor(-parent)))
+#endif		  
+		  ));
 	if (hash &&
 	    estimate == BUN_NONE &&
-	    !BATcheckhash(b) &&
-	    (parent == 0 || !BATcheckhash(BBPdescriptor(-parent)))) {
+	    !BATcheckhash(b) 
+#ifndef DISABLE_PARENT_HASH	    
+	    && (parent == 0 || !BATcheckhash(BBPdescriptor(-parent)))
+#endif	    
+	    ) {
 		/* no exact result size, but we need estimate to choose
 		 * between hash- & scan-select
 		 * (if we already have a hash, it's a no-brainer: we

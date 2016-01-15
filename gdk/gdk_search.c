@@ -243,7 +243,11 @@ BATcheckhash(BAT *b)
 
 				if ((h = GDKmalloc(sizeof(*h))) != NULL &&
 				    read(fd, hdata, sizeof(hdata)) == sizeof(hdata) &&
-				    hdata[0] == (((size_t) 1 << 24) | HASH_VERSION) &&
+				    hdata[0] == (
+#ifdef PERSISTENTHASH					    
+					    ((size_t) 1 << 24) | 
+#endif					    
+					    HASH_VERSION) &&
 				    hdata[4] == (size_t) BATcount(b) &&
 				    fstat(fd, &st) == 0 &&
 				    st.st_size >= (off_t) (hp->size = hp->free = (hdata[1] + hdata[2]) * hdata[3] + HASH_HEADER_SIZE * SIZEOF_SIZE_T) &&
@@ -320,6 +324,8 @@ BAThash(BAT *b, BUN masksize)
 		}
 		return GDK_SUCCEED;
 	}
+
+
 	MT_lock_set(&GDKhashLock(abs(b->batCacheid)), "BAThash");
 	if (b->T->hash == NULL) {
 		unsigned int tpe = ATOMbasetype(b->ttype);
@@ -331,7 +337,9 @@ BAThash(BAT *b, BUN masksize)
 		const char *nme = BBP_physical(b->batCacheid);
 		const char *ext = b->batCacheid > 0 ? "thash" : "hhash";
 		BATiter bi = bat_iterator(b);
+#ifdef PERSISTENTHASH		
 		int fd;
+#endif		
 
 		ALGODEBUG fprintf(stderr, "#BAThash: create hash(" BUNFMT ");\n", BATcount(b));
 		if ((hp = GDKzalloc(sizeof(*hp))) == NULL ||
@@ -503,6 +511,7 @@ BAThash(BAT *b, BUN masksize)
 			}
 			break;
 		}
+#ifdef PERSISTENTHASH		
 		if ((BBP_status(b->batCacheid) & BBPEXISTING) &&
 		    HEAPsave(hp, nme, ext) == 0 &&
 		    (fd = GDKfdlocate(hp->farmid, nme, "rb+", ext)) >= 0) {
@@ -522,6 +531,7 @@ BAThash(BAT *b, BUN masksize)
 			close(fd);
 		} else
 			ALGODEBUG fprintf(stderr, "#BAThash: NOT persisting hash %d\n", b->batCacheid);
+#endif		
 		b->T->hash = h;
 		t1 = GDKusec();
 		ALGODEBUG fprintf(stderr, "#BAThash: hash construction " LLFMT " usec\n", t1 - t0);

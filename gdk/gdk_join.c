@@ -1843,19 +1843,36 @@ hashjoin(BAT *r1, BAT *r2, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, in
 		return GDK_SUCCEED;
 	}
 
+	rl = BUNfirst(r);
+#ifndef DISABLE_PARENT_HASH
 	if (VIEWtparent(r)) {
 		BAT *b = BBPdescriptor(-VIEWtparent(r));
-		rl = (BUN) ((r->T->heap.base - b->T->heap.base) >> r->T->shift) + BUNfirst(r);
-		r = b;
-	} else {
-		rl = BUNfirst(r);
+		if (b->batPersistence == PERSISTENT || BATcheckhash(b)) {
+			/* only use parent's hash if it is persistent
+			 * or already has a hash */
+			ALGODEBUG
+				fprintf(stderr, "#hashjoin(%s#"BUNFMT"): "
+					"using parent(%s#"BUNFMT") for hash\n",
+					BATgetId(r), BATcount(r),
+					BATgetId(b), BATcount(b));
+			rl = (BUN) ((r->T->heap.base - b->T->heap.base) >> r->T->shift) + BUNfirst(r);
+			r = b;
+		} else {
+			ALGODEBUG
+				fprintf(stderr, "#hashjoin(%s#"BUNFMT"): not "
+					"using parent(%s#"BUNFMT") for hash\n",
+					BATgetId(r), BATcount(r),
+					BATgetId(b), BATcount(b));
+		}
 	}
+#endif
 	rh = rl + rend;
 	rl += rstart;
 	rseq += rstart;
 
 	if (BAThash(r, 0) == GDK_FAIL)
 		goto bailout;
+
 	ri = bat_iterator(r);
 	nrcand = (BUN) (rcandend - rcand);
 
@@ -2871,7 +2888,9 @@ BATsubjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_match
 	BUN lcount, rcount, lpcount, rpcount;
 	BUN lsize, rsize;
 	int lhash, rhash;
+#ifndef DISABLE_PARENT_HASH	
 	bat lparent, rparent;
+#endif	
 	int swap;
 	size_t mem_size;
 
@@ -2912,19 +2931,26 @@ BATsubjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_match
 	rsize = (BUN) (BATcount(r) * (Tsize(r) + (r->T->vheap ? r->T->vheap->size : 0) + 2 * sizeof(BUN)));
 	mem_size = GDK_mem_maxsize / (GDKnr_threads ? GDKnr_threads : 1);
 
+#ifndef DISABLE_PARENT_HASH	
 	lparent = VIEWtparent(l);
-	rparent = VIEWtparent(r);
 	if (lparent) {
 		lpcount = BATcount(BBPdescriptor(lparent));
 		lhash = BATcheckhash(l) || BATcheckhash(BBPdescriptor(-lparent));
-	} else {
+	} else 
+#endif		
+	{
 		lpcount = BATcount(l);
 		lhash = BATcheckhash(l);
 	}
+
+#ifndef DISABLE_PARENT_HASH	
+	rparent = VIEWtparent(r);
 	if (rparent) {
 		rpcount = BATcount(BBPdescriptor(rparent));
 		rhash = BATcheckhash(r) || BATcheckhash(BBPdescriptor(-rparent));
-	} else {
+	} else 
+#endif		
+	{
 		rpcount = BATcount(r);
 		rhash = BATcheckhash(r);
 	}
@@ -2963,21 +2989,33 @@ BATsubjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_match
 		 * large (i.e. prefer hash over binary search, but
 		 * only if the hash table doesn't cause thrashing) */
 		return mergejoin(r1, r2, l, r, sl, sr, nil_matches, 0, 0, 0);
-	} else if ((l->batPersistence == PERSISTENT ||
-		    (lparent != 0 &&
-		     BBPquickdesc(abs(lparent), 0)->batPersistence == PERSISTENT)) &&
-		   !(r->batPersistence == PERSISTENT ||
-		     (rparent != 0 &&
-		      BBPquickdesc(abs(rparent), 0)->batPersistence == PERSISTENT))) {
+	} else if ((l->batPersistence == PERSISTENT 
+#ifndef DISABLE_PARENT_HASH				
+			|| (lparent != 0 &&
+		     BBPquickdesc(abs(lparent), 0)->batPersistence == PERSISTENT)
+#endif			
+			) &&
+		   !(r->batPersistence == PERSISTENT 
+#ifndef DISABLE_PARENT_HASH			   
+			   || (rparent != 0 &&
+		      BBPquickdesc(abs(rparent), 0)->batPersistence == PERSISTENT)
+#endif			   
+			   )) {
 		/* l (or its parent) is persistent and r is not,
 		 * create hash on l since it may be reused */
 		swap = 1;
-	} else if (!(l->batPersistence == PERSISTENT ||
-		    (lparent != 0 &&
-		     BBPquickdesc(abs(lparent), 0)->batPersistence == PERSISTENT)) &&
-		   (r->batPersistence == PERSISTENT ||
-		     (rparent != 0 &&
-		      BBPquickdesc(abs(rparent), 0)->batPersistence == PERSISTENT))) {
+	} else if (!(l->batPersistence == PERSISTENT 
+#ifndef DISABLE_PARENT_HASH
+		|| (lparent != 0 &&
+		     BBPquickdesc(abs(lparent), 0)->batPersistence == PERSISTENT)
+#endif		
+		) &&
+		   (r->batPersistence == PERSISTENT 
+#ifndef DISABLE_PARENT_HASH		    
+		    || (rparent != 0 &&
+		      BBPquickdesc(abs(rparent), 0)->batPersistence == PERSISTENT)
+#endif		    
+		    )) {
 		/* l (and its parent) is not persistent but r (or its
 		 * parent) is, create hash on r since it may be
 		 * reused */
@@ -2986,6 +3024,7 @@ BATsubjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_match
 		/* no hashes, not sorted, create hash on smallest BAT */
 		swap = 1;
 	}
+
 	if (swap) {
 		return hashjoin(r2, r1, r, l, sr, sl, nil_matches, 0, 0, 0);
 	} else {
