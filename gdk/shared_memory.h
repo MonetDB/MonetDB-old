@@ -21,7 +21,7 @@
 
 #include <stddef.h>
 
-str init_mmap_memory(size_t base_id, size_t id_offset, size_t maxsize, void ***return_ptr, size_t **return_size);
+str init_mmap_memory(size_t base_id, size_t id_offset, size_t maxsize, void ***return_ptr, size_t **return_size, char **single_ptr);
 str release_mmap_memory(void *ptr, size_t size, size_t id);
 str snprintf_mmap_file(str file, size_t max, size_t id);
 size_t get_unique_id(size_t offset);

@@ -92,19 +92,13 @@ _connection_execute(Py_ConnectionObject *self, PyObject *args)
             size_t position = 0; 
             PyObject *result;
             int i;
-            void **mmap_ptrs = GDKzalloc(sizeof(void*));
-            if (mmap_ptrs == NULL) {
-                PyErr_Format(PyExc_Exception, MAL_MALLOC_FAIL" pointers.");
-                return NULL;
-            }
+            
             // get a pointer to the shared memory holding the return values
-            msg = init_mmap_memory(self->query_ptr->mmapid, 0, self->query_ptr->memsize, &mmap_ptrs, NULL);
+            msg = init_mmap_memory(self->query_ptr->mmapid, 0, self->query_ptr->memsize, NULL, NULL, &ptr);
             if (msg != MAL_SUCCEED) {
                 PyErr_Format(PyExc_Exception, "%s", msg);
                 return NULL;
             }
-            ptr = (char*)mmap_ptrs[0];
-            GDKfree(mmap_ptrs);
 
             result = PyDict_New();
             for(i = 0; i < self->query_ptr->nr_cols; i++)

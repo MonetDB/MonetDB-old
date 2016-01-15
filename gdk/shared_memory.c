@@ -43,7 +43,7 @@ str snprintf_mmap_file(str file, size_t max, size_t id) {
     return MAL_SUCCEED;
 }
 
-str init_mmap_memory(size_t base_id, size_t id_offset, size_t maxsize, void ***return_ptr, size_t **return_size) {
+str init_mmap_memory(size_t base_id, size_t id_offset, size_t maxsize, void ***return_ptr, size_t **return_size, char **single_ptr) {
     char address[100];
     void *ptr;
     int fd;
@@ -76,6 +76,7 @@ str init_mmap_memory(size_t base_id, size_t id_offset, size_t maxsize, void ***r
     GDKfree(path);
     if (return_ptr != NULL) (*return_ptr)[id_offset] = ptr;
     if (return_size != NULL) (*return_size)[id_offset] = size;
+    if (single_ptr != NULL) *single_ptr = ptr;
     return MAL_SUCCEED;
 }
 
