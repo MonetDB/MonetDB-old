@@ -4,7 +4,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 2008-2015 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 import os
 from distutils.core import setup
@@ -13,14 +13,14 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 setup(name='python-monetdb',
-    version='11.20.0',
+    version='11.22.0',
     description='Native MonetDB client Python API',
     long_description=read('README.rst'),
     author='MonetDB BV',
     author_email='info@monetdb.org',
     url='http://www.monetdb.org/',
     packages=['monetdb', 'monetdb.sql'],
-    download_url='<will be filled in before a release>/python2-monetdb-11.20.0.tar.gz',
+    download_url='<will be filled in before a release>/python2-monetdb-11.22.0.tar.gz',
     classifiers=[
         "Topic :: Database",
         "Topic :: Database :: Database Engines/Servers",

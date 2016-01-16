@@ -2,11 +2,11 @@
 -- License, v. 2.0.  If a copy of the MPL was not distributed with this
 -- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 --
--- Copyright 2008-2015 MonetDB B.V.
+-- Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 CREATE TYPE inet EXTERNAL NAME inet;
 
-CREATE FUNCTION "broadcast" (p inet) RETURNS inet 
+CREATE FUNCTION "broadcast" (p inet) RETURNS inet
 	EXTERNAL NAME inet."broadcast";
 CREATE FUNCTION "host" (p inet) RETURNS clob
 	EXTERNAL NAME inet."host";

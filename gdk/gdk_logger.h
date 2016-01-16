@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #ifndef _LOGGER_H_
@@ -11,6 +11,9 @@
 
 #define LOG_OK 0
 #define LOG_ERR (-1)
+
+#define LOGFILE "log"
+#define LOGFILE_SHARED "log_shared"
 
 typedef struct logaction {
 	int type;		/* type of change */
@@ -50,6 +53,10 @@ typedef struct logger {
 #endif
 	char *fn;
 	char *dir;
+	char *local_dir; /* the directory in which the non-shared log is written */
+	int shared; /* a flag to indicate if the logger is a shared on (usually read-only) */
+	int dbfarm_role; /* role for the dbram used for the logdir, PERSISTENT by default */
+	int local_dbfarm_role; /* role for the dbram used for the logdir, PERSISTENT by default */
 	preversionfix_fptr prefuncp;
 	postversionfix_fptr postfuncp;
 	stream *log;
@@ -69,7 +76,19 @@ typedef struct logger {
 				   These snapshot bats should be freed
 				   directly (on transaction
 				   commit). */
+	void *buf;
+	size_t bufsize;
 } logger;
+
+/* Holds logger settings
+ * if shared_logdir and shared_drift_threshold are set,
+ * as well as if readonly = 1, the instance is assumed to be in slave mode*/
+typedef struct logger_settings {
+	char *logdir;	/* (the regular) server write-ahead log directory */
+	char *shared_logdir;	/* shared write-ahead log directory */
+	int	shared_drift_threshold; /* shared write-ahead log drift threshold */
+	int keep_persisted_log_files; 	/* a flag if old WAL files should be preserved */
+} logger_settings;
 
 #define BATSIZE 0
 
@@ -92,13 +111,16 @@ typedef int log_bid;
 /* the sequence identifier for frontend objects */
 #define OBJ_SID	1
 
-gdk_export logger *logger_create(int debug, const char *fn, const char *logdir, int version, preversionfix_fptr prefuncp, postversionfix_fptr postfuncp);
+gdk_export logger *logger_create(int debug, const char *fn, const char *logdir, int version, preversionfix_fptr prefuncp, postversionfix_fptr postfuncp, int keep_persisted_log_files);
+gdk_export logger *logger_create_shared(int debug, const char *fn, const char *logdir, const char *slave_logdir, int version, preversionfix_fptr prefuncp, postversionfix_fptr postfuncp);
 gdk_export void logger_destroy(logger *lg);
 gdk_export int logger_exit(logger *lg);
 gdk_export int logger_restart(logger *lg);
-gdk_export int logger_cleanup(logger *lg);
+gdk_export int logger_cleanup(logger *lg, int keep_persisted_log_files);
 gdk_export lng logger_changes(logger *lg);
+gdk_export lng logger_read_last_transaction_id(logger *lg, char *dir, char *logger_file, int role);
 gdk_export int logger_sequence(logger *lg, int seq, lng *id);
+gdk_export int logger_reload(logger *lg);
 
 /* todo pass the transaction id */
 gdk_export int log_bat(logger *lg, BAT *b, const char *n);

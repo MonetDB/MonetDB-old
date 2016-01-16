@@ -2,7 +2,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 2008-2015 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 """
 This is the python2 implementation of the mapi protocol.
@@ -73,7 +73,7 @@ class Connection(object):
             hostname = None
         if not unix_socket and os.path.exists("/tmp/.s.monetdb.%i" % port):
             unix_socket = "/tmp/.s.monetdb.%i" % port
-        elif not hostname:
+        elif not unix_socket and not hostname:
             hostname = 'localhost'
 
         self.hostname = hostname

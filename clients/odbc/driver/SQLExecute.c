@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -443,8 +443,7 @@ MNDBExecute(ODBCStmt *stmt)
 		addStmtError(stmt, "HY001", NULL, 0);
 		return SQL_ERROR;
 	}
-	snprintf(query, querylen, "execute %d (", stmt->queryid);
-	querypos = strlen(query);
+	querypos = snprintf(query, querylen, "execute %d (", stmt->queryid);
 	/* XXX fill in parameter values */
 	if (desc->sql_desc_bind_offset_ptr)
 		offset = *desc->sql_desc_bind_offset_ptr;

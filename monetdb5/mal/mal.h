@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -79,10 +79,12 @@ mal_export MT_Lock  mal_remoteLock;
 mal_export MT_Lock  mal_profileLock ;
 mal_export MT_Lock  mal_copyLock ;
 mal_export MT_Lock  mal_delayLock ;
+mal_export MT_Lock  mal_beatLock ;
 
 
 mal_export int mal_init(void);
 mal_export void mal_exit(void);
+mal_export void mserver_reset(void);
 
 /* This should be here, but cannot, as "Client" isn't known, yet ... |-(
  * For now, we move the prototype declaration to src/mal/mal_client.c,
@@ -98,16 +100,13 @@ mal_export void mal_exit(void);
 #define LIST_MAL_VALUE  8		/* list bat tuple count */
 #define LIST_MAL_PROPS 16       /* show variable properties */
 #define LIST_MAL_MAPI  32       /* output Mapi compatible output */
+#define LIST_MAL_REMOTE  64       /* output MAL for remote execution */
 #define LIST_MAL_CALL  (LIST_MAL_NAME | LIST_MAL_VALUE )
 #define LIST_MAL_DEBUG (LIST_MAL_NAME | LIST_MAL_VALUE | LIST_MAL_TYPE | LIST_MAL_PROPS)
 #define LIST_MAL_ALL   (LIST_MAL_NAME | LIST_MAL_VALUE | LIST_MAL_TYPE | LIST_MAL_PROPS | LIST_MAL_MAPI)
 
 #ifndef WORDS_BIGENDIAN
 #define STRUCT_ALIGNED
-#endif
-
-#ifndef MAXPATHLEN
-#define MAXPATHLEN 1024
 #endif
 
 /* The MAL instruction block type definitions */
@@ -119,7 +118,8 @@ mal_export void mal_exit(void);
 #define VAR_CLEANUP	16
 #define VAR_INIT	32
 #define VAR_USED	64
-#define VAR_DISABLED	128		/* used for comments and scheduler */
+#define VAR_CLIST 	128	/* Candidate list variable */
+#define VAR_DISABLED	256		/* used for comments and scheduler */
 
 /* type check status is kept around to improve type checking efficiency */
 #define TYPE_ERROR      -1
@@ -134,12 +134,6 @@ mal_export void mal_exit(void);
 
 typedef int malType;
 typedef str (*MALfcn) ();
-
-typedef struct MalProp {
-	bte idx;
-	bte op;
-	int var;
-} *MalPropPtr, MalProp;
 
 typedef struct SYMDEF {
 	struct SYMDEF *peer;		/* where to look next */
@@ -157,8 +151,8 @@ typedef struct VARRECORD {
 	ValRecord value;
 	int eolife;					/* pc index when it should be garbage collected */
 	int worker;					/* tread id of last worker producing it */
-	int propc, maxprop;			/* proc count and max number of properties */
-	int prps[FLEXIBLE_ARRAY_MEMBER]; /* property array */
+	str stc;					/* rendering schema.table.column */
+	BUN rowcnt;					/* estimated row count*/
 } *VarPtr, VarRecord;
 
 /* For performance analysis we keep track of the number of calls and
@@ -179,6 +173,7 @@ typedef struct {
 	int pc;						/* location in MAL plan for profiler*/
 	MALfcn fcn;					/* resolved function address */
 	struct MALBLK *blk;			/* resolved MAL function address */
+	int mitosis;				/* old mtProp value */
 	/* inline statistics */
 	struct timeval clock;		/* when the last call was started */
 	lng ticks;					/* total micro seconds spent in last call */
@@ -206,7 +201,9 @@ typedef struct MALBLK {
 	InstrPtr *stmt;				/* Instruction location */
 	int ptop;					/* next free slot */
 	int psize;					/* byte size of arena */
-	MalProp *prps;				/* property table */
+	int inlineProp;				/* inline property */
+	int unsafeProp;				/* unsafe property */
+
 	int errors;					/* left over errors */
 	int typefixed;				/* no undetermined instruction */
 	int flowfixed;				/* all flow instructions are fixed */
@@ -218,7 +215,6 @@ typedef struct MALBLK {
 	ptr replica;				/* for the replicator tests */
 	sht recycle;				/* execution subject to recycler control */
 	lng recid;					/* Recycler identifier */
-	lng legid;					/* Octopus control */
 	sht trap;					/* call debugger when called */
 	lng starttime;				/* track when the query started, for resource management */
 	lng runtime;				/* average execution time of block in ticks */

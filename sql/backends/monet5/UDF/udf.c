@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /* monetdb_config.h must be the first include in each .c file */
@@ -86,8 +86,8 @@ UDFBATreverse_(BAT **ret, BAT *src)
 		      "tail-type of input BAT must be TYPE_str");
 	}
 
-	/* allocate result BAT */
-	bn = BATnew(src->htype, TYPE_str, BATcount(src), TRANSIENT);
+	/* allocate void-headed result BAT */
+	bn = BATnew(TYPE_void, TYPE_str, BATcount(src), TRANSIENT);
 	if (bn == NULL) {
 		throw(MAL, "batudf.reverse", MAL_MALLOC_FAIL);
 	}
@@ -100,8 +100,6 @@ UDFBATreverse_(BAT **ret, BAT *src)
 	BATloop(src, p, q) {
 		char *tr = NULL, *err = NULL;
 
-		/* get original head & tail value */
-		ptr h = BUNhead(li, p);
 		const char *t = (const char *) BUNtail(li, p);
 
 		/* revert tail value */
@@ -115,9 +113,8 @@ UDFBATreverse_(BAT **ret, BAT *src)
 		/* assert logical sanity */
 		assert(tr != NULL);
 
-		/* insert original head and reversed tail in result BAT */
-		/* BUNins() takes care of all necessary administration */
-		BUNins(bn, h, tr, FALSE);
+		/* append reversed tail in result BAT */
+		BUNappend(bn, tr, FALSE);
 
 		/* free memory allocated in UDFreverse_() */
 		GDKfree(tr);

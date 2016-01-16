@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -93,7 +93,7 @@ strip_extra_zeros(char *s)
 	return res;
 }
 
-char *
+const char *
 sql2str(char *s)
 {
 	int escaped = 0;
@@ -113,6 +113,19 @@ sql2str(char *s)
 				*p++ = '\n';
 			} else if (*cur == 't') {
 				*p++ = '\t';
+			} else if (*cur == 'r') {
+				*p++ = '\r';
+			} else if (*cur == 'f') {
+				*p++ = '\f';
+			} else if (*cur == 'b') {
+				*p++ = '\b';
+			} else if (*cur == '/') {
+				*p++ = '/';
+			} else if (*cur == '"') {
+				*p++ = '\\';
+				*p++ = '"';
+			} else if (*cur == '\\') {
+				*p++ = '\\';
 			} else if ((cur[0] >= '0' && cur[0] <= '7') && (cur[1] >= '0' && cur[1] <= '7') && (cur[2] >= '0' && cur[2] <= '7')) {
 				*p++ = (cur[2] & 7) | ((cur[1] & 7) << 3) | ((cur[0] & 7) << 6);
 				cur += 2;
@@ -162,8 +175,8 @@ sql_escape_str(char *s)
 	return res;
 }
 
-char *
-sql_escape_ident(char *s)
+const char *
+sql_escape_ident(const char *s)
 {
 	size_t l = strlen(s);
 	char *res, *r = NEW_ARRAY(char, (l * 2) + 1);

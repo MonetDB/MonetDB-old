@@ -90,7 +90,7 @@ Ready.
 [ "",	4567890123456789,	123,	4567890123456666 ]
 [ "",	4567890123456789,	4567890123456789,	0 ]
 [ "",	4567890123456789,	-4567890123456789,	9135780246913578 ]
-#SELECT '' AS three, q1, q2, q1 * q2 AS multiply FROM INT8_TBL;
+#SELECT '' AS three, q1, q2, q1 * q2 AS multiply FROM INT8_TBL ORDER BY q1, q2;
 % .L,	sys.int8_tbl,	sys.int8_tbl,	sys.L # table_name
 % three,	q1,	q2,	multiply # name
 % char,	bigint,	bigint,	bigint # type
@@ -129,7 +129,7 @@ Ready.
 [ "",	4567890123456789,	4.567890123e+15	]
 [ "",	-4567890123456789,	-4.567890123e+15	]
 #SELECT '' AS five, 2 * q1 AS "twice integer" FROM INT8_TBL;
-% .L,	.L # table_name
+% .L,	sys.L # table_name
 % five,	"twice integer" # name
 % char,	bigint # type
 % 0,	16 # length

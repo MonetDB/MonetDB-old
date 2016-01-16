@@ -3,7 +3,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 2008-2015 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 ?>
 
 <?php
@@ -17,7 +17,7 @@ require '../lib/php_monetdb.php';
 define("DB", "php_demo");
 
 /* Establish a connection and report errors in case they occour */
-$db = monetdb_connect($host = "127.0.0.1", $port = "50000", $database = DB , $username = "monetdb", $password = "monetdb" ) or trigger_error(monetdb_last_error());
+$db = monetdb_connect($lang = "sql", $host = "127.0.0.1", $port = "50000", $database = DB , $username = "monetdb", $password = "monetdb" ) or trigger_error(monetdb_last_error());
 
 /* Fire a query */
 

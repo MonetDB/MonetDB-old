@@ -1,4 +1,4 @@
-HAVE_NETCDF&HAVE_FITS&HAVE_GEOM&HAVE_GSL&HAVE_SAMTOOLS?systemfunctions
+HAVE_FITS&HAVE_GEOM&HAVE_GSL&!HAVE_LIDAR&HAVE_NETCDF&HAVE_SAMTOOLS?systemfunctions
 example
 example-queries
 example-drop
@@ -94,6 +94,10 @@ copy_into
 antiselect
 median_stdev
 
-HAVE_GEOM?trace
+#HAVE_GEOM?trace
 
 HAVE_JDBCCLIENT_JAR?bogus-auto-generated-keys
+
+str-pad
+str-trim
+alastair_udf_mergetable_bug

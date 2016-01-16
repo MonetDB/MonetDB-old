@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -83,18 +83,21 @@ compare2range( int l, int r )
 
 
 sql_rel *
-rel_parse(mvc *m, char *query, char emode)
+rel_parse(mvc *m, sql_schema *s, char *query, char emode)
 {
 	mvc o = *m;
 	sql_rel *rel;
 	buffer *b;
 	char *n;
 	int len = _strlen(query);
+	sql_schema *c = cur_schema(m);
 
 	m->qc = NULL;
 
 	m->caching = 0;
 	m->emode = emode;
+	if (s)
+		m->session->schema = s;
 
 	b = (buffer*)GDKmalloc(sizeof(buffer));
 	n = GDKmalloc(len + 1 + 1);
@@ -139,6 +142,7 @@ rel_parse(mvc *m, char *query, char emode)
 		*m = o;
 		m->label = label;
 	}
+	m->session->schema = c;
 	return rel;
 }
 
@@ -184,6 +188,7 @@ rel_semantic(mvc *sql, symbol *s)
 	case SQL_RENAME_USER:
 
 	case SQL_CREATE_TYPE:
+	case SQL_DROP_TYPE:
 		return rel_schemas(sql, s);
 
 	case SQL_CREATE_SEQ:

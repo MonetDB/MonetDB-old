@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #ifndef _SQL_ATOM_H_
@@ -29,8 +29,8 @@ extern atom *atom_int( sql_allocator *sa, sql_subtype *tpe, hge val);
 extern atom *atom_int( sql_allocator *sa, sql_subtype *tpe, lng val);
 #endif
 extern atom *atom_float( sql_allocator *sa, sql_subtype *tpe, double val);
-extern atom *atom_string( sql_allocator *sa, sql_subtype *tpe, char *val);
-extern atom *atom_general( sql_allocator *sa, sql_subtype *tpe, char *val);
+extern atom *atom_string( sql_allocator *sa, sql_subtype *tpe, const char *val);
+extern atom *atom_general( sql_allocator *sa, sql_subtype *tpe, const char *val);
 #ifdef HAVE_HGE
 extern atom *atom_dec( sql_allocator *sa, sql_subtype *tpe, hge val, double dval);
 #else
@@ -60,6 +60,9 @@ extern lng atom_get_int(atom *a);
 #endif
 
 extern int atom_cmp(atom *a1, atom *a2);
+
+extern atom *atom_add(atom *a1, atom *a2);
+extern atom *atom_sub(atom *a1, atom *a2);
 
 #ifdef HAVE_HGE
 extern hge scales[39];

@@ -2,23 +2,38 @@
 -- License, v. 2.0.  If a copy of the MPL was not distributed with this
 -- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 --
--- Copyright 2008-2015 MonetDB B.V.
+-- Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 -- Author M.Kersten
 -- This script gives the database administrator insight in the actual
 -- footprint of the persistent tables and the maximum playground used
 -- when indices are introduced upon them.
--- By chancing the storagemodelinput table directly, the footprint for
+-- By changing the storagemodelinput table directly, the footprint for
 -- yet to be loaded databases can be assessed.
 
 -- The actual storage footprint of an existing database can be
--- obtained by the table procuding function storage()
+-- obtained by the table producing function storage()
 -- It represents the actual state of affairs, i.e. storage on disk
 -- of columns and foreign key indices, and possible temporary hash indices.
 -- For strings we take a sample to determine their average length.
 
 create function sys."storage"()
-returns table ("schema" string, "table" string, "column" string, "type" string, "mode" string, location string, "count" bigint, typewidth int, columnsize bigint, heapsize bigint, hashes bigint, phash boolean, imprints bigint, sorted boolean)
+returns table (
+	"schema" string,
+	"table" string,
+	"column" string,
+	"type" string,
+	"mode" string,
+	location string,
+	"count" bigint,
+	typewidth int,
+	columnsize bigint,
+	heapsize bigint,
+	hashes bigint,
+	phash boolean,
+	imprints bigint,
+	sorted boolean
+)
 external name sql."storage";
 
 create view sys."storage" as select * from sys."storage"();
@@ -32,11 +47,11 @@ create table sys.storagemodelinput(
 	"column" string,
 	"type" string,
 	"typewidth" int,
-	"count"	bigint,		-- estimated number of tuples
+	"count" bigint,		-- estimated number of tuples
 	"distinct" bigint,	-- indication of distinct number of strings
-	"atomwidth" int,		-- average width of strings or clob
-	"reference" boolean,-- used as foreign key reference
-	"sorted" boolean 	-- if set there is no need for an index
+	"atomwidth" int,	-- average width of strings or clob
+	"reference" boolean,	-- used as foreign key reference
+	"sorted" boolean	-- if set there is no need for an index
 );
 -- this table can be adjusted to reflect the anticipated final database size
 
@@ -78,9 +93,9 @@ begin
 	when nme = 'boolean' then return i;
 	when nme = 'char' then return 2*i;
 	when nme = 'smallint' then return 2 * i;
-	when nme = 'int'	 then return 4 * i;
-	when nme = 'bigint'	 then return 8 * i;
-	when nme = 'hugeint'	 then return 16 * i;
+	when nme = 'int' then return 4 * i;
+	when nme = 'bigint' then return 8 * i;
+	when nme = 'hugeint' then return 16 * i;
 	when nme = 'timestamp' then return 8 * i;
 	when  nme = 'varchar' then
 		case
@@ -120,10 +135,10 @@ begin
 	if nme = 'boolean'
 		or nme = 'tinyint'
 		or nme = 'smallint'
-		or nme = 'int'	
-		or nme = 'bigint'	
-		or nme = 'hugeint'	
-		or nme = 'decimal'	
+		or nme = 'int'
+		or nme = 'bigint'
+		or nme = 'hugeint'
+		or nme = 'decimal'
 		or nme = 'date'
 		or nme = 'timestamp'
 		or nme = 'real'
@@ -140,7 +155,7 @@ returns table (
 	"table" string,
 	"column" string,
 	"type" string,
-	"count"	bigint,
+	"count" bigint,
 	columnsize bigint,
 	heapsize bigint,
 	hashes bigint,

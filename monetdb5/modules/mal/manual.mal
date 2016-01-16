@@ -2,7 +2,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 2008-2015 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 module manual;
 
@@ -13,15 +13,6 @@ comment "Produces a list of all <module>.<function> that match
 and <function>. Using the '(' asks for signature information and
 using ')' asks for the complete help record.";
 
-pattern search(text:str)
-address MANUALsearch
-comment "Search the manual for command descriptions that match the
-regular expression 'text'";
-
-pattern summary():void
-address MANUALcreateSummary
-comment "Produces a manual summary with help lines grouped by module.";
-
-pattern completion(pat:str):void
-address MANUALcompletion
-comment "Produces the wordcompletion table.";
+pattern functions() (sig:bat[:str], adr:bat[:str], com:bat[:str])
+address MANUALcreateOverview
+comment "Produces a table with all MAL functions known";

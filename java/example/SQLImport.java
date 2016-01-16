@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 import java.sql.*;
@@ -24,7 +24,7 @@ import java.io.*;
  * JDBC driver and Mserver is reported. The log file is put in the current
  * working directory and names like monet_[unix timestamp].log
  *
- * @author Fabian Groffen <Fabian.Groffen@cwi.nl>
+ * @author Fabian Groffen
  */
 
 public class SQLImport {

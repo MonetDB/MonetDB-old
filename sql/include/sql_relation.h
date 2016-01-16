@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #ifndef SQL_RELATION_H
@@ -30,8 +30,8 @@ typedef enum expression_type {
 
 typedef struct expression {
 	expression_type  type;	/* atom, cmp, func/aggr */
-	char *name;
-	char *rname;
+	const char *name;
+	const char *rname;
 	void *l;
 	void *r;
 	void *f; 	/* func's and aggr's */
@@ -58,7 +58,6 @@ typedef struct expression {
 #define APPLY_LOJ 	16
 #define APPLY_EXISTS	32
 #define APPLY_NOTEXISTS	64
-
 
 /* ASCENDING > 15 else we have problems with cmp types */
 #define ASCENDING	16
@@ -110,12 +109,18 @@ typedef struct expression {
 #define DDL_REVOKE_ROLES 52
 #define DDL_GRANT 	53
 #define DDL_REVOKE 	54
-#define DDL_CREATE_USER 55
-#define DDL_DROP_USER 	56
-#define DDL_ALTER_USER 	57
-#define DDL_RENAME_USER 58
-#define DDL_CREATE_ROLE 59
-#define DDL_DROP_ROLE 	60
+#define DDL_GRANT_FUNC 	55
+#define DDL_REVOKE_FUNC 56
+#define DDL_CREATE_USER 57
+#define DDL_DROP_USER 	58
+#define DDL_ALTER_USER 	59
+#define DDL_RENAME_USER 60
+#define DDL_CREATE_ROLE 61
+#define DDL_DROP_ROLE 	62
+
+#define DDL_ALTER_TABLE_ADD_TABLE  63
+#define DDL_ALTER_TABLE_DEL_TABLE  64
+#define DDL_ALTER_TABLE_SET_ACCESS  65
 
 #define MAXOPS 21
 
@@ -146,6 +151,9 @@ typedef enum operator_type {
 
 #define is_atom(et) \
 	(et == e_atom)
+/* a simple atom is a literal or on the query stack */
+#define is_simple_atom(e) \
+	(is_atom(e->flag) && !e->r && !e->f)
 #define is_func(et) \
 	(et == e_func)
 #define is_map_op(et) \
@@ -174,6 +182,8 @@ typedef enum operator_type {
 	(op == op_join || is_outerjoin(op))
 #define is_semi(op) \
 	(op == op_semi || op == op_anti)
+#define is_joinop(op) \
+	(is_join(op) || is_semi(op))
 #define is_apply(op) \
 	(op == op_apply)
 #define is_select(op) \

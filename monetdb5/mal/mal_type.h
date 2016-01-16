@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #ifndef MAL_TYPE_H
@@ -15,18 +15,14 @@
 #define malVARG " malVARG"
 #define TMPMARKER '_'
 #define REFMARKER 'X'
+#define REFMARKERC 'C'
+#define refMarker(M,I)  (isVarCList(M,I)? 'C':'X')
 
-#define newBatType(H,T)  (1<<16 | (((H & 0377) <<8) | (T & 0377) ))
-#define getHeadType(X)  ((X>>8) & 0377 )
-//#define getTailType(X)  ((X) & 0377 )
+#define newBatType(H,T)  (1<<16 | (((TYPE_oid & 0377) <<8) | (T & 0377) ))
 #define isaBatType(X)   ((1<<16) & (X) && (X)!= TYPE_any)
 #define setAnyHeadIndex(X,I) X |= ((I & 017)<<22);
-//#define setAnyTailIndex(X,I) X |= ((I & 017)<<18);
 #define isAnyExpression(X) ((X) >> 17)
 #define isPolymorphic(X) (((X) >> 17) || (X)== TYPE_any)
-
-#define getHeadIndex(X)  (((X)>>22) & 017)
-//#define getTailIndex(X)  (((X)>>18) & 017)
 
 /* introduce gradually the column type macros, sharing the
  * representation with BAT type
@@ -37,7 +33,7 @@
 #define setAnyColumnIndex(X,I) X |= ((I & 017)<<18);
 #define getColumnIndex(X)  (((X)>>18) & 017)
 
-#define isPolyType(X) (isAnyExpression(X) && (getHeadIndex(X)>0 ||getColumnIndex(X)>0))
+#define isPolyType(X) (isAnyExpression(X) && getColumnIndex(X)>0)
 /*
  * The symbol/instruction kinds are introduced here instead of reusing the defines
  * derived from the parser to avoid a loop in the define-structure.
@@ -76,11 +72,8 @@ mal_export int getTypeIndex(str nme, int len, int deftpe);
 mal_export malType reverseBatType(malType v);
 mal_export malType malAnyBatType(malType t1, malType t2);
 #define idcmp(n, m)	strcmp(n, m)
-mal_export str newTmpName(char tag, int i);
 mal_export int isTmpName(const char *n);
-mal_export int isTypeName(str n);
 mal_export int isIdentifier(str s);
 mal_export int findGDKtype(int type);	/* used in src/mal/mal_interpreter.c */
-mal_export int isAmbiguousType(int type);
 
 #endif /* MAL_TYPE_H */

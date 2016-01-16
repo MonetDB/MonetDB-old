@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -42,7 +42,7 @@ dup_subaggr(sql_allocator *sa, sql_subaggr *f)
 int
 stmt_key(stmt *s)
 {
-	char *nme = column_name(NULL, s);
+	const char *nme = column_name(NULL, s);
 
 	return hash_key(nme);
 }
@@ -67,9 +67,7 @@ st_type2string(st_type type)
 
 		ST(const);
 
-		ST(mark);
 		ST(gen_group);
-		ST(reverse);
 		ST(mirror);
 		ST(result);
 
@@ -129,9 +127,9 @@ st_type2string(st_type type)
 
 /* #TODO make proper traversal operations */
 stmt *
-stmt_atom_string(sql_allocator *sa, char *S)
+stmt_atom_string(sql_allocator *sa, const char *S)
 {
-	char *s = sql2str(S);
+	const char *s = sql2str(sa_strdup(sa, S));
 	sql_subtype t;
 
 	sql_find_subtype(&t, "varchar", _strlen(s), 0);
@@ -191,15 +189,6 @@ stmt_bool(sql_allocator *sa, int b)
 	} else {
 		return stmt_atom(sa, atom_bool(sa, &t, FALSE));
 	}
-}
-
-static stmt *
-stmt_atom_oid(sql_allocator *sa, oid i)
-{
-	sql_subtype t;
-
-	sql_find_subtype(&t, "oid", 0, 0);
-	return stmt_atom(sa, atom_int(sa, &t, i));
 }
 
 static stmt *
@@ -321,9 +310,7 @@ stmt_deps(list *dep_list, stmt *s, int depend_type, int dir)
 			case st_export:
 			case st_convert:
 			case st_const:
-			case st_mark:
 			case st_gen_group:
-			case st_reverse:
 			case st_mirror:
 			case st_result:
 			case st_limit:
@@ -385,7 +372,7 @@ stmt_deps(list *dep_list, stmt *s, int depend_type, int dir)
 					push(s->op2);
 				if (s->op3)
 					push(s->op3);
-				if (depend_type == FUNC_DEPENDENCY) {
+				if (depend_type == FUNC_DEPENDENCY && s->type == st_Nop) {
 					dep_list = cond_append(dep_list, &s->op4.funcval->func->base.id);
 				}
 				break;
@@ -429,7 +416,7 @@ stmt_none(sql_allocator *sa)
 }
 
 stmt *
-stmt_var(sql_allocator *sa, char *varname, sql_subtype *t, int declare, int level)
+stmt_var(sql_allocator *sa, const char *varname, sql_subtype *t, int declare, int level)
 {
 	stmt *s = stmt_create(sa, st_var);
 
@@ -444,7 +431,7 @@ stmt_var(sql_allocator *sa, char *varname, sql_subtype *t, int declare, int leve
 }
 
 stmt *
-stmt_vars(sql_allocator *sa, char *varname, sql_table *t, int declare, int level)
+stmt_vars(sql_allocator *sa, const char *varname, sql_table *t, int declare, int level)
 {
 	stmt *s = stmt_create(sa, st_var);
 
@@ -596,15 +583,17 @@ stmt_const_(sql_allocator *sa, stmt *s, stmt *val)
 static stmt *
 push_project(sql_allocator *sa, stmt *rows, stmt *val)
 {
+	node *n;
+	stmt *l;
+
 	switch (val->type) {
 	case st_convert:
 		val->op1 = push_project(sa, rows, val->op1);
 		break;
-	case st_func:
 	case st_Nop:
 		if (val->op4.funcval->func->side_effect) {
-			stmt *l = val->op1;
-			node *n = l->op4.lval->h;
+			l = val->op1;
+			n = l->op4.lval->h;
 			if (n) {
 				n->data = stmt_const_(sa, rows, n->data);
 			} else {	
@@ -612,12 +601,16 @@ push_project(sql_allocator *sa, stmt *rows, stmt *val)
 			}
 		} else {
 			/* push through arguments of Nop */
-			node *n;
-			stmt *l = val->op1;
-
+			l = val->op1;
 			for (n = l->op4.lval->h; n; n = n->next)
 				n->data = push_project(sa, rows, n->data);
 		}
+		break;
+	case st_func:
+		/* push through arguments of func */
+		l = val->op1;
+		for (n = l->op4.lval->h; n; n = n->next)
+			n->data = push_project(sa, rows, n->data);
 		break;
 	default:
 		if (!val->nrcols)
@@ -628,7 +621,7 @@ push_project(sql_allocator *sa, stmt *rows, stmt *val)
 	return val;
 }
 
-static int
+int
 has_side_effect(stmt *val)
 {
 	int se = 0;
@@ -664,20 +657,6 @@ stmt_const(sql_allocator *sa, stmt *rows, stmt *val)
 }
 
 stmt *
-stmt_mark_tail(sql_allocator *sa, stmt *s, oid id)
-{
-	stmt *ns = stmt_create(sa, st_mark);
-
-	ns->op1 = s;
-	ns->op2 = stmt_atom_oid(sa, id);
-
-	ns->nrcols = s->nrcols;
-	ns->key = s->key;
-	ns->aggr = s->aggr;
-	return ns;
-}
-
-stmt *
 stmt_gen_group(sql_allocator *sa, stmt *gids, stmt *cnts)
 {
 	stmt *ns = stmt_create(sa, st_gen_group);
@@ -688,18 +667,6 @@ stmt_gen_group(sql_allocator *sa, stmt *gids, stmt *cnts)
 	ns->nrcols = gids->nrcols;
 	ns->key = 0;
 	ns->aggr = 0;
-	return ns;
-}
-
-stmt *
-stmt_reverse(sql_allocator *sa, stmt *s)
-{
-	stmt *ns = stmt_create(sa, st_reverse);
-
-	ns->op1 = s;
-	ns->nrcols = s->nrcols;
-	ns->key = s->key;
-	ns->aggr = s->aggr;
 	return ns;
 }
 
@@ -935,9 +902,11 @@ stmt_project_delta(sql_allocator *sa, stmt *col, stmt *upd, stmt *ins)
 }
 
 stmt *
-stmt_reorder_project(sql_allocator *sa, stmt *op1, stmt *op2)
+stmt_left_project(sql_allocator *sa, stmt *op1, stmt *op2, stmt *op3)
 {
-	return stmt_join(sa, op1, op2, cmp_reorder_project);
+	stmt *s = stmt_join(sa, op1, op2, cmp_left_project);
+	s->op3 = op3;
+	return s;
 }
 
 stmt *
@@ -983,17 +952,17 @@ stmt_rs_column(sql_allocator *sa, stmt *rs, int i, sql_subtype *tpe)
 }
 
 stmt *
-stmt_export(sql_allocator *sa, stmt *t, char *sep, char *rsep, char *ssep, char *null_string, stmt *file)
+stmt_export(sql_allocator *sa, stmt *t, const char *sep, const char *rsep, const char *ssep, const char *null_string, stmt *file)
 {
 	stmt *s = stmt_create(sa, st_export);
 
 	s->op1 = t;
 	s->op2 = file;
 	s->op4.lval = sa_list(sa);
-	list_append(s->op4.lval, sep);
-	list_append(s->op4.lval, rsep);
-	list_append(s->op4.lval, ssep);
-	list_append(s->op4.lval, null_string);
+	list_append(s->op4.lval, (char*)sep);
+	list_append(s->op4.lval, (char*)rsep);
+	list_append(s->op4.lval, (char*)ssep);
+	list_append(s->op4.lval, (char*)null_string);
 	return s;
 }
 
@@ -1169,7 +1138,7 @@ stmt_Nop(sql_allocator *sa, stmt *ops, sql_subfunc *op)
 }
 
 stmt *
-stmt_func(sql_allocator *sa, stmt *ops, char *name, sql_rel *rel)
+stmt_func(sql_allocator *sa, stmt *ops, const char *name, sql_rel *rel)
 {
 	node *n;
 	stmt *o = NULL, *s = stmt_create(sa, st_func);
@@ -1219,7 +1188,7 @@ stmt_aggr(sql_allocator *sa, stmt *op1, stmt *grp, stmt *ext, sql_subaggr *op, i
 }
 
 stmt *
-stmt_alias(sql_allocator *sa, stmt *op1, char *tname, char *alias)
+stmt_alias(sql_allocator *sa, stmt *op1, const char *tname, const char *alias)
 {
 	stmt *s = stmt_create(sa, st_alias);
 
@@ -1269,16 +1238,14 @@ tail_type(stmt *st)
 	case st_join:
 	case st_join2:
 	case st_joinN:
-		if (st->flag == cmp_project || st->flag == cmp_reorder_project)
+		if (st->flag == cmp_project)
 			return tail_type(st->op2);
 		/* fall through */
-	case st_mark:
 	case st_reorder:
 	case st_group:
 	case st_result:
 	case st_tid:
 	case st_mirror:
-	case st_reverse:
 		return sql_bind_localtype("oid");
 	case st_table_clear:
 		return sql_bind_localtype("lng");
@@ -1330,9 +1297,6 @@ stmt_has_null(stmt *s)
 	case st_uselect2:
 	case st_atom:
 		return 0;
-	case st_reverse:
-	case st_mark:
-		return stmt_has_null(s->op1);
 	case st_join:
 		return stmt_has_null(s->op2);
 	case st_bat:
@@ -1343,8 +1307,8 @@ stmt_has_null(stmt *s)
 	}
 }
 
-static char *
-func_name(sql_allocator *sa, char *n1, char *n2)
+static const char *
+func_name(sql_allocator *sa, const char *n1, const char *n2)
 {
 	int l1 = _strlen(n1), l2;
 
@@ -1373,9 +1337,9 @@ func_name(sql_allocator *sa, char *n1, char *n2)
 	}
 }
 
-char *_column_name(sql_allocator *sa, stmt *st);
+const char *_column_name(sql_allocator *sa, stmt *st);
 
-char *
+const char *
 column_name(sql_allocator *sa, stmt *st)
 {
 	if (!st->cname)
@@ -1383,11 +1347,10 @@ column_name(sql_allocator *sa, stmt *st)
 	return st->cname;
 }
 
-char *
+const char *
 _column_name(sql_allocator *sa, stmt *st)
 {
 	switch (st->type) {
-	case st_reverse:
 	case st_order:
 	case st_reorder:
 		return column_name(sa, st->op1);
@@ -1401,7 +1364,6 @@ _column_name(sql_allocator *sa, stmt *st)
 	case st_group:
 	case st_result:
 	case st_append:
-	case st_mark:
 	case st_gen_group:
 	case st_uselect:
 	case st_uselect2:
@@ -1415,12 +1377,12 @@ _column_name(sql_allocator *sa, stmt *st)
 		return column_name(sa, st->op1);
 	case st_Nop:
 	{
-		char *cn = column_name(sa, st->op1);
+		const char *cn = column_name(sa, st->op1);
 		return func_name(sa, st->op4.funcval->func->base.name, cn);
 	}
 	case st_aggr:
 	{
-		char *cn = column_name(sa, st->op1);
+		const char *cn = column_name(sa, st->op1);
 		return func_name(sa, st->op4.aggrval->aggr->base.name, cn);
 	}
 	case st_alias:
@@ -1450,9 +1412,9 @@ _column_name(sql_allocator *sa, stmt *st)
 	}
 }
 
-char *_table_name(sql_allocator *sa, stmt *st);
+const char *_table_name(sql_allocator *sa, stmt *st);
 
-char *
+const char *
 table_name(sql_allocator *sa, stmt *st)
 {
 	if (!st->tname)
@@ -1460,12 +1422,10 @@ table_name(sql_allocator *sa, stmt *st)
 	return st->tname;
 }
 
-char *
+const char *
 _table_name(sql_allocator *sa, stmt *st)
 {
 	switch (st->type) {
-	case st_reverse:
-		return table_name(sa, st->op1);
 	case st_const:
 	case st_join:
 	case st_join2:
@@ -1475,7 +1435,6 @@ _table_name(sql_allocator *sa, stmt *st)
 	case st_mirror:
 	case st_group:
 	case st_result:
-	case st_mark:
 	case st_gen_group:
 	case st_uselect:
 	case st_uselect2:
@@ -1518,12 +1477,10 @@ _table_name(sql_allocator *sa, stmt *st)
 	}
 }
 
-char *
+const char *
 schema_name(sql_allocator *sa, stmt *st)
 {
 	switch (st->type) {
-	case st_reverse:
-		return schema_name(sa, st->op1);
 	case st_const:
 	case st_join:
 	case st_join2:
@@ -1533,7 +1490,6 @@ schema_name(sql_allocator *sa, stmt *st)
 	case st_group:
 	case st_result:
 	case st_append:
-	case st_mark:
 	case st_gen_group:
 	case st_uselect:
 	case st_uselect2:
@@ -1639,7 +1595,7 @@ stmt_return(sql_allocator *sa, stmt *val, int nr_declared_tables)
 }
 
 stmt *
-stmt_assign(sql_allocator *sa, char *varname, stmt *val, int level)
+stmt_assign(sql_allocator *sa, const char *varname, stmt *val, int level)
 {
 	stmt *s = stmt_create(sa, st_assign);
 

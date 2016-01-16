@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -41,11 +41,11 @@ typedef struct NAME{
 	struct NAME *next;
 } *NamePtr;
 
-static NamePtr *hash, *ehash;
+static NamePtr *hash= NULL, *ehash = NULL;
 
 void initNamespace(void) {
-	hash= (NamePtr *) GDKzalloc(sizeof(NamePtr) * MAXIDENTIFIERS);
-	ehash= (NamePtr *) GDKzalloc(sizeof(NamePtr) * MAXIDENTIFIERS);
+	if(hash == NULL) hash= (NamePtr *) GDKzalloc(sizeof(NamePtr) * MAXIDENTIFIERS);
+	if(ehash == NULL) ehash= (NamePtr *) GDKzalloc(sizeof(NamePtr) * MAXIDENTIFIERS);
 	if ( hash == NULL || ehash == NULL){
         /* absolute an error we can not recover from */
         showException(GDKout, MAL,"initNamespace",MAL_MALLOC_FAIL);
@@ -53,12 +53,12 @@ void initNamespace(void) {
 	}
 }
 
-void finishNamespace(void) {
+void mal_namespace_reset(void) {
 	int i;
 	NamePtr n,m;
 
 	/* assume we are at the end of the server session */
-	MT_lock_set(&mal_namespaceLock, "finishNamespace");
+	MT_lock_set(&mal_namespaceLock);
 	for ( i =0; i < HASHMASK; i++){
 		n = hash[i];
 		hash[i] = ehash[i] = 0;
@@ -72,7 +72,7 @@ void finishNamespace(void) {
 	GDKfree(hash);
 	GDKfree(ehash);
 	hash = ehash = 0;
-	MT_lock_unset(&mal_namespaceLock, "finishNamespace");
+	MT_lock_unset(&mal_namespaceLock);
 }
 
 /*
@@ -154,7 +154,7 @@ str putName(const char *nme, size_t len)
 	NME_HASH(nme, k, l);
 	key = (int) k;
 
-	MT_lock_set(&mal_namespaceLock, "putName");
+	MT_lock_set(&mal_namespaceLock);
 	/* add new elements to the end of the list */
 	if ( ehash[key] == 0)
 		hash[key] = ehash[key] = n;
@@ -162,6 +162,6 @@ str putName(const char *nme, size_t len)
 		ehash[key]->next = n;
 		ehash[key] = n;
 	}
-	MT_lock_unset(&mal_namespaceLock, "putName");
+	MT_lock_unset(&mal_namespaceLock);
 	return putName(nme, len);	/* just to be sure */
 }

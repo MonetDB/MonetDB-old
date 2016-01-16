@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -69,12 +69,19 @@ temp_copy(log_bid b, int temp)
 	BAT *c;
 	log_bid r;
 
+	if (!o)
+		return BID_NIL;
 	if (!temp) {
-		c = BATcopy(o, o->htype, o->ttype, TRUE, PERSISTENT);
+		assert(o->htype == TYPE_void);
+		c = COLcopy(o, o->ttype, TRUE, PERSISTENT);
+		if (!c)
+			return BID_NIL;
 		bat_set_access(c, BAT_READ);
 		BATcommit(c);
 	} else {
 		c = bat_new(o->htype, o->ttype, COLSIZE, PERSISTENT);
+		if (!c)
+			return BID_NIL;
 	}
 	r = temp_create(c);
 	bat_destroy(c);
@@ -95,29 +102,14 @@ append_inserted(BAT *b, BAT *i )
 	return nr;
 }
 
-BUN
-copy_inserted(BAT *b, BAT *i )
-{
-	BUN nr = 0;
-	BUN r;
-       	BATiter ii = bat_iterator(i);
-
-	for (r = i->batInserted; r < BUNlast(i); r++) {
-		BUNins(b, BUNhead(ii,r), BUNtail(ii,r), TRUE);
-       		nr++;
-	}
-	return nr;
-}
-
 BAT *ebats[MAXATOMS] = { NULL };
-BAT *eubats[MAXATOMS] = { NULL };
 
 log_bid 
 ebat2real(log_bid b, oid ibase)
 {
 	/* make a copy of b */
 	BAT *o = temp_descriptor(b);
-	BAT *c = BATcopy(o, TYPE_void, ATOMtype(o->ttype), TRUE, PERSISTENT);
+	BAT *c = COLcopy(o, ATOMtype(o->ttype), TRUE, PERSISTENT);
 	log_bid r;
 
 	BATseqbase(c, ibase );
@@ -145,15 +137,6 @@ e_BAT(int type)
 }
 
 log_bid 
-e_ubat(int type)
-{
-	if (!eubats[type]) 
-		eubats[type] = bat_new(TYPE_oid, type, 0, TRANSIENT);
-	return temp_create(eubats[type]);
-}
-
-
-log_bid 
 ebat_copy(log_bid b, oid ibase, int temp)
 {
 	/* make a copy of b */
@@ -161,45 +144,25 @@ ebat_copy(log_bid b, oid ibase, int temp)
 	BAT *c;
 	log_bid r;
 
+	if (!o)
+		return BID_NIL;
 	if (!ebats[o->ttype]) 
 		ebats[o->ttype] = bat_new(TYPE_void, o->ttype, 0, TRANSIENT);
 
 	if (!temp && BATcount(o)) {
-		c = BATcopy(o, TYPE_void, o->ttype, TRUE, PERSISTENT);
+		c = COLcopy(o, o->ttype, TRUE, PERSISTENT);
+		if (!c)
+			return BID_NIL;
 		BATseqbase(c, ibase );
 		c->H->dense = 1;
-		BATcommit(o);
 		BATcommit(c);
 		bat_set_access(c, BAT_READ);
 		r = temp_create(c);
 		bat_destroy(c);
 	} else {
 		c = ebats[o->ttype];
-		r = temp_create(c);
-	}
-	bat_destroy(o);
-	return r;
-}
-
-log_bid 
-eubat_copy(log_bid b, int temp)
-{
-	/* make a copy of b */
-	BAT *o = temp_descriptor(b);
-	BAT *c;
-	log_bid r;
-
-	if (!eubats[o->ttype]) 
-		eubats[o->ttype] = bat_new(TYPE_oid, o->ttype, 0, TRANSIENT);
-
-	if (!temp && BATcount(o)) {
-		c = BATcopy(o, TYPE_oid, o->ttype, TRUE, PERSISTENT);
-		BATcommit(c);
-		r = temp_create(c);
-		bat_set_access(c, BAT_READ);
-		bat_destroy(c);
-	} else {
-		c = eubats[o->ttype];
+		if (!c)
+			return BID_NIL;
 		r = temp_create(c);
 	}
 	bat_destroy(o);
@@ -213,9 +176,7 @@ bat_utils_init(void)
 
 	for (t=1; t<GDKatomcnt; t++) {
 		if (t != TYPE_bat && BATatoms[t].name[0]) {
-			eubats[t] = bat_new(TYPE_oid, t, 0, TRANSIENT);
 			ebats[t] = bat_new(TYPE_void, t, 0, TRANSIENT);
-			bat_set_access(eubats[t], BAT_READ);
 			bat_set_access(ebats[t], BAT_READ);
 		}
 	}
@@ -241,7 +202,11 @@ tr_find_table( sql_trans *tr, sql_table *t)
 	while ((!nt || !nt->data) && tr) {
 		sql_schema *s = tr_find_schema( tr, t->s);
 
-		nt = find_sql_table_id(s, t->base.id);
+		if (list_length(s->tables.set) < HASH_MIN_SIZE)
+			nt = find_sql_table_id(s, t->base.id);
+		else
+			nt = find_sql_table(s, t->base.name);
+		assert(nt->base.id == t->base.id);
 		tr = tr->parent;
 	}
 	return nt;
@@ -253,8 +218,7 @@ tr_find_column( sql_trans *tr, sql_column *c)
 	sql_column *nc = NULL;
 
 	while ((!nc || !nc->data) && tr) {
-		sql_schema *s = tr_find_schema( tr, c->t->s);
-		sql_table *t =  find_sql_table_id(s, c->t->base.id);
+		sql_table *t =  tr_find_table(tr, c->t);
 		node *n = cs_find_id(&t->columns, c->base.id);
 		if (n)
 			nc = n->data;
@@ -269,8 +233,7 @@ tr_find_idx( sql_trans *tr, sql_idx *i)
 	sql_idx *ni = NULL;
 
 	while ((!ni || !ni->data) && tr) {
-		sql_schema *s = tr_find_schema( tr, i->t->s);
-		sql_table *t =  find_sql_table_id(s, i->t->base.id);
+		sql_table *t =  tr_find_table(tr, i->t);
 		node *n = cs_find_id(&t->idxs, i->base.id);
 		if (n)
 			ni = n->data;

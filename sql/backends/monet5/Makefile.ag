@@ -2,9 +2,9 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 2008-2015 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
-SUBDIRS = NOT_WIN32?vaults UDF HAVE_SAMTOOLS?bam LSST HAVE_GSL?gsl generator
+SUBDIRS = NOT_WIN32?vaults UDF LSST HAVE_GSL?gsl generator
 
 INCLUDES = ../../include ../../common ../../storage ../../server \
 		   ../../../monetdb5/modules/atoms \
@@ -48,7 +48,7 @@ lib__sql = {
 		sql_cast_impl_up_to_int.h \
 		sql_round.c sql_round_impl.h sql_bat2time.c \
 		sql_fround.c sql_fround_impl.h \
-		sql_rdf.h sql_rdf.c sql_rdf_rel.h sql_rdf_rel.c sql_rdf_jgraph.h sql_rdf_jgraph.c
+		sql_rank.c sql_rank.h
 	LIBS = ../../server/libsqlserver \
 		   ../../storage/libstore \
 		   ../../storage/bat/libbatstore \
@@ -74,7 +74,6 @@ lib__sql = {
 #	LIBS = ../../server/libsqlserver \
 #		   ../../storage/libstore \
 #		   ../../storage/bat/libbatstore \
-#		   ../../storage/restrict/librestrictstore \
 #		   ../../common/libsqlcommon \
 #		   ../../../monetdb5/tools/libmonetdb5 \
 #		   ../../../gdk/libbat \
@@ -89,7 +88,6 @@ lib__sql = {
 #		   ../../server/libsqlserver \
 #		   ../../storage/libstore \
 #		   ../../storage/bat/libbatstore \
-#		   ../../storage/restrict/librestrictstore \
 #		   ../../common/libsqlcommon \
 #		   ../../../monetdb5/tools/libmonetdb5 \
 #		   ../../../gdk/libbat \

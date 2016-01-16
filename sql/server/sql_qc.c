@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -161,6 +161,9 @@ param_list_cmp(sql_subtype *typelist, atom **atoms, int plen, int type)
 	for (i=0; i < plen; i++) {
 		sql_subtype *tp = typelist + i;
 		atom *a = atoms[i];
+
+		if (atom_null(a) && type != Q_UPDATE)
+			return -1;
 
 		/* NULL values match any type */
 		if (!atom_null(a) && param_cmp(tp, atom_type(a)) != 0) {

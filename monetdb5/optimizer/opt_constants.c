@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -49,13 +49,14 @@ OPTconstantsImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr p
 	for (i=0; i< mb->vtop; i++)
 		alias[ i]= i;
 	for (i=0; i< mb->vtop; i++)
-		if ( isVarConstant(mb,i)  && isVarFixed(mb,i) ){
+		if ( isVarConstant(mb,i)  && isVarFixed(mb,i)  && getVarType(mb,i) != TYPE_ptr){
 			x= getVar(mb,i); 
 			fnd = 0;
 			if ( x->type && x->value.vtype)
 			for( k= n-1; k>=0; k--){
 				y= cst[k];
 				if ( x->type == y->type &&
+					 x->rowcnt == y->rowcnt &&
 					 x->value.vtype == y->value.vtype &&
 					ATOMcmp(x->value.vtype, VALptr(&x->value), VALptr(&y->value)) == 0){
 					OPTDEBUGconstants {

@@ -2,7 +2,7 @@
 -- License, v. 2.0.  If a copy of the MPL was not distributed with this
 -- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 --
--- Copyright 2008-2015 MonetDB B.V.
+-- Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 -- (co) Martin Kersten
 -- The JSON type comes with a few operators.
@@ -69,7 +69,7 @@ returns string external name json.text;
 create function json.text(js int)
 returns string external name json.text;
 
--- The remainder awaits the implementation 
+-- The remainder awaits the implementation
 
 create aggregate json.output(js json)
 returns string external name json.output;

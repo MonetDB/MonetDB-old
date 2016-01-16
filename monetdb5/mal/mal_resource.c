@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /* (author) M.L. Kersten 
@@ -13,12 +13,18 @@
 #include "mal_private.h"
 
 #define heapinfo(X) if ((X) && (X)->base) vol = (X)->free; else vol = 0;
-#define hashinfo(X) if ((X) && (X)->mask) vol = ((X)->mask + (X)->lim + 1) * sizeof(int) + sizeof(*(X)) + cnt * sizeof(int); else vol = 0;
+#define hashinfo(X) if ((X) && (X) != (Hash *) 1 && (X)->mask) vol = (((X)->mask + cnt ) * (X)-> width); else vol = 0;
 
 /* MEMORY admission does not seem to have a major impact */
 lng memorypool = 0;      /* memory claimed by concurrent threads */
 int memoryclaims = 0;    /* number of threads active with expensive operations */
 
+void
+mal_resource_reset(void)
+{
+	memorypool = 0;
+	memoryclaims = 0;
+}
 /*
  * Running all eligible instructions in parallel creates
  * resource contention. This means we should implement
@@ -66,7 +72,7 @@ getMemoryClaim(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int i, int flag)
 
 	(void)mb;
 	if (stk->stk[getArg(pci, i)].vtype == TYPE_bat) {
-		b = BATdescriptor(stk->stk[getArg(pci, i)].val.bval);
+		b = BATdescriptor( stk->stk[getArg(pci, i)].val.bval);
 		if (b == NULL)
 			return 0;
 		if (flag && isVIEW(b)) {
@@ -76,7 +82,10 @@ getMemoryClaim(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int i, int flag)
 		cnt = BATcount(b);
 
 		heapinfo(&b->T->heap); total += vol;
-		heapinfo(b->T->vheap); total += vol;
+		// string heaps can be shared, consider them as space-less views
+		if ( b->T->vheap && b->T->vheap->parentid ){
+			heapinfo(b->T->vheap); total += vol;
+		}
 		hashinfo(b->T->hash); total += vol;
 		total = total > (lng)(MEMORY_THRESHOLD ) ? (lng)(MEMORY_THRESHOLD ) : total;
 		BBPunfix(b->batCacheid);
@@ -123,7 +132,7 @@ MALadmission(lng argclaim, lng hotclaim)
 	if (argclaim == 0)
 		return 0;
 
-	MT_lock_set(&admissionLock, "MALadmission");
+	MT_lock_set(&admissionLock);
 	if (memoryclaims < 0)
 		memoryclaims = 0;
 	if (memorypool <= 0 && memoryclaims == 0)
@@ -136,12 +145,12 @@ MALadmission(lng argclaim, lng hotclaim)
 			PARDEBUG
 			mnstr_printf(GDKstdout, "#DFLOWadmit %3d thread %d pool " LLFMT "claims " LLFMT "," LLFMT "\n",
 						 memoryclaims, THRgettid(), memorypool, argclaim, hotclaim);
-			MT_lock_unset(&admissionLock, "MALadmission");
+			MT_lock_unset(&admissionLock);
 			return 0;
 		}
 		PARDEBUG
 		mnstr_printf(GDKstdout, "#Delayed due to lack of memory " LLFMT " requested " LLFMT " memoryclaims %d\n", memorypool, argclaim + hotclaim, memoryclaims);
-		MT_lock_unset(&admissionLock, "MALadmission");
+		MT_lock_unset(&admissionLock);
 		return -1;
 	}
 	/* release memory claimed before */
@@ -150,7 +159,7 @@ MALadmission(lng argclaim, lng hotclaim)
 	PARDEBUG
 	mnstr_printf(GDKstdout, "#DFLOWadmit %3d thread %d pool " LLFMT " claims " LLFMT "," LLFMT "\n",
 				 memoryclaims, THRgettid(), memorypool, argclaim, hotclaim);
-	MT_lock_unset(&admissionLock, "MALadmission");
+	MT_lock_unset(&admissionLock);
 	return 0;
 }
 #endif
@@ -190,7 +199,7 @@ MALresourceFairness(lng usec)
 
 	if ( clk > DELAYUNIT ) {
 		PARDEBUG mnstr_printf(GDKstdout, "#delay initial "LLFMT"n", clk);
-		(void) ATOMIC_DEC(running, runningLock, "MALresourceFairness");
+		(void) ATOMIC_DEC(running, runningLock);
 		/* always keep one running to avoid all waiting  */
 		while (clk > 0 && running >= 2 && delayed < MAX_DELAYS) {
 			/* speed up wake up when we have memory */
@@ -200,15 +209,15 @@ MALresourceFairness(lng usec)
 			delay = (unsigned int) ( ((double)DELAYUNIT * running) / threads);
 			if (delay) {
 				if ( delayed++ == 0){
-						mnstr_printf(GDKstdout, "#delay initial %u["LLFMT"] memory  "SZFMT"[%f]\n", delay, clk, rss, MEMORY_THRESHOLD );
-						mnstr_flush(GDKstdout);
+						PARDEBUG mnstr_printf(GDKstdout, "#delay initial %u["LLFMT"] memory  "SZFMT"[%f]\n", delay, clk, rss, MEMORY_THRESHOLD );
+						PARDEBUG mnstr_flush(GDKstdout);
 				}
 				MT_sleep_ms(delay);
 				rss = GDKmem_cursize();
 			} else break;
 			clk -= DELAYUNIT;
 		}
-		(void) ATOMIC_INC(running, runningLock, "MALresourceFairness");
+		(void) ATOMIC_INC(running, runningLock);
 	}
 }
 
@@ -216,7 +225,7 @@ void
 initResource(void)
 {
 #ifdef NEED_MT_LOCK_INIT
-	ATOMIC_INIT(runningLock, "runningLock");
+	ATOMIC_INIT(runningLock);
 #ifdef USE_MAL_ADMISSION
 	MT_lock_init(&admissionLock, "admissionLock");
 #endif

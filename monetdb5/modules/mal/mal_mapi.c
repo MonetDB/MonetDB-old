@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -111,6 +111,9 @@ doChallenge(void *data)
 	bstream *bs;
 	int len = 0;
 
+#ifdef _MSC_VER
+	srand((unsigned int) GDKusec());
+#endif
 	GDKfree(data);
 	if (buf == NULL || fdin == NULL || fdout == NULL){
 		if (fdin) {
@@ -208,7 +211,7 @@ SERVERlistenThread(SOCKET *Sock)
 		GDKfree(Sock);
 	}
 
-	(void) ATOMIC_INC(nlistener, atomicLock, "SERVERlistenThread");
+	(void) ATOMIC_INC(nlistener, atomicLock);
 
 	do {
 		FD_ZERO(&fds);
@@ -225,11 +228,11 @@ SERVERlistenThread(SOCKET *Sock)
 		/* temporarily use msgsock to record the larger of sock and usock */
 		msgsock = sock;
 #ifdef HAVE_SYS_UN_H
-		if (usock != INVALID_SOCKET)
+		if (usock != INVALID_SOCKET && (sock == INVALID_SOCKET || usock > sock))
 			msgsock = usock;
 #endif
 		retval = select((int)msgsock + 1, &fds, NULL, NULL, &tv);
-		if (ATOMIC_GET(serverexiting, atomicLock, "SERVERlistenThread") ||
+		if (ATOMIC_GET(serverexiting, atomicLock) ||
 			GDKexiting())
 			break;
 		if (retval == 0) {
@@ -257,7 +260,7 @@ SERVERlistenThread(SOCKET *Sock)
 #else
 					errno != EINTR
 #endif
-					|| !ATOMIC_GET(serveractive, atomicLock, "SERVERlistenThread")) {
+					|| !ATOMIC_GET(serveractive, atomicLock)) {
 					msg = "accept failed";
 					goto error;
 				}
@@ -323,14 +326,13 @@ SERVERlistenThread(SOCKET *Sock)
 				{	int *c_d;
 					/* filedescriptor, put it in place of msgsock */
 					cmsg = CMSG_FIRSTHDR(&msgh);
+					closesocket(msgsock);
 					if (!cmsg || cmsg->cmsg_type != SCM_RIGHTS) {
-						closesocket(msgsock);
 						fprintf(stderr, "!mal_mapi.listen: "
 								"expected filedescriptor, but "
 								"received something else\n");
 						continue;
 					}
-					closesocket(msgsock);
 					/* HACK to avoid
 					 * "dereferencing type-punned pointer will break strict-aliasing rules"
 					 * (with gcc 4.5.1 on Fedora 14)
@@ -357,17 +359,18 @@ SERVERlistenThread(SOCKET *Sock)
 		data = GDKmalloc(sizeof(*data));
 		data->in = socket_rastream(msgsock, "Server read");
 		data->out = socket_wastream(msgsock, "Server write");
-		if (MT_create_thread(&tid, doChallenge, data, MT_THR_DETACHED)) {
+		if (MT_create_thread(&tid, doChallenge, data, MT_THR_JOINABLE)) {
 			mnstr_printf(data->out, "!internal server error (cannot fork new "
 						 "client thread), please try again later\n");
 			mnstr_flush(data->out);
 			showException(GDKstdout, MAL, "initClient",
 						  "cannot fork new client thread");
-			free(data);
+			GDKfree(data);
 		}
-	} while (!ATOMIC_GET(serverexiting, atomicLock, "SERVERlistenThread") &&
+		GDKregister(tid);
+	} while (!ATOMIC_GET(serverexiting, atomicLock) &&
 			 !GDKexiting());
-	(void) ATOMIC_DEC(nlistener, atomicLock, "SERVERlistenThread");
+	(void) ATOMIC_DEC(nlistener, atomicLock);
 	return;
 error:
 	fprintf(stderr, "!mal_mapi.listen: %s, terminating listener\n", msg);
@@ -431,7 +434,7 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 	SOCKLEN length = 0;
 	int on = 1;
 	int i = 0;
-	MT_Id pid, *pidp = &pid;
+	MT_Id pid;
 	int port;
 	int maxusers;
 	char *usockfile;
@@ -633,12 +636,13 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 	psock[1] = INVALID_SOCKET;
 #endif
 	psock[2] = INVALID_SOCKET;
-	if (MT_create_thread(pidp, (void (*)(void *)) SERVERlistenThread, psock, MT_THR_DETACHED) != 0) {
+	if (MT_create_thread(&pid, (void (*)(void *)) SERVERlistenThread, psock, MT_THR_JOINABLE) != 0) {
 		GDKfree(psock);
 		if (usockfile)
 			GDKfree(usockfile);
 		throw(MAL, "mal_mapi.listen", OPERATION_FAILED ": starting thread failed");
 	}
+	GDKregister(pid);
 #ifdef DEBUG_SERVER
 	gethostname(host, (int) 512);
 	snprintf(msg, (int) 512, "#Ready to accept connections on %s:%d\n", host, port);
@@ -647,7 +651,7 @@ SERVERlisten(int *Port, str *Usockfile, int *Maxusers)
 
 	/* seed the randomiser such that our challenges aren't
 	 * predictable... */
-	srand((int)time(NULL));
+	srand((unsigned int) GDKusec());
 
 	SERVERannounce(server.sin_addr, port, usockfile);
 	if (usockfile)
@@ -707,10 +711,10 @@ str
 SERVERstop(void *ret)
 {
 fprintf(stderr, "SERVERstop\n");
-	ATOMIC_SET(serverexiting, 1, atomicLock, "SERVERstop");
+	ATOMIC_SET(serverexiting, 1, atomicLock);
 	/* wait until they all exited, but skip the wait if the whole
 	 * system is going down */
-	while (ATOMIC_GET(nlistener, atomicLock, "SERVERstop") > 0 && !GDKexiting())
+	while (ATOMIC_GET(nlistener, atomicLock) > 0 && !GDKexiting())
 		MT_sleep_ms(100);
 	(void) ret;		/* fool compiler */
 	return MAL_SUCCEED;
@@ -721,14 +725,14 @@ str
 SERVERsuspend(void *res)
 {
 	(void) res;
-	ATOMIC_SET(serveractive, 0, atomicLock, "SERVERsuspend");
+	ATOMIC_SET(serveractive, 0, atomicLock);
 	return MAL_SUCCEED;
 }
 
 str
 SERVERresume(void *res)
 {
-	ATOMIC_SET(serveractive, 1, atomicLock, "SERVERsuspend");
+	ATOMIC_SET(serveractive, 1, atomicLock);
 	(void) res;
 	return MAL_SUCCEED;
 }
@@ -744,7 +748,7 @@ SERVERclient(void *res, const Stream *In, const Stream *Out)
 	data = GDKmalloc(sizeof(*data));
 	data->in = *In;
 	data->out = *Out;
-	if (MT_create_thread(&tid, doChallenge, data, MT_THR_DETACHED)) {
+	if (MT_create_thread(&tid, doChallenge, data, MT_THR_JOINABLE)) {
 		mnstr_printf(data->out, "!internal server error (cannot fork new "
 					 "client thread), please try again later\n");
 		mnstr_flush(data->out);
@@ -752,6 +756,7 @@ SERVERclient(void *res, const Stream *In, const Stream *Out)
 					  "cannot fork new client thread");
 		free(data);
 	}
+	GDKregister(tid);
 	return MAL_SUCCEED;
 }
 
@@ -843,17 +848,17 @@ SERVERconnectAll(Client cntxt, int *key, str *host, int *port, str *username, st
 	Mapi mid;
 	int i;
 
-	MT_lock_set(&mal_contextLock, "SERVERconnect");
+	MT_lock_set(&mal_contextLock);
 	for(i=1; i< MAXSESSIONS; i++)
 	if( SERVERsessions[i].c ==0 ) break;
 
 	if( i==MAXSESSIONS){
-		MT_lock_unset(&mal_contextLock, "SERVERconnect");
+		MT_lock_unset(&mal_contextLock);
 		throw(IO, "mapi.connect", OPERATION_FAILED ": too many sessions");
 	}
 	SERVERsessions[i].c= cntxt;
 	SERVERsessions[i].key= ++sessionkey;
-	MT_lock_unset(&mal_contextLock, "SERVERconnect");
+	MT_lock_unset(&mal_contextLock);
 
 	mid = mapi_connect(*host, *port, *username, *password, *lang, NULL);
 
@@ -882,7 +887,7 @@ str
 SERVERdisconnectALL(int *key){
 	int i;
 
-	MT_lock_set(&mal_contextLock, "SERVERdisconnect");
+	MT_lock_set(&mal_contextLock);
 
 	for(i=1; i< MAXSESSIONS; i++)
 		if( SERVERsessions[i].c != 0 ) {
@@ -897,7 +902,7 @@ SERVERdisconnectALL(int *key){
 			mapi_disconnect(SERVERsessions[i].mid);
 		}
 
-	MT_lock_unset(&mal_contextLock, "SERVERdisconnect");
+	MT_lock_unset(&mal_contextLock);
 
 	return MAL_SUCCEED;
 }
@@ -906,7 +911,7 @@ str
 SERVERdisconnectWithAlias(int *key, str *dbalias){
 	int i;
 
-	MT_lock_set(&mal_contextLock, "SERVERdisconnectWithAlias");
+	MT_lock_set(&mal_contextLock);
 
 	for(i=0; i<MAXSESSIONS; i++)
 		 if( SERVERsessions[i].dbalias &&
@@ -921,11 +926,11 @@ SERVERdisconnectWithAlias(int *key, str *dbalias){
 		}
 
 	if( i==MAXSESSIONS){
-		MT_lock_unset(&mal_contextLock, "SERVERdisconnectWithAlias");
+		MT_lock_unset(&mal_contextLock);
 		throw(IO, "mapi.disconnect", "Impossible to close session for db_alias: '%s'", *dbalias);
 	}
 
-	MT_lock_unset(&mal_contextLock, "SERVERdisconnectWithAlias");
+	MT_lock_unset(&mal_contextLock);
 	return MAL_SUCCEED;
 }
 
@@ -1578,54 +1583,31 @@ SERVERmapi_rpc_bat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	bat *ret;
 	int *key;
 	str *qry,err= MAL_SUCCEED;
-	int i;
 	Mapi mid;
 	MapiHdl hdl;
-	char *fld1, *fld2;
+	char *fld2;
 	BAT *b;
-	ValRecord hval,tval;
-	int ht,tt;
+	ValRecord tval;
+	int i=0, tt;
 
 	(void) cntxt;
 	ret= getArgReference_bat(stk,pci,0);
 	key= getArgReference_int(stk,pci,pci->retc);
 	qry= getArgReference_str(stk,pci,pci->retc+1);
 	accessTest(*key, "rpc");
-	ht= getHeadType(getVarType(mb,getArg(pci,0)));
 	tt= getColumnType(getVarType(mb,getArg(pci,0)));
 
 	hdl= mapi_query(mid, *qry);
 	catchErrors("mapi.rpc");
 
-	assert(ht == TYPE_void || ht== TYPE_oid);
 	b= BATnew(TYPE_void,tt,256, TRANSIENT);
 	if ( b == NULL)
 		throw(MAL,"mapi.rpc",MAL_MALLOC_FAIL);
 	BATseqbase(b,0);
-	i= 0;
-	if ( mapi_fetch_row(hdl)){
-		int oht = ht, ott = tt;
-
-		fld1= mapi_fetch_field(hdl,0);
-		fld2= mapi_fetch_field(hdl,1);
-		if (fld1 && ht == TYPE_void)
-			ht = TYPE_oid;
-		if (fld2 && tt == TYPE_void)
-			tt = TYPE_oid;
-		SERVERfieldAnalysis(fld1, ht, &hval);
-		SERVERfieldAnalysis(fld2, tt, &tval);
-		if (oht != ht)
-			BATseqbase(b, hval.val.oval);
-		if (ott != tt)
-			BATseqbase(BATmirror(b), tval.val.oval);
-		BUNins(b,VALptr(&hval),VALptr(&tval), FALSE);
-	}
 	while( mapi_fetch_row(hdl)){
-		fld1= mapi_fetch_field(hdl,0);
 		fld2= mapi_fetch_field(hdl,1);
-		SERVERfieldAnalysis(fld1, ht, &hval);
 		SERVERfieldAnalysis(fld2, tt, &tval);
-		BUNins(b,VALptr(&hval),VALptr(&tval), FALSE);
+		BUNappend(b,VALptr(&tval), FALSE);
 	}
 	if (!(b->batDirty&2)) BATsetaccess(b, BAT_READ);
 	*ret = b->batCacheid;
@@ -1660,12 +1642,9 @@ SERVERput(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		if( b== NULL){
 			throw(MAL,"mapi.put","Can not access BAT");
 		}
-		/* first send the tuples
-		BATmultiprintf(SERVERsessions[i]->fdin,2, &b, TRUE, 0, TRUE);
-		*/
 
 		/* reconstruct the object */
-		ht = getTypeName(getHeadType(tpe));
+		ht = getTypeName(TYPE_oid);
 		tt = getTypeName(getColumnType(tpe));
 		snprintf(buf,BUFSIZ,"%s:= bat.new(:%s,%s);", *nme, ht,tt );
 		len = (int) strlen(buf);
@@ -1759,7 +1738,7 @@ SERVERbindBAT(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	} else {
 		str hn,tn;
 		int target= getArgType(mb,pci,0);
-		hn= getTypeName(getHeadType(target));
+		hn= getTypeName(TYPE_oid);
 		tn= getTypeName(getColumnType(target));
 		snprintf(buf,BUFSIZ,"%s:bat[:%s,:%s]:=bbp.bind(\"%s\");",
 			getVarName(mb,getDestVar(pci)), hn,tn, *nme);

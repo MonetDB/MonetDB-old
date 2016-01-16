@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -99,7 +99,7 @@ getAddress(stream *out, str filename, str modnme, str fcnname, int silent)
 
 	adr = (MALfcn) dlsym(dl, fcnname);
 	dlclose(dl);
-	if( adr != NULL)
+	if(adr != NULL)
 		return adr; /* found it */
 
 	if (!silent)
@@ -137,14 +137,11 @@ isLoaded(str modulename)
 	return 0;
 }
 
-#ifndef MAXPATHLEN
-#define MAXPATHLEN 1024
-#endif
 str
 loadLibrary(str filename, int flag)
 {
 	int mode = RTLD_NOW | RTLD_GLOBAL;
-	char nme[MAXPATHLEN];
+	char nme[PATHLENGTH];
 	void *handle = NULL;
 	str s;
 	int idx;
@@ -186,18 +183,18 @@ loadLibrary(str filename, int flag)
 
 		/* try hardcoded SO_EXT if that is the same for modules */
 #ifdef _AIX
-		snprintf(nme, MAXPATHLEN, "%.*s%c%s_%s%s(%s_%s.0)",
+		snprintf(nme, PATHLENGTH, "%.*s%c%s_%s%s(%s_%s.0)",
 				 (int) (p - mod_path),
 				 mod_path, DIR_SEP, SO_PREFIX, s, SO_EXT, SO_PREFIX, s);
 #else
-		snprintf(nme, MAXPATHLEN, "%.*s%c%s_%s%s",
+		snprintf(nme, PATHLENGTH, "%.*s%c%s_%s%s",
 				 (int) (p - mod_path),
 				 mod_path, DIR_SEP, SO_PREFIX, s, SO_EXT);
 #endif
 		handle = dlopen(nme, mode);
 		if (handle == NULL && strcmp(SO_EXT, ".so") != 0) {
 			/* try .so */
-			snprintf(nme, MAXPATHLEN, "%.*s%c%s_%s.so",
+			snprintf(nme, PATHLENGTH, "%.*s%c%s_%s.so",
 					 (int) (p - mod_path),
 					 mod_path, DIR_SEP, SO_PREFIX, s);
 			handle = dlopen(nme, mode);
@@ -205,7 +202,7 @@ loadLibrary(str filename, int flag)
 #ifdef __APPLE__
 		if (handle == NULL && strcmp(SO_EXT, ".bundle") != 0) {
 			/* try .bundle */
-			snprintf(nme, MAXPATHLEN, "%.*s%c%s_%s.bundle",
+			snprintf(nme, PATHLENGTH, "%.*s%c%s_%s.bundle",
 					 (int) (p - mod_path),
 					 mod_path, DIR_SEP, SO_PREFIX, s);
 			handle = dlopen(nme, mode);
@@ -222,7 +219,7 @@ loadLibrary(str filename, int flag)
 			throw(LOADER, "loadLibrary", RUNTIME_LOAD_ERROR " could not locate library %s (from within file '%s')", s, filename);
 	}
 
-	MT_lock_set(&mal_contextLock, "loadModule");
+	MT_lock_set(&mal_contextLock);
 	if (lastfile == maxfiles) {
 		if (handle)
 			dlclose(handle);
@@ -233,7 +230,7 @@ loadLibrary(str filename, int flag)
 		filesLoaded[lastfile].handle = handle;
 		lastfile ++;
 	}
-	MT_lock_unset(&mal_contextLock, "loadModule");
+	MT_lock_unset(&mal_contextLock);
 
 	return MAL_SUCCEED;
 }
@@ -244,19 +241,22 @@ loadLibrary(str filename, int flag)
  * because they may still be in use.
  */
 void
-unloadLibraries(void)
+mal_linker_reset(void)
 {
 	int i;
 
-	MT_lock_set(&mal_contextLock, "unloadModule");
-	for (i = 0; i < lastfile; i++)
+	MT_lock_set(&mal_contextLock);
+	for (i = 0; i < lastfile; i++){
 		if (filesLoaded[i].fullname) {
 			/* dlclose(filesLoaded[i].handle);*/
 			GDKfree(filesLoaded[i].filename);
 			GDKfree(filesLoaded[i].fullname);
 		}
+		filesLoaded[i].filename = 0;
+		filesLoaded[i].fullname = 0;
+	}
 	lastfile = 0;
-	MT_lock_unset(&mal_contextLock, "unloadModule");
+	MT_lock_unset(&mal_contextLock);
 }
 /*
  * To speedup restart and to simplify debugging, the MonetDB server can

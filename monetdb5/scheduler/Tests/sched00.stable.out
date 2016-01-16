@@ -9,40 +9,40 @@ stdout of test 'sched00` in directory 'monetdb5/scheduler` itself:
 # Serving database 'mTests_src_scheduler', using 4 threads
 # Compiled for x86_64-unknown-linux-gnu/64bit with 64bit OIDs dynamically linked
 # Copyright (c) 1993-July 2008 CWI.
-# Copyright (c) August 2008- MonetDB B.V., all rights reserved
-# Visit http://monetdb.cwi.nl/ for further information
-# Listening for connection requests on mapi:monetdb://eir.ins.cwi.nl:37931/
-function user.f():void;
-    i := 1;
-# just properties 
-    mdb.List();
-    io.print("start running\n");
-    scheduler.isolation();
-    io.print("done\n");
-    mdb.List();
-end user.f;
-function user.main():void;
-    user.f();
-#shows self-modification in action 
-end user.main;
-function user.f():void;                 	# 
-    i:int{runonce, rows>4} := 1:int;    	# 
-# just properties                       	# 
-    mdb.List();                         	# MDBlistDetail
-    io.print("start running\n":str);    	# IOprint_val
-    scheduler.isolation();              	# RUNisolation
-    io.print("done\n":str);             	# IOprint_val
-    mdb.List();                         	# MDBlistDetail
-end user.f;                             	# 
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://vienna.da.cwi.nl:31436/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-11496/.s.monetdb.31436
+# MonetDB/GIS module loaded
+# Start processing logs sql/sql_logs version 52200
+# Finished processing logs sql/sql_logs
+# MonetDB/SQL module loaded
+# MonetDB/R   module loaded
+
+Ready.
+
+# 11:27:20 >  
+# 11:27:20 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "--host=/var/tmp/mtest-11496" "--port=31436"
+# 11:27:20 >  
+
+function user.f():void;                 	#[0]  0 
+    i:int := 1:int;                     	#[1]  1 <- 2 
+# just properties                       
+    mdb.List();                         	#[3] MDBlistDetail 4 
+    io.print("start running\n":str);    	#[4] IOprint_val 5 <- 6 
+    scheduler.isolation();              	#[5] RUNisolation 7 
+    io.print("done\n":str);             	#[6] IOprint_val 8 <- 9 
+    mdb.List();                         	#[7] MDBlistDetail 10 
+end user.f;                             	#[8]  
 [ "start running\n" ]
-function user.f():void;                 	# 
-    i:int{runonce, rows>4} := 1:int;    	# 
-# just properties                       	# 
-    mdb.List();                         	# MDBlistDetail
-    io.print("start running\n":str);    	# IOprint_val
-    io.print("done\n":str);             	# IOprint_val
-    mdb.List();                         	# MDBlistDetail
-end user.f;                             	# 
+function user.f():void;                 	#[0]  0 
+    i:int := 1:int;                     	#[1]  1 <- 2 
+# just properties                       
+    mdb.List();                         	#[3] MDBlistDetail 4 
+    io.print("start running\n":str);    	#[4] IOprint_val 5 <- 6 
+    io.print("done\n":str);             	#[5] IOprint_val 8 <- 9 
+    mdb.List();                         	#[6] MDBlistDetail 10 
+end user.f;                             	#[7]  
 
 # 23:28:18 >  
 # 23:28:18 >  Done.

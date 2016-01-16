@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #ifndef _REL_SEMANTIC_H_
@@ -16,7 +16,7 @@
 #include <stdarg.h>
 
 extern sql_rel *rel_semantic(mvc *sql, symbol *sym);
-extern sql_rel *rel_parse(mvc *m, char *query, char emode);
+extern sql_rel *rel_parse(mvc *m, sql_schema *s, char *query, char emode);
 
 extern comp_type swap_compare( comp_type t );
 extern comp_type range2lcompare( int r );

@@ -17,6 +17,15 @@ stdout of test 'joinchain` in directory 'monetdb5/optimizer` itself:
 # Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-29121/.s.monetdb.34830
 # MonetDB/GIS module loaded
 # MonetDB/SQL module loaded
+# MonetDB/R   module loaded
+
+Ready.
+
+# 06:41:03 >  
+# 06:41:03 >  "mclient" "-lmal" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-8837" "--port=33343"
+# 06:41:03 >  
+
+#mdb.list("user","qry");
 function user.qry():void;
     empty := bat.new(:oid,:oid);
     a := bat.new(:oid,:oid);
@@ -54,28 +63,25 @@ function user.qry():void;
     bat.append(k,7);
     bat.append(k,8);
     bat.append(k,9);
-    e := algebra.leftfetchjoin(a,b);
-    f := algebra.leftfetchjoin(e,c);
-    g := algebra.leftfetchjoin(f,d);
-    l := algebra.leftfetchjoin(f,k);
+    e := algebra.projection(a,b);
+    f:bat[:oid] := algebra.projectionPath(a,b,c);
+    g := algebra.projection(f,d);
+    l := algebra.projection(f,k);
     io.print(g);
     io.print(l);
-    h := algebra.leftfetchjoinPath(c,d);
+    h := algebra.projectionPath(c,d);
     io.print(h);
-    i := algebra.leftfetchjoinPath(b,c,d);
+    i := algebra.projectionPath(b,c,d);
     io.print(i);
-    j := algebra.leftfetchjoinPath(a,b,c,d);
+    j := algebra.projectionPath(a,b,c,d);
     io.print(j);
     io.print("empty sequences");
-    w := algebra.leftfetchjoinPath(empty,c,d);
+    w := algebra.projectionPath(empty,c,d);
     io.print(w);
-    w := algebra.leftfetchjoinPath(c,empty,d);
+    w := algebra.projectionPath(c,empty,d);
     io.print(w);
 end user.qry;
-function user.main():void;
-    mdb.list("user","qry");
-    user.qry();
-end user.main;
+#mdb.list("user","qry");
 function user.qry():void;
     empty := bat.new(:oid,:oid);
     a := bat.new(:oid,:oid);
@@ -113,22 +119,22 @@ function user.qry():void;
     bat.append(k,7);
     bat.append(k,8);
     bat.append(k,9);
-    e := algebra.leftfetchjoin(a,b);
-    f:bat[:oid,:oid] := algebra.leftfetchjoinPath(a,b,c);
-    g := algebra.leftfetchjoin(f,d);
-    l := algebra.leftfetchjoin(f,k);
+    e := algebra.projection(a,b);
+    f:bat[:oid] := algebra.projectionPath(a,b,c);
+    g := algebra.projection(f,d);
+    l := algebra.projection(f,k);
     io.print(g);
     io.print(l);
-    h := algebra.leftfetchjoinPath(c,d);
+    h := algebra.projectionPath(c,d);
     io.print(h);
-    i := algebra.leftfetchjoinPath(b,c,d);
+    i := algebra.projectionPath(b,c,d);
     io.print(i);
-    j := algebra.leftfetchjoinPath(a,b,c,d);
+    j := algebra.projectionPath(a,b,c,d);
     io.print(j);
     io.print("empty sequences");
-    w := algebra.leftfetchjoinPath(empty,c,d);
+    w := algebra.projectionPath(empty,c,d);
     io.print(w);
-    w := algebra.leftfetchjoinPath(c,empty,d);
+    w := algebra.projectionPath(c,empty,d);
     io.print(w);
 end user.qry;
 #--------------------------#
@@ -167,7 +173,7 @@ end user.qry;
 #--------------------------#
 [ 0@0,	"The"  ]
 [ 1@0,	"jumps"  ]
-[ "empty sequences" ]
+[ "empty sequences"	]
 #--------------------------#
 # h	t  # name
 # void	str  # type

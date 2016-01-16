@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #ifndef BAT_UTILS_H
@@ -11,6 +11,9 @@
 
 #include "sql_storage.h"
 #include <gdk_logger.h>
+
+/* when returning a log_bid, errors are reported using BID_NIL */
+#define BID_NIL 0
 
 #define bat_set_access(b,access) b->batRestricted = access
 #define bat_clear(b) bat_set_access(b,BAT_WRITE);BATclear(b,TRUE);bat_set_access(b,BAT_READ)
@@ -26,20 +29,15 @@ extern void bat_destroy(BAT *b);
 extern BAT *bat_new(int ht, int tt, BUN size, int role);
 
 extern BUN append_inserted(BAT *b, BAT *i );
-extern BUN copy_inserted(BAT *b, BAT *i );
 
 extern BAT *ebats[MAXATOMS];
-extern BAT *eubats[MAXATOMS];
 
 #define isEbat(b) 	(ebats[b->ttype] && ebats[b->ttype] == b) 
-#define isEUbat(b) 	(eubats[b->ttype] && eubats[b->ttype] == b) 
 
 extern log_bid ebat2real(log_bid b, oid ibase);
 extern log_bid e_bat(int type);
 extern BAT *e_BAT(int type);
-extern log_bid e_ubat(int type);
 extern log_bid ebat_copy(log_bid b, oid ibase, int temp);
-extern log_bid eubat_copy(log_bid b, int temp);
 extern void bat_utils_init(void);
 
 extern sql_schema * tr_find_schema( sql_trans *tr, sql_schema *s);

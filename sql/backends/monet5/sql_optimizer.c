@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -51,36 +51,7 @@
  * common term optimizer, because the first bind has a side-effect.
  */
 
-static int
-BATlocation(str *fnme, int *bid)
-{
-	/* this function was formerly ATTlocation in removed file
-	 * monetdb5/modules/mal/attach.c */
-	BAT *b = BBPquickdesc(*bid, FALSE);
-	char path[BUFSIZ], *s;
-
-	*fnme = NULL;
-	if (b == NULL || (!b->T->heap.filename && !b->H->heap.filename))
-		return 0;
-
-	s = GDKfilepath(b->T->heap.farmid, BATDIR,
-			(b->T->heap.filename ? b->T->heap.filename : b->H->heap.filename), 0);
-	if (!MT_path_absolute(s)) {
-		snprintf(path, BUFSIZ, "%s%c%s", GDKgetenv("gdk_dbpath"),
-			 DIR_SEP, s);
-	} else {
-		snprintf(path, sizeof(path), "%s", s);
-	}
-	GDKfree(s);
-	s = strrchr(path, '.');
-	if (s)
-		*s = 0;
-	*fnme = GDKstrdup(path);
-	return 1;
-}
-
-static void
-SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
+static void SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
 {
 	InstrPtr *old = NULL;
 	int oldtop, i, actions = 0, size = 0;
@@ -98,7 +69,6 @@ SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
 	for (i = 0; i < oldtop; i++) {
 		InstrPtr p = old[i];
 		char *f = getFunctionId(p);
-		ValRecord vr;
 
 		if (getModuleId(p) == sqlRef && f == tidRef) {
 			char *sname = getVarConstant(mb, getArg(p, 2)).val.sval;
@@ -112,11 +82,10 @@ SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
 			}
 
 		       	t = mvc_bind_table(m, s, tname);
-			/* skip alter on remote statements */
-			if (t && (!isRemote(t) && !isMergeTable(t)) && t->p) {
-				int k = getArg(p, 0), mt_member = t->p->base.id;
 
-				varSetProp(mb, k, mtProp, op_eq, VALset(&vr, TYPE_int, &mt_member));
+			if (t && (!isRemote(t) && !isMergeTable(t)) && t->p) {
+				int mt_member = t->p->base.id;
+				setMitosisPartition(p,mt_member);
 			}
 		}
 		if (getModuleId(p) == sqlRef && (f == bindRef || f == bindidxRef)) {
@@ -124,8 +93,8 @@ SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
 			char *sname = getVarConstant(mb, getArg(p, 2 + upd)).val.sval;
 			char *tname = getVarConstant(mb, getArg(p, 3 + upd)).val.sval;
 			char *cname = NULL;
-			int not_null = 0, mt_member = 0;
-			wrd rows = 1;	/* default to cope with delta bats */
+			int mt_member = 0;
+			BUN rows = 1;	/* default to cope with delta bats */
 			int mode = 0;
 			int k = getArg(p, 0);
 			sql_schema *s = mvc_bind_schema(m, sname);
@@ -142,19 +111,15 @@ SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
 				size_t cnt;
 				sql_idx *i = mvc_bind_idx(m, s, cname);
 
-				/* skip alter on remote statements */
 				if (i && (!isRemote(i->t) && !isMergeTable(i->t))) {
 					cnt = store_funcs.count_idx(tr, i, 1);
 					assert(cnt <= (size_t) GDK_oid_max);
 					b = store_funcs.bind_idx(m->session->tr, i, RDONLY);
 					if (b) {
-						str loc;
-						if (b->batPersistence == PERSISTENT && BATlocation(&loc, &b->batCacheid) && loc)
-							varSetProp(mb, k, fileProp, op_eq, VALset(&vr, TYPE_str, loc));
 						cnt = BATcount(b);
 						BBPunfix(b->batCacheid);
 					}
-					rows = (wrd) cnt;
+					rows = (BUN) cnt;
 					if (i->t->p) 
 						mt_member = i->t->p->base.id;
 				}
@@ -164,46 +129,24 @@ SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
 				sql_column *c = mvc_bind_column(m, t, cname);
 
 				if (c && (!isRemote(c->t) && !isMergeTable(c->t))) {
-					not_null = !c->null;
-
 					cnt = store_funcs.count_col(tr, c, 1);
 					assert(cnt <= (size_t) GDK_oid_max);
 					b = store_funcs.bind_col(m->session->tr, c, RDONLY);
 					if (b) {
-						str loc;
-						if (b->batPersistence == PERSISTENT && BATlocation(&loc, &b->batCacheid) && loc)
-							varSetProp(mb, k, fileProp, op_eq, VALset(&vr, TYPE_str, loc));
 						cnt = BATcount(b);
 						BBPunfix(b->batCacheid);
 					}
-					rows = (wrd) cnt;
+					rows = (BUN) cnt;
 					if (c->t->p) 
 						mt_member = c->t->p->base.id;
 				}
 			}
 			if (rows > 1 && mode != RD_INS)
-				varSetProp(mb, k, rowsProp, op_eq, VALset(&vr, TYPE_wrd, &rows));
-			if (not_null)
-				varSetProp(mb, k, notnilProp, op_eq, NULL);
+				setRowCnt(mb,k,rows);
 			if (mt_member && mode != RD_INS)
-				varSetProp(mb, k, mtProp, op_eq, VALset(&vr, TYPE_int, &mt_member));
+				setMitosisPartition(p,mt_member);
 
-			{
-				int lowprop = hlbProp, highprop = hubProp;
-				/* rows == cnt has been checked above to be <= GDK_oid_max */
-				oid low = 0, high = low + (oid) rows;
-				pushInstruction(mb, p);
-
-				if (mode == RD_INS) {
-					low = high;
-					high += 1024 * 1024;
-				}
-				varSetProp(mb, getArg(p, 0), lowprop, op_gte, VALset(&vr, TYPE_oid, &low));
-				varSetProp(mb, getArg(p, 0), highprop, op_lt, VALset(&vr, TYPE_oid, &high));
-			}
-
-			if (not_null)
-				actions++;
+			pushInstruction(mb, p);
 		} else {
 			pushInstruction(mb, p);
 		}
@@ -240,7 +183,7 @@ addOptimizers(Client c, MalBlkPtr mb, char *pipe)
 	if (msg)
 		GDKfree(msg);	/* what to do with an error? */
 	/* point queries do not require mitosis and dataflow */
-	if (be->mvc->point_query)
+	if (be->mvc->point_query) {
 		for (i = mb->stop - 1; i > 0; i--) {
 			q = getInstrPtr(mb, i);
 			if (q->token == ENDsymbol)
@@ -248,13 +191,16 @@ addOptimizers(Client c, MalBlkPtr mb, char *pipe)
 			if (getFunctionId(q) == mitosisRef || getFunctionId(q) == dataflowRef)
 				q->token = REMsymbol;	/* they are ignored */
 		}
+	}
+	SQLgetStatistics(c, be->mvc, mb);
+	if (be->mvc->emod & mod_debug)
+		addtoMalBlkHistory(mb, "getStatistics");
 }
 
 void
 addQueryToCache(Client c)
 {
 	MalBlkPtr mb;
-	mvc *m;
 	backend *be;
 	str msg = 0, pipe;
 
@@ -267,7 +213,6 @@ addQueryToCache(Client c)
 	c->blkmode = 0;
 	mb = c->curprg->def;
 	chkProgram(c->fdout, c->nspace, mb);
-	m = ((backend *) c->sqlcontext)->mvc;
 #ifdef _SQL_OPTIMIZER_DEBUG
 	mnstr_printf(GDKout, "ADD QUERY TO CACHE\n");
 	printFunction(GDKout, mb, 0, LIST_MAL_ALL);
@@ -282,7 +227,7 @@ addQueryToCache(Client c)
 
 		if (c->listing)
 			printFunction(c->fdout, mb, 0, c->listing);
-		if (m->debug) {
+		if (be->mvc->debug) {
 			msg = runMALDebugger(c, c->curprg);
 			if (msg != MAL_SUCCEED)
 				GDKfree(msg); /* ignore error */
@@ -290,10 +235,6 @@ addQueryToCache(Client c)
 		return;
 	}
 	addOptimizers(c, mb, pipe);
-	SQLgetStatistics(c, m, mb);
-	if (m->emod & mod_debug)
-		addtoMalBlkHistory(mb, "getStatistics");
-
 	msg = optimizeMALBlock(c, mb);
 	if (msg != MAL_SUCCEED) {
 		showScriptException(c->fdout, mb, 0, MAL, "%s", msg);

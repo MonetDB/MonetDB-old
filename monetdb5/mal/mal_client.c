@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -48,6 +48,7 @@
 #include "mal_namespace.h"
 #include "mal_private.h"
 #include "mal_runtime.h"
+#include "mal_authorize.h"
 #include <mapi.h> /* for PROMPT1 */
 
 
@@ -62,7 +63,14 @@ static void freeClient(Client c);
 
 int MAL_MAXCLIENTS = 0;
 ClientRec *mal_clients;
-int MCdefault = 0;
+
+void 
+mal_client_reset(void)
+{
+	MAL_MAXCLIENTS = 0;
+	if ( mal_clients)
+		GDKfree(mal_clients);
+}
 
 void
 MCinit(void)
@@ -129,10 +137,10 @@ static Client
 MCnewClient(void)
 {
 	Client c;
-	MT_lock_set(&mal_contextLock, "newClient");
+	MT_lock_set(&mal_contextLock);
 	if (mal_clients[CONSOLE].user && mal_clients[CONSOLE].mode == FINISHCLIENT) {
 		/*system shutdown in progress */
-		MT_lock_unset(&mal_contextLock, "newClient");
+		MT_lock_unset(&mal_contextLock);
 		return NULL;
 	}
 	for (c = mal_clients; c < mal_clients + MAL_MAXCLIENTS; c++) {
@@ -141,7 +149,7 @@ MCnewClient(void)
 			break;
 		}
 	}
-	MT_lock_unset(&mal_contextLock, "newClient");
+	MT_lock_unset(&mal_contextLock);
 
 	if (c == mal_clients + MAL_MAXCLIENTS)
 		return NULL;
@@ -200,6 +208,7 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	str prompt;
 
 	c->user = user;
+	c->username = 0;
 	c->scenario = NULL;
 	c->oldscenario = NULL;
 	c->srcFile = NULL;
@@ -231,7 +240,7 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	c->stage = 0;
 	c->itrace = 0;
 	c->debugOptimizer = c->debugScheduler = 0;
-	c->flags = MCdefault;
+	c->flags = 0;
 	c->errbuf = 0;
 
 	prompt = !fin ? GDKgetenv("monet_prompt") : PROMPT1;
@@ -242,6 +251,10 @@ MCinitClientRecord(Client c, oid user, bstream *fin, stream *fout)
 	c->totaltime = 0;
 	/* create a recycler cache */
 	c->exception_buf_initialized = 0;
+	c->error_row = c->error_fld = c->error_msg = c->error_input = NULL;
+#ifndef HAVE_EMBEDDED /* no authentication in embedded mode */
+	(void) AUTHgetUsername(&c->username, c);
+#endif
 	MT_sema_init(&c->s, 0, "Client->s");
 	return c;
 }
@@ -253,7 +266,7 @@ MCinitClient(oid user, bstream *fin, stream *fout)
 
 	if ((c = MCnewClient()) == NULL)
 		return NULL;
-	return MCinitClientRecord(c, user, fin,fout);
+	return MCinitClientRecord(c, user, fin, fout);
 }
 
 /*
@@ -361,7 +374,10 @@ freeClient(Client c)
 	c->prompt = NULL;
 	c->promptlength = -1;
 	if (c->errbuf) {
+/* no client threads in embedded mode */
+#ifndef HAVE_EMBEDDED
 		GDKsetbuf(0);
+#endif
 		if (c->father == NULL)
 			GDKfree(c->errbuf);
 		c->errbuf = 0;
@@ -372,13 +388,24 @@ freeClient(Client c)
 	c->qtimeout = 0;
 	c->stimeout = 0;
 	c->user = oid_nil;
+	if( c->username){
+		GDKfree(c->username);
+		c->username = 0;
+	}
 	c->mythread = 0;
-	c->mode = MCshutdowninprogress()? BLOCKCLIENT: FREECLIENT;
 	GDKfree(c->glb);
 	c->glb = NULL;
+	if( c->error_row){
+		BBPdecref(c->error_row->batCacheid,TRUE);
+		BBPdecref(c->error_fld->batCacheid,TRUE);
+		BBPdecref(c->error_msg->batCacheid,TRUE);
+		BBPdecref(c->error_input->batCacheid,TRUE);
+		c->error_row = c->error_fld = c->error_msg = c->error_input = NULL;
+	}
 	if (t)
 		THRdel(t);  /* you may perform suicide */
 	MT_sema_destroy(&c->s);
+	c->mode = MCshutdowninprogress()? BLOCKCLIENT: FREECLIENT;
 }
 
 /*
@@ -408,7 +435,7 @@ MCstopClients(Client cntxt)
 {
 	Client c = mal_clients;
 
-	MT_lock_set(&mal_contextLock,"stopClients");
+	MT_lock_set(&mal_contextLock);
 	for(c= mal_clients +1;  c < mal_clients+MAL_MAXCLIENTS; c++)
 	if( cntxt != c){
 		if ( c->mode == RUNCLIENT)
@@ -417,7 +444,7 @@ MCstopClients(Client cntxt)
 			c->mode = BLOCKCLIENT;
 	}
 	shutdowninprogress =1;
-	MT_lock_unset(&mal_contextLock,"stopClients");
+	MT_lock_unset(&mal_contextLock);
 }
 
 int
@@ -432,7 +459,7 @@ MCactiveClients(void)
 		running += (cntxt->mode == RUNCLIENT);
 		blocked += (cntxt->mode == BLOCKCLIENT);
 	}
-	return finishing+running;
+	return finishing+running +1 /* the admin */;
 }
 
 void
@@ -560,3 +587,19 @@ MCreadClient(Client c)
 #endif
 	return 1;
 }
+
+str
+PROFinitClient(Client c){
+	(void) c;
+	startProfiler();
+	return MAL_SUCCEED;
+}
+
+str
+PROFexitClient(Client c){
+	(void) c;
+	stopProfiler();
+	return MAL_SUCCEED;
+}
+
+

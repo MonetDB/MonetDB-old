@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include <monetdb_config.h>
@@ -13,6 +13,7 @@
 #include "rel_psm.h"
 #include "rel_prop.h" /* for prop_copy() */
 #include "rel_optimizer.h"
+#include "rel_distribute.h"
 #ifdef HAVE_HGE
 #include "mal.h"		/* for have_hge */
 #endif
@@ -173,6 +174,26 @@ exp_atom(sql_allocator *sa, atom *a)
 }
 
 sql_exp *
+exp_atom_max(sql_allocator *sa, sql_subtype *tpe) 
+{
+
+	if (tpe->type->localtype == TYPE_bte) {
+		return exp_atom_bte(sa, GDK_bte_max);
+	} else if (tpe->type->localtype == TYPE_sht) {
+		return exp_atom_sht(sa, GDK_sht_max);
+	} else if (tpe->type->localtype == TYPE_int) {
+		return exp_atom_int(sa, GDK_int_max);
+	} else if (tpe->type->localtype == TYPE_lng) {
+		return exp_atom_lng(sa, GDK_lng_max);
+#ifdef HAVE_HGE
+	} else if (tpe->type->localtype == TYPE_lng) {
+		return exp_atom_hge(sa, GDK_hge_max);
+#endif
+	}
+	return NULL;
+}
+
+sql_exp *
 exp_atom_bool(sql_allocator *sa, int b) 
 {
 	sql_subtype bt; 
@@ -182,6 +203,24 @@ exp_atom_bool(sql_allocator *sa, int b)
 		return exp_atom(sa, atom_bool(sa, &bt, TRUE ));
 	else
 		return exp_atom(sa, atom_bool(sa, &bt, FALSE ));
+}
+
+sql_exp *
+exp_atom_bte(sql_allocator *sa, bte i) 
+{
+	sql_subtype it; 
+
+	sql_find_subtype(&it, "tinyint", 3, 0);
+	return exp_atom(sa, atom_int(sa, &it, i ));
+}
+
+sql_exp *
+exp_atom_sht(sql_allocator *sa, sht i) 
+{
+	sql_subtype it; 
+
+	sql_find_subtype(&it, "smallint", 5, 0);
+	return exp_atom(sa, atom_int(sa, &it, i ));
 }
 
 sql_exp *
@@ -256,14 +295,15 @@ exp_atom_oid(sql_allocator *sa, oid f)
 	sql_find_subtype(&it, "oid", 63, 0);
 	return exp_atom(sa, atom_int(sa, &it, f ));
 }
+
 sql_exp *
-exp_atom_str(sql_allocator *sa, str s, sql_subtype *st) 
+exp_atom_str(sql_allocator *sa, const char *s, sql_subtype *st) 
 {
 	return exp_atom(sa, atom_string(sa, st, s?sa_strdup(sa, s):NULL));
 }
 
 sql_exp *
-exp_atom_clob(sql_allocator *sa, str s) 
+exp_atom_clob(sql_allocator *sa, const char *s) 
 {
 	sql_subtype clob;
 
@@ -305,10 +345,10 @@ exp_value(sql_exp *e, atom **args, int maxarg)
 }
 
 sql_exp * 
-exp_param(sql_allocator *sa, char *name, sql_subtype *tpe, int frame) 
+exp_param(sql_allocator *sa, const char *name, sql_subtype *tpe, int frame) 
 {
 	sql_exp *e = exp_create(sa, e_atom);
-	e->r = name;
+	e->r = (char*)name;
 	e->card = CARD_ATOM;
 	e->flag = frame;
 	if (tpe)
@@ -350,7 +390,7 @@ have_nil(list *exps)
 }
 
 sql_exp * 
-exp_alias(sql_allocator *sa, char *arname, char *acname, char *org_rname, char *org_cname, sql_subtype *t, int card, int has_nils, int intern) 
+exp_alias(sql_allocator *sa, const char *arname, const char *acname, const char *org_rname, const char *org_cname, sql_subtype *t, int card, int has_nils, int intern) 
 {
 	sql_exp *e = exp_create(sa, e_column);
 
@@ -358,8 +398,8 @@ exp_alias(sql_allocator *sa, char *arname, char *acname, char *org_rname, char *
 	e->card = card;
 	e->rname = (arname)?arname:org_rname;
 	e->name = acname;
-	e->l = org_rname;
-	e->r = org_cname;
+	e->l = (char*)org_rname;
+	e->r = (char*)org_cname;
 	if (t)
 		e->tpe = *t;
 	if (!has_nils)
@@ -370,7 +410,7 @@ exp_alias(sql_allocator *sa, char *arname, char *acname, char *org_rname, char *
 }
 
 sql_exp * 
-exp_column(sql_allocator *sa, char *rname, char *cname, sql_subtype *t, int card, int has_nils, int intern) 
+exp_column(sql_allocator *sa, const char *rname, const char *cname, sql_subtype *t, int card, int has_nils, int intern) 
 {
 	sql_exp *e = exp_create(sa, e_column);
 
@@ -378,8 +418,8 @@ exp_column(sql_allocator *sa, char *rname, char *cname, sql_subtype *t, int card
 	e->card = card;
 	e->name = cname;
 	e->rname = rname;
-	e->r = e->name;
-	e->l = e->rname;
+	e->r = (char*)e->name;
+	e->l = (char*)e->rname;
 	if (t)
 		e->tpe = *t;
 	if (!has_nils)
@@ -390,7 +430,7 @@ exp_column(sql_allocator *sa, char *rname, char *cname, sql_subtype *t, int card
 }
 
 sql_exp *
-exp_set(sql_allocator *sa, char *name, sql_exp *val, int level)
+exp_set(sql_allocator *sa, const char *name, sql_exp *val, int level)
 {
 	sql_exp *e = exp_create(sa, e_psm);
 
@@ -401,7 +441,7 @@ exp_set(sql_allocator *sa, char *name, sql_exp *val, int level)
 }
 
 sql_exp * 
-exp_var(sql_allocator *sa, char *name, sql_subtype *type, int level)
+exp_var(sql_allocator *sa, const char *name, sql_subtype *type, int level)
 {
 	sql_exp *e = exp_create(sa, e_psm);
 
@@ -412,7 +452,7 @@ exp_var(sql_allocator *sa, char *name, sql_subtype *type, int level)
 }
 
 sql_exp * 
-exp_table(sql_allocator *sa, char *name, sql_table *t, int level)
+exp_table(sql_allocator *sa, const char *name, sql_table *t, int level)
 {
 	sql_exp *e = exp_create(sa, e_psm);
 
@@ -461,6 +501,7 @@ exp_rel(mvc *sql, sql_rel *rel)
 	sql_exp *e = exp_create(sql->sa, e_psm);
 
 	rel = rel_optimizer(sql, rel);
+	rel = rel_distribute(sql, rel);
 	e->l = rel;
 	e->flag = PSM_REL;
 	return e;
@@ -470,7 +511,7 @@ exp_rel(mvc *sql, sql_rel *rel)
    to this expression by this simple name.
  */
 void 
-exp_setname(sql_allocator *sa, sql_exp *e, char *rname, char *name )
+exp_setname(sql_allocator *sa, sql_exp *e, const char *rname, const char *name )
 {
 	if (name) 
 		e->name = sa_strdup(sa, name);
@@ -478,7 +519,7 @@ exp_setname(sql_allocator *sa, sql_exp *e, char *rname, char *name )
 }
 
 void 
-noninternexp_setname(sql_allocator *sa, sql_exp *e, char *rname, char *name )
+noninternexp_setname(sql_allocator *sa, sql_exp *e, const char *rname, const char *name )
 {
 	if (!is_intern(e))
 		exp_setname(sa, e, rname, name);
@@ -566,7 +607,7 @@ exp_subtype( sql_exp *e )
 	return NULL;
 }
 
-char *
+const char *
 exp_name( sql_exp *e )
 {
 	if (e->name)
@@ -576,7 +617,7 @@ exp_name( sql_exp *e )
 	return NULL;
 }
 
-char *
+const char *
 exp_relname( sql_exp *e )
 {
 	if (e->rname)
@@ -586,7 +627,7 @@ exp_relname( sql_exp *e )
 	return NULL;
 }
 
-char *
+const char *
 exp_find_rel_name(sql_exp *e)
 {
 	if (e->rname)
@@ -610,7 +651,7 @@ exp_card( sql_exp *e )
 	return e->card;
 }
 
-char *
+const char *
 exp_func_name( sql_exp *e )
 {
 	if (e->type == e_func && e->f) {
@@ -628,6 +669,16 @@ int
 exp_cmp( sql_exp *e1, sql_exp *e2)
 {
 	return (e1 == e2)?0:-1;
+}
+
+int 
+exp_equal( sql_exp *e1, sql_exp *e2)
+{
+	if (e1 == e2)
+		return 0;
+	if (e1->rname && e2->rname && strcmp(e1->rname, e2->rname) == 0)
+		return strcmp(e1->name, e2->name);
+	return -1;
 }
 
 int 
@@ -907,9 +958,9 @@ complex_select(sql_exp *e)
 }
 
 static int
-distinct_rel(sql_exp *e, char **rname)
+distinct_rel(sql_exp *e, const char **rname)
 {
-	char *e_rname = NULL;
+	const char *e_rname = NULL;
 
 	switch(e->type) {
 	case e_column:
@@ -999,7 +1050,7 @@ exp_is_rangejoin(sql_exp *e, list *rels)
 	/* assume e is a e_cmp with 3 args 
 	 * Need to check e->r and e->f only touch one table.
 	 */
-	char *rname = 0;
+	const char *rname = 0;
 
 	if (distinct_rel(e->r, &rname) && distinct_rel(e->f, &rname))
 		return 0;
@@ -1235,14 +1286,15 @@ exp_unsafe( sql_exp *e)
 	if (e->type != e_func && e->type != e_convert)
 		return 0;
 
-	if (e->type == e_func && e->card == CARD_AGGR)
-		return 1;
 	if (e->type == e_convert && e->l)
 		return exp_unsafe(e->l);
 	if (e->type == e_func && e->l) {
+		sql_subfunc *f = e->f;
 		list *args = e->l;
 		node *n;
 
+		if (IS_ANALYTIC(f->func))
+			return 1;
 		for(n = args->h; n; n = n->next) {
 			sql_exp *e = n->data;
 
@@ -1262,7 +1314,7 @@ exp_key( sql_exp *e )
 }
 
 sql_exp *
-exps_bind_column( list *exps, char *cname, int *ambiguous ) 
+exps_bind_column( list *exps, const char *cname, int *ambiguous ) 
 {
 	sql_exp *e = NULL;
 
@@ -1270,7 +1322,7 @@ exps_bind_column( list *exps, char *cname, int *ambiguous )
 		node *en;
 
 		if (exps) {
-			MT_lock_set(&exps->ht_lock, "exps_bind_column");
+			MT_lock_set(&exps->ht_lock);
 			if (!exps->ht && list_length(exps) > HASH_MIN_SIZE) {
 				exps->ht = hash_new(exps->sa, list_length(exps), (fkeyvalue)&exp_key);
 
@@ -1294,16 +1346,16 @@ exps_bind_column( list *exps, char *cname, int *ambiguous )
 						if (e) {
 							if (ambiguous)
 								*ambiguous = 1;
-							MT_lock_unset(&exps->ht_lock, "exps_bind_column");
+							MT_lock_unset(&exps->ht_lock);
 							return NULL;
 						}
 						e = ce;
 					}
 				}
-				MT_lock_unset(&exps->ht_lock, "exps_bind_column");
+				MT_lock_unset(&exps->ht_lock);
 				return e;
 			}
-			MT_lock_unset(&exps->ht_lock, "exps_bind_column");
+			MT_lock_unset(&exps->ht_lock);
 		}
 		for (en = exps->h; en; en = en->next ) {
 			sql_exp *ce = en->data;
@@ -1321,13 +1373,13 @@ exps_bind_column( list *exps, char *cname, int *ambiguous )
 }
 
 sql_exp *
-exps_bind_column2( list *exps, char *rname, char *cname ) 
+exps_bind_column2( list *exps, const char *rname, const char *cname ) 
 {
 	if (exps) {
 		node *en;
 
 		if (exps) {
-			MT_lock_set(&exps->ht_lock, "exps_bind_column2");
+			MT_lock_set(&exps->ht_lock);
 			if (!exps->ht && list_length(exps) > HASH_MIN_SIZE) {
 				exps->ht = hash_new(exps->sa, list_length(exps), (fkeyvalue)&exp_key);
 
@@ -1349,14 +1401,14 @@ exps_bind_column2( list *exps, char *rname, char *cname )
 
 					if ((e && is_column(e->type) && e->name && e->rname && strcmp(e->name, cname) == 0 && strcmp(e->rname, rname) == 0) ||
 					    (e && e->type == e_column && e->name && !e->rname && e->l && strcmp(e->name, cname) == 0 && strcmp(e->l, rname) == 0)) {
-						MT_lock_unset(&exps->ht_lock, "exps_bind_column2");
+						MT_lock_unset(&exps->ht_lock);
 						return e;
 					}
 				}
-				MT_lock_unset(&exps->ht_lock, "exps_bind_column2");
+				MT_lock_unset(&exps->ht_lock);
 				return NULL;
 			}
-			MT_lock_unset(&exps->ht_lock, "exps_bind_column2");
+			MT_lock_unset(&exps->ht_lock);
 		}
 		for (en = exps->h; en; en = en->next ) {
 			sql_exp *e = en->data;
@@ -1372,7 +1424,7 @@ exps_bind_column2( list *exps, char *rname, char *cname )
 
 /* find an column based on the original name, not the alias it got */
 sql_exp *
-exps_bind_alias( list *exps, char *rname, char *cname ) 
+exps_bind_alias( list *exps, const char *rname, const char *cname ) 
 {
 	if (exps) {
 		node *en;
@@ -1608,5 +1660,40 @@ exp_copy( sql_allocator *sa, sql_exp * e)
 	if (e->name)
 		exp_setname(sa, ne, exp_find_rel_name(e), exp_name(e));
 	return ne;
+}
+
+atom *
+exp_flatten(mvc *sql, sql_exp *e) 
+{
+	if (e->type == e_atom) {
+		atom *v =  exp_value(e, sql->args, sql->argc);
+
+		if (v)
+			return atom_dup(sql->sa, v);
+	} else if (e->type == e_convert) {
+		atom *v = exp_flatten(sql, e->l); 
+
+		if (v && atom_cast(v, &e->tpe))
+			return v;
+		return NULL;
+	} else if (e->type == e_func) {
+		sql_subfunc *f = e->f;
+		list *l = e->l;
+		sql_arg *res = (f->func->res)?(f->func->res->h->data):NULL;
+
+		/* TODO handle date + x months */
+		if (strcmp(f->func->base.name, "sql_add") == 0 && list_length(l) == 2 && res && EC_NUMBER(res->type.type->eclass)) {
+			atom *l1 = exp_flatten(sql, l->h->data);
+			atom *l2 = exp_flatten(sql, l->h->next->data);
+			if (l1 && l2)
+				return atom_add(l1,l2);
+		} else if (strcmp(f->func->base.name, "sql_sub") == 0 && list_length(l) == 2 && res && EC_NUMBER(res->type.type->eclass)) {
+			atom *l1 = exp_flatten(sql, l->h->data);
+			atom *l2 = exp_flatten(sql, l->h->next->data);
+			if (l1 && l2)
+				return atom_sub(l1,l2);
+		}
+	}
+	return NULL;
 }
 

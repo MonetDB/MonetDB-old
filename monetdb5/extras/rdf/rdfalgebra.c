@@ -37,7 +37,7 @@ RDFleftfetchjoin_sorted(bat *result, const bat *lid, const bat *rid)
 		BBPunfix(left->batCacheid);
 		throw(MAL, "rdf.leftfetchjoin_sorted", RUNTIME_OBJECT_MISSING);
 	}
-	bn = BATleftfetchjoin(left, right, BUN_NONE);
+	bn = BATproject(left, right);
 	BBPunfix(left->batCacheid);
 	BBPunfix(right->batCacheid);
 	if (bn == NULL)
@@ -132,7 +132,7 @@ RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 		throw(MAL, "rdf.RDFpartialjoin", RUNTIME_OBJECT_MISSING);
 	}
 
-	BATsubouterjoin(&result1, &result2, input, left, NULL, NULL, 0, BUN_NONE); 
+	BATouterjoin(&result1, &result2, input, left, NULL, NULL, 0, BUN_NONE); 
 	
 	result = BATproject(result2, right); 
 	result->T->nil = 0; 
@@ -176,17 +176,17 @@ str RDFtriplesubsort(BAT **sbat, BAT **pbat, BAT **obat){
 	P = *pbat;
 	O = *obat;
 	/* order SPO/SOP */
-	if (BATsubsort(sbat, &o1, &g1, S, NULL, NULL, 0, 0) == GDK_FAIL){
+	if (BATsort(sbat, &o1, &g1, S, NULL, NULL, 0, 0) == GDK_FAIL){
 		if (S != NULL) BBPreclaim(S);
 		throw(RDF, "rdf.triplesubsort", "Fail in sorting for S");
 	}
 
-	if (BATsubsort(pbat, &o2, &g2, P, o1, g1, 0, 0) == GDK_FAIL){
+	if (BATsort(pbat, &o2, &g2, P, o1, g1, 0, 0) == GDK_FAIL){
 		BBPreclaim(S);
 		if (P != NULL) BBPreclaim(P);
 		throw(RDF, "rdf.triplesubsort", "Fail in sub-sorting for P");
 	}
-	if (BATsubsort(obat, &o3, &g3, O, o2, g2, 0, 0) == GDK_FAIL){
+	if (BATsort(obat, &o3, &g3, O, o2, g2, 0, 0) == GDK_FAIL){
 		BBPreclaim(S);
 		BBPreclaim(P);
 		if (O != NULL) BBPreclaim(O);
@@ -386,12 +386,12 @@ str RDFbisubsort(BAT **lbat, BAT **rbat){
 
 	L = *lbat;
 	R = *rbat;
-	if (BATsubsort(lbat, &o1, &g1, L, NULL, NULL, 0, 0) == GDK_FAIL){
+	if (BATsort(lbat, &o1, &g1, L, NULL, NULL, 0, 0) == GDK_FAIL){
 		if (L != NULL) BBPreclaim(L);
 		throw(RDF, "rdf.triplesubsort", "Fail in sorting for L");
 	}
 
-	if (BATsubsort(rbat, &o2, &g2, R, o1, g1, 0, 0) == GDK_FAIL){
+	if (BATsort(rbat, &o2, &g2, R, o1, g1, 0, 0) == GDK_FAIL){
 		BBPreclaim(L);
 		if (R != NULL) BBPreclaim(R);
 		throw(RDF, "rdf.triplesubsort", "Fail in sub-sorting for R");

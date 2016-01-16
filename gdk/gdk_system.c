@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -127,7 +127,7 @@ GDKlockstatistics(int what)
 {
 	MT_Lock *l;
 
-	if (ATOMIC_TAS(GDKlocklistlock, dummy, "") != 0) {
+	if (ATOMIC_TAS(GDKlocklistlock, dummy) != 0) {
 		fprintf(stderr, "#WARNING: GDKlocklistlock is set, so cannot access lock list\n");
 		return;
 	}
@@ -146,7 +146,7 @@ GDKlockstatistics(int what)
 	fprintf(stderr, "#total lock count " SZFMT "\n", (size_t) GDKlockcnt);
 	fprintf(stderr, "#lock contention  " SZFMT "\n", (size_t) GDKlockcontentioncnt);
 	fprintf(stderr, "#lock sleep count " SZFMT "\n", (size_t) GDKlocksleepcnt);
-	ATOMIC_CLEAR(GDKlocklistlock, dummy, "");
+	ATOMIC_CLEAR(GDKlocklistlock, dummy);
 }
 #endif
 
@@ -161,8 +161,15 @@ static struct winthread {
 } *winthreads = NULL;
 #define EXITED		1
 #define DETACHED	2
+#define WAITING		4
 static CRITICAL_SECTION winthread_cs;
 static int winthread_cs_init = 0;
+
+void
+gdk_system_reset(void)
+{
+	winthread_cs_init = 0;
+}
 
 static struct winthread *
 find_winthread(DWORD tid)
@@ -211,7 +218,8 @@ join_threads(void)
 		waited = 0;
 		EnterCriticalSection(&winthread_cs);
 		for (w = winthreads; w; w = w->next) {
-			if ((w->flags & (EXITED | DETACHED)) == (EXITED | DETACHED)) {
+			if ((w->flags & (EXITED | DETACHED | WAITING)) == (EXITED | DETACHED)) {
+				w->flags |= WAITING;
 				LeaveCriticalSection(&winthread_cs);
 				WaitForSingleObject(w->hdl, INFINITE);
 				CloseHandle(w->hdl);
@@ -465,15 +473,14 @@ thread_starter(void *arg)
 static void
 join_threads(void)
 {
-	struct posthread *p, *n = NULL;
+	struct posthread *p;
 	int waited;
 	pthread_t tid;
 
 	pthread_mutex_lock(&posthread_lock);
 	do {
 		waited = 0;
-		for (p = posthreads; p; p = n) {
-			n = p->next;
+		for (p = posthreads; p; p = p->next) {
 			if (p->exited) {
 				tid = p->tid;
 				rm_posthread_locked(p);
@@ -516,8 +523,8 @@ MT_create_thread(MT_Id *t, void (*f) (void *), void *arg, enum MT_thr_detach d)
 		pthread_mutex_lock(&posthread_lock);
 		p->next = posthreads;
 		posthreads = p;
-		f = thread_starter;
 		pthread_mutex_unlock(&posthread_lock);
+		f = thread_starter;
 		arg = p;
 		newtp = &p->tid;
 	} else {

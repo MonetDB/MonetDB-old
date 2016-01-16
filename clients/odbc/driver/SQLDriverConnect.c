@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -217,16 +217,17 @@ ODBCConnectionString(SQLRETURN rc,
 
 	/* calculate how much space was needed */
 	if (StringLength2Ptr)
-		*StringLength2Ptr = (int) (strlen(dsn ? dsn : "DEFAULT") + 5 +
-					   (uid ? strlen(uid) + 5 : 0) +
-					   (pwd ? strlen(pwd) + 5 : 0) +
-					   (host ? strlen(host) + 6 : 0) +
-					   (port ? port + 6 : 0) +
-					   (database ? strlen(database) + 10 : 0)
+		*StringLength2Ptr = (SQLSMALLINT)
+			(strlen(dsn ? dsn : "DEFAULT") + 5 +
+			 (uid ? strlen(uid) + 5 : 0) +
+			 (pwd ? strlen(pwd) + 5 : 0) +
+			 (host ? strlen(host) + 6 : 0) +
+			 (port ? port + 6 : 0) +
+			 (database ? strlen(database) + 10 : 0)
 #ifdef ODBCDEBUG
-					   + (ODBCdebug && getenv("ODBCDEBUG") == NULL ? strlen(ODBCdebug) + 9 : 0)
+			 + (ODBCdebug && getenv("ODBCDEBUG") == NULL ? strlen(ODBCdebug) + 9 : 0)
 #endif
-			);
+				);
 
 #ifdef ODBCDEBUG
 	ODBCLOG("ConnectionString: \"%.*s\" %d\n", buf ? buflen : 6, buf ? (char *) buf : "(null)", buflen);

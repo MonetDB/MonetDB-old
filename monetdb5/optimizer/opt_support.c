@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
  /* (c) M. Kersten
@@ -129,7 +129,6 @@ struct OPTcatalog {
 	int actions;
 	int debug;
 } optcatalog[]= {
-{"accumulators",0,	0,	0,	DEBUG_OPT_ACCUMULATORS},
 {"aliases",		0,	0,	0,	DEBUG_OPT_ALIASES},
 {"coercions",	0,	0,	0,	DEBUG_OPT_COERCION},
 {"commonTerms",	0,	0,	0,	DEBUG_OPT_COMMONTERMS},
@@ -211,6 +210,8 @@ OPTsetDebugStr(void *ret, str *nme)
 str
 optimizerCheck(Client cntxt, MalBlkPtr mb, str name, int actions, lng usec)
 {
+	if (cntxt->mode == FINISHCLIENT)
+		throw(MAL, name, "prematurely stopped client");
 	if( actions > 0){
 		chkTypes(cntxt->fdout, cntxt->nspace, mb, FALSE);
 		chkFlow(cntxt->fdout, mb);
@@ -243,8 +244,7 @@ optimizeMALBlock(Client cntxt, MalBlkPtr mb)
 
 	/* assume the type and flow have been checked already */
 	/* SQL functions intended to be inlined should not be optimized */
-	if (varGetProp( mb, getArg(getInstrPtr(mb,0),0), inlineProp ) != NULL &&
-	    varGetProp( mb, getArg(getInstrPtr(mb,0),0), sqlfunctionProp ) != NULL)
+	if ( mb->inlineProp)
         	return 0;
 
 
@@ -288,11 +288,11 @@ MALoptimizer(Client c)
 {
 	str msg;
 
-	if ( varGetProp(c->curprg->def,0,inlineProp))
+	if ( c->curprg->def->inlineProp)
 		return MAL_SUCCEED;
 	msg= optimizeMALBlock(c, c->curprg->def);
 	if( msg == MAL_SUCCEED)
-		OPTmultiplexSimple(c);
+		OPTmultiplexSimple(c, c->curprg->def);
 	return msg;
 }
 
@@ -383,8 +383,7 @@ isUnsafeFunction(InstrPtr q)
 	p= getInstrPtr(q->blk,0);
 	if( p->retc== 0)
 		return TRUE;
-	return (varGetProp( q->blk, getArg(p,0), unsafeProp ) != NULL);
-	/* check also arguments for 'unsafe' property */
+	return q->blk->unsafeProp;
 }
 
 /*
@@ -484,8 +483,7 @@ isProcedure(MalBlkPtr mb, InstrPtr p)
 {
 	if (p->retc == 0 || (p->retc == 1 && getArgType(mb,p,0) == TYPE_void))
 		return TRUE;
-/*	if (p->retc == 1 && (varGetProp( q->blk, getArg(p,0), unsafeProp ) != NULL))
-		return TRUE; */
+	//if( mb->unsafeProp) return TRUE;
 	return FALSE;
 }
 
@@ -506,11 +504,6 @@ hasSideEffects(InstrPtr p, int strict)
 {
 	if( getFunctionId(p) == NULL) return FALSE;
 
-/*
-	if ( getModuleId(p) == algebraRef &&
-		 getFunctionId(p) == reuseRef)
-			return TRUE;
-*/
 	if ( (getModuleId(p) == batRef || getModuleId(p)==sqlRef) &&
 	     (getFunctionId(p) == setAccessRef ||
 	 	  getFunctionId(p) == setWriteModeRef ||
@@ -583,9 +576,15 @@ hasSideEffects(InstrPtr p, int strict)
 	return FALSE;
 }
 
+/* Void returning functions always have side-effects.
+ */
 int
 mayhaveSideEffects(Client cntxt, MalBlkPtr mb, InstrPtr p, int strict)
 {
+	int tpe;
+	tpe= getVarType(mb,getArg(p,0));
+	if( tpe == TYPE_void)
+		return TRUE;
 	if (getModuleId(p) != malRef || getFunctionId(p) != multiplexRef) 
 		return hasSideEffects( p, strict);
 	if (MANIFOLDtypecheck(cntxt,mb,p) == NULL)
@@ -639,14 +638,28 @@ int isAllScalar(MalBlkPtr mb, InstrPtr p)
  * Used in the merge table optimizer. It is built incrementally
  * and should be conservative.
  */
+
+static int 
+isOrderDepenent(InstrPtr p)
+{
+    if( getModuleId(p) != batsqlRef)
+        return 0;
+    if ( getFunctionId(p) == diffRef ||
+        getFunctionId(p) == row_numberRef ||
+        getFunctionId(p) == rankRef ||
+        getFunctionId(p) == dense_rankRef)
+        return 1;
+    return 0;
+}
+
 int isMapOp(InstrPtr p){
 	return	getModuleId(p) &&
 		((getModuleId(p) == malRef && getFunctionId(p) == multiplexRef) ||
 		 (getModuleId(p) == malRef && getFunctionId(p) == manifoldRef) ||
-		 (getModuleId(p) == batcalcRef && getFunctionId(p) != mark_grpRef && getFunctionId(p) != rank_grpRef) ||
+		 (getModuleId(p) == batcalcRef) ||
 		 (getModuleId(p) != batcalcRef && getModuleId(p) != batRef && strncmp(getModuleId(p), "bat", 3) == 0) ||
-		 (getModuleId(p) == mkeyRef)) &&
-		 getModuleId(p) != rapiRef;
+		 (getModuleId(p) == mkeyRef)) && !isOrderDepenent(p) &&
+		 getModuleId(p) != batrapiRef;
 }
 
 int isLikeOp(InstrPtr p){
@@ -678,7 +691,6 @@ isMatJoinOp(InstrPtr p)
 {
 	return (isSubJoin(p) || (getModuleId(p) == algebraRef &&
                 (getFunctionId(p) == crossRef ||
-                 getFunctionId(p) == joinRef ||
                  getFunctionId(p) == subjoinRef ||
                  getFunctionId(p) == subantijoinRef || /* is not mat save */
                  getFunctionId(p) == subthetajoinRef ||
@@ -707,7 +719,7 @@ int isDelta(InstrPtr p){
 int isFragmentGroup2(InstrPtr p){
 	return
 			(getModuleId(p)== algebraRef && (
-				getFunctionId(p)== leftfetchjoinRef
+				getFunctionId(p)== projectionRef
 			)) ||
 			(getModuleId(p)== batRef && (
 				getFunctionId(p)== mergecandRef || 
@@ -769,36 +781,5 @@ isOptimizerEnabled(MalBlkPtr mb, str opt)
 			return 1;
 	}
 	return 0;
-}
-wrd
-getVarRows(MalBlkPtr mb, int v)
-{
-	VarPtr p = varGetProp(mb, v, rowsProp);
-
-	if (!p)
-		return -1;
-	if (p->value.vtype == TYPE_wrd
-#if SIZEOF_BUN <= SIZEOF_WRD
-		    && p->value.val.wval <= (wrd) BUN_MAX
-#endif
-		)
-		return p->value.val.wval;
-	if (p->value.vtype == TYPE_lng
-#if SIZEOF_BUN <= SIZEOF_LNG
-		    && p->value.val.lval <= (lng) BUN_MAX
-#endif
-		)
-		return (wrd)p->value.val.lval;
-	if (p->value.vtype == TYPE_int
-#if SIZEOF_BUN <= SIZEOF_INT
-		    && p->value.val.ival <= (int) BUN_MAX
-#endif
-		)
-		return p->value.val.ival;
-	if (p->value.vtype == TYPE_sht)
-		return p->value.val.shval;
-	if (p->value.vtype == TYPE_bte)
-		return p->value.val.btval;
-	return -1;
 }
 

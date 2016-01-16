@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -178,7 +178,7 @@ atom_dec(sql_allocator *sa, sql_subtype *tpe,
 }
 
 atom *
-atom_string(sql_allocator *sa, sql_subtype *tpe, char *val)
+atom_string(sql_allocator *sa, sql_subtype *tpe, const char *val)
 {
 	atom *a = atom_create(sa);
 
@@ -189,7 +189,7 @@ atom_string(sql_allocator *sa, sql_subtype *tpe, char *val)
 	a->data.len = 0;
 	if (val) {
 		a->isnull = 0;
-		a->data.val.sval = val;
+		a->data.val.sval = (char*)val;
 		a->data.len = (int)strlen(a->data.val.sval);
 	}
 
@@ -219,7 +219,7 @@ atom_float(sql_allocator *sa, sql_subtype *tpe, double val)
 }
 
 atom *
-atom_general(sql_allocator *sa, sql_subtype *tpe, char *val)
+atom_general(sql_allocator *sa, sql_subtype *tpe, const char *val)
 {
 	atom *a;
 	ptr p = NULL;
@@ -243,7 +243,7 @@ atom_general(sql_allocator *sa, sql_subtype *tpe, char *val)
 		a->isnull = 0;
 		if (ATOMstorage(type) == TYPE_str) {
 			a->isnull = 0;
-			a->data.val.sval = sql2str(sa_strdup(sa, val));
+			a->data.val.sval = (char*)sql2str(sa_strdup(sa, val));
 			a->data.len = (int)strlen(a->data.val.sval);
 		} else { 
 			int res = ATOMfromstr(type, &p, &a->data.len, val);
@@ -1158,11 +1158,13 @@ atom_neg( atom *a )
 		break;
 	case TYPE_dbl:
 		a->data.val.dval = -a->data.val.dval;
+		if (a->data.val.dval == dbl_nil)
+			return -1;
 		break;
 	default:
 		return -1;
 	}
-	if (a->d != dbl_nil)
+	if (a->d != dbl_nil && a->tpe.type->localtype != TYPE_dbl)
 		a->d = -a->d;
 	return 0;
 }
@@ -1177,4 +1179,86 @@ atom_cmp(atom *a1, atom *a2)
 	if ( a1->isnull)
 		return 0;
 	return VALcmp(&a1->data, &a2->data);
+}
+
+atom * 
+atom_add(atom *a1, atom *a2)
+{
+	if (a1->tpe.type->localtype != a2->tpe.type->localtype) 
+		return NULL;
+	switch(a1->tpe.type->localtype) {
+	case TYPE_bte:
+			a1->data.val.btval += a2->data.val.btval;
+			a1->d = (dbl) a1->data.val.btval;
+			break;
+	case TYPE_sht:
+			a1->data.val.shval += a2->data.val.shval;
+			a1->d = (dbl) a1->data.val.shval;
+			break;
+	case TYPE_int:
+			a1->data.val.ival += a2->data.val.ival;
+			a1->d = (dbl) a1->data.val.ival;
+			break;
+	case TYPE_lng:
+			a1->data.val.lval += a2->data.val.lval;
+			a1->d = (dbl) a1->data.val.lval;
+			break;
+#ifdef HAVE_HGE
+	case TYPE_hge:
+			a1->data.val.hval += a2->data.val.hval;
+			a1->d = (dbl) a1->data.val.hval;
+			break;
+#endif
+	case TYPE_flt:
+			a1->data.val.fval += a2->data.val.fval;
+			a1->d = (dbl) a1->data.val.fval;
+			break;
+	case TYPE_dbl:
+			a1->data.val.dval += a2->data.val.dval;
+			a1->d = (dbl) a1->data.val.dval;
+	default:
+			break;
+	}
+	return a1;
+}
+
+atom * 
+atom_sub(atom *a1, atom *a2)
+{
+	if (a1->tpe.type->localtype != a2->tpe.type->localtype) 
+		return NULL;
+	switch(a1->tpe.type->localtype) {
+	case TYPE_bte:
+			a1->data.val.btval -= a2->data.val.btval;
+			a1->d = (dbl) a1->data.val.btval;
+			break;
+	case TYPE_sht:
+			a1->data.val.shval -= a2->data.val.shval;
+			a1->d = (dbl) a1->data.val.shval;
+			break;
+	case TYPE_int:
+			a1->data.val.ival -= a2->data.val.ival;
+			a1->d = (dbl) a1->data.val.ival;
+			break;
+	case TYPE_lng:
+			a1->data.val.lval -= a2->data.val.lval;
+			a1->d = (dbl) a1->data.val.lval;
+			break;
+#ifdef HAVE_HGE
+	case TYPE_hge:
+			a1->data.val.hval -= a2->data.val.hval;
+			a1->d = (dbl) a1->data.val.hval;
+			break;
+#endif
+	case TYPE_flt:
+			a1->data.val.fval -= a2->data.val.fval;
+			a1->d = (dbl) a1->data.val.fval;
+			break;
+	case TYPE_dbl:
+			a1->data.val.dval -= a2->data.val.dval;
+			a1->d = (dbl) a1->data.val.dval;
+	default:
+			break;
+	}
+	return a1;
 }

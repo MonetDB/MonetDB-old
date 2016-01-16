@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -68,8 +68,7 @@ static int prvlocate(BAT* b, BAT* bidx, oid *prv, str part)
 	BATiter biidx = bat_iterator(bidx);
 
 	BUN p;
-	if (b->T->hash == NULL)
-		BAThash(b, 2 * BATcount(b));
+	BAThash(b, 2 * BATcount(b));
 	HASHloop_str(bi, b->T->hash, p, part)
 	{
 		if (*((oid *) BUNtail(biidx, p)) == *prv) {
@@ -94,9 +93,9 @@ TKNZRopen(void *ret, str *in)
 		throw(MAL, "tokenizer.open",
 				ILLEGAL_ARGUMENT " tokenizer name too long");
 
-	MT_lock_set(&mal_contextLock, "tokenizer");
+	MT_lock_set(&mal_contextLock);
 	if (TRANS != NULL) {
-		MT_lock_unset(&mal_contextLock, "tokenizer");
+		MT_lock_unset(&mal_contextLock);
 		throw(MAL, "tokenizer.open", "Another tokenizer is already open");
 	}
 
@@ -108,11 +107,11 @@ TKNZRopen(void *ret, str *in)
 
 	TRANS = BATnew(TYPE_void, TYPE_str, MAX_TKNZR_DEPTH + 1, TRANSIENT);
 	if (TRANS == NULL) {
-		MT_lock_unset(&mal_contextLock, "tokenizer");
+		MT_lock_unset(&mal_contextLock);
 		throw(MAL, "tokenizer.open", MAL_MALLOC_FAIL);
 	}
 	/* now we are sure that none overwrites the tokenizer table*/
-	MT_lock_unset(&mal_contextLock, "tokenizer");
+	MT_lock_unset(&mal_contextLock);
 	BATseqbase(TRANS, 0);
 
 	snprintf(name, 128, "%s", *in);
@@ -127,7 +126,6 @@ TKNZRopen(void *ret, str *in)
 		b = BATnew(TYPE_void, TYPE_oid, 1024, PERSISTENT);
 		if (b == NULL)
 			throw(MAL, "tokenizer.open", MAL_MALLOC_FAIL);
-		BATkey(b, FALSE);
 		BATseqbase(b, 0);
 		tokenBAT[INDEX].val = b;
 		if (BKCsetName(&r, &b->batCacheid, (const char*const*) &batname) != MAL_SUCCEED)
@@ -262,7 +260,6 @@ TKNZRappend(oid *pos, str *s)
 				GDKfree(url);
 				throw(MAL, "tokenizer.append", MAL_MALLOC_FAIL);
 			}
-			BATkey(bVal, FALSE);
 			BATseqbase(bVal, 0);
 			
 			tokenBAT[i].val = bVal;
@@ -289,7 +286,6 @@ TKNZRappend(oid *pos, str *s)
 				GDKfree(url);
 				throw(MAL, "tokenizer.append", MAL_MALLOC_FAIL);
 			}
-			BATkey(bIdx, FALSE);
 			BATseqbase(bIdx, 0);
 			
 			tokenBAT[i].idx = bIdx;
@@ -343,18 +339,19 @@ TKNZRappend(oid *pos, str *s)
 			throw(MAL, "tokenizer.append",
 					OPERATION_FAILED " no more free oid's");
 		}
-		if (BUNappend(tokenBAT[i].val, parts[i], TRUE) == GDK_FAIL) {
+		if (BUNappend(tokenBAT[i].val, parts[i], TRUE) != GDK_SUCCEED) {
 			GDKfree(url);
 			throw(MAL, "tokenizer.append",
 					OPERATION_FAILED " could not append");
 		}
 		if (tokenBAT[i].val->T->hash == NULL ||
+			tokenBAT[i].val->T->hash == (Hash *) 1 ||
 			BATcount(tokenBAT[i].val) > 4 * tokenBAT[i].val->T->hash->mask) {
 			HASHdestroy(tokenBAT[i].val);
 			BAThash(tokenBAT[i].val, 2 * BATcount(tokenBAT[i].val));
 		}
 
-		if (BUNappend(tokenBAT[i].idx, (ptr) & prv, TRUE) == GDK_FAIL) {
+		if (BUNappend(tokenBAT[i].idx, (ptr) & prv, TRUE) != GDK_SUCCEED) {
 			GDKfree(url);
 			throw(MAL, "tokenizer.append",
 					OPERATION_FAILED " could not append");
@@ -367,6 +364,7 @@ TKNZRappend(oid *pos, str *s)
 	comp = COMP(prv, depth);
 	BUNappend(tokenBAT[INDEX].val, (ptr) & comp, TRUE);
 	if (tokenBAT[INDEX].val->T->hash == NULL ||
+		tokenBAT[INDEX].val->T->hash == (Hash *) 1 ||
 		BATcount(tokenBAT[INDEX].val) > 4 * tokenBAT[INDEX].val->T->hash->mask) {
 		HASHdestroy(tokenBAT[INDEX].val);
 		BAThash(tokenBAT[INDEX].val, 2 * BATcount(tokenBAT[INDEX].val));
@@ -652,7 +650,7 @@ TKNZRgetLevel(bat *r, int *level)
 		throw(MAL, "tokenizer", "no tokenizer store open");
 	if (*level < 0 || *level >= tokenDepth)
 		throw(MAL, "tokenizer.getLevel", OPERATION_FAILED " illegal level");
-	view = VIEWcreate(BATmirror(tokenBAT[*level].idx),tokenBAT[*level].val);
+	view = VIEWcreate(tokenBAT[*level].val->hseqbase, tokenBAT[*level].val);
 	*r = view->batCacheid;
 
 	BBPincref(*r, TRUE);
@@ -713,7 +711,7 @@ TKNZRgetCardinality(bat *r)
 		throw(MAL, "tokenizer.getCardinality", MAL_MALLOC_FAIL);
 	BATseqbase(b, 0);
 	for (i = 0; i < tokenDepth; i++) {
-		if ((en = BATsubunique(tokenBAT[i].val, NULL)) == NULL) {
+		if ((en = BATunique(tokenBAT[i].val, NULL)) == NULL) {
 			BBPreclaim(b);
 			throw(MAL, "tokenizer.getCardinality", GDK_EXCEPTION);
 		}

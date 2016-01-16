@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -390,15 +390,9 @@
 #define MIN(A,B)	((A)>(B)?(B):(A))
 
 /* defines from ctype with casts that allow passing char values */
-#define GDKisprint(c)	isprint((int) (unsigned char) (c))
 #define GDKisspace(c)	isspace((int) (unsigned char) (c))
 #define GDKisalnum(c)	isalnum((int) (unsigned char) (c))
-#define GDKisgraph(c)	isgraph((int) (unsigned char) (c))
 #define GDKisdigit(c)	(((unsigned char) (c)) >= '0' && ((unsigned char) (c)) <= '9')
-#define GDKisxcntrl(c)  (((unsigned char) (c)) >= 128 && ((unsigned char) (c)) <= 160)
-#define GDKisspecial(c) (((unsigned char) (c)) >= 161 && ((unsigned char) (c)) <= 191)
-#define GDKisupperl(c)  (((unsigned char) (c)) >= 192 && ((unsigned char) (c)) <= 223)
-#define GDKislowerl(c)  (((unsigned char) (c)) >= 224 && ((unsigned char) (c)) <= 255)
 
 #define GDKPROP		6	/* use one spare! */
 #define MONETHOME	"MONETHOME"
@@ -853,10 +847,6 @@ typedef struct {
 	 role:8,		/* role of the bat */
 	 unused:15;		/* value=0 for now */
 	int sharecnt;		/* incoming view count */
-	char map_head;		/* mmap mode for head bun heap */
-	char map_tail;		/* mmap mode for tail bun heap */
-	char map_hheap;		/* mmap mode for head atom heap */
-	char map_theap;		/* mmap mode for tail atom heap */
 
 	/* delta status administration */
 	BUN deleted;		/* start of deleted elements */
@@ -904,7 +894,8 @@ typedef struct {
 
 #define GDKLIBRARY_INET_COMPARE	061026	/* version with missing inet cmp func */
 #define GDKLIBRARY_64_BIT_INT	061027	/* version that had no 128-bit integer option, yet */
-#define GDKLIBRARY		061030
+#define GDKLIBRARY_SORTEDPOS	061030	/* version where we can't trust no(rev)sorted */
+#define GDKLIBRARY		061031
 
 typedef struct BAT {
 	/* static bat properties */
@@ -963,10 +954,6 @@ typedef int (*GDKfcn) ();
 #define halign		H->align
 #define talign		T->align
 
-#define batMaphead	S->map_head
-#define batMaptail	S->map_tail
-#define batMaphheap	S->map_hheap
-#define batMaptheap	S->map_theap
 /*
  * @- Heap Management
  * Heaps are the low-level entities of mass storage in
@@ -1003,7 +990,7 @@ typedef int (*GDKfcn) ();
  * These routines should be used to alloc free or extend heaps; they
  * isolate you from the different ways heaps can be accessed.
  */
-gdk_export int HEAPextend(Heap *h, size_t size, int mayshare);
+gdk_export gdk_return HEAPextend(Heap *h, size_t size, int mayshare);
 gdk_export size_t HEAPvmsize(Heap *h);
 gdk_export size_t HEAPmemsize(Heap *h);
 
@@ -1070,6 +1057,8 @@ gdk_export void HEAP_free(Heap *heap, var_t block);
 
 gdk_export BAT *BATnew(int hdtype, int tltype, BUN capacity, int role)
 	__attribute__((warn_unused_result));
+gdk_export BAT *BATdense(oid hseq, oid tseq, BUN cnt)
+	__attribute__((warn_unused_result));
 gdk_export gdk_return BATextend(BAT *b, BUN newcap);
 
 /* internal */
@@ -1079,22 +1068,12 @@ gdk_export bte ATOMelmshift(int sz);
  * @- BUN manipulation
  * @multitable @columnfractions 0.08 0.7
  * @item BAT*
- * @tab BATins (BAT *b, BAT *c, bit force)
- * @item BAT*
  * @tab BATappend (BAT *b, BAT *c, bit force)
- * @item BAT*
- * @tab BATdel (BAT *b, BAT *c, bit force)
- * @item BAT*
- * @tab BUNins (BAT *b, ptr left, ptr right, bit force)
  * @item BAT*
  * @tab BUNappend (BAT *b, ptr right, bit force)
  * @item BAT*
- * @tab BUNreplace (BAT *b, ptr left, ptr right, bit force)
+ * @tab BUNreplace (BAT *b, oid left, ptr right, bit force)
  * @item int
- * @tab BUNdel (BAT *b, ptr left, ptr right, bit force)
- * @item int
- * @tab BUNdelHead (BAT *b, ptr left, bit force)
- * @item BUN
  * @tab BUNfnd (BAT *b, ptr tail)
  * @item BUN
  * @tab BUNlocate (BAT *b, ptr head, ptr tail)
@@ -1117,14 +1096,8 @@ gdk_export bte ATOMelmshift(int sz);
  * be aware of the evolving nature of the sequence, which may require
  * copying the BAT first.
  *
- * The update operations come in three flavors. Element-wise updates
- * can use BUNins, BUNappend, BUNreplace, BUNdel, and BUNdelHead.  The
- * batch update operations are BATins, BATappend and BATdel.
- *
- * Only experts interested in speed may use BUNfastins, since it skips
- * most consistency checks, does not update search accelerators, and
- * does not maintain properties such as the hsorted and tsorted
- * flags. Beware!
+ * The update operations come in two flavors: BUNappend and
+ * BUNreplace.  The batch version of BUNappend is BATappend.
  *
  * The routine BUNfnd provides fast access to a single BUN providing a
  * value for the tail of the binary association.
@@ -1169,7 +1142,7 @@ gdk_export bte ATOMelmshift(int sz);
 			if ((b)->HT->width < SIZEOF_VAR_T &&		\
 			    ((b)->HT->width <= 2 ? _d - GDK_VAROFFSET : _d) >= ((size_t) 1 << (8 * (b)->HT->width))) { \
 				/* doesn't fit in current heap, upgrade it */ \
-				if (GDKupgradevarheap((b)->HT, _d, (copyall), (b)->batRestricted == BAT_READ) == GDK_FAIL) \
+				if (GDKupgradevarheap((b)->HT, _d, (copyall), (b)->batRestricted == BAT_READ) != GDK_SUCCEED) \
 					goto bunins_failed;		\
 			}						\
 			_ptr = (p);					\
@@ -1191,7 +1164,6 @@ gdk_export bte ATOMelmshift(int sz);
 			ATOMputFIX((b)->HT->type, (p), v);		\
 		}							\
 	} while (0)
-#define Hputvalue(b, p, v, copyall)	HTputvalue(b, p, v, copyall, H)
 #define Tputvalue(b, p, v, copyall)	HTputvalue(b, p, v, copyall, T)
 #define HTreplacevalue(b, p, v, HT)					\
 	do {								\
@@ -1217,7 +1189,7 @@ gdk_export bte ATOMelmshift(int sz);
 			if ((b)->HT->width < SIZEOF_VAR_T &&		\
 			    ((b)->HT->width <= 2 ? _d - GDK_VAROFFSET : _d) >= ((size_t) 1 << (8 * (b)->HT->width))) { \
 				/* doesn't fit in current heap, upgrade it */ \
-				if (GDKupgradevarheap((b)->HT, _d, 0, (b)->batRestricted == BAT_READ) == GDK_FAIL) \
+				if (GDKupgradevarheap((b)->HT, _d, 0, (b)->batRestricted == BAT_READ) != GDK_SUCCEED) \
 					goto bunins_failed;		\
 			}						\
 			_ptr = (p);					\
@@ -1239,7 +1211,6 @@ gdk_export bte ATOMelmshift(int sz);
 			ATOMreplaceFIX((b)->HT->type, (p), v);		\
 		}							\
 	} while (0)
-#define Hreplacevalue(b, p, v)		HTreplacevalue(b, p, v, H)
 #define Treplacevalue(b, p, v)		HTreplacevalue(b, p, v, T)
 #define HTfastins_nocheck(b, p, v, s, HT)			\
 	do {							\
@@ -1247,35 +1218,7 @@ gdk_export bte ATOMelmshift(int sz);
 		(b)->HT->heap.free += (s);			\
 		HTputvalue((b), HT##loc((b), (p)), (v), 0, HT);	\
 	} while (0)
-#define hfastins_nocheck(b, p, v, s)	HTfastins_nocheck(b, p, v, s, H)
 #define tfastins_nocheck(b, p, v, s)	HTfastins_nocheck(b, p, v, s, T)
-
-#define bunfastins_nocheck(b, p, h, t, hs, ts)		\
-	do {						\
-		hfastins_nocheck(b, p, h, hs);		\
-		tfastins_nocheck(b, p, t, ts);		\
-		(b)->batCount++;			\
-	} while (0)
-
-#define bunfastins_nocheck_inc(b, p, h, t)				\
-	do {								\
-		bunfastins_nocheck(b, p, h, t, Hsize(b), Tsize(b));	\
-		p++;							\
-	} while (0)
-
-#define bunfastins(b, h, t)						\
-	do {								\
-		register BUN _p = BUNlast(b);				\
-		if (_p >= BATcapacity(b)) {				\
-			if (_p == BUN_MAX || BATcount(b) == BUN_MAX) {	\
-				GDKerror("bunfastins: too many elements to accomodate (" BUNFMT ")\n", BUN_MAX); \
-				goto bunins_failed;			\
-			}						\
-			if (BATextend((b), BATgrows(b)) == GDK_FAIL)	\
-				goto bunins_failed;			\
-		}							\
-		bunfastins_nocheck(b, _p, h, t, Hsize(b), Tsize(b));	\
-	} while (0)
 
 #define bunfastapp_nocheck(b, p, t, ts)		\
 	do {					\
@@ -1298,25 +1241,20 @@ gdk_export bte ATOMelmshift(int sz);
 				GDKerror("bunfastapp: too many elements to accomodate (" BUNFMT ")\n", BUN_MAX); \
 				goto bunins_failed;			\
 			}						\
-			if (BATextend((b), BATgrows(b)) == GDK_FAIL)	\
+			if (BATextend((b), BATgrows(b)) != GDK_SUCCEED)	\
 				goto bunins_failed;			\
 		}							\
 		bunfastapp_nocheck(b, _p, t, Tsize(b));			\
 	} while (0)
 
 gdk_export gdk_return GDKupgradevarheap(COLrec *c, var_t v, int copyall, int mayshare);
-gdk_export gdk_return BUNfastins(BAT *b, const void *left, const void *right);
-gdk_export gdk_return BUNins(BAT *b, const void *left, const void *right, bit force);
 gdk_export gdk_return BUNappend(BAT *b, const void *right, bit force);
-gdk_export gdk_return BATins(BAT *b, BAT *c, bit force);
 gdk_export gdk_return BATappend(BAT *b, BAT *c, bit force);
-gdk_export gdk_return BUNdel(BAT *b, const void *left, const void *right, bit force);
-gdk_export gdk_return BUNdelHead(BAT *b, const void *left, bit force);
-gdk_export BUN BUNdelete(BAT *b, BUN p, bit force);
-gdk_export gdk_return BATdel(BAT *b, BAT *c, bit force);
 
-gdk_export gdk_return BUNreplace(BAT *b, const void *left, const void *right, bit force);
-gdk_export gdk_return BUNinplace(BAT *b, BUN p, const void *left, const void *right, bit force);
+gdk_export gdk_return BUNdelete(BAT *b, oid o);
+gdk_export gdk_return BATdel(BAT *b, BAT *d);
+
+gdk_export gdk_return BUNinplace(BAT *b, BUN p, const void *right, bit force);
 gdk_export gdk_return BATreplace(BAT *b, BAT *p, BAT *n, bit force);
 
 gdk_export BUN BUNfnd(BAT *b, const void *right);
@@ -1493,6 +1431,8 @@ gdk_export int BATgetaccess(BAT *b);
 
 #define PERSISTENT		0
 #define TRANSIENT		1
+#define LOG_DIR			2
+#define SHARED_LOG_DIR	3
 
 #define BAT_WRITE		0	/* all kinds of access allowed */
 #define BAT_READ		1	/* only read-access allowed */
@@ -1505,11 +1445,7 @@ gdk_export int BATgetaccess(BAT *b);
  * @item BAT *
  * @tab BATclear (BAT *b, int force)
  * @item BAT *
- * @tab BATcopy (BAT *b, int ht, int tt, int writeable, int role)
- * @item BAT *
- * @tab BATmark (BAT *b, oid base)
- * @item BAT *
- * @tab BATmark_grp (BAT *b, BAT *g, oid *s)
+ * @tab COLcopy (BAT *b, int tt, int writeable, int role)
  * @item BAT *
  * @tab BATmirror (BAT *b)
  * @item BAT *
@@ -1517,11 +1453,8 @@ gdk_export int BATgetaccess(BAT *b);
  *
  * The routine BATclear removes the binary associations, leading to an
  * empty, but (re-)initialized BAT. Its properties are retained.  A
- * temporary copy is obtained with BATcopy. The new BAT has an unique
- * name.  The routine BATmark creates a binary association that
- * introduces a new tail column of fresh densely ascending OIDs.  The
- * base OID can be given explicitly, or if oid_nil is passed, is
- * chosen as a new unique range by the system.
+ * temporary copy is obtained with Colcopy. The new BAT has an unique
+ * name.
  *
  * The routine BATmirror returns the mirror image BAT (where tail is
  * head and head is tail) of that same BAT. This does not involve a
@@ -1529,9 +1462,7 @@ gdk_export int BATgetaccess(BAT *b);
  * exist at the same time.
  */
 gdk_export gdk_return BATclear(BAT *b, int force);
-gdk_export BAT *BATcopy(BAT *b, int ht, int tt, int writeable, int role);
-gdk_export BAT *BATmark(BAT *b, oid base);
-gdk_export BAT *BATmark_grp(BAT *b, BAT *g, const oid *base);
+gdk_export BAT *COLcopy(BAT *b, int tt, int writeable, int role);
 
 gdk_export gdk_return BATgroup(BAT **groups, BAT **extents, BAT **histo, BAT *b, BAT *g, BAT *e, BAT *h);
 
@@ -1542,8 +1473,6 @@ gdk_export gdk_return BATgroup(BAT **groups, BAT **extents, BAT **histo, BAT *b,
  * @tab BATload (str name)
  * @item BAT *
  * @tab BATsave (BAT *b)
- * @item int
- * @tab BATmmap (BAT *b, int hb, int tb, int hh, int th, int force )
  * @item int
  * @tab BATdelete (BAT *b)
  * @end multitable
@@ -1559,14 +1488,14 @@ gdk_export gdk_return BATgroup(BAT **groups, BAT **extents, BAT **histo, BAT *b,
  *
  * @- Heap Storage Modes
  * The discriminative storage modes are memory-mapped, compressed, or
- * loaded in memory.  The @strong{BATmmap()} changes the storage mode
- * of each heap associated to a BAT.  As can be seen in the bat
- * record, each BAT has one BUN-heap (@emph{bn}), and possibly two
- * heaps (@emph{hh} and @emph{th}) for variable-sized atoms.
+ * loaded in memory.  As can be seen in the bat record, each BAT has
+ * one BUN-heap (@emph{bn}), and possibly two heaps (@emph{hh} and
+ * @emph{th}) for variable-sized atoms.
  */
 
 gdk_export gdk_return BATsave(BAT *b);
-gdk_export void BATmmap(BAT *b, int hb, int tb, int hh, int th, int force);
+gdk_export void BATmsync(BAT *b);
+
 gdk_export size_t BATmemsize(BAT *b, int dirty);
 
 #define NOFARM (-1) /* indicate to GDKfilepath to create relative path */
@@ -1580,38 +1509,22 @@ gdk_export gdk_return GDKcreatedir(const char *nme);
  * @item int
  * @tab BATprintf (stream *f, BAT *b)
  * @item int
- * @tab BATmultiprintf (stream *f, int argc, BAT *b[], int printoid,
- * int order, int printorderby)
+ * @tab BATprintcolumns (stream *f, int argc, BAT *b[]);
  * @end multitable
  *
- * The functions to convert BATs into ASCII and the reverse use
- * internally defined formats. They are primarily meant for ease of
+ * The functions to convert BATs into ASCII. They are primarily meant for ease of
  * debugging and to a lesser extent for output processing.  Printing a
  * BAT is done essentially by looping through its components, printing
- * each association.  If an index is available, it will be used.
+ * each association.  
  *
- * The BATmultiprintf command assumes a set of BATs with corresponding
- * oid-s in the head columns. It performs the multijoin over them, and
- * prints the multi-column result on the file.
  */
-gdk_export gdk_return BATprintcols(stream *s, int argc, BAT *argv[]);
+gdk_export gdk_return BATprintcolumns(stream *s, int argc, BAT *argv[]);
 gdk_export gdk_return BATprint(BAT *b);
 gdk_export gdk_return BATprintf(stream *f, BAT *b);
-gdk_export gdk_return BATmultiprintf(stream *f, int argc, BAT *argv[], int printoid, int order, int printorderby);
 
 /*
  * @- BAT clustering
  * @multitable @columnfractions 0.08 0.7
- * @item BAT *
- * @tab BATsort (BAT *b)
- * @item BAT *
- * @tab BATsort_rev (BAT *b)
- * @item BAT *
- * @tab BATorder (BAT *b)
- * @item BAT *
- * @tab BATorder_rev (BAT *b)
- * @item BAT *
- * @tab BATrevert (BAT *b)
  * @item int
  * @tab BATordered (BAT *b)
  * @end multitable
@@ -1625,26 +1538,13 @@ gdk_export gdk_return BATmultiprintf(stream *f, int argc, BAT *argv[], int print
  * clusterings will allow that MonetDB's main-memory oriented
  * algorithms work efficiently also in a disk-oriented context.
  *
- * The BATsort functions return a copy of the input BAT, sorted in
- * ascending order on the head column. BATordered starts a check on
- * the head values to see if they are ordered. The result is returned
- * and stored in the hsorted field of the BAT.  BATorder is similar to
- * BATsort, but sorts the BAT itself, rather than returning a copy
- * (BEWARE: this operation destroys the delta
- * information. TODO:fix). The BATrevert puts all the live BUNs of a
- * BAT in reverse order. It just reverses the sequence, so this does
- * not necessarily mean that they are sorted in reverse order!
+ * BATordered starts a check on the tail values to see if they are
+ * ordered. The result is returned and stored in the tsorted field of
+ * the BAT.
  */
-gdk_export BAT *BATsort(BAT *b);
-gdk_export BAT *BATsort_rev(BAT *b);
-gdk_export gdk_return BATorder(BAT *b);
-gdk_export gdk_return BATorder_rev(BAT *b);
-gdk_export gdk_return BATrevert(BAT *b);
 gdk_export int BATordered(BAT *b);
 gdk_export int BATordered_rev(BAT *b);
-gdk_export BAT *BATssort(BAT *b);
-gdk_export BAT *BATssort_rev(BAT *b);
-gdk_export gdk_return BATsubsort(BAT **sorted, BAT **order, BAT **groups, BAT *b, BAT *o, BAT *g, int reverse, int stable);
+gdk_export gdk_return BATsort(BAT **sorted, BAT **order, BAT **groups, BAT *b, BAT *o, BAT *g, int reverse, int stable);
 
 
 gdk_export void GDKqsort(void *h, void *t, const void *base, size_t n, int hs, int ts, int tpe);
@@ -2012,7 +1912,7 @@ typedef struct {
 	int (*atomFromStr) (const char *src, int *len, ptr *dst);
 	int (*atomToStr) (str *dst, int *len, const void *src);
 	void *(*atomRead) (void *dst, stream *s, size_t cnt);
-	int (*atomWrite) (const void *src, stream *s, size_t cnt);
+	gdk_return (*atomWrite) (const void *src, stream *s, size_t cnt);
 	int (*atomCmp) (const void *v1, const void *v2);
 	BUN (*atomHash) (const void *v);
 	/* optional functions */
@@ -2478,9 +2378,9 @@ free_debug(void *ptr, const char *filename, int lineno)
 
 /* Data Distilleries uses ICU for internationalization of some MonetDB error messages */
 
-gdk_export int GDKerror(_In_z_ _Printf_format_string_ const char *format, ...)
+gdk_export void GDKerror(_In_z_ _Printf_format_string_ const char *format, ...)
 	__attribute__((__format__(__printf__, 1, 2)));
-gdk_export int GDKsyserror(_In_z_ _Printf_format_string_ const char *format, ...)
+gdk_export void GDKsyserror(_In_z_ _Printf_format_string_ const char *format, ...)
 	__attribute__((__format__(__printf__, 1, 2)));
 __declspec(noreturn) gdk_export void GDKfatal(_In_z_ _Printf_format_string_ const char *format, ...)
 	__attribute__((__format__(__printf__, 1, 2)))
@@ -2555,7 +2455,7 @@ gdk_export ThreadRec GDKthreads[THREADS];
 
 gdk_export int THRgettid(void);
 gdk_export Thread THRget(int tid);
-gdk_export Thread THRnew(str name);
+gdk_export Thread THRnew(const char *name);
 gdk_export void THRdel(Thread t);
 gdk_export void THRsetdata(int, ptr);
 gdk_export void *THRgetdata(int);
@@ -2698,10 +2598,10 @@ BATmirror(register BAT *b)
  * you try to partially commit an already committed persistent BAT (it
  * needs the rollback mechanism).
  */
-gdk_export int TMcommit(void);
-gdk_export int TMabort(void);
-gdk_export int TMsubcommit(BAT *bl);
-gdk_export int TMsubcommit_list(bat *subcommit, int cnt);
+gdk_export gdk_return TMcommit(void);
+gdk_export void TMabort(void);
+gdk_export gdk_return TMsubcommit(BAT *bl);
+gdk_export gdk_return TMsubcommit_list(bat *subcommit, int cnt);
 
 /*
  * @- Delta Management
@@ -2712,12 +2612,6 @@ gdk_export int TMsubcommit_list(bat *subcommit, int cnt);
  * @tab BATfakeCommit (BAT *b)
  * @item BAT *
  * @tab BATundo (BAT *b)
- * @item BAT *
- * @tab BATprev (BAT *b)
- * @item BAT *
- * @tab BATalpha (BAT *b)
- * @item BAT *
- * @tab BATdelta (BAT *b)
  * @end multitable
  *
  * The BAT keeps track of updates with respect to a 'previous state'.
@@ -2744,22 +2638,10 @@ gdk_export int TMsubcommit_list(bat *subcommit, int cnt);
  * BUG: after a failed TMcommit, TMabort does not do anything because
  * TMcommit does the BATcommits @emph{before} attempting to sync to
  * disk instead of @sc{after} doing this.
- *
- * The previous state can also be queried. BATprev is a view on the
- * current BAT as it was in the previous state.  BATalpha shows only
- * the BUNs inserted since the previous state, and BATdelta the
- * deleted buns.
- *
- * CAVEAT: BATprev, BATalpha and BATdelta only return views if the
- * underlying BATs are read-only (often not the case when BATs are
- * being updated).  Otherwise, copies must be made anyway.
  */
 gdk_export void BATcommit(BAT *b);
 gdk_export void BATfakeCommit(BAT *b);
 gdk_export void BATundo(BAT *b);
-gdk_export BAT *BATalpha(BAT *b);
-gdk_export BAT *BATdelta(BAT *b);
-gdk_export BAT *BATprev(BAT *b);
 
 /*
  * @+ BAT Alignment and BAT views
@@ -2774,17 +2656,13 @@ gdk_export BAT *BATprev(BAT *b);
  * @tab ALIGNsetH    ((BAT *dst, BAT *src)
  *
  * @item BAT*
- * @tab VIEWcreate   (BAT *h, BAT *t)
+ * @tab VIEWcreate   (oid seq, BAT *b)
  * @item int
  * @tab isVIEW   (BAT *b)
  * @item bat
  * @tab VIEWhparent   (BAT *b)
  * @item bat
  * @tab VIEWtparent   (BAT *b)
- * @item BAT*
- * @tab VIEWhead     (BAT *b)
- * @item BAT*
- * @tab VIEWcombine  (BAT *b)
  * @item BAT*
  * @tab VIEWreset    (BAT *b)
  * @item BAT*
@@ -2803,17 +2681,13 @@ gdk_export BAT *BATprev(BAT *b);
  * VIEW BATs are BATs that lend their storage from a parent BAT.  They
  * are just a descriptor that points to the data in this parent BAT. A
  * view is created with VIEWcreate. The cache id of the parent (if
- * any) is returned by VIEWhparent and VIEWtparent (otherwise it
- * returns 0).
+ * any) is returned by VIEWtparent (otherwise it returns 0).
  *
  * VIEW bats are read-only!!
  *
- * The VIEWcombine gives a view on a BAT that has two head columns of
- * the parent.  The VIEWhead constructs a BAT view that has the same
- * head column as the parent, but has a void column with seqbase=nil
- * in the tail. VIEWreset creates a normal BAT with the same contents
- * as its view parameter (it converts void columns with seqbase!=nil
- * to materialized oid columns).
+ * VIEWreset creates a normal BAT with the same contents as its view
+ * parameter (it converts void columns with seqbase!=nil to
+ * materialized oid columns).
  *
  * The BATmaterialize materializes a VIEW (TODO) or void bat inplace.
  * This is useful as materialization is usually needed for updates.
@@ -2822,15 +2696,14 @@ gdk_export int ALIGNsynced(BAT *b1, BAT *b2);
 
 gdk_export void BATassertProps(BAT *b);
 gdk_export void BATderiveProps(BAT *b, int expensive);
-gdk_export void BATderiveHeadProps(BAT *b, int expensive);
+gdk_export void BATderiveTailProps(BAT *b, int expensive);
 
 #define BATPROPS_QUICK  0	/* only derive easy (non-resource consuming) properties */
 #define BATPROPS_ALL	1	/* derive all possible properties; no matter what cost (key=hash) */
 #define BATPROPS_CHECK  3	/* BATPROPS_ALL, but start from scratch and report illegally set properties */
 
-gdk_export BAT *VIEWcreate(BAT *h, BAT *t);
-gdk_export BAT *VIEWcreate_(BAT *h, BAT *t, int stable);
-gdk_export BAT *VIEWcombine(BAT *b);
+gdk_export BAT *VIEWcreate(oid seq, BAT *b);
+gdk_export BAT *VIEWcreate_(oid seq, BAT *b, int stable);
 gdk_export void VIEWbounds(BAT *b, BAT *view, BUN l, BUN h);
 
 /* low level functions */
@@ -2862,9 +2735,7 @@ gdk_export void ALIGNsetH(BAT *b1, BAT *b2);
 	} while (0)
 
 /* the parentid in a VIEW is correct for the normal view. We must
- * correct for the reversed view. A special case are the VIEWcombine
- * bats, these always refer to the same parent column (i.e. no
- * correction needed)
+ * correct for the reversed view.
  */
 #define isVIEW(x)							\
 	((x)->H->heap.parentid ||					\
@@ -2901,30 +2772,15 @@ gdk_export void ALIGNsetH(BAT *b1, BAT *b2);
  * @item HASHloop
  * @tab
  *  (BAT *b; Hash *h, size_t dummy; ptr value)
- * @item HASHloop_bit
- * @tab
- *  (BAT *b; Hash *h, size_t idx; bit *value, BUN w)
  * @item HASHloop_bte
  * @tab
  *  (BAT *b; Hash *h, size_t idx; bte *value, BUN w)
  * @item HASHloop_sht
  * @tab
  *  (BAT *b; Hash *h, size_t idx; sht *value, BUN w)
- * @item HASHloop_bat
- * @tab
- *  (BAT *b; Hash *h, size_t idx; bat *value, BUN w)
- * @item HASHloop_ptr
- * @tab
- *  (BAT *b; Hash *h, size_t idx; ptr *value, BUN w)
  * @item HASHloop_int
  * @tab
  *  (BAT *b; Hash *h, size_t idx; int *value, BUN w)
- * @item HASHloop_oid
- * @tab
- *  (BAT *b; Hash *h, size_t idx; oid *value, BUN w)
- * @item HASHloop_wrd
- * @tab
- *  (BAT *b; Hash *h, size_t idx; wrd *value, BUN w)
  * @item HASHloop_flt
  * @tab
  *  (BAT *b; Hash *h, size_t idx; flt *value, BUN w)
@@ -2946,9 +2802,6 @@ gdk_export void ALIGNsetH(BAT *b1, BAT *b2);
  * @item HASHloopvar
  * @tab
  *  (BAT *b; Hash *h, size_t idx; ptr value, BUN w)
- * @item SORTloop
- * @tab
- *  (BAT *b,p,q,tl,th,s)
  * @end multitable
  *
  * The @emph{BATloop()} looks like a function call, but is actually a
@@ -2973,19 +2826,6 @@ gdk_export void ALIGNsetH(BAT *b1, BAT *b2);
  */
 #define BATloop(r, p, q)					\
 	for (q = BUNlast(r), p = BUNfirst(r);p < q; p++)
-
-/*
- * @- batloop where the current element can be deleted/updated
- * Normally it is strictly forbidden to update the BAT over which is
- * being iterated, or delete the current element. This can only be
- * done with the specialized batloop below. When doing a delete, do
- * not forget to update the current pointer with a p = BUNdelete(b,p)
- * (the delete may modify the current pointer p).  After the
- * delete/update has taken place, the pointer p is in an inconsistent
- * state till the next iteration of the batloop starts.
- */
-#define BATloopDEL(r, p, q)						\
-	for (p = BUNfirst(r), q = BUNlast(r); p < q; q = MIN(q,BUNlast(r)), p++)
 
 /*
  * @- sequential scan over deleted BUNs
@@ -3021,17 +2861,6 @@ gdk_export void ALIGNsetH(BAT *b1, BAT *b2);
 	     hb = HASHgetlink(h,hb))			\
 		if (GDK_STREQ(v, BUNtvar(bi, hb)))
 
-/*
- * For string search, we can optimize if the string heap has
- * eliminated all doubles. This is the case when not too many
- * different strings are stored in the heap. You can check this with
- * the macro strElimDoubles() If so, we can just compare integer index
- * numbers instead of strings:
- */
-#define HASHloop_fstr(bi, h, hb, idx, v)				\
-	for (hb = HASHget(h, strHash(v)&h->mask), idx = strLocate((bi.b)->T->vheap,v); \
-	     hb != HASHnil(h); hb = HASHgetlink(h,hb))				\
-		if (VarHeapValRaw((bi).b->T->heap.base, hb, (bi).b->T->width) == idx)
 /*
  * The following example shows how the hashloop is used:
  *
@@ -3076,46 +2905,15 @@ gdk_export void ALIGNsetH(BAT *b1, BAT *b2);
 	     hb = HASHgetlink(h,hb))				\
 		if (simple_EQ(v, BUNtloc(bi, hb), TYPE))
 
-#define HASHloop_bit(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, bte)
 #define HASHloop_bte(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, bte)
 #define HASHloop_sht(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, sht)
 #define HASHloop_int(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, int)
-#define HASHloop_wrd(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, wrd)
 #define HASHloop_lng(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, lng)
 #ifdef HAVE_HGE
 #define HASHloop_hge(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, hge)
 #endif
-#define HASHloop_oid(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, oid)
-#define HASHloop_bat(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, bat)
 #define HASHloop_flt(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, flt)
 #define HASHloop_dbl(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, dbl)
-#define HASHloop_ptr(bi, h, hb, v)	HASHloop_TYPE(bi, h, hb, v, ptr)
-
-#define HASHloop_any(bi, h, hb, v)				\
-	for (hb = HASHget(h, hash_any(h, v));			\
-	     hb != HASHnil(h);					\
-	     hb = HASHgetlink(h,hb))				\
-		if (atom_EQ(v, BUNtail(bi, hb), (bi).b->ttype))
-
-/*
- * @- loop over a BAT with ordered tail
- * Here we loop over a BAT with an ordered tail column (see for
- * instance BATsort). Again, 'p' and 'q' are iteration variables,
- * where 'p' points at the current BUN. 'tl' and 'th' are pointers to
- * atom corresponding to the minimum (included) and maximum (included)
- * bound in the selected range of BUNs. A nil-value means that there
- * is no bound.  The 's' finally is an integer denoting the bunsize,
- * used for speed.
- */
-#define SORTloop(b, p, q, tl, th)					\
-	if (!BATtordered(b))						\
-		GDKerror("SORTloop: BAT not sorted.\n");		\
-	else for (p = (ATOMcmp((b)->ttype, tl, ATOMnilptr((b)->ttype)) ? \
-		       SORTfndfirst((b), tl) : BUNfirst(b)),		\
-		  q = (ATOMcmp((b)->ttype, th, ATOMnilptr((b)->ttype)) ? \
-		       SORTfndlast((b), th) : BUNlast(b));		\
-		  p < q;						\
-		  p++)
 
 /*
  * @+ Common BAT Operations
@@ -3135,45 +2933,6 @@ gdk_export void BATsetprop(BAT *b, int idx, int type, void *v);
 
 /*
  * @- BAT relational operators
- *  @multitable @columnfractions 0.08 0.7
- * @item BAT *
- * @tab BATjoin (BAT *l, BAT *r, BUN estimate)
- * @item BAT *
- * @tab BATouterjoin (BAT *l, BAT *r, BUN estimate)
- * @item BAT *
- * @tab BATthetajoin (BAT *l, BAT *r, int mode, BUN estimate)
- * @item BAT *
- * @tab BATsemijoin (BAT *l, BAT *r)
- * @item BAT *
- * @tab BATselect (BAT *b, ptr tl, ptr th)
- * @item BAT *
- * @tab BATfragment (BAT *b, ptr l, ptr h, ptr L, ptr H)
- * @item
- * @item BAT *
- * @tab BATkunion (BAT *b, BAT *c)
- * @item BAT *
- * @tab BATkintersect (BAT *b, BAT *c)
- * @item BAT *
- * @tab BATkdiff (BAT *b, BAT *c)
- * @end multitable
- *
- * The BAT library comes with a full-fledged collection of relational
- * operators. The two selection operators BATselect and BATfragment
- * produce a partial copy of the BAT. The former performs a search on
- * the tail; the latter considers both dimensions.  The BATselect
- * operation takes two inclusive ranges as search arguments.
- * Interpretation of a NULL argument depends on the position, i.e. a
- * domain lower or upper bound.
- *
- * The operation BATsort sorts the BAT on the header and produces a
- * new BAT. A side effect is the clustering of the BAT store on the
- * sort key.
- *
- * The BATjoin over R[A, B] and S[C, D] performs an equi-join over B
- * and C. It results in a BAT over A and D.  The BATouterjoin
- * implements a left outerjoin over the BATs involved.  The
- * BATsemijoin over R[A, B] and S[C, D] produces the subset of R[A, B]
- * that satisfies the semijoin over A and C.
  *
  * The full-materialization policy intermediate results in MonetDB
  * means that a join can produce an arbitrarily large result and choke
@@ -3194,44 +2953,26 @@ gdk_export void BATsetprop(BAT *b, int idx, int type, void *v);
 #define JOIN_BAND	3
 #define JOIN_NE		(-3)
 
-gdk_export BAT *BATsubselect(BAT *b, BAT *s, const void *tl, const void *th, int li, int hi, int anti);
-gdk_export BAT *BATthetasubselect(BAT *b, BAT *s, const void *val, const char *op);
-gdk_export BAT *BATselect_(BAT *b, const void *tl, const void *th, bit li, bit hi);
-gdk_export BAT *BATuselect_(BAT *b, const void *tl, const void *th, bit li, bit hi);
-gdk_export BAT *BATselect(BAT *b, const void *tl, const void *th);
-gdk_export BAT *BATuselect(BAT *b, const void *tl, const void *th);
+gdk_export BAT *BATselect(BAT *b, BAT *s, const void *tl, const void *th, int li, int hi, int anti);
+gdk_export BAT *BATthetaselect(BAT *b, BAT *s, const void *val, const char *op);
 
 gdk_export BAT *BATconstant(int tt, const void *val, BUN cnt, int role);
 gdk_export BAT *BATconst(BAT *l, int tt, const void *val, int role);
-gdk_export BAT *BATthetajoin(BAT *l, BAT *r, int mode, BUN estimate);
-gdk_export BAT *BATsemijoin(BAT *l, BAT *r);
-gdk_export BAT *BATjoin(BAT *l, BAT *r, BUN estimate);
-gdk_export BAT *BATantijoin(BAT *l, BAT *r);
-gdk_export BAT *BATleftjoin(BAT *l, BAT *r, BUN estimate);
-gdk_export BAT *BATouterjoin(BAT *l, BAT *r, BUN estimate);
-gdk_export gdk_return BATcross1(BAT **r1p, BAT **r2p, BAT *l, BAT *r);
 gdk_export gdk_return BATsubcross(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr);
-gdk_export BAT *BATbandjoin(BAT *l, BAT *r, const void *mnus, const void *plus, bit li, bit hi);
-gdk_export BAT *BATrangejoin(BAT *l, BAT *rl, BAT *rh, bit li, bit hi);
 
-gdk_export gdk_return BATsubleftjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, BUN estimate);
-gdk_export gdk_return BATsubouterjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, BUN estimate);
-gdk_export gdk_return BATsubthetajoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int op, int nil_matches, BUN estimate);
-gdk_export gdk_return BATsubsemijoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, BUN estimate);
-gdk_export gdk_return BATsubjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, BUN estimate);
-gdk_export gdk_return BATsubleftfetchjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, BUN estimate);
-gdk_export gdk_return BATsubbandjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, const void *c1, const void *c2, int li, int hi, BUN estimate);
-gdk_export gdk_return BATsubrangejoin(BAT **r1p, BAT **r2p, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, int hi, BUN estimate);
+gdk_export gdk_return BATleftjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, BUN estimate);
+gdk_export gdk_return BATouterjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, BUN estimate);
+gdk_export gdk_return BATthetajoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int op, int nil_matches, BUN estimate);
+gdk_export gdk_return BATsemijoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, BUN estimate);
+gdk_export BAT *BATdiff(BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, BUN estimate);
+gdk_export gdk_return BATjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, int nil_matches, BUN estimate);
+gdk_export gdk_return BATbandjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, const void *c1, const void *c2, int li, int hi, BUN estimate);
+gdk_export gdk_return BATrangejoin(BAT **r1p, BAT **r2p, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, int hi, BUN estimate);
 gdk_export BAT *BATproject(BAT *l, BAT *r);
 
 gdk_export BAT *BATslice(BAT *b, BUN low, BUN high);
-gdk_export BAT *BATleftfetchjoin(BAT *b, BAT *s, BUN estimate);
 
-gdk_export BAT *BATsubunique(BAT *b, BAT *s);
-
-gdk_export BAT *BATkintersect(BAT *b, BAT *c);
-gdk_export BAT *BATkunion(BAT *b, BAT *c);
-gdk_export BAT *BATkdiff(BAT *b, BAT *c);
+gdk_export BAT *BATunique(BAT *b, BAT *s);
 
 gdk_export BAT *BATmergecand(BAT *a, BAT *b);
 gdk_export BAT *BATintersectcand(BAT *a, BAT *b);
@@ -3257,218 +2998,5 @@ gdk_export BAT *BATsample(BAT *b, BUN n);
  *
  */
 #define MAXPARAMS	32
-
-#ifndef NDEBUG
-#ifdef __GNUC__
-/* in debug builds, complain (warn) about usage of legacy functions */
-
-#define _COL_TYPE(c)	((c)->type == TYPE_void ?			\
-				(c)->seq == oid_nil ? "nil" : "void" :	\
-			 (c)->type == TYPE_oid ?			\
-				(c)->dense ? "dense" : "oid" :		\
-			 ATOMname((c)->type))
-
-#define BATorder(b)							\
-	({								\
-		BAT *_b = (b);						\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATorder([%s,%s]#"BUNFMT") %s[%s:%d]\n",	\
-			_COL_TYPE(_b->H), _COL_TYPE(_b->T), BATcount(_b), \
-			__func__, __FILE__, __LINE__);			\
-		BATorder(_b);						\
-	})
-
-#define BATorder_rev(b)							\
-	({								\
-		BAT *_b = (b);						\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATorder_rev([%s,%s]#"BUNFMT") %s[%s:%d]\n",	\
-			_COL_TYPE(_b->H), _COL_TYPE(_b->T), BATcount(_b), \
-			__func__, __FILE__, __LINE__);			\
-		BATorder_rev(_b);					\
-	})
-
-#define BATsort(b)							\
-	({								\
-		BAT *_b = (b);						\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATsort([%s,%s]#"BUNFMT") %s[%s:%d]\n",	\
-			_COL_TYPE(_b->H), _COL_TYPE(_b->T), BATcount(_b), \
-			__func__, __FILE__, __LINE__);			\
-		BATsort(_b);						\
-	})
-
-#define BATsort_rev(b)							\
-	({								\
-		BAT *_b = (b);						\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATsort_rev([%s,%s]#"BUNFMT") %s[%s:%d]\n",	\
-			_COL_TYPE(_b->H), _COL_TYPE(_b->T), BATcount(_b), \
-			__func__, __FILE__, __LINE__);			\
-		BATsort_rev(_b);					\
-	})
-
-#define BATssort(b)							\
-	({								\
-		BAT *_b = (b);						\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATssort([%s,%s]#"BUNFMT") %s[%s:%d]\n",	\
-			_COL_TYPE(_b->H), _COL_TYPE(_b->T), BATcount(_b), \
-			__func__, __FILE__, __LINE__);			\
-		BATssort(_b);						\
-	})
-
-#define BATssort_rev(b)							\
-	({								\
-		BAT *_b = (b);						\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATssort_rev([%s,%s]#"BUNFMT") %s[%s:%d]\n",	\
-			_COL_TYPE(_b->H), _COL_TYPE(_b->T), BATcount(_b), \
-			__func__, __FILE__, __LINE__);			\
-		BATssort_rev(_b);					\
-	})
-
-#define BATselect_(b, h, t, li, hi)					\
-	({								\
-		BAT *_b = (b);						\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATselect_([%s,%s]#"BUNFMT") %s[%s:%d]\n",	\
-			_COL_TYPE(_b->H), _COL_TYPE(_b->T), BATcount(_b), \
-			__func__, __FILE__, __LINE__);			\
-		BATselect_(_b, (h), (t), (li), (hi));			\
-	})
-
-#define BATuselect_(b, h, t, li, hi)					\
-	({								\
-		BAT *_b = (b);						\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATuselect_([%s,%s]#"BUNFMT") %s[%s:%d]\n",	\
-			_COL_TYPE(_b->H), _COL_TYPE(_b->T), BATcount(_b), \
-			__func__, __FILE__, __LINE__);			\
-		BATuselect_(_b, (h), (t), (li), (hi));			\
-	})
-
-#define BATselect(b, h, t)						\
-	({								\
-		BAT *_b = (b);						\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATselect([%s,%s]#"BUNFMT") %s[%s:%d]\n",	\
-			_COL_TYPE(_b->H), _COL_TYPE(_b->T), BATcount(_b), \
-			__func__, __FILE__, __LINE__);			\
-		BATselect(_b, (h), (t));				\
-	})
-
-#define BATuselect(b, h, t)						\
-	({								\
-		BAT *_b = (b);						\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATuselect([%s,%s]#"BUNFMT") %s[%s:%d]\n",	\
-			_COL_TYPE(_b->H), _COL_TYPE(_b->T), BATcount(_b), \
-			__func__, __FILE__, __LINE__);			\
-		BATuselect(_b, (h), (t));				\
-	})
-
-#define BATsemijoin(l, r)						\
-	({								\
-		BAT *_l = (l), *_r = (r);				\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATsemijoin([%s,%s]#"BUNFMT",[%s,%s]#"BUNFMT") %s[%s:%d]\n", \
-			_COL_TYPE(_l->H), _COL_TYPE(_l->T), BATcount(_l), \
-			_COL_TYPE(_r->H), _COL_TYPE(_r->T), BATcount(_r), \
-			__func__, __FILE__, __LINE__);			\
-		BATsemijoin(_l, _r);					\
-	})
-
-#define BATjoin(l, r, estimate)						\
-	({								\
-		BAT *_l = (l), *_r = (r);				\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATjoin([%s,%s]#"BUNFMT",[%s,%s]#"BUNFMT") %s[%s:%d]\n", \
-			_COL_TYPE(_l->H), _COL_TYPE(_l->T), BATcount(_l), \
-			_COL_TYPE(_r->H), _COL_TYPE(_r->T), BATcount(_r), \
-			__func__, __FILE__, __LINE__);			\
-		BATjoin(_l, _r, (estimate));				\
-	})
-
-#define BATleftjoin(l, r, estimate)					\
-	({								\
-		BAT *_l = (l), *_r = (r);				\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATleftjoin([%s,%s]#"BUNFMT",[%s,%s]#"BUNFMT") %s[%s:%d]\n", \
-			_COL_TYPE(_l->H), _COL_TYPE(_l->T), BATcount(_l), \
-			_COL_TYPE(_r->H), _COL_TYPE(_r->T), BATcount(_r), \
-			__func__, __FILE__, __LINE__);			\
-		BATleftjoin(_l, _r, (estimate));			\
-	})
-
-#define BATthetajoin(l, r, op, estimate)				\
-	({								\
-		BAT *_l = (l), *_r = (r);				\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATthetajoin([%s,%s]#"BUNFMT",[%s,%s]#"BUNFMT") %s[%s:%d]\n",	\
-			_COL_TYPE(_l->H), _COL_TYPE(_l->T), BATcount(_l), \
-			_COL_TYPE(_r->H), _COL_TYPE(_r->T), BATcount(_r), \
-			__func__, __FILE__, __LINE__);			\
-		BATthetajoin(_l, _r, (op), (estimate));			\
-	})
-
-#define BATouterjoin(l, r, estimate)					\
-	({								\
-		BAT *_l = (l), *_r = (r);				\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATouterjoin([%s,%s]#"BUNFMT",[%s,%s]#"BUNFMT") %s[%s:%d]\n",	\
-			_COL_TYPE(_l->H), _COL_TYPE(_l->T), BATcount(_l), \
-			_COL_TYPE(_r->H), _COL_TYPE(_r->T), BATcount(_r), \
-			__func__, __FILE__, __LINE__);			\
-		BATouterjoin(_l, _r, (estimate));			\
-	})
-
-#define BATleftfetchjoin(l, r, estimate)				\
-	({								\
-		BAT *_l = (l), *_r = (r);				\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATleftfetchjoin([%s,%s]#"BUNFMT",[%s,%s]#"BUNFMT") %s[%s:%d]\n", \
-			_COL_TYPE(_l->H), _COL_TYPE(_l->T), BATcount(_l), \
-			_COL_TYPE(_r->H), _COL_TYPE(_r->T), BATcount(_r), \
-			__func__, __FILE__, __LINE__);			\
-		BATleftfetchjoin(_l, _r, (estimate));			\
-	})
-
-#define BATantijoin(l, r)						\
-	({								\
-		BAT *_l = (l), *_r = (r);				\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATantijoin([%s,%s]#"BUNFMT",[%s,%s]#"BUNFMT") %s[%s:%d]\n", \
-			_COL_TYPE(_l->H), _COL_TYPE(_l->T), BATcount(_l), \
-			_COL_TYPE(_r->H), _COL_TYPE(_r->T), BATcount(_r), \
-			__func__, __FILE__, __LINE__);			\
-		BATantijoin(_l, _r);					\
-	})
-
-#define BATbandjoin(l, r, c1, c2, li, hi)				\
-	({								\
-		BAT *_l = (l), *_r = (r);				\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATbandjoin([%s,%s]#"BUNFMT",[%s,%s]#"BUNFMT") %s[%s:%d]\n", \
-			_COL_TYPE(_l->H), _COL_TYPE(_l->T), BATcount(_l), \
-			_COL_TYPE(_r->H), _COL_TYPE(_r->T), BATcount(_r), \
-			__func__, __FILE__, __LINE__);			\
-		BATbandjoin(_l, _r, (c1), (c2), (li), (hi));		\
-	})
-
-#define BATrangejoin(l, rl, rh, li, hi)					\
-	({								\
-		BAT *_l = (l), *_rl = (rl), *_rh = (rh);		\
-		HEADLESSDEBUG fprintf(stderr,				\
-			"#BATrangejoin([%s,%s]#"BUNFMT",[%s,%s]#"BUNFMT",[%s,%s]#"BUNFMT") %s[%s:%d]\n", \
-			_COL_TYPE(_l->H), _COL_TYPE(_l->T), BATcount(_l), \
-			_COL_TYPE(_rl->H), _COL_TYPE(_rl->T), BATcount(_rl), \
-			_COL_TYPE(_rh->H), _COL_TYPE(_rh->T), BATcount(_rh), \
-			__func__, __FILE__, __LINE__);			\
-		BATrangejoin(_l, _rl, _rh, (li), (hi));			\
-	})
-
-#endif
-#endif
 
 #endif /* _GDK_H_ */

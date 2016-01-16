@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #ifndef _STREAM_H_
@@ -142,6 +142,7 @@ stream_export void mnstr_set_byteorder(stream *s, char bigendian);
 stream_export stream *mnstr_rstream(stream *s);
 stream_export stream *mnstr_wstream(stream *s);
 stream_export void mnstr_settimeout(stream *s, unsigned int ms, int (*func)(void));
+stream_export int mnstr_isalive(stream *s);
 
 stream_export stream *open_rstream(const char *filename);
 stream_export stream *open_wstream(const char *filename);
@@ -239,5 +240,16 @@ typedef enum mnstr_errors {
 	MNSTR_WRITE_ERROR,
 	MNSTR_TIMEOUT
 } mnstr_errors;
+
+/* Callback stream is a read-only stream where the read function is
+ * provided by the caller.  close and destroy are also provided.  The
+ * private pointer is passed on to the callback functions when they
+ * are invoked. */
+stream_export stream *callback_stream(
+	void *private,
+	ssize_t (*read) (void *private, void *buf, size_t elmsize, size_t cnt),
+	void (*close) (void *private),
+	void (*destroy) (void *private),
+	const char *name);
 
 #endif /*_STREAM_H_*/

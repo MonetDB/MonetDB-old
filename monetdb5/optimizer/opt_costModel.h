@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #ifndef _OPT_COSTMODEL_H_
@@ -12,7 +12,6 @@
 #include "mal.h"
 #include <math.h>
 #include "mal_interpreter.h"
-#include "mal_properties.h"
 #include "opt_support.h"
 #include "opt_prelude.h"
 

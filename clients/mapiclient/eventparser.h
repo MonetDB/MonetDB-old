@@ -3,10 +3,10 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
-/* (c) M Kersten, S Manegold
+/* (c) M Kersten
  * The easiest calling method is something like:
  * tomograph -d demo --atlast=10
  * which connects to the demo database server and
@@ -19,8 +19,6 @@
 #ifndef _EVENT_PARSER_
 #define _EVENT_PARSER_
 
-#include "monetdb_config.h"
-#include "monet_options.h"
 #include <mapi.h>
 #include <stream.h>
 #include <stdio.h>
@@ -55,9 +53,6 @@
 #define US_HH (US_MM * 60)
 #define US_DD (US_HH * 24)
 
-#define MAXTHREADS 1048
-#define MAXBOX 32678	 /* should be > MAXTHREADS */
-
 #define  MDB_START 1
 #define  MDB_DONE 2
 #define  MDB_PING 3
@@ -66,41 +61,54 @@
 
 extern char *statenames[];
 
+#define MAXMALARGS 2048
+
 // the break down of a profiler event message
 typedef struct  {
+	// system state
+	char *version;
+	char *release;
+	char *threads;
+	char *memory;
+	char *host;
+	int oid;
+	char *package;
+
+	// event state
+	int index; // return/arg index
 	int state;
-	char *blk;	// name of MAL block
+	char *function;	// name of MAL block
+	char *user; 
 	int pc;		// instruction counter in block
 	int tag;	// unique MAL block invocation tag
 	lng eventnr;// serial event number
 	int thread;	// worker thread involved
+	lng clk;	// usec since start of session
+	char *time;	// string rep of clock
 	lng clkticks;
 	lng ticks;
-	lng memory;
-	lng tmpspace;	// size of temporary produced
+	lng rss;
+	lng size;	// size of temporary produced
 	lng inblock;
 	lng oublock;
 	lng majflt;
 	lng swaps;
 	lng csw;
 	char *stmt;	// MAL statement, cpu loads or commentary
-	char *fcn;
+	char *beauty;// MAL statement compressed
+	char *fcn;	// MAL operator
 	char *numa;
+	char *prereq;	// pre-requisite statements
 } EventRecord;
 
-#define MAXMALARGS 1024
-extern char *malarguments[MAXMALARGS];
 extern char *maltypes[MAXMALARGS];
-extern int malpc[MAXMALARGS];
-extern int malcount[MAXMALARGS];
-extern int malargc;
-extern int malretc;
 extern char *malvariables[MAXMALARGS];
-extern int malvartop;
+extern char *malvalues[MAXMALARGS];
+extern int malsize;
 extern int debug;
-extern char *monetdb_characteristics;
+extern char *currentquery;
 
-extern void clearArguments(void);
-extern int eventparser(char *row, EventRecord *ev);
+extern void resetEventRecord(EventRecord *ev);
+extern int keyvalueparser(char *txt, EventRecord *ev);
 extern char *stripQuotes(char *currentquery);
 #endif /*_EVENT_PARSER_*/

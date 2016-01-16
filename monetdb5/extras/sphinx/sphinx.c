@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -32,7 +32,6 @@ sphinx_searchIndexLimit(BAT **ret, /* put pointer to BAT[oid,int] record here. *
 	BAT *bn;
 	sphinx_client *client;
 	sphinx_result *res;
-	oid o = 0;
 
 	client = sphinx_create ( SPH_TRUE );
 	if (client == NULL)
@@ -51,8 +50,7 @@ sphinx_searchIndexLimit(BAT **ret, /* put pointer to BAT[oid,int] record here. *
 			throw(MAL, "sphinx.searchIndex", MAL_MALLOC_FAIL);
 		for ( i = 0; i < res->num_matches; i++ ) {
 			lng sphinx_id = sphinx_get_id ( res, i );
-			o++;
-			BUNfastins(bn, &o, &sphinx_id);
+			bunfastapp(bn, &sphinx_id);
 		}
 
 	}
@@ -66,6 +64,10 @@ sphinx_searchIndexLimit(BAT **ret, /* put pointer to BAT[oid,int] record here. *
 
 	*ret = bn;
 	return MAL_SUCCEED;
+  bunins_failed:
+	BBPunfix(bn->batCacheid);
+	sphinx_destroy(client);
+	throw(MAL, "sphinx.searchIndex", MAL_MALLOC_FAIL);
 }
 
 str

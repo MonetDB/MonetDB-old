@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -175,7 +175,7 @@ VALinit(ValPtr d, int tpe, const void *s)
 		GDKerror("VALinit:unsupported init\n");
 		d->vtype = TYPE_int;
 	} else if (tpe >= TYPE_str && ATOMstorage(tpe) == TYPE_str) {
-		d->vtype = TYPE_str;
+		d->vtype = tpe;
 		d->val.sval = GDKstrdup(s);
 		d->len = strLen(s);
 	} else {
@@ -215,7 +215,7 @@ VALconvert(int typ, ValPtr t)
 		dst.vtype = TYPE_oid;
 
 	/* first convert into a new location */
-	if (VARconvert(&dst, t, 0) == GDK_FAIL)
+	if (VARconvert(&dst, t, 0) != GDK_SUCCEED)
 		return NULL;
 
 	/* then maybe free the old */

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -950,8 +950,8 @@ CMDqgramselfjoin(bat *res1, bat *res2, bat *qid, bat *bid, bat *pid, bat *lid, f
 	bn = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
 	bn2 = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
 	if (bn == NULL || bn2 == NULL){
-		if (bn) BBPreclaim(bn);
-		if (bn2) BBPreclaim(bn2);
+		BBPreclaim(bn);
+		BBPreclaim(bn2);
 		BBPunfix(qgram->batCacheid);
 		BBPunfix(id->batCacheid);
 		BBPunfix(pos->batCacheid);

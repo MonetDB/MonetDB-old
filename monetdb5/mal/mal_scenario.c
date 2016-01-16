@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -16,8 +16,7 @@
  * @emph{tactic scheduler} and @emph{engine}. These hooks allow
  * for both linked-in and external components.
  *
- * The languages supported are SQL
- * and the Monet Assembly Language (MAL).
+ * The languages supported are SQL, the Monet Assembly Language (MAL), and profiler.
  * The default scenario handles MAL instructions, which is used
  * to illustrate the behavior of the scenario steps.
  *
@@ -100,6 +99,7 @@
 #include "mal_client.h"
 #include "mal_authorize.h"
 #include "mal_exception.h"
+#include "mal_profiler.h"
 #include "mal_private.h"
 
 #ifdef HAVE_SYS_TIMES_H
@@ -117,6 +117,17 @@ static struct SCENARIO scenarioRec[MAXSCEN] = {
 	 "MALoptimizer", 0, 0,
 	 0, 0, 0,
 	 "MALengine", (MALfcn) &MALengine, 0, 0},
+	{"profiler","profiler",			/* name */
+	 0, 0,			/* initClient */
+	 0, 0,			/* exitClient */
+	 "PROFinitClient", (MALfcn) &PROFinitClient,			/* initClient */
+	 "PROFexitClient", (MALfcn) &PROFexitClient,			/* exitClient */
+	 "MALreader", (MALfcn) &MALreader, 0,		/* reader */
+	 "MALparser", (MALfcn) &MALparser, 0,		/* parser */
+	 0, 0, 0,		/* optimizer */
+	 0, 0, 0,		/* scheduler */
+	 0, 0, 0, 0		/* engine */
+	 },
 	{0,0,			/* name */
 	 0, 0,			/* init */
 	 0, 0,			/* exit */
@@ -133,6 +144,11 @@ static struct SCENARIO scenarioRec[MAXSCEN] = {
 static str fillScenario(Client c, Scenario scen);
 static MT_Lock scenarioLock MT_LOCK_INITIALIZER("scenarioLock");
 
+
+void
+mal_scenario_reset(void)
+{
+}
 /*
  * @-
  * Currently each user can define a new scenario, provided we have a free slot.
@@ -144,7 +160,7 @@ getFreeScenario(void)
 	int i;
 	Scenario scen = NULL;
 
-	MT_lock_set(&scenarioLock, "getFreeScenario");
+	MT_lock_set(&scenarioLock);
 	for (i = 0; i < MAXSCEN && scenarioRec[i].name; i++)
 		;
 
@@ -153,7 +169,7 @@ getFreeScenario(void)
 	} else {
 		scen = scenarioRec + i;
 	}
-	MT_lock_unset(&scenarioLock, "getFreeScenario");
+	MT_lock_unset(&scenarioLock);
 
 	return scen;
 }
@@ -177,9 +193,9 @@ initScenario(Client c, Scenario s)
 	if (s->initSystemCmd)
 		return(fillScenario(c, s));
 	/* prepare for conclicts */
-	MT_lock_set(&mal_contextLock, "initScenario");
+	MT_lock_set(&mal_contextLock);
 	if (s->initSystem && s->initSystemCmd == 0) {
-		s->initSystemCmd = (MALfcn) getAddress(c->fdout, l, l, s->initSystem,1);
+		s->initSystemCmd = (MALfcn) getAddress(c->fdout, l, l, s->initSystem,0);
 		if (s->initSystemCmd) {
 			msg = (*s->initSystemCmd) (c);
 		} else {
@@ -189,27 +205,27 @@ initScenario(Client c, Scenario s)
 		}
 	}
 	if (msg) {
-		MT_lock_unset(&mal_contextLock, "initScenario");
+		MT_lock_unset(&mal_contextLock);
 		return msg;
 	}
 
 	if (s->exitSystem && s->exitSystemCmd == 0)
-		s->exitSystemCmd = (MALfcn) getAddress(c->fdout, l, l, s->exitSystem,1);
+		s->exitSystemCmd = (MALfcn) getAddress(c->fdout, l, l, s->exitSystem,0);
 	if (s->initClient && s->initClientCmd == 0)
-		s->initClientCmd = (MALfcn) getAddress(c->fdout, l, l, s->initClient,1);
+		s->initClientCmd = (MALfcn) getAddress(c->fdout, l, l, s->initClient,0);
 	if (s->exitClient && s->exitClientCmd == 0)
-		s->exitClientCmd = (MALfcn) getAddress(c->fdout, l, l, s->exitClient,1);
+		s->exitClientCmd = (MALfcn) getAddress(c->fdout, l, l, s->exitClient,0);
 	if (s->reader && s->readerCmd == 0)
-		s->readerCmd = (MALfcn) getAddress(c->fdout, l, l, s->reader,1);
+		s->readerCmd = (MALfcn) getAddress(c->fdout, l, l, s->reader,0);
 	if (s->parser && s->parserCmd == 0)
-		s->parserCmd = (MALfcn) getAddress(c->fdout, l, l, s->parser,1);
+		s->parserCmd = (MALfcn) getAddress(c->fdout, l, l, s->parser,0);
 	if (s->optimizer && s->optimizerCmd == 0)
-		s->optimizerCmd = (MALfcn) getAddress(c->fdout, l, l, s->optimizer,1);
+		s->optimizerCmd = (MALfcn) getAddress(c->fdout, l, l, s->optimizer,0);
 	if (s->tactics && s->tacticsCmd == 0)
-		s->tacticsCmd = (MALfcn) getAddress(c->fdout, l, l, s->tactics,1);
+		s->tacticsCmd = (MALfcn) getAddress(c->fdout, l, l, s->tactics,0);
 	if (s->engine && s->engineCmd == 0)
-		s->engineCmd = (MALfcn) getAddress(c->fdout, l, l, s->engine,1);
-	MT_lock_unset(&mal_contextLock, "initScenario");
+		s->engineCmd = (MALfcn) getAddress(c->fdout, l, l, s->engine,0);
+	MT_lock_unset(&mal_contextLock);
 	return(fillScenario(c, s));
 }
 

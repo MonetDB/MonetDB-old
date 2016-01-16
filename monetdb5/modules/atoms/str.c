@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -61,13 +61,6 @@
 #include "monetdb_config.h"
 #include "str.h"
 #include <string.h>
-
-#ifdef HAVE_LANGINFO_H
-#include <langinfo.h>
-#endif
-#ifdef HAVE_ICONV
-#include <iconv.h>
-#endif
 
 /*
  * UTF-8 Handling
@@ -1446,6 +1439,7 @@ convertCase(BAT *from, BAT *to, str *res, const char *s, const char *malfunc)
 	const unsigned char *src = (const unsigned char *) s;
 	const unsigned char *end = (const unsigned char *) (src + len);
 	BUN UTF8_CONV_r;
+	int lower_to_upper = from == UTF8_lowerBat;
 
 	if (strNil(s)) {
 		*res = GDKstrdup(str_nil);
@@ -1457,9 +1451,21 @@ convertCase(BAT *from, BAT *to, str *res, const char *s, const char *malfunc)
 				int c;
 
 				UTF8_GETCHAR(c, src);
-				HASHfnd_int(UTF8_CONV_r, fromi, &c);
-				if (UTF8_CONV_r != BUN_NONE)
-					c = *(int*) BUNtloc(toi, UTF8_CONV_r);
+				if (c < 0x80) {
+					/* for ASCII characters we don't need to do a hash
+					 * lookup */
+					if (lower_to_upper) {
+						if ('a' <= c && c <= 'z')
+							c += 'A' - 'a';
+					} else {
+						if ('A' <= c && c <= 'Z')
+							c += 'a' - 'A';
+					}
+				} else {
+					HASHfnd_int(UTF8_CONV_r, fromi, &c);
+					if (UTF8_CONV_r != BUN_NONE)
+						c = *(int*) BUNtloc(toi, UTF8_CONV_r);
+				}
 				if (dst + 6 > (unsigned char *) *res + len) {
 					/* not guaranteed to fit, so allocate more space;
 					 * also allocate enough for the rest of the
@@ -1726,62 +1732,6 @@ STRWChrAt(int *res, const str *arg1, const int *at)
 }
 
 str
-STRcodeset(str *res)
-{
-#ifdef HAVE_NL_LANGINFO
-	const char *code_set = nl_langinfo(CODESET);
-
-	if (code_set == NULL)
-		throw(MAL, "str.codeset", "impossible return value from nl_langinfo");
-	*res = GDKstrdup(code_set);
-#else
-	*res = GDKstrdup("UTF-8");
-#endif
-	if (*res == NULL)
-		throw(MAL, "str.codeset", "Allocation failed");
-	return MAL_SUCCEED;
-}
-
-str
-STRIconv(str *res, const str *o, const str *fp, const str *tp)
-{
-	const char *f = *fp;
-	const char *t = *tp;
-#ifdef HAVE_ICONV
-	size_t len = strlen(*o);
-	iconv_t cd = iconv_open(t, f);
-	size_t size = 4 * len;	/* make sure enough memory is claimed */
-	char *r;
-	ICONV_CONST char *from = *o;
-
-	if (cd == (iconv_t)(-1)) {
-		throw(MAL, "str.iconv", "Cannot convert strings from (%s) to (%s)", f, t);
-	}
-	*res = r = GDKmalloc(size);
-	if (iconv(cd, &from, &len, &r, &size) == (size_t) - 1) {
-		GDKfree(*res);
-		*res = NULL;
-		iconv_close(cd);
-		throw(MAL, "str.iconv", "String conversion failed from (%s) to (%s)", f, t);
-	}
-	*r = 0;
-	iconv_close(cd);
-	return MAL_SUCCEED;
-#else
-	const char *org = *o;
-
-	*res = NULL;
-	if (strcmp(f, t) == 0) {
-		*res = GDKstrdup(org);
-		if (*res == NULL)
-			throw(MAL, "str.iconv", "Allocation failed");
-		return MAL_SUCCEED;
-	}
-	throw(MAL, "str.iconv", "Unsupported encoding");
-#endif
-}
-
-str
 STRPrefix(bit *res, const str *arg1, const str *arg2)
 {
 	size_t pl, i;
@@ -1891,6 +1841,66 @@ STRReverseStrSearch(int *res, const str *arg1, const str *arg2)
 			break;
 		}
 	}
+	return MAL_SUCCEED;
+}
+
+str
+STRsplitpart(str *res, str *haystack, str *needle, int *field)
+{
+	size_t slen;
+	int len, f = *field;
+	char *p;
+	const char *s = *haystack;
+	const char *s2 = *needle;
+
+	if (strNil(s) || *field == int_nil) {
+		*res = GDKstrdup("");
+		if (*res == NULL)
+			throw(MAL, "str.splitpart", "Allocation failed");
+		return MAL_SUCCEED;
+	}
+
+	if (*field <= 0) {
+		throw(MAL, "str.splitpart", "field position must be greater than zero");
+		*res = GDKstrdup("");
+		if (*res == NULL)
+			throw(MAL, "str.splitpart", "field position must be greater than zero");
+		return MAL_SUCCEED;
+	}
+
+	slen = strlen(s2);
+
+	while ((p = strstr(s, s2)) != 0 && f > 1) {
+		s = p + slen;
+		f--;
+	}
+
+	if (f != 1) {
+		*res = GDKstrdup("");
+		if (*res == NULL)
+			throw(MAL, "str.splitpart", "Allocation failed");
+		return MAL_SUCCEED;
+	}
+   
+	if (p == 0) {
+		len = UTF8_strlen(s);
+	} else if ((p = strstr(s, s2)) != 0) {
+		len = (int) (p - s);
+	} else {
+		len = UTF8_strlen(s);
+	}
+
+	if (len == int_nil || len == 0) {
+		*res = GDKstrdup("");
+		if (*res == NULL)
+			throw(MAL, "str.splitpart", "Allocation failed");
+		return MAL_SUCCEED;
+	}
+	*res = GDKmalloc(len + 1);
+	if (*res == NULL)
+		throw(MAL, "str.splitpart", "Allocation failed");
+	strncpy(*res, s, len);
+	(*res)[len] = 0;
 	return MAL_SUCCEED;
 }
 
@@ -2477,15 +2487,3 @@ STRspace(str *ret, const int *l){
 	char buf[]= " ", *s= buf;
 	return STRrepeat(ret,&s,l);
 }
-
-str
-STRstringLength(int *res, const str *s)
-{
-	str r = NULL;
-	STRRtrim(&r, s);
-	STRLength(res, &r);
-	GDKfree(r);
-	return MAL_SUCCEED;
-}
-
-

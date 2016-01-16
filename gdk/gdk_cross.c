@@ -3,14 +3,14 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
 #include "gdk.h"
 #include "gdk_private.h"
 
-gdk_return
+static gdk_return
 BATcross1(BAT **r1p, BAT **r2p, BAT *l, BAT *r)
 {
 	BAT *bn1, *bn2;
@@ -22,10 +22,8 @@ BATcross1(BAT **r1p, BAT **r2p, BAT *l, BAT *r)
 	bn1 = BATnew(TYPE_void, TYPE_oid, BATcount(l) * BATcount(r), TRANSIENT);
 	bn2 = BATnew(TYPE_void, TYPE_oid, BATcount(l) * BATcount(r), TRANSIENT);
 	if (bn1 == NULL || bn2 == NULL) {
-		if (bn1 != NULL)
-			BBPreclaim(bn1);
-		if (bn2 != NULL)
-			BBPreclaim(bn2);
+		BBPreclaim(bn1);
+		BBPreclaim(bn2);
 		return GDK_FAIL;
 	}
 	BATseqbase(bn1, 0);
@@ -59,12 +57,16 @@ BATcross1(BAT **r1p, BAT **r2p, BAT *l, BAT *r)
 	return GDK_SUCCEED;
 }
 
+/* Calculate a cross product between bats l and r with optional
+ * candidate lists sl for l and sr for r.
+ * The result is two bats r1 and r2 which contain the OID (head
+ * values) of the input bats l and r. */
 gdk_return
 BATsubcross(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr)
 {
 	BAT *bn1, *bn2, *t;
 
-	if (BATcross1(&bn1, &bn2, sl ? sl : l, sr ? sr : r) == GDK_FAIL)
+	if (BATcross1(&bn1, &bn2, sl ? sl : l, sr ? sr : r) != GDK_SUCCEED)
 		return GDK_FAIL;
 	if (sl) {
 		t = BATproject(bn1, sl);

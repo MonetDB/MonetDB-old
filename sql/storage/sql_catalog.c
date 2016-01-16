@@ -3,13 +3,13 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
 #include "sql_catalog.h"
 
-char *TID = "%TID%";
+const char *TID = "%TID%";
 
 static void *
 _list_find_name(list *l, const char *name)
@@ -17,8 +17,8 @@ _list_find_name(list *l, const char *name)
 	node *n;
 
 	if (l) {
-		MT_lock_set(&l->ht_lock, "_list_find_name");
-		if (!l->ht && list_length(l) > HASH_MIN_SIZE && l->sa) {
+		MT_lock_set(&l->ht_lock);
+		if ((!l->ht || l->ht->size*16 < list_length(l)) && list_length(l) > HASH_MIN_SIZE && l->sa) {
 			l->ht = hash_new(l->sa, list_length(l), (fkeyvalue)&base_key);
 
 			for (n = l->h; n; n = n->next ) {
@@ -36,14 +36,14 @@ _list_find_name(list *l, const char *name)
 				sql_base *b = he->value;
 
 				if (b->name && strcmp(b->name, name) == 0) {
-					MT_lock_unset(&l->ht_lock, "_list_find_name");
+					MT_lock_unset(&l->ht_lock);
 					return b;
 				}
 			}
-			MT_lock_unset(&l->ht_lock, "_list_find_name");
+			MT_lock_unset(&l->ht_lock);
 			return NULL;
 		}
-		MT_lock_unset(&l->ht_lock, "_list_find_name");
+		MT_lock_unset(&l->ht_lock);
 		for (n = l->h; n; n = n->next) {
 			sql_base *b = n->data;
 
@@ -229,6 +229,12 @@ find_sqlname(list *l, const char *name)
 		} 
 	}
 	return NULL;
+}
+
+node *
+find_sql_type_node(sql_schema * s, int id)
+{
+	return cs_find_id(&s->types, id);
 }
 
 sql_type *

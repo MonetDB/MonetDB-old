@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /* Author(s) M.L. Kersten
@@ -19,9 +19,10 @@
 #include "mal_profiler.h"
 #include "mal_listing.h"
 #include "mal_authorize.h"
+#include "mal_private.h"
 
 #define heapinfo(X) ((X) && (X)->base ? (X)->free: 0)
-#define hashinfo(X) (((X) && (X)->mask)? ((X)->mask + (X)->lim + 1) * sizeof(int) + sizeof(*(X)) + cnt * sizeof(int):  0)
+#define hashinfo(X) (((X) && (X) != (Hash *) 1 && (X)->mask)? ((X)->mask + (X)->lim + 1) * sizeof(int) + sizeof(*(X)) + cnt * sizeof(int):  0)
 
 // Keep a queue of running queries
 QueryQueue QRYqueue;
@@ -29,19 +30,14 @@ static int qtop, qsize;
 static int qtag= 1;
 static int calltag =0; // to identify each invocation
 
-
-static void 
-formatVolume(str buf, int len, lng vol){
-	if( vol <1024)
-		snprintf(buf,len,LLFMT,vol);
-	else
-	if( vol <1024*1024)
-		snprintf(buf,len,LLFMT "K",vol/1024);
-	else
-	if( vol <1024* 1024*1024)
-		snprintf(buf,len, LLFMT "M",vol/1024/1024);
-	else
-		snprintf(buf,len, "%6.1fG",vol/1024.0/1024/1024);
+void
+mal_runtime_reset(void)
+{
+	QRYqueue = 0;
+	qtop = 0;
+	qsize = 0;
+	qtag= 1;
+	calltag =0; 
 }
 
 static str isaSQLquery(MalBlkPtr mb){
@@ -65,7 +61,7 @@ runtimeProfileInit(Client cntxt, MalBlkPtr mb, MalStkPtr stk)
 	int i;
 	str q;
 
-	MT_lock_set(&mal_delayLock, "sysmon");
+	MT_lock_set(&mal_delayLock);
 	if ( QRYqueue == 0)
 		QRYqueue = (QueryQueue) GDKzalloc( sizeof (struct QRYQUEUE) * (qsize= 256));
 	else
@@ -73,7 +69,7 @@ runtimeProfileInit(Client cntxt, MalBlkPtr mb, MalStkPtr stk)
 		QRYqueue = (QueryQueue) GDKrealloc( QRYqueue, sizeof (struct QRYQUEUE) * (qsize +=256));
 	if ( QRYqueue == NULL){
 		GDKerror("runtimeProfileInit" MAL_MALLOC_FAIL);
-		MT_lock_unset(&mal_delayLock, "sysmon");
+		MT_lock_unset(&mal_delayLock);
 		return;
 	}
 	for( i = 0; i < qtop; i++)
@@ -82,6 +78,7 @@ runtimeProfileInit(Client cntxt, MalBlkPtr mb, MalStkPtr stk)
 
 	stk->tag = calltag++;
 	if ( i == qtop ) {
+		mb->tag = qtag;
 		QRYqueue[i].mb = mb;	// for detecting duplicates
 		QRYqueue[i].stk = stk;	// for status pause 'p'/running '0'/ quiting 'q'
 		QRYqueue[i].tag = qtag++;
@@ -94,7 +91,7 @@ runtimeProfileInit(Client cntxt, MalBlkPtr mb, MalStkPtr stk)
 	}
 
 	qtop += i == qtop;
-	MT_lock_unset(&mal_delayLock, "sysmon");
+	MT_lock_unset(&mal_delayLock);
 }
 
 void
@@ -104,7 +101,7 @@ runtimeProfileFinish(Client cntxt, MalBlkPtr mb)
 
 	(void) cntxt;
 
-	MT_lock_set(&mal_delayLock, "sysmon");
+	MT_lock_set(&mal_delayLock);
 	for( i=j=0; i< qtop; i++)
 	if ( QRYqueue[i].mb != mb)
 		QRYqueue[j++] = QRYqueue[i];
@@ -124,7 +121,7 @@ runtimeProfileFinish(Client cntxt, MalBlkPtr mb)
 	}
 
 	qtop = j;
-	MT_lock_unset(&mal_delayLock, "sysmon");
+	MT_lock_unset(&mal_delayLock);
 }
 
 void
@@ -134,7 +131,7 @@ finishSessionProfiler(Client cntxt)
 
 	(void) cntxt;
 
-	MT_lock_set(&mal_delayLock, "sysmon");
+	MT_lock_set(&mal_delayLock);
 	for( i=j=0; i< qtop; i++)
 	if ( QRYqueue[i].cntxt != cntxt)
 		QRYqueue[j++] = QRYqueue[i];
@@ -150,7 +147,7 @@ finishSessionProfiler(Client cntxt)
 		QRYqueue[i].mb =0;
 	}
 	qtop = j;
-	MT_lock_unset(&mal_delayLock, "sysmon");
+	MT_lock_unset(&mal_delayLock);
 }
 
 void
@@ -172,7 +169,7 @@ runtimeProfileBegin(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Run
 	/* emit the instruction upon start as well */
 	
 	if(malProfileMode > 0)
-		profilerEvent(cntxt->idx, mb, stk, pci, TRUE);
+		profilerEvent(mb, stk, pci, TRUE, cntxt->username);
 }
 
 void
@@ -198,7 +195,7 @@ runtimeProfileExit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, Runt
 		pci->wbytes += getVolume(stk, pci, 1);
 		if (pci->recycle)
 			pci->rbytes += getVolume(stk, pci, 0);
-		profilerEvent(cntxt->idx, mb, stk, pci, FALSE);
+		profilerEvent(mb, stk, pci, FALSE, cntxt->username);
 	}
 	if( malProfileMode < 0){
 		/* delay profiling until you encounter start of MAL function */
@@ -244,41 +241,4 @@ lng getVolume(MalStkPtr stk, InstrPtr pci, int rd)
 		}
 	}
 	return vol;
-}
-
-void displayVolume(Client cntxt, lng vol)
-{
-	char buf[32];
-	formatVolume(buf, (int) sizeof(buf), vol);
-	mnstr_printf(cntxt->fdout, "%s", buf);
-}
-/*
- * The footprint maintained in the stack is the total size all non-persistent objects in MB.
- * It gives an impression of the total extra memory needed during query evaluation.
- * Note, it does imply that all that space is claimed at the same time.
- */
-
-void
-updateFootPrint(MalBlkPtr mb, MalStkPtr stk, int varid)
-{
-    BAT *b;
-	BUN cnt;
-    lng total = 0;
-	bat bid;
-
-	if ( !mb || !stk)
-		return ;
-	if ( isaBatType(getVarType(mb,varid)) && (bid = stk->stk[varid].val.bval) != bat_nil){
-
-		b = BATdescriptor(bid);
-        if (b == NULL || isVIEW(b) || b->batPersistence == PERSISTENT)
-            return;
-		cnt = BATcount(b);
-		total += heapinfo(&b->T->heap);
-		total += heapinfo(b->T->vheap);
-		total += hashinfo(b->T->hash);
-		BBPunfix(b->batCacheid);
-		// no concurrency protection (yet)
-		stk->tmpspace += total/1024/1024; // keep it in MBs
-    }
 }

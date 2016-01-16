@@ -2,7 +2,7 @@
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright 2008-2015 MonetDB B.V.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 # (c) Martin Kersten
 # MAL Startup file
@@ -71,8 +71,7 @@ include factories;
 include recycle;
 include remote;
 
-include mat; 	# experimental
-# include histogram; 	# experimental
+include mat;
 include inspect;
 include manual;
 include language;
@@ -89,12 +88,9 @@ include txtsim;
 include tokenizer;
 include zorder;
 
-# include logger;
 # include transaction; no direct access anymore to avoid SQL interference
 
-# scheduler components
-include run_isolate;
-include run_memo;
+# scheduler components, experimental components
 include srvpool;
 
 include mal_mapi;

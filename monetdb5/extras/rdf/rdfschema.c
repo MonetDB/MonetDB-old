@@ -9956,7 +9956,7 @@ BAT* getOriginalUriOBat(BAT *obat){
 	oid 	*obt; 
 	ObjectType objType; 
 
-	origobat = BATcopy(obat,  obat->htype, obat->ttype, TRUE, TRANSIENT);
+	origobat = COLcopy(obat, obat->ttype, TRUE, TRANSIENT);
 	oi = bat_iterator(origobat); 
 	
 	BATloop(origobat, p, q){
@@ -10330,13 +10330,14 @@ str fillMissingvalues(BAT* curBat, int from, int to){
 	//printf("Fill from  %d to %d \n", from, to);
 	if (curBat != NULL){
 		for(k = from -1; k < to; k++){
-			if (BUNfastins(curBat, ATOMnilptr(TYPE_void), ATOMnilptr(curBat->ttype))== GDK_FAIL){
-				throw(RDF, "fillMissingvalues", "[Debug] Problem in inserting value");
-			}
+			bunfastapp(curBat, ATOMnilptr(curBat->ttype));
 		}
 	}
 
 	return MAL_SUCCEED; 
+	
+   bunins_failed:
+	throw(RDF, "fillMissingvalues","Failed in fast inserting\n");
 }
 
 static 
@@ -10388,9 +10389,7 @@ str fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, i
 		//printf("Append null to main table: Col: %d \n", colIdx);
 		//BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
 		
-		if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), ATOMnilptr(tmpBat->ttype)) == GDK_FAIL){
-			throw(RDF, "fillMissingvaluesByNils", "[Debug0] Problem in inserting value");
-		}
+		bunfastapp(tmpBat, ATOMnilptr(tmpBat->ttype));
 		
 	}
 
@@ -10412,30 +10411,27 @@ str fillMissingValueByNils(CStableStat* cstablestat, CSPropTypes *csPropTypes, i
 			for(k = from; k < to; k++){
 				//printf("Append null to ex table: Col: %d \n", tmpColExIdx);
 				//BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
-				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), ATOMnilptr(tmpBat->ttype)) == GDK_FAIL){
-					throw(RDF, "fillMissingvaluesByNils", "[Debug1] Problem in inserting value");
-				}
+				bunfastapp(tmpBat, ATOMnilptr(tmpBat->ttype));
 			}
 
 			if (tblType == MAINTBL){
 				//printf("Append null to not to-be-inserted col in ex table: Col: %d  (# colIdxEx = %d) \n", tmpColExIdx, colIdxEx);
 				//BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
-				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), ATOMnilptr(tmpBat->ttype)) == GDK_FAIL){
-					throw(RDF, "fillMissingvaluesByNils", "[Debug2] Problem in inserting value");
-				}
+				bunfastapp(tmpBat, ATOMnilptr(tmpBat->ttype));
 			}
 			else if (tmpColExIdx != colIdxEx){
 				//printf("Append null to not to-be-inserted col in ex table: Col: %d (WHILE tblType = %d,  colIdxEx = %d) \n", tmpColExIdx, tblType, colIdxEx);
 				//BUNappend(tmpBat, ATOMnilptr(tmpBat->ttype), TRUE);
-				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), ATOMnilptr(tmpBat->ttype)) == GDK_FAIL){
-					throw(RDF, "fillMissingvaluesByNils", "[Debug3] Problem in inserting value");
-				}
+				bunfastapp(tmpBat, ATOMnilptr(tmpBat->ttype));
 			}
 		}
 		
 	}
 
 	return MAL_SUCCEED; 
+	
+   bunins_failed:
+	throw(RDF, "fillMissingValueByNils","Failed in fast inserting\n");
 }
 
 #if EVERYTHING_AS_OID == 0
@@ -10544,15 +10540,9 @@ void updatePropTypeForRemovedTriple(CSPropTypes *csPropTypes, int* tmpTblIdxProp
 //Macro for inserting to PSO
 #define insToPSO(pb, sb, ob, pbt, sbt, obt)	\
 	do{					\
-			if (BUNfastins(pb, ATOMnilptr(TYPE_void), pbt) == GDK_FAIL){		\
-				throw(RDF, "insToPSO","[Debug] Problem in inserting to pbat"); 	\
-			}									\
-			if (BUNfastins(sb, ATOMnilptr(TYPE_void), sbt) == GDK_FAIL){		\
-				throw(RDF, "insToPSO","[Debug] Problem in inserting to sbat"); 	\
-			}									\
-			if (BUNfastins(ob, ATOMnilptr(TYPE_void), obt) == GDK_FAIL){		\
-				throw(RDF, "insToPSO","[Debug] Problem in inserting to obat"); 	\
-			}									\
+			bunfastapp(pb, pbt);	\
+			bunfastapp(sb, sbt);	\
+			bunfastapp(ob, obt);	\
 	}while (0)
 
 #if EVERYTHING_AS_OID == 1
@@ -10989,29 +10979,21 @@ str RDFdistTriplesToCSs_alloid(int *ret, bat *sbatid, bat *pbatid, bat *obatid, 
 				//BATprint(tmpmvBat);
 				if (i == tmpMVColIdx){	
 					// TODO: If i != 0, try to cast to default value		
-					if (BUNfastins(tmpmvBat, ATOMnilptr(TYPE_void), VALgetExtend_alloid(&vrRealObjValue,objType, &ts, obt)) == GDK_FAIL){
-						throw(RDF, "rdf.RDFdistTriplesToCSs", " Error in Bunfastins ");
-					} 
+					bunfastapp(tmpmvBat, VALgetExtend_alloid(&vrRealObjValue,objType, &ts, obt));
 				}
 				else{
 					if (i == 0){	//The deafult type column
 						//Check whether we can cast the value to the default type value
 						if (rdfcast(objType, defaultType, &vrRealObjValue, &vrCastedObjValue) == 1){
-							if (BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),VALgetExtend_alloid(&vrCastedObjValue, defaultType, &ts, obt)) == GDK_FAIL){ 
-								throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins ");
-							} 	
+							bunfastapp(tmpmvBat,VALgetExtend_alloid(&vrCastedObjValue, defaultType, &ts, obt)); 
 							VALclear(&vrCastedObjValue);
 						}
 						else{
-							if (BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),ATOMnilptr(tmpmvBat->ttype)) == GDK_FAIL){
-								throw(RDF, "rdf.RDFdistTriplesToCSs", "Error in Bunfastins ");
-							} 
+							bunfastapp(tmpmvBat,ATOMnilptr(tmpmvBat->ttype));
 						}
 					}
 					else{
-						if (BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),ATOMnilptr(tmpmvBat->ttype)) == GDK_FAIL){ 
-							throw(RDF, "rdf.RDFdistTriplesToCSs", "Error in Bunfastins ");
-						}
+						bunfastapp(tmpmvBat,ATOMnilptr(tmpmvBat->ttype));
 					 
 					}
 				}
@@ -11031,22 +11013,16 @@ str RDFdistTriplesToCSs_alloid(int *ret, bat *sbatid, bat *pbatid, bat *obatid, 
 				//BATprint(tmpmvBat);
 				tmpmvValue = (oid)(BUNlast(tmpmvBat) - 1);
 				//printf("Insert the refered oid " BUNFMT "for MV prop \n", tmpmvValue);
-				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), &tmpmvValue) == GDK_FAIL){
-					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");
-				}
+				bunfastapp(tmpBat, &tmpmvValue);
 				//BATprint(tmpBat);
 				
 				//Insert this "key" to the key column of mv table.
 				tmpmvKey = tmpmvValue; 
-				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,ATOMnilptr(TYPE_void),&tmpmvKey) == GDK_FAIL){
-					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
-				} 
+				bunfastapp(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,&tmpmvKey);
 
 				//Insert the current subject oid of the main table to the subject
 				//column of this mvtable
-				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].subjBat,ATOMnilptr(TYPE_void),sbt) == GDK_FAIL){
-					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
-				} 
+				bunfastapp(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].subjBat,sbt);
 				
 				tmplastInsertedS = (int)tmpSoid; 
 				
@@ -11058,15 +11034,11 @@ str RDFdistTriplesToCSs_alloid(int *ret, bat *sbatid, bat *pbatid, bat *obatid, 
 			}
 			else{
 				//Repeat referred "key" in the key column of mvtable
-				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,ATOMnilptr(TYPE_void),&tmpmvKey) == GDK_FAIL){
-					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
-				} 
+				bunfastapp(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,&tmpmvKey);
 
 				//Insert the current subject oid of the main table to the subject
 				//column of this mvtable
-				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].subjBat,ATOMnilptr(TYPE_void),sbt) == GDK_FAIL){
-					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
-				} 
+				bunfastapp(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].subjBat,sbt);
 				
 			}
 			
@@ -11127,23 +11099,17 @@ str RDFdistTriplesToCSs_alloid(int *ret, bat *sbatid, bat *pbatid, bat *obatid, 
 			tmpBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
 			if (rdfcast(objType, defaultType, &vrRealObjValue, &vrCastedObjValue) == 1){
 				//printf("Casted a value (type: %d) to tables %d col %d (type: %d)  \n", objType, tblIdx,tmpColIdx,defaultType);
-				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), VALgetExtend_alloid(&vrCastedObjValue, defaultType,&ts, obt)) == GDK_FAIL){
-					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
-				} 
+				bunfastapp(tmpBat, VALgetExtend_alloid(&vrCastedObjValue, defaultType,&ts, obt));
 	
 				VALclear(&vrCastedObjValue);
 			}
 			else{
-				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void),ATOMnilptr(tmpBat->ttype)) == GDK_FAIL){
-					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
-				}
+				bunfastapp(tmpBat, ATOMnilptr(tmpBat->ttype));
 			}
 
 		}
 		
-		if (BUNfastins(curBat, ATOMnilptr(TYPE_void), VALgetExtend_alloid(&vrRealObjValue, objType,&ts, obt)) == GDK_FAIL){
-			throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
-		} 
+		bunfastapp(curBat, VALgetExtend_alloid(&vrRealObjValue, objType,&ts, obt));
 		
 		VALclear(&vrRealObjValue);
 		
@@ -11230,6 +11196,9 @@ str RDFdistTriplesToCSs_alloid(int *ret, bat *sbatid, bat *pbatid, bat *obatid, 
 	TKNZRclose(ret);
 
 	return MAL_SUCCEED; 
+	
+   bunins_failed:
+	throw(RDF, "RDFdistTriplesToCSs_alloid","Failed in fast inserting\n");
 }
 
 #else
@@ -11658,29 +11627,21 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				//BATprint(tmpmvBat);
 				if (i == tmpMVColIdx){	
 					// TODO: If i != 0, try to cast to default value		
-					if (BUNfastins(tmpmvBat, ATOMnilptr(TYPE_void), VALgetExtend(&vrRealObjValue,objType, &ts)) == GDK_FAIL){
-						throw(RDF, "rdf.RDFdistTriplesToCSs", " Error in Bunfastins ");
-					} 
+					bunfastapp(tmpmvBat, VALgetExtend(&vrRealObjValue,objType, &ts));
 				}
 				else{
 					if (i == 0){	//The deafult type column
 						//Check whether we can cast the value to the default type value
 						if (rdfcast(objType, defaultType, &vrRealObjValue, &vrCastedObjValue) == 1){
-							if (BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),VALgetExtend(&vrCastedObjValue, defaultType, &ts)) == GDK_FAIL){ 
-								throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins ");
-							} 	
+							bunfastapp(tmpmvBat,VALgetExtend(&vrCastedObjValue, defaultType, &ts));
 							VALclear(&vrCastedObjValue);
 						}
 						else{
-							if (BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),ATOMnilptr(tmpmvBat->ttype)) == GDK_FAIL){
-								throw(RDF, "rdf.RDFdistTriplesToCSs", "Error in Bunfastins ");
-							} 
+							bunfastapp(tmpmvBat,ATOMnilptr(tmpmvBat->ttype));
 						}
 					}
 					else{
-						if (BUNfastins(tmpmvBat,ATOMnilptr(TYPE_void),ATOMnilptr(tmpmvBat->ttype)) == GDK_FAIL){ 
-							throw(RDF, "rdf.RDFdistTriplesToCSs", "Error in Bunfastins ");
-						}
+						bunfastapp(tmpmvBat,ATOMnilptr(tmpmvBat->ttype));
 					 
 					}
 				}
@@ -11700,22 +11661,16 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 				//BATprint(tmpmvBat);
 				tmpmvValue = (oid)(BUNlast(tmpmvBat) - 1);
 				//printf("Insert the refered oid " BUNFMT "for MV prop \n", tmpmvValue);
-				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), &tmpmvValue) == GDK_FAIL){
-					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");
-				}
+				bunfastapp(tmpBat, &tmpmvValue);
 				//BATprint(tmpBat);
 				
 				//Insert this "key" to the key column of mv table.
 				tmpmvKey = tmpmvValue; 
-				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,ATOMnilptr(TYPE_void),&tmpmvKey) == GDK_FAIL){
-					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
-				} 
+				bunfastapp(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,&tmpmvKey);
 
 				//Insert the current subject oid of the main table to the subject
 				//column of this mvtable
-				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].subjBat,ATOMnilptr(TYPE_void),sbt) == GDK_FAIL){
-					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
-				} 
+				bunfastapp(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].subjBat,sbt);
 				
 				tmplastInsertedS = (int)tmpSoid; 
 				
@@ -11727,15 +11682,11 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			}
 			else{
 				//Repeat referred "key" in the key column of mvtable
-				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,ATOMnilptr(TYPE_void),&tmpmvKey) == GDK_FAIL){
-					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
-				} 
+				bunfastapp(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].keyBat,&tmpmvKey);
 
 				//Insert the current subject oid of the main table to the subject
 				//column of this mvtable
-				if (BUNfastins(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].subjBat,ATOMnilptr(TYPE_void),sbt) == GDK_FAIL){
-					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
-				} 
+				bunfastapp(cstablestat->lstcstable[tblIdx].lstMVTables[tmpColIdx].subjBat,sbt);
 				
 			}
 			
@@ -11796,23 +11747,17 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 			tmpBat = cstablestat->lstcstable[tblIdx].colBats[tmpColIdx];
 			if (rdfcast(objType, defaultType, &vrRealObjValue, &vrCastedObjValue) == 1){
 				//printf("Casted a value (type: %d) to tables %d col %d (type: %d)  \n", objType, tblIdx,tmpColIdx,defaultType);
-				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void), VALgetExtend(&vrCastedObjValue, defaultType,&ts)) == GDK_FAIL){
-					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
-				} 
+				bunfastapp(tmpBat, VALgetExtend(&vrCastedObjValue, defaultType,&ts));
 	
 				VALclear(&vrCastedObjValue);
 			}
 			else{
-				if (BUNfastins(tmpBat, ATOMnilptr(TYPE_void),ATOMnilptr(tmpBat->ttype)) == GDK_FAIL){
-					throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
-				}
+				bunfastapp(tmpBat, ATOMnilptr(tmpBat->ttype));
 			}
 
 		}
 		
-		if (BUNfastins(curBat, ATOMnilptr(TYPE_void), VALgetExtend(&vrRealObjValue, objType,&ts)) == GDK_FAIL){
-			throw(RDF, "rdf.RDFdistTriplesToCSs", "Bunfastins error");		
-		} 
+		bunfastapp(curBat, VALgetExtend(&vrRealObjValue, objType,&ts));
 		
 		VALclear(&vrRealObjValue);
 		
@@ -11899,6 +11844,9 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 	TKNZRclose(ret);
 
 	return MAL_SUCCEED; 
+	
+   bunins_failed:
+	throw(RDF, "RDFdistTriplesToCSs","Failed in fast inserting\n");
 }
 #endif
 
@@ -11977,7 +11925,7 @@ str buildTKNZRMappingBat(BAT *lmap, BAT *rmap){
 		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
 	}
 
-	pMapBat = BATcopy(tmpmapBat, tmpmapBat->htype, tmpmapBat->ttype, TRUE, PERSISTENT);
+	pMapBat = COLcopy(tmpmapBat, tmpmapBat->ttype, TRUE, PERSISTENT);
 
 	if (BKCsetName(&ret, (int *) &(pMapBat->batCacheid), (const char*const*) &bname) != MAL_SUCCEED)
 		throw(MAL, "tokenizer.open", OPERATION_FAILED);
@@ -11988,12 +11936,12 @@ str buildTKNZRMappingBat(BAT *lmap, BAT *rmap){
 	BATmode(pMapBat, PERSISTENT); 
 
 	/*Make persistent bats for mappingId_to_tokenizerId lmap->rmap */
-	tmplmapBat = BATcopy(rmap, rmap->htype, rmap->ttype, TRUE, TRANSIENT); 
-	tmprmapBat = BATcopy(lmap, lmap->htype, lmap->ttype, TRUE, TRANSIENT); 
+	tmplmapBat = COLcopy(rmap, rmap->ttype, TRUE, TRANSIENT); 
+	tmprmapBat = COLcopy(lmap, lmap->ttype, TRUE, TRANSIENT); 
 	RDFbisubsort(&tmplmapBat, &tmprmapBat); 
 
-	plmapBat = BATcopy(tmplmapBat, tmplmapBat->htype, tmplmapBat->ttype, TRUE, PERSISTENT);
-	prmapBat = BATcopy(tmprmapBat, tmprmapBat->htype, tmprmapBat->ttype, TRUE, PERSISTENT);
+	plmapBat = COLcopy(tmplmapBat, tmplmapBat->ttype, TRUE, PERSISTENT);
+	prmapBat = COLcopy(tmprmapBat, tmprmapBat->ttype, TRUE, PERSISTENT);
 
 	plmapBat->tkey = 1; 
 	plmapBat->tsorted = 1; 
@@ -12404,9 +12352,9 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 
 	#if TRIPLEBASED_TABLE
 	printf("Build triple-based relational BATs .."); 
-	cstablestat->resbat = BATcopy(sNewBat, sNewBat->htype, sNewBat->ttype, TRUE, TRANSIENT);	
-	cstablestat->repbat = BATcopy(pNewBat, pNewBat->htype, pNewBat->ttype, TRUE, TRANSIENT);	
-	cstablestat->reobat = BATcopy(oNewBat, oNewBat->htype, oNewBat->ttype, TRUE, TRANSIENT);	
+	cstablestat->resbat = COLcopy(sNewBat, sNewBat->ttype, TRUE, TRANSIENT);	
+	cstablestat->repbat = COLcopy(pNewBat, pNewBat->ttype, TRUE, TRANSIENT);	
+	cstablestat->reobat = COLcopy(oNewBat, oNewBat->ttype, TRUE, TRANSIENT);	
 	if (RDFtriplesubsort(&cstablestat->repbat, &cstablestat->resbat, &cstablestat->reobat) != MAL_SUCCEED){
 		throw(RDF, "rdf.RDFreorganize", "Problem in sorting reorganized PSO");
 	}

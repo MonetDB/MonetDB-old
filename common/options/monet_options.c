@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -216,7 +216,6 @@ mo_builtin_settings(opt **Set)
 {
 	int i = 0;
 	opt *set;
-	char buf[BUFSIZ];
 
 	if (Set == NULL)
 		return 0;
@@ -228,10 +227,8 @@ mo_builtin_settings(opt **Set)
 
 	set[i].kind = opt_builtin;
 	set[i].name = strdup("gdk_dbpath");
-	snprintf(buf, BUFSIZ, "%s%c%s%c%s%c%s",
-		 LOCALSTATEDIR, DIR_SEP, "monetdb5", DIR_SEP, "dbfarm",
-		 DIR_SEP, "demo");
-	set[i].value = strdup(buf);
+	set[i].value = strdup(LOCALSTATEDIR DIR_SEP_STR "monetdb5" DIR_SEP_STR
+			      "dbfarm" DIR_SEP_STR "demo");
 	i++;
 	set[i].kind = opt_builtin;
 	set[i].name = strdup("gdk_debug");

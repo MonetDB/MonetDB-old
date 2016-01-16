@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -56,6 +56,8 @@ scanner_init_keywords(void)
 	keywords_insert("PERCENT_RANK", RANK);
 	keywords_insert("CUME_DIST", RANK);
 	keywords_insert("ROW_NUMBER", RANK);
+	keywords_insert("BEST", BEST);
+	keywords_insert("EFFORT", EFFORT);
 
 	keywords_insert("AS", AS);
 	keywords_insert("ASC", ASC);
@@ -124,7 +126,6 @@ scanner_init_keywords(void)
 
 	keywords_insert("INSERT", INSERT);
 	keywords_insert("UPDATE", UPDATE);
-	keywords_insert("DATABASE", DATABASE);
 	keywords_insert("DELETE", sqlDELETE);
 
 	keywords_insert("ACTION", ACTION);
@@ -233,6 +234,7 @@ scanner_init_keywords(void)
 
 	keywords_insert("POSITION", POSITION);
 	keywords_insert("SUBSTRING", SUBSTRING);
+	keywords_insert("SPLIT_PART", SPLIT_PART);
 
 	keywords_insert("CASE", CASE);
 	keywords_insert("WHEN", WHEN);
@@ -283,6 +285,7 @@ scanner_init_keywords(void)
 	keywords_insert("LANGUAGE", LANGUAGE);
 
 	keywords_insert("ANALYZE", ANALYZE);
+	keywords_insert("MINMAX", MINMAX);
 	keywords_insert("EXPLAIN", SQL_EXPLAIN);
 	keywords_insert("PLAN", SQL_PLAN);
 	keywords_insert("SPARQL", SQL_SPARQL);
@@ -618,7 +621,7 @@ scanner_string(mvc *c, int quote)
 			cur = scanner_getc(lc);
 		}
 	}
-	(void) sql_error(c, 2, "unexpected end of input");
+	(void) sql_error(c, 2, "%s", lc->errstr ? lc->errstr : "unexpected end of input");
 	return LEX_ERROR;
 }
 
@@ -1090,7 +1093,23 @@ sqllex(YYSTYPE * yylval, void *parm)
 
 	token = sql_get_next_token(yylval, parm);
 	
-	if (token == UNION) {
+	if (token == NOT) {
+		int next = sqllex(yylval, parm);
+
+		if (next == NOT) {
+			return sqllex(yylval, parm);
+		} else if (next == BETWEEN) {
+			token = NOT_BETWEEN;
+		} else if (next == sqlIN) {
+			token = NOT_IN;
+		} else if (next == LIKE) {
+			token = NOT_LIKE;
+		} else if (next == ILIKE) {
+			token = NOT_ILIKE;
+		} else {
+			lc->yynext = next;
+		}
+	} else if (token == UNION) {
 		int next = sqllex(yylval, parm);
 
 		if (next == JOIN) {

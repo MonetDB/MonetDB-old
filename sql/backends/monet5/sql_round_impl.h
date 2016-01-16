@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #define dec_round_body_nonil	FUN(TYPE, dec_round_body_nonil)
@@ -112,7 +112,7 @@ bat_dec_round_wrap(bat *_res, const bat *_v, const TYPE *r)
 
 	/* set result BAT properties */
 	BATsetcount(res, cnt);
-	/* result head is aligned with agument head */
+	/* result head is aligned with argument head */
 	ALIGNsetH(res, v);
 	/* hard to predict correct tail properties in general */
 	res->T->nonil = nonil;
@@ -245,7 +245,7 @@ bat_round_wrap(bat *_res, const bat *_v, const int *d, const int *s, const bte *
 
 	/* set result BAT properties */
 	BATsetcount(res, cnt);
-	/* result head is aligned with agument head */
+	/* result head is aligned with argument head */
 	ALIGNsetH(res, v);
 	/* hard to predict correct tail properties in general */
 	res->T->nonil = nonil;
@@ -349,7 +349,6 @@ str
 batnil_2dec(bat *res, const bat *bid, const int *d, const int *sc)
 {
 	BAT *b, *dst;
-	BATiter bi;
 	BUN p, q;
 
 	(void) d;
@@ -357,8 +356,7 @@ batnil_2dec(bat *res, const bat *bid, const int *d, const int *sc)
 	if ((b = BATdescriptor(*bid)) == NULL) {
 		throw(SQL, "batcalc.nil_2dec_" STRING(TYPE), "Cannot access descriptor");
 	}
-	bi = bat_iterator(b);
-	dst = BATnew(b->htype, TPE(TYPE), BATcount(b), TRANSIENT);
+	dst = BATnew(TYPE_void, TPE(TYPE), BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.dec_" STRING(TYPE), MAL_MALLOC_FAIL);
@@ -366,8 +364,9 @@ batnil_2dec(bat *res, const bat *bid, const int *d, const int *sc)
 	BATseqbase(dst, b->hseqbase);
 	BATloop(b, p, q) {
 		TYPE r = NIL(TYPE);
-		BUNins(dst, BUNhead(bi, p), &r, FALSE);
+		BUNappend(dst, &r, FALSE);
 	}
+	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return MAL_SUCCEED;
@@ -385,7 +384,7 @@ batstr_2dec(bat *res, const bat *bid, const int *d, const int *sc)
 		throw(SQL, "batcalc.str_2dec_" STRING(TYPE), "Cannot access descriptor");
 	}
 	bi = bat_iterator(b);
-	dst = BATnew(b->htype, TPE(TYPE), BATcount(b), TRANSIENT);
+	dst = BATnew(TYPE_void, TPE(TYPE), BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.dec_" STRING(TYPE), MAL_MALLOC_FAIL);
@@ -395,10 +394,14 @@ batstr_2dec(bat *res, const bat *bid, const int *d, const int *sc)
 		str v = (str) BUNtail(bi, p);
 		TYPE r;
 		msg = str_2dec(&r, &v, d, sc);
-		if (msg)
-			break;
-		BUNins(dst, BUNhead(bi, p), &r, FALSE);
+		if (msg) {
+			BBPunfix(dst->batCacheid);
+			BBPunfix(b->batCacheid);
+			return msg;
+		}
+		BUNappend(dst, &r, FALSE);
 	}
+	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return msg;
@@ -423,7 +426,7 @@ batstr_2num(bat *res, const bat *bid, const int *len)
 		throw(SQL, "batcalc.str_2num_" STRING(TYPE), "Cannot access descriptor");
 	}
 	bi = bat_iterator(b);
-	dst = BATnew(b->htype, TPE(TYPE), BATcount(b), TRANSIENT);
+	dst = BATnew(TYPE_void, TPE(TYPE), BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.num_" STRING(TYPE), MAL_MALLOC_FAIL);
@@ -433,10 +436,14 @@ batstr_2num(bat *res, const bat *bid, const int *len)
 		str v = (str) BUNtail(bi, p);
 		TYPE r;
 		msg = str_2num(&r, &v, len);
-		if (msg)
-			break;
-		BUNins(dst, BUNhead(bi, p), &r, FALSE);
+		if (msg) {
+			BBPunfix(dst->batCacheid);
+			BBPunfix(b->batCacheid);
+			return msg;
+		}
+		BUNappend(dst, &r, FALSE);
 	}
+	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return msg;

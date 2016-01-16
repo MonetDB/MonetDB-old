@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /* multi version catalog */
@@ -22,9 +22,6 @@
 #include <sql_storage.h>
 #include <sql_keyword.h>
 #include <sql_atom.h>
-#ifdef HAVE_SYS_TIMES_H
-#include <sys/times.h>
-#endif
 
 #include <mapi.h>
 
@@ -56,7 +53,7 @@
 #define mod_locked 	16 
 
 typedef struct sql_var {
-	char *name;
+	const char *name;
 	ValRecord value;
 	sql_subtype type;
 	sql_table *t;
@@ -93,6 +90,7 @@ typedef struct mvc {
 	int user_id;
 	int role_id;
 	lng last_id;
+	lng rowcnt;
 
 	/* current session variables */
 	int timezone;		/* milliseconds west of UTC */
@@ -117,10 +115,6 @@ typedef struct mvc {
 
 	int result_id;
 	res_table *results;
-#ifdef HAVE_TIMES
-	struct tms times;
-#endif	
-	lng Tparse;
 } mvc;
 
 extern int mvc_init(int debug, store_type store, int ro, int su, backend_stack stk);
@@ -162,6 +156,8 @@ extern sql_key *mvc_bind_ukey(sql_table *t, list *cols);
 extern sql_trigger *mvc_bind_trigger(mvc *c, sql_schema *s, const char *tname);
 
 extern sql_type *mvc_create_type(mvc *sql, sql_schema *s, const char *sqlname, int digits, int scale, int radix, const char *impl);
+extern int mvc_drop_type(mvc *sql, sql_schema *s, sql_type *t, int drop_action);
+
 extern sql_func *mvc_create_func(mvc *sql, sql_allocator *sa, sql_schema *s, const char *name, list *args, list *res, int type, int lang, const char *mod, const char *impl, const char *query, bit varres, bit vararg);
 extern void mvc_drop_func(mvc *c, sql_schema *s, sql_func * func, int drop_action);
 extern void mvc_drop_all_func(mvc *c, sql_schema *s, list *list_func, int drop_action);

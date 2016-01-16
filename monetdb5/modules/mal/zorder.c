@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -182,12 +182,6 @@ ZORDbatencode_int_oid(bat *zbid, bat *xbid, bat *ybid)
 	bz->H->nonil = 1;
 	bz->T->nonil = bx->T->nonil && by->T->nonil;
 
-	if (bx->htype != bz->htype) {
-        BAT *r = VIEWcreate(bx,bz);
-        BBPunfix(bz->batCacheid);
-        bz = r;
-    }
-
 	BBPkeepref(*zbid = bz->batCacheid);
 	return MAL_SUCCEED;
 }
@@ -240,12 +234,6 @@ ZORDbatdecode_int_oid(bat *xbid, bat *ybid, bat *zbid)
 	bx->H->nonil = 1;
 	bx->T->nonil = bz->T->nonil;
 
-	if (bx->htype != bz->htype) {
-        BAT *r = VIEWcreate(bz,bx);
-        BBPunfix(bx->batCacheid);
-        bx = r;
-    }
-
 	if (!(by->batDirty&2)) 
 		BATsetaccess(by, BAT_READ);
 	BATsetcount(by, BATcount(bz));
@@ -256,12 +244,6 @@ ZORDbatdecode_int_oid(bat *xbid, bat *ybid, bat *zbid)
 	by->trevsorted = 0;
 	by->H->nonil = 1;
 	by->T->nonil = bz->T->nonil;
-
-	if (by->htype != bz->htype) {
-        BAT *r = VIEWcreate(bz,by);
-        BBPunfix(by->batCacheid);
-        by = r;
-    }
 
 	BBPunfix(bz->batCacheid);
 	BBPkeepref(*xbid = bx->batCacheid);
@@ -312,12 +294,6 @@ ZORDbatdecode_int_oid_x(bat *xbid, bat *zbid)
 	bx->H->nonil = 1;
 	bx->T->nonil = bz->T->nonil;
 
-	if (bx->htype != bz->htype) {
-        BAT *r = VIEWcreate(bz,bx);
-        BBPunfix(bx->batCacheid);
-        bx = r;
-    }
-
 	BBPunfix(bz->batCacheid);
 	BBPkeepref(*xbid = bx->batCacheid);
 	return MAL_SUCCEED;
@@ -365,12 +341,6 @@ ZORDbatdecode_int_oid_y(bat *ybid, bat *zbid)
 	by->trevsorted = 0;
 	by->H->nonil = 1;
 	by->T->nonil = bz->T->nonil;
-
-	if (by->htype != bz->htype) {
-        BAT *r = VIEWcreate(bz,by);
-        BBPunfix(by->batCacheid);
-        by = r;
-    }
 
 	BBPunfix(bz->batCacheid);
 	BBPkeepref(*ybid = by->batCacheid);

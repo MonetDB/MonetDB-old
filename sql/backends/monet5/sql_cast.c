@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -61,14 +61,12 @@ str
 batnil_2_timestamp(bat *res, const bat *bid)
 {
 	BAT *b, *dst;
-	BATiter bi;
 	BUN p, q;
 
 	if ((b = BATdescriptor(*bid)) == NULL) {
 		throw(SQL, "batcalc.nil_2_timestamp", "Cannot access descriptor");
 	}
-	bi = bat_iterator(b);
-	dst = BATnew(b->htype, TYPE_timestamp, BATcount(b), TRANSIENT);
+	dst = BATnew(TYPE_void, TYPE_timestamp, BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.2_timestamp", MAL_MALLOC_FAIL);
@@ -76,8 +74,9 @@ batnil_2_timestamp(bat *res, const bat *bid)
 	BATseqbase(dst, b->hseqbase);
 	BATloop(b, p, q) {
 		timestamp r = *timestamp_nil;
-		BUNins(dst, BUNhead(bi, p), &r, FALSE);
+		BUNappend(dst, &r, FALSE);
 	}
+	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return MAL_SUCCEED;
@@ -95,7 +94,7 @@ batstr_2_timestamp(bat *res, const bat *bid)
 		throw(SQL, "batcalc.str_2_timestamp", "Cannot access descriptor");
 	}
 	bi = bat_iterator(b);
-	dst = BATnew(b->htype, TYPE_timestamp, BATcount(b), TRANSIENT);
+	dst = BATnew(TYPE_void, TYPE_timestamp, BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.2_timestamp", MAL_MALLOC_FAIL);
@@ -105,10 +104,14 @@ batstr_2_timestamp(bat *res, const bat *bid)
 		str v = (str) BUNtail(bi, p);
 		timestamp r;
 		msg = str_2_timestamp(&r, &v);
-		if (msg)
-			break;
-		BUNins(dst, BUNhead(bi, p), &r, FALSE);
+		if (msg) {
+			BBPunfix(dst->batCacheid);
+			BBPunfix(b->batCacheid);
+			return msg;
+		}
+		BUNappend(dst, &r, FALSE);
 	}
+	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return msg;
@@ -149,14 +152,12 @@ str
 batnil_2_daytime(bat *res, const bat *bid)
 {
 	BAT *b, *dst;
-	BATiter bi;
 	BUN p, q;
 
 	if ((b = BATdescriptor(*bid)) == NULL) {
 		throw(SQL, "batcalc.nil_2_daytime", "Cannot access descriptor");
 	}
-	bi = bat_iterator(b);
-	dst = BATnew(b->htype, TYPE_daytime, BATcount(b), TRANSIENT);
+	dst = BATnew(TYPE_void, TYPE_daytime, BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.2_daytime", MAL_MALLOC_FAIL);
@@ -164,8 +165,9 @@ batnil_2_daytime(bat *res, const bat *bid)
 	BATseqbase(dst, b->hseqbase);
 	BATloop(b, p, q) {
 		daytime r = daytime_nil;
-		BUNins(dst, BUNhead(bi, p), &r, FALSE);
+		BUNappend(dst, &r, FALSE);
 	}
+	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return MAL_SUCCEED;
@@ -183,7 +185,7 @@ batstr_2_daytime(bat *res, const bat *bid)
 		throw(SQL, "batcalc.str_2_daytime", "Cannot access descriptor");
 	}
 	bi = bat_iterator(b);
-	dst = BATnew(b->htype, TYPE_daytime, BATcount(b), TRANSIENT);
+	dst = BATnew(TYPE_void, TYPE_daytime, BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.2_daytime", MAL_MALLOC_FAIL);
@@ -193,10 +195,14 @@ batstr_2_daytime(bat *res, const bat *bid)
 		str v = (str) BUNtail(bi, p);
 		daytime r;
 		msg = str_2_daytime(&r, &v);
-		if (msg)
-			break;
-		BUNins(dst, BUNhead(bi, p), &r, FALSE);
+		if (msg) {
+			BBPunfix(dst->batCacheid);
+			BBPunfix(b->batCacheid);
+			return msg;
+		}
+		BUNappend(dst, &r, FALSE);
 	}
+	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return msg;
@@ -247,14 +253,12 @@ str
 batnil_2_date(bat *res, const bat *bid)
 {
 	BAT *b, *dst;
-	BATiter bi;
 	BUN p, q;
 
 	if ((b = BATdescriptor(*bid)) == NULL) {
 		throw(SQL, "batcalc.nil_2_date", "Cannot access descriptor");
 	}
-	bi = bat_iterator(b);
-	dst = BATnew(b->htype, TYPE_date, BATcount(b), TRANSIENT);
+	dst = BATnew(TYPE_void, TYPE_date, BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.2_date", MAL_MALLOC_FAIL);
@@ -262,8 +266,9 @@ batnil_2_date(bat *res, const bat *bid)
 	BATseqbase(dst, b->hseqbase);
 	BATloop(b, p, q) {
 		date r = date_nil;
-		BUNins(dst, BUNhead(bi, p), &r, FALSE);
+		BUNappend(dst, &r, FALSE);
 	}
+	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return MAL_SUCCEED;
@@ -281,7 +286,7 @@ batstr_2_date(bat *res, const bat *bid)
 		throw(SQL, "batcalc.str_2_date", "Cannot access descriptor");
 	}
 	bi = bat_iterator(b);
-	dst = BATnew(b->htype, TYPE_date, BATcount(b), TRANSIENT);
+	dst = BATnew(TYPE_void, TYPE_date, BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.2_date", MAL_MALLOC_FAIL);
@@ -291,10 +296,14 @@ batstr_2_date(bat *res, const bat *bid)
 		str v = (str) BUNtail(bi, p);
 		date r;
 		msg = str_2_date(&r, &v);
-		if (msg)
-			break;
-		BUNins(dst, BUNhead(bi, p), &r, FALSE);
+		if (msg) {
+			BBPunfix(dst->batCacheid);
+			BBPunfix(b->batCacheid);
+			return msg;
+		}
+		BUNappend(dst, &r, FALSE);
 	}
+	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return msg;
@@ -345,7 +354,7 @@ batstr_2_sqlblob(bat *res, const bat *bid)
 		throw(SQL, "batcalc.str_2_sqlblob", "Cannot access descriptor");
 	}
 	bi = bat_iterator(b);
-	dst = BATnew(b->htype, TYPE_sqlblob, BATcount(b), TRANSIENT);
+	dst = BATnew(TYPE_void, TYPE_sqlblob, BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.2_sqlblob", MAL_MALLOC_FAIL);
@@ -355,10 +364,14 @@ batstr_2_sqlblob(bat *res, const bat *bid)
 		str v = (str) BUNtail(bi, p);
 		sqlblob *r;
 		msg = str_2_sqlblob(&r, &v);
-		if (msg)
-			break;
-		BUNins(dst, BUNhead(bi, p), r, FALSE);
+		if (msg) {
+			BBPunfix(dst->batCacheid);
+			BBPunfix(b->batCacheid);
+			return msg;
+		}
+		BUNappend(dst, r, FALSE);
 	}
+	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return msg;
@@ -448,7 +461,7 @@ SQLbatstr_cast(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(SQL, "batcalc.str", "Cannot access descriptor");
 	}
 	bi = bat_iterator(b);
-	dst = BATnew(b->htype, TYPE_str, BATcount(b), TRANSIENT);
+	dst = BATnew(TYPE_void, TYPE_str, BATcount(b), TRANSIENT);
 	if (dst == NULL) {
 		BBPunfix(b->batCacheid);
 		throw(SQL, "sql.str_cast", MAL_MALLOC_FAIL);
@@ -457,12 +470,16 @@ SQLbatstr_cast(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BATloop(b, p, q) {
 		ptr v = (ptr) BUNtail(bi, p);
 		msg = SQLstr_cast_(&r, m, *eclass, *d1, *s1, *has_tz, v, b->ttype, *digits);
-		if (msg)
-			break;
-		BUNins(dst, BUNhead(bi, p), r, FALSE);
+		if (msg) {
+			BBPunfix(dst->batCacheid);
+			BBPunfix(b->batCacheid);
+			return msg;
+		}
+		BUNappend(dst, r, FALSE);
 		GDKfree(r);
 		r = NULL;
 	}
+	BATseqbase(dst, b->hseqbase);
 	BBPkeepref(*res = dst->batCacheid);
 	BBPunfix(b->batCacheid);
 	return msg;

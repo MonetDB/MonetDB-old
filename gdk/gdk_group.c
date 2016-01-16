@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -42,7 +42,7 @@
  * sorted), we produce a single group or copy the input group.
  *
  * If the input bats b and g are sorted, or if the subsorted flag is
- * set (only used by BATsubsort), we only need to compare consecutive
+ * set (only used by BATsort), we only need to compare consecutive
  * values.
  *
  * If the input bat b is sorted, but g is not, we can compare
@@ -69,17 +69,19 @@
 			maxgrps = BATcount(b);				\
 			if (extents) {					\
 				BATsetcount(en, ngrp);			\
-				BATextend(en, maxgrps);			\
+				if (BATextend(en, maxgrps) != GDK_SUCCEED) \
+					goto error;			\
 				exts = (oid *) Tloc(en, BUNfirst(en));	\
 			}						\
 			if (histo) {					\
 				BATsetcount(hn, ngrp);			\
-				BATextend(hn, maxgrps);			\
+				if (BATextend(hn, maxgrps) != GDK_SUCCEED) \
+					goto error;			\
 				cnts = (wrd *) Tloc(hn, BUNfirst(hn));	\
 			}						\
 		}							\
 		if (extents)						\
-			exts[ngrp] = b->hseqbase + (oid) (p - r);	\
+			exts[ngrp] = hseqb + (oid) (p - r);		\
 		if (histo)						\
 			cnts[ngrp] = 1;					\
 		ngrps[p - r] = ngrp;					\
@@ -367,7 +369,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 	int t;
 	int (*cmp)(const void *, const void *);
 	const oid *grps = NULL;
-	oid *restrict ngrps, ngrp, prev = 0;
+	oid *restrict ngrps, ngrp, prev = 0, hseqb = 0;
 	oid *restrict exts = NULL;
 	wrd *restrict cnts = NULL;
 	BUN p, q, r;
@@ -377,7 +379,9 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 	Hash *hs = NULL;
 	BUN hb;
 	BUN maxgrps;
+#ifndef DISABLE_PARENT_HASH
 	bat parent;
+#endif
 
 	if (b == NULL || !BAThdense(b)) {
 		GDKerror("BATgroup: b must be dense-headed\n");
@@ -400,6 +404,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 	/* we want our output to go somewhere */
 	assert(groups != NULL);
 
+	hseqb = b->hseqbase;
 	if (b->tkey || BATcount(b) <= 1 || (g && (g->tkey || BATtdense(g)))) {
 		/* grouping is trivial: 1 element per group */
 		ALGODEBUG fprintf(stderr, "#BATgroup(b=%s#" BUNFMT ","
@@ -439,7 +444,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		}
 		return GDK_SUCCEED;
 	}
-	if (b->tsorted && b->trevsorted) {
+	if (BATordered(b) && BATordered_rev(b)) {
 		/* all values are equal */
 		if (g == NULL) {
 			/* there's only a single group: 0 */
@@ -494,18 +499,21 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 				  e ? BATgetId(e) : "NULL", e ? BATcount(e) : 0,
 				  h ? BATgetId(h) : "NULL", h ? BATcount(h) : 0,
 				  subsorted);
-			gn = BATcopy(g, g->htype, g->ttype, 0, TRANSIENT);
+			assert(g->htype == TYPE_void);
+			gn = COLcopy(g, g->ttype, 0, TRANSIENT);
 			if (gn == NULL)
 				goto error;
 			*groups = gn;
 			if (extents) {
-				en = BATcopy(e, e->htype, e->ttype, 0, TRANSIENT);
+				assert(e->htype == TYPE_void);
+				en = COLcopy(e, e->ttype, 0, TRANSIENT);
 				if (en == NULL)
 					goto error;
 				*extents = en;
 			}
 			if (histo) {
-				hn = BATcopy(h, h->htype, h->ttype, 0, TRANSIENT);
+				assert(h->htype == TYPE_void);
+				hn = COLcopy(h, h->ttype, 0, TRANSIENT);
 				if (hn == NULL)
 					goto error;
 				*histo = hn;
@@ -573,8 +581,8 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		}
 	}
 
-	if (((b->tsorted || b->trevsorted) &&
-	     (g == NULL || g->tsorted || g->trevsorted)) ||
+	if (((BATordered(b) || BATordered_rev(b)) &&
+	     (g == NULL || BATordered(g) || BATordered_rev(g))) ||
 	    subsorted) {
 		/* we only need to compare each entry with the previous */
 		ALGODEBUG fprintf(stderr, "#BATgroup(b=%s#" BUNFMT ","
@@ -626,7 +634,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 
 		gn->tsorted = 1;
 		*groups = gn;
-	} else if (b->tsorted || b->trevsorted) {
+	} else if (BATordered(b) || BATordered_rev(b)) {
 		BUN i, j;
 		BUN *pgrp;
 
@@ -757,9 +765,12 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		GDKfree(sgrps);
 	} else if (BATcheckhash(b) ||
 		   (b->batPersistence == PERSISTENT &&
-		    BAThash(b, 0) == GDK_SUCCEED) ||
-		   ((parent = VIEWtparent(b)) != 0 &&
-		    BATcheckhash(BBPdescriptor(-parent)))) {
+		    BAThash(b, 0) == GDK_SUCCEED)
+#ifndef DISABLE_PARENT_HASH
+		   || ((parent = VIEWtparent(b)) != 0 &&
+		       BATcheckhash(BBPdescriptor(-parent)))
+#endif
+		) {
 		BUN lo, hi;
 
 		/* we already have a hash table on b, or b is
@@ -775,16 +786,20 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 				  e ? BATgetId(e) : "NULL", e ? BATcount(e) : 0,
 				  h ? BATgetId(h) : "NULL", h ? BATcount(h) : 0,
 				  subsorted);
-		if ((parent = VIEWtparent(b)) != 0) {
+#ifndef DISABLE_PARENT_HASH
+		if (b->T->hash == NULL && (parent = VIEWtparent(b)) != 0) {
 			/* b is a view on another bat (b2 for now).
 			 * calculate the bounds [lo, hi) in the parent
 			 * that b uses */
 			BAT *b2 = BBPdescriptor(-parent);
 			lo = (BUN) ((b->T->heap.base - b2->T->heap.base) >> b->T->shift) + BUNfirst(b);
 			hi = lo + BATcount(b);
+			hseqb = b->hseqbase;
 			b = b2;
 			bi = bat_iterator(b);
-		} else {
+		} else
+#endif
+		{
 			lo = BUNfirst(b);
 			hi = BUNlast(b);
 		}
@@ -828,6 +843,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 		BUN mask = HASHmask(b->batCount) >> 3;
 		int bits = 3;
 
+		GDKclrerr();	/* not interested in BAThash errors */
 		/* when combining value and group-id hashes,
 		 * we left-shift one of them by half the hash-mask width
 		 * to better spread bits and use the entire hash-mask,
@@ -838,7 +854,7 @@ BATgroup_internal(BAT **groups, BAT **extents, BAT **histo,
 
 		/* not sorted, and no pre-existing hash table: we'll
 		 * build an incomplete hash table on the fly--also see
-		 * BATassertHeadProps and BATderiveHeadProps for
+		 * BATassertTailProps and BATderiveTailProps for
 		 * similar code;
 		 * we also exploit if g is clustered */
 		ALGODEBUG fprintf(stderr, "#BATgroup(b=%s#" BUNFMT ","

@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #ifndef _SQL_PARSER_H_
@@ -153,6 +153,12 @@ typedef enum tokens {
 	SQL_NEXT,
 	SQL_MULSTMT,
 	SQL_WITH,
+	SQL_START,
+	SQL_INC,
+	SQL_MINVALUE,
+	SQL_MAXVALUE,
+	SQL_CACHE,
+	SQL_CYCLE,
 	SQL_XMLCOMMENT,
 	SQL_XMLCONCAT,
 	SQL_XMLDOCUMENT,

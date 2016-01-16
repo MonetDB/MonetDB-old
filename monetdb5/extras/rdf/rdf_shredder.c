@@ -160,7 +160,7 @@ rdf_BUNappend_unq_ForObj(parserData* pdata, BAT *b, void* objStr, ObjectType obj
 		*bun |= (BUN)objType << (sizeof(BUN)*8 - 4);
 		
 		//b = BUNappend(b, (ptr) (str)objStr, TRUE);
-		if (BUNins(b, (ptr) bun, (ptr) (str)objStr, TRUE) == GDK_FAIL){
+		if (BUNappend(b, (ptr) (str)objStr, TRUE) == GDK_FAIL){
 
 			pdata->exception++;
 			pdata->exceptionMsg =  "could not append in Object bat";
@@ -706,11 +706,11 @@ post_processing (parserData *pdata)
 
 #elif STORE == TRIPLE_STORE
 	/* order SPO/SOP */
-	if (BATsubsort(&graph[S_sort], &o1, &g1, S, NULL, NULL, 0, 0) == GDK_FAIL)
+	if (BATsort(&graph[S_sort], &o1, &g1, S, NULL, NULL, 0, 0) == GDK_FAIL)
 		goto bailout;
-	if (BATsubsort(&graph[P_PO], &o2, &g2, P, o1, g1, 0, 0) == GDK_FAIL)
+	if (BATsort(&graph[P_PO], &o2, &g2, P, o1, g1, 0, 0) == GDK_FAIL)
 		goto bailout;
-	if (BATsubsort(&graph[O_PO], &o3, &g3, O, o2, g2, 0, 0) == GDK_FAIL)
+	if (BATsort(&graph[O_PO], &o3, &g3, O, o2, g2, 0, 0) == GDK_FAIL)
 		goto bailout;
 	BBPunfix(o2->batCacheid);
 	BBPunfix(g2->batCacheid);
@@ -720,9 +720,9 @@ post_processing (parserData *pdata)
 	#if IS_COMPACT_TRIPLESTORE == 0
 	beginT = clock(); 
 
-	if (BATsubsort(&graph[O_OP], &o2, &g2, O, o1, g1, 0, 0) == GDK_FAIL)
+	if (BATsort(&graph[O_OP], &o2, &g2, O, o1, g1, 0, 0) == GDK_FAIL)
 		goto bailout;
-	if (BATsubsort(&graph[P_OP], &o3, &g3, P, o2, g2, 0, 0) == GDK_FAIL)
+	if (BATsort(&graph[P_OP], &o3, &g3, P, o2, g2, 0, 0) == GDK_FAIL)
 		goto bailout;
 	BBPunfix(o1->batCacheid);
 	BBPunfix(g1->batCacheid);
@@ -732,19 +732,19 @@ post_processing (parserData *pdata)
 	BBPunfix(g3->batCacheid);
 
 	/* order PSO/POS */
-	if (BATsubsort(&graph[P_sort], &o1, &g1, P, NULL, NULL, 0, 0) == GDK_FAIL)
+	if (BATsort(&graph[P_sort], &o1, &g1, P, NULL, NULL, 0, 0) == GDK_FAIL)
 		goto bailout;
-	if (BATsubsort(&graph[S_SO], &o2, &g2, S, o1, g1, 0, 0) == GDK_FAIL)
+	if (BATsort(&graph[S_SO], &o2, &g2, S, o1, g1, 0, 0) == GDK_FAIL)
 		goto bailout;
-	if (BATsubsort(&graph[O_SO], &o3, &g3, O, o2, g2, 0, 0) == GDK_FAIL)
+	if (BATsort(&graph[O_SO], &o3, &g3, O, o2, g2, 0, 0) == GDK_FAIL)
 		goto bailout;
 	BBPunfix(o2->batCacheid);
 	BBPunfix(g2->batCacheid);
 	BBPunfix(o3->batCacheid);
 	BBPunfix(g3->batCacheid);
-	if (BATsubsort(&graph[O_OS], &o2, &g2, O, o1, g1, 0, 0) == GDK_FAIL)
+	if (BATsort(&graph[O_OS], &o2, &g2, O, o1, g1, 0, 0) == GDK_FAIL)
 		goto bailout;
-	if (BATsubsort(&graph[S_OS], &o3, &g3, S, o2, g2, 0, 0) == GDK_FAIL)
+	if (BATsort(&graph[S_OS], &o3, &g3, S, o2, g2, 0, 0) == GDK_FAIL)
 		goto bailout;
 	BBPunfix(o1->batCacheid);
 	BBPunfix(g1->batCacheid);
@@ -754,19 +754,19 @@ post_processing (parserData *pdata)
 	BBPunfix(g3->batCacheid);
 
 	/* order OPS/OSP */
-	if (BATsubsort(&graph[O_sort], &o1, &g1, O, NULL, NULL, 0, 0) == GDK_FAIL)
+	if (BATsort(&graph[O_sort], &o1, &g1, O, NULL, NULL, 0, 0) == GDK_FAIL)
 		goto bailout;
-	if (BATsubsort(&graph[P_PS], &o2, &g2, P, o1, g1, 0, 0) == GDK_FAIL)
+	if (BATsort(&graph[P_PS], &o2, &g2, P, o1, g1, 0, 0) == GDK_FAIL)
 		goto bailout;
-	if (BATsubsort(&graph[S_PS], &o3, &g3, S, o2, g2, 0, 0) == GDK_FAIL)
+	if (BATsort(&graph[S_PS], &o3, &g3, S, o2, g2, 0, 0) == GDK_FAIL)
 		goto bailout;
 	BBPunfix(o2->batCacheid);
 	BBPunfix(g2->batCacheid);
 	BBPunfix(o3->batCacheid);
 	BBPunfix(g3->batCacheid);
-	if (BATsubsort(&graph[S_SP], &o2, &g2, S, o1, g1, 0, 0) == GDK_FAIL)
+	if (BATsort(&graph[S_SP], &o2, &g2, S, o1, g1, 0, 0) == GDK_FAIL)
 		goto bailout;
-	if (BATsubsort(&graph[P_SP], &o3, &g3, P, o2, g2, 0, 0) == GDK_FAIL)
+	if (BATsort(&graph[P_SP], &o3, &g3, P, o2, g2, 0, 0) == GDK_FAIL)
 		goto bailout;
 	BBPunfix(o1->batCacheid);
 	BBPunfix(g1->batCacheid);

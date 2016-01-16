@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 #include "monetdb_config.h"
@@ -306,7 +306,7 @@ calcmodtype(int tp1, int tp2)
 }
 
 static str
-CMDbatBINARY2(MalStkPtr stk, InstrPtr pci,
+CMDbatBINARY2(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci,
 			  BAT *(*batfunc)(BAT *, BAT *, BAT *, int, int),
 			  BAT *(batfunc1)(BAT *, const ValRecord *, BAT *, int, int),
 			  BAT *(batfunc2)(const ValRecord *, BAT *, BAT *, int, int),
@@ -315,10 +315,13 @@ CMDbatBINARY2(MalStkPtr stk, InstrPtr pci,
 {
 	bat *bid;
 	BAT *bn, *b, *s = NULL;
-	int tp1, tp2;
+	int tp1, tp2, tp3;
 
 	tp1 = stk->stk[getArg(pci, 1)].vtype;
 	tp2 = stk->stk[getArg(pci, 2)].vtype;
+	tp3 = getArgType(mb, pci, 0);
+	assert(isaBatType(tp3));
+	tp3 = getColumnType(tp3);
 	if (pci->argc == 4) {
 		bat *sid = getArgReference_bat(stk, pci, 3);
 		if (*sid && (s = BATdescriptor(*sid)) == NULL)
@@ -347,12 +350,15 @@ CMDbatBINARY2(MalStkPtr stk, InstrPtr pci,
 			assert(BAThdense(b2));
 		}
 		if (b2) {
-			bn = (*batfunc)(b, b2, s, (*typefunc)(b->T->type, b2->T->type),
-							abort_on_error);
+			if (tp3 == TYPE_any)
+				tp3 = (*typefunc)(b->ttype, b2->ttype);
+			bn = (*batfunc)(b, b2, s, tp3, abort_on_error);
 			BBPunfix(b2->batCacheid);
 		} else {
+			if (tp3 == TYPE_any)
+				tp3 = (*typefunc)(b->T->type, tp2);
 			bn = (*batfunc1)(b, &stk->stk[getArg(pci, 2)], s,
-							 (*typefunc)(b->T->type, tp2), abort_on_error);
+							 tp3, abort_on_error);
 		}
 	} else {
 		assert(tp1 != TYPE_bat && !isaBatType(tp1));
@@ -365,8 +371,9 @@ CMDbatBINARY2(MalStkPtr stk, InstrPtr pci,
 			throw(MAL, malfunc, RUNTIME_OBJECT_MISSING);
 		}
 		assert(BAThdense(b));
-		bn = (*batfunc2)(&stk->stk[getArg(pci, 1)], b, s,
-						 (*typefunc)(tp1, b->T->type), abort_on_error);
+		if (tp3 == TYPE_any)
+			tp3 = (*typefunc)(tp1, b->T->type);
+		bn = (*batfunc2)(&stk->stk[getArg(pci, 1)], b, s, tp3, abort_on_error);
 	}
 	BBPunfix(b->batCacheid);
 	if (bn == NULL) {
@@ -575,9 +582,8 @@ str
 CMDbatADD(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
-	(void) mb;
 
-	return CMDbatBINARY2(stk, pci, BATcalcadd, BATcalcaddcst, BATcalccstadd,
+	return CMDbatBINARY2(mb, stk, pci, BATcalcadd, BATcalcaddcst, BATcalccstadd,
 						 calctype, 0, "batcalc.add_noerror");
 }
 
@@ -587,9 +593,8 @@ str
 CMDbatADDsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
-	(void) mb;
 
-	return CMDbatBINARY2(stk, pci, BATcalcadd, BATcalcaddcst, BATcalccstadd,
+	return CMDbatBINARY2(mb, stk, pci, BATcalcadd, BATcalcaddcst, BATcalccstadd,
 						 calctype, 1, "batcalc.+");
 }
 
@@ -599,9 +604,8 @@ str
 CMDbatADDenlarge(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
-	(void) mb;
 
-	return CMDbatBINARY2(stk, pci, BATcalcadd, BATcalcaddcst, BATcalccstadd,
+	return CMDbatBINARY2(mb, stk, pci, BATcalcadd, BATcalcaddcst, BATcalccstadd,
 						 calctypeenlarge, 1, "batcalc.add_enlarge");
 }
 
@@ -611,9 +615,8 @@ str
 CMDbatSUB(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
-	(void) mb;
 
-	return CMDbatBINARY2(stk, pci, BATcalcsub, BATcalcsubcst, BATcalccstsub,
+	return CMDbatBINARY2(mb, stk, pci, BATcalcsub, BATcalcsubcst, BATcalccstsub,
 						 calctype, 0, "batcalc.sub_noerror");
 }
 
@@ -623,9 +626,8 @@ str
 CMDbatSUBsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
-	(void) mb;
 
-	return CMDbatBINARY2(stk, pci, BATcalcsub, BATcalcsubcst, BATcalccstsub,
+	return CMDbatBINARY2(mb, stk, pci, BATcalcsub, BATcalcsubcst, BATcalccstsub,
 						 calctype, 1, "batcalc.-");
 }
 
@@ -635,9 +637,8 @@ str
 CMDbatSUBenlarge(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
-	(void) mb;
 
-	return CMDbatBINARY2(stk, pci, BATcalcsub, BATcalcsubcst, BATcalccstsub,
+	return CMDbatBINARY2(mb, stk, pci, BATcalcsub, BATcalcsubcst, BATcalccstsub,
 						 calctypeenlarge, 1, "batcalc.sub_enlarge");
 }
 
@@ -647,9 +648,8 @@ str
 CMDbatMUL(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
-	(void) mb;
 
-	return CMDbatBINARY2(stk, pci, BATcalcmul, BATcalcmulcst, BATcalccstmul,
+	return CMDbatBINARY2(mb, stk, pci, BATcalcmul, BATcalcmulcst, BATcalccstmul,
 						 calctype, 0, "batcalc.mul_noerror");
 }
 
@@ -659,9 +659,8 @@ str
 CMDbatMULsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
-	(void) mb;
 
-	return CMDbatBINARY2(stk, pci, BATcalcmul, BATcalcmulcst, BATcalccstmul,
+	return CMDbatBINARY2(mb, stk, pci, BATcalcmul, BATcalcmulcst, BATcalccstmul,
 						 calctype, 1, "batcalc.*");
 }
 
@@ -671,9 +670,8 @@ str
 CMDbatMULenlarge(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
-	(void) mb;
 
-	return CMDbatBINARY2(stk, pci, BATcalcmul, BATcalcmulcst, BATcalccstmul,
+	return CMDbatBINARY2(mb, stk, pci, BATcalcmul, BATcalcmulcst, BATcalccstmul,
 						 calctypeenlarge, 1, "batcalc.mul_enlarge");
 }
 
@@ -683,9 +681,8 @@ str
 CMDbatDIV(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
-	(void) mb;
 
-	return CMDbatBINARY2(stk, pci, BATcalcdiv, BATcalcdivcst, BATcalccstdiv,
+	return CMDbatBINARY2(mb, stk, pci, BATcalcdiv, BATcalcdivcst, BATcalccstdiv,
 						 calcdivtype, 0, "batcalc.div_noerror");
 }
 
@@ -695,9 +692,8 @@ str
 CMDbatDIVsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
-	(void) mb;
 
-	return CMDbatBINARY2(stk, pci, BATcalcdiv, BATcalcdivcst, BATcalccstdiv,
+	return CMDbatBINARY2(mb, stk, pci, BATcalcdiv, BATcalcdivcst, BATcalccstdiv,
 						 calcdivtype, 1, "batcalc./");
 }
 
@@ -707,9 +703,8 @@ str
 CMDbatMOD(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
-	(void) mb;
 
-	return CMDbatBINARY2(stk, pci, BATcalcmod, BATcalcmodcst, BATcalccstmod,
+	return CMDbatBINARY2(mb, stk, pci, BATcalcmod, BATcalcmodcst, BATcalccstmod,
 						 calcmodtype, 0, "batcalc.mod_noerror");
 }
 
@@ -719,9 +714,8 @@ str
 CMDbatMODsignal(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
-	(void) mb;
 
-	return CMDbatBINARY2(stk, pci, BATcalcmod, BATcalcmodcst, BATcalccstmod,
+	return CMDbatBINARY2(mb, stk, pci, BATcalcmod, BATcalcmodcst, BATcalccstmod,
 						 calcmodtype, 1, "batcalc.%");
 }
 
@@ -997,8 +991,8 @@ CMDcalcavg(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	dbl avg;
 	BUN vals;
 	bat *bid;
-	BAT *b, *s = NULL, *t;
-	int ret;
+	BAT *b, *s = NULL;
+	gdk_return ret;
 
 	(void) cntxt;
 	(void) mb;
@@ -1014,17 +1008,11 @@ CMDcalcavg(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			throw(MAL, "aggr.avg", RUNTIME_OBJECT_MISSING);
 		}
 	}
-	if (!BAThdense(b)) {
-		t = BATmirror(BATmark(BATmirror(b), 0)); /* [dense,tail] */
-		BBPunfix(b->batCacheid);
-		b = t;
-		assert(s == NULL);
-	}
 	ret = BATcalcavg(b, s, &avg, &vals);
 	BBPunfix(b->batCacheid);
 	if (s)
 		BBPunfix(s->batCacheid);
-	if (ret == GDK_FAIL)
+	if (ret != GDK_SUCCEED)
 		return mythrow(MAL, "aggr.avg", OPERATION_FAILED);
 	* getArgReference_dbl(stk, pci, 0) = avg;
 	if (pci->retc == 2)
@@ -1302,66 +1290,106 @@ batcalc_export str CMDifthen(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr
 str
 CMDifthen(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	BAT *b, *b1, *b2, *bn;
-	int tp1, tp2;
+	BAT *b = NULL, *b1 = NULL, *b2 = NULL, *bn;
+	int tp0, tp1, tp2;
 	bat *ret;
+	BUN cnt = BUN_NONE;
 
 	(void) cntxt;
 	(void) mb;
 
-	ret = getArgReference_bat(stk, pci, 0);
-	b = BATdescriptor(* getArgReference_bat(stk, pci, 1));
-	if (b == NULL)
-		throw(MAL, "batcalc.ifthenelse", RUNTIME_OBJECT_MISSING);
-	assert(BAThdense(b));
+	if (pci->argc != 4)
+		throw(MAL, "batcalc.ifthen", "Operation not supported.");
 
+	ret = getArgReference_bat(stk, pci, 0);
+	tp0 = stk->stk[getArg(pci, 1)].vtype;
 	tp1 = stk->stk[getArg(pci, 2)].vtype;
+	tp2 = stk->stk[getArg(pci, 3)].vtype;
+	if (tp0 == TYPE_bat || isaBatType(tp0)) {
+		b = BATdescriptor(* getArgReference_bat(stk, pci, 1));
+		if (b == NULL)
+			throw(MAL, "batcalc.ifthenelse", RUNTIME_OBJECT_MISSING);
+		assert(BAThdense(b));
+		cnt = BATcount(b);
+	}
 	if (tp1 == TYPE_bat || isaBatType(tp1)) {
 		b1 = BATdescriptor(* getArgReference_bat(stk, pci, 2));
 		if (b1 == NULL) {
-			BBPunfix(b->batCacheid);
+			if (b)
+				BBPunfix(b->batCacheid);
 			throw(MAL, "batcalc.ifthenelse", RUNTIME_OBJECT_MISSING);
 		}
 		assert(BAThdense(b1));
-		if (pci->argc == 4) {
-			tp2 = stk->stk[getArg(pci, 3)].vtype;
-			if (tp2 == TYPE_bat || isaBatType(tp2)) {
-				b2 = BATdescriptor(* getArgReference_bat(stk, pci, 3));
-				if (b2 == NULL) {
-					BBPunfix(b->batCacheid);
-					BBPunfix(b1->batCacheid);
-					throw(MAL, "batcalc.ifthenelse", RUNTIME_OBJECT_MISSING);
-				}
-				assert(BAThdense(b2));
+		if (cnt == BUN_NONE)
+			cnt = BATcount(b1);
+		else if (BATcount(b1) != cnt) {
+			BBPunfix(b->batCacheid);
+			throw(MAL, "batcalc.ifthenelse", ILLEGAL_ARGUMENT);
+		}
+	}
+	if (tp2 == TYPE_bat || isaBatType(tp2)) {
+		b2 = BATdescriptor(* getArgReference_bat(stk, pci, 3));
+		if (b2 == NULL) {
+			if (b)
+				BBPunfix(b->batCacheid);
+			if (b1)
+				BBPunfix(b1->batCacheid);
+			throw(MAL, "batcalc.ifthenelse", RUNTIME_OBJECT_MISSING);
+		}
+		assert(BAThdense(b2));
+		if (cnt == BUN_NONE)
+			cnt = BATcount(b2);
+		else if (BATcount(b2) != cnt) {
+			if (b)
+				BBPunfix(b->batCacheid);
+			if (b1)
+				BBPunfix(b1->batCacheid);
+			throw(MAL, "batcalc.ifthenelse", ILLEGAL_ARGUMENT);
+		}
+	}
+	if (b == NULL && b1 == NULL && b2 == NULL) {
+		/* at least one BAT required */
+		throw(MAL, "batcalc.ifthenelse", ILLEGAL_ARGUMENT);
+	}
+	if (b != NULL) {
+		if (b1 != NULL) {
+			if (b2 != NULL) {
 				bn = BATcalcifthenelse(b, b1, b2);
-				BBPunfix(b2->batCacheid);
 			} else {
 				bn = BATcalcifthenelsecst(b, b1, &stk->stk[getArg(pci, 3)]);
 			}
 		} else {
-			throw(MAL, "batcalc.ifthen", "Operation not supported.");
-		}
-		BBPunfix(b1->batCacheid);
-	} else {
-		if (pci->argc == 4) {
-			tp2 = stk->stk[getArg(pci, 3)].vtype;
-			if (tp2 == TYPE_bat || isaBatType(tp2)) {
-				b2 = BATdescriptor(* getArgReference_bat(stk, pci, 3));
-				if (b2 == NULL) {
-					BBPunfix(b->batCacheid);
-					throw(MAL, "batcalc.ifthenelse", RUNTIME_OBJECT_MISSING);
-				}
-				assert(BAThdense(b2));
+			if (b2 != NULL) {
 				bn = BATcalcifthencstelse(b, &stk->stk[getArg(pci, 2)], b2);
-				BBPunfix(b2->batCacheid);
 			} else {
 				bn = BATcalcifthencstelsecst(b, &stk->stk[getArg(pci, 2)], &stk->stk[getArg(pci, 3)]);
 			}
+		}
+	} else {
+		bit v = *getArgReference_bit(stk, pci, 1);
+		if (v ==  bit_nil) {
+			if (b1 != NULL)
+				bn = BATconst(b1, b1->ttype, ATOMnilptr(b1->ttype), TRANSIENT);
+			else
+				bn = BATconst(b2, b2->ttype, ATOMnilptr(b2->ttype), TRANSIENT);
+		} else if (v) {
+			if (b1 != NULL)
+				bn = COLcopy(b1, b1->ttype, 0, TRANSIENT);
+			else
+				bn = BATconst(b2, b2->ttype, getArgReference(stk, pci, 2), TRANSIENT);
 		} else {
-			throw(MAL, "batcalc.ifthen", "Operation not supported.");
+			if (b2 != NULL)
+				bn = COLcopy(b2, b2->ttype, 0, TRANSIENT);
+			else
+				bn = BATconst(b1, b1->ttype, getArgReference(stk, pci, 3), TRANSIENT);
 		}
 	}
-	BBPunfix(b->batCacheid);
+	if (b)
+		BBPunfix(b->batCacheid);
+	if (b1)
+		BBPunfix(b1->batCacheid);
+	if (b2)
+		BBPunfix(b2->batCacheid);
 	if (bn == NULL) {
 		return mythrow(MAL, "batcalc.ifthenelse", OPERATION_FAILED);
 	}

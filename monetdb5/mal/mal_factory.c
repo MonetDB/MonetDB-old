@@ -3,7 +3,7 @@
  * License, v. 2.0.  If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * Copyright 2008-2015 MonetDB B.V.
+ * Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
  */
 
 /*
@@ -18,6 +18,7 @@
 #include "mal_exception.h"
 #include "mal_session.h"
 #include "mal_debugger.h"
+#include "mal_namespace.h"
 #include "mal_private.h"
 
 typedef struct {
@@ -41,6 +42,7 @@ static int lastPlant= 0;
 static int plantId = 1;
 
 mal_export Plant newPlant(MalBlkPtr mb);
+
 
 static int
 findPlant(MalBlkPtr mb){
@@ -369,4 +371,36 @@ shutdownFactoryByName(Client cntxt, Module m, str nme){
 			return MAL_SUCCEED;
 		}
 	return MAL_SUCCEED;
+}
+
+void mal_factory_reset(void)
+{
+	Plant pl, plim;
+
+	plim = plants + lastPlant;
+	for (pl = plants; pl < plim; pl++){
+			/* MSresetVariables(mb, pl->stk, 0);*/
+			/* freeStack(pl->stk); there may be a reference?*/
+			/* we are inside the body of the factory and about to return */
+			pl->factory = 0;
+			if (pl->stk)
+				pl->stk->keepAlive = FALSE;
+			if ( pl->stk) {
+				//garbageCollector(cntxt, mb, pl->stk,TRUE);
+				GDKfree(pl->stk);
+			}
+			pl->stk=0;
+			pl->pc = 0;
+			pl->inuse = 0;
+			pl->client = NULL;
+			pl->caller = NULL;
+			pl->pci = NULL;
+			pl->env = NULL;
+			pl->client = NULL;
+			pl->caller = NULL;
+			pl->env= NULL;
+			pl->pci = NULL;
+	}
+	plantId = 1;
+	lastPlant = 0;
 }
