@@ -42,7 +42,7 @@ pattern rdfidtostr(id:oid):str
 address	SQLrdfidtostr
 comment "Convert from oid to string";
 
-pattern batsql.rdfidtostr(v:bat[:oid]):bat[ :str]
+pattern batsql.rdfidtostr(v:bat[:oid]):bat[:str]
 address	SQLrdfidtostr_bat
 comment "Convert from oid to string";
 
@@ -63,7 +63,6 @@ address SQLrdftimetoid
 comment "Convert from date time to encoded id";
 
 #x:oid contains list of property, their lower bound, their upper bound (if these bounds exist)
-pattern rdfscan{unsafe}(nprop:int, nrqrop:int, x:oid...)(:bat[:any]...)
+unsafe pattern rdfscan(nprop:int, nrqrop:int, x:oid...)(:bat[:any]...)
 address SQLrdfScan
 comment "RDFscan operator which return results from exceptional values";
-

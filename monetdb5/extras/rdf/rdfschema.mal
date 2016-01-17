@@ -22,20 +22,20 @@ command rdfschemaexplore(tbname:str, clname:str ) :void
 address RDFSchemaExplore
 comment "Explore the schema information from input table e.g., SPO in RDF";
 
-command rdfextractCS( sbat:bat[:any_1,:oid], pbat:bat[:any_2,:oid], freqThreshold:int ) :void
+command rdfextractCS( sbat:bat[:oid], pbat:bat[:oid], freqThreshold:int ) :void
 address RDFextractCS
 comment "Extract Characteristic sets from SPO table. While extracting CSs, get the frequent CSs";
 
-command rdfextractPfromPSO(pbat:bat[:any_1,:oid], sbat:bat[:any_2,:oid]):void
+command rdfextractPfromPSO(pbat:bat[:oid], sbat:bat[:oid]):void
 address RDFextractPfromPSO
 comment "Extract Properties and their supports from PSO table";
 
-command rdfextractCSwithTypes( sbat:bat[:any_1,:oid], pbat:bat[:any_2,:oid], obat:bat[:any_3,:oid], mbat:bat[:any_4,:str], ontbat:bat[:any_5,:str], freqThreshold:int, freqCSset:void) :void
+command rdfextractCSwithTypes( sbat:bat[:oid], pbat:bat[:oid], obat:bat[:oid], mbat:bat[:str], ontbat:bat[:str], freqThreshold:int, freqCSset:void) :void
 address RDFextractCSwithTypes
 comment "Extract Characteristic sets from SPO table. While extracting CSs, detect the object type";
 
 #TODO: The list of parameters for this function is not correct any more sice it has been changed for the fucntion in sql.mx  												   
-command rdfreorganize( sbat:bat[:any_1,:oid], pbat:bat[:any_2,:oid], obat:bat[:any_3,:oid], mbat:bat[:any_4,:str], ontbat:bat[:any_5,:str], freqThreshold:int, mode:int) :void
+command rdfreorganize( sbat:bat[:oid], pbat:bat[:oid], obat:bat[:oid], mbat:bat[:str], ontbat:bat[:str], freqThreshold:int, mode:int) :void
 address RDFreorganize
 comment "Re-organize RDF triple store using the characteristic sets";
 
@@ -43,7 +43,7 @@ command rdfloadontology(location:str, schema:str ) :void
 address RDFOntologyParser
 comment "Load ontologies into RDF store";
 
-command rdfloadsqlontologies( auri:bat[:any_1,:str], aattr:bat[:any_2,:str], muri:bat[:any_3,:str], msuper:bat[:any_4,:str], mlabel:bat[:any_5,:str]) :void
+command rdfloadsqlontologies( auri:bat[:str], aattr:bat[:str], muri:bat[:str], msuper:bat[:str], mlabel:bat[:str]) :void
 address RDFloadsqlontologies
 comment "Load ontologies from SQL into string arrays";
 

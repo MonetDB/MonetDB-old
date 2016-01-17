@@ -17,15 +17,15 @@
 
 module rdf;
 
-command leftfetchjoin_sorted ( left:bat[:any_1,:oid], right:bat[:oid,:any_3] ) :bat[:any_1,:any_3]
+command leftfetchjoin_sorted ( left:bat[:oid], right:bat[:oid] ) :bat[:oid]
 address RDFleftfetchjoin_sorted
 comment "like algebra_leftfetchjoin(), but asserts that the resulting tail column is sorted -- ONLY USE IF YOU ARE SURE OF THIS!!! also requires sorted tail left input"
 
-command rdf2str(i:bat[:oid,:oid],map:bat[:oid,:str]):bat[:oid,:str]
+command rdf2str(i:bat[:oid],map:bat[:str]):bat[:str]
 address TKNZRrdf2str
 comment "converts id's into strings using the dictionary, but if (id >= RDF_MIN_LITERAL) look it up in a literal map bat";
 
-command partialjoin(lmap:bat[:oid, :any_1], rmap:bat[:oid, :any_2], input:bat[:oid,:any_1]):bat[:any_1,:any_2]
+command partialjoin(lmap:bat[:oid], rmap:bat[:oid], input:bat[:oid]):bat[:oid]
 address RDFpartialjoin
 comment "Join the input bat and the map bat (lmap, rmap). However, do not use nil for non-matching value but use the original value from input bat"
 
