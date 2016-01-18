@@ -188,6 +188,7 @@ str change_semaphore_value_timeout(int sem_id, int number, int change, int timeo
     *succeed = true;
     return msg;
 #else
+    (void) timeout_mseconds;
     *succeed = true;
     return change_semaphore_value(sem_id, number, change);
 #endif
