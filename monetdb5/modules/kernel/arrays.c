@@ -176,6 +176,8 @@ str ALGmaterialise(bat* mbrResult, const ptr *dimsCands, const ptr *dims) {
 
 	BAT *mbrBAT = projectCells(dimCands_in, array);
 
+	if(!mbrBAT)
+		throw(MAL, "algebra.materialise", "project cells failed");
 	BBPkeepref(*mbrResult = mbrBAT->batCacheid);
 
 	return MAL_SUCCEED;
