@@ -679,9 +679,7 @@ post_processing (parserData *pdata)
 	map_oid = BATmark(graph[MAP_LEX], 0);   /* BATmark will create a copy */
 	BATorder(map_oid);
 	BATsetaccess(map_oid, BAT_READ);        /* force BAtmark not to copy bat */
-	map_oid = BATmirror(BATmark(BATmirror(map_oid), 0));
 	BATsetaccess(graph[MAP_LEX], BAT_READ); /* force BATmark not to copy bat */
-	graph[MAP_LEX] = BATmirror(BATmark(BATmirror(graph[MAP_LEX]), 0));
 
 	/* convert old oids of S_sort, P_sort, O_sort to new ones */
 	cnt = BATcount(graph[S_sort]);

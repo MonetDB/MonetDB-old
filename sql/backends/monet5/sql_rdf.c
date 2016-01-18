@@ -33,7 +33,6 @@
 #include <rel_dump.h>
 #include <rel_bin.h>
 #include <bbp.h>
-#include <cluster.h>
 #include <opt_pipes.h>
 #include "clients.h"
 #include "sql_rdf.h"
@@ -205,10 +204,10 @@ SQLrdfShred(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	s = b[MAP_LEX];
 	store_funcs.append_col(m->session->tr,
 			mvc_bind_column(m, map_tbl, "lexical"),
-			BATmirror(BATmark(BATmirror(s),0)), TYPE_bat);
+			s, TYPE_bat);
 	store_funcs.append_col(m->session->tr,
 			mvc_bind_column(m, map_tbl, "sid"),
-			BATmirror(BATmark(s, 0)),
+			BATdense(s->hseqbase, s->hseqbase, BATcount(s)),
 			TYPE_bat);
 	BBPunfix(s->batCacheid);
 
@@ -1578,12 +1577,9 @@ static void refine_BAT_with_possible_tblId(BAT *sbat, BAT *obat, BAT **retsbat, 
 
 		if (tmptbid == curId){	
 			//This row is possible candidate. Write tmps, tmpo to the ret BATs 	
-			if (BUNfastins(r_sbat, ATOMnilptr(TYPE_void), &tmps)== GDK_FAIL){
-				fprintf(stderr, "Cannot insert into r_sbat in refine_BAT_with_possible_tblId \n");
-			}
-			if (BUNfastins(r_obat, ATOMnilptr(TYPE_void), &tmpo)== GDK_FAIL){
-				fprintf(stderr, "Cannot insert into r_obat in refine_BAT_with_possible_tblId \n");
-			}
+			bunfastapp(r_sbat, &tmps);
+			
+			bunfastapp(r_obat, &tmpo);
 		} else {
 			continue; 
 		}
@@ -1591,6 +1587,10 @@ static void refine_BAT_with_possible_tblId(BAT *sbat, BAT *obat, BAT **retsbat, 
 	
 	*retsbat = r_sbat; 
 	*retobat = r_obat; 
+
+   bunins_failed:
+	fprintf(stderr, "refine_BAT_with_possible_tblId: Failed in fast inserting\n");
+
 }
 #endif
 
@@ -2210,8 +2210,8 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 		for (i = 0; i < (*nP); i++){
 			//BATprint(m_obats[i]);
-			b[2*i] = BATcopy(m_sbat, m_sbat->htype, m_sbat->ttype, FALSE, TRANSIENT);
-			b[2*i+1] = BATcopy(m_obats[i], m_obats[i]->htype, m_obats[i]->ttype, FALSE, TRANSIENT); 
+			b[2*i] = COLcopy(m_sbat, m_sbat->ttype, FALSE, TRANSIENT);
+			b[2*i+1] = COLcopy(m_obats[i], m_obats[i]->ttype, FALSE, TRANSIENT); 
 		}
 		
 		eT1 = clock(); 
@@ -2468,8 +2468,8 @@ void getSlides_per_P(PsoPropStat *pso_pstat, oid *p, oid lo_cst, oid hi_cst, BAT
 					lo = lo_cst; 
 					hi = hi_cst; 
 				}
-				//BATsubselect(inputbat, <dont know yet>, lowValue, Highvalue, isIncludeLowValue, isIncludeHigh, <anti> 
-				tmpB = BATsubselect(tmp_o, NULL, &lo, &hi, 1, 1, 0);
+				//BATselect(inputbat, <dont know yet>, lowValue, Highvalue, isIncludeLowValue, isIncludeHigh, <anti> 
+				tmpB = BATselect(tmp_o, NULL, &lo, &hi, 1, 1, 0);
 				*ret_oBat = BATproject(tmpB, tmp_o); 
 				*ret_sBat = BATproject(tmpB, tmp_s); 
 				BBPunfix(tmpB->batCacheid); 

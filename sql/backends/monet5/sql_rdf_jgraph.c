@@ -710,10 +710,10 @@ void handling_Union(mvc *c, sql_rel *rel, int depth, int *hasUnion){
  * Consider removing this function
  * */
 static
-char *get_relname_from_basetable(sql_rel *rel){
+const char *get_relname_from_basetable(sql_rel *rel){
 
 	sql_exp *tmpexp;
-	char *rname = NULL; 
+	const char *rname = NULL; 
 	list *tmpexps; 
 
 	assert(rel->op == op_basetable); 
@@ -782,7 +782,7 @@ void free_nMap(nMap *nm){
 	free(nm); 
 }
 static 
-void add_to_nMap(nMap *nm, str s, int *id){
+void add_to_nMap(nMap *nm, const char* s, int *id){
 	BUN bun; 
 
 	bun = BUNfnd(nm->lmap,(ptr) (str)s);
@@ -802,7 +802,7 @@ void add_to_nMap(nMap *nm, str s, int *id){
 }
 
 static 
-int rname_to_nodeId(nMap *nm, str rname){
+int rname_to_nodeId(nMap *nm, const char* rname){
 	int *id; 
 	BUN bun; 
 	bun = BUNfnd(nm->lmap,rname);
@@ -831,7 +831,7 @@ void add_relNames_to_nmap(jgraph *jg, nMap *nm){
 		tmprel = (sql_rel *) tmpnode->data; 
 		
 		if (tmprel->op == op_basetable){
-			str s = get_relname_from_basetable(tmprel); 
+			const char* s = get_relname_from_basetable(tmprel); 
 			#if PRINT_FOR_DEBUG
 			printf("[Node %d --> Table] %s\n", i, s);
 			#endif
@@ -839,7 +839,7 @@ void add_relNames_to_nmap(jgraph *jg, nMap *nm){
 
 		}
 		else if (tmprel->op == op_select){
-			str s; 
+			const char* s; 
 			assert(((sql_rel *)tmprel->l)->op == op_basetable); //Only handle the case 
 									    //when selecting from base_table	
 			s = get_relname_from_basetable((sql_rel *)tmprel->l); 	
@@ -856,11 +856,11 @@ void add_relNames_to_nmap(jgraph *jg, nMap *nm){
 		tmpnode = jg->lstnodes[i];
 		tmprel = (sql_rel *) tmpnode->data;
 		if (tmprel->op == op_basetable){
-			str s = get_relname_from_basetable(tmprel);
+			const char* s = get_relname_from_basetable(tmprel);
 			printf("Get nodeId for %s from nmap: %d\n", s, rname_to_nodeId(nm, s)); 
 		}
 		else if (tmprel->op == op_select){
-			str s = get_relname_from_basetable((sql_rel *)tmprel->l);
+			const char* s = get_relname_from_basetable((sql_rel *)tmprel->l);
 			printf("Get nodeId for %s from nmap: %d\n", s, rname_to_nodeId(nm, s));
 		}
 
@@ -869,7 +869,7 @@ void add_relNames_to_nmap(jgraph *jg, nMap *nm){
 }
 
 static
-void get_jp(str pred1, str pred2, JP *jp){
+void get_jp(const char *pred1, const char* pred2, JP *jp){
 	
 	if (strcmp(pred1, "s")==0 && strcmp(pred2, "s")==0){
 			*jp = JP_S; 
@@ -1059,8 +1059,8 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 		#endif
 	}
 	else{
-		str relname1; 
-		str relname2;
+		const char* relname1; 
+		const char* relname2;
 		int from, to;
 		JP tmpjp = JP_S;
 
@@ -1306,7 +1306,7 @@ static
 void add_props_and_subj_to_spprops(spProps *spprops, int idx, sp_po po, jgnode *node){
 
 	if (node->prop){
-		str tmpalias = NULL; 
+		const char* tmpalias = NULL; 
 		sql_rel *tmprel = (sql_rel*) (node->data);
 		assert(tmprel->op == op_select);
 		assert(((sql_rel*)tmprel->l)->op == op_basetable); 
@@ -1423,7 +1423,7 @@ void get_col_name_from_p (char **col, char *p){
  * */		
 
 static
-void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, char *_arname, char *_aname, int update_e_convert, int dummy_exps){
+void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, const char *_arname, const char *_aname, int update_e_convert, int dummy_exps){
 	sql_exp *tmpe = NULL;
 	sql_exp *ne = NULL;
 	sql_exp *le = NULL; //right expression, should be e_convert

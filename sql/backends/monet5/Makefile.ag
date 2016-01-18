@@ -48,7 +48,8 @@ lib__sql = {
 		sql_cast_impl_up_to_int.h \
 		sql_round.c sql_round_impl.h sql_bat2time.c \
 		sql_fround.c sql_fround_impl.h \
-		sql_rank.c sql_rank.h
+		sql_rank.c sql_rank.h \
+		sql_rdf.h sql_rdf.c sql_rdf_rel.h sql_rdf_rel.c sql_rdf_jgraph.h sql_rdf_jgraph.c
 	LIBS = ../../server/libsqlserver \
 		   ../../storage/libstore \
 		   ../../storage/bat/libbatstore \
