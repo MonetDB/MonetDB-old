@@ -103,6 +103,17 @@ EOF
     echo
 done
 
+for func in +:ADD -:SUB; do
+    name=${func#*:}
+    op=${func%:*}
+    cat <<EOF
+pattern $op(v1:oid,v2:oid) :oid
+address CMDvar${name}signal
+comment "Return V1 $op V2, signal error on overflow [RDF only]";
+
+EOF
+done
+
 for func in +:ADD -:SUB \*:MUL; do
     name=${func#*:}
     op=${func%:*}
@@ -256,6 +267,17 @@ EOF
     done
     echo
 done
+
+cat <<\EOF
+pattern <(v1:oid,v2:lng) :bit
+address CMDvarLT
+comment "Return V1 < V2 [RDF only]";
+
+pattern >(v1:oid,v2:lng) :bit
+address CMDvarGT
+comment "Return V1 > V2 [RDF only]";
+
+EOF
 
 op=${func%:*}
 func=${func#*:}

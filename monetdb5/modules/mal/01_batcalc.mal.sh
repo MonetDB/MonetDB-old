@@ -146,6 +146,50 @@ EOF
     echo
 done
 
+for func in +:ADD -:SUB; do
+    name=${func#*:}
+    op=${func%:*}
+    cat <<EOF
+pattern $op(b1:bat[:oid],b2:bat[:oid]) :bat[:oid]
+address CMDbat${name}signal
+comment "Return B1 $op B2, signal error on overflow [RDF only]";
+pattern $op(b1:bat[:oid],b2:bat[:oid],s:bat[:oid]) :bat[:oid]
+address CMDbat${name}signal
+comment "Return B1 $op B2 with candidates list, signal error on overflow [RDF only]";
+pattern ${name,,}_noerror(b1:bat[:oid],b2:bat[:oid]) :bat[:oid]
+address CMDbat${name}
+comment "Return B1 $op B2, overflow causes NIL value [RDF only]";
+pattern ${name,,}_noerror(b1:bat[:oid],b2:bat[:oid],s:bat[:oid]) :bat[:oid]
+address CMDbat${name}
+comment "Return B1 $op B2 with candidates list, overflow causes NIL value [RDF only]";
+pattern $op(b:bat[:oid],v:oid) :bat[:oid]
+address CMDbat${name}signal
+comment "Return B $op V, signal error on overflow [RDF only]";
+pattern $op(b:bat[:oid],v:oid,s:bat[:oid]) :bat[:oid]
+address CMDbat${name}signal
+comment "Return B $op V with candidates list, signal error on overflow [RDF only]";
+pattern ${name,,}_noerror(b:bat[:oid],v:oid) :bat[:oid]
+address CMDbat${name}
+comment "Return B $op V, overflow causes NIL value [RDF only]";
+pattern ${name,,}_noerror(b:bat[:oid],v:oid,s:bat[:oid]) :bat[:oid]
+address CMDbat${name}
+comment "Return B $op V with candidates list, overflow causes NIL value [RDF only]";
+pattern $op(v:oid,b:bat[:oid]) :bat[:oid]
+address CMDbat${name}signal
+comment "Return V $op B, signal error on overflow [RDF only]";
+pattern $op(v:oid,b:bat[:oid],s:bat[:oid]) :bat[:oid]
+address CMDbat${name}signal
+comment "Return V $op B with candidates list, signal error on overflow [RDF only]";
+pattern ${name,,}_noerror(v:oid,b:bat[:oid]) :bat[:oid]
+address CMDbat${name}
+comment "Return V $op B, overflow causes NIL value [RDF only]";
+pattern ${name,,}_noerror(v:oid,b:bat[:oid],s:bat[:oid]) :bat[:oid]
+address CMDbat${name}
+comment "Return V $op B with candidates list, overflow causes NIL value [RDF only]";
+
+EOF
+done
+
 for func in +:ADD -:SUB \*:MUL; do
     name=${func#*:}
     op=${func%:*}
