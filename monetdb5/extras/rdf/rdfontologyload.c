@@ -528,20 +528,30 @@ RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msup
 		str aattrstr = (str) BUNtail(aattri, bun2 + i);
 
 		oid aurioid, aattroid;
+		str auristr2; 
+		str aattrstr2;
 
 		// add <...> around strings
-		str auristr2 = (str) GDKmalloc(strlen(auristr) + 3);
-		str aattrstr2 = (str) GDKmalloc(strlen(aattrstr) + 3);
-		if (!auristr2 || !aattrstr2) fprintf(stderr, "ERROR: Couldn't malloc memory!\n");
+
+		auristr2 = (str) GDKmalloc(strlen(auristr) + 3);
 
 		auristr2[0] = '<';
 		strcpy(&(auristr2[1]), auristr);
 		auristr2[strlen(auristr) + 1] = '>';
 		auristr2[strlen(auristr) + 2] = '\0';
-		aattrstr2[0] = '<';
-		strcpy(&(aattrstr2[1]), aattrstr);
-		aattrstr2[strlen(aattrstr) + 1] = '>';
-		aattrstr2[strlen(aattrstr) + 2] = '\0';
+
+
+		if (strcmp(aattrstr, "\x80") == 0) {	//Handle Null value
+			aattrstr2 = (str) GDKstrdup("<NULL>");
+		}
+		else{
+			aattrstr2 = (str) GDKmalloc(strlen(aattrstr) + 3);
+
+			aattrstr2[0] = '<';
+			strcpy(&(aattrstr2[1]), aattrstr);
+			aattrstr2[strlen(aattrstr) + 1] = '>';
+			aattrstr2[strlen(aattrstr) + 2] = '\0';
+		}
 
 		TKNZRappend(&aurioid, &auristr2);
 		TKNZRappend(&aattroid, &aattrstr2);
@@ -594,12 +604,12 @@ RDFloadsqlontologies(int *ret, bat *auriid, bat *aattrid, bat *muriid, bat *msup
 		msuperstr2[strlen(msuperstr) + 2] = '\0';
 
 		TKNZRappend(&murioid, &muristr2);
-		TKNZRappend(&msuperoid, &msuperstr2);
 
 		ontmetadata[0][ontmetadataCount] = murioid;
 		if (strcmp(msuperstr, "\x80") == 0) {
 			ontmetadata[1][ontmetadataCount] = BUN_NONE;
 		} else {
+			TKNZRappend(&msuperoid, &msuperstr2);
 			ontmetadata[1][ontmetadataCount] = msuperoid;
 		}
 

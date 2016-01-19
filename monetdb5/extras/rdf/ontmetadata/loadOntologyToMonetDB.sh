@@ -10,7 +10,7 @@ sed -i "s:AttFile:${PWD}/ontAttribute.dbpedia39.csv:g" loadtmp.sql
 
 mclient < loadtmp.sql
 
-
+#goodrelations
 NUMMETADATA=`cat ontMetadata.gr.csv | wc -l`
 NUMATTRIBUTES=`cat ontAttribute.gr.csv | wc -l`
 
@@ -159,12 +159,18 @@ mclient < loadtmp.sql
 NUMMETADATA=`cat ontMetadata.dbpediaUmbel.csv | wc -l`
 NUMATTRIBUTES=`cat ontAttribute.dbpediaUmbel.csv | wc -l`
 
-cp loadOntologySAMPLE.sql loadtmp.sql
+head -n 1 loadOntologySAMPLE.sql > loadtmp.sql
 sed -i "s:NUMMETADATA:$NUMMETADATA:g" loadtmp.sql
-sed -i "s:NUMATTRIBUTES:$NUMATTRIBUTES:g" loadtmp.sql
 sed -i "s:MetaFile:${PWD}/ontMetadata.dbpediaUmbel.csv:g" loadtmp.sql
-sed -i "s:AttFile:${PWD}/ontAttribute.dbpediaUmbel.csv:g" loadtmp.sql
 
+if [ "$NUMATTRIBUTES" -gt 0 ]
+then
+	tail -n 1 loadOntologySAMPLE.sql >> loadtmp.sql
+	sed -i "s:NUMATTRIBUTES:$NUMATTRIBUTES:g" loadtmp.sql
+	sed -i "s:AttFile:${PWD}/ontAttribute.dbpediaUmbel.csv:g" loadtmp.sql
+else 	
+	echo "Zero attributes"
+fi
 
 mclient < loadtmp.sql
 
