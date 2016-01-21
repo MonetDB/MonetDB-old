@@ -743,6 +743,38 @@ const char *get_relname_from_basetable(sql_rel *rel){
 }
 
 
+static
+int in_nmap(nMap *nm, const char* rname){
+	BUN bun; 
+	bun = BUNfnd(nm->lmap,rname);
+
+	if (bun == BUN_NONE){
+		return 0; 
+	}
+	else 
+		return 1; 
+}
+
+/*This function is similar to the function 
+ * rel_name in rel_select.c. But with the 
+ * difference when get the name from column
+ * expression */
+static
+const char *rel_name_rdf( sql_rel *r, nMap *nm)
+{
+	if (!is_project(r->op) && !is_base(r->op) && r->l)
+		return rel_name_rdf(r->l, nm);
+	if (r->exps && list_length(r->exps)) {
+		sql_exp *e = r->exps->h->data;
+		if (e->rname && in_nmap(nm, e->rname))
+			return e->rname;
+		if (e->type == e_column && in_nmap(nm, (const char*) e->l))
+			return e->l;
+
+
+	}
+	return NULL;
+}
 
 /*
  * Get the name of the relation of each JG node
@@ -1031,10 +1063,10 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 				//printf("Atom value %d \n",tmpCond);
 				if (tmpCond == 1){
 					#if PRINT_FOR_DEBUG
-					printf("Join (condition 1) between %s and %s\n", rel_name((sql_rel*) rel->l), rel_name((sql_rel *)rel->r)); 
+					printf("Join (condition 1) between %s and %s\n", rel_name_rdf((sql_rel*) rel->l, nm), rel_name_rdf((sql_rel *)rel->r,nm)); 
 					#endif
-					from = rname_to_nodeId(nm,  rel_name((sql_rel*) rel->l));
-					to = rname_to_nodeId(nm,  rel_name((sql_rel*) rel->r));	
+					from = rname_to_nodeId(nm,  rel_name_rdf((sql_rel*) rel->l,nm));
+					to = rname_to_nodeId(nm,  rel_name_rdf((sql_rel*) rel->r,nm));	
 					if (have_same_subj(jg, from, to) == 1){
 						tmpjg = JP_S; 
 					}
@@ -1064,8 +1096,8 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 		int from, to;
 		JP tmpjp = JP_S;
 
-		relname1 = rel_name((sql_rel*) rel->l);
-		relname2 = rel_name((sql_rel*) rel->r);
+		relname1 = rel_name_rdf((sql_rel*) rel->l, nm);
+		relname2 = rel_name_rdf((sql_rel*) rel->r, nm);
 		
 		#if PRINT_FOR_DEBUG
 		printf("CROSS PRODUCT HERE between %s and %s\n", relname1, relname2); 
