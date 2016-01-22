@@ -32,6 +32,10 @@ typedef struct global_props {
 typedef sql_rel *(*rewrite_fptr)(int *changes, mvc *sql, sql_rel *rel);
 typedef int (*find_prop_fptr)(mvc *sql, sql_rel *rel);
 
+static sql_rel * rewrite_topdown(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes);
+static sql_rel * rewrite(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes) ;
+static sql_rel * rel_remove_empty_select(int *changes, mvc *sql, sql_rel *rel);
+
 static sql_subfunc *find_func( mvc *sql, char *name, list *exps );
 
 /* The important task of the relational optimizer is to optimize the
@@ -1039,8 +1043,6 @@ reorder_join(mvc *sql, sql_rel *rel)
 	return rel;
 }
 
-static sql_rel * rel_remove_empty_select(int *changes, mvc *sql, sql_rel *rel);
-static sql_rel * rewrite(mvc *sql, sql_rel *rel, rewrite_fptr rewriter, int *has_changes) ;
 static sql_rel *
 rel_join_order(mvc *sql, sql_rel *rel) 
 {
@@ -4956,9 +4958,6 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 		if (!l || rel_is_ref(l) || 
 		   (is_join(rel->op) && (!r || rel_is_ref(r))) ||
 		   (is_select(rel->op) && l->op != op_project) ||
-		   /* we cannot rewrite projection from outer joins - Disable for simple renaming */
-		   //((is_left(rel->op) || is_full(rel->op)) && r->op == op_project) ||
-		   //((is_right(rel->op) || is_full(rel->op)) && l->op == op_project) ||
 		   (is_join(rel->op) && l->op != op_project && r->op != op_project) ||
 		  ((l->op == op_project && (!l->l || l->r || project_unsafe(l))) ||
 		   (is_join(rel->op) && (is_subquery(r) ||
@@ -4975,7 +4974,8 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 			for (n = l->exps->h; n; n = n->next) { 
 				sql_exp *e = n->data;
 
-				if (is_column(e->type) && exp_is_atom(e)) {
+		   		/* we cannot rewrite projection with atomic values from outer joins */
+				if (is_column(e->type) && exp_is_atom(e) && !(is_right(rel->op) || is_full(rel->op))) {
 					list_append(exps, e);
 				} else if (e->type == e_column /*||
 					   e->type == e_func ||
@@ -4998,7 +4998,8 @@ rel_push_project_up(int *changes, mvc *sql, sql_rel *rel)
 			for (n = r->exps->h; n; n = n->next) { 
 				sql_exp *e = n->data;
 
-				if (is_column(e->type) && exp_is_atom(e)) {
+		   		/* we cannot rewrite projection with atomic values from outer joins */
+				if (is_column(e->type) && exp_is_atom(e) && !(is_left(rel->op) || is_full(rel->op))) {
 					list_append(exps, e);
 				} else if (e->type == e_column /*||
 					   e->type == e_func ||
@@ -6870,7 +6871,11 @@ rel_merge_table_rewrite(int *changes, mvc *sql, sql_rel *rel)
 				nrel->exps = rel->exps;
 			rel_destroy(rel);
 			if (sel) {
+				int changes = 0;
 				sel->l = nrel;
+				sel = rewrite_topdown(sql, sel, &rel_push_select_down_union, &changes); 
+				if (changes)
+					sel = rewrite(sql, sel, &rel_push_project_up, &changes); 
 				return sel;
 			}
 			return nrel;
