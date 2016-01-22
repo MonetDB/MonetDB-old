@@ -1298,7 +1298,7 @@ SQLrdfidtostr_bat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 
 	BATloop(srcBat, p, q){
-		id = (oid *)BUNtloc(srci, p);
+		id = (oid *)BUNtail(srci, p);
 		if (*id == oid_nil){
 			BUNappend(desBat, str_nil, TRUE);
 			continue; 
