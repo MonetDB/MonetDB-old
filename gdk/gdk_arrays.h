@@ -10,7 +10,7 @@ typedef struct dimensionAnalyticStruct {
 	void *min;
 	void *max;
 	void *step;
-	unsigned int elsNum;
+	oid elsNum;
 } gdk_analytic_dimension;
 
 //As long as the dimension is not projected the following info is enough
@@ -18,7 +18,7 @@ typedef struct dimensionStruct {
 	unsigned int min; //initialy this is set to 0
 	unsigned int max;
 	unsigned int step; //initialy this is set to 1
-	unsigned int elsNum;
+	oid elsNum;
 	unsigned int *idxs; //if it cannot be expressed as a dimension store the idxs analytically
 } gdk_dimension;
 

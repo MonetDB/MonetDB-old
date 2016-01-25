@@ -380,8 +380,8 @@ str ALGdimensionLeftfetchjoin1(bat *result, const ptr *dimsCands, const ptr *dim
 
 		unsigned short i=0;
 
-		unsigned int elsR = 1;
-		unsigned int grpR = 1;
+		BUN elsR = 1;
+		BUN grpR = 1;
 
 		for(i=0; i<dimension->dimNum; i++)
 			elsR *= dimCands_in->dims[i]->elsNum;

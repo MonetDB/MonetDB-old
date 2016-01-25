@@ -251,7 +251,7 @@ BAT* materialise_nonDimensional_column(int columntype, unsigned int cellsNum, ch
 /*I need the array to access the info of the dimensions that are not in the dimCands */
 BAT *projectCells(gdk_array* dimCands, gdk_array *array) {
 	BAT *resBAT = NULL;
-	unsigned int resSize = 1;
+	BUN resSize = 1;
 	oid *resOIDs = NULL;
 
 	unsigned int i=0, j=0, k=0;

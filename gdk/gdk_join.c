@@ -12,6 +12,7 @@
 #include "gdk_calc_private.h"
 #include "gdk_arrays.h"
 
+
 /*
  * All "sub" join variants produce some sort of join on two input
  * BATs, optionally subject to up to two candidate lists.  Only values
@@ -3589,6 +3590,7 @@ BATproject(BAT *l, BAT *r)
 	assert(BAThdense(r));
 	assert(ATOMtype(l->ttype) == TYPE_oid);
 
+
 	if (BATtdense(l) && BATcount(l) > 0) {
 		lo = l->tseqbase;
 		hi = l->tseqbase + BATcount(l);
@@ -3771,6 +3773,7 @@ BATproject(BAT *l, BAT *r)
 	BATseqbase(bn, l->hseqbase);
 	if (!BATtdense(r))
 		BATseqbase(BATmirror(bn), oid_nil);
+
 	ALGODEBUG fprintf(stderr, "#BATproject(l=%s,r=%s)=%s#"BUNFMT"%s%s%s\n",
 		  BATgetId(l), BATgetId(r), BATgetId(bn), BATcount(bn),
 		  bn->tsorted ? "-sorted" : "",
