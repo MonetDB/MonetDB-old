@@ -1,5 +1,6 @@
 #include "monetdb_config.h"
 #include "gdk_arrays.h"
+#include "gdk_private.h"
 
 #define createAnalyticDim(TPE) \
 gdk_analytic_dimension* createAnalyticDimension_##TPE(unsigned short dimNum, TPE min, TPE max, TPE step) { \
@@ -265,51 +266,68 @@ BAT *projectCells(gdk_array* dimCands, gdk_array *array) {
 		return NULL;
 	resOIDs = (oid*)Tloc(resBAT, BUNfirst(resBAT));
 
-	//add the oids as defined usnig only the first dimension
-	/* in the first dimension each element is repeated only once
- 	* so we just need to make sure that we repeat the indices as many times
- 	* as needed to fill the resOIDs */
+	/* the oids if all but the first dimension are 0 */
 	dim = dimCands->dims[0];
 	if(dim->idxs) {
-//		for(j=0; j<resSize;)
-		/*add each element one */
 		for(i=0; i<dim->elsNum ; i++, j++)
 			resOIDs[j] = dim->idxs[i];
 	} else {
-//		for(j=0; j<resSize;)
-		/* add each element once */
 		for(i=dim->min; i<=dim->max ; i+=dim->step, j++)
 			resOIDs[j] = i;
 	}
-	/* iterate over the rest of the dimensoins and add the values needed to make the correct oids */
+	/* iterate over the rest of the dimensions and update the oids to reflect non-zero values in them */
 	for(i=1; i<dimCands->dimsNum; i++) {
 		dim = dimCands->dims[i];
-		jumpSize *= array->dims[i-1]->elsNum; //each oid is increased by jumpSize * the idx of the dimension
-		elsR *= dimCands->dims[i-1]->elsNum; //each element is repeated elsR times, this equals the number of elements that have been aready in the array
-
+		jumpSize *= array->dims[i-1]->elsNum; //for each non-zero value of the dimension a new group of values is created
+											//the corresponding oids in each group differ from the oids in the initial/existing group by jumpSize*idx
+											//where idx is the position of the qualifying dimension value
+		elsR *= dimCands->dims[i-1]->elsNum; //each element is repeated elsR times, this equals the total number 
+											//of elements considering all dimensions checkes so far
 		if(dim->idxs) {
-//			for(j=0; j<resSize; ) //until all elements have been set, repeat the groups
-			for(k=1; k<dim->elsNum; k++) //skip the first qualifying idx to avoid updating cells which need to be re-used
-				for(elsRi=0; elsRi<elsR; elsRi++, j++) //repeat it elsR times
+			/* the existing group should be replicated as many times as the number of qualifying idxs of the dimension */
+			for(k=1; k<dim->elsNum; k++) { //skip updating the oids of the existing group to avoid updating values which need to be re-used
+				/* create a new oid for each oid in the existing group */
+				for(elsRi=0; elsRi<elsR; elsRi++, j++) {
+					/* each oid in the new group should differ jumpSize*idx from the existing group */ 
 					resOIDs[j] = resOIDs[elsRi] + jumpSize*dim->idxs[k];
-			/* now update the first elsR values */
+				}
+			}
+			/* now update the oids in the existing group */
 			for(elsRi=0; elsRi<elsR; elsRi++)
 				resOIDs[elsRi] += jumpSize*dim->idxs[0];
 
 		} else {
-//			for(j=0; j<resSize; ) //until all elements have been set, repeat the groups
-			for(k=dim->min+dim->step; k<=dim->max; k+=dim->step) //skip the first value to avoid updating cells which need to be re-used
-				for(elsRi=0; elsRi<elsR; elsRi++, j++) //repeat it jumpSize times
-					resOIDs[j] = resOIDs[elsRi]+jumpSize*k;
+			/* the existing group should be replicated as many times as the number of qualifying idxs of the dimension */
+			for(k=dim->min+dim->step; k<=dim->max; k+=dim->step) {//skip updating the oids of the existing group to avoid updating values which need to be re-used
+					/* create a new oid for each oid in the existing group */
+					for(elsRi=0; elsRi<elsR; elsRi++, j++) {
+						/* each oid in the new group should differ jumpSize*idx from the existing group */ 
+						resOIDs[j] = resOIDs[elsRi]+jumpSize*k;
+					}
+			}
 			/* update the first elsR elements */
-			for(elsRi=0; elsRi<elsR; elsRi++, j++) //repeat it jumpSize times
+			for(elsRi=0; elsRi<elsR; elsRi++)
 				resOIDs[elsRi] += jumpSize*dim->min;
 		}
 	}
 
 	BATsetcount(resBAT, resSize);
-	BATseqbase(resBAT, 0);
-	BATderiveProps(resBAT, FALSE);
+	//BATseqbase(resBAT, 0);
+	//BATderiveProps(resBAT, FALSE);
+	resBAT->hseqbase = 0;
+    resBAT->hkey = 1;
+	resBAT->hsorted = 1;
+	resBAT->hrevsorted = (BATcount(resBAT) <= 1);
+    resBAT->H->nonil = 1;
+    resBAT->H->nil = 0;
+
+	resBAT->tkey = 1;
+    resBAT->tsorted = 1;
+    resBAT->trevsorted = (BATcount(resBAT) <= 1);
+    resBAT->T->nil = 0;
+    resBAT->T->nonil = 1;
+
+	virtualize(resBAT);
 
 	return resBAT;
 }
