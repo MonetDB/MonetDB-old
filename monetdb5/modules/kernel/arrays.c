@@ -432,13 +432,21 @@ do { \
 				int min = *(int*)dimension->min;
 				int step = *(int*)dimension->step;
 				int *vals;
-				unsigned int i=0, elsRi=0, grpRi = 0, idx =0, initialisedIdx=0;
+				unsigned int i=0, elsRi=0, grpRi = 0, idx =0;//, initialisedIdx=0;
 
 				if(!(resBAT = BATnew(TYPE_void, TYPE_int, resSize, TRANSIENT))) 
     	    		throw(MAL, "algebra.leftfetchjoin", "Problem allocating new BAT"); 
 				vals = (int*)Tloc(resBAT, BUNfirst(resBAT));
 
-				if(dimCand->idxs) { 
+				/*create the elements for the first group*/
+				if(dimCand->idxs) { 	
+					for(i=0; i<=dimCand->elsNum; i++) {
+						int val = min + dimCand->idxs[i]*step;
+						for(elsRi=0; elsRi<elsR; elsRi++, idx++) {
+							vals[idx] = val; 
+						}
+					}	
+#if 0
 					/* iterate over the idxs and use each one as many times as defined by elsR */ 
 					/* repeat the procedure as many times as defined my grpR */ 
 					for(grpRi=0; grpRi<grpR; grpRi++) {
@@ -449,28 +457,32 @@ do { \
 							}
 						}
 					} 
+#endif
 				} else { 
-					/* get the elements in the range and use each one as many times as defined by elsR */ 
-					/* repeat the procedure as many times as defined my grpR */ 
-		
-					/*create the elements for the first group*/
 					for(i=dimCand->min; i<=dimCand->max; i+=dimCand->step) {
 						int val = min + i*step;
 						for(elsRi=0; elsRi<elsR; elsRi++, idx++) {
 							vals[idx] = val; 
 						}
 					}
-					/* repeat te elements created during the first group to fill the rests of the groups
+#if 0
+					/* repeat the elements created during the first group to fill the rests of the groups
  					* (same elemnts no need to re-compute them */ 
 					for(grpRi=1; grpRi<grpR; grpRi++) {
 						initialisedIdx =0; //for each group we repeat the same values
 						for(i=dimCand->min; i<=dimCand->max; i+=dimCand->step) {
-							for(elsRi=0; elsRi<elsR; elsRi++, idx++, initialisedIdx++) {
+						for(elsRi=0; elsRi<elsR; elsRi++, idx++, initialisedIdx++) {
 								vals[idx] = vals[initialisedIdx];
 							}
 						}
 					}
+#endif
 				}
+				/* repeat the elements created during the first group to fill the rests of the groups
+ 				* (same elemnts no need to re-compute them */ 
+				for(grpRi=1; grpRi<grpR; grpRi++)
+					memcpy(vals+idx*grpRi, vals, idx*sizeof(int)); //copy the idx values created for the first group to all other groups
+
    				//computeValues(int);
     	    	} break;
     	    case TYPE_wrd:
