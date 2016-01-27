@@ -1161,6 +1161,7 @@ do { \
 \
 	TPE d = gcd_##TPE(stepR, stepL); \
 	if(fmod((minL-minR),d)) {\
+		/* the dimensions do not have common values */ \
 		dimR->min = dimL->min = dimR->max = dimL->max = 0; \
 		dimR->step = dimL->step = 1; \
 	} else { \
@@ -1168,6 +1169,14 @@ do { \
 		TPE l = minL, r=minR; \
 		dimR->step = stepL/d; \
 		dimL->step = stepR/d;\
+		/* bring them as close as possible in one step */ \
+		if (l>r) { \
+			int steps = (l-r)/stepR; \
+			l -= steps*stepR; \
+		} else if (r>l) { \
+			int steps = (r-l)/stepL; \
+			r -= steps*stepL; \
+		}\
 		while(l != r) { \
 			while(l<r) \
 				l+=stepL; \
@@ -1179,6 +1188,14 @@ do { \
 		dimR->min = (r-minR)/stepR; \
 \
 		l = maxL, r=maxR; \
+		/* bring them as close as possible in one step */ \
+		if (l>r) { \
+			int steps = (l-r)/stepL; \
+			l -= steps*stepL; \
+		} else if (r>l) { \
+			int steps = (r-l)/stepR; \
+			r -= steps*stepR; \
+		}\
 		while(l != r) { \
 			while(l>r) \
 				l-=stepL; \
