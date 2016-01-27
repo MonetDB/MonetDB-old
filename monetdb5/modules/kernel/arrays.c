@@ -503,17 +503,31 @@ do { \
 			default:
 				throw(MAL, "algebra.dimensionLeftfetchjoin", "Dimension type not supported\n");
 	    }
+
+		BATsetcount(resBAT, resSize);
+		BATseqbase(resBAT, 0);
+	    //BATderiveProps(resBAT, FALSE);    
+
+		resBAT->hseqbase = 0;
+   		resBAT->hkey = 1;
+	    resBAT->hsorted = 1;
+    	resBAT->hrevsorted = (BATcount(resBAT) <= 1);
+	    resBAT->H->nonil = 1;
+    	resBAT->H->nil = 0;
+
+	    resBAT->tkey = 0;
+    	resBAT->tsorted = (grpR == 1); //if there are more than one groups then the values are repeated and thus, are not sorted
+	    resBAT->trevsorted = (BATcount(resBAT) <= 1);
+	    resBAT->T->nil = 0;
+	    resBAT->T->nonil = 1;
+		resBAT->tdense = ((grpR == 1) & (elsR == 1)); //each element is repeated once and there is only one group
+
+		*result = resBAT->batCacheid;
+    	BBPkeepref(*result);
+
+    	return MAL_SUCCEED;
+
 	}
-
-	BATsetcount(resBAT, resSize);
-	BATseqbase(resBAT, 0);
-    BATderiveProps(resBAT, FALSE);    
-
-	*result = resBAT->batCacheid;
-    BBPkeepref(*result);
-
-    return MAL_SUCCEED;
-
 }
 
 str ALGdimensionLeftfetchjoin2(bat *result, const bat *oidsCands, const ptr *dimsCands, const ptr *dim, const ptr *dims) {
