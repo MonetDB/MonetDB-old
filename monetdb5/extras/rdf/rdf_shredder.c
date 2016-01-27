@@ -247,7 +247,8 @@ getObjectType_and_Value(unsigned char* objStr, ValPtr vrPtrRealValue){
 		}
 		else if ((pos = strstr((str) endpart, "XMLSchema#float>")) != NULL 
 				|| (pos = strstr((str) endpart, "XMLSchema#double>")) != NULL  
-				|| (pos = strstr((str) endpart, "XMLSchema#decimal>")) != NULL){
+				|| (pos = strstr((str) endpart, "XMLSchema#decimal>")) != NULL
+				|| (pos = strstr((str) endpart, "XMLSchema#long>")) != NULL){
 			obType = DOUBLE;
 			subLen = (int) (pos - (str)objStr - 28);
 			valuepart = substring((char*)objStr, 2 , subLen);

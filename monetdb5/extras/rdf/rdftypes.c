@@ -98,7 +98,6 @@ char isInt(char *input, int len){
 		return 0;
 }
 
-
 char isDouble(char *input, int len){
 	
 	int 	i = 0;
@@ -590,20 +589,20 @@ encodeValueInOid(ValPtr vrPtrRealValue, ObjectType objType, BUN* bun){
 static ObjectType getObjType_fromValRec(ValRecord v){
 	ObjectType objT; 
 	switch (v.vtype){
-		case TYPE_bit:
 		case TYPE_bte:
 		case TYPE_sht:
 		case TYPE_int:
 		case TYPE_wrd:
-		case TYPE_lng:
 			objT = INTEGER; 
 			break; 
 		case TYPE_oid: 
 			objT = URI; 
 			break;
+		case TYPE_lng:
 		case TYPE_dbl:
 		case TYPE_flt:			
 			objT = DOUBLE;
+			break; 
 		case TYPE_str:		//Have not handle this case
 			assert(0); 
 		default: 
@@ -612,7 +611,42 @@ static ObjectType getObjType_fromValRec(ValRecord v){
 
 	return objT; 
 }
+//Set the value for the new type from the old value
+static void set_Val_of_new_type(ValPtr v, ObjectType objT){
+	
+	if (objT == INTEGER){
+		switch (v->vtype){
+			case TYPE_bte:
+				v->val.ival = (int) v->val.btval;
+				break;
+			case TYPE_sht:
+				v->val.ival = (int) v->val.shval;
+				break;
+			case TYPE_int:				
+				break; 
+			default: 
+				assert(0); 
+		}
+		v->vtype = TYPE_int; 
+	} else if (objT == DOUBLE) {
+	
+		switch (v->vtype){
+			case TYPE_lng:
+				v->val.dval = (double) v->val.lval;
+				break;		
+			case TYPE_flt:			
+				v->val.dval = (double) v->val.fval;			
+				break; 
+			case TYPE_dbl:
+				break;
+			default: 
+				assert(0);
+		}
+		v->vtype = TYPE_dbl; 				
+	} else 
+		assert(0);
 
+}
 
 void get_encodedOid_from_atom(atom *at, oid *ret){
 	ValRecord vrec = at->data; 
@@ -626,7 +660,13 @@ void get_encodedOid_from_atom(atom *at, oid *ret){
 		*ret = (oid)(vrec.val.lval); 
 		return; 
 	}
-	encodeValueInOid(&vrec, objT, ret); 
+	
+	if (objT == INTEGER || objT == DOUBLE){
+		set_Val_of_new_type(&vrec, objT); 
+		encodeValueInOid(&vrec, objT, ret); 
+		return;
+	}
+
 }
 
 void 

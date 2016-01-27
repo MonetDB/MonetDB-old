@@ -162,6 +162,9 @@ typedef struct PsoPropStat {
 						//URI should be ok.
 #define	ONLY_MERGE_URINAME_CS_S1 1		/* Only merge CS's whose name is an URI */
 
+#define MERGE_SAME_PROP_CS 1
+#define SIM_SAME_PROP_THRESHOLD 0.9999		/* It should exactly be 1.0, however, the float multiplication may loss the precision */
+
 #define FILTER_INFREQ_FK_FOR_IR	1		/* We filter out all the dirty references from a CS */
 //#define FILTER_THRESHOLD_FK_FOR_IR	0.1	/* The FK that their frequency < FILTER_THRESHOLD_FK_FOR_IR * FreqCS's frequency */ 	
 //						//Replaced by INFREQ_TYPE_THRESHOLD as a reference can be considered as a type of the object value

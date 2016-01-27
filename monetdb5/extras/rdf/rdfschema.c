@@ -4469,7 +4469,12 @@ void mergeCSByS4(CSset *freqCSset, CSlabel** labels, oid* mergeCSFreqCSMap, int 
 
 			  if (simscore > simTfidfThreshold && (existDiscriminatingProp || isSameLabel)){
 			  #else	
-			  if (simscore > simTfidfThreshold && existDiscriminatingProp){	  
+			  if (
+				#if MERGE_SAME_PROP_CS
+				simscore > SIM_SAME_PROP_THRESHOLD || 
+				#endif
+				(simscore > simTfidfThreshold && existDiscriminatingProp)){	  
+
 			  //if (simscore > simTfidfThreshold){	  
 			  #endif
 			#else	
@@ -5213,39 +5218,6 @@ float similarityScoreWithOntologyClass(oid* arr1, oid* arr2, int m, int n,
 	return  ((float) sumXY);
 }
 
-#if COUNT_PERCENTAGE_ONTO_PROP_USED
-
-static 
-void countNumOverlapProp(oid* arr1, oid* arr2, int m, int n, 
-		int *numOverlap){
-	
-	int i = 0, j = 0;
-	int numCommon = 0; 
-
-	i = 0;
-	j = 0;
-	while( i < n && j < m )
-	{
-		if( arr1[j] < arr2[i] ){
-			j++;
-
-		}
-		else if( arr1[j] == arr2[i] )
-		{
-			j++;
-			i++;
-			numCommon++;
-
-		}
-		else if( arr1[j] > arr2[i] )
-			i++;
-	}
-	
-	*numOverlap = numCommon;
-
-}
-#endif
-	
 static
 void getBestRdfTypeValue(oid *buff, int numP, oid *rdftypeOntologyValues, char *rdftypeSelectedValues, char *rdftypeSpecificLevels, BUN *rdftypeOntClassPos, int *numTypeValues, int maxSpecificLevel, TFIDFInfo *tfidfInfos){
 	int i, j, k;
@@ -5337,6 +5309,40 @@ void getBestRdfTypeValue(oid *buff, int numP, oid *rdftypeOntologyValues, char *
 }
 #endif
 
+
+#if COUNT_PERCENTAGE_ONTO_PROP_USED
+
+static 
+void countNumOverlapProp(oid* arr1, oid* arr2, int m, int n, 
+		int *numOverlap){
+	
+	int i = 0, j = 0;
+	int numCommon = 0; 
+
+	i = 0;
+	j = 0;
+	while( i < n && j < m )
+	{
+		if( arr1[j] < arr2[i] ){
+			j++;
+
+		}
+		else if( arr1[j] == arr2[i] )
+		{
+			j++;
+			i++;
+			numCommon++;
+
+		}
+		else if( arr1[j] > arr2[i] )
+			i++;
+	}
+	
+	*numOverlap = numCommon;
+
+}
+#endif
+	
 
 #if COUNT_PERCENTAGE_ONTO_PROP_USED
 /*
@@ -5521,7 +5527,7 @@ str RDFassignCSId(int *ret, BAT *sbat, BAT *pbat, BAT *obat, BAT *ontbat, CSset 
 
 	first = 0; 
 	last = BATcount(sbat) -1; 
-	
+	printf("Number of triples %d\n", last);
 	for (p = first; p <= last; p++){
 		sbt = sbatCursor[p];
 		if (sbt != curS){

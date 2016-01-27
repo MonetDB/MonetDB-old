@@ -1587,6 +1587,8 @@ static void refine_BAT_with_possible_tblId(BAT *sbat, BAT *obat, BAT **retsbat, 
 	
 	*retsbat = r_sbat; 
 	*retobat = r_obat; 
+  	
+	return; 
 
    bunins_failed:
 	fprintf(stderr, "refine_BAT_with_possible_tblId: Failed in fast inserting\n");
