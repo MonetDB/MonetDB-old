@@ -90,7 +90,7 @@ BATunique(BAT *b, BAT *s)
 		return bn;
 	}
 
-	if ((b->tsorted && b->trevsorted) ||
+	if ((BATordered(b) && BATordered_rev(b)) ||
 	    (b->ttype == TYPE_void && b->tseqbase == oid_nil)) {
 		/* trivial: all values are the same */
 		ALGODEBUG fprintf(stderr, "#BATunique(b=%s#" BUNFMT ",s=%s#" BUNFMT "): trivial case: all equal\n",
@@ -142,7 +142,7 @@ BATunique(BAT *b, BAT *s)
 	cmp = ATOMcompare(b->ttype);
 	bi = bat_iterator(b);
 
-	if (b->tsorted || b->trevsorted) {
+	if (BATordered(b) || BATordered_rev(b)) {
 		/* the BAT is sorted so we only need to compare
 		 * consecutive values */
 		const void *prev = NULL;

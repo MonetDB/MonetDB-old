@@ -55,7 +55,7 @@ HASHmask(BUN cnt, int tpe)
 }
 
 BUN
-HASHprobe(Hash *h, const void *v)
+HASHprobe(const Hash *h, const void *v)
 {
 	return ATOMhash(h->type, v) & h->mask;
 }
@@ -381,18 +381,26 @@ BATparthash(BAT *b, Hash *h, int piece)
 }
 
 #ifndef DISABLE_HASHSYNC
+struct hashsync {
+	Heap *hp;
+	bat id;
+};
+
 static void
 BAThashsync(void *arg)
 {
-	Heap *hp = arg;
+	struct hashsync *hs = arg;
+	Heap *hp = hs->hp;
 	int fd;
 	lng t0;
 
 	t0 = GDKusec();
-	if (HEAPsave(hp, hp->filename, NULL) != GDK_SUCCEED)
+	if (HEAPsave(hp, hp->filename, NULL) != GDK_SUCCEED ||
+	    (fd = GDKfdlocate(hp->farmid, hp->filename, "rb+", NULL)) < 0) {
+		BBPunfix(hs->id);
+		GDKfree(arg);
 		return;
-	if ((fd = GDKfdlocate(hp->farmid, hp->filename, "rb+", NULL)) < 0)
-		return;
+	}
 	((size_t *) hp->base)[0] |= 1 << 24;
 	if (write(fd, hp->base, SIZEOF_SIZE_T) < 0)
 		perror("write hash");
@@ -406,6 +414,8 @@ BAThashsync(void *arg)
 #endif
 	}
 	close(fd);
+	BBPunfix(hs->id);
+	GDKfree(arg);
 	ALGODEBUG fprintf(stderr, "#BAThash: persisting hash %s (" LLFMT " usec)\n", hp->filename, GDKusec() - t0);
 }
 #endif
@@ -516,7 +526,13 @@ BAThash(BAT *b)
 #ifndef DISABLE_HASHSYNC
 		if (BBP_status(b->batCacheid) & BBPEXISTING) {
 			MT_Id tid;
-			MT_create_thread(&tid, BAThashsync, hp, MT_THR_DETACHED);
+			struct hashsync *hs = GDKmalloc(sizeof(struct hashsync));
+			if (hs) {
+				hs->hp = hp;
+				hs->id = b->batCacheid;
+				BBPfix(b->batCacheid);
+				MT_create_thread(&tid, BAThashsync, hs, MT_THR_DETACHED);
+			}
 		}
 #endif
 		return GDK_SUCCEED;
