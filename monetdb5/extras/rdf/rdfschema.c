@@ -10482,6 +10482,7 @@ void getRealValue(ValPtr returnValue, oid objOid, ObjectType objType, BATiter ma
 	//printf("objOid = " BUNFMT " \n",objOid);
 	if (objType == URI || objType == BLANKNODE){
 		oid oldoid = objOid;
+		(void) oldoid; 
 		objOid = objOid - ((oid)objType << (sizeof(BUN)*8 - 4));
 
 		assert(oldoid == objOid); 

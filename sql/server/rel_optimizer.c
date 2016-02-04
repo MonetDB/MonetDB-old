@@ -5966,6 +5966,7 @@ rel_simplify_predicates(int *changes, mvc *sql, sql_rel *rel)
 				if (flag)
 					break;
 			}
+			//if (0)
 			if (is_atom(e->type) && !e->l && !e->r) { /* numbered variable */
 				atom *a = sql->args[e->flag];
 				int flag = a->data.val.bval;

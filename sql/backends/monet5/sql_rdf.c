@@ -1484,6 +1484,8 @@ SQLrdftimetoid(oid *ret, str *datetime){
 	lng tmp = BUN_NONE; 
 	ValRecord vrec;
 
+	printf("SQLrdftimetoid: %s\n", *datetime);
+
 	convertDateTimeToLong(*datetime, &tmp); 
 
 	VALset(&vrec,TYPE_lng, &tmp);
@@ -2114,6 +2116,7 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	nRet = 2 * (*nP); 
 	
 	(void) nRP;
+	(void) nRet; 
 	
 	assert (pci->retc == nRet);
 		

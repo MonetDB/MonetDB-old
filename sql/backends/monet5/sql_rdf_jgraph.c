@@ -155,6 +155,7 @@ void addRelationsToJG(mvc *sql, sql_rel *rel, int depth, jgraph *jg){
  * */
 
 static void get_predicate_from_exps(mvc *c, list *tmpexps, char **prop, char **subj, int get_subject_only);
+static sql_exp* get_atom_oid(mvc *c, sql_exp *re); 
 
 static
 sql_table* get_rdf_table(mvc *c, char *tblname){
@@ -468,19 +469,50 @@ int* get_crossedge_apply_orders(jgraph *jg, jgedge **lstEdges, int num){
 	for (i = 0; i < num; i++){
 		orders[i] = i; 
 	}
-
+	
+	//Put all JP_CP to end
 	for (i = 0; i < num; i++){
 		jgedge *e1 = lstEdges[orders[i]]; 
 		for (j = i+1; j < num; j++){
 			jgedge *e2 = lstEdges[orders[j]];		
-			if (e1->p_r_id < e2->p_r_id){
+			if (e1->jp == JP_CP && e2->jp != JP_CP){
 				tmp = orders[i];
 				orders[i] = orders[j];
 				orders[j] = tmp; 
 			}
+
 		}
 	}
 	
+	//Order by p_r_id
+	for (i = 0; i < num; i++){
+		jgedge *e1 = lstEdges[orders[i]]; 
+		for (j = i+1; j < num; j++){
+			jgedge *e2 = lstEdges[orders[j]];		
+
+			if (e1->jp != JP_CP && e2->jp != JP_CP && e1->p_r_id < e2->p_r_id){
+				tmp = orders[i];
+				orders[i] = orders[j];
+				orders[j] = tmp; 
+			}
+
+		}
+	}
+
+	//Order by need_add_exps
+	for (i = 0; i < num; i++){
+		jgedge *e1 = lstEdges[orders[i]]; 
+		for (j = i+1; j < num; j++){
+			jgedge *e2 = lstEdges[orders[j]];
+			if (e1->jp != JP_CP && e2->jp != JP_CP && e1->p_r_id == e2->p_r_id && e2->need_add_exps > e1->need_add_exps){
+				tmp = orders[i];
+				orders[i] = orders[j];
+				orders[j] = tmp; 
+			}
+
+		}
+	}
+
 	#if PRINT_FOR_DEBUG
 	printf("Orders of applying cross edges\n");
 	for (i = 0; i < num; i++){
@@ -488,7 +520,7 @@ int* get_crossedge_apply_orders(jgraph *jg, jgedge **lstEdges, int num){
 		int to = lstEdges[orders[i]]->to;
 		jgnode *fromnode = jg->lstnodes[from];
 		jgnode *tonode = jg->lstnodes[to];
-		printf("Cross edge [%d, %d][P%d -> P%d] [r = %d, p = %d][Exp_Need = %d]\n", from, to, fromnode->patternId, tonode->patternId, lstEdges[orders[i]]->r_id, lstEdges[orders[i]]->p_r_id, lstEdges[orders[i]]->need_add_exps);
+		printf("Cross edge [%d, %d][P%d -> P%d] [r = %d, p = %d][Exp_Need = %d][JP = %d]\n", from, to, fromnode->patternId, tonode->patternId, lstEdges[orders[i]]->r_id, lstEdges[orders[i]]->p_r_id, lstEdges[orders[i]]->need_add_exps, lstEdges[orders[i]]->jp);
 	}
 	#endif
 
@@ -691,8 +723,14 @@ void handling_Union(mvc *c, sql_rel *rel, int depth, int *hasUnion){
 		case op_union:
 			assert (rel->l && rel->r); 
 			*hasUnion = 1; 
+			printf("Left Union: ===Before====\n"); 
+			_rel_print(c, rel->l); 		
 			buildJoinGraph(c, rel->l, depth + 1);
+			printf("Left Union: ===After=====\n"); 
+			_rel_print(c, rel->l); 
 			buildJoinGraph(c, rel->r, depth + 1); 
+			printf("Right Union: =======\n"); 
+			_rel_print(c, rel->r); 
 			break; 
 		default:
 			if (rel->l) 
@@ -1113,6 +1151,10 @@ void _add_join_edges(jgraph *jg, sql_rel *rel, nMap *nm, char **isConnect, int r
 			printf("Connect to nodes having known subjects\n"); 
 			#endif
 			add_undirectedJGedge(from, to, rel->op, jg, rel, tmpjp, rel_id, p_rel_id, 0);
+		} 
+		else {
+			tmpjp = JP_CP; 
+			add_undirectedJGedge(from, to, rel->op, jg, rel, tmpjp, rel_id, p_rel_id, 0);
 		}
 	}
 
@@ -1408,25 +1450,6 @@ void free_sp_props(spProps *spprops){
 }
 
 
-static
-sql_exp* get_atom_oid(mvc *c, sql_exp *re){
-	oid newoid; 
-	atom *at = re->l;
-	sql_exp *newre = NULL; 
-
-	newoid = BUN_NONE; 
-	assert(at != NULL); 
-
-	#if PRINT_FOR_DEBUG
-	printf("Atom expression \n");
-	exp_print(c, THRdata[0] , re, 0,0,0);
-	#endif
-
-	get_encodedOid_from_atom(at, &newoid);
-	newre = exp_atom_oid(c->sa, newoid);
-
-	return newre; 
-}
 /*
  * Get column name from exp of p in a sql_rel
  * Example: s12_t0.p = oid[sys.rdf_strtoid(char(67) "<http://www/product>")]
@@ -1494,11 +1517,13 @@ void modify_exp_col(mvc *c, sql_exp *m_exp,  char *_rname, char *_name, const ch
 		
 		#if EVERYTHING_AS_OID
 		//first: Convert the compared value into oid
+		/*
 		if (re->type == e_atom){
 			newre = get_atom_oid(c, re);
 		} else {
 			newre = exp_convert(c->sa, m_exp->r, exp_fromtype(le), &totype);	
-		}
+		}*/
+		newre = get_atom_oid(c, re);
 		#else
 		newre = exp_convert(c->sa, m_exp->r, exp_fromtype(le), &totype);
 		#endif
@@ -1524,11 +1549,13 @@ void extractURI_from_exp(mvc *c, char **uri, sql_exp *exp){
 	list *lst = NULL; 
 	char *funcname; 
 
+	(void) funcname; 
+
 	assert(exp->type == e_func); 
 
 	funcname = ((sql_subfunc *)exp->f)->func->base.name; 
 
-	assert(strcmp(funcname, "rdf_strtoid") == 0); 
+	assert(strcmp(funcname, "rdf_strtoid") == 0 || strcmp(funcname, "rdf_timetoid") == 0); 
 	
 	lst = exp->l;
 	
@@ -1545,11 +1572,8 @@ void extractURI_from_exp(mvc *c, char **uri, sql_exp *exp){
 }
 
 static
-void get_o_constraint_value(mvc *c, sql_exp *m_exp, oid *tmpvalue){
+void get_o_constraint_value(mvc *c, sql_exp *re, oid *tmpvalue){
 	oid newoid; 
-	sql_exp *re = m_exp->r;
-
-	assert(m_exp->type == e_cmp); 
 
 	//first: Convert the compared value into oid
 	newoid = BUN_NONE; 
@@ -1569,8 +1593,12 @@ void get_o_constraint_value(mvc *c, sql_exp *m_exp, oid *tmpvalue){
 			SQLrdfstrtoid(&newoid, &uri);
                         assert (newoid != BUN_NONE);
 
-		} else if (strcmp(funcname, "rdf_timetoid") != 0){
-			printf("TODO: The function %s is not handled yet\n", funcname);		
+		} else if (strcmp(funcname, "rdf_timetoid") == 0){
+			extractURI_from_exp(c, &uri, re);		
+			SQLrdftimetoid(&newoid, &uri);
+			assert (newoid != BUN_NONE);
+		} else {
+			printf("This function %s is not handled yet\n",funcname);		
 		}
 
 		if (!uri) GDKfree(uri); 
@@ -1582,6 +1610,19 @@ void get_o_constraint_value(mvc *c, sql_exp *m_exp, oid *tmpvalue){
 }
 
 
+static
+sql_exp* get_atom_oid(mvc *c, sql_exp *re){
+	oid newoid; 
+	sql_exp *newre = NULL; 
+
+	newoid = BUN_NONE; 
+
+	get_o_constraint_value(c, re, &newoid);
+
+	newre = exp_atom_oid(c->sa, newoid);
+
+	return newre; 
+}
 
 /*
  * //Example: [s12_t0.p = oid[sys.rdf_strtoid(char(67) "<http://www/product>")], s12_t0.o = oid[sys.rdf_strtoid(char(85) "<http://www/Product9>"]
@@ -1654,6 +1695,9 @@ void verify_rel(sql_rel *r){
 	assert(r->op == op_select);
 	assert(((sql_rel*)r->l)->op == op_basetable); 
 	
+	(void) select_s;
+	(void) select_p;
+	(void) select_o; 
 	//Verify that this select function select all three columns s, p, o
 		
 	tmpexps = ((sql_rel*)r->l)->exps;
@@ -1689,7 +1733,8 @@ void get_o_constraint(mvc *c, o_constraint *o_cst, list *exps){
 		if (strcmp(e->name, "o") == 0){
 			int cmp = get_cmp(tmpexp); 		
 			oid tmp_o_value = BUN_NONE; 
-			get_o_constraint_value(c, tmpexp, &tmp_o_value); 
+			assert(tmpexp->type == e_cmp); 
+			get_o_constraint_value(c, tmpexp->r, &tmp_o_value); 
 
 			o_cst->cmp_type = cmp; 
 
@@ -2977,9 +3022,39 @@ sql_rel* build_rdfscan (mvc *c, jgraph *jg, int tId, int ncol, int nijgroup, int
 #endif
 
 
+//Check whether an experession 
+//is formed by 2 relaltions belonging to 
+//the inner join groups that are going to be connected
+static 
+int is_in_ijgroups(const char *rname1, const char *rname2,
+		int *group1, int nnode1, int *group2, int nnode2, nMap *nm){
+	
+	int node1, node2; 
+	int found1 = 0, found2 = 0; 
+	int i; 
+
+	node1 = rname_to_nodeId(nm, rname1);
+	node2 = rname_to_nodeId(nm, rname2);
+
+	for (i = 0; i < nnode1; i++){
+		if (node1 == group1[i]) found1 = 1; 
+		if (node2 == group1[i]) found2 = 1; 
+	}
+	
+	for (i = 0; i < nnode2; i++){
+		if (node1 == group2[i]) found1 = 1; 
+		if (node2 == group2[i]) found2 = 1; 
+	}
+
+	if (found1 == 1 && found2 == 1) return 1; 
+	else return 0; 
+
+}
+
 
 static
-void tranforms_join_exps(mvc *c, sql_rel *r, list *sp_edge_exps, int is_outer_join, int need_add_exps){
+void tranforms_join_exps(mvc *c, sql_rel *r, list *sp_edge_exps, int is_combine_ij, int need_add_exps, 
+			int *group1, int nnode1, int *group2, int nnode2, nMap *nm){
 
 	node *en; 
 	list *tmp_exps = NULL; 
@@ -3011,8 +3086,14 @@ void tranforms_join_exps(mvc *c, sql_rel *r, list *sp_edge_exps, int is_outer_jo
 
 			get_jp(l->name, r->name, &tmpjp); 
 			
-			if (tmpjp != JP_S || is_outer_join){
-				sql_exp *m_exp = exp_copy(c->sa, tmpexp);
+			if (tmpjp != JP_S || is_combine_ij){
+				sql_exp *m_exp; 
+				if(is_combine_ij){ //Check whether this expression 
+					//for the relations in the same group		
+					if (is_in_ijgroups(l->rname, r->rname, group1, nnode1, group2, nnode2, nm) == 0) continue;  	
+				}
+
+				m_exp = exp_copy(c->sa, tmpexp);
 				//append this exp to list
 				append(sp_edge_exps, m_exp);
 			}
@@ -3028,7 +3109,8 @@ void tranforms_join_exps(mvc *c, sql_rel *r, list *sp_edge_exps, int is_outer_jo
 
 
 static
-void build_exps_from_join_jgedge(mvc *c, jgedge *edge, list *sp_edge_exps, operator_type *op, int is_combine_ij){
+void build_exps_from_join_jgedge(mvc *c, jgedge *edge, list *sp_edge_exps, operator_type *op, int is_combine_ij,
+					int *group1, int nnode1, int *group2, int nnode2, nMap *nm){
 	sql_rel *tmpjoin = NULL; 
 	char tmp[50];
 
@@ -3040,8 +3122,7 @@ void build_exps_from_join_jgedge(mvc *c, jgedge *edge, list *sp_edge_exps, opera
 	#if PRINT_FOR_DEBUG
 	exps_print_ext(c, tmpjoin->exps, 0, tmp);
 	#endif
-	if (is_combine_ij) tranforms_join_exps(c, tmpjoin,sp_edge_exps, 1, 0);
-	else tranforms_join_exps(c, tmpjoin,sp_edge_exps, 0, 0);
+	tranforms_join_exps(c, tmpjoin,sp_edge_exps, is_combine_ij, 0, group1, nnode1,group2, nnode2, nm);
 	#if PRINT_FOR_DEBUG
 	exps_print_ext(c, sp_edge_exps, 0, "Update expression:");
 	#endif
@@ -3069,7 +3150,7 @@ void build_exps_from_join_jgedge(mvc *c, jgedge *edge, list *sp_edge_exps, opera
  * */
 static
 sql_rel *_group_edge_between_two_groups(mvc *c, jgraph *jg, int pId, int *group1, int nnode1, 
-					int *group2, int nnode2, sql_rel *left, sql_rel *right, int is_combine_ij){
+					int *group2, int nnode2, sql_rel *left, sql_rel *right, int is_combine_ij, nMap *nm){
 	int i, j; 
 	sql_rel *rel_edge = NULL;
 	list *sp_edge_exps = NULL;
@@ -3089,7 +3170,8 @@ sql_rel *_group_edge_between_two_groups(mvc *c, jgraph *jg, int pId, int *group1
 			//Get the edge between group1[i], group2[j]
 			jgedge *edge = get_edge_jp(jg, group1[i], group2[j]);
 			if (edge) {	
-				build_exps_from_join_jgedge(c, edge, sp_edge_exps, &op, is_combine_ij);	
+				build_exps_from_join_jgedge(c, edge, sp_edge_exps, &op, is_combine_ij, 
+						            group1, nnode1, group2, nnode2, nm);	
 			} 
 			#if PRINT_FOR_DEBUG
 			else {
@@ -3124,8 +3206,9 @@ sql_rel *group_pattern_by_cross_edge(mvc *c, sql_rel *left, sql_rel *right, jged
 	#if PRINT_FOR_DEBUG
 	printf("Build rel for cross edge from %d to %d\n", edge->from, edge->to);
 	#endif
-
-	build_exps_from_join_jgedge(c, edge, sp_edge_exps, &op, 0);
+	
+	if (edge->jp != JP_CP)	//Need not compute exp for Cross product
+		build_exps_from_join_jgedge(c, edge, sp_edge_exps, &op, 0, NULL, -1, NULL, -1, NULL);
 
 	#if PRINT_FOR_DEBUG
 	printf("Expression for this cross edge:");
@@ -3184,8 +3267,9 @@ void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_c
 		if (gr_rep_id[spId1] == gr_rep_id[spId2]){
 			if (edge->need_add_exps == 1){ //Handling special case for q5 bsbm
 				int cre_id = sp_cre_map[spId1];
+				printf("Apply for adding exps [%d,%d]\n",edge->from,edge->to);
 				assert(sp_cre_map[spId1] == sp_cre_map[spId2]); 
-				tranforms_join_exps(c, edge->data, lst_cross_edge_rels[cre_id]->exps, 0, 1);
+				tranforms_join_exps(c, edge->data, lst_cross_edge_rels[cre_id]->exps, 0, 1, NULL, -1, NULL, -1, NULL);
 			} 
 			#if PRINT_FOR_DEBUG
 			else {
@@ -3426,7 +3510,7 @@ static
 sql_rel* _group_star_pattern_for_single_table(mvc *c, jgraph *jg, 
 		int **ijgroup, int nijgroup, int *nnodes_per_ijgroup, 
 		int tId, list **sp_proj_exps, list **sp_opt_proj_exps, 
-		int *contain_mv_col){
+		int *contain_mv_col, nMap *nm){
 
 	int i; 
 
@@ -3481,7 +3565,7 @@ sql_rel* _group_star_pattern_for_single_table(mvc *c, jgraph *jg,
 		//Connect these ijrels by outer joins
 		for (i = 0; i < (nijgroup - 1); i++){
 			edge_ijrels[i] = _group_edge_between_two_groups(c, jg, i, ijgroup[i], nnodes_per_ijgroup[i], 
-						ijgroup[i+1], nnodes_per_ijgroup[i+1], ijrels[i], ijrels[i+1], 1);
+						ijgroup[i+1], nnodes_per_ijgroup[i+1], ijrels[i], ijrels[i+1], 1, nm);
 		}
 		connect_groups(nijgroup, ijrels, edge_ijrels);
 
@@ -3522,7 +3606,7 @@ sql_rel* _group_star_pattern_for_single_table(mvc *c, jgraph *jg,
 				int id2 = old_idx_map[i+1];
 
 				edge_ijrels[i] = _group_edge_between_two_groups(c, jg, i, ijgroup[id1], nnodes_per_ijgroup[id1],
-							ijgroup[id2], nnodes_per_ijgroup[id2], newijrels[i], newijrels[i+1], 1);
+							ijgroup[id2], nnodes_per_ijgroup[id2], newijrels[i], newijrels[i+1], 1, nm);
 			}
 
 			connect_groups(n_mv_groups, newijrels, edge_ijrels);	
@@ -3693,7 +3777,7 @@ void update_RP_and_O_constraint(mvc *c, jgraph *jg, int *ijgroup, int nnode, spP
  * */
 
 static 	
-sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId){
+sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId, nMap *nm){
 	sql_rel *rel = NULL, *rel_alltable = NULL; 
 	int 	i, tblIdx; 
 	char 	is_all_select = 1; 
@@ -3792,7 +3876,7 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 		#endif
 		for (tblIdx = 0; tblIdx < num_match_tbl; tblIdx++){
 			tbl_m_rels[tblIdx] = _group_star_pattern_for_single_table(c, jg, ijgroup, nijgroup, nnodes_per_ijgroup, tmptbId[tblIdx], &(sp_proj_exps[tblIdx]), &(sp_opt_proj_exps[tblIdx]), 
-					&(contain_mv_col[tblIdx]));
+					&(contain_mv_col[tblIdx]), nm);
 			//Check 
 			#if PRINT_FOR_DEBUG
 			_rel_print(c, tbl_m_rels[tblIdx]);
@@ -3874,7 +3958,7 @@ sql_rel* _group_star_pattern(mvc *c, jgraph *jg, int *group, int nnode, int pId)
 }
 
 static 
-void group_star_pattern(mvc *c, jgraph *jg, int numsp, sql_rel** lstRels){
+void group_star_pattern(mvc *c, jgraph *jg, int numsp, sql_rel** lstRels, nMap *nm){
 
 	int i; 
 	int** group; //group of nodes in a same pattern
@@ -3913,7 +3997,7 @@ void group_star_pattern(mvc *c, jgraph *jg, int numsp, sql_rel** lstRels){
 
 	//Merge sql_rels in each group into one sql_rel
 	for (i = 0; i < numsp; i++){
-		lstRels[i] = _group_star_pattern(c, jg, group[i], nnode_per_group[i], i); 
+		lstRels[i] = _group_star_pattern(c, jg, group[i], nnode_per_group[i], i, nm); 
 		if (!lstRels[i]){
 			printf("Group pattern %d cannot be converted to select from rel table\n", i); 
 		}
@@ -4022,7 +4106,7 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 	lstRels = (sql_rel**) malloc(sizeof(sql_rel*) * numsp); 
 
 
-	group_star_pattern(c, jg, numsp, lstRels); 
+	group_star_pattern(c, jg, numsp, lstRels, nm); 
 	
 	#if PRINT_FOR_DEBUG
 	{

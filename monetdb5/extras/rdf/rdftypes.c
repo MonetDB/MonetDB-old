@@ -587,7 +587,7 @@ encodeValueInOid(ValPtr vrPtrRealValue, ObjectType objType, BUN* bun){
 }
 
 static ObjectType getObjType_fromValRec(ValRecord v){
-	ObjectType objT; 
+	ObjectType objT = URI; 
 	switch (v.vtype){
 		case TYPE_bte:
 		case TYPE_sht:
@@ -605,8 +605,10 @@ static ObjectType getObjType_fromValRec(ValRecord v){
 			break; 
 		case TYPE_str:		//Have not handle this case
 			assert(0); 
+			break; 
 		default: 
 			assert(0); 
+			break; 
 	}
 
 	return objT; 

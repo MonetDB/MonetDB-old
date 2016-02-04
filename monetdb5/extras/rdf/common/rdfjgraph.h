@@ -42,7 +42,8 @@ typedef enum JoinPredicate {			//Join predicate
 	JP_S, 				//Join on S
 	JP_P, 					
 	JP_O, 
-	JP_SO				//Join on both S and O
+	JP_SO,				//Join on both S and O
+	JP_CP				//Cross Product
 } JP; 
 
 typedef enum JNodeType {
