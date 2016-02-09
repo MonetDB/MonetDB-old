@@ -723,14 +723,8 @@ void handling_Union(mvc *c, sql_rel *rel, int depth, int *hasUnion){
 		case op_union:
 			assert (rel->l && rel->r); 
 			*hasUnion = 1; 
-			printf("Left Union: ===Before====\n"); 
-			_rel_print(c, rel->l); 		
 			buildJoinGraph(c, rel->l, depth + 1);
-			printf("Left Union: ===After=====\n"); 
-			_rel_print(c, rel->l); 
 			buildJoinGraph(c, rel->r, depth + 1); 
-			printf("Right Union: =======\n"); 
-			_rel_print(c, rel->r); 
 			break; 
 		default:
 			if (rel->l) 
@@ -750,7 +744,6 @@ void handling_Union(mvc *c, sql_rel *rel, int depth, int *hasUnion){
 static
 const char *get_relname_from_basetable(sql_rel *rel){
 
-	sql_exp *tmpexp;
 	const char *rname = NULL; 
 	list *tmpexps; 
 
@@ -763,6 +756,8 @@ const char *get_relname_from_basetable(sql_rel *rel){
 		//For verifying that there is 
 		//only one relation name
 		for (en = tmpexps->h; en; en = en->next){
+			sql_exp *tmpexp = NULL;
+			(void) tmpexp;
 			tmpexp = (sql_exp *) en->data; 
 			assert(tmpexp->type == e_column);
 				
@@ -2739,7 +2734,7 @@ sql_rel* transform_inner_join_subjg (mvc *c, jgraph *jg, int tId, int *jsg, int 
 		*is_contain_mv = 0; 
 	}
 	
-	printf("Number of mv_col: %d\n", num_mv_col); 
+	//printf("Number of mv_col: %d\n", num_mv_col); 
 	if (num_mv_col > 0){	//missingcol == 0
 		*is_contain_mv = 1; 
 		rel = connect_sp_select_and_mv_prop(c, rel_wo_mv, mvPropRels, tblname, atblname, asubjcolname, nnode); 

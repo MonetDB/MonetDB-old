@@ -617,7 +617,12 @@ void addPKandFKs(CStableStat* cstablestat, CSPropTypes *csPropTypes, str schema,
 				getMvTblSQLname(mvTbl, i, j, cstablestat->lstcstable[i].tblname, cstablestat->lstcstable[i].lstProp[j], mapi, mbat);
 				fprintf(foutMV, "ALTER TABLE %s.\"%s\" ADD UNIQUE (\"%s\");\n",schema,fromTbl,fromTblCol);		
 				fprintf(foutMV, "ALTER TABLE %s.\"%s\" ADD FOREIGN KEY (\"mvKey\") REFERENCES %s.\"%s\" (\"%s\");\n",schema, mvTbl, schema, fromTbl,fromTblCol);
-			
+
+				fprintf(foutMV, "ALTER TABLE %s.\"%s\" ADD FOREIGN KEY (\"mvsubj\") REFERENCES %s.\"%s\" (\"subject\");\n",schema, mvTbl, schema, fromTbl);
+					
+				//Add primary key for MV table
+				getColSQLname(mvCol, j, 0, cstablestat->lstcstable[i].lstProp[j], mapi, mbat);
+				fprintf(foutPK, "ALTER TABLE %s.\"%s\" ADD PRIMARY KEY (mvsubj, \"%s\");\n",schema,mvTbl,mvCol);
 			}
 		}
 	}
@@ -1484,7 +1489,7 @@ SQLrdftimetoid(oid *ret, str *datetime){
 	lng tmp = BUN_NONE; 
 	ValRecord vrec;
 
-	printf("SQLrdftimetoid: %s\n", *datetime);
+	//printf("SQLrdftimetoid: %s\n", *datetime);
 
 	convertDateTimeToLong(*datetime, &tmp); 
 

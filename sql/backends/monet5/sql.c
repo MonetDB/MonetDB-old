@@ -148,10 +148,12 @@ sql_symbol2relation(mvc *c, symbol *sym)
 			eT = clock(); 
 			printf("----- Transformation time: %f seconds.\n", ((float)(eT - sT))/CLOCKS_PER_SEC);
 		}
+
+		#if PRINT_FOR_DEBUG
 		else {
-		
 			_rel_print(c,r);
 		}
+		#endif
 
 		if (1){
 		sT = clock(); 

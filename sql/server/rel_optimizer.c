@@ -21,6 +21,7 @@
 #ifdef HAVE_HGE
 #include "mal.h"		/* for have_hge */
 #endif
+#include "sql_rdf_env.h"
 
 #define new_func_list(sa) sa_list(sa)
 #define new_col_list(sa) sa_list(sa)
@@ -5948,6 +5949,54 @@ rel_simplify_like_select(int *changes, mvc *sql, sql_rel *rel)
 	return rel;
 }
 
+/*
+static
+int rdf_is_select_on_s(sql_rel *rel){
+	
+	if (rel->op == op_project)
+		if (rel->l) return rdf_is_select_on_s(rel->l); 
+
+	if (is_select(rel->op) && rel->exps){
+		node *n; 
+		for (n = rel->exps->h; n; n = n->next) {
+			sql_exp *e = n->data;
+			if (e->type == e_cmp){
+				sql_exp *le = e->l; 
+				if (le->type == e_convert){
+					sql_exp *cole = le->l; 
+					if (cole->type == e_column){
+						if (strcmp(cole->name, "s") == 0){
+							return 1; 
+						}
+					}
+				} else continue; 
+					
+			} else continue; 
+		}
+
+	} 
+
+	return 0; 
+
+}
+*/
+/* 
+ * A cross product will not cost much
+ * if there is selection on the subject 
+ * predicate
+ * */
+/*
+static 
+int rdf_is_good_crossproduct(sql_rel *rel){
+	if (rel->exps || rel->op != op_join) return 0; 
+	if (rdf_is_select_on_s(rel->l) || 
+	    rdf_is_select_on_s(rel->r)){
+		return 1; 
+	} else 
+		return 0; 
+}
+*/
+
 static sql_rel *
 rel_simplify_predicates(int *changes, mvc *sql, sql_rel *rel) 
 {
@@ -5967,16 +6016,19 @@ rel_simplify_predicates(int *changes, mvc *sql, sql_rel *rel)
 					break;
 			}
 			//if (0)
+			if (rdf_opt_simply_crp)
 			if (is_atom(e->type) && !e->l && !e->r) { /* numbered variable */
 				atom *a = sql->args[e->flag];
 				int flag = a->data.val.bval;
-
-				/* remove simple select true expressions */
+				
+				/* if (!(rel->l && rdf_is_good_crossproduct(rel->l)) && 
+					!(rel->r && rdf_is_good_crossproduct(rel->r)) )   */
+					/* remove simple select true expressions */
 				if (flag) {
 					sql->caching = 0;
 					break;
 				}
-			}
+		}
 			if (e->type == e_cmp && get_cmp(e) == cmp_equal) {
 				sql_exp *l = e->l;
 				sql_exp *r = e->r;

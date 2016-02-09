@@ -12,7 +12,8 @@ INCLUDES = ../include ../common ../storage \
 		   ../../clients/mapilib \
 		   ../../common/options \
 		   ../../common/stream \
-		   ../../gdk
+		   ../../gdk \
+		   ../backends/monet5
 
 AM_YFLAGS = -d -p sql
 

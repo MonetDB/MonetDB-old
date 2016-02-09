@@ -54,12 +54,15 @@
 #include "opt_mitosis.h"
 #include <unistd.h>
 #include "sql_upgrades.h"
+#include "sql_rdf_env.h"
 
 static int SQLinitialized = 0;
 static int SQLnewcatalog = 0;
 int SQLdebug = 0;
 static char *sqlinit = NULL;
 MT_Lock sql_contextLock MT_LOCK_INITIALIZER("sql_contextLock");
+
+int rdf_opt_simply_crp = 1; 	/*RDF only*/
 
 static void
 monet5_freestack(int clientid, backend_stack stk)
@@ -294,6 +297,7 @@ global_variables(mvc *sql, char *user, char *schema)
 	bit F = FALSE;
 	ValRecord src;
 	str opt;
+	str need_crp_opt; 	/*Need optimize cross product by simplifying predicates (For RDF only) */
 
 	typename = "int";
 	sql_find_subtype(&ctype, typename, 0, 0);
@@ -324,6 +328,15 @@ global_variables(mvc *sql, char *user, char *schema)
 	sql_find_subtype(&ctype, typename, 0, 0);
 	SQLglobal("last_id", &sql->last_id);
 	SQLglobal("rowcnt", &sql->rowcnt);
+
+	need_crp_opt = GDKgetenv("crp_optimizer");
+	if (!need_crp_opt || strcmp (need_crp_opt, "yes") == 0)
+		rdf_opt_simply_crp = 1; 
+	else 
+		rdf_opt_simply_crp = 0; 
+	
+	printf("need_crp_opt = %s and rdf_opt_simply_crp = %d\n",need_crp_opt,rdf_opt_simply_crp);
+
 	return 0;
 }
 
