@@ -459,11 +459,12 @@ jgedge** get_cross_sp_edges(jgraph *jg, int *num_cross_edges){
 //Note: The edges [5,4]  [5,4] are usually the join (NOT outer join)
 //so that we only to apply one of them
 static
-int* get_crossedge_apply_orders(jgraph *jg, jgedge **lstEdges, int num){
+int* get_crossedge_apply_orders(mvc *c, jgraph *jg, jgedge **lstEdges, int num){
 	int* orders = NULL;
 	int i, j, tmp; 
 	
 	(void) jg; 
+	(void) c; 
 	orders = (int *) malloc(sizeof(int) * num); 
 
 	for (i = 0; i < num; i++){
@@ -521,6 +522,7 @@ int* get_crossedge_apply_orders(jgraph *jg, jgedge **lstEdges, int num){
 		jgnode *fromnode = jg->lstnodes[from];
 		jgnode *tonode = jg->lstnodes[to];
 		printf("Cross edge [%d, %d][P%d -> P%d] [r = %d, p = %d][Exp_Need = %d][JP = %d]\n", from, to, fromnode->patternId, tonode->patternId, lstEdges[orders[i]]->r_id, lstEdges[orders[i]]->p_r_id, lstEdges[orders[i]]->need_add_exps, lstEdges[orders[i]]->jp);
+		exps_print_ext(c, ((sql_rel *) lstEdges[orders[i]]->data)->exps, 0, NULL); 
 	}
 	#endif
 
@@ -3231,13 +3233,21 @@ static
 void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_cross_edges, 
 	int *cr_ed_orders, jgraph *jg, sql_rel **lst_cross_edge_rels, sql_rel **lstRels, int numsp, int *last_cre){
 	
-	int i; 
+	int i, j; 
 	int e_id; 
 	int *sp_cre_map = NULL; //Star pattern - cross edge rel mapping
 	int *gr_rep_id = NULL; //Group represent ID.
+	int **sp_sp_rel = NULL; //Which rel has been used for connecting these sp
 
 	sp_cre_map = (int *) malloc(sizeof(int) * numsp); 
 	gr_rep_id = (int *) malloc(sizeof(int) * numsp); 
+	sp_sp_rel = (int **) malloc(sizeof(int*) * numsp);
+	for (i = 0; i < numsp; i++){
+		sp_sp_rel[i] = (int *) malloc(sizeof(int) * numsp);
+		for (j = 0; j < numsp; j++){
+			sp_sp_rel[i][j] = -1; 
+		}
+	}
 
 	for (i = 0; i < numsp; i++){
 		sp_cre_map[i] = -1; 
@@ -3259,13 +3269,34 @@ void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_c
 		spId1 = n1->patternId;
 		spId2 = n2->patternId; 
 
+		if (sp_sp_rel[spId1][spId2] == edge->r_id){
+			printf("This rel was applied to connect sp %d and sp %d\n", spId1, spId2); 
+			continue; 
+		}
+
 		if (gr_rep_id[spId1] == gr_rep_id[spId2]){
+			int cre_id = sp_cre_map[spId1];
 			if (edge->need_add_exps == 1){ //Handling special case for q5 bsbm
-				int cre_id = sp_cre_map[spId1];
 				printf("Apply for adding exps [%d,%d]\n",edge->from,edge->to);
 				assert(sp_cre_map[spId1] == sp_cre_map[spId2]); 
 				tranforms_join_exps(c, edge->data, lst_cross_edge_rels[cre_id]->exps, 0, 1, NULL, -1, NULL, -1, NULL);
-			} 
+			} else if (sp_sp_rel[spId1][spId2] == -1) {	//This rel is not considered as connecting sp1, sp2 yet
+				printf("Consider the rel experessions from cross edges [%d,%d]\n",edge->from,edge->to);
+				if (((sql_rel *) edge->data)->exps){
+					tranforms_join_exps(c, edge->data, lst_cross_edge_rels[cre_id]->exps, 0, 0, NULL, -1, NULL, -1, NULL);
+					sp_sp_rel[spId1][spId2] = edge->r_id; 
+				
+				        #if PRINT_FOR_DEBUG
+					printf("Expression for this cross edge:");
+					exps_print_ext(c, lst_cross_edge_rels[cre_id]->exps, 0, "Exp:");
+					#endif
+				} 
+				#if PRINT_FOR_DEBUG
+				else {
+					printf("Cross product: Don't consider applying this edge"); 
+				}
+				#endif
+			}
 			#if PRINT_FOR_DEBUG
 			else {
 				printf("Already belong to the same group. Do not apply cross edges [%d,%d]\n",edge->from,edge->to);
@@ -3273,7 +3304,6 @@ void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_c
 			#endif
 			continue;
 		}
-
 
 		if (sp_cre_map[spId1] == -1 && sp_cre_map[spId2] == -1){
 			lst_cross_edge_rels[i] = group_pattern_by_cross_edge(c, lstRels[spId1], lstRels[spId2], edge); 
@@ -3298,9 +3328,11 @@ void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_c
 				lst_cross_edge_rels[i] = group_pattern_by_cross_edge(c, lst_cross_edge_rels[cre_id1], lst_cross_edge_rels[cre_id2], edge);
 		}
 
+
 		//Update sp_cre_map
 		sp_cre_map[spId1] = i;
 		sp_cre_map[spId2] = i;
+		sp_sp_rel[spId1][spId2] = edge->r_id;
 		
 		if (gr_rep_id[spId1] > gr_rep_id[spId2]){
 			gr_rep_id[spId1] = gr_rep_id[spId2];
@@ -3313,6 +3345,10 @@ void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_c
 
 	free(sp_cre_map);
 	free(gr_rep_id); 
+	for (i = 0; i < numsp; i++){
+		free(sp_sp_rel[i]); 
+	}
+	free(sp_sp_rel); 
 }
 
 
@@ -4117,7 +4153,7 @@ void buildJoinGraph(mvc *c, sql_rel *r, int depth){
 
 	lst_cross_edges = get_cross_sp_edges(jg, &num_cross_edges);
 
-	cr_ed_orders = get_crossedge_apply_orders(jg, lst_cross_edges, num_cross_edges);
+	cr_ed_orders = get_crossedge_apply_orders(c, jg, lst_cross_edges, num_cross_edges);
 
 	lst_cross_edge_rels = (sql_rel**) malloc(sizeof(sql_rel*) * num_cross_edges);
 
