@@ -35,7 +35,6 @@
 /*
  * Cost-based optimization and semantic evaluations require statistics to work with.
  * They should come from the SQL catalog or the BATs themselves.
- * The properties passed at this point are the number of rows.
  * A better way is to mark all BATs used as a constant, because that permits
  * access to all properties. However, this creates unnecessary locking during stack
  * initialization. Therfore, we store the BAT id as a property for the optimizer
@@ -51,13 +50,14 @@
  * common term optimizer, because the first bind has a side-effect.
  */
 
-static void SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
+static lng SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
 {
 	InstrPtr *old = NULL;
 	int oldtop, i, actions = 0, size = 0;
 	lng clk = GDKusec();
 	sql_trans *tr = m->session->tr;
 	str msg;
+	lng space = 0; // sum the total amount of data potentially read
 
 	old = mb->stmt;
 	oldtop = mb->stop;
@@ -93,6 +93,7 @@ static void SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
 			char *sname = getVarConstant(mb, getArg(p, 2 + upd)).val.sval;
 			char *tname = getVarConstant(mb, getArg(p, 3 + upd)).val.sval;
 			char *cname = NULL;
+
 			int mt_member = 0;
 			BUN rows = 1;	/* default to cope with delta bats */
 			int mode = 0;
@@ -117,6 +118,9 @@ static void SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
 					b = store_funcs.bind_idx(m->session->tr, i, RDONLY);
 					if (b) {
 						cnt = BATcount(b);
+						if( mode == 0) {
+							space += getBatSpace(b);
+						}
 						BBPunfix(b->batCacheid);
 					}
 					rows = (BUN) cnt;
@@ -134,6 +138,9 @@ static void SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
 					b = store_funcs.bind_col(m->session->tr, c, RDONLY);
 					if (b) {
 						cnt = BATcount(b);
+						if( mode == 0) {
+							space += getBatSpace(b);
+						}
 						BBPunfix(b->batCacheid);
 					}
 					rows = (BUN) cnt;
@@ -141,6 +148,7 @@ static void SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
 						mt_member = c->t->p->base.id;
 				}
 			}
+			//mnstr_printf(GDKerr, "#space estimate after %s.%s.%s mode %d "LLFMT"\n",sname,tname,cname, mode, space);
 			if (rows > 1 && mode != RD_INS)
 				setRowCnt(mb,k,rows);
 			if (mt_member && mode != RD_INS)
@@ -155,6 +163,7 @@ static void SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
 	msg = optimizerCheck(cntxt, mb, "optimizer.SQLgetstatistics", actions, GDKusec() - clk);
 	if (msg)		/* what to do with an error? */
 		GDKfree(msg);
+	return space;
 }
 
 str
@@ -175,11 +184,21 @@ addOptimizers(Client c, MalBlkPtr mb, char *pipe)
 	InstrPtr q;
 	backend *be;
 	str msg;
+	lng space;
 
 	be = (backend *) c->sqlcontext;
 	assert(be && be->mvc);	/* SQL clients should always have their state set */
 
-	msg = addOptimizerPipe(c, mb, pipe ? pipe : "default_pipe");
+	space = SQLgetStatistics(c, be->mvc, mb);
+	if(space && (pipe == NULL || strcmp(pipe,"default_pipe")== 0)){
+		if( space > (lng)(0.8 * MT_npages() * MT_pagesize())  && GDKnr_threads > 1){
+			pipe = "volcano_pipe";
+			//mnstr_printf(GDKout, "#use volcano optimizer pipeline? "SZFMT"\n", space);
+		}else
+			pipe = "default_pipe";
+	} else
+		pipe = pipe? pipe: "default_pipe";
+	msg = addOptimizerPipe(c, mb, pipe);
 	if (msg)
 		GDKfree(msg);	/* what to do with an error? */
 	/* point queries do not require mitosis and dataflow */
@@ -192,13 +211,12 @@ addOptimizers(Client c, MalBlkPtr mb, char *pipe)
 				q->token = REMsymbol;	/* they are ignored */
 		}
 	}
-	SQLgetStatistics(c, be->mvc, mb);
 	if (be->mvc->emod & mod_debug)
 		addtoMalBlkHistory(mb, "getStatistics");
 }
 
-void
-addQueryToCache(Client c)
+str
+optimizeQuery(Client c)
 {
 	MalBlkPtr mb;
 	backend *be;
@@ -208,13 +226,12 @@ addQueryToCache(Client c)
 	assert(be && be->mvc);	/* SQL clients should always have their state set */
 	pipe = getSQLoptimizer(be->mvc);
 
-	insertSymbol(c->nspace, c->curprg);
 	trimMalBlk(c->curprg->def);
 	c->blkmode = 0;
 	mb = c->curprg->def;
 	chkProgram(c->fdout, c->nspace, mb);
 #ifdef _SQL_OPTIMIZER_DEBUG
-	mnstr_printf(GDKout, "ADD QUERY TO CACHE\n");
+	mnstr_printf(GDKout, "Optimize query\n");
 	printFunction(GDKout, mb, 0, LIST_MAL_ALL);
 #endif
 	/*
@@ -232,23 +249,34 @@ addQueryToCache(Client c)
 			if (msg != MAL_SUCCEED)
 				GDKfree(msg); /* ignore error */
 		}
-		return;
+		return NULL;
 	}
 	addOptimizers(c, mb, pipe);
 	msg = optimizeMALBlock(c, mb);
-	if (msg != MAL_SUCCEED) {
-		showScriptException(c->fdout, mb, 0, MAL, "%s", msg);
-		GDKfree(msg);
-		return;
-	}
+	if (msg)
+		return msg;
 
 	/* time to execute the optimizers */
 	if (c->debug)
 		optimizerCheck(c, mb, "sql.baseline", -1, 0);
 #ifdef _SQL_OPTIMIZER_DEBUG
-	mnstr_printf(GDKout, "ADD optimized QUERY TO CACHE\n");
+	mnstr_printf(GDKout, "End Optimize Query\n");
 	printFunction(GDKout, mb, 0, LIST_MAL_ALL);
 #endif
+	return NULL;
+}
+
+void
+addQueryToCache(Client c)
+{
+	str msg = NULL;
+
+	insertSymbol(c->nspace, c->curprg);
+	msg = optimizeQuery(c);
+	if (msg != MAL_SUCCEED) {
+		showScriptException(c->fdout, c->curprg->def, 0, MAL, "%s", msg);
+		GDKfree(msg);
+	}
 }
 
 /*
