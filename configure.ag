@@ -3165,6 +3165,7 @@ eval "Ebindir=${Ebindir}"
 QEbindir="`echo "$Ebindir" | sed 's/\\\\/\\\\\\\\/g'`"
 AC_SUBST(Qbindir)
 AC_SUBST(Xbindir)
+AC_SUBST(Ebindir)
 AC_SUBST(QXbindir)
 Qlibexecdir="$libexecdir"
 Xlibexecdir="`$translatepath "$libexecdir"`"
@@ -3476,6 +3477,7 @@ for comp in \
 	'java_control ' \
 	'java_jdbc    ' \
 	'liblas       ' \
+	'liblzma      ' \
 	'libxml2      ' \
 	'lidar        ' \
 	'netcdf       ' \

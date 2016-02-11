@@ -50,14 +50,14 @@
  * common term optimizer, because the first bind has a side-effect.
  */
 
-static size_t SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
+static lng SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
 {
 	InstrPtr *old = NULL;
 	int oldtop, i, actions = 0, size = 0;
 	lng clk = GDKusec();
 	sql_trans *tr = m->session->tr;
 	str msg;
-	size_t space = 0; // sum the total amount of data potentially read
+	lng space = 0; // sum the total amount of data potentially read
 
 	old = mb->stmt;
 	oldtop = mb->stop;
@@ -148,7 +148,7 @@ static size_t SQLgetStatistics(Client cntxt, mvc *m, MalBlkPtr mb)
 						mt_member = c->t->p->base.id;
 				}
 			}
-			//mnstr_printf(GDKerr, "#space estimate after %s.%s.%s mode %d "SZFMT"\n",sname,tname,cname, mode, space);
+			//mnstr_printf(GDKerr, "#space estimate after %s.%s.%s mode %d "LLFMT"\n",sname,tname,cname, mode, space);
 			if (rows > 1 && mode != RD_INS)
 				setRowCnt(mb,k,rows);
 			if (mt_member && mode != RD_INS)
@@ -184,16 +184,16 @@ addOptimizers(Client c, MalBlkPtr mb, char *pipe)
 	InstrPtr q;
 	backend *be;
 	str msg;
-	size_t space;
+	lng space;
 
 	be = (backend *) c->sqlcontext;
 	assert(be && be->mvc);	/* SQL clients should always have their state set */
 
 	space = SQLgetStatistics(c, be->mvc, mb);
 	if(space && (pipe == NULL || strcmp(pipe,"default_pipe")== 0)){
-		if( space > (size_t)(0.8 * MT_npages() * MT_pagesize()) ){
+		if( space > (lng)(0.8 * MT_npages() * MT_pagesize())  && GDKnr_threads > 1){
 			pipe = "volcano_pipe";
-			mnstr_printf(GDKout, "#use volcano optimizer pipeline? "SZFMT"\n", space);
+			//mnstr_printf(GDKout, "#use volcano optimizer pipeline? "SZFMT"\n", space);
 		}else
 			pipe = "default_pipe";
 	} else
@@ -215,8 +215,8 @@ addOptimizers(Client c, MalBlkPtr mb, char *pipe)
 		addtoMalBlkHistory(mb, "getStatistics");
 }
 
-void
-addQueryToCache(Client c)
+str
+optimizeQuery(Client c)
 {
 	MalBlkPtr mb;
 	backend *be;
@@ -226,13 +226,12 @@ addQueryToCache(Client c)
 	assert(be && be->mvc);	/* SQL clients should always have their state set */
 	pipe = getSQLoptimizer(be->mvc);
 
-	insertSymbol(c->nspace, c->curprg);
 	trimMalBlk(c->curprg->def);
 	c->blkmode = 0;
 	mb = c->curprg->def;
 	chkProgram(c->fdout, c->nspace, mb);
 #ifdef _SQL_OPTIMIZER_DEBUG
-	mnstr_printf(GDKout, "ADD QUERY TO CACHE\n");
+	mnstr_printf(GDKout, "Optimize query\n");
 	printFunction(GDKout, mb, 0, LIST_MAL_ALL);
 #endif
 	/*
@@ -250,23 +249,34 @@ addQueryToCache(Client c)
 			if (msg != MAL_SUCCEED)
 				GDKfree(msg); /* ignore error */
 		}
-		return;
+		return NULL;
 	}
 	addOptimizers(c, mb, pipe);
 	msg = optimizeMALBlock(c, mb);
-	if (msg != MAL_SUCCEED) {
-		showScriptException(c->fdout, mb, 0, MAL, "%s", msg);
-		GDKfree(msg);
-		return;
-	}
+	if (msg)
+		return msg;
 
 	/* time to execute the optimizers */
 	if (c->debug)
 		optimizerCheck(c, mb, "sql.baseline", -1, 0);
 #ifdef _SQL_OPTIMIZER_DEBUG
-	mnstr_printf(GDKout, "ADD optimized QUERY TO CACHE\n");
+	mnstr_printf(GDKout, "End Optimize Query\n");
 	printFunction(GDKout, mb, 0, LIST_MAL_ALL);
 #endif
+	return NULL;
+}
+
+void
+addQueryToCache(Client c)
+{
+	str msg = NULL;
+
+	insertSymbol(c->nspace, c->curprg);
+	msg = optimizeQuery(c);
+	if (msg != MAL_SUCCEED) {
+		showScriptException(c->fdout, c->curprg->def, 0, MAL, "%s", msg);
+		GDKfree(msg);
+	}
 }
 
 /*

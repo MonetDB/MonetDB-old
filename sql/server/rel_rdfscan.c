@@ -20,6 +20,7 @@
 #include "rel_schema.h"
 #include "rel_sequence.h"
 #include "rel_select.h"
+#include "rel_rel.h"
 #ifdef HAVE_HGE
 #include "mal.h"		/* for have_hge */
 #endif

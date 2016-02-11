@@ -22,6 +22,7 @@
 #include <rdf.h>
 #include <rel_dump.h>
 #include <rel_select.h>
+#include <rel_rel.h>
 #include <rdflabels.h>
 #include <rel_exp.h>
 #include <sql_rdf.h>

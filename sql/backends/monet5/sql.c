@@ -26,6 +26,7 @@
 #include <rel_optimizer.h>
 #include <rel_distribute.h>
 #include <rel_select.h>
+#include <rel_rel.h>
 #include <rel_exp.h>
 #include <rel_dump.h>
 #include <rel_bin.h>
@@ -411,7 +412,7 @@ SQLshutdown_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg;
 
 	if ((msg = CLTshutdown(cntxt, mb, stk, pci)) == MAL_SUCCEED) {
-		// administer the shutdown
+		/* administer the shutdown */
 		mnstr_printf(GDKstdout, "#%s\n", *getArgReference_str(stk, pci, 0));
 	}
 	return msg;
@@ -2788,7 +2789,7 @@ mvc_result_set_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	scale = BATdescriptor(scaleId);
 	if( msg || tbl == NULL || atr == NULL || tpe == NULL || len == NULL || scale == NULL)
 		goto wrapup_result_set;
-	// mimick the old rsColumn approach;
+	/* mimick the old rsColumn approach; */
 	itertbl = bat_iterator(tbl);
 	iteratr = bat_iterator(atr);
 	itertpe = bat_iterator(tpe);
@@ -2808,7 +2809,7 @@ mvc_result_set_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if( b)
 			BBPunfix(bid);
 	}
-	// now sent it to the channel cntxt->fdout
+	/* now sent it to the channel cntxt->fdout */
 	if (mvc_export_result(cntxt->sqlcontext, cntxt->fdout, res))
 		msg = createException(SQL, "sql.resultset", "failed");
   wrapup_result_set:
@@ -2897,7 +2898,7 @@ mvc_export_table_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	scale = BATdescriptor(scaleId);
 	if( msg || tbl == NULL || atr == NULL || tpe == NULL || len == NULL || scale == NULL)
 		goto wrapup_result_set1;
-	// mimick the old rsColumn approach;
+	/* mimick the old rsColumn approach; */
 	itertbl = bat_iterator(tbl);
 	iteratr = bat_iterator(atr);
 	itertpe = bat_iterator(tpe);
@@ -2917,7 +2918,7 @@ mvc_export_table_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if( b)
 			BBPunfix(bid);
 	}
-	// now select the file channel
+	/* now select the file channel */
 	if ( strcmp(filename,"stdout") == 0 )
 		s= cntxt->fdout;
 	else if ( (s = open_wastream(filename)) == NULL || mnstr_errnr(s)) {
@@ -2958,7 +2959,6 @@ mvc_row_result_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	oid o = 0;
 	BATiter itertbl,iteratr,itertpe;
 	mvc *m = NULL;
-//	res_table *t= NULL;
 	ptr v;
 	int mtype;
 	BAT  *tbl, *atr, *tpe,*len,*scale;
@@ -2967,7 +2967,6 @@ mvc_row_result_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return msg;
 	if ((msg = checkSQLContext(cntxt)) != NULL)
 		return msg;
-//	m->results = t = res_table_create(m->session->tr, m->result_id++, pci->argc - (pci->retc+5), 1, m->results, NULL);
 	res = *res_id = mvc_result_table(m, pci->argc - (pci->retc + 5), 1, NULL);
 
 	tbl = BATdescriptor(tblId);
@@ -2977,7 +2976,7 @@ mvc_row_result_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	scale = BATdescriptor(scaleId);
 	if( tbl == NULL || atr == NULL || tpe == NULL || len == NULL || scale == NULL)
 		goto wrapup_result_set;
-	// mimick the old rsColumn approach;
+	/* mimick the old rsColumn approach; */
 	itertbl = bat_iterator(tbl);
 	iteratr = bat_iterator(atr);
 	itertpe = bat_iterator(tpe);
@@ -2996,9 +2995,6 @@ mvc_row_result_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if (mvc_result_value(m, tblname, colname, tpename, *digits++, *scaledigits++, v, mtype))
 			throw(SQL, "sql.rsColumn", "failed");
 	}
-//	*res_id = t->id;
-	//if (*res_id < 0)
-	//msg = createException(SQL, "sql.resultSet", "failed");
 	if (mvc_export_result(cntxt->sqlcontext, cntxt->fdout, res))
 		msg = createException(SQL, "sql.resultset", "failed");
   wrapup_result_set:
@@ -3077,7 +3073,7 @@ mvc_export_row_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	scale = BATdescriptor(scaleId);
 	if( msg || tbl == NULL || atr == NULL || tpe == NULL || len == NULL || scale == NULL)
 		goto wrapup_result_set;
-	// mimick the old rsColumn approach;
+	/* mimick the old rsColumn approach; */
 	itertbl = bat_iterator(tbl);
 	iteratr = bat_iterator(atr);
 	itertpe = bat_iterator(tpe);
@@ -3096,7 +3092,7 @@ mvc_export_row_wrap( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if (mvc_result_value(m, tblname, colname, tpename, *digits++, *scaledigits++, v, mtype))
 			throw(SQL, "sql.rsColumn", "failed");
 	}
-	// now select the file channel
+	/* now select the file channel */
 	if ( strcmp(filename,"stdout") == 0 )
 		s= cntxt->fdout;
 	else if ( (s = open_wastream(filename)) == NULL || mnstr_errnr(s)) {
@@ -4923,7 +4919,7 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 								sz = hashinfo(bn->T->hash);
 								BUNappend(indices, &sz, FALSE);
 
-								bitval = 0; // HASHispersistent(bn);
+								bitval = 0; /* HASHispersistent(bn); */
 								BUNappend(phash, &bitval, FALSE);
 
 								sz = IMPSimprintsize(bn);
@@ -4998,10 +4994,10 @@ sql_storage(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 									sz += bn->H->vheap ? bn->H->vheap->size : 0;
 									BUNappend(heap, &sz, FALSE);
 
-									sz = bn->T->hash && bn->T->hash != (Hash *) 1 ? bn->T->hash->heap->size : 0; // HASHsize()
-									sz += bn->H->hash && bn->H->hash != (Hash *) 1 ? bn->H->hash->heap->size : 0; // HASHsize()
+									sz = bn->T->hash && bn->T->hash != (Hash *) 1 ? bn->T->hash->heap->size : 0; /* HASHsize() */
+									sz += bn->H->hash && bn->H->hash != (Hash *) 1 ? bn->H->hash->heap->size : 0; /* HASHsize() */
 									BUNappend(indices, &sz, FALSE);
-									bitval = 0; // HASHispersistent(bn);
+									bitval = 0; /* HASHispersistent(bn); */
 									BUNappend(phash, &bitval, FALSE);
 
 									sz = IMPSimprintsize(bn);
@@ -5106,8 +5102,6 @@ RAstatement2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		m->sa = sa_create();
 
        	ops = sa_list(m->sa);
-	//fprintf(stderr, "'%s' %s\n", *sig, *expr);
-	//fflush(stderr);
 	snprintf(buf, BUFSIZ, "%s %s", *sig, *expr);
 	while (c && *c && !isspace(*c)) {
 		char *vnme = c, *tnme; 
@@ -5140,12 +5134,8 @@ RAstatement2(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if (c)
 			c++;
 	}
-	//fprintf(stderr, "2: %d %s\n", list_length(ops), *expr);
-	//fflush(stderr);
 	refs = sa_list(m->sa);
 	rel = rel_read(m, *expr, &pos, refs);
-	//fprintf(stderr, "3: %d %s\n", list_length(ops), rel2str(m, rel));
-	//fflush(stderr);
 	if (!rel)
 		throw(SQL, "sql.register", "Cannot register %s", buf);
 	if (rel) {
