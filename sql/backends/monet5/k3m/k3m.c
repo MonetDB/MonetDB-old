@@ -40,6 +40,12 @@ typedef struct {
 static k3m_tree_tpe *k3m_tree = NULL;
 static MT_Lock k3m_lock;
 
+#define K3M_ALLOCS_DEFAULT_SIZE 10
+
+static size_t k3m_allocs_size = K3M_ALLOCS_DEFAULT_SIZE;
+static size_t k3m_allocs_pos = 0;
+static k3m_tree_tpe **k3m_allocs = NULL;
+
 k3m_export str K3Mprelude(void *ret) {
 	(void) ret;
 	MT_lock_init(&k3m_lock, "k3m_lock");
@@ -54,11 +60,10 @@ str K3Mbuild(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	int_t i;
 	int_t npool = 0;
 	bit b = bit_nil;
-
-	K3Mfree(cntxt, mb, stk, pci);
+	bit newtree = !k3m_tree;
+	k3m_tree_tpe *k3m_tree_alloc = NULL;
+	(void) cntxt;
 	MT_lock_set(&k3m_lock);
-	k3m_tree = GDKmalloc(sizeof(k3m_tree_tpe));
-	assert(k3m_tree);
 
 	if (!isaBatType(getArgType(mb,pci,0)) || !isaBatType(getArgType(mb,pci,1)) ||
 			!isaBatType(getArgType(mb,pci,2)) || !isaBatType(getArgType(mb,pci,3))) {
@@ -70,51 +75,90 @@ str K3Mbuild(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 		}
 	}
 	ids = BATdescriptor(*getArgReference_bat(stk, pci, 1));
-	ra = BATdescriptor(*getArgReference_bat(stk, pci, 2));
+	ra  = BATdescriptor(*getArgReference_bat(stk, pci, 2));
 	dec = BATdescriptor(*getArgReference_bat(stk, pci, 3));
 
 	N_a = BATcount(ids);
 	assert(ids && ra && dec); // TODO: dynamic checks & errors instead of asserts
 
 	ids_a = ((int*) Tloc(ids, BUNfirst(ids)));
-	ra_a  = ((dbl*) Tloc(ra, BUNfirst(ra)));
+	ra_a  = ((dbl*) Tloc(ra,  BUNfirst(ra)));
 	dec_a = ((dbl*) Tloc(dec, BUNfirst(dec)));
 
 	assert(ids_a && ra_a && dec_a); // TODO: dynamic checks & errors instead of asserts
 
-	k3m_tree->values = GDKmalloc(3 * N_a * sizeof(real_t));
-	k3m_tree->catalog = GDKmalloc(N_a * sizeof(point_t*));
-	*k3m_tree->catalog = GDKmalloc(N_a * sizeof(point_t));
-	k3m_tree->tree = (node_t*) GDKmalloc(N_a * sizeof(node_t));
+	if (newtree) {
+		k3m_tree = GDKmalloc(sizeof(k3m_tree_tpe));
+		k3m_allocs = GDKmalloc(k3m_allocs_size);
+		if (!k3m_allocs) {
+			// yes I know we should probably free some stuff here but its very unlikely this fails
+			return createException(MAL, "k3m.build", "Memory allocation failed 1.");
+		}
+		k3m_allocs[k3m_allocs_pos++] = k3m_tree;
+		k3m_tree_alloc = k3m_tree;
+	} else {
+		k3m_tree_alloc = GDKmalloc(sizeof(k3m_tree_tpe));
+		// enlarge malloc pointer array size if neccessary
+		if (k3m_allocs_pos >= k3m_allocs_size) {
+			k3m_allocs_size *= 2;
+			k3m_allocs = GDKrealloc(k3m_allocs, k3m_allocs_size);
+			if (!k3m_allocs) {
+				// see above
+				return createException(MAL, "k3m.build", "Memory allocation failed 2.");
+			}
+		}
+		k3m_allocs[k3m_allocs_pos++] = k3m_tree_alloc;
+	}
 
-	if (!k3m_tree->values || !k3m_tree->catalog || !*k3m_tree->catalog || !k3m_tree) {
-		if (k3m_tree->values) {
-			GDKfree(k3m_tree->values);
+	if (!k3m_tree || !k3m_tree_alloc) {
+		if (k3m_tree) {
+			GDKfree(k3m_tree);
 		}
-		if (k3m_tree->catalog) {
-			GDKfree(k3m_tree->catalog);
+		if (k3m_tree_alloc) {
+			GDKfree(k3m_tree_alloc);
 		}
-		if (*k3m_tree->catalog) {
-			GDKfree(*k3m_tree->catalog);
+		return createException(MAL, "k3m.build", "Memory allocation failed 3.");
+	}
+
+	k3m_tree_alloc->values = GDKmalloc(3 * N_a * sizeof(real_t));
+	k3m_tree_alloc->catalog = GDKmalloc(N_a * sizeof(point_t*));
+	*k3m_tree_alloc->catalog = GDKmalloc(N_a * sizeof(point_t));
+	k3m_tree_alloc->tree = (node_t*) GDKmalloc(N_a * sizeof(node_t));
+
+	if (!k3m_tree_alloc->values || !k3m_tree_alloc->catalog || !*k3m_tree_alloc->catalog) {
+		if (k3m_tree_alloc->values) {
+			GDKfree(k3m_tree_alloc->values);
 		}
-		if (k3m_tree->tree) {
-			GDKfree(k3m_tree->tree);
+		if (k3m_tree_alloc->catalog) {
+			GDKfree(k3m_tree_alloc->catalog);
 		}
-		return createException(MAL, "k3m.build", "Memory allocation failed.");
+		if (*k3m_tree_alloc->catalog) {
+			GDKfree(*k3m_tree_alloc->catalog);
+		}
+		if (k3m_tree_alloc->tree) {
+			GDKfree(k3m_tree_alloc->tree);
+		}
+		return createException(MAL, "k3m.build", "Memory allocation failed 4.");
 	}
 
 	for (i=0; i<N_a; i++) {
-		k3m_tree->catalog[i] = k3m_tree->catalog[0] + i;
-		k3m_tree->catalog[i]->id = ids_a[i];
-		k3m_tree->catalog[i]->value = k3m_tree->values + 3 * i;
-		k3m_tree->catalog[i]->value[0] = cos(dec_a[i]) * cos(ra_a[i]);
-		k3m_tree->catalog[i]->value[1] = cos(dec_a[i]) * sin(ra_a[i]);
-		k3m_tree->catalog[i]->value[2] = sin(dec_a[i]);
+		k3m_tree_alloc->catalog[i] = k3m_tree_alloc->catalog[0] + i;
+		k3m_tree_alloc->catalog[i]->id = ids_a[i];
+		k3m_tree_alloc->catalog[i]->value = k3m_tree_alloc->values + 3 * i;
+		k3m_tree_alloc->catalog[i]->value[0] = cos(dec_a[i]) * cos(ra_a[i]);
+		k3m_tree_alloc->catalog[i]->value[1] = cos(dec_a[i]) * sin(ra_a[i]);
+		k3m_tree_alloc->catalog[i]->value[2] = sin(dec_a[i]);
 	}
 
-	k3m_tree->tree->parent = NULL;
-	k3m_build_balanced_tree(k3m_tree->tree, k3m_tree->catalog, N_a, 0, &npool);
-
+	if (newtree) {
+		k3m_tree->tree->parent = NULL;
+		k3m_build_balanced_tree(k3m_tree->tree, k3m_tree->catalog, N_a, 0, &npool);
+	} else {
+		for (i=0; i<N_a; i++) {
+			k3m_tree_alloc->tree[i].point = k3m_tree_alloc->catalog[i];
+			k3m_tree->tree = k3m_insert_node(k3m_tree->tree, &k3m_tree_alloc->tree[i]);
+		}
+	}
 	ret = BATnew(TYPE_void, TYPE_bit, 0, TRANSIENT);
 	BUNappend(ret, &b, 0);
 	*getArgReference_bat(stk, pci, 0) = ret->batCacheid;
@@ -123,6 +167,7 @@ str K3Mbuild(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 
 }
 
+
 str K3Mfree(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	(void) cntxt;
 	(void) mb;
@@ -130,15 +175,21 @@ str K3Mfree(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	(void) pci;
 	BAT *ret;
 	bit b = bit_nil;
+	size_t i;
 
 	MT_lock_set(&k3m_lock);
-	if (k3m_tree) {
-		GDKfree(k3m_tree->tree);
-		GDKfree(k3m_tree->values);
-		//GDKfree(*k3m_tree->catalog); // TODO: why does this not work?
-		GDKfree(k3m_tree->catalog);
-		k3m_tree = NULL;
+
+	for (i = 0; i < k3m_allocs_pos; i++) {
+		GDKfree(k3m_allocs[i]->tree);
+		GDKfree(k3m_allocs[i]->values);
+		GDKfree(k3m_allocs[i]->catalog);
 	}
+	GDKfree(k3m_allocs);
+	k3m_allocs = NULL;
+	k3m_allocs_pos = 0;
+	k3m_allocs_size = K3M_ALLOCS_DEFAULT_SIZE;
+	k3m_tree = NULL;
+
 	MT_lock_unset(&k3m_lock);
 
 	ret = BATnew(TYPE_void, TYPE_bit, 0, TRANSIENT);

@@ -1,25 +1,16 @@
 /**************************************************************************
- *  This file is part of the K3Match library.                             *
- *  Copyright (C) 2010 Pim Schellart <P.Schellart@astro.ru.nl>            *
+ * This file is part of K3Match.                                          *
+ * Copyright (C) 2016 Pim Schellart <P.Schellart@astro.ru.nl>             *
  *                                                                        *
- *  This library is free software: you can redistribute it and/or modify  *
- *  it under the terms of the GNU General Public License as published by  *
- *  the Free Software Foundation, either version 3 of the License, or     *
- *  (at your option) any later version.                                   *
- *                                                                        * 
- *  This library is distributed in the hope that it will be useful,       *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *  GNU General Public License for more details.                          *
- *                                                                        *
- *  You should have received a copy of the GNU General Public License     *
- *  along with this library. If not, see <http://www.gnu.org/licenses/>.  *
+ * This Source Code Form is subject to the terms of the Mozilla Public    *
+ * License, v. 2.0. If a copy of the MPL was not distributed with this    *
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.               *
  **************************************************************************/
 
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "k3match.h"
+#include <k3match.h>
 
 #define SQUARE(x) ((x) * (x))
 
@@ -55,6 +46,40 @@ void k3m_build_balanced_tree(node_t *tree, point_t **points, int_t npoints, int 
     current->right->parent = &(*current);
     k3m_build_balanced_tree(tree, points+nleft+1, nright, next_axis, npool);
   }
+}
+
+node_t* k3m_insert_node(node_t *tree, node_t *node)
+{
+    int axis = 0;
+    node_t *parent = NULL;
+    node_t *current = tree;
+
+    node->left = NULL;
+    node->right = NULL;
+    node->parent = NULL;
+
+    while (current != NULL) {
+        parent = current;
+        if (node->point->value[axis] < current->point->value[axis]) {
+            current = current->left;
+        } else {
+            current = current->right;
+        }
+        axis = (axis + 1) % 3;
+    }
+
+    node->parent = parent;
+    node->axis = axis;
+
+    if (tree == NULL) {
+        tree = node;
+    } else if (node->point->value[parent->axis] < parent->point->value[parent->axis]) {
+        parent->left = node;
+    } else {
+        parent->right = node;
+    }
+
+    return tree;
 }
 
 void k3m_print_tree(node_t *tree)
