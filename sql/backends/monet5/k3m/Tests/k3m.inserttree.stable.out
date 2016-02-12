@@ -1,0 +1,897 @@
+stdout of test 'k3m.inserttree` in directory 'sql/backends/monet5/k3m` itself:
+
+
+# 14:52:04 >  
+# 14:52:04 >  "mserver5" "--debug=10" "--set" "gdk_nr_threads=0" "--set" "mapi_open=true" "--set" "mapi_port=37509" "--set" "mapi_usock=/var/tmp/mtest-68304/.s.monetdb.37509" "--set" "monet_prompt=" "--forcemito" "--dbpath=/tmp/fuckit/var/MonetDB/mTests_sql_backends_monet5_k3m" "--set" "embedded_r=yes"
+# 14:52:04 >  
+
+# MonetDB 5 server v11.22.0
+# This is an unreleased version
+# Serving database 'mTests_sql_backends_monet5_k3m', using 4 threads
+# Compiled for x86_64-apple-darwin15.3.0/64bit with 64bit OIDs and 128bit integers dynamically linked
+# Found 16.000 GiB available main-memory.
+# Copyright (c) 1993-July 2008 CWI.
+# Copyright (c) August 2008-2015 MonetDB B.V., all rights reserved
+# Visit http://www.monetdb.org/ for further information
+# Listening for connection requests on mapi:monetdb://dakar.da.cwi.nl:37509/
+# Listening for UNIX domain connection requests on mapi:monetdb:///var/tmp/mtest-68304/.s.monetdb.37509
+# MonetDB/GIS module loaded
+# Start processing logs sql/sql_logs version 52200
+# Start reading the write-ahead log 'sql_logs/sql/log.3'
+# Finished reading the write-ahead log 'sql_logs/sql/log.3'
+# Finished processing logs sql/sql_logs
+# MonetDB/SQL module loaded
+# MonetDB/R   module loaded
+
+Ready.
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_234:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_214:bat[:dbl],X_230:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_278:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_254:bat[:dbl],X_274:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_282:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_234:bat[:dbl],X_278:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_314:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_298:bat[:dbl],X_310:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_342:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_326:bat[:dbl],X_338:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_346:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_314:bat[:dbl],X_342:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_354:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_286:bat[:dbl],X_350:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_382:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_366:bat[:dbl],X_378:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_390:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_354:bat[:dbl],X_386:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_233:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_213:bat[:dbl],X_229:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_277:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_253:bat[:dbl],X_273:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_281:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_233:bat[:dbl],X_277:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_313:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_297:bat[:dbl],X_309:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_341:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_325:bat[:dbl],X_337:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_345:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_313:bat[:dbl],X_341:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_353:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_285:bat[:dbl],X_349:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_381:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_365:bat[:dbl],X_377:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_389:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_353:bat[:dbl],X_385:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_232:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_212:bat[:dbl],X_228:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_276:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_252:bat[:dbl],X_272:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_280:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_232:bat[:dbl],X_276:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_312:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_296:bat[:dbl],X_308:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_340:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_324:bat[:dbl],X_336:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_344:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_312:bat[:dbl],X_340:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_352:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_284:bat[:dbl],X_348:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_380:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_364:bat[:dbl],X_376:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_388:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_352:bat[:dbl],X_384:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_231:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_211:bat[:dbl],X_227:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_275:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_251:bat[:dbl],X_271:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_279:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_231:bat[:dbl],X_275:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_311:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_295:bat[:dbl],X_307:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_339:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_323:bat[:dbl],X_335:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_343:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_311:bat[:dbl],X_339:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_351:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_283:bat[:dbl],X_347:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_379:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_363:bat[:dbl],X_375:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_387:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_351:bat[:dbl],X_383:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_443:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_423:bat[:dbl],X_439:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_479:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_459:bat[:dbl],X_475:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_483:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_443:bat[:dbl],X_479:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_515:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_499:bat[:dbl],X_511:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_543:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_527:bat[:dbl],X_539:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_547:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_515:bat[:dbl],X_543:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_555:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_487:bat[:dbl],X_551:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_583:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_567:bat[:dbl],X_579:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_591:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_555:bat[:dbl],X_587:bat[:dbl]);
+#WARNING To speedup calc./ a bulk operator implementation is needed
+#    X_599:bat[:dbl] := mal.multiplex("calc":str,"/":str,X_595:bat[:dbl],A6:dbl);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_607:bat[:dbl] := mal.multiplex("calc":str,"*":str,A2:dbl,X_603:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_444:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_424:bat[:dbl],X_440:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_480:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_460:bat[:dbl],X_476:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_484:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_444:bat[:dbl],X_480:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_516:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_500:bat[:dbl],X_512:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_544:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_528:bat[:dbl],X_540:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_548:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_516:bat[:dbl],X_544:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_556:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_488:bat[:dbl],X_552:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_584:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_568:bat[:dbl],X_580:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_592:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_556:bat[:dbl],X_588:bat[:dbl]);
+#WARNING To speedup calc./ a bulk operator implementation is needed
+#    X_600:bat[:dbl] := mal.multiplex("calc":str,"/":str,X_596:bat[:dbl],A6:dbl);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_608:bat[:dbl] := mal.multiplex("calc":str,"*":str,A2:dbl,X_604:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_445:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_425:bat[:dbl],X_441:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_481:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_461:bat[:dbl],X_477:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_485:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_445:bat[:dbl],X_481:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_517:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_501:bat[:dbl],X_513:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_545:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_529:bat[:dbl],X_541:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_549:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_517:bat[:dbl],X_545:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_557:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_489:bat[:dbl],X_553:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_585:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_569:bat[:dbl],X_581:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_593:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_557:bat[:dbl],X_589:bat[:dbl]);
+#WARNING To speedup calc./ a bulk operator implementation is needed
+#    X_601:bat[:dbl] := mal.multiplex("calc":str,"/":str,X_597:bat[:dbl],A6:dbl);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_609:bat[:dbl] := mal.multiplex("calc":str,"*":str,A2:dbl,X_605:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_446:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_426:bat[:dbl],X_442:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_482:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_462:bat[:dbl],X_478:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_486:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_446:bat[:dbl],X_482:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_518:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_502:bat[:dbl],X_514:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_546:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_530:bat[:dbl],X_542:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_550:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_518:bat[:dbl],X_546:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_558:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_490:bat[:dbl],X_554:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_586:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_570:bat[:dbl],X_582:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_594:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_558:bat[:dbl],X_590:bat[:dbl]);
+#WARNING To speedup calc./ a bulk operator implementation is needed
+#    X_602:bat[:dbl] := mal.multiplex("calc":str,"/":str,X_598:bat[:dbl],A6:dbl);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_610:bat[:dbl] := mal.multiplex("calc":str,"*":str,A2:dbl,X_606:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_631:bat[:dbl] := mal.multiplex("calc":str,"*":str,A1:dbl,X_627:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_632:bat[:dbl] := mal.multiplex("calc":str,"*":str,A1:dbl,X_628:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_633:bat[:dbl] := mal.multiplex("calc":str,"*":str,A1:dbl,X_629:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_634:bat[:dbl] := mal.multiplex("calc":str,"*":str,A1:dbl,X_630:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_327:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_307:bat[:dbl],X_323:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_371:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_347:bat[:dbl],X_367:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_375:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_327:bat[:dbl],X_371:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_407:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_391:bat[:dbl],X_403:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_435:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_419:bat[:dbl],X_431:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_439:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_407:bat[:dbl],X_435:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_447:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_379:bat[:dbl],X_443:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_475:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_459:bat[:dbl],X_471:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_483:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_447:bat[:dbl],X_479:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_326:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_306:bat[:dbl],X_322:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_370:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_346:bat[:dbl],X_366:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_374:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_326:bat[:dbl],X_370:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_406:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_390:bat[:dbl],X_402:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_434:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_418:bat[:dbl],X_430:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_438:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_406:bat[:dbl],X_434:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_446:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_378:bat[:dbl],X_442:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_474:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_458:bat[:dbl],X_470:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_482:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_446:bat[:dbl],X_478:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_325:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_305:bat[:dbl],X_321:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_369:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_345:bat[:dbl],X_365:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_373:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_325:bat[:dbl],X_369:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_405:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_389:bat[:dbl],X_401:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_433:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_417:bat[:dbl],X_429:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_437:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_405:bat[:dbl],X_433:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_445:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_377:bat[:dbl],X_441:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_473:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_457:bat[:dbl],X_469:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_481:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_445:bat[:dbl],X_477:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_324:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_304:bat[:dbl],X_320:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_368:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_344:bat[:dbl],X_364:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_372:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_324:bat[:dbl],X_368:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_404:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_388:bat[:dbl],X_400:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_432:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_416:bat[:dbl],X_428:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_436:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_404:bat[:dbl],X_432:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_444:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_376:bat[:dbl],X_440:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_472:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_456:bat[:dbl],X_468:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_480:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_444:bat[:dbl],X_476:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_543:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_523:bat[:dbl],X_539:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_587:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_563:bat[:dbl],X_583:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_591:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_543:bat[:dbl],X_587:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_623:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_607:bat[:dbl],X_619:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_651:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_635:bat[:dbl],X_647:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_655:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_623:bat[:dbl],X_651:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_663:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_595:bat[:dbl],X_659:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_691:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_675:bat[:dbl],X_687:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_699:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_663:bat[:dbl],X_695:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_542:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_522:bat[:dbl],X_538:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_586:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_562:bat[:dbl],X_582:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_590:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_542:bat[:dbl],X_586:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_622:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_606:bat[:dbl],X_618:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_650:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_634:bat[:dbl],X_646:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_654:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_622:bat[:dbl],X_650:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_662:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_594:bat[:dbl],X_658:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_690:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_674:bat[:dbl],X_686:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_698:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_662:bat[:dbl],X_694:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_541:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_521:bat[:dbl],X_537:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_585:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_561:bat[:dbl],X_581:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_589:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_541:bat[:dbl],X_585:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_621:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_605:bat[:dbl],X_617:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_649:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_633:bat[:dbl],X_645:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_653:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_621:bat[:dbl],X_649:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_661:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_593:bat[:dbl],X_657:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_689:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_673:bat[:dbl],X_685:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_697:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_661:bat[:dbl],X_693:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_540:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_520:bat[:dbl],X_536:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_584:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_560:bat[:dbl],X_580:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_588:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_540:bat[:dbl],X_584:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_620:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_604:bat[:dbl],X_616:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_648:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_632:bat[:dbl],X_644:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_652:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_620:bat[:dbl],X_648:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_660:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_592:bat[:dbl],X_656:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_688:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_672:bat[:dbl],X_684:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_696:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_660:bat[:dbl],X_692:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_760:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_740:bat[:dbl],X_756:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_796:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_776:bat[:dbl],X_792:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_800:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_760:bat[:dbl],X_796:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_832:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_816:bat[:dbl],X_828:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_860:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_844:bat[:dbl],X_856:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_864:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_832:bat[:dbl],X_860:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_872:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_804:bat[:dbl],X_868:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_900:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_884:bat[:dbl],X_896:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_908:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_872:bat[:dbl],X_904:bat[:dbl]);
+#WARNING To speedup calc./ a bulk operator implementation is needed
+#    X_916:bat[:dbl] := mal.multiplex("calc":str,"/":str,X_912:bat[:dbl],A6:dbl);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_924:bat[:dbl] := mal.multiplex("calc":str,"*":str,A2:dbl,X_920:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_761:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_741:bat[:dbl],X_757:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_797:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_777:bat[:dbl],X_793:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_801:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_761:bat[:dbl],X_797:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_833:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_817:bat[:dbl],X_829:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_861:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_845:bat[:dbl],X_857:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_865:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_833:bat[:dbl],X_861:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_873:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_805:bat[:dbl],X_869:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_901:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_885:bat[:dbl],X_897:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_909:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_873:bat[:dbl],X_905:bat[:dbl]);
+#WARNING To speedup calc./ a bulk operator implementation is needed
+#    X_917:bat[:dbl] := mal.multiplex("calc":str,"/":str,X_913:bat[:dbl],A6:dbl);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_925:bat[:dbl] := mal.multiplex("calc":str,"*":str,A2:dbl,X_921:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_762:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_742:bat[:dbl],X_758:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_798:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_778:bat[:dbl],X_794:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_802:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_762:bat[:dbl],X_798:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_834:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_818:bat[:dbl],X_830:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_862:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_846:bat[:dbl],X_858:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_866:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_834:bat[:dbl],X_862:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_874:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_806:bat[:dbl],X_870:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_902:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_886:bat[:dbl],X_898:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_910:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_874:bat[:dbl],X_906:bat[:dbl]);
+#WARNING To speedup calc./ a bulk operator implementation is needed
+#    X_918:bat[:dbl] := mal.multiplex("calc":str,"/":str,X_914:bat[:dbl],A6:dbl);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_926:bat[:dbl] := mal.multiplex("calc":str,"*":str,A2:dbl,X_922:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_763:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_743:bat[:dbl],X_759:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_799:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_779:bat[:dbl],X_795:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_803:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_763:bat[:dbl],X_799:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_835:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_819:bat[:dbl],X_831:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_863:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_847:bat[:dbl],X_859:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_867:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_835:bat[:dbl],X_863:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_875:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_807:bat[:dbl],X_871:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_903:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_887:bat[:dbl],X_899:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_911:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_875:bat[:dbl],X_907:bat[:dbl]);
+#WARNING To speedup calc./ a bulk operator implementation is needed
+#    X_919:bat[:dbl] := mal.multiplex("calc":str,"/":str,X_915:bat[:dbl],A6:dbl);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_927:bat[:dbl] := mal.multiplex("calc":str,"*":str,A2:dbl,X_923:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_960:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_940:bat[:dbl],X_956:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_996:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_976:bat[:dbl],X_992:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_1000:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_960:bat[:dbl],X_996:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_1032:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_1016:bat[:dbl],X_1028:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_1060:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_1044:bat[:dbl],X_1056:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_1064:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_1032:bat[:dbl],X_1060:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_1072:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_1004:bat[:dbl],X_1068:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_1100:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_1084:bat[:dbl],X_1096:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_1108:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_1072:bat[:dbl],X_1104:bat[:dbl]);
+#WARNING To speedup calc./ a bulk operator implementation is needed
+#    X_1116:bat[:dbl] := mal.multiplex("calc":str,"/":str,X_1112:bat[:dbl],A14:dbl);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_1124:bat[:dbl] := mal.multiplex("calc":str,"*":str,A10:dbl,X_1120:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_961:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_941:bat[:dbl],X_957:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_997:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_977:bat[:dbl],X_993:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_1001:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_961:bat[:dbl],X_997:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_1033:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_1017:bat[:dbl],X_1029:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_1061:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_1045:bat[:dbl],X_1057:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_1065:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_1033:bat[:dbl],X_1061:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_1073:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_1005:bat[:dbl],X_1069:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_1101:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_1085:bat[:dbl],X_1097:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_1109:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_1073:bat[:dbl],X_1105:bat[:dbl]);
+#WARNING To speedup calc./ a bulk operator implementation is needed
+#    X_1117:bat[:dbl] := mal.multiplex("calc":str,"/":str,X_1113:bat[:dbl],A14:dbl);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_1125:bat[:dbl] := mal.multiplex("calc":str,"*":str,A10:dbl,X_1121:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_962:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_942:bat[:dbl],X_958:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_998:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_978:bat[:dbl],X_994:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_1002:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_962:bat[:dbl],X_998:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_1034:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_1018:bat[:dbl],X_1030:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_1062:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_1046:bat[:dbl],X_1058:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_1066:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_1034:bat[:dbl],X_1062:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_1074:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_1006:bat[:dbl],X_1070:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_1102:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_1086:bat[:dbl],X_1098:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_1110:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_1074:bat[:dbl],X_1106:bat[:dbl]);
+#WARNING To speedup calc./ a bulk operator implementation is needed
+#    X_1118:bat[:dbl] := mal.multiplex("calc":str,"/":str,X_1114:bat[:dbl],A14:dbl);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_1126:bat[:dbl] := mal.multiplex("calc":str,"*":str,A10:dbl,X_1122:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_963:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_943:bat[:dbl],X_959:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_999:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_979:bat[:dbl],X_995:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_1003:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_963:bat[:dbl],X_999:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_1035:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_1019:bat[:dbl],X_1031:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_1063:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_1047:bat[:dbl],X_1059:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_1067:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_1035:bat[:dbl],X_1063:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_1075:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_1007:bat[:dbl],X_1071:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_1103:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_1087:bat[:dbl],X_1099:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_1111:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_1075:bat[:dbl],X_1107:bat[:dbl]);
+#WARNING To speedup calc./ a bulk operator implementation is needed
+#    X_1119:bat[:dbl] := mal.multiplex("calc":str,"/":str,X_1115:bat[:dbl],A14:dbl);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_1127:bat[:dbl] := mal.multiplex("calc":str,"*":str,A10:dbl,X_1123:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_94:bat[:dbl] := mal.multiplex("calc":str,"*":str,A1:dbl,X_243:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_242:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_218:bat[:dbl],X_238:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_278:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_258:bat[:dbl],X_274:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_282:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_242:bat[:dbl],X_278:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_314:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_298:bat[:dbl],X_310:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_342:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_326:bat[:dbl],X_338:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_346:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_314:bat[:dbl],X_342:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_354:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_286:bat[:dbl],X_350:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_382:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_366:bat[:dbl],X_378:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_390:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_354:bat[:dbl],X_386:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_241:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_217:bat[:dbl],X_237:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_277:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_257:bat[:dbl],X_273:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_281:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_241:bat[:dbl],X_277:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_313:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_297:bat[:dbl],X_309:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_341:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_325:bat[:dbl],X_337:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_345:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_313:bat[:dbl],X_341:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_353:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_285:bat[:dbl],X_349:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_381:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_365:bat[:dbl],X_377:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_389:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_353:bat[:dbl],X_385:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_240:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_216:bat[:dbl],X_236:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_276:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_256:bat[:dbl],X_272:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_280:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_240:bat[:dbl],X_276:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_312:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_296:bat[:dbl],X_308:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_340:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_324:bat[:dbl],X_336:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_344:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_312:bat[:dbl],X_340:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_352:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_284:bat[:dbl],X_348:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_380:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_364:bat[:dbl],X_376:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_388:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_352:bat[:dbl],X_384:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_239:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_215:bat[:dbl],X_235:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_275:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_255:bat[:dbl],X_271:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_279:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_239:bat[:dbl],X_275:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_311:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_295:bat[:dbl],X_307:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_339:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_323:bat[:dbl],X_335:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_343:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_311:bat[:dbl],X_339:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_351:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_283:bat[:dbl],X_347:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_379:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_363:bat[:dbl],X_375:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_387:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_351:bat[:dbl],X_383:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_443:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_423:bat[:dbl],X_439:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_479:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_459:bat[:dbl],X_475:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_483:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_443:bat[:dbl],X_479:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_515:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_499:bat[:dbl],X_511:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_543:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_527:bat[:dbl],X_539:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_547:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_515:bat[:dbl],X_543:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_555:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_487:bat[:dbl],X_551:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_583:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_567:bat[:dbl],X_579:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_591:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_555:bat[:dbl],X_587:bat[:dbl]);
+#WARNING To speedup calc./ a bulk operator implementation is needed
+#    X_599:bat[:dbl] := mal.multiplex("calc":str,"/":str,X_595:bat[:dbl],A6:dbl);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_607:bat[:dbl] := mal.multiplex("calc":str,"*":str,A2:dbl,X_603:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_444:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_424:bat[:dbl],X_440:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_480:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_460:bat[:dbl],X_476:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_484:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_444:bat[:dbl],X_480:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_516:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_500:bat[:dbl],X_512:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_544:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_528:bat[:dbl],X_540:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_548:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_516:bat[:dbl],X_544:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_556:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_488:bat[:dbl],X_552:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_584:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_568:bat[:dbl],X_580:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_592:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_556:bat[:dbl],X_588:bat[:dbl]);
+#WARNING To speedup calc./ a bulk operator implementation is needed
+#    X_600:bat[:dbl] := mal.multiplex("calc":str,"/":str,X_596:bat[:dbl],A6:dbl);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_608:bat[:dbl] := mal.multiplex("calc":str,"*":str,A2:dbl,X_604:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_445:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_425:bat[:dbl],X_441:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_481:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_461:bat[:dbl],X_477:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_485:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_445:bat[:dbl],X_481:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_517:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_501:bat[:dbl],X_513:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_545:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_529:bat[:dbl],X_541:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_549:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_517:bat[:dbl],X_545:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_557:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_489:bat[:dbl],X_553:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_585:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_569:bat[:dbl],X_581:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_593:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_557:bat[:dbl],X_589:bat[:dbl]);
+#WARNING To speedup calc./ a bulk operator implementation is needed
+#    X_601:bat[:dbl] := mal.multiplex("calc":str,"/":str,X_597:bat[:dbl],A6:dbl);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_609:bat[:dbl] := mal.multiplex("calc":str,"*":str,A2:dbl,X_605:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_446:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_426:bat[:dbl],X_442:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_482:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_462:bat[:dbl],X_478:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_486:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_446:bat[:dbl],X_482:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_518:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_502:bat[:dbl],X_514:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_546:bat[:dbl] := mal.multiplex("calc":str,"*":str,X_530:bat[:dbl],X_542:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_550:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_518:bat[:dbl],X_546:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_558:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_490:bat[:dbl],X_554:bat[:dbl]);
+#WARNING To speedup calc.- a bulk operator implementation is needed
+#    X_586:bat[:dbl] := mal.multiplex("calc":str,"-":str,X_570:bat[:dbl],X_582:bat[:dbl]);
+#WARNING To speedup calc.+ a bulk operator implementation is needed
+#    X_594:bat[:dbl] := mal.multiplex("calc":str,"+":str,X_558:bat[:dbl],X_590:bat[:dbl]);
+#WARNING To speedup calc./ a bulk operator implementation is needed
+#    X_602:bat[:dbl] := mal.multiplex("calc":str,"/":str,X_598:bat[:dbl],A6:dbl);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_610:bat[:dbl] := mal.multiplex("calc":str,"*":str,A2:dbl,X_606:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_631:bat[:dbl] := mal.multiplex("calc":str,"*":str,A1:dbl,X_627:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_632:bat[:dbl] := mal.multiplex("calc":str,"*":str,A1:dbl,X_628:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_633:bat[:dbl] := mal.multiplex("calc":str,"*":str,A1:dbl,X_629:bat[:dbl]);
+#WARNING To speedup calc.* a bulk operator implementation is needed
+#    X_634:bat[:dbl] := mal.multiplex("calc":str,"*":str,A1:dbl,X_630:bat[:dbl]);
+
+# 14:52:04 >  
+# 14:52:04 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-68304" "--port=37509"
+# 14:52:04 >  
+
+#start transaction;
+#DECLARE ds_deg, ds_rad, ds_rad_squared, isint2 DOUBLE;
+#SET ds_deg = CAST(1 AS DOUBLE); /* units in degrees */
+#SET ds_rad = PI() * ds_deg / 180;
+#SET ds_rad_squared = ds_rad * ds_rad;
+#SET isint2 = 4 * SIN ( RADIANS (0.5 * ds_deg )) * SIN ( RADIANS (0.5 * ds_deg ));
+#SELECT ds_deg AS ds_deg
+#      ,3600 * ds_deg AS ds_arcsec
+#      ,ds_rad AS ds_rad
+#      ,ds_rad_squared AS "ds_rad_squared (input arg)"
+#      ,isint2 AS "4 sin^2 \theta"
+#;
+% .L,	.L,	.L,	.L,	.L # table_name
+% ds_deg,	ds_arcsec,	ds_rad,	"ds_rad_squared (input arg)",	"4 sin^2 \theta" # name
+% double,	double,	double,	double,	double # type
+% 24,	24,	24,	24,	24 # length
+[ 1,	3600,	0.01745329252,	0.0003046174198,	0.0003046096872	]
+#create table catalog(id int, ra double, decl double);
+#insert into catalog values (1, 222.3, 79.5 ), (2, 122.3, 88.5), (3, 22.3, 79.5 ), (4, 88.0, 38.0);
+[ 4	]
+#create table sourcelist(id int, ra double, decl double);
+#insert into sourcelist values (11, 22.305, 79.499 ), (12,122.305, 88.499), (13, 222.305, 79.499 ), (14, 98.05, 47.99 );
+[ 4	]
+#set optimizer='sequential_pipe';
+#select * from k3m_free();
+% . # table_name
+% a # name
+% boolean # type
+% 5 # length
+[ NULL	]
+#select * from k3m_build((select id, ra*PI()/180, decl*PI()/180 from catalog as s));
+% . # table_name
+% a # name
+% boolean # type
+% 5 # length
+[ NULL	]
+#set optimizer='default_pipe';
+#select * from catalog;
+% sys.catalog,	sys.catalog,	sys.catalog # table_name
+% id,	ra,	decl # name
+% int,	double,	double # type
+% 1,	24,	24 # length
+[ 1,	222.3,	79.5	]
+[ 2,	122.3,	88.5	]
+[ 3,	22.3,	79.5	]
+[ 4,	88,	38	]
+#select * from sourcelist;
+% sys.sourcelist,	sys.sourcelist,	sys.sourcelist # table_name
+% id,	ra,	decl # name
+% int,	double,	double # type
+% 2,	24,	24 # length
+[ 11,	22.305,	79.499	]
+[ 12,	122.305,	88.499	]
+[ 13,	222.305,	79.499	]
+[ 14,	98.05,	47.99	]
+#select *
+#      ,sqrt(dist) as dist_rad
+#      ,180*sqrt(dist)/pi() as dist_deg
+#      ,3600*180*sqrt(dist)/pi() as dist_arcsec 
+#  from k3m_query((select id, ra*PI()/180, decl*PI()/180, ds_rad_squared from sourcelist)) 
+#order by idc;
+% .,	.,	.,	.L3,	.L3,	.L3 # table_name
+% idc,	ids,	dist,	dist_rad,	dist_deg,	dist_arcsec # name
+% int,	int,	double,	double,	double,	double # type
+% 1,	2,	24,	24,	24,	24 # length
+[ 1,	13,	5.575482245e-10,	2.36124591e-05,	0.00135289425,	4.8704193	]
+[ 2,	12,	3.098392427e-10,	1.760225107e-05,	0.001008534696,	3.630724906	]
+[ 3,	11,	5.575482245e-10,	2.36124591e-05,	0.00135289425,	4.8704193	]
+#select cid
+#      ,sid
+#      ,power(dist_rad,2) as dist
+#      ,dist_rad
+#      ,degrees(dist_rad ) AS dist_deg
+#      ,3600*degrees(dist_rad ) AS dist_arcsec
+#  from (select c.id as cid
+#              ,s.id as sid
+#              ,2 * ASIN(SQRT( power( (COS(RADIANS(c.decl)) * COS(RADIANS(c.ra)) - COS(RADIANS(s.decl)) * COS(RADIANS(s.ra))), 2)
+#                            + power( (COS(RADIANS(c.decl)) * SIN(RADIANS(c.ra)) - COS(RADIANS(s.decl)) * SIN(RADIANS(s.ra))), 2)
+#                            + power( (SIN(RADIANS(c.decl)) - SIN(RADIANS(s.decl))), 2)
+% sys.t,	sys.t,	.L,	.t,	.L,	.L # table_name
+% cid,	sid,	dist,	dist_rad,	dist_deg,	dist_arcsec # name
+% int,	int,	double,	double,	double,	double # type
+% 1,	2,	24,	24,	24,	24 # length
+[ 1,	13,	5.575482245e-10,	2.36124591e-05,	0.00135289425,	4.8704193	]
+[ 2,	12,	3.098392427e-10,	1.760225107e-05,	0.001008534696,	3.630724906	]
+[ 3,	11,	5.575482245e-10,	2.36124591e-05,	0.00135289425,	4.8704193	]
+#create table catalog2(id int, ra double, decl double);
+#insert into catalog2 values (5, 122.3, 89.5 ), (6, 32.3, 98.5), (7, 32.3, 89.5 ), (8, 98.0, 48.0);
+[ 4	]
+#set optimizer='sequential_pipe';
+#select * from k3m_build((select id, ra*PI()/180, decl*PI()/180 from catalog2 as s));
+% . # table_name
+% a # name
+% boolean # type
+% 5 # length
+[ NULL	]
+#set optimizer='default_pipe';
+#select *
+#      ,sqrt(dist) as dist_rad
+#      ,180*sqrt(dist)/pi() as dist_deg
+#      ,3600*180*sqrt(dist)/pi() as dist_arcsec 
+#  from k3m_query((select id, ra*PI()/180, decl*PI()/180, ds_rad_squared from sourcelist)) 
+#order by idc;
+% .,	.,	.,	.L3,	.L3,	.L3 # table_name
+% idc,	ids,	dist,	dist_rad,	dist_deg,	dist_arcsec # name
+% int,	int,	double,	double,	double,	double # type
+% 1,	2,	24,	24,	24,	24 # length
+[ 1,	13,	5.575482245e-10,	2.36124591e-05,	0.00135289425,	4.8704193	]
+[ 2,	12,	3.098392427e-10,	1.760225107e-05,	0.001008534696,	3.630724906	]
+[ 3,	11,	5.575482245e-10,	2.36124591e-05,	0.00135289425,	4.8704193	]
+[ 8,	14,	3.714980945e-07,	0.0006095064351,	0.03492214632,	125.7197268	]
+#select cid
+#      ,sid
+#      ,power(dist_rad,2) as dist
+#      ,dist_rad
+#      ,degrees(dist_rad ) AS dist_deg
+#      ,3600*degrees(dist_rad ) AS dist_arcsec
+#  from (select c.id as cid
+#              ,s.id as sid
+#              ,2 * ASIN(SQRT( power( (COS(RADIANS(c.decl)) * COS(RADIANS(c.ra)) - COS(RADIANS(s.decl)) * COS(RADIANS(s.ra))), 2)
+#                            + power( (COS(RADIANS(c.decl)) * SIN(RADIANS(c.ra)) - COS(RADIANS(s.decl)) * SIN(RADIANS(s.ra))), 2)
+#                            + power( (SIN(RADIANS(c.decl)) - SIN(RADIANS(s.decl))), 2)
+% .t,	.t,	.L,	.t,	.L,	.L # table_name
+% cid,	sid,	dist,	dist_rad,	dist_deg,	dist_arcsec # name
+% int,	int,	double,	double,	double,	double # type
+% 1,	2,	24,	24,	24,	24 # length
+[ 1,	13,	5.575482245e-10,	2.36124591e-05,	0.00135289425,	4.8704193	]
+[ 2,	12,	3.098392427e-10,	1.760225107e-05,	0.001008534696,	3.630724906	]
+[ 3,	11,	5.575482245e-10,	2.36124591e-05,	0.00135289425,	4.8704193	]
+[ 8,	14,	3.71498106e-07,	0.0006095064446,	0.03492214686,	125.7197287	]
+#create table catalog_union as select id, ra, decl from catalog 
+#                              union all 
+#                              select id, ra, decl from catalog2 with data; 
+#set optimizer='sequential_pipe';
+#select * from k3m_free();
+% . # table_name
+% a # name
+% boolean # type
+% 5 # length
+[ NULL	]
+#select * from k3m_build((select id, ra*PI()/180, decl*PI()/180 from catalog_union as s));
+% . # table_name
+% a # name
+% boolean # type
+% 5 # length
+[ NULL	]
+#set optimizer='default_pipe';
+#select * from catalog_union;
+% sys.catalog_union,	sys.catalog_union,	sys.catalog_union # table_name
+% id,	ra,	decl # name
+% int,	double,	double # type
+% 1,	24,	24 # length
+[ 1,	222.3,	79.5	]
+[ 2,	122.3,	88.5	]
+[ 3,	22.3,	79.5	]
+[ 4,	88,	38	]
+[ 5,	122.3,	89.5	]
+[ 6,	32.3,	98.5	]
+[ 7,	32.3,	89.5	]
+[ 8,	98,	48	]
+#select * from sourcelist;
+% sys.sourcelist,	sys.sourcelist,	sys.sourcelist # table_name
+% id,	ra,	decl # name
+% int,	double,	double # type
+% 2,	24,	24 # length
+[ 11,	22.305,	79.499	]
+[ 12,	122.305,	88.499	]
+[ 13,	222.305,	79.499	]
+[ 14,	98.05,	47.99	]
+#select *
+#      ,sqrt(dist) as dist_rad
+#      ,180*sqrt(dist)/pi() as dist_deg
+#      ,3600*180*sqrt(dist)/pi() as dist_arcsec 
+#  from k3m_query((select id, ra*PI()/180, decl*PI()/180, ds_rad_squared from sourcelist)) 
+#order by idc;
+% .,	.,	.,	.L3,	.L3,	.L3 # table_name
+% idc,	ids,	dist,	dist_rad,	dist_deg,	dist_arcsec # name
+% int,	int,	double,	double,	double,	double # type
+% 1,	2,	24,	24,	24,	24 # length
+[ 1,	13,	5.575482245e-10,	2.36124591e-05,	0.00135289425,	4.8704193	]
+[ 2,	12,	3.098392427e-10,	1.760225107e-05,	0.001008534696,	3.630724906	]
+[ 3,	11,	5.575482245e-10,	2.36124591e-05,	0.00135289425,	4.8704193	]
+[ 8,	14,	3.714980945e-07,	0.0006095064351,	0.03492214632,	125.7197268	]
+#select cid
+#      ,sid
+#      ,power(dist_rad,2) as dist
+#      ,dist_rad
+#      ,degrees(dist_rad ) AS dist_deg
+#      ,3600*degrees(dist_rad ) AS dist_arcsec
+#  from (select c.id as cid
+#              ,s.id as sid
+#              ,2 * ASIN(SQRT( power( (COS(RADIANS(c.decl)) * COS(RADIANS(c.ra)) - COS(RADIANS(s.decl)) * COS(RADIANS(s.ra))), 2)
+#                            + power( (COS(RADIANS(c.decl)) * SIN(RADIANS(c.ra)) - COS(RADIANS(s.decl)) * SIN(RADIANS(s.ra))), 2)
+#                            + power( (SIN(RADIANS(c.decl)) - SIN(RADIANS(s.decl))), 2)
+% sys.t,	sys.t,	.L,	.t,	.L,	.L # table_name
+% cid,	sid,	dist,	dist_rad,	dist_deg,	dist_arcsec # name
+% int,	int,	double,	double,	double,	double # type
+% 1,	2,	24,	24,	24,	24 # length
+[ 1,	13,	5.575482245e-10,	2.36124591e-05,	0.00135289425,	4.8704193	]
+[ 2,	12,	3.098392427e-10,	1.760225107e-05,	0.001008534696,	3.630724906	]
+[ 3,	11,	5.575482245e-10,	2.36124591e-05,	0.00135289425,	4.8704193	]
+[ 8,	14,	3.71498106e-07,	0.0006095064446,	0.03492214686,	125.7197287	]
+#ROLLBACK;
+
+# 14:52:05 >  
+# 14:52:05 >  "Done."
+# 14:52:05 >  
+
