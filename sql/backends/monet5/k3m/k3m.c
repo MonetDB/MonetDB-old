@@ -169,13 +169,15 @@ str K3Mbuild(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 
 
 str K3Mfree(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
+
+	BAT *ret;
+	bit b = bit_nil;
+	size_t i;
+
 	(void) cntxt;
 	(void) mb;
 	(void) stk;
 	(void) pci;
-	BAT *ret;
-	bit b = bit_nil;
-	size_t i;
 
 	MT_lock_set(&k3m_lock);
 
@@ -201,7 +203,6 @@ str K3Mfree(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 }
 
 str K3Mquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
-	(void) cntxt;
 	size_t i;
 	BAT *in_ids, *in_ra, *in_dec, *in_dist, *out_id_cat, *out_id_sl, *out_dist;
 	int *in_ids_a;
@@ -211,6 +212,7 @@ str K3Mquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 	point_t *mi = NULL;
 	int_t nmatch = 0;
 
+	(void) cntxt;
 
 	for (i = 0; i <= 6; i++) {
 		if (!isaBatType(getArgType(mb,pci,i))) {

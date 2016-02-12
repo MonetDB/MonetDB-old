@@ -1,3 +1,6 @@
+set optimizer='sequential_pipe';
+
+
 start transaction;
 
 
