@@ -1673,7 +1673,7 @@ void get_full_outerjoin_p_slices(oid *lstprops, int nrp, int np, oid *los, oid *
 	RDFmultiway_merge_outerjoins(np, sbats, obats, r_sbat, (*r_obats));
 	end = clock(); 
 
-	printf("Mutliway outer join result: ("BUNFMT" rows)  [Took %f seconds]\n", BATcount(*r_sbat), ((float)(end - start))/CLOCKS_PER_SEC);
+	printf("# Multiway outer join result: ("BUNFMT" rows)  [Took %f seconds]\n", BATcount(*r_sbat), ((float)(end - start))/CLOCKS_PER_SEC);
 	//BATprint(*r_sbat); 
 	/*
 	for (i = 0; i < np; i++){
@@ -2175,7 +2175,7 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		get_full_outerjoin_p_slices(lstProps, *nRP, *nP, los, his, pso_fullObat, pso_fullSbat, &r_sbat, &r_obats);
 
 		eT1 = clock(); 
-		printf("Step 1 in Handling exception took  %f seconds.\n", ((float)(eT1 - sT1))/CLOCKS_PER_SEC);
+		printf("# Step 1 in Handling exception took  %f seconds.\n", ((float)(eT1 - sT1))/CLOCKS_PER_SEC);
 		
 		/* {
 		BUN testbun = BUN_NONE; 
@@ -2225,7 +2225,7 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		}
 		
 		eT1 = clock(); 
-		printf("Step 2 in Handling exception took  %f seconds.\n", ((float)(eT1 - sT1))/CLOCKS_PER_SEC);
+		printf("# Step 2 in Handling exception took  %f seconds.\n", ((float)(eT1 - sT1))/CLOCKS_PER_SEC);
 
 	}
 	#if PRINT_FOR_DEBUG
@@ -2238,7 +2238,7 @@ SQLrdfScan(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	GDKfree(b);
 
 	eT = clock(); 
-	printf("RDFscan for handling exception took  %f seconds.\n", ((float)(eT - sT))/CLOCKS_PER_SEC);
+	printf("# RDFscan for handling exception took  %f seconds.\n", ((float)(eT - sT))/CLOCKS_PER_SEC);
 
 	return MAL_SUCCEED; 
 }
@@ -2421,7 +2421,7 @@ void getOffsets(PsoPropStat *pso_pstat, oid *p, BUN *start, BUN *end){
 
 	pos = BUNfnd(pso_pstat->pBat, p);
 	if (pos == BUN_NONE){
-		printf("The prop "BUNFMT " is not in PSO!\n", *p);
+		printf("# The prop "BUNFMT " is not in PSO!\n", *p);
 		*start = BUN_NONE; 
 		*end = BUN_NONE; 
 	}
@@ -2640,7 +2640,10 @@ str SQLrdfprepare(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 		if (BATcount(pso_fullSbat) == 0) {
 			need_handling_exception = 0; 
 			printf("Do not need to handle exception\n"); 
+		} else {
+			printf("Need to handle exception\n"); 
 		}
+		
 		
 	}
 	

@@ -3271,18 +3271,18 @@ void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_c
 		spId2 = n2->patternId; 
 
 		if (sp_sp_rel[spId1][spId2] == edge->r_id){
-			printf("This rel was applied to connect sp %d and sp %d\n", spId1, spId2); 
+			//printf("This rel was applied to connect sp %d and sp %d\n", spId1, spId2); 
 			continue; 
 		}
 
 		if (gr_rep_id[spId1] == gr_rep_id[spId2]){
 			int cre_id = sp_cre_map[spId1];
 			if (edge->need_add_exps == 1){ //Handling special case for q5 bsbm
-				printf("Apply for adding exps [%d,%d]\n",edge->from,edge->to);
+				//printf("Apply for adding exps [%d,%d]\n",edge->from,edge->to);
 				assert(sp_cre_map[spId1] == sp_cre_map[spId2]); 
 				tranforms_join_exps(c, edge->data, lst_cross_edge_rels[cre_id]->exps, 0, 1, NULL, -1, NULL, -1, NULL);
 			} else if (sp_sp_rel[spId1][spId2] == -1) {	//This rel is not considered as connecting sp1, sp2 yet
-				printf("Consider the rel experessions from cross edges [%d,%d]\n",edge->from,edge->to);
+				//printf("Consider the rel experessions from cross edges [%d,%d]\n",edge->from,edge->to);
 				if (((sql_rel *) edge->data)->exps){
 					tranforms_join_exps(c, edge->data, lst_cross_edge_rels[cre_id]->exps, 0, 0, NULL, -1, NULL, -1, NULL);
 					sp_sp_rel[spId1][spId2] = edge->r_id; 
@@ -3322,7 +3322,7 @@ void build_all_rels_from_cross_edges(mvc *c, int num_cross_edges, jgedge **lst_c
 			int cre_id2 =  sp_cre_map[spId2];
 
 			if (cre_id1 == cre_id2) {
-				printf("Already connected. Do not apply cross edges [%d,%d]\n",edge->from,edge->to);
+				//printf("Already connected. Do not apply cross edges [%d,%d]\n",edge->from,edge->to);
 				continue;  //These patterns are connected already
 			}
 			else

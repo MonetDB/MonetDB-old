@@ -112,7 +112,6 @@ rel_need_distinct_query(sql_rel *rel)
 }
 
 
-
 sql_rel *
 sql_symbol2relation(mvc *c, symbol *sym)
 {
@@ -147,7 +146,9 @@ sql_symbol2relation(mvc *c, symbol *sym)
 			if (0) c->emod = mod_explain;
 
 			eT = clock(); 
-			printf("----- Transformation time: %f seconds.\n", ((float)(eT - sT))/CLOCKS_PER_SEC);
+			printf("----- Transformation time: %f mseconds.\n", 1000*((float)(eT - sT))/CLOCKS_PER_SEC);
+			//mnstr_printf(c->scanner.ws, "#----- Transformation time: %f seconds.\n", ((float)(eT - sT))/CLOCKS_PER_SEC);
+
 		}
 
 		#if PRINT_FOR_DEBUG
@@ -175,7 +176,7 @@ sql_symbol2relation(mvc *c, symbol *sym)
 		_rel_print(c,r);
 		#endif
 		eT = clock(); 
-		printf("----- Optimization time: %f seconds.\n", ((float)(eT - sT))/CLOCKS_PER_SEC);
+		printf("----- Optimization time: %f mseconds.\n", 1000*((float)(eT - sT))/CLOCKS_PER_SEC);
 		
 		}
 	}
