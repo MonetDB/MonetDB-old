@@ -94,7 +94,6 @@ str K3Mbuild(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 			// yes I know we should probably free some stuff here but its very unlikely this fails
 			return createException(MAL, "k3m.build", "Memory allocation failed 1.");
 		}
-		k3m_allocs[k3m_allocs_pos++] = k3m_tree;
 		k3m_tree_alloc = k3m_tree;
 	} else {
 		k3m_tree_alloc = GDKmalloc(sizeof(k3m_tree_tpe));
@@ -107,8 +106,8 @@ str K3Mbuild(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 				return createException(MAL, "k3m.build", "Memory allocation failed 2.");
 			}
 		}
-		k3m_allocs[k3m_allocs_pos++] = k3m_tree_alloc;
 	}
+	k3m_allocs[k3m_allocs_pos++] = k3m_tree_alloc;
 
 	if (!k3m_tree || !k3m_tree_alloc) {
 		if (k3m_tree) {
@@ -159,6 +158,7 @@ str K3Mbuild(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 			k3m_tree->tree = k3m_insert_node(k3m_tree->tree, &k3m_tree_alloc->tree[i]);
 		}
 	}
+	MT_lock_unset(&k3m_lock);
 	ret = BATnew(TYPE_void, TYPE_bit, 0, TRANSIENT);
 	BUNappend(ret, &b, 0);
 	*getArgReference_bat(stk, pci, 0) = ret->batCacheid;
@@ -265,7 +265,6 @@ str K3Mquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci) {
 		}
 	}
 	GDKfree(search.value);
-	MT_lock_unset(&k3m_lock);
 
 	BBPkeepref(out_id_cat->batCacheid);
 	BBPkeepref(out_id_sl->batCacheid);
