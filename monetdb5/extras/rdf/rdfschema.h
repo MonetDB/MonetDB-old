@@ -173,7 +173,7 @@ typedef struct PsoPropStat {
 
 #define STORE_PERFORMANCE_METRIC_INFO	1
 
-#define NO_OUTPUTFILE	0		/*Do not write the output to any file */
+#define NO_OUTPUTFILE	1		/*Do not write the output to any file */
 
 extern int totalNumberOfTriples; 
 extern int acceptableTableSize;

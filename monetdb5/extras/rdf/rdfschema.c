@@ -6474,6 +6474,7 @@ str RDFExtractCSPropTypes(int *ret, BAT *sbat, BAT *pbat, BAT *obat,
 	return MAL_SUCCEED; 
 }
 
+#if NO_OUTPUTFILE == 0
 static 
 void printNumTypePerProp(CSPropTypes* csPropTypes, int numCS, CSset *freqCSset){
 	
@@ -6524,6 +6525,7 @@ void printNumTypePerProp(CSPropTypes* csPropTypes, int numCS, CSset *freqCSset){
 
 	fclose(fout); 
 }
+#endif
 
 #if NO_OUTPUTFILE == 0 
 static 
@@ -8680,7 +8682,6 @@ str getFullSampleData(CStableStat* cstablestat, CSPropTypes *csPropTypes, int *m
 #endif
 
 
-#if NO_OUTPUTFILE == 0 
 static
 str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int numTables, int freqThreshold, bat *mapbatid){
 
@@ -8799,7 +8800,6 @@ str printFinalStructure(CStableStat* cstablestat, CSPropTypes *csPropTypes, int 
 
 	return MAL_SUCCEED; 
 }
-#endif
 
 
 static
@@ -9154,6 +9154,7 @@ void computeMetricsQForRefinedTable(CSset *freqCSset,CSPropTypes *csPropTypes,in
 }
 #endif
 
+/*
 static 
 void getSampleBeforeMerging(int *ret, CSset *freqCSset, CSlabel* labels, BAT *sbat, BATiter si, BATiter pi, BATiter oi,  bat *mapbatid, oid maxCSoid, oid *subjCSMap, int maxNumPwithDup){
 
@@ -9193,7 +9194,7 @@ void getSampleBeforeMerging(int *ret, CSset *freqCSset, CSlabel* labels, BAT *sb
 
 	
 }
-
+*/
 
 static
 void RDFmergingTrial(CSset *freqCSset, CSrel *csrelSet, CSlabel** labels, oid maxCSoid, bat *mapbatid, OntoUsageNode *ontoUsageTree, float simTfidfThreshold, Pscore *pscore){
@@ -9286,6 +9287,11 @@ void RDFmerging(CSset *freqCSset, CSrel *csrelSet, CSlabel** labels, oid maxCSoi
 	clock_t 	curT;
 	clock_t		tmpLastT; 
 
+	#if NO_OUTPUTFILE 
+	(void) mbat; 
+	(void) ontbat;
+	(void) freqThreshold; 
+	#endif
 	tmpLastT = clock(); 
 	curNumMergeCS = countNumberMergeCS(freqCSset);
 	printf("Before using rules: Number of freqCS is: %d \n",curNumMergeCS);
@@ -9301,7 +9307,7 @@ void RDFmerging(CSset *freqCSset, CSrel *csrelSet, CSlabel** labels, oid maxCSoi
 	printf("Merging with S1 took %f. (Number of mergeCS: %d | NumconsistOf: %d) \n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC, curNumMergeCS, countNumberConsistOfCS(freqCSset));
 	printf("Number of added CS after S1: %d \n", freqCSset->numCSadded);
 
-	#if NO_OUTPUTFILE == 0
+	#if NO_OUTPUTFILE == 0	
 	printMergedFreqCSSet(freqCSset, mbat, ontbat, 1, freqThreshold, *labels, 1); 
 	#endif
 
@@ -9740,7 +9746,9 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	
 	printf("Extract CSPropTypes from basic CS's \n");
 	RDFExtractCSPropTypes(ret, sbat, pbat, obat, *subjCSMap, csIdFreqIdxMap, csPropTypes, *maxNumPwithDup);
+	#if NO_OUTPUTFILE == 0
 	printNumTypePerProp(csPropTypes, freqCSset->numCSadded, freqCSset);
+	#endif
 
 	freeCSPropTypes(csPropTypes, freqCSset->numCSadded);
 	
@@ -9801,7 +9809,7 @@ RDFextractCSwithTypes(int *ret, bat *sbatid, bat *pbatid, bat *obatid, bat *mapb
 	printMergedFreqCSSet(freqCSset, mbat, ontbat,1, *freqThreshold, *labels, 0); 
 	#endif
 	
-	if (0) getSampleBeforeMerging(ret, freqCSset, *labels, sbat, si, pi, oi, mapbatid, *maxCSoid, *subjCSMap, *maxNumPwithDup);
+	//getSampleBeforeMerging(ret, freqCSset, *labels, sbat, si, pi, oi, mapbatid, *maxCSoid, *subjCSMap, *maxNumPwithDup);
 
 	RDFmerging(freqCSset,csrelSet, labels, *maxCSoid, mbat, ontbat, mapbatid, *freqThreshold, ontoUsageTree); 
 
@@ -12032,6 +12040,10 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 	
 	str		returnStr; 
 
+	#if NO_OUTPUTFILE 
+	(void) oi; 
+	(void) pi; 
+	#endif
 	tmpLastT = clock();
 	freqCSset = initCSset();
 
@@ -12154,9 +12166,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 	printf (" Export label process took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
 
-	#if NO_OUTPUTFILE == 0 
 	printFinalStructure(cstablestat, *csPropTypes, numTables,*freqThreshold, mapbatid);
-	#endif
 	
 	#if DETECT_INCORRECT_TYPE_SUBJECT
 	{

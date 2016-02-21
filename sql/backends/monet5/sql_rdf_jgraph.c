@@ -29,6 +29,7 @@
 #include <rdfschema.h>
 #include <sql_rdf_rel.h>
 #include <rel_rdfscan.h>
+#include <sql_gencode.h>
 
 /*
 static
