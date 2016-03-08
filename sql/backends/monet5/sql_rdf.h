@@ -49,6 +49,10 @@ sql5_export str SQLrdfidtostr(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPt
 sql5_export str SQLrdfidtostr_bat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 sql5_export str SQLrdfstrtoid(oid *ret, str *s);
 
+
+sql5_export str SQLrdf_convert_to_orig_oid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+sql5_export str SQLrdf_convert_to_orig_oid_bat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+
 sql5_export str SQLrdftimetoid(oid *ret, str *dt);
 
 
@@ -83,6 +87,6 @@ extern int need_handling_exception;
 
 #define RDF_HANDLING_EXCEPTION_POSSIBLE_TBL_OPT	1 /* Use the set of possible table for the set of required props to limit the number of matching subj Id */
 
-#define PRINT_FOR_DEBUG 1
+#define PRINT_FOR_DEBUG 0
 
 #endif /*_SQL_RDF_H */

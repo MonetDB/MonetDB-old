@@ -163,6 +163,7 @@ static struct PIPELINES {
 	{"rdf_opt_pipe",
 	 "optimizer.inline();"
 	 "optimizer.remap();"
+	 "optimizer.candidates();"
 	 "optimizer.costModel();"
 	 "optimizer.coercions();"
 	 "optimizer.evaluate();"
@@ -170,8 +171,10 @@ static struct PIPELINES {
 	 "optimizer.pushselect();"
 	 "optimizer.mergetable();"
 	 "optimizer.deadcode();"
+	 "optimizer.aliases();"
+	 "optimizer.constants();"
 	 "optimizer.commonTerms();"
-	 "optimizer.joinPath();"
+	 "optimizer.projectionpath();"
 	 "optimizer.reorder();"
 	 "optimizer.deadcode();"
 	 "optimizer.reduce();"
@@ -179,6 +182,7 @@ static struct PIPELINES {
 	 "optimizer.dataflow();"
 	 "optimizer.querylog();"
 	 "optimizer.multiplex();"
+	 "optimizer.profiler();"
 	 "optimizer.generator();"
 	 "optimizer.garbageCollector();",
 	 "stable", NULL, NULL, 1},

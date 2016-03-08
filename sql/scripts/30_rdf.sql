@@ -65,6 +65,9 @@ create function rdf_idtostr(id oid)
 create function rdf_strtoid(urlstr string)
 	returns oid external name sql.rdfstrtoid;
 
+create function rdf_idtoorig(id oid)
+	returns oid external name sql.rdf_convert_to_orig_oid;
+
 create function rdf_timetoid(datetime string)
 	returns oid external name sql.rdftimetoid;
 

@@ -46,6 +46,14 @@ pattern batsql.rdfidtostr(v:bat[:oid]):bat[:str]
 address	SQLrdfidtostr_bat
 comment "Convert from oid to string";
 
+pattern rdf_convert_to_orig_oid(v:oid):oid
+address	SQLrdf_convert_to_orig_oid
+comment "Convert subject oid to the orignal oid";
+
+pattern batsql.rdf_convert_to_orig_oid(v:bat[:oid]):bat[:oid]
+address	SQLrdf_convert_to_orig_oid_bat
+comment "Convert subject oid to the orignal oid";
+
 pattern rdfdeserialize()
 address	SQLrdfdeserialize
 comment "Deserialize dump BATs to a SimpleCS set";

@@ -1502,6 +1502,125 @@ SQLrdftimetoid(oid *ret, str *datetime){
 
 #endif 
 
+
+str
+SQLrdf_convert_to_orig_oid(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+	str msg; 
+	mvc *m = NULL; 
+	BAT *lmapBat = NULL, *rmapBat = NULL; 
+	bat lmapBatId, rmapBatId;
+	str bnamelBat = "map_to_tknz_left";
+	str bnamerBat = "map_to_tknz_right";
+	BUN pos; 
+	oid *origId; 
+	oid *id = (oid *)getArgReference(stk,pci,1);
+	oid *ret = (oid *) getArgReference(stk, pci, 0); 
+
+	rethrow("sql.rdfidtostr", msg, getSQLContext(cntxt, mb, &m, NULL));
+	
+	lmapBatId = BBPindex(bnamelBat);
+	rmapBatId = BBPindex(bnamerBat);
+
+	if (lmapBatId == 0 || rmapBatId == 0){
+		throw(SQL, "sql.SQLrdfidtostr", "The lmap/rmap Bats should be built already");
+	}
+	
+	if ((lmapBat= BATdescriptor(lmapBatId)) == NULL) {
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+
+	if ((rmapBat= BATdescriptor(rmapBatId)) == NULL) {
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+
+	pos = BUNfnd(lmapBat,id);
+	if (pos == BUN_NONE)	//this id is not converted to a new id
+		origId = id; 
+	else
+		origId = (oid *) Tloc(rmapBat, pos);
+	
+	*ret = *origId; 	
+
+	return msg; 
+}
+
+str
+SQLrdf_convert_to_orig_oid_bat(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+	str msg; 
+	mvc *m = NULL; 
+	BAT *lmapBat = NULL, *rmapBat = NULL; 
+	bat lmapBatId, rmapBatId;
+	str bnamelBat = "map_to_tknz_left";
+	str bnamerBat = "map_to_tknz_right";
+	BUN pos; 
+	oid *origId; 
+	BAT *srcBat = NULL, *desBat = NULL, *tmp = NULL; 
+	BAT *o, *g; 
+	BATiter srci; 
+	BUN p, q; 
+	bat *srcbid, *desbid; 
+	oid *id; 
+	srcbid = (bat *)getArgReference(stk,pci,1);
+	desbid = (bat *) getArgReference(stk, pci, 0); 
+
+	rethrow("sql.rdfidtostr", msg, getSQLContext(cntxt, mb, &m, NULL));
+	
+	if ((srcBat = BATdescriptor(*srcbid)) == NULL){
+		throw(MAL, "rdf.RDFreorganize", RUNTIME_OBJECT_MISSING);
+	}
+	srci = bat_iterator(srcBat); 
+	
+	desBat = BATnew(TYPE_void, TYPE_oid, BATcount(srcBat) + 1, TRANSIENT);
+	BATseqbase(desBat, 0);
+	
+	/* Init the BATs for looking up the URIs*/
+	lmapBatId = BBPindex(bnamelBat);
+	rmapBatId = BBPindex(bnamerBat);
+
+	if (lmapBatId == 0 || rmapBatId == 0){
+		throw(SQL, "sqlbat.SQLrdfidtostr_bat", "The lmap/rmap Bats should be built already");
+	}
+	
+	if ((lmapBat= BATdescriptor(lmapBatId)) == NULL) {
+		throw(MAL, "sqlbat.SQLrdfidtostr_bat", RUNTIME_OBJECT_MISSING);
+	}
+
+	if ((rmapBat= BATdescriptor(rmapBatId)) == NULL) {
+		throw(MAL, "sqlbat.SQLrdfidtostr_bat", RUNTIME_OBJECT_MISSING);
+	}
+
+	BATloop(srcBat, p, q){
+		id = (oid *)BUNtail(srci, p);
+
+		pos = BUNfnd(lmapBat,id);
+		if (pos == BUN_NONE)	//this id is not converted to a new id
+			origId = id; 
+		else
+			origId = (oid *) Tloc(rmapBat, pos);
+			
+		//Append to desBAT
+		BUNappend(desBat, origId, TRUE);
+
+	}
+
+	//Sort des BAT
+	tmp = desBat; 
+	if (BATsort(&desBat, &o, &g, tmp, NULL, NULL, 0, 0) == GDK_FAIL){
+		if (tmp != NULL) BBPreclaim(tmp);
+		throw(RDF, "SQLrdf_convert_to_orig_oid_bat", "Fail in sorting output BAT");
+	}
+
+
+	
+	*desbid = desBat->batCacheid;
+	BBPkeepref(*desbid);
+	
+	BBPunfix(lmapBat->batCacheid);
+	BBPunfix(rmapBat->batCacheid);
+
+	return msg; 
+}
+
 str 
 SQLrdfScan_old(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 	str msg; 

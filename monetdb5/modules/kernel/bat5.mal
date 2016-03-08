@@ -63,6 +63,14 @@ command densebat(sz:wrd) :bat[:oid,:oid]
 address BKCdensebat
 comment "Creates a new [void,void] BAT of size 'sz'.";
 
+command densebatSeq(sz:wrd, seq:oid) :bat[:oid,:oid]
+address BKCdensebatSeq
+comment "[RDF] Creates a new [void,void] BAT of size 'sz'. with seqbase seq";
+				      
+command samplebatUni(b:bat[:oid,:oid], sample:flt) :bat[:oid,:oid]
+address BKCsamplebatUni
+comment "[RDF] Creates a sample bat with uniform distribution of sample percent";
+
 command info ( b:bat[:oid,:any_1]) (:bat[:oid,:str], :bat[:oid,:str])
 address BKCinfo
 comment "Produce a table containing information about a BAT in [attribute,value] format. 

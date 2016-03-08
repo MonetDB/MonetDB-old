@@ -213,6 +213,62 @@ BKCdensebat(bat *ret, const wrd *size)
 }
 
 str
+BKCdensebatSeq(bat *ret, const wrd *size, const oid *seq)
+{
+	BAT *bn;
+	wrd sz = *size;
+	oid seqbase = *seq; 
+
+	if (sz < 0)
+		sz = 0;
+	if (sz > (wrd) BUN_MAX)
+		sz = (wrd) BUN_MAX;
+	bn = BATdense(0, seqbase, (BUN) sz);
+	if (bn == NULL)
+		throw(MAL, "bat.densebat", GDK_EXCEPTION);
+	*ret = bn->batCacheid;
+	BBPkeepref(*ret);
+	return MAL_SUCCEED;
+}
+
+str 
+BKCsamplebatUni(bat *ret, bat *bid, const flt *_sample){
+		
+	BAT *bn = NULL, *b = NULL;
+	oid sampsize = 0; //size of sample bat
+	float step = 0.0; 
+	oid i;
+	flt nextpos = 0; 
+	BATiter bi; 
+	flt sample = *_sample; 
+	
+	if ((b = BATdescriptor(*bid)) == NULL) {
+		throw(MAL, "bat.getInfo", RUNTIME_OBJECT_MISSING);
+	}
+	
+	bi = bat_iterator(b);
+	sampsize = (oid)(sample * BATcount(b) / 100);  
+	step = 100.0 / (float)sample; 
+	
+	//printf("Sample size = "BUNFMT" and step = %f\n", sampsize, step); 
+		
+	bn= BATnew(TYPE_void, TYPE_oid, sampsize , TRANSIENT);
+		
+	if (bn == NULL)
+		throw(MAL, "bat.BKCsamplebatUni", GDK_EXCEPTION);
+
+	for (i = 0; i < sampsize; i++){
+		BUNappend(bn, BUNtail(bi, (oid) nextpos), FALSE);
+		nextpos += step;  
+	}	
+
+	*ret = bn->batCacheid;
+	BBPkeepref(*ret);
+
+	return MAL_SUCCEED; 
+}
+
+str
 BKCmirror(bat *ret, const bat *bid)
 {
 	BAT *b, *bn;
