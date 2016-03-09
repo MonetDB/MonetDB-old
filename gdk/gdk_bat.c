@@ -318,6 +318,11 @@ BATattach(int tt, const char *heapfile, int role)
 	BATkey(bn, TRUE);
 	BATsetcapacity(bn, cap);
 	BATsetcount(bn, cap);
+	/*
+	 * Unless/until we invest in a scan to check that there indeed
+	 * are no NIL values, we cannot safely assume there are none.
+	 */
+	bn->T->nonil = 0;
 	if (cap > 1) {
 		bn->tsorted = 0;
 		bn->trevsorted = 0;
@@ -1320,7 +1325,7 @@ BUNfnd(BAT *b, const void *v)
 			return SORTfnd(b, v);
 	}
 	bi = bat_iterator(b);
-	switch (ATOMstorage(b->ttype)) {
+	switch (ATOMbasetype(b->ttype)) {
 	case TYPE_bte:
 		HASHfnd_bte(r, bi, v);
 		break;
@@ -1328,10 +1333,14 @@ BUNfnd(BAT *b, const void *v)
 		HASHfnd_sht(r, bi, v);
 		break;
 	case TYPE_int:
-	case TYPE_flt:
 		HASHfnd_int(r, bi, v);
 		break;
+	case TYPE_flt:
+		HASHfnd_flt(r, bi, v);
+		break;
 	case TYPE_dbl:
+		HASHfnd_dbl(r, bi, v);
+		break;
 	case TYPE_lng:
 		HASHfnd_lng(r, bi, v);
 		break;
