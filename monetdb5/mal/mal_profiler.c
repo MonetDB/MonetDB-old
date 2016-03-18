@@ -20,6 +20,7 @@
 #include "mal_profiler.h"
 #include "mal_runtime.h"
 #include "mal_debugger.h"
+#include "mal_resource.h"
 
 static void cachedProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
@@ -107,6 +108,7 @@ renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str us
 	str stmt, c;
 	char *tbuf;
 	str stmtq;
+	lng usec= GDKusec();
 
 
 	if( start) // show when instruction was started
@@ -133,7 +135,7 @@ renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str us
 	assert(clock.tv_usec >= 0 && clock.tv_usec < 1000000);
 	if( usrname)
 		logadd("\"user\":\"%s\",%s",usrname, prettify);
-	logadd("\"clk\":"LLFMT",%s",GDKusec(),prettify);
+	logadd("\"clk\":"LLFMT",%s",usec,prettify);
 	logadd("\"ctime\":\"%s.%06ld\",%s", tbuf+11, (long)clock.tv_usec, prettify);
 	logadd("\"thread\":%d,%s", THRgettid(),prettify);
 
@@ -231,7 +233,7 @@ renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str us
 				}
 			}
 		}
-//#define MALARGUMENTDETAILS
+#define MALARGUMENTDETAILS
 #ifdef MALARGUMENTDETAILS
 		logadd("\"prereq\":%s],%s", prereq, prettify);
 #else
@@ -242,43 +244,66 @@ renderProfilerEvent(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int start, str us
  * The eventparser may assume this layout for ease of parsing
 {
 ... as above ...
-"result":{"index":0,"name":"X_41","value":"0@0","count":1,"type": "void" }
+"result":{"clk":"173297139,"pc":1,"index":0,,"name":"X_6","type":"void","value":"0@0","eol":0}
 ...
-"argument":{"index":4,"value":"30","type": "int" }
+"argument":{"clk":173297139,"pc":1,"index":"2","type":"str","value":"\"default_pipe\"","eol":0},
 }
+This information can be used to determine memory footprint and variable life times.
  */
 #ifdef MALARGUMENTDETAILS
 		// Also show details of the arguments for modelling
-		for( j=0; j< pci->argc; j++){
-			int tpe = getVarType(mb, getArg(pci,j));
-			str tname = getTypeName(tpe), cv;
+		if(mb){
+			logadd("\"ret\":[");
+			for( j=0; j< pci->argc; j++){
+				int tpe = getVarType(mb, getArg(pci,j));
+				str tname = 0, cv;
+				lng total = 0;
+				BUN cnt = 0;
+				bat bid=0;
+				str pret = ""; // or prettify
+				int p = getPC(mb,pci);
 
-			logadd("\"%s\":{", j< pci->retc?"result":"argument");
-			logadd("\"index\":\"%d\",", j);
-			if( !isVarConstant(mb, getArg(pci,j))){
-				logadd("\"name\":\"%s\",", getVarName(mb, getArg(pci,j)));
-			}
-			if( isaBatType(tpe) ){
-				BAT *d= BBPquickdesc(abs(stk->stk[getArg(pci,j)].val.ival),TRUE);
-				if( d)
-					logadd("\"count\":" BUNFMT",", BATcount(d));
+				if( j == pci->retc ){
+					logadd("],%s\"arg\":[",prettify);
+				} 
+				logadd("{");
+				logadd("\"index\":\"%d\",%s", j,pret);
+				logadd("\"name\":\"%s\",%s", getVarName(mb, getArg(pci,j)), pret);
+				if( isaBatType(tpe) ){
+					BAT *d= BATdescriptor( bid = abs(stk->stk[getArg(pci,j)].val.ival));
+					tname = getTypeName(getColumnType(tpe));
+					logadd("\"type\":\"bat[:%s]\",%s", tname,pret);
+					if( d) {
+						//if( isVIEW(d))
+							//bid = abs(VIEWtparent(d));
+						cnt = BATcount(d);
+						total += cnt * d->T->width;
+						total += heapinfo(d->T->vheap, abs(d->batCacheid)); 
+						total += hashinfo(d->T->hash, abs(d->batCacheid)); 
+						total += IMPSimprintsize(d);
+						BBPunfix(d->batCacheid);
+					} 
+					logadd("\"bid\":\"%d\",%s", bid,pret);
+					logadd("\"count\":\""BUNFMT"\",%s",cnt,pret);
+					logadd("\"size\":" LLFMT",%s", total,pret);
+				} else{
+					tname = getTypeName(tpe);
+					logadd("\"type\":\"%s\",%s", tname,pret);
+					cv = 0;
+					VALformat(&cv, &stk->stk[getArg(pci,j)]);
+					stmtq = mal_quote(cv, strlen(cv));
+					logadd("\"value\":\"%s\",%s", stmtq,pret);
+					GDKfree(cv);
+					GDKfree(stmtq);
+				}
+				logadd("\"eol\":%d%s", p == getEndOfLife(mb,getArg(pci,j)) , pret);
 				GDKfree(tname);
-				tname = getTypeName(getColumnType(tpe));
-				logadd("\"type\":\"col[:%s]\"", tname);
-			} else{
-				cv = 0;
-				VALformat(&cv, &stk->stk[getArg(pci,j)]);
-				stmtq = mal_quote(cv, strlen(cv));
-				logadd("\"value\":\"%s\",", stmtq);
-				logadd("\"type\":\"%s\"", tname);
-				GDKfree(cv);
-				GDKfree(stmtq);
+				logadd("}%s%s", (j< pci->argc-1 && j != pci->retc -1?",":""), pret);
 			}
-			GDKfree(tname);
-			logadd("}%s%s", (j< pci->argc-1?",":""), prettify);
+			logadd("] %s",prettify); // end marker for arguments
 		}
-#endif
 	}
+#endif
 	logadd("}\n"); // end marker
 	logjsonInternal(logbuffer);
 }
@@ -484,16 +509,38 @@ startProfiler(void)
 	prevUsage = infoUsage;
 #endif
 
+	if( eventstream){
+		throw(MAL,"profiler.start","Profiler already running, stream not available");
+	}
 	MT_lock_set(&mal_profileLock );
 	if (myname == 0){
 		myname = putName("profiler", 8);
 		eventcounter = 0;
 	}
 	malProfileMode = 1;
-	sqlProfiling = TRUE;
 	MT_lock_unset(&mal_profileLock);
 	logjsonInternal(monet_characteristics);
+	// reset the trace table
+	clearTrace();
 
+	return MAL_SUCCEED;
+}
+
+/* SQL queries can be traced without obstructing the stream */
+str
+startTrace(void)
+{
+	malProfileMode = 1;
+	sqlProfiling = TRUE;
+	clearTrace();
+	return MAL_SUCCEED;
+}
+
+str
+stopTrace(void)
+{
+	malProfileMode = eventstream != NULL;
+	sqlProfiling = FALSE;
 	return MAL_SUCCEED;
 }
 
@@ -697,15 +744,6 @@ initTrace(void)
 	return ret;
 }
 
-str
-cleanupTraces(void)
-{
-	MT_lock_set(&mal_contextLock);
-	_cleanupProfiler();
-	MT_lock_unset(&mal_contextLock);
-	return MAL_SUCCEED;
-}
-
 void
 clearTrace(void)
 {
@@ -729,6 +767,13 @@ clearTrace(void)
 	TRACE_init = 0;
 	MT_lock_unset(&mal_contextLock);
 	initTrace();
+}
+
+str
+cleanupTraces(void)
+{
+	clearTrace();
+	return MAL_SUCCEED;
 }
 
 void
@@ -951,21 +996,20 @@ static volatile ATOMIC_TYPE hbrunning;
 static void profilerHeartbeat(void *dummy)
 {
 	int t;
+	const int timeout = GDKdebug & FORCEMITOMASK ? 10 : 25;
 
 	(void) dummy;
-	while (ATOMIC_GET(hbrunning, mal_beatLock)) {
+	for (;;) {
 		/* wait until you need this info */
-		while (ATOMIC_GET(hbdelay, mal_beatLock) == 0 || eventstream  == NULL) {
-			for (t = 1000; t > 0; t -= 25) {
-				MT_sleep_ms(25);
-				if (!ATOMIC_GET(hbrunning, mal_beatLock))
-					return;
-			}
-		}
-		for (t = (int) ATOMIC_GET(hbdelay, mal_beatLock); t > 0; t -= 25) {
-			MT_sleep_ms(t > 25 ? 25 : t);
-			if (!ATOMIC_GET(hbrunning, mal_beatLock))
+		while (ATOMIC_GET(hbdelay, mal_beatLock) == 0 || eventstream == NULL) {
+			if (GDKexiting() || !ATOMIC_GET(hbrunning, mal_beatLock))
 				return;
+			MT_sleep_ms(timeout);
+		}
+		for (t = (int) ATOMIC_GET(hbdelay, mal_beatLock); t > 0; t -= timeout) {
+			if (GDKexiting() || !ATOMIC_GET(hbrunning, mal_beatLock))
+				return;
+			MT_sleep_ms(t > timeout ? timeout : t);
 		}
 		profilerHeartbeatEvent("ping");
 	}
@@ -979,8 +1023,8 @@ void setHeartbeat(int delay)
 		MT_join_thread(hbthread);
 		return;
 	}
-	if (delay <= 10)
-		hbdelay =10;
+	if ( delay > 0 &&  delay <= 10)
+		delay = 10;
 	ATOMIC_SET(hbdelay, (ATOMIC_TYPE) delay, mal_beatLock);
 }
 
@@ -995,11 +1039,11 @@ void initHeartbeat(void)
 #ifdef NEED_MT_LOCK_INIT
 	ATOMIC_INIT(mal_beatLock, "beatLock");
 #endif
-	hbrunning = 1;
+	ATOMIC_SET(hbrunning, 1, mal_beatLock);
 	if (MT_create_thread(&hbthread, profilerHeartbeat, NULL, MT_THR_JOINABLE) < 0) {
 		/* it didn't happen */
 		hbthread = 0;
-		hbrunning = 0;
+		ATOMIC_SET(hbrunning, 0, mal_beatLock);
 	}
 }
 

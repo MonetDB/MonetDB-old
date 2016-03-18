@@ -9,6 +9,7 @@
 #include "monetdb_config.h"
 
 #include "rel_bin.h"
+#include "rel_rel.h"
 #include "rel_exp.h"
 #include "rel_psm.h"
 #include "rel_prop.h"
@@ -666,8 +667,9 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 			}
 			return stmt_tunion(sql->sa, sel1, sel2);
 		}
-		if (e->flag == cmp_or && right)  /* join */
+		if (e->flag == cmp_or && right) {  /* join */
 			assert(0);
+		}
 
 		/* mark use of join indices */
 		if (right && find_prop(e->p, PROP_JOINIDX) != NULL) 
@@ -768,6 +770,8 @@ stmt_col( mvc *sql, sql_column *c, stmt *del)
 { 
 	stmt *sc = stmt_bat(sql->sa, c, RDONLY);
 
+	if (del)
+		sc->partition = del->partition;
 	if (isTable(c->t) && c->t->access != TABLE_READONLY &&
 	   (c->base.flag != TR_NEW || c->t->base.flag != TR_NEW /* alter */) &&
 	   (c->t->persistence == SQL_PERSIST || c->t->persistence == SQL_DECLARED_TABLE) && !c->t->commit_action) {
@@ -775,6 +779,8 @@ stmt_col( mvc *sql, sql_column *c, stmt *del)
 		stmt *u = stmt_bat(sql->sa, c, RD_UPD_ID);
 		sc = stmt_project_delta(sql->sa, sc, u, i);
 		sc = stmt_project(sql->sa, del, sc);
+		if (del)
+			u->partition = del->partition;
 	} else if (del) { /* always handle the deletes */
 		sc = stmt_project(sql->sa, del, sc);
 	}
@@ -786,6 +792,8 @@ stmt_idx( mvc *sql, sql_idx *i, stmt *del)
 { 
 	stmt *sc = stmt_idxbat(sql->sa, i, RDONLY);
 
+	if (del)
+		sc->partition = del->partition;
 	if (isTable(i->t) && i->t->access != TABLE_READONLY &&
 	   (i->base.flag != TR_NEW || i->t->base.flag != TR_NEW /* alter */) &&
 	   (i->t->persistence == SQL_PERSIST || i->t->persistence == SQL_DECLARED_TABLE) && !i->t->commit_action) {
@@ -793,6 +801,8 @@ stmt_idx( mvc *sql, sql_idx *i, stmt *del)
 		stmt *u = stmt_idxbat(sql->sa, i, RD_UPD_ID);
 		sc = stmt_project_delta(sql->sa, sc, u, ic);
 		sc = stmt_project(sql->sa, del, sc);
+		if (del)
+			u->partition = del->partition;
 	} else if (del) { /* always handle the deletes */
 		sc = stmt_project(sql->sa, del, sc);
 	}
@@ -1182,6 +1192,8 @@ rel2bin_basetable( mvc *sql, sql_rel *rel)
 	if (!t && c)
 		t = c->t;
        	dels = stmt_tid(sql->sa, t);
+	if (rel->flag == REL_PARTITION)
+		dels->partition = 1;
 
 	/* add aliases */
 	assert(rel->exps);

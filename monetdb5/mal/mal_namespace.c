@@ -41,11 +41,11 @@ typedef struct NAME{
 	struct NAME *next;
 } *NamePtr;
 
-static NamePtr *hash, *ehash;
+static NamePtr *hash= NULL, *ehash = NULL;
 
 void initNamespace(void) {
-	hash= (NamePtr *) GDKzalloc(sizeof(NamePtr) * MAXIDENTIFIERS);
-	ehash= (NamePtr *) GDKzalloc(sizeof(NamePtr) * MAXIDENTIFIERS);
+	if(hash == NULL) hash= (NamePtr *) GDKzalloc(sizeof(NamePtr) * MAXIDENTIFIERS);
+	if(ehash == NULL) ehash= (NamePtr *) GDKzalloc(sizeof(NamePtr) * MAXIDENTIFIERS);
 	if ( hash == NULL || ehash == NULL){
         /* absolute an error we can not recover from */
         showException(GDKout, MAL,"initNamespace",MAL_MALLOC_FAIL);
@@ -53,7 +53,7 @@ void initNamespace(void) {
 	}
 }
 
-void finishNamespace(void) {
+void mal_namespace_reset(void) {
 	int i;
 	NamePtr n,m;
 
@@ -146,6 +146,7 @@ str putName(const char *nme, size_t len)
 	n->nme= GDKstrdup(buf);
 	if (n->nme == NULL) {
         /* absolute an error we can not recover from */
+		GDKfree(n);
         showException(GDKout, MAL,"initNamespace",MAL_MALLOC_FAIL);
 		mal_exit();
 	}
