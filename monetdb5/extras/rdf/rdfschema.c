@@ -9137,6 +9137,7 @@ void computeMetricsQForRefinedTable(CSset *freqCSset,CSPropTypes *csPropTypes,in
 	printf("Refined Table: Performance metric Q = (weighting %f)/(totalCov %d * numTbl %d) \n", Q,totalCov, numTables);
 	printf("Average precision = %f\n",(float)totalPrecision/numTables);
 	printf("Overall precision = %f (overfill %lld / overalMaxFill %lld)\n", (float) overalFill/overalMaxFill, overalFill, overalMaxFill);
+	printf("Number of NULLs =  %lld | Ratio in all cells: %f\n", overalMaxFill - overalFill, (float) (overalMaxFill - overalFill)/overalMaxFill);
 
 	Q = Q/((float)totalCov * numTables);
 

@@ -258,8 +258,8 @@ BKCsamplebatUni(bat *ret, bat *bid, const flt *_sample){
 		throw(MAL, "bat.BKCsamplebatUni", GDK_EXCEPTION);
 
 	for (i = 0; i < sampsize; i++){
+		nextpos = step * i;  
 		BUNappend(bn, BUNtail(bi, (oid) nextpos), FALSE);
-		nextpos += step;  
 	}	
 
 	*ret = bn->batCacheid;
