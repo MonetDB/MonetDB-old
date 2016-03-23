@@ -385,6 +385,11 @@ mvc_force_persistcommit(lng id) {
 }
 
 int
+mvc_htm_garbagecollect(int ts) {
+    return sql_trans_htm_garbagecollect(ts);
+}
+
+int
 mvc_abort(mvc *m)
 {
 	sql_trans *tr = m->session->tr;

@@ -3576,6 +3576,13 @@ sql_trans_force_persistcommit(lng id)
 }
 
 int
+sql_trans_htm_garbagecollect(int ts)
+{
+	keep_persisted_log_files = ts > 0 ? -ts:ts;
+	return SQL_OK;
+}
+
+int
 sql_trans_abort(sql_trans *tr)
 {
 	int result = LOG_OK;

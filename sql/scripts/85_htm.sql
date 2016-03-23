@@ -13,3 +13,5 @@ CREATE PROCEDURE persistcommit(id bigint)
 CREATE PROCEDURE forcepersistcommit(id bigint)
 	EXTERNAL name sql.forcepersistcommit;
 
+CREATE PROCEDURE htmgarbagecollect(ts int)
+	EXTERNAL name sql.htmgarbagecollect;

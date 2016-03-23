@@ -426,6 +426,20 @@ SQLforcepersistcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
+SQLhtmgarbagecollect(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	int *ts = getArgReference_int(stk, pci, 1);
+
+    (void) cntxt;
+    (void) mb;
+    
+
+	mvc_htm_garbagecollect(*ts);
+    
+    return MAL_SUCCEED;
+}
+
+str
 SQLshutdown_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	str msg;

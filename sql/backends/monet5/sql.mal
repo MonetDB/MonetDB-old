@@ -64,6 +64,9 @@ comment "Persists the per-committed changes, rolling-forward the transaction.";
 pattern forcepersistcommit(id:lng) :int
 address SQLforcepersistcommit
 comment "Persists the per-committed changes.";
+pattern htmgarbagecollect(ts:int) :void
+address SQLhtmgarbagecollect
+comment "Set the maximal live time for the old WAL log files before they are garbagecollected";
 
 pattern catalog(type:int,sname:str,name:str,action:int):void
 address SQLcatalog

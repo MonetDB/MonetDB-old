@@ -143,6 +143,7 @@ extern int mvc_commit(mvc *c, int chain, const char *name);
 extern int mvc_precommit(mvc *m, int chain, const char *name, lng id);
 extern int mvc_persistcommit(mvc *m, int chain, const char *name, lng id);
 extern int mvc_force_persistcommit(lng id);
+extern int mvc_htm_garbagecollect(int ts);
 extern int mvc_abort(mvc *m);
 extern int mvc_rollback(mvc *c, int chain, const char *name);
 extern int mvc_release(mvc *c, const char *name);
