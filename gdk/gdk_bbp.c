@@ -119,6 +119,7 @@ static gdk_return BBPdir(int cnt, bat *subcommit);
 static MT_Lock stampLock MT_LOCK_INITIALIZER("stampLock");
 #endif
 static volatile ATOMIC_TYPE stamp = 0;
+
 static inline int
 BBPstamp(void)
 {
@@ -678,6 +679,227 @@ fixoidheap(void)
 }
 #endif
 
+#ifdef GDKLIBRARY_SORTEDPOS
+static void
+fixsorted(void)
+{
+	bat bid;
+	BATstore *bs;
+	BAT *b;
+	BATiter bi;
+	int dbg = GDKdebug;
+
+	GDKdebug &= ~(CHECKMASK | PROPMASK);
+	for (bid = 1; bid < (bat) ATOMIC_GET(BBPsize, BBPsizeLock); bid++) {
+		if ((bs = BBP_desc(bid)) == NULL)
+			continue; /* not a valid BAT */
+		b = NULL;
+		if (bs->H.nosorted != 0) {
+			bs->H.nosorted = 0;
+			bs->S.descdirty = 1;
+		}
+		if (bs->H.norevsorted != 0) {
+			bs->S.descdirty = 1;
+			bs->H.norevsorted = 0;
+		}
+		if (bs->T.nosorted != 0) {
+			if (bs->T.sorted) {
+				/* position should not be set */
+				bs->S.descdirty = 1;
+				bs->T.nosorted = 0;
+			} else if (bs->T.nosorted <= bs->S.first ||
+			    bs->T.nosorted >= bs->S.first + bs->S.count ||
+				bs->T.type < 0) {
+				/* out of range */
+				bs->S.descdirty = 1;
+				bs->T.nosorted = 0;
+			} else if (bs->T.type == TYPE_void) {
+				/* void is always sorted */
+				bs->S.descdirty = 1;
+				bs->T.nosorted = 0;
+				bs->T.sorted = 1;
+			} else {
+				if (b == NULL) {
+					b = BATdescriptor(bid);
+					bi = bat_iterator(b);
+				}
+				if (ATOMcmp(b->ttype,
+					    BUNtail(bi, bs->T.nosorted - 1),
+					    BUNtail(bi, bs->T.nosorted)) <= 0) {
+					/* incorrect hint */
+					bs->S.descdirty = 1;
+					bs->T.nosorted = 0;
+				}
+			}
+		}
+		if (bs->T.norevsorted != 0) {
+			if (bs->T.revsorted) {
+				/* position should not be set */
+				bs->S.descdirty = 1;
+				bs->T.norevsorted = 0;
+			} else if (bs->T.norevsorted <= bs->S.first ||
+			    bs->T.norevsorted >= bs->S.first + bs->S.count ||
+				bs->T.type < 0) {
+				/* out of range */
+				bs->S.descdirty = 1;
+				bs->T.norevsorted = 0;
+			} else if (bs->T.type == TYPE_void) {
+				/* void is only revsorted if nil */
+				bs->S.descdirty = 1;
+				if (bs->T.seq == oid_nil ||
+				    bs->S.count <= 1) {
+					bs->T.norevsorted = 0;
+					bs->T.revsorted = 1;
+				} else {
+					bs->T.norevsorted = 1;
+				}
+			} else {
+				if (b == NULL) {
+					b = BATdescriptor(bid);
+					bi = bat_iterator(b);
+				}
+				if (ATOMcmp(b->ttype,
+					    BUNtail(bi, bs->T.norevsorted - 1),
+					    BUNtail(bi, bs->T.norevsorted)) >= 0) {
+					/* incorrect hint */
+					bs->S.descdirty = 1;
+					bs->T.norevsorted = 0;
+				}
+			}
+		}
+		if (b)
+			BBPunfix(bid);
+	}
+	GDKdebug = dbg;
+}
+#endif
+
+#ifdef GDKLIBRARY_OLDWKB
+/* "Danger, Will Robinson".
+ *
+ * Upgrade the Well-known Binary (WKB) from older geom versions to the
+ * one in current use.  This function must be called before the SQL
+ * Write-ahead Log (WAL) is processed, and in order to be able to
+ * recover safely, we call it here.  The WAL may create new BATs with
+ * the WKB type, or append values to an existing BAT.  In the first
+ * case it is hard, and in the second impossible, to upgrade the BAT
+ * later.
+ *
+ * This function is located here, since it needs to be called early
+ * (as discussed), and because it calls functions that are GDK only.
+ * There is a little knowledge about the MonetDB WKB type, but nothing
+ * about the internals of the type.  The only knowledge is the layout
+ * of the old and new structures.
+ *
+ * All errors are fatal.
+ */
+static void
+fixwkbheap(void)
+{
+	bat bid, bbpsize = getBBPsize();
+	BATstore *bs;
+	BAT *b;
+	int utypewkb = ATOMunknown_find("wkb");
+	const char *nme, *bnme;
+	char filename[64];
+	Heap h1, h2;
+	const var_t *restrict old;
+	var_t *restrict new;
+	BUN i;
+	struct old_wkb {
+		int len;
+		char data[FLEXIBLE_ARRAY_MEMBER];
+	} *owkb;
+	struct new_wkb {
+		int len;
+		int srid;
+		char data[FLEXIBLE_ARRAY_MEMBER];
+	} *nwkb;
+	char *oldname, *newname;
+
+	for (bid = 1; bid < bbpsize; bid++) {
+		if ((bs = BBP_desc(bid)) == NULL)
+			continue; /* not a valid BAT */
+		b = (BAT *) bs;	  /* bit of a hack: BATstore contents not known */
+		if (b->T->type != utypewkb || b->batCount == 0)
+			continue; /* nothing to do for this BAT */
+		assert(b->T->vheap);
+		assert(b->T->width == SIZEOF_VAR_T);
+
+		nme = BBP_physical(bid);
+		if ((bnme = strrchr(nme, DIR_SEP)) == NULL)
+			bnme = nme;
+		else
+			bnme++;
+		snprintf(filename, sizeof(filename), "BACKUP%c%s", DIR_SEP, bnme);
+		if ((oldname = GDKfilepath(b->T->heap.farmid, BATDIR, nme, "tail")) == NULL ||
+		    (newname = GDKfilepath(b->T->heap.farmid, BAKDIR, bnme, "tail")) == NULL ||
+		    GDKcreatedir(newname) != GDK_SUCCEED ||
+		    rename(oldname, newname) < 0)
+			GDKfatal("fixwkbheap: cannot make backup of %s.tail\n", nme);
+		GDKfree(oldname);
+		GDKfree(newname);
+		if ((oldname = GDKfilepath(b->T->vheap->farmid, BATDIR, nme, "theap")) == NULL ||
+		    (newname = GDKfilepath(b->T->vheap->farmid, BAKDIR, bnme, "theap")) == NULL ||
+		    rename(oldname, newname) < 0)
+			GDKfatal("fixwkbheap: cannot make backup of %s.theap\n", nme);
+		GDKfree(oldname);
+		GDKfree(newname);
+
+		h1 = b->T->heap;
+		h1.filename = NULL;
+		h1.base = NULL;
+		h1.dirty = 0;
+		h2 = *b->T->vheap;
+		h2.filename = NULL;
+		h2.base = NULL;
+		h2.dirty = 0;
+
+		/* load old heaps */
+		if (HEAPload(&h1, filename, "tail", 0) != GDK_SUCCEED ||
+		    HEAPload(&h2, filename, "theap", 0) != GDK_SUCCEED)
+			GDKfatal("fixwkbheap: cannot load old heaps for BAT %d\n", bid);
+		/* create new heaps */
+		if ((b->T->heap.filename = GDKfilepath(NOFARM, NULL, nme, "tail")) == NULL ||
+		    (b->T->vheap->filename = GDKfilepath(NOFARM, NULL, nme, "theap")) == NULL)
+			GDKfatal("fixwkbheap: out of memory\n");
+		if (HEAPalloc(&b->T->heap, b->batCapacity, SIZEOF_VAR_T) != GDK_SUCCEED)
+			GDKfatal("fixwkbheap: cannot allocate heap\n");
+		b->T->heap.dirty = TRUE;
+		b->T->heap.free = h1.free;
+		HEAP_initialize(b->T->vheap, b->batCapacity, 0, (int) sizeof(var_t));
+		if (b->T->vheap->base == NULL)
+			GDKfatal("fixwkbheap: cannot allocate heap\n");
+		b->T->vheap->parentid = bid;
+
+		/* do the conversion */
+		b->T->heap.dirty = TRUE;
+		b->T->vheap->dirty = TRUE;
+		old = (const var_t *) h1.base + BUNfirst(b);
+		new = (var_t *) Tloc(b, BUNfirst(b));
+		for (i = 0; i < b->batCount; i++) {
+			int len;
+			owkb = (struct old_wkb *) (h2.base + old[i]);
+			if ((len = owkb->len) == ~0)
+				len = 0;
+			if ((new[i] = HEAP_malloc(b->T->vheap, offsetof(struct new_wkb, data) + len)) == 0)
+				GDKfatal("fixwkbheap: cannot allocate heap space\n");
+			nwkb = (struct new_wkb *) (b->T->vheap->base + (new[i] << GDK_VARSHIFT));
+			nwkb->len = owkb->len;
+			nwkb->srid = 0;
+			if (len > 0)
+				memcpy(nwkb->data, owkb->data, len);
+		}
+		HEAPfree(&h1, 0);
+		HEAPfree(&h2, 0);
+		HEAPsave(&b->T->heap, nme, "tail");
+		HEAPfree(&b->T->heap, 0);
+		HEAPsave(b->T->vheap, nme, "theap");
+		HEAPfree(b->T->vheap, 0);
+	}
+}
+#endif
+
 /*
  * A read only BAT can be shared in a file system by reading its
  * descriptor separately.  The default src=0 is to read the full
@@ -890,10 +1112,6 @@ BBPreadEntries(FILE *fp, int *min_stamp, int *max_stamp, int oidsize, int bbpver
 		bs->S.first = (BUN) first;
 		bs->S.count = (BUN) count;
 		bs->S.capacity = (BUN) capacity;
-		bs->S.map_head = (char) map_head;
-		bs->S.map_tail = (char) map_tail;
-		bs->S.map_hheap = (char) map_hheap;
-		bs->S.map_theap = (char) map_theap;
 
 		nread += heapinit(&bs->H, buf + nread, &Hhashash, "H", oidsize, bbpversion, bid);
 		nread += heapinit(&bs->T, buf + nread, &Thashash, "T", oidsize, bbpversion, bid);
@@ -973,7 +1191,9 @@ BBPheader(FILE *fp, oid *BBPoid, int *OIDsize)
 		exit(1);
 	}
 	if (bbpversion != GDKLIBRARY &&
-	    bbpversion != GDKLIBRARY_64_BIT_INT) {
+	    bbpversion != GDKLIBRARY_SORTEDPOS &&
+	    bbpversion != GDKLIBRARY_64_BIT_INT &&
+	    bbpversion != GDKLIBRARY_OLDWKB) {
 		GDKfatal("BBPinit: incompatible BBP version: expected 0%o, got 0%o.", GDKLIBRARY, bbpversion);
 	}
 	if (fgets(buf, sizeof(buf), fp) == NULL) {
@@ -1140,6 +1360,14 @@ BBPinit(void)
 #else
 	(void) oidsize;
 #endif
+#ifdef GDKLIBRARY_SORTEDPOS
+	if (bbpversion <= GDKLIBRARY_SORTEDPOS)
+		fixsorted();
+#endif
+#ifdef GDKLIBRARY_OLDWKB
+	if (bbpversion <= GDKLIBRARY_OLDWKB)
+		fixwkbheap();
+#endif
 	if (bbpversion < GDKLIBRARY || needcommit)
 		TMcommit();
 
@@ -1305,10 +1533,10 @@ new_bbpentry(FILE *fp, bat i)
 		    BBP_desc(i)->S.first,
 		    BBP_desc(i)->S.count,
 		    BBP_desc(i)->S.capacity,
-		    (unsigned char) BBP_desc(i)->S.map_head,
-		    (unsigned char) BBP_desc(i)->S.map_tail,
-		    (unsigned char) BBP_desc(i)->S.map_hheap,
-		    (unsigned char) BBP_desc(i)->S.map_theap) < 0 ||
+		    (unsigned char) 0,
+		    (unsigned char) 0,
+		    (unsigned char) 0,
+		    (unsigned char) 0) < 0 ||
 	    heap_entry(fp, &BBP_desc(i)->H) < 0 ||
 	    heap_entry(fp, &BBP_desc(i)->T) < 0 ||
 	    vheap_entry(fp, BBP_desc(i)->H.vheap) < 0 ||
@@ -2500,7 +2728,8 @@ getBBPdescriptor(bat i, int lock)
 
 		/* clearing bits can be done without the lock */
 		BBP_status_off(j, BBPLOADING, "BBPdescriptor");
-		CHECKDEBUG BATassertProps(b);
+		CHECKDEBUG if (b != NULL)
+			BATassertProps(b);
 		if (i < 0)
 			b = BATmirror(b);
 	}
@@ -2982,7 +3211,7 @@ BBPtrim(size_t target)
 		bbpscanstart = 1;	/* sometimes, the BBP shrinks! */
 	limit = bbpscanstart;
 
-	while (target > 0) {
+	while (target > 0 && !GDKexiting()) {
 		/* check for runtime overruling */
 		if (GDK_vm_trim == 0)
 			break;
@@ -3889,8 +4118,7 @@ BBPdiskscan(const char *parent)
 #else
 			delete = TRUE;
 #endif
-		} else if (strncmp(p + 1, "hhash", 5) == 0 ||
-			   strncmp(p + 1, "thash", 5) == 0) {
+		} else if (strncmp(p + 1, "thash", 5) == 0) {
 #ifdef PERSISTENTHASH
 			BAT *b = getdesc(bid);
 			delete = b == NULL;
@@ -3985,3 +4213,34 @@ BBPatom_load(int atom)
 }
 #endif
 
+void
+gdk_bbp_reset(void)
+{
+	memset((char*) BBP, 0, sizeof(BBP));
+	BBPlimit = 0;
+	BBPsize = 0;
+	memset((char*) BBPfarms, 0, sizeof(BBPfarms));
+	BBP_hash = 0;
+	BBP_mask = 0;
+	stamp = 0;
+
+	BBP_curstamp = 0;
+	BBP_notrim =  ~((MT_Id) 0);
+	BBP_dirty = 0;
+	BBPin = 0;
+	BBPout = 0;
+
+	locked_by = 0;
+	BBPunloadCnt = 0;
+	memset((char*) lastused, 0, sizeof(lastused));
+	memset((char*) bbptrim, 0, sizeof(bbptrim));
+	bbptrimfirst = BBPMAXTRIM;
+	bbptrimlast = 0;
+	bbptrimmax = BBPMAXTRIM;
+	bbpscanstart = 1;
+	bbpunloadtail = 0;
+	bbpunload = 0;
+	backup_files = 0;
+	backup_dir = 0;
+	backup_subdir = 0;
+}

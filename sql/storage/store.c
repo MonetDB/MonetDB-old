@@ -19,7 +19,7 @@
 #include <bat/bat_logger.h>
 
 /* version 05.21.00 of catalog */
-#define CATALOG_VERSION 52200
+#define CATALOG_VERSION 52201
 int catalog_version = 0;
 
 static MT_Lock bs_lock MT_LOCK_INITIALIZER("bs_lock");
@@ -1658,13 +1658,15 @@ store_flush_log(void)
 void
 store_manager(void)
 {
+	const int timeout = GDKdebug & FORCEMITOMASK ? 10 : 50;
+
 	while (!GDKexiting()) {
 		int res = LOG_OK;
 		int t;
 		lng shared_transactions_drift = -1;
 
-		for (t = 30000; t > 0 && !need_flush; t -= 50) {
-			MT_sleep_ms(50);
+		for (t = 30000; t > 0 && !need_flush; t -= timeout) {
+			MT_sleep_ms(timeout);
 			if (GDKexiting())
 				return;
 		}
@@ -1688,7 +1690,9 @@ store_manager(void)
 		need_flush = 0;
         	while (store_nr_active) { /* find a moment to flush */
             		MT_lock_unset(&bs_lock);
-            		MT_sleep_ms(50);
+			if (GDKexiting())
+				continue;
+            		MT_sleep_ms(timeout);
             		MT_lock_set(&bs_lock);
         	}
 
@@ -2120,6 +2124,17 @@ sql_trans_tname_conflict( sql_trans *tr, sql_schema *s, const char *extra, const
 		*tp = 0;
 		t = find_sql_table(s, tmp);
 		if (t && sql_trans_cname_conflict(tr, t, tp+1, cname))
+			return 1;
+		*tp++ = '_';
+	}
+       	tmp = sa_strdup(tr->sa, cname);
+	tp = tmp;
+	while ((tp = strchr(tp, '_')) != NULL) {
+		char *ntmp;
+		*tp = 0;
+		ntmp = sa_message(tr->sa, "%s_%s", tname, tmp);
+		t = find_sql_table(s, ntmp);
+		if (t && sql_trans_cname_conflict(tr, t, NULL, tp+1))
 			return 1;
 		*tp++ = '_';
 	}

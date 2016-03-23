@@ -31,372 +31,15 @@
 	}					\
 } while (0)
 
-/* binary search */
-#define check(Z,X,W) if ((X) >= bins[W] && (X) < bins[W+1]) (Z) = W;
-#define left(Z,X,W)  if ((X) < bins[W+1])
-#define right(Z,X,W) if ((X) >= bins[W])
 
-#define GETBIN64(Z,X)						\
-	right(Z,X,32) {						\
-		right(Z,X,48) {					\
-			right(Z,X,56) {				\
-				right(Z,X,60){			\
-					right(Z,X,62) {		\
-						Z = 62;		\
-						right(Z,X,63) {	\
-							Z = 63;	\
-						}		\
-					}			\
-					check(Z,X,61)		\
-					left(Z,X,60) {		\
-						Z = 60;		\
-					}			\
-				}				\
-				check(Z,X,59)			\
-				left(Z,X,58) {			\
-					right(Z,X,58) {		\
-						Z = 58;		\
-					}			\
-					check(Z,X,57)		\
-					left(Z,X,56) {		\
-						Z = 56;		\
-					}			\
-				}				\
-			}					\
-			check(Z,X,55)				\
-			left(Z,X,54) {				\
-				right(Z,X,52){			\
-					right(Z,X,54) {		\
-						Z = 54;		\
-					}			\
-					check(Z,X,53)		\
-					left(Z,X,52) {		\
-						Z = 52;		\
-					}			\
-				}				\
-				check(Z,X,51)			\
-				left(Z,X,50) {			\
-					right(Z,X,50) {		\
-						Z = 50;		\
-					}			\
-					check(Z,X,49)		\
-					left(Z,X,48) {		\
-						Z = 48;		\
-					}			\
-				}				\
-			}					\
-		}						\
-		check(Z,X,47)					\
-		left(Z,X,46) {					\
-			right(Z,X,40) {				\
-				right(Z,X,44){			\
-					right(Z,X,46) {		\
-						Z = 46;		\
-					}			\
-					check(Z,X,45)		\
-					left(Z,X,44) {		\
-						Z = 44;		\
-					}			\
-				}				\
-				check(Z,X,43)			\
-				left(Z,X,42) {			\
-					right(Z,X,42) {		\
-						Z = 42;		\
-					}			\
-					check(Z,X,41)		\
-					left(Z,X,40) {		\
-						Z = 40;		\
-					}			\
-				}				\
-			}					\
-			check(Z,X,39)				\
-			left(Z,X,38) {				\
-				right(Z,X,36){			\
-					right(Z,X,38) {		\
-						Z = 38;		\
-					}			\
-					check(Z,X,37)		\
-					left(Z,X,36) {		\
-						Z = 36;		\
-					}			\
-				}				\
-				check(Z,X,35)			\
-				left(Z,X,34) {			\
-					right(Z,X,34) {		\
-						Z = 34;		\
-					}			\
-					check(Z,X,33)		\
-					left(Z,X,32) {		\
-						Z = 32;		\
-					}			\
-				}				\
-			}					\
-		}						\
-	}							\
-	check(Z,X,31)						\
-	left(Z,X,30) {						\
-		right(Z,X,16) {					\
-			right(Z,X,24) {				\
-				right(Z,X,28){			\
-					right(Z,X,30) {		\
-						Z = 30;		\
-					}			\
-					check(Z,X,29)		\
-					left(Z,X,28) {		\
-						Z = 28;		\
-					}			\
-				}				\
-				check(Z,X,27)			\
-				left(Z,X,26) {			\
-					right(Z,X,26) {		\
-						Z = 26;		\
-					}			\
-					check(Z,X,25)		\
-					left(Z,X,24) {		\
-						Z = 24;		\
-					}			\
-				}				\
-			}					\
-			check(Z,X,23)				\
-			left(Z,X,22) {				\
-				right(Z,X,20){			\
-					right(Z,X,22) {		\
-						Z = 22;		\
-					}			\
-					check(Z,X,21)		\
-					left(Z,X,20) {		\
-						Z = 20;		\
-					}			\
-				}				\
-				check(Z,X,19)			\
-				left(Z,X,18) {			\
-					right(Z,X,18) {		\
-						Z = 18;		\
-					}			\
-					check(Z,X,17)		\
-					left(Z,X,16) {		\
-						Z = 16;		\
-					}			\
-				}				\
-			}					\
-		}						\
-		check(Z,X,15)					\
-		left(Z,X,14) {					\
-			right(Z,X,8) {				\
-				right(Z,X,12){			\
-					right(Z,X,14) {		\
-						Z = 14;		\
-					}			\
-					check(Z,X,13)		\
-					left(Z,X,12) {		\
-						Z = 12;		\
-					}			\
-				}				\
-				check(Z,X,11)			\
-				left(Z,X,10) {			\
-					right(Z,X,10) {		\
-						Z = 10;		\
-					}			\
-					check(Z,X,9)		\
-					left(Z,X,8) {		\
-						Z = 8;		\
-					}			\
-				}				\
-			}					\
-			check(Z,X,7)				\
-			left(Z,X,6) {				\
-				right(Z,X,4){			\
-					right(Z,X,6) {		\
-						Z = 6;		\
-					}			\
-					check(Z,X,5)		\
-					left(Z,X,4) {		\
-						Z = 4;		\
-					}			\
-				}				\
-				check(Z,X,3)			\
-				left(Z,X,2) {			\
-					right(Z,X,2) {		\
-						Z = 2;		\
-					}			\
-					check(Z,X,1)		\
-					left(Z,X,0) {		\
-						Z = 0;		\
-					}			\
-				}				\
-			}					\
-		}						\
-	}
+#define GETBIN(Z,X,B)			\
+do {					\
+	int _i;				\
+	Z = 0;				\
+	for (_i = 1; _i < B; _i++)	\
+		Z += ((X) >= bins[_i]);	\
+} while (0)
 
-#define GETBIN32(Z,X)					\
-	right(Z,X,16) {					\
-		right(Z,X,24) {				\
-			right(Z,X,28){			\
-				right(Z,X,30) {		\
-					Z = 30;		\
-					right(Z,X,31) {	\
-						Z = 31;	\
-					}		\
-				}			\
-				check(Z,X,29)		\
-				left(Z,X,28) {		\
-					Z = 28;		\
-				}			\
-			}				\
-			check(Z,X,27)			\
-			left(Z,X,26) {			\
-				right(Z,X,26) {		\
-					Z = 26;		\
-				}			\
-				check(Z,X,25)		\
-				left(Z,X,24) {		\
-					Z = 24;		\
-				}			\
-			}				\
-		}					\
-		check(Z,X,23)				\
-		left(Z,X,22) {				\
-			right(Z,X,20){			\
-				right(Z,X,22) {		\
-					Z = 22;		\
-				}			\
-				check(Z,X,21)		\
-				left(Z,X,20) {		\
-					Z = 20;		\
-				}			\
-			}				\
-			check(Z,X,19)			\
-			left(Z,X,18) {			\
-				right(Z,X,18) {		\
-					Z = 18;		\
-				}			\
-				check(Z,X,17)		\
-				left(Z,X,16) {		\
-					Z = 16;		\
-				}			\
-			}				\
-		}					\
-	}						\
-	check(Z,X,15)					\
-	left(Z,X,14) {					\
-		right(Z,X,8) {				\
-			right(Z,X,12){			\
-				right(Z,X,14) {		\
-					Z = 14;		\
-				}			\
-				check(Z,X,13)		\
-				left(Z,X,12) {		\
-					Z = 12;		\
-				}			\
-			}				\
-			check(Z,X,11)			\
-			left(Z,X,10) {			\
-				right(Z,X,10) {		\
-					Z = 10;		\
-				}			\
-				check(Z,X,9)		\
-				left(Z,X,8) {		\
-					Z = 8;		\
-				}			\
-			}				\
-		}					\
-		check(Z,X,7)				\
-		left(Z,X,6) {				\
-			right(Z,X,4){			\
-				right(Z,X,6) {		\
-					Z = 6;		\
-				}			\
-				check(Z,X,5)		\
-				left(Z,X,4) {		\
-					Z = 4;		\
-				}			\
-			}				\
-			check(Z,X,3)			\
-			left(Z,X,2) {			\
-				right(Z,X,2) {		\
-					Z = 2;		\
-				}			\
-				check(Z,X,1)		\
-				left(Z,X,0) {		\
-					Z = 0;		\
-				}			\
-			}				\
-		}					\
-	}
-
-#define GETBIN16(Z,X)				\
-	right(Z,X,8) {				\
-		right(Z,X,12){			\
-			right(Z,X,14) {		\
-				Z = 14;		\
-				right(Z,X,15) {	\
-					Z = 15;	\
-				}		\
-			}			\
-			check(Z,X,13)		\
-			left(Z,X,12) {		\
-				Z = 12;		\
-			}			\
-		}				\
-		check(Z,X,11)			\
-		left(Z,X,10) {			\
-			right(Z,X,10) {		\
-				Z = 10;		\
-			}			\
-			check(Z,X,9)		\
-			left(Z,X,8) {		\
-				Z = 8;		\
-			}			\
-		}				\
-	}					\
-	check(Z,X,7)				\
-	left(Z,X,6) {				\
-		right(Z,X,4){			\
-			right(Z,X,6) {		\
-				Z = 6;		\
-			}			\
-			check(Z,X,5)		\
-			left(Z,X,4) {		\
-				Z = 4;		\
-			}			\
-		}				\
-		check(Z,X,3)			\
-		left(Z,X,2) {			\
-			right(Z,X,2) {		\
-				Z = 2;		\
-			}			\
-			check(Z,X,1)		\
-			left(Z,X,0) {		\
-				Z = 0;		\
-			}			\
-		}				\
-	}
-
-#define GETBIN8(Z,X)				\
-	right(Z,X,4){				\
-		right(Z,X,6) {			\
-			Z = 6;			\
-			right(Z,X,7) {		\
-				Z = 7;		\
-			}			\
-		}				\
-		check(Z,X,5)			\
-		left(Z,X,4) {			\
-			Z = 4;			\
-		}				\
-	}					\
-	check(Z,X,3)				\
-	left(Z,X,2) {				\
-		right(Z,X,2) {			\
-			Z = 2;			\
-		}				\
-		check(Z,X,1)			\
-		left(Z,X,0) {			\
-			Z = 0;			\
-		}				\
-	}
-
-/* end of binary search */
 
 #define IMPS_CREATE(TYPE,B)						\
 do {									\
@@ -404,82 +47,61 @@ do {									\
 	uint##B##_t *restrict im = (uint##B##_t *) imps;		\
 	const TYPE *restrict col = (TYPE *) Tloc(b, b->batFirst);	\
 	const TYPE *restrict bins = (TYPE *) inbins;			\
-	TYPE nil = TYPE##_nil;						\
-	prvmask = mask = 0;						\
-	new = (IMPS_PAGE/sizeof(TYPE))-1;				\
-	for (i = 0; i < b->batCount; i++) {				\
-		if (!(i&new) && i>0) {					\
-			/* same mask as previous and enough count to add */ \
-			if ((prvmask == mask) &&			\
-			    (dict[dcnt-1].cnt < (IMPS_MAX_CNT-1))) {	\
-				/* not a repeat header */		\
-				if (!dict[dcnt-1].repeat) {		\
-					/* if compressed */		\
-					if (dict[dcnt-1].cnt > 1) {	\
-						/* uncompress last */	\
-						dict[dcnt-1].cnt--;	\
-						dcnt++; /* new header */ \
-						dict[dcnt-1].cnt = 1;	\
-					}				\
-					/* set repeat */		\
-					dict[dcnt-1].repeat = 1;	\
-				}					\
-				/* increase cnt */			\
-				dict[dcnt-1].cnt++;			\
-			} else { /* new mask (or run out of header count) */ \
-				prvmask=mask;				\
-				im[icnt] = mask;			\
-				icnt++;					\
-				if ((dcnt > 0) && !(dict[dcnt-1].repeat) && \
-				    (dict[dcnt-1].cnt < (IMPS_MAX_CNT-1))) { \
-					dict[dcnt-1].cnt++;		\
+	const TYPE nil = TYPE##_nil;					\
+	const BUN page = IMPS_PAGE / sizeof(TYPE);			\
+	prvmask = 0;							\
+	for (i = 0; i < b->batCount; ) {				\
+		const BUN lim = MIN(i + page, b->batCount);		\
+		/* new mask */						\
+		mask = 0;						\
+		/* build mask for all BUNs in one PAGE */		\
+		for ( ; i < lim; i++) {					\
+			register const TYPE val = col[i];		\
+			GETBIN(bin,val,B);				\
+			mask = IMPSsetBit(B,mask,bin);			\
+			if (val != nil) { /* do not count nils */	\
+				if (!cnt_bins[bin]++) {			\
+					min_bins[bin] = max_bins[bin] = i;\
 				} else {				\
+					if (val < col[min_bins[bin]])	\
+						min_bins[bin] = i;	\
+					if (val > col[max_bins[bin]])	\
+						max_bins[bin] = i;	\
+				}					\
+			}						\
+		}							\
+		/* same mask as previous and enough count to add */	\
+		if ((prvmask == mask) && (dcnt > 0) &&			\
+		    (dict[dcnt-1].cnt < (IMPS_MAX_CNT-1))) {		\
+			/* not a repeat header */			\
+			if (!dict[dcnt-1].repeat) {			\
+				/* if compressed */			\
+				if (dict[dcnt-1].cnt > 1) {		\
+					/* uncompress last */		\
+					dict[dcnt-1].cnt--;		\
+					/* new header */		\
 					dict[dcnt].cnt = 1;		\
-					dict[dcnt].repeat = 0;		\
 					dict[dcnt].flags = 0;		\
 					dcnt++;				\
 				}					\
+				/* set repeat */			\
+				dict[dcnt-1].repeat = 1;		\
 			}						\
-			/* new mask */					\
-			mask = 0;					\
-		}							\
-		GETBIN##B(bin,col[i]);					\
-		mask = IMPSsetBit(B,mask,bin);				\
-		if (col[i] != nil) { /* do not count nils */		\
-			if (!cnt_bins[bin]++) {				\
-				min_bins[bin] = max_bins[bin] = i;	\
+			/* increase cnt */				\
+			dict[dcnt-1].cnt++;				\
+		} else { /* new mask (or run out of header count) */	\
+			prvmask=mask;					\
+			im[icnt] = mask;				\
+			icnt++;						\
+			if ((dcnt > 0) && !(dict[dcnt-1].repeat) &&	\
+			    (dict[dcnt-1].cnt < (IMPS_MAX_CNT-1))) {	\
+				dict[dcnt-1].cnt++;			\
 			} else {					\
-				if (col[i] < col[min_bins[bin]])	\
-					min_bins[bin] = i;		\
-				if (col[i] > col[max_bins[bin]])	\
-					max_bins[bin] = i;		\
-			}						\
-		}							\
-	}								\
-	/* one last left */						\
-	if (prvmask == mask && dcnt > 0 &&				\
-	    (dict[dcnt-1].cnt < (IMPS_MAX_CNT-1))) {			\
-		if (!dict[dcnt-1].repeat) {				\
-			if (dict[dcnt-1].cnt > 1) {			\
-				dict[dcnt-1].cnt--;			\
 				dict[dcnt].cnt = 1;			\
+				dict[dcnt].repeat = 0;			\
 				dict[dcnt].flags = 0;			\
 				dcnt++;					\
 			}						\
-			dict[dcnt-1].repeat = 1;			\
-		}							\
-		dict[dcnt-1].cnt ++;					\
-	} else {							\
-		im[icnt] = mask;					\
-		icnt++;							\
-		if ((dcnt > 0) && !(dict[dcnt-1].repeat) &&		\
-		    (dict[dcnt-1].cnt < (IMPS_MAX_CNT-1))) {		\
-			dict[dcnt-1].cnt++;				\
-		} else {						\
-			dict[dcnt].cnt = 1;				\
-			dict[dcnt].repeat = 0;				\
-			dict[dcnt].flags = 0;				\
-			dcnt++;						\
 		}							\
 	}								\
 } while (0)
@@ -489,14 +111,13 @@ imprints_create(BAT *b, void *inbins, BUN *stats, bte bits,
 		void *imps, BUN *impcnt, cchdc_t *dict, BUN *dictcnt)
 {
 	BUN i;
-	BUN dcnt, icnt, new;
+	BUN dcnt, icnt;
 	BUN *restrict min_bins = stats;
 	BUN *restrict max_bins = min_bins + 64;
 	BUN *restrict cnt_bins = max_bins + 64;
-	bte bin = 0;
+	int bin = 0;
 	dcnt = icnt = 0;
-	for (i = 0; i < 64; i++)
-		cnt_bins[i] = 0;
+	memset(cnt_bins, 0, 64 * SIZEOF_BUN);
 
 	switch (ATOMbasetype(b->T->type)) {
 	case TYPE_bte:
@@ -619,6 +240,7 @@ BATcheckimprints(BAT *b)
 					imprints->imps = (void *) (imprints->stats + 64 * 3);
 					imprints->dict = (void *) ((uintptr_t) ((char *) imprints->imps + pages * (imprints->bits / 8) + sizeof(uint64_t)) & ~(sizeof(uint64_t) - 1));
 					close(fd);
+					imprints->imprints->parentid = b->batCacheid;
 					b->T->imprints = imprints;
 					ALGODEBUG fprintf(stderr, "#BATcheckimprints: reusing persisted imprints %d\n", b->batCacheid);
 					MT_lock_unset(&GDKimprintsLock(abs(b->batCacheid)));
@@ -758,11 +380,11 @@ BATimprints(BAT *b)
 		assert(s4->tkey && s4->tsorted);
 		cnt = BATcount(s4);
 		imprints->bits = 64;
-		if (cnt < 32)
+		if (cnt <= 32)
 			imprints->bits = 32;
-		if (cnt < 16)
+		if (cnt <= 16)
 			imprints->bits = 16;
-		if (cnt < 8)
+		if (cnt <= 8)
 			imprints->bits = 8;
 
 		/* The heap we create here consists of four parts:
@@ -865,6 +487,7 @@ BATimprints(BAT *b)
 			}
 			close(fd);
 		}
+		imprints->imprints->parentid = b->batCacheid;
 		b->T->imprints = imprints;
 	}
 
@@ -891,7 +514,11 @@ BATimprints(BAT *b)
 	return GDK_SUCCEED;
 }
 
-#define getbin(TYPE,B) GETBIN##B(ret, *(TYPE *)v);
+#define getbin(TYPE,B)				\
+do {						\
+	register const TYPE val = * (TYPE *) v;	\
+	GETBIN(ret,val,B);			\
+} while (0)
 
 int
 IMPSgetbin(int tpe, bte bits, const char *restrict inbins, const void *restrict v)
@@ -926,7 +553,7 @@ IMPSgetbin(int tpe, bte bits, const char *restrict inbins, const void *restrict 
 #ifdef HAVE_HGE
 	case TYPE_hge:
 	{
-		hge *bins = (hge *) inbins;
+		const hge *restrict bins = (hge *) inbins;
 		BINSIZE(bits, getbin, hge);
 	}
 		break;

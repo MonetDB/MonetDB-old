@@ -847,10 +847,6 @@ typedef struct {
 	 role:8,		/* role of the bat */
 	 unused:15;		/* value=0 for now */
 	int sharecnt;		/* incoming view count */
-	char map_head;		/* mmap mode for head bun heap */
-	char map_tail;		/* mmap mode for tail bun heap */
-	char map_hheap;		/* mmap mode for head atom heap */
-	char map_theap;		/* mmap mode for tail atom heap */
 
 	/* delta status administration */
 	BUN deleted;		/* start of deleted elements */
@@ -874,7 +870,7 @@ typedef struct {
 	 varsized:1,		/* varsized (1) or fixedsized (0) */
 	 key:2,			/* duplicates allowed? */
 	 dense:1,		/* OID only: only consecutive values */
-	 nonil:1,		/* nonil isn't propchecked yet */
+	 nonil:1,		/* there are no nils in the column */
 	 nil:1,			/* there is a nil in the column */
 	 sorted:1,		/* column is sorted in ascending order */
 	 revsorted:1;		/* column is sorted in descending order */
@@ -898,7 +894,9 @@ typedef struct {
 
 #define GDKLIBRARY_INET_COMPARE	061026	/* version with missing inet cmp func */
 #define GDKLIBRARY_64_BIT_INT	061027	/* version that had no 128-bit integer option, yet */
-#define GDKLIBRARY		061030
+#define GDKLIBRARY_SORTEDPOS	061030	/* version where we can't trust no(rev)sorted */
+#define GDKLIBRARY_OLDWKB	061031	/* old geom WKB format */
+#define GDKLIBRARY		061032
 
 typedef struct BAT {
 	/* static bat properties */
@@ -957,10 +955,6 @@ typedef int (*GDKfcn) ();
 #define halign		H->align
 #define talign		T->align
 
-#define batMaphead	S->map_head
-#define batMaptail	S->map_tail
-#define batMaphheap	S->map_hheap
-#define batMaptheap	S->map_theap
 /*
  * @- Heap Management
  * Heaps are the low-level entities of mass storage in
@@ -1264,6 +1258,12 @@ gdk_export gdk_return BATdel(BAT *b, BAT *d);
 gdk_export gdk_return BUNinplace(BAT *b, BUN p, const void *right, bit force);
 gdk_export gdk_return BATreplace(BAT *b, BAT *p, BAT *n, bit force);
 
+/* Functions to perform a binary search on a sorted BAT.
+ * See gdk_search.c for details. */
+gdk_export BUN SORTfnd(BAT *b, const void *v);
+gdk_export BUN SORTfndfirst(BAT *b, const void *v);
+gdk_export BUN SORTfndlast(BAT *b, const void *v);
+
 gdk_export BUN BUNfnd(BAT *b, const void *right);
 
 #define BUNfndVOID(b, v)						\
@@ -1481,8 +1481,6 @@ gdk_export gdk_return BATgroup(BAT **groups, BAT **extents, BAT **histo, BAT *b,
  * @item BAT *
  * @tab BATsave (BAT *b)
  * @item int
- * @tab BATmmap (BAT *b, int hb, int tb, int hh, int th, int force )
- * @item int
  * @tab BATdelete (BAT *b)
  * @end multitable
  *
@@ -1497,14 +1495,12 @@ gdk_export gdk_return BATgroup(BAT **groups, BAT **extents, BAT **histo, BAT *b,
  *
  * @- Heap Storage Modes
  * The discriminative storage modes are memory-mapped, compressed, or
- * loaded in memory.  The @strong{BATmmap()} changes the storage mode
- * of each heap associated to a BAT.  As can be seen in the bat
- * record, each BAT has one BUN-heap (@emph{bn}), and possibly two
- * heaps (@emph{hh} and @emph{th}) for variable-sized atoms.
+ * loaded in memory.  As can be seen in the bat record, each BAT has
+ * one BUN-heap (@emph{bn}), and possibly two heaps (@emph{hh} and
+ * @emph{th}) for variable-sized atoms.
  */
 
 gdk_export gdk_return BATsave(BAT *b);
-gdk_export void BATmmap(BAT *b, int hb, int tb, int hh, int th, int force);
 gdk_export void BATmsync(BAT *b);
 
 gdk_export size_t BATmemsize(BAT *b, int dirty);
@@ -2401,7 +2397,7 @@ __declspec(noreturn) gdk_export void GDKfatal(_In_z_ _Printf_format_string_ cons
  * @
  */
 #include "gdk_delta.h"
-#include "gdk_search.h"
+#include "gdk_hash.h"
 #include "gdk_atoms.h"
 #include "gdk_bbp.h"
 #include "gdk_utils.h"
@@ -2980,6 +2976,7 @@ gdk_export gdk_return BATjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT
 gdk_export gdk_return BATbandjoin(BAT **r1p, BAT **r2p, BAT *l, BAT *r, BAT *sl, BAT *sr, const void *c1, const void *c2, int li, int hi, BUN estimate);
 gdk_export gdk_return BATrangejoin(BAT **r1p, BAT **r2p, BAT *l, BAT *rl, BAT *rh, BAT *sl, BAT *sr, int li, int hi, BUN estimate);
 gdk_export BAT *BATproject(BAT *l, BAT *r);
+gdk_export BAT *BATprojectchain(BAT **bats);
 
 gdk_export BAT *BATslice(BAT *b, BUN low, BUN high);
 

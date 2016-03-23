@@ -1,6 +1,6 @@
 %define name MonetDB
 %define version 11.22.0
-%{!?buildno: %define buildno %(date +%Y%m%d)}
+%{!?buildno: %global buildno %(date +%Y%m%d)}
 
 # groups of related archs
 %define all_x86 i386 i586 i686
@@ -50,10 +50,23 @@
 %define with_geos 1
 %endif
 
+# On Fedora, the liblas library is available, and so we can require it
+# and build the lidar modules.  On RedHat Enterprise Linux and
+# derivatives (CentOS, Scientific Linux), the liblas library is not
+# available, even with EPEL available.
 %if %{?rhel:0}%{!?rhel:1}
-# If the _without_samtools macro is set, the MonetDB-bam-MonetDB5 RPM
-# will be created.  The macro can be set when using mock by passing it
-# the flag --without=samtools.
+# If the _without_lidar macro is not set, the MonetDB-lidar RPM will
+# be created.  The macro can be set when using mock by passing it the
+# flag --without=lidar.
+%if %{?_without_lidar:0}%{!?_without_lidar:1}
+%define with_lidar 1
+%endif
+%endif
+
+%if %{?rhel:0}%{!?rhel:1}
+# If the _without_samtools macro is not set, the MonetDB-bam-MonetDB5
+# RPM will be created.  The macro can be set when using mock by
+# passing it the flag --without=samtools.
 # Note that the samtools-devel RPM is not available on RedHat
 # Enterprise Linux and derivatives, even with EPEL availabe.
 # (Actually, at the moment of writing, samtools-devel is available in
@@ -89,7 +102,7 @@ Summary: MonetDB - Monet Database Management System
 Vendor: MonetDB BV <info@monetdb.org>
 
 Group: Applications/Databases
-License: MPL - http://www.monetdb.org/Legal/MonetDBLicense
+License: MPLv2.0
 URL: http://www.monetdb.org/
 Source: http://dev.monetdb.org/downloads/sources/Jul2015-SP2/%{name}-%{version}.tar.bz2
 
@@ -102,6 +115,11 @@ BuildRequires: cfitsio-devel
 BuildRequires: geos-devel >= 3.0.0
 %endif
 BuildRequires: gsl-devel
+%if %{?with_lidar:1}%{!?with_lidar:0}
+BuildRequires: liblas-devel gdal-devel libgeotiff-devel
+# Fedora 22 libas-devel does not depend on liblas:
+BuildRequires: liblas
+%endif
 BuildRequires: libatomic_ops-devel
 BuildRequires: libcurl-devel
 # BuildRequires: libmicrohttpd-devel
@@ -116,15 +134,6 @@ BuildRequires: python-devel
 BuildRequires: python3-devel
 %endif
 BuildRequires: readline-devel
-# On RedHat Enterprise Linux and derivatives (CentOS, Scientific
-# Linux), the rubygem-activerecord package is not available (also not
-# in the Extra Packages for Enterprise Linux EPEL), so it makes no
-# sense providing our ruby packages.
-%if %{?rhel:0}%{!?rhel:1}
-BuildRequires: ruby
-BuildRequires: rubygems
-BuildRequires: rubygems-devel
-%endif
 BuildRequires: unixODBC-devel
 # BuildRequires: uriparser-devel
 BuildRequires: zlib-devel
@@ -384,33 +393,6 @@ program.
 %defattr(-,root,root)
 %{perl_vendorlib}/*
 
-%if %{?rhel:0}%{!?rhel:1}
-%package -n rubygem-monetdb-sql
-Summary: MonetDB ruby interface
-Group: Applications/Databases
-Requires: ruby(release)
-Obsoletes: %{name}-client-ruby
-BuildArch: noarch
-
-%description -n rubygem-monetdb-sql
-MonetDB is a database management system that is developed from a
-main-memory perspective with use of a fully decomposed storage model,
-automatic index management, extensibility of data types and search
-accelerators.  It also has an SQL frontend.
-
-This package contains the files needed to use MonetDB from a Ruby
-program.
-
-%files -n rubygem-monetdb-sql
-%defattr(-,root,root)
-%docdir %{gem_dir}/doc/ruby-monetdb-sql-0.2
-%{gem_dir}/doc/ruby-monetdb-sql-0.2/*
-%{gem_dir}/cache/ruby-monetdb-sql-0.2.gem
-# %dir %{gem_dir}/gems/ruby-monetdb-sql-0.2
-%{gem_dir}/gems/ruby-monetdb-sql-0.2
-%{gem_dir}/specifications/ruby-monetdb-sql-0.2.gemspec
-%endif
-
 %package client-tests
 Summary: MonetDB Client tests package
 Group: Applications/Databases
@@ -471,6 +453,28 @@ extensions for %{name}-SQL-server5.
 %{_libdir}/monetdb5/createdb/*_geom.sql
 %{_libdir}/monetdb5/geom.mal
 %{_libdir}/monetdb5/lib_geom.so
+%endif
+
+%if %{?with_lidar:1}%{!?with_lidar:0}
+%package lidar
+Summary: MonetDB5 SQL support for working with LiDAR data
+Group: Applications/Databases
+Requires: MonetDB5-server%{?_isa} = %{version}-%{release}
+
+%description lidar
+MonetDB is a database management system that is developed from a
+main-memory perspective with use of a fully decomposed storage model,
+automatic index management, extensibility of data types and search
+accelerators.  It also has an SQL frontend.
+
+This package contains support for reading and writing LiDAR data.
+
+%files lidar
+%defattr(-,root,root)
+%{_libdir}/monetdb5/autoload/*_lidar.mal
+%{_libdir}/monetdb5/createdb/*_lidar.sql
+%{_libdir}/monetdb5/lidar.mal
+%{_libdir}/monetdb5/lib_lidar.so
 %endif
 
 %package gsl-MonetDB5
@@ -628,6 +632,9 @@ fi
 %exclude %{_libdir}/monetdb5/geom.mal
 %endif
 %exclude %{_libdir}/monetdb5/gsl.mal
+%if %{?with_lidar:1}%{!?with_lidar:0}
+%exclude %{_libdir}/monetdb5/lidar.mal
+%endif
 %if %{?with_rintegration:1}%{!?with_rintegration:0}
 %exclude %{_libdir}/monetdb5/rapi.mal
 %endif
@@ -641,6 +648,9 @@ fi
 %exclude %{_libdir}/monetdb5/autoload/*_geom.mal
 %endif
 %exclude %{_libdir}/monetdb5/autoload/*_gsl.mal
+%if %{?with_lidar:1}%{!?with_lidar:0}
+%exclude %{_libdir}/monetdb5/autoload/*_lidar.mal
+%endif
 %if %{?with_rintegration:1}%{!?with_rintegration:0}
 %exclude %{_libdir}/monetdb5/autoload/*_rapi.mal
 %endif
@@ -650,6 +660,9 @@ fi
 %exclude %{_libdir}/monetdb5/lib_geom.so
 %endif
 %exclude %{_libdir}/monetdb5/lib_gsl.so
+%if %{?with_lidar:1}%{!?with_lidar:0}
+%exclude %{_libdir}/monetdb5/lib_lidar.so
+%endif
 %if %{?with_rintegration:1}%{!?with_rintegration:0}
 %exclude %{_libdir}/monetdb5/lib_rapi.so
 %endif
@@ -754,6 +767,7 @@ systemd-tmpfiles --create %{_sysconfdir}/tmpfiles.d/monetdbd.conf
 %exclude %{_sysconfdir}/tmpfiles.d/monetdbd.conf
 %endif
 %config(noreplace) %{_localstatedir}/monetdb5/dbfarm/.merovingian_properties
+%{_unitdir}/monetdbd.service
 %{_libdir}/monetdb5/autoload/??_sql.mal
 %{_libdir}/monetdb5/lib_sql.so
 %{_libdir}/monetdb5/*.sql
@@ -762,6 +776,9 @@ systemd-tmpfiles --create %{_sysconfdir}/tmpfiles.d/monetdbd.conf
 %exclude %{_libdir}/monetdb5/createdb/*_geom.sql
 %endif
 %exclude %{_libdir}/monetdb5/createdb/*_gsl.sql
+%if %{?with_lidar:1}%{!?with_lidar:0}
+%exclude %{_libdir}/monetdb5/createdb/*_lidar.sql
+%endif
 %if %{?with_samtools:1}%{!?with_samtools:0}
 %exclude %{_libdir}/monetdb5/createdb/*_bam.sql
 %endif
@@ -891,9 +908,6 @@ developer, but if you do want to test, this is the package you need.
 
 %files testing-python
 %defattr(-,root,root)
-# at least F12 doesn't produce these
-# %exclude %{_bindir}/*.pyc
-# %exclude %{_bindir}/*.pyo
 %{_bindir}/Mapprove.py
 %{_bindir}/Mtest.py
 %dir %{python_sitelib}/MonetDBtesting
@@ -915,6 +929,7 @@ developer, but if you do want to test, this is the package you need.
 	--enable-gsl=yes \
 	--enable-instrument=no \
 	--enable-jdbc=no \
+	--enable-lidar=%{?with_lidar:yes}%{!?with_lidar:no} \
 	--enable-merocontrol=no \
 	--enable-microhttpd=no \
 	--enable-monetdb5=yes \
@@ -930,14 +945,13 @@ developer, but if you do want to test, this is the package you need.
 	--with-bz2=yes \
 	--with-geos=%{?with_geos:yes}%{!?with_geos:no} \
 	--with-java=no \
+	--with-liblas=%{?with_lidar:yes}%{!?with_lidar:no} \
 	--with-perl=yes \
 	--with-perl-libdir=lib/perl5 \
 	--with-pthread=yes \
 	--with-python2=yes \
 	--with-python3=%{?rhel:no}%{!?rhel:yes} \
 	--with-readline=yes \
-	--with-rubygem=%{?rhel:no}%{!?rhel:yes} \
-	--with-rubygem-dir=%{?rhel:no}%{!?rhel:"%{gem_dir}"} \
 	--with-samtools=%{?with_samtools:yes}%{!?with_samtools:no} \
 	--with-sphinxclient=no \
 	--with-unixodbc=yes \

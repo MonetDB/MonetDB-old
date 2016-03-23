@@ -12,13 +12,16 @@
 #include "mal_resource.h"
 #include "mal_private.h"
 
-#define heapinfo(X) if ((X) && (X)->base) vol = (X)->free; else vol = 0;
-#define hashinfo(X) if ((X) && (X) != (Hash *) 1 && (X)->mask) vol = (((X)->mask + cnt ) * (X)-> width); else vol = 0;
-
 /* MEMORY admission does not seem to have a major impact */
 lng memorypool = 0;      /* memory claimed by concurrent threads */
 int memoryclaims = 0;    /* number of threads active with expensive operations */
 
+void
+mal_resource_reset(void)
+{
+	memorypool = 0;
+	memoryclaims = 0;
+}
 /*
  * Running all eligible instructions in parallel creates
  * resource contention. This means we should implement
@@ -60,9 +63,8 @@ int memoryclaims = 0;    /* number of threads active with expensive operations *
 lng
 getMemoryClaim(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int i, int flag)
 {
-	lng total = 0, vol = 0;
+	lng total = 0;
 	BAT *b;
-	BUN cnt;
 
 	(void)mb;
 	if (stk->stk[getArg(pci, i)].vtype == TYPE_bat) {
@@ -73,15 +75,13 @@ getMemoryClaim(MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int i, int flag)
 			BBPunfix(b->batCacheid);
 			return 0;
 		}
-		cnt = BATcount(b);
 
-		heapinfo(&b->T->heap); total += vol;
+		total += BATcount(b) * b->T->width;
 		// string heaps can be shared, consider them as space-less views
-		if ( b->T->vheap && b->T->vheap->parentid ){
-			heapinfo(b->T->vheap); total += vol;
-		}
-		hashinfo(b->T->hash); total += vol;
-		total = total > (lng)(MEMORY_THRESHOLD ) ? (lng)(MEMORY_THRESHOLD ) : total;
+		total += heapinfo(b->T->vheap, abs(b->batCacheid)); 
+		total += hashinfo(b->T->hash, abs(d->batCacheid)); 
+		total += IMPSimprintsize(b);
+		//total = total > (lng)(MEMORY_THRESHOLD ) ? (lng)(MEMORY_THRESHOLD ) : total;
 		BBPunfix(b->batCacheid);
 	}
 	return total;
@@ -200,7 +200,7 @@ MALresourceFairness(lng usec)
 			if (rss < MEMORY_THRESHOLD )
 				break;
 			threads = GDKnr_threads > 0 ? GDKnr_threads : 1;
-			delay = (unsigned int) ( ((double)DELAYUNIT * running) / threads);
+			delay = (unsigned int) ( ((double)DELAYUNIT * running) / threads) + 1;
 			if (delay) {
 				if ( delayed++ == 0){
 						PARDEBUG mnstr_printf(GDKstdout, "#delay initial %u["LLFMT"] memory  "SZFMT"[%f]\n", delay, clk, rss, MEMORY_THRESHOLD );
@@ -213,6 +213,13 @@ MALresourceFairness(lng usec)
 		}
 		(void) ATOMIC_INC(running, runningLock);
 	}
+}
+
+// Get a hint on the parallel behavior
+size_t
+MALrunningThreads(void)
+{
+	return running;
 }
 
 void

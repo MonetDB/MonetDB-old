@@ -27,6 +27,65 @@
 #include "mal.h"		/* for have_hge */
 #endif
 
+char *
+query_cleaned(const char *query)
+{
+	char *q, *r;
+	int quote = 0;		/* inside quotes ('..', "..", {..}) */
+	int bs = 0;		/* seen a backslash in a quoted string */
+	int incomment1 = 0;	/* inside traditional C style comment */
+	int incomment2 = 0;	/* inside comment starting with --  */
+
+	r = GDKmalloc(strlen(query) + 1);
+
+	for (q = r; *query; query++) {
+		if (incomment1) {
+			if (*query == '/' && query[-1] == '*') {
+				incomment1 = 0;
+			}
+		} else if (incomment2) {
+			if (*query == '\n') {
+				incomment2 = 0;
+				/* add newline only if comment doesn't
+				 * occupy whole line */
+				if (q > r && q[-1] != '\n')
+					*q++ = '\n';
+			}
+		} else if (quote) {
+			if (bs) {
+				bs = 0;
+			} else if (*query == '\\') {
+				bs = 1;
+			} else if (*query == quote) {
+				quote = 0;
+			}
+			*q++ = *query;
+		} else if (*query == '"' || *query == '\'') {
+			quote = *query;
+			*q++ = *query;
+		} else if (*query == '{') {
+			quote = '}';
+			*q++ = *query;
+		} else if (*query == '-' && query[1] == '-') {
+			incomment2 = 1;
+		} else if (*query == '/' && query[1] == '*') {
+			incomment1 = 1;
+		} else if (*query == '\n') {
+			/* collapse newlines */
+			if (q > r && q[-1] != '\n')
+				*q++ = '\n';
+		} else if (*query == ' ' || *query == '\t') {
+			/* collapse white space */
+			if (q > r && q[-1] != ' ')
+				*q++ = ' ';
+		} else {
+			*q++ = *query;
+		}
+	}
+	*q = 0;
+	return r;
+}
+
 void
 scanner_init_keywords(void)
 {
@@ -370,6 +429,40 @@ scanner_init_keywords(void)
 	keywords_insert("URI", URI);
 	keywords_insert("XMLAGG", XMLAGG);
 
+	/* keywords for opengis */
+	keywords_insert("GEOMETRY", GEOMETRY);
+
+	keywords_insert("POINT", GEOMETRYSUBTYPE);
+	keywords_insert("LINESTRING", GEOMETRYSUBTYPE);
+	keywords_insert("POLYGON", GEOMETRYSUBTYPE);
+	keywords_insert("MULTIPOINT", GEOMETRYSUBTYPE);
+	keywords_insert("MULTILINESTRING", GEOMETRYSUBTYPE);
+	keywords_insert("MULTIPOLYGON", GEOMETRYSUBTYPE);
+	keywords_insert("GEOMETRYCOLLECTION", GEOMETRYSUBTYPE);
+
+	keywords_insert("POINTZ", GEOMETRYSUBTYPE);
+	keywords_insert("LINESTRINGZ", GEOMETRYSUBTYPE);
+	keywords_insert("POLYGONZ", GEOMETRYSUBTYPE);
+	keywords_insert("MULTIPOINTZ", GEOMETRYSUBTYPE);
+	keywords_insert("MULTILINESTRINGZ", GEOMETRYSUBTYPE);
+	keywords_insert("MULTIPOLYGONZ", GEOMETRYSUBTYPE);
+	keywords_insert("GEOMETRYCOLLECTIONZ", GEOMETRYSUBTYPE);
+
+	keywords_insert("POINTM", GEOMETRYSUBTYPE);
+	keywords_insert("LINESTRINGM", GEOMETRYSUBTYPE);
+	keywords_insert("POLYGONM", GEOMETRYSUBTYPE);
+	keywords_insert("MULTIPOINTM", GEOMETRYSUBTYPE);
+	keywords_insert("MULTILINESTRINGM", GEOMETRYSUBTYPE);
+	keywords_insert("MULTIPOLYGONM", GEOMETRYSUBTYPE);
+	keywords_insert("GEOMETRYCOLLECTIONM", GEOMETRYSUBTYPE);
+
+	keywords_insert("POINTZM", GEOMETRYSUBTYPE);
+	keywords_insert("LINESTRINGZM", GEOMETRYSUBTYPE);
+	keywords_insert("POLYGONZM", GEOMETRYSUBTYPE);
+	keywords_insert("MULTIPOINTZM", GEOMETRYSUBTYPE);
+	keywords_insert("MULTILINESTRINGZM", GEOMETRYSUBTYPE);
+	keywords_insert("MULTIPOLYGONZM", GEOMETRYSUBTYPE);
+	keywords_insert("GEOMETRYCOLLECTIONZM", GEOMETRYSUBTYPE);
 }
 
 #define find_keyword_bs(lc, s) find_keyword(lc->rs->buf+lc->rs->pos+s)
@@ -865,7 +958,6 @@ int scanner_symbol(mvc * c, int cur)
 		return scanner_token(lc, cur);
 	case '~': /* binary not */
 	case '^': /* binary xor */
-	case '&': /* binary and */
 	case '*':
 	case '?':
 	case '%':
@@ -878,6 +970,25 @@ int scanner_symbol(mvc * c, int cur)
 	case ']':
 		lc->started = 1;
 		return scanner_token(lc, cur);
+	case '&':
+		lc->started = 1;
+		cur = scanner_getc(lc);
+		if(cur == '<') {
+			next = scanner_getc(lc);
+			if(next == '|') {
+				return scanner_token(lc, GEOM_OVERLAP_OR_BELOW);
+			} else {
+				utf8_putchar(lc, next); //put the char back
+				return scanner_token(lc, GEOM_OVERLAP_OR_LEFT);
+			}
+		} else if(cur == '>')
+			return scanner_token(lc, GEOM_OVERLAP_OR_RIGHT);
+		else if(cur == '&')
+			return scanner_token(lc, GEOM_OVERLAP);
+		else {/* binary and */
+			utf8_putchar(lc, cur); //put the char back
+			return scanner_token(lc, '&');
+		}
 	case '@':
 		lc->started = 1;
 		return scanner_token(lc, AT);
@@ -892,11 +1003,25 @@ int scanner_symbol(mvc * c, int cur)
 		} else if (cur == '>') {
 			return scanner_token( lc, COMPARISON);
 		} else if (cur == '<') {
-			cur = scanner_getc(lc);
-			if (cur == '=')
+			next = scanner_getc(lc);
+			if (next == '=') {
 				return scanner_token( lc, LEFT_SHIFT_ASSIGN);
-			utf8_putchar(lc, cur); 
-			return scanner_token( lc, LEFT_SHIFT);
+			} else if (next == '|') {
+				return scanner_token(lc, GEOM_BELOW);
+			} else {
+				utf8_putchar(lc, next); //put the char back
+				return scanner_token( lc, LEFT_SHIFT);
+			}
+		} else if(cur == '-') {
+			next = scanner_getc(lc);
+			if(next == '>') {
+				return scanner_token(lc, GEOM_DIST);
+			} else {
+				//put the characters back and fall in the next possible case
+				utf8_putchar(lc, next);
+				utf8_putchar(lc, cur);
+				return scanner_token( lc, COMPARISON);
+			}
 		} else {
 			utf8_putchar(lc, cur); 
 			return scanner_token( lc, COMPARISON);
@@ -932,6 +1057,24 @@ int scanner_symbol(mvc * c, int cur)
 		cur = scanner_getc(lc);
 		if (cur == '|') {
 			return scanner_token(lc, CONCATSTRING);
+		} else if (cur == '&') {
+			next = scanner_getc(lc);
+			if(next == '>') {
+				return scanner_token(lc, GEOM_OVERLAP_OR_ABOVE);
+			} else {
+				utf8_putchar(lc, next); //put the char back
+				utf8_putchar(lc, cur); //put the char back
+				return scanner_token(lc, '|');
+			}
+		} else if (cur == '>') {
+			next = scanner_getc(lc);
+			if(next == '>') {
+				return scanner_token(lc, GEOM_ABOVE);
+			} else {
+				utf8_putchar(lc, next); //put the char back
+				utf8_putchar(lc, cur); //put the char back
+				return scanner_token(lc, '|');
+			}
 		} else {
 			utf8_putchar(lc, cur); 
 			return scanner_token(lc, '|');
