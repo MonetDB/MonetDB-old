@@ -3,7 +3,19 @@ set schema iot;
 set optimizer='iot_pipe';
 
 create stream table stream_tmp (t timestamp, sensor integer, val decimal(8,2)) ;
+create table result(like stream_tmp);
 
-insert into stream_tmp values(timestamp '2016-03-13 08:58:14', 1, 23.4);
+create procedure cq00()
+begin
+	insert into result select min(t), count(*), avg(val) from stream_tmp;
+end;
 
-select * from stream_tmp;
+call iot.query('iot','cq00');
+call iot.query('insert into result select min(t), count(*), avg(val) from stream_tmp;');
+
+call iot.baskets();
+call iot.petrinet();
+
+call iot.dump();
+call iot.drop();
+call iot.dump();

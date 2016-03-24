@@ -19,6 +19,5 @@
 include iot;
 include basket;
 include petrinet;
-include receptor;
 
 io.printf("# MonetDB/iot loaded\n");

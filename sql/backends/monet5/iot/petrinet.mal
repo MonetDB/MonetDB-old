@@ -58,6 +58,10 @@ pattern stop(mod:str,fcn:str)
 address PNstop
 comment "Stop the Petri net controller";
 
+pattern step(cnt:int)
+address PNstep
+comment "Limit number of petrinet steps";
+
 pattern drop()
 address PNdrop
 comment "Remove all transitions from the Petri net controller";
@@ -74,6 +78,6 @@ command queries() (mod:bat[:str],fcn:bat[:str], status:bat[:str],lastrun:bat[:ti
 address PNtable
 comment "Inspect the iot queries";
 
-command iot.petrinet()
+command dump()
 address PNdump
 comment "Show the status of the Petri net";

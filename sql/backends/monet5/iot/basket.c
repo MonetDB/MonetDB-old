@@ -29,7 +29,6 @@
 #include <gdk.h>
 #include "iot.h"
 #include "basket.h"
-#include "receptor.h"
 #include "mal_exception.h"
 #include "mal_builder.h"
 #include "opt_prelude.h"
@@ -106,7 +105,6 @@ BSKTnewbasket(sql_schema *s, sql_table *t, sql_trans *tr)
 	BAT *b=  NULL;
 	sql_column  *c;
 	str msg= MAL_SUCCEED;
-	Receptor rc;
 
 	// Don't introduce the same basket twice
 	if( BSKTlocate(s->base.name, t->base.name) > 0)
@@ -152,10 +150,6 @@ BSKTnewbasket(sql_schema *s, sql_table *t, sql_trans *tr)
 		BBPkeepref(b->batCacheid);
 	}
 	MT_lock_unset(&iotLock);
-	// start the receptor for this basket
-	rc = RCnew(baskets+idx);
-	if ( rc && MT_create_thread(&rc->pid, (void (*)(void *))RCreceptor, rc, MT_THR_JOINABLE) != 0)
-			throw(SQL, "receptor.start", "Receptor '%s.%s' init failed", baskets[idx].schema,baskets[idx].table);
 	return msg;
 }
 
@@ -169,7 +163,6 @@ BSKTregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg = getSQLContext(cntxt, mb, &m, NULL);
 	sql_trans *tr;
 	str sch, tbl;
-	int idx;
 
 	if ( msg != MAL_SUCCEED)
 		return msg;
@@ -192,9 +185,6 @@ BSKTregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(SQL, "iot.register", "Table missing '%s'", tbl);
 
 	msg=  BSKTnewbasket(s, t, tr);
-	idx = BSKTlocate(sch,tbl);
-	if( msg == MAL_SUCCEED && idx > 0)
-		msg= RCstart(idx);
 	return msg;
 }
 

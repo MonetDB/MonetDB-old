@@ -156,6 +156,12 @@ IOTstop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
+IOTstep(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	return PNstep(cntxt,mb,stk,pci);
+}
+
+str
 IOTdump(void *ret)
 {
 	BSKTdump(ret);

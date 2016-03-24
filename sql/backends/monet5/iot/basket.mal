@@ -15,7 +15,7 @@
 # Copyright August 2008-2016 MonetDB B.V.
 # All Rights Reserved.
 
-module iot;
+module basket;
 
 pattern bind(sch:str,tbl:str,col:str):bat[:any]
 address BSKTbind
@@ -69,10 +69,11 @@ command reset():void
 address BSKTreset
 comment "Remove all baskets";
 
+command baskets()(sch:bat[:str],nme:bat[:str], threshold:bat[:int], winsize:bat[:int], winstride:bat[:int], timeslice:bat[:int], 
+timestride:bat[:int], beat:bat[:int], seen:bat[:timestamp], events:bat[:int])
+address BSKTtable
+comment "Inspect the iot baskets";
+
 command errors() (:bat[:str],:bat[:str])
 address BSKTtableerrors
 comment "Return the table with all errors";
-
-command baskets()
-address BSKTdump
-comment "Dump the status of the basket table";

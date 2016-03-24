@@ -30,7 +30,10 @@ end;
 call iot.query('iot','clk1');
 call iot.query('iot','clk3');
 call iot.query('select 1;');
-call iot.petrinet();
+
+call iot.baskets();
+call iot.scheduler();
+
 call iot.resume();
 call iot.stop();
 call iot.drop();

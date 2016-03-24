@@ -41,36 +41,25 @@ create procedure iot.stop ()
 create procedure iot."drop" ()
     external name iot."drop";
 
-
 create procedure iot.stop ("schema" string, name string)
     external name iot.stop;
 
 create procedure iot.dump()
 	external name iot.dump;
 
-create procedure iot.baskets()
-	external name iot.baskets;
-
 create procedure iot.petrinet()
 	external name iot.petrinet;
-
-create procedure iot.receptors()
-	external name iot.receptors;
 
 
 -- Inspection tables
 
---create function iot.baskets()
---returns table( "schema" string,  "table" string, threshold int, winsize int, winstride int,  timeslice int, timestride int, beat int, seen timestamp, events int)
---external name baskets.table;
-
-create function iot.queries()
-returns table( "schema" string,  "function" string, status string, lastrun timestamp, cycles int, events int, time bigint, error string)
-external name petrinet.queries;
-
---create function iot.receptors()
---returns table( "primary" string,  "secondary" string, status string)
---external name receptor."table";
+-- create function iot.baskets()
+-- returns table( "schema" string,  "table" string, threshold int, winsize int, winstride int,  timeslice int, timestride int, beat int, seen timestamp, events int)
+-- external name iot.baskets;
+-- 
+-- create function iot.queries()
+-- returns table( "schema" string,  "function" string, status string, lastrun timestamp, cycles int, events int, time bigint, error string)
+-- external name petrinet.queries;
 
 -- create function iot.errors()
 -- returns table( "schema" string,  "table" string, error string)

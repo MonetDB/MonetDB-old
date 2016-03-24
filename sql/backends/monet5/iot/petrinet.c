@@ -241,7 +241,11 @@ PNresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 str
 PNstop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	return PNstatus(cntxt, mb, stk, pci, BSKTSTOP);
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
+	return MAL_SUCCEED;
 }
 
 // remove a transition
@@ -426,7 +430,7 @@ reinit:
 			pnet[i].enabled = 0;
 			for (j = 0; j < pnet[i].srctop; j++) {
 				idx = pnet[i].source[j].bskt;
-				pnet[i].source[j].b = baskets[idx].primary[0];
+				//pnet[i].source[j].b = baskets[idx].bats[0];
 				if (pnet[i].source[j].b == 0) { /* we lost the BAT */
 					pnet[i].enabled = 0;
 					break;

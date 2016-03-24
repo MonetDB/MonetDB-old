@@ -14,7 +14,6 @@
 
 @SET_MAKE@
 
-
 VPATH = @srcdir@
 am__is_gnu_make = { \
   if test -z '$(MAKELEVEL)'; then \
@@ -132,12 +131,12 @@ am__uninstall_files_from_dir = { \
     || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
          $(am__cd) "$$dir" && rm -f $$files; }; \
   }
-am__installdirs = "$(DESTDIR)$(iotdir)" "$(DESTDIR)$(bindir)"
+am__installdirs = "$(DESTDIR)$(iotdir)"
 LTLIBRARIES = $(iot_LTLIBRARIES)
 lib_iot_la_DEPENDENCIES = ../../../../monetdb5/tools/libmonetdb5.la \
 	../../../../gdk/libbat.la
 dist_lib_iot_la_OBJECTS = lib_iot_la-iot.lo lib_iot_la-basket.lo \
-	lib_iot_la-receptor.lo lib_iot_la-petrinet.lo
+	lib_iot_la-petrinet.lo
 nodist_lib_iot_la_OBJECTS =
 lib_iot_la_OBJECTS = $(dist_lib_iot_la_OBJECTS) \
 	$(nodist_lib_iot_la_OBJECTS)
@@ -148,7 +147,6 @@ am__v_lt_1 =
 lib_iot_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(lib_iot_la_CFLAGS) \
 	$(CFLAGS) $(lib_iot_la_LDFLAGS) $(LDFLAGS) -o $@
-SCRIPTS = $(bin_SCRIPTS)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -507,18 +505,17 @@ valgrind_LIBS = @valgrind_LIBS@
 zlib_CFLAGS = @zlib_CFLAGS@
 zlib_LIBS = @zlib_LIBS@
 AUTOMAKE_OPTIONS = no-dependencies 1.4 foreign
-AM_CPPFLAGS = -I$(srcdir) -I.. -I$(srcdir)/.. -I../../../include -I$(srcdir)/../../../include -I../../../common -I$(srcdir)/../../../common -I../../../storage -I$(srcdir)/../../../storage -I../../../server -I$(srcdir)/../../../server -I../../../../monetdb5/modules/atoms -I$(srcdir)/../../../../monetdb5/modules/atoms -I../../../../monetdb5/modules/kernel -I$(srcdir)/../../../../monetdb5/modules/kernel -I../../../../monetdb5/mal -I$(srcdir)/../../../../monetdb5/mal -I../../../../monetdb5/modules/mal -I$(srcdir)/../../../../monetdb5/modules/mal -I../../../../monetdb5/optimizer -I$(srcdir)/../../../../monetdb5/optimizer -I../../../../clients/mapilib -I$(srcdir)/../../../../clients/mapilib -I../../../../common/options -I$(srcdir)/../../../../common/options -I../../../../common/stream -I$(srcdir)/../../../../common/stream -I../../../../gdk -I$(srcdir)/../../../../gdk
+AM_CPPFLAGS = -I$(srcdir) -I.. -I$(srcdir)/.. -I../../../include -I$(srcdir)/../../../include -I../../../common -I$(srcdir)/../../../common -I../../../storage -I$(srcdir)/../../../storage -I../../../server -I$(srcdir)/../../../server -I../../../../monetdb5/modules/atoms -I$(srcdir)/../../../../monetdb5/modules/atoms -I../../../../monetdb5/modules/kernel -I$(srcdir)/../../../../monetdb5/modules/kernel -I../../../../monetdb5/mal -I$(srcdir)/../../../../monetdb5/mal -I../../../../monetdb5/modules/mal -I$(srcdir)/../../../../monetdb5/modules/mal -I../../../../monetdb5/optimizer -I$(srcdir)/../../../../monetdb5/optimizer -I../../../../clients/mapilib -I$(srcdir)/../../../../clients/mapilib -I../../../../common/options -I$(srcdir)/../../../../common/options -I../../../../common/stream -I$(srcdir)/../../../../common/stream -I../../../../common/utils -I$(srcdir)/../../../../common/utils -I../../../../gdk -I$(srcdir)/../../../../gdk
 lib_iot_la_CFLAGS = -DLIBIOT $(AM_CFLAGS)
 iotdir = $(libdir)/monetdb5
 lib_iot_la_LIBADD = ../../../../monetdb5/tools/libmonetdb5.la ../../../../gdk/libbat.la
 nodist_lib_iot_la_SOURCES = 
-dist_lib_iot_la_SOURCES = iot.c basket.c receptor.c petrinet.c
+dist_lib_iot_la_SOURCES = iot.c basket.c petrinet.c
 lib_iot_la_LDFLAGS = -module -avoid-version
-BUILT_SOURCES = 50_iot.sql basket.mal iot.mal petrinet.mal receptor.mal
+BUILT_SOURCES = 
 MOSTLYCLEANFILES = 
-EXTRA_DIST = Makefile.ag Makefile.msc 50_iot.mal 50_iot.sql basket.c basket.h basket.mal iot.c iot.h iot.mal petrinet.c petrinet.h petrinet.mal receptor.c receptor.h receptor.mal
+EXTRA_DIST = Makefile.ag Makefile.msc 50_iot.mal 50_iot.sql basket.c basket.mal iot.c iot.mal petrinet.c petrinet.mal
 iot_LTLIBRARIES = lib_iot.la
-bin_SCRIPTS = script_50_iot.sql script_basket.mal script_iot.mal script_petrinet.mal script_receptor.mal
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -591,41 +588,6 @@ clean-iotLTLIBRARIES:
 
 lib_iot.la: $(lib_iot_la_OBJECTS) $(lib_iot_la_DEPENDENCIES) $(EXTRA_lib_iot_la_DEPENDENCIES) 
 	$(AM_V_CCLD)$(lib_iot_la_LINK) -rpath $(iotdir) $(lib_iot_la_OBJECTS) $(lib_iot_la_LIBADD) $(LIBS)
-install-binSCRIPTS: $(bin_SCRIPTS)
-	@$(NORMAL_INSTALL)
-	@list='$(bin_SCRIPTS)'; test -n "$(bindir)" || list=; \
-	if test -n "$$list"; then \
-	  echo " $(MKDIR_P) '$(DESTDIR)$(bindir)'"; \
-	  $(MKDIR_P) "$(DESTDIR)$(bindir)" || exit 1; \
-	fi; \
-	for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  if test -f "$$d$$p"; then echo "$$d$$p"; echo "$$p"; else :; fi; \
-	done | \
-	sed -e 'p;s,.*/,,;n' \
-	    -e 'h;s|.*|.|' \
-	    -e 'p;x;s,.*/,,;$(transform)' | sed 'N;N;N;s,\n, ,g' | \
-	$(AWK) 'BEGIN { files["."] = ""; dirs["."] = 1; } \
-	  { d=$$3; if (dirs[d] != 1) { print "d", d; dirs[d] = 1 } \
-	    if ($$2 == $$4) { files[d] = files[d] " " $$1; \
-	      if (++n[d] == $(am__install_max)) { \
-		print "f", d, files[d]; n[d] = 0; files[d] = "" } } \
-	    else { print "f", d "/" $$4, $$1 } } \
-	  END { for (d in files) print "f", d, files[d] }' | \
-	while read type dir files; do \
-	     if test "$$dir" = .; then dir=; else dir=/$$dir; fi; \
-	     test -z "$$files" || { \
-	       echo " $(INSTALL_SCRIPT) $$files '$(DESTDIR)$(bindir)$$dir'"; \
-	       $(INSTALL_SCRIPT) $$files "$(DESTDIR)$(bindir)$$dir" || exit $$?; \
-	     } \
-	; done
-
-uninstall-binSCRIPTS:
-	@$(NORMAL_UNINSTALL)
-	@list='$(bin_SCRIPTS)'; test -n "$(bindir)" || exit 0; \
-	files=`for p in $$list; do echo "$$p"; done | \
-	       sed -e 's,.*/,,;$(transform)'`; \
-	dir='$(DESTDIR)$(bindir)'; $(am__uninstall_files_from_dir)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -736,9 +698,9 @@ distdir: $(DISTFILES)
 check-am: all-am
 check: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) check-am
-all-am: Makefile $(LTLIBRARIES) $(SCRIPTS)
+all-am: Makefile $(LTLIBRARIES)
 installdirs:
-	for dir in "$(DESTDIR)$(iotdir)" "$(DESTDIR)$(bindir)"; do \
+	for dir in "$(DESTDIR)$(iotdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: $(BUILT_SOURCES)
@@ -802,7 +764,7 @@ install-dvi: install-dvi-am
 
 install-dvi-am:
 
-install-exec-am: install-binSCRIPTS install-exec-local
+install-exec-am: install-exec-local
 
 install-html: install-html-am
 
@@ -841,8 +803,7 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-binSCRIPTS uninstall-iotLTLIBRARIES \
-	uninstall-local
+uninstall-am: uninstall-iotLTLIBRARIES uninstall-local
 
 .MAKE: all check install install-am install-strip
 
@@ -851,68 +812,20 @@ uninstall-am: uninstall-binSCRIPTS uninstall-iotLTLIBRARIES \
 	ctags-am dist-hook distclean distclean-compile \
 	distclean-generic distclean-libtool distclean-tags distdir dvi \
 	dvi-am html html-am info info-am install install-am \
-	install-binSCRIPTS install-data install-data-am install-dvi \
-	install-dvi-am install-exec install-exec-am install-exec-local \
-	install-html install-html-am install-info install-info-am \
+	install-data install-data-am install-dvi install-dvi-am \
+	install-exec install-exec-am install-exec-local install-html \
+	install-html-am install-info install-info-am \
 	install-iotLTLIBRARIES install-man install-pdf install-pdf-am \
 	install-ps install-ps-am install-strip installcheck \
 	installcheck-am installdirs maintainer-clean \
 	maintainer-clean-generic mostlyclean mostlyclean-compile \
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags tags-am uninstall uninstall-am uninstall-binSCRIPTS \
-	uninstall-iotLTLIBRARIES uninstall-local
+	tags tags-am uninstall uninstall-am uninstall-iotLTLIBRARIES \
+	uninstall-local
 
 .PRECIOUS: Makefile
 
 
-script_basket.mal: basket.mal
-install-exec-local-basket.mal: basket.mal
-	-mkdir -p $(DESTDIR)$(libdir)/monetdb5
-	-$(RM) $(DESTDIR)$(libdir)/monetdb5/basket.mal
-	$(INSTALL) -m0755 $< $(DESTDIR)$(libdir)/monetdb5/basket.mal
-
-uninstall-local-basket.mal: 
-	$(RM) $(DESTDIR)$(libdir)/monetdb5/basket.mal
-
-script_iot.mal: iot.mal
-install-exec-local-iot.mal: iot.mal
-	-mkdir -p $(DESTDIR)$(libdir)/monetdb5
-	-$(RM) $(DESTDIR)$(libdir)/monetdb5/iot.mal
-	$(INSTALL) -m0755 $< $(DESTDIR)$(libdir)/monetdb5/iot.mal
-
-uninstall-local-iot.mal: 
-	$(RM) $(DESTDIR)$(libdir)/monetdb5/iot.mal
-
-script_petrinet.mal: petrinet.mal
-install-exec-local-petrinet.mal: petrinet.mal
-	-mkdir -p $(DESTDIR)$(libdir)/monetdb5
-	-$(RM) $(DESTDIR)$(libdir)/monetdb5/petrinet.mal
-	$(INSTALL) -m0755 $< $(DESTDIR)$(libdir)/monetdb5/petrinet.mal
-
-uninstall-local-petrinet.mal: 
-	$(RM) $(DESTDIR)$(libdir)/monetdb5/petrinet.mal
-
-script_receptor.mal: receptor.mal
-install-exec-local-receptor.mal: receptor.mal
-	-mkdir -p $(DESTDIR)$(libdir)/monetdb5
-	-$(RM) $(DESTDIR)$(libdir)/monetdb5/receptor.mal
-	$(INSTALL) -m0755 $< $(DESTDIR)$(libdir)/monetdb5/receptor.mal
-
-uninstall-local-receptor.mal: 
-	$(RM) $(DESTDIR)$(libdir)/monetdb5/receptor.mal
-
-iot.o iot.lo: iot.c iot.h ../../../../monetdb5/optimizer/opt_prelude.h ../../../../monetdb5/optimizer/opt_support.h ../../../../monetdb5/optimizer/../mal/mal.h ../../../../monetdb5/optimizer/../mal/mal_function.h ../../../../monetdb5/optimizer/../mal/mal_scenario.h ../../../../monetdb5/optimizer/../mal/mal_builder.h ../../../../monetdb5/optimizer/opt_pipes.h ../../../../monetdb5/optimizer/opt_iot.h ../sql_optimizer.h ../sql_gencode.h
-petrinet.o petrinet.lo: petrinet.c iot.h petrinet.h ../../../../monetdb5/mal/mal_builder.h ../../../../monetdb5/optimizer/opt_support.h ../../../../monetdb5/optimizer/../mal/mal.h ../../../../monetdb5/optimizer/../mal/mal_function.h ../../../../monetdb5/optimizer/../mal/mal_scenario.h ../../../../monetdb5/optimizer/../mal/mal_builder.h ../../../../monetdb5/optimizer/opt_prelude.h
-basket.o basket.lo: basket.c ../../../../gdk/gdk.h iot.h basket.h receptor.h ../../../../monetdb5/mal/mal_instruction.h ../../../../monetdb5/mal/mal_type.h ../../../../monetdb5/mal/mal.h ../../../../monetdb5/mal/../../gdk/gdk.h ../../../../monetdb5/mal/mal_stack.h ../../../../monetdb5/mal/mal_namespace.h ../../../../monetdb5/mal/mal_errors.h ../../../../monetdb5/mal/mal_exception.h ../../../../monetdb5/mal/mal_builder.h ../../../../monetdb5/optimizer/opt_support.h ../../../../monetdb5/optimizer/../mal/mal.h ../../../../monetdb5/optimizer/../mal/mal_function.h ../../../../monetdb5/optimizer/../mal/mal_scenario.h ../../../../monetdb5/optimizer/../mal/mal_builder.h ../../../../monetdb5/optimizer/opt_prelude.h
-receptor.o receptor.lo: receptor.c receptor.h
-script_50_iot.sql: 50_iot.sql
-install-exec-local-50_iot.sql: 50_iot.sql
-	-mkdir -p $(DESTDIR)$(libdir)/monetdb5/createdb
-	-$(RM) $(DESTDIR)$(libdir)/monetdb5/createdb/50_iot.sql
-	$(INSTALL) -m0755 $< $(DESTDIR)$(libdir)/monetdb5/createdb/50_iot.sql
-
-uninstall-local-50_iot.sql: 
-	$(RM) $(DESTDIR)$(libdir)/monetdb5/createdb/50_iot.sql
 install-exec-local-50_iot.mal: 50_iot.mal
 	-mkdir -p $(DESTDIR)$(libdir)/monetdb5/autoload
 	-$(RM) $(DESTDIR)$(libdir)/monetdb5/autoload/50_iot.mal
@@ -921,22 +834,51 @@ install-exec-local-50_iot.mal: 50_iot.mal
 uninstall-local-50_iot.mal: 
 	$(RM) $(DESTDIR)$(libdir)/monetdb5/autoload/50_iot.mal
 
-dist-hook:
-	mkdir -p $(distdir)/Tests
-	cp -pR $(srcdir)/Tests/* $(distdir)/Tests
+iot.o iot.lo: iot.c iot.h ../../../../monetdb5/optimizer/opt_prelude.h ../../../../monetdb5/optimizer/opt_support.h ../../../../monetdb5/optimizer/../mal/mal.h ../../../../monetdb5/optimizer/../mal/mal_function.h ../../../../monetdb5/optimizer/../mal/mal_scenario.h ../../../../monetdb5/optimizer/../mal/mal_builder.h ../../../../monetdb5/optimizer/opt_pipes.h ../../../../monetdb5/optimizer/opt_iot.h ../sql_optimizer.h ../sql_gencode.h
+petrinet.o petrinet.lo: petrinet.c iot.h petrinet.h ../../../../monetdb5/mal/mal_builder.h ../../../../monetdb5/optimizer/opt_support.h ../../../../monetdb5/optimizer/../mal/mal.h ../../../../monetdb5/optimizer/../mal/mal_function.h ../../../../monetdb5/optimizer/../mal/mal_scenario.h ../../../../monetdb5/optimizer/../mal/mal_builder.h ../../../../monetdb5/optimizer/opt_prelude.h
+basket.o basket.lo: basket.c ../../../../gdk/gdk.h iot.h basket.h ../../../../monetdb5/mal/mal_instruction.h ../../../../monetdb5/mal/mal_type.h ../../../../monetdb5/mal/mal.h ../../../../monetdb5/mal/../../gdk/gdk.h ../../../../monetdb5/mal/mal_stack.h ../../../../monetdb5/mal/mal_namespace.h ../../../../monetdb5/mal/mal_errors.h ../../../../monetdb5/mal/mal_exception.h ../../../../monetdb5/mal/mal_builder.h ../../../../monetdb5/optimizer/opt_support.h ../../../../monetdb5/optimizer/../mal/mal.h ../../../../monetdb5/optimizer/../mal/mal_function.h ../../../../monetdb5/optimizer/../mal/mal_scenario.h ../../../../monetdb5/optimizer/../mal/mal_builder.h ../../../../monetdb5/optimizer/opt_prelude.h
+install-exec-local-basket.mal: basket.mal
+	-mkdir -p $(DESTDIR)$(libdir)/monetdb5
+	-$(RM) $(DESTDIR)$(libdir)/monetdb5/basket.mal
+	$(INSTALL_DATA) $< $(DESTDIR)$(libdir)/monetdb5/basket.mal
+
+uninstall-local-basket.mal: 
+	$(RM) $(DESTDIR)$(libdir)/monetdb5/basket.mal
+
+install-exec-local-petrinet.mal: petrinet.mal
+	-mkdir -p $(DESTDIR)$(libdir)/monetdb5
+	-$(RM) $(DESTDIR)$(libdir)/monetdb5/petrinet.mal
+	$(INSTALL_DATA) $< $(DESTDIR)$(libdir)/monetdb5/petrinet.mal
+
+uninstall-local-petrinet.mal: 
+	$(RM) $(DESTDIR)$(libdir)/monetdb5/petrinet.mal
+
+install-exec-local-iot.mal: iot.mal
+	-mkdir -p $(DESTDIR)$(libdir)/monetdb5
+	-$(RM) $(DESTDIR)$(libdir)/monetdb5/iot.mal
+	$(INSTALL_DATA) $< $(DESTDIR)$(libdir)/monetdb5/iot.mal
+
+uninstall-local-iot.mal: 
+	$(RM) $(DESTDIR)$(libdir)/monetdb5/iot.mal
+install-exec-local-50_iot.sql: 50_iot.sql
+	-mkdir -p $(DESTDIR)$(libdir)/monetdb5/createdb
+	-$(RM) $(DESTDIR)$(libdir)/monetdb5/createdb/50_iot.sql
+	$(INSTALL_DATA) $< $(DESTDIR)$(libdir)/monetdb5/createdb/50_iot.sql
+
+uninstall-local-50_iot.sql: 
+	$(RM) $(DESTDIR)$(libdir)/monetdb5/createdb/50_iot.sql
 $(do)install-iotLTLIBRARIES : 
 lib_iot_la-iot.lo: iot.c iot.h ../../../../monetdb5/optimizer/opt_prelude.h ../../../../monetdb5/optimizer/opt_support.h ../../../../monetdb5/optimizer/../mal/mal.h ../../../../monetdb5/optimizer/../mal/mal_function.h ../../../../monetdb5/optimizer/../mal/mal_scenario.h ../../../../monetdb5/optimizer/../mal/mal_builder.h ../../../../monetdb5/optimizer/opt_pipes.h ../../../../monetdb5/optimizer/opt_iot.h ../sql_optimizer.h ../sql_gencode.h
 	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_iot_la_CFLAGS) $(CFLAGS) $(iot_CFLAGS) -c -o lib_iot_la-iot.lo `test -f 'iot.c' || echo '$(srcdir)/'`iot.c
-lib_iot_la-basket.lo: basket.c ../../../../gdk/gdk.h iot.h basket.h receptor.h ../../../../monetdb5/mal/mal_instruction.h ../../../../monetdb5/mal/mal_type.h ../../../../monetdb5/mal/mal.h ../../../../monetdb5/mal/../../gdk/gdk.h ../../../../monetdb5/mal/mal_stack.h ../../../../monetdb5/mal/mal_namespace.h ../../../../monetdb5/mal/mal_errors.h ../../../../monetdb5/mal/mal_exception.h ../../../../monetdb5/mal/mal_builder.h ../../../../monetdb5/optimizer/opt_support.h ../../../../monetdb5/optimizer/../mal/mal.h ../../../../monetdb5/optimizer/../mal/mal_function.h ../../../../monetdb5/optimizer/../mal/mal_scenario.h ../../../../monetdb5/optimizer/../mal/mal_builder.h ../../../../monetdb5/optimizer/opt_prelude.h
+lib_iot_la-basket.lo: basket.c ../../../../gdk/gdk.h iot.h basket.h ../../../../monetdb5/mal/mal_instruction.h ../../../../monetdb5/mal/mal_type.h ../../../../monetdb5/mal/mal.h ../../../../monetdb5/mal/../../gdk/gdk.h ../../../../monetdb5/mal/mal_stack.h ../../../../monetdb5/mal/mal_namespace.h ../../../../monetdb5/mal/mal_errors.h ../../../../monetdb5/mal/mal_exception.h ../../../../monetdb5/mal/mal_builder.h ../../../../monetdb5/optimizer/opt_support.h ../../../../monetdb5/optimizer/../mal/mal.h ../../../../monetdb5/optimizer/../mal/mal_function.h ../../../../monetdb5/optimizer/../mal/mal_scenario.h ../../../../monetdb5/optimizer/../mal/mal_builder.h ../../../../monetdb5/optimizer/opt_prelude.h
 	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_iot_la_CFLAGS) $(CFLAGS) $(basket_CFLAGS) -c -o lib_iot_la-basket.lo `test -f 'basket.c' || echo '$(srcdir)/'`basket.c
-lib_iot_la-receptor.lo: receptor.c receptor.h
-	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_iot_la_CFLAGS) $(CFLAGS) $(receptor_CFLAGS) -c -o lib_iot_la-receptor.lo `test -f 'receptor.c' || echo '$(srcdir)/'`receptor.c
 lib_iot_la-petrinet.lo: petrinet.c iot.h petrinet.h ../../../../monetdb5/mal/mal_builder.h ../../../../monetdb5/optimizer/opt_support.h ../../../../monetdb5/optimizer/../mal/mal.h ../../../../monetdb5/optimizer/../mal/mal_function.h ../../../../monetdb5/optimizer/../mal/mal_scenario.h ../../../../monetdb5/optimizer/../mal/mal_builder.h ../../../../monetdb5/optimizer/opt_prelude.h
 	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_iot_la_CFLAGS) $(CFLAGS) $(petrinet_CFLAGS) -c -o lib_iot_la-petrinet.lo `test -f 'petrinet.c' || echo '$(srcdir)/'`petrinet.c
-install-exec-local-SCRIPTS: 
-all-local-SCRIPTS: $(bin_SCRIPTS)
-uninstall-local: uninstall-local-50_iot.mal uninstall-local-50_iot.sql uninstall-local-basket.mal uninstall-local-iot.mal uninstall-local-petrinet.mal uninstall-local-receptor.mal
-install-exec-local: install-exec-local-50_iot.mal install-exec-local-50_iot.sql install-exec-local-basket.mal install-exec-local-iot.mal install-exec-local-petrinet.mal install-exec-local-receptor.mal
+dist-hook:
+	mkdir -p $(distdir)/Tests
+	cp -pR $(srcdir)/Tests/* $(distdir)/Tests
+uninstall-local: uninstall-local-50_iot.mal uninstall-local-50_iot.sql uninstall-local-basket.mal uninstall-local-iot.mal uninstall-local-petrinet.mal
+install-exec-local: install-exec-local-50_iot.mal install-exec-local-50_iot.sql install-exec-local-basket.mal install-exec-local-iot.mal install-exec-local-petrinet.mal
 
   include $(top_srcdir)/buildtools/conf/rules.mk
 

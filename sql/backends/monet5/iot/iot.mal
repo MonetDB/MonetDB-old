@@ -49,24 +49,17 @@ pattern stop():void
 address IOTstop
 comment "Stop all continuous queries.";
 
+pattern step(cnt:int):void
+address IOTstop
+comment "Make a limited series of transition steps";
+
+pattern grab(dir:str):void
+address IOTgrab
+comment "Grab a directory with the binary files";
+
 command dump()
 address IOTdump
 comment "Dump iot status ";
-
-command baskets()(sch:bat[:str],nme:bat[:str], threshold:bat[:int], winsize:bat[:int], winstride:bat[:int], timeslice:bat[:int], 
-timestride:bat[:int], beat:bat[:int], seen:bat[:timestamp], events:bat[:int])
-address BSKTtable
-comment "Inspect the iot baskets";
-
-command receptors()(sch:bat[:str],nme:bat[:str], host:bat[:str], port:bat[:int], protocol:bat[:str], mode:bat[:str],
-status:bat[:str], seen:bat[:timestamp], cycles:bat[:int], received:bat[:int], pending:bat[:int])
-address RCtable
-comment "Inspect the receptors";
-
-command emitters()(sch:bat[:str],nme:bat[:str], host:bat[:str], port:bat[:int], protocol:bat[:str], mode:bat[:str],
-status:bat[:str], seen:bat[:timestamp], cycles:bat[:int], sent:bat[:int], pending:bat[:int])
-address EMtable
-comment "Inspect the emitters";
 
 command queries()(nme:bat[:str], status:bat[:str], seen:bat[:timestamp], cycles:bat[:int], events:bat[:int], time:bat[:lng], error:bat[:str], def:bat[:str])
 address PNtable
