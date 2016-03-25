@@ -5,6 +5,13 @@ stdout of test 'malcheck` in directory 'clients` itself:
 # 15:15:51 >  "./malcheck.sh" "malcheck"
 # 15:15:51 >  
 
+BSKTdrop: missing for MAL command drop in sql/backends/monet5/iot/basket.mal
+BSKTthreshold: missing for MAL command threshold in sql/backends/monet5/iot/basket.mal
+BSKTwindow: missing for MAL command window in sql/backends/monet5/iot/basket.mal
+BSKTtimewindow: missing for MAL command timewindow in sql/backends/monet5/iot/basket.mal
+BSKTbeat: missing for MAL command beat in sql/backends/monet5/iot/basket.mal
+PNtype: missing for MAL pattern types in sql/backends/monet5/iot/petrinet.mal
+PNstep: missing for MAL pattern step in sql/backends/monet5/iot/petrinet.mal
 
 # 15:16:26 >  
 # 15:16:26 >  "Done."
