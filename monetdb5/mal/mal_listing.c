@@ -195,7 +195,7 @@ fcnDefinition(MalBlkPtr mb, InstrPtr p, str s, int flg, str base, size_t len)
 	}
 
 	if (mb->binding)
-		snprintf(t,(len-(t-base))," address %s;", mb->binding);
+		snprintf(t,(len-(t-base))," address %s%s;", mb->binding, mb->binding==0?"#missing\n":"");
 	else
 		sprintf(t, ";");
 	return s;
