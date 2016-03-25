@@ -13,9 +13,7 @@ begin
 			tmp_count = tmp_total + (select count(*) from iot.stream_tmp);
 end;
 
--- alternative is a simple query
-iot.pause();
 iot.query('iot','collector');
-iot.dump();
-iot.resume();
+iot.baskets();
+iot.queries();
 iot.stop();

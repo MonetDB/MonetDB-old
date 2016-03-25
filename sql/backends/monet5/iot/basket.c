@@ -203,8 +203,8 @@ BSKTbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	*ret = 0;
 	idx= BSKTlocate(sch,tbl);
-	if (idx <0)
-		throw(SQL,"iot.bind","Stream table not registered");
+	if (idx <= 0)
+		throw(SQL,"iot.bind","Stream table '%s.%s' not registered",sch,tbl);
 
 	for(i=0; i < baskets[idx].count; i++)
 		if( strcmp(baskets[idx].cols[i], col)== 0 ){
@@ -225,7 +225,7 @@ str BSKTlock(void *ret, str *sch, str *tbl, int *delay)
 	int bskt;
 
 	bskt = BSKTlocate(*sch, *tbl);
-	if (bskt == 0)
+	if (bskt <= 0)
 		throw(SQL, "basket.lock", "Could not find the basket %s.%s",*sch,*tbl);
 #ifdef _DEBUG_BASKET
 	stream_printf(BSKTout, "lock group %s.%s\n", *sch, *tbl);

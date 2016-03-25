@@ -77,7 +77,7 @@ SQLgetSpace(mvc *m, MalBlkPtr mb)
 					}
 				}
 				if( c && isStream(c->t)){
-					setModuleId(p, iotRef);
+					setModuleId(p, basketRef);
 					p->argc = 5;
 					delArgument(p,1);
 					// stream information does not have to inlined.
@@ -85,13 +85,13 @@ SQLgetSpace(mvc *m, MalBlkPtr mb)
 						p = getInstrPtr(mb,j);
 						if(p ==0)
 							break;
-						if(p &&  getModuleId(p) == iotRef && getFunctionId(p) == registerRef &&
+						if(p &&  getModuleId(p) == basketRef && getFunctionId(p) == registerRef &&
 							strcmp(sname, getVarConstant(mb,getArg(p,1)).val.sval) == 0 &&
 							strcmp(tname, getVarConstant(mb,getArg(p,2)).val.sval) == 0 )
 								break;	// already registered
 					}
 					if( j == last || p == 0){
-						q= newStmt(mb,iotRef,registerRef);
+						q= newStmt(mb,basketRef,registerRef);
 						q= pushStr(mb,q, sname);
 						q= pushStr(mb,q, tname);
 						moveInstruction(mb, mb->stop - 1, 1);

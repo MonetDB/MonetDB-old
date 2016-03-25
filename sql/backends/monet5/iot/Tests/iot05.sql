@@ -34,7 +34,4 @@ call iot.query('select 1;');
 call iot.baskets();
 call iot.scheduler();
 
-call iot.resume();
 call iot.stop();
-call iot.drop();
-call iot.dump();

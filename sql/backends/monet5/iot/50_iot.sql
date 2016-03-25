@@ -17,49 +17,47 @@
 
 create schema iot;
 
+-- register and start a continuous query
 create procedure iot.query(qry string)
 	external name iot.query;
 
 create procedure iot.query("schema" string, name string)
 	external name iot.query;
 
+-- pause the processing of a continuous query
+create procedure iot.pause ("schema" string, name string)
+    external name iot.pause;
+
 create procedure iot.pause ()
     external name iot.pause;
 
-create procedure iot.pause ("schema" string, name string)
-    external name iot.pause;
+-- resume the processing of a continuous query
+create procedure iot.resume ("schema" string, name string)
+    external name iot.resume;
 
 create procedure iot.resume ()
     external name iot.resume;
 
-create procedure iot.resume ("schema" string, name string)
-    external name iot.resume;
+-- resume with limited the number of scheduler before next pause
+create procedure iot.cycles(n integer)
+	external name iot.cycles;
+
+-- stop and remove a continuous query
+create procedure iot.stop ("schema" string, name string)
+    external name iot.stop;
 
 create procedure iot.stop ()
     external name iot.stop;
 
-create procedure iot."drop" ()
-    external name iot."drop";
-
-create procedure iot.stop ("schema" string, name string)
-    external name iot.stop;
-
-create procedure iot.dump()
-	external name iot.dump;
-
-create procedure iot.petrinet()
-	external name iot.petrinet;
-
-
 -- Inspection tables
 
--- create function iot.baskets()
--- returns table( "schema" string,  "table" string, threshold int, winsize int, winstride int,  timeslice int, timestride int, beat int, seen timestamp, events int)
--- external name iot.baskets;
--- 
--- create function iot.queries()
--- returns table( "schema" string,  "function" string, status string, lastrun timestamp, cycles int, events int, time bigint, error string)
--- external name petrinet.queries;
+create function iot.baskets()
+returns table( "schema" string,  "table" string, threshold int, winsize int, winstride int,  timeslice int, timestride int, beat int, seen timestamp, events int)
+external name iot.baskets;
+
+create function iot.queries()
+ returns table( "schema" string,  "function" string, status string, lastrun timestamp, cycles int, events int, time bigint, error string)
+ external name iot.queries;
 
 -- create function iot.errors()
 -- returns table( "schema" string,  "table" string, error string)

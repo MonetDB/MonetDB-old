@@ -16,6 +16,4 @@ call iot.query('insert into result select min(t), count(*), avg(val) from stream
 call iot.baskets();
 call iot.petrinet();
 
-call iot.dump();
-call iot.drop();
-call iot.dump();
+call iot.stop();

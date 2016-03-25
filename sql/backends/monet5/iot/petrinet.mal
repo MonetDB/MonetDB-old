@@ -74,7 +74,7 @@ pattern analyse(mod:str, fcn:str)
 address PNanalyseWrapper
 comment "Check the input/output relationship";
 
-command queries() (mod:bat[:str],fcn:bat[:str], status:bat[:str],lastrun:bat[:timestamp],cycles:bat[:int], events:bat[:int],time:bat[:lng],error:bat[:str])
+command iot.queries() (mod:bat[:str],fcn:bat[:str], status:bat[:str],lastrun:bat[:timestamp],cycles:bat[:int], events:bat[:int],time:bat[:lng],error:bat[:str])
 address PNtable
 comment "Inspect the iot queries";
 

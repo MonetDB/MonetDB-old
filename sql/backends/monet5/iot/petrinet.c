@@ -208,8 +208,8 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 
 static str
 PNstatus( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int newstatus){
-	str modname;
-	str fcnname;
+	str modname= NULL;
+	str fcnname= NULL;
 	int i;
 
 	(void) cntxt;
@@ -222,10 +222,17 @@ PNstatus( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int newstatus
 		if ( i == pnettop)
 			throw(SQL,"iot.pause","Continuous query not found");
 		pnet[i].status = newstatus;
+#ifdef _DEBUG_PETRINET_
+	mnstr_printf(PNout, "#scheduler status %s.%s %s\n", modname,fcnname, statusname[newstatus]);
+#endif
 		return MAL_SUCCEED;
 	}
-	for ( i = 0; i < pnettop; i++)
+	for ( i = 0; i < pnettop; i++){
 		pnet[i].status = newstatus;
+#ifdef _DEBUG_PETRINET_
+		mnstr_printf(PNout, "#scheduler status %s\n", statusname[newstatus]);
+#endif
+	}
 	MT_lock_unset(&iotLock);
 	return MAL_SUCCEED;
 }
@@ -241,6 +248,14 @@ PNresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 str
 PNstop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+	return PNstatus(cntxt, mb, stk, pci, BSKTSTOP);
+}
+
+str
+PNcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+#ifdef _DEBUG_PETRINET_
+		mnstr_printf(PNout, "#scheduler cycles set \n");
+#endif
 	(void) cntxt;
 	(void) mb;
 	(void) stk;
@@ -249,10 +264,6 @@ PNstop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 }
 
 // remove a transition
-str
-PNdrop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	return PNstatus(cntxt, mb, stk, pci, BSKTSTOP);
-}
 
 str PNdump(void *ret)
 {
