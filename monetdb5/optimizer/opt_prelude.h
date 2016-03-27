@@ -77,6 +77,7 @@ opt_export  str intersectcandRef;
 opt_export  str eqRef;
 opt_export  str disconnectRef;
 opt_export  str evalRef;
+opt_export  str errorRef;
 opt_export  str execRef;
 opt_export  str expandRef;
 opt_export	str exportOperationRef;

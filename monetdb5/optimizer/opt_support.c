@@ -569,7 +569,7 @@ hasSideEffects(InstrPtr p, int strict)
 		getModuleId(p) != groupRef )
 		return TRUE;
 
-	if ( getModuleId(p) == iotRef){
+	if ( getModuleId(p) == basketRef){
 		if( getFunctionId(p) == registerRef)
 			return TRUE;
 	}

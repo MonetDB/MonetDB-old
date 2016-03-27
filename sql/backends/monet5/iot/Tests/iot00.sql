@@ -1,6 +1,5 @@
--- Clear the stream testing environment
+-- A simple continuous query.
 set schema iot;
-set optimizer='iot_pipe';
 
 create stream table stream_tmp (t timestamp, sensor integer, val decimal(8,2)) ;
 create table result(like stream_tmp);

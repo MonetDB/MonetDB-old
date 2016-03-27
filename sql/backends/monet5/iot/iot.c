@@ -134,6 +134,8 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		addtoMalBlkHistory(mb, "iot");
 	}
 	if (msg == MAL_SUCCEED) {
+		_DEBUG_IOT_ fprintf(stderr,"#iot: continuous query plan\n");
+		_DEBUG_IOT_ printFunction(cntxt->fdout, s->def, 0, LIST_MAL_ALL);
 		msg = PNregisterInternal(cntxt, s->def);
 	}
 	return msg;
@@ -169,5 +171,16 @@ IOTgrab(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     (void) mb;
     (void) stk; 
     (void) pci;
+	return MAL_SUCCEED;
+}
+
+
+str
+BSKTerror(int *ret, str *sch, str *fcn, str *msg)
+{
+	(void) ret;
+	(void) sch;
+	(void) fcn;
+	(void) msg;
 	return MAL_SUCCEED;
 }

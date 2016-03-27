@@ -17,18 +17,6 @@
 
 module petrinet;
 
-pattern source(sch:str, tbl:str, col:str...)
-address PNsource
-comment "Announce an input basket column structure";
-
-pattern target(sch:str, tbl:str, col:str...)
-address PNtarget
-comment "Announce an target basket column structure";
-
-pattern types(sch:str, tbl:str, coltype:str...)
-address PNtype
-comment "Announce a basket type structure";
-
 pattern register(mod:str, fcn:str)
 address PNregister
 comment "Add a continous MAL query to the Petri net. It will analyse

@@ -37,8 +37,7 @@
 
 /* #define _DEBUG_DATACELL     debug this module */
 #define BSKTout GDKout
-#define MAXCOL 128
-#define MAXBSK 64
+#define MAXBSKT 64
 
 typedef struct{
 	MT_Lock lock;
@@ -48,7 +47,7 @@ typedef struct{
 	int winsize, winstride; /* sliding window operations */
 	lng timeslice, timestride; /* temporal sliding window, determined by first temporal component */
 	lng beat;	/* milliseconds delay */
-	int count;
+	int count;	/* number of events available in basket */
 	str *cols;
 	bat *bats;	/* the BAT ids of the basket representation */
 
@@ -83,8 +82,9 @@ iot_export str BSKTdump(void *ret);
 
 iot_export str BSKTtable(bat *schemaId, bat *nameId, bat *thresholdId, bat * winsizeId, bat *winstrideId,bat *timesliceId, bat *timestrideId, bat *beatId, bat *seenId, bat *eventsId);
 iot_export str BSKTtableerrors(bat *nmeId, bat *errorId);
+iot_export str BSKTerror(int  *ret, str *sch, str *fcn, str *msg);
 
-iot_export str BSKTnewbasket(sql_schema *s, sql_table *t, sql_trans *tr);
+//iot_export str BSKTnewbasket(sql_schema *s, sql_table *t);
 iot_export str BSKTdrop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 iot_export int BSKTlocate(str sch, str tbl);

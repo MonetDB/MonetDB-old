@@ -33,18 +33,43 @@
 #include "opt_statistics.h"
 #include "opt_dataflow.h"
 
+#define MAXBSKT 64
+#define isstream(S,T) \
+	for(fnd=0, k= 0; k< btop; k++) \
+	if( strcmp(schemas[k], S)== 0 && strcmp(tables[k], T)== 0 ){ \
+		fnd= 1; break;\
+	}
+
 int
 OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int actions = 0, mvc=0;
-	int i, j, limit, slimit;
+	int mvc=0;
+	int i, j, k, fnd, limit, slimit;
 	InstrPtr r, p, *old;
-	int  movetofront=0;
 	int *alias;
-	char *tidlist;
+	str  schemas[MAXBSKT];
+	str  tables[MAXBSKT];
+	int btop=0;
 
 	(void) pci;
 	(void) mvc;
+
+	old = mb->stmt;
+	limit = mb->stop;
+	slimit = mb->ssize;
+
+	/* first analyse the query for streaming tables */
+	for (i = 1; i < limit && btop <MAXBSKT; i++){
+		p = old[i];
+		if( getModuleId(p)== basketRef && getFunctionId(p)== registerRef ){
+			OPTDEBUGiot mnstr_printf(cntxt->fdout, "#iot stream table %s.%s\n", getModuleId(p), getFunctionId(p));
+			schemas[btop]= getVarConstant(mb, getArg(p,1)).val.sval;
+			tables[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
+			btop++;
+		}
+	}
+	if( btop == MAXBSKT || btop == 0)
+		return 0;
 
 	OPTDEBUGiot {
 		mnstr_printf(cntxt->fdout, "#iot optimizer started\n");
@@ -52,15 +77,11 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	} else
 		(void) stk;
 
-	old = mb->stmt;
-	limit = mb->stop;
-	slimit = mb->ssize;
-	if (newMalBlkStmt(mb, slimit) < 0)
+	alias = (int *) GDKzalloc(mb->vtop * 2 * sizeof(int));
+	if (alias == 0)
 		return 0;
 
-	alias = (int *) GDKzalloc(mb->vtop * 2 * sizeof(int));
-	tidlist = (char *) GDKzalloc(mb->vtop );
-	if (alias == 0)
+	if (newMalBlkStmt(mb, slimit) < 0)
 		return 0;
 
 	pushInstruction(mb, old[0]);
@@ -68,30 +89,37 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		if (old[i]) {
 			p = old[i];
 
-			if (getModuleId(p) == iotRef && getFunctionId(p) == putName("window", 6) &&
-				isVarConstant(mb, getArg(p, 1)) && isVarConstant(mb, getArg(p, 2)) && isVarConstant(mb, getArg(p, 3)))
-				/* let's move the window to the start of the block  when it consists of constants*/
-				movetofront=1;
-			if (getModuleId(p) == iotRef && (getFunctionId(p) == putName("threshold", 9) || getFunctionId(p) == putName("beat", 4)) &&
-				isVarConstant(mb, getArg(p, 1)) && isVarConstant(mb, getArg(p, 2)))
-				/* let's move the threshold/beat to the start of the block  when it consists of constants*/
-				movetofront=1;
-			if( movetofront){
-				movetofront =0;
-				pushInstruction(mb, p);
-				for (j = mb->stop - 1; j > 1; j--)
-					mb->stmt[j] = mb->stmt[j - 1];
-				mb->stmt[j] = p;
+			if (getModuleId(p) == sqlRef && getFunctionId(p) == tidRef ){
+				isstream(getVarConstant(mb,getArg(p,2)).val.sval, getVarConstant(mb,getArg(p,3)).val.sval );
+				if( fnd){
+					alias[getArg(p,0)] = -1;
+					freeInstruction(p);
+				}
+				continue;
+			}
+			if (getModuleId(p) == algebraRef && getFunctionId(p) == projectionRef && alias[getArg(p,1)] < 0){
+				alias[getArg(p,0)] = getArg(p,2);
+				freeInstruction(p);
 				continue;
 			}
 
-			if (p->token == ENDsymbol) {
-				/* a good place to commit the SQL transaction */
+			if (getModuleId(p) == sqlRef && getFunctionId(p) == affectedRowsRef ){
+				freeInstruction(p);
+				continue;
+			}
+
+			if (p->token == ENDsymbol && btop > 0) {
 				/* catch any exception left behind */
 				r = newAssignment(mb);
 				j = getArg(r, 0) = newVariable(mb, GDKstrdup("SQLexception"), TYPE_str);
 				setVarUDFtype(mb, j);
 				r->barrier = CATCHsymbol;
+
+				r = newStmt(mb,iotRef, errorRef);
+				r = pushStr(mb, r, getModuleId(old[0]));
+				r = pushStr(mb, r, getFunctionId(old[0]));
+				r = pushArgument(mb, r, j);
+
 				r = newAssignment(mb);
 				getArg(r, 0) = j;
 				r->barrier = EXITsymbol;
@@ -99,51 +127,25 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				j = getArg(r, 0) = newVariable(mb, GDKstrdup("MALexception"), TYPE_str);
 				setVarUDFtype(mb, j);
 				r->barrier = CATCHsymbol;
+
+				r = newStmt(mb,iotRef, errorRef);
+				r = pushStr(mb, r, getModuleId(old[0]));
+				r = pushStr(mb, r, getFunctionId(old[0]));
+				r = pushArgument(mb, r, j);
+
 				r = newAssignment(mb);
 				getArg(r, 0) = j;
 				r->barrier = EXITsymbol;
-
 				break;
 			}
 
-			if (getModuleId(p) == sqlRef && getFunctionId(p) == mvcRef)
-				mvc = getArg(p, 0);
-
-			/* trim the number of sql instructions dealing with baskets */
-			if (getModuleId(p) == sqlRef && getFunctionId(p) == putName("affectedRows", 12)) {
-				freeInstruction(p);
-				continue;
-			}
-
-			/* remove consolidation of tid lists */
-			if (getModuleId(p) == algebraRef && getFunctionId(p) == subjoinRef  && tidlist[getArg(p,1)]){
-				alias[getArg(p, 0)] = getArg(p,2);
-				freeInstruction(p);
-				continue;
-			}
-			/* remove delta processing for baskets */
-			if (getModuleId(p) == sqlRef && (getFunctionId(p) == deltaRef || getFunctionId(p) == subdeltaRef) ) {
-				clrFunction(p);
-				p->argc =2;
-				pushInstruction(mb, p);
-				continue;
-			}
-
-			/* remove delta processing for baskets */
-			if (getModuleId(p) == sqlRef && (getFunctionId(p) == projectdeltaRef || getFunctionId(p) == subdeltaRef) ) {
-				clrFunction(p);
-				setModuleId(p,algebraRef);
-				setFunctionId(p,subjoinRef);
-				p->argc =3;
-				pushInstruction(mb, p);
-				continue;
-			}
 
 			for (j = 0; j < p->argc; j++)
-				if (alias[getArg(p, j)])
+				if (alias[getArg(p, j)] > 0)
 					getArg(p, j) = alias[getArg(p, j)];
 
-			if (getModuleId(p) == sqlRef && getFunctionId(p) == appendRef) {
+			if (getModuleId(p) == sqlRef && getFunctionId(p) == appendRef ){
+				isstream(getVarConstant(mb,getArg(p,2)).val.sval, getVarConstant(mb,getArg(p,3)).val.sval );
 				/* the appends come in multiple steps.
 				   The first initializes an basket update statement,
 				   which is triggered when we commit the transaction.
@@ -156,15 +158,12 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     for (; i<limit; i++)
         if (old[i])
             pushInstruction(mb,old[i]);
-	(void) stk;
-	(void) pci;
 
 	OPTDEBUGiot {
 		mnstr_printf(cntxt->fdout, "#iot optimizer intermediate\n");
 		printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
 	} 
 	GDKfree(alias);
-	GDKfree(tidlist);
-	return actions;
+	return btop > 0;
 }
 

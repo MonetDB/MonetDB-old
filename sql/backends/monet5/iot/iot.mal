@@ -61,3 +61,6 @@ command errors()(nme:bat[:str],error:bat[:str])
 address BSKTtableerrors
 comment "Return a table the erroneous events found during query processing";
 
+command error(sch:str,fcn:str,msg:str)
+address BSKTerror
+comment "Save exception message ";

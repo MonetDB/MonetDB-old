@@ -43,11 +43,11 @@ static int BSKTnewEntry(void)
 {
 	int i;
 	if (bsktLimit == 0) {
-		bsktLimit = MAXBSK;
+		bsktLimit = MAXBSKT;
 		baskets = (BasketRec *) GDKzalloc(bsktLimit * sizeof(BasketRec));
 		bsktTop = 1; /* entry 0 is used as non-initialized */
 	} else if (bsktTop +1 == bsktLimit) {
-		bsktLimit += MAXBSK;
+		bsktLimit += MAXBSKT;
 		baskets = (BasketRec *) GDKrealloc(baskets, bsktLimit * sizeof(BasketRec));
 	}
 	for (i = 1; i < bsktLimit; i++)
@@ -97,8 +97,8 @@ BSKTlocate(str sch, str tbl)
 }
 
 // Instantiate a basket description for a particular table
-str
-BSKTnewbasket(sql_schema *s, sql_table *t, sql_trans *tr)
+static str
+BSKTnewbasket(sql_schema *s, sql_table *t)
 {
 	int idx, i;
 	node *o;
@@ -135,7 +135,7 @@ BSKTnewbasket(sql_schema *s, sql_table *t, sql_trans *tr)
 	i = 0;
 	for (o = t->columns.set->h; o; o = o->next) {
 		c = o->data;
-		b =store_funcs.bind_col(tr, c, RD_INS);
+		b= BATnew(TYPE_void, c->type.type->localtype, 0, TRANSIENT);
 		if (b == NULL) {
 			BSKTclean(idx);
 			MT_lock_unset(&iotLock);
@@ -161,7 +161,6 @@ BSKTregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	sql_table   *t;
 	mvc *m = NULL;
 	str msg = getSQLContext(cntxt, mb, &m, NULL);
-	sql_trans *tr;
 	str sch, tbl;
 
 	if ( msg != MAL_SUCCEED)
@@ -175,7 +174,6 @@ BSKTregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if ((msg = checkSQLContext(cntxt)) != MAL_SUCCEED)
 		return msg;
 
-	tr = m->session->tr;
 	s = mvc_bind_schema(m, sch);
 	if (s == NULL)
 		throw(SQL, "iot.register", "Schema missing");
@@ -184,7 +182,7 @@ BSKTregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (t == NULL)
 		throw(SQL, "iot.register", "Table missing '%s'", tbl);
 
-	msg=  BSKTnewbasket(s, t, tr);
+	msg=  BSKTnewbasket(s, t);
 	return msg;
 }
 

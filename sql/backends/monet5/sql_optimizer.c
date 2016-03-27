@@ -37,11 +37,14 @@ SQLgetSpace(mvc *m, MalBlkPtr mb)
 	lng space = 0, i,j; 
 	InstrPtr q;
 	int last = 2;
+	int mvcpc= 0;
 
 	for (i = 0; i < mb->stop; i++) {
 		InstrPtr p = mb->stmt[i];
 		char *f = getFunctionId(p);
 
+		if (getModuleId(p) == sqlRef && f == mvcRef)
+			mvcpc = i;
 		if (getModuleId(p) == sqlRef && (f == bindRef || f == bindidxRef)) {
 			int upd = (p->argc == 7 || p->argc == 9), mode = 0;
 			char *sname = getVarConstant(mb, getArg(p, 2 + upd)).val.sval;
@@ -94,7 +97,7 @@ SQLgetSpace(mvc *m, MalBlkPtr mb)
 						q= newStmt(mb,basketRef,registerRef);
 						q= pushStr(mb,q, sname);
 						q= pushStr(mb,q, tname);
-						moveInstruction(mb, mb->stop - 1, 1);
+						moveInstruction(mb, mb->stop - 1, mvcpc+1);
 						last ++;
 					}
 				}

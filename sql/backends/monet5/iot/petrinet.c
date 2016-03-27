@@ -20,48 +20,18 @@
 /*
  * Martin Kersten
  * Petri-net query scheduler
-   The Iothings scheduler is based on the long-standing and mature Petri-net technology. For completeness, we
+   The Iot scheduler is based on the long-standing and mature Petri-net technology. For completeness, we
    recap its salient points taken from Wikipedia. For more detailed information look at the science library.
 
-   A Petri net (also known as a place/transition net or P/T net) is one of several mathematical modeling
-   languages for the description of distributed systems. A Petri net is a directed bipartite graph,
-   in which the nodes represent transitions (i.e. events that may occur, signified by bars) and
-   places (i.e. conditions, signified by circles). The directed arcs describe which places are pre-
-   and/or postconditions for which transitions (signified by arrows).
-   Some sources state that Petri nets were invented in August 1939 by Carl Adam Petri –
-   at the age of 13 – for the purpose of describing chemical processes.
-
-   Like industry standards such as UML activity diagrams, BPMN and EPCs, Petri nets offer a
-   graphical notation for stepwise processes that include choice, iteration, and concurrent execution.
-   Unlike these standards, Petri nets have an exact mathematical definition of their execution semantics,
-   with a well-developed mathematical theory for process analysis.
-
-   A Petri net consists of places, transitions, and directed arcs. Arcs run from a place to a transition or vice versa,
-   never between places or between transitions. The places from which an arc runs to a transition are called the input
-   places of the transition; the places to which arcs run from a transition are called the output places of the transition.
-
-   Places may contain a natural number of tokens. A distribution of tokens over the places of a net is called a marking.
-   A transition of a Petri net may fire whenever there is a token at the start of all input arcs; when it fires,
-   it consumes these tokens, and places tokens at the end of all output arcs. A firing is atomic, i.e., a single non-interruptible step.
-
-   Execution of Petri nets is nondeterministic: when multiple transitions are enabled at the same time,
-   any one of them may fire. If a transition is enabled, it may fire, but it doesn't have to.
-
-   Since firing is nondeterministic, and multiple tokens may be present anywhere in the net (even in the same place), Petri nets are well suited for modeling the concurrent behavior of distributed systems.
-
-   The Iothings scheduler is a fair implementation of a Petri-net interpreter. It models all continuous queries as transitions,
-   and the stream tables as the places. The events are equivalent to tokens. Unlike the pure Petri-net model, all tokens in a place
+   The Iot scheduler is a fair implementation of a Petri-net interpreter. It models all continuous queries as transitions,
+   and the stream tables represent the places with all token events. Unlike the pure Petri-net model, all tokens in a place
    are taken out on each firing. They may result into placing multiple tokens into receiving baskets.
 
    The scheduling amongst the transistions is currently deterministic. Upon each round of the scheduler, it determines all
-   transitions eligble to fire, i.e. have non-empty baskets, which are then actived one after the other. Future implementations
-   may relax this rigid scheme using a parallel implementation of the scheduler, such that each transition by itself can
-   decide to fire. However, when resources are limited to handle all complex continuous queries, it may pay of to invest
-   into a domain specif scheduler.
-
-   For example, in the EMILI case, we may want to give priority to fire transistions based on the sensor type (is there fire)
-   or detection of emergency trends (the heat increases beyong model-based prediction). The software structure where to
-   inject this domain specific code is well identified and relatively easy to extend.
+   transitions eligble to fire, i.e. have non-empty baskets, which are then actived one after the other.
+   Future implementations may relax this rigid scheme using a parallel implementation of the scheduler, such that each 
+   transition by itself can decide to fire. However, when resources are limited to handle all complex continuous queries, 
+   it may pay of to invest into a domain specif scheduler.
 
    The current implementation is limited to a fixed number of transitions. The scheduler can be stopped and restarted
    at any time. Even selectively for specific baskets. This provides the handle to debug a system before being deployed.
@@ -89,37 +59,29 @@ static void
 PNstartScheduler(void);
 
 typedef struct {
-	char *table;
-	int bskt;       /* basket used */
-	BAT *b;             /* reference BAT for checking content */
-	int available;      /* approximate number of events available */
-	size_t lastcount;   /* statistics gathering */
-	size_t consumed;
-} PoolRec;
-
-typedef struct {
 	str modname;	/* the MAL query block */
 	str fcnname;
-	MalBlkPtr mb;       /* Factory MAL block */
-	MalStkPtr stk;      /* Factory stack */
-	InstrPtr pci;       /* Factory re-entry point */
-	int pc;
+	MalBlkPtr mb;       /* Query block */
+	MalStkPtr stk;    	/* might be handy */
+
 	int status;     /* query status waiting/running/ready */
+	int enabled;	/* all baskets are available */
+	int places[MAXBSKT], targets[MAXBSKT];
+
+	MT_Id	tid;
 	int delay;      /* maximum delay between calls */
 	timestamp seen; /* last executed */
+
 	int cycles;     /* number of invocations of the factory */
 	int events;     /* number of events consumed */
 	str error;      /* last error seen */
 	lng time;       /* total time spent for all invocations */
-	int enabled, available;
-	int srctop, trgttop;
-	PoolRec *source, *target;
-} PNnode, *petrinode;
+} PNnode;
 
-PNnode *pnet;
+PNnode pnet[MAXPN];
 int pnettop = 0;
 
-int *enabled;     /*array that contains the id's of all queries that are enable to fire*/
+int enabled[MAXPN];     /*array that contains the id's of all queries that are enable to fire*/
 
 static int status = BSKTINIT;
 static int cycleDelay = 1; /* be careful, it affects response/throughput timings */
@@ -173,23 +135,18 @@ PNlocate(str modname, str fcnname)
 str
 PNregisterInternal(Client cntxt, MalBlkPtr mb)
 {
-	int i;
+	int i, init= pnet == 0;
 	InstrPtr sig;
 	str msg = MAL_SUCCEED;
 
-	if (pnettop == 0 && (pnet = (PNnode *) GDKzalloc(MAXPN * sizeof(PNnode))) == NULL)
-		throw(MAL, "petrinet.register", MAL_MALLOC_FAIL);
-	else if (pnettop >= MAXPN) {
-		if ((pnet = (PNnode *) GDKrealloc(pnet, sizeof(PNnode) * (pnettop + 1))) == NULL)
-			throw(MAL, "petrinet.register", MAL_MALLOC_FAIL);
-	} 
+	if (pnettop == MAXPN) 
+		GDKerror("petrinet.register:Too many transitions");
 
 	sig= getInstrPtr(mb,0);
 	i = PNlocate(getModuleId(sig), getFunctionId(sig));
 	if (i != pnettop)
 		throw(MAL, "petrinet.register", "Duplicate definition of transition");
 
-	memset((char *) (pnet+pnettop), 0, sizeof(PNnode));
 	pnet[pnettop].modname = GDKstrdup(getModuleId(sig));
 	pnet[pnettop].fcnname = GDKstrdup(getFunctionId(sig));
 
@@ -201,7 +158,7 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 	pnettop++;
 	msg = PNanalysis(cntxt, mb);
 	/* start the scheduler if analysis does not show errors */
-	if( msg == MAL_SUCCEED)
+	if( msg == MAL_SUCCEED && init)
 		PNstartScheduler();
 	return msg;
 }
@@ -267,51 +224,32 @@ PNcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 str PNdump(void *ret)
 {
-	int i, k;
+	int i, k, idx;
 	mnstr_printf(PNout, "#scheduler status %s\n", statusname[status]);
 	for (i = 0; i < pnettop; i++) {
 		mnstr_printf(PNout, "#[%d]\t%s.%s %s delay %d cycles %d events %d time " LLFMT " ms\n",
 				i, pnet[i].modname, pnet[i].fcnname, statusname[pnet[i].status], pnet[i].delay, pnet[i].cycles, pnet[i].events, pnet[i].time / 1000);
 		if (pnet[i].error)
 			mnstr_printf(PNout, "#%s\n", pnet[i].error);
-		for (k = 0; k < pnet[i].srctop; k++)
-			mnstr_printf(PNout, "#<--\t%s basket[%d] " SZFMT " " SZFMT "\n",
-					pnet[i].source[k].table,
-					pnet[i].source[k].bskt,
-					pnet[i].source[k].lastcount,
-					pnet[i].source[k].consumed);
-		for (k = 0; k < pnet[i].trgttop; k++)
-			mnstr_printf(PNout, "#-->\t%s basket[%d] " SZFMT " " SZFMT "\n",
-					pnet[i].target[k].table,
-					pnet[i].source[k].bskt,
-					pnet[i].target[k].lastcount,
-					pnet[i].target[k].consumed);
+		for (k = 0; k < MAXBSKT && pnet[i].places[k]; k++){
+			idx = pnet[i].places[k];
+			mnstr_printf(PNout, "#<--\t%s basket[%d] %d %d\n",
+					baskets[idx].table,
+					idx,
+					baskets[idx].count,
+					baskets[idx].events);
+		}
+		for (k = 0; k <MAXBSKT &&  pnet[i].targets[k]; k++){
+			idx = pnet[i].targets[k];
+			mnstr_printf(PNout, "#-->\t%s basket[%d] %d %d\n",
+					baskets[idx].table,
+					idx,
+					baskets[idx].count,
+					baskets[idx].events);
+		}
 	}
 	(void) ret;
 	return MAL_SUCCEED;
-}
-/*
- * Make the basket group accessible to the transition function
- * The code currently relies on a physical adjacent ordering of all member
- * in the group.
- */
-str
-PNsource(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	(void) cntxt;
-	(void) mb;
-	(void) stk;
-	(void) pci;
-	throw(MAL,"petrinet.source","Should not be called directly");
-}
-str
-PNtarget(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	(void) cntxt;
-	(void) mb;
-	(void) stk;
-	(void) pci;
-	throw(MAL,"petrinet.source","Should not be called directly");
 }
 
 /* check the routine for input/output relationships */
@@ -327,133 +265,82 @@ PNanalysis(Client cntxt, MalBlkPtr mb)
 	/* first check for errors */
 	for (i = 0; i < mb->stop; i++) {
 		p = getInstrPtr(mb, i);
-		if (getModuleId(p) == basketRef && getFunctionId(p) == grabRef) {
+		if (getModuleId(p) == basketRef && getFunctionId(p) == registerRef) {
 			tbl = getVarConstant(mb, getArg(p, p->argc - 1)).val.sval;
-
 			for (j = 0; j < pnettop; j++)
-				for (k = 0; k < pnet[j].srctop; k++)
-					if (strcmp(tbl, pnet[j].source[k].table) == 0)
+				for (k = 0; k < MAXBSKT && pnet[j].places[k]; k++)
+					if (strcmp(tbl, baskets[pnet[j].places[k]].table) == 0)
 						throw(MAL, "iot.register", "Duplicate use of continuous query input");
 		}
 	}
 	for (i = 0; i < mb->stop; i++) {
 		p = getInstrPtr(mb, i);
-		if (getModuleId(p) == basketRef && getFunctionId(p) == grabRef) {
+		if (getModuleId(p) == basketRef && getFunctionId(p) == registerRef) {
 			tbl = getVarConstant(mb, getArg(p, p->argc - 1)).val.sval;
-			//PNsource(&ret, &nme, &tbl);
 		}
 		if (getModuleId(p) == basketRef && getFunctionId(p) == putName("pass", 4)) {
 			tbl = getVarConstant(mb, getArg(p, p->retc)).val.sval;
 			mnstr_printf(cntxt->fdout, "#output basket %s \n", tbl);
-			//PNtarget(&ret, &nme, &tbl);
 		}
 	}
 	return MAL_SUCCEED;
 }
 /*
  * The PetriNet controller lives in an separate thread.
- * It cycles through the nodes, hunting for non-empty baskets
- * and non-paused queries that can fire.
+ * It cycles through all transition nodes, hunting for paused queries that can fire.
  * The current policy is a simple round-robin. Later we will
  * experiment with more advanced schemes, e.g., priority queues.
  *
  * During each step cycle we first enable the transformations.
- * Then an optional scheduler may decide on the priority
- * of the factory activation.
- * All sources
  */
+static void
+PNexecute( void *n)
+{
+	PNnode *node= (PNnode *) n;
+	node->status = BSKTPAUSE;
+#ifdef _DEBUG_PETRINET_
+		mnstr_printf(PNout, "#petrinet.executed %s.%s\n",node->modname, node->fcnname);
+#endif
+}
 static void
 PNcontroller(void *dummy)
 {
-	int idx = -1, i, j, cnt = 0;
-	Symbol s;
-	InstrPtr p;
-	MalStkPtr glb;
-	MalBlkPtr mb;
+	int idx = -1, i, j;
 	Client cntxt;
 	int k = -1;
-	int m = 0, abortpc=0;
-	str msg;
+	int m = 0;
+	str msg = MAL_SUCCEED;
 	lng t, analysis, now;
 
 	cntxt = mal_clients; /* run as admin in SQL mode*/
 	 if( strcmp(cntxt->scenario, "sql") )
 		 SQLinitEnvironment(cntxt, NULL, NULL, NULL);
-	/* At this point we know what is the total number of factories.
-	 * The most extremely case is when ALL factories are enable to fire
-	 * so the maximum space we could ever need is = #factories (=pnettop)*/
 
-	if ((enabled = (int *) GDKzalloc(MAXPN * sizeof(int))) == NULL) {
-		mnstr_printf(cntxt->fdout, "#Petrinet Controller is unable to allocate more memory!\n");
-		return;
-	}
-
-	/* create a fake procedure to highlight the continuous queries */
-	s = newFunction(userRef, GDKstrdup("pnController"), FUNCTIONsymbol);
-	mb= s->def;
-	p = getSignature(s);
-	getArg(p, 0) = newTmpVariable(mb, TYPE_void);
-reinit:
-	MT_lock_set(&iotLock);
 	status = BSKTRUNNING;
-	mb->stop = 1;
-	/* create an execution environment for all transitions */
-	for (i = 0; i < pnettop; i++) {
-		p = newFcnCall(mb, pnet[i].modname, pnet[i].fcnname);
-		pnet[i].pc = getPC(mb, p);
-	}
-	p= newFcnCall(mb, sqlRef, abortRef);
-	abortpc = getPC(mb,p);
-	pushEndInstruction(mb);
-	/*printf("\n1 mb->vtop:%d\n",mb->vtop);*/
-	chkProgram(cntxt->fdout, cntxt->nspace, mb);
-	MT_lock_unset(&iotLock);
 
-#ifdef _DEBUG_PETRINET_
-		printFunction(cntxt->fdout, mb, 0, LIST_MAL_ALL);
-#endif
-	if (mb->errors) {
-		mnstr_printf(cntxt->fdout, "#Petrinet Controller found errors\n");
-		return;
-	}
-	newStack(glb, mb->vtop);
-	memset((char *) glb, 0, stackSize(mb->vtop));
-	glb->stktop = mb->vtop;
-	glb->blk = mb;
-#ifdef _DEBUG_PETRINET_
-	printFunction(cntxt->fdout, mb, 0, LIST_MAL_ALL);
-#endif
 	while( status != BSKTSTOP){
 		if (cycleDelay)
 			MT_sleep_ms(cycleDelay);  /* delay to make it more tractable */
 		while (status == BSKTPAUSE)
-			;
-		if ( mb->stop  < pnettop + 2)
-			goto reinit;	/* new query arrived */
+			MT_sleep_ms(cycleDelay);  /* delay to make it more tractable */
+
 		/* collect latest statistics, note that we don't need a lock here,
 		   because the count need not be accurate to the usec. It will simply
-		   come back. We also only have to check the sources that are marked
+		   come back. We also only have to check the places that are marked
 		   empty. */
 		now = GDKusec();
 		for (k = i = 0; status == BSKTRUNNING && i < pnettop; i++) 
 		if ( pnet[i].status != BSKTPAUSE ){
-			pnet[i].available = 0;
-			pnet[i].enabled = 0;
-			for (j = 0; j < pnet[i].srctop; j++) {
-				idx = pnet[i].source[j].bskt;
-				//pnet[i].source[j].b = baskets[idx].bats[0];
-				if (pnet[i].source[j].b == 0) { /* we lost the BAT */
+			pnet[i].enabled = 1;
+			for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].places[j]; j++) {
+				idx = pnet[i].places[j];
+				if (baskets[idx].count == 0  || baskets[idx].count < baskets[idx].threshold ) { /* nothing to take care of */
 					pnet[i].enabled = 0;
 					break;
 				}
-				pnet[i].source[j].available = cnt = (int) BATcount(pnet[i].source[j].b);
-				if (cnt) {
+				if (pnet[i].enabled) {
 					timestamp ts, tn;
 					/* only look at large enough baskets */
-					if (cnt < baskets[idx].threshold) {
-						pnet[i].enabled = 0;
-						break;
-					}
 					/* check heart beat delays */
 					if (baskets[idx].beat) {
 						(void) MTIMEunix_epoch(&ts);
@@ -463,18 +350,12 @@ reinit:
 							break;
 						}
 					}
-#ifdef _DEBUG_PETRINET_
-					mnstr_printf(cntxt->fdout, "#PETRINET:%d tuples for %s, source %d\n", cnt, pnet[i].fcnname, j);
+#ifdef _debug_petrinet_
+					mnstr_printf(cntxt->fdout, "#petrinet:%d tuples for %s, source %d\n", baskets[idx].count, pnet[i].fcnname, j);
 #endif
-					pnet[i].available += cnt;
-					pnet[i].enabled++;
-				} else {
-					/*stop checking if the rest input BATs does not contain elements */
-					pnet[i].enabled = 0;
-					break;
-				}
+				} 
 			}
-			if (pnet[i].enabled == pnet[i].srctop)
+			if (pnet[i].enabled )
 				/*save the ids of all continuous queries that can be executed */
 				enabled[k++] = i;
 		}
@@ -486,19 +367,18 @@ reinit:
 		 * and now it is enough to access that list*/
 		for (m = 0; m < k; m++) {
 			i = enabled[m];
-			if (pnet[i].srctop == pnet[i].enabled && pnet[i].available > 0) {
+			if (pnet[i].enabled ) {
 #ifdef _DEBUG_PETRINET_
-				mnstr_printf(cntxt->fdout, "#Run transition %s pc %d\n", pnet[i].fcnname, pnet[i].pc);
-#endif
-#ifdef _BASKET_SIZE_
-				mnstr_printf(cntxt->fdout, "\npnet[%d].srctop:%d\n", i, pnet[i].srctop);
-				mnstr_printf(cntxt->fdout, "Function: %s basket size %d\n", pnet[i].fcnname, pnet[i].source[0].available);
+				mnstr_printf(cntxt->fdout, "#Run transition %s \n", pnet[i].fcnname);
 #endif
 
 				(void) MTIMEcurrent_timestamp(&baskets[idx].seen);
 				t = GDKusec();
 				pnet[i].cycles++;
-				msg = reenterMAL(cntxt, mb, pnet[i].pc, pnet[i].pc + 1, glb);
+				// Fork MAL execution thread 
+				if (MT_create_thread(&pnet[i].tid, PNexecute, (void*) &pnet[i], MT_THR_JOINABLE) < 0){
+					msg= createException(MAL,"petrinet.controller","Can not fork the thread");
+				}
 				pnet[i].time += GDKusec() - t + analysis;   /* keep around in microseconds */
 				if (msg != MAL_SUCCEED && !strstr(msg, "too early")) {
 					char buf[BUFSIZ];
@@ -509,15 +389,11 @@ reinit:
 						GDKfree(msg);
 					pnet[i].enabled = -1;
 					/* abort current transaction  */
-					if ( abortpc )
-						msg = reenterMAL(cntxt, mb, abortpc, abortpc + 1, glb);
 				} else {
 					(void) MTIMEcurrent_timestamp(&pnet[i].seen);
-					for (j = 0; j < pnet[i].srctop; j++) {
-						idx = pnet[i].source[j].bskt;
+					for (j = 0; j < MAXBSKT && pnet[i].places[j]; j++) {
+						idx = pnet[i].places[j];
 						(void) MTIMEcurrent_timestamp(&baskets[idx].seen);
-						pnet[i].events += pnet[i].source[j].available;
-						pnet[i].source[j].available = 0;  /* force recount */
 					}
 				}
 			}

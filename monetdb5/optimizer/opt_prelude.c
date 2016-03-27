@@ -79,6 +79,7 @@ str intersectcandRef;
 str eqRef;
 str disconnectRef;
 str evalRef;
+str errorRef;
 str execRef;
 str expandRef;
 str exportOperationRef;
@@ -296,6 +297,7 @@ void optimizerInit(void)
 	eqRef = putName("==",2);
 	disconnectRef= putName("disconnect",10);
 	evalRef = putName("eval",4);
+	errorRef = putName("error",5);
 	execRef = putName("exec",4);
 	expandRef = putName("expand",6);
 	exportOperationRef = putName("exportOperation",15);
