@@ -50,8 +50,6 @@
 #define PNcontrolInfinit 1  /* infinit loop of PNController  */
 #define PNcontrolEnd 2      /* when all factories are disable PNController exits */
 
-#define _DEBUG_PETRINET_ 
-
 static str statusname[6] = { "<unknown>", "init", "paused", "running", "stop", "error" };
 
 /*static int controlRounds = PNcontrolInfinit;*/
@@ -179,16 +177,12 @@ PNstatus( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int newstatus
 		if ( i == pnettop)
 			throw(SQL,"iot.pause","Continuous query not found");
 		pnet[i].status = newstatus;
-#ifdef _DEBUG_PETRINET_
-	mnstr_printf(PNout, "#scheduler status %s.%s %s\n", modname,fcnname, statusname[newstatus]);
-#endif
+		_DEBUG_PETRINET_ mnstr_printf(PNout, "#scheduler status %s.%s %s\n", modname,fcnname, statusname[newstatus]);
 		return MAL_SUCCEED;
 	}
 	for ( i = 0; i < pnettop; i++){
 		pnet[i].status = newstatus;
-#ifdef _DEBUG_PETRINET_
-		mnstr_printf(PNout, "#scheduler status %s\n", statusname[newstatus]);
-#endif
+		_DEBUG_PETRINET_ mnstr_printf(PNout, "#scheduler status %s\n", statusname[newstatus]);
 	}
 	MT_lock_unset(&iotLock);
 	return MAL_SUCCEED;
@@ -210,9 +204,7 @@ PNstop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
 
 str
 PNcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-#ifdef _DEBUG_PETRINET_
-		mnstr_printf(PNout, "#scheduler cycles set \n");
-#endif
+	_DEBUG_PETRINET_ mnstr_printf(PNout, "#scheduler cycles set \n");
 	(void) cntxt;
 	(void) mb;
 	(void) stk;
@@ -257,34 +249,19 @@ str PNdump(void *ret)
 str
 PNanalysis(Client cntxt, MalBlkPtr mb)
 {
-	int i, j, k;
+	int i;
 	InstrPtr p;
-	str tbl;
+	str msg= MAL_SUCCEED;
 
-	(void) cntxt;
-	/* first check for errors */
-	for (i = 0; i < mb->stop; i++) {
+	for (i = 0; msg== MAL_SUCCEED && i < mb->stop; i++) {
 		p = getInstrPtr(mb, i);
-		if (getModuleId(p) == basketRef && getFunctionId(p) == registerRef) {
-			tbl = getVarConstant(mb, getArg(p, p->argc - 1)).val.sval;
-			for (j = 0; j < pnettop; j++)
-				for (k = 0; k < MAXBSKT && pnet[j].places[k]; k++)
-					if (strcmp(tbl, baskets[pnet[j].places[k]].table) == 0)
-						throw(MAL, "iot.register", "Duplicate use of continuous query input");
+		if (getModuleId(p) == basketRef && getFunctionId(p) == registerRef){
+			msg =BSKTregister(cntxt,mb,0,p);
 		}
 	}
-	for (i = 0; i < mb->stop; i++) {
-		p = getInstrPtr(mb, i);
-		if (getModuleId(p) == basketRef && getFunctionId(p) == registerRef) {
-			tbl = getVarConstant(mb, getArg(p, p->argc - 1)).val.sval;
-		}
-		if (getModuleId(p) == basketRef && getFunctionId(p) == putName("pass", 4)) {
-			tbl = getVarConstant(mb, getArg(p, p->retc)).val.sval;
-			mnstr_printf(cntxt->fdout, "#output basket %s \n", tbl);
-		}
-	}
-	return MAL_SUCCEED;
+	return msg;
 }
+
 /*
  * The PetriNet controller lives in an separate thread.
  * It cycles through all transition nodes, hunting for paused queries that can fire.
@@ -298,9 +275,7 @@ PNexecute( void *n)
 {
 	PNnode *node= (PNnode *) n;
 	node->status = BSKTPAUSE;
-#ifdef _DEBUG_PETRINET_
-		mnstr_printf(PNout, "#petrinet.executed %s.%s\n",node->modname, node->fcnname);
-#endif
+	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.executed %s.%s\n",node->modname, node->fcnname);
 }
 static void
 PNcontroller(void *dummy)
@@ -368,9 +343,7 @@ PNcontroller(void *dummy)
 		for (m = 0; m < k; m++) {
 			i = enabled[m];
 			if (pnet[i].enabled ) {
-#ifdef _DEBUG_PETRINET_
-				mnstr_printf(cntxt->fdout, "#Run transition %s \n", pnet[i].fcnname);
-#endif
+				_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#Run transition %s \n", pnet[i].fcnname);
 
 				(void) MTIMEcurrent_timestamp(&baskets[idx].seen);
 				t = GDKusec();
@@ -410,11 +383,8 @@ PNstartScheduler(void)
 {
 	MT_Id pid;
 	int s;
-#ifdef _DEBUG_PETRINET_
-	PNdump(&s);
-#else
 	(void) s;
-#endif
+	_DEBUG_PETRINET_ PNdump(&s);
 
 	if (status== BSKTINIT && MT_create_thread(&pid, PNcontroller, &s, MT_THR_JOINABLE) != 0){
 		GDKerror( "petrinet creation failed");
@@ -499,4 +469,53 @@ wrapup:
 	if (error)
 		BBPunfix(error->batCacheid);
 	throw(MAL, "iot.queries", MAL_MALLOC_FAIL);
+}
+
+str PNplaces(bat *schemaId, bat *tableId, bat *modnameId, bat *fcnnameId)
+{
+	BAT *schema, *table, *modname = NULL, *fcnname = NULL;
+	int i,j;
+
+	schema = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	if (schema == 0)
+		goto wrapup;
+	BATseqbase(schema, 0);
+
+	table = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	if (table == 0)
+		goto wrapup;
+	BATseqbase(table, 0);
+
+	modname = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	if (modname == 0)
+		goto wrapup;
+	BATseqbase(modname, 0);
+
+	fcnname = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	if (fcnname == 0)
+		goto wrapup;
+	BATseqbase(fcnname, 0);
+
+	for (i = 0; i < pnettop; i++) 
+	for( j =0; j < MAXBSKT && pnet[i].places[j]; j++){
+		BUNappend(schema, baskets[pnet[i].places[j]].schema, FALSE);
+		BUNappend(table, baskets[pnet[i].places[j]].table, FALSE);
+		BUNappend(modname, pnet[i].modname, FALSE);
+		BUNappend(fcnname, pnet[i].fcnname, FALSE);
+	}
+	BBPkeepref(*schemaId = schema->batCacheid);
+	BBPkeepref(*tableId = table->batCacheid);
+	BBPkeepref(*modnameId = modname->batCacheid);
+	BBPkeepref(*fcnnameId = fcnname->batCacheid);
+	return MAL_SUCCEED;
+wrapup:
+	if (schema)
+		BBPunfix(schema->batCacheid);
+	if (table)
+		BBPunfix(table->batCacheid);
+	if (modname)
+		BBPunfix(modname->batCacheid);
+	if (fcnname)
+		BBPunfix(fcnname->batCacheid);
+	throw(MAL, "iot.places", MAL_MALLOC_FAIL);
 }

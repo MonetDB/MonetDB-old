@@ -66,6 +66,10 @@ command iot.queries() (mod:bat[:str],fcn:bat[:str], status:bat[:str],lastrun:bat
 address PNtable
 comment "Inspect the iot queries";
 
+command iot.places() (sch:bat[:str], tbl:bat[:str],mod:bat[:str],fcn:bat[:str])
+address PNplaces
+comment "Inspect the destination of the places";
+
 command dump()
 address PNdump
 comment "Show the status of the Petri net";

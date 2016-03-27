@@ -135,7 +135,6 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	if (msg == MAL_SUCCEED) {
 		_DEBUG_IOT_ fprintf(stderr,"#iot: continuous query plan\n");
-		_DEBUG_IOT_ printFunction(cntxt->fdout, s->def, 0, LIST_MAL_ALL);
 		msg = PNregisterInternal(cntxt, s->def);
 	}
 	return msg;

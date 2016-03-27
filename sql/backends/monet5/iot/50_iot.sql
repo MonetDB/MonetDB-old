@@ -59,6 +59,15 @@ create function iot.queries()
  returns table( "schema" string,  "function" string, status string, lastrun timestamp, cycles int, events int, time bigint, error string)
  external name iot.queries;
 
+-- next causes crash
+--create function iot.places2()
+-- returns table( "schema" string,  "table" string, "schema" string, "query" string)
+-- external name iot.places;
+
+create function iot.places()
+ returns table( "s" string,  "t" string, "sch" string, "qry" string)
+ external name iot.places;
+
 -- create function iot.errors()
 -- returns table( "schema" string,  "table" string, error string)
 -- external name iot.errors;

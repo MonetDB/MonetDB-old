@@ -165,8 +165,13 @@ BSKTregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	if ( msg != MAL_SUCCEED)
 		return msg;
-	sch = *getArgReference_str(stk, pci, 1);
-	tbl = *getArgReference_str(stk, pci, 2);
+	if( stk == 0){
+		sch = getVarConstant(mb, getArg(pci,1)).val.sval;
+		tbl = getVarConstant(mb, getArg(pci,2)).val.sval;
+	} else{
+		sch = *getArgReference_str(stk, pci, 1);
+		tbl = *getArgReference_str(stk, pci, 2);
+	}
 
 	/* check double registration */
 	if( BSKTlocate(sch, tbl) > 0)

@@ -23,7 +23,7 @@
 #include "sql_scenario.h"
 #include "basket.h"
 
-#define _DEBUG_PETRINET_ 
+#define _DEBUG_PETRINET_ if(1)
 
 #define PNout GDKout
 /*#define  _BASKET_SIZE_*/
@@ -50,5 +50,6 @@ iot_export str PNdump(void *ret);
 iot_export str PNanalysis(Client cntxt, MalBlkPtr mb);
 iot_export str PNanalyseWrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str PNtable(bat *modnameId, bat *fcnnameId, bat *statusId, bat *seenId, bat *cyclesId, bat *eventsId, bat *timeId, bat * errorId);
+iot_export str PNplaces(bat *schemaId, bat *streamId, bat *modnameId, bat *fcnnameId);
 #endif
 
