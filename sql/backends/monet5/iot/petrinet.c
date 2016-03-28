@@ -283,6 +283,7 @@ PNexecute( void *n)
 {
 	PNnode *node= (PNnode *) n;
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.executed %s.%s\n",node->modname, node->fcnname);
+	runMAL(mal_clients, node->mb, 0,0);
 	node->status = BSKTPAUSE;
 }
 
@@ -290,9 +291,9 @@ static void
 PNcontroller(void *dummy)
 {
 	int idx = -1, i, j;
-	Client cntxt;
 	int k = -1;
 	int m = 0;
+	Client cntxt;
 	str msg = MAL_SUCCEED;
 	lng t, analysis, now;
 	int claimed[MAXBSKT];
