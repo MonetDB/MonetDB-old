@@ -49,8 +49,11 @@ create procedure iot.stop ("schema" string, name string)
 create procedure iot.stop ()
     external name iot.stop;
 
--- Inspection tables
+-- deliver a new basket with tuples
+create procedure iot.push("schema" string, "table" string, dirpath string)
+	external name iot.push;
 
+-- Inspection tables
 create function iot.baskets()
 returns table( "schema" string,  "table" string, threshold int, winsize int, winstride int,  timeslice int, timestride int, beat int, seen timestamp, events int)
 external name iot.baskets;
@@ -59,14 +62,13 @@ create function iot.queries()
  returns table( "schema" string,  "function" string, status string, lastrun timestamp, cycles int, events int, time bigint, error string)
  external name iot.queries;
 
--- next causes crash
---create function iot.places2()
--- returns table( "schema" string,  "table" string, "schema" string, "query" string)
--- external name iot.places;
-
-create function iot.places()
+create function iot.inputplaces()
  returns table( "s" string,  "t" string, "sch" string, "qry" string)
- external name iot.places;
+ external name iot.inputplaces;
+
+create function iot.outputplaces()
+ returns table( "s" string,  "t" string, "sch" string, "qry" string)
+ external name iot.outputplaces;
 
 -- create function iot.errors()
 -- returns table( "schema" string,  "table" string, error string)

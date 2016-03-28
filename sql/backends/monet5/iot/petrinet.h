@@ -47,9 +47,10 @@ iot_export str PNcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 iot_export str PNdrop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str PNdump(void *ret);
 
-iot_export str PNanalysis(Client cntxt, MalBlkPtr mb);
+iot_export str PNanalysis(Client cntxt, MalBlkPtr mb, int pn);
 iot_export str PNanalyseWrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str PNtable(bat *modnameId, bat *fcnnameId, bat *statusId, bat *seenId, bat *cyclesId, bat *eventsId, bat *timeId, bat * errorId);
-iot_export str PNplaces(bat *schemaId, bat *streamId, bat *modnameId, bat *fcnnameId);
+iot_export str PNinputplaces(bat *schemaId, bat *streamId, bat *modnameId, bat *fcnnameId);
+iot_export str PNoutputplaces(bat *schemaId, bat *streamId, bat *modnameId, bat *fcnnameId);
 #endif
 

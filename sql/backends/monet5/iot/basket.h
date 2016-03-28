@@ -90,9 +90,8 @@ iot_export str BSKTdrop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 iot_export int BSKTlocate(str sch, str tbl);
 iot_export int BSKTunlocate(str sch, str tbl);
 iot_export int BSKTlocate(str sch, str tbl);
-iot_export str BSKTupdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export InstrPtr BSKTgrabInstruction(MalBlkPtr mb, str sch, str tbl);
-iot_export str BSKTgrab(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTpush(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export InstrPtr BSKTupdateInstruction(MalBlkPtr mb, str sch, str tbl);
 
 iot_export str BSKTlock(void *ret, str *sch, str *tbl, int *delay);

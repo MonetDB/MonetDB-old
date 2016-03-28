@@ -53,10 +53,6 @@ pattern step(cnt:int):void
 address IOTstop
 comment "Make a limited series of transition steps";
 
-pattern grab(dir:str):void
-address IOTgrab
-comment "Grab a directory with the binary files";
-
 command errors()(nme:bat[:str],error:bat[:str])
 address BSKTtableerrors
 comment "Return a table the erroneous events found during query processing";

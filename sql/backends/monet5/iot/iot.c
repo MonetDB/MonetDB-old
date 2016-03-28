@@ -163,16 +163,6 @@ IOTcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	return PNcycles(cntxt,mb,stk,pci);
 }
-str
-IOTgrab(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-    (void) cntxt;
-    (void) mb;
-    (void) stk; 
-    (void) pci;
-	return MAL_SUCCEED;
-}
-
 
 str
 BSKTerror(int *ret, str *sch, str *fcn, str *msg)

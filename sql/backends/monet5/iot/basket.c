@@ -33,6 +33,9 @@
 #include "mal_builder.h"
 #include "opt_prelude.h"
 
+//#define _DEBUG_BASKET_ if(0)
+#define _DEBUG_BASKET_ 
+
 str statusname[6] = { "<unknown>", "init", "paused", "running", "stop", "error" };
 
 BasketRec *baskets;   /* the global iot catalog */
@@ -230,13 +233,9 @@ str BSKTlock(void *ret, str *sch, str *tbl, int *delay)
 	bskt = BSKTlocate(*sch, *tbl);
 	if (bskt <= 0)
 		throw(SQL, "basket.lock", "Could not find the basket %s.%s",*sch,*tbl);
-#ifdef _DEBUG_BASKET
-	stream_printf(BSKTout, "lock group %s.%s\n", *sch, *tbl);
-#endif
+	_DEBUG_BASKET_ mnstr_printf(BSKTout, "lock group %s.%s\n", *sch, *tbl);
 	MT_lock_set(&baskets[bskt].lock);
-#ifdef _DEBUG_BASKET
-	stream_printf(BSKTout, "got  group locked %s.%s\n", *sch, *tbl);
-#endif
+	_DEBUG_BASKET_ mnstr_printf(BSKTout, "got  group locked %s.%s\n", *sch, *tbl);
 	(void) delay;  /* control spinlock */
 	(void) ret;
 	return MAL_SUCCEED;
@@ -289,6 +288,35 @@ BSKTreset(void *ret)
 	return MAL_SUCCEED;
 }
 
+/* collect the binary files and append them to what we have */
+str 
+BSKTpush(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    str sch = *getArgReference_str(stk, pci, 1);
+    str tbl = *getArgReference_str(stk, pci, 2);
+    str dir = *getArgReference_str(stk, pci, 3);
+    int bskt,i;
+	char buf[BUFSIZ];
+
+    bskt = BSKTlocate(sch,tbl);
+	if (bskt == 0)
+		throw(SQL, "iot.push", "Could not find the basket %s.%s",sch,tbl);
+
+	// check access permission to directory first
+	if( access (dir , F_OK | R_OK)){
+		throw(SQL, "iot.push", "Could not access the basket directory %s. error %d",dir,errno);
+	}
+	
+	for(i=0; i < baskets[bskt].count ; i++){
+		snprintf(buf,BUFSIZ, "%s%c%s",dir,DIR_SEP, baskets[bskt].cols[i]);
+		_DEBUG_BASKET_ mnstr_printf(BSKTout,"Attach the file %s\n",buf);
+	}
+    (void) cntxt;
+    (void) mb;
+    (void) stk;
+    (void) pci;
+    return MAL_SUCCEED;
+}
 str
 BSKTdump(void *ret)
 {
@@ -324,38 +352,13 @@ BSKTdump(void *ret)
 }
 
 str
-BSKTupdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	(void) cntxt;
 	(void) mb;
 	(void) stk;
 	(void) pci;
 	return MAL_SUCCEED;
-}
-
-InstrPtr
-BSKTgrabInstruction(MalBlkPtr mb, str sch, str tbl)
-{
-	int i, j, bskt;
-	InstrPtr p;
-	BAT *b;
-
-	bskt = BSKTlocate(sch,tbl);
-	if (bskt == 0)
-		return 0;
-	p = newFcnCall(mb, basketRef, grabRef);
-	p->argc = 0;
-	for (i = 0; i < baskets[bskt].count; i++) {
-		b = BBPquickdesc(baskets[bskt].bats[i], FALSE);
-		j = newTmpVariable(mb, newBatType(TYPE_oid, b->ttype));
-		setVarUDFtype(mb, j);
-		setVarFixed(mb, j);
-		p = pushArgument(mb, p, j);
-	}
-	p->retc = p->argc;
-	p = pushStr(mb, p, sch);
-	p = pushStr(mb, p, tbl);
-	return p;
 }
 
 InstrPtr

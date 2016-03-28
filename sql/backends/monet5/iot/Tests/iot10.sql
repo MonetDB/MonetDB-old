@@ -14,6 +14,6 @@ begin
 end;
 
 iot.query('iot','collector');
-iot.baskets();
-iot.queries();
-iot.stop();
+
+select * from iot.baskets();
+select * from iot.queries();

@@ -66,9 +66,13 @@ command iot.queries() (mod:bat[:str],fcn:bat[:str], status:bat[:str],lastrun:bat
 address PNtable
 comment "Inspect the iot queries";
 
-command iot.places() (sch:bat[:str], tbl:bat[:str],mod:bat[:str],fcn:bat[:str])
-address PNplaces
+command iot.inputplaces() (sch:bat[:str], tbl:bat[:str],mod:bat[:str],fcn:bat[:str])
+address PNinputplaces
 comment "Inspect the destination of the places";
+
+command iot.outputplaces() (sch:bat[:str], tbl:bat[:str],mod:bat[:str],fcn:bat[:str])
+address PNoutputplaces
+comment "Inspect the output places";
 
 command dump()
 address PNdump

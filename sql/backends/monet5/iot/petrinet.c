@@ -98,7 +98,7 @@ str PNanalyseWrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (s == NULL)
 		throw(MAL, "petrinet.analysis", "Could not find function");
 
-	return PNanalysis(cntxt, s->def);
+	return PNanalysis(cntxt, s->def,0);
 }
 
 
@@ -133,10 +133,11 @@ PNlocate(str modname, str fcnname)
 str
 PNregisterInternal(Client cntxt, MalBlkPtr mb)
 {
-	int i, init= pnet == 0;
+	int i, init= pnettop == 0;
 	InstrPtr sig;
 	str msg = MAL_SUCCEED;
 
+	_DEBUG_PETRINET_ mnstr_printf(PNout, "#registerInternal status %d\n", init);
 	if (pnettop == MAXPN) 
 		GDKerror("petrinet.register:Too many transitions");
 
@@ -153,11 +154,12 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 	pnet[pnettop].seen = *timestamp_nil;
 	/* all the rest is zero */
 
-	pnettop++;
-	msg = PNanalysis(cntxt, mb);
+	msg = PNanalysis(cntxt, mb, pnettop);
 	/* start the scheduler if analysis does not show errors */
 	if( msg == MAL_SUCCEED && init)
 		PNstartScheduler();
+	if( msg == MAL_SUCCEED)
+		pnettop++;
 	return msg;
 }
 
@@ -247,16 +249,22 @@ str PNdump(void *ret)
 /* check the routine for input/output relationships */
 /* Make sure we do not re-use the same source more than once */
 str
-PNanalysis(Client cntxt, MalBlkPtr mb)
+PNanalysis(Client cntxt, MalBlkPtr mb, int pn)
 {
-	int i;
+	int i, idx, k=0;
 	InstrPtr p;
-	str msg= MAL_SUCCEED;
+	str msg= MAL_SUCCEED, sch,tbl;
+	(void) pn;
 
 	for (i = 0; msg== MAL_SUCCEED && i < mb->stop; i++) {
 		p = getInstrPtr(mb, i);
 		if (getModuleId(p) == basketRef && getFunctionId(p) == registerRef){
+			sch = getVarConstant(mb, getArg(p,1)).val.sval;
+			tbl = getVarConstant(mb, getArg(p,2)).val.sval;
 			msg =BSKTregister(cntxt,mb,0,p);
+			idx =  BSKTlocate(sch, tbl);
+			pnet[pn].places[k++]= idx;
+			p->token= REMsymbol; // no need to execute it anymore
 		}
 	}
 	return msg;
@@ -274,9 +282,10 @@ static void
 PNexecute( void *n)
 {
 	PNnode *node= (PNnode *) n;
-	node->status = BSKTPAUSE;
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.executed %s.%s\n",node->modname, node->fcnname);
+	node->status = BSKTPAUSE;
 }
+
 static void
 PNcontroller(void *dummy)
 {
@@ -286,26 +295,31 @@ PNcontroller(void *dummy)
 	int m = 0;
 	str msg = MAL_SUCCEED;
 	lng t, analysis, now;
+	int claimed[MAXBSKT];
 
+	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.controller started\n");
 	cntxt = mal_clients; /* run as admin in SQL mode*/
 	 if( strcmp(cntxt->scenario, "sql") )
 		 SQLinitEnvironment(cntxt, NULL, NULL, NULL);
 
 	status = BSKTRUNNING;
 
-	while( status != BSKTSTOP){
+	while( status != BSKTSTOP && pnettop > 0){
 		if (cycleDelay)
 			MT_sleep_ms(cycleDelay);  /* delay to make it more tractable */
-		while (status == BSKTPAUSE)
-			MT_sleep_ms(cycleDelay);  /* delay to make it more tractable */
+		while (status == BSKTPAUSE)	/* scheduler is paused */
+			MT_sleep_ms(cycleDelay);  
 
 		/* collect latest statistics, note that we don't need a lock here,
 		   because the count need not be accurate to the usec. It will simply
 		   come back. We also only have to check the places that are marked
 		   empty. */
+		for(i=0; i< MAXBSKT; i++)
+			claimed[i]=0;
 		now = GDKusec();
 		for (k = i = 0; status == BSKTRUNNING && i < pnettop; i++) 
 		if ( pnet[i].status != BSKTPAUSE ){
+			// check if all baskets are available
 			pnet[i].enabled = 1;
 			for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].places[j]; j++) {
 				idx = pnet[i].places[j];
@@ -313,26 +327,34 @@ PNcontroller(void *dummy)
 					pnet[i].enabled = 0;
 					break;
 				}
-				if (pnet[i].enabled) {
-					timestamp ts, tn;
-					/* only look at large enough baskets */
-					/* check heart beat delays */
-					if (baskets[idx].beat) {
-						(void) MTIMEunix_epoch(&ts);
-						(void) MTIMEtimestamp_add(&tn, &baskets[idx].seen, &baskets[idx].beat);
-						if (tn.days < ts.days || (tn.days == ts.days && tn.msecs < ts.msecs)) {
-							pnet[i].enabled = 0;
-							break;
-						}
-					}
-#ifdef _debug_petrinet_
-					mnstr_printf(cntxt->fdout, "#petrinet:%d tuples for %s, source %d\n", baskets[idx].count, pnet[i].fcnname, j);
-#endif
-				} 
 			}
-			if (pnet[i].enabled )
+			if (pnet[i].enabled) {
+				timestamp ts, tn;
+				/* only look at large enough baskets */
+				/* check heart beat delays */
+				if (baskets[idx].beat) {
+					(void) MTIMEunix_epoch(&ts);
+					(void) MTIMEtimestamp_add(&tn, &baskets[idx].seen, &baskets[idx].beat);
+					if (tn.days < ts.days || (tn.days == ts.days && tn.msecs < ts.msecs)) {
+						pnet[i].enabled = 0;
+						break;
+					}
+				}
+				/* a basket can enable at most one transition */
+				for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].places[j]; j++) 
+					if( claimed[pnet[i].places[j]]){
+						_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#petrinet: %s.%s enabled twice,disgarded \n", pnet[i].modname, pnet[i].fcnname);
+						pnet[i].enabled = 0;
+						break;
+					}
+				if( pnet[i].enabled)
+					for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].places[j]; j++) 
+						claimed[pnet[i].places[j]]= 1;
+
 				/*save the ids of all continuous queries that can be executed */
 				enabled[k++] = i;
+				_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#petrinet: %s.%s enabled \n", pnet[i].modname, pnet[i].fcnname);
+			} 
 		}
 		analysis = GDKusec() - now;
 
@@ -353,14 +375,13 @@ PNcontroller(void *dummy)
 					msg= createException(MAL,"petrinet.controller","Can not fork the thread");
 				}
 				pnet[i].time += GDKusec() - t + analysis;   /* keep around in microseconds */
-				if (msg != MAL_SUCCEED && !strstr(msg, "too early")) {
+				if (msg != MAL_SUCCEED ){
 					char buf[BUFSIZ];
 					if (pnet[i].error == NULL) {
 						snprintf(buf, BUFSIZ - 1, "Query %s failed:%s", pnet[i].fcnname, msg);
 						pnet[i].error = GDKstrdup(buf);
 					} else
 						GDKfree(msg);
-					pnet[i].enabled = -1;
 					/* abort current transaction  */
 				} else {
 					(void) MTIMEcurrent_timestamp(&pnet[i].seen);
@@ -375,6 +396,7 @@ PNcontroller(void *dummy)
 	MT_lock_set(&iotLock);
 	status = BSKTINIT;
 	MT_lock_unset(&iotLock);
+	_DEBUG_PETRINET_ mnstr_flush(PNout);
 	(void) dummy;
 }
 
@@ -384,8 +406,8 @@ PNstartScheduler(void)
 	MT_Id pid;
 	int s;
 	(void) s;
-	_DEBUG_PETRINET_ PNdump(&s);
 
+	_DEBUG_PETRINET_ mnstr_printf(PNout, "#Start PNcontroller \n");
 	if (status== BSKTINIT && MT_create_thread(&pid, PNcontroller, &s, MT_THR_JOINABLE) != 0){
 		GDKerror( "petrinet creation failed");
 	}
@@ -471,7 +493,58 @@ wrapup:
 	throw(MAL, "iot.queries", MAL_MALLOC_FAIL);
 }
 
-str PNplaces(bat *schemaId, bat *tableId, bat *modnameId, bat *fcnnameId)
+str PNinputplaces(bat *schemaId, bat *tableId, bat *modnameId, bat *fcnnameId)
+{
+	BAT *schema, *table, *modname = NULL, *fcnname = NULL;
+	int i,j;
+
+	schema = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	if (schema == 0)
+		goto wrapup;
+	BATseqbase(schema, 0);
+
+	table = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	if (table == 0)
+		goto wrapup;
+	BATseqbase(table, 0);
+
+	modname = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	if (modname == 0)
+		goto wrapup;
+	BATseqbase(modname, 0);
+
+	fcnname = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	if (fcnname == 0)
+		goto wrapup;
+	BATseqbase(fcnname, 0);
+
+	for (i = 0; i < pnettop; i++) {
+		_DEBUG_PETRINET_ mnstr_printf(PNout, "#collect input places %s.%s\n", pnet[i].modname, pnet[i].fcnname);
+		for( j =0; j < MAXBSKT && pnet[i].places[j]; j++){
+			BUNappend(schema, baskets[pnet[i].places[j]].schema, FALSE);
+			BUNappend(table, baskets[pnet[i].places[j]].table, FALSE);
+			BUNappend(modname, pnet[i].modname, FALSE);
+			BUNappend(fcnname, pnet[i].fcnname, FALSE);
+		}
+	}
+	BBPkeepref(*schemaId = schema->batCacheid);
+	BBPkeepref(*tableId = table->batCacheid);
+	BBPkeepref(*modnameId = modname->batCacheid);
+	BBPkeepref(*fcnnameId = fcnname->batCacheid);
+	return MAL_SUCCEED;
+wrapup:
+	if (schema)
+		BBPunfix(schema->batCacheid);
+	if (table)
+		BBPunfix(table->batCacheid);
+	if (modname)
+		BBPunfix(modname->batCacheid);
+	if (fcnname)
+		BBPunfix(fcnname->batCacheid);
+	throw(MAL, "iot.places", MAL_MALLOC_FAIL);
+}
+
+str PNoutputplaces(bat *schemaId, bat *tableId, bat *modnameId, bat *fcnnameId)
 {
 	BAT *schema, *table, *modname = NULL, *fcnname = NULL;
 	int i,j;

@@ -12,7 +12,7 @@ end;
 call iot.query('iot','cq00');
 call iot.query('insert into result select min(t), count(*), avg(val) from stream_tmp;');
 
-call iot.baskets();
-call iot.petrinet();
-
-call iot.stop();
+select * from  iot.baskets();
+select * from  iot.queries();
+select * from  iot.inputplaces();
+select * from  iot.outputplaces();
