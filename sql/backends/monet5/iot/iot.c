@@ -91,27 +91,27 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		nme = *getArgReference_str(stk, pci, 2);
 		/* check existing of the pre-compiled function */
 		_DEBUG_IOT_ fprintf(stderr,"#iot: locate a SQL procedure %s.%s()\n",sch,nme);
+		msg = IOTprocedureStmt(cntxt, mb, sch, nme);
+		if (msg)
+			return msg;
+		s = findSymbolInModule(cntxt->nspace, putName(nme, strlen(nme)));
+		if (s == NULL)
+			throw(SQL, "iot.query", "Definition missing");
+		qry = s->def;
 	} else if (pci->argc == 2){
 		// pre-create the new procedure
-		sch = "iot";
+		sch = "user";
 		snprintf(name, IDLENGTH,"cquery_%d",iotquerycnt++);
 		def = *getArgReference_str(stk, pci, 1);
 		// package it as a procedure in the current schema [todo]
-		snprintf(buf,BUFSIZ,"create procedure %s() begin %s; end",name,def);
+		snprintf(buf,BUFSIZ,"create procedure %s.%s() begin %s; end",sch,name,def);
 		_DEBUG_IOT_ fprintf(stderr,"#iot.compile: %s\n",buf);
 		nme = name;
 		msg = SQLstatementIntern(cntxt, &def, nme, 1, 0, 0);
 		if (msg)
 			return msg;
+		qry = cntxt->curprg->def;
 	}
-
-	msg = IOTprocedureStmt(cntxt, mb, sch, nme);
-	if (msg)
-		return msg;
-	s = findSymbolInModule(cntxt->nspace, putName(nme, strlen(nme)));
-	if (s == NULL)
-		throw(SQL, "iot.query", "Definition missing");
-	qry = s->def;
 
 	_DEBUG_IOT_ fprintf(stderr,"#iot: bake a new continuous query plan\n");
 	scope = findModule(cntxt->nspace, putName(sch, strlen(sch)));

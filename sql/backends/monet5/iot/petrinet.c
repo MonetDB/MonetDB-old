@@ -82,7 +82,7 @@ int pnettop = 0;
 int enabled[MAXPN];     /*array that contains the id's of all queries that are enable to fire*/
 
 static int status = BSKTINIT;
-static int cycleDelay = 1; /* be careful, it affects response/throughput timings */
+static int cycleDelay = 1000; /* be careful, it affects response/throughput timings */
 
 str PNanalyseWrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -129,6 +129,7 @@ PNlocate(str modname, str fcnname)
 			break;
 	return i;
 }
+
 /* A transition is only allowed when all inputs are privately used */
 str
 PNregisterInternal(Client cntxt, MalBlkPtr mb)
@@ -148,6 +149,8 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 
 	pnet[pnettop].modname = GDKstrdup(getModuleId(sig));
 	pnet[pnettop].fcnname = GDKstrdup(getFunctionId(sig));
+	pnet[pnettop].mb = mb;
+	pnet[pnettop].stk = prepareMALstack(mb, mb->vsize);
 
 	pnet[pnettop].status = BSKTPAUSE;
 	pnet[pnettop].cycles = 0;
@@ -283,7 +286,7 @@ PNexecute( void *n)
 {
 	PNnode *node= (PNnode *) n;
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.executed %s.%s\n",node->modname, node->fcnname);
-	runMAL(mal_clients, node->mb, 0,0);
+	runMALsequence(mal_clients, node->mb, 1, 0, node->stk, 0, 0);
 	node->status = BSKTPAUSE;
 }
 
@@ -306,10 +309,13 @@ PNcontroller(void *dummy)
 	status = BSKTRUNNING;
 
 	while( status != BSKTSTOP && pnettop > 0){
+		_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.controller step\n");
 		if (cycleDelay)
 			MT_sleep_ms(cycleDelay);  /* delay to make it more tractable */
-		while (status == BSKTPAUSE)	/* scheduler is paused */
+		while (status == BSKTPAUSE)	{ /* scheduler is paused */
 			MT_sleep_ms(cycleDelay);  
+			_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.controller paused\n");
+		}
 
 		/* collect latest statistics, note that we don't need a lock here,
 		   because the count need not be accurate to the usec. It will simply
@@ -393,10 +399,12 @@ PNcontroller(void *dummy)
 				}
 			}
 		}
+		/* after one sweep all threads should be released */
+		for (m = 0; m < k; m++) {
+			MT_join_thread(pnet[i].tid);
+		}
 	}
-	MT_lock_set(&iotLock);
 	status = BSKTINIT;
-	MT_lock_unset(&iotLock);
 	_DEBUG_PETRINET_ mnstr_flush(PNout);
 	(void) dummy;
 }
