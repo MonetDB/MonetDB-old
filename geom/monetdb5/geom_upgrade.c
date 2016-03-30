@@ -66,12 +66,11 @@ list_extend(ulist **ul)
 }
 
 static int
-list_add(ulist **ul, BAT *ob, BAT *nb, char *n) 
+list_add(ulist **ul, BAT *ob, BAT *nb, const char *n)
 {
 	char *nn;
-	if ((nn =  GDKmalloc(sizeof(char)*strlen(n))) == NULL)
+	if ((nn =  GDKstrdup(n)) == NULL)
 		return 0;
-	strcpy(nn, n);
 	if ((*ul)->count == (*ul)->capacity)
 		if (!list_extend(ul))
 			return 0;
@@ -83,27 +82,7 @@ list_add(ulist **ul, BAT *ob, BAT *nb, char *n)
 }
 
 static char *
-mkLower(char *s)
-{
-	char *r = s;
-
-	while (*s) {
-		*s = (char) tolower(*s);
-		s++;
-	}
-	return r;
-}
-
-static char *
-toLower(const char *s)
-{
-        char *r = GDKstrdup((char*)s);
-
-        return r ? mkLower(r) : NULL;
-}
-
-static char *
-N( char *buf, char *pre, char *schema, char *post)
+N( char *buf, const char *pre, const char *schema, const char *post)
 {
 	if (pre)
 		snprintf(buf, 64, "%s_%s_%s", pre, schema, post);
@@ -118,51 +97,32 @@ geom_catalog_upgrade(void *lg, int EC_GEOM, int EC_EXTERNAL, int olddb)
 	/* Do the updates needed for the new geom module */
 	BAT *ct, *cnt, *cd, *cnd, *cs, *cns;
 	BATiter cti, cdi, csi;
-	char *s = "sys", n[64];
+	const char *s = "sys";
+	char n[64];
 	BUN p,q;
-	char *nt[] = {
-		"types_id",
-		"types_systemname",
-		"types_sqlname",
-		"types_digits",
-		"types_scale",
-		"types_radix",
-		"types_eclass",
-		"types_schema_id"
-	};
-	unsigned char ntt[] = {
-		TYPE_int,
-		TYPE_str,
-		TYPE_str,
-		TYPE_int,
-		TYPE_int,
-		TYPE_int,
-		TYPE_int,
-		TYPE_int
-	};
-	char *nf[] = {
-		"functions_id",
-		"functions_name",
-		"functions_func",
-		"functions_mod",
-		"functions_language",
-		"functions_type",
-		"functions_side_effect",
-		"functions_varres",
-		"functions_vararg",
-		"functions_schema_id"
-	};
-	unsigned char nft[] = {
-		TYPE_int,
-		TYPE_str,
-		TYPE_str,
-		TYPE_str,
-		TYPE_int,
-		TYPE_int,
-		TYPE_bit,
-		TYPE_bit,
-		TYPE_bit,
-		TYPE_int
+	const struct {
+		char *name;
+		int type;
+	} nt[] = {
+		{"types_id", TYPE_int},
+		{"types_systemname", TYPE_str},
+		{"types_sqlname", TYPE_str},
+		{"types_digits", TYPE_int},
+		{"types_scale", TYPE_int},
+		{"types_radix", TYPE_int},
+		{"types_eclass", TYPE_int},
+		{"types_schema_id", TYPE_int}
+	}, nf[] = {
+		{"functions_id", TYPE_int},
+		{"functions_name", TYPE_str},
+		{"functions_func", TYPE_str},
+		{"functions_mod", TYPE_str},
+		{"functions_language", TYPE_int},
+		{"functions_type", TYPE_int},
+		{"functions_side_effect", TYPE_bit},
+		{"functions_varres", TYPE_bit},
+		{"functions_vararg", TYPE_bit},
+		{"functions_schema_id", TYPE_int}
 	};
 	BAT *tt[8], *ttn[8], *ff[10], *ffn[10];
 	BATiter tti[8], ffi[10];
@@ -193,63 +153,63 @@ geom_catalog_upgrade(void *lg, int EC_GEOM, int EC_EXTERNAL, int olddb)
 		BATseqbase(cns, cs->hseqbase);
 
 		for(p=BUNfirst(ct), q=BUNlast(ct); p<q; p++) {
-			char *type = BUNtail(cti, p);
+			const char *type = BUNtail(cti, p);
 			int digits = *(int*)BUNtail(cdi, p);
 			int scale = *(int*)BUNtail(csi, p);
 
-			if (strcmp(toLower(type), "point") == 0) {
+			if (strcasecmp(type, "point") == 0) {
 				type = "geometry";
 				digits = wkbPoint_mdb << 2;
 				scale = 0; // in the past we did not save the srid
-			} else if (strcmp(toLower(type), "linestring") == 0) {
+			} else if (strcasecmp(type, "linestring") == 0) {
 				type = "geometry";
 				digits = wkbLineString_mdb << 2;
 				scale = 0;
-			} else if (strcmp(toLower(type), "curve") == 0) {
+			} else if (strcasecmp(type, "curve") == 0) {
 				type = "geometry";
 				digits = wkbLineString_mdb << 2;
 				scale = 0;
-			} else if (strcmp(toLower(type), "linearring") == 0) {
+			} else if (strcasecmp(type, "linearring") == 0) {
 				type = "geometry";
 				digits = wkbLinearRing_mdb << 2;
 				scale = 0;
-			} else if (strcmp(toLower(type), "polygon") == 0) {
+			} else if (strcasecmp(type, "polygon") == 0) {
 				type = "geometry";
 				digits = wkbPolygon_mdb << 2;
 				scale = 0;
-			} else if (strcmp(toLower(type), "surface") == 0) {
+			} else if (strcasecmp(type, "surface") == 0) {
 				type = "geometry";
 				digits = wkbPolygon_mdb << 2;
 				scale = 0;
-			} else if (strcmp(toLower(type), "multipoint") == 0) {
+			} else if (strcasecmp(type, "multipoint") == 0) {
 				type = "geometry";
 				digits = wkbMultiPoint_mdb << 2;
 				scale = 0;
-			} else if (strcmp(toLower(type), "multilinestring") == 0) {
+			} else if (strcasecmp(type, "multilinestring") == 0) {
 				type = "geometry";
 				digits = wkbMultiLineString_mdb << 2;
 				scale = 0;
-			} else if (strcmp(toLower(type), "multicurve") == 0) {
+			} else if (strcasecmp(type, "multicurve") == 0) {
 				type = "geometry";
 				digits = wkbMultiLineString_mdb << 2;
 				scale = 0;
-			} else if (strcmp(toLower(type), "multipolygon") == 0) {
+			} else if (strcasecmp(type, "multipolygon") == 0) {
 				type = "geometry";
 				digits = wkbMultiPolygon_mdb << 2;
 				scale = 0;
-			} else if (strcmp(toLower(type), "multisurface") == 0) {
+			} else if (strcasecmp(type, "multisurface") == 0) {
 				type = "geometry";
 				digits = wkbMultiPolygon_mdb << 2;
 				scale = 0;
-			} else if (strcmp(toLower(type), "geomcollection") == 0) {
+			} else if (strcasecmp(type, "geomcollection") == 0) {
 				type = "geometry";
 				digits = wkbGeometryCollection_mdb << 2;
 				scale = 0;
-			} else if (strcmp(toLower(type), "geometrycollection") == 0) {
+			} else if (strcasecmp(type, "geometrycollection") == 0) {
 				type = "geometry";
 				digits = wkbGeometryCollection_mdb << 2;
 				scale = 0;
-			}  else if (strcmp(toLower(type), "geometry") == 0) {
+			}  else if (strcasecmp(type, "geometry") == 0) {
 				type = "geometry";
 				digits = 0;
 				scale = 0;
@@ -268,19 +228,19 @@ geom_catalog_upgrade(void *lg, int EC_GEOM, int EC_EXTERNAL, int olddb)
 	}
 
 	/* If this is a new database add the geometry type and the mbr type */
-	/* If this is an old database add the new geometrya type and update the mbr type */
+	/* If this is an old database add the new geometry type and update the mbr type */
 	for (i = 0; i < 8; i++) {
-		if (!(tt[i] = BATdescriptor((bat) logger_find_bat(lg, N(n, NULL, s, nt[i])))))
+		if (!(tt[i] = BATdescriptor((bat) logger_find_bat(lg, N(n, NULL, s, nt[i].name)))))
 			return 0;
 		tti[i] = bat_iterator(tt[i]);
-		if (!(ttn[i] = BATnew(TYPE_void, ntt[i], BATcount(tt[i]), PERSISTENT)))
+		if (!(ttn[i] = BATnew(TYPE_void, nt[i].type, BATcount(tt[i]), PERSISTENT)))
 			return 0;
 		BATseqbase(ttn[i], tt[i]->hseqbase);
 	}
 	maxid = 0;
 	for(p=BUNfirst(tt[0]), q=BUNlast(tt[0]); p<q; p++) {
-		char *systemname = BUNtail(tti[1], p);
-		char *sqlname = BUNtail(tti[2], p);
+		const char *systemname = BUNtail(tti[1], p);
+		const char *sqlname = BUNtail(tti[2], p);
 		for (i = 0; i <= 5; i++)
 			BUNappend(ttn[i], BUNtail(tti[i], p), TRUE);
 		if (strcmp(systemname, "mbr") == 0) {
@@ -335,15 +295,15 @@ geom_catalog_upgrade(void *lg, int EC_GEOM, int EC_EXTERNAL, int olddb)
 
 
 	for (i = 0; i < 8; i++) 
-		if (!list_add(&ul, tt[i], ttn[i], N(n, NULL, s, nt[i])))
+		if (!list_add(&ul, tt[i], ttn[i], N(n, NULL, s, nt[i].name)))
 			return 0;
 
 	/* Add the new functions */
 	for (i = 0; i < 10; i++) {
-		if (!(ff[i] = BATdescriptor((bat) logger_find_bat(lg, N(n, NULL, s, nf[i])))))
+		if (!(ff[i] = BATdescriptor((bat) logger_find_bat(lg, N(n, NULL, s, nf[i].name)))))
 			return 0;
 		ffi[i] = bat_iterator(ff[i]);
-		if (!(ffn[i] = BATnew(TYPE_void, nft[i], BATcount(ff[i]), PERSISTENT)))
+		if (!(ffn[i] = BATnew(TYPE_void, nf[i].type, BATcount(ff[i]), PERSISTENT)))
 			return 0;
 		BATseqbase(ffn[i], ff[i]->hseqbase);
 	}
@@ -400,7 +360,7 @@ do {							\
 	GEOM_UPGRADE_STORE_FUNC(ffn, ++maxid, "right_shift", "geom", "mbrRight");
 #undef GEOM_UPGRADE_STORE_FUNC
 	for (i = 0; i < 10; i++) 
-		if (!list_add(&ul, ff[i], ffn[i], N(n, NULL, s, nf[i])))
+		if (!list_add(&ul, ff[i], ffn[i], N(n, NULL, s, nf[i].name)))
 			return 0;
 	
 	for (ii = 0; ii < ul->count; ii++) {
