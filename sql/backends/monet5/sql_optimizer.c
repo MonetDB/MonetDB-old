@@ -45,6 +45,24 @@ SQLgetSpace(mvc *m, MalBlkPtr mb)
 
 		if (getModuleId(p) == sqlRef && f == mvcRef)
 			mvcpc = i;
+		if (getModuleId(p) == sqlRef && (f == appendRef || f == updateRef || f == deleteRef)) {
+			char *sname = getVarConstant(mb, getArg(p, 2 )).val.sval;
+			char *tname = getVarConstant(mb, getArg(p, 3 )).val.sval;
+			char *cname = getVarConstant(mb, getArg(p, 4 )).val.sval;
+			sql_schema *s = mvc_bind_schema(m, sname);
+			sql_table *t;
+			sql_column *c;
+
+			if( ! s ) continue;
+			t = mvc_bind_table(m, s, tname);
+			if( ! t ) continue;
+			c = mvc_bind_column(m, t, cname);
+			if (c && isStream(c->t)) {
+				setModuleId(p, basketRef);
+				continue;
+			}
+		}
+
 		if (getModuleId(p) == sqlRef && (f == bindRef || f == bindidxRef)) {
 			int upd = (p->argc == 7 || p->argc == 9), mode = 0;
 			char *sname = getVarConstant(mb, getArg(p, 2 + upd)).val.sval;

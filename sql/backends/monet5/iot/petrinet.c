@@ -174,6 +174,7 @@ PNstatus( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int newstatus
 
 	(void) cntxt;
 	(void) mb;
+	PNdump(&i);
 	MT_lock_set(&iotLock);
 	if ( pci->argc == 3){
 		modname= *getArgReference_str(stk,pci,1);
@@ -231,7 +232,7 @@ str PNdump(void *ret)
 		for (k = 0; k < MAXBSKT && pnet[i].places[k]; k++){
 			idx = pnet[i].places[k];
 			mnstr_printf(PNout, "#<--\t%s basket[%d] %d %d\n",
-					baskets[idx].table,
+					baskets[idx].table_name,
 					idx,
 					baskets[idx].count,
 					baskets[idx].events);
@@ -239,7 +240,7 @@ str PNdump(void *ret)
 		for (k = 0; k <MAXBSKT &&  pnet[i].targets[k]; k++){
 			idx = pnet[i].targets[k];
 			mnstr_printf(PNout, "#-->\t%s basket[%d] %d %d\n",
-					baskets[idx].table,
+					baskets[idx].table_name,
 					idx,
 					baskets[idx].count,
 					baskets[idx].events);
@@ -254,7 +255,7 @@ str PNdump(void *ret)
 str
 PNanalysis(Client cntxt, MalBlkPtr mb, int pn)
 {
-	int i, idx, k=0;
+	int i, j, idx, k=0,l=0;
 	InstrPtr p;
 	str msg= MAL_SUCCEED, sch,tbl;
 	(void) pn;
@@ -268,6 +269,17 @@ PNanalysis(Client cntxt, MalBlkPtr mb, int pn)
 			idx =  BSKTlocate(sch, tbl);
 			pnet[pn].places[k++]= idx;
 			p->token= REMsymbol; // no need to execute it anymore
+		}
+		if (getModuleId(p) == basketRef && getFunctionId(p) == appendRef){
+			sch = getVarConstant(mb, getArg(p,1)).val.sval;
+			tbl = getVarConstant(mb, getArg(p,2)).val.sval;
+			msg =BSKTregister(cntxt,mb,0,p);
+			idx =  BSKTlocate(sch, tbl);
+			for(j=0; j< pnet[pn].targets[j]; j++)
+				if( pnet[pn].targets[j] == idx)
+					break;
+			if(pnet[pn].targets[j]== 0)
+				pnet[pn].targets[l++]= idx;
 		}
 	}
 	return msg;
@@ -530,8 +542,8 @@ str PNinputplaces(bat *schemaId, bat *tableId, bat *modnameId, bat *fcnnameId)
 	for (i = 0; i < pnettop; i++) {
 		_DEBUG_PETRINET_ mnstr_printf(PNout, "#collect input places %s.%s\n", pnet[i].modname, pnet[i].fcnname);
 		for( j =0; j < MAXBSKT && pnet[i].places[j]; j++){
-			BUNappend(schema, baskets[pnet[i].places[j]].schema, FALSE);
-			BUNappend(table, baskets[pnet[i].places[j]].table, FALSE);
+			BUNappend(schema, baskets[pnet[i].places[j]].schema_name, FALSE);
+			BUNappend(table, baskets[pnet[i].places[j]].table_name, FALSE);
 			BUNappend(modname, pnet[i].modname, FALSE);
 			BUNappend(fcnname, pnet[i].fcnname, FALSE);
 		}
@@ -579,9 +591,9 @@ str PNoutputplaces(bat *schemaId, bat *tableId, bat *modnameId, bat *fcnnameId)
 	BATseqbase(fcnname, 0);
 
 	for (i = 0; i < pnettop; i++) 
-	for( j =0; j < MAXBSKT && pnet[i].places[j]; j++){
-		BUNappend(schema, baskets[pnet[i].places[j]].schema, FALSE);
-		BUNappend(table, baskets[pnet[i].places[j]].table, FALSE);
+	for( j =0; j < MAXBSKT && pnet[i].targets[j]; j++){
+		BUNappend(schema, baskets[pnet[i].targets[j]].schema_name, FALSE);
+		BUNappend(table, baskets[pnet[i].targets[j]].table_name, FALSE);
 		BUNappend(modname, pnet[i].modname, FALSE);
 		BUNappend(fcnname, pnet[i].fcnname, FALSE);
 	}

@@ -41,15 +41,17 @@
 
 typedef struct{
 	MT_Lock lock;
-	str schema;	/* schema for the basket */
-	str table;	/* table that represents the basket */
+	str schema_name;	/* schema for the basket */
+	str table_name;	/* table that represents the basket */
+	sql_schema *schema;
+	sql_table *table;
+	str *cols;
+
 	int threshold ; /* bound to determine scheduling eligibility */
 	int winsize, winstride; /* sliding window operations */
 	lng timeslice, timestride; /* temporal sliding window, determined by first temporal component */
 	lng beat;	/* milliseconds delay */
 	int count;	/* number of events available in basket */
-	str *cols;
-	bat *bats;	/* the BAT ids of the basket representation */
 
 	/* statistics */
 	int status;
