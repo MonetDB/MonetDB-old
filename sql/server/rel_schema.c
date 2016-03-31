@@ -877,12 +877,12 @@ rel_create_table(mvc *sql, sql_schema *ss, int temp, const char *sname, const ch
 	if (sname && !(s = mvc_bind_schema(sql, sname)))
 		return sql_error(sql, 02, "3F000!CREATE TABLE: no such schema '%s'", sname);
 
-	if (temp != SQL_PERSIST && tt == tt_table && 
+	if (temp != SQL_PERSIST && (tt == tt_table || tt == tt_stream) && 
 			commit_action == CA_COMMIT)
 		commit_action = CA_DELETE;
 	
 	if (temp != SQL_DECLARED_TABLE) {
-		if (temp != SQL_PERSIST && tt == tt_table) {
+		if (temp != SQL_PERSIST && (tt == tt_table || tt == tt_stream)) {
 			s = mvc_bind_schema(sql, "tmp");
 			if (temp == SQL_LOCAL_TEMP && sname && strcmp(sname, s->base.name) != 0)
 				return sql_error(sql, 02, "3F000!CREATE TABLE: local tempory tables should be stored in the '%s' schema", s->base.name);
@@ -922,7 +922,7 @@ rel_create_table(mvc *sql, sql_schema *ss, int temp, const char *sname, const ch
 			if (res == SQL_ERR) 
 				return NULL;
 		}
-		temp = (tt == tt_table)?temp:SQL_PERSIST;
+		temp = (tt == tt_table || tt == tt_stream)?temp:SQL_PERSIST;
 		return rel_table(sql, DDL_CREATE_TABLE, sname, t, temp);
 	} else { /* [col name list] as subquery with or without data */
 		sql_rel *sq = NULL, *res = NULL;
@@ -944,7 +944,7 @@ rel_create_table(mvc *sql, sql_schema *ss, int temp, const char *sname, const ch
 		}
 
 		/* insert query result into this table */
-		temp = (tt == tt_table)?temp:SQL_PERSIST;
+		temp = (tt == tt_table || tt == tt_stream)?temp:SQL_PERSIST;
 		res = rel_table(sql, DDL_CREATE_TABLE, sname, t, temp);
 		if (with_data) {
 			res = rel_insert(sql, res, sq);

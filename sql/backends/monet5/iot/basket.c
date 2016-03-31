@@ -110,8 +110,14 @@ BSKTnewbasket(sql_schema *s, sql_table *t)
 	baskets[idx].seen = * timestamp_nil;
 
 	baskets[idx].count = 0;
-	for (o = t->columns.set->h; o; o = o->next)
+	for (o = t->columns.set->h; o; o = o->next){
+        sql_column *col = o->data;
+        int tpe = col->type.type->localtype;
+
+        if (tpe < TYPE_str || tpe == TYPE_date || tpe == TYPE_daytime || tpe == TYPE_timestamp) 
+			throw(MAL,"baskets.register","Unsupported type");
 		baskets[idx].count++;
+	}
 	baskets[idx].errors = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
 	if (baskets[idx].table_name == NULL ||
 	    baskets[idx].errors == NULL) {
@@ -280,7 +286,15 @@ BSKTpush(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     int bskt;
 	char buf[BUFSIZ];
 	node *n;
+	mvc *m = NULL;
+	BAT *b;
+	int first=1;
+	BUN cnt =0;
+	str msg;
 
+	msg= getSQLContext(cntxt,NULL, &m, NULL);
+	if( msg != MAL_SUCCEED)
+		return msg;
     bskt = BSKTlocate(sch,tbl);
 	if (bskt == 0)
 		throw(SQL, "iot.push", "Could not find the basket %s.%s",sch,tbl);
@@ -290,12 +304,28 @@ BSKTpush(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		throw(SQL, "iot.push", "Could not access the basket directory %s. error %d",dir,errno);
 	}
 	
+	// types are already checked during stream initialization
+	MT_lock_set(&baskets[bskt].lock);
 	for( n = baskets[bskt].table->columns.set->h; n; n= n->next){
 		sql_column *c = n->data;
 		snprintf(buf,BUFSIZ, "%s%c%s",dir,DIR_SEP, c->base.name);
 		_DEBUG_BASKET_ mnstr_printf(BSKTout,"Attach the file %s\n",buf);
+		BATattach(c->type.type->localtype,buf,PERSISTENT);
+		b = store_funcs.bind_col(m->session->tr,c,RD_UPD_VAL);
+		if( b){ 
+			baskets[bskt].count = BATcount(b);
+			BBPunfix(b->batCacheid);
+			if( first){
+				cnt = BATcount(b);
+				first = 0;
+			} else
+				if( cnt != BATcount(b)){
+					MT_lock_unset(&baskets[bskt].lock);
+					throw(MAL,"iot.push","Non-aligned binary input files");
+				}
+		}
 	}
-    (void) cntxt;
+	MT_lock_unset(&baskets[bskt].lock);
     (void) mb;
     return MAL_SUCCEED;
 }

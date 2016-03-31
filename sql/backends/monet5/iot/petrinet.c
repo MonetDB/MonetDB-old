@@ -292,14 +292,30 @@ PNanalysis(Client cntxt, MalBlkPtr mb, int pn)
  * experiment with more advanced schemes, e.g., priority queues.
  *
  * During each step cycle we first enable the transformations.
+ *
+ * Locking the streams is necessary to avoid concurrent changes.
+ * Using a fixed order over the basket table, ensure no deadlock.
  */
 static void
 PNexecute( void *n)
 {
 	PNnode *node= (PNnode *) n;
-	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.executed %s.%s\n",node->modname, node->fcnname);
+	int j, idx;
+	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s\n",node->modname, node->fcnname);
+	// first grab exclusive access to all streams.
+	for (j = 0; j < MAXBSKT &&  node->enabled && node->places[j]; j++) {
+		idx = node->places[j];
+		MT_lock_set(&baskets[idx].lock);
+	}
+	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s all locked\n",node->modname, node->fcnname);
 	runMALsequence(mal_clients, node->mb, 1, 0, node->stk, 0, 0);
 	node->status = BSKTPAUSE;
+	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s transition done\n",node->modname, node->fcnname);
+	for (j = MAXBSKT; j > 0 &&  node->enabled && node->places[j]; j--) {
+		idx = node->places[j];
+		MT_lock_unset(&baskets[idx].lock);
+	}
+	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s all unlocked\n",node->modname, node->fcnname);
 }
 
 static void
@@ -332,13 +348,13 @@ PNcontroller(void *dummy)
 		/* collect latest statistics, note that we don't need a lock here,
 		   because the count need not be accurate to the usec. It will simply
 		   come back. We also only have to check the places that are marked
-		   empty. */
+		   non empty. */
 		for(i=0; i< MAXBSKT; i++)
 			claimed[i]=0;
 		now = GDKusec();
 		for (k = i = 0; status == BSKTRUNNING && i < pnettop; i++) 
 		if ( pnet[i].status != BSKTPAUSE ){
-			// check if all baskets are available
+			// check if all baskets are available and non-empty
 			pnet[i].enabled = 1;
 			for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].places[j]; j++) {
 				idx = pnet[i].places[j];
@@ -365,7 +381,9 @@ PNcontroller(void *dummy)
 						_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#petrinet: %s.%s enabled twice,disgarded \n", pnet[i].modname, pnet[i].fcnname);
 						pnet[i].enabled = 0;
 						break;
-					}
+					} 
+
+				/* rule out all others */
 				if( pnet[i].enabled)
 					for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].places[j]; j++) 
 						claimed[pnet[i].places[j]]= 1;
@@ -377,10 +395,8 @@ PNcontroller(void *dummy)
 		}
 		analysis = GDKusec() - now;
 
-		/* execute each enabled transformation */
-		/* We don't need to access again all the factories and check again which are available to execute them
-		 * we have already kept the enable ones in the enabled list (created in the previous loop)
-		 * and now it is enough to access that list*/
+		/* Execute each enabled transformation */
+		/* Tricky part is here a single stream used by multiple transitions */
 		for (m = 0; m < k; m++) {
 			i = enabled[m];
 			if (pnet[i].enabled ) {
