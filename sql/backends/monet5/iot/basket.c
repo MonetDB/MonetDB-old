@@ -101,7 +101,7 @@ BSKTnewbasket(sql_schema *s, sql_table *t)
 	// Don't introduce the same basket twice
 	if( BSKTlocate(s->base.name, t->base.name) > 0)
 		return MAL_SUCCEED;
-	MT_lock_set(&iotLock);
+	//MT_lock_set(&iotLock);
 	idx = BSKTnewEntry();
 	MT_lock_init(&baskets[idx].lock,"newbasket");
 
@@ -128,7 +128,7 @@ BSKTnewbasket(sql_schema *s, sql_table *t)
 
 	baskets[idx].schema = s;
 	baskets[idx].table = t;
-	MT_lock_unset(&iotLock);
+	//MT_lock_unset(&iotLock);
 	return MAL_SUCCEED;
 }
 
@@ -186,11 +186,7 @@ BSKTbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	str msg;
 
 	(void) mb;
-
 	*ret = 0;
-	idx= BSKTlocate(sch,tbl);
-	if (idx <= 0)
-		throw(SQL,"iot.bind","Stream table '%s.%s' not registered",sch,tbl);
 
 	msg= getSQLContext(cntxt,NULL, &m, NULL);
 	if( msg != MAL_SUCCEED)
@@ -200,6 +196,13 @@ BSKTbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		t= mvc_bind_table(m, s, tbl);
 	if ( t)
 		c= mvc_bind_column(m, t, col);
+
+	idx= BSKTlocate(sch,tbl);
+	if (idx <= 0){
+		msg=  BSKTnewbasket(s, t);
+		if ( msg != MAL_SUCCEED)
+			return msg;
+	}
 
 	if( c){
 		b = store_funcs.bind_col(m->session->tr,c,RD_UPD_VAL);
@@ -376,10 +379,40 @@ BSKTdump(void *ret)
 str
 BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	(void) cntxt;
+    str sch = *getArgReference_str(stk, pci, 2);
+    str tbl = *getArgReference_str(stk, pci, 3);
+    str col = *getArgReference_str(stk, pci, 4);
+    void *val = (void*) getArgReference(stk, pci, 5);
+    int idx;
+	BAT *b;
+	mvc *m = NULL;
+	str msg = MAL_SUCCEED;
+	sql_schema *s = NULL;
+	sql_table *t = NULL;
+	sql_column *c = NULL;
+
+	idx= BSKTlocate(sch,tbl);
+	if (idx <= 0)
+		throw(SQL,"iot.bind","Stream table '%s.%s' not registered",sch,tbl);
+
+	msg = getSQLContext(cntxt, 0, &m, NULL);
+	if ( msg != MAL_SUCCEED)
+		throw(SQL, "basket.append", "Unknown SQL context");
+
+	s= mvc_bind_schema(m, sch);
+	if ( s)
+		t= mvc_bind_table(m, s, tbl);
+	if ( t)
+		c= mvc_bind_column(m, t, col);
+
+	if( c){
+		b = store_funcs.bind_col(m->session->tr,c,RD_UPD_VAL);
+		if( b){
+			BUNappend(b, val, FALSE);
+			BBPunfix(b->batCacheid);
+		}
+	} else throw(SQL,"basket.append","Stream column %s.%s.%s not accessible\n",sch,tbl,col);
 	(void) mb;
-	(void) stk;
-	(void) pci;
 	return MAL_SUCCEED;
 }
 
