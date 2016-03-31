@@ -415,6 +415,7 @@ SYSTEM FUNCTION  sys.>=
 SYSTEM FUNCTION  sys.abbrev
 SYSTEM FUNCTION  sys.abs
 SYSTEM FUNCTION  sys.acos
+SYSTEM FUNCTION  sys.all
 SYSTEM FUNCTION  sys.alpha
 SYSTEM FUNCTION  sys.analyze
 SYSTEM FUNCTION  sys.and
@@ -927,12 +928,6 @@ create function sys.hashsize(b boolean, i bigint) returns bigint begin if b = tr
 create function sys.heapsize(tpe string, i bigint, w int) returns bigint begin if tpe <> 'varchar' and tpe <> 'clob' then return 0; end if; return 10240 + i * w; end;
 create function "host" (p inet) returns clob external name inet."host";
 create function "hostmask" (p inet) returns inet external name inet."hostmask";
-ilike
-ilike
-ilike
-ilike
-ilike
-ilike
 create filter function "ilike"(val string, pat string, esc string) external name algebra."ilike";
 create filter function "ilike"(val string, pat string) external name algebra."ilike";
 create function sys.imprintsize(i bigint, nme string) returns bigint begin if nme = 'boolean' or nme = 'tinyint' or nme = 'smallint' or nme = 'int' or nme = 'bigint' or nme = 'hugeint' or nme = 'decimal' or nme = 'date' or nme = 'timestamp' or nme = 'real' or nme = 'double' then return cast(i * 0.12 as bigint); end if ; return 0; end;
@@ -940,26 +935,8 @@ create function internaltransform(geom geometry, srid_src integer, srid_dest int
 create function isaurl(theurl url) returns bool external name url."isaURL";
 create function sys.isauuid(u uuid) returns uuid external name uuid."isaUUID";
 create function sys.isauuid(u string) returns uuid external name uuid."isaUUID";
-mbrLeft
-mbrLeft
-<<
-<<
-<<
-<<
-<<
-<<
-<<
-<<
-<<
-<<
 create function "left_shift"(i1 inet, i2 inet) returns boolean external name inet."<<";
 create function "left_shift_assign"(i1 inet, i2 inet) returns boolean external name inet."<<=";
-like
-like
-like
-like
-like
-like
 create filter function "like"(val string, pat string, esc string) external name algebra."like";
 create filter function "like"(val string, pat string) external name algebra."like";
 
@@ -1022,18 +999,6 @@ create procedure sys.resume(tag int) external name sql.sysmon_resume;
 create procedure sys.resume(tag bigint) external name sql.sysmon_resume;
 create procedure reuse(sys string, tab string) external name sql.reuse;
 create function reverse(src string) returns string external name udf.reverse;
-mbrRight
-mbrRight
->>
->>
->>
->>
->>
->>
->>
->>
->>
->>
 create function "right_shift"(i1 inet, i2 inet) returns boolean external name inet.">>";
 create function "right_shift_assign"(i1 inet, i2 inet) returns boolean external name inet.">>=";
 create function sys.sessions() returns table("user" string, "login" timestamp, "sessiontimeout" bigint, "lastcommand" timestamp, "querytimeout" bigint, "active" bool) external name sql.sessions;
@@ -1247,7 +1212,15 @@ select server, port, db, db_alias, user, password, language from sys.connections
 -- db_user_info
 select u.name, u.fullname, s.name from sys.db_user_info u left outer join sys.schemas s on u.default_schema = s.id order by u.name;
 -- dependencies
-select count(*) from sys.dependencies;
+select s1.name, f1.name, s2.name, f2.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from sys.dependencies d, sys.functions f1, sys.functions f2, sys.schemas s1, sys.schemas s2 where d.id = f1.id and d.depend_id = f2.id and f1.schema_id = s1.id and f2.schema_id = s2.id order by s2.name, f2.name, s1.name, f1.name;
+select s1.name, t.name, s2.name, f.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from sys.dependencies d, sys._tables t, sys.schemas s1, sys.functions f, sys.schemas s2 where d.id = t.id and d.depend_id = f.id and t.schema_id = s1.id and f.schema_id = s2.id order by s2.name, f.name, s1.name, t.name;
+select s1.name, t.name, c.name, s2.name, f.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from sys.dependencies d, sys._columns c, sys._tables t, sys.schemas s1, sys.functions f, sys.schemas s2 where d.id = c.id and d.depend_id = f.id and c.table_id = t.id and t.schema_id = s1.id and f.schema_id = s2.id order by s2.name, f.name, s1.name, t.name, c.name;
+select s1.name, f1.name, s2.name, t2.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from schemas s1, functions f1, schemas s2, _tables t2, dependencies d where d.id = f1.id and f1.schema_id = s1.id and d.depend_id = t2.id and t2.schema_id = s2.id order by s2.name, t2.name, s1.name, f1.name;
+select s1.name, t1.name, s2.name, t2.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from schemas s1, _tables t1, schemas s2, _tables t2, dependencies d where d.id = t1.id and t1.schema_id = s1.id and d.depend_id = t2.id and t2.schema_id = s2.id order by s2.name, t2.name, s1.name, t1.name;
+select s1.name, t1.name, c1.name, s2.name, t2.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from schemas s1, _tables t1, _columns c1, schemas s2, _tables t2, dependencies d where d.id = c1.id and c1.table_id = t1.id and t1.schema_id = s1.id and d.depend_id = t2.id and t2.schema_id = s2.id order by s2.name, t2.name, s1.name, t1.name;
+select s1.name, t1.name, c1.name, s2.name, t2.name, k2.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from dependencies d, _tables t1, _tables t2, schemas s1, schemas s2, _columns c1, keys k2 where d.id = c1.id and d.depend_id = k2.id and c1.table_id = t1.id and t1.schema_id = s1.id and k2.table_id = t2.id and t2.schema_id = s2.id order by s2.name, t2.name, k2.name, s1.name, t1.name, c1.name;
+select s1.name, t1.name, c1.name, s2.name, t2.name, i2.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from dependencies d, _tables t1, _tables t2, schemas s1, schemas s2, _columns c1, idxs i2 where d.id = c1.id and d.depend_id = i2.id and c1.table_id = t1.id and t1.schema_id = s1.id and i2.table_id = t2.id and t2.schema_id = s2.id order by s2.name, t2.name, i2.name, s1.name, t1.name, c1.name;
+select t.systemname, t.sqlname, s.name, f.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from types t, functions f, schemas s, dependencies d where d.id = t.id and d.depend_id = f.id and f.schema_id = s.id order by s.name, f.name, t.systemname, t.sqlname;
 -- idxs
 select t.name, i.name, i.type from sys.idxs i left outer join sys._tables t on t.id = i.table_id order by t.name, i.name;
 -- keys
@@ -1803,6 +1776,7 @@ drop function pcre_replace(string, string, string, string);
 [ "sys",	"abs",	"abs",	"calc",	0,	1,	false,	false,	false	]
 [ "sys",	"acos",	"acos",	"mmath",	0,	1,	false,	false,	false	]
 [ "sys",	"acos",	"acos",	"mmath",	0,	1,	false,	false,	false	]
+[ "sys",	"all",	"all",	"sql",	0,	3,	false,	false,	false	]
 [ "sys",	"alpha",	"create function alpha(pdec double, pradius double) returns double external name sql.alpha;",	"sql",	1,	1,	false,	false,	false	]
 [ "sys",	"analyze",	"create procedure sys.analyze(minmax int, \"sample\" bigint) external name sql.analyze;",	"sql",	1,	2,	true,	false,	false	]
 [ "sys",	"analyze",	"create procedure sys.analyze(minmax int, \"sample\" bigint, sch string) external name sql.analyze;",	"sql",	1,	2,	true,	false,	false	]
@@ -3428,6 +3402,8 @@ drop function pcre_replace(string, string, string, string);
 [ "acos",	"arg_1",	"real",	24,	0,	1,	1	]
 [ "acos",	"res_0",	"double",	53,	0,	0,	0	]
 [ "acos",	"arg_1",	"double",	53,	0,	1,	1	]
+[ "all",	"res",	"any",	0,	0,	0,	0	]
+[ "all",	"arg",	"any",	0,	0,	1,	1	]
 [ "alpha",	"result",	"double",	53,	0,	0,	0	]
 [ "alpha",	"pdec",	"double",	53,	0,	1,	1	]
 [ "alpha",	"pradius",	"double",	53,	0,	1,	2	]
@@ -7989,12 +7965,358 @@ drop function pcre_replace(string, string, string, string);
 % varchar,	varchar,	varchar # type
 % 7,	13,	3 # length
 [ "monetdb",	"MonetDB Admin",	"sys"	]
-#select count(*) from sys.dependencies;
-% sys.L1 # table_name
-% L1 # name
-% wrd # type
-% 3 # length
-[ 310	]
+#select s1.name, f1.name, s2.name, f2.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from sys.dependencies d, sys.functions f1, sys.functions f2, sys.schemas s1, sys.schemas s2 where d.id = f1.id and d.depend_id = f2.id and f1.schema_id = s1.id and f2.schema_id = s2.id order by s2.name, f2.name, s1.name, f1.name;
+% sys.s1,	sys.f1,	sys.s2,	sys.f2,	sys.L1 # table_name
+% name,	name,	name,	name,	L1 # name
+% varchar,	varchar,	varchar,	varchar,	char # type
+% 3,	17,	3,	31,	20 # length
+[ "sys",	"=",	"sys",	"columnsize",	"FUNC_DEPENDENCY"	]
+[ "sys",	"left_shift",	"sys",	"columnsize",	"FUNC_DEPENDENCY"	]
+[ "sys",	"sql_mul",	"sys",	"columnsize",	"FUNC_DEPENDENCY"	]
+[ "sys",	"pi",	"sys",	"degrees",	"FUNC_DEPENDENCY"	]
+[ "sys",	"sql_div",	"sys",	"degrees",	"FUNC_DEPENDENCY"	]
+[ "sys",	"sql_mul",	"sys",	"degrees",	"FUNC_DEPENDENCY"	]
+[ "sys",	"=",	"sys",	"dependencies_columns_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"hash",	"sys",	"dependencies_columns_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"rotate_xor_hash",	"sys",	"dependencies_columns_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"=",	"sys",	"dependencies_columns_on_keys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"hash",	"sys",	"dependencies_columns_on_keys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"rotate_xor_hash",	"sys",	"dependencies_columns_on_keys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"sql_neg",	"sys",	"dependencies_columns_on_keys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"zero_or_one",	"sys",	"getproj4",	"FUNC_DEPENDENCY"	]
+[ "sys",	"=",	"sys",	"hashsize",	"FUNC_DEPENDENCY"	]
+[ "sys",	"sql_mul",	"sys",	"hashsize",	"FUNC_DEPENDENCY"	]
+[ "sys",	"<>",	"sys",	"heapsize",	"FUNC_DEPENDENCY"	]
+[ "sys",	"and",	"sys",	"heapsize",	"FUNC_DEPENDENCY"	]
+[ "sys",	"sql_add",	"sys",	"heapsize",	"FUNC_DEPENDENCY"	]
+[ "sys",	"sql_mul",	"sys",	"heapsize",	"FUNC_DEPENDENCY"	]
+[ "sys",	"=",	"sys",	"imprintsize",	"FUNC_DEPENDENCY"	]
+[ "sys",	"or",	"sys",	"imprintsize",	"FUNC_DEPENDENCY"	]
+[ "sys",	"sql_mul",	"sys",	"imprintsize",	"FUNC_DEPENDENCY"	]
+[ "sys",	"=",	"sys",	"ms_round",	"FUNC_DEPENDENCY"	]
+[ "sys",	"isnull",	"sys",	"ms_round",	"FUNC_DEPENDENCY"	]
+[ "sys",	"ms_trunc",	"sys",	"ms_round",	"FUNC_DEPENDENCY"	]
+[ "sys",	"not",	"sys",	"ms_round",	"FUNC_DEPENDENCY"	]
+[ "sys",	"or",	"sys",	"ms_round",	"FUNC_DEPENDENCY"	]
+[ "sys",	"round",	"sys",	"ms_round",	"FUNC_DEPENDENCY"	]
+[ "sys",	"<",	"sys",	"ms_stuff",	"FUNC_DEPENDENCY"	]
+[ "sys",	">",	"sys",	"ms_stuff",	"FUNC_DEPENDENCY"	]
+[ "sys",	"concat",	"sys",	"ms_stuff",	"FUNC_DEPENDENCY"	]
+[ "sys",	"length",	"sys",	"ms_stuff",	"FUNC_DEPENDENCY"	]
+[ "sys",	"or",	"sys",	"ms_stuff",	"FUNC_DEPENDENCY"	]
+[ "sys",	"sql_add",	"sys",	"ms_stuff",	"FUNC_DEPENDENCY"	]
+[ "sys",	"sql_sub",	"sys",	"ms_stuff",	"FUNC_DEPENDENCY"	]
+[ "sys",	"substring",	"sys",	"ms_stuff",	"FUNC_DEPENDENCY"	]
+[ "sys",	"pi",	"sys",	"radians",	"FUNC_DEPENDENCY"	]
+[ "sys",	"sql_div",	"sys",	"radians",	"FUNC_DEPENDENCY"	]
+[ "sys",	"sql_mul",	"sys",	"radians",	"FUNC_DEPENDENCY"	]
+[ "sys",	"st_numgeometries",	"sys",	"st_numpatches",	"FUNC_DEPENDENCY"	]
+[ "sys",	"st_geometryn",	"sys",	"st_patchn",	"FUNC_DEPENDENCY"	]
+[ "sys",	"getproj4",	"sys",	"st_transform",	"FUNC_DEPENDENCY"	]
+[ "sys",	"internaltransform",	"sys",	"st_transform",	"FUNC_DEPENDENCY"	]
+[ "sys",	"isnull",	"sys",	"st_transform",	"FUNC_DEPENDENCY"	]
+[ "sys",	"not",	"sys",	"st_transform",	"FUNC_DEPENDENCY"	]
+[ "sys",	"or",	"sys",	"st_transform",	"FUNC_DEPENDENCY"	]
+[ "sys",	"st_srid",	"sys",	"st_transform",	"FUNC_DEPENDENCY"	]
+[ "sys",	"columnsize",	"sys",	"storagemodel",	"FUNC_DEPENDENCY"	]
+[ "sys",	"hashsize",	"sys",	"storagemodel",	"FUNC_DEPENDENCY"	]
+[ "sys",	"heapsize",	"sys",	"storagemodel",	"FUNC_DEPENDENCY"	]
+[ "sys",	"imprintsize",	"sys",	"storagemodel",	"FUNC_DEPENDENCY"	]
+#select s1.name, t.name, s2.name, f.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from sys.dependencies d, sys._tables t, sys.schemas s1, sys.functions f, sys.schemas s2 where d.id = t.id and d.depend_id = f.id and t.schema_id = s1.id and f.schema_id = s2.id order by s2.name, f.name, s1.name, t.name;
+% sys.s1,	sys.t,	sys.s2,	sys.f,	sys.L1 # table_name
+% name,	name,	name,	name,	L1 # name
+% varchar,	varchar,	varchar,	varchar,	char # type
+% 3,	17,	3,	35,	20 # length
+[ "sys",	"columns",	"sys",	"dependencies_columns_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"sys",	"dependencies_columns_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"functions",	"sys",	"dependencies_columns_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"columns",	"sys",	"dependencies_columns_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"idxs",	"sys",	"dependencies_columns_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"sys",	"dependencies_columns_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"objects",	"sys",	"dependencies_columns_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"columns",	"sys",	"dependencies_columns_on_keys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"sys",	"dependencies_columns_on_keys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"objects",	"sys",	"dependencies_columns_on_keys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"columns",	"sys",	"dependencies_columns_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"sys",	"dependencies_columns_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"triggers",	"sys",	"dependencies_columns_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"columns",	"sys",	"dependencies_columns_on_views",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"sys",	"dependencies_columns_on_views",	"FUNC_DEPENDENCY"	]
+[ "sys",	"tables",	"sys",	"dependencies_columns_on_views",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"sys",	"dependencies_functions_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"functions",	"sys",	"dependencies_functions_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"sys",	"dependencies_functions_os_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"functions",	"sys",	"dependencies_functions_os_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"triggers",	"sys",	"dependencies_functions_os_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"sys",	"dependencies_keys_on_foreignkeys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"auths",	"sys",	"dependencies_owners_on_schemas",	"FUNC_DEPENDENCY"	]
+[ "sys",	"schemas",	"sys",	"dependencies_owners_on_schemas",	"FUNC_DEPENDENCY"	]
+[ "sys",	"schemas",	"sys",	"dependencies_schemas_on_users",	"FUNC_DEPENDENCY"	]
+[ "sys",	"users",	"sys",	"dependencies_schemas_on_users",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"sys",	"dependencies_tables_on_foreignkeys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"tables",	"sys",	"dependencies_tables_on_foreignkeys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"sys",	"dependencies_tables_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"functions",	"sys",	"dependencies_tables_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"tables",	"sys",	"dependencies_tables_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"idxs",	"sys",	"dependencies_tables_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"sys",	"dependencies_tables_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"tables",	"sys",	"dependencies_tables_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"sys",	"dependencies_tables_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"tables",	"sys",	"dependencies_tables_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"triggers",	"sys",	"dependencies_tables_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"sys",	"dependencies_tables_on_views",	"FUNC_DEPENDENCY"	]
+[ "sys",	"tables",	"sys",	"dependencies_tables_on_views",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"sys",	"dependencies_views_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"functions",	"sys",	"dependencies_views_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"tables",	"sys",	"dependencies_views_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"sys",	"dependencies_views_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"tables",	"sys",	"dependencies_views_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"triggers",	"sys",	"dependencies_views_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"spatial_ref_sys",	"sys",	"getproj4",	"FUNC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"sys",	"storagemodel",	"FUNC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"sys",	"storagemodelinit",	"PROC_DEPENDENCY"	]
+#select s1.name, t.name, c.name, s2.name, f.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from sys.dependencies d, sys._columns c, sys._tables t, sys.schemas s1, sys.functions f, sys.schemas s2 where d.id = c.id and d.depend_id = f.id and c.table_id = t.id and t.schema_id = s1.id and f.schema_id = s2.id order by s2.name, f.name, s1.name, t.name, c.name;
+% sys.s1,	sys.t,	sys.c,	sys.s2,	sys.f,	sys.L1 # table_name
+% name,	name,	name,	name,	name,	L1 # name
+% varchar,	varchar,	varchar,	varchar,	varchar,	char # type
+% 3,	17,	11,	3,	35,	20 # length
+[ "sys",	"dependencies",	"depend_id",	"sys",	"dependencies_columns_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_type",	"sys",	"dependencies_columns_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"id",	"sys",	"dependencies_columns_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"functions",	"id",	"sys",	"dependencies_columns_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"functions",	"name",	"sys",	"dependencies_columns_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"idxs",	"id",	"sys",	"dependencies_columns_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"idxs",	"name",	"sys",	"dependencies_columns_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"idxs",	"table_id",	"sys",	"dependencies_columns_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"name",	"sys",	"dependencies_columns_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"objects",	"id",	"sys",	"dependencies_columns_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"objects",	"name",	"sys",	"dependencies_columns_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"id",	"sys",	"dependencies_columns_on_keys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"name",	"sys",	"dependencies_columns_on_keys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"rkey",	"sys",	"dependencies_columns_on_keys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"table_id",	"sys",	"dependencies_columns_on_keys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"objects",	"id",	"sys",	"dependencies_columns_on_keys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"objects",	"name",	"sys",	"dependencies_columns_on_keys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_id",	"sys",	"dependencies_columns_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_type",	"sys",	"dependencies_columns_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"id",	"sys",	"dependencies_columns_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"triggers",	"id",	"sys",	"dependencies_columns_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"triggers",	"name",	"sys",	"dependencies_columns_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_id",	"sys",	"dependencies_columns_on_views",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_type",	"sys",	"dependencies_columns_on_views",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"id",	"sys",	"dependencies_columns_on_views",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_id",	"sys",	"dependencies_functions_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_type",	"sys",	"dependencies_functions_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"id",	"sys",	"dependencies_functions_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"functions",	"id",	"sys",	"dependencies_functions_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"functions",	"name",	"sys",	"dependencies_functions_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_id",	"sys",	"dependencies_functions_os_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_type",	"sys",	"dependencies_functions_os_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"id",	"sys",	"dependencies_functions_os_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"functions",	"id",	"sys",	"dependencies_functions_os_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"functions",	"name",	"sys",	"dependencies_functions_os_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"triggers",	"id",	"sys",	"dependencies_functions_os_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"triggers",	"name",	"sys",	"dependencies_functions_os_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"id",	"sys",	"dependencies_keys_on_foreignkeys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"name",	"sys",	"dependencies_keys_on_foreignkeys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"rkey",	"sys",	"dependencies_keys_on_foreignkeys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"auths",	"id",	"sys",	"dependencies_owners_on_schemas",	"FUNC_DEPENDENCY"	]
+[ "sys",	"auths",	"name",	"sys",	"dependencies_owners_on_schemas",	"FUNC_DEPENDENCY"	]
+[ "sys",	"schemas",	"name",	"sys",	"dependencies_owners_on_schemas",	"FUNC_DEPENDENCY"	]
+[ "sys",	"schemas",	"owner",	"sys",	"dependencies_owners_on_schemas",	"FUNC_DEPENDENCY"	]
+[ "sys",	"schemas",	"id",	"sys",	"dependencies_schemas_on_users",	"FUNC_DEPENDENCY"	]
+[ "sys",	"schemas",	"name",	"sys",	"dependencies_schemas_on_users",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"id",	"sys",	"dependencies_tables_on_foreignkeys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"name",	"sys",	"dependencies_tables_on_foreignkeys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"rkey",	"sys",	"dependencies_tables_on_foreignkeys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"table_id",	"sys",	"dependencies_tables_on_foreignkeys",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_id",	"sys",	"dependencies_tables_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_type",	"sys",	"dependencies_tables_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"id",	"sys",	"dependencies_tables_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"functions",	"id",	"sys",	"dependencies_tables_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"functions",	"name",	"sys",	"dependencies_tables_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"idxs",	"name",	"sys",	"dependencies_tables_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"idxs",	"table_id",	"sys",	"dependencies_tables_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"keys",	"name",	"sys",	"dependencies_tables_on_indexes",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_id",	"sys",	"dependencies_tables_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_type",	"sys",	"dependencies_tables_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"id",	"sys",	"dependencies_tables_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"triggers",	"id",	"sys",	"dependencies_tables_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"triggers",	"name",	"sys",	"dependencies_tables_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"triggers",	"table_id",	"sys",	"dependencies_tables_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_id",	"sys",	"dependencies_tables_on_views",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_type",	"sys",	"dependencies_tables_on_views",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"id",	"sys",	"dependencies_tables_on_views",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_id",	"sys",	"dependencies_views_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_type",	"sys",	"dependencies_views_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"id",	"sys",	"dependencies_views_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"functions",	"id",	"sys",	"dependencies_views_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"functions",	"name",	"sys",	"dependencies_views_on_functions",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_id",	"sys",	"dependencies_views_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"depend_type",	"sys",	"dependencies_views_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"dependencies",	"id",	"sys",	"dependencies_views_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"triggers",	"id",	"sys",	"dependencies_views_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"triggers",	"name",	"sys",	"dependencies_views_on_triggers",	"FUNC_DEPENDENCY"	]
+[ "sys",	"spatial_ref_sys",	"proj4text",	"sys",	"getproj4",	"FUNC_DEPENDENCY"	]
+[ "sys",	"spatial_ref_sys",	"srid",	"sys",	"getproj4",	"FUNC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"atomwidth",	"sys",	"storagemodel",	"FUNC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"column",	"sys",	"storagemodel",	"FUNC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"count",	"sys",	"storagemodel",	"FUNC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"distinct",	"sys",	"storagemodel",	"FUNC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"reference",	"sys",	"storagemodel",	"FUNC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"schema",	"sys",	"storagemodel",	"FUNC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"sorted",	"sys",	"storagemodel",	"FUNC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"table",	"sys",	"storagemodel",	"FUNC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"type",	"sys",	"storagemodel",	"FUNC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"atomwidth",	"sys",	"storagemodelinit",	"PROC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"column",	"sys",	"storagemodelinit",	"PROC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"count",	"sys",	"storagemodelinit",	"PROC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"distinct",	"sys",	"storagemodelinit",	"PROC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"reference",	"sys",	"storagemodelinit",	"PROC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"schema",	"sys",	"storagemodelinit",	"PROC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"sorted",	"sys",	"storagemodelinit",	"PROC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"table",	"sys",	"storagemodelinit",	"PROC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"type",	"sys",	"storagemodelinit",	"PROC_DEPENDENCY"	]
+[ "sys",	"storagemodelinput",	"typewidth",	"sys",	"storagemodelinit",	"PROC_DEPENDENCY"	]
+#select s1.name, f1.name, s2.name, t2.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from schemas s1, functions f1, schemas s2, _tables t2, dependencies d where d.id = f1.id and f1.schema_id = s1.id and d.depend_id = t2.id and t2.schema_id = s2.id order by s2.name, t2.name, s1.name, f1.name;
+% sys.s1,	sys.f1,	sys.s2,	sys.t2,	sys.L1 # table_name
+% name,	name,	name,	name,	L1 # name
+% varchar,	varchar,	varchar,	varchar,	char # type
+% 3,	16,	3,	17,	20 # length
+[ "sys",	"environment",	"sys",	"environment",	"VIEW_DEPENDENCY"	]
+[ "sys",	"get_type",	"sys",	"geometry_columns",	"VIEW_DEPENDENCY"	]
+[ "sys",	"has_m",	"sys",	"geometry_columns",	"VIEW_DEPENDENCY"	]
+[ "sys",	"has_z",	"sys",	"geometry_columns",	"VIEW_DEPENDENCY"	]
+[ "sys",	"sql_add",	"sys",	"geometry_columns",	"VIEW_DEPENDENCY"	]
+[ "sys",	"optimizers",	"sys",	"optimizers",	"VIEW_DEPENDENCY"	]
+[ "sys",	"querylog_calls",	"sys",	"querylog_calls",	"VIEW_DEPENDENCY"	]
+[ "sys",	"querylog_catalog",	"sys",	"querylog_catalog",	"VIEW_DEPENDENCY"	]
+[ "sys",	"querylog_calls",	"sys",	"querylog_history",	"VIEW_DEPENDENCY"	]
+[ "sys",	"querylog_catalog",	"sys",	"querylog_history",	"VIEW_DEPENDENCY"	]
+[ "sys",	"queue",	"sys",	"queue",	"VIEW_DEPENDENCY"	]
+[ "sys",	"rejects",	"sys",	"rejects",	"VIEW_DEPENDENCY"	]
+[ "sys",	"sessions",	"sys",	"sessions",	"VIEW_DEPENDENCY"	]
+[ "sys",	"storage",	"sys",	"storage",	"VIEW_DEPENDENCY"	]
+[ "sys",	"storagemodel",	"sys",	"storagemodel",	"VIEW_DEPENDENCY"	]
+[ "sys",	"=",	"sys",	"tablestoragemodel",	"VIEW_DEPENDENCY"	]
+[ "sys",	"ifthenelse",	"sys",	"tablestoragemodel",	"VIEW_DEPENDENCY"	]
+[ "sys",	"isnull",	"sys",	"tablestoragemodel",	"VIEW_DEPENDENCY"	]
+[ "sys",	"max",	"sys",	"tablestoragemodel",	"VIEW_DEPENDENCY"	]
+[ "sys",	"sql_mul",	"sys",	"tablestoragemodel",	"VIEW_DEPENDENCY"	]
+[ "sys",	"storagemodel",	"sys",	"tablestoragemodel",	"VIEW_DEPENDENCY"	]
+[ "sys",	"sum",	"sys",	"tablestoragemodel",	"VIEW_DEPENDENCY"	]
+[ "sys",	"tracelog",	"sys",	"tracelog",	"VIEW_DEPENDENCY"	]
+#select s1.name, t1.name, s2.name, t2.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from schemas s1, _tables t1, schemas s2, _tables t2, dependencies d where d.id = t1.id and t1.schema_id = s1.id and d.depend_id = t2.id and t2.schema_id = s2.id order by s2.name, t2.name, s1.name, t1.name;
+% sys.s1,	sys.t1,	sys.s2,	sys.t2,	sys.L1 # table_name
+% name,	name,	name,	name,	L1 # name
+% varchar,	varchar,	varchar,	varchar,	char # type
+% 3,	11,	3,	16,	20 # length
+[ "sys",	"columns",	"sys",	"geometry_columns",	"VIEW_DEPENDENCY"	]
+[ "sys",	"environment",	"sys",	"geometry_columns",	"VIEW_DEPENDENCY"	]
+[ "sys",	"schemas",	"sys",	"geometry_columns",	"VIEW_DEPENDENCY"	]
+[ "sys",	"tables",	"sys",	"geometry_columns",	"VIEW_DEPENDENCY"	]
+[ "sys",	"types",	"sys",	"geometry_columns",	"VIEW_DEPENDENCY"	]
+#select s1.name, t1.name, c1.name, s2.name, t2.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from schemas s1, _tables t1, _columns c1, schemas s2, _tables t2, dependencies d where d.id = c1.id and c1.table_id = t1.id and t1.schema_id = s1.id and d.depend_id = t2.id and t2.schema_id = s2.id order by s2.name, t2.name, s1.name, t1.name;
+% sys.s1,	sys.t1,	sys.c1,	sys.s2,	sys.t2,	sys.L1 # table_name
+% name,	name,	name,	name,	name,	L1 # name
+% varchar,	varchar,	varchar,	varchar,	varchar,	char # type
+% 3,	7,	10,	3,	16,	20 # length
+[ "sys",	"schemas",	"id",	"sys",	"geometry_columns",	"VIEW_DEPENDENCY"	]
+[ "sys",	"schemas",	"name",	"sys",	"geometry_columns",	"VIEW_DEPENDENCY"	]
+[ "sys",	"types",	"sqlname",	"sys",	"geometry_columns",	"VIEW_DEPENDENCY"	]
+[ "sys",	"types",	"systemname",	"sys",	"geometry_columns",	"VIEW_DEPENDENCY"	]
+#select s1.name, t1.name, c1.name, s2.name, t2.name, k2.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from dependencies d, _tables t1, _tables t2, schemas s1, schemas s2, _columns c1, keys k2 where d.id = c1.id and d.depend_id = k2.id and c1.table_id = t1.id and t1.schema_id = s1.id and k2.table_id = t2.id and t2.schema_id = s2.id order by s2.name, t2.name, k2.name, s1.name, t1.name, c1.name;
+% sys.s1,	sys.t1,	sys.c1,	sys.s2,	sys.t2,	sys.k2,	sys.L1 # table_name
+% name,	name,	name,	name,	name,	name,	L1 # name
+% varchar,	varchar,	varchar,	varchar,	varchar,	varchar,	char # type
+% 3,	16,	18,	3,	16,	40,	20 # length
+[ "bam",	"files",	"file_id",	"bam",	"files",	"files_pkey_file_id",	"KEY_DEPENDENCY"	]
+[ "bam",	"pg",	"file_id",	"bam",	"pg",	"pg_fkey_file_id",	"FKEY_DEPENDENCY"	]
+[ "bam",	"pg",	"file_id",	"bam",	"pg",	"pg_pkey_id_file_id",	"KEY_DEPENDENCY"	]
+[ "bam",	"pg",	"id",	"bam",	"pg",	"pg_pkey_id_file_id",	"KEY_DEPENDENCY"	]
+[ "bam",	"rg",	"file_id",	"bam",	"rg",	"rg_fkey_file_id",	"FKEY_DEPENDENCY"	]
+[ "bam",	"rg",	"file_id",	"bam",	"rg",	"rg_pkey_id_file_id",	"KEY_DEPENDENCY"	]
+[ "bam",	"rg",	"id",	"bam",	"rg",	"rg_pkey_id_file_id",	"KEY_DEPENDENCY"	]
+[ "bam",	"sq",	"file_id",	"bam",	"sq",	"sq_fkey_file_id",	"FKEY_DEPENDENCY"	]
+[ "bam",	"sq",	"file_id",	"bam",	"sq",	"sq_pkey_sn_file_id",	"KEY_DEPENDENCY"	]
+[ "bam",	"sq",	"sn",	"bam",	"sq",	"sq_pkey_sn_file_id",	"KEY_DEPENDENCY"	]
+[ "sys",	"dependency_types",	"dependency_type_id",	"sys",	"dependency_types",	"dependency_types_dependency_type_id_pkey",	"KEY_DEPENDENCY"	]
+[ "sys",	"keywords",	"keyword",	"sys",	"keywords",	"keywords_keyword_pkey",	"KEY_DEPENDENCY"	]
+[ "sys",	"spatial_ref_sys",	"srid",	"sys",	"spatial_ref_sys",	"spatial_ref_sys_srid_pkey",	"KEY_DEPENDENCY"	]
+[ "sys",	"table_types",	"table_type_id",	"sys",	"table_types",	"table_types_table_type_id_pkey",	"KEY_DEPENDENCY"	]
+#select s1.name, t1.name, c1.name, s2.name, t2.name, i2.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from dependencies d, _tables t1, _tables t2, schemas s1, schemas s2, _columns c1, idxs i2 where d.id = c1.id and d.depend_id = i2.id and c1.table_id = t1.id and t1.schema_id = s1.id and i2.table_id = t2.id and t2.schema_id = s2.id order by s2.name, t2.name, i2.name, s1.name, t1.name, c1.name;
+% sys.s1,	sys.t1,	sys.c1,	sys.s2,	sys.t2,	sys.i2,	sys.L1 # table_name
+% name,	name,	name,	name,	name,	name,	L1 # name
+% varchar,	varchar,	varchar,	varchar,	varchar,	varchar,	char # type
+% 3,	16,	20,	3,	16,	44,	20 # length
+[ "bam",	"files",	"file_id",	"bam",	"files",	"files_pkey_file_id",	"INDEX_DEPENDENCY"	]
+[ "bam",	"pg",	"file_id",	"bam",	"pg",	"pg_fkey_file_id",	"INDEX_DEPENDENCY"	]
+[ "bam",	"pg",	"file_id",	"bam",	"pg",	"pg_pkey_id_file_id",	"INDEX_DEPENDENCY"	]
+[ "bam",	"pg",	"id",	"bam",	"pg",	"pg_pkey_id_file_id",	"INDEX_DEPENDENCY"	]
+[ "bam",	"rg",	"file_id",	"bam",	"rg",	"rg_fkey_file_id",	"INDEX_DEPENDENCY"	]
+[ "bam",	"rg",	"file_id",	"bam",	"rg",	"rg_pkey_id_file_id",	"INDEX_DEPENDENCY"	]
+[ "bam",	"rg",	"id",	"bam",	"rg",	"rg_pkey_id_file_id",	"INDEX_DEPENDENCY"	]
+[ "bam",	"sq",	"file_id",	"bam",	"sq",	"sq_fkey_file_id",	"INDEX_DEPENDENCY"	]
+[ "bam",	"sq",	"file_id",	"bam",	"sq",	"sq_pkey_sn_file_id",	"INDEX_DEPENDENCY"	]
+[ "bam",	"sq",	"sn",	"bam",	"sq",	"sq_pkey_sn_file_id",	"INDEX_DEPENDENCY"	]
+[ "sys",	"dependency_types",	"dependency_type_id",	"sys",	"dependency_types",	"dependency_types_dependency_type_id_pkey",	"INDEX_DEPENDENCY"	]
+[ "sys",	"dependency_types",	"dependency_type_name",	"sys",	"dependency_types",	"dependency_types_dependency_type_name_unique",	"INDEX_DEPENDENCY"	]
+[ "sys",	"keywords",	"keyword",	"sys",	"keywords",	"keywords_keyword_pkey",	"INDEX_DEPENDENCY"	]
+[ "sys",	"spatial_ref_sys",	"srid",	"sys",	"spatial_ref_sys",	"spatial_ref_sys_srid_pkey",	"INDEX_DEPENDENCY"	]
+[ "sys",	"table_types",	"table_type_id",	"sys",	"table_types",	"table_types_table_type_id_pkey",	"INDEX_DEPENDENCY"	]
+[ "sys",	"table_types",	"table_type_name",	"sys",	"table_types",	"table_types_table_type_name_unique",	"INDEX_DEPENDENCY"	]
+#select t.systemname, t.sqlname, s.name, f.name, case d.depend_type when 1 then 'SCHEMA_DEPENDENCY' when 2 then 'TABLE_DEPENDENCY' when 3 then 'COLUMN_DEPENDENCY' when 4 then 'KEY_DEPENDENCY' when 5 then 'VIEW_DEPENDENCY' when 6 then 'USER_DEPENDENCY' when 7 then 'FUNC_DEPENDENCY' when 8 then 'TRIGGER_DEPENDENCY' when 9 then 'OWNER_DEPENDENCY' when 10 then 'INDEX_DEPENDENCY' when 11 then 'FKEY_DEPENDENCY' when 12 then 'SEQ_DEPENDENCY' when 13 then 'PROC_DEPENDENCY' when 14 then 'BEDROPPED_DEPENDENCY' when 15 then 'TYPE_DEPENDENCY' end from types t, functions f, schemas s, dependencies d where d.id = t.id and d.depend_id = f.id and f.schema_id = s.id order by s.name, f.name, t.systemname, t.sqlname;
+% sys.t,	sys.t,	sys.s,	sys.f,	sys.L1 # table_name
+% systemname,	sqlname,	name,	name,	L1 # name
+% varchar,	varchar,	varchar,	varchar,	char # type
+% 4,	4,	4,	18,	20 # length
+[ "json",	"json",	"json",	"filter",	"TYPE_DEPENDENCY"	]
+[ "json",	"json",	"json",	"filter",	"TYPE_DEPENDENCY"	]
+[ "json",	"json",	"json",	"filter",	"TYPE_DEPENDENCY"	]
+[ "json",	"json",	"json",	"filter",	"TYPE_DEPENDENCY"	]
+[ "json",	"json",	"json",	"integer",	"TYPE_DEPENDENCY"	]
+[ "json",	"json",	"json",	"isarray",	"TYPE_DEPENDENCY"	]
+[ "json",	"json",	"json",	"isobject",	"TYPE_DEPENDENCY"	]
+[ "json",	"json",	"json",	"isvalid",	"TYPE_DEPENDENCY"	]
+[ "json",	"json",	"json",	"keyarray",	"TYPE_DEPENDENCY"	]
+[ "json",	"json",	"json",	"length",	"TYPE_DEPENDENCY"	]
+[ "json",	"json",	"json",	"number",	"TYPE_DEPENDENCY"	]
+[ "json",	"json",	"json",	"output",	"TYPE_DEPENDENCY"	]
+[ "json",	"json",	"json",	"text",	"TYPE_DEPENDENCY"	]
+[ "json",	"json",	"json",	"text",	"TYPE_DEPENDENCY"	]
+[ "json",	"json",	"json",	"valuearray",	"TYPE_DEPENDENCY"	]
+[ "inet",	"inet",	"sys",	"abbrev",	"TYPE_DEPENDENCY"	]
+[ "inet",	"inet",	"sys",	"broadcast",	"TYPE_DEPENDENCY"	]
+[ "url",	"url",	"sys",	"getanchor",	"TYPE_DEPENDENCY"	]
+[ "url",	"url",	"sys",	"getbasename",	"TYPE_DEPENDENCY"	]
+[ "url",	"url",	"sys",	"getcontent",	"TYPE_DEPENDENCY"	]
+[ "url",	"url",	"sys",	"getcontext",	"TYPE_DEPENDENCY"	]
+[ "url",	"url",	"sys",	"getdomain",	"TYPE_DEPENDENCY"	]
+[ "url",	"url",	"sys",	"getextension",	"TYPE_DEPENDENCY"	]
+[ "url",	"url",	"sys",	"getfile",	"TYPE_DEPENDENCY"	]
+[ "url",	"url",	"sys",	"gethost",	"TYPE_DEPENDENCY"	]
+[ "url",	"url",	"sys",	"getport",	"TYPE_DEPENDENCY"	]
+[ "url",	"url",	"sys",	"getprotocol",	"TYPE_DEPENDENCY"	]
+[ "url",	"url",	"sys",	"getquery",	"TYPE_DEPENDENCY"	]
+[ "url",	"url",	"sys",	"getroboturl",	"TYPE_DEPENDENCY"	]
+[ "url",	"url",	"sys",	"getuser",	"TYPE_DEPENDENCY"	]
+[ "inet",	"inet",	"sys",	"host",	"TYPE_DEPENDENCY"	]
+[ "inet",	"inet",	"sys",	"hostmask",	"TYPE_DEPENDENCY"	]
+[ "url",	"url",	"sys",	"isaurl",	"TYPE_DEPENDENCY"	]
+[ "uuid",	"uuid",	"sys",	"isauuid",	"TYPE_DEPENDENCY"	]
+[ "uuid",	"uuid",	"sys",	"isauuid",	"TYPE_DEPENDENCY"	]
+[ "inet",	"inet",	"sys",	"left_shift",	"TYPE_DEPENDENCY"	]
+[ "inet",	"inet",	"sys",	"left_shift_assign",	"TYPE_DEPENDENCY"	]
+[ "inet",	"inet",	"sys",	"masklen",	"TYPE_DEPENDENCY"	]
+[ "inet",	"inet",	"sys",	"netmask",	"TYPE_DEPENDENCY"	]
+[ "inet",	"inet",	"sys",	"network",	"TYPE_DEPENDENCY"	]
+[ "url",	"url",	"sys",	"newurl",	"TYPE_DEPENDENCY"	]
+[ "url",	"url",	"sys",	"newurl",	"TYPE_DEPENDENCY"	]
+[ "inet",	"inet",	"sys",	"right_shift",	"TYPE_DEPENDENCY"	]
+[ "inet",	"inet",	"sys",	"right_shift_assign",	"TYPE_DEPENDENCY"	]
+[ "inet",	"inet",	"sys",	"setmasklen",	"TYPE_DEPENDENCY"	]
+[ "inet",	"inet",	"sys",	"text",	"TYPE_DEPENDENCY"	]
+[ "uuid",	"uuid",	"sys",	"uuid",	"TYPE_DEPENDENCY"	]
 #select t.name, i.name, i.type from sys.idxs i left outer join sys._tables t on t.id = i.table_id order by t.name, i.name;
 % .t,	.i,	.i # table_name
 % name,	name,	type # name
@@ -8174,6 +8496,7 @@ drop function pcre_replace(string, string, string, string);
 [ "abs"	]
 [ "acos"	]
 [ "acos"	]
+[ "all"	]
 [ "alpha"	]
 [ "analyze"	]
 [ "analyze"	]
