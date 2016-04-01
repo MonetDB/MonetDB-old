@@ -402,8 +402,10 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	s= mvc_bind_schema(m, sch);
 	if ( s)
 		t= mvc_bind_table(m, s, tbl);
+	else throw(SQL,"basket.append","Schema %s not accessible\n",sch);
 	if ( t)
 		c= mvc_bind_column(m, t, col);
+	else throw(SQL,"basket.append","Stream table %s.%s not accessible\n",sch,tbl);
 
 	if( c){
 		b = store_funcs.bind_col(m->session->tr,c,RD_UPD_VAL);
