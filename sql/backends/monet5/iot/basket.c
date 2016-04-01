@@ -114,8 +114,8 @@ BSKTnewbasket(sql_schema *s, sql_table *t)
         sql_column *col = o->data;
         int tpe = col->type.type->localtype;
 
-        if (tpe < TYPE_str || tpe == TYPE_date || tpe == TYPE_daytime || tpe == TYPE_timestamp) 
-			throw(MAL,"baskets.register","Unsupported type");
+        if ( !(tpe < TYPE_str || tpe == TYPE_date || tpe == TYPE_daytime || tpe == TYPE_timestamp) )
+			throw(MAL,"baskets.register","Unsupported type %d",tpe);
 		baskets[idx].count++;
 	}
 	baskets[idx].errors = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
