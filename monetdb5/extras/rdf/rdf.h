@@ -65,6 +65,12 @@ RDFtriplesubsort(BAT **sbat, BAT **pbat, BAT **obat);
 rdf_export str
 RDFbisubsort(BAT **lbat, BAT **rbat); 
 
+rdf_export str
+RDFexception_join(bat *ret1, bat *ret2, bat *sdense, bat *o1, bat *s2, bat *o2, bat *scand); 
+
+rdf_export str
+RDFmerge_join(bat *ret1, bat *ret2, bat *s1id, bat *o1id, bat *scandid); 
+
 #define RDF_MIN_LITERAL (((oid) 1) << ((sizeof(oid)==8)?59:27))
 
 #define IS_DUPLICATE_FREE 0		/* 0: Duplications have not been removed, otherwise 1 */

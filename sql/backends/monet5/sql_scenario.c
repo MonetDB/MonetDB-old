@@ -335,7 +335,7 @@ global_variables(mvc *sql, char *user, char *schema)
 	else 
 		rdf_opt_simply_crp = 0; 
 	
-	printf("need_crp_opt = %s and rdf_opt_simply_crp = %d\n",need_crp_opt,rdf_opt_simply_crp);
+	/* printf("need_crp_opt = %s and rdf_opt_simply_crp = %d\n",need_crp_opt,rdf_opt_simply_crp); */
 
 	return 0;
 }

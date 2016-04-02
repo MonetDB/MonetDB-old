@@ -109,6 +109,193 @@ RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 }
 */
 
+/* 
+ * This function performs the join given the set of S candidates with a S column
+ * considering the exception data. 
+ * Input: 
+ * - S1 BAT (dense bat), O1 BAT, S2, 
+ * */
+str 
+RDFexception_join(bat *ret1, bat *ret2, bat *sdenseid, bat *o1id, bat *s2id, bat *o2id, bat *scandid){
+	BAT *resS = NULL, *resO = NULL; 	
+	BAT *sdense, *o1, *s2, *o2, *scand; 
+	oid *sdensept, *o1pt, *s2pt, *o2pt, *scandpt, *resSpt, *resOpt; 
+	BUN estimate  = 0; 
+	int cnt1 = 0, cnt2 = 0, cntcand = 0; 
+	int i = 0, j = 0, lasti = -1; 
+	oid tmpS = BUN_NONE; 
+	BUN min_sdense, max_sdense; 
+	int rescnt = 0;
+
+	if ((sdense = BATdescriptor(*sdenseid)) == NULL) {
+		throw(MAL, "rdf.RDFexception_join", RUNTIME_OBJECT_MISSING);
+	}
+	if ((o1 = BATdescriptor(*o1id)) == NULL) {
+		BBPunfix(sdense->batCacheid); 
+		throw(MAL, "rdf.RDFexception_join", RUNTIME_OBJECT_MISSING);
+	}
+	if ((s2 = BATdescriptor(*s2id)) == NULL) {
+		BBPunfix(sdense->batCacheid); 
+		BBPunfix(o1->batCacheid); 	
+		throw(MAL, "rdf.RDFexception_join", RUNTIME_OBJECT_MISSING);
+	}
+	if ((o2 = BATdescriptor(*o2id)) == NULL) {
+		BBPunfix(sdense->batCacheid); 
+		BBPunfix(o1->batCacheid); 	
+		BBPunfix(s2->batCacheid); 	
+		throw(MAL, "rdf.RDFexception_join", RUNTIME_OBJECT_MISSING);
+	}
+	if ((scand = BATdescriptor(*scandid)) == NULL) { 
+		BBPunfix(sdense->batCacheid); 
+		BBPunfix(o1->batCacheid); 	
+		BBPunfix(s2->batCacheid); 	
+		BBPunfix(o2->batCacheid); 	
+		throw(MAL, "rdf.RDFexception_join", RUNTIME_OBJECT_MISSING);
+	}
+
+	sdensept = (oid *) Tloc(sdense, BUNfirst(sdense));
+	o1pt = (oid *) Tloc(o1, BUNfirst(o1)); 
+	s2pt = (oid *) Tloc(s2, BUNfirst(s2)); 
+	o2pt = (oid *) Tloc(o2, BUNfirst(o2)); 
+	scandpt = (oid *) Tloc(scand, BUNfirst(scand)); 
+
+	/*Estimate the total size of the output = the size of 
+	  the candidate BAT and the exception BAT */
+
+	estimate = BATcount(scand) + BATcount(s2);  
+
+	resS = BATnew(TYPE_void, TYPE_oid, estimate, TRANSIENT);
+	resO = BATnew(TYPE_void, TYPE_oid, estimate, TRANSIENT);
+	resSpt = (oid *) Tloc(resS, BUNfirst(resS)); 
+	resOpt = (oid *) Tloc(resO, BUNfirst(resO));
+
+	cnt1 = (int) BATcount(sdense); 
+	cnt2 = (int) BATcount(s2); 
+	cntcand = (int) BATcount(scand); 
+	min_sdense = sdensept[0]; 
+	max_sdense = sdensept[cnt1-1]; 
+
+	i = 0; j  = 0, lasti = -1;
+	//printf("Number of cand = %d | Number of input = %d | Number of exception = %d\n", cntcand, cnt1, cnt2); 	
+
+	while (i < cntcand && j < cnt2){
+		//fetch the result from dense
+		if (i != lasti && scandpt[i] >= min_sdense && scandpt[i] <= max_sdense){
+			resSpt[rescnt] = scandpt[i]; 
+			resOpt[rescnt] = o1pt[scandpt[i] - min_sdense]; 
+			rescnt++;
+			lasti = i; 
+		}
+
+		if (scandpt[i] < s2pt[j]){
+			i++;
+		} else if (scandpt[i] > s2pt[j]){
+			j++;
+		} else { // (scandpt[i] == s2pt[j])
+			//all same value of S in the exception
+			tmpS = s2pt[j]; 
+			while (j < cnt2 && s2pt[j] == tmpS){
+				resSpt[rescnt] = scandpt[i]; 
+				resOpt[rescnt] = o2pt[j]; 
+				rescnt++;
+				j++; 
+			}
+			i++; 
+		}	
+	}
+
+	//printf("Number of results %d\n", rescnt); 	
+	BATsetcount(resS,rescnt);
+	BATsetcount(resO,rescnt);
+	*ret1 = resS->batCacheid;
+	*ret2 = resO->batCacheid; 
+	BBPkeepref(*ret1);
+	BBPkeepref(*ret2);
+
+	return MAL_SUCCEED; 
+}
+
+/* 
+ * This function performs the join given the set of S candidates with a S column
+ * considering the exception data. 
+ * Input: 
+ * - S1 BAT (dense bat), O1 BAT, S2, 
+ * */
+str 
+RDFmerge_join(bat *ret1, bat *ret2, bat *s1id, bat *o1id, bat *scandid){
+	BAT *resS = NULL, *resO = NULL; 	
+	BAT *s1, *o1, *scand; 
+	oid *s1pt, *o1pt, *scandpt, *resSpt, *resOpt; 
+	BUN estimate  = 0; 
+	int cnt1 = 0, cntcand = 0; 
+	int i = 0, j = 0; 
+	oid tmpS = BUN_NONE; 
+	int rescnt = 0;
+
+	if ((s1 = BATdescriptor(*s1id)) == NULL) {
+		throw(MAL, "rdf.RDFexception_join", RUNTIME_OBJECT_MISSING);
+	}
+	if ((o1 = BATdescriptor(*o1id)) == NULL) {
+		BBPunfix(s1->batCacheid); 
+		throw(MAL, "rdf.RDFexception_join", RUNTIME_OBJECT_MISSING);
+	}
+	if ((scand = BATdescriptor(*scandid)) == NULL) { 
+		BBPunfix(s1->batCacheid); 
+		BBPunfix(o1->batCacheid); 	
+		throw(MAL, "rdf.RDFexception_join", RUNTIME_OBJECT_MISSING);
+	}
+
+	s1pt = (oid *) Tloc(s1, BUNfirst(s1));
+	o1pt = (oid *) Tloc(o1, BUNfirst(o1)); 
+	scandpt = (oid *) Tloc(scand, BUNfirst(scand)); 
+
+	/*Estimate the total size of the output = the size of 
+	  the candidate BAT and the exception BAT */
+
+	estimate = BATcount(scand) * 2;  
+
+	resS = BATnew(TYPE_void, TYPE_oid, estimate, TRANSIENT);
+	resO = BATnew(TYPE_void, TYPE_oid, estimate, TRANSIENT);
+	resSpt = (oid *) Tloc(resS, BUNfirst(resS)); 
+	resOpt = (oid *) Tloc(resO, BUNfirst(resO));
+
+	cnt1 = (int) BATcount(s1); 
+	cntcand = (int) BATcount(scand); 
+	//printf("Number of cand = %d | Number of input = %d\n", cntcand, cnt1); 	
+
+	i = 0; j  = 0;
+
+	while (i < cntcand && j < cnt1){
+
+		if (scandpt[i] < s1pt[j]){
+			i++;
+		} else if (scandpt[i] > s1pt[j]){
+			j++;
+		} else { // (scandpt[i] == s1pt[j])
+			//all same value of S in the exception
+			tmpS = s1pt[j]; 
+			while (j < cnt1 && s1pt[j] == tmpS){
+				resSpt[rescnt] = scandpt[i]; 
+				resOpt[rescnt] = o1pt[j]; 
+				rescnt++;
+				j++; 
+			}
+			i++; 
+		}	
+			
+	}
+
+	//printf("Number of results %d\n", rescnt); 	
+	BATsetcount(resS,rescnt);
+	BATsetcount(resO,rescnt);
+	*ret1 = resS->batCacheid;
+	*ret2 = resO->batCacheid; 
+	BBPkeepref(*ret1);
+	BBPkeepref(*ret2);
+
+	return MAL_SUCCEED; 
+}
+
 str
 RDFpartialjoin(bat *retid, bat *lid, bat *rid, bat *inputid){
 	BAT *left, *right, *result1, *result2, *result, *input;  

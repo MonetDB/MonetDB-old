@@ -29,3 +29,11 @@ command partialjoin(lmap:bat[:oid], rmap:bat[:oid], input:bat[:oid]):bat[:oid]
 address RDFpartialjoin
 comment "Join the input bat and the map bat (lmap, rmap). However, do not use nil for non-matching value but use the original value from input bat"
 
+command rdf_exception_join(s1:bat[:oid], o1:bat[:oid], s2:bat[:oid], o2:bat[:oid], scand:bat[:oid])(:bat[:oid],:bat[:oid])
+address RDFexception_join
+comment "Union join with the input consists of a dense S bat and an exception S. The output are two BATs S and O of satisfied S and corresponding O's"
+
+command rdf_merge_join(s1:bat[:oid], o1:bat[:oid], scand:bat[:oid])(:bat[:oid],:bat[:oid])
+address RDFmerge_join
+comment "Merge join between a set of candidate S's and . The output are two BATs S and O of statisfied S and corresponding O's"
+
