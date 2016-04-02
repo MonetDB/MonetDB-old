@@ -379,42 +379,52 @@ BSKTdump(void *ret)
 str
 BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-    str sch = *getArgReference_str(stk, pci, 2);
-    str tbl = *getArgReference_str(stk, pci, 3);
-    str col = *getArgReference_str(stk, pci, 4);
-    void *val = (void*) getArgReference(stk, pci, 5);
-    int idx;
-	BAT *b;
-	mvc *m = NULL;
-	str msg = MAL_SUCCEED;
-	sql_schema *s = NULL;
-	sql_table *t = NULL;
-	sql_column *c = NULL;
+    int *res = getArgReference_int(stk, pci, 0);
+    mvc *m = NULL;
+    str msg;
+    str sname = *getArgReference_str(stk, pci, 2);
+    str tname = *getArgReference_str(stk, pci, 3);
+    str cname = *getArgReference_str(stk, pci, 4);
+    ptr ins = getArgReference(stk, pci, 5);
+    int tpe = getArgType(mb, pci, 5);
+    sql_schema *s;
+    sql_table *t;
+    sql_column *c;
+    BAT *bn=0, *b = 0;
 
-	idx= BSKTlocate(sch,tbl);
-	if (idx <= 0)
-		throw(SQL,"iot.bind","Stream table '%s.%s' not registered",sch,tbl);
+    *res = 0;
+    if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
+        return msg;
+    if ((msg = checkSQLContext(cntxt)) != NULL)
+        return msg;
+    if (tpe > GDKatomcnt)
+        tpe = TYPE_bat;
+    if (tpe == TYPE_bat && (ins = BATdescriptor(*(int *) ins)) == NULL)
+        throw(SQL, "basket.append", "Cannot access descriptor");
+    if (ATOMextern(tpe))
+        ins = *(ptr *) ins;
+    if ( tpe == TYPE_bat)
+        b =  (BAT*) ins;
 
-	msg = getSQLContext(cntxt, 0, &m, NULL);
-	if ( msg != MAL_SUCCEED)
-		throw(SQL, "basket.append", "Unknown SQL context");
-
-	s= mvc_bind_schema(m, sch);
-	if ( s)
-		t= mvc_bind_table(m, s, tbl);
-	else throw(SQL,"basket.append","Schema %s not accessible\n",sch);
+    s = mvc_bind_schema(m, sname);
+    if (s == NULL)
+        throw(SQL, "basket.append", "Schema missing");
+    t = mvc_bind_table(m, s, tname);
 	if ( t)
-		c= mvc_bind_column(m, t, col);
-	else throw(SQL,"basket.append","Stream table %s.%s not accessible\n",sch,tbl);
-
-	if( c){
-		b = store_funcs.bind_col(m->session->tr,c,RD_UPD_VAL);
-		if( b){
-			BUNappend(b, val, FALSE);
-			BBPunfix(b->batCacheid);
+		c= mvc_bind_column(m, t, cname);
+	else throw(SQL,"basket.append","Stream table %s.%s not accessible\n",sname,tname);
+	if( c) {
+		bn = store_funcs.bind_col(m->session->tr,c,RD_UPD_VAL);
+		if( bn){
+			if( tpe == TYPE_bat)
+				BATappend(bn, b, TRUE);
+			else BUNappend(bn, ins, TRUE);
+			BBPunfix(bn->batCacheid);
 		}
-	} else throw(SQL,"basket.append","Stream column %s.%s.%s not accessible\n",sch,tbl,col);
-	(void) mb;
+	} else throw(SQL,"basket.append","Stream column %s.%s.%s not accessible\n",sname,tname,cname);
+	if (tpe == TYPE_bat) {
+		BBPunfix(((BAT *) ins)->batCacheid);
+	}
 	return MAL_SUCCEED;
 }
 
@@ -424,27 +434,6 @@ BSKTupdateInstruction(MalBlkPtr mb, str sch, str tbl)
 	(void) mb;
 	(void) sch;
 	(void) tbl;
-/*
-	int i, j, bskt;
-	InstrPtr p;
-	BAT *b;
-
-	bskt = BSKTlocate(sch,tbl);
-	if (bskt == 0)
-		return 0;
-	p = newInstruction(mb, ASSIGNsymbol);
-	getArg(p, 0) = newTmpVariable(mb, TYPE_any);
-	getModuleId(p) = basketRef;
-	getFunctionId(p) = putName("update", 6);
-	p = pushStr(mb, p, sch);
-	p = pushStr(mb, p, tbl);
-	for (i = 0; i < baskets[bskt].count; i++) {
-		b = BBPquickdesc(baskets[bskt].bats[i], FALSE);
-		j = newTmpVariable(mb, newBatType(TYPE_oid, b->ttype));
-		p = pushArgument(mb, p, j);
-	}
-	return p;
-*/
 	return NULL;
 }
 

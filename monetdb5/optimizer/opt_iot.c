@@ -40,6 +40,8 @@
 		fnd= 1; break;\
 	}
 
+#undef OPTDEBUGiot
+#define OPTDEBUGiot
 int
 OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -74,7 +76,7 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	OPTDEBUGiot {
 		mnstr_printf(cntxt->fdout, "#iot optimizer started\n");
 		printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
-	} else
+	}// else
 		(void) stk;
 
 	alias = (int *) GDKzalloc(mb->vtop * 2 * sizeof(int));

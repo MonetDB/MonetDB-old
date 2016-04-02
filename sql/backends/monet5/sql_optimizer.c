@@ -30,7 +30,7 @@
 #include "sql_gencode.h"
 #include "opt_pipes.h"
 
-static lng 
+static str 
 SQLgetSpace(mvc *m, MalBlkPtr mb)
 {
 	sql_trans *tr = m->session->tr;
@@ -38,6 +38,7 @@ SQLgetSpace(mvc *m, MalBlkPtr mb)
 	InstrPtr q;
 	int last = 2;
 	int mvcpc= 0;
+	str pipe= "default_pipe";
 
 	for (i = 0; i < mb->stop; i++) {
 		InstrPtr p = mb->stmt[i];
@@ -59,6 +60,7 @@ SQLgetSpace(mvc *m, MalBlkPtr mb)
 			c = mvc_bind_column(m, t, cname);
 			if (c && isStream(c->t->type)) {
 				setModuleId(p, basketRef);
+				pipe= "iot_pipe";
 				continue;
 			}
 		}
@@ -116,13 +118,16 @@ SQLgetSpace(mvc *m, MalBlkPtr mb)
 						q= pushStr(mb,q, sname);
 						q= pushStr(mb,q, tname);
 						moveInstruction(mb, mb->stop - 1, mvcpc+1);
+						pipe= "iot_pipe";
 						last ++;
 					}
 				}
 			}
 		}
 	}
-	return space;
+	if( space > (lng)(0.8 * MT_npages() * MT_pagesize())  && GDKnr_threads > 1)
+		pipe= "volcano_pipe";
+	return pipe;
 }
 
 str
@@ -143,20 +148,14 @@ addOptimizers(Client c, MalBlkPtr mb, char *pipe)
 	InstrPtr q;
 	backend *be;
 	str msg;
-	lng space;
+	str alterpipe;
 
 	be = (backend *) c->sqlcontext;
 	assert(be && be->mvc);	/* SQL clients should always have their state set */
 
-	space = SQLgetSpace(be->mvc, mb);
-	if(space && (pipe == NULL || strcmp(pipe,"default_pipe")== 0)){
-		if( space > (lng)(0.8 * MT_npages() * MT_pagesize())  && GDKnr_threads > 1){
-			pipe = "volcano_pipe";
-			//mnstr_printf(GDKout, "#use volcano optimizer pipeline? "SZFMT"\n", space);
-		}else
-			pipe = "default_pipe";
-	} else
-		pipe = pipe? pipe: "default_pipe";
+	alterpipe = SQLgetSpace(be->mvc, mb);
+	// global setting always prefail
+	pipe = strcmp(pipe,"default_pipe") ? pipe: alterpipe;
 	msg = addOptimizerPipe(c, mb, pipe);
 	if (msg)
 		GDKfree(msg);	/* what to do with an error? */
