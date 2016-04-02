@@ -57,7 +57,7 @@ SQLgetSpace(mvc *m, MalBlkPtr mb)
 			t = mvc_bind_table(m, s, tname);
 			if( ! t ) continue;
 			c = mvc_bind_column(m, t, cname);
-			if (c && isStream(c->t)) {
+			if (c && isStream(c->t->type)) {
 				setModuleId(p, basketRef);
 				continue;
 			}
@@ -79,7 +79,7 @@ SQLgetSpace(mvc *m, MalBlkPtr mb)
 			if (f == bindidxRef) {
 				sql_idx *i = mvc_bind_idx(m, s, cname);
 
-				if (i && (!isRemote(i->t) && !isMergeTable(i->t) && !isStream(i->t))) {
+				if (i && (!isRemote(i->t->type) && !isMergeTable(i->t->type) && !isStream(i->t->type))) {
 					BAT *b = store_funcs.bind_idx(tr, i, RDONLY);
 					if (b) {
 						space += getBatSpace(b);
@@ -90,14 +90,14 @@ SQLgetSpace(mvc *m, MalBlkPtr mb)
 				sql_table *t = mvc_bind_table(m, s, tname);
 				sql_column *c = mvc_bind_column(m, t, cname);
 
-				if (c && (!isRemote(c->t) && !isMergeTable(c->t)) && !isStream(c->t)) {
+				if (c && (!isRemote(c->t->type) && !isMergeTable(c->t->type)) && !isStream(c->t->type)) {
 					BAT *b = store_funcs.bind_col(tr, c, RDONLY);
 					if (b) {
 						space += getBatSpace(b);
 						BBPunfix(b->batCacheid);
 					}
 				}
-				if( c && isStream(c->t)){
+				if( c && isStream(c->t->type)){
 					setModuleId(p, basketRef);
 					p->argc = 5;
 					delArgument(p,1);

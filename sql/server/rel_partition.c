@@ -28,7 +28,7 @@ rel_getcount(mvc *sql, sql_rel *rel)
 	case op_basetable: {
 		sql_table *t = rel->l;
 
-		if (t && isTable(t))
+		if (t && isTable(t->type))
 			return (lng)store_funcs.count_col(sql->session->tr, t->columns.set->h->data, 1);
 		if (!t && rel->r) /* dict */
 			return (lng)sql_trans_dist_count(sql->session->tr, rel->r);
@@ -49,7 +49,7 @@ find_basetables( sql_rel *rel, list *tables )
 	case op_basetable: {
 		sql_table *t = rel->l;
 
-		if (t && isTable(t)) 
+		if (t && isTable(t->type)) 
 			append(tables, rel);
 		break;
 	}

@@ -109,9 +109,9 @@ exp_print(mvc *sql, stream *fout, sql_exp *e, int depth, int comma, int alias)
 			if (atom_type(a)->type->localtype == TYPE_ptr) {
 				sql_table *t = a->data.val.pval;
 				mnstr_printf(fout, "%s(%s)", 
-					isStream(t)?"stream":
-					isMergeTable(t)?"merge table":
-					isReplicaTable(t)?"replica table":"table",
+					isStream(t->type)?"stream":
+					isMergeTable(t->type)?"merge table":
+					isReplicaTable(t->type)?"replica table":"table",
 					t->base.name);
 			} else {
 				char *t = sql_subtype_string(atom_type(a));
@@ -327,7 +327,7 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 			const char *sname = t->s?t->s->base.name:NULL;
 			const char *tname = t->base.name;
 
-			if (isRemote(t)) {
+			if (isRemote(t->type)) {
 				const char *uri = t->query;
 
 				sname = mapiuri_schema( uri, sql->sa, sname);
@@ -335,15 +335,15 @@ rel_print_(mvc *sql, stream  *fout, sql_rel *rel, int depth, list *refs, int dec
 			}
 			if (sname)
 				mnstr_printf(fout, "%s(%s.%s)", 
-					isStream(t)?"stream":
-					isRemote(t)&&decorate?"REMOTE":
-					isReplicaTable(t)?"REPLICA":"table",
+					isStream(t->type)?"stream":
+					isRemote(t->type)&&decorate?"REMOTE":
+					isReplicaTable(t->type)?"REPLICA":"table",
 					sname, tname);
 			else
 		  		mnstr_printf(fout, "%s(%s)", 
-					isStream(t)?"stream":
-					isRemote(t)&&decorate?"REMOTE":
-					isReplicaTable(t)?"REPLICA":"table",
+					isStream(t->type)?"stream":
+					isRemote(t->type)&&decorate?"REMOTE":
+					isReplicaTable(t->type)?"REPLICA":"table",
 					tname);
 		}	
 		if (rel->exps) 

@@ -375,11 +375,11 @@ insert_allowed(mvc *sql, sql_table *t, char *tname, char *op, char *opname)
 {
 	if (!t) {
 		return sql_error(sql, 02, "42S02!%s: no such table '%s'", op, tname);
-	} else if (isView(t)) {
+	} else if (isView(t->type)) {
 		return sql_error(sql, 02, "%s: cannot %s view '%s'", op, opname, tname);
-	} else if (isMergeTable(t)) {
+	} else if (isMergeTable(t->type)) {
 		return sql_error(sql, 02, "%s: cannot %s merge table '%s'", op, opname, tname);
-	//} else if (isStream(t)) {
+	//} else if (isStream(t->type)) {
 		//return sql_error(sql, 02, "%s: cannot %s stream '%s'", op, opname, tname);
 	} else if (t->access == TABLE_READONLY) {
 		return sql_error(sql, 02, "%s: cannot %s read only table '%s'", op, opname, tname);
@@ -406,11 +406,11 @@ update_allowed(mvc *sql, sql_table *t, char *tname, char *op, char *opname, int 
 {
 	if (!t) {
 		return sql_error(sql, 02, "42S02!%s: no such table '%s'", op, tname);
-	} else if (isView(t)) {
+	} else if (isView(t->type)) {
 		return sql_error(sql, 02, "%s: cannot %s view '%s'", op, opname, tname);
-	} else if (isMergeTable(t)) {
+	} else if (isMergeTable(t->type)) {
 		return sql_error(sql, 02, "%s: cannot %s merge table '%s'", op, opname, tname);
-	//} else if (isStream(t)) {
+	//} else if (isStream(t->type)) {
 		//return sql_error(sql, 02, "%s: cannot %s stream '%s'", op, opname, tname);
 	} else if (t->access == TABLE_READONLY || t->access == TABLE_APPENDONLY) {
 		return sql_error(sql, 02, "%s: cannot %s read or append only table '%s'", op, opname, tname);

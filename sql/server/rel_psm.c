@@ -1059,7 +1059,7 @@ create_trigger(mvc *sql, dlist *qname, int time, symbol *trigger_event, char *ta
 	
 	if (create && !(t = mvc_bind_table(sql, ss, table_name)))
 		return sql_error(sql, 02, "CREATE TRIGGER: unknown table '%s'", table_name);
-	if (create && isView(t)) 
+	if (create && isView(t->type)) 
 		return sql_error(sql, 02, "CREATE TRIGGER: cannot create trigger on view '%s'", table_name);
 	
 	if (create) {

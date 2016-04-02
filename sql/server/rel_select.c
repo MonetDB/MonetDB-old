@@ -807,7 +807,7 @@ table_ref(mvc *sql, sql_rel *rel, symbol *tableref)
 			for (n = exps->h; n; n = n->next)
 				noninternexp_setname(sql->sa, n->data, tname, NULL);
 			return temp_table;
-		} else if (isView(t)) {
+		} else if (isView(t->type)) {
 			/* instantiate base view */
 			node *n,*m;
 			sql_rel *rel;
@@ -833,7 +833,7 @@ table_ref(mvc *sql, sql_rel *rel, symbol *tableref)
 			}
 			return rel;
 		}
-		if ((isMergeTable(t) || isReplicaTable(t)) && list_empty(t->tables.set))
+		if ((isMergeTable(t->type) || isReplicaTable(t->type)) && list_empty(t->tables.set))
 			return sql_error(sql, 02, "MERGE or REPLICA TABLE should have at least one table associated");
 
 		return rel_basetable(sql, t, tname);

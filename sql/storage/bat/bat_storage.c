@@ -179,7 +179,7 @@ delta_bind_bat( sql_delta *bat, int access, int temp)
 static BAT *
 bind_col(sql_trans *tr, sql_column *c, int access)
 {
-	if (!isTable(c->t)) 
+	if (!isTable(c->t->type)) 
 		return NULL;
 	if (!c->data) {
 		sql_column *oc = tr_find_column(tr->parent, c);
@@ -195,7 +195,7 @@ bind_col(sql_trans *tr, sql_column *c, int access)
 static BAT *
 bind_idx(sql_trans *tr, sql_idx * i, int access)
 {
-	if (!isTable(i->t)) 
+	if (!isTable(i->t->type)) 
 		return NULL;
 	if (!i->data) {
 		sql_idx *oi = tr_find_idx(tr->parent, i);
@@ -819,7 +819,7 @@ count_col(sql_trans *tr, sql_column *c, int all)
 {
 	sql_delta *b;
 
-	if (!isTable(c->t)) 
+	if (!isTable(c->t->type)) 
 		return 0;
 	if (!c->data) {
 		sql_column *oc = tr_find_column(tr->parent, c);
@@ -839,7 +839,7 @@ dcount_col(sql_trans *tr, sql_column *c)
 {
 	sql_delta *b;
 
-	if (!isTable(c->t)) 
+	if (!isTable(c->t->type)) 
 		return 0;
 	if (!c->data) {
 		sql_column *oc = tr_find_column(tr->parent, c);
@@ -874,7 +874,7 @@ count_idx(sql_trans *tr, sql_idx *i, int all)
 {
 	sql_delta *b;
 
-	if (!isTable(i->t)) 
+	if (!isTable(i->t->type)) 
 		return 0;
 	if (!i->data) {
 		sql_idx *oi = tr_find_idx(tr->parent, i);
@@ -894,7 +894,7 @@ count_del(sql_trans *tr, sql_table *t)
 {
 	sql_dbat *d;
 
-	if (!isTable(t)) 
+	if (!isTable(t->type)) 
 		return 0;
 	if (!t->data) {
 		sql_table *ot = tr_find_table(tr->parent, t);
@@ -911,7 +911,7 @@ sorted_col(sql_trans *tr, sql_column *col)
 {
 	int sorted = 0;
 
-	if (!isTable(col->t) || !col->t->s)
+	if (!isTable(col->t->type) || !col->t->s)
 		return 0;
 	/* fallback to central bat */
 	if (tr && tr->parent && !col->data && col->po) 
@@ -931,7 +931,7 @@ double_elim_col(sql_trans *tr, sql_column *col)
 {
 	int de = 0;
 
-	if (!isTable(col->t) || !col->t->s)
+	if (!isTable(col->t->type) || !col->t->s)
 		return 0;
 	/* fallback to central bat */
 	if (tr && tr->parent && !col->data && col->po) 
@@ -1779,7 +1779,7 @@ _gtr_update( sql_trans *tr, gtr_update_table_fptr gtr_update_table_f)
 			for (n = s->tables.set->h; n && ok == LOG_OK; n = n->next) {
 				sql_table *t = n->data;
 
-				if (isTable(t) && isGlobal(t))
+				if (isTable(t->type) && isGlobal(t))
 					ok = gtr_update_table_f(tr, t);
 			}
 		}
