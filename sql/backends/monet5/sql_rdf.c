@@ -791,6 +791,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int **colOrder = NULL; 
 
 	(void) tmptbnameex;
+	(void) respotbl;
 
 	beginT = clock();
 	
@@ -869,6 +870,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			cstablestat->obat, TYPE_bat);
 	// Add regular triple to cstables and cstablesEx
 	
+	#if COMPUTE_STORAGE_SIZE_ONLY == 0
 	#if TRIPLEBASED_TABLE
 	printf("Create triple-based relational table ..."); 
 	respotbl = mvc_create_table(m, sch, "triples", tt_table, 0,
@@ -890,6 +892,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			cstablestat->reobat, TYPE_bat);
 	printf("Done\n");
 
+	#endif
 	#endif
 
 	printf("Starting creating SQL Table -- \n");
@@ -957,20 +960,29 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			tmpbat = cstablestat->lstcstable[i].colBats[j];
 			isRightPropBAT(tmpbat);
 
+			tmpNumMVCols = cstablestat->lstcstable[i].lstMVTables[j].numCol;
+
+			#if COMPUTE_STORAGE_SIZE_ONLY == 0
 			mvc_create_column(m, cstables[i], tmpcolname,  &tpes[tmpbat->ttype]);
+			#else
+			if (tmpNumMVCols == 0)
+				mvc_create_column(m, cstables[i], tmpcolname,  &tpes[tmpbat->ttype]);
+			#endif
+			
 			
 			//For multi-values table
-			tmpNumMVCols = cstablestat->lstcstable[i].lstMVTables[j].numCol;
 			if (tmpNumMVCols != 0){
 				getMvTblSQLname(tmpmvtbname, i, j, cstablestat->lstcstable[i].tblname, cstablestat->lstcstable[i].lstProp[j], mapi, mbat);
 				csmvtables[i][j] = mvc_create_table(m, sch, tmpmvtbname, tt_table, 0, SQL_PERSIST, 0, 3); 
 				totalNoTablesCreated++;
-
+				
+				#if COMPUTE_STORAGE_SIZE_ONLY == 0
 				//One column for key
 				sprintf(tmpcolname, "mvKey");
 				tmpbat = cstablestat->lstcstable[i].lstMVTables[j].keyBat;
 				isRightPropBAT(tmpbat);
 				mvc_create_column(m, csmvtables[i][j], tmpcolname,  &tpes[tmpbat->ttype]);
+				#endif
 
 				//One column for subj oid
 				sprintf(tmpcolname, "mvsubj");
@@ -1044,14 +1056,23 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			isRightPropBAT(tmpbat);
 			//printf("Column %d of tableId %d: Batid is %d \n",j, i, tmpbat->batCacheid); 
 			//BATprint(tmpbat);
+			tmpNumMVCols = cstablestat->lstcstable[i].lstMVTables[j].numCol;
+
+			#if COMPUTE_STORAGE_SIZE_ONLY == 0
                 	store_funcs.append_col(m->session->tr,
 					mvc_bind_column(m, cstables[i],tmpcolname ), 
 					tmpbat, TYPE_bat);
+			#else
+			if (tmpNumMVCols == 0)
+				store_funcs.append_col(m->session->tr,
+						mvc_bind_column(m, cstables[i],tmpcolname ), 
+						tmpbat, TYPE_bat);
+			#endif
 
 			//For multi-values table
-			tmpNumMVCols = cstablestat->lstcstable[i].lstMVTables[j].numCol;
 			if (tmpNumMVCols != 0){
 
+				#if COMPUTE_STORAGE_SIZE_ONLY == 0 /* Do not need to store this extra info*/
 				//One column for key
 				sprintf(tmpcolname, "mvKey");
 				tmpbat = cstablestat->lstcstable[i].lstMVTables[j].keyBat;
@@ -1059,6 +1080,7 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				store_funcs.append_col(m->session->tr,
 					mvc_bind_column(m, csmvtables[i][j],tmpcolname), 
 					tmpbat, TYPE_bat);
+				#endif
 
 				//One column for subj Bat
 				sprintf(tmpcolname, "mvsubj");
@@ -1133,6 +1155,9 @@ SQLrdfreorganize(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	printf("Number of non-default-type columns: %d  (%f ex-types per prop) \n ", totalNumNonDefCols, (float)totalNumNonDefCols/totalNumDefCols);
 
 	printf("Generating script for FK creation ...");
+	#if COMPUTE_STORAGE_SIZE_ONLY == 1
+	if (0)
+	#endif
 	addPKandFKs(cstablestat, csPropTypes, *schema, mapi, mbat);
 	printf("done\n");
 

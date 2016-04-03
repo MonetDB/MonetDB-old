@@ -4103,9 +4103,13 @@ str mergeFreqCSByS1(CSset *freqCSset, CSlabel** labels, oid *mergecsId, oid** on
 	}
 
 	#if OUTPUT_FREQID_PER_LABEL
-	fclose(fout);
+	fclose(fout);		
 	TKNZRclose(&ret);
+	#if COMPUTE_STORAGE_SIZE_ONLY
+	remove("freqIdPerLabel.txt"); 
 	#endif
+	#endif
+
 
 	freeLabelStat(labelStat);
 
@@ -11866,6 +11870,7 @@ str RDFdistTriplesToCSs(int *ret, bat *sbatid, bat *pbatid, bat *obatid,  bat *m
 }
 #endif
 
+#if COMPUTE_STORAGE_SIZE_ONLY == 0
 #if BUILDTOKENZIER_TO_MAPID 
 /*
  * Since the of s,p,o oids are converted to table-based oids,
@@ -11997,6 +12002,7 @@ str buildTKNZRMappingBat(BAT *lmap, BAT *rmap){
 }
 
 #endif /* BUILDTOKENZIER_TO_MAPID*/
+#endif /* COMPUTE_STORAGE_SIZE_ONLY == 0*/
 
 str
 RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat *sbatid, bat *pbatid, bat *obatid, bat *mapbatid, bat *ontbatid, int *freqThreshold, int *mode){
@@ -12166,7 +12172,10 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 	curT = clock(); 
 	printf (" Export label process took  %f seconds.\n", ((float)(curT - tmpLastT))/CLOCKS_PER_SEC);
 	tmpLastT = curT; 		
-
+	
+	#if COMPUTE_STORAGE_SIZE_ONLY
+	if (0)
+	#endif	
 	printFinalStructure(cstablestat, *csPropTypes, numTables,*freqThreshold, mapbatid);
 	
 	#if DETECT_INCORRECT_TYPE_SUBJECT
@@ -12201,7 +12210,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 	computeMetricsQForRefinedTable(freqCSset, *csPropTypes,mfreqIdxTblIdxMapping,mTblIdxFreqIdxMapping,numTables);
 	#endif
 
-
+	#if COMPUTE_STORAGE_SIZE_ONLY == 0
 	#if DUMP_CSSET
 	{
 		str schema = "rdf"; 
@@ -12214,6 +12223,7 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 
 		TKNZRclose(ret);
 	}
+	#endif
 	#endif
 
 	if (*mode == EXPLOREONLY){
@@ -12335,8 +12345,10 @@ RDFreorganize(int *ret, CStableStat *cstablestat, CSPropTypes **csPropTypes, bat
 	printf("Number of subject removed is: %d \n", numSubjRemoved);
 	#endif
 	
+	#if COMPUTE_STORAGE_SIZE_ONLY == 0
 	#if BUILDTOKENZIER_TO_MAPID
 	buildTKNZRMappingBat(lmap, rmap); 
+	#endif
 	#endif
 	
 	origobat = getOriginalUriOBat(obat); 	//Return obat without type-specific information for URI & BLANKNODE

@@ -2579,6 +2579,9 @@ void exportLabels(CSset* freqCSset, CSrel* csRelFinalFKs, int freqThreshold, BAT
 
 	// Print and Export
 	printf("exportLabels: printUML \n"); 
+	#if COMPUTE_STORAGE_SIZE_ONLY == 1
+	if(0)
+	#endif
 	printUML2(cstablestat, csPropTypes, freqThreshold, csRelFinalFKs, mapi, mbat, numTables, mTblIdxFreqIdxMapping, csTblIdxMapping, freqCSset);
 	printf("exportLabels: Done \n"); 
 

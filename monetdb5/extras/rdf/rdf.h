@@ -86,6 +86,7 @@ RDFmerge_join(bat *ret1, bat *ret2, bat *s1id, bat *o1id, bat *scandid);
 #define EVERYTHING_AS_OID 1	/*We do not store type-specific column but oid only*/
 #define STORE_ALL_EXCEPTION_IN_PSO 1	/* All the exceptions such as non-default type values are stored in 
 					PSO table.*/
+#define COMPUTE_STORAGE_SIZE_ONLY 1 	/* Only need to compute the size of the emergent tables*/	 
 
 #define batsz 10000000
 #define smallbatsz 100000
