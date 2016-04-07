@@ -379,6 +379,8 @@ insert_allowed(mvc *sql, sql_table *t, char *tname, char *op, char *opname)
 		return sql_error(sql, 02, "%s: cannot %s view '%s'", op, opname, tname);
 	} else if (isMergeTable(t)) {
 		return sql_error(sql, 02, "%s: cannot %s merge table '%s'", op, opname, tname);
+	} else if (isStream(t)) {
+		return sql_error(sql, 02, "%s: cannot %s stream '%s'", op, opname, tname);
 	} else if (t->access == TABLE_READONLY) {
 		return sql_error(sql, 02, "%s: cannot %s read only table '%s'", op, opname, tname);
 	}
@@ -408,6 +410,8 @@ update_allowed(mvc *sql, sql_table *t, char *tname, char *op, char *opname, int 
 		return sql_error(sql, 02, "%s: cannot %s view '%s'", op, opname, tname);
 	} else if (isMergeTable(t)) {
 		return sql_error(sql, 02, "%s: cannot %s merge table '%s'", op, opname, tname);
+	} else if (isStream(t)) {
+		return sql_error(sql, 02, "%s: cannot %s stream '%s'", op, opname, tname);
 	} else if (t->access == TABLE_READONLY || t->access == TABLE_APPENDONLY) {
 		return sql_error(sql, 02, "%s: cannot %s read or append only table '%s'", op, opname, tname);
 	}
@@ -960,6 +964,7 @@ update_table(mvc *sql, dlist *qname, dlist *assignmentlist, symbol *opt_where)
 					sql->errstr[0] = 0;
 					sql->session->status = status;
 					if (single) {
+						rel_val = NULL;
 						v = rel_value_exp(sql, &r, a, sql_sel, ek);
 					} else if (!rel_val && r) {
 						r = rel_subquery(sql, r, a, ek, APPLY_LOJ);

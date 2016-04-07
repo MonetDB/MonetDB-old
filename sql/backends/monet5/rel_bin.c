@@ -46,7 +46,7 @@ print_stmtlist(sql_allocator *sa, stmt *l)
 			const char *rnme = table_name(sa, n->data);
 			const char *nme = column_name(sa, n->data);
 
-			printf("%s.%s\n", rnme ? rnme : "(null!)", nme ? nme : "(null!)");
+			fprintf(stderr, "%s.%s\n", rnme ? rnme : "(null!)", nme ? nme : "(null!)");
 		}
 	}
 }
@@ -541,7 +541,7 @@ exp_bin(mvc *sql, sql_exp *e, stmt *left, stmt *right, stmt *grp, stmt *ext, stm
 		if (s && grp)
 			s = stmt_project(sql->sa, ext, s);
 		if (!s && right) {
-			printf("could not find %s.%s\n", (char*)e->l, (char*)e->r);
+			fprintf(stderr, "could not find %s.%s\n", (char*)e->l, (char*)e->r);
 			print_stmtlist(sql->sa, left);
 			print_stmtlist(sql->sa, right);
 		}
@@ -3207,7 +3207,7 @@ rel2bin_insert( mvc *sql, sql_rel *rel, list *refs)
 		if (i->key && constraint) {
 			stmt *ckeys = sql_insert_key(sql, newl, i->key, is, pin);
 
-			list_prepend(l, ckeys);
+			list_append(l, ckeys);
 		}
 		if (!insert)
 			insert = is;
@@ -3221,9 +3221,9 @@ rel2bin_insert( mvc *sql, sql_rel *rel, list *refs)
 	if (!insert)
 		return NULL;
 
-	l = list_append(l, stmt_list(sql->sa, newl));
 	if (constraint)
 		sql_insert_check_null(sql, t, newl, l);
+	l = list_append(l, stmt_list(sql->sa, newl));
 	if (!sql_insert_triggers(sql, t, l)) 
 		return sql_error(sql, 02, "INSERT INTO: triggers failed for table '%s'", t->base.name);
 	if (insert->op1->nrcols == 0) {

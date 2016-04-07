@@ -75,6 +75,10 @@
 #define LOG_CLEAR	9
 #define LOG_SEQ		10
 
+#ifdef HAVE_EMBEDDED
+#define printf(fmt,...) ((void) 0)
+#endif
+
 static char *log_commands[] = {
 	NULL,
 	"LOG_START",
@@ -901,14 +905,12 @@ logger_readlog(logger *lg, char *filename)
 	time_t t0, t1;
 	struct stat sb;
 	lng fpos;
-	char *path = GDKfilepath(BBPselectfarm(lg->dbfarm_role, 0, offheap), NULL, filename, NULL);
 
 	if (lg->debug & 1) {
 		fprintf(stderr, "#logger_readlog opening %s\n", filename);
 	}
 
-	lg->log = open_rstream(path);
-	GDKfree(path);
+	lg->log = open_rstream(filename);
 
 	/* if the file doesn't exist, there is nothing to be read back */
 	if (!lg->log || mnstr_errnr(lg->log)) {
@@ -926,8 +928,10 @@ logger_readlog(logger *lg, char *filename)
 		return 1;
 	}
 	t0 = time(NULL);
-	printf("# Start reading the write-ahead log '%s'\n", filename);
-	fflush(stdout);
+	if (lg->debug & 1) {
+		printf("# Start reading the write-ahead log '%s'\n", filename);
+		fflush(stdout);
+	}
 	while (!err && log_read_format(lg, &l)) {
 		char *name = NULL;
 
@@ -1029,8 +1033,10 @@ logger_readlog(logger *lg, char *filename)
 	while (tr)
 		tr = tr_abort(lg, tr);
 	t0 = time(NULL);
-	printf("# Finished reading the write-ahead log '%s'\n", filename);
-	fflush(stdout);
+	if (lg->debug & 1) {
+		printf("# Finished reading the write-ahead log '%s'\n", filename);
+		fflush(stdout);
+	}
 	return LOG_OK;
 }
 
@@ -1188,11 +1194,40 @@ bm_tids(BAT *b, BAT *d)
 }
 
 
+static void
+logger_fatal(const char *format, const char *arg1, const char *arg2, const char *arg3)
+{
+	char *buf;
+
+	GDKfatal(format, arg1, arg2, arg3);
+	GDKlog(format, arg1, arg2, arg3);
+	if ((buf = GDKerrbuf) != NULL) {
+		fprintf(stderr, "%s", buf);
+		fflush(stderr);
+	}
+	GDKexit(1);
+}
+
+static void
+logger_switch_bat( BAT *old, BAT *new, const char *fn, const char *name)
+{
+	char bak[BUFSIZ];
+
+	if (BATmode(old, TRANSIENT) != GDK_SUCCEED)
+		logger_fatal("Logger_new: cannot convert old %s to transient", name, 0, 0);
+	snprintf(bak, sizeof(bak), "tmp_%o", old->batCacheid);
+	if (BBPrename(old->batCacheid, bak) != 0)
+		logger_fatal("Logger_new: cannot rename old %s", name, 0, 0);
+	snprintf(bak, sizeof(bak), "%s_%s", fn, name);
+	if (BBPrename(new->batCacheid, bak) != 0)
+		logger_fatal("Logger_new: cannot rename new %s", name, 0, 0);
+}
+
 static gdk_return
-bm_subcommit(BAT *list_bid, BAT *list_nme, BAT *catalog_bid, BAT *catalog_nme, BAT *dcatalog, BAT *extra, int debug)
+bm_subcommit(logger *lg, BAT *list_bid, BAT *list_nme, BAT *catalog_bid, BAT *catalog_nme, BAT *dcatalog, BAT *extra, int debug)
 {
 	BUN p, q;
-	BUN nn = 4 + BATcount(list_bid) + (extra ? BATcount(extra) : 0);
+	BUN nn = 6 + BATcount(list_bid) + (extra ? BATcount(extra) : 0);
 	bat *n = GDKmalloc(sizeof(bat) * nn);
 	int i = 0;
 	BATiter iter = (list_nme)?bat_iterator(list_nme):bat_iterator(list_bid);
@@ -1230,20 +1265,30 @@ bm_subcommit(BAT *list_bid, BAT *list_nme, BAT *catalog_bid, BAT *catalog_nme, B
 	n[i++] = abs(catalog_nme->batCacheid);
 	n[i++] = abs(dcatalog->batCacheid);
 	assert((BUN) i <= nn);
-	if (BATcount(dcatalog) && catalog_bid == list_bid && catalog_nme == list_nme) {
-		BAT *bids, *nmes, *tids = bm_tids(catalog_bid, dcatalog);
+	if (BATcount(dcatalog) > (BATcount(catalog_nme)/2) && catalog_bid == list_bid && catalog_nme == list_nme && lg->catalog_bid == catalog_bid) {
+		BAT *bids, *nmes, *tids = bm_tids(catalog_bid, dcatalog), *b;
 
-		bids = BATproject(tids, catalog_bid);
-		nmes = BATproject(tids, catalog_nme);
+		bids = logbat_new(TYPE_int, BATSIZE, PERSISTENT);
+		nmes = logbat_new(TYPE_str, BATSIZE, PERSISTENT);
+		b = BATproject(tids, catalog_bid);
+		BATappend(bids, b, TRUE);
+		logbat_destroy(b);
+		b = BATproject(tids, catalog_nme);
+		BATappend(nmes, b, TRUE);
+		logbat_destroy(b);
 		logbat_destroy(tids);
-		BATclear(catalog_bid, TRUE);
-		BATclear(catalog_nme, TRUE);
 		BATclear(dcatalog, TRUE);
 
-		BATappend(catalog_bid, bids, FALSE);
-		BATappend(catalog_nme, nmes, FALSE);
-		logbat_destroy(bids);
-		logbat_destroy(nmes);
+		logger_switch_bat(catalog_bid, bids, lg->fn, "catalog_bid");
+		logger_switch_bat(catalog_nme, nmes, lg->fn, "catalog_nme");
+		n[i++] = bids->batCacheid;
+		n[i++] = nmes->batCacheid;
+
+		logbat_destroy(lg->catalog_bid);
+		logbat_destroy(lg->catalog_nme);
+
+		lg->catalog_bid = catalog_bid = bids;
+		lg->catalog_nme = catalog_nme = nmes;
 	}
 	BATcommit(catalog_bid);
 	BATcommit(catalog_nme);
@@ -1253,20 +1298,6 @@ bm_subcommit(BAT *list_bid, BAT *list_nme, BAT *catalog_bid, BAT *catalog_nme, B
 	if (res != GDK_SUCCEED)
 		fprintf(stderr, "!ERROR: bm_subcommit: commit failed\n");
 	return res;
-}
-
-static void
-logger_fatal(const char *format, const char *arg1, const char *arg2, const char *arg3)
-{
-	char *buf;
-
-	GDKfatal(format, arg1, arg2, arg3);
-	GDKlog(format, arg1, arg2, arg3);
-	if ((buf = GDKerrbuf) != NULL) {
-		fprintf(stderr, "%s", buf);
-		fflush(stderr);
-	}
-	GDKexit(1);
 }
 
 /* Set the logdir path, add a dbfarm if needed.
@@ -1322,24 +1353,27 @@ logger_load(int debug, const char* fn, char filename[PATHLENGTH], logger* lg)
 	int id = LOG_SID;
 	FILE *fp;
 	char bak[PATHLENGTH];
+	str filenamestr = NULL;
 	log_bid snapshots_bid = 0;
 	bat catalog_bid, catalog_nme, dcatalog, bid;
 	int farmid = BBPselectfarm(lg->dbfarm_role, 0, offheap);
 
-	snprintf(filename, PATHLENGTH, "%s%s", lg->dir, LOGFILE);
+	filenamestr = GDKfilepath(farmid, lg->dir, LOGFILE, NULL);
+	snprintf(filename, PATHLENGTH, "%s", filenamestr);
 	snprintf(bak, sizeof(bak), "%s.bak", filename);
+	GDKfree(filenamestr);
 
 	/* try to open logfile backup, or failing that, the file
 	 * itself. we need to know whether this file exists when
 	 * checking the database consistency later on */
-	if ((fp = GDKfileopen(farmid, NULL, bak, NULL, "r")) != NULL) {
+	if ((fp = fopen(bak, "r")) != NULL) {
 		fclose(fp);
 		(void) GDKunlink(farmid, lg->dir, LOGFILE, NULL);
 		if (GDKmove(farmid, lg->dir, LOGFILE, "bak", lg->dir, LOGFILE, NULL) != GDK_SUCCEED)
 			logger_fatal("logger_new: cannot move log.bak "
 				     "file back.\n", 0, 0, 0);
 	}
-	fp = GDKfileopen(farmid, NULL, filename, NULL, "r");
+	fp = fopen(filename, "r");
 
 	snprintf(bak, sizeof(bak), "%s_catalog", fn);
 	bid = BBPindex(bak);
@@ -1429,7 +1463,7 @@ logger_load(int debug, const char* fn, char filename[PATHLENGTH], logger* lg)
 		}
 		fp = NULL;
 
-		if (bm_subcommit(lg->catalog_bid, lg->catalog_nme, lg->catalog_bid, lg->catalog_nme, lg->dcatalog, NULL, lg->debug) != GDK_SUCCEED) {
+		if (bm_subcommit(lg, lg->catalog_bid, lg->catalog_nme, lg->catalog_bid, lg->catalog_nme, lg->dcatalog, NULL, lg->debug) != GDK_SUCCEED) {
 			/* cannot commit catalog, so remove log */
 			unlink(filename);
 			goto error;
@@ -1484,22 +1518,8 @@ logger_load(int debug, const char* fn, char filename[PATHLENGTH], logger* lg)
 					logger_fatal("logger_load: cannot create BAT", 0, 0, 0);
 				list[3] = b2->batCacheid;
 				list[4] = n2->batCacheid;
-				if (BATmode(b, TRANSIENT) != GDK_SUCCEED)
-					logger_fatal("logger_load: cannot convert old catalog_bid to transient", 0, 0, 0);
-				if (BATmode(n, TRANSIENT) != GDK_SUCCEED)
-					logger_fatal("logger_load: cannot convert old catalog_nme to transient", 0, 0, 0);
-				snprintf(bak, sizeof(bak), "tmp_%o", b->batCacheid);
-				if (BBPrename(b->batCacheid, bak) != 0)
-					logger_fatal("logger_load: cannot rename old catalog_bid", 0, 0, 0);
-				snprintf(bak, sizeof(bak), "tmp_%o", n->batCacheid);
-				if (BBPrename(n->batCacheid, bak) != 0)
-					logger_fatal("logger_load: cannot rename old catalog_nme", 0, 0, 0);
-				snprintf(bak, sizeof(bak), "%s_catalog_bid", fn);
-				if (BBPrename(b2->batCacheid, bak) != 0)
-					logger_fatal("logger_load: cannot rename new catalog_bid", 0, 0, 0);
-				snprintf(bak, sizeof(bak), "%s_catalog_nme", fn);
-				if (BBPrename(n2->batCacheid, bak) != 0)
-					logger_fatal("logger_load: cannot rename new catalog_nme", 0, 0, 0);
+				logger_switch_bat(b, b2, fn, "catalog_bid");
+				logger_switch_bat(n, n2, fn, "catalog_nme");
 				bi = bat_iterator(b);
 				ni = bat_iterator(n);
 				BATloop(b, p, q) {
@@ -1593,7 +1613,7 @@ logger_load(int debug, const char* fn, char filename[PATHLENGTH], logger* lg)
 				     bak, 0, 0);
 		logger_add_bat(lg, lg->dsnapshots, "dsnapshots");
 
-		if (bm_subcommit(lg->catalog_bid, lg->catalog_nme, lg->catalog_bid, lg->catalog_nme, lg->dcatalog, NULL, lg->debug) != GDK_SUCCEED)
+		if (bm_subcommit(lg, lg->catalog_bid, lg->catalog_nme, lg->catalog_bid, lg->catalog_nme, lg->dcatalog, NULL, lg->debug) != GDK_SUCCEED)
 			logger_fatal("Logger_new: commit failed", 0, 0, 0);
 	} else {
 		bat seqs_id = logger_find_bat(lg, "seqs_id");
@@ -1846,7 +1866,7 @@ logger_new(int debug, const char *fn, const char *logdir, int version, preversio
 #endif
 
 	lg->dbfarm_role = logger_set_logdir_path(filename, fn, logdir, shared);
-    lg->local_dbfarm_role = logger_set_logdir_path(filename, fn, logdir, shared);
+	lg->local_dbfarm_role = logger_set_logdir_path(filename, fn, logdir, shared);
 	lg->fn = GDKstrdup(fn);
 	lg->dir = GDKstrdup(filename);
 	lg->bufsize = 64*1024;
@@ -1949,19 +1969,20 @@ logger *
 logger_create(int debug, const char *fn, const char *logdir, int version, preversionfix_fptr prefuncp, postversionfix_fptr postfuncp, int keep_persisted_log_files)
 {
 	logger *lg;
-
-	printf("# Start processing logs %s/%s version %d\n",fn,logdir,version);
-	fflush(stdout);
 	lg = logger_new(debug, fn, logdir, version, prefuncp, postfuncp, 0, NULL);
-
 	if (!lg)
-		return NULL;
+			return NULL;
+	if (lg->debug & 1) {
+		printf("# Started processing logs %s/%s version %d\n",fn,logdir,version);
+		fflush(stdout);
+	}
 	if (logger_open(lg) == LOG_ERR) {
 		logger_destroy(lg);
-
 		return NULL;
 	}
-	printf("# Finished processing logs %s/%s\n",fn,logdir);
+	if (lg->debug & 1) {
+		printf("# Finished processing logs %s/%s\n",fn,logdir);
+	}
 	GDKsetenv("recovery","finished");
 	fflush(stdout);
 	if (lg->changes &&
@@ -1980,11 +2001,11 @@ logger *
 logger_create_shared(int debug, const char *fn, const char *logdir, const char *local_logdir, int version, preversionfix_fptr prefuncp, postversionfix_fptr postfuncp)
 {
 	logger *lg;
-
-	printf("# Start processing logs %s/%s version %d\n",fn,logdir,version);
-	fflush(stdout);
 	lg = logger_new(debug, fn, logdir, version, prefuncp, postfuncp, 1, local_logdir);
-
+	if (lg->debug & 1) {
+		printf("# Started processing logs %s/%s version %d\n",fn,logdir,version);
+		fflush(stdout);
+	}
 	return lg;
 }
 
@@ -2581,8 +2602,9 @@ static char zeros[DBLKSZ] = { 0 };
 static gdk_return
 pre_allocate(logger *lg)
 {
+	// FIXME: this causes serious issues on Windows at least with MinGW
+#ifndef WIN32
 	lng p;
-
 	if (mnstr_fgetpos(lg->log, &p) != 0)
 		return GDK_FAIL;
 	if (p + DBLKSZ > lg->end) {
@@ -2607,6 +2629,9 @@ pre_allocate(logger *lg)
 		if (mnstr_fsetpos(lg->log, s) < 0)
 			return GDK_FAIL;
 	}
+#else
+	(void) lg;
+#endif
 	return GDK_SUCCEED;
 }
 
@@ -2637,7 +2662,7 @@ log_tend(logger *lg)
 			fprintf(stderr, "!ERROR: log_tend: semijoin failed\n");
 			return LOG_ERR;
 		}
-		res = bm_subcommit(bids, NULL, lg->snapshots_bid,
+		res = bm_subcommit(lg, bids, NULL, lg->snapshots_bid,
 				   lg->snapshots_tid, lg->dsnapshots, NULL, lg->debug);
 		BBPunfix(bids->batCacheid);
 	}
@@ -2646,6 +2671,7 @@ log_tend(logger *lg)
 	l.nr = lg->tid;
 	l.precommit_id = lg->precommit_id;
 	l.persistcommit = 0;
+
 	if (res != GDK_SUCCEED ||
 	    log_write_format(lg, &l) == LOG_ERR ||
 	    mnstr_flush(lg->log) ||
@@ -2802,7 +2828,7 @@ bm_commit(logger *lg)
 			fprintf(stderr, "#bm_commit: create %d (%d)\n",
 				bid, BBP_lrefs(bid));
 	}
-	res = bm_subcommit(lg->catalog_bid, lg->catalog_nme, lg->catalog_bid, lg->catalog_nme, lg->dcatalog, n, lg->debug);
+	res = bm_subcommit(lg, lg->catalog_bid, lg->catalog_nme, lg->catalog_bid, lg->catalog_nme, lg->dcatalog, n, lg->debug);
 	BBPreclaim(n);
 	BATclear(lg->freed, FALSE);
 	BATcommit(lg->freed);

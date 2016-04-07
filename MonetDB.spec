@@ -1,5 +1,5 @@
 %define name MonetDB
-%define version 11.22.0
+%define version 11.24.0
 %{!?buildno: %global buildno %(date +%Y%m%d)}
 
 # groups of related archs
@@ -104,8 +104,10 @@ Vendor: MonetDB BV <info@monetdb.org>
 Group: Applications/Databases
 License: MPLv2.0
 URL: http://www.monetdb.org/
-Source: http://dev.monetdb.org/downloads/sources/Jul2015-SP2/%{name}-%{version}.tar.bz2
+Source: http://dev.monetdb.org/downloads/sources/Jul2015-SP4/%{name}-%{version}.tar.bz2
 
+# we need systemd for the _unitdir macro to exist
+BuildRequires: systemd
 BuildRequires: bison
 BuildRequires: bzip2-devel
 %if %{?with_fits:1}%{!?with_fits:0}
@@ -117,7 +119,7 @@ BuildRequires: geos-devel >= 3.0.0
 BuildRequires: gsl-devel
 %if %{?with_lidar:1}%{!?with_lidar:0}
 BuildRequires: liblas-devel gdal-devel libgeotiff-devel
-# Fedora 22 libas-devel does not depend on liblas:
+# Fedora 22 liblas-devel does not depend on liblas:
 BuildRequires: liblas
 %endif
 BuildRequires: libatomic_ops-devel
@@ -984,6 +986,71 @@ rm -f %{buildroot}%{_bindir}/Maddlog
 %postun -p /sbin/ldconfig
 
 %changelog
+* Tue Apr 05 2016 Sjoerd Mullender <sjoerd@acm.org> - 11.21.19-20160405
+- Rebuilt.
+- BZ#3905: MonetDB doesn't handle ANY/SOME/ALL operator correctly
+- BZ#3929: R aggregate not recognized when using 3 or more parameters
+- BZ#3965: Not possible to quote/escape single quote character in the
+  name of the file to load.
+- BZ#3968: Missing double use of column names
+
+* Mon Apr  4 2016 Sjoerd Mullender <sjoerd@acm.org> - 11.21.19-20160405
+- gdk: Fixed a bug that caused various instances where old data returned or
+  where crashes occurred.  The problem was that internally data wasn't
+  always marked dirty when it was being changed, causiing later processing
+  to not deal with the changed data correctly.
+
+* Thu Mar 24 2016 Sjoerd Mullender <sjoerd@acm.org> - 11.21.17-20160324
+- Rebuilt.
+- BZ#2972: SQL URL functionality contains errors
+- BZ#3881: Server crashes on bulk load
+- BZ#3890: Window function + group by in subselect, rel2bin_project:
+  Assertion `0' failed
+- BZ#3891: MonetDB crashes when executing SQL with window function
+- BZ#3900: null handling in some sql statements is incorrect
+- BZ#3906: Multi-column 1-N table-function with mitosis produces different
+  column counts
+- BZ#3917: Date difference returns month_interval instead of day_interval
+- BZ#3938: Wrong error message on violating foreign key constraint
+- BZ#3941: Wrong coercion priority
+- BZ#3948: SQL: select * from sys.sys.table_name; is accepted but should
+  return an error
+- BZ#3951: extern table_funcs not visible from Windows DLL for extensions
+  like vaults (crashes)
+- BZ#3952: Stream table gives segfault
+- BZ#3953: MIN/MAX of a UUID column produces wrong results
+- BZ#3954: Consolidate table assertion error
+- BZ#3955: (incorrect) MAL loop instead of manifold triggered by simple
+  change in target list
+
+* Thu Mar 10 2016 Sjoerd Mullender <sjoerd@acm.org> - 11.21.15-20160310
+- Rebuilt.
+- BZ#3549: bulk string operations very slow
+- BZ#3908: LEFT JOIN with OR conditions triggers assertion
+- BZ#3909: Incorrect column name in OR condition of LEFT JOIN crashes
+  mserver
+- BZ#3910: COPY INTO table (column1, column2) got wrong result
+- BZ#3912: When table/column names conflicts, data ends in multiple
+  tables!
+- BZ#3918: MonetDB.R version 1.0.1 incorrectly constructs the batfile
+  script
+- BZ#3919: Table conflict when the table name and fields are identical
+- BZ#3921: Creating a table from a complex query crashes mserver or
+  triggers assertion
+- BZ#3922: AVG( column ) returns NaN rather than Inf when column
+  contains Inf
+- BZ#3928: When killing a virtual machine, sql_logs/sql/log is empty
+- BZ#3930: Wrong typecast on character columns in prepared statements
+  when using Umlaute
+- BZ#3932: CASE expressions with constants are not evaluated correctly
+- BZ#3933: replace "exit" by "throw new Exception"
+- BZ#3937: bad BAT properties with binary copy into and NULL values
+- BZ#3940: Date calculation and comparison produce wrong result
+
+* Tue Jan  5 2016 Martin Kersten <mk@cwi.nl> - 11.21.15-20160310
+- monetdb5: Fixed potential crash in MAL debugger when accessing BATs by
+  index. Functionality dropped as it is also a security leak.
+
 * Tue Jan 05 2016 Sjoerd Mullender <sjoerd@acm.org> - 11.21.13-20160105
 - Rebuilt.
 - BZ#2014: 'null' from copy into gets wrong
