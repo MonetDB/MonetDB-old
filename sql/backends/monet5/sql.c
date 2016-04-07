@@ -3464,7 +3464,7 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (fname && s == NULL)
 		throw(IO, "bstreams.create", "Failed to create block stream");
 	if (b == NULL)
-		throw(SQL, "importTable", "Failed to import table %s", be->mvc->errstr? be->mvc->errstr:"");
+		throw(SQL, "importTable", "Failed to import table %s", be->mvc->errstr);
 	bat2return(stk, pci, b);
 	GDKfree(b);
 	return msg;
@@ -3586,6 +3586,61 @@ zero_or_one(ptr ret, const bat *bid)
 		p = NULL;
 		snprintf(buf, BUFSIZ, "21000!cardinality violation (" BUNFMT ">1)", c);
 		throw(SQL, "zero_or_one", "%s", buf);
+	}
+	_s = ATOMsize(ATOMtype(b->ttype));
+	if (ATOMextern(b->ttype)) {
+		_s = ATOMlen(ATOMtype(b->ttype), p);
+		memcpy(*(ptr *) ret = GDKmalloc(_s), p, _s);
+	} else if (b->ttype == TYPE_bat) {
+		bat bid = *(bat *) p;
+		*(BAT **) ret = BATdescriptor(bid);
+	} else if (_s == 4) {
+		*(int *) ret = *(int *) p;
+	} else if (_s == 1) {
+		*(bte *) ret = *(bte *) p;
+	} else if (_s == 2) {
+		*(sht *) ret = *(sht *) p;
+	} else if (_s == 8) {
+		*(lng *) ret = *(lng *) p;
+#ifdef HAVE_HGE
+	} else if (_s == 16) {
+		*(hge *) ret = *(hge *) p;
+#endif
+	} else {
+		memcpy(ret, p, _s);
+	}
+	BBPunfix(b->batCacheid);
+	return MAL_SUCCEED;
+}
+
+str
+SQLall(ptr ret, const bat *bid)
+{
+	BAT *b;
+	BUN c, _s;
+	ptr p;
+
+	if ((b = BATdescriptor(*bid)) == NULL) {
+		throw(SQL, "all", "Cannot access descriptor");
+	}
+	c = BATcount(b);
+	if (c == 0) {
+		p = ATOMnilptr(b->ttype);
+	} else {
+		BUN q, r;
+		int (*ocmp) (const void *, const void *);
+		BATiter bi = bat_iterator(b);
+		q = BUNfirst(b);
+		r = BUNlast(b);
+		p = BUNtail(bi, q);
+		ocmp = ATOMcompare(b->ttype);
+		for( ; (q+1) < r; q++) {
+			const void *c = BUNtail(bi, q+1);
+			if (ocmp(p, c) != 0) {
+				p = ATOMnilptr(b->ttype);
+				break;
+			}
+		}
 	}
 	_s = ATOMsize(ATOMtype(b->ttype));
 	if (ATOMextern(b->ttype)) {
