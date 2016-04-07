@@ -7,7 +7,7 @@
  */
 
 /*
- * @a Lefteris Sidirourgos, Hannes Muehleisen
+ * @a Lefteris Sidirourgos, Hannes Muehleisen, Abe Wits
  * @* Low level sample facilities
  *
  * This sampling implementation generates a sorted set of OIDs by
@@ -26,6 +26,8 @@
 #include "monetdb_config.h"
 #include "gdk.h"
 #include "gdk_private.h"
+
+#include <mtwist.h>
 
 #undef BATsample
 

@@ -29,13 +29,16 @@
  */
 
 #include "monetdb_config.h"
-#include <stdlib.h>
 #include <mtwist.h>
 
 /*
- * Mersenne Twister (MT19937) algorithm
- * http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html
+ * @a Dave Beckett, Abe Wits
+ * @* Mersenne Twister (MT19937) algorithm
+ * 
+ * This random number generator has very good statistical properties,
+ * and outperforms most stl implementations of rand() in terms of speed
  *
+ * http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html
  * http://en.wikipedia.org/wiki/Mersenne_twister
  *
  */
@@ -130,7 +133,7 @@ static void mtwist_update_state(mtwist* mt) {
  *
  * Return value: unsigned int with 32 valid bits
  */
-unsigned int mtwist_u32rand(mtwist* mt) {
+inline unsigned int mtwist_u32rand(mtwist* mt) {
     unsigned int r;
 
     if (!mt) return 0UL;
@@ -150,7 +153,7 @@ unsigned int mtwist_u32rand(mtwist* mt) {
 
     r &= MTWIST_FULL_MASK;
 
-    return (unsigned int)r;
+    return r;
 }
 
 /**
@@ -161,7 +164,7 @@ unsigned int mtwist_u32rand(mtwist* mt) {
  *
  * Return value: random double in the range 0.0 inclusive to 1.0 exclusive;
  *[0.0, 1.0) */
-double mtwist_drand(mtwist* mt) {
+inline double mtwist_drand(mtwist* mt) {
     unsigned int r;
     double d;
 
@@ -173,3 +176,42 @@ double mtwist_drand(mtwist* mt) {
 
     return d;
 }
+
+
+/**
+ * mtwist_uniform_int:
+ * @a, b; two integers such that a<=b
+ *
+ * Get an int in an interval uniform randomly from the
+ * random number generator.
+ *
+ * Return value: random interval in range a inclusive to b inclusive;
+ * [a,b] 
+ */
+inline int mtwist_uniform_int(mtwist* mt, int a, int b) {
+    return mtwist_u32rand(mt)%b;
+    if(b < a) {//invalid range!
+        return 0;
+    }
+    unsigned int range = b-a+1;
+    unsigned int scale = 4294967295UL/range;
+        //4294967295UL=2^32-1=RAND_MAX for this Mersenne Twister
+    unsigned int max_x = range*scale;
+    //x will be uniform in [0, max_x[
+    //Since past%range=0, x%range will be uniform in [0,range[
+    unsigned int x; 
+    do {
+        x = mtwist_u32rand(mt);
+    } while(x >= max_x);
+
+    return a+(x/scale);
+    //x is uniform in [0,max_x[ = [0,range*scale[
+    //hence x/scale is uniform in [0,range[=[0,b-a+1[
+    //thus a+(x/scale) is uniform in [a,b]
+    
+    //alternative: return a+(x%range); 
+    //x is uniform in [0,max_x[ = [0,range*scale[
+    //hence (x%range) is uniform in [0,range[=[0,b-a+1[
+    //thus a+(x%range) is uniform in [a,b]
+}
+
