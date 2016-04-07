@@ -116,6 +116,8 @@ BATsample(BAT *b, BUN n)
 	BUN cnt, slen;
 	BUN rescnt;
 	struct oidtreenode *tree = NULL;
+    mtwist *mt_rng;
+    unsigned int range;
 
 	BATcheck(b, "BATsample", NULL);
 	assert(BAThdense(b));
@@ -164,16 +166,20 @@ BATsample(BAT *b, BUN n)
 		/* while we do not have enough sample OIDs yet */
         
         /* create and seed Mersenne Twister */
-        mtwist *mt_rng = NULL;
         mt_rng = mtwist_new();
+
         mtwist_seed(mt_rng, rand());
+        
+        range = maxoid - minoid;
         
 		for (rescnt = 0; rescnt < n; rescnt++) {
 			oid candoid;
 			do {
-				/* generate a new random OID */
-				candoid = (oid) (minoid + DRAND * (maxoid - minoid));
-                candoid = (oid) (minoid + ())
+				//candoid = (oid) (minoid + DRAND * (maxoid - minoid));
+
+				/* generate a new random OID in [minoid, maxoid[
+                 * that is including minoid, excluding maxoid*/
+                candoid = (oid) ( minoid + (mtwist_u32rand(mt_rng)%range) );
 				/* if that candidate OID was already
 				 * generated, try again */
 			} while (!OIDTreeMaybeInsert(tree, candoid, rescnt));
