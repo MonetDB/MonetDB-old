@@ -189,7 +189,6 @@ inline double mtwist_drand(mtwist* mt) {
  * [a,b] 
  */
 inline int mtwist_uniform_int(mtwist* mt, int a, int b) {
-    return mtwist_u32rand(mt)%b;
     if(b < a) {//invalid range!
         return 0;
     }

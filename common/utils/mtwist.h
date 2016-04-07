@@ -60,8 +60,8 @@ void mtwist_free(mtwist* mt);
 
 /* methods */
 void mtwist_seed(mtwist* mt, unsigned int seed);
-inline unsigned int mtwist_u32rand(mtwist* mt);
-inline double mtwist_drand(mtwist* mt);
-inline int mtwist_uniform_int(mtwist* mt, int a, int b);
+unsigned int mtwist_u32rand(mtwist* mt);
+double mtwist_drand(mtwist* mt);
+int mtwist_uniform_int(mtwist* mt, int a, int b);
 
 #endif

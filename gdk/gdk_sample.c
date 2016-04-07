@@ -162,11 +162,18 @@ BATsample(BAT *b, BUN n)
 			return NULL;
 		}
 		/* while we do not have enough sample OIDs yet */
+        
+        /* create and seed Mersenne Twister */
+        mtwist *mt_rng = NULL;
+        mt_rng = mtwist_new();
+        mtwist_seed(mt_rng, rand());
+        
 		for (rescnt = 0; rescnt < n; rescnt++) {
 			oid candoid;
 			do {
 				/* generate a new random OID */
 				candoid = (oid) (minoid + DRAND * (maxoid - minoid));
+                candoid = (oid) (minoid + ())
 				/* if that candidate OID was already
 				 * generated, try again */
 			} while (!OIDTreeMaybeInsert(tree, candoid, rescnt));
