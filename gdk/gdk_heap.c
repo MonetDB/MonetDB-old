@@ -99,7 +99,6 @@ HEAPalloc(Heap *h, size_t nitems, size_t itemsize)
 		GDKerror("HEAPalloc: allocating more than heap can accomodate\n");
 		return GDK_FAIL;
 	}
-
 	if (h->filename == NULL || h->size < GDK_mmap_minsize) {
 		h->storage = STORE_MEM;
 		h->base = (char *) GDKmallocmax(h->size, &h->size, 0);
@@ -580,6 +579,10 @@ HEAPfree(Heap *h, int remove)
 	if (h->filename) {
 		if (remove) {
 			char *path = GDKfilepath(h->farmid, BATDIR, h->filename, NULL);
+			if (path && unlink(path) < 0 && errno != ENOENT)
+				perror(path);
+			GDKfree(path);
+			path = GDKfilepath(h->farmid, BATDIR, h->filename, "new");
 			if (path && unlink(path) < 0 && errno != ENOENT)
 				perror(path);
 			GDKfree(path);

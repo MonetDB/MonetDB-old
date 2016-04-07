@@ -854,8 +854,11 @@ dblFromStr(const char *src, int *len, dbl **dst)
 		 * ERANGE.  We accept underflow, but not overflow. */
 		char *pe;
 		errno = 0;
-		d = strtod(src, &pe);
-		p = pe;
+		d = strtod(p, &pe);
+		if (p == pe)
+			p = src; /* nothing converted */
+		else
+			p = pe;
 		n = (int) (p - src);
 		if (n == 0 || (errno == ERANGE && (d < -1 || d > 1))
 #ifdef isfinite
@@ -917,8 +920,11 @@ fltFromStr(const char *src, int *len, flt **dst)
 		 * ERANGE.  We accept underflow, but not overflow. */
 		char *pe;
 		errno = 0;
-		f = strtof(src, &pe);
-		p = pe;
+		f = strtof(p, &pe);
+		if (p == pe)
+			p = src; /* nothing converted */
+		else
+			p = pe;
 		n = (int) (p - src);
 		if (n == 0 || (errno == ERANGE && (f < -1 || f > 1))
 #else /* no strtof, try sscanf */
@@ -1068,6 +1074,7 @@ strHeap(Heap *d, size_t cap)
 	size = GDK_STRHASHTABLE * sizeof(stridx_t) + MIN(GDK_ELIMLIMIT, cap * GDK_VARALIGN);
 	if (HEAPalloc(d, size, 1) == GDK_SUCCEED) {
 		d->free = GDK_STRHASHTABLE * sizeof(stridx_t);
+		d->dirty = 1;
 		memset(d->base, 0, d->free);
 		d->hashash = 1;	/* new string heaps get the hash value (and length) stored */
 #ifndef NDEBUG
@@ -1316,6 +1323,7 @@ strPut(Heap *h, var_t *dst, const char *v)
 #endif
 	}
 	h->free += pad + len + extralen;
+	h->dirty = 1;
 
 	/* maintain hash table */
 	pos -= extralen;

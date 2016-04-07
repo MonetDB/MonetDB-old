@@ -43,6 +43,8 @@ int digits2bits(int digits)
 		return 8;
 	else if (digits < 5) 
 		return 16;
+	else if (digits <= 8) 
+		return 27;
 	else if (digits < 10) 
 		return 32;
 	else if (digits < 17) 
@@ -72,9 +74,9 @@ int bits2digits(int bits)
 		return 6;
 	else if (bits < 24) 
 		return 7;
-	else if (bits < 27) 
+	else if (bits <= 27) 
 		return 8;
-	else if (bits < 30) 
+	else if (bits <= 30) 
 		return 9;
 	else if (bits <= 32) 
 		return 10;
@@ -136,6 +138,7 @@ base_init(sql_allocator *sa, sql_base * b, sqlid id, int flag, const char *name)
 	b->rtime = 0;
 	b->flag = flag;
 	b->name = NULL;
+	b->refcnt = 1;
 	if (name)
 		b->name = sa_strdup(sa,name);
 }
@@ -1378,6 +1381,7 @@ sqltypeinit( sql_allocator *sa)
 	sql_create_func(sa, "<", "calc", "<", ANY, ANY, BIT, SCALE_FIX);
 	sql_create_func(sa, "<=", "calc", "<=", ANY, ANY, BIT, SCALE_FIX);
 	sql_create_aggr(sa, "zero_or_one", "sql", "zero_or_one", ANY, ANY);
+	sql_create_aggr(sa, "all", "sql", "all", ANY, ANY);
 	sql_create_aggr(sa, "exist", "aggr", "exist", ANY, BIT);
 	sql_create_aggr(sa, "not_exist", "aggr", "not_exist", ANY, BIT);
 	/* needed for relational version */
@@ -1668,9 +1672,13 @@ sqltypeinit( sql_allocator *sa)
 
 		sql_create_func(sa, "locate", "str", "locate", *t, *t, INT, SCALE_NONE);
 		sql_create_func3(sa, "locate", "str", "locate", *t, *t, INT, INT, SCALE_NONE);
+		sql_create_func(sa, "charindex", "str", "locate", *t, *t, INT, SCALE_NONE);
+		sql_create_func3(sa, "charindex", "str", "locate", *t, *t, INT, INT, SCALE_NONE);
 		sql_create_func3(sa, "splitpart", "str", "splitpart", *t, *t, INT, *t, INOUT);
 		sql_create_func(sa, "substring", "str", "substring", *t, INT, *t, INOUT);
 		sql_create_func3(sa, "substring", "str", "substring", *t, INT, INT, *t, INOUT);
+		sql_create_func(sa, "substr", "str", "substring", *t, INT, *t, INOUT);
+		sql_create_func3(sa, "substr", "str", "substring", *t, INT, INT, *t, INOUT);
 		sql_create_func(sa, "like", "algebra", "like", *t, *t, BIT, SCALE_NONE);
 		sql_create_func3(sa, "like", "algebra", "like", *t, *t, *t, BIT, SCALE_NONE);
 		sql_create_func(sa, "ilike", "algebra", "ilike", *t, *t, BIT, SCALE_NONE);

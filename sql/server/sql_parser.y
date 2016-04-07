@@ -1409,7 +1409,8 @@ as_subquery_clause:
  ;
 
 with_or_without_data:
-     WITH NO DATA  	{ $$ = 0; }
+	 /* empty */	{ $$ = 1; }
+ |   WITH NO DATA  	{ $$ = 0; }
  |   WITH DATA 		{ $$ = 1; }
  ;
 
@@ -3387,6 +3388,13 @@ all_or_any_predicate:
 		{ dlist *l = L();
 		  append_symbol(l, $1);
 		  append_string(l, $2);
+		  append_symbol(l, $4);
+		  append_int(l, $3);
+		  $$ = _symbol_create_list(SQL_COMPARE, l ); }
+ |  pred_exp '=' any_all_some pred_exp
+		{ dlist *l = L();
+		  append_symbol(l, $1);
+		  append_string(l, sa_strdup(SA, "="));
 		  append_symbol(l, $4);
 		  append_int(l, $3);
 		  $$ = _symbol_create_list(SQL_COMPARE, l ); }

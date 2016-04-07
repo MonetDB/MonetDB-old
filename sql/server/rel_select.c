@@ -765,14 +765,17 @@ table_ref(mvc *sql, sql_rel *rel, symbol *tableref)
 
 	(void)rel;
 	if (tableref->token == SQL_NAME) {
+		dlist *name = tableref->data.lval->h->data.lval;
 		sql_rel *temp_table = NULL;
-		char *sname = qname_schema(tableref->data.lval->h->data.lval);
+		char *sname = qname_schema(name);
 		sql_schema *s = NULL;
-		tname = qname_table(tableref->data.lval->h->data.lval);
+		tname = qname_table(name);
+
+		if (dlist_length(name) > 2)
+			return sql_error(sql, 02, "3F000!SELECT: only a schema and table name expected");
 
 		if (sname && !(s=mvc_bind_schema(sql,sname)))
 			return sql_error(sql, 02, "3F000!SELECT: no such schema '%s'", sname);
-		/* TODO: search path */
 		if (!t && !sname) {
 			t = stack_find_table(sql, tname);
 			if (!t && sql->use_views) 
@@ -1563,9 +1566,26 @@ rel_compare_exp(mvc *sql, sql_rel *rel, sql_exp *ls, sql_exp *rs,
 	return rel_compare_exp_(sql, rel, ls, rs, esc, type, 0);
 }
 
+static const char *
+compare_aggr_op( char *compare, int quantifier) 
+{
+	if (quantifier == 0)
+		return "zero_or_one";
+	switch(compare[0]) {
+	case '<':
+		if (compare[1] == '>')
+			return "all";
+		return "min";
+	case '>':
+		return "max";
+	default:
+		return "all";
+	}
+}
+
 static sql_rel *
 rel_compare(mvc *sql, sql_rel *rel, symbol *lo, symbol *ro, symbol *ro2,
-		char *compare_op, int f, exp_kind k)
+		char *compare_op, int f, exp_kind k, int quantifier)
 {
 	sql_exp *rs = NULL, *rs2 = NULL, *ls;
 	exp_kind ek = {type_value, card_column, FALSE};
@@ -1611,8 +1631,8 @@ rel_compare(mvc *sql, sql_rel *rel, symbol *lo, symbol *ro, symbol *ro2,
 			if (r) {
 				rs = rel_lastexp(sql, r);
 
-				if (f == sql_sel && r->card > CARD_ATOM) {
-					sql_subaggr *zero_or_one = sql_bind_aggr(sql->sa, sql->session->schema, "zero_or_one", exp_subtype(rs));
+				if (f == sql_sel && r->card > CARD_ATOM && quantifier != 1) {
+					sql_subaggr *zero_or_one = sql_bind_aggr(sql->sa, sql->session->schema, compare_aggr_op(compare_op, quantifier), exp_subtype(rs));
 					rs = exp_aggr1(sql->sa, rs, zero_or_one, 0, 0, CARD_ATOM, 0);
 
 					/* group by the right of the apply */
@@ -1629,8 +1649,8 @@ rel_compare(mvc *sql, sql_rel *rel, symbol *lo, symbol *ro, symbol *ro2,
 				/* if single value (independed of relations), rewrite */
 				if (is_project(r->op) && !r->l && r->exps && list_length(r->exps) == 1) {
 					return rel_compare_exp(sql, rel, ls, r->exps->h->data, compare_op, NULL, k.reduce);
-				} else { 
-					sql_subaggr *zero_or_one = sql_bind_aggr(sql->sa, sql->session->schema, "zero_or_one", exp_subtype(rs));
+				} else if (quantifier != 1) { 
+					sql_subaggr *zero_or_one = sql_bind_aggr(sql->sa, sql->session->schema, compare_aggr_op(compare_op, quantifier), exp_subtype(rs));
 
 					rs = exp_aggr1(sql->sa, rs, zero_or_one, 0, 0, CARD_ATOM, 0);
 				}
@@ -1790,7 +1810,12 @@ rel_logical_value_exp(mvc *sql, sql_rel **rel, symbol *sc, int f)
 				sql_rel *z = NULL, *rl;
 
 				r = rel_value_exp(sql, &z, sval, f, ek);
-				if (!r || !(r=rel_check_type(sql, st, r, type_equal))) {
+				if (l && IS_ANY(st->type->eclass)){
+					l = rel_check_type(sql, exp_subtype(r), l, type_equal);
+					if (l)
+						st = exp_subtype(l);
+				}
+				if (!l || !r || !(r=rel_check_type(sql, st, r, type_equal))) {
 					rel_destroy(right);
 					return NULL;
 				}
@@ -2104,12 +2129,17 @@ rel_logical_exp(mvc *sql, sql_rel *rel, symbol *sc, int f)
 	}
 	case SQL_COMPARE:
 	{
-		symbol *lo = sc->data.lval->h->data.sym;
-		symbol *ro = sc->data.lval->h->next->next->data.sym;
-		char *compare_op = sc->data.lval->h->next->data.sval;
+		dnode *n = sc->data.lval->h;
+		symbol *lo = n->data.sym;
+		symbol *ro = n->next->next->data.sym;
+		char *compare_op = n->next->data.sval;
+		int quantifier = 0;
 		/* currently we don't handle the (universal and existential)
 		   quantifiers (all and any/some) */
-		return rel_compare(sql, rel, lo, ro, NULL, compare_op, f, ek);
+		if (n->next->next->next)
+			quantifier = n->next->next->next->data.i_val + 1; 
+		assert(quantifier == 0 || quantifier == 1 || quantifier == 2);
+		return rel_compare(sql, rel, lo, ro, NULL, compare_op, f, ek, quantifier);
 	}
 	/* Set Member ship */
 	case SQL_IN:
@@ -2749,7 +2779,35 @@ rel_binop_(mvc *sql, sql_exp *l, sql_exp *r, sql_schema *s,
 
 			r = exp_aggr1(sql->sa, r, zero_or_one, 0, 0, CARD_ATOM, 0);
 		}
-		return exp_binop(sql->sa, l, r, f);
+		/* bind types of l and r */
+		t1 = exp_subtype(l);
+		t2 = exp_subtype(r);
+		if (IS_ANY(t1->type->eclass) || IS_ANY(t2->type->eclass)) {
+			sql_exp *ol = l;
+			sql_exp *or = r;
+
+			if (IS_ANY(t1->type->eclass) && IS_ANY(t2->type->eclass)) {
+				sql_subtype *s = sql_bind_localtype("str");
+				l = rel_check_type(sql, s, l, type_equal);
+				r = rel_check_type(sql, s, r, type_equal);
+			} else if (IS_ANY(t1->type->eclass)) {
+				l = rel_check_type(sql, t2, l, type_equal);
+			} else {
+				r = rel_check_type(sql, t1, r, type_equal);
+			}
+			if (l && r) 
+				return exp_binop(sql->sa, l, r, f);
+			
+			/* reset error */
+			sql->session->status = 0;
+			sql->errstr[0] = '\0';
+			f = NULL;
+
+			l = ol;
+			r = or;
+		}
+		if (f)
+			return exp_binop(sql->sa, l, r, f);
 	} else {
 		sql_exp *ol = l;
 		sql_exp *or = r;
@@ -2969,6 +3027,12 @@ rel_nop(mvc *sql, sql_rel **rel, symbol *se, int fs, exp_kind ek)
 	}
 	if (sname)
 		s = mvc_bind_schema(sql, sname);
+	
+	/* first try aggregate */
+	f = find_func(sql, s, fname, nr_args, F_AGGR, NULL);
+	if (f)
+		return _rel_aggr(sql, rel, 0, s, fname, l->next->data.lval->h, fs);
+
 	f = bind_func_(sql, s, fname, tl, type);
 	if (f) {
 		return exp_op(sql->sa, exps, f);
@@ -3916,7 +3980,6 @@ rel_rankop(mvc *sql, sql_rel **rel, symbol *se, int f)
 		sname = qname_schema(window_function->data.lval);
 	} else { /* window aggr function */
 		dnode *n = window_function->data.lval->h;
-
 		aname = qname_fname(n->data.lval);
 		sname = qname_schema(n->data.lval);
 	}
