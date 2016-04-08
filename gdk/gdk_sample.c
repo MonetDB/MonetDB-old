@@ -27,7 +27,7 @@
 #include "gdk.h"
 #include "gdk_private.h"
 
-#include <mtwist.h>
+#include "mtwist.h"
 
 #undef BATsample
 

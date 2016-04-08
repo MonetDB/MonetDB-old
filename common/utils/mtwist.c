@@ -189,16 +189,17 @@ inline double mtwist_drand(mtwist* mt) {
  * [a,b] 
  */
 inline int mtwist_uniform_int(mtwist* mt, int a, int b) {
+    unsigned int range, scale, max_x, x;
     if(b < a) {//invalid range!
         return 0;
     }
-    unsigned int range = b-a+1;
-    unsigned int scale = 4294967295UL/range;
+    range = b-a+1;
+    scale = 4294967295UL/range;
         //4294967295UL=2^32-1=RAND_MAX for this Mersenne Twister
-    unsigned int max_x = range*scale;
+    max_x = range*scale;
+
     //x will be uniform in [0, max_x[
     //Since past%range=0, x%range will be uniform in [0,range[
-    unsigned int x; 
     do {
         x = mtwist_u32rand(mt);
     } while(x >= max_x);
