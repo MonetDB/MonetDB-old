@@ -36,17 +36,17 @@
 
 /* Mersenne Twister library state */
 struct mtwist_s {
-    /* MT buffer holding N 32 bit unsigned integers */
-    unsigned int state[MTWIST_N];
+	/* MT buffer holding N 32 bit unsigned integers */
+	unsigned int state[MTWIST_N];
 
-    /* Pointer into above - next int to use */
-    unsigned int* next;
+	/* Pointer into above - next int to use */
+	unsigned int* next;
 
-    /* Number of remaining integers in state before an update is needed */
-    unsigned int remaining;
+	/* Number of remaining integers in state before an update is needed */
+	unsigned int remaining;
 
-    /* 1 if a seed was given */
-    unsigned int seeded : 1;
+	/* 1 if a seed was given */
+	unsigned int seeded : 1;
 };
 
 /* Mersenne Twister state */

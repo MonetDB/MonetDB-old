@@ -81,16 +81,16 @@ OIDTreeToBATAntiset(struct oidtreenode *node, BAT *bat, oid start, oid stop)
 	oid noid;
 
 	if (node->left != NULL)
-        	OIDTreeToBATAntiset(node->left, bat, start, node->o);
+			OIDTreeToBATAntiset(node->left, bat, start, node->o);
 	else
 		for (noid = start; noid < node->o; noid++)
 			((oid *) bat->T->heap.base)[bat->batFirst + bat->batCount++] = noid;
 
-        if (node->right != NULL)
+		if (node->right != NULL)
  		OIDTreeToBATAntiset(node->right, bat, node->o + 1, stop);
 	else
 		for (noid = node->o+1; noid < stop; noid++)
-                        ((oid *) bat->T->heap.base)[bat->batFirst + bat->batCount++] = noid;
+						((oid *) bat->T->heap.base)[bat->batFirst + bat->batCount++] = noid;
 }
 
 /* BATsample implements sampling for void headed BATs */
@@ -101,8 +101,8 @@ BATsample(BAT *b, BUN n)
 	BUN cnt, slen;
 	BUN rescnt;
 	struct oidtreenode *tree = NULL;
-    mtwist *mt_rng;
-    unsigned int range;
+	mtwist *mt_rng;
+	unsigned int range;
 
 	BATcheck(b, "BATsample", NULL);
 	assert(BAThdense(b));
@@ -149,20 +149,20 @@ BATsample(BAT *b, BUN n)
 			return NULL;
 		}
 		/* while we do not have enough sample OIDs yet */
-        
-        /* create and seed Mersenne Twister */
-        mt_rng = mtwist_new();
+		
+		/* create and seed Mersenne Twister */
+		mt_rng = mtwist_new();
 
-        mtwist_seed(mt_rng, rand());
-        
-        range = maxoid - minoid;
-        
+		mtwist_seed(mt_rng, rand());
+		
+		range = maxoid - minoid;
+		
 		for (rescnt = 0; rescnt < n; rescnt++) {
 			oid candoid;
 			do {
 				/* generate a new random OID in [minoid, maxoid[
-                 * that is including minoid, excluding maxoid*/
-                candoid = (oid) ( minoid + (mtwist_u32rand(mt_rng)%range) );
+				 * that is including minoid, excluding maxoid*/
+				candoid = (oid) ( minoid + (mtwist_u32rand(mt_rng)%range) );
 				/* if that candidate OID was already
 				 * generated, try again */
 			} while (!OIDTreeMaybeInsert(tree, candoid, rescnt));
