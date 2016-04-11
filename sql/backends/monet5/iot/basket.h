@@ -82,7 +82,7 @@ iot_export str BSKTreset(void *ret);
 iot_export int BSKTlocate(str sch, str tbl);
 iot_export str BSKTdump(void *ret);
 
-iot_export str BSKTtable(bat *schemaId, bat *nameId, bat *thresholdId, bat * winsizeId, bat *winstrideId,bat *timesliceId, bat *timestrideId, bat *beatId, bat *seenId, bat *eventsId);
+iot_export str BSKTtable( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTtableerrors(bat *nmeId, bat *errorId);
 iot_export str BSKTerror(int  *ret, str *sch, str *fcn, str *msg);
 

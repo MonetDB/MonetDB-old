@@ -77,7 +77,7 @@ pattern iot.push(sch:str, tbl:str, dir:str):void
 address BSKTpush
 comment "Push a directory with the binary files";
 
-command iot.baskets()(sch:bat[:str],nme:bat[:str], threshold:bat[:int], winsize:bat[:int], winstride:bat[:int], timeslice:bat[:int], 
+pattern iot.baskets()(sch:bat[:str],nme:bat[:str], threshold:bat[:int], winsize:bat[:int], winstride:bat[:int], timeslice:bat[:int], 
 timestride:bat[:int], beat:bat[:int], seen:bat[:timestamp], events:bat[:int])
 address BSKTtable
 comment "Inspect the iot baskets";
