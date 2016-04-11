@@ -21,9 +21,7 @@
 #include <mal_exception.h>
 #include "microbenchmark.h"
 
-#ifdef STATIC_CODE_ANALYSIS
-#define rand()		0
-#endif
+#include "mtwist.h"
 
 static gdk_return
 BATrandom(BAT **bn, oid *base, wrd *size, int *domain, int seed)
@@ -32,6 +30,7 @@ BATrandom(BAT **bn, oid *base, wrd *size, int *domain, int seed)
 	BUN i;
 	BAT *b = NULL;
 	int *restrict val;
+	mtwist *mt_rng;
 
 	if (*size > (wrd)BUN_MAX) {
 		GDKerror("BATrandom: size must not exceed BUN_MAX");
@@ -62,21 +61,19 @@ BATrandom(BAT **bn, oid *base, wrd *size, int *domain, int seed)
 	val = (int *) Tloc(b, BUNfirst(b));
 
 	/* create BUNs with random distribution */
+	mt_rng = mtwist_new();
+	mtwist_seed(mt_rng, seed);
+
 	if (seed != int_nil)
-		srand(seed);
+		mtwist_seed(mt_rng, seed);
+
 	if (*domain == int_nil) {
-	        for (i = 0; i < n; i++) {
-			val[i] = rand();
+		for (i = 0; i < n; i++) {
+			val[i] = mtwist_u32rand(mt_rng) % INT_MAX;
 		}
-#if RAND_MAX < 46340	    /* 46340*46340 = 2147395600 < INT_MAX */
-	} else if (*domain > RAND_MAX + 1) {
-	        for (i = 0; i < n; i++) {
-			val[i] = (rand() * (RAND_MAX + 1) + rand()) % *domain;
-		}
-#endif
 	} else {
-	        for (i = 0; i < n; i++) {
-			val[i] = rand() % *domain;
+		for (i = 0; i < n; i++) {
+			val[i] = mtwist_u32rand(mt_rng) % *domain;
 		}
 	}
 
@@ -102,6 +99,8 @@ BATuniform(BAT **bn, oid *base, wrd *size, int *domain)
 	BAT *b = NULL;
 	int *restrict val;
 	int v;
+	mtwist *mt_rng;
+
 
 	if (*size > (wrd)BUN_MAX) {
 		GDKerror("BATuniform: size must not exceed BUN_MAX");
@@ -132,15 +131,18 @@ BATuniform(BAT **bn, oid *base, wrd *size, int *domain)
 	val = (int *) Tloc(b, BUNfirst(b));
 
 	/* create BUNs with uniform distribution */
-        for (v = 0, i = 0; i < n; i++) {
+	for (v = 0, i = 0; i < n; i++) {
 		val[i] = v;
 		if (++v >= *domain)
 			v = 0;
 	}
 
+	mt_rng = mtwist_new();
+
 	/* mix BUNs randomly */
 	for (r = 0, i = 0; i < n; i++) {
-		const BUN j = i + ((r += rand()) % (n - i));
+		
+		const BUN j = i + ((r += mtwist_u32rand(mt_rng)) % (n - i));
 		const int tmp = val[i];
 
 		val[i] = val[j];
@@ -170,6 +172,8 @@ BATskewed(BAT **bn, oid *base, wrd *size, int *domain, int *skew)
 	int *restrict val;
 	const BUN skewedSize = ((*skew) * n) / 100;
 	const int skewedDomain = ((100 - (*skew)) * (*domain)) / 100;
+	mtwist *mt_rng;
+
 
 	if (*size > (wrd)BUN_MAX) {
 		GDKerror("BATskewed: size must not exceed BUN_MAX = " BUNFMT, BUN_MAX);
@@ -204,15 +208,17 @@ BATskewed(BAT **bn, oid *base, wrd *size, int *domain, int *skew)
 	}
 	val = (int *) Tloc(b, BUNfirst(b));
 
+	mt_rng = mtwist_new();
+
 	/* create BUNs with skewed distribution */
 	for (i = 0; i < skewedSize; i++)
-		val[i] = rand() % skewedDomain;
+		val[i] = mtwist_u32rand(mt_rng) % skewedDomain;
 	for( ; i < n; i++)
-		val[i] = (rand() % (*domain - skewedDomain)) + skewedDomain;
+		val[i] = (mtwist_u32rand(mt_rng) % (*domain - skewedDomain)) + skewedDomain;
 
 	/* mix BUNs randomly */
 	for (r = 0, i = 0; i < n; i++) {
-		const BUN j = i + ((r += rand()) % (n - i));
+		const BUN j = i + ((r += mtwist_u32rand(mt_rng)) % (n - i));
 		const int tmp = val[i];
 
 		val[i] = val[j];
@@ -279,7 +285,7 @@ BATnormal(BAT **bn, oid *base, wrd *size, int *domain, int *stddev, int *mean)
 	b = BATnew(TYPE_void, TYPE_int, n, TRANSIENT);
 	if (b == NULL) {
 		return GDK_FAIL;
-        }
+	}
 	if (n == 0) {
 		b->tsorted = 1;
 		b->trevsorted = 0;
@@ -297,8 +303,8 @@ BATnormal(BAT **bn, oid *base, wrd *size, int *domain, int *stddev, int *mean)
 
 	abs = (unsigned int *) GDKmalloc(d * sizeof(unsigned int));
 	if (abs == NULL) {
-	        BBPreclaim(b);
-	        return GDK_FAIL;
+		BBPreclaim(b);
+		return GDK_FAIL;
 	}
 	rel = (flt *) abs;
 
@@ -327,16 +333,16 @@ BATnormal(BAT **bn, oid *base, wrd *size, int *domain, int *stddev, int *mean)
 
 	/* create BUNs with normal distribution */
 	for (j = 0, i = 0; i < n && j < d; i++) {
-	        while (j < d && abs[j] == 0)
-	                j++;
-                if (j < d) {
-        	        val[i] = j;
-	                abs[j]--;
-                }
+		while (j < d && abs[j] == 0)
+			j++;
+		if (j < d) {
+			val[i] = j;
+			abs[j]--;
+		}
 	}
 	assert(i == n);
-        while (j < d && abs[j] == 0)
-                j++;
+	while (j < d && abs[j] == 0)
+		j++;
 	assert(j == d);
 	GDKfree(abs);
 
@@ -407,15 +413,19 @@ MBMmix(bat *bn, bat *batid)
 	BUN n, r, i;
 	BUN firstbun, p, q;
 	BAT *b;
+	mtwist *mt_rng;
 
 	if ((b = BATdescriptor(*batid)) == NULL)
-                throw(MAL, "microbenchmark.mix", RUNTIME_OBJECT_MISSING);
+		throw(MAL, "microbenchmark.mix", RUNTIME_OBJECT_MISSING);
 
 	n = BATcount(b);
 	firstbun = BUNfirst(b);
+
+	mt_rng = mtwist_new();
+
 	/* mix BUNs randomly */
 	for (r = i = 0; i < n; i++) {
-		BUN idx = i + ((r += (BUN) rand()) % (n - i));
+		BUN idx = i + ((r += (BUN) mtwist_u32rand(mt_rng)) % (n - i));
 		int val;
 
 		p = firstbun + i;
