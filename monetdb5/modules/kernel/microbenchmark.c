@@ -20,7 +20,6 @@
 #include <math.h>
 #include <mal_exception.h>
 #include "microbenchmark.h"
-
 #include "mtwist.h"
 
 static gdk_return
