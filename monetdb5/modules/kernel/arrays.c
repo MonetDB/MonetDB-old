@@ -1170,12 +1170,12 @@ do { \
 		dimR->step = stepL/d; \
 		dimL->step = stepR/d;\
 		/* bring them as close as possible in one step */ \
-		if (l>r) { \
+		if (l<r) { \
 			int steps = (l-r)/stepR; \
-			l -= steps*stepR; \
-		} else if (r>l) { \
+			l += steps*stepR; \
+		} else if (r<l) { \
 			int steps = (r-l)/stepL; \
-			r -= steps*stepL; \
+			r += steps*stepL; \
 		}\
 		while(l != r) { \
 			while(l<r) \
