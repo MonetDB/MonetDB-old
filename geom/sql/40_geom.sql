@@ -4456,3 +4456,4 @@ CREATE FUNCTION ST_DumpPoints(geom Geometry) RETURNS TABLE(path string, pointG G
 ---------------------------- Miscellaneous ------------------------------
 -------------------------------------------------------------------------
 CREATE FUNCTION Contains(a Geometry, x double, y double) RETURNS BOOLEAN external name geom."Contains";
+
