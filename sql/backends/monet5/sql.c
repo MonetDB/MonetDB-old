@@ -61,16 +61,16 @@ exp_is_point_select(sql_exp *e)
 }
 
 static int
-rel_is_point_query(sql_rel *rel)
+rel_no_mitosis(sql_rel *rel)
 {
 	int is_point = 0;
 
-	if (!rel)
+	if (!rel || is_basetable(rel->op))
 		return 1;
 	if (is_project(rel->op))
-		return rel_is_point_query(rel->l);
+		return rel_no_mitosis(rel->l);
 	if (is_modify(rel->op) && rel->card <= CARD_AGGR)
-		return rel_is_point_query(rel->r);
+		return rel_no_mitosis(rel->r);
 	if (is_select(rel->op) && rel_is_table(rel->l) && rel->exps) {
 		is_point = 0;
 		/* just one point expression makes this a point query */
@@ -120,8 +120,8 @@ sql_symbol2relation(mvc *c, symbol *sym)
 		r = rel_optimizer(c, r);
 		r = rel_distribute(c, r);
 		r = rel_partition(c, r);
-		if (rel_is_point_query(r) || rel_need_distinct_query(r))
-			c->point_query = 1;
+		if (rel_no_mitosis(r) || rel_need_distinct_query(r))
+			c->no_mitosis = 1;
 	}
 	return r;
 }
@@ -175,7 +175,7 @@ sqlcleanup(mvc *c, int err)
 	if (err <0)
 		c->session->status = err;
 	c->label = 0;
-	c->point_query = 0;
+	c->no_mitosis = 0;
 	scanner_query_processed(&(c->scanner));
 	return err;
 }
@@ -3372,7 +3372,7 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	backend *be;
 	BAT **b = NULL;
-	unsigned char *tsep = NULL, *rsep = NULL, *ssep = NULL, *ns = NULL;
+	unsigned char *tsep = NULL, *rsep = NULL, *ssep = NULL, *ns = NULL, *fn = NULL;
 	ssize_t len = 0;
 	sql_table *t = *(sql_table **) getArgReference(stk, pci, pci->retc + 0);
 	unsigned char **T = (unsigned char **) getArgReference_str(stk, pci, pci->retc + 1);
@@ -3429,7 +3429,17 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (!fname) {
 		msg = mvc_import_table(cntxt, &b, be->mvc, be->mvc->scanner.rs, t, (char *) tsep, (char *) rsep, (char *) ssep, (char *) ns, *sz, *offset, *locked, *besteffort);
 	} else {
-		ss = open_rastream(*fname);
+		len = strlen(*fname);
+		if ((fn = GDKmalloc(len + 1)) == NULL) {
+			GDKfree(ns);
+			GDKfree(tsep);
+			GDKfree(rsep);
+			GDKfree(ssep);
+			throw(MAL, "sql.copy_from", MAL_MALLOC_FAIL);
+		}
+		GDKstrFromStr(fn, (unsigned char*)*fname, len);
+
+		ss = open_rastream((const char *) fn);
 		if (!ss || mnstr_errnr(ss)) {
 			int errnr = mnstr_errnr(ss);
 			if (ss)
@@ -3438,9 +3448,11 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			GDKfree(rsep);
 			GDKfree(ssep);
 			GDKfree(ns);
-			msg = createException(IO, "sql.copy_from", "could not open file '%s': %s", *fname, strerror(errnr));
+			msg = createException(IO, "sql.copy_from", "could not open file '%s': %s", fn, strerror(errnr));
+			GDKfree(fn);
 			return msg;
 		}
+		GDKfree(fn);
 #if SIZEOF_VOID_P == 4
 		s = bstream_create(ss, 0x20000);
 #else
@@ -3464,7 +3476,7 @@ mvc_import_table_wrap(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (fname && s == NULL)
 		throw(IO, "bstreams.create", "Failed to create block stream");
 	if (b == NULL)
-		throw(SQL, "importTable", "Failed to import table %s", be->mvc->errstr? be->mvc->errstr:"");
+		throw(SQL, "importTable", "Failed to import table %s", be->mvc->errstr);
 	bat2return(stk, pci, b);
 	GDKfree(b);
 	return msg;
