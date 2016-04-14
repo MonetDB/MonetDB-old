@@ -194,8 +194,9 @@ GRIDdistancesubselect(bat * res, bat * x1, bat * y1, bat * cand1, lng * x2, lng 
 	BAT *x1BAT = NULL, *y1BAT = NULL, *cBAT = NULL;
 	lng * x1Vals = NULL, * y1Vals = NULL;
 	oid * resVals = NULL;
+	oid seq;
 	grid * g = NULL;
-	mbr mbb = (mbr) {.xmin = *x2 - *d, .ymin = *y2 - *d, .xmax = *x2 + *d, .ymax = *y2 + *d};
+	mbr mbb;
 	BAT *r;
 	BUN p, q;
 	BATiter pi;
@@ -218,7 +219,6 @@ GRIDdistancesubselect(bat * res, bat * x1, bat * y1, bat * cand1, lng * x2, lng 
 		BBPunfix(y1BAT->batCacheid);
 		throw(MAL, "grid.distance", RUNTIME_OBJECT_MISSING);
 	}
-	num = BATcount(x1BAT);
 
 	/* check if the BATs have dense heads and are aligned */
 	if (!BAThdense(x1BAT) || !BAThdense(y1BAT)) {
@@ -227,12 +227,16 @@ GRIDdistancesubselect(bat * res, bat * x1, bat * y1, bat * cand1, lng * x2, lng 
 		BBPunfix(cBAT->batCacheid);
 		return createException(MAL, "grid.distance", "BATs must have dense heads");
 	}
-	if(x1BAT->hseqbase != y1BAT->hseqbase || BATcount(x1BAT) != BATcount(y1BAT)) {
+	if(x1BAT->hseqbase != y1BAT->hseqbase
+		|| BATcount(x1BAT) != BATcount(y1BAT)
+		|| x1BAT->hseqbase != cBAT->hseqbase) {
 		BBPunfix(x1BAT->batCacheid);
 		BBPunfix(y1BAT->batCacheid);
 		BBPunfix(cBAT->batCacheid);
 		return createException(MAL, "grid.distance", "BATs must be aligned");
 	}
+	num = BATcount(x1BAT);
+	seq = x1BAT->hseqbase;
 
 	assert(x1BAT->ttype == TYPE_lng);
 	assert(y1BAT->ttype == TYPE_lng);
@@ -255,7 +259,7 @@ GRIDdistancesubselect(bat * res, bat * x1, bat * y1, bat * cand1, lng * x2, lng 
 
 	pi = bat_iterator(cBAT);
 	BATloop(cBAT, p, q) {
-		oid o = *(oid*)BUNtail(pi, p);
+		oid o = *(oid*)BUNtail(pi, p) - seq;
 		size_t blockNum = o >> SHIFT;
 		uint64_t bitPos = o & ONES;
 		set(cbv[blockNum], bitPos, 1);
@@ -276,11 +280,33 @@ GRIDdistancesubselect(bat * res, bat * x1, bat * y1, bat * cand1, lng * x2, lng 
 	fxb = (double)g->xmin*fxa; 
 	fya = ((double)g->cellsPerAxis/(double)(g->ymax-g->ymin));
 	fyb = (double)g->ymin*fya; 
+	//mbb = (mbr) {.xmin = 0, .ymin = 0, .xmax = 0, .ymax = 0}
+	mbb = (mbr) { .xmin = *x2 - *d, .ymin = *y2 - *d, .xmax = *x2 + *d, .ymax = *y2 + *d};
+	if (mbb.xmin > g->xmax || mbb.xmax < g->xmin ||
+		mbb.ymin > g->ymax || mbb.ymax < g->ymin) {
 
-	minCellx = (double)(mbb.xmin<g->xmin?g->xmin:mbb.xmin)*fxa - fxb;
-	maxCellx = (double)(mbb.xmax>g->xmax?g->xmax:mbb.xmax)*fxa - fxb;
-	minCelly = (double)(mbb.ymin<g->ymin?g->ymin:mbb.ymin)*fya - fyb;
-	maxCelly = (double)(mbb.ymax>g->ymax?g->ymax:mbb.ymax)*fya - fyb;
+		/* no results */
+		BBPunfix(x1BAT->batCacheid);
+		BBPunfix(y1BAT->batCacheid);
+		GDKfree(bv);
+		GDKfree(cbv);
+		if ((r = BATnew(TYPE_void, TYPE_oid, 0, TRANSIENT)) == NULL)
+			return createException(MAL, "grid.distance", "could not create a BAT for storing the results");
+		*res = r->batCacheid;
+		BBPkeepref(*res);
+
+		return MAL_SUCCEED;
+	}
+
+	mbb.xmin = (mbb.xmin < g->xmin) ? g->xmin : mbb.xmin;
+	mbb.xmax = (mbb.xmax > g->xmax) ? g->xmax : mbb.xmax; 
+	mbb.ymin = (mbb.ymin < g->ymin) ? g->ymin : mbb.ymin;
+	mbb.ymax = (mbb.ymax > g->ymax) ? g->ymax : mbb.ymax; 
+
+	minCellx = (double)(mbb.xmin)*fxa - fxb;
+	maxCellx = (double)(mbb.xmax)*fxa - fxb;
+	minCelly = (double)(mbb.ymin)*fya - fyb;
+	maxCelly = (double)(mbb.ymax)*fya - fyb;
 
 	/* split the cells in border and internal ones */
 	totalCellsNum = (maxCellx - minCellx + 1)*(maxCelly - minCelly + 1);
@@ -378,7 +404,7 @@ GRIDdistancesubselect(bat * res, bat * x1, bat * y1, bat * cand1, lng * x2, lng 
 	j = 0;
 	for(i = 0; i < bvsize; i++) {
 		uint64_t b = bv[i];
-		oid o = i * BITSNUM;
+		oid o = i * BITSNUM + seq;
 		for(short l = 0; l < BITSNUM; l++) {
 			resVals[j] = o;
 			j += b & 0x01;
@@ -390,6 +416,7 @@ GRIDdistancesubselect(bat * res, bat * x1, bat * y1, bat * cand1, lng * x2, lng 
 	GDKfree(bv);
 	//BATderiveProps(r, false);
 	BATsetcount(r, resNum);
+	//BATseqbase(r, 0);
 	r->tsorted = true;
 	r->trevsorted = false;
 	*res = r->batCacheid;
