@@ -4,3 +4,4 @@
 #HAVE_GEOM?dwithin
 #HAVE_GEOM?nPoints
 #HAVE_GEOM?dumpPoints
+grid
