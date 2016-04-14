@@ -1765,8 +1765,11 @@ static stmt *rel2bin_array_join(mvc *sql, sql_rel *rel, list *refs) {
 		
 			if (!join) 
 				join = s;
-			else 
+			else if(join->type == st_join)
 				join->op3 = s;
+			else if(join->type == st_join2)
+				join->op4.stval = s;
+			else return NULL; /* error */
 		}
 
 	} else {

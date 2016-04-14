@@ -1740,7 +1740,7 @@ stack_push_children(sql_stack *stk, stmt *s)
 		stack_push_list(stk, s->op4.lval);
 		break;
 	default:
-		if ((s->type == st_uselect2 || s->type == st_group) && s->op4.stval)
+		if ((s->type == st_uselect2 || s->type == st_group || s->type == st_join2) && s->op4.stval)
 			stack_push_stmt(stk, s->op4.stval, 1);
 		if (s->op3)
 			stack_push_stmt(stk, s->op3, 1);

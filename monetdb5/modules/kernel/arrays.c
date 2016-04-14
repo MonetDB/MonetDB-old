@@ -1252,6 +1252,29 @@ str ALGsubjoin2(ptr *dimsResL, ptr *dimsResR, const ptr *dimsCandsL, const ptr *
 	return ALGsubjoin1(dimsResL, dimsResR, dimL, dimsCandsL, dimR, dimsCandsR);
 }
 
+str ALGsubrangejoin2(ptr *dimsResL, ptr *dimsResR, const ptr *dimL, const ptr *dimsL, const ptr *dimR1, const ptr *dimR2, const ptr* dimsR, const ptr *dimsCandL, const ptr *dimsCandR, const bit *li, const bit *hi, const lng *estimate) {
+	(void) *dimsResL;
+	(void) *dimsResR;
+	(void) *dimL;
+	(void) *dimsL;
+	(void) *dimR1;
+	(void) *dimR2;
+	(void) *dimsR;
+	(void) *dimsCandL;
+	(void) *dimsCandR;
+	(void) *li;
+	(void) *hi;
+	(void) *estimate;
+
+	return MAL_SUCCEED;
+}
+
+str ALGsubrangejoin1(ptr *dimsResL, ptr *dimsResR, const ptr *dimL, const ptr *dimsL, const ptr *dimR1, const ptr *dimR2, const ptr* dimsR, const bat *sl, const bat *sr, const bit *li, const bit *hi, const lng *estimate) {
+	(void) *sl;
+	(void) *sr;
+
+	return ALGsubrangejoin2(dimsResL, dimsResR, dimL, dimsL, dimR1, dimR2, dimsR, NULL, NULL, li, hi, estimate);
+}
 
 str ALGnonDimensionQRDecomposition(bat *oidsRes, ptr *dimsRes,  const bat* vals, const ptr *dims)
 {

@@ -90,7 +90,13 @@ address ALGsubjoin1;
 command algebra.subjoin(candDimsl:ptr, diml:ptr, dimsl:ptr, candDimsr:ptr, dimr:ptr, dimsr:ptr) (:ptr,:ptr)
 address ALGsubjoin2;
 
+command algebra.subrangejoin(diml:ptr, dimsl:ptr, dimr1:ptr, dimr2:ptr, dimsr:ptr, sl:bat[:oid,:oid],sr:bat[:oid,:oid],li:bit,hi:bit,estimate:lng) (:ptr,:ptr)
+address ALGsubrangejoin1
+comment "Range join: values in l and r1/r2 match if r1 <[=] l <[=] r2";
 
+command algebra.subrangejoin(diml:ptr, dimsl:ptr, dimr1:ptr, dimr2:ptr, dimsr:ptr, candDimsl:ptr, candDimsr:ptr,li:bit,hi:bit,estimate:lng) (:ptr,:ptr)
+address ALGsubrangejoin2
+comment "Range join: values in l and r1/r2 match if r1 <[=] l <[=] r2";
 
 #projects a dimension
 command algebra.projectArray(dim:ptr, dims:ptr) :bat[:oid,:any]

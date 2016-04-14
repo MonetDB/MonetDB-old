@@ -55,6 +55,9 @@ algebra_export str ALGnonDimensionThetasubselect4(bat *oidsRes, ptr *dimsRes, co
 algebra_export str ALGsubjoin1(ptr *dimsResL, ptr *dimsResR, const ptr *dimL, const ptr *dimsL, const ptr *dimR, const ptr *dimsR);
 algebra_export str ALGsubjoin2(ptr *dimsResL, ptr *dimsResR, const ptr *dimsCandsL, const ptr *dimL, const ptr *dimsL, const ptr *dimsCandsR, const ptr *dimR, const ptr *dimsR);
 
+algebra_export str ALGsubrangejoin1(ptr *dimsResL, ptr *dimsResR, const ptr *dimL, const ptr *dimsL, const ptr *dimR1, const ptr *dimR2, const ptr *dimsR, const bat *sl, const bat *sr, const bit *li, const bit *hi, const lng *estimate);
+algebra_export str ALGsubrangejoin2(ptr *dimsResL, ptr *dimsResR, const ptr *dimL, const ptr *dimsL, const ptr *dimR1, const ptr *dimR2, const ptr *dimsR, const ptr *dimsCandL, const ptr *dimsCandR, const bit *li, const bit *hi, const lng *estimate);
+
 algebra_export str ALGprojectDimension(bat* result, const ptr *dim, const ptr *array);
 algebra_export str ALGprojectNonDimension(bat *result, const bat *vals, const ptr *array);
 

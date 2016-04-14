@@ -1781,27 +1781,39 @@ _dumpstmt(backend *sql, MalBlkPtr mb, stmt *s)
 				setVarUDFtype(mb, getArg(q, 0));
 //				if(s->type == st_join2)
 //					q = pushReturn(mb, q, newTmpVariable(mb, newBatType(TYPE_oid, TYPE_oid)));
-				q = pushArgument(mb, q, l); //all the dimensions
-				q = pushArgument(mb, q, arraySecondVar); //the current dimension
+				q = pushArgument(mb, q, l); //the dimension
+				q = pushArgument(mb, q, arraySecondVar); //the array
 			} else 
 				q = pushArgument(mb, q, l);
 					
-			if(sub > 0) { //candidates
+			if(s->type != st_join2 && sub > 0) { //candidates
 				q = pushArgument(mb, q, sub);
-
-				snprintf(nme, SMALLBUFSIZ, "Y_%d", sub);
-		       	if((arraySecondVar = findVariable(mb, nme)) >= 0)
-					q = pushArgument(mb, q, arraySecondVar);
 			}
 			if (rs) {
 				q = pushArgument(mb, q, rs);
 			} else {
 				q = pushArgument(mb, q, r1);
+				/* I assume that both are from the same array and give only the second one as an argument
+				snprintf(nme, SMALLBUFSIZ, "Y_%d", r1);
+		       	if((arraySecondVar = findVariable(mb, nme)) >= 0)
+					q = pushArgument(mb, q, arraySecondVar);
+				*/
 				q = pushArgument(mb, q, r2);
+				snprintf(nme, SMALLBUFSIZ, "Y_%d", r2);
+		       	if((arraySecondVar = findVariable(mb, nme)) >= 0)
+					q = pushArgument(mb, q, arraySecondVar);
 			}
 			if (s->type == st_join2) {
-				q = pushNil(mb, q, TYPE_bat);
-				q = pushNil(mb, q, TYPE_bat);
+				if(sub>0) { /* add candidates */
+					q = pushArgument(mb, q, sub);
+
+					snprintf(nme, SMALLBUFSIZ, "r1_%d", sub);
+		       		if((arraySecondVar = findVariable(mb, nme)) >= 0)
+						q = pushArgument(mb, q, arraySecondVar);
+				} else {
+					q = pushNil(mb, q, TYPE_bat);
+					q = pushNil(mb, q, TYPE_bat);
+				}
 			}
 
 			switch (s->flag & 3) {
