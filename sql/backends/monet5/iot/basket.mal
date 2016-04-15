@@ -25,6 +25,14 @@ pattern register(sch:str,tbl:str):void
 address BSKTregister
 comment "Initialize a new basket based on a specific table definition";
 
+pattern activate(sch:str,tbl:str):void
+address BSKTactivate
+comment "Re-activate the stream";
+
+pattern deactivate(sch:str,tbl:str):void
+address BSKTdeactivate
+comment "Deactivate the stream";
+
 command lock(sch:str,tbl:str,delay:int):void
 address BSKTlock
 comment "Lock a basket group and spinlock upon need";
@@ -40,6 +48,10 @@ comment "Unlock the basket";
 pattern append(mvc:int, sch:str, tbl:str, col:str, val:any):int
 address BSKTappend
 comment "Append new tuples to a basket";
+
+pattern commit(mvc:int, sch:str, tbl:str):int
+address BSKTcommit
+comment "Make the basket availablt for the scheduler";
 
 pattern update(sch:str,tbl:str, cols:any...)
 address BSKTupdate
@@ -77,11 +89,11 @@ pattern iot.push(sch:str, tbl:str, dir:str):void
 address BSKTpush
 comment "Push a directory with the binary files";
 
-pattern iot.baskets()(sch:bat[:str],nme:bat[:str], threshold:bat[:int], winsize:bat[:int], winstride:bat[:int], timeslice:bat[:int], 
+pattern iot.baskets()(sch:bat[:str],nme:bat[:str], status:bat[:str], threshold:bat[:int], winsize:bat[:int], winstride:bat[:int], timeslice:bat[:int], 
 timestride:bat[:int], beat:bat[:int], seen:bat[:timestamp], events:bat[:int])
 address BSKTtable
 comment "Inspect the iot baskets";
 
-command errors() (:bat[:str],:bat[:str])
+command errors() (l:bat[:str],m:bat[:str])
 address BSKTtableerrors
 comment "Return the table with all errors";

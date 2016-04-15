@@ -28,9 +28,6 @@ stderr of test 'stream_table_crash.Bug-3952` in directory 'sql/test/BugTracker-2
 # 11:43:57 >  "mclient" "-lsql" "-ftest" "-Eutf-8" "-i" "-e" "--host=/var/tmp/mtest-8448" "--port=34393"
 # 11:43:57 >  
 
-MAPI  = (monetdb) /var/tmp/mtest-8448/.s.monetdb.34393
-QUERY = insert into temp values(timestamp '2016-03-13 08:58:14', 1, 23.4);
-ERROR = !INSERT INTO: cannot insert into stream 'temp'
 
 # 11:43:57 >  
 # 11:43:57 >  "Done."

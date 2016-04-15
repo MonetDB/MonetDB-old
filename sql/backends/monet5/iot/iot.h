@@ -40,10 +40,9 @@
 #define _DEBUG_IOT_ if(1)
 iot_export MT_Lock iotLock;
 
+iot_export str IOTactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str IOTdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str IOTpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str IOTresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str IOTstop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str IOTcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str IOTpush(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str IOTdump(void *ret);

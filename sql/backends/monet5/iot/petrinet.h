@@ -38,11 +38,16 @@
 #define iot_export extern
 #endif
 
+#define PNINIT 0
+#define PNRUNNING 1
+#define PNPAUSED 2       /* not active now */
+
+#define PAUSEDEFAULT 1000
+
 iot_export str PNregisterInternal(Client cntxt, MalBlkPtr mb);
 iot_export str PNregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str PNpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str PNresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export str PNstop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str PNactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str PNdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str PNcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str PNdrop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str PNdump(void *ret);

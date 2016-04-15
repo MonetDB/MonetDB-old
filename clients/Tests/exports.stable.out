@@ -2043,6 +2043,7 @@ void dumpExceptionsToStream(stream *out, str msg);
 void dumpHelpTable(stream *f, Module s, str text, int flag);
 void dumpSearchTable(stream *f, str text);
 str eqRef;
+str errorRef;
 str escape_str(str *retval, str s);
 str evalFile(Client c, str fname, int listing);
 str evalRef;

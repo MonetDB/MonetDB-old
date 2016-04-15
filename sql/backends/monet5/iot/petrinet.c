@@ -47,12 +47,9 @@
 #include "opt_prelude.h"
 
 #define MAXPN 200           /* it is the minimum, if we need more space GDKrealloc */
-#define PNcontrolInfinit 1  /* infinit loop of PNController  */
-#define PNcontrolEnd 2      /* when all factories are disable PNController exits */
 
-static str statusname[6] = { "<unknown>", "init", "paused", "running", "stop", "error" };
+static str statusname[6] = { "<unknown>", "running", "paused"};
 
-/*static int controlRounds = PNcontrolInfinit;*/
 static void
 PNstartScheduler(void);
 
@@ -81,7 +78,7 @@ int pnettop = 0;
 
 int enabled[MAXPN];     /*array that contains the id's of all queries that are enable to fire*/
 
-static int status = BSKTINIT;
+static int status = PNINIT;
 static int cycleDelay = 1000; /* be careful, it affects response/throughput timings */
 
 str PNanalyseWrapper(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
@@ -152,7 +149,7 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 	pnet[pnettop].mb = mb;
 	pnet[pnettop].stk = prepareMALstack(mb, mb->vsize);
 
-	pnet[pnettop].status = BSKTPAUSE;
+	pnet[pnettop].status = PNPAUSED;
 	pnet[pnettop].cycles = 0;
 	pnet[pnettop].seen = *timestamp_nil;
 	/* all the rest is zero */
@@ -193,19 +190,15 @@ PNstatus( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int newstatus
 	MT_lock_unset(&iotLock);
 	return MAL_SUCCEED;
 }
+
 str
-PNpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	return PNstatus(cntxt, mb, stk, pci, BSKTPAUSE);
+PNactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+	return PNstatus(cntxt, mb, stk, pci, PNRUNNING);
 }
 
 str
-PNresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	return PNstatus(cntxt, mb, stk, pci, BSKTRUNNING);
-}
-
-str
-PNstop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
-	return PNstatus(cntxt, mb, stk, pci, BSKTSTOP);
+PNdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci){
+	return PNstatus(cntxt, mb, stk, pci, PNPAUSED);
 }
 
 str
@@ -231,19 +224,17 @@ str PNdump(void *ret)
 			mnstr_printf(PNout, "#%s\n", pnet[i].error);
 		for (k = 0; k < MAXBSKT && pnet[i].places[k]; k++){
 			idx = pnet[i].places[k];
-			mnstr_printf(PNout, "#<--\t%s basket[%d] %d %d\n",
+			mnstr_printf(PNout, "#<--\t%s basket %d %s\n",
 					baskets[idx].table_name,
-					idx,
 					baskets[idx].count,
-					baskets[idx].events);
+					statusname[baskets[idx].status]);
 		}
 		for (k = 0; k <MAXBSKT &&  pnet[i].targets[k]; k++){
 			idx = pnet[i].targets[k];
-			mnstr_printf(PNout, "#-->\t%s basket[%d] %d %d\n",
+			mnstr_printf(PNout, "#-->\t%s basket %d %s\n",
 					baskets[idx].table_name,
-					idx,
 					baskets[idx].count,
-					baskets[idx].events);
+					statusname[baskets[idx].status]);
 		}
 	}
 	(void) ret;
@@ -309,7 +300,7 @@ PNexecute( void *n)
 	}
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s all locked\n",node->modname, node->fcnname);
 	runMALsequence(mal_clients, node->mb, 1, 0, node->stk, 0, 0);
-	node->status = BSKTPAUSE;
+	node->status = PNPAUSED;
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s transition done\n",node->modname, node->fcnname);
 	for (j = MAXBSKT; j > 0 &&  node->enabled && node->places[j]; j--) {
 		idx = node->places[j];
@@ -334,13 +325,13 @@ PNcontroller(void *dummy)
 	 if( strcmp(cntxt->scenario, "sql") )
 		 SQLinitEnvironment(cntxt, NULL, NULL, NULL);
 
-	status = BSKTRUNNING;
+	status = PNRUNNING;
 
-	while( status != BSKTSTOP && pnettop > 0){
-		_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.controller step\n");
+	while( pnettop > 0){
+		_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.controller next  step\n");
 		if (cycleDelay)
 			MT_sleep_ms(cycleDelay);  /* delay to make it more tractable */
-		while (status == BSKTPAUSE)	{ /* scheduler is paused */
+		while (status == PNPAUSED)	{ /* scheduler is paused */
 			MT_sleep_ms(cycleDelay);  
 			_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.controller paused\n");
 		}
@@ -352,13 +343,14 @@ PNcontroller(void *dummy)
 		for(i=0; i< MAXBSKT; i++)
 			claimed[i]=0;
 		now = GDKusec();
-		for (k = i = 0; status == BSKTRUNNING && i < pnettop; i++) 
-		if ( pnet[i].status != BSKTPAUSE ){
+		for (k = i = 0; i < pnettop; i++) 
+		if ( pnet[i].status == PNRUNNING ){
 			// check if all baskets are available and non-empty
 			pnet[i].enabled = 1;
 			for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].places[j]; j++) {
 				idx = pnet[i].places[j];
-				if (baskets[idx].count == 0  || baskets[idx].count < baskets[idx].threshold ) { /* nothing to take care of */
+				if (baskets[idx].status == BSKTRUNNING && 
+					(baskets[idx].count == 0  || baskets[idx].count < baskets[idx].threshold )) { /* nothing to take care of */
 					pnet[i].enabled = 0;
 					break;
 				}
@@ -432,7 +424,7 @@ PNcontroller(void *dummy)
 			MT_join_thread(pnet[i].tid);
 		}
 	}
-	status = BSKTINIT;
+	status = PNINIT;
 	_DEBUG_PETRINET_ mnstr_flush(PNout);
 	(void) dummy;
 }
@@ -444,8 +436,9 @@ PNstartScheduler(void)
 	int s;
 	(void) s;
 
-	_DEBUG_PETRINET_ mnstr_printf(PNout, "#Start PNcontroller \n");
-	if (status== BSKTINIT && MT_create_thread(&pid, PNcontroller, &s, MT_THR_JOINABLE) != 0){
+	_DEBUG_PETRINET_ mnstr_printf(PNout, "#Start PNcontroller\n");
+	if (status== PNINIT && MT_create_thread(&pid, PNcontroller, &s, MT_THR_JOINABLE) != 0){
+		_DEBUG_PETRINET_ mnstr_printf(PNout, "#Start PNcontroller failed\n");
 		GDKerror( "petrinet creation failed");
 	}
 	(void) pid;

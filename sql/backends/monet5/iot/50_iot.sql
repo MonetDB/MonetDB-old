@@ -24,30 +24,21 @@ create procedure iot.query(qry string)
 create procedure iot.query("schema" string, name string)
 	external name iot.query;
 
--- pause the processing of a continuous query
-create procedure iot.pause ("schema" string, name string)
-    external name iot.pause;
+create procedure iot.activate("schema" string, name string)
+	external name iot.activate;
 
-create procedure iot.pause ()
-    external name iot.pause;
+create procedure iot.activate()
+	external name iot.activate;
 
--- resume the processing of a continuous query
-create procedure iot.resume ("schema" string, name string)
-    external name iot.resume;
+create procedure iot.deactivate("schema" string, name string)
+	external name iot.deactivate;
 
-create procedure iot.resume ()
-    external name iot.resume;
+create procedure iot.deactivate()
+	external name iot.deactivate;
 
 -- resume with limited the number of scheduler before next pause
 create procedure iot.cycles(n integer)
 	external name iot.cycles;
-
--- stop and remove a continuous query
-create procedure iot.stop ("schema" string, name string)
-    external name iot.stop;
-
-create procedure iot.stop ()
-    external name iot.stop;
 
 -- deliver a new basket with tuples
 create procedure iot.push("schema" string, "table" string, dirpath string)
@@ -55,11 +46,11 @@ create procedure iot.push("schema" string, "table" string, dirpath string)
 
 -- Inspection tables
 create function iot.baskets()
-returns table( "schema" string,  "table" string, threshold int, winsize int, winstride int,  timeslice int, timestride int, beat int, seen timestamp, events int)
+returns table( "schema" string,  "table" string, "status" string,  threshold int, winsize int, winstride int,  timeslice int, timestride int, beat int, seen timestamp, events int)
 external name iot.baskets;
 
 create function iot.queries()
- returns table( "schema" string,  "function" string, status string, lastrun timestamp, cycles int, events int, time bigint, error string)
+ returns table( "schema" string,  "function" string, "status" string, lastrun timestamp, cycles int, events int, time bigint, error string)
  external name iot.queries;
 
 create function iot.inputplaces()

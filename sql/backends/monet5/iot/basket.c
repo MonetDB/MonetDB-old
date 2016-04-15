@@ -36,7 +36,7 @@
 //#define _DEBUG_BASKET_ if(0)
 #define _DEBUG_BASKET_ 
 
-str statusname[6] = { "<unknown>", "init", "paused", "running", "stop", "error" };
+str statusname[3] = { "<unknown>", "running", "paused" };
 
 BasketRec *baskets;   /* the global iot catalog */
 static int bsktTop = 0, bsktLimit = 0;
@@ -176,6 +176,65 @@ BSKTregister(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	msg=  BSKTnewbasket(s, t);
 	return msg;
+}
+
+str
+BSKTactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	str sch, tbl;
+	int idx = 0;
+
+	(void) cntxt;
+	(void) mb;
+
+	if( pci->argc > pci->retc){
+		sch = *getArgReference_str(stk, pci, 1);
+		tbl = *getArgReference_str(stk, pci, 2);
+
+		/* check for registration */
+		idx = BSKTlocate(sch, tbl);
+		if( idx == 0)
+			throw(SQL,"basket.activate","Stream table %s.%s not accessible\n",sch,tbl);
+		MT_lock_set(&baskets[idx].lock);
+		baskets[idx].status = BSKTRUNNING;
+		MT_lock_unset(&baskets[idx].lock);
+	} else {
+		for( idx =1; idx <bsktTop;  idx++){
+			MT_lock_set(&baskets[idx].lock);
+			baskets[idx].status = BSKTRUNNING;
+			MT_lock_unset(&baskets[idx].lock);
+		}
+	}
+	return MAL_SUCCEED;
+}
+
+str
+BSKTdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	str sch, tbl;
+	int idx = 0;
+
+	(void) cntxt;
+	(void) mb;
+	if( pci->argc > pci->retc){
+		sch = *getArgReference_str(stk, pci, 1);
+		tbl = *getArgReference_str(stk, pci, 2);
+
+		/* check for registration */
+		idx = BSKTlocate(sch, tbl);
+		if( idx == 0)
+			throw(SQL,"basket.activate","Stream table %s.%s not accessible\n",sch,tbl);
+		MT_lock_set(&baskets[idx].lock);
+		baskets[idx].status = BSKTPAUSED;
+		MT_lock_unset(&baskets[idx].lock);
+	} else {
+		for( idx =1; idx <bsktTop;  idx++){
+			MT_lock_set(&baskets[idx].lock);
+			baskets[idx].status = BSKTPAUSED;
+			MT_lock_unset(&baskets[idx].lock);
+		}
+	}
+	return MAL_SUCCEED;
 }
 
 static BAT *
@@ -435,12 +494,32 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	return MAL_SUCCEED;
 }
 
-InstrPtr
-BSKTupdateInstruction(MalBlkPtr mb, str sch, str tbl)
+str
+BSKTcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
+    str sname = *getArgReference_str(stk, pci, 2);
+    str tname = *getArgReference_str(stk, pci, 3);
+	int idx;
+	(void) cntxt;
 	(void) mb;
-	(void) sch;
-	(void) tbl;
+
+	idx = BSKTlocate(sname,tname);
+	if( idx == 0)
+		throw(SQL,"basket.commit","Stream column %s.%s not accessible\n",sname,tname);
+
+	MT_lock_set(&baskets[idx].lock);
+	baskets[idx].count++;
+	MT_lock_unset(&baskets[idx].lock);
+	return MAL_SUCCEED;
+}
+
+str
+BSKTupdate (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+	(void) cntxt;
+	(void) mb;
+	(void) stk;
+	(void) pci;
 	return NULL;
 }
 
@@ -450,15 +529,16 @@ BSKTtable (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
 	bat *schemaId = getArgReference_bat(stk,pci,0);
 	bat *nameId = getArgReference_bat(stk,pci,1);
-	bat *thresholdId = getArgReference_bat(stk,pci,1);
-	bat *winsizeId = getArgReference_bat(stk,pci,2);
-	bat *winstrideId = getArgReference_bat(stk,pci,3);
-	bat *timesliceId = getArgReference_bat(stk,pci,4);
-	bat *timestrideId = getArgReference_bat(stk,pci,5);
-	bat *beatId = getArgReference_bat(stk,pci,6);
-	bat *seenId = getArgReference_bat(stk,pci,7);
-	bat *eventsId = getArgReference_bat(stk,pci,8);
-	BAT *schema = NULL, *name = NULL, *seen = NULL, *events = NULL;
+	bat *statusId = getArgReference_bat(stk,pci,2);
+	bat *thresholdId = getArgReference_bat(stk,pci,3);
+	bat *winsizeId = getArgReference_bat(stk,pci,4);
+	bat *winstrideId = getArgReference_bat(stk,pci,5);
+	bat *timesliceId = getArgReference_bat(stk,pci,6);
+	bat *timestrideId = getArgReference_bat(stk,pci,7);
+	bat *beatId = getArgReference_bat(stk,pci,8);
+	bat *seenId = getArgReference_bat(stk,pci,9);
+	bat *eventsId = getArgReference_bat(stk,pci,10);
+	BAT *schema = NULL, *name = NULL, *status = NULL,  *seen = NULL, *events = NULL;
 	BAT *threshold = NULL, *winsize = NULL, *winstride = NULL, *beat = NULL;
 	BAT *timeslice = NULL, *timestride = NULL;
 	int i;
@@ -473,7 +553,11 @@ BSKTtable (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	name = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
 	if (name == 0)
 		goto wrapup;
-	BATseqbase(name, 0);
+	BATseqbase(status, 0);
+	status = BATnew(TYPE_void, TYPE_str, BATTINY, TRANSIENT);
+	if (status == 0)
+		goto wrapup;
+	BATseqbase(status, 0);
 	threshold = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
 	if (threshold == 0)
 		goto wrapup;
@@ -486,6 +570,14 @@ BSKTtable (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	if (winstride == 0)
 		goto wrapup;
 	BATseqbase(winstride, 0);
+	timeslice = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
+	if (timeslice == 0)
+		goto wrapup;
+	BATseqbase(timeslice, 0);
+	timestride = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
+	if (timestride == 0)
+		goto wrapup;
+	BATseqbase(timestride, 0);
 	beat = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
 	if (beat == 0)
 		goto wrapup;
@@ -499,33 +591,27 @@ BSKTtable (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		goto wrapup;
 	BATseqbase(events, 0);
 
-	timeslice = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
-	if (timeslice == 0)
-		goto wrapup;
-	BATseqbase(timeslice, 0);
-	timestride = BATnew(TYPE_void, TYPE_int, BATTINY, TRANSIENT);
-	if (timestride == 0)
-		goto wrapup;
-	BATseqbase(timestride, 0);
 
 	for (i = 1; i < bsktTop; i++)
 		if (baskets[i].table_name) {
 			BUNappend(schema, baskets[i].schema_name, FALSE);
 			BUNappend(name, baskets[i].table_name, FALSE);
+			BUNappend(status, statusname[baskets[i].status], FALSE);
 			BUNappend(threshold, &baskets[i].threshold, FALSE);
 			BUNappend(winsize, &baskets[i].winsize, FALSE);
 			BUNappend(winstride, &baskets[i].winstride, FALSE);
+			BUNappend(timeslice, &baskets[i].timeslice, FALSE);
+			BUNappend(timestride, &baskets[i].timestride, FALSE);
 			BUNappend(beat, &baskets[i].beat, FALSE);
 			BUNappend(seen, &baskets[i].seen, FALSE);
 			bn = BSKTbindColumn(cntxt,baskets[i].schema_name, baskets[i].table_name, baskets[i].cols[0]);
 			baskets[i].events = bn ? (int) BATcount( bn): 0;
 			BUNappend(events, &baskets[i].events, FALSE);
-			BUNappend(timeslice, &baskets[i].timeslice, FALSE);
-			BUNappend(timestride, &baskets[i].timestride, FALSE);
 		}
 
 	BBPkeepref(*schemaId = schema->batCacheid);
 	BBPkeepref(*nameId = name->batCacheid);
+	BBPkeepref(*statusId = status->batCacheid);
 	BBPkeepref(*thresholdId = threshold->batCacheid);
 	BBPkeepref(*winsizeId = winsize->batCacheid);
 	BBPkeepref(*winstrideId = winstride->batCacheid);
@@ -536,8 +622,12 @@ BSKTtable (Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	BBPkeepref(*eventsId = events->batCacheid);
 	return MAL_SUCCEED;
 wrapup:
+	if (schema)
+		BBPunfix(schema->batCacheid);
 	if (name)
 		BBPunfix(name->batCacheid);
+	if (status)
+		BBPunfix(status->batCacheid);
 	if (threshold)
 		BBPunfix(threshold->batCacheid);
 	if (winsize)

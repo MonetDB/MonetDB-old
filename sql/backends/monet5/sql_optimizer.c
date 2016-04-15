@@ -54,6 +54,8 @@ SQLgetSpace(mvc *m, MalBlkPtr mb)
 			sql_table *t;
 			sql_column *c;
 
+			if( cname == 0)
+				goto goon;
 			if( ! s ) continue;
 			t = mvc_bind_table(m, s, tname);
 			if( ! t ) continue;
@@ -65,6 +67,7 @@ SQLgetSpace(mvc *m, MalBlkPtr mb)
 			}
 		}
 
+goon:
 		if (getModuleId(p) == sqlRef && (f == bindRef || f == bindidxRef)) {
 			int upd = (p->argc == 7 || p->argc == 9), mode = 0;
 			char *sname = getVarConstant(mb, getArg(p, 2 + upd)).val.sval;

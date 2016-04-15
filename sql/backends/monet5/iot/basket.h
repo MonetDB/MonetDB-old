@@ -54,7 +54,7 @@ typedef struct{
 	int count;	/* number of events available in basket */
 
 	/* statistics */
-	int status;
+	int status;		/* (DE)ACTIVATE */
 	timestamp seen;
 	int events; /* total number of events grabbed */
 	int cycles; 
@@ -63,16 +63,9 @@ typedef struct{
 } *Basket, BasketRec;
 
 
-#define BSKTINIT 1        
-#define BSKTPAUSE 2       /* not active now */
-#define BSKTRUNNING 3      
-#define BSKTSTOP 4		  /* stop the thread */
-#define BSKTERROR 5       /* failed to establish the stream */
-
-#define PAUSEDEFAULT 1000
-
-#define BSKTACTIVE 1      /* ask for events */
-#define BSKTPASSIVE 2     /* wait for events */
+/* individual streams can be paused and restarted */
+#define BSKTRUNNING   1      
+#define BSKTPAUSED    2
 
 iot_export BasketRec *baskets;
 
@@ -82,9 +75,12 @@ iot_export str BSKTreset(void *ret);
 iot_export int BSKTlocate(str sch, str tbl);
 iot_export str BSKTdump(void *ret);
 
+iot_export str BSKTactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+
 iot_export str BSKTtable( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTtableerrors(bat *nmeId, bat *errorId);
-iot_export str BSKTerror(int  *ret, str *sch, str *fcn, str *msg);
+iot_export str BSKTerror(void  *ret, str *sch, str *fcn, str *msg);
 
 //iot_export str BSKTnewbasket(sql_schema *s, sql_table *t);
 iot_export str BSKTdrop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
@@ -93,8 +89,9 @@ iot_export int BSKTlocate(str sch, str tbl);
 iot_export int BSKTunlocate(str sch, str tbl);
 iot_export int BSKTlocate(str sch, str tbl);
 iot_export str BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTpush(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
-iot_export InstrPtr BSKTupdateInstruction(MalBlkPtr mb, str sch, str tbl);
+iot_export str BSKTupdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
 iot_export str BSKTlock(void *ret, str *sch, str *tbl, int *delay);
 iot_export str BSKTunlock(void *ret, str *sch, str *tbl);

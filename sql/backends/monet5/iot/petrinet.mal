@@ -22,29 +22,21 @@ address PNregister
 comment "Add a continous MAL query to the Petri net. It will analyse
 the MAL block to determine the input/output dependencies. ";
 
-pattern pause(mod:str, fcn:str)
-address PNpause
-comment "Pause the Petri net controller";
+pattern activate(mod:str, fcn:str)
+address PNactivate
+comment "Activate a continuous query";
 
-pattern pause()
-address PNpause
-comment "Pause the Petri net controller";
+pattern activate()
+address PNactivate
+comment "Activate all continuous query";
 
-pattern resume()
-address PNresume
-comment "Resume the interpretation";
+pattern deactivate(mod:str, fcn:str)
+address PNdeactivate
+comment "Deactivate a continuous query";
 
-pattern resume(mod:str, fcn:str)
-address PNresume
-comment "Resume the interpretation";
-
-pattern stop()
-address PNstop
-comment "Stop the Petri net controller";
-
-pattern stop(mod:str,fcn:str)
-address PNstop
-comment "Stop the Petri net controller";
+pattern deactivate()
+address PNdeactivate
+comment "Deactivate all continuous query";
 
 pattern step(cnt:int)
 address PNstep

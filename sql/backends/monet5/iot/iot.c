@@ -141,21 +141,43 @@ IOTquery(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
-IOTresume(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+IOTactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	return PNresume(cntxt,mb,stk,pci);
+	str sch, tbl;
+	int idx = 0;
+
+	if( pci->argc == pci->retc){
+		(void) BSKTactivate(cntxt,mb,stk,pci);
+	} else {
+		sch = *getArgReference_str(stk, pci, 1);
+		tbl = *getArgReference_str(stk, pci, 2);
+		_DEBUG_IOT_ fprintf(stderr,"#iot: activate %s.%s\n",sch,tbl);
+		/* check for registration */
+		idx = BSKTlocate(sch, tbl);
+		if( idx )
+		(void) BSKTactivate(cntxt,mb,stk,pci);
+	}
+	return PNactivate(cntxt,mb,stk,pci);
 }
 
 str
-IOTpause(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+IOTdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	return PNpause(cntxt,mb,stk,pci);
-}
+	str sch, tbl;
+	int idx = 0;
 
-str
-IOTstop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
-{
-	return PNstop(cntxt,mb,stk,pci);
+	if( pci->argc == pci->retc){
+		(void) BSKTdeactivate(cntxt,mb,stk,pci);
+	} else {
+		sch = *getArgReference_str(stk, pci, 1);
+		tbl = *getArgReference_str(stk, pci, 2);
+		_DEBUG_IOT_ fprintf(stderr,"#iot: deactivate %s.%s\n",sch,tbl);
+		/* check for registration */
+		idx = BSKTlocate(sch, tbl);
+		if( idx )
+			(void) BSKTdeactivate(cntxt,mb,stk,pci);
+	}
+	return PNdeactivate(cntxt,mb,stk,pci);
 }
 
 str
@@ -165,7 +187,7 @@ IOTcycles(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 }
 
 str
-BSKTerror(int *ret, str *sch, str *fcn, str *msg)
+BSKTerror(void *ret, str *sch, str *fcn, str *msg)
 {
 	(void) ret;
 	(void) sch;

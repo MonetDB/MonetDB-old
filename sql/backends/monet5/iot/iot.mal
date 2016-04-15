@@ -25,29 +25,21 @@ pattern query(name:str,def:str)
 address IOTquery
 comment "Add a new continuous query.";
 
-pattern pause(sch:str,nme:str):void
-address IOTpause
-comment "Pause a specific query";
+pattern activate(sch:str,nme:str):void
+address IOTactivate
+comment "Activate stream or continuous query";
 
-pattern resume(sch:str,nme:str):void
-address IOTresume
-comment "(Re)start a query";
+pattern activate():void
+address IOTactivate
+comment "Activate stream or continuous query";
 
-pattern stop(sch:str,nme:str):void
-address IOTstop
-comment "Remove a continuous query";
+pattern deactivate(sch:str,nme:str):void
+address IOTdeactivate
+comment "Deactivate stream or continuous query";
 
-pattern pause()
-address IOTpause
-comment "Pause all continuous queries";
-
-pattern resume()
-address IOTresume
-comment "Resume all continuous queries.";
-
-pattern stop():void
-address IOTstop
-comment "Stop all continuous queries.";
+pattern deactivate():void
+address IOTdeactivate
+comment "Deactivate stream or continuous query";
 
 pattern step(cnt:int):void
 address IOTstop
