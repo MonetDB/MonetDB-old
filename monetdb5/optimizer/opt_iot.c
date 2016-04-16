@@ -45,16 +45,17 @@
 int
 OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
-	int mvc=0;
 	int i, j, k, fnd, limit, slimit;
 	InstrPtr r, p, *old;
 	int *alias;
 	str  schemas[MAXBSKT];
 	str  tables[MAXBSKT];
+	int  mvc[MAXBSKT];
+	int done[MAXBSKT]= {0};
 	int btop=0;
+	int commit =0;
 
 	(void) pci;
-	(void) mvc;
 
 	old = mb->stmt;
 	limit = mb->stop;
@@ -63,11 +64,31 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	/* first analyse the query for streaming tables */
 	for (i = 1; i < limit && btop <MAXBSKT; i++){
 		p = old[i];
-		if( getModuleId(p)== basketRef && getFunctionId(p)== registerRef ){
+		if( getModuleId(p)== basketRef && (getFunctionId(p)== registerRef || getFunctionId(p)== bindRef || getFunctionId(p)== clear_tableRef)  ){
 			OPTDEBUGiot mnstr_printf(cntxt->fdout, "#iot stream table %s.%s\n", getModuleId(p), getFunctionId(p));
 			schemas[btop]= getVarConstant(mb, getArg(p,1)).val.sval;
 			tables[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
-			btop++;
+			mvc[btop] = getArg(p,0);
+			for( j =0; j< btop ; j++)
+			if( strcmp(schemas[j], schemas[j+1])==0  && strcmp(tables[j],tables[j+1]) ==0)
+				break;
+			mvc[j] = getArg(p,0);
+			done[j]= done[j]== 0 || getFunctionId(p)== registerRef;
+			if( j == btop)
+				btop++;
+		}
+		if( getModuleId(p)== basketRef && (getFunctionId(p) == appendRef || getFunctionId(p) == deleteRef )){
+			OPTDEBUGiot mnstr_printf(cntxt->fdout, "#iot stream table %s.%s\n", getModuleId(p), getFunctionId(p));
+			schemas[btop]= getVarConstant(mb, getArg(p,2)).val.sval;
+			tables[btop]= getVarConstant(mb, getArg(p,3)).val.sval;
+			mvc[btop] = getArg(p,0);
+			for( j =0; j< btop ; j++)
+			if( strcmp(schemas[j], schemas[j+1])==0  && strcmp(tables[j],tables[j+1]) ==0)
+				break;
+
+			mvc[j] = getArg(p,0);
+			if( j == btop)
+				btop++;
 		}
 	}
 	if( btop == MAXBSKT || btop == 0)
@@ -87,10 +108,22 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		return 0;
 
 	pushInstruction(mb, old[0]);
+	// register all baskets used
+	for( j=0; j<btop; j++)
+	if( done[j]==0) {
+		p= newStmt(mb,basketRef,registerRef);
+		p= pushStr(mb,p, schemas[j]);
+		p= pushStr(mb,p, tables[j]);
+	}
+	p= newStmt(mb, sqlRef, transactionRef);
 	for (i = 1; i < limit; i++)
 		if (old[i]) {
 			p = old[i];
 
+			if(getModuleId(p) == sqlRef && getFunctionId(p)== transactionRef){
+				freeInstruction(p);
+				continue;
+			}
 			if (getModuleId(p) == sqlRef && getFunctionId(p) == tidRef ){
 				isstream(getVarConstant(mb,getArg(p,2)).val.sval, getVarConstant(mb,getArg(p,3)).val.sval );
 				if( fnd){
@@ -106,11 +139,24 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			}
 
 			if (getModuleId(p) == sqlRef && getFunctionId(p) == affectedRowsRef ){
+				for(j = 0; j < btop; j++){
+					r =  newStmt(mb, basketRef, commitRef);
+					if (alias[mvc[j]] > 0)
+						r =  pushArgument(mb,r, alias[mvc[j]]);
+					else
+						r =  pushArgument(mb,r, mvc[j]);
+					r =  pushStr(mb,r, schemas[j]);
+					r =  pushStr(mb,r, tables[j]);
+				}
 				freeInstruction(p);
 				continue;
 			}
 
-			if (p->token == ENDsymbol && btop > 0) {
+			if( getModuleId(p)== sqlRef && getFunctionId(p) ==commitRef)
+				commit++;
+			if (p->token == ENDsymbol && btop > 0 && commit == 0) {
+				commit++;
+				(void) newStmt(mb, sqlRef, commitRef);
 				/* catch any exception left behind */
 				r = newAssignment(mb);
 				j = getArg(r, 0) = newVariable(mb, GDKstrdup("SQLexception"), TYPE_str);

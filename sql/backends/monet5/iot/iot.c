@@ -190,8 +190,6 @@ str
 BSKTerror(void *ret, str *sch, str *fcn, str *msg)
 {
 	(void) ret;
-	(void) sch;
-	(void) fcn;
-	(void) msg;
+	_DEBUG_IOT_ mnstr_printf(IOTout,"#IOTerror: %s.%s:%s\n",*sch, *fcn,*msg);
 	return MAL_SUCCEED;
 }

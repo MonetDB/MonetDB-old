@@ -25,7 +25,7 @@
 
 #define _DEBUG_PETRINET_ if(1)
 
-#define PNout GDKout
+#define PNout mal_clients[0].fdout
 /*#define  _BASKET_SIZE_*/
 
 #ifdef WIN32

@@ -36,7 +36,7 @@
 //#define _DEBUG_BASKET_ if(0)
 #define _DEBUG_BASKET_ 
 
-str statusname[3] = { "<unknown>", "running", "paused" };
+str statusname[4] = { "<unknown>", "running", "paused", "locked" };
 
 BasketRec *baskets;   /* the global iot catalog */
 static int bsktTop = 0, bsktLimit = 0;
@@ -73,7 +73,6 @@ BSKTclean(int idx)
 	BBPreclaim(baskets[idx].errors);
 	baskets[idx].errors = NULL;
 	baskets[idx].count = 0;
-	MT_lock_destroy(&baskets[idx].lock);
 }
 
 // locate the basket in the catalog
@@ -101,21 +100,23 @@ BSKTnewbasket(sql_schema *s, sql_table *t)
 	// Don't introduce the same basket twice
 	if( BSKTlocate(s->base.name, t->base.name) > 0)
 		return MAL_SUCCEED;
-	//MT_lock_set(&iotLock);
+	MT_lock_set(&iotLock);
 	idx = BSKTnewEntry();
-	MT_lock_init(&baskets[idx].lock,"newbasket");
 
 	baskets[idx].schema_name = GDKstrdup(s->base.name);
 	baskets[idx].table_name = GDKstrdup(t->base.name);
 	baskets[idx].seen = * timestamp_nil;
 
+	baskets[idx].status = BSKTPAUSED;
 	baskets[idx].count = 0;
 	for (o = t->columns.set->h; o; o = o->next){
         sql_column *col = o->data;
         int tpe = col->type.type->localtype;
 
-        if ( !(tpe < TYPE_str || tpe == TYPE_date || tpe == TYPE_daytime || tpe == TYPE_timestamp) )
+        if ( !(tpe < TYPE_str || tpe == TYPE_date || tpe == TYPE_daytime || tpe == TYPE_timestamp) ){
+			MT_lock_unset(&iotLock);
 			throw(MAL,"baskets.register","Unsupported type %d",tpe);
+		}
 		baskets[idx].count++;
 	}
 	// collect the column names
@@ -136,7 +137,7 @@ BSKTnewbasket(sql_schema *s, sql_table *t)
 
 	baskets[idx].schema = s;
 	baskets[idx].table = t;
-	//MT_lock_unset(&iotLock);
+	MT_lock_unset(&iotLock);
 	return MAL_SUCCEED;
 }
 
@@ -194,16 +195,17 @@ BSKTactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		/* check for registration */
 		idx = BSKTlocate(sch, tbl);
 		if( idx == 0)
-			throw(SQL,"basket.activate","Stream table %s.%s not accessible\n",sch,tbl);
-		MT_lock_set(&baskets[idx].lock);
-		baskets[idx].status = BSKTRUNNING;
-		MT_lock_unset(&baskets[idx].lock);
-	} else {
-		for( idx =1; idx <bsktTop;  idx++){
-			MT_lock_set(&baskets[idx].lock);
+			throw(SQL,"basket.activate","Stream table %s.%s not accessible to activate\n",sch,tbl);
+		if( baskets[idx].status == BSKTPAUSED){
+			MT_lock_set(&iotLock);
 			baskets[idx].status = BSKTRUNNING;
-			MT_lock_unset(&baskets[idx].lock);
+			MT_lock_unset(&iotLock);
 		}
+	} else {
+		MT_lock_set(&iotLock);
+		for( idx =1; idx <bsktTop;  idx++)
+			baskets[idx].status = BSKTRUNNING;
+		MT_lock_unset(&iotLock);
 	}
 	return MAL_SUCCEED;
 }
@@ -223,16 +225,17 @@ BSKTdeactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		/* check for registration */
 		idx = BSKTlocate(sch, tbl);
 		if( idx == 0)
-			throw(SQL,"basket.activate","Stream table %s.%s not accessible\n",sch,tbl);
-		MT_lock_set(&baskets[idx].lock);
-		baskets[idx].status = BSKTPAUSED;
-		MT_lock_unset(&baskets[idx].lock);
-	} else {
-		for( idx =1; idx <bsktTop;  idx++){
-			MT_lock_set(&baskets[idx].lock);
+			throw(SQL,"basket.activate","Stream table %s.%s not accessible to deactivate\n",sch,tbl);
+		if( baskets[idx].status == BSKTRUNNING){
+			MT_lock_set(&iotLock);
 			baskets[idx].status = BSKTPAUSED;
-			MT_lock_unset(&baskets[idx].lock);
+			MT_lock_unset(&iotLock);
 		}
+	} else {
+		MT_lock_set(&iotLock);
+		for( idx =1; idx <bsktTop;  idx++)
+			baskets[idx].status = BSKTPAUSED;
+		MT_lock_unset(&iotLock);
 	}
 	return MAL_SUCCEED;
 }
@@ -279,45 +282,6 @@ BSKTbind(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	throw(SQL,"iot.bind","Stream table column '%s.%s.%s' not found",sch,tbl,col);
 }
 
-/*
- * The locks are designated towards the baskets.
- * If you can not grab the lock then we have to wait.
- */
-str BSKTlock(void *ret, str *sch, str *tbl, int *delay)
-{
-	int bskt;
-
-	bskt = BSKTlocate(*sch, *tbl);
-	if (bskt <= 0)
-		throw(SQL, "basket.lock", "Could not find the basket %s.%s",*sch,*tbl);
-	_DEBUG_BASKET_ mnstr_printf(BSKTout, "lock group %s.%s\n", *sch, *tbl);
-	MT_lock_set(&baskets[bskt].lock);
-	_DEBUG_BASKET_ mnstr_printf(BSKTout, "got  group locked %s.%s\n", *sch, *tbl);
-	(void) delay;  /* control spinlock */
-	(void) ret;
-	return MAL_SUCCEED;
-}
-
-
-str BSKTlock2(void *ret, str *sch, str *tbl)
-{
-	int delay = 0;
-	return BSKTlock(ret, sch, tbl, &delay);
-}
-
-str BSKTunlock(void *ret, str *sch,str *tbl)
-{
-	int bskt;
-
-	(void) ret;
-	bskt = BSKTlocate(*sch,*tbl);
-	if (bskt == 0)
-		throw(SQL, "basket.lock", "Could not find the basket %s.%s",*sch,*tbl);
-	MT_lock_unset(&baskets[bskt].lock);
-	return MAL_SUCCEED;
-}
-
-
 str
 BSKTdrop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 {
@@ -330,7 +294,9 @@ BSKTdrop(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	bskt = BSKTlocate(sch,tbl);
 	if (bskt == 0)
 		throw(SQL, "basket.drop", "Could not find the basket %s.%s",sch,tbl);
+	MT_lock_set(&iotLock);
 	BSKTclean(bskt);
+	MT_lock_unset(&iotLock);
 	return MAL_SUCCEED;
 }
 
@@ -339,9 +305,11 @@ BSKTreset(void *ret)
 {
 	int i;
 	(void) ret;
+	MT_lock_set(&iotLock);
 	for (i = 1; i < bsktLimit; i++)
 		if (baskets[i].table_name)
 			BSKTclean(i);
+	MT_lock_unset(&iotLock);
 	return MAL_SUCCEED;
 }
 
@@ -374,7 +342,7 @@ BSKTpush(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	}
 	
 	// types are already checked during stream initialization
-	MT_lock_set(&baskets[bskt].lock);
+	MT_lock_set(&iotLock);
 	for( n = baskets[bskt].table->columns.set->h; n; n= n->next){
 		sql_column *c = n->data;
 		snprintf(buf,BUFSIZ, "%s%c%s",dir,DIR_SEP, c->base.name);
@@ -389,12 +357,12 @@ BSKTpush(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				first = 0;
 			} else
 				if( cnt != BATcount(b)){
-					MT_lock_unset(&baskets[bskt].lock);
+					MT_lock_unset(&iotLock);
 					throw(MAL,"iot.push","Non-aligned binary input files");
 				}
 		}
 	}
-	MT_lock_unset(&baskets[bskt].lock);
+	MT_lock_unset(&iotLock);
     (void) mb;
     return MAL_SUCCEED;
 }
@@ -478,7 +446,7 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     t = mvc_bind_table(m, s, tname);
 	if ( t)
 		c= mvc_bind_column(m, t, cname);
-	else throw(SQL,"basket.append","Stream table %s.%s not accessible\n",sname,tname);
+	else throw(SQL,"basket.append","Stream table %s.%s not accessible for append\n",sname,tname);
 	if( c) {
 		bn = store_funcs.bind_col(m->session->tr,c,RDONLY);
 		if( bn){
@@ -487,10 +455,63 @@ BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			else BUNappend(bn, ins, TRUE);
 			BBPunfix(bn->batCacheid);
 		}
-	} else throw(SQL,"basket.append","Stream column %s.%s.%s not accessible\n",sname,tname,cname);
+	} else throw(SQL,"basket.append","Stream column %s.%s.%s not accessible for append\n",sname,tname,cname);
 	if (tpe == TYPE_bat) {
 		BBPunfix(((BAT *) ins)->batCacheid);
 	}
+	return MAL_SUCCEED;
+}
+
+str
+BSKTdelete(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    int *res = getArgReference_int(stk, pci, 0);
+    mvc *m = NULL;
+    str msg;
+    str sname = *getArgReference_str(stk, pci, 2);
+    str tname = *getArgReference_str(stk, pci, 3);
+    //bat del = getArgReference(stk, pci, 4);
+    sql_schema *s;
+    sql_table *t;
+
+    *res = 0;
+    if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
+        return msg;
+    if ((msg = checkSQLContext(cntxt)) != NULL)
+        return msg;
+
+    s = mvc_bind_schema(m, sname);
+    if (s == NULL)
+        throw(SQL, "basket.delete", "Schema missing");
+    t = mvc_bind_table(m, s, tname);
+	if (t == NULL)
+		 throw(SQL,"basket.delete","Stream table %s.%s not accessible for append\n",sname,tname);
+	return MAL_SUCCEED;
+}
+
+str
+BSKTclear(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
+{
+    wrd *res = getArgReference_wrd(stk, pci, 0);
+    mvc *m = NULL;
+    str msg;
+    str sname = *getArgReference_str(stk, pci, 2);
+    str tname = *getArgReference_str(stk, pci, 3);
+    sql_schema *s;
+    sql_table *t;
+
+    *res = 0;
+    if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
+        return msg;
+    if ((msg = checkSQLContext(cntxt)) != NULL)
+        return msg;
+    s = mvc_bind_schema(m, sname);
+    if (s == NULL)
+        throw(SQL, "basket.clear", "Schema missing");
+    t = mvc_bind_table(m, s, tname);
+	if ( t == NULL)
+		throw(SQL,"basket.clear","Stream table %s.%s not accessible for append\n",sname,tname);
+	// do actual work
 	return MAL_SUCCEED;
 }
 
@@ -505,11 +526,11 @@ BSKTcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 
 	idx = BSKTlocate(sname,tname);
 	if( idx == 0)
-		throw(SQL,"basket.commit","Stream column %s.%s not accessible\n",sname,tname);
+		throw(SQL,"basket.commit","Stream table %s.%s not accessible for commit\n",sname,tname);
 
-	MT_lock_set(&baskets[idx].lock);
+	MT_lock_set(&iotLock);
 	baskets[idx].count++;
-	MT_lock_unset(&baskets[idx].lock);
+	MT_lock_unset(&iotLock);
 	return MAL_SUCCEED;
 }
 

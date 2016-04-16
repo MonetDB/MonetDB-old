@@ -225,6 +225,7 @@ str unpinRef;
 str updateRef;
 str subselectRef;
 str timestampRef;
+str transactionRef;
 str thetasubselectRef;
 str likesubselectRef;
 str ilikesubselectRef;
@@ -433,6 +434,7 @@ void optimizerInit(void)
 	subsortRef = putName("subsort",7);
 	takeRef= putName("take",5);
 	timestampRef = putName("timestamp", 9);
+	transactionRef = putName("transaction", 11);
 	not_uniqueRef= putName("not_unique",10);
 	sampleRef= putName("sample",6);
 	subuniqueRef= putName("subunique",9);

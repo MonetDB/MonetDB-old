@@ -34,40 +34,43 @@ static str
 SQLgetSpace(mvc *m, MalBlkPtr mb)
 {
 	sql_trans *tr = m->session->tr;
-	lng space = 0, i,j; 
-	InstrPtr q;
-	int last = 2;
-	int mvcpc= 0;
+	lng space = 0, i; 
 	str pipe= "default_pipe";
 
 	for (i = 0; i < mb->stop; i++) {
 		InstrPtr p = mb->stmt[i];
 		char *f = getFunctionId(p);
 
-		if (getModuleId(p) == sqlRef && f == mvcRef)
-			mvcpc = i;
-		if (getModuleId(p) == sqlRef && (f == appendRef || f == updateRef || f == deleteRef)) {
-			char *sname = getVarConstant(mb, getArg(p, 2 )).val.sval;
-			char *tname = getVarConstant(mb, getArg(p, 3 )).val.sval;
-			char *cname = getVarConstant(mb, getArg(p, 4 )).val.sval;
+		if (getModuleId(p) == sqlRef && strcmp(f,"clear_table")==0){
+			char *sname = getVarConstant(mb, getArg(p, 1 )).val.sval;
+			char *tname = getVarConstant(mb, getArg(p, 2 )).val.sval;
 			sql_schema *s = mvc_bind_schema(m, sname);
 			sql_table *t;
-			sql_column *c;
 
-			if( cname == 0)
-				goto goon;
 			if( ! s ) continue;
 			t = mvc_bind_table(m, s, tname);
-			if( ! t ) continue;
-			c = mvc_bind_column(m, t, cname);
-			if (c && isStream(c->t->type)) {
+			if (t && isStream(t->type)) {
 				setModuleId(p, basketRef);
 				pipe= "iot_pipe";
 				continue;
 			}
 		}
 
-goon:
+		if (getModuleId(p) == sqlRef && (f == appendRef || f == updateRef || f == deleteRef)) {
+			char *sname = getVarConstant(mb, getArg(p, 2 )).val.sval;
+			char *tname = getVarConstant(mb, getArg(p, 3 )).val.sval;
+			sql_schema *s = mvc_bind_schema(m, sname);
+			sql_table *t;
+
+			if( ! s ) continue;
+			t = mvc_bind_table(m, s, tname);
+			if (t && isStream(t->type)) {
+				setModuleId(p, basketRef);
+				pipe= "iot_pipe";
+				continue;
+			}
+		}
+
 		if (getModuleId(p) == sqlRef && (f == bindRef || f == bindidxRef)) {
 			int upd = (p->argc == 7 || p->argc == 9), mode = 0;
 			char *sname = getVarConstant(mb, getArg(p, 2 + upd)).val.sval;
@@ -106,24 +109,7 @@ goon:
 					setModuleId(p, basketRef);
 					p->argc = 5;
 					delArgument(p,1);
-					// stream information does not have to inlined.
-					for(j= 1; j < last; j++){
-						p = getInstrPtr(mb,j);
-						if(p ==0)
-							break;
-						if(p &&  getModuleId(p) == basketRef && getFunctionId(p) == registerRef &&
-							strcmp(sname, getVarConstant(mb,getArg(p,1)).val.sval) == 0 &&
-							strcmp(tname, getVarConstant(mb,getArg(p,2)).val.sval) == 0 )
-								break;	// already registered
-					}
-					if( j == last || p == 0){
-						q= newStmt(mb,basketRef,registerRef);
-						q= pushStr(mb,q, sname);
-						q= pushStr(mb,q, tname);
-						moveInstruction(mb, mb->stop - 1, mvcpc+1);
-						pipe= "iot_pipe";
-						last ++;
-					}
+					pipe= "iot_pipe";
 				}
 			}
 		}

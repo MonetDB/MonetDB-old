@@ -177,10 +177,13 @@ PNstatus( Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci, int newstatus
 		modname= *getArgReference_str(stk,pci,1);
 		fcnname= *getArgReference_str(stk,pci,2);
 		i = PNlocate(modname,fcnname);
-		if ( i == pnettop)
+		if ( i == pnettop){
+			MT_lock_unset(&iotLock);
 			throw(SQL,"iot.pause","Continuous query not found");
+		}
 		pnet[i].status = newstatus;
 		_DEBUG_PETRINET_ mnstr_printf(PNout, "#scheduler status %s.%s %s\n", modname,fcnname, statusname[newstatus]);
+		MT_lock_unset(&iotLock);
 		return MAL_SUCCEED;
 	}
 	for ( i = 0; i < pnettop; i++){
@@ -246,7 +249,7 @@ str PNdump(void *ret)
 str
 PNanalysis(Client cntxt, MalBlkPtr mb, int pn)
 {
-	int i, j, idx, k=0,l=0;
+	int i, j, idx, k=0;
 	InstrPtr p;
 	str msg= MAL_SUCCEED, sch,tbl;
 	(void) pn;
@@ -258,19 +261,13 @@ PNanalysis(Client cntxt, MalBlkPtr mb, int pn)
 			tbl = getVarConstant(mb, getArg(p,2)).val.sval;
 			msg =BSKTregister(cntxt,mb,0,p);
 			idx =  BSKTlocate(sch, tbl);
-			pnet[pn].places[k++]= idx;
-			p->token= REMsymbol; // no need to execute it anymore
-		}
-		if (getModuleId(p) == basketRef && getFunctionId(p) == appendRef){
-			sch = getVarConstant(mb, getArg(p,1)).val.sval;
-			tbl = getVarConstant(mb, getArg(p,2)).val.sval;
-			msg =BSKTregister(cntxt,mb,0,p);
-			idx =  BSKTlocate(sch, tbl);
-			for(j=0; j< pnet[pn].targets[j]; j++)
+			// make sure we have only one reference
+			for(j=0; j< k; j++)
 				if( pnet[pn].targets[j] == idx)
 					break;
-			if(pnet[pn].targets[j]== 0)
-				pnet[pn].targets[l++]= idx;
+			if ( j == k)
+				pnet[pn].places[k++]= idx;
+			p->token= REMsymbol; // no need to execute it anymore
 		}
 	}
 	return msg;
@@ -291,21 +288,29 @@ static void
 PNexecute( void *n)
 {
 	PNnode *node= (PNnode *) n;
-	int j, idx;
+	int i,j, idx;
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s\n",node->modname, node->fcnname);
 	// first grab exclusive access to all streams.
+	MT_lock_set(&iotLock);
 	for (j = 0; j < MAXBSKT &&  node->enabled && node->places[j]; j++) {
 		idx = node->places[j];
-		MT_lock_set(&baskets[idx].lock);
+		baskets[idx].status= BSKTLOCKED;
 	}
+	MT_lock_unset(&iotLock);
+
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s all locked\n",node->modname, node->fcnname);
+
 	runMALsequence(mal_clients, node->mb, 1, 0, node->stk, 0, 0);
 	node->status = PNPAUSED;
+
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s transition done\n",node->modname, node->fcnname);
-	for (j = MAXBSKT; j > 0 &&  node->enabled && node->places[j]; j--) {
-		idx = node->places[j];
-		MT_lock_unset(&baskets[idx].lock);
+
+	MT_lock_set(&iotLock);
+	for ( i=0; i< j &&  node->enabled && node->places[i]; i++) {
+		idx = node->places[i];
+		baskets[idx].status = BSKTRUNNING;
 	}
+	MT_lock_unset(&iotLock);
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet.execute %s.%s all unlocked\n",node->modname, node->fcnname);
 }
 
@@ -370,7 +375,7 @@ PNcontroller(void *dummy)
 				/* a basket can enable at most one transition */
 				for (j = 0; j < MAXBSKT &&  pnet[i].enabled && pnet[i].places[j]; j++) 
 					if( claimed[pnet[i].places[j]]){
-						_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#petrinet: %s.%s enabled twice,disgarded \n", pnet[i].modname, pnet[i].fcnname);
+						_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet: %s.%s enabled twice,disgarded \n", pnet[i].modname, pnet[i].fcnname);
 						pnet[i].enabled = 0;
 						break;
 					} 
@@ -382,7 +387,7 @@ PNcontroller(void *dummy)
 
 				/*save the ids of all continuous queries that can be executed */
 				enabled[k++] = i;
-				_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#petrinet: %s.%s enabled \n", pnet[i].modname, pnet[i].fcnname);
+				_DEBUG_PETRINET_ mnstr_printf(PNout, "#petrinet: %s.%s enabled \n", pnet[i].modname, pnet[i].fcnname);
 			} 
 		}
 		analysis = GDKusec() - now;
@@ -392,13 +397,13 @@ PNcontroller(void *dummy)
 		for (m = 0; m < k; m++) {
 			i = enabled[m];
 			if (pnet[i].enabled ) {
-				_DEBUG_PETRINET_ mnstr_printf(cntxt->fdout, "#Run transition %s \n", pnet[i].fcnname);
+				_DEBUG_PETRINET_ mnstr_printf(PNout, "#Run transition %s \n", pnet[i].fcnname);
 
 				(void) MTIMEcurrent_timestamp(&baskets[idx].seen);
 				t = GDKusec();
 				pnet[i].cycles++;
 				// Fork MAL execution thread 
-				if (MT_create_thread(&pnet[i].tid, PNexecute, (void*) &pnet[i], MT_THR_JOINABLE) < 0){
+				if (MT_create_thread(&pnet[i].tid, PNexecute, (void*) (pnet+i), MT_THR_JOINABLE) < 0){
 					msg= createException(MAL,"petrinet.controller","Can not fork the thread");
 				}
 				pnet[i].time += GDKusec() - t + analysis;   /* keep around in microseconds */

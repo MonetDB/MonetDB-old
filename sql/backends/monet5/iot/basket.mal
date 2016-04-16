@@ -33,25 +33,17 @@ pattern deactivate(sch:str,tbl:str):void
 address BSKTdeactivate
 comment "Deactivate the stream";
 
-command lock(sch:str,tbl:str,delay:int):void
-address BSKTlock
-comment "Lock a basket group and spinlock upon need";
-
-command lock(sch:str,tbl:str):void
-address BSKTlock2
-comment "Lock a basket group ";
-
-command unlock(sch:str,tbl:str):void
-address BSKTunlock
-comment "Unlock the basket";
-
 pattern append(mvc:int, sch:str, tbl:str, col:str, val:any):int
 address BSKTappend
 comment "Append new tuples to a basket";
 
-pattern commit(mvc:int, sch:str, tbl:str):int
+pattern delete(mvc:int, sch:str, tbl:str, val:bat[:oid]):int
+address BSKTdelete
+comment "Append new tuples to a basket";
+
+pattern commit(mvc:int, sch:str, tbl:str):void
 address BSKTcommit
-comment "Make the basket availablt for the scheduler";
+comment "Make the basket available for the scheduler";
 
 pattern update(sch:str,tbl:str, cols:any...)
 address BSKTupdate
@@ -60,6 +52,10 @@ comment "Dump the new tuples into the basket";
 pattern update(sch:str,tbl:str, cols:bat[:any]...)
 address BSKTupdate
 comment "Dump the new tuples into the basket";
+
+command clear_table(sch:str,tbl:str):wrd
+address BSKTclear
+comment "Remove the basket";
 
 command drop(sch:str,tbl:str):void
 address BSKTdrop
