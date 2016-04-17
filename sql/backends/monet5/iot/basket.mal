@@ -41,7 +41,7 @@ pattern delete(mvc:int, sch:str, tbl:str, val:bat[:oid]):int
 address BSKTdelete
 comment "Append new tuples to a basket";
 
-pattern commit(mvc:int, sch:str, tbl:str):void
+pattern commit(mvc:any, sch:str, tbl:str):void
 address BSKTcommit
 comment "Make the basket available for the scheduler";
 

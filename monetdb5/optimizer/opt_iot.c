@@ -53,7 +53,7 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	int  mvc[MAXBSKT];
 	int done[MAXBSKT]= {0};
 	int btop=0;
-	int commit =0;
+	int noerror=0;
 
 	(void) pci;
 
@@ -115,7 +115,6 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 		p= pushStr(mb,p, schemas[j]);
 		p= pushStr(mb,p, tables[j]);
 	}
-	p= newStmt(mb, sqlRef, transactionRef);
 	for (i = 1; i < limit; i++)
 		if (old[i]) {
 			p = old[i];
@@ -152,11 +151,9 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 				continue;
 			}
 
-			if( getModuleId(p)== sqlRef && getFunctionId(p) ==commitRef)
-				commit++;
-			if (p->token == ENDsymbol && btop > 0 && commit == 0) {
-				commit++;
-				(void) newStmt(mb, sqlRef, commitRef);
+			if( getModuleId(p)== iotRef && getFunctionId(p)==errorRef)
+				noerror++;
+			if (p->token == ENDsymbol && btop > 0 && noerror==0) {
 				/* catch any exception left behind */
 				r = newAssignment(mb);
 				j = getArg(r, 0) = newVariable(mb, GDKstrdup("SQLexception"), TYPE_str);

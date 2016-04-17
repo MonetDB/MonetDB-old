@@ -132,8 +132,11 @@ str
 PNregisterInternal(Client cntxt, MalBlkPtr mb)
 {
 	int i, init= pnettop == 0;
-	InstrPtr sig;
+	InstrPtr sig,q;
 	str msg = MAL_SUCCEED;
+	MalBlkPtr nmb;
+	Symbol s;
+	char buf[IDLENGTH];
 
 	_DEBUG_PETRINET_ mnstr_printf(PNout, "#registerInternal status %d\n", init);
 	if (pnettop == MAXPN) 
@@ -146,8 +149,20 @@ PNregisterInternal(Client cntxt, MalBlkPtr mb)
 
 	pnet[pnettop].modname = GDKstrdup(getModuleId(sig));
 	pnet[pnettop].fcnname = GDKstrdup(getFunctionId(sig));
-	pnet[pnettop].mb = mb;
-	pnet[pnettop].stk = prepareMALstack(mb, mb->vsize);
+	snprintf(buf,IDLENGTH,"petri_%d",pnettop);
+	s = newFunction("iot", buf, FUNCTIONsymbol);
+	nmb = s->def;
+	setArgType(nmb, nmb->stmt[0],0, TYPE_void);
+    (void) newStmt(nmb, sqlRef, transactionRef);
+	(void) newStmt(nmb,pnet[pnettop].modname, pnet[pnettop].fcnname);
+    q= newStmt(nmb, sqlRef, commitRef);
+	setArgType(nmb,q, 0, TYPE_void);
+	pushEndInstruction(nmb);
+	chkProgram(cntxt->fdout, cntxt->nspace, nmb);
+	_DEBUG_PETRINET_ printFunction(cntxt->fdout, nmb, 0, LIST_MAL_ALL);
+
+	pnet[pnettop].mb = nmb;
+	pnet[pnettop].stk = prepareMALstack(nmb, nmb->vsize);
 
 	pnet[pnettop].status = PNPAUSED;
 	pnet[pnettop].cycles = 0;
