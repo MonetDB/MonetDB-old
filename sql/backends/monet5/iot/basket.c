@@ -495,8 +495,8 @@ BSKTclear(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     wrd *res = getArgReference_wrd(stk, pci, 0);
     mvc *m = NULL;
     str msg;
-    str sname = *getArgReference_str(stk, pci, 2);
-    str tname = *getArgReference_str(stk, pci, 3);
+    str sname = *getArgReference_str(stk, pci, 1);
+    str tname = *getArgReference_str(stk, pci, 2);
     sql_schema *s;
     sql_table *t;
 
