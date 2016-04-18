@@ -64,6 +64,25 @@ createDim(lng);
 createDim(dbl);
 createDim(flt);
 
+#define createDimGroup(TPE) \
+gdk_dimension_group* createDimensionGroup_##TPE(TPE min, TPE max, TPE step) { \
+	gdk_dimension_group *dim = (gdk_dimension_group*)GDKmalloc(sizeof(gdk_dimension_group)); \
+	dim->min = 0; \
+    dim->max = floor((max - min ) / step); \
+	dim->step = 1; \
+	dim->elsNum = dim->max +1; \
+	return dim; \
+}
+
+createDimGroup(bte);
+createDimGroup(sht);
+createDimGroup(int);
+createDimGroup(wrd);
+createDimGroup(oid);
+createDimGroup(lng);
+createDimGroup(dbl);
+createDimGroup(flt);
+
 #define createGCD(TPE) \
 TPE gcd_##TPE(TPE val1, TPE val2) { \
 	TPE res; \
@@ -96,6 +115,17 @@ gdk_array* arrayNew(unsigned short dimsNum) {
 	return array;
 }
 
+gdk_array_groups* groupsNew(unsigned short dimsNum) {
+	gdk_array_groups *groups = (gdk_array_groups*)GDKmalloc(sizeof(gdk_array_groups));
+	if(!groups)
+		return NULL;
+	groups->dimsNum = dimsNum;
+	groups->groups = (gdk_dimension_group**)GDKmalloc(sizeof(gdk_dimension_group*)*dimsNum);
+	if(!groups->groups)
+		return NULL;
+	return groups;
+}
+
 gdk_array* arrayCopy(gdk_array *array) {
 	unsigned short i;
 	gdk_array *array_copy = arrayNew(array->dimsNum);
@@ -108,6 +138,19 @@ gdk_array* arrayCopy(gdk_array *array) {
 	return array_copy;
 }
 
+gdk_array_groups* array2groups(gdk_array* array) {
+	unsigned short i;
+	gdk_array_groups *groups = groupsNew(array->dimsNum);
+	if(!groups)
+		return NULL;
+	for(i=0; i<groups->dimsNum; i++) {
+		groups->groups[i] = createDimensionGroup_oid(array->dims[i]->min, array->dims[i]->max, array->dims[i]->step);
+		
+	}
+
+	return groups;
+}
+
 gdk_return arrayDelete(gdk_array *array) {
 	unsigned short i=0;
 	for(i=0; i<array->dimsNum; i++) {
@@ -116,6 +159,17 @@ gdk_return arrayDelete(gdk_array *array) {
 		GDKfree(array->dims[i]);
 	}
 	GDKfree(array->dims);
+	GDKfree(array);
+
+	return GDK_SUCCEED;
+}
+
+gdk_return groupsDelete(gdk_array_groups *array) {
+	unsigned short i=0;
+	for(i=0; i<array->dimsNum; i++) {
+		GDKfree(array->groups[i]);
+	}
+	GDKfree(array->groups);
 	GDKfree(array);
 
 	return GDK_SUCCEED;

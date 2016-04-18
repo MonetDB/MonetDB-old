@@ -27,6 +27,19 @@ typedef struct arrayStruct {
 	gdk_dimension **dims; //an array having the dimensions. The dimNum of each dimension is implicit, its position in the aray
 } gdk_array;
 
+/* a group over a dimension is a range of cells around this dimensions, e.g. [-1:1:2] */
+typedef struct dimensionGroupStruct {
+	int min;
+	int max;
+	int step;
+	oid elsNum;
+} gdk_dimension_group;
+
+typedef struct arrayGroupsStruct {
+	unsigned short dimsNum;
+	gdk_dimension_group **groups;
+} gdk_array_groups;
+
 typedef enum errors {
 	general_error,
     new_bat,
@@ -45,6 +58,15 @@ gdk_export gdk_dimension* createDimension_lng(lng min, lng max, lng step);
 gdk_export gdk_dimension* createDimension_dbl(dbl min, dbl max, dbl step);
 gdk_export gdk_dimension* createDimension_flt(flt min, flt max, flt step);
 
+gdk_export gdk_dimension_group* createDimensionGroup_bte(bte min, bte max, bte step);
+gdk_export gdk_dimension_group* createDimensionGroup_sht(sht min, sht max, sht step);
+gdk_export gdk_dimension_group* createDimensionGroup_int(int min, int max, int step);
+gdk_export gdk_dimension_group* createDimensionGroup_wrd(wrd min, wrd max, wrd step);
+gdk_export gdk_dimension_group* createDimensionGroup_oid(oid min, oid max, oid step);
+gdk_export gdk_dimension_group* createDimensionGroup_lng(lng min, lng max, lng step);
+gdk_export gdk_dimension_group* createDimensionGroup_dbl(dbl min, dbl max, dbl step);
+gdk_export gdk_dimension_group* createDimensionGroup_flt(flt min, flt max, flt step);
+
 gdk_export gdk_analytic_dimension* createAnalyticDimension_bte(unsigned short dimNum, bte min, bte max, bte step);
 gdk_export gdk_analytic_dimension* createAnalyticDimension_sht(unsigned short dimNum, sht min, sht max, sht step);
 gdk_export gdk_analytic_dimension* createAnalyticDimension_int(unsigned short dimNum, int min, int max, int step);
@@ -58,6 +80,10 @@ gdk_export gdk_array* arrayNew(unsigned short dimsNum);
 gdk_export gdk_return arrayDelete(gdk_array *array);
 gdk_export gdk_return analyticDimensionDelete(gdk_analytic_dimension *dim);
 gdk_export gdk_array* arrayCopy(gdk_array* array);
+
+gdk_export gdk_array_groups* groupsNew(unsigned short dimsNum);
+gdk_export gdk_return groupsDelete(gdk_array_groups *groups);
+gdk_export gdk_array_groups* array2groups(gdk_array* array);
 
 gdk_export bte gcd_bte(bte val1, bte val2);
 gdk_export sht gcd_sht(sht val1, sht val2);

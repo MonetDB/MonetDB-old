@@ -124,6 +124,16 @@ address ALGouterjoin;
 command aggr.count(array:ptr) :wrd 
 address ALGarrayCount;
 
+command aggr.subsum(X_7:bat[:oid,:any],X_8:ptr,Y_8:ptr) :bat[:oid,:hge]
+address ARRsubsum;
+
+module group;
+command group.subgroup(dim:ptr, array:ptr, l:int, h:int) (:ptr,:ptr)
+address ARRgroup;
+
+command group.projectGroups(groups:ptr, dim:ptr, dims:ptr ) :bat[:oid,:any]
+address ARRprojectGroups;
+
 
 command algebra.qqr_decomposition(vals:bat[:oid,:any], dims:ptr) (:bat[:oid,:dbl], :ptr)
 address ALGnonDimensionQRDecomposition

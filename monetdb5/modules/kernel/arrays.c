@@ -1276,6 +1276,42 @@ str ALGsubrangejoin1(ptr *dimsResL, ptr *dimsResR, const ptr *dimL, const ptr *d
 	return ALGsubrangejoin2(dimsResL, dimsResR, dimL, dimsL, dimR1, dimR2, dimsR, NULL, NULL, li, hi, estimate);
 }
 
+
+str ARRgroup(ptr *groupsRes, ptr *arrayRes, const ptr *dim, const ptr *dims, const int *l, const int *h) {
+
+	gdk_analytic_dimension *dimension = (gdk_analytic_dimension*)*dim;
+	gdk_array *array = (gdk_array*)*dims;
+
+	gdk_array_groups *groups = array2groups(array);
+
+	/*update the limits for the current dimension */
+	groups->groups[dimension->dimNum]->min = *l;
+	groups->groups[dimension->dimNum]->max = *h;
+
+	*groupsRes = groups;
+	*arrayRes = arrayCopy(array);
+
+	return MAL_SUCCEED;
+}
+
+str ARRprojectGroups(bat *res, const ptr *groups_in, const ptr *dim, const ptr *dims) {
+	(void)*res;
+	(void)*groups_in;
+	(void)*dim;
+	(void)*dims;
+
+	return MAL_SUCCEED;
+}
+
+str ARRsubsum(bat *res, const bat *vals, const ptr* groups_in, const ptr *array_in) {
+	(void)*res;
+	(void)*vals;
+	(void)*groups_in;
+	(void)*array_in;
+
+	return MAL_SUCCEED;
+}
+
 str ALGnonDimensionQRDecomposition(bat *oidsRes, ptr *dimsRes,  const bat* vals, const ptr *dims)
 {
     gdk_array *array = (gdk_array*)*dims;
@@ -1368,4 +1404,5 @@ str ALGnonDimensionQRDecomposition(bat *oidsRes, ptr *dimsRes,  const bat* vals,
 
     return MAL_SUCCEED;
 }
+
 
