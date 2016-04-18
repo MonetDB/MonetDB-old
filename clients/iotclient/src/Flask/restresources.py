@@ -6,11 +6,11 @@ from flask import request
 from flask_restful import Resource
 from jsonschema import Draft4Validator, FormatChecker
 from tzlocal import get_localzone
-from src.Streams.jsonschemas import CREATE_STREAMS_SCHEMA, DELETE_STREAMS_SCHEMA
-from src.Streams.streamscontext import IOTStreamsException, IOTStreams
+from Streams.jsonschemas import CREATE_STREAMS_SCHEMA, DELETE_STREAMS_SCHEMA
+from Streams.streamscontext import IOTStreamsException, IOTStreams
 
 Stream_context = IOTStreams()
-local_tz = get_localzone()  # for the correction of dates we must add the timezone
+local_tz = get_localzone()  # for the correction of dates we must add the system's timezone
 
 
 class StreamInput(Resource):

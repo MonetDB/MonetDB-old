@@ -29,6 +29,6 @@ def init_logging():
         log_handler = logging.FileHandler(logging_location, mode='a+')
         log_handler.setFormatter(formatter)
         logger.addHandler(log_handler)
-    except Exception as ex:
-        print >> sys.stderr, ex.message
+    except (Exception, OSError) as ex:
+        print >> sys.stderr, ex
         sys.exit(1)

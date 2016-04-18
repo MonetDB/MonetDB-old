@@ -1,14 +1,13 @@
 import os
 from collections import defaultdict
 
-import src.Settings.filesystem
 from datatypes import TimestampType, DataValidationException
 from flushing import TimeBasedFlushing, TupleBasedFlushing
-from src.Settings.mapiconnection import mapi_create_stream, mapi_flush_baskets
-from src.Utilities.filecreator import create_file_if_not_exists, get_hidden_file_name
-from src.Utilities.readwritelock import RWLock
+from Settings.mapiconnection import mapi_create_stream, mapi_flush_baskets
+from Settings.filesystem import get_baskets_base_location
+from Utilities.filecreator import create_file_if_not_exists, get_hidden_file_name
+from Utilities.readwritelock import RWLock
 
-BASKETS_BASE_DIRECTORY = "baskets"
 IMP_TIMESTAMP_COLUMN_NAME = 'implicit_timestamp'
 
 
@@ -36,11 +35,10 @@ class DataCellStream(object):
         self._tuples_in_per_basket = 0  # for efficiency
         self._flush_method = flush_method  # instance of StreamFlushingMethod
         self._columns = columns  # dictionary of name -> data_types
-        self._timestamps_handler = TimestampType(name="implicit_timestamp", type="timestamp")  # implicit timestamp
+        self._timestamps_handler = TimestampType(name=IMP_TIMESTAMP_COLUMN_NAME, type="timestamp")  # implicit timestamp
         self._validation_schema = validation_schema  # json validation schema for the inserts
         self._monitor = RWLock()  # baskets lock to protect files (the server is multi-threaded)
-        self._base_path = os.path.join(src.Settings.filesystem.filesystem_location, BASKETS_BASE_DIRECTORY,
-                                       schema_name, stream_name)
+        self._base_path = os.path.join(get_baskets_base_location(), schema_name, stream_name)
         if not os.path.exists(self._base_path):
             os.makedirs(self._base_path)
             self._baskets_counter = 1
@@ -73,7 +71,8 @@ class DataCellStream(object):
     def get_data_dictionary(self):
         self._monitor.acquire_read()
         dic = {'schema': self._schema_name, 'name': self._stream_name,
-               'tuples_in': self._tuples_in_per_basket, 'flush': self._flush_method.get_dictionary_info(),
+               'tuples_inserted_per_basket': self._tuples_in_per_basket,
+               'flush': self._flush_method.get_dictionary_info(),
                'columns': {key: value.to_json_representation() for key, value in self._columns.iteritems()}}
         self._monitor.release()
         return dic

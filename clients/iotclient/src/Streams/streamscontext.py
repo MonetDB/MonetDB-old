@@ -1,5 +1,5 @@
-from src.Streams.semanticvalidation import *
-from src.Utilities.readwritelock import RWLock
+from semanticvalidation import *
+from Utilities.readwritelock import RWLock
 
 
 class IOTStreamsException(Exception):

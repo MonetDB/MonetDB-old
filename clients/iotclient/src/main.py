@@ -3,8 +3,8 @@ import sys
 import threading
 
 from Settings import filesystem, iotlogger
-from src.Flask.app import start_flask_iot_app, start_flask_admin_app
-from src.Settings.mapiconnection import init_monetdb_connection
+from Flask.app import start_flask_iot_app, start_flask_admin_app
+from Settings.mapiconnection import init_monetdb_connection
 
 
 def main(argv):

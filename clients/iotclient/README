@@ -23,8 +23,7 @@ REST resources available on iot webserver running by default on port 8000:
 
 Currently supports most of MonetDB datatypes. An implicit Timestamp column is added with the tuples arrival date. The flushing of the baskets can be either Tuple or Time based, as specied on the streams' creation.
 
-More details coming soon.
+I will migrate this documentation into pydocs soon :)
 
 
 Maintainer: Pedro Ferreira at CWI, email: P.E.Ferreira@cwi.nl
-

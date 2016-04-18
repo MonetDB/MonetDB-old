@@ -1,8 +1,8 @@
 from jsonschema import Draft4Validator, FormatChecker
 
-from src.Streams.flushing import TupleBasedFlushing, TimeBasedFlushing
-from src.Streams.streams import DataCellStream
-from src.Streams.datatypes import *  # the datatypes.py import must be here in order to the reflection work
+from Streams.flushing import TupleBasedFlushing, TimeBasedFlushing
+from Streams.streams import DataCellStream
+from Streams.datatypes import *  # the datatypes.py import must be here in order to the reflection work
 
 
 class ColumnsValidationException(Exception):

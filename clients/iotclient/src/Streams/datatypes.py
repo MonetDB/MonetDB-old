@@ -3,14 +3,15 @@ import dateutil
 import itertools
 import struct
 import copy
+import math
 
 from abc import ABCMeta, abstractmethod
 from dateutil import parser
-from src.Streams.jsonschemas import UUID_REG
+from jsonschemas import UUID_REG
 
-# TODO later check the byte order https://docs.python.org/2/library/struct.html#byte-order-size-and-alignment
-# TODO Also check the consequences of aligment on packing HUGEINTs!
-# TODO The null constants might change from system to system due to different CPU's
+# Later check the byte order https://docs.python.org/2/library/struct.html#byte-order-size-and-alignment
+# Also check the consequences of aligment on packing HUGEINTs!
+# The null constants might change from system to system due to different CPU's
 ALIGNMENT = '<'  # for now is little-endian for Intel CPU's
 
 NIL_STRING = "\200"
@@ -19,6 +20,7 @@ INT8_MIN = 0x80
 INT16_MIN = 0x8000
 INT32_MIN = 0x80000000
 INT64_MIN = 0x8000000000000000
+INT64_MAX = 0xFFFFFFFFFFFFFFFF
 INT128_MIN = 0x80000000000000000000000000000000
 
 FLOAT_NAN = struct.unpack('f', '\xff\xff\x7f\xff')[0]
@@ -94,10 +96,10 @@ class StreamDataType(object):
         return json_data
 
     @abstractmethod
-    def get_sql_params(self):
+    def get_sql_params(self):  # get other possible parameters such as if nullable, default value, maximum and minimum
         return []
 
-    def create_stream_sql(self):
+    def create_stream_sql(self):  # get column creation statement on SQL
         array = [self._column_name, " "]
         array.extend(self.get_sql_params())
         return ''.join(array)
@@ -112,6 +114,12 @@ class BaseTextType(StreamDataType):
     def get_nullable_constant(self):
         return NIL_STRING
 
+    def set_default_value(self, default_value):
+        self._default_value = None
+
+    def add_json_schema_entry(self, schema):
+        pass
+
     def prepare_parameters(self):
         return {'lengths_sum': 0}
 
@@ -123,6 +131,9 @@ class BaseTextType(StreamDataType):
     def pack_parsed_values(self, extracted_values, counter, parameters):
         string_pack = "".join(extracted_values)
         return struct.pack(ALIGNMENT + str(parameters['lengths_sum']) + 's', string_pack)
+
+    def get_sql_params(self):
+        return []
 
 
 class TextType(BaseTextType):
@@ -335,8 +346,6 @@ class SmallIntegerType(NumberBaseType):
     def pack_parsed_values(self, extracted_values, counter, parameters):
         return struct.pack(ALIGNMENT + str(counter) + self._pack_sym, extracted_values)
 
-max_int64 = 0xFFFFFFFFFFFFFFFF
-
 
 class HugeIntegerType(NumberBaseType):
     """Covers: HUGEINT"""
@@ -355,11 +364,11 @@ class HugeIntegerType(NumberBaseType):
         return int(value)
 
     def process_next_value(self, entry, counter, parameters, errors):
-        return [entry & max_int64, (entry >> 64) & max_int64]
+        return [entry & INT64_MAX, (entry >> 64) & INT64_MAX]
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
-        concat_array = list(itertools.chain(*extracted_values))
-        return struct.pack(ALIGNMENT + str(counter << 1) + 'Q', *concat_array)
+        extracted_values = list(itertools.chain(*extracted_values))
+        return struct.pack(ALIGNMENT + str(counter << 1) + 'Q', *extracted_values)
 
 
 class FloatType(NumberBaseType):
@@ -388,7 +397,7 @@ class FloatType(NumberBaseType):
         return struct.pack(ALIGNMENT + str(counter) + self._pack_sym, *extracted_values)
 
 
-class DecimalType(NumberBaseType):  # TODO finish this class, how to serialize these values
+class DecimalType(NumberBaseType):
     """Covers: DECIMAL and NUMERIC"""
 
     def __init__(self, **kwargs):
@@ -402,28 +411,62 @@ class DecimalType(NumberBaseType):  # TODO finish this class, how to serialize t
         else:
             self._scale = 0
 
+        if self._scale > self._precision:
+            raise Exception('The scale must be between 0 and the precision!')
+
+        if self._precision <= 2:  # calculate the number of bytes to use according to the precision
+            self._pack_sym = 'b'
+        elif 2 < self._precision <= 4:
+            self._pack_sym = 'h'
+        elif 4 < self._precision <= 8:
+            self._pack_sym = 'i'
+        elif 8 < self._precision <= 18:
+            self._pack_sym = 'q'
+        elif 18 < self._precision <= 38:
+            self._pack_sym = 'Q'
+
+        self._nullable_constant = {'b': INT8_MIN, 'h': INT16_MIN, 'i': INT32_MIN, 'q': INT64_MIN, 'Q': INT128_MIN} \
+            .get(self._pack_sym)
+
     def add_json_schema_entry(self, schema):
         super(DecimalType, self).add_json_schema_entry(schema)
         schema[self._column_name]['type'] = 'number'
 
     def get_nullable_constant(self):
-        return 0
+        return self._nullable_constant
 
     def process_default_value(self, value):
-        return float(value)
+        number_digits = int(math.ceil(math.log10(abs(value))))
+        if number_digits > self._precision:
+            raise Exception('Too many digits on default value: %s > %s' % (number_digits, self._precision))
+        return int(value)
 
     def process_next_value(self, entry, counter, parameters, errors):
-        # precision, scale = precision_and_scale(entry)
-        return float(entry)
+        number_digits = int(math.ceil(math.log10(abs(entry))))
+        if number_digits > self._precision:
+            errors[counter] = 'Too many digits: %s > %s' % (number_digits, self._precision)
+        parsed_value = int(entry)
+        if self._pack_sym != 'Q':
+            return parsed_value
+        else:
+            return [parsed_value & INT64_MAX, (parsed_value >> 64) & INT64_MAX]
 
     def pack_parsed_values(self, extracted_values, counter, parameters):
-        return struct.pack(ALIGNMENT + str(counter) + 'd', *extracted_values)
+        if self._pack_sym == 'Q':
+            extracted_values = list(itertools.chain(*extracted_values))
+            counter <<= 1
+        return struct.pack(ALIGNMENT + str(counter) + self._pack_sym, *extracted_values)
 
     def to_json_representation(self):
         json_value = super(DecimalType, self).to_json_representation()
         json_value['precision'] = self._precision
         json_value['scale'] = self._scale
         return json_value
+
+    def get_sql_params(self):  # override the column type to include the precision and scale
+        array = super(DecimalType, self).get_sql_params()
+        array[0] = ''.join([self._data_type, " (", str(self._precision), ",", str(self._scale), ")"])
+        return array
 
 
 class BaseDateTimeType(StreamDataType):  # The validation of time variables can't be done on the schema
@@ -439,6 +482,7 @@ class BaseDateTimeType(StreamDataType):  # The validation of time variables can'
             self._maximum = self.parse_entry(kwargs['maximum'])
         if hasattr(self, '_minimum') and hasattr(self, '_maximum') and self._minimum > self._maximum:
             raise Exception('The minimum value is higher than the maximum!')
+        self._default_value_text = None  # needed later for the SQL creation statement
 
     def add_json_schema_entry(self, schema):
         dic = {}
@@ -458,6 +502,7 @@ class BaseDateTimeType(StreamDataType):  # The validation of time variables can'
         elif hasattr(self, '_maximum') and hasattr(self, '_minimum') and parsed_val > self._maximum:
             raise Exception('The default value is out of range: %s > %s' % (default_value, self._maximum_text))
         self._default_value = parsed_val
+        self._default_value_text = default_value
 
     def to_json_representation(self):
         json_value = super(BaseDateTimeType, self).to_json_representation()
@@ -469,6 +514,8 @@ class BaseDateTimeType(StreamDataType):  # The validation of time variables can'
 
     def get_sql_params(self):
         array = [self._data_type]
+        if self._default_value is not None:
+            array.extend([" DEFAULT ", str(self._default_value_text)])
         if not self._is_nullable:
             array.extend([" NOT NULL"])
         return array

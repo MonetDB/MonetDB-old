@@ -91,7 +91,7 @@ CREATE_STREAMS_SCHEMA = {
                         "minimum": {"type": "number"},
                         "maximum": {"type": "number"}
                     },
-                    "required": ["name", "type", "precision", "scale"],
+                    "required": ["name", "type"],
                     "additionalProperties": False
                 }, {
                     "properties": {
