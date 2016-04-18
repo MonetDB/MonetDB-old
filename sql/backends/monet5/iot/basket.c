@@ -120,7 +120,7 @@ BSKTnewbasket(sql_schema *s, sql_table *t)
 		baskets[idx].count++;
 	}
 	// collect the column names
-	baskets[idx].cols = (str*) GDKzalloc(sizeof(str) * baskets[idx].count+1);
+	baskets[idx].cols = (str*) GDKzalloc(sizeof(str) * (baskets[idx].count+1));
 	for (i=0, o = t->columns.set->h; o; o = o->next){
         sql_column *col = o->data;
 		baskets[idx].cols[i++]=  col->base.name;
@@ -499,6 +499,9 @@ BSKTclear(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     str tname = *getArgReference_str(stk, pci, 2);
     sql_schema *s;
     sql_table *t;
+	sql_column *c;
+	int i, idx;
+	BAT *b;
 
     *res = 0;
     if ((msg = getSQLContext(cntxt, mb, &m, NULL)) != NULL)
@@ -510,8 +513,23 @@ BSKTclear(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
         throw(SQL, "basket.clear", "Schema missing");
     t = mvc_bind_table(m, s, tname);
 	if ( t == NULL)
-		throw(SQL,"basket.clear","Stream table %s.%s not accessible for append\n",sname,tname);
+		throw(SQL,"basket.clear","Stream table %s.%s not accessible for clearing\n",sname,tname);
+	idx = BSKTlocate(sname,tname);
+	if( idx <= 0)
+		throw(SQL,"basket.clear","Stream table %s.%s not registered \n",sname,tname);
 	// do actual work
+	MT_lock_set(&iotLock);
+	for( i=0; baskets[idx].cols[i]; i++){
+		c= mvc_bind_column(m, t, baskets[idx].cols[i]);
+		if( c){
+			b = store_funcs.bind_col(m->session->tr,c,RDONLY);
+			if(b){
+				BATsetcount(b,0);
+				BBPunfix(b->batCacheid);
+			}
+		}
+	}
+	MT_lock_unset(&iotLock);
 	return MAL_SUCCEED;
 }
 

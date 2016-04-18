@@ -73,7 +73,7 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 			if( strcmp(schemas[j], schemas[j+1])==0  && strcmp(tables[j],tables[j+1]) ==0)
 				break;
 			mvc[j] = getArg(p,0);
-			done[j]= done[j]== 0 || getFunctionId(p)== registerRef;
+			done[j]= done[j] || getFunctionId(p)== registerRef;
 			if( j == btop)
 				btop++;
 		}
@@ -97,7 +97,7 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
 	OPTDEBUGiot {
 		mnstr_printf(cntxt->fdout, "#iot optimizer started\n");
 		printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
-	}// else
+	}
 		(void) stk;
 
 	alias = (int *) GDKzalloc(mb->vtop * 2 * sizeof(int));
@@ -205,7 +205,7 @@ OPTiotImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
             pushInstruction(mb,old[i]);
 
 	OPTDEBUGiot {
-		mnstr_printf(cntxt->fdout, "#iot optimizer intermediate\n");
+		mnstr_printf(cntxt->fdout, "#iot optimizer final\n");
 		printFunction(cntxt->fdout, mb, stk, LIST_MAL_DEBUG);
 	} 
 	GDKfree(alias);
