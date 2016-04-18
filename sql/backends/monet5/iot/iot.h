@@ -38,6 +38,8 @@
 #endif
 
 #define _DEBUG_IOT_ if(1)
+#define IOTout mal_clients[0].fdout
+
 iot_export MT_Lock iotLock;
 
 iot_export str IOTactivate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);

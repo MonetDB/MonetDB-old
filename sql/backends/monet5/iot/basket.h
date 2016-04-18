@@ -40,7 +40,6 @@
 #define MAXBSKT 64
 
 typedef struct{
-	MT_Lock lock;
 	str schema_name;	/* schema for the basket */
 	str table_name;	/* table that represents the basket */
 	sql_schema *schema;
@@ -66,6 +65,7 @@ typedef struct{
 /* individual streams can be paused and restarted */
 #define BSKTRUNNING   1      
 #define BSKTPAUSED    2
+#define BSKTLOCKED    3
 
 iot_export BasketRec *baskets;
 
@@ -89,11 +89,10 @@ iot_export int BSKTlocate(str sch, str tbl);
 iot_export int BSKTunlocate(str sch, str tbl);
 iot_export int BSKTlocate(str sch, str tbl);
 iot_export str BSKTappend(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTdelete(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
+iot_export str BSKTclear(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTcommit(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTpush(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 iot_export str BSKTupdate(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci);
 
-iot_export str BSKTlock(void *ret, str *sch, str *tbl, int *delay);
-iot_export str BSKTunlock(void *ret, str *sch, str *tbl);
-iot_export str BSKTlock2(void *ret, str *sch, str *tbl);
 #endif

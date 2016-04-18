@@ -25,6 +25,7 @@ select * from stream_tmp;
 
 -- reactivate all continuous queries
 call iot.activate();
+select * from result;
 
 select * from  iot.baskets();
 select * from  iot.queries();
