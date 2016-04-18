@@ -76,69 +76,6 @@ static int computeOids(oid** oidsRes, BUN currentOidsPos, unsigned int dimNum , 
 	return currentOidsPos;
 }
 
-#if 0
-/*UPDATED*/
-static BUN oidToIdx(oid oidVal, int dimNum, int currentDimNum, BUN skipCells, gdk_array *array) {
-	BUN oid = 0;
-
-	while(currentDimNum < dimNum) {
-		skipCells*=array->dims[currentDimNum]->elsNum;
-		currentDimNum++;
-	}
-
-	if(currentDimNum == array->dimsNum-1)
-		oid = oidVal;
-	else
-		oid = oidToIdx(oidVal, dimNum, currentDimNum+1, skipCells*array->dims[currentDimNum]->elsNum, array);
-
-	if(currentDimNum == dimNum) //in the last one we do not compute module
-		return oid/skipCells;
-	return oid%skipCells;
-}
-
-/*UPDATED*/
-static BUN* oidToIdx_bulk(oid* oidVals, int valsNum, int dimNum, int currentDimNum, BUN skipCells, gdk_array *array) {
-	BUN *oids = GDKmalloc(valsNum*sizeof(BUN));
-	int i;
-
-	if(!oids) {
-		GDKerror("Problem allocating space");
-		return NULL;
-	}
-
-	while(currentDimNum < dimNum) {
-		skipCells*=array->dims[currentDimNum]->elsNum;
-		currentDimNum++;
-	}
-
-	if(currentDimNum == array->dimsNum-1) { //last dimension, do not go any deeper
-		if(currentDimNum == dimNum) {//in the dimension of interest we do not compute the module
-			for(i=0; i<valsNum; i++)
-				oids[i] = oidVals[i]/skipCells;
-		} else {
-			for(i=0; i<valsNum; i++)
-				oids[i] = oidVals[i]%skipCells;
-		}	
-	}
-	else {
-		BUN *oidRes = oidToIdx_bulk(oidVals, valsNum, dimNum, currentDimNum+1, skipCells*array->dims[currentDimNum]->elsNum, array);
-
-		if(currentDimNum == dimNum) {//in the dimension of interest we do not compute the module
-			for(i=0; i<valsNum; i++)
-				oids[i] = oidRes[i]/skipCells;
-		} else {
-			for(i=0; i<valsNum; i++)
-				oids[i] = oidRes[i]%skipCells;
-		}	
-
-		GDKfree(oidRes);
-	}
-
-	return oids;
-}
-
-#endif
-
 static gdk_dimension* updateDimCandRange(gdk_dimension *dimCand, unsigned int min, unsigned int max) {
 	dimCand->min = min > dimCand->min ? min : dimCand->min;
 	dimCand->max = max < dimCand->max ? max : dimCand->max;
