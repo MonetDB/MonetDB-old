@@ -1,6 +1,5 @@
 -- introduce a heartbeat query
 set schema iot;
-set optimizer='iot_pipe';
 
 declare hbclk1 integer;
 declare hbclk2 integer;
@@ -23,7 +22,7 @@ create procedure clk3()
 begin
 	set hbclk1 = hbclk1+1;
 	set hbclk1 = hbclk1+1;
-	--set cnt =(select count(*) from stream_tmp);
+	--set cnt =(select count(*) from stmp);
 end;
 
 -- alternative is a simple query
